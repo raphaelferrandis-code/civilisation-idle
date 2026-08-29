@@ -86,6 +86,96 @@ const SPECS = {
     palette: [[208,192,181],[200,183,171],[212,199,190],[179,167,161],[167,155,150],[160,146,141],[154,140,136],[146,134,132],[136,125,124],[126,117,118],[118,110,112],[104,100,99],[93,87,86],[71,71,69],[56,51,48],[33,33,33],[16,15,13],[8,7,6]],
     footHi: [21, 44], footLo: [391, 158],
   },
+  // ── FER (4-5) · BÉTON (6) · ÉNERGIE (7-9) — 2026-08-28 ────────────────────
+  // UNE SEULE STRUCTURE pour les trois : le générateur n'a tenu la projection
+  // 3/4 (chaussée visible entre les deux bords) qu'une fois sur quatre — les
+  // autres essais sortaient en ÉLÉVATION, inutilisables (pas de tablier où
+  // marcher). L'image qui a réussi (objet c2c68bc0) sert donc de base, et les
+  // deux autres matières en sont des `edit_image` « même forme, autre
+  // matière » : la recette déjà éprouvée sur la pierre (bon pour la MATIÈRE,
+  // mauvais pour la STRUCTURE). Les trois partagent donc la même ligne de sol
+  // et la même coupe — c'est voulu : bois → pierre à arches → poutre de fer →
+  // poutre de béton → poutre lumineuse se lit comme une progression d'ère.
+  //
+  // `trimUnder` : DEUX défauts d'un coup, et c'est le même geste.
+  //   1. Le générateur plante 4 palées dans le chenal quoi qu'on lui demande
+  //      (« no pillar » est une négation, il ne l'entend pas). Or rien ne doit
+  //      se dresser dans l'eau à ces ères — un cargo fait 2,24 tuiles
+  //      (cf. bd3c5bb, STYLES.suspended).
+  //   2. Il peint aussi l'OMBRE du tablier SUR SON EAU. Cette ombre est
+  //      CONNEXE à l'ouvrage : le détourage la garde comme sujet, la palette
+  //      la rabat en noir, et le pont sort avec une DALLE PLEINE sous le
+  //      tablier — le fleuve disparaît dessous (retour Raph, 2026-08-28).
+  // La ligne est donc calée au ras du CORPS du dessin (≈ 24 px sous l'axe de
+  // la chaussée, lu au dump de colonne), PAS au pied des palées : palées ET
+  // ombre partent ensemble, il ne reste que l'épaisseur propre du tablier.
+  // ⚠ Un premier essai ôtait l'ombre À LA TEINTE (bleu franc) après le
+  // cisaillement : ça marchait sur le béton mais ça PERÇAIT LA CHAUSSÉE de
+  // l'énergie (son ardoise est bleutée, B−R 23 contre 30 de seuil) et ça
+  // laissait, sur le fer, des palées DÉTACHÉES flottant sous le tablier —
+  // leur rouille n'est pas bleue. Écarté : une ligne géométrique décide mieux
+  // qu'un seuil de couleur quand l'art et l'ombre partagent une teinte.
+  // ⚠⚠ DEUXIÈME PISTE ÉCARTÉE, ET C'EST UN ARBITRAGE DE RAPH, PAS UNE
+  // CONTRAINTE TECHNIQUE : garder les palées des culées et ne vider que la
+  // fenêtre répétée (le moteur la reproduit, une pile dedans se répéterait
+  // tous les 2,3 tuiles et supprimerait la passe navigable). Ça marchait —
+  // 4,1 à 4,5 tuiles de passe libre, au-dessus des 3,4 de `passHalf` — mais
+  // le dessin d'origine est asymétrique : une seule pile ressortait de l'eau,
+  // l'autre tombait sur la berge et se trouvait enterrée. Verdict : « enlève
+  // tous les pieds en fait ». NE PAS re-proposer les palées sans lui demander.
+  // ⚠ Remonter cette ligne RACCOURCIT LE CANVAS, donc décale la ligne de sol
+  // imprimée plus bas : recoller footHi/footLo/over dans isoBridge après.
+  // `detour: 'voisin'` : ces images sont posées sur une EAU en dégradé + une
+  // ombre portée, que le seuil au germe laissait collée sous le tablier.
+  ferNe: {
+    winForce: [157, 243],
+    raw: 'bridge-fer-ref-detoure.png', from: 'aseprite-pont/ref-pont-fer.png',
+    out: 'bridge-fer-ne.png', slope: -0.5,
+    detour: 'voisin', detourTol: 14,
+    trimUnder: { a: 163.5, b: -0.400 },
+    // Palette = les teintes de STYLES.fer (rampe de gris froids interpolée) +
+    // trois rouilles chaudes. Les noirs purs sont écartés, comme sur la pierre.
+    palette: [[26,24,24],[38,36,34],[44,42,40],[47,45,43],[50,48,46],[55,52,50],[63,59,56],[71,67,63],[77,73,69],[89,85,81],[99,94,89],[105,100,94],[122,117,111],[148,144,138],[175,171,165],[196,192,186],[120,72,46],[92,54,36],[150,98,62]],
+    footHi: [364, 40], footLo: [36, 171],
+  },
+  ferNw: {
+    winForce: [156, 242],
+    raw: 'bridge-fer-ref-detoure-mir.png', out: 'bridge-fer-nw.png', slope: +0.5,
+    palette: [[26,24,24],[38,36,34],[44,42,40],[47,45,43],[50,48,46],[55,52,50],[63,59,56],[71,67,63],[77,73,69],[89,85,81],[99,94,89],[105,100,94],[122,117,111],[148,144,138],[175,171,165],[196,192,186],[120,72,46],[92,54,36],[150,98,62]],
+    footHi: [35, 40], footLo: [363, 171],
+  },
+  betonNe: {
+    winForce: [155, 243],
+    raw: 'bridge-beton-ref-detoure.png', from: 'aseprite-pont/ref-pont-beton.png',
+    out: 'bridge-beton-ne.png', slope: -0.5,
+    detour: 'voisin', detourTol: 14,
+    trimUnder: { a: 164.5, b: -0.401 },
+    palette: [[28,28,32],[37,39,43],[54,55,59],[67,67,71],[71,71,75],[80,80,84],[90,90,94],[97,97,101],[100,100,102],[104,104,106],[116,116,118],[126,126,128],[135,135,137],[149,149,149],[154,154,153],[170,170,168],[193,193,191],[214,214,212]],
+    footHi: [348, 46], footLo: [50, 165],
+  },
+  betonNw: {
+    winForce: [156, 244],
+    raw: 'bridge-beton-ref-detoure-mir.png', out: 'bridge-beton-nw.png', slope: +0.5,
+    palette: [[28,28,32],[37,39,43],[54,55,59],[67,67,71],[71,71,75],[80,80,84],[90,90,94],[97,97,101],[100,100,102],[104,104,106],[116,116,118],[126,126,128],[135,135,137],[149,149,149],[154,154,153],[170,170,168],[193,193,191],[214,214,212]],
+    footHi: [51, 46], footLo: [349, 165],
+  },
+  // ÉNERGIE : la palette garde quatre AMBRES (jamais de cyan, cf. STYLES.glow)
+  // — c'est la seule matière dont le dessin porte une lumière.
+  energieNe: {
+    winForce: [161, 237],
+    raw: 'bridge-energie-ref-detoure.png', from: 'aseprite-pont/ref-pont-energie.png',
+    out: 'bridge-energie-ne.png', slope: -0.5,
+    detour: 'voisin', detourTol: 14,
+    trimUnder: { a: 165.4, b: -0.400 },
+    palette: [[22,22,30],[39,42,54],[47,51,65],[54,55,62],[64,58,44],[69,72,82],[73,79,97],[78,84,102],[84,90,108],[99,105,123],[120,126,144],[145,151,168],[170,176,192],[214,178,108],[255,196,110],[168,132,74],[120,90,50]],
+    footHi: [348, 46], footLo: [50, 165],
+  },
+  energieNw: {
+    winForce: [162, 238],
+    raw: 'bridge-energie-ref-detoure-mir.png', out: 'bridge-energie-nw.png', slope: +0.5,
+    palette: [[22,22,30],[39,42,54],[47,51,65],[54,55,62],[64,58,44],[69,72,82],[73,79,97],[78,84,102],[84,90,108],[99,105,123],[120,126,144],[145,151,168],[170,176,192],[214,178,108],[255,196,110],[168,132,74],[120,90,50]],
+    footHi: [51, 46], footLo: [349, 165],
+  },
 };
 
 // ── DÉTOURAGE d'une image de référence (mode map_object) ────────────────────
@@ -97,23 +187,34 @@ const SPECS = {
 //     partait avec le fond et les parapets se retrouvaient à flotter) ;
 //   · le générateur appose parfois un FILIGRANE dans un coin → on ne garde que
 //     la plus grande composante connexe.
-function detourer(srcPath, outPath, mirrorPath) {
+// `sp.detour` : 'germe' (défaut, la pierre) compare au pixel du COIN ; 'voisin'
+// compare au pixel D'OÙ L'ON VIENT — un fond en dégradé (l'eau + l'ombre portée
+// du pont sur cette eau) se suit alors de proche en proche, là où un seuil au
+// germe laissait une dalle bleue collée sous le tablier. La marche vers le
+// sujet reste largement au-dessus de la tolérance (liseré sombre).
+// `sp.trimUnder` : ligne y = a + b·x sous laquelle TOUT est effacé — c'est ce
+// qui retire les PALÉES du dessin (cf. SPECS, la contrainte « rien dans l'eau »).
+// Posée AVANT le miroir : les deux axes en héritent.
+function detourer(srcPath, outPath, mirrorPath, sp) {
   const p = PNG.sync.read(fs.readFileSync(srcPath));
   const { width: w, height: h, data } = p;
   const c0 = [data[0], data[1], data[2]];
-  const near = (i) => Math.abs(data[i] - c0[0]) <= 8 && Math.abs(data[i + 1] - c0[1]) <= 8 && Math.abs(data[i + 2] - c0[2]) <= 8;
+  const tol = (sp && sp.detourTol) || 8;
+  const near = (i) => Math.abs(data[i] - c0[0]) <= tol && Math.abs(data[i + 1] - c0[1]) <= tol && Math.abs(data[i + 2] - c0[2]) <= tol;
+  const pas = (i, j) => Math.max(Math.abs(data[i] - data[j]), Math.abs(data[i + 1] - data[j + 1]), Math.abs(data[i + 2] - data[j + 2]));
+  const voisin = sp && sp.detour === 'voisin';
   const seen = new Uint8Array(w * h), st = [];
-  for (let x = 0; x < w; x += 1) { st.push([x, 0], [x, h - 1]); }
-  for (let y = 0; y < h; y += 1) { st.push([0, y], [w - 1, y]); }
+  for (let x = 0; x < w; x += 1) { st.push([x, 0, -1], [x, h - 1, -1]); }
+  for (let y = 0; y < h; y += 1) { st.push([0, y, -1], [w - 1, y, -1]); }
   while (st.length) {
-    const [x, y] = st.pop();
+    const [x, y, from] = st.pop();
     if (x < 0 || y < 0 || x >= w || y >= h) continue;
     const k = y * w + x;
     if (seen[k]) continue;
     const i = k * 4;
-    if (!near(i)) continue;
+    if (voisin ? (from >= 0 && pas(i, from) > tol) : !near(i)) continue;
     seen[k] = 1; data[i + 3] = 0;
-    st.push([x + 1, y], [x - 1, y], [x, y + 1], [x, y - 1]);
+    st.push([x + 1, y, i], [x - 1, y, i], [x, y + 1, i], [x, y - 1, i]);
   }
   const lab = new Int32Array(w * h).fill(-1);
   let best = -1, bestN = 0, id = 0;
@@ -133,6 +234,20 @@ function detourer(srcPath, outPath, mirrorPath) {
     id += 1;
   }
   for (let k = 0; k < w * h; k += 1) if (lab[k] >= 0 && lab[k] !== best) data[k * 4 + 3] = 0;
+  // SOUS LE TABLIER : tout part. Palées ET ombre portée (cf. SPECS) — il ne
+  // reste que l'épaisseur propre du tablier, et le fleuve se voit d'une berge
+  // à l'autre. Une seule droite, donc aucun tri par teinte à faire.
+  if (sp && sp.trimUnder) {
+    const { a, b, marge = 2 } = sp.trimUnder;
+    let n = 0;
+    for (let x = 0; x < w; x += 1) {
+      for (let y = Math.max(0, Math.ceil(a + b * x + marge)); y < h; y += 1) {
+        const i = (y * w + x) * 4;
+        if (data[i + 3] >= 64) { data[i + 3] = 0; n += 1; }
+      }
+    }
+    console.log(`  sous le tablier : ${n} px ôtés sous y = ${a} ${b >= 0 ? '+' : ''}${b}·x + ${marge}`);
+  }
   fs.writeFileSync(outPath, PNG.sync.write(p));
   // L'axe opposé est le MIROIR horizontal (le pont est symétrique) : la pente
   // passe de −0,5 à +0,5 sans nouvelle génération.
@@ -257,7 +372,7 @@ for (const [axe, sp] of Object.entries(SPECS)) {
   if (sp.from && !fs.existsSync(path.join(DIR, '_orig', sp.raw))) {
     detourer(path.join(ROOT, sp.from),
       path.join(DIR, '_orig', sp.raw),
-      path.join(DIR, '_orig', sp.raw.replace('.png', '-mir.png')));
+      path.join(DIR, '_orig', sp.raw.replace('.png', '-mir.png')), sp);
   }
   const src = PNG.sync.read(fs.readFileSync(path.join(DIR, '_orig', sp.raw)));
   const [xHi, yHi] = sp.footHi, [xLo, yLo] = sp.footLo;

@@ -143,6 +143,14 @@ export const bridgeTune = {
   pedMargin: 0.10,   // retrait de chaque bord du tablier (fraction de tuile) — demi-corps
   pedSide: 0.42,     // biais « à droite du sens de marche » (fraction de la demi-bande)
   pedSpread: 0.62,   // étalement PERSONNEL dans la bande (fraction de la demi-bande)
+  // ── RÈGLE DE DÉSIGNATION : « jusqu'où descend le dessin » ──────────────────
+  // Ne blitte le sprite que jusqu'à N px SOURCE sous la ligne d'axe (chaussée).
+  // C'est un OUTIL DE POINTAGE, pas un réglage de production : il sert à
+  // trouver EN JEU, à la molette, où couper le dessin — puis on grave le chiffre
+  // dans `trimUnder` (scripts/prepBridgeIso.mjs) et on remet null. Le laisser
+  // actif coûterait un blit tronqué par tranche pour un résultat déjà bakable.
+  // Console : __bridgeTune.cutBelow = 22  ·  = null pour revenir au dessin entier.
+  cutBelow: null,
 };
 if (typeof window !== 'undefined') window.__bridgeTune = bridgeTune;
 
@@ -227,6 +235,10 @@ const STYLES = {
     kind: 'metal',
     suspended: true, towerH: 30, towerW: 3.1, sag: 0.30, hangEvery: 0.62,
     cable: [58, 56, 54], cableLite: [126, 122, 116], tower: [78, 74, 70], towerDark: [46, 44, 42],
+    // Sprité depuis le 2026-08-28 : le procédural ci-dessus reste le REPLI
+    // (PNG absent, __bridgeSprite(false)). `suspended` n'est plus lu par le
+    // rendu de cette bande, seulement par bridgeIsSuspended / la passe.
+    spriteKey: 'fer',
   },
   beton: {
     deck: [122, 122, 124], plankPitch: 16, plankVar: 0.04, joint: 'rgba(20,20,24,0.14)',
@@ -237,6 +249,7 @@ const STYLES = {
     kind: 'stone', arch: [40, 42, 46],
     suspended: true, towerH: 34, towerW: 3.7, sag: 0.26, hangEvery: 0.7,
     cable: [92, 92, 96], cableLite: [168, 168, 168], tower: [132, 132, 134], towerDark: [82, 82, 86],
+    spriteKey: 'beton',
   },
   energie: {
     deck: [104, 110, 128], plankPitch: 12, plankVar: 0.05, joint: 'rgba(12,14,20,0.20)',
@@ -247,6 +260,7 @@ const STYLES = {
     kind: 'metal', glow: '255,196,110',   // lisse lumineuse ambre (jamais cyan)
     suspended: true, towerH: 38, towerW: 3.4, sag: 0.22, hangEvery: 0.68,
     cable: [70, 76, 94], cableLite: [214, 178, 108], tower: [84, 90, 108], towerDark: [50, 54, 68],
+    spriteKey: 'energie',
   },
 };
 
@@ -341,6 +355,84 @@ const BRIDGE_SPRITES = {
       over: [17, 395], capHi: 253, capLo: 30,
       tilePx: 37, humpH: 0, dt: 0, pedC: -2, pedHalf: 14,
       bury: 25,   // miroir du ne : même liseré mesuré (+24/+25)
+    },
+  },
+  // ── FER (4-5) · BÉTON (6) · ÉNERGIE (7-9) — 2026-08-28 ─────────────────────
+  // Même moule que la pierre : image de référence 400 px (canvas libre), pente
+  // redressée à ±0,5, fenêtre répétée, `humpH: 0` + `bury` (tablier POSÉ au
+  // plan du sol, tout ce qui pend dessous n'existe qu'au-dessus de l'eau).
+  //
+  // ⚠ LA CONTRAINTE DES ÈRES HAUTES EST TENUE AUTREMENT. Depuis `baf2406` ces
+  // trois matières étaient des SUSPENDUS procéduraux, non par goût mais pour
+  // vider le chenal (un cargo fait 2,24 tuiles, les palées tombaient tous les
+  // 1,5 — cf. bd3c5bb). Le sprite n'a plus une seule palée : `trimUnder` les a
+  // coupées au dessin (prepBridgeIso). `STYLES.suspended` reste vrai — c'est
+  // lui que lisent bridgeIsSuspended et la passe navigable — mais il ne pilote
+  // plus le rendu de ces bandes, qui passe par le sprite.
+  //
+  // ⚠⚠ ET L'EAU PASSE DESSOUS. Le générateur peint l'OMBRE du tablier SUR SON
+  // EAU ; connexe à l'ouvrage, elle survivait au détourage et sortait en DALLE
+  // PLEINE sous le pont — le fleuve disparaissait dessous (retour Raph). C'est
+  // `trimUnder` qui l'ôte, calé au ras du CORPS du dessin et non au pied des
+  // palées : sous le tablier il ne reste que sa propre épaisseur, et le fleuve
+  // se voit d'une berge à l'autre.
+  //
+  // footHi.y = ligne de sol imprimée par le prep MOINS la hauteur du tablier
+  // (43 / 40 / 37 px, mesurée à la plage unie de la chaussée colonne par
+  // colonne, médiane sur la travée — pas devinée) : le dessin se pose alors
+  // chaussée au ras de la route. Contrôle : dans un dump de colonne relatif à
+  // CET axe, la chaussée tombe bien à ±9 de 0.
+  // ⚠ CES DEUX NOMBRES SONT LIÉS AU PNG, PAS AU DESSIN : remonter `trimUnder`
+  // raccourcit le canvas, donc décale la ligne de sol imprimée (46→44 sur le
+  // fer). Toute retouche du prep oblige à recoller footHi/footLo/over.
+  // footLo.y suit le même abaissement — le moteur ne lit que footLo[0], on le
+  // garde cohérent pour la relecture.
+  //
+  // ⚠ `bury` N'EST PAS la hauteur du tablier — c'est le bas du CORPS de
+  // l'ouvrage : sous la chaussée viennent d'abord le chaperon et la face
+  // extérieure du parapet aval, qui doivent FILER SUR LA BERGE comme sur la
+  // pierre. Enterrer à la hauteur du tablier ne cachait rien du tout — le clip
+  // tombait au ras du bas du dessin.
+  fer: {
+    ne: {
+      key: 'bridge-fer-ne', sgn: -1,
+      footHi: [364, 1], footLo: [36, 165],
+      over: [362, 36], capHi: 121, capLo: 121,
+      tilePx: 37, humpH: 0, dt: 0, pedC: 0, pedHalf: 9, bury: 23,
+    },
+    nw: {
+      key: 'bridge-fer-nw', sgn: +1,
+      footHi: [35, 1], footLo: [363, 165],
+      over: [38, 364], capHi: 121, capLo: 121,
+      tilePx: 37, humpH: 0, dt: 0, pedC: 0, pedHalf: 9, bury: 23,
+    },
+  },
+  beton: {
+    ne: {
+      key: 'bridge-beton-ne', sgn: -1,
+      footHi: [348, 12], footLo: [50, 161],
+      over: [347, 50], capHi: 105, capLo: 105,
+      tilePx: 37, humpH: 0, dt: 0, pedC: 0, pedHalf: 10, bury: 22,
+    },
+    nw: {
+      key: 'bridge-beton-nw', sgn: +1,
+      footHi: [51, 12], footLo: [349, 161],
+      over: [53, 350], capHi: 105, capLo: 105,
+      tilePx: 37, humpH: 0, dt: 0, pedC: 0, pedHalf: 10, bury: 22,
+    },
+  },
+  energie: {
+    ne: {
+      key: 'bridge-energie-ne', sgn: -1,
+      footHi: [348, 15], footLo: [50, 164],
+      over: [345, 50], capHi: 111, capLo: 111,
+      tilePx: 37, humpH: 0, dt: 0, pedC: 0, pedHalf: 12, bury: 20,
+    },
+    nw: {
+      key: 'bridge-energie-nw', sgn: +1,
+      footHi: [51, 15], footLo: [349, 164],
+      over: [55, 350], capHi: 111, capLo: 111,
+      tilePx: 37, humpH: 0, dt: 0, pedC: 0, pedHalf: 12, bury: 20,
     },
   },
 };
@@ -1237,7 +1329,14 @@ export function drawIsoBridgeSeg(ctx, it, now) {
     const x1 = Math.round(E.x - (it.ax - (it.sx + it.sw)) * s);
     const dy = Math.round(E.y - ySol * s + bridgeTune.spriteDy * z);
     if (x1 <= x0) return;
-    const ih = img.naturalHeight || img.height;
+    const ih0 = img.naturalHeight || img.height;
+    // Molette de désignation (cf. bridgeTune.cutBelow) : on tronque la SOURCE,
+    // pas la destination — `dy` est le haut du dessin, le bas seul recule. La
+    // ligne d'axe est prise au MILIEU de la tranche (elle glisse de 0,5 px par
+    // colonne, soit ~2 px sur une tranche de T/6 : un escalier invisible pour
+    // un outil de pointage, et le bake final n'a pas ce défaut).
+    const ih = bridgeTune.cutBelow == null ? ih0 : Math.max(1, Math.min(ih0,
+      Math.ceil(sp.footHi[1] + sp.sgn * ((it.sx + it.sw / 2) - sp.footHi[0]) * 0.5 + bridgeTune.cutBelow)));
     const prevSm = ctx.imageSmoothingEnabled;
     ctx.imageSmoothingEnabled = false;
     // Sprite ENTERRÉ : sur les tronçons secs, rien sous le plan du sol (le
