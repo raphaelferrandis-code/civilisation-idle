@@ -60,31 +60,36 @@ const SPECS = {
     footHi: [14, 78], footLo: [143, 142.5],
     rail: { xr: [20, 140], dyA: -21, s: +0.5, bandUp: 13, bandDn: 3, latestOff: -5, posts: [37, 52, 67, 82, 97, 112, 127] },
   },
-  // ── PIERRE (bandes 2-3) — objet e7da4474, 2e stade du moule ────────────────
-  // Même recette : dos plat symétrique, arches SOUS LES EXTRÉMITÉS seulement,
-  // parapets pleins continus (pas de poteaux → pas d'autocorrélation possible,
-  // c'est le scan de planéité qui choisit la fenêtre). Pieds pointés sur les
-  // PILES DES ARCHES (le point bas de chaque about) : elles donnent l'axe réel
-  // (−0,56 mesuré), la bbox est biaisée par les culées.
+  // ── PIERRE (bandes 2-3) — REFAITE le 2026-08-30 « à la sauce des nouveaux » ─
+  // ⚠ LA v1 EST RETIRÉE, et voici pourquoi. Elle venait d'une image longue à
+  // DEUX ARCHES (aseprite-pont/ref-pont-pierre-3.png, gardée en archive) dont
+  // les ouvertures étaient BOUCHÉES par le pilier central du dessin — celui que
+  // le LISEZMOI du kit disait justement de ne pas garder. Le fleuve ne passait
+  // pas dessous : on voyait de la maçonnerie à travers les arches.
+  // ⚠⚠ Et ce bouchon ne s'ôte PAS automatiquement : il est peint dans la
+  // PALETTE EXACTE de l'ouvrage (teinte dominante 200,183,171, la même que le
+  // corps du pont), en blocs clairs à joints sombres. Un seuil de luminance ne
+  // retire que les joints et laisse un pont mité — essayé, vu, écarté. Ouvrir
+  // les arches demandait un masque tracé main. Arbitrage de Raph : refaire la
+  // pierre comme les trois nouvelles, donc SANS arches, plutôt que de tracer.
+  // Base = la même structure validée que fer/béton/énergie (objet c2c68bc0)
+  // re-matiérée en pierre de taille par `edit_image` ; la palette reste celle
+  // du design que Raph avait approuvé (objet ed54edf0), donc les teintes du
+  // stade pierre ne changent pas, seule la forme suit les autres.
   pierreNe: {
-    // Base = image de RÉFÉRENCE 400 px détourée (mode map_object, canvas libre :
-    // c est lui qui donne le ratio longueur/hauteur ~10 impossible en carré).
-    // footLo est DÉRIVÉ pour imposer la pente du PARAPET (−0,309 mesurée) :
-    // le dessin n est pas rigoureux, c est le parapet (long et visible) qui
-    // sert de référence, pas les abouts.
-    raw: 'bridge-pierre-ref-detoure.png', from: 'aseprite-pont/ref-pont-pierre-3.png',
+    winForce: [161, 237],
+    raw: 'bridge-pierre-ref-detoure.png', from: 'aseprite-pont/ref-pont-pierre-v2.png',
     out: 'bridge-pierre-ne.png', slope: -0.5,
-    // Palette du DESIGN VALIDÉ (pont de pierre dérivé du bois, objet
-    // ed54edf0) : la forme vient de l image longue, les teintes du pont que
-    // Raph avait approuvé. Les 4 noirs purs de ce design sont ÉCARTÉS — c est
-    // le liseré dur de l image de référence qu on veut adoucir.
+    detour: 'voisin', detourTol: 14,
+    trimUnder: { a: 166.5, b: -0.400 },
     palette: [[208,192,181],[200,183,171],[212,199,190],[179,167,161],[167,155,150],[160,146,141],[154,140,136],[146,134,132],[136,125,124],[126,117,118],[118,110,112],[104,100,99],[93,87,86],[71,71,69],[56,51,48],[33,33,33],[16,15,13],[8,7,6]],
-    footHi: [378, 44], footLo: [8, 158],
+    footHi: [348, 46], footLo: [50, 165],
   },
   pierreNw: {
+    winForce: [162, 238],
     raw: 'bridge-pierre-ref-detoure-mir.png', out: 'bridge-pierre-nw.png', slope: +0.5,
     palette: [[208,192,181],[200,183,171],[212,199,190],[179,167,161],[167,155,150],[160,146,141],[154,140,136],[146,134,132],[136,125,124],[126,117,118],[118,110,112],[104,100,99],[93,87,86],[71,71,69],[56,51,48],[33,33,33],[16,15,13],[8,7,6]],
-    footHi: [21, 44], footLo: [391, 158],
+    footHi: [51, 46], footLo: [349, 165],
   },
   // ── FER (4-5) · BÉTON (6) · ÉNERGIE (7-9) — 2026-08-28 ────────────────────
   // UNE SEULE STRUCTURE pour les trois : le générateur n'a tenu la projection

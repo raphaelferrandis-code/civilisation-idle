@@ -318,43 +318,28 @@ const BRIDGE_SPRITES = {
       pedC: -13, pedHalf: 18,
     },
   },
-  // PIERRE (bandes 2-3) : même moule, parapets pleins. Pas de calque -rail
-  // pour l'instant (le parapet plein masque déjà par sa hauteur dessinée) —
-  // à ajouter si un traverseur passe visiblement DEVANT le muret aval.
-  // PIERRE (bandes 2-3) : base = IMAGE DE RÉFÉRENCE 400 px (mode map_object,
-  // canvas LIBRE), détourée puis redressée. C'est le seul format qui donne le
-  // ratio longueur/hauteur (~10) d'un pont LONG et BAS : le générateur de
-  // sprites, contraint à un canvas carré, plafonnait à ~2,7 et ne sortait que
-  // des ouvrages monumentaux à rampes raides.
-  // `tilePx` 37 (au lieu de 28) : cette image est plus dense — c'est ce
-  // réglage qui met le tablier à ~1 tuile de haut, comme le pont de bois.
+  // PIERRE (bandes 2-3) — REFAITE le 2026-08-30, même moule que les trois
+  // suivantes. L'ancienne version venait d'une image à DEUX ARCHES dont les
+  // ouvertures étaient bouchées par le pilier central du dessin : on voyait de
+  // la maçonnerie à travers, pas le fleuve. Ce bouchon est peint dans la
+  // palette exacte de l'ouvrage — aucun tri de teinte ne l'isole (cf.
+  // prepBridgeIso) — et l'ouvrir demandait un masque tracé main. Arbitrage de
+  // Raph : la refaire comme les nouvelles. Donc plus d'arches, mais le fleuve
+  // passe, et les cinq stades se lisent d'un même œil.
+  // Les TEINTES ne bougent pas : la palette reste celle du design qu'il avait
+  // approuvé, seule la forme suit les autres.
   pierre: {
     ne: {
       key: 'bridge-pierre-ne', sgn: -1,
-      // ⚠ footHi.y DESCENDU de la hauteur du tablier (49 → 75) et humpH = 0 :
-      // le dessin n'a pas de rampes (tablier à 26 px du sol d'un bout à
-      // l'autre), il se raccordait donc à la route par une MARCHE. Posé au
-      // niveau du sol, le tablier affleure la chaussée et les arches plongent
-      // dans l'eau — ce que fait un vrai pont.
-      footHi: [378, 23], footLo: [8, 208],
-      over: [383, 5], capHi: 252, capLo: 31,
-      tilePx: 37, humpH: 0, dt: 0, pedC: -2, pedHalf: 14,
-      // ENTERREMENT (2026-08-22, retour Raph « un pont plat qui rejoigne les
-      // deux bords ») : px SOURCE sous la ligne d'axe où passe le BORD AVAL du
-      // tablier — le plan du sol du dessin. Mesuré au liseré sombre entre la
-      // face extérieure du parapet aval (+18..+24) et la face du caisson
-      // (+25 et au-delà) : cf. scan des contours, stable à ±1 px sur les
-      // 400 colonnes. Tout ce qui est dessiné plus bas (caisson, arches,
-      // piles) n'existe qu'au-dessus de l'eau : sur la berge il est caché,
-      // le tablier affleure la route, plus de marche. cf. buryClip.
-      bury: 25,
+      footHi: [348, 11], footLo: [50, 160],
+      over: [347, 50], capHi: 111, capLo: 111,
+      tilePx: 37, humpH: 0, dt: 0, pedC: 0, pedHalf: 11, bury: 23,
     },
     nw: {
       key: 'bridge-pierre-nw', sgn: +1,
-      footHi: [21, 23], footLo: [391, 208],
-      over: [17, 395], capHi: 253, capLo: 30,
-      tilePx: 37, humpH: 0, dt: 0, pedC: -2, pedHalf: 14,
-      bury: 25,   // miroir du ne : même liseré mesuré (+24/+25)
+      footHi: [51, 11], footLo: [349, 160],
+      over: [53, 350], capHi: 111, capLo: 111,
+      tilePx: 37, humpH: 0, dt: 0, pedC: 0, pedHalf: 11, bury: 23,
     },
   },
   // ── FER (4-5) · BÉTON (6) · ÉNERGIE (7-9) — 2026-08-28 ─────────────────────

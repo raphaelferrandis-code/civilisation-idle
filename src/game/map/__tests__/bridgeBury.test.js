@@ -52,9 +52,14 @@ describe("enterrement du pont de pierre sur la berge", () => {
     expect(ra[1]).toBeGreaterThanOrEqual(g.a);
     expect(ra[1]).toBeLessThanOrEqual(g.wetA + TILE / 8 + 1e-9);
     // Tête b : de la dernière eau jusqu'au débord d'about (après b).
+    // ⚠ `>=` et non `>` : le débord vaut ZÉRO quand le dessin commence pile au
+    // pied. C'est le cas depuis que `trimUnder` coupe au bas de la barrière
+    // (2026-08-30) — la colonne extrême du dessin EST footLo, donc
+    // `over[1] === footLo[0]`. Un tronçon sec qui s'arrête à `g.b` est alors la
+    // bonne réponse, pas un défaut : il n'y a rien de dessiné au-delà à enterrer.
     expect(rb[0]).toBeGreaterThanOrEqual(g.wetB - TILE / 8 - 1e-9);
     expect(rb[0]).toBeLessThanOrEqual(g.b);
-    expect(rb[1]).toBeGreaterThan(g.b);
+    expect(rb[1]).toBeGreaterThanOrEqual(g.b);
     // Le milieu (mouillé) n'est PAS sec.
     const mid = (g.a + g.b) / 2;
     expect(ra[1]).toBeLessThan(mid);
