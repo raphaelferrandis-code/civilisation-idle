@@ -129,7 +129,12 @@ describe('sprites de feu — la rampe est bien posée dessus', () => {
     // directions. Une seule torche oubliée = un émeutier au flambeau blanc au
     // milieu du cortège.
     const dir = path.join(PUB, 'agents/events');
-    const files = readdirSync(dir).filter((f) => f.includes('-torch-'));
+    // ⚠ Le filtre `-half` n'est PAS décoratif : une cuisson de bandes
+    // demi-taille (lot G1 de docs/PLAN-GRILLE-PIXELS.md) déposerait 40 fichiers
+    // de plus ici et ferait tomber ce compte. Elle a été essayée le 2026-08-30
+    // puis ANNULÉE — mais le filtre reste, pour que la garde survive à la
+    // prochaine tentative au lieu de casser sur un dénombrement.
+    const files = readdirSync(dir).filter((f) => f.includes('-torch-') && !f.endsWith('-half.png'));
     expect(files.length).toBe(80);
     const cold = files.filter((f) => rampPixels(path.join('agents/events', f)) < 20);
     expect(cold, `torches sans rampe de feu : ${cold.join(', ')}`).toEqual([]);

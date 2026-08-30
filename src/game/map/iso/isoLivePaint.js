@@ -28,6 +28,7 @@
 import { state } from '../../core/state.js';
 import { AGENT_SCALE } from '../agents.js';
 import { drawCritterIso } from '../critters.js';
+import { pxProbe, recPx } from '../pixelGrid.js';
 import { fp } from '../framePerf.js';
 import { glBegin, glFlush, glGetCanvas, glInit, glQuad } from '../glPainter.js';
 import { CM, cmHash, treeBandMul, treeCanvasT } from '../layout.js';
@@ -403,7 +404,12 @@ export function paintIsoItems(bake, items, now) {
     } else if (it.kind === 'critter') {
       const cr = it.cr;
       const p = worldToScreen((cr.gx + 0.5 + cr.jx) * T, (cr.gy + 0.5 + cr.jy) * T);
-      drawCritterIso(ctx, p.x, p.y, T * z, cr, AGENT_SCALE);
+      const m = drawCritterIso(ctx, p.x, p.y, T * z, cr, AGENT_SCALE);
+      // Sonde G0 : le bétail est mesuré ICI et pas dans critters.js, qui n'a
+      // AUCUN IMPORT par construction (cf. son en-tête). Il rend sa mesure, on
+      // l'enregistre. Famille absente du relevé §1.2 du plan — et le chat est
+      // la plus petite bête du jeu, donc a priori la pire densité.
+      if (pxProbe.on && m && m.src) recPx('bete · ' + cr.kind, m.src, m.box);
     } else if (it.kind === 'plazaProp') {
       // PLACE COMPOSÉE : un prop, à sa taille en TUILES (jamais en fraction de
       // la place). Tout le calcul est dans isoPlaza.js.

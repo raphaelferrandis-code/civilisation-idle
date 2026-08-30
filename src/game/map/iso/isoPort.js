@@ -28,6 +28,7 @@ import {
 import { fillWorldQuad } from './isoQuad.js';
 import { isoArt } from './isoArt.js';
 import { rgb } from './isoPalette.js';
+import { pxProbe, recPx } from '../pixelGrid.js';
 
 // ── BATEAUX : flotte legacy (CM.ships) sur le ruban projeté ──────────────────
 // Reprend la recette drawShips (stade par ère, voie latérale, louvoiement,
@@ -168,6 +169,10 @@ export function drawIsoShips(now) {
     const bob = Math.sin((now || 0) / 1600 + (sh.phase || 0)) * s * 0.015;
     if (isoBoat && isoBoat.ready) {
       const dw = s * (BOAT_SIZES[vstage] || 0.7) * sizeMul * BOAT_IMG_K;
+      // Sonde G0 : LA ligne « bateaux, à mesurer » du plan. `sizeMul` vient de
+      // FLEET_SCALE, réglé pour la MASSE des coques — la densité en tombe comme
+      // un reste, et c'est ce reste qu'on mesure ici, stade par stade.
+      if (pxProbe.on) recPx('bateau · ' + vis.key, isoBoat.img.naturalWidth, dw);
       ctx.drawImage(isoBoat.img, p.x - dw / 2, p.y - dw * BOAT_IMG_TOP + bob, dw, dw);
     } else if (sh.kind !== 'trade') {
       // Repli des métiers dont l'art n'est pas encore récolté. SANS lui on ne
@@ -185,6 +190,10 @@ export function drawIsoShips(now) {
       const bnf = Math.max(1, Math.round((bimg.naturalWidth || bimg.width || bfh) / bfh));
       const bf = bnf > 1 ? Math.floor((now || 0) / 140 + sh.t * 7) % bnf : 0;
       const dw = s * BOAT_SIZES[vstage], dh = dw;
+      // Sonde G0 : ici `sizeMul` passe par ctx.scale, il n'est PAS dans dw — la
+      // boîte réelle vaut dw × sizeMul. Sans ce facteur, le stade cosmique (le
+      // plus gros multiplicateur de la table) se mesurerait 3× trop fin.
+      if (pxProbe.on) recPx('bateau · ' + vstage + ' · legacy', bfh, dw * sizeMul);
       ctx.drawImage(bimg, bf * bfh, 0, bfh, bfh, -dw / 2, -dh / 2 - dh * BOAT_LIFT, dw, dh);
       ctx.restore();
     }
@@ -322,6 +331,7 @@ export function drawIsoPortBoat(ctx, moor, now, z, T) {
   if (isoBoat && isoBoat.ready) {
     // Rotation iso au secteur du cap local du ruban (amarré parallèle au quai).
     const dw = s * (BOAT_SIZES[vstage] || 0.7) * sizeMul * 1.15;
+    if (pxProbe.on) recPx('bateau · ' + vstage + ' · amarre', isoBoat.img.naturalWidth, dw);
     ctx.drawImage(isoBoat.img, p.x - dw / 2, p.y - dw * 0.58 + bob, dw, dw);
   } else {
     const boatKey = vstage === 'cosmic' ? 'cosmic-' + Math.min(9, Math.max(7, moor.band)) : vstage;

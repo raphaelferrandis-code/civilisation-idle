@@ -66,5 +66,11 @@ export function drawCritterIso(ctx, x, yFeet, tilePx, cr, agentScale) {
   ctx.imageSmoothingEnabled = false;
   ctx.drawImage(img, 0, 0, fh, fh, Math.round(x - w / 2), Math.round(yFeet - h * FOOT_FRAC), w, h);
   ctx.imageSmoothingEnabled = prev;
-  return true;
+  // Renvoie la MESURE du blit (planche source, boîte écran) au lieu d'un simple
+  // `true` — un objet reste vrai, donc les appelants en `if (!drawCritterIso…)`
+  // ne changent pas de comportement. C'est la sonde G0 (docs/PLAN-GRILLE-PIXELS)
+  // qui la consomme, chez l'appelant : ce module n'a AUCUN IMPORT et doit le
+  // rester (cf. l'en-tête — importer pixelGrid.js, qui lit layout.js, rouvrirait
+  // le cycle layout → critters → layout que cette règle existe pour interdire).
+  return { src: fh, box: h };
 }

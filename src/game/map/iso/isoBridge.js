@@ -65,6 +65,7 @@
 
 import { CM, cmHash } from '../layout.js';
 import { worldToScreen, depthOf } from './projection.js';
+import { pxProbe, recPx } from '../pixelGrid.js';
 // MATIÈRE PAR BANDE D'ÈRE. Rapatriée de pixelBridge.js le 2026-08-23 (Q2) : elle y
 // était partagée avec le pont plat, qui n'existe plus. Fonction pure, sans
 // dépendance, et ce fichier est désormais son seul consommateur — la ramener ici
@@ -1369,6 +1370,10 @@ export function drawIsoBridgeSeg(ctx, it, now) {
     // Sprite ENTERRÉ : sur les tronçons secs, rien sous le plan du sol (le
     // calque -rail vit AU-DESSUS du tablier : jamais clippé).
     const buried = !it.rail && buryClip(ctx, g, sp, s, x0, x1, dy, Math.round(ih * s), E.x, it.ax);
+    // Sonde G0 (pixelGrid.js) : LE pont, d'où vient la question de Raph. Sa
+    // densité est `T / tilePx` par construction — mais on la mesure sur la
+    // tranche RÉELLEMENT posée, arrondis de bord compris.
+    if (pxProbe.on) recPx('pont · ' + String(sp.key || '?').split('-')[1], it.sw, x1 - x0);
     ctx.drawImage(img, it.sx, 0, it.sw, ih, x0, dy, x1 - x0, Math.round(ih * s));
     if (buried) ctx.restore();
     ctx.imageSmoothingEnabled = prevSm;

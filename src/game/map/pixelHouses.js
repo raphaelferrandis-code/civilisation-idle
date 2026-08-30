@@ -15,6 +15,7 @@ import { snowImageData, snowRoofTune, addSnowResetHook } from './snowRoof.js';
 import { WINTER } from './seasonMode.js';
 import { lightCutImage } from './lightLayer.js';
 import { HOUSE_UNIT, HOUSE_LOT_WF, houseFitTune, houseScaleK, grainTune, GRAIN_FIX, recDens } from './spriteScale.js';
+import { pxProbe, recPx } from './pixelGrid.js';
 // ISO_Y : la marche d'un rang vers le nord (cf. houseSpriteReachTilesIso). Sens
 // d'import sûr — projection ne connaît que layout/isoTerrain, jamais les sprites.
 import { ISO_Y } from './iso/projection.js';
@@ -250,6 +251,10 @@ function pixelHouseGeom(t, x, y, w, h) {
   recDens(key, k / ((CM.cam && CM.cam.zoom) || 1));
   const dw = Math.max(1, Math.round(bb.w * k));
   const dh = Math.max(1, Math.round(bb.h * k));
+  // Sonde G0 (pixelGrid.js) : même mesure que recDens juste au-dessus, mais dans
+  // l'unité COMMUNE du plan de la grille — et prise sur la boîte arrondie, celle
+  // qui part vraiment dans drawImage.
+  if (pxProbe.on) recPx('bati · habitation', bb.w, dw);
   const groundY = y + h;                    // bas de l'empreinte = contact au sol (front)
   const dx = Math.round(x + w / 2 - dw / 2);   // centré horizontalement dans l'empreinte
   const dy = Math.round(groundY - dh);

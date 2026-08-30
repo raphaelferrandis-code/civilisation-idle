@@ -12,6 +12,7 @@ import { CM } from './layout.js';
 import { queueFlameGlow } from './flameGlow.js';
 import { lightCut, lightCutImage } from './lightLayer.js';
 import { recDens, palierK, PALIER_SPANSUM, palierHFrac } from './spriteScale.js';
+import { pxProbe, recPx } from './pixelGrid.js';
 import { snowSprite, snowRoofTune } from './snowRoof.js';
 import { WINTER } from './seasonMode.js';
 
@@ -84,6 +85,10 @@ function palierImg(p) {
 // pour __grainAudit — la vérité runtime qui calibrera les paliers de halles.
 const recBlitDens = (key, drawH, nat) => {
   if (nat > 0) recDens(key, drawH / nat / ((CM.cam && CM.cam.zoom) || 1));
+  // Sonde G0 (pixelGrid.js) : la même mesure versée au relevé COMMUN du plan de
+  // la grille — une seule ligne pour toutes les scènes moteur, dont l'écart
+  // interne (densité « variable ∝ empreinte ») ressort en min/max.
+  if (pxProbe.on) recPx('bati · scene', nat, drawH);
 };
 
 // ── Taille des HUMAINS de scène = celle des HABITANTS de la carte ────────────

@@ -8,6 +8,7 @@ import { state } from '../core/state.js';
 import { CM, CM_TINTS } from './layout.js';
 import { wonderAnchor } from './iso/projection.js';
 import { queueFlameGlow, flameAssetGlow, flameFlicker } from './flameGlow.js';
+import { pxProbe, recPx } from './pixelGrid.js';
 
 /* ---- legacy citymap rendering\buildings.js ---- */
 
@@ -208,6 +209,11 @@ function drawWonderPixelSprite(wid, px, tier, cxs, baseY, W, H, e, now) {
   } else {
     ctx.drawImage(px.img, cxs - W / 2, baseY - H, W, H);
   }
+  // Sonde G0 (pixelGrid.js) : les merveilles sont le SEUL art de carte cousu à
+  // une densité déclarée (PPT = 34) — la mesurer, c'est vérifier que la
+  // constante tient jusqu'au blit. (Mesurée sur la LARGEUR : la hauteur porte
+  // l'animation d'érection `e`, qui écrase le sprite pendant qu'il pousse.)
+  if (pxProbe.on) recPx('merveille · ' + wid, px.nw, W);
   const cfg = wonderFlamesData(wid);
   const tierCfg = cfg && cfg.tiers && cfg.tiers["t" + tier];
   if (tierCfg && e >= 0.98) {

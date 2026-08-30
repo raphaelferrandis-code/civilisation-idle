@@ -18,6 +18,7 @@
 // isoRenderer, qui importe d'ici.
 import { CM } from '../layout.js';
 import { WINTER } from '../seasonMode.js';
+import { pxProbe, recPx } from '../pixelGrid.js';
 
 // ── Tuiles de SOL PixelLab (post-GO) — /pixelart/iso/<key>.png ────────────────
 // Chargées paresseusement ; tant qu'un PNG n'est pas prêt, le losange garde son
@@ -551,6 +552,15 @@ export function blitIsoTileKey(ctx, key, nx, ny, hw, mirror = false, h = 0, veil
   const sx = face ? 0 : bb.x0, sy = face ? 0 : bb.y0;
   const prev = ctx.imageSmoothingEnabled;
   ctx.imageSmoothingEnabled = false;
+  // Sonde G0 (pixelGrid.js) : l'ÉTALON de la carte — « l'art EST la tuile », donc
+  // 1,00 attendu. Le mesurer quand même : c'est ce blit-là qui a porté le +1 px
+  // anti-couture pendant des mois (cf. le § S7 juste au-dessus), et un étalon
+  // qu'on suppose ne vaut rien.
+  // ⚠ Ce blit se fait DANS LE BAKE : la normalisation lit CM.cam.zoom, ce qui est
+  // juste tant que le bake tourne au zoom courant (le cas nominal). Une photo de
+  // cran réétirée (fond.z ≠ zoom) n'est pas mesurée ici — c'est du LOD, pas de la
+  // grille de l'art.
+  if (pxProbe.on) recPx('sol', bb.w, dw);
   if (mirror) {
     // Miroir horizontal 1 cellule sur ~2 (hash) : casse la répétition du motif
     // sans 2e asset — légitime pour une FACE de sol (pas d'ombrage directionnel fort).
