@@ -19,6 +19,7 @@
 import { CM } from '../layout.js';
 import { worldToScreen } from './projection.js';
 import { drawRiotWeapon } from '../quaysAndRiot.js';
+import { pxProbe, recPx } from '../pixelGrid.js';
 import { bridgeLiftWorld } from './isoBridge.js';
 import {
   drawEraAgent, drawEraAgentIso, drawNamedAgent, drawNamedAgentIso, drawVehicleHeadlights,
@@ -56,6 +57,27 @@ const vehStrideT = { v: null };
 function vehStride() { return vehStrideT.v != null ? vehStrideT.v : 0.144 * VEH_SCALE; }
 if (typeof window !== 'undefined') window.__vehStride = (x) => { vehStrideT.v = x > 0 ? x : null; return vehStride(); };
 
+// ── GRILLE DE BLIT DES UNITÉS QUI ROULENT ───────────────────────────────────
+// Le blit est en PLUS PROCHE VOISIN (`imageSmoothingEnabled = false`) : à
+// position fractionnaire, la coupe des lignes source se DÉPLACE d'une image à
+// l'autre pendant que le véhicule avance, et le sprite fourmille. C'est le même
+// défaut que les habitants ont eu jusqu'au 2026-08-03 ; eux ont été rabattus sur
+// l'entier ce jour-là (`drawNamedAgentIso`), les véhicules et les bêtes de trait
+// ne l'ont jamais été. Mesuré au lot G0 (docs/PLAN-GRILLE-PIXELS.md §2.1) : ils
+// cumulaient la perte de lignes (3 sur 4) ET le déplacement de la coupe.
+//
+// ⚠ RABATTU SUR LA GRILLE **DEVICE**, PAS SUR LA GRILLE CSS. Le contexte de la
+// carte est scalé par `dpr`, donc un `Math.round` en px CSS tombe sur `dpr` px
+// device : entier à dpr 1 et 2, mais sur un QUART de pixel à 1,25 et une DEMIE à
+// 1,5 — les deux échelles Windows les plus répandues, où l'arrondi ne servirait
+// donc à rien. C'est la leçon S6 de PLAN-RENDU-VILLE, déjà payée pour les
+// bâtiments (`snapDev`, cityEngineSprites.js) ; on ne la repaie pas ici.
+// À dpr 1, `snapU` EST `Math.round` : sur un écran à 100 %, rien ne bouge.
+// ⚠ `agents.js` arrondit toujours en px CSS de son côté (habitants, porteurs,
+// émeutiers). Même besoin, même correctif possible — mais c'est du rendu validé
+// par Raph, il ne se change pas en passant.
+const snapU = (v) => { const d = CM.dpr || 1; return Math.round(v * d) / d; };
+
 // Bête de trait (cheval/bœuf) en VUE DIAGONALE : bandes veh-{animal}-{diag}.png
 // (objets 8-dir PixelLab animés « walking » 6 frames), frame par DISTANCE
 // (v.rollDist, même odomètre que les roues). Renvoie false si les bandes ne
@@ -74,8 +96,11 @@ function drawDraftIso(ctx, x, yFeet, z, animal, v) {
   // Hauteur exprimée AVANT AGENT_SCALE, comme les `scale` d'agents (0.975·0.8 = 0.78
   // tuile, l'ancienne valeur en dur) : la bête de trait suit donc la taille des
   // habitants. Plus haut que le 0.72-0.74 legacy parce que l'objet a du vide autour.
-  const dh2 = s * 0.975 * AGENT_SCALE, dw2 = dh2;
-  ctx.drawImage(img, fr * fh, 0, fh, fh, x - dw2 / 2, yFeet - dh2 * 0.82, dw2, dh2);
+  // Taille ET position sur la grille de blit (cf. snapU) : le bœuf marche, donc
+  // sans ça sa coupe de lignes bougeait à chaque pas.
+  const dh2 = Math.max(1, snapU(s * 0.975 * AGENT_SCALE)), dw2 = dh2;
+  if (pxProbe.on) recPx('bete · ' + animal, fh, dh2);   // sonde G0 (pixelGrid.js)
+  ctx.drawImage(img, fr * fh, 0, fh, fh, snapU(x - dw2 / 2), snapU(yFeet - dh2 * 0.82), dw2, dh2);
   return true;
 }
 
@@ -108,7 +133,12 @@ export function drawIsoVehicle(ctx, v, now, z) {
   // VEH_SCALE (molette __vehScale) était ignoré ICI : la vue iso dessinait les
   // véhicules à leur taille d'art brute. Il est appliqué à la carrosserie ET aux
   // distances d'attelage plus bas, sinon l'équipage décroche de la carrosserie.
-  const dh = s * size * VEH_SCALE, dw = dh;
+  // Taille sur la grille de blit (cf. snapU) — la position l'est aussi, au blit
+  // lui-même. ⚠ `dh` sert AUSSI à caler l'attelage et le pousseur (`+ dh · 0,24`
+  // plus bas) : le rabattement les décale d'un huitième de pixel au pire, et il
+  // vaut mieux qu'ils suivent la carrosserie RÉELLEMENT dessinée que sa valeur
+  // idéale — c'est la même raison qui fait passer VEH_SCALE dans les distances.
+  const dh = Math.max(1, snapU(s * size * VEH_SCALE)), dw = dh;
   // VUE DIAGONALE si disponible (rotations d'objets PixelLab, direction-correcte,
   // multi-frames « rolling » quand la bande animée est livrée), sinon repli sur
   // la bande CARDINALE (animée mais orientée écran).
@@ -150,7 +180,10 @@ export function drawIsoVehicle(ctx, v, now, z) {
     // ⛔ PAS D'ELLIPSE D'OMBRE SOUS UN VÉHICULE (Raph 2026-08-05) : les sprites
     // portent leur propre ombre de contact, la tache du moteur faisait doublon.
     // Cf. le même retrait dans drawOneVehicle (chemin legacy).
-    ctx.drawImage(img, fr * fh, 0, fh, fh, p.x - dw / 2, p.y - dh / 2, dw, dh);
+    // Sonde G0 : le SKIN d'instance a sa propre planche (pack MinZinn) — c'est
+    // `fh`, lu sur l'image servie, qui la porte, pas la table VEH_SIZES.
+    if (pxProbe.on) recPx('vehicule · ' + v.type, fh, dh);
+    ctx.drawImage(img, fr * fh, 0, fh, fh, snapU(p.x - dw / 2), snapU(p.y - dh / 2), dw, dh);
   };
   // Attelage : bête(s) de trait DEVANT dans le sens de marche (monde → projeté).
   const pull = VEH_PULL[v.type];
