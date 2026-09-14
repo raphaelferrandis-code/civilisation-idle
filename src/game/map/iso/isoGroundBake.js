@@ -31,6 +31,7 @@
 // MODULE (cf. P32 du plan) : il ne s'executera que parce qu'isoRenderer importe ce
 // fichier pour appeler la coupe. La molette doit toujours repondre apres coup.
 import { CM } from '../layout.js';
+import { solTrace, solRec, solProfileSnap } from '../solTrace.js';
 import { ensureQuayGate } from '../quaysAndRiot.js';
 import { DIRT_TONE } from './isoTissu.js';
 import { sweepIsoGroundCells } from './isoGroundCells.js';
@@ -43,6 +44,7 @@ import { rgb } from './isoPalette.js';
 import { drawIsoMedians } from './isoStreet.js';
 import { drawWonderGroundAll } from './isoWonderGround.js';
 import { ISO_X, ISO_Y, panDeltaToScreen, screenDeltaToPan, snapZoom } from './projection.js';
+import { firstStripH, nextStripH, STRIP_BUDGET_MS } from './solStrips.js';
 
 // ── SOL (baké : ~10-30 ms une fois par zoom/marge, blitté ensuite) ────────────
 // Les cellules-route ne remplissent PLUS tout leur losange (1er jet : rue aussi
@@ -252,7 +254,7 @@ const ISO_LIGHT_BUDGET_MS = 70;
 // Budget-cible par bande : le nombre de bandes s'AUTO-CALIBRE sur le coût réel
 // de la dernière recuisson pleine (même philosophie que crispAffordable) —
 // 110 ms mesurés → 3 bandes, une mégapole à 300 ms → 8.
-const SOL_SLICE_BUDGET_MS = 40;
+// (Le budget par tranche vit dans solStrips.js : STRIP_BUDGET_MS, hauteur adaptative.)
 // Bornes de bande génériques : yOn (tranches horizontales — recuisson au repos,
 // bande basse/haute du défilement) et xOn (bandes verticales du défilement).
 const ISO_GROUND_SLICE = { on: false, yOn: true, y0: 0, y1: 0, padTop: 0, padBot: 0, xOn: false, x0: 0, x1: 0, padX: 0 };
@@ -293,8 +295,11 @@ function bakeGroundStrip(level, xr, yr) {
   gctx.rect(rx0, ry0, rx1 - rx0, ry1 - ry0);
   gctx.clip();
   gctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+  const tS = solTrace.on ? performance.now() : 0;
   try {
     drawIsoGround();
+    // Trace du sol : coût de CETTE tranche/bande et ses passes (solTrace.js).
+    if (solTrace.on) solRec({ k: 'strip', kind: yr && !xr ? 'slice' : 'band', z: +CM.cam.zoom.toFixed(3), y: yr ? [Math.round(yr[0]), Math.round(yr[1])] : null, x: xr ? [Math.round(xr[0]), Math.round(xr[1])] : null, ms: Math.round((performance.now() - tS) * 10) / 10, pr: solProfileSnap() });
   } finally {
     gctx.restore();
     ISO_GROUND_SLICE.on = false; ISO_GROUND_SLICE.xOn = false; ISO_GROUND_SLICE.yOn = true;
@@ -366,26 +371,36 @@ function scrollGroundOnPan(bm, pd, helpers) {
   return true;
 }
 
-let _solSlice = null; // { key, i, n, camX, camY, zoom, ms }
+let _solSlice = null; // { key, y, h, forcedN, camX, camY, zoom, ms, n }
+// ⚠ HAUTEUR ADAPTATIVE (2026-09-14, solStrips.js) : la première tranche part
+// d'une estimation (dernier plein mesuré, extrapolé en 1/zoom² comme
+// crispEstMs — l'ancien code ne l'extrapolait PAS et plafonnait à 8 tranches :
+// mesuré chez Raph, deux tranches de 837 px à 65-80 ms au lieu du budget), et
+// chaque tranche suivante se dimensionne sur le coût RÉEL de la précédente.
+// `__solSlices = N` garde son sens d'A/B : N tranches égales, non adaptatives.
 function runGroundSliceStep(key, nowMs, helpers) {
   const M = CM._bakeMargin || 0;
-  const N = Math.max(2, Math.min(8,
-    (typeof window !== 'undefined' && window.__solSlices)
-    || Math.ceil((CM._isoGroundBakeMs || 120) / SOL_SLICE_BUDGET_MS)));
+  const fullH = CM.ch + 2 * M;
+  const forcedN = (typeof window !== 'undefined' && window.__solSlices > 0) ? (window.__solSlices | 0) : 0;
   if (!_solSlice || _solSlice.key !== key || _solSlice.camX !== CM.cam.x
-    || _solSlice.camY !== CM.cam.y || _solSlice.zoom !== CM.cam.zoom || _solSlice.n !== N) {
-    _solSlice = { key, i: 0, n: N, camX: CM.cam.x, camY: CM.cam.y, zoom: CM.cam.zoom, ms: 0 };
+    || _solSlice.camY !== CM.cam.y || _solSlice.zoom !== CM.cam.zoom || _solSlice.forcedN !== forcedN) {
+    const estZ = CM._isoGroundBakeMsZ || CM.cam.zoom;
+    const est = (CM._isoGroundBakeMs || 120) * Math.max(1, (estZ / CM.cam.zoom) ** 2);
+    const h0 = forcedN ? Math.ceil(fullH / forcedN) : firstStripH(est, fullH, STRIP_BUDGET_MS);
+    _solSlice = { key, y: 0, h: h0, forcedN, camX: CM.cam.x, camY: CM.cam.y, zoom: CM.cam.zoom, ms: 0, n: 0 };
   }
   const t0 = performance.now();
-  const fullH = CM.ch + 2 * M;
-  const y0 = fullH * _solSlice.i / N;
-  const y1 = fullH * (_solSlice.i + 1) / N;
+  const y0 = _solSlice.y;
+  const y1 = Math.min(fullH, y0 + _solSlice.h);
   // Toute la mécanique (gonflage, clip débordant anti-couture, culls) vit dans
   // bakeGroundStrip, partagée avec les bandes du défilement incrémental.
   bakeGroundStrip(false, null, [y0, y1]);
-  _solSlice.ms += performance.now() - t0;
-  _solSlice.i += 1;
-  if (_solSlice.i >= _solSlice.n) {
+  const dt = performance.now() - t0;
+  _solSlice.ms += dt;
+  _solSlice.n += 1;
+  _solSlice.y = y1;
+  if (!forcedN) _solSlice.h = nextStripH(dt, y1 - y0, STRIP_BUDGET_MS, fullH - y1);
+  if (_solSlice.y >= fullH - 0.5) {
     CM._isoGroundBake = { camX: _solSlice.camX, camY: _solSlice.camY, other: key };
     CM._isoGroundBake.zoomB = CM.cam.zoom;
     CM._isoGroundBakeMs = _solSlice.ms; // coût plein RÉEL (pilote crispAffordable)
@@ -453,7 +468,7 @@ if (typeof globalThis !== 'undefined') globalThis.__groundZoomCacheStats = gzcSt
 // dézoom recentrera peut-être ailleurs — le défilement incrémental recuira
 // alors les seules bandes exposées, et le premier repos re-photographie.
 // Diagnostic : __groundZoomCacheStats.prebakes.
-let gzcPre = null;   // { base, z, canvas, pctx, i, n, W, H, camX, camY, z0 }
+let gzcPre = null;   // { base, z, canvas, pctx, y, h, W, H, camX, camY, z0 }
 function gzcPrebakeStrip(canvas, pctx, z2, yr) {
   const dpr = CM.dpr || 1;
   const M = CM._bakeMargin || 0;
@@ -473,8 +488,11 @@ function gzcPrebakeStrip(canvas, pctx, z2, yr) {
   pctx.rect(0, ry0, canvas.width, ry1 - ry0);
   pctx.clip();
   pctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+  const tS = solTrace.on ? performance.now() : 0;
   try {
     drawIsoGround();
+    // Trace du sol : coût de CETTE tranche et ses passes (solTrace.js).
+    if (solTrace.on) solRec({ k: 'strip', kind: 'pre', z: +z2.toFixed(3), y: [Math.round(yr[0]), Math.round(yr[1])], ms: Math.round((performance.now() - tS) * 10) / 10, pr: solProfileSnap() });
   } finally {
     pctx.restore();
     ISO_GROUND_SLICE.on = false; ISO_GROUND_SLICE.xOn = false; ISO_GROUND_SLICE.yOn = true;
@@ -694,6 +712,7 @@ export function paintIsoGroundCached(ctx, L, helpers) {
               : { camX: best.camX, camY: best.camY, other: '__zoomcache__', zoomB: best.z };
             gzcStats.restores += 1;
             if (bestD > HALF_STEP) gzcStats.farRestores += 1;
+            if (solTrace.on) solRec({ k: 'restore', exact, z: +CM.cam.zoom.toFixed(3), zPhoto: +best.z.toFixed(3) });
           }
         }
       }
@@ -704,6 +723,14 @@ export function paintIsoGroundCached(ctx, L, helpers) {
     const sameContent = !!bm && !bm.soft && baseOf(bm.other) === key;
     const inMargin = !!bm && !!M && Math.abs(pd.x) <= M && Math.abs(pd.y) <= M;
     const isLod = !!bm && !!bm.other && (bm.other.endsWith(':lod') || bm.other.endsWith(':lodl'));
+    // Trace du sol (solTrace.js) : les drapeaux qui choisissent la branche.
+    if (solTrace.on) {
+      solRec({ k: 'sol', z: +CM.cam.zoom.toFixed(3), zB: bm && bm.zoomB != null ? +bm.zoomB.toFixed(3) : null,
+        same: sameContent, inM: inMargin, soft: !!(bm && bm.soft), lod: isLod,
+        set: settled, rest: restful, burst: zoomBurst,
+        cache: !!bm && bm.other === '__zoomcache__', keyEq: !!bm && baseOf(bm.other) === key,
+        pan: pd ? [Math.round(pd.x), Math.round(pd.y)] : null });
+    }
     // « Atterrissage de zoom en ATTENTE » (lot 3 anti-clignotement) : le bake en
     // place est à une AUTRE échelle et le dernier cran date de moins d'une
     // accalmie longue — la rafale de molette n'est probablement pas finie. Tant
@@ -1073,9 +1100,12 @@ export function paintIsoGroundCached(ctx, L, helpers) {
               // recuisson pleine mesurée (∝ 1/zoom², comme crispEstMs).
               const est = (CM._isoGroundBakeMs || 60)
                 * Math.max(1, ((CM._isoGroundBakeMsZ || CM.cam.zoom) / pick) ** 2);
+              // Hauteur ADAPTATIVE (solStrips.js) : l'estimation ne sert qu'à
+              // la première tranche, les suivantes suivent le coût mesuré —
+              // mesuré chez Raph : 29 ms par tranche pour un budget de 8.
               gzcPre = {
-                base: cacheBase, z: pick, canvas: cnv, pctx, i: 0,
-                n: Math.max(3, Math.min(120, Math.ceil(est / 8))),
+                base: cacheBase, z: pick, canvas: cnv, pctx, y: 0,
+                h: firstStripH(est, CM.ch + 2 * M, STRIP_BUDGET_MS),
                 W, H, camX: CM.cam.x, camY: CM.cam.y, z0: CM.cam.zoom,
               };
             }
@@ -1083,10 +1113,12 @@ export function paintIsoGroundCached(ctx, L, helpers) {
         }
         if (gzcPre) {
           const fullH = CM.ch + 2 * M;
-          gzcPrebakeStrip(gzcPre.canvas, gzcPre.pctx, gzcPre.z,
-            [fullH * gzcPre.i / gzcPre.n, fullH * (gzcPre.i + 1) / gzcPre.n]);
-          gzcPre.i += 1;
-          if (gzcPre.i >= gzcPre.n) {
+          const py0 = gzcPre.y, py1 = Math.min(fullH, py0 + gzcPre.h);
+          const tP = performance.now();
+          gzcPrebakeStrip(gzcPre.canvas, gzcPre.pctx, gzcPre.z, [py0, py1]);
+          gzcPre.y = py1;
+          gzcPre.h = nextStripH(performance.now() - tP, py1 - py0, STRIP_BUDGET_MS, fullH - py1);
+          if (gzcPre.y >= fullH - 0.5) {
             const gcm2 = CM._groundZoomCache || (CM._groundZoomCache = new Map());
             const kC = cacheBase + '@' + gzcPre.z.toFixed(3);
             gcm2.delete(kC);

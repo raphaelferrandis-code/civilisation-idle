@@ -58,6 +58,7 @@ import { plaisirsHitTest } from './iso/isoPlaisirs.js';
 import { waterShoreTune } from './iso/isoPalette.js';
 import { riverIslandObstacles } from './iso/isoFleet.js';
 import { fpBegin, fp, fpEnd } from './framePerf.js';
+import { solTrace, solRec, keyDiff } from './solTrace.js';
 import { tissuMetrics, tissuReport } from './tissuMetrics.js';
 // ⚠ Ces six imports ont été élagués le 2026-08-23 avec le pipeline top-down
 // (étape 4). Ce qui reste ne sert PLUS au dessin de la carte : `renderWorld` n'y
@@ -263,6 +264,11 @@ function cityMapBakeMargin(canvas, offctx, stateName, otherKey, drawFn) {
   const pd = bm ? panDeltaToScreen(CM.cam.x - bm.camX, CM.cam.y - bm.camY) : { x: Infinity, y: Infinity };
   const px = pd.x, py = pd.y;
   if (!bm || bm.other !== otherKey || !M || Math.abs(px) > M || Math.abs(py) > M) {
+    // Trace du sol (solTrace.js) : QUI recuit, POURQUOI, et ce qui a changé
+    // dans la clé — armée à la main, un booléen sinon.
+    const tr0 = solTrace.on ? performance.now() : 0;
+    const trWhy = !bm ? 'premier' : bm.other !== otherKey ? 'cle' : 'pan';
+    const trPrev = bm ? bm.other : null;
     const mainCtx = CM.ctx, cw = CM.cw, ch = CM.ch;
     CM.cw = cw + 2 * M; CM.ch = ch + 2 * M;   // viewport élargi → centre + culling couvrent la marge
     CM.ctx = offctx;
@@ -272,6 +278,11 @@ function cityMapBakeMargin(canvas, offctx, stateName, otherKey, drawFn) {
     const st = drawFn();
     CM.ctx = mainCtx; CM.cw = cw; CM.ch = ch;
     CM[stateName] = { camX: CM.cam.x, camY: CM.cam.y, other: (st === false ? "__unstable__" : otherKey) };
+    if (solTrace.on) {
+      solRec({ k: 'bake', st: stateName, why: trWhy, ms: Math.round(performance.now() - tr0),
+        z: +CM.cam.zoom.toFixed(3), pan: bm ? [Math.round(px), Math.round(py)] : null,
+        diff: trWhy === 'cle' ? keyDiff(trPrev, otherKey) : null, unstable: st === false });
+    }
   }
 }
 // Blit le bake, translaté du delta de pan depuis sa position de bake (-M pour cadrer
@@ -1175,6 +1186,11 @@ function cityMapEnsureLayout(now, deps = {}) {
     }
     _lyDeferredAt = 0;
   }
+  // Trace (solTrace.js) : QUEL segment de la signature a déclenché ce recompute
+  // — segments de `sig` : 0 ère, 1 eraFrac (2 déc.), 2 cycles, 3 crise,
+  // 4 merveilles, 5 routes, 6 moteurs — et combien il a coûté, phase par phase
+  // (`__layoutProfile`). Mesuré chez Raph : 312-563 ms d'un coup, en plein geste.
+  const trSig = solTrace.on ? { prev: CM.layoutSig, core: coreChanged, t0: performance.now() } : null;
   CM.layoutSig = sig;
   CM.layoutStructSig = structSig;
   CM.layoutCoreSig = coreSig;
@@ -1182,6 +1198,13 @@ function cityMapEnsureLayout(now, deps = {}) {
   CM.tileDirtyUntil = now + 1200; // grace birth animations (engine tiles take 800ms)
   CM._tileBake = null;            // force re-bake tile canvas après fenêtre de naissance
   const L = computeCityLayout(state);
+  if (trSig) {
+    const lp = globalThis.__layoutProfileLast;
+    const phases = {};
+    if (lp) for (const k in lp) if (typeof lp[k] === 'number') phases[k] = Math.round(lp[k] * 10) / 10;
+    solRec({ k: 'layout', ms: Math.round(performance.now() - trSig.t0), core: trSig.core,
+      diff: keyDiff(trSig.prev, sig, '|'), tiles: Array.isArray(L.tiles) ? L.tiles.length : null, phases });
+  }
   // Préchargement des sprites d'habitation de la bande courante AVANT la fenêtre de
   // naissance / le bake : supprime le flash procédural (« ancien sprite ») à la 1re
   // apparition d'une variante lors d'un achat (cf. preloadHouseSprites).
