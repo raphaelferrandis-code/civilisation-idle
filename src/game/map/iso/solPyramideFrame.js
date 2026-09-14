@@ -36,6 +36,10 @@ import { CM } from '../layout.js';
 import { ensureQuayGate } from '../quaysAndRiot.js';
 import { groundContentSig, groundKeySuffix } from './isoGroundBake.js';
 import { setSolPyramideInvalidator } from './solInvalidate.js';
+import { builtCells, courOf } from './isoTissu.js';
+import { WONDER_GROUND, wonderGroundSet } from './isoWonderGround.js';
+import { beachPortCells } from './isoBeachCells.js';
+import { ISO_X, ISO_Y } from './projection.js';
 import {
   SOL_PYRAMIDE, solPyramideStats, levelZoom, tileSideCss, camSpace, tileSpace, tileOrigin, cookTile, ZOOM_MIN, ZOOM_MAX,
 } from './solPyramide.js';
@@ -45,16 +49,111 @@ export const PYR = { budgetMs: 8, gestureBudgetMs: 12, gestureMaxTiles: 6, holeC
 const cache = new Map();      // 'z:tx,ty' → { key, z, tx, ty, S, G, canvas, bytes, base, epoch, last }
 let bytes = 0;
 let epoch = 0;                // bascule à chaque invalidation 'all'/'soft' : les entrées d'avant sont périmées
-let baseCur = '';
+let sigCur = '';              // identité de CONTENU du plan (groundContentSig) — change à chaque recompute
+let sufCur = '';              // tout le reste (ère, saison, plage, quai, relief, fleuve) — change rarement
+let curL = null;              // le plan courant, pour signer les tuiles
 let softAt = -1e9;
 const costMs = new Map();     // z → coût lissé d'une tuile (ms)
 let lastCamX = NaN, lastCamY = NaN, lastZoom = NaN, lastMoveAt = -1e9;
 
 const posKey = (z, tx, ty) => z.toFixed(3) + ':' + tx + ',' + ty;
-const fresh = (e) => !!e && e.base === baseCur && e.epoch === epoch;
+// ── L'INVALIDATION PARTIELLE (lot 3) ─────────────────────────────────────────
+// Le recompute du plan change la signature globale du sol (sigCur) : avant le
+// lot 3, toutes les tuiles devenaient périmées d'un coup — la mort du cache
+// de l'ancien système, en tuiles. Ici chaque tuile porte la SIGNATURE DE SES
+// CELLULES (tileSig : routes et leur masque, urbain, prairie, parvis, fleuve,
+// bâti, cour — exactement les entrées de kindAt et des passes, avec deux
+// cellules de marge pour les franges et les faces). Au recompute, une tuile
+// dont la signature n'a pas bougé reste FRAÎCHE : seules celles où le monde a
+// changé se recuisent. Le calcul se fait à la demande et se mémoïse par
+// signature globale (une comparaison par tuile et par recompute, ~0,1 ms).
+// Ce qui ne se signe pas par cellule (saison, ère, plage, quai, relief,
+// géométrie du fleuve) reste dans le suffixe : s'il change, tout se recuit.
+// Le fleuve est signé PAR TUILE (ses cellules, ses îles qui touchent la tuile) :
+// dans une ville qui grandit, la grille s'étend et le fleuve avec elle — sa
+// taille globale change à chaque recompute (mesuré : 1 866 → 2 003 cellules),
+// alors que ses cellules déjà cuites, elles, ne bougent pas.
+function riverSig(L) { return (L && L.river && L.river.present) ? 'r1' : 'r0'; }
+
+export function tileSig(L, z, tx, ty, S) {
+  const T = CM.TILE;
+  const o = tileOrigin(tx, ty, S);
+  // Coins de la tuile (espace tuile, sans terrain) → monde → boîte de cellules, + 2 de marge.
+  let wx0 = Infinity, wy0 = Infinity, wx1 = -Infinity, wy1 = -Infinity;
+  for (const [X, Y] of [[o.x, o.y], [o.x + S, o.y], [o.x, o.y + S], [o.x + S, o.y + S]]) {
+    const a = X / (ISO_X * z), b = Y / (ISO_Y * z);
+    const wx = (b + a) / 2, wy = (b - a) / 2;
+    wx0 = Math.min(wx0, wx); wx1 = Math.max(wx1, wx); wy0 = Math.min(wy0, wy); wy1 = Math.max(wy1, wy);
+  }
+  const gx0 = Math.floor(wx0 / T) - 2, gx1 = Math.ceil(wx1 / T) + 2, gy0 = Math.floor(wy0 / T) - 2, gy1 = Math.ceil(wy1 / T) + 2;
+  const roadSet = L.roadSet, roadMap = L.roadMap, urban = L.urbanSet, meadow = L.meadow && L.meadow.has ? L.meadow : null;
+  const wg = WONDER_GROUND.on ? wonderGroundSet(L) : null;
+  const river = (L.river && L.river.present && L.river.cells) || null;
+  const built = builtCells(L), cour = courOf(L), ports = beachPortCells(L);
+  // Le masque du quai : les bancs de berge (cellules) et les brèches (points),
+  // signés PAR TUILE — sa clé globale porte l'horodatage du recalcul, elle ne
+  // peut pas servir (elle périmait toutes les tuiles à chaque recompute).
+  const banks = CM.quayBankCells && CM.quayBankCells.has ? CM.quayBankCells : null;
+  const gaps = (CM.quayGate && CM.quayGate.gapPts) || null;
+  const RANK = { plaza: 1, main: 2, path: 3 }, SURF = { bridge: 1 };
+  let h = 2166136261;
+  const mix = (v) => { h = Math.imul(h ^ (v | 0), 16777619) >>> 0; };
+  for (let gy = gy0; gy <= gy1; gy += 1) {
+    for (let gx = gx0; gx <= gx1; gx += 1) {
+      const key = gx + ',' + gy;
+      let code = 0;
+      if (roadSet && roadSet.has(key)) {
+        code |= 1;
+        const c = roadMap && roadMap.get(key);
+        if (c) code |= ((c.mask | 0) & 255) << 8 | ((RANK[c.rank] || 7) << 16) | ((SURF[c.roadSurface] || 0) << 20);
+      }
+      if (urban && urban.has(key)) code |= 2;
+      if (meadow && meadow.has(key)) code |= 4;
+      if (wg && wg.has(key)) code |= 8;
+      if (river && river.has(key)) code |= 16;
+      if (built.has(key)) code |= 32;
+      if (ports && ports.has(key)) code |= 64;
+      if (banks && banks.has(key)) code |= 128;
+      const ck = cour && cour.get ? cour.get(key) : null;
+      if (ck) code |= (ck === 'urban' ? 1 : ck === 'dirt' ? 2 : 3) << 24;
+      if (code) { mix(gx * 73856093 ^ gy * 19349663); mix(code); }
+    }
+  }
+  if (gaps) for (const p of gaps) {
+    if (p.x >= gx0 && p.x <= gx1 + 1 && p.y >= gy0 && p.y <= gy1 + 1) { mix(Math.round(p.x * 16)); mix(Math.round(p.y * 16)); }
+  }
+  const isles = L.river && L.river.islands;
+  if (isles) for (const il of isles) {
+    const R = Math.max(il.rx || 0, il.ry || 0) + 1;
+    if (il.x + R >= gx0 && il.x - R <= gx1 + 1 && il.y + R >= gy0 && il.y - R <= gy1 + 1) {
+      mix(Math.round(il.x * 16)); mix(Math.round(il.y * 16)); mix(Math.round((il.rx || 0) * 16)); mix(Math.round((il.ry || 0) * 16));
+      mix(Math.round((il.tx || 0) * 1024)); mix(Math.round((il.ty || 0) * 1024));
+    }
+  }
+  return h;
+}
+
+// Une entrée est fraîche si : même époque d'invalidation, même suffixe, et
+// même plan — ou, le plan ayant changé, même signature de ses cellules.
+const fresh = (e) => {
+  if (!e || e.epoch !== epoch || e.suf !== sufCur) return false;
+  if (e.sig === sigCur) return true;
+  if (e.chk !== sigCur) {
+    e.chk = sigCur;
+    e.chkOk = !!curL && e.tsig === tileSig(curL, e.z, e.tx, e.ty, e.S);
+    if (e.chkOk) { e.sig = sigCur; solPyramideStats.revalidees = (solPyramideStats.revalidees || 0) + 1; }
+    else solPyramideStats.sales += 1;
+  }
+  return e.chkOk;
+};
 
 // ── Invalidation (via la façade solInvalidate) ───────────────────────────────
 function invalidate(kind) {
+  const inv = solPyramideStats.invalidations || (solPyramideStats.invalidations = { all: 0, soft: 0, cells: 0 });
+  inv[kind] = (inv[kind] || 0) + 1;
+  // 'cells' (recompute de layout) : rien à faire ici — la frame voit la
+  // signature globale changer et re-juge chaque tuile sur ses cellules.
+  if (kind === 'cells') return;
   if (kind === 'soft') {
     // Décodages en rafale au chargement : une époque par fenêtre de 250 ms,
     // pas une par sprite (les tuiles périmées restent affichées de toute façon).
@@ -82,7 +181,8 @@ function cook(z, tx, ty, now) {
   const key = posKey(z, tx, ty);
   const old = cache.get(key);
   if (old) bytes -= old.bytes;
-  const e = { key, z, tx, ty, S: t.S, G: t.G, canvas: t.canvas, bytes: t.canvas.width * t.canvas.height * 4, base: baseCur, epoch, last: now };
+  const e = { key, z, tx, ty, S: t.S, G: t.G, canvas: t.canvas, bytes: t.canvas.width * t.canvas.height * 4,
+    sig: sigCur, suf: sufCur, tsig: curL ? tileSig(curL, z, tx, ty, t.S) : 0, chk: sigCur, chkOk: true, epoch, last: now };
   cache.set(key, e); bytes += e.bytes;
   const prev = costMs.get(z);
   costMs.set(z, prev == null ? t.ms : prev * 0.7 + t.ms * 0.3);
@@ -195,8 +295,12 @@ function cachedLevelsNear(z) {
 export function paintGroundPyramid(ctx, L, nowMs) {
   if (!SOL_PYRAMIDE.on || !L) return false;
   ensureQuayGate();
-  const base = groundContentSig(L) + groundKeySuffix(L);
-  if (base !== baseCur) baseCur = base;      // (lot 3 : diff des cellules → tuiles sales ciblées)
+  curL = L;
+  sigCur = groundContentSig(L);
+  // Le suffixe partagé porte la clé du masque de quai AVEC l'horodatage du
+  // recalcul (l'ancien cache en a besoin) ; ici on ne garde que son mode
+  // (plein/naturel) — le contenu du masque est signé par tuile (tileSig).
+  sufCur = groundKeySuffix(L).replace(/:qg[^:]*:([fu])/, ':qg$1') + ':' + riverSig(L);
 
   const dpr = CM.dpr || 1, cw = CM.cw, ch = CM.ch;
   const zoom = CM.cam.zoom, z = levelZoom(zoom), s = zoom / z, S = tileSideCss(dpr, z);
@@ -343,6 +447,11 @@ export function paintGroundPyramid(ctx, L, nowMs) {
   solPyramideStats.dernier = { zoom: +zoom.toFixed(3), z, zc, s: +s.toFixed(3), vis: vis.length, vides, aCuire: need.length, cuites: n, hits, replis, trous, gesture, zoomGoal: CM.zoomGoal == null ? null : +CM.zoomGoal.toFixed(3), msSol: +(performance.now() - t0).toFixed(1) };
   solPyramideStats.tuilesVisibles = vis.length; solPyramideStats.memoMo = Math.round(bytes / 1048576 * 10) / 10;
   solPyramideStats.entrees = cache.size;
+  // Diagnostic du lot 3 : combien d'entrées portent la signature courante, combien
+  // ont été re-jugées fraîches sur leurs cellules, combien attendent leur jugement.
+  { let memeSig = 0, rejugees = 0, aJuger = 0; for (const e of cache.values()) { if (e.sig === sigCur) memeSig += 1; else if (e.chk === sigCur) rejugees += 1; else aJuger += 1; }
+    solPyramideStats.dernier.sig = sigCur.slice(0, 24); solPyramideStats.dernier.memeSig = memeSig; solPyramideStats.dernier.rejugees = rejugees; solPyramideStats.dernier.aJuger = aJuger;
+    solPyramideStats.dernier.suf = sufCur; solPyramideStats.dernier.epoch = epoch; }
   return true;
 }
 

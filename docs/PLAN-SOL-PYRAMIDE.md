@@ -197,7 +197,43 @@ dézoom (11-27 k blits/frame), le quai (son propre bake, déjà en rafale).
   `forceFrame` + `toDataURL`, pane masquée, de la fiche clignotements) ;
   `sol` total sur 12 s ≤ 400 ms.
 
-### Lot 3 — L'invalidation partielle (1 séance)
+### Lot 3 — L'invalidation partielle (1 séance) — ✔ LIVRÉ 2026-09-14 (preuve dev ; à confirmer sur la save de Raph)
+
+> **Fait** : chaque tuile porte la SIGNATURE DE SES CELLULES (`tileSig`,
+> solPyramideFrame.js) — routes et leur masque, urbain, prairie, parvis,
+> fleuve, bâti, ports, bancs de berge, cour, brèches du quai et îles qui
+> touchent la tuile, avec deux cellules de marge (franges, faces). Au recompute
+> du plan, la signature globale change ; une tuile est re-jugée SUR SES
+> CELLULES à la demande (une fois par recompute, mémoïsé) : même signature →
+> elle reste fraîche, sinon elle se recuit. Pas de diff old/new du plan : la
+> signature par tuile suffit et ne dépend d'aucun état antérieur. Ce qui ne se
+> signe pas par cellule (ère, saison, plage, mode du quai, relief, présence du
+> fleuve) reste dans le suffixe : s'il change, tout se recuit. Garde :
+> `solPyramideSig.test.js` (5 tests : stabilité, localité, masque de route,
+> bâti/urbain, marge de deux cellules).
+>
+> **Preuve dev** (grande ville, 42 tuiles visibles) : une cellule de route
+> ajoutée au plan → **36 tuiles revalidées, 6 recuites** à la frame du
+> recompute (18 ms), puis 14 / 4 sur l'anneau ; aucune recuisson d'écran.
+> Contre-épreuve : une croissance qui agrandit la GRILLE (gridN 78 → 84,
+> toute la ville translate en monde) → 98 recuites / 18 revalidées — c'est
+> juste, le monde a bougé sous les tuiles.
+>
+> **Deux pièges payés :**
+> 1. ⚠⚠ **La clé du masque de quai porte l'horodatage du recompute** (`qg…`) :
+>    laissée dans le suffixe, elle périmait TOUTES les tuiles à chaque
+>    recompute — zéro revalidation, sans erreur visible. Le suffixe des tuiles
+>    n'en garde que le mode (plein/naturel) ; bancs et brèches sont signés par
+>    tuile.
+> 2. ⚠ **Le fleuve grandit avec la grille** (1 866 → 2 003 cellules sur une
+>    croissance) : ses tailles globales ne vont pas dans le suffixe — ses
+>    cellules et ses îles sont signées par tuile.
+> ⚠ Banc : en dev, un recompute « naturel » est dur à provoquer — la population
+> ne change pas l'eraFrac, les achats directs ne bumpent pas la version des
+> bâtiments (skipStable), `cycles` régénère tout. Muter le plan à la main
+> (`CM.layout = {...L, roadSet, roadMap}` + `layoutRecomputeAt`) est le seul
+> stimulus local fiable. La preuve réelle = la sonde sur la save de Raph
+> (`pyramide.revalidees` / `sales` après un recompute dans la fenêtre).
 - Au recompute : diff de `roadSet` / `urbanSet` / `roadMap` / `meadow` /
   `wonderGround` / `river.cells` entre l'ancien et le nouveau layout → cellules
   changées (+ leurs voisines : les fringes lisent le voisinage) → tuiles sales
