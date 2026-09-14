@@ -14,7 +14,7 @@
 //
 // On écrit donc l'archive à la main, en normalisant chaque chemin.
 import { createWriteStream } from "node:fs";
-import { readdir, stat } from "node:fs/promises";
+import { readdir } from "node:fs/promises";
 import { join, relative, dirname } from "node:path";
 import { fileURLToPath } from "node:url";
 import { createDeflateRaw } from "node:zlib";
