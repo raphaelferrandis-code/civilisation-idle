@@ -20,6 +20,22 @@ une régression le 2026-08-24.
 
 Sinon : ce fichier dort ici, et c'est très bien.
 
+> **⚠ DÉCLENCHEURS CONSTATÉS le 2026-09-14** (sonde de geste `scripts/sondeGeste.js`
+> + trace `solTrace.js`, mégapole, GPU actif, 5 relevés) — les trois à la fois :
+> · **(1)** au plancher 0,25, un DRAG paie des bandes de défilement de 45 ms
+>   (4 500-6 200 cellules à ~7 µs/cellule) et la première tranche d'un plein
+>   53 ms : frames à 115-134 ms, un grief qui a résisté à trois fixes locaux
+>   (quai en rafale, tranches adaptatives, plafond de première tranche) ;
+> · **(2)** un recompute de layout (312-563 ms) change la signature du sol →
+>   **toutes** les photos du cache meurent (`missBase` 101-239, `restores` 0-1,
+>   `prebakes` 0) : en ville qui croît, le cache ne sert plus — c'est
+>   l'invalidation PARTIELLE qui manque ;
+> · **(3)** `isoGroundBake.js` a reçu ce jour-là encore une trace, des tranches
+>   adaptatives et un plafond : il grossit en branches pour tenir.
+> La refonte est donc **OUVRABLE** — décision de Raph attendue (proposée le
+> 2026-09-14). Les chiffres à battre : bande 45 ms → tuile 256 px ≈ 1 500
+> cellules ≈ 10 ms ; recompute → seules les tuiles touchées se recuisent.
+
 ## L'architecture cible (l'état de l'art des cartes : Leaflet/TheoTown)
 
 - **Tuiles fixes** (~256 px device), par **niveau** = les crans de la grille de
