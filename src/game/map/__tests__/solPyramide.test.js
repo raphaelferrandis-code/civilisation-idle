@@ -26,13 +26,13 @@ describe('levelZoom — le cran sous le zoom, borné', () => {
 describe('tuile et gouttière', () => {
   it('~256 px device, côté MULTIPLE de n = 8z (caméra de cuisson exacte), device entier', () => {
     expect(tileSideCss(1, 1)).toBe(256);
-    expect(tileSideCss(1, 0.25)).toBe(256);
-    expect(tileSideCss(1, 0.375)).toBe(255);      // n = 3
+    expect(tileSideCss(1, 0.25)).toBe(128);     // sous 0,5 : 128 px (une tuile de 256 coûtait 17 ms au plancher)
+    expect(tileSideCss(1, 0.375)).toBe(129);      // n = 3, base 128
     expect(tileSideCss(1, 0.875)).toBe(259);      // n = 7
     expect(tileSideCss(2, 1)).toBe(128);
     expect(tileSideCss(1.25, 1)).toBe(208);       // 204,8 CSS visés → 208 (multiple de 8, 208·1,25 = 260 device entier)
     const s = tileSideCss(1.25, 0.375);           // multiple de 3 ET ·1,25 entier → multiple de 12
-    expect(s % 12).toBe(0); expect(Math.abs(s - TILE_PX / 1.25)).toBeLessThan(12);
+    expect(s % 12).toBe(0); expect(Math.abs(s - TILE_PX / 2 / 1.25)).toBeLessThan(12);   // base 128 sous 0,5
   });
   it('la caméra de cuisson est un demi-entier : la projection y est exacte', () => {
     for (const z of [0.25, 0.375, 0.625, 0.875, 1, 1.125, 2.375, 3.125]) {
@@ -44,10 +44,10 @@ describe('tuile et gouttière', () => {
       }
     }
   });
-  it('la gouttière vaut une cellule, bornée à 64 px', () => {
-    expect(gutterCss(1, 32)).toBe(64);
-    expect(gutterCss(0.25, 32)).toBe(16);
-    expect(gutterCss(3.2, 32)).toBe(64);
+  it('la gouttière est constante : 8 px (le pad de culling fait le reste)', () => {
+    expect(gutterCss(1, 32)).toBe(8);
+    expect(gutterCss(0.25, 32)).toBe(8);
+    expect(gutterCss(3.2, 32)).toBe(8);
   });
 });
 

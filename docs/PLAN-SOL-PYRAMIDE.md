@@ -134,7 +134,47 @@ dézoom (11-27 k blits/frame), le quai (son propre bake, déjà en rafale).
   0 pixel différent hors gouttières, **0 pixel sur les frontières de tuiles**
   (la couture est le piège n° 1, on la mesure, on ne la regarde pas).
 
-### Lot 2 — La frame (1 séance)
+### Lot 2 — La frame (1 séance) — ✔ LIVRÉ 2026-09-14 (preuve dev ; preuve sur la machine de Raph à venir)
+
+> **Fait** : `iso/solPyramideFrame.js` — cache par POSITION (une entrée par
+> tuile, fraîcheur = base de contenu + époque d'invalidation, périmée = repli),
+> LRU en Mo, file de cuisson budgetée (8 ms repos / 12 ms geste, coût par
+> niveau lissé et extrapolé en 1/z²), repli pyramidal PARTIEL (les niveaux les
+> plus éloignés d'abord, le plus proche dessus), glissement de zoom = niveau
+> étiré et cuisson au NIVEAU CIBLE (borné au plancher), pré-cuisson au repos :
+> le plancher sur TOUTE LA CARTE puis l'anneau, capture = tout le visible
+> synchrone. Branché dans isoRenderer (`paintGroundPyramid` sinon l'ancien) ;
+> `groundKeySuffix` partagé ; `?pyramide=1` dans l'URL allume la molette.
+>
+> **Cinq règles trouvées au banc (grande ville, band 4, dev), à ne pas perdre :**
+> 1. ⚠⚠ **« Jamais un pixel sans contenu » passe avant le budget** : une tuile
+>    visible sans AUCUN repli se cuit hors budget (plafond dur 80 ms) — sinon
+>    35 trous noirs au premier affichage, résorbés 1-2 par frame pendant une
+>    seconde.
+> 2. ⚠ **Hors de la carte, ni tuile ni trou** : le fond hors-monde est le bon
+>    contenu. Sans ce test, des dizaines de tuiles vides se cuisaient en
+>    urgence au plancher (100 ms de gel pour rien).
+> 3. ⚠ **Sous z 0,5, tuile de 128 px** : une tuile de 256 coûtait 17 ms au
+>    plancher, plus qu'une frame.
+> 4. ⚠ **Le plancher se pré-cuit sur toute la carte** (~15 tuiles de 128 px),
+>    pas sur la vue : un dézoom révèle jusqu'à 16× le monde visible.
+> 5. ⚠ **La gouttière ne change pas la couture** (le pad de culling de
+>    drawIsoGround fait le travail) : 8 px constants au lieu d'une cellule
+>    (64 px à z 1 doublait la surface cuite : 4,2 → 2,2 ms la tuile).
+>
+> **Mesuré (dev, grande ville, mêmes gestes, pyramide vs ancien cache, poste
+> `sol` par frame)** : repos p50 0,4 / p90 8,3 / max 16 (ancien 13,8 / 24,6 /
+> 44,7) ; dézoom 5 crans p50 7,8 / max 16,6 (ancien 0,1 / 72) ; rezoom max 8,8
+> (ancien 23,5) ; drag p50 0,2 / p90 24 (ancien 8,5 / 13,1 — le drag rapide
+> cuit ~4 tuiles par frame, l'anneau ne suit pas un pan de 150 px/frame) ;
+> **0 trou** sur les cinq gestes. Mémoire 28-60 Mo pour 130-350 tuiles.
+>
+> **Résidus, à juger par Raph** : (a) sous z 1 sur une grande ville, 1-2 % des
+> pixels diffèrent « fort » entre deux découpes (petits traits sur les allées,
+> les trottoirs, les touffes ; répartis uniformément, 2 % d'entre eux sur les
+> frontières) — pas une couture continue, à regarder en jeu ; (b) le drag très
+> rapide coûte plus qu'avant (cuisson des colonnes découvertes) ; (c) le
+> premier affichage cuit tout le visible d'un coup (comme avant).
 - Ensemble visible, LRU en Mo, file budgetée avec coût mesuré/extrapolé, repli
   pyramidal (tuile grossière étirée), glissement de zoom = étirement du niveau
   courant, capture (`CM.capture`) = cuisson synchrone de tout le visible.

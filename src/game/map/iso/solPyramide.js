@@ -39,7 +39,12 @@ import { terrainZ } from './isoTerrain.js';
 import { drawIsoGround } from './isoGroundBake.js';
 import { artLayerAnchor } from './isoArtLayer.js';
 
-export const SOL_PYRAMIDE = { on: false };
+// Défaut false jusqu'au lot 4. `?pyramide=1` dans l'URL l'allume dès le
+// chargement — c'est ainsi que Raph la mesure en prod (npm run preview) sans
+// taper de molette avant la sonde.
+export const SOL_PYRAMIDE = {
+  on: typeof location !== 'undefined' && /[?&]pyramide=1(&|$)/.test(location.search),
+};
 export const TILE_PX = 256;                 // côté d'une tuile, en px DEVICE
 export const ZOOM_MIN = 0.25, ZOOM_MAX = 3.2;
 
@@ -68,8 +73,12 @@ export function levelZoom(zoom) {
 // caméra de chaque tuile devient un demi-entier, exact, et tout le calcul de
 // projection est exact pour les coordonnées dyadiques (les cellules le sont).
 // Et le côté en px DEVICE doit rester entier (le blit reste 1:1) : S·dpr entier.
+// ⚠ Sous z = 0,5, la tuile est de 128 px : au plancher d'une grande ville une
+// tuile de 256 px coûtait 17 ms (mesuré, lot 2), plus que le budget d'une
+// frame — impossible à découper. À 128 px elle tient dans le budget, et la
+// cuisson progresse à chaque frame au lieu d'une tuile toutes les deux.
 export function tileSideCss(dpr, z = 1) {
-  const d = dpr || 1, n = Math.max(1, Math.round((z || 1) * 8)), base = TILE_PX / d;
+  const d = dpr || 1, n = Math.max(1, Math.round((z || 1) * 8)), base = (z < 0.5 ? TILE_PX / 2 : TILE_PX) / d;
   let best = null, bestErr = Infinity;
   for (let k = Math.max(1, Math.floor(base / n) - 8); k <= Math.ceil(base / n) + 8; k += 1) {
     const S = k * n;
@@ -80,9 +89,14 @@ export function tileSideCss(dpr, z = 1) {
   return best != null ? best : Math.round(base / n) * n;
 }
 
-// Gouttière : une cellule (sa largeur, hw·2), bornée — à z = 3,2 une cellule
-// fait 205 px, une gouttière pleine tripl'rait la surface cuite pour rien.
-export function gutterCss(z, T) { return Math.min(64, Math.ceil(T * z * ISO_X * 2)); }
+// Gouttière : 8 px, constante. Mesuré au lot 2 (grande ville, 3 zooms) : la
+// largeur de gouttière ne change PAS la couture (les cellules qui débordent
+// dans la tuile sont déjà dessinées grâce au pad de culling de drawIsoGround,
+// hw·2 et hh·4, qui suit le zoom) — mais une gouttière d'une cellule (64 px à
+// z = 1) faisait cuire 2,25 fois la surface utile : 4,2 ms la tuile contre 2,2.
+// Les 8 px couvrent l'antialiasing d'un bord et un trait de joint.
+// eslint-disable-next-line no-unused-vars
+export function gutterCss(z, T) { return 8; }
 
 // Position d'un point du monde dans l'écran à caméra nulle (avec son terrain).
 export function tileSpace(wx, wy, z) {

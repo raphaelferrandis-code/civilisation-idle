@@ -32,6 +32,7 @@ import { drawIsoShipNight } from './isoFleet.js';
 // lint comme au build. Le jour où plus personne n'appellerait `paintIsoGroundCached`,
 // retirer la ligne emporterait la molette de diagnostic avec elle.
 import { paintIsoGroundCached } from './isoGroundBake.js';
+import { paintGroundPyramid } from './solPyramideFrame.js';
 // ⚠ L'état de SAISON vit là-bas, AVEC SON ÉCRIVAIN : ici on ne fait que le lire. La
 // liaison ESM est vivante — la valeur suit — mais elle est en LECTURE SEULE (P28) :
 // c'est `refreshSeasonPalette()` qui la réécrit, chez elle, une fois par frame.
@@ -204,7 +205,9 @@ function drawIsoWorldInner(dt, now, helpers) {
   const ctx = CM.ctx;
   ctx.fillStyle = rgb(SEASON_WILD, 0.9);
   ctx.fillRect(0, 0, CM.cw, CM.ch);
-  paintIsoGroundCached(ctx, L, helpers);
+  // PLAN-SOL-PYRAMIDE (lot 2) : le sol en tuiles quand la molette est allumée,
+  // l'ancien cache sinon — l'A/B tenu jusqu'au lot 4.
+  if (!paintGroundPyramid(ctx, L, performance.now())) paintIsoGroundCached(ctx, L, helpers);
   fp('sol');
   // Fleuve LIVE (animé) par-dessus le sol baké → QUAIS par ère (promenade le
   // long du ruban, partagés avec le legacy : cityMapDrawQuays projette via le

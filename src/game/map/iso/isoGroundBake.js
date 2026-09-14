@@ -540,8 +540,26 @@ function gzcScreenMissing(base, key) {
   return true;
 }
 
+// LE SUFFIXE DE CLÉ DU SOL — tout ce qui change le sol cuit HORS du plan et du
+// zoom : bande d'ère, saison, plage (masque du quai + molette), relief, aperçu
+// de merveille. Partagé depuis le lot 2 de PLAN-SOL-PYRAMIDE avec les tuiles
+// (solPyramideFrame.js) : une identité de contenu, deux caches.
+// ⚠ La PLAGE est dans le sol bakÉ (kind 'shingle') : sa géométrie dépend du
+// masque effectif du quai, donc de `quayGate.key` (layout + mode `full`) et de
+// la molette __beach — sans ces crans, basculer `full` ou couper la plage
+// laissait les galets gelés dans le bake (piège rencontré trois fois).
+// LE TERRAIN est dans le sol bakÉ : niveaux et contremarches dépendent du champ.
+export function groundKeySuffix(L) {
+  return ':' + ((L.counts && L.counts.eraBand) | 0)
+    + ':s' + (CM.season | 0)
+    + ':bch' + (BEACH.on ? BEACH.mat + BEACH.islandW + '_' + BEACH.bankR : 'off')
+    + ':qg' + ((CM.quayGate && CM.quayGate.key) || '-')
+    + terrainKey()
+    + (CM.previewWonder ? ':pv' + CM.previewWonder.id : '');
+}
+
 let gzcSigL = null, gzcSig = '';
-function groundContentSig(L) {
+export function groundContentSig(L) {
   if (L === gzcSigL) return gzcSig;
   gzcSigL = L;
   const n = (x) => (x ? ((x.size != null ? x.size : x.length) | 0) : 0);
@@ -567,19 +585,7 @@ export function paintIsoGroundCached(ctx, L, helpers) {
     // `keyBase` = la clé SANS le zoom : l'identité de CONTENU. Le cache de crans
     // s'en sert pour reconnaître « même monde, autre échelle » (restore approché).
     const keyPre = 'iso:' + CM.layoutRecomputeAt + ':';
-    const keySuf = ':' + ((L.counts && L.counts.eraBand) | 0)
-      + ':s' + (CM.season | 0)
-      // ⚠ LA PLAGE EST DANS LE SOL BAKÉ (kind 'shingle') : sa géométrie dépend du
-      // masque effectif du quai, donc de `quayGate.key` (layout + mode `full`) et
-      // de la molette __beach. Sans ces crans, basculer `full` ou couper la plage
-      // laissait les galets gelés dans le bake — le piège d'invalidation déjà
-      // rencontré trois fois sur ce projet.
-      + ':bch' + (BEACH.on ? BEACH.mat + BEACH.islandW + '_' + BEACH.bankR : 'off')
-      + ':qg' + ((CM.quayGate && CM.quayGate.key) || '-')
-      // LE TERRAIN EST DANS LE SOL BAKÉ : niveaux de cellules ET contremarches
-      // dépendent du champ → tout réglage doit recuire (vide à l'arrêt).
-      + terrainKey()
-      + (CM.previewWonder ? ':pv' + CM.previewWonder.id : '');
+    const keySuf = groundKeySuffix(L);
     const key = keyPre + CM.cam.zoom.toFixed(3) + keySuf;
     // Base du CACHE DE CRANS : identité de contenu (signature du sol), PAS le
     // timestamp de recompute — cf. groundContentSig pour le pourquoi.
