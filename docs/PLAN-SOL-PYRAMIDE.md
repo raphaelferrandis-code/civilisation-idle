@@ -134,7 +134,18 @@ dézoom (11-27 k blits/frame), le quai (son propre bake, déjà en rafale).
   0 pixel différent hors gouttières, **0 pixel sur les frontières de tuiles**
   (la couture est le piège n° 1, on la mesure, on ne la regarde pas).
 
-### Lot 2 — La frame (1 séance) — ✔ LIVRÉ 2026-09-14 (preuve dev ; preuve sur la machine de Raph à venir)
+### Lot 2 — La frame (1 séance) — ✔ LIVRÉ 2026-09-14, ✔ MESURÉ chez Raph
+
+> **Preuve sur la machine de Raph** (build `DQGkDthy`, mégapole, même geste,
+> sonde avec `?pyramide=1` puis sans) — pyramide / ancien cache :
+> frames dessinées en 12 s **472 / 348** ; rythme p50 **20,8 / 27,8** ms, p90
+> **55 / 69**, p99 **83 / 111**, pire frame **111 / 201** ; frames > 100 ms
+> **1 / 5** ; trous à l'écran 1. 625 tuiles cuites (1,9 s de cuisson répartie),
+> 72 Mo, 5 059 replis étirés. Deux corrections dans la foulée : le quai lit
+> l'horloge de rafale que l'ancien cache ne tenait plus (`7fca682`, il recuisait
+> à chaque frame de zoom) ; un trou se bouche d'abord avec la tuile du PLANCHER
+> qui le couvre (`8c43c3d`, 22 tuiles exactes d'un coup = 60 ms).
+> Reste à obtenir de Raph : son verdict sur les jointures à l'œil.
 
 > **Fait** : `iso/solPyramideFrame.js` — cache par POSITION (une entrée par
 > tuile, fraîcheur = base de contenu + époque d'invalidation, périmée = repli),
