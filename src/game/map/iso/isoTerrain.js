@@ -39,6 +39,7 @@
 // ⚠ Un réglage de FORME ne re-trace les ROUTES qu'au prochain __cityRecompute :
 // elles sont tracées au layout, sur le même champ (cf. terrainField.js).
 import { CM } from '../layout.js';
+import { solInvalidate } from './solInvalidate.js';
 import { TERRAIN, terrainFieldU, terrainFlatR, islandDomeU, ss01 } from '../procedural/terrainField.js';
 
 // LA FORME du champ vit dans procedural/terrainField.js depuis le lot « routes
@@ -379,7 +380,7 @@ if (typeof window !== 'undefined') {
     else if (o) Object.assign(TERRAIN, o);
     // Ceinture ET bretelles : la clé change (terrainKey), mais on invalide aussi à
     // la main — le sol, le cache de crans ET le quai (qui ne porte pas le fragment).
-    CM._isoGroundBake = null; CM._quayBake = null; CM._tileBake = null;
+    solInvalidate('all'); CM._quayBake = null; CM._tileBake = null;
     if (CM._groundZoomCache) CM._groundZoomCache.clear();
     _pads.key = '';   // les hauteurs de socle dépendent des réglages → re-échantillonner
     return { ...TERRAIN };

@@ -58,6 +58,7 @@
 // ============================================================================
 
 import { CM, cmHash, treeCanvasT } from '../layout.js';
+import { solInvalidate } from './solInvalidate.js';
 import { AGENT_SCALE } from '../agents.js';
 import { worldToScreen, depthOf } from './projection.js';
 import { lightCutImage } from '../lightLayer.js';
@@ -924,7 +925,7 @@ function art(src) {
     im.onload = () => {
       e.img = im; e.ready = true;
       _artRev += 1;                       // → recompose : cf. la clé plus bas
-      if (CM._isoGroundBake) CM._isoGroundBake.soft = true;
+      solInvalidate('soft');
     };
     im.src = src;
   }

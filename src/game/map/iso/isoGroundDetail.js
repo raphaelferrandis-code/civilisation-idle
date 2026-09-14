@@ -23,6 +23,7 @@
 // module — c'est isoRenderer qui le déclenche désormais, en l'important. (Cf. P32 du
 // plan : `roadIsoHierarchy.test.js` en dépend et le dit maintenant à voix haute.)
 import { CM, cmHash } from '../layout.js';
+import { solInvalidate } from './solInvalidate.js';
 import { seasonGrass, seasonWild, seasonTip, seasonFlowerMul, seasonCanopyTint, WINTER } from '../seasonMode.js';
 import { isoArt } from './isoArt.js';
 import { GRASS, GRASS_WILD } from './isoPalette.js';
@@ -239,7 +240,7 @@ if (typeof window !== 'undefined') {
     else if (typeof arg === 'number') { GRASS_DETAIL.on = true; GRASS_DETAIL.flowerP = arg; }
     else if (arg && typeof arg === 'object') { GRASS_DETAIL.on = true; Object.assign(GRASS_DETAIL, arg); }
     else GRASS_DETAIL.on = true;
-    CM._isoGroundBake = null;
+    solInvalidate('all');
     return { ...GRASS_DETAIL };
   };
 }
@@ -292,7 +293,7 @@ if (typeof window !== 'undefined') {
     if (arg === false) FRONTIER.on = false;
     else if (arg && typeof arg === 'object') { FRONTIER.on = true; Object.assign(FRONTIER, arg); }
     else FRONTIER.on = true;
-    CM._isoGroundBake = null;
+    solInvalidate('all');
     return { ...FRONTIER };
   };
 }
@@ -375,7 +376,7 @@ if (typeof window !== 'undefined') {
     else if (arg && typeof arg === 'object') { FRONT.on = true; Object.assign(FRONT, arg); }
     else FRONT.on = true;
     if (CM.layout && CM.layout.tiles) for (const t of CM.layout.tiles) delete t._front;
-    CM._isoGroundBake = null;   // les allées de seuil vivent dans le bake
+    solInvalidate('all');   // les allées de seuil vivent dans le bake
     return { ...FRONT };
   };
 }
@@ -554,7 +555,7 @@ if (typeof window !== 'undefined') {
     if (arg === false) GRASS_FRINGE.on = false;
     else if (arg && typeof arg === 'object') { GRASS_FRINGE.on = true; Object.assign(GRASS_FRINGE, arg); }
     else GRASS_FRINGE.on = true;
-    CM._isoGroundBake = null;
+    solInvalidate('all');
     return { ...GRASS_FRINGE };
   };
 }
@@ -701,7 +702,7 @@ if (typeof window !== 'undefined') {
       if (tileAType && typeof tileAType === 'object') Object.assign(URBAN_TILE_A, tileAType);
       Object.assign(URBAN_DETAIL, rest);
     } else URBAN_DETAIL.on = true;
-    CM._isoGroundBake = null;
+    solInvalidate('all');
     return { ...URBAN_DETAIL, tileAType: { ...URBAN_TILE_A } };
   };
 }
@@ -768,7 +769,7 @@ if (typeof window !== 'undefined') {
     else ROAD_DETAIL.on = true;
     syncIsoStreetGeom();   // la gorge participe à la géométrie publiée aux agents
     isoTileCache.forEach((e) => { e.veiled = null; });   // veilK repeint les faces voilées
-    CM._isoGroundBake = null;
+    solInvalidate('all');
     return { ...ROAD_DETAIL };
   };
 }
@@ -808,7 +809,7 @@ if (typeof window !== 'undefined') {
     else if (arg && typeof arg === 'object') { SIDEWALK_ISO.on = true; Object.assign(SIDEWALK_ISO, arg); }
     else SIDEWALK_ISO.on = true;
     syncIsoStreetGeom();
-    CM._isoGroundBake = null;
+    solInvalidate('all');
     return { ...SIDEWALK_ISO };
   };
 }

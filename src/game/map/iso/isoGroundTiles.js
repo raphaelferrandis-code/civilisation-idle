@@ -17,6 +17,7 @@
 // ⚠ Ce n'est PAS le peintre : `blitIsoTileKey`, le sol et le trottoir restent dans
 // isoRenderer, qui importe d'ici.
 import { CM } from '../layout.js';
+import { solInvalidate } from './solInvalidate.js';
 import { WINTER } from '../seasonMode.js';
 import { pxProbe, recPx } from '../pixelGrid.js';
 
@@ -257,7 +258,7 @@ if (typeof window !== 'undefined') {
     if (typeof arg === 'number') groundTileTune.rep = arg;
     else if (arg && typeof arg === 'object') Object.assign(groundTileTune, arg);
     isoTileCache.forEach((e) => { e.tiled = null; e.veiled = null; });
-    CM._isoGroundBake = null;   // le sol est CUIT : sans ça la molette ne se voit pas
+    solInvalidate('all');   // le sol est CUIT : sans ça la molette ne se voit pas
     return { ...groundTileTune };
   };
 }
@@ -383,7 +384,7 @@ export function ensureIsoTileKey(key) {
       // mégapole) est coalescée par drawIsoWorld — une rafale de décodages au
       // chargement ne paie plus une recuisson par sprite. Pas de bake → rien à
       // faire, la 1re recuisson verra la tuile prête.
-      if (CM._isoGroundBake) CM._isoGroundBake.soft = true;
+      solInvalidate('soft');
     };
     im.onerror = () => { e.failed = true; };   // PNG absent → on garde le repli procédural
     im.src = '/pixelart/iso/' + key + '.png';

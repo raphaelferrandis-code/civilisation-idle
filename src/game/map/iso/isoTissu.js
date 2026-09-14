@@ -19,6 +19,7 @@
 // ⚠ Le seul import est `CM`, et il ne sert qu'à la molette `__cour` : invalider le
 // bake quand on change le réglage en jeu.
 import { CM } from '../layout.js';
+import { solInvalidate } from './solInvalidate.js';
 
 export function builtCells(L) {
   if (L._builtCells) return L._builtCells;
@@ -226,7 +227,7 @@ if (typeof window !== 'undefined') {
     else if (arg && typeof arg === 'object') { COUR.on = true; Object.assign(COUR, arg); }
     else COUR.on = true;
     if (CM.layout) CM.layout._courField = null;
-    CM._isoGroundBake = null;
+    solInvalidate('all');
     return { ...COUR };
   };
 }

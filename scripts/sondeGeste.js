@@ -36,6 +36,7 @@
   globalThis.__isoFrameProfile = true;
   undo.push(() => { globalThis.__isoFrameProfile = prevProf; });
   const gz0 = Object.assign({}, globalThis.__groundZoomCacheStats || {});
+  const py0 = Object.assign({}, globalThis.__solPyramideStats || {});
   const traceOn = typeof globalThis.__solTrace === 'function';
   if (traceOn) { globalThis.__solTrace(true); undo.push(() => globalThis.__solTrace(false)); }
   const prevGP = globalThis.__isoGroundProfile;
@@ -58,7 +59,7 @@
     if (t - t0 < DUR) requestAnimationFrame(tick); else finish();
   };
   const finish = () => {
-    for (const u of undo.reverse()) { try { u(); } catch (e) { /* rien */ } }
+    for (const u of undo.reverse()) { try { u(); } catch { /* rien */ } }
     const drawn = frames.filter((f) => f.drawn);
     const gaps = []; let lastDrawn = null;
     for (const f of drawn) { if (lastDrawn != null) gaps.push(f.t - lastDrawn); lastDrawn = f.t; }
@@ -68,7 +69,7 @@
     const worst = [...drawn].sort((a, b) => b.prof.total - a.prof.total).slice(0, 6).map((f) => ({
       t: Math.round(f.t), cpu: +f.prof.total.toFixed(1), blit: f.blit, rb: f.rb, cnv: f.cnv, clip: f.clip, postes: top(Object.fromEntries(Object.entries(f.prof).filter(([k]) => k !== 'total')), 4) }));
     let gpu = null;
-    try { const g = ce('canvas').getContext('webgl'); const d = g && g.getExtension('WEBGL_debug_renderer_info'); gpu = d ? g.getParameter(d.UNMASKED_RENDERER_WEBGL) : null; } catch (e) { /* rien */ }
+    try { const g = ce('canvas').getContext('webgl'); const d = g && g.getExtension('WEBGL_debug_renderer_info'); gpu = d ? g.getParameter(d.UNMASKED_RENDERER_WEBGL) : null; } catch { /* rien */ }
     const gz = globalThis.__groundZoomCacheStats || {}, gzd = {};
     for (const k in gz) gzd[k] = gz[k] - (gz0[k] || 0);
     const out = {
@@ -82,6 +83,7 @@
       lectures_px: { total: cnt.rb, surEcran: cnt.rbScreen }, canvas_crees: cnt.cnv, clips: cnt.clip,
       souris: { move_par_s: +(ev.move / ((performance.now() - t0) / 1000)).toFixed(0), drag: ev.drag, wheel: ev.wheel },
       cache_sol: gzd,
+      pyramide: (() => { const p = globalThis.__solPyramideStats; if (!p) return null; const d = { on: typeof globalThis.__solPyramide === 'function' ? globalThis.__solPyramide() : null }; for (const k in p) d[k] = typeof p[k] === 'number' ? Math.round((p[k] - (py0[k] || 0)) * 10) / 10 : p[k]; return d; })(),
       postes_total_ms: top(postes, 8), postes_pire_ms: top(postesMax, 6),
       pires_frames: worst,
     };

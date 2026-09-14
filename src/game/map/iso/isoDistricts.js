@@ -19,6 +19,7 @@
 // Molette : __districtMass(false) coupe la couche ; __districts({ parvis }) régit
 // l'esplanade sous les masses (isoWonderGround).
 import { CM } from '../layout.js';
+import { solInvalidate } from './solInvalidate.js';
 
 export const DISTRICT_MASS = { on: true };
 
@@ -85,7 +86,7 @@ if (typeof window !== 'undefined') {
     DISTRICT_MASS.on = on !== false;
     _tiles = null; _tilesAt = -1;
     _picks = null; _picksAt = -1;
-    CM._districtGround = null; CM._pvWonderGround = null; CM._isoGroundBake = null;
+    CM._districtGround = null; CM._pvWonderGround = null; solInvalidate('all');
     return DISTRICT_MASS.on;
   };
 }

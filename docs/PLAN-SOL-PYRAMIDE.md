@@ -51,7 +51,19 @@ dézoom (11-27 k blits/frame), le quai (son propre bake, déjà en rafale).
 
 ## 2. Les lots
 
-### Lot 0 — Le banc et la façade (½ séance)
+### Lot 0 — Le banc et la façade (½ séance) — ✔ LIVRÉ 2026-09-14
+
+> Fait : `iso/solInvalidate.js` (façade, 3 clés, abonnement de la pyramide par
+> `setSolPyramideInvalidator`), `iso/solPyramide.js` (molette `__solPyramide`,
+> défaut false, relevé `__solPyramideStats`), les 19 sites routés (isoGroundDetail
+> ×7, isoGroundTiles ×2, isoArt, isoPlaza, isoTerrain, isoTissu, isoWonderGround
+> ×2, isoDistricts, projection, cityMapRuntime ×2), garde
+> `solInvalidate.test.js` (6 tests : comportement + aucune écriture directe hors
+> isoGroundBake.js/solInvalidate.js), section `pyramide` dans la sonde. Lint +
+> 1758 tests verts, build prod chargée, molette vérifiée en console.
+> ⚠ Piège rencontré : un module qui ne pose que des molettes doit être importé
+> quelque part (import d'effet dans solInvalidate.js), sinon la prod ne le
+> charge pas.
 - `__solPyramide` (défaut false) : l'A/B qui rend l'ancien chemin en une
   molette, tenu jusqu'au lot 4.
 - **Façade d'invalidation** : les ~19 sites qui écrivent `CM._isoGroundBake =

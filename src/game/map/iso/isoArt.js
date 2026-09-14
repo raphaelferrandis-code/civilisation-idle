@@ -9,7 +9,7 @@
 // isoRenderer ↔ isoBridge ». Cette raison n'existe plus : ce module est une feuille,
 // personne ne boucle en le lisant. (La déduplication elle-même reste à faire — ce
 // n'est pas un déplacement pur, donc pas cette tranche.)
-import { CM } from '../layout.js';
+import { solInvalidate } from './solInvalidate.js';
 
 // ── Art iso dédié (/pixelart/iso/<name>.png) : cache paresseux ───────────────
 // Bateaux par stade (8 rotations). Les bandes mill-wheel-* n'ont plus de
@@ -28,7 +28,7 @@ export function isoArt(name) {
       // Le BAKE du sol dépend de l'art décodé (dalle de place remplacée, bande
       // gazon des terre-pleins sautée) → invalidation DOUCE, recuisson coalescée
       // par drawIsoWorld (cf. isoTile : plus une recuisson par sprite décodé).
-      if (CM._isoGroundBake) CM._isoGroundBake.soft = true;
+      solInvalidate('soft');
     };
     // `name` peut porter un cache-buster (`clef?v=2`) : la query passe APRÈS le
     // `.png` dans l'URL. Sert quand un PNG est RÉÉCRIT sur disque (aqueduc : des

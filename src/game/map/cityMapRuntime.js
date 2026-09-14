@@ -59,6 +59,7 @@ import { waterShoreTune } from './iso/isoPalette.js';
 import { riverIslandObstacles } from './iso/isoFleet.js';
 import { fpBegin, fp, fpEnd } from './framePerf.js';
 import { solTrace, solRec, keyDiff } from './solTrace.js';
+import { solInvalidate } from './iso/solInvalidate.js';
 import { tissuMetrics, tissuReport } from './tissuMetrics.js';
 // ⚠ Ces six imports ont été élagués le 2026-08-23 avec le pipeline top-down
 // (étape 4). Ce qui reste ne sert PLUS au dessin de la carte : `renderWorld` n'y
@@ -167,7 +168,7 @@ function cityMapResizeCanvas(canvas) {
       // donc les deux états tombent ensemble. Sinon le bake iso se croit valide et
       // on blitte un canvas vide jusqu'au prochain changement de clé (zoom) ou pan
       // au-delà de la marge — « pas de textures avant de bouger la caméra ».
-      CM._groundBake = null; CM._isoGroundBake = null;
+      CM._groundBake = null; solInvalidate('all');
     }
     if (CM.quayCanvas) {
       CM.quayCanvas.width = onw;
@@ -188,7 +189,7 @@ function cmInvalidateBakes() {
   CM._staticBake = null;
   CM._tileBake = null;
   CM._groundBake = null;
-  CM._isoGroundBake = null;   // le sol iso partage CM.groundCanvas
+  solInvalidate('all');   // le sol iso partage CM.groundCanvas
   CM._quayBake = null;
 }
 

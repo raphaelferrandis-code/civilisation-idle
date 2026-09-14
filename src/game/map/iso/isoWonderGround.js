@@ -11,6 +11,7 @@
 // raison de vivre loin de sa config. Ce module porte donc maintenant les trois : la
 // config, l'ensemble effectif des cellules, et le DALLAGE qui s'y pose.
 import { CM, CM_WONDERS, cmWonderSlot, cmForEachWonderCell } from '../layout.js';
+import { solInvalidate } from './solInvalidate.js';
 import { districtLandmarks } from './isoDistricts.js';
 import { rgb } from './isoPalette.js';   // le dallage compose ses tons
 
@@ -77,7 +78,7 @@ if (typeof window !== 'undefined') {
   // pour qu'on puisse juger de ce qu'on regarde.
   window.__districts = (o) => {
     if (o && typeof o === 'object') Object.assign(DISTRICT_GROUND, o);
-    CM._districtGround = null; CM._pvWonderGround = null; CM._isoGroundBake = null;
+    CM._districtGround = null; CM._pvWonderGround = null; solInvalidate('all');
     const L = CM.layout;
     return {
       ...DISTRICT_GROUND,
@@ -88,7 +89,7 @@ if (typeof window !== 'undefined') {
     if (arg === false) WONDER_GROUND.on = false;
     else if (arg && typeof arg === 'object') { WONDER_GROUND.on = true; Object.assign(WONDER_GROUND, arg); }
     else WONDER_GROUND.on = true;
-    CM._isoGroundBake = null;
+    solInvalidate('all');
     return { ...WONDER_GROUND };
   };
 }
