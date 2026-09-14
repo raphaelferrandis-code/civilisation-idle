@@ -48,6 +48,8 @@ import { drawIsoNight } from './isoStreet.js';
 import { drawIsoRain } from './isoWeather.js';
 import { drawTerrainShade } from './isoTerrain.js';
 import { artLayerBegin, artLayerEnd } from './isoArtLayer.js';
+import { quayGlideStale, quayGlideRect } from './quayGlide.js';
+import { panDeltaToScreen } from './projection.js';
 import {
   worldToScreen, visibleCellBounds, visibleDiamondBounds, ISO_X, ISO_Y,
 } from './projection.js';
@@ -254,19 +256,41 @@ function drawIsoWorldInner(dt, now, helpers) {
     // ⚠ Le calque se dimensionne sur CM.cw/ch, que `bakeMargin` a DÉJÀ élargis
     // de la marge : la bascule tombe juste sans rien savoir de la marge.
     // A/B : `globalThis.__quayArtLayer = false` rejoue la cuisson à l'écran.
-    helpers.bakeMargin(CM.quayCanvas, CM.qctx, '_quayBake', qk, () => {
-      const z = CM.cam.zoom;
-      // ⚠ LA VRAIE CIBLE SE CAPTURE AVANT `begin` : pendant le calque, `CM.ctx`
-      // EST le calque (c'est ce qui fait que le quai s'y peint). La passer après
-      // composerait le calque sur lui-même — cf. le bandeau d'isoArtLayer.
-      const target = CM.ctx;
-      const lay = globalThis.__quayArtLayer === false ? null : artLayerBegin(z);
-      if (!lay) return cityMapDrawQuays(now, 'base');
-      const st = cityMapDrawQuays(now, 'base');
-      artLayerEnd(lay, target, z);
-      return st;
-    });
-    helpers.blitMargin(CM.quayCanvas, '_quayBake');
+    // ── LE QUAI SUIT LA RÈGLE DU SOL PENDANT LA RAFALE DE MOLETTE (2026-09-14) ──
+    // La clé ci-dessus porte le zoom au millième ; un zoom qui GLISSE la change
+    // à chaque frame, donc le quai se recuisait À CHAQUE FRAME du geste (mesuré
+    // chez Raph : 55-60 ms/frame, un canvas alloué par frame — le poste `quais`
+    // dominait le dézoom). Pendant la rafale (horloge `CM._igZoomAt`, posée par
+    // le sol juste avant), on sert le bake existant ÉTIRÉ, comme le sol ; la
+    // recuisson nette tombe à l'arrêt, une fois par geste. Cf. quayGlide.js.
+    const qb = CM._quayBake;
+    if (globalThis.__quayGlide !== false
+        && quayGlideStale(qb, CM.cam.zoom, performance.now(), CM._igZoomAt)) {
+      const M = CM._bakeMargin || 0;
+      const pd = panDeltaToScreen(CM.cam.x - qb.camX, CM.cam.y - qb.camY);
+      const r = quayGlideRect(CM.cam.zoom, qb.zoomB, CM.cw, CM.ch, M, pd);
+      const prevSm = ctx.imageSmoothingEnabled;
+      ctx.imageSmoothingEnabled = true;   // transitoire : même rendu que le sol compensé
+      ctx.drawImage(CM.quayCanvas, r.x, r.y, r.w, r.h);
+      ctx.imageSmoothingEnabled = prevSm;
+    } else {
+      helpers.bakeMargin(CM.quayCanvas, CM.qctx, '_quayBake', qk, () => {
+        const z = CM.cam.zoom;
+        // ⚠ LA VRAIE CIBLE SE CAPTURE AVANT `begin` : pendant le calque, `CM.ctx`
+        // EST le calque (c'est ce qui fait que le quai s'y peint). La passer après
+        // composerait le calque sur lui-même — cf. le bandeau d'isoArtLayer.
+        const target = CM.ctx;
+        const lay = globalThis.__quayArtLayer === false ? null : artLayerBegin(z);
+        if (!lay) return cityMapDrawQuays(now, 'base');
+        const st = cityMapDrawQuays(now, 'base');
+        artLayerEnd(lay, target, z);
+        return st;
+      });
+      // Ancre d'échelle du bake (comme `zoomB` du sol) : bakeMargin crée un
+      // objet neuf à chaque recuisson, l'ancre se pose donc ici, une fois.
+      if (CM._quayBake && CM._quayBake.zoomB == null) CM._quayBake.zoomB = CM.cam.zoom;
+      helpers.blitMargin(CM.quayCanvas, '_quayBake');
+    }
     cityMapDrawQuays(now, 'glow');
   } else {
     cityMapDrawQuays(now);
