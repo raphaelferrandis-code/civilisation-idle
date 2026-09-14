@@ -255,9 +255,30 @@ export function paintGroundPyramid(ctx, L, nowMs) {
   for (const t of need) {
     if (zc === z && !CM.capture && !hasAnyFallback(z, t.tx, t.ty, S, dpr, levelsAvant)) holes.push(t); else others.push(t);
   }
-  for (const t of holes) {
-    if (performance.now() - t0 > PYR.holeCapMs) break;
-    cook(zc, t.tx, t.ty, nowMs); n += 1;
+  // Un trou se bouche avec la tuile du PLANCHER qui le couvre quand elle est
+  // plus grossière que le niveau courant : même surface d'écran pour 2 à 16
+  // fois moins de cuisson (mesuré chez Raph : 22 tuiles exactes cuites d'un
+  // coup = 60 ms ; une tuile de plancher couvre quatre tuiles de zoom 1). La
+  // tuile exacte suit par le budget, comme les autres.
+  const zf = floorLevel();
+  if (holes.length && zf < z) {
+    const Sf = tileSideCss(dpr, zf), r = zf / z;
+    const done = new Set();
+    for (const t of holes) {
+      if (performance.now() - t0 > PYR.holeCapMs) break;
+      const o = tileOrigin(t.tx, t.ty, S);
+      for (const ft of tilesInRect(o.x * r, o.y * r, (o.x + S) * r, (o.y + S) * r, Sf)) {
+        const k = posKey(zf, ft.tx, ft.ty);
+        if (done.has(k) || cache.has(k)) continue;
+        done.add(k); cook(zf, ft.tx, ft.ty, nowMs); n += 1;
+      }
+      others.push(t);
+    }
+  } else {
+    for (const t of holes) {
+      if (performance.now() - t0 > PYR.holeCapMs) break;
+      cook(zc, t.tx, t.ty, nowMs); n += 1;
+    }
   }
   for (const t of others) {
     if (n >= maxN) break;
