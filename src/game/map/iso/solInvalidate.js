@@ -1,48 +1,30 @@
 "use strict";
 // ── LA FAÇADE D'INVALIDATION DU SOL — une porte, trois clés ─────────────────
 //
-// Lot 0 de PLAN-SOL-PYRAMIDE (2026-09-14). Jusqu'ici, dix-neuf sites du code
-// invalidaient le sol EN ÉCRIVANT DIRECTEMENT l'état du bake :
-// `CM._isoGroundBake = null` (dure : on recuit tout) ou `.soft = true`
-// (douce : un sprite décodé en retard, le contenu reste valable, on recuit
-// coalescé). Ça marchait parce qu'il n'y avait qu'UN cache. La pyramide de
-// tuiles en ajoute un second, avec ses propres règles (tout / par cellules /
-// doux par tuile) — dix-neuf sites à mettre à jour deux fois, c'est dix-neuf
-// occasions d'en oublier un, et une invalidation oubliée est une panne MUETTE
-// (le sol reste périmé jusqu'au prochain geste). D'où cette façade : les sites
-// disent CE QUI a changé, les caches décident quoi jeter.
+// Lot 0 de PLAN-SOL-PYRAMIDE (2026-09-14). Dix-neuf sites du code invalident le
+// sol : saison, ère, plage, relief, molettes de dev, canvas réalloués, décodage
+// tardif d'un sprite. Avant, chacun écrivait l'état de l'ancien cache à la main
+// — une invalidation oubliée est une panne MUETTE (le sol reste périmé jusqu'au
+// prochain geste). Ici les sites disent CE QUI a changé ; le cache décide.
+// Depuis le lot 4, le seul cache est la pyramide de tuiles (solPyramideFrame.js),
+// abonnée par `setSolPyramideInvalidator`.
 //
 //   solInvalidate('all')           saison, bande d'ère, plage, relief, molettes,
-//                                  canvas réalloué : tout est périmé
+//                                  canvas réalloués : tout est périmé
 //   solInvalidate('soft')          décodage tardif (art, tuile, place) : le
 //                                  contenu reste valable, recuisson coalescée
-//   solInvalidate('cells', set)    (lot 3) recompute de layout : seules les
-//                                  cellules de `set` ont changé. Tant que la
-//                                  pyramide ne sait pas les cibler, vaut 'all'.
+//   solInvalidate('cells', set)    recompute de layout — la pyramide n'en a pas
+//                                  besoin : elle re-juge chaque tuile sur la
+//                                  signature de ses cellules (lot 3)
 //
-// ⚠ L'ancien cache (`CM._isoGroundBake`, isoGroundBake.js) reste le SEUL à
-// écrire son propre état pendant la cuisson ; ici on ne fait que l'invalider,
-// exactement comme les sites le faisaient — byte-identique en comportement.
-// Garde : solInvalidate.test.js refuse toute écriture directe ailleurs.
-//
-// La pyramide s'abonne par `setSolPyramideInvalidator(fn)` (pas d'import de
-// solPyramide.js ici : ce module est importé par projection.js et les modules
-// de sol, un import croisé fermerait un cycle).
-import { CM } from '../layout.js';
+// Garde : solInvalidate.test.js — aucun autre module n'écrit d'état de sol.
 // ⚠ Pas d'import de solPyramide.js ici (cycle : projection → façade → pyramide
-// → projection). C'est cityMapRuntime.js qui le charge — vu au lot 0 : un
-// module que personne n'importe n'existe pas en prod, molette comprise.
+// → projection) ; la pyramide vient s'abonner, c'est elle qui importe la façade.
 
 let pyramidHook = null;
 
 export function setSolPyramideInvalidator(fn) { pyramidHook = typeof fn === 'function' ? fn : null; }
 
 export function solInvalidate(kind, cells = null) {
-  if (kind === 'soft') {
-    if (CM._isoGroundBake) CM._isoGroundBake.soft = true;
-  } else {
-    // 'all' et, jusqu'au lot 3, 'cells' : invalidation dure de l'ancien cache.
-    CM._isoGroundBake = null;
-  }
   if (pyramidHook) pyramidHook(kind, cells);
 }

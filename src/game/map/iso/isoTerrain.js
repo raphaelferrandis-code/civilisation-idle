@@ -381,7 +381,6 @@ if (typeof window !== 'undefined') {
     // Ceinture ET bretelles : la clé change (terrainKey), mais on invalide aussi à
     // la main — le sol, le cache de crans ET le quai (qui ne porte pas le fragment).
     solInvalidate('all'); CM._quayBake = null; CM._tileBake = null;
-    if (CM._groundZoomCache) CM._groundZoomCache.clear();
     _pads.key = '';   // les hauteurs de socle dépendent des réglages → re-échantillonner
     return { ...TERRAIN };
   };

@@ -29,13 +29,10 @@ export let qualityMode = (() => {
 // au lieu des sprites, lumières/animations/agents coupés). 0 = jamais de LOD →
 // TOUT reste visible même en dézoom total (le sens de « Élevée »). Plus la valeur
 // est haute, plus la simplification arrive tôt (allège le dézoom). Zoom ∈ [0.35, 3.2].
-// `crispGesture` = pas de flou pendant le geste : au lieu du re-blit lissé du sol
-// baké pendant zoom/dézoom/drag, on recuit le sol NET à l'échelle exacte à chaque
-// frame (coûteux — geste moins fluide sur très grande ville ; réservé à « Élevée »).
 const QUALITY_TIERS = {
   high:     { dpr: 2.0, citizenMul: 1.0, fps: 60, lodZoom: 0,    crispGesture: true },
-  balanced: { dpr: 1.5, citizenMul: 0.7, fps: 30, lodZoom: 0.55, crispGesture: false },
-  perf:     { dpr: 1.0, citizenMul: 0.4, fps: 30, lodZoom: 0.85, crispGesture: false },
+  balanced: { dpr: 1.5, citizenMul: 0.7, fps: 30, lodZoom: 0.55 },
+  perf:     { dpr: 1.0, citizenMul: 0.4, fps: 30, lodZoom: 0.85 },
 };
 
 // 'auto' : palier deviné à partir de l'appareil. On reste conservateur — on ne

@@ -1,5 +1,9 @@
 # NOTE — Le sol en pyramide de tuiles (refonte DIFFÉRÉE, sur déclencheur)
 
+> **🏁 RÉALISÉE le 2026-09-14** — cinq lots, `docs/PLAN-SOL-PYRAMIDE.md` fait
+> foi (architecture livrée, preuves, pièges). Cette note reste l'historique de
+> la décision et des invariants mesurés qui l'ont guidée.
+
 2026-08-24. Le chantier anti-clignotement (5 lots, `d461654`→`0f3f527`) est clos et
 **confirmé bon par Raph en build de production**. La stratégie de cache du sol
 (`iso/isoGroundBake.js`) est complexe — un bake vivant + photos par cran +

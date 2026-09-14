@@ -61,7 +61,7 @@ import { rgb } from './isoPalette.js';
 // PARTAGÉ avec le bake des quais (§4.1 de REPRISE-TRACE-VECTORIEL).
 
 export function drawIsoGroundRoads(bake, resolve, roads) {
-  const { ctx, T, z, hw, LOD, HARD, L, band, road, roadMap, urb, PR, ISO_GROUND_SLICE } = bake;
+  const { ctx, T, z, hw, LOD, HARD, L, band, road, roadMap, urb, PR } = bake;
   const { kindAt } = resolve;
   // Rubans de chaussée par-dessus le fond : pavé central + un bras vers chaque
   // connexion (rectangles MONDE projetés → parallélogrammes écran continus).
@@ -234,19 +234,11 @@ export function drawIsoGroundRoads(bake, resolve, roads) {
   // PEINT EN PIXELS). Ce sont les mêmes tracés, à la même géométrie : seule la
   // résolution de rastérisation change — et avec elle le bord, qui cesse d'être
   // trois fois plus fin que le pixel de l'art voisin.
-  // ⚠ LE CULL DE TRANCHE SE FAIT AVANT LA BASCULE. `ISO_GROUND_SLICE` borne des
-  // px écran DU BAKE ; sous le calque, worldToScreen répond dans un autre repère
-  // et le test deviendrait faux en silence (cellules peintes hors tranche, ou
-  // tranche vide). On fige donc ici la liste des cellules à peindre.
+  // La liste des cellules à peindre est figée AVANT la bascule du calque (sous
+  // lui, worldToScreen répond dans un autre repère). Depuis le lot 4 de la
+  // pyramide, plus de tranche à borner : une tuile est toujours cuite entière.
   const roadsVis = [];
   for (const r of roads) {
-    if (ISO_GROUND_SLICE.on) {
-      const pr = worldToScreen(r.gx * T, r.gy * T);
-      if (ISO_GROUND_SLICE.yOn && (pr.y < ISO_GROUND_SLICE.y0 - ISO_GROUND_SLICE.padTop
-        || pr.y > ISO_GROUND_SLICE.y1 + ISO_GROUND_SLICE.padBot)) continue;
-      if (ISO_GROUND_SLICE.xOn && (pr.x < ISO_GROUND_SLICE.x0 - ISO_GROUND_SLICE.padX
-        || pr.x > ISO_GROUND_SLICE.x1 + ISO_GROUND_SLICE.padX)) continue;
-    }
     roadsVis.push(r);
   }
   const lay = (ROAD_DETAIL.pixel !== false && roads.length) ? artLayerBegin(z) : null;

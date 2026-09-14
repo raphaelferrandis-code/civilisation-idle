@@ -243,7 +243,25 @@ dézoom (11-27 k blits/frame), le quai (son propre bake, déjà en rafale).
   `tuiles visibles` (attendu : quelques unités sur 35), hits du cache
   inchangés avant/après, aucune recuisson d'écran entier.
 
-### Lot 4 — Le retrait de l'ancien cache (1 séance, APRÈS validation de Raph en prod)
+### Lot 4 — Le retrait de l'ancien cache — ✔ LIVRÉ 2026-09-14 (go de Raph après « pas de traits aux jointures »)
+
+> **Fait** : `isoGroundBake.js` **1 141 → 206 lignes** — ne restent que le
+> peintre (`drawIsoGround`, l'ordre des passes) et les deux clés de contenu
+> (`groundKeySuffix`, `groundContentSig`). Partis : bake vivant plein écran,
+> tranches et bandes, cache de crans + restore, pré-cuisson, filet, atterrissage
+> « carte web », budgets prédictifs, trois horloges, `solStrips.js` et son test,
+> le cull de tranche dans isoGroundCells/isoGroundRoads, le canvas de sol
+> (`groundCanvas`/`gctx`) et sa réallocation, la garde « sol cuit au zoom » du
+> harnais `__flatProbe`, le réglage `crispGesture` des paliers de qualité, la
+> molette `__solPyramide` et le paramètre `?pyramide=1` : le sol en tuiles est
+> LE chemin. La façade `solInvalidate` ne fait plus que transmettre à la
+> pyramide ; sa garde vérifie qu'aucun fichier ne mentionne plus l'ancien
+> état (`_isoGroundBake`, `_groundZoomCache`, `paintIsoGroundCached`).
+> Lint + 1 763 tests verts, build prod chargée (ville réelle), banc dev :
+> dézoom 0 trou, sol ≤ 6 ms.
+>
+> Le chantier est CLOS. `NOTE-SOL-PYRAMIDE.md` devient l'historique ; ce plan
+> reste la référence de l'architecture livrée (§1) et des pièges (lots 1-3).
 - `__solPyramide` passe à true par défaut, Raph joue dessus quelques jours.
 - Puis suppression dans `isoGroundBake.js` : bakeMargin du sol, cache de
   crans + restore exact/approché, pré-cuisson, tranches et bandes, filet,

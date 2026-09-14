@@ -3,9 +3,8 @@
 //
 // docs/PLAN-SOL-PYRAMIDE.md fait foi. Ce module reçoit la pyramide lot par lot.
 //
-// Lot 0 — la MOLETTE d'A/B et le relevé que lit la sonde de geste :
-//   __solPyramide(true|false)   défaut false jusqu'au lot 4 ; éteinte, l'ancien
-//                               cache (isoGroundBake.js) rend le sol, rien ne change
+// Depuis le lot 4 (2026-09-14) le sol en tuiles est LE chemin : l'ancien cache
+// plein écran d'isoGroundBake.js a été retiré, la molette d'A/B avec lui.
 //   __solPyramideStats          cuites, ms, hits, replis étirés, sales, mémoire
 //
 // Lot 1 — LA TUILE : la géométrie (fonctions pures, testées) et la cuisson
@@ -39,12 +38,6 @@ import { terrainZ } from './isoTerrain.js';
 import { drawIsoGround } from './isoGroundBake.js';
 import { artLayerAnchor } from './isoArtLayer.js';
 
-// Défaut false jusqu'au lot 4. `?pyramide=1` dans l'URL l'allume dès le
-// chargement — c'est ainsi que Raph la mesure en prod (npm run preview) sans
-// taper de molette avant la sonde.
-export const SOL_PYRAMIDE = {
-  on: typeof location !== 'undefined' && /[?&]pyramide=1(&|$)/.test(location.search),
-};
 export const TILE_PX = 256;                 // côté d'une tuile, en px DEVICE
 export const ZOOM_MIN = 0.25, ZOOM_MAX = 3.2;
 
@@ -287,6 +280,5 @@ export function solPyramideAB(opts = {}) {
 }
 
 if (typeof globalThis !== 'undefined') {
-  globalThis.__solPyramide = (v) => { if (v != null) SOL_PYRAMIDE.on = v !== false; return SOL_PYRAMIDE.on; };
   globalThis.__solPyramideStats = solPyramideStats;
 }

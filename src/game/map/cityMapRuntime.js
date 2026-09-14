@@ -94,14 +94,12 @@ let cmRenderDprCap = 1.5;
 let cmFrameMs = 1000 / 30;
 let cmCitizenMul = 1;
 let cmLodZoom = 0.55;       // seuil de zoom sous lequel la carte simplifie (0 = jamais)
-let cmCrispGesture = false; // Élevée : recuire le sol net pendant le geste (zéro flou)
 function cmApplyQualitySettings() {
   const s = qualitySettings();
   cmRenderDprCap = s.dpr;
   cmFrameMs = 1000 / s.fps;
   cmCitizenMul = s.citizenMul;
   cmLodZoom = (s.lodZoom != null) ? s.lodZoom : 0.55;
-  cmCrispGesture = !!s.crispGesture;
 }
 cmApplyQualitySettings();
 
@@ -161,16 +159,6 @@ function cityMapResizeCanvas(canvas) {
       CM.tctx.setTransform(dpr, 0, 0, dpr, 0, 0);
       CM._tileBake = null;
     }
-    if (CM.groundCanvas) {
-      CM.groundCanvas.width = onw;
-      CM.groundCanvas.height = onh;
-      CM.gctx.setTransform(dpr, 0, 0, dpr, 0, 0);
-      // Le sol ISO bake dans CE canvas sous _isoGroundBake : réallouer l'EFFACE,
-      // donc les deux états tombent ensemble. Sinon le bake iso se croit valide et
-      // on blitte un canvas vide jusqu'au prochain changement de clé (zoom) ou pan
-      // au-delà de la marge — « pas de textures avant de bouger la caméra ».
-      CM._groundBake = null; solInvalidate('all');
-    }
     if (CM.quayCanvas) {
       CM.quayCanvas.width = onw;
       CM.quayCanvas.height = onh;
@@ -190,7 +178,7 @@ function cmInvalidateBakes() {
   CM._staticBake = null;
   CM._tileBake = null;
   CM._groundBake = null;
-  solInvalidate('all');   // le sol iso partage CM.groundCanvas
+  solInvalidate('all');   // le sol en tuiles se recuit lui aussi (canvas neufs, dpr)
   CM._quayBake = null;
 }
 
@@ -1848,25 +1836,21 @@ function initCityMap(canvas, options = {}) {
     // (juste au-dessus) et c'est LUI qui détient la bonne taille — écran PLUS la
     // marge de pan. Comparer ici à `_pw × _ph`, la taille sans marge, ne
     // correspondait à rien et faisait tout réallouer à chaque fois.
-    const _reutilisable = CM.staticCanvas && CM.tileCanvas && CM.groundCanvas && CM.quayCanvas
-      && CM.sctx && CM.tctx && CM.gctx && CM.qctx;
+    const _reutilisable = CM.staticCanvas && CM.tileCanvas && CM.quayCanvas
+      && CM.sctx && CM.tctx && CM.qctx;
 
     if (!_reutilisable) {
       CM.staticCanvas = _mkOC(_pw, _ph);
       CM.sctx = CM.staticCanvas.getContext('2d');
       CM.tileCanvas = _mkOC(_pw, _ph);
       CM.tctx = CM.tileCanvas.getContext('2d');
-      // Sol (procédural + pixel + relief) : statique à caméra fixe → baké ici,
-      // blitté chaque frame (le sol pixel live coûtait ~7 ms/frame à lui seul).
-      CM.groundCanvas = _mkOC(_pw, _ph);
-      CM.gctx = CM.groundCanvas.getContext('2d');
       // QUAIS : même raison que le sol — géométrie statique (promenade le long du
       // ruban) qui pesait ~10 000 lineTo par frame en direct. Canvas SÉPARÉ du sol :
       // le quai se dessine APRÈS le fleuve live, il ne peut pas partager son bake.
       CM.quayCanvas = _mkOC(_pw, _ph);
       CM.qctx = CM.quayCanvas.getContext('2d');
       // G-29 : un contexte 2D offscreen null (perdu/épuisé) crasherait setTransform.
-      if (!CM.sctx || !CM.tctx || !CM.gctx || !CM.qctx) { CM.inited = false; return; }
+      if (!CM.sctx || !CM.tctx || !CM.qctx) { CM.inited = false; return; }
       // Les offscreen ci-dessus sont NEUFS (donc vides) mais CM est un singleton de
       // module qui survit au démontage : sans ça, les états de bake du montage
       // précédent restent « valides » → bake sauté → on blitte du vide jusqu'au
@@ -1881,7 +1865,6 @@ function initCityMap(canvas, options = {}) {
     // effet de bord, et il est obligatoire sur un contexte neuf.
     CM.sctx.setTransform(CM.dpr, 0, 0, CM.dpr, 0, 0);
     CM.tctx.setTransform(CM.dpr, 0, 0, CM.dpr, 0, 0);
-    CM.gctx.setTransform(CM.dpr, 0, 0, CM.dpr, 0, 0);
     CM.qctx.setTransform(CM.dpr, 0, 0, CM.dpr, 0, 0);
   }
   // Préchargement des sprites d'habitation dès le MONTAGE (avant le 1er paint / bake) : les
@@ -2024,7 +2007,6 @@ function initCityMap(canvas, options = {}) {
       CM.lodActive = CM.cam.zoom < cmLodZoom;
       // « Élevée » : sol NET pendant le geste (pas de re-blit lissé) — lu par le
       // renderer iso dans sa chaîne de coalescence du sol baké.
-      CM.crispGesture = cmCrispGesture;
       // Vie de la carte : UN SEUL point de coupe pour tout ce qui bouge sans
       // porter d'information (particules, fontaines, et les couches à venir).
       // Distinct de la Qualité, qui elle touche la résolution et la densité.
@@ -2239,21 +2221,8 @@ function initCityMap(canvas, options = {}) {
       const B = opts.block || 64;
       const c = CM.canvas, W = c.width, H = c.height;
       if (!CM.layout || !W || !H) return { err: 'pas de layout' };
-      // ⚠⚠ GARDE : LE SOL DOIT ÊTRE CUIT AU ZOOM COURANT. Sinon on mesure un BLIT
-      // MIS À L'ÉCHELLE d'un bake fait à un autre zoom — plus lisse, donc plus
-      // « plat », et la sonde ment. Ça m'a donné deux séries contradictoires avant
-      // que je le voie : mêmes ères, même zoom, tendance inversée. La cuisson est
-      // en TRANCHES, donc deux frames après un changement de zoom ne suffisent pas.
-      // Parade : jouer des frames jusqu'à ce que la clé du bake porte ce zoom.
-      const zk = CM.cam.zoom.toFixed(3);
-      const bakeOk = () => !!(CM._isoGroundBake && String(CM._isoGroundBake.other).includes(':' + zk + ':'));
-      if (!bakeOk() && !opts.sansGarde) {
-        for (let i = 0; i < 24 && !bakeOk(); i += 1) CM.captureFrame({ now: 1e6 + i * 100 });
-        if (!bakeOk()) {
-          return { err: 'sol non cuit au zoom ' + zk + ' — mesure refusée',
-            bake: String(CM._isoGroundBake && CM._isoGroundBake.other) };
-        }
-      }
+      // Sol en tuiles (lot 4) : la capture cuit tout le visible dans la frame,
+      // synchrone — la garde « sol cuit au zoom courant » n'a plus d'objet.
       const L = CM.layout, T = CM.TILE;
       // Densité d'arbres par cellule : une case boisée, c'est ≥1 arbre dessus.
       const arbres = new Set();

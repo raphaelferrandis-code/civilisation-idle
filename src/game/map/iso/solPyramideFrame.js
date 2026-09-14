@@ -1,7 +1,7 @@
 "use strict";
 // ── LE SOL EN PYRAMIDE DE TUILES — LA FRAME (lot 2 de PLAN-SOL-PYRAMIDE) ─────
 //
-// Ce que fait une frame quand `__solPyramide(true)` :
+// Ce que fait une frame (le sol en tuiles est le seul chemin depuis le lot 4) :
 //   1. le niveau = le cran de zoom sous le zoom courant (levelZoom) ; pendant
 //      un glissement, ses tuiles s'étirent de s = zoom / z — la carte web
 //      « garde le niveau étiré », rien n'est inventé ;
@@ -41,7 +41,7 @@ import { WONDER_GROUND, wonderGroundSet } from './isoWonderGround.js';
 import { beachPortCells } from './isoBeachCells.js';
 import { ISO_X, ISO_Y } from './projection.js';
 import {
-  SOL_PYRAMIDE, solPyramideStats, levelZoom, tileSideCss, camSpace, tileSpace, tileOrigin, cookTile, ZOOM_MIN, ZOOM_MAX,
+  solPyramideStats, levelZoom, tileSideCss, camSpace, tileSpace, tileOrigin, cookTile, ZOOM_MIN, ZOOM_MAX,
 } from './solPyramide.js';
 
 export const PYR = { budgetMs: 8, gestureBudgetMs: 12, gestureMaxTiles: 6, holeCapMs: 80, memMo: 96, ring: 1, gestureMs: 400 };
@@ -293,7 +293,7 @@ function cachedLevelsNear(z) {
 
 // ── La frame ─────────────────────────────────────────────────────────────────
 export function paintGroundPyramid(ctx, L, nowMs) {
-  if (!SOL_PYRAMIDE.on || !L) return false;
+  if (!L) return false;
   ensureQuayGate();
   curL = L;
   sigCur = groundContentSig(L);

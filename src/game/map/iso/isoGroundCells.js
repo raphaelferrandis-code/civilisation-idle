@@ -38,7 +38,7 @@ import {
 
 export function sweepIsoGroundCells(bake, resolve, out) {
   const {
-    ctx, T, hw, hh, LOD, HARD, b, cullOn, cullPadX, cullPadY, ISO_GROUND_SLICE,
+    ctx, T, hw, hh, LOD, HARD, b, cullOn, cullPadX, cullPadY,
     L, roadMap, riverCells, urb, mat, plazaEra, wg, PR,
   } = bake;
   const { kindAt, grassAt, keyOfKind } = resolve;
@@ -49,15 +49,6 @@ export function sweepIsoGroundCells(bake, resolve, out) {
       const p = worldToScreen(gx * T, gy * T);   // coin NORD du losange
       if (cullOn && (p.x < -cullPadX || p.x > CM.cw + cullPadX
         || p.y < -cullPadY || p.y > CM.ch + cullPadY)) continue;
-      // Recuisson en BANDE (tranche horizontale ou bande verticale du
-      // défilement) : seules les cellules de la bande travaillent — le clip
-      // garantit les pixels, ce test évite le calcul.
-      if (ISO_GROUND_SLICE.on) {
-        if (ISO_GROUND_SLICE.yOn && (p.y < ISO_GROUND_SLICE.y0 - ISO_GROUND_SLICE.padTop
-          || p.y > ISO_GROUND_SLICE.y1 + ISO_GROUND_SLICE.padBot)) continue;
-        if (ISO_GROUND_SLICE.xOn && (p.x < ISO_GROUND_SLICE.x0 - ISO_GROUND_SLICE.padX
-          || p.x > ISO_GROUND_SLICE.x1 + ISO_GROUND_SLICE.padX)) continue;
-      }
       if (PR) PR.n += 1;
       const key = gx + ',' + gy;
       const isRoad = L.roadSet.has(key);

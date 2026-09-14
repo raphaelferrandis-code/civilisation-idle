@@ -17,8 +17,8 @@ import { qualitySettings, setQualityMode } from "../qualityMode.js";
 // tactile a un curseur et doit rester sur le chemin bureau.
 const TIERS = {
   high:     { dpr: 2.0, citizenMul: 1.0, fps: 60, lodZoom: 0,    crispGesture: true },
-  balanced: { dpr: 1.5, citizenMul: 0.7, fps: 30, lodZoom: 0.55, crispGesture: false },
-  perf:     { dpr: 1.0, citizenMul: 0.4, fps: 30, lodZoom: 0.85, crispGesture: false },
+  balanced: { dpr: 1.5, citizenMul: 0.7, fps: 30, lodZoom: 0.55 },
+  perf:     { dpr: 1.0, citizenMul: 0.4, fps: 30, lodZoom: 0.85 },
 };
 
 // Fabrique un appareil. `pointeur` : "doigt" | "curseur" | null (pas de
