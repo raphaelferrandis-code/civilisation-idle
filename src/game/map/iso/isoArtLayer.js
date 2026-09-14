@@ -35,9 +35,25 @@
 // consommateurs sont SYNCHRONES et SÉQUENTIELS (le bake du sol se termine avant
 // que celui du quai commence) ; il ne le serait plus si un jour un bake devenait
 // incrémental et pouvait s'entrelacer avec un autre.
+//
+// ── L'ANCRE DE PHASE (lot 1 de PLAN-SOL-PYRAMIDE, 2026-09-14) ────────────────
+// Le calque est un RASTER à zoom 1 composé à l'échelle z : le pixel k du calque
+// couvre les pixels écran [ox + k·z, ox + (k+1)·z). Sur un bake plein écran,
+// `ox` est un seul nombre et personne ne voit sa phase. Sur des TUILES, chaque
+// tuile a son propre `ox` (il dépend de sa caméra) → la même route rasterisée
+// par deux tuiles voisines tombe sur deux grilles décalées d'une fraction de
+// pixel → une couture à chaque frontière. `artLayerAnchor(X0, Y0)` donne au
+// calque l'origine de la tuile dans l'ESPACE ÉCRAN À CAMÉRA NULLE ; begin/end
+// décalent alors le tracé et la composition d'une même fraction φ pour que la
+// grille du calque soit ancrée MONDE (φ = D mod z, D = X0 + cw/2 − z·w/2). Sans
+// ancre (null, le défaut) : comportement byte-identique à avant.
 import { CM } from '../layout.js';
+import { ISO_X, ISO_Y } from './projection.js';
 
 let _layer = null;
+let _anchor = null;   // { x, y } en px d'espace écran à caméra nulle, ou null
+
+export function artLayerAnchor(x, y) { _anchor = (x == null) ? null : { x, y }; }
 
 export function artLayerBegin(z) {
   const wArt = Math.ceil(CM.cw / z) + 2, hArt = Math.ceil(CM.ch / z) + 2;
@@ -54,7 +70,19 @@ export function artLayerBegin(z) {
   lay.ctx.clearRect(0, 0, lay.w, lay.h);
   // Bascule du repère de projection ET de la cible : worldToScreen lit
   // CM.cam.zoom et CM.cw/ch ; un consommateur peut prendre sa cible dans CM.ctx.
-  lay.saved = { zoom: CM.cam.zoom, cw: CM.cw, ch: CM.ch, ctx: CM.ctx };
+  lay.saved = { zoom: CM.cam.zoom, cw: CM.cw, ch: CM.ch, ctx: CM.ctx, camX: CM.cam.x, camY: CM.cam.y };
+  lay.phiX = 0; lay.phiY = 0;
+  if (_anchor) {
+    // φ = fraction de pixel écran dont la grille du calque déborde de la grille
+    // monde ; ε = φ/z en pixels de calque. Le tracé se décale de +ε (caméra
+    // reculée de ε), la composition de −φ : le contenu ne bouge pas, sa grille si.
+    const Dx = _anchor.x + CM.cw / 2 - z * wArt / 2, Dy = _anchor.y + CM.ch / 2 - z * hArt / 2;
+    lay.phiX = Dx - z * Math.floor(Dx / z); lay.phiY = Dy - z * Math.floor(Dy / z);
+    const ex = lay.phiX / z, ey = lay.phiY / z;
+    // Décalage caméra en MONDE équivalent à (−ex, −ey) en espace écran zoom 1.
+    const ax = -ex / ISO_X, ay = -ey / ISO_Y;
+    CM.cam.x += (ay + ax) / 2; CM.cam.y += (ay - ax) / 2;
+  }
   CM.cam.zoom = 1; CM.cw = lay.w; CM.ch = lay.h; CM.ctx = lay.ctx;
   return lay;
 }
@@ -62,7 +90,8 @@ export function artLayerBegin(z) {
 export function artLayerEnd(lay, ctx, z) {
   const s = lay.saved;
   CM.cam.zoom = s.zoom; CM.cw = s.cw; CM.ch = s.ch; CM.ctx = s.ctx;
-  const ox = s.cw / 2 - (lay.w * z) / 2, oy = s.ch / 2 - (lay.h * z) / 2;
+  CM.cam.x = s.camX; CM.cam.y = s.camY;
+  const ox = s.cw / 2 - (lay.w * z) / 2 - (lay.phiX || 0), oy = s.ch / 2 - (lay.h * z) / 2 - (lay.phiY || 0);
   const prev = ctx.imageSmoothingEnabled;
   ctx.imageSmoothingEnabled = false;
   ctx.drawImage(lay.c, 0, 0, lay.w, lay.h, ox, oy, lay.w * z, lay.h * z);

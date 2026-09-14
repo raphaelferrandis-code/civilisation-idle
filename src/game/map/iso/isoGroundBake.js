@@ -66,7 +66,7 @@ import { firstStripH, nextStripH, STRIP_BUDGET_MS } from './solStrips.js';
 //     de chaussée), mesurés comme le vrai gros du coût (herbe 25 ms + frange
 //     22,5 ms sur 108 ms à zoom 0,35).
 const ISO_GROUND_LOD = { on: false, light: false };
-function drawIsoGround() {
+export function drawIsoGround() {
   // Le MONTAGE vit dans isoGroundResolve.js depuis le 2026-08-23 : il résout, il ne
   // peint pas. Ce qui reste ici est l'ORDRE des passes, et rien d'autre.
   const { bake, resolve, out } = makeGroundBake(ISO_GROUND_LOD);

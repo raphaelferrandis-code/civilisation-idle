@@ -77,7 +77,49 @@ dézoom (11-27 k blits/frame), le quai (son propre bake, déjà en rafale).
 - **Preuve** : lint + suite verts, ancien chemin byte-identique (capture
   `__cityShot` avant/après = 0 pixel).
 
-### Lot 1 — La tuile (1 séance)
+### Lot 1 — La tuile (1 séance) — ✔ LIVRÉ 2026-09-14
+
+> **Fait** : `iso/solPyramide.js` — géométrie pure (levelZoom, tileSpace /
+> camSpace / camForSpace, tileIndex / tileOrigin, camForTile, tilesCovering,
+> 9 tests), `cookTile` (une tuile par `drawIsoGround`, caméra au centre, état
+> restauré en `finally`), `blitTile`, et le banc dev `__solPyramideAB` (plein
+> vs tuiles, et tuiles vs tuiles sur une grille décalée d'une demi-tuile =
+> **l'invariance à la découpe, la couture MESURÉE**). `drawIsoGround` exporté ;
+> `isoArtLayer.artLayerAnchor` (ancre de phase du calque de voirie).
+>
+> **Preuve (petite ville, 952×680, dpr 1, deux passes — la 2e fait foi, la 1re
+> chauffe les caches de textures)** — pixels « forts » (Δ > 8) entre les deux
+> découpes / dont sur les frontières de tuiles :
+> z 1 : 6 / 0 · z 0,5 : 12 / 0 · z 0,25 : 7 / 0 · z 0,375 : 164 / 0 ·
+> z 0,875 : 3 / 0 · z 2,375 : 0 / 0. Δmax 9-10 hors z 0,375 (36).
+> Les pixels « faibles » (Δ ≤ 8, 2 000-25 000 par écran) sont l'antialiasing
+> des VOILES translucides (prairie, alpha ≤ 0,1) dont l'union de losanges se
+> découpe autrement : invisible, mesuré à Δ ≤ 2 pour l'essentiel. Le critère
+> retenu est donc « 0 pixel FORT sur les frontières », pas « 0 pixel ».
+> Coût : 0,9-4,2 ms par tuile (z 1 → 0,25) sur ce poste.
+>
+> **Trois pièges payés, à ne pas repayer :**
+> 1. ⚠⚠ **La caméra de cuisson doit être EXACTE en flottant.** Avec un côté
+>    fixe de 256, camForTile donnait 8·X/n (z = n/8) non dyadique, et
+>    worldToScreen arrondissait au dernier bit différemment par tuile : un blit
+>    au plus proche voisin posé sur un demi-pixel basculait d'un pixel entier
+>    → 2,5-5,7 % de l'écran différait entre deux découpes, PARTOUT. Remède :
+>    `tileSideCss(dpr, z)` = côté multiple de n le plus proche de 256 (255 à
+>    z 0,375, 259 à 0,875, 247 à 2,375), et côté device entier ; la caméra est
+>    alors un demi-entier. Le banc lui-même doit décaler sa grille d'un multiple
+>    de n (127,5 → 20 000 px faux).
+> 2. ⚠ **Le calque de voirie est un raster à zoom 1 composé à l'échelle** : sa
+>    grille dépend de la caméra de la tuile → `artLayerAnchor` décale tracé et
+>    composition d'une même fraction φ = D mod z pour l'ancrer monde. Sans
+>    ancre : byte-identique à avant (le plein n'en pose pas).
+> 3. ⚠ **La première cuisson d'un zoom n'est pas la bonne** : les variantes de
+>    textures se construisent à la demande (`ensureIsoTileKey`) → première
+>    passe = aplat, seconde = texture. Toute mesure se fait sur une 2e passe.
+>
+> Résidu noté : plein vs tuiles diffère « fort » de 0,001-0,07 % (z ≤ 1) et
+> 1,7 % à z 2,375 — la phase du raster de voirie, que le plein ne fixe pas et
+> que les tuiles ancrent monde. Ce n'est pas une couture, c'est un autre
+> arrondi, cohérent d'une tuile à l'autre.
 - `iso/solPyramide.js` : clé de tuile, `tileFromWorld` / `worldFromTile`
   (fonctions pures, tests), cuisson d'UNE tuile : gouttière d'**une cellule**
   (les franges d'herbe mordent, les joints débordent), clip au blit.

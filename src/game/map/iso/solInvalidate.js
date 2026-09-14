@@ -29,10 +29,9 @@
 // solPyramide.js ici : ce module est importé par projection.js et les modules
 // de sol, un import croisé fermerait un cycle).
 import { CM } from '../layout.js';
-// Import d'EFFET : solPyramide.js pose la molette `__solPyramide` et le relevé
-// `__solPyramideStats` — sans cet import, personne ne le charge et la molette
-// n'existe pas en prod (vu au lot 0 : « __solPyramide is not a function »).
-import './solPyramide.js';
+// ⚠ Pas d'import de solPyramide.js ici (cycle : projection → façade → pyramide
+// → projection). C'est cityMapRuntime.js qui le charge — vu au lot 0 : un
+// module que personne n'importe n'existe pas en prod, molette comprise.
 
 let pyramidHook = null;
 

@@ -60,6 +60,7 @@ import { riverIslandObstacles } from './iso/isoFleet.js';
 import { fpBegin, fp, fpEnd } from './framePerf.js';
 import { solTrace, solRec, keyDiff } from './solTrace.js';
 import { solInvalidate } from './iso/solInvalidate.js';
+import { solPyramideAB } from './iso/solPyramide.js';
 import { tissuMetrics, tissuReport } from './tissuMetrics.js';
 // ⚠ Ces six imports ont été élagués le 2026-08-23 avec le pipeline top-down
 // (étape 4). Ce qui reste ne sert PLUS au dessin de la carte : `renderWorld` n'y
@@ -2490,6 +2491,8 @@ function initCityMap(canvas, options = {}) {
     // Accès direct au runtime carte (caméra, véhicules, layout) pour la vérif visuelle :
     // ex. centrer/zoomer sur un attelage avant __cityShot.
     window.__CM = CM;
+    // Banc du lot 1 de PLAN-SOL-PYRAMIDE : sol en tuiles vs sol plein, couture mesurée.
+    window.__solPyramideAB = (o) => solPyramideAB(o);
   }
   CM.raf = requestAnimationFrame(frame);
 }
