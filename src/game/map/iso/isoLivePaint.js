@@ -404,7 +404,7 @@ export function paintIsoItems(bake, items, now) {
     } else if (it.kind === 'critter') {
       const cr = it.cr;
       const p = worldToScreen((cr.gx + 0.5 + cr.jx) * T, (cr.gy + 0.5 + cr.jy) * T);
-      const m = drawCritterIso(ctx, p.x, p.y, T * z, cr, AGENT_SCALE);
+      const m = drawCritterIso(ctx, p.x, p.y, T * z, cr, AGENT_SCALE, CM.dpr);
       // Sonde G0 : le bétail est mesuré ICI et pas dans critters.js, qui n'a
       // AUCUN IMPORT par construction (cf. son en-tête). Il rend sa mesure, on
       // l'enregistre. Famille absente du relevé §1.2 du plan — et le chat est

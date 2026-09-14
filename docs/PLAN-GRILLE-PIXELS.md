@@ -474,6 +474,26 @@ des VÉHICULES et des BÊTES DE TRAIT rabattues sur la grille device (§2.1). Il
 touche à aucun art, il ne change aucune taille apparente, et il tient tout seul —
 c'est le seul morceau de G1 qui ait survécu à la séance.
 
+🏁 **2026-09-14 — le même correctif, étendu à TOUT le vivant.** Raph : « j'ai
+besoin de ne plus voir de clipping » (= le fourmillement). Le relevé des sites de
+blit disait que trois familles restaient hors grille : les habitants, porteurs et
+émeutiers (`agents.js` arrondissait en px CSS — juste à dpr 1, faux à 1,25 et
+1,5), les BATEAUX (`isoPort.js` : flotte et amarre PixelLab, **aucun arrondi**,
+et un tangage en fraction de pixel qui faisait fourmiller la coque même à quai)
+et le bétail (`critters.js`, taille fractionnaire). L'arrondi vit désormais dans
+UN module, `src/game/map/blitSnap.js` (`snapDev`), importé par `agents.js`,
+`isoPort.js`, `isoUnits.js` (ex-`snapU`) et `cityEngineSprites.js` ;
+`critters.js`, qui n'a pas d'import, reçoit `dpr` en argument. Garde :
+`__tests__/vivantSnapDevice.test.js` lit les sources des sites de blit.
+- ⚠ Le poste de Raph est à dpr 1 (échelle Windows 100 %) : pour les habitants
+  le changement est nul chez lui ; ce qu'il voit changer, ce sont les bateaux.
+- ⚠⚠ **Ce que l'arrondi ne règle pas** : le bouillonnement des FRAMES aux
+  basses densités (émeutiers 0,146, bêtes de trait 0,23, attelages 0,24-0,29),
+  où chaque image de marche se ré-échantillonne autrement même à position
+  entière. C'est la résolution de l'art (§5-G1a) ; et les drones tournent
+  (`ctx.rotate`, isoSky.js), ce qu'aucun arrondi ne tient.
+- Non mesuré en jeu cette séance : pane Browser caché → rAF muet.
+
 - Gain attendu : personnages EN GRILLE, fin du grouillement, et moins de travail
   GPU (le blit ne réduit plus).
 - ⚠⚠ La cuisson doit se faire **à taille apparente CONSTANTE** : le personnage

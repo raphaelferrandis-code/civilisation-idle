@@ -51,20 +51,23 @@ export const critterReady = (c) => !!c && c.ready >= CRITTER_DIAG.length;
 
 // Une bête, posée sur (x, yFeet) en pixels ÉCRAN. tilePx = CM.TILE × zoom,
 // agentScale = AGENT_SCALE du moteur (liaison vive côté appelant : la molette
-// __agentScale doit emporter le bétail avec les habitants).
-export function drawCritterIso(ctx, x, yFeet, tilePx, cr, agentScale) {
+// __agentScale doit emporter le bétail avec les habitants). dpr = CM.dpr, pour
+// rabattre le blit sur la grille DEVICE comme blitSnap.js le fait ailleurs —
+// ce module n'importe rien, donc l'arrondi est réécrit ici, à l'identique.
+export function drawCritterIso(ctx, x, yFeet, tilePx, cr, agentScale, dpr = 1) {
   const c = ensureCritter(cr.kind);
   if (!critterReady(c)) return false;
   const img = c.img[CRITTER_DIAG[cr.dir & 3]];
   if (!img || !(img.naturalWidth > 0)) return false;
   const fh = img.naturalHeight || img.height;
-  const h = tilePx * (CRITTER_SIZES[cr.kind] || 0.6) * agentScale, w = h;
+  const d = dpr || 1, snap = (v) => Math.round(v * d) / d;
+  const h = Math.max(1, snap(tilePx * (CRITTER_SIZES[cr.kind] || 0.6) * agentScale)), w = h;
   // ⛔ PAS D'ELLIPSE D'OMBRE (Raph 2026-08-05, retirée en même temps que celle des
   // véhicules) : le sprite porte déjà son ombre de contact, et une tache noire de
   // plus sous une bête de dix pixels se lit comme une salissure du sol.
   const prev = ctx.imageSmoothingEnabled;
   ctx.imageSmoothingEnabled = false;
-  ctx.drawImage(img, 0, 0, fh, fh, Math.round(x - w / 2), Math.round(yFeet - h * FOOT_FRAC), w, h);
+  ctx.drawImage(img, 0, 0, fh, fh, snap(x - w / 2), snap(yFeet - h * FOOT_FRAC), w, h);
   ctx.imageSmoothingEnabled = prev;
   // Renvoie la MESURE du blit (planche source, boîte écran) au lieu d'un simple
   // `true` — un objet reste vrai, donc les appelants en `if (!drawCritterIso…)`

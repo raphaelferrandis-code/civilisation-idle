@@ -20,6 +20,7 @@ import { CM } from '../layout.js';
 import { worldToScreen } from './projection.js';
 import { drawRiotWeapon } from '../quaysAndRiot.js';
 import { pxProbe, recPx } from '../pixelGrid.js';
+import { snapDev as snapU } from '../blitSnap.js';
 import { bridgeLiftWorld } from './isoBridge.js';
 import {
   drawEraAgent, drawEraAgentIso, drawNamedAgent, drawNamedAgentIso, drawVehicleHeadlights,
@@ -73,10 +74,9 @@ if (typeof window !== 'undefined') window.__vehStride = (x) => { vehStrideT.v = 
 // donc à rien. C'est la leçon S6 de PLAN-RENDU-VILLE, déjà payée pour les
 // bâtiments (`snapDev`, cityEngineSprites.js) ; on ne la repaie pas ici.
 // À dpr 1, `snapU` EST `Math.round` : sur un écran à 100 %, rien ne bouge.
-// ⚠ `agents.js` arrondit toujours en px CSS de son côté (habitants, porteurs,
-// émeutiers). Même besoin, même correctif possible — mais c'est du rendu validé
-// par Raph, il ne se change pas en passant.
-const snapU = (v) => { const d = CM.dpr || 1; return Math.round(v * d) / d; };
+// L'arrondi lui-même vit dans blitSnap.js (`snapDev`, importé ici sous son
+// ancien nom) : depuis le 2026-09-14 les habitants, les bateaux et le bétail
+// le partagent — un seul arrondi pour tout ce qui bouge.
 
 // Bête de trait (cheval/bœuf) en VUE DIAGONALE : bandes veh-{animal}-{diag}.png
 // (objets 8-dir PixelLab animés « walking » 6 frames), frame par DISTANCE

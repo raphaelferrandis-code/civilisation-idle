@@ -13,6 +13,7 @@ import { queueFlameGlow } from './flameGlow.js';
 import { lightCut, lightCutImage } from './lightLayer.js';
 import { recDens, palierK, PALIER_SPANSUM, palierHFrac } from './spriteScale.js';
 import { pxProbe, recPx } from './pixelGrid.js';
+import { snapDev } from './blitSnap.js';
 import { snowSprite, snowRoofTune } from './snowRoof.js';
 import { WINTER } from './seasonMode.js';
 
@@ -513,7 +514,7 @@ function tailleNette(src, cible) {
 // rabattement déplace les sprites de ~2 % et deux calibrages au pixel en
 // dépendent (ordre de substitution des paliers, foyers de flamme) — cf. le
 // bandeau de BLIT_SNAP, qui explique pourquoi le défaut est 1 et pas 3.
-const snapDev = (v) => { const d = CM.dpr || 1; return Math.round(v * d) / d; };
+// (`snapDev` : blitSnap.js — le même arrondi que les unités, les habitants et les bateaux.)
 
 function snapRect(left, top, drawW, drawH, srcW, srcH, ancre) {
   const st = BLIT_SNAP.stats;

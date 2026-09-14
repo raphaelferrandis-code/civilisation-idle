@@ -5,6 +5,7 @@ import { worldToScreen as projWorldToScreen, panDeltaToScreen } from './iso/proj
 import { bridgeLiftWorld, bridgeWalkBand, bridgeLaneBand, bridgeTune } from './iso/isoBridge.js';
 import { VEH_SKINS } from './vehicleSkins.js';
 import { pxProbe, recPx } from './pixelGrid.js';
+import { snapDev } from './blitSnap.js';
 
 /* ---- legacy citymap rendering\agents.js ---- */
 
@@ -220,10 +221,12 @@ function drawNamedAgent(ctx, sx, groundY, z, name, scale, dir, walking, now, pha
   const chr = ensureAgentChar(name);
   if (!agentReady(chr)) return false;
   const d = (dir >= 0 && dir < 4) ? dir : 2;
-  const drawH = Math.max(1, Math.round(CM.TILE * z * scale * AGENT_SCALE * scaleMul)), drawW = drawH;
+  const drawH = Math.max(1, snapDev(CM.TILE * z * scale * AGENT_SCALE * scaleMul)), drawW = drawH;
   const img = chr.img[VILLAGER_DIRS[d]] || chr.img.south;
   // Frame DÉDUITE de l'image (frames carrées) : les bandes flat 2026-08 sortent en
-  // 56-60 px, plus au 68 historique. Coordonnées entières contre le fourmillement.
+  // 56-60 px, plus au 68 historique. Position et taille sur la grille DEVICE
+  // (blitSnap.js) contre le fourmillement — l'arrondi CSS d'avant le 2026-09-14
+  // tombait entre deux pixels aux échelles Windows 125 et 150 %.
   const fh = img.naturalHeight || AGENT_FH;
   // Nombre d'images DÉDUIT de la bande, comme le fait déjà le jumeau iso : la hauteur
   // de frame l'était déjà, le COMPTE restait sur AGENT_NF en dur. Toutes les bandes
@@ -231,7 +234,7 @@ function drawNamedAgent(ctx, sx, groundY, z, name, scale, dir, walking, now, pha
   // — panne muette, le sprite disparaît une image sur deux au lieu de crier.
   const nf = Math.max(1, Math.round((img.naturalWidth || fh) / fh));
   const frame = walking ? (Math.floor((now || 0) / 160 + (phase || 0) * 6) % nf) : 0;
-  const left = Math.round(sx - drawW / 2), top = Math.round(groundY - AGENT_FEET * drawH);
+  const left = snapDev(sx - drawW / 2), top = snapDev(groundY - AGENT_FEET * drawH);
   const prevS = ctx.imageSmoothingEnabled; ctx.imageSmoothingEnabled = false;
   if (pxProbe.on) recPx(pxAgentFam(name) + ' · cardinal', fh, drawH);
   ctx.drawImage(img, frame * fh, 0, fh, fh, left, top, drawW, drawH);
@@ -350,10 +353,11 @@ function drawNamedAgentIso(ctx, sx, groundY, z, name, scale, dir, walking, now, 
   const d = (dir >= 0 && dir < 4) ? dir : 2;
   let img = c.img[ISO_DIAG[d]];
   let fh = img.naturalHeight || AGENT_FH;
-  // Taille ENTIÈRE : en sous-pixel, le nearest ré-échantillonne différemment à
+  // Taille sur la grille DEVICE (blitSnap.js, plus l'entier CSS depuis le
+  // 2026-09-14) : en sous-pixel, le nearest ré-échantillonne différemment à
   // chaque position → le sprite fourmille en marchant. Et sous 70 % de la bande
   // pleine, bascule sur la bande -half pré-cuite (ratio rendu ~1:1, fini le bruit).
-  const drawH = Math.max(1, Math.round(CM.TILE * z * scale * AGENT_SCALE * scaleMul)), drawW = drawH;
+  const drawH = Math.max(1, snapDev(CM.TILE * z * scale * AGENT_SCALE * scaleMul)), drawW = drawH;
   const half = halfBands.on ? c.imgHalf[ISO_DIAG[d]] : null;
   if (half && half.complete && half.naturalWidth > 0 && drawH <= fh * 0.7) {
     img = half;
@@ -373,7 +377,7 @@ function drawNamedAgentIso(ctx, sx, groundY, z, name, scale, dir, walking, now, 
     }
   }
   const feetF = groundFeet ? agentFootF(c, img) : AGENT_FEET;
-  const left = Math.round(sx - drawW / 2), top = Math.round(groundY - feetF * drawH);
+  const left = snapDev(sx - drawW / 2), top = snapDev(groundY - feetF * drawH);
   const prevS = ctx.imageSmoothingEnabled; ctx.imageSmoothingEnabled = false;
   // Sonde G0 : `fh` porte DÉJÀ la bascule -half ci-dessus — c'est la planche
   // réellement échantillonnée qui est mesurée, pas celle qu'on croit servir.
