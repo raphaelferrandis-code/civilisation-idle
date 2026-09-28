@@ -9,7 +9,9 @@
 // jour (crépuscule, nuit ou aube). Sa toute première image était alors sombre et
 // grise — un campement de tentes sous la pluie.
 //
-// Module-FEUILLE (aucun import) : la carte lui passe l'état, les tests aussi.
+// La carte lui passe l'état, les tests aussi. Seul import : isFirstGame,
+// module-feuille lui aussi (onboarding.js n'importe rien).
+import { isFirstGame } from '../core/onboarding.js';
 
 // Durée de la grâce, en secondes de jeu ACTIF à vie (chronicleStats.
 // lifetimePlaySec : onglet visible, rattrapage hors-ligne exclu). Dix minutes
@@ -17,16 +19,13 @@
 // un joueur qui achète tout) ; le campement de tentes, lui, dure bien plus.
 export const FIRST_GAME_GRACE_SEC = 600;
 
-// La grâce vaut pour la TOUTE PREMIÈRE partie seulement : ni effondrement, ni
-// Grand Reset derrière soi. `onboarding.collapsed` survit au Grand Reset (il
-// est dans GR_PERSISTENT_FIELDS), `cycles` non : les deux ensemble couvrent tout.
+// La grâce vaut pour la TOUTE PREMIÈRE partie seulement (isFirstGame : ni
+// effondrement, ni Grand Reset derrière soi).
 // Le temps joué prend le plus grand des deux compteurs : une save antérieure au
 // registre de la Chronique charge lifetimePlaySec à 0 alors que playTimeSec,
 // lui, a déjà compté — elle ne doit pas regagner dix minutes de beau temps.
 export function firstGameGraceActive(s) {
-  if (!s) return false;
-  if ((s.cycles || 0) > 0 || (s.grandResetCount || 0) > 0) return false;
-  if (s.onboarding && s.onboarding.collapsed) return false;
+  if (!isFirstGame(s)) return false;
   const lifetime = (s.chronicleStats && s.chronicleStats.lifetimePlaySec) || 0;
   const played = Math.max(lifetime, s.playTimeSec || 0);
   return played < FIRST_GAME_GRACE_SEC;

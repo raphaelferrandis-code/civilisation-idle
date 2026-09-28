@@ -23,13 +23,16 @@ import { tr } from '../../game/core/i18n.js';
 import CrisisDoctrinePanel from '../ui/CrisisDoctrinePanel.jsx';
 import GrandResetLadder from '../ui/GrandResetLadder.jsx';
 import TestamentSeals from '../ui/TestamentSeals.jsx';
+import TensionBarometers from '../ui/TensionBarometers.jsx';
 import { tipProps } from '../ui/HelpBubble.jsx';
+import { isFirstGame } from '../../game/core/onboarding.js';
 
 export default function PrestigeView() {
   const instability = useGameState(s => s.instability);
   const timeWear = useGameState(s => s.timeWear);
   const crisisLimitAnnounced = useGameState(s => s.crisisLimitAnnounced);
   const crisisOpenedAt = useGameState(s => s.crisisOpenedAt);
+  const firstGame = useGameState(isFirstGame);
   useGameState(s => s.activeMythId);
   const history = useGameState(s => s.history);
   const crisisExtensions = useGameState(s => s.crisisExtensions);
@@ -426,6 +429,31 @@ export default function PrestigeView() {
               </div>
             )}
           </div>
+        </div>
+      )}
+
+      {/* 2 bis. AVANT LA PREMIÈRE CHUTE (décision de Raph, 2026-09-28) : hors crise,
+          cette page n'a pas d'autel — et le tutoriel y envoie le joueur vers 6 min
+          (« Provoque ton premier effondrement ») alors que la chute ne s'ouvre qu'à
+          100 % de Rupture ou d'Usure, soit vers 1 h 15 sur une première partie.
+          On dit donc pourquoi il n'y a pas de bouton, jauges à l'appui. Les jauges
+          sont le BANDEAU FIN de la Régulation (TensionBarometers) et non les
+          grandes cartes retirées de cette page le 2026-07-13 ; et l'encart
+          disparaît après la toute première partie, pour ne pas les y remettre. */}
+      {!isCrisisActive && firstGame && (
+        <div className="panel collapse-waiting-panel">
+          <div className="panel-heading">
+            <div>
+              <h2>{tr({ fr: "La chute n'est pas encore ouverte", en: "The fall is not open yet" })}</h2>
+              <p className="crisis-intro">
+                {tr({
+                  fr: "Elle s'ouvre quand la Rupture, ou l'Usure, atteint 100 % : la cité entre en crise, et c'est ici que tu pourras l'effondrer. Le trait blanc montre où la Rupture se dirige.",
+                  en: "It opens when Rupture, or Wear, reaches 100%: the city enters a crisis, and this is where you will be able to collapse it. The white tick shows where Rupture is heading."
+                })}
+              </p>
+            </div>
+          </div>
+          <TensionBarometers />
         </div>
       )}
 

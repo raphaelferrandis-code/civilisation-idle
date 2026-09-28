@@ -15,12 +15,33 @@ import {
   ONBOARDING_PRESSURE_THRESHOLD,
   currentOnboardingStep,
   onboardingSignature,
-  refreshOnboarding
+  refreshOnboarding,
+  isFirstGame
 } from "../onboarding.js";
 
 const roundTrip = (s) => hydrateState(JSON.parse(JSON.stringify(s)));
 
 beforeEach(() => { setState(defaultState()); });
+
+describe("la toute première partie", () => {
+  it("une partie neuve l'est", () => {
+    expect(isFirstGame(state)).toBe(true);
+  });
+
+  it("un effondrement la clôt, et le Grand Reset ne la rouvre pas", () => {
+    state.cycles = 1;
+    refreshOnboarding(state, 1);
+    expect(isFirstGame(state)).toBe(false);
+    // Grand Reset : `cycles` repart à 0, mais le drapeau à vie et le compteur restent.
+    state.cycles = 0;
+    expect(isFirstGame(state)).toBe(false);
+    expect(isFirstGame({ ...defaultState(), grandResetCount: 1 })).toBe(false);
+  });
+
+  it("sans état, ce n'en est pas une", () => {
+    expect(isFirstGame(null)).toBe(false);
+  });
+});
 
 describe("le fil avance dans l'ordre", () => {
   it("une partie neuve commence à la première étape", () => {

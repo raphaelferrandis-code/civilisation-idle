@@ -55,13 +55,31 @@ export const ONBOARDING_STEPS = [
   {
     id: "collapse",
     label: { fr: "Provoque ton premier effondrement", en: "Trigger your first collapse" },
+    // ⚠ L'indice DIT QUAND la chute s'ouvre (décision de Raph, 2026-09-28). Cette
+    // étape s'affiche vers 6 min de jeu, alors que l'autel de l'Effondrement
+    // n'existe qu'en crise (Rupture ou Usure à 100 %), soit vers 1 h 15 sur une
+    // première partie (sim-10-profils). L'ancien indice ne parlait que de l'après :
+    // le joueur cherchait un bouton qui n'existait pas encore. Pas de durée
+    // chiffrée : les estimations de temps sont proscrites dans l'interface.
     hint: {
-      fr: "Tout s'efface, sauf les Ruines. Elles rendent la cité suivante plus forte : c'est ainsi qu'on avance.",
-      en: "Everything is erased, except the Ruins. They make the next city stronger: that is how you move forward."
+      fr: "La chute s'ouvre quand la Rupture atteint 100 % : la cité entre en crise, et l'onglet Effondrement te laisse alors l'abattre. Tout s'efface, sauf les Ruines : elles rendent la cité suivante plus forte.",
+      en: "The fall opens when Rupture reaches 100%: the city enters a crisis, and the Collapse tab then lets you bring it down. Everything is erased, except the Ruins: they make the next city stronger."
     },
     done: (s) => Boolean(s.onboarding?.collapsed)
   }
 ];
+
+/**
+ * La TOUTE PREMIÈRE partie : aucun effondrement ni Grand Reset derrière soi.
+ * `cycles` repart à 0 au Grand Reset, d'où les deux autres témoins :
+ * `grandResetCount`, et le drapeau à vie `onboarding.collapsed` (dans
+ * GR_PERSISTENT_FIELDS). Lu par l'accueil du nouveau joueur : encart
+ * d'Effondrement, Régulation repliée, grâce météo de la carte.
+ */
+export function isFirstGame(s) {
+  if (!s) return false;
+  return (s.cycles || 0) === 0 && (s.grandResetCount || 0) === 0 && !s.onboarding?.collapsed;
+}
 
 // Seuil de « la Rupture monte » : un quart de la jauge. Assez bas pour tomber
 // dans les premières minutes sans rien demander de particulier, assez haut pour

@@ -85,6 +85,7 @@ import {
 } from '../../game/data/myths.js';
 import { epitaphLegacyById, epitaphLegacyChips } from '../../game/data/epitaphs.js';
 import { CHRONICLE_VISIBLE_MS } from '../../game/core/chronicleEvaluator.js';
+import { isFirstGame } from '../../game/core/onboarding.js';
 
 // Petit écran : MÊME condition que le cran 2 des crans de densité
 // (views-city-hud.css). ⚠ Les deux doivent rester d'accord — c'est le même
@@ -144,7 +145,13 @@ export default function CityView() {
   // ⚠ Lu UNE fois au montage, et uniquement pour le tout premier lancement : dès
   // que le joueur a plié ou déplié une fois, son choix est mémorisé et gagne
   // (useCollapsiblePanel). On ne réécrit jamais une décision explicite.
+  // ⚠ ET REPLIÉE AUSSI dans la TOUTE PREMIÈRE partie, tant qu'aucune crise n'a
+  // éclaté (décision de Raph, 2026-09-28) : au bureau elle couvrait la moitié
+  // basse du campement dès la seconde 0, avec six politiques verrouillées sur
+  // sept — le premier écran du jeu. Elle se déplie d'elle-même à la première
+  // crise (cf. l'effet `firstCrisisSeen` plus bas).
   const [regulDefaultOpen] = useState(() => {
+    if (isFirstGame(state) && (state.cycleCrisesResolved || 0) === 0) return false;
     try {
       return !window.matchMedia(REGUL_DENSE_QUERY).matches;
     } catch {
@@ -177,6 +184,22 @@ export default function CityView() {
   // replié, exactement comme la boutique) mais un bouton flottant posé sur la
   // carte. La clé de mémoire ne change pas : le bureau retrouve son état.
   const [regulOpen, toggleRegul, setRegulOpen] = useCollapsiblePanel('regul', regulDefaultOpen);
+  // PREMIÈRE CRISE de la toute première partie (vers 5 min 30 : « Les entrepôts
+  // font parler d'eux ») : la Régulation se déplie UNE fois, au moment où ses
+  // jauges deviennent parlantes. Front montant seul, comme `openWhen` de
+  // HudPanel — et PAS fusionné avec lui : un `inCrisis || …` resterait vrai
+  // jusqu'à la crise terminale et en mangerait le front, or ce dépliage-là est
+  // une sécurité. Limité à la première partie : les cycles suivants gardent le
+  // choix mémorisé du joueur.
+  const firstCrisisSeen = useGameState((s) => isFirstGame(s) && (s.cycleCrisesResolved || 0) >= 1);
+  // ⚠ Amorcé à la valeur COURANTE (HudPanel, lui, part de false) : la vue Cité
+  // se remonte à chaque changement d'onglet, et une crise déjà passée ne doit
+  // pas rouvrir l'encart à chaque retour sur la carte.
+  const firstCrisisWas = useRef(firstCrisisSeen);
+  useEffect(() => {
+    if (firstCrisisSeen && !firstCrisisWas.current) setRegulOpen(true);
+    firstCrisisWas.current = firstCrisisSeen;
+  }, [firstCrisisSeen, setRegulOpen]);
 
   // Dock du rail gauche : un seul popover ouvert à la fois (chronique/exhume/mythes).
   const [openDock, setOpenDock] = useState(null);
