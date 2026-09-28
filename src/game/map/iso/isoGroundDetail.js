@@ -158,8 +158,12 @@ const GD_FLOWERS = [
 // de Skia (aucun path construit) — contrairement aux diamondPath des voiles, que
 // le remisage par palier fait gagner pour de bon (194 → 102 ms). Le vrai coût
 // résiduel ici est la CHAÎNE de style reconstruite par rect, pas l'appel de dessin.
-export function drawGrassDetail(ctx, gx, gy, px, py, hw, hh) {
+export function drawGrassDetail(ctx, gx, gy, px, py, hw, hh, onGrass = null) {
   const pu = Math.max(1, Math.round(hw * 0.055));    // « pixel » d'art (suit le zoom)
+  // LISIÈRE ARRONDIE (cf. isoLisiere) : dans une cellule de bord, un motif ne se pose
+  // que si SON point est de l'herbe — sinon la fleur tomberait dans la terre que
+  // le bord arrondi a rendue au sol voisin. `ok(fx, fy)` en fraction de cellule.
+  const ok = (fx, fy) => !onGrass || onGrass(gx + fx, gy + fy);
   // Sous-point (fx,fy)∈cellule → écran depuis le coin nord (projection linéaire :
   // Δx world → (hw,hh), Δy world → (−hw,hh)).
   const rect = (sx, sy, w, h, col, a) => {
@@ -173,14 +177,14 @@ export function drawGrassDetail(ctx, gx, gy, px, py, hw, hh) {
     const fx = 0.2 + ((h1 >> 8) & 63) / 63 * 0.6;
     const fy = 0.2 + ((h1 >> 14) & 63) / 63 * 0.6;
     const sx = Math.round(px + (fx - fy) * hw), sy = Math.round(py + (fx + fy) * hh);
-    rect(sx, sy, pu, pu, (h1 & 1) ? GD_SPECK_Y : GD_SPECK_L, 0.5);
+    if (ok(fx, fy)) rect(sx, sy, pu, pu, (h1 & 1) ? GD_SPECK_Y : GD_SPECK_L, 0.5);
   }
   // Touffe de brins (knob tuftP, défaut 0) : 2-3 brins verticaux, corps foncé + pointe.
   if (GRASS_DETAIL.tuftP > 0 && (h2 & 255) / 255 < GRASS_DETAIL.tuftP) {
     const fx = 0.28 + ((h2 >> 8) & 31) / 31 * 0.44;
     const fy = 0.30 + ((h2 >> 13) & 31) / 31 * 0.42;
     const bx = Math.round(px + (fx - fy) * hw), by = Math.round(py + (fx + fy) * hh);
-    const nB = 2 + ((h2 >> 18) & 1);                 // 2 ou 3 brins
+    const nB = ok(fx, fy) ? 2 + ((h2 >> 18) & 1) : 0;   // 2 ou 3 brins (aucun hors de l'herbe)
     const bh = Math.max(2 * pu, Math.round(hw * 0.13));
     for (let i = 0; i < nB; i += 1) {
       const bxi = bx + Math.round((i - (nB - 1) / 2) * (pu + 1));
@@ -198,9 +202,11 @@ export function drawGrassDetail(ctx, gx, gy, px, py, hw, hh) {
     const fx = 0.3 + ((h1 >> 20) & 15) / 15 * 0.4;
     const fy = 0.3 + ((h2 >> 20) & 15) / 15 * 0.4;
     const cx = Math.round(px + (fx - fy) * hw), cy = Math.round(py + (fx + fy) * hh);
-    rect(cx - pu, cy, pu, pu, petal, 1); rect(cx + pu, cy, pu, pu, petal, 1);
-    rect(cx, cy - pu, pu, pu, petal, 1); rect(cx, cy + pu, pu, pu, petal, 1);
-    rect(cx, cy, pu, pu, core, 1);
+    if (ok(fx, fy)) {
+      rect(cx - pu, cy, pu, pu, petal, 1); rect(cx + pu, cy, pu, pu, petal, 1);
+      rect(cx, cy - pu, pu, pu, petal, 1); rect(cx, cy + pu, pu, pu, petal, 1);
+      rect(cx, cy, pu, pu, core, 1);
+    }
   }
   // ── TOUFFES et PIERRES (sprites, pack Cainos) ──────────────────────────────
   // Posés à l'échelle du PIXEL D'ART (pu) et pas à une taille en px : c'est ce
@@ -211,7 +217,7 @@ export function drawGrassDetail(ctx, gx, gy, px, py, hw, hh) {
   // Ils vivent dans le BAKE du sol : coût nul par frame, et ils sont sautés
   // d'office par le bake allégé (pan) comme les autres détails d'herbe.
   const deco = (art, fx, fy, scale = 1) => {
-    if (!art.ready || !art.img) return;
+    if (!art.ready || !art.img || !ok(fx, fy)) return;
     const iw = art.img.naturalWidth || art.img.width || 0;
     const ih = art.img.naturalHeight || art.img.height || 0;
     if (!iw || !ih) return;
@@ -454,12 +460,39 @@ export function frontierFlip(gx, gy, isUrban, urbanLogical, built, cfg = FRONTIE
 export const GRASS_FRINGE = { on: true, mode: 'wander', depth: 1, gapP: 0.14, tuftP: 0.10, flowerP: 0.08, dark: 0, wander: 2.6, wanderF: 12 };
 const GF_MID = [102, 126, 72];    // herbe légèrement ombrée (varie le corps des langues)
 const GF_DARK = [76, 100, 54];    // pointe sombre : l'ourlet d'ombre de la lisière
-export function drawGrassFringeEdge(ctx, f, pu, soilTone) {
+export function drawGrassFringeEdge(ctx, f, pu, soilTone, lis = null) {
   const dxE = f.bx - f.ax, dyE = f.by - f.ay;
   const len = Math.hypot(dxE, dyE);
   const steps = Math.max(3, Math.round(len / pu));
   const rect = (x, y, col) => { ctx.fillStyle = `rgb(${col[0]},${col[1]},${col[2]})`; ctx.fillRect(x, y, pu, pu); };
-  const mode = GRASS_FRINGE.mode;
+  // LISIÈRE ARRONDIE (cf. isoLisiere) : le bord n'est plus l'arête du
+  // losange. Plus de déplacement de bord ici (la lisière l'a déjà dessiné), et
+  // chaque accent — touffe, fleur — est REPORTÉ sur le nouveau bord : on part du
+  // pas de l'ancienne arête et on longe la normale MONDE (côté herbe → côté sol)
+  // jusqu'au premier point qui n'est plus de l'herbe. Pas de bord dans la
+  // fenêtre (l'herbe a reculé plus loin, ou avancé au-delà) : pas d'accent.
+  const mode = lis ? 'none' : GRASS_FRINGE.mode;
+  const snxW = lis ? (f.nwx - f.nwy) * lis.hw : 0, snyW = lis ? (f.nwx + f.nwy) * lis.hh : 0;
+  const onEdge = (t) => {
+    const ex0 = f.ax + dxE * t, ey0 = f.ay + dyE * t;
+    if (!lis) return [ex0, ey0];
+    const u0 = f.wx0 + (f.wx1 - f.wx0) * t, v0 = f.wy0 + (f.wy1 - f.wy0) * t;
+    const grassAtS = (sN) => lis.kindAtPoint(u0 + f.nwx * sN, v0 + f.nwy * sN) === 'grass';
+    // Balayage grossier (pas de 1/10 de cellule) puis dichotomie sur le premier
+    // intervalle qui quitte l'herbe : ~13 questions au lieu de 29, précision 1/80.
+    let prev = -0.45;
+    if (!grassAtS(prev)) return null;
+    for (let sN = prev + 0.1; sN <= 0.451; sN += 0.1) {
+      if (!grassAtS(sN)) {
+        let a = prev, b = sN;
+        for (let it = 0; it < 3; it += 1) { const m = (a + b) / 2; if (grassAtS(m)) a = m; else b = m; }
+        const sb = (a + b) / 2;
+        return [ex0 + snxW * sb, ey0 + snyW * sb];
+      }
+      prev = sN;
+    }
+    return null;
+  };
   if (mode === 'wander' && soilTone) {
     // BORD DÉPLACÉ (cf. l'en-tête du bloc). Densité ×2 comme 'hem' : sur une
     // diagonale 2:1, un pas par pu laisserait l'escalier à jour entre les carrés.
@@ -502,7 +535,9 @@ export function drawGrassFringeEdge(ctx, f, pu, soilTone) {
     const h = cmHash(f.seed + ':' + i);
     if ((h & 255) / 255 < GRASS_FRINGE.gapP) continue;         // trouée : la lisière respire
     const t = (i + 0.5) / steps;
-    const ex = f.ax + dxE * t, ey = f.ay + dyE * t;
+    const at = onEdge(t);
+    if (!at) continue;
+    const ex = at[0], ey = at[1];
     if (mode === 'teeth') {
       const d = Math.max(1, Math.round((1 + ((h >>> 8) % 3)) * GRASS_FRINGE.depth));
       for (let j = 0; j < d; j += 1) {
@@ -538,9 +573,11 @@ export function drawGrassFringeEdge(ctx, f, pu, soilTone) {
       const hf = cmHash(f.seed + ':fl:' + i);
       if ((hf & 1023) / 1023 >= fringeFlowerP) continue;
       const t = (i + 0.5) / steps;
+      const at = onEdge(t);
+      if (!at) continue;
       const off = (((hf >> 10) & 3) - 2) * pu;          // −2pu (herbe) .. +1pu (langue)
-      const cx = Math.round(f.ax + dxE * t + f.inx * off);
-      const cy = Math.round(f.ay + dyE * t + f.iny * off);
+      const cx = Math.round(at[0] + f.inx * off);
+      const cy = Math.round(at[1] + f.iny * off);
       const fl = GD_FLOWERS[(hf >>> 12) % GD_FLOWERS.length];   // ⚠ >>> : un >> signé rendait l'index négatif
       rect(cx - pu, cy, fl[0]); rect(cx + pu, cy, fl[0]);
       rect(cx, cy - pu, fl[0]); rect(cx, cy + pu, fl[0]);
@@ -820,11 +857,15 @@ if (typeof window !== 'undefined') {
 // ⚠ Le LISSAGE est coupé UNE FOIS pour toute la fournée : les touffes sont des
 // sprites agrandis au pixel d'art, et le poser par cellule coûterait des centaines
 // d'écritures de propriété pour le même résultat.
-export function drawGrassDetailAll(ctx, grassCells, hw, hh) {
+export function drawGrassDetailAll(ctx, grassCells, hw, hh, lisiere = null) {
   const prevGDS = ctx.imageSmoothingEnabled;
   ctx.imageSmoothingEnabled = false;
+  // Lisière arrondie : le test de matière ne coûte que dans les cellules de BORD.
+  const onGrass = lisiere ? (u, v) => lisiere.kindAtPoint(u, v) === 'grass' : null;
   for (let i = 0; i < grassCells.length; i += 4) {
-    drawGrassDetail(ctx, grassCells[i], grassCells[i + 1], grassCells[i + 2], grassCells[i + 3], hw, hh);
+    const gx = grassCells[i], gy = grassCells[i + 1];
+    drawGrassDetail(ctx, gx, gy, grassCells[i + 2], grassCells[i + 3], hw, hh,
+      onGrass && lisiere.isEdge(gx, gy) ? onGrass : null);
   }
   ctx.imageSmoothingEnabled = prevGDS;
 }
@@ -832,9 +873,10 @@ export function drawGrassDetailAll(ctx, grassCells, hw, hh) {
 // La FRANGE D'HERBE d'une fournée. `puF` est le pixel d'art de la frange : sa
 // formule regarde le peintre. ⚠ L'appelant garde l'ORDRE — après le fond (les langues
 // mordent sur des cellules déjà peintes), avant les rubans (la route les recouvre).
-export function drawGrassFringeAll(ctx, fringes, hw, urb) {
+export function drawGrassFringeAll(ctx, fringes, hw, urb, lisiere = null) {
   const puF = Math.max(1, Math.round(hw * 0.055));
+  const lis = lisiere ? { kindAtPoint: lisiere.kindAtPoint, hw, hh: hw / 2 } : null;
   // urb = teinte du sol de l'ère : le mode 'wander' repeint avec elle quand le
   // bord se déplace vers l'herbe (aucune couleur nouvelle n'est introduite).
-  for (const f of fringes) drawGrassFringeEdge(ctx, f, puF, urb);
+  for (const f of fringes) drawGrassFringeEdge(ctx, f, puF, urb, lis);
 }

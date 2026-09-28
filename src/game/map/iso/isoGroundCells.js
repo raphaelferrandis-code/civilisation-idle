@@ -41,9 +41,54 @@ export function sweepIsoGroundCells(bake, resolve, out) {
     ctx, T, hw, hh, LOD, HARD, b, cullOn, cullPadX, cullPadY,
     L, roadMap, riverCells, urb, mat, plazaEra, wg, PR,
   } = bake;
-  const { kindAt, grassAt, keyOfKind } = resolve;
-  const { fringes, roads, wonderCells, grassCells, veilPush,
+  const { kindAt, grassAt, keyOfKind, lisiere } = resolve;
+  const { fringes, roads, wonderCells, grassCells, veilPush, veilPushRects,
     faceL, faceD, faceLU, faceDU, faceFoot, faceBand, faceJoint, faceLipG, faceLipS } = out;
+  // LISIÈRE ARRONDIE (cf. isoLisiere) : repeint, DANS les rectangles
+  // donnés, la matière `k2` telle que la cellule l'aurait peinte si elle en était
+  // faite — même aplat, même tuile, même miroir, même variante. Seuls les sols
+  // naturels passent ici (herbe, terre de ville, friche, grève).
+  const clipRects = (arr) => {
+    for (let i = 0; i < arr.length; i += 4) ctx.rect(arr[i], arr[i + 1], arr[i + 2] - arr[i], arr[i + 3] - arr[i + 1]);
+  };
+  const paintKindIn = (k2, rects, blades, gx, gy, p, mir, cellH) => {
+    const tile2 = !HARD ? ensureIsoTileKey(keyOfKind(k2)) : null;
+    const texA2 = k2 === 'urban' ? 0 : k2 === 'grass' ? GRASS_DETAIL.tileAlpha : 1;
+    const ready2 = !!(tile2 && tile2.ready) && texA2 > 0;
+    const tone2 = k2 === 'grass'
+      ? (ready2 ? (CM.season === WINTER ? GRASS_TILE_UNDER_WINTER : GRASS_TILE_UNDER) : SEASON_GRASS)
+      : k2 === 'dirt' ? DIRT_TONE : (k2 === 'sand' || k2 === 'shingle') ? beachTone(k2) : urb;
+    ctx.save();
+    ctx.beginPath();
+    clipRects(rects);
+    ctx.clip();
+    ctx.fillStyle = rgb(tone2, 1);
+    ctx.fillRect(p.x - hw - 1, p.y - 1, hw * 2 + 2, hh * 2 + 2);
+    ctx.restore();
+    // La tuile, elle, peut déborder sur les BRINS (herbe seulement) : son aplat
+    // d'ombre non — entre deux brins on doit voir le voisin du nord.
+    ctx.save();
+    ctx.beginPath();
+    clipRects(rects);
+    if (k2 === 'grass' && blades && blades.length) clipRects(blades);
+    ctx.clip();
+    if (ready2) {
+      if (texA2 < 1) ctx.globalAlpha = texA2;
+      blitIsoTileKey(ctx, keyOfKind(k2), p.x, p.y, hw, mir, cellH);
+      if (texA2 < 1) ctx.globalAlpha = 1;
+    }
+    if (k2 === 'urban' && URBAN_DETAIL.on && !HARD) {
+      let drew = false;
+      if (URBAN_DETAIL.tiles && mat.tile) {
+        const ta = urbanTileAlpha(mat.type);
+        if (ta < 1) ctx.globalAlpha = ta;
+        drew = blitIsoTileKey(ctx, mat.tile, p.x, p.y, hw, mir, cellH);
+        ctx.globalAlpha = 1;
+      }
+      if (!drew) drawUrbanDetail(ctx, gx, gy, p.x, p.y, hw, hh, mat);
+    }
+    ctx.restore();
+  };
   for (let gy = b.gy0; gy <= b.gy1; gy += 1) {
     for (let gx = b.gx0; gx <= b.gx1; gx += 1) {
       const p = worldToScreen(gx * T, gy * T);   // coin NORD du losange
@@ -82,7 +127,20 @@ export function sweepIsoGroundCells(bake, resolve, out) {
           : kind === 'grass' ? GRASS_DETAIL.tileAlpha : 1;
       const tile = (kind && !HARD) ? ensureIsoTileKey(keyOfKind(kind)) : null;
       const tileReady = !!(tile && tile.ready);
-      if (kind !== 'grass' && (!tileReady || texAlpha < 1)) {
+      // LISIÈRE ARRONDIE (cf. isoLisiere) : une cellule de BORD n'est
+      // plus peinte en losange. Chaque matière — la sienne comprise — est posée
+      // dans SES pixels d'art, sans liseré anti-couture ni tolérance de face :
+      // ces deux-là bavent d'un pixel sur les voisines déjà peintes, et sur un
+      // bord arrondi la bavure redessinait l'ancien losange en pointillé.
+      const tL = PR && performance.now();
+      const lisRuns = (lisiere && !isWater) ? lisiere.runs(gx, gy, kind, p.x, p.y, hw) : null;
+      if (PR && lisiere) { PR.lisRuns = (PR.lisRuns || 0) + performance.now() - tL; PR.lisN = (PR.lisN || 0) + (lisRuns ? 1 : 0); }
+      if (lisRuns) {
+        const tP = PR && performance.now();
+        for (const [k2, rects] of lisRuns.byKind) paintKindIn(k2, rects, lisRuns.blades, gx, gy, p, mir, cellH);
+        if (PR) PR.lisPaint = (PR.lisPaint || 0) + performance.now() - tP;
+      }
+      if (!lisRuns && kind !== 'grass' && (!tileReady || texAlpha < 1)) {
         const tF = PR && performance.now();
         // Aplat STRICTEMENT UNI (v=1) pour TOUS les sols : le jitter par cellule,
         // même ±3 %, ressortait en damier de losanges (« il reste des plaques »,
@@ -112,7 +170,7 @@ export function sweepIsoGroundCells(bake, resolve, out) {
       // liseré. Rendu à sa propre matière — une texture continue de petits
       // carreaux, cf. WONDER_GROUND — le parvis reprend le miroir comme toutes
       // les autres : c'est lui qui casse la répétition des 3 variantes.
-      if (tileReady && texAlpha > 0) {
+      if (!lisRuns && tileReady && texAlpha > 0) {
         const tT = PR && performance.now();
         // Herbe : aplat d'OMBRE sous la tuile — ses creux (noFill) doivent lire
         // sombre, pas laisser voir le fond olive du bake. Uniforme (aucune
@@ -134,8 +192,15 @@ export function sweepIsoGroundCells(bake, resolve, out) {
       // la base. La variation est INDÉPENDANTE de la grille (fini la couture dure
       // in-grid↔sauvage révélée en calmant la tuile) : plaques douces via un hash de
       // bloc ~4 cellules, biaisé clair (nz²) → alpha faible, pas de bord franc.
-      if (kind === 'grass' && !HARD) {
+      // Cellule de bord (lisière) : ses seuls pixels d'herbe portent le voile — y
+      // compris l'herbe qui mord dans une cellule de terre.
+      const lisGrass = lisRuns ? (lisRuns.byKind.get('grass') || null) : null;
+      if ((kind === 'grass' || lisGrass) && !HARD) {
         const tG = PR && performance.now();
+        const vPush = (fam, a) => {
+          if (!lisRuns) veilPush(fam, a, p.x, p.y);
+          else if (lisGrass) veilPushRects(fam, a, lisGrass);
+        };
         // PRÉS (meadow) : plaques lentes foncé/clair par bruit LISSÉ — aucune
         // couture (ni maillage par cellule ni bord de bloc). Foncé = herbe
         // grasse, clair = herbe sèche. __grassDetail({ meadow: 0 }) pour couper.
@@ -148,12 +213,12 @@ export function sweepIsoGroundCells(bake, resolve, out) {
           const nzm = smoothNoise(gx, gy, 6, 'mead2') - 0.5;
           const am = Math.abs(nzm) * GRASS_DETAIL.meadow;
           // Seuil sur `am` pour les DEUX (le clair sortait déjà à am*0.8) : gate inchangé.
-          if (am > 0.012) veilPush(nzm < 0 ? 0 : 1, nzm < 0 ? am : am * 0.8, p.x, p.y);
+          if (am > 0.012) vPush(nzm < 0 ? 0 : 1, nzm < 0 ? am : am * 0.8);
         }
         if (GRASS_DETAIL.wildShade > 0) {
           const nz = (cmHash('mead:' + (gx >> 2) + ':' + (gy >> 2)) % 100) / 100;
           const a = GRASS_DETAIL.wildShade * nz * nz;
-          if (a > 0.015) veilPush(2, a, p.x, p.y);
+          if (a > 0.015) vPush(2, a);
         }
         // Le tapis vivant (touffes/speckle/fleurs) reste réservé au bake PLEIN :
         // c'est le poste cher de l'herbe — le light garde prés et ombrage.
@@ -166,7 +231,7 @@ export function sweepIsoGroundCells(bake, resolve, out) {
       // d'une trame de cailloux répétée — on la DOSE en alpha (tileA), CONSTANT
       // par défaut (retour Raph 2026-07-20 : « continu et pas haché » — les
       // plaques par bruit lissé lisaient comme des tas de terre épars).
-      if (kind === 'urban' && URBAN_DETAIL.on && !HARD) {
+      if (!lisRuns && kind === 'urban' && URBAN_DETAIL.on && !HARD) {
         let drew = false;
         if (URBAN_DETAIL.tiles && mat.tile) {
           // S2 : la dose vaut pour TOUTES les matières, plus seulement la terre.
@@ -217,10 +282,10 @@ export function sweepIsoGroundCells(bake, resolve, out) {
         // cellules). Le mode 'wander' échantillonne son bruit là-dessus, jamais
         // sur la cellule ni sur l'indice du pas : c'est ce qui rend le bord
         // continu d'un losange au suivant au lieu de casser à chaque coin.
-        if (grassAt(gx, gy - 1)) fringes.push({ ax: p.x, ay: p.y, bx: p.x + hw, by: p.y + hh, inx: -ixn, iny: iyn, seed: 'gfr:n:' + key, wx0: gx, wy0: gy, wx1: gx + 1, wy1: gy });
-        if (grassAt(gx + 1, gy)) fringes.push({ ax: p.x + hw, ay: p.y + hh, bx: p.x, by: p.y + hh * 2, inx: -ixn, iny: -iyn, seed: 'gfr:e:' + key, wx0: gx + 1, wy0: gy, wx1: gx + 1, wy1: gy + 1 });
-        if (grassAt(gx, gy + 1)) fringes.push({ ax: p.x - hw, ay: p.y + hh, bx: p.x, by: p.y + hh * 2, inx: ixn, iny: -iyn, seed: 'gfr:s:' + key, wx0: gx, wy0: gy + 1, wx1: gx + 1, wy1: gy + 1 });
-        if (grassAt(gx - 1, gy)) fringes.push({ ax: p.x, ay: p.y, bx: p.x - hw, by: p.y + hh, inx: ixn, iny: iyn, seed: 'gfr:w:' + key, wx0: gx, wy0: gy, wx1: gx, wy1: gy + 1 });
+        if (grassAt(gx, gy - 1)) fringes.push({ ax: p.x, ay: p.y, bx: p.x + hw, by: p.y + hh, inx: -ixn, iny: iyn, seed: 'gfr:n:' + key, wx0: gx, wy0: gy, wx1: gx + 1, wy1: gy, nwx: 0, nwy: 1 });
+        if (grassAt(gx + 1, gy)) fringes.push({ ax: p.x + hw, ay: p.y + hh, bx: p.x, by: p.y + hh * 2, inx: -ixn, iny: -iyn, seed: 'gfr:e:' + key, wx0: gx + 1, wy0: gy, wx1: gx + 1, wy1: gy + 1, nwx: -1, nwy: 0 });
+        if (grassAt(gx, gy + 1)) fringes.push({ ax: p.x - hw, ay: p.y + hh, bx: p.x, by: p.y + hh * 2, inx: ixn, iny: -iyn, seed: 'gfr:s:' + key, wx0: gx, wy0: gy + 1, wx1: gx + 1, wy1: gy + 1, nwx: 0, nwy: -1 });
+        if (grassAt(gx - 1, gy)) fringes.push({ ax: p.x, ay: p.y, bx: p.x - hw, by: p.y + hh, inx: ixn, iny: iyn, seed: 'gfr:w:' + key, wx0: gx, wy0: gy, wx1: gx, wy1: gy + 1, nwx: 1, nwy: 0 });
       }
       // ── CONTREMARCHES DU RELIEF (isoTerrain) ──────────────────────────────
       // Une cellule plus HAUTE que son voisin SUD ou EST montre la TRANCHE du

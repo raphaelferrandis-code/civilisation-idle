@@ -94,7 +94,13 @@ describe("S2 — dose de la tuile de sol par matière", () => {
   it("l'aplat de ton est bien peint SOUS la tuile urbaine (texAlpha 0)", () => {
     const src = fs.readFileSync(SRC, "utf8");
     expect(src).toMatch(/texAlpha\s*=\s*kind === 'urban'\s*\?\s*0/);
-    // …et la branche de repli se déclenche bien quand texAlpha < 1.
-    expect(src).toMatch(/if \(kind !== 'grass' && \(!tileReady \|\| texAlpha < 1\)\)/);
+    // …et la branche de repli se déclenche bien quand texAlpha < 1. (Préfixe
+    // `!lisRuns &&` : une cellule de BORD de la lisière arrondie est peinte par
+    // `paintKindIn`, qui pose lui aussi l'aplat de ton AVANT la tuile — vérifié
+    // juste en dessous.)
+    expect(src).toMatch(/if \((?:!lisRuns && )?kind !== 'grass' && \(!tileReady \|\| texAlpha < 1\)\)/);
+    const lis = src.slice(src.indexOf('const paintKindIn'), src.indexOf('for (let gy = b.gy0'));
+    expect(lis.indexOf('ctx.fillRect(')).toBeGreaterThan(-1);
+    expect(lis.indexOf('ctx.fillRect(')).toBeLessThan(lis.indexOf('blitIsoTileKey('));
   });
 });

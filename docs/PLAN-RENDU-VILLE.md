@@ -803,6 +803,11 @@ secondary`). Elle est périmée. Ne régler aucun plafond avant de l'avoir rejou
 - ⛔ **Toute variation de ton par cellule** (jitter d'aplat, voile en plaques, usure en ellipses, damier de
   parité) : **4 refus distincts**. La vie vient de motifs CONTINUS.
 - ⛔ **Décorer la couture herbe/ville** : 7 refus.
+  ✔ À ne pas confondre avec la **lisière arrondie** (`iso/isoLisiere.js`, validée par Raph le
+  2026-09-28, « il faut à toutes les ères ») : elle n'AJOUTE rien le long de la couture, elle en
+  change la FORME — matière décidée par pixel d'art dans les cellules de bord (champ lissé + bruit
+  monde), chaque pixel repeint avec la tuile de sa propre matière ; virages des chemins rustiques
+  arrondis. Zéro couleur nouvelle, zéro trait. A/B : `__lisiere(false)`.
 - ⛔ **Relever le plafond de teintes par sprite** : déjà dépassé par le bas (habitations à 9-17 teintes pour
   un plafond de 22). Ajouter des teintes ferait du bruit, pas du contraste — exactement le grief.
 - ⛔ **Optimiser le JavaScript de la carte** : 4 tentatives mesurées et perdues.

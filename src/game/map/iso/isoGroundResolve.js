@@ -33,6 +33,7 @@ import { isBeachBankCell, beachPortCells } from './isoBeachCells.js';
 import { WONDER_GROUND, wonderGroundSet } from './isoWonderGround.js';
 import { FRONTIER, frontierFlip, urbanMatFor } from './isoGroundDetail.js';
 import { plazaEraForBand, isoPlazaSceneCoversGround } from './isoPlaza.js';
+import { LISIERE, makeLisiere } from './isoLisiere.js';
 
 export function makeGroundBake(ISO_GROUND_LOD) {
   const L = CM.layout, ctx = CM.ctx, T = CM.TILE, z = CM.cam.zoom;
@@ -256,6 +257,17 @@ export function makeGroundBake(ISO_GROUND_LOD) {
     const arr = m.get(q);
     if (arr) arr.push(px, py); else m.set(q, [px, py]);
   };
+  // LISIÈRE ARRONDIE (cf. isoLisiere) : une cellule de bord ne voile que SES PIXELS
+  // D'HERBE — ses rectangles de texels, qui ne recouvrent ni les losanges ni les
+  // rectangles des autres cellules. Voiler le losange entier teintait la terre
+  // de l'ancienne forme de la cellule (jusqu'à 8 % de vert : la grille revenait).
+  const veilR = [new Map(), new Map(), new Map()];
+  const veilPushRects = (fam, a, rects) => {
+    const q = Math.min(255, Math.max(1, Math.round(a * 255)));
+    const m = veilR[fam];
+    const arr = m.get(q);
+    if (arr) { for (let i = 0; i < rects.length; i += 1) arr.push(rects[i]); } else m.set(q, rects.slice());
+  };
   const flushVeils = () => {
     for (let f = 0; f < 3; f += 1) {
       const c = VEIL_COL[f];
@@ -270,11 +282,23 @@ export function makeGroundBake(ISO_GROUND_LOD) {
         }
         if (n) ctx.fill();
       }
+      for (const [q, arr] of veilR[f]) {
+        ctx.fillStyle = `rgba(${c[0]},${c[1]},${c[2]},${(q / 255).toFixed(3)})`;
+        ctx.beginPath();
+        for (let i = 0; i < arr.length; i += 4) ctx.rect(arr[i], arr[i + 1], arr[i + 2] - arr[i], arr[i + 3] - arr[i + 1]);
+        ctx.fill();
+      }
     }
   };
+  // LISIÈRE ARRONDIE (cf. isoLisiere) : le classement par pixel d'art
+  // des cellules de bord. L'eau est HORS CHAMP — son sol est recouvert par le
+  // fleuve, et la laisser voter ferait mordre son herbe dans la grève.
+  const lisiere = (LISIERE.on && !HARD)
+    ? makeLisiere(kindAt, (gx, gy) => !!(riverCells && riverCells.has(gx + ',' + gy)))
+    : null;
   return {
     bake: { ctx, T, z, hw, hh, LOD, HARD, b, L, band, mat, urb, road, roadMap, riverCells, plazaEra, wg, PR },
-    resolve: { kindAt, grassAt, keyOfKind },
-    out: { fringes, roads, wonderCells, grassCells, veilPush, flushVeils },
+    resolve: { kindAt, grassAt, keyOfKind, lisiere },
+    out: { fringes, roads, wonderCells, grassCells, veilPush, veilPushRects, flushVeils },
   };
 }

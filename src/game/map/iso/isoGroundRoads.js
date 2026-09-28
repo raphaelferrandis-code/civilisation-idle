@@ -27,6 +27,7 @@ import { blitIsoTileKey, ensureIsoTileKey } from './isoGroundTiles.js';
 import { drawRoadEdgeFringe, isoBuildingFront, roadFringeK, roadMatFor, smoothNoise } from './isoGroundDetail.js';
 import { fillWorldQuad, pathWorldQuad } from './isoQuad.js';
 import { rgb } from './isoPalette.js';
+import { LISIERE } from './isoLisiere.js';
 
 // ── LE TROTTOIR EST PEINT EN PIXELS, JAMAIS AU VECTEUR ──────────────────────
 // (Raph 2026-08-05 : « je ne veux plus de tracé au vecteur ».)
@@ -223,10 +224,84 @@ export function drawIsoGroundRoads(bake, resolve, roads) {
       r2.md = md !== 0 ? md : m0;
     }
   }
+  // ── VIRAGES ARRONDIS (la LISIÈRE sur la voirie, cf. isoLisiere) ──────────────
+  // Un chemin RUSTIQUE (ourlet + épaulement, jamais une rue à trottoir) cesse de
+  // tourner à angle droit : un VIRAGE (deux bras perpendiculaires) devient un
+  // quart d'anneau centré sur le coin commun aux deux bras — il part du milieu
+  // d'un bord de cellule et arrive au milieu de l'autre, exactement là où les
+  // voisines aboutent leurs bras, donc aucun raccord à reprendre. Une IMPASSE
+  // finit en demi-cercle, une cellule SEULE en disque. Droites, T et croix ne
+  // bougent pas. Le virage sort des couloirs fusionnés (ses voisines finissent
+  // alors au bord partagé) et se trace à part, à chaque largeur de passe.
+  // Rendu seul : le masque logique, le graphe et les agents sont intacts.
+  const ARM = [[ROAD_E, 1, 0], [ROAD_W, -1, 0], [ROAD_S, 0, 1], [ROAD_N, 0, -1]];
+  const roundOn = LISIERE.on && LISIERE.roads !== false;
+  for (const r2 of shRoads) {
+    r2.rd = null;
+    if (!roundOn) continue;
+    const m = maskOf(r2);
+    const arms = ARM.filter((a) => m & a[0]);
+    if (arms.length === 0) r2.rd = { t: 'dot' };
+    else if (arms.length === 1) r2.rd = { t: 'end', a: arms[0] };
+    else if (arms.length === 2 && (arms[0][1] * arms[1][1] + arms[0][2] * arms[1][2]) === 0) {
+      r2.rd = { t: 'L', a: arms[0], b: arms[1] };
+    }
+  }
+  for (const r2 of swRoads) r2.rd = null;
+  const roadByCell = new Map();
+  if (roundOn) for (const r2 of shRoads) if (r2.rd) roadByCell.set(r2.gx + ',' + r2.gy, r2);
+  // Contour MONDE d'une forme arrondie à la demi-largeur W (px monde), sens
+  // horaire écran comme les quads (union non-zéro sans trou).
+  const roundPts = (r2, W) => {
+    const cx = (r2.gx + 0.5) * T, cy = (r2.gy + 0.5) * T, h = T / 2, rd = r2.rd;
+    const pts = [];
+    const arc = (ox, oy, R, t0, t1, n) => {
+      for (let i = 0; i <= n; i += 1) {
+        const t = t0 + (t1 - t0) * (i / n);
+        pts.push(ox + R * Math.cos(t), oy + R * Math.sin(t));
+      }
+    };
+    const wrap = (d) => { while (d > Math.PI) d -= 2 * Math.PI; while (d <= -Math.PI) d += 2 * Math.PI; return d; };
+    if (rd.t === 'L') {
+      const ax = rd.a[1], ay = rd.a[2], bx = rd.b[1], by = rd.b[2];
+      const ox = cx + (ax + bx) * h, oy = cy + (ay + by) * h;   // coin commun aux deux bras
+      const t1 = Math.atan2(-by, -bx), d = wrap(Math.atan2(-ay, -ax) - t1);
+      arc(ox, oy, h + W, t1, t1 + d, 12);
+      arc(ox, oy, Math.max(0, h - W), t1 + d, t1, 12);
+    } else if (rd.t === 'end') {
+      const ax = rd.a[1], ay = rd.a[2], px = -ay, py = ax;
+      const tp = Math.atan2(py, px), d = wrap(Math.atan2(-ay, -ax) - tp);
+      pts.push(cx + ax * h + px * W, cy + ay * h + py * W);
+      arc(cx, cy, W, tp, tp + 2 * d, 12);
+      pts.push(cx + ax * h - px * W, cy + ay * h - py * W);
+    } else {
+      arc(cx, cy, W, 0, 2 * Math.PI, 20);
+    }
+    let area = 0;
+    for (let i = 0; i < pts.length; i += 2) {
+      const j = (i + 2) % pts.length;
+      area += pts[i] * pts[j + 1] - pts[j] * pts[i + 1];
+    }
+    if (area < 0) {
+      const rev = [];
+      for (let i = pts.length - 2; i >= 0; i -= 2) rev.push(pts[i], pts[i + 1]);
+      return rev;
+    }
+    return pts;
+  };
+  const pathWorldPoly = (c, pts) => {
+    const p0 = worldToScreen(pts[0], pts[1]);
+    c.moveTo(p0.x, p0.y);
+    for (let i = 2; i < pts.length; i += 2) { const p = worldToScreen(pts[i], pts[i + 1]); c.lineTo(p.x, p.y); }
+    c.closePath();
+  };
+  const addRoundShapes = (list, extra, c) => {
+    for (const r2 of list) if (r2.rd) pathWorldPoly(c, roundPts(r2, T * wOf(r2) + extra));
+  };
   // Couloirs construits UNE fois par liste, rejoués à chaque passe (les largeurs
   // varient, la topologie non). Union sh ∪ sw = union `roads` : un tronçon qui
   // change de liste au bord urbain aboute ses bras au bord de cellule partagé.
-  const shRuns = buildRoadRuns(shRoads), swRuns = buildRoadRuns(swRoads);
+  const shRuns = buildRoadRuns(roundOn ? shRoads.filter((r2) => !r2.rd) : shRoads), swRuns = buildRoadRuns(swRoads);
   // ── TOUTE LA VOIRIE EST PEINTE EN PIXELS, PLUS UN TRAIT AU VECTEUR ─────────
   // (Raph 2026-08-05, après le trottoir : « oui je veux bien » pour le reste.)
   // Ourlet, épaulement, trottoir, caniveau, rubans de chaussée, frange et allées
@@ -249,6 +324,7 @@ export function drawIsoGroundRoads(bake, resolve, roads) {
     if (ROAD_DETAIL.feather > 0 && ROAD_DETAIL.featherA > 0) {
       sctx.beginPath();
       addRunQuads(shRuns, cbR + T * ROAD_DETAIL.feather, sctx);
+      addRoundShapes(shRoads, cbR + T * ROAD_DETAIL.feather, sctx);
       sctx.globalAlpha = ROAD_DETAIL.featherA;
       sctx.fillStyle = shCol;
       sctx.fill();
@@ -256,6 +332,7 @@ export function drawIsoGroundRoads(bake, resolve, roads) {
     }
     sctx.beginPath();
     addRunQuads(shRuns, cbR, sctx);
+    addRoundShapes(shRoads, cbR, sctx);
     sctx.fillStyle = shCol;
     sctx.fill();
   }
@@ -392,6 +469,7 @@ export function drawIsoGroundRoads(bake, resolve, roads) {
   if (shRoads.length && ROAD_DETAIL.groove > 0 && ROAD_DETAIL.grooveA > 0) {
     sctx.beginPath();
     addRunQuads(shRuns, T * ROAD_DETAIL.groove, sctx);
+    addRoundShapes(shRoads, T * ROAD_DETAIL.groove, sctx);
     sctx.fillStyle = `rgba(40,30,18,${ROAD_DETAIL.grooveA})`;
     sctx.fill();
   }
@@ -405,11 +483,14 @@ export function drawIsoGroundRoads(bake, resolve, roads) {
     const v = 0.97 + smoothNoise(r.gx, r.gy, 4, 'rb') * 0.06;
     // Ruban de chaussée = pavé central + un bras vers chaque connexion (tracé CHEMIN).
     sctx.beginPath();
-    pathWorldQuad(sctx, cx - wb, cy - wb, cx + wb, cy + wb);                       // pavé central
-    if (mask & ROAD_E) pathWorldQuad(sctx, cx + wb, cy - wb, (r.gx + 1) * T, cy + wb);
-    if (mask & ROAD_W) pathWorldQuad(sctx, r.gx * T, cy - wb, cx - wb, cy + wb);
-    if (mask & ROAD_S) pathWorldQuad(sctx, cx - wb, cy + wb, cx + wb, (r.gy + 1) * T);
-    if (mask & ROAD_N) pathWorldQuad(sctx, cx - wb, r.gy * T, cx + wb, cy - wb);
+    if (r.rd) pathWorldPoly(sctx, roundPts(r, wb));                                // virage / impasse arrondis
+    else {
+      pathWorldQuad(sctx, cx - wb, cy - wb, cx + wb, cy + wb);                     // pavé central
+      if (mask & ROAD_E) pathWorldQuad(sctx, cx + wb, cy - wb, (r.gx + 1) * T, cy + wb);
+      if (mask & ROAD_W) pathWorldQuad(sctx, r.gx * T, cy - wb, cx - wb, cy + wb);
+      if (mask & ROAD_S) pathWorldQuad(sctx, cx - wb, cy + wb, cx + wb, (r.gy + 1) * T);
+      if (mask & ROAD_N) pathWorldQuad(sctx, cx - wb, r.gy * T, cx + wb, cy - wb);
+    }
     const rTile = (ROAD_DETAIL.on && ROAD_DETAIL.tiles && rmat.tile && !HARD) ? ensureIsoTileKey(rmat.tile) : null;
     if (rTile && rTile.ready) {
       sctx.save(); sctx.clip();
@@ -445,7 +526,7 @@ export function drawIsoGroundRoads(bake, resolve, roads) {
     // qui fait face à une voie JUMELLE non connectée (boulevard 2-cellules) est
     // SAUTÉ : le terre-plein porte cette couture. Arêtes en MONDE → projetées,
     // normale sortante (ox,oy) monde → écran via (±hw,±hh).
-    if (rfK > 0 && !LOD) {
+    if (rfK > 0 && !LOD && !r.rd) {
       const x0w = r.gx * T, y0w = r.gy * T, x1w = (r.gx + 1) * T, y1w = (r.gy + 1) * T;
       const roadN2 = L.roadSet.has(r.gx + ',' + (r.gy - 1)), roadS2 = L.roadSet.has(r.gx + ',' + (r.gy + 1));
       const roadE2 = L.roadSet.has((r.gx + 1) + ',' + r.gy), roadW2 = L.roadSet.has((r.gx - 1) + ',' + r.gy);
@@ -522,7 +603,11 @@ export function drawIsoGroundRoads(bake, resolve, roads) {
       if (f2) {
         const { dx, dy, hx, hy, rank } = f2;
         const rx = hx + dx, ry = hy + dy;
-        const rw = isoRoadHalfW(rank);
+        // Devant un VIRAGE arrondi, la chaussée s'est écartée du bord libre : le
+        // seuil va jusqu'au centre de la cellule, où passe le bord de l'épaulement
+        // (rayon ½ + demi-largeur autour du coin, = √2/2 pour un sentier).
+        const tgt = roundOn ? roadByCell.get(rx + ',' + ry) : null;
+        const rw = (tgt && tgt.rd && tgt.rd.t === 'L') ? 0 : isoRoadHalfW(rank);
         if (dy === 1) allee((hx + 0.5) * T - aw, (hy + 1) * T - tuck, (hx + 0.5) * T + aw, (ry + 0.5 - rw) * T);
         else if (dy === -1) allee((hx + 0.5) * T - aw, (ry + 0.5 + rw) * T, (hx + 0.5) * T + aw, hy * T + tuck);
         else if (dx === 1) allee((hx + 1) * T - tuck, (hy + 0.5) * T - aw, (rx + 0.5 - rw) * T, (hy + 0.5) * T + aw);
