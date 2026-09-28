@@ -16,7 +16,7 @@
 // ⚠ AUCUN CYCLE : `agents.js` (d'où viennent les sprites d'habitants et de
 // véhicules), `isoBridge` et `quaysAndRiot` ne remontent jamais vers le peintre —
 // vérifié avant la coupe. `agents.js` cite bien `drawIsoVehicle`, mais en PROSE.
-import { CM } from '../layout.js';
+import { CM, cmEngineHomeHidden } from '../layout.js';
 import { worldToScreen } from './projection.js';
 import { drawRiotWeapon } from '../quaysAndRiot.js';
 import { pxProbe, recPx } from '../pixelGrid.js';
@@ -414,7 +414,7 @@ function isoUnitFiches() {
   for (const t of L.tiles) {
     const idf = t.buildingId || t.variant || '';
     if (/field|farm|crop|orchard|aqueduct/i.test(idf)) continue;   // à plat (champs) / prop (point d'eau)
-    if (t.type === 'enginehome' && (t.revealIdx || 0) >= (CM.engineHomeReveal || 0)) continue; // pas encore achetée
+    if (cmEngineHomeHidden(t)) continue; // pas encore achetée
     const sx = t.spanX || t.size || 1, sy = t.spanY || t.size || 1;
     const x1 = (t.gx + sx) * T, y1 = (t.gy + sy) * T;
     const rec = {

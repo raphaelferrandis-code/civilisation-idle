@@ -6,10 +6,10 @@
 // les faces lisent le voisinage), et elle ne bouge PAS pour une cellule loin.
 import { describe, it, expect, afterEach } from 'vitest';
 import { CM } from '../layout.js';
-import { tileSig } from '../iso/solPyramideFrame.js';
+import { tileSig, revealTouched } from '../iso/solPyramideFrame.js';
 
-const savedPv = CM.previewWonder;
-afterEach(() => { CM.previewWonder = savedPv; });
+const savedPv = CM.previewWonder, savedReveal = CM.engineHomeReveal;
+afterEach(() => { CM.previewWonder = savedPv; CM.engineHomeReveal = savedReveal; });
 
 // Un plan minimal : les seuls champs que la signature lit.
 function planVide() {
@@ -56,5 +56,60 @@ describe('tileSig — stable, locale, avec sa marge', () => {
     Lf.roadSet.add('30,2'); Lf.roadMap.set('30,2', { rank: 'main', mask: 1 });
     expect(sig(Lm, A)).not.toBe(sig(L0, A));
     expect(sig(Lf, A)).toBe(sig(L0, A));
+  });
+});
+
+// LA RÉVÉLATION PER-ACHAT : une maison-moteur pré-posée n'a d'allée de seuil
+// qu'une fois révélée, et un achat ne recalcule pas le plan. C'est donc la
+// signature de la tuile qui doit voir la maison apparaître — sinon la tuile reste
+// fraîche et la maison n'a jamais son seuil — sans rien remuer au loin, sinon
+// chaque achat recuirait la carte entière.
+describe('tileSig — la maison-moteur qu un achat révèle', () => {
+  const planMaison = (type = 'enginehome') => {
+    const L = planVide();
+    L.tiles.push({ gx: 6, gy: 1, spanX: 1, spanY: 1, type, revealIdx: 3 });
+    return L;
+  };
+  it('la maison révélée change la signature de SA tuile, pas celle d une tuile lointaine', () => {
+    const L = planMaison();
+    CM.engineHomeReveal = 3;                  // index 3 pas encore atteint : masquée
+    const cacheeA = sig(L, A), cacheeB = sig(L, B);
+    CM.engineHomeReveal = 4;                  // un achat de plus : révélée
+    expect(sig(L, A)).not.toBe(cacheeA);
+    expect(sig(L, B)).toBe(cacheeB);
+  });
+  it('un achat qui révèle une AUTRE maison ne touche pas cette tuile', () => {
+    const L = planMaison();
+    CM.engineHomeReveal = 5;
+    const a = sig(L, A);
+    CM.engineHomeReveal = 9;                  // la maison 3 est visible des deux côtés
+    expect(sig(L, A)).toBe(a);
+  });
+  it('une habitation ordinaire ignore le compteur', () => {
+    const L = planMaison('house');
+    CM.engineHomeReveal = 0;
+    const a = sig(L, A);
+    CM.engineHomeReveal = 10;
+    expect(sig(L, A)).toBe(a);
+  });
+  // La frame ne re-juge que les tuiles que revealTouched désigne : elles doivent
+  // être EXACTEMENT celles dont la signature change. Une de moins, et une maison
+  // apparaît sans son seuil ; une de plus, et l'achat recuit pour rien.
+  it('revealTouched désigne exactement les tuiles dont la signature change', () => {
+    const L = planMaison();
+    const tuiles = [];
+    for (let ty = -3; ty <= 3; ty += 1) for (let tx = -3; tx <= 3; tx += 1) tuiles.push({ z, tx, ty, S });
+    const touchees = new Set(revealTouched(L, 3, 4, tuiles));
+    expect(touchees.size).toBeGreaterThan(0);
+    expect(touchees.size).toBeLessThan(tuiles.length);
+    for (const e of tuiles) {
+      CM.engineHomeReveal = 3;
+      const avant = tileSig(L, z, e.tx, e.ty, S);
+      CM.engineHomeReveal = 4;
+      expect(touchees.has(e)).toBe(tileSig(L, z, e.tx, e.ty, S) !== avant);
+    }
+  });
+  it('un compteur qui bouge sans faire changer aucune maison ne touche rien', () => {
+    expect(revealTouched(planMaison(), 5, 9, [{ z, tx: A[0], ty: A[1], S }])).toEqual([]);
   });
 });

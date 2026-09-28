@@ -82,6 +82,19 @@ const CM = {
   collapseAt: 0,
   raf: null
 };
+// ── Maisons-MOTEUR pré-posées : LA règle de visibilité ──────────────────────
+// Le plan pose d'avance ENGINE_HOME_LOOKAHEAD maisons-moteur (cf. placeDecor
+// "enginehome") ; chacune reste MASQUÉE tant que le compteur de révélation
+// per-achat (CM.engineHomeReveal, tenu par frame() de cityMapRuntime) n'a pas
+// atteint son index de slot. Tout ce qui montre une maison-moteur passe par ici
+// — peintre, fiches de profondeur des unités, allées de seuil du sol cuit et
+// signature de ses tuiles — sans quoi le sol dessine la porte d'une maison que
+// le peintre cache (un trait qui sort du sol nu vers le sentier).
+// `reveal` : un autre seuil que le compteur vivant (le cadrage de départ juge
+// au moment du recompute, avant tout achat).
+export function cmEngineHomeHidden(t, reveal = CM.engineHomeReveal || 0) {
+  return t.type === "enginehome" && (t.revealIdx || 0) >= reveal;
+}
 // ── Constantes de routes ─────────────────────────────────────────────────────
 const ROAD_N = 1;
 const ROAD_E = 2;

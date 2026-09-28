@@ -18,7 +18,7 @@
 // quatorze lectures vers l'englobante redeviennent des locales À LEUR NOM, si bien
 // que les 477 lignes sont reprises SANS UNE LIGNE DE CHANGÉE. Aucune n'est réassignée
 // dans le corps — vérifié avant la coupe, c'est ce qui autorise des `const`.
-import { cmHash, ROAD_E, ROAD_N, ROAD_S, ROAD_W } from '../layout.js';
+import { cmEngineHomeHidden, cmHash, ROAD_E, ROAD_N, ROAD_S, ROAD_W } from '../layout.js';
 import { worldToScreen, ISO_X, ISO_Y } from './projection.js';
 import { COUR, builtNear } from './isoTissu.js';
 import { ROAD_DETAIL, SIDEWALK_ISO, isoRoadHalfW, roadVeilFor } from './isoRoad.js';
@@ -509,6 +509,12 @@ export function drawIsoGroundRoads(bake, resolve, roads) {
       // Les CHAMPS n'ont pas de seuil : une parcelle se laboure, elle n'a pas
       // de porte (Raph 2026-07-28) — seuls moteurs exclus des allées.
       if (isEng && t2.buildingId === 'irrigated_fields') continue;
+      // Une maison-moteur pas encore achetée n'est pas dessinée (même règle que
+      // le peintre, cmEngineHomeHidden) : pas de maison, pas de porte — sinon un
+      // trait sortait du sol nu vers le sentier, dès le campement de départ.
+      // La révélation entre dans la signature des tuiles (tileSig) : la maison
+      // qui apparaît fait recuire les seules tuiles qui la touchent (revealTouched).
+      if (cmEngineHomeHidden(t2)) continue;
       // La façade est résolue par isoBuildingFront (partagée avec le poussé du
       // sprite, cf. FRONT) : le seuil et le bâtiment DOIVENT désigner le même
       // côté, sinon le trait sortirait d'un mur aveugle.

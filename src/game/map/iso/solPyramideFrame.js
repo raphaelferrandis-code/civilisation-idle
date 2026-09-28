@@ -32,7 +32,7 @@
 //
 //   __solPyramideTune({ budgetMs, gestureMaxTiles, memMo, ring })   réglages
 //   __solPyramideStats                                              relevé (sonde)
-import { CM } from '../layout.js';
+import { CM, cmEngineHomeHidden } from '../layout.js';
 import { ensureQuayGate } from '../quaysAndRiot.js';
 import { groundContentSig, groundKeySuffix } from './isoGroundBake.js';
 import { setSolPyramideInvalidator } from './solInvalidate.js';
@@ -52,6 +52,7 @@ let epoch = 0;                // bascule à chaque invalidation 'all'/'soft' : l
 let sigCur = '';              // identité de CONTENU du plan (groundContentSig) — change à chaque recompute
 let sufCur = '';              // tout le reste (ère, saison, plage, quai, relief, fleuve) — change rarement
 let curL = null;              // le plan courant, pour signer les tuiles
+let revealSeen = 0;           // compteur de révélation des maisons-moteur vu à la dernière frame
 let softAt = -1e9;
 const costMs = new Map();     // z → coût lissé d'une tuile (ms)
 let lastCamX = NaN, lastCamY = NaN, lastZoom = NaN, lastMoveAt = -1e9;
@@ -73,23 +74,73 @@ const posKey = (z, tx, ty) => z.toFixed(3) + ':' + tx + ',' + ty;
 // dans une ville qui grandit, la grille s'étend et le fleuve avec elle — sa
 // taille globale change à chaque recompute (mesuré : 1 866 → 2 003 cellules),
 // alors que ses cellules déjà cuites, elles, ne bougent pas.
+// LA RÉVÉLATION PER-ACHAT passe par le même jugement, mais ciblé. Une maison-
+// moteur pré-posée n'a d'allée de seuil qu'une fois révélée (cmEngineHomeHidden) :
+// ses cellules portent un bit « masquée » dans la signature de tuile. Or un achat
+// ne recalcule pas le plan — sans rien de plus, toutes les tuiles restaient
+// fraîches et la maison apparaissait sans son seuil jusqu'au recompute suivant.
+// Quand le compteur bouge, seules les entrées dont la boîte de cellules touche
+// une maison qui a changé d'état perdent leur verdict (revealTouched) : fresh()
+// les re-juge, les autres gardent le leur. Mettre le compteur dans la signature
+// globale aurait marché aussi, mais en re-jugeant TOUT le cache à chaque achat :
+// mesuré ~16 ms la frame d'après (112 tuiles visibles à 0,14 ms, ville de
+// 1 361 bâtiments), sur un chemin d'achat conçu pour ne rien coûter.
 function riverSig(L) { return (L && L.river && L.river.present) ? 'r1' : 'r0'; }
 
-export function tileSig(L, z, tx, ty, S) {
+// Cellules des maisons-MOTEUR (emprise entière) → leur tuile, mémoïsé sur le
+// plan comme builtCells : la signature y lit, cellule par cellule, si la maison
+// est encore masquée.
+function engineHomeCells(L) {
+  if (L._engineHomeCells) return L._engineHomeCells;
+  const m = new Map();
+  for (const t of (L.tiles || [])) {
+    if (t.type !== 'enginehome') continue;
+    const sx = t.spanX || t.size || 1, sy = t.spanY || t.size || 1;
+    for (let ax = 0; ax < sx; ax += 1) for (let ay = 0; ay < sy; ay += 1) m.set((t.gx + ax) + ',' + (t.gy + ay), t);
+  }
+  L._engineHomeCells = m;
+  return m;
+}
+
+// La boîte de cellules qu'une tuile signe : ses coins (espace tuile, sans
+// terrain) → monde → cellules, + 2 de marge. Partagée par tileSig et
+// revealTouched — une maison touche une tuile si et seulement si elle est signée.
+function tileCellBox(z, tx, ty, S) {
   const T = CM.TILE;
   const o = tileOrigin(tx, ty, S);
-  // Coins de la tuile (espace tuile, sans terrain) → monde → boîte de cellules, + 2 de marge.
   let wx0 = Infinity, wy0 = Infinity, wx1 = -Infinity, wy1 = -Infinity;
   for (const [X, Y] of [[o.x, o.y], [o.x + S, o.y], [o.x, o.y + S], [o.x + S, o.y + S]]) {
     const a = X / (ISO_X * z), b = Y / (ISO_Y * z);
     const wx = (b + a) / 2, wy = (b - a) / 2;
     wx0 = Math.min(wx0, wx); wx1 = Math.max(wx1, wx); wy0 = Math.min(wy0, wy); wy1 = Math.max(wy1, wy);
   }
-  const gx0 = Math.floor(wx0 / T) - 2, gx1 = Math.ceil(wx1 / T) + 2, gy0 = Math.floor(wy0 / T) - 2, gy1 = Math.ceil(wy1 / T) + 2;
+  return { gx0: Math.floor(wx0 / T) - 2, gx1: Math.ceil(wx1 / T) + 2, gy0: Math.floor(wy0 / T) - 2, gy1: Math.ceil(wy1 / T) + 2 };
+}
+
+// Les entrées ({ z, tx, ty, S }) dont la boîte de cellules touche une maison-
+// moteur qui change d'état entre les compteurs r0 et r1 — celles dont la
+// signature change. Pure : le cache n'y entre que comme liste.
+export function revealTouched(L, r0, r1, entries) {
+  const moved = [];
+  for (const t of (L.tiles || [])) if (cmEngineHomeHidden(t, r0) !== cmEngineHomeHidden(t, r1)) moved.push(t);
+  const out = [];
+  if (!moved.length) return out;
+  for (const e of entries) {
+    const bx = tileCellBox(e.z, e.tx, e.ty, e.S);
+    for (const t of moved) {
+      const sx = t.spanX || t.size || 1, sy = t.spanY || t.size || 1;
+      if (t.gx + sx > bx.gx0 && t.gx <= bx.gx1 && t.gy + sy > bx.gy0 && t.gy <= bx.gy1) { out.push(e); break; }
+    }
+  }
+  return out;
+}
+
+export function tileSig(L, z, tx, ty, S) {
+  const { gx0, gx1, gy0, gy1 } = tileCellBox(z, tx, ty, S);
   const roadSet = L.roadSet, roadMap = L.roadMap, urban = L.urbanSet, meadow = L.meadow && L.meadow.has ? L.meadow : null;
   const wg = WONDER_GROUND.on ? wonderGroundSet(L) : null;
   const river = (L.river && L.river.present && L.river.cells) || null;
-  const built = builtCells(L), cour = courOf(L), ports = beachPortCells(L);
+  const built = builtCells(L), cour = courOf(L), ports = beachPortCells(L), homes = engineHomeCells(L);
   // Le masque du quai : les bancs de berge (cellules) et les brèches (points),
   // signés PAR TUILE — sa clé globale porte l'horodatage du recalcul, elle ne
   // peut pas servir (elle périmait toutes les tuiles à chaque recompute).
@@ -116,6 +167,8 @@ export function tileSig(L, z, tx, ty, S) {
       if (banks && banks.has(key)) code |= 128;
       const ck = cour && cour.get ? cour.get(key) : null;
       if (ck) code |= (ck === 'urban' ? 1 : ck === 'dirt' ? 2 : 3) << 24;
+      const eh = homes.get(key);
+      if (eh && cmEngineHomeHidden(eh)) code |= 1 << 26;   // maison masquée : pas d'allée de seuil
       if (code) { mix(gx * 73856093 ^ gy * 19349663); mix(code); }
     }
   }
@@ -297,6 +350,13 @@ export function paintGroundPyramid(ctx, L, nowMs) {
   ensureQuayGate();
   curL = L;
   sigCur = groundContentSig(L);
+  // Le compteur de révélation a bougé (un achat, sans recompute) : les seules
+  // tuiles de la maison apparue perdent leur verdict (cf. L'INVALIDATION PARTIELLE).
+  const reveal = CM.engineHomeReveal || 0;
+  if (reveal !== revealSeen) {
+    for (const e of revealTouched(L, revealSeen, reveal, cache.values())) { e.sig = ''; e.chk = ''; }
+    revealSeen = reveal;
+  }
   // Le suffixe partagé porte la clé du masque de quai AVEC l'horodatage du
   // recalcul (l'ancien cache en a besoin) ; ici on ne garde que son mode
   // (plein/naturel) — le contenu du masque est signé par tuile (tileSig).

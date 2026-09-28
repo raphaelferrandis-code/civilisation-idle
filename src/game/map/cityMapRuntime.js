@@ -19,6 +19,7 @@ import {
   cmRoadName,
   computeCityLayout,
   cmEngineGroupSig,
+  cmEngineHomeHidden,
   cmCheckWonders,
   cityCounts,
   cmIsWalkableRoad,
@@ -340,7 +341,7 @@ function cityContentBounds(layout) {
   // des 7 tentes réelles. Même seuil que le rendu au moment du recompute (aucun
   // achat depuis) : placed − 40, cf. le compteur engineHomeReveal de frame().
   const hiddenFrom = Math.max(0, (layout.engineHomePlaced || 0) - 40);
-  const visible = (t) => !(t.type === "enginehome" && (t.revealIdx || 0) >= hiddenFrom);
+  const visible = (t) => !cmEngineHomeHidden(t, hiddenFrom);
   const b = cmTileBounds(tiles, visible);
   // Repli : tout est encore caché (impossible en pratique, les maisons
   // décoratives sont toujours là) → on cadre l'ensemble comme avant.

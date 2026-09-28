@@ -16,7 +16,7 @@
 // reprises SANS UNE LIGNE DE CHANGÉE. Aucune n'est réassignée — vérifié avant la coupe.
 import { state } from '../../core/state.js';
 import { VEH_SCALE, VEH_SIZES, vehicleLaneOffset } from '../agents.js';
-import { CM, CM_WONDERS, cmHash, cmWonderActiveIds } from '../layout.js';
+import { CM, CM_WONDERS, cmEngineHomeHidden, cmHash, cmWonderActiveIds } from '../layout.js';
 import { pixelHouseReady } from '../pixelHouses.js';
 import { WINTER } from '../seasonMode.js';
 import { REVEAL_PIN_MS, SMOKE_TUNE } from './isoAmbient.js';
@@ -78,7 +78,7 @@ export function collectIsoItems(bake, now) {
     // Révélation per-achat (parité legacy drawTile) : une maison-moteur du pool
     // pré-placé pas encore achetée reste MASQUÉE → « 1 achat = 1 bâtiment qui
     // apparaît » vaut aussi en iso (la ville n'est plus en avance sur les achats).
-    if (t.type === 'enginehome' && (t.revealIdx || 0) >= (CM.engineHomeReveal || 0)) continue;
+    if (cmEngineHomeHidden(t)) continue;
     const sx = t.spanX || t.size || 1, sy = t.spanY || t.size || 1;
     const idf = t.buildingId || t.variant || '';
     // POINT D'EAU (ex-aqueducs) : une cellule, un prop du KIT DES PLACES. On ne
