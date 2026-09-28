@@ -26,6 +26,8 @@ import { pxProbe, recPx } from './pixelGrid.js';
 // restent procédurales. Repli procédural tant que le sprite n'est pas chargé.
 const WONDER_PX_IDS = new Set(["dynasty1", "pop1m", "era_kingdom", "era_empire", "era_mega", "era_singularity"]);
 const wonderPxCache = new Map(); // "dynasty1-t3" -> { img, ready, nw, nh }
+// Retouches ponctuelles : les autres rangs et silhouettes gardent leur art.
+const WONDER_RETOUCHES = new Set(['era_singularity-t5', 'era_empire-t4']);
 function wonderPixelSprite(id, tier) {
   if (!WONDER_PX_IDS.has(id)) return null;
   const key = id + "-t" + tier;
@@ -33,7 +35,7 @@ function wonderPixelSprite(id, tier) {
   if (!e) {
     e = { img: new Image(), ready: false, nw: 0, nh: 0 };
     e.img.onload = () => { e.nw = e.img.naturalWidth; e.nh = e.img.naturalHeight; e.ready = true; };
-    e.img.src = "/pixelart/wonders/" + key + ".png";
+    e.img.src = "/pixelart/wonders/" + (WONDER_RETOUCHES.has(key) ? 'refined/' : '') + key + ".png";
     wonderPxCache.set(key, e);
   }
   return e.ready ? e : null;

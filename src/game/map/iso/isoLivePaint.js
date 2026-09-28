@@ -56,6 +56,7 @@ import { drawIsoPortBoat, drawIsoRiverside } from './isoPort.js';
 import {
   LAMP_TUNE, isoLampLightFrame, lampFootMetrics, lampGlowBox, lampLit, paintLampGlow,
 } from './isoStreet.js';
+import { drawSunShadow } from './isoSunShadow.js';   // MAQUETTE
 import { GHOST_TUNE, drawIsoCitizenItem, drawIsoRioter, drawIsoVehicle } from './isoUnits.js';
 import { GL_RUN_MIN } from './isoWildForest.js';
 import { ISO_X, worldToScreen } from './projection.js';
@@ -375,6 +376,9 @@ export function paintIsoItems(bake, items, now) {
         // vient de treeImgs (une fois par frame, cf. plus haut).
         const tImg = tImg0;
         const tdx = p.x - hpx / 2, tdy = p.y - hpx * 0.92;
+        // MAQUETTE ombre solaire : sur le contexte 2D quel que soit le pipeline
+        // du sprite (une série GL se compose PAR-DESSUS, l'ombre reste dessous).
+        drawSunShadow(ctx, tImg, tdx, tdy, hpx, hpx, 0, 0, 0, 0, 0.92);
         // Série basculée : le sprite part au batcher (un seul appel de dessin
         // pour toute la série). Refus du batcher (atlas plein, source pas
         // décodée) → chemin 2D, sprite par sprite, comme avant.
@@ -506,6 +510,9 @@ export function paintIsoItems(bake, items, now) {
       const wpx = hpx * ((it.art.img.naturalWidth || 1) / (it.art.img.naturalHeight || 1));
       const prevLS = ctx.imageSmoothingEnabled;
       ctx.imageSmoothingEnabled = false;
+      // MAQUETTE ombre solaire : le mât aussi (fin, mais c'est lui qui vend la
+      // direction du soleil dans une rue vide).
+      drawSunShadow(ctx, it.art.img, p.x - wpx * m.footXf, p.y - hpx * m.footYf, wpx, hpx, 0, 0, 0, 0, m.footYf);
       ctx.drawImage(it.art.img, p.x - wpx * m.footXf, p.y - hpx * m.footYf, wpx, hpx);
       ctx.imageSmoothingEnabled = prevLS;
       // HALO DÉPOSÉ ICI, à la profondeur du mât : tout ce que le peintre dessine

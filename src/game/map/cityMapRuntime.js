@@ -47,6 +47,8 @@ import { glInit, glBegin, glQuad, glFlush, glFinish, glGetCanvas, glStats } from
 // monde↔écran. Plus personne ne projette à la main — la règle d'or du chantier
 // iso, désormais sans alternative : il n'y a plus qu'une projection.
 import { worldToScreen, screenToWorld, panDeltaToScreen, screenDeltaToPan, wonderAnchor, ISO_X, ISO_Y, snapZoom } from './iso/projection.js';
+import { cameraExtent } from './iso/cameraExtent.js';
+import { terrainMaxPx } from './iso/isoTerrain.js';
 import { drawIsoWorld } from './iso/isoRenderer.js';
 // `plaisirsHitTest` a rejoint isoPlaisirs.js le 2026-08-23, avec le sprite du
 // monument dont il lit l'encre : c'est ce sprite qu'il interroge pour savoir si le
@@ -414,11 +416,11 @@ function cmClampCamera() {
   const boxW = bx1 - bx0, boxH = by1 - by0;
   if (boxW <= 0 || boxH <= 0) return;
   // La boîte monde projetée est un losange dont l'étendue écran vaut
-  // (W+H)·ISO_X × (W+H)·ISO_Y. Plancher de zoom sur cette étendue ; le pan se
-  // contente de garder le CENTRE caméra dans la boîte monde (clamp exact
-  // bord-à-bord = intersection de losange, jamais jugé nécessaire).
+  // (W+H)·ISO_X × (W+H)·ISO_Y. Le fleuve exige en plus de garder toute
+  // l'emprise visible entre ses extrémités, pas seulement le centre caméra.
   const extW = (boxW + boxH) * ISO_X, extH = (boxW + boxH) * ISO_Y;
-  const zoomFloorIso = Math.min(3.2, Math.max(CM.cw / extW, CM.ch / extH));
+  const extent = sm ? cameraExtent(CM.cw, CM.ch, bx0, bx1, terrainMaxPx()) : null;
+  const zoomFloorIso = Math.min(3.2, Math.max(CM.cw / extW, CM.ch / extH, extent?.minZoom || 0));
   // S11 : les DEUX bornes tombent sur un cran, sinon le clamp repose la caméra
   // hors grille et le sol reprend ses coutures pile aux extrémités de la plage.
   // Le plancher est rabattu vers le HAUT (ceil) : au cran inférieur il laisserait
@@ -435,7 +437,7 @@ function cmClampCamera() {
   // A9 : borner AUSSI la cible de zoom, sinon le glissement la poursuit sous le
   // plancher pendant que le clamp remonte cam.zoom → tremblement, jamais posé.
   if (CM.zoomGoal != null) CM.zoomGoal = Math.max(loIso, Math.min(hiIso, CM.zoomGoal));
-  CM.cam.x = Math.max(bx0, Math.min(bx1, CM.cam.x));
+  CM.cam.x = extent ? extent.clampX(CM.cam.x, CM.cam.zoom) : Math.max(bx0, Math.min(bx1, CM.cam.x));
   CM.cam.y = Math.max(by0, Math.min(by1, CM.cam.y));
 }
 

@@ -10,10 +10,12 @@
 // chargement de sprite on invalide le bake (CM._tileBake = null) pour forcer un re-bake.
 import { CM, cmHash } from './layout.js';
 import { maskFromImageData } from "./iso/isoMask.js";
+import { drawSunShadow } from './iso/isoSunShadow.js';   // MAQUETTE
 import { pickHouseTint, applyHouseTint, HOUSE_TINTS } from './housePalette.js';
 import { snowImageData, snowRoofTune, addSnowResetHook } from './snowRoof.js';
 import { WINTER } from './seasonMode.js';
 import { lightCutImage } from './lightLayer.js';
+import { drawHouseWindows } from './houseWindows.js';
 import { HOUSE_UNIT, HOUSE_LOT_WF, houseFitTune, houseScaleK, grainTune, GRAIN_FIX, recDens } from './spriteScale.js';
 import { pxProbe, recPx } from './pixelGrid.js';
 // ISO_Y : la marche d'un rang vers le nord (cf. houseSpriteReachTilesIso). Sens
@@ -283,6 +285,9 @@ export function drawPixelHouse(t, x, y, w, h) {
   const g = pixelHouseGeom(t, x, y, w, h);
   if (!g) return null;
   const ctx = CM.ctx;
+  // MAQUETTE ombre solaire (lot 1, PLAN-LUMIERE-RELIEF) : silhouette couchée au
+  // sol AVANT le sprite, qui la recouvre. No-op molette éteinte.
+  drawSunShadow(ctx, g.img, g.dx, g.dy, g.dw, g.dh, g.bb.x0, g.bb.y0, g.bb.w, g.bb.h);
   const prev = ctx.imageSmoothingEnabled;
   ctx.imageSmoothingEnabled = false;        // pixel net
   ctx.drawImage(g.img, g.bb.x0, g.bb.y0, g.bb.w, g.bb.h, g.dx, g.dy, g.dw, g.dh);
@@ -292,6 +297,7 @@ export function drawPixelHouse(t, x, y, w, h) {
   // lightLayer.js). Même image, même géométrie → découpe au pixel. No-op quand
   // aucune lumière n'a été déposée dans ce coin de l'écran.
   lightCutImage(g.img, g.dx, g.dy, g.dw, g.dh, g.bb.x0, g.bb.y0, g.bb.w, g.bb.h);
+  drawHouseWindows(t, g);
   return { dx: g.dx, dy: g.dy, dw: g.dw, dh: g.dh, mask: g.bb && g.bb.mask };
 }
 

@@ -136,6 +136,28 @@ describe('terrain — les socles', () => {
       expect(cellLevelU(gx, gy), `cellule ${gx},${gy}`).toBe(ref);
     }
   });
+
+  it('le parvis prime sur la marge du socle voisin dans la projection réelle', () => {
+    const wonderGround = new Set();
+    for (let gy = 62; gy < 70; gy += 1) for (let gx = 66; gx < 70; gx += 1) wonderGround.add(`${gx},${gy}`);
+    CM.layout = makeLayout({ wonderGround, river: { present: true, riverYAt: () => 50 },
+      tiles: [{ gx: 66, gy: 50, spanX: 3, spanY: 12 }] });
+    CM.layoutRecomputeAt = ++seq;
+    const ref = cellLevelU(66, 62) * reliefUnit();
+    expect(ref).toBeGreaterThan(0);
+    for (let gy = 62; gy < 70; gy += 1) for (let gx = 66; gx < 70; gx += 1) {
+      expect(terrainZ(gx * CM.TILE, gy * CM.TILE)).toBe(ref);
+    }
+  });
+
+  it('deux parvis éloignés gardent chacun leur altitude locale', () => {
+    const wonderGround = new Set(['50,50', '51,50', '50,51', '51,51', '50,85', '51,85', '50,86', '51,86']);
+    CM.layout = makeLayout({ wonderGround, river: { present: true, riverYAt: () => 50 } });
+    CM.layoutRecomputeAt = ++seq;
+    expect(cellLevelU(50, 50)).toBe(0);
+    expect(cellLevelU(50, 85)).toBeGreaterThan(0);
+    expect(cellLevelU(50, 85)).toBe(cellLevelU(51, 86));
+  });
 });
 
 describe('terrain — le bombé des îles', () => {

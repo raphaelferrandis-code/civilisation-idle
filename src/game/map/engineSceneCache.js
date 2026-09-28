@@ -29,6 +29,7 @@
 import { CM } from './layout.js';
 import { drawEngineSprite } from './engineSprites.js';
 import { getPropVersion } from './cityEngineSprites.js';
+import { drawSunShadow } from './iso/isoSunShadow.js';   // MAQUETTE
 import { suspendFlameGlow } from './flameGlow.js';
 import { suspendLightLayer, lightCutImage } from './lightLayer.js';
 
@@ -341,6 +342,9 @@ export function drawCachedEngineScene(ctx, t, bx, by, bw, now, animNow = now) {
     const dx = bx + e.ox, dy = by + e.oy;
     const prevSmooth = ctx.imageSmoothingEnabled;
     ctx.imageSmoothingEnabled = false;
+    // MAQUETTE ombre solaire : la silhouette du plan statique cuit (le chemin
+    // direct, prop par prop, n'a pas d'image unique à coucher — il reste sans).
+    drawSunShadow(ctx, e.back, dx, dy, dw, dh);
     ctx.drawImage(e.back, dx, dy, dw, dh);
     // Occultation du calque de lumière : la silhouette du plan cuit remplace
     // les découpes par prop du chemin direct.

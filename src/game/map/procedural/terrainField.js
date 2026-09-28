@@ -28,7 +28,9 @@
 // (hillCut 0,52 → 0,46) et plus hauts (9 → 12 U), vallée plus creuse (8 → 9),
 // un peu plus de sculpture EN ville (cityK 0,45 → 0,5). Toujours des massifs
 // DISCRETS — l'accent porte sur leur présence, pas un retour de la houle.
-// ⛔⛔ RELIEF ÉTEINT PAR DÉFAUT (amp = 0) — DÉCISION DE RAPH, 2026-08-24 :
+// HISTORIQUE : relief éteint le 2026-08-24, rouvert à la demande de Raph
+// le 2026-09-21 (« terrain vallonné et bâtiments avec plus de volume »).
+// Le précédent essai avait été retiré :
 // « rien ne va c'est tout fracassé […] je te propose d'annuler tout le relief ».
 // À amp = 0 le champ rend 0 partout : le sol redevient PLAT au bit près, les
 // contremarches ne sont plus jamais poussées, les socles n'existent pas, le dôme
@@ -37,7 +39,7 @@
 // C'est l'interrupteur que le chantier s'était donné dès le premier jour ; il
 // tient sa promesse — aucun pixel du jeu ne change par rapport à l'état plat.
 //
-// ⚠ NE PAS le rallumer sans demande explicite. Ce qui a cassé n'est PAS le champ
+// Ce qui avait cassé n'est PAS le champ
 // nu (validé en prod le matin même, « fluide, rendu top ») mais ce qui s'est
 // empilé dessus l'après-midi : l'accentuation (hills 9→12, hillCut 0,52→0,46,
 // cityK 0,45→0,5) ET l'habillage des tranches (lèvre, assise, joints, pied
@@ -46,8 +48,11 @@
 // (valley 8, hills 9, hillCut 0,52, cityK 0,45, tranches nues) et ne rien
 // empiler sans capture de nuit à l'appui.
 export const TERRAIN = {
-  amp: 0, valley: 9, bench: 6, coteau: 4, hills: 12, hillCut: 0.46,
-  cityK: 0.5, big: 20, det: 7, riverPad: 3,
+  amp: 1, valley: 3, bench: 6, coteau: 12, hills: 9, hillCut: 0.52,
+  cityK: 0.25, big: 24, det: 7, riverPad: 3,
+  // Reprise du 21 septembre : terrasses nues, sans margelles ni joints
+  // répétés. Les collines se lisent surtout en périphérie de la ville.
+  dressFaces: false,
   // `isle` : bombé LISSE des îles, en U — demande de Raph (« l'île légèrement
   // bombée, sans marches ») : il ÉCHAPPE à la quantification (cf. islandDomeU),
   // donc jamais de contremarche — un galbe, pas une terrasse.

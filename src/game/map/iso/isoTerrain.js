@@ -69,7 +69,7 @@ export function terrainKey() {
   return ':tr' + TERRAIN.amp + '_' + TERRAIN.valley + '_' + TERRAIN.bench
     + '_' + TERRAIN.coteau + '_' + TERRAIN.hills + '_' + TERRAIN.hillCut
     + '_' + TERRAIN.cityK + '_' + TERRAIN.big + '_' + TERRAIN.det + '_' + TERRAIN.riverPad
-    + '_i' + TERRAIN.isle;
+    + '_i' + TERRAIN.isle + '_faces' + Number(TERRAIN.dressFaces);
 }
 
 // ── SOCLES ────────────────────────────────────────────────────────────────────
@@ -141,18 +141,26 @@ function padsFor(L) {
       cells.set(gx * 100000 + gy, g);
     }
   }
-  // 3) Parvis de merveille : le Set du layout, en UN groupe par composante non
-  // requise — un seul niveau pour tout le parvis suffit (les parvis sont petits
-  // et isolés les uns des autres).
+  // 3) Chaque parvis a son propre niveau. Des merveilles éloignées ne doivent
+  // pas hériter de la hauteur moyenne de leurs emplacements respectifs.
   if (L.wonderGround && L.wonderGround.size) {
-    const g = { sx: 0, sy: 0, n: 0, h: 0, hDone: false };
-    for (const k of L.wonderGround) {
-      const ci = k.indexOf(',');
-      const gx = +k.slice(0, ci), gy = +k.slice(ci + 1);
-      g.sx += gx + 0.5; g.sy += gy + 0.5; g.n += 1;
-      cells.set(gx * 100000 + gy, g);
+    const remaining = new Set(L.wonderGround);
+    while (remaining.size) {
+      const first = remaining.values().next().value;
+      const pending = [first];
+      remaining.delete(first);
+      const g = { sx: 0, sy: 0, n: 0, h: 0, hDone: false };
+      while (pending.length) {
+        const k = pending.pop(), ci = k.indexOf(',');
+        const gx = +k.slice(0, ci), gy = +k.slice(ci + 1);
+        g.sx += gx + 0.5; g.sy += gy + 0.5; g.n += 1;
+        cells.set(gx * 100000 + gy, g);
+        for (const next of [`${gx - 1},${gy}`, `${gx + 1},${gy}`, `${gx},${gy - 1}`, `${gx},${gy + 1}`]) {
+          if (remaining.delete(next)) pending.push(next);
+        }
+      }
+      groups.push(g);
     }
-    if (g.n) groups.push(g);
   }
   _pads.blocks = blocks; _pads.cells = cells; _pads.cellPad = cellPad; _pads.key = key;
   return _pads;
@@ -270,8 +278,11 @@ export function terrainZ(wx, wy) {
   }
   let h;
   // Cellule ENTIÈREMENT sous une emprise : un seul Map.get, pas de boucle.
-  let pad = P.cellPad.get(Math.floor(gx) * 100000 + Math.floor(gy)) || null;
-  if (!pad) {
+  const cellKey = Math.floor(gx) * 100000 + Math.floor(gy);
+  const grouped = P.cells.has(cellKey);
+  // Le dallage commun prime sur la marge du socle d'un bâtiment voisin.
+  let pad = grouped ? null : P.cellPad.get(cellKey) || null;
+  if (!pad && !grouped) {
     const arr = P.blocks.get(blockKey(Math.floor(gx / PAD_BLOCK), Math.floor(gy / PAD_BLOCK)));
     if (arr) {
       for (const p of arr) {

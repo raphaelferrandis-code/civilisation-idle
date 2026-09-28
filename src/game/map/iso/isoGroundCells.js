@@ -278,7 +278,7 @@ export function sweepIsoGroundCells(bake, resolve, out) {
           const pushFace = (ax, ay, da, db, dark) => {
             (stone ? (dark ? faceDU : faceLU) : (dark ? faceD : faceL))
               .push(ax, ay, sx, sy, sx, sy + db, ax, ay + da);
-            if (HARD) return;
+            if (HARD || !TERRAIN.dressFaces) return;
             faceFoot.push(ax, ay + da, sx, sy + db);
             if (kind === 'grass' || stone) {
               const lh = Math.max(1, hh * 0.12);

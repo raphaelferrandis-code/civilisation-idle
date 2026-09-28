@@ -251,10 +251,8 @@ function floorLevel() { return levelZoom(Math.max(CM.zoomFloor || 0.35, ZOOM_MIN
 // Les tuiles d'un niveau qui couvrent TOUT le plan de ville (ses gridN × gridN
 // cellules, projetées en espace tuile) — le plancher se pré-cuit sur cette base.
 // Boîte du plan de ville en espace tuile du niveau z (avec une cellule de marge :
-// les cellules du bord débordent). Ce qui est HORS de cette boîte n'a rien à
-// cuire : c'est le fond hors-monde, déjà posé par l'appelant — ni tuile, ni trou.
-// (Mesuré sans ce test : au plancher d'une grande carte, des dizaines de tuiles
-// vides « cuites » en urgence par la règle des trous, 100 ms de gel pour rien.)
+// les cellules du bord débordent). Cette boîte ne borne que la pré-cuisson :
+// le terrain sauvage continue hors grille et doit être cuit lorsqu'il est visible.
 function mapBBoxAtLevel(L, z) {
   const N = ((L.gridN | 0) || 1) + 1, T = CM.TILE;
   const corners = [tileSpace(-T, -T, z), tileSpace(N * T, -T, z), tileSpace(-T, N * T, z), tileSpace(N * T, N * T, z)];
@@ -262,7 +260,6 @@ function mapBBoxAtLevel(L, z) {
   for (const c of corners) { x0 = Math.min(x0, c.x); x1 = Math.max(x1, c.x); y0 = Math.min(y0, c.y); y1 = Math.max(y1, c.y); }
   return { x0, y0, x1, y1 };
 }
-const inMap = (mb, tx, ty, S) => (tx + 1) * S > mb.x0 && tx * S < mb.x1 && (ty + 1) * S > mb.y0 && ty * S < mb.y1;
 
 function mapTilesAtLevel(L, z, S) {
   const mb = mapBBoxAtLevel(L, z);
@@ -316,10 +313,8 @@ export function paintGroundPyramid(ctx, L, nowMs) {
   const gesture = nowMs - lastMoveAt < PYR.gestureMs;
   const c = camSpace(CM.cam.x, CM.cam.y, zoom);
   const x0 = (c.x - cw / 2) / s, x1 = (c.x + cw / 2) / s, y0 = (c.y - ch / 2) / s, y1 = (c.y + ch / 2) / s;
-  const mbZ = mapBBoxAtLevel(L, z);
-  const visAll = tilesInRect(x0, y0, x1, y1, S);
-  const vis = visAll.filter((t) => inMap(mbZ, t.tx, t.ty, S));
-  const vides = visAll.length - vis.length;
+  const vis = tilesInRect(x0, y0, x1, y1, S);
+  const vides = 0;
   const keep = new Set();
   for (const t of vis) keep.add(posKey(z, t.tx, t.ty));
 
@@ -336,9 +331,8 @@ export function paintGroundPyramid(ctx, L, nowMs) {
     ? Math.max(levelZoom(CM.zoomGoal), floorLevel()) : z;
   const Sc = tileSideCss(dpr, zc), rc = zc / z;
   const cxT = (x0 + x1) / 2 * rc, cyT = (y0 + y1) / 2 * rc;
-  const mbC = zc === z ? mbZ : mapBBoxAtLevel(L, zc);
   const need = tilesInRect(x0 * rc, y0 * rc, x1 * rc, y1 * rc, Sc)
-    .filter((t) => inMap(mbC, t.tx, t.ty, Sc) && !fresh(cache.get(posKey(zc, t.tx, t.ty))))
+    .filter((t) => !fresh(cache.get(posKey(zc, t.tx, t.ty))))
     .sort((a, b) => (Math.hypot((a.tx + 0.5) * Sc - cxT, (a.ty + 0.5) * Sc - cyT) - Math.hypot((b.tx + 0.5) * Sc - cxT, (b.ty + 0.5) * Sc - cyT)));
   const t0 = performance.now();
   // En geste, un budget un peu plus large : un trou (fond hors-monde) se voit
@@ -432,7 +426,7 @@ export function paintGroundPyramid(ctx, L, nowMs) {
       }
     }
     const ring = tilesInRect(x0 - R * S, y0 - R * S, x1 + R * S, y1 + R * S, S)
-      .filter((t) => inMap(mbZ, t.tx, t.ty, S) && !keep.has(posKey(z, t.tx, t.ty)) && !fresh(cache.get(posKey(z, t.tx, t.ty))));
+      .filter((t) => !keep.has(posKey(z, t.tx, t.ty)) && !fresh(cache.get(posKey(z, t.tx, t.ty))));
     for (const t of ring) {
       if (performance.now() - t0 + estimateMs(z) > budget) break;
       cook(z, t.tx, t.ty, nowMs);
