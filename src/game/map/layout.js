@@ -190,6 +190,27 @@ if (typeof window !== "undefined") {
 // mais par ces contrats : 5/8 est le dernier cran qui les respecte, et il divise
 // déjà le groupement par deux. Ne pas le remonter sans relancer la suite.
 export const ENGINE_SPREAD = { gap: 5, reach: 8 };
+
+// ── LA MAISON DES PLAISIRS ATTEND L'ÂGE DU NÉON ─────────────────────────────
+// Bande de carte à partir de laquelle le monument se dresse sur le fleuve.
+// Décision de Raph, 2026-09-28 : seul son palier NÉON est dessiné
+// (plaisirs-t3.png), et posé dès l'ère 0 il se dressait à côté d'un campement de
+// tentes — la première image du jeu. Les paliers « bois et toile » puis « pierre
+// à portique » (docs/PLAN-MAISON-DES-PLAISIRS.md) attendent un art qu'on ne peut
+// pas générer tant que l'abonnement PixelLab est expiré. 6 est la bande dont le
+// thème s'appelle « Néon » (eraThemes) et où les lampadaires deviennent
+// électriques (isoStreet, lampEraForBand) : le sprite est chez lui. Le jour où
+// les deux premiers paliers existent, ce seuil redescend à 0.
+// L'onglet Plaisirs, lui, reste ouvert dès le début (App.jsx) : ses jeux
+// s'ouvrent aux ères 2-3, bien avant que le lieu se voie.
+export const PLAISIRS_REVEAL_BAND = 6;
+
+// ── LE CŒUR DE LA VILLE SORT DE L'EAU ────────────────────────────────────────
+// Rayon (en cellules) du disque qui doit être AU SEC autour de plan.core. Cf. le
+// bloc « le cœur sort de l'eau » dans computeCityLayout. 2 est le rayon mesuré
+// qui tient toujours sur la plus petite carte (N = 20, 150 graines) ; 3 bute sur
+// le bord nord dans 13 % des parties neuves.
+export const CORE_DRY_RADIUS = 2;
 if (typeof window !== "undefined") {
   window.__engineSpread = (o) => {
     if (o && typeof o === "object") Object.assign(ENGINE_SPREAD, o);
@@ -2298,6 +2319,45 @@ function computeCityLayout(s) {
   }
   lp("riviere");
 
+  // ── LE CŒUR SORT DE L'EAU (2026-09-28) ─────────────────────────────────────
+  // plan.core est tiré dans une bande qui CHEVAUCHE le lit : sur 150 parties
+  // neuves, il tombait dans le corridor (eau ou berge) 67 fois (45 %). La cellule
+  // la plus proche du cœur étant alors la rive, les tentes du campement
+  // s'alignaient le long du fleuve au lieu de former un camp, le sentier du pont
+  // au cœur partait dans l'eau, et deux graines coupaient même le camp en deux
+  // de part et d'autre du pont. On REMONTE le cœur vers le nord (le fleuve coule
+  // au sud du cœur par construction, cf. cityPlan) jusqu'au premier rang où un
+  // disque de rayon CORE_DRY_RADIUS est au sec.
+  //   - Seul `y` bouge : `x` garde le pont plein sud du cœur (riverBridge, plus
+  //     haut, lit core.x) et la marche des Plaisirs n'est pas concernée.
+  //   - Posé AVANT finalize, sur l'objet partagé : ancres, places, contour
+  //     organique, racine du réseau et ordre des tentes suivent d'eux-mêmes.
+  //   - Toutes bandes confondues : un cœur qui ne bougerait qu'au campement
+  //     sauterait au passage de la bande 2 et la ville se réorganiserait d'un coup.
+  //   - Un cœur déjà au sec ne bouge pas d'un pixel.
+  // Molette (A/B) : `globalThis.__coreDryRadius = -1` coupe le déplacement,
+  // puis `__cityRecompute()`.
+  const coreDryR = (typeof globalThis !== "undefined" && Number.isFinite(globalThis.__coreDryRadius))
+    ? globalThis.__coreDryRadius : CORE_DRY_RADIUS;
+  if (coreDryR >= 0) {
+    const R = coreDryR;
+    const wet = (x, y) => {
+      for (let dx = -R; dx <= R; dx += 1) {
+        for (let dy = -R; dy <= R; dy += 1) {
+          if (dx * dx + dy * dy > R * R) continue;
+          if (corridorAt(Math.floor(x) + dx, Math.floor(y) + dy)) return true;
+        }
+      }
+      return false;
+    };
+    if (wet(plan.core.x, plan.core.y)) {
+      let y = plan.core.y;
+      while (y - 1 >= R + 1 && wet(plan.core.x, y)) y -= 1;
+      // Carte trop étroite pour dégager tout le disque : on garde le cœur tiré.
+      if (!wet(plan.core.x, y)) plan.core.y = y;
+    }
+  }
+
   // Quartiers et places : ils demandent le lit PEINT (corridorAt), c'est pour
   // ça que `finalize` reste ici alors que le plan, lui, est calculé plus haut.
   plan.finalize({ reachBase: cityReachBase });
@@ -2315,7 +2375,17 @@ function computeCityLayout(s) {
   // place, et la flotte en tire son obstacle (cf. CM.riverObstacles). Publié
   // ici, donc après l'évasement du lit — ses coordonnées sont déjà celles du
   // cours corrigé, il ne peut pas se retrouver au sec.
-  river.plaisirs = plaisirsSpot;
+  // ⛔ PUBLIÉ SEULEMENT À PARTIR DE PLAISIRS_REVEAL_BAND (cf. sa déclaration).
+  // On ne masque QUE la publication : la marche, l'évasement du lit,
+  // `bridgeAvoid` et le domaine réservé lisent `plaisirsSpot` et restent les
+  // mêmes à toutes les ères — le fleuve ne change pas de forme le jour où le lieu
+  // apparaît, aucun pont ne saute, et le terrain est déjà dégagé. Sans
+  // `river.plaisirs` : pas d'item au peintre (isoLiveCollect périme la boîte, donc
+  // ni clic, ni survol, ni aura, ni faisceaux), et pas d'obstacle FANTÔME pour la
+  // flotte (cityMapRuntime) — le pêcheur de l'ère 0 ne contourne plus le vide.
+  // Le layout se recalcule à chaque changement d'ère : le lieu paraît au passage
+  // de la bande, sans rien d'autre à signer.
+  river.plaisirs = (c.eraBand | 0) >= PLAISIRS_REVEAL_BAND ? plaisirsSpot : null;
   lp("plan-eau");
 
   // Fonction chaude : appelée pour chaque cellule de la grille + chaque tronçon

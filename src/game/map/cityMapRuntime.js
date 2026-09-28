@@ -38,7 +38,8 @@ import { dayNightMode } from './dayNightMode.js';
 import { qualitySettings } from './qualityMode.js';
 import { mountFpsProbe } from './fpsProbe.js';
 import { ambianceK } from './ambianceMode.js';
-import { weatherState } from './weatherMode.js';
+import { weatherState, weatherMode } from './weatherMode.js';
+import { firstGameGraceActive, makeGraceLatch } from './firstGameGrace.js';
 import { currentSeason } from './seasonMode.js';
 import { buildNecropolis } from './necropolis.js';
 import { preloadHouseSprites, houseSpriteHeightTiles, houseSpriteReachTilesIso, pixelHouseImages } from './pixelHouses.js';
@@ -94,6 +95,11 @@ let cmRenderDprCap = 1.5;
 let cmFrameMs = 1000 / 30;
 let cmCitizenMul = 1;
 let cmLodZoom = 0.55;       // seuil de zoom sous lequel la carte simplifie (0 = jamais)
+// Grâce de la toute première partie (firstGameGrace.js) : un verrou pour le ciel,
+// un pour le jour. Au niveau du MODULE et non de la boucle : démonter puis
+// remonter la carte ne doit pas relâcher d'un coup une averse qu'on tenait.
+const cmGraceSky = makeGraceLatch();
+const cmGraceDay = makeGraceLatch();
 function cmApplyQualitySettings() {
   const s = qualitySettings();
   cmRenderDprCap = s.dpr;
@@ -182,15 +188,36 @@ function cmInvalidateBakes() {
   CM._quayBake = null;
 }
 
+// Foule du campement (bande 0) : marcheurs par tente, plafond, et cadence
+// d'arrivée. Molette : `__campCrowd({ perHouse: 2 })` (dev).
+const CAMP_CROWD = { perHouse: 1.4, cap: 40, spawnMs: 350 };
+if (typeof window !== "undefined") {
+  window.__campCrowd = (o) => { if (o) Object.assign(CAMP_CROWD, o); cmRecomputeCitizenTarget(); return { ...CAMP_CROWD, target: CM.citizenTarget }; };
+}
+
 // Cible de foule pour un layout donné et un multiplicateur de densité. Extrait
 // pour être RÉ-APPLICABLE à chaud (changement de préréglage) sans le recompute
 // O(N²) du plan — la formule DOIT rester alignée sur cityMapEnsureLayout.
 function cmCitizenTargetFor(L, crowdMul) {
   if (!L || !L.counts) return 0;
   const eraFrac = Math.min(1, (L.counts.eraIndex || 0) / 22);
-  const cap = Math.round((10 + Math.pow(eraFrac, 0.55) * 900) * crowdMul);
+  let cap = Math.round((10 + Math.pow(eraFrac, 0.55) * 900) * crowdMul);
   const densityMul = (L.personality && L.personality.densityMul) || 1;
-  return Math.round(cmClamp((2 + L.counts.houses / 3.5 + Math.pow(eraFrac, 1.65) * 540 + L.counts.megaDistricts * 10) * densityMul * crowdMul, 2, cap));
+  let base = 2 + L.counts.houses / 3.5 + Math.pow(eraFrac, 1.65) * 540 + L.counts.megaDistricts * 10;
+  // LE CAMPEMENT (bande 0, ères 0 à 4) : un plancher PAR TENTE. La formule
+  // générale est pensée pour la ville, où l'ère porte la foule ; à l'ère 0 elle
+  // donnait 4 marcheurs pour 7 tentes, puis 5 pour 27 tentes après onze minutes
+  // de jeu (partie test du 2026-09-28) — un village mort, alors que le campement
+  // est l'image de toute la première heure. Le plancher reste multiplié par la
+  // densité (personnalité de la ville) et par crowdMul (Qualité du joueur,
+  // abri sous l'averse) : il ne passe jamais par-dessus ces deux réglages.
+  // `cap` borne le PLANCHER, pas la foule : au-delà, la formule générale reprend
+  // la main (elle dépasse le plancher vers l'ère 4).
+  if ((L.counts.eraBand | 0) === 0) {
+    base = Math.max(base, Math.min((L.counts.houses || 0) * CAMP_CROWD.perHouse, CAMP_CROWD.cap));
+    cap = Math.max(cap, Math.round(CAMP_CROWD.cap * crowdMul));
+  }
+  return Math.round(cmClamp(base * densityMul * crowdMul, 2, cap));
 }
 
 // Multiplicateur de densité effectif : la molette dev window.__citizenMul
@@ -307,9 +334,23 @@ function cityMapScreenFromWorld(wx, wy) {
 function cityContentBounds(layout) {
   const tiles = layout && layout.tiles;
   if (!tiles || !tiles.length) return null;
+  // Les maisons-MOTEUR pré-posées mais pas encore achetées sont INVISIBLES
+  // (isoLiveCollect les saute) : les cadrer, c'était viser un camp fantôme. À
+  // l'ouverture d'une partie, ~25 tentes cachées sur 32 tiraient la caméra loin
+  // des 7 tentes réelles. Même seuil que le rendu au moment du recompute (aucun
+  // achat depuis) : placed − 40, cf. le compteur engineHomeReveal de frame().
+  const hiddenFrom = Math.max(0, (layout.engineHomePlaced || 0) - 40);
+  const visible = (t) => !(t.type === "enginehome" && (t.revealIdx || 0) >= hiddenFrom);
+  const b = cmTileBounds(tiles, visible);
+  // Repli : tout est encore caché (impossible en pratique, les maisons
+  // décoratives sont toujours là) → on cadre l'ensemble comme avant.
+  return b || cmTileBounds(tiles, null);
+}
+function cmTileBounds(tiles, keep) {
   let minX = Infinity, maxX = -Infinity, minY = Infinity, maxY = -Infinity, n = 0;
   for (const t of tiles) {
     if (!t || typeof t.gx !== "number" || typeof t.gy !== "number") continue;
+    if (keep && !keep(t)) continue;
     const sx = t.spanX || 1, sy = t.spanY || 1;
     if (t.gx < minX) minX = t.gx;
     if (t.gx + sx - 1 > maxX) maxX = t.gx + sx - 1;
@@ -1950,7 +1991,11 @@ function initCityMap(canvas, options = {}) {
       if (CM.layout && CM.walkRoadList.length && CM.citizens.length < target) {
         const eraIndex = CM.layout.counts ? (CM.layout.counts.eraIndex || 0) : 0;
         // Intervalle en ms : de 2400ms (ère 0) à 120ms (ère 20+), lié à l'ère.
-        const msPerCitizen = Math.max(120, 2400 - eraIndex * 120);
+        // Sauf au CAMPEMENT (bande 0) : à 2,4 s par habitant, le joueur qui ouvre
+        // le jeu regardait un camp vide pendant une demi-minute. Il se peuple en
+        // quelques secondes, toujours un par un et en fondu.
+        const campBand = CM.layout.counts && (CM.layout.counts.eraBand | 0) === 0;
+        const msPerCitizen = campBand ? CAMP_CROWD.spawnMs : Math.max(120, 2400 - eraIndex * 120);
         if (now - lastCitizenSpawn >= msPerCitizen) {
           lastCitizenSpawn = now;
           // Rattrapage par petits lots quand la ville est LOIN de sa cible → la foule
@@ -1972,6 +2017,11 @@ function initCityMap(canvas, options = {}) {
       // murale ne doit pas décider si une foule d'émeute y figure (captureFrame
       // isole aussi CM.rioters — la frame forcée purge la sim, cf. updateCrisis).
       CM.riotWindow = !CM.capture && dayP >= RIOT_START && dayP < DAY_END;
+      // Grâce de la première partie : lue UNE fois par frame, partagée par le jour
+      // et le ciel. Elle ne touche que l'AFFICHAGE en mode « auto » : un choix
+      // explicite du joueur (Options : Nuit, Averse) gagne toujours, et la
+      // fenêtre d'émeutes ci-dessus reste sur l'horloge murale (gameplay).
+      const firstGrace = !CM.capture && firstGameGraceActive(state);
       if (CM.capture) {
         // Capture déterministe : plein jour (ou nuit forcée).
         CM.nightF = CM.capture.night; CM.dayRising = false;
@@ -1979,8 +2029,13 @@ function initCityMap(canvas, options = {}) {
         CM.nightF = dayNightMode === 'night' ? 1 : 0;
         CM.dayRising = false;
       } else {
-        CM.nightF = cmDayNightF(dayP);
-        CM.dayRising = dayP < DUSK_END;
+        const realNightF = cmDayNightF(dayP);
+        if (cmGraceDay(firstGrace, realNightF === 0)) {
+          CM.nightF = 0; CM.dayRising = false;
+        } else {
+          CM.nightF = realNightF;
+          CM.dayRising = dayP < DUSK_END;
+        }
       }
       // Indice de santé de la cité (0 = agonie, 1 = prospérité) : la taille
       // pilote l'échelle, la santé pilote l'ambiance (palette, lumières).
@@ -2031,7 +2086,11 @@ function initCityMap(canvas, options = {}) {
       // assombrissement, densité de foule). En capture, temps dégagé : un cliché
       // est déterministe, l'horloge murale ne décide pas s'il y pleut.
       {
-        const w = CM.capture ? { rainF: 0, windX: 0, gustF: 0 } : weatherState();
+        const CLEAR = { rainF: 0, windX: 0, gustF: 0 };
+        const real = CM.capture ? CLEAR : weatherState();
+        // Grâce de la première partie : ciel tenu dégagé, relâché seulement quand
+        // le ciel réel l'est déjà (jamais d'averse qui tombe d'un bloc).
+        const w = (!CM.capture && weatherMode === 'auto' && cmGraceSky(firstGrace, real.rainF === 0)) ? CLEAR : real;
         CM.rainF = w.rainF;
         CM.windX = w.windX;
         // RAFALE en cours (0..1) : densité, vitesse et inclinaison de l'averse,

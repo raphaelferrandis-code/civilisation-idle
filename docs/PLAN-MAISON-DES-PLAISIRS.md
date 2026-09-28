@@ -3,7 +3,20 @@
 > **État 2026-08-22 : le lieu est en jeu.** Ce fichier fait foi pour le chantier.
 > Sprite déposé, onglet ouvert, jeux migrés, placement en pleine eau, domaine
 > réservé et aura livrés. Restent le « où est Charlie » (volet 4) et les paliers
-> d'ère 1 et 3 du sprite (un seul palier est dessiné à ce jour).
+> d'ère 1 et 2 du sprite : seul le palier 3, le néon (`plaisirs-t3.png`), est
+> dessiné à ce jour.
+>
+> **⚠ Décision de Raph, 2026-09-28 : le monument est CACHÉ tant que la carte n'a
+> pas atteint la bande 6 (« Néon »)** — `PLAISIRS_REVEAL_BAND` dans
+> `src/game/map/layout.js`. Posé dès l'ère 0, le seul palier dessiné (néon) se
+> dressait à côté du campement de tentes, soit la toute première image du jeu,
+> et l'abonnement PixelLab a expiré (plus de génération possible). Seule la
+> PUBLICATION de `river.plaisirs` est retenue : la marche, l'évasement du lit,
+> `bridgeAvoid` et le domaine réservé ne changent pas, donc le fleuve garde sa
+> forme et le terrain est prêt le jour où le lieu paraît. L'onglet Plaisirs reste
+> ouvert dès le début. **Quand les paliers 1 et 2 existeront, ramener le seuil
+> à 0** et choisir le palier par bande. Les lignes « dès la première ère » et
+> « Dès le début » ci-dessous décrivent l'intention d'origine.
 >
 > *(Les sections datées 2026-08-05 décrivent la conception ; elles sont conservées
 > pour les arbitrages et les pièges de tirage, pas pour l'état d'avancement.)*
