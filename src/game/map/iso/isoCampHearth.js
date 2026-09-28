@@ -10,6 +10,11 @@
 // ouvert (demande de Raph) : 209 px repeints dans x 37..56, y 57..68 — terre
 // claire unie en haut, motif du bord recopié des flancs en bas. L'original des
 // Conteurs reste intact sur le disque. Encre inchangée (81 px de large).
+// ⚠ La flamme est `camp-hearth-fire.png`, COPIE NETTOYÉE de `storyteller-fire`
+// (Raph, 2026-09-28 : « clean et pas des pixels perdus ») : le BLOC rouge sombre
+// coiffé d'un rebord gris droit qui dépassait derrière la flamme est remplacé
+// par le disque de terre, et les étincelles détachées sont retirées. Refaite par
+// `scripts/pixelsPerdus.mjs --apply` ; l'original reste intact.
 //
 // ⚠ GRAIN ÉGALISÉ (docs/PLAN-EGALISATION-GRAIN.md) : un pixel du foyer vaut un
 // pixel de tente à l'écran. Les habitations sont mises à l'échelle
@@ -50,7 +55,7 @@ export function drawIsoCampHearth(ctx, wx, wy, T, z, now) {
   if (!g) return;
   // La flamme, image par image, sur la MÊME boîte que le sol (même canvas 96×80).
   // Figée sur l'image 0 quand le joueur coupe la vie de la carte (« aucune »).
-  const fire = hearthArt('storyteller-fire');
+  const fire = hearthArt('camp-hearth-fire');
   if (fire.ready) {
     const alive = (CM.ambianceK ?? 1) > 0;
     const f = alive ? Math.floor((now || 0) / FIRE_FRAME_MS) % FIRE_FRAMES : 0;

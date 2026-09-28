@@ -62,6 +62,10 @@ const FIRE_SPRITES = [
   // d'autre ne le dirait. 2619 px mesurés → plancher à la moitié.
   ['agents/buildings/ancestralcult-fire-grand.png', 1200],
   ['agents/buildings/storyteller-fire.png', 900],
+  // Le feu RÉELLEMENT affiché au foyer du campement : copie nettoyée de la bande
+  // des Conteurs (bloc et étincelles retirés, scripts/pixelsPerdus.mjs) — 1 748 px
+  // de rampe mesurés → plancher à la moitié.
+  ['agents/buildings/camp-hearth-fire.png', 850],
   ['agents/buildings/mint-forge-fire.png', 450],
   ['agents/buildings/watch-prop.png', 60],
   ['agents/buildings/ancestralcult-prop.png', 45],
