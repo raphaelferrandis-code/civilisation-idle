@@ -335,6 +335,17 @@ export function collectIsoItems(bake, now) {
     // une ville sans fleuve, et un carré d'écran restait cliquable dans le vide.
     else CM._plaisirsBox = null;
   }
+  // FOYER DU CAMPEMENT (2026-09-28, cf. CAMP_HEARTH dans layout.js) : un
+  // item au tri peintre, à la profondeur de son centre — les tentes derrière
+  // passent dessous, celles devant le recouvrent.
+  if (L.campHearth) {
+    const h = L.campHearth;
+    if (dvVis((h.gx - 0.5) * T, (h.gy - 0.5) * T, (h.gx + 1.5) * T, (h.gy + 1.5) * T)) {
+      const it = pushItem();
+      it.wx = (h.gx + 0.5) * T; it.wy = (h.gy + 0.5) * T;
+      it.d = depthOf(it.wx, it.wy); it.kind = 'campHearth';
+    }
+  }
   // LAMPADAIRES : mâts de l'ère le long des routes (liste déterministe
   // isoLamps), posés au peintre ; leurs halos de nuit se dessinent dans
   // drawIsoNight à la MÊME position (points lumineux ancrés, retour Raph).

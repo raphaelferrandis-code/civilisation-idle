@@ -42,6 +42,7 @@ import { drawWonder } from '../renderBuildings.js';
 import { drawIsoRevealPin, drawIsoSmoke } from './isoAmbient.js';
 import { isoArt } from './isoArt.js';
 import { drawIsoBridgeSeg } from './isoBridge.js';
+import { drawIsoCampHearth } from './isoCampHearth.js';
 import { drawIsoEngineScene, drawSpriteOutline, isoEngineScenesFlag } from './isoEngineScene.js';
 import { drawIsoField } from './isoField.js';
 import { isoFrontOffset, seasonTree } from './isoGroundDetail.js';
@@ -410,6 +411,10 @@ export function paintIsoItems(bake, items, now) {
       // l'enregistre. Famille absente du relevé §1.2 du plan — et le chat est
       // la plus petite bête du jeu, donc a priori la pire densité.
       if (pxProbe.on && m && m.src) recPx('bete · ' + cr.kind, m.src, m.box);
+    } else if (it.kind === 'campHearth') {
+      // Foyer du campement (2026-09-28) : tout le calcul est dans
+      // isoCampHearth.js (grain égalisé sur les tentes, flamme animée, lueur).
+      drawIsoCampHearth(ctx, it.wx, it.wy, T, z, now);
     } else if (it.kind === 'plazaProp') {
       // PLACE COMPOSÉE : un prop, à sa taille en TUILES (jamais en fraction de
       // la place). Tout le calcul est dans isoPlaza.js.

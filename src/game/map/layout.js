@@ -211,6 +211,22 @@ export const PLAISIRS_REVEAL_BAND = 6;
 // qui tient toujours sur la plus petite carte (N = 20, 150 graines) ; 3 bute sur
 // le bord nord dans 13 % des parties neuves.
 export const CORE_DRY_RADIUS = 2;
+
+// ── FOYER DU CAMPEMENT — validé par Raph le 2026-09-28 ──────────────────────
+// Un feu commun au cœur du camp (bande 0), avec de l'art EXISTANT : l'ancien
+// foyer des Conteurs (sol sans son livre, `camp-hearth`, + la bande animée
+// `storyteller-fire`), retiré d'EUX le 2026-08-05 parce qu'une scène plate ne
+// faisait pas un bâtiment. Ici il n'en est pas un : c'est un feu au sol, là où
+// les sentiers convergent. Aucune génération (PixelLab expiré). Dessin :
+// iso/isoCampHearth.js. Molette : `__campHearth(false)`.
+export const CAMP_HEARTH = { on: true };
+if (typeof window !== "undefined") {
+  window.__campHearth = (on) => {
+    if (on != null) CAMP_HEARTH.on = !!on;
+    if (typeof window.__cityRecompute === "function") window.__cityRecompute();
+    return CAMP_HEARTH.on;
+  };
+}
 if (typeof window !== "undefined") {
   window.__engineSpread = (o) => {
     if (o && typeof o === "object") Object.assign(ENGINE_SPREAD, o);
@@ -2589,6 +2605,18 @@ function computeCityLayout(s) {
       }
     }
   }
+  // FOYER DU CAMPEMENT (cf. CAMP_HEARTH) : la cellule du cœur et ses huit
+  // voisines sont gardées de tout bâti et de tout arbre, AVANT la pose — sinon
+  // une tente se plantait dans le cercle du feu (1,4 tuile de large). Même
+  // geste que le domaine des Plaisirs, mais PAS pour les routes : les sentiers du
+  // camp doivent pouvoir converger sur le feu. Le cœur est tenu au sec
+  // (CORE_DRY_RADIUS = 2), donc les neuf cellules le sont aussi.
+  const hearthCell = ((c.eraBand | 0) === 0 && CAMP_HEARTH.on)
+    ? { gx: Math.floor(plan.core.x), gy: Math.floor(plan.core.y) } : null;
+  const hearthClear = new Set();
+  if (hearthCell) {
+    for (let dx = -1; dx <= 1; dx += 1) for (let dy = -1; dy <= 1; dy += 1) hearthClear.add((hearthCell.gx + dx) + "," + (hearthCell.gy + dy));
+  }
 
   // Districts (anti-collision merveilles + fleuve). wonderSlots/builtWonderIds
   // sont calculés plus haut (avant la muraille, pour qu'elle les contourne).
@@ -2606,6 +2634,7 @@ function computeCityLayout(s) {
       const tx = gx + ax, ty = gy + ay;
       if (occupiedFoot.has(tx + "," + ty)) return false;
       if (plaisirsClear.has(tx + "," + ty)) return false;   // domaine des Plaisirs
+      if (hearthClear.has(tx + "," + ty)) return false;     // foyer du campement
       if (riverSet.has(tx + "," + ty) || bankSet.has(tx + "," + ty)) return false;
       if (ax >= 0 && ax < size && ay >= 0 && ay < size && roadKey.has(tx + "," + ty)) return false;
     }
@@ -2685,6 +2714,7 @@ function computeCityLayout(s) {
       const key = gx + "," + gy;
       if (roadKey.has(key) || riverSet.has(key) || bankSet.has(key) || reserved.has(key)) continue;
       if (plaisirsClear.has(key)) continue;                 // domaine des Plaisirs
+      if (hearthClear.has(key)) continue;                   // foyer du campement
       if (!organicLimit(gx, gy, 0.8)) continue;
       const dx = gx - cx, dy = gy - cy;
       const score = organicScore({ gx, gy });
@@ -2738,6 +2768,7 @@ function computeCityLayout(s) {
   // Même geste pour le domaine des Plaisirs : `footprintFits` ne teste que
   // `claimed`, sans ça un port ou un moulin viendrait se coller au monument.
   for (const k of plaisirsClear) claimed.add(k);
+  for (const k of hearthClear) claimed.add(k);             // foyer du campement
   // L'emprise des merveilles sèches bloque aussi les bâtiments-moteur (aqueducs,
   // champs, ports/moulins, banques, génériques) : footprintFits ne teste que
   // `claimed`. era_mega exclue (riverains de l'Aiguille légitimes sur la berge).
@@ -3788,6 +3819,9 @@ function computeCityLayout(s) {
   const engineHomePlaced = tiles.reduce((n, t) => n + (t.type === "enginehome" ? 1 : 0), 0);
   return {
     engineHomePlaced,
+    // Foyer du campement (cf. CAMP_HEARTH) : gardé de tout bâti depuis la
+    // pose (hearthClear), il n'a plus qu'à être publié.
+    campHearth: hearthCell,
     gridN: N, cx, cy, tiles, urbanSet,
     roads: roadGraph.roads, roadSet: roadGraph.roadSet, roadMap: roadGraph.roadMap, roadMeta,
     districts, trees, critters, maxD2, counts: c, roadCover: netCover, roadWorksInfo, median, roadMedian, terrePlein, river, water, engineTileMap, wonderSlots, wonderGround, wonderTiers,
