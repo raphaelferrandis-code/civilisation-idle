@@ -258,15 +258,41 @@ function tilesInRect(x0, y0, x1, y1, S) {
   return out;
 }
 
+// ── L'ORIGINE ÉCRAN DE L'ESPACE TUILE, ARRONDIE UNE SEULE FOIS PAR FRAME ─────
+// Le trait vertical d'un pixel qui traversait tout le sol (capture de Raph du
+// 2026-09-28, « je le vois souvent ») : une colonne où AUCUNE tuile n'était
+// posée, donc le fond hors-monde (SEASON_WILD d'été 98,120,76 posé à 0,9 sur
+// fond sombre — la capture donne 87,108,71 sur toute la colonne).
+// Chaque tuile arrondissait SA position, x0·sE − c.x + cw/2, au pixel device.
+// La caméra de rendu est quantifiée (drawIsoWorld) : c.x·dpr tombe sur un entier
+// — au bruit flottant près, car u = round(…)/(z·dpr) n'est pas exact en binaire
+// hors z = ½, 1, 2. Si cw·dpr est IMPAIR (le canevas de Raph fait 1 765 px),
+// + cw/2 pose chaque tuile PILE sur un demi-pixel, et ce bruit, qui ne survit
+// pas à l'identique dans toutes les soustractions, faisait arrondir une tuile
+// vers le bas et sa voisine vers le haut : un pixel de vide entre les deux, sur
+// toute la hauteur de l'écran. Simulé : 0,3 à 1 % des jointures de colonnes par
+// position de caméra à z 0,75 / 1,25 / 1,375 / 1,5 / 1,625 / 2,5 / 3 ; jamais
+// avec une largeur paire (d'où « non reproduit » sur un banc de 952 px), et en
+// Y dès que ch·dpr est impair (dpr 1,25, hauteur 900).
+// Remède : on arrondit l'ORIGINE une fois, les tuiles s'y posent par des
+// décalages entiers (S·dpr est entier par construction, cf. tileSideCss) — deux
+// voisines ne peuvent plus se séparer. Simulé : 0 trou, 0 recouvrement, dans
+// toutes les configurations. Exportée pour le test (solPyramideSeam.test.js).
+export function screenOrigin(c, cw, ch, dpr) {
+  const d = dpr || 1;
+  return { x: Math.round((cw / 2 - c.x) * d) / d, y: Math.round((ch / 2 - c.y) * d) / d };
+}
+
 // Dessine la partie [ax, bx) × [ay, by) (espace tuile du niveau de `e`) de la
-// tuile `e`, à l'écran : `sE` = zoom / e.z, `c` = camSpace de la caméra au zoom
-// courant. Position rabattue sur la grille device ; 1:1 en nearest, étiré lissé.
-function drawPart(ctx, e, ax, ay, bx, by, sE, c, cw, ch, dpr) {
+// tuile `e`, à l'écran : `sE` = zoom / e.z, `org` = origine écran de l'espace
+// tuile (cf. screenOrigin). Position rabattue sur la grille device ; 1:1 en
+// nearest, étiré lissé.
+function drawPart(ctx, e, ax, ay, bx, by, sE, org, dpr) {
   const o = tileOrigin(e.tx, e.ty, e.S);
   const x0 = Math.max(ax, o.x), y0 = Math.max(ay, o.y), x1 = Math.min(bx, o.x + e.S), y1 = Math.min(by, o.y + e.S);
   if (x1 <= x0 || y1 <= y0) return;
   const sx = (x0 - (o.x - e.G)) * dpr, sy = (y0 - (o.y - e.G)) * dpr;
-  const dx = x0 * sE - c.x + cw / 2, dy = y0 * sE - c.y + ch / 2;
+  const dx = x0 * sE + org.x, dy = y0 * sE + org.y;
   const snap = (v) => Math.round(v * dpr) / dpr;
   ctx.imageSmoothingEnabled = sE !== 1;
   ctx.drawImage(e.canvas, sx, sy, (x1 - x0) * dpr, (y1 - y0) * dpr, snap(dx), snap(dy), (x1 - x0) * sE, (y1 - y0) * sE);
@@ -278,7 +304,7 @@ function drawPart(ctx, e, ax, ay, bx, by, sE, c, cw, ch, dpr) {
 // entière laissait 5-14 trous par frame pendant un dézoom). Les niveaux les
 // plus ÉLOIGNÉS en échelle se dessinent d'abord, le plus proche en dernier :
 // ce qui reste à l'écran est toujours la meilleure version disponible.
-function drawFallback(ctx, z, tx, ty, S, zoom, c, cw, ch, dpr, levels) {
+function drawFallback(ctx, z, tx, ty, S, zoom, org, dpr, levels) {
   const o = tileOrigin(tx, ty, S);
   let any = false;
   for (let i = levels.length - 1; i >= 0; i -= 1) {
@@ -289,7 +315,7 @@ function drawFallback(ctx, z, tx, ty, S, zoom, c, cw, ch, dpr, levels) {
     for (const t of tilesInRect(ax, ay, bx, by, Sz)) {
       const e = cache.get(posKey(zz, t.tx, t.ty));
       if (!e) continue;
-      drawPart(ctx, e, ax, ay, bx, by, sE, c, cw, ch, dpr);
+      drawPart(ctx, e, ax, ay, bx, by, sE, org, dpr);
       any = true;
     }
   }
@@ -375,6 +401,7 @@ export function paintGroundPyramid(ctx, L, nowMs) {
   if (zoom !== CM._igZoomPrev) { CM._igZoomPrev = zoom; CM._igZoomAt = nowMs; }
   const gesture = nowMs - lastMoveAt < PYR.gestureMs;
   const c = camSpace(CM.cam.x, CM.cam.y, zoom);
+  const org = screenOrigin(c, cw, ch, dpr);
   const x0 = (c.x - cw / 2) / s, x1 = (c.x + cw / 2) / s, y0 = (c.y - ch / 2) / s, y1 = (c.y + ch / 2) / s;
   const mbZ = mapBBoxAtLevel(L, z);
   const visAll = tilesInRect(x0, y0, x1, y1, S);
@@ -458,12 +485,12 @@ export function paintGroundPyramid(ctx, L, nowMs) {
     const e = cache.get(posKey(z, t.tx, t.ty));
     if (e) {
       const o = tileOrigin(t.tx, t.ty, S);
-      drawPart(ctx, e, o.x, o.y, o.x + S, o.y + S, s, c, cw, ch, dpr);
+      drawPart(ctx, e, o.x, o.y, o.x + S, o.y + S, s, org, dpr);
       e.last = nowMs;
       if (fresh(e)) hits += 1; else replis += 1;
     } else {
       if (!levels) levels = cachedLevelsNear(z);
-      if (drawFallback(ctx, z, t.tx, t.ty, S, zoom, c, cw, ch, dpr, levels)) replis += 1; else trous += 1;
+      if (drawFallback(ctx, z, t.tx, t.ty, S, zoom, org, dpr, levels)) replis += 1; else trous += 1;
     }
   }
   ctx.imageSmoothingEnabled = prevSm;
