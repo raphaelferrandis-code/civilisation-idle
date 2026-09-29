@@ -18,7 +18,7 @@
 import { CM } from '../layout.js';
 import { worldToScreen } from './projection.js';
 import { propReady, blitProp, propBBox } from '../cityEngineSprites.js';
-import { orbitPoint } from '../riverFleet.js';
+import { orbitPoint, shipAlpha } from '../riverFleet.js';
 import { ensureBoat, boatReady, BOAT_SIZES, BOAT_LIFT } from '../agents.js';
 import { bridgeBlocks } from './isoBridge.js';
 import {
@@ -129,9 +129,12 @@ export function drawIsoShips(now) {
     }
     const spd01 = Math.max(0, Math.min(1, (sh.speed - 0.008) / 0.012));
     // Fondu d'entrée : un bateau naît sur le bord du ruban, qui reste visible en
-    // vue dézoomée — sans ce fondu il POPPE au bord de la carte.
+    // vue dézoomée — sans ce fondu il POPPE au bord de la carte. Et fondu de
+    // SORTIE (shipAlpha) : le fleuve se prolonge désormais à l'écran au-delà du
+    // bout où le bateau meurt, il ne doit donc plus s'y évaporer d'un coup.
     const prevAlpha = ctx.globalAlpha;
-    if ((sh.fade || 0) < 1) ctx.globalAlpha = prevAlpha * (sh.fade || 0);
+    const shipA = shipAlpha(sh);
+    if (shipA < 1) ctx.globalAlpha = prevAlpha * shipA;
     // Sillage additif derrière la poupe + ombre : pivotés au CAP COMPLET (l'eau
     // suit la pente, seul le sprite de coque reste droit).
     ctx.save();

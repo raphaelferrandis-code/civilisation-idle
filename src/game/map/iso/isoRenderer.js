@@ -28,13 +28,13 @@ import { drawIsoAmbient, SMOKE_TUNE, smokeSeason } from './isoAmbient.js';
 import { drawIsoBridgeUnder, drawIsoBridgeNight } from './isoBridge.js';
 import { drawIsoShipNight } from './isoFleet.js';
 import { paintGroundPyramid } from './solPyramideFrame.js';
-// ⚠ L'état de SAISON vit là-bas, AVEC SON ÉCRIVAIN : ici on ne fait que le lire. La
-// liaison ESM est vivante — la valeur suit — mais elle est en LECTURE SEULE (P28) :
-// c'est `refreshSeasonPalette()` qui la réécrit, chez elle, une fois par frame.
-import { SEASON_WILD, refreshSeasonPalette } from './isoGroundDetail.js';
+// ⚠ L'état de SAISON vit là-bas, AVEC SON ÉCRIVAIN : ici on ne fait que le rafraîchir.
+// C'est `refreshSeasonPalette()` qui le réécrit, chez elle, une fois par frame ; le
+// fond d'herbe (isoWildBackdrop) lit SEASON_WILD pour son repli en aplat.
+import { refreshSeasonPalette } from './isoGroundDetail.js';
+import { paintWildBackdrop } from './isoWildBackdrop.js';
 import { collectIsoItems } from './isoLiveCollect.js';
 import { drawIsoHoverCell, paintIsoItems } from './isoLivePaint.js';
-import { rgb } from './isoPalette.js';
 import { drawPlaisirsSky } from './isoPlaisirs.js';
 import { drawIsoShips } from './isoPort.js';
 import { drawIsoRiver } from './isoRiver.js';
@@ -196,10 +196,11 @@ function drawIsoWorldInner(dt, now, helpers) {
   updateVehicles(dt);
   updateCrisis(dt, now);   // émeute : même sim que le legacy ; rendu via le peintre (drawIsoLive)
   fp('sim-agents');
-  // Fond hors-monde (nature sombre) puis sol baké.
+  // Fond hors du plan : la VRAIE herbe en motif (isoWildBackdrop), puis le sol
+  // cuit par-dessus. L'aplat d'avant faisait lire le bord du rectangle cuit
+  // comme « l'herbe qui ne charge pas » (Raph, 2026-09-29).
   const ctx = CM.ctx;
-  ctx.fillStyle = rgb(SEASON_WILD, 0.9);
-  ctx.fillRect(0, 0, CM.cw, CM.ch);
+  paintWildBackdrop(ctx, performance.now());
   // Le sol en tuiles (PLAN-SOL-PYRAMIDE, défaut depuis le lot 4).
   paintGroundPyramid(ctx, L, performance.now());
   fp('sol');

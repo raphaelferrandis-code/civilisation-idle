@@ -91,6 +91,20 @@ const DT_MAX = 0.2;
 // Bornes de vie sur le ruban : naissance à un bord, mort passé l'autre.
 const T_LO = -0.015, T_HI = 1.015;
 
+// OPACITÉ D'UN BATEAU : le fondu d'entrée (sh.fade) ET un fondu de SORTIE, sur
+// le même temps (FLEET_TUNE.fadeIn), à l'approche de la borne où il meurt.
+// Depuis que le fleuve se prolonge à l'écran (isoRiver, riverDrawPts), le bout
+// du ruban n'est plus au bout de l'eau : sans ce fondu, un bateau s'évaporait en
+// pleine rivière. Le pêcheur à l'ancre ou en orbite ne bouge pas vers une borne :
+// son `t` reste loin des bouts, le facteur vaut 1. Pure et exportée.
+export function shipAlpha(sh) {
+  const fadeIn = Math.max(0, Math.min(1, sh.fade == null ? 1 : sh.fade));
+  const perSec = Math.abs(sh.speed || 0) * FLEET_TUNE.fadeIn;
+  if (!(perSec > 0) || sh.orbit) return fadeIn;
+  const left = sh.dir < 0 ? sh.t - T_LO : T_HI - sh.t;
+  return Math.min(fadeIn, Math.max(0, Math.min(1, left / perSec)));
+}
+
 const lerp = (a, b, f) => a + (b - a) * f;
 
 export function makeFleetCtl() {

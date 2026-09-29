@@ -11,6 +11,12 @@
 // avec la version commitée.
 import { CM, cmHash, cmCellNoise } from '../layout.js';
 import { WONDER_GROUND, wonderGroundSet } from './isoWonderGround.js';
+import { riverEndRays, nearRiverEndRay } from './riverEnds.js';
+
+// Marge des demi-droites qui prolongent le fleuve (riverEnds.js) : les MÊMES
+// rayons que les cellules d'eau et de berge du layout — centre de cellule à
+// moins de hw + 1,4 d'un sample (layout.js, riverSet/bankSet).
+const RIVER_END_BANK = 1.4;
 
 // ── Forêt sauvage : ceinture d'arbres autour de la ville ─────────────────────
 // Le legacy (cityMapDrawTrees) peignait une forêt sur TOUTE l'herbe hors « sol
@@ -124,10 +130,14 @@ export function isoWildForest(L, b) {
   // PARVIS de merveille (les emprises actives sont déjà urbaines ; celle d'un
   // APERÇU __showWonder ne l'est pas — sans ce garde, des arbres poussaient dessus).
   const wg = WONDER_GROUND.on ? wonderGroundSet(L) : null;
+  // Le fleuve continue à l'écran au-delà de ses bouts (isoRiver, riverDrawPts) :
+  // ses deux demi-droites sont de l'eau et de la berge pour la forêt aussi.
+  const endRays = riverCells ? riverEndRays(L.river.samples) : [];
   const isWild = (gx, gy) =>
     !has(urbanSet, gx, gy) && !has(roadSet, gx, gy)
     && !has(riverCells, gx, gy) && !has(banks, gx, gy)
-    && !buildFoot.has(gx + ',' + gy) && !has(wg, gx, gy);
+    && !buildFoot.has(gx + ',' + gy) && !has(wg, gx, gy)
+    && !(endRays.length && nearRiverEndRay(endRays, gx + 0.5, gy + 0.5, RIVER_END_BANK));
   // Aération de lisière : une cellule au contact du bâti reçoit moins d'arbres →
   // clairière douce au bord de la ville (au lieu d'un mur d'arbres), comme le legacy.
   const nearCity = (gx, gy) =>

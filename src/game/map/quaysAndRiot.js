@@ -189,10 +189,19 @@ function ensureQuayGate() {
   // La forme juste est donc : le consommateur part de `river.banks` (par
   // construction la couronne de cellules qui TOUCHE l'eau — impossible de dériver
   // vers l'intérieur) et ne garde que celles proches d'un de ces points. Un point
-  // par sample sans quai : le port, les passages trop étroits, les extrémités.
+  // par sample sans quai : le port, les passages trop étroits (les extrémités
+  // n'en sont plus, cf. juste en dessous).
+  // ⚠ SAUF LES EXTRÉMITÉS (2026-09-29). Le fleuve ne finit plus à l'écran : son
+  // ruban se prolonge tout droit au-delà de ses bouts (isoRiver, riverDrawPts).
+  // La grève qui arrondissait le bout n'a donc plus de bout à arrondir — et elle
+  // n'était jamais peinte qu'en PARTIE : les bouts tombent à 1,3 N hors du plan,
+  // où seule une tuile de sol débordante la cuisait, coupée net à son bord. Le
+  // quai, lui, garde son bout carré aux extrémités (naturalOff, inchangé) : la
+  // berge naturelle du prolongement prend le relais.
   const gapPts = [];
   for (let i = 0; i < n0; i += 1) {
     if (drawPlus[i] && drawMinus[i]) continue;
+    if (i < QUAY_END || i >= n0 - QUAY_END) continue;
     gapPts.push({ x: sm[i].x, y: sm[i].y });
   }
   CM.quayGate = { key: gateKey(), plus, minus, drawPlus, drawMinus, naturalOff, gapPts };

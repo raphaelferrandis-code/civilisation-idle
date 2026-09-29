@@ -21,7 +21,7 @@
 // peintre (vérifié avant la coupe), et `isoRiverLife` reçoit ce dont il a besoin
 // par INJECTION (`configureRiverLife`), pas par import.
 import { CM, cmHash } from '../layout.js';
-import { worldToScreen } from './projection.js';
+import { worldToScreen, ISO_X, ISO_Y } from './projection.js';
 // ⚠ L'INJECTION VIT ICI, pas dans le peintre : c'est le fleuve qui donne à la vie du
 // fleuve son chemin de ruban et sa météo (`configureRiverLife`, plus bas). Le sens du
 // montage est conservé — isoRiverLife n'importe toujours QUE layout et projection,
@@ -33,6 +33,7 @@ import { ensureQuayGate, quayWallTune, quayGapRuns } from '../quaysAndRiot.js';
 import { ISO_TILE_KEYS, isoWinterTile, beachTone, isoVariantKey, ensureIsoTileKey, BEACH } from './isoGroundTiles.js';
 import { WATER, waterShoreTune, rgb } from './isoPalette.js';
 import { RAIN_TUNE, precipKind } from './isoWeather.js';
+import { riverEndRays } from './riverEnds.js';
 
 // ── FLEUVE : ruban lissé LIVE (par-dessus le bake, sous ponts et agents) ─────
 // Même philosophie que pixelRiver legacy (Approche A : ruban continu depuis
@@ -214,22 +215,36 @@ export function islandWakeK(a, G = waveTune) {
 // raison d'être de ces variables : si le ruban et le liseré évaluaient chacun leur
 // sinus, le moindre écart de `now` entre deux appels décollerait le liseré du bord.
 let waveAmp = 0, waveT = 0;
-let waveArc = null, waveArcPts = null;      // abscisse curviligne des samples, en tuiles
-let waveHwCache = null;                     // demi-largeurs visuelles de la frame
+// Abscisses et demi-largeurs, UNE ENTRÉE PAR TABLEAU de samples. Deux tableaux
+// se croisent dans une frame depuis que le fleuve se prolonge à l'écran (cf.
+// riverDrawPts) : le ruban dessiné lit le tableau RALLONGÉ, la vie de surface et
+// les reflets des lampadaires lisent le fleuve seul. Un cache à une place se
+// serait vidé à chaque alternance.
+const waveArcByPts = new WeakMap();
+const waveHwByPts = new WeakMap();
 
 // Abscisse curviligne, cuite une fois par cours d'eau. Clé = l'IDENTITÉ du tableau
 // de samples : un recompute de layout en crée un neuf (cf. `const riverSamples =
 // []`), donc la comparaison suffit et ne peut pas servir une vieille géométrie —
 // là où une clé temporelle (layoutRecomputeAt) aurait tourné pour rien.
-function ensureWaveArc(pts) {
-  if (waveArcPts === pts && waveArc && waveArc.length === pts.length) return waveArc;
-  const a = new Float64Array(pts.length);
+// ⚠ ORIGINE = LE PREMIER SAMPLE DU VRAI FLEUVE (`pts.core0`), même sur un tableau
+// rallongé : l'onde dépend de l'abscisse, et un ruban dont l'origine reculerait
+// avec sa rallonge verrait tout son ressac se décaler — donc décoller du liseré
+// que les autres couches tracent sur le fleuve seul. Les samples de rallonge
+// amont reçoivent des abscisses NÉGATIVES, et l'onde les prolonge sans couture.
+export function riverArc(pts) {
+  let a = waveArcByPts.get(pts);
+  if (a && a.length === pts.length) return a;
+  a = new Float64Array(pts.length);
   for (let i = 1; i < pts.length; i += 1) {
     a[i] = a[i - 1] + Math.hypot(pts[i].x - pts[i - 1].x, pts[i].y - pts[i - 1].y);
   }
-  waveArc = a; waveArcPts = pts;
+  const o = pts.core0 | 0;
+  if (o > 0) { const a0 = a[o]; for (let i = 0; i < a.length; i += 1) a[i] -= a0; }
+  waveArcByPts.set(pts, a);
   return a;
 }
+const ensureWaveArc = riverArc;
 
 // Ouvre la frame : fige l'instant et l'amplitude. Appelée UNE fois, en tête de
 // drawIsoRiver — tout ce qui suit dans la frame lit la même onde.
@@ -253,15 +268,16 @@ function beginWaveFrame(now, z) {
 // centaines de ko/s de déchets pour un résultat identique.
 function waveHalfWidths(pts) {
   if (waveAmp <= 0) return null;
-  let c = waveHwCache;
-  if (c && c.pts === pts && c.t === waveT && c.amp === waveAmp) return c;
+  let c = waveHwByPts.get(pts);
+  if (c && c.t === waveT && c.amp === waveAmp) return c;
   const n = pts.length;
   if (!c || c.plus.length !== n) {
-    c = waveHwCache = {
+    c = {
       pts: null, t: -1, amp: -1,
       plus: new Float64Array(n), minus: new Float64Array(n),
       wetPlus: new Float64Array(n), wetMinus: new Float64Array(n),
     };
+    waveHwByPts.set(pts, c);
   }
   const arc = ensureWaveArc(pts);
   for (let i = 0; i < n; i += 1) {
@@ -302,6 +318,106 @@ function riverRibbonScreen(pts, T, mode = 'wave') {
   }
   return { left, right };
 }
+
+/* ── LE FLEUVE NE FINIT PAS À L'ÉCRAN ─────────────────────────────────────────
+ * Capture de Raph (2026-09-29) : « pourquoi mon bout de fleuve est comme ça ? ».
+ * Le cours d'eau du layout va de cx − 1,8 N à cx + 1,8 N ; la caméra, bornée
+ * sur lui, peut se poser à trois cellules de ses bouts — et au dézoom, le bout
+ * se voit : le ruban coupé droit, les deux bandes de sable finies en arrondi.
+ *
+ * On PROLONGE donc le ruban tout droit, dans l'axe de ses derniers samples, le
+ * temps de sortir de l'écran — au DESSIN seulement. Les samples du layout ne
+ * bougent pas : îles, quais (« 3 premiers/derniers samples »), bateaux, ponts,
+ * cellules d'eau et boîte de la caméra lisent tous `L.river.samples` par index
+ * ou par bout, et rallonger le tableau les aurait décalés en silence.
+ *
+ * La longueur est calculée À CHAQUE FRAME, au plus juste : tout point visible
+ * est à moins de D (monde) du centre caméra, avec, pour la projection iso,
+ *   |dx − dy| ≤ A = cw / (2·ISO_X·z)   et   |dx + dy| ≤ B = ch / (2·ISO_Y·z),
+ * donc |d| ≤ D = √((A² + B²) / 2). La rallonge s'arrête là où la demi-droite
+ * quitte le disque de rayon D + marge (demi-largeur, grève, onde). Près de la
+ * ville, les bouts sont loin : rallonge NULLE, et le fleuve dessiné est le
+ * tableau du layout lui-même — rien ne change et rien ne coûte.
+ * ------------------------------------------------------------------------- */
+const RIVER_EXT_QUANT = 16;       // la rallonge grandit par paquets : le tableau ne se refait pas à chaque pixel de pan
+const RIVER_EXT_MARGIN = 6;       // cellules au-delà de la demi-largeur : grève, onde, arrondis de trait
+
+// Longueur (en cellules) qu'il faut à la demi-droite P + t·u pour sortir du
+// disque de centre C et de rayon R. Pure et exportée : c'est la géométrie qui
+// se teste.
+export function riverExtensionLength(P, u, C, R) {
+  const dx = P.x - C.x, dy = P.y - C.y;
+  const b = dx * u.x + dy * u.y;
+  const disc = b * b - (dx * dx + dy * dy - R * R);
+  if (disc < 0) return 0;                          // la demi-droite ne croise jamais la vue
+  return Math.max(0, -b + Math.sqrt(disc));
+}
+
+// Rayon (en cellules) du disque qui contient tout ce que la vue peut montrer.
+export function riverViewRadius(cw, ch, zoom, T) {
+  const A = cw / (2 * ISO_X * zoom), B = ch / (2 * ISO_Y * zoom);
+  return Math.sqrt((A * A + B * B) / 2) / T;
+}
+
+// Tableau rallongé de `kh` samples en amont et `kt` en aval. `core0`/`core1`
+// disent où commence et finit le VRAI fleuve (cf. riverArc et la dérive de la
+// nappe). Pur et exporté.
+export function extendRiverSamples(core, kh, kt) {
+  const n = core.length;
+  if (n < 2 || (!kh && !kt)) return core;
+  // Les MÊMES demi-droites que celles que la forêt évite (riverEnds.js).
+  const [h, e] = riverEndRays(core);
+  const out = [];
+  for (let k = kh; k >= 1; k -= 1) out.push({ x: h.x + h.ux * h.step * k, y: h.y + h.uy * h.step * k, hw: core[0].hw });
+  for (const p of core) out.push(p);
+  for (let k = 1; k <= kt; k += 1) out.push({ x: e.x + e.ux * e.step * k, y: e.y + e.uy * e.step * k, hw: core[n - 1].hw });
+  out.core0 = kh;
+  out.core1 = kh + n - 1;
+  return out;
+}
+
+// Tronçons de rive (index sur le fleuve SEUL) reportés sur le tableau rallongé :
+// décalés de `kh`, et les rallonges — qui n'ont jamais de quai — prolongent le
+// tronçon du bout, ou en ouvrent un. Pure et exportée.
+export function extendRiverRuns(runs, kh, n, len) {
+  if (!kh && len === n) return runs;
+  const out = runs.map(([a, b]) => [a + kh, b + kh]);
+  if (kh > 0) {
+    if (out.length && out[0][0] === kh) out[0][0] = 0;
+    else out.unshift([0, kh]);
+  }
+  const last = kh + n - 1;
+  if (len - 1 > last) {
+    const tail = out[out.length - 1];
+    if (tail && tail[1] === last) tail[1] = len - 1;
+    else out.push([last, len - 1]);
+  }
+  return out;
+}
+
+let riverExtCache = null;         // { core, kh, kt, pts }
+function riverDrawPts(core) {
+  const n = core.length;
+  // A/B : globalThis.__riverExtend = false rejoue le ruban coupé net aux bouts.
+  if (n < 2 || !CM.cw || !CM.ch || globalThis.__riverExtend === false) return core;
+  const T = CM.TILE, z = CM.cam.zoom || 1;
+  const C = { x: CM.cam.x / T, y: CM.cam.y / T };
+  const R = riverViewRadius(CM.cw, CM.ch, z, T);
+  const need = (r) => {
+    const len = riverExtensionLength(r, { x: r.ux, y: r.uy }, C, R + r.hw + RIVER_EXT_MARGIN);
+    if (!(len > 0)) return 0;
+    return Math.ceil(Math.ceil(len / r.step) / RIVER_EXT_QUANT) * RIVER_EXT_QUANT;
+  };
+  const [rh, rt] = riverEndRays(core);
+  const kh = need(rh), kt = need(rt);
+  const c = riverExtCache;
+  if (c && c.core === core && c.kh === kh && c.kt === kt) return c.pts;
+  const pts = extendRiverSamples(core, kh, kt);
+  riverExtCache = { core, kh, kt, pts };
+  return pts;
+}
+if (typeof window !== 'undefined') window.__riverExt = () => (riverExtCache ? { kh: riverExtCache.kh, kt: riverExtCache.kt, n: riverExtCache.core.length } : null);
+
 // Config de la vie de surface. ⚠ Elle passe DEUX FONCTIONS, et c'est ce qui la
 // rend sûre ici : `riverRibbonPath` et `precipKind` sont des déclarations de
 // fonction, donc hoistées — on peut les référencer avant leur ligne. Une `const`
@@ -632,9 +748,11 @@ function drawIsoWaterGrain(ctx, pts, T, z, now) {
   bx1 = Math.min(CM.cw, bx1 + pad); by1 = Math.min(CM.ch, by1 + pad);
   if (bx1 <= bx0 || by1 <= by0) return;
   // Aval en espace écran (tangente globale projetée) → le grain dérive avec le
-  // courant, jamais « en travers » du fleuve.
-  const pA = worldToScreen(pts[0].x * T, pts[0].y * T);
-  const pB = worldToScreen(pts[len - 1].x * T, pts[len - 1].y * T);
+  // courant, jamais « en travers » du fleuve. Bouts du VRAI fleuve : une
+  // rallonge d'écran ne doit pas faire pivoter la dérive.
+  const iA = pts.core0 | 0, iB = pts.core1 != null ? pts.core1 : len - 1;
+  const pA = worldToScreen(pts[iA].x * T, pts[iA].y * T);
+  const pB = worldToScreen(pts[iB].x * T, pts[iB].y * T);
   let dx = pB.x - pA.x, dy = pB.y - pA.y;
   const dl = Math.hypot(dx, dy) || 1; dx /= dl; dy /= dl;
   const anchor = worldToScreen(0, 0);                    // ancrage monde (suit le pan)
@@ -993,8 +1111,10 @@ function drawIsoWaterTiles(ctx, pts, T, z, now, wb) {
   bx1 = Math.min(CM.cw, bx1 + pad); by1 = Math.min(CM.ch, by1 + pad);
   if (bx1 <= bx0 || by1 <= by0) { if (dbg) dbg('boite vide', { bx0, by0, bx1, by1, cw: CM.cw, ch: CM.ch }); return; }
   // Aval en espace écran : la nappe dérive avec le courant, jamais en travers.
-  const pA = worldToScreen(pts[0].x * T, pts[0].y * T);
-  const pB = worldToScreen(pts[len - 1].x * T, pts[len - 1].y * T);
+  // Bouts du VRAI fleuve, comme le grain : la rallonge d'écran ne la fait pas pivoter.
+  const iA = pts.core0 | 0, iB = pts.core1 != null ? pts.core1 : len - 1;
+  const pA = worldToScreen(pts[iA].x * T, pts[iA].y * T);
+  const pB = worldToScreen(pts[iB].x * T, pts[iB].y * T);
   let dx = pB.x - pA.x, dy = pB.y - pA.y;
   const dl = Math.hypot(dx, dy) || 1; dx /= dl; dy /= dl;
   const anchor = worldToScreen(0, 0);
@@ -1470,7 +1590,11 @@ export function drawIsoRiver(now) {
   const L = CM.layout, rv = L.river;
   if (!rv || !rv.present || !rv.samples || rv.samples.length < 2) return;
   const T = CM.TILE, ctx = CM.ctx, z = CM.cam.zoom;
-  const pts = rv.samples;
+  // Le fleuve DESSINÉ, rallongé si l'un de ses bouts approche de la vue (cf. LE
+  // FLEUVE NE FINIT PAS À L'ÉCRAN). `core` reste le fleuve du layout : les quais,
+  // les poissons et les index de tronçon s'y réfèrent.
+  const core = rv.samples;
+  const pts = riverDrawPts(core);
   // RESSAC : l'instant et l'amplitude de l'onde, figés pour toute la frame. ⚠ À
   // n'appeler QU'ICI et AVANT le premier tracé du ruban : tout ce qui borde l'eau
   // (ruban, îles, bas-fond, sable, vie de surface, reflets) lit cet état-là, et
@@ -1554,8 +1678,12 @@ export function drawIsoRiver(now) {
     } else {
       ensureQuayGate();
       const g = CM.quayGate;
-      runsPlus = quayGapRuns(g && g.drawPlus, len0);
-      runsMinus = quayGapRuns(g && g.drawMinus, len0);
+      // Le masque du quai est indexé sur le fleuve SEUL : les tronçons se
+      // découpent sur lui, puis se reportent sur le ruban rallongé (dont les
+      // rallonges, sans quai, prolongent la berge naturelle des bouts).
+      const kh = pts.core0 | 0, n = core.length;
+      runsPlus = extendRiverRuns(quayGapRuns(g && g.drawPlus, n), kh, n, len0);
+      runsMinus = extendRiverRuns(quayGapRuns(g && g.drawMinus, n), kh, n, len0);
     }
     // ÎLES : aucun quai ne les borde, donc rien ne leur dispute le bord de l'eau,
     // et elles entrent d'un seul morceau. Le drapeau `islands` (cf. le réglage)
