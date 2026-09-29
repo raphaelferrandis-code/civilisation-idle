@@ -791,7 +791,7 @@ export default function OptionsDialog({ isOpen, onClose, onSave, onExport, onImp
               <div className="options-row">
                 <div>
                   <span>{tr({ fr: "Musique seulement en onglet actif", en: "Music only in active tab" })}</span>
-                  <small>{tr({ fr: "Met la musique en pause quand le jeu est en arriere-plan", en: "Pauses the music when the game is in the background" })}</small>
+                  <small>{tr({ fr: "Met la musique en pause quand le jeu est en arrière-plan", en: "Pauses the music when the game is in the background" })}</small>
                 </div>
                 <button
                   type="button"
@@ -964,8 +964,8 @@ export default function OptionsDialog({ isOpen, onClose, onSave, onExport, onImp
           {activeGroup === 'other' && (
             <div className="options-row options-row-danger">
               <div>
-                <span>{tr({ fr: "Reinitialiser la partie", en: "Reset the game" })}</span>
-                <small>{tr({ fr: "Efface toute la progression - irreversible", en: "Erases all progress - irreversible" })}</small>
+                <span>{tr({ fr: "Réinitialiser la partie", en: "Reset the game" })}</span>
+                <small>{tr({ fr: "Efface toute la progression - irréversible", en: "Erases all progress - irreversible" })}</small>
               </div>
               <button
                 type="button"
@@ -1027,8 +1027,8 @@ export default function OptionsDialog({ isOpen, onClose, onSave, onExport, onImp
                   <span>{tr({ fr: "Polices", en: "Typefaces" })}</span>
                   <small>
                     {tr({
-                      fr: "Pixelify Sans, Silkscreen et Inter, les trois polices du jeu, sous licence SIL Open Font 1.1.",
-                      en: "Pixelify Sans, Silkscreen and Inter, the game's three typefaces, under the SIL Open Font License 1.1."
+                      fr: "Jersey 15, Pixelify Sans, Silkscreen et Inter, les quatre polices du jeu, sous licence SIL Open Font 1.1.",
+                      en: "Jersey 15, Pixelify Sans, Silkscreen and Inter, the game's four typefaces, under the SIL Open Font License 1.1."
                     })}
                   </small>
                 </div>

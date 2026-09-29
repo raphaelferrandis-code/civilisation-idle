@@ -36,9 +36,9 @@ const mythCountInAct = (act) => MYTHS.filter(m => m.act === act).length;
 function actUnlockHint(act) {
   const from = ACT_META[act]?.unlockFrom;
   if (from == null) return null;
-  if (from === "all") return tr({ fr: "Completez les Mythes des Actes I, II et III", en: "Complete the Myths of Acts I, II and III" });
+  if (from === "all") return tr({ fr: "Complétez les Mythes des Actes I, II et III", en: "Complete the Myths of Acts I, II and III" });
   return tr({
-    fr: `Completez les ${mythCountInAct(from)} Mythes de l'Acte ${from === 1 ? "I" : "II"}`,
+    fr: `Complétez les ${mythCountInAct(from)} Mythes de l'Acte ${from === 1 ? "I" : "II"}`,
     en: `Complete the ${mythCountInAct(from)} Myths of Act ${from === 1 ? "I" : "II"}`
   });
 }
@@ -250,7 +250,7 @@ export default function MythsView() {
                   <div className="myth-cards-grid">
                     {mythsInAct.length === 0 && (
                       <p className="myth-locked-hint" style={{ gridColumn: '1 / -1', padding: '0.25rem 0', fontStyle: 'italic' }}>
-                        {tr({ fr: "Les pactes de cet acte n'ont pas encore ete graves dans la pierre.", en: 'The pacts of this act have not yet been carved in stone.' })}
+                        {tr({ fr: "Les pactes de cet acte n'ont pas encore été gravés dans la pierre.", en: 'The pacts of this act have not yet been carved in stone.' })}
                       </p>
                     )}
 
@@ -282,11 +282,11 @@ export default function MythsView() {
                           {unlocked ? (
                             <>
                               <p className="myth-rule">
-                                <strong>{tr({ fr: 'Regle', en: 'Rule' })}</strong> {tr(myth.description)}
+                                <strong>{tr({ fr: 'Règle', en: 'Rule' })}</strong> {tr(myth.description)}
                               </p>
                               {completed ? (
                                 <p className="myth-heritage-desc">
-                                  <strong>{tr({ fr: 'Heritage', en: 'Heritage' })}</strong> {tr(myth.heritageDescription)}
+                                  <strong>{tr({ fr: 'Héritage', en: 'Heritage' })}</strong> {tr(myth.heritageDescription)}
                                 </p>
                               ) : (
                                 <>
@@ -304,7 +304,7 @@ export default function MythsView() {
                             </>
                           ) : (
                             <p className="myth-locked-hint">
-                              {tr({ fr: "Completez l'acte precedent pour deverrouiller ce pacte.", en: 'Complete the previous act to unlock this pact.' })}
+                              {tr({ fr: "Complétez l'acte précédent pour déverrouiller ce pacte.", en: 'Complete the previous act to unlock this pact.' })}
                             </p>
                           )}
                         </div>
@@ -330,7 +330,7 @@ export default function MythsView() {
 
               <div className="myth-modal-body">
                 <div className="myth-modal-row">
-                  <span className="myth-modal-label">{tr({ fr: 'Regle imposee', en: 'Imposed rule' })}</span>
+                  <span className="myth-modal-label">{tr({ fr: 'Règle imposée', en: 'Imposed rule' })}</span>
                   <span>{tr(modalMyth.description)}</span>
                 </div>
                 <div className="myth-modal-row">
@@ -338,19 +338,19 @@ export default function MythsView() {
                   <span>{tr(modalMyth.objectif)}</span>
                 </div>
                 <div className="myth-modal-row myth-modal-heritage">
-                  <span className="myth-modal-label">{tr({ fr: 'Heritage promis', en: 'Promised heritage' })}</span>
+                  <span className="myth-modal-label">{tr({ fr: 'Héritage promis', en: 'Promised heritage' })}</span>
                   <span>{tr(modalMyth.heritageDescription)}</span>
                 </div>
 
                 {/* Custom Options for Babel */}
                 {modalMyth.id === "mythe_de_babel" && (
                   <div className="myth-modal-row">
-                    <span className="myth-modal-label">{tr({ fr: 'Type de batiment', en: 'Building type' })}</span>
+                    <span className="myth-modal-label">{tr({ fr: 'Type de bâtiment', en: 'Building type' })}</span>
                     <div className="babel-category-choice" style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem', marginTop: '0.5rem' }}>
                       {[
-                        { value: "city", label: { fr: "Cite", en: "City" }, desc: { fr: "Nourriture, Commerce, Rayonnement", en: "Food, Trade, Radiance" } },
-                        { value: "knowledge", label: { fr: "Savoir", en: "Knowledge" }, desc: { fr: "Connaissance, Academies, Archives", en: "Knowledge, Academies, Archives" } },
-                        { value: "infra", label: { fr: "Infrastructure", en: "Infrastructure" }, desc: { fr: "Eau, Routes, Batisseurs", en: "Water, Roads, Builders" } }
+                        { value: "city", label: { fr: "Cité", en: "City" }, desc: { fr: "Nourriture, Commerce, Rayonnement", en: "Food, Trade, Radiance" } },
+                        { value: "knowledge", label: { fr: "Savoir", en: "Knowledge" }, desc: { fr: "Connaissance, Académies, Archives", en: "Knowledge, Academies, Archives" } },
+                        { value: "infra", label: { fr: "Infrastructure", en: "Infrastructure" }, desc: { fr: "Eau, Routes, Bâtisseurs", en: "Water, Roads, Builders" } }
                       ].map(c => (
                         <label key={c.value} className="babel-cat-option" style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', cursor: 'pointer' }}>
                           <input
@@ -374,12 +374,12 @@ export default function MythsView() {
               <p className="myth-modal-warning" style={{ color: 'var(--red)', marginTop: '1rem', fontSize: '0.9rem' }}>
                 {activeMythId && activeMythId !== modalMyth.id
                   ? tr({
-                      fr: `Le pacte "${activeMyth?.name ? tr(activeMyth.name) : 'en cours'}" est deja actif ce cycle et sera abandonne. Le cycle sera reinitialise.`,
+                      fr: `Le pacte "${activeMyth?.name ? tr(activeMyth.name) : 'en cours'}" est déjà actif ce cycle et sera abandonné. Le cycle sera réinitialisé.`,
                       en: `The pact "${activeMyth?.name ? tr(activeMyth.name) : 'in progress'}" is already active this cycle and will be abandoned. The cycle will be reset.`
                     })
                   : activeMythId === modalMyth.id
-                  ? tr({ fr: `Ce pacte est deja actif. Confirmer va reinitialiser entierement le cycle en cours.`, en: `This pact is already active. Confirming will fully reset the current cycle.` })
-                  : tr({ fr: `Le cycle en cours sera entierement reinitialise (ressources, batiments, jauges).`, en: `The current cycle will be fully reset (resources, buildings, gauges).` })}
+                  ? tr({ fr: `Ce pacte est déjà actif. Confirmer va réinitialiser entièrement le cycle en cours.`, en: `This pact is already active. Confirming will fully reset the current cycle.` })
+                  : tr({ fr: `Le cycle en cours sera entièrement réinitialisé (ressources, bâtiments, jauges).`, en: `The current cycle will be fully reset (resources, buildings, gauges).` })}
               </p>
 
               <menu className="choice-menu" style={{ display: 'flex', gap: '1rem', justifyContent: 'flex-end', marginTop: '1.5rem' }}>

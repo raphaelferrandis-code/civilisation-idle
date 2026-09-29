@@ -6,7 +6,8 @@
 // local. Il est à relancer UNIQUEMENT si l'on change de famille ou de graisse —
 // les fichiers produits sont committés, le jeu ne dépend plus du réseau.
 //
-// TROIS familles et pas six : Cinzel, Crimson Text et Baloo 2 ne sont JAMAIS en
+// QUATRE familles depuis le 2026-09-29 (Jersey 15 pour les titres, cf. plus bas).
+// À l'origine TROIS et pas six : Cinzel, Crimson Text et Baloo 2 ne sont JAMAIS en
 // première position dans les tokens de variables.css, et la mesure au canvas
 // (largeur du glyphe contre le repli seul) confirme qu'elles n'apportent aucun
 // caractère que Pixelify Sans, Silkscreen ou Inter ne rendent déjà. Les six
@@ -32,7 +33,22 @@ const SUBSETS = ["latin", "latin-ext"];
 const FAMILIES = [
   { css: "Pixelify+Sans:wght@400..700", nom: "Pixelify Sans", slug: "pixelify-sans" },
   { css: "Silkscreen:wght@400;700", nom: "Silkscreen", slug: "silkscreen" },
-  { css: "Inter:wght@400..800", nom: "Inter", slug: "inter" }
+  { css: "Inter:wght@400..800", nom: "Inter", slug: "inter" },
+  // TITRES ET NOMS (2026-09-29). Pixelify Sans dessine un C presque fermé : à
+  // toutes les tailles essayées (16 à 32 px, toutes graisses) « Cueilleurs » se
+  // lisait « Oueilleurs » et « Cité » « Oité ». Jersey 15 garde un C ouvert.
+  // Elle n'a qu'UNE face (400), d'où trois réglages que Google ne donne pas :
+  //  - `poids` : la face est déclarée pour TOUTES les graisses. Sans ça, un titre
+  //    en 700/800 recevait un faux gras qui bouche les contre-formes du pixel —
+  //    exactement le défaut qu'on corrige ;
+  //  - `italique` : la même face droite est re-déclarée en italique, pour qu'un
+  //    `font-style: italic` n'obtienne pas une oblique synthétique, qui hache un
+  //    dessin pixel ;
+  //  - `sizeAdjust` : à corps égal Jersey 15 est plus petite et plus étroite que
+  //    Pixelify (capitale 56 contre 63 pour 100 px, mesuré au canvas). 112 %
+  //    rend la même hauteur de capitale, donc la même hiérarchie, sans retoucher
+  //    chaque règle de titre.
+  { css: "Jersey+15", nom: "Jersey 15", slug: "jersey-15", poids: "100 900", italique: true, sizeAdjust: "112%" }
 ];
 
 // Google écrit un commentaire /* latin */ juste avant chaque bloc @font-face.
@@ -83,16 +99,20 @@ for (const fam of FAMILIES) {
     const bin = Buffer.from(await (await fetch(f.url)).arrayBuffer());
     writeFileSync(join(OUT_DIR, nomFichier), bin);
     console.log(`${nomFichier.padEnd(38)} ${String(Math.round(bin.length / 1024)).padStart(4)} Ko`);
-    blocs.push(
-      `@font-face {\n` +
-      `  font-family: "${fam.nom}";\n` +
-      `  font-style: ${f.style};\n` +
-      `  font-weight: ${f.weight};\n` +
-      `  font-display: swap;\n` +
-      `  src: url("./fonts/${nomFichier}") format("woff2");\n` +
-      (f.range ? `  unicode-range: ${f.range};\n` : "") +
-      `}`
-    );
+    const styles = fam.italique ? [f.style, "italic"] : [f.style];
+    for (const style of styles) {
+      blocs.push(
+        `@font-face {\n` +
+        `  font-family: "${fam.nom}";\n` +
+        `  font-style: ${style};\n` +
+        `  font-weight: ${fam.poids || f.weight};\n` +
+        `  font-display: swap;\n` +
+        `  src: url("./fonts/${nomFichier}") format("woff2");\n` +
+        (fam.sizeAdjust ? `  size-adjust: ${fam.sizeAdjust};\n` : "") +
+        (f.range ? `  unicode-range: ${f.range};\n` : "") +
+        `}`
+      );
+    }
   }
 }
 

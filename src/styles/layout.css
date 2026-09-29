@@ -2,6 +2,9 @@
   display: grid;
   /* Sidebar 240px : 3 à 6 onglets texte n'ont pas besoin de 288px (Audit UI Phase 2) */
   grid-template-columns: 15rem minmax(0, 1fr);
+  /* La même largeur, pour ce qui se cale sur le bord de la zone de jeu (le
+     couloir des annonces, components.css). À garder égale à la colonne. */
+  --nav-w: 15rem;
   min-height: 100vh;
   background-color: var(--bg);
   transition: filter 2s ease;
@@ -434,6 +437,7 @@
 @media (max-width: 1500px) {
   .app {
     grid-template-columns: 4.5rem minmax(0, 1fr);
+    --nav-w: 4.5rem;
   }
 
   .sidebar {
@@ -586,8 +590,10 @@
   animation: era-banner-fade 3.2s ease forwards;
 }
 
+/* Surtitre du bandeau d'ère : un titre, donc la police des titres. En Pixelify
+   (la prose), les capitales fermaient le C — « UN NOUVEL ÂGE OOMMENOE ». */
 .era-banner-kicker {
-  font-family: var(--font-serif);
+  font-family: var(--font-title);
   font-size: 0.9rem;
   font-style: italic;
   font-weight: 600;

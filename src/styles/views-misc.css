@@ -166,10 +166,16 @@
   letter-spacing: 0.005em;
 }
 
-/* La personnalité de la cité parle aussi en chroniqueur */
-.city-personality-label,
+/* La saveur d'une ère parle en chroniqueur */
 .era-flavor {
   font-family: var(--font-serif);
+  font-size: 0.88rem;
+}
+
+/* La personnalité de la cité (« Cité savante ») est un SOUS-TITRE du nom, pas
+   de la prose : même police que lui. En Pixelify on lisait « Oité savante ». */
+.city-personality-label {
+  font-family: var(--font-title);
   font-size: 0.88rem;
 }
 
@@ -267,7 +273,11 @@
   top: 50%;
   left: 50%;
   transform: translate(-50%, -50%);
-  z-index: 7;
+  /* AU-DESSUS des panneaux de la Cité (Régulation et rail d'outils à 20) : à 7,
+     une Régulation dépliée recouvrait la moitié basse du rapport (vu en crise,
+     2026-09-29). Sous la barre de ressources (30) et les bandeaux d'héritage
+     (26), qui ne le croisent pas. */
+  z-index: 25;
   width: min(30rem, 86%);
   max-height: 84%;
   overflow-y: auto;

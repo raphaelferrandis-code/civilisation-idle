@@ -56,6 +56,35 @@ export function flipsPerSecond(rate, div, dec) {
   return (rate * Math.pow(10, dec)) / div;
 }
 
+// Au-delà de ce rythme, le dernier chiffre ne ROULE plus en continu : il bascule
+// d'un cran sec, comme les chiffres supérieurs. Un rouleau qui fait plus de deux
+// crans par seconde n'est jamais au repos : on n'y lit que deux moitiés de
+// chiffres. Quatre captures prises coup sur coup en fin de partie (débits de
+// quelques B/s sur des stocks de quelques centaines de B) ne montraient AUCUNE
+// valeur lisible (2026-09-29). Le rythme lui-même n'est pas en cause — la bande
+// visée va jusqu'à 5/s et c'est voulu : c'est le rendu continu qui cesse d'être
+// lisible passé 2/s. En dessous, le roulis reste la signature du cadran.
+export const ROLL_MAX_FLIPS = 2;
+
+// Marge autour du seuil : un débit qui oscille autour de 2 crans/s (chaque achat
+// le déplace de quelques pour cent) ferait sinon alterner roulis et crans.
+export const ROLL_HYSTERESIS = 0.15;
+
+// Décision SANS historique (premier rendu) : vrai si le dernier chiffre doit
+// rouler en continu, faux s'il doit basculer par crans.
+export function lastDigitRolls(rate, div, dec) {
+  return flipsPerSecond(rate, div, dec) <= ROLL_MAX_FLIPS;
+}
+
+// Décision AVEC historique : on ne quitte un régime qu'une fois franchi le seuil
+// de plus de ROLL_HYSTERESIS (15 %) dans l'autre sens.
+export function nextRollMode(rolling, rate, div, dec) {
+  const flips = flipsPerSecond(rate, div, dec);
+  return rolling
+    ? flips <= ROLL_MAX_FLIPS * (1 + ROLL_HYSTERESIS)
+    : flips < ROLL_MAX_FLIPS * (1 - ROLL_HYSTERESIS);
+}
+
 // Précision idéale pour ce débit, bornée par la largeur restante.
 //
 // Un cas ne rentre pas dans le budget : quand le stock représente plus d'une

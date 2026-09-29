@@ -1,8 +1,8 @@
 import { describe, it, expect } from "vitest";
 
 import {
-  MAX_SLOTS, SETTLE_MS, COOLDOWN_MS,
-  staticDecimals, flipsPerSecond, idealDecimals, reconcilePrecision
+  MAX_SLOTS, SETTLE_MS, COOLDOWN_MS, ROLL_MAX_FLIPS, ROLL_HYSTERESIS,
+  staticDecimals, flipsPerSecond, idealDecimals, reconcilePrecision, lastDigitRolls, nextRollMode
 } from "../odoPrecision.js";
 
 // Promesse du cadran « précision lisible » (retour Raph : les chiffres qui
@@ -166,5 +166,72 @@ describe("odoPrecision — amortissement des recalages", () => {
   it("fige la forme quand la production s'arrête (crise terminale)", () => {
     const frozen = reconcilePrecision(base, { rate: 0, div: 1000, intLen: 1, now: 400_000 });
     expect(frozen.dec).toBe(3);
+  });
+});
+
+describe("odoPrecision — roulis continu ou crans", () => {
+  // Retour du 2026-09-29 : en fin de partie, quatre captures prises coup sur coup
+  // ne montraient AUCUNE valeur lisible dans la barre du haut — le dernier
+  // chiffre roulait en continu à plus de trois crans par seconde, donc n'était
+  // jamais au repos. Au-delà de ROLL_MAX_FLIPS il bascule par crans secs.
+
+  it("le cas relevé en jeu (213B à +3,16B/s) bascule par crans", () => {
+    const { div, intLen } = dial(213e9);
+    const dec = idealDecimals(3.16e9, div, intLen);
+    expect(flipsPerSecond(3.16e9, div, dec)).toBeGreaterThan(ROLL_MAX_FLIPS);
+    expect(lastDigitRolls(3.16e9, div, dec)).toBe(false);
+  });
+
+  it("un cadran lent garde son roulis continu", () => {
+    // La nourriture du départ : 13 à +7,4/min — une décimale, 1,2 cran/s.
+    const { div, intLen } = dial(13);
+    const rate = 7.4 / 60;
+    const dec = idealDecimals(rate, div, intLen);
+    expect(flipsPerSecond(rate, div, dec)).toBeLessThanOrEqual(ROLL_MAX_FLIPS);
+    expect(lastDigitRolls(rate, div, dec)).toBe(true);
+  });
+
+  it("le Rayonnement du départ (+2,1/min) bascule déjà par crans", () => {
+    // Deux décimales à 3,5 crans/s : rapide dès la première minute. C'est
+    // voulu (la précision vise un chiffre qui bouge), et c'est justement ce
+    // rythme qu'un rouleau continu ne laisse jamais lire.
+    const { div, intLen } = dial(10.3);
+    const rate = 2.1 / 60;
+    const dec = idealDecimals(rate, div, intLen);
+    expect(lastDigitRolls(rate, div, dec)).toBe(false);
+  });
+
+  it("la frontière est le rythme, sur toute la partie", () => {
+    for (const { value, rate } of CASES) {
+      const { div, intLen } = dial(value);
+      const dec = idealDecimals(rate, div, intLen);
+      const flips = flipsPerSecond(rate, div, dec);
+      expect(lastDigitRolls(rate, div, dec), `stock ${value} @ ${rate}/s → ${flips.toFixed(2)} crans/s`)
+        .toBe(flips <= ROLL_MAX_FLIPS);
+    }
+  });
+
+  it("les deux régimes existent dans une vraie partie (sinon la règle ne sert à rien)", () => {
+    const regimes = new Set(CASES.map(({ value, rate }) => {
+      const { div, intLen } = dial(value);
+      return lastDigitRolls(rate, div, idealDecimals(rate, div, intLen));
+    }));
+    expect([...regimes].sort()).toEqual([false, true]);
+  });
+
+  it("sans débit, rien ne bascule : le cadran est au repos", () => {
+    expect(lastDigitRolls(0, 1000, 2)).toBe(true);
+  });
+
+  it("marge : un débit qui frôle le seuil ne fait pas alterner les régimes", () => {
+    const div = 1, dec = 0;
+    const high = ROLL_MAX_FLIPS * (1 + ROLL_HYSTERESIS / 2);
+    const low = ROLL_MAX_FLIPS * (1 - ROLL_HYSTERESIS / 2);
+    // Dans la marge, chacun garde son régime…
+    expect(nextRollMode(true, high, div, dec)).toBe(true);
+    expect(nextRollMode(false, low, div, dec)).toBe(false);
+    // …et on n'en change qu'une fois la marge franchie.
+    expect(nextRollMode(true, ROLL_MAX_FLIPS * (1 + ROLL_HYSTERESIS) * 1.01, div, dec)).toBe(false);
+    expect(nextRollMode(false, ROLL_MAX_FLIPS * (1 - ROLL_HYSTERESIS) * 0.99, div, dec)).toBe(true);
   });
 });

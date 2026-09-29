@@ -1485,3 +1485,16 @@
   min-height: var(--touch-target);
   min-width: var(--touch-target);
 }
+
+/* Couloir des annonces : au bureau il est descendu en bas à gauche de la zone de
+   jeu (components.css, 2026-09-29). Au doigt, le bas de l'écran appartient à la
+   barre d'onglets et à la feuille boutique, et le haut de la carte est libre
+   (barre de ressources et jauge font 75px) : on garde donc l'ancienne place,
+   centrée sous la barre, où les annonces tombent sur la ville. */
+:root[data-pointer="coarse"] .outcome-float-layer {
+  top: 16%;
+  bottom: auto;
+  left: 50%;
+  transform: translateX(-50%);
+  align-items: center;
+}

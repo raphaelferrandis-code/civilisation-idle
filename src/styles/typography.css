@@ -81,31 +81,40 @@
   font-feature-settings: "liga" 1, "onum" 1;
 }
 
-/* Lettrine : la première lettre des récits est enluminée */
-.event-dialog p:first-of-type::first-letter,
-.body-copy::first-letter {
-  float: left;
-  margin: 0.04em 0.14em 0 0;
-  font-family: var(--font-title);
-  font-size: 3em;
-  font-weight: 700;
-  line-height: 0.8;
-  color: var(--gold);
+/* Lettrine : la première lettre des RÉCITS (fenêtres d'événement) est
+   enluminée, sur deux lignes et collée à son mot.
+   ⚠ L'ancienne lettrine (flottant de 3 em, marge à droite, interligne 0.8) se
+   DÉTACHAIT : on lisait « O n commence à compter les sacs », « L e marchand ».
+   `initial-letter` la cale sur les lignes du texte, sans jour entre la lettre et
+   la suite du mot. Là où la propriété manque (Firefox), pas de lettrine du tout
+   plutôt qu'une lettre qui flotte. Réservée aux récits : les Options, l'Import
+   et les paragraphes d'interface (.body-copy) n'en portent plus. */
+@supports (initial-letter: 2) {
+  .event-dialog:not(.options-dialog):not(.import-dialog) p:first-of-type::first-letter {
+    initial-letter: 2;
+    margin-right: 0.12em;
+    font-family: var(--font-title);
+    font-weight: 400;
+    color: var(--gold);
+  }
 }
 
-/* Les noms de bâtiments : petites capitales du copiste */
+/* Les noms de bâtiments : la police des titres, en casse normale.
+   ⚠ Plus de petites capitales : synthétisées (aucune de nos polices n'en a de
+   vraies), elles réduisaient les capitales à des glyphes de 11 px où le C se
+   fermait — « Oueilleurs », « Oaravanes » (2026-09-29). */
 .pr-name {
-  font-family: var(--font-serif);
+  font-family: var(--font-title);
   font-size: 1.08rem;
   font-weight: 700;
-  font-variant: small-caps;
   letter-spacing: 0.035em;
 }
 
-/* Le bâtiment verrouillé murmure en italique */
+/* Le bâtiment verrouillé murmure en italique (Jersey 15 n'a pas d'italique :
+   sa face droite est re-déclarée en italique, donc le nom reste droit au lieu
+   de recevoir une oblique synthétique — cf. scripts/vendorFonts.mjs). */
 .purchase-row.pr-locked .pr-name {
   font-style: italic;
-  font-variant: normal;
 }
 
 /* Le ticker : une manchette de gazette ancienne */
@@ -114,11 +123,12 @@
   font-weight: 700;
 }
 
+/* Titre de dépêche : un titre, donc la police des titres, sans petites
+   capitales synthétiques (même C fermé que les noms de bâtiments). */
 .ticker-title {
-  font-family: var(--font-serif);
+  font-family: var(--font-title);
   font-size: 1.08em;
   font-weight: 700;
-  font-variant: small-caps;
   letter-spacing: 0.02em;
 }
 

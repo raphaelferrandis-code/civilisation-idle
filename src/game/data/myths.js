@@ -271,12 +271,12 @@ export const CADMOS_ORIENTATIONS = {
       { fr: "Semences", en: "Seeds" }
     ],
     bonus: {
-      fr: `+${Math.round(CADMOS_CYCLE_BONUS_PCT * 100)}% a la production de Nourriture pour le reste du cycle.`,
+      fr: `+${Math.round(CADMOS_CYCLE_BONUS_PCT * 100)}% à la production de Nourriture pour le reste du cycle.`,
       en: `+${Math.round(CADMOS_CYCLE_BONUS_PCT * 100)}% to Food production for the rest of the cycle.`
     }
   },
   gold: {
-    label: { fr: "Tresor", en: "Treasury" },
+    label: { fr: "Trésor", en: "Treasury" },
     article: { fr: "des", en: "of" },
     words: [
       { fr: "Comptoirs", en: "Counting-Houses" },
@@ -287,12 +287,12 @@ export const CADMOS_ORIENTATIONS = {
       { fr: "Balances", en: "Scales" }
     ],
     bonus: {
-      fr: `+${Math.round(CADMOS_CYCLE_BONUS_PCT * 100)}% a la production de Tresor pour le reste du cycle.`,
+      fr: `+${Math.round(CADMOS_CYCLE_BONUS_PCT * 100)}% à la production de Trésor pour le reste du cycle.`,
       en: `+${Math.round(CADMOS_CYCLE_BONUS_PCT * 100)}% to Treasury production for the rest of the cycle.`
     }
   },
   stability: {
-    label: { fr: "Stabilite", en: "Stability" },
+    label: { fr: "Stabilité", en: "Stability" },
     article: { fr: "des", en: "of" },
     words: [
       { fr: "Veilleurs", en: "Watchers" },
@@ -303,7 +303,7 @@ export const CADMOS_ORIENTATIONS = {
       { fr: "Archives", en: "Archives" }
     ],
     bonus: {
-      fr: `-${Math.round(CADMOS_CYCLE_BONUS_PCT * 100)}% a la vitesse de montee de la Rupture pour le reste du cycle.`,
+      fr: `-${Math.round(CADMOS_CYCLE_BONUS_PCT * 100)}% à la vitesse de montée de la Rupture pour le reste du cycle.`,
       en: `-${Math.round(CADMOS_CYCLE_BONUS_PCT * 100)}% to the rate of Rupture rise for the rest of the cycle.`
     }
   }
@@ -414,15 +414,15 @@ export const MYTHS = [
     act: 1,
     name: { fr: "Le Mythe de Cadmos", en: "The Myth of Cadmus" },
     description: {
-      fr: "A chaque palier de Rayonnement ou d'Infrastructure, la cite doit nommer son Age. Trois noms sont proposes, chacun lie a une orientation: Nourriture, Tresor ou Stabilite. Le nom choisi rejoint la Chronique et accorde un bonus de cycle.",
+      fr: "À chaque palier de Rayonnement ou d'Infrastructure, la cité doit nommer son Âge. Trois noms sont proposés, chacun lié à une orientation : Nourriture, Trésor ou Stabilité. Le nom choisi rejoint la Chronique et accorde un bonus de cycle.",
       en: "At each Radiance or Infrastructure milestone, the city must name its Age. Three names are offered, each tied to an orientation: Food, Treasury or Stability. The chosen name joins the Chronicle and grants a cycle bonus."
     },
     objectif: {
-      fr: `Avoir nomme au moins ${CADMOS_AGE_NAME_TARGET} Ages dans la Chronique avant l'effondrement.`,
+      fr: `Avoir nommé au moins ${CADMOS_AGE_NAME_TARGET} Âges dans la Chronique avant l'effondrement.`,
       en: `Have named at least ${CADMOS_AGE_NAME_TARGET} Ages in the Chronicle before the collapse.`
     },
     heritageDescription: {
-      fr: `Noms de Pouvoir : apres chaque run, graver un Age de la Chronique comme Epitaphe Permanente. Chaque Epitaphe donne +${Math.round(CADMOS_EPITAPH_BONUS_PCT * 100)}% permanent a son orientation, avec ${CADMOS_MAX_PERMANENT_EPITAPHS} Epitaphes actives maximum.`,
+      fr: `Noms de Pouvoir : après chaque run, graver un Âge de la Chronique comme Épitaphe Permanente. Chaque Épitaphe donne +${Math.round(CADMOS_EPITAPH_BONUS_PCT * 100)}% permanent à son orientation, avec ${CADMOS_MAX_PERMANENT_EPITAPHS} Épitaphes actives maximum.`,
       en: `Names of Power: after each run, engrave one Age of the Chronicle as a Permanent Epitaph. Each Epitaph grants a permanent +${Math.round(CADMOS_EPITAPH_BONUS_PCT * 100)}% to its orientation, with ${CADMOS_MAX_PERMANENT_EPITAPHS} Epitaphs active at most.`
     },
 
@@ -709,9 +709,9 @@ export const MYTHS = [
   {
     id: "mythe_d_antee",
     act: 3,
-    name: { fr: "Le Mythe d'Antee", en: "The Myth of Antaeus" },
+    name: { fr: "Le Mythe d'Antée", en: "The Myth of Antaeus" },
     description: {
-      fr: "Au demarrage, choisissez parmi vos Heritages debloques ceux qui deviennent des Ruines actives. Chaque Ruine active conserve son bonus habituel mais ajoute son malus associe pour ce cycle.",
+      fr: "Au démarrage, choisissez parmi vos Héritages débloqués ceux qui deviennent des Ruines actives. Chaque Ruine active conserve son bonus habituel mais ajoute son malus associé pour ce cycle.",
       en: "At the start, choose from your unlocked Legacies those that become active Ruins. Each active Ruin keeps its usual bonus but adds its associated penalty for this cycle."
     },
     objectif: {
@@ -719,7 +719,7 @@ export const MYTHS = [
       en: `Carry at least ${ANTEE_MIN_ACTIVE_RUINS} simultaneous penalties (Legacies activated as active Ruins) and, under that weight, grow Radiance ×${ANTEE_POP_MULT} from the start.`
     },
     heritageDescription: {
-      fr: "Ruines actives : dans les runs futures, chaque debut de cycle propose de choisir volontairement des Heritages avec leur malus. Les Ruines gagnees a l'effondrement recoivent un multiplicateur proportionnel au nombre de malus actifs (placeholder).",
+      fr: "Ruines actives : dans les runs futures, chaque début de cycle propose de choisir volontairement des Héritages avec leur malus. Les Ruines gagnées à l'effondrement reçoivent un multiplicateur proportionnel au nombre de malus actifs (placeholder).",
       en: "Active Ruins: in future runs, the start of each cycle offers to voluntarily choose Legacies along with their penalty. The Ruins earned at collapse receive a multiplier proportional to the number of active penalties (placeholder)."
     },
     requiresActiveRuinsChoice: true,
@@ -755,7 +755,7 @@ export const MYTHS = [
       en: `Complete the Ark: ${RAGNAROK_ARK_TARGET} offerings, before the End (${RAGNAROK_DURATION_MS / 60_000} min).`
     },
     heritageDescription: {
-      fr: "La Fin des Dieux : debloque le 11e Grand Reset, qui donne un multiplicateur x4 aux Ruines, et grave un titre final permanent dans la Chronique.",
+      fr: "La Fin des Dieux : débloque le 11e Grand Reset, qui donne un multiplicateur x4 aux Ruines, et grave un titre final permanent dans la Chronique.",
       en: "The Twilight of the Gods: unlocks the 11th Grand Reset, which grants a x4 multiplier to Ruins, and engraves a permanent final title in the Chronicle."
     },
 

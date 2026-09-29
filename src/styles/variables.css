@@ -142,8 +142,14 @@
      (largeur du glyphe contre le repli seul) confirme qu'ils n'apportaient aucun
      caractère que les trois familles gardées ne rendent déjà. Les six symboles
      qu'aucune ne couvre (✦ ⚠ ✓ ▼ → ∞) viennent d'une police système, avant
-     comme après. Le repli terminal est donc système, et il est réel. */
-  --font-title: "Pixelify Sans", Georgia, serif;
+     comme après. Le repli terminal est donc système, et il est réel.
+     TITRES ET NOMS → Jersey 15 (2026-09-29). Pixelify Sans dessine un C presque
+     fermé : « Cueilleurs » se lisait « Oueilleurs », « Cité » « Oité », à toutes
+     les tailles et graisses essayées. Jersey 15 (pixel elle aussi, empaquetée par
+     scripts/vendorFonts.mjs, recalée à la hauteur de capitale de Pixelify) garde
+     un C ouvert. La PROSE (--font-serif) reste en Pixelify : Jersey est trop
+     serrée pour un paragraphe. */
+  --font-title: "Jersey 15", "Pixelify Sans", Georgia, serif;
   --font-body: "Inter", system-ui, -apple-system, sans-serif;
   --font-serif: "Pixelify Sans", Georgia, serif;
   /* Chiffres « idle » : Silkscreen — chiffres 5×5 canoniques, chasse fixe

@@ -215,7 +215,7 @@ export function labelFor(key) {
   return {
     population: tr({ fr: "Ray.", en: "Rad." }),
     food: tr({ fr: "nourriture", en: "food" }),
-    gold: tr({ fr: "tresor", en: "treasury" }),
+    gold: tr({ fr: "trésor", en: "treasury" }),
     knowledge: tr({ fr: "savoir", en: "knowledge" }),
     infrastructure: tr({ fr: "infra.", en: "infra." }),
     ruins: tr({ fr: "ruines", en: "ruins" }),

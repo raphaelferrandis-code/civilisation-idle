@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { registerOutcomeFloats } from '../../game/core/outcomeFloat.js';
 import { openView } from '../../game/core/state.js';
 import { emptyStack, pushOutcome, tickOutcomes, stackIsEmpty } from './outcomeStack.js';
@@ -8,8 +8,33 @@ import { emptyStack, pushOutcome, tickOutcomes, stackIsEmpty } from './outcomeSt
 // affichée, ce qu'un minuteur par entrée obligerait à annuler et reprogrammer.
 const TICK_MS = 120;
 
+// Écart entre le haut de la Régulation et la plus récente des annonces.
+const ABOVE_REGUL_PX = 12;
+
+// Le couloir vit en bas à gauche (components.css). Dans la Cité, la Régulation
+// borde le bas de la carte : repliée c'est une poignée, dépliée (en crise) un
+// panneau d'une demi-hauteur d'écran, dont les boutons sont justement ce qu'on
+// clique quand les annonces pleuvent. Le couloir se pose donc juste AU-DESSUS
+// d'elle, où qu'elle s'arrête, et calé sur son bord DROIT, côté boutique : à
+// gauche, une Régulation dépliée le faisait monter sur le rail d'outils (vu le
+// 2026-09-29, l'annonce du haut couvrait le bouton des Mythes). Mesuré au rendu,
+// pas deviné : sa hauteur dépend du nombre de politiques débloquées. Au doigt
+// (touch-shell.css) le couloir garde sa place centrée en haut, et la Régulation
+// n'est pas sur la carte.
+function regulAnchor() {
+  if (document.documentElement.dataset.pointer === 'coarse') return null;
+  const regul = document.querySelector('.app[data-active-view="city"] .city-controls-panel');
+  const r = regul ? regul.getBoundingClientRect() : null;
+  if (!r || r.height <= 0) return null;
+  return {
+    bottom: `${Math.round(window.innerHeight - r.top + ABOVE_REGUL_PX)}px`,
+    right: `${Math.round(window.innerWidth - r.right)}px`,
+  };
+}
+
 export default function OutcomeFloatLayer() {
   const [stack, setStack] = useState(emptyStack);
+  const layerRef = useRef(null);
 
   useEffect(() => registerOutcomeFloats((outcome) => {
     setStack((current) => pushOutcome(current, outcome, Date.now()));
@@ -22,6 +47,17 @@ export default function OutcomeFloatLayer() {
     return () => clearInterval(id);
   }, [busy]);
 
+  // Recalé à chaque changement de la pile visible, AVANT la peinture : une
+  // annonce n'apparaît jamais à l'ancienne hauteur pour sauter ensuite.
+  useLayoutEffect(() => {
+    const layer = layerRef.current;
+    if (!layer) return;
+    const anchor = regulAnchor();
+    layer.classList.toggle('is-over-regul', Boolean(anchor));
+    layer.style.bottom = anchor ? anchor.bottom : '';
+    layer.style.right = anchor ? anchor.right : '';
+  }, [stack.visible]);
+
   // PAS de `return null` quand la pile est vide : les lecteurs d'écran
   // n'annoncent que les MUTATIONS d'une région aria-live DÉJÀ présente — une
   // région démontée puis ré-insérée déjà remplie reste muette. Le conteneur et
@@ -29,7 +65,7 @@ export default function OutcomeFloatLayer() {
   // vont et viennent.
   return (
     <>
-      <div className="outcome-float-layer">
+      <div className="outcome-float-layer" ref={layerRef}>
         {stack.visible.map((f) => {
           const label = f.count > 1 ? `${f.label} ×${f.count}` : f.label;
           // La COUCHE reste en pointer-events: none (cf. components.css) : seuls

@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import { fmtShortLive, COMPACT_UNITS } from '../../game/core/utils.js';
 import { toNum } from '../../game/core/num.js';
 import { useCountUp } from '../../hooks/useCountUp.js';
-import { idealDecimals, reconcilePrecision, SETTLE_MS, COOLDOWN_MS } from './odoPrecision.js';
+import { idealDecimals, reconcilePrecision, lastDigitRolls, nextRollMode, SETTLE_MS, COOLDOWN_MS } from './odoPrecision.js';
 
 // Même constante que RollingNumber : l'anim d'un tick déborde sur le suivant
 // pour que le défilement ne s'arrête jamais entre deux ticks (voir là-bas).
@@ -35,7 +35,8 @@ function suffixEm() {
 /**
  * Compteur ODOMÈTRE : chaque chiffre est une colonne qui roule verticalement,
  * comme un compteur mécanique. Le dernier chiffre roule en continu (position
- * réelle entre deux crans) ; les chiffres supérieurs tombent d'un CRAN SEC
+ * réelle entre deux crans) tant que son rythme reste lisible, et bascule par
+ * crans au-delà (ROLL_MAX_FLIPS) ; les chiffres supérieurs tombent d'un CRAN SEC
  * quand leur glyphe change — pose, clac, pose — avec un léger dépassement et
  * un flash doré qui retombe (odo-snap / odo-carry).
  *
@@ -95,6 +96,19 @@ function useReadablePrecision(rate, div, intLen) {
   return dec;
 }
 
+// Roulis continu ou crans pour le DERNIER chiffre (odoPrecision.js, 2026-09-29).
+// Le premier rendu décide sans historique ; ensuite on ne change de régime
+// qu'au-delà de la marge (nextRollMode), sinon un débit qui frôle le seuil —
+// chaque achat le déplace un peu — ferait alterner les deux rendus. Mise à jour
+// PENDANT le rendu (motif React « état dérivé du rendu précédent ») : le bon
+// régime s'applique dès cette image, sans effet ni image de retard.
+function useRollMode(rate, div, dec) {
+  const [rolling, setRolling] = useState(() => lastDigitRolls(rate, div, dec));
+  const next = nextRollMode(rolling, rate, div, dec);
+  if (next !== rolling) setRolling(next);
+  return next;
+}
+
 export default function OdometerNumber({ value, rate = 0, duration = DEFAULT_DURATION }) {
   const target = toNum(value);
   const display = useCountUp(target, duration);
@@ -106,6 +120,7 @@ export default function OdometerNumber({ value, rate = 0, duration = DEFAULT_DUR
   // qu'un positif : c'est sa valeur absolue qui décide de la précision.
   const churn = Math.abs(toNum(rate)) || 0;
   const decimals = useReadablePrecision(churn, parts ? parts.div : 1, intLen);
+  const rolls = useRollMode(churn, parts ? parts.div : 1, decimals);
 
   if (!parts) {
     // Repli plat : à l'arrêt on reformate la valeur d'origine (Decimal exact).
@@ -121,14 +136,18 @@ export default function OdometerNumber({ value, rate = 0, duration = DEFAULT_DUR
   const D = mantissa * Math.pow(10, decimals);
   const Dint = Math.floor(D);
   const resting = display === target;
+  // `rolls` (useRollMode) : le dernier chiffre roule en continu TANT QUE son
+  // rythme reste suivable (≤ ROLL_MAX_FLIPS crans/s). Plus vite, un rouleau
+  // continu n'est jamais au repos et ne montre que deux moitiés de chiffres : il
+  // bascule alors par crans secs, comme les chiffres supérieurs (2026-09-29).
   // À l'arrêt (anim finie), on fige les colonnes sur le glyphe entier.
   // ⚠ NE PAS re-figer le roulis sur téléphone : essayé le 2026-07-31, ANNULÉ
   // après vérification de Raph sur l'appareil — l'illisibilité de la barre ne
   // venait pas de là, mais du dimensionnement de la valeur (elle était calculée
   // sur TOUTE la largeur de la cellule, icône non déduite, donc elle débordait
   // et se faisait rogner des deux côtés). Le roulis est la signature du cadran ;
-  // il reste partout.
-  const fracD = resting ? 0 : D - Dint;
+  // il reste partout — sauf quand il serait trop rapide pour être lu (ci-dessus).
+  const fracD = resting || !rolls ? 0 : D - Dint;
 
   // Jalon : signature de forme du cadran (nb de chiffres + suffixe). Utilisée
   // comme `key` du wrapper : quand elle change, React re-monte le span →
@@ -164,10 +183,14 @@ export default function OdometerNumber({ value, rate = 0, duration = DEFAULT_DUR
     // et key={digit} re-monte la colonne à chaque bascule : l'anim CSS
     // rejoue. Un saut de plusieurs crans entre deux frames affiche un
     // « précédent » reconstruit (digit−1) : sans conséquence.
-    if (k > 0) {
+    // Le DERNIER chiffre prend le même chemin quand il est trop rapide pour
+    // rouler (`rolls` faux), avec une bascule plus brève et sans le flash de
+    // retenue (.odo-col--tick) : à plusieurs crans par seconde, le flash ne
+    // s'éteindrait jamais.
+    if (k > 0 || !rolls) {
       slots.push(
         <span className="odo-slot" key={`d${idx}`}>
-          <span className="odo-col odo-col--snap" key={digit}>
+          <span className={k > 0 ? 'odo-col odo-col--snap' : 'odo-col odo-col--tick'} key={digit}>
             <span className="odo-d odo-d--prev">{(digit + 9) % 10}</span>
             <span className="odo-d">{digit}</span>
             <span className="odo-d">{(digit + 1) % 10}</span>

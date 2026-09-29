@@ -63,7 +63,7 @@ export default function ChoiceDialog({ dialog, onChoose }) {
   const labelText = dialog.label
     ? tr(dialog.label)
     : dialog.mourning
-      ? tr({ fr: "Epitaphe", en: "Epitaph" })
+      ? tr({ fr: "Épitaphe", en: "Epitaph" })
       : dialog.variant === "cadmos"
         ? tr({ fr: "Cadmos", en: "Cadmos" })
         : tr({ fr: "Crise active", en: "Active Crisis" });

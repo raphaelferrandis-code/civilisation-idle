@@ -43,7 +43,7 @@ export const ACTIVE_RUIN_DEFINITIONS = [
   {
     id: "age_or",
     stateKey: "orHeritage",
-    title: { fr: "Equilibre Dore", en: "Golden Balance" },
+    title: { fr: "Équilibre Doré", en: "Golden Balance" },
     source: { fr: "Âge d'Or", en: "Golden Age" },
     bonus: { fr: "Le Comptoir de marchandage est ouvert.", en: "The Trading Post is open." },
     malus: { fr: `La production de Trésor démarre ${Math.round((1 - ACTIVE_RUIN_GOLD_PROD_MULT) * 100)}% plus lente.`, en: `Treasury production starts ${Math.round((1 - ACTIVE_RUIN_GOLD_PROD_MULT) * 100)}% slower.` }
