@@ -367,6 +367,16 @@
   top: calc(var(--hud-gap) / 2);
   bottom: var(--hud-gap);
 }
+/* Au bureau, la boutique ÉPOUSE son contenu, plafonnée à la hauteur de la
+   scène (2026-09-29, dévoilement de la première minute). Étirée d'office, elle
+   posait à la première minute un grand panneau de verre flou et VIDE sur un
+   quart de la carte, sous ses deux seules rangées. Dès que la liste dépasse,
+   rien ne change : le plafond est atteint et la liste défile, comme avant.
+   Au doigt la boutique est une feuille (touch-shell.css) : hors de cette règle. */
+:root:not([data-pointer="coarse"]) .app[data-active-view="city"] .city-shop-dock {
+  bottom: auto;
+  max-height: calc(100% - var(--hud-gap) * 1.5);
+}
 /* Boutique repliée : le dock se dé-stretch et se contracte sur la hauteur du
    seul bandeau-titre, libérant la carte (au lieu d'un panneau de verre vide). */
 .app[data-active-view="city"] .city-shop-dock:has(.shop-panel.is-collapsed) {

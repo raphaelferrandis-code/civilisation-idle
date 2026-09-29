@@ -86,6 +86,7 @@ import {
 import { epitaphLegacyById, epitaphLegacyChips } from '../../game/data/epitaphs.js';
 import { CHRONICLE_VISIBLE_MS } from '../../game/core/chronicleEvaluator.js';
 import { isFirstGame } from '../../game/core/onboarding.js';
+import { uiRevealed, uiRevealFresh } from '../../game/core/uiReveal.js';
 
 // Petit écran : MÊME condition que le cran 2 des crans de densité
 // (views-city-hud.css). ⚠ Les deux doivent rester d'accord — c'est le même
@@ -192,6 +193,14 @@ export default function CityView() {
   // une sécurité. Limité à la première partie : les cycles suivants gardent le
   // choix mémorisé du joueur.
   const firstCrisisSeen = useGameState((s) => isFirstGame(s) && (s.cycleCrisesResolved || 0) >= 1);
+  // LE JEU QUI SE DÉVOILE (uiReveal.js), toute première partie seulement : la
+  // jauge de Rupture entre avec la 2e étape des Premiers pas (« Laisse la
+  // Rupture monter »), la Régulation avec la tension (premier quart de
+  // Rupture), « Tout acheter » au doigt avec les multiplicateurs d'achat.
+  const revealGauge = useGameState((s) => uiRevealed(s, 'gauge'));
+  const revealTension = useGameState((s) => uiRevealed(s, 'tension'));
+  const revealBuyAll = useGameState((s) => uiRevealed(s, 'buyAmounts'));
+  const gaugeFresh = uiRevealFresh(state, 'gauge', now);
   // ⚠ Amorcé à la valeur COURANTE (HudPanel, lui, part de false) : la vue Cité
   // se remonte à chaque changement d'onglet, et une crise déjà passée ne doit
   // pas rouvrir l'encart à chaque retour sur la carte.
@@ -480,7 +489,7 @@ export default function CityView() {
           </div>
 
           {/* Jauge de pression civilisationnelle (fine, adaptative) */}
-          {(() => {
+          {revealGauge && (() => {
             const lvl = clamp01(instability);
             const pctValue = Math.round(lvl * 100);
             const tier = lvl >= 0.9
@@ -517,7 +526,7 @@ export default function CityView() {
             };
             return (
               <div
-                className={`stability-gauge ${tier.cls}`}
+                className={`stability-gauge ${tier.cls} ${gaugeFresh ? 'is-fresh' : ''}`}
                 {...tipProps(tr(tier.label), pressureTooltip)}
                 aria-label={tr({ fr: `Pression civilisationnelle : ${pctValue}%, ${tr(tier.label)}`, en: `Civilizational pressure: ${pctValue}%, ${tr(tier.label)}` })}
               >
@@ -608,6 +617,7 @@ export default function CityView() {
               boutique a déjà : un bouton flottant qui ouvre une feuille basse.
               L'icône est celle de l'onglet Régulation — même destination, même
               signe — posée AU-DESSUS de son libellé. */}
+          {revealTension && (
           <button
             type="button"
             className="regul-fab"
@@ -620,6 +630,7 @@ export default function CityView() {
             <PixelIcon name="nav/regulation" size={24} />
             <span className="fab-label" aria-hidden="true">{tr({ fr: "Tensions", en: "Tensions" })}</span>
           </button>
+          )}
 
           {/* TOUT ACHETER (tactile seulement) : le pendant au doigt du raccourci
               « e » du clavier — même action, même ordre d'achat (cf. App.jsx,
@@ -629,6 +640,7 @@ export default function CityView() {
               chaque rangée.
               TRANSPARENT (demande Raph) : c'est un geste répété posé sur la
               ville, pas un meuble — il ne prend que la place de son signe. */}
+          {revealBuyAll && (
           <button
             type="button"
             className="buy-all-fab"
@@ -645,11 +657,16 @@ export default function CityView() {
             <i className="fa-solid fa-cart-shopping" aria-hidden="true"></i>
             <span className="fab-label" aria-hidden="true">{tr({ fr: "Tout acheter", en: "Buy all" })}</span>
           </button>
+          )}
         </div>{/* /city-stage */}
 
         {/* Régulation des tensions + politiques : encart pliable, sous la carte.
             État PILOTÉ depuis ici (cf. `regulOpen`) : au doigt, sa poignée est le
             bouton flottant ci-dessus, qui vit dans la carte et non dans l'encart. */}
+        {/* Dévoilée avec la tension dans la toute première partie (uiReveal) :
+            avant le premier quart de Rupture, ses quatre jauges sont à zéro et
+            six politiques sur sept verrouillées — rien à y lire ni à y faire. */}
+        {revealTension && (
         <HudPanel
           className="city-controls-panel"
           storageKey="regul"
@@ -664,6 +681,7 @@ export default function CityView() {
         >
           <CrisisActionBar />
         </HudPanel>
+        )}
 
         {/* Rail gauche : dock d'icônes + popovers (chronique / exhume / mythes) */}
         <div className="city-aux" ref={cityAuxRef}>

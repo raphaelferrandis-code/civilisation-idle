@@ -27,13 +27,25 @@ import {
   activeEpitaphLegacy,
   refreshGrandResetReveal,
   refreshBuildingReveal,
+  regulationActionUnlocked,
   GRAND_RESET_MILESTONES
 } from '../mechanics.js';
 
 import { tr } from '../i18n.js';
-import { refreshOnboarding } from '../onboarding.js';
+import { refreshOnboarding, isFirstGame } from '../onboarding.js';
+import {
+  refreshUiReveal,
+  uiRevealComplete,
+  UI_REVEAL_ANNOUNCE,
+  REVEAL_BUY_AMOUNTS_COUNT
+} from '../uiReveal.js';
 import { pushOutcomeFloat } from '../outcomeFloat.js';
 import { BOONS } from '../../data/boons.js';
+import { buildings } from '../../data/buildings.js';
+import { REGULATION_ACTIONS } from '../../data/regulationActions.js';
+import { scratchUnlocked } from './scratch.js';
+import { blackjackUnlocked } from './blackjack.js';
+import { icarusUnlocked } from './icarus.js';
 
 import {
   checkCrisisThresholds,
@@ -101,6 +113,32 @@ import { tickRoadWorks } from './roadWorks.js';
 // l'automation seule ne doit pas pouvoir maintenir la jauge sous le seuil de crise).
 let lastAutoCrisisAt = 0;
 
+// LE JEU QUI SE DÉVOILE : les faits que uiReveal.js, module pur, ne peut pas
+// calculer seul. N'est appelé que pendant la toute première partie, et plus du
+// tout une fois l'interface entièrement montrée.
+function uiRevealFacts() {
+  const revealed = state.revealedBuildings || {};
+  // Un onglet de la boutique apparaît avec son PREMIER bâtiment à portée —
+  // `revealedBuildings` est déjà le latch à vie de « à portée » (D6), et c'est
+  // lui qui a lancé le toast « À portée : … » : l'onglet suit ce que l'annonce
+  // vient de dire.
+  const categoryRevealed = (cat) => buildings.some((b) => b.category === cat && revealed[b.id]);
+  // Les Plaisirs s'ouvrent avec leur premier jeu jouable. Chaque verrou est lu à
+  // SA source, comme les lieux de la Maison (plaisirs/anchors.js) : le jour où
+  // un jeu change d'ère d'ouverture, l'onglet suit sans qu'on y pense.
+  const gamble = REGULATION_ACTIONS.find((a) => a.kind === "gamble");
+  return {
+    gold: D(state.gold).gt(0),
+    knowledge: D(state.knowledge).gt(0),
+    infrastructure: D(state.infrastructure).gt(0),
+    plaisirs: scratchUnlocked() || blackjackUnlocked() || icarusUnlocked()
+      || (!!gamble && regulationActionUnlocked(gamble.id)),
+    shopKnowledge: categoryRevealed("knowledge"),
+    shopInfra: categoryRevealed("infra"),
+    buyAmounts: Object.values(state.buildings).some((n) => n >= REVEAL_BUY_AMOUNTS_COUNT)
+  };
+}
+
 export function tick(dt) {
   if (gamePaused || collapseInProgress) return;
 
@@ -114,6 +152,25 @@ export function tick(dt) {
   // Latch à sens unique, une lecture de booléen par tick une fois les trois
   // posés, donc gratuit à mettre si haut.
   refreshOnboarding(state, totalBuildingCount());
+
+  // LE JEU QUI SE DÉVOILE (uiReveal.js). Même place que les Premiers pas, et
+  // pour une raison de plus : une crise terminale doit dévoiler l'onglet
+  // Effondrement, seul accessible pendant la crise — or le tick s'arrête juste
+  // en dessous. Latch posé inconditionnellement ; seule l'ANNONCE passe sous
+  // garde, comme pour les bâtiments révélés (rien ne se déballe au retour d'une
+  // absence). Court-circuité hors de la toute première partie et une fois tout
+  // montré : une lecture de booléen par tick, ensuite.
+  if (isFirstGame(state) && !uiRevealComplete(state)) {
+    const freshReveals = refreshUiReveal(state, uiRevealFacts(), Date.now());
+    if (freshReveals.length && !isNotifyPaused()) {
+      for (const key of freshReveals) {
+        const annonce = UI_REVEAL_ANNOUNCE[key];
+        // Priorité 1 : une file de toasts pleine (rafale d'achats) ne doit pas
+        // faire attendre l'annonce d'un onglet neuf derrière des gains.
+        if (annonce) pushOutcomeFloat({ label: tr(annonce.label), kind: "gain", view: annonce.view, priority: 1 });
+      }
+    }
+  }
 
   if (state.crisisLimitAnnounced) {
     if (state.instability >= 1) state.instability = 1;

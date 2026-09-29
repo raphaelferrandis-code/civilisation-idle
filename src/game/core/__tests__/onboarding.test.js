@@ -123,18 +123,19 @@ describe("état et persistance", () => {
   it("survit au rechargement", () => {
     state.instability = 1;
     refreshOnboarding(state, 2);
-    expect(roundTrip(state).onboarding).toEqual({ built: true, pressureSeen: true, collapsed: false });
+    // `reveal` : les dévoilements d'interface (uiReveal.js, testés à part).
+    expect(roundTrip(state).onboarding).toEqual({ built: true, pressureSeen: true, collapsed: false, reveal: {} });
   });
 
   it("est un objet PLEIN sur une partie neuve, jamais null", () => {
-    expect(defaultState().onboarding).toEqual({ built: false, pressureSeen: false, collapsed: false });
+    expect(defaultState().onboarding).toEqual({ built: false, pressureSeen: false, collapsed: false, reveal: {} });
   });
 
   it("une sauvegarde corrompue ou d'avant E1 ne casse pas l'hydratation", () => {
     for (const pourri of ["nope", 42, null, undefined, []]) {
       const s = defaultState();
       s.onboarding = pourri;
-      expect(roundTrip(s).onboarding).toEqual({ built: false, pressureSeen: false, collapsed: false });
+      expect(roundTrip(s).onboarding).toEqual({ built: false, pressureSeen: false, collapsed: false, reveal: {} });
     }
   });
 });

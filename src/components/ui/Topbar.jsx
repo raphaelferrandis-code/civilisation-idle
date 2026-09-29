@@ -9,11 +9,17 @@ import {
 } from '../../game/core/mechanics.js';
 import { fmt, fmtShort, clamp01, multLabel, fmtHabitants, rateScale } from '../../game/core/utils.js';
 import { tr } from '../../game/core/i18n.js';
-import { state } from '../../game/core/state.js';
+import { state, renderCache } from '../../game/core/state.js';
 import OdometerNumber from './OdometerNumber.jsx';
 import PixelIcon from './PixelIcon.jsx';
 import { tipProps } from './HelpBubble.jsx';
 import { crediblePopulation } from '../../game/core/demographics.js';
+import { uiRevealed, uiRevealFresh, uiRevealSignature } from '../../game/core/uiReveal.js';
+
+// Les trois ressources qui ENTRENT EN SCÈNE pendant la toute première partie
+// (uiReveal.js) : leur case n'apparaît qu'avec le premier gain. Rayonnement et
+// Nourriture, qui bougent dès la seconde 0, sont toujours là.
+const REVEALED_RESOURCES = new Set(["gold", "knowledge", "infrastructure"]);
 
 /* Valeur exacte pour le tooltip (le bandeau affiche du compact via fmtShort). */
 function exactLabel(value) {
@@ -46,6 +52,9 @@ export default function Topbar() {
   // Crise terminale : le tick est GELÉ (rien ne produit) — afficher les débits
   // potentiels mentirait (« la ville n'est plus » mais les chiffres montent).
   const crisisFrozen = useGameState(s => Boolean(s.crisisLimitAnnounced));
+  // Abonnement au dévoilement : la signature ne change qu'à l'apparition d'un
+  // élément, la barre ne se re-rend donc pas pour rien.
+  useGameState(uiRevealSignature);
 
   const vitals = cityVitals();
   const pressure = pressureBreakdown();
@@ -164,13 +173,19 @@ export default function Topbar() {
     }
   ];
 
+  // Horloge du dernier tick, pas Date.now() : un rendu doit rester pur.
+  const now = renderCache.tickNow;
+  const shownCards = cards.filter((c) => !REVEALED_RESOURCES.has(c.key) || uiRevealed(state, c.key));
+
   return (
     <header className="topbar" aria-label={tr({ fr: "Ressources de la cité", en: "City resources" })}>
-      <div className="topbar-resources">
-        {cards.map((c) => (
+      {/* `is-partial` : des ressources restent à venir — les cases présentes se
+          centrent au lieu de se coller à gauche d'une grille à moitié vide. */}
+      <div className={`topbar-resources ${shownCards.length < cards.length ? 'is-partial' : ''}`}>
+        {shownCards.map((c) => (
           <div
             key={c.key}
-            className={`resource-card-unified ${c.cls}`}
+            className={`resource-card-unified ${c.cls} ${uiRevealFresh(state, c.key, now) ? 'is-fresh' : ''}`}
             id={`${c.key}Resource`}
             {...tipProps(tr(c.name), tooltips[c.key])}
           >

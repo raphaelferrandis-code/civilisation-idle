@@ -8,6 +8,7 @@ import { clamp01 } from './utils.js';
 import { Decimal, D } from './num.js';
 import { COLLAPSE_PREP_MAX, POLICY_MAX_ACTIVE, REGUL_LEDGER_MAX, GAMBLE_HISTORY_LEN, STEWARD_MAX_CLAUSES, STEWARD_THRESHOLDS, ICARUS_POT_CAP_FAVEUR, ICARUS_HISTORY_COLOMBIER, FLIGHTS_MAX_COLOMBIER, ICARUS_STAKES, SCRATCH_HISTORY_LEN, BLACKJACK_HISTORY_LEN, DICE_BOOST_MAX_LEVEL, WING_MAX_LEVEL, STYLET_MAX_LEVEL, GRAVEUR_MAX_LEVEL, COFFRE_MAX_LEVEL, AUTO_ICARUS_TARGET_MIN, AUTO_ICARUS_TARGET_MAX, AUTO_TEMPLE_FAVEUR_FLOOR_DEFAULT, AUTO_TEMPLE_FAVEUR_FLOOR_MAX, TRUNK_CAP, TEMPLE_ARTIFACT_IDS, BOON_INTERVAL_MAX_SEC, CLEPSYDRE_HARD_MAX_SECONDS, MAX_BATCH_AMOUNT, grandResetProductionMult, grandResetRuinGainMult } from './balance.js';
 import { resetAnnals } from './annals.js';
+import { normalizeUiReveal } from './uiReveal.js';
 import { normalizeOlympusState, defaultOlympusState } from '../data/olympus.js';
 import { epitaphLegacyById } from '../data/epitaphs.js';
 import { newCitySeed } from '../map/procedural/seedManager.js';
@@ -346,7 +347,9 @@ export const defaultState = () => ({
   // ne se relisent jamais sur l'état courant — la chute vide les bâtiments et
   // le Grand Reset remet `cycles` à zéro, donc une condition relue ferait
   // revenir le fil chez un joueur qui l'a fini depuis longtemps.
-  onboarding: { built: false, pressureSeen: false, collapsed: false },
+  // `reveal` : le JEU QUI SE DÉVOILE (uiReveal.js) — { [clé]: horodatage } des
+  // éléments d'interface déjà montrés dans la toute première partie.
+  onboarding: { built: false, pressureSeen: false, collapsed: false, reveal: {} },
   activeMythId: null,
   mythsCompleted: {},
   mythActsAnnounced: {},
@@ -1415,7 +1418,11 @@ export function hydrateState(parsed = {}) {
     onboarding: {
       built: Boolean(source.onboarding?.built),
       pressureSeen: Boolean(source.onboarding?.pressureSeen),
-      collapsed: Boolean(source.onboarding?.collapsed)
+      collapsed: Boolean(source.onboarding?.collapsed),
+      // Une sauvegarde d'avant le dévoilement n'en a pas : {} — sans effet hors
+      // de la toute première partie (tout y est visible), et dans une première
+      // partie en cours le premier tick re-dévoile ce qui est déjà acquis.
+      reveal: normalizeUiReveal(source.onboarding?.reveal)
     },
     activeMythId: typeof source.activeMythId === "string" && source.activeMythId ? source.activeMythId : null,
     mythsCompleted: normalizeMythsCompleted(source.mythsCompleted),

@@ -420,6 +420,48 @@
   }
 }
 
+/* ── LE JEU QUI SE DÉVOILE (uiReveal.js) ──────────────────────────────────
+   Pendant la toute première partie, des ressources restent à venir (Topbar
+   pose `is-partial`). La grille de six colonnes égales laissait les cases
+   présentes collées à gauche d'une plaque à moitié vide : on garde la MÊME
+   largeur de colonne, et on centre. Plus spécifique que les règles par palier
+   ci-dessus, donc valable à toutes les largeurs du bureau ; au doigt,
+   touch-shell.css (plus spécifique encore) répartit déjà les cases présentes. */
+.topbar-resources.is-partial {
+  grid-template-columns: none;
+  grid-auto-flow: column;
+  grid-auto-columns: minmax(0, calc(100% / 6));
+  justify-content: center;
+}
+
+/* Entrée d'un élément tout juste dévoilé : il se pose et s'allume un instant
+   d'or, une seule fois. La classe `is-fresh` n'est posée que pendant les
+   quelques secondes qui suivent le dévoilement (REVEAL_FRESH_MS) : un
+   rechargement plus tard ne rejoue rien. */
+@keyframes ui-reveal-in {
+  0% { opacity: 0; transform: translateY(-6px); }
+  35% { opacity: 1; transform: none; box-shadow: 0 0 0 1px rgba(242, 203, 126, 0.75), 0 0 18px rgba(242, 203, 126, 0.45); }
+  100% { box-shadow: 0 0 0 1px rgba(242, 203, 126, 0), 0 0 18px rgba(242, 203, 126, 0); }
+}
+
+.resource-card-unified.is-fresh,
+.tab.is-fresh,
+.shop-subtab.is-fresh,
+.stability-gauge.is-fresh {
+  /* `backwards` et non `both` : une fois fini, l'élément retrouve SES ombres
+     (la dernière image n'est pas figée par-dessus tant que la classe reste). */
+  animation: ui-reveal-in 1.6s ease-out backwards;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .resource-card-unified.is-fresh,
+  .tab.is-fresh,
+  .shop-subtab.is-fresh,
+  .stability-gauge.is-fresh {
+    animation: none;
+  }
+}
+
 /* (CSS mort purgé : .resource legacy / .strain / .timewear / .instability-meter —
    remplacés par .resource-card-unified dans views.css) */
 

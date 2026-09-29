@@ -17,7 +17,8 @@ import {
 import { buildings, buildingDisplayOrder } from '../../game/data/buildings.js';
 import { isMythEffectActive } from '../../game/data/myths.js';
 import { splashSrcFor } from '../../game/data/pixelSplash.js';
-import { renderCache } from '../../game/core/state.js';
+import { renderCache, state } from '../../game/core/state.js';
+import { uiRevealed, uiRevealFresh } from '../../game/core/uiReveal.js';
 import { buyableInMass } from '../../game/core/actions/building.js';
 import { purchaseEta, ETA_SECONDS, ETA_NO_INCOME, ETA_UNREACHABLE } from '../../game/core/mechanics/purchaseEta.js';
 import { fmtEta, quantizeEta, labelFor } from '../../game/core/utils.js';
@@ -236,7 +237,25 @@ function BuildingShop({ open: openProp, onToggle }) {
       .length;
   };
 
-  const { visible: visibleBuildings, nextLocked } = categoryData(activeTab);
+  // LE JEU QUI SE DÉVOILE (uiReveal.js), toute première partie seulement : les
+  // onglets Savoir et Infrastructure entrent avec leur premier bâtiment à
+  // portée — le toast « À portée : … » vient de le dire —, et pas avant : vides,
+  // ils n'avaient à offrir qu'une rangée « Bientôt ».
+  const revealKnowledgeTab = useGameState((s) => uiRevealed(s, 'shopKnowledge'));
+  const revealInfraTab = useGameState((s) => uiRevealed(s, 'shopInfra'));
+  const revealBuyAmounts = useGameState((s) => uiRevealed(s, 'buyAmounts'));
+  const shownTabs = TABS.filter((t) => t.id === 'city'
+    || (t.id === 'knowledge' ? revealKnowledgeTab : revealInfraTab));
+  // Filet : un onglet actif non dévoilé retombe sur Moteurs.
+  const tabId = shownTabs.some((t) => t.id === activeTab) ? activeTab : 'city';
+  // Horloge du dernier tick, pas Date.now() : un rendu doit rester pur.
+  const revealNow = renderCache.tickNow;
+  const freshTab = {
+    knowledge: uiRevealFresh(state, 'shopKnowledge', revealNow),
+    infra: uiRevealFresh(state, 'shopInfra', revealNow)
+  };
+
+  const { visible: visibleBuildings, nextLocked } = categoryData(tabId);
 
   // Premier bâtiment achetable, calculé avant le rendu (pas de mutation
   // pendant le .map() : incompatible avec la mémoïsation du React Compiler).
@@ -323,17 +342,17 @@ function BuildingShop({ open: openProp, onToggle }) {
           l'œil voit « ça se pousse ». */}
       <div className="shop-head" {...swipeHandleProps}>
         <div className="shop-subtabs" role="tablist" aria-label={tr({ fr: "Catégories de bâtiments", en: "Building categories" })}>
-          {TABS.map((tab) => {
+          {shownTabs.map((tab) => {
             const n = affordableCount(tab.id);
             return (
               <button
                 key={tab.id}
-                className={`shop-subtab ${activeTab === tab.id ? 'active' : ''}`}
+                className={`shop-subtab ${tabId === tab.id ? 'active' : ''} ${freshTab[tab.id] ? 'is-fresh' : ''}`}
                 data-cat={tab.id}
                 onClick={() => { setActiveTab(tab.id); if (!open) toggleOpen(); }}
                 type="button"
                 role="tab"
-                aria-selected={activeTab === tab.id}
+                aria-selected={tabId === tab.id}
               >
                 <span className="subtab-label">{tr(tab.label)}</span>
                 {n > 0 && <span className="subtab-badge" {...tipProps(null, tr({ fr: `${n} achat${n > 1 ? "s" : ""} possible${n > 1 ? "s" : ""}`, en: `${n} purchase${n > 1 ? "s" : ""} available` }))}>{n}</span>}
@@ -353,10 +372,14 @@ function BuildingShop({ open: openProp, onToggle }) {
       </div>
 
       {open && (<>
-      {/* Multiplicateurs d'achat, en petit sous les catégories. */}
+      {/* Multiplicateurs d'achat, en petit sous les catégories. Dévoilés dans la
+          toute première partie quand un bâtiment atteint 10 exemplaires : avant,
+          « ×10 » n'a rien à acheter en bloc (uiReveal, clé `buyAmounts`). */}
+      {revealBuyAmounts && (
       <div className="shop-controls-row">
         <BuyToolbar />
       </div>
+      )}
 
       <div className="shop-list shop-cat active">
         {visibleBuildings.map((b) => {

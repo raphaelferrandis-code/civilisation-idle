@@ -10,7 +10,8 @@ import MoreSheet from './components/ui/MoreSheet.jsx';
 import { startGameLoop, initAudio, exportSave } from './game/core/main.js';
 import { useGameState } from './hooks/useGameState.js';
 import { usePointerCoarse } from './hooks/usePointerCoarse.js';
-import { openView, save, getLastSaveError } from './game/core/state.js';
+import { state, renderCache, openView, save, getLastSaveError } from './game/core/state.js';
+import { uiRevealed, uiRevealFresh } from './game/core/uiReveal.js';
 import { pushOutcomeFloat } from './game/core/outcomeFloat.js';
 import { resolveShortcut, resolveViewDigit } from './game/core/shortcuts.js';
 import { tabBadgeSignature, parseTabBadges } from './game/core/mechanics/tabBadges.js';
@@ -252,6 +253,21 @@ export default function App() {
   // « Le Comptoir » : l'onglet Marchandage, héritage du Mythe de l'Âge d'Or.
   const isComptoirUnlocked = useGameState(s => Boolean(s.orHeritage));
   const isMythsUnlocked = grandResetCount >= 1;
+  // LE JEU QUI SE DÉVOILE (uiReveal.js). Pendant la TOUTE PREMIÈRE partie, la
+  // Régulation et l'Effondrement arrivent avec la tension (premier quart de
+  // Rupture), les Plaisirs avec leur premier jeu jouable, les boutons de
+  // sauvegarde au Grand Feu (ère 1). Hors première partie ces sélecteurs valent
+  // toujours vrai : rien ne change pour un joueur installé.
+  const revealTension = useGameState((s) => uiRevealed(s, 'tension'));
+  const revealPlaisirs = useGameState((s) => uiRevealed(s, 'plaisirs'));
+  const revealMeta = useGameState((s) => uiRevealed(s, 'meta'));
+  // Horloge du dernier tick, pas Date.now() : un rendu doit rester pur.
+  const revealNow = renderCache.tickNow;
+  const freshTab = {
+    regulation: uiRevealFresh(state, 'tension', revealNow),
+    prestige: uiRevealFresh(state, 'tension', revealNow),
+    plaisirs: uiRevealFresh(state, 'plaisirs', revealNow)
+  };
 
   // PASTILLES D'ATTENTION (B10). Abonnement OBLIGATOIRE et non une optimisation :
   // tous les autres sélecteurs de ce composant rendent des valeurs quasi
@@ -263,8 +279,8 @@ export default function App() {
 
   const tabs = [
     { id: 'city', label: { fr: 'Cité', en: 'City' }, icon: 'nav/cite', unlocked: true },
-    { id: 'regulation', label: { fr: 'Régulation', en: 'Regulation' }, icon: 'nav/regulation', unlocked: true },
-    { id: 'plaisirs', label: { fr: 'Plaisirs', en: 'Pleasures' }, icon: 'nav/plaisirs', unlocked: true },
+    { id: 'regulation', label: { fr: 'Régulation', en: 'Regulation' }, icon: 'nav/regulation', unlocked: revealTension },
+    { id: 'plaisirs', label: { fr: 'Plaisirs', en: 'Pleasures' }, icon: 'nav/plaisirs', unlocked: revealPlaisirs },
     // `short` — LIBELLÉ DE BARRE BASSE. Il ne sert QUE là, et seulement quand le
     // nom complet ne rentre pas dans une cellule de la rangée tactile : mesuré,
     // « Effondrement » demande 93px pour 77 disponibles, et un mot rogné
@@ -272,7 +288,9 @@ export default function App() {
     // que le jeu emploie déjà partout ailleurs (« Chute annoncée », « chute par
     // famine ») : ce n'est pas une abréviation, c'est le synonyme maison.
     // Les trois autres onglets primaires tiennent en entier, ils n'en ont pas.
-    { id: 'prestige', label: { fr: 'Effondrement', en: 'Collapse' }, short: { fr: 'Chute', en: 'Collapse' }, icon: 'nav/effondrement', unlocked: true },
+    // Jamais caché pendant une crise terminale : c'est alors le SEUL onglet
+    // accessible (uiReveal le dévoile de toute façon à ce moment-là).
+    { id: 'prestige', label: { fr: 'Effondrement', en: 'Collapse' }, short: { fr: 'Chute', en: 'Collapse' }, icon: 'nav/effondrement', unlocked: revealTension || crisisLocked },
     { id: 'ruinsView', label: { fr: 'Ruines', en: 'Ruins' }, icon: 'glyphs/ruines', unlocked: isRuinsUnlocked },
     { id: 'tech', label: { fr: 'Boutique', en: 'Shop' }, icon: 'nav/boutique', unlocked: isShopUnlocked },
     { id: 'mythView', label: { fr: 'Mythes', en: 'Myths' }, icon: 'nav/mythes', unlocked: isMythsUnlocked },
@@ -401,7 +419,7 @@ export default function App() {
           {ongletsBarre.map(tab => (
             <button
               key={tab.id}
-              className={`tab ${activeView === tab.id ? 'active' : ''} ${crisisLocked && tab.id !== 'prestige' ? 'tab-locked' : ''}`}
+              className={`tab ${activeView === tab.id ? 'active' : ''} ${crisisLocked && tab.id !== 'prestige' ? 'tab-locked' : ''} ${freshTab[tab.id] ? 'is-fresh' : ''}`}
               disabled={crisisLocked && tab.id !== 'prestige'}
               onClick={() => !crisisLocked || tab.id === 'prestige' ? openView(tab.id) : undefined}
               // Préchargement au survol ET au focus (E7) : au clavier on ne
@@ -440,7 +458,12 @@ export default function App() {
               ⚠ Le verrou de crise la ferme aussi. Sans ça, elle serait le seul
               chemin encore ouvert vers les vues qu'une crise interdit — le
               verrou se contournerait par le menu. */}
-          {coarse && ongletsRanges.length > 0 && (
+          {/* TOUJOURS là au doigt, même sans onglet rangé : la feuille porte aussi
+              les Options et l'État. Pendant le dévoilement de la première partie
+              (uiReveal), il n'y a d'abord AUCUN onglet à ranger — la condition
+              « au moins un onglet rangé » rendait alors les Options injoignables
+              sur téléphone. */}
+          {coarse && (
             <button
               className={`tab tab-more ${vueRangee ? 'active' : ''} ${crisisLocked ? 'tab-locked' : ''}`}
               disabled={crisisLocked}
@@ -489,6 +512,12 @@ export default function App() {
             largeur qui leur manquait). Save, Export et Import vivent dans les
             Options, où le joueur les cherche de toute façon sur téléphone. */}
         <div className="quick-actions">
+          {/* Sauver / Exporter / Importer : dévoilés au Grand Feu (ère 1) pendant la
+              toute première partie (uiReveal, clé `meta`) — à la première minute
+              il n'y a rien à perdre, la sauvegarde est automatique, et ces trois
+              boutons étaient le quart des choses à lire. Les Options, elles,
+              restent toujours là : les mêmes actions y vivent aussi. */}
+          {revealMeta && (<>
           <button className="btn-tiny" data-qa="save" onClick={handleSave} {...tipProps(null, "Sauvegarder")}>
             <PixelIcon name="nav/save" className="qa-icon" /><span className="qa-label">Save</span>
           </button>
@@ -498,6 +527,7 @@ export default function App() {
           <button className="btn-tiny" data-qa="import" onClick={() => reopenDialog(setIsImportOpen)} {...tipProps(null, "Importer")}>
             <PixelIcon name="nav/import" className="qa-icon" /><span className="qa-label">Import</span>
           </button>
+          </>)}
           <button className="btn-tiny" data-qa="options" onClick={() => reopenDialog(setIsOptionsOpen)} {...tipProps(null, "Options")}>
             <PixelIcon name="nav/options" className="qa-icon" /><span className="qa-label">Options</span>
           </button>

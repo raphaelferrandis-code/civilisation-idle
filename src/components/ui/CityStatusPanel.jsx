@@ -13,6 +13,8 @@ import { tr } from '../../game/core/i18n.js';
 import RollingNumber from './RollingNumber.jsx';
 import PixelIcon from './PixelIcon.jsx';
 import { tipProps } from './HelpBubble.jsx';
+import { isFirstGame } from '../../game/core/onboarding.js';
+import { uiRevealed } from '../../game/core/uiReveal.js';
 
 /**
  * Encart d'état de la civilisation, logé dans la barre latérale au-dessus des
@@ -177,6 +179,17 @@ export default function CityStatusPanel() {
   const lastSaveAt = getLastSaveAt();
   const saveAgeSec = lastSaveAt ? Math.max(0, Math.round((tickNow - lastSaveAt) / 1000)) : null;
 
+  // LE JEU QUI SE DÉVOILE (uiReveal.js). À la première minute de la toute
+  // première partie, l'encart ne dit que l'Âge : « Cycles 0.0 », « Multi. ×1.0 »,
+  // « Âge max » (celui qu'on vit) ou une Usure à 0.0 % n'apprennent rien à ce
+  // moment-là. Usure et Vœu arrivent avec la tension (ils parlent de la chute),
+  // le Temps du cycle et la Réserve d'absence au Grand Feu (ère 1), les compteurs de
+  // cycles après le premier effondrement. Le composant se re-rend déjà à 1 Hz
+  // (tickNow), la lecture directe suit donc le dévoilement.
+  const revealTension = uiRevealed(state, 'tension');
+  const revealMeta = uiRevealed(state, 'meta');
+  const showCycleStats = !isFirstGame(state);
+
   return (
     <div className="city-status-panel" aria-label={tr({ fr: "État de la civilisation", en: "Civilization status" })}>
       <div
@@ -195,6 +208,7 @@ export default function CityStatusPanel() {
         </span>
       </div>
 
+      {revealTension && (
       <div
         className="csp-block"
         {...tipProps(tr({ fr: 'Usure', en: 'Wear' }), () => sedimentTipText(nextPalier, cycleStartedAt))}
@@ -214,10 +228,13 @@ export default function CityStatusPanel() {
           <span className="csp-bar-fill csp-bar-fill--wear" style={{ width: `${clamp01(timeWear) * 100}%` }}></span>
         </span>
       </div>
+      )}
 
+      {(showCycleStats || revealMeta) && (<>
       <div className="csp-divider" aria-hidden="true"></div>
 
       <div className="csp-stats">
+        {showCycleStats && (<>
         <div className="csp-stat" {...tipProps(tr({ fr: 'Cycles', en: 'Cycles' }), tr({ fr: "Cycles accomplis", en: "Cycles completed" }))}>
           <PixelIcon name="glyphs/cycles" className="csp-stat-icon" />
           <span className="csp-stat-label">{tr({ fr: 'Cycles', en: 'Cycles' })}</span>
@@ -233,17 +250,23 @@ export default function CityStatusPanel() {
           <span className="csp-stat-label">{tr({ fr: 'Âge max', en: 'Max age' })}</span>
           <strong className="csp-stat-era">{eras[bestEraIndex].name}</strong>
         </div>
+        </>)}
+        {revealMeta && (
         <div className="csp-stat" {...tipProps(tr({ fr: 'Temps', en: 'Time' }), tr({ fr: "Durée du cycle actuel", en: "Duration of the current cycle" }))}>
           <PixelIcon name="glyphs/temps" className="csp-stat-icon" />
           <span className="csp-stat-label">{tr({ fr: 'Temps', en: 'Time' })}</span>
           <strong>{cycleTimeLabel}</strong>
         </div>
+        )}
       </div>
+      </>)}
 
       {/* VŒU DU CYCLE (D2). Le seul objectif court terme VOLONTAIRE du jeu :
           proposé au début du cycle, tenu il majore la moisson de la prochaine
-          chute, manqué il ne coûte rien. Bloc conditionnel comme la clepsydre. */}
-      {cycleVow && (vowStatus || vowOffered.length > 0) && (
+          chute, manqué il ne coûte rien. Bloc conditionnel comme la clepsydre —
+          et dévoilé avec la tension dans la toute première partie : il parle
+          d'une chute que le joueur ne connaît pas encore. */}
+      {revealTension && cycleVow && (vowStatus || vowOffered.length > 0) && (
         <div
           className="csp-vow"
           {...tipProps(tr({ fr: 'Vœu du cycle', en: 'Cycle vow' }), tr({
@@ -317,6 +340,7 @@ export default function CityStatusPanel() {
       {/* Classes DÉDIÉES et non .csp-label/.csp-value : entre 981 et 1500px, ces
           deux-là sont masquées et l'encart deviendrait muet. Ici la valeur reste
           lisible à tous les paliers, seul le libellé se raccourcit. */}
+      {revealMeta && (
       <div
         className="csp-idle"
         {...tipProps(tr({ fr: "Réserve d'absence", en: 'Away reserve' }), idleNext
@@ -335,6 +359,7 @@ export default function CityStatusPanel() {
           <span className="csp-idle-next">{tr({ fr: `puis ${fmtSecs(idleNext.cap)}`, en: `then ${fmtSecs(idleNext.cap)}` })}</span>
         )}
       </div>
+      )}
 
       {stored > 0 && (
         <div
