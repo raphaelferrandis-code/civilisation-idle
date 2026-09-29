@@ -9,14 +9,54 @@
 // 5 sortants, 2 entrants (`WONDER_GROUND`/`wonderGroundSet`, sortis dans
 // isoWonderGround.js pour éviter un cycle). Vérifié par comparaison ligne à ligne
 // avec la version commitée.
-import { CM, cmHash, cmCellNoise } from '../layout.js';
+import { CM, cmHash, cmCellNoise, TREE_TUNE, treeRadius, treeDensK } from '../layout.js';
 import { WONDER_GROUND, wonderGroundSet } from './isoWonderGround.js';
 import { riverEndRays, nearRiverEndRay } from './riverEnds.js';
+import { campGroundOn, courOf } from './isoTissu.js';
 
 // Marge des demi-droites qui prolongent le fleuve (riverEnds.js) : les MÊMES
 // rayons que les cellules d'eau et de berge du layout — centre de cellule à
 // moins de hw + 1,4 d'un sample (layout.js, riverSet/bankSet).
 const RIVER_END_BANK = 1.4;
+
+// ── AU CAMP : UNE SEULE FORÊT, QUI RECULE DEVANT LA VIE (2026-09-29) ───────
+// Cf. CAMP_LIFE (layout.js). La terre du camp n'est plus battue que là où l'on
+// passe (campField, isoTissu) : le reste de son emprise redevient la forêt — la
+// MÊME que dehors, plantée ici (les arbres de ville du layout sont coupés au
+// camp), et qui s'éclaircit en approchant des traces de vie : aucun arbre à
+// CAMP_LIFE_CLEAR cellules ou moins d'un sentier, d'une tente ou du foyer, puis
+// la part CAMP_LIFE_KEEP cellule après cellule, la forêt pleine au-delà. (À une
+// seule cellule, un arbre au grain des habitations couvrait de sa couronne la
+// tente d'à côté — vu à la capture.) La clairière a une raison d'être :
+// on y vit, on y coupe son bois. (La 1re version gardait toute l'ancienne
+// emprise en pré et éclaircissait la forêt à son bord : une grande prairie vide
+// autour d'un petit camp, bordée d'une couronne clairsemée qui ne suivait rien.)
+export const CAMP_LIFE_CLEAR = 2;
+export const CAMP_LIFE_KEEP = [0.3, 0.6, 0.85];
+// Distance (Chebyshev, 0..CAMP_LIFE_CLEAR + CAMP_LIFE_KEEP.length) de chaque cellule proche à
+// la trace de vie la plus proche — terre battue du camp, sentier, emprise bâtie.
+// Mémoïsée sur le layout (recalculé à chaque recompute : le cache meurt avec lui).
+function campLifeDist(L, buildFoot) {
+  if (L._campLifeDist) return L._campLifeDist;
+  const R = CAMP_LIFE_CLEAR + CAMP_LIFE_KEEP.length;
+  const dist = new Map();
+  const seed = (k) => {
+    const c = k.indexOf(',');
+    const gx = +k.slice(0, c), gy = +k.slice(c + 1);
+    for (let dy = -R; dy <= R; dy += 1) for (let dx = -R; dx <= R; dx += 1) {
+      const d = Math.max(Math.abs(dx), Math.abs(dy));
+      const nk = (gx + dx) + ',' + (gy + dy);
+      const was = dist.get(nk);
+      if (was === undefined || d < was) dist.set(nk, d);
+    }
+  };
+  for (const [k, v] of courOf(L)) if (v === 'urban') seed(k);
+  const water = (L.river && L.river.cells) || null;
+  for (const k of (L.roadSet || [])) if (!(water && water.has(k))) seed(k);
+  for (const k of buildFoot) seed(k);
+  L._campLifeDist = dist;
+  return dist;
+}
 
 // ── Forêt sauvage : ceinture d'arbres autour de la ville ─────────────────────
 // Le legacy (cityMapDrawTrees) peignait une forêt sur TOUTE l'herbe hors « sol
@@ -85,20 +125,21 @@ const WILD_BLOCK_CAP = 512;             // blocs gardés (au-delà : on repart �
 function isoWildForestBlock(L, bx, by, ctx) {
   const gx0 = bx * WILD_BLOCK, gy0 = by * WILD_BLOCK;
   const gx1 = gx0 + WILD_BLOCK - 1, gy1 = gy0 + WILD_BLOCK - 1;
-  const { isWild, nearCity, cellNoise } = ctx;
+  const { isWild, nearCity, cellNoise, lifeKeep, densK } = ctx;
   const arr = [];
   for (let gy = gy0; gy <= gy1; gy += 1) {
     for (let gx = gx0; gx <= gx1; gx += 1) {
       if (!isWild(gx, gy)) continue;
-      let thr = cellNoise(gx, gy) * 1.25 - 0.08;       // fourrés (haut) / trouées (bas)
-      if (nearCity(gx, gy)) thr -= 0.35;               // aère la lisière
+      let thr = (cellNoise(gx, gy) * 1.25 - 0.08) * densK;   // fourrés (haut) / trouées (bas)
+      if (lifeKeep) thr *= lifeKeep(gx, gy);                  // camp : recule devant la vie
+      else if (nearCity(gx, gy)) thr -= 0.35;               // aère la lisière
       if ((cmHash(gx + 'f' + gy) % 1000) / 1000 >= thr) continue;
       // Décalage sous-cellule + taille par arbre (hash riche) : casse la grille et
       // l'uniformité — mêmes plages que les arbres décoratifs (r ≈ 0.62..0.96).
       const h = cmHash('wf:' + gx + ':' + gy);
       const jx = ((h % 100) / 100 - 0.5) * 0.6;
       const jy = (((h >> 7) % 100) / 100 - 0.5) * 0.6;
-      const r = 0.62 + (h % 30) / 80;
+      const r = treeRadius(h);
       arr.push({ gx, gy, jx, jy, r });
     }
   }
@@ -109,7 +150,8 @@ export function isoWildForest(L, b) {
   // ':pv…' : le parvis d'une merveille en APERÇU (hors urbanSet, contrairement aux
   // actives) doit chasser les arbres sauvages → la dispersion se refait à l'aller-retour.
   const sig = (CM.layoutRecomputeAt || 0) + ':' + (L.gridN | 0) + ':' + (L.mapSeed || 0)
-    + (CM.previewWonder ? ':pv' + CM.previewWonder.id : '');
+    + (CM.previewWonder ? ':pv' + CM.previewWonder.id : '')
+    + ':g' + (TREE_TUNE.grainR || 0) + '/' + treeDensK();
   let st = CM._isoWildForest;
   if (!st || st.sig !== sig || st.blocks.size > WILD_BLOCK_CAP) {
     st = CM._isoWildForest = { sig, blocks: new Map(), list: [], key: '' };
@@ -133,8 +175,12 @@ export function isoWildForest(L, b) {
   // Le fleuve continue à l'écran au-delà de ses bouts (isoRiver, riverDrawPts) :
   // ses deux demi-droites sont de l'eau et de la berge pour la forêt aussi.
   const endRays = riverCells ? riverEndRays(L.river.samples) : [];
+  // Au camp (cf. CAMP_LIFE_KEEP), l'emprise elle-même est plantable, hors terre
+  // battue ; la distance à la vie décide du reste.
+  const campOn = campGroundOn(L);
+  const lifeD = campOn ? campLifeDist(L, buildFoot) : null;
   const isWild = (gx, gy) =>
-    !has(urbanSet, gx, gy) && !has(roadSet, gx, gy)
+    (campOn ? lifeD.get(gx + ',' + gy) !== 0 : !has(urbanSet, gx, gy)) && !has(roadSet, gx, gy)
     && !has(riverCells, gx, gy) && !has(banks, gx, gy)
     && !buildFoot.has(gx + ',' + gy) && !has(wg, gx, gy)
     && !(endRays.length && nearRiverEndRay(endRays, gx + 0.5, gy + 0.5, RIVER_END_BANK));
@@ -150,7 +196,16 @@ export function isoWildForest(L, b) {
   // confettis, alors que la forêt lisait déjà en fourrés grâce à ce même bruit.
   // Une seule définition, un seul grain ; la copie locale a été retirée.
   const cellNoise = cmCellNoise;
-  const ctx = { isWild, nearCity, cellNoise };
+  // Camp : part gardée selon la distance à la vie (CAMP_LIFE_KEEP) ; hors camp,
+  // null — l'aération historique d'une cellule (nearCity) reste.
+  const lifeKeep = campOn ? (gx, gy) => {
+    const d = lifeD.get(gx + ',' + gy);
+    if (d === undefined) return 1;
+    if (d <= CAMP_LIFE_CLEAR) return 0;
+    const i = d - CAMP_LIFE_CLEAR - 1;
+    return i < CAMP_LIFE_KEEP.length ? CAMP_LIFE_KEEP[i] : 1;
+  } : null;
+  const ctx = { isWild, nearCity, cellNoise, lifeKeep, densK: treeDensK() };
   // Liste RÉUTILISÉE (vidée, jamais réallouée) : elle ne se reconstruit qu'au
   // changement d'ensemble de blocs, et seuls les blocs neufs sont dispersés.
   const list = st.list;

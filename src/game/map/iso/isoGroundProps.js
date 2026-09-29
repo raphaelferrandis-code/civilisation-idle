@@ -8,6 +8,7 @@
 // ⚠ EXTRACTION PURE — AUCUN PIXEL NE CHANGE. Couture mesurée avant la coupe :
 // ZÉRO dépendance entrante, six sortantes. Vérifiée ligne à ligne contre la version
 // commitée.
+import { cmHash } from '../layout.js';
 import { lightCutImage } from '../lightLayer.js';
 import { isoTileBBox } from './isoGroundTiles.js';
 
@@ -94,6 +95,18 @@ export function drawIsoGroundedArt(ctx, e, px, py, targetW) {
 // (Des feuillus du pack Cainos ont été essayés en variantes 5-7 le 2026-07-22 puis
 // RETIRÉS — « je n'aime pas les arbres », Raph. Ne pas re-proposer.)
 export const ISO_TREE_VARIANTS = 4;
+// LE SAPIN MORT (tree-4 : tronc noir, branches grises, mousse pendante) : un
+// arbre sur quatre, en toute saison, au milieu des feuillus vifs — il lisait
+// comme une forêt malade (constat du 2026-09-29 sur la capture du campement).
+// Il ne sort plus qu'en HIVER, où son sprite enneigé passe pour un sapin sous la
+// neige, et dans une civilisation EN RUINE (CM.frameRuined) ; le reste du temps
+// sa cellule reçoit une des essences vivantes (treeAliveVariant).
+export const TREE_DEAD_VARIANT = 4;
+// Essence d'une cellule (1..ISO_TREE_VARIANTS), stable : le tirage historique.
+export function treeBaseVariant(gx, gy) { return 1 + (cmHash('tree:' + gx + ':' + gy) % ISO_TREE_VARIANTS); }
+// Essence VIVANTE qui remplace le sapin mort hors hiver et hors ruines : un tirage
+// à part, parmi les autres (jamais TREE_DEAD_VARIANT, qui est la dernière).
+export function treeAliveVariant(gx, gy) { return 1 + (cmHash('treeA:' + gx + ':' + gy) % (ISO_TREE_VARIANTS - 1)); }
 // Buissons DÉDIÉS bush-1..N (pack Cainos, cf. scripts/sliceCainosPlants.mjs),
 // rangés du plus petit au plus grand. Avant, un « buisson » de terre-plein était
 // un feuillu rapetissé — donc un tronc d'arbre miniature. Repli sur tree-N si le

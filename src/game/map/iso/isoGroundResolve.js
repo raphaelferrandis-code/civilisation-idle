@@ -209,11 +209,13 @@ export function makeGroundBake(ISO_GROUND_LOD) {
       // Sol de ville : pavé près du bâti, cour de terre plus loin, friche au-delà
       // (cf. COUR — c'est ici que la moitié vide de la ville cesse d'être minérale).
       k = courK.get(key) || 'urban';
-    } else if (!isWater && riverCells && L.river.banks && L.river.banks.has(key) && L.urbanSet
+    } else if (!courK.camp && !isWater && riverCells && L.river.banks && L.river.banks.has(key) && L.urbanSet
       && (L.urbanSet.has((gx + 1) + ',' + gy) || L.urbanSet.has((gx - 1) + ',' + gy)
         || L.urbanSet.has(gx + ',' + (gy + 1)) || L.urbanSet.has(gx + ',' + (gy - 1)))) {
       // QUAI-LITE : une berge qui touche le tissu urbain se pave (berge bâtie) —
       // esquisse des quais legacy ; le vrai quai par ère viendra avec l'art Phase 5.
+      // Pas au CAMP : son emprise y est surtout du pré (campField), et la berge
+      // qui le touchait se couvrait de taches de terre loin de tout sentier.
       k = 'urban';
     } else k = 'grass';   // teinte UNIFORME (couture in-grid/sauvage retirée)
     // LISIÈRE QUI DIVAGUE : la frontière ville↔campagne serpente au lieu de
@@ -224,7 +226,10 @@ export function makeGroundBake(ISO_GROUND_LOD) {
     // couture ne ferait plus rien (les deux matières ne se touchent presque
     // jamais) — c'est le bord de la cour qui doit serpenter, et une cellule
     // reprise à l'herbe revient en TERRE, pas en pavé.
-    if (FRONTIER.on && !isRoad && !isWater && (k === 'urban' || k === 'dirt' || k === 'grass')) {
+    // Pas au CAMP (courK.camp, cf. campField) : la terre n'y est pas une emprise
+    // mais une trace — la faire divaguer retournerait du pré en terre au bord de
+    // l'ancienne emprise, des taches loin de tout sentier.
+    if (FRONTIER.on && !courK.camp && !isRoad && !isWater && (k === 'urban' || k === 'dirt' || k === 'grass')) {
       const cityish = k !== 'grass';
       if (frontierFlips(gx, gy, cityish)) k = cityish ? 'grass' : (COUR.on ? 'dirt' : 'urban');
     }

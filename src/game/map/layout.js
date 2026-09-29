@@ -240,6 +240,47 @@ if (typeof window !== "undefined") {
     return CAMP_HEARTH.on;
   };
 }
+
+// ── LE CAMPEMENT SE LIT COMME UN LIEU (2026-09-29) ──────────────────────────
+// Raph : « que tout l'univers soit plus cohérent, et pas juste des éléments
+// copiés-collés les uns sur les autres ». Règle « rien sans raison », appliquée
+// d'abord au camp de tentes (bande 0, avec son foyer) — l'image des dix
+// premières minutes. Mesuré sur 5 graines avant ce lot : une partie neuve
+// montrait 7 tentes et en cachait 21 à 38 ; 3 à 5 des 7 n'avaient aucun
+// sentier, et jusqu'à 49 tentes sur 76 à forte population.
+//   - PAS DE MAISONS DE RÉSERVE AU CAMP. Les maisons-moteur pré-posées n'y
+//     paraissent jamais : le compteur les cache tant que moins de 40 sont
+//     posées (cf. engineHomeReveal), soit toute la bande 0. Mais elles
+//     recevaient des sentiers, élargissaient la terre battue et barraient le
+//     passage — la boucle « qui ne mène nulle part » de la capture de Raph.
+//   - LES SENTIERS CONVERGENT SUR LE FEU. Le carré du foyer reste interdit au
+//     bâti, mais la desserte le traverse (districtWalk) : traité en obstacle,
+//     il emmurait la racine du réseau, qui est au cœur.
+//   - LES TENTES SE POSENT AUTOUR DU FEU, anneau par anneau, et jamais collées
+//     ni l'une derrière l'autre à l'écran (CAMP_TENT_GAP) — et non plus le
+//     long de l'échafaudage de chantier, qui les rangeait en quinconce.
+//   - LE SOL ET LA FORÊT SUIVENT LA VIE : terre battue sous les sentiers, les
+//     tentes et autour du feu (campField, iso/isoTissu.js), pré ailleurs ; et
+//     la forêt reprend tout ce qui n'est pas foulé, en s'éclaircissant à
+//     l'approche des traces (iso/isoWildForest.js, CAMP_LIFE_KEEP).
+// `ringK` : poids de la distance au feu dans l'ordre de pose ; `jitterK` : part
+// du bruit de placement (0 = anneaux parfaits). Molette : `__campLife(false)`
+// rejoue l'ancien camp (A/B), `__campLife({ ringK, jitterK })` règle.
+export const CAMP_LIFE = { on: true, ringK: 10, jitterK: 1.5 };
+// Voisines interdites à une tente : les quatre orthogonales (losanges qui se
+// touchent) et la diagonale VERTICALE à l'écran (x+1, y+1) / (x−1, y−1), où une
+// tente se dessine juste derrière l'autre. La diagonale horizontale reste
+// permise : deux tentes côte à côte, un demi-losange d'écart, c'est un camp.
+const CAMP_TENT_GAP = [[1, 0], [-1, 0], [0, 1], [0, -1], [1, 1], [-1, -1]];
+if (typeof window !== "undefined") {
+  window.__campLife = (o) => {
+    if (o === false) CAMP_LIFE.on = false;
+    else if (o && typeof o === "object") { CAMP_LIFE.on = true; Object.assign(CAMP_LIFE, o); }
+    else if (o != null) CAMP_LIFE.on = true;
+    if (typeof window.__cityRecompute === "function") window.__cityRecompute();
+    return { ...CAMP_LIFE };
+  };
+}
 if (typeof window !== "undefined") {
   window.__engineSpread = (o) => {
     if (o && typeof o === "object") Object.assign(ENGINE_SPREAD, o);
@@ -659,8 +700,36 @@ function cmRiverPortSpan(level) {
 // de PLACE sont exempts (`fixed`) : recette et margelle sont cotées pour eux,
 // et un parc de poche garde son arbre monumental au milieu des tours.
 // Molette : window.__treeScale({ mulLate: 0.5 }) — les arbres ne sont pas bakés.
-const TREE_TUNE = { h: 2.7, mulMid: 0.85, mulLate: 0.65 };
-if (typeof window !== "undefined") window.__treeScale = (o = {}) => { Object.assign(TREE_TUNE, o); return { ...TREE_TUNE }; };
+// ── UN PIXEL D'ARBRE = UN PIXEL DE TENTE (2026-09-29, « une seule main ») ────
+// Chaque arbre tirait son rayon au hasard (r = 0,62..0,99) : sa densité variait
+// de 0,56 à 0,89 px écran par px d'art et par unité de zoom, quand toute
+// habitation est à 1,135 (docs/PLAN-EGALISATION-GRAIN.md) — deux arbres voisins
+// n'avaient pas la même taille de pixel, et les pixels d'une tente étaient 1,3 à
+// 2 fois plus gros que ceux de l'arbre d'à côté (constat mesuré sur la capture
+// du campement de Raph). `grainR` fixe le rayon de TOUS les arbres de forêt et
+// de ville au grain des habitations : 96 px d'art × (2 × 0,78 / 44) = 3,40
+// tuiles de côté, soit r = 3,40 / 2,7 = 1,26. La variété de taille vient des
+// essences elles-mêmes (le feuillu 2 est plus petit que le 1, le sapin plus
+// fin), et non plus du hasard — la règle des tentes (tailles variées écartées
+// pour la grille de pixels) vaut pour les arbres. `grainDens` replante en proportion :
+// des arbres 1,6 fois plus grands (2,5 fois l'aire) à densité égale feraient
+// un tapis. Planche du 2026-09-29 : ×0,45 et ×0,6 se lisaient en bois clairsemé
+// (les grands arbres se chevauchent dans les fourrés, les trouées s'agrandissent),
+// ×1 en tapis dense ; ×0,8 rend une forêt avec ses clairières. MESURÉ (dézoom
+// maximal, rendu logiciel, 19 060 arbres visibles avant) : la frame coûte selon
+// le NOMBRE d'arbres, pas leur taille — 7,6 ms avant, 7,7 à ×1, 6,4 à ×0,8.
+// Molette : __treeScale({ grainR: null }) rejoue les tailles au hasard (A/B).
+const TREE_TUNE = { h: 2.7, mulMid: 0.85, mulLate: 0.65, grainR: 1.26, grainDens: 0.8 };
+if (typeof window !== "undefined") window.__treeScale = (o = {}) => {
+  Object.assign(TREE_TUNE, o);
+  // Le rayon et la densité se décident à la pose : on replante.
+  if (("grainR" in o || "grainDens" in o) && typeof window.__cityRecompute === "function") window.__cityRecompute();
+  return { ...TREE_TUNE };
+};
+// Rayon d'un arbre de forêt ou de ville : le grain commun, ou l'ancien tirage.
+function treeRadius(h) { return TREE_TUNE.grainR || (0.62 + (h % 30) / 80); }
+// Part des arbres replantés (cf. grainDens) : 1 quand le grain est coupé.
+function treeDensK() { return TREE_TUNE.grainR ? TREE_TUNE.grainDens : 1; }
 function treeBandMul(fixed) {
   if (fixed) return 1;
   const band = (CM.layout && CM.layout.counts && CM.layout.counts.eraBand) | 0;
@@ -2630,6 +2699,30 @@ function computeCityLayout(s) {
   if (hearthCell) {
     for (let dx = -1; dx <= 1; dx += 1) for (let dy = -1; dy <= 1; dy += 1) hearthClear.add((hearthCell.gx + dx) + "," + (hearthCell.gy + dy));
   }
+  // Le camp « vivant » (cf. CAMP_LIFE) : seulement là où il y a un foyer.
+  const campLife = !!hearthCell && CAMP_LIFE.on;
+  // …et pas de tente sur les TÊTES DU PONT : le tablier déborde d'une cellule
+  // sur chaque berge et son garde-corps d'une de plus à l'écran ; une tente posée
+  // contre l'approche se dessinait dessus, en travers de la sortie du pont (vu à
+  // la capture, jusqu'à deux colonnes de côté).
+  const bridgeHeadClear = new Set();
+  if (campLife && riverBridge) {
+    const bx = Math.round(riverBridge.x);
+    let wy0 = N, wy1 = -1;
+    for (const k of riverSet) {
+      const cc = k.indexOf(",");
+      const kx = +k.slice(0, cc);
+      if (kx < bx || kx >= bx + bridgeLaneW) continue;
+      const gy = +k.slice(cc + 1);
+      if (gy < wy0) wy0 = gy;
+      if (gy > wy1) wy1 = gy;
+    }
+    if (wy1 >= wy0) {
+      for (let gx = bx - 2; gx <= bx + bridgeLaneW + 1; gx += 1) {
+        for (let d = 1; d <= 3; d += 1) { bridgeHeadClear.add(gx + "," + (wy0 - d)); bridgeHeadClear.add(gx + "," + (wy1 + d)); }
+      }
+    }
+  }
 
   // Districts (anti-collision merveilles + fleuve). wonderSlots/builtWonderIds
   // sont calculés plus haut (avant la muraille, pour qu'elle les contourne).
@@ -2748,8 +2841,11 @@ function computeCityLayout(s) {
   }
   // Décore-trie-retire : score calculé une seule fois par cellule (les
   // comparateurs avec boucle d'ancres rendaient le tri quadratique en pratique).
+  // Camp (cf. CAMP_LIFE) : pas de « parcs » réservés — le vide d'un camp est
+  // déjà l'écart entre les tentes (CAMP_TENT_GAP). Les garder divisait la place
+  // disponible par deux une seconde fois.
   const buildable = cells
-    .filter((cc) => !cc.green)
+    .filter((cc) => campLife || !cc.green)
     .map((cc) => ({ cc, s: cc.score * 100 + cc.d2 * 0.012 - quarterScore(cc) * 15 + (cmHash("build:" + cc.gx + ":" + cc.gy) % 17) / 40 }))
     .sort((a, b) => a.s - b.s)
     .map((e) => e.cc);
@@ -2760,7 +2856,9 @@ function computeCityLayout(s) {
   // ── Placement par catégorie : quartiers, rues, places, personnalité ──────
   const placer = createBuildingPlacer({
     cells: buildable, plan, roadKey, counts: c, personality, ageCfg,
-    seed: mapSeed, nearSet, N, requireRoad: true
+    seed: mapSeed, nearSet, N, requireRoad: true,
+    // Camp : les tentes se posent autour du feu (cf. CAMP_LIFE).
+    campRing: campLife ? { x: hearthCell.gx + 0.5, y: hearthCell.gy + 0.5, ringK: CAMP_LIFE.ringK, jitterK: CAMP_LIFE.jitterK } : null
   });
   const pushTile = (t) => tiles.push(t);
   // Multiplicateurs de personnalité : une cité agricole a plus de champs,
@@ -2781,7 +2879,10 @@ function computeCityLayout(s) {
   // Même geste pour le domaine des Plaisirs : `footprintFits` ne teste que
   // `claimed`, sans ça un port ou un moulin viendrait se coller au monument.
   for (const k of plaisirsClear) claimed.add(k);
-  for (const k of hearthClear) claimed.add(k);             // foyer du campement
+  // Foyer du campement : interdit au bâti, TRAVERSABLE par la desserte — les
+  // sentiers convergent sur le feu (cf. CAMP_LIFE). En obstacle, il emmurait la
+  // racine du réseau, qui est au cœur.
+  for (const k of hearthClear) { claimed.add(k); if (campLife) districtWalk.add(k); }
   // L'emprise des merveilles sèches bloque aussi les bâtiments-moteur (aqueducs,
   // champs, ports/moulins, banques, génériques) : footprintFits ne teste que
   // `claimed`. era_mega exclue (riverains de l'Aiguille légitimes sur la berge).
@@ -3431,6 +3532,18 @@ function computeCityLayout(s) {
     if (!footprintFits(gx, gy, spanX, false, false, spanY)) return false;
     // Ancre proche d'une voie (l'empreinte entière l'est alors aussi).
     if (placer.requireRoad && !placer.nearRoad(gx, gy)) return false;
+    // Camp : une tente garde ses distances (cf. CAMP_TENT_GAP) — ni losanges
+    // qui se touchent, ni tente dessinée juste derrière une autre.
+    if (campLife) {
+      for (let ax = 0; ax < spanX; ax += 1) for (let ay = 0; ay < spanY; ay += 1) {
+        if (bridgeHeadClear.has((gx + ax) + "," + (gy + ay))) return false;
+        for (const [dx, dy] of CAMP_TENT_GAP) {
+          const nx = gx + ax + dx, ny = gy + ay + dy;
+          if (nx >= gx && nx < gx + spanX && ny >= gy && ny < gy + spanY) continue;
+          if (usedKeys.has(nx + "," + ny)) return false;
+        }
+      }
+    }
     return true;
   };
   const placeDecor = (category, count) => {
@@ -3459,7 +3572,9 @@ function computeCityLayout(s) {
   // sont RÉVÉLÉES une par une au rendu (drawTile) selon engineHomesRaw → « 1 achat =
   // 1 bâtiment » sans recompute. Chaque tuile porte revealIdx (index de slot).
   const ENGINE_HOME_LOOKAHEAD = 44;
-  placeDecor("enginehome", (c.engineHomes || 0) + ENGINE_HOME_LOOKAHEAD);
+  // ⚠ Camp : AUCUNE (cf. CAMP_LIFE) — elles n'y paraîtraient jamais, et leurs
+  // sentiers et leurs cours, eux, se voyaient.
+  placeDecor("enginehome", campLife ? 0 : (c.engineHomes || 0) + ENGINE_HOME_LOOKAHEAD);
 
   // Purge des slots morts (moteurs + décoratifs `dec_*`) : ne garde que le cycle
   // courant ET les slots réellement posés cette frame (émonde la frange quand la
@@ -3661,14 +3776,20 @@ function computeCityLayout(s) {
     // Jamais d'arbre SUR une route : `cells` est bâti avant la connexion, or les
     // connecteurs carvés depuis (moteurs + desserte organique) l'ont trouée.
     if (usedKeys.has(cellKey) || roadKey.has(cellKey)) continue;
+    // Camp (cf. CAMP_LIFE) : AUCUN arbre de ville. Son emprise est une clairière
+    // que la forêt sauvage replante elle-même, en reculant devant la vie
+    // (iso/isoWildForest.js, CAMP_LIFE_KEEP) — une seule forêt, un seul semis.
+    if (campLife) continue;
     const norm = Math.sqrt(cell.d2) / maxR;
     const hsh  = cmHash(cell.gx + "x" + cell.gy + ":" + mapSeed) % 100;
     // S5 : la probabilité radiale est modulée par le BRUIT DE BLOC, de moyenne 1 —
     // des bosquets et des trouées franches au lieu de confettis, à compte conservé.
     // Le hash par cellule reste le tirage (et le rayon de l'arbre) : lui seul casse
     // la grille à l'intérieur d'un bosquet.
-    const prob = (20 + norm * 50 + (norm > 0.55 ? 22 : 0)) * treeMul * cmClumpK(cell.gx, cell.gy);
-    if (hsh < prob) { trees.push({ gx: cell.gx, gy: cell.gy, r: 0.62 + (hsh % 30) / 80 }); treeKey.add(cellKey); }
+    // treeDensK : des arbres au grain des habitations sont plus grands, on en
+    // plante d'autant moins (cf. TREE_TUNE.grainR).
+    const prob = (20 + norm * 50 + (norm > 0.55 ? 22 : 0)) * treeMul * cmClumpK(cell.gx, cell.gy) * treeDensK();
+    if (hsh < prob) { trees.push({ gx: cell.gx, gy: cell.gy, r: treeRadius(hsh) }); treeKey.add(cellKey); }
   }
   lp("arbres");
 
@@ -3919,6 +4040,8 @@ export {
   TREE_TUNE,
   treeBandMul,
   treeCanvasT,
+  treeRadius,
+  treeDensK,
   computeCityLayout,
   computeMedianSegments,
   computeTerrePleinSegments

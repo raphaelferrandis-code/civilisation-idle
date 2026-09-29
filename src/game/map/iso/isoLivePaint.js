@@ -46,7 +46,7 @@ import { drawIsoCampHearth } from './isoCampHearth.js';
 import { drawIsoEngineScene, drawSpriteOutline, isoEngineScenesFlag } from './isoEngineScene.js';
 import { drawIsoField } from './isoField.js';
 import { isoFrontOffset, seasonTree } from './isoGroundDetail.js';
-import { ISO_TREE_VARIANTS, drawIsoGroundedArt } from './isoGroundProps.js';
+import { ISO_TREE_VARIANTS, TREE_DEAD_VARIANT, drawIsoGroundedArt, treeAliveVariant, treeBaseVariant } from './isoGroundProps.js';
 import { maskHit } from './isoMask.js';
 import { HOVER_GOLD, rgb } from './isoPalette.js';
 import {
@@ -60,6 +60,7 @@ import {
 import { GHOST_TUNE, drawIsoCitizenItem, drawIsoRioter, drawIsoVehicle } from './isoUnits.js';
 import { GL_RUN_MIN } from './isoWildForest.js';
 import { ISO_X, worldToScreen } from './projection.js';
+import { WINTER } from '../seasonMode.js';
 
 // ── Drawables triés au peintre (profondeur = wx + wy) ────────────────────────
 function drawTreeIso(ctx, sx, sy, h) {
@@ -75,6 +76,24 @@ function drawTreeIso(ctx, sx, sy, h) {
 }
 
 const HOUSE_BOX_CAP = 4000;            // garde-fou mémoire, jamais atteint en jeu
+
+// ── OMBRES DE CONTACT (2026-09-29, « chaque chose laisse une trace ») ───────
+// Ni les arbres ni les tentes n'en avaient : posés sur le sol, ils n'y étaient
+// pas plantés — le défaut que Raph avait nommé pour les buissons de terre-plein
+// (« le buisson vole », 2026-08-03), et que leur ellipse d'ancrage a réglé. Même
+// geste ici, en fraction du canvas de l'arbre (hpx) et de la boîte de la tente,
+// DÉCALÉ vers le bas-droite : la lumière vient du haut-gauche. Assez sombre pour
+// ancrer, assez petite pour ne pas dessiner une seconde silhouette.
+// Molettes : __contactShadow({ tree: {...}, tent: {...} }) ; `on: false` coupe.
+const TREE_SHADOW = { on: true, col: 'rgba(24,34,18,0.34)', dx: 0.035, dy: 0.004, rx: 0.15, ry: 0.055 };
+const TENT_SHADOW = { on: true, col: 'rgba(40,30,18,0.30)', dx: 0.06, dy: -0.07, rx: 0.5, ry: 0.19 };
+if (typeof window !== 'undefined') {
+  window.__contactShadow = (o = {}) => {
+    if (o.tree) Object.assign(TREE_SHADOW, o.tree);
+    if (o.tent) Object.assign(TENT_SHADOW, o.tent);
+    return { tree: { ...TREE_SHADOW }, tent: { ...TENT_SHADOW } };
+  };
+}
 
 // LE SURVOL AU SOL — le losange de la cellule visée, tracé AVANT le peintre parce
 // qu'il est au sol : tout ce qui est debout doit pouvoir passer devant.
@@ -161,6 +180,8 @@ export function paintIsoItems(bake, items, now) {
   // saisonnière. Or tout cela ne dépend que de la VARIANTE (4 en tout) : on le
   // résout une fois par frame, et chaque arbre n'a plus qu'à lire son entrée.
   const treeMemo = typeof window === 'undefined' || window.__treeMemo !== false;
+  // Le sapin mort n'a sa place qu'en hiver et dans les ruines (TREE_DEAD_VARIANT).
+  const deadTreeOk = (CM.season | 0) === WINTER || !!CM.frameRuined;
   const treeImgs = [];
   for (let tv = 1; tv <= ISO_TREE_VARIANTS; tv += 1) {
     const a = isoArt('tree-' + tv);
@@ -295,6 +316,18 @@ export function paintIsoItems(bake, items, now) {
         // SURVOL : le liseré se dessine AVANT le sprite (blob élargi puis sprite
         // par-dessus), sinon il mange la silhouette au lieu de la cerner.
         if (CM.hover && CM.hover.tile === t) drawPixelHouseOutline(t, hx, hy, wpx, hpx, HOVER_GOLD);
+        // Ombre de contact de la TENTE (cf. TENT_SHADOW), sous le sprite : sa
+        // base est le bas de la boîte réellement dessinée.
+        if (TENT_SHADOW.on && t.variant === 'tent') {
+          const sb = pixelHouseBox(t, hx, hy, wpx, hpx);
+          if (sb) {
+            ctx.fillStyle = TENT_SHADOW.col;
+            ctx.beginPath();
+            ctx.ellipse(sb.dx + sb.dw * (0.5 + TENT_SHADOW.dx), sb.dy + sb.dh * (1 + TENT_SHADOW.dy),
+              sb.dw * TENT_SHADOW.rx, sb.dw * TENT_SHADOW.ry, 0, 0, Math.PI * 2);
+            ctx.fill();
+          }
+        }
         const box = drawPixelHouse(t, hx, hy, wpx, hpx);
         // Mémorise la boîte réellement dessinée : c'est le seul endroit qui la
         // connaisse. Consommée par le hit-test à la silhouette (cityMapHitTest),
@@ -366,7 +399,13 @@ export function paintIsoItems(bake, items, now) {
       // forêt sauvage) — le hash de chaîne ne se paie donc qu'une fois par arbre
       // et par vie de cache, au lieu d'une fois par arbre et par frame.
       let tv = tr._tv;
-      if (tv === undefined || !treeMemo) tv = tr._tv = 1 + (cmHash('tree:' + tr.gx + ':' + tr.gy) % ISO_TREE_VARIANTS);
+      if (tv === undefined || !treeMemo) tv = tr._tv = treeBaseVariant(tr.gx, tr.gy);
+      // Hors hiver et hors ruines, la cellule du sapin mort reçoit une essence
+      // vivante — tirée à part, et mémoïsée comme la variante.
+      if (tv === TREE_DEAD_VARIANT && !deadTreeOk) {
+        if (tr._ta === undefined || !treeMemo) tr._ta = treeAliveVariant(tr.gx, tr.gy);
+        tv = tr._ta;
+      }
       // __treeMemo = false : rejoue la résolution par arbre (A/B de la mesure).
       const tImg0 = treeMemo ? treeImgs[tv] : (() => { const a = isoArt('tree-' + tv); return a.ready ? (seasonTree(a, 'tree-' + tv) || a.img) : null; })();
       if (tImg0) {
@@ -376,6 +415,17 @@ export function paintIsoItems(bake, items, now) {
         // vient de treeImgs (une fois par frame, cf. plus haut).
         const tImg = tImg0;
         const tdx = p.x - hpx / 2, tdy = p.y - hpx * 0.92;
+        // OMBRE DE CONTACT au pied du tronc (« chaque chose laisse une trace »,
+        // 2026-09-29) : sans elle l'arbre est posé SUR le pré, pas planté dedans.
+        // Décalée vers le bas-droite, loin de la lumière haut-gauche. Toujours sur
+        // le canvas 2D, même quand le sprite part au batcher GL : la série GL se
+        // compose par-dessus, l'ombre reste dessous.
+        if (TREE_SHADOW.on) {
+          ctx.fillStyle = TREE_SHADOW.col;
+          ctx.beginPath();
+          ctx.ellipse(p.x + hpx * TREE_SHADOW.dx, p.y + hpx * TREE_SHADOW.dy, hpx * TREE_SHADOW.rx, hpx * TREE_SHADOW.ry, 0, 0, Math.PI * 2);
+          ctx.fill();
+        }
         // Série basculée : le sprite part au batcher (un seul appel de dessin
         // pour toute la série). Refus du batcher (atlas plein, source pas
         // décodée) → chemin 2D, sprite par sprite, comme avant.

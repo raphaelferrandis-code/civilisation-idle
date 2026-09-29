@@ -16,9 +16,10 @@
 // ⚠ Il débloque les CLÔTURES, dont `COUR` était la seule dépendance entrante vers
 // le peintre, et allège le MOBILIER DE TROTTOIR (4 de ses 10 fils partent d'ici).
 //
-// ⚠ Le seul import est `CM`, et il ne sert qu'à la molette `__cour` : invalider le
-// bake quand on change le réglage en jeu.
-import { CM } from '../layout.js';
+// ⚠ Les seuls imports sont `CM`, qui ne sert qu'à la molette `__cour` (invalider le
+// bake quand on change le réglage en jeu), et `CAMP_LIFE`, l'interrupteur du camp
+// (lu à l'exécution seulement : jamais pendant l'évaluation du module).
+import { CM, CAMP_LIFE } from '../layout.js';
 import { solInvalidate } from './solInvalidate.js';
 
 export function builtCells(L) {
@@ -210,10 +211,79 @@ export function courField(urbanSet, builtSet, cfg = COUR) {
 // (Avant ce lot, `dirt` retombait sur le ton URBAIN — le kind n'était plus
 // produit, personne ne voyait le décalage.)
 export const DIRT_TONE = [169, 125, 88];
+
+/* ── LE SOL DU CAMP : LA TERRE BATTUE SUIT LA VIE (2026-09-29) ───────────────
+ * Cf. CAMP_LIFE (layout.js), règle « chaque chose laisse une trace » de Raph.
+ * Le champ de densité ci-dessus rendait tout le camp en terre : ses tentes
+ * serrées sur un rayon de 6 cellules passaient partout le seuil du quartier bâti,
+ * d'où une nappe uniforme qui ne disait ni où l'on marche, ni où l'on vit.
+ *
+ * Au camp, la terre n'est battue QUE là où l'on passe : autour du feu (disque de
+ * `hearthR` cellules), sous chaque sentier, sous chaque tente — pas sous les
+ * bâtiments achetés, que seul leur sentier relie à la terre. Le reste de la
+ * clairière (l'emprise du camp, où la forêt ne pousse pas) redevient de l'herbe.
+ * Les sentiers menant tous au feu, la terre forme UN seul réseau, en étoile
+ * autour du foyer — jamais des taches (l'usure en plaques a été refusée le
+ * 2026-07-16). La lisière arrondie (isoLisiere) en fait des bords de terrain.
+ * `camp: true` sur la Map : kindAt n'y fait pas divaguer la frontière (FRONTIER
+ * retournerait des cellules de pré en terre au bord de l'ancienne emprise).
+ * -------------------------------------------------------------------------- */
+export const CAMP_GROUND = { hearthR: 2.3, flowerNear: 0, flowerMid: 0.4 };
+export function campGroundOn(L) { return !!(L && L.campHearth && CAMP_LIFE.on); }
+export function campField(L, cfg = CAMP_GROUND) {
+  const kind = new Map();
+  kind.camp = true;
+  const roads = L.roadSet || new Set(), h = L.campHearth;
+  const hx = h.gx + 0.5, hy = h.gy + 0.5, R2 = cfg.hearthR * cfg.hearthR;
+  // Les TENTES (et les habitations) foulent leur sol ; les bâtiments achetés
+  // (greniers, cueilleurs…) non : sans sentier acheté, chacun posait son îlot
+  // de terre isolé — les taches mêmes que cette règle doit éviter. Relié, son
+  // sentier lui apporte la terre battue.
+  const homes = new Set();
+  for (const t of (L.tiles || [])) {
+    if (t.type !== 'house' && t.type !== 'enginehome') continue;
+    const sx = t.spanX || t.size || 1, sy = t.spanY || t.size || 1;
+    for (let ax = 0; ax < sx; ax += 1) for (let ay = 0; ay < sy; ay += 1) homes.add((t.gx + ax) + ',' + (t.gy + ay));
+  }
+  for (const k of (L.urbanSet || [])) {
+    const c = k.indexOf(',');
+    const gx = +k.slice(0, c), gy = +k.slice(c + 1);
+    const dx = gx + 0.5 - hx, dy = gy + 0.5 - hy;
+    const worn = homes.has(k) || roads.has(k) || dx * dx + dy * dy <= R2;
+    kind.set(k, worn ? 'urban' : 'grass');
+  }
+  return kind;
+}
+// Fleurs du camp : l'herbe PIÉTINÉE au ras de la terre n'en porte pas (1 cellule),
+// la suivante à peine. Mémoïsé sur le layout ; null hors camp (aucun coût).
+export function campFlowerK(L) {
+  if (!campGroundOn(L)) return null;
+  if (L._campFlowerK) return L._campFlowerK;
+  const cour = courOf(L), dist = new Map();
+  for (const [k, v] of cour) {
+    if (v !== 'urban') continue;
+    const c = k.indexOf(',');
+    const gx = +k.slice(0, c), gy = +k.slice(c + 1);
+    for (let dx = -2; dx <= 2; dx += 1) for (let dy = -2; dy <= 2; dy += 1) {
+      const d = Math.max(Math.abs(dx), Math.abs(dy));
+      const nk = (gx + dx) + ',' + (gy + dy);
+      const was = dist.get(nk);
+      if (was === undefined || d < was) dist.set(nk, d);
+    }
+  }
+  const f = (gx, gy) => {
+    const d = dist.get(gx + ',' + gy);
+    return d === undefined ? 1 : d <= 1 ? CAMP_GROUND.flowerNear : CAMP_GROUND.flowerMid;
+  };
+  L._campFlowerK = f;
+  return f;
+}
 // Champ de matières du sol de ville, mémoïsé sur le layout (les tuiles sont
 // reconstruites à chaque recompute, le cache se périme donc tout seul).
 export function courOf(L) {
-  if (!L._courField) L._courField = courField(L.urbanSet || new Set(), builtCells(L));
+  if (!L._courField) {
+    L._courField = campGroundOn(L) ? campField(L) : courField(L.urbanSet || new Set(), builtCells(L));
+  }
   return L._courField;
 }
 if (typeof window !== 'undefined') {

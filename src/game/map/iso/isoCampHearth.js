@@ -15,6 +15,12 @@
 // coiffé d'un rebord gris droit qui dépassait derrière la flamme est remplacé
 // par le disque de terre, et les étincelles détachées sont retirées. Refaite par
 // `scripts/pixelsPerdus.mjs --apply` ; l'original reste intact.
+// ⚠ Le disque est FONDU DANS LA TERRE (2026-09-29, scripts/foyerFondu.mjs) : son
+// anneau extérieur tramé et sa tranche sombre retirés, il se lit comme la terre
+// tassée autour du feu, plus comme une estrade posée sur le camp. Le fondu a
+// rogné l'encre (81 → 79 px de large, bas remonté de 2 px) : la BOÎTE D'ORIGINE
+// est figée ci-dessous (HEARTH_BOX), sinon drawIsoGroundedArt, qui cale sur
+// l'encre MESURÉE, grossissait le foyer de 2,5 % et le faisait glisser.
 //
 // ⚠ GRAIN ÉGALISÉ (docs/PLAN-EGALISATION-GRAIN.md) : un pixel du foyer vaut un
 // pixel de tente à l'écran. Les habitations sont mises à l'échelle
@@ -29,13 +35,15 @@ import { CM } from '../layout.js';
 const BASE = '/pixelart/agents/buildings/';
 const FIRE_FRAME_W = 96, FIRE_FRAME_H = 80, FIRE_FRAMES = 7;
 const FIRE_FRAME_MS = 120;
-const HEARTH_INK_W = 81;       // encre mesurée de camp-hearth.png (sur 96)
+const HEARTH_INK_W = 81;       // encre mesurée de camp-hearth.png (sur 96), avant le fondu
+// Boîte d'encre d'ORIGINE (x 7..87, y 22..73 sur 96×80), en fractions du canvas.
+const HEARTH_BOX = { x0f: 7 / 96, y0f: 22 / 80, wf: 81 / 96, hf: 52 / 80 };
 
 const art = {};
 function hearthArt(name) {
   let e = art[name];
   if (!e) {
-    e = art[name] = { img: null, ready: false, bbox: null };
+    e = art[name] = { img: null, ready: false, bbox: name === 'camp-hearth' ? HEARTH_BOX : null };
     if (typeof Image !== 'undefined') {
       const im = new Image();
       im.onload = () => { e.img = im; e.ready = true; };

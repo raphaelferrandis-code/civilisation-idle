@@ -87,7 +87,10 @@ const CATEGORY_AFFINITY = {
 };
 
 export function createBuildingPlacer({
-  cells, plan, roadKey, counts, personality, seed, N, requireRoad = false
+  cells, plan, roadKey, counts, personality, seed, N, requireRoad = false,
+  // Camp de tentes (layout.js, CAMP_LIFE) : { x, y, ringK, jitterK } — les
+  // habitations se posent par anneaux autour du feu au lieu de suivre les rues.
+  campRing = null
 }) {
   const bias = personality.variantBias;
   const core = plan.core;
@@ -156,6 +159,15 @@ export function createBuildingPlacer({
       - anchorAffinity(c.gx, c.gy, "house") * 18
       + jitter(c.gx, c.gy, "house")
   };
+  // CAMP : la distance au FEU commande seule, en cellules. L'adjacence aux rues
+  // n'a pas de sens ici — les rues du camp sont l'échafaudage de chantier,
+  // dissous après la pose, et c'est lui qui rangeait les tentes en quinconce. Le
+  // bruit (jitterK) empêche les anneaux de se remplir au compas : à 0,3, avec
+  // l'écart imposé entre tentes, elles s'alignaient en rangées (vu à la capture).
+  if (campRing) {
+    sorters.house = (c) => Math.hypot(c.gx + 0.5 - campRing.x, c.gy + 0.5 - campRing.y) * campRing.ringK
+      + jitter(c.gx, c.gy, "house") * campRing.jitterK;
+  }
 
   const orderedFor = {};
   const orderedList = (category) => {

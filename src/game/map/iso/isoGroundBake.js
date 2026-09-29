@@ -18,7 +18,7 @@
 // lit la caméra, la taille de viewport et la cible dans `CM` — c'est ce qui
 // permet à la pyramide de le pointer sur une tuile (cf. cookTile).
 import { CM } from '../layout.js';
-import { DIRT_TONE } from './isoTissu.js';
+import { DIRT_TONE, CAMP_GROUND, campFlowerK } from './isoTissu.js';
 import { sweepIsoGroundCells } from './isoGroundCells.js';
 import { SEASON_GRASS, drawGrassDetailAll, drawGrassFringeAll } from './isoGroundDetail.js';
 import { makeGroundBake } from './isoGroundResolve.js';
@@ -146,13 +146,15 @@ export function drawIsoGround() {
   // cellule → « tous les voiles puis toutes les fleurs » == l'entrelacé par cellule.
   const tV = PR && performance.now();
   flushVeils();
-  drawGrassDetailAll(ctx, grassCells, hw, hh, lisiere);
+  // Camp : l'herbe piétinée au ras de la terre battue ne fleurit pas (campFlowerK).
+  const campFK = campFlowerK(L);
+  drawGrassDetailAll(ctx, grassCells, hw, hh, lisiere, campFK);
   if (PR) PR.grass += performance.now() - tV;
   // FRANGE D'HERBE : après le fond (les langues mordent sur des cellules déjà
   // peintes), AVANT les rubans de chaussée (la route recouvre ce qui la borde).
   if (fringes.length) {
     const tFr = PR && performance.now();
-    drawGrassFringeAll(ctx, fringes, hw, urb, lisiere);
+    drawGrassFringeAll(ctx, fringes, hw, urb, lisiere, campFK ? CAMP_GROUND.flowerNear : 1);
     if (PR) PR.fringe = performance.now() - tFr;
   }
   drawIsoGroundRoads(

@@ -158,7 +158,7 @@ const GD_FLOWERS = [
 // de Skia (aucun path construit) — contrairement aux diamondPath des voiles, que
 // le remisage par palier fait gagner pour de bon (194 → 102 ms). Le vrai coût
 // résiduel ici est la CHAÎNE de style reconstruite par rect, pas l'appel de dessin.
-export function drawGrassDetail(ctx, gx, gy, px, py, hw, hh, onGrass = null) {
+export function drawGrassDetail(ctx, gx, gy, px, py, hw, hh, onGrass = null, flowerK = 1) {
   const pu = Math.max(1, Math.round(hw * 0.055));    // « pixel » d'art (suit le zoom)
   // LISIÈRE ARRONDIE (cf. isoLisiere) : dans une cellule de bord, un motif ne se pose
   // que si SON point est de l'herbe — sinon la fleur tomberait dans la terre que
@@ -196,7 +196,8 @@ export function drawGrassDetail(ctx, gx, gy, px, py, hw, hh, onGrass = null) {
   // Fleur ÉPARSE (flowerP, le SEUL motif par défaut) : pâquerette = 4 pétales blanc
   // cassé + cœur jaune. « De temps en temps » sur un fond uni.
   // La saison module la densité : rien ne fleurit en hiver, le printemps déborde.
-  if ((cmHash('gf:' + gx + ':' + gy) & 1023) / 1023 < GRASS_DETAIL.flowerP * SEASON_FLOWER_MUL) {
+  // `flowerK` : l'herbe piétinée du camp (campFlowerK) en porte moins, ou pas.
+  if ((cmHash('gf:' + gx + ':' + gy) & 1023) / 1023 < GRASS_DETAIL.flowerP * SEASON_FLOWER_MUL * flowerK) {
     const fl = GD_FLOWERS[cmHash('fc:' + gx + ':' + gy) % GD_FLOWERS.length];
     const petal = fl[0], core = fl[1];
     const fx = 0.3 + ((h1 >> 20) & 15) / 15 * 0.4;
@@ -460,7 +461,7 @@ export function frontierFlip(gx, gy, isUrban, urbanLogical, built, cfg = FRONTIE
 export const GRASS_FRINGE = { on: true, mode: 'wander', depth: 1, gapP: 0.14, tuftP: 0.10, flowerP: 0.08, dark: 0, wander: 2.6, wanderF: 12 };
 const GF_MID = [102, 126, 72];    // herbe légèrement ombrée (varie le corps des langues)
 const GF_DARK = [76, 100, 54];    // pointe sombre : l'ourlet d'ombre de la lisière
-export function drawGrassFringeEdge(ctx, f, pu, soilTone, lis = null) {
+export function drawGrassFringeEdge(ctx, f, pu, soilTone, lis = null, flowerK = 1) {
   const dxE = f.bx - f.ax, dyE = f.by - f.ay;
   const len = Math.hypot(dxE, dyE);
   const steps = Math.max(3, Math.round(len / pu));
@@ -567,7 +568,8 @@ export function drawGrassFringeEdge(ctx, f, pu, soilTone, lis = null) {
   // dominants), posés à cheval sur la lisière, surtout côté herbe — une
   // guirlande discrète qui souligne le bord. 2e boucle : dessinées APRÈS les
   // langues pour qu'un pas voisin ne rogne pas leurs pétales.
-  const fringeFlowerP = GRASS_FRINGE.flowerP * SEASON_FLOWER_MUL;
+  // `flowerK` : au camp, la lisière est de la terre PIÉTINÉE — pas de guirlande.
+  const fringeFlowerP = GRASS_FRINGE.flowerP * SEASON_FLOWER_MUL * flowerK;
   if (fringeFlowerP > 0) {
     for (let i = 0; i < steps; i += 1) {
       const hf = cmHash(f.seed + ':fl:' + i);
@@ -857,7 +859,7 @@ if (typeof window !== 'undefined') {
 // ⚠ Le LISSAGE est coupé UNE FOIS pour toute la fournée : les touffes sont des
 // sprites agrandis au pixel d'art, et le poser par cellule coûterait des centaines
 // d'écritures de propriété pour le même résultat.
-export function drawGrassDetailAll(ctx, grassCells, hw, hh, lisiere = null) {
+export function drawGrassDetailAll(ctx, grassCells, hw, hh, lisiere = null, flowerK = null) {
   const prevGDS = ctx.imageSmoothingEnabled;
   ctx.imageSmoothingEnabled = false;
   // Lisière arrondie : le test de matière ne coûte que dans les cellules de BORD.
@@ -865,7 +867,7 @@ export function drawGrassDetailAll(ctx, grassCells, hw, hh, lisiere = null) {
   for (let i = 0; i < grassCells.length; i += 4) {
     const gx = grassCells[i], gy = grassCells[i + 1];
     drawGrassDetail(ctx, gx, gy, grassCells[i + 2], grassCells[i + 3], hw, hh,
-      onGrass && lisiere.isEdge(gx, gy) ? onGrass : null);
+      onGrass && lisiere.isEdge(gx, gy) ? onGrass : null, flowerK ? flowerK(gx, gy) : 1);
   }
   ctx.imageSmoothingEnabled = prevGDS;
 }
@@ -873,10 +875,10 @@ export function drawGrassDetailAll(ctx, grassCells, hw, hh, lisiere = null) {
 // La FRANGE D'HERBE d'une fournée. `puF` est le pixel d'art de la frange : sa
 // formule regarde le peintre. ⚠ L'appelant garde l'ORDRE — après le fond (les langues
 // mordent sur des cellules déjà peintes), avant les rubans (la route les recouvre).
-export function drawGrassFringeAll(ctx, fringes, hw, urb, lisiere = null) {
+export function drawGrassFringeAll(ctx, fringes, hw, urb, lisiere = null, flowerK = 1) {
   const puF = Math.max(1, Math.round(hw * 0.055));
   const lis = lisiere ? { kindAtPoint: lisiere.kindAtPoint, hw, hh: hw / 2 } : null;
   // urb = teinte du sol de l'ère : le mode 'wander' repeint avec elle quand le
   // bord se déplace vers l'herbe (aucune couleur nouvelle n'est introduite).
-  for (const f of fringes) drawGrassFringeEdge(ctx, f, puF, urb, lis);
+  for (const f of fringes) drawGrassFringeEdge(ctx, f, puF, urb, lis, flowerK);
 }
