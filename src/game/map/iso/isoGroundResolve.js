@@ -32,7 +32,7 @@ import { BEACH, ISO_TILE_KEYS, plazaEraTileKey } from './isoGroundTiles.js';
 import { isBeachBankCell, beachPortCells } from './isoBeachCells.js';
 import { WONDER_GROUND, wonderGroundSet } from './isoWonderGround.js';
 import { FRONTIER, frontierFlip, urbanMatFor } from './isoGroundDetail.js';
-import { plazaEraForBand, isoPlazaSceneCoversGround } from './isoPlaza.js';
+import { plazaEraForBand, isoPlazaSceneCoversGround, plazaLawnAtCell } from './isoPlaza.js';
 import { LISIERE, makeLisiere } from './isoLisiere.js';
 
 export function makeGroundBake(ISO_GROUND_LOD) {
@@ -170,7 +170,9 @@ export function makeGroundBake(ISO_GROUND_LOD) {
     const isRoad = L.roadSet.has(key);
     const cell = isRoad && roadMap ? roadMap.get(key) : null;
     const isWater = !!(riverCells && riverCells.has(key));
-    if (cell && cell.rank === 'plaza') k = plazaSceneReady ? 'urban' : 'plaza';   // ⚠ piège places-dans-roadSet
+    // Le SQUARE (place 'jardin') porte une pelouse sur son anneau extérieur (cf.
+    // plazaLawnAtCell) : de l'herbe, pas de dallage.
+    if (cell && cell.rank === 'plaza') k = plazaSceneReady ? 'urban' : (plazaLawnAtCell(L, key) ? 'grass' : 'plaza');   // ⚠ piège places-dans-roadSet
     // Parvis de merveille : l'emprise réservée porte son dallage propre (l'eau
     // garde la priorité — le ruban du fleuve passe dessus, berges douces).
     else if (!isWater && wg && wg.has(key)) k = 'wonder';

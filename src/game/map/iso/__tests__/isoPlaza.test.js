@@ -223,7 +223,7 @@ describe("INVARIANT D'ÉCHELLE — le bug d'origine", () => {
     // 65,6 px de haut à TILE 32 / zoom 1.
     expect(HOUSE_HT).toBe(2.05);
     expect(HOUSE_HT * CM.TILE * CM.cam.zoom).toBeCloseTo(65.6, 1);
-    const comp = isoPlazaComposition(freshLayout(5), 3);   // ère antique
+    const comp = isoPlazaComposition(freshLayout(5), 3);   // ère médiévale (bandes 2-3)
     const bench = comp.props.find((p) => p.prop === "bench");
     expect(bench).toBeTruthy();
     // Le MOBILIER est à l'échelle du CORPS : un habitant adulte est dessiné à
@@ -233,7 +233,7 @@ describe("INVARIANT D'ÉCHELLE — le bug d'origine", () => {
     expect(bench.hT).toBeCloseTo(0.2975, 4);
     expect(bench.hT * CM.TILE * CM.cam.zoom).toBeCloseTo(9.5, 1);
     const fountain = comp.props.find((p) => p.prop === "fountain");
-    // fontaine ANTIQUE = 1.25 habitant → hT 0.5313 → 17,0 px. La plus PETITE de
+    // fontaine MÉDIÉVALE (bandes 2-3) = 1.25 habitant → hT 0.5313 → 17,0 px. La plus PETITE de
     // la progression : elle grandit jusqu'à 2.60 habitants au cosmique.
     expect(fountain.hT).toBeCloseTo(0.5313, 4);
     expect(fountain.hT * CM.TILE * CM.cam.zoom).toBeCloseTo(17.0, 1);
@@ -409,7 +409,7 @@ describe("LA COMPOSITION DEMANDÉE", () => {
     // n'en a plus besoin, et il doit rester même si plus personne ne se souvient
     // pourquoi : sans lui, un PNG iso manquant redevient un défaut silencieux.
     const KIT = path.join("public", "pixelart", "iso", "plaza");
-    const BANDS = { antique: 3, medieval: 4, industrial: 5, modern: 6, cosmic: 7 };
+    const BANDS = { medieval: 3, antique: 4, industrial: 5, modern: 6, cosmic: 7 };
     let vus = 0;
     for (const [era, band] of Object.entries(BANDS)) {
       for (const p of isoPlazaComposition(freshLayout(7), band).props) {
@@ -903,7 +903,7 @@ describe("LES BANCS VONT PAR DEUX, ET LE CENTRE EST TOUJOURS PRIS", () => {
     // d'intervalle tombait du bon côté au cosmique et du mauvais à l'antique, à
     // un centième de tuile près. Une garde de composition doit tourner sur TOUTE
     // la table des recettes.
-    for (const era of ["antique", "medieval", "industrial", "modern", "cosmic"]) {
+    for (const era of ["medieval", "antique", "industrial", "modern", "cosmic"]) {
       for (const n of [4, 5, 6, 8]) {
         resetTune({ era });
         const comp = isoPlazaComposition(freshLayout(n), 3);
@@ -921,7 +921,7 @@ describe("LES BANCS VONT PAR DEUX, ET LE CENTRE EST TOUJOURS PRIS", () => {
   });
 
   it("le centre est occupé sur TOUTES les ères et TOUTES les emprises", () => {
-    for (const era of ["antique", "medieval", "industrial", "modern", "cosmic"]) {
+    for (const era of ["medieval", "antique", "industrial", "modern", "cosmic"]) {
       for (const n of [4, 5, 6, 8]) {
         resetTune({ era });
         const comp = isoPlazaComposition(freshLayout(n), 3);
@@ -1068,7 +1068,7 @@ describe("LE MOBILIER SUIT LES HABITANTS", () => {
 describe("LA FONTAINE GRANDIT D'ÈRE EN ÈRE", () => {
   // Retour Raph 2026-07-29 : « je veux qu'elles soient de plus en plus grandes
   // selon les âges, qu'on ait une évolution. »
-  const ORDRE = ["antique", "medieval", "industrial", "modern", "cosmic"];
+  const ORDRE = ["medieval", "antique", "industrial", "modern", "cosmic"];
 
   it("la progression est STRICTEMENT croissante", () => {
     const hs = ORDRE.map((e) => effHT(RECIPES[e].centre));

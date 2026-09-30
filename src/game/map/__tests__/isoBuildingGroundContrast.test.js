@@ -65,14 +65,22 @@ const RAYON = 24;
 //   bande 4 :  9,2 % → 0,0 %
 //
 // Les autres bandes sont inchangées : la case coupable ne les concernait pas.
+// ⚠ RÉÉCHELONNÉ le 2026-09-30 pour les bandes 1, 3, 5 et 6, SANS qu'un pixel de
+// bâtiment ait changé : les OMBRES PEINTES des sprites ont été rendues transparentes
+// (scripts/ombresPeintes.mjs — l'ombre du soleil les remplace, iso/isoSunShadow.js).
+// Ces pixels très sombres comptaient comme « encre qui se détache » ; les retirer
+// réduit le DÉNOMINATEUR, pas les pixels confondus, qui restent les mêmes couleurs
+// au même nombre. Vérifié : 34,9 % × 809 px d'encre = 38,0 % × (809 − 66 px
+// d'ombre) pour la maison longue ; mêmes coupables pour les trois autres (#8f8475,
+// #b4a890, #7c828c). Le cliquet mesure désormais le BÂTIMENT seul.
 const CLIQUET = [
   { band: 0, max: 13.5, pire: "tent/origine" },
-  { band: 1, max: 34.9, pire: "longhouse/origine" },
+  { band: 1, max: 38.0, pire: "longhouse/origine" },
   { band: 2, max: 2.8, pire: "townhouse/origine" },
-  { band: 3, max: 15.1, pire: "stonehouse/ardoise" },
+  { band: 3, max: 17.0, pire: "stonehouse/ardoise" },
   { band: 4, max: 0.0, pire: "courtyard/origine" },
-  { band: 5, max: 16.1, pire: "block/calcaire" },
-  { band: 6, max: 27.7, pire: "arcologyhome" },
+  { band: 5, max: 18.0, pire: "block/calcaire" },
+  { band: 6, max: 31.9, pire: "arcologyhome" },
   { band: 7, max: 25.0, pire: "tower-cosmic-7" },
   { band: 8, max: 28.1, pire: "tower-cosmic-8" },
   // ⚠ RELEVÉ de 3,1 à 7,5 le 2026-08-06, et c'est le SEUL relèvement de ce cliquet —

@@ -25,7 +25,7 @@
 import { CM, cmHash } from '../layout.js';
 import { worldToScreen } from './projection.js';
 import { WINTER } from '../seasonMode.js';
-import { PLAZA, PLAZA_ERA_TONE, rgb } from './isoPalette.js';
+import { PLAZA, PLAZA_ERA_TONE, PLAZA_GROUND, rgb } from './isoPalette.js';
 import { DIRT_TONE } from './isoTissu.js';
 import { WONDER_GROUND } from './isoWonderGround.js';
 import { TERRAIN, terrainZ } from './isoTerrain.js';
@@ -53,11 +53,14 @@ export function sweepIsoGroundCells(bake, resolve, out) {
   };
   const paintKindIn = (k2, rects, blades, gx, gy, p, mir, cellH) => {
     const tile2 = !HARD ? ensureIsoTileKey(keyOfKind(k2)) : null;
-    const texA2 = k2 === 'urban' ? 0 : k2 === 'grass' ? GRASS_DETAIL.tileAlpha : 1;
+    const texA2 = k2 === 'urban' ? 0 : k2 === 'grass' ? GRASS_DETAIL.tileAlpha
+      : k2 === 'plaza' ? PLAZA_GROUND.tileAlpha : 1;
     const ready2 = !!(tile2 && tile2.ready) && texA2 > 0;
     const tone2 = k2 === 'grass'
       ? (ready2 ? (CM.season === WINTER ? GRASS_TILE_UNDER_WINTER : GRASS_TILE_UNDER) : SEASON_GRASS)
-      : k2 === 'dirt' ? DIRT_TONE : (k2 === 'sand' || k2 === 'shingle') ? beachTone(k2) : urb;
+      : k2 === 'dirt' ? DIRT_TONE : (k2 === 'sand' || k2 === 'shingle') ? beachTone(k2)
+        // Une place garde SON ton sous sa tuile dosée, bord arrondi compris.
+        : k2 === 'plaza' ? (PLAZA_ERA_TONE[plazaEra] || PLAZA) : urb;
     ctx.save();
     ctx.beginPath();
     clipRects(rects);
@@ -124,7 +127,8 @@ export function sweepIsoGroundCells(bake, resolve, out) {
       // terre regénérée se montre pleine, le voile date de l'ancienne tuile unique.
       const texAlpha = kind === 'urban' ? 0
         : kind === 'wonder' ? WONDER_GROUND.tileAlpha
-          : kind === 'grass' ? GRASS_DETAIL.tileAlpha : 1;
+          : kind === 'grass' ? GRASS_DETAIL.tileAlpha
+            : kind === 'plaza' ? PLAZA_GROUND.tileAlpha : 1;
       const tile = (kind && !HARD) ? ensureIsoTileKey(keyOfKind(kind)) : null;
       const tileReady = !!(tile && tile.ready);
       // LISIÈRE ARRONDIE (cf. isoLisiere) : une cellule de BORD n'est

@@ -58,10 +58,14 @@ function grain(key) {
 }
 
 describe("S2 — dose de la tuile de sol par matière", () => {
-  it("seul le pavé est dosé ; les autres matières restent pleines", () => {
+  it("le pavé et la dalle sont dosés ; les autres matières restent pleines", () => {
     expect(URBAN_TILE_A.cobble).toBeGreaterThan(0.3);   // pas un aplat : refus de juillet
     expect(URBAN_TILE_A.cobble).toBeLessThan(1);        // …mais bien dosé
-    for (const k of ["flagstone", "concrete", "tech"]) {
+    // La dalle (bandes 4-5) : dosée pour que la GRILLE des cases ne se lise plus
+    // (2026-09-30, maquette vivante) — pas pour son grain, qui est bas.
+    expect(URBAN_TILE_A.flagstone).toBeGreaterThanOrEqual(0.2);
+    expect(URBAN_TILE_A.flagstone).toBeLessThan(0.6);
+    for (const k of ["concrete", "tech"]) {
       expect(URBAN_TILE_A[k], `${k} ne doit PAS être dosé`).toBe(1);
     }
     // La terre battue garde son réglage HISTORIQUE partagé (`tileA`) : `null` =

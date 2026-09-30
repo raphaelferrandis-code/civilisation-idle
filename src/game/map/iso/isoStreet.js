@@ -237,7 +237,9 @@ function isoSolidSouthCorners(L, T) {
   }
   return m;
 }
-export const lampEraForBand = (band) => (band >= 7 ? 'energy' : band >= 6 ? 'electric' : band >= 4 ? 'gas' : 'antique');
+// Bande 4 = âge du Marbre (toges, basiliques) : la colonne à vasque de feu, pas le
+// réverbère à gaz, qui naît avec la Fonte (bande 5). Corrigé le 2026-09-30.
+export const lampEraForBand = (band) => (band >= 7 ? 'energy' : band >= 6 ? 'electric' : band >= 5 ? 'gas' : 'antique');
 // v3 = antique & gas refaits en VRAI 3/4 iso high top-down 64×128 (les v2 étaient
 // vus DE FACE, retour Raph 2026-07-13) ; electric/energy v2 gardés (mâts ronds,
 // invariants à l'angle). Cache-buster : ces PNG sont RÉÉCRITS sur disque → sans
@@ -405,6 +407,14 @@ const NIGHT_VEIL = {
 if (typeof window !== 'undefined') {
   window.__nightVeil = (o) => { if (o) Object.assign(NIGHT_VEIL, o); return { ...NIGHT_VEIL }; };
 }
+// LUMIÈRE DE FIN D'APRÈS-MIDI (docs/PLAN-MAQUETTE-VIVANTE.md, lot 4 : « lumière douce
+// de fin d'après-midi ») : de jour, un MULTIPLY chaud très léger sur toute la scène —
+// la même passe que la nuit, dans l'autre sens. ÉTEINTE tant qu'elle n'est pas jugée.
+// Molette : __afternoon({ on, col, a }).
+export const AFTERNOON = { on: false, col: '255,232,196', a: 0.34 };
+if (typeof window !== 'undefined') {
+  window.__afternoon = (o) => { if (o === false || o === true) AFTERNOON.on = o; else if (o) Object.assign(AFTERNOON, o); return { ...AFTERNOON }; };
+}
 
 /* ── REFLETS NOCTURNES DE LA VILLE SUR L'EAU ──────────────────────────────────
  * Portage iso de `cityMapDrawCityReflections` (feu renderWorld.js, supprimé avec
@@ -513,6 +523,14 @@ export function drawIsoNight(now) {
   const V = NIGHT_VEIL;
   // Aube/crépuscule (porté du legacy cityMapDrawNight) : voile chaud qui pique à
   // mi-transition (n=0.5) — orange quand la nuit monte, or rosé quand elle se retire.
+  // Fin d'après-midi : de jour seulement, s'efface quand la nuit monte.
+  if (AFTERNOON.on && n < 0.5) {
+    const prevOp0 = ctx.globalCompositeOperation;
+    ctx.globalCompositeOperation = 'multiply';
+    ctx.fillStyle = 'rgba(' + AFTERNOON.col + ',' + (AFTERNOON.a * (1 - n * 2)).toFixed(3) + ')';
+    ctx.fillRect(0, 0, CM.cw, CM.ch);
+    ctx.globalCompositeOperation = prevOp0;
+  }
   const twilight = 4 * n * (1 - n);
   if (twilight > 0.25) {
     const col = CM.dayRising === false ? V.dawnCol : V.duskCol;

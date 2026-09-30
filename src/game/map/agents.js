@@ -6,6 +6,7 @@ import { bridgeLiftWorld, bridgeWalkBand, bridgeLaneBand, bridgeTune } from './i
 import { VEH_SKINS } from './vehicleSkins.js';
 import { pxProbe, recPx } from './pixelGrid.js';
 import { snapDev } from './blitSnap.js';
+import { drawSunShadow } from './iso/isoSunShadow.js';
 
 /* ---- legacy citymap rendering\agents.js ---- */
 
@@ -237,6 +238,7 @@ function drawNamedAgent(ctx, sx, groundY, z, name, scale, dir, walking, now, pha
   const left = snapDev(sx - drawW / 2), top = snapDev(groundY - AGENT_FEET * drawH);
   const prevS = ctx.imageSmoothingEnabled; ctx.imageSmoothingEnabled = false;
   if (pxProbe.on) recPx(pxAgentFam(name) + ' · cardinal', fh, drawH);
+  drawSunShadow(ctx, img, left, top, drawW, drawH, frame * fh, 0, fh, fh, 'bottom');
   ctx.drawImage(img, frame * fh, 0, fh, fh, left, top, drawW, drawH);
   ctx.imageSmoothingEnabled = prevS;
   return { drawW, drawH, top };
@@ -378,6 +380,7 @@ function drawNamedAgentIso(ctx, sx, groundY, z, name, scale, dir, walking, now, 
   }
   const feetF = groundFeet ? agentFootF(c, img) : AGENT_FEET;
   const left = snapDev(sx - drawW / 2), top = snapDev(groundY - feetF * drawH);
+  drawSunShadow(ctx, img, left, top, drawW, drawH, frame * fh, 0, fh, fh, 'bottom');   // ombre du soleil, pied de CETTE image
   const prevS = ctx.imageSmoothingEnabled; ctx.imageSmoothingEnabled = false;
   // Sonde G0 : `fh` porte DÉJÀ la bascule -half ci-dessus — c'est la planche
   // réellement échantillonnée qui est mesurée, pas celle qu'on croit servir.
@@ -1468,7 +1471,7 @@ function drawVehicleHeadlights(ctx, v) {
 
 // ⚠ Retirés le 2026-08-23 (étape 6) avec le rendu top-down : `drawCitizens`,
 // `drawGroundAgents`, `drawShips`, `drawVehicles`, `frontByPainter`.
-export { chooseRoadVehicleType, getVehicleDensity, updateVehicles, updateCitizens, CM_DIRS, cityMapWalkRoadKey, roadStepAllowed, drawCitizenThoughts, vehicleLaneOffset, drawEraAgent, drawEraAgentIso, drawNamedAgent, drawNamedAgentIso, drawVehicleHeadlights, thoughtBubbleAnchor, riotEraKey, ensureVeh, vehReady, VEH_SIZES, VEH_PULL, VEH_PUSH, ensureBoat, boatReady, BOAT_SIZES, BOAT_LIFT, ensureDrone, drawDroneRotors, ensureVehDiag, vehDiagReady, vehSkinFor, ISO_DIAG, ISO_AGENT_NAMES, BASKET_CARRIERS, agentDir, AGENT_SCALE, VEH_SCALE,
+export { agentSetForBand, agentSpecFor, chooseRoadVehicleType, getVehicleDensity, updateVehicles, updateCitizens, CM_DIRS, cityMapWalkRoadKey, roadStepAllowed, drawCitizenThoughts, vehicleLaneOffset, drawEraAgent, drawEraAgentIso, drawNamedAgent, drawNamedAgentIso, drawVehicleHeadlights, thoughtBubbleAnchor, riotEraKey, ensureVeh, vehReady, VEH_SIZES, VEH_PULL, VEH_PUSH, ensureBoat, boatReady, BOAT_SIZES, BOAT_LIFT, ensureDrone, drawDroneRotors, ensureVehDiag, vehDiagReady, vehSkinFor, ISO_DIAG, ISO_AGENT_NAMES, BASKET_CARRIERS, agentDir, AGENT_SCALE, VEH_SCALE,
   citizenSpawnCell, citizenAtDoorstep };
 // AGENT_SCALE / VEH_SCALE sont exportés en LIAISON VIVE (ESM) : le rendu iso les relit
 // à chaque frame, donc __villagerScale / __vehScale agissent aussi sur la vue iso.

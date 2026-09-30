@@ -20,7 +20,7 @@ import { CM } from '../layout.js';
 import { depthOf, ISO_X, ISO_Y } from './projection.js';
 import { isoArt } from './isoArt.js';
 import { COUR } from './isoTissu.js';
-import { plazaEraForBand, personHT, inkBox } from './isoPlaza.js';
+import { plazaEraForBand, personHT, inkBox, plazaKindAtCell, FENCED_KINDS } from './isoPlaza.js';
 import { fenceEdges, fenceInputs, FENCE } from '../fenceEdges.js';
 
 // ── CLÔTURES (lot L9, docs/PLAN-TISSU-URBAIN.md) ────────────────────────────
@@ -149,7 +149,12 @@ export function isoFencesFor(L, band) {
   // ⚠ Les entrées viennent de `fenceInputs`, jamais d'un `matOf` local : le compteur
   // et la pose doivent voir la MÊME carte de matières, sinon `__tissu()` annonce un
   // nombre qui n'est pas celui des panneaux dessinés. Une copie a déjà dérivé ici.
-  const brutes = fenceEdges(fenceInputs(L));
+  // Seules les places dont la SORTE garde sa grille (le square) en portent une ; une
+  // place sans sorte connue (pas de plan de ville) la garde, comme avant.
+  const brutes = fenceEdges({
+    ...fenceInputs(L),
+    plazaSourceOk: (k) => { const kind = plazaKindAtCell(L, k); return !kind || FENCED_KINDS.has(kind); },
+  });
   // FILTRE DE LIGNE (cf. FENCE_ISO.minRun). Une arête ne se garde que si elle
   // appartient à une suite contiguë assez longue, le long de SON axe : les côtés
   // n/s se suivent en gx à gy fixe, les côtés e/w en gy à gx fixe.

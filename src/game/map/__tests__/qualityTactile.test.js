@@ -16,9 +16,9 @@ import { qualitySettings, setQualityMode } from "../qualityMode.js";
 // de cœurs. `hover: none` fait partie de la condition — un portable à écran
 // tactile a un curseur et doit rester sur le chemin bureau.
 const TIERS = {
-  high:     { dpr: 2.0, citizenMul: 1.0, fps: 60, lodZoom: 0,    crispGesture: true },
-  balanced: { dpr: 1.5, citizenMul: 0.7, fps: 30, lodZoom: 0.55 },
-  perf:     { dpr: 1.0, citizenMul: 0.4, fps: 30, lodZoom: 0.85 },
+  high:     { dpr: 2.0, citizenMul: 1.0, fps: 60, lodZoom: 0,    crispGesture: true, fx: true },
+  balanced: { dpr: 1.5, citizenMul: 0.7, fps: 30, lodZoom: 0.55, fx: true },
+  perf:     { dpr: 1.0, citizenMul: 0.4, fps: 30, lodZoom: 0.85, fx: false },
 };
 
 // Fabrique un appareil. `pointeur` : "doigt" | "curseur" | null (pas de

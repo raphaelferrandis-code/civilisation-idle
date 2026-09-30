@@ -9,6 +9,7 @@ import { CM, CM_TINTS } from './layout.js';
 import { wonderAnchor } from './iso/projection.js';
 import { queueFlameGlow, flameAssetGlow, flameFlicker } from './flameGlow.js';
 import { pxProbe, recPx } from './pixelGrid.js';
+import { drawSunShadow } from './iso/isoSunShadow.js';
 
 /* ---- legacy citymap rendering\buildings.js ---- */
 
@@ -196,6 +197,10 @@ function drawEyeGyro(ctx, cx, cy, R, now) {
 }
 function drawWonderPixelSprite(wid, px, tier, cxs, baseY, W, H, e, now) {
   const ctx = CM.ctx;
+  // L'ombre du soleil (iso/isoSunShadow.js), comme tout ce qui se dresse sur la
+  // carte ; pas pendant l'érection (le sprite écrasé projetterait une ombre qui
+  // saute à chaque cran de croissance).
+  if (e >= 0.98) drawSunShadow(ctx, px.img, cxs - W / 2, baseY - H, W, H, 0, 0, 0, 0, 'column');
   const prev = ctx.imageSmoothingEnabled;
   ctx.imageSmoothingEnabled = false;
   // Anneaux tournants : réservé à l'Œil, et seulement une fois DRESSÉ (pendant

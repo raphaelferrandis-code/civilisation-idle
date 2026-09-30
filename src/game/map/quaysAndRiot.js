@@ -235,6 +235,57 @@ export function quayGapRuns(mask, n, pad = 1) {
 //   full: false → seulement le long des berges URBAINES (proches d'une route)
 //   light: 0..1 → éclaircit la pierre (fondu vers le blanc) — dessus + parement + margelle
 export const quayWallTune = { on: true, full: true, heightK: 1, joints: true, light: 0.16 };
+// Hauteur du parement (en tuiles) par ère : pierre (2-3), marbre (4), fonte et néon
+// (5-6), énergie (7+). Lue aussi par les REFLETS (iso/isoReflect.js) : l'eau est
+// tenue autant sous la promenade, le miroir passe à cette hauteur-là.
+export function quayWallTiles(band) { return band <= 4 ? (band >= 4 ? 0.70 : 0.66) : 0.75; }
+
+// Style de quai par ère : promenade qui évolue pierre -> marbre -> béton/fonte ->
+// néon -> énergie cosmique. (Palette cosmique inlinée pour éviter un import croisé.)
+// Exporté : le REFLET du mur dans l'eau (iso/isoReflect.js) lit les mêmes couleurs.
+export function quayStyleFor(band) {
+  const COSMIC = {
+    7: { mid: "#1d5640", core: "#0c241a", glow: "90,240,180" },
+    8: { mid: "#4a3a1c", core: "#221808", glow: "255,205,120" },
+    9: { mid: "#322a52", core: "#161226", glow: "170,140,255" }
+  };
+  // Style par ère. `coping`/`wallTop`/`wallBot`/`wallJoint`/`wallTiles` = la BERGE
+  // MAÇONNÉE (mur du bord d'eau, cf. drawRun) : margelle claire + parement
+  // haut→bas + joints d'assise + hauteur (en tuiles).
+  let st;
+  if (band <= 4) {                   // pierre (2-3) / marbre (4)
+    const marble = band >= 4;
+    st = {
+      W: 0.7, walk: marble ? "#cdc6b2" : "#a89a78", face: marble ? "#8f8770" : "#6e6044",
+      lip: "rgba(0,0,0,0.40)", edge: marble ? "rgba(255,250,235,0.30)" : "rgba(255,240,205,0.20)",
+      rail: null, joints: "rgba(0,0,0,0.16)", lamp: "255,214,150", glow: null,
+      coping: marble ? "#ece6d6" : "#d8cfb4", wallTop: marble ? "#b3ab92" : "#8a7f60",
+      wallBot: marble ? "#6f684f" : "#4e4230", wallJoint: "rgba(0,0,0,0.30)", wallTiles: quayWallTiles(band)
+    };
+  } else if (band <= 6) {            // fonte (5) / néon (6)
+    const neon = band >= 6;
+    st = {
+      W: 0.85, walk: neon ? "#6f7480" : "#827a6e", face: neon ? "#3e424c" : "#4f4940",
+      lip: "rgba(0,0,0,0.44)", edge: "rgba(222,230,240,0.16)",
+      rail: "rgba(16,20,26,0.85)", joints: null, lamp: neon ? "150,225,255" : "255,208,150",
+      glow: neon ? "120,220,255" : null,
+      coping: neon ? "#8f99a8" : "#9c968c", wallTop: neon ? "#40444e" : "#5f5a52",
+      wallBot: neon ? "#202329" : "#302c26", wallJoint: "rgba(0,0,0,0.34)", wallTiles: quayWallTiles(band)
+    };
+  } else {                           // cosmique 7-9 : quai d'énergie
+    const cp = COSMIC[band] || COSMIC[9];
+    st = { W: 0.9, walk: cp.mid, face: cp.core, lip: "rgba(0,0,0,0.45)", edge: null, rail: null, joints: null, lamp: cp.glow, glow: cp.glow,
+      coping: cp.mid, wallTop: cp.core, wallBot: "#0a0a12", wallJoint: "rgba(0,0,0,0.30)", wallTiles: quayWallTiles(band) };
+  }
+  return st;
+}
+
+// Couleurs RÉELLEMENT peintes du mur (éclaircies par quayWallTune.light, cf. drawRun) :
+// le reflet du mur dans l'eau (iso/isoReflect.js) part de celles-là.
+export function quayWallColors(band) {
+  const st = quayStyleFor(band), LT = quayWallTune.light;
+  return { top: lightenHex(st.wallTop, LT), bot: lightenHex(st.wallBot, LT), coping: lightenHex(st.coping, LT) };
+}
 
 // Éclaircit une couleur "#rrggbb" en la fondant vers le blanc de `t` (0..1) → "rgb(...)".
 // Sert à rendre la berge maçonnée « un peu plus claire » sans retoucher chaque teinte d'ère.
@@ -282,41 +333,7 @@ function cityMapDrawQuays(now, mode) {
   const night = CM.nightF || 0;
   const lod = CM.lodActive;          // zoom lointain : strates seules, pas de mobilier/joints
 
-  // Style de quai par ère : promenade qui évolue pierre -> marbre -> béton/fonte ->
-  // néon -> énergie cosmique. (Palette cosmique inlinée pour éviter un import croisé.)
-  const COSMIC = {
-    7: { mid: "#1d5640", core: "#0c241a", glow: "90,240,180" },
-    8: { mid: "#4a3a1c", core: "#221808", glow: "255,205,120" },
-    9: { mid: "#322a52", core: "#161226", glow: "170,140,255" }
-  };
-  // Style par ère. `coping`/`wallTop`/`wallBot`/`wallJoint`/`wallTiles` = la BERGE
-  // MAÇONNÉE (mur du bord d'eau, cf. drawRun) : margelle claire + parement
-  // haut→bas + joints d'assise + hauteur (en tuiles).
-  let st;
-  if (band <= 4) {                   // pierre (2-3) / marbre (4)
-    const marble = band >= 4;
-    st = {
-      W: 0.7, walk: marble ? "#cdc6b2" : "#a89a78", face: marble ? "#8f8770" : "#6e6044",
-      lip: "rgba(0,0,0,0.40)", edge: marble ? "rgba(255,250,235,0.30)" : "rgba(255,240,205,0.20)",
-      rail: null, joints: "rgba(0,0,0,0.16)", lamp: "255,214,150", glow: null,
-      coping: marble ? "#ece6d6" : "#d8cfb4", wallTop: marble ? "#b3ab92" : "#8a7f60",
-      wallBot: marble ? "#6f684f" : "#4e4230", wallJoint: "rgba(0,0,0,0.30)", wallTiles: marble ? 0.70 : 0.66
-    };
-  } else if (band <= 6) {            // fonte (5) / néon (6)
-    const neon = band >= 6;
-    st = {
-      W: 0.85, walk: neon ? "#6f7480" : "#827a6e", face: neon ? "#3e424c" : "#4f4940",
-      lip: "rgba(0,0,0,0.44)", edge: "rgba(222,230,240,0.16)",
-      rail: "rgba(16,20,26,0.85)", joints: null, lamp: neon ? "150,225,255" : "255,208,150",
-      glow: neon ? "120,220,255" : null,
-      coping: neon ? "#8f99a8" : "#9c968c", wallTop: neon ? "#40444e" : "#5f5a52",
-      wallBot: neon ? "#202329" : "#302c26", wallJoint: "rgba(0,0,0,0.34)", wallTiles: 0.75
-    };
-  } else {                           // cosmique 7-9 : quai d'énergie
-    const cp = COSMIC[band] || COSMIC[9];
-    st = { W: 0.9, walk: cp.mid, face: cp.core, lip: "rgba(0,0,0,0.45)", edge: null, rail: null, joints: null, lamp: cp.glow, glow: cp.glow,
-      coping: cp.mid, wallTop: cp.core, wallBot: "#0a0a12", wallJoint: "rgba(0,0,0,0.30)", wallTiles: 0.75 };
-  }
+  const st = quayStyleFor(band);
   const W = st.W, faceW = W * 0.30;  // bande côté eau (ombre) vs promenade (côté terre)
 
   // Effilement smoothstep aux deux bouts d'un run (hauteur/largeur -> 0) : fondu DOUX

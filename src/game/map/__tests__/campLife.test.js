@@ -203,7 +203,9 @@ describe("le village de huttes (bande 1) garde son feu", () => {
 });
 
 describe("à toutes les ères, aucune habitation sur une tête du pont", () => {
-  it("bandes 1 à 4 : les têtes du pont restent libres", () => {
+  // Douze villes complètes (4 ères × 3 graines) : ~2 s seul, mais plus de 5 s quand
+  // toute la suite tourne en parallèle — délai à sa mesure, pas un test instable.
+  it("bandes 1 à 4 : les têtes du pont restent libres", { timeout: 30000 }, () => {
     for (const [pop, bld] of [["1e8", 6], ["1e13", 12], ["1e18", 20], ["1e23", 28]]) {
       for (const seed of GRAINES.slice(0, 3)) {
         const L = ville(seed, pop, bld);

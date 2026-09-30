@@ -666,7 +666,15 @@ export const URBAN_DETAIL = { on: true, mult: 1, band: null, tiles: true, tileA:
 // Les autres matières restent à 1 : leur grain mesuré est 4 à 6 fois plus bas
 // (flagstone 6,4 · concrete 4,6 · earth 4,4 · tech 2,8 contre 18,4 pour le pavé).
 // Molette : `__groundMat({ tileAType: { cobble: 1 } })` rejoue l'ancien.
-export const URBAN_TILE_A = { earth: null, cobble: 0.6, flagstone: 1, concrete: 1, tech: 1 };
+//
+// ⚠ LA DALLE EST DOSÉE À SON TOUR (2026-09-30, docs/PLAN-MAQUETTE-VIVANTE.md, lot 1).
+// Son grain est bas, mais ce n'était pas le grief : chaque tuile porte deux ou trois
+// grandes dalles cernées de joints qui tombent sur les arêtes de la CASE — la grille
+// du jeu se lisait sur tout le sol de la ville, en damier (audit, bande 4). Planche
+// des quatre doses 1 / 0,5 / 0,3 / 0,15 en jeu : à 0,3 la grille disparaît et le
+// bâti se détache, sans tomber dans l'aplat (« gros carreaux », refus de juillet).
+// Vaut pour les bandes 4 et 5 (même matière). A/B : `__groundMat({ tileAType: { flagstone: 1 } })`.
+export const URBAN_TILE_A = { earth: null, cobble: 0.6, flagstone: 0.3, concrete: 1, tech: 1 };
 // `null` = suit `tileA` (la terre battue garde son réglage historique partagé).
 export const urbanTileAlpha = (type) => {
   const v = URBAN_TILE_A[type];

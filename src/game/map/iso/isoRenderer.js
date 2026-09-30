@@ -20,6 +20,7 @@
 // juillet. Ce qui doit être partagé DESCEND dans une feuille (`isoMath`, `isoQuad`,
 // `isoArt`, `isoPalette`) ; rien ne remonte ici.
 import { state } from '../../core/state.js';
+import { endReflectionBuild } from './isoReflect.js';
 import { updateCitizens, updateVehicles, drawCitizenThoughts } from '../agents.js';
 import { fp } from '../framePerf.js';
 import { CM } from '../layout.js';
@@ -299,6 +300,7 @@ function drawIsoWorldInner(dt, now, helpers) {
   drawIsoShips(now);
   fp('bateaux');
   drawIsoLive(now);      // (les merveilles y sont des items du tri peintre)
+  endReflectionBuild();  // plus rien ne se reflète après la scène (cf. isoReflect)
   drawTerrainShade();    // ombrage du relief — par-dessus la scène : le flanc prend aussi le bâti
   fp('scene-vivante');
   drawIsoBirds(now);     // nuée : passe aérienne, avant les drones

@@ -59,9 +59,10 @@
 
 import { CM, cmHash, treeCanvasT } from '../layout.js';
 import { solInvalidate } from './solInvalidate.js';
-import { AGENT_SCALE } from '../agents.js';
+import { AGENT_SCALE, agentSetForBand, agentSpecFor, drawNamedAgentIso } from '../agents.js';
 import { worldToScreen, depthOf } from './projection.js';
-import { lightCutImage } from '../lightLayer.js';
+import { lightCutImage, lightCtx } from '../lightLayer.js';
+import { drawSunShadow } from './isoSunShadow.js';
 
 // ── ÉCHELLE DE RÉFÉRENCE ────────────────────────────────────────────────────
 // Unité : hT = HAUTEUR ÉCRAN du sprite en tuiles (1 tuile = TILE × zoom px).
@@ -108,7 +109,7 @@ const personF = (f) => personHT() * f;
 // et doit rester sous la demi-maison (c'est le défaut qu'on répare : un banc
 // aussi large qu'une maison). Le test isoPlaza.test.js applique les deux
 // plafonds séparément ; ajouter un prop haut sans l'inscrire ici le fera tomber.
-const TALL_PROPS = new Set(['flag', 'statue', 'obelisk', 'tree']);
+const TALL_PROPS = new Set(['flag', 'statue', 'obelisk', 'tree', 'fountain-forum', 'stall-red', 'stall-ochre', 'stall-blue']);
 
 // ── MOLETTE DE RÉGLAGE ──────────────────────────────────────────────────────
 // `rev` s'incrémente à chaque réglage : la composition mémoïsée se reconstruit
@@ -172,7 +173,8 @@ const PLAZA_TUNE = {
   era: null,          // force une ère ('antique'|'medieval'|'industrial'|'modern'|'cosmic')
   only: null,         // n'affiche qu'un prop
   hT: {},             // surcharges de hauteur par prop : { bench: 0.6 }
-  shadow: 0.16,       // opacité de l'ombre douce au pied
+  // (`shadow`, l'ellipse douce au pied, est partie le 2026-09-30 : l'ombre du
+  //  soleil la remplace, cf. drawIsoPlazaProp.)
   grid: false,        // overlay : rôles des cellules + empreintes
   ruler: false,       // overlay : étalon (empreinte de maison + barre de tuile)
   // EAU ANIMÉE des fontaines. 240 ms par frame et pas 120 : à 120 les
@@ -192,8 +194,13 @@ if (typeof window !== 'undefined') {
 
 // ── ÈRES ────────────────────────────────────────────────────────────────────
 // Pas de place aux stades primitifs (cohérence avec les lampadaires).
+// ⚠ RÉPARTITION CORRIGÉE le 2026-09-30 (docs/PLAN-MAQUETTE-VIVANTE.md, « rien sans
+// raison ») : le kit « antique » (fontaine de marbre, bancs de pierre) servait aux
+// bandes 2-3 — Pierre taillée et Couronne, maisons à colombages — et le kit
+// « medieval » (bois, tonneaux) à la bande 4, l'âge du MARBRE, habitants en toge.
+// Les deux kits existaient ; seule la table était inversée.
 export const plazaEraForBand = (band) => (band >= 7 ? 'cosmic' : band >= 6 ? 'modern'
-  : band >= 5 ? 'industrial' : band >= 4 ? 'medieval' : band >= 2 ? 'antique' : null);
+  : band >= 5 ? 'industrial' : band >= 4 ? 'antique' : band >= 2 ? 'medieval' : null);
 // Ère iso → grappe du kit top-down legacy (repli d'art tant que l'iso manque).
 // ⚠ DEUX TABLES ONT VÉCU ICI — `LEGACY_ERA` (nom d'ère iso → nom du kit top-down :
 // medieval → classique, cosmic → futuriste…) et `LEGACY_PROP` (nom d'objet iso → nom
@@ -244,11 +251,15 @@ export const plazaEraForBand = (band) => (band >= 7 ? 'cosmic' : band >= 6 ? 'mo
 // et la garniture de cœur se voient — le mobilier à l'échelle du corps disparaît.
 // Chaque ère reçoit donc ses surcharges benchPerSide / treeWant / field, en
 // PROGRESSION STRICTE vers le cosmique (même principe que la fontaine qui
-// grandit) : le forum antique respire (2 arbres), le square moderne est un
+// grandit) : la place médiévale respire (2 arbres), le square moderne est un
 // jardin (4). Le filet anti-chevauchement et la géométrie des côtés restent les
 // juges : une petite place en met moins toute seule, rien ne déborde.
+// ⚠ ORDRE DES BANDES depuis le 2026-09-30 : medieval (bandes 2-3) puis antique
+// (bande 4, le Marbre) — cf. plazaEraForBand. Les réglages qui GRANDISSENT avec
+// l'ère (fontaine, arbres) ont suivi : la progression reste strictement croissante
+// dans l'ordre où le joueur traverse les bandes.
 const RECIPES = {
-  antique: {
+  medieval: {
     centre: { prop: 'fountain', p: 1.25 },
     bench: { p: 0.70 },
     side: [{ prop: 'planter', p: 0.55 }, { prop: 'bin', p: 0.52 }],
@@ -259,7 +270,7 @@ const RECIPES = {
     treeWant: 2,
     field: [{ prop: 'planter', p: 0.55 }],
   },
-  medieval: {
+  antique: {
     centre: { prop: 'fountain', p: 1.60 },
     bench: { p: 0.70 },
     side: [{ prop: 'planter', p: 0.55 }, { prop: 'bin', p: 0.52 }],
@@ -315,6 +326,124 @@ const RECIPES = {
     field: [{ prop: 'planter', p: 0.55 }],
   },
 };
+
+// ── LA SORTE DE CHAQUE PLACE ────────────────────────────────────────────────
+// Le plan de ville (procedural/cityPlan.js, buildPlazas) nomme chaque place :
+// 'centrale' (le cœur historique), 'marche' (quartier marchand), 'parvis'
+// (quartier religieux), 'jardin' (square de prestige, bandes 4+). Jusqu'au
+// 2026-09-30 ce nom ne servait qu'aux NOMS de rue (cityNaming) : toutes les places
+// recevaient le même mobilier, et c'est une grande part de ce que Raph a vu —
+// « elles font vides ou surchargées, elles ne sont pas festives, pas un endroit
+// qui a l'air agréable pour que les gens s'arrêtent ».
+//
+// Une boîte prend la sorte de la place du plan dont le centre tombe dedans (à une
+// cellule près), sinon de la plus proche. SANS PLAN (villes de test : un réseau de
+// rues nu), pas de sorte : la recette de l'ère seule, comme avant — c'est elle que
+// gardent les invariants de isoPlaza.test.js.
+export function plazaKindOfBox(L, box) {
+  const ps = L && L.plan && L.plan.plazas;
+  if (!ps || !ps.length || !box) return null;
+  const cx = (box.gx0 + box.gx1) / 2, cy = (box.gy0 + box.gy1) / 2;
+  let best = null, bd = Infinity;
+  for (const p of ps) {
+    const dedans = p.gx >= box.gx0 - 1 && p.gx <= box.gx1 + 1 && p.gy >= box.gy0 - 1 && p.gy <= box.gy1 + 1;
+    const d = Math.hypot(p.gx - cx, p.gy - cy) - (dedans ? 1e6 : 0);
+    if (d < bd) { bd = d; best = p; }
+  }
+  return (best && best.kind) || null;
+}
+// Case de place → { sorte, anneau }, par layout (les clôtures et le sol en ont
+// besoin, cf. isoFence et isoGroundResolve).
+let _kindCache = { at: -1, map: null };
+function plazaCellInfo(L, key) {
+  if (_kindCache.at !== CM.layoutRecomputeAt || !_kindCache.map) {
+    const map = new Map();
+    for (const box of isoPlazaBoxes(L)) {
+      const kind = plazaKindOfBox(L, box);
+      if (!kind) continue;
+      for (const c of isoPlazaCells(L, box)) map.set(c.gx + ',' + c.gy, { kind, r: c.r });
+    }
+    _kindCache = { at: CM.layoutRecomputeAt, map };
+  }
+  return _kindCache.map.get(key) || null;
+}
+export function plazaKindAtCell(L, key) {
+  const i = plazaCellInfo(L, key);
+  return i ? i.kind : null;
+}
+// LE SQUARE A SA PELOUSE : l'anneau extérieur d'une place 'jardin' est de l'HERBE
+// (le pré fleuri de la carte), son cœur reste dallé autour de la fontaine. Dallé de
+// bout en bout, le square n'était qu'une esplanade grillagée — « vide ».
+// Molette : __plaza({ lawn: false }) rend le dallage plein.
+export function plazaLawnAtCell(L, key) {
+  if (PLAZA_TUNE.lawn === false) return false;
+  const i = plazaCellInfo(L, key);
+  return !!(i && i.kind === 'jardin' && i.r === 0);
+}
+
+// ── LES KITS PAR SORTE (docs/PLAN-MAQUETTE-VIVANTE.md, lot 2) ────────────────
+// Surchargent la recette de l'ÈRE pour UNE sorte de place. Une ère sans kit garde
+// sa recette partout (seule l'antique, ère pilote, en a un pour l'instant).
+//   centre      : la pièce maîtresse, IMPOSÉE (pas de tirage fontaine/arbre)
+//   sideItem    : ce qui borde la place À LA PLACE des duos de bancs (les étals du
+//                 marché) — un par emplacement, couleur tournante
+//   sidePerSide : combien d'emplacements par côté au plus
+//   people      : des passants ARRÊTÉS — autour de la pièce maîtresse ('centre')
+//                 ou devant les étals ('stalls') ; « un endroit où s'arrêter »
+//   garland     : des fanions tendus d'un réverbère de coin à l'autre — la fête
+// Les tailles restent en `p` (multiples d'un habitant), comme tout le mobilier.
+const KIND_KITS = {
+  antique: {
+    // LE FORUM : une vraie fontaine monumentale qu'on voit de loin, trois arbres
+    // d'ombrage autour, un seul duo de bancs par côté (au lieu de trois : la
+    // rangée de bancs était la moitié du « surchargé »), des massifs fleuris sur
+    // les axes, du monde autour de l'eau, des fanions.
+    centrale: {
+      // p 5 : ~69 px au zoom 1 pour 61 px d'encre — la fontaine passe au GRAIN des
+      // maisons (1,1 px d'écran par pixel d'art), plus haute qu'une maison : un monument.
+      centre: { prop: 'fountain-forum', p: 5.0 }, centreForce: true,
+      // Compagnons des bancs : la jardinière seule — les corbeilles semaient des
+      // petits tonneaux partout, la « poussière de mobilier » de l'audit.
+      benchPerSide: 2, treeWant: 3, side: [{ prop: 'planter', p: 0.55 }],
+      field: [{ prop: 'flowerbed', p: 1.1 }],
+      people: { mode: 'centre', n: 7 }, garland: true,
+    },
+    // LE MARCHÉ : des étals à auvents rayés tout autour, tournés vers le centre,
+    // des amphores et des cageots entre eux, un puits au milieu, des acheteurs
+    // devant chaque étal.
+    marche: {
+      centre: { prop: 'well', p: 1.1 }, centreForce: true,
+      // Pas d'arbre (il mangeait deux étals sur une place de 4×4) et une marge de
+      // coin réduite : les étals se serrent jusqu'aux réverbères, comme un vrai marché.
+      sideItem: { prop: 'stall', colors: ['red', 'ochre', 'blue'], p: 2.0 }, sidePerSide: 2,
+      cornerKeep: 0.45, side: [{ prop: 'crates', p: 0.8 }], treeWant: 0, field: null,
+      people: { mode: 'stalls', perItem: 2 }, garland: true,
+    },
+    // LE PARVIS : une statue sur son socle, quatre braseros autour, peu de bancs.
+    parvis: {
+      // Les braseros sur les DIAGONALES autour de la statue (`beds`) : sur une place
+      // de 4×4, les axes n'ont pas la place de les porter.
+      centre: { prop: 'statue', p: 4.0 }, centreForce: true,
+      benchPerSide: 2, treeWant: 0, side: [], beds: { prop: 'brazier', p: 1.3 },
+      field: [{ prop: 'brazier', p: 1.3 }],
+      people: { mode: 'centre', n: 4 }, garland: false,
+    },
+    // LE SQUARE : la fontaine de quartier, quatre arbres, des massifs fleuris ;
+    // c'est la seule sorte qui garde sa grille (cf. isoFence, arbitrage du 06/08).
+    jardin: {
+      // Deux arbres, et des massifs sur les diagonales qu'ils laissent libres
+      // (`beds`) : les axes d'une place de 4×4 n'ont pas la place d'en porter.
+      centre: { prop: 'fountain', p: 1.6 }, centreForce: true,
+      benchPerSide: 2, treeWant: 2, side: [{ prop: 'planter', p: 0.55 }], beds: { prop: 'flowerbed', p: 1.1 },
+      field: [{ prop: 'flowerbed', p: 1.1 }],
+      people: { mode: 'centre', n: 3 }, garland: false,
+    },
+  },
+};
+// Les sortes qui gardent leur GRILLE (arbitrage de Raph du 2026-08-06 : « une
+// enceinte percée d'entrées se lit comme un square clos ») — le square seul ; le
+// forum, le marché et le parvis sont des lieux publics ouverts.
+export const FENCED_KINDS = new Set(['jardin']);
 
 // ── BANDES D'ANIMATION ──────────────────────────────────────────────────────
 // /pixelart/iso/plaza/anim/<prop>-<ère>.png : une bande HORIZONTALE de N frames
@@ -461,6 +590,8 @@ const PROP_ASPECT = {
   bin: 0.75,                            // corbeille : plus haute que large
   grate: 2.0,                           // large et plate : elle cercle le tronc
   well: 0.9,                            // puits de quartier : un peu plus haut que large
+  brazier: 0.6, flowerbed: 1.8, crates: 1.2,
+  person: 0.5,                          // un passant arrêté (kits par sorte)
 };
 // Props qui ne prennent JAMAIS de gabarit : une grille absente doit laisser le
 // pied de l'arbre nu, pas y poser un bloc gris sous chaque arbre de la place.
@@ -468,7 +599,8 @@ const NO_PLACEHOLDER = new Set(['grate']);
 // Empreinte au sol d'un mât : elle n'existe QUE pour le filet — un arbre posé
 // au coin ne doit pas venir sur un lampadaire.
 const LAMP_HW = 0.2;
-const aspectOf = (prop) => PROP_ASPECT[prop] || 1;
+// 'stall-red' → 'stall', 'fountain-forum' → 'fountain' : la famille donne l'aspect.
+const aspectOf = (prop) => PROP_ASPECT[prop] || PROP_ASPECT[String(prop).split('-')[0]] || 1;
 
 // EMPREINTE ÉCRAN D'UN PROP, en TUILES — l'UNIQUE implémentation. Le mobilier de
 // trottoir (isoStreetProps) s'en sert pour son propre filet : il pose les MÊMES
@@ -515,7 +647,10 @@ let _compCache = { key: '', comps: null };
 // par ici, chacune avec sa propre graine (son coin), donc deux places voisines
 // ne se ressemblent pas.
 function composeOne(L, era, box) {
-  const R = RECIPES[era];
+  // La SORTE de la place (plan de ville) choisit son kit, s'il existe pour l'ère.
+  const kind = plazaKindOfBox(L, box);
+  const kit = kind && KIND_KITS[era] ? KIND_KITS[era][kind] : null;
+  const R = RECIPES[era] ? (kit ? { ...RECIPES[era], ...kit } : RECIPES[era]) : null;
   if (!box || !R) return null;
   // ⚠ AGENT_SCALE entre dans la CLÉ : le mobilier en `p` en dépend, donc bouger
   // __villagerScale doit reconstruire la composition, pas ressortir le cache.
@@ -653,9 +788,9 @@ function composeOne(L, era, box) {
   //    maîtresse s'impose, tout le reste s'écarte d'elle.
   //    `centre` de la molette : 'fountain' (défaut, si la recette en a une),
   //    'tree' pour un arbre, 'auto' = fontaine sinon arbre.
-  const veutArbre = PLAZA_TUNE.centre === 'tree' || !R.centre
+  const veutArbre = !R.centreForce && (PLAZA_TUNE.centre === 'tree' || !R.centre
     || (PLAZA_TUNE.centre === 'auto' && R.trees
-        && h01('plz' + sd + ':centre') < PLAZA_TUNE.centreTreeP);
+        && h01('plz' + sd + ':centre') < PLAZA_TUNE.centreTreeP));
   let centrePris = false;
   if (veutArbre && R.trees) {
     centrePris = putTree(cxc, cyc, 9, false);
@@ -718,7 +853,38 @@ function composeOne(L, era, box) {
     ([bx, by]) => Math.hypot(bx - gxf, by - gyf) <= duo,
   );
 
-  for (let si = 0; si < SIDES.length; si += 1) {
+  // LES ÉTALS (kit du marché) : un par emplacement, tourné vers le centre, la
+  // couleur de l'auvent tourne d'un étal à l'autre (décalée par place). Les
+  // cageots vont dans les intervalles, comme les bacs entre les duos de bancs.
+  const stalls = [];
+  if (R.sideItem) {
+    const S = R.sideItem, hS = hOf(S.prop, S);
+    const wS = hS * aspectOf(S.prop);
+    const off = Math.floor(h01('plz' + sd + ':stall') * S.colors.length);
+    const keep = R.cornerKeep != null ? R.cornerKeep : PLAZA_TUNE.cornerKeep;
+    for (let si = 0; si < SIDES.length; si += 1) {
+      const side = SIDES[si];
+      const usable = side.span - 2 * keep;
+      let g = Math.max(0, R.sidePerSide | 0);
+      while (g > 1 && usable / g < wS * PLAZA_TUNE.minGap) g -= 1;
+      const segAt = (k) => side.base + (k - (g - 1) / 2) * (usable / Math.max(1, g));
+      for (let k = 0; k < g; k += 1) {
+        const [sx, sy] = at(side, segAt(k));
+        const col = S.colors[(off + si * 2 + k) % S.colors.length];
+        if (add(S.prop + '-' + col, side.face, sx, sy, hS)) stalls.push({ x: sx, y: sy, face: side.face });
+      }
+      if (R.side && R.side.length && g > 0) {
+        const creux = [segAt(0) - usable / (2 * g), segAt(g - 1) + usable / (2 * g)];
+        for (let k = 1; k < g; k += 1) creux.push((segAt(k - 1) + segAt(k)) / 2);
+        for (let mi = 0; mi < creux.length; mi += 1) {
+          const pick = R.side[Math.floor(h01('plz' + sd + ':c:' + si + ':' + mi) * R.side.length) % R.side.length];
+          const [mx, my] = at(side, creux[mi]);
+          add(pick.prop, side.face, mx, my, hOf(pick.prop, pick));
+        }
+      }
+    }
+  }
+  for (let si = 0; si < SIDES.length && !R.sideItem; si += 1) {
     const side = SIDES[si];
     // COMBIEN DE GROUPES TIENNENT ICI. `benchPerSide` est un MAXIMUM de bancs :
     // en duos, cela fait au plus benchPerSide/2 groupes. Un groupe entier doit
@@ -813,6 +979,15 @@ function composeOne(L, era, box) {
       putTree(SPOTS[ci][0], SPOTS[ci][1], ci, true);
     }
   }
+  // 4b. MASSIFS (square) ou BRASEROS (parvis) sur les diagonales que les arbres ont
+  //     laissées libres (kit `beds`) : même anneau que les arbres, le filet refuse les
+  //     places déjà prises.
+  if (R.beds) {
+    const hb = hOf(R.beds.prop, R.beds);
+    const bd = Math.max(0.95, Math.min(w, h) * 0.3);
+    const SPOTS_B = [[cxc + bd, cyc - bd], [cxc - bd, cyc + bd], [cxc - bd, cyc - bd], [cxc + bd, cyc + bd]];
+    for (const [bx, by] of SPOTS_B) add(R.beds.prop, null, bx, by, hb, { field: true });
+  }
   // 5. GARNITURE DE CŒUR (recette `field`) : quatre props sur les axes cardinaux
   //    MONDE, à mi-chemin entre le centre et le bord — le champ intérieur d'une
   //    grande place restait une dalle nue. C'est de la GARNITURE, donc `sideOn`
@@ -848,9 +1023,82 @@ function composeOne(L, era, box) {
       add(pick.prop, face, fx, fy, hOf(pick.prop, pick), { field: true });
     }
   }
+  // 6. DES GENS QUI S'ARRÊTENT (kits par sorte). Des habitants de l'ère, IMMOBILES
+  //    (première image de leur bande de marche : pieds joints), posés au filet
+  //    comme le mobilier — autour de la pièce maîtresse, en petits groupes qui se
+  //    font face, ou devant les étals, tournés vers la marchandise.
+  if (R.people) {
+    const band = (L.counts && L.counts.eraBand) | 0;
+    const set = agentSetForBand(band);
+    const pH = personHT();
+    const face = (fx, fy, tx, ty) => {
+      const dx = tx - fx, dy = ty - fy;
+      return Math.abs(dx) >= Math.abs(dy) ? (dx >= 0 ? 0 : 1) : (dy >= 0 ? 2 : 3);
+    };
+    let pi = 0;
+    const person = (gxf, gyf, dir) => {
+      const r = h01('plz' + sd + ':p:' + pi);
+      const charType = r < 0.46 ? 0 : r < 0.9 ? 1 : 2;
+      const spec = agentSpecFor(set, charType, Math.floor(h01('plz' + sd + ':pv:' + pi) * 4));
+      pi += 1;
+      if (!spec || !fits(gxf, gyf, 'person', pH)) return false;
+      const wx = gxf * T, wy = gyf * T;
+      props.push({ prop: 'person', variant: null, wx, wy, hT: pH, d: depthOf(wx, wy), name: spec.name, scale: spec.scale, dir });
+      return true;
+    };
+    if (R.people.mode === 'stalls') {
+      // Devant chaque étal, côté centre : un ou deux acheteurs qui le regardent.
+      for (let k = 0; k < stalls.length; k += 1) {
+        const s0 = stalls[k];
+        const vx = cxc - s0.x, vy = cyc - s0.y, vl = Math.hypot(vx, vy) || 1;
+        const nx = vx / vl, ny = vy / vl;
+        const n = Math.max(1, R.people.perItem | 0);
+        for (let j = 0; j < n; j += 1) {
+          const lat = (j - (n - 1) / 2) * 0.42;
+          const px0 = s0.x + nx * 0.78 - ny * lat, py0 = s0.y + ny * 0.78 + nx * lat;
+          if (h01('plz' + sd + ':ps:' + k + ':' + j) < 0.8) person(px0, py0, face(px0, py0, s0.x, s0.y));
+        }
+      }
+    } else {
+      // Autour de la pièce maîtresse : groupes de 2 ou 3 sur un anneau juste
+      // au-delà de son bord, le premier regarde le centre, les autres lui.
+      const hc = R.centre ? hOf(R.centre.prop, R.centre) : pH;
+      const ring = (hc * aspectOf(R.centre ? R.centre.prop : 'person')) * 0.5 + 0.55;
+      const want = R.people.n | 0;
+      const groups = Math.max(1, Math.round(want / 2.5));
+      const a0 = h01('plz' + sd + ':pa') * Math.PI * 2;
+      let posed = 0;
+      for (let gI = 0; gI < groups && posed < want; gI += 1) {
+        const ang = a0 + (gI / groups) * Math.PI * 2 + (h01('plz' + sd + ':pg:' + gI) - 0.5) * 0.6;
+        const size = Math.min(want - posed, h01('plz' + sd + ':pn:' + gI) < 0.5 ? 2 : 3);
+        const lx = cxc + Math.cos(ang) * ring, ly = cyc + Math.sin(ang) * ring;
+        const tx = -Math.sin(ang), ty = Math.cos(ang);
+        for (let j = 0; j < size; j += 1) {
+          const u = (j - (size - 1) / 2) * 0.4;
+          const px0 = lx + tx * u, py0 = ly + ty * u;
+          const dir = j === 0 ? face(px0, py0, cxc, cyc) : face(px0, py0, lx, ly);
+          if (person(px0, py0, dir)) posed += 1;
+        }
+      }
+    }
+  }
+  // 7. LES FANIONS : une guirlande d'un réverbère de coin au suivant, sur les
+  //    quatre côtés. Elle pend dans l'air entre deux têtes de mât ; triée à la
+  //    profondeur de son bout le plus proche, elle passe devant ce qui est derrière
+  //    elle et sous ce qui est devant.
+  if (R.garland && lamps.length === 4) {
+    const [a, b, c, d] = lamps;                      // (x0,y0) (x1,y0) (x0,y1) (x1,y1)
+    for (const [p, q] of [[a, b], [b, d], [d, c], [c, a]]) {
+      props.push({
+        prop: 'garland', variant: null, wx: (p.wx + q.wx) / 2, wy: (p.wy + q.wy) / 2, hT: 0,
+        a: { wx: p.wx, wy: p.wy }, b: { wx: q.wx, wy: q.wy }, d: Math.max(p.d, q.d) + 0.5,
+        seed: Math.floor(h01('plz' + sd + ':gl:' + p.wx + ':' + q.wx) * 4),
+      });
+    }
+  }
   props.sort((a, b) => a.d - b.d);
 
-  return { box, era, w, h, cxc, cyc, cells, props, benchPerSide, trees, centrePris, lamps };
+  return { box, era, kind, w, h, cxc, cyc, cells, props, benchPerSide, trees, centrePris, lamps };
 }
 
 // TOUTES les places de la ville, mémoïsées ensemble.
@@ -1119,6 +1367,8 @@ export function plazaAnchor(bb, iw, ih, px, py, hPx) {
 // le conflit au lieu de le régler) — et calée sur la LARGEUR D'ENCRE, pas sur
 // celle du canvas, sinon elle déborde de l'objet.
 export function drawIsoPlazaProp(ctx, rec, era, now) {
+  if (rec.prop === 'person') { drawPlazaPerson(ctx, rec, now); return; }
+  if (rec.prop === 'garland') { drawPlazaGarland(ctx, rec); return; }
   const T = CM.TILE, z = CM.cam.zoom;
   const p = worldToScreen(rec.wx, rec.wy);
   let hPx = rec.hT * T * z * PLAZA_TUNE.propScale;
@@ -1144,19 +1394,16 @@ export function drawIsoPlazaProp(ctx, rec, era, now) {
     }
   }
   const g = plazaAnchor(bb, im.naturalWidth, im.naturalHeight, px, py, hPx);
-  // Pas d'ombre sous une margelle : elle est À PLAT dans le dallage, elle ne se
-  // détache pas du sol — et son arbre porte déjà la sienne.
-  // `rec.noShadow` : refus par PROP, pas par molette. PLAZA_TUNE.shadow est
-  // global — l'éteindre pour un objet déshabillerait bancs et bacs au passage.
-  // Les POINTS D'EAU s'en servent : Raph a refusé l'ellipse sombre sous eux
-  // (2026-08-05), même refus que sous un bâtiment. Elle marque le contact au
-  // lieu de le régler.
-  if (PLAZA_TUNE.shadow > 0 && !rec.treeV && !rec.noShadow) {
-    const rx = g.inkW * 0.5;
-    ctx.fillStyle = 'rgba(0,0,0,' + PLAZA_TUNE.shadow + ')';
-    ctx.beginPath();
-    ctx.ellipse(px, py, rx, rx * 0.34, 0, 0, Math.PI * 2);
-    ctx.fill();
+  // L'OMBRE DU SOLEIL (2026-09-30, une seule lumière pour toute la carte,
+  // iso/isoSunShadow.js) remplace l'ellipse douce du pied, et le refus de l'ellipse
+  // sous les points d'eau (Raph, 2026-08-05) tombe avec elle : ce n'est plus une
+  // marque de contact, c'est l'ombre que tout objet porte. L'arc AVANT d'une
+  // margelle (rec.front) est le même objet, déjà ombré. La FONTAINE est un bassin
+  // posé à plat : pivot 'plate' (pied commun au centre du bassin) — par colonne, la
+  // profondeur du bassin compterait comme de la hauteur et poserait une fausse
+  // bande d'ombre devant lui ; ainsi seule la vasque centrale projette.
+  if (!rec.front && !rec.treeV) {
+    drawSunShadow(ctx, im, g.dx, g.dy, g.dw, g.dh, 0, 0, 0, 0, PLATE_PROPS.has(rec.prop) ? 'plate' : 'column');
   }
   // EAU ANIMÉE : même géométrie que le statique, seule la SOURCE change. Le
   // cran d'ambiance « aucune » l'arrête avec le reste ; « sobre » la garde,
@@ -1194,6 +1441,74 @@ export function drawIsoPlazaProp(ctx, rec, era, now) {
 // Gabarit plat : un prop sans aucun art existe quand même à l'écran, à SA
 // taille, pour que la COMPOSITION se juge avant que l'art soit produit. Volontai-
 // rement terne et cerné — personne ne doit le confondre avec un rendu fini.
+// Posés À PLAT (bassin, massif, puits) : pivot 'plate' de l'ombre du soleil.
+const PLATE_PROPS = new Set(['fountain', 'fountain-forum', 'flowerbed', 'well']);
+
+// ── UN PASSANT ARRÊTÉ ───────────────────────────────────────────────────────
+// Le dessinateur des habitants lui-même (agents.js) : même bande, même échelle,
+// même ombre du soleil et même reflet — immobile (première image, pieds joints),
+// les pieds MESURÉS sur le sol (groundFeet), tourné vers ce qu'il regarde.
+function drawPlazaPerson(ctx, rec, now) {
+  const p = worldToScreen(rec.wx, rec.wy);
+  drawNamedAgentIso(ctx, p.x, p.y, CM.cam.zoom, rec.name, rec.scale || 1, rec.dir, false, now, 0, 1, null, true);
+}
+
+// ── LES FANIONS ─────────────────────────────────────────────────────────────
+// Une corde tendue d'une tête de réverbère de coin à la suivante, qui pend en
+// chaînette, et des fanions triangulaires de quatre couleurs vives (rouge, ocre,
+// bleu, crème — celles des auvents du marché). LA NUIT, chaque fanion porte une
+// lanterne : une lueur chaude déposée dans le calque de lumière (lightLayer), qui
+// s'ajoute APRÈS le voile de nuit comme celle des lampadaires. Au loin (zoom < 0,6)
+// ce ne serait qu'un trait de bruit : rien.
+// Molette : __plaza({ garland: { hT, sag, step } }) — hT = hauteur des attaches
+// (tuiles), sag = flèche en part de la portée, step = pas des fanions (px d'art).
+export const GARLAND = { on: true, hT: 1.25, sag: 0.14, step: 9, cols: ['#c8402f', '#e2b441', '#3d6fb0', '#efe6d2'] };
+function drawPlazaGarland(ctx, rec) {
+  const z = CM.cam.zoom;
+  if (!GARLAND.on || z < 0.6) return;
+  const T = CM.TILE, lift = GARLAND.hT * T * z;
+  const A = worldToScreen(rec.a.wx, rec.a.wy), B = worldToScreen(rec.b.wx, rec.b.wy);
+  const ax = A.x, ay = A.y - lift, bx = B.x, by = B.y - lift;
+  const len = Math.hypot(bx - ax, by - ay);
+  if (len < 8) return;
+  const sag = len * GARLAND.sag;
+  // Point de la chaînette (approchée d'une parabole) au paramètre t.
+  const at = (t) => [ax + (bx - ax) * t, ay + (by - ay) * t + sag * 4 * t * (1 - t)];
+  const px = Math.max(1, z);                           // un pixel d'art
+  ctx.save();
+  ctx.lineWidth = Math.max(1, Math.round(z * 0.8));
+  ctx.strokeStyle = 'rgba(58,42,34,0.85)';
+  ctx.beginPath();
+  ctx.moveTo(ax, ay);
+  // Bézier quadratique : le point de contrôle à DEUX flèches sous le milieu.
+  ctx.quadraticCurveTo((ax + bx) / 2, (ay + by) / 2 + sag * 2, bx, by);
+  ctx.stroke();
+  const m = Math.max(2, Math.floor(len / (GARLAND.step * px)));
+  const night = Math.max(0, Math.min(1, (CM.nightF || 0) * 1.4));
+  for (let k = 1; k < m; k += 1) {
+    const [x, y] = at(k / m);
+    ctx.fillStyle = GARLAND.cols[(k + (rec.seed | 0)) % GARLAND.cols.length];
+    ctx.beginPath();
+    ctx.moveTo(x - 1.5 * px, y);
+    ctx.lineTo(x + 1.5 * px, y);
+    ctx.lineTo(x, y + 3.2 * px);
+    ctx.closePath();
+    ctx.fill();
+    if (night > 0.05) {
+      const r = 5 * px;
+      const lc = lightCtx(x - r, y - r, x + r, y + r);
+      if (lc) {
+        const g = lc.createRadialGradient(x, y + px, 0, x, y + px, r);
+        g.addColorStop(0, 'rgba(255,196,120,' + (0.55 * night).toFixed(3) + ')');
+        g.addColorStop(1, 'rgba(255,196,120,0)');
+        lc.fillStyle = g;
+        lc.fillRect(x - r, y - r + px, r * 2, r * 2);
+      }
+    }
+  }
+  ctx.restore();
+}
+
 function drawPlaceholder(ctx, p, hPx, rec) {
   const w = hPx * aspectOf(rec.prop);
   ctx.fillStyle = 'rgba(72,66,58,0.55)';

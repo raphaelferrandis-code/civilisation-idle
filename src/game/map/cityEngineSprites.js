@@ -14,6 +14,7 @@ import { lightCut, lightCutImage } from './lightLayer.js';
 import { recDens, palierK, PALIER_SPANSUM, palierHFrac } from './spriteScale.js';
 import { pxProbe, recPx } from './pixelGrid.js';
 import { snapDev } from './blitSnap.js';
+import { drawSunShadow } from './iso/isoSunShadow.js';
 import { snowSprite, snowRoofTune } from './snowRoof.js';
 import { WINTER } from './seasonMode.js';
 
@@ -559,6 +560,9 @@ function blitProp(ctx, ox, oy, sw, sh, p, cx, cy, wFrac, hFrac) {
   const [left, top, drawW, drawH] = snapRect(
     ox + sw * cx - drawW0 / 2, oy + sh * cy - drawH0 / 2, drawW0, drawH0,
     im.naturalWidth, im.naturalHeight);
+  // L'ombre du soleil (iso/isoSunShadow.js), pivot par colonne : le socle dessiné
+  // sous un bâtiment n'en projette aucune de visible, le bâtiment oui.
+  drawSunShadow(ctx, im, left, top, drawW, drawH, 0, 0, 0, 0, 'column');
   const prev = ctx.imageSmoothingEnabled; ctx.imageSmoothingEnabled = false;
   ctx.drawImage(propArt(p, im), left, top, drawW, drawH);
   ctx.imageSmoothingEnabled = prev;
@@ -577,6 +581,7 @@ function blitCosmicTower(ctx, ox, oy, sw, sh, key, now, band, cp, baseOverride) 
   const drawH = sh * H, drawW = drawH * (im.naturalWidth / im.naturalHeight);
   recBlitDens(key, drawH, im.naturalHeight);
   const cx = ox + sw * 0.5, baseY = oy + sh * BASE; // base PLANTÉE (pas de lévitation → pas d'effet flottant)
+  drawSunShadow(ctx, im, cx - drawW / 2, baseY - drawH, drawW, drawH, 0, 0, 0, 0, 'column');
   const prev = ctx.imageSmoothingEnabled; ctx.imageSmoothingEnabled = false;
   // Neige exclue par défaut sur les tours cosmiques (cf. skipKey dans snowRoof.js) :
   // le passage par propArt existe pour que __snowRoofTune({skipCosmic:false}) veuille
@@ -606,6 +611,7 @@ function blitPropGrounded(ctx, ox, oy, sw, sh, p, cx, fy, wFrac, hFrac) {
   const [left, top, drawW, drawH] = snapRect(
     ox + sw * cx - drawW0 / 2, oy + sh * fy - footF * drawH0, drawW0, drawH0,
     im.naturalWidth, im.naturalHeight, 'pied');
+  drawSunShadow(ctx, im, left, top, drawW, drawH, 0, 0, 0, 0, 'column');
   const prev = ctx.imageSmoothingEnabled; ctx.imageSmoothingEnabled = false;
   ctx.drawImage(propArt(p, im), left, top, drawW, drawH);
   ctx.imageSmoothingEnabled = prev;

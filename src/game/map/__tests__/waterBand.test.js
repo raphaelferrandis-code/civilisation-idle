@@ -97,12 +97,12 @@ describe("accord de chaque coloris", () => {
     expect(WATER_SHEETS.brute.dim).toBe(0);
   });
 
-  it("seul l'état normal est assombri (demande de Raph)", () => {
-    expect(WATER_SHEETS.beau.dim).toBeGreaterThan(0);
-    for (const k of ['usure', 'hiver', 'pluie', 'brute']) expect(WATER_SHEETS[k].dim).toBe(0);
-    // Et l'assombrissement doit rester LÉGER : il s'ajoute au tint, au-delà de
-    // ~0,3 le ruban vire à l'ardoise et on perd le coloris qu'on venait de cuire.
-    expect(WATER_SHEETS.beau.dim).toBeLessThan(0.3);
+  it("l'état normal n'est plus rabattu : sa nappe est calme d'elle-même (2026-09-30)", () => {
+    // `dim` rabattait l'azur natif, trop vif (« un peu trop flashy », Raph). La nappe
+    // du beau temps est désormais recolorée calme (scripts/eauCalme.mjs) : la rabattre
+    // en plus la noierait. Aucun coloris n'est assombri.
+    for (const k of ['beau', 'usure', 'hiver', 'pluie', 'brute']) expect(WATER_SHEETS[k].dim).toBe(0);
+    expect(WATER_SHEETS.beau.src).toMatch(/calm-ciel/);
   });
 });
 

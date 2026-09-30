@@ -44,9 +44,13 @@ const chroma = (r, g, b) => (Math.max(r, g, b) - Math.min(r, g, b)) * 100 / 255;
 // `crafthouse`, `insula` et `terrace` s'y ajoutent le 2026-08-06 pour la MÊME raison,
 // vérifiée sur leur art : 20,2 / 16,5 / 8,9 % de terre cuite, du côté brique. Leur
 // compagnon `towerhouse` (4,0 %, profil de `stonehouse`) part, lui, en famille FROIDE.
+// Les quatre maisons romaines de la bande 4 (2026-10-01) les rejoignent : générées pour
+// cette bande, dans ses couleurs (plâtre, ocre, terre cuite), elles n'ont pas de rampe
+// d'échange — leur variété, c'est d'être quatre.
 const SANS_TEINTE = new Set([
   "tent", "hut", "longhouse", "courtyard", "townhouse", "manor",
-  "crafthouse", "insula", "terrace"
+  "crafthouse", "insula", "terrace",
+  "domus", "taberna", "villa", "insula2"
 ]);
 
 // Sprites lus une fois, réutilisés par les tests qui mesurent sur l'art réel.

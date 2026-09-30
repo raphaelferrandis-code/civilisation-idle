@@ -27,6 +27,7 @@ import { drawCachedEngineScene } from '../engineSceneCache.js';
 import { engineAnimNow } from '../engineAnim.js';
 import { suspendFlameGlow } from '../flameGlow.js';
 import { suspendLightLayer } from '../lightLayer.js';
+import { muteSunShadow } from './isoSunShadow.js';
 import { HOVER_GOLD } from './isoPalette.js';
 
 // ── SCÈNES MOTEUR legacy posées sur le losange (Phase 3-lite) ────────────────
@@ -109,7 +110,8 @@ function engineInkFrac(t, now) {
   // sortir (la scène est dessinée en (0,0) d'un canvas de 96 px).
   suspendFlameGlow(true);
   suspendLightLayer(true);
-  try { drawEngineSprite(t, 0, 0, ENG_INK_REF, ENG_INK_REF, now); }
+  // Ni l'ombre du soleil : elle gonflerait l'encre mesurée (cf. muteSunShadow).
+  try { muteSunShadow(() => drawEngineSprite(t, 0, 0, ENG_INK_REF, ENG_INK_REF, now)); }
   catch { CM.ctx = prevCtx; suspendFlameGlow(false); suspendLightLayer(false); return null; }
   suspendFlameGlow(false);
   suspendLightLayer(false);
@@ -170,7 +172,8 @@ function drawIsoEngineOutline(t, bx, by, bw, now, color) {
   suspendFlameGlow(true);
   suspendLightLayer(true);
   try {
-    drawEngineSprite(t, 0, 0, w, w, now);
+    // Ni l'ombre du soleil : le liseré épouserait sa forme (cf. muteSunShadow).
+    muteSunShadow(() => drawEngineSprite(t, 0, 0, w, w, now));
   } catch {
     suspendFlameGlow(false);
     suspendLightLayer(false);

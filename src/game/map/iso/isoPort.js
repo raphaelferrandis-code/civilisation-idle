@@ -30,6 +30,8 @@ import { isoArt } from './isoArt.js';
 import { rgb } from './isoPalette.js';
 import { pxProbe, recPx } from '../pixelGrid.js';
 import { snapDev } from '../blitSnap.js';
+import { drawSunShadow, sunShadowNightK } from './isoSunShadow.js';
+import { noteReflection } from './isoReflect.js';
 
 // ── BATEAUX : flotte legacy (CM.ships) sur le ruban projeté ──────────────────
 // Reprend la recette drawShips (stade par ère, voie latérale, louvoiement,
@@ -161,10 +163,15 @@ export function drawIsoShips(now) {
       ctx.fill();
       ctx.restore();
     }
-    ctx.fillStyle = 'rgba(10,25,35,0.20)';
-    ctx.beginPath();
-    ctx.ellipse(0, s * 0.06 * sizeMul, s * 0.24 * sizeMul, s * 0.08 * sizeMul, 0, 0, Math.PI * 2);
-    ctx.fill();
+    // Ellipse de flottaison : de jour, l'OMBRE DU SOLEIL de la coque la remplace
+    // (ci-dessous) ; elle ne reste que la nuit, en fondu inverse.
+    const nk = sunShadowNightK();
+    if (nk > 0.01) {
+      ctx.fillStyle = 'rgba(10,25,35,' + (0.20 * nk).toFixed(3) + ')';
+      ctx.beginPath();
+      ctx.ellipse(0, s * 0.06 * sizeMul, s * 0.24 * sizeMul, s * 0.08 * sizeMul, 0, 0, Math.PI * 2);
+      ctx.fill();
+    }
     ctx.restore();
     // COQUE : rotation d'objet PixelLab au SECTEUR du cap (8 vues, Phase 5 —
     // fini le profil penché « qui tombe »), sinon repli profil legacy amorti.
@@ -181,7 +188,16 @@ export function drawIsoShips(now) {
       // FLEET_SCALE, réglé pour la MASSE des coques — la densité en tombe comme
       // un reste, et c'est ce reste qu'on mesure ici, stade par stade.
       if (pxProbe.on) recPx('bateau · ' + vis.key, isoBoat.img.naturalWidth, dw);
-      ctx.drawImage(isoBoat.img, snapDev(p.x - dw / 2), snapDev(p.y - dw * BOAT_IMG_TOP + bob), dw, dw);
+      // Reflet à la LIGNE DE FLOTTAISON (la coque est sur l'eau, cf. isoReflect
+      // 'water'), déclaré ici plutôt que deviné par colonne d'écran. Pivot PAR
+      // COLONNE, reflet comme ombre : vue de biais, la coque est une DIAGONALE à
+      // l'écran — sa rangée la plus basse n'est que la pointe d'un bout, et retourner
+      // tout le bateau autour d'elle décollait le reflet de l'autre bout (retour Raph,
+      // 2026-10-01). Chaque colonne a sa ligne de flottaison : son pixel le plus bas.
+      const bx = snapDev(p.x - dw / 2), by = snapDev(p.y - dw * BOAT_IMG_TOP + bob);
+      noteReflection(ctx, isoBoat.img, bx, by, dw, dw, 0, 0, 0, 0, 'column', 'water');
+      drawSunShadow(ctx, isoBoat.img, bx, by, dw, dw, 0, 0, 0, 0, 'column', false);
+      ctx.drawImage(isoBoat.img, bx, by, dw, dw);
     } else if (sh.kind !== 'trade') {
       // Repli des métiers dont l'art n'est pas encore récolté. SANS lui on ne
       // verrait rien du tout et il serait impossible de régler vitesses, voies
@@ -334,13 +350,21 @@ export function drawIsoPortBoat(ctx, moor, now, z, T) {
   const heading = Math.atan2(b2.y - a2.y, b2.x - a2.x);
   const isoBoat = BOAT_ISO[vstage] ? isoArt('boat-' + vstage + '-' + boatSector(heading)) : null;
   const prevSm = ctx.imageSmoothingEnabled; ctx.imageSmoothingEnabled = false;
-  ctx.fillStyle = 'rgba(10,25,35,0.20)';
-  ctx.beginPath(); ctx.ellipse(p.x, p.y + s * 0.06 * sizeMul, s * 0.24 * sizeMul, s * 0.08 * sizeMul, 0, 0, Math.PI * 2); ctx.fill();
+  // Ellipse de flottaison la nuit seulement (cf. la flotte, drawIsoShips).
+  const nk = sunShadowNightK();
+  if (nk > 0.01) {
+    ctx.fillStyle = 'rgba(10,25,35,' + (0.20 * nk).toFixed(3) + ')';
+    ctx.beginPath(); ctx.ellipse(p.x, p.y + s * 0.06 * sizeMul, s * 0.24 * sizeMul, s * 0.08 * sizeMul, 0, 0, Math.PI * 2); ctx.fill();
+  }
   if (isoBoat && isoBoat.ready) {
     // Rotation iso au secteur du cap local du ruban (amarré parallèle au quai).
     const dw = Math.max(1, snapDev(s * (BOAT_SIZES[vstage] || 0.7) * sizeMul * 1.15));   // grille DEVICE, cf. la flotte
     if (pxProbe.on) recPx('bateau · ' + vstage + ' · amarre', isoBoat.img.naturalWidth, dw);
-    ctx.drawImage(isoBoat.img, snapDev(p.x - dw / 2), snapDev(p.y - dw * 0.58 + bob), dw, dw);
+    const bx = snapDev(p.x - dw / 2), by = snapDev(p.y - dw * 0.58 + bob);
+    // Pivot par colonne, cf. la flotte (drawIsoShips).
+    noteReflection(ctx, isoBoat.img, bx, by, dw, dw, 0, 0, 0, 0, 'column', 'water');
+    drawSunShadow(ctx, isoBoat.img, bx, by, dw, dw, 0, 0, 0, 0, 'column', false);
+    ctx.drawImage(isoBoat.img, bx, by, dw, dw);
   } else {
     const boatKey = vstage === 'cosmic' ? 'cosmic-' + Math.min(9, Math.max(7, moor.band)) : vstage;
     const chr = ensureBoat(boatKey);
@@ -379,7 +403,10 @@ export function drawIsoRiverside(ctx, t, spanX, spanY, T, z, now, band, ei) {
   const sizeMul = tradeSizeMul(vstage, band);
 
   // ── PORT : ponton PERPENDICULAIRE au fleuve + corps de quai + bateau ────────
-  const stageHouse = ['port-prop-house', 'port-house-medieval', 'port-house-industrial', 'port-house-modern'][stage];
+  // Bande 4 (Marbre) : la maison de port CLASSIQUE, comme le chemin des scènes
+  // (cityEngineSprites) — le stade seul y posait un entrepôt de brique industriel.
+  const stageHouse = (band === 4 && propReady('port-house-classical')) ? 'port-house-classical'
+    : ['port-prop-house', 'port-house-medieval', 'port-house-industrial', 'port-house-modern'][stage];
   const ckP = 'port-cosmic-' + band;
   const HOUSE = band >= 7 && propReady(ckP) ? ckP
     : propReady(stageHouse) ? stageHouse : (propReady('port-prop-house') ? 'port-prop-house' : null);

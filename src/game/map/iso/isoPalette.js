@@ -32,8 +32,15 @@ export const PLAZA = [214, 206, 182];       // dallage d'esplanade (repli, toute
 // Il sert au repli (tuile pas encore décodée) et au LOD lointain, où la tuile
 // n'est plus blittée : sans lui, une place changeait de couleur en dézoomant.
 // Clé absente : on garde PLAZA.
+// DOSE DE LA TUILE DE PLACE (2026-09-30, docs/PLAN-MAQUETTE-VIVANTE.md, lot 2) : posée
+// pleine, elle faisait de chaque place une grande tache claire de gros pavés, plus
+// chargée que tout ce qui l'entoure — on lisait « vide » au milieu de la ville.
+// Comme le dallage des rues (URBAN_TILE_A), le motif descend et le ton porte la place.
+export const PLAZA_GROUND = { tileAlpha: 0.45 };
 export const PLAZA_ERA_TONE = {
-  antique: [219, 204, 185], medieval: [112, 115, 119], industrial: [89, 91, 97],
+  // antique : (219,204,185) mesuré sur la tuile ; rabattu vers le sol des rues
+  // (~190,181,154) avec la tuile dosée — la place reste plus claire, sans éblouir.
+  antique: [208, 195, 174], medieval: [112, 115, 119], industrial: [89, 91, 97],
   modern: [190, 194, 197], cosmic: [233, 223, 211],
 };
 // Bas-fond CLAIR le long des rives (drawIsoRiver) : 3 bandes CLAIR (bord) → profond

@@ -36,7 +36,7 @@ import {
   LIGHT_LAYER, beginLightLayer, endLightLayer, lightCtx, lightCut, lightCutImage,
 } from '../lightLayer.js';
 import {
-  drawPixelHouse, drawPixelHouseCastShadow, drawPixelHouseOutline, pixelHouseBox, pixelHouseReady,
+  drawPixelHouse, drawPixelHouseOutline, drawPixelHouseSunShadow, pixelHouseBox, pixelHouseReady,
 } from '../pixelHouses.js';
 import { drawWonder } from '../renderBuildings.js';
 import { drawIsoRevealPin, drawIsoSmoke } from './isoAmbient.js';
@@ -57,6 +57,7 @@ import { drawIsoPortBoat, drawIsoRiverside } from './isoPort.js';
 import {
   LAMP_TUNE, isoLampLightFrame, lampFootMetrics, lampGlowBox, lampLit, paintLampGlow,
 } from './isoStreet.js';
+import { drawSunShadow, muteSunShadow } from './isoSunShadow.js';
 import { GHOST_TUNE, drawIsoCitizenItem, drawIsoRioter, drawIsoVehicle } from './isoUnits.js';
 import { GL_RUN_MIN } from './isoWildForest.js';
 import { ISO_X, worldToScreen } from './projection.js';
@@ -76,24 +77,6 @@ function drawTreeIso(ctx, sx, sy, h) {
 }
 
 const HOUSE_BOX_CAP = 4000;            // garde-fou mémoire, jamais atteint en jeu
-
-// ── OMBRES DE CONTACT (2026-09-29, « chaque chose laisse une trace ») ───────
-// Ni les arbres ni les tentes n'en avaient : posés sur le sol, ils n'y étaient
-// pas plantés — le défaut que Raph avait nommé pour les buissons de terre-plein
-// (« le buisson vole », 2026-08-03), et que leur ellipse d'ancrage a réglé. Même
-// geste ici, en fraction du canvas de l'arbre (hpx) et de la boîte de la tente,
-// DÉCALÉ vers le bas-droite : la lumière vient du haut-gauche. Assez sombre pour
-// ancrer, assez petite pour ne pas dessiner une seconde silhouette.
-// Molettes : __contactShadow({ tree: {...}, tent: {...} }) ; `on: false` coupe.
-const TREE_SHADOW = { on: true, col: 'rgba(24,34,18,0.34)', dx: 0.035, dy: 0.004, rx: 0.15, ry: 0.055 };
-const TENT_SHADOW = { on: true, col: 'rgba(40,30,18,0.30)', dx: 0.06, dy: -0.07, rx: 0.5, ry: 0.19 };
-if (typeof window !== 'undefined') {
-  window.__contactShadow = (o = {}) => {
-    if (o.tree) Object.assign(TREE_SHADOW, o.tree);
-    if (o.tent) Object.assign(TENT_SHADOW, o.tent);
-    return { tree: { ...TREE_SHADOW }, tent: { ...TENT_SHADOW } };
-  };
-}
 
 // LE SURVOL AU SOL — le losange de la cellule visée, tracé AVANT le peintre parce
 // qu'il est au sol : tout ce qui est debout doit pouvoir passer devant.
@@ -315,22 +298,9 @@ export function paintIsoItems(bake, items, now) {
         const hx = anchor.x - wpx / 2, hy = anchor.y - hpx - hh * 0.5;
         // SURVOL : le liseré se dessine AVANT le sprite (blob élargi puis sprite
         // par-dessus), sinon il mange la silhouette au lieu de la cerner.
-        // Ombre portée calculée des rares habitations qui n'en ont pas de cuite
-        // (houseShadow.js), sous le liseré de survol et le sprite.
-        drawPixelHouseCastShadow(t, hx, hy, wpx, hpx);
+        // L'ombre du soleil (isoSunShadow.js), sous le liseré de survol et le sprite.
+        drawPixelHouseSunShadow(t, hx, hy, wpx, hpx);
         if (CM.hover && CM.hover.tile === t) drawPixelHouseOutline(t, hx, hy, wpx, hpx, HOVER_GOLD);
-        // Ombre de contact de la TENTE (cf. TENT_SHADOW), sous le sprite : sa
-        // base est le bas de la boîte réellement dessinée.
-        if (TENT_SHADOW.on && t.variant === 'tent') {
-          const sb = pixelHouseBox(t, hx, hy, wpx, hpx);
-          if (sb) {
-            ctx.fillStyle = TENT_SHADOW.col;
-            ctx.beginPath();
-            ctx.ellipse(sb.dx + sb.dw * (0.5 + TENT_SHADOW.dx), sb.dy + sb.dh * (1 + TENT_SHADOW.dy),
-              sb.dw * TENT_SHADOW.rx, sb.dw * TENT_SHADOW.ry, 0, 0, Math.PI * 2);
-            ctx.fill();
-          }
-        }
         const box = drawPixelHouse(t, hx, hy, wpx, hpx);
         // Mémorise la boîte réellement dessinée : c'est le seul endroit qui la
         // connaisse. Consommée par le hit-test à la silhouette (cityMapHitTest),
@@ -418,17 +388,11 @@ export function paintIsoItems(bake, items, now) {
         // vient de treeImgs (une fois par frame, cf. plus haut).
         const tImg = tImg0;
         const tdx = p.x - hpx / 2, tdy = p.y - hpx * 0.92;
-        // OMBRE DE CONTACT au pied du tronc (« chaque chose laisse une trace »,
-        // 2026-09-29) : sans elle l'arbre est posé SUR le pré, pas planté dedans.
-        // Décalée vers le bas-droite, loin de la lumière haut-gauche. Toujours sur
+        // L'OMBRE DU SOLEIL (isoSunShadow.js), pivot au PIED du tronc (0,92 du
+        // canvas) : la couronne flotte, son ombre part loin du tronc. Toujours sur
         // le canvas 2D, même quand le sprite part au batcher GL : la série GL se
         // compose par-dessus, l'ombre reste dessous.
-        if (TREE_SHADOW.on) {
-          ctx.fillStyle = TREE_SHADOW.col;
-          ctx.beginPath();
-          ctx.ellipse(p.x + hpx * TREE_SHADOW.dx, p.y + hpx * TREE_SHADOW.dy, hpx * TREE_SHADOW.rx, hpx * TREE_SHADOW.ry, 0, 0, Math.PI * 2);
-          ctx.fill();
-        }
+        drawSunShadow(ctx, tImg, tdx, tdy, hpx, hpx, 0, 0, 0, 0, 0.92);
         // Série basculée : le sprite part au batcher (un seul appel de dessin
         // pour toute la série). Refus du batcher (atlas plein, source pas
         // décodée) → chemin 2D, sprite par sprite, comme avant.
@@ -562,6 +526,10 @@ export function paintIsoItems(bake, items, now) {
       const hpx = T * z * LAMP_TUNE.h / (m.usedHf || 1);
       // Largeur au RATIO du PNG (les v3 sont 64×128 : un blit carré les étirerait ×2).
       const wpx = hpx * ((it.art.img.naturalWidth || 1) / (it.art.img.naturalHeight || 1));
+      // L'ombre du soleil, pivot au PIED du mât (le mât est une colonne mince, sa
+      // lanterne déborde : le pivot commun la projette loin, comme un arbre).
+      // Sous 24 px, ce n'est plus qu'un trait d'un pixel : pas d'appel pour lui.
+      if (hpx >= 24) drawSunShadow(ctx, it.art.img, p.x - wpx * m.footXf, p.y - hpx * m.footYf, wpx, hpx, 0, 0, 0, 0, m.footYf);
       const prevLS = ctx.imageSmoothingEnabled;
       ctx.imageSmoothingEnabled = false;
       ctx.drawImage(it.art.img, p.x - wpx * m.footXf, p.y - hpx * m.footYf, wpx, hpx);
@@ -715,15 +683,19 @@ export function paintIsoItems(bake, items, now) {
     };
     const prevGA = ctx.globalAlpha;
     ctx.globalAlpha = GHOST_TUNE.alpha;
-    for (const it of items) {
-      if (!it.ghost) continue;
-      vus += 1;
-      if (!couvert(it.gwx, it.gwy, it.d)) continue;
-      dessines += 1;
-      if (it.kind === 'cit') drawIsoCitizenItem(ctx, it.p, now, z);
-      else if (it.kind === 'veh') drawIsoVehicle(ctx, it.v, now, z);
-      else if (it.kind === 'riot') drawIsoRioter(ctx, it.p, now, z);
-    }
+    // Sans leur ombre : elle a été posée au sol à leur passage dans le peintre, la
+    // repeindre ici la collerait sur la façade qui les cache.
+    muteSunShadow(() => {
+      for (const it of items) {
+        if (!it.ghost) continue;
+        vus += 1;
+        if (!couvert(it.gwx, it.gwy, it.d)) continue;
+        dessines += 1;
+        if (it.kind === 'cit') drawIsoCitizenItem(ctx, it.p, now, z);
+        else if (it.kind === 'veh') drawIsoVehicle(ctx, it.v, now, z);
+        else if (it.kind === 'riot') drawIsoRioter(ctx, it.p, now, z);
+      }
+    });
     ctx.globalAlpha = prevGA;
     if (globalThis.__ghostStats) globalThis.__ghostStatsLast = { marquees: vus, dessinees: dessines };
   }

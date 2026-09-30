@@ -29,10 +29,13 @@ export let qualityMode = (() => {
 // au lieu des sprites, lumières/animations/agents coupés). 0 = jamais de LOD →
 // TOUT reste visible même en dézoom total (le sens de « Élevée »). Plus la valeur
 // est haute, plus la simplification arrive tôt (allège le dézoom). Zoom ∈ [0.35, 3.2].
+// `fx` = l'OMBRE DU SOLEIL et les REFLETS dans l'eau (docs/PLAN-MAQUETTE-VIVANTE.md) :
+// mesurés à +4 ms chacun par image au zoom 1 en rendu logiciel (2026-09-30). Le
+// palier des machines modestes s'en passe.
 const QUALITY_TIERS = {
-  high:     { dpr: 2.0, citizenMul: 1.0, fps: 60, lodZoom: 0,    crispGesture: true },
-  balanced: { dpr: 1.5, citizenMul: 0.7, fps: 30, lodZoom: 0.55 },
-  perf:     { dpr: 1.0, citizenMul: 0.4, fps: 30, lodZoom: 0.85 },
+  high:     { dpr: 2.0, citizenMul: 1.0, fps: 60, lodZoom: 0,    crispGesture: true, fx: true },
+  balanced: { dpr: 1.5, citizenMul: 0.7, fps: 30, lodZoom: 0.55, fx: true },
+  perf:     { dpr: 1.0, citizenMul: 0.4, fps: 30, lodZoom: 0.85, fx: false },
 };
 
 // 'auto' : palier deviné à partir de l'appareil. On reste conservateur — on ne

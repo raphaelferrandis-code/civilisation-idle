@@ -20,7 +20,9 @@ import { pxProbe, recPx } from './pixelGrid.js';
 // d'import sûr — projection ne connaît que layout/isoTerrain, jamais les sprites.
 import { ISO_Y } from './iso/projection.js';
 import { houseFootprint } from './procedural/buildingGenerator.js';
-import { HOUSE_CAST_SHADOW, HOUSE_SHADOW_RGB, houseCastShadow } from './houseShadow.js';
+import { drawSunShadow } from './iso/isoSunShadow.js';
+import { noteReflection } from './iso/isoReflect.js';
+import { drawHouseWindows } from './houseWindows.js';
 
 export const pixelHousesFlag = { on: true };
 
@@ -54,7 +56,9 @@ const AVAILABLE = new Set([
   "manor", "block", "tenement", "tower", "megablock", "arcologyhome",
   // 2026-08-06 — quatre archétypes de plus pour les bandes 2 à 5, qui n'en
   // offraient que deux ou trois (cf. VARIANTS_HOUSE).
-  "crafthouse", "towerhouse", "insula", "terrace"
+  "crafthouse", "towerhouse", "insula", "terrace",
+  // 2026-10-01 — les maisons romaines de la bande 4 (cf. VARIANTS_HOUSE).
+  "domus", "taberna", "villa", "insula2"
 ]);
 
 // Variantes tardives qui reçoivent un SKIN COSMIQUE par bande (7 émeraude / 8 or /
@@ -147,9 +151,7 @@ function ensure(key) {
   e = { img: new Image(), ready: false, bbox: null };
   e.img.onload = () => {
     e.ready = true;
-    e.bbox = contentBBox(e.img);
-    // Ombre portée calculée pour les rares sprites qui n'en ont pas (houseShadow.js).
-    if (HOUSE_CAST_SHADOW.has(key)) e.castShadow = castShadowCanvas(e.img, e.bbox);
+    e.bbox = contentBBox(e.img, INK_BOX_PIN[key] || null);
     // Sprite arrivé (souvent APRÈS le bake) → invalider le bake tuiles pour qu'il REMPLACE le
     // repli procédural baké dès le frame suivant (cf. cmInvalidateBakes). Sans ça, un PNG chargé
     // hors de la fenêtre de naissance laissait le procédural GELÉ jusqu'à un re-bake sans rapport
@@ -189,9 +191,26 @@ export function preloadHouseSprites(band) {
   }
 }
 
+// ── BOÎTES D'ENCRE FIGÉES (2026-09-30) ───────────────────────────────────────
+// Les ombres PEINTES de ces sprites ont été rendues transparentes
+// (scripts/ombresPeintes.mjs) : l'ombre du soleil les remplace (iso/isoSunShadow.js).
+// Leur encre mesurée a rétréci d'autant, or le rendu centre le sprite sur elle, pose
+// son bas sur le sol du lot et plafonne son échelle sur sa largeur : sans cette
+// table, sept maisons glissaient de 1 à 7 px et le bloc grandissait de 12 %. Ce sont
+// les boîtes d'ORIGINE, imprimées par le script : seule l'ombre a disparu.
+const INK_BOX_PIN = {
+  stonehouse: { x0: 5, y0: 4, w: 41, h: 49 }, townhouse: { x0: 7, y0: 2, w: 38, h: 53 },
+  courtyard: { x0: 8, y0: 7, w: 49, h: 40 }, block: { x0: 10, y0: 5, w: 53, h: 71 },
+  tenement: { x0: 10, y0: 3, w: 45, h: 90 }, tower: { x0: 6, y0: 3, w: 47, h: 110 },
+  megablock: { x0: 11, y0: 1, w: 90, h: 91 }, arcologyhome: { x0: 12, y0: 5, w: 89, h: 111 },
+  hut: { x0: 5, y0: 3, w: 35, h: 35 }, longhouse: { x0: 16, y0: 3, w: 36, h: 33 },
+};
+
 // BBox du contenu opaque (alpha>16), mesurée UNE fois par sprite via canvas
 // offscreen : ancre la base au sol sans dépendre du padding transparent du PNG.
-function contentBBox(img) {
+// `pin` : boîte imposée (cf. INK_BOX_PIN) — le masque d'occultation est alors tiré
+// de cette boîte-là.
+function contentBBox(img, pin = null) {
   const w = img.naturalWidth, h = img.naturalHeight;
   if (!w || !h) return null;
   let c;
@@ -204,6 +223,7 @@ function contentBBox(img) {
   let data;
   try { data = cx.getImageData(0, 0, w, h).data; }
   catch { return { x0: 0, y0: 0, w, h, mask: null }; }   // garde cross-origin (ne devrait pas arriver, same-origin)
+  if (pin) return { x0: pin.x0, y0: pin.y0, w: pin.w, h: pin.h, mask: maskFromImageData(data, w, h, pin.x0, pin.y0, pin.w, pin.h) };
   let x0 = w, y0 = h, x1 = -1, y1 = -1;
   for (let y = 0; y < h; y += 1) {
     for (let x = 0; x < w; x += 1) {
@@ -221,49 +241,20 @@ function contentBBox(img) {
   return { x0, y0, w: bw, h: bh, mask: maskFromImageData(data, w, h, x0, y0, bw, bh) };
 }
 
-// L'OMBRE PORTÉE en canvas (pixels opaques de la couleur des ombres cuites), avec
-// son origine dans le PNG. Cuite une fois au décodage, jamais par frame.
-function castShadowCanvas(img, bb) {
-  if (!bb) return null;
-  const w = img.naturalWidth, h = img.naturalHeight;
-  if (!w || !h) return null;
-  const c = document.createElement("canvas");
-  c.width = w; c.height = h;
-  const cx = c.getContext("2d", { willReadFrequently: true });
-  cx.drawImage(img, 0, 0);
-  let data;
-  try { data = cx.getImageData(0, 0, w, h).data; } catch { return null; }
-  const sh = houseCastShadow((x, y) => (x < 0 || y < 0 || x >= w || y >= h) ? 0 : data[(y * w + x) * 4 + 3], bb);
-  if (!sh) return null;
-  const out = document.createElement("canvas");
-  out.width = sh.x1 - sh.x0 + 1; out.height = sh.y1 - sh.y0 + 1;
-  const oc = out.getContext("2d");
-  oc.fillStyle = `rgb(${HOUSE_SHADOW_RGB[0]},${HOUSE_SHADOW_RGB[1]},${HOUSE_SHADOW_RGB[2]})`;
-  for (const [x, y] of sh.px) oc.fillRect(x - sh.x0, y - sh.y0, 1, 1);
-  return { canvas: out, x0: sh.x0, y0: sh.y0 };
-}
-
-// Dessine l'ombre portée calculée d'une habitation (si son sprite n'en a pas de
-// cuite), SOUS le sprite : même échelle, même origine, donc même grille de pixels.
+// L'OMBRE DU SOLEIL d'une habitation (iso/isoSunShadow.js, pivot par colonne : le
+// pied de chaque mur reste collé à son ombre). Tirée du sprite de BASE — la teinte
+// et la neige ne déplacent aucun pixel, une seule ombre sert toutes les variantes.
 // À appeler avant le liseré de survol et le sprite.
-// Molette : __houseShadow(false) coupe (A/B).
-export const houseShadowTune = { on: true };
-export function drawPixelHouseCastShadow(t, x, y, w, h) {
-  if (!houseShadowTune.on) return;
+export function drawPixelHouseSunShadow(t, x, y, w, h) {
   const e = cache.get(spriteKeyFor(t.variant));
-  if (!e || !e.castShadow || !e.bbox) return;
+  if (!e || !e.ready || !e.bbox) return;
   const g = pixelHouseGeom(t, x, y, w, h);
   if (!g) return;
-  const sh = e.castShadow, bb = e.bbox;
-  const kx = g.dw / bb.w, ky = g.dh / bb.h;
-  const ctx = CM.ctx;
-  const prev = ctx.imageSmoothingEnabled;
-  ctx.imageSmoothingEnabled = false;
-  ctx.drawImage(sh.canvas, g.dx + (sh.x0 - bb.x0) * kx, g.dy + (sh.y0 - bb.y0) * ky, sh.canvas.width * kx, sh.canvas.height * ky);
-  ctx.imageSmoothingEnabled = prev;
-}
-if (typeof window !== "undefined") {
-  window.__houseShadow = (on) => { if (on != null) houseShadowTune.on = !!on; return houseShadowTune.on; };
+  const bb = e.bbox;
+  // Le REFLET dans l'eau, lui, veut les couleurs vraies : l'image teintée (et
+  // enneigée) que drawPixelHouse va peindre — pas le sprite de base.
+  noteReflection(CM.ctx, g.img, g.dx, g.dy, g.dw, g.dh, g.bb.x0, g.bb.y0, g.bb.w, g.bb.h, 'column');
+  drawSunShadow(CM.ctx, e.img, g.dx, g.dy, g.dw, g.dh, bb.x0, bb.y0, bb.w, bb.h, 'column', false);
 }
 
 // True si un sprite pixel PRÊT existe pour cette tuile → l'appelant saute le
@@ -340,6 +331,9 @@ export function drawPixelHouse(t, x, y, w, h) {
   // lightLayer.js). Même image, même géométrie → découpe au pixel. No-op quand
   // aucune lumière n'a été déposée dans ce coin de l'écran.
   lightCutImage(g.img, g.dx, g.dy, g.dw, g.dh, g.bb.x0, g.bb.y0, g.bb.w, g.bb.h);
+  // La nuit, ses fenêtres s'allument (houseWindows.js) — dans le calque de lumière,
+  // APRÈS la découpe : sa propre silhouette ne doit pas les effacer.
+  drawHouseWindows(t, g);
   return { dx: g.dx, dy: g.dy, dw: g.dw, dh: g.dh, mask: g.bb && g.bb.mask };
 }
 

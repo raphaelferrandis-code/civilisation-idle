@@ -15,24 +15,24 @@ import { bridgeEraForBand } from "../iso/isoBridge.js";
 
 describe("pont suspendu — pas avant le fer", () => {
   it("bois et pierre gardent leurs palées", () => {
-    for (const band of [0, 1, 2, 3]) {
+    for (const band of [0, 1, 2, 3, 4]) {
       expect(bridgeIsSuspended(band), `bande ${band}`).toBe(false);
     }
   });
 
   it("fer, béton et énergie sont suspendus", () => {
-    for (const band of [4, 5, 6, 7, 8, 9]) {
+    for (const band of [5, 6, 7, 8, 9]) {
       expect(bridgeIsSuspended(band), `bande ${band}`).toBe(true);
     }
   });
 
-  it("la bascule tombe EXACTEMENT à la bande 4", () => {
-    // Un pont suspendu à l'âge du bronze est la même faute que le vapeur devant
-    // des habitants en toge : le suspendu naît avec la métallurgie.
-    expect(bridgeIsSuspended(3)).toBe(false);
-    expect(bridgeIsSuspended(4)).toBe(true);
-    expect(bridgeEraForBand(3)).toBe("pierre");
-    expect(bridgeEraForBand(4)).toBe("fer");
+  it("la bascule tombe EXACTEMENT à la bande 5", () => {
+    // Un pont suspendu devant des habitants en toge (bande 4, le Marbre) est la
+    // même faute que le vapeur : le suspendu naît avec la métallurgie, la Fonte.
+    expect(bridgeIsSuspended(4)).toBe(false);
+    expect(bridgeIsSuspended(5)).toBe(true);
+    expect(bridgeEraForBand(4)).toBe("pierre");
+    expect(bridgeEraForBand(5)).toBe("fer");
   });
 });
 

@@ -85,7 +85,14 @@ export function fenceEdges(o, cfg = FENCE) {
   if (cfg.wonders) for (const k of wonderSet) if (urbanSet.has(k)) sources.set(k, null);
   // Les PLACES se reconnaissent à leur matière (rang `plaza` du réseau, cf.
   // fenceInputs) : pas besoin d'un ensemble dédié, le champ de matières sait déjà.
-  if (cfg.plazas) for (const k of urbanSet) if (matOf(k) === 'plaza') sources.set(k, null);
+  // `plazaSourceOk` (facultatif) : quelles cellules de place ont DROIT à la clôture —
+  // depuis le 2026-09-30, le seul square (jardin) ; le forum, le marché et le parvis
+  // sont des lieux publics ouverts (cf. isoPlaza, FENCED_KINDS). Absent : toutes.
+  if (cfg.plazas) {
+    for (const k of urbanSet) {
+      if (matOf(k) === 'plaza' && (!o.plazaSourceOk || o.plazaSourceOk(k))) sources.set(k, null);
+    }
+  }
   if (cfg.quays) {
     // Berge BÂTIE seulement : une cellule de sol de ville qui touche l'eau. La
     // rive sauvage n'a pas de garde-corps, elle a de l'herbe.

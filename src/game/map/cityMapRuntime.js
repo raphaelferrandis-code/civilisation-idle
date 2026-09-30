@@ -107,6 +107,8 @@ function cmApplyQualitySettings() {
   cmFrameMs = 1000 / s.fps;
   cmCitizenMul = s.citizenMul;
   cmLodZoom = (s.lodZoom != null) ? s.lodZoom : 0.55;
+  // Ombre du soleil et reflets dans l'eau (iso/isoSunShadow.js, iso/isoReflect.js).
+  CM.fxOn = s.fx !== false;
 }
 cmApplyQualitySettings();
 
@@ -568,6 +570,10 @@ function cityMapVariantLabel(type, variant) {
     manor: "Manoir",
     stonehouse: "Maison de pierre",
     insula: "Immeuble de rapport",
+    insula2: "Immeuble de rapport",
+    domus: "Domus",
+    taberna: "Taberna",
+    villa: "Villa",
     terrace: "Rangée ouvrière",
     tenement: "Immeuble populaire",
     block: "Bloc résidentiel",

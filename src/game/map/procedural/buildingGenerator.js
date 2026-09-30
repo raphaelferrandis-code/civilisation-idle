@@ -43,7 +43,17 @@ export const VARIANTS_HOUSE = [
   // b5 = Fonte (époque industrielle), sinon on obtient « immeubles + toges ». `insula`
   // est l'immeuble de rapport ROMAIN (brique, balcons de bois, arcades au rez) : c'est
   // la hauteur d'habitation que cette bande pouvait avoir, et elle lui manquait.
-  { base: ["courtyard", "insula", "stonehouse", "insula", "courtyard", "manor"], poor: ["stonehouse", "insula", "townhouse", "courtyard"], rich: ["manor", "courtyard", "insula", "manor"] },
+  // ⚠ RÉVISÉ le 2026-10-01 (docs/PLAN-MAQUETTE-VIVANTE.md, lot 3, « rien sans raison ») :
+  // `stonehouse` et `manor` sont des maisons MÉDIÉVALES (colombages, toits d'ardoise) —
+  // à côté d'habitants en toge, c'était l'anachronisme le plus visible de la bande. Elles
+  // laissent la place à quatre maisons ROMAINES dessinées pour elle : `domus` (plain-pied,
+  // atrium ouvert dans le toit), `taberna` (boutique ouverte sous auvent au rez),
+  // `villa` (portique et jardin clos, lot 2×2 comme le manoir), `insula2` (immeuble de
+  // rapport ocre à volets verts, frère de l'insula de brique). 6 archétypes au lieu de 5.
+  // ⚠ Chaque liste porte les SIX : une cité riche ne tire que `rich` (la démo de la
+  // bande 4 en est une) — sans taberna ni insula, elle alignait 172 maisons à cour
+  // identiques. La maison à cour ne compte qu'une fois par liste.
+  { base: ["domus", "insula", "courtyard", "taberna", "insula2", "domus", "insula2", "villa"], poor: ["domus", "insula", "taberna", "insula2", "domus", "courtyard"], rich: ["villa", "domus", "insula2", "taberna", "insula", "villa", "domus", "courtyard"] },
   // ⚠ `terrace` ne compte QU'UNE FOIS dans chaque liste. Doublée, elle sortait à 525
   // exemplaires sur 988 en b5 et 481 sur 1261 en b6 : la rangée ouvrière est LARGE
   // (54 px de contenu, ~1,3 tuile) et la plus sombre de la série — à ce nombre elle
@@ -65,6 +75,7 @@ function variantList(table, band, bias) {
 //  - mega-complexes LARGES : 2×2. Défaut 1×1.
 const HOUSE_FOOTPRINT = {
   manor: [2, 2],                  // grande demeure (sprite ~1,3 tuile de large) : réserve son lot pour garder sa masse sans déborder
+  villa: [2, 2],                  // la villa romaine : même masse que le manoir (62 px d'encre), même lot
   tenement: [1, 2], tower: [1, 2],
   megablock: [2, 2], arcologyhome: [2, 2]
 };

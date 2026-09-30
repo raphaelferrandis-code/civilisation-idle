@@ -29,7 +29,8 @@ import { worldToScreen, ISO_X, ISO_Y } from './projection.js';
 import { configureRiverLife } from './isoRiverLife.js';
 import { WINTER } from '../seasonMode.js';
 import { orbitPoint, FLEET_TUNE } from '../riverFleet.js';
-import { ensureQuayGate, quayWallTune, quayGapRuns } from '../quaysAndRiot.js';
+import { ensureQuayGate, quayWallTune, quayGapRuns, quayWallTiles, quayWallColors } from '../quaysAndRiot.js';
+import { drawIsoReflections } from './isoReflect.js';
 import { ISO_TILE_KEYS, isoWinterTile, beachTone, isoVariantKey, ensureIsoTileKey, BEACH } from './isoGroundTiles.js';
 import { WATER, waterShoreTune, rgb } from './isoPalette.js';
 import { RAIN_TUNE, precipKind } from './isoWeather.js';
@@ -913,10 +914,17 @@ export function stepWaterPhase(prev, t, fps, drift, spatial) {
 // Exportée : un coloris ajouté sans son accord complet ferait retomber le liseré
 // en ardoise sans que rien ne proteste — c'est la table elle-même qu'on teste.
 export const WATER_SHEETS = {
+  // ⚠ BEAU TEMPS RECOLORÉ le 2026-09-30 (docs/PLAN-MAQUETTE-VIVANTE.md, lot 1 ; Raph :
+  // « oui, calme-la ») : l'azur natif était 3 à 7 fois plus saturé que la ville.
+  // Même dessin, cinq couleurs remplacées une pour une (scripts/eauCalme.mjs) ; le
+  // liseré, le bas-fond du quai et le lavis de nuit suivent. L'azur reste sur le
+  // disque : `src: '/pixelart/water/river-tiles-calm-azur.png'` avec `dim: 0.14`
+  // rejoue l'ancien. `dim` tombe à 0 : il existait pour RABATTRE l'azur trop vif
+  // (« l'état normal est un peu trop flashy »), la nappe l'est désormais d'elle-même.
   beau: {
-    src: '/pixelart/water/river-tiles-calm-azur.png', pale: '207,255,255', dim: 0.14,
-    shore: ['96,175,250', '140,212,252', '206,242,255'],
-    quay: ['rgba(120,190,235,0.50)', 'rgba(206,238,252,0.62)'], wash: '95,200,250',
+    src: '/pixelart/water/river-tiles-calm-ciel.png', pale: '104,148,162', dim: 0,
+    shore: ['86,128,142', '112,150,158', '160,188,186'],
+    quay: ['rgba(104,146,158,0.50)', 'rgba(170,198,196,0.55)'], wash: '120,168,184',
   },
   usure: {
     src: '/pixelart/water/river-tiles-calm-turquoise.png', pale: '207,255,255', dim: 0,
@@ -1897,6 +1905,38 @@ export function drawIsoRiver(now) {
   // Clapotis du pêcheur et son banc : même couche que les poissons du fleuve —
   // sous la surface, donc SOUS les coques (les bateaux passent bien après).
   drawIsoFisherWater(ctx, T, z, now, wb);
+  // REFLETS (iso/isoReflect.js) : la rive d'en face, les bateaux, ce qui borde l'eau,
+  // SUR la surface et sous la vie de surface, les quais, les coques et le pont. Le
+  // miroir passe à la hauteur de l'eau : sous la promenade de toute la hauteur du
+  // mur quand l'ère a des quais (bandes 2+), au ras du sol sinon.
+  {
+    const band = (L.counts && L.counts.eraBand) | 0;
+    const drop = (band >= 2 && quayWallTune.on) ? quayWallTiles(band) * quayWallTune.heightK * T * z : 0;
+    const tint = (CM.waterShore && CM.waterShore.shore && CM.waterShore.shore[0]) || '86,128,142';
+    const edges = riverRibbonScreen(pts, T);
+    // Le MUR de la rive d'en face se reflète aussi : là où le quai le trace
+    // (masque du portail — ni au port ni aux bouts), sur le bord HAUT du ruban à
+    // l'écran, celui dont l'eau est devant. Polylignes du bord d'eau, par tronçon.
+    let wall = null;
+    if (drop > 0 && !CM.lodActive && !CM.collapseAt) {
+      ensureQuayGate();
+      const g = CM.quayGate;
+      if (g && g.drawPlus && g.drawMinus) {
+        const kh = pts.core0 | 0, n = core.length, runs = [];
+        let cur = null;
+        for (let i = 0; i < pts.length; i += 1) {
+          const c = i - kh;
+          const upLeft = edges.left[i].y <= edges.right[i].y;
+          const on = c >= 0 && c < n && (upLeft ? g.drawPlus[c] : g.drawMinus[c]);
+          if (!on) { cur = null; continue; }
+          if (!cur) { cur = []; runs.push(cur); }
+          cur.push(upLeft ? edges.left[i] : edges.right[i]);
+        }
+        wall = { runs, cols: quayWallColors(band) };
+      }
+    }
+    drawIsoReflections(ctx, now, (c) => riverRibbonPath(c, pts, T), edges, drop, tint, wall);
+  }
   // (Vaguelettes animées RETIRÉES le 2026-07-22 — nappe de petits traits clairs
   // rgba(184,214,224) dont la brillance courait vers l'aval. Elles portaient la
   // lecture du courant tant que l'eau était un APLAT ; la tuile animée

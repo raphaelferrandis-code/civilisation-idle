@@ -39,6 +39,28 @@ bois (tôt) → pierre / brique / ardoise (milieu) → béton / verre / acier / 
 | `tower.png` | tower | Tour d'habitation | 5–6 · Fonte/Néon | 56×120 | 52×115 |
 | `megablock.png` | megablock | Grand ensemble | 6 · Néon | 104×100 | 91×97 |
 | `arcologyhome.png` | arcologyhome | Logement d'arcologie | 6+ · Néon/cosmique | 112×128 | 95×116 |
+| `domus.png` | domus | Domus | 4 · Marbre | 64×64 | 52×39 |
+| `taberna.png` | taberna | Taberna | 4 · Marbre | 64×64 | 56×64 |
+| `villa.png` | villa | Villa (lot 2×2) | 4 · Marbre | 64×64 | 62×52 |
+| `insula2.png` | insula2 | Immeuble de rapport (ocre) | 4 · Marbre | 76×76 | 42×66 |
+
+### Les quatre romaines du 2026-10-01 — la bande 4 cesse d'être médiévale
+
+`stonehouse` et `manor` (colombages, toits d'ardoise) sortaient à la bande 4 à côté
+d'habitants en toge. Quatre maisons ROMAINES les remplacent (docs/PLAN-MAQUETTE-VIVANTE.md,
+lot 3) : `domus` (plain-pied, atrium ouvert dans le toit, porche à colonnes), `taberna`
+(boutique ouverte sous auvent rayé au rez), `villa` (portique, jardin clos et son bassin),
+`insula2` (immeuble ocre à volets verts, frère de l'insula de brique).
+
+Recette : `create_object_pro_flash`, 8 vues, 128×128 (152 pour l'insula), vue
+`low top-down`, `insula.png` en référence de style passée par URL publique du dépôt ; on
+garde la rotation **south-west** (façade sur la face gauche éclairée, comme toute la série)
+écrasée ×0,5 (moyenne 2×2 prémultipliée), puis quantize à 24 teintes. Mesures avant
+branchement : mur gauche plus clair que le droit sur les quatre (pas de miroir), luminance
+93 à 117 (série : 87 à 121). ⚠ La garde de contraste au sol (isoBuildingGroundContrast)
+a mordu : deux beiges de `insula2` et deux de `domus` tombaient à moins de 24 du dallage
+de la bande 4 (177,172,150) — remplacés par la couleur la plus proche de LEUR palette
+restée à plus de 26 du sol (dessin intact). Pas de socle à retirer cette fois.
 
 ### Les quatre de 2026-08-06 — ce qu'ils apportent
 

@@ -31,6 +31,8 @@ import { drawEngineSprite } from './engineSprites.js';
 import { getPropVersion } from './cityEngineSprites.js';
 import { suspendFlameGlow } from './flameGlow.js';
 import { suspendLightLayer, lightCutImage } from './lightLayer.js';
+import { captureSunShadows, bakeSunShadowPlane, drawSunShadowPlane, sunShadowVersion } from './iso/isoSunShadow.js';
+import { noteReflection } from './iso/isoReflect.js';
 
 const cache = new Map(); // clé -> { back, front, mx, myT, side, dpr, at }
 
@@ -99,7 +101,10 @@ function currentEpoch(now) {
     // La SAISON entre dans l'époque depuis la neige des toits (snowRoof.js) :
     // une scène cuite en été et rejouée en hiver garderait ses tuiles sèches au
     // milieu d'une ville blanche. Un entier de plus, quatre valeurs, aucun coût.
-    epochStr = band + ':' + ei + ':' + (CM.nightF || 0).toFixed(1) + ':' + (CM.season | 0) + ':' + getPropVersion();
+    // L'OMBRE SOLAIRE n'y entre que par sa GÉOMÉTRIE (sunShadowVersion) : elle
+    // est cuite dans un calque à part, et sa force s'applique au blit.
+    epochStr = band + ':' + ei + ':' + (CM.nightF || 0).toFixed(1) + ':' + (CM.season | 0) + ':' + getPropVersion()
+      + ':s' + sunShadowVersion();
   }
   return epochStr;
 }
@@ -214,11 +219,15 @@ function bake(t, side, now) {
     sctx.setTransform(dpr, 0, 0, dpr, 0, 0);
     sctx.imageSmoothingEnabled = false;
     const t1 = performance.now();
-    CM.ctx = sctx;
-    drawEngineSprite(t, mx, myT, side, side, now, 'back');
+    // Les ombres des props sont RELEVÉES ici (pas peintes : cf. isoSunShadow,
+    // LES SCÈNES CUITES) — en px logiques du repère de cuisson, boîte en (mx, myT).
     const frontFlag = { drew: false };
-    CM.ctx = spyCtx(sctx, frontFlag);
-    drawEngineSprite(t, mx, myT, side, side, now, 'front');
+    const shadows = captureSunShadows(() => {
+      CM.ctx = sctx;
+      drawEngineSprite(t, mx, myT, side, side, now, 'back');
+      CM.ctx = spyCtx(sctx, frontFlag);
+      drawEngineSprite(t, mx, myT, side, side, now, 'front');
+    });
     const t2 = performance.now();
     const bb = inkBBoxOfScratch(W, H);
     const t3 = performance.now();
@@ -241,13 +250,15 @@ function bake(t, side, now) {
         cctx.setTransform(dpr, 0, 0, dpr, (pad - bb.x0) , (pad - bb.y0));
         cctx.imageSmoothingEnabled = false;
         CM.ctx = flag ? spyCtx(cctx, flag) : cctx;
-        drawEngineSprite(t, mx, myT, side, side, now, pass);
+        captureSunShadows(() => drawEngineSprite(t, mx, myT, side, side, now, pass));
         return cv;
       };
       const back = mkPlane('back', null);
       const front = frontFlag.drew ? mkPlane('front', null) : null;
+      const sp = bakeSunShadowPlane(shadows, dpr, mkCanvas);
       entry = {
         back, front,
+        shadow: sp ? { cv: sp.cv, ox: sp.x - mx, oy: sp.y - myT, w: sp.w, h: sp.h } : null,
         // Décalage du blit en px LOGIQUES : position du coin rogné dans la
         // boîte (bx, by) demandée par le peintre.
         ox: (bb.x0 - pad) / dpr - mx,
@@ -284,7 +295,8 @@ function bake(t, side, now) {
 
 function entryBytes(e) {
   if (e.empty) return 64;
-  return e.back.width * e.back.height * 4 + (e.front ? e.front.width * e.front.height * 4 : 0);
+  return e.back.width * e.back.height * 4 + (e.front ? e.front.width * e.front.height * 4 : 0)
+    + (e.shadow ? e.shadow.cv.width * e.shadow.cv.height * 4 : 0);
 }
 
 function prune() {
@@ -340,6 +352,10 @@ export function drawCachedEngineScene(ctx, t, bx, by, bw, now, animNow = now) {
     const dw = e.back.width / e.dpr, dh = e.back.height / e.dpr;
     const dx = bx + e.ox, dy = by + e.oy;
     const prevSmooth = ctx.imageSmoothingEnabled;
+    // L'ombre de la scène, avant elle, avec la force du moment.
+    if (e.shadow) drawSunShadowPlane(ctx, e.shadow.cv, bx + e.shadow.ox, by + e.shadow.oy, e.shadow.w, e.shadow.h);
+    // Et son reflet dans l'eau, si elle borde le fleuve (iso/isoReflect.js).
+    noteReflection(ctx, e.back, dx, dy, dw, dh);
     ctx.imageSmoothingEnabled = false;
     ctx.drawImage(e.back, dx, dy, dw, dh);
     // Occultation du calque de lumière : la silhouette du plan cuit remplace
@@ -350,6 +366,7 @@ export function drawCachedEngineScene(ctx, t, bx, by, bw, now, animNow = now) {
     ctx.imageSmoothingEnabled = prevSmooth;
     drawEngineSprite(t, bx, by, bw, bw, animNow, 'anim');
     if (e.front) {
+      noteReflection(ctx, e.front, dx, dy, dw, dh);
       ctx.imageSmoothingEnabled = false;
       ctx.drawImage(e.front, dx, dy, dw, dh);
       lightCutImage(e.front, dx, dy, dw, dh);
