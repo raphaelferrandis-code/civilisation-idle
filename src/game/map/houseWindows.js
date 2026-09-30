@@ -18,14 +18,20 @@ import { lightCtx } from './lightLayer.js';
 // verre des bandes 6-7 n'en a aucune, elle reste éteinte — ses vitres sont CLAIRES).
 const HOMES = new Set(['townhouse', 'stonehouse', 'manor', 'block', 'tenement', 'insula', 'terrace', 'towerhouse',
   'domus', 'taberna', 'villa', 'insula2', 'crafthouse', 'courtyard', 'megablock', 'arcologyhome', 'tower',
-  'haussmann']);
+  'haussmann', 'townhouse']);
+// SEUIL D'OUVERTURE PAR DESSIN (même nuit). Le détecteur prend pour vitre une tache
+// fermée dont le canal le plus fort reste sous 68. Deux dessins peignent leurs vitres
+// un cran plus clair et n'en livraient AUCUNE : la maison de ville (la moitié des maisons
+// de la bande 2) et la tour de verre (bandes 6-7). À 80 : 5 et 39 ouvertures — mesuré
+// sur l'art, sans toucher au seuil des autres (qui prendraient alors des pans de mur).
+const DARK_MAX = { townhouse: 80, tower: 80 };
 const masks = new WeakMap();
 
-export function windowPixels(data, width, height) {
+export function windowPixels(data, width, height, darkMax = 68) {
   const seen = new Uint8Array(width * height);
   const groups = [];
   const dark = (i) => data[i * 4 + 3] > 240
-    && Math.max(data[i * 4], data[i * 4 + 1], data[i * 4 + 2]) < 68;
+    && Math.max(data[i * 4], data[i * 4 + 1], data[i * 4 + 2]) < darkMax;
   for (let i = 0; i < seen.length; i += 1) {
     if (seen[i] || !dark(i)) continue;
     const stack = [i], pixels = [];
@@ -52,11 +58,11 @@ export function windowPixels(data, width, height) {
   return groups;
 }
 
-function maskFor(g, phase) {
+function maskFor(g, phase, darkMax = 68) {
   let entries = masks.get(g.img);
   if (!entries) { entries = new Map(); masks.set(g.img, entries); }
   const { x0, y0, w, h } = g.bb;
-  const key = `${x0}:${y0}:${w}:${h}:${phase}`;
+  const key = `${x0}:${y0}:${w}:${h}:${phase}:${darkMax}`;
   if (entries.has(key)) return entries.get(key);
   const canvas = document.createElement('canvas');
   canvas.width = w; canvas.height = h;
@@ -64,7 +70,7 @@ function maskFor(g, phase) {
   ctx.drawImage(g.img, x0, y0, w, h, 0, 0, w, h);
   const source = ctx.getImageData(0, 0, w, h);
   const out = ctx.createImageData(w, h);
-  const groups = windowPixels(source.data, w, h);
+  const groups = windowPixels(source.data, w, h, darkMax);
   let count = 0;
   groups.forEach((pixels, index) => {
     if ((index * 7 + phase * 3) % 5 > 1) return;
@@ -83,7 +89,7 @@ function maskFor(g, phase) {
 export function drawHouseWindows(t, g) {
   const night = Math.max(0, Math.min(1, ((CM.nightF || 0) - 0.22) / 0.65));
   if (!night || CM.lodActive || !HOMES.has(t.variant) || typeof document === 'undefined') return;
-  const mask = maskFor(g, cmHash(`windows:${t.gx}:${t.gy}`) % 5);
+  const mask = maskFor(g, cmHash(`windows:${t.gx}:${t.gy}`) % 5, DARK_MAX[t.variant] || 68);
   if (!mask) return;
   const ctx = lightCtx(g.dx, g.dy, g.dx + g.dw, g.dy + g.dh);
   if (!ctx) return;

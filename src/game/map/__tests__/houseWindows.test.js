@@ -1,4 +1,6 @@
 import { describe, it, expect } from 'vitest';
+import { readFileSync } from 'node:fs';
+import { PNG } from 'pngjs';
 import { windowPixels } from '../houseWindows.js';
 
 function facade() {
@@ -28,4 +30,21 @@ describe('ouvertures éclairées des habitations', () => {
     rect(1, 11, 9, 9); rect(14, 15, 1, 4); rect(15, 16, 1, 3);
     expect(windowPixels(data, 20, 30).map(p => p.length)).toEqual([7]);
   });
+});
+
+// Seuil par dessin (nuit du 2026-10-01) : la maison de ville et la tour de verre peignent
+// leurs vitres un cran plus clair que les autres — au seuil commun (68) elles n'en
+// livraient AUCUNE, et la moitié des maisons de la bande 2 restaient noires la nuit.
+describe('ouvertures des dessins aux vitres claires', () => {
+  const read = (nom) => {
+    const buf = readFileSync(new URL(`../../../../public/pixelart/houses/${nom}.png`, import.meta.url));
+    return PNG.sync.read(buf);
+  };
+  for (const nom of ['townhouse', 'tower']) {
+    it(`${nom} : aucune au seuil commun, des vraies au seuil 80`, () => {
+      const p = read(nom);
+      expect(windowPixels(p.data, p.width, p.height).length).toBe(0);
+      expect(windowPixels(p.data, p.width, p.height, 80).length).toBeGreaterThanOrEqual(5);
+    });
+  }
 });
