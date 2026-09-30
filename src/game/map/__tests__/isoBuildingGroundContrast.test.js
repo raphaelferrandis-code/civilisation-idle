@@ -73,16 +73,25 @@ const RAYON = 24;
 // au même nombre. Vérifié : 34,9 % × 809 px d'encre = 38,0 % × (809 − 66 px
 // d'ombre) pour la maison longue ; mêmes coupables pour les trois autres (#8f8475,
 // #b4a890, #7c828c). Le cliquet mesure désormais le BÂTIMENT seul.
+// ⭐ RESSERRÉ le 2026-10-01 par la BIBLE DES SURFACES (isoSurfaceBible.test.js) : le
+// sol mesuré est désormais celui que le bake PEINT — l'aplat de ton sous la tuile
+// dosée —, et ce sol a changé aux bandes 2-3 et 5 à 9. Aucun pixel de maison n'a
+// bougé ; c'est le fond qui s'est écarté d'elles :
+//   bande 3 : 17,0 % → 0,0 %   ·   bande 6 : 31,9 % → 0,0 %
+//   bande 7 : 25,0 % → 0,8 %   ·   bande 8 : 28,1 % → 18,0 %   ·   bande 9 : 7,5 → 5,5
+//   bande 2 : 2,8 → 0,0.  Bande 4 : 0,0 → 1,6, SANS changement de sol — c'est la
+//   MESURE qui a changé (la dalle y était déjà dosée à 0,3 depuis le 2026-09-30 : le
+//   PNG seul n'était pas le sol affiché). Coupable : #ccb394, un FIL de 1,6 % de la villa.
 const CLIQUET = [
   { band: 0, max: 13.5, pire: "tent/origine" },
   { band: 1, max: 38.0, pire: "longhouse/origine" },
-  { band: 2, max: 2.8, pire: "townhouse/origine" },
-  { band: 3, max: 17.0, pire: "stonehouse/ardoise" },
-  { band: 4, max: 0.0, pire: "courtyard/origine" },
+  { band: 2, max: 0.0, pire: "townhouse/origine" },
+  { band: 3, max: 0.0, pire: "stonehouse/origine" },
+  { band: 4, max: 1.6, pire: "villa/origine (fil #ccb394, 1,6 %)" },
   { band: 5, max: 18.0, pire: "block/calcaire" },
-  { band: 6, max: 31.9, pire: "arcologyhome" },
-  { band: 7, max: 25.0, pire: "tower-cosmic-7" },
-  { band: 8, max: 28.1, pire: "tower-cosmic-8" },
+  { band: 6, max: 0.0, pire: "tower/origine" },
+  { band: 7, max: 0.8, pire: "tower/origine" },
+  { band: 8, max: 18.0, pire: "block/calcaire" },
   // ⚠ RELEVÉ de 3,1 à 7,5 le 2026-08-06, et c'est le SEUL relèvement de ce cliquet —
   // il doit rester exceptionnel et justifié. Cause : l'archétype `terrace` (vague « les
   // îlots n'ont qu'un type de bâtiment »), que la garde a attrapé dès sa pose.
@@ -95,7 +104,7 @@ const CLIQUET = [
   // dalle tech sombre ne fait disparaître aucun bâtiment.
   // ⚠ Le critère est « fil ou masse », pas le pourcentage seul : si un futur archétype
   // pousse une PLAQUE dans le rayon, il faudra traiter le sprite, pas relever la ligne.
-  { band: 9, max: 7.5, pire: "terrace/origine (fil teal #1f3a44, 4,1 %)" },
+  { band: 9, max: 5.5, pire: "arcologyhome/origine" },
 ];
 const TOLERANCE = 1.5;   // points de pourcentage — bruit d'arrondi des PNG
 // Plancher dur : aucune bande ne doit JAMAIS franchir ça, même en régressant depuis
@@ -189,12 +198,20 @@ const solTone = (key) => {
   if (!cacheSol.has(key)) cacheSol.set(key, matTone(key));
   return cacheSol.get(key);
 };
+// Le sol que l'écran MONTRE : depuis la bible des surfaces (2026-10-01), la tuile est
+// dosée sur un aplat de ton — c'est ce mélange que les maisons côtoient, pas le PNG
+// seul (à la bande 7, le PNG est une dalle sombre à L61, le sol peint une nacre à L159).
+const solLu = (band) => {
+  const s = isoEraSurface(band);
+  const t = solTone(s.ground);
+  return s.groundTone.map((v, i) => v * (1 - s.groundDose) + t[i] * s.groundDose);
+};
 
 // Pire dissolution d'une bande, mémoïsée (chaque `it` la redemanderait sinon).
 const cachePire = new Map();
 function pireDeLaBande(band) {
   if (cachePire.has(band)) return cachePire.get(band);
-  const ground = solTone(isoEraSurface(band).ground);
+  const ground = solLu(band);
   let pire = { part: -1, nom: "(aucun)", coupable: null };
   for (const c of couples(band)) {
     const r = dissolution(new URL(`${c.key}.png`, HOUSES), c.tint, ground);
@@ -237,7 +254,7 @@ describe("habitations vs sol des lots, par ère", () => {
   // lui-même est décorative.)
   it("mord : un sprite repeint au ton de son sol se dissout à plus de 95 %", () => {
     const band = 4;
-    const ground = solTone(isoEraSurface(band).ground);
+    const ground = solLu(band);
     const src = readPng(new URL("stonehouse.png", HOUSES));
     const w = src.width, h = src.height;
     for (let i = 0; i < w * h; i += 1) {
@@ -257,12 +274,14 @@ describe("habitations vs sol des lots, par ère", () => {
     expect(pireDeLaBande(band).part).toBeLessThan(20);
   });
 
-  // Témoin de lecture : la bande 4 (marbre) et la bande 9 (démiurge) sont les deux
-  // ères qui lisent le mieux. Si un réglage futur les dégrade au niveau des bandes
-  // brouillonnes, c'est que le remède a été appliqué à la mauvaise ère.
-  it("les ères qui lisent gardent leur avance sur les ères brouillonnes", () => {
-    const bonnes = [4, 9].map(pireDeLaBande).map((p) => p.part);
-    const mauvaises = [1, 3, 6].map(pireDeLaBande).map((p) => p.part);
+  // Témoin de lecture. Jusqu'au 2026-10-01 : bandes 4 et 9 bonnes, 1, 3 et 6
+  // brouillonnes. La bible des surfaces a fait passer les bandes 2, 3, 6 et 7 sous 1 %
+  // — elles doivent y rester ; les dernières brouillonnes (1 : la terre battue du
+  // village, 5 et 8 : block/calcaire) sont le chantier suivant, pas une fatalité.
+  it("les ères refaites par la bible des surfaces gardent leur avance", () => {
+    const bonnes = [2, 3, 4, 6, 7].map(pireDeLaBande).map((p) => p.part);
+    const mauvaises = [1, 5, 8].map(pireDeLaBande).map((p) => p.part);
     expect(Math.max(...bonnes)).toBeLessThan(Math.min(...mauvaises));
+    for (const p of bonnes) expect(p).toBeLessThan(2);
   });
 });

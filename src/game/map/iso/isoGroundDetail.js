@@ -30,7 +30,7 @@ import { GRASS, GRASS_WILD } from './isoPalette.js';
 import { isoTileCache } from './isoGroundTiles.js';
 import {
   ROAD_BAND, ISO_ROAD_HALFW, isoRoadHalfW,
-  ROAD_MATS, ROAD_DETAIL, ROAD_VEIL, SIDEWALK_ISO,
+  ROAD_MATS, ROAD_DETAIL, ROAD_VEIL, SIDEWALK_ISO, roadTileAlpha,
 } from './isoRoad.js';
 
 export let SEASON_GRASS = GRASS, SEASON_WILD = GRASS_WILD, SEASON_TIP = null, SEASON_FLOWER_MUL = 1;
@@ -612,16 +612,34 @@ const URBAN_MATS = [
   // Tons 0-1 = ton moyen MESURÉ de ground-earth (lot 606 dé-liseré, imprimé par
   // fetchGroundTiles) : l'aplat de repli doit rester dans la famille de la tuile
   // qui le recouvre, sinon le sol « saute » quand le PNG décode.
+  // ── BIBLE DES SURFACES (2026-10-01, Raph : « refaire les sols et les routes, plus de
+  // cohérence et de lisibilité »). Le `tone` est l'aplat peint SOUS la tuile dosée ;
+  // avec la dose (URBAN_TILE_A) il fixe la valeur que l'œil lit. La règle, à toutes
+  // les ères : le SOL DES LOTS est clair et calme, la CHAUSSÉE plus sombre de 40 à 70
+  // de luminance, la PLACE plus claire que le quartier de 10 à 30, les trois dans la
+  // même famille de teinte (garde : __tests__/isoSurfaceBible.test.js).
+  //   b2-3  le pavé gris devient un sol de terre battue et de gravier CHAUD et plus
+  //         clair (L151 / L146 au lieu de 137 / 134) : la rue de pavés sombres (L93)
+  //         s'y lit enfin, et la place de pierre claire (L168) aussi ;
+  //   b5    la pierre claire de l'impériale refroidit (gris de granit, L176) : la bande
+  //         industrielle cesse de rejouer la bande 4 sous des immeubles de brique ;
+  //   b6    le béton monte à L150 sous une tuile dosée à 0,5 (ses variantes, égalisées,
+  //         ne font plus de damier) ;
+  //   b7-9  LE GRAND CHANGEMENT : le sol tech passe du quasi-noir (L61, plus sombre que
+  //         la chaussée : les rues lisaient À L'ENVERS) à une nacre teintée de la
+  //         couleur de l'ère — jade, ivoire, lavande —, L156 à 159. Les tours sombres
+  //         s'y découpent au lieu de s'y fondre, la voie tech (L87) redevient la plus
+  //         sombre des deux. Ancien ton : [94,100,116] / [86,94,116] / [80,90,118].
   { tone: [187, 135, 82], type: 'earth', grav: 0, tile: 'ground-earth' },               // 0 primitif — terre battue
   { tone: [187, 135, 82], type: 'earth', grav: 1, tile: 'ground-earth' },               // 1 agricole — terre + graviers
-  { tone: [170, 156, 130], type: 'cobble', joint: 0.16, tile: 'ground-cobble' },        // 2 bourg — pavés irréguliers
-  { tone: [158, 152, 138], type: 'cobble', joint: 0.18, tile: 'ground-cobble' },        // 3 fortifié — pavé de pierre
+  { tone: [178, 166, 142], type: 'cobble', joint: 0.16, tile: 'ground-cobble' },        // 2 bourg — terre battue et gravier
+  { tone: [168, 160, 146], type: 'cobble', joint: 0.18, tile: 'ground-cobble' },        // 3 fortifié — gravier de pierre
   { tone: [188, 178, 150], type: 'flagstone', joint: 0.16, tile: 'ground-flagstone' },  // 4 impérial — grandes dalles
-  { tone: [192, 186, 168], type: 'flagstone', joint: 0.14, tile: 'ground-flagstone' },  // 5 monumental — pierre claire
-  { tone: [162, 160, 154], type: 'concrete', joint: 0.12, tile: 'ground-concrete' },    // 6 mégalopole — béton
-  { tone: [94, 100, 116], type: 'tech', seam: [116, 196, 208], tile: 'ground-tech' },   // 7 noosphère — dalles tech
-  { tone: [86, 94, 116], type: 'tech', seam: [130, 210, 220], tile: 'ground-tech' },    // 8 stellaire
-  { tone: [80, 90, 118], type: 'tech', seam: [150, 224, 232], tile: 'ground-tech' },    // 9 démiurge
+  { tone: [180, 178, 170], type: 'flagstone', joint: 0.14, tile: 'ground-flagstone' },  // 5 fonte — pierre grise
+  { tone: [170, 172, 170], type: 'concrete', joint: 0.12, tile: 'ground-concrete' },    // 6 mégalopole — béton clair
+  { tone: [192, 204, 200], type: 'tech', seam: [116, 196, 208], tile: 'ground-tech' },  // 7 noosphère — nacre jade
+  { tone: [206, 200, 186], type: 'tech', seam: [130, 210, 220], tile: 'ground-tech' },  // 8 stellaire — nacre ivoire
+  { tone: [198, 194, 210], type: 'tech', seam: [150, 224, 232], tile: 'ground-tech' },  // 9 démiurge — nacre lavande
 ];
 // tileA/tileJit : DOSAGE de la tuile de matière « terre » — alpha = tileA +
 // bruit LISSÉ × tileJit. Historique des retours Raph : tuile PLEINE = tapis
@@ -674,7 +692,18 @@ export const URBAN_DETAIL = { on: true, mult: 1, band: null, tiles: true, tileA:
 // des quatre doses 1 / 0,5 / 0,3 / 0,15 en jeu : à 0,3 la grille disparaît et le
 // bâti se détache, sans tomber dans l'aplat (« gros carreaux », refus de juillet).
 // Vaut pour les bandes 4 et 5 (même matière). A/B : `__groundMat({ tileAType: { flagstone: 1 } })`.
-export const URBAN_TILE_A = { earth: null, cobble: 0.6, flagstone: 0.3, concrete: 1, tech: 1 };
+//
+// ⚠ BIBLE DES SURFACES (2026-10-01) — les doses ne répondent plus à la seule plainte
+// du jour, elles tiennent une règle : GRAIN EFFECTIF (grain de la tuile × dose) ≤ 7
+// pour le sol des lots, le fond calme de la maquette vivante.
+//   cobble 0,6 → 0,35 : 18,2 × 0,35 = 6,4 (il en restait 11, le double de toutes les
+//                       autres pierres — la rue pavée devait lutter contre lui) ;
+//   concrete 1 → 0,5  : ses quatre variantes, égalisées (scripts/solsCoherents.mjs),
+//                       gardent des dalles de valeurs différentes À L'INTÉRIEUR de la
+//                       tuile : dosées de moitié, elles deviennent une trame de joints ;
+//   tech 1 → 0,3      : la dalle sombre (L61) sous la nacre de l'ère — à 0,3 elle ne
+//                       laisse que ses joints et ses rivets, en gris doux.
+export const URBAN_TILE_A = { earth: null, cobble: 0.35, flagstone: 0.3, concrete: 0.5, tech: 0.3 };
 // `null` = suit `tileA` (la terre battue garde son réglage historique partagé).
 export const urbanTileAlpha = (type) => {
   const v = URBAN_TILE_A[type];
@@ -756,11 +785,20 @@ if (typeof window !== 'undefined') {
 // Couple de surfaces d'une ère, tel que le sol le PEINT (aucun forçage d'aperçu).
 // Exporté pour la garde de contraste : elle lit les PNG que ces clés désignent —
 // recopier les clés dans le test reviendrait à le comparer à lui-même.
+// Depuis la bible des surfaces (2026-10-01), le couple porte aussi ce qui fait la
+// valeur LUE : l'aplat peint sous la tuile et la dose de la tuile, pour le sol comme
+// pour la chaussée — une garde qui ne lirait que les PNG jugerait des tuiles que
+// l'écran ne montre plus telles quelles.
 export function isoEraSurface(band) {
   const b = Math.max(0, Math.min(URBAN_MATS.length - 1, band | 0));
+  const mat = URBAN_MATS[b];
+  const road = ROAD_MATS[Math.max(0, Math.min(ROAD_MATS.length - 1, b))].tile;
   return {
-    ground: URBAN_MATS[b].tile,
-    road: ROAD_MATS[Math.max(0, Math.min(ROAD_MATS.length - 1, b))].tile,
+    ground: mat.tile,
+    groundTone: mat.tone,
+    groundDose: urbanTileAlpha(mat.type),
+    road,
+    roadDose: roadTileAlpha(road),
     veil: ROAD_VEIL[Math.max(0, Math.min(ROAD_VEIL.length - 1, b))],
   };
 }

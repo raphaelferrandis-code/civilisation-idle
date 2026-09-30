@@ -127,16 +127,46 @@ export const ROAD_DETAIL = {
 // — exactement la lecture de l'ère impériale (voie brune sur dalles pâles), la
 // seule que personne n'a jamais eu de mal à suivre.
 // ⚠ Il ne s'applique QUE là où le couple MESURÉ se confond : les bandes 0-1 (80),
-// 4-5 (84), 6 (111) et 7-9 (43) lisent déjà — les voiler n'assombrirait qu'une
-// ville qui va bien. Garde sur les PNG : __tests__/isoRoadGroundContrast.test.js.
+// 4 (84), 6 (111) et 7-9 lisent déjà — les voiler n'assombrirait qu'une ville qui
+// va bien. La bande 5 en a reçu un le 2026-10-01 pour une autre raison : SE
+// DISTINGUER de la bande 4 (cf. plus bas). Garde : __tests__/isoSurfaceBible.test.js
+// (qui a remplacé isoRoadGroundContrast.test.js, lequel ne lisait que les PNG).
 // Cuit DANS la face de tuile (isoFaceVeiled), jamais posé en aplat par cellule :
 // un alpha par cellule marquerait les coutures que les passes-union évitent.
 export const ROAD_VEIL = [
   null, null,
   [58, 42, 30, 0.30],   // 2 bourg — pavé usé, chaud, contre le gravier gris des lots
   [58, 42, 30, 0.30],   // 3 fortifié
-  null, null, null, null, null, null,
+  null,
+  // 5 fonte — la voie dallée de l'impériale passe au GRANIT : un voile froid et sombre
+  // (2026-10-01, bible des surfaces). Sans lui la bande 5 rejouait la chaussée brune de
+  // la bande 4 sous des immeubles XIXe ; avec lui la rue lit comme un pavé de granit
+  // bleu-gris, 69 de luminance sous le trottoir de pierre claire.
+  [70, 74, 82, 0.35],
+  null, null, null, null,
 ];
+// ── LA DOSE DE LA TUILE DE CHAUSSÉE (bible des surfaces, 2026-10-01) ─────────────
+// Raph : « il faut refaire les sols et les routes, plus de cohérence et de lisibilité ».
+// La valeur MOYENNE des couples chaussée/sol lisait déjà (écart de luminance 41 à 62
+// hors ère cosmique) ; ce qui brouillait la rue, c'était son GRAIN : écart moyen de
+// luminance entre pixels voisins, mesuré sur les PNG livrés,
+//
+//   road-cobble 30,8  ·  road-stone 18,0  ·  road-asphalt 10,8  ·  road-tech 5,4  ·  road-dirt 4,3
+//
+// Le pavé des bandes 2-3 grésillait à 30,8 pour un écart de valeur de 44 avec son sol :
+// le signal (la rue) et le bruit (ses pierres) avaient le même ordre de grandeur, la rue
+// se perdait dans sa propre matière. On fait pour la chaussée ce que le sol fait depuis
+// août (URBAN_TILE_A) : l'APLAT du ton de chaussée dessous, la tuile dosée dessus. Le
+// ton moyen ne bouge pas (roadTone EST la moyenne de la tuile, voile compris) ; seul le
+// grain descend — pavé 30,8 → 12,3, dalle 18 → 10,8, asphalte 10,8 → 6,5.
+// ⚠ Pas plus bas : sous ~0,35 la rue redevient la « dalle lisse » plate, et Raph a
+// voulu le 2026-07-28 « des chemins/routes plutôt que cette route à toutes les ères ».
+// Clé = nom de la tuile (ROAD_MATS), absente = pleine.
+export const ROAD_TILE_A = { 'road-cobble': 0.4, 'road-stone': 0.6, 'road-asphalt': 0.6, 'road-tech': 0.8 };
+export const roadTileAlpha = (tile) => {
+  const v = ROAD_TILE_A[tile];
+  return v == null ? 1 : v;
+};
 export function roadVeilFor(band) {
   if (!(ROAD_DETAIL.veilK > 0)) return null;
   const v = ROAD_VEIL[Math.max(0, Math.min(ROAD_VEIL.length - 1, band | 0))];

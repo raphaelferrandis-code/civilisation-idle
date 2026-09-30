@@ -58,16 +58,21 @@ function grain(key) {
 }
 
 describe("S2 — dose de la tuile de sol par matière", () => {
-  it("le pavé et la dalle sont dosés ; les autres matières restent pleines", () => {
+  it("chaque matière de sol est dosée, sauf la terre battue", () => {
     expect(URBAN_TILE_A.cobble).toBeGreaterThan(0.3);   // pas un aplat : refus de juillet
     expect(URBAN_TILE_A.cobble).toBeLessThan(1);        // …mais bien dosé
     // La dalle (bandes 4-5) : dosée pour que la GRILLE des cases ne se lise plus
     // (2026-09-30, maquette vivante) — pas pour son grain, qui est bas.
     expect(URBAN_TILE_A.flagstone).toBeGreaterThanOrEqual(0.2);
     expect(URBAN_TILE_A.flagstone).toBeLessThan(0.6);
-    for (const k of ["concrete", "tech"]) {
-      expect(URBAN_TILE_A[k], `${k} ne doit PAS être dosé`).toBe(1);
-    }
+    // Béton et dalle tech : DOSÉS à leur tour depuis la bible des surfaces (2026-10-01,
+    // isoSurfaceBible.test.js) — non pour leur grain, bas, mais pour ce que la tuile
+    // pleine faisait à l'échelle de la ville : des dalles de valeurs différentes dans
+    // chaque tuile (béton), une dalle plus sombre que sa propre chaussée (tech).
+    expect(URBAN_TILE_A.concrete).toBeGreaterThanOrEqual(0.3);
+    expect(URBAN_TILE_A.concrete).toBeLessThan(1);
+    expect(URBAN_TILE_A.tech).toBeGreaterThanOrEqual(0.2);
+    expect(URBAN_TILE_A.tech).toBeLessThan(1);
     // La terre battue garde son réglage HISTORIQUE partagé (`tileA`) : `null` =
     // « suit tileA ». La remplacer par un nombre couperait ce lien en silence.
     expect(URBAN_TILE_A.earth).toBeNull();

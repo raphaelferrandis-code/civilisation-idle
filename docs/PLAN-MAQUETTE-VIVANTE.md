@@ -110,6 +110,15 @@ cuire les émeutiers, voile de santé, usure visuelle des bâtiments.
 - A/B à image FIGÉE (même instant, sans habitants) : `scratchpad/mkFrozenAB.cjs`, puis
   `cropAB.cjs` (côte à côte agrandi) et `diffAB.cjs` (pixels changés en magenta —
   c'est lui qui a montré où tombait l'ombre).
+- ⚠⚠ SESSIONS PARALLÈLES : chaque édition de `src/game/` par une autre session
+  RECHARGE les pages du serveur de dev (plugin `game-full-reload`) — un audit de
+  plusieurs minutes mourait en route (« Inspected target navigated or closed », page
+  blanche). Captures longues sur un serveur SANS websocket : configuration `vite-nohmr`
+  (`.claude/launch.json`, port 5199, `server.hmr/ws: false`, cache de dépendances À
+  PART pour ne pas faire ré-optimiser celui des autres). Une page garde son code
+  jusqu'à la navigation suivante.
+- PixelLab : 10 générations simultanées au plus (Tier 2), PARTAGÉES avec les autres
+  sessions ; sous charge, un objet sur quatre échoue (« heavy load ») — relancer.
 - Coût d'image : `scratchpad/mkPerfSun*.cjs`. ⚠ `CM.forceFrame()` en boucle est
   BRIDÉ par le cap d'images (mesure à 0 ms) : poser `CM.capture = { night: 0,
   health: 1 }` pendant la mesure. Rendu logiciel = lancer Chrome avec
@@ -233,6 +242,47 @@ cuire les émeutiers, voile de santé, usure visuelle des bâtiments.
   font la grille « copiée-collée » restante.
 - Lumière de fin d'après-midi essayée (`__afternoon`, multiply chaud) : plus terne que
   fraîche, laissée ÉTEINTE.
+
+**2026-10-01, nuit — « finis toutes les époques » : l'audit des autres ères.** Pilote
+commité en local (`06daf15`). Captures de toutes les bandes
+(`scratchpad/pilote/audit-toutes/`, serveur de dev SANS rechargement à chaud — cf.
+§7). Ce qu'il faut reprendre, ère par ère :
+- **Toutes** : SOLS ET ROUTES (demande de Raph de la nuit) — rues illisibles aux
+  bandes 2-3 (gris sur gris), damier de béton (6), sol tech plus sombre que ses rues
+  (7-9) ; places d'une autre pierre que leur quartier (médiéval bleu-gris et plus
+  sombre que la rue, industriel noir, cosmique blanc cru). Fenêtres de nuit : seules
+  huit familles s'allument (rien en 6-9).
+- **2-3 (médiéval)** : place = un sapin au milieu de bancs, vide ; maisons variées, ok.
+- **5 (fonte)** : place = dalle noire ; TOUR DE VERRE anachronique (`tower` dès la
+  bande 5) ; manoirs sur socle prune.
+- **6 (néon)** : bâtiments-moteur en « boîtes crème » ; place pâle et vide.
+- **7-9 (cosmique)** : maisons de BRIQUE XIXe (`block`, `terrace`, `tenement`) au
+  milieu des flèches ; forêt de flèches-moteur identiques ; socles sombres des scènes.
+
+**2026-10-01, nuit — la BIBLE DES SURFACES (sols et routes, toutes ères).** Une règle
+pour toutes les ères, gardée par `__tests__/isoSurfaceBible.test.js` (qui remplace
+isoRoadGroundContrast, lequel ne lisait que les PNG) :
+1. le sol des lots est CLAIR et calme ; la chaussée plus sombre d'au moins 35 de
+   luminance ; la place, version claire de la matière du quartier, de 5 à 35 au-dessus ;
+2. grain effectif (grain de la tuile × dose) : sol ≤ 7,5, chaussée ≤ 13, place ≤ 10 ;
+3. aucune matière de sol ou de place ne fait de damier (variantes dans 6 de luminance).
+
+Mesures qui ont décidé (grain = écart moyen de luminance entre pixels voisins) :
+pavé de rue 30,8 · dalle de rue 18 · asphalte 10,8 · pavé de sol 18,2 ; variantes de
+béton L105 à L155, de dalle tech L49 à L73. Gestes :
+- **Chaussée dosée** (`ROAD_TILE_A`, isoRoad.js) : l'aplat du ton de rue dessous, la tuile
+  dessus à 0,4 (pavé) / 0,6 (dalle, asphalte) / 0,8 (tech). Ton moyen inchangé, grain
+  rabattu. La bande 5 reçoit un voile FROID (granit) pour cesser de rejouer la bande 4.
+- **Sols** (`URBAN_MATS`, `URBAN_TILE_A`) : bandes 2-3 terre battue et gravier chauds,
+  plus clairs, pavé dosé 0,35 ; bande 5 pierre grise ; béton clair dosé 0,5 ; ères
+  cosmiques en NACRE teintée de l'ère (jade, ivoire, lavande, L156-159) sous la dalle
+  tech dosée 0,3 — ⚠ le plus gros changement d'identité de la nuit, à faire valider.
+- **Tuiles** (`scripts/solsCoherents.mjs`, jamais de remap) : variantes de béton et de
+  dalle tech ÉGALISÉES (gain par canal) ; dallages de place médiéval, industriel, moderne
+  et cosmique DÉCALÉS vers la famille claire de leur quartier (dessin intact, écarts
+  gardés ×0,7 à ×1). Originaux dans `scratchpad/backup-sols/`.
+- Effet collatéral mesuré (garde bâti/sol, rayon 24) : maisons dissoutes dans le sol
+  bande 3 17 % → 0, bande 6 31,9 % → 0, bande 7 25 % → 0,8, bande 8 28,1 % → 18.
 
 ## 9. La petite vie (lot 6, demandé le 2026-10-01)
 

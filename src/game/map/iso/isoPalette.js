@@ -40,8 +40,16 @@ export const PLAZA_GROUND = { tileAlpha: 0.45 };
 export const PLAZA_ERA_TONE = {
   // antique : (219,204,185) mesuré sur la tuile ; rabattu vers le sol des rues
   // (~190,181,154) avec la tuile dosée — la place reste plus claire, sans éblouir.
-  antique: [208, 195, 174], medieval: [112, 115, 119], industrial: [89, 91, 97],
-  modern: [190, 194, 197], cosmic: [233, 223, 211],
+  // BIBLE DES SURFACES (2026-10-01) : la place est la version CLAIRE de la matière du
+  // quartier, de 10 à 30 de luminance au-dessus de son sol — jamais une autre pierre.
+  // Les quatre autres ères y sont passées avec leurs tuiles (décalées par
+  // scripts/solsCoherents.mjs, dessin intact) : médiéval bleu-gris L117 → calcaire
+  // chaud L168 (il était PLUS SOMBRE que la rue) ; industriel L91 → granit clair L190
+  // (un trou noir dans une ville à L176 — Raph avait déjà demandé de l'éclaircir) ;
+  // moderne L196 → L175 ; cosmique L225 → L186 (blanc cru sur le sol tech noir), et NEUTRE :
+  // une seule place sert trois nacres (jade, ivoire, lavande), une teinte chaude jurait sur le jade.
+  antique: [208, 195, 174], medieval: [174, 166, 148], industrial: [190, 188, 182],
+  modern: [172, 174, 174], cosmic: [184, 185, 184],
 };
 // Bas-fond CLAIR le long des rives (drawIsoRiver) : 3 bandes CLAIR (bord) → profond
 // (centre), « l'eau est moins profonde au bord » (retour Raph 2026-07-16 :

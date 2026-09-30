@@ -21,7 +21,7 @@
 import { cmEngineHomeHidden, cmHash, ROAD_E, ROAD_N, ROAD_S, ROAD_W } from '../layout.js';
 import { worldToScreen, ISO_X, ISO_Y } from './projection.js';
 import { COUR, builtNear } from './isoTissu.js';
-import { ROAD_DETAIL, SIDEWALK_ISO, isoRoadHalfW, roadVeilFor } from './isoRoad.js';
+import { ROAD_DETAIL, SIDEWALK_ISO, isoRoadHalfW, roadTileAlpha, roadVeilFor } from './isoRoad.js';
 import { artLayerBegin, artLayerEnd } from './isoArtLayer.js';
 import { blitIsoTileKey, ensureIsoTileKey } from './isoGroundTiles.js';
 import { drawRoadEdgeFringe, isoBuildingFront, roadFringeK, roadMatFor, smoothNoise } from './isoGroundDetail.js';
@@ -493,11 +493,17 @@ export function drawIsoGroundRoads(bake, resolve, roads) {
     }
     const rTile = (ROAD_DETAIL.on && ROAD_DETAIL.tiles && rmat.tile && !HARD) ? ensureIsoTileKey(rmat.tile) : null;
     if (rTile && rTile.ready) {
+      // Tuile DOSÉE sur l'aplat de chaussée (ROAD_TILE_A, bible des surfaces) : même
+      // ton moyen, grain rabattu. L'aplat d'abord, sinon la dose montrerait le sol.
+      const ra = roadTileAlpha(rmat.tile);
+      if (ra < 1) { sctx.fillStyle = rgb(road, v); sctx.fill(); }
       sctx.save(); sctx.clip();
       const rp = worldToScreen(r.gx * T, r.gy * T);
       const rH = cmHash('rr:' + r.gx + ',' + r.gy);
       const rmir = ((rH >>> 3) & 1) === 1;
+      if (ra < 1) sctx.globalAlpha = ra;
       blitIsoTileKey(sctx, rmat.tile, rp.x, rp.y, shw, rmir, rH, rVeil);
+      if (ra < 1) sctx.globalAlpha = 1;
       sctx.restore();
     } else {
       // DALLE LISSE : surface PLEINE de chaussée, teinte par ère (roadTone, qui
