@@ -232,12 +232,19 @@ export const CORE_DRY_RADIUS = 2;
 // faisait pas un bâtiment. Ici il n'en est pas un : c'est un feu au sol, là où
 // les sentiers convergent. Aucune génération (PixelLab expiré). Dessin :
 // iso/isoCampHearth.js. Molette : `__campHearth(false)`.
-export const CAMP_HEARTH = { on: true };
+// `lastBand` (2026-09-29, « applique tout ça à toutes les ères ») : le feu reste le
+// cœur du VILLAGE de huttes (bande 1) — il s'éteignait au premier changement de
+// bande, vers la 11e minute, et le village n'avait plus de centre. À la bande 2,
+// la place (plazas) prend le relais.
+export const CAMP_HEARTH = { on: true, lastBand: 1 };
 if (typeof window !== "undefined") {
+  // __campHearth(false) éteint ; __campHearth({ lastBand: 0 }) rejoue le feu du
+  // seul campement (A/B du village).
   window.__campHearth = (on) => {
-    if (on != null) CAMP_HEARTH.on = !!on;
+    if (on && typeof on === "object") { CAMP_HEARTH.on = true; Object.assign(CAMP_HEARTH, on); }
+    else if (on != null) CAMP_HEARTH.on = !!on;
     if (typeof window.__cityRecompute === "function") window.__cityRecompute();
-    return CAMP_HEARTH.on;
+    return { ...CAMP_HEARTH };
   };
 }
 
@@ -245,7 +252,8 @@ if (typeof window !== "undefined") {
 // Raph : « que tout l'univers soit plus cohérent, et pas juste des éléments
 // copiés-collés les uns sur les autres ». Règle « rien sans raison », appliquée
 // d'abord au camp de tentes (bande 0, avec son foyer) — l'image des dix
-// premières minutes. Mesuré sur 5 graines avant ce lot : une partie neuve
+// premières minutes —, puis au village de huttes (bande 1 : feu, sol et forêt,
+// cf. ruralLife dans computeCityLayout). Mesuré sur 5 graines avant ce lot : une partie neuve
 // montrait 7 tentes et en cachait 21 à 38 ; 3 à 5 des 7 n'avaient aucun
 // sentier, et jusqu'à 49 tentes sur 76 à forte population.
 //   - PAS DE MAISONS DE RÉSERVE AU CAMP. Les maisons-moteur pré-posées n'y
@@ -726,6 +734,82 @@ if (typeof window !== "undefined") window.__treeScale = (o = {}) => {
   if (("grainR" in o || "grainDens" in o) && typeof window.__cityRecompute === "function") window.__cityRecompute();
   return { ...TREE_TUNE };
 };
+// ── LES ARBRES RECULENT DEVANT LA VIE, À TOUTES LES ÈRES (2026-09-29) ───────
+// Règle née au campement (cf. CAMP_LIFE), étendue à toutes les bandes sur la
+// demande de Raph (« applique tout ça à toutes les ères ») : un arbre ne pousse
+// contre une maison. Depuis qu'il a le grain des habitations (grainR, ×1,6), sa
+// couronne couvrait les façades. Deux régimes :
+//   - la FORÊT (iso/isoWildForest.js) et, au camp et au village, toute la
+//     végétation : aucun arbre à `clear` cellules ou moins (Chebyshev) d'une route
+//     ou d'une emprise bâtie, puis la part `keep` cellule après cellule, la
+//     pleine densité au-delà — une lisière qui s'éclaircit ;
+//   - les ARBRES DE VILLE (L.trees) : aucun à `cityClear` cellule ou moins d'une
+//     emprise bâtie ; le bord des rues reste permis (arbres d'alignement, de
+//     parc). La règle de la forêt appliquée en ville la vidait : dans un tissu
+//     dense, presque chaque cellule libre est à deux pas d'une rue ou d'une
+//     maison (bande 3 : 402 → 121 arbres ; celle-ci en garde 276, bande 5 :
+//     1 971 → 1 638), alors que Raph avait validé les grands arbres EN VILLE.
+// Mesuré avant (villes __demoCity) : arbres de ville collés à une maison ou une
+// rue, 15 sur 15 en bande 1, 118/422 en bande 3, 293/1 633 en bande 4, 575/2 586
+// en bande 7.
+// Molette : __treeLife(false) rejoue les arbres d'avant (hors camp et village,
+// dont l'emprise est plantée par la forêt quoi qu'il arrive).
+export const TREE_LIFE = { on: true, clear: 2, keep: [0.3, 0.6, 0.85], cityClear: 1 };
+if (typeof window !== "undefined") {
+  window.__treeLife = (o) => {
+    if (o === false) TREE_LIFE.on = false;
+    else if (o && typeof o === "object") { TREE_LIFE.on = true; Object.assign(TREE_LIFE, o); }
+    else if (o != null) TREE_LIFE.on = true;
+    if (typeof window.__cityRecompute === "function") window.__cityRecompute();
+    return { ...TREE_LIFE };
+  };
+}
+// Part des arbres gardés à la distance `d` de la vie (cf. TREE_LIFE).
+export function treeLifeKeep(d) {
+  if (d <= TREE_LIFE.clear) return 0;
+  const i = d - TREE_LIFE.clear - 1;
+  return i < TREE_LIFE.keep.length ? TREE_LIFE.keep[i] : 1;
+}
+// Rayon utile de la règle : au-delà, la distance n'a plus d'effet.
+export function treeLifeRange() { return TREE_LIFE.clear + TREE_LIFE.keep.length; }
+// Distance de Chebyshev de chaque cellule à la cellule de VIE la plus proche,
+// bornée à R (255 au-delà). BFS à 8 voisins sur une grille typée bordée de R —
+// la forêt pousse aussi hors de la grille de ville, jusqu'à R cellules de son
+// bord. `sources` : itérables de clés "gx,gy". Pur : aucun état, aucun CM.
+export function cmLifeDistance(N, sources, R) {
+  const W = (N | 0) + 2 * R;
+  const d = new Uint8Array(W * W).fill(255);
+  const q = new Int32Array(W * W);
+  let qn = 0;
+  for (const src of sources) {
+    for (const k of src) {
+      const c = k.indexOf(",");
+      const x = +k.slice(0, c) + R, y = +k.slice(c + 1) + R;
+      if (x < 0 || y < 0 || x >= W || y >= W) continue;
+      const i = y * W + x;
+      if (d[i] === 0) continue;
+      d[i] = 0; q[qn++] = i;
+    }
+  }
+  for (let h = 0; h < qn; h += 1) {
+    const i = q[h], di = d[i];
+    if (di >= R) continue;
+    const x = i % W, y = (i - x) / W;
+    for (let dy = -1; dy <= 1; dy += 1) for (let dx = -1; dx <= 1; dx += 1) {
+      const nx = x + dx, ny = y + dy;
+      if (nx < 0 || ny < 0 || nx >= W || ny >= W) continue;
+      const j = ny * W + nx;
+      if (d[j] <= di + 1) continue;
+      d[j] = di + 1; q[qn++] = j;
+    }
+  }
+  return {
+    at(gx, gy) {
+      const x = gx + R, y = gy + R;
+      return (x < 0 || y < 0 || x >= W || y >= W) ? 255 : d[y * W + x];
+    },
+  };
+}
 // Rayon d'un arbre de forêt ou de ville : le grain commun, ou l'ancien tirage.
 function treeRadius(h) { return TREE_TUNE.grainR || (0.62 + (h % 30) / 80); }
 // Part des arbres replantés (cf. grainDens) : 1 quand le grain est coupé.
@@ -2693,20 +2777,27 @@ function computeCityLayout(s) {
   // geste que le domaine des Plaisirs, mais PAS pour les routes : les sentiers du
   // camp doivent pouvoir converger sur le feu. Le cœur est tenu au sec
   // (CORE_DRY_RADIUS = 2), donc les neuf cellules le sont aussi.
-  const hearthCell = ((c.eraBand | 0) === 0 && CAMP_HEARTH.on)
+  const hearthCell = ((c.eraBand | 0) <= CAMP_HEARTH.lastBand && CAMP_HEARTH.on)
     ? { gx: Math.floor(plan.core.x), gy: Math.floor(plan.core.y) } : null;
   const hearthClear = new Set();
   if (hearthCell) {
     for (let dx = -1; dx <= 1; dx += 1) for (let dy = -1; dy <= 1; dy += 1) hearthClear.add((hearthCell.gx + dx) + "," + (hearthCell.gy + dy));
   }
-  // Le camp « vivant » (cf. CAMP_LIFE) : seulement là où il y a un foyer.
-  const campLife = !!hearthCell && CAMP_LIFE.on;
-  // …et pas de tente sur les TÊTES DU PONT : le tablier déborde d'une cellule
-  // sur chaque berge et son garde-corps d'une de plus à l'écran ; une tente posée
-  // contre l'approche se dessinait dessus, en travers de la sortie du pont (vu à
-  // la capture, jusqu'à deux colonnes de côté).
+  // La vie RURALE (cf. CAMP_LIFE) : là où il y a un foyer, camp et village —
+  // sentiers qui convergent sur le feu, terre battue et forêt qui suivent la
+  // vie. Le CAMP (bande 0) y ajoute ses tentes autour du feu, espacées, et pas de
+  // maisons de réserve ; le village de huttes garde son placement le long des
+  // chemins (ses ~160 maisons ne tiennent pas dans l'emprise avec les écarts du
+  // camp, qui en divisent la capacité par deux).
+  const ruralLife = !!hearthCell && CAMP_LIFE.on;
+  const campLife = ruralLife && (c.eraBand | 0) === 0;
+  // Pas d'habitation sur les TÊTES DU PONT, à toutes les ères : le tablier déborde
+  // d'une cellule sur chaque berge et son garde-corps d'une de plus à l'écran ; une
+  // tente posée contre l'approche se dessinait dessus, en travers de la sortie du
+  // pont (vu à la capture du camp, jusqu'à deux colonnes de côté), et une maison
+  // de bourg de même (bande 2).
   const bridgeHeadClear = new Set();
-  if (campLife && riverBridge) {
+  if (CAMP_LIFE.on && riverBridge) {
     const bx = Math.round(riverBridge.x);
     let wy0 = N, wy1 = -1;
     for (const k of riverSet) {
@@ -2882,7 +2973,7 @@ function computeCityLayout(s) {
   // Foyer du campement : interdit au bâti, TRAVERSABLE par la desserte — les
   // sentiers convergent sur le feu (cf. CAMP_LIFE). En obstacle, il emmurait la
   // racine du réseau, qui est au cœur.
-  for (const k of hearthClear) { claimed.add(k); if (campLife) districtWalk.add(k); }
+  for (const k of hearthClear) { claimed.add(k); if (ruralLife) districtWalk.add(k); }
   // L'emprise des merveilles sèches bloque aussi les bâtiments-moteur (aqueducs,
   // champs, ports/moulins, banques, génériques) : footprintFits ne teste que
   // `claimed`. era_mega exclue (riverains de l'Aiguille légitimes sur la berge).
@@ -3532,11 +3623,16 @@ function computeCityLayout(s) {
     if (!footprintFits(gx, gy, spanX, false, false, spanY)) return false;
     // Ancre proche d'une voie (l'empreinte entière l'est alors aussi).
     if (placer.requireRoad && !placer.nearRoad(gx, gy)) return false;
+    // Têtes du pont : aucune habitation, à toutes les ères (cf. bridgeHeadClear).
+    if (bridgeHeadClear.size) {
+      for (let ax = 0; ax < spanX; ax += 1) for (let ay = 0; ay < spanY; ay += 1) {
+        if (bridgeHeadClear.has((gx + ax) + "," + (gy + ay))) return false;
+      }
+    }
     // Camp : une tente garde ses distances (cf. CAMP_TENT_GAP) — ni losanges
     // qui se touchent, ni tente dessinée juste derrière une autre.
     if (campLife) {
       for (let ax = 0; ax < spanX; ax += 1) for (let ay = 0; ay < spanY; ay += 1) {
-        if (bridgeHeadClear.has((gx + ax) + "," + (gy + ay))) return false;
         for (const [dx, dy] of CAMP_TENT_GAP) {
           const nx = gx + ax + dx, ny = gy + ay + dy;
           if (nx >= gx && nx < gx + spanX && ny >= gy && ny < gy + spanY) continue;
@@ -3771,15 +3867,22 @@ function computeCityLayout(s) {
   const treeKey = new Set();
   const maxR  = Math.max(1, Math.hypot(cx, cy));
   const treeMul = ageCfg.treeDensity * (personality.treeMul || 1);
+  // Distance aux emprises bâties et réservées (merveilles, grands ensembles),
+  // pour la règle des arbres de ville (TREE_LIFE.cityClear). Hors camp et
+  // village seulement : leur emprise n'a pas d'arbres de ville (cf. plus bas).
+  const cityClear = TREE_LIFE.cityClear | 0;
+  const builtD = (!ruralLife && TREE_LIFE.on && cityClear > 0) ? cmLifeDistance(N, [usedKeys, reserved], cityClear) : null;
   for (const cell of cells) {
     const cellKey = cell.gx + "," + cell.gy;
     // Jamais d'arbre SUR une route : `cells` est bâti avant la connexion, or les
     // connecteurs carvés depuis (moteurs + desserte organique) l'ont trouée.
     if (usedKeys.has(cellKey) || roadKey.has(cellKey)) continue;
-    // Camp (cf. CAMP_LIFE) : AUCUN arbre de ville. Son emprise est une clairière
-    // que la forêt sauvage replante elle-même, en reculant devant la vie
-    // (iso/isoWildForest.js, CAMP_LIFE_KEEP) — une seule forêt, un seul semis.
-    if (campLife) continue;
+    // Camp et village (cf. CAMP_LIFE) : AUCUN arbre de ville. Leur emprise est une
+    // clairière que la forêt sauvage replante elle-même, en reculant devant la vie
+    // (iso/isoWildForest.js, TREE_LIFE) — une seule forêt, un seul semis.
+    if (ruralLife) continue;
+    // Ville : pas d'arbre contre une maison (TREE_LIFE.cityClear).
+    if (builtD && builtD.at(cell.gx, cell.gy) <= cityClear) continue;
     const norm = Math.sqrt(cell.d2) / maxR;
     const hsh  = cmHash(cell.gx + "x" + cell.gy + ":" + mapSeed) % 100;
     // S5 : la probabilité radiale est modulée par le BRUIT DE BLOC, de moyenne 1 —

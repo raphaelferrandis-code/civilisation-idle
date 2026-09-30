@@ -36,7 +36,7 @@ import {
   LIGHT_LAYER, beginLightLayer, endLightLayer, lightCtx, lightCut, lightCutImage,
 } from '../lightLayer.js';
 import {
-  drawPixelHouse, drawPixelHouseOutline, pixelHouseBox, pixelHouseReady,
+  drawPixelHouse, drawPixelHouseCastShadow, drawPixelHouseOutline, pixelHouseBox, pixelHouseReady,
 } from '../pixelHouses.js';
 import { drawWonder } from '../renderBuildings.js';
 import { drawIsoRevealPin, drawIsoSmoke } from './isoAmbient.js';
@@ -315,6 +315,9 @@ export function paintIsoItems(bake, items, now) {
         const hx = anchor.x - wpx / 2, hy = anchor.y - hpx - hh * 0.5;
         // SURVOL : le liseré se dessine AVANT le sprite (blob élargi puis sprite
         // par-dessus), sinon il mange la silhouette au lieu de la cerner.
+        // Ombre portée calculée des rares habitations qui n'en ont pas de cuite
+        // (houseShadow.js), sous le liseré de survol et le sprite.
+        drawPixelHouseCastShadow(t, hx, hy, wpx, hpx);
         if (CM.hover && CM.hover.tile === t) drawPixelHouseOutline(t, hx, hy, wpx, hpx, HOVER_GOLD);
         // Ombre de contact de la TENTE (cf. TENT_SHADOW), sous le sprite : sa
         // base est le bas de la boîte réellement dessinée.

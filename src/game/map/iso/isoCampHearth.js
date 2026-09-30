@@ -1,7 +1,8 @@
 // LE FOYER DU CAMPEMENT — validé par Raph le 2026-09-28.
 //
-// Un feu commun au cœur du camp de tentes (bande 0), posé là où les sentiers se
-// rejoignent (cf. CAMP_HEARTH et `campHearth` dans layout.js). Art EXISTANT,
+// Un feu commun au cœur du camp de tentes (bande 0) puis du village de huttes
+// (bande 1, depuis le 2026-09-29), posé là où les sentiers se rejoignent (cf.
+// CAMP_HEARTH et `campHearth` dans layout.js). Art EXISTANT,
 // aucune génération : le sol du foyer des Conteurs et sa bande de flamme animée
 // (`storyteller-fire`, 7 images de 96×80, alignées pixel pour pixel sur le sol).
 // Retirés des Conteurs le 2026-08-05 parce qu'une scène plate ne faisait pas un

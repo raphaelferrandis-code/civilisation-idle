@@ -20,6 +20,7 @@ import { pxProbe, recPx } from './pixelGrid.js';
 // d'import sûr — projection ne connaît que layout/isoTerrain, jamais les sprites.
 import { ISO_Y } from './iso/projection.js';
 import { houseFootprint } from './procedural/buildingGenerator.js';
+import { HOUSE_CAST_SHADOW, HOUSE_SHADOW_RGB, houseCastShadow } from './houseShadow.js';
 
 export const pixelHousesFlag = { on: true };
 
@@ -147,6 +148,8 @@ function ensure(key) {
   e.img.onload = () => {
     e.ready = true;
     e.bbox = contentBBox(e.img);
+    // Ombre portée calculée pour les rares sprites qui n'en ont pas (houseShadow.js).
+    if (HOUSE_CAST_SHADOW.has(key)) e.castShadow = castShadowCanvas(e.img, e.bbox);
     // Sprite arrivé (souvent APRÈS le bake) → invalider le bake tuiles pour qu'il REMPLACE le
     // repli procédural baké dès le frame suivant (cf. cmInvalidateBakes). Sans ça, un PNG chargé
     // hors de la fenêtre de naissance laissait le procédural GELÉ jusqu'à un re-bake sans rapport
@@ -216,6 +219,51 @@ function contentBBox(img) {
   // passe fantôme si un point d'écran tombe sur de la matière ou dans un coin vide
   // de la boîte — cf. iso/isoMask.js.
   return { x0, y0, w: bw, h: bh, mask: maskFromImageData(data, w, h, x0, y0, bw, bh) };
+}
+
+// L'OMBRE PORTÉE en canvas (pixels opaques de la couleur des ombres cuites), avec
+// son origine dans le PNG. Cuite une fois au décodage, jamais par frame.
+function castShadowCanvas(img, bb) {
+  if (!bb) return null;
+  const w = img.naturalWidth, h = img.naturalHeight;
+  if (!w || !h) return null;
+  const c = document.createElement("canvas");
+  c.width = w; c.height = h;
+  const cx = c.getContext("2d", { willReadFrequently: true });
+  cx.drawImage(img, 0, 0);
+  let data;
+  try { data = cx.getImageData(0, 0, w, h).data; } catch { return null; }
+  const sh = houseCastShadow((x, y) => (x < 0 || y < 0 || x >= w || y >= h) ? 0 : data[(y * w + x) * 4 + 3], bb);
+  if (!sh) return null;
+  const out = document.createElement("canvas");
+  out.width = sh.x1 - sh.x0 + 1; out.height = sh.y1 - sh.y0 + 1;
+  const oc = out.getContext("2d");
+  oc.fillStyle = `rgb(${HOUSE_SHADOW_RGB[0]},${HOUSE_SHADOW_RGB[1]},${HOUSE_SHADOW_RGB[2]})`;
+  for (const [x, y] of sh.px) oc.fillRect(x - sh.x0, y - sh.y0, 1, 1);
+  return { canvas: out, x0: sh.x0, y0: sh.y0 };
+}
+
+// Dessine l'ombre portée calculée d'une habitation (si son sprite n'en a pas de
+// cuite), SOUS le sprite : même échelle, même origine, donc même grille de pixels.
+// À appeler avant le liseré de survol et le sprite.
+// Molette : __houseShadow(false) coupe (A/B).
+export const houseShadowTune = { on: true };
+export function drawPixelHouseCastShadow(t, x, y, w, h) {
+  if (!houseShadowTune.on) return;
+  const e = cache.get(spriteKeyFor(t.variant));
+  if (!e || !e.castShadow || !e.bbox) return;
+  const g = pixelHouseGeom(t, x, y, w, h);
+  if (!g) return;
+  const sh = e.castShadow, bb = e.bbox;
+  const kx = g.dw / bb.w, ky = g.dh / bb.h;
+  const ctx = CM.ctx;
+  const prev = ctx.imageSmoothingEnabled;
+  ctx.imageSmoothingEnabled = false;
+  ctx.drawImage(sh.canvas, g.dx + (sh.x0 - bb.x0) * kx, g.dy + (sh.y0 - bb.y0) * ky, sh.canvas.width * kx, sh.canvas.height * ky);
+  ctx.imageSmoothingEnabled = prev;
+}
+if (typeof window !== "undefined") {
+  window.__houseShadow = (on) => { if (on != null) houseShadowTune.on = !!on; return houseShadowTune.on; };
 }
 
 // True si un sprite pixel PRÊT existe pour cette tuile → l'appelant saute le
