@@ -283,6 +283,25 @@ béton L105 à L155, de dalle tech L49 à L73. Gestes :
   gardés ×0,7 à ×1). Originaux dans `scratchpad/backup-sols/`.
 - Effet collatéral mesuré (garde bâti/sol, rayon 24) : maisons dissoutes dans le sol
   bande 3 17 % → 0, bande 6 31,9 % → 0, bande 7 25 % → 0,8, bande 8 28,1 % → 18.
+- Commité en local : `7b7282c`.
+
+**2026-10-01, nuit — les places par sorte, ères médiévale et industrielle.** Même
+grammaire que le pilote (`KIND_KITS.medieval`, `KIND_KITS.industrial`), art PixelLab
+dessiné pour l'ère (IDs : `scratchpad/pixellab-places-nuit.json`) :
+- **Médiéval (bandes 2-3)** : GRAND-PLACE = fontaine gothique (bassin octogonal,
+  pinacle, saint doré) ; MARCHÉ = tréteaux sous toiles rayées rouge / vert / bleu (pain
+  et fromages, légumes, draps), tonneaux et sacs, le puits ; PARVIS = roi de pierre sur
+  socle armorié, braseros de fer ; JARDIN = massifs en clayonnage.
+- **Industriel (bande 5)** : fontaine de FONTE verte à trois vasques ; marché d'étals
+  peints en vert (tomates et fleurs, légumes, fromages et pain), bidons de lait ;
+  homme d'État de bronze et vasques de géraniums ; au square, le KIOSQUE À MUSIQUE.
+- Recette : 8 vues, style = la fontaine de l'ère (repo public), écrasement ×0,5,
+  quantize 24 (jamais de remap). ⚠ Sous la charge, 2 objets sur 16 ont échoué
+  (« heavy load ») et ont été relancés ; le parvis médiéval a montré des gabarits gris
+  en attendant → nouvelle garde : tout prop réclamé par un kit a son PNG
+  (isoPlaza.test.js, « kits par sorte : chaque prop a son art »).
+- Planches : `scratchpad/pilote/places/quad-b2.png`, `quad-b5.png` (les quatre sortes
+  forcées tour à tour sur la même place, `mkKinds.cjs`).
 
 ## 9. La petite vie (lot 6, demandé le 2026-10-01)
 

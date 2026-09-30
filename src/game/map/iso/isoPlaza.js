@@ -109,7 +109,8 @@ const personF = (f) => personHT() * f;
 // et doit rester sous la demi-maison (c'est le défaut qu'on répare : un banc
 // aussi large qu'une maison). Le test isoPlaza.test.js applique les deux
 // plafonds séparément ; ajouter un prop haut sans l'inscrire ici le fera tomber.
-const TALL_PROPS = new Set(['flag', 'statue', 'obelisk', 'tree', 'fountain-forum', 'stall-red', 'stall-ochre', 'stall-blue']);
+const TALL_PROPS = new Set(['flag', 'statue', 'obelisk', 'tree', 'fountain-forum', 'bandstand',
+  'stall-red', 'stall-ochre', 'stall-blue', 'stall-green', 'stall-yellow', 'stall-cyan', 'stall-magenta', 'stall-amber']);
 
 // ── MOLETTE DE RÉGLAGE ──────────────────────────────────────────────────────
 // `rev` s'incrémente à chaque réglage : la composition mémoïsée se reconstruit
@@ -383,7 +384,8 @@ export function plazaLawnAtCell(L, key) {
 
 // ── LES KITS PAR SORTE (docs/PLAN-MAQUETTE-VIVANTE.md, lot 2) ────────────────
 // Surchargent la recette de l'ÈRE pour UNE sorte de place. Une ère sans kit garde
-// sa recette partout (seule l'antique, ère pilote, en a un pour l'instant).
+// sa recette partout (antique = ère pilote ; médiévale et industrielle depuis la nuit
+// du 2026-10-01 ; moderne et cosmique à suivre).
 //   centre      : la pièce maîtresse, IMPOSÉE (pas de tirage fontaine/arbre)
 //   sideItem    : ce qui borde la place À LA PLACE des duos de bancs (les étals du
 //                 marché) — un par emplacement, couleur tournante
@@ -437,6 +439,77 @@ const KIND_KITS = {
       benchPerSide: 2, treeWant: 2, side: [{ prop: 'planter', p: 0.55 }], beds: { prop: 'flowerbed', p: 1.1 },
       field: [{ prop: 'flowerbed', p: 1.1 }],
       people: { mode: 'centre', n: 3 }, garland: false,
+    },
+  },
+  // ── LES AUTRES ÈRES (nuit du 2026-10-01, « finis toutes les époques ») ────────
+  // Même grammaire que le pilote : chaque sorte a SA pièce maîtresse et SON
+  // monde, dessinés pour l'ère (PixelLab, public/pixelart/iso/plaza/*-<ère>.png,
+  // IDs dans le journal du plan). Avant : un sapin ou une petite fontaine au
+  // milieu de bancs, sur toutes les places de toutes les ères.
+  medieval: {
+    // LA GRAND-PLACE : la fontaine gothique (bassin octogonal, pinacle, saint
+    // doré), deux arbres, les massifs en clayonnage, du monde, des fanions.
+    centrale: {
+      centre: { prop: 'fountain-forum', p: 5.0 }, centreForce: true,
+      benchPerSide: 2, treeWant: 2, side: [{ prop: 'planter', p: 0.55 }],
+      field: [{ prop: 'flowerbed', p: 1.1 }],
+      people: { mode: 'centre', n: 7 }, garland: true,
+    },
+    // LE MARCHÉ : tréteaux sous toiles rayées (pain et fromages, légumes, draps),
+    // le puits au milieu, tonneaux et sacs de grain entre les étals.
+    marche: {
+      centre: { prop: 'well', p: 1.1 }, centreForce: true,
+      sideItem: { prop: 'stall', colors: ['red', 'green', 'blue'], p: 2.0 }, sidePerSide: 2,
+      cornerKeep: 0.45, side: [{ prop: 'crates', p: 0.8 }], treeWant: 0, field: null,
+      people: { mode: 'stalls', perItem: 2 }, garland: true,
+    },
+    // LE PARVIS : le roi de pierre sur son socle armorié, quatre braseros de fer.
+    parvis: {
+      centre: { prop: 'statue', p: 4.0 }, centreForce: true,
+      benchPerSide: 2, treeWant: 0, side: [], beds: { prop: 'brazier', p: 1.3 },
+      field: [{ prop: 'brazier', p: 1.3 }],
+      people: { mode: 'centre', n: 4 }, garland: false,
+    },
+    // LE JARDIN CLOS : la fontaine de quartier, deux arbres, les massifs.
+    jardin: {
+      centre: { prop: 'fountain', p: 1.6 }, centreForce: true,
+      benchPerSide: 2, treeWant: 2, side: [{ prop: 'planter', p: 0.55 }], beds: { prop: 'flowerbed', p: 1.1 },
+      field: [{ prop: 'flowerbed', p: 1.1 }],
+      people: { mode: 'centre', n: 3 }, garland: false,
+    },
+  },
+  industrial: {
+    // LA PLACE DE L'HÔTEL DE VILLE : la grande fontaine de fonte à trois vasques,
+    // trois arbres d'alignement, les massifs, la foule, les fanions de fête.
+    centrale: {
+      centre: { prop: 'fountain-forum', p: 5.0 }, centreForce: true,
+      benchPerSide: 2, treeWant: 3, side: [{ prop: 'planter', p: 0.55 }],
+      field: [{ prop: 'flowerbed', p: 1.1 }],
+      people: { mode: 'centre', n: 7 }, garland: true,
+    },
+    // LE MARCHÉ DE PLEIN AIR : étals peints en vert sous toiles rayées (tomates et
+    // fleurs, légumes, fromages et pain), bidons de lait et cageots entre eux.
+    marche: {
+      centre: { prop: 'well', p: 1.1 }, centreForce: true,
+      sideItem: { prop: 'stall', colors: ['red', 'green', 'yellow'], p: 2.0 }, sidePerSide: 2,
+      cornerKeep: 0.45, side: [{ prop: 'crates', p: 0.8 }], treeWant: 0, field: null,
+      people: { mode: 'stalls', perItem: 2 }, garland: true,
+    },
+    // LE PARVIS : l'homme d'État de bronze sur son granit, quatre vasques de fonte
+    // fleuries de géraniums autour.
+    parvis: {
+      centre: { prop: 'statue', p: 4.0 }, centreForce: true,
+      benchPerSide: 2, treeWant: 0, side: [], beds: { prop: 'urn', p: 1.2 },
+      field: [{ prop: 'urn', p: 1.2 }],
+      people: { mode: 'centre', n: 4 }, garland: false,
+    },
+    // LE SQUARE : le KIOSQUE À MUSIQUE au milieu — la pièce du square du XIXe —,
+    // deux arbres, les massifs de mosaïculture, et son public.
+    jardin: {
+      centre: { prop: 'bandstand', p: 4.2 }, centreForce: true,
+      benchPerSide: 2, treeWant: 2, side: [{ prop: 'planter', p: 0.55 }], beds: { prop: 'flowerbed', p: 1.1 },
+      field: [{ prop: 'flowerbed', p: 1.1 }],
+      people: { mode: 'centre', n: 5 }, garland: false,
     },
   },
 };
@@ -591,6 +664,8 @@ const PROP_ASPECT = {
   grate: 2.0,                           // large et plate : elle cercle le tronc
   well: 0.9,                            // puits de quartier : un peu plus haut que large
   brazier: 0.6, flowerbed: 1.8, crates: 1.2,
+  bandstand: 1.0,                       // kiosque à musique : aussi large que haut
+  urn: 0.6,                             // vasque de fonte sur socle
   person: 0.5,                          // un passant arrêté (kits par sorte)
 };
 // Props qui ne prennent JAMAIS de gabarit : une grille absente doit laisser le
@@ -1573,7 +1648,7 @@ export function drawIsoPlazaGrid(ctx, comp) {
 // `inkBox` est exporté pour les CLÔTURES (lot L9) : la composition d'une bande a
 // besoin de la boîte d'encre du panneau, et une seconde implémentation de la mesure
 // dériverait de celle qui sert au dessin.
-export { PLAZA_TUNE, RECIPES, HOUSE_HT, houseF, TALL_PROPS, personHT, ADULT_SCALE, inkBox };
+export { PLAZA_TUNE, RECIPES, KIND_KITS, HOUSE_HT, houseF, TALL_PROPS, personHT, ADULT_SCALE, inkBox };
 
 // ── LA FONTAINE DE LA SCÈNE DE PLACE, rapatriée d'isoRenderer le 2026-08-23
 // (Q10). Elle décrivait déjà une scène de CE module ; la laisser dans le peintre

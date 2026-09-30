@@ -6,7 +6,7 @@ import { CM } from "../../layout.js";
 import {
   isoPlazaBox, isoPlazaBoxes, isoPlazaCells, isoPlazaComposition, isoPlazaCompositions, plazaEraForBand,
   isoPlazaKitOn, isoPlazaSceneOn, isoPlazaSceneCoversGround, plazaAnchor, grateFit,
-  PLAZA_TUNE, RECIPES, HOUSE_HT, TALL_PROPS, personHT, ANIM_PROPS,
+  PLAZA_TUNE, RECIPES, KIND_KITS, HOUSE_HT, TALL_PROPS, personHT, ANIM_PROPS,
 } from "../isoPlaza.js";
 
 // ── CE QUE CES TESTS PROTÈGENT ──────────────────────────────────────────────
@@ -1247,6 +1247,51 @@ describe("ères", () => {
       expect(RECIPES[era].centre, era).toBeTruthy();
       expect(RECIPES[era].bench, era).toBeTruthy();
       expect(RECIPES[era].side.length, era).toBeGreaterThan(0);
+    }
+  });
+});
+
+// ── LES KITS PAR SORTE ONT LEUR ART ─────────────────────────────────────────
+// Un prop sans image ne casse rien — il ne se dessine pas, ou pose un GABARIT gris
+// si la molette `placeholders` est allumée —, donc rien ne proteste quand un kit
+// réclame un art absent. C'est arrivé la nuit du 2026-10-01 : le parvis médiéval
+// posait quatre « B » gris à la place de ses braseros, dont la génération PixelLab
+// avait échoué sous la charge. La garde lit le DISQUE, comme les autres gardes
+// d'art : soit l'image non orientée `<prop>-<ère>.png`, soit ses quatre faces.
+describe("kits par sorte : chaque prop a son art", () => {
+  const DIR = new URL("../../../../../public/pixelart/iso/plaza/", import.meta.url);
+  const has = (p, era) => fs.existsSync(new URL(`${p}-${era}.png`, DIR))
+    || ["n", "s", "e", "w"].every((d) => fs.existsSync(new URL(`${p}-${d}-${era}.png`, DIR)));
+  it("tout prop réclamé par un kit existe en PNG pour son ère", () => {
+    let vus = 0;
+    for (const [era, kinds] of Object.entries(KIND_KITS)) {
+      for (const [kind, kit] of Object.entries(kinds)) {
+        const props = ["bench"];
+        if (kit.centre) props.push(kit.centre.prop);
+        for (const s of kit.side || []) props.push(s.prop);
+        for (const s of kit.field || []) props.push(s.prop);
+        if (kit.beds) props.push(kit.beds.prop);
+        if (kit.sideItem) for (const c of kit.sideItem.colors) props.push(`${kit.sideItem.prop}-${c}`);
+        for (const p of props) {
+          expect(has(p, era), `${era}/${kind} : ${p}`).toBe(true);
+          vus += 1;
+        }
+      }
+    }
+    expect(vus).toBeGreaterThan(20);
+  });
+  // …et la garde voit bien un manque : un prop inventé n'a pas d'art.
+  it("mord : un prop sans image est refusé", () => {
+    expect(has("brasero-imaginaire", "medieval")).toBe(false);
+  });
+  // Les props HAUTS d'un kit sont déclarés comme tels (plafond de hauteur du test
+  // « aucun MOBILIER n'atteint la taille d'une maison »).
+  it("les étals de toutes les couleurs sont des accents verticaux déclarés", () => {
+    for (const kinds of Object.values(KIND_KITS)) {
+      for (const kit of Object.values(kinds)) {
+        if (!kit.sideItem) continue;
+        for (const c of kit.sideItem.colors) expect(TALL_PROPS.has(`${kit.sideItem.prop}-${c}`), c).toBe(true);
+      }
     }
   });
 });
