@@ -43,6 +43,35 @@ bois (tôt) → pierre / brique / ardoise (milieu) → béton / verre / acier / 
 | `taberna.png` | taberna | Taberna | 4 · Marbre | 64×64 | 56×64 |
 | `villa.png` | villa | Villa (lot 2×2) | 4 · Marbre | 64×64 | 62×52 |
 | `insula2.png` | insula2 | Immeuble de rapport (ocre) | 4 · Marbre | 76×76 | 42×66 |
+| `haussmann.png` | haussmann | Immeuble haussmannien | 5 · Fonte | 80×80 | 44×73 |
+| `gardentower.png` | gardentower | Tour-jardin | 7–9 · cosmique | 96×96 | 29×87 |
+| `domehome.png` | domehome | Maison-dôme | 7–9 · cosmique | 64×64 | 57×51 |
+| `podstack.png` | podstack | Grappe de capsules | 7–9 · cosmique | 80×80 | 42×75 |
+
+### Les trois cosmiques de la nuit du 2026-10-01 — plus de brique entre les flèches
+
+Les bandes 7 à 9 reprenaient la liste de la bande 6 : `block`, `terrace` et `tenement`
+(brique, cheminées) sortaient entre les flèches de jade, d'or et de cristal. Une ligne
+cosmique propre (VARIANTS_HOUSE[7]) ne garde que les archétypes à skin d'ère (tour, grand
+ensemble, arcologie) et trois maisons dessinées en NACRE : `gardentower` (tour ronde à
+terrasses plantées, éolienne), `domehome` (trois coupoles, bassin rond), `podstack`
+(capsules empilées, portes teal / corail / jaune). Référence de style `arcologyhome.png`.
+Plus BASSES que les tours : c'est la gamme de hauteurs qui manquait.
+⚠ Sur le sol NACRE de ces ères (bible des surfaces, même nuit), leurs gris d'ombre
+tombaient à 4 du sol (garde bâti/sol : dôme 12,5 % d'encre dissoute). Corrigés par
+`scripts/ecartSol.mjs --darker` : chaque couleur trop proche du sol prend la plus proche
+PLUS SOMBRE de la palette du sprite — l'ombre reste une ombre, le volume ne s'aplatit pas.
+
+### L'haussmannien de la nuit du 2026-10-01 — la bande 5 perd sa tour de verre
+
+La tour de verre (`tower`) sortait dès la bande 5 (Fonte, XIXe) : un gratte-ciel au
+milieu des attelages et des immeubles de brique. Elle démarre désormais à la bande 6, et
+`haussmann` prend sa place (calcaire crème, balcons de fer forgé aux 2e et 5e étages, toit
+de zinc à lucarnes, boutique à auvent vert au rez). Même recette que les romaines (8 vues,
+référence de style `block.png`, rotation south-west, ×0,5, quantize 24). Mesure : luminance
+134 ; « mur gauche 120 / droit 135 » n'est PAS une lumière inversée — la façade gauche
+porte les fenêtres et balcons sombres, le pignon droit est nu ; en couleur de mur, la
+façade crème reste la plus claire. Pas de miroir.
 
 ### Les quatre romaines du 2026-10-01 — la bande 4 cesse d'être médiévale
 

@@ -91,7 +91,9 @@ const CLIQUET = [
   { band: 5, max: 18.0, pire: "block/calcaire" },
   { band: 6, max: 0.0, pire: "tower/origine" },
   { band: 7, max: 0.8, pire: "tower/origine" },
-  { band: 8, max: 18.0, pire: "block/calcaire" },
+  // Bande 8 : 18,0 → 0,0 le même soir, par les MAISONS cette fois — la ligne cosmique de
+  // VARIANTS_HOUSE (bandes 7-9) n'a plus de `block` de brique, le coupable.
+  { band: 8, max: 0.0, pire: "tower/origine" },
   // ⚠ RELEVÉ de 3,1 à 7,5 le 2026-08-06, et c'est le SEUL relèvement de ce cliquet —
   // il doit rester exceptionnel et justifié. Cause : l'archétype `terrace` (vague « les
   // îlots n'ont qu'un type de bâtiment »), que la garde a attrapé dès sa pose.
@@ -277,10 +279,11 @@ describe("habitations vs sol des lots, par ère", () => {
   // Témoin de lecture. Jusqu'au 2026-10-01 : bandes 4 et 9 bonnes, 1, 3 et 6
   // brouillonnes. La bible des surfaces a fait passer les bandes 2, 3, 6 et 7 sous 1 %
   // — elles doivent y rester ; les dernières brouillonnes (1 : la terre battue du
-  // village, 5 et 8 : block/calcaire) sont le chantier suivant, pas une fatalité.
+  // village, 5 : block/calcaire) sont le chantier suivant, pas une fatalité. La bande 8
+  // les a quittées la même nuit (plus de brique XIXe dans la ligne cosmique).
   it("les ères refaites par la bible des surfaces gardent leur avance", () => {
-    const bonnes = [2, 3, 4, 6, 7].map(pireDeLaBande).map((p) => p.part);
-    const mauvaises = [1, 5, 8].map(pireDeLaBande).map((p) => p.part);
+    const bonnes = [2, 3, 4, 6, 7, 8].map(pireDeLaBande).map((p) => p.part);
+    const mauvaises = [1, 5].map(pireDeLaBande).map((p) => p.part);
     expect(Math.max(...bonnes)).toBeLessThan(Math.min(...mauvaises));
     for (const p of bonnes) expect(p).toBeLessThan(2);
   });

@@ -58,7 +58,11 @@ const AVAILABLE = new Set([
   // offraient que deux ou trois (cf. VARIANTS_HOUSE).
   "crafthouse", "towerhouse", "insula", "terrace",
   // 2026-10-01 — les maisons romaines de la bande 4 (cf. VARIANTS_HOUSE).
-  "domus", "taberna", "villa", "insula2"
+  "domus", "taberna", "villa", "insula2",
+  // 2026-10-01 (nuit) — l'immeuble haussmannien remplace la tour de verre à la bande 5.
+  "haussmann",
+  // 2026-10-01 (nuit) — les maisons des ères cosmiques, à la place des briques XIXe.
+  "gardentower", "domehome", "podstack"
 ]);
 
 // Variantes tardives qui reçoivent un SKIN COSMIQUE par bande (7 émeraude / 8 or /

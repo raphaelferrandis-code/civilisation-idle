@@ -118,7 +118,13 @@ export function builtNear(L, gx, gy) {
 // la dense, 1 713 pour la clairsemée). `coreDens` doit donc mordre un peu en
 // dessous de cette moyenne, sinon les bords d'un pâté pourtant dense — dont la
 // fenêtre de lissage déborde sur le vide — retomberaient en cour.
-export const COUR = { on: true, scale: 6, coreDens: 0.07, ringDens: 0.02, minPatch: 10, sidewalk: true };
+// `lawnFrom` (2026-10-01, bible des surfaces) : à partir de cette bande, la COURONNE de
+// cour n'est plus de la terre battue mais de la PELOUSE. La cour de terre est juste du
+// village au XIXe ; au milieu d'une ville d'asphalte et de béton (bande 6), et plus
+// encore sur la nacre des ères cosmiques, ses mottes brunes tachées de béton lisaient
+// comme un chantier abandonné autour de chaque bâtiment-moteur (audit de la nuit).
+// null = terre battue à toutes les ères (l'ancien comportement).
+export const COUR = { on: true, scale: 6, coreDens: 0.07, ringDens: 0.02, minPatch: 10, sidewalk: true, lawnFrom: 6 };
 const ORTHO4 = [[1, 0], [-1, 0], [0, 1], [0, -1]];
 /**
  * Matière de chaque cellule de sol de ville : `urban` (le quartier), `dirt` (sa

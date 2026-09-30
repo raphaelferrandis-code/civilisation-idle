@@ -235,6 +235,9 @@ export function makeGroundBake(ISO_GROUND_LOD) {
       const cityish = k !== 'grass';
       if (frontierFlips(gx, gy, cityish)) k = cityish ? 'grass' : (COUR.on ? 'dirt' : 'urban');
     }
+    // La cour de terre devient PELOUSE aux ères modernes et cosmiques (COUR.lawnFrom).
+    // Après la lisière, pour que la divagation, qui rend de la terre, suive aussi.
+    if (k === 'dirt' && COUR.lawnFrom != null && band >= COUR.lawnFrom && !courK.camp) k = 'grass';
     // Diagnostic opt-in (globalThis.__beachStats = true) : combien de cellules de
     // chaque matière le bake a classées. Éteint, coût nul (un test de drapeau).
     if (globalThis.__beachStats) {

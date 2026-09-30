@@ -580,6 +580,10 @@ function cityMapVariantLabel(type, variant) {
     tower: "Tour d'habitation",
     megablock: "Grand ensemble",
     arcologyhome: "Logement d'arcologie",
+    haussmann: "Immeuble haussmannien",
+    gardentower: "Tour-jardin",
+    domehome: "Maison-dôme",
+    podstack: "Grappe de capsules",
     // Grands complexes (districts) conservés :
     market: "Marché",
     temple: "Temple",

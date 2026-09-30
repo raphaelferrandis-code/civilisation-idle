@@ -12,8 +12,13 @@
 import { CM, cmHash } from './layout.js';
 import { lightCtx } from './lightLayer.js';
 
+// Élargie la nuit du 2026-10-01 (« finis toutes les époques ») : la nuit des bandes 6 à 9
+// ne s'allumait nulle part. Le détecteur trouve 2 à 127 ouvertures sombres sur crafthouse,
+// courtyard, megablock, arcologyhome et les skins cosmiques de la tour (8 et 9 ; la tour de
+// verre des bandes 6-7 n'en a aucune, elle reste éteinte — ses vitres sont CLAIRES).
 const HOMES = new Set(['townhouse', 'stonehouse', 'manor', 'block', 'tenement', 'insula', 'terrace', 'towerhouse',
-  'domus', 'taberna', 'villa', 'insula2']);
+  'domus', 'taberna', 'villa', 'insula2', 'crafthouse', 'courtyard', 'megablock', 'arcologyhome', 'tower',
+  'haussmann']);
 const masks = new WeakMap();
 
 export function windowPixels(data, width, height) {

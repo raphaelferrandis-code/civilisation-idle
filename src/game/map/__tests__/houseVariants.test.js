@@ -50,7 +50,13 @@ const chroma = (r, g, b) => (Math.max(r, g, b) - Math.min(r, g, b)) * 100 / 255;
 const SANS_TEINTE = new Set([
   "tent", "hut", "longhouse", "courtyard", "townhouse", "manor",
   "crafthouse", "insula", "terrace",
-  "domus", "taberna", "villa", "insula2"
+  "domus", "taberna", "villa", "insula2",
+  // L'immeuble haussmannien de la bande 5 (2026-10-01, nuit) : calcaire crème et zinc,
+  // dessiné dans sa matière — rien à échanger.
+  "haussmann",
+  // Les maisons cosmiques (même nuit) : nacre, verre teinté et jardins — leur blanc est
+  // l'identité de l'ère, pas une matière à permuter.
+  "gardentower", "domehome", "podstack"
 ]);
 
 // Sprites lus une fois, réutilisés par les tests qui mesurent sur l'art réel.

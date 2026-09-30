@@ -58,8 +58,24 @@ export const VARIANTS_HOUSE = [
   // exemplaires sur 988 en b5 et 481 sur 1261 en b6 : la rangée ouvrière est LARGE
   // (54 px de contenu, ~1,3 tuile) et la plus sombre de la série — à ce nombre elle
   // remplaçait le monotype qu'on voulait casser au lieu de le rompre.
-  { base: ["block", "terrace", "tenement", "tower"], poor: ["terrace", "tenement", "tenement", "block"], rich: ["tower", "block", "terrace"] },
-  { base: ["tower", "block", "megablock", "terrace", "arcologyhome"], poor: ["megablock", "tenement", "terrace", "tower"], rich: ["arcologyhome", "tower"] }
+  // b5 = Fonte (XIXe). ⚠ RÉVISÉ le 2026-10-01 (nuit, « finis toutes les époques ») : la
+  // TOUR DE VERRE (`tower`) sortait dès la bande 5, gratte-ciel du XXe au milieu des
+  // immeubles de brique et des attelages. Elle démarre désormais à la bande 6 ; à sa place,
+  // l'IMMEUBLE HAUSSMANNIEN (`haussmann` : calcaire crème, balcons de fer forgé, toit de
+  // zinc à lucarnes, boutique au rez), la hauteur d'habitation de l'époque.
+  { base: ["block", "terrace", "tenement", "haussmann"], poor: ["terrace", "tenement", "tenement", "block"], rich: ["haussmann", "block", "terrace", "haussmann"] },
+  { base: ["tower", "block", "megablock", "terrace", "arcologyhome"], poor: ["megablock", "tenement", "terrace", "tower"], rich: ["arcologyhome", "tower"] },
+  // b7+ = ères COSMIQUES (2026-10-01, nuit, « finis toutes les époques »). Jusque-là la
+  // ligne 6 servait aussi les bandes 7 à 9 : `block`, `terrace` et `tenement` — brique
+  // XIXe, cheminées — sortaient entre les flèches de jade, d'or et de cristal (audit de la
+  // nuit). La ligne cosmique ne garde que les trois archétypes à SKIN d'ère (tour, grand
+  // ensemble, arcologie) et reçoit trois maisons dessinées pour elle, en nacre : la
+  // TOUR-JARDIN (terrasses plantées, éolienne), la MAISON-DÔME (trois coupoles, bassin),
+  // la GRAPPE DE CAPSULES (cellules empilées, portes colorées). Elles sont plus BASSES que
+  // les tours : c'est la gamme de hauteurs qui manquait à ces villes de monolithes.
+  { base: ["tower", "megablock", "arcologyhome", "gardentower", "domehome", "podstack", "gardentower", "podstack"],
+    poor: ["megablock", "podstack", "tower", "podstack", "domehome"],
+    rich: ["arcologyhome", "gardentower", "domehome", "tower", "gardentower"] }
 ];
 
 function variantList(table, band, bias) {

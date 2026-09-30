@@ -315,6 +315,25 @@ dessiné pour l'ère (IDs : `scratchpad/pixellab-places-nuit.json`) :
   ambre, caisses flottantes ; OBÉLISQUE de cristal entre des pylônes de lumière ; massifs
   bioluminescents.
 - Planches : `scratchpad/pilote/places/quad-b6.png`, `quad-b8.png`.
+- Commité en local : `42054bd`.
+
+**2026-10-01, nuit — maisons de chaque ère, fenêtres de nuit, cours en pelouse.**
+- **Bande 5** : la TOUR DE VERRE (`tower`, un gratte-ciel du XXe) sortait dès la Fonte ;
+  elle démarre à la bande 6, et l'IMMEUBLE HAUSSMANNIEN (`haussmann`) prend sa place.
+- **Bandes 7-9** : ligne cosmique propre dans VARIANTS_HOUSE — fini la brique XIXe entre
+  les flèches ; trois maisons en nacre, plus basses que les tours (TOUR-JARDIN,
+  MAISON-DÔME, GRAPPE DE CAPSULES). Leurs gris d'ombre touchaient le sol nacre (garde
+  bâti/sol) → `scripts/ecartSol.mjs --darker`. Effet : bande 8, 18 % → 0 d'encre dissoute
+  (le coupable était `block`).
+- **Fenêtres de nuit** : cinq familles de plus (`crafthouse`, `courtyard`, `megablock`,
+  `arcologyhome`, `tower` — ses skins cosmiques 8 et 9 ont 15 à 38 ouvertures), plus
+  l'haussmannien : la nuit des bandes 6 à 9 s'allume enfin.
+- **Cours en pelouse** (`COUR.lawnFrom = 6`) : la couronne de terre battue autour des
+  quartiers devient pelouse aux ères moderne et cosmique — à la bande 6, les
+  bâtiments-moteur de la périphérie posaient sur des mottes brunes tachées de béton.
+- Reste vu, pas fait cette nuit : les SCÈNES MOTEUR de la bande 6 (entrepôt crème, cubes
+  blancs — « boîtes ») et la forêt de flèches identiques des bandes 7-9 : art à refaire
+  famille par famille, un chantier en soi.
 
 ## 9. La petite vie (lot 6, demandé le 2026-10-01)
 
