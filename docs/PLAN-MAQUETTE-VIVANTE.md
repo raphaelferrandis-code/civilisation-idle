@@ -302,6 +302,19 @@ dessiné pour l'ère (IDs : `scratchpad/pixellab-places-nuit.json`) :
   (isoPlaza.test.js, « kits par sorte : chaque prop a son art »).
 - Planches : `scratchpad/pilote/places/quad-b2.png`, `quad-b5.png` (les quatre sortes
   forcées tour à tour sur la même place, `mkKinds.cjs`).
+- Commité en local : `1c88898`.
+
+**2026-10-01, nuit — les places par sorte, ères moderne et cosmique** (`KIND_KITS.modern`,
+`KIND_KITS.cosmic`) : toutes les ères à places ont désormais leurs quatre sortes.
+- **Moderne (bande 6)** : bassin CARRÉ à jets et sphère d'acier (plat et large : p 3,4
+  au lieu de 5, sinon il couvrait la moitié de la place) ; marché d'étals sous PARASOLS
+  rouge / bleu / jaune (fruits, fleurs, pain et fromages), cagettes de plastique ; parvis
+  à la grande SCULPTURE d'acier rouge ; square.
+- **Cosmique (bandes 7-9)** : fontaine aux ANNEAUX D'EAU suspendus autour d'une flèche
+  de cristal ; marché de KIOSQUES-COSSES sous auvents translucides cyan / magenta /
+  ambre, caisses flottantes ; OBÉLISQUE de cristal entre des pylônes de lumière ; massifs
+  bioluminescents.
+- Planches : `scratchpad/pilote/places/quad-b6.png`, `quad-b8.png`.
 
 ## 9. La petite vie (lot 6, demandé le 2026-10-01)
 

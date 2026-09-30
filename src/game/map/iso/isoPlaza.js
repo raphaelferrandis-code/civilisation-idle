@@ -512,6 +512,68 @@ const KIND_KITS = {
       people: { mode: 'centre', n: 5 }, garland: false,
     },
   },
+  modern: {
+    // LA PLACE CIVIQUE : le bassin carré à jets et sa sphère d'acier. Bassin PLAT et
+    // large : à p 5 (hauteur d'encre), il aurait couvert la moitié de la place — p 3,4.
+    centrale: {
+      centre: { prop: 'fountain-forum', p: 3.4 }, centreForce: true,
+      benchPerSide: 2, treeWant: 3, side: [{ prop: 'planter', p: 0.55 }],
+      field: [{ prop: 'flowerbed', p: 1.0 }],
+      people: { mode: 'centre', n: 8 }, garland: true,
+    },
+    // LE MARCHÉ : étals sous parasols (fruits, fleurs, pain et fromages), cagettes de
+    // plastique, la fontaine à boire au milieu.
+    marche: {
+      centre: { prop: 'well', p: 1.1 }, centreForce: true,
+      sideItem: { prop: 'stall', colors: ['red', 'blue', 'yellow'], p: 2.0 }, sidePerSide: 2,
+      cornerKeep: 0.45, side: [{ prop: 'crates', p: 0.8 }], treeWant: 0, field: null,
+      people: { mode: 'stalls', perItem: 2 }, garland: true,
+    },
+    // LE PARVIS : la grande sculpture d'acier rouge, des massifs autour.
+    parvis: {
+      centre: { prop: 'statue', p: 4.0 }, centreForce: true,
+      benchPerSide: 2, treeWant: 0, side: [], beds: { prop: 'flowerbed', p: 1.0 },
+      field: [{ prop: 'flowerbed', p: 1.0 }],
+      people: { mode: 'centre', n: 5 }, garland: false,
+    },
+    jardin: {
+      centre: { prop: 'fountain', p: 1.6 }, centreForce: true,
+      benchPerSide: 2, treeWant: 2, side: [{ prop: 'planter', p: 0.55 }], beds: { prop: 'flowerbed', p: 1.0 },
+      field: [{ prop: 'flowerbed', p: 1.0 }],
+      people: { mode: 'centre', n: 4 }, garland: false,
+    },
+  },
+  cosmic: {
+    // LA PLACE DES ANNEAUX : fontaine aux anneaux d'eau suspendus autour d'une flèche
+    // de cristal ; jardin de bioluminescence ; foule ; guirlandes.
+    centrale: {
+      centre: { prop: 'fountain-forum', p: 5.0 }, centreForce: true,
+      benchPerSide: 2, treeWant: 3, side: [{ prop: 'planter', p: 0.55 }],
+      field: [{ prop: 'flowerbed', p: 1.1 }],
+      people: { mode: 'centre', n: 8 }, garland: true,
+    },
+    // LE MARCHÉ : kiosques-cosses sous auvents translucides cyan / magenta / ambre,
+    // caisses flottantes entre eux.
+    marche: {
+      centre: { prop: 'well', p: 1.1 }, centreForce: true,
+      sideItem: { prop: 'stall', colors: ['cyan', 'magenta', 'amber'], p: 2.0 }, sidePerSide: 2,
+      cornerKeep: 0.45, side: [{ prop: 'crates', p: 0.8 }], treeWant: 0, field: null,
+      people: { mode: 'stalls', perItem: 2 }, garland: true,
+    },
+    // LE PARVIS : l'obélisque de cristal, quatre pylônes de lumière.
+    parvis: {
+      centre: { prop: 'statue', p: 4.5 }, centreForce: true,
+      benchPerSide: 2, treeWant: 0, side: [], beds: { prop: 'brazier', p: 1.3 },
+      field: [{ prop: 'brazier', p: 1.3 }],
+      people: { mode: 'centre', n: 5 }, garland: false,
+    },
+    jardin: {
+      centre: { prop: 'fountain', p: 1.6 }, centreForce: true,
+      benchPerSide: 2, treeWant: 2, side: [{ prop: 'planter', p: 0.55 }], beds: { prop: 'flowerbed', p: 1.1 },
+      field: [{ prop: 'flowerbed', p: 1.1 }],
+      people: { mode: 'centre', n: 4 }, garland: false,
+    },
+  },
 };
 // Les sortes qui gardent leur GRILLE (arbitrage de Raph du 2026-08-06 : « une
 // enceinte percée d'entrées se lit comme un square clos ») — le square seul ; le
