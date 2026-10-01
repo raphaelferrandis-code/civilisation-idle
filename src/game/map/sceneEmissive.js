@@ -22,6 +22,11 @@ export const EMISSIVE_BANDS = {
   9: { h0: 245, h1: 305, s: 0.18, v: 0.42, glow: [200, 170, 255] },    // violet
 };
 export const EMISSIVE = { on: true, k: 0.7, mix: 0.45 };
+// Part de cette lumière laissée aux MAISONS, par bande (les scènes moteur gardent tout :
+// ce sont les repères). Depuis que les maisons en nacre ont leur skin d'ère (2026-10-01),
+// à la bande 7 les bassins et les anneaux jade des dômes s'allumaient avec le reste —
+// toute la ville brillait autant que ses monuments. L'or (8) tenait déjà.
+export const EMISSIVE_HOUSE = { 7: 0.45, 8: 1, 9: 0.7 };
 
 const hsv = (r, g, b) => {
   const mx = Math.max(r, g, b), mn = Math.min(r, g, b), d = mx - mn;
@@ -84,7 +89,7 @@ function maskFor(img, band) {
 // Dépose la lumière d'une scène blittée en (dx, dy, dw, dh) — depuis le rectangle
 // source (sx, sy, sw, sh) quand le blit en prend un (les maisons blittent leur boîte
 // d'encre). Sans effet le jour, en vue lointaine, ou quand le calque n'est pas armé.
-export function drawSceneEmissive(img, dx, dy, dw, dh, band, sx, sy, sw, sh) {
+export function drawSceneEmissive(img, dx, dy, dw, dh, band, sx, sy, sw, sh, kMul = 1) {
   if (!EMISSIVE.on || !img) return;
   const night = Math.max(0, Math.min(1, ((CM.nightF || 0) - 0.22) / 0.65));
   if (!night || CM.lodActive) return;
@@ -93,13 +98,21 @@ export function drawSceneEmissive(img, dx, dy, dw, dh, band, sx, sy, sw, sh) {
   const lc = lightCtx(dx, dy, dx + dw, dy + dh);
   if (!lc) return;
   lc.save();
-  lc.globalAlpha = night * EMISSIVE.k;
+  lc.globalAlpha = night * EMISSIVE.k * kMul;
   lc.imageSmoothingEnabled = false;
   if (sw == null) lc.drawImage(mask, dx, dy, dw, dh);
   else lc.drawImage(mask, sx, sy, sw, sh, dx, dy, dw, dh);
   lc.restore();
 }
 if (typeof window !== 'undefined') {
-  // Molette : __emissive({ on, k, mix }) — k = intensité, mix = part de couleur pure.
-  window.__emissive = (o) => { if (o && typeof o === 'object') Object.assign(EMISSIVE, o); return { ...EMISSIVE }; };
+  // Molette : __emissive({ on, k, mix, house: { 7: 0.45 } }) — k = intensité, mix = part
+  // de couleur pure, house = part laissée aux maisons par bande.
+  window.__emissive = (o) => {
+    if (o && typeof o === 'object') {
+      const { house, ...rest } = o;
+      Object.assign(EMISSIVE, rest);
+      if (house) Object.assign(EMISSIVE_HOUSE, house);
+    }
+    return { ...EMISSIVE, house: { ...EMISSIVE_HOUSE } };
+  };
 }

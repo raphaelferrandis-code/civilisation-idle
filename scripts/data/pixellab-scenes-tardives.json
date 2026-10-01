@@ -1,5 +1,5 @@
 {
-  "note": "Sources PixelLab des scènes tardives redessinées le 2026-10-01 (Raph : « le meilleur rendu futuriste possible »). Objets create_object_pro_flash, 8 directions, vue low top-down ; on garde la rotation SOUTH-WEST. Bandes 7-9 : node scripts/fetchCosmicScene.mjs <id> <clé> (canevas 128×224, pied en bas). Maisons cosmiques : node scripts/fetchHouseSkin.mjs <id> <clé> puis scripts/ecartSol.mjs --darker. Bande 6 : node scripts/fetchStageScene.mjs <id> <clé> <canevas> --fit --bas=6 (grandes halles : 176x160 --bas=12). Toujours suivi de node scripts/quantize.cjs <png> --colors 24. ⚠ Les objets PixelLab peuvent expirer : ce fichier dit d'où vient chaque image, il ne garantit pas qu'on puisse la retélécharger.",
+  "note": "Sources PixelLab des scènes tardives redessinées le 2026-10-01 (Raph : « le meilleur rendu futuriste possible »). Objets create_object_pro_flash, 8 directions, vue low top-down ; on garde la rotation SOUTH-WEST. Bandes 7-9 : node scripts/fetchCosmicScene.mjs <id> <clé> (canevas 128×224, pied en bas). Maisons cosmiques : node scripts/fetchHouseSkin.mjs <id> <clé> puis scripts/ecartSol.mjs --darker ; les maisons PAR ÈRE (dôme, capsules, tour-jardin) sont réduites ×0,5 comme leur dessin de base (cadre 64/80/96). Bande 6 : node scripts/fetchStageScene.mjs <id> <clé> <canevas> --fit --bas=6 (grandes halles : 176x160 --bas=12). Toujours suivi de node scripts/quantize.cjs <png> --colors 24. ⚠ Les objets PixelLab peuvent expirer : ce fichier dit d'où vient chaque image, il ne garantit pas qu'on puisse la retélécharger.",
   "cosmiques": {
     "7": {
       "think_tanks": {
@@ -494,6 +494,44 @@
     "mint-house-digital-grand": {
       "id": "aa5017d0-ae54-4b51-93fd-a382d862adfc",
       "canvas": "176x160"
+    }
+  },
+  "maisonsParEre": {
+    "domehome-cosmic-7": {
+      "id": "ad6f53f5-247f-43e1-8e13-c5aaf881ee6f",
+      "canvas": "128"
+    },
+    "domehome-cosmic-8": {
+      "id": "9a9a5741-0d27-4d1b-90be-ff242cba97a5",
+      "canvas": "128"
+    },
+    "domehome-cosmic-9": {
+      "id": "1ba6f294-ae41-4b7b-98d8-8554440ab620",
+      "canvas": "128"
+    },
+    "podstack-cosmic-7": {
+      "id": "9c8bca07-2228-47f6-a099-c0731953910b",
+      "canvas": "160"
+    },
+    "podstack-cosmic-8": {
+      "id": "c5f84eb7-9ffa-4832-8183-5bd40093a3d6",
+      "canvas": "160"
+    },
+    "podstack-cosmic-9": {
+      "id": "b6b83c02-be9d-453c-b26f-a138ccbea8f7",
+      "canvas": "160"
+    },
+    "gardentower-cosmic-7": {
+      "id": "d74c45c8-1179-4e24-b936-875d270257a6",
+      "canvas": "192"
+    },
+    "gardentower-cosmic-8": {
+      "id": "9f303d99-4014-4e7c-9a33-236d283bdc88",
+      "canvas": "192"
+    },
+    "gardentower-cosmic-9": {
+      "id": "7f7fc0a1-c4da-4095-9052-bd231932a393",
+      "canvas": "192"
     }
   }
 }

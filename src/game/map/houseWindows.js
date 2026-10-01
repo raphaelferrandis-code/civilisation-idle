@@ -108,7 +108,11 @@ function maskFor(g, phase, darkMax = 68, variant = '') {
 export function drawHouseWindows(t, g) {
   const night = Math.max(0, Math.min(1, ((CM.nightF || 0) - 0.22) / 0.65));
   if (!night || CM.lodActive || !HOMES.has(t.variant) || typeof document === 'undefined') return;
-  const mask = maskFor(g, cmHash(`windows:${t.gx}:${t.gy}`) % 5, DARK_MAX[t.variant] || 68, GLASS[t.variant] ? t.variant : '');
+  // Le verre nommé suit la CLÉ DE SPRITE, pas la variante : les skins d'ère des maisons
+  // en nacre (« domehome-cosmic-7 »…) n'ont pas les couleurs de verre de leur dessin de
+  // base — leur verre teinté s'allume par sceneEmissive.js.
+  const glassKey = GLASS[g.key || t.variant] ? (g.key || t.variant) : '';
+  const mask = maskFor(g, cmHash(`windows:${t.gx}:${t.gy}`) % 5, DARK_MAX[t.variant] || 68, glassKey);
   if (!mask) return;
   const ctx = lightCtx(g.dx, g.dy, g.dx + g.dw, g.dy + g.dh);
   if (!ctx) return;

@@ -23,7 +23,7 @@ import { houseFootprint } from './procedural/buildingGenerator.js';
 import { drawSunShadow } from './iso/isoSunShadow.js';
 import { noteReflection } from './iso/isoReflect.js';
 import { drawHouseWindows } from './houseWindows.js';
-import { drawSceneEmissive } from './sceneEmissive.js';
+import { drawSceneEmissive, EMISSIVE_HOUSE } from './sceneEmissive.js';
 
 export const pixelHousesFlag = { on: true };
 
@@ -70,7 +70,10 @@ const AVAILABLE = new Set([
 // 9 violet) — cohérence avec les tours-moteur cosmiques (cf. blitCosmicTower). Aux
 // ères 35+ elles chargent « <variant>-cosmic-<band>.png » ; partout ailleurs, leur
 // sprite de base. Les autres variantes gardent un sprite unique quelle que soit l'ère.
-const COSMIC_VARIANTS = new Set(["tower", "megablock", "arcologyhome"]);
+// 2026-10-01 (Raph : « oui ») : les trois maisons en nacre des bandes 7-9 — tour-jardin,
+// maison-dôme, grappe de capsules — étaient LES MÊMES aux trois ères, en îlots entiers.
+// Elles ont maintenant leur skin d'ère, même dessin, verre et accents jade / or / cristal.
+const COSMIC_VARIANTS = new Set(["tower", "megablock", "arcologyhome", "gardentower", "domehome", "podstack"]);
 
 // HOUSE_UNIT, houseFitTune et LA formule d'échelle vivent depuis le lot G0 de la
 // campagne du grain dans spriteScale.js (module PUR, partagé avec l'audit hors
@@ -342,7 +345,10 @@ export function drawPixelHouse(t, x, y, w, h) {
   // Skins des ères cosmiques (« <variante>-cosmic-<bande> ») : leur verre a la teinte de
   // l'ère, il s'allume comme celui des scènes moteur (sceneEmissive.js).
   const ci = g.key ? g.key.indexOf('-cosmic-') : -1;
-  if (ci >= 0) drawSceneEmissive(g.img, g.dx, g.dy, g.dw, g.dh, +g.key.slice(ci + 8), g.bb.x0, g.bb.y0, g.bb.w, g.bb.h);
+  if (ci >= 0) {
+    const band = +g.key.slice(ci + 8);
+    drawSceneEmissive(g.img, g.dx, g.dy, g.dw, g.dh, band, g.bb.x0, g.bb.y0, g.bb.w, g.bb.h, EMISSIVE_HOUSE[band] ?? 1);
+  }
   return { dx: g.dx, dy: g.dy, dw: g.dw, dh: g.dh, mask: g.bb && g.bb.mask };
 }
 

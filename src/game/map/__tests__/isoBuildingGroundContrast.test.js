@@ -116,7 +116,7 @@ const TOLERANCE = 1.5;   // points de pourcentage — bruit d'arrondi des PNG
 // une valeur déjà mauvaise. Posé au-dessus de la pire valeur actuelle (34,9).
 const PLAFOND_DUR = 40;
 
-const COSMIC = new Set(["tower", "megablock", "arcologyhome"]);
+const COSMIC = new Set(["tower", "megablock", "arcologyhome", "gardentower", "domehome", "podstack"]);
 
 const readPng = (url) => PNG.sync.read(fs.readFileSync(url));
 const dist = (a, b) => Math.hypot(a[0] - b[0], a[1] - b[1], a[2] - b[2]);
