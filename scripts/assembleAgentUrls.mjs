@@ -2,7 +2,8 @@
 // assemble les bandes diagonales d'un perso depuis les URLs DIRECTES des frames
 // d'animation, quand le zip /download reste verrouillé (HTTP 423 tant qu'un job de
 // fond du personnage pend — 2e génération v3, direction re-queuée…).
-//   node scripts/assembleAgentUrls.mjs <name> <charId> <seAnim> <swAnim> <neAnim> <nwAnim>
+//   node scripts/assembleAgentUrls.mjs <name> <charId> <seAnim> <swAnim> <neAnim> <nwAnim> [--out=<dossier>]
+// --out : dossier de sortie (défaut agents/inhabitants ; agents/events pour les émeutiers).
 // Les <xxAnim> sont les ids d'animation PAR DIRECTION, lisibles dans get_character
 // (segment `animations/<id>/<direction>/N.png` des URLs). Backup tmp + bbox comme fetchAgentFlat.
 import fs from 'node:fs';
@@ -10,12 +11,13 @@ import os from 'node:os';
 import path from 'node:path';
 import { PNG } from 'pngjs';
 
-const [, , NAME, CHAR_ID, SE, SW, NE, NW] = process.argv;
+const OUT_ARG = process.argv.find((a) => a.startsWith('--out='));
+const [, , NAME, CHAR_ID, SE, SW, NE, NW] = process.argv.filter((a) => !a.startsWith('--'));
 if (!NAME || !CHAR_ID || !SE || !SW || !NE || !NW) {
   console.error('usage: node scripts/assembleAgentUrls.mjs <name> <charId> <seAnim> <swAnim> <neAnim> <nwAnim>');
   process.exit(1);
 }
-const OUT = 'public/pixelart/agents/inhabitants';
+const OUT = OUT_ARG ? OUT_ARG.slice(6) : 'public/pixelart/agents/inhabitants';
 const BACKUP = path.join(os.tmpdir(), 'civ-agents-backup');
 const BASE = 'https://backblaze.pixellab.ai/file/pixellab-characters/f1f2e80b-b12d-4940-a5a9-e76f8558b9e0';
 const DIRS = [['south-east', SE], ['south-west', SW], ['north-east', NE], ['north-west', NW]];

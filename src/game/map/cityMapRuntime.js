@@ -1699,9 +1699,10 @@ function spawnOneCitizen(L) {
   // moduler la vitesse des enfants et garder l'identité stable dès la 1re frame.
   const cr = (seed >> 6) % 100;
   const charType = cr < 42 ? 0 : cr < 84 ? 1 : 2;
-  // Variante de skin (diversité) : 0 = originale, 1 = métisse. Fixée au spawn ; si l'ère
-  // n'a pas encore la variante 1, le rendu retombe sur la 0 (agentSpecFor + repli agents.js).
-  const skinVariant = (seed >> 13) % 2;
+  // Variante de dessin (métier, diversité). Fixée au spawn ; agentSpecFor la ramène au
+  // nombre de dessins de l'ère (variant % liste) → 12, multiple de 1, 2, 3, 4 et 6 :
+  // chaque dessin d'une liste sort aussi souvent que les autres (PLAN-VIVANT, 8/ère).
+  const skinVariant = (seed >> 13) % 12;
   // Domicile & lieu de travail : ancres fixes tirées via le seed (stables dans le
   // temps). Repli null tant que la ville n'a ni logement ni atelier bordé de route →
   // le piéton garde alors la flânerie libre (cf. citizenChooseNext).

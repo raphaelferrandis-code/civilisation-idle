@@ -17,10 +17,12 @@ import { PNG } from 'pngjs';
 import AdmZip from 'adm-zip';
 
 const CARDINAL = process.argv.includes('--cardinal');
-const args = process.argv.filter((a) => a !== '--cardinal');
+const OUT_ARG = process.argv.find((a) => a.startsWith('--out='));
+const args = process.argv.filter((a) => a !== '--cardinal' && !a.startsWith('--out='));
 const NAME = args[3];
 const CHAR_ID = args[4];
-const OUT = 'public/pixelart/agents/inhabitants';
+// --out=<dossier> : agents/events pour les émeutiers (défaut : les habitants).
+const OUT = OUT_ARG ? OUT_ARG.slice(6) : 'public/pixelart/agents/inhabitants';
 const BACKUP = path.join(os.tmpdir(), 'civ-agents-backup');
 const DIRS = CARDINAL ? ['south', 'east', 'north', 'west'] : ['south-east', 'south-west', 'north-east', 'north-west'];
 const FRAMES = 6;

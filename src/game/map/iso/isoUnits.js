@@ -25,7 +25,7 @@ import { drawSunShadow, sunShadowNightK } from './isoSunShadow.js';
 import {
   drawEraAgent, drawEraAgentIso, drawNamedAgent, drawNamedAgentIso, drawVehicleHeadlights,
   vehicleLaneOffset, ensureVeh, vehReady, VEH_SIZES, VEH_PULL, VEH_PUSH,
-  ensureVehDiag, vehDiagReady, riotEraKey, AGENT_SCALE, VEH_SCALE,
+  ensureVehDiag, vehDiagReady, eraVehSpec, riotEraKey, AGENT_SCALE, VEH_SCALE,
 } from '../agents.js';
 
 // ── Véhicule en iso (Phase 1.5) : corps sprite 4-dirs + attelage/pousseur ────
@@ -125,8 +125,7 @@ export function drawIsoVehicle(ctx, v, now, z) {
     }
     return;
   }
-  const size = VEH_SIZES[v.type];
-  if (!size) return;                               // type sans sprite (broken_cart…) : rien en iso
+  if (!VEH_SIZES[v.type]) return;                  // type sans sprite (broken_cart…) : rien en iso
   // VEH_SCALE (molette __vehScale) était ignoré ICI : la vue iso dessinait les
   // véhicules à leur taille d'art brute. Il est appliqué à la carrosserie ET aux
   // distances d'attelage plus bas, sinon l'équipage décroche de la carrosserie.
@@ -135,7 +134,6 @@ export function drawIsoVehicle(ctx, v, now, z) {
   // plus bas) : le rabattement les décale d'un huitième de pixel au pire, et il
   // vaut mieux qu'ils suivent la carrosserie RÉELLEMENT dessinée que sa valeur
   // idéale — c'est la même raison qui fait passer VEH_SCALE dans les distances.
-  const dh = Math.max(1, snapU(s * size * VEH_SCALE)), dw = dh;
   // VUE DIAGONALE si disponible (rotations d'objets PixelLab, direction-correcte,
   // multi-frames « rolling » quand la bande animée est livrée), sinon repli sur
   // la bande CARDINALE (animée mais orientée écran).
@@ -157,13 +155,27 @@ export function drawIsoVehicle(ctx, v, now, z) {
     img = dchr.img[map[v.dir]] || dchr.img[map[0]];
     usedDiag = true;
   } else {
+    dchr = null;
     const chr = ensureVeh(v.type);
     if (!vehReady(chr)) return;
     // Vues poussées : timon vers l'arrière (échange sud↔nord, comme le legacy).
     const sdir = VEH_PUSH[v.type] ? ['east', 'west', 'north', 'south'][v.dir] : VEH_DIRS[v.dir];
     img = chr.img[sdir] || chr.img.south;
   }
-  const fh = img.naturalHeight || img.height || 64;
+  // Véhicule d'ÉPOQUE (ERA_VEH, PLAN-VIVANT) : sa propre toise, et la bête est DANS
+  // le dessin. Tant que sa bande n'est pas décodée, la bande nue du type et son
+  // attelage de code prennent le relais (une frame ou deux).
+  const era = onSkin ? eraVehSpec(v.type, v.skin) : null;
+  const size = era ? era.size : VEH_SIZES[v.type];
+  const dh = Math.max(1, snapU(s * size * VEH_SCALE)), dw = dh;
+  let fh = img.naturalHeight || img.height || 64;
+  // Bande -half pré-cuite (mêmes règles que les habitants : servie tant que la boîte
+  // tient dans 70 % de la planche pleine — le petit zoom ne réduit plus ×0,3).
+  // (Un véhicule d'époque est toujours servi par son skin : étiquettes justes.)
+  if (era && dchr) {
+    const half = dchr.imgHalf[VEH_DIAG_MAP.default[v.dir]];
+    if (half && half.complete && half.naturalWidth > 0 && dh <= fh * 0.7) { img = half; fh = half.naturalHeight; }
+  }
   const nf = Math.max(1, Math.round((img.naturalWidth || img.width || fh) / fh));
   // Diagonales : frame par DISTANCE parcourue (odomètre v.rollDist — anti-
   // patinage, molette __vehStride en fraction de tuile/frame). Cardinales :
@@ -186,7 +198,7 @@ export function drawIsoVehicle(ctx, v, now, z) {
     ctx.drawImage(img, fr * fh, 0, fh, fh, bx, by, dw, dh);
   };
   // Attelage : bête(s) de trait DEVANT dans le sens de marche (monde → projeté).
-  const pull = VEH_PULL[v.type];
+  const pull = era && era.team ? null : VEH_PULL[v.type];
   let drawTeam = null, teamBelow = false;
   if (pull) {
     const D = (pull.dist || 0.44) * T * VEH_SCALE;
@@ -269,7 +281,10 @@ export function drawIsoRioter(ctx, p, now, z) {
   // groundFeet=true : les PIEDS MESURÉS de la bande touchent groundY — l'ombre
   // (ci-dessus) est posée à ce même point ; sans ça, la marge transparente du
   // roster (~12 % du cadre) suspendait l'émeutier au-dessus de son ombre.
-  let dim = drawNamedAgentIso(ctx, sx, groundY, z, 'rioter-' + rEra + rgen, 0.85, p.dir, walking, now, p.phase, 1, wd, true)
+  // Ères REDESSINÉES dans la main des habitants (PLAN-VIVANT) : leur propre scale,
+  // pour la même hauteur de personnage à l'écran. Les autres ères gardent 0,85.
+  const rScale = RIOT_FLAT_SCALE[rEra] || 0.85;
+  let dim = drawNamedAgentIso(ctx, sx, groundY, z, 'rioter-' + rEra + rgen, rScale, p.dir, walking, now, p.phase, 1, wd, true)
     || (rEra ? drawNamedAgentIso(ctx, sx, groundY, z, 'rioter-' + rgen, 0.85, p.dir, walking, now, p.phase, 1, wd, true) : false);
   if (!dim) dim = drawNamedAgent(ctx, sx, groundY, z, 'rioter-' + rEra + rgen, 0.85, p.dir, walking, now, p.phase);
   if (!dim && rEra) dim = drawNamedAgent(ctx, sx, groundY, z, 'rioter-' + rgen, 0.85, p.dir, walking, now, p.phase);
@@ -498,12 +513,12 @@ export function drawIsoCitizenItem(ctx, p, now, z) {
   const walking = (p.pauseT || 0) <= 0;
   // Vue DIAGONALE (Phase 4) si la bande existe, sinon bande cardinale.
   // p.walkDist = odomètre → animation par DISTANCE (anti-patinage).
-  if (!drawEraAgentIso(ctx, sp.x, sp.y, z, p.dir, walking, now, p.phase || 0, p.charType || 0, 1, p.walkDist != null ? p.walkDist : null)) {
+  if (!drawEraAgentIso(ctx, sp.x, sp.y, z, p.dir, walking, now, p.phase || 0, p.charType || 0, 1, p.walkDist != null ? p.walkDist : null, p.skinVariant || 0)) {
     drawEraAgent(ctx, sp.x, sp.y, z, p.dir, walking, now, p.phase || 0, p.charType || 0);
   }
 }
 
-// Silhouettes fantômes : réglage live. __ghost({ on: false }) coupe, __ghost({ alpha: 0.5 })
+// Silhouettes fantômes : réglage live. __ghost({ on: true }) rallume, __ghost({ alpha: 0.5 })
 // renforce. L'alpha par défaut est volontairement discret — on devine, on ne lit pas.
 // ⚠ `cover`/`wK`/`hK` posés le 2026-08-23 avec le test de couverture exact (Q11).
 // `cover` = fraction de la silhouette qu'une façade doit recouvrir pour qu'on
@@ -520,7 +535,20 @@ export function drawIsoCitizenItem(ctx, p, now, z) {
 // RECTANGLE autour d'une silhouette isométrique (coins vides) — cf. le § du test dans
 // isoLivePaint. Si un jour ça se remarque en jeu, c'est ce test-là qu'il faut affiner,
 // pas l'alpha qu'il faut redescendre.
-export const GHOST_TUNE = { on: true, alpha: 0.7, cover: 0.35, wK: 0.34, hK: 0.68 };
+//
+// ⛔ ÉTEINT LE 2026-10-01, demande de Raph : « enlever l'effet fantôme des habitants,
+// émeutiers et véhicules quand ils passent derrière un bâtiment ». L'audit du vivant
+// (docs/PLAN-VIVANT.md §2, constat 6) l'avait montré : dans les villes de tours
+// (bandes 6 à 9), des dizaines de silhouettes semblaient escalader les façades. Une
+// unité cachée est désormais simplement cachée. Le code reste, rallumable pour
+// comparer : __ghost({ on: true }).
+// Scale des émeutiers redessinés en aplats, par préfixe d'ère (riotEraKey). L'arme
+// levée agrandit la toile de l'animation (44 à 48 px selon la direction) : les bandes
+// sont ramenées à 48 px pieds alignés (scripts/padStrip.mjs), personnage ~30 px →
+// 0,98 × 0,64 ≈ 0,70 × 0,90 des habitants — même hauteur, même taille de pixel.
+const RIOT_FLAT_SCALE = { 'anti-': 0.98 };
+
+export const GHOST_TUNE = { on: false, alpha: 0.7, cover: 0.35, wK: 0.34, hK: 0.68 };
 if (typeof window !== 'undefined') {
   window.__ghost = (o) => { if (o) Object.assign(GHOST_TUNE, o); return { ...GHOST_TUNE }; };
 }

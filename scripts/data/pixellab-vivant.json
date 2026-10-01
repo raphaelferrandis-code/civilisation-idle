@@ -1,0 +1,38 @@
+{
+  "_doc": "Chantier « le vivant de la carte » (docs/PLAN-VIVANT.md). Identifiants PixelLab des personnages (create_character v3 size 32, recette FLAT §3) et des objets (create_8_direction_object size 64-68, char et caravane en style_object_id du chariot à bœuf). Assemblage : scripts/fetchAgentFlat.mjs / assembleAgentUrls.mjs (gens), scripts/fetchEraVehicle.mjs (véhicules, --swap-south pour wagon et caravan). Émeutiers : padStrip 48 + reflame --mask tip ; la vue nord-ouest de rioter-anti-man-torch vient du groupe riot-march-nw (torche sur le côté).",
+  "band4": {
+    "habitants": {
+      "romanman": "b636ffe0-a30f-4a20-948b-265acfae6fd5",
+      "romanman2": "c80ef385-587a-4845-b833-170302e2352c",
+      "romanman3": "1b580af2-6d2a-4eeb-abe8-d3d4a6d22ae9",
+      "romanman4": "ad45c0ee-3510-41e5-82e3-d96a770f64b3",
+      "romanwoman": "ad5031ca-0e01-4249-a461-16c5c6d90e3d",
+      "romanwoman2": "a5d4c478-e14a-460e-a942-5f9bc2f7c65f",
+      "romanwoman3": "5bd37365-56e9-49a8-82f1-72a1ea9a349d",
+      "romanchild": "7bfefae8-9f41-445b-8d84-8dabbffa07da"
+    },
+    "emeutiers": {
+      "rioter-anti-man-torch": "60ffbb04-5815-41e1-8754-5feba92d7bad",
+      "rioter-anti-woman-torch": "ee1f9b03-4532-4d3d-b6b0-c60e49ba7780",
+      "rioter-anti-man-fork": "b9fdfb91-c1b3-481a-aa81-98764fe6fbee",
+      "rioter-anti-woman-fork": "ec77d754-7427-4f08-aee5-d0d84135ca7a"
+    },
+    "vehicules": {
+      "wagon": {
+        "skin": "anti",
+        "object": "778a60d4-d8d3-4b8d-889b-738869c2032f",
+        "swapSouth": true
+      },
+      "chariot": {
+        "skin": "anti",
+        "object": "8ea15623-b4d0-481f-9f04-1065f98bf699",
+        "swapSouth": false
+      },
+      "caravan": {
+        "skin": "anti",
+        "object": "9db4a847-a053-460a-974d-ed71419abc65",
+        "swapSouth": true
+      }
+    }
+  }
+}

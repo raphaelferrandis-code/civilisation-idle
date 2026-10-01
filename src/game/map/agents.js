@@ -140,14 +140,25 @@ const AGENT_MEDIEVAL = { // ère 2 (band 2-3) : paysans médiévaux — scales �
   women: [{ name: 'villagerwoman', scale: 1.24 }, { name: 'villagerwoman2', scale: 1.24 }], // + variante métisse
   child: { name: 'villagerchild', scale: 0.87 },
 };
-const AGENT_ANTIQUITY = { // ère 3 (band 4) : gréco-romain (tunique, drapé)
-  // ⚠ greekman = PILOTE de la DA flat 2026-08-03 (canvas 56, perso 28 px → ratio
-  // perso/canvas 0,50 contre 0,73 pour les bandes v3 « figurine » 92 px) : son scale
-  // compense pour garder la MÊME hauteur de perso à l'écran que ses voisins (0,85 ×
-  // 0,73/0,50 ≈ 1,24). À généraliser (ou re-normaliser à 0,85) au batch des 25.
-  men: [{ name: 'greekman', scale: 1.24 }, { name: 'greekman2', scale: 1.24 }],       // + variante peau noire + tenue
-  women: [{ name: 'greekwoman', scale: 1.24 }, { name: 'greekwoman2', scale: 1.24 }],
-  child: { name: 'greekchild', scale: 0.87 },
+const AGENT_ANTIQUITY = { // band 4 : la Rome des domus et des insulae
+  // PILOTE du chantier « vivant » (docs/PLAN-VIVANT.md, 2026-10-01) : 8 dessins à
+  // MÉTIERS, dans la main des habitants d'août (aplats, contour noir). Les anciens
+  // « Grecs » (torse nu, pagne) se confondaient avec l'âge de pierre.
+  // Toile 32 remplie à ~90 % (et non 56 remplie à 50 %) → scale 0,70 pour la même
+  // hauteur de personnage à l'écran ; bandes -half de 16 px au petit zoom. Un scale
+  // UNIQUE pour les adultes : même taille de pixel pour tous (charte, « une main »).
+  men: [
+    { name: 'romanman', scale: 0.70 },   // citoyen en toge à bande pourpre
+    { name: 'romanman2', scale: 0.70 },  // marchand, tunique safran
+    { name: 'romanman3', scale: 0.70 },  // légionnaire
+    { name: 'romanman4', scale: 0.70 },  // porteur d'amphore
+  ],
+  women: [
+    { name: 'romanwoman', scale: 0.70 },  // matrone, stola bleu roi
+    { name: 'romanwoman2', scale: 0.70 }, // prêtresse en blanc
+    { name: 'romanwoman3', scale: 0.70 }, // porteuse d'eau
+  ],
+  child: { name: 'romanchild', scale: 0.50 },
 };
 const AGENT_INDUSTRIAL = { // ère 4 (band 5-6) : XIXe industriel — scales ×1.46 (régé FLAT, ratio 0.50)
   men: [{ name: 'industrialman', scale: 1.24 }, { name: 'industrialman2', scale: 1.24 }],       // + variante peau noire + tenue
@@ -390,9 +401,12 @@ function drawNamedAgentIso(ctx, sx, groundY, z, name, scale, dir, walking, now, 
   return { drawW, drawH, top };
 }
 // Habitant d'ère en VUE DIAGONALE si sa bande existe ; false sinon (repli cardinal).
-function drawEraAgentIso(ctx, sx, groundY, z, dir, walking, now, phase, charType, scaleMul = 1, distPx = null) {
+// `variant` = p.skinVariant (dessin/métier tiré au spawn). ⚠ Jusqu'au 2026-10-01 il
+// n'était PAS transmis : tous les passants sortaient en variante 0, et les seconds
+// dessins de chaque ère n'apparaissaient que sur les places et les ponts.
+function drawEraAgentIso(ctx, sx, groundY, z, dir, walking, now, phase, charType, scaleMul = 1, distPx = null, variant = 0) {
   const band = (CM.layout && CM.layout.counts && CM.layout.counts.eraBand) || 0;
-  const spec = agentSpecFor(agentSetForBand(band), charType) || AGENT_FALLBACK;
+  const spec = agentSpecFor(agentSetForBand(band), charType, variant) || AGENT_FALLBACK;
   return !!drawNamedAgentIso(ctx, sx, groundY, z, spec.name, spec.scale, dir, walking, now, phase, scaleMul, distPx);
 }
 
@@ -410,18 +424,45 @@ function ensureVehDiag(type, skin) {
   const key = skin ? type + '/' + skin : type;
   let c = vehDiagImg[key];
   if (c) return c;
-  c = { img: {}, ready: 0, failed: 0 };
+  c = { img: {}, imgHalf: {}, ready: 0, failed: 0 };
   vehDiagImg[key] = c;
   const stem = '/pixelart/agents/vehicles/veh-' + type + (skin ? '-' + skin : '');
+  const era = !!eraVehSpec(type, skin);
   if (typeof Image !== 'undefined') for (const d of ISO_DIAG) {
     c.img[d] = loadWithRetry(
       stem + '-' + d + '.png',
       () => { c.ready += 1; },
       () => { c.failed += 1; },
     );
+    // Véhicule d'époque : bande DEMI-TAILLE pré-cuite (même contrat que les
+    // habitants, cf. ensureAgentDiag) — servie tant que la boîte affichée tient
+    // dans 70 % de la planche pleine. Un seul essai : absente → planche pleine.
+    if (era) { const im = new Image(); c.imgHalf[d] = im; im.src = stem + '-' + d + '-half.png'; }
   }
   return c;
 }
+// ── Véhicules d'ÉPOQUE (docs/PLAN-VIVANT.md, 2026-10-01) ────────────────────
+// Un attelage = UN dessin : bête(s), véhicule et conducteur ensemble, dans la main
+// des habitants (aplats, contour noir), objets PixelLab en toile 68 + bande -half.
+// Le skin d'ère remplace la bande nue du type aux bandes listées ; les fichiers sont
+// nommés au VRAI sens écran à l'assemblage (scripts/fetchEraVehicle.mjs), donc sans
+// correction d'étiquette. `size` = hauteur de boîte en tuiles AVANT VEH_SCALE (la
+// toise : le conducteur assis un peu plus petit qu'un passant) ; `team` = la bête
+// est dans le dessin → le code n'en ajoute pas (VEH_PULL ignoré).
+const ERA_VEH = {
+  wagon: { 4: { skin: 'anti', size: 1.35, team: true } },
+  chariot: { 4: { skin: 'anti', size: 1.3, team: true } },
+  caravan: { 4: { skin: 'anti', size: 1.4, team: true } },
+};
+function eraVehSpec(type, skin) {
+  if (!skin) return null;
+  const byBand = ERA_VEH[type];
+  if (!byBand) return null;
+  for (const b in byBand) if (byBand[b].skin === skin) return byBand[b];
+  return null;
+}
+// Molette de toise : __eraVeh('wagon', 4, { size: 1.5 }).
+if (typeof window !== 'undefined') window.__eraVeh = (type, band, o) => { const s = ERA_VEH[type] && ERA_VEH[type][band]; if (s && o) Object.assign(s, o); return s ? { ...s } : null; };
 const vehDiagReady = (c) => !!c && c.ready >= ISO_DIAG.length;
 
 // Rebrassage avant tirage : l'appelant fournit un compteur de spawn, dont les bits
@@ -445,6 +486,9 @@ const MODERN_FLEET_BAND = 6;
 // Teinte/modèle d'une instance. Chaîne vide = bande nue (types sans skin, ère trop
 // ancienne, et repli si le manifeste ne connaît pas le type).
 function vehSkinFor(type, seed, band) {
+  // Véhicule d'époque redessiné (ERA_VEH) : prime sur tout le reste à sa bande.
+  const era = ERA_VEH[type] && ERA_VEH[type][band | 0];
+  if (era) return era.skin;
   if ((band | 0) < MODERN_FLEET_BAND) return '';
   const list = VEH_SKINS[type] && VEH_SKINS[type].skins;
   if (!list || !list.length) return '';
@@ -1438,7 +1482,7 @@ function drawVehicleHeadlights(ctx, v) {
 
 // ⚠ Retirés le 2026-08-23 (étape 6) avec le rendu top-down : `drawCitizens`,
 // `drawGroundAgents`, `drawShips`, `drawVehicles`, `frontByPainter`.
-export { agentSetForBand, agentSpecFor, chooseRoadVehicleType, getVehicleDensity, updateVehicles, updateCitizens, CM_DIRS, cityMapWalkRoadKey, roadStepAllowed, drawCitizenThoughts, vehicleLaneOffset, drawEraAgent, drawEraAgentIso, drawNamedAgent, drawNamedAgentIso, drawVehicleHeadlights, thoughtBubbleAnchor, riotEraKey, ensureVeh, vehReady, VEH_SIZES, VEH_PULL, VEH_PUSH, ensureBoat, boatReady, BOAT_SIZES, BOAT_LIFT, ensureDrone, drawDroneRotors, ensureVehDiag, vehDiagReady, vehSkinFor, ISO_DIAG, ISO_AGENT_NAMES, BASKET_CARRIERS, agentDir, AGENT_SCALE, VEH_SCALE,
+export { agentSetForBand, agentSpecFor, chooseRoadVehicleType, getVehicleDensity, updateVehicles, updateCitizens, CM_DIRS, cityMapWalkRoadKey, roadStepAllowed, drawCitizenThoughts, vehicleLaneOffset, drawEraAgent, drawEraAgentIso, drawNamedAgent, drawNamedAgentIso, drawVehicleHeadlights, thoughtBubbleAnchor, riotEraKey, ensureVeh, vehReady, VEH_SIZES, VEH_PULL, VEH_PUSH, ensureBoat, boatReady, BOAT_SIZES, BOAT_LIFT, ensureDrone, drawDroneRotors, ensureVehDiag, vehDiagReady, vehSkinFor, eraVehSpec, ISO_DIAG, ISO_AGENT_NAMES, BASKET_CARRIERS, agentDir, AGENT_SCALE, VEH_SCALE,
   citizenSpawnCell, citizenAtDoorstep };
 // AGENT_SCALE / VEH_SCALE sont exportés en LIAISON VIVE (ESM) : le rendu iso les relit
 // à chaque frame, donc __villagerScale / __vehScale agissent aussi sur la vue iso.
