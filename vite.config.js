@@ -73,5 +73,9 @@ export default defineConfig({
   // `.claude/worktrees` = copies de travail jetables de l'agent (gitignorées) ;
   // sans cette exclusion Vitest ré-exécute leurs suites → tests en triple et
   // échec golden compté plusieurs fois (portes non déterministes en local).
-  test: { exclude: [...configDefaults.exclude, '**/.claude/**'] },
+  // `testTimeout` : la machine de la CI est 2 à 3 fois plus lente que le poste de
+  // dev. Les gardes de carte qui génèrent plusieurs villes complètes (campLife,
+  // sol urbain, placement…) y dépassaient les 5 s par défaut — deux runs rouges
+  // (1259afa, 34fa75e : « Test timed out in 5000ms ») alors que tout passait ici.
+  test: { exclude: [...configDefaults.exclude, '**/.claude/**'], testTimeout: 30000 },
 })

@@ -231,7 +231,9 @@ describe("en ville, les arbres ne se collent pas aux maisons (TREE_LIFE)", () =>
   const CAS = [["1e13", 12], ["1e18", 20], ["1e23", 28]];   // bandes 2, 3, 4
   afterEach(() => { TREE_LIFE.on = true; });
 
-  it("arbre de ville : jamais contre un bâtiment ; forêt : à plus de clear cellules d'une route ou d'un bâtiment", () => {
+  // ⚠ 9 villes complètes générées : ~2,4 s ici, plus de 5 s sur la machine de la CI
+  // (run rouge du 2026-10-01, « Test timed out in 5000ms ») — même marge que plus haut.
+  it("arbre de ville : jamais contre un bâtiment ; forêt : à plus de clear cellules d'une route ou d'un bâtiment", { timeout: 30000 }, () => {
     for (const [pop, bld] of CAS) for (const seed of GRAINES.slice(0, 3)) {
       const L = ville(seed, pop, bld);
       const cas = `bande ${L.counts.eraBand}, graine ${seed}`;
@@ -247,7 +249,7 @@ describe("en ville, les arbres ne se collent pas aux maisons (TREE_LIFE)", () =>
     }
   });
 
-  it("témoin : règle coupée, des arbres de ville touchent des maisons (la garde mord)", () => {
+  it("témoin : règle coupée, des arbres de ville touchent des maisons (la garde mord)", { timeout: 30000 }, () => {
     TREE_LIFE.on = false;
     let contre = 0;
     for (const [pop, bld] of CAS) {
