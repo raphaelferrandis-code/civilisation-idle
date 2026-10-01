@@ -53,7 +53,8 @@ function maskFor(img, band) {
   let m = masks.get(img);
   if (!m) { m = new Map(); masks.set(img, m); }
   if (m.has(band)) return m.get(band);
-  const w = img.naturalWidth | 0, h = img.naturalHeight | 0;
+  // Image OU canevas (les maisons passent parfois une variante cuite, enneigée).
+  const w = (img.naturalWidth || img.width) | 0, h = (img.naturalHeight || img.height) | 0;
   if (!w || !h || typeof document === 'undefined') { m.set(band, null); return null; }
   const c = document.createElement('canvas');
   c.width = w; c.height = h;
@@ -80,9 +81,10 @@ function maskFor(img, band) {
   return res;
 }
 
-// Dépose la lumière d'une scène blittée en (dx, dy, dw, dh). Sans effet le jour, en
-// vue lointaine, ou quand le calque de lumière n'est pas armé.
-export function drawSceneEmissive(img, dx, dy, dw, dh, band) {
+// Dépose la lumière d'une scène blittée en (dx, dy, dw, dh) — depuis le rectangle
+// source (sx, sy, sw, sh) quand le blit en prend un (les maisons blittent leur boîte
+// d'encre). Sans effet le jour, en vue lointaine, ou quand le calque n'est pas armé.
+export function drawSceneEmissive(img, dx, dy, dw, dh, band, sx, sy, sw, sh) {
   if (!EMISSIVE.on || !img) return;
   const night = Math.max(0, Math.min(1, ((CM.nightF || 0) - 0.22) / 0.65));
   if (!night || CM.lodActive) return;
@@ -93,7 +95,8 @@ export function drawSceneEmissive(img, dx, dy, dw, dh, band) {
   lc.save();
   lc.globalAlpha = night * EMISSIVE.k;
   lc.imageSmoothingEnabled = false;
-  lc.drawImage(mask, dx, dy, dw, dh);
+  if (sw == null) lc.drawImage(mask, dx, dy, dw, dh);
+  else lc.drawImage(mask, sx, sy, sw, sh, dx, dy, dw, dh);
   lc.restore();
 }
 if (typeof window !== 'undefined') {

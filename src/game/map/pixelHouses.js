@@ -23,6 +23,7 @@ import { houseFootprint } from './procedural/buildingGenerator.js';
 import { drawSunShadow } from './iso/isoSunShadow.js';
 import { noteReflection } from './iso/isoReflect.js';
 import { drawHouseWindows } from './houseWindows.js';
+import { drawSceneEmissive } from './sceneEmissive.js';
 
 export const pixelHousesFlag = { on: true };
 
@@ -314,8 +315,8 @@ function pixelHouseGeom(t, x, y, w, h) {
   // contrat que la boîte et le liseré juste au-dessus, pour la même raison (ni la
   // teinte ni la neige ne déplacent un pixel, elles repeignent DANS la silhouette).
   const vc = variantCanvas(key, houseTintOf(t, key), CM.season === WINTER && snowRoofTune.on);
-  if (vc) return { img: vc, bb: { x0: 0, y0: 0, w: bb.w, h: bb.h, mask: bb.mask }, dx, dy, dw, dh };
-  return { img: e.img, bb, dx, dy, dw, dh };
+  if (vc) return { img: vc, bb: { x0: 0, y0: 0, w: bb.w, h: bb.h, mask: bb.mask }, dx, dy, dw, dh, key };
+  return { img: e.img, bb, dx, dy, dw, dh, key };
 }
 
 // Dessine le sprite. RENVOIE la boîte écran RÉELLEMENT dessinée {dx, dy, dw, dh},
@@ -338,6 +339,10 @@ export function drawPixelHouse(t, x, y, w, h) {
   // La nuit, ses fenêtres s'allument (houseWindows.js) — dans le calque de lumière,
   // APRÈS la découpe : sa propre silhouette ne doit pas les effacer.
   drawHouseWindows(t, g);
+  // Skins des ères cosmiques (« <variante>-cosmic-<bande> ») : leur verre a la teinte de
+  // l'ère, il s'allume comme celui des scènes moteur (sceneEmissive.js).
+  const ci = g.key ? g.key.indexOf('-cosmic-') : -1;
+  if (ci >= 0) drawSceneEmissive(g.img, g.dx, g.dy, g.dw, g.dh, +g.key.slice(ci + 8), g.bb.x0, g.bb.y0, g.bb.w, g.bb.h);
   return { dx: g.dx, dy: g.dy, dw: g.dw, dh: g.dh, mask: g.bb && g.bb.mask };
 }
 

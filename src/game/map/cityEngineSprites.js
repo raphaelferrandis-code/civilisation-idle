@@ -89,6 +89,11 @@ export const COSMIC_SCENE_KEYS = new Set([
   'cosmic-storytellers-8', 'cosmic-academies-8', 'cosmic-ancestral_cult-8', 'cosmic-universities-8',
   'cosmic-printing_houses-8', 'cosmic-archive_grids-8', 'cosmic-sewers-8', 'cosmic-courthouses-8',
   'cosmic-public_works-8', 'cosmic-ruin_architects-8', 'cosmic-bureaucracy-8', 'cosmic-watch-8',
+  'cosmic-schools-9', 'cosmic-think_tanks-9', 'cosmic-libraries-9', 'cosmic-observatories-9',
+  'cosmic-ministries-9', 'cosmic-scribes-9', 'cosmic-storytellers-9', 'cosmic-academies-9',
+  'cosmic-ancestral_cult-9', 'cosmic-universities-9', 'cosmic-printing_houses-9', 'cosmic-archive_grids-9',
+  'cosmic-sewers-9', 'cosmic-courthouses-9', 'cosmic-public_works-9', 'cosmic-ruin_architects-9',
+  'cosmic-bureaucracy-9', 'cosmic-watch-9',
 ]);
 // Les scènes du STYLE NACRE (savoir/infra ci-dessus + les familles économie, dont
 // l'image `<famille>-cosmic-<bande>` a été redessinée en place). Leur verre s'allume la
@@ -99,7 +104,9 @@ export const COSMIC_PEARL = new Set([
   'guild-cosmic-7', 'mint-cosmic-7', 'bank-cosmic-7', 'port-cosmic-7',
   'mill-cosmic-7', 'market-cosmic-8', 'forager-cosmic-8', 'granary-cosmic-8',
   'caravan-cosmic-8', 'guild-cosmic-8', 'mint-cosmic-8', 'bank-cosmic-8',
-  'port-cosmic-8', 'mill-cosmic-8',
+  'port-cosmic-8', 'mill-cosmic-8', 'market-cosmic-9', 'forager-cosmic-9',
+  'granary-cosmic-9', 'caravan-cosmic-9', 'guild-cosmic-9', 'mint-cosmic-9',
+  'bank-cosmic-9', 'port-cosmic-9', 'mill-cosmic-9',
 ]);
 const isPearl = (k) => COSMIC_PEARL.has(k) || COSMIC_SCENE_KEYS.has(k);
 export function cosmicSceneKey(kind, band) {
