@@ -157,6 +157,9 @@ export function tileSig(L, z, tx, ty, S) {
         code |= 1;
         const c = roadMap && roadMap.get(key);
         if (c) code |= ((c.mask | 0) & 255) << 8 | ((RANK[c.rank] || 7) << 16) | ((SURF[c.roadSurface] || 0) << 20);
+        // Matière de la cellule (mémoire des rues, docs/PLAN-ROUTES.md R4) : une venelle
+        // repavée doit recuire sa tuile même si son rang et son masque n'ont pas bougé.
+        if (c && c.pave != null) code |= ((c.pave & 15) + 1) << 27;
       }
       if (urban && urban.has(key)) code |= 2;
       if (meadow && meadow.has(key)) code |= 4;

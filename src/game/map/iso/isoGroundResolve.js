@@ -234,7 +234,9 @@ export function makeGroundBake(ISO_GROUND_LOD) {
     // Pas au CAMP (courK.camp, cf. campField) : la terre n'y est pas une emprise
     // mais une trace — la faire divaguer retournerait du pré en terre au bord de
     // l'ancienne emprise, des taches loin de tout sentier.
-    if (FRONTIER.on && !courK.camp && !isRoad && !isWater && (k === 'urban' || k === 'dirt' || k === 'grass')) {
+    // Les jardins, prés et ceintures de la structure de ville (L.townGreen) gardent
+    // leur herbe : la divagation est une affaire de LISIÈRE, pas d'intérieur de ville.
+    if (FRONTIER.on && !courK.camp && !isRoad && !isWater && !(L.townGreen && L.townGreen.has(key)) && (k === 'urban' || k === 'dirt' || k === 'grass')) {
       const cityish = k !== 'grass';
       if (frontierFlips(gx, gy, cityish)) k = cityish ? 'grass' : (COUR.on ? 'dirt' : 'urban');
     }

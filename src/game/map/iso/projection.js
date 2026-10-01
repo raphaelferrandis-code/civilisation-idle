@@ -17,7 +17,7 @@
 // une pure translation écran → les bakes offscreen restent valides (offset projeté).
 //
 // Profondeur du peintre (Phase 2) : depthOf = wx + wy (diagonales SE), remplace wy.
-import { CM, cmWonderSlot, cmWonderExtent, cmWonderHeightTiles, CM_WONDERS } from '../layout.js';
+import { CM, cmWonderSlot, cmWonderExtent, cmWonderBaseTiles, cmWonderHeightTiles, CM_WONDERS } from '../layout.js';
 import { solInvalidate } from './solInvalidate.js';
 import { terrainZ } from './isoTerrain.js';
 
@@ -237,7 +237,19 @@ export function wonderFootWorld(idx, gridN, cx, cy) {
   const tier = (pv && pv.id === w.id) ? pv.tier
     : ((CM.layout && CM.layout.wonderTiers && CM.layout.wonderTiers[w.id]) || 1);
   const R = cmWonderExtent(w.id, tier).halfW + 0.5;          // demi-côté du parvis
-  const k = Math.max(0.5, Math.min(R - 0.5, cmWonderHeightTiles(w.id, tier) / 2));
+  // SOCLE CENTRÉ (Raph 2026-10-01 : « mieux les centrer sur leur parvis »). Le
+  // pied était repoussé de la MOITIÉ DE LA HAUTEUR du sprite vers l'avant : c'est
+  // la boîte du dessin qui tombait au centre, si bien que le socle d'un monument
+  // haut (colonne, mausolée) se posait au bord avant de sa place. Le pied est
+  // désormais le coin avant d'un socle carré centré sur la case du slot — le
+  // monument se tient au milieu de son parvis, son corps s'élève sur l'arrière.
+  // Uniquement là où le parvis est taillé au socle (L.wonderPaveR, structure de
+  // ville) : ailleurs le parvis reste le grand carré de la silhouette, et c'est
+  // la boîte du sprite qu'on y centre (sinon sa moitié avant resterait vide).
+  const paved = CM.layout && CM.layout.wonderPaveR && CM.layout.wonderPaveR[w.id] != null;
+  const k = paved
+    ? Math.max(0.5, Math.min(R - 0.5, cmWonderBaseTiles(w.id, tier) / 2))
+    : Math.max(0.5, Math.min(R - 0.5, cmWonderHeightTiles(w.id, tier) / 2));
   return { x: (slot.gx + 0.5 + k) * T, y: (slot.gy + 0.5 + k) * T };
 }
 export function wonderAnchor(idx, gridN, cx, cy) {

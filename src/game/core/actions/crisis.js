@@ -435,6 +435,8 @@ export function completeCollapse(gain, fallenDynasty, epitaph, reason) {
   if (!state.cityNameCustom) state.cityName = generateCityName(state.mapSeed);
   state.riverWP = null;
   state.cityArchetype = null;
+  state.cityCore = null;
+  state.cityRoads = null;
   state.population = keptPop.max(10);
   state.food = keptFood.max(startFloor("Food", 35));
   state.gold = keptGold.max(startFloor("Gold", 0));

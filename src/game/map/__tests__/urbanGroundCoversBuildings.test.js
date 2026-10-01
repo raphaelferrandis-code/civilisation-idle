@@ -17,6 +17,7 @@
 // d'abord qu'elle a bien lieu — sans quoi il ne prouverait rien.
 import { describe, it, expect, afterEach } from 'vitest';
 import { computeCityLayout } from '../layout.js';
+import { ROAD_MEMORY } from '../roadMemory.js';
 import { defaultState } from '../../core/state.js';
 import { D } from '../../core/num.js';
 
@@ -49,7 +50,7 @@ function homeless(L) {
   return out;
 }
 
-afterEach(() => { delete globalThis.__engineHomesK; });
+afterEach(() => { delete globalThis.__engineHomesK; ROAD_MEMORY.on = true; });
 
 // Deux layouts denses complets à froid frôlent le testTimeout vitest par défaut
 // (5 s) quand la suite entière sature les cœurs → échec en timeout SEULEMENT en
@@ -64,6 +65,12 @@ describe('sol urbain — aucun bâtiment planté dans l\'herbe', () => {
   }, SLOW);
 
   it('couvre encore quand le rayon urbain SE RÉTRÉCIT sous des positions figées', () => {
+    // ⚠ Scénario joué SANS la mémoire des rues : avec elle, les rues de la ville
+    // large restent (règle R1 de docs/PLAN-ROUTES.md) et le sol ne rétrécit plus —
+    // le scénario serait vide. La divergence reste possible là où la mémoire ne
+    // couvre pas (cités, bandes 3+) ; c'est elle qu'on rejoue ici. Le test
+    // suivant vérifie le même invariant AVEC la mémoire.
+    ROAD_MEMORY.on = false;
     const s = city(60);
 
     // 1. Ville posée avec un rayon LARGE. Les slots partent dans s.cityMapSlots.
@@ -81,6 +88,17 @@ describe('sol urbain — aucun bâtiment planté dans l\'herbe', () => {
     expect(Object.keys(s.cityMapSlots).length, 'aucun slot persisté : scénario vide')
       .toBeGreaterThan(0);
 
+    expect(homeless(reduit)).toEqual([]);
+  }, SLOW);
+
+  it('couvre encore, mémoire des rues allumée, quand le rayon se rétrécit', () => {
+    const s = city(60);
+    globalThis.__engineHomesK = 2.2;
+    computeCityLayout(s);
+    delete globalThis.__engineHomesK;
+    const reduit = computeCityLayout(s);
+    expect(Object.keys(s.cityMapSlots).length).toBeGreaterThan(0);
+    expect(s.cityRoads, 'mémoire des rues jamais écrite : scénario vide').toBeTruthy();
     expect(homeless(reduit)).toEqual([]);
   }, SLOW);
 

@@ -13,6 +13,7 @@ import { normalizeOlympusState, defaultOlympusState } from '../data/olympus.js';
 import { epitaphLegacyById } from '../data/epitaphs.js';
 import { newCitySeed } from '../map/procedural/seedManager.js';
 import { generateCityName } from '../map/procedural/cityName.js';
+import { normalizeRoadMemory } from '../map/roadMemory.js';
 
 // La clé vit dans saveKey.js (cloudSave.js doit la lire AVANT l'évaluation de
 // ce module — cf. l'en-tête de cloudSave.js) ; ré-exportée ici pour les clients.
@@ -619,6 +620,12 @@ export const defaultState = () => ({
   // Archétype de plan figé pour la partie : la ville garde son type de rues
   // d'origine (seuls les faubourgs s'ajoutent). Reset au nouveau cycle.
   cityArchetype: null,
+  // Cœur de ville et colonne du pont FIGÉS (docs/PLAN-ROUTES.md, lot L1), dans
+  // le repère des slots ; `seed` = mapSeed de la ville qui les a fixés.
+  cityCore: null,
+  // Réseau de rues MÉMORISÉ (docs/PLAN-ROUTES.md, lot L2, format dans
+  // map/roadMemory.js) : la ville part de ses rues d'hier au lieu de les redessiner.
+  cityRoads: null,
   // Seed de génération procédurale de la ville (nouvelle à chaque cycle).
   mapSeed: null,
   // Compteurs "à vie" pour les jalons de merveilles (survivent aux cycles).
@@ -1240,6 +1247,51 @@ export function normalizeVestiges(raw) {
   }).filter(Boolean);
 }
 
+// Cœur et pont figés (lot L1 de docs/PLAN-ROUTES.md). Bornes larges : la grille
+// plafonne à 360, un décalage au-delà ne peut venir que d'une save abîmée.
+export function normalizeCityCore(raw) {
+  if (!isPlainObject(raw)) return null;
+  const seed = Number(raw.seed), dx = Number(raw.dx), dy = Number(raw.dy), bx = Number(raw.bx);
+  if (![seed, dx, dy, bx].every(Number.isFinite)) return null;
+  if (Math.abs(dx) > 400 || Math.abs(dy) > 400 || Math.abs(bx) > 400) return null;
+  // Merveilles figées à leur première pose : { id: [dx, dy] }.
+  const wonders = {};
+  if (isPlainObject(raw.wonders)) {
+    for (const [id, pos] of Object.entries(raw.wonders).slice(0, 64)) {
+      if (!/^[a-z0-9_]+$/i.test(id) || !Array.isArray(pos) || pos.length !== 2) continue;
+      const wx = Number(pos[0]), wy = Number(pos[1]);
+      if (Number.isFinite(wx) && Number.isFinite(wy) && Math.abs(wx) <= 400 && Math.abs(wy) <= 400) wonders[id] = [Math.round(wx), Math.round(wy)];
+    }
+  }
+  // Structure de ville (map/cityQuarters.js) : place centrale, quartiers fondés,
+  // grands ensembles civiques, taille maximale de grille. ⚠ Tout champ ajouté à
+  // la fiche DOIT passer ici : la normalisation reconstruit l'objet, un champ
+  // oublié disparaît au rechargement — la ville refonderait ses quartiers ailleurs.
+  const pos2 = (v) => Array.isArray(v) && v.length === 2 && v.every((n) => Number.isFinite(Number(n)) && Math.abs(Number(n)) <= 400)
+    ? [Math.round(Number(v[0])), Math.round(Number(v[1]))] : null;
+  const central = pos2(raw.central);
+  const quarters = {};
+  if (isPlainObject(raw.quarters)) {
+    for (const [key, q] of Object.entries(raw.quarters).slice(0, 400)) {
+      if (!/^[a-z0-9:_-]+$/i.test(key) || !isPlainObject(q)) continue;
+      const qdx = Number(q.dx), qdy = Number(q.dy);
+      if (!Number.isFinite(qdx) || !Number.isFinite(qdy) || Math.abs(qdx) > 400 || Math.abs(qdy) > 400) continue;
+      quarters[key] = { dx: Math.round(qdx), dy: Math.round(qdy), kind: typeof q.kind === "string" ? q.kind.slice(0, 20) : "habitat", site: q.site ? 1 : 0 };
+    }
+  }
+  const districts = {};
+  if (isPlainObject(raw.districts)) {
+    for (const [n, v] of Object.entries(raw.districts).slice(0, 400)) {
+      const pv = pos2(v);
+      if (/^[0-9]+$/.test(n) && pv) districts[n] = pv;
+    }
+  }
+  const maxN = Number.isFinite(Number(raw.maxN)) ? Math.max(0, Math.min(400, Math.floor(Number(raw.maxN)))) : 0;
+  const out = { seed: seed >>> 0, dx, dy, bx: Math.round(bx), wonders, quarters, districts, maxN };
+  if (central) out.central = central;
+  return out;
+}
+
 export function normalizeRiverWaypoints(raw) {
   if (!Array.isArray(raw) || raw.length !== 6) return null;
   const points = raw.map((point) => {
@@ -1619,6 +1671,8 @@ export function hydrateState(parsed = {}) {
     cityMapSlots: normalizeCityMapSlots(source.cityMapSlots),
     riverWP: normalizeRiverWaypoints(source.riverWP),
     cityArchetype: typeof source.cityArchetype === "string" && /^[a-z]+$/.test(source.cityArchetype) ? source.cityArchetype : null,
+    cityCore: normalizeCityCore(source.cityCore),
+    cityRoads: normalizeRoadMemory(source.cityRoads),
     mapSeed: Number.isFinite(source.mapSeed) && source.mapSeed > 0 ? Math.floor(source.mapSeed) >>> 0 : null,
     lifetimePurchases: finiteInteger(source.lifetimePurchases, 0, 0),
     playTimeSec: finiteNumber(source.playTimeSec, 0, 0),
@@ -1890,6 +1944,8 @@ export function resetTemporaryRunState(s) {
   s.cycleVow = null;
   s.cityMapSlots = {};
   s.cityArchetype = null;
+  s.cityCore = null;
+  s.cityRoads = null;
   s.atlasSkipUsed = false;
   s.atlasFardeau = 0;
   s.atlasEpaules = 0;

@@ -47,9 +47,16 @@ describe("layout — intégration placement persistant (Voie A)", () => {
     expect(typeof s.cityArchetype).toBe("string"); // Phase A : archétype figé
     const arch = s.cityArchetype;
 
-    // Recompute immédiat → grille inchangée → positions absolues identiques.
+    // Recompute immédiat → grille inchangée → AUCUNE maison ne bouge.
+    // ⚠ Avec la MÉMOIRE DES RUES (map/roadMemory.js), le 2e calcul part du réseau
+    // du 1er : une maison qui n'avait pas trouvé de place au 1er peut en trouver
+    // une le long d'un chemin désormais mémorisé. La ville peut donc s'y COMPLÉTER
+    // (le 1er calcul est inclus dans le 2e), puis elle est stable : 2e = 3e.
     const L1b = computeCityLayout(s);
-    expect(houseKeys(L1b).sort()).toEqual(houseKeys(L1).sort());
+    const k1 = houseKeys(L1), k2 = houseKeys(L1b);
+    expect(k1.filter((k) => !k2.includes(k)), "maisons déplacées au 2e calcul").toEqual([]);
+    const L1c = computeCityLayout(s);
+    expect(houseKeys(L1c).sort()).toEqual(k2.sort());
     expect(s.cityArchetype).toBe(arch);
   });
 

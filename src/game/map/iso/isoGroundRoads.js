@@ -21,7 +21,7 @@
 import { cmEngineHomeHidden, cmHash, ROAD_E, ROAD_N, ROAD_S, ROAD_W } from '../layout.js';
 import { worldToScreen, ISO_X, ISO_Y } from './projection.js';
 import { COUR, builtNear } from './isoTissu.js';
-import { ROAD_DETAIL, SIDEWALK_ISO, isoRoadHalfW, roadTileAlpha, roadVeilFor } from './isoRoad.js';
+import { ROAD_DETAIL, SIDEWALK_ISO, isoRoadHalfW, roadTileAlpha, roadTone, roadVeilFor } from './isoRoad.js';
 import { artLayerBegin, artLayerEnd } from './isoArtLayer.js';
 import { blitIsoTileKey, ensureIsoTileKey } from './isoGroundTiles.js';
 import { drawRoadEdgeFringe, isoBuildingFront, roadFringeK, roadMatFor, smoothNoise } from './isoGroundDetail.js';
@@ -474,7 +474,24 @@ export function drawIsoGroundRoads(bake, resolve, roads) {
     sctx.fill();
   }
   if (PR) PR.roadsGroove = performance.now() - tU3;
+  // ── MATIÈRE PAR CELLULE (docs/PLAN-ROUTES.md, règle R4) ───────────────────
+  // « Le vieux centre reste ancien » : avec la mémoire des rues, chaque cellule
+  // porte la bande où elle a été pavée (`pave`, map/roadMemory.js) — la venelle
+  // du village garde sa terre au milieu du bourg pavé. Sans `pave` (cités, hors
+  // mémoire) ou sous forçage d'aperçu (`__roadMat({ band })`) : matière de l'ère.
+  // Seuls le ruban et sa tuile changent ; l'ourlet et l'épaulement, tracés en
+  // couloirs continus, gardent la teinte de l'ère (une couture par cellule
+  // rayerait la route).
+  const paveMats = new Map();
+  const matOf = (r) => {
+    const pb = (ROAD_DETAIL.band == null && r.cell && r.cell.pave != null) ? r.cell.pave : null;
+    if (pb == null || pb === band) return { rmat, road, rVeil };
+    let m = paveMats.get(pb);
+    if (!m) { m = { rmat: roadMatFor(pb), road: roadTone(pb), rVeil: roadVeilFor(pb) }; paveMats.set(pb, m); }
+    return m;
+  };
   for (const r of roadsVis) {
+    const cm = matOf(r);
     const cx = (r.gx + 0.5) * T, cy = (r.gy + 0.5) * T;
     const wb = T * wOf(r);          // demi-chaussée de LA cellule (hiérarchie par rang)
     const mask = maskOf(r);         // masque de TRACÉ (bras vers venelle retiré)
@@ -491,25 +508,25 @@ export function drawIsoGroundRoads(bake, resolve, roads) {
       if (mask & ROAD_S) pathWorldQuad(sctx, cx - wb, cy + wb, cx + wb, (r.gy + 1) * T);
       if (mask & ROAD_N) pathWorldQuad(sctx, cx - wb, r.gy * T, cx + wb, cy - wb);
     }
-    const rTile = (ROAD_DETAIL.on && ROAD_DETAIL.tiles && rmat.tile && !HARD) ? ensureIsoTileKey(rmat.tile) : null;
+    const rTile = (ROAD_DETAIL.on && ROAD_DETAIL.tiles && cm.rmat.tile && !HARD) ? ensureIsoTileKey(cm.rmat.tile) : null;
     if (rTile && rTile.ready) {
       // Tuile DOSÉE sur l'aplat de chaussée (ROAD_TILE_A, bible des surfaces) : même
       // ton moyen, grain rabattu. L'aplat d'abord, sinon la dose montrerait le sol.
-      const ra = roadTileAlpha(rmat.tile);
-      if (ra < 1) { sctx.fillStyle = rgb(road, v); sctx.fill(); }
+      const ra = roadTileAlpha(cm.rmat.tile);
+      if (ra < 1) { sctx.fillStyle = rgb(cm.road, v); sctx.fill(); }
       sctx.save(); sctx.clip();
       const rp = worldToScreen(r.gx * T, r.gy * T);
       const rH = cmHash('rr:' + r.gx + ',' + r.gy);
       const rmir = ((rH >>> 3) & 1) === 1;
       if (ra < 1) sctx.globalAlpha = ra;
-      blitIsoTileKey(sctx, rmat.tile, rp.x, rp.y, shw, rmir, rH, rVeil);
+      blitIsoTileKey(sctx, cm.rmat.tile, rp.x, rp.y, shw, rmir, rH, cm.rVeil);
       if (ra < 1) sctx.globalAlpha = 1;
       sctx.restore();
     } else {
       // DALLE LISSE : surface PLEINE de chaussée, teinte par ère (roadTone, qui
       // porte DÉJÀ le voile de lecture). Lisse et propre (pas de texture qui
       // transparaît) — la « dalle lisse » demandée par Raph.
-      sctx.fillStyle = rgb(road, v);
+      sctx.fillStyle = rgb(cm.road, v);
       sctx.fill();
     }
     // MARQUAGE : UNIQUEMENT le pointillé BLANC d'axe, au milieu des segments droits
@@ -564,6 +581,71 @@ export function drawIsoGroundRoads(bake, resolve, roads) {
           ax: A.x, ay: A.y, bx: B.x, by: B.y, ox: nx2, oy: ny2,
           seed: 'rf:' + r.gx + ',' + r.gy + ':' + s[6],
         }, lay ? Math.max(1, Math.round(shw * 0.055)) : puR, shCol, shCol2, spillCol, rfK);
+      }
+    }
+  }
+  // ── PAS DE MIETTES DE SOL ENTRE DEUX CHAUSSÉES (Raph 2026-10-01) ──────────
+  // « Ces petits morceaux de sol qui ne sont pas logiques ». Deux cellules de
+  // route VOISINES dont les rubans ne se rejoignent pas (aucun bras commun dans le
+  // masque LOGIQUE) laissent une fente de sol entre elles ; quatre cellules en
+  // carré 2×2 laissent un losange de sol au coin commun. Mesuré sur un bourg : 24
+  // carrés avant la mémoire des rues, 38 avec (elle garde des sentiers parallèles
+  // que l'ancien calcul retraçait). Deux chaussées collées se lisent comme UNE
+  // voie plus large : on comble, dans la matière de la cellule, tuile comprise.
+  // Exclus : le tablier (pont), les places (dalle à part) et les VIRAGES
+  // arrondis des sentiers — une boucle de chemins autour d'un îlot d'herbe est
+  // logique, elle. Rendu seul : graphe, masques et agents intacts.
+  // Molette : __roadMat({ gapFill: false }) rejoue l'ancien tracé.
+  if (ROAD_DETAIL.gapFill !== false) {
+    const laneAt = (x, y) => {
+      const c = roadMap && roadMap.get(x + ',' + y);
+      return c && c.roadSurface !== 'bridge' && c.rank !== 'plaza' ? c : null;
+    };
+    const cornerAt = (x, y) => { const q = roadByCell.get(x + ',' + y); return !!(q && q.rd && q.rd.t === 'L'); };
+    const paveFill = (r, x0, y0, x1, y1, cellsXY) => {
+      const cm = matOf(r);
+      const v = 0.97 + smoothNoise(r.gx, r.gy, 4, 'rb') * 0.06;
+      sctx.beginPath();
+      pathWorldQuad(sctx, x0, y0, x1, y1);
+      const tile = (ROAD_DETAIL.on && ROAD_DETAIL.tiles && cm.rmat.tile && !HARD) ? ensureIsoTileKey(cm.rmat.tile) : null;
+      if (tile && tile.ready) {
+        const ra = roadTileAlpha(cm.rmat.tile);
+        if (ra < 1) { sctx.fillStyle = rgb(cm.road, v); sctx.fill(); }
+        sctx.save(); sctx.clip();
+        if (ra < 1) sctx.globalAlpha = ra;
+        // Même tuile, même miroir que les rubans des cellules recouvertes : la
+        // texture continue sans couture.
+        for (const [gx, gy] of cellsXY) {
+          const rp = worldToScreen(gx * T, gy * T);
+          const rH = cmHash('rr:' + gx + ',' + gy);
+          blitIsoTileKey(sctx, cm.rmat.tile, rp.x, rp.y, shw, ((rH >>> 3) & 1) === 1, rH, cm.rVeil);
+        }
+        if (ra < 1) sctx.globalAlpha = 1;
+        sctx.restore();
+      } else {
+        sctx.fillStyle = rgb(cm.road, v);
+        sctx.fill();
+      }
+    };
+    for (const r of roadsVis) {
+      const c = laneAt(r.gx, r.gy);
+      if (!c || cornerAt(r.gx, r.gy)) continue;
+      const cx = (r.gx + 0.5) * T, cy = (r.gy + 0.5) * T, w = T * wOf(r), m = c.mask | 0;
+      const e = cornerAt(r.gx + 1, r.gy) ? null : laneAt(r.gx + 1, r.gy);
+      const s = cornerAt(r.gx, r.gy + 1) ? null : laneAt(r.gx, r.gy + 1);
+      if (e && !(m & ROAD_E)) {
+        const we = T * isoRoadHalfW(e.rank), h = Math.min(w, we);
+        paveFill(r, cx + w - 1, cy - h, cx + T - we + 1, cy + h, [[r.gx, r.gy], [r.gx + 1, r.gy]]);
+      }
+      if (s && !(m & ROAD_S)) {
+        const ws = T * isoRoadHalfW(s.rank), h = Math.min(w, ws);
+        paveFill(r, cx - h, cy + w - 1, cx + h, cy + T - ws + 1, [[r.gx, r.gy], [r.gx, r.gy + 1]]);
+      }
+      const se = (e && s && !cornerAt(r.gx + 1, r.gy + 1)) ? laneAt(r.gx + 1, r.gy + 1) : null;
+      if (se) {
+        const wm = Math.min(w, T * isoRoadHalfW(e.rank), T * isoRoadHalfW(s.rank), T * isoRoadHalfW(se.rank));
+        paveFill(r, cx + wm - 1, cy + wm - 1, cx + T - wm + 1, cy + T - wm + 1,
+          [[r.gx, r.gy], [r.gx + 1, r.gy], [r.gx, r.gy + 1], [r.gx + 1, r.gy + 1]]);
       }
     }
   }

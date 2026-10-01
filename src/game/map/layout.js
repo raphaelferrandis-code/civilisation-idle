@@ -13,6 +13,8 @@ import { CRITTER_HERD, CRITTER_PETS } from './critters.js';
 import { computeCityPersonality } from './procedural/cityPersonality.js';
 import { generateCityPlan } from './procedural/cityPlan.js';
 import { generateRoadsGraph, trimDemandlessRoads, dissolveToSkeleton, pruneUnservedRoads } from './procedural/roadGraph.js';
+import { roadMemoryActive, decodeRoadMemory, encodeRoadMemory, rankAbove } from './roadMemory.js';
+import { CITY_QUARTERS, QUARTER_PLAZA, forSiteCells, hearthOfSite, centralSiteFor, arteryCells, foundSite, gardenNoise, onBelt, gardenShareFor, spreadFor, ARTERY_TWIN_BAND } from './cityQuarters.js';
 import { terrainFieldU, terrainFlatR } from './procedural/terrainField.js';
 import { ROAD_LINK_WAVE_FRACTION } from '../core/balance.js';
 import { createBuildingPlacer, placeCategorySlotted } from './procedural/buildingGenerator.js';
@@ -485,6 +487,14 @@ function cmWonderCoreR(id, tier) {
 // (drawWonder dimensionne à nh/PPT) et que l'emprise (cmWonderExtent). Source
 // unique : c'est aussi ce nombre qui pose le monument au milieu de son parvis
 // (cf. wonderFootWorld), et un PPT recopié une troisième fois dériverait.
+// LARGEUR DU SOCLE, en tuiles de côté : un sprite de face de nw px se pose sur un
+// carré dont le losange fait sa largeur à l'écran (2·s par tuile de côté), donc
+// nw / (2·PPT). C'est ce carré que wonderFootWorld CENTRE sur le parvis
+// (Raph 2026-10-01 : « mieux les centrer sur leur parvis »).
+function cmWonderBaseTiles(id, tier) {
+  const d = cmWonderSpriteDims(id, tier);
+  return d ? d.nw / (2 * WONDER_PPT) : 2;
+}
 function cmWonderHeightTiles(id, tier) {
   const d = cmWonderSpriteDims(id, tier);
   return d ? d.nh / WONDER_PPT : 4;
@@ -1048,7 +1058,10 @@ function cmWonderSlot(idx, gridN, cx, cy) {
   return cmBaseWonderSlot(idx, gridN, cx, cy);
 }
 
-function cmDryWonderSlot(idx, gridN, cx, cy, riverSet, bankSet, plazas, ringTarget) {
+// `fits(gx, gy)` (optionnel, structure de ville) : l'emprise ENTIÈRE du parvis est
+// posable — la garde historique ne testait que l'ancre. Avec lui, la recherche
+// s'étend plus loin (une ville dense pousse la merveille vers sa lisière).
+function cmDryWonderSlot(idx, gridN, cx, cy, riverSet, bankSet, plazas, ringTarget, fits = null) {
   const base = cmBaseWonderSlot(idx, gridN, cx, cy, ringTarget);
   const waterR = Math.max(2, WONDER_CLEAR_R - 1);
   const blocked = (gx, gy) => {
@@ -1067,13 +1080,13 @@ function cmDryWonderSlot(idx, gridN, cx, cy, riverSet, bankSet, plazas, ringTarg
         if ((riverSet && riverSet.has(k)) || (bankSet && bankSet.has(k))) return true;
       }
     }
-    return false;
+    return fits ? !fits(gx, gy) : false;
   };
   if (!blocked(base.gx, base.gy)) return { ...base, gridN, cx, cy };
 
   const angle = idx * (Math.PI * 2 / CM_WONDERS.length) - Math.PI / 2;
   let best = null, bestScore = Infinity;
-  for (let radius = 1; radius <= WONDER_CLEAR_R + 8; radius += 1) {
+  for (let radius = 1; radius <= WONDER_CLEAR_R + (fits ? 20 : 8); radius += 1) {
     for (let dy = -radius; dy <= radius; dy += 1) {
       for (let dx = -radius; dx <= radius; dx += 1) {
         if (Math.max(Math.abs(dx), Math.abs(dy)) !== radius) continue;
@@ -1206,6 +1219,7 @@ function cmBuildRoadGraph(roads, roadSet, roadMeta, river, cx, cy, bridgeLaneW =
       const type = orientation === "intersection" ? (degree >= 4 ? "intersection" : "junction") : "roadCore";
       const roadSurface = isWater(r.gx, r.gy) ? "bridge" : "road";
       const rr = { ...r, mask, orientation, roadType: type, roadSurface, rank: meta.rank || "path" };
+      if (meta.pave != null) rr.pave = meta.pave;   // matière de la cellule (mémoire des rues, R4)
       roadMap.set(key(r.gx, r.gy), rr);
       return rr;
     });
@@ -1533,6 +1547,10 @@ function connectBuildingsToNetwork(o) {
     }
   };
   markSet(riverSet); markSet(bankSet); markSet(claimed); markSet(engineFootprint); markSet(occupiedFoot);
+  // Jardins et ceinture verte (structure de ville, lot L8) : la desserte les
+  // CONTOURNE. Libres, ils attiraient les sentiers comme n'importe quel terrain
+  // vague — mesuré au bourg, 41 % des cases de jardin finissaient en chemin.
+  if (o.softBlock) markSet(o.softBlock);
   // ⚠ LES TERRAINS VAGUES DE DISTRICT SONT TRAVERSABLES par la desserte — une
   // venelle sur l'esplanade civique, pas un bâtiment dessus (footprintFits, lui,
   // continue de les refuser). Sans ça, un moteur dont les dernières portes
@@ -1766,6 +1784,9 @@ function connectBuildingsToNetwork(o) {
   const useIncr = !(typeof globalThis !== "undefined" && globalThis.__incrConnect === false);
   let pending = tiles.filter((t) => !served(t));
   let guard = tiles.length + 8;
+  // La boucle de desserte, en fonction : elle tourne une 2e fois sans les
+  // obstacles DOUX (cf. plus bas).
+  const runPass = () => {
   if (useIncr) computeField();
   while (guard-- > 0 && pending.length > 0) {
     if (!useIncr) computeField();
@@ -1824,6 +1845,22 @@ function connectBuildingsToNetwork(o) {
       if (useIncr) relaxFrom(p1.attach, p1.path);
     }
     pending = pending.filter((t) => t !== pick.t || !served(t));
+  }
+  };
+  runPass();
+  // OBSTACLES DOUX (jardins, ceinture verte — structure de ville) : contournés
+  // quand c'est possible, TRAVERSÉS en dernier recours. Un atelier entouré de
+  // jardins restait sinon sans rue alors qu'il a une porte libre (contrat de
+  // roadDesserte.test : aucun bâtiment servable sans rue).
+  if (o.softBlock && o.softBlock.size && pending.some((t) => !served(t))) {
+    for (const k of o.softBlock) {
+      const ci = k.indexOf(","), x = +k.slice(0, ci), y = +k.slice(ci + 1);
+      if (inB(x, y)) blockedG[y * N + x] = 0;
+    }
+    // Les emprises bâties restent des obstacles, même posées sur un jardin.
+    for (const tt of tiles) for (const [x, y] of footCells(tt)) if (inB(x, y)) blockedG[y * N + x] = 1;
+    guard = tiles.length + 8;
+    runPass();
   }
 
   // Prochaine VAGUE proposée (chantiers de voirie) : les B moteurs non reliés
@@ -2234,7 +2271,13 @@ function computeCityLayout(s) {
     return sum + cmEngineInstances(level, meta.id).reduce((acc, group, i) => acc + Math.max(1, cmEngineGroupFoot(meta.id, group, i) ** 2), 0);
   }, 0);
   // Facteur de packing : village dense (0.27) → mégalopole diffuse (0.13)
-  const packFactor = 0.27 - c.eraFrac * 0.14;
+  // AÉRATION (cityQuarters, lot L8) : jardins, ceintures vertes, sites de place et
+  // voie réservée de l'artère prennent du terrain — la ville en occupe d'autant
+  // plus (`spread` agrandit la grille, donc la portée urbaine qui en dérive).
+  // Pas au CAMPEMENT : il n'a ni jardins ni ceinture, et sa clairière est validée
+  // telle quelle (Raph, 2026-09-28) — l'étalement commence avec le village.
+  const spreadK = (roadMemoryActive(c.eraBand) && CITY_QUARTERS.on) ? spreadFor(c.eraBand) : 1;
+  const packFactor = (0.27 - c.eraFrac * 0.14) / (spreadK * spreadK);
   // Grille minimale selon le nombre de merveilles : chacune réclame un rayon libre,
   // il faut assez d'espace pour les espacer correctement en cercle.
   // Seules les merveilles RÉÉRIGÉES ce cycle (cf. cmWonderActive) réclament de
@@ -2249,6 +2292,11 @@ function computeCityLayout(s) {
   // (~2 s à N≈260, ~6 s à N≈420). Molette : window.__nCapOverride.
   const NCAP = Math.floor((typeof globalThis !== "undefined" && globalThis.__nCapOverride) || 360);
   while (N * N * packFactor < total + enginePressure * 1.35 + 10 + c.megaDistricts * 18 && N < NCAP) N += 2;
+  // LA GRILLE NE RÉTRÉCIT JAMAIS (mémoire des rues) : rues, slots et sites sont
+  // relatifs au centre de grille ; une grille qui reculerait (population qui baisse,
+  // étalement qui décroît avec les ères) couperait la ville à ses bords.
+  if (roadMemoryActive(c.eraBand) && s.cityCore && (s.cityCore.seed >>> 0) === (mapSeed >>> 0)
+    && Number.isFinite(s.cityCore.maxN) && s.cityCore.maxN > N) N = Math.min(NCAP, s.cityCore.maxN | 0);
   const cx = Math.floor(N / 2), cy = Math.floor(N / 2);
   lp("dimension");
 
@@ -2334,16 +2382,49 @@ function computeCityLayout(s) {
   // Corridor du fleuve = eau ∪ berge : les places ne s'y posent jamais (seuls
   // routes/ponts traversent l'eau). Le reste (quartiers, merveilles) l'évite déjà.
   const corridorAt = (gx, gy) => { const k = gx + "," + gy; return riverSet.has(k) || bankSet.has(k); };
-  const plan = generateCityPlan({ seed: mapSeed, counts: c, personality, ageCfg, N, cx, cy, riverYAt, corridorAt, forcedArchetype: s.cityArchetype });
+  // MÉMOIRE DES RUES (map/roadMemory.js) : tant qu'elle couvre la bande, la
+  // ville garde son plan ORGANIQUE — les axes d'un autre archétype (grand-rue
+  // tirée au cordeau, rayons) se poseraient en travers d'un village déjà bâti.
+  // Son identité de bourg vient de son histoire (lot L3), pas d'une recette.
+  const memOn = roadMemoryActive(c.eraBand);
+  // REPÈRE DES TIRAGES (mémoire des rues) : tout hasard « par cellule » qui
+  // décide d'une FORME (lisière, parcs, ordre de pose, arbres) se lit dans le
+  // repère du centre de grille — celui des slots et de la mémoire. En coordonnées
+  // absolues, la grille qui grandit (cx qui avance) faisait glisser ces motifs sous
+  // une ville qui, elle, ne bouge plus. Hors mémoire : repère absolu, inchangé.
+  const fx0 = memOn ? cx : 0, fy0 = memOn ? cy : 0;
+  // Lot L5 : à partir de la cité (bande 3), le plan de l'ère reprend ses droits —
+  // mais seulement sur le TERRAIN NEUF (cf. « LES EXTENSIONS PLANIFIÉES »).
+  const organicEra = memOn && (c.eraBand | 0) <= 2;
+  const plan = generateCityPlan({ seed: mapSeed, counts: c, personality, ageCfg, N, cx, cy, riverYAt, corridorAt,
+    forcedArchetype: organicEra ? "scattered" : s.cityArchetype, forceAnyArchetype: organicEra });
   // Fige l'archétype à la 1re génération : la ville garde son plan de rues toute
   // la partie (cœur figé), seuls les faubourgs s'ajoutent. Reset au nouveau cycle.
   if (!s.cityArchetype) s.cityArchetype = plan.archetype;
   plan.reachBase = cityReachBase;
 
+  // ── LE CŒUR ET LE PONT NE BOUGENT PLUS (docs/PLAN-ROUTES.md, lot L1) ──────
+  // `generateCityPlan` tire le cœur à `cx + (rng − 0,5)·N·0,16` : il dépend de N,
+  // qui grandit avec la ville. Mesuré sur une partie complète : le cœur glissait
+  // de (0,5 ; −1,3) à (5,3 ; −12,9) par rapport au centre de grille — le repère
+  // des slots de bâtiments. Chaque arrondi faisait sauter d'une case toute la
+  // trame ancrée sur le cœur (avenues, anneaux, ancres), et le pont avec lui.
+  // On fige donc, à la première génération de la ville, le cœur ET la colonne du
+  // pont dans le repère des slots ; une sauvegarde existante fige les siens tels
+  // qu'ils sont à l'ouverture (aucun saut à la mise à jour). La seed garde la
+  // fiche honnête : une nouvelle ville (effondrement, démo) en refait une.
+  const coreFix = (s.cityCore && s.cityCore.seed === (mapSeed >>> 0)) ? s.cityCore : null;
+  if (coreFix) { plan.core.x = cx + coreFix.dx; plan.core.y = cy + coreFix.dy; }
+
   // Pont historique : la traversée la plus proche du cœur urbain. Remonté avec le
   // plan — le slot des Plaisirs a besoin de savoir où NE PAS se poser.
   let riverBridge = riverSamples[0], rbd = Infinity;
-  for (const sp of riverSamples) { const dd = Math.abs(sp.x - (plan.core.x + 0.5)); if (dd < rbd) { rbd = dd; riverBridge = sp; } }
+  const bridgeAimX = coreFix ? cx + coreFix.bx : plan.core.x + 0.5;
+  for (const sp of riverSamples) { const dd = Math.abs(sp.x - bridgeAimX); if (dd < rbd) { rbd = dd; riverBridge = sp; } }
+  // Colonne figée : l'échantillon le plus proche dérive d'un pas quand N grandit
+  // (les échantillons s'étirent avec la grille), on garde donc sa colonne exacte.
+  // Copie, jamais l'échantillon lui-même : il sert à peindre le lit.
+  if (coreFix) riverBridge = { ...riverBridge, x: cx + coreFix.bx };
 
   /* ── LA MAISON DES PLAISIRS : plantée EN PLEINE EAU, au large ──────────────
    * Un monument permanent (il est là dès la première ère, il ne se gagne pas),
@@ -2539,11 +2620,72 @@ function computeCityLayout(s) {
       if (!wet(plan.core.x, y)) plan.core.y = y;
     }
   }
+  // Lot L1 : la fiche se fige ICI, une fois le cœur sorti de l'eau — c'est ce
+  // cœur-là que la ville gardera. (Figé, il est déjà au sec : le bloc ci-dessus
+  // ne le touche plus.)
+  if (!coreFix) {
+    s.cityCore = {
+      seed: mapSeed >>> 0,
+      dx: plan.core.x - cx, dy: plan.core.y - cy,
+      bx: Math.round(riverBridge.x) - cx,
+    };
+  }
+  if (memOn && s.cityCore) s.cityCore.maxN = Math.max(s.cityCore.maxN | 0, N);
 
   // Quartiers et places : ils demandent le lit PEINT (corridorAt), c'est pour
   // ça que `finalize` reste ici alors que le plan, lui, est calculé plus haut.
   plan.finalize({ reachBase: cityReachBase });
   const quarterAnchors = plan.anchors;
+
+  // ── MÉMOIRE (lots L2-L3) : réseau, places, cellules tenues ─────────────────
+  // Décodée ici, AVANT le tracé : les places mémorisées doivent entrer dans le
+  // squelette que generateRoadsGraph pose, et les cellules tenues décident où
+  // une place neuve a le droit de s'ouvrir.
+  const roadMem = memOn ? decodeRoadMemory(s.cityRoads, mapSeed, cx, cy) : null;
+  const heldBy = memOn ? new Map() : null;
+  if (heldBy) {
+    const store = cmCityMapSlotsFor(s);
+    const prefix = `${s.cycles || 0}:`;
+    const spanOf = new Map();
+    for (const meta of CM_MAP_BUILDINGS) {
+      const level = Math.floor((s.buildings && s.buildings[meta.id]) || 0);
+      if (level <= 0) continue;
+      const inst = cmEngineInstances(level, meta.id);
+      for (let ei = 0; ei < inst.length; ei += 1) {
+        const key = cmMapSlotKey(s.cycles, meta.id, ei);
+        if (meta.id === "irrigated_fields") { const fsp = cmFieldSpan(level); spanOf.set(key, [fsp.w, fsp.h]); }
+        else if (meta.id === "river_ports") spanOf.set(key, [cmRiverPortSpan(level).w, 0]);
+        else { const z = cmEngineGroupFoot(meta.id, inst[ei], ei); spanOf.set(key, [z, z]); }
+      }
+    }
+    const hold = (key, slot) => {
+      const gx = cx + (Number(slot.dx) || 0);
+      let gy = cy + (Number(slot.dy) || 0);
+      let [sx, sy] = spanOf.get(key) || [1, 1];
+      if (key.includes(":river_ports:")) { sy = Number(slot.sy) || 3; gy -= sy; }   // dy = rangée sud
+      for (let ax = 0; ax < sx; ax += 1) for (let ay = 0; ay < sy; ay += 1) {
+        const k = (gx + ax) + "," + (gy + ay);
+        if (!heldBy.has(k)) heldBy.set(k, key);
+      }
+    };
+    const entries = Object.entries(store).filter(([key]) => key.startsWith(prefix));
+    for (const [key, slot] of entries) if (key.includes(":dec_")) hold(key, slot);
+    for (const [key, slot] of entries) if (!key.includes(":dec_")) hold(key, slot);
+  }
+
+  // Merveilles FIGÉES (cf. plus bas, « les merveilles ne glissent plus ») : leur
+  // emprise est connue dès ici, une place neuve ne s'y ouvre jamais.
+  const frozenWonderCells = new Set();
+  if (memOn && s.cityCore && s.cityCore.wonders) {
+    const act = cmWonderActiveIds(s);
+    CM_WONDERS.forEach((w) => {
+      const f = s.cityCore.wonders[w.id];
+      if (!f || !act.has(w.id) || w.id === "era_mega") return;
+      const tier = Math.max(1, Math.min(5, ((s.wonderTiers && s.wonderTiers[w.id]) | 0) || 1));
+      cmForEachWonderCell({ gx: cx + f[0], gy: cy + f[1] }, w.id, N, (gx, gy, k) => frozenWonderCells.add(k), tier);
+    });
+  }
+
 
   // Modèle d'eau : source de vérité unique du « sur l'eau / berge / près / sec ».
   // Construit tôt pour que pose, graphe routier et rendu consultent les mêmes
@@ -2586,7 +2728,7 @@ function computeCityLayout(s) {
       const pull = (q.r - Math.hypot(px - q.gx, py - q.gy)) * q.strength;
       if (pull > quarterPull) quarterPull = pull;
     }
-    const h = (Math.imul(gx | 0, 73856093) ^ Math.imul(gy | 0, 19349663) ^ mapSeed) >>> 0;
+    const h = (Math.imul((gx - fx0) | 0, 73856093) ^ Math.imul((gy - fy0) | 0, 19349663) ^ mapSeed) >>> 0;
     const hashEdge = ((h % 1000) / 1000 - 0.5) * 1.8;
     return dist <= plan.reachFor(cityReachBase, angle) + riverPull + quarterPull + hashEdge + margin;
   };
@@ -2595,6 +2737,164 @@ function computeCityLayout(s) {
     const reach = Math.max(1, plan.reachFor(cityReachBase, Math.atan2(dy, dx)));
     return Math.hypot(dx, dy) / reach;
   };
+
+  // ── LA STRUCTURE DE LA VILLE (docs/PLAN-ROUTES.md, lots L6-L8, map/cityQuarters.js) ──
+  // Retour de Raph sur le premier bourg à mémoire : « une vraie grande artère,
+  // la place doit se décaler », « les places de quartier doivent trouver leur
+  // place », « un poil trop dense ». Tout se décide ICI, avant le tracé, pour que
+  // le placement des maisons le respecte dès le campement :
+  //   - l'ARTÈRE prolonge le pont tout droit, les maisons la bordent ;
+  //   - la PLACE CENTRALE est contre l'artère (le feu du camp en son centre) ;
+  //   - chaque QUARTIER est fondé une fois, au bord de la ville du moment, avec
+  //     son site réservé (un pré, puis sa place quand l'ère la justifie) ;
+  //   - le tout est FIGÉ dans `s.cityCore` (central, quarters).
+  const townOn = memOn && CITY_QUARTERS.on;
+  const townReserve = new Set();   // jamais bâti (sites de place) — passable
+  const townGreen = new Set();     // repeint en herbe (prés, jardins, ceintures)
+  const townGardens = new Set();   // jardins + ceintures seuls : la desserte les contourne
+  const townCenters = [];          // centres des quartiers (ceintures vertes)
+  const townSites = [];            // tous les sites (central + quartiers), pour les merveilles
+  let centralSite = null, arteryAx = null, arteryRoad = [];
+  if (townOn) {
+    const CQ = CITY_QUARTERS;
+    const ax = Math.round(riverBridge.x);
+    arteryAx = ax;
+    const fix = s.cityCore;                                   // posé plus haut (lot L1)
+    const siteCells = new Set();
+    const markSite = (st) => forSiteCells(st, (x, y) => { siteCells.add(x + "," + y); townReserve.add(x + "," + y); });
+    // Posable : dans la grille, au sec, ni bâtiment tenu, ni merveille, ni
+    // artère ; et à `gap` cases au moins de tout autre site.
+    const siteFree = (st, gap) => {
+      const half = Math.floor(st.size / 2);
+      for (let dx = -half - gap; dx < st.size - half + gap; dx += 1) {
+        for (let dy = -half - gap; dy < st.size - half + gap; dy += 1) {
+          const x = st.gx + dx, y = st.gy + dy, k = x + "," + y;
+          if (siteCells.has(k)) return false;
+          if (dx < -half || dx >= st.size - half || dy < -half || dy >= st.size - half) continue;
+          if (x < 1 || y < 1 || x >= N - 1 || y >= N - 1) return false;
+          if (corridorAt(x, y) || heldBy.has(k) || frozenWonderCells.has(k)) return false;
+          if (x === ax || x === ax + 1) return false;
+        }
+      }
+      return true;
+    };
+    // Place centrale, figée à sa première pose.
+    const cf = fix && Array.isArray(fix.central) ? fix.central : null;
+    centralSite = cf ? { gx: cx + cf[0], gy: cy + cf[1], size: CQ.centralSize, kind: "centrale" }
+      : centralSiteFor({ ax, coreY: plan.core.y, size: CQ.centralSize, free: (st) => siteFree(st, 0) });
+    if (!cf && fix) fix.central = [centralSite.gx - cx, centralSite.gy - cy];
+    markSite(centralSite);
+    townSites.push(centralSite);
+    townCenters.push({ x: centralSite.gx, y: centralSite.gy });
+    // Quartiers : clé STABLE (bande:index — l'étiquette porte le kind, qui
+    // changeait d'une ère à l'autre), position et kind figés à la fondation.
+    const qf = { ...((fix && fix.quarters) || {}) };
+    const maxR = Math.max(6, Math.min(N / 2 - 3, cityReachBase * 1.6 + 4));
+    for (const a of plan.anchors || []) {
+      const m = /-(\d+)-(\d+)$/.exec(a.label || "");
+      const key = m ? m[1] + ":" + m[2] : String(a.label);
+      let f = qf[key];
+      if (!f) {
+        let st = null;
+        if (a.band >= 1) {
+          const size = QUARTER_PLAZA[a.kind] ? CQ.plazaSize : CQ.greenSize;
+          st = foundSite({ anchor: a, core: plan.core, size, free: (x) => siteFree(x, CQ.siteGap), maxR });
+        }
+        f = st ? { dx: st.gx - cx, dy: st.gy - cy, kind: a.kind, site: 1 }
+          : { dx: Math.round(a.gx) - cx, dy: Math.round(a.gy) - cy, kind: a.kind, site: 0 };
+        // Pas de terrain libre aujourd'hui : le quartier n'est PAS figé, il
+        // retentera au prochain calcul (la ville aura grandi, la grille aussi).
+        if (st || a.band < 1) qf[key] = f;
+      }
+      a.gx = cx + f.dx; a.gy = cy + f.dy; a.kind = f.kind;
+      if (f.site) {
+        const st = { gx: a.gx, gy: a.gy, size: QUARTER_PLAZA[f.kind] ? CQ.plazaSize : CQ.greenSize, akind: f.kind };
+        markSite(st);
+        townSites.push(st);
+        townCenters.push({ x: st.gx, y: st.gy });
+      }
+    }
+    if (fix) fix.quarters = qf;
+    // Artère : de chaque rive jusqu'à la lisière (+ marge).
+    // ⛔ PAS DE 2E VOIE RÉSERVÉE à côté d'elle (essayé puis retiré, 2026-10-01) :
+    // une bande libre et traversable le long de l'artère servait de COULOIR aux
+    // sentiers du village, qui s'y glissaient en parallèle de la grande rue —
+    // d'où des miettes de sol entre les deux chaussées (retour Raph : « ces
+    // petits morceaux de sol qui ne sont pas logiques »). Les maisons bordent
+    // l'artère des deux côtés ; son élargissement viendra avec les cités (L5).
+    arteryRoad = arteryCells({ ax, N, wet: (x, y) => corridorAt(x, y), inCity: (x, y) => organicLimit(x, y, 1.5), margin: CQ.arteryMargin });
+    // LA PERCÉE (lot L5) : à partir de ARTERY_TWIN_BAND, l'artère devient un
+    // boulevard à deux voies — la 2e dans le prolongement de la 2e voie du pont
+    // (colonne ax+1). C'est le seul moment où la ville DÉLOGE : les bâtiments posés
+    // sur cette colonne libèrent leur slot et se reposent ailleurs, une fois.
+    if ((c.eraBand | 0) >= ARTERY_TWIN_BAND) {
+      const twin = arteryRoad.map((q) => ({ gx: ax + 1, gy: q.gy })).filter((q) => !corridorAt(q.gx, q.gy));
+      const lane = new Set(twin.map((q) => q.gx + "," + q.gy));
+      const store = cmCityMapSlotsFor(s);
+      const evicted = new Set();
+      for (const k of lane) { const o = heldBy.get(k); if (o) evicted.add(o); }
+      if (evicted.size) {
+        for (const [k, o] of Array.from(heldBy)) if (evicted.has(o)) heldBy.delete(k);
+        for (const o of evicted) delete store[o];
+      }
+      arteryRoad = arteryRoad.concat(twin);
+    }
+    // Places : la centrale au bourg, celles des quartiers quand l'ère les
+    // justifie ; un site encore fermé est un PRÉ (herbe, aucun bâti).
+    const band = c.eraBand | 0;
+    const plazas = [];
+    if (band >= 2) plazas.push({ gx: centralSite.gx, gy: centralSite.gy, size: centralSite.size, kind: "centrale" });
+    else if (band === 1) forSiteCells(centralSite, (x, y) => townGreen.add(x + "," + y));
+    for (const st of townSites) {
+      if (st === centralSite) continue;
+      const qp = QUARTER_PLAZA[st.akind];
+      if (qp && band >= qp.band) plazas.push({ gx: st.gx, gy: st.gy, size: st.size, kind: qp.kind });
+      else forSiteCells(st, (x, y) => townGreen.add(x + "," + y));
+    }
+    plan.plazas = plazas;
+  }
+
+  // ── LES PLACES NE GLISSENT PLUS (lot L3) ───────────────────────────────────
+  // Les places de quartier se posent sur les ancres, qui s'éloignent du cœur à
+  // mesure que la ville grandit : recalculées à chaque achat, elles glissaient
+  // d'une case ou deux, et la mémoire des rues en gardait chaque trace (16 →
+  // 43 cellules de place en quatre ères, mesuré). Une place ouverte est donc
+  // MÉMORISÉE comme une rue ; une place neuve ne s'ouvre que loin des autres et
+  // sur un terrain libre — jamais sur une maison.
+  // La place CENTRALE naît sur le site réservé depuis le campement (cf. la
+  // réserve, plus bas) : le feu du village devient la place du bourg.
+  if (memOn && !townOn) {
+    const kept = [];
+    const memP = (s.cityRoads && (s.cityRoads.seed >>> 0) === (mapSeed >>> 0) && Array.isArray(s.cityRoads.plazas)) ? s.cityRoads.plazas : [];
+    for (const q of memP) kept.push({ gx: cx + q.dx, gy: cy + q.dy, size: q.size, kind: q.kind });
+    const footFree = (p) => {
+      const half = Math.floor(p.size / 2);
+      for (let dx = -half; dx < p.size - half; dx += 1) for (let dy = -half; dy < p.size - half; dy += 1) {
+        const k = (p.gx + dx) + "," + (p.gy + dy);
+        if (heldBy.has(k) || frozenWonderCells.has(k) || corridorAt(p.gx + dx, p.gy + dy)) return false;
+      }
+      return true;
+    };
+    const apart = (p) => kept.every((q) => Math.hypot(p.gx - q.gx, p.gy - q.gy) > (p.size + q.size) * 1.6);
+    for (const p of plan.plazas || []) {
+      if (p.kind === "centrale") {
+        if (kept.some((q) => q.kind === "centrale")) continue;
+        // Site réservé (même tirage) ; une save d'avant ce lot peut y avoir
+        // bâti : on cherche alors le terrain libre le plus proche, ou on attend.
+        let at = null;
+        for (let r = 0; r <= 3 && !at; r += 1)
+          for (let dy = -r; dy <= r && !at; dy += 1) for (let dx = -r; dx <= r && !at; dx += 1) {
+            if (Math.max(Math.abs(dx), Math.abs(dy)) !== r) continue;
+            const q = { ...p, gx: p.gx + dx, gy: p.gy + dy };
+            if (footFree(q)) at = q;
+          }
+        if (at) kept.unshift(at);
+        continue;
+      }
+      if (apart(p) && footFree(p)) kept.push(p);
+    }
+    plan.plazas = kept;
+  }
 
   // ── Réseau viaire procédural (axes, rues, sentiers, places, ponts) ───────
   // Moteur graphe : réseau connexe par construction (cf. roadGraph.js).
@@ -2610,12 +2910,196 @@ function computeCityLayout(s) {
   const terrCtx = river.present
     ? { seed: mapSeed | 0, riverYAt, islands: (river.islands || null), cx: plan.core.x, cy: plan.core.y, flatR: terrainFlatR(c) }
     : { seed: mapSeed | 0, riverYAt: null, islands: null, cx: plan.core.x, cy: plan.core.y, flatR: terrainFlatR(c) };
-  const { roads, roadKey, roadMeta, skeletonKey } = generateRoadsGraph({
+  const { roads, roadKey, roadMeta, skeletonKey, bridgeCols } = generateRoadsGraph({
     plan, seed: mapSeed, counts: c, ageCfg, N,
     riverSet, bankSet, riverBridgeX: riverBridge.x, organicLimit,
     bridgeAvoid: plaisirsSpot ? { x: plaisirsSpot.x, r: plaisirsSpot.clear } : null,
     fieldAt: (gx, gy) => terrainFieldU(gx, gy, terrCtx),
+    axisX: townOn ? arteryAx : null,
+    singleBridge: townOn,
   });
+  lp("routes-tracé");
+  // ── LA MÉMOIRE DU RÉSEAU (docs/PLAN-ROUTES.md, lot L2) ─────────────────────
+  // Les rues du calcul précédent rejoignent le réseau AVANT le placement : elles
+  // entrent dans le SQUELETTE (la dissolution de l'échafaudage ne les touche
+  // pas) et dans `memKeep` (aucun émondage ne les touche). Une rue mémorisée que
+  // le fleuve recouvre aujourd'hui est abandonnée, sauf sur les colonnes du pont.
+  const memKeep = new Set();
+  if (roadMem) {
+    for (const [k, mc] of roadMem) {
+      const ci = k.indexOf(","), gx = +k.slice(0, ci), gy = +k.slice(ci + 1);
+      if (gx < 0 || gy < 0 || gx >= N || gy >= N) continue;
+      if ((riverSet.has(k) || bankSet.has(k)) && !bridgeCols.has(gx)) continue;
+      const m = roadMeta.get(k);
+      if (m) {
+        m.h = m.h || mc.h; m.v = m.v || mc.v;
+        if (rankAbove(mc.rank, m.rank)) m.rank = mc.rank;
+      } else {
+        roadMeta.set(k, { h: mc.h, v: mc.v, rank: mc.rank });
+        roads.push({ gx, gy });
+        roadKey.add(k);
+      }
+      if (skeletonKey) skeletonKey.add(k);
+      memKeep.add(k);
+    }
+  }
+  // L'ARTÈRE (lot L6) rejoint le squelette, protégée comme la mémoire. Son rang
+  // suit l'ère — sentier du campement, rue du village, grand-rue du bourg — et ne
+  // redescend jamais. Une cellule déjà tenue par un bâtiment (save d'avant ce
+  // lot) est sautée : on ne déloge pas.
+  if (townOn && arteryRoad.length) {
+    const aRank = (c.eraBand | 0) >= 2 ? "main" : (c.eraBand | 0) >= 1 ? "secondary" : "path";
+    for (const q of arteryRoad) {
+      const k = q.gx + "," + q.gy;
+      if (heldBy && heldBy.has(k)) continue;
+      const m = roadMeta.get(k);
+      if (m) { m.v = true; if (rankAbove(aRank, m.rank)) m.rank = aRank; }
+      else { roadMeta.set(k, { h: false, v: true, rank: aRank }); roads.push({ gx: q.gx, gy: q.gy }); roadKey.add(k); }
+      if (skeletonKey) skeletonKey.add(k);
+      memKeep.add(k);
+    }
+    // LE SENTIER DU FEU : le foyer (centre de la place) rejoint l'artère par une
+    // ligne droite — « les sentiers convergent sur le feu ». Au bourg, ces
+    // cellules sont sous la place et en prennent le rang.
+    if (centralSite) {
+      const h = hearthOfSite(centralSite), step = h.gx < arteryAx ? 1 : -1;
+      for (let x = h.gx; x !== arteryAx; x += step) {
+        const k = x + "," + h.gy;
+        if (heldBy && heldBy.has(k)) break;
+        const m = roadMeta.get(k);
+        if (m) m.h = true;
+        else { roadMeta.set(k, { h: true, v: false, rank: "path" }); roads.push({ gx: x, gy: h.gy }); roadKey.add(k); }
+        if (skeletonKey) skeletonKey.add(k);
+        memKeep.add(k);
+      }
+      const ak = arteryAx + "," + h.gy, am = roadMeta.get(ak);
+      if (am) am.h = true;
+    }
+    // Boulevard : les deux voies se croisent là où une rue arrive de part ou
+    // d'autre (et au moins toutes les 8 rangées, sans quoi la voie est se
+    // retrouverait isolée et l'élagage de connexité la supprimerait).
+    if ((c.eraBand | 0) >= ARTERY_TWIN_BAND) {
+      let last = -99;
+      const rows = arteryRoad.filter((q) => q.gx === arteryAx).map((q) => q.gy).sort((a, b) => a - b);
+      for (const y of rows) {
+        const k0 = arteryAx + "," + y, k1 = (arteryAx + 1) + "," + y;
+        const m0 = roadMeta.get(k0), m1 = roadMeta.get(k1);
+        if (!m0 || !m1) continue;
+        const side = roadKey.has((arteryAx - 1) + "," + y) || roadKey.has((arteryAx + 2) + "," + y);
+        if (side || y - last >= 8) { m0.h = true; m1.h = true; last = y; }
+      }
+    }
+  }
+  // ── LES EXTENSIONS PLANIFIÉES (lot L5, « fais toutes les ères ») ───────────
+  // À partir de la cité, le plan de l'ère (rocades, damier, mégalopole) est tracé
+  // comme avant… mais uniquement sur le TERRAIN NEUF. Toute cellule tracée à moins
+  // de deux cases d'un bâtiment posé ou d'une rue mémorisée est retirée : la vieille
+  // ville garde ses rues, le plan pousse autour d'elle (le vieux centre tortueux,
+  // les faubourgs planifiés — l'histoire de toute ville). Les morceaux de plan ainsi
+  // détachés sont RECOUSUS au réseau par le plus court chemin.
+  lp("routes-mémoire");
+  if (townOn && (c.eraBand | 0) >= 3 && !skeletonKey) {
+    // Grille d'occupation à plat (perf : en clés texte, ce marquage coûtait à lui
+    // seul ~60 ms en fin de partie — 5 000 rues × 25 cases).
+    const occ = new Uint8Array(N * N);
+    const mark = (k) => {
+      const ci = k.indexOf(","), x = +k.slice(0, ci), y = +k.slice(ci + 1);
+      if (x < 0 || y < 0 || x >= N || y >= N) return;
+      occ[y * N + x] = 1;
+    };
+    for (const k of heldBy.keys()) mark(k);
+    for (const k of memKeep) mark(k);
+    // Dilatation de 2 cases (séparable : lignes puis colonnes).
+    const tmp = new Uint8Array(N * N);
+    for (let y = 0; y < N; y += 1) for (let x = 0; x < N; x += 1) {
+      let v = 0;
+      for (let d = -2; d <= 2 && !v; d += 1) { const xx = x + d; if (xx >= 0 && xx < N && occ[y * N + xx]) v = 1; }
+      tmp[y * N + x] = v;
+    }
+    const near = new Uint8Array(N * N);
+    for (let y = 0; y < N; y += 1) for (let x = 0; x < N; x += 1) {
+      let v = 0;
+      for (let d = -2; d <= 2 && !v; d += 1) { const yy = y + d; if (yy >= 0 && yy < N && tmp[yy * N + x]) v = 1; }
+      near[y * N + x] = v;
+    }
+    for (const k of Array.from(roadKey)) {
+      if (memKeep.has(k)) continue;
+      const m = roadMeta.get(k);
+      if (m && m.rank === "plaza") continue;
+      if (riverSet.has(k) || bankSet.has(k)) continue;                 // travées du pont
+      const ci = k.indexOf(","), x = +k.slice(0, ci), y = +k.slice(ci + 1);
+      const inN = x >= 0 && y >= 0 && x < N && y < N && near[y * N + x] === 1;
+      if (inN || townReserve.has(k) || frozenWonderCells.has(k)) { roadKey.delete(k); roadMeta.delete(k); }
+    }
+    { const kept = roads.filter((r) => roadKey.has(r.gx + "," + r.gy)); roads.length = 0; for (const r of kept) roads.push(r); }
+    lp("routes-filtre");
+    // Recousage : BFS terrestre depuis la composante du cœur, chaque morceau
+    // rejoint le réseau par le chemin le plus court qui ne traverse ni bâtiment,
+    // ni eau, ni site de place. Tableaux à plat (perf : ~50 ms en clés texte).
+    const NN = N * N;
+    const isRoad = new Uint8Array(NN), blocked = new Uint8Array(NN);
+    const keyXY = (k) => { const ci = k.indexOf(","); return [+k.slice(0, ci), +k.slice(ci + 1)]; };
+    for (const k of roadKey) { const [x, y] = keyXY(k); if (x >= 0 && y >= 0 && x < N && y < N) isRoad[y * N + x] = 1; }
+    const block = (set) => { for (const k of set) { const [x, y] = keyXY(k); if (x >= 0 && y >= 0 && x < N && y < N) blocked[y * N + x] = 1; } };
+    block(riverSet); block(bankSet); block(heldBy.keys()); block(townReserve);
+    const comp = new Int32Array(NN).fill(-1);
+    let nComp = 0;
+    const stack = [];
+    for (let i0 = 0; i0 < NN; i0 += 1) {
+      if (!isRoad[i0] || comp[i0] >= 0) continue;
+      comp[i0] = nComp; stack.push(i0);
+      while (stack.length) {
+        const i = stack.pop(), x = i % N, y = (i - x) / N;
+        if (x > 0 && isRoad[i - 1] && comp[i - 1] < 0) { comp[i - 1] = nComp; stack.push(i - 1); }
+        if (x < N - 1 && isRoad[i + 1] && comp[i + 1] < 0) { comp[i + 1] = nComp; stack.push(i + 1); }
+        if (y > 0 && isRoad[i - N] && comp[i - N] < 0) { comp[i - N] = nComp; stack.push(i - N); }
+        if (y < N - 1 && isRoad[i + N] && comp[i + N] < 0) { comp[i + N] = nComp; stack.push(i + N); }
+      }
+      nComp += 1;
+    }
+    if (nComp > 1) {
+      let coreComp = 0, best = Infinity;
+      for (let i = 0; i < NN; i += 1) {
+        if (comp[i] < 0) continue;
+        const x = i % N, y = (i - x) / N, d = (x - plan.core.x) ** 2 + (y - plan.core.y) ** 2;
+        if (d < best) { best = d; coreComp = comp[i]; }
+      }
+      const from = new Int32Array(NN).fill(-1), seen = new Uint8Array(NN), q = new Int32Array(NN);
+      let qh = 0, qt = 0;
+      for (let i = 0; i < NN; i += 1) if (comp[i] === coreComp) { seen[i] = 1; q[qt++] = i; }
+      while (qh < qt) {
+        const i = q[qh++], x = i % N, y = (i - x) / N;
+        const nb = [x > 0 ? i - 1 : -1, x < N - 1 ? i + 1 : -1, y > 0 ? i - N : -1, y < N - 1 ? i + N : -1];
+        for (const j of nb) {
+          if (j < 0 || seen[j]) continue;
+          if (!isRoad[j] && blocked[j]) continue;
+          seen[j] = 1; from[j] = i;
+          if (!isRoad[j]) q[qt++] = j;
+        }
+      }
+      const lay = (i, axis) => {
+        const x = i % N, y = (i - x) / N, k = x + "," + y;
+        const m = roadMeta.get(k) || { h: false, v: false, rank: "secondary" };
+        if (axis === "h") m.h = true; else m.v = true;
+        if (!roadMeta.has(k)) { roadMeta.set(k, m); roads.push({ gx: x, gy: y }); roadKey.add(k); }
+      };
+      const done = new Uint8Array(nComp);
+      done[coreComp] = 1;
+      for (let i0 = 0; i0 < NN; i0 += 1) {
+        const id = comp[i0];
+        if (id < 0 || done[id] || from[i0] < 0) continue;
+        done[id] = 1;
+        let cur = i0;
+        for (let guard = 0; guard < NN && from[cur] >= 0; guard += 1) {
+          const prev = from[cur];
+          const axis = (cur % N) === (prev % N) ? "v" : "h";
+          lay(cur, axis); lay(prev, axis);
+          if (comp[prev] === coreComp) break;
+          cur = prev;
+        }
+      }
+    }
+  }
   lp("routes-gen");
 
   // Pont central : largeur (2 voies dès la bande 2) + colonne de base. Réutilisés
@@ -2649,9 +3133,74 @@ function computeCityLayout(s) {
   }
   const tierOf = (id) => wonderTiers[id];
   const bridgeGx = riverBridge ? Math.round(riverBridge.x) : undefined;
-  const wonderSlots = CM_WONDERS.map((w, wi) => w.id === "era_mega"
-    ? cmWetWonderSlot(wi, N, cx, cy, riverYAt, riverSet, cityReachBase, bridgeGx)
-    : cmDryWonderSlot(wi, N, cx, cy, riverSet, bankSet, plan.plazas, cityReachBase));
+  // Tant que la place centrale n'est pas ouverte, son SITE compte comme une place
+  // pour les merveilles (mémoire des rues, lot L3) : sans ça, la première
+  // merveille du campement se posait sur le terrain promis à la place du bourg.
+  const wonderPlazas = townOn ? townSites.map((st) => ({ gx: st.gx, gy: st.gy, size: st.size }))
+    : (memOn && plan.centralSite && !(plan.plazas || []).some((p) => p.kind === "centrale"))
+    ? [...(plan.plazas || []), plan.centralSite] : plan.plazas;
+  // ⚠ La garde de cmDryWonderSlot ne teste que l'ANCRE de la merveille (marge
+  // de 2,5 autour d'une place) ; son parvis, lui, déborde de son rayon r — jusqu'à
+  // 5 cases au premier rang. Tant qu'une merveille glissait à chaque ère, ce
+  // recouvrement ne durait pas ; figée (cf. juste après), elle encerclait le feu
+  // du campement et la place du bourg ne trouvait plus de terrain (vu à la
+  // capture, ère 14 : deux parvis autour du foyer, aucune place). On élargit donc
+  // chaque place du rayon du parvis de la merveille qu'on pose.
+  const plazasFor = (w) => {
+    if (!memOn || !Array.isArray(wonderPlazas)) return wonderPlazas;
+    const r = cmWonderExtent(w.id, tierOf(w.id) || 1).halfW;
+    return wonderPlazas.map((pz) => ({ ...pz, size: pz.size + Math.max(0, 2 * r - 3) }));
+  };
+  // ── LES MERVEILLES S'ESPACENT (Raph 2026-10-01 : « davantage les espacer ») ──
+  // Avec la structure de ville, le parvis ENTIER d'une merveille neuve doit être
+  // libre : ni artère, ni site de place, ni bâtiment déjà posé, et WONDER_GAP
+  // cases au moins de tout autre parvis. Les merveilles déjà érigées sont figées
+  // (plus bas) ; leur emprise compte dès le départ.
+  const WONDER_GAP = 4;
+  const wonderTaken = new Set(frozenWonderCells);
+  const wonderFits = (w) => (gx, gy) => {
+    const r = cmWonderExtent(w.id, tierOf(w.id) || 1).halfW;
+    for (let dy = -r - WONDER_GAP; dy <= r + WONDER_GAP; dy += 1) {
+      for (let dx = -r - WONDER_GAP; dx <= r + WONDER_GAP; dx += 1) {
+        const x = gx + dx, y = gy + dy, k = x + "," + y;
+        if (wonderTaken.has(k)) return false;
+        if (Math.abs(dx) > r || Math.abs(dy) > r) continue;
+        if (townReserve.has(k) || heldBy.has(k)) return false;
+        if (arteryAx != null && (x === arteryAx || x === arteryAx + 1)) return false;
+      }
+    }
+    return true;
+  };
+  const wonderSlots = [];
+  CM_WONDERS.forEach((w, wi) => {
+    const own = townOn && builtWonderIds.has(w.id) && !(s.cityCore && s.cityCore.wonders && s.cityCore.wonders[w.id]);
+    const slot = w.id === "era_mega"
+      ? cmWetWonderSlot(wi, N, cx, cy, riverYAt, riverSet, cityReachBase, bridgeGx)
+      : cmDryWonderSlot(wi, N, cx, cy, riverSet, bankSet, plazasFor(w), cityReachBase, own ? wonderFits(w) : null);
+    wonderSlots.push(slot);
+    if (townOn && builtWonderIds.has(w.id) && w.id !== "era_mega") {
+      const f = s.cityCore && s.cityCore.wonders && s.cityCore.wonders[w.id];
+      const at = f ? { gx: cx + f[0], gy: cy + f[1] } : slot;
+      cmForEachWonderCell(at, w.id, N, (gx, gy, k) => wonderTaken.add(k), tierOf(w.id));
+    }
+  });
+  // ── LES MERVEILLES NE GLISSENT PLUS (mémoire des rues) ──────────────────────
+  // Leur anneau suit la portée de la ville (cmBaseWonderSlot) : mesuré, la
+  // merveille de la première dynastie s'éloignait d'une à deux cases à CHAQUE
+  // ère (de 5 à 15 cases du centre entre les ères 2 et 14), son parvis rasant au
+  // passage les maisons et les chemins de la case d'à côté. Une merveille est un
+  // monument : elle reste où elle a été érigée, la ville grandit autour. Le gel
+  // vaut tant que la mémoire couvre la bande (bandes 0-2, lot L2).
+  if (memOn && s.cityCore) {
+    const wf = { ...(s.cityCore.wonders || {}) };
+    CM_WONDERS.forEach((w, wi) => {
+      if (!builtWonderIds.has(w.id) || (CM.previewWonder && CM.previewWonder.id === w.id)) return;
+      const f = wf[w.id];
+      if (f) wonderSlots[wi] = { ...wonderSlots[wi], gx: cx + f[0], gy: cy + f[1] };
+      else wf[w.id] = [wonderSlots[wi].gx - cx, wonderSlots[wi].gy - cy];
+    });
+    s.cityCore.wonders = wf;
+  }
 
   // ── ÎLE DE L'AIGUILLE : le fleuve se sépare en deux bras ──────────────────
   // Modèle assumé : l'Île de la Cité (Raph, 2026-07-30). La merveille ne se
@@ -2778,10 +3327,24 @@ function computeCityLayout(s) {
   // camp doivent pouvoir converger sur le feu. Le cœur est tenu au sec
   // (CORE_DRY_RADIUS = 2), donc les neuf cellules le sont aussi.
   const hearthCell = ((c.eraBand | 0) <= CAMP_HEARTH.lastBand && CAMP_HEARTH.on)
-    ? { gx: Math.floor(plan.core.x), gy: Math.floor(plan.core.y) } : null;
+    ? (centralSite ? hearthOfSite(centralSite) : { gx: Math.floor(plan.core.x), gy: Math.floor(plan.core.y) }) : null;
   const hearthClear = new Set();
   if (hearthCell) {
     for (let dx = -1; dx <= 1; dx += 1) for (let dy = -1; dy <= 1; dy += 1) hearthClear.add((hearthCell.gx + dx) + "," + (hearthCell.gy + dy));
+  }
+  // LE FEU DEVIENT LA PLACE (lot L3) : tant que la place centrale n'est pas
+  // ouverte, son site est gardé libre de tout bâti — comme le cercle du feu, qu'il
+  // englobe. Au bourg, la place s'ouvre là, sans chasser personne. Les sentiers y
+  // passent librement (même statut que le foyer). Une cellule déjà TENUE par un
+  // bâtiment (save d'avant ce lot) n'est pas réservée : on ne déloge pas.
+  // Structure de ville (lots L6-L8) : les sites de place, même statut.
+  for (const k of townReserve) hearthClear.add(k);
+  if (memOn && !townOn && plan.centralSite && !(plan.plazas || []).some((p) => p.kind === "centrale")) {
+    const site = plan.centralSite, half = Math.floor(site.size / 2);
+    for (let dx = -half; dx < site.size - half; dx += 1) for (let dy = -half; dy < site.size - half; dy += 1) {
+      const k = (site.gx + dx) + "," + (site.gy + dy);
+      if (!heldBy.has(k) && !frozenWonderCells.has(k) && !corridorAt(site.gx + dx, site.gy + dy)) hearthClear.add(k);
+    }
   }
   // La vie RURALE (cf. CAMP_LIFE) : là où il y a un foyer, camp et village —
   // sentiers qui convergent sur le feu, terre battue et forêt qui suivent la
@@ -2834,9 +3397,15 @@ function computeCityLayout(s) {
       if (hearthClear.has(tx + "," + ty)) return false;     // foyer du campement
       if (riverSet.has(tx + "," + ty) || bankSet.has(tx + "," + ty)) return false;
       if (ax >= 0 && ax < size && ay >= 0 && ay < size && roadKey.has(tx + "," + ty)) return false;
+      if (heldBy && (heldBy.has(tx + "," + ty) || townReserve.has(tx + "," + ty))) return false;   // structure de ville
     }
     return true;
   };
+  // GRANDS ENSEMBLES FIGÉS (lot L5) : un ensemble civique se pose une fois, au
+  // premier terrain libre sur son rayon (on s'éloigne au lieu d'abandonner), et
+  // n'en bouge plus — avant, sa place dépendait des routes et des maisons du
+  // moment, il sautait d'un calcul à l'autre en rasant ce qu'il rencontrait.
+  const distFix = townOn && s.cityCore ? { ...(s.cityCore.districts || {}) } : null;
   for (let n = 0; n < c.megaDistricts; n += 1) {
     const civicKinds = c.eraBand >= 6 ? ["spire","archive","observatory"] : c.eraBand >= 5 ? ["tower","station","archive"] : c.eraBand >= 4 ? ["palace","forum","archive"] : ["keep","market","temple"];
     const denseKinds = c.eraBand >= 6 ? ["arcology","grid","tower"]       : c.eraBand >= 5 ? ["tower","station","dense"]   : c.eraBand >= 4 ? ["forum","dense","market"]   : ["keep","market"];
@@ -2845,7 +3414,9 @@ function computeCityLayout(s) {
     // Orientation seedée : les grands complexes ne poussent pas aux mêmes angles d'une partie à l'autre.
     const baseAngle = (Math.PI * 2 * n) / Math.max(6, c.megaDistricts) + (n % 2) * 0.28 + (mixSeed(mapSeed, "districts") % 628) / 100;
     let placed = null;
-    for (let attempt = 0; attempt < 10 && !placed; attempt += 1) {
+    const df = distFix && distFix[n];
+    if (df) placed = { gx: cx + df[0], gy: cy + df[1] };
+    for (let attempt = 0; attempt < (distFix ? 40 : 10) && !placed; attempt += 1) {
       const ring = 5 + Math.floor(n / 6) * 5 + attempt;
       const angle = baseAngle + attempt * 0.17;
       // Math.floor obligatoire : les clés de riverSet/bankSet/occupiedFoot sont des entiers.
@@ -2855,6 +3426,7 @@ function computeCityLayout(s) {
       if (footFits(gx, gy, size)) placed = { gx, gy };
     }
     if (!placed) continue;
+    if (distFix && !df) distFix[n] = [placed.gx - cx, placed.gy - cy];
     for (let ax = 0; ax < size; ax += 1) for (let ay = 0; ay < size; ay += 1) occupiedFoot.add((placed.gx + ax) + "," + (placed.gy + ay));
     // `civic` : les n premiers sont les MONUMENTS civiques (kind tiré de civicKinds),
     // le reste est du tissu dense — la distinction existait dans le tirage du kind
@@ -2865,6 +3437,7 @@ function computeCityLayout(s) {
     districts.push({ gx: placed.gx, gy: placed.gy, size, kind, civic: n < c.civicMonuments,
       key: `district:${placed.gx},${placed.gy}:${kind}` });
   }
+  if (distFix) s.cityCore.districts = distFix;
 
   // Zone réservée (merveilles + districts)
   const reserved = new Set();
@@ -2874,10 +3447,25 @@ function computeCityLayout(s) {
   // wonderGround = les seules cellules d'emprise des MERVEILLES (sans les
   // districts) : le rendu du sol y pose un PARVIS dédié, distinct du sol urbain.
   const wonderGround = new Set();
+  const wonderPaveR = {};   // demi-côté pavé par merveille (structure de ville)
   for (let wi = 0; wi < CM_WONDERS.length; wi += 1) {
     const w = CM_WONDERS[wi];
     if (!builtWonderIds.has(w.id) || w.id === "era_mega") continue;
-    cmForEachWonderCell(wonderSlots[wi], w.id, N, (gx, gy, k) => { reserved.add(k); wonderGround.add(k); }, tierOf(w.id));
+    // PARVIS À LA TAILLE DU SOCLE (structure de ville, Raph 2026-10-01 : « mieux
+    // les centrer sur leur parvis »). L'emprise réservée suit toujours la HAUTEUR
+    // du sprite (rien ne doit percer derrière lui), mais seule une esplanade autour
+    // du SOCLE est pavée — demi-côté = demi-socle + 1,5 case ; le reste de
+    // l'emprise est une pelouse (townGreen). Le monument, posé socle centré (cf.
+    // wonderFootWorld, L.wonderPaveR), se tient au milieu d'une place à sa mesure
+    // au lieu de flotter dans un carré gris taillé pour sa silhouette.
+    const paveR = townOn ? Math.ceil(cmWonderBaseTiles(w.id, tierOf(w.id) || 1) / 2 + 1.5) : Infinity;
+    if (townOn) wonderPaveR[w.id] = paveR;
+    const sl = wonderSlots[wi];
+    cmForEachWonderCell(sl, w.id, N, (gx, gy, k) => {
+      reserved.add(k);
+      if (Math.max(Math.abs(gx - sl.gx), Math.abs(gy - sl.gy)) <= paveR) wonderGround.add(k);
+      else townGreen.add(k);
+    }, tierOf(w.id));
   }
   // ── Carve : aucune ROUTE sous l'emprise d'une merveille sèche. Les routes sont
   //    figées avant le calcul des slots ; on retire ici les cellules qui tombent
@@ -2889,11 +3477,47 @@ function computeCityLayout(s) {
   for (let wi = 0; wi < CM_WONDERS.length; wi += 1) {
     const w = CM_WONDERS[wi];
     if (!builtWonderIds.has(w.id) || w.id === "era_mega") continue;
-    cmForEachWonderCell(wonderSlots[wi], w.id, N, (gx, gy, k) => {
+    // Structure de ville : seul le PARVIS PAVÉ est dégagé des routes (la pelouse
+    // autour est plate, une rue peut la border ou la traverser), et JAMAIS
+    // l'artère. Mesuré : la Colonne, montée au rang 4, étendait son emprise sur le
+    // débouché sud du pont — la découpe effaçait l'artère, toute la rive sud se
+    // retrouvait coupée du réseau et l'élagage de connexité rasait ses rues.
+    const sl = wonderSlots[wi], pr = townOn ? wonderPaveR[w.id] : null;
+    cmForEachWonderCell(sl, w.id, N, (gx, gy, k) => {
       if (isBridgeSpanCell(gx, k)) return; // JAMAIS carver la travée du pont central sanctuarisé
+      if (pr != null && Math.max(Math.abs(gx - sl.gx), Math.abs(gy - sl.gy)) > pr) return;
+      if (townOn && arteryAx != null && (gx === arteryAx || gx === arteryAx + 1)) return;
       if (roadKey.has(k)) { roadKey.delete(k); roadMeta.delete(k); }
     }, tierOf(w.id));
   }
+  // ── LES BÂTIMENTS DÉJÀ POSÉS TIENNENT LEUR PLACE (lot L2) ───────────────────
+  // Mesuré avec la seule mémoire des rues : les rues ne disparaissaient plus,
+  // mais à chaque ère la MOITIÉ des bâtiments déménageait (slot refusé : un
+  // échafaudage de placement posé dessus, un atelier voisin qui l'avait pris en
+  // grossissant…). Chaque déménagement laissait derrière lui un chemin mémorisé
+  // qui ne menait plus nulle part, et la ville s'étouffait sous ses propres
+  // sentiers (à l'ère 9, 117 maisons posées au lieu de 235). La mémoire des rues
+  // n'a de sens que si les bâtiments en ont une aussi.
+  //   - chaque slot du cycle TIENT ses cellules : seul son propriétaire peut les
+  //     reprendre (`heldBy`, lu par footprintFits) ;
+  //   - les maisons d'abord, les moteurs ensuite : un atelier qui grossit et
+  //     déborde sur une maison ne la chasse pas, c'est lui qui cherche un lot ;
+  //   - l'échafaudage de placement (dissous plus bas de toute façon) ne se pose
+  //     jamais sur une cellule tenue.
+  if (heldBy) {
+    for (const k of heldBy.keys()) {
+      if (!roadKey.has(k) || memKeep.has(k)) continue;
+      const m = roadMeta.get(k);
+      if (m && m.rank === "plaza") continue;
+      if (riverSet.has(k) || bankSet.has(k)) continue;           // travée/abord de pont
+      roadKey.delete(k); roadMeta.delete(k);
+      if (skeletonKey) skeletonKey.delete(k);
+    }
+  }
+  // Propriétaire de la pose en cours (cf. heldBy) : posé par placeRequest et par
+  // decCellFree, lu par footprintFits. null = pose sans propriétaire.
+  let placingOwner = null;
+  const heldByOther = (k) => { if (!heldBy) return false; const o = heldBy.get(k); return !!o && o !== placingOwner; };
   { // compacte `roads` en cohérence avec roadKey (même geste que trimDemandlessRoads)
     const kept = roads.filter((r) => roadKey.has(r.gx + "," + r.gy));
     roads.length = 0; for (const r of kept) roads.push(r);
@@ -2901,6 +3525,10 @@ function computeCityLayout(s) {
   lp("districts");
 
   // Cellules (bâtissables + arbres)
+  // Seuil des jardins : le bruit lissé n'est pas uniforme (moyenne de 4 hachés),
+  // sa part sous un seuil s se lit sur la fonction de répartition mesurée
+  // (9e4 cellules, grappes de 4) — 20 % ↔ 0,292 ; 25 % ↔ 0,331 ; 30 % ↔ 0,367.
+  const gardenThr = 0.292 + (gardenShareFor(c.eraBand) - 0.2) * 0.75;
   const cells = [];
   const quarterScore = (cell) => quarterAnchors.reduce((best, q) => {
     const qd = Math.hypot((cell.gx + 0.5) - q.gx, (cell.gy + 0.5) - q.gy);
@@ -2915,7 +3543,7 @@ function computeCityLayout(s) {
       if (!organicLimit(gx, gy, 0.8)) continue;
       const dx = gx - cx, dy = gy - cy;
       const score = organicScore({ gx, gy });
-      const noise = (cmHash("green:" + gx + ":" + gy + ":" + mapSeed) % 100) / 100;
+      const noise = (cmHash("green:" + (gx - fx0) + ":" + (gy - fy0) + ":" + mapSeed) % 100) / 100;
       // Espaces verts/vides : pilotés par la config d'âge et la personnalité
       // (une cité fastueuse garde ses jardins, une mégalopole bétonne tout).
       const parkBase = ageCfg.parkChance * (personality.treeMul || 1);
@@ -2926,8 +3554,22 @@ function computeCityLayout(s) {
       // (`.filter(cc => !cc.green)` juste en dessous), donc un semis en poivre-et-sel
       // PERFORAIT les rangées de maisons une cellule à la fois.
       const parkChance = Math.max(0.05, Math.min(0.45, parkBase * 0.55 + Math.max(0, score - 0.58) * 0.42))
-        * cmClumpK(gx, gy);
-      cells.push({ gx, gy, d2: dx * dx + dy * dy, score, green: noise < parkChance });
+        * cmClumpK(gx - fx0, gy - fy0);
+      // JARDINS et CEINTURE VERTE (lot L8, choix de Raph) : à partir du village,
+      // des grappes de jardins entre les maisons et une bande d'herbe sur la
+      // frontière entre deux quartiers. Ni l'un ni l'autre le long de l'artère :
+      // la grand-rue garde ses façades. Déterministe (bruit haché), donc stable.
+      let townG = false;
+      if (townOn && (c.eraBand | 0) >= 1 && Math.abs(gx - arteryAx - 0.5) > 2) {
+        // ⚠ Bruit lu dans le repère du CENTRE DE GRILLE (celui des slots) : en
+        // coordonnées absolues, le motif glissait sous les maisons à chaque
+        // agrandissement de la grille (mesuré : 84 maisons « dans » un jardin à
+        // l'ère 14, dont 16 seulement y étaient nées).
+        townG = gardenNoise(gx - cx, gy - cy, mapSeed, CITY_QUARTERS.gardenScale) < gardenThr
+          || onBelt(gx, gy, townCenters, CITY_QUARTERS.beltW, CITY_QUARTERS.beltMinD);
+        if (townG) { townGreen.add(key); townGardens.add(key); }
+      }
+      cells.push({ gx, gy, d2: dx * dx + dy * dy, score, green: townG || noise < parkChance });
     }
   }
   // Décore-trie-retire : score calculé une seule fois par cellule (les
@@ -2937,7 +3579,7 @@ function computeCityLayout(s) {
   // disponible par deux une seconde fois.
   const buildable = cells
     .filter((cc) => campLife || !cc.green)
-    .map((cc) => ({ cc, s: cc.score * 100 + cc.d2 * 0.012 - quarterScore(cc) * 15 + (cmHash("build:" + cc.gx + ":" + cc.gy) % 17) / 40 }))
+    .map((cc) => ({ cc, s: cc.score * 100 + cc.d2 * 0.012 - quarterScore(cc) * 15 + (cmHash("build:" + (cc.gx - fx0) + ":" + (cc.gy - fy0)) % 17) / 40 }))
     .sort((a, b) => a.s - b.s)
     .map((e) => e.cc);
   lp("cellules");
@@ -2987,6 +3629,7 @@ function computeCityLayout(s) {
     for (let ax = 0; ax < sizeX; ax += 1) for (let ay = 0; ay < sizeY; ay += 1) {
       const key = (gx + ax) + "," + (gy + ay);
       if (claimed.has(key) || (!allowRoad && roadKey.has(key))) return false;
+      if (heldByOther(key)) return false;
       if (!allowWater && riverSet.has(key)) return false;
       if (!allowBank && bankSet.has(key)) return false;
     }
@@ -3246,6 +3889,7 @@ function computeCityLayout(s) {
   // l'écart minimal entre deux bâtiments d'un même métier (cf. ENGINE_SPREAD).
   const sameTypeCells = new Map();
   const placeRequest   = (req, preferSavedSlot) => {
+    placingOwner = req.slotKey;
     // (Un bloc « aqueduc » vivait ici : structure linéaire span×1 posée le long
     //  de la berge, prise d'eau au bord. Retiré le 2026-08-05 — cf. le pavé de
     //  cmWaterPointCount. Les points d'eau sont des 1×1 ordinaires et passent
@@ -3615,12 +4259,19 @@ function computeCityLayout(s) {
   const bias = personality.buildingBias || {};
   // Cellule libre pour un décoratif 1×1 : dans la grille, non occupée, constructible
   // (footprintFits = pas route/eau/berge/réservé), et bordant une rue si requis.
-  const decCellFree = (gx, gy, spanX = 1, spanY = spanX) => {
+  const decCellFree = (gx, gy, spanX = 1, spanY = spanX, owner = null) => {
+    placingOwner = owner;
     if (gx < 0 || gy < 0 || gx + spanX > N || gy + spanY > N) return false;
     for (let ax = 0; ax < spanX; ax += 1) for (let ay = 0; ay < spanY; ay += 1) {
       if (usedKeys.has((gx + ax) + "," + (gy + ay))) return false;
     }
     if (!footprintFits(gx, gy, spanX, false, false, spanY)) return false;
+    // UNE MAISON QUI REPREND SA PROPRE PLACE (mémoire des rues : la cellule lui
+    // est tenue, cf. heldBy) ne repasse pas les règles de COMPOSITION — voie à
+    // portée, écart entre tentes : elles valent pour choisir une place, pas pour
+    // en chasser un occupant. Mesuré : un atelier qui s'installait à côté d'une
+    // tente la faisait déménager, l'écart n'étant plus respecté de SON côté.
+    if (owner && heldBy && heldBy.get(gx + "," + gy) === owner) return true;
     // Ancre proche d'une voie (l'empreinte entière l'est alors aussi).
     if (placer.requireRoad && !placer.nearRoad(gx, gy)) return false;
     // Têtes du pont : aucune habitation, à toutes les ères (cf. bridgeHeadClear).
@@ -3650,6 +4301,8 @@ function computeCityLayout(s) {
       cx, cy, N, cycle: s.cycles || 0,
       eraBand: c.eraBand | 0,
       cellFree: decCellFree,
+      keepInPlace: memOn,
+      smallVariant: placer.smallVariant,
       chooseVariant: placer.chooseVariant,
       quarterKindAt: placer.quarterKindAt,
       quarterIdAt: placer.quarterIdAt,
@@ -3671,6 +4324,7 @@ function computeCityLayout(s) {
   // ⚠ Camp : AUCUNE (cf. CAMP_LIFE) — elles n'y paraîtraient jamais, et leurs
   // sentiers et leurs cours, eux, se voyaient.
   placeDecor("enginehome", campLife ? 0 : (c.engineHomes || 0) + ENGINE_HOME_LOOKAHEAD);
+  placingOwner = null;   // fin des poses à propriétaire (cf. heldBy)
 
   // Purge des slots morts (moteurs + décoratifs `dec_*`) : ne garde que le cycle
   // courant ET les slots réellement posés cette frame (émonde la frange quand la
@@ -3733,7 +4387,7 @@ function computeCityLayout(s) {
       for (let dx = 0; dx < bridgeLaneW; dx += 1)
         for (let gy = Math.max(0, by0 - 3); gy <= Math.min(N - 1, by1 + 3); gy += 1) demand.add((bx + dx) + "," + gy);
   }
-  trimDemandlessRoads({ roads, roadKey, roadMeta, demand });
+  trimDemandlessRoads({ roads, roadKey, roadMeta, demand, keep: memKeep });
   lp("trim");
 
   // ── Connexion : relie enfin les bâtiments au réseau. Décoratifs gratuits (réseau
@@ -3745,6 +4399,14 @@ function computeCityLayout(s) {
   // proche au plus loin), puis les ÉLARGISSEMENTS des tronçons les plus
   // empruntés. Le compteur reste la seule vérité côté save.
   const roadWorksTotal = Math.floor((s.buildings && s.buildings.roads) || 0);
+  // Avec la MÉMOIRE DES RUES, un chantier appliqué l'est pour de bon : ses
+  // raccords et ses élargissements sont DANS le réseau mémorisé. Rejouer tous
+  // les chantiers payés à chaque calcul les ferait servir deux fois — un raccord
+  // gratuit à chaque nouveau moteur, un élargissement de plus à chaque achat.
+  // Seuls les chantiers NOUVEAUX (payés depuis le dernier calcul) se dépensent.
+  const memWorks = roadMem ? Math.min(roadWorksTotal, (s.cityRoads && s.cityRoads.works) | 0) : 0;
+  const memWidened = roadMem ? Math.max(0, (s.cityRoads && s.cityRoads.widened) | 0) : 0;
+  const roadWorksFresh = roadWorksTotal - memWorks;
   // ── RANG DES CONNECTEURS DE MOTEURS ────────────────────────────────────────
   // ⚠⚠ C'ÉTAIT ICI, LE « BROUILLON » (Raph 2026-08-05, mesuré). Cette ligne
   // donnait aux corridors de desserte le rang de l'ÈRE — `avenue` dès l'ère 20,
@@ -3770,7 +4432,8 @@ function computeCityLayout(s) {
   const connectorRank = ROAD_RANKS.connector;
   const netCover = connectBuildingsToNetwork({
     roads, roadKey, roadMeta, tiles, N, riverSet, bankSet,
-    claimed, districtWalk, engineFootprint, occupiedFoot, engineWorks: roadWorksTotal, connectorRank,
+    claimed, districtWalk, engineFootprint, occupiedFoot, engineWorks: roadWorksFresh, connectorRank,
+    softBlock: townOn ? townGardens : null,
     // Contrat de base (rappelé par Raph 2026-07-29 : « les routes reliées à
     // TOUS les bâtiments ») : les habitations sont TOUJOURS desservies,
     // gratuitement, quel que soit l'archétype — sur les villes en grille les
@@ -3789,7 +4452,7 @@ function computeCityLayout(s) {
   //    tronçons qu'on s'apprête à supprimer.
   pruneUnservedRoads({
     roads, roadKey, roadMeta, demand,
-    coreX: Math.round(plan.core.x), coreY: Math.round(plan.core.y)
+    coreX: Math.round(plan.core.x), coreY: Math.round(plan.core.y), keep: memKeep
   });
   // …puis on REPASSE l'émondage par feuilles. Couper des boucles en fabrique de
   // nouvelles : là où le quadrillage vide touchait le tissu, la rue conservée par
@@ -3799,7 +4462,7 @@ function computeCityLayout(s) {
   // celle-ci ne mange que des feuilles, l'autre ne sait couper que des boucles.
   // Les corridors vers les bâtiments isolés ne risquent rien — leurs cellules
   // sont de degré 2, et leur extrémité touche une emprise, donc la demande.
-  trimDemandlessRoads({ roads, roadKey, roadMeta, demand });
+  trimDemandlessRoads({ roads, roadKey, roadMeta, demand, keep: memKeep });
   lp("prune");
   // Usage du réseau (bâtiments par cellule), calculé UNE fois : sert au tronc
   // gratuit des hameaux ET aux élargissements payés.
@@ -3839,14 +4502,14 @@ function computeCityLayout(s) {
   };
   const widenRes = applyRoadWidenings({
     roads, roadKey, roadMeta, usage, riverSet,
-    count: Math.max(0, roadWorksTotal - netCover.engineWorksUsed),
+    count: Math.max(0, roadWorksFresh - netCover.engineWorksUsed),
     cellFree: widenFree
   });
   // Prochain chantier proposé + réalisés, déposés sur le layout : le runtime les
   // écrit dans state (roadNext / roadWidened), même canal que roadCoverage.
   const roadWorksInfo = {
     used: netCover.engineWorksUsed,
-    widened: widenRes.applied,
+    widened: memWidened + widenRes.applied,
     next: netCover.nextEngine
       ? { kind: "link", tiles: netCover.nextEngine.tiles, count: netCover.nextEngine.count, targetId: netCover.nextEngine.targetId, toRank: null }
       : widenRes.next
@@ -3884,14 +4547,14 @@ function computeCityLayout(s) {
     // Ville : pas d'arbre contre une maison (TREE_LIFE.cityClear).
     if (builtD && builtD.at(cell.gx, cell.gy) <= cityClear) continue;
     const norm = Math.sqrt(cell.d2) / maxR;
-    const hsh  = cmHash(cell.gx + "x" + cell.gy + ":" + mapSeed) % 100;
+    const hsh  = cmHash((cell.gx - fx0) + "x" + (cell.gy - fy0) + ":" + mapSeed) % 100;
     // S5 : la probabilité radiale est modulée par le BRUIT DE BLOC, de moyenne 1 —
     // des bosquets et des trouées franches au lieu de confettis, à compte conservé.
     // Le hash par cellule reste le tirage (et le rayon de l'arbre) : lui seul casse
     // la grille à l'intérieur d'un bosquet.
     // treeDensK : des arbres au grain des habitations sont plus grands, on en
     // plante d'autant moins (cf. TREE_TUNE.grainR).
-    const prob = (20 + norm * 50 + (norm > 0.55 ? 22 : 0)) * treeMul * cmClumpK(cell.gx, cell.gy) * treeDensK();
+    const prob = (20 + norm * 50 + (norm > 0.55 ? 22 : 0)) * treeMul * cmClumpK(cell.gx - fx0, cell.gy - fy0) * treeDensK();
     if (hsh < prob) { trees.push({ gx: cell.gx, gy: cell.gy, r: treeRadius(hsh) }); treeKey.add(cellKey); }
   }
   lp("arbres");
@@ -3969,7 +4632,104 @@ function computeCityLayout(s) {
   }
   lp("bétail");
 
+  // ── LA GRAND-RUE DU BOURG (lot L3) ─────────────────────────────────────────
+  // Elle n'est pas tirée au cordeau : c'est le chemin que tout le monde prenait
+  // déjà, du pont à la place, qui devient une rue. Plus court chemin SUR LE
+  // RÉSEAU, de la place centrale jusqu'au tablier ; ses sentiers passent `secondary`
+  // (largeur de rue, trottoir) et se pavent dans la matière de l'ère (R4).
+  // ── LES RUES DE QUARTIER (lot L7) ───────────────────────────────────────────
+  // Avec la structure de ville, la grand-rue EST l'artère. Chaque site (place
+  // centrale, place ou pré de quartier) s'y raccorde par une vraie rue : le plus
+  // court chemin sur le réseau, du site jusqu'à l'artère, passe `secondary`. La
+  // hiérarchie se lit alors d'elle-même : artère → rues de quartier → venelles.
+  if (townOn && (c.eraBand | 0) >= 2 && arteryAx != null) {
+    const O4 = [[0, 1], [1, 0], [-1, 0], [0, -1]];
+    for (const st of townSites) {
+      const par = new Map(), q = [];
+      forSiteCells(st, (x, y) => {
+        for (const [dx, dy] of [[0, 0], ...O4]) {
+          const k = (x + dx) + "," + (y + dy);
+          if (roadKey.has(k) && !par.has(k)) { par.set(k, null); q.push(k); }
+        }
+      });
+      let hit = null;
+      for (let i = 0; i < q.length && !hit; i += 1) {
+        const cur = q[i], ci = cur.indexOf(","), x = +cur.slice(0, ci);
+        if (x === arteryAx && !riverSet.has(cur)) { hit = cur; break; }
+        const y = +cur.slice(ci + 1);
+        for (const [dx, dy] of O4) {
+          const nk = (x + dx) + "," + (y + dy);
+          if (par.has(nk) || !roadKey.has(nk) || riverSet.has(nk)) continue;
+          par.set(nk, cur); q.push(nk);
+        }
+      }
+      for (let k = hit; k; k = par.get(k)) {
+        const m = roadMeta.get(k);
+        if (m && m.rank === "path") m.rank = "secondary";
+      }
+    }
+  }
+  if (memOn && !townOn && (c.eraBand | 0) >= 2) {
+    const central = (plan.plazas || []).find((p) => p.kind === "centrale");
+    if (central) {
+      const half = Math.floor(central.size / 2);
+      const par = new Map(), q = [];
+      for (let dx = -half; dx < central.size - half; dx += 1) for (let dy = -half; dy < central.size - half; dy += 1) {
+        const k = (central.gx + dx) + "," + (central.gy + dy);
+        if (roadKey.has(k) && !par.has(k)) { par.set(k, null); q.push(k); }
+      }
+      let hit = null;
+      for (let i = 0; i < q.length && !hit; i += 1) {
+        const cur = q[i], ci = cur.indexOf(","), x = +cur.slice(0, ci), y = +cur.slice(ci + 1);
+        for (const [dx, dy] of [[0, 1], [1, 0], [-1, 0], [0, -1]]) {
+          const nx = x + dx, ny = y + dy, nk = nx + "," + ny;
+          if (par.has(nk) || !roadKey.has(nk)) continue;
+          par.set(nk, cur);
+          if (riverSet.has(nk) && bridgeCols.has(nx)) { hit = nk; break; }
+          q.push(nk);
+        }
+      }
+      for (let k = hit; k; k = par.get(k)) {
+        if (riverSet.has(k) || bankSet.has(k)) continue;
+        const m = roadMeta.get(k);
+        if (m && m.rank === "path") m.rank = "secondary";
+      }
+    }
+  }
+  // ── MATIÈRE PAR CELLULE (R4, lots L3-L4) ───────────────────────────────────
+  // « Le vieux centre reste ancien » (Raph, 2026-10-01) : une venelle garde la
+  // matière de sa naissance ; les ARTÈRES (tout ce qui n'est plus un sentier) et
+  // les places sont repavées dans la matière de l'ère. Le rendu lit `pave` par
+  // cellule (iso/isoGroundRoads). Hors mémoire : pas de `pave`, matière de l'ère.
+  if (memOn) {
+    const band = c.eraBand | 0;
+    for (const k of roadKey) {
+      const m = roadMeta.get(k);
+      if (!m) continue;
+      const mc = roadMem && roadMem.get(k);
+      m.pave = (m.rank !== "path" || !mc) ? band : mc.pave;
+      m.born = mc ? mc.born : band;
+    }
+  }
   const roadGraph = cmBuildRoadGraph(roads, roadKey, roadMeta, river, cx, cy, bridgeLaneW);
+  // ── Écriture de la MÉMOIRE (lot L2) : le réseau VALIDÉ de ce calcul devient
+  // le point de départ du suivant. Chaque cellule garde sa bande de naissance et
+  // de pavage ; une cellule neuve naît et se pave dans la bande courante.
+  if (memOn) {
+    const band = c.eraBand | 0;
+    const out = [];
+    for (const r of roadGraph.roads) {
+      const k = r.gx + "," + r.gy;
+      const m = roadMeta.get(k) || {};
+      out.push({ gx: r.gx, gy: r.gy, rank: m.rank || r.rank || "path", h: !!m.h, v: !!m.v,
+        born: m.born != null ? m.born : band, pave: m.pave != null ? m.pave : band });
+    }
+    s.cityRoads = encodeRoadMemory(out, mapSeed, cx, cy, {
+      works: memWorks + netCover.engineWorksUsed + widenRes.applied,
+      widened: memWidened + widenRes.applied,
+      plazas: (plan.plazas || []).map((p) => ({ dx: p.gx - cx, dy: p.gy - cy, size: p.size, kind: p.kind })),
+    });
+  }
   lp("graphe");
   const median = computeMedianSegments(roadGraph.roadMap);   // terre-plein continu + décorable
   // Refuge planté = mobilier d'avenue : réservé aux âges qui en tracent (band 2+,
@@ -4049,6 +4809,17 @@ function computeCityLayout(s) {
       if (!riverSet.has(k)) urbanSet.add(k);
     }
   }
+  // Lot L8 : prés, jardins et ceintures se lisent en HERBE — sortis du sol de
+  // ville (sinon le champ de densité les repeignait en pavé, cf. COUR), sauf
+  // sous un bâtiment ou une rue.
+  if (townOn && townGreen.size) {
+    const builtK = new Set();
+    for (const t of tiles) {
+      const sx = t.spanX || t.size || 1, sy = t.spanY || t.size || 1;
+      for (let ax = 0; ax < sx; ax += 1) for (let ay = 0; ay < sy; ay += 1) builtK.add((t.gx + ax) + "," + (t.gy + ay));
+    }
+    for (const k of townGreen) if (!builtK.has(k) && !roadKey.has(k)) urbanSet.delete(k);
+  }
   lp("urbain");
   lpEnd();
   // Nombre de maisons-moteur RÉELLEMENT posées (road-limité) → base de la révélation
@@ -4061,9 +4832,9 @@ function computeCityLayout(s) {
     campHearth: hearthCell,
     gridN: N, cx, cy, tiles, urbanSet,
     roads: roadGraph.roads, roadSet: roadGraph.roadSet, roadMap: roadGraph.roadMap, roadMeta,
-    districts, trees, critters, maxD2, counts: c, roadCover: netCover, roadWorksInfo, median, roadMedian, terrePlein, river, water, engineTileMap, wonderSlots, wonderGround, wonderTiers,
+    districts, trees, critters, maxD2, counts: c, roadCover: netCover, roadWorksInfo, median, roadMedian, terrePlein, river, water, engineTileMap, wonderSlots, wonderGround, wonderTiers, wonderPaveR, townGreen: townOn ? townGreen : null,
     // Exposé au runtime (habitants, véhicules, tooltips, décor de places) :
-    plan: { archetype: plan.archetype, core: plan.core, order: plan.order, chaos: plan.chaos, plazas: plan.plazas || [] },
+    plan: { archetype: plan.archetype, core: plan.core, order: plan.order, chaos: plan.chaos, plazas: plan.plazas || [], anchors: plan.anchors || [] },
     personality, ageCfg, mapSeed
   };
 }
@@ -4138,6 +4909,7 @@ export {
   cmWonderSpriteDims,
   cmWonderCoreR,
   cmWonderHeightTiles,
+  cmWonderBaseTiles,
   cmForEachWonderCell,
   WONDER_TIER_NAMES,
   TREE_TUNE,

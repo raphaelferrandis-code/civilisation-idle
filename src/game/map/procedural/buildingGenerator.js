@@ -257,6 +257,16 @@ export function createBuildingPlacer({
     return list[hashString(seed + ":" + category + ":v" + n) % list.length];
   };
 
+  // Un dessin d'UNE case, tiré de façon déterministe dans la liste de l'ère : le
+  // repli d'une maison qui garde sa place (mémoire des rues). Indépendant de la
+  // cellule — aux bandes cosmiques, chooseVariant tire par pâté de maisons, et
+  // tous les essais retombaient sur la même tour 2×2.
+  const smallVariant = (category, n) => {
+    const list = variantList(VARIANTS_HOUSE, counts.eraBand, bias)
+      .filter((v) => { const [fx, fy] = houseFootprint(v, counts.eraBand); return fx === 1 && fy === 1; });
+    return list.length ? list[hashString(seed + ":" + category + ":s" + n) % list.length] : null;
+  };
+
   // Quartier d'appartenance d'une cellule : l'ancre la plus proche dont le
   // rayon d'influence la couvre. Sert aux teintes de quartier du rendu.
   const quarterKindAt = (gx, gy) => {
@@ -305,7 +315,7 @@ export function createBuildingPlacer({
     return placed;
   };
 
-  return { placeCategory, chooseVariant, orderedList, quarterKindAt, quarterIdAt, roadAdj, nearRoad, requireRoad };
+  return { placeCategory, chooseVariant, smallVariant, orderedList, quarterKindAt, quarterIdAt, roadAdj, nearRoad, requireRoad };
 }
 
 // ── Placement décoratif PERSISTANT (slots) ──────────────────────────────────
@@ -325,10 +335,19 @@ export function placeCategorySlotted(category, count, ctx) {
   const {
     ordered, store, live, cx, cy, N, cycle,
     cellFree, chooseVariant, quarterKindAt, pushTile, clamp,
-    eraBand = 0
+    eraBand = 0,
+    // Mémoire des rues : un slot sauvé garde sa place quitte à changer de dessin.
+    keepInPlace = false,
+    smallVariant = null
   } = ctx;
   const slotKey = (i) => cycle + ":dec_" + category + ":" + i;
   let placed = 0;
+  // PROPRIÉTAIRE de la pose en cours, passé à `cellFree` : avec la mémoire des
+  // rues (map/roadMemory.js), chaque slot déjà posé TIENT sa cellule et seul son
+  // propriétaire peut la reprendre — un voisin plus pressé ne l'en chasse plus.
+  // Les appelants qui ignorent ce 5e argument ne voient aucune différence.
+  let owner = null;
+  const free = (gx, gy, sx, sy) => cellFree(gx, gy, sx, sy, owner);
 
   const finalize = (i, cell, forced) => {
     // L'index PERSISTANT `i` (pas le rang d'attribution) pilote chooseVariant :
@@ -340,7 +359,7 @@ export function placeCategorySlotted(category, count, ctx) {
     // Empreinte multi-tuiles des grands bâtiments : refuse la pose si le rectangle
     // complet ne tient pas (cellFree est span-aware côté runtime) → refit ailleurs.
     const [spanX, spanY] = houseFootprint(variant, eraBand);
-    if ((spanX > 1 || spanY > 1) && !cellFree(cell.gx, cell.gy, spanX, spanY)) return false;
+    if ((spanX > 1 || spanY > 1) && !free(cell.gx, cell.gy, spanX, spanY)) return false;
     const dx = cell.gx - cx, dy = cell.gy - cy;
     pushTile({
       gx: cell.gx, gy: cell.gy, type: category, variant, spanX, spanY,
@@ -360,10 +379,26 @@ export function placeCategorySlotted(category, count, ctx) {
   for (let i = 0; i < count; i += 1) {
     const slot = store[slotKey(i)];
     if (!slot) continue;
+    owner = slotKey(i);
     const gx = clamp(cx + (Number(slot.dx) || 0), 0, N - 1);
     const gy = clamp(cy + (Number(slot.dy) || 0), 0, N - 1);
-    if (!cellFree(gx, gy)) continue; // devenue route/eau/occupée → refit en passe 2
-    if (finalize(i, { gx, gy })) reused.add(i);
+    if (!free(gx, gy)) continue; // devenue route/eau/occupée → refit en passe 2
+    if (finalize(i, { gx, gy })) { reused.add(i); continue; }
+    // LA MAISON RESTE OÙ ELLE EST (mémoire des rues, lot L5). Son dessin suit
+    // l'ère, et il arrive qu'il GRANDISSE (manoir 2×2, immeuble 1×2, tour 2×2
+    // cosmique) : faute de place à côté d'elle, elle partait se reposer ailleurs —
+    // mesuré, 40 à 700 maisons déplacées à chaque ère à partir de la cité. Elle
+    // garde désormais sa place sous un dessin d'une case, tiré de façon
+    // déterministe (même repli que la passe 2).
+    if (keepInPlace) {
+      let repli = smallVariant ? smallVariant(category, i) : null;
+      for (let k = 1; k <= 8 && !repli; k += 1) {
+        const v = chooseVariant(category, i + k * 7919, { gx, gy });
+        const [fx, fy] = houseFootprint(v, eraBand);
+        if (fx === 1 && fy === 1) repli = v;
+      }
+      if (repli && finalize(i, { gx, gy }, repli)) reused.add(i);
+    }
   }
 
   // Passe 2 — combler les index manquants depuis le tri.
@@ -382,9 +417,10 @@ export function placeCategorySlotted(category, count, ctx) {
   if (eraBand >= 7) {
     for (let i = 0; i < count; i += 1) {
       if (reused.has(i)) continue;
+      owner = slotKey(i);
       while (cursor < ordered.length) {
         const cell = ordered[cursor++];
-        if (!cellFree(cell.gx, cell.gy)) continue;
+        if (!free(cell.gx, cell.gy)) continue;
         if (finalize(i, cell)) break;
       }
     }
@@ -392,7 +428,8 @@ export function placeCategorySlotted(category, count, ctx) {
   }
   for (let i = 0; i < count; i += 1) {
     if (reused.has(i)) continue;
-    while (cursor < ordered.length && !cellFree(ordered[cursor].gx, ordered[cursor].gy)) cursor += 1;
+    owner = slotKey(i);
+    while (cursor < ordered.length && !free(ordered[cursor].gx, ordered[cursor].gy)) cursor += 1;
     if (cursor >= ordered.length) break;
     const variant = chooseVariant(category, i, ordered[cursor]);
     const [sx, sy] = houseFootprint(variant, eraBand);
@@ -400,7 +437,7 @@ export function placeCategorySlotted(category, count, ctx) {
       let found = -1;
       for (let k = cursor; k < Math.min(ordered.length, cursor + LOOKAHEAD); k += 1) {
         const c = ordered[k];
-        if (cellFree(c.gx, c.gy, sx, sy)) { found = k; break; }
+        if (free(c.gx, c.gy, sx, sy)) { found = k; break; }
       }
       // Aucune place pour cette emprise dans la fenêtre : on RABAT sur un variant
       // 1×1. Première version écrite : sauter le slot, pour ne pas reproduire le

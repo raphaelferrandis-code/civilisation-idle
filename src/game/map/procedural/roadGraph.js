@@ -35,6 +35,12 @@ export function generateRoadsGraph({
   // OPTIONNEL : absent, les tracés longs gardent le staircase historique au bit
   // près (c'est le contrat des tests existants, qui ne le passent pas).
   fieldAt = null,
+  // Structure de ville (map/cityQuarters.js) : l'axe vertical des plans
+  // géométriques suit la COLONNE DE L'ARTÈRE (sinon il courait à une case d'elle,
+  // deux chaussées parallèles et une fente de sol entre) ; et UN SEUL PONT
+  // (Raph 2026-10-01, docs/PLAN-PONTS.md) — plus de traversées seedées.
+  axisX = null,
+  singleBridge = false,
 }) {
   const cells = new Set();          // "gx,gy" — source de vérité de la connexité
   const meta = new Map();           // "gx,gy" -> { h, v, rank }
@@ -76,7 +82,7 @@ export function generateRoadsGraph({
   const bridgeLaneW = counts.eraBand >= 2 ? 2 : 1;
   // Colonnes de pont : pont historique + 1-2 traversées seedées aux ères avancées.
   const bridgeBaseCols = [Math.round(riverBridgeX)];
-  if (counts.eraBand >= 3) {
+  if (counts.eraBand >= 3 && !singleBridge) {
     const bRng = rngFrom(seed, "bridges");
     const extra = counts.eraBand >= 5 ? 2 : 1;
     // DOMAINE INTERDIT (Maison des Plaisirs) : la colonne tirée y est repoussée
@@ -447,7 +453,8 @@ export function generateRoadsGraph({
     const spacing = (A === "megalopolis" ? 5 : 6) + superMesh;
     runLineWide("h", core.y, core.x, mainRank);
     bridgeCrossing(mainRank);
-    runLineWide("v", core.x, core.y, mainRank);
+    const vx = axisX != null ? axisX : core.x;
+    runLineWide("v", vx, core.y, mainRank);
     const lanes = Math.min(5, 2 + counts.eraBand + Math.floor(counts.urbanTier / 5));
     const off = Math.floor(rng() * 2);   // léger décalage GLOBAL (symétrique), pas asymétrique
     for (let li = -lanes; li <= lanes; li += 1) {
@@ -455,7 +462,7 @@ export function generateRoadsGraph({
       const d = li * spacing + off;      // même off des deux côtés → espacement régulier
       const rank = Math.abs(li) <= 2 ? "avenue" : "secondary";
       runLine("h", core.y + d, core.x, rank);
-      runLine("v", core.x + d, core.y, rank);
+      runLine("v", vx + d, core.y, rank);
     }
     if (A === "megalopolis") {
       ring(core.x, core.y, Math.min(Math.floor(N / 2) - 2, Math.round((plan.reachBase || 8) * 0.9)), "avenue");
@@ -682,7 +689,9 @@ export function dissolveToSkeleton({ roads, roadKey, roadMeta, skeletonKey }) {
  *   (rang "plaza") sont toujours conservées : ce sont des espaces publics.
  *   Mute roadKey/roadMeta et compacte `roads` en place ; pur (testable seul).
  * -------------------------------------------------------------------------- */
-export function trimDemandlessRoads({ roads, roadKey, roadMeta, demand }) {
+// `keep` (optionnel) : cellules qu'aucun émondage ne retire — le réseau MÉMORISÉ
+// (map/roadMemory.js, règle R1 : une rue posée ne disparaît plus).
+export function trimDemandlessRoads({ roads, roadKey, roadMeta, demand, keep = null }) {
   const isPlaza = (k) => { const m = roadMeta.get(k); return !!(m && m.rank === "plaza"); };
   // Voisinage ORTHOGONAL (pas diagonal) : une feuille n'est conservée que si elle
   // borde DIRECTEMENT un bâtiment. En 8-voisins, une antenne qui ne desservait un
@@ -697,7 +706,7 @@ export function trimDemandlessRoads({ roads, roadKey, roadMeta, demand }) {
     for (const [dx, dy] of ORTHO) if (roadKey.has((gx + dx) + "," + (gy + dy))) d += 1;
     return d;
   };
-  const removable = (k, gx, gy) => !isPlaza(k) && !touchesDemand(gx, gy);
+  const removable = (k, gx, gy) => !isPlaza(k) && !(keep && keep.has(k)) && !touchesDemand(gx, gy);
   const work = [];
   for (const k of roadKey) {
     const c = k.indexOf(",");
@@ -760,7 +769,7 @@ export function trimDemandlessRoads({ roads, roadKey, roadMeta, demand }) {
  * (rang `plaza`), qui appartiennent au réseau sans desservir de porte.
  * ------------------------------------------------------------------------- */
 export const ROAD_PRUNE = { on: true, reach: 2 };
-export function pruneUnservedRoads({ roads, roadKey, roadMeta, demand, coreX, coreY }) {
+export function pruneUnservedRoads({ roads, roadKey, roadMeta, demand, coreX, coreY, keep: keepIn = null }) {
   const cfg = ROAD_PRUNE;
   const reach = Math.max(0, (typeof globalThis !== "undefined" && globalThis.__roadPruneReach != null)
     ? globalThis.__roadPruneReach | 0 : cfg.reach | 0);
@@ -810,6 +819,9 @@ export function pruneUnservedRoads({ roads, roadKey, roadMeta, demand, coreX, co
 
   const keep = new Set();
   for (const [k, d] of dist) if (d <= reach) keep.add(k);
+  // Réseau mémorisé : jamais coupé (R1). Il est connexe par lui-même — c'était
+  // le réseau validé du calcul précédent — donc la preuve ci-dessus tient.
+  if (keepIn) for (const k of keepIn) if (roadKey.has(k)) keep.add(k);
   // ⚠ La remontée vers le cœur se garde par `linked`, PAS par `keep`. Toute
   // porte est à distance 0 d'elle-même, donc déjà dans `keep` : s'arrêter « quand
   // c'est déjà gardé » faisait sortir la boucle au premier pas et aucun chemin

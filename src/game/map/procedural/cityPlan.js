@@ -35,12 +35,15 @@ function anchorKindWeights(personality) {
 // L'archétype est choisi parmi ceux que l'âge autorise, selon une préférence
 // seedée STABLE sur toute la partie : une ville "linéaire" le reste tant que
 // l'âge le permet, puis évolue vers le plan le plus proche de son tempérament.
-function pickArchetype(seed, ageCfg, personality, forced) {
+function pickArchetype(seed, ageCfg, personality, forced, forceAny = false) {
   // Archétype FIGÉ pour la partie (state.cityArchetype) : la ville garde son
   // plan de rues d'origine — seuls les faubourgs s'ajoutent. On respecte le
   // figé tant que l'âge l'autorise (les ensembles d'âge grandissent, donc un
   // archétype figé tôt reste valide), sinon repli sur le calcul seedé.
-  if (forced && ageCfg.archetypes.includes(forced)) return forced;
+  // `forceAny` : la MÉMOIRE DES RUES (map/roadMemory.js) garde le plan organique
+  // au-delà des âges qui l'autorisent — les axes d'un autre archétype se
+  // poseraient en travers d'un village déjà construit (docs/PLAN-ROUTES.md).
+  if (forced && (forceAny || ageCfg.archetypes.includes(forced))) return forced;
   let best = ageCfg.archetypes[0];
   let bestScore = -1;
   for (const name of ageCfg.archetypes) {
@@ -120,6 +123,31 @@ function buildAnchors({ seed, counts, personality, archetype, core, reachBase, N
 //   parvis   — devant le quartier religieux (statue votive, braseros) ;
 //   jardin   — square public du quartier de prestige (ères avancées).
 // Espacement minimal pour éviter deux places collées.
+// Taille de la place centrale au bourg (bande 2), là où elle naît : le plancher
+// 4×4 de buildPlazas. C'est elle que le campement réserve (cf. centralSite).
+const CENTRAL_SITE_SIZE = 4;
+
+// Emplacement de la PLACE CENTRALE, calculé à TOUTES les ères — même celles qui
+// n'ont pas encore de place : la mémoire des rues (docs/PLAN-ROUTES.md, lot L3)
+// réserve ce terrain dès le campement, autour du feu, pour que la place du
+// bourg y naisse sans chasser une seule maison. Même tirage que buildPlazas
+// (graine « plazas », deux premiers tirages) : le site est la place.
+function centralPlazaSite({ seed, core, corridorAt, size }) {
+  const rng = rngFrom(seed, "plazas");
+  const touches = (gx, gy) => {
+    if (!corridorAt) return false;
+    const half = Math.floor(size / 2);
+    for (let dx = -half - 1; dx <= size - half; dx += 1)
+      for (let dy = -half - 1; dy <= size - half; dy += 1)
+        if (corridorAt(gx + dx, gy + dy)) return true;
+    return false;
+  };
+  const gx = Math.round(core.x + (rng() - 0.5) * 3);
+  let gy = Math.round(core.y + (rng() - 0.5) * 3);
+  for (let guard = 0; guard < 24 && touches(gx, gy); guard += 1) gy -= 1;
+  return { gx, gy, size, kind: "centrale" };
+}
+
 function buildPlazas({ seed, counts, ageCfg, personality, core, anchors, corridorAt }) {
   const plazas = [];
   if (ageCfg.plazaSize <= 0) return plazas;
@@ -165,9 +193,9 @@ function buildPlazas({ seed, counts, ageCfg, personality, core, anchors, corrido
   return plazas;
 }
 
-export function generateCityPlan({ seed, counts, personality, ageCfg, N, cx, cy, riverYAt, corridorAt, forcedArchetype }) {
+export function generateCityPlan({ seed, counts, personality, ageCfg, N, cx, cy, riverYAt, corridorAt, forcedArchetype, forceAnyArchetype = false }) {
   const rng = rngFrom(seed, "plan");
-  const archetype = pickArchetype(seed, ageCfg, personality, forcedArchetype);
+  const archetype = pickArchetype(seed, ageCfg, personality, forcedArchetype, forceAnyArchetype);
   const order = Math.max(0, Math.min(1, ageCfg.order + personality.orderDelta));
   const chaos = Math.max(0, Math.min(1, personality.chaos + (1 - order) * 0.12));
 
@@ -201,6 +229,7 @@ export function generateCityPlan({ seed, counts, personality, ageCfg, N, cx, cy,
     finalize({ reachBase }) {
       this.anchors = buildAnchors({ seed, counts, personality, archetype, core, reachBase, N, riverYAt });
       this.plazas = buildPlazas({ seed, counts, ageCfg, personality, core, anchors: this.anchors, corridorAt });
+      this.centralSite = centralPlazaSite({ seed, core, corridorAt, size: CENTRAL_SITE_SIZE });
       return this;
     }
   };
