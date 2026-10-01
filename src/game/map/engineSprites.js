@@ -1,5 +1,5 @@
 /* eslint-disable */
-import { drawCityEngineSprite, engineStage, cosmicBase, softGround, propReady, blitProp, blitCosmicTower, animReady, blitAnim, setEngineSpan, setEngineSeed, cosmicSceneKey } from './cityEngineSprites.js';
+import { drawCityEngineSprite, engineStage, cosmicBase, softGround, propReady, blitProp, blitCosmicTower, animReady, blitAnim, setEngineSpan, setEngineSeed, cosmicSceneKey, ENGINE_HALO } from './cityEngineSprites.js';
 import { CM } from './layout.js';
 import { drawPixelBuilding } from './pixelBuildings.js';
 
@@ -105,6 +105,12 @@ function cosmicSavoir(ctx, ox, oy, sw, sh, px, band, now, kind, pass = 'all') {
 // additive qui respire. Factorise le boilerplate répété (moule savoir). `glowRGB` = couleur
 // de la lueur (chaude S1-2, cyan/violet/blanc S3). opt : {cx,cy,wf,hf} blit, {gcy} centre lueur,
 // {warm} plancher d'intensité, {ph} déphasage du scintillement.
+// Alpha d'une lueur de scène (cf. ENGINE_HALO) : `base` = ancienne part fixe, `k` = ancienne
+// part de nuit. Plus rien le jour ; la nuit, une fraction de l'ancienne lueur pleine.
+const haloA = (base, k, n) => {
+  const night = Math.max(0, Math.min(1, ((n || 0) - 0.22) / 0.65));
+  return ENGINE_HALO.day * base + ENGINE_HALO.night * night * (base + k);
+};
 function drawStagePix(ctx, ox, oy, sw, sh, key, now, glowRGB, opt, pass = 'all') {
   opt = opt || {};
   const dBack = pass === 'all' || pass === 'back';
@@ -118,10 +124,10 @@ function drawStagePix(ctx, ox, oy, sw, sh, key, now, glowRGB, opt, pass = 'all')
   const gnF = (CM && CM.nightF) ? CM.nightF : 0;
   if (dAnim) { // lueur additive qui respire (lit `now`)
   ctx.save(); ctx.globalCompositeOperation = "lighter";
-  const a = (warm + gnF * 0.34) * (0.84 + 0.16 * Math.sin(now / 300 + ph));
+  const a = haloA(warm, 0.34, gnF) * (0.84 + 0.16 * Math.sin(now / 300 + ph));
   const gg = ctx.createRadialGradient(ox + sw * 0.5, oy + sh * gcy, 0, ox + sw * 0.5, oy + sh * gcy, sw * 0.33);
   gg.addColorStop(0, `rgba(${glowRGB},${a.toFixed(2)})`); gg.addColorStop(1, `rgba(${glowRGB},0)`);
-  ctx.fillStyle = gg; ctx.beginPath(); ctx.arc(ox + sw * 0.5, oy + sh * gcy, sw * 0.33, 0, Math.PI * 2); ctx.fill(); ctx.restore();
+  ctx.fillStyle = gg; ctx.beginPath(); ctx.arc(ox + sw * 0.5, oy + sh * gcy, sw * 0.33, 0, Math.PI * 2); if (a > 0.004) ctx.fill(); ctx.restore();
   }
 }
 function drawEngineSpriteCore(t, x, y, w, h, now, pass = 'all') {
@@ -183,10 +189,10 @@ function drawEngineSpriteCore(t, x, y, w, h, now, pass = 'all') {
         if (dAnim) {
           ctx.save(); ctx.globalCompositeOperation = "lighter";
           const col = stStage === 3 ? "90,220,235" : "255,175,70";
-          const a = (stStage === 3 ? (0.14 + gnF * 0.4) : (0.16 + gnF * 0.34)) * (0.85 + 0.15 * Math.sin(now / 300));
+          const a = (stStage === 3 ? haloA(0.14, 0.4, gnF) : haloA(0.16, 0.34, gnF)) * (0.85 + 0.15 * Math.sin(now / 300));
           const gg = ctx.createRadialGradient(ox + sw * 0.5, oy + sh * 0.5, 0, ox + sw * 0.5, oy + sh * 0.5, sw * 0.34);
           gg.addColorStop(0, `rgba(${col},${a.toFixed(2)})`); gg.addColorStop(1, `rgba(${col},0)`);
-          ctx.fillStyle = gg; ctx.beginPath(); ctx.arc(ox + sw * 0.5, oy + sh * 0.5, sw * 0.34, 0, Math.PI * 2); ctx.fill(); ctx.restore();
+          ctx.fillStyle = gg; ctx.beginPath(); ctx.arc(ox + sw * 0.5, oy + sh * 0.5, sw * 0.34, 0, Math.PI * 2); if (a > 0.004) ctx.fill(); ctx.restore();
         }
         // Pas de perso réutilisé aux stades 1-3 (retiré à la demande : position mauvaise) —
         // les décors se lisent seuls (veillée = foyer+livre+bancs ; S2 = bâtiment fermé ; S3 = média).
@@ -314,10 +320,10 @@ function drawEngineSpriteCore(t, x, y, w, h, now, pass = 'all') {
         if (dAnim) {
           ctx.save(); ctx.globalCompositeOperation = "lighter";
           const col = scStage === 3 ? "80,210,235" : "255,180,80";
-          const a = (scStage === 3 ? (0.13 + gnF * 0.4) : (0.12 + gnF * 0.34)) * (0.85 + 0.15 * Math.sin(now / 320 + 1.1));
+          const a = (scStage === 3 ? haloA(0.13, 0.4, gnF) : haloA(0.12, 0.34, gnF)) * (0.85 + 0.15 * Math.sin(now / 320 + 1.1));
           const gg = ctx.createRadialGradient(ox + sw * 0.5, oy + sh * 0.52, 0, ox + sw * 0.5, oy + sh * 0.52, sw * 0.33);
           gg.addColorStop(0, `rgba(${col},${a.toFixed(2)})`); gg.addColorStop(1, `rgba(${col},0)`);
-          ctx.fillStyle = gg; ctx.beginPath(); ctx.arc(ox + sw * 0.5, oy + sh * 0.52, sw * 0.33, 0, Math.PI * 2); ctx.fill(); ctx.restore();
+          ctx.fillStyle = gg; ctx.beginPath(); ctx.arc(ox + sw * 0.5, oy + sh * 0.52, sw * 0.33, 0, Math.PI * 2); if (a > 0.004) ctx.fill(); ctx.restore();
         }
         return;
       }
@@ -382,10 +388,10 @@ function drawEngineSpriteCore(t, x, y, w, h, now, pass = 'all') {
         if (dAnim) {
           ctx.save(); ctx.globalCompositeOperation = "lighter";
           const col = schStage === 3 ? "120,220,235" : "255,182,84";
-          const a = (schStage === 3 ? (0.12 + gnF * 0.38) : (0.12 + gnF * 0.34)) * (0.85 + 0.15 * Math.sin(now / 300 + 0.6));
+          const a = (schStage === 3 ? haloA(0.12, 0.38, gnF) : haloA(0.12, 0.34, gnF)) * (0.85 + 0.15 * Math.sin(now / 300 + 0.6));
           const gg = ctx.createRadialGradient(ox + sw * 0.5, oy + sh * 0.52, 0, ox + sw * 0.5, oy + sh * 0.52, sw * 0.33);
           gg.addColorStop(0, `rgba(${col},${a.toFixed(2)})`); gg.addColorStop(1, `rgba(${col},0)`);
-          ctx.fillStyle = gg; ctx.beginPath(); ctx.arc(ox + sw * 0.5, oy + sh * 0.52, sw * 0.33, 0, Math.PI * 2); ctx.fill(); ctx.restore();
+          ctx.fillStyle = gg; ctx.beginPath(); ctx.arc(ox + sw * 0.5, oy + sh * 0.52, sw * 0.33, 0, Math.PI * 2); if (a > 0.004) ctx.fill(); ctx.restore();
         }
         return;
       }
@@ -443,10 +449,10 @@ function drawEngineSpriteCore(t, x, y, w, h, now, pass = 'all') {
         if (dAnim) {
           ctx.save(); ctx.globalCompositeOperation = "lighter";
           const col = acStage === 3 ? "150,220,235" : "255,196,110";
-          const a = (acStage === 3 ? (0.12 + gnF * 0.38) : (0.11 + gnF * 0.33)) * (0.85 + 0.15 * Math.sin(now / 310 + 2.2));
+          const a = (acStage === 3 ? haloA(0.12, 0.38, gnF) : haloA(0.11, 0.33, gnF)) * (0.85 + 0.15 * Math.sin(now / 310 + 2.2));
           const gg = ctx.createRadialGradient(ox + sw * 0.5, oy + sh * 0.5, 0, ox + sw * 0.5, oy + sh * 0.5, sw * 0.33);
           gg.addColorStop(0, `rgba(${col},${a.toFixed(2)})`); gg.addColorStop(1, `rgba(${col},0)`);
-          ctx.fillStyle = gg; ctx.beginPath(); ctx.arc(ox + sw * 0.5, oy + sh * 0.5, sw * 0.33, 0, Math.PI * 2); ctx.fill(); ctx.restore();
+          ctx.fillStyle = gg; ctx.beginPath(); ctx.arc(ox + sw * 0.5, oy + sh * 0.5, sw * 0.33, 0, Math.PI * 2); if (a > 0.004) ctx.fill(); ctx.restore();
         }
         return;
       }
@@ -504,10 +510,10 @@ function drawEngineSpriteCore(t, x, y, w, h, now, pass = 'all') {
         if (dAnim) {
           ctx.save(); ctx.globalCompositeOperation = "lighter";
           const col = ancStage === 3 ? "185,150,255" : "255,150,45";
-          const a = (ancStage === 3 ? (0.12 + gnF * 0.36) : (0.14 + gnF * 0.36)) * (0.8 + 0.2 * Math.sin(now / 190 + 0.7));
+          const a = (ancStage === 3 ? haloA(0.12, 0.36, gnF) : haloA(0.14, 0.36, gnF)) * (0.8 + 0.2 * Math.sin(now / 190 + 0.7));
           const gg = ctx.createRadialGradient(ox + sw * 0.5, oy + sh * 0.54, 0, ox + sw * 0.5, oy + sh * 0.54, sw * 0.32);
           gg.addColorStop(0, `rgba(${col},${a.toFixed(2)})`); gg.addColorStop(1, `rgba(${col},0)`);
-          ctx.fillStyle = gg; ctx.beginPath(); ctx.arc(ox + sw * 0.5, oy + sh * 0.54, sw * 0.32, 0, Math.PI * 2); ctx.fill(); ctx.restore();
+          ctx.fillStyle = gg; ctx.beginPath(); ctx.arc(ox + sw * 0.5, oy + sh * 0.54, sw * 0.32, 0, Math.PI * 2); if (a > 0.004) ctx.fill(); ctx.restore();
         }
         return;
       }
@@ -586,10 +592,10 @@ function drawEngineSpriteCore(t, x, y, w, h, now, pass = 'all') {
         if (dAnim) {
           ctx.save(); ctx.globalCompositeOperation = "lighter";
           const col = obStage === 3 ? "90,215,235" : "255,190,95";
-          const a = (obStage === 3 ? (0.13 + gnF * 0.4) : (0.1 + gnF * 0.32)) * (0.85 + 0.15 * Math.sin(now / 330 + 3.0));
+          const a = (obStage === 3 ? haloA(0.13, 0.4, gnF) : haloA(0.1, 0.32, gnF)) * (0.85 + 0.15 * Math.sin(now / 330 + 3.0));
           const gg = ctx.createRadialGradient(ox + sw * 0.5, oy + sh * 0.46, 0, ox + sw * 0.5, oy + sh * 0.46, sw * 0.33);
           gg.addColorStop(0, `rgba(${col},${a.toFixed(2)})`); gg.addColorStop(1, `rgba(${col},0)`);
-          ctx.fillStyle = gg; ctx.beginPath(); ctx.arc(ox + sw * 0.5, oy + sh * 0.46, sw * 0.33, 0, Math.PI * 2); ctx.fill(); ctx.restore();
+          ctx.fillStyle = gg; ctx.beginPath(); ctx.arc(ox + sw * 0.5, oy + sh * 0.46, sw * 0.33, 0, Math.PI * 2); if (a > 0.004) ctx.fill(); ctx.restore();
         }
         return;
       }
@@ -652,10 +658,10 @@ function drawEngineSpriteCore(t, x, y, w, h, now, pass = 'all') {
         if (dAnim) {
           ctx.save(); ctx.globalCompositeOperation = "lighter";
           const col = liStage === 3 ? "180,205,180" : "255,186,90";
-          const a = (liStage === 3 ? (0.11 + gnF * 0.33) : (0.12 + gnF * 0.34)) * (0.85 + 0.15 * Math.sin(now / 340 + 1.7));
+          const a = (liStage === 3 ? haloA(0.11, 0.33, gnF) : haloA(0.12, 0.34, gnF)) * (0.85 + 0.15 * Math.sin(now / 340 + 1.7));
           const gg = ctx.createRadialGradient(ox + sw * 0.5, oy + sh * 0.5, 0, ox + sw * 0.5, oy + sh * 0.5, sw * 0.33);
           gg.addColorStop(0, `rgba(${col},${a.toFixed(2)})`); gg.addColorStop(1, `rgba(${col},0)`);
-          ctx.fillStyle = gg; ctx.beginPath(); ctx.arc(ox + sw * 0.5, oy + sh * 0.5, sw * 0.33, 0, Math.PI * 2); ctx.fill(); ctx.restore();
+          ctx.fillStyle = gg; ctx.beginPath(); ctx.arc(ox + sw * 0.5, oy + sh * 0.5, sw * 0.33, 0, Math.PI * 2); if (a > 0.004) ctx.fill(); ctx.restore();
         }
         return;
       }
@@ -713,10 +719,10 @@ function drawEngineSpriteCore(t, x, y, w, h, now, pass = 'all') {
         if (dAnim) {
           ctx.save(); ctx.globalCompositeOperation = "lighter";
           const col = unStage === 3 ? "120,180,235" : "255,186,90";
-          const a = (unStage === 3 ? (0.12 + gnF * 0.36) : (0.12 + gnF * 0.34)) * (0.85 + 0.15 * Math.sin(now / 350 + 0.9));
+          const a = (unStage === 3 ? haloA(0.12, 0.36, gnF) : haloA(0.12, 0.34, gnF)) * (0.85 + 0.15 * Math.sin(now / 350 + 0.9));
           const gg = ctx.createRadialGradient(ox + sw * 0.5, oy + sh * 0.5, 0, ox + sw * 0.5, oy + sh * 0.5, sw * 0.33);
           gg.addColorStop(0, `rgba(${col},${a.toFixed(2)})`); gg.addColorStop(1, `rgba(${col},0)`);
-          ctx.fillStyle = gg; ctx.beginPath(); ctx.arc(ox + sw * 0.5, oy + sh * 0.5, sw * 0.33, 0, Math.PI * 2); ctx.fill(); ctx.restore();
+          ctx.fillStyle = gg; ctx.beginPath(); ctx.arc(ox + sw * 0.5, oy + sh * 0.5, sw * 0.33, 0, Math.PI * 2); if (a > 0.004) ctx.fill(); ctx.restore();
         }
         return;
       }
@@ -930,10 +936,10 @@ function drawEngineSpriteCore(t, x, y, w, h, now, pass = 'all') {
         if (dAnim) {
           ctx.save(); ctx.globalCompositeOperation = "lighter";
           const col = prStage === 3 ? "110,205,235" : "255,180,80";
-          const a = (prStage === 3 ? (0.13 + gnF * 0.38) : (0.12 + gnF * 0.34)) * (0.85 + 0.15 * Math.sin(now / 300 + 2.5));
+          const a = (prStage === 3 ? haloA(0.13, 0.38, gnF) : haloA(0.12, 0.34, gnF)) * (0.85 + 0.15 * Math.sin(now / 300 + 2.5));
           const gg = ctx.createRadialGradient(ox + sw * 0.5, oy + sh * 0.5, 0, ox + sw * 0.5, oy + sh * 0.5, sw * 0.33);
           gg.addColorStop(0, `rgba(${col},${a.toFixed(2)})`); gg.addColorStop(1, `rgba(${col},0)`);
-          ctx.fillStyle = gg; ctx.beginPath(); ctx.arc(ox + sw * 0.5, oy + sh * 0.5, sw * 0.33, 0, Math.PI * 2); ctx.fill(); ctx.restore();
+          ctx.fillStyle = gg; ctx.beginPath(); ctx.arc(ox + sw * 0.5, oy + sh * 0.5, sw * 0.33, 0, Math.PI * 2); if (a > 0.004) ctx.fill(); ctx.restore();
         }
         return;
       }
@@ -1004,10 +1010,10 @@ function drawEngineSpriteCore(t, x, y, w, h, now, pass = 'all') {
         if (dAnim) {
           ctx.save(); ctx.globalCompositeOperation = "lighter";
           const col = thStage === 3 ? "95,210,235" : "255,184,88";
-          const a = (thStage === 3 ? (0.13 + gnF * 0.4) : (0.11 + gnF * 0.33)) * (0.85 + 0.15 * Math.sin(now / 320 + 1.4));
+          const a = (thStage === 3 ? haloA(0.13, 0.4, gnF) : haloA(0.11, 0.33, gnF)) * (0.85 + 0.15 * Math.sin(now / 320 + 1.4));
           const gg = ctx.createRadialGradient(ox + sw * 0.5, oy + sh * 0.48, 0, ox + sw * 0.5, oy + sh * 0.48, sw * 0.33);
           gg.addColorStop(0, `rgba(${col},${a.toFixed(2)})`); gg.addColorStop(1, `rgba(${col},0)`);
-          ctx.fillStyle = gg; ctx.beginPath(); ctx.arc(ox + sw * 0.5, oy + sh * 0.48, sw * 0.33, 0, Math.PI * 2); ctx.fill(); ctx.restore();
+          ctx.fillStyle = gg; ctx.beginPath(); ctx.arc(ox + sw * 0.5, oy + sh * 0.48, sw * 0.33, 0, Math.PI * 2); if (a > 0.004) ctx.fill(); ctx.restore();
         }
         return;
       }
@@ -1188,10 +1194,10 @@ function drawEngineSpriteCore(t, x, y, w, h, now, pass = 'all') {
         if (dAnim) {
           ctx.save(); ctx.globalCompositeOperation = "lighter";
           const col = waStage === 3 ? "100,215,235" : "255,170,70";
-          const a = (waStage === 3 ? (0.13 + gnF * 0.4) : (0.16 + gnF * 0.36)) * (0.82 + 0.18 * Math.sin(now / 240 + 1.9));
+          const a = (waStage === 3 ? haloA(0.13, 0.4, gnF) : haloA(0.16, 0.36, gnF)) * (0.82 + 0.18 * Math.sin(now / 240 + 1.9));
           const gg = ctx.createRadialGradient(ox + sw * 0.5, oy + sh * 0.2, 0, ox + sw * 0.5, oy + sh * 0.2, sw * 0.26);
           gg.addColorStop(0, `rgba(${col},${a.toFixed(2)})`); gg.addColorStop(1, `rgba(${col},0)`);
-          ctx.fillStyle = gg; ctx.beginPath(); ctx.arc(ox + sw * 0.5, oy + sh * 0.2, sw * 0.26, 0, Math.PI * 2); ctx.fill(); ctx.restore();
+          ctx.fillStyle = gg; ctx.beginPath(); ctx.arc(ox + sw * 0.5, oy + sh * 0.2, sw * 0.26, 0, Math.PI * 2); if (a > 0.004) ctx.fill(); ctx.restore();
         }
         return;
       }

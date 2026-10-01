@@ -31,10 +31,13 @@ const DARK_MAX = { townhouse: 80, tower: 80 };
 // prendre sans prendre aussi les faces à l'ombre. On nomme leurs couleurs de verre,
 // relevées sur l'art livré : la tache doit être de CETTE couleur, fermée et petite.
 // Sans elles, la ville cosmique s'éteignait la nuit autour de ses bâtiments allumés.
+// ⚠ Relevées À NOUVEAU après la passe netteté (même jour) : l'art redessiné net n'a plus
+// les couleurs de l'ancien — vitres turquoise et hublots des capsules, hublots chauds du
+// dôme, vitres d'étage de la tour-jardin.
 const GLASS = {
-  podstack: [[136, 138, 142], [106, 111, 117]],
-  domehome: [[234, 206, 153], [190, 172, 132]],
-  gardentower: [[133, 140, 143], [123, 128, 131], [95, 103, 104]],
+  podstack: [[128, 200, 197], [145, 221, 224], [51, 51, 52]],
+  domehome: [[239, 220, 143], [203, 161, 102], [239, 201, 123]],
+  gardentower: [[85, 118, 112], [123, 154, 149], [86, 99, 97]],
 };
 const glassSet = (v) => (GLASS[v] ? new Set(GLASS[v].map(([r, g, b]) => (r << 16) | (g << 8) | b)) : null);
 const masks = new WeakMap();

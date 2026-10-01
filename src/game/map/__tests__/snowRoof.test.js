@@ -286,7 +286,10 @@ describe("neige de toit — contrats de la passe", () => {
   it("expose des réglages, pas des constantes cachées", () => {
     // La molette __snowRoofTune doit avoir prise sur la charge : c'est tout
     // l'intérêt d'une passe de runtime plutôt que de 353 PNG dérivés.
-    const png = read(ENGINE, "granary-hall");
+    // Spécimen changé le 2026-10-01 (passe « netteté ») : la grange dîmière redessinée
+    // nette porte un toit si mince qu'une couche plus épaisse y déborde et se fait
+    // rogner (512 → 481 px). Le manoir, dessin de maison inchangé : 30 / 187 / 339.
+    const png = read(HOUSES, "manor");
     const base = stats(png).covered;
     const thin = stats(png, { thickK: 0.03 }).covered;
     const thick = stats(png, { thickK: 0.3, thickMax: 40 }).covered;

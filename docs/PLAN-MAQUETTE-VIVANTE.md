@@ -461,6 +461,43 @@ dans les bâtiments-moteur :
 - Laissés tels quels : maisons, merveilles, scènes à véhicule (chariot, camion), quais,
   pont, aqueducs, égouts (refaits à la demande de Raph en juillet), tours (veille, moulin).
 
+**2026-10-01, jour suivant — « il manque un poteau de soutien ; les nouveaux bâtiments
+sont un peu flous ; d'autres dénotent ; l'allumage de nuit est à fignoler ».**
+- **Le flou, c'était moi.** Les rotations PixelLab sont dessinées NETTES à 256 px ; je les
+  réduisais à la taille du jeu par MOYENNE DE SURFACE (×0,4-0,75) — chaque pixel du jeu
+  mélangeait 2 à 6 pixels d'art. ⚠⚠ **Ne jamais réduire un rendu PixelLab par moyenne.**
+  Le bon geste : `image_to_pixelart` (fidèle, force 200) sur l'URL de la rotation, à la
+  taille N×N calculée pour le cadre (`N = 256 × min((L−8)/encreL, (H−bas−2)/encreH) × 0,97`)
+  — PixelLab REDESSINE l'image en pixel art à cette taille. Sa sortie est opaque sur un
+  gris : la silhouette est reprise de l'alpha de la SOURCE (moyenné à N, seuil 0,5), le
+  gris resté au bord est pelé, puis l'encre est posée 1:1 dans le cadre exact, sans aucun
+  rééchantillonnage (`scratchpad/i2p.cjs`). 138 images reconverties (121 bâtiments-moteur
+  et halles, 17 maisons), une génération chacune ; planche-contact entière vérifiée.
+  Deux sources livrées sur fond opaque (le chantier à grue, l'archive) : fond retiré avant.
+- **Le poteau** : l'atelier (`crafthouse`) avait un auvent sans appui à l'angle avant —
+  poteau dessiné à la main (2 colonnes de pixels). Seule maison fautive de la revue.
+- **La nuit des bâtiments-moteur** (`sceneWindows.js` réécrit) :
+  - les fenêtres s'allument AUSSI au médiéval, au romain et au XIXe (le détecteur des
+    maisons, `houseWindows.windowPixels`, sur les scènes de ces stades) ;
+  - ⚠ la lumière passe par le calque ADDITIF, après le voile bleu de la nuit : ajoutée sur
+    un verre resté clair, elle sortait beige pâle. Le carreau allumé est d'abord peint
+    presque noir sur la scène, puis reçoit la lumière des maisons (244,168,72) — la même
+    fenêtre partout dans la ville ;
+  - une COUPOLE n'a pas d'étages (l'académie moderne sortait en boule rayée) : au-dessus
+    de `DOME[clé]`, une lueur douce et uniforme ;
+  - les HALOS de scène (`ENGINE_HALO`) : leur part de JOUR (0,10-0,16) voilait chaque
+    bâtiment d'une brume claire → 0 ; la nuit, peints avant le voile, ils sortaient en
+    brouillard bleu-blanc autour des bâtiments modernes → ×0,4. Molette `__engineHalo`.
+  - Les listes de verre nommé (bande 6) et le verre des maisons en nacre ont été relevés
+    À NOUVEAU sur l'art reconverti (la garde « chaque couleur nommée existe dans son PNG »
+    l'a signalé aussitôt). Vérifié en jeu, bandes 2, 4, 6 et 8, jour et nuit.
+- Garde bâti/sol : les maisons reconverties ont retrouvé des gris trop proches du sol
+  (bandes 4, 7-9) → `scripts/ecartSol.mjs` (`--darker` pour la nacre), 14 images.
+- `snowRoof.test.js` : la grange dîmière nette porte un toit si mince qu'une couche plus
+  épaisse y déborde et se fait rogner ; la molette d'épaisseur se teste sur le manoir.
+- Reste ouvert : « d'autres dénotent » — à rejuger sur l'art net (candidats : les
+  institutions médiévales blanc-gris et l'immeuble haussmannien pâle).
+
 ## 9. La petite vie (lot 6, demandé le 2026-10-01)
 
 > « Tu peux refaire tous les petits éléments de vie, oiseaux, poissons, feuilles,

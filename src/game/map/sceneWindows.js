@@ -1,68 +1,108 @@
-// ── LES BUREAUX S'ALLUMENT LA NUIT (bande 6) ────────────────────────────────
-// 2026-10-01 (Raph : « oui » à la question de la planche). Aux bandes 7-9, le verre des
-// scènes moteur porte la teinte de l'ère et sceneEmissive.js le relève par sa TEINTE.
-// À la bande 6, impossible : le verre moderne est bleu, mais les murs à l'ombre aussi
-// (lumière haut-gauche, ombre bleutée) — une fenêtre de teinte allumait des façades
-// entières. Le verre est donc NOMMÉ, sprite par sprite : ses couleurs exactes, relevées
-// sur l'art livré (planches de nuit simulée, scratchpad du 2026-10-01).
+// ── LES BÂTIMENTS-MOTEUR S'ALLUMENT LA NUIT ─────────────────────────────────
+// 2026-10-01 (Raph : « oui » à la question de la planche, puis « l'allumage de nuit est à
+// fignoler pour un rendu parfait »). Aux bandes 7-9, le verre des scènes moteur porte la
+// teinte de l'ère et sceneEmissive.js le relève par sa TEINTE. Ailleurs, deux façons de
+// trouver les fenêtres d'un sprite :
+//   - VERRE NOMMÉ (bande 6) : le verre moderne est bleu, mais les murs à l'ombre aussi
+//     (lumière haut-gauche, ombre bleutée) — une fenêtre de teinte allumait des façades
+//     entières. Ses couleurs exactes sont donc relevées sprite par sprite (`GLASS`).
+//   - FENÊTRES SOMBRES (médiéval, romain, XIXe) : le détecteur des maisons
+//     (houseWindows.windowPixels — taches sombres, fermées, petites, dans les étages).
 //
 // Une vitre allumée n'est pas un aplat : les pixels de verre sont groupés en CARREAUX
 // (taches 4-connexes ; au-delà de 12 px, une grande surface vitrée est découpée en
-// ÉTAGES de 3 px, jamais en damier) et trois carreaux sur cinq s'allument, avec une
-// phase par bâtiment — deux académies voisines n'ont pas les mêmes bureaux allumés.
-// La lumière garde la nuance du verre, tirée vers un blanc chaud, et passe par le
-// calque de lumière (lightLayer.js), comme les fenêtres des maisons (houseWindows.js).
+// ÉTAGES de 3 px, jamais en damier) et une partie s'allume, avec une phase par bâtiment
+// — deux académies voisines n'ont pas les mêmes bureaux allumés.
+//
+// ⚠ LE VERRE EST D'ABORD ASSOMBRI. La lumière passe par le calque additif
+// (lightLayer.js), APRÈS le voile de nuit : ajoutée sur un verre bleu-gris resté clair,
+// elle sortait BEIGE PÂLE, pas orange. Les carreaux allumés sont donc d'abord peints
+// presque noirs sur la scène (avant le voile), puis reçoivent la lumière des maisons
+// (244,168,72) : la même fenêtre allumée partout dans la ville.
+// ⚠ UNE COUPOLE N'A PAS D'ÉTAGES : allumée par bandes, celle de l'académie sortait
+// en boule rayée de blanc. Le verre au-dessus de `DOME[clé]` (fraction de la hauteur
+// d'encre) reçoit une lueur douce et uniforme, ni assombri ni rayé.
 //
 // Restent ÉTEINTS, par choix : le dépôt municipal, le centre de données, la station
 // d'épuration, l'école et l'hôtel des monnaies (fermés la nuit), l'observatoire (il lui
 // faut le noir).
 import { CM } from './layout.js';
 import { lightCtx } from './lightLayer.js';
+import { windowPixels } from './houseWindows.js';
 
 // Couleurs de verre par clé de sprite (hex sans #, séparées par une espace).
 const GLASS = {
-  'scribes-data': '454d62 4e576b 566277',
-  'ministries-tower': '505a6d 5c798e 708e9d',
-  'courthouses-modern': '35404e',
-  'ruins-lab': '47586a 586a7f',
-  'think-modern': '2c334d 374362 3d4a67 4c5a77 5f6b84 627d9b 7797b1 8db4c8',
-  'printing-media': '2e4068 32538a 474f6c 4b7fb0 5c698d 5c6e97 7e9fbf 7fbce7',
-  'universities-modern': '333945 434b56 4c5a65 5e6d77 728990',
-  'libraries-modern': '454c5d 4f5260 565d6f 626d7b 737d88',
-  'academies-modern': '384254 41566b 515a6c 5d768b 708fa5 789ab2 7fa6c4 90b9d8',
-  'storyteller-media': '40495f 6a85a3',
-  'bank-house-glass': '1c2e53 2d5894 32466d 3869a5 3a3e54 427ebd 7092b6',
-  'ministries-tower-grand': '4e667e 588aa0 6a7584 7c8b97 809ba6',
-  'courthouses-modern-grand': '2a333c',
-  'ruins-lab-grand': '4a5665 52687e 5d6c82 627c94 748fa7 90adc3',
+  'scribes-data': '3b4257 5c697d',
+  'ministries-tower': '45546a 566a7e 5f899e 6aa2b2 8cc1c6',
+  'courthouses-modern': '576176',
+  'ruins-lab': '4b6275',
+  'think-modern': '292d41 313952 374565 405274 4d6283 50586d 5e7696 6e8aa8 7c99b3 8badc3',
+  'printing-media': '243567 2d4681 3b5082 4d88c6 52516e 52608a 5c9bd2 81c0e8',
+  'universities-modern': '252d3a 323a48 353d4c 3a464f 425056 4f5e61 758993',
+  'libraries-modern': '383848 444e62 4f5c71 5f7183 626574',
+  'academies-modern': '3a4354 405468 517188 678ca3 79a1bb 90b0c5 96c0dd a4c9e2',
+  'storyteller-media': '3e5b76 485062 545d70 5a97c6 f59149',
+  'bank-house-glass': '23375d 243f6e 284e8b 343850 3873bb 4a5b7e 5ca1d8 f5cb78',
+  'ministries-tower-grand': '516478 5f8a9e 699aad',
+  'courthouses-modern-grand': '576373',
+  'ruins-lab-grand': '576b7e 698094 8ca7bb',
   'think-modern-grand': '2e324a 38425e 3c4866 3f5160 495a79 61728c 6390ae 6c9eb9 77a9c0 90b7c5',
-  'printing-media-grand': '335286 3968a6 407fb9 4a9dde 4d608a 5277a5 729dc7 a2c3df',
-  'universities-modern-grand': '2d2f3a 3e464b 738d92',
-  'libraries-modern-grand': '3e4753 495862 5b6678',
+  'printing-media-grand': '376cad 385d97 3a5280 3e7db9 4491cc 697698',
+  'universities-modern-grand': '3b4148 6b8084 82a1a4',
+  'libraries-modern-grand': '545e62 7d8990',
   // Le logo et la sculpture d'or de la tour de la banque s'éclairent aussi.
-  'bank-house-glass-grand': '172651 17407e 1d3464 2663ac 2f538a 3f4961 6a7691 7d9bc0 deb469 efd28f',
+  'bank-house-glass-grand': '16407c 1b2c54 1f5ba2 49526f 5b627d 6c7792 d7ab62 e8b052 f8d88e',
   // Passe « tous les bâtiments » (2026-10-01, soir) : la tour administrative et le
   // siège du consortium, redessinés, ont eux aussi leurs bureaux.
-  'bureau-tower': '38485b 435668 536576 5b6d81 5f6d7f 698197',
-  'bureau-tower-grand': '2f3d4f 3e4f63 4b6075 637c95',
-  'guild-consortium': '32464f 3a506b 476e89 506972 57899d',
+  'bureau-tower': '3f4f62 54677a 5c6d7b 627d96 6d859b',
+  'bureau-tower-grand': '344355 425164 576a7f 657a8f',
+  'guild-consortium': '3e4c5e 486078 507d94 dcb970',
 };
+// Coupoles de verre : au-dessus de cette fraction de la hauteur d'encre, lueur douce.
+const DOME = { 'academies-modern': 0.5 };
+
+// Bâtiments à FENÊTRES SOMBRES : stades médiéval (1) et industriel (2), et la série
+// romaine de la bande 4 — leurs halles (`-grand`) suivent d'office.
+const DARK_BASE = [
+  // économie
+  'granary-hall', 'guild-house', 'mint-prop-house', 'bank-house-renaissance', 'market-hall-tent',
+  'granary-warehouse', 'guild-chamber', 'mint-house-steam', 'bank-house-neoclassical',
+  'granary-horreum-classical', 'guild-collegium', 'mint-moneta', 'bank-basilica-roman', 'market-macellum',
+  // savoir et infrastructures, stade médiéval
+  'storyteller-hall', 'scribes-scriptorium', 'schools-schoolhouse', 'academies-renaissance', 'cult-shrine',
+  'observatories-tower', 'libraries-monastic', 'universities-gothic', 'printing-press-shop', 'think-chancellery',
+  'watch-stone', 'bureau-chancery', 'courthouses-tribunal', 'works-yard', 'ministries-palace', 'archive-vault',
+  'ruins-lodge',
+  // stade industriel
+  'storyteller-theater', 'scribes-archive', 'schools-victorian', 'academies-institute', 'cult-mausoleum',
+  'libraries-grand', 'universities-collegiate', 'printing-factory', 'think-institute', 'watch-industrial',
+  'sewers-works', 'bureau-office', 'courthouses-neoclassical', 'works-industrial', 'ministries-capitol',
+  'archive-records', 'ruins-institute',
+  // série romaine (bande 4)
+  'storyteller-odeon', 'scribes-tabularium', 'schools-ludus', 'academies-athenaeum', 'cult-vesta',
+  'observatories-horologium', 'libraries-classical', 'universities-classical', 'printing-scriptorium',
+  'think-stoa-roman', 'watch-classical', 'bureau-tabularium', 'courthouses-basilica', 'works-classical',
+  'ministries-curia', 'archive-tabularium', 'ruins-restoration-roman',
+];
+const DARK = new Set(DARK_BASE.flatMap((k) => [k, k + '-grand']));
+
 // Lecture seule, pour la garde (chaque couleur nommée doit exister dans son PNG).
 export const SCENE_GLASS = GLASS;
+export const SCENE_DARK = DARK_BASE;
 const glassSets = new Map();
 function glassOf(key) {
   if (!glassSets.has(key)) glassSets.set(key, new Set(GLASS[key].split(' ').map((h) => parseInt(h, 16))));
   return glassSets.get(key);
 }
 
-// Même lumière que les fenêtres des maisons (houseWindows.js : 244,168,72) : un premier
-// essai en blanc chaud (255,206,130 ; mélange 0,6 ; 0,78) sortait BLANC BLEUTÉ sur le
-// verre bleu et deux fois plus fort que les maisons voisines — des bâtiments-lanternes.
-export const SCENE_WINDOWS = { on: true, lit: 3, mix: 0.8, glow: [244, 168, 72], alpha: 0.6 };
+// La lumière des fenêtres de maison (houseWindows.js) : 244,168,72 à 210/255, ×0,72.
+// `litGlass` / `litDark` = carreaux allumés sur 5 ; `dark` = assombrissement du verre
+// allumé avant le voile ; `dome` = lueur d'une coupole de verre.
+export const SCENE_WINDOWS = { on: true, litGlass: 3, litDark: 2, glow: [244, 168, 72], level: 210, alpha: 0.72, dark: 0.9, dome: 0.28 };
 const PANE_MAX = 12;   // au-delà, une tache de verre est une surface vitrée → par étages
 const FLOOR = 3;       // hauteur d'un étage, en pixels du sprite
 
-// Carreaux d'un sprite (pur, testable) : listes d'indices de pixels.
+// Carreaux de VERRE d'un sprite (pur, testable) : listes d'indices de pixels.
 export function sceneWindowUnits(data, width, height, glass) {
   const on = (i) => data[i * 4 + 3] >= 240 && glass.has((data[i * 4] << 16) | (data[i * 4 + 1] << 8) | data[i * 4 + 2]);
   const seen = new Uint8Array(width * height);
@@ -92,56 +132,94 @@ export function sceneWindowUnits(data, width, height, glass) {
   return units;
 }
 
-const masks = new WeakMap();   // img → Map(phase:lit:mix → canvas|null)
-function maskFor(img, key, phase) {
+// Haut de l'encre (première rangée opaque) et hauteur d'encre d'une image RGBA.
+function inkRows(data, w, h) {
+  let y0 = -1, y1 = -1;
+  for (let y = 0; y < h && y0 < 0; y += 1) for (let x = 0; x < w; x += 1) if (data[(y * w + x) * 4 + 3] >= 128) { y0 = y; break; }
+  for (let y = h - 1; y >= 0 && y1 < 0; y -= 1) for (let x = 0; x < w; x += 1) if (data[(y * w + x) * 4 + 3] >= 128) { y1 = y; break; }
+  return [y0, y1];
+}
+
+const masks = new WeakMap();   // img → Map(réglage → { light, dark } | null)
+function masksFor(img, key, mode, phase) {
   let m = masks.get(img);
   if (!m) { m = new Map(); masks.set(img, m); }
-  const id = `${phase}:${SCENE_WINDOWS.lit}:${SCENE_WINDOWS.mix}`;
+  const S = SCENE_WINDOWS;
+  const id = `${key}:${phase}:${S.litGlass}:${S.litDark}:${S.level}:${S.dome}`;
   if (m.has(id)) return m.get(id);
-  const w = img.naturalWidth | 0, h = img.naturalHeight | 0;
+  const w = (img.naturalWidth || img.width) | 0, h = (img.naturalHeight || img.height) | 0;
   if (!w || !h) { m.set(id, null); return null; }
   const c = document.createElement('canvas');
   c.width = w; c.height = h;
   const x = c.getContext('2d', { willReadFrequently: true });
   x.drawImage(img, 0, 0);
   const src = x.getImageData(0, 0, w, h);
-  const out = x.createImageData(w, h);
-  const { lit, mix, glow } = SCENE_WINDOWS;
+  const light = x.createImageData(w, h), dark = x.createImageData(w, h);
+  const units = mode === 'glass' ? sceneWindowUnits(src.data, w, h, glassOf(key)) : windowPixels(src.data, w, h, 68);
+  const lit = mode === 'glass' ? S.litGlass : S.litDark;
+  const [iy0, iy1] = inkRows(src.data, w, h);
+  const domeY = DOME[key] != null && iy0 >= 0 ? iy0 + (iy1 - iy0) * DOME[key] : -1;
+  const g = S.glow;
   let n = 0;
-  sceneWindowUnits(src.data, w, h, glassOf(key)).forEach((pixels, index) => {
-    if ((index * 7 + phase * 3) % 5 >= lit) return;
-    for (const p of pixels) {
+  units.forEach((pixels, index) => {
+    // Coupole : le carreau dont le haut est au-dessus de la ligne de coupole.
+    let top = h;
+    for (const p of pixels) top = Math.min(top, (p / w) | 0);
+    if (top < domeY) {
+      for (const p of pixels) {
+        light.data[p * 4] = g[0]; light.data[p * 4 + 1] = g[1]; light.data[p * 4 + 2] = g[2];
+        light.data[p * 4 + 3] = Math.round(S.level * S.dome);
+      }
       n += 1;
-      for (let ch = 0; ch < 3; ch += 1) out.data[p * 4 + ch] = Math.round(src.data[p * 4 + ch] + (glow[ch] - src.data[p * 4 + ch]) * mix);
-      out.data[p * 4 + 3] = 255;
+      return;
     }
+    if ((index * 7 + phase * 3) % 5 >= lit) return;
+    // Pas deux bureaux de la même intensité : trois niveaux, tirés sur le carreau.
+    const k = [1, 0.86, 0.72][(index * 5 + phase) % 3];
+    for (const p of pixels) {
+      light.data[p * 4] = g[0]; light.data[p * 4 + 1] = g[1]; light.data[p * 4 + 2] = g[2];
+      light.data[p * 4 + 3] = Math.round(S.level * k);
+      if (mode === 'glass') { dark.data[p * 4] = 16; dark.data[p * 4 + 1] = 14; dark.data[p * 4 + 2] = 20; dark.data[p * 4 + 3] = 255; }
+    }
+    n += 1;
   });
-  x.clearRect(0, 0, w, h);
-  x.putImageData(out, 0, 0);
-  const res = n ? c : null;
+  if (!n) { m.set(id, null); return null; }
+  const mk = (img2) => { const cv = document.createElement('canvas'); cv.width = w; cv.height = h; cv.getContext('2d').putImageData(img2, 0, 0); return cv; };
+  const res = { light: mk(light), dark: mode === 'glass' ? mk(dark) : null };
   m.set(id, res);
   return res;
 }
 
-// Dépose les bureaux allumés d'une scène blittée en (dx, dy, dw, dh). `seed` = graine
-// stable de l'instance (coordonnées de tuile). Sans effet le jour, en vue lointaine,
-// pendant une passe hors écran (calque suspendu) ou pour un sprite sans verre nommé.
-export function drawSceneWindows(img, key, dx, dy, dw, dh, seed = 0) {
-  if (!SCENE_WINDOWS.on || !GLASS[key] || typeof document === 'undefined') return;
+// Dépose les fenêtres allumées d'une scène blittée en (dx, dy, dw, dh) sur `ctx`.
+// `seed` = graine stable de l'instance (coordonnées de tuile). Sans effet le jour, en vue
+// lointaine, pendant une passe hors écran (calque suspendu) ou pour un sprite sans fenêtre
+// connue. L'assombrissement du verre n'est peint que si la lumière, elle, est déposée.
+export function drawSceneWindows(ctx, img, key, dx, dy, dw, dh, seed = 0) {
+  if (!SCENE_WINDOWS.on || typeof document === 'undefined') return;
+  const mode = GLASS[key] ? 'glass' : DARK.has(key) ? 'dark' : null;
+  if (!mode) return;
   const night = Math.max(0, Math.min(1, ((CM.nightF || 0) - 0.22) / 0.65));
   if (!night || CM.lodActive) return;
-  const mask = maskFor(img, key, (seed >>> 0) % 5);
-  if (!mask) return;
-  const ctx = lightCtx(dx, dy, dx + dw, dy + dh);
-  if (!ctx) return;
-  ctx.save();
-  ctx.globalAlpha = night * SCENE_WINDOWS.alpha * (CM.ctx ? CM.ctx.globalAlpha : 1);
-  ctx.imageSmoothingEnabled = false;
-  ctx.drawImage(mask, dx, dy, dw, dh);
-  ctx.restore();
+  const m = masksFor(img, key, mode, (seed >>> 0) % 5);
+  if (!m) return;
+  const lc = lightCtx(dx, dy, dx + dw, dy + dh);
+  if (!lc) return;
+  const fade = ctx ? ctx.globalAlpha : 1;
+  if (m.dark && ctx) {
+    ctx.save();
+    ctx.globalAlpha = night * SCENE_WINDOWS.dark * fade;
+    ctx.imageSmoothingEnabled = false;
+    ctx.drawImage(m.dark, dx, dy, dw, dh);
+    ctx.restore();
+  }
+  lc.save();
+  lc.globalAlpha = night * SCENE_WINDOWS.alpha * fade;
+  lc.imageSmoothingEnabled = false;
+  lc.drawImage(m.light, dx, dy, dw, dh);
+  lc.restore();
 }
 
 if (typeof window !== 'undefined') {
-  // Molette : __sceneWindows({ on, lit, mix, alpha }) — `lit` = carreaux allumés sur 5.
+  // Molette : __sceneWindows({ on, litGlass, litDark, level, alpha, dark, dome }).
   window.__sceneWindows = (o = {}) => { Object.assign(SCENE_WINDOWS, o); return { ...SCENE_WINDOWS }; };
 }

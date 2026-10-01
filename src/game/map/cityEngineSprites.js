@@ -17,6 +17,20 @@ import { snapDev } from './blitSnap.js';
 import { drawSunShadow } from './iso/isoSunShadow.js';
 import { drawSceneEmissive } from './sceneEmissive.js';
 import { drawSceneWindows } from './sceneWindows.js';
+
+// HALOS DES BÂTIMENTS-MOTEUR (2026-10-01, Raph : « l'allumage de nuit est à fignoler »,
+// « les nouveaux bâtiments sont un peu flous »). Chaque scène portait une lueur additive
+// qui respire, peinte AVANT le voile de nuit (un multiply bleu) : le JOUR, sa part fixe
+// (0,10-0,16) voilait le bâtiment d'une brume claire ; la NUIT, le voile la refroidissait
+// en brouillard bleu-blanc autour des bâtiments modernes. Les fenêtres s'allument
+// désormais pour de vrai (sceneWindows.js) : la lueur ne garde, la nuit seulement, qu'un
+// reste de lumière répandue. `day` = part du jour gardée (0), `night` = part de nuit
+// gardée, `cosmic` = halo de bande des scènes cosmiques en nacre, la nuit.
+// Molette : __engineHalo({ day, night, cosmic }).
+export const ENGINE_HALO = { day: 0, night: 0.4, cosmic: 0.5 };
+if (typeof window !== 'undefined') {
+  window.__engineHalo = (o) => { if (o) Object.assign(ENGINE_HALO, o); return { ...ENGINE_HALO }; };
+}
 import { snowSprite, snowRoofTune } from './snowRoof.js';
 import { WINTER } from './seasonMode.js';
 
@@ -620,8 +634,9 @@ function blitProp(ctx, ox, oy, sw, sh, p, cx, cy, wFrac, hFrac) {
   ctx.imageSmoothingEnabled = prev;
   // Un bâtiment de scène masque les halos déposés DERRIÈRE lui (cf. lightLayer.js).
   lightCutImage(im, left, top, drawW, drawH);
-  // La nuit, ses bureaux s'allument — s'il a du verre nommé (bande 6, sceneWindows.js).
-  drawSceneWindows(im, p, left, top, drawW, drawH, curSeed);
+  // La nuit, ses fenêtres s'allument — verre nommé (bande 6) ou fenêtres sombres
+  // (médiéval, romain, XIXe), cf. sceneWindows.js.
+  drawSceneWindows(ctx, im, p, left, top, drawW, drawH, curSeed);
 }
 
 // TOUR COSMIQUE (âge 35+) — sprite PixelLab HAUT (128×224) blité en GRAND, base ANCRÉE au sol
@@ -647,8 +662,8 @@ function blitCosmicTower(ctx, ox, oy, sw, sh, key, now, band, cp, baseOverride) 
   if (pearl) drawSceneEmissive(im, cx - drawW / 2, baseY - drawH, drawW, drawH, band);
   if (cp && cp.glow) {
     ctx.save(); ctx.globalCompositeOperation = 'lighter';
-    // Nacre : le halo suit la nuit (30 % le jour). Les anciennes tours le gardent plein.
-    const nk = pearl ? 0.3 + 0.7 * Math.max(0, Math.min(1, ((CM.nightF || 0) - 0.22) / 0.65)) : 1;
+    // Nacre : le halo ne vit que la nuit (ENGINE_HALO). Les anciennes tours le gardent plein.
+    const nk = pearl ? ENGINE_HALO.day + ENGINE_HALO.cosmic * Math.max(0, Math.min(1, ((CM.nightF || 0) - 0.22) / 0.65)) : 1;
     const a = (0.16 + 0.10 * Math.sin(now / 720 + band)) * nk, gy = baseY - drawH * 0.30;
     const g = ctx.createRadialGradient(cx, gy, 0, cx, gy, sw * 0.5);
     g.addColorStop(0, `rgba(${cp.glow},${a.toFixed(2)})`); g.addColorStop(1, `rgba(${cp.glow},0)`);
@@ -1517,7 +1532,7 @@ function drawCityEngineSprite(context) {
         // baké) — seule « vie » de la scène désormais (bras robot retiré à la demande).
         if (dAnim && nF > 0.02) {
           ctx.save(); ctx.globalCompositeOperation = "lighter";
-          const pulse = nF * (0.26 + 0.08 * Math.sin(now / 900));
+          const pulse = nF * ENGINE_HALO.night * (0.26 + 0.08 * Math.sin(now / 900));
           const gg = ctx.createRadialGradient(ox + sw * prx, oy + sh * pry, 0, ox + sw * prx, oy + sh * pry, sw * 0.42);
           gg.addColorStop(0, `rgba(90,230,210,${pulse.toFixed(2)})`); gg.addColorStop(1, "rgba(90,230,210,0)");
           ctx.fillStyle = gg; ctx.beginPath(); ctx.arc(ox + sw * prx, oy + sh * pry, sw * 0.42, 0, Math.PI * 2); ctx.fill(); ctx.restore();
@@ -1908,7 +1923,7 @@ function drawCityEngineSprite(context) {
         }
         if (dAnim && nF > 0.02) { // halo cyan qui respire (lit `now`)
           ctx.save(); ctx.globalCompositeOperation = "lighter";
-          const pulse = nF * (0.24 + 0.08 * Math.sin(now / 900));
+          const pulse = nF * ENGINE_HALO.night * (0.24 + 0.08 * Math.sin(now / 900));
           const gg = ctx.createRadialGradient(ox + sw * hbx, oy + sh * hby, 0, ox + sw * hbx, oy + sh * hby, sw * 0.44);
           gg.addColorStop(0, `rgba(90,230,210,${pulse.toFixed(2)})`); gg.addColorStop(1, "rgba(90,230,210,0)");
           ctx.fillStyle = gg; ctx.beginPath(); ctx.arc(ox + sw * hbx, oy + sh * hby, sw * 0.44, 0, Math.PI * 2); ctx.fill(); ctx.restore();
@@ -2322,7 +2337,7 @@ function drawCityEngineSprite(context) {
         }
         if (nF > 0.02) {
           ctx.save(); ctx.globalCompositeOperation = "lighter";
-          const pulse = nF * (0.24 + 0.08 * Math.sin(now / 240));
+          const pulse = nF * ENGINE_HALO.night * (0.24 + 0.08 * Math.sin(now / 240));
           const gg = ctx.createRadialGradient(ox + sw * VX, oy + sh * 0.68, 0, ox + sw * VX, oy + sh * 0.68, sw * 0.34);
           gg.addColorStop(0, `rgba(90,230,210,${pulse.toFixed(2)})`); gg.addColorStop(1, "rgba(90,230,210,0)");
           ctx.fillStyle = gg; ctx.beginPath(); ctx.arc(ox + sw * VX, oy + sh * 0.68, sw * 0.34, 0, Math.PI * 2); ctx.fill(); ctx.restore();
@@ -2845,7 +2860,7 @@ function drawCityEngineSprite(context) {
         }
         if (dAnim && nFk > 0.02) { // halo qui respire + hologramme : lisent `now`
           ctx.save(); ctx.globalCompositeOperation = "lighter";
-          const pulse = nFk * (0.22 + 0.08 * Math.sin(now / 700));
+          const pulse = nFk * ENGINE_HALO.night * (0.22 + 0.08 * Math.sin(now / 700));
           const gg = ctx.createRadialGradient(ox + sw * mhx, oy + sh * mhy, 0, ox + sw * mhx, oy + sh * mhy, sw * 0.42);
           gg.addColorStop(0, `rgba(110,230,240,${pulse.toFixed(2)})`); gg.addColorStop(1, "rgba(110,230,240,0)");
           ctx.fillStyle = gg; ctx.beginPath(); ctx.arc(ox + sw * mhx, oy + sh * mhy, sw * 0.42, 0, Math.PI * 2); ctx.fill(); ctx.restore();
@@ -3278,7 +3293,7 @@ function drawCityEngineSprite(context) {
         }
         if (dAnim && nF > 0.02) { // halo cyan qui respire (néons + emblème holo bakés ; lit `now`)
           ctx.save(); ctx.globalCompositeOperation = "lighter";
-          const pulse = nF * (0.22 + 0.08 * Math.sin(now / 700));
+          const pulse = nF * ENGINE_HALO.night * (0.22 + 0.08 * Math.sin(now / 700));
           const gg = ctx.createRadialGradient(ox + sw * 0.5, oy + sh * 0.5, 0, ox + sw * 0.5, oy + sh * 0.5, sw * 0.42);
           gg.addColorStop(0, `rgba(90,220,255,${pulse.toFixed(2)})`); gg.addColorStop(1, "rgba(90,220,255,0)");
           ctx.fillStyle = gg; ctx.beginPath(); ctx.arc(ox + sw * 0.5, oy + sh * 0.5, sw * 0.42, 0, Math.PI * 2); ctx.fill(); ctx.restore();
@@ -4252,7 +4267,7 @@ function drawCityEngineSprite(context) {
       }
       if (dAnim && nF > 0.02) { // halo qui respire + hologramme pivotant : lisent `now`
         ctx.save(); ctx.globalCompositeOperation = "lighter";
-        const pulse = nF * (0.22 + 0.08 * Math.sin(now / 700));
+        const pulse = nF * ENGINE_HALO.night * (0.22 + 0.08 * Math.sin(now / 700));
         const gg = ctx.createRadialGradient(ox + sw * 0.5, oy + sh * 0.5, 0, ox + sw * 0.5, oy + sh * 0.5, sw * 0.42);
         gg.addColorStop(0, `rgba(90,220,230,${pulse.toFixed(2)})`); gg.addColorStop(1, "rgba(90,220,230,0)");
         ctx.fillStyle = gg; ctx.beginPath(); ctx.arc(ox + sw * 0.5, oy + sh * 0.5, sw * 0.42, 0, Math.PI * 2); ctx.fill(); ctx.restore();
@@ -4658,7 +4673,7 @@ function drawCityEngineSprite(context) {
       }
       if (dAnim && nF > 0.02) { // halo cyan qui respire (lit `now`)
         ctx.save(); ctx.globalCompositeOperation = "lighter";
-        const pulse = nF * (0.22 + 0.08 * Math.sin(now / 700));
+        const pulse = nF * ENGINE_HALO.night * (0.22 + 0.08 * Math.sin(now / 700));
         const gg = ctx.createRadialGradient(ox + sw * 0.5, oy + sh * 0.5, 0, ox + sw * 0.5, oy + sh * 0.5, sw * 0.42);
         gg.addColorStop(0, `rgba(90,220,230,${pulse.toFixed(2)})`); gg.addColorStop(1, "rgba(90,220,230,0)");
         ctx.fillStyle = gg; ctx.beginPath(); ctx.arc(ox + sw * 0.5, oy + sh * 0.5, sw * 0.42, 0, Math.PI * 2); ctx.fill(); ctx.restore();
