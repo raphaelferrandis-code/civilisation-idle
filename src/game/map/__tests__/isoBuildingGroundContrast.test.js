@@ -90,7 +90,10 @@ const CLIQUET = [
   { band: 4, max: 1.6, pire: "villa/origine (fil #ccb394, 1,6 %)" },
   { band: 5, max: 18.0, pire: "block/calcaire" },
   { band: 6, max: 0.0, pire: "tower/origine" },
-  { band: 7, max: 0.8, pire: "tower/origine" },
+  // Bandes 7 et 9 : 0,8 et 5,5 → 0,0 le 2026-10-01 (jour), par les MAISONS — les skins
+  // cosmiques redessinés en nacre (tower/megablock/arcologyhome-cosmic-7/8/9), leurs
+  // gris d'ombre écartés du sol (scripts/ecartSol.mjs --darker).
+  { band: 7, max: 0.0, pire: "tower/origine" },
   // Bande 8 : 18,0 → 0,0 le même soir, par les MAISONS cette fois — la ligne cosmique de
   // VARIANTS_HOUSE (bandes 7-9) n'a plus de `block` de brique, le coupable.
   { band: 8, max: 0.0, pire: "tower/origine" },
@@ -106,7 +109,7 @@ const CLIQUET = [
   // dalle tech sombre ne fait disparaître aucun bâtiment.
   // ⚠ Le critère est « fil ou masse », pas le pourcentage seul : si un futur archétype
   // pousse une PLAQUE dans le rayon, il faudra traiter le sprite, pas relever la ligne.
-  { band: 9, max: 5.5, pire: "arcologyhome/origine" },
+  { band: 9, max: 0.0, pire: "tower/origine" },
 ];
 const TOLERANCE = 1.5;   // points de pourcentage — bruit d'arrondi des PNG
 // Plancher dur : aucune bande ne doit JAMAIS franchir ça, même en régressant depuis
