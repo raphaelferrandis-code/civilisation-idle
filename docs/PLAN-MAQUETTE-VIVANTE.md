@@ -333,7 +333,21 @@ dessiné pour l'ère (IDs : `scratchpad/pixellab-places-nuit.json`) :
   bâtiments-moteur de la périphérie posaient sur des mottes brunes tachées de béton.
 - Reste vu, pas fait cette nuit : les SCÈNES MOTEUR de la bande 6 (entrepôt crème, cubes
   blancs — « boîtes ») et la forêt de flèches identiques des bandes 7-9 : art à refaire
-  famille par famille, un chantier en soi.
+  famille par famille, un chantier en soi. Planche des 25 sprites du stade moderne :
+  `scratchpad/pilote/moteurs-b6-sheet.png` — 17 sur 25 sont des boîtes à toit plat crème.
+- Commité en local : `8c61966`, puis `e720ba2` (maison de ville et tour de verre
+  s'allument : seuil d'ouverture 80 au lieu de 68 pour ces deux dessins, `DARK_MAX`).
+
+**2026-10-01, nuit — l'hiver de la bible des surfaces** (`73ed004`). Contrôle d'hiver :
+avec les tuiles DOSÉES, la neige cuite dans les variantes d'hiver ne passait plus qu'au
+tiers, et les places (sans tuile d'hiver) restaient des carrés d'été. En hiver, l'aplat
+urbain tire vers la neige (`URBAN_WINTER`), une matière qui a sa tuile d'hiver la reprend
+au moins à 0,8, et l'aplat des places suit (`PLAZA_WINTER`). Les rues restent sombres.
+
+**Planche du matin** : https://claude.ai/artifact/UYsZhPRkyzihkEYbZP2eqx (avant/après par
+ère, places, art, hiver, questions). Questions laissées à Raph : la NACRE cosmique ; le
+PARVIS de porphyre sombre (L62, son « essai » de juillet — à doser comme les places ?) ;
+les scènes moteur tardives ; les cours en pelouse dès la bande 6.
 
 ## 9. La petite vie (lot 6, demandé le 2026-10-01)
 
