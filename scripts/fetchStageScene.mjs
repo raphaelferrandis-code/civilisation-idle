@@ -13,7 +13,13 @@
 // geste de fetchPlazaProp), puis, si elle déborde encore de la zone utile, on la réduit
 // par moyenne de surface (facteur proche de 1, la netteté tient après quantize).
 //
-// Usage : node scripts/fetchStageScene.mjs <objectId> <clé> <L>x<H> [--x2] [--bas=6] [--rot=south-west]
+// `--fit` (à la place de `--x2`) : réduit l'encre au facteur qui REMPLIT la zone utile,
+// quel qu'il soit (≤ 1). Un bâtiment-moteur est un repère : la série d'origine remplissait
+// 69 à 104 px des 112 du canevas, et une génération étroite (une tour de presse, un
+// observatoire) écrasée à ×0,5 tombait à 51-58 px — un tiers plus petite sur son lot que
+// la boîte qu'elle remplace.
+//
+// Usage : node scripts/fetchStageScene.mjs <objectId> <clé> <L>x<H> [--x2|--fit] [--bas=6] [--rot=south-west]
 import fs from 'node:fs';
 import path from 'node:path';
 import { PNG } from 'pngjs';
@@ -23,6 +29,7 @@ const [id, key, dims] = args.filter((a) => !a.startsWith('--'));
 if (!id || !key || !dims) { console.error('usage : <objectId> <clé> <L>x<H> [--x2] [--bas=6] [--rot=…]'); process.exit(1); }
 const [W, H] = dims.split('x').map(Number);
 const x2 = args.includes('--x2');
+const fit = args.includes('--fit');
 const bas = Number((args.find((a) => a.startsWith('--bas=')) || '--bas=6').slice(6));
 const rot = (args.find((a) => a.startsWith('--rot=')) || '--rot=south-west').slice(6);
 const BASE = 'https://backblaze.pixellab.ai/file/pixellab-characters/objects/f1f2e80b-b12d-4940-a5a9-e76f8558b9e0';
@@ -65,9 +72,15 @@ const shrink = (p, f) => {
 };
 
 img = crop(img);
-if (x2) img = shrink(img, 0.5);
-const maxW = W - 4, maxH = H - bas - 2;
-const f = Math.min(1, maxW / img.width, maxH / img.height);
+if (x2 && !fit) img = shrink(img, 0.5);
+// En `--fit`, 4 px de marge par côté : la plus large de la série d'origine (104 sur 112).
+const maxW = W - (fit ? 8 : 4), maxH = H - bas - 2;
+let f = Math.min(1, maxW / img.width, maxH / img.height);
+// ⚠ Un facteur PROCHE de 1 (0,8-1) est le pire : la moyenne de surface ne lâche qu'une
+// colonne sur 10 ou 15, irrégulièrement, et l'alpha seuillé fait ONDULER les contours
+// (le grand palais de justice à ×0,93 : marches « fondues », arêtes en vagues). On
+// descend alors à ×0,75 — un bâtiment un peu moins large, mais des lignes nettes.
+if (fit && f > 0.8 && f < 1) f = 0.75;
 if (f < 1) img = shrink(img, f);
 
 const out = new PNG({ width: W, height: H });

@@ -97,13 +97,8 @@ const SPRITES = {
       tube: ['#91817e', '#3d3335', '#17120d'], soil: '#2c1a13', shadow: '#883e32',
     },
   },
-  // ── Stade 3 — station d'épuration : buse de béton, même grammaire.
-  'sewers-plant': {
-    duct: {
-      at: [76, 46], h: 17, w: 4, elbow: +2, flange: true,
-      tube: ['#d6c4b8', '#55453c', '#1d1f21'], soil: '#373d42', shadow: '#9f9286',
-    },
-  },
+  // ── Stade 3 (`sewers-plant`) : SORTI de la table le 2026-10-01 — regénéré
+  // (PixelLab) en station à digesteurs en œuf, sa conduite plonge déjà dans le sol.
   // ── Band 4 — station romaine. Le bassin turquoise faisait PARTIE du sprite
   // PixelLab d'origine (ce n'était pas un ajout d'ici), mais c'était l'eau de
   // surface la plus voyante des cinq : il part avec les autres. Ses 425 px sont

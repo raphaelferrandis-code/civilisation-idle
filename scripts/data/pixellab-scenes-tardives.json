@@ -1,0 +1,499 @@
+{
+  "note": "Sources PixelLab des scènes tardives redessinées le 2026-10-01 (Raph : « le meilleur rendu futuriste possible »). Objets create_object_pro_flash, 8 directions, vue low top-down ; on garde la rotation SOUTH-WEST. Bandes 7-9 : node scripts/fetchCosmicScene.mjs <id> <clé> (canevas 128×224, pied en bas). Maisons cosmiques : node scripts/fetchHouseSkin.mjs <id> <clé> puis scripts/ecartSol.mjs --darker. Bande 6 : node scripts/fetchStageScene.mjs <id> <clé> <canevas> --fit --bas=6 (grandes halles : 176x160 --bas=12). Toujours suivi de node scripts/quantize.cjs <png> --colors 24. ⚠ Les objets PixelLab peuvent expirer : ce fichier dit d'où vient chaque image, il ne garantit pas qu'on puisse la retélécharger.",
+  "cosmiques": {
+    "7": {
+      "think_tanks": {
+        "id": "53533222-efe4-491b-bf04-36cfbd1075c0",
+        "taille": "haut"
+      },
+      "libraries": {
+        "id": "77705252-c0d0-49c8-9b14-d7aada237cbb",
+        "taille": "moyen"
+      },
+      "markets": {
+        "id": "6e2fa511-0a8c-4683-854a-b09cb6ad645a",
+        "taille": "bas",
+        "cle": "market-cosmic-7"
+      },
+      "schools": {
+        "id": "c75617ce-2183-4757-a924-2b4ba505fbbe",
+        "taille": "bas"
+      },
+      "observatories": {
+        "id": "b53d72c4-9f29-47df-93a3-918a98b6f200",
+        "taille": "moyen"
+      },
+      "foragers": {
+        "id": "fdb89e7f-8a5d-4133-b4ac-24587a283a98",
+        "taille": "bas",
+        "cle": "forager-cosmic-7"
+      },
+      "storytellers": {
+        "id": "82c69749-86d7-4b23-9518-2ede98b23e93",
+        "taille": "bas"
+      },
+      "scribes": {
+        "id": "c596d9e4-c084-4a99-ab64-33504c97eb29",
+        "taille": "bas"
+      },
+      "academies": {
+        "id": "2d5b6ad4-c006-4723-8345-34c2d4a4f291",
+        "taille": "moyen"
+      },
+      "ancestral_cult": {
+        "id": "b6327a35-f851-40f7-a495-86143bfb53a1",
+        "taille": "bas"
+      },
+      "universities": {
+        "id": "72aa9a20-a81e-4fd9-bbab-559c5d38ff05",
+        "taille": "moyen"
+      },
+      "printing_houses": {
+        "id": "d0b79eea-046e-4509-a6f9-8b46cbbbfac7",
+        "taille": "moyen"
+      },
+      "ministries": {
+        "id": "a60b40b4-efb9-4404-9886-ae2d4eb4fe39",
+        "taille": "haut"
+      },
+      "watch": {
+        "id": "2ed9e13a-c3b4-4e17-ad84-ee598050e105",
+        "taille": "haut"
+      },
+      "sewers": {
+        "id": "632365e9-f77b-4627-9627-805ca5996416",
+        "taille": "bas"
+      },
+      "bureaucracy": {
+        "id": "997f6af6-c2b6-49aa-b765-07dc5ace22ff",
+        "taille": "bas"
+      },
+      "courthouses": {
+        "id": "162a4a59-6722-4d55-9946-43af83bf37e0",
+        "taille": "moyen"
+      },
+      "public_works": {
+        "id": "2ece32d4-67af-47b4-b00e-ae3e9db55c9a",
+        "taille": "moyen"
+      },
+      "archive_grids": {
+        "id": "22bed174-936a-41e1-8ad3-01948bce3b99",
+        "taille": "bas"
+      },
+      "ruin_architects": {
+        "id": "dfd23769-9204-434e-846f-61c6ad40af23",
+        "taille": "bas"
+      },
+      "granaries": {
+        "id": "9f4ed850-cced-4470-bb39-c5efccf6ae94",
+        "taille": "moyen",
+        "cle": "granary-cosmic-7"
+      },
+      "caravans": {
+        "id": "2bd76893-4bed-4953-9df8-2de8a145d1e7",
+        "taille": "bas",
+        "cle": "caravan-cosmic-7"
+      },
+      "guilds": {
+        "id": "4f18d745-8374-4c7a-9977-379c2d01a1ef",
+        "taille": "moyen",
+        "cle": "guild-cosmic-7"
+      },
+      "mint": {
+        "id": "87f25ca9-33e1-4235-877d-eda416cbac14",
+        "taille": "moyen",
+        "cle": "mint-cosmic-7"
+      },
+      "bank": {
+        "id": "e8b67db0-6e20-4daf-a8fa-309118762e2b",
+        "taille": "haut",
+        "cle": "bank-cosmic-7"
+      },
+      "port": {
+        "id": "e9308a67-32e0-4dc6-aafa-ddb39f363d84",
+        "taille": "moyen",
+        "cle": "port-cosmic-7"
+      },
+      "mill": {
+        "id": "a13d82cb-8d62-48c7-8385-4d40b2c9e13d",
+        "taille": "moyen",
+        "cle": "mill-cosmic-7"
+      }
+    },
+    "8": {
+      "think_tanks": {
+        "id": "95870551-ab75-4e63-8e2a-92e0cf2ed6a8",
+        "taille": "haut"
+      },
+      "libraries": {
+        "id": "1ce4fe7a-3772-436d-a969-4c6e5e8a5aee",
+        "taille": "moyen"
+      },
+      "observatories": {
+        "id": "517264d4-e59a-4376-90cf-6d587fae6d9a",
+        "taille": "moyen"
+      },
+      "markets": {
+        "id": "fd47f61c-3cd7-4930-969c-f40e069698d7",
+        "taille": "bas",
+        "cle": "market-cosmic-8",
+        "retry": "1er essai b912fd62 échoué (broken pipe)"
+      },
+      "schools": {
+        "id": "39611417-1300-4de3-9a4d-a48a20f1474c",
+        "taille": "bas"
+      },
+      "foragers": {
+        "id": "290ce21a-ce07-47e2-87ca-bb5bc49ddeb8",
+        "taille": "bas",
+        "cle": "forager-cosmic-8"
+      },
+      "ministries": {
+        "id": "6836c845-6992-4d8a-857a-cee1ed07ea40",
+        "taille": "haut"
+      },
+      "storytellers": {
+        "id": "461cf02a-3c49-4377-a999-477a27dca028",
+        "taille": "bas"
+      },
+      "scribes": {
+        "id": "7081eb8b-f59c-4563-b272-cb2fbbc3cda7",
+        "taille": "bas"
+      },
+      "academies": {
+        "id": "eb2330eb-8f5c-4bc5-bd02-0ed656492079",
+        "taille": "moyen"
+      },
+      "ancestral_cult": {
+        "id": "f43283f9-f670-41d0-abb6-e2b679b8bcbc",
+        "taille": "bas"
+      },
+      "universities": {
+        "id": "5e2410e9-c207-4959-b153-e82b6d893bb4",
+        "taille": "moyen"
+      },
+      "printing_houses": {
+        "id": "2e1320a6-7ad8-4fcc-a0ee-94e866d592b7",
+        "taille": "moyen"
+      },
+      "watch": {
+        "id": "056ac42f-3c5b-4c55-b988-be3a09014cd1",
+        "taille": "haut"
+      },
+      "sewers": {
+        "id": "718a9344-d9d9-417d-b6af-dcdef3476726",
+        "taille": "bas"
+      },
+      "bureaucracy": {
+        "id": "e9f40f75-cd76-4e6a-8afc-744de19a5d5f",
+        "taille": "bas"
+      },
+      "courthouses": {
+        "id": "d3e7bde6-e16d-4380-88f7-b288166a9794",
+        "taille": "moyen"
+      },
+      "public_works": {
+        "id": "3dd47318-e1d7-4596-b8df-ab5b7bba98c3",
+        "taille": "moyen"
+      },
+      "archive_grids": {
+        "id": "35fc8ea9-4c51-447b-8472-752a7a944180",
+        "taille": "bas"
+      },
+      "ruin_architects": {
+        "id": "1fc3c2f9-b3a0-4323-94c4-a18988054f68",
+        "taille": "bas"
+      },
+      "granaries": {
+        "id": "0c366afd-907f-4a94-ae0b-71f88db3f763",
+        "taille": "moyen",
+        "cle": "granary-cosmic-8"
+      },
+      "caravans": {
+        "id": "8be2c90b-8a28-42bc-8a2c-2605e5666ba7",
+        "taille": "bas",
+        "cle": "caravan-cosmic-8"
+      },
+      "guilds": {
+        "id": "e2f63523-0b37-47d4-a3fd-dab4b118f988",
+        "taille": "moyen",
+        "cle": "guild-cosmic-8"
+      },
+      "mint": {
+        "id": "acff7192-63f7-4981-9ff5-efad2842cfd5",
+        "taille": "moyen",
+        "cle": "mint-cosmic-8"
+      },
+      "bank": {
+        "id": "5fab885e-efdd-4bce-a316-e6026498d7dc",
+        "taille": "haut",
+        "cle": "bank-cosmic-8"
+      },
+      "port": {
+        "id": "762b89c3-129b-4ab9-89c2-ae46ed542fb7",
+        "taille": "moyen",
+        "cle": "port-cosmic-8"
+      },
+      "mill": {
+        "id": "66b10b7b-e754-48a1-9883-1541ac9d77e6",
+        "taille": "moyen",
+        "cle": "mill-cosmic-8"
+      }
+    },
+    "9": {
+      "think_tanks": {
+        "id": "cfe69df0-4999-42c4-9e5a-3874e9fd9198",
+        "taille": "haut"
+      },
+      "libraries": {
+        "id": "291fe2bb-5d6a-49e5-8d6a-df589b38c190",
+        "taille": "moyen"
+      },
+      "observatories": {
+        "id": "4ce721c2-46b3-4723-a45f-8dd9ba0cade2",
+        "taille": "moyen"
+      },
+      "markets": {
+        "id": "31abbbdd-3158-4155-898e-15f7be1e6b66",
+        "taille": "bas",
+        "cle": "market-cosmic-9"
+      },
+      "schools": {
+        "id": "0761af32-65f2-451f-a64d-99d3d9f1f246",
+        "taille": "bas"
+      },
+      "foragers": {
+        "id": "39577db0-2f02-4fba-972c-a9f29702154e",
+        "taille": "bas",
+        "cle": "forager-cosmic-9"
+      },
+      "ministries": {
+        "id": "4ab08c73-5b4d-416c-89b4-1b3e14acd769",
+        "taille": "haut"
+      },
+      "storytellers": {
+        "id": "7f9a7966-2e87-42ba-9b12-c08275ea3f12",
+        "taille": "bas"
+      },
+      "scribes": {
+        "id": "d7824021-2159-41d7-8527-8a099461da4c",
+        "taille": "bas"
+      },
+      "academies": {
+        "id": "70a64c2f-3b8c-46d8-9ecf-674d5b5aa654",
+        "taille": "moyen"
+      },
+      "ancestral_cult": {
+        "id": "9ac48756-a98b-4ef5-b37a-089475000d2b",
+        "taille": "bas"
+      },
+      "universities": {
+        "id": "c33d73fc-ae69-46f7-9138-793267e6dd1d",
+        "taille": "moyen"
+      },
+      "printing_houses": {
+        "id": "fbcd0289-9fb3-4da0-9515-410a3391bc69",
+        "taille": "moyen"
+      },
+      "watch": {
+        "id": "d39d333e-d5f4-4c5d-ae22-f7c1ec411fcc",
+        "taille": "haut"
+      },
+      "sewers": {
+        "id": "3d834baf-9493-4912-97de-35a610d2b498",
+        "taille": "bas"
+      },
+      "bureaucracy": {
+        "id": "ee6c0ee5-f6c4-4942-a365-858cbdbd96d5",
+        "taille": "bas"
+      },
+      "courthouses": {
+        "id": "8b0222eb-34d5-4750-9984-22242f9fd8c7",
+        "taille": "moyen"
+      },
+      "public_works": {
+        "id": "716dd324-a496-4e32-851f-2e8ef22387c3",
+        "taille": "moyen"
+      },
+      "archive_grids": {
+        "id": "e9beea87-2214-4c77-9d0a-9234e95bd4d0",
+        "taille": "bas"
+      },
+      "ruin_architects": {
+        "id": "3c7dedaa-0c69-4070-b5dc-ae456db1633d",
+        "taille": "bas"
+      },
+      "granaries": {
+        "id": "ac1789e5-f18c-4698-a22a-8f637ec4443e",
+        "taille": "moyen",
+        "cle": "granary-cosmic-9"
+      },
+      "caravans": {
+        "id": "d02e7ca0-2db9-4e12-86ec-7b89c9be4a32",
+        "taille": "bas",
+        "cle": "caravan-cosmic-9"
+      },
+      "guilds": {
+        "id": "f05517e3-c542-4b03-aa61-006493414538",
+        "taille": "moyen",
+        "cle": "guild-cosmic-9"
+      },
+      "mint": {
+        "id": "35f96283-04eb-41c8-bfe7-c58c02993add",
+        "taille": "moyen",
+        "cle": "mint-cosmic-9"
+      },
+      "bank": {
+        "id": "7db744aa-30a2-4b09-8416-d54712e7f2ef",
+        "taille": "haut",
+        "cle": "bank-cosmic-9"
+      },
+      "port": {
+        "id": "e8eb7389-7238-42e7-84a4-2a13b1acba95",
+        "taille": "moyen",
+        "cle": "port-cosmic-9"
+      },
+      "mill": {
+        "id": "a208c6e3-539e-458b-ac30-00d4c07f8956",
+        "taille": "moyen",
+        "cle": "mill-cosmic-9"
+      }
+    }
+  },
+  "maisons": {
+    "tower-cosmic-7": "1a019948-02e4-4494-99fb-363184706e21",
+    "megablock-cosmic-7": "f5c89114-015d-4192-a8d2-fd901f7de538",
+    "arcologyhome-cosmic-7": "3d930af9-cac6-4fcd-a105-c68b615910ce (étroite ; 1er 426a5564 trop large 139 px)",
+    "tower-cosmic-8": "5765325b-3952-403d-877f-c8d0b6cdc771",
+    "megablock-cosmic-8": "4aa4a9a6-ceaf-4639-9e8f-c77dcf1ada3f",
+    "arcologyhome-cosmic-8": "831fa7fa-0f6e-414e-88cc-2ca5773cdb5c (étroite ; 1er d483a9c9 trop large 114 px)",
+    "tower-cosmic-9": "7ca25f28-9be3-4087-8437-eaf2e322fcf2",
+    "megablock-cosmic-9": "138dc0a1-be87-4702-8bcf-2411d7a9a974",
+    "arcologyhome-cosmic-9": "583ac548-f489-40ab-920c-523269afa283 (étroite ; 1er 49a6514a trop large 108 px)"
+  },
+  "regleMaisons": "encre des skins 2x2 ≤ 95 px de large (sinon plafonnée → pixels plus fins que les voisines)",
+  "bande6": {
+    "works-depot": {
+      "id": "78826ace-7f8a-487e-bcd3-4a5957fa0dd2",
+      "canvas": "112x88"
+    },
+    "archive-grid": {
+      "id": "f6d5ba61-7f7d-4f88-89a0-eeac425e5b62",
+      "canvas": "112x88"
+    },
+    "scribes-data": {
+      "id": "1a8e2be5-ce54-4d39-8107-47740dbcc984",
+      "canvas": "112x88"
+    },
+    "ministries-tower": {
+      "id": "dac2189e-3e68-47df-b6f6-509a691c7388",
+      "canvas": "112x88"
+    },
+    "courthouses-modern": {
+      "id": "0c9208bd-4069-4edd-9be2-d7a7258897b2",
+      "canvas": "112x88"
+    },
+    "sewers-plant": {
+      "id": "8d05114c-c72c-4577-bc14-f8c27e1e9c89",
+      "canvas": "112x88"
+    },
+    "ruins-lab": {
+      "id": "03a929c1-fd65-4b17-a7fa-11670503254d",
+      "canvas": "112x88"
+    },
+    "think-modern": {
+      "id": "383158cb-3c22-4991-a829-633c5aae5f0b",
+      "canvas": "112x88"
+    },
+    "printing-media": {
+      "id": "55da5675-5fef-47a5-a3f8-6334331210f8",
+      "canvas": "112x88"
+    },
+    "universities-modern": {
+      "id": "01fb8902-c56f-407f-864c-01ed71115a2e",
+      "canvas": "112x88"
+    },
+    "libraries-modern": {
+      "id": "2019fece-e201-422a-b3be-a31578282d43",
+      "canvas": "112x88"
+    },
+    "observatories-array": {
+      "id": "748255ce-593b-4de4-a89e-f4dd1bc46e02",
+      "canvas": "112x88"
+    },
+    "academies-modern": {
+      "id": "61e85801-9516-4b7a-bed2-b49dcf890b22",
+      "canvas": "112x88"
+    },
+    "schools-campus": {
+      "id": "c7abc1dd-d881-4772-81df-b8e10baa53ac",
+      "canvas": "112x88"
+    },
+    "storyteller-media": {
+      "id": "2ab37e5a-cca7-4440-a1ae-20c0d594dacc",
+      "canvas": "112x88"
+    },
+    "bank-house-glass": {
+      "id": "65069676-d2f3-4426-a070-dc9dad9524e8",
+      "canvas": "96x96"
+    },
+    "mint-house-digital": {
+      "id": "212368bf-af5f-4db7-b2e1-b8d2904e1ba0",
+      "canvas": "96x96"
+    }
+  },
+  "bande6Grandes": {
+    "works-depot-grand": {
+      "id": "2afb9d93-38c9-401e-a8fc-64be10a340e3",
+      "canvas": "176x160"
+    },
+    "archive-grid-grand": {
+      "id": "a3f41d1b-a0f8-473b-b5be-696475299463",
+      "canvas": "176x160"
+    },
+    "ministries-tower-grand": {
+      "id": "79e93aa2-2bc1-4c80-8c45-7330d7c1061f",
+      "canvas": "176x160"
+    },
+    "courthouses-modern-grand": {
+      "id": "79b205ea-6a77-4bdb-8c58-2bb4ed25cd65",
+      "canvas": "176x160"
+    },
+    "ruins-lab-grand": {
+      "id": "31f73e33-c368-4011-b9d2-e855f8744b47",
+      "canvas": "176x160"
+    },
+    "think-modern-grand": {
+      "id": "eb78e1f9-ec9c-43eb-8321-82e4a4d5ee5a",
+      "canvas": "176x160"
+    },
+    "printing-media-grand": {
+      "id": "0a59b0a6-db22-4b1b-8041-9e6879944eb8",
+      "canvas": "176x160"
+    },
+    "universities-modern-grand": {
+      "id": "38c484af-d914-4aba-b062-fbf956bd1062",
+      "canvas": "176x160"
+    },
+    "libraries-modern-grand": {
+      "id": "d0bf099c-f17d-4c4d-a4f4-d310024d94c3",
+      "canvas": "176x160"
+    },
+    "observatories-array-grand": {
+      "id": "c4fedae8-01bf-41d0-86f8-68d50c0c0bd4",
+      "canvas": "176x160"
+    },
+    "schools-campus-grand": {
+      "id": "34709ad1-f1d5-4fa1-b070-3e508b859fb1",
+      "canvas": "176x160"
+    },
+    "bank-house-glass-grand": {
+      "id": "dca3a1a3-1dd2-4901-9e07-e4fcf2609e27",
+      "canvas": "176x160"
+    },
+    "mint-house-digital-grand": {
+      "id": "aa5017d0-ae54-4b51-93fd-a382d862adfc",
+      "canvas": "176x160"
+    }
+  }
+}

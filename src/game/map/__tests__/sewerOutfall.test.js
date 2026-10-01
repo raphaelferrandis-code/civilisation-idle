@@ -26,7 +26,9 @@ const STADES = ['sewers-prop', 'sewers-medieval', 'sewers-works', 'sewers-plant'
 // vierge, la comparaison à `sewers-base/` n'a donc plus de sens pour eux. Ils
 // restent gardés par tout le reste (pas d'eau, verrou de teintes). Un stade entre
 // dans cette liste le jour où il quitte la table de scripts/sewerOutfall.mjs.
-const REGENERES = new Set(['sewers-prop']);
+// `sewers-plant` (stade moderne, bande 6) : regénéré le 2026-10-01 — digesteurs en
+// œuf FERMÉS et une conduite qui plonge dans le sol, aucune eau à l'air libre.
+const REGENERES = new Set(['sewers-prop', 'sewers-plant']);
 const lire = (dir, cle) => PNG.sync.read(fs.readFileSync(path.join(dir, cle + '.png')));
 const opaque = (im, x, y) => im.data[(y * im.width + x) * 4 + 3] >= 20;
 
