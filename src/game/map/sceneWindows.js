@@ -41,6 +41,11 @@ const GLASS = {
   'libraries-modern-grand': '3e4753 495862 5b6678',
   // Le logo et la sculpture d'or de la tour de la banque s'éclairent aussi.
   'bank-house-glass-grand': '172651 17407e 1d3464 2663ac 2f538a 3f4961 6a7691 7d9bc0 deb469 efd28f',
+  // Passe « tous les bâtiments » (2026-10-01, soir) : la tour administrative et le
+  // siège du consortium, redessinés, ont eux aussi leurs bureaux.
+  'bureau-tower': '38485b 435668 536576 5b6d81 5f6d7f 698197',
+  'bureau-tower-grand': '2f3d4f 3e4f63 4b6075 637c95',
+  'guild-consortium': '32464f 3a506b 476e89 506972 57899d',
 };
 // Lecture seule, pour la garde (chaque couleur nommée doit exister dans son PNG).
 export const SCENE_GLASS = GLASS;
