@@ -627,4 +627,24 @@ Journal :
   - ⚠ Un giron d'un pixel sur le plan du mur se lisait comme un triangle pâle et plat :
     il faut la bande du giron (du mur au nez de marche) et la face avant.
   - ⚠ À FAIRE AVEC LA VOIE PIÉTONNE : le garde-corps est cuit dans le sol, un passant sur
-    la promenade de la rive d'en face passerait DEVANT lui.
+    la promenade de la rive d'en face passerait DEVANT lui. (Réglé : cf. l'entrée suivante.)
+- **2026-10-01, nuit — les quais deviennent une promenade** (Raph : « fais-en une voie
+  piétonne, en vérifiant qu'il n'y ait pas de problème avec l'autre session »). VALIDÉ.
+  - ACCORD avec la session « Révision personnages/véhicules » (`PLAN-VIVANT.md`), pris
+    AVANT d'écrire : les quais sont à ce chantier, son lot D (groupes, arrêts aux étals et
+    fontaines) reste sur la voirie et les places ; on ne touche ni `agents.js`, ni
+    `isoUnits.js`, ni `isoLiveCollect.js`, ni `CM.citizens` ; le dessin est le sien, en
+    lecture (`drawIsoCitizenItem`, pseudo-habitant `{ x, y, dir, pauseT, phase, charType,
+    walkDist, skinVariant }`) — mêmes costumes et métiers par ère, même ombre solaire.
+  - `iso/isoQuayWalk.js` : des flâneurs f(now), sans état, sur les tronçons de promenade
+    en ville ou à trois cases d'elle (`quayWalkSpans`, `quayLanePoint` d'isoQuay), un pour
+    ~1,1 sample ; deux files (0,5 et 0,68 de la largeur, une par sens), un sur trois en
+    couple, demi-tour aux ponts et aux bouts, arrêts face à l'eau ; ~40 % la nuit, coupés
+    en LOD. Triés comme la petite vie (`registerVieActors`) à la profondeur d'un habitant.
+  - Le garde-corps : les files sont tenues CÔTÉ TERRE, les pieds restent au-dessus de sa
+    lisse à l'écran sur la rive d'en face — vérifié au pixel, aucun chevauchement.
+  - ⚠ `cmHash` de graines voisines (« …:0o », « …:1o ») sort des valeurs voisines : les
+    promeneurs d'un tronçon avançaient en paquets de 3 à 5 → brassage fmix32.
+  - Coût : 0,07 ms par image pour le calcul (mesuré, 26 visibles au zoom 1), plus le dessin
+    des sprites visibles, comme les passants. Molette `__quayWalk({ on, density, speed })`,
+    aide `__quayWalkers()`. Reste possible : descendre les escaliers jusqu'au palier.

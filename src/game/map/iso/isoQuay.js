@@ -212,7 +212,7 @@ function buildGeo(L, band) {
       };
       const edge = [], land = [], face = [], mid = [];
       const wbel = new Uint8Array(N), tap = new Float32Array(N);
-      const bridge = new Uint8Array(N), urban = new Uint8Array(N);
+      const bridge = new Uint8Array(N), urban = new Uint8Array(N), nearCity = new Uint8Array(N);
       for (let k = a; k <= b; k += 1) {
         edge.push(P(k, 0)); land.push(P(k, W)); face.push(P(k, faceW)); mid.push(P(k, W * 0.55));
         tap[k - a] = tt(k);
@@ -221,6 +221,13 @@ function buildGeo(L, band) {
         const gx = Math.floor(s.x + side * n.nx * off), gy = Math.floor(s.y + side * n.ny * off);
         bridge[k - a] = bridgeNearCell(L, gx, gy, 1) ? 1 : 0;
         urban[k - a] = L.urbanSet && L.urbanSet.has(gx + ',' + gy) ? 1 : 0;
+        // À trois cases de la ville : un quai qui longe un parc reste une promenade.
+        if (urban[k - a]) nearCity[k - a] = 1;
+        else if (L.urbanSet) {
+          for (let dx = -3; dx <= 3 && !nearCity[k - a]; dx += 1) for (let dy = -3; dy <= 3; dy += 1) {
+            if (L.urbanSet.has((gx + dx) + ',' + (gy + dy))) { nearCity[k - a] = 1; break; }
+          }
+        }
         wbel[k - a] = P(k, -0.3).y > P(k, 0.3).y ? 1 : 0;      // l'eau est DEVANT : on voit le mur
       }
       // Hauteur du mur par sample : effilée aux bouts de chaque sous-tronçon « eau devant ».
@@ -237,7 +244,7 @@ function buildGeo(L, band) {
           q = r + 1;
         }
       }
-      const run = { side, a, b, edge, land, face, mid, wallH, tap, bridge, urban, ri: runs.length };
+      const run = { side, a, b, edge, land, face, mid, wallH, tap, bridge, urban, nearCity, ri: runs.length };
       runs.push(run);
       for (let k = 0; k < N - 1; k += 1) {
         let x0 = Infinity, y0 = Infinity, x1 = -Infinity, y1 = -Infinity;
@@ -533,6 +540,40 @@ export function stairFootY(sx, sy) {
     if (top <= sy + 10 * z && bot >= sy) y = Math.max(y, bot);   // même rive
   }
   return y;
+}
+
+// ── LA PROMENADE, POUR LES PROMENEURS (iso/isoQuayWalk.js) ───────────────────
+// Tronçons où l'on marche : en ville ou à trois cases d'elle, hors pont, promenade
+// pleine (pas sur un bout effilé). Rend [{ run, i0, i1 }] (indices dans les tableaux
+// du tronçon), mémorisés avec la géométrie — une nouvelle ville en refait la liste.
+export function quayWalkSpans() {
+  if (!_geo) return [];
+  if (_geo.spans) return _geo.spans;
+  const out = [];
+  for (const run of _geo.runs) {
+    const N = run.edge.length;
+    const ok = (k) => run.nearCity[k] && !run.bridge[k] && run.tap[k] > 0.95;
+    let i = 0;
+    while (i < N) {
+      if (!ok(i)) { i += 1; continue; }
+      let j = i; while (j + 1 < N && ok(j + 1)) j += 1;
+      if (j - i >= 3) out.push({ run, i0: i, i1: j });
+      i = j + 1;
+    }
+  }
+  _geo.spans = out;
+  return out;
+}
+// Point de la promenade, en MONDE (px), à l'indice fractionnaire u du tronçon et à la
+// fraction f de sa largeur (0 = bord d'eau, 1 = côté terre). La projection est
+// affine : interpoler dans l'espace d'art, c'est interpoler dans le monde.
+export function quayLanePoint(run, u, f) {
+  const k = Math.max(0, Math.min(run.edge.length - 1.001, u)), k0 = Math.floor(k), t = k - k0;
+  const e0 = run.edge[k0], e1 = run.edge[k0 + 1], l0 = run.land[k0], l1 = run.land[k0 + 1];
+  const ex = e0.x + (e1.x - e0.x) * t, ey = e0.y + (e1.y - e0.y) * t;
+  const lx = l0.x + (l1.x - l0.x) * t, ly = l0.y + (l1.y - l0.y) * t;
+  const ax = ex + (lx - ex) * f, ay = ey + (ly - ey) * f;
+  return { x: (ax / ISO_X + ay / ISO_Y) / 2, y: (ay / ISO_Y - ax / ISO_X) / 2 };
 }
 
 // ── LA POSE, À CHAQUE IMAGE ─────────────────────────────────────────────────

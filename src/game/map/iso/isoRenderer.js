@@ -43,6 +43,7 @@ import { drawVieAir, vieResetStats } from './isoVie.js';
 import './isoVieOiseaux.js';   // s'enregistre auprès d'isoVie (pigeons, mouettes)
 import './isoVieTerre.js';     // … (chiens, chats, papillons, linge)
 import './isoVieDrapeaux.js';  // … (drapeaux des bâtiments publics et des quais)
+import './isoQuayWalk.js';     // … (promeneurs des quais)
 import { drawVieClouds } from './isoVieNuages.js';
 import { paintQuays } from './isoQuay.js';
 import { drawIsoDrones } from './isoSky.js';
