@@ -16,6 +16,7 @@ import { pxProbe, recPx } from './pixelGrid.js';
 import { snapDev } from './blitSnap.js';
 import { drawSunShadow } from './iso/isoSunShadow.js';
 import { drawSceneEmissive } from './sceneEmissive.js';
+import { drawSceneWindows } from './sceneWindows.js';
 import { snowSprite, snowRoofTune } from './snowRoof.js';
 import { WINTER } from './seasonMode.js';
 
@@ -52,6 +53,12 @@ let curSpanSum = 0;
 // halle venait de passer, et l'inverse. Ça ne se voit pas sur une capture — le
 // mauvais sprite est un sprite valide, juste à la mauvaise taille.
 export function setEngineSpan(gw, gh) { curSpanSum = (gw | 0) + (gh | 0); }
+// GRAINE DE L'INSTANCE EN COURS (coordonnées de tuile hachées), lue par blitProp pour
+// les bureaux allumés la nuit (sceneWindows.js) : deux bâtiments du même dessin
+// n'allument pas les mêmes fenêtres. Même piège que l'empreinte : à poser par CHAQUE
+// entrée du rendu de scène.
+let curSeed = 0;
+export function setEngineSeed(seed) { curSeed = seed >>> 0; }
 // Chargement PARESSEUX d'un sprite de palier — un grand ne descend du réseau que
 // si son palier s'arme (les bandes, elles, seraient sinon préchargées par
 // ensureAnim pour tout le monde). Renvoie l'Image prête, ou null tant qu'elle
@@ -613,6 +620,8 @@ function blitProp(ctx, ox, oy, sw, sh, p, cx, cy, wFrac, hFrac) {
   ctx.imageSmoothingEnabled = prev;
   // Un bâtiment de scène masque les halos déposés DERRIÈRE lui (cf. lightLayer.js).
   lightCutImage(im, left, top, drawW, drawH);
+  // La nuit, ses bureaux s'allument — s'il a du verre nommé (bande 6, sceneWindows.js).
+  drawSceneWindows(im, p, left, top, drawW, drawH, curSeed);
 }
 
 // TOUR COSMIQUE (âge 35+) — sprite PixelLab HAUT (128×224) blité en GRAND, base ANCRÉE au sol
@@ -1068,6 +1077,7 @@ function drawCityEngineSprite(context) {
   // Avec pass='all' (défaut) les trois booléens valent true → ordre et appels STRICTEMENT
   // identiques à avant. Dans le doute un appel est classé ANIMÉ (dessiné en direct).
   setEngineSpan(gw, gh);              // lu par palierImg (substitution de palier)
+  setEngineSeed(seed);                // lu par blitProp (bureaux allumés la nuit)
   const dBack = pass === 'all' || pass === 'back';
   const dAnim = pass === 'all' || pass === 'anim';
   const dFront = pass === 'all' || pass === 'front';

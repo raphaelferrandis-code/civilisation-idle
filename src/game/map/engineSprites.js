@@ -1,5 +1,5 @@
 /* eslint-disable */
-import { drawCityEngineSprite, engineStage, cosmicBase, softGround, propReady, blitProp, blitCosmicTower, animReady, blitAnim, setEngineSpan, cosmicSceneKey } from './cityEngineSprites.js';
+import { drawCityEngineSprite, engineStage, cosmicBase, softGround, propReady, blitProp, blitCosmicTower, animReady, blitAnim, setEngineSpan, setEngineSeed, cosmicSceneKey } from './cityEngineSprites.js';
 import { CM } from './layout.js';
 import { drawPixelBuilding } from './pixelBuildings.js';
 
@@ -147,6 +147,8 @@ function drawEngineSpriteCore(t, x, y, w, h, now, pass = 'all') {
   // de l'atteindre : elles héritaient sinon de l'empreinte de la tuile
   // précédente, et servaient le sprite de halle sur un atelier (ou l'inverse).
   setEngineSpan(t.spanX || t.size || 1, t.spanY || t.size || 1);
+  // Graine de l'instance (même hachage que la retombée sur drawCityEngineSprite).
+  setEngineSeed((Math.imul(t.gx | 0, 73856093) ^ Math.imul(t.gy | 0, 19349663)) >>> 0);
   const px = (rx, ry, rw, rh, col) => { ctx.fillStyle = col; ctx.fillRect(ox + sw * rx, oy + sh * ry, sw * rw, sh * rh); };
   const strokeRect = (rx, ry, rw, rh, col) => { ctx.strokeStyle = col; ctx.lineWidth = Math.max(1, sw * 0.025); ctx.strokeRect(ox + sw * rx, oy + sh * ry, sw * rw, sh * rh); };
   // Ombre de contact au sol RETIRÉE (demande Raph 2026-07-06 : plus d'ellipses noires sous les bâtiments).
