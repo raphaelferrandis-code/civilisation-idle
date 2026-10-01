@@ -15,14 +15,13 @@
 //   __solTrace(true)      arme et vide          __solTrace(false)   éteint
 //   __solTraceDump()      les entrées, dans l'ordre
 //
-// Trois sortes d'entrées :
-//   { k: 'sol', … }     une décision de paintIsoGroundCached : zoom, ancre du
-//                       bake (zB), et les drapeaux qui choisissent la branche
-//   { k: 'bake', … }    une recuisson RÉELLE dans cityMapBakeMargin : couche,
-//                       durée, et la RAISON (première recuisson / clé changée /
-//                       pan hors marge) avec, si la clé a changé, les segments
-//                       de la clé qui diffèrent — c'est ça qui nomme le coupable
-//   { k: 'restore', … } une photo du cache de crans reposée (exacte/approchée)
+// Une sorte d'entrée aujourd'hui :
+//   { k: 'layout', … }  un recompute du plan (cityMapRuntime) : durée, phases,
+//                       et les segments de la signature qui ont changé
+// Parties avec leur producteur — scripts/sondeGeste.js les filtre encore, pour
+// des listes vides : 'sol' et 'restore' (paintIsoGroundCached et son cache de
+// crans, pyramide lot 4, 2026-09-14), 'bake' (cityMapBakeMargin, la cuisson
+// avec marge de pan, retirée avec l'ancien quai le 2026-10-01).
 
 const CAP = 900;
 let on = false;

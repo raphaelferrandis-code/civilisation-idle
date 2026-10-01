@@ -6,8 +6,8 @@
 // procédural (drawHouseShape) si : flag OFF, variante sans sprite, ou pas encore
 // chargé. Fichier : /pixelart/houses/<variant>.png  (cf public/pixelart/houses/).
 //
-// ⚠ Les maisons sont BAKÉES dans le canvas offscreen CM.tileCanvas → à chaque
-// chargement de sprite on invalide le bake (CM._tileBake = null) pour forcer un re-bake.
+// Les maisons sont peintes EN DIRECT à chaque frame (iso/isoLivePaint.js) : un
+// sprite qui arrive, une molette qui tourne, se voient dès la frame suivante.
 import { CM, cmHash } from './layout.js';
 import { maskFromImageData } from "./iso/isoMask.js";
 import { pickHouseTint, applyHouseTint, HOUSE_TINTS } from './housePalette.js';
@@ -44,8 +44,8 @@ export const pixelHousesFlag = { on: true };
 // cuits dans les sprites, les retourner mettait la maison en contradiction avec ses
 // voisines (retour Raph). Voir le bloc d'avertissement dans housePalette.js.
 //
-// Le tirage doit être déterministe : les habitations sont CUITES dans CM.tileCanvas,
-// une variation aléatoire changerait d'aspect à chaque recuisson (zoom, achat, pan).
+// Le tirage doit être déterministe : les habitations sont repeintes à chaque frame,
+// une variation aléatoire changerait d'aspect à chaque image (et à chaque zoom ou achat).
 // Indexé sur gx/gy seuls, donc stable aussi à travers un recalcul de layout.
 export const houseVarTune = { on: true };
 
@@ -151,7 +151,7 @@ function variantCanvas(key, tint, winter) {
 
 // Les canvas cuits portent le réglage de neige qui avait cours au moment de la cuisson :
 // un tour de molette doit les jeter, sans quoi l'A/B compare deux fois la même image.
-addSnowResetHook(() => { variants.clear(); CM._tileBake = null; });
+addSnowResetHook(() => { variants.clear(); });
 
 function ensure(key) {
   let e = cache.get(key);
@@ -160,11 +160,6 @@ function ensure(key) {
   e.img.onload = () => {
     e.ready = true;
     e.bbox = contentBBox(e.img, INK_BOX_PIN[key] || null);
-    // Sprite arrivé (souvent APRÈS le bake) → invalider le bake tuiles pour qu'il REMPLACE le
-    // repli procédural baké dès le frame suivant (cf. cmInvalidateBakes). Sans ça, un PNG chargé
-    // hors de la fenêtre de naissance laissait le procédural GELÉ jusqu'à un re-bake sans rapport
-    // (achat, zoom, pan) — d'où le « flash » persistant de l'ancien sprite à l'achat.
-    CM._tileBake = null;
   };
   e.img.src = "/pixelart/houses/" + key + ".png";
   cache.set(key, e);
@@ -442,28 +437,25 @@ export function houseSpriteReachTilesIso(variant, spanX, spanY) {
 if (typeof window !== "undefined") {
   window.__pixelHouses = (on) => {
     pixelHousesFlag.on = on !== false;
-    CM._tileBake = null;   // force re-bake pour voir le changement
     return pixelHousesFlag.on;
   };
-  // A — clamp au lot : on/off + réglage de la marge de débord toléré. Les deux rebakent
-  // les maisons via CM._tileBake=null. Ex. __houseFitTune({ margin: 0.06 }) = plus serré.
-  window.__houseFit = (on) => { houseFitTune.on = on !== false; CM._tileBake = null; return houseFitTune.on; };
-  window.__houseFitTune = (o = {}) => { Object.assign(houseFitTune, o); CM._tileBake = null; return { ...houseFitTune }; };
+  // A — clamp au lot : on/off + réglage de la marge de débord toléré.
+  // Ex. __houseFitTune({ margin: 0.06 }) = plus serré.
+  window.__houseFit = (on) => { houseFitTune.on = on !== false; return houseFitTune.on; };
+  window.__houseFitTune = (o = {}) => { Object.assign(houseFitTune, o); return { ...houseFitTune }; };
   // B — variation par instance. __houseVar(false) = retour aux 12 sprites stampés,
   // l'A/B qui montre ce que la variation apporte.
-  window.__houseVar = (on) => { houseVarTune.on = on !== false; CM._tileBake = null; return houseVarTune.on; };
+  window.__houseVar = (on) => { houseVarTune.on = on !== false; return houseVarTune.on; };
   // G1 — grain. __grainFix(false) coupe TOUTES les compensations (formule
   // honnête nue), __grainFix({ tower: 1.2 }) ajuste un sprite en live ;
   // __grainFloor(0.8) règle le plancher des petites empreintes moteur (0 = off).
   window.__grainFix = (o) => {
     if (o === false) grainTune.on = false;
     else { grainTune.on = true; if (o && typeof o === 'object') Object.assign(GRAIN_FIX, o); }
-    CM._tileBake = null;
     return { on: grainTune.on, ...GRAIN_FIX };
   };
   window.__grainFloor = (v) => {
     if (typeof v === 'number') grainTune.floor = Math.max(0, Math.min(1, v));
-    CM._tileBake = null;
     return grainTune.floor;
   };
   // Répartition réelle des teintes sur les habitations du layout — pour vérifier d'un

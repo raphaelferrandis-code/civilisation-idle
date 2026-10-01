@@ -381,7 +381,7 @@ if (typeof window !== 'undefined') {
     // Ceinture ET bretelles : la clé change (terrainKey), mais on invalide aussi à
     // la main — le sol et le cache de crans. (⚠ Les quais cuits en tuiles, iso/isoQuay,
     // supposent le relief ÉTEINT : leur projection est affine.)
-    solInvalidate('all'); CM._tileBake = null;
+    solInvalidate('all');
     _pads.key = '';   // les hauteurs de socle dépendent des réglages → re-échantillonner
     return { ...TERRAIN };
   };

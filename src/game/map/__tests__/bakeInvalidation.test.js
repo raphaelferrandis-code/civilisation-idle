@@ -15,12 +15,25 @@ import { fileURLToPath } from "node:url";
 //      des clés PARALLÈLES écrites sur 15 sites et relues NULLE PART : chaque
 //      invalidation était un no-op silencieux (y compris celles des onload de
 //      sprites, d'où le repli procédural gelé).
-// Ce test verrouille le point 2, le piège qui s'est réarmé malgré un commentaire
-// d'avertissement : seuls les états lus par cityMapBakeMargin (CM._*Bake) valent
-// invalidation. Le point 1 est vérifié en live (canvas + rAF, hors portée vitest).
+// Ce test verrouillait le point 2 : seuls les états lus par cityMapBakeMargin
+// (CM._*Bake) valaient invalidation.
+//
+// 2026-10-01 — la cuisson avec marge est partie avec l'ancien quai (c8b042c), son
+// dernier client ; puis ses offscreen (CM.staticCanvas / CM.tileCanvas) et leurs
+// états. Les CM._*Bake sont alors devenus à leur tour ce que les *CamKey étaient :
+// écrits sur une quinzaine de sites, relus nulle part. Le sol a sa propre porte
+// (iso/solInvalidate.js, gardée par solInvalidate.test.js) ; ce test garde
+// désormais que TOUTE cette famille reste partie — une ligne qui y reviendrait
+// serait du code mort qui se croit vivant.
 
 const MAP_DIR = join(dirname(fileURLToPath(import.meta.url)), "..");
-const DEAD_KEYS = /\b(?:CM\.)?(staticCamKey|tileCamKey|groundCamKey)\s*=/;
+const DEAD = new RegExp(
+  "\\b(?:staticCamKey|tileCamKey|groundCamKey" +
+  "|_staticBake|_tileBake|_groundBake|_bakeMargin|tileDirtyUntil" +
+  "|staticCanvas|tileCanvas|__panMargin" +
+  "|cmInvalidateBakes|cityMapBakeMargin|cityMapBlitMargin)\\b" +
+  "|\\bCM\\.(?:sctx|tctx)\\b"
+);
 
 function jsFiles(dir) {
   const out = [];
@@ -33,26 +46,36 @@ function jsFiles(dir) {
   return out;
 }
 
-// Une ligne de commentaire mentionnant les clés mortes est légitime (l'avertissement
-// posé dans cityMapRuntime) : on ne traque que les AFFECTATIONS.
+// Une ligne de commentaire qui raconte cette histoire est légitime (journaux de
+// cityMapRuntime, solTrace) : on ne traque que le CODE.
 const codeLines = (src) =>
   src.split(/\r?\n/).filter((l) => !/^\s*(\/\/|\*|\/\*)/.test(l));
 
-describe("invalidation des bakes carte", () => {
-  it("n'invalide jamais un bake via une clé parallèle morte", () => {
+describe("la cuisson avec marge et ses états sont bien partis", () => {
+  it("aucun fichier de src/game/map n'y touche encore", () => {
     const offenders = [];
     for (const file of jsFiles(MAP_DIR)) {
       codeLines(readFileSync(file, "utf8")).forEach((line) => {
-        if (DEAD_KEYS.test(line)) offenders.push(`${file}: ${line.trim()}`);
+        if (DEAD.test(line)) offenders.push(`${file}: ${line.trim()}`);
       });
     }
     expect(offenders).toEqual([]);
   });
 
   // Contrôle négatif : le motif traqué est bien détectable (sinon le test ci-dessus
-  // passerait pour de mauvaises raisons — un regex mort qui ne matche plus rien).
-  it("détecte le motif mort quand il est présent (contrôle négatif)", () => {
-    expect(codeLines("CM.groundCamKey = '';").some((l) => DEAD_KEYS.test(l))).toBe(true);
-    expect(codeLines("  CM._isoGroundBake = null;").some((l) => DEAD_KEYS.test(l))).toBe(false);
+  // passerait pour de mauvaises raisons — un regex mort qui ne matche plus rien),
+  // et il ne mord pas sur les homonymes VIVANTS (contextes locaux `sctx`/`tctx`
+  // d'isoGroundRoads et solPyramide, états voisins du sol).
+  it("détecte une résurgence, épargne les homonymes (contrôle négatif)", () => {
+    const hit = (l) => codeLines(l).some((x) => DEAD.test(x));
+    expect(hit("CM.groundCamKey = '';")).toBe(true);
+    expect(hit("    CM._tileBake = null;")).toBe(true);
+    expect(hit("  const ok = CM.staticCanvas && CM.tileCanvas;")).toBe(true);
+    expect(hit("  CM.sctx.setTransform(dpr, 0, 0, dpr, 0, 0);")).toBe(true);
+    expect(hit("  cmInvalidateBakes();")).toBe(true);
+    expect(hit("  const sctx = lay ? lay.ctx : ctx;")).toBe(false);
+    expect(hit("    tctx.setTransform(1, 0, 0, 1, 0, 0);")).toBe(false);
+    expect(hit("  CM._groundBakeStable = true;")).toBe(false);
+    expect(hit("  // CM._tileBake = null; (journal)")).toBe(false);
   });
 });

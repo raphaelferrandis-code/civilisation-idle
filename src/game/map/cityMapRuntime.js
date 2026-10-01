@@ -124,64 +124,17 @@ function cityMapResizeCanvas(canvas) {
   CM.ch = h;
   const nw = Math.max(1, Math.round(w * dpr));
   const nh = Math.max(1, Math.round(h * dpr));
-  // MARGE DE PAN : les 3 offscreen (sol/décor/tuiles) sont bakés PLUS GRANDS que
-  // l'écran (marge M de chaque côté). Pendant un drag, on blitte la couche déjà
-  // bakée DÉCALÉE (translation) au lieu de re-baker à chaque pixel → drag fluide,
-  // re-bake seulement quand le pan dépasse la marge. Molette window.__panMargin
-  // (px logiques ; 0 = ancien comportement re-bake/pixel). Cf. cityMapBlitMargin.
-  const M = Math.max(0, Math.round((typeof window !== "undefined" && window.__panMargin != null) ? window.__panMargin : 256));
-  CM._bakeMargin = M;
-  const onw = Math.max(1, Math.round((w + 2 * M) * dpr));
-  const onh = Math.max(1, Math.round((h + 2 * M) * dpr));
-  // Réallouer un canvas — même à taille IDENTIQUE — l'efface et invalidait tous
-  // les caches offscreen : forceFrame() (resize + frame) rebakait donc arbres,
-  // tuiles et sol à CHAQUE appel. No-op si rien n'a changé.
-  const mainSame = canvas.width === nw && canvas.height === nh;
-  const offSame = !CM.staticCanvas || (CM.staticCanvas.width === onw && CM.staticCanvas.height === onh);
-  if (mainSame && offSame) return;
-  if (!mainSame) {
-    canvas.width = nw;
-    canvas.height = nh;
-    CM.ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
-  }
-  // Offscreen dimensionnés AVEC la marge (onw/onh > écran). Invalide les bakes.
-  // ⚠ GARDE `!offSame` — le pendant EXACT du `if (!mainSame)` ci-dessus, et pour
-  // la même raison (note de 1994-… : « réallouer un canvas, même à taille
-  // IDENTIQUE, l'efface »). Elle manquait ici, et ça ne se voyait pas tant que
-  // les deux tailles bougeaient ensemble. Le cas où elles divergent est
-  // pourtant le plus fréquent : à CHAQUE retour sur l'onglet Cité, React fournit
-  // un canvas DOM neuf (300×150 par défaut) alors que les offscreen, tenus par
-  // le singleton CM, ont survécu à la bonne taille. `mainSame` était donc faux,
-  // la fonction poursuivait, et ces quatre blocs effaçaient des cuissons
-  // parfaitement valides. MESURÉ sur le téléphone de Raph (2026-07-28) : ~1 s à
-  // 14 fps en arrivant sur la carte, contre 60-120 le reste du temps.
-  if (!offSame) {
-    if (CM.staticCanvas) {
-      CM.staticCanvas.width = onw;
-      CM.staticCanvas.height = onh;
-      CM.sctx.setTransform(dpr, 0, 0, dpr, 0, 0);
-      CM._staticBake = null;
-    }
-    if (CM.tileCanvas) {
-      CM.tileCanvas.width = onw;
-      CM.tileCanvas.height = onh;
-      CM.tctx.setTransform(dpr, 0, 0, dpr, 0, 0);
-      CM._tileBake = null;
-    }
-  }
-}
-
-// Remet à null les états RÉELLEMENT relus par cityMapBakeMargin → re-bake à la
-// frame suivante. À appeler dès que les canvases offscreen sont recréés/effacés
-// ou qu'un flag change le contenu de toutes les couches.
-// ⚠ Ne JAMAIS repasser par des clés parallèles (les anciens CM.staticCamKey /
-// tileCamKey / groundCamKey étaient écrits partout et relus NULLE PART : chaque
-// invalidation était un no-op silencieux).
-function cmInvalidateBakes() {
-  CM._staticBake = null;
-  CM._tileBake = null;
-  CM._groundBake = null;
-  solInvalidate('all');   // le sol en tuiles se recuit lui aussi (canvas neufs, dpr)
+  // Réallouer un canvas — même à taille IDENTIQUE — l'efface : forceFrame()
+  // (resize + frame) le ferait à CHAQUE appel. No-op si rien n'a changé.
+  // Jusqu'au 2026-10-01, deux offscreen « avec marge de pan » (CM.staticCanvas,
+  // CM.tileCanvas, écran + 2×256 px) se redimensionnaient ici aussi ; leur
+  // dernier client, le quai cuit plein écran, est parti avec c8b042c. Ce qui
+  // cuit encore — le sol en pyramide, les quais — tient ses propres tuiles
+  // ancrées au monde, sans rapport avec la taille de l'écran.
+  if (canvas.width === nw && canvas.height === nh) return;
+  canvas.width = nw;
+  canvas.height = nh;
+  CM.ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
 }
 
 // Foule du campement (bande 0) : marcheurs par tente, plafond, et cadence
@@ -253,13 +206,13 @@ function cmRetireExcessCitizens(want) {
 }
 
 // Rebranche le préréglage de qualité à chaud (appelé par l'UI des options) :
-// ré-alloue les canvas si le dpr a changé, invalide les bakes et ré-applique la
+// ré-alloue le canvas si le dpr a changé, fait recuire le sol et ré-applique la
 // densité. La boucle rAF (en pause tant que le dialogue d'options couvre la
 // carte) repeindra proprement au prochain frame / à la fermeture du dialogue.
 export function applyCityMapQuality() {
   cmApplyQualitySettings();
   if (CM.canvas) cityMapResizeCanvas(CM.canvas);
-  cmInvalidateBakes();
+  solInvalidate('all');
   cmRecomputeCitizenTarget();
 }
 
@@ -1178,8 +1131,6 @@ function cityMapEnsureLayout(now, deps = {}) {
   CM.layoutStructSig = structSig;
   CM.layoutCoreSig = coreSig;
   CM.layoutRecomputeAt = now;
-  CM.tileDirtyUntil = now + 1200; // grace birth animations (engine tiles take 800ms)
-  CM._tileBake = null;            // force re-bake tile canvas après fenêtre de naissance
   const L = computeCityLayout(state);
   if (trSig) {
     const lp = globalThis.__layoutProfileLast;
@@ -1797,62 +1748,13 @@ function initCityMap(canvas, options = {}) {
   cityMapEnsureTooltip(mapRoot, options.tooltip);
   const resize = () => cityMapResizeCanvas(canvas);
   resize();
-  // Canvases offscreen : sol/routes/arbres (static) + tuiles bâtiments (tile)
-  {
-    const _pw = Math.max(1, Math.round(CM.cw * CM.dpr));
-    const _ph = Math.max(1, Math.round(CM.ch * CM.dpr));
-    const _mkOC = (w, h) => typeof OffscreenCanvas !== 'undefined'
-      ? new OffscreenCanvas(w, h)
-      : (() => { const c = document.createElement('canvas'); c.width = w; c.height = h; return c; })();
-
-    // ── RÉUTILISATION DES CUISSONS ENTRE DEUX MONTAGES ──────────────────────
-    // `App.jsx` monte la vue Cité en `{activeView === 'city' && <CityView/>}` :
-    // quitter l'onglet la DÉMONTE, et y revenir rappelle ici. Tout réallouer
-    // coûtait, à chaque retour, quatre offscreen pleine résolution PLUS une
-    // recuisson complète du sol, du décor, des tuiles et des quais.
-    // MESURÉ sur le téléphone de Raph (2026-07-28) : ~1 s à 14 fps en arrivant
-    // sur la carte, alors qu'elle tourne à 60-120 le reste du temps. Le même
-    // coût existe sur desktop, juste assez court pour passer inaperçu.
-    //
-    // Or ces offscreen ne sont PAS dans le DOM : ce sont des objets tenus par le
-    // singleton CM, que React n'a jamais touchés — leurs PIXELS ont survécu au
-    // démontage. S'ils ont exactement la bonne taille, on les garde tels quels
-    // AVEC leurs états de bake, et il n'y a plus rien à recuire.
-    //
-    // ⚠ CE N'EST PAS UN PARI SUR « RIEN N'A CHANGÉ » : la simulation continue de
-    // tourner pendant qu'on est sur un autre onglet. Chaque bake est gardé par
-    // une CLÉ DE CONTENU (cityMapBakeMargin) — zoom, layoutRecomputeAt, usure,
-    // santé… Si quoi que ce soit a bougé, la clé diffère et la recuisson se fait
-    // normalement. On ne supprime pas une vérification, on cesse d'en forcer le
-    // résultat.
-    // ⚠ On teste l'EXISTENCE, pas les dimensions : `resize()` vient de tourner
-    // (juste au-dessus) et c'est LUI qui détient la bonne taille — écran PLUS la
-    // marge de pan. Comparer ici à `_pw × _ph`, la taille sans marge, ne
-    // correspondait à rien et faisait tout réallouer à chaque fois.
-    const _reutilisable = CM.staticCanvas && CM.tileCanvas && CM.sctx && CM.tctx;
-
-    if (!_reutilisable) {
-      CM.staticCanvas = _mkOC(_pw, _ph);
-      CM.sctx = CM.staticCanvas.getContext('2d');
-      CM.tileCanvas = _mkOC(_pw, _ph);
-      CM.tctx = CM.tileCanvas.getContext('2d');
-      // G-29 : un contexte 2D offscreen null (perdu/épuisé) crasherait setTransform.
-      if (!CM.sctx || !CM.tctx) { CM.inited = false; return; }
-      // Les offscreen ci-dessus sont NEUFS (donc vides) mais CM est un singleton de
-      // module qui survit au démontage : sans ça, les états de bake du montage
-      // précédent restent « valides » → bake sauté → on blitte du vide jusqu'au
-      // premier changement de clé (sortie/retour sur la vue Cité, StrictMode).
-      // ⚠ CETTE INVALIDATION RESTE INDISPENSABLE ICI, et seulement ici : elle
-      // accompagne des canvas VIDES. La déplacer hors de cette branche
-      // annulerait tout le bénéfice ci-dessus.
-      cmInvalidateBakes();
-      CM.tileDirtyUntil = 0;
-    }
-    // setTransform est ABSOLU : le rejouer sur un contexte réutilisé est sans
-    // effet de bord, et il est obligatoire sur un contexte neuf.
-    CM.sctx.setTransform(CM.dpr, 0, 0, CM.dpr, 0, 0);
-    CM.tctx.setTransform(CM.dpr, 0, 0, CM.dpr, 0, 0);
-  }
+  // PAS D'INVALIDATION AU MONTAGE. `App.jsx` monte la vue Cité en
+  // `{activeView === 'city' && <CityView/>}` : quitter l'onglet la DÉMONTE, y
+  // revenir rappelle ici. Les cuissons (sol en pyramide, quais en tuiles) sont
+  // tenues par leurs modules, survivent au démontage et se gardent par leur clé
+  // de contenu ; les jeter ici coûtait ~1 s à 14 fps à chaque retour sur la
+  // carte (mesuré sur le téléphone de Raph, 2026-07-28). Les deux offscreen
+  // plein écran qui se réutilisaient ici sont partis le 2026-10-01.
   // Préchargement des sprites d'habitation dès le MONTAGE (avant le 1er paint / bake) : les
   // PNG démarrent tout de suite → pixelHouseReady vrai à la 1re apparition d'un bâtiment,
   // donc pas de repli procédural visible à l'achat. Band de la save = couvre une ouverture
@@ -2021,17 +1923,10 @@ function initCityMap(canvas, options = {}) {
       // SAISON : un ENTIER, jamais de valeur continue (cf. seasonMode.js). Elle
       // entre dans la clé du bake du sol, donc chaque cran coûte une recuisson :
       // c'est la raison du cycle très lent, et de l'absence de fondu.
-      {
-        const prevSeason = CM.season;
-        CM.season = currentSeason();
-        // Le sol suit par sa CLÉ de bake ; les HABITATIONS, elles, sont cuites
-        // dans CM.tileCanvas dont la clé ignore la saison — depuis la neige des
-        // toits (snowRoof.js) elles en dépendent, il faut donc les rejeter à la
-        // main au cran. Sans ça la ville gardait ses toits d'été jusqu'à un
-        // re-bake sans rapport (achat, zoom, pan) : exactement le « flash de
-        // l'ancien sprite » que preloadHouseSprites a déjà eu à combattre.
-        if (prevSeason !== undefined && prevSeason !== CM.season) CM._tileBake = null;
-      }
+      // Les HABITATIONS sont peintes en direct (iso/isoLivePaint.js) et leur
+      // variante neigeuse a sa propre entrée de cache (pixelHouses.js, « :w ») :
+      // rien à rejeter à la main au cran.
+      CM.season = currentSeason();
       // MÉTÉO : une seule source par frame, lue par toutes les couches (pluie,
       // assombrissement, densité de foule). En capture, temps dégagé : un cliché
       // est déterministe, l'horloge murale ne décide pas s'il y pleut.
@@ -2306,7 +2201,7 @@ function initCityMap(canvas, options = {}) {
     // qu'un `import('/src/game/map/layout.js')` depuis la console/outils peut
     // renvoyer une COPIE fraîche sans layout/forceFrame — piloter via __CM.
     window.__CM = CM;
-    window.__cityRecompute = () => { CM.layout = null; CM.centered = false; cmInvalidateBakes(); };
+    window.__cityRecompute = () => { CM.layout = null; CM.centered = false; solInvalidate('all'); };
     // TISSU URBAIN : part de voirie / bâti / vide, maille, taille des îlots.
     // C'est le tableau de bord du chantier « micmacs de routes »
     // (docs/PLAN-TISSU-URBAIN.md) : chaque lot se juge dessus AVANT de se juger
@@ -2431,7 +2326,7 @@ function initCityMap(canvas, options = {}) {
     // `setBridgeOnLoad` était déjà mort : plus personne ne l'importait.
     // Vérif états de déclin du fleuve : force le drapeau d'effondrement (l'usure se
     // force via window.__state.timeWear = 0.8). Remettre __collapse(false) après.
-    window.__collapse = (on) => { setCollapseInProgress(!!on); cmInvalidateBakes(); };
+    window.__collapse = (on) => { setCollapseInProgress(!!on); solInvalidate('all'); };
     window.__cityBand = () => (CM.layout && CM.layout.counts) ? CM.layout.counts.eraBand : null;
     // Vérif véhicules : force le type de tous les véhicules présents (attelages, etc.).
     // __forceVehicles('chariot') | 'wagon' | 'caravan' ... ; __forceVehMix() = un de chaque.
