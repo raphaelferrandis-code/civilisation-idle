@@ -31,8 +31,11 @@ for (let y = 0; y < src.height; y += 1) for (let x = 0; x < src.width; x += 1) {
   if (x < x0) x0 = x; if (x > x1) x1 = x; if (y < y0) y0 = y; if (y > y1) y1 = y;
 }
 if (x1 < 0) { console.error('image vide'); process.exit(1); }
+// Un débord de quelques pixels (un anneau qui frôle le bord) est rogné à parts égales ;
+// au-delà, c'est une génération ratée, on refuse.
+if (x1 - x0 + 1 > W) { const cut = x1 - x0 + 1 - W; if (cut > 6) { console.error('encre trop large', x1 - x0 + 1); process.exit(1); } x0 += Math.floor(cut / 2); x1 -= Math.ceil(cut / 2); }
+if (y1 - y0 + 1 > H) { console.error('encre trop haute', y1 - y0 + 1); process.exit(1); }
 const iw = x1 - x0 + 1, ih = y1 - y0 + 1;
-if (iw > W || ih > H) { console.error(`encre ${iw}×${ih} trop grande pour ${W}×${H}`); process.exit(1); }
 
 const out = new PNG({ width: W, height: H });
 const dx = Math.round((W - 1) / 2 - (x0 + x1) / 2), dy = (H - 1) - y1;

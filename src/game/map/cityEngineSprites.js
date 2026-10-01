@@ -82,17 +82,24 @@ function palierAsset(cle) {
 export const COSMIC_SCENE_KEYS = new Set([
   'cosmic-schools-7', 'cosmic-think_tanks-7', 'cosmic-libraries-7', 'cosmic-observatories-7',
   'cosmic-ministries-7', 'cosmic-scribes-7', 'cosmic-storytellers-7', 'cosmic-academies-7',
-  'cosmic-ancestral_cult-7', 'cosmic-universities-7', 'cosmic-printing_houses-7',
-  'cosmic-archive_grids-7', 'cosmic-sewers-7', 'cosmic-courthouses-7', 'cosmic-public_works-7',
-  'cosmic-ruin_architects-7', 'cosmic-bureaucracy-7', 'cosmic-watch-7',
+  'cosmic-ancestral_cult-7', 'cosmic-universities-7', 'cosmic-printing_houses-7', 'cosmic-archive_grids-7',
+  'cosmic-sewers-7', 'cosmic-courthouses-7', 'cosmic-public_works-7', 'cosmic-ruin_architects-7',
+  'cosmic-bureaucracy-7', 'cosmic-watch-7', 'cosmic-schools-8', 'cosmic-think_tanks-8',
+  'cosmic-libraries-8', 'cosmic-observatories-8', 'cosmic-ministries-8', 'cosmic-scribes-8',
+  'cosmic-storytellers-8', 'cosmic-academies-8', 'cosmic-ancestral_cult-8', 'cosmic-universities-8',
+  'cosmic-printing_houses-8', 'cosmic-archive_grids-8', 'cosmic-sewers-8', 'cosmic-courthouses-8',
+  'cosmic-public_works-8', 'cosmic-ruin_architects-8', 'cosmic-bureaucracy-8', 'cosmic-watch-8',
 ]);
 // Les scènes du STYLE NACRE (savoir/infra ci-dessus + les familles économie, dont
 // l'image `<famille>-cosmic-<bande>` a été redessinée en place). Leur verre s'allume la
 // nuit (sceneEmissive.js) et leur halo de jour se fait discret : un nuage de lumière
 // jade posé sur un bâtiment blanc en plein midi se lisait comme une brume.
 export const COSMIC_PEARL = new Set([
-  'market-cosmic-7', 'forager-cosmic-7', 'granary-cosmic-7', 'caravan-cosmic-7', 'guild-cosmic-7',
-  'mint-cosmic-7', 'bank-cosmic-7', 'port-cosmic-7', 'mill-cosmic-7',
+  'market-cosmic-7', 'forager-cosmic-7', 'granary-cosmic-7', 'caravan-cosmic-7',
+  'guild-cosmic-7', 'mint-cosmic-7', 'bank-cosmic-7', 'port-cosmic-7',
+  'mill-cosmic-7', 'market-cosmic-8', 'forager-cosmic-8', 'granary-cosmic-8',
+  'caravan-cosmic-8', 'guild-cosmic-8', 'mint-cosmic-8', 'bank-cosmic-8',
+  'port-cosmic-8', 'mill-cosmic-8',
 ]);
 const isPearl = (k) => COSMIC_PEARL.has(k) || COSMIC_SCENE_KEYS.has(k);
 export function cosmicSceneKey(kind, band) {

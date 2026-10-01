@@ -73,8 +73,11 @@ export const VARIANTS_HOUSE = [
   // TOUR-JARDIN (terrasses plantées, éolienne), la MAISON-DÔME (trois coupoles, bassin),
   // la GRAPPE DE CAPSULES (cellules empilées, portes colorées). Elles sont plus BASSES que
   // les tours : c'est la gamme de hauteurs qui manquait à ces villes de monolithes.
-  { base: ["tower", "megablock", "arcologyhome", "gardentower", "domehome", "podstack", "gardentower", "podstack"],
-    poor: ["megablock", "podstack", "tower", "podstack", "domehome"],
+  // ⚠ Rééquilibré le jour même : la grappe de capsules, deux fois dans `base` et dans
+  // `poor`, couvrait des quartiers entiers (capture de la bande 7) — la répétition qu'on
+  // venait de chasser. Une fois par liste ; le dôme, bas et rond, prend sa place.
+  { base: ["tower", "megablock", "arcologyhome", "gardentower", "domehome", "podstack", "gardentower", "domehome"],
+    poor: ["megablock", "podstack", "tower", "domehome", "domehome"],
     rich: ["arcologyhome", "gardentower", "domehome", "tower", "gardentower"] }
 ];
 
