@@ -709,6 +709,28 @@ export const urbanTileAlpha = (type) => {
   const v = URBAN_TILE_A[type];
   return v == null ? URBAN_DETAIL.tileA : v;
 };
+// ── L'HIVER DE LA BIBLE DES SURFACES (même nuit) ─────────────────────────────
+// Depuis que les tuiles de sol sont DOSÉES sur un aplat (0,35 pour le pavé, 0,5 pour
+// le béton), la neige cuite dans leurs variantes d'hiver ne passait plus qu'au tiers : en
+// hiver la ville gardait son gravier beige et son béton gris, seuls les toits et les
+// terre-pleins blanchissaient (capture de contrôle, bandes 2 et 6). En hiver, donc :
+//   · l'aplat tire vers la NEIGE (toneMix) — vaut aussi pour la nacre cosmique, qui n'a
+//     pas de tuile d'hiver ;
+//   · une matière qui A sa tuile d'hiver la reprend au moins à `minDose` : c'est elle
+//     qui porte le dessin des congères et des traces.
+// La chaussée, elle, reste sombre : une rue dégagée lit d'autant mieux sur la neige.
+export const URBAN_WINTER = { snow: [228, 233, 238], toneMix: 0.55, minDose: 0.8 };
+export function urbanToneFor(band, winter) {
+  const t = urbanMatFor(band).tone;
+  if (!winter || !(URBAN_WINTER.toneMix > 0)) return t;
+  const k = URBAN_WINTER.toneMix;
+  return t.map((v, i) => Math.round(v + (URBAN_WINTER.snow[i] - v) * k));
+}
+// Dose de saison : `hasWinterTile` = la matière a une variante d'hiver (ISO_TILE_WINTER).
+export function urbanTileAlphaSeason(type, winter, hasWinterTile) {
+  const a = urbanTileAlpha(type);
+  return winter && hasWinterTile ? Math.max(a, URBAN_WINTER.minDose) : a;
+}
 export function urbanMatFor(band) {
   const b = URBAN_DETAIL.band != null ? URBAN_DETAIL.band : band;
   return URBAN_MATS[Math.max(0, Math.min(URBAN_MATS.length - 1, b | 0))];

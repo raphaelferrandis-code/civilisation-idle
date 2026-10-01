@@ -51,6 +51,16 @@ export const PLAZA_ERA_TONE = {
   antique: [208, 195, 174], medieval: [174, 166, 148], industrial: [190, 188, 182],
   modern: [172, 174, 174], cosmic: [184, 185, 184],
 };
+// L'HIVER DES PLACES (même nuit) : aucun dallage de place n'a de tuile d'hiver. Le sol du
+// quartier blanchit (URBAN_WINTER, isoGroundDetail), la place restait en pierre sèche — un
+// carré d'été au milieu de la neige. Son aplat tire vers la neige ; la tuile dosée dessus
+// garde le dessin des pierres, qui lit alors comme un dallage saupoudré.
+export const PLAZA_WINTER = { snow: [228, 233, 238], mix: 0.5 };
+export function plazaToneFor(era, winter) {
+  const t = PLAZA_ERA_TONE[era] || PLAZA;
+  if (!winter || !(PLAZA_WINTER.mix > 0)) return t;
+  return t.map((v, i) => Math.round(v + (PLAZA_WINTER.snow[i] - v) * PLAZA_WINTER.mix));
+}
 // Bas-fond CLAIR le long des rives (drawIsoRiver) : 3 bandes CLAIR (bord) → profond
 // (centre), « l'eau est moins profonde au bord » (retour Raph 2026-07-16 :
 // « remets un liseré bleu clair sur les bords du fleuve »). Teintes = bleus gris

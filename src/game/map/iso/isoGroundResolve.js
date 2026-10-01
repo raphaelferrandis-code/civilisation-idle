@@ -31,7 +31,8 @@ import { ROAD_DETAIL, roadTone } from './isoRoad.js';
 import { BEACH, ISO_TILE_KEYS, plazaEraTileKey } from './isoGroundTiles.js';
 import { isBeachBankCell, beachPortCells } from './isoBeachCells.js';
 import { WONDER_GROUND, wonderGroundSet } from './isoWonderGround.js';
-import { FRONTIER, frontierFlip, urbanMatFor } from './isoGroundDetail.js';
+import { FRONTIER, frontierFlip, urbanMatFor, urbanToneFor } from './isoGroundDetail.js';
+import { WINTER } from '../seasonMode.js';
 import { plazaEraForBand, isoPlazaSceneCoversGround, plazaLawnAtCell } from './isoPlaza.js';
 import { LISIERE, makeLisiere } from './isoLisiere.js';
 
@@ -52,7 +53,9 @@ export function makeGroundBake(ISO_GROUND_LOD) {
     ? { n: 0, flat: 0, tiles: 0, grass: 0, cells: 0, fringe: 0, roads: 0, median: 0, total: 0, t0: performance.now() }
     : null;
   const band = (L.counts && L.counts.eraBand) | 0;
-  const mat = urbanMatFor(band), urb = mat.tone;
+  // Aplat urbain de SAISON (bible des surfaces, hiver) : même ton l'été, tiré vers la
+  // neige l'hiver — l'épaulement des routes et la lisière le suivent, ils lisent `urb`.
+  const mat = urbanMatFor(band), urb = urbanToneFor(band, CM.season === WINTER);
   const road = roadTone(ROAD_DETAIL.band != null ? ROAD_DETAIL.band : band);   // honore le forçage d'aperçu
   const riverCells = (L.river && L.river.present && L.river.cells) || null;
   const roadMap = L.roadMap;

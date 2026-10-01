@@ -25,15 +25,15 @@
 import { CM, cmHash } from '../layout.js';
 import { worldToScreen } from './projection.js';
 import { WINTER } from '../seasonMode.js';
-import { PLAZA, PLAZA_ERA_TONE, PLAZA_GROUND, rgb } from './isoPalette.js';
+import { PLAZA_GROUND, plazaToneFor, rgb } from './isoPalette.js';
 import { DIRT_TONE } from './isoTissu.js';
 import { WONDER_GROUND } from './isoWonderGround.js';
 import { TERRAIN, terrainZ } from './isoTerrain.js';
 import { diamondPath } from './isoQuad.js';
-import { beachTone, ensureIsoTileKey, blitIsoTileKey } from './isoGroundTiles.js';
+import { ISO_TILE_WINTER, beachTone, ensureIsoTileKey, blitIsoTileKey } from './isoGroundTiles.js';
 import {
   GRASS_DETAIL, GRASS_FRINGE, GRASS_TILE_UNDER, GRASS_TILE_UNDER_WINTER,
-  SEASON_GRASS, URBAN_DETAIL, drawUrbanDetail, smoothNoise, urbanTileAlpha,
+  SEASON_GRASS, URBAN_DETAIL, drawUrbanDetail, smoothNoise, urbanTileAlphaSeason,
 } from './isoGroundDetail.js';
 
 export function sweepIsoGroundCells(bake, resolve, out) {
@@ -60,7 +60,7 @@ export function sweepIsoGroundCells(bake, resolve, out) {
       ? (ready2 ? (CM.season === WINTER ? GRASS_TILE_UNDER_WINTER : GRASS_TILE_UNDER) : SEASON_GRASS)
       : k2 === 'dirt' ? DIRT_TONE : (k2 === 'sand' || k2 === 'shingle') ? beachTone(k2)
         // Une place garde SON ton sous sa tuile dosée, bord arrondi compris.
-        : k2 === 'plaza' ? (PLAZA_ERA_TONE[plazaEra] || PLAZA) : urb;
+        : k2 === 'plaza' ? plazaToneFor(plazaEra, CM.season === WINTER) : urb;
     ctx.save();
     ctx.beginPath();
     clipRects(rects);
@@ -83,7 +83,7 @@ export function sweepIsoGroundCells(bake, resolve, out) {
     if (k2 === 'urban' && URBAN_DETAIL.on && !HARD) {
       let drew = false;
       if (URBAN_DETAIL.tiles && mat.tile) {
-        const ta = urbanTileAlpha(mat.type);
+        const ta = urbanTileAlphaSeason(mat.type, CM.season === WINTER, !!ISO_TILE_WINTER[mat.tile]);
         if (ta < 1) ctx.globalAlpha = ta;
         drew = blitIsoTileKey(ctx, mat.tile, p.x, p.y, hw, mir, cellH);
         ctx.globalAlpha = 1;
@@ -105,7 +105,7 @@ export function sweepIsoGroundCells(bake, resolve, out) {
       const isBridge = !!(cell && cell.roadSurface === 'bridge');
       const isWater = !!(riverCells && riverCells.has(key));
       const kind = kindAt(gx, gy);
-      const tone = kind === 'plaza' ? (PLAZA_ERA_TONE[plazaEra] || PLAZA) : kind === 'wonder' ? WONDER_GROUND.tone
+      const tone = kind === 'plaza' ? plazaToneFor(plazaEra, CM.season === WINTER) : kind === 'wonder' ? WONDER_GROUND.tone
         : kind === 'grass' ? SEASON_GRASS : kind === 'dirt' ? DIRT_TONE
           : kind === 'shingle' ? beachTone('shingle')
             : kind === 'sand' ? beachTone('sand') : urb;
@@ -241,7 +241,7 @@ export function sweepIsoGroundCells(bake, resolve, out) {
           // S2 : la dose vaut pour TOUTES les matières, plus seulement la terre.
           // À 1 (défaut de tous les types sauf terre) on repasse à l'identique
           // par le chemin d'origine — aucun globalAlpha posé, aucun coût.
-          const ta = urbanTileAlpha(mat.type);
+          const ta = urbanTileAlphaSeason(mat.type, CM.season === WINTER, !!ISO_TILE_WINTER[mat.tile]);
           const jit = mat.type === 'earth' && URBAN_DETAIL.tileJit
             ? smoothNoise(gx, gy, 4, 'peb') * URBAN_DETAIL.tileJit : 0;
           if (ta < 1 || jit) {
