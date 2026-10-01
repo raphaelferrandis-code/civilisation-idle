@@ -431,6 +431,36 @@ les scènes moteur tardives ; les cours en pelouse dès la bande 6.
   autant que ses monuments : la lumière d'ère des maisons est dosée par bande
   (`EMISSIVE_HOUSE` : 0,45 jade, 1 or, 0,7 violet), les scènes moteur gardent tout.
 
+**2026-10-01, nuit suivante — « refais une passe sur tous les bâtiments, quitte à
+régénérer, pour qu'ils soient plus beaux et correspondent davantage à chaque ère ».**
+Inventaire par stade (stade 0 = bandes 0-1, stade 1 = 2-3, romain = 4, stade 2 = 5,
+stade 3 = 6) sur planches. Les maisons tenaient (déjà reprises avec Raph) ; l'écart était
+dans les bâtiments-moteur :
+- **Médiéval** (`a76e6d1`, 20 institutions) : des cottages à toit orange, presque tous
+  pareils — une bibliothèque ne se distinguait pas d'une maison. Palais fortifié, hôtel de
+  ville à beffroi, halle de guilde, grange dîmière, abbaye à rosace, collège gothique…
+- **Néolithique** (`87f66c3`, 12) : un village MÉDIÉVAL (colombages, tuiles rouges, une
+  grange rouge à l'américaine) au campement. Bois brut, chaume, torchis, menhirs, ocre.
+  Les scènes validées par Raph (cueilleurs, entrepôt, caravanes, marché, guilde, port,
+  moulin, conteurs, cercle sacré) sont gardées.
+- **XIXe et métropole** (`32cacb6`, 9) : la grange rouge de l'entrepôt, les maisons de
+  ville de la chambre de commerce et du ministère ; les dernières boîtes de la bande 6.
+- **Romain** (bande 4) : onze petites maisons à tuiles deviennent des institutions
+  (curie, tabularium, stoa, école à péristyle, collège, monnaie…), quantifiées à 20
+  teintes comme le reste de la série (« pas trop de teintes »).
+- Procédé : UNE génération 8 directions par bâtiment (la vue sud seule sort DE FACE — 2
+  essais), 256×232, image de style d'époque (manoir, loge de guilde, collège de brique,
+  basilique romaine), qui sert la base (cadre exact) ET la grande halle : base et halle
+  sont le même bâtiment, coût divisé par deux. `installPasse.cjs` / `installAll.cjs`
+  (scratchpad) ; IDs dans `scripts/data/pixellab-scenes-tardives.json` (« passe »).
+- ⚠ **Fond opaque, 2e cas** (le chantier médiéval à grue) : `fetchStageScene.mjs` le
+  retire désormais seul (coins de la boîte d'encre opaques et de même couleur → aplat
+  retiré par diffusion, poches enfermées de la couleur EXACTE, liseré).
+- ⚠ `snowRoof.test.js` prenait la grange dîmière comme spécimen de la butée de neige ;
+  spécimen changé pour la basilique de justice romaine (×1,65).
+- Laissés tels quels : maisons, merveilles, scènes à véhicule (chariot, camion), quais,
+  pont, aqueducs, égouts (refaits à la demande de Raph en juillet), tours (veille, moulin).
+
 ## 9. La petite vie (lot 6, demandé le 2026-10-01)
 
 > « Tu peux refaire tous les petits éléments de vie, oiseaux, poissons, feuilles,
