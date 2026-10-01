@@ -68,14 +68,15 @@ export function plazaToneFor(era, winter) {
 // window.__waterShore({ on, maxBand, w1,w2,w3, a1,a2,a3, c1,c2,c3, lodMerge,lodW,lodA,lodC }).
 //
 // ⚠ EXCLUSION MUTUELLE AVEC LE QUAI, ET SON TROU. Dès la bande 2 la berge
-// maçonnée porte SON propre bas-fond au pied du mur (shoreLine de drawRun) : les
+// maçonnée porte SON propre bas-fond au pied du mur (iso/isoQuay.js) : les
 // deux ensemble faisaient deux lignes claires parallèles, d'où `maxBand`. Mais ce
 // relais du quai est sous `if (wallOn && !lod)` — il DISPARAÎT au dézoom. Mesuré
 // sur les pixels de bord du ruban : bande 1 → 25,3 % de bord clair au repos comme
 // en LOD, bande 4 → 12,5 % au repos mais 10,0 % en LOD. Raph veut le liseré
 // « tout le temps » (2026-07-22), donc on reprend la main quand le quai lâche :
-// `lodFallback` rallume le bas-fond en LOD à toutes les ères. L'exclusion reste
-// entière au repos — jamais les deux à la fois, jamais deux lignes parallèles.
+// c'était `lodFallback`, qui rallumait le bas-fond en LOD. ⚠ RETIRÉ le 2026-10-01 :
+// le quai en tuiles (iso/isoQuay.js) garde son mur et son liseré à tous les zooms,
+// le relais aurait fait deux lignes parallèles. L'exclusion est donc entière.
 export const waterShoreTune = {
   on: true,
   // SUIT LE CORPS D'EAU (Raph, 2026-07-30). Depuis les coloris pilotés par l'état
@@ -99,7 +100,6 @@ export const waterShoreTune = {
   // Ce n'est pas un avis qui a changé, c'est la scène.
   islands: true,
   maxBand: 1,                                              // bande d'ère max (au-delà : bas-fond du quai)
-  lodFallback: true,                                       // en LOD le quai ne trace rien → on reprend la main
   w1: 18, w2: 10, w3: 4.5,                                 // largeurs (× zoom)
   a1: 0.45, a2: 0.58, a3: 0.75,                            // alphas (bord = plus opaque)
   c1: '120,160,175', c2: '150,192,205', c3: '190,224,232', // bleus clairs, du doux au liseré

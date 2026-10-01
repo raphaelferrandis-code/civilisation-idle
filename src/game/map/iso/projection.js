@@ -84,7 +84,7 @@ if (typeof window !== "undefined") {
     if (per === false || per === 0) ZOOM_QUANT.on = false;
     else { ZOOM_QUANT.on = true; if (typeof per === "number" && per > 0) ZOOM_QUANT.per = per | 0; }
     // Le pas de grille change → les bakes du sol sont périmés.
-    solInvalidate('all'); CM._tileBake = null; CM._quayBake = null;
+    solInvalidate('all'); CM._tileBake = null;
     return { ...ZOOM_QUANT };
   };
 }

@@ -24,7 +24,8 @@ import { CM, cmHash, ROAD_E, ROAD_N, ROAD_S, ROAD_W } from '../layout.js';
 import { worldToScreen, visibleCellBounds } from './projection.js';
 import { paintFlameGlows } from '../flameGlow.js';
 import { paintLightLayer } from '../lightLayer.js';
-import { ensureQuayGate } from '../quaysAndRiot.js';
+import { quayWallTiles, quayWallTune } from '../quaysAndRiot.js';
+import { quayLampList } from './isoQuay.js';
 import { isoArt } from './isoArt.js';
 import { builtCells, builtNear, COUR, courOf } from './isoTissu.js';
 import { isoRoadHalfW, ROAD_DETAIL, SIDEWALK_ISO } from './isoRoad.js';
@@ -36,7 +37,7 @@ import { STREET_PROPS, computeStreetProps } from './isoStreetProps.js';
 import { WINTER } from '../seasonMode.js';
 import { SEASON_GRASS } from './isoGroundDetail.js';
 import { rgb } from './isoPalette.js';
-import { vieHalo } from './isoVie.js';
+import { vieHalo, vieK } from './isoVie.js';
 
 // ── NUIT : voile bleu puis halos des lampadaires ────────────────────────────
 // Lit CM.nightF (cycle jour/nuit du runtime, forcé par les captures). Lumières
@@ -67,7 +68,10 @@ export function isoLamps(L, band) {
   // plus ici. La clé de cache porte leur nombre : changer __plaza({mode}) ou une
   // recette doit rallumer ou éteindre la place sans recharger la page.
   const plazaLamps = isoPlazaLamps(L, band);
-  const key = CM.layoutRecomputeAt + ':' + plazaLamps.length;
+  // Les RÉVERBÈRES DES QUAIS (iso/isoQuay.js) : même format, même dessin par ère —
+  // ils remplacent les points lumineux sans mât de l'ancien quai.
+  const quayLamps = quayLampList(L, band);
+  const key = CM.layoutRecomputeAt + ':' + plazaLamps.length + ':q' + quayLamps.length;
   if (_isoLampCache.key === key && _isoLampCache.lamps) return _isoLampCache.lamps;
   // ON N'ÉCLAIRE PAS LE VIDE. Même règle que le trottoir : une voie sans aucune
   // façade sur ses huit voisines n'est pas une rue, et un mât allumé au milieu
@@ -76,7 +80,7 @@ export function isoLamps(L, band) {
   // reste testable sans layout bâti.
   const lamps = computeIsoLamps(L, CM.TILE)
     .filter((lp) => builtNear(L, lp.gx, lp.gy))
-    .concat(plazaLamps);
+    .concat(plazaLamps, quayLamps);
   _isoLampCache = { at: CM.layoutRecomputeAt, key, lamps };
   return lamps;
 }
@@ -422,35 +426,20 @@ if (typeof window !== 'undefined') {
 }
 
 /* ── REFLETS NOCTURNES DE LA VILLE SUR L'EAU ──────────────────────────────────
- * Portage iso de `cityMapDrawCityReflections` (feu renderWorld.js, supprimé avec
- * le peintre top-down), qui existait
- * depuis toujours mais n'était appelé QUE par le chemin legacy
- * (cityMapRuntime.js) — le rendu iso ne l'a jamais eu. Même grammaire que les
- * lanternes de pont (drawIsoBridgeNight) : nappes lumineuses ancrées à la berge
- * urbaine, étirées vers le centre du fleuve, qui scintillent en décalé.
+ * Les réverbères des quais se reflètent dans le fleuve, la nuit (cf.
+ * drawLampWaterReflections ci-dessous). Posés APRÈS le voile de nuit, sur une eau
+ * que ce voile vient d'assombrir : le contraste est maximal là où il le faut.
  *
- * POURQUOI ÇA MARCHE LÀ OÙ LE GRAIN ÉCHOUE : c'est de la lumière ADDITIVE
- * (`lighter`) posée APRÈS le voile de nuit, sur une eau que ce même voile vient
- * d'assombrir. Le contraste est donc MAXIMAL exactement là où le moucheté se
- * faisait écraser. Un effet strictement nocturne n'a pas à lutter contre la nuit.
+ * ⚠ HISTOIRE (2026-10-01) : c'étaient des NAPPES lissées ancrées à la berge
+ * urbaine et étirées vers le centre du fleuve (portage du `cityMapDrawCityReflections`
+ * du peintre top-down), sous des lampes de quai qui n'étaient que des points sans
+ * mât. Raph : « dans les reflets sur l'eau il reste les lumières des quais qui
+ * dénotent ». Retirées avec l'ancien quai, après son OK sur la planche avant/après.
  *
  * ⚠ Ne pas confondre avec les « reflets sous la rive » du pixelRiver legacy,
- * ANNULÉS par Raph le 2026-07-02 : ceux-là étaient un lustrage permanent de la
- * berge, ceux-ci sont les lumières de la ville, la nuit seulement.
- *
- * Seule vraie adaptation : la PROJECTION. Le legacy calcule l'angle de la nappe
- * depuis la normale MONDE (`atan2(n.ny, n.nx)`), ce qui suppose que l'écran
- * conserve les angles — faux en iso. On projette donc DEUX points monde (ancrage
- * à la berge, pointe vers le centre) et on déduit angle et longueur À L'ÉCRAN.
+ * ANNULÉS par Raph le 2026-07-02 : un lustrage permanent de la berge.
  * ------------------------------------------------------------------------- */
-// `bandMix` : part de la teinte du CORPS D'EAU dans le reflet (Raph, 2026-07-30 —
-// « fais suivre les reflets au coloris »). ⚠ Correction d'une erreur que j'avais
-// écrite : ces reflets ne sont PAS bleu-gris ardoise, ce sont les LAMPES DE QUAI
-// de l'ère (chaud, cyan, vert néon…). Les repeindre entièrement à la couleur de
-// l'eau effacerait cette lecture par ère. On les tire donc vers la teinte de
-// l'eau sans les y noyer : un reflet sur de l'azur prend un cast bleu, ce qui est
-// aussi ce que fait la vraie eau. 0 = lampe pure, 1 = eau pure.
-export const cityReflectionTune = { on: true, gain: 1, stride: 2, reach: 1, bandMix: 0.35 };
+export const cityReflectionTune = { on: true, gain: 1 };
 if (typeof window !== 'undefined') window.__cityReflect = cityReflectionTune;
 function drawIsoCityReflections(ctx, now) {
   const RT = cityReflectionTune;
@@ -460,66 +449,79 @@ function drawIsoCityReflections(ctx, now) {
   const L = CM.layout, rv = L && L.river;
   if (!rv || !rv.present || !rv.samples) return;
   const band = L.counts ? (L.counts.eraBand | 0) : 0;
-  if (band <= 1) return;                                     // campement : pas de ville riveraine
-  // Reflets des bâtiments riverains : l'Usure ne les coupe plus non plus
-  // (Raph, 2026-07-27). Seul l'effondrement en cours éteint la surface.
+  if (band <= 1) return;                                     // campement : pas de quai
+  // L'Usure ne coupe pas les reflets (Raph, 2026-07-27) ; seul l'effondrement en
+  // cours éteint la surface.
   if (CM.collapseAt) return;
-  ensureQuayGate();
-  const g = CM.quayGate;
-  if (!g) return;
-  const sm = rv.samples, n0 = sm.length, T = CM.TILE;
-  const t = now || 0;
-  // Teintes reprises telles quelles du legacy (accordées aux lampes de quai),
-  // puis tirées vers la teinte de l'eau courante (cf. bandMix).
-  const lamp = band <= 5 ? '255,210,140'
-    : band === 6 ? '150,225,255'
-      : band === 7 ? '90,240,180' : band === 8 ? '255,205,120' : '170,140,255';
-  const glow = (() => {
-    const w = CM.waterShore && CM.waterShore.wash;
-    const k = Math.max(0, Math.min(1, RT.bandMix != null ? RT.bandMix : 0));
-    if (!w || k <= 0) return lamp;
-    const a = lamp.split(',').map(Number), b = w.split(',').map(Number);
-    return a.map((v, i) => Math.round(v + (b[i] - v) * k)).join(',');
-  })();
-  const nAt = (i) => {
-    const o = sm[Math.max(0, i - 1)], q = sm[Math.min(n0 - 1, i + 1)];
-    let tx = q.x - o.x, ty = q.y - o.y; const tl = Math.hypot(tx, ty) || 1;
-    return { nx: -ty / tl, ny: tx / tl };
-  };
   ctx.save();
-  riverRibbonPath(ctx, sm, T);
-  ctx.clip(WATER_FILL);                                                // les nappes restent SUR l'eau
-  ctx.globalCompositeOperation = 'lighter';
-  const STRIDE = Math.max(1, RT.stride | 0);
-  for (let si = 0; si < 2; si += 1) {
-    const side = si ? -1 : 1, gate = si ? g.minus : g.plus;
-    if (!gate) continue;
-    for (let i = 0; i < n0; i += STRIDE) {
-      if (!gate[i]) continue;                                // berge non urbaine : rien à refléter
-      const s = sm[i], n = nAt(i);
-      const shimmer = 0.45 + 0.55 * Math.sin(t / 1300 + i * 0.9 + si * 2.1);
-      const a = night * (0.10 + 0.07 * (i % 3)) * Math.max(0, shimmer) * RT.gain;
-      if (a < 0.012) continue;
-      const reach = s.hw * (0.50 + 0.18 * Math.sin(t / 2000 + i * 0.5)) * RT.reach;
-      const pB = worldToScreen((s.x + side * n.nx * s.hw) * T, (s.y + side * n.ny * s.hw) * T);
-      const pT = worldToScreen((s.x + side * n.nx * (s.hw - reach)) * T, (s.y + side * n.ny * (s.hw - reach)) * T);
-      const dx = pT.x - pB.x, dy = pT.y - pB.y;
-      const RL = Math.max(3, Math.hypot(dx, dy));
-      const cx = (pB.x + pT.x) / 2, cy = (pB.y + pT.y) / 2;
-      if (cx < -RL || cx > CM.cw + RL || cy < -RL || cy > CM.ch + RL) continue;
-      ctx.save();
-      ctx.translate(cx, cy);
-      ctx.rotate(Math.atan2(dy, dx));                        // angle ÉCRAN, pas monde
-      ctx.scale(1, 0.42);                                    // fin le long de la rive
-      const grad = ctx.createRadialGradient(0, 0, 0, 0, 0, RL);
-      grad.addColorStop(0, `rgba(${glow},${a.toFixed(3)})`);
-      grad.addColorStop(1, `rgba(${glow},0)`);
-      ctx.fillStyle = grad;
-      ctx.beginPath(); ctx.arc(0, 0, RL, 0, Math.PI * 2); ctx.fill();
-      ctx.restore();
+  riverRibbonPath(ctx, rv.samples, CM.TILE);
+  ctx.clip(WATER_FILL);                                      // les reflets restent SUR l'eau
+  drawLampWaterReflections(ctx, now, L, band, night * (RT.gain != null ? RT.gain : 1));
+  ctx.restore();
+}
+
+// ── LE REFLET D'UNE LAMPE DANS L'EAU, AU PIXEL (2026-10-01) ──────────────────
+// Raph : « dans les reflets sur l'eau il reste les lumières des quais qui dénotent ».
+// L'ancien reflet était une NAPPE lissée, couchée en travers du fleuve et étirée vers
+// son milieu, sous des lampes qui n'existaient pas (les quais n'avaient que des points
+// lumineux). Or une lumière se reflète TOUT DROIT vers le spectateur : son image est
+// sous elle, à la même distance sous la surface que sa tête au-dessus — et la ride
+// l'étire en une colonne de petits traits qui tremblent.
+// Donc : pour chaque réverbère de quai ALLUMÉ dont l'eau est DEVANT (rive d'en face),
+// une colonne de traits d'un pixel d'art de haut, 1 à 4 de large, qui part du pied du
+// mur et dépasse un peu le point miroir de la tête ; plus vifs près du miroir, qui
+// changent de largeur et s'éteignent par instants. Après le voile de nuit, et PEINTS
+// (pas additifs) : en « lighter » sur l'eau bleue, l'ambre virait au gris-blanc.
+// Couleur = celle de la flamme (K.lig.col), sans la tirer vers l'eau.
+function drawLampWaterReflections(ctx, now, L, band, night) {
+  const K = isoLampLightFrame(L);
+  if (!K) return;
+  const lamps = quayLampList(L, band);
+  if (!lamps.length) return;
+  const T = CM.TILE, z = CM.cam.zoom, k = vieK(), dpr = CM.dpr || 1;
+  const drop = quayWallTiles(band) * quayWallTune.heightK * T * z;
+  const t = now || 0;
+  const h = (a, b, c) => {
+    let n = (a | 0) * 374761393 + (b | 0) * 668265263 + (c | 0) * 982451653;
+    n = Math.imul(n ^ (n >>> 13), 1274126177);
+    return ((n ^ (n >>> 16)) >>> 0) / 4294967296;
+  };
+  const snap = (v) => Math.round(v * dpr) / dpr;
+  const col = K.lig.col;
+  ctx.globalCompositeOperation = 'source-over';
+  for (const lp of lamps) {
+    if (!lp.wbel || !lampLit(lp, K)) continue;
+    const p = worldToScreen(lp.wx, lp.wy);
+    if (p.x < -40 || p.x > CM.cw + 40 || p.y < -80 || p.y > CM.ch + 200) continue;
+    const boxL = p.x - K.wpx * K.m.footXf, boxT = p.y - K.hpx * K.m.footYf;
+    const hx = boxL + K.lig.hx * K.wpx, hy = boxT + K.lig.hy * K.hpx;
+    const e = worldToScreen(lp.ex, lp.ey);
+    const waterY = e.y + drop;                           // la surface, au pied du mur
+    const reflY = waterY + Math.max(4, waterY - hy);     // le miroir de la tête
+    const y0 = waterY + 2 * k, y1 = reflY + 4 * k;
+    const fl = lampFlicker(K.lig.style, t, lampPhase(lp));
+    const span = Math.max(1, y1 - y0);
+    let row = 0;
+    for (let y = y0; y <= y1; y += k, row += 1) {
+      const near = Math.max(0, 1 - Math.abs(y - reflY) / span);
+      const cyc = Math.floor(t / 150 + row * 0.37 + (lp.s % 7));
+      const r1 = h(lp.s, row, cyc), r2 = h(lp.s + 1, row, cyc);
+      // Une ligne sur deux en moyenne, au hasard : des écarts irréguliers, pas une échelle.
+      if (r2 < 0.5) continue;
+      const w = 1 + Math.floor(r1 * (2 + 3 * near));     // 1 à 3, jusqu'à 5 au miroir
+      const ox = Math.round((h(lp.s + 2, row, cyc) - 0.5) * 2) * k;
+      const a = Math.min(0.9, night * K.gain * (0.3 + 0.6 * near) * (0.7 + 0.3 * r1) * fl);
+      if (a < 0.03) continue;
+      const x0 = Math.round(hx / k - w / 2) * k + ox;
+      // Les bouts d'un trait large à demi-teinte : un trait de pixel, pas un pavé.
+      ctx.fillStyle = `rgba(${col},${(w >= 3 ? a * 0.5 : a).toFixed(3)})`;
+      ctx.fillRect(snap(x0), snap(y), snap(w * k), snap(k));
+      if (w >= 3) {
+        ctx.fillStyle = `rgba(${col},${(a * 0.5).toFixed(3)})`;
+        ctx.fillRect(snap(x0 + k), snap(y), snap((w - 2) * k), snap(k));
+      }
     }
   }
-  ctx.restore();
 }
 
 export function drawIsoNight(now) {

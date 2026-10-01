@@ -571,3 +571,35 @@ Journal :
     demi-seconde chacune (point, petite croix, point), jour et beau temps seulement.
   - Contrôle de toutes les ères (bandes 0 à 9, vue de ville et vue du fleuve) : chaque
     couche s'allume où il faut ; cosmique (7+) sans bêtes, par choix.
+- **2026-10-01, soir — les quais et leurs reflets** (Raph : « dans les reflets sur l'eau il
+  reste les lumières des quais qui dénotent ; reprends les quais au passage, ils ne sont
+  pas beaux et très gourmands en ressources »). VALIDÉ par Raph sur la planche
+  avant/après (« je valide, retire l'ancien code ») : l'ancien tracé
+  (`cityMapDrawQuays`), son canevas plein écran, `quayGlide`, les aides de cuisson avec
+  marge (le quai était leur dernier client), les nappes de reflets et le relais LOD du
+  liseré du fleuve (`lodFallback`) sont retirés. Molette restante : `__quayArt`.
+  - DIAGNOSTIC : le reflet était une NAPPE lissée couchée en travers du fleuve
+    (`drawIsoCityReflections`), sous des « lampes » qui n'étaient que des points
+    lumineux sans mât ; et la brume de nuit (densité 0,35) faisait une trame de points.
+  - QUAIS (`iso/isoQuay.js`) : cuits en TUILES de 128 px d'espace d'art, ancrées au monde
+    (un pan, un zoom ne recuisent rien ; seules les tuiles qui contiennent du quai sont
+    posées) ; au pixel : bords seuillés, grain 2 px, trois assises à hauteur ABSOLUE (en
+    fraction du mur effilé elles convergeaient en rayures), joints, margelle, pied
+    mouillé, bornes, garde-corps à barreaux (bandes de fonte). Trois niveaux de détail
+    selon le zoom (≥ 0,7 / ≥ 0,35 / dessous) : ~100 tuiles en dézoom total, pas 1 500.
+    Hauteur du mur et largeur de promenade inchangées (le pont les lit). Le bord néon
+    des ères cosmiques reste tracé par l'ancien code (`cityMapDrawQuays(now, 'neon')`).
+  - RÉVERBÈRES : de vrais mâts (`quayLampList` → `isoLamps`), même dessin par ère que
+    les rues, un tous les 4 samples, en ville (`urbanSet` — « bâtiment voisin » n'en
+    laissait que 3), jamais sur un pont ni sur un bout effilé.
+  - REFLET : pour chaque réverbère allumé de la rive d'en face, une colonne de traits
+    d'un pixel d'art, de la couleur de SA flamme, PEINTS (en additif l'ambre virait au
+    gris-blanc sur l'eau bleue), du pied du mur au miroir de la tête. Brume : 0 en
+    pleine nuit (`mistOfDay`, test `mistOfDay.test.js`).
+  - PRIX, rendu logiciel (WARP, qualité « élevée », bande 4, nuit, 2 passes) : vue fixe
+    et pan ≈ égaux (z1 39,6 → 40,5 i/s ; z2 51,4 → 51,8) ; ZOOM continu z1 32,8 → 35,6,
+    z2 39,6 → 47,4 ; passe « quais » au profileur 0,37 → 0,05-0,11 ms, pics 18,4 → 1,6 ms
+    (l'ancien recuisait son canevas plein écran à chaque cran de zoom).
+  - ⚠ LOD : l'ancien quai lâchait son mur et son liseré au dézoom, et le fleuve
+    reprenait alors le bas-fond partout (`lodFallback`). Le nouveau les garde à tous
+    les zooms : le relais est retiré, sinon deux lignes claires se doublaient.

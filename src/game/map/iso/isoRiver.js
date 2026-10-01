@@ -886,7 +886,7 @@ export function stepWaterPhase(prev, t, fps, drift, spatial) {
 //           donc on l'éclaircissait encore. `dim` renverse ce voile et pose un
 //           soupçon d'ardoise par-dessus. Les autres coloris restent à 0.
 //   `shore` les 3 bandes du bas-fond, du halo doux au liseré vif (waterShoreTune).
-//   `quay`  le bas-fond que trace le MUR DE QUAI (renderWorld drawRun) dès la
+//   `quay`  le bas-fond que trace le MUR DE QUAI (iso/isoQuay.js) dès la
 //           bande 2 : sans lui, faire suivre le liseré n'aurait rien changé aux
 //           ères qui ont des quais, c'est-à-dire presque toutes.
 //   `wash`  la teinte vers laquelle on tire les reflets nocturnes de la ville.
@@ -1571,9 +1571,9 @@ export function drawIsoRiver(now) {
   {
     const S = waterShoreTune, len0 = pts.length;
     const bandW = (L.counts && L.counts.eraBand) | 0;
-    // Le quai ne trace son bas-fond qu'au REPOS (drawRun : `wallOn && !lod`).
-    // Partout ailleurs c'est nous, sinon la rive perd sa lecture pile quand on
-    // prend du recul. Fleuve RUINÉ exclu du relais : l'eau morte n'a ni tuile ni
+    // Le quai (iso/isoQuay.js, 2026-10-01) trace son bas-fond à TOUS les zooms —
+    // l'ancien le lâchait au dézoom (LOD), d'où un relais `lodFallback`, retiré
+    // avec lui : il doublait désormais le liseré du mur. Fleuve RUINÉ exclu du relais : l'eau morte n'a ni tuile ni
     // grain, lui ajouter un liseré clair la ferait paraître vivante.
     //
     // ⚠ « RUINÉ » NE COUVRE PLUS L'USURE (demande de Raph, 2026-07-27, en même
@@ -1605,12 +1605,9 @@ export function drawIsoRiver(now) {
       // Fleuve mort : comportement d'avant à l'identique. L'eau morte n'a ni tuile
       // ni grain, un liseré clair la ferait paraître vivante.
       runsPlus = runsMinus = quayEra ? [] : tout;
-    } else if (!quayEra || !quayWallTune.on || (CM.lodActive && S.lodFallback)) {
-      // Aucun quai (ère de campement, molette coupée) ou quai qui lâche son
-      // bas-fond au dézoom : le ruban porte tout.
+    } else if (!quayEra || !quayWallTune.on) {
+      // Aucun quai (ère de campement, molette coupée) : le ruban porte tout.
       runsPlus = runsMinus = tout;
-    } else if (CM.lodActive) {
-      runsPlus = runsMinus = [];               // lodFallback coupé : on ne reprend pas la main
     } else {
       ensureQuayGate();
       const g = CM.quayGate;

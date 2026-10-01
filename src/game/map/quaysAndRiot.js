@@ -8,8 +8,9 @@
 //
 // Ce qui subsiste, et que le peintre iso consomme :
 //   · LA BERGE MAÇONNÉE — `ensureQuayGate` (où le quai a le droit de courir,
-//     calculé une fois par layout), `cityMapDrawQuays` (le tracé), `quayGapRuns`
-//     et `quayWallTune` ;
+//     calculé une fois par layout), `quayGapRuns`, `quayWallTune`, et le style par
+//     ère (`quayStyleFor`, `quayWallColors`, `quayWallTiles`). Le DESSIN du quai est
+//     passé à iso/isoQuay.js (tuiles au pixel, 2026-10-01) ;
 //   · LA SIMULATION D'ÉMEUTE — `updateCrisis` et ses aides. Le DESSIN des
 //     émeutiers, lui, est passé à l'iso ; seul `drawRiotWeapon` est resté ici.
 //
@@ -36,8 +37,8 @@ import { worldToScreen as isoWorldToScreen } from './iso/projection.js';
 /* ============================================================================
  * PARTIE 1 — LA BERGE MAÇONNÉE
  *   Où le quai a le droit de courir (`ensureQuayGate`, calculé une fois par
- *   layout et lisible par tout le monde), puis son tracé (`cityMapDrawQuays`).
- *   Consommé par le peintre iso.
+ *   layout et lisible par tout le monde), et ses couleurs par ère. Le tracé est
+ *   dans iso/isoQuay.js.
  * ============================================================================ */
 
 // `baseColor` et `cmLitColor` vivaient ici. Leurs derniers lecteurs — le bloc LOD
@@ -47,13 +48,7 @@ import { worldToScreen as isoWorldToScreen } from './iso/projection.js';
 // identifiant, toujours vivant.)
 
 // Normale unitaire au sample i du fleuve (perpendiculaire à la tangente locale).
-// Helper partagé par le fleuve, le gating des quais et le tracé des quais.
-// ⚠ MESURÉ, NE PAS « OPTIMISER » : cette fonction est appelée ~15 000 fois par
-// frame par `pt()` (tracé des quais) et alloue un {nx,ny} à chaque appel — cible
-// évidente. Mémoriser le tableau des normales par layout a été implémenté puis
-// RETIRÉ le 2026-07-24 : A/B alterné dans les deux sens, 6,7 ms contre 6,5 ms,
-// soit rien. V8 élimine ces objets courts (analyse d'échappement). Le coût des
-// quais est la RASTÉRISATION des chemins, pas le JS autour.
+// Helper du gating des quais (calculé une fois par layout).
 function cmRiverNormalAt(sm, i) {
   const a = sm[Math.max(0, i - 1)], b = sm[Math.min(sm.length - 1, i + 1)];
   let tx = b.x - a.x, ty = b.y - a.y; const tl = Math.hypot(tx, ty) || 1;
@@ -62,8 +57,7 @@ function cmRiverNormalAt(sm, i) {
 
 // Gating des quais : pour chaque sample du fleuve et chaque rive (+n / -n), la berge
 // est-elle "urbaine" (proche d'une route) ? Calculé UNE fois par layout (clé =
-// CM.layoutRecomputeAt), jamais par frame. Sert au tracé (cityMapDrawQuays) ET à
-// retirer les roseaux sous le quai (boucle roseaux de cityMapDrawRiver).
+// CM.layoutRecomputeAt), jamais par frame. Sert au tracé (iso/isoQuay.js).
 // NB : gating PUR (urbain ou non) — la décision de dessiner dépend de l'ère/usure,
 // évaluée par frame côté appelant (pas figée dans ce cache).
 const QUAY_GATE_LAND = 1.0;   // échantillonnage : ~1 tuile au-delà du bord d'eau
@@ -134,7 +128,7 @@ function ensureQuayGate() {
   // `plus`/`minus` disent seulement « la berge est-elle urbaine ». Ce que le quai
   // TRACE vraiment, c'est autre chose : en mode `full` il court partout SAUF sous
   // le port, et dans les deux modes il s'efface là où le fleuve est trop étroit
-  // et aux deux extrémités. Ce calcul vivait dans cityMapDrawQuays, donc APRÈS le
+  // et aux deux extrémités. Ce calcul vivait dans l'ancien tracé du quai, donc APRÈS le
   // dessin du fleuve dans la frame — inutilisable par le bas-fond du ruban, qui a
   // besoin de savoir où le quai NE trace PAS pour prendre le relais (Raph,
   // 2026-07-30 : « il n'y a plus de quais ni de liseré, ça fait une coupe nette »).
@@ -229,12 +223,12 @@ export function quayGapRuns(mask, n, pad = 1) {
   return out;
 }
 
-// Réglage molette du BORD de quai (berge maçonnée, cf. drawRun dans cityMapDrawQuays) :
-// window.__quayWall({ on, full, heightK, joints, light }). Quai LIVE → pas de rebake.
+// Réglage molette du BORD de quai (berge maçonnée, iso/isoQuay.js) :
+// window.__quayWall({ on, full, heightK, light }) — la clé des tuiles du quai les porte.
 //   full: true  → berge maçonnée TOUT LE LONG de l'eau (2 rives, sauf port)
 //   full: false → seulement le long des berges URBAINES (proches d'une route)
 //   light: 0..1 → éclaircit la pierre (fondu vers le blanc) — dessus + parement + margelle
-export const quayWallTune = { on: true, full: true, heightK: 1, joints: true, light: 0.16 };
+export const quayWallTune = { on: true, full: true, heightK: 1, light: 0.16 };
 // Hauteur du parement (en tuiles) par ère : pierre (2-3), marbre (4), fonte et néon
 // (5-6), énergie (7+). Lue aussi par les REFLETS (iso/isoReflect.js) : l'eau est
 // tenue autant sous la promenade, le miroir passe à cette hauteur-là.
@@ -250,7 +244,7 @@ export function quayStyleFor(band) {
     9: { mid: "#322a52", core: "#161226", glow: "170,140,255" }
   };
   // Style par ère. `coping`/`wallTop`/`wallBot`/`wallJoint`/`wallTiles` = la BERGE
-  // MAÇONNÉE (mur du bord d'eau, cf. drawRun) : margelle claire + parement
+  // MAÇONNÉE (mur du bord d'eau, cf. iso/isoQuay.js) : margelle claire + parement
   // haut→bas + joints d'assise + hauteur (en tuiles).
   let st;
   if (band <= 4) {                   // pierre (2-3) / marbre (4)
@@ -280,7 +274,7 @@ export function quayStyleFor(band) {
   return st;
 }
 
-// Couleurs RÉELLEMENT peintes du mur (éclaircies par quayWallTune.light, cf. drawRun) :
+// Couleurs RÉELLEMENT peintes du mur (éclaircies par quayWallTune.light, cf. isoQuay) :
 // le reflet du mur dans l'eau (iso/isoReflect.js) part de celles-là.
 export function quayWallColors(band) {
   const st = quayStyleFor(band), LT = quayWallTune.light;
@@ -294,230 +288,6 @@ function lightenHex(hex, t) {
   const n = parseInt(hex.slice(1, 7), 16);
   const L = (c) => Math.round(c + (255 - c) * t);
   return `rgb(${L((n >> 16) & 255)},${L((n >> 8) & 255)},${L(n & 255)})`;
-}
-
-// Quais : berge construite (promenade + lèvre humide) là où la ville borde l'eau.
-// Tracé en SUIVANT le ruban lisse (samples + normale), exactement comme le fleuve —
-// JAMAIS par cellule (le bankSet diverge du bleu peint dans les courbes => escalier).
-// Dessiné live, juste après le fleuve et avant les bateaux/le blit statique
-// (ponts/routes/bâtiments le recouvrent donc gratuitement aux croisements).
-// `mode` (2026-07-24, chantier perf) : le quai est de la géométrie STATIQUE
-// redessinée en direct à chaque frame — recensé à ~10 000 lineTo, 1 000 traits et
-// 390 arcs par image, soit 90 % de tout le travail de chemins de la carte, pour
-// une promenade qui ne bouge jamais. Il est donc baké comme le sol l'est déjà.
-//   'base' → tout SAUF les passes ADDITIVES  (bakable)
-//   'glow' → UNIQUEMENT les passes additives (doit rester en direct)
-//   absent → tout, comportement d'origine (pipeline legacy, inchangé)
-// ⚠ Pourquoi ce découpage plutôt qu'un bake intégral : les lueurs (liseré néon,
-// halo des lampadaires) sont dessinées en `globalCompositeOperation = "lighter"`.
-// Bakées sur un offscreen TRANSPARENT puis blittées en source-over, elles ne
-// s'ajoutent plus à l'eau en dessous : le halo devient un aplat coloré. Le bake
-// serait « presque » identique, et c'est exactement le genre d'écart qu'on ne
-// remarque qu'une fois en jeu, de nuit.
-function cityMapDrawQuays(now, mode) {
-  const baseOn = mode !== 'glow';
-  const glowOn = mode !== 'base';
-  const L = CM.layout;
-  if (!L || !L.river || !L.river.present || !L.river.samples) return;
-  const band = L.counts ? (L.counts.eraBand | 0) : 0;
-  if (band <= 1) return;                                   // campement primitif : pas de quai
-  // ⚠ L'USURE NE RETIRE PLUS LE QUAI (demande de Raph, 2026-07-27) : au-delà de
-  // 70 % la berge maçonnée disparaissait d'un coup et le fleuve se retrouvait
-  // bordé de terre nue, ce qui se lit comme un bug plutôt que comme un déclin.
-  // Seul l'effondrement en cours efface encore le quai.
-  if (CM.collapseAt) return;
-  ensureQuayGate();
-  const g = CM.quayGate;
-  if (!g) return;
-  const ctx = CM.ctx, z = CM.cam.zoom, T = CM.TILE, sm = L.river.samples, n0 = sm.length;
-  const night = CM.nightF || 0;
-  const lod = CM.lodActive;          // zoom lointain : strates seules, pas de mobilier/joints
-
-  const st = quayStyleFor(band);
-  const W = st.W, faceW = W * 0.30;  // bande côté eau (ombre) vs promenade (côté terre)
-
-  // Effilement smoothstep aux deux bouts d'un run (hauteur/largeur -> 0) : fondu DOUX
-  // aux interruptions EN VILLE (port) — retour Raph « c'était plus fluide quand
-  // c'était affiné ». Le SPIKE de la source est évité autrement (skip QUAY_END/QUAY_MIN_HW
-  // dans le gate + bas-fond à offset CONSTANT), PAS en retirant l'effilement.
-  const TAPER = 2;
-  // Effilement ASYMÉTRIQUE : on n'effile un bout QUE s'il borde une INTERRUPTION EN
-  // VILLE (port) → fondu DOUX voulu par Raph. Aux bouts bordant une berge
-  // NATURELLE (source/embouchure/fleuve étroit), PAS d'effilement → fin carrée nette,
-  // pas de POINTE fuyante. `ctaperA/ctaperB` sont posés par drawRun d'après `naturalOff`.
-  let ctaperA = true, ctaperB = true, naturalOff = null;
-  const tt = (i, a, b) => {
-    const dA = ctaperA ? (i - a) : 1e9, dB = ctaperB ? (b - i) : 1e9;
-    const t = Math.max(0, Math.min(1, Math.min(dA, dB) / TAPER));
-    return t * t * (3 - 2 * t);
-  };
-  // Point écran à l'offset additif `base` (tapered) du sample i, sur la rive `side`.
-  // Projection via le module iso → les quais suivent le ruban ; appelé par drawIsoWorld.
-  const pt = (i, side, base, tap) => {
-    const s = sm[i], n = cmRiverNormalAt(sm, i), off = s.hw + base * tap;
-    const q = isoWorldToScreen((s.x + side * n.nx * off) * T, (s.y + side * n.ny * off) * T);
-    return [q.x, q.y];
-  };
-  const fillStrip = (a, b, side, baseIn, baseOut, col) => {
-    ctx.beginPath();
-    for (let i = a; i <= b; i += 1) { const p = pt(i, side, baseIn, tt(i, a, b)); if (i === a) ctx.moveTo(p[0], p[1]); else ctx.lineTo(p[0], p[1]); }
-    for (let i = b; i >= a; i -= 1) { const p = pt(i, side, baseOut, tt(i, a, b)); ctx.lineTo(p[0], p[1]); }
-    ctx.closePath(); ctx.fillStyle = col; ctx.fill();
-  };
-  const strokeAt = (a, b, side, base, col, lw, additive) => {
-    if (!col) return;
-    if (additive) { ctx.save(); ctx.globalCompositeOperation = "lighter"; }
-    ctx.beginPath();
-    for (let i = a; i <= b; i += 1) { const p = pt(i, side, base, tt(i, a, b)); if (i === a) ctx.moveTo(p[0], p[1]); else ctx.lineTo(p[0], p[1]); }
-    ctx.strokeStyle = col; ctx.lineWidth = lw; ctx.stroke();
-    if (additive) ctx.restore();
-  };
-
-  const wallOn = quayWallTune.on;
-  const drawRun = (a, b, side) => {
-    // Effiler un bout SEULEMENT s'il borde une interruption VILLE (port), pas
-    // une berge naturelle (source/étroit) : `naturalOff[a-1|b+1]` distingue les deux.
-    ctaperA = a > 0 && naturalOff ? !naturalOff[a - 1] : (a > 0);
-    ctaperB = b < n0 - 1 && naturalOff ? !naturalOff[b + 1] : (b < n0 - 1);
-    // Pierre éventuellement ÉCLAIRCIE (quayWallTune.light) : dessus + parement + margelle.
-    const LT = quayWallTune.light;
-    const cWalk = lightenHex(st.walk, LT), cCop = lightenHex(st.coping, LT);
-    const cWallTop = lightenHex(st.wallTop, LT), cWallBot = lightenHex(st.wallBot, LT);
-    // 1) DESSUS PLAT de la berge (uniforme jusqu'au bord d'eau, offset 0..W).
-    if (baseOn) fillStrip(a, b, side, 0, W, cWalk);
-
-    // 2) MUR DU BORD (berge maçonnée façon TheoTown). L'axe VERTICAL du monde se
-    // projette en Z-écran pur (screen-Y vers le bas) → un parement vertical est un
-    // ruban qui "pend" sous la margelle, quelle que soit la rive. Il n'est visible
-    // que sur la rive dont l'EAU est DEVANT (plus bas à l'écran) ; l'autre rive
-    // n'en montre que la margelle (son parement est occulté par sa promenade).
-    // waterBelow(i) : au sample i, l'eau est-elle "devant" (plus bas à l'écran) ?
-    // Évalué PAR SAMPLE (robuste aux courbes ET aux longues berges "full") → on ne
-    // dessine le parement que sur les sous-tronçons où c'est vrai ; l'autre rive
-    // n'a que la margelle (parement occulté par sa propre promenade).
-    if (baseOn && wallOn && !lod) {
-      const wh = st.wallTiles * quayWallTune.heightK * T * z;   // hauteur écran du parement
-      const N = b - a + 1;
-      // wbelow par sample (l'eau est "devant" = plus bas à l'écran) → robuste courbes/full.
-      const wbel = new Uint8Array(N);
-      for (let i = a; i <= b; i += 1) wbel[i - a] = pt(i, side, -0.3, 1)[1] > pt(i, side, 0.3, 1)[1] ? 1 : 0;
-      // Hauteur ÉCRAN du mur par sample (0 hors sous-tronçon waterBelow ; taperée aux bouts).
-      const wallH = new Float32Array(N);
-      { let i = 0; while (i < N) { if (!wbel[i]) { i += 1; continue; } let j = i; while (j + 1 < N && wbel[j + 1]) j += 1; for (let k = i; k <= j; k += 1) wallH[k] = wh * tt(a + k, a + i, a + j); i = j + 1; } }
-      const drawWallSeg = (sa, sb) => {
-        // Haut du mur (bord d'eau) + hauteur locale : LIT wallH[] (source de vérité
-        // UNIQUE, partagée avec le liseré) — ne PAS recalculer un taper local, sinon
-        // mur dessiné et liseré divergent (liseré « fantôme » sous l'eau, vu par Raph).
-        const wp = [];
-        for (let i = sa; i <= sb; i += 1) { const tp = pt(i, side, 0, 1); wp.push([tp[0], tp[1], wallH[i - a]]); }
-        // Parement en 2 assises : haut clair -> bas sombre (lecture de profondeur).
-        for (const seg of [[0, 0.5, cWallTop], [0.5, 1, cWallBot]]) {
-          ctx.beginPath();
-          for (let k = 0; k < wp.length; k += 1) { const p = wp[k], y = p[1] + p[2] * seg[0]; if (k === 0) ctx.moveTo(p[0], y); else ctx.lineTo(p[0], y); }
-          for (let k = wp.length - 1; k >= 0; k -= 1) { const p = wp[k]; ctx.lineTo(p[0], p[1] + p[2] * seg[1]); }
-          ctx.closePath(); ctx.fillStyle = seg[2]; ctx.fill();
-        }
-        // Joints d'assise verticaux (tous les ~2 samples, hors bouts effilés).
-        if (quayWallTune.joints) {
-          ctx.strokeStyle = st.wallJoint; ctx.lineWidth = Math.max(1, z * 0.5);
-          for (let k = 0; k < wp.length; k += 2) { const p = wp[k]; if (p[2] < wh * 0.5) continue; ctx.beginPath(); ctx.moveTo(p[0], p[1]); ctx.lineTo(p[0], p[1] + p[2]); ctx.stroke(); }
-        }
-        // Ombre de contact à la BASE du mur (le pied dans l'eau).
-        ctx.strokeStyle = "rgba(0,0,0,0.30)"; ctx.lineWidth = Math.max(1, z * 0.8);
-        ctx.beginPath();
-        for (let k = 0; k < wp.length; k += 1) { const p = wp[k]; if (k === 0) ctx.moveTo(p[0], p[1] + p[2]); else ctx.lineTo(p[0], p[1] + p[2]); }
-        ctx.stroke();
-      };
-      // Murs sur les sous-tronçons waterBelow (au moins 2 samples). Chaque segment
-      // est ÉTENDU d'un sample aux bouts (hauteur 0, si dispo) : le polygone se FERME
-      // à la pointe au lieu de s'arrêter net un sample avant (le taper met wallH=0
-      // pile au bout → sans extension, mur coupé + liseré qui continue seul).
-      { let i = 0; while (i < N) { if (!wallH[i]) { i += 1; continue; } let j = i; while (j + 1 < N && wallH[j + 1] > 0) j += 1; if (j > i) drawWallSeg(a + Math.max(0, i - 1), a + Math.min(N - 1, j + 1)); i = j + 1; } }
-      // BAS-FOND CLAIR collé au BORD DE L'EAU VISIBLE (retour Raph « il faut qu'il
-      // suive le bord de l'eau », pas le quai englouti) : la ligne = le contour BAS
-      // du parement DESSINÉ là où il y a un mur (pied = screen-Y + wallH[i], qui
-      // remonte au bord du ruban à la pointe), et le bord PEINT du ruban là où il
-      // n'y en a pas (wallH=0). AUCUN décalage latéral : l'ancien -inset laissait
-      // la ligne flotter DANS l'eau au-delà de la pointe et hors des tronçons à mur.
-      // (Le bas-fond de drawIsoRiver reste OFF — waterShoreTune.on=false.)
-      const shoreLine = (col, lw) => {
-        ctx.strokeStyle = col; ctx.lineWidth = lw; ctx.lineJoin = "round"; ctx.lineCap = "round";
-        ctx.beginPath();
-        for (let i = a; i <= b; i += 1) {
-          const p = pt(i, side, 0, 1);
-          const y = p[1] + wallH[i - a];      // pied du mur ; bord du ruban si wallH=0
-          if (i === a) ctx.moveTo(p[0], y); else ctx.lineTo(p[0], y);
-        }
-        ctx.stroke();
-      };
-      // TEINTES DU CORPS D'EAU COURANT (Raph, 2026-07-30). Depuis les coloris
-      // pilotés par l'état, ce bas-fond restait bleu-gris ardoise au pied du mur
-      // alors que le fleuve passait à l'azur ou au turquoise. Il est publié par
-      // le renderer iso sur CM.waterShore (isoRiver, waterBandNow) plutôt
-      // qu'importé : ce fichier est le tronc commun des deux pipelines, et un
-      // import croisé vers isoRenderer ferait un cycle. Repli = les valeurs
-      // d'origine, donc le pipeline legacy et le fleuve ruiné ne changent pas.
-      const wq = (CM.waterShore && CM.waterShore.quay) || ["rgba(150,184,180,0.50)", "rgba(202,224,214,0.62)"];
-      shoreLine(wq[0], Math.max(3, z * 5));    // bas-fond doux (halo)
-      shoreLine(wq[1], Math.max(1, z * 2.2));  // liseré clair AU bord
-    }
-
-    // 3) Joints de dalles du DESSUS : ticks perpendiculaires (pierre/marbre).
-    if (baseOn && st.joints && !lod) {
-      ctx.strokeStyle = st.joints; ctx.lineWidth = Math.max(1, z * 0.5);
-      for (let i = a; i <= b; i += 1) {
-        const ta = tt(i, a, b); if (ta < 0.4) continue;
-        const p1 = pt(i, side, faceW, ta), p2 = pt(i, side, W, ta);
-        ctx.beginPath(); ctx.moveTo(p1[0], p1[1]); ctx.lineTo(p2[0], p2[1]); ctx.stroke();
-      }
-    }
-    // 4) Côté terre : garde-corps (fonte/néon) sinon liseré clair.
-    if (baseOn) {
-      if (st.rail) strokeAt(a, b, side, W, st.rail, Math.max(1, z * 0.7));
-      else strokeAt(a, b, side, W, st.edge, Math.max(1, z * 0.5));
-      // 5) MARGELLE : cap clair au bord d'eau = le haut du mur (les deux rives).
-      strokeAt(a, b, side, 0, cCop, Math.max(1, z * 1.0));
-    }
-    // 6) Bord lumineux (néon / énergie cosmique), avivé la nuit. ADDITIF → live.
-    if (glowOn && st.glow) strokeAt(a, b, side, 0, `rgba(${st.glow},${(0.30 + 0.45 * night).toFixed(2)})`, Math.max(1, z * 0.7), true);
-    // 7) Lampadaires le long de la promenade ; lueur chaude la nuit.
-    // Le HALO est additif (live) ; le point de la lampe ne l'est pas (bakable).
-    if (!lod && st.lamp) {
-      for (let i = a; i <= b; i += 1) {
-        if (i % 2 !== 0) continue;
-        const ta = tt(i, a, b); if (ta < 0.6) continue;
-        const p = pt(i, side, W * 0.8, ta), lx = p[0], ly = p[1];
-        if (glowOn && night > 0.25) {
-          ctx.save(); ctx.globalCompositeOperation = "lighter";
-          const r = Math.max(4, z * 1.7), g2 = ctx.createRadialGradient(lx, ly, 0, lx, ly, r);
-          g2.addColorStop(0, `rgba(${st.lamp},${(0.5 * night).toFixed(2)})`); g2.addColorStop(1, `rgba(${st.lamp},0)`);
-          ctx.fillStyle = g2; ctx.beginPath(); ctx.arc(lx, ly, r, 0, Math.PI * 2); ctx.fill(); ctx.restore();
-        }
-        if (baseOn) {
-          ctx.fillStyle = night > 0.25 ? `rgba(${st.lamp},0.95)` : "rgba(28,24,18,0.8)";
-          ctx.beginPath(); ctx.arc(lx, ly, Math.max(1, z * 0.35), 0, Math.PI * 2); ctx.fill();
-        }
-      }
-    }
-  };
-
-  // Gate des runs : le masque EFFECTIF, calculé par ensureQuayGate (mode `full`
-  // + coupe du port + fleuve trop étroit + extrémités, cf. son commentaire).
-  // Il vit là-bas et plus ici parce que le bas-fond du ruban, dessiné AVANT les
-  // quais dans la frame, a besoin du même masque pour prendre le relais là où la
-  // maçonnerie s'arrête — sinon plus personne ne dessine le bord de l'eau.
-  const plusG = g.drawPlus, minusG = g.drawMinus;
-  naturalOff = g.naturalOff;
-  for (let si = 0; si < 2; si += 1) {
-    const side = si ? -1 : 1, gate = si ? minusG : plusG;
-    let i = 0;
-    while (i < n0) {
-      if (!gate[i]) { i += 1; continue; }
-      const a = i; while (i + 1 < n0 && gate[i + 1]) i += 1;
-      if (i > a) drawRun(a, i, side);   // run d'au moins 2 samples
-      i += 1;
-    }
-  }
 }
 
 /* ============================================================================
@@ -762,7 +532,6 @@ function updateCrisis(dt, now) {
 }
 
 export {
-  cityMapDrawQuays,
   ensureQuayGate,
   updateCrisis,
   drawRiotWeapon,

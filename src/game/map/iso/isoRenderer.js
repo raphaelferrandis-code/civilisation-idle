@@ -19,12 +19,11 @@
 // cycle ESM tombe en TDZ sur un `const`, et c'est ce qui a coûté une sauvegarde en
 // juillet. Ce qui doit être partagé DESCEND dans une feuille (`isoMath`, `isoQuad`,
 // `isoArt`, `isoPalette`) ; rien ne remonte ici.
-import { state } from '../../core/state.js';
 import { endReflectionBuild } from './isoReflect.js';
 import { updateCitizens, updateVehicles, drawCitizenThoughts } from '../agents.js';
 import { fp } from '../framePerf.js';
 import { CM } from '../layout.js';
-import { cityMapDrawQuays, updateCrisis, quayWallTune } from '../quaysAndRiot.js';
+import { updateCrisis } from '../quaysAndRiot.js';
 import { drawIsoAmbient, SMOKE_TUNE, smokeSeason } from './isoAmbient.js';
 import { drawIsoBridgeUnder, drawIsoBridgeNight } from './isoBridge.js';
 import { drawIsoShipNight } from './isoFleet.js';
@@ -45,13 +44,11 @@ import './isoVieOiseaux.js';   // s'enregistre auprès d'isoVie (pigeons, mouett
 import './isoVieTerre.js';     // … (chiens, chats, papillons, linge)
 import './isoVieDrapeaux.js';  // … (drapeaux des bâtiments publics et des quais)
 import { drawVieClouds } from './isoVieNuages.js';
+import { paintQuays } from './isoQuay.js';
 import { drawIsoDrones } from './isoSky.js';
 import { drawIsoNight } from './isoStreet.js';
 import { drawIsoRain } from './isoWeather.js';
 import { drawTerrainShade } from './isoTerrain.js';
-import { artLayerBegin, artLayerEnd } from './isoArtLayer.js';
-import { quayGlideStale, quayGlideRect } from './quayGlide.js';
-import { panDeltaToScreen } from './projection.js';
 import {
   worldToScreen, visibleCellBounds, visibleDiamondBounds, ISO_X, ISO_Y,
 } from './projection.js';
@@ -150,12 +147,10 @@ function drawIsoLive(now) {
 
 
 // Point d'entrée : rend la frame iso. Renvoie false si layout absent (repli legacy).
-// helpers = { bakeMargin, blitMargin } (les caches offscreen du runtime, déjà
-// compatibles iso : le pan est projeté dans cityMapBakeMargin/BlitMargin).
 // Le renderer JALONNE la frame (fp) mais n'en est pas propriétaire : le relevé
 // est ouvert et clos par cityMapRuntime.frame(), qui englobe aussi le préambule.
 // Cf. framePerf.js pour le pourquoi.
-export function drawIsoWorld(dt, now, helpers) {
+export function drawIsoWorld(dt, now) {
   const L = CM.layout;
   if (!L) return false;
   // ── CAMÉRA DE RENDU QUANTIFIÉE AU PIXEL DEVICE ────────────────────────────
@@ -178,13 +173,13 @@ export function drawIsoWorld(dt, now, helpers) {
     CM.cam.y = (v - u) / 2;
   }
   try {
-    return drawIsoWorldInner(dt, now, helpers);
+    return drawIsoWorldInner(dt, now);
   } finally {
     CM.cam.x = camRX; CM.cam.y = camRY;
   }
 }
 
-function drawIsoWorldInner(dt, now, helpers) {
+function drawIsoWorldInner(dt, now) {
   const L = CM.layout;
   // Boîtes écran des habitations réellement dessinées, collectées par la passe
   // vivante (drawIsoLive) et consommées par le SURVOL : hit-test à la silhouette
@@ -211,8 +206,7 @@ function drawIsoWorldInner(dt, now, helpers) {
   paintGroundPyramid(ctx, L, performance.now());
   fp('sol');
   // Fleuve LIVE (animé) par-dessus le sol baké → QUAIS par ère (promenade le
-  // long du ruban, partagés avec le legacy : cityMapDrawQuays projette via le
-  // module iso) → SOUS-STRUCTURE des ponts (ombre sur l'eau + piles) → bateaux
+  // long du ruban, iso/isoQuay.js) → SOUS-STRUCTURE des ponts (ombre sur l'eau + piles) → bateaux
   // SUR l'eau (devant les piles quand ils sont au sud, sous le tablier sinon)
   // → tabliers de pont → scène vivante → drones (passe aérienne) → nuit.
   // Terre-plein : le gazon du bake porte le SOL ; le RELIEF vient de buissons
@@ -225,81 +219,10 @@ function drawIsoWorldInner(dt, now, helpers) {
   // les coques — la pluie crible le fleuve, pas les bateaux.
   drawIsoRiverLife(now);
   fp('fleuve');
-  // QUAIS BAKÉS. Recensé en direct : ~10 000 lineTo, 1 000 traits et 390 arcs par
-  // frame — 90 % de tout le travail de chemins de la carte, pour une promenade
-  // qui ne bouge jamais. Même traitement que le sol, qui coûtait ~7 ms/frame avant
-  // d'être baké et en coûte 0,1 depuis.
-  //
-  // La clé porte TOUT ce qui change le tracé. La nuit y est QUANTIFIÉE au dixième :
-  // le point de lampe bascule de couleur à 0,25 et `cmDayNightF` est une fonction
-  // à plateaux, donc cela ne coûte que quelques recuissons par cycle jour/nuit.
-  // Les lueurs (additives) restent EN DIRECT, cf. le mode dans cityMapDrawQuays.
-  // A/B : globalThis.__quayBake = false rejoue le tracé en direct (référence).
-  if (CM.quayCanvas && helpers && globalThis.__quayBake !== false) {
-    const qk = 'q:' + CM.layoutRecomputeAt + ':' + CM.cam.zoom.toFixed(3)
-      + ':b' + ((L.counts && L.counts.eraBand) | 0)
-      + ':n' + (CM.nightF || 0).toFixed(1)
-      + ':l' + (CM.lodActive ? 1 : 0)
-      + ':w' + ((state.timeWear || 0) > 0.7 ? 1 : 0)
-      + ':c' + (CM.collapseAt ? 1 : 0)
-      // ⚠ LE CORPS D'EAU FAIT PARTIE DU TRACÉ DEPUIS 2026-07-30 : le bas-fond au
-      // pied du mur prend la teinte du coloris courant (CM.waterShore.quay). Sans
-      // cette clé, le quai garde le bas-fond du coloris PRÉCÉDENT jusqu'à ce qu'un
-      // autre facteur invalide le bake — c'est-à-dire, en pratique, très longtemps.
-      // Le fondu du fleuve, lui, n'entre PAS dans la clé : il recuirait le quai à
-      // chaque frame de la transition. Le bas-fond bascule donc d'un coup, sur un
-      // trait de 1 à 5 px, pendant que la nappe fond — invisible à l'usage.
-      + ':e' + (CM.waterShore ? (CM.waterShore.quay[0] + CM.waterShore.quay[1]) : '-')
-      // La molette __quayWall change le tracé à chaud → elle doit casser la clé.
-      + ':t' + (quayWallTune.on ? 1 : 0) + (quayWallTune.full ? 1 : 0)
-      + (quayWallTune.joints ? 1 : 0) + quayWallTune.heightK + '_' + quayWallTune.light;
-    // ── §4.1 — LE QUAI CUIT DANS LE CALQUE À L'ÉCHELLE DE L'ART ───────────────
-    // Le quai était baké à la résolution de l'ÉCRAN : ses bords partaient
-    // antialiasés au zoom courant, puis cuits ainsi — le défaut que le lot L12 a
-    // corrigé sur la voirie, resté vivant sur toute la berge. On peint donc à
-    // zoom 1 (un pixel de tracé pour un pixel d'art) et on compose au nearest.
-    // ⚠ Le calque se dimensionne sur CM.cw/ch, que `bakeMargin` a DÉJÀ élargis
-    // de la marge : la bascule tombe juste sans rien savoir de la marge.
-    // A/B : `globalThis.__quayArtLayer = false` rejoue la cuisson à l'écran.
-    // ── LE QUAI SUIT LA RÈGLE DU SOL PENDANT LA RAFALE DE MOLETTE (2026-09-14) ──
-    // La clé ci-dessus porte le zoom au millième ; un zoom qui GLISSE la change
-    // à chaque frame, donc le quai se recuisait À CHAQUE FRAME du geste (mesuré
-    // chez Raph : 55-60 ms/frame, un canvas alloué par frame — le poste `quais`
-    // dominait le dézoom). Pendant la rafale (horloge `CM._igZoomAt`, posée par
-    // le sol juste avant), on sert le bake existant ÉTIRÉ, comme le sol ; la
-    // recuisson nette tombe à l'arrêt, une fois par geste. Cf. quayGlide.js.
-    const qb = CM._quayBake;
-    if (globalThis.__quayGlide !== false
-        && quayGlideStale(qb, CM.cam.zoom, performance.now(), CM._igZoomAt)) {
-      const M = CM._bakeMargin || 0;
-      const pd = panDeltaToScreen(CM.cam.x - qb.camX, CM.cam.y - qb.camY);
-      const r = quayGlideRect(CM.cam.zoom, qb.zoomB, CM.cw, CM.ch, M, pd);
-      const prevSm = ctx.imageSmoothingEnabled;
-      ctx.imageSmoothingEnabled = true;   // transitoire : même rendu que le sol compensé
-      ctx.drawImage(CM.quayCanvas, r.x, r.y, r.w, r.h);
-      ctx.imageSmoothingEnabled = prevSm;
-    } else {
-      helpers.bakeMargin(CM.quayCanvas, CM.qctx, '_quayBake', qk, () => {
-        const z = CM.cam.zoom;
-        // ⚠ LA VRAIE CIBLE SE CAPTURE AVANT `begin` : pendant le calque, `CM.ctx`
-        // EST le calque (c'est ce qui fait que le quai s'y peint). La passer après
-        // composerait le calque sur lui-même — cf. le bandeau d'isoArtLayer.
-        const target = CM.ctx;
-        const lay = globalThis.__quayArtLayer === false ? null : artLayerBegin(z);
-        if (!lay) return cityMapDrawQuays(now, 'base');
-        const st = cityMapDrawQuays(now, 'base');
-        artLayerEnd(lay, target, z);
-        return st;
-      });
-      // Ancre d'échelle du bake (comme `zoomB` du sol) : bakeMargin crée un
-      // objet neuf à chaque recuisson, l'ancre se pose donc ici, une fois.
-      if (CM._quayBake && CM._quayBake.zoomB == null) CM._quayBake.zoomB = CM.cam.zoom;
-      helpers.blitMargin(CM.quayCanvas, '_quayBake');
-    }
-    cityMapDrawQuays(now, 'glow');
-  } else {
-    cityMapDrawQuays(now);
-  }
+  // QUAIS (iso/isoQuay.js, 2026-10-01) : cuits une fois en tuiles ancrées au monde,
+  // au pixel, recopiés seulement là où il y a du quai ; le liseré néon (ères 6+)
+  // reste en direct. Les réverbères sont de vrais mâts (isoStreet.isoLamps).
+  paintQuays(ctx);
   fp('quais');
   drawIsoBridgeUnder(now);
   fp('ponts-dessous');

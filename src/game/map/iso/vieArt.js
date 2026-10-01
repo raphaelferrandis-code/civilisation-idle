@@ -280,20 +280,20 @@ export const LEAF_KINDS = ['leaf', 'leafE', 'leafU', 'leafM'];
 // ── LA BRUME SELON L'HEURE ──────────────────────────────────────────────────
 // Réponse de Raph (2026-10-01) : à l'aube et au soir, jamais en journée. Cycle de
 // 9 min (cityMapRuntime) : jour 0-0,55, crépuscule 0,55-0,65, nuit 0,65-0,90,
-// aube 0,90-1. La brume de rivière se forme au soir, persiste faible la nuit
-// (le voile la mange de toute façon), culmine à l'AUBE et se lève dans la
-// matinée — c'est à ce moment-là, dans la lumière rasante, qu'on la voit le mieux.
-// Courbe continue, en densité 0..1.
+// aube 0,90-1. La brume de rivière se forme au soir, culmine à l'AUBE et se lève
+// dans la matinée — dans la lumière rasante, c'est là qu'on la voit le mieux.
+// ⚠ RIEN EN PLEINE NUIT (Raph, 2026-10-01 : sa trame se lisait comme des points de
+// lumière parasites sur l'eau sombre). Courbe continue, en densité 0..1.
 export function mistOfDay(p) {
   const ss = (a, b, x) => { const u = Math.max(0, Math.min(1, (x - a) / (b - a))); return u * u * (3 - 2 * u); };
   const q = (((p + 0.1) % 1) + 1) % 1;          // 0 = début de l'aube
-  if (q < 0.07) return 0.35 + 0.65 * ss(0, 0.07, q);       // aube : elle monte
+  if (q < 0.07) return ss(0, 0.07, q);                     // aube : elle monte
   if (q < 0.12) return 1;                                  // lever du jour : au plus dense
   if (q < 0.2) return 1 - ss(0.12, 0.2, q);                // matinée : elle se lève
   if (q < 0.6) return 0;                                   // journée : rien
   if (q < 0.72) return 0.7 * ss(0.6, 0.72, q);             // soir : elle se forme
-  if (q < 0.8) return 0.7 - 0.35 * ss(0.72, 0.8, q);       // nuit tombée : elle retombe
-  return 0.35;                                             // nuit
+  if (q < 0.8) return 0.7 - 0.7 * ss(0.72, 0.8, q);        // nuit tombée : elle se défait
+  return 0;                                                // nuit noire : rien
 }
 
 // ── OMBRES DE POISSONS (sous l'eau) ─────────────────────────────────────────

@@ -17,7 +17,7 @@
 //
 // ⚠⚠ ET IL BASCULE AUSSI `CM.ctx`, DEPUIS LE BOGUE DU 2026-08-24. La première
 // version ne changeait que la projection : un consommateur qui prend sa cible
-// dans `CM.ctx` (c'est le cas de `cityMapDrawQuays`, qui la capture en tête)
+// dans `CM.ctx` (c'était le cas de l'ancien tracé du quai, qui la capturait en tête)
 // peignait donc SUR L'ÉCRAN avec la géométrie du zoom 1, pendant qu'on composait
 // un calque resté vide par-dessus. Symptôme : « les quais bougent au zoom »
 // (Raph) — erreur NULLE à z = 1 et croissante en s'en éloignant, jusqu'à 34 px

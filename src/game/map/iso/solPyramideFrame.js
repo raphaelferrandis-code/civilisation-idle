@@ -393,12 +393,6 @@ export function paintGroundPyramid(ctx, L, nowMs) {
   if (CM.cam.x !== lastCamX || CM.cam.y !== lastCamY || zoom !== lastZoom) {
     lastCamX = CM.cam.x; lastCamY = CM.cam.y; lastZoom = zoom; lastMoveAt = nowMs;
   }
-  // ⚠ L'horloge de RAFALE DE ZOOM (`CM._igZoomAt`) est lue par le quai
-  // (quayGlide.js) pour servir son bake étiré pendant un glissement. Elle était
-  // tenue par l'ancien cache du sol — qui ne tourne plus quand les tuiles sont
-  // allumées : mesuré chez Raph, le quai recuisait de nouveau à CHAQUE frame de
-  // zoom (jusqu'à 25 ms). Le sol en tuiles la tient donc lui aussi, à l'identique.
-  if (zoom !== CM._igZoomPrev) { CM._igZoomPrev = zoom; CM._igZoomAt = nowMs; }
   const gesture = nowMs - lastMoveAt < PYR.gestureMs;
   const c = camSpace(CM.cam.x, CM.cam.y, zoom);
   const org = screenOrigin(c, cw, ch, dpr);

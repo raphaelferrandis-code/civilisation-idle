@@ -2,8 +2,8 @@
 //
 // Le calque bascule le repère de projection (zoom 1, viewport = ses propres
 // dimensions) le temps du tracé. Le 2026-08-24 il ne basculait QUE ça : un
-// consommateur qui prend sa cible dans `CM.ctx` — `cityMapDrawQuays` le fait,
-// il la capture en tête — peignait donc sur l'ÉCRAN avec la géométrie du zoom 1,
+// consommateur qui prend sa cible dans `CM.ctx` — l'ancien tracé du quai le
+// faisait, il la capturait en tête — peignait donc sur l'ÉCRAN avec la géométrie du zoom 1,
 // pendant qu'on composait un calque resté vide par-dessus. Symptôme rapporté par
 // Raph : « les quais bougent au zoom/dézoom ». Erreur NULLE à z = 1 (le calque y
 // est 1:1) et croissante en s'en éloignant — jusqu'à 34 px mesurés à z 1,25.

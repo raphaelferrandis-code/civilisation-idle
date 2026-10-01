@@ -48,7 +48,7 @@ import { glInit, glBegin, glQuad, glFlush, glFinish, glGetCanvas, glStats } from
 // CHANTIER ISO (Phase 1) : projection unique — obligatoire pour TOUT passage
 // monde↔écran. Plus personne ne projette à la main — la règle d'or du chantier
 // iso, désormais sans alternative : il n'y a plus qu'une projection.
-import { worldToScreen, screenToWorld, panDeltaToScreen, screenDeltaToPan, wonderAnchor, ISO_X, ISO_Y, snapZoom } from './iso/projection.js';
+import { worldToScreen, screenToWorld, screenDeltaToPan, wonderAnchor, ISO_X, ISO_Y, snapZoom } from './iso/projection.js';
 import { drawIsoWorld } from './iso/isoRenderer.js';
 // `plaisirsHitTest` a rejoint isoPlaisirs.js le 2026-08-23, avec le sprite du
 // monument dont il lit l'encre : c'est ce sprite qu'il interroge pour savoir si le
@@ -168,12 +168,6 @@ function cityMapResizeCanvas(canvas) {
       CM.tctx.setTransform(dpr, 0, 0, dpr, 0, 0);
       CM._tileBake = null;
     }
-    if (CM.quayCanvas) {
-      CM.quayCanvas.width = onw;
-      CM.quayCanvas.height = onh;
-      CM.qctx.setTransform(dpr, 0, 0, dpr, 0, 0);
-      CM._quayBake = null;
-    }
   }
 }
 
@@ -188,7 +182,6 @@ function cmInvalidateBakes() {
   CM._tileBake = null;
   CM._groundBake = null;
   solInvalidate('all');   // le sol en tuiles se recuit lui aussi (canvas neufs, dpr)
-  CM._quayBake = null;
 }
 
 // Foule du campement (bande 0) : marcheurs par tente, plafond, et cadence
@@ -268,58 +261,6 @@ export function applyCityMapQuality() {
   if (CM.canvas) cityMapResizeCanvas(CM.canvas);
   cmInvalidateBakes();
   cmRecomputeCitizenTarget();
-}
-
-// ── BAKE AVEC MARGE (drag fluide) ────────────────────────────────────────────
-// Bake une couche dans un offscreen PLUS GRAND que l'écran (marge M) : re-bake
-// seulement si `otherKey` change (layout/zoom/nuit/…) OU si le pan a dépassé M.
-// Entre-temps, `cityMapBlitMargin` translate le bake existant → aucun re-bake par
-// pixel de pan (le vrai coupable du freeze au drag). drawFn peut renvoyer false
-// (« pas encore stable » — tileset en chargement) → re-bake à la frame suivante.
-function cityMapBakeMargin(canvas, offctx, stateName, otherKey, drawFn) {
-  if (!canvas) return;
-  const M = CM._bakeMargin || 0;
-  const bm = CM[stateName];
-  // Delta de pan PROJETÉ (iso : un pan monde reste une translation écran).
-  const pd = bm ? panDeltaToScreen(CM.cam.x - bm.camX, CM.cam.y - bm.camY) : { x: Infinity, y: Infinity };
-  const px = pd.x, py = pd.y;
-  if (!bm || bm.other !== otherKey || !M || Math.abs(px) > M || Math.abs(py) > M) {
-    // Trace du sol (solTrace.js) : QUI recuit, POURQUOI, et ce qui a changé
-    // dans la clé — armée à la main, un booléen sinon.
-    const tr0 = solTrace.on ? performance.now() : 0;
-    const trWhy = !bm ? 'premier' : bm.other !== otherKey ? 'cle' : 'pan';
-    const trPrev = bm ? bm.other : null;
-    const mainCtx = CM.ctx, cw = CM.cw, ch = CM.ch;
-    CM.cw = cw + 2 * M; CM.ch = ch + 2 * M;   // viewport élargi → centre + culling couvrent la marge
-    CM.ctx = offctx;
-    offctx.setTransform(1, 0, 0, 1, 0, 0);
-    offctx.clearRect(0, 0, canvas.width, canvas.height);
-    offctx.setTransform(CM.dpr, 0, 0, CM.dpr, 0, 0);
-    const st = drawFn();
-    CM.ctx = mainCtx; CM.cw = cw; CM.ch = ch;
-    CM[stateName] = { camX: CM.cam.x, camY: CM.cam.y, other: (st === false ? "__unstable__" : otherKey) };
-    if (solTrace.on) {
-      solRec({ k: 'bake', st: stateName, why: trWhy, ms: Math.round(performance.now() - tr0),
-        z: +CM.cam.zoom.toFixed(3), pan: bm ? [Math.round(px), Math.round(py)] : null,
-        diff: trWhy === 'cle' ? keyDiff(trPrev, otherKey) : null, unstable: st === false });
-    }
-  }
-}
-// Blit le bake, translaté du delta de pan depuis sa position de bake (-M pour cadrer
-// la marge hors écran). Aligné au pixel quel que soit le pan tant qu'il reste < M.
-function cityMapBlitMargin(canvas, stateName) {
-  const b = CM[stateName]; if (!canvas || !b) return;
-  const M = CM._bakeMargin || 0;
-  const pd = panDeltaToScreen(b.camX - CM.cam.x, b.camY - CM.cam.y);
-  // Position ARRONDIE au pixel device entier : un blit fractionnaire re-snappe
-  // (lissage coupé) ou re-floute (lissage actif) différemment à chaque frame —
-  // avec le défilement incrémental (ré-ancrages fréquents, delta qui oscille
-  // près de zéro), ça se voyait comme un « frisson » du sol (retour Raph).
-  // Au pixel entier, le sol est stable ; il avance par pas d'un pixel, la norme
-  // du pixel-art.
-  const dpr = CM.dpr || 1;
-  const bx = Math.round(pd.x * dpr) / dpr, by = Math.round(pd.y * dpr) / dpr;
-  CM.ctx.drawImage(canvas, bx - M, by - M, CM.cw + 2 * M, CM.ch + 2 * M);
 }
 
 // Monde↔écran : délégué à la projection unique (iso/projection.js).
@@ -1888,21 +1829,15 @@ function initCityMap(canvas, options = {}) {
     // (juste au-dessus) et c'est LUI qui détient la bonne taille — écran PLUS la
     // marge de pan. Comparer ici à `_pw × _ph`, la taille sans marge, ne
     // correspondait à rien et faisait tout réallouer à chaque fois.
-    const _reutilisable = CM.staticCanvas && CM.tileCanvas && CM.quayCanvas
-      && CM.sctx && CM.tctx && CM.qctx;
+    const _reutilisable = CM.staticCanvas && CM.tileCanvas && CM.sctx && CM.tctx;
 
     if (!_reutilisable) {
       CM.staticCanvas = _mkOC(_pw, _ph);
       CM.sctx = CM.staticCanvas.getContext('2d');
       CM.tileCanvas = _mkOC(_pw, _ph);
       CM.tctx = CM.tileCanvas.getContext('2d');
-      // QUAIS : même raison que le sol — géométrie statique (promenade le long du
-      // ruban) qui pesait ~10 000 lineTo par frame en direct. Canvas SÉPARÉ du sol :
-      // le quai se dessine APRÈS le fleuve live, il ne peut pas partager son bake.
-      CM.quayCanvas = _mkOC(_pw, _ph);
-      CM.qctx = CM.quayCanvas.getContext('2d');
       // G-29 : un contexte 2D offscreen null (perdu/épuisé) crasherait setTransform.
-      if (!CM.sctx || !CM.tctx || !CM.qctx) { CM.inited = false; return; }
+      if (!CM.sctx || !CM.tctx) { CM.inited = false; return; }
       // Les offscreen ci-dessus sont NEUFS (donc vides) mais CM est un singleton de
       // module qui survit au démontage : sans ça, les états de bake du montage
       // précédent restent « valides » → bake sauté → on blitte du vide jusqu'au
@@ -1917,7 +1852,6 @@ function initCityMap(canvas, options = {}) {
     // effet de bord, et il est obligatoire sur un contexte neuf.
     CM.sctx.setTransform(CM.dpr, 0, 0, CM.dpr, 0, 0);
     CM.tctx.setTransform(CM.dpr, 0, 0, CM.dpr, 0, 0);
-    CM.qctx.setTransform(CM.dpr, 0, 0, CM.dpr, 0, 0);
   }
   // Préchargement des sprites d'habitation dès le MONTAGE (avant le 1er paint / bake) : les
   // PNG démarrent tout de suite → pixelHouseReady vrai à la 1re apparition d'un bâtiment,
@@ -2040,7 +1974,7 @@ function initCityMap(canvas, options = {}) {
       } else if (dayNightMode !== 'auto') {
         CM.nightF = dayNightMode === 'night' ? 1 : 0;
         // Heure publiée pour la brume (iso/isoVie.js) : ciel figé = heure figée.
-        CM.dayP = dayNightMode === 'night' ? 0.75 : null;
+        CM.dayP = dayNightMode === 'night' ? 0.8 : null;
         CM.dayRising = false;
       } else {
         const realNightF = cmDayNightF(dayP);
@@ -2211,7 +2145,7 @@ function initCityMap(canvas, options = {}) {
       // Sortir ici est sûr : `frame` a ré-armé son rAF bien plus haut, comme le
       // font déjà les deux replis d'entrée de la fonction.
       if (!CM.layout) { fpEnd(); return; }
-      drawIsoWorld(dt, now, { bakeMargin: cityMapBakeMargin, blitMargin: cityMapBlitMargin });
+      drawIsoWorld(dt, now);
       fpEnd();
     }
   }
@@ -2478,9 +2412,9 @@ function initCityMap(canvas, options = {}) {
     // ÉCRIVAIENT dans `pixelSidewalkFlag`/`sidewalkTune` que plus personne ne
     // LISAIT, et invalidaient `CM._groundBake` — le bake du top-down, disparu avec
     // lui. Deux molettes sans effet depuis l'étape 6, et rien ne le signalait.
-    // Bord de quai = berge maçonnée : réglage live. __quayWall({ on, full, heightK, joints })
+    // Bord de quai = berge maçonnée : réglage live. __quayWall({ on, full, heightK, light })
     // fusionne les clés. full=true → tout le long de l'eau ; false → berges urbaines.
-    // Quai LIVE → pas de rebake. Ex. __quayWall({ full: false }) / __quayWall({ heightK: 1.4 }).
+    // Les tuiles du quai portent ces réglages dans leur clé. Ex. __quayWall({ heightK: 1.4 }).
     window.__quayWall = (o) => { if (o) Object.assign(quayWallTune, o); return { ...quayWallTune }; };
     // Densité de foule : multiplie cible ET plafond d'habitants (défaut 1). Force un refresh
     // du plan pour l'appliquer tout de suite. Baisser si ça rame. Ex. __crowd(1.5) / __crowd(0.6).

@@ -379,8 +379,9 @@ if (typeof window !== 'undefined') {
     else if (o === true) { if (!TERRAIN.amp) TERRAIN.amp = 1; }
     else if (o) Object.assign(TERRAIN, o);
     // Ceinture ET bretelles : la clé change (terrainKey), mais on invalide aussi à
-    // la main — le sol, le cache de crans ET le quai (qui ne porte pas le fragment).
-    solInvalidate('all'); CM._quayBake = null; CM._tileBake = null;
+    // la main — le sol et le cache de crans. (⚠ Les quais cuits en tuiles, iso/isoQuay,
+    // supposent le relief ÉTEINT : leur projection est affine.)
+    solInvalidate('all'); CM._tileBake = null;
     _pads.key = '';   // les hauteurs de socle dépendent des réglages → re-échantillonner
     return { ...TERRAIN };
   };
