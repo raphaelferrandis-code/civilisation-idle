@@ -25,7 +25,7 @@ import { worldToScreen, visibleCellBounds } from './projection.js';
 import { paintFlameGlows } from '../flameGlow.js';
 import { paintLightLayer } from '../lightLayer.js';
 import { quayWallTiles, quayWallTune } from '../quaysAndRiot.js';
-import { quayLampList } from './isoQuay.js';
+import { quayLampList, stairFootY } from './isoQuay.js';
 import { isoArt } from './isoArt.js';
 import { builtCells, builtNear, COUR, courOf } from './isoTissu.js';
 import { isoRoadHalfW, ROAD_DETAIL, SIDEWALK_ISO } from './isoRoad.js';
@@ -498,7 +498,8 @@ function drawLampWaterReflections(ctx, now, L, band, night) {
     const e = worldToScreen(lp.ex, lp.ey);
     const waterY = e.y + drop;                           // la surface, au pied du mur
     const reflY = waterY + Math.max(4, waterY - hy);     // le miroir de la tête
-    const y0 = waterY + 2 * k, y1 = reflY + 4 * k;
+    // Sous un escalier qui avance dans l'eau, le reflet part de son pied.
+    const y0 = Math.max(waterY + 2 * k, stairFootY(hx, waterY) + k), y1 = reflY + 4 * k;
     const fl = lampFlicker(K.lig.style, t, lampPhase(lp));
     const span = Math.max(1, y1 - y0);
     let row = 0;

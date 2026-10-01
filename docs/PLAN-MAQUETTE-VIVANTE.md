@@ -603,3 +603,28 @@ Journal :
   - ⚠ LOD : l'ancien quai lâchait son mur et son liseré au dézoom, et le fleuve
     reprenait alors le bas-fond partout (`lodFallback`). Le nouveau les garde à tous
     les zooms : le relais est retiré, sinon deux lignes claires se doublaient.
+- **2026-10-01, nuit — garde-corps et escaliers des quais** (Raph, à la question « qu'est-ce
+  qui magnifierait les quais ? » : « fais la planche garde-corps et escaliers ; on verra
+  après le rework des personnages pour en faire une voie piétonne »). VALIDÉ après un
+  retour (« une petite plateforme plutôt que la marche tout de suite, et une rambarde
+  pour le tour de l'escalier »). Tout dans `iso/isoQuay.js`, cuit avec les tuiles du quai.
+  - GARDE-CORPS sur la margelle, CÔTÉ EAU (c'est la chute qu'il protège), à hauteur de
+    taille d'un habitant (3-4 px d'art) : muret de pierre (2-3), balustrade de marbre à
+    pilastres (4, assortie aux ponts), fonte à barreaux et poteaux (5), verre sur montants
+    d'acier (6), rampe d'énergie (7+). Il remplace l'ancienne lisse côté terre des bandes
+    5-6 et les bornes d'amarrage ; coupé aux ponts.
+  - ESCALIERS EN VOLUME, au pied des ponts et tous les ~14 samples en ville, sur le mur
+    visible : une masse posée devant le mur qui avance dans l'eau (0,3 tuile) — palier
+    d'entrée de plain-pied (8 px), marches de 2 px sur 4 (girons clairs, contremarches
+    sombres), face avant, palier au ras de l'eau. RAMBARDE du modèle de l'ère tout autour :
+    bout du palier, bord côté eau, descente (lisse en pente, montants sur les marches) ;
+    l'ouverture du garde-corps fait la largeur du palier. Le reflet d'un réverbère part
+    SOUS l'escalier (`stairFootY`). Molettes `__quayArt({ parapet, stairs })`, aide
+    `__quayStairs()`.
+  - ⚠ Une volée ne se lit que si elle descend dans le sens où le bord d'eau DESCEND à
+    l'écran : dans l'autre, en iso, elle s'écrase en ligne plate et ses marches en damier.
+    La double volée en Λ au pied des ponts, essayée, a été abandonnée pour ça.
+  - ⚠ Un giron d'un pixel sur le plan du mur se lisait comme un triangle pâle et plat :
+    il faut la bande du giron (du mur au nez de marche) et la face avant.
+  - ⚠ À FAIRE AVEC LA VOIE PIÉTONNE : le garde-corps est cuit dans le sol, un passant sur
+    la promenade de la rive d'en face passerait DEVANT lui.
