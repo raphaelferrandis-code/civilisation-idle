@@ -1,5 +1,5 @@
 {
-  "note": "Sources PixelLab des scènes tardives redessinées le 2026-10-01 (Raph : « le meilleur rendu futuriste possible »). Objets create_object_pro_flash, 8 directions, vue low top-down ; on garde la rotation SOUTH-WEST. Bandes 7-9 : node scripts/fetchCosmicScene.mjs <id> <clé> (canevas 128×224, pied en bas). Maisons cosmiques : node scripts/fetchHouseSkin.mjs <id> <clé> puis scripts/ecartSol.mjs --darker ; les maisons PAR ÈRE (dôme, capsules, tour-jardin) sont réduites ×0,5 comme leur dessin de base (cadre 64/80/96). Bande 6 : node scripts/fetchStageScene.mjs <id> <clé> <canevas> --fit --bas=6 (grandes halles : 176x160 --bas=12). Toujours suivi de node scripts/quantize.cjs <png> --colors 24. ⚠ Les objets PixelLab peuvent expirer : ce fichier dit d'où vient chaque image, il ne garantit pas qu'on puisse la retélécharger.",
+  "note": "Sources PixelLab des scènes tardives redessinées le 2026-10-01 (Raph : « le meilleur rendu futuriste possible »). Objets create_object_pro_flash, 8 directions, vue low top-down ; on garde la rotation SOUTH-WEST. Bandes 7-9 : node scripts/fetchCosmicScene.mjs <id> <clé> (canevas 128×224, pied en bas). Maisons cosmiques : node scripts/fetchHouseSkin.mjs <id> <clé> puis scripts/ecartSol.mjs --darker ; les maisons PAR ÈRE (dôme, capsules, tour-jardin) sont réduites ×0,5 comme leur dessin de base (cadre 64/80/96). Bande 6 : node scripts/fetchStageScene.mjs <id> <clé> <canevas> --fit --bas=6 (grandes halles : 176x160 --bas=12). Toujours suivi de node scripts/quantize.cjs <png> --colors 24 (romain : 20). Passe « tous les bâtiments » (passeTousBatiments, lots s0 néolithique / s1 médiéval / rb4 romain / s2 XIXe / s3 métropole) : une génération 256x232 sert la base (cadre exact, --fit) ET la grande halle (176x160 --bas=12). ⚠ Les objets PixelLab peuvent expirer : ce fichier dit d'où vient chaque image, il ne garantit pas qu'on puisse la retélécharger.",
   "cosmiques": {
     "7": {
       "think_tanks": {
@@ -532,6 +532,70 @@
     "gardentower-cosmic-9": {
       "id": "7f7fc0a1-c4da-4095-9052-bd231932a393",
       "canvas": "192"
+    }
+  },
+  "passeTousBatiments": {
+    "s1": {
+      "ministries-palace": "e2f0cd62-5ad8-461c-a467-3de95d344377",
+      "courthouses-tribunal": "ae0baee0-e56a-4051-871a-5ba1c717816d",
+      "guild-house": "f1563820-5467-49a9-96a4-23d84a2bacb2",
+      "granary-hall": "2992763d-8d58-48de-97e0-8473cb3f3476",
+      "mint-prop-house": "a416474d-ac54-49b3-881f-14ddb2dd717f",
+      "bank-house-renaissance": "de05d493-5a0b-42cc-aa9d-e7de67df12bb",
+      "storyteller-hall": "3c13a9e7-d17a-4a3f-b2d5-bbe11dc93533",
+      "scribes-scriptorium": "f11726e4-121a-4de9-ac33-70c93805b0d7",
+      "schools-schoolhouse": "c83f2cdf-0f2b-402d-8011-219eb9272b93",
+      "academies-renaissance": "8503eec0-85d9-4ec8-8132-90d20fd7799a",
+      "cult-shrine": "77b7a84c-2b65-4fb5-93b3-15bc8c8bae86",
+      "observatories-tower": "fb919ace-bc00-43e0-9109-f3f1597a37c9",
+      "libraries-monastic": "893e3893-8cf8-4643-a280-713cacf3e6ad",
+      "universities-gothic": "b6e6c9c8-a60e-46e5-9740-8a2b35c9e532",
+      "printing-press-shop": "8dec9099-9285-4c0f-bdae-83032ad82a4a",
+      "think-chancellery": "46efd8b5-a6b0-4a28-9790-5c80649d2b12",
+      "bureau-chancery": "3e8b7d71-711a-4c05-8df1-010c5152f7ce",
+      "works-yard": "46ceec74-8539-49b2-92b7-8e7939a5697b",
+      "archive-vault": "7bfc9ba7-e579-499d-8815-77c2cbea58fe",
+      "ruins-lodge": "83f11b92-5f56-4aec-8176-85601bfd179d"
+    },
+    "s0": {
+      "exchange-prop-stall": "20414f07-4959-443c-ac97-c591199d448b",
+      "scribes-prop-hall": "7a818217-fc12-4ae3-90ed-65402f6fe3b0",
+      "universities-prop-hall": "a160d3fd-0389-4ffd-a778-7387a56f6911",
+      "libraries-prop-archive": "d9caceea-692c-4c9e-919e-fc243079f3ac",
+      "schools-prop-yard": "df4113bd-6724-44e2-a560-52ff658025f8",
+      "academies-prop-yard": "4a63b453-9104-453a-add7-2d89dc096f7d",
+      "bureau-hut": "1de57e63-86da-46f7-a230-13b14b6d884b",
+      "archive-hut": "aaf44173-e084-400e-a592-67978b57e100",
+      "ruins-camp": "9e8ce685-d3c8-4da8-9421-bf595b68d4a0",
+      "works-camp": "7426fe49-49c0-4f28-b759-fce4f65d4668",
+      "courthouses-lodge": "a4a86864-9796-4d35-a400-0cc0a8124161",
+      "printing-prop-workshop": "f3752d4f-ccb0-4a16-8ecb-89fb1f5245d8"
+    },
+    "s3": {
+      "guild-consortium": "7221774b-23ad-46c4-af94-39874b6a0e38",
+      "cult-memorial": "e44c6408-48d6-4c5c-bc8a-03e81a067193",
+      "bureau-tower": "c280d58f-b838-4508-8fac-e44952fff903",
+      "granary-hub": "a498b0e4-37ac-40b8-bcf3-e2e50b8d6def",
+      "forager-hydro-rack": "bc3894e3-e30d-4d14-9a70-424c4e32fd89"
+    },
+    "s2": {
+      "granary-warehouse": "e19769bf-55b9-4515-83fa-8178ca5150b5",
+      "guild-chamber": "948c9b79-462a-4c96-8cee-2b84f6a8bb5c",
+      "bureau-office": "76d3b688-e0fb-48bc-b4da-35fd2cd007ff",
+      "archive-records": "79cd5a12-10ba-44f1-b1aa-e43df1454393"
+    },
+    "rb4": {
+      "guild-collegium": "31d8cf53-8806-4ca1-9967-0316304252a5",
+      "ministries-curia": "1363c505-8e36-495a-93d5-e996e8cde149",
+      "think-stoa-roman": "89cae10f-cf7d-48df-b388-f234006f016c",
+      "mint-moneta": "ca5b8c7a-abad-4e7a-9183-816835b42dcf",
+      "scribes-tabularium": "858f4b89-0582-41e5-87d6-115cb0df104c",
+      "schools-ludus": "4f07ada1-c239-4750-8d68-3daa94148193",
+      "printing-scriptorium": "6c05e3fa-43a3-4f9c-aa55-f42e20c1e695",
+      "bureau-tabularium": "8f3cbda4-71e0-475f-ad77-b24c0af79307",
+      "works-classical": "764797dc-83f0-44c4-83bf-7a6c6c4a1576",
+      "archive-tabularium": "4d7e0fe0-3f6a-4390-9f73-39c165292861",
+      "ruins-restoration-roman": "e0c6533e-0b6c-4273-aaa5-8c4bd1b1f185"
     }
   }
 }
