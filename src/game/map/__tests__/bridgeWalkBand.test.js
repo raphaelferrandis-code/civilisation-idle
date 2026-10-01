@@ -2,7 +2,7 @@ import { describe, it, expect, beforeEach, afterEach } from "vitest";
 
 import { CM, ROAD_E, ROAD_N, ROAD_S, ROAD_W } from "../layout.js";
 import { updateCitizens, cityMapWalkRoadKey } from "../agents.js";
-import { bridgeWalkBand, bridgeTune } from "../iso/isoBridge.js";
+import { bridgeWalkBand } from "../iso/isoBridge.js";
 
 // ZONE DE PASSAGE du tablier (chantier 2026-08-04, retour Raph « ils sont tous
 // sur les barrières du bas, il faut que ce soit une zone de passage pas juste
@@ -11,10 +11,9 @@ import { bridgeWalkBand, bridgeTune } from "../iso/isoBridge.js";
 //     tuile autour de l'axe de voie, qui plaquait tout le monde au même endroit ;
 //   · deux habitants de MÊME cap et de phases différentes ne marchent PAS sur
 //     la même ligne (étalement personnel stable) — c'est ce qui fait la foule.
-// En Node, aucun PNG n'est décodé : bridgeWalkBand rend son repli (axe + demi-
-// emprise). C'est volontaire — le repli doit lui aussi produire une BANDE, et
-// c'est la seule branche testable sans canvas. Le centrage sur le platelage
-// dessiné (pedC/pedHalf) se calibre à la capture, cf. isoBridge.js.
+// Depuis la refonte du 2026-10-01 (docs/PLAN-PONTS.md) le tablier a la largeur
+// de la route : la bande est le milieu du tablier, parapets et recul déduits —
+// la même géométrie que le dessin, sans rien à décoder (testable en Node).
 
 const TILE = 20;
 const COL = 5;
@@ -77,10 +76,10 @@ describe("zone de passage du tablier", () => {
     const band = bridgeWalkBand((COL + 0.5) * TILE, (BRIDGE_YS[1] + 0.5) * TILE);
     expect(band).toBeTruthy();
     expect(band.vertical).toBe(true);
-    // Repli : axe de voie, demi-emprise moins le demi-corps.
+    // Milieu du tablier (une voie ici), demi-largeur moins parapet et recul.
     expect(band.axis).toBeCloseTo((COL + 0.5) * TILE, 6);
     expect(band.half).toBeGreaterThan(0);
-    expect(band.half).toBeLessThan(TILE * bridgeTune.deckHalf);
+    expect(band.half).toBeLessThan(TILE / 2);
     // Loin du pont (12 tuiles au sud) : plus de bande.
     expect(bridgeWalkBand((COL + 0.5) * TILE, 40 * TILE)).toBe(null);
   });

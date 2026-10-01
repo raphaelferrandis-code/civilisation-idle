@@ -2,7 +2,7 @@
 import { state } from '../core/state.js';
 import { CM, ROAD_E, ROAD_N, ROAD_S, ROAD_W, roadWidthFor, medianHalfFor } from './layout.js';
 import { worldToScreen as projWorldToScreen, panDeltaToScreen } from './iso/projection.js';
-import { bridgeLiftWorld, bridgeWalkBand, bridgeLaneBand, bridgeTune } from './iso/isoBridge.js';
+import { bridgeWalkBand, bridgeTune } from './iso/isoBridge.js';
 import { VEH_SKINS } from './vehicleSkins.js';
 import { pxProbe, recPx } from './pixelGrid.js';
 import { snapDev } from './blitSnap.js';
@@ -1177,11 +1177,8 @@ function thoughtBubbleBox(ctx, bx, by, r, color) {
 // (hauteur d'ère × charType), pas posée sur le corps (retour Raph). PARTAGÉE
 // entre le rendu (ci-dessous) et le hit-test du clic (cityMapRuntime).
 function thoughtBubbleAnchor(p) {
-  // Dos d'âne du pont sprite : la bulle suit la tête, qui suit le tablier —
-  // rendu ET hit-test du clic lisent cette ancre (source unique). L'altitude passe
-  // par l'AXE de la projection (2026-08-23).
-  const sp = projWorldToScreen(p.x + (p.lox || 0), p.y + (p.loy || 0),
-    bridgeLiftWorld(p.x + (p.lox || 0), p.y + (p.loy || 0)));
+  // Rendu ET hit-test du clic lisent cette ancre (source unique).
+  const sp = projWorldToScreen(p.x + (p.lox || 0), p.y + (p.loy || 0));
   const band = (CM.layout && CM.layout.counts && CM.layout.counts.eraBand) || 0;
   const spec = agentSpecFor(agentSetForBand(band), p.charType || 0) || AGENT_FALLBACK;
   const drawH = CM.TILE * CM.cam.zoom * spec.scale * AGENT_SCALE;
@@ -1243,39 +1240,9 @@ function vehicleRoadRank(gx, gy) {
 function vehicleLaneTarget(v) {
   const s = 1;   // fractions de tuile (les appelants scalent via vehicleLaneOffset)
   if ((v.parkT || 0) > 0) return { x: 0, y: 0 };       // garé : géré à part
-  // PONT : même zone de passage que les piétons (bridgeWalkBand). L'attelage
-  // roulait « centré sur sa cellule », c'est-à-dire sur l'AXE DE VOIE — donc,
-  // le tablier dessiné étant décalé en amont, une roue sur le garde-corps aval.
-  // Il tient maintenant sa file dans la bande réelle, côté droit du sens.
-  //
-  // ⚠⚠ LE « GLISSÉ » ENTRE LA ROUTE ET LE PONT (retour Raph 2026-08-30) VENAIT
-  // D'ICI. Le pont fait DEUX cellules de large mais n'est DESSINÉ que sur une,
-  // centrée sur la couture : chaque file doit donc se ranger d'UNE DEMI-TUILE
-  // pour monter sur le tablier. Ce n'est pas évitable — l'art est plus étroit
-  // que l'emprise —, mais ça se lisait mal parce que le rangement commençait
-  // trop tard : la cible ne basculait QUE sur une cellule `roadSurface ===
-  // "bridge"`, donc la demi-tuile se faisait EN ENTIER SUR LE PONT, en dérapage.
-  // ⚠ Le garde-fou de bridgeWalkBand était déjà écrit pour ça (« le test
-  // longitudinal est LARGE, les cellules d'atterrissage en font partie — la
-  // convergence lox/loy doit commencer avant d'engager la travée ») : le test
-  // de cellule le rendait inopérant. On interroge donc la bande PAR POSITION,
-  // avec 2,5 tuiles d'approche : le véhicule s'aligne sur la route, comme une
-  // voie qui se resserre, et il aborde la travée déjà en place.
-  {
-    const bT = CM.TILE;
-    {
-      const band = bridgeLaneBand(v.gx, v.gy, 2);
-      if (band) {
-        const side = band.vertical
-          ? (v.dir === 3 ? 1 : v.dir === 2 ? -1 : 0)
-          : (v.dir === 0 ? 1 : v.dir === 1 ? -1 : 0);
-        const t = band.axis + band.half * bridgeTune.pedSide * side;
-        return band.vertical
-          ? { x: (t - (v.gx + 0.5) * bT) / bT, y: 0 }
-          : { x: 0, y: (t - (v.gy + 0.5) * bT) / bT };
-      }
-    }
-  }
+  // PONT : rien de particulier depuis la refonte du 2026-10-01 — le tablier a la
+  // largeur de la route, chaque véhicule y garde sa voie (plus de rangement sur
+  // une bande étroite, donc plus de « glissé » à l'entrée).
   const rank = vehicleRoadRank(v.gx, v.gy);
   if (rank === "plaza") return { x: 0, y: 0 };         // esplanades : jamais de véhicule (défensif)
   if (rank !== "main") {
