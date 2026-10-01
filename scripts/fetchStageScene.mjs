@@ -71,6 +71,62 @@ const shrink = (p, f) => {
   return o;
 };
 
+// ⚠ FOND OPAQUE : certaines générations PixelLab livrent le dessin sur un RECTANGLE de
+// couleur unie (vu en jeu le 2026-10-01 : cosmic-bureaucracy-8, puis works-yard), que le
+// seuil d'alpha prend pour de l'encre. Si les quatre coins de la boîte d'encre sont
+// opaques et de la même couleur, c'est un fond : retiré par diffusion depuis le bord de
+// la boîte (tolérance 14), plus une passe sur le liseré d'anticrénelage (tolérance 28).
+const stripBackground = (p) => {
+  const { width: w, height: h, data } = p;
+  const op = (x, y) => x >= 0 && y >= 0 && x < w && y < h && data[(y * w + x) * 4 + 3] >= 128;
+  let x0 = w, x1 = -1, y0 = h, y1 = -1;
+  for (let y = 0; y < h; y += 1) for (let x = 0; x < w; x += 1) if (op(x, y)) { if (x < x0) x0 = x; if (x > x1) x1 = x; if (y < y0) y0 = y; if (y > y1) y1 = y; }
+  if (x1 < 0) return 0;
+  const col = (x, y) => { const i = (y * w + x) * 4; return [data[i], data[i + 1], data[i + 2]]; };
+  const dist = (a, b) => Math.hypot(a[0] - b[0], a[1] - b[1], a[2] - b[2]);
+  const corners = [[x0, y0], [x1, y0], [x0, y1], [x1, y1]];
+  if (!corners.every(([x, y]) => op(x, y))) return 0;
+  const bg = col(x0, y0);
+  if (!corners.every(([x, y]) => dist(col(x, y), bg) < 14)) return 0;
+  const seen = new Uint8Array(w * h), q = [];
+  const seed = (x, y) => { if (op(x, y) && !seen[y * w + x] && dist(col(x, y), bg) < 14) { seen[y * w + x] = 1; q.push(x, y); } };
+  for (let x = x0; x <= x1; x += 1) { seed(x, y0); seed(x, y1); }
+  for (let y = y0; y <= y1; y += 1) { seed(x0, y); seed(x1, y); }
+  let n = 0;
+  while (q.length) {
+    const y = q.pop(), x = q.pop();
+    data[(y * w + x) * 4 + 3] = 0; n += 1;
+    seed(x + 1, y); seed(x - 1, y); seed(x, y + 1); seed(x, y - 1);
+  }
+  // Poches ENFERMÉES (sous la flèche d'une grue, entre deux tours) : seulement les taches
+  // de la couleur EXACTE du fond (le fond généré est un aplat parfait ; une vraie pierre
+  // grise a toujours du grain) et d'au moins 12 px — jamais un mur troué.
+  const exact = (x, y) => op(x, y) && dist(col(x, y), bg) < 3;
+  const lab = new Uint8Array(w * h);
+  for (let y = y0; y <= y1; y += 1) for (let x = x0; x <= x1; x += 1) {
+    if (lab[y * w + x] || !exact(x, y)) continue;
+    const st = [x, y], px = [];
+    lab[y * w + x] = 1;
+    while (st.length) {
+      const cy = st.pop(), cx = st.pop();
+      px.push(cy * w + cx);
+      for (const [nx, ny] of [[cx + 1, cy], [cx - 1, cy], [cx, cy + 1], [cx, cy - 1]]) {
+        if (exact(nx, ny) && !lab[ny * w + nx]) { lab[ny * w + nx] = 1; st.push(nx, ny); }
+      }
+    }
+    if (px.length >= 12) { for (const i of px) data[i * 4 + 3] = 0; n += px.length; }
+  }
+  const fringe = [];
+  for (let y = 0; y < h; y += 1) for (let x = 0; x < w; x += 1) {
+    if (!op(x, y) || dist(col(x, y), bg) >= 28) continue;
+    if (!op(x + 1, y) || !op(x - 1, y) || !op(x, y + 1) || !op(x, y - 1)) fringe.push((y * w + x) * 4 + 3);
+  }
+  for (const i of fringe) data[i] = 0;
+  return n + fringe.length;
+};
+const stripped = stripBackground(img);
+if (stripped) console.log(`  fond opaque retiré : ${stripped} px`);
+
 img = crop(img);
 if (x2 && !fit) img = shrink(img, 0.5);
 // En `--fit`, 4 px de marge par côté : la plus large de la série d'origine (104 sur 112).

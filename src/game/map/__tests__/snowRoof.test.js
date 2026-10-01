@@ -203,7 +203,10 @@ describe("neige de toit — contrats de la passe", () => {
     // couche sur 103 d'entre eux, et sur granary-hall elle empêche 35 % de neige
     // de couler au-delà de la face de toit. Ce test échoue si quelqu'un « range »
     // la descente de matière en croyant supprimer du code mort.
-    const png = read(ENGINE, "granary-hall");
+    // Spécimen changé le 2026-10-01 : granary-hall a été redessiné (grange dîmière,
+    // passe « tous les bâtiments ») et ne retient plus que ×1,2 ; la basilique de
+    // justice romaine retient ×1,65 (mesuré sur les sprites du dépôt ce jour-là).
+    const png = read(ENGINE, "courthouses-basilica");
     const bridee = roofSnowMask(png.data, png.width, png.height).covered;
     const libre = roofSnowMask(png.data, png.width, png.height,
       { chroma: 9, capMax: 0, maxRunK: 1 }).covered;
