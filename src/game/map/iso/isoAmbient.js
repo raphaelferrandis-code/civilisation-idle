@@ -17,6 +17,8 @@ import { worldToScreen, visibleCellBounds } from './projection.js';
 import { isoWildForest } from './isoWildForest.js';
 import { _frac, _rnd } from './isoMath.js';
 import { addGlow } from './isoStreet.js';
+import { vieK, vieSprite, vieBlit, vieBlitAt, vieCount, vieGenerated } from './isoVie.js';
+import { LEAF_KINDS, puffSprite } from './vieArt.js';
 
 // ── PARTICULES D'AMBIANCE (feuilles / lucioles / motes d'énergie) ────────────
 // Champ PROCÉDURAL SANS ÉTAT : chaque particule a une position = fonction PURE de
@@ -28,8 +30,6 @@ const AMBIENT = { on: true, leaves: 1, sparks: 1 };
 if (typeof window !== 'undefined') {
   window.__ambient = (o) => { if (o) Object.assign(AMBIENT, o); return { ...AMBIENT }; };
 }
-// Palette de feuilles mortes (ambre/or/rouille + deux verts qui traînent).
-const LEAF_COLS = ['196,120,45', '214,158,58', '170,86,38', '150,120,50', '120,150,60'];
 // Ancres de végétation visibles (base monde + rayon + graine), plafonnées. Mémoïsé
 // par (layout, bornes) : ne se reconstruit qu'au changement de cadrage/plan.
 function isoVegAnchors(L, b) {
@@ -80,15 +80,17 @@ export function drawIsoAmbient(now) {
   // ── FEUILLES (ères pré-cosmiques, surtout de JOUR) : chute + tangage, fondu aux
   //    deux bouts (naît sous la canopée, disparaît au sol → pas de pop).
   if (!cosmic && AMBIENT.leaves > 0) {
-    // BUDGET DE MOUVEMENT : l'œil ne suit que quelques choses à la fois. Quand
-    // une nuée traverse, elle prend la vedette et les feuilles s'effacent un peu,
-    // sinon les deux couches se concurrencent et l'image devient agitée.
-    const leafK = CM._birdsOn ? 0.55 : 1;
-    const dayDim = (1 - 0.65 * n) * leafK;               // s'effacent la nuit
+    const dayDim = 1 - 0.65 * n;                         // s'effacent la nuit
     if (dayDim > 0.05) {
       const prevAA = ctx.imageSmoothingEnabled; ctx.imageSmoothingEnabled = false;
+      // PETITE VIE (2026-10-01) : les feuilles sont des DESSINS (vieArt, quatre poses
+      // d'une feuille qui vrille, quatre teintes), le vent les pousse, et la saison
+      // décide combien d'arbres en perdent (l'automne tous, l'hiver aucun).
+      const seasonKeep = [3, 4, 12, 0][CM.season | 0] ?? 6;   // arbres sur 12 qui en perdent
+      const wind = CM.windX || 0;
+      const kv = vieK();
       for (const a of anchors) {
-        if ((a.s % 2) !== 0) continue;                   // ~1 arbre sur 2 perd des feuilles
+        if ((a.s % 12) >= seasonKeep) continue;
         if (!thin(a)) continue;
         const p = worldToScreen(a.wx, a.wy);
         const th = T * z * treeCanvasT(a.r);             // hauteur du sprite d'arbre (suit l'ère)
@@ -102,12 +104,10 @@ export function drawIsoAmbient(now) {
           // dérive latérale NETTE (s'éloigne du tronc en tombant) + léger tangage :
           // la feuille quitte la canopée et se lit sur le sol, pas noyée dans le feuillage.
           const drift = (sd2 < 0.5 ? -1 : 1) * ph * canW * 0.9;
-          const lx = p.x + (sd - 0.5) * canW * 0.5 + drift + Math.sin(ph * Math.PI * 3 + sd2 * 6.28) * canW * 0.32;
-          ctx.fillStyle = `rgba(${LEAF_COLS[(a.s + i) % LEAF_COLS.length]},${(fade * dayDim * AMBIENT.leaves * 0.9).toFixed(3)})`;
-          const tumble = _frac(ph * 5) < 0.5;             // bascule 1×2 / 2×1 → chute qui vrille
-          ctx.fillRect(Math.round(lx - fleck / 2), Math.round(ly - fleck / 2),
-            tumble ? fleck : Math.max(1, Math.round(fleck * 0.6)),
-            tumble ? Math.max(1, Math.round(fleck * 0.6)) : fleck);
+          const lx = p.x + (sd - 0.5) * canW * 0.5 + drift + Math.sin(ph * Math.PI * 3 + sd2 * 6.28) * canW * 0.32
+            + wind * ph * canW * 1.4;
+          const spr = vieSprite(LEAF_KINDS[(a.s + i) % LEAF_KINDS.length], Math.floor(ph * 9 + sd * 4) % 4);
+          if (vieBlit(ctx, spr, lx, ly, kv, fade * dayDim * AMBIENT.leaves)) vieCount('feuillesArbres');
         }
       }
       ctx.imageSmoothingEnabled = prevAA;
@@ -197,30 +197,26 @@ export function drawIsoSmoke(box, s, now, k) {
   const ox = box.dx + box.dw * (0.42 + _rnd(s, 11) * 0.16);
   const oy = box.dy - T * z * 0.06;
   const rise = T * z * 1.5 * SMOKE_TUNE.rise;
-  const wind = (CM.windX || 0) * 0.6 + 0.12;      // dérive par défaut quand il n'y a pas de vent
   const n = Math.max(1, Math.round(SMOKE_TUNE.puffs));
-  const prevAA = ctx.imageSmoothingEnabled;
-  ctx.imageSmoothingEnabled = false;
+  // PETITE VIE (2026-10-01) : des BOUFFÉES RONDES au pixel (vieArt.puffSprite,
+  // éclairées en haut à gauche) qui grossissent en montant et que le vent COUCHE —
+  // la colonne se courbe (sa dérive croît plus vite que sa montée). Elle remplace
+  // les CARRÉS qui grossissaient (retirés après validation, 2026-10-01).
+  const kv = vieK();
+  const w2 = (CM.windX || 0) * 1.6 + 0.15;
   for (let i = 0; i < n; i += 1) {
     const sd = _rnd(s, i + 20);
     const ph = _frac((now || 0) / (2600 + sd * 1800) + sd);
-    // Naît dense et net, s'élargit et s'efface en montant : une bouffée qui
-    // garderait sa taille lirait comme un sprite qui glisse.
-    // Décroissance LINÉAIRE et non quadratique : au carré, la bouffée perdait
-    // les trois quarts de son opacité sur le premier quart de sa montée et ne
-    // se voyait plus du tout sur fond de nuit.
-    const fade = (1 - ph) * 0.8 * k;
-    if (fade < 0.02) continue;
-    // Une bouffée naît à ~1/8 de tuile et triple en montant. Trop petite, elle
-    // se confond avec le grain du sprite ; c'est l'écueil dans lequel sont
-    // tombées les fenêtres allumées avant d'être retirées.
-    const px = Math.max(2, Math.round(T * z * (0.12 + ph * 0.24)));
-    const x = ox + wind * rise * ph + Math.sin(ph * 4 + sd * 6.28) * T * z * 0.06;
-    const y = oy - ph * rise;
-    ctx.fillStyle = `rgba(206,206,200,${fade.toFixed(3)})`;
-    ctx.fillRect(Math.round(x - px / 2), Math.round(y - px / 2), px, px);
+    // Dense au départ, puis elle s'éclaircit : en racine, la bouffée reste visible sur
+    // la première moitié de sa montée (en linéaire elle ne se voyait plus au soir).
+    const fade = Math.pow(1 - ph, 0.6) * 0.95 * k;
+    if (fade < 0.03) continue;
+    const rArt = Math.max(1, Math.round((1 + ph * 3.2) * (T * z / 32) * 1.135 / kv));
+    const img = vieGenerated('puff:' + rArt, () => puffSprite(rArt));
+    const x = ox + w2 * rise * Math.pow(ph, 1.6) + Math.sin(ph * 4 + sd * 6.28) * T * z * 0.05;
+    const y = oy - ph * rise * (1 - Math.min(0.45, Math.abs(w2) * 0.35));
+    if (vieBlitAt(ctx, img, x, y, kv, fade)) vieCount('fumee');
   }
-  ctx.imageSmoothingEnabled = prevAA;
 }
 
 // ── CHEVRON « NOUVEAU BÂTIMENT » (A4) ────────────────────────────────────────

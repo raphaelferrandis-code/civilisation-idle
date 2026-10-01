@@ -380,8 +380,82 @@ Lots (pilote bande 4, planche, puis les autres ères) :
 
 | Lot | Contenu | État |
 |---|---|---|
-| V1 | L'eau : brume d'aube et de soir, poissons (ombres et sauts) redessinés, ronds de pluie au pixel, feuilles à la dérive, canards et cygnes, héron, libellules | à faire |
-| V2 | Oiseaux posés qui s'envolent : pigeons (places, toits), mouettes (quais) ; retrait de la volée qui traverse | à faire |
-| V3 | Terre et vent : feuilles qui tombent, papillons, chats, chiens, arbres qui bougent, linge, drapeaux, fumée au vent | à faire |
-| V4 | Lumières : halos au pixel (réverbères, lanternes), lucioles, éclats du soleil sur l'eau | à faire |
-| V5 | Ombres de nuages | à faire |
+| V1 | L'eau : brume d'aube et de soir, poissons (ombres et sauts) redessinés, ronds de pluie au pixel, feuilles à la dérive, canards et cygnes, héron, libellules | FAIT, VALIDÉ par Raph (planche 1, `.preview-shots/planche-petite-vie-1.png`) ; éclats du soleil ajoutés après |
+| V2 | Oiseaux posés qui s'envolent : pigeons (places, toits), mouettes (quais) ; retrait de la volée qui traverse | FAIT, VALIDÉ ; pigeons des toits ajoutés après |
+| V3 | Terre et vent : feuilles qui tombent, papillons, chats, chiens, arbres qui bougent, linge, drapeaux, fumée au vent | FAIT, VALIDÉ (planche 2) ; DRAPEAUX ajoutés après (ponts dès la pierre, bâtiments publics, quais) |
+| V4 | Lumières : halos au pixel (réverbères, lanternes), lucioles, éclats du soleil sur l'eau | FAIT, VALIDÉ : petites lueurs au pixel (lucioles, cœurs de flamme) ; grandes nappes GARDÉES lisses (essai tramé = bruit) ; ÉCLATS DU SOLEIL tentés à la demande de Raph (« tente ») |
+| V5 | Ombres de nuages | FAIT, VALIDÉ (planche 2) |
+
+Où c'est : `iso/vieArt.js` (dessins, texte pixel par pixel ; planche de contrôle
+`node scripts/vieBoard.mjs`), `iso/isoVie.js` (cuisson, taille au pixel entier, acteurs
+du tri peintre, passe aérienne, molette `__vie`, compteurs `__vieStats()`),
+`iso/isoRiverLife.js` (eau), `iso/isoVieOiseaux.js` (pigeons des places et des toits,
+mouettes), `iso/isoVieTerre.js` (chiens, chats, papillons, linge), `iso/isoVieNuages.js`,
+`iso/isoVieDrapeaux.js` (bâtiments publics, quais ; les ponts appellent la même recette
+`drawVieFlag` depuis isoBridge). L'ANCIENNE vie (ellipses, carrés, volée en V, molettes
+`__riverLife` et `__birds`) a été SUPPRIMÉE après validation de Raph.
+
+Journal :
+- **2026-10-01, nuit — lots V1 et V2, première version.** Échelle : l'habitant fait
+  ~10 px au zoom 1 ; les bêtes ×1,3 à ×1,6 de nature (canard 6 px, héron 9, pigeon 5).
+  Un pixel d'art = un pixel ENTIER d'écran (round(1,135 × zoom)), jamais de rotation.
+  Tout ce qui est ancré au fleuve vit sur son TRONÇON DE VILLE (`citySpan`) : le ruban
+  fait 316 samples dont 88 dans la grille, et réparties sur toute sa longueur les
+  familles de canards tombaient hors de la carte. Brume : trois jets — traits de 3-6 px
+  (« rayures de vitesse »), puis 7-13, puis filets de 11-19 px + une nappe ×1,7 sur
+  trois postes ; trame de Bayer, trois intensités, déchirures au bruit. Héron et
+  mouettes : ville seulement (`urbanSet`), loin des arbres (un héron sous une couronne
+  ne montrait que ses pattes), jamais sur le même poste (`vieOccupied`). Vol du héron
+  à ~2,2 tuiles/s (le premier traversait la ville en 7 s). Pigeon en vol : corps sombre,
+  ailes claires (gris sur gris, invisible sur le pavé). Libellule rouge (la bleue
+  disparaissait sur l'eau).
+  ⚠ Banc : d'autres sessions éditent `src/game/` en continu → la page du serveur de
+  dev se recharge et coupe les séries. Serveur de capture SANS rechargement :
+  `.claude/launch.json` « vite-capture » (port 61800, config dans le scratchpad).
+  ⚠ Les ombres de poissons dépendent de `CM.layoutRecomputeAt` : chaque `__demoCity`
+  les rebat, il faut rechercher l'instant d'un saut à chaque montage.
+- **2026-10-01, nuit — lots V3, V4, V5, première version.** Modules : `iso/isoVieTerre.js`
+  (chiens, chats, papillons, linge), `iso/isoVieNuages.js`, vent des arbres dans
+  `isoVie.vieTreeSway` (greffé dans la branche `tree` d'isoLivePaint), feuilles et fumée
+  dans isoAmbient, halos dans `isoStreet.addGlow`.
+  - VENT : la couronne glisse d'UN TEXEL entier, par trois bandes (haut, milieu, tronc
+    fixe) ; onde qui traverse la ville dans le sens de `CM.windX`. ⚠ Coupures entre
+    bandes au pixel device entier (sinon ligne claire en travers de la couronne) et
+    trois bandes MÊME au repos (sinon l'arbre se ré-échantillonne en passant d'un blit
+    à trois et scintille). L'ombre solaire et le reflet restent sur l'image entière.
+  - Tailles relevées après capture : feuille 3 px (à 2, invisible), papillon 5 × 3 (à
+    3 × 2, un point), chien à robe foncée et opaque, À CÔTÉ du maître (derrière, il se
+    cachait sous lui), chats et héron et mouettes à DEUX cases de tout arbre.
+  - ⚠ Le mobilier des places (`isoPlazaCompositions().props`) est en PIXELS MONDE
+    (`wx` = tuiles × TILE), pas en tuiles : lu tel quel, les pigeons se posaient dans la
+    fontaine et les papillons volaient hors carte.
+  - HALOS : l'essai tramé (Bayer) sur les grandes nappes des réverbères se lisait comme
+    du BRUIT → seules les lueurs ≤ 6 px d'art passent au pixel (trois paliers francs) ;
+    les nappes gardent leur dégradé. Molette `__vie({ halos: false })`.
+  - NUAGES : masque cuit UNE fois par nuage à 1/13 de tuile par case, posé à un nombre
+    entier de px par case ; ⚠ la frange tramée faisait un DAMIER au zoom 2,5 (cases de
+    8 px, signalé par la session des maisons) → frange en dégradé, pose LISSÉE (une
+    ombre de nuage est douce, comme les grandes nappes de lumière).
+  - Prix mesuré sur GPU (bande 4, zoom 1, 0,75, 2) : dans le bruit de mesure. Coupés au
+    palier « perf » et en vue lointaine : nuages ; en fondu sous 0,6 : toutes les bêtes.
+- **2026-10-01, matin — VALIDÉ par Raph** (« je valide tout, tu peux tout faire ») et
+  ses quatre réponses : drapeaux « sur les ponts à partir de la pierre, bâtiments
+  publics oui, quelques-uns le long des quais » ; éclats du soleil « tente » ; pigeons des
+  toits oui.
+  - DRAPEAUX : une recette commune `isoVie.drawVieFlag` (hampe, épi doré, tissu qui
+    part du côté de `CM.windX`, ondule avec le vent, retombe un peu par calme) ; la
+    session des ponts l'appelle pour ses ponts (bandes 2 à 9). Bâtiments publics : un
+    MÂT PLANTÉ DEVANT LA FAÇADE côté rue (deux pour les grands), seulement les deux plus
+    grandes instances de chaque institution (sinon 126 drapeaux à l'écran). ⚠ Essayé
+    d'abord SUR le toit : l'encre MESURÉE d'une scène moteur (même son profil opaque)
+    dépasse le toit affiché de 15 à 30 px sur certaines scènes → drapeau en l'air. ⚠ Un
+    mât devant une façade qui regarde le joueur est plus au nord que le coin sud qui
+    sert de clé au bâtiment : il prend la clé du bâtiment + ε (sinon son drapeau passait
+    derrière le socle). Quais : un grand mât tous les ~22 samples, rives alternées.
+  - PIGEONS DES TOITS : une maison sur ~40, perchés sur la LIGNE DU TOIT lue dans le
+    masque d'encre de la maison (`CM._houseBoxes`, `inkTopAt`) ; un tour toutes les une
+    à deux minutes. Fiable pour les habitations (pas pour les scènes moteur, cf. plus haut).
+  - ÉCLATS DU SOLEIL : une dizaine d'étincelles à la fois sur le fleuve visible, une
+    demi-seconde chacune (point, petite croix, point), jour et beau temps seulement.
+  - Contrôle de toutes les ères (bandes 0 à 9, vue de ville et vue du fleuve) : chaque
+    couche s'allume où il faut ; cosmique (7+) sans bêtes, par choix.

@@ -1,43 +1,44 @@
 /* ---- La vie de la SURFACE de l'eau ---- */
 //
-// Le fleuve avait déjà ses poissons en ombre, ses roseaux, son bas-fond et ses
-// bateaux. Il lui manquait ce qui se passe SUR l'eau, à la seconde près : la
-// pluie qui la crible, ce qui dérive au fil du courant, ce que les riverains y
-// ont laissé, et le poisson qui saute.
+// Ce qui se passe SUR le fleuve, à la seconde près : la brume de l'aube et du
+// soir, la pluie qui le crible, les feuilles au fil du courant, le poisson qui
+// saute, les canards, les cygnes, le héron sur la berge, les libellules.
 //
-// ⚠ MODULE À PART, ET C'EST DÉLIBÉRÉ. isoRenderer.js fait 7000 lignes et
-// plusieurs sessions y travaillent en même temps — la texture d'eau y est en
-// chantier au moment où ceci est écrit. Tout tenir ici réduit le contact à un
-// import et une ligne d'appel. Même geste que isoPlaza.js et isoBridge.js.
+// ⚠ REFAIT AU PIXEL LE 2026-10-01 (docs/PLAN-MAQUETTE-VIVANTE.md §9). Tout était
+// dessiné par le code — anneaux lissés, carrés, pavés — et ne venait pas de la
+// même main que le reste de la carte. Les bêtes sont désormais dessinées à la main
+// dans vieArt.js et posées au pixel entier par isoVie.js. L'ancienne vie a été
+// retirée après validation de Raph (planches du 2026-10-01).
 //
 // ⚠ AUCUN ÉTAT ENTRE LES FRAMES : tout est fonction de (now, hash). C'est ce qui
-// rend les captures reproductibles et évite une file d'objets à faire vivre. La
-// contrepartie est qu'on ne peut pas « lancer » un événement : on lit une
-// horloge et on en déduit ce qui doit être visible.
+// rend les captures reproductibles et évite une file d'objets à faire vivre.
 //
-// ⚠ Ce module n'importe RIEN d'isoRenderer : il l'importe déjà (cycle ES = zone
-// morte, piège payé deux fois sur ce chantier). isoRenderer POUSSE sa config.
-import { CM } from '../layout.js';
+// ⚠ ANCRÉ AU FLEUVE, PAS À LA VUE. L'ancienne vie semait ses feuilles dans la
+// portion VISIBLE du ruban : chaque pan de caméra les faisait toutes sauter
+// ailleurs. Canards, héron, brume, feuilles sont maintenant placés le long du
+// fleuve ENTIER (position = fraction de sa longueur) et seulement triés à l'écran.
+// Seuls la pluie (du hasard pur) et le saut de poisson (un événement qu'il faut
+// voir) restent tirés dans le champ.
+//
+// ⚠ Ce module n'importe RIEN d'isoRenderer ni d'isoRiver : isoRiver l'importe déjà
+// (cycle ES = zone morte, piège payé deux fois sur ce chantier). isoRiver POUSSE sa
+// config (configureRiverLife).
+import { CM, cmHash } from '../layout.js';
 import { worldToScreen } from './projection.js';
+import { bridgeBlocks } from './isoBridge.js';
+import {
+  VIE, vieK, vieZoomFade, vieSprite, fishShadowSprite, vieGenerated, vieBlit, vieBlitAt,
+  viePixel, vieRing, vieCount, vieMistF, registerVieActors, registerVieAir, vieIsOccupied,
+} from './isoVie.js';
+import { mistStrand, mistOfDay, LEAF_KINDS } from './vieArt.js';
 
 const CFG = { ribbonPath: null, precipKind: () => 'rain' };
 export function configureRiverLife(o) { Object.assign(CFG, o); }
 
-// Molette : __riverLife({ on, rain, leaves, jumps }). (`props` a disparu avec les
-// bouées, cf. le bloc 3.)
-export const riverLifeTune = { on: true, rain: 1, leaves: 1, jumps: 1 };
-// Diagnostic (__riverLifeStats) : ce qui a VRAIMENT été peint à la dernière
-// frame. Une couche qui ne dessine rien et une couche qui dessine hors champ
-// donnent la même image ; seuls ces compteurs les séparent.
-const stats = { rings: 0, ringsSkipped: 0, leaves: 0, jump: 0, why: '' };
-if (typeof window !== 'undefined') {
-  window.__riverLife = (o) => { if (o) Object.assign(riverLifeTune, o); return { ...riverLifeTune }; };
-  window.__riverLifeStats = () => ({ ...stats });
-}
+// Molettes : __vie({ brume, poissons, sauts, pluie, feuilles, canards, cygnes,
+// herons, libellules, eclats }) ; compteurs : __vieStats() (isoVie.js).
 
-// Hash → [0,1). ⚠ Toujours >>> 0 : le cmHash maison rend du SIGNÉ et les modulos
-// sortiraient négatifs (rayons négatifs = ellipse() qui jette, alphas écrasés).
-// On garde ici une version locale pour ne dépendre de rien.
+// Hash → [0,1). ⚠ Toujours >>> 0 : le cmHash maison rend du SIGNÉ.
 function h32(n) {
   let x = (n | 0) + 0x9e3779b9;
   x = Math.imul(x ^ (x >>> 16), 0x21f0aaad);
@@ -57,24 +58,62 @@ function ribbonPoint(sm, t, lat) {
   const hw = (a.hw || 2) * 0.82;                 // marge : rien ne mord la berge
   return { x: x + nx * lat * hw, y: y + ny * lat * hw };
 }
+// Même point, mais le décalage est en TUILES depuis l'axe (berges, postes du héron).
+function riverFrame(sm, t) {
+  const fi = Math.max(0, Math.min(1, t)) * (sm.length - 1);
+  const i0 = Math.max(0, Math.min(sm.length - 2, Math.floor(fi)));
+  const f = fi - i0;
+  const a = sm[i0], b = sm[i0 + 1];
+  let tx = b.x - a.x, ty = b.y - a.y;
+  const tl = Math.hypot(tx, ty) || 1; tx /= tl; ty /= tl;
+  return {
+    x: a.x + (b.x - a.x) * f, y: a.y + (b.y - a.y) * f,
+    tx, ty, nx: -ty, ny: tx, hw: (a.hw || 2) + ((b.hw || 2) - (a.hw || 2)) * f,
+  };
+}
 
 const S = (p, T) => worldToScreen(p.x * T, p.y * T);
 
+// TRONÇON DE LA VILLE : le ruban court bien au-delà de la carte (316 samples, dont
+// 88 dans la grille sur une partie de bande 4 — mesuré). Tout ce qui est ANCRÉ au
+// fleuve (familles, héron, brume, feuilles, libellules) vit sur ce tronçon-là :
+// réparti sur toute la longueur, il tombait presque entier hors de la carte jouée.
+// Rend { a, b } (fractions du ruban) et `len` (tuiles).
+let _spanMemo = { sm: null, N: 0, v: null };
+function citySpan(sm) {
+  const N = (CM.layout && CM.layout.gridN) | 0;
+  if (_spanMemo.sm === sm && _spanMemo.N === N) return _spanMemo.v;
+  let i0 = -1, i1 = -1;
+  for (let i = 0; i < sm.length; i += 1) {
+    const q = sm[i];
+    if (q.x < -4 || q.y < -4 || q.x > N + 4 || q.y > N + 4) continue;
+    if (i0 < 0) i0 = i;
+    i1 = i;
+  }
+  if (i0 < 0 || i1 - i0 < 4) { i0 = 0; i1 = sm.length - 1; }
+  let len = 0;
+  for (let i = i0 + 1; i <= i1; i += 1) len += Math.hypot(sm[i].x - sm[i - 1].x, sm[i].y - sm[i - 1].y);
+  const n = sm.length - 1;
+  const v = { a: i0 / n, b: i1 / n, i0, i1, len: Math.max(1, len) };
+  _spanMemo = { sm, N, v };
+  return v;
+}
+
+// Direction du courant À L'ÉCRAN au point t (vecteur unitaire).
+function screenDir(sm, t, T) {
+  const f = riverFrame(sm, t);
+  const p = worldToScreen(f.x * T, f.y * T), q = worldToScreen((f.x + f.tx) * T, (f.y + f.ty) * T);
+  const dx = q.x - p.x, dy = q.y - p.y, dl = Math.hypot(dx, dy) || 1;
+  return { dx: dx / dl, dy: dy / dl };
+}
+const onScreen = (sc, m) => !(sc.x < -m || sc.x > CM.cw + m || sc.y < -m || sc.y > CM.ch + m);
+
 // ── Portion du ruban RÉELLEMENT à l'écran ───────────────────────────────────
-// ⚠ Sans ça, rien ne se voit. Le ruban traverse toute la carte : semer 46
-// impacts de pluie sur [0,1] au zoom de jeu en met 45 hors champ et un seul
-// devant les yeux — mesuré exactement, compteur à l'appui, avant de comprendre.
-// On calcule donc la plage de t visible et on sème DEDANS. La densité devient
-// celle de ce qu'on regarde, plus celle d'un fleuve dont on ne voit qu'un
-// vingtième.
-//
-// Ne concerne QUE les éléments sans mémoire (pluie, feuilles, saut) : les
-// bouées, elles, sont des points de repère ancrés au layout et doivent rester
-// où elles sont quand la caméra bouge, quitte à en croiser peu.
+// Sans ça, la pluie et le saut ne se voient pas : semés sur tout le ruban, ils
+// tombent presque tous hors champ (mesuré, compteur à l'appui).
 export function visibleT(sm, T) {
-  const M = 60;                                  // marge écran, en px
+  const M = 60;
   let t0 = 1, t1 = 0, seen = false;
-  // Un échantillon sur trois suffit à cadrer la plage, et coûte trois fois moins.
   for (let i = 0; i < sm.length; i += 3) {
     const p = worldToScreen(sm[i].x * T, sm[i].y * T);
     if (p.x < -M || p.x > CM.cw + M || p.y < -M || p.y > CM.ch + M) continue;
@@ -83,194 +122,536 @@ export function visibleT(sm, T) {
     if (t > t1) t1 = t;
     seen = true;
   }
-  if (!seen) return null;                        // le fleuve est hors champ
+  if (!seen) return null;
   const pad = 0.02;
   return { t0: Math.max(0, t0 - pad), t1: Math.min(1, t1 + pad) };
 }
 
-// ── 1. RONDS DE PLUIE ───────────────────────────────────────────────────────
-// L'averse existait déjà, mais elle ne TOUCHAIT pas l'eau : le rideau tombait
-// devant un fleuve parfaitement lisse. Ce sont les impacts, plus que les
-// gouttes, qui disent qu'il pleut.
-// Chaque impact a son horloge propre ; l'anneau naît net et petit, s'élargit et
-// s'efface. En NEIGE il n'y en a aucun — un flocon ne crible pas l'eau.
-function drawRainRings(ctx, sm, T, z, now, rainF, vis) {
-  const k = riverLifeTune.rain;
-  stats.rings = 0; stats.ringsSkipped = 0; stats.why = '';
-  if (k <= 0 || rainF <= 0.02) { stats.why = 'rainF=' + rainF + ' k=' + k; return; }
-  const kind = CFG.precipKind(CM.season, rainF);
-  if (kind !== 'rain') { stats.why = 'precip=' + kind; return; }
-  // 130 et non 46 : à la première livraison Raph a trouvé l'averse « trop
-  // discrète » sur l'eau. Une pluie battante crible la surface, elle n'y pose pas
-  // trois ronds. Le coût reste une ellipse par impact, sur la seule portion vue.
-  const n = Math.round(130 * rainF * k);
-  const s = T * z;
-  const t = now || 0;
+// Ère et saison qui décident des bêtes : rien après la bande 6 (on n'élève pas de
+// canards dans une mégastructure stellaire, même règle que le bétail).
+const bandOf = () => ((CM.layout && CM.layout.counts && CM.layout.counts.eraBand) | 0);
+const WATER_RGB = [214, 232, 240];
+
+// ═══ 1. LA BRUME D'AUBE ET DE SOIR ═══════════════════════════════════════════
+// Des filets effilochés (vieArt.mistStrand) qui naissent, glissent au fil de l'eau
+// et se défont. Un poste tous les 5 tuiles de fleuve, chacun avec sa propre vie
+// (45-80 s) : la brume se renouvelle sans jamais « tourner en boucle ». Clippée au
+// ruban (elle ne passe jamais sur la ville) — cf. drawIsoRiverLife.
+function drawMist(ctx, sm, T, z, now, k, fz) {
+  const mf = vieMistF(mistOfDay);
+  if (mf < 0.03) return;
+  const cs = citySpan(sm), Lt = cs.len, span = cs.b - cs.a;
+  const n = Math.max(6, Math.round(Lt / 3.2));
+  const t = (now || 0) / 1000;
+  const lenK = (1.135 * z) / k;                          // longueur suit le zoom réel
   for (let i = 0; i < n; i += 1) {
-    const P = 620 + h32(i * 7 + 1) * 520;              // durée de vie de l'anneau
-    const ph = ((t + h32(i * 13 + 2) * P) % P) / P;    // 0 → 1
-    // Position RETIRÉE À CHAQUE CYCLE : sans le numéro de cycle dans le hash,
-    // les impacts retomberaient éternellement aux mêmes points et l'œil verrait
-    // un motif clignoter au lieu d'une averse.
+    const P = 45 + h32(i * 31 + 1) * 35;
+    const ph = h32(i * 31 + 2) * P;
+    const cyc = Math.floor((t + ph) / P);
+    const u = ((t + ph) % P) / P;
+    const g = (i * 977 + cyc * 131) | 0;
+    const tt = cs.a + span * ((i + h32(g + 3)) / n + u * P * (0.10 + h32(g + 4) * 0.12) / Lt);
+    if (tt > 1) continue;
+    const lat = (h32(g + 5) * 2 - 1) * 0.62;
+    const sc = S(ribbonPoint(sm, tt, lat), T);
+    if (!onScreen(sc, 260)) continue;
+    // Naissance et fin en fondu — mais un fondu DE PIXELS (la trame s'allume ou
+    // s'éteint), jamais d'opacité globale qui rendrait le filet flou.
+    const life = Math.max(0, Math.min(1, u / 0.22, (1 - u) / 0.3));
+    // Un poste sur trois porte une NAPPE : plus large, plus pâle — le lit de brume
+    // d'où sortent les filets. Les autres portent un filet franc.
+    const nappe = (i % 3) === 0;
+    const dq = Math.round(mf * life * (0.72 + 0.28 * h32(g + 6)) * (nappe ? 0.6 : 1) * 8) / 8;
+    if (dq < 0.125) continue;
+    const d = screenDir(sm, tt, T);
+    const ab = Math.round(Math.atan2(d.dy, d.dx) / (Math.PI / 12));
+    const a = ab * (Math.PI / 12);
+    const lenArt = Math.max(24, Math.round((110 + h32(g + 7) * 110) * (nappe ? 1.3 : 1) * lenK / 8) * 8);
+    const seed = (g % 997 + 997) % 997;
+    const img = vieGenerated(`mist:${seed}:${ab}:${lenArt}:${dq}:${nappe ? 1 : 0}`,
+      () => mistStrand(seed, Math.cos(a), Math.sin(a), lenArt, dq, nappe ? 1.7 : 1));
+    if (vieBlitAt(ctx, img, sc.x - Math.cos(a) * lenArt * k / 2, sc.y - Math.sin(a) * lenArt * k / 2, k, fz)) vieCount('brume');
+  }
+}
+
+// ═══ 2. RONDS DE PLUIE ═══════════════════════════════════════════════════════
+// Même averse qu'avant (130 impacts à pleine pluie, tirés dans le champ, taille
+// propre à chaque goutte), mais chaque anneau est tracé AU PIXEL.
+function drawRainPx(ctx, sm, T, z, now, rainF, vis, k, fz) {
+  if (VIE.pluie <= 0 || rainF <= 0.02) return;
+  if (CFG.precipKind(CM.season, rainF) !== 'rain') return;
+  const n = Math.round(130 * rainF * VIE.pluie);
+  const t = now || 0;
+  const rk = (1.135 * z) / k;                            // rayon en pixels d'art, suit le zoom
+  for (let i = 0; i < n; i += 1) {
+    const P = 620 + h32(i * 7 + 1) * 520;
+    const ph = ((t + h32(i * 13 + 2) * P) % P) / P;
     const cyc = Math.floor((t + h32(i * 13 + 2) * P) / P);
     const g = i * 977 + cyc * 31;
-    const p = ribbonPoint(sm, vis.t0 + h32(g + 3) * (vis.t1 - vis.t0), h32(g + 4) * 2 - 1);
-    const sc = S(p, T);
-    if (sc.x < -20 || sc.x > CM.cw + 20 || sc.y < -20 || sc.y > CM.ch + 20) { stats.ringsSkipped += 1; continue; }
-    // TAILLE PROPRE À CHAQUE GOUTTE (0,55× à 1,75×) : à calibre unique, cent
-    // anneaux identiques se lisaient comme une trame régulière — un motif, pas
-    // une averse. C'est la dispersion des tailles qui fait le désordre.
+    const sc = S(ribbonPoint(sm, vis.t0 + h32(g + 3) * (vis.t1 - vis.t0), h32(g + 4) * 2 - 1), T);
+    if (!onScreen(sc, 20)) continue;
     const gros = 0.55 + h32(g + 5) * 1.2;
-    const r = s * (0.03 + ph * 0.20) * gros;
-    const a = (1 - ph) * (1 - ph) * 0.58 * rainF;
-    if (a < 0.01) { stats.ringsSkipped += 1; continue; }
-    stats.rings += 1;
-    // Trait plus épais pour les gros impacts : sinon un grand anneau tracé au
-    // même filet paraît plus PÂLE que ses voisins, l'inverse de l'effet voulu.
-    ctx.lineWidth = Math.max(1, s * 0.012 * Math.sqrt(gros));
-    ctx.strokeStyle = `rgba(214,232,240,${a.toFixed(3)})`;
-    ctx.beginPath();
-    ctx.ellipse(sc.x, sc.y, r, r * 0.5, 0, 0, Math.PI * 2);   // au SOL : écrasé de moitié
-    ctx.stroke();
+    const a = (1 - ph) * (1 - ph) * 0.62 * rainF * fz;
+    if (a < 0.02) continue;
+    // Premier instant : l'impact lui-même, un pixel clair ; puis l'anneau s'ouvre.
+    if (ph < 0.12) viePixel(ctx, sc.x, sc.y, k, WATER_RGB, a);
+    else if (vieRing(ctx, sc.x, sc.y, Math.max(1, Math.round((1 + ph * 5) * gros * rk)), k, a)) vieCount('pluie');
   }
 }
 
-// ── 2. FEUILLES À LA DÉRIVE ─────────────────────────────────────────────────
-// Seulement des feuilles (Raph) : pas de détritus, quelle que soit l'ère. Deux
-// ou trois pixels qui descendent le courant — c'est le seul élément qui rend le
-// SENS du fleuve lisible quand aucun bateau ne passe.
-const LEAF_COL = ['170,120,58', '150,96,44', '124,110,52', '178,142,72'];
-function drawLeaves(ctx, sm, T, z, now, vis) {
-  const k = riverLifeTune.leaves;
-  if (k <= 0) return;
-  // 14 dans la PORTION VISIBLE, pas sur le ruban entier. La dérive se fait donc
-  // à l'intérieur de la fenêtre : une feuille sort par un bord et une autre
-  // entre par l'opposé, ce qui donne la même lecture qu'un vrai flux sans en
-  // simuler des centaines dont on ne verrait jamais aucune.
-  const n = Math.round(14 * k);
-  const s = T * z;
+// ═══ 3. FEUILLES AU FIL DE L'EAU ═════════════════════════════════════════════
+// Seulement des feuilles (Raph) : c'est le seul élément qui rend le SENS du fleuve
+// lisible quand aucun bateau ne passe. Une tous les 9 tuiles de fleuve, au fil du
+// courant (0,18-0,43 tuile/s), qui vrille lentement. Surtout à l'automne.
+function drawLeavesPx(ctx, sm, T, z, now, k, fz) {
+  const seasonK = [0.45, 0.55, 1.6, 0][CM.season | 0] ?? 1;
+  const cs = citySpan(sm), Lt = cs.len;
+  const n = Math.min(40, Math.round(Lt / 9 * VIE.feuilles * seasonK));
+  if (n <= 0) return;
   const t = (now || 0) / 1000;
-  const span = vis.t1 - vis.t0;
   for (let i = 0; i < n; i += 1) {
-    const speed = 0.010 + h32(i * 5 + 11) * 0.012;    // fraction de ruban / s
-    let u = (h32(i * 3 + 7) + t * speed / Math.max(0.02, span)) % 1;
+    const speed = 0.18 + h32(i * 5 + 11) * 0.25;
+    let u = (h32(i * 3 + 7) + t * speed / Lt) % 1;
     if (u < 0) u += 1;
-    const tt = vis.t0 + u * span;
-    // Voie transversale qui ONDULE : une feuille ne descend pas au cordeau.
-    const lat = (h32(i * 9 + 13) * 2 - 1) * 0.8 + Math.sin(t * 0.5 + h32(i) * 6.28) * 0.08;
-    const p = ribbonPoint(sm, tt, lat);
-    const sc = S(p, T);
-    if (sc.x < -10 || sc.x > CM.cw + 10 || sc.y < -10 || sc.y > CM.ch + 10) continue;
-    stats.leaves += 1;
-    const px = Math.max(1, Math.round(s * 0.035));
-    ctx.fillStyle = `rgba(${LEAF_COL[i % LEAF_COL.length]},0.72)`;
-    ctx.fillRect(Math.round(sc.x - px / 2), Math.round(sc.y - px / 2), px, Math.max(1, Math.round(px * 0.6)));
+    const lat = (h32(i * 9 + 13) * 2 - 1) * 0.75 + Math.sin(t * 0.4 + h32(i) * 6.28) * 0.05;
+    const sc = S(ribbonPoint(sm, cs.a + u * (cs.b - cs.a), lat), T);
+    if (!onScreen(sc, 10)) continue;
+    const kind = LEAF_KINDS[i % LEAF_KINDS.length];
+    const fr = Math.floor(t / (1.1 + h32(i * 7) * 0.9) + h32(i * 11) * 4) % 4;
+    if (vieBlit(ctx, vieSprite(kind, fr), sc.x, sc.y, k, 0.9 * fz)) vieCount('feuilles');
   }
 }
 
-// ── 3. BOUÉES ET NASSES : 🚫 RETIRÉES ───────────────────────────────────────
-// Livrées puis rejetées par Raph (2026-07-30) : « c'est ça les bouées ? retire,
-// ça ne va pas. » À la taille où elles se lisent sur le fleuve, une bouée n'est
-// qu'un pâté de trois pixels — la forme ne dit rien, seule la couleur ressort, et
-// elle ressort comme une salissure sur l'eau plutôt que comme un objet.
-//
-// Ce que ça apprend pour la suite : sur cette carte, un objet FLOTTANT ne peut
-// pas être lu par sa silhouette. Ce qui marche sur l'eau, ce sont les choses
-// qu'on reconnaît à leur MOUVEMENT (le sillage d'un bateau, un anneau qui
-// s'élargit, une feuille qui dérive) ou de vrais sprites à l'échelle d'une coque.
-// Ne pas retenter des props procéduraux de quelques pixels.
-
-// ── 4. LES POISSONS QUI SAUTENT ─────────────────────────────────────────────
-// Bref : moins d'une demi-seconde en l'air. Un saut TOUTES LES 11 s, et non plus
-// toutes les 34 — Raph en voulait « un peu plus ». Assez rare pour rester un
-// événement, assez fréquent pour qu'on en croise en regardant le fleuve.
-//
-// TROIS CALIBRES (0,7× à 1,55×) : l'alevin qui gobe et la grosse pièce qui
-// claque. À taille unique, revoir exactement le même saut trahissait la boucle ;
-// c'est la variété de gabarit qui fait croire à des poissons différents.
-//
-// Le numéro de saut vient de l'horloge, sa place et sa taille d'un hash de ce
-// numéro : deux sauts de suite ne se ressemblent pas, et une capture reste
-// reproductible.
+// ═══ 4. LE POISSON QUI SAUTE ═════════════════════════════════════════════════
+// Un saut toutes les 11 s, dans le champ, trois calibres. Dessiné de flanc : il
+// sort tête haute, file à plat au sommet, replonge tête basse — trois images, et
+// l'eau raconte le reste (gouttes au départ, anneaux au départ et à l'arrivée).
 const JUMP_PERIOD = 11000, JUMP_MS = 460;
-function drawFishJump(ctx, sm, T, z, now, vis) {
-  const k = riverLifeTune.jumps;
-  if (k <= 0 || z < 0.5) return;
+let _jumpVis = { idx: -1, t0: 0, t1: 1 };
+function drawJumpPx(ctx, sm, T, z, now, vis, k, fz) {
+  if (VIE.sauts <= 0) return;
   const t = now || 0;
   const idx = Math.floor(t / JUMP_PERIOD);
   const ph = (t % JUMP_PERIOD) / JUMP_MS;
-  if (ph > 1) return;                                 // l'essentiel du temps : rien
-  // DANS le champ, et c'est essentiel : un saut tiré sur tout le ruban se
-  // produirait presque toujours hors de l'écran, et le joueur n'en verrait
-  // jamais un seul de sa partie.
-  const p = ribbonPoint(sm, vis.t0 + h32(idx * 17 + 1) * (vis.t1 - vis.t0), (h32(idx * 17 + 2) * 2 - 1) * 0.7);
-  const sc = S(p, T);
-  if (sc.x < -30 || sc.x > CM.cw + 30 || sc.y < -30 || sc.y > CM.ch + 30) return;
-  stats.jump += 1;
+  if (ph > 2) return;                                 // l'essentiel du temps : rien
+  // Le champ est FIGÉ pour la durée du saut : un pan de caméra pendant la demi-
+  // seconde ne doit pas téléporter le poisson.
+  if (_jumpVis.idx !== idx) _jumpVis = { idx, t0: vis.t0, t1: vis.t1 };
+  const V = _jumpVis;
+  const sc = S(ribbonPoint(sm, V.t0 + h32(idx * 17 + 1) * (V.t1 - V.t0), (h32(idx * 17 + 2) * 2 - 1) * 0.7), T);
+  if (!onScreen(sc, 30)) return;
   const s = T * z;
-  const gros = 0.7 + h32(idx * 17 + 7) * 0.85;        // calibre de la bête
-  // Cloche : sort de l'eau, culmine, y retombe. Une grosse pièce saute plus haut
-  // et plus loin — la hauteur suit le calibre, sinon tous les sauts se
-  // superposent malgré des tailles différentes.
-  const lift = Math.sin(ph * Math.PI) * s * 0.30 * gros;
+  const gros = 0.7 + h32(idx * 17 + 7) * 0.85;
   const dir = h32(idx * 17 + 3) < 0.5 ? -1 : 1;
-  const x = sc.x + dir * (ph - 0.5) * s * 0.34 * gros;
-  const y = sc.y - lift;
-  // Anneaux au départ ET à l'arrivée : c'est l'eau qui raconte le saut.
-  for (const [when, at] of [[0, 0], [1, 1]]) {
-    const d = ph - when;
-    if (d < 0 || d > 0.55) continue;
-    const q = d / 0.55;
-    const rx = sc.x + at * dir * s * 0.17 * gros;
-    const r = s * (0.04 + q * 0.16) * gros;
-    ctx.strokeStyle = `rgba(214,232,240,${((1 - q) * 0.5).toFixed(3)})`;
-    ctx.lineWidth = Math.max(1, s * 0.014);
-    ctx.beginPath();
-    ctx.ellipse(rx, sc.y, r, r * 0.5, 0, 0, Math.PI * 2);
-    ctx.stroke();
+  const reach = s * 0.34 * gros;
+  // Anneaux au départ ET à l'arrivée.
+  for (const [start, at] of [[0, 0], [1, 1]]) {
+    const q = (ph - start) / 0.9;
+    if (q < 0 || q > 1) continue;
+    vieRing(ctx, sc.x + at * dir * reach * 0.5, sc.y, Math.max(1, Math.round((1 + q * 4) * gros)), k, (1 - q) * 0.65 * fz);
   }
-  const px = Math.max(1, Math.round(s * 0.05 * gros));
-  ctx.fillStyle = 'rgba(196,206,196,0.92)';           // le poisson, de flanc
-  ctx.fillRect(Math.round(x - px), Math.round(y - px / 2), px * 2, px);
-  ctx.fillStyle = 'rgba(232,240,236,0.75)';           // éclat sur le dos
-  ctx.fillRect(Math.round(x - px), Math.round(y - px / 2), px * 2, 1);
+  if (ph > 1) return;
+  vieCount('saut');
+  const lift = Math.sin(ph * Math.PI) * s * 0.30 * gros;
+  const x = sc.x + dir * (ph - 0.5) * reach;
+  const y = sc.y - lift;
+  const name = ph < 0.36 ? 'fishUp' : ph < 0.64 ? 'fishTop' : 'fishDown';
+  vieBlit(ctx, vieSprite(name, 0, dir < 0), x, y, k, fz);
+  // Gerbe du départ : deux gouttes qui montent et retombent.
+  if (ph < 0.4) {
+    const q = ph / 0.4;
+    for (const side of [-1, 1]) {
+      viePixel(ctx, sc.x + side * (1 + q * 3) * k, sc.y - Math.sin(q * Math.PI) * 4 * k, k, [236, 244, 246], 0.9 * fz);
+    }
+  }
 }
 
+// ═══ 4 bis. ÉCLATS DU SOLEIL ═════════════════════════════════════════════════
+// « Tente » (Raph, 2026-10-01), malgré trois refus de grain et de vaguelettes AU
+// MILIEU du fleuve : ceci n'est pas une texture mais des ÉVÉNEMENTS rares — une
+// dizaine d'étincelles à la fois sur tout le fleuve visible, chacune une demi-
+// seconde (un point, une petite croix, un point), de jour et par beau temps.
+// Molette : __vie({ eclats: 0..1 }).
+function drawGlints(ctx, sm, T, z, now, vis, k, fz) {
+  if (!(VIE.eclats > 0) || (CM.nightF || 0) > 0.15 || (CM.rainF || 0) > 0.1) return;
+  const n = Math.round(10 * VIE.eclats), t = (now || 0) / 1000;
+  for (let i = 0; i < n; i += 1) {
+    const P = 1.1 + h32(i * 7 + 3) * 0.9;
+    const tc = t + h32(i * 13 + 5) * P;
+    const c = Math.floor(tc / P), ph = (tc % P) / P;
+    if (ph > 0.45) continue;                         // le reste du cycle : rien
+    const g = (i * 7919 + c * 104729) | 0;
+    const sc = S(ribbonPoint(sm, vis.t0 + h32(g + 1) * (vis.t1 - vis.t0), (h32(g + 2) * 2 - 1) * 0.8), T);
+    if (!onScreen(sc, 10)) continue;
+    const fr = ph < 0.12 ? 0 : ph < 0.3 ? 1 : 2;
+    if (vieBlit(ctx, vieSprite('glint', fr), sc.x, sc.y + k, k, 0.9 * fz)) vieCount('eclats');
+  }
+}
+
+// ═══ 5. CANARDS ET CYGNES ════════════════════════════════════════════════════
+// Des FAMILLES ancrées chacune à son bout de fleuve (une pour ~45 tuiles, 4 au
+// plus) : on les découvre en longeant l'eau, on ne les croise pas partout. Chacune
+// va et vient lentement sur 3 à 6 tuiles, près d'une berge. La file suit le CHEMIN
+// de la mère avec un retard (chaque suiveur est là où elle était il y a quelques
+// secondes) : ils se serrent quand elle ralentit et s'étirent quand elle file —
+// comme une vraie couvée, sans une ligne de simulation.
+const DUCK_KINDS = ['mere', 'couple', 'mere', 'trio'];
+function familyAt(fam, tSec) {
+  const tt = fam.home + fam.A * Math.sin((6.2832 * tSec) / fam.P + fam.ph);
+  const lat = fam.side * (fam.lat0 + 0.12 * Math.sin((6.2832 * tSec) / (fam.P * 0.73) + fam.ph2));
+  return { tt, lat };
+}
+function familiesOf(sm, band) {
+  const cs = citySpan(sm), Lt = cs.len, span = cs.b - cs.a;
+  const key = sm.length + ':' + Math.round(Lt) + ':' + ((CM.layout && CM.layout.mapSeed) || 0) + ':' + band;
+  if (familiesOf._k === key) return familiesOf._v;
+  const out = [];
+  const nf = Math.max(1, Math.min(4, Math.round(Lt / 40)));
+  const seed = ((CM.layout && CM.layout.mapSeed) || 0) | 0;
+  for (let f = 0; f < nf; f += 1) {
+    const g = cmHash('duck:' + f + ':' + seed) >>> 0;
+    out.push({
+      kind: DUCK_KINDS[g % DUCK_KINDS.length], swan: false,
+      home: cs.a + span * (f + 0.5 + (h32(g + 1) - 0.5) * 0.5) / nf,
+      A: span * (3 + h32(g + 2) * 3) / Lt, P: 110 + h32(g + 3) * 90, ph: h32(g + 4) * 6.28, ph2: h32(g + 5) * 6.28,
+      side: h32(g + 6) < 0.5 ? -1 : 1, lat0: 0.42 + h32(g + 7) * 0.18,
+      brood: 3 + Math.floor(h32(g + 8) * 3), g,
+    });
+  }
+  // Un couple de cygnes, des bandes 3 à 6 (les eaux des palais) : au milieu du
+  // courant, plus lent, et jamais sur le bout de fleuve d'une couvée.
+  if (band >= 3 && band <= 6) {
+    const g = cmHash('swan:' + seed) >>> 0;
+    const home = cs.a + span * (nf > 1 ? (Math.floor(h32(g) * (nf - 1)) + 1) / nf : 0.5 + (h32(g) - 0.5) * 0.3);
+    out.push({
+      kind: 'cygnes', swan: true, home, A: span * (2 + h32(g + 2) * 2) / Lt, P: 220 + h32(g + 3) * 80,
+      ph: h32(g + 4) * 6.28, ph2: h32(g + 5) * 6.28, side: h32(g + 6) < 0.5 ? -1 : 1, lat0: 0.22, brood: 0, g,
+    });
+  }
+  familiesOf._k = key; familiesOf._v = out;
+  return out;
+}
+function drawDucks(ctx, sm, T, z, now, k, fz) {
+  if (VIE.canards <= 0 && VIE.cygnes <= 0) return;
+  const band = bandOf();
+  if (band >= 7) return;
+  const t = (now || 0) / 1000;
+  const young = CM.season === 0 || CM.season === 1;      // couvées au printemps et l'été
+  const list = [];
+  for (const fam of familiesOf(sm, band)) {
+    if (fam.swan ? VIE.cygnes <= 0 : VIE.canards <= 0) continue;
+    // Membres : [image, retard en s, décalage latéral].
+    let mem;
+    if (fam.swan) mem = [['swan', 0, 0], ['swan', 5, 0.10]];
+    else if (fam.kind === 'mere' && young) {
+      mem = [['duckF', 0, 0]];
+      for (let j = 1; j <= fam.brood; j += 1) mem.push(['duckling', j * 2.4, (j % 2 ? 1 : -1) * 0.04]);
+    } else if (fam.kind === 'trio') mem = [['duckM', 0, 0], ['duckM', 3.2, 0.08], ['duckF', 6, -0.05]];
+    else mem = [['duckM', 0, 0], ['duckF', 3.4, 0.06]];
+    for (let j = 0; j < mem.length; j += 1) {
+      const [name, lag, dl] = mem[j];
+      const a = familyAt(fam, t - lag), b = familyAt(fam, t - lag - 0.6);
+      const p = S(ribbonPoint(sm, a.tt, a.lat + dl), T);
+      if (!onScreen(p, 30)) continue;
+      const q = S(ribbonPoint(sm, b.tt, b.lat + dl), T);
+      const vx = p.x - q.x, vy = p.y - q.y;
+      list.push({ name, x: p.x, y: p.y, left: vx < 0, moving: Math.hypot(vx, vy) > 0.35 * k, j, fam });
+    }
+  }
+  list.sort((u, v) => u.y - v.y);
+  for (const d of list) {
+    const spr = vieSprite(d.name, Math.floor(t * 2.2 + d.j * 0.7 + (d.fam.g % 5)) % 2, d.left);
+    // Sillage : un petit V de pixels clairs derrière la bête qui avance.
+    if (d.moving && spr) {
+      const f = d.left ? 1 : -1, tail = d.x + f * (spr.w / 2) * k;
+      for (let i = 1; i <= 3; i += 1) {
+        const a = 0.42 * (1 - i / 4) * fz;
+        viePixel(ctx, tail + f * i * 1.6 * k, d.y - k * 0.5 + i * 0.55 * k, k, WATER_RGB, a);
+        viePixel(ctx, tail + f * i * 1.6 * k, d.y - k * 0.5 - i * 0.55 * k, k, WATER_RGB, a * 0.7);
+      }
+    }
+    if (vieBlit(ctx, spr, d.x, d.y, k, fz)) vieCount(d.fam.swan ? 'cygnes' : 'canards');
+  }
+}
+
+// ═══ 6. LIBELLULES ═══════════════════════════════════════════════════════════
+// Au printemps et l'été, de jour, près des berges : un poste de guet où elle
+// vibre sur place, puis un trait brusque jusqu'au suivant. Une pour ~9 tuiles de
+// fleuve. Elles volent à hauteur d'herbe, au-dessus de l'eau.
+function drawDragonflies(ctx, sm, T, z, now, k, fz) {
+  if (VIE.libellules <= 0) return;
+  if (!(CM.season === 0 || CM.season === 1) || (CM.nightF || 0) > 0.3 || (CM.rainF || 0) > 0.3) return;
+  if (bandOf() >= 7) return;
+  const cs = citySpan(sm), Lt = cs.len, span = cs.b - cs.a, t = (now || 0) / 1000;
+  const n = Math.max(2, Math.round(Lt / 9));
+  const spot = (i, c) => {
+    const g = (i * 7919 + c * 104729) | 0;
+    const tt = cs.a + span * ((i + 0.5 + (h32(g + 1) - 0.5) * 0.8) / n + (h32(g + 2) - 0.5) * 2 / Lt);
+    const side = h32(i * 13) < 0.5 ? -1 : 1;
+    return S(ribbonPoint(sm, tt, side * (0.55 + h32(g + 3) * 0.25)), T);
+  };
+  for (let i = 0; i < n; i += 1) {
+    const P = 5 + h32(i * 3 + 1) * 4;
+    const tc = t + h32(i * 3 + 2) * P;
+    const c = Math.floor(tc / P), u = (tc % P) / P;
+    const A = spot(i, c);
+    if (!onScreen(A, 40)) continue;
+    let x = A.x, y = A.y;
+    const dart = 0.06;                                   // part du cycle en vol franc
+    if (u > 1 - dart) {
+      const B = spot(i, c + 1), q = (u - (1 - dart)) / dart;
+      x = A.x + (B.x - A.x) * q; y = A.y + (B.y - A.y) * q;
+    } else {
+      x += Math.round(Math.sin(t * 9 + i) * 0.8) * k;    // vibre sur place, au pixel
+      y += Math.round(Math.cos(t * 7 + i * 2) * 0.6) * k;
+    }
+    const hover = (5 + h32(i * 5) * 3) * k;
+    const d = spot(i, c + 1);
+    const fr = Math.floor(t * 16 + i) % 2;
+    if (vieBlit(ctx, vieSprite('dragonfly', fr, d.x < A.x), x, y - hover, k, fz)) vieCount('libellules');
+  }
+}
+
+// ═══ 7. LE HÉRON ═════════════════════════════════════════════════════════════
+// Debout au bord de l'eau (sur le quai quand l'ère en a, les pattes dans l'eau au
+// bord d'une berge naturelle), il guette, pique du cou de temps en temps, et
+// change de poste toutes les deux minutes et demie en un long vol plané. Un par
+// fleuve, deux s'il est long.
+//
+// Il se tient AU SOL : il passe par le tri du peintre (acteur 'vie'), sinon une
+// maison de la rive d'en face se dessinerait sous lui. En vol il passe dans la
+// passe aérienne, au-dessus de tout.
+// Cycle de 150 s ; le vol dure le temps du trajet à ~2,2 tuiles/s (4 à 16 s) et
+// occupe la FIN du cycle — un héron qui traverse la ville en 7 s filait comme un
+// martinet (vu au relevé des postes).
+const HERON_P = 150, HERON_SPEED = 2.2;
+const heronFlyS = (A, B) => Math.max(4, Math.min(16, Math.hypot(B.wx - A.wx, B.wy - A.wy) / HERON_SPEED));
+function heronSpots(L, sm, band) {
+  const key = (CM.layoutRecomputeAt || 0) + ':' + sm.length + ':' + band;
+  if (heronSpots._k === key) return heronSpots._v;
+  const T = CM.TILE, out = [];
+  const built = new Set();
+  for (const tl of (L.tiles || [])) {
+    const sx = tl.spanX || tl.size || 1, sy = tl.spanY || tl.size || 1;
+    for (let ax = 0; ax < sx; ax += 1) for (let ay = 0; ay < sy; ay += 1) built.add((tl.gx + ax) + ',' + (tl.gy + ay));
+  }
+  // Arbres : un héron posé au pied d'un arbre de la rive d'en deçà disparaît sous sa
+  // couronne (vu en capture : seules les pattes dépassaient). Sur un quai, on exige
+  // aussi une cellule de VILLE (urbanSet) — la forêt sauvage vit hors de la ville,
+  // et on ne la connaît ici que par là.
+  const treed = new Set();
+  for (const tr of (L.trees || [])) for (let dx = -2; dx <= 2; dx += 1) for (let dy = -2; dy <= 2; dy += 1) treed.add((tr.gx + dx) + ',' + (tr.gy + dy));
+  const urban = L.urbanSet;
+  const quays = band >= 2;
+  const cs = citySpan(sm);
+  for (let i = Math.max(4, cs.i0); i < Math.min(sm.length - 4, cs.i1 + 1); i += 3) {
+    for (const side of [-1, 1]) {
+      const f = riverFrame(sm, i / (sm.length - 1));
+      // Sur un quai : un pas en retrait du bord, sur la promenade. Sur une berge
+      // naturelle : dans l'eau, au ras du bord (le héron pêche « à gué »).
+      const off = quays ? f.hw + 0.3 : f.hw - 0.3;
+      const wx = f.x + f.nx * side * off, wy = f.y + f.ny * side * off;
+      const ck = Math.floor(wx) + ',' + Math.floor(wy);
+      if (built.has(ck) || treed.has(ck)) continue;
+      if (quays && urban && urban.has && !urban.has(ck)) continue;
+      if (bridgeBlocks(wx * T, wy * T, T * 1.5)) continue;
+      // Là où le quai est coupé (port, bouts du fleuve), personne ne pêche.
+      const g = CM.quayGate;
+      if (quays && g && (side > 0 ? g.drawPlus : g.drawMinus) && !(side > 0 ? g.drawPlus : g.drawMinus)[i]) continue;
+      out.push({ wx, wy, i, side, cx: f.x, cy: f.y });
+    }
+  }
+  heronSpots._k = key; heronSpots._v = out;
+  return out;
+}
+// Poste du héron h au cycle c : une marche pseudo-aléatoire BORNÉE (deux sinus),
+// pour que deux postes successifs soient voisins sans garder d'état.
+function heronSpotIdx(h, c, n) {
+  const g = h * 7717 + 13;
+  // Lente : d'un cycle à l'autre le poste avance d'environ 15 % de la liste.
+  const v = n * 0.5 + n * 0.4 * Math.sin(c * 0.23 + h32(g) * 6.28) + n * 0.08 * Math.sin(c * 0.71 + h32(g + 1) * 6.28);
+  return Math.max(0, Math.min(n - 1, Math.round(v)));
+}
+function heronState(now) {
+  const L = CM.layout, rv = L && L.river;
+  if (!rv || !rv.present || !rv.samples || rv.samples.length < 12) return null;
+  if (VIE.herons <= 0 || CM.collapseAt) return null;
+  const band = bandOf();
+  if (band >= 7) return null;
+  const sm = rv.samples;
+  const spots = heronSpots(L, sm, band);
+  if (spots.length < 2) return null;
+  const nh = citySpan(sm).len > 110 ? 2 : 1;
+  const t = (now || 0) / 1000, out = [];
+  // Deux marches pseudo-aléatoires sur TOUTE la liste (les partager en deux moitiés
+  // clouait un héron sur un ou deux postes dans une petite ville : il ne s'envolait
+  // jamais). Le second cède la place s'il tombe sur le poste du premier, et chacun
+  // saute un poste pris par une volée (mouettes du quai).
+  const n = spots.length;
+  const idxOf = (h, c) => {
+    let i = heronSpotIdx(h, c, n);
+    if (h > 0 && i === heronSpotIdx(0, Math.floor((c * HERON_P - h * 61) / HERON_P), n)) i = (i + Math.ceil(n / 2)) % n;
+    for (let tries = 0; tries < 4 && vieIsOccupied(spots[i].wx, spots[i].wy); tries += 1) i = (i + 1) % n;
+    return i;
+  };
+  const at = (h, c) => spots[idxOf(h, c)];
+  for (let h = 0; h < nh; h += 1) {
+    const tc = t + h * 61;
+    const c = Math.floor(tc / HERON_P), u = tc % HERON_P;
+    const A = at(h, c), B = at(h, c + 1);
+    const F = A === B ? 0 : heronFlyS(A, B);
+    if (u < HERON_P - F) {
+      out.push({ h, fly: false, A, t: u });
+    } else {
+      out.push({ h, fly: true, A, B, q: (u - (HERON_P - F)) / F, t: u });
+    }
+  }
+  return out;
+}
+// Au sol : un acteur du tri peintre par héron posé.
+registerVieActors((now, out) => {
+  const hs = heronState(now);
+  if (!hs) return;
+  const T = CM.TILE;
+  for (const s of hs) {
+    // Au décollage et à l'atterrissage il est au sol — le vol commence et finit au poste.
+    if (s.fly) continue;
+    const A = s.A;
+    out.push({
+      wx: A.wx * T, wy: A.wy * T,
+      draw(ctx) {
+        const k = vieK(), fz = vieZoomFade();
+        if (fz <= 0) return;
+        const p = worldToScreen(A.wx * T, A.wy * T);
+        const c = worldToScreen(A.cx * T, A.cy * T);   // il regarde l'eau
+        const guet = ((s.t + s.h * 7) % 17) < 3;
+        if (vieBlit(ctx, vieSprite('heron', guet ? 1 : 0, c.x < p.x), p.x, p.y, k, fz)) vieCount('heron');
+      },
+    });
+  }
+});
+// En vol : grand arc plané d'un poste à l'autre, ailes lentes.
+registerVieAir((ctx, now) => {
+  const hs = heronState(now);
+  if (!hs) return;
+  const T = CM.TILE, k = vieK(), fz = vieZoomFade();
+  if (fz <= 0) return;
+  for (const s of hs) {
+    if (!s.fly) continue;
+    const e = s.q * s.q * (3 - 2 * s.q);
+    const wx = s.A.wx + (s.B.wx - s.A.wx) * e, wy = s.A.wy + (s.B.wy - s.A.wy) * e;
+    const p = worldToScreen(wx * T, wy * T);
+    const lift = Math.sin(s.q * Math.PI) * T * CM.cam.zoom * 1.6;
+    const pb = worldToScreen(s.B.wx * T, s.B.wy * T), pa = worldToScreen(s.A.wx * T, s.A.wy * T);
+    const fr = Math.floor((now || 0) / 340 + s.h) % 2;
+    if (vieBlit(ctx, vieSprite('heronFly', fr, pb.x < pa.x), p.x, p.y - lift, k, fz)) vieCount('heronVol');
+  }
+});
+
+// ═══ 8. OMBRES DE POISSONS (appelées par isoRiver) ═══════════════════════════
+// Le mouvement reste celui d'isoRiver (glisse, pause, serpentage) ; seul le TRACÉ
+// change : une silhouette dessinée, choisie parmi quatre caps, au lieu de deux
+// ellipses tournées et lissées. Rend true si le nouveau tracé a pris la main.
+export function vieFishShadow(ctx, x, y, ang, size, swimming, t, h, alpha) {
+  if (!VIE.on || VIE.poissons <= 0) return false;
+  const k = vieK(), fz = vieZoomFade();
+  const dx = Math.cos(ang), dy = Math.sin(ang);
+  const fi = Math.floor(t * (swimming ? 5 : 1.4) + (h % 7)) & 1;
+  if (vieBlit(ctx, fishShadowSprite(size > 1.02 ? 'big' : 'small', fi, dx < 0, dy < 0), x, y, k, alpha * fz)) vieCount('poissons');
+  return true;
+}
+// Les rides du poisson qui gobe, au pixel (r en pixels d'art).
+export function vieFishRipple(ctx, x, y, q, size, alpha) {
+  if (!VIE.on) return false;
+  const k = vieK();
+  vieRing(ctx, x, y, Math.max(1, Math.round((1.5 + q * 4) * (0.7 + size * 0.4))), k, alpha * vieZoomFade());
+  return true;
+}
+
+// Outil de vérification : où sont les familles et les hérons À CET INSTANT (monde,
+// en tuiles) — une bête de 5 px ne se trouve pas à l'œil sur une carte de 300 tuiles.
+if (typeof window !== 'undefined') {
+  window.__vieSpots = (now = 0) => {
+    const L = CM.layout, rv = L && L.river;
+    if (!rv || !rv.samples) return null;
+    const sm = rv.samples, t = now / 1000;
+    const fams = familiesOf(sm, bandOf()).map((f) => { const a = familyAt(f, t); return { kind: f.kind, ...ribbonPoint(sm, a.tt, a.lat) }; });
+    const hs = (heronState(now) || []).map((s) => ({ fly: s.fly, x: s.A.wx, y: s.A.wy }));
+    return { fams, hs };
+  };
+}
+
+// L'eau autour du PÊCHEUR (isoRiver.drawIsoFisherWater) : les mêmes horloges et
+// les mêmes rayons que le tracé d'origine, mais des anneaux au pixel et un banc de
+// silhouettes dessinées. `p` = centre écran, `s` = tuile écran, `F` = FISHER_WATER.
+export function vieFisherWater(ctx, p, sh, t, s, F, tone, dwell) {
+  if (!VIE.on) return false;
+  const k = vieK(), fz = vieZoomFade();
+  const rgb = String(tone).split(',').map(Number);
+  for (let i = 0; i < F.rings; i += 1) {
+    const q = ((t * 1000 / F.ringP) + i / F.rings) % 1;
+    const r = s * F.ringR * (0.45 + q * 0.85);
+    const a = F.ringA * 1.4 * (1 - q) * (sh.state === 'anchor' ? 1 : 0.55) * fz;
+    if (a >= 0.02) vieRing(ctx, p.x, p.y, Math.max(1, Math.round(r / k)), k, a, rgb);
+  }
+  if (sh.state === 'anchor' && F.school > 0) {
+    const reste = Math.max(0, sh.stateT || 0);
+    const g = Math.max(0, Math.min(1, Math.min(dwell - reste, reste) / F.fade));
+    if (g > 0.01) {
+      const h0 = (cmHash('school:' + sh.id) >>> 0);
+      for (let i = 0; i < F.school; i += 1) {
+        const h = (h0 + i * 2654435761) >>> 0;
+        const rr = s * F.schoolR * (0.62 + ((h >>> 3) % 100) / 220);
+        const spd = 1 + ((h >>> 9) % 100) / 260;
+        const ang = (t * 1000 / F.schoolP) * Math.PI * 2 * spd + (i / F.school) * Math.PI * 2 + ((h >>> 15) % 100) / 100;
+        // Cap tangent au cercle, écrasé comme le sol (le banc tourne À PLAT).
+        const hd = Math.atan2(Math.cos(ang) * 0.5, -Math.sin(ang));
+        vieFishShadow(ctx, p.x + Math.cos(ang) * rr, p.y + Math.sin(ang) * rr * 0.5, hd, 0.8, true, t, h, F.schoolA * g);
+      }
+    }
+  }
+  return true;
+}
+
+// ═══ ORCHESTRATION ═══════════════════════════════════════════════════════════
 /**
  * Vie de surface, appelée juste après le fleuve et AVANT les bateaux : la pluie
- * crible l'eau, pas les coques.
+ * crible l'eau, pas les coques ; les canards passent sous le pont.
  */
 export function drawIsoRiverLife(now) {
-  if (!riverLifeTune.on) return;
+  if (!VIE.on) return;
   const L = CM.layout, rv = L && L.river;
   if (!rv || !rv.present || !rv.samples || rv.samples.length < 2) return;
   if (CM.lodActive) return;                           // dézoomé : que du bruit de 1 px
-  const k = CM.ambianceK ?? 1;
-  if (k <= 0) return;
+  const amb = CM.ambianceK ?? 1;
+  if (amb <= 0) return;
   const ctx = CM.ctx, T = CM.TILE, z = CM.cam.zoom, sm = rv.samples;
   const vis = visibleT(sm, T);
   if (!vis) return;                                   // fleuve hors champ
-  stats.leaves = 0; stats.jump = 0;
+  // `__vie({ pluie: … })` règle la dose ; `pluieForce` impose l'averse (captures,
+  // où la météo est tenue au beau fixe).
+  const rainF = VIE.pluieForce != null ? +VIE.pluieForce : (CM.rainF || 0);
   ctx.save();
-  // Tout reste SUR L'EAU, et le clip est en 'evenodd' comme l'exige le contrat du
-  // chemin d'eau (cf. WATER_FILL, isoRiver) : les ÎLES y sont des SOUS-CHEMINS
-  // SÉPARÉS, et seule cette règle garantit qu'elles creusent un trou.
-  //
-  // ⚠ CE N'ÉTAIT PAS UN BUG, ET C'EST JUSTEMENT LE PROBLÈME. Le `ctx.clip()` nu
-  // d'avant (règle nonzero) donnait EXACTEMENT le même résultat — vérifié à
-  // l'`isPointInPath` le 2026-07-30 : le centre de l'île est dehors dans les deux
-  // règles. Il ne le doit qu'au sens de rotation du contour d'île, opposé à celui
-  // du ruban ; en nonzero, deux sous-chemins de MÊME sens ne se creusent pas. La
-  // correction ne change donc pas un pixel aujourd'hui — elle retire une
-  // dépendance ACCIDENTELLE à une convention que rien n'énonce, et qu'un jour où
-  // l'on inverserait la paramétrisation de l'ellipse ferait tomber en silence
-  // (feuilles, sauts de poisson et ronds de pluie sur la terre ferme).
+  // Tout reste SUR L'EAU, clip en 'evenodd' comme l'exige le contrat du chemin
+  // d'eau (WATER_FILL, isoRiver) : les ÎLES y sont des sous-chemins qui doivent
+  // creuser un trou quel que soit leur sens de rotation.
   if (CFG.ribbonPath) { CFG.ribbonPath(ctx, sm, T); ctx.clip('evenodd'); }
   const prevA = ctx.globalAlpha;
-  if (k < 1) ctx.globalAlpha = prevA * k;
-  drawLeaves(ctx, sm, T, z, now, vis);
-  drawFishJump(ctx, sm, T, z, now, vis);
-  drawRainRings(ctx, sm, T, z, now, CM.rainF || 0, vis);
+  if (amb < 1) ctx.globalAlpha = prevA * amb;
+  const k = vieK(), fz = vieZoomFade();
+  const prevS = ctx.imageSmoothingEnabled;
+  ctx.imageSmoothingEnabled = false;
+  if (fz > 0 && !CM.collapseAt) {
+    drawLeavesPx(ctx, sm, T, z, now, k, fz);
+    drawDucks(ctx, sm, T, z, now, k, fz);
+    drawJumpPx(ctx, sm, T, z, now, vis, k, fz);
+    drawDragonflies(ctx, sm, T, z, now, k, fz);
+    drawGlints(ctx, sm, T, z, now, vis, k, fz);
+  }
+  drawRainPx(ctx, sm, T, z, now, rainF, vis, k, Math.max(0.6, fz));
+  // La brume en DERNIER : elle passe devant les canards, pas l'inverse.
+  drawMist(ctx, sm, T, z, now, k, 1);
+  ctx.imageSmoothingEnabled = prevS;
   ctx.globalAlpha = prevA;
   ctx.restore();
 }

@@ -2036,15 +2036,20 @@ function initCityMap(canvas, options = {}) {
       if (CM.capture) {
         // Capture déterministe : plein jour (ou nuit forcée).
         CM.nightF = CM.capture.night; CM.dayRising = false;
+        CM.dayP = null;
       } else if (dayNightMode !== 'auto') {
         CM.nightF = dayNightMode === 'night' ? 1 : 0;
+        // Heure publiée pour la brume (iso/isoVie.js) : ciel figé = heure figée.
+        CM.dayP = dayNightMode === 'night' ? 0.75 : null;
         CM.dayRising = false;
       } else {
         const realNightF = cmDayNightF(dayP);
         if (cmGraceDay(firstGrace, realNightF === 0)) {
           CM.nightF = 0; CM.dayRising = false;
+          CM.dayP = null;
         } else {
           CM.nightF = realNightF;
+          CM.dayP = dayP;
           CM.dayRising = dayP < DUSK_END;
         }
       }

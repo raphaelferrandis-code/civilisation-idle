@@ -40,7 +40,12 @@ import { drawPlaisirsSky } from './isoPlaisirs.js';
 import { drawIsoShips } from './isoPort.js';
 import { drawIsoRiver } from './isoRiver.js';
 import { drawIsoRiverLife } from './isoRiverLife.js';
-import { drawIsoBirds, drawIsoDrones } from './isoSky.js';
+import { drawVieAir, vieResetStats } from './isoVie.js';
+import './isoVieOiseaux.js';   // s'enregistre auprès d'isoVie (pigeons, mouettes)
+import './isoVieTerre.js';     // … (chiens, chats, papillons, linge)
+import './isoVieDrapeaux.js';  // … (drapeaux des bâtiments publics et des quais)
+import { drawVieClouds } from './isoVieNuages.js';
+import { drawIsoDrones } from './isoSky.js';
 import { drawIsoNight } from './isoStreet.js';
 import { drawIsoRain } from './isoWeather.js';
 import { drawTerrainShade } from './isoTerrain.js';
@@ -213,6 +218,7 @@ function drawIsoWorldInner(dt, now, helpers) {
   // Terre-plein : le gazon du bake porte le SOL ; le RELIEF vient de buissons
   // DEBOUT plantés dans la passe vivante (drawIsoLive) — la projection à plat
   // de l'art legacy « couchait » les plantes bakées (retour Raph).
+  vieResetStats();       // compteurs de la petite vie : une frame à la fois
   drawIsoRiver(now);
   // Vie de SURFACE (iso/isoRiverLife.js) : ronds de pluie, feuilles à la dérive,
   // bouées et nasses, saut de poisson. Ici et pas plus tard : sur l'eau, sous
@@ -303,7 +309,8 @@ function drawIsoWorldInner(dt, now, helpers) {
   endReflectionBuild();  // plus rien ne se reflète après la scène (cf. isoReflect)
   drawTerrainShade();    // ombrage du relief — par-dessus la scène : le flanc prend aussi le bâti
   fp('scene-vivante');
-  drawIsoBirds(now);     // nuée : passe aérienne, avant les drones
+  drawVieClouds(now);    // ombres de nuages : sur le sol ET le bâti, sous ce qui vole
+  drawVieAir(now);       // petite vie qui VOLE (héron qui change de poste…), iso/isoVie.js
   drawIsoDrones(now);
   fp('ciel');
   drawIsoNight(now);

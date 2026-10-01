@@ -26,7 +26,7 @@ import { worldToScreen, ISO_X, ISO_Y } from './projection.js';
 // fleuve son chemin de ruban et sa météo (`configureRiverLife`, plus bas). Le sens du
 // montage est conservé — isoRiverLife n'importe toujours QUE layout et projection,
 // donc rien ne boucle.
-import { configureRiverLife } from './isoRiverLife.js';
+import { configureRiverLife, vieFishShadow, vieFishRipple, vieFisherWater } from './isoRiverLife.js';
 import { WINTER } from '../seasonMode.js';
 import { orbitPoint, FLEET_TUNE } from '../riverFleet.js';
 import { ensureQuayGate, quayWallTune, quayGapRuns, quayWallTiles, quayWallColors } from '../quaysAndRiot.js';
@@ -562,35 +562,14 @@ function drawIsoFishShadows(ctx, rv, T, z, now) {
     const pa = worldToScreen(a.x * T, a.y * T), pb = worldToScreen(b.x * T, b.y * T);
     const ang = Math.atan2((pb.y - pa.y) * dir, (pb.x - pa.x) * dir)
       + Math.sin(t * 1.1 + (h % 13)) * (swimming ? 0.13 : 0.045);
-    const L2 = T * z * 0.18 * size;                     // demi-longueur écran du corps
     const al = fishTune.alpha * (0.8 + ((h >>> 13) % 40) / 100);
-    ctx.fillStyle = `rgba(12,26,34,${al.toFixed(2)})`;
-    ctx.beginPath();
-    ctx.ellipse(p.x, p.y, L2, L2 * 0.38, ang, 0, Math.PI * 2);
-    ctx.fill();
-    // Queue : petite goutte derrière le corps ; battement ample en nage,
-    // lent et discret à l'arrêt.
-    const wag = Math.sin(t * (swimming ? 5.2 : 2.1) + (h % 17)) * L2 * (swimming ? 0.22 : 0.09);
-    const qx = p.x - Math.cos(ang) * L2 * 1.15 - Math.sin(ang) * wag;
-    const qy = p.y - Math.sin(ang) * L2 * 1.15 + Math.cos(ang) * wag;
-    ctx.beginPath();
-    ctx.ellipse(qx, qy, L2 * 0.34, L2 * 0.18, ang, 0, Math.PI * 2);
-    ctx.fill();
-    // Frétillement AU DÉBUT DE LA PAUSE (le poisson s'arrête et gobe en
-    // surface) : 1-2 anneaux de rides éphémères, couchés au sol (scale 1:0.5).
-    if (!swimming) {
-      const k = (cyc - Ps) / 1.4;                       // 0..1 sur ~1,4 s de pause
-      if (k < 1) {
-        const r = (4 + k * 10) * z * (0.7 + size * 0.4);
-        ctx.strokeStyle = `rgba(214,236,240,${(0.35 * (1 - k)).toFixed(2)})`;
-        ctx.lineWidth = Math.max(1, z * 0.8);
-        ctx.save();
-        ctx.translate(p.x, p.y);
-        ctx.scale(1, 0.5);
-        ctx.beginPath(); ctx.arc(0, 0, r, 0, Math.PI * 2); ctx.stroke();
-        if (k > 0.35) { ctx.beginPath(); ctx.arc(0, 0, r * 0.55, 0, Math.PI * 2); ctx.stroke(); }
-        ctx.restore();
-      }
+    // PETITE VIE (2026-10-01, PLAN-MAQUETTE-VIVANTE §9) : la silhouette est DESSINÉE
+    // (vieArt.js, quatre caps par miroir) et posée au pixel entier — elle remplace
+    // les deux ellipses lissées ; le mouvement ci-dessus ne change pas. Au début de
+    // la pause (le poisson gobe en surface), des rides au pixel.
+    if (vieFishShadow(ctx, p.x, p.y, ang, size, swimming, t, h, al) && !swimming) {
+      const q = (cyc - Ps) / 1.4;                       // 0..1 sur ~1,4 s de pause
+      if (q < 1) vieFishRipple(ctx, p.x, p.y, q, size, 0.4 * (1 - q));
     }
   }
   ctx.restore();
@@ -1442,61 +1421,10 @@ function drawIsoFisherWater(ctx, T, z, now, wb) {
     const p = worldToScreen(o.x * T, o.y * T);
     const s = T * z;
     if (p.x < -s * 4 || p.x > CM.cw + s * 4 || p.y < -s * 4 || p.y > CM.ch + s * 4) continue;
-    ctx.save();
-    // Le sol iso est un losange 2:1 : tout ce qui est POSÉ À PLAT sur l'eau se
-    // dessine en cercle puis s'écrase de moitié. Un vrai ovale calculé donnerait
-    // le même résultat pour plus cher.
-    ctx.translate(p.x, p.y);
-    ctx.scale(1, 0.5);
-    // ── CLAPOTIS : l'eau bat contre la coque, à l'arrêt comme en route ────────
-    ctx.lineWidth = Math.max(1, z * 0.9);
-    for (let i = 0; i < F.rings; i += 1) {
-      // Anneaux DÉPHASÉS qui naissent au bordé et s'élargissent en s'effaçant.
-      const k = ((t * 1000 / F.ringP) + i / F.rings) % 1;
-      const r = s * F.ringR * (0.45 + k * 0.85);
-      const a = F.ringA * (1 - k) * (sh.state === 'anchor' ? 1 : 0.55);
-      if (a < 0.02) continue;
-      ctx.strokeStyle = `rgba(${tone},${a.toFixed(3)})`;
-      ctx.beginPath(); ctx.arc(0, 0, r, 0, Math.PI * 2); ctx.stroke();
-    }
-    // ── LE BANC : il ne vient QUE quand la ligne est à l'eau ──────────────────
-    if (sh.state === 'anchor' && F.school > 0) {
-      // Fondu sur la pose : `stateT` décompte le temps restant. Les poissons
-      // arrivent, tournent, repartent — un banc qui apparaîtrait d'un coup se
-      // lirait comme un défaut d'affichage.
-      const reste = Math.max(0, sh.stateT || 0);
-      const ecoule = FLEET_TUNE.orbitDwell - reste;
-      const g = Math.max(0, Math.min(1, Math.min(ecoule, reste) / F.fade));
-      if (g > 0.01) {
-        const h0 = (cmHash('school:' + sh.id) >>> 0);
-        for (let i = 0; i < F.school; i += 1) {
-          const h = (h0 + i * 2654435761) >>> 0;
-          // Chacun sa voie et son allure : un banc parfaitement régulier tourne
-          // comme un manège, pas comme des poissons.
-          const rr = s * F.schoolR * (0.62 + ((h >>> 3) % 100) / 220);
-          const spd = 1 + ((h >>> 9) % 100) / 260;
-          const ang = (t * 1000 / F.schoolP) * Math.PI * 2 * spd
-            + (i / F.school) * Math.PI * 2 + ((h >>> 15) % 100) / 100;
-          const fx = Math.cos(ang) * rr, fy = Math.sin(ang) * rr;
-          // ⚠ MÊME ÉCHELLE QUE LES POISSONS DU FLEUVE (drawIsoFishShadows :
-          // `T·z·0,18`). Le premier jet était à 0,085, soit la moitié — lisible
-          // au cadrage serré de la vérif, et rigoureusement invisible au zoom où
-          // l'on joue. Un banc qu'il faut zoomer pour voir ne signale aucune pose.
-          const L2 = s * 0.15 * (0.8 + ((h >>> 21) % 100) / 250);
-          ctx.fillStyle = `rgba(12,26,34,${(F.schoolA * g).toFixed(3)})`;
-          // Cap TANGENT au cercle : un poisson qui tourne regarde où il va.
-          ctx.save();
-          ctx.translate(fx, fy);
-          ctx.rotate(ang + Math.PI / 2);
-          ctx.beginPath(); ctx.ellipse(0, 0, L2, L2 * 0.4, 0, 0, Math.PI * 2); ctx.fill();
-          // Queue qui bat, comme les ombres de poissons du fleuve.
-          const wag = Math.sin(t * 6.1 + i) * L2 * 0.3;
-          ctx.beginPath(); ctx.ellipse(-L2 * 1.2, wag, L2 * 0.36, L2 * 0.2, 0, 0, Math.PI * 2); ctx.fill();
-          ctx.restore();
-        }
-      }
-    }
-    ctx.restore();
+    // PETITE VIE (2026-10-01, PLAN-MAQUETTE-VIVANTE §9) : clapotis et banc AU PIXEL
+    // (anneaux tracés pixel par pixel, silhouettes dessinées) — mêmes horloges, mêmes
+    // rayons que le tracé vectoriel qu'ils remplacent (isoRiverLife.vieFisherWater).
+    vieFisherWater(ctx, p, sh, t, s, F, tone, FLEET_TUNE.orbitDwell);
   }
 }
 

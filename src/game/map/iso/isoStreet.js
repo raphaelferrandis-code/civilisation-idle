@@ -36,6 +36,7 @@ import { STREET_PROPS, computeStreetProps } from './isoStreetProps.js';
 import { WINTER } from '../seasonMode.js';
 import { SEASON_GRASS } from './isoGroundDetail.js';
 import { rgb } from './isoPalette.js';
+import { vieHalo } from './isoVie.js';
 
 // ── NUIT : voile bleu puis halos des lampadaires ────────────────────────────
 // Lit CM.nightF (cycle jour/nuit du runtime, forcé par les captures). Lumières
@@ -388,6 +389,10 @@ const lampPhase = (lp) => ((lp.gx * 73 + lp.gy * 179) % 628) / 100;
 // NUL : 290 dégradés = 0,7 ms de jour, 1 001 = 1,7 ms de nuit, quand un blit
 // coûte ~5 µs pièce. Ne pas y retourner — cf. le relevé du profileur de frame.)
 export function addGlow(ctx, x, y, r, col, alpha) {
+  // PETITE VIE (2026-10-01) : les PETITES lueurs (luciole, cœur de flamme, ≤ 6 px
+  // d'art) passent en halo au pixel (trois paliers, iso/isoVie.js) ; les grandes
+  // nappes gardent le dégradé lisse ci-dessous (la trame y faisait du bruit).
+  if (vieHalo(ctx, x, y, r, col, alpha)) return;
   if (!(alpha > 0.004) || !(r >= 0.6) || !Number.isFinite(x) || !Number.isFinite(y)) return;
   const g = ctx.createRadialGradient(x, y, 0, x, y, r);
   g.addColorStop(0, `rgba(${col},${alpha.toFixed(3)})`);
@@ -639,13 +644,16 @@ export function paintLampGlow(pctx, lp, p, K, now) {
     const hx = boxL + lig.hx * wpx, hy = boxT + lig.hy * hpx;
     addGlow(pctx, hx, hy, Math.max(4, unit * 0.78) * (0.9 + 0.2 * fl), lig.col, Math.min(0.6, 0.5 * n) * fl * gain);
     const rp = Math.max(4, unit * 0.8);
-    const g2 = pctx.createRadialGradient(p.x, p.y, 0, p.x, p.y, rp);
-    g2.addColorStop(0, `rgba(${lig.col},${(0.17 * n * fl * gain).toFixed(3)})`);
-    g2.addColorStop(1, `rgba(${lig.col},0)`);
-    pctx.fillStyle = g2;
-    pctx.beginPath();
-    pctx.ellipse(p.x, p.y, rp * 0.8, rp * 0.4, 0, 0, Math.PI * 2);
-    pctx.fill();
+    // Flaque au sol : même halo au pixel, écrasé en ellipse couchée (0,8 × 0,4).
+    if (!vieHalo(pctx, p.x, p.y, rp * 0.8, lig.col, 0.17 * n * fl * gain, 0.5)) {
+      const g2 = pctx.createRadialGradient(p.x, p.y, 0, p.x, p.y, rp);
+      g2.addColorStop(0, `rgba(${lig.col},${(0.17 * n * fl * gain).toFixed(3)})`);
+      g2.addColorStop(1, `rgba(${lig.col},0)`);
+      pctx.fillStyle = g2;
+      pctx.beginPath();
+      pctx.ellipse(p.x, p.y, rp * 0.8, rp * 0.4, 0, 0, Math.PI * 2);
+      pctx.fill();
+    }
   }
   // — SOURCE VIVE (jour + nuit) : cœur lumineux scintillant sur chaque flamme/lanterne.
   for (const e of lig.em) {

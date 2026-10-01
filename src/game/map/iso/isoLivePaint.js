@@ -40,6 +40,7 @@ import {
 } from '../pixelHouses.js';
 import { drawWonder } from '../renderBuildings.js';
 import { drawIsoRevealPin, drawIsoSmoke } from './isoAmbient.js';
+import { vieTreeSway } from './isoVie.js';
 import { isoArt } from './isoArt.js';
 import { drawIsoBridgeSeg } from './isoBridge.js';
 import { drawIsoCampHearth } from './isoCampHearth.js';
@@ -397,19 +398,33 @@ export function paintIsoItems(bake, items, now) {
         // pour toute la série). Refus du batcher (atlas plein, source pas
         // décodée) → chemin 2D, sprite par sprite, comme avant.
         let batched = false;
+        // VENT (iso/isoVie.js, petite vie) : null = arbre immobile, un seul blit comme
+        // avant ; sinon trois bandes, la couronne décalée d'un texel entier.
+        const tsw = tImg.naturalWidth || tImg.width | 0, tsh = tImg.naturalHeight || tImg.height | 0;
+        const sway = vieTreeSway(tr, now, tsw, tsh, hpx);
+        const tu = hpx / tsw, tv2 = hpx / tsh;
+        // Coupures entre bandes au pixel DEVICE entier : une coupure fractionnaire
+        // laissait une ligne claire en travers de la couronne (même piège que les
+        // reflets). Le haut et le bas de l'arbre restent où ils étaient.
+        const tdp = CM.dpr || 1;
+        const bandY = (r) => (r <= 0 ? tdy : r >= tsh ? tdy + hpx : Math.round((tdy + r * tv2) * tdp) / tdp);
         if (it._gl) {
-          const sw = tImg.naturalWidth || tImg.width | 0, sh = tImg.naturalHeight || tImg.height | 0;
-          batched = glQuad(tImg, 0, 0, sw, sh, tdx, tdy, hpx, hpx);
+          if (!sway) batched = glQuad(tImg, 0, 0, tsw, tsh, tdx, tdy, hpx, hpx);
+          else {
+            batched = true;
+            for (const [y0, y1, o] of sway) batched = glQuad(tImg, 0, y0, tsw, y1 - y0, tdx + o * tu, bandY(y0), hpx, bandY(y1) - bandY(y0)) && batched;
+          }
           if (batched) {
             glPending += 1;
-            if (tdx < gbx0) gbx0 = tdx; if (tdy < gby0) gby0 = tdy;
-            if (tdx + hpx > gbx1) gbx1 = tdx + hpx; if (tdy + hpx > gby1) gby1 = tdy + hpx;
+            if (tdx - tu < gbx0) gbx0 = tdx - tu; if (tdy < gby0) gby0 = tdy;
+            if (tdx + hpx + tu > gbx1) gbx1 = tdx + hpx + tu; if (tdy + hpx > gby1) gby1 = tdy + hpx;
           }
         }
         if (!batched) {
           const prevTS = ctx.imageSmoothingEnabled;
           ctx.imageSmoothingEnabled = false;
-          ctx.drawImage(tImg, tdx, tdy, hpx, hpx);
+          if (!sway) ctx.drawImage(tImg, tdx, tdy, hpx, hpx);
+          else for (const [y0, y1, o] of sway) ctx.drawImage(tImg, 0, y0, tsw, y1 - y0, tdx + o * tu, bandY(y0), hpx, bandY(y1) - bandY(y0));
           ctx.imageSmoothingEnabled = prevTS;
         }
         // L'occultation du calque de lumière vit dans un AUTRE canvas : elle
@@ -428,6 +443,9 @@ export function paintIsoItems(bake, items, now) {
       // l'enregistre. Famille absente du relevé §1.2 du plan — et le chat est
       // la plus petite bête du jeu, donc a priori la pire densité.
       if (pxProbe.on && m && m.src) recPx('bete · ' + cr.kind, m.src, m.box);
+    } else if (it.kind === 'vie') {
+      // Petite vie posée au sol (iso/isoVie.js) : l'acteur se dessine lui-même.
+      it.v.draw(ctx, now);
     } else if (it.kind === 'campHearth') {
       // Foyer du campement (2026-09-28) : tout le calcul est dans
       // isoCampHearth.js (grain égalisé sur les tentes, flamme animée, lueur).

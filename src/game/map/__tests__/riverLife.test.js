@@ -2,7 +2,8 @@ import { describe, it, expect } from "vitest";
 
 import { CM } from "../layout.js";
 import { worldToScreen } from "../iso/projection.js";
-import { visibleT, riverLifeTune } from "../iso/isoRiverLife.js";
+import { visibleT } from "../iso/isoRiverLife.js";
+import { VIE } from "../iso/isoVie.js";
 
 // La vie de surface (pluie sur l'eau, feuilles à la dérive, saut de poisson) est
 // semée le long du ruban du fleuve. Or ce ruban TRAVERSE TOUTE LA CARTE alors
@@ -86,18 +87,18 @@ describe("vie de surface — on sème là où on regarde", () => {
 });
 
 describe("vie de surface — molette", () => {
+  // La molette de l'eau vit dans __vie (isoVie.js) depuis la petite vie du
+  // 2026-10-01 : chaque effet a la sienne, et l'ancienne `__riverLife` est partie
+  // avec l'ancienne vie.
   it("chaque effet se coupe séparément", () => {
-    const saved = { ...riverLifeTune };
-    try {
-      for (const key of ["rain", "leaves", "jumps"]) {
-        expect(riverLifeTune[key]).toBeGreaterThan(0);
-      }
-      expect(riverLifeTune.on).toBe(true);
-      // `props` a disparu avec les bouées, rejetées par Raph : illisibles à
-      // trois pixels sur l'eau. La molette ne doit pas survivre à son effet.
-      expect(riverLifeTune.props).toBeUndefined();
-    } finally {
-      Object.assign(riverLifeTune, saved);
+    for (const key of ["pluie", "feuilles", "sauts", "poissons", "canards", "cygnes", "herons", "libellules", "eclats"]) {
+      expect(VIE[key]).toBeGreaterThan(0);
     }
+    expect(VIE.on).toBe(true);
+    // `props` a disparu avec les bouées, rejetées par Raph : illisibles à
+    // trois pixels sur l'eau. La molette ne doit pas survivre à son effet.
+    expect(VIE.props).toBeUndefined();
+    // Le mode « ancien » a servi à l'A/B du pilote ; il est parti avec lui.
+    expect(VIE.ancien).toBeUndefined();
   });
 });
