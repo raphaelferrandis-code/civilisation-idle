@@ -21,6 +21,7 @@ import { riverEndRays, nearRiverEndRay } from "../iso/riverEnds.js";
 import { shipAlpha, FLEET_TUNE } from "../riverFleet.js";
 import { wildBackdropCells, WILD_BACKDROP_PERIOD } from "../iso/isoWildBackdrop.js";
 import { ensureQuayGate, quayWallTune } from "../quaysAndRiot.js";
+import { beachZone } from "../iso/isoBeachCells.js";
 import { CM } from "../layout.js";
 
 // Un petit fleuve en ligne brisée, samples espacés d'1,5 cellule comme le layout.
@@ -174,7 +175,7 @@ describe("grève — plus de sable aux extrémités", () => {
     };
   });
 
-  it("les points de brèche ne comptent plus les 3 premiers et 3 derniers samples", () => {
+  it("la grève ne se pose plus sur les 3 premiers et 3 derniers samples", () => {
     quayWallTune.full = true;
     const samples = river(30);
     samples[15].hw = 1.2;             // un passage trop étroit pour un mur : il reste une brèche
@@ -185,7 +186,18 @@ describe("grève — plus de sable aux extrémités", () => {
     const g = CM.quayGate;
     // Le quai garde son bout carré aux extrémités…
     for (const i of [0, 1, 2, 27, 28, 29]) expect(g.naturalOff[i]).toBe(1);
-    // …mais la grève n'y est plus : seul le passage étroit reste une brèche.
-    expect(g.gapPts).toEqual([{ x: samples[15].x, y: samples[15].y }]);
+    // …mais la grève n'y est plus : seul le passage étroit en porte une. Depuis la
+    // grève en BANDE (2026-10-01), c'est la bande elle-même qu'on interroge, et les
+    // points de brèche ne sont plus que la signature du masque, autour du passage.
+    const zone = beachZone(CM.layout);
+    expect(zone.size).toBeGreaterThan(0);
+    const xEnd0 = samples[3].x, xEnd1 = samples[26].x;
+    for (const k of zone) {
+      const x = +k.split(',')[0] + 0.5;
+      expect(x).toBeGreaterThan(xEnd0);
+      expect(x).toBeLessThan(xEnd1);
+    }
+    expect(g.gapPts.length).toBeGreaterThan(0);
+    for (const p of g.gapPts) expect(Math.abs(p.x - samples[15].x)).toBeLessThanOrEqual(3 * 1.5 + 4);
   });
 });

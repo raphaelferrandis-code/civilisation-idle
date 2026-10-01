@@ -204,7 +204,9 @@ export function makeGroundBake(ISO_GROUND_LOD) {
     // `isoBeachCells`, appelée ici par le SOL CUIT et là-bas par la passe vive du fleuve.
     // Les exclusions (route, bâti sauf port) sont parties avec elle — les redoubler ici
     // rouvrirait l'écart que l'extraction ferme.
-    else if (!isWater && isBeachBankCell(L, gx, gy)) k = BEACH.mat;
+    // Les cases d'EAU de la bande en sont aussi (2026-10-01) : le riverSet déborde le
+    // ruban peint, et ce qu'il en laisse voir sortait en herbe entre le sable et l'eau.
+    else if (isBeachBankCell(L, gx, gy)) k = BEACH.mat;
     // Routes HORS tissu urbain : fond d'HERBE depuis le 2026-07-20 (retour Raph :
     // le fond de cellule 'dirt' — aplat terre + tuile de mottes — dépassait du
     // ruban en « pavé de terre » cranté à la jonction herbe↔sol). Le chemin se

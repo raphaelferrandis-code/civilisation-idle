@@ -190,7 +190,7 @@ export function drawIsoGround() {
 export function groundKeySuffix(L) {
   return ':' + ((L.counts && L.counts.eraBand) | 0)
     + ':s' + (CM.season | 0)
-    + ':bch' + (BEACH.on ? BEACH.mat + BEACH.islandW + '_' + BEACH.bankR : 'off')
+    + ':bch' + (BEACH.on ? BEACH.mat + BEACH.islandW + '_' + BEACH.depth + '_' + BEACH.ramp : 'off')
     + ':qg' + ((CM.quayGate && CM.quayGate.key) || '-')
     + terrainKey()
     + (CM.previewWonder ? ':pv' + CM.previewWonder.id : '');

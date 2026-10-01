@@ -46,6 +46,7 @@ import './isoVieDrapeaux.js';  // … (drapeaux des bâtiments publics et des qu
 import { drawVieClouds } from './isoVieNuages.js';
 import { paintQuays } from './isoQuay.js';
 import { drawIsoDrones } from './isoSky.js';
+import { paintPierUnder } from './isoPier.js';
 import { drawIsoNight } from './isoStreet.js';
 import { drawIsoRain } from './isoWeather.js';
 import { drawTerrainShade } from './isoTerrain.js';
@@ -224,6 +225,9 @@ function drawIsoWorldInner(dt, now) {
   // reste en direct. Les réverbères sont de vrais mâts (isoStreet.isoLamps).
   paintQuays(ctx);
   fp('quais');
+  // Ombre et reflet du ponton du port (iso/isoPier.js) : sur l'eau et la plage, sous
+  // les bateaux. Le ponton lui-même passe au tri du peintre, avec la maison du port.
+  paintPierUnder(ctx);
   drawIsoBridgeUnder(now);
   fp('ponts-dessous');
   drawIsoShips(now);

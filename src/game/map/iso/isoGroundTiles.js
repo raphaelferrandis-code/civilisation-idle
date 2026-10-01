@@ -460,10 +460,15 @@ export const BEACH = {
   // étendue — c'est ce que fait FRONTIER pour la limite ville↔campagne — mais sur
   // un anneau étroit ça ne fabrique pas un rivage irrégulier, ça fabrique des
   // TROUS. Ne pas le réintroduire pour les îles.
-  // Rayon d'influence, en tuiles, autour d'un point de berge sans quai : le port
-  // ne coupe la maçonnerie que sur 4 samples (≈ 4,5 tuiles), et sa propre emprise
-  // en occupe l'essentiel — sans rayon, la grève faisait UNE cellule.
-  bankR: 7,
+  // GRÈVE DE BERGE (iso/isoBeachCells.beachZone) : une BANDE le long des rives sans
+  // quai, et non plus la couronne de cases à moins de `bankR` = 7 tuiles d'un trou
+  // (retour Raph 2026-10-01 : « une vraie plage, pas des morceaux d'herbe dedans »).
+  //   depth = profondeur du sable au-delà du bord d'eau peint, en tuiles, mesurée
+  //           perpendiculairement au fleuve ;
+  //   ramp  = samples (1,5 tuile chacun) sur lesquels elle s'amincit sous la pointe
+  //           effilée du quai, qui sort ainsi du sable.
+  depth: 2.2,
+  ramp: 3,
   // Frange MOUILLÉE au ras de l'eau (couche vectorielle, cf. son bloc). Le ton
   // suit la matière : pour les galets c'est la 4e rangée du lot, mesurée à
   // [95,100,106] — des cailloux sombres et luisants ; pour le sable c'est le ton

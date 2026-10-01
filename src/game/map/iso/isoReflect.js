@@ -192,6 +192,7 @@ let _ref = null;             // caméra + transform de la frame de cuisson
 let _cols = null;            // eau par colonne d'écran de la frame de cuisson
 let _drop = 0;               // hauteur du mur de quai à l'écran (px) de la frame
 let _wall = null;            // { runs, cols } : le mur de quai de la rive d'en face
+let _wallCol = null;         // par colonne d'écran (cf. _cols) : 1 si ce bord d'eau a un mur
 // Ce que porte le calque, par bande : étendue x (px device), et bandes utilisées.
 let _sx0 = null, _sx1 = null, _s0 = Infinity, _s1 = -Infinity;
 
@@ -240,7 +241,11 @@ export function noteReflection(ctx, img, dx, dy, dw, dh, sx = 0, sy = 0, sw = 0,
   let drop;
   if (dropMode === 'water') drop = 0;      // sur l'eau : à sa ligne de flottaison
   else if (dropMode === 'quay') drop = _drop;   // au niveau des quais, où qu'il soit
-  else if (footY < top) drop = _drop;      // rive d'en face : l'eau est sous le mur
+  // Rive d'en face : l'eau est sous le mur — LÀ OÙ IL Y EN A UN. Sur une grève (la
+  // plage du port, 2026-10-01), l'eau est au niveau du sable : la maison du port et
+  // l'arbre de la plage se reflétaient décalés de toute la hauteur d'un mur absent,
+  // et leur reflet flottait au milieu du fleuve, détaché d'eux.
+  else if (footY < top) drop = (!_wallCol || _wallCol[i]) ? _drop : 0;
   else if (footY <= bot) drop = 0;         // posé sur l'eau (bateau)
   else return;                             // rive proche : reflet sur sa propre berge
   if (footY + dh + 2 * drop < top) return; // trop loin de l'eau pour l'atteindre
@@ -257,6 +262,19 @@ export function noteReflection(ctx, img, dx, dy, dw, dh, sx = 0, sy = 0, sw = 0,
   markDirty(x, y, w, h);
 }
 setSunShadowReflectHook(noteReflection);
+
+// Un reflet DÉJÀ RETOURNÉ par l'appelant, posé tel quel dans le calque (boîte ÉCRAN
+// x, y, w, h). Pour ce qui sait calculer son miroir exactement au lieu de le laisser
+// deviner colonne par colonne : le ponton du port (iso/isoPier.js) lance le rayon dans
+// la scène retournée sous l'eau — son tablier n'a pas de « pixel le plus bas » qui
+// soit sa ligne de flottaison, ses pieux si. Il reçoit la même teinte, la même force
+// et la même ondulation que les autres.
+export function noteReflectionImage(ctx, cv, x, y, w, h) {
+  if (!_build || !REFLECT.on || !cv || !(w > 0) || !(h > 0)) return;
+  _lctx.globalAlpha = ctx ? ctx.globalAlpha : 1;
+  _lctx.drawImage(cv, x, y, w, h);
+  markDirty(x, y, w, h);
+}
 
 // Pose le calque de la frame précédente sur l'eau, puis ouvre celui de cette
 // frame. Appelé à la FIN de drawIsoRiver, qui fournit : le tracé du ruban (clip),
@@ -389,5 +407,19 @@ function beginBuild(ctx, edges, drop, wall, k = 1) {
   _cols = waterColumns(edges, CM.cw || cv.width);
   _drop = drop || 0;
   _wall = wall && wall.runs && wall.runs.length ? wall : null;
+  // Colonnes dont le bord d'eau HAUT est un mur de quai (les tronçons de `wall`). Sans
+  // description du mur (`wall` absent), on garde la règle d'avant : un mur partout.
+  _wallCol = null;
+  if (wall && wall.runs) {
+    const C = _cols;
+    _wallCol = new Uint8Array(C.n);
+    for (const run of wall.runs) {
+      for (let k = 1; k < run.length; k += 1) {
+        const i0 = Math.max(0, Math.floor(Math.min(run[k - 1].x, run[k].x) / C.step));
+        const i1 = Math.min(C.n - 1, Math.ceil(Math.max(run[k - 1].x, run[k].x) / C.step));
+        for (let i = i0; i <= i1; i += 1) _wallCol[i] = 1;
+      }
+    }
+  }
   _build = true;
 }

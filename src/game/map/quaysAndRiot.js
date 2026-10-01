@@ -64,7 +64,9 @@ const QUAY_GATE_LAND = 1.0;   // échantillonnage : ~1 tuile au-delà du bord d'
 // La clé porte le layout ET le mode `full` de la molette : depuis que le masque
 // EFFECTIF du quai est calculé ici (cf. plus bas), il dépend de `full`, et un
 // cache indexé sur le seul layout aurait servi l'ancien masque après bascule.
-const gateKey = () => CM.layoutRecomputeAt + (quayWallTune.full ? ':f' : ':u');
+// `portGap` y est aussi, APRÈS le mode : solPyramideFrame retire l'horodatage par
+// l'expression `:qg[^:]*:([fu])`, le reste de la clé doit suivre le mode.
+const gateKey = () => CM.layoutRecomputeAt + (quayWallTune.full ? ':f' : ':u') + ':p' + (+quayWallTune.portGap || 0);
 function ensureQuayGate() {
   const L = CM.layout;
   if (!L || !L.river || !L.river.present || !L.river.samples) { CM.quayGate = null; CM.quayBankCells = null; return; }
@@ -106,13 +108,26 @@ function ensureQuayGate() {
   // scène pose son propre front d'eau (ponton) — la promenade passait dessous.
   // ⚠ La coupe porte sur l'intervalle X de la tuile sans test Y : n'y admettre
   // que de vrais riverains, un moteur terrestre trouerait les deux rives.
-  for (const t of (L.tiles || [])) {
-    if (t.buildingId !== "river_ports") continue;
-    const x0 = t.gx - 0.5, x1 = t.gx + (t.spanX || t.size || 1) + 0.5;
-    for (let i = 0; i < n0; i += 1) {
-      if (sm[i].x >= x0 && sm[i].x <= x1) { plus[i] = 0; minus[i] = 0; }
+  // ET DE SON CÔTÉ SEULEMENT, `quayWallTune.portGap` tuiles de plus de part et
+  // d'autre (2026-10-01) : c'est la PLAGE du port (iso/isoBeachCells.beachZone). Sur
+  // la seule emprise, la coupure faisait 3 samples, et la grève un trou de 4 tuiles
+  // dans la maçonnerie (retour Raph : « avoir une vraie plage »).
+  const cutPorts = (pa, ma) => {
+    for (const t of (L.tiles || [])) {
+      if (t.buildingId !== "river_ports") continue;
+      const sx = t.spanX || t.size || 1, sy = t.spanY || t.size || 1;
+      const x0 = t.gx - 0.5, x1 = t.gx + sx + 0.5, m = Math.max(0, +quayWallTune.portGap || 0);
+      const pcx = t.gx + sx / 2, pcy = t.gy + sy / 2;
+      for (let i = 0; i < n0; i += 1) {
+        const x = sm[i].x;
+        if (x >= x0 && x <= x1) { pa[i] = 0; ma[i] = 0; continue; }
+        if (x < x0 - m || x > x1 + m) continue;
+        const n = cmRiverNormalAt(sm, i);
+        if ((pcx - sm[i].x) * n.nx + (pcy - sm[i].y) * n.ny >= 0) pa[i] = 0; else ma[i] = 0;
+      }
     }
-  }
+  };
+  cutPorts(plus, minus);
   // Cellules couvertes par le quai -> pas de roseaux dessus.
   const bankCells = new Set();
   for (let i = 0; i < n0; i += 1) {
@@ -138,11 +153,7 @@ function ensureQuayGate() {
   const naturalOff = new Uint8Array(n0);   // 1 = coupé pour raison NATURELLE (≠ port) → bout carré
   if (quayWallTune.full) {
     drawPlus.fill(1); drawMinus.fill(1);
-    for (const t of (L.tiles || [])) {
-      if (t.buildingId !== "river_ports") continue;
-      const x0 = t.gx - 0.5, x1 = t.gx + (t.spanX || t.size || 1) + 0.5;
-      for (let i = 0; i < n0; i += 1) if (sm[i].x >= x0 && sm[i].x <= x1) { drawPlus[i] = 0; drawMinus[i] = 0; }
-    }
+    cutPorts(drawPlus, drawMinus);
   } else { drawPlus.set(plus); drawMinus.set(minus); }
   for (let i = 0; i < n0; i += 1) {
     if (sm[i].hw < QUAY_MIN_HW || i < QUAY_END || i >= n0 - QUAY_END) {
@@ -192,11 +203,24 @@ function ensureQuayGate() {
   // où seule une tuile de sol débordante la cuisait, coupée net à son bord. Le
   // quai, lui, garde son bout carré aux extrémités (naturalOff, inchangé) : la
   // berge naturelle du prolongement prend le relais.
+  // ⚠ DEPUIS LA GRÈVE EN BANDE (2026-10-01), ces points ne décident plus rien : la
+  // plage se calcule sur le masque lui-même (iso/isoBeachCells.beachZone). Ils restent
+  // la SIGNATURE du masque pour le cache des tuiles de sol (solPyramideFrame.tileSig,
+  // qui ne hache que les points tombés dans la tuile) — d'où des points partout où la
+  // grève peut se poser : le milieu du fleuve et ses deux berges, sur la coupure et
+  // sur les GAP_SIG samples de rampe autour (≥ BEACH.ramp).
+  const GAP_SIG = 3;
   const gapPts = [];
   for (let i = 0; i < n0; i += 1) {
-    if (drawPlus[i] && drawMinus[i]) continue;
-    if (i < QUAY_END || i >= n0 - QUAY_END) continue;
-    gapPts.push({ x: sm[i].x, y: sm[i].y });
+    let near = false;
+    for (let d = -GAP_SIG; d <= GAP_SIG && !near; d += 1) {
+      const j = i + d;
+      if (j < QUAY_END || j >= n0 - QUAY_END) continue;
+      if (!drawPlus[j] || !drawMinus[j]) near = true;
+    }
+    if (!near) continue;
+    const n = cmRiverNormalAt(sm, i), s = sm[i], o = s.hw + 1;
+    gapPts.push({ x: s.x, y: s.y }, { x: s.x + n.nx * o, y: s.y + n.ny * o }, { x: s.x - n.nx * o, y: s.y - n.ny * o });
   }
   CM.quayGate = { key: gateKey(), plus, minus, drawPlus, drawMinus, naturalOff, gapPts };
   CM.quayBankCells = bankCells;
@@ -228,7 +252,9 @@ export function quayGapRuns(mask, n, pad = 1) {
 //   full: true  → berge maçonnée TOUT LE LONG de l'eau (2 rives, sauf port)
 //   full: false → seulement le long des berges URBAINES (proches d'une route)
 //   light: 0..1 → éclaircit la pierre (fondu vers le blanc) — dessus + parement + margelle
-export const quayWallTune = { on: true, full: true, heightK: 1, light: 0.16 };
+// `portGap` : tuiles de quai retirées de part et d'autre du port, de SON côté — la
+// longueur de sa plage (cf. ensureQuayGate). 0 = la coupure d'avant, sur l'emprise.
+export const quayWallTune = { on: true, full: true, heightK: 1, light: 0.16, portGap: 2.5 };
 // Hauteur du parement (en tuiles) par ère : pierre (2-3), marbre (4), fonte et néon
 // (5-6), énergie (7+). Lue aussi par les REFLETS (iso/isoReflect.js) : l'eau est
 // tenue autant sous la promenade, le miroir passe à cette hauteur-là.

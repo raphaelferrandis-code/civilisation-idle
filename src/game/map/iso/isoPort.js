@@ -32,6 +32,7 @@ import { pxProbe, recPx } from '../pixelGrid.js';
 import { snapDev } from '../blitSnap.js';
 import { drawSunShadow, sunShadowNightK } from './isoSunShadow.js';
 import { noteReflection } from './isoReflect.js';
+import { PIER, drawPortPier, pierHouseFoot, pierMoorings } from './isoPier.js';
 
 // ── BATEAUX : flotte legacy (CM.ships) sur le ruban projeté ──────────────────
 // Reprend la recette drawShips (stade par ère, voie latérale, louvoiement,
@@ -330,6 +331,17 @@ export function portMooring(t, spanX, T, band, ei, rv) {
     : [[G.ccx - G.dockW / 2 - effSize * 0.62, myNS],
       [G.ccx + G.dockW / 2 + effSize * 0.62, myNS]];
   const margin = (effSize * 0.55 + 0.3) * T;
+  // PONTON AU PIXEL (iso/isoPier.js) : bord à bord le long de sa tête, sinon de son
+  // tablier — mêmes garde-fous contre l'emprise des ponts.
+  const pm = PIER.on ? pierMoorings(t, spanX, t.spanY || t.size || 1, band, ei, effSize) : null;
+  if (pm) {
+    const margin = (effSize * 0.55 + 0.3) * T;
+    for (const c of pm.cands) {
+      if (bridgeBlocks(c.x * T, c.y * T, margin)) continue;
+      return { ...G, si: pm.si, effSize, mx: c.x, my: c.y, band, pierDir: c.along === 'pier' ? pm.dir : null };
+    }
+    return null;
+  }
   for (const [mx, my] of cands) {
     if (!bridgeBlocks(mx * T, my * T, margin)) return { ...G, effSize, mx, my, band };
   }
@@ -347,7 +359,12 @@ export function drawIsoPortBoat(ctx, moor, now, z, T) {
   const a2 = worldToScreen(o.x * T, o.y * T), b2 = worldToScreen(q.x * T, q.y * T);
   const p = worldToScreen(moor.mx * T, moor.my * T);
   const bob = Math.sin((now || 0) / 1400 + ccx) * s * 0.02;
-  const heading = Math.atan2(b2.y - a2.y, b2.x - a2.x);
+  // Amarré le long du TABLIER du ponton (rondins, sans tête) : cap selon le ponton,
+  // projeté ; sinon parallèle au quai (la tête en T longe le fleuve).
+  const pd = moor.pierDir;
+  const heading = pd
+    ? Math.atan2((pd.x + pd.y) * 0.5, pd.x - pd.y)
+    : Math.atan2(b2.y - a2.y, b2.x - a2.x);
   const isoBoat = BOAT_ISO[vstage] ? isoArt('boat-' + vstage + '-' + boatSector(heading)) : null;
   const prevSm = ctx.imageSmoothingEnabled; ctx.imageSmoothingEnabled = false;
   // Ellipse de flottaison la nuit seulement (cf. la flotte, drawIsoShips).
@@ -418,6 +435,19 @@ export function drawIsoRiverside(ctx, t, spanX, spanY, T, z, now, band, ei) {
   // au sud-est, est sinon). Molette : __pontoonAxis = 'auto'|'ns'|'ew'.
   // Géométrie PARTAGÉE avec le mouillage du bateau (item 'portBoat' du tri) :
   // formules dans portDockGeom, une seule source.
+  // ── PONTON AU PIXEL (iso/isoPier.js, 2026-10-01) ──────────────────────────────
+  // Un appontement construit (tablier, tête en T, pieux, bornes, matière de l'ère),
+  // qui part de la PLAGE ; la maison du port recule sur le sable, au départ du
+  // ponton, au lieu de poser son socle dans le fleuve. __pier(false) rend l'ancien
+  // sprite et l'ancienne pose, ci-dessous.
+  const pier = PIER.on ? drawPortPier(ctx, t, spanX, spanY, band, ei) : null;
+  if (pier) {
+    const foot = pierHouseFoot(pier);
+    const bWp = stage === 0 ? Math.min(1.6, spanX * 0.8) : Math.min(spanX * 1.05, 1.25 + sizeMul * 0.42);
+    const fp = worldToScreen(foot.x * T, foot.y * T);
+    blitPropAnchored(ctx, HOUSE, fp.x, fp.y, bWp * cpx);
+    return;
+  }
   const G = portDockGeom(t, spanX, T, band, ei, rv);
   if (!G) return;
   const { ewAxis, dockW, dockLen, dockY0, dockY1, dockYew, dockX0, dockX1 } = G;

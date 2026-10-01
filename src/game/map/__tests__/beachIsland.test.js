@@ -54,12 +54,12 @@ describe('grève de berge — la règle et ses exclusions ne se séparent pas', 
     expect(src).toMatch(/export function isBeachBankCell\(L, gx, gy\)/);
     expect(src).toContain('L.roadSet.has(key)');                 // une rampe vers le quai reste une rampe
     expect(src).toContain('beachPortCells(L).has(key)');          // le port est exempté du bâti
-    expect(src).toContain('BEACH.bankR');                         // le rayon autour d'un trou de quai
+    expect(src).toContain('beachZone(L)');                        // la bande le long des rives sans quai
   });
 
   it('le sol cuit ne rejoue plus le critère à la main', () => {
     const src = readFileSync(join(__dirname, '..', 'iso/isoGroundResolve.js'), 'utf8');
     expect(src).toContain('isBeachBankCell(L, gx, gy)');
-    expect(src).not.toContain('BEACH.bankR');
+    expect(src).not.toContain('BEACH.depth');
   });
 });
