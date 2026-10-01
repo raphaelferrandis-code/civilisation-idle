@@ -1,5 +1,5 @@
 /* eslint-disable */
-import { drawCityEngineSprite, engineStage, cosmicBase, softGround, propReady, blitProp, blitCosmicTower, animReady, blitAnim, setEngineSpan } from './cityEngineSprites.js';
+import { drawCityEngineSprite, engineStage, cosmicBase, softGround, propReady, blitProp, blitCosmicTower, animReady, blitAnim, setEngineSpan, cosmicSceneKey } from './cityEngineSprites.js';
 import { CM } from './layout.js';
 import { drawPixelBuilding } from './pixelBuildings.js';
 
@@ -41,7 +41,9 @@ function cosmicSavoir(ctx, ox, oy, sw, sh, px, band, now, kind, pass = 'all') {
   // ── COSMIQUE PIXEL (2026-07-05) : si le prop cristallin de la famille×band est chargé,
   //    structure PixelLab flottante (fond sombre déjà posé par cosmicBase) + mote/halo/anneau
   //    animés réutilisés. Repli = silhouette procédurale ci-dessous. Emblème médaillon = identité.
-  const pxKey = `cosmic-${fam}-${band}`;
+  // Le bâtiment PROPRE à la famille d'abord (cosmicSceneKey), la silhouette partagée
+  // de sa famille de forme ensuite, tant que le premier charge ou n'existe pas.
+  const pxKey = cosmicSceneKey(kind, band) || `cosmic-${fam}-${band}`;
   if (propReady(pxKey)) {
     // La tour lit `now` (halo qui respire) → animée EN BLOC.
     if (dAnim) blitCosmicTower(ctx, ox, oy, sw, sh, pxKey, now, band, cp); // TOUR gigantesque posée (halo de bande intégré)

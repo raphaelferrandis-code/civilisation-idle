@@ -18,20 +18,34 @@ import { lightCtx } from './lightLayer.js';
 // verre des bandes 6-7 n'en a aucune, elle reste éteinte — ses vitres sont CLAIRES).
 const HOMES = new Set(['townhouse', 'stonehouse', 'manor', 'block', 'tenement', 'insula', 'terrace', 'towerhouse',
   'domus', 'taberna', 'villa', 'insula2', 'crafthouse', 'courtyard', 'megablock', 'arcologyhome', 'tower',
-  'haussmann', 'townhouse']);
+  'haussmann', 'townhouse', 'podstack', 'domehome', 'gardentower']);
 // SEUIL D'OUVERTURE PAR DESSIN (même nuit). Le détecteur prend pour vitre une tache
 // fermée dont le canal le plus fort reste sous 68. Deux dessins peignent leurs vitres
 // un cran plus clair et n'en livraient AUCUNE : la maison de ville (la moitié des maisons
 // de la bande 2) et la tour de verre (bandes 6-7). À 80 : 5 et 39 ouvertures — mesuré
 // sur l'art, sans toucher au seuil des autres (qui prendraient alors des pans de mur).
 const DARK_MAX = { townhouse: 80, tower: 80 };
+// VERRE PAR COULEUR (2026-10-01, « le meilleur rendu futuriste ») : les maisons en nacre
+// des ères cosmiques ont des vitres CLAIRES — verre gris-bleu des capsules et de la
+// tour-jardin, hublots jaune chaud du dôme —, qu'aucun seuil de noirceur ne peut
+// prendre sans prendre aussi les faces à l'ombre. On nomme leurs couleurs de verre,
+// relevées sur l'art livré : la tache doit être de CETTE couleur, fermée et petite.
+// Sans elles, la ville cosmique s'éteignait la nuit autour de ses bâtiments allumés.
+const GLASS = {
+  podstack: [[136, 138, 142], [106, 111, 117]],
+  domehome: [[234, 206, 153], [190, 172, 132]],
+  gardentower: [[133, 140, 143], [123, 128, 131], [95, 103, 104]],
+};
+const glassSet = (v) => (GLASS[v] ? new Set(GLASS[v].map(([r, g, b]) => (r << 16) | (g << 8) | b)) : null);
 const masks = new WeakMap();
 
-export function windowPixels(data, width, height, darkMax = 68) {
+export function windowPixels(data, width, height, darkMax = 68, glass = null) {
   const seen = new Uint8Array(width * height);
   const groups = [];
-  const dark = (i) => data[i * 4 + 3] > 240
-    && Math.max(data[i * 4], data[i * 4 + 1], data[i * 4 + 2]) < darkMax;
+  const dark = glass
+    ? (i) => data[i * 4 + 3] > 240 && glass.has((data[i * 4] << 16) | (data[i * 4 + 1] << 8) | data[i * 4 + 2])
+    : (i) => data[i * 4 + 3] > 240
+      && Math.max(data[i * 4], data[i * 4 + 1], data[i * 4 + 2]) < darkMax;
   for (let i = 0; i < seen.length; i += 1) {
     if (seen[i] || !dark(i)) continue;
     const stack = [i], pixels = [];
@@ -51,18 +65,23 @@ export function windowPixels(data, width, height, darkMax = 68) {
     }
     const w = x1 - x0 + 1, h = y1 - y0 + 1;
     // Écarte contour extérieur, toiture, grandes portes et masses de façade.
-    if (!open && y0 > height * 0.3 && y1 < height * 0.88
+    // Verre nommé : la couleur suffit à écarter les murs, on admet des vitres plus
+    // larges (hublots ronds, baies de la tour-jardin) et plus haut sur la façade.
+    if (glass) {
+      if (!open && y0 > height * 0.12 && y1 < height * 0.95
+        && pixels.length >= 2 && w <= 12 && h <= 14 && pixels.length <= 90) groups.push(pixels);
+    } else if (!open && y0 > height * 0.3 && y1 < height * 0.88
       && pixels.length >= 3 && w <= 7 && h >= 2 && h <= 12
       && h >= w * 0.65 && pixels.length <= 50) groups.push(pixels);
   }
   return groups;
 }
 
-function maskFor(g, phase, darkMax = 68) {
+function maskFor(g, phase, darkMax = 68, variant = '') {
   let entries = masks.get(g.img);
   if (!entries) { entries = new Map(); masks.set(g.img, entries); }
   const { x0, y0, w, h } = g.bb;
-  const key = `${x0}:${y0}:${w}:${h}:${phase}:${darkMax}`;
+  const key = `${x0}:${y0}:${w}:${h}:${phase}:${darkMax}:${variant}`;
   if (entries.has(key)) return entries.get(key);
   const canvas = document.createElement('canvas');
   canvas.width = w; canvas.height = h;
@@ -70,7 +89,7 @@ function maskFor(g, phase, darkMax = 68) {
   ctx.drawImage(g.img, x0, y0, w, h, 0, 0, w, h);
   const source = ctx.getImageData(0, 0, w, h);
   const out = ctx.createImageData(w, h);
-  const groups = windowPixels(source.data, w, h, darkMax);
+  const groups = windowPixels(source.data, w, h, darkMax, glassSet(variant));
   let count = 0;
   groups.forEach((pixels, index) => {
     if ((index * 7 + phase * 3) % 5 > 1) return;
@@ -89,7 +108,7 @@ function maskFor(g, phase, darkMax = 68) {
 export function drawHouseWindows(t, g) {
   const night = Math.max(0, Math.min(1, ((CM.nightF || 0) - 0.22) / 0.65));
   if (!night || CM.lodActive || !HOMES.has(t.variant) || typeof document === 'undefined') return;
-  const mask = maskFor(g, cmHash(`windows:${t.gx}:${t.gy}`) % 5, DARK_MAX[t.variant] || 68);
+  const mask = maskFor(g, cmHash(`windows:${t.gx}:${t.gy}`) % 5, DARK_MAX[t.variant] || 68, GLASS[t.variant] ? t.variant : '');
   if (!mask) return;
   const ctx = lightCtx(g.dx, g.dy, g.dx + g.dw, g.dy + g.dh);
   if (!ctx) return;

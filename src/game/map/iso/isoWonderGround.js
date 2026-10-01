@@ -13,9 +13,26 @@
 import { CM, CM_WONDERS, cmWonderSlot, cmForEachWonderCell } from '../layout.js';
 import { solInvalidate } from './solInvalidate.js';
 import { districtLandmarks } from './isoDistricts.js';
-import { rgb } from './isoPalette.js';   // le dallage compose ses tons
+import { PLAZA_ERA_TONE, PLAZA_WINTER, rgb } from './isoPalette.js';   // le dallage compose ses tons
 
-export const WONDER_GROUND = { on: true, tone: [227, 206, 176], pave: 4, joint: 0, rim: 1.10, tileAlpha: 1 };
+// ⚠ ATTÉNUÉ le 2026-10-01 (Raph, sur la planche du matin : « atténue »). Le porphyre
+// (iso-wonder, L62) posé PLEIN faisait un trou prune sous chaque merveille et chaque
+// esplanade civique — le « socle prune » des manoirs aux bandes 5 et 7 — sur des sols
+// que la bible des surfaces venait d'éclaircir. Même geste que les places : un APLAT
+// clair dessous (`wonderToneFor` : la pierre claire de la place de l'ère, montée vers un
+// marbre rosé, famille du porphyre), la tuile dosée dessus (`tileAlpha` 1 → 0,25) qui ne
+// laisse plus que son MOUCHETIS. Valeur lue : ~L175, au-dessus du sol du quartier sans
+// éblouir. Molette : __wonderGround({ tileAlpha: 1 }) rejoue le porphyre plein.
+// `tone` reste le repli des ères sans place (bandes 0-1).
+export const WONDER_GROUND = { on: true, tone: [227, 206, 176], pave: 4, joint: 0, rim: 1.10, tileAlpha: 0.25, rose: [236, 222, 216], roseMix: 0.5 };
+// Ton de l'aplat du parvis pour l'ère (`plazaEra` : clé de PLAZA_ERA_TONE, ou null).
+export function wonderToneFor(plazaEra, winter) {
+  const base = (plazaEra && PLAZA_ERA_TONE[plazaEra]) || WONDER_GROUND.tone;
+  const k = WONDER_GROUND.roseMix;
+  let t = base.map((v, i) => Math.round(v + (WONDER_GROUND.rose[i] - v) * k));
+  if (winter && PLAZA_WINTER.mix > 0) t = t.map((v, i) => Math.round(v + (PLAZA_WINTER.snow[i] - v) * PLAZA_WINTER.mix));
+  return t;
+}
 
 // Ensemble effectif des cellules-parvis : celui du layout, PLUS l'emprise de la
 // merveille en APERÇU (__showWonder force le rendu sans recalcul du plan — le
@@ -168,8 +185,8 @@ export function drawWonderPaving(ctx, gx, gy, px, py, hw, hh) {
   ctx.lineWidth = Math.max(1, Math.round((hw * 2) / div * 0.045));
   ctx.stroke();
 }
-export function drawWonderGroundDetail(ctx, gx, gy, px, py, hw, hh, wg) {
-  const shade = (f) => rgb(WONDER_GROUND.tone, f);
+export function drawWonderGroundDetail(ctx, gx, gy, px, py, hw, hh, wg, tone = WONDER_GROUND.tone) {
+  const shade = (f) => rgb(tone, f);
   const N = [px, py], E = [px + hw, py + hh], S = [px, py + hh * 2], W = [px - hw, py + hh];
   const seg = (a, b, style, lw) => { ctx.strokeStyle = style; ctx.lineWidth = lw; ctx.beginPath(); ctx.moveTo(a[0], a[1]); ctx.lineTo(b[0], b[1]); ctx.stroke(); };
   // Pourtour : marche d'ombre (nu extérieur) + margelle claire en retrait. Traits
@@ -193,13 +210,13 @@ export function drawWonderGroundDetail(ctx, gx, gy, px, py, hw, hh, wg) {
 // par 4 (gx, gy, px, py) — ce format appartient à qui le remplit et à qui le lit.
 // ⚠ L'ORDRE EST LE POINT : tout le dallage, PUIS toute la margelle. La margelle
 // encadre le parvis et doit rester au-dessus des joints.
-export function drawWonderGroundAll(ctx, wonderCells, hw, hh, wg) {
+export function drawWonderGroundAll(ctx, wonderCells, hw, hh, wg, tone = WONDER_GROUND.tone) {
   if (wonderCells.length) {
     for (let i = 0; i < wonderCells.length; i += 4) {
       drawWonderPaving(ctx, wonderCells[i], wonderCells[i + 1], wonderCells[i + 2], wonderCells[i + 3], hw, hh);
     }
     for (let i = 0; i < wonderCells.length; i += 4) {
-      drawWonderGroundDetail(ctx, wonderCells[i], wonderCells[i + 1], wonderCells[i + 2], wonderCells[i + 3], hw, hh, wg);
+      drawWonderGroundDetail(ctx, wonderCells[i], wonderCells[i + 1], wonderCells[i + 2], wonderCells[i + 3], hw, hh, wg, tone);
     }
   }
 }

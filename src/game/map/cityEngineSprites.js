@@ -15,6 +15,7 @@ import { recDens, palierK, PALIER_SPANSUM, palierHFrac } from './spriteScale.js'
 import { pxProbe, recPx } from './pixelGrid.js';
 import { snapDev } from './blitSnap.js';
 import { drawSunShadow } from './iso/isoSunShadow.js';
+import { drawSceneEmissive } from './sceneEmissive.js';
 import { snowSprite, snowRoofTune } from './snowRoof.js';
 import { WINTER } from './seasonMode.js';
 
@@ -68,6 +69,36 @@ function palierAsset(cle) {
     return null;
   }
   return (im.complete && im.naturalWidth > 0) ? im : null;
+}
+// ── UNE SCÈNE COSMIQUE PAR FAMILLE (2026-10-01, « le meilleur rendu futuriste ») ──
+// Aux bandes 7-9, les dix-neuf familles SAVOIR/INFRA se partageaient six images par
+// bande (dôme, flèche, halle, temple, arches, ossature — COSMIC_SAVOIR_FAM), toutes
+// des TOURS posées à 1,72 hauteur de boîte : la « forêt de flèches identiques » de
+// l'audit. Chaque famille reçoit désormais SON bâtiment, dessiné pour sa fonction et
+// sa hauteur (cf. scripts/fetchCosmicScene.mjs). Chargement PARESSEUX, comme les
+// paliers : une partie ne voit qu'une bande à la fois. Liste EXPLICITE des images
+// livrées — en dev, Vite rend 200 sur un fichier absent, et le .exe le compte en
+// erreur : on ne demande que ce qui existe (garde : cosmicScenes.test.js).
+export const COSMIC_SCENE_KEYS = new Set([
+  'cosmic-schools-7', 'cosmic-think_tanks-7', 'cosmic-libraries-7', 'cosmic-observatories-7',
+  'cosmic-ministries-7', 'cosmic-scribes-7', 'cosmic-storytellers-7', 'cosmic-academies-7',
+  'cosmic-ancestral_cult-7', 'cosmic-universities-7', 'cosmic-printing_houses-7',
+  'cosmic-archive_grids-7', 'cosmic-sewers-7', 'cosmic-courthouses-7', 'cosmic-public_works-7',
+  'cosmic-ruin_architects-7', 'cosmic-bureaucracy-7', 'cosmic-watch-7',
+]);
+// Les scènes du STYLE NACRE (savoir/infra ci-dessus + les familles économie, dont
+// l'image `<famille>-cosmic-<bande>` a été redessinée en place). Leur verre s'allume la
+// nuit (sceneEmissive.js) et leur halo de jour se fait discret : un nuage de lumière
+// jade posé sur un bâtiment blanc en plein midi se lisait comme une brume.
+export const COSMIC_PEARL = new Set([
+  'market-cosmic-7', 'forager-cosmic-7', 'granary-cosmic-7', 'caravan-cosmic-7', 'guild-cosmic-7',
+  'mint-cosmic-7', 'bank-cosmic-7', 'port-cosmic-7', 'mill-cosmic-7',
+]);
+const isPearl = (k) => COSMIC_PEARL.has(k) || COSMIC_SCENE_KEYS.has(k);
+export function cosmicSceneKey(kind, band) {
+  const k = 'cosmic-' + kind + '-' + band;
+  if (!COSMIC_SCENE_KEYS.has(k)) return null;
+  return palierAsset(k) ? k : null;
 }
 function palierImg(p) {
   if (curSpanSum < PALIER_SPAN_MIN) return null;
@@ -589,9 +620,13 @@ function blitCosmicTower(ctx, ox, oy, sw, sh, key, now, band, cp, baseOverride) 
   ctx.drawImage(propArt(key, im), cx - drawW / 2, baseY - drawH, drawW, drawH);
   ctx.imageSmoothingEnabled = prev;
   lightCutImage(im, cx - drawW / 2, baseY - drawH, drawW, drawH);
+  const pearl = isPearl(key);
+  if (pearl) drawSceneEmissive(im, cx - drawW / 2, baseY - drawH, drawW, drawH, band);
   if (cp && cp.glow) {
     ctx.save(); ctx.globalCompositeOperation = 'lighter';
-    const a = 0.16 + 0.10 * Math.sin(now / 720 + band), gy = baseY - drawH * 0.30;
+    // Nacre : le halo suit la nuit (30 % le jour). Les anciennes tours le gardent plein.
+    const nk = pearl ? 0.3 + 0.7 * Math.max(0, Math.min(1, ((CM.nightF || 0) - 0.22) / 0.65)) : 1;
+    const a = (0.16 + 0.10 * Math.sin(now / 720 + band)) * nk, gy = baseY - drawH * 0.30;
     const g = ctx.createRadialGradient(cx, gy, 0, cx, gy, sw * 0.5);
     g.addColorStop(0, `rgba(${cp.glow},${a.toFixed(2)})`); g.addColorStop(1, `rgba(${cp.glow},0)`);
     ctx.fillStyle = g; ctx.beginPath(); ctx.arc(cx, gy, sw * 0.5, 0, Math.PI * 2); ctx.fill(); ctx.restore();

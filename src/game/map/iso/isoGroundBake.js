@@ -27,7 +27,8 @@ import { BEACH } from './isoGroundTiles.js';
 import { terrainKey, terrainMaxPx } from './isoTerrain.js';
 import { rgb } from './isoPalette.js';
 import { drawIsoMedians } from './isoStreet.js';
-import { drawWonderGroundAll } from './isoWonderGround.js';
+import { drawWonderGroundAll, wonderToneFor } from './isoWonderGround.js';
+import { WINTER } from '../seasonMode.js';
 
 // ── SOL : l'ordre des passes ─────────────────────────────────────────────────
 // Les cellules-route ne remplissent PLUS tout leur losange (1er jet : rue aussi
@@ -140,7 +141,7 @@ export function drawIsoGround() {
   }
   // PARVIS : tout le dallage, PUIS toute la margelle. L'ordre compte — la margelle
   // encadre le parvis et doit rester au-dessus des joints, comme avant.
-  drawWonderGroundAll(ctx, wonderCells, hw, hh, wg);
+  drawWonderGroundAll(ctx, wonderCells, hw, hh, wg, wonderToneFor(plazaEra, CM.season === WINTER));
   // Voiles d'herbe puis FLEURS : même ordre qu'avant (voile sous fleur), mais en
   // fills d'union groupés. Les motifs de drawGrassDetail tiennent dans leur
   // cellule → « tous les voiles puis toutes les fleurs » == l'entrelacé par cellule.

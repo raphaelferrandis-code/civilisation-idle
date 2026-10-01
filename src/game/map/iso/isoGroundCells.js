@@ -27,7 +27,7 @@ import { worldToScreen } from './projection.js';
 import { WINTER } from '../seasonMode.js';
 import { PLAZA_GROUND, plazaToneFor, rgb } from './isoPalette.js';
 import { DIRT_TONE } from './isoTissu.js';
-import { WONDER_GROUND } from './isoWonderGround.js';
+import { WONDER_GROUND, wonderToneFor } from './isoWonderGround.js';
 import { TERRAIN, terrainZ } from './isoTerrain.js';
 import { diamondPath } from './isoQuad.js';
 import { ISO_TILE_WINTER, beachTone, ensureIsoTileKey, blitIsoTileKey } from './isoGroundTiles.js';
@@ -105,7 +105,7 @@ export function sweepIsoGroundCells(bake, resolve, out) {
       const isBridge = !!(cell && cell.roadSurface === 'bridge');
       const isWater = !!(riverCells && riverCells.has(key));
       const kind = kindAt(gx, gy);
-      const tone = kind === 'plaza' ? plazaToneFor(plazaEra, CM.season === WINTER) : kind === 'wonder' ? WONDER_GROUND.tone
+      const tone = kind === 'plaza' ? plazaToneFor(plazaEra, CM.season === WINTER) : kind === 'wonder' ? wonderToneFor(plazaEra, CM.season === WINTER)
         : kind === 'grass' ? SEASON_GRASS : kind === 'dirt' ? DIRT_TONE
           : kind === 'shingle' ? beachTone('shingle')
             : kind === 'sand' ? beachTone('sand') : urb;

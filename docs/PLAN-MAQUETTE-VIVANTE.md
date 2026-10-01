@@ -349,6 +349,35 @@ au moins à 0,8, et l'aplat des places suit (`PLAZA_WINTER`). Les rues restent s
 PARVIS de porphyre sombre (L62, son « essai » de juillet — à doser comme les places ?) ;
 les scènes moteur tardives ; les cours en pelouse dès la bande 6.
 
+**2026-10-01, jour — réponses de Raph et « le meilleur rendu futuriste possible ».**
+> « 1 très bien ce que tu as fait ; 2 atténue, et améliore le rendu global ; 3 refais ce
+> qu'il faut, tu as les idées globales, demande-moi si tu doutes. »
+- **Nacre cosmique** : validée.
+- **Parvis atténué** : aplat clair dessous (`wonderToneFor` : la pierre claire de la place
+  de l'ère, montée vers un marbre rosé), porphyre dosé 0,25 → mouchetis, ~L175. Le
+  « socle prune » des esplanades civiques (bandes 5 et 7) disparaît avec.
+- **Scènes moteur cosmiques, refaites** (bande 7 terminée, 8 et 9 en cours). Aux bandes
+  7-9, dix-neuf familles savoir/infra se partageaient SIX images de tours par bande, et les
+  neuf familles économie étaient des tours aussi : toutes posées à 1,72 hauteur de boîte,
+  d'où la forêt de flèches noires. Langue nouvelle, en accord avec le sol nacre et les
+  maisons cosmiques : NACRE + verre teinté de l'ère (jade / or / violet), jardins, une
+  silhouette par FONCTION (école à toit-cour de récréation, marché sous toit-feuille,
+  holo-théâtre, cascade d'épuration, ruine sous dôme de verre…) et TROIS hauteurs (haute
+  128×224 : capitole, tour de la pensée, bourse, phare ; moyenne 128×176 ; basse 128×128),
+  reposées dans le canevas commun pied en bas (`scripts/fetchCosmicScene.mjs`). La pose
+  ne change pas (`blitCosmicTower`) : la gamme de hauteurs vient des images.
+  Savoir/infra : nouvelles clés `cosmic-<famille>-<bande>` chargées à la demande
+  (`COSMIC_SCENE_KEYS`, `cosmicSceneKey`), repli sur l'ancienne silhouette partagée ;
+  économie : `<famille>-cosmic-<bande>` redessinées en place (`COSMIC_PEARL`). Aqueducs
+  gardés (structure linéaire à part). Garde : `cosmicScenes.test.js` (PNG présents, calage,
+  gamme de hauteurs). IDs PixelLab : `scratchpad/pixellab-cosmique.json`.
+- **La ville cosmique s'allume la nuit** (`sceneEmissive.js`) : le verre de la teinte de
+  l'ère est relevé dans le sprite et déposé dans le calque de lumière (comme les fenêtres
+  des maisons) ; le halo de jour des scènes en nacre tombe à 30 % (un nuage jade sur un
+  bâtiment blanc à midi se lisait comme une brume). Les maisons en nacre (capsules, dôme,
+  tour-jardin) allument leurs fenêtres : leur verre est CLAIR, détecté par COULEUR
+  (`GLASS`, houseWindows.js) et non par noirceur.
+
 ## 9. La petite vie (lot 6, demandé le 2026-10-01)
 
 > « Tu peux refaire tous les petits éléments de vie, oiseaux, poissons, feuilles,
