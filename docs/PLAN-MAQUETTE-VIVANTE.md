@@ -411,6 +411,26 @@ les scènes moteur tardives ; les cours en pelouse dès la bande 6.
   bande 6 garde ses fenêtres de maisons et le halo des bâtiments.
 - Sources PixelLab de toutes ces images : `scripts/data/pixellab-scenes-tardives.json`.
 
+**2026-10-01, soir — « 1 oui, 2 oui, vas-y »** (les deux questions de la planche).
+- **Les bureaux de la bande 6 s'allument la nuit** (`eda7cc1`, `sceneWindows.js`). Le
+  verre est NOMMÉ sprite par sprite (19 des 30 images ; couleurs choisies sur des planches
+  de nuit simulée, `scratchpad/glassAuto.cjs`), groupé en carreaux, trois sur cinq
+  allumés, phase par bâtiment (`setEngineSeed`, posé par les deux entrées du rendu de
+  scène). ⚠ Trois essais avant le bon : une couleur à la fois = des mouchetis (une vitre
+  est faite de 3 à 8 couleurs) ; cellules 3×4 = un DAMIER sur les grandes surfaces
+  vitrées → découpe par ÉTAGES de 3 px ; blanc chaud = bâtiments-lanternes bleutés → la
+  lumière des fenêtres de maisons (244,168,72), alpha 0,6. Éteints par choix : dépôt,
+  centre de données, épuration, école, monnaies, observatoire. Garde : chaque couleur
+  nommée doit exister dans son PNG (un sprite regénéré rendrait sa liste muette).
+- **Les maisons en nacre prennent la couleur de leur ère** (`ec80d42`) : tour-jardin,
+  maison-dôme, grappe de capsules × bandes 7-9, générées avec leur dessin de base en
+  image de style (même forme, verre et accents jade / or / cristal), au cadre et au grain
+  de la base (`fetchHouseSkin.mjs --half`). Les capsules jade du premier jet avaient des
+  hublots GRIS (aucun jade) : regénérées avec un jade franc. ⚠ Avec ces skins, à la
+  bande 7 les bassins et anneaux jade s'allumaient avec le reste — toute la ville brillait
+  autant que ses monuments : la lumière d'ère des maisons est dosée par bande
+  (`EMISSIVE_HOUSE` : 0,45 jade, 1 or, 0,7 violet), les scènes moteur gardent tout.
+
 ## 9. La petite vie (lot 6, demandé le 2026-10-01)
 
 > « Tu peux refaire tous les petits éléments de vie, oiseaux, poissons, feuilles,
