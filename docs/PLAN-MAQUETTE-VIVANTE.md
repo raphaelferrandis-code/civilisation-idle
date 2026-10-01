@@ -377,6 +377,39 @@ les scènes moteur tardives ; les cours en pelouse dès la bande 6.
   bâtiment blanc à midi se lisait comme une brume). Les maisons en nacre (capsules, dôme,
   tour-jardin) allument leurs fenêtres : leur verre est CLAIR, détecté par COULEUR
   (`GLASS`, houseWindows.js) et non par noirceur.
+- **Bandes 8 et 9 terminées** (`a64fa68` nacre et or, anneaux orbitaux ; `5ed8160` marbre
+  et cristal violet), comme la 7 (`662d4ab`) : 27 scènes par bande.
+- **Maisons cosmiques en nacre** (`7ec8837`) : les skins `tower/megablock/arcologyhome-
+  cosmic-7/8/9` étaient encore des gratte-ciel de verre sombre. Régénérés dans la langue
+  de l'ère (coupoles de jade, gradins dorés, piliers de cristal) ; encre des arcologies
+  ≤ 95 px (lot 2×2) ; gris d'ombre écartés du sol (`ecartSol --darker`). Garde bâti/sol :
+  bandes 7 et 9 resserrées à 0,0 %.
+- ⚠ **Fond gris opaque** : `cosmic-bureaucracy-8` (commité la veille) portait un
+  RECTANGLE gris autour du pavillon — la génération avait gardé son fond, et le seuil
+  d'alpha l'a pris pour de l'encre. Vu seulement en jeu, à la bande 8. Détouré
+  (diffusion depuis le bord de la boîte d'encre, liseré, îlots) et recalé. Contrôle à
+  faire après TOUTE série PixelLab : une rangée opaque d'une seule couleur ≥ 24 px, ou
+  un haut d'encre plein (`scratchpad/fondOpaque.cjs`).
+- **Bande 6 : fin des « boîtes crème »** (`2e34b06`) : les 17 scènes du stade moderne et
+  leurs 13 grandes halles, une silhouette par fonction (dépôt à camions et dôme à sel,
+  centre de données, rédaction à bandeau lumineux, télévision à antenne, bibliothèque à
+  toit courbe, observatoire à radiotélescope, cinéma à marquise, banque en tour de
+  verre…). Chaque grande halle est générée avec son PETIT MODÈLE comme image de style
+  (URL publique de la rotation PixelLab) : même architecture, en plus grand.
+  `fetchStageScene.mjs --fit` remplit la zone utile (×0,5 fixe laissait des bâtiments un
+  tiers plus petits que leur boîte) ; ⚠ un facteur de 0,8 à 1 fait ONDULER les contours
+  → ramené à ×0,75.
+- ⚠ **Égouts** : la première station d'épuration avait trois bassins d'eau bleue —
+  contraire à la décision de Raph du 2026-08-05 (« un égout avale, il ne recrache pas » ;
+  le bassin de la station romaine avait été EFFACÉ pour la même raison). Régénérée en
+  digesteurs en œuf FERMÉS, une conduite qui plonge dans le sol ; sortie de la table de
+  `scripts/sewerOutfall.mjs`, entrée dans les stades regénérés de sa garde.
+- Essayé, pas fait : allumer les vitres des scènes de la bande 6 la nuit, comme aux
+  bandes 7-9. Le verre moderne est bleu, mais les murs à l'OMBRE aussi (lumière
+  haut-gauche, ombre bleutée) : une fenêtre de teinte allume des façades entières. Il
+  faudrait la liste des couleurs de verre sprite par sprite (`GLASS`). La nuit de la
+  bande 6 garde ses fenêtres de maisons et le halo des bâtiments.
+- Sources PixelLab de toutes ces images : `scripts/data/pixellab-scenes-tardives.json`.
 
 ## 9. La petite vie (lot 6, demandé le 2026-10-01)
 
