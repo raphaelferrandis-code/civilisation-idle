@@ -76,9 +76,15 @@ export const VARIANTS_HOUSE = [
   // ⚠ Rééquilibré le jour même : la grappe de capsules, deux fois dans `base` et dans
   // `poor`, couvrait des quartiers entiers (capture de la bande 7) — la répétition qu'on
   // venait de chasser. Une fois par liste ; le dôme, bas et rond, prend sa place.
-  { base: ["tower", "megablock", "arcologyhome", "gardentower", "domehome", "podstack", "gardentower", "domehome"],
-    poor: ["megablock", "podstack", "tower", "domehome", "domehome"],
-    rich: ["arcologyhome", "gardentower", "domehome", "tower", "gardentower"] }
+  // ⭐ 2026-10-02 (Raph : « ce n'est pas géant, par rapport à une ville d'ère 20 ») : le
+  // GRATTE-CIEL D'UNE CASE rejoint la ligne, en DEUX dessins par ère (`skytower` ~7,2 t, à
+  // flèche ; `skytower2` ~6 t, autre couronne) — un seul faisait au cœur une forêt de
+  // flèches identiques. D'une case, ils tiennent dans la trame fine que la mémoire des
+  // rues garde au centre, là où une géante 2×2 ne tient jamais. Le tirage par zones
+  // (TOURS_COEUR) les met au cœur.
+  { base: ["skytower", "tower", "megablock", "arcologyhome", "skytower2", "gardentower", "domehome", "podstack", "gardentower", "domehome"],
+    poor: ["megablock", "podstack", "skytower", "tower", "domehome", "skytower2"],
+    rich: ["arcologyhome", "skytower", "gardentower", "domehome", "tower", "skytower2"] }
 ];
 
 function variantList(table, band, bias) {
@@ -109,6 +115,29 @@ const HOUSE_FOOTPRINT = {
 const HOUSE_FOOTPRINT_COSMIC = { tower: [2, 2] };
 export const houseFootprint = (variant, eraBand = 0) =>
   (eraBand >= 7 && HOUSE_FOOTPRINT_COSMIC[variant]) || HOUSE_FOOTPRINT[variant] || [1, 1];
+
+// LE CŒUR EN TOURS (2026-10-02, Raph : « ce n'est pas géant, par rapport à une ville d'ère
+// 20 »). Mesuré sur la démo menée de la bande 4 à la bande 9 (CM._houseBoxes, hauteur
+// dessinée en tuiles) : ère 20 médiane 1,95 t ; bandes 7-9 médiane 2,6-2,75 t — ×1,4
+// seulement — et 26 géantes sur 693 maisons. Deux causes : la ligne cosmique tirait 5 fois
+// sur 8 une maison de nacre basse ; et au CENTRE, la mémoire des rues garde la trame fine
+// des ères anciennes (40 % des cases autour des maisons du cœur sont des rues) — une 2×2 n'y
+// tient jamais, les géantes ne se posaient qu'en frange, sur terrain neuf : ville basse au
+// centre, haute au bord, l'inverse d'une mégapole. ⚠ Essayé sans nouvel art (géantes
+// posées d'abord, cellules voisines reprises) : 45 posées sur 323 tirées — la trame gagne.
+// D'où le gratte-ciel d'UNE case, et ce tirage par zones aux bandes cosmiques :
+//   - CŒUR (pâté à moins de `inner` × rayon de la ville) : les seules HAUTES ; une géante
+//     qui ne tient pas s'y rabat sur le gratte-ciel ;
+//   - COURONNE : toute la ligne ;
+//   - FRANGE (au-delà de `outer`) : les maisons BASSES de nacre.
+// Une montagne au centre, et la frange humaine qui la mesure. Molette :
+// globalThis.__tourCoeur({ on, inner, outer }), puis __cityRecompute().
+export const TOURS_COEUR = { on: true, inner: 0.42, outer: 0.72 };
+if (typeof globalThis !== "undefined") {
+  globalThis.__tourCoeur = (o) => { if (o) Object.assign(TOURS_COEUR, o); return { ...TOURS_COEUR }; };
+}
+const HAUTES = new Set(["skytower", "skytower2", "tower", "megablock", "arcologyhome"]);
+const BASSES = new Set(["gardentower", "domehome", "podstack"]);
 
 // Affinité catégorie ↔ type de quartier : un bonus de placement quand la
 // cellule est dans le rayon d'une ancre du bon kind.
@@ -227,6 +256,34 @@ export function createBuildingPlacer({
   // (houseTintOf les exclut). Avant la bande 7, tirage historique inchangé.
   const BLOCK_Q = 3;
 
+  // Rayon de la ville pour le CŒUR EN TOURS : 90ᵉ centile des distances au cœur des
+  // cellules qui recevront une maison (le tri `house` est dominé par la distance, bruité).
+  // Calculé une fois par placer.
+  let cityR = 0;
+  const cityRadius = () => {
+    if (cityR) return cityR;
+    const ord = orderedList("house");
+    const K = Math.max(1, Math.min(ord.length, (counts.houses | 0) || ord.length));
+    const ds = [];
+    for (let i = 0; i < K; i += 1) ds.push(Math.hypot(ord[i].gx + 0.5 - core.x, ord[i].gy + 0.5 - core.y));
+    ds.sort((a, b) => a - b);
+    cityR = Math.max(4, ds[Math.min(ds.length - 1, Math.floor(ds.length * 0.9))] || 4);
+    return cityR;
+  };
+  // Zone d'un pâté (0 cœur, 1 couronne, 2 frange), lue au CENTRE du pâté : l'îlot reste
+  // uniforme. Hors bandes cosmiques, ou sans cellule, tout est « couronne » (liste entière).
+  const zoneOf = (cell) => {
+    if (!TOURS_COEUR.on || counts.eraBand < 7 || !cell) return 1;
+    const bx = Math.floor(cell.gx / BLOCK_Q) * BLOCK_Q + BLOCK_Q / 2;
+    const by = Math.floor(cell.gy / BLOCK_Q) * BLOCK_Q + BLOCK_Q / 2;
+    const d = Math.hypot(bx - core.x, by - core.y) / cityRadius();
+    return d < TOURS_COEUR.inner ? 0 : d < TOURS_COEUR.outer ? 1 : 2;
+  };
+  const zoneList = (list, z) => {
+    const keep = z === 0 ? list.filter((v) => HAUTES.has(v)) : z === 2 ? list.filter((v) => BASSES.has(v)) : list;
+    return keep.length ? keep : list;
+  };
+
   // ⚠ LE TIRAGE NE DOIT PAS DÉPENDRE DE LA CELLULE (lot S4, 2026-08-06).
   // Il en dépendait, et ça CONFISQUAIT les grandes empreintes. Quand `finalize`
   // refusait un 2×2 qui ne tenait pas, le slot passait à la cellule suivante — donc
@@ -252,7 +309,8 @@ export function createBuildingPlacer({
     const list = variantList(VARIANTS_HOUSE, counts.eraBand, bias);
     if (counts.eraBand >= 7) {
       const hq = hashString(seed + ":" + category + ":q" + Math.floor(cell.gx / BLOCK_Q) + ":" + Math.floor(cell.gy / BLOCK_Q));
-      return list[hq % list.length];
+      const pick = zoneList(list, zoneOf(cell));
+      return pick[hq % pick.length];
     }
     return list[hashString(seed + ":" + category + ":v" + n) % list.length];
   };
@@ -260,12 +318,23 @@ export function createBuildingPlacer({
   // Un dessin d'UNE case, tiré de façon déterministe dans la liste de l'ère : le
   // repli d'une maison qui garde sa place (mémoire des rues). Indépendant de la
   // cellule — aux bandes cosmiques, chooseVariant tire par pâté de maisons, et
-  // tous les essais retombaient sur la même tour 2×2.
-  const smallVariant = (category, n) => {
-    const list = variantList(VARIANTS_HOUSE, counts.eraBand, bias)
+  // tous les essais retombaient sur la même tour 2×2. Avec la cellule, il suit le
+  // CŒUR EN TOURS : au cœur, le repli est le gratte-ciel d'une case.
+  const smallVariant = (category, n, cell = null) => {
+    const z = zoneOf(cell);
+    const list = zoneList(variantList(VARIANTS_HOUSE, counts.eraBand, bias), z)
       .filter((v) => { const [fx, fy] = houseFootprint(v, counts.eraBand); return fx === 1 && fy === 1; });
+    // Au cœur, le repli est un gratte-ciel tiré PAR PÂTÉ (pas par slot) : l'îlot reste
+    // uniforme, comme le tirage cosmique lui-même.
+    if (z === 0 && cell && list.length) {
+      const hq = hashString(seed + ":" + category + ":q" + Math.floor(cell.gx / BLOCK_Q) + ":" + Math.floor(cell.gy / BLOCK_Q));
+      return list[hq % list.length];
+    }
     return list.length ? list[hashString(seed + ":" + category + ":s" + n) % list.length] : null;
   };
+  // La zone voyage avec le repli : placeCategorySlotted (pur, ses dépendances lui sont
+  // injectées) en a besoin pour ne combler QU'AU CŒUR la cellule d'une géante refusée.
+  smallVariant.zoneOf = zoneOf;
 
   // Quartier d'appartenance d'une cellule : l'ancre la plus proche dont le
   // rayon d'influence la couvre. Sert aux teintes de quartier du rendu.
@@ -391,7 +460,7 @@ export function placeCategorySlotted(category, count, ctx) {
     // garde désormais sa place sous un dessin d'une case, tiré de façon
     // déterministe (même repli que la passe 2).
     if (keepInPlace) {
-      let repli = smallVariant ? smallVariant(category, i) : null;
+      let repli = smallVariant ? smallVariant(category, i, { gx, gy }) : null;
       for (let k = 1; k <= 8 && !repli; k += 1) {
         const v = chooseVariant(category, i + k * 7919, { gx, gy });
         const [fx, fy] = houseFootprint(v, eraBand);
@@ -422,6 +491,13 @@ export function placeCategorySlotted(category, count, ctx) {
         const cell = ordered[cursor++];
         if (!free(cell.gx, cell.gy)) continue;
         if (finalize(i, cell)) break;
+        // CŒUR EN TOURS : au cœur, une géante qui ne tient pas laisse la place au
+        // gratte-ciel d'une case — pas un trou dans la montagne. Ailleurs, la boucle
+        // d'origine (la cellule est sautée).
+        if (smallVariant && smallVariant.zoneOf && smallVariant.zoneOf(cell) === 0) {
+          const repli = smallVariant(category, i, cell);
+          if (repli && finalize(i, cell, repli)) break;
+        }
       }
     }
     return placed;

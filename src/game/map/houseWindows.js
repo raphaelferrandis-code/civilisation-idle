@@ -18,7 +18,7 @@ import { lightCtx } from './lightLayer.js';
 // verre des bandes 6-7 n'en a aucune, elle reste éteinte — ses vitres sont CLAIRES).
 const HOMES = new Set(['townhouse', 'stonehouse', 'manor', 'block', 'tenement', 'insula', 'terrace', 'towerhouse',
   'domus', 'taberna', 'villa', 'insula2', 'crafthouse', 'courtyard', 'megablock', 'arcologyhome', 'tower',
-  'haussmann', 'townhouse', 'podstack', 'domehome', 'gardentower']);
+  'haussmann', 'townhouse', 'podstack', 'domehome', 'gardentower', 'skytower', 'skytower2']);
 // SEUIL D'OUVERTURE PAR DESSIN (même nuit). Le détecteur prend pour vitre une tache
 // fermée dont le canal le plus fort reste sous 68. Deux dessins peignent leurs vitres
 // un cran plus clair et n'en livraient AUCUNE : la maison de ville (la moitié des maisons

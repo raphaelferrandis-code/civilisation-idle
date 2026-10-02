@@ -63,7 +63,10 @@ const AVAILABLE = new Set([
   // 2026-10-01 (nuit) — l'immeuble haussmannien remplace la tour de verre à la bande 5.
   "haussmann",
   // 2026-10-01 (nuit) — les maisons des ères cosmiques, à la place des briques XIXe.
-  "gardentower", "domehome", "podstack"
+  "gardentower", "domehome", "podstack",
+  // 2026-10-02 — le gratte-ciel d'une case du CŒUR EN TOURS (Raph : « pas géant »). Pas
+  // de PNG de base : il ne sort qu'aux bandes 7-9, sa clé est toujours celle de l'ère.
+  "skytower", "skytower2"
 ]);
 
 // Variantes tardives qui reçoivent un SKIN COSMIQUE par bande (7 émeraude / 8 or /
@@ -73,7 +76,7 @@ const AVAILABLE = new Set([
 // 2026-10-01 (Raph : « oui ») : les trois maisons en nacre des bandes 7-9 — tour-jardin,
 // maison-dôme, grappe de capsules — étaient LES MÊMES aux trois ères, en îlots entiers.
 // Elles ont maintenant leur skin d'ère, même dessin, verre et accents jade / or / cristal.
-const COSMIC_VARIANTS = new Set(["tower", "megablock", "arcologyhome", "gardentower", "domehome", "podstack"]);
+const COSMIC_VARIANTS = new Set(["tower", "megablock", "arcologyhome", "gardentower", "domehome", "podstack", "skytower", "skytower2"]);
 
 // HOUSE_UNIT, houseFitTune et LA formule d'échelle vivent depuis le lot G0 de la
 // campagne du grain dans spriteScale.js (module PUR, partagé avec l'audit hors

@@ -501,6 +501,8 @@ function cityMapVariantLabel(type, variant) {
 // « Tour d'habitation de Marc le Tanneur » n'a pas de sens) mais un nom de
 // résidence (cmResidenceName). Le logement individuel garde le nom de son
 // occupant. Les districts (dense/arcology/grid) sont rangés côté collectif.
+    skytower: "Gratte-ciel",
+    skytower2: "Gratte-ciel",
 const CM_COLLECTIVE_HOMES = new Set([
   "block", "tenement", "tower", "megablock", "arcologyhome",
   "dense", "arcology", "grid"

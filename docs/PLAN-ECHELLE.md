@@ -301,3 +301,69 @@ lui-même instability/timeWear et fige l'autosave.
 - HMR double-graphe sur les modules carte → hard reload après édition.
 - Les chiffres du §1 hors scan PNG sortent du code, pas de l'écran : B0
   re-mesure avant d'engager l'art.
+
+---
+
+## 5. Le cœur en tours (2026-10-02) — « ce n'est pas géant, par rapport à une ville d'ère 20 »
+
+Raph, deux mois après les lots A et B : la fin de partie ne fait toujours pas
+géant. Choisi sur la planche : **le gratte-ciel d'une case + un cœur en tours**.
+
+### 5.1 La mesure (démo menée de la bande 4 à la bande 9, même partie)
+
+Toise = boîtes réellement dessinées (`CM._houseBoxes`, hauteur `dh / (T·z)`),
+captures `mkGeant.cjs` (scratchpad de la session) :
+
+| | Ère 20 (bande 4) | Bandes 7-9, AVANT | Bandes 7-9, APRÈS (cœur, zoom 1) |
+|---|---|---|---|
+| Maison médiane | 1,95 t | 2,6-2,75 t (×1,4) | **6,1-7,3 t (×3,1 à ×3,7)** |
+| 9 maisons sur 10 sous | 2,4 t | 3,3 t | 7,2 t |
+| Géantes (≥ 6 t) | — | 26 sur 693 (3,7 %) | 254 gratte-ciel sur 316 maisons du cœur |
+
+Le zoom par défaut du joueur est 0,625 à toutes les bandes : aucun « effet de
+dézoom », la hauteur en tuiles est bien ce que le joueur voit.
+
+### 5.2 Les deux causes
+
+1. La ligne cosmique de `VARIANTS_HOUSE` tirait 5 fois sur 8 une maison de nacre
+   BASSE (voulu la veille, pour la gamme de hauteurs) — la maison-dôme (1,5-1,7 t)
+   est même plus basse qu'une insula romaine (2,4 t).
+2. ⚠⚠ **La mémoire des rues garde au CENTRE la trame fine des ères anciennes** :
+   40 % des cases autour des maisons du cœur sont des rues. Une géante 2×2 n'y tient
+   jamais (repli `smallVariant`) ; elle ne se posait qu'en FRANGE, sur terrain neuf.
+   La ville de fin de partie était basse au centre et haute au bord — l'inverse d'une
+   mégapole.
+
+⚠ Essayé SANS nouvel art (géantes posées en premier, cellules tenues par des maisons
+reprises, zone « cœur » ne tirant que des géantes) : **45 posées sur 323 tirées** — la
+trame gagne. Retiré, non commité.
+
+### 5.3 Le remède
+
+- **`skytower` / `skytower2`** : deux gratte-ciel d'UNE case par ère cosmique
+  (`skytower-cosmic-7/8/9`, `skytower2-cosmic-7/8/9`, pas de PNG de base — comme les
+  autres skins, la clé est toujours celle de l'ère). Contenu ≤ 39 px de large (aucun
+  clamp), 201-205 px (≈ 7,2 t) pour le premier, 173 px (≈ 6,1 t) pour le second.
+  PixelLab `create_map_object` en canevas ÉTROIT (48×208, 48×184 — la recette des
+  tours d'août), coin en avant. Le second est UN dessin (nacre à nervures, couronne
+  d'arches, halo) décliné jade / or / violet par rotation de teinte des seuls accents
+  (`hueSwap`) : la règle des maisons en nacre, même dessin, accents d'ère.
+- **`TOURS_COEUR`** (buildingGenerator.js, molette `__tourCoeur`) : aux bandes 7+, le
+  tirage par pâté suit trois zones mesurées sur le rayon de la ville (90ᵉ centile des
+  distances des cellules de maisons) — CŒUR (< 0,42) : les seules hautes, une géante qui
+  ne tient pas se rabat sur un gratte-ciel tiré PAR PÂTÉ (l'îlot reste uniforme) ;
+  COURONNE : toute la ligne ; FRANGE (> 0,72) : les maisons basses de nacre.
+- Câblage : `AVAILABLE` + `COSMIC_VARIANTS` (pixelHouses.js), fenêtres de nuit
+  (`HOMES`, houseWindows.js), libellé « Gratte-ciel », garde bâti/sol (`COSMIC`).
+
+### 5.4 Pièges
+
+- ⚠⚠ **PixelLab pose ses objets sur un SOCLE** (dalle, plate-bande, rocaille) même avec
+  « no base, no platform, no ground » dans la description — 4 essais sur 4 pour les
+  tours du second jet, 6 sur 6 pour l'atelier. Une régénération ne règle rien :
+  contrôler le pied (largeur des dernières rangées : un pied d'immeuble se rétrécit en V
+  dans l'emprise ; un socle déborde), et décliner un dessin propre plutôt que régénérer.
+- Les gris de nacre des skins tombent près du sol nacré : `ecartSol --darker` à chaque
+  livraison (14-24 % de l'encre du second gratte-ciel).
+- Un seul dessin au cœur = une forêt de flèches identiques (vu à la capture) : deux
+  dessins par ère, de hauteurs différentes, tirés par pâté.
