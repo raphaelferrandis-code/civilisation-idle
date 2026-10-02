@@ -112,9 +112,33 @@ function ensureQuayGate() {
   // d'autre (2026-10-01) : c'est la PLAGE du port (iso/isoBeachCells.beachZone). Sur
   // la seule emprise, la coupure faisait 3 samples, et la grève un trou de 4 tuiles
   // dans la maçonnerie (retour Raph : « avoir une vraie plage »).
+  // ⚠ LES DEUX PORTS DU XIXe (docs/PLAN-PORTS.md) : l'entrée du BASSIN du Vieux-Port
+  // et le terre-plein du port de COMMERCE coupent aussi le quai, de leur côté, mais
+  // ce ne sont PAS des grèves : une structure y tient le bord de l'eau (les murs du
+  // bassin, le quai du terminal). Ces samples vont dans `dockPlus` / `dockMinus` —
+  // ni plage (isoBeachCells), ni sable mouillé, ni écume — et coupent le quai à
+  // bout CARRÉ (naturalOff) : la maçonnerie rejoint celle du port, sans effilement.
+  const dockPlus = new Uint8Array(n0), dockMinus = new Uint8Array(n0);
+  const portSide = (i, px, py) => {
+    const n = cmRiverNormalAt(sm, i);
+    return (px - sm[i].x) * n.nx + (py - sm[i].y) * n.ny >= 0 ? 0 : 1;   // 0 = plus, 1 = minus
+  };
+  const cutDock = (pa, ma, x0, x1, px, py) => {
+    for (let i = 0; i < n0; i += 1) {
+      if (sm[i].x < x0 || sm[i].x > x1) continue;
+      if (portSide(i, px, py)) { ma[i] = 0; dockMinus[i] = 1; } else { pa[i] = 0; dockPlus[i] = 1; }
+    }
+  };
+  const tradeP = L.ports && L.ports.trade;
   const cutPorts = (pa, ma) => {
     for (const t of (L.tiles || [])) {
-      if (t.buildingId !== "river_ports") continue;
+      if (t.buildingId !== "river_ports" || t.tradePort || t.portOffice) continue;   // commerce : cf. tradeP ; capitainerie : sur le quai
+      if (t.oldPort) {
+        // Le bassin : son anneau de quai compris (une case de part et d'autre).
+        const b = t.oldPort;
+        cutDock(pa, ma, b.gx - 1, b.gx + b.w + 1, b.gx + b.w / 2, b.gy + b.h / 2);
+        continue;
+      }
       const sx = t.spanX || t.size || 1, sy = t.spanY || t.size || 1;
       const x0 = t.gx - 0.5, x1 = t.gx + sx + 0.5, m = Math.max(0, +quayWallTune.portGap || 0);
       const pcx = t.gx + sx / 2, pcy = t.gy + sy / 2;
@@ -125,6 +149,10 @@ function ensureQuayGate() {
         const n = cmRiverNormalAt(sm, i);
         if ((pcx - sm[i].x) * n.nx + (pcy - sm[i].y) * n.ny >= 0) pa[i] = 0; else ma[i] = 0;
       }
+    }
+    if (tradeP) {
+      const mi = Math.floor(tradeP.len / 2), dir = tradeP.side === "N" ? 1 : -1;
+      cutDock(pa, ma, tradeP.x0 - 0.5, tradeP.x0 + tradeP.len + 0.5, tradeP.x0 + mi + 0.5, tradeP.edge[mi] - dir * 2 + 0.5);
     }
   };
   cutPorts(plus, minus);
@@ -159,6 +187,7 @@ function ensureQuayGate() {
     if (sm[i].hw < QUAY_MIN_HW || i < QUAY_END || i >= n0 - QUAY_END) {
       drawPlus[i] = 0; drawMinus[i] = 0; naturalOff[i] = 1;
     }
+    if (dockPlus[i] || dockMinus[i]) naturalOff[i] = 1;   // bout carré contre le port
   }
   // Un run d'UN seul sample ne produit aucun trait (`if (i > a) drawRun(...)`) :
   // on le retire du masque, sinon le ruban croirait que le quai s'en occupe et on
@@ -222,7 +251,7 @@ function ensureQuayGate() {
     const n = cmRiverNormalAt(sm, i), s = sm[i], o = s.hw + 1;
     gapPts.push({ x: s.x, y: s.y }, { x: s.x + n.nx * o, y: s.y + n.ny * o }, { x: s.x - n.nx * o, y: s.y - n.ny * o });
   }
-  CM.quayGate = { key: gateKey(), plus, minus, drawPlus, drawMinus, naturalOff, gapPts };
+  CM.quayGate = { key: gateKey(), plus, minus, drawPlus, drawMinus, naturalOff, gapPts, dockPlus, dockMinus };
   CM.quayBankCells = bankCells;
 }
 

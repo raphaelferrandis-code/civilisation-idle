@@ -1289,7 +1289,32 @@ export function normalizeCityCore(raw) {
   const maxN = Number.isFinite(Number(raw.maxN)) ? Math.max(0, Math.min(400, Math.floor(Number(raw.maxN)))) : 0;
   const out = { seed: seed >>> 0, dx, dy, bx: Math.round(bx), wonders, quarters, districts, maxN };
   if (central) out.central = central;
+  const ports = normalizeCityPorts(raw.ports);
+  if (ports) out.ports = ports;
   return out;
+}
+
+// Les deux ports figés à leur fondation (docs/PLAN-PORTS.md, map/portSites.js) :
+// le BASSIN du vieux port { dx, dy, w, h } et le terre-plein de COMMERCE
+// { dx, len, side, depth, edge: [dy par colonne] }, relatifs au centre de grille.
+// Un port refusé par les bornes est oublié : il se refondera, plutôt que de
+// relire une emprise abîmée.
+function normalizeCityPorts(raw) {
+  if (!isPlainObject(raw)) return null;
+  const int = (v, lo, hi) => { const n = Number(v); return Number.isFinite(n) && n >= lo && n <= hi ? Math.round(n) : null; };
+  const out = {};
+  const o = raw.old;
+  if (isPlainObject(o)) {
+    const b = { dx: int(o.dx, -400, 400), dy: int(o.dy, -400, 400), w: int(o.w, 2, 40), h: int(o.h, 1, 40) };
+    if (Object.values(b).every((v) => v !== null)) out.old = b;
+  }
+  const t = raw.trade;
+  if (isPlainObject(t) && Array.isArray(t.edge)) {
+    const b = { dx: int(t.dx, -400, 400), len: int(t.len, 2, 60), depth: int(t.depth, 1, 20), side: t.side === "N" ? "N" : t.side === "S" ? "S" : null };
+    const edge = t.edge.slice(0, 60).map((v) => int(v, -400, 400));
+    if (Object.values(b).every((v) => v !== null) && edge.length === b.len && edge.every((v) => v !== null)) out.trade = { ...b, edge };
+  }
+  return Object.keys(out).length ? out : null;
 }
 
 export function normalizeRiverWaypoints(raw) {

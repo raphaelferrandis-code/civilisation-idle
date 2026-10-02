@@ -17,7 +17,8 @@
 // expliquer d'où vient l'ancre écran qu'il consomme.
 import { CM } from '../layout.js';
 import { worldToScreen } from './projection.js';
-import { propReady, blitProp, propBBox } from '../cityEngineSprites.js';
+import { propReady } from '../cityEngineSprites.js';
+import { blitPropAnchored } from './isoPortProps.js';
 import { orbitPoint, shipAlpha } from '../riverFleet.js';
 import { ensureBoat, boatReady, BOAT_SIZES, BOAT_LIFT } from '../agents.js';
 import { bridgeBlocks } from './isoBridge.js';
@@ -33,6 +34,8 @@ import { snapDev } from '../blitSnap.js';
 import { drawSunShadow, sunShadowNightK } from './isoSunShadow.js';
 import { noteReflection } from './isoReflect.js';
 import { PIER, drawPortPier, pierHouseFoot, pierMoorings } from './isoPier.js';
+import { drawOldPort, drawPortOffice } from './isoOldPort.js';
+import { drawTradePort } from './isoTradePort.js';
 
 // ── BATEAUX : flotte legacy (CM.ships) sur le ruban projeté ──────────────────
 // Reprend la recette drawShips (stade par ère, voie latérale, louvoiement,
@@ -265,27 +268,8 @@ function ribbonAtX(rv, x) {
   return { y: sm[bi].y, hw: sm[bi].hw || 2, i: bi };
 }
 
-// Pose un prop par le BAS DE SON CONTENU opaque : contenu large de cw px, haut
-// de ch px, bas du contenu à (bx, by). Les PNG PixelLab embarquent souvent ~25 %
-// de vide transparent sous les pieds (vu à la capture : moulin « flottant »
-// 90 px au-dessus de sa boîte) → ancrer le PNG brut ment sur la position.
-// Renvoie le rectangle ÉCRAN du contenu dessiné {x, y, w, h} (pour attacher des
-// pièces au flanc au besoin). ch omis/null → hauteur à l'ASPECT NATUREL
-// du contenu (imposer les deux déforme le sprite : l'aspect du contenu n'est pas
-// celui du PNG).
-function blitPropAnchored(ctx, name, bx, by, cw, ch) {
-  const bb = propBBox(name);
-  if (!bb) {
-    const hh2 = ch || cw;
-    blitProp(ctx, bx - cw / 2, by - hh2, cw, hh2, name, 0.5, 0.5, 1, 1);
-    return { x: bx - cw / 2, y: by - hh2, w: cw, h: hh2 };
-  }
-  const cH = ch || cw * (bb.ch / Math.max(1, bb.cw));
-  const boxW = cw / (bb.wf || 1), boxH = cH / (bb.hf || 1);
-  const cxf = bb.x0f + bb.wf / 2, cbf = bb.y0f + bb.hf;
-  blitProp(ctx, bx - boxW * cxf, by - boxH * cbf, boxW, boxH, name, 0.5, 0.5, 1, 1);
-  return { x: bx - cw / 2, y: by - cH, w: cw, h: cH };
-}
+// (blitPropAnchored : parti dans iso/isoPortProps.js, partagé avec la capitainerie
+// du Vieux-Port.)
 
 // ── Géométrie du PONTON du port + mouillage du bateau amarré ─────────────────
 // Formules extraites de drawIsoRiverside (port) : le bateau amarré est devenu
@@ -321,16 +305,10 @@ function portDockGeom(t, spanX, T, band, ei, rv) {
 // mouillage par défaut posait le bateau sur la travée). Coincé des deux côtés →
 // null : pas de bateau plutôt qu'un bateau sur le tablier.
 export function portMooring(t, spanX, T, band, ei, rv) {
+  if (t.oldPort || t.tradePort || t.portOffice) return null;   // bassin et terminal amarrent leurs propres navires
   const G = portDockGeom(t, spanX, T, band, ei, rv);
   if (!G || !BOAT_SIZES[G.vstage]) return null;
   const effSize = (BOAT_SIZES[G.vstage] || 0.7) * G.sizeMul;
-  const myNS = Math.min(G.rb.y - 0.15, G.dockY1 - effSize * 0.1);
-  const cands = G.ewAxis
-    ? [[(G.ewSgn < 0 ? G.dockX0 : G.dockX1) - G.ewSgn * effSize * 0.3, G.dockYew + G.dockW / 2 + effSize * 0.45],
-      [(G.ewSgn < 0 ? G.dockX0 : G.dockX1) - G.ewSgn * effSize * 0.3, G.dockYew - G.dockW / 2 - effSize * 0.45]]
-    : [[G.ccx - G.dockW / 2 - effSize * 0.62, myNS],
-      [G.ccx + G.dockW / 2 + effSize * 0.62, myNS]];
-  const margin = (effSize * 0.55 + 0.3) * T;
   // PONTON AU PIXEL (iso/isoPier.js) : bord à bord le long de sa tête, sinon de son
   // tablier — mêmes garde-fous contre l'emprise des ponts.
   const pm = PIER.on ? pierMoorings(t, spanX, t.spanY || t.size || 1, band, ei, effSize) : null;
@@ -342,6 +320,13 @@ export function portMooring(t, spanX, T, band, ei, rv) {
     }
     return null;
   }
+  const myNS = Math.min(G.rb.y - 0.15, G.dockY1 - effSize * 0.1);
+  const cands = G.ewAxis
+    ? [[(G.ewSgn < 0 ? G.dockX0 : G.dockX1) - G.ewSgn * effSize * 0.3, G.dockYew + G.dockW / 2 + effSize * 0.45],
+      [(G.ewSgn < 0 ? G.dockX0 : G.dockX1) - G.ewSgn * effSize * 0.3, G.dockYew - G.dockW / 2 - effSize * 0.45]]
+    : [[G.ccx - G.dockW / 2 - effSize * 0.62, myNS],
+      [G.ccx + G.dockW / 2 + effSize * 0.62, myNS]];
+  const margin = (effSize * 0.55 + 0.3) * T;
   for (const [mx, my] of cands) {
     if (!bridgeBlocks(mx * T, my * T, margin)) return { ...G, effSize, mx, my, band };
   }
@@ -404,9 +389,20 @@ export function drawIsoPortBoat(ctx, moor, now, z, T) {
   ctx.imageSmoothingEnabled = prevSm;
 }
 
+// Largeur de dessin (tuiles) de la maison du port posée sur la grève, par sprite.
+const PORT_HOUSE_W = {
+  'port-prop-house': 1.45,        // cabane de pêcheurs sur pilotis
+  'port-house-medieval': 1.3,     // entrepôt à pignon, porte de chargement et poulie
+  'port-house-classical': 2.0,    // horreum à arcades
+};
+
 export function drawIsoRiverside(ctx, t, spanX, spanY, T, z, now, band, ei) {
   const L = CM.layout, rv = L.river;
   if (!rv || !rv.present || !rv.samples || rv.samples.length < 2) return;
+  // Le VIEUX-PORT (bande 5+, docs/PLAN-PORTS.md) : bassin creusé, quais, forts.
+  if (t.oldPort) { drawOldPort(ctx, t, band, now); return; }
+  if (t.tradePort) { drawTradePort(ctx, t, band, ei, now); return; }
+  if (t.portOffice) { drawPortOffice(ctx, t, band, T); return; }
   const stage = ei < 10 ? 0 : ei < 20 ? 1 : ei < 30 ? 2 : 3;
   // Échelle : 1 « cellule legacy » → px iso (entre la cellule stricte T·z et la
   // pose des maisons ~1.56·T·z) ; jugée à la capture.
@@ -428,13 +424,6 @@ export function drawIsoRiverside(ctx, t, spanX, spanY, T, z, now, band, ei) {
   const HOUSE = band >= 7 && propReady(ckP) ? ckP
     : propReady(stageHouse) ? stageHouse : (propReady('port-prop-house') ? 'port-prop-house' : null);
   if (!HOUSE) return;
-  // PONTON perpendiculaire à la TANGENTE LOCALE du ruban (retour Raph : « les
-  // pontons longent le bord de l'eau au lieu d'avancer ») : tronçon ~plat
-  // (fleuve O→E monde) → axe N-S monde (NE-SW écran) ; coude raide (|dy/dx|>1)
-  // → axe E-W monde, plongeant du côté où l'eau vient (ouest si le fleuve fuit
-  // au sud-est, est sinon). Molette : __pontoonAxis = 'auto'|'ns'|'ew'.
-  // Géométrie PARTAGÉE avec le mouillage du bateau (item 'portBoat' du tri) :
-  // formules dans portDockGeom, une seule source.
   // ── PONTON AU PIXEL (iso/isoPier.js, 2026-10-01) ──────────────────────────────
   // Un appontement construit (tablier, tête en T, pieux, bornes, matière de l'ère),
   // qui part de la PLAGE ; la maison du port recule sur le sable, au départ du
@@ -443,11 +432,24 @@ export function drawIsoRiverside(ctx, t, spanX, spanY, T, z, now, band, ei) {
   const pier = PIER.on ? drawPortPier(ctx, t, spanX, spanY, band, ei) : null;
   if (pier) {
     const foot = pierHouseFoot(pier);
-    const bWp = stage === 0 ? Math.min(1.6, spanX * 0.8) : Math.min(spanX * 1.05, 1.25 + sizeMul * 0.42);
+    // Largeur de la maison PAR SPRITE (docs/PLAN-PORTS.md, lot P1) : les bâtiments
+    // redessinés n'ont plus de socle, et leurs silhouettes diffèrent — l'entrepôt
+    // médiéval est une tour à pignon (deux fois plus haute que large), l'horreum une
+    // longue halle. La formule par taille de bateau donnait 2 tuiles à la tour : elle
+    // écrasait la grève. Repli sur la formule pour les sprites hors table (cosmiques).
+    const bWp = PORT_HOUSE_W[HOUSE]
+      || (stage === 0 ? Math.min(1.6, spanX * 0.8) : Math.min(spanX * 1.05, 1.25 + sizeMul * 0.42));
     const fp = worldToScreen(foot.x * T, foot.y * T);
     blitPropAnchored(ctx, HOUSE, fp.x, fp.y, bWp * cpx);
     return;
   }
+  // PONTON perpendiculaire à la TANGENTE LOCALE du ruban (retour Raph : « les
+  // pontons longent le bord de l'eau au lieu d'avancer ») : tronçon ~plat
+  // (fleuve O→E monde) → axe N-S monde (NE-SW écran) ; coude raide (|dy/dx|>1)
+  // → axe E-W monde, plongeant du côté où l'eau vient (ouest si le fleuve fuit
+  // au sud-est, est sinon). Molette : __pontoonAxis = 'auto'|'ns'|'ew'.
+  // Géométrie PARTAGÉE avec le mouillage du bateau (item 'portBoat' du tri) :
+  // formules dans portDockGeom, une seule source.
   const G = portDockGeom(t, spanX, T, band, ei, rv);
   if (!G) return;
   const { ewAxis, dockW, dockLen, dockY0, dockY1, dockYew, dockX0, dockX1 } = G;

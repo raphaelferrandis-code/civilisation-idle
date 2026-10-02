@@ -74,11 +74,15 @@ function beachDepths(sm, g) {
   const out = [new Float32Array(n0), new Float32Array(n0)];
   [g.drawPlus, g.drawMinus].forEach((gate, si) => {
     const D = out[si];
+    // Coupures tenues par un PORT (entrée du bassin, terre-plein de commerce —
+    // docs/PLAN-PORTS.md) : un mur y tient le bord de l'eau, pas une grève, et la
+    // rampe d'une grève voisine ne doit pas y déborder.
+    const dock = si ? g.dockMinus : g.dockPlus;
     for (let i = RIVER_END; i < n0 - RIVER_END; i += 1) {
-      if (gate[i]) continue;
+      if (gate[i] || (dock && dock[i])) continue;
       for (let d = -R; d <= R; d += 1) {
         const j = i + d;
-        if (j < 0 || j >= n0) continue;
+        if (j < 0 || j >= n0 || (dock && dock[j])) continue;
         const v = BEACH.depth * smooth01(1 - Math.abs(d) / (R + 1));
         if (v > D[j]) D[j] = v;
       }

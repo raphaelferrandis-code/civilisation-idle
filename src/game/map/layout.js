@@ -15,6 +15,7 @@ import { generateCityPlan } from './procedural/cityPlan.js';
 import { generateRoadsGraph, trimDemandlessRoads, dissolveToSkeleton, pruneUnservedRoads } from './procedural/roadGraph.js';
 import { roadMemoryActive, decodeRoadMemory, encodeRoadMemory, rankAbove } from './roadMemory.js';
 import { CITY_QUARTERS, QUARTER_PLAZA, forSiteCells, hearthOfSite, centralSiteFor, arteryCells, foundSite, gardenNoise, onBelt, gardenShareFor, spreadFor, ARTERY_TWIN_BAND } from './cityQuarters.js';
+import { PORT_SITES, BASIN_NORTH_QUAY, oldPortBasinFor, basinCells, tradePortSiteFor, tradeCells } from './portSites.js';
 import { terrainFieldU, terrainFlatR } from './procedural/terrainField.js';
 import { ROAD_LINK_WAVE_FRACTION } from '../core/balance.js';
 import { createBuildingPlacer, placeCategorySlotted } from './procedural/buildingGenerator.js';
@@ -2686,6 +2687,53 @@ function computeCityLayout(s) {
     });
   }
 
+  // ── LE BASSIN DU VIEUX PORT (docs/PLAN-PORTS.md, lot P3, map/portSites.js) ──
+  // Raph, 2026-10-01 : « un port plaisancier type port de Marseille », en VRAI
+  // bassin creusé dans la berge, à partir du XIXe (bande 5) — le port de la grève
+  // devient le Vieux-Port. Ses cases deviennent de l'EAU ici, avant le modèle
+  // d'eau, la structure de ville et le tracé : tout ce qui suit le lit comme le
+  // fleuve (ni bâti, ni place, ni rue ; la mémoire des rues abandonne d'elle-même
+  // une rue devenue eau). Son anneau de quai rejoint la berge (bankSet).
+  // Fondé UNE fois, figé dans cityCore.ports.old (repère du centre de grille).
+  // C'est un des rares moments où la ville DÉLOGE (comme la percée du boulevard) :
+  // les bâtiments posés sur le bassin libèrent leur slot et se reposent ailleurs.
+  const portLevel = Math.floor((s.buildings && s.buildings.river_ports) || 0);
+  const portsSplit = memOn && PORT_SITES.on && !!s.cityCore && portLevel > 0 && (c.eraBand | 0) >= PORT_SITES.splitBand;
+  let oldBasin = null, oldBasinQuay = null;
+  if (portsSplit) {
+    const isWater = (x, y) => riverSet.has(x + "," + y);
+    const fixP = s.cityCore.ports || {};
+    let b = fixP.old ? { gx: cx + fixP.old.dx, gy: cy + fixP.old.dy, w: fixP.old.w, h: fixP.old.h } : null;
+    if (!b) {
+      // Le bassin se creuse LÀ OÙ ÉTAIT le port de la grève (son slot), sinon au
+      // plus près du cœur ; jamais sur une merveille figée ni sur les Plaisirs.
+      const pslot = cmCityMapSlotsFor(s)[cmMapSlotKey(s.cycles, "river_ports", 0)];
+      const preferX = pslot ? cx + (Number(pslot.dx) || 0) + cmRiverPortSpan(portLevel).w / 2 : plan.core.x;
+      const plx = plaisirsSpot ? plaisirsSpot.x : null, ply = plaisirsSpot ? plaisirsSpot.y : null;
+      const plR = plaisirsSpot ? (plaisirsSpot.clear || 0) + 2 : 0;
+      b = oldPortBasinFor({
+        N, isWater, riverYAt, riverHwAt, preferX, bridgeX: riverBridge.x, arteryAx: Math.round(riverBridge.x),
+        free: (x, y) => !frozenWonderCells.has(x + "," + y) && !(plaisirsSpot && Math.hypot(x + 0.5 - plx, y + 0.5 - ply) <= plR),
+      });
+      if (b) s.cityCore.ports = { ...fixP, old: { dx: b.gx - cx, dy: b.gy - cy, w: b.w, h: b.h } };
+    }
+    if (b) {
+      oldBasin = b;
+      const { water: bw, quay: bq } = basinCells(b, isWater);
+      for (const [x, y] of bw) { const k = x + "," + y; riverSet.add(k); bankSet.delete(k); nearSet.delete(k); }
+      oldBasinQuay = new Set();
+      for (const [x, y] of bq) { const k = x + "," + y; if (riverSet.has(k)) continue; bankSet.add(k); nearSet.delete(k); oldBasinQuay.add(k); }
+      if (heldBy) {
+        const store = cmCityMapSlotsFor(s), portKey = cmMapSlotKey(s.cycles, "river_ports", 0), evicted = new Set();
+        for (const [x, y] of bw.concat(bq)) { const o = heldBy.get(x + "," + y); if (o && o !== portKey) evicted.add(o); }
+        if (evicted.size) {
+          for (const [k, o] of Array.from(heldBy)) if (evicted.has(o)) heldBy.delete(k);
+          for (const o of evicted) delete store[o];
+        }
+      }
+    }
+  }
+
 
   // Modèle d'eau : source de vérité unique du « sur l'eau / berge / près / sec ».
   // Construit tôt pour que pose, graphe routier et rendu consultent les mêmes
@@ -2755,6 +2803,7 @@ function computeCityLayout(s) {
   const townCenters = [];          // centres des quartiers (ceintures vertes)
   const townSites = [];            // tous les sites (central + quartiers), pour les merveilles
   let centralSite = null, arteryAx = null, arteryRoad = [];
+  let tradePort = null;            // terre-plein du port de commerce (lot P2), cf. plus bas
   if (townOn) {
     const CQ = CITY_QUARTERS;
     const ax = Math.round(riverBridge.x);
@@ -2852,6 +2901,40 @@ function computeCityLayout(s) {
       else forSiteCells(st, (x, y) => townGreen.add(x + "," + y));
     }
     plan.plazas = plazas;
+    // ── LE PORT DE COMMERCE (docs/PLAN-PORTS.md, lot P2, map/portSites.js) ──────
+    // Raph, 2026-10-01 : « un port commercial en périphérie de la ville », docks
+    // au XIXe puis terminal à conteneurs (Le Havre). Un terre-plein le long d'un
+    // tronçon de berge droit, en aval, au bord de la ville du moment — fondé une
+    // fois et figé (cityCore.ports.trade), réservé à sa taille MAXIMALE : il grandit
+    // avec les Ports achetés sans déloger personne. Jamais sur une cellule tenue.
+    if (portsSplit) {
+      const fixP = s.cityCore.ports || {};
+      const ft = fixP.trade;
+      let tp = ft ? { x0: cx + ft.dx, len: ft.len, side: ft.side, depth: ft.depth, edge: ft.edge.map((v) => cy + v) } : null;
+      if (!tp) {
+        const plR = plaisirsSpot ? (plaisirsSpot.clear || 0) + PORT_SITES.tradeGap : 0;
+        tp = tradePortSiteFor({
+          N, isWater: (x, y) => riverSet.has(x + "," + y), riverYAt, riverHwAt,
+          inCity: (x, y) => organicLimit(x, y, PORT_SITES.tradeGap),
+          free: (x, y) => {
+            const k = x + "," + y;
+            if (heldBy.has(k) || frozenWonderCells.has(k) || siteCells.has(k)) return false;
+            if (oldBasinQuay && oldBasinQuay.has(k)) return false;
+            return !(plaisirsSpot && Math.hypot(x + 0.5 - plaisirsSpot.x, y + 0.5 - plaisirsSpot.y) <= plR);
+          },
+          coreX: plan.core.x, downX: plaisirsSpot ? plaisirsSpot.x : plan.core.x + 1, bridgeX: riverBridge.x, arteryAx: ax,
+        });
+        if (tp) s.cityCore.ports = { ...(s.cityCore.ports || {}), trade: { dx: tp.x0 - cx, len: tp.len, side: tp.side, depth: tp.depth, edge: tp.edge.map((v) => v - cy) } };
+      }
+      if (tp) {
+        tradePort = tp;
+        for (const [x, y] of tradeCells(tp)) townReserve.add(x + "," + y);
+        // Un site comme les autres pour la rue de quartier qui le relie à l'artère :
+        // son milieu, juste derrière le terre-plein.
+        const dir = tp.side === "N" ? 1 : -1, mi = Math.floor(tp.len / 2);
+        townSites.push({ gx: tp.x0 + mi, gy: tp.edge[mi] - dir * tp.depth, size: 2, kind: "port" });
+      }
+    }
   }
 
   // ── LES PLACES NE GLISSENT PLUS (lot L3) ───────────────────────────────────
@@ -2988,6 +3071,60 @@ function computeCityLayout(s) {
         const side = roadKey.has((arteryAx - 1) + "," + y) || roadKey.has((arteryAx + 2) + "," + y);
         if (side || y - last >= 8) { m0.h = true; m1.h = true; last = y; }
       }
+    }
+  }
+  // ── LA ROUTE DU PORT DE COMMERCE (docs/PLAN-PORTS.md, lot P2) ───────────────
+  // Le terre-plein est en périphérie : aucune rue n'y mène d'elle-même. Patron du
+  // sentier du feu : le plus court chemin, sur cases libres (ni eau, ni bâti tenu,
+  // ni merveille, ni Plaisirs), du milieu de son arrière jusqu'au réseau stable le
+  // plus proche — posé dans le squelette et dans memKeep (aucun émondage n'y touche), rang
+  // `secondary` : une vraie rue de desserte. La mémoire des rues la garde ensuite.
+  if (tradePort && roadKey.size) {
+    const dirT = tradePort.side === "N" ? 1 : -1, mi = Math.floor(tradePort.len / 2);
+    const sx = tradePort.x0 + mi, sy = tradePort.edge[mi] - dirT * tradePort.depth;
+    const plR = plaisirsSpot ? (plaisirsSpot.clear || 0) + 1 : 0;
+    const okCell = (x, y) => {
+      if (x < 1 || y < 1 || x >= N - 1 || y >= N - 1) return false;
+      const k = x + "," + y;
+      if (riverSet.has(k) || heldBy.has(k) || frozenWonderCells.has(k)) return false;
+      return !(plaisirsSpot && Math.hypot(x + 0.5 - plaisirsSpot.x, y + 0.5 - plaisirsSpot.y) <= plR);
+    };
+    const par = new Map([[sx + "," + sy, null]]), q = [[sx, sy]];
+    let hit = null;
+    for (let qi = 0; qi < q.length && qi < 20000 && !hit; qi += 1) {
+      const [x, y] = q[qi];
+      for (const [dx, dy] of [[0, -dirT], [1, 0], [-1, 0], [0, dirT]]) {
+        const nx = x + dx, ny = y + dy, nk = nx + "," + ny;
+        if (par.has(nk)) continue;
+        // Cible : le réseau STABLE (squelette, rues mémorisées) — une impasse de
+        // l'échafaudage que l'émondage supprimera ensuite laisserait le chemin pendu.
+        if (roadKey.has(nk) && (memKeep.has(nk) || (skeletonKey && skeletonKey.has(nk)))) { par.set(nk, x + "," + y); hit = nk; break; }
+        if (!okCell(nx, ny)) continue;
+        par.set(nk, x + "," + y); q.push([nx, ny]);
+      }
+    }
+    if (hit) {
+      const path = [];
+      for (let k = par.get(hit); k; k = par.get(k)) path.push(k);
+      const rank = (c.eraBand | 0) >= 5 ? "secondary" : "path";
+      const xy = (k) => { const i = k.indexOf(","); return [+k.slice(0, i), +k.slice(i + 1)]; };
+      const chain = [hit, ...path];
+      for (let i = 1; i < chain.length; i += 1) {
+        const k = chain[i], [x, y] = xy(k);
+        let h = false, v = false;
+        for (const nb of [chain[i - 1], chain[i + 1]]) {
+          if (!nb) continue;
+          const [ax, ay] = xy(nb);
+          if (ay === y && ax !== x) h = true; else if (ax === x && ay !== y) v = true;
+        }
+        const m = roadMeta.get(k);
+        if (m) { m.h = m.h || h; m.v = m.v || v; if (rankAbove(rank, m.rank)) m.rank = rank; }
+        else { roadMeta.set(k, { h, v, rank }); roads.push({ gx: x, gy: y }); roadKey.add(k); }
+        if (skeletonKey) skeletonKey.add(k);
+        memKeep.add(k);
+      }
+      const hm = roadMeta.get(hit), hy = xy(hit)[1], py = xy(chain[1] || hit)[1];
+      if (hm) { if (py === hy) hm.h = true; else hm.v = true; }
     }
   }
   // ── LES EXTENSIONS PLANIFIÉES (lot L5, « fais toutes les ères ») ───────────
@@ -3938,6 +4075,37 @@ function computeCityLayout(s) {
     // alors pile dans le fleuve et le corps s'étire derrière sur la berge.
     // Placement déterministe (colonnes triées par proximité au cœur) → stable.
     if (req.meta.id === "river_ports") {
+      // ÉPINGLÉ AU BASSIN (lot P3) : dès que le Vieux-Port est creusé, le port EST
+      // le bassin et son anneau de quai, plus une rangée de fleuve devant l'entrée
+      // (l'emprise « mouille » : la scène riveraine la dessine). Plus de recherche
+      // de berge — le slot se recale sur le bassin à chaque calcul.
+      if (oldBasin) {
+        const gx = oldBasin.gx - 1, gy = oldBasin.gy - BASIN_NORTH_QUAY, sx = oldBasin.w + 2, sy = oldBasin.h + BASIN_NORTH_QUAY + 1;
+        claimFootprint(gx, gy, sx, sy);
+        for (let ax = 0; ax < sx; ax += 1) for (let ay = 0; ay < sy; ay += 1) {
+          engineFootprint.add((gx + ax) + "," + (gy + ay));
+          usedKeys.add((gx + ax) + "," + (gy + ay));
+        }
+        const dxo = gx + sx / 2 - cx, dyo = gy + sy / 2 - cy;
+        tiles.push({ gx, gy, type: "engine", variant: req.meta.id, buildingId: req.meta.id,
+          buildingName: req.meta.name, level: req.level, groupLevel: req.groupLevel,
+          groupIndex: 1, groupTotal: 1, tier: req.tier, size: Math.max(sx, sy), spanX: sx, spanY: sy, waterSide: "S",
+          oldPort: { gx: oldBasin.gx, gy: oldBasin.gy, w: oldBasin.w, h: oldBasin.h },
+          key: `engine:${req.meta.id}:0:${req.slotKey}:${req.tier}`, d2: dxo * dxo + dyo * dyo });
+        // LA CAPITAINERIE, sur le quai du fond : sa propre tuile, pour être triée à SA
+        // profondeur (celle du bassin est celle de son entrée, au sud — elle serait
+        // passée devant les maisons qui la bordent à l'est).
+        const ox = oldBasin.gx + Math.floor(oldBasin.w / 2) - 1, oy = oldBasin.gy - BASIN_NORTH_QUAY;
+        tiles.push({ gx: ox, gy: oy, type: "engine", variant: req.meta.id, buildingId: req.meta.id,
+          buildingName: req.meta.name, level: req.level, groupLevel: req.groupLevel,
+          groupIndex: 1, groupTotal: 1, tier: req.tier, size: 2, spanX: 2, spanY: BASIN_NORTH_QUAY, waterSide: "S",
+          portOffice: { gx: oldBasin.gx, gy: oldBasin.gy, w: oldBasin.w, h: oldBasin.h },
+          key: `engine:${req.meta.id}:office:${req.slotKey}:${req.tier}`, d2: dxo * dxo + dyo * dyo });
+        slotStore[req.slotKey] = { dx: gx - cx, dy: (gy + sy) - cy, sy, zone: req.zone, id: req.meta.id };
+        liveSlotKeys.add(req.slotKey);
+        placedSlotKeys.add(req.slotKey);
+        return true;
+      }
       const rp = cmRiverPortSpan(req.level);
       let spanX = rp.w, spanY = rp.h, placed = null;
       // Rangée nord (dos du bâtiment) hors de l'eau : le corps reste sur terre.
@@ -4825,6 +4993,24 @@ function computeCityLayout(s) {
   // Nombre de maisons-moteur RÉELLEMENT posées (road-limité) → base de la révélation
   // per-buy (on révèle les dernières placées ; le reste apparaît d'emblée).
   const engineHomePlaced = tiles.reduce((n, t) => n + (t.type === "enginehome" ? 1 : 0), 0);
+  // Le PORT DE COMMERCE entre au peintre comme le port de la grève : une tuile
+  // moteur riveraine du même bâtiment, marquée `tradePort` (scène dédiée,
+  // iso/isoTradePort.js). Son emprise = la boîte du terre-plein ; elle touche la
+  // berge, donc la scène riveraine la prend. Posée APRÈS tout le reste : ni la
+  // pose ni l'urbain ne la comptent, son terrain est déjà réservé (townReserve).
+  if (tradePort) {
+    const dirT = tradePort.side === "N" ? 1 : -1;
+    let y0 = Infinity, y1 = -Infinity;
+    for (let i = 0; i < tradePort.len; i += 1) {
+      const a = tradePort.edge[i], b = tradePort.edge[i] - dirT * (tradePort.depth - 1);
+      y0 = Math.min(y0, a, b); y1 = Math.max(y1, a, b);
+    }
+    const sx = tradePort.len, sy = y1 - y0 + 1;
+    tiles.push({ gx: tradePort.x0, gy: y0, type: "engine", variant: "river_ports", buildingId: "river_ports",
+      buildingName: "Port de commerce", level: portLevel, groupLevel: portLevel, groupIndex: 2, groupTotal: 2,
+      tier: cmEngineTier(portLevel), size: Math.max(sx, sy), spanX: sx, spanY: sy, waterSide: tradePort.side === "N" ? "S" : "N",
+      tradePort, key: "engine:river_ports:trade", d2: 0 });
+  }
   return {
     engineHomePlaced,
     // Foyer du campement (cf. CAMP_HEARTH) : gardé de tout bâti depuis la
@@ -4833,6 +5019,9 @@ function computeCityLayout(s) {
     gridN: N, cx, cy, tiles, urbanSet,
     roads: roadGraph.roads, roadSet: roadGraph.roadSet, roadMap: roadGraph.roadMap, roadMeta,
     districts, trees, critters, maxD2, counts: c, roadCover: netCover, roadWorksInfo, median, roadMedian, terrePlein, river, water, engineTileMap, wonderSlots, wonderGround, wonderTiers, wonderPaveR, townGreen: townOn ? townGreen : null,
+    // Les deux ports du XIXe (docs/PLAN-PORTS.md) : le bassin du Vieux-Port
+    // { gx, gy, w, h } et le terre-plein de commerce { x0, len, side, depth, edge }.
+    ports: (oldBasin || tradePort) ? { old: oldBasin, trade: tradePort } : null,
     // Exposé au runtime (habitants, véhicules, tooltips, décor de places) :
     plan: { archetype: plan.archetype, core: plan.core, order: plan.order, chaos: plan.chaos, plazas: plan.plazas || [], anchors: plan.anchors || [] },
     personality, ageCfg, mapSeed

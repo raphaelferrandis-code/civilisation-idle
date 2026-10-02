@@ -595,6 +595,37 @@ configureRiverLife({ ribbonPath: riverRibbonPath, precipKind });
 // tourner les axes avec le cap du fleuve.
 export const WATER_FILL = 'evenodd';
 
+// ── L'EAU HORS DU RUBAN : le bassin du Vieux-Port (docs/PLAN-PORTS.md, lot P3) ──
+// Un port creusé dans la berge prend la MÊME eau que le fleuve : corps, surface
+// animée (même motif, même phase, même dérive), voile d'ère, et le clip des reflets.
+// Le peintre du port publie ses polygones (tuiles monde) par `setRiverExtraWater` ;
+// ce module ne sait rien des ports.
+// ⚠ JAMAIS DANS LE CHEMIN DU RUBAN : il est rempli en 'evenodd' (les îles sont des
+// trous), et le bassin le chevauche à son entrée — la zone commune s'y annulerait.
+// D'où un second remplissage, en nonzero, au même style. Pour le CLIP des reflets
+// (evenodd aussi), le polygone s'arrête avant le bord du ruban (`clip`).
+let _extraWater = null;
+export function setRiverExtraWater(fn) { _extraWater = typeof fn === 'function' ? fn : null; }
+function extraWaterPolys(clip) {
+  if (!_extraWater) return null;
+  const polys = _extraWater(clip);
+  return polys && polys.length ? polys : null;
+}
+function traceExtraWater(ctx, T, polys) {
+  for (const poly of polys) {
+    poly.forEach((p, i) => { const q = worldToScreen(p.x * T, p.y * T); if (i) ctx.lineTo(q.x, q.y); else ctx.moveTo(q.x, q.y); });
+    ctx.closePath();
+  }
+}
+// Remplit l'eau hors ruban avec le style COURANT du contexte (motif, aplat, voile).
+function fillExtraWater(ctx, T) {
+  const polys = extraWaterPolys(false);
+  if (!polys) return;
+  ctx.beginPath();
+  traceExtraWater(ctx, T, polys);
+  ctx.fill();
+}
+
 // Contour d'une île en points ÉCRAN. Tracé en MONDE puis projeté point par
 // point : une ellipse écran serait fausse, la projection iso écrase l'axe
 // vertical de moitié et fait tourner les axes avec le cap du fleuve.
@@ -1339,6 +1370,7 @@ function drawIsoWaterTiles(ctx, pts, T, z, now, wb) {
       ctx.fillStyle = pat;
       riverRibbonPath(ctx, pts, T);
       ctx.fill(WATER_FILL);
+      fillExtraWater(ctx, T);
       return true;
     };
     ctx.save();
@@ -1360,6 +1392,7 @@ function drawIsoWaterTiles(ctx, pts, T, z, now, wb) {
         ctx.fillStyle = tint > 0 ? `rgba(38,46,62,${a})` : `rgba(${wb.cfg.pale},${a})`;
         riverRibbonPath(ctx, pts, T);
         ctx.fill(WATER_FILL);
+        fillExtraWater(ctx, T);
       }
       ctx.restore();
       return;
@@ -1847,6 +1880,7 @@ export function drawIsoRiver(now) {
   riverRibbonPath(ctx, pts, T);
   ctx.fillStyle = rgb(WATER, 1);
   ctx.fill(WATER_FILL);
+  fillExtraWater(ctx, T);
   // Surface de l'eau, SOUS les liserés de bas-fond (qui portent la lecture du
   // bord) et sous poissons/vaguelettes.
   // La tuile animée porte le relief ; le grain procédural reste là, coupé.
@@ -2215,7 +2249,11 @@ export function drawIsoRiver(now) {
         wall = { runs, cols: quayWallColors(band) };
       }
     }
-    drawIsoReflections(ctx, now, (c) => riverRibbonPath(c, pts, T), edges, drop, tint, wall);
+    drawIsoReflections(ctx, now, (c) => {
+      riverRibbonPath(c, pts, T);
+      const xp = extraWaterPolys(true);
+      if (xp) traceExtraWater(c, T, xp);
+    }, edges, drop, tint, wall);
   }
   // (Vaguelettes animées RETIRÉES le 2026-07-22 — nappe de petits traits clairs
   // rgba(184,214,224) dont la brillance courait vers l'aval. Elles portaient la

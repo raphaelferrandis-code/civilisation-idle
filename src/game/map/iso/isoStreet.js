@@ -26,6 +26,7 @@ import { paintFlameGlows } from '../flameGlow.js';
 import { paintLightLayer } from '../lightLayer.js';
 import { quayWallTiles, quayWallTune } from '../quaysAndRiot.js';
 import { quayLampList, stairFootY } from './isoQuay.js';
+import { portLampList } from './portBerths.js';
 import { isoArt } from './isoArt.js';
 import { builtCells, builtNear, COUR, courOf } from './isoTissu.js';
 import { isoRoadHalfW, ROAD_DETAIL, SIDEWALK_ISO } from './isoRoad.js';
@@ -71,7 +72,10 @@ export function isoLamps(L, band) {
   // Les RÉVERBÈRES DES QUAIS (iso/isoQuay.js) : même format, même dessin par ère —
   // ils remplacent les points lumineux sans mât de l'ancien quai.
   const quayLamps = quayLampList(L, band);
-  const key = CM.layoutRecomputeAt + ':' + plazaLamps.length + ':q' + quayLamps.length;
+  // Les réverbères des PORTS du XIXe (bassin du Vieux-Port, terminal de commerce —
+  // iso/portBerths.js, docs/PLAN-PORTS.md) : même format, même dessin par ère.
+  const portLamps = portLampList(L, band);
+  const key = CM.layoutRecomputeAt + ':' + plazaLamps.length + ':q' + quayLamps.length + ':p' + portLamps.length;
   if (_isoLampCache.key === key && _isoLampCache.lamps) return _isoLampCache.lamps;
   // ON N'ÉCLAIRE PAS LE VIDE. Même règle que le trottoir : une voie sans aucune
   // façade sur ses huit voisines n'est pas une rue, et un mât allumé au milieu
@@ -80,7 +84,7 @@ export function isoLamps(L, band) {
   // reste testable sans layout bâti.
   const lamps = computeIsoLamps(L, CM.TILE)
     .filter((lp) => builtNear(L, lp.gx, lp.gy))
-    .concat(plazaLamps, quayLamps);
+    .concat(plazaLamps, quayLamps, portLamps);
   _isoLampCache = { at: CM.layoutRecomputeAt, key, lamps };
   return lamps;
 }

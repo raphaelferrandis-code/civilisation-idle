@@ -37,9 +37,15 @@
 //
 // Molette : __pier({ on, reach, house, … }) ; __pier(false) rend le sprite d'avant.
 import { CM } from '../layout.js';
-import { SUN_SHADOW, sunShadowAlpha } from './isoSunShadow.js';
-import { noteReflectionImage } from './isoReflect.js';
 import { quayStyleFor } from '../quaysAndRiot.js';
+import { castRay, bakeBoxes, blitLayer, paintBakeUnder, h01, mul, mix, hexRgb, FACE_LIGHT } from './isoBoxBake.js';
+import { paintTradePortUnder } from './isoTradePort.js';
+import { paintOldPortUnder } from './isoOldPort.js';
+import { registerPortProvider } from './portBerths.js';
+
+// Le lancer de rayon est parti dans iso/isoBoxBake.js (partagé avec le Vieux-Port et
+// le terminal) ; ré-exporté ici pour les tests qui le lisaient d'ici.
+export { castRay };
 
 // reach : longueur du ponton au-delà du bord d'eau, en fraction de la demi-largeur du
 //         fleuve (bornée) — au-delà de ~0,6 il entre dans la voie des bateaux ;
@@ -57,19 +63,6 @@ if (typeof window !== 'undefined') {
 }
 
 const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
-const mul = (c, k) => [Math.min(255, Math.round(c[0] * k)), Math.min(255, Math.round(c[1] * k)), Math.min(255, Math.round(c[2] * k))];
-const mix = (a, b, t) => [Math.round(a[0] + (b[0] - a[0]) * t), Math.round(a[1] + (b[1] - a[1]) * t), Math.round(a[2] + (b[2] - a[2]) * t)];
-function h01(x, y, s = 0) {
-  let n = (x | 0) * 374761393 + (y | 0) * 668265263 + s * 982451653;
-  n = Math.imul(n ^ (n >>> 13), 1274126177);
-  return ((n ^ (n >>> 16)) >>> 0) / 4294967296;
-}
-const hexRgb = (h) => {
-  if (typeof h !== 'string') return null;
-  if (h[0] === '#') { const n = parseInt(h.slice(1, 7), 16); return [(n >> 16) & 255, (n >> 8) & 255, n & 255]; }
-  const m = h.match(/\d+(\.\d+)?/g);
-  return m ? m.slice(0, 3).map(Number) : null;
-};
 
 // ── LES MATIÈRES, PAR ÈRE ───────────────────────────────────────────────────
 // Même découpe que la maison du port (isoPort : stade 0..3 sur l'index d'ère). Tons
@@ -260,33 +253,7 @@ function worldBox(F, bx, T) {
   return { ...bx, X0: Math.min(...xs), X1: Math.max(...xs), Y0: Math.min(...ys), Y1: Math.max(...ys), Z0: bx.z0 * T, Z1: bx.z1 * T };
 }
 
-// ── LA CUISSON ──────────────────────────────────────────────────────────────
-function mkCanvas(w, h) {
-  if (typeof OffscreenCanvas !== 'undefined') return new OffscreenCanvas(w, h);
-  const c = document.createElement('canvas'); c.width = w; c.height = h; return c;
-}
-
-// Rayon d'un pixel d'art (ax, ay) → la boîte touchée la plus proche de l'œil.
-// Projection (ISO_X = 1, ISO_Y = ½) : ax = wx − wy, ay = (wx + wy)/2 − z. Avec
-// s = (wx + wy)/2, le rayon est (s + ax/2, s − ax/2, s − ay) : l'œil est vers s → +∞.
-// `mirror` : la scène retournée sous le plan de l'eau (z → −z), pour le reflet. Les
-// filins n'y sont pas : un trait d'un pixel, retourné puis ondulé, s'y lisait comme
-// une rayure dans l'eau.
-export function castRay(boxes, ax, ay, mirror) {
-  let best = null, bs = -Infinity, bface = 0;
-  for (const bx of boxes) {
-    if (mirror && bx.part === 'rope') continue;
-    const xLo = bx.X0 - ax / 2, xHi = bx.X1 - ax / 2;
-    const yLo = bx.Y0 + ax / 2, yHi = bx.Y1 + ax / 2;
-    const zLo = mirror ? ay - bx.Z1 : bx.Z0 + ay, zHi = mirror ? ay - bx.Z0 : bx.Z1 + ay;
-    const lo = Math.max(xLo, yLo, zLo), hi = Math.min(xHi, yHi, zHi);
-    if (lo > hi || hi <= bs) continue;
-    bs = hi; best = bx;
-    bface = hi === zHi ? 2 : hi === yHi ? 1 : 0;      // 2 dessus (dessous en miroir), 1 flanc sud, 0 flanc est
-  }
-  return best ? { bx: best, s: bs, face: bface } : null;
-}
-
+// ── LA CUISSON (moteur partagé : iso/isoBoxBake.js) ─────────────────────────
 // Couleur d'un point touché. (wx, wy, zz) en px monde ; (a, c) en px le long / en
 // travers du ponton (repère local, depuis la racine).
 function shadeHit(M, P, hit, wx, wy, zz, a, c, mirror) {
@@ -364,8 +331,7 @@ function shadeHit(M, P, hit, wx, wy, zz, a, c, mirror) {
   }
   // Lumière haut-gauche : flanc sud (tourné vers la gauche de l'écran) mi-clair,
   // flanc est (vers la droite) dans l'ombre.
-  const k = face === 2 ? 1 : face === 1 ? 0.8 : 0.64;
-  return mul(col, k * g);
+  return mul(col, FACE_LIGHT[face] * g);
 }
 
 // Est-ce de l'eau (le ruban peint) sous ce point monde (px) ? Fenêtre de samples
@@ -389,88 +355,16 @@ function bakePier(F, plan, M, T, band, sm) {
     const st = quayStyleFor(band);
     P.glow = (st && st.glow && hexRgb(st.glow)) || null;
   }
-  // Boîte d'art de tout ce qu'on peut peindre : le ponton, son reflet (sous l'eau),
-  // son ombre (vers l'est) — plus une marge.
-  let AX0 = Infinity, AX1 = -Infinity, AY0 = Infinity, AY1 = -Infinity;
-  for (const b of boxes) {
-    for (const x of [b.X0, b.X1]) for (const y of [b.Y0, b.Y1]) {
-      const ax = x - y, ay = (x + y) / 2;
-      AX0 = Math.min(AX0, ax); AX1 = Math.max(AX1, ax + b.Z1 * 0.9);
-      AY0 = Math.min(AY0, ay - b.Z1); AY1 = Math.max(AY1, ay + b.Z1 + 2);
-    }
-  }
-  AX0 = Math.floor(AX0) - 6; AY0 = Math.floor(AY0) - 6; AX1 = Math.ceil(AX1) + 8; AY1 = Math.ceil(AY1) + 6;
-  const W = AX1 - AX0, H = AY1 - AY0;
-  if (!(W > 0 && H > 0) || W * H > 1e6) return null;
-  const body = new Uint8ClampedArray(W * H * 4);
-  const shad = new Uint8ClampedArray(W * H * 4);
-  const refl = new Uint8ClampedArray(W * H * 4);
-  const shCol = hexRgb(SUN_SHADOW.col) || [142, 150, 173];
-  const kSun = (SUN_SHADOW.len || 0.5) * 2 / Math.sqrt(5);
-  const wet = new Map();
-  const isWet = (gx, gy) => {
-    const k = Math.floor(gx) + ',' + Math.floor(gy);
-    let v = wet.get(k);
-    if (v === undefined) { v = waterAt(sm, gx, gy, T, F.si); wet.set(k, v); }
-    return v;
-  };
   const toLocal = (wx, wy) => ({
     a: (wx - rx) * F.dir.x + (wy - ry) * F.dir.y,
     c: (wx - rx) * F.across.x + (wy - ry) * F.across.y,
   });
-  for (let py = 0; py < H; py += 1) {
-    for (let px = 0; px < W; px += 1) {
-      const ax = AX0 + px + 0.5, ay = AY0 + py + 0.5;
-      const i = (py * W + px) * 4;
-      const hit = castRay(boxes, ax, ay, false);
-      if (hit) {
-        const wx = hit.s + ax / 2, wy = hit.s - ax / 2, zz = hit.s - ay;
-        const l = toLocal(wx, wy);
-        const col = shadeHit(M, P, hit, wx, wy, zz, l.a, l.c, false);
-        body[i] = col[0]; body[i + 1] = col[1]; body[i + 2] = col[2]; body[i + 3] = 255;
-        continue;
-      }
-      // Rien de bâti devant : le SOL (z = 0) sous ce pixel.
-      const gx = ay + ax / 2, gy = ay - ax / 2;
-      // Ombre : le rayon vers le soleil (vers l'ouest du monde quand on remonte) touche-t-il ?
-      if (PIER.shadow) {
-        for (const b of boxes) {
-          if (gy < b.Y0 || gy > b.Y1) continue;
-          const h0 = Math.max(b.Z0, 0.5, (gx - b.X1) / kSun), h1 = Math.min(b.Z1, (gx - b.X0) / kSun);
-          if (h0 <= h1) { shad[i] = shCol[0]; shad[i + 1] = shCol[1]; shad[i + 2] = shCol[2]; shad[i + 3] = 255; break; }
-        }
-      }
-      if (!isWet(gx, gy)) continue;
-      // Clapot au pied des pieux : un pixel clair au contact de l'eau, devant eux.
-      if (PIER.foam) {
-        for (const b of boxes) {
-          if (b.Z0 > 0.01 || (b.part !== 'pile' && b.part !== 'post' && b.part !== 'mole')) continue;
-          const dx = gx - b.X1, dy = gy - b.Y1;
-          const inX = gx >= b.X0 - 0.5 && gx <= b.X1 + 1.6, inY = gy >= b.Y0 - 0.5 && gy <= b.Y1 + 1.6;
-          if (inX && inY && (dx > 0 || dy > 0) && h01(Math.floor(gx), Math.floor(gy), 21) < 0.7) {
-            body[i] = 214; body[i + 1] = 230; body[i + 2] = 232; body[i + 3] = 150;
-            break;
-          }
-        }
-      }
-      // Reflet : la scène retournée sous l'eau.
-      if (PIER.reflect) {
-        const rh = castRay(boxes, ax, ay, true);
-        if (rh) {
-          const wx = rh.s + ax / 2, wy = rh.s - ax / 2, zz = ay - rh.s;
-          const l = toLocal(wx, wy);
-          const col = shadeHit(M, P, rh, wx, wy, zz, l.a, l.c, true);
-          refl[i] = col[0]; refl[i + 1] = col[1]; refl[i + 2] = col[2]; refl[i + 3] = 255;
-        }
-      }
-    }
-  }
-  const put = (data) => {
-    const cv = mkCanvas(W, H);
-    cv.getContext('2d').putImageData(new ImageData(data, W, H), 0, 0);
-    return cv;
-  };
-  return { AX0, AY0, W, H, body: put(body), shadow: put(shad), refl: put(refl) };
+  return bakeBoxes(boxes, {
+    shade: (hit, wx, wy, zz, mirror) => { const l = toLocal(wx, wy); return shadeHit(M, P, hit, wx, wy, zz, l.a, l.c, mirror); },
+    isWater: (gx, gy) => waterAt(sm, gx, gy, T, F.si),
+    shadow: PIER.shadow, reflect: PIER.reflect,
+    foam: PIER.foam ? (b) => b.Z0 <= 0.01 && (b.part === 'pile' || b.part === 'post' || b.part === 'mole') : null,
+  });
 }
 
 // ── LE CACHE, PAR PORT ──────────────────────────────────────────────────────
@@ -479,10 +373,13 @@ function geomFor(t, spanX, spanY, band, ei) {
   const L = CM.layout, rv = L && L.river;
   if (!rv || !rv.present || !rv.samples || rv.samples.length < 2) return null;
   const stage = stageOf(ei);
-  const key = (CM.layoutRecomputeAt || 0) + ':' + t.gx + ',' + t.gy + ':' + band + ':' + stage + ':' + PIER.reach + ':' + PIER.house
+  // ⚠ CLÉ = LA GÉOMÉTRIE, pas l'horodatage du layout : celui-ci change à chaque
+  // recalcul (un achat peut en déclencher un), et la cuisson coûte quelques centaines
+  // de ms — elle se refaisait à chaque fois. Le cache est indexé par la clé, pas par
+  // l'objet tuile (un recalcul en fabrique de nouveaux).
+  const key = (L.mapSeed | 0) + ':' + t.gx + ',' + t.gy + ',' + spanX + ',' + spanY + ':' + band + ':' + stage + ':' + PIER.reach + ':' + PIER.house
     + ':' + (PIER.crane ? 1 : 0) + (PIER.shadow ? 1 : 0) + (PIER.reflect ? 1 : 0) + (PIER.foam ? 1 : 0) + ':' + ((typeof window !== 'undefined' && window.__pontoonAxis) || 'a');
-  const hit = _cache.get(t);
-  if (hit && hit.key === key) return hit.g;
+  if (_cache.has(key)) return _cache.get(key);
   const F = pierFrame(t, spanX, spanY, rv);
   let g = null;
   if (F) {
@@ -495,7 +392,7 @@ function geomFor(t, spanX, spanY, band, ei) {
     g = bake ? { F, plan, bake, stage } : null;
   }
   if (_cache.size > 8) _cache.clear();
-  _cache.set(t, { key, g });
+  _cache.set(key, g);
   return g;
 }
 
@@ -510,7 +407,7 @@ function portTiles(L) {
   const rc = L.river && L.river.present && L.river.cells;
   if (!rc) return out;
   for (const t of (L.tiles || [])) {
-    if (t.buildingId !== 'river_ports' || t.type !== 'engine') continue;
+    if (t.buildingId !== 'river_ports' || t.type !== 'engine' || t.oldPort || t.tradePort || t.portOffice) continue;   // ni le Vieux-Port, ni le commerce
     const sx = t.spanX || t.size || 1, sy = t.spanY || t.size || 1;
     let w = false;
     for (let ax = 0; ax < sx && !w; ax += 1) for (let ay = 0; ay < sy && !w; ay += 1) {
@@ -522,45 +419,21 @@ function portTiles(L) {
   return out;
 }
 
-// ── LA POSE ─────────────────────────────────────────────────────────────────
-function blitArt(ctx, cv, AX0, AY0, W, H) {
-  const z = CM.cam.zoom, dpr = CM.dpr || 1;
-  const camX = CM.cam.x - CM.cam.y, camY = (CM.cam.x + CM.cam.y) / 2;
-  const snap = (v) => Math.round(v * dpr) / dpr;
-  const X = snap((AX0 - camX) * z + CM.cw / 2), Y = snap((AY0 - camY) * z + CM.ch / 2);
-  const X1 = snap((AX0 + W - camX) * z + CM.cw / 2), Y1 = snap((AY0 + H - camY) * z + CM.ch / 2);
-  if (X1 < 0 || Y1 < 0 || X > CM.cw || Y > CM.ch) return null;
-  const prev = ctx.imageSmoothingEnabled;
-  ctx.imageSmoothingEnabled = z < 0.999;
-  ctx.drawImage(cv, X, Y, X1 - X, Y1 - Y);
-  ctx.imageSmoothingEnabled = prev;
-  return { X, Y, w: X1 - X, h: Y1 - Y };
-}
-
+// ── LA POSE (blitArt, paintBakeUnder : iso/isoBoxBake.js) ─────────────────────
 // Sous les bateaux, après les quais : l'ombre du ponton (multiply, force du soleil du
 // moment) et son reflet (calque des reflets, posé sous la surface à l'image suivante).
-export function paintPierUnder(ctx) {
+// C'est aussi la passe des DESSOUS des deux ports du XIXe (terminal de commerce,
+// bassin du Vieux-Port — docs/PLAN-PORTS.md) : même moment de la frame, même moteur.
+export function paintPierUnder(ctx, now = 0) {
+  paintOldPortUnder(ctx, now);
+  paintTradePortUnder(ctx);
   if (!PIER.on) return;
   const L = CM.layout;
   if (!L || CM.collapseAt) return;
   const band = (L.counts && L.counts.eraBand) | 0, ei = (L.counts && L.counts.eraIndex) | 0;
   for (const t of portTiles(L)) {
     const g = geomFor(t, t.spanX || t.size || 1, t.spanY || t.size || 1, band, ei);
-    if (!g) continue;
-    const B = g.bake;
-    const a = PIER.shadow ? sunShadowAlpha() : 0;
-    if (a > 0) {
-      const prevA = ctx.globalAlpha, prevOp = ctx.globalCompositeOperation;
-      ctx.globalAlpha = prevA * a;
-      if (SUN_SHADOW.mode) ctx.globalCompositeOperation = SUN_SHADOW.mode;
-      blitArt(ctx, B.shadow, B.AX0, B.AY0, B.W, B.H);
-      ctx.globalAlpha = prevA; ctx.globalCompositeOperation = prevOp;
-    }
-    if (PIER.reflect) {
-      const z = CM.cam.zoom;
-      const camX = CM.cam.x - CM.cam.y, camY = (CM.cam.x + CM.cam.y) / 2;
-      noteReflectionImage(ctx, B.refl, (B.AX0 - camX) * z + CM.cw / 2, (B.AY0 - camY) * z + CM.ch / 2, B.W * z, B.H * z);
-    }
+    if (g) paintBakeUnder(ctx, g.bake, { shadow: PIER.shadow, reflect: PIER.reflect });
   }
 }
 
@@ -571,7 +444,7 @@ export function drawPortPier(ctx, t, spanX, spanY, band, ei) {
   if (!PIER.on) return null;
   const g = geomFor(t, spanX, spanY, band, ei);
   if (!g) return null;
-  blitArt(ctx, g.bake.body, g.bake.AX0, g.bake.AY0, g.bake.W, g.bake.H);
+  blitLayer(ctx, g.bake.body);
   return g;
 }
 
@@ -607,3 +480,32 @@ export function pierMoorings(t, spanX, spanY, band, ei, effSize) {
   out.push({ ...P(a, side), along: 'pier' }, { ...P(a, -side), along: 'pier' });
   return { cands: out, dir: F.dir, si: F.si };
 }
+
+// ── CE QUE LA FLOTTE DOIT SAVOIR DU PONTON (iso/portBerths.js) ─────────────────
+// Le poste CENTRAL (bord à bord le long de la tête, sinon du tablier) et l'emprise du
+// ponton dans l'eau, en disques le long du tablier et de la tête.
+const headingOf = (ax) => Math.atan2((ax.x + ax.y) * 0.5, ax.x - ax.y);   // axe monde → cap écran
+registerPortProvider('central', (L) => {
+  if (!PIER.on || !L || !L.counts) return null;
+  const band = L.counts.eraBand | 0, ei = L.counts.eraIndex | 0;
+  const berths = [], water = [];
+  for (const t of portTiles(L)) {
+    const sx = t.spanX || t.size || 1, sy = t.spanY || t.size || 1;
+    const g = geomFor(t, sx, sy, band, ei);
+    if (!g) continue;
+    const F = g.F, plan = g.plan;
+    const pm = pierMoorings(t, sx, sy, band, ei, 1.2);
+    const c = pm && pm.cands[0];
+    if (c) {
+      const axis = c.along === 'pier' ? F.dir : F.across;
+      berths.push({ id: 'central', kind: 'central', x: c.x, y: c.y, heading: headingOf(axis), axis, maxLen: plan.head ? (plan.head.c1 - plan.head.c0) : 1.2, decor: true });
+    }
+    const P = (a, cc) => ({ x: F.root.x + F.dir.x * a + F.across.x * cc, y: F.root.y + F.dir.y * a + F.across.y * cc });
+    for (let a = 0.3; a <= plan.reach; a += 0.6) water.push({ ...P(a, 0), r: plan.w / 2 + 0.15, id: 'ponton' });
+    if (plan.head) {
+      const hm = (plan.head.a0 + plan.head.a1) / 2, hr = (plan.head.a1 - plan.head.a0) / 2 + 0.15;
+      for (let cc = plan.head.c0 + hr; cc <= plan.head.c1 - hr + 1e-6; cc += 0.6) water.push({ ...P(hm, cc), r: hr, id: 'ponton' });
+    }
+  }
+  return { berths, water };
+});

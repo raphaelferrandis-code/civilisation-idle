@@ -225,10 +225,10 @@ function drawIsoWorldInner(dt, now) {
   // au pixel, recopiés seulement là où il y a du quai ; le liseré néon (ères 6+)
   // reste en direct. Les réverbères sont de vrais mâts (isoStreet.isoLamps).
   paintQuays(ctx);
-  fp('quais');
   // Ombre et reflet du ponton du port (iso/isoPier.js) : sur l'eau et la plage, sous
   // les bateaux. Le ponton lui-même passe au tri du peintre, avec la maison du port.
-  paintPierUnder(ctx);
+  paintPierUnder(ctx, now);
+  fp('quais');
   drawIsoBridgeUnder(now);
   fp('ponts-dessous');
   drawIsoShips(now);
