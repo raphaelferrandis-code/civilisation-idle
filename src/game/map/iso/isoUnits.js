@@ -272,9 +272,14 @@ export function drawIsoRioter(ctx, p, now, z) {
     ctx.fillStyle = 'rgba(0,0,0,' + (0.22 * nk).toFixed(3) + ')';
     ctx.beginPath(); ctx.ellipse(sx, sp.y, ph * 0.85, ph * 0.32, 0, 0, Math.PI * 2); ctx.fill();
   }
-  const rgen = ((p.charType || 0) === 1 ? 'woman' : 'man') + '-' + (p.weapon === 'fork' ? 'fork' : 'torch');
   const rEra = riotEraKey((CM.layout && CM.layout.counts && CM.layout.counts.eraBand) || 0);
   // BANDES DIAGONALES (DA « Figurine d'époque », batch riotIsoRoster) d'abord :
+  let rgen = ((p.charType || 0) === 1 ? 'woman' : 'man') + '-' + (p.weapon === 'fork' ? 'fork' : 'torch');
+  // Ère à jeu INCOMPLET (deux émeutiers sur quatre) : la combinaison manquante prend
+  // sa voisine de la même ère plutôt que le paysan médiéval de base.
+  const rSwap = RIOT_ERA_SWAP[rEra];
+  if (rSwap && rSwap[rgen]) rgen = rSwap[rgen];
+  const torch = rgen.endsWith('torch');
   // ère puis base médiévale ; repli CARDINAL legacy tant qu'une bande manque.
   // Anim par DISTANCE (p.walkDist, posé par updateCrisis) — anti-patinage.
   const wd = p.walkDist != null ? p.walkDist : null;
@@ -285,12 +290,12 @@ export function drawIsoRioter(ctx, p, now, z) {
   // pour la même hauteur de personnage à l'écran. Les autres ères gardent 0,85.
   const rScale = RIOT_FLAT_SCALE[rEra] || 0.85;
   let dim = drawNamedAgentIso(ctx, sx, groundY, z, 'rioter-' + rEra + rgen, rScale, p.dir, walking, now, p.phase, 1, wd, true)
-    || (rEra ? drawNamedAgentIso(ctx, sx, groundY, z, 'rioter-' + rgen, 0.85, p.dir, walking, now, p.phase, 1, wd, true) : false);
+    || (rEra ? drawNamedAgentIso(ctx, sx, groundY, z, 'rioter-' + rgen, RIOT_FLAT_SCALE[''] || 0.85, p.dir, walking, now, p.phase, 1, wd, true) : false);
   if (!dim) dim = drawNamedAgent(ctx, sx, groundY, z, 'rioter-' + rEra + rgen, 0.85, p.dir, walking, now, p.phase);
   if (!dim && rEra) dim = drawNamedAgent(ctx, sx, groundY, z, 'rioter-' + rgen, 0.85, p.dir, walking, now, p.phase);
   if (dim) {
     // Flamme bakée ; halo chaud additif de NUIT sur les torches (cf. legacy).
-    if (p.weapon !== 'fork' && (CM.nightF || 0) > 0.05) {
+    if (torch && (CM.nightF || 0) > 0.05) {
       const flick = 0.8 + 0.2 * Math.sin(now / 90 + (p.phase || 0) * 5);
       const gx2 = sx + dim.drawW * 0.18, gy2 = dim.top + dim.drawH * 0.16, gr = Math.max(1, dim.drawW * 0.5 * flick);
       const prevOp = ctx.globalCompositeOperation;
@@ -546,7 +551,9 @@ export function drawIsoCitizenItem(ctx, p, now, z) {
 // levée agrandit la toile de l'animation (44 à 48 px selon la direction) : les bandes
 // sont ramenées à 48 px pieds alignés (scripts/padStrip.mjs), personnage ~30 px →
 // 0,98 × 0,64 ≈ 0,70 × 0,90 des habitants — même hauteur, même taille de pixel.
-const RIOT_FLAT_SCALE = { 'anti-': 0.98 };
+const RIOT_FLAT_SCALE = { 'anti-': 0.98, 'mod-': 0.98, 'fut-': 0.98 };
+// Jeux d'émeutiers incomplets : combinaison manquante → combinaison dessinée.
+const RIOT_ERA_SWAP = { 'mod-': { 'man-fork': 'man-torch', 'woman-torch': 'woman-fork' } };
 
 export const GHOST_TUNE = { on: false, alpha: 0.7, cover: 0.35, wK: 0.34, hK: 0.68 };
 if (typeof window !== 'undefined') {

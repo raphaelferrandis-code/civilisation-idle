@@ -50,9 +50,8 @@ function hsl(r, g, b) {
 // si un remap efface la rampe, pas grogner parce qu'un sprite a été redessiné
 // avec deux flammes de moins.
 const FIRE_SPRITES = [
-  ['wonders/flame-small.png', 900],
-  ['wonders/flame-large.png', 3000],
-  ['wonders/pop1m-flame-spiral.png', 4000],
+  // (Les bandes de flamme des merveilles sont parties avec leurs sprites « de face »
+  // le 2026-10-02 : les merveilles sont cuites par le code, docs/PLAN-MERVEILLES.md.)
   ['agents/buildings/watch-fire.png', 450],
   ['agents/buildings/ancestralcult-fire.png', 500],
   // Palier du stade 0. C'est le seul feu du jeu dont la couleur est posée PAR DU
@@ -72,17 +71,6 @@ const FIRE_SPRITES = [
   ['agents/buildings/storyteller-prop-fire.png', 150],
   ['agents/buildings/mint-prop-forge.png', 7],
   ['agents/buildings/cult-vesta.png', 12],
-  // Mausolée rang V : ~100 braseros CUITS dans le sprite, dont 57 seulement sont
-  // recouverts par un overlay animé. Repeindre les seuls overlays laissait donc
-  // une moitié du monument en or à côté de l'autre en rouge.
-  ['wonders/dynasty1-t5.png', 2000],
-  // Aiguille rang I (2026-08-07) : le sprite portait une FLAMME CUITE en ocre
-  // pâle que l'overlay animé, plus petit qu'elle, ne recouvrait pas — on voyait
-  // deux feux. Elle a été retirée et il ne reste que le LIT DE BRAISES au creux
-  // du brasero, seul élément de feu que le sprite ait le droit de garder. 181 px
-  // mesurés → plancher à la moitié : si un remap l'éteint, la vasque redevient
-  // un seau vide sous une flamme flottante, et rien d'autre ne le dirait.
-  ['wonders/era_mega-t1.png', 90],
 ];
 
 const rampSet = new Set(RAMP.steps.map((s) => s.hex.toLowerCase()));
@@ -139,7 +127,9 @@ describe('sprites de feu — la rampe est bien posée dessus', () => {
     // puis ANNULÉE — mais le filtre reste, pour que la garde survive à la
     // prochaine tentative au lieu de casser sur un dénombrement.
     const files = readdirSync(dir).filter((f) => f.includes('-torch-') && !f.endsWith('-half.png'));
-    expect(files.length).toBe(80);
+    // 80 + 4 : les bandes diagonales du manifestant moderne à la torche de route
+    // (rioter-mod-man-torch, 2026-10-02 ; l'ère moderne n'a pas de femme à torche).
+    expect(files.length).toBe(84);
     const cold = files.filter((f) => rampPixels(path.join('agents/events', f)) < 20);
     expect(cold, `torches sans rampe de feu : ${cold.join(', ')}`).toEqual([]);
   }, 30000);

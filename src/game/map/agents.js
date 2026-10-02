@@ -258,8 +258,9 @@ function riotEraKey(band) {
   return band <= 1 ? 'stone-'
     : band <= 3 ? ''
       : band <= 4 ? 'anti-'
-        : band <= 6 ? 'ind-'   // RIOT_MOD : 'mod-' pour la bande 6 dès que ses bandes existent
-          : 'fut-';
+        : band <= 5 ? 'ind-'
+          : band <= 6 ? 'mod-'   // manifestants modernes (torche de route, pancarte)
+            : 'fut-';
 }
 const AGENT_FALLBACK = { name: 'villager', scale: 0.82 }; // repli ultime si un sprite manque
 
@@ -510,16 +511,28 @@ function ensureVehDiag(type, skin) {
 // est dans le dessin → le code n'en ajoute pas (VEH_PULL ignoré). `skins` (au lieu de
 // `skin`) = plusieurs modèles/teintes tirés par véhicule (flotte moderne).
 const ERA_VEH = {
+  // Tram : vues FIXES (véhicule symétrique, pas de bête), toile 96 → toise ≈ 5 passants.
+  tram: {
+    5: { skin: 'ind', size: 2.4 },   // tram 1900 vert et crème
+    6: { skin: 'mod', size: 2.4 },   // tram moderne blanc et sarcelle
+    7: { skin: 'cos7', size: 2.4 },  // tram magnétique ivoire et jade
+    8: { skin: 'cos8', size: 2.4 },  // tram flottant nacre et or
+  },
   wagon: {
     2: { skin: 'med', size: 1.35, team: true },   // chariot à foin, bœuf
     3: { skin: 'med', size: 1.35, team: true },
     4: { skin: 'anti', size: 1.35, team: true },  // chariot à amphores romain
+    5: { skin: 'ind', size: 1.35, team: true },   // charrette de brasseur, tonneaux
   },
   chariot: {
     3: { skin: 'med', size: 1.35, team: true },   // chevalier à caparaçon bleu et or
     4: { skin: 'anti', size: 1.3, team: true },   // char romain
   },
-  caravan: { 4: { skin: 'anti', size: 1.4, team: true } },
+  caravan: {
+    3: { skin: 'med', size: 1.4, team: true },    // marchand, bâche verte et tonneaux
+    4: { skin: 'anti', size: 1.4, team: true },   // caravane romaine rayée
+    5: { skin: 'ind', size: 1.4, team: true },    // omnibus rouge à impériale, deux chevaux
+  },
 };
 function eraVehSpec(type, skin) {
   if (!skin) return null;

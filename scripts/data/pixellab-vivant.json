@@ -34,5 +34,110 @@
         "swapSouth": true
       }
     }
+  },
+  "band6": {
+    "habitants": {
+      "modernman": "170a99ee-3ff6-43f0-bb35-a9e7a5c8dc20",
+      "modernman2": "e17e6c0d-81f6-4039-a92e-a615a7c83c72",
+      "modernman3": "1c6ee29d-ea1b-4b96-b4ba-cc5f8910d4a7",
+      "modernman4": "02f1b77d-e7ac-4c7a-ae9f-5c0b7b9add55",
+      "modernwoman": "33bb5a73-ba59-484c-b0f9-4dec33c324b8",
+      "modernwoman2": "5314d673-04bf-4e42-92f7-bada0a25b5ce",
+      "modernwoman3": "d461ef3a-88cd-411a-ac68-fc2a61d9059b",
+      "modernchild": "124118b8-cfa9-4ef6-b2c6-681f17e35269"
+    }
+  },
+  "band7": {
+    "habitants": {
+      "jademan": "7aa5ece4-68ab-4212-90e4-e214e8ef9328",
+      "jademan2": "f025374d-3f41-4a00-8602-4dcd9d966e72",
+      "jademan3": "c1a92800-96ff-429d-a80b-18042ff5642b",
+      "jademan4": "fee21a8c-d52c-493e-9a8a-95d4a2aff760",
+      "jadewoman": "613d5533-a991-4fa0-9797-df8e3f133b36",
+      "jadewoman2": "a1417f81-4c8f-45a1-913a-b7d4070d247e",
+      "jadewoman3": "233fde7c-bc03-4150-88cc-138f99d54da7",
+      "jadechild": "add8f7f2-e1e3-4f55-8e5c-8ce1323ceb56"
+    }
+  },
+  "band8": {
+    "habitants": {
+      "stellarman": "5f4978ac-2d91-4967-af2e-8ad87190c544",
+      "stellarman2": "b1258726-c398-41f1-9314-6a7dc6535b58",
+      "stellarman3": "b579dee8-a848-4375-b5a8-3b1eafa52d57",
+      "stellarman4": "43b407c3-d2f6-4f1f-8235-d4b1066a665d",
+      "stellarwoman": "15e511c2-cc4d-4ac1-bf52-26f7b423ed71",
+      "stellarwoman2": "7c2498ef-8320-4395-8a6e-835f097baea1",
+      "stellarwoman3": "343fa381-4285-43aa-8cc8-bb5f396abbc1",
+      "stellarchild": "46097b9c-ba11-4ed2-9290-6d1dd72eea12"
+    }
+  },
+  "band9": {
+    "habitants": {
+      "crystalman": "bfe7233f-1dd7-447e-b268-35a97da7ddc4",
+      "crystalman2": "fcfd70b6-9f42-4b4c-b9f5-630059e636fe",
+      "crystalman3": "ddd0d714-9d75-4ecb-8ee9-9cc477bb8512",
+      "crystalman4": "11fe8407-d442-42ca-9685-485c0a62a6ca",
+      "crystalwoman": "2388d6ed-c85f-4bad-8ab1-e61e726b6999",
+      "crystalwoman2": "b54d5182-e9aa-4e05-a481-f7006e9e761d",
+      "crystalwoman3": "d1f4e274-67b0-4d90-9bb8-a946b71f8061",
+      "crystalchild": "c64bddc0-3508-4a38-9d5c-e6b73ea65552"
+    }
+  },
+  "emeutiers": {
+    "rioter-mod-man-torch": "6d1bc6ed-2bf9-4752-9e75-00afc6820662",
+    "rioter-mod-woman-fork": "62fe358f-e127-4e80-8152-1a30d2612c34",
+    "rioter-fut-man-torch": "50438a20-4ca1-4c08-86c0-740693e6de7e",
+    "rioter-fut-man-fork": "a733ae07-b368-4d31-859b-32b44674cc46",
+    "rioter-fut-woman-torch": "35444914-433b-4e29-9e3d-d0b7aedb25eb",
+    "rioter-fut-woman-fork": "9876b1e0-a3e6-43e5-8849-2b591e98a823",
+    "_note": "mod- : 2 sur 4 (RIOT_ERA_SWAP) ; fut- = bandes 7-9 ; rioter-fut-man-torch NE = prise 70d25abe (--pick)"
+  },
+  "vehicules": {
+    "wagon-med": {
+      "object": "a20c8968-d280-4d94-b417-673ad611050d",
+      "swapSouth": true
+    },
+    "chariot-med": {
+      "object": "25cbf1fe-7460-4eff-ba35-f70dc6c5df9d",
+      "swapSouth": false
+    },
+    "caravan-med": {
+      "object": "fcc91b24-96ce-4a20-9e86-9305594f4b44",
+      "swapSouth": true
+    },
+    "wagon-ind": {
+      "object": "b00aac15-ec30-4511-9bd6-4bd7b4e7c401",
+      "swapSouth": true
+    },
+    "caravan-ind": {
+      "object": "d4bf2c8a-3dcf-4270-97a8-2b479310b7cf",
+      "swapSouth": false
+    },
+    "tram-ind": {
+      "object": "ae2ea43d-b4d9-471d-a02f-f53378506332",
+      "static": true,
+      "swapSouth": false
+    },
+    "tram-mod": {
+      "object": "87860aa6-7a0c-48bf-8f45-5ffc39f74b3c",
+      "static": true,
+      "swapSouth": false
+    },
+    "tram-cos7": {
+      "object": "61f92762-ae1b-4f72-91ef-93e173cb5b78",
+      "static": true,
+      "swapSouth": true
+    },
+    "tram-cos8": {
+      "object": "fefa26f9-9c9c-47ae-b509-2e57c37b4f40",
+      "static": true,
+      "swapSouth": false
+    },
+    "_echecs": {
+      "sedan-mod": "ab083b1a-82b7-4d17-9490-ccbeaf4a9a73",
+      "bus-mod": "db0f4d08-95bc-456e-bf2f-a2b8ada60e1d",
+      "hatch-mod": "dae72849 (vues nord = avant)",
+      "_note": "flotte moderne abandonnée (vues coupées / vue nord = avant) : pack MinZinn gardé"
+    }
   }
 }

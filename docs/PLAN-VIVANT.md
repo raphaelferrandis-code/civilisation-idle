@@ -76,8 +76,8 @@ short legs, clean shapes ». ⚠ Ne jamais écrire « slim » (sort élancé, cf
 |---|---|---|
 | A | Charte (§3) | écrite (grain réel : toile 32 + `-half` 16 pour les gens, toile 68 + `-half` 34 pour les attelages) |
 | B | Pilote bande 4 : 8 Romains à métiers, 4 émeutiers romains, attelages (chariot à bœuf, char, caravane) | FAIT le 2026-10-01, planche publiée, verdict de Raph attendu |
-| C | Déroulé : 8 habitants par ère, émeutiers de chaque ère (moderne et cosmiques compris), porteurs et humains des scènes par ère, véhicules par ère (flotte moderne redessinée, navettes de nacre), bateaux | à faire |
-| D | La vie dans la rue : groupes, arrêts aux étals et fontaines, fin des files | à faire (effet fantôme déjà retiré) |
+| C | Déroulé : 8 habitants par ère, émeutiers de chaque ère (moderne et cosmiques compris), porteurs et humains des scènes par ère, véhicules par ère (flotte moderne redessinée, navettes de nacre), bateaux | EN GRANDE PARTIE FAIT le 2026-10-02 (§5bis) ; restes listés au journal |
+| D | La vie dans la rue : groupes, arrêts aux étals et fontaines, fin des files | PREMIÈRE PASSE FAITE le 2026-10-02 : compagnons et causettes (`COMPANIONS`, agents.js) ; arrêts aux étals et tri peintre restent |
 
 Budget PixelLab : ~1 000 à 1 150 générations (2 720 disponibles au 2026-10-01, remise à
 zéro le 2026-10-30).
@@ -97,6 +97,26 @@ zéro le 2026-10-30).
 | `rioter-anti-*` | plébéiens en colère (torche ; lance ou fourche), mêmes aplats |
 
 Identifiants PixelLab : `scripts/data/pixellab-vivant.json`.
+
+## 5bis. Déroulé du 2026-10-02 — ce qui roule dans chaque ère
+
+| Bande | Habitants (8) | Émeutiers | Véhicules d'ère (`ERA_VEH`) |
+|---|---|---|---|
+| 0-1 | août (inchangés) | juillet (`stone-`) | — |
+| 2-3 | août (inchangés) | juillet | chariot à bœuf (2-3), chevalier (3), marchand bâché (3) |
+| 4 | Romains (`roman*`) | `anti-` | chariot à amphores, char, caravane rayée |
+| 5 | août (inchangés) | juillet (`ind-`) | charrette de brasseur, omnibus à impériale, (tram 1900*) |
+| 6 | modernes (`modern*` : costume, sweat jaune, coursier, joggeur, manteau rouge, infirmière, sacs de courses, enfant ciré jaune) | `mod-` (sweat rouge à torche, femme à pancarte) | (tram moderne*) ; voitures/bus = pack MinZinn (non refait) |
+| 7 | jade (`jade*` : tunique jade, jardinier, ingénieur, savant, robe jade, botaniste, pilote, enfant à l'orbe) | `fut-` (cosmiques) | (tram magnétique ivoire et jade*) |
+| 8 | stellaire (`stellar*` : astronome, coursier à réacteur, noble, marin des étoiles, chanteuse, navigatrice, jardinière, enfant au ballon) | `fut-` | (tram flottant nacre et or*) |
+| 9 | cristal (`crystal*` : mage, sculpteur, moine, mineur, prêtresse, tisserande, danseuse, enfant au cristal) | `fut-` | — |
+
+Les jeux d'émeutiers incomplets se replient par `RIOT_ERA_SWAP` (isoUnits.js).
+
+* Trams DESSINÉS et branchés (`ERA_VEH.tram`) mais PAS EN CIRCULATION : la flotte de
+rue change tout tram en voiture (cityMapRuntime.js, « pas de rails sur les rues ») et le
+tram de la muraille (`computeTramRing`, juin) a disparu du code depuis. Les faire rouler
+= décision de Raph (avenues sans rails ? retour d'une voie dédiée ?).
 
 ## 6. Banc et pièges
 
@@ -138,3 +158,32 @@ Identifiants PixelLab : `scripts/data/pixellab-vivant.json`.
   bête de la caravane (bœuf), enfant au pixel plus fin. Erreurs de tri peintre vues en
   route (un passant ou un char dessiné sur un toit voisin) : préexistantes, à traiter
   avec le lot D maintenant que les fantômes ne les masquent plus.
+- **2026-10-02 (Raph absent : « fini les ères, et fait le lot d'après »)** — commits
+  LOCAUX `172b5c0` (bande 6 + lot D), `bce41f0` (bande 7), `66da4d2` (bande 8),
+  `bd19ac9` (bande 9 + chariot et chevalier médiévaux), puis un dernier commit (trams,
+  omnibus, brasseur, marchand médiéval, émeutiers modernes et cosmiques). Tableau §5bis.
+  Lot D : un passant sur quatre environ marche accompagné (1 ou 2 compagnons accrochés
+  au meneur, décalés côté chaussée ; les enfants presque toujours), et des causettes
+  face à face de 2,5 à 6 s ; molette `__companions`. Les files indiennes de 15 de la
+  bande 0 sont cassées en petits groupes.
+  Pièges payés : file v3 PixelLab qui se fige (42 % pendant 45 min, ou « eta 60 s »
+  qui retombe à 900 s) → annuler la tâche et relancer débloque ; fond gris OPAQUE sur
+  une seule direction → `scripts/stripOpaqueBg.mjs` (dans la chaîne) ; une animation
+  qui transforme l'objet tenu en cours de cycle (bâton → plume) se regénère DIRECTION
+  par direction (`delete_animation` sur la direction puis relance dans le même groupe).
+  Labels des objets 8 directions : SUD inversés sur chariot à bœuf, caravanes romaine
+  et médiévale, brasseur et tram de jade (`--swap-south`) ; justes sur char, chevalier,
+  omnibus et trams 1900, moderne et nacre — vérifier sur planche À CHAQUE objet.
+  Avec le chariot à bœuf en `style_object_id`, la bête sort en bœuf même si le texte
+  dit cheval → prendre le char (chevaux) comme style pour un attelage à chevaux.
+  Émeutier cosmique « femme au bâton » : 3 prises pour le sud-ouest et le sud-est (bâton
+  changé en plume, puis bâton qui disparaît) ; la 3e (« un poing levé, l'autre main tient
+  le bâton ») tient. `fetchAgentFlat.mjs --pick=<id>` choisit entre deux prises d'une
+  même direction ; `finalize.sh` (banc de la session) s'arrête désormais si l'assemblage
+  échoue (il avait retravaillé deux bandes de juillet, restaurées par git).
+  Trams : dessinés mais pas en circulation (note sous §5bis).
+  NON FAIT (à voir avec Raph) : flotte moderne (voiture, bus, camion) — deux essais
+  ratés (vues coupées, vue nord montrant l'avant), le pack MinZinn reste ; voiture 1900 ;
+  émeutiers des bandes 0-1, 2-3 et 5 (juillet) ; 3 métiers de plus en bandes 0-1, 2-3
+  et 5 ; drones (la session « Relief » tient le ciel des bandes 7-9) ; bateaux (session
+  « bateaux ») ; porteurs et humains des scènes par ère ; erreurs de tri peintre.

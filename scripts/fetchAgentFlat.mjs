@@ -10,6 +10,9 @@
 // ⚠ Le zip /download renvoie HTTP 423 tant qu'UN job de fond du perso pend (2e gen
 // v3, anim en cours…) → réessayer plus tard, ou passer par scripts/assembleAgentUrls.mjs.
 // Après assemble : passer chaque bande à scripts/quantize.cjs --colors 24 PUIS lancer half.
+// Une direction animée DEUX fois dans le même groupe (une tâche « annulée » qui avait
+// abouti, plus sa relance) sort du zip en dossiers suffixés `north-east-70d25abe/` :
+// --pick=70d25abe choisit la prise ; sans --pick, le script refuse et liste les prises.
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
@@ -18,7 +21,8 @@ import AdmZip from 'adm-zip';
 
 const CARDINAL = process.argv.includes('--cardinal');
 const OUT_ARG = process.argv.find((a) => a.startsWith('--out='));
-const args = process.argv.filter((a) => a !== '--cardinal' && !a.startsWith('--out='));
+const PICKS = process.argv.filter((a) => a.startsWith('--pick=')).map((a) => a.slice(7));
+const args = process.argv.filter((a) => a !== '--cardinal' && !a.startsWith('--out=') && !a.startsWith('--pick='));
 const NAME = args[3];
 const CHAR_ID = args[4];
 // --out=<dossier> : agents/events pour les émeutiers (défaut : les habitants).
@@ -27,8 +31,8 @@ const BACKUP = path.join(os.tmpdir(), 'civ-agents-backup');
 const DIRS = CARDINAL ? ['south', 'east', 'north', 'west'] : ['south-east', 'south-west', 'north-east', 'north-west'];
 const FRAMES = 6;
 const RX = CARDINAL
-  ? /animations\/[^/]+\/(south|east|north|west)\/frame_(\d+)\.png$/i
-  : /animations\/[^/]+\/(south-east|south-west|north-east|north-west)\/frame_(\d+)\.png$/i;
+  ? /animations\/[^/]+\/(south|east|north|west)(?:-([0-9a-f]{8}))?\/frame_(\d+)\.png$/i
+  : /animations\/[^/]+\/(south-east|south-west|north-east|north-west)(?:-([0-9a-f]{8}))?\/frame_(\d+)\.png$/i;
 
 const px = (img, x, y) => { const i = (y * img.width + x) * 4; return [img.data[i], img.data[i + 1], img.data[i + 2], img.data[i + 3]]; };
 const setPx = (img, x, y, [r, g, b, a]) => { const i = (y * img.width + x) * 4; img.data[i] = r; img.data[i + 1] = g; img.data[i + 2] = b; img.data[i + 3] = a; };
@@ -44,10 +48,17 @@ async function assemble() {
     if (!r.ok) throw new Error('download HTTP ' + r.status);
     return r.arrayBuffer();
   }));
-  const byDir = { 'south-east': [], 'south-west': [], 'north-east': [], 'north-west': [] };
+  const byDir = Object.fromEntries(DIRS.map((d) => [d, []]));
   for (const e of new AdmZip(buf).getEntries()) {
     const m = e.entryName.match(RX);
-    if (m) byDir[m[1].toLowerCase()].push({ f: +m[2], data: e.getData() });
+    if (m) byDir[m[1].toLowerCase()].push({ take: m[2] || '', f: +m[3], data: e.getData() });
+  }
+  for (const d of DIRS) {
+    const takes = [...new Set(byDir[d].map((e) => e.take))];
+    if (takes.length < 2) continue;
+    const pick = takes.find((t) => PICKS.includes(t));
+    if (pick === undefined) throw new Error(`${d} : ${takes.length} prises (${takes.join(', ')}) — choisir avec --pick=<id>`);
+    byDir[d] = byDir[d].filter((e) => e.take === pick);
   }
   for (const d of DIRS) {
     if (byDir[d].length < FRAMES) throw new Error(`${d}: ${byDir[d].length}/${FRAMES} frames — anim pas prête (direction ratée en silence ? re-queuer via animate_character + animation_group_id)`);
