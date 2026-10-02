@@ -3,6 +3,9 @@
 // palette 24 + bandes -half (÷2, même recette que les habitants : moyenne 2×2 pondérée par
 // l'alpha, rabattue sur la palette de la bande, alpha binaire).
 //   node scripts/fetchEraVehicle.mjs <type> <skin> <objectId> <seAnim> <swAnim> <neAnim> <nwAnim> [--swap-south]
+//   node scripts/fetchEraVehicle.mjs <type> <skin> <objectId> --static [--swap-south]
+//     --static : véhicule à moteur sans animation → bandes d'UNE frame tirées des
+//     rotations de l'objet (le rendu sait servir une frame fixe).
 //     → public/pixelart/agents/vehicles/veh-<type>-<skin>-{southeast,…}[-half].png
 // Les <xxAnim> sont les ids d'animation PAR DIRECTION (get_object, segment
 // `animations/<id>/<direction>/N.png`).
@@ -16,14 +19,15 @@ import { PNG } from 'pngjs';
 
 const flags = process.argv.filter((a) => a.startsWith('--'));
 const [, , TYPE, SKIN, OBJ, SE, SW, NE, NW] = process.argv.filter((a) => !a.startsWith('--'));
-if (!TYPE || !SKIN || !OBJ || !SE || !SW || !NE || !NW) {
+const STATIC = flags.includes('--static');
+if (!TYPE || !SKIN || !OBJ || (!STATIC && (!SE || !SW || !NE || !NW))) {
   console.error('usage: node scripts/fetchEraVehicle.mjs <type> <skin> <objectId> <seAnim> <swAnim> <neAnim> <nwAnim> [--swap-south]');
   process.exit(1);
 }
 const SWAP = flags.includes('--swap-south');
 const OUT = 'public/pixelart/agents/vehicles';
 const BASE = 'https://backblaze.pixellab.ai/file/pixellab-characters/objects/f1f2e80b-b12d-4940-a5a9-e76f8558b9e0';
-const FRAMES = 6;
+const FRAMES = STATIC ? 1 : 6;
 // [direction PixelLab, id d'animation, fichier écrit]
 const JOBS = [
   ['south-east', SE, SWAP ? 'southwest' : 'southeast'],
@@ -61,7 +65,7 @@ function half(src) {
 for (const [dir, anim, file] of JOBS) {
   const imgs = [];
   for (let n = 0; n < FRAMES; n += 1) {
-    const url = `${BASE}/${OBJ}/animations/${anim}/${dir}/${n}.png`;
+    const url = STATIC ? `${BASE}/${OBJ}/rotations/${dir}.png` : `${BASE}/${OBJ}/animations/${anim}/${dir}/${n}.png`;
     const r = await fetch(url);
     if (!r.ok) throw new Error(`HTTP ${r.status} sur ${url}`);
     imgs.push(PNG.sync.read(Buffer.from(await r.arrayBuffer())));

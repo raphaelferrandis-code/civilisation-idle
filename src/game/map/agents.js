@@ -165,10 +165,21 @@ const AGENT_INDUSTRIAL = { // ère 4 (band 5-6) : XIXe industriel — scales ×1
   women: [{ name: 'industrialwoman', scale: 1.24 }, { name: 'industrialwoman2', scale: 1.24 }],
   child: { name: 'industrialchild', scale: 0.87 },
 };
-const AGENT_MODERN = { // band 6 (époque Néon, ères 30-34) : citoyen near-future de mégalopole — scales ×1.46 (régé FLAT, ratio 0.50)
-  men: [{ name: 'modernman', scale: 1.24 }, { name: 'modernman2', scale: 1.24 }],
-  women: [{ name: 'modernwoman', scale: 1.24 }, { name: 'modernwoman2', scale: 1.24 }],
-  child: { name: 'modernchild', scale: 0.87 },
+const AGENT_MODERN = { // band 6 : la ville de bureaux (PLAN-VIVANT, 2026-10-02)
+  // Redessinés : les combinaisons turquoise d'août disaient « futur » dans une ville
+  // moderne. Toile 32 + -half, scale 0,70 (cf. AGENT_ANTIQUITY).
+  men: [
+    { name: 'modernman', scale: 0.70 },   // costume marine, cravate rouge
+    { name: 'modernman2', scale: 0.70 },  // sweat jaune, jean
+    { name: 'modernman3', scale: 0.70 },  // coursier orange
+    { name: 'modernman4', scale: 0.70 },  // joggeur vert
+  ],
+  women: [
+    { name: 'modernwoman', scale: 0.70 },  // manteau rouge
+    { name: 'modernwoman2', scale: 0.70 }, // infirmière
+    { name: 'modernwoman3', scale: 0.70 }, // veste rose, sacs de courses
+  ],
+  child: { name: 'modernchild', scale: 0.50 },  // ciré jaune
 };
 const AGENT_FUTURE = { // ère 5 (band ≥ 7) : cyberpunk néon sci-fi — scales ×1.46 (régé FLAT, ratio 0.50)
   men: [{ name: 'futureman', scale: 1.24 }, { name: 'futureman2', scale: 1.24 }],       // + variante peau noire + tenue
@@ -448,7 +459,8 @@ function ensureVehDiag(type, skin) {
 // nommés au VRAI sens écran à l'assemblage (scripts/fetchEraVehicle.mjs), donc sans
 // correction d'étiquette. `size` = hauteur de boîte en tuiles AVANT VEH_SCALE (la
 // toise : le conducteur assis un peu plus petit qu'un passant) ; `team` = la bête
-// est dans le dessin → le code n'en ajoute pas (VEH_PULL ignoré).
+// est dans le dessin → le code n'en ajoute pas (VEH_PULL ignoré). `skins` (au lieu de
+// `skin`) = plusieurs modèles/teintes tirés par véhicule (flotte moderne).
 const ERA_VEH = {
   wagon: { 4: { skin: 'anti', size: 1.35, team: true } },
   chariot: { 4: { skin: 'anti', size: 1.3, team: true } },
@@ -458,7 +470,10 @@ function eraVehSpec(type, skin) {
   if (!skin) return null;
   const byBand = ERA_VEH[type];
   if (!byBand) return null;
-  for (const b in byBand) if (byBand[b].skin === skin) return byBand[b];
+  for (const b in byBand) {
+    const e = byBand[b];
+    if (e.skin === skin || (e.skins && e.skins.includes(skin))) return e;
+  }
   return null;
 }
 // Molette de toise : __eraVeh('wagon', 4, { size: 1.5 }).
@@ -488,7 +503,7 @@ const MODERN_FLEET_BAND = 6;
 function vehSkinFor(type, seed, band) {
   // Véhicule d'époque redessiné (ERA_VEH) : prime sur tout le reste à sa bande.
   const era = ERA_VEH[type] && ERA_VEH[type][band | 0];
-  if (era) return era.skin;
+  if (era) return era.skins ? era.skins[fmix32(seed) % era.skins.length] : era.skin;
   if ((band | 0) < MODERN_FLEET_BAND) return '';
   const list = VEH_SKINS[type] && VEH_SKINS[type].skins;
   if (!list || !list.length) return '';
@@ -1030,6 +1045,82 @@ function citizenChooseNext(p) {
 const PED_SPEED = { k: 0.625 };
 if (typeof window !== 'undefined') window.__pedSpeed = (v) => { if (v > 0) PED_SPEED.k = +v; return PED_SPEED.k; };
 
+// ── LA VIE DANS LA RUE (docs/PLAN-VIVANT.md, lot D, 2026-10-02) ─────────────
+// Fin des files indiennes : une partie des passants marche EN COMPAGNIE. Un
+// compagnon ne cherche pas son chemin, il est ACCROCHÉ à son meneur : un pas de côté
+// vers le milieu de la chaussée (le meneur tient le bord du trottoir) et un peu en
+// retrait — à deux, à trois, un adulte et son enfant. Les groupes s'arrêtent parfois
+// pour bavarder, face à face. Le compagnon suit en douceur (lissage), donc il
+// décrit un arc aux carrefours au lieu de sauter d'un côté à l'autre.
+// `p` = part des adultes qui s'accrochent, `pChild` = part des enfants ; `side` /
+// `back` en tuiles ; `chatP` = chance de causette à chaque case atteinte.
+// Molette : __companions({ on, p, pChild, side, back, chatP }).
+const COMPANIONS = { on: true, p: 0.24, pChild: 0.6, radius: 3, side: 0.2, back: 0.12, chatP: 0.03, chatMin: 2.5, chatMax: 6 };
+if (typeof window !== 'undefined') window.__companions = (o) => { if (o) Object.assign(COMPANIONS, o); return { ...COMPANIONS }; };
+let citTick = 0;   // compteur de passes : un meneur absent de la passe (liste refaite) est lâché
+const dirToward = (dx, dy) => (Math.abs(dx) > Math.abs(dy) ? (dx > 0 ? 0 : 1) : (dy > 0 ? 2 : 3));
+// Décision UNIQUE, au premier passage : s'accroche-t-il, et à qui ? Le meneur est le
+// plus proche adulte libre (pas lui-même compagnon, moins de 2 compagnons) à moins de
+// `radius` cases. Tirage déterministe sur la phase (stable d'une passe à l'autre).
+function companionAssign(p) {
+  p._grp = 0;
+  if (!COMPANIONS.on || p.leaving) return;
+  const r = ((((p.phase || 0) * 733.17) % 1) + 1) % 1;
+  if (r >= (p.charType === 2 ? COMPANIONS.pChild : COMPANIONS.p)) return;
+  let best = null, bd = COMPANIONS.radius * COMPANIONS.radius + 0.01;
+  for (const q of CM.citizens) {
+    if (q === p || q.lead || q._dead || q.leaving || q.charType === 2 || (q._nf || 0) >= 2 || q._grp > 0) continue;
+    const dx = q.gx - p.gx, dy = q.gy - p.gy, d = dx * dx + dy * dy;
+    if (d < bd) { bd = d; best = q; }
+  }
+  if (!best) return;
+  best._grp = 0;                      // un meneur ne deviendra jamais compagnon (pas de chaîne)
+  best._nf = (best._nf || 0) + 1;
+  p.lead = best;
+  p._grp = best._nf;                  // 1 = à côté, 2 = derrière, entre les deux
+  if (p._grp === 1) best._f1 = p;
+  p.fade = 0;                         // il rejoint son meneur en fondu, pas d'un bond
+}
+function companionDetach(p) {
+  const L = p.lead;
+  if (L) { L._nf = Math.max(0, (L._nf || 1) - 1); if (L._f1 === p) L._f1 = null; }
+  p.lead = null;
+  p.goal = null;
+  p.tx = (p.gx + 0.5) * CM.TILE; p.ty = (p.gy + 0.5) * CM.TILE;
+}
+function companionFollow(p, L, dt) {
+  p.gx = L.gx; p.gy = L.gy; p.tx = L.tx; p.ty = L.ty;
+  p.social = false; p.goal = null;
+  p.lox = L.lox; p.loy = L.loy; p.tox = L.tox; p.toy = L.toy;
+  if (L.chatT > 0) {
+    // Causette : on ne bouge plus, on se tourne vers son meneur.
+    p.pauseT = L.pauseT;
+    p.dir = dirToward(L.x - p.x, L.y - p.y);
+    return;
+  }
+  p.pauseT = L.pauseT;
+  const d = CM_DIRS[L.dir] || CM_DIRS[p.dir] || CM_DIRS[0];
+  const T = CM.TILE;
+  const side = p._grp === 1 ? COMPANIONS.side : COMPANIONS.side * 0.35;
+  const back = p._grp === 1 ? COMPANIONS.back : COMPANIONS.back + 0.28;
+  // Gauche du sens de marche (y vers le bas) = vers le milieu de la chaussée.
+  const nx = L.x + (d[1] * side - d[0] * back) * T, ny = L.y + (-d[0] * side - d[1] * back) * T;
+  const snap = !(L.fade >= 1) || p.x === undefined;   // meneur qui réapparaît : on le rejoint d'un coup
+  const k = snap ? 1 : Math.min(1, dt * 8);
+  const ox = p.x, oy = p.y;
+  p.x = snap ? nx : ox + (nx - ox) * k;
+  p.y = snap ? ny : oy + (ny - oy) * k;
+  if (!snap) p.walkDist = (p.walkDist || 0) + Math.hypot(p.x - ox, p.y - oy);
+  else if (L.fade < 1) p.fade = Math.min(p.fade, L.fade);
+  if (L.dir >= 0) p.dir = L.dir;
+}
+function companionChat(p) {
+  p.pauseT = COMPANIONS.chatMin + Math.random() * (COMPANIONS.chatMax - COMPANIONS.chatMin);
+  p.chatT = p.pauseT;
+  const f = p._f1;
+  if (f && f.lead === p) p.dir = dirToward(f.x - p.x, f.y - p.y);
+}
+
 function updateCitizens(dt) {
   if (!CM.walkRoadList.length) return;
 
@@ -1075,7 +1166,9 @@ function updateCitizens(dt) {
   }
 
   let anyDead = false;   // un partant a fini son fondu → compaction en fin de boucle
+  citTick += 1;
   for (const p of CM.citizens) {
+    p._tick = citTick;
     if (p.thoughtTimer === undefined) p.thoughtTimer = 0;
     if (p.thoughtType === undefined) p.thoughtType = null;
     // Minuteur de bulle décrémenté EN TÊTE de boucle (avant tout `continue`) : sinon un
@@ -1138,16 +1231,29 @@ function updateCitizens(dt) {
       continue;
     }
 
+    // Compagnon (lot D) : accroché à son meneur, il ne cherche pas son chemin.
+    if (p._grp === undefined) companionAssign(p);
+    if (p.lead) {
+      const L = p.lead;
+      if (L._dead || L.leaving || p.leaving || L._vanish !== undefined || !COMPANIONS.on || !(L._tick >= citTick - 1)) companionDetach(p);
+      else { companionFollow(p, L, dt); continue; }
+    }
+
     let moved = 0;   // distance parcourue CE tick (pilote le lissage du trottoir)
     // Qui court s'abriter ne flâne plus : l'averse coupe court à la halte des badauds
     // (place, parvis de merveille) au lieu de les laisser contempler sous la pluie.
     const abri = citizenSheltering(p);
     if (p.pauseT > 0 && !abri) {
       p.pauseT -= dt;
+      if (p.chatT > 0) p.chatT = Math.max(0, p.chatT - dt);
     } else {
+      p.chatT = 0;
       const dx = p.tx - p.x, dy = p.ty - p.y, dist = Math.hypot(dx, dy);
       if (dist < 2.4) {
-        citizenChooseNext(p);
+        // Un meneur accompagné s'arrête parfois pour bavarder (jamais en partance,
+        // jamais en flânerie de place — elle a déjà sa halte).
+        if ((p._nf || 0) > 0 && !p.social && !p.leaving && !abri && Math.random() < COMPANIONS.chatP) companionChat(p);
+        else citizenChooseNext(p);
       } else {
         // Iso : la projection étale l'écran (losange 2:1) → la même vitesse MONDE
         // paraît plus rapide. Facteur de calme dédié (retour Raph « ils glissent »),
