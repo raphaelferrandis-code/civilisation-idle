@@ -520,6 +520,32 @@ sont un peu flous ; d'autres dénotent ; l'allumage de nuit est à fignoler ».*
 - Reste ouvert : « d'autres dénotent » — à rejuger sur l'art net (candidats : les
   institutions médiévales blanc-gris et l'immeuble haussmannien pâle).
 
+**2026-10-03 — les grandes fontaines des places coulent.** Raph : « les fontaines des
+places ne sont plus animées... ».
+- Cause : les places par sorte ont mis au centre de la place centrale une GRANDE
+  fontaine (`fountain-forum`, une par ère) arrivée SANS bande d'animation ; seule la
+  petite `fountain` (square, jardin) avait les siennes. `ANIM_PROPS` déclare les deux.
+- Art : animation PixelLab de chaque objet 8 directions (vue sud-ouest, 8 frames),
+  assemblée par `fetchPlazaAnim.mjs` puis resserrée sur l'eau par `plazaAnimMask.mjs
+  --prop fountain-forum` (option nouvelle). Rejetés à la planche, puis refaits :
+  - antique : gerbes en étoiles, toute la pierre redessinée (37 % du sprite) → « eau
+    calme, même teinte » ;
+  - médiéval : jets éteints à mi-boucle → « jets continus » ; la statuette du pinacle
+    bougeait → figée ;
+  - moderne : deux essais, jets éteints puis rallumés d'un coup → animé PAR LE CODE
+    (`scripts/plazaAnimJets.mjs`) : un reflet monte chaque jet, une goutte se détache du
+    sommet, l'écume bat au pied, des éclats s'allument sur le bassin. Boucle parfaite par
+    construction ; zone d'eau écrite dans `anim/zone/` (le blanc des jets ne lit pas
+    « bleu » au critère de couleur) ;
+  - cosmique : le premier essai dérivait d'un état à l'autre → « boucle subtile »,
+    anneaux immobiles.
+- Raccord de boucle mesuré (dernière → première frame, rapporté au pas moyen) : 1,0 à
+  1,3 ; cosmique 2,4, sur un scintillement d'anneaux invisible à l'œil.
+- Test « props déclarés ↔ bandes livrées » : il comparait par PRÉFIXE (`fountain-`
+  attrapait `fountain-forum-*`) → prop exact.
+- Vérifié en jeu : place centrale, bande 4, les cinq ères forcées (`__plaza({ era })`),
+  deux captures à 500 ms d'écart : l'eau bouge, la pierre non.
+
 ## 9. La petite vie (lot 6, demandé le 2026-10-01)
 
 > « Tu peux refaire tous les petits éléments de vie, oiseaux, poissons, feuilles,

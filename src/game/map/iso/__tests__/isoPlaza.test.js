@@ -795,10 +795,13 @@ describe("BANDES D'EAU ANIMÉE", () => {
     // de l'art mort sur le disque que personne ne dessinera jamais.
     if (!fs.existsSync(ANIM)) return;
     const bandes = fs.readdirSync(ANIM).filter((f) => f.endsWith(".png"));
-    const props = new Set(bandes.map((f) => f.replace(/-[^-]+\.png$/, "")));
+    const propDe = (f) => f.replace(/-[^-]+\.png$/, "");
+    const props = new Set(bandes.map(propDe));
     expect([...props].sort()).toEqual([...ANIM_PROPS].sort());
     for (const p of ANIM_PROPS) {
-      const eres = bandes.filter((f) => f.startsWith(p + "-")).map((f) => f.slice(p.length + 1, -4));
+      // Le prop EXACT, pas un préfixe : « fountain- » attrape aussi les bandes
+      // de « fountain-forum- », la grande fontaine des places.
+      const eres = bandes.filter((f) => propDe(f) === p).map((f) => f.slice(p.length + 1, -4));
       expect(eres.sort(), `${p} : une bande par ère`).toEqual(Object.keys(RECIPES).sort());
     }
   });

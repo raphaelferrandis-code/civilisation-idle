@@ -23,6 +23,8 @@
 //     node scripts/plazaAnimMask.mjs --ecrire        → resserre les bandes
 //     node scripts/plazaAnimMask.mjs --bleu 8        → seuil de bleuité (défaut 12)
 //     node scripts/plazaAnimMask.mjs --ere cosmic    → une seule ère
+//     node scripts/plazaAnimMask.mjs --prop fountain-forum → la grande fontaine
+//                                                    des places (défaut : fountain)
 //
 //   La planche `.preview-shots/masque-eau.png` montre, par ère : le statique,
 //   le masque AVANT en rouge, le masque APRÈS en rouge. C'est elle qui se juge,
@@ -52,13 +54,14 @@ const TRAIT = +flag('trait', 70);    // luminance sous laquelle c'est un CONTOUR
 const GABARIT = argv.includes('--gabarit');
 const ERE = flag('ere', null);
 const eras = ERE ? [ERE] : ERAS;
+const PROP = flag('prop', 'fountain');
 
 const bleuite = (d, i) => d[i + 2] - d[i];          // b − r : > 0 = froid, < 0 = chaud
 
 const panneaux = [];
 for (const era of eras) {
-  const fSt = path.join(DIR, `fountain-${era}.png`);
-  const fSp = path.join(DIR, 'anim', `fountain-${era}.png`);
+  const fSt = path.join(DIR, `${PROP}-${era}.png`);
+  const fSp = path.join(DIR, 'anim', `${PROP}-${era}.png`);
   if (!fs.existsSync(fSp)) { console.warn(era, '— pas de bande'); continue; }
   const st = PNG.sync.read(fs.readFileSync(fSt));
   const sp = PNG.sync.read(fs.readFileSync(fSp));
@@ -108,7 +111,7 @@ for (const era of eras) {
   // masque), et ce sont eux que Raph voyait bouger sur le contour bas.
   //
   // ── ZONE PEINTE À LA MAIN, quand la couleur ne peut pas trancher ───────────
-  // anim/zone/fountain-<ère>.png : tout pixel OPAQUE y déclare « ici, ce qui
+  // anim/zone/<prop>-<ère>.png : tout pixel OPAQUE y déclare « ici, ce qui
   // bouge est de l'eau ». Elle REMPLACE le critère de couleur pour cette ère.
   // Pourquoi ça existe : sur la fontaine cosmique, PixelLab a peint les cascades
   // dans la palette du MARBRE (relevé des pixels perdus : crème 216,205,180 ·
@@ -117,7 +120,7 @@ for (const era of eras) {
   // `--gabarit` écrit un point de départ à corriger dans Aseprite : tout ce qui
   // bouge, MOINS le contour sombre et MOINS le pourtour de la silhouette (les
   // deux qui font onduler la forme). On en RETIRE, on n'en ajoute pas.
-  const fZone = path.join(DIR, 'anim', 'zone', `fountain-${era}.png`);
+  const fZone = path.join(DIR, 'anim', 'zone', `${PROP}-${era}.png`);
   let garde = eau;
   if (fs.existsSync(fZone)) {
     const z = PNG.sync.read(fs.readFileSync(fZone));

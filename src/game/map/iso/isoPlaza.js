@@ -595,7 +595,11 @@ export const FENCED_KINDS = new Set(['jardin']);
 // en dev Vite REND 200 sur un fichier absent (repli SPA, c'est de l'HTML), donc
 // rien ne cassait et rien ne se voyait — mais le .exe, lui, les compte en
 // ERR_FILE_NOT_FOUND. Un prop qui s'anime se déclare ici.
-export const ANIM_PROPS = new Set(['fountain']);
+// La grande fontaine du forum, de la grand-place et de l'hôtel de ville en est
+// aussi : arrivée avec les places par sorte SANS bande, elle restait de pierre
+// au centre de la place (Raph, 2026-10-03 : « les fontaines des places ne sont
+// plus animées »).
+export const ANIM_PROPS = new Set(['fountain', 'fountain-forum']);
 function propAnim(prop, era) {
   if (!ANIM_PROPS.has(prop)) return null;
   const e = art('/pixelart/iso/plaza/anim/' + prop + '-' + era + '.png');
