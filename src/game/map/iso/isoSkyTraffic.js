@@ -25,10 +25,10 @@
 import { CM } from '../layout.js';
 import { worldToScreen, screenToWorld, depthOf } from './projection.js';
 import { lightCtx } from '../lightLayer.js';
-import { vieK, vieHalo } from './isoVie.js';
+import { vieK } from './isoVie.js';
 import { drawEraAgentIso } from '../agents.js';
 import { muteSunShadow } from './isoSunShadow.js';
-import { boxShapes, bakeShapes, blitBaked, makeBakeCache } from './elevPaint.js';
+import { boxShapes, bakeShapes, blitBaked, makeBakeCache, elevGlow as glowAt } from './elevPaint.js';
 import { floatIsleSpan } from './isoFloatIsle.js';
 
 export const SKY = { on: true, density: 1, shadow: 0.35, trails: 1, beacons: 1, jets: 1, minZoom: 0.42 };
@@ -200,7 +200,7 @@ export function laneCars(lane, t, keep, T) {
 }
 
 // ── IMAGES CUITES ────────────────────────────────────────────────────────────
-const _bakes = makeBakeCache(260);
+const _bakes = makeBakeCache(400);
 function dims(kind, T) {
   return kind === 2 ? { Lh: 0.36 * T, Wh: 0.11 * T, H: 0.12 * T } : kind === 'jet' ? { Lh: 0.07 * T, Wh: 0.05 * T, H: 0 } : { Lh: 0.18 * T, Wh: 0.085 * T, H: 0.075 * T };
 }
@@ -242,18 +242,6 @@ function trailShapes(band, axis, dir, kind, T) {
 function baked(key, make) {
   const z = CM.cam.zoom, d = CM.dpr || 1, kd = Math.max(1, Math.round(vieK() * d));
   return _bakes.get(key + '|' + z + '|' + d, () => bakeShapes(make(), z, d, kd));
-}
-
-// Lueur dans le calque de lumière (petite → halo au pixel, sinon dégradé).
-function glowAt(x, y, r, col, a) {
-  const lc = lightCtx(x - r, y - r, x + r, y + r);
-  if (!lc || !(a > 0.004)) return;
-  if (vieHalo(lc, x, y, r, col, a)) return;
-  const g = lc.createRadialGradient(x, y, 0, x, y, r);
-  g.addColorStop(0, `rgba(${col},${a.toFixed(3)})`);
-  g.addColorStop(1, `rgba(${col},0)`);
-  lc.fillStyle = g;
-  lc.fillRect(x - r, y - r, r * 2, r * 2);
 }
 
 // ── LES ACTEURS ──────────────────────────────────────────────────────────────
@@ -311,13 +299,17 @@ export function skyTrafficActors(now, out, decay = 0) {
       cand.push({ lane, wx, wy, alpha, kind: car.kind, pri: h01(lane.id * 7919 + car.i) });
     }
   }
-  if (cand.length > cfg.cap) { cand.sort((p, q) => p.pri - q.pri); cand.length = cfg.cap; }
+  // ⚠ PERF : la nuit, chaque véhicule coûte quatre poses de plus (phares, feu, traînée) ;
+  // le plafond baisse d'un tiers (les traînées remplissent l'œil) et l'ombre au sol,
+  // presque invisible sous le voile, n'est plus posée.
+  const cap = Math.round(cfg.cap * (1 - 0.35 * Math.min(1, n * 1.5)));
+  if (cand.length > cap) { cand.sort((p, q) => p.pri - q.pri); cand.length = cap; }
   for (const c of cand) {
     const { lane, wx, wy, alpha, kind } = c;
     const ax = lane.axis === 'x';
     skyStats.cars += 1;
     const alt = lane.alt;
-    if (SKY.shadow > 0) {
+    if (SKY.shadow > 0 && n < 0.5) {
       const sx = wx + alt * SKY.shadow;
       out.push({ wx: sx, wy, d: depthOf(sx, wy) - 0.6 * T, draw(ctx) {
         const bk = baked('sh|' + kind + '|' + lane.axis, () => shadowShapes(kind, lane.axis, T));

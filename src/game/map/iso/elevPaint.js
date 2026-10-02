@@ -111,18 +111,25 @@ export function blitBaked(ctx, bk, x, y, dpr, alpha = 1) {
   return true;
 }
 
-// Cache borné des images cuites (une ville affiche quelques dizaines de variantes ;
-// un changement de zoom en crée d'autres — on vide quand ça déborde).
+// Cache borné des images cuites. ⚠ Une rampe ou une courbe a un tronçon UNIQUE par
+// demi-cellule (pente, cap) : l'autoroute en compte ~400 par zoom, le métro ~300. Un
+// cache trop petit vidé d'un coup recuisait TOUT à chaque frame (mesuré : +20 ms en
+// rendu logiciel). Ici : grand plafond, et au débordement on retire la MOITIÉ LA PLUS
+// ANCIENNE (une Map garde l'ordre d'insertion ; un accès réinsère) — le jeu de travail
+// d'un zoom reste chaud, ceux des zooms quittés partent.
 export function makeBakeCache(max = 240) {
   const m = new Map();
   return {
     get(key, make) {
       let v = m.get(key);
       if (v === undefined) {
-        if (m.size >= max) m.clear();
+        if (m.size >= max) {
+          let n = m.size >> 1;
+          for (const k of m.keys()) { if (n-- <= 0) break; m.delete(k); }
+        }
         v = make();
-        m.set(key, v);
-      }
+      } else m.delete(key);
+      m.set(key, v);
       return v;
     },
     clear() { m.clear(); },

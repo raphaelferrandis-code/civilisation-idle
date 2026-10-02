@@ -29,13 +29,17 @@ function h01(n) {
   return (h >>> 0) / 4294967296;
 }
 
+// Côté du pont où l'îlot se pose d'abord (tiré par la graine) — exporté : le
+// téléphérique (isoCableCar) prend l'autre côté, à toutes les ères.
+export function isleSideOf(L) { return h01((L && L.mapSeed) | 0) < 0.5 ? -1 : 1; }
+
 // Site de l'îlot (cellules) ou null. Pur : lit seulement le layout.
 export function floatIsleSite(L) {
   if (!L || !L.counts || (L.counts.eraBand | 0) < ISLE.band) return null;
   const R = L.river;
   if (!R || !R.present || typeof R.riverYAt !== 'function' || !R.bridge) return null;
   const bx = R.bridge.x;
-  const side = h01(L.mapSeed | 0) < 0.5 ? -1 : 1;
+  const side = isleSideOf(L);
   const avoid = [];
   if (R.plaisirs) avoid.push({ x: R.plaisirs.x, r: (R.plaisirs.clear || 8) + 6 });
   const op = L.ports && L.ports.old;
@@ -243,5 +247,6 @@ export function floatIsleActors(now, out, decay = 0) {
 }
 
 if (typeof window !== 'undefined') {
-  window.__floatIsle = (o) => { if (o) Object.assign(ISLE, o); _siteFor = null; _bakes.clear(); return { ...ISLE, stats: { ...isleStats } }; };
+  // Seul un réglage de FORME vide les images cuites (allumer/éteindre ne coûte rien).
+  window.__floatIsle = (o) => { if (o) { Object.assign(ISLE, o); if (Object.keys(o).some((k) => k !== 'on' && k !== 'shuttles')) { _siteFor = null; _bakes.clear(); } } return { ...ISLE, stats: { ...isleStats } }; };
 }

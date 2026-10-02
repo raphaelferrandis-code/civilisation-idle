@@ -188,7 +188,7 @@ function trainShapes(M, ux, uy, T, mono) {
   return s;
 }
 
-const _bakes = makeBakeCache(260);
+const _bakes = makeBakeCache(1200);
 function baked(key, make) {
   const z = CM.cam.zoom, d = CM.dpr || 1, kd = Math.max(1, Math.round(vieK() * d));
   return _bakes.get(key + '|' + z + '|' + d, () => bakeShapes(make(), z, d, kd));

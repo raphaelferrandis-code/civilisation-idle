@@ -120,6 +120,31 @@ jetpacks ni de balises), l'autoroute et le métro perdent des travées entières
 grappes de 3 tronçons, gravats au sol sous l'autoroute), plus de circulation ni de rames,
 lumières éteintes ; l'îlot descend vers l'eau.
 
+### Lot 5 — Le téléphérique (B5+) · `iso/isoCableCar.js`
+Réponse « d'accord avec tout » à la question du téléphérique : fait, et compatible avec
+« un seul pont » (un câble, pas un ouvrage). Il part de la promenade du quai côté CŒUR et
+arrive sur le TOIT d'une station du métro (correspondance) : aucun terrain pris. Du côté
+du pont opposé à l'îlot (`isleSideOf`), à 10-30 cases du pont, loin du Vieux-Port et des
+Plaisirs. Câble en parabole (3,6 tuiles aux pylônes, creux de 0,55), toujours au-dessus du
+métro. B5-B6 pylônes de fer en treillis et cabines rouges ; B7-B9 mâts fins et capsules de
+l'ère. La chute coupe le câble et retire les cabines. Molette `__cableCar`.
+
+### Performance (mesurée en rendu logiciel, Chrome headless)
+Poste « vif-peinture » du profileur de frame (`globalThis.__isoFrameProfile = true`) :
+**+2-3 ms à la bande 6, +4-6 ms à la bande 9**, tous étages allumés, jour comme nuit. Les
+autres postes (fleuve, nuit) varient de ±15 ms d'une passe à l'autre sans lien avec les
+étages : ne juger que la peinture, sur plusieurs passes.
+⚠⚠ Trois pièges qui ont faussé ou plombé la mesure :
+1. **Cache d'images trop petit vidé d'un coup** : chaque tronçon de rampe ou de courbe est
+   unique (~400 par zoom pour l'autoroute, ~300 pour le métro) → recuisson de TOUT à
+   chaque frame. `makeBakeCache` retire désormais la moitié la plus ancienne (LRU).
+2. **Une molette qui vide les images cuites à chaque appel** (`__floatIsle`, `__cableCar`) :
+   une mesure on/off en alternance mesurait la recuisson, pas le dessin.
+3. **Les phares du jeu** (`drawVehicleHeadlights` : arcs + dégradé radial par voiture) sur
+   60 voitures de tablier : coupés (`parkT`), remplacés par deux lueurs au pixel. Les
+   voitures soulevées passent aussi en `muteSunShadow` : sous la translation, le crochet du
+   reflet les lisait à une fausse hauteur.
+
 ## 5. Journal
 
 - 2026-10-02 — plan écrit, lot 1 ouvert.
@@ -139,4 +164,6 @@ lumières éteintes ; l'îlot descend vers l'eau.
   (`segGeo`, `vquad`, `elevGlow`…) ont rejoint `elevPaint.js`, partagées avec
   l'autoroute. Commit `bc07327`.
 - 2026-10-02 — lot 4 (îlot, chute). Vérifié en jeu : îlot de jour et de nuit, ville en
-  ruine aux bandes 6 et 9 (`state.timeWear = 0.95`).
+  ruine aux bandes 6 et 9 (`state.timeWear = 0.95`). Commit `e15b5ce`.
+- 2026-10-02 — lot 5 (téléphérique) + passe de performance (cf. § Performance) ; captures
+  cumulées jour et nuit des bandes 5 à 9 regardées : aucun étage ne se superpose.

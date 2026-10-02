@@ -19,6 +19,7 @@ import { CM } from '../layout.js';
 import { worldToScreen, depthOf } from './projection.js';
 import { vieK } from './isoVie.js';
 import { drawIsoVehicle } from './isoUnits.js';
+import { muteSunShadow } from './isoSunShadow.js';
 import { vehSkinFor } from '../agents.js';
 import { bankRibbon, loopRibbons, HIGHWAY } from '../procedural/highwayPlan.js';
 import { boxShapes, bakeShapes, blitBaked, makeBakeCache, elevGlow as glowAt, segGeo, shadeFace as shade, relTo as rel, vquad } from './elevPaint.js';
@@ -118,7 +119,7 @@ function lampShapes(M, T) {
   return s;
 }
 
-const _bakes = makeBakeCache(320);
+const _bakes = makeBakeCache(1600);
 function baked(key, make) {
   const z = CM.cam.zoom, d = CM.dpr || 1, kd = Math.max(1, Math.round(vieK() * d));
   return _bakes.get(key + '|' + z + '|' + d, () => bakeShapes(make(), z, d, kd));
@@ -166,10 +167,24 @@ function carActors(r, ri, now, band, T, out, vis) {
       out.push({ wx: x, wy: y, d: depthOf(x, y) + 0.2 * T, draw(ctx, nw) {
         v.x = x; v.y = y; v.gx = Math.floor(x / T); v.gy = Math.floor(y / T);
         v.dir = vdir; v.rollDist = s; v.tx = x + hx * T; v.ty = y + hy * T;
-        const zz = CM.cam.zoom;
+        const zz = CM.cam.zoom, nn = CM.nightF || 0;
+        // ⚠ PERF (rendu logiciel) : les phares du jeu sont deux arcs et un dégradé radial
+        // par véhicule — ×60 voitures sur un tablier, c'était le poste n° 2 de la nuit.
+        // On les coupe (parkT > 0 éteint les phares, rien d'autre ne le lit en iso) et on
+        // pose deux lueurs au pixel, comme le trafic aérien.
+        v.parkT = nn > 0.3 ? 1 : 0;
         ctx.save();
         ctx.translate(0, -Math.round(z * zz * (CM.dpr || 1)) / (CM.dpr || 1));
-        try { drawIsoVehicle(ctx, v, nw, zz); } finally { ctx.restore(); }
+        // ⚠ Ombre et REFLET coupés (muteSunShadow) : sous la translation, le crochet du
+        // reflet lirait la voiture à une fausse hauteur d'écran et la refléterait dans
+        // le fleuve ; le tablier porte déjà son ombre.
+        try { muteSunShadow(() => drawIsoVehicle(ctx, v, nw, zz)); } finally { ctx.restore(); }
+        if (nn > 0.3) {
+          const f = worldToScreen(x + hx * 0.22 * T, y + hy * 0.22 * T, z + 0.08 * T);
+          const r0 = worldToScreen(x - hx * 0.22 * T, y - hy * 0.22 * T, z + 0.08 * T);
+          glowAt(f.x, f.y, 4 * zz / 0.625, '255,244,210', 0.65 * nn);
+          glowAt(r0.x, r0.y, 3 * zz / 0.625, '255,70,50', 0.6 * nn);
+        }
       } });
     }
   });

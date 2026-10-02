@@ -14,6 +14,7 @@ import { skyTrafficActors } from './isoSkyTraffic.js';
 import { highwayActors } from './isoHighway.js';
 import { metroActors } from './isoMetro.js';
 import { floatIsleActors } from './isoFloatIsle.js';
+import { cableCarActors } from './isoCableCar.js';
 
 // LA CHUTE DES ÉTAGES (lot 4) : 0 = ville debout ; ~0,65 = ville en ruine (usure,
 // instabilité au maximum : CM.frameRuined) ; 1 = effondrement en cours
@@ -33,6 +34,7 @@ export function elevatedActors(now) {
     highwayActors(now, _out, decay);
     metroActors(now, _out, decay);
     floatIsleActors(now, _out, decay);
+    cableCarActors(now, _out, decay);
     skyTrafficActors(now, _out, decay);
   } catch (e) {
     // Un étage qui plante ne doit jamais emporter la frame de la carte.
