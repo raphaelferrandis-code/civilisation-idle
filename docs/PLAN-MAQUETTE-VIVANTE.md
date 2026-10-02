@@ -476,6 +476,14 @@ sont un peu flous ; d'autres dénotent ; l'allumage de nuit est à fignoler ».*
   Deux sources livrées sur fond opaque (le chantier à grue, l'archive) : fond retiré avant.
 - **Le poteau** : l'atelier (`crafthouse`) avait un auvent sans appui à l'angle avant —
   poteau dessiné à la main (2 colonnes de pixels). Seule maison fautive de la revue.
+  Raph : « régénère ce bâtiment, ça ne va toujours pas » → l'atelier est REDESSINÉ : maison
+  d'artisan à colombages, toit de tuiles orange comme la maison de ville, porte en arc,
+  plus aucun auvent porté (PixelLab `create_map_object` 64×64, 6 essais, le plus net
+  retenu). ⚠ Les six essais posaient la maison sur une DALLE (pavés, herbe, seuil de
+  briques) malgré « no base, no platform » dans la description : dalle retirée à la main
+  (couleurs du socle sous la rangée 50, buisson d'angle gardé), pied des murs assombri,
+  vitres peintes jaunes « allumées en plein jour » passées en verre sombre (la nuit,
+  houseWindows les allume), `ecartSol --darker` (crépi à l'ombre trop près du sol, b2-3).
 - **La nuit des bâtiments-moteur** (`sceneWindows.js` réécrit) :
   - les fenêtres s'allument AUSSI au médiéval, au romain et au XIXe (le détecteur des
     maisons, `houseWindows.windowPixels`, sur les scènes de ces stades) ;
