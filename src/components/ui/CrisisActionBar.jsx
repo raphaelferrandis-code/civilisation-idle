@@ -5,7 +5,7 @@ import { runCrisisAction, togglePolicy } from '../../game/core/actions.js';
 import { openAuguryTable } from '../../game/core/auguryTable.js';
 import { costLabel, canPayCost } from '../../game/core/utils.js';
 import { state } from '../../game/core/state.js';
-import { FOYER_RELIEF_ADD, FOYER_MALUS_RESOURCE, FOYER_MALUS_PCT, FOYER_REFORM, FOYER_RELIEF_CAP, POLICY_MAX_ACTIVE, AUGURY_STAKES } from '../../game/core/balance.js';
+import { FOYER_RELIEF_ADD, FOYER_MALUS_RESOURCE, FOYER_MALUS_PCT, FOYER_REFORM, FOYER_REFORM_CAP, POLICY_MAX_ACTIVE, AUGURY_STAKES } from '../../game/core/balance.js';
 import { REGULATION_ACTIONS, REGULATION_POLICIES } from '../../game/data/regulationActions.js';
 import { tr } from '../../game/core/i18n.js';
 import { FaveurIcon } from './FaveurIcon.jsx';
@@ -67,7 +67,9 @@ const REFORM_ID = {
 };
 
 // Descripteur d'une réforme de fond : recul DURABLE déposé sur le foyer, déjà
-// acquis (currentReform), et saturation au plafond partagé (atCap).
+// acquis (currentReform), et saturation au plafond de la RÉFORME (atCap) —
+// FOYER_REFORM_CAP (0.72), le même que le moteur (crisis.js) : griser à
+// FOYER_RELIEF_CAP (0.45, celui de l'apaisement) bloquait le joueur à mi-chemin.
 function describeReform(foyer, cost, currentReform) {
   return {
     id: REFORM_ID[foyer],
@@ -75,7 +77,7 @@ function describeReform(foyer, cost, currentReform) {
     reform: true,
     durableAdd: FOYER_REFORM[foyer]?.add || 0,
     currentReform: currentReform || 0,
-    atCap: (currentReform || 0) >= FOYER_RELIEF_CAP - 1e-6
+    atCap: (currentReform || 0) >= FOYER_REFORM_CAP - 1e-6
   };
 }
 
@@ -93,7 +95,7 @@ function describeRegAction(action, cost, ctx, currentReform) {
     reform: isReform,
     durableAdd: action.reformAdd || 0,
     currentReform: currentReform || 0,
-    atCap: isReform && (currentReform || 0) >= FOYER_RELIEF_CAP - 1e-6,
+    atCap: isReform && (currentReform || 0) >= FOYER_REFORM_CAP - 1e-6,
     malusRes: action.malusRes,
     malusPct: action.malusPct || 0,
     bonus: action.infraAdd ? 'infra' : null,

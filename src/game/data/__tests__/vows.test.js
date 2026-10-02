@@ -9,6 +9,7 @@ import {
   CYCLE_VOWS, vowById, rollCycleVow,
   cycleVowRuinMult, cycleVowStatus, refreshCycleVowDone,
 } from "../vows.js";
+import { CRISIS_EVENTS } from "../world.js";
 
 const fakeState = (over = {}) => ({ cycleCrisesResolved: 0, cycleVow: null, ...over });
 
@@ -32,6 +33,15 @@ describe("vœux du cycle (D2)", () => {
       expect(s.fr).toBeTruthy();
       expect(s.en).toBeTruthy();
       expect(s.fr.length).toBeLessThanOrEqual(12);
+    }
+  });
+
+  // Un vœu de crises ne peut pas demander plus de crises qu'un cycle n'en offre :
+  // chaque palier de CRISIS_EVENTS ne s'ouvre qu'une fois par cycle. « La fermeté »
+  // en demandait 4 pour 3 paliers — un vœu impossible, choisi puis jamais tenu.
+  it("aucun vœu de crises ne dépasse le nombre de crises d'un cycle", () => {
+    for (const v of CYCLE_VOWS.filter((x) => x.kind === "crisis")) {
+      expect(v.roll(fakeState()).target).toBeLessThanOrEqual(CRISIS_EVENTS.length);
     }
   });
 

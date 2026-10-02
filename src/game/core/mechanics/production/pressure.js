@@ -144,10 +144,7 @@ export function pressureBreakdown(forceDecimalPath = false) {
   const fr = state.foyerRelief || {};
   const rf = state.foyerReform || {};
   // Réduction d'un foyer = apaisement temporaire (fr, décline) + réforme durable
-  // (rf, permanente), PLAFONNÉE en commun à FOYER_RELIEF_CAP. Le plafond partagé
-  // garantit l'invariant anti-immortalité : la réforme rend le recul durable,
-  // sans jamais dépasser le maximum déjà atteignable par l'apaisement (cf.
-  // FOYER_REFORM dans balance.js, mesuré par measure-foyers.js).
+  // (rf, permanente) + politique.
   // Plafond du recul combiné d'un foyer = FOYER_REFORM_CAP (durable, rework cadence) :
   // l'apaisement temporaire (fr) reste borné à FOYER_RELIEF_CAP à son dépôt, mais une
   // cité PLEINEMENT réformée descend plus bas (0.72). Anti-immortalité portée par l'Usure.

@@ -820,6 +820,14 @@ describe("Antée — les fardeaux doivent exister ET mordre", () => {
     expect(state.sisypheMult).toBeGreaterThan(avant);
   });
 
+  it("« Pente du rocher » : l'inflation repart de zéro à chaque cycle", () => {
+    // Le fardeau se rechoisit à chaque chute : son inflation aussi. Avant, elle
+    // s'accumulait de cycle en cycle jusqu'au Grand Reset.
+    setState(hydrateState({ ...MID_GAME_FIXTURE, sisypheHeritage: true, activeRuinIds: ["sisyphe"], sisypheMult: 50 }));
+    stateModule.resetTemporaryRunState(state);
+    expect(state.sisypheMult).toBe(1);
+  });
+
   it("« Fardeau du ciel » : Atlas prend le PREMIER coup, pas celui qu'on choisit", () => {
     // Le pouvoir reste (une crise saute toujours), le contrôle part : le skip du
     // cycle est consommé d'office sur la PREMIÈRE crise — même sous Conseil

@@ -315,7 +315,7 @@ export const upgrades = [
     effectType: "ruinGain",
     amount: 0.65,
     desc: { fr: "Classer les effondrements, c'est apprendre à mieux en tirer profit.", en: "To classify collapses is to learn how to profit from them better." },
-    effect: { fr: "Ruines gagnées +40%.", en: "Ruins gained +40%." }
+    effect: { fr: "Ruines gagnées +65%.", en: "Ruins gained +65%." }
   },
   {
     id: "phenix_calendaire",

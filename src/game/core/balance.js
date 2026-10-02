@@ -167,12 +167,12 @@ export const FOYER_MALUS_PCT = {
 // (sur le run, remis à zéro à l'effondrement) sur SON foyer, contre un coût
 // LOURD (≈5× l'apaisement, payé surtout en trésor/savoir).
 //
-// Garde-fou anti-immortalité (mesuré, cf. measure-foyers.js) : réforme et
-// apaisement PARTAGENT le plafond FOYER_RELIEF_CAP (la réduction combinée d'un
-// foyer ne dépasse jamais 0.45). À ce plafond la cible late maxée reste ~1.016
-// ≥ 1.0 → l'effondrement reste garanti. La réforme n'augmente donc PAS le
-// plafond : elle rend le recul DURABLE (et tenable sur les 4 foyers à la fois,
-// ce que le clic décroissant ne permet pas) → c'est là qu'est l'impact réel.
+// Plafond : la réforme va jusqu'à FOYER_REFORM_CAP (0.72, combiné relief +
+// réforme + politique dans pressureBreakdown) ; l'apaisement seul reste borné à
+// FOYER_RELIEF_CAP (0.45) à son dépôt. (Avant le rework cadence late-game, les
+// deux partageaient 0.45 pour garantir la chute par la Rupture ; c'est désormais
+// l'USURE qui la garantit.) Une cité pleinement réformée peut donc passer sous
+// 1.0 et tenir sur l'horloge d'Usure.
 // `add` = part déposée par clic (cumulée vers le plafond commun) ;
 // `seconds` = coût en secondes de production courante (cf. crisisCosts) ;
 // `resource` = ressource ponctionnée (trésor/savoir = « réduction du trésor »).

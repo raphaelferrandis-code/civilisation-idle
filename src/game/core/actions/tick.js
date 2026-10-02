@@ -273,8 +273,12 @@ export function tick(dt) {
   let instabilityDelta = instabilityDrift * INSTABILITY_DRIFT_SPEED * orderSlow * overshoot * dt;
   // Montée incompressible : garantit un cycle d'au moins ~2-3 min, le temps que
   // les pics se reconstruisent (sinon effondrement à gain nul en fin de partie).
+  // Le plafond est lui aussi FREINÉ par orderSlow : sinon les freins (politiques,
+  // « Maintenir l'ordre ») ne servaient à rien dès que la jauge montait au
+  // plafond, c'est-à-dire sous forte pression. Frein max 0.8 → plafond ×0.2 :
+  // la jauge monte toujours (0 → 100 % en ~14 min au pire), jamais un gel.
   if (instabilityDelta > 0) {
-    instabilityDelta = Math.min(instabilityDelta, INSTABILITY_MAX_RISE_PER_SEC * dt);
+    instabilityDelta = Math.min(instabilityDelta, INSTABILITY_MAX_RISE_PER_SEC * orderSlow * dt);
   }
   const nextInstability = state.instability + instabilityDelta;
   state.instability = instabilityTarget >= 1 && nextInstability >= 0.995

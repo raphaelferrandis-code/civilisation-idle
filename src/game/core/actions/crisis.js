@@ -33,7 +33,8 @@ import {
   regulationActionUnlocked,
   regulationPolicyUnlocked,
   regulFatigueEffectMult,
-  ruinNodeCost
+  ruinNodeCost,
+  boostedPrep
 } from '../mechanics.js';
 import { pushAnnalsMark } from '../annals.js';
 import { castAugury } from './augures.js';
@@ -51,7 +52,7 @@ import { generateCityName } from '../../map/procedural/cityName.js';
 import { clamp01, canPayCost, payCost, fmt } from '../utils.js';
 import { D } from '../num.js';
 import { crediblePopulation } from '../demographics.js';
-import { COLLAPSE_PREP_MAX, PREP_FUNEBRE_BOOST, FOYER_RELIEF_CAP, FOYER_REFORM_CAP, FOYER_RELIEF_ADD, FOYER_RELIEF_INSTANT_FACTOR, FOYER_MALUS_RESOURCE, FOYER_MALUS_PCT, FOYER_REFORM, REFORM_ACTION_FOYER, POLICY_MAX_ACTIVE } from '../balance.js';
+import { COLLAPSE_PREP_MAX, FOYER_RELIEF_CAP, FOYER_REFORM_CAP, FOYER_RELIEF_ADD, FOYER_RELIEF_INSTANT_FACTOR, FOYER_MALUS_RESOURCE, FOYER_MALUS_PCT, FOYER_REFORM, REFORM_ACTION_FOYER, POLICY_MAX_ACTIVE } from '../balance.js';
 import { HEPH_POP_CRISIS_THRESHOLD, PHENIX_RENAISSANCE_TARGET, PHENIX_REBIRTH_WINDOW_MS, PHENIX_REBIRTH_POP_MULT, ENEE_HERITAGE_MAX_COLLAPSES, isMythEffectActive } from '../../data/myths.js';
 import { hasActiveRuin } from '../../data/activeRuins.js';
 import { checkMythOnCollapse } from './myths.js';
@@ -304,8 +305,7 @@ export function runTerminalCrisisAction(type, tier = 0) {
   }
   // « Préparations funèbres » : l'effet de préparation (boost du gain de ruines)
   // est renforcé — mourir proprement rapporte davantage.
-  const prepBoost = has("preparations_funebres") ? PREP_FUNEBRE_BOOST : 1;
-  state.collapsePreparation = Math.min(COLLAPSE_PREP_MAX, (state.collapsePreparation || 0) + tierDef.prep * prepBoost);
+  state.collapsePreparation = Math.min(COLLAPSE_PREP_MAX, (state.collapsePreparation || 0) + boostedPrep(tierDef.prep));
 
   // Ramène la jauge qui a ouvert la crise au palier choisi, puis reprend la partie.
   state.crisisLimitAnnounced = false;

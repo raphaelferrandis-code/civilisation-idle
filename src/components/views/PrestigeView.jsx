@@ -6,6 +6,7 @@ import {
   ruinGain,
   ruinGainFactors,
   ruinGainWithPrep,
+  boostedPrep,
   crisisOpen,
   terminalCrisisCost,
   terminalCrisisReady,
@@ -294,7 +295,7 @@ export default function PrestigeView() {
                                   <strong>{tierNames[i]}</strong>
                                   <span className="edict-tier-target">{gaugeName} → {Math.round(t.target * 100)} %</span>
                                   <span className="effect-chip is-harvest">
-                                    {tr({ fr: `Ruines +${Math.round(t.prep * 100)} %`, en: `Ruins +${Math.round(t.prep * 100)}%` })}
+                                    {tr({ fr: `Ruines +${Math.round(boostedPrep(t.prep) * 100)} %`, en: `Ruins +${Math.round(boostedPrep(t.prep) * 100)}%` })}
                                   </span>
                                 </span>
                                 <span className="edict-tier-sub">

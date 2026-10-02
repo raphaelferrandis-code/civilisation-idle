@@ -59,7 +59,9 @@ export const CYCLE_VOWS = [
   timeVow('patience', 16, 1.26),
   timeVow('grand_age', 28, 1.42),
   crisisVow('vigilance', 2, 1.16),
-  crisisVow('fermete', 4, 1.34),
+  // 3 = TOUTES les crises du cycle : il n'existe que 3 paliers (CRISIS_EVENTS,
+  // latchés une fois par cycle). Un objectif à 4 était intenable (test-garde).
+  crisisVow('fermete', 3, 1.34),
   eraVow('elan', 2, 1.2),
   eraVow('ascension', 4, 1.36),
   eraVow('essor', 6, 1.52),

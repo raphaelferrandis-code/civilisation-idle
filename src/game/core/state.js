@@ -484,9 +484,9 @@ export const defaultState = () => ({
     complexity: 0,
     dissent: 0
   },
-  // Réforme de fond : recul DURABLE par foyer [0..FOYER_RELIEF_CAP], déposé par
-  // les actions de réforme. Ne décline PAS (contrairement à foyerRelief) ; partage
-  // le plafond combiné avec foyerRelief. Remis à zéro à chaque cycle.
+  // Réforme de fond : recul DURABLE par foyer [0..FOYER_REFORM_CAP], déposé par
+  // les actions de réforme. Ne décline PAS (contrairement à foyerRelief) ; le
+  // recul combiné (relief + réforme + politique) est plafonné à FOYER_REFORM_CAP. Remis à zéro à chaque cycle.
   foyerReform: {
     scarcity: 0,
     inequality: 0,
@@ -1916,6 +1916,10 @@ export function resetTemporaryRunState(s) {
   s.stagnationSec = 0;
   s.popMilestoneExp = 0;
   s.activeRuinIds = [];
+  // Pente du rocher (Ruine active Sisyphe) : l'inflation ×1.004/achat est celle
+  // DU cycle — comme le fardeau, elle se rechoisit à chaque chute. Sans ce reset
+  // elle s'accumulait de cycle en cycle (×50 après 1 000 achats, puis ×50 de plus…).
+  s.sisypheMult = 1;
   s.pendingActiveRuinsChoice = false;
   // defaultState() est l'unique source de vérité pour la forme de ces deux
   // objets (les effets ancestorCrisis/archiveCrisis incrémentent les

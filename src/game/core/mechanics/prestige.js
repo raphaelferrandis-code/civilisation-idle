@@ -81,12 +81,18 @@ export function ruinGainFactors() {
   };
 }
 
+// Préparation EFFECTIVE d'un palier d'édit : « Préparations funèbres » la
+// multiplie par PREP_FUNEBRE_BOOST. Source unique — le dépôt (crisis.js), la
+// préviz au survol et l'étiquette « Ruines +X % » de l'autel la lisent ; avant,
+// l'étiquette affichait la préparation brute (un tiers de moins que le réel).
+export function boostedPrep(prep) {
+  return prep * (has("preparations_funebres") ? PREP_FUNEBRE_BOOST : 1);
+}
+
 // Moisson projetée si l'on scellait un édit apportant `prep` de préparation —
-// préviz au survol des paliers (autel de la Chute). Applique le boost
-// « Préparations funèbres » exactement comme le fera runTerminalCrisisAction.
+// préviz au survol des paliers (autel de la Chute).
 export function ruinGainWithPrep(prep) {
-  const boost = has("preparations_funebres") ? PREP_FUNEBRE_BOOST : 1;
-  return ruinGain(false, prep * boost);
+  return ruinGain(false, boostedPrep(prep));
 }
 
 export const HERITAGE_QUALITY_LABELS = [
