@@ -203,6 +203,20 @@ const AGENT_COSMIC7 = {
   ],
   child: { name: 'jadechild', scale: 0.50 },
 };
+const AGENT_COSMIC8 = {
+  men: [
+    { name: 'stellarman', scale: 0.70 },    // astronome, robe nuit étoilée d'or
+    { name: 'stellarman2', scale: 0.70 },   // coursier au petit jetpack d'or
+    { name: 'stellarman3', scale: 0.70 },   // noble en ivoire, col d'or
+    { name: 'stellarman4', scale: 0.70 },   // marin des étoiles
+  ],
+  women: [
+    { name: 'stellarwoman', scale: 0.70 },  // chanteuse en robe d'or
+    { name: 'stellarwoman2', scale: 0.70 }, // navigatrice, visière d'or
+    { name: 'stellarwoman3', scale: 0.70 }, // jardinière aux fleurs orange
+  ],
+  child: { name: 'stellarchild', scale: 0.50 },  // ballon étoile
+};
 function agentSetForBand(band) {
   return band <= 1 ? AGENT_PREHISTORIC
     : band <= 3 ? AGENT_MEDIEVAL
@@ -210,7 +224,8 @@ function agentSetForBand(band) {
         : band <= 5 ? AGENT_INDUSTRIAL   // Fonte : XIXe industriel
           : band <= 6 ? AGENT_MODERN     // la ville de bureaux
             : band <= 7 ? AGENT_COSMIC7  // la cité de jade
-              : AGENT_FUTURE;            // (bandes 8-9 : à redessiner)
+              : band <= 8 ? AGENT_COSMIC8   // la cité stellaire, nacre et or
+                : AGENT_FUTURE;             // (bande 9 : à redessiner)
 }
 // Spec (nom+scale) d'un genre/variante. charType 0=homme 1=femme 2=enfant ; variant tiré au
 // spawn (p.skinVariant). Modulo → repli sur la variante 0 si l'ère n'a qu'une variante.
@@ -241,7 +256,7 @@ const AGENT_FALLBACK = { name: 'villager', scale: 0.82 }; // repli ultime si un 
 // route en biais — invisible au lint comme au rendu automatisé, d'où la garde
 // d'existence de __tests__/isoAgentDiagonals.test.js.
 const BASKET_CARRIERS = ['basket-man', 'basket-woman'];
-const AGENT_SETS = [AGENT_PREHISTORIC, AGENT_MEDIEVAL, AGENT_ANTIQUITY, AGENT_INDUSTRIAL, AGENT_MODERN, AGENT_COSMIC7, AGENT_FUTURE];
+const AGENT_SETS = [AGENT_PREHISTORIC, AGENT_MEDIEVAL, AGENT_ANTIQUITY, AGENT_INDUSTRIAL, AGENT_MODERN, AGENT_COSMIC7, AGENT_COSMIC8, AGENT_FUTURE];
 const ISO_AGENT_NAMES = [...new Set([
   ...AGENT_SETS
     .flatMap((set) => [...set.men, ...set.women, set.child].map((s) => s.name)),
