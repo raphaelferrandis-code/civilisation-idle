@@ -17,6 +17,8 @@
 // véhicules), `isoBridge` et `quaysAndRiot` ne remontent jamais vers le peintre —
 // vérifié avant la coupe. `agents.js` cite bien `drawIsoVehicle`, mais en PROSE.
 import { CM, cmEngineHomeHidden } from '../layout.js';
+import { isoFrontOffset } from './isoGroundDetail.js';
+import { districtMassTiles } from './isoDistricts.js';
 import { worldToScreen } from './projection.js';
 import { drawRiotWeapon } from '../quaysAndRiot.js';
 import { pxProbe, recPx } from '../pixelGrid.js';
@@ -287,7 +289,8 @@ export function drawIsoRioter(ctx, p, now, z) {
   // (ci-dessus) est posée à ce même point ; sans ça, la marge transparente du
   // roster (~12 % du cadre) suspendait l'émeutier au-dessus de son ombre.
   // Ères REDESSINÉES dans la main des habitants (PLAN-VIVANT) : leur propre scale,
-  // pour la même hauteur de personnage à l'écran. Les autres ères gardent 0,85.
+  // pour la même hauteur de personnage à l'écran (toutes les ères depuis le
+  // 2026-10-03 ; 0,85 ne reste que pour une clé d'ère inconnue).
   const rScale = RIOT_FLAT_SCALE[rEra] || 0.85;
   let dim = drawNamedAgentIso(ctx, sx, groundY, z, 'rioter-' + rEra + rgen, rScale, p.dir, walking, now, p.phase, 1, wd, true)
     || (rEra ? drawNamedAgentIso(ctx, sx, groundY, z, 'rioter-' + rgen, RIOT_FLAT_SCALE[''] || 0.85, p.dir, walking, now, p.phase, 1, wd, true) : false);
@@ -430,21 +433,39 @@ function isoUnitFiches() {
   if (_unitFiches && _unitFichesAt === memoKey) return _unitFiches;
   const T = CM.TILE;
   const m = new Map();
-  for (const t of L.tiles) {
-    const idf = t.buildingId || t.variant || '';
-    if (/field|farm|crop|orchard|aqueduct/i.test(idf)) continue;   // à plat (champs) / prop (point d'eau)
-    if (cmEngineHomeHidden(t)) continue; // pas encore achetée
+  const fiche = (t, idf, fo) => {
     const sx = t.spanX || t.size || 1, sy = t.spanY || t.size || 1;
     const x1 = (t.gx + sx) * T, y1 = (t.gy + sy) * T;
+    const fx = fo ? fo.ox * T : 0, fy = fo ? fo.oy * T : 0;
     const rec = {
-      key: x1 + y1,                                  // clé peintre du bâtiment (coin sud)
-      ax: x1 - y1,                                   // écran-X du coin sud (px monde)
+      key: x1 + fx + y1 + fy,                        // clé peintre du bâtiment (coin sud, poussé compris)
+      ax: x1 + fx - (y1 + fy),                       // écran-X du coin sud du sprite (px monde)
       halfW: (sx + sy) * T * 0.39 + T * 0.45,        // demi-rect sprite (0.78/2) + demi-unité
       x1, y1,
       id: idf, sx, sy,                               // identité : lue par la SONDE Q9 seulement
     };
     for (let ay = 0; ay < sy; ay += 1) for (let ax2 = 0; ax2 < sx; ax2 += 1) m.set((t.gx + ax2) * 10000 + (t.gy + ay), rec);
+  };
+  for (const t of L.tiles) {
+    const idf = t.buildingId || t.variant || '';
+    if (/field|farm|crop|orchard|aqueduct/i.test(idf)) continue;   // à plat (champs) / prop (point d'eau)
+    if (cmEngineHomeHidden(t)) continue; // pas encore achetée
+    // FRONT DE RUE : le peintre pousse le sprite vers sa rue (jusqu'à 0,19 case) et
+    // trie le bâtiment À CETTE POSITION (isoLiveCollect). La fiche doit porter la
+    // MÊME clé : avec la clé du coin nu, un passant « remonté » devant une façade
+    // poussée au sud ou à l'est restait sous la clé réelle du bâtiment — dessiné
+    // avant lui, donc avalé par le mur qu'il longe (audit du tri, 2026-10-02 :
+    // jusqu'à 6 % des passants selon la bande, tous sur ce cas). Les seuils
+    // devant/derrière restent ceux de l'emprise : le trottoir que le poussé
+    // recouvre est DEVANT la façade.
+    fiche(t, idf, isoFrontOffset(t, L.roadMap));
   }
+  // REPÈRES CIVIQUES (isoDistricts) : des pseudo-tiles hors de L.tiles, que le
+  // peintre dessine pourtant comme des scènes moteur de plusieurs cases. Sans fiche,
+  // un passant qui longeait leur face sud passait sous le mur (audit 2026-10-02,
+  // observatoires de la bande 8). Pas de poussé de front : le peintre n'en met pas.
+  const dMass = districtMassTiles(L);
+  if (dMass) for (const t of dMass) fiche(t, t.buildingId || '', null);
   _unitFiches = m; _unitFichesAt = memoKey;
   return m;
 }
@@ -551,7 +572,9 @@ export function drawIsoCitizenItem(ctx, p, now, z) {
 // levée agrandit la toile de l'animation (44 à 48 px selon la direction) : les bandes
 // sont ramenées à 48 px pieds alignés (scripts/padStrip.mjs), personnage ~30 px →
 // 0,98 × 0,64 ≈ 0,70 × 0,90 des habitants — même hauteur, même taille de pixel.
-const RIOT_FLAT_SCALE = { 'anti-': 0.98, 'mod-': 0.98, 'fut-': 0.98 };
+// Depuis le 2026-10-03, TOUTES les ères sont redessinées (la clé vide = le médiéval,
+// qui sert aussi de repli) : plus aucune figurine de juillet n'est servie.
+const RIOT_FLAT_SCALE = { 'stone-': 0.98, '': 0.98, 'anti-': 0.98, 'ind-': 0.98, 'mod-': 0.98, 'fut-': 0.98 };
 // Jeux d'émeutiers incomplets : combinaison manquante → combinaison dessinée.
 const RIOT_ERA_SWAP = { 'mod-': { 'man-fork': 'man-torch', 'woman-torch': 'woman-fork' } };
 

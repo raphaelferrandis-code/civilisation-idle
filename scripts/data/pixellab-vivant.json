@@ -139,5 +139,33 @@
       "hatch-mod": "dae72849 (vues nord = avant)",
       "_note": "flotte moderne abandonnée (vues coupées / vue nord = avant) : pack MinZinn gardé"
     }
+  },
+  "erasAnciennes": {
+    "_note": "2026-10-03 : émeutiers stone-/base/ind- redessinés + 3 métiers b0-1/b2-3/b5. rioter-stone-man-torch SW = prise 91d3c913 (--pick). Lances, pelle, pancarte : formule « one fist raised, the other hand gripping the X raised high above the head ».",
+    "emeutiers": {
+      "rioter-stone-man-torch": "94be9668-6fe8-4c14-bf4f-1e0536eca0de",
+      "rioter-stone-woman-torch": "ec07b80a-bed7-40bb-a171-1a17235f9ec3",
+      "rioter-stone-man-fork": "01e97512-17dd-4553-810e-dbc47f627d61",
+      "rioter-stone-woman-fork": "24ba171d-6a72-426d-a79d-06d1ed094252",
+      "rioter-man-torch": "bb99a196-7123-44c2-89a9-a6b790c4dec4",
+      "rioter-woman-torch": "d79a9c37-e3fe-4820-8887-4b6b661580d2",
+      "rioter-man-fork": "c6a46204-5830-4561-bc6c-cdbec77387d7",
+      "rioter-woman-fork": "e0065f36-a06f-488b-aa17-1e30f9838b4a",
+      "rioter-ind-man-torch": "da17151d-ea6b-4f0f-993a-911dca189279",
+      "rioter-ind-woman-torch": "7aaa5744-34fb-4a58-8e83-a44adfdee082",
+      "rioter-ind-man-fork": "d67dff42-f7d4-43ec-ba46-97b8e40e8d8c",
+      "rioter-ind-woman-fork": "2e54c15f-c5a5-4ee0-b237-5a8352eaa263"
+    },
+    "habitants": {
+      "caveman3": "8b17b033-4630-4de2-b3ca-4bcde60fa961",
+      "caveman4": "8fdc4ab2-b241-40f6-bfe3-23bebce1d64d",
+      "cavewoman3": "c4360c7a-c3a2-4b75-8920-86c0c32e41fa",
+      "villager3": "36babe35-417f-4186-9a4e-a4bc38ec8485",
+      "villager4": "714a0674-a8d7-478b-9914-d080cb532707",
+      "villagerwoman3": "7e5c519e-3e57-4f3d-b908-c8bd0c976e5b",
+      "industrialman3": "d5086a8e-cde2-4e6a-b997-cf3e194f3b29",
+      "industrialman4": "af79e6ab-2f54-40df-b62c-7bded4abd204",
+      "industrialwoman3": "de758122-02d0-4a29-81e7-2c21ba8ebd85"
+    }
   }
 }

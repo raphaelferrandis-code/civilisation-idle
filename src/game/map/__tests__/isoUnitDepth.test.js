@@ -2,6 +2,7 @@ import { describe, it, expect, afterEach } from "vitest";
 
 import { CM } from "../layout.js";
 import { isoUnitDepth, isoUnitDepthEx } from "../iso/isoUnits.js";
+import { isoFrontOffset } from "../iso/isoGroundDetail.js";
 
 // PROFONDEUR PEINTRE des unités mobiles (habitants / véhicules / émeutiers) en
 // iso (isoUnitDepth). drawIsoLive classe chaque bâtiment au coin SUD de son
@@ -110,6 +111,21 @@ describe("isoUnitDepth — unités face aux emprises multi-tuiles", () => {
     expect(deux.d).toBe(raw);
     expect(deux.d).toBeLessThan(19 * T);             // sous la clé de la tour sud
     expect(deux.hidden).toBe(true);                  // → passe silhouette fantôme
+  });
+
+  it("façade POUSSÉE vers sa rue (front de rue) : le passant du trottoir passe devant la clé RÉELLE", () => {
+    // Le peintre trie la maison à son coin sud DÉCALÉ vers la rue (isoFrontOffset) :
+    // la fiche doit porter la même clé, sinon le passant remonté à « coin nu + ε »
+    // reste dessiné avant la maison — avalé par la façade qu'il longe (audit 2026-10-02).
+    const h = house(10, 10, 1, 1);
+    CM.TILE = T;
+    CM.layout = { tiles: [h], roadMap: new Map([["10,11", { rank: "secondary" }]]) };
+    CM.layoutRecomputeAt = (CM.layoutRecomputeAt || 0) + 1;
+    const fo = isoFrontOffset(h, CM.layout.roadMap);
+    expect(fo && fo.oy).toBeGreaterThan(0);            // poussée vers le sud, vers la rue
+    const cleReelle = (11 + 11 + fo.ox + fo.oy) * T;   // clé du peintre (isoLiveCollect)
+    const d = isoUnitDepth(10.5 * T, 11.04 * T);       // sur le trottoir, devant la façade
+    expect(d).toBeGreaterThan(cleReelle);
   });
 });
 

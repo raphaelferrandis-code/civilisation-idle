@@ -131,13 +131,30 @@ function pxAgentFam(name) {
 const AGENT_PREHISTORIC = {
   // Scales ×~1.46 depuis la régé FLAT 2026-08-03 (ratio perso/canvas 0.50 vs 0.728
   // des anciennes bandes) : même hauteur de perso à l'écran qu'avant.
-  men: [{ name: 'caveman', scale: 1.31 }, { name: 'caveman2', scale: 1.31 }],       // + variante peau noire + tenue
-  women: [{ name: 'cavewoman', scale: 1.25 }, { name: 'cavewoman2', scale: 1.25 }],
+  // + 3 MÉTIERS (PLAN-VIVANT, 2026-10-03), dessinés en v3 toile 32 : scale = 1,31 × 32/56
+  // ≈ 0,75, MÊME taille de pixel que les dessins d'août de l'ère (charte « une main »).
+  men: [
+    { name: 'caveman', scale: 1.31 }, { name: 'caveman2', scale: 1.31 },        // + variante peau noire + tenue
+    { name: 'caveman3', scale: 0.75 },   // pêcheur, poisson sur l'épaule
+    { name: 'caveman4', scale: 0.75 },   // chaman, coiffe en bois de cerf
+  ],
+  women: [
+    { name: 'cavewoman', scale: 1.25 }, { name: 'cavewoman2', scale: 1.25 },
+    { name: 'cavewoman3', scale: 0.75 }, // cueilleuse, panier de baies
+  ],
   child: { name: 'cavechild', scale: 0.87 },
 };
 const AGENT_MEDIEVAL = { // ère 2 (band 2-3) : paysans médiévaux — scales ×1.46 (régé FLAT, ratio 0.50)
-  men: [{ name: 'villager', scale: 1.24 }, { name: 'villager2', scale: 1.24 }],             // + variante métisse
-  women: [{ name: 'villagerwoman', scale: 1.24 }, { name: 'villagerwoman2', scale: 1.24 }], // + variante métisse
+  // + 3 MÉTIERS (2026-10-03), toile 32 : 1,24 × 32/56 ≈ 0,71, même taille de pixel.
+  men: [
+    { name: 'villager', scale: 1.24 }, { name: 'villager2', scale: 1.24 },      // + variante métisse
+    { name: 'villager3', scale: 0.71 },  // moine, habit noir et blanc
+    { name: 'villager4', scale: 0.71 },  // garde, tabard bleu à croix jaune
+  ],
+  women: [
+    { name: 'villagerwoman', scale: 1.24 }, { name: 'villagerwoman2', scale: 1.24 }, // + variante métisse
+    { name: 'villagerwoman3', scale: 0.71 }, // boulangère, panier de pains
+  ],
   child: { name: 'villagerchild', scale: 0.87 },
 };
 const AGENT_ANTIQUITY = { // band 4 : la Rome des domus et des insulae
@@ -161,8 +178,16 @@ const AGENT_ANTIQUITY = { // band 4 : la Rome des domus et des insulae
   child: { name: 'romanchild', scale: 0.50 },
 };
 const AGENT_INDUSTRIAL = { // ère 4 (band 5-6) : XIXe industriel — scales ×1.46 (régé FLAT, ratio 0.50)
-  men: [{ name: 'industrialman', scale: 1.24 }, { name: 'industrialman2', scale: 1.24 }],       // + variante peau noire + tenue
-  women: [{ name: 'industrialwoman', scale: 1.24 }, { name: 'industrialwoman2', scale: 1.24 }],
+  // + 3 MÉTIERS (2026-10-03), toile 32 : 1,24 × 32/56 ≈ 0,71, même taille de pixel.
+  men: [
+    { name: 'industrialman', scale: 1.24 }, { name: 'industrialman2', scale: 1.24 }, // + variante peau noire + tenue
+    { name: 'industrialman3', scale: 0.71 }, // sergent de ville, uniforme bleu
+    { name: 'industrialman4', scale: 0.71 }, // ouvrier, salopette bleue et clé
+  ],
+  women: [
+    { name: 'industrialwoman', scale: 1.24 }, { name: 'industrialwoman2', scale: 1.24 },
+    { name: 'industrialwoman3', scale: 0.71 }, // marchande de fleurs, châle rouge
+  ],
   child: { name: 'industrialchild', scale: 0.87 },
 };
 const AGENT_MODERN = { // band 6 : la ville de bureaux (PLAN-VIVANT, 2026-10-02)

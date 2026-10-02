@@ -102,10 +102,10 @@ Identifiants PixelLab : `scripts/data/pixellab-vivant.json`.
 
 | Bande | Habitants (8) | Émeutiers | Véhicules d'ère (`ERA_VEH`) |
 |---|---|---|---|
-| 0-1 | août (inchangés) | juillet (`stone-`) | — |
-| 2-3 | août (inchangés) | juillet | chariot à bœuf (2-3), chevalier (3), marchand bâché (3) |
+| 0-1 | août + pêcheur, chaman (bois de cerf), cueilleuse (`caveman3-4`, `cavewoman3`) | `stone-` redessinés (pagne orange à torche, robe rouge à torche, lanciers jaune et bleu) | — |
+| 2-3 | août + moine, garde, boulangère (`villager3-4`, `villagerwoman3`) | base redessinée (capuche rouge à torche, coiffe blanche à torche, fourches jaune et violette) — sert aussi de repli à toutes les ères | chariot à bœuf (2-3), chevalier (3), marchand bâché (3) |
 | 4 | Romains (`roman*`) | `anti-` | chariot à amphores, char, caravane rayée |
-| 5 | août (inchangés) | juillet (`ind-`) | charrette de brasseur, omnibus à impériale, (tram 1900*) |
+| 5 | août + sergent de ville, ouvrier, marchande de fleurs (`industrialman3-4`, `industrialwoman3`) | `ind-` redessinés (salopette à torche, robe verte à torche, docker à la pioche, suffragette à pancarte) | charrette de brasseur, omnibus à impériale, (tram 1900*) |
 | 6 | modernes (`modern*` : costume, sweat jaune, coursier, joggeur, manteau rouge, infirmière, sacs de courses, enfant ciré jaune) | `mod-` (sweat rouge à torche, femme à pancarte) | (tram moderne*) ; voitures/bus = pack MinZinn (non refait) |
 | 7 | jade (`jade*` : tunique jade, jardinier, ingénieur, savant, robe jade, botaniste, pilote, enfant à l'orbe) | `fut-` (cosmiques) | (tram magnétique ivoire et jade*) |
 | 8 | stellaire (`stellar*` : astronome, coursier à réacteur, noble, marin des étoiles, chanteuse, navigatrice, jardinière, enfant au ballon) | `fut-` | (tram flottant nacre et or*) |
@@ -187,3 +187,28 @@ tram de la muraille (`computeTramRing`, juin) a disparu du code depuis. Les fair
   émeutiers des bandes 0-1, 2-3 et 5 (juillet) ; 3 métiers de plus en bandes 0-1, 2-3
   et 5 ; drones (la session « Relief » tient le ciel des bandes 7-9) ; bateaux (session
   « bateaux ») ; porteurs et humains des scènes par ère ; erreurs de tri peintre.
+- **2026-10-02 soir → 03 (Raph : « occupe-toi de ces trucs-là » : émeutiers des ères
+  anciennes, métiers manquants, passants sur les toits)** — FAIT.
+  Émeutiers des bandes 0-1 (`stone-`), 2-3 (base) et 5 (`ind-`) redessinés, 4 par ère :
+  plus aucune figurine de juillet n'est servie, `RIOT_FLAT_SCALE` à 0,98 partout. 3
+  métiers de plus aux bandes 0-1, 2-3 et 5 (tableau §5bis), scale = celle de l'ère
+  ramenée à la toile 32 (0,75 et 0,71) pour garder la même taille de pixel.
+  Ratés en route, refaits : un « orc vert » (« peau de bête verte » lu comme peau
+  verte), un médiéval tout brun (le défaut « brun sur beige » de l'audit), un chaman à
+  coiffe de plumes de guerre (cliché hors sujet → bois de cerf), une lance qui passe à
+  l'horizontale avec deux pointes (→ formule « un poing levé, l'autre main tient la lance
+  au-dessus de la tête »), une torche cachée derrière la coiffe en vue de dos (→ « torche
+  tenue sur le côté »).
+  **Tri peintre — mesuré, puis corrigé.** Sonde `__sortAudit` (isoRenderer, éteinte par
+  défaut) + oracle de la session : pour chaque passant, véhicule ou émeutier dessiné, il
+  est « sur le toit » s'il est peint APRÈS un bâtiment qui est devant lui, « avalé » s'il
+  est peint AVANT un bâtiment derrière lequel il est en réalité devant, l'encre réelle du
+  bâtiment (masque) couvrant son torse. Bandes 0-9 avant : **0 cas « sur le toit »**,
+  **0 à 6 % d'avalés** selon la bande. Cause unique des avalés : le FRONT DE RUE pousse le
+  sprite d'une maison jusqu'à 0,19 case vers sa rue et le peintre la trie à cette
+  position, mais les fiches de profondeur des unités gardaient la clé du coin nu → le
+  passant « remonté » devant la façade restait juste sous la clé réelle. Plus les repères
+  civiques (emprises de district, absentes des fiches : observatoires de la bande 8).
+  Corrigé dans `isoUnitFiches` (isoUnits.js) + test ; après : **0 avalé, 0 sur le toit**
+  aux bandes 2 à 8. Non couverts par l'audit : merveilles (découpage en tranches à elles,
+  refonte en cours dans une autre session), ponts, arbres.

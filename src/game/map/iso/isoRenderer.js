@@ -127,6 +127,14 @@ function drawIsoLive(now) {
   }
   paintIsoItems({ ctx, T, z, hw, hh, L, houseBoxes, band, eraIdx, smokeK }, items, now);
   fp('vif-peinture');
+  // SONDE DU TRI (opt-in, coût nul éteinte) : l'ordre réel du peintre, recopié
+  // (les objets du pool sont réutilisés à la frame suivante), pour l'audit « une
+  // unité dessinée sur un bâtiment qui est devant elle » (PLAN-VIVANT, lot D).
+  if (globalThis.__sortAudit) {
+    globalThis.__sortAuditItems = items.map((it) => ({
+      d: it.d, kind: it.kind, t: it.t, p: it.p, v: it.v, gwx: it.gwx, gwy: it.gwy,
+    }));
+  }
   // Anneaux d'apaisement (clic sur un émeutier) : anneaux AU SOL projetés en
   // ellipse iso — mêmes minuterie et teinte que le legacy (drawCrisis).
   if (CM.calmPoofs && CM.calmPoofs.length) {
