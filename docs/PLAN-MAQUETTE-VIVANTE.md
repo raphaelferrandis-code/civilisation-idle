@@ -492,6 +492,12 @@ sont un peu flous ; d'autres dénotent ; l'allumage de nuit est à fignoler ».*
   gauche comme la maison de ville —, convertie nette à 53 px (`image_to_pixelart`), aucune
   dalle cette fois. Ses tons (poutres sombres, pierre) sont ceux du dessin : luminance 82,
   celle de la maison de pierre (87).
+  Raph : « le rendu est flou encore » → ⚠⚠ la conversion FIDÈLE (force 200) d'un rendu
+  136 px vers 53 px (×0,39) lisse les ombres en dégradés : flou à la taille du jeu. La
+  conversion NON fidèle est nette mais grouille de détails d'un pixel. Le bon geste pour
+  une MAISON : générer l'objet 8 directions DIRECTEMENT à la taille du jeu (`size: 64`,
+  sans objet de style — sa taille minimale l'interdit) et poser la vue sud-ouest telle
+  quelle, sans aucune conversion : vrai pixel art, aplats francs, 20 teintes.
 - **La nuit des bâtiments-moteur** (`sceneWindows.js` réécrit) :
   - les fenêtres s'allument AUSSI au médiéval, au romain et au XIXe (le détecteur des
     maisons, `houseWindows.windowPixels`, sur les scènes de ces stades) ;
