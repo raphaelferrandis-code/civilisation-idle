@@ -273,13 +273,13 @@ export function drawIsoRioter(ctx, p, now, z) {
     ctx.beginPath(); ctx.ellipse(sx, sp.y, ph * 0.85, ph * 0.32, 0, 0, Math.PI * 2); ctx.fill();
   }
   const rEra = riotEraKey((CM.layout && CM.layout.counts && CM.layout.counts.eraBand) || 0);
-  // BANDES DIAGONALES (DA « Figurine d'époque », batch riotIsoRoster) d'abord :
   let rgen = ((p.charType || 0) === 1 ? 'woman' : 'man') + '-' + (p.weapon === 'fork' ? 'fork' : 'torch');
   // Ère à jeu INCOMPLET (deux émeutiers sur quatre) : la combinaison manquante prend
   // sa voisine de la même ère plutôt que le paysan médiéval de base.
   const rSwap = RIOT_ERA_SWAP[rEra];
   if (rSwap && rSwap[rgen]) rgen = rSwap[rgen];
   const torch = rgen.endsWith('torch');
+  // BANDES DIAGONALES (DA « Figurine d'époque », batch riotIsoRoster) d'abord :
   // ère puis base médiévale ; repli CARDINAL legacy tant qu'une bande manque.
   // Anim par DISTANCE (p.walkDist, posé par updateCrisis) — anti-patinage.
   const wd = p.walkDist != null ? p.walkDist : null;
