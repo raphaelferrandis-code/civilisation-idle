@@ -32,7 +32,7 @@ import { WINTER } from '../seasonMode.js';
 import { orbitPoint, FLEET_TUNE } from '../riverFleet.js';
 import { ensureQuayGate, quayWallTune, quayGapRuns, quayWallTiles, quayWallColors } from '../quaysAndRiot.js';
 import { drawIsoReflections } from './isoReflect.js';
-import { quayTaperProfile } from './isoQuay.js';
+import { quayTaperProfile, setQuayWave } from './isoQuay.js';
 import { ISO_TILE_KEYS, isoWinterTile, beachTone, isoVariantKey, ensureIsoTileKey, BEACH } from './isoGroundTiles.js';
 import { WATER, waterShoreTune, rgb } from './isoPalette.js';
 import { RAIN_TUNE, precipKind } from './isoWeather.js';
@@ -342,6 +342,22 @@ export function riverArc(pts) {
   return a;
 }
 const ensureWaveArc = riverArc;
+
+// LE CLAPOTIS DES QUAIS (iso/isoQuay.js) bat sur la MÊME onde que la grève : on lui
+// passe, pour un sample du fleuve et une rive, la hauteur du moment, la laisse et la
+// vitesse de montée, plus le facteur d'amplitude de la frame (zoom, averse). Poussé
+// d'ici parce qu'isoQuay ne peut pas importer ce module (cycle). Lu APRÈS
+// drawIsoRiver dans la frame : l'instant et l'amplitude sont ceux de la frame.
+setQuayWave((i, side) => {
+  if (waveAmp <= 0 || !(waveTune.amp > 0)) return null;
+  const rv = CM.layout && CM.layout.river, core = rv && rv.samples;
+  if (!core || i < 0 || i >= core.length) return null;
+  const s = riverArc(core)[i];
+  return {
+    u: waveReach(s, waveT, side), wet: waveWetReach(s, waveT, side),
+    rise: waveRise(s, waveT, side), k: waveAmp / waveTune.amp,
+  };
+});
 
 // Ouvre la frame : fige l'instant et l'amplitude. Appelée UNE fois, en tête de
 // drawIsoRiver — tout ce qui suit dans la frame lit la même onde.
@@ -1102,9 +1118,12 @@ export const WATER_SHEETS = {
   // restent sur le disque pour l'A/B : `__waterSheets.beau.src =
   // '/pixelart/water/river-tiles-calm-ciel.png'`), donc liseré, quai et lavis inchangés.
   // ⚠ La nouvelle nappe est un peu plus SOMBRE en moyenne (moins de pixels clairs :
-  // luminosité −3 au beau fixe, −7 à −10 sous l'averse, en hiver et à l'usure, même
-  // couleur dominante) et bouge moins (0,8 % des pixels par image contre ~10 %) :
-  // c'est le prix d'une surface sans motif, vu sur planche (waterSansEcailles.test.js).
+  // luminosité −3 au beau fixe, −8 à −10 sous l'averse, en hiver et à l'usure, même
+  // couleur dominante), vu sur planche (waterSansEcailles.test.js).
+  // 2026-10-03 (Raph : « maintenant l'eau est très lisse ») : la première nappe ne
+  // bougeait que de 0,8 % de ses pixels par image ; ses creux RESPIRENT désormais et
+  // de petites ondulations s'y ajoutent — 6,5 % (l'ancienne à écailles : ~10 %).
+  // Variante « B » choisie sur planche animée parmi trois densités.
   // ⚠ BEAU TEMPS RECOLORÉ le 2026-09-30 (docs/PLAN-MAQUETTE-VIVANTE.md, lot 1 ; Raph :
   // « oui, calme-la ») : l'azur natif était 3 à 7 fois plus saturé que la ville.
   // Même dessin, cinq couleurs remplacées une pour une (scripts/eauCalme.mjs) ; le

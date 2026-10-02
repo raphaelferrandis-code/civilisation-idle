@@ -46,6 +46,26 @@ import { quayStyleFor, quayWallTune, quayWallColors, ensureQuayGate } from '../q
 // descend sur le sable (cf. LA FIN DU QUAI SUR UNE GRÈVE) ; false = l'ancienne pointe
 // effilée en lame (A/B).
 export const QUAY_ART = { bollards: true, grain: true, parapet: true, stairs: true, endRamp: true };
+
+// ── LE CLAPOTIS AU PIED DU MUR (2026-10-02) ─────────────────────────────────
+// Raph : « fais le clapotis au pied des quais ». Le quai est cuit en tuiles FIXES :
+// l'eau y touchait le mur sur une ligne immobile, alors qu'à deux pas la grève vit
+// avec le ressac (iso/isoRiver.js). On repasse donc EN DIRECT, après les tuiles, le
+// pied de chaque mur visible : la MÊME onde que la grève (même abscisse, même rive,
+// même instant — fournie par le fleuve, cf. setQuayWave) fait monter l'eau de
+// quelques pixels d'art contre la pierre, par pixels ENTIERS (la grille du quai) :
+//   · l'eau qui monte recouvre le bas du mur (teinte du bas-fond du coloris) ;
+//   · un liseré d'écume sur son front, plus franc quand elle monte ;
+//   · au retrait, la pierre reste MOUILLÉE (plus sombre) jusqu'à la laisse, et sèche —
+//     la même laisse que le sable mouillé des grèves.
+// Molette : `QUAY_LAP` (window.__quayLap) — `rise` = montée maximale en px d'art.
+export const QUAY_LAP = { on: true, rise: 3, wet: 0.24, foam: 0.85, water: 0.9, minZoom: 0.6 };
+if (typeof window !== 'undefined') window.__quayLap = QUAY_LAP;
+// L'onde du fleuve, POUSSÉE par isoRiver (qui importe ce module : l'importer d'ici
+// ferait un cycle). (i, side) → { u, wet, rise, k } pour le sample i du fleuve, ou null
+// quand l'onde est éteinte (dézoom, effondrement, molette).
+let _quayWave = null;
+export function setQuayWave(fn) { _quayWave = typeof fn === 'function' ? fn : null; }
 if (typeof window !== 'undefined') {
   window.__quayArt = (o) => {
     if (o && typeof o === 'object') Object.assign(QUAY_ART, o);
@@ -663,6 +683,81 @@ export function paintQuays(ctx) {
   }
   ctx.imageSmoothingEnabled = prevS;
   paintNeonEdge(ctx);
+  paintQuayLapping(ctx, cam, z, dpr);
+}
+
+// Le clapotis (cf. LE CLAPOTIS AU PIED DU MUR). Colonne par colonne d'ART le long du
+// pied de chaque mur visible : trois couches de pixels pleins, un remplissage par couche.
+function paintQuayLapping(ctx, cam, z, dpr) {
+  const geo = _geo, G = QUAY_LAP;
+  if (!geo || !G.on || !_quayWave || z < G.minZoom || CM.lodActive) return;
+  const fade = Math.max(0, Math.min(1, (z - G.minZoom) / 0.15));
+  if (fade <= 0) return;
+  const W = CM.cw, H = CM.ch;
+  const ax0 = cam.x - W / (2 * z) - 2, ax1 = cam.x + W / (2 * z) + 2;
+  const ay0 = cam.y - H / (2 * z) - 8, ay1 = cam.y + H / (2 * z) + 8;
+  const snap = (v) => Math.round(v * dpr) / dpr;
+  const sx = (ax) => snap((ax - cam.x) * z + W / 2), sy = (ay) => snap((ay - cam.y) * z + H / 2);
+  const wet = [], water = [], foam = [];
+  const wq = (CM.waterShore && CM.waterShore.quay) || ['rgba(150,184,180,0.50)', 'rgba(202,224,214,0.62)'];
+  for (const run of geo.runs) {
+    const N = run.edge.length;
+    // Escaliers de ce tronçon : leur masse avance dans l'eau devant le mur, l'eau y bat
+    // contre eux et non contre le mur (on ne dessine pas au travers).
+    const st = geo.stairs.filter((p) => p.run === run);
+    const wave = new Array(N);
+    const waveAt = (k) => {
+      if (wave[k] === undefined) wave[k] = _quayWave(run.a + k, run.side) || null;
+      return wave[k];
+    };
+    for (let k = 0; k < N - 1; k += 1) {
+      const h0 = run.wallH[k], h1 = run.wallH[k + 1];
+      if (!(h0 > 0) || !(h1 > 0)) continue;              // pas de mur visible ici
+      const e0 = run.edge[k], e1 = run.edge[k + 1];
+      if (Math.max(e0.x, e1.x) < ax0 || Math.min(e0.x, e1.x) > ax1) continue;
+      if (Math.max(e0.y + h0, e1.y + h1) < ay0 || Math.min(e0.y, e1.y) > ay1) continue;
+      const w0 = waveAt(k), w1 = waveAt(k + 1);
+      if (!w0 || !w1) continue;
+      const xa = Math.ceil(Math.min(e0.x, e1.x)), xb = Math.floor(Math.max(e0.x, e1.x));
+      const dx = e1.x - e0.x;
+      for (let ax = xa; ax < xb; ax += 1) {
+        if (ax < ax0 || ax > ax1) continue;
+        if (st.some((p) => ax >= p.x0 && ax <= p.x1)) continue;
+        const t = Math.abs(dx) > 1e-6 ? (ax + 0.5 - e0.x) / dx : 0;
+        if (t < 0 || t > 1) continue;
+        const foot = e0.y + h0 + (e1.y + h1 - e0.y - h0) * t;      // pied du mur, px d'art
+        const hh = h0 + (h1 - h0) * t;
+        const kk = w0.k + (w1.k - w0.k) * t;
+        const u = w0.u + (w1.u - w0.u) * t, wv = w0.wet + (w1.wet - w0.wet) * t;
+        const r = w0.rise + (w1.rise - w0.rise) * t;
+        // Hauteurs en px d'ART ENTIERS (la grille du quai), jamais plus que le mur.
+        const lift = Math.min(Math.floor(hh) - 1, Math.round(G.rise * kk * u));
+        const lw = Math.min(Math.floor(hh) - 1, Math.round(G.rise * kk * wv));
+        const fy = Math.round(foot);
+        const X = sx(ax), Xw = Math.max(1 / dpr, sx(ax + 1) - X);
+        if (lw > lift) wet.push(X, sy(fy - lw), Xw, sy(fy - lift) - sy(fy - lw));
+        if (lift > 0) water.push(X, sy(fy - lift), Xw, sy(fy) - sy(fy - lift));
+        // L'écume : un pixel sur le front, ajouré quand l'eau ne monte pas.
+        const f = Math.max(0, Math.min(1, 0.35 + r * 1.3));
+        const hsh = ((Math.imul(ax ^ (run.ri * 7919), 0x9e3779b1) >>> 0) / 4294967296);
+        if (hsh < f) foam.push(X, sy(fy - lift - 1), Xw, sy(fy - lift) - sy(fy - lift - 1));
+      }
+    }
+  }
+  const put = (arr, style) => {
+    if (!arr.length) return;
+    ctx.fillStyle = style;
+    ctx.beginPath();
+    for (let j = 0; j < arr.length; j += 4) ctx.rect(arr[j], arr[j + 1], arr[j + 2], arr[j + 3]);
+    ctx.fill();
+  };
+  const sa = hexRgb(wq[0]);
+  ctx.save();
+  ctx.globalAlpha = fade;
+  put(wet, `rgba(14,22,28,${G.wet})`);
+  put(water, `rgba(${sa[0]},${sa[1]},${sa[2]},${G.water})`);
+  put(foam, `rgba(236,244,242,${G.foam})`);
+  ctx.restore();
 }
 
 // ── LE LISERÉ NÉON (ères 6+) ────────────────────────────────────────────────

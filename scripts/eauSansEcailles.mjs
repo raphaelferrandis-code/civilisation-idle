@@ -13,8 +13,12 @@
  *     du pixel art : creux sombre, crête claire, à l'horizontale de l'écran) ;
  *   · des REFLETS : de courts traits horizontaux semés au hasard (tirage à distance
  *     minimale, sur le tore), qui naissent, s'allongent et s'éteignent sur les 8
- *     images — seuls eux bougent, le corps reste figé (la règle de la nappe calme).
- * Tout est périodique sur 64 px, donc le motif se répète sans couture.
+ *     images ;
+ *   · (2026-10-03) des creux qui RESPIRENT — ils gonflent et se résorbent sans
+ *     voyager, chacun à sa phase — et de petites ondulations plus fines : retour de
+ *     Raph sur la première nappe, « maintenant l'eau est très lisse ». Choisi sur
+ *     planche animée (« B ») entre trois densités.
+ * Tout est périodique sur 64 px et sur les 8 images : ni couture, ni saut de boucle.
  *
  * Sortie : public/pixelart/water/river-tiles-calm-ciel-v2.png (8 images de 64×64), puis
  * les trois autres coloris de l'état de la partie, MÊME DESSIN, couleurs par rôle (cf.
@@ -32,6 +36,21 @@ const arg = (k, d) => { const i = process.argv.indexOf(k); return i >= 0 ? proce
 const SEED = Number(arg('--seed', 11));
 const OUT = arg('--out', path.join('public', 'pixelart', 'water', 'river-tiles-calm-ciel-v2.png'));
 const BOARD = arg('--board', null);
+// Réglages de densité et de vie. DÉFAUTS = la nappe « B » choisie par Raph le
+// 2026-10-03. La première nappe (2026-10-02, jugée « très lisse ») se refait au pixel
+// près avec : --ripples -0.38 --fine 0 --glints 30 --dmin 7.5 --breathe 0 (sans --bright).
+//   --ripples  seuil des creux (plus haut = plus de creux)        défaut -0.24
+//   --fine     nombre de petites ondulations ajoutées               défaut 5
+//   --glints   nombre de reflets ; --dmin leur écart minimal       défaut 55 ; 6
+//   --breathe  respiration des creux d'une image à l'autre (0..1)  défaut 0.35
+//   --bright   crête CLAIRE au-dessus des creux profonds (écart) ;
+//              « none » = jamais                                  défaut 0.3
+const RIPPLES = Number(arg('--ripples', -0.24));
+const FINE = Number(arg('--fine', 5));
+const GLINTS = Number(arg('--glints', 55));
+const DMIN_ARG = Number(arg('--dmin', 6));
+const BREATHE = Number(arg('--breathe', 0.35));
+const BRIGHT = arg('--bright', '0.3') === 'none' ? Infinity : Number(arg('--bright', '0.3'));
 
 const N = 64, FR = 8;
 // Les cinq couleurs de la nappe calme du beau temps (scripts/eauCalme.mjs).
@@ -66,31 +85,56 @@ for (let k = 0; k < 9; k += 1) {
     a: 0.6 + R() * 0.4,
   });
 }
+// Petites ondulations (--fine) : plus serrées, plus faibles. Tirées sur un hasard À
+// PART, comme la respiration : le tirage principal (formes, reflets) reste celui de la
+// nappe validée quand ces options sont à zéro.
+const R2 = rng(SEED * 7919 + 13);
+for (let k = 0; k < FINE; k += 1) {
+  waves.push({
+    kx: 1 + Math.floor(R2() * 3), ky: 9 + Math.floor(R2() * 6),
+    sx: R2() < 0.5 ? -1 : 1, ph: R2() * Math.PI * 2, a: 0.25 + R2() * 0.2,
+  });
+}
+for (const w of waves) w.psi = R2() * Math.PI * 2;      // phase de respiration
 const amp = waves.reduce((s, w) => s + w.a, 0);
-const noise = (x, y) => {
+// Image `f` : chaque ondulation RESPIRE (amplitude ×(1 ± breathe)) sur les 8 images,
+// chacune à sa phase — les creux se gonflent et se résorbent sans voyager. Périodique
+// sur le cycle, donc la boucle ne saute pas.
+const noise = (x, y, f = 0) => {
   let v = 0;
-  for (const w of waves) v += w.a * Math.sin(2 * Math.PI * (w.sx * w.kx * x / N + w.ky * y / N) + w.ph);
+  for (const w of waves) {
+    const a = BREATHE > 0 ? w.a * (1 + BREATHE * Math.sin(2 * Math.PI * f / FR + w.psi)) : w.a;
+    v += a * Math.sin(2 * Math.PI * (w.sx * w.kx * x / N + w.ky * y / N) + w.ph);
+  }
   return v / amp;                           // ~[-1, 1]
 };
 
-// Le corps, FIGÉ : fond, creux, et la crête d'un pixel au-dessus de chaque creux.
-const TROUGH = -0.38;
-const body = [];
-for (let y = 0; y < N; y += 1) {
-  for (let x = 0; x < N; x += 1) body.push(noise(x, y) < TROUGH ? CREUX : FOND);
-}
-const at = (x, y) => body[((y + N) % N) * N + ((x + N) % N)];
-const base = body.slice();
-for (let y = 0; y < N; y += 1) {
-  for (let x = 0; x < N; x += 1) {
-    if (at(x, y) === FOND && at(x, y + 1) === CREUX) base[y * N + x] = ANNEAU;   // crête
+// Le corps : fond, creux, et la crête d'un pixel au-dessus de chaque creux (CLAIRE
+// au-dessus d'un creux profond, si --bright). Figé si --breathe = 0.
+const TROUGH = RIPPLES;
+function bodyAt(f) {
+  const nz = new Float32Array(N * N);
+  for (let y = 0; y < N; y += 1) for (let x = 0; x < N; x += 1) nz[y * N + x] = noise(x, y, f);
+  const body = [];
+  for (let i = 0; i < N * N; i += 1) body.push(nz[i] < TROUGH ? CREUX : FOND);
+  const at = (x, y) => body[((y + N) % N) * N + ((x + N) % N)];
+  const out = body.slice();
+  for (let y = 0; y < N; y += 1) {
+    for (let x = 0; x < N; x += 1) {
+      if (at(x, y) === FOND && at(x, y + 1) === CREUX) {
+        const below = nz[((y + 1) % N) * N + x];
+        out[y * N + x] = below < TROUGH - BRIGHT ? CLAIR : ANNEAU;           // crête
+      }
+    }
   }
+  return out;
 }
+const base0 = bodyAt(0);
 
 // Les reflets : traits horizontaux à distance minimale (sur le tore).
 const dashes = [];
-const DMIN = 7.5;
-for (let tries = 0; tries < 6000 && dashes.length < 30; tries += 1) {
+const DMIN = DMIN_ARG;
+for (let tries = 0; tries < 9000 && dashes.length < GLINTS; tries += 1) {
   const x = Math.floor(R() * N), y = Math.floor(R() * N);
   let ok = true;
   for (const d of dashes) {
@@ -106,7 +150,7 @@ const PROFILE = [0, 0.5, 1, 1, 0.5, 0, 0, 0];
 
 const sheet = new PNG({ width: N * FR, height: N });
 for (let f = 0; f < FR; f += 1) {
-  const img = base.slice();
+  const img = BREATHE > 0 ? bodyAt(f) : base0.slice();
   for (const d of dashes) {
     const w = PROFILE[(f + d.ph) % FR];
     const L = Math.round(d.len * w);

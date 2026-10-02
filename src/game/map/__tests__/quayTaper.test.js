@@ -1,4 +1,6 @@
 import { describe, expect, it } from 'vitest';
+import fs from 'node:fs';
+import path from 'node:path';
 import { quayTaperProfile } from '../iso/isoQuay.js';
 
 // LA FIN DU QUAI SUR UNE GRÈVE (2026-10-02, retour Raph : la pointe du quai sur la
@@ -41,5 +43,18 @@ describe('profil d\'effilement du quai', () => {
     expect(quayTaperProfile(g, 40, 1)).toBe(p);
     // La rive d'en face n'a pas de quai dans ce masque : profil nul.
     expect(Math.max(...quayTaperProfile(g, 40, -1))).toBe(0);
+  });
+});
+
+// LE CLAPOTIS AU PIED DU MUR (2026-10-03) bat sur l'onde du fleuve, que isoRiver lui
+// POUSSE (setQuayWave) : isoRiver importe déjà isoQuay (quayTaperProfile), et l'import
+// inverse ferait un cycle de modules — une zone morte à l'import, piège déjà payé deux
+// fois sur ce chantier (cf. isoRiverLife).
+describe('clapotis des quais', () => {
+  it("reçoit l'onde du fleuve sans importer isoRiver (pas de cycle)", () => {
+    const src = fs.readFileSync(path.join(process.cwd(), 'src/game/map/iso/isoQuay.js'), 'utf8');
+    expect(src).not.toMatch(/from ['"]\.\/isoRiver\.js['"]/);
+    const riv = fs.readFileSync(path.join(process.cwd(), 'src/game/map/iso/isoRiver.js'), 'utf8');
+    expect(riv).toMatch(/setQuayWave\(/);
   });
 });
