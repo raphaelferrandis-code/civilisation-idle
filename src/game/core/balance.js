@@ -189,10 +189,11 @@ export const FOYER_REFORM = {
 //   PROFIT : part ajoutée à ce foyer (« profiter ») ;
 //   PROFIT_PREP : préparation de chute gagnée en profitant (« Ruines +X % »,
 //            même réservoir que les édits terminaux, plafond COLLAPSE_PREP_MAX).
-// Calibré par bench-crises.js (2026-10-03, 24 h de partie neuve, 6 graines, les
-// 3 crises pilotes) : traiter toujours ≈ 1 669 Ruines, profiter toujours ≈ 1 590,
-// lire sa marge (profiter si la cible reste sous 50 % malgré la dette, ou si
-// traiter ne la ramène pas sous 100 %) ≈ 1 869 — gagnant sur les 6 graines.
+// Calibré par bench-crises.js (2026-10-03, 24 h de partie neuve, 6 graines) sur
+// les 3 crises pilotes : traiter toujours ≈ 1 669 Ruines, profiter toujours
+// ≈ 1 590, lire sa marge (profiter si la cible reste sous 50 % malgré la dette,
+// ou si traiter ne la ramène pas sous 100 %) ≈ 1 869. Revalidé sur les 15 crises
+// au tirage normal : 1 701 / 1 583 / 1 843 (lire sa marge gagne 5 graines sur 6).
 export const CRISIS_TREAT_SHIFT = { 0.25: 0.05, 0.5: 0.06, 0.75: 0.07 };
 export const CRISIS_PROFIT_SHIFT = { 0.25: 0.05, 0.5: 0.06, 0.75: 0.07 };
 export const CRISIS_PROFIT_PREP = { 0.25: 0.15, 0.5: 0.20, 0.75: 0.30 };

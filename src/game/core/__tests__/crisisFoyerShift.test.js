@@ -1,5 +1,5 @@
 "use strict";
-// Crises « qui comptent » (pilote 2026-10) : une option de crise dépose une part
+// Crises « qui comptent » (2026-10, les 15 crises) : une option de crise dépose une part
 // ABSOLUE sur le foyer de la crise jusqu'à la chute (state.foyerShift), au lieu
 // de pousser l'aiguille de la jauge — qui revenait vers la cible en quelques
 // secondes. On verrouille : l'effet sur la CIBLE, la protection par la réforme,
@@ -39,8 +39,9 @@ afterEach(() => {
 });
 
 describe("crises qui comptent — données", () => {
-  it("le pilote existe et chaque crise y a une option traiter + une option profiter sur SON foyer", () => {
-    expect(PILOTS.length).toBeGreaterThanOrEqual(3);
+  it("chaque crise a une option traiter + une option profiter sur SON foyer", () => {
+    // Toutes converties : plus aucune option ne pousse l'aiguille de la jauge.
+    expect(PILOTS.length).toBe(CRISIS_POOL.length);
     for (const ev of PILOTS) {
       const treat = byStance(ev, "stabiliser");
       const profit = byStance(ev, "temporiser");

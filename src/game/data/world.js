@@ -188,7 +188,7 @@ export const codexSavoirBonus = (bestEraIndex) => 250 * eraTier(bestEraIndex || 
 // foyer qui pèse le PLUS sur la cible (crisis.js pickCrisisEvent) : la crise dit
 // ce qui va mal dans CETTE cité.
 //
-// CRISES QUI COMPTENT (pilote, 2026-10) : une option porte `foyer` +
+// CRISES QUI COMPTENT (2026-10, les 15 crises) : une option porte `foyer` +
 // `foyerShift` et dépose une part ABSOLUE sur ce foyer jusqu'à la chute
 // (state.foyerShift, lu par pressureBreakdown). Les anciennes options poussaient
 // l'AIGUILLE de la jauge (×0.92…), qui revenait vers la cible en quelques
@@ -214,6 +214,7 @@ const RES_NAME = {
   food: { fr: "Nourriture", en: "Food" },
   gold: { fr: "Trésor", en: "Treasury" },
   knowledge: { fr: "Savoir", en: "Knowledge" },
+  population: { fr: "Rayonnement", en: "Radiance" },
   global: { fr: "Production globale", en: "Global output" }
 };
 const pct = (x) => Math.round(Math.abs(x) * 100);
@@ -266,16 +267,16 @@ export const CRISIS_POOL = [
     title: { fr: "Les entrepôts font parler d'eux", en: "The warehouses become the talk of the town" },
     body: { fr: "On commence à compter les sacs. Les voisins se regardent différemment. Le mot 'famine' n'est pas encore prononcé, mais il flotte.", en: "People begin to count the sacks. Neighbors look at one another differently. The word 'famine' has not yet been spoken, but it hangs in the air." },
     options: [
-      {
+      treatOption({
+        threshold: 0.25, foyer: "scarcity", res: "food", malus: 0.10,
         label: { fr: "Ouvrir les réserves", en: "Open the stores" },
-        effects: [{ label: { fr: "Nourriture −12%", en: "Food −12%" }, kind: "cost" }, { label: { fr: "Rupture −8%", en: "Rupture −8%" }, kind: "gain" }],
-        apply: () => { effects.addProductionPenalty("food", 0.12); effects.state.instability *= 0.92; effects.chronicle(tr({ fr: "Les réserves sont ouvertes. La peur redescend d'un cran.", en: "The stores are opened. The fear eases by a notch." })); }
-      },
-      {
-        label: { fr: "Nier le problème", en: "Deny the problem" },
-        effects: [{ label: { fr: "Production globale −5%", en: "Global output −5%" }, kind: "cost" }, { label: { fr: "Rupture +8%", en: "Rupture +8%" }, kind: "cost" }],
-        apply: () => { effects.addProductionPenalty("global", 0.05); effects.state.instability = effects.clamp01(effects.state.instability * effects.amplifyRuptureFactor(1.08)); effects.chronicle(tr({ fr: "Le pouvoir dit que tout va bien. La tension monte.", en: "The authorities say all is well. The tension rises." })); }
-      }
+        chronicle: { fr: "Les réserves sont ouvertes. La peur redescend d'un cran.", en: "The stores are opened. The fear eases by a notch." }
+      }),
+      profitOption({
+        threshold: 0.25, foyer: "scarcity",
+        label: { fr: "Vendre le grain au plus offrant", en: "Sell the grain to the highest bidder" },
+        chronicle: { fr: "Le grain part au plus offrant. Quelques coffres se remplissent ; les ventres, non.", en: "The grain goes to the highest bidder. A few coffers fill up; the bellies do not." }
+      })
     ]
   },
   {
@@ -306,16 +307,16 @@ export const CRISIS_POOL = [
     title: { fr: "La cité s'est construite trop vite", en: "The city was built too fast" },
     body: { fr: "Des quartiers entiers existent sans que personne n'ait pensé à les relier. Les habitants ne savent plus à qui s'adresser pour une plainte, une fuite d'eau, ou un titre de propriété.", en: "Whole districts exist that no one thought to connect. The inhabitants no longer know whom to turn to for a complaint, a water leak, or a deed of property." },
     options: [
-      {
+      treatOption({
+        threshold: 0.25, foyer: "complexity", res: "knowledge", malus: 0.10,
         label: { fr: "Réorganiser les quartiers", en: "Reorganize the districts" },
-        effects: [{ label: { fr: "Savoir −14%", en: "Knowledge −14%" }, kind: "cost" }, { label: { fr: "Infrastructure +5%", en: "Infrastructure +5%" }, kind: "gain" }, { label: { fr: "Rupture −9%", en: "Rupture −9%" }, kind: "gain" }],
-        apply: () => { effects.addProductionPenalty("knowledge", 0.14); effects.state.infrastructure = D(effects.state.infrastructure).mul(1.05); effects.state.instability *= 0.91; effects.chronicle(tr({ fr: "Des scribes cartographient la cité. L'administration devient lisible. C'est déjà ça.", en: "Scribes map the city. The administration becomes legible. That much, at least." })); }
-      },
-      {
+        chronicle: { fr: "Des scribes cartographient la cité. L'administration devient lisible. C'est déjà ça.", en: "Scribes map the city. The administration becomes legible. That much, at least." }
+      }),
+      profitOption({
+        threshold: 0.25, foyer: "complexity",
         label: { fr: "Continuer à construire", en: "Keep building" },
-        effects: [{ label: { fr: "Production globale +4%", en: "Global output +4%" }, kind: "gain" }, { label: { fr: "Rupture +10%", en: "Rupture +10%" }, kind: "cost" }],
-        apply: () => { effects.addProductionPenalty("global", -0.04); effects.state.instability = effects.clamp01(effects.state.instability * effects.amplifyRuptureFactor(1.10)); effects.chronicle(tr({ fr: "On continue. La cité grandit plus vite que sa propre compréhension d'elle-même.", en: "We carry on. The city grows faster than its own understanding of itself." })); }
-      }
+        chronicle: { fr: "On continue. La cité grandit plus vite que sa propre compréhension d'elle-même.", en: "We carry on. The city grows faster than its own understanding of itself." }
+      })
     ]
   },
   {
@@ -326,16 +327,16 @@ export const CRISIS_POOL = [
     title: { fr: "La jeunesse ne reconnaît plus la cité", en: "The young no longer recognize the city" },
     body: { fr: "Ceux qui sont nés ici n'ont pas vu les fondations. Ils veulent autre chose sans savoir quoi. Leurs aînées appellent ça de l'ingratitude. Eux appellent ça une vision.", en: "Those born here never saw the foundations laid. They want something else without knowing what. Their elders call it ingratitude. They call it a vision." },
     options: [
-      {
+      treatOption({
+        threshold: 0.25, foyer: "dissent", res: "knowledge", malus: 0.10,
         label: { fr: "Organiser une assemblée", en: "Hold an assembly" },
-        effects: [{ label: { fr: "Savoir −10%", en: "Knowledge −10%" }, kind: "cost" }, { label: { fr: "Rupture −10%", en: "Rupture −10%" }, kind: "gain" }],
-        apply: () => { effects.addProductionPenalty("knowledge", 0.10); effects.state.instability *= 0.90; effects.chronicle(tr({ fr: "L'assemblée crie, débat, et finit par se disperser. La tension baisse un peu.", en: "The assembly shouts, debates, and finally disperses. The tension drops a little." })); }
-      },
-      {
-        label: { fr: "Imposer le calme", en: "Impose order" },
-        effects: [{ label: { fr: "Nourriture −8%", en: "Food −8%" }, kind: "cost" }, { label: { fr: "Rupture +9%", en: "Rupture +9%" }, kind: "cost" }],
-        apply: () => { effects.addProductionPenalty("food", 0.08); effects.state.instability = effects.clamp01(effects.state.instability * effects.amplifyRuptureFactor(1.09)); effects.chronicle(tr({ fr: "Le calme est imposé. La jeunesse se tait en surface. En dessous, ça bout.", en: "Order is imposed. The young fall silent on the surface. Beneath, it boils." })); }
-      }
+        chronicle: { fr: "L'assemblée crie, débat, et finit par se disperser. La tension baisse un peu.", en: "The assembly shouts, debates, and finally disperses. The tension drops a little." }
+      }),
+      profitOption({
+        threshold: 0.25, foyer: "dissent",
+        label: { fr: "Envoyer la jeunesse sur les chantiers", en: "Send the young to the building sites" },
+        chronicle: { fr: "La jeunesse est envoyée bâtir. Les monuments montent ; la rancœur aussi.", en: "The young are sent to build. The monuments rise; so does the resentment." }
+      })
     ]
   },
   {
@@ -346,24 +347,16 @@ export const CRISIS_POOL = [
     title: { fr: "Des rumeurs circulent dans les rues", en: "Rumors are spreading through the streets" },
     body: { fr: "Quelqu'un diffuse des histoires. Personne ne sait d'où elles viennent, mais tout le monde les répète. Les versions changent selon les quartiers.", en: "Someone is spreading stories. No one knows where they come from, but everyone repeats them. The versions change from district to district." },
     options: [
-      {
+      treatOption({
+        threshold: 0.25, foyer: "dissent", res: "knowledge", malus: 0.10,
         label: { fr: "Enquêter sur la source", en: "Investigate the source" },
-        effects: [{ label: { fr: "Savoir −12%", en: "Knowledge −12%" }, kind: "cost" }, { label: { fr: "Rupture −8%", en: "Rupture −8%" }, kind: "gain" }],
-        apply: () => { effects.addProductionPenalty("knowledge", 0.12); effects.state.instability *= 0.92; effects.chronicle(tr({ fr: "L'enquête remonte une piste. La rumeur s'étouffe, pour l'instant.", en: "The inquiry traces a lead. The rumor is smothered, for now." })); }
-      },
-      {
-        label: { fr: "Diffuser un contre-récit", en: "Spread a counter-narrative" },
-        effects: [{ label: { fr: "Trésor −10%", en: "Treasury −10%" }, kind: "cost" }, { label: { fr: "🎲 55% : Rupture −4% · 45% : Rupture +7%", en: "🎲 55%: Rupture −4% · 45%: Rupture +7%" }, kind: "info" }],
-        apply: () => {
-          effects.addProductionPenalty("gold", 0.10);
-          const effect = Math.random() > 0.45 ? 0.96 : 1.07;
-          effects.state.instability = effects.clamp01(effects.state.instability * effect);
-          effects.chronicle(effect < 1 ? tr({ fr: "Le contre-récit prend. Les esprits se calment.", en: "The counter-narrative takes hold. Minds settle." }) : tr({ fr: "Le contre-récit est tourné en dérision. La rumeur gagne en crédibilité.", en: "The counter-narrative is mocked. The rumor only gains credibility." }));
-          return effect < 1
-            ? { label: tr({ fr: "🎲 Le contre-récit prend : Rupture −4%", en: "🎲 The counter-narrative takes hold: Rupture −4%" }), kind: "gain" }
-            : { label: tr({ fr: "🎲 Le contre-récit échoue : Rupture +7%", en: "🎲 The counter-narrative fails: Rupture +7%" }), kind: "cost" };
-        }
-      }
+        chronicle: { fr: "L'enquête remonte une piste. La rumeur s'étouffe, pour l'instant.", en: "The inquiry traces a lead. The rumor is smothered, for now." }
+      }),
+      profitOption({
+        threshold: 0.25, foyer: "dissent",
+        label: { fr: "Retourner la rumeur contre les rivaux", en: "Turn the rumor against rivals" },
+        chronicle: { fr: "La rumeur change de cible. Le pouvoir en sort grandi ; la confiance, non.", en: "The rumor changes target. Power comes out stronger; trust does not." }
+      })
     ]
   },
 
@@ -376,16 +369,16 @@ export const CRISIS_POOL = [
     title: { fr: "Les riches proposent de l'aide", en: "The wealthy offer their help" },
     body: { fr: "Quelques grandes maisons offrent d'investir dans la stabilité, en échange de leur nom gravé quelque part de visible.", en: "A few great houses offer to invest in stability, in exchange for their name carved somewhere visible." },
     options: [
-      {
+      treatOption({
+        threshold: 0.5, foyer: "inequality", res: "gold", malus: 0.12,
         label: { fr: "Taxer les élites", en: "Tax the elites" },
-        effects: [{ label: { fr: "Trésor −18%", en: "Treasury −18%" }, kind: "cost" }, { label: { fr: "Infrastructure +4%", en: "Infrastructure +4%" }, kind: "gain" }, { label: { fr: "Rupture −9%", en: "Rupture −9%" }, kind: "gain" }],
-        apply: () => { effects.addProductionPenalty("gold", 0.18); effects.state.infrastructure = D(effects.state.infrastructure).mul(1.04); effects.state.instability *= 0.91; effects.chronicle(tr({ fr: "Les élites financent des travaux publics. Le commerce ralentit, les murs tiennent.", en: "The elites fund public works. Trade slows, the walls hold." })); }
-      },
-      {
-        label: { fr: "Acheter leur paix", en: "Buy their peace" },
-        effects: [{ label: { fr: "Infrastructure −15%", en: "Infrastructure −15%" }, kind: "cost" }, { label: { fr: "Trésor +6%", en: "Treasury +6%" }, kind: "gain" }, { label: { fr: "Rupture +12%", en: "Rupture +12%" }, kind: "cost" }],
-        apply: () => { effects.addProductionPenalty("infrastructure", 0.15); effects.addProductionPenalty("gold", -0.06); effects.state.instability = effects.clamp01(effects.state.instability * effects.amplifyRuptureFactor(1.12)); effects.chronicle(tr({ fr: "La paix est achetée, brillante et fragile.", en: "Peace is bought, bright and fragile." })); }
-      }
+        chronicle: { fr: "Les élites financent des travaux publics. Le commerce ralentit, les murs tiennent.", en: "The elites fund public works. Trade slows, the walls hold." }
+      }),
+      profitOption({
+        threshold: 0.5, foyer: "inequality",
+        label: { fr: "Graver leurs noms partout", en: "Carve their names everywhere" },
+        chronicle: { fr: "Leurs noms ornent chaque fronton. La cité brille ; elle appartient un peu moins à tous.", en: "Their names adorn every pediment. The city shines; it belongs a little less to everyone." }
+      })
     ]
   },
   {
@@ -396,16 +389,16 @@ export const CRISIS_POOL = [
     title: { fr: "Quelqu'un accapare le pouvoir", en: "Someone is seizing power" },
     body: { fr: "Une faction monte. Pas encore assez forte pour gouverner seule, mais assez pour bloquer les autres. Elle attend que la cité soit suffisamment fragilisée.", en: "A faction is rising. Not yet strong enough to govern alone, but strong enough to block the others. It waits for the city to grow fragile enough." },
     options: [
-      {
+      treatOption({
+        threshold: 0.5, foyer: "dissent", res: "gold", malus: 0.12,
         label: { fr: "Partager les institutions", en: "Share the institutions" },
-        effects: [{ label: { fr: "Trésor −12%", en: "Treasury −12%" }, kind: "cost" }, { label: { fr: "Rupture −12%", en: "Rupture −12%" }, kind: "gain" }],
-        apply: () => { effects.addProductionPenalty("gold", 0.12); effects.state.instability *= 0.88; effects.chronicle(tr({ fr: "Les institutions sont ouvertes. La faction accepte un rôle moindre. Pour l'instant.", en: "The institutions are opened. The faction accepts a lesser role. For now." })); }
-      },
-      {
+        chronicle: { fr: "Les institutions sont ouvertes. La faction accepte un rôle moindre. Pour l'instant.", en: "The institutions are opened. The faction accepts a lesser role. For now." }
+      }),
+      profitOption({
+        threshold: 0.5, foyer: "dissent",
         label: { fr: "Tenir les rênes", en: "Hold the reins" },
-        effects: [{ label: { fr: "Savoir −15%", en: "Knowledge −15%" }, kind: "cost" }, { label: { fr: "Rupture +14%", en: "Rupture +14%" }, kind: "cost" }],
-        apply: () => { effects.addProductionPenalty("knowledge", 0.15); effects.state.instability = effects.clamp01(effects.state.instability * effects.amplifyRuptureFactor(1.14)); effects.chronicle(tr({ fr: "Le pouvoir central tient. La faction se tait. Sa colère, non.", en: "The central power holds. The faction falls silent. Its anger does not." })); }
-      }
+        chronicle: { fr: "Le pouvoir central tient. La faction se tait. Sa colère, non.", en: "The central power holds. The faction falls silent. Its anger does not." }
+      })
     ]
   },
   {
@@ -436,16 +429,16 @@ export const CRISIS_POOL = [
     title: { fr: "Des hommes armés demandent à parler", en: "Armed men ask to be heard" },
     body: { fr: "Une milice de quartier pense qu'elle peut mieux protéger la cité que ceux qui gouvernent. Peut-être. Ses représentants frappent à la porte du conseil, armés.", en: "A neighborhood militia believes it can protect the city better than those who govern. Perhaps. Its representatives knock at the council's door, armed." },
     options: [
-      {
+      treatOption({
+        threshold: 0.5, foyer: "dissent", res: "gold", malus: 0.12,
         label: { fr: "Intégrer la milice", en: "Absorb the militia" },
-        effects: [{ label: { fr: "Trésor −18%", en: "Treasury −18%" }, kind: "cost" }, { label: { fr: "Infrastructure +6%", en: "Infrastructure +6%" }, kind: "gain" }, { label: { fr: "Rupture −10%", en: "Rupture −10%" }, kind: "gain" }],
-        apply: () => { effects.addProductionPenalty("gold", 0.18); effects.state.infrastructure = D(effects.state.infrastructure).mul(1.06); effects.state.instability *= 0.90; effects.chronicle(tr({ fr: "La milice est intégrée. Elle protège les rues. Le trésor paye l'uniforme.", en: "The militia is absorbed. It guards the streets. The treasury pays for the uniforms." })); }
-      },
-      {
-        label: { fr: "Les repousser", en: "Turn them away" },
-        effects: [{ label: { fr: "Rayonnement −12%", en: "Radiance −12%" }, kind: "cost" }, { label: { fr: "Rupture +16%", en: "Rupture +16%" }, kind: "cost" }],
-        apply: () => { effects.addProductionPenalty("population", 0.12); effects.state.instability = effects.clamp01(effects.state.instability * effects.amplifyRuptureFactor(1.16)); effects.chronicle(tr({ fr: "La milice est refusée. Elle ne part pas. Elle attend.", en: "The militia is refused. It does not leave. It waits." })); }
-      }
+        chronicle: { fr: "La milice est intégrée. Elle protège les rues. Le trésor paye l'uniforme.", en: "The militia is absorbed. It guards the streets. The treasury pays for the uniforms." }
+      }),
+      profitOption({
+        threshold: 0.5, foyer: "dissent",
+        label: { fr: "Leur confier les rues", en: "Hand them the streets" },
+        chronicle: { fr: "La milice patrouille à sa façon. L'ordre règne : le sien.", en: "The militia patrols in its own way. Order reigns: its own." }
+      })
     ]
   },
   {
@@ -456,16 +449,16 @@ export const CRISIS_POOL = [
     title: { fr: "Les fondations fissurent", en: "The foundations are cracking" },
     body: { fr: "Les fontaines perdent leurs joints. Les routes s'effondrent entre les pierres. On a construit vite, mais personne n'a prévenu les budgets d'entretien.", en: "The fountains lose their seals. The roads collapse between the stones. We built fast, but no one warned the maintenance budgets." },
     options: [
-      {
+      treatOption({
+        threshold: 0.5, foyer: "complexity", res: "gold", malus: 0.12,
         label: { fr: "Investir dans les réparations", en: "Invest in repairs" },
-        effects: [{ label: { fr: "Trésor −20%", en: "Treasury −20%" }, kind: "cost" }, { label: { fr: "Infrastructure +8%", en: "Infrastructure +8%" }, kind: "gain" }, { label: { fr: "Rupture −9%", en: "Rupture −9%" }, kind: "gain" }],
-        apply: () => { effects.addProductionPenalty("gold", 0.20); effects.state.infrastructure = D(effects.state.infrastructure).mul(1.08); effects.state.instability *= 0.91; effects.chronicle(tr({ fr: "Les ouvriers réparent. La cité tient encore. Le trésor aussi, tout juste.", en: "The workers repair. The city still holds. So does the treasury, barely." })); }
-      },
-      {
+        chronicle: { fr: "Les ouvriers réparent. La cité tient encore. Le trésor aussi, tout juste.", en: "The workers repair. The city still holds. So does the treasury, barely." }
+      }),
+      profitOption({
+        threshold: 0.5, foyer: "complexity",
         label: { fr: "Reporter aux prochains", en: "Leave it to those who come next" },
-        effects: [{ label: { fr: "Infrastructure −10% (immédiat)", en: "Infrastructure −10% (immediate)" }, kind: "cost" }, { label: { fr: "Rupture +13%", en: "Rupture +13%" }, kind: "cost" }],
-        apply: () => { effects.state.infrastructure = D(effects.state.infrastructure).mul(0.90); effects.state.instability = effects.clamp01(effects.state.instability * effects.amplifyRuptureFactor(1.13)); effects.chronicle(tr({ fr: "On reporte. Les fissures s'élargissent. Quelqu'un d'autre paiera.", en: "We defer. The cracks widen. Someone else will pay." })); }
-      }
+        chronicle: { fr: "On reporte. Les fissures s'élargissent. Quelqu'un d'autre paiera.", en: "We defer. The cracks widen. Someone else will pay." }
+      })
     ]
   },
 
@@ -498,16 +491,16 @@ export const CRISIS_POOL = [
     title: { fr: "Les riches font leurs bagages", en: "The wealthy are packing their bags" },
     body: { fr: "Les maisons aisées ont des plans depuis longtemps. Des caisses chargées quittent la cité par des chemins discrets. Ils savent quelque chose que les autres ne savent pas encore.", en: "The well-off houses have had their plans for a long time. Laden chests leave the city by discreet roads. They know something the others do not yet know." },
     options: [
-      {
+      treatOption({
+        threshold: 0.75, foyer: "inequality", res: "population", malus: 0.15,
         label: { fr: "Bloquer les sorties", en: "Seal the exits" },
-        effects: [{ label: { fr: "Trésor +10%", en: "Treasury +10%" }, kind: "gain" }, { label: { fr: "Rayonnement −8%", en: "Radiance −8%" }, kind: "cost" }, { label: { fr: "Rupture −11%", en: "Rupture −11%" }, kind: "gain" }],
-        apply: () => { effects.addProductionPenalty("gold", -0.10); effects.addProductionPenalty("population", 0.08); effects.state.instability *= 0.89; effects.chronicle(tr({ fr: "Les routes sont fermées. Le trésor reste. La colère aussi.", en: "The roads are closed. The treasury stays. So does the anger." })); }
-      },
-      {
-        label: { fr: "Laisser partir", en: "Let them go" },
-        effects: [{ label: { fr: "Trésor −28%", en: "Treasury −28%" }, kind: "cost" }, { label: { fr: "Rupture +17%", en: "Rupture +17%" }, kind: "cost" }],
-        apply: () => { effects.addProductionPenalty("gold", 0.28); effects.state.instability = effects.clamp01(effects.state.instability * effects.amplifyRuptureFactor(1.17)); effects.chronicle(tr({ fr: "Ils partent avec leurs richesses. La cité se retrouve seule avec ses dettes.", en: "They leave with their riches. The city is left alone with its debts." })); }
-      }
+        chronicle: { fr: "Les routes sont fermées. Le trésor reste. La colère aussi.", en: "The roads are closed. The treasury stays. So does the anger." }
+      }),
+      profitOption({
+        threshold: 0.75, foyer: "inequality",
+        label: { fr: "Saisir ce qu'ils laissent", en: "Seize what they leave behind" },
+        chronicle: { fr: "Les riches partent, leurs palais restent. La cité s'en empare, et s'en vante.", en: "The rich leave, their palaces remain. The city seizes them, and boasts of it." }
+      })
     ]
   },
   {
@@ -518,16 +511,16 @@ export const CRISIS_POOL = [
     title: { fr: "Le palais est divisé", en: "The palace is divided" },
     body: { fr: "Deux prétendants au conseil supérieur. L'un soutenu par les marchands, l'autre par les soldats. La rue n'attend plus qu'un signal pour choisir son camp.", en: "Two claimants to the high council. One backed by the merchants, the other by the soldiers. The street waits only for a signal to choose its side." },
     options: [
-      {
+      treatOption({
+        threshold: 0.75, foyer: "dissent", res: "knowledge", malus: 0.15,
         label: { fr: "Laisser les quartiers voter", en: "Let the districts vote" },
-        effects: [{ label: { fr: "Savoir −18%", en: "Knowledge −18%" }, kind: "cost" }, { label: { fr: "Rupture −14%", en: "Rupture −14%" }, kind: "gain" }],
-        apply: () => { effects.addProductionPenalty("knowledge", 0.18); effects.state.instability *= 0.86; effects.chronicle(tr({ fr: "Le vote est houleux. Un nom sort. La cité se retrouve derrière lui, du moins officiellement.", en: "The vote is stormy. One name emerges. The city falls in behind it, officially at least." })); }
-      },
-      {
+        chronicle: { fr: "Le vote est houleux. Un nom sort. La cité se retrouve derrière lui, du moins officiellement.", en: "The vote is stormy. One name emerges. The city falls in behind it, officially at least." }
+      }),
+      profitOption({
+        threshold: 0.75, foyer: "dissent",
         label: { fr: "Trancher par décret", en: "Settle it by decree" },
-        effects: [{ label: { fr: "Trésor −18%", en: "Treasury −18%" }, kind: "cost" }, { label: { fr: "Rupture +18%", en: "Rupture +18%" }, kind: "cost" }],
-        apply: () => { effects.addProductionPenalty("gold", 0.18); effects.state.instability = effects.clamp01(effects.state.instability * effects.amplifyRuptureFactor(1.18)); effects.chronicle(tr({ fr: "Le décret est signé. L'un des deux prétendants disparaît. Avec ses partisans.", en: "The decree is signed. One of the two claimants vanishes. Along with his followers." })); }
-      }
+        chronicle: { fr: "Le décret est signé. L'un des deux prétendants disparaît. Avec ses partisans.", en: "The decree is signed. One of the two claimants vanishes. Along with his followers." }
+      })
     ]
   },
   {
@@ -538,16 +531,16 @@ export const CRISIS_POOL = [
     title: { fr: "Une maladie s'installe dans les bas-fonds", en: "A sickness takes root in the slums" },
     body: { fr: "Personne ne sait encore ce que c'est. Les médecins disent quarantaine. Les marchands disent non. Les gens toussent.", en: "No one knows yet what it is. The physicians say quarantine. The merchants say no. The people cough." },
     options: [
-      {
+      treatOption({
+        threshold: 0.75, foyer: "scarcity", res: "population", malus: 0.15,
         label: { fr: "Décréter la quarantaine", en: "Order a quarantine" },
-        effects: [{ label: { fr: "Rayonnement −15%", en: "Radiance −15%" }, kind: "cost" }, { label: { fr: "Trésor −12%", en: "Treasury −12%" }, kind: "cost" }, { label: { fr: "Rupture −13%", en: "Rupture −13%" }, kind: "gain" }],
-        apply: () => { effects.addProductionPenalty("population", 0.15); effects.addProductionPenalty("gold", 0.12); effects.state.instability *= 0.87; effects.chronicle(tr({ fr: "La quarantaine est imposée. L'épidémie ralentit. L'économie aussi.", en: "The quarantine is imposed. The epidemic slows. So does the economy." })); }
-      },
-      {
+        chronicle: { fr: "La quarantaine est imposée. L'épidémie ralentit. L'économie aussi.", en: "The quarantine is imposed. The epidemic slows. So does the economy." }
+      }),
+      profitOption({
+        threshold: 0.75, foyer: "scarcity",
         label: { fr: "Laisser circuler", en: "Let it spread freely" },
-        effects: [{ label: { fr: "Production globale +3%", en: "Global output +3%" }, kind: "gain" }, { label: { fr: "Rupture +20%", en: "Rupture +20%" }, kind: "cost" }],
-        apply: () => { effects.addProductionPenalty("global", -0.03); effects.state.instability = effects.clamp01(effects.state.instability * effects.amplifyRuptureFactor(1.20)); effects.chronicle(tr({ fr: "On laisse circuler. La maladie se répand dans les rues et les ateliers.", en: "We let it move freely. The sickness spreads through the streets and the workshops." })); }
-      }
+        chronicle: { fr: "On laisse circuler. La maladie se répand dans les rues et les ateliers.", en: "We let it move freely. The sickness spreads through the streets and the workshops." }
+      })
     ]
   },
   {
@@ -558,44 +551,32 @@ export const CRISIS_POOL = [
     title: { fr: "Les dettes de la cité arrivent à échéance", en: "The city's debts are coming due" },
     body: { fr: "Quelqu'un a promis plus qu'il ne pouvait tenir. Des créanciers attendaient patiemment. Ils n'attendent plus.", en: "Someone promised more than they could keep. The creditors waited patiently. They wait no longer." },
     options: [
-      {
+      treatOption({
+        threshold: 0.75, foyer: "inequality", res: "gold", malus: 0.15,
         label: { fr: "Honorer les dettes", en: "Honor the debts" },
-        effects: [{ label: { fr: "Trésor −32%", en: "Treasury −32%" }, kind: "cost" }, { label: { fr: "Rupture −14%", en: "Rupture −14%" }, kind: "gain" }],
-        apply: () => { effects.addProductionPenalty("gold", 0.32); effects.state.instability *= 0.86; effects.chronicle(tr({ fr: "Les dettes sont payées. La cité survit, lessivée. Le crédit reste intact.", en: "The debts are paid. The city survives, drained. Its credit stays intact." })); }
-      },
-      {
+        chronicle: { fr: "Les dettes sont payées. La cité survit, lessivée. Le crédit reste intact.", en: "The debts are paid. The city survives, drained. Its credit stays intact." }
+      }),
+      profitOption({
+        threshold: 0.75, foyer: "inequality",
         label: { fr: "Renégocier de force", en: "Renegotiate by force" },
-        effects: [{ label: { fr: "Trésor −10%", en: "Treasury −10%" }, kind: "cost" }, { label: { fr: "Infrastructure −8% (immédiat)", en: "Infrastructure −8% (immediate)" }, kind: "cost" }, { label: { fr: "Rupture +14%", en: "Rupture +14%" }, kind: "cost" }],
-        apply: () => { effects.addProductionPenalty("gold", 0.10); effects.state.infrastructure = D(effects.state.infrastructure).mul(0.92); effects.state.instability = effects.clamp01(effects.state.instability * effects.amplifyRuptureFactor(1.14)); effects.chronicle(tr({ fr: "La renégociation tourne mal. Les créanciers se retirent. L'infrastructure en paye le prix.", en: "The renegotiation turns sour. The creditors withdraw. The infrastructure pays the price." })); }
-      }
+        chronicle: { fr: "La renégociation tourne mal pour les créanciers. La cité garde son or ; sa parole ne vaut plus grand-chose.", en: "The renegotiation goes badly for the creditors. The city keeps its gold; its word is worth little now." }
+      })
     ]
   }
 ];
 
 // Aplatit les feuilles { fr, en } des données joueur en chaînes de la langue
-// courante, une fois au chargement (cf. localizeData dans i18n.js). DOIT précéder
-// inferCrisisStance ci-dessous : ce dernier teste /Rupture/ sur effects[].label,
-// donc les labels doivent déjà être des strings (et "Rupture" est conservé en EN).
+// courante, une fois au chargement (cf. localizeData dans i18n.js).
 // eras est aplati APRÈS la boucle des ères transcendantes (qui lit les feuilles via
 // tr()), si bien que les noms procéduraux déjà résolus restent intacts (idempotent).
 localizeData(eras);
 localizeData(CRISIS_POOL);
 
-// Posture de chaque option de crise, pour l'auto-résolution par la Doctrine de
-// crise (cf. CE-spec-idle-crises.md §A.2). L'option STABILISANTE est celle qui
-// REDUIT la Rupture (un effet kind:"gain" portant sur la Rupture) ; l'autre
-// TEMPORISE (Rupture +, ou pari). Dérivé des `effects` → robuste au
-// réordonnancement des options, contrairement à un index figé.
-const inferCrisisStance = (option) =>
-  (option.effects || []).some((e) => e.kind === "gain" && /Rupture/.test(e.label || ""))
-    ? "stabiliser" : "temporiser";
-// Une option qui déclare sa posture (crises « qui comptent », sans effet direct
-// sur la Rupture) la garde ; les autres sont déduites de leurs étiquettes.
-for (const ev of CRISIS_POOL) {
-  for (const opt of (ev.options || [])) opt.stance = opt.stance || inferCrisisStance(opt);
-}
-// Garde-fou dev-only (coût nul en prod) : chaque event doit avoir exactement une
-// option `stabiliser` et une `temporiser`, sinon l'auto-résolution est ambiguë.
+// Posture de chaque option (auto-résolution par la Doctrine de crise, cf.
+// CE-spec-idle-crises.md §A.2) : DÉCLARÉE par treatOption (« stabiliser » =
+// traiter) et profitOption (« temporiser » = profiter). Garde-fou dev-only (coût
+// nul en prod) : chaque event doit avoir exactement une option de chaque, sinon
+// l'auto-résolution est ambiguë.
 if (import.meta.env?.DEV) {
   for (const ev of CRISIS_POOL) {
     const stab = (ev.options || []).filter((o) => o.stance === "stabiliser").length;

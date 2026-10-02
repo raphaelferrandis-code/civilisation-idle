@@ -142,9 +142,9 @@ const { generateEpitaph } = await import("./src/game/core/events.js");
 // Pont d'effets world.js <-> core/ (cable par main.js en vrai jeu, absent en
 // headless). Sans lui les apply() des crises narratives levent et figent le jeu.
 const { registerWorldEffects } = await import("./src/game/data/worldEffects.js");
-const { addProductionPenalty, amplifyRuptureFactor } = mech;
+const { addProductionPenalty } = mech;
 const { clamp01 } = await import("./src/game/core/utils.js");
-registerWorldEffects({ addProductionPenalty, chronicle, amplifyRuptureFactor, clamp01, state });
+registerWorldEffects({ addProductionPenalty, chronicle, clamp01, state });
 
 // Merveilles en headless : elles sont normalement erigees par le runtime de la
 // carte (cmCheckWonders, absent ici) -> sans ca state.wonders reste vide et le

@@ -50,14 +50,14 @@ registerChoiceDialog((dialog) => {
 const mech = await import("./src/game/core/mechanics.js");
 const { isUnlocked, canBuyUpgrade, ruinGain, crisisOpen, buildingBatchCost,
   globalMultiplier, rates, timeWearRate, currentEraIndex, has,
-  addProductionPenalty, amplifyRuptureFactor } = mech;
+  addProductionPenalty } = mech;
 const { canPayCost, payCost, fmt, clamp01 } = await import("./src/game/core/utils.js");
 const { D, toNum } = await import("./src/game/core/num.js");
 const actions = await import("./src/game/core/actions.js");
 const { buyUpgrade, completeCollapse, tick, runCrisisAction, chronicle } = actions;
 const { generateEpitaph } = await import("./src/game/core/events.js");
 const { registerWorldEffects } = await import("./src/game/data/worldEffects.js");
-registerWorldEffects({ addProductionPenalty, chronicle, amplifyRuptureFactor, clamp01, state });
+registerWorldEffects({ addProductionPenalty, chronicle, clamp01, state });
 
 // --- CLI / constantes -------------------------------------------------------
 const argv = Object.fromEntries(process.argv.slice(2).map((a) => { const m = a.match(/^--([^=]+)=?(.*)$/); return m ? [m[1], m[2] === "" ? true : m[2]] : [a, true]; }));

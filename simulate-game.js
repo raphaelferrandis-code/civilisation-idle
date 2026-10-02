@@ -111,8 +111,7 @@ const {
   crisisOpen,
   terminalCrisisReady,
   buildingBatchCost,
-  addProductionPenalty,
-  amplifyRuptureFactor
+  addProductionPenalty
 } = await import("./src/game/core/mechanics.js");
 const {
   canPayCost,
@@ -133,7 +132,7 @@ const { generateEpitaph } = await import("./src/game/core/events.js");
 // headless). Sans ça, les apply() des crises narratives lèvent (effects.state
 // === null) et laissent le jeu en pause -> crash / aucune progression.
 const { registerWorldEffects } = await import("./src/game/data/worldEffects.js");
-registerWorldEffects({ addProductionPenalty, chronicle, amplifyRuptureFactor, clamp01, state });
+registerWorldEffects({ addProductionPenalty, chronicle, clamp01, state });
 
 const DEFAULT_HOURS = 4;
 const STEP_SECONDS = 120;

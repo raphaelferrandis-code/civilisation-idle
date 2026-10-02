@@ -116,8 +116,8 @@ const { generateEpitaph } = await import("./src/game/core/events.js");
 // headless). Sans ca, les apply() des crises narratives levent (effects.state
 // === null) et laissent le jeu en pause -> aucune progression.
 const { registerWorldEffects } = await import("./src/game/data/worldEffects.js");
-const { addProductionPenalty, amplifyRuptureFactor } = mech;
-registerWorldEffects({ addProductionPenalty, chronicle, amplifyRuptureFactor, clamp01, state });
+const { addProductionPenalty } = mech;
+registerWorldEffects({ addProductionPenalty, chronicle, clamp01, state });
 
 // Merveilles en headless : normalement erigees par le runtime de la carte
 // (cmCheckWonders), absent ici -> sans ca state.wonders reste vide et le jalon GR2

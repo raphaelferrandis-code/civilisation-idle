@@ -112,7 +112,3 @@ export function ruptureGrowthMultiplier() {
   return has("trait_theocracy") ? 1.25 : 1;
 }
 
-export function amplifyRuptureFactor(factor) {
-  if (factor <= 1 || !has("trait_theocracy")) return factor;
-  return 1 + (factor - 1) * ruptureGrowthMultiplier();
-}

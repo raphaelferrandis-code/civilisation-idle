@@ -29,8 +29,7 @@ import {
   crisisOpen,
   currentEraIndex,
   isUnlocked,
-  addProductionPenalty,
-  amplifyRuptureFactor
+  addProductionPenalty
 } from './mechanics.js';
 
 import {
@@ -79,7 +78,7 @@ import { registerWorldEffects } from '../data/worldEffects.js';
 
 // Injection des implémentations de core/ dans le pont d'effets de world.js
 // (casse le cycle d'imports world.js ↔ core/).
-registerWorldEffects({ addProductionPenalty, chronicle, amplifyRuptureFactor, clamp01, state });
+registerWorldEffects({ addProductionPenalty, chronicle, clamp01, state });
 
 export async function exportSave() {
   const text = encodeSaveText(JSON.stringify(state));

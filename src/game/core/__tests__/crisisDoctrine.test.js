@@ -14,6 +14,7 @@ import { idleCapSeconds, applyOfflineProgress } from "../main.js";
 import { autoResolveCrisisEvent } from "../actions/crisis.js";
 import { CRISIS_POOL } from "../../data/world.js";
 import { toNum } from "../num.js";
+import { pressureBreakdown } from "../mechanics.js";
 import { MID_GAME_FIXTURE, FIXED_NOW } from "./fixtures.js";
 
 beforeEach(() => {
@@ -113,17 +114,23 @@ describe("applyOfflineProgress — prod + Usure couplées, capées", () => {
 describe("autoResolveCrisisEvent — selon la posture, sans pause", () => {
   const grainPanic = CRISIS_POOL.find((e) => e.id === "grain_panic");
 
-  it("Stabiliser baisse la Rupture, sans mettre le jeu en pause", () => {
-    state.instability = 0.5;
+  // Depuis les « crises qui comptent » (2026-10), une crise déplace la CIBLE de
+  // Rupture via son foyer (state.foyerShift), plus l'aiguille.
+  const targetNow = () => { invalidateRenderCache("all"); return pressureBreakdown().total; };
+
+  it("Stabiliser (traiter) baisse la cible de Rupture, sans mettre le jeu en pause", () => {
+    const before = targetNow();
     autoResolveCrisisEvent(grainPanic, "stabiliser");
-    expect(state.instability).toBeLessThan(0.5);
+    expect(state.foyerShift.scarcity).toBeLessThan(0);
+    expect(targetNow()).toBeLessThanOrEqual(before);
     expect(stateModule.gamePaused).toBe(false);
   });
 
-  it("Temporiser laisse monter la Rupture, sans pause", () => {
-    state.instability = 0.5;
+  it("Temporiser (profiter) fait monter la cible de Rupture, sans pause", () => {
+    const before = targetNow();
     autoResolveCrisisEvent(grainPanic, "temporiser");
-    expect(state.instability).toBeGreaterThan(0.5);
+    expect(state.foyerShift.scarcity).toBeGreaterThan(0);
+    expect(targetNow()).toBeGreaterThan(before);
     expect(stateModule.gamePaused).toBe(false);
   });
 });

@@ -28,7 +28,7 @@
  *
  * Usage : node bench-crises.js [--hours=12] [--seed=N] [--only=a,b,c]
  *         [--lucide=0.5] [--regul=0.85|off] [--cap=4] [--branch]
- *         [--treat=a,b,c] [--profit=a,b,c] [--prep=a,b,c] [--out=fichier.md]
+ *         [--treat=a,b,c] [--profit=a,b,c] [--prep=a,b,c] [--detail=12] [--out=fichier.md]
  *   --only : limite le tirage aux crises listées (ids de CRISIS_POOL), pour
  *            mesurer un lot précis (le pilote). Sinon, tirage normal du jeu.
  *   --treat/--profit/--prep : molettes de calibrage des crises « qui comptent »
@@ -82,7 +82,7 @@ const stateModule = await import("./src/game/core/state.js");
 const { state, defaultState, hydrateState, invalidateRenderCache, setState, setGamePaused, setCollapseInProgress, setBuyAmount } = stateModule;
 const { registerChoiceDialog } = await import("./src/game/core/choiceDialog.js");
 const mech = await import("./src/game/core/mechanics.js");
-const { isUnlocked, buildingBatchCost, ruinGain, crisisOpen, pressureBreakdown, addProductionPenalty, amplifyRuptureFactor } = mech;
+const { isUnlocked, buildingBatchCost, ruinGain, crisisOpen, pressureBreakdown, addProductionPenalty } = mech;
 const { canPayCost, payCost, clamp01 } = await import("./src/game/core/utils.js");
 const { D, toNum } = await import("./src/game/core/num.js");
 const actions = await import("./src/game/core/actions.js");
@@ -91,7 +91,7 @@ const { generateEpitaph } = await import("./src/game/core/events.js");
 const { buildings, dynastyNames } = await import("./src/game/data/buildings.js");
 const { CRISIS_POOL } = await import("./src/game/data/world.js");
 const { registerWorldEffects } = await import("./src/game/data/worldEffects.js");
-registerWorldEffects({ addProductionPenalty, chronicle, amplifyRuptureFactor, clamp01, state });
+registerWorldEffects({ addProductionPenalty, chronicle, clamp01, state });
 
 const num = (x) => { const n = toNum(x); return Number.isFinite(n) ? n : Number.MAX_VALUE; };
 const flush = () => new Promise((r) => setImmediate(r));
@@ -362,8 +362,9 @@ de cycle). **Meilleur choix : profiter ${nProfit} fois, traiter ${rows.length - 
     md += `| ${r.name} | ${r.total.toFixed(0)} | ${r.cycles.length} | ${r.picks.filter((p) => p.stance === "stabiliser").length} / ${r.picks.filter((p) => p.stance === "temporiser").length} |\n`;
   }
   md += `\n### Détail par cycle\n\n| Joueur | Cycle | Durée | Pic de pop | Ruines | Fin |\n|---|---|---|---|---|---|\n`;
-  // 12 premiers cycles par joueur : le cupide en enchaîne plus d'une centaine.
-  for (const r of results) r.cycles.slice(0, 12).forEach((c, i) => {
+  // --detail premiers cycles par joueur (12 par défaut) : le cupide en enchaîne
+  // plus d'une centaine.
+  for (const r of results) r.cycles.slice(0, Number(argv.detail) || 12).forEach((c, i) => {
     md += `| ${r.name} | ${i + 1} | ${fmtH(c.dur)} | ${c.peakPop.toExponential(2)} | ${c.gain.toFixed(0)} | ${c.cause} |\n`;
   });
 }

@@ -36,11 +36,11 @@ const mech = await import("./src/game/core/mechanics.js");
 const { rates, globalMultiplier, timeWearRate, buildingBatchCost, ruinGain } = mech;
 const { D, toNum } = await import("./src/game/core/num.js");
 const actions = await import("./src/game/core/actions.js");
-const { addProductionPenalty, amplifyRuptureFactor } = mech;
+const { addProductionPenalty } = mech;
 const { chronicle } = actions;
 const { clamp01, fmt } = await import("./src/game/core/utils.js");
 const { registerWorldEffects } = await import("./src/game/data/worldEffects.js");
-registerWorldEffects({ addProductionPenalty, chronicle, amplifyRuptureFactor, clamp01, state });
+registerWorldEffects({ addProductionPenalty, chronicle, clamp01, state });
 
 // Horloge virtuelle fixe (les heritages a fenetre temporelle lisent Date.now()).
 const NOW = 1_000_000_000_000;

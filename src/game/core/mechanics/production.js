@@ -68,8 +68,7 @@ export {
   policyRiseSlow,
   policyOvershootDamp,
   policyFoyerDamp,
-  policyDemesureDamp,
-  amplifyRuptureFactor
+  policyDemesureDamp
 } from './production/crisisLevers.js';
 
 export {
