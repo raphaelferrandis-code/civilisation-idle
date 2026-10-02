@@ -88,7 +88,20 @@ voitures de l'ère (`drawIsoVehicle` + `vehSkinFor`) soulevées à la hauteur du
 Molette `__highway({ on, cars, lamps, shadow })`.
 ⚠ Les voitures de la grille continuent de rouler AU SOL sur l'artère, sous le tablier :
 c'est voulu (l'avenue reste en dessous), mais elles y passent dans l'ombre.
-### Lot 3 — Métro (B5) et monorail (B7) · à venir
+### Lot 3 — Métro (B5) et monorail (B7) · `procedural/metroPlan.js` + `iso/isoMetro.js`
+**Une seule ligne, deux époques** : le monorail n'est PAS sur l'artère (l'autoroute
+l'occupe dès la bande 6) — c'est la ligne du métro qui se modernise. Tracé dérivé du
+layout à chaque calcul (rien de stocké ni de réservé) : au-dessus de la **promenade du
+quai** (la berge, jamais bâtie) de la rive **opposée au cœur**, colonne par colonne,
+lissé (moyenne glissante ±3), décalé d'un tiers de tuile vers les terres pour ne pas
+cacher le mur de quai, sur la plus longue suite de colonnes où la ville borde ce quai ;
+rampe de 6 cases à chaque bout, station toutes les 18 cases. Il franchit l'artère en
+tête de pont, là où l'autoroute est encore au sol : **jamais de superposition**.
+B5 vert et crème, B6 bleu et blanc : viaduc de fer à poutres-treillis sur piles de
+pierre, deux voies, marquises de verre. B7-B9 : deux poutres fines sur piles en Y,
+rames profilées et stations-capsules dans la matière de l'ère. Molette `__metro`.
+⚠ Le tram de l'enceinte (agents.js `drawTram`, juin) n'est pas dessiné en iso : rien à
+concilier.
 ### Lot 4 — Quartier flottant (B9) et ruines verticales · à venir
 
 ## 5. Journal
@@ -102,3 +115,10 @@ c'est voulu (l'avenue reste en dessous), mais elles y passent dans l'ombre.
   chaussée (le trier sous le dessus) ; `organicLimit` couvre toute la grille, la lisière
   se lit aux bâtiments tenus ; les maisons bordent l'artère, les rues transversales
   s'arrêtent 1-2 cases avant elle (les prolonger au lieu d'exiger qu'elles la touchent).
+  Commit `44fd2f2`.
+- 2026-10-02 — lot 3. Premier jet trop large (tablier de 1,05 tuile sur la berge :
+  une dalle grise qui cachait le mur de quai) → 0,8 tuile recentrée vers les terres,
+  treillis plus haut et plus contrasté ; marquises d'abord « flottantes » (poteaux
+  d'un pixel invisibles) → poteaux en boîtes et toit à deux pans. Les aides de ruban
+  (`segGeo`, `vquad`, `elevGlow`…) ont rejoint `elevPaint.js`, partagées avec
+  l'autoroute.

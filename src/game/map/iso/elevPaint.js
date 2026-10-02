@@ -12,6 +12,8 @@
 // véhicule — 15 000 par frame dans un ciel de la bande 9, rédhibitoire en rendu
 // logiciel (cf. la fiche « Chrome de Raph : GPU désactivé »).
 import { ISO_X, ISO_Y } from './projection.js';
+import { lightCtx } from '../lightLayer.js';
+import { vieHalo } from './isoVie.js';
 
 // Remplit un polygone CONVEXE (points en px DEVICE) sur une grille de pas `kd`.
 // Une rangée d'art est peinte si son centre est dans le polygone ; ses bords sont
@@ -126,4 +128,38 @@ export function makeBakeCache(max = 240) {
     clear() { m.clear(); },
     get size() { return m.size; },
   };
+}
+
+// ── RUBANS (tabliers) ─────────────────────────────────────────────────────────
+// Géométrie d'un tronçon a→b ({x, y, z} px monde) de largeur w : quatre coins
+// [x, y, z], normale gauche (nx, ny), direction (ux, uy), longueur L.
+export function segGeo(a, b, w) {
+  const dx = b.x - a.x, dy = b.y - a.y, L = Math.hypot(dx, dy) || 1;
+  const nx = -dy / L, ny = dx / L, h = w / 2;
+  return {
+    AL: [a.x + nx * h, a.y + ny * h, a.z], BL: [b.x + nx * h, b.y + ny * h, b.z],
+    AR: [a.x - nx * h, a.y - ny * h, a.z], BR: [b.x - nx * h, b.y - ny * h, b.z],
+    nx, ny, ux: dx / L, uy: dy / L, L,
+  };
+}
+// Teinte d'une face verticale de normale (nx, ny) : +y éclairée, +x à l'ombre.
+export function shadeFace(M, nx, ny) {
+  const v = (ny - nx) / Math.SQRT2;
+  return v > 0.35 ? M.lit : v < -0.35 ? M.dark : M.mid;
+}
+// Point [x, y, z] relatif à l'origine a (l'image cuite se pose à worldToScreen(a)).
+export const relTo = (a, p) => [p[0] - a.x, p[1] - a.y, p[2] - a.z];
+// Face verticale entre deux arêtes p→q, de dz0 à dz1 au-dessus d'elles.
+export const vquad = (a, p, q, dz0, dz1, col) => ({ poly: [relTo(a, [p[0], p[1], p[2] + dz1]), relTo(a, [q[0], q[1], q[2] + dz1]), relTo(a, [q[0], q[1], q[2] + dz0]), relTo(a, [p[0], p[1], p[2] + dz0])], col });
+
+// Lueur dans le calque de lumière occultée (petite → halo au pixel, sinon dégradé).
+export function elevGlow(x, y, r, col, a) {
+  const lc = lightCtx(x - r, y - r, x + r, y + r);
+  if (!lc || !(a > 0.004)) return;
+  if (vieHalo(lc, x, y, r, col, a)) return;
+  const g = lc.createRadialGradient(x, y, 0, x, y, r);
+  g.addColorStop(0, `rgba(${col},${a.toFixed(3)})`);
+  g.addColorStop(1, `rgba(${col},0)`);
+  lc.fillStyle = g;
+  lc.fillRect(x - r, y - r, r * 2, r * 2);
 }

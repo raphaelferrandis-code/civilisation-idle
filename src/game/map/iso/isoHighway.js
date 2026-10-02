@@ -17,12 +17,11 @@
 // Molette : __highway({ on, cars, lamps, shadow }).
 import { CM } from '../layout.js';
 import { worldToScreen, depthOf } from './projection.js';
-import { lightCtx } from '../lightLayer.js';
-import { vieK, vieHalo } from './isoVie.js';
+import { vieK } from './isoVie.js';
 import { drawIsoVehicle } from './isoUnits.js';
 import { vehSkinFor } from '../agents.js';
 import { bankRibbon, loopRibbons, HIGHWAY } from '../procedural/highwayPlan.js';
-import { boxShapes, bakeShapes, blitBaked, makeBakeCache } from './elevPaint.js';
+import { boxShapes, bakeShapes, blitBaked, makeBakeCache, elevGlow as glowAt, segGeo, shadeFace as shade, relTo as rel, vquad } from './elevPaint.js';
 
 export const HWY = { on: true, cars: 1, lamps: 1, shadow: 0.55, th: 0.26, ph: 0.1 };
 
@@ -53,25 +52,6 @@ export function highwayRibbons(H, T) {
   _ribFor = H; _ribs = out;
   return out;
 }
-
-// Géométrie d'un tronçon a→b de largeur w (px monde) : quatre coins, normale gauche.
-function segGeo(a, b, w) {
-  const dx = b.x - a.x, dy = b.y - a.y, L = Math.hypot(dx, dy) || 1;
-  const nx = -dy / L, ny = dx / L, h = w / 2;
-  return {
-    AL: [a.x + nx * h, a.y + ny * h, a.z], BL: [b.x + nx * h, b.y + ny * h, b.z],
-    AR: [a.x - nx * h, a.y - ny * h, a.z], BR: [b.x - nx * h, b.y - ny * h, b.z],
-    nx, ny, ux: dx / L, uy: dy / L, L,
-  };
-}
-// Face verticale de normale (nx, ny) : +y éclairée, +x à l'ombre (lumière haut-gauche).
-function shade(M, nx, ny) {
-  const v = (ny - nx) / Math.SQRT2;
-  return v > 0.35 ? M.lit : v < -0.35 ? M.dark : M.mid;
-}
-// Coordonnées relatives à l'origine a (le bake est posé à worldToScreen(a)).
-const rel = (a, p) => [p[0] - a.x, p[1] - a.y, p[2] - a.z];
-const vquad = (a, p, q, dz0, dz1, col) => ({ poly: [rel(a, [p[0], p[1], p[2] + dz1]), rel(a, [q[0], q[1], q[2] + dz1]), rel(a, [q[0], q[1], q[2] + dz0]), rel(a, [p[0], p[1], p[2] + dz0])], col });
 
 function backShapes(M, r, a, b, g, i, T) {
   const s = [];
@@ -136,17 +116,6 @@ function baked(key, make) {
   return _bakes.get(key + '|' + z + '|' + d, () => bakeShapes(make(), z, d, kd));
 }
 const r1 = (v) => Math.round(v * 10) / 10;
-
-function glowAt(x, y, r, col, a) {
-  const lc = lightCtx(x - r, y - r, x + r, y + r);
-  if (!lc || !(a > 0.004)) return;
-  if (vieHalo(lc, x, y, r, col, a)) return;
-  const gr = lc.createRadialGradient(x, y, 0, x, y, r);
-  gr.addColorStop(0, `rgba(${col},${a.toFixed(3)})`);
-  gr.addColorStop(1, `rgba(${col},0)`);
-  lc.fillStyle = gr;
-  lc.fillRect(x - r, y - r, r * 2, r * 2);
-}
 
 // ── LA CIRCULATION ───────────────────────────────────────────────────────────
 const CAR_TYPES = ['car', 'car', 'car', 'taxi', 'car', 'bus', 'car', 'van', 'car', 'truck'];
