@@ -9,6 +9,7 @@
 import { describe, it, expect } from "vitest";
 import {
   waveReach, waveReachLoop, waveWetReach, waveWetReachLoop, islandWakeK, waveTune,
+  waveRise, waveRiseLoop, swashFoam, withoutDocks,
 } from "../iso/isoRiver.js";
 // `BEACH` est parti dans isoGroundTiles.js le 2026-08-23 (la MATIÈRE du rivage), le
 // ressac est resté avec l'eau. Les deux se lisent ensemble : la portée de l'onde est
@@ -147,14 +148,98 @@ describe("ressac : l'eau monte sur la berge et redescend", () => {
       maxPas = Math.max(maxPas, Math.abs(u - prev));
       prev = u;
     }
-    // Vitesse angulaire max = celle de la houle la plus rapide, sur 1/60 s.
-    const borne = Math.PI * (1 / Math.min(G.period, G.period2)) / 60 * 1.2;
+    // Vitesse angulaire max = celle de la houle la plus rapide, sur 1/60 s —
+    // × (1 + skew) : la lame comprime sa montée d'autant (cf. LA FORME DE LA LAME).
+    const borne = Math.PI * (1 + G.skew) * (1 / Math.min(G.period, G.period2)) / 60 * 1.2;
     expect(maxPas).toBeLessThan(borne);
   });
 
   it("est reproductible (une capture au même `now` redonne la même onde)", () => {
     expect(waveReach(17.3, 4.25, 1)).toBe(waveReach(17.3, 4.25, 1));
     expect(waveReach(17.3, 4.25, -1)).toBe(waveReach(17.3, 4.25, -1));
+  });
+});
+
+/* ── LA LAME (2026-10-01) ──────────────────────────────────────────────────────
+ * Raph : « on améliore le fleuve ? les vagues, l'effet humide dû aux vagues ».
+ * Deux sinus purs faisaient RESPIRER la berge ; une lame monte vite et se retire
+ * lentement. Et l'écume se pose là où l'eau monte — c'est la vitesse qui la lit.
+ * ------------------------------------------------------------------------- */
+describe("la lame : montée rapide, retrait lent, écume à la montée", () => {
+  it("`skew = 0` redonne l'onde d'avant, au bit près (A/B)", () => {
+    const Z = { ...G, skew: 0 };
+    const m = Z.mix2;
+    for (const [s, t, side] of [[0, 0, 1], [7.3, 2.9, -1], [31, 11.4, 1]]) {
+      const ph = side < 0 ? Z.sidePhase : 0;
+      const ref = 0.5 + 0.5 * ((1 - m) * Math.sin(2 * Math.PI * (s / Z.len - t / Z.period) + ph)
+        + m * Math.sin(2 * Math.PI * (s / Z.len2 - t / Z.period2) + ph * 1.6));
+      expect(waveReach(s, t, side, Z)).toBe(ref);
+    }
+  });
+
+  it("MONTE plus vite qu'elle ne se retire (houle principale seule)", () => {
+    // Durée de montée sur une période, en un point : < la moitié avec skew > 0.
+    const S = { ...G, mix2: 0 };
+    let monte = 0, n = 0;
+    for (let t = 0; t < S.period; t += S.period / 2000) {
+      if (waveReach(5, t + 1e-4, 1, S) > waveReach(5, t, 1, S)) monte += 1;
+      n += 1;
+    }
+    const part = monte / n;
+    expect(part).toBeLessThan(0.5);
+    // …et pas une marche : la montée garde une durée lisible.
+    expect(part).toBeGreaterThan(0.2);
+  });
+
+  it("garde la même crête au même endroit : seul le RYTHME change", () => {
+    // La déformation ne touche que le temps : la course reste 0..1, à toute skew.
+    for (const skew of [0, 0.35, 0.7]) {
+      const S = { ...G, skew, mix2: 0 };
+      let lo = Infinity, hi = -Infinity;
+      for (let t = 0; t < S.period; t += S.period / 3000) {
+        const u = waveReach(3, t, 1, S);
+        if (u < lo) lo = u; if (u > hi) hi = u;
+      }
+      expect(lo).toBeCloseTo(0, 4);
+      expect(hi).toBeCloseTo(1, 4);
+    }
+  });
+
+  it("waveRise est la dérivée de waveReach (normalisée dans [−1, 1])", () => {
+    const max = (1 + G.skew) * ((1 - G.mix2) / G.period + G.mix2 / G.period2);
+    const dt = 1e-5;
+    for (const [s, t, side] of [[0, 0.3, 1], [4.4, 1.7, -1], [12, 6.1, 1], [27.5, 9.9, -1]]) {
+      const num = (waveReach(s, t + dt, side) - waveReach(s, t - dt, side)) / (2 * dt);
+      // waveReach = 0,5 + 0,5·Σ : sa dérivée vaut 0,5 · 2π · (Σ dérivées normalisées).
+      expect(waveRise(s, t, side) * max * Math.PI).toBeCloseTo(num, 4);
+    }
+    for (let t = 0; t < 12; t += 0.07) {
+      for (let s = 0; s < 30; s += 0.9) {
+        const r = waveRise(s, t, 1);
+        expect(r).toBeGreaterThanOrEqual(-1 - 1e-9);
+        expect(r).toBeLessThanOrEqual(1 + 1e-9);
+      }
+    }
+  });
+
+  it("l'ÉCUME n'existe qu'à la montée", () => {
+    let vue = false;
+    for (let t = 0; t < 12; t += 0.05) {
+      for (let s = 0; s < 30; s += 0.5) {
+        const r = waveRise(s, t, 1), f = swashFoam(r);
+        if (r <= 0) expect(f).toBe(0);
+        if (f > 0.9) vue = true;
+      }
+    }
+    expect(vue).toBe(true);               // et elle devient pleine sur les lames franches
+  });
+
+  it("la vitesse BOUCLE sur une île, comme l'onde", () => {
+    for (const perim of [15.7, 31.4]) {
+      for (const t of [0, 2.4, 7.1]) {
+        expect(waveRiseLoop(1, perim, t, 1.3)).toBeCloseTo(waveRiseLoop(0, perim, t, 1.3), 9);
+      }
+    }
   });
 });
 
@@ -318,5 +403,26 @@ describe("ressac sur une île : le contour doit se REFERMER", () => {
       const k = Math.round(perim / G.len);
       expect(Math.abs(perim / k - G.len) / G.len).toBeLessThan(0.35);
     }
+  });
+});
+
+// Les ports du XIXe (bassin du Vieux-Port, terre-plein du commerce) coupent le quai
+// sans être des grèves : un mur y tient le bord. Leurs samples sortent des tronçons
+// où se dessinent la grève, le sable mouillé et l'écume.
+describe("grève : les embouchures de port n'en sont pas", () => {
+  it("retire les samples du port, garde le reste du tronçon", () => {
+    const dock = new Uint8Array(20);
+    for (let i = 8; i <= 11; i += 1) dock[i] = 1;
+    expect(withoutDocks([[2, 16]], dock)).toEqual([[2, 7], [12, 16]]);
+  });
+  it("sans port (masque vide ou absent) : les tronçons d'avant, à l'identique", () => {
+    const runs = [[0, 5], [9, 14]];
+    expect(withoutDocks(runs, new Uint8Array(20))).toBe(runs);
+    expect(withoutDocks(runs, undefined)).toBe(runs);
+  });
+  it("un reste d'un seul sample ne fait pas de tronçon", () => {
+    const dock = new Uint8Array(10);
+    for (let i = 3; i <= 9; i += 1) dock[i] = 1;
+    expect(withoutDocks([[2, 9]], dock)).toEqual([]);
   });
 });

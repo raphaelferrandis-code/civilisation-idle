@@ -27,6 +27,7 @@ import { worldToScreen, ISO_X, ISO_Y } from './projection.js';
 // montage est conservé — isoRiverLife n'importe toujours QUE layout et projection,
 // donc rien ne boucle.
 import { configureRiverLife, vieFishShadow, vieFishRipple, vieFisherWater } from './isoRiverLife.js';
+import { vieK, vieZoomFade } from './isoVie.js';
 import { WINTER } from '../seasonMode.js';
 import { orbitPoint, FLEET_TUNE } from '../riverFleet.js';
 import { ensureQuayGate, quayWallTune, quayGapRuns, quayWallTiles, quayWallColors } from '../quaysAndRiot.js';
@@ -88,13 +89,16 @@ export const waveTune = {
   // Avancée MAXIMALE de l'eau au-delà de son lit peint, en TUILES. Se juge contre
   // la bande de sable des berges (BEACH.bankBand = 0,55 tuile) : la vague reste
   // dedans, elle mouille le sable sans jamais atteindre l'herbe.
-  amp: 0.22,
+  // 0,22 → 0,30 le 2026-10-01 (avec rainAmp 0,7 → 0,6 : le pire cas sous l'averse
+  // passe de 0,374 à 0,48, toujours DANS la grève) : à 0,22 la lame avançait de
+  // 4-5 px au zoom de jeu, trop peu pour que le sable qu'elle découvre se lise.
+  amp: 0.3,
   len: 9, period: 3.4,                     // houle principale : longueur d'onde (tuiles), temps de parcours (s)
   len2: 4.3, period2: 2.1, mix2: 0.38,     // seconde houle — sans elle, l'onde bat la mesure comme un métronome
   // Les deux rives ne respirent PAS ensemble : en phase, le fleuve « gonfle » et
   // se dégonfle comme un tuyau au lieu de battre contre chacune de ses berges.
   sidePhase: 1.7,
-  rainAmp: 0.7,                            // × amplitude à averse pleine (l'AMPLITUDE seule, jamais la vitesse)
+  rainAmp: 0.6,                            // × amplitude à averse pleine (l'AMPLITUDE seule, jamais la vitesse)
   // Fondu au dézoom : sous 3 px d'écran l'onde ne se lit plus, elle scintille.
   minZoom: 0.3, fullZoom: 0.5,
   // ── SILLAGE D'ÎLE ─────────────────────────────────────────────────────────
@@ -113,7 +117,43 @@ export const waveTune = {
   // Combien de temps le sable garde la trace de l'eau, et en combien de pas on
   // regarde en arrière. `wetMem = 0` recolle la frange à la ligne d'eau, soit
   // exactement le comportement d'avant le 2026-07-30.
-  wetMem: 2.2, wetSteps: 8,
+  // 2026-10-01 (cf. LE SABLE MOUILLÉ EN DÉGRADÉ) : la FENÊTRE (`wetMem`, combien de
+  // temps on regarde en arrière) et le SÉCHAGE (`wetDry`, en combien de secondes une
+  // trace pleine s'efface) sont découplés. Avant, les deux valaient 2,2 s : la bande
+  // découverte ne dépassait pas 0,1 tuile (3-4 px au zoom de jeu) et le sable mouillé
+  // ne se voyait pas. Mesuré (simulation de l'onde, 30 s × 40 tuiles) : fenêtre 5 s
+  // et séchage 8 s donnent une bande médiane de 0,055 tuile et 0,18 au 95e centile.
+  // Le pas reste ~0,4 s (12 pas). `wetDry` absent = `wetMem` (l'ancien couplage).
+  wetMem: 5, wetSteps: 12, wetDry: 8,
+  // ── LE JET DE RIVE N'EST PAS UNE RESPIRATION (2026-10-01) ─────────────────
+  // Raph : « on améliore le fleuve ? les vagues, l'effet humide dû aux vagues ».
+  // Deux sinus purs montent et descendent à la même allure : la berge RESPIRE.
+  // Une vraie lame monte VITE (elle déferle, l'écume en tête) et se retire
+  // LENTEMENT en drainant le sable. `skew` déforme la phase (θ − skew·sin θ) : même
+  // course 0..1, même crête, même vitesse de propagation le long de la berge — seul
+  // le rythme dans le temps change, montée ×(1+skew), retrait ×(1−skew).
+  // 0 = l'onde d'avant, au bit près.
+  skew: 0.35,
+  // ── LE SABLE MOUILLÉ EN DÉGRADÉ ────────────────────────────────────────────
+  // La bande entre l'eau et la laisse est peinte en TROIS paliers francs (pixel
+  // art, pas de dégradé lissé) : le plus foncé au ras de l'eau, là où le sable vient
+  // d'être découvert, le plus clair à la laisse, là où il sèche déjà. `wetGrad` =
+  // fractions eau → laisse des deux paliers intérieurs ; `wetA` = alpha posé par
+  // chaque palier, du plus ancien au plus frais (ils s'empilent : au ras de l'eau
+  // le sable reçoit les trois). `wetFill = false` rend l'ancien liseré centré sur
+  // la laisse (A/B).
+  wetFill: true, wetGrad: [0.34, 0.67], wetA: [0.3, 0.32, 0.5],
+  // ── L'ÉCUME DE LA LAME ─────────────────────────────────────────────────────
+  // Un liseré d'écume AU PIXEL sur le front de l'eau, là où elle MONTE : il naît
+  // avec la lame, court le long de la berge avec elle, se déchire en dentelle
+  // quand elle ralentit et disparaît au retrait. Au contact de la terre et de
+  // l'eau, comme tout ce que ce fleuve a accepté — jamais au milieu du courant.
+  //   foam      intensité globale (0 = coupée)
+  //   foamFrom  vitesse de montée (normalisée, 1 = la plus rapide) où l'écume naît
+  //   foamFull  vitesse où elle est pleine (liseré continu)
+  //   foamRow2  au-delà de cette intensité, un 2e rang de pixels, plus pâle
+  foam: 1, foamFrom: 0.04, foamFull: 0.42, foamRow2: 0.45,
+  foamA: [0.92, 0.5], foamTone: '238,246,243',
 };
 if (typeof window !== 'undefined') window.__waves = waveTune;
 
@@ -126,9 +166,55 @@ export function waveReach(s, t, side = 1, G = waveTune) {
   const ph = side < 0 ? G.sidePhase : 0;
   const sp1 = G.len > 0 ? s / G.len : 0, sp2 = G.len2 > 0 ? s / G.len2 : 0;
   const tp1 = G.period > 0 ? t / G.period : 0, tp2 = G.period2 > 0 ? t / G.period2 : 0;
-  const m = Math.max(0, Math.min(1, G.mix2));
-  return 0.5 + 0.5 * ((1 - m) * Math.sin(2 * Math.PI * (sp1 - tp1) + ph)
-    + m * Math.sin(2 * Math.PI * (sp2 - tp2) + ph * 1.6));
+  const m = Math.max(0, Math.min(1, G.mix2)), k = swashSkew(G);
+  return 0.5 + 0.5 * ((1 - m) * swashSin(2 * Math.PI * (sp1 - tp1) + ph, k)
+    + m * swashSin(2 * Math.PI * (sp2 - tp2) + ph * 1.6, k));
+}
+
+// LA FORME DE LA LAME (cf. `skew`). La phase θ DÉCROÎT avec le temps (θ = 2π(s/len
+// − t/P)) : sin θ monte quand θ traverse π et descend quand il traverse 0. On y
+// comprime donc la phase — ψ = θ − k·sin θ, dψ/dθ = 1 − k·cos θ : ×(1+k) autour de
+// π (la montée), ×(1−k) autour de 0 (le retrait). ψ reste monotone pour |k| < 1,
+// donc sin ψ couvre exactement [−1, 1] : les bornes du ressac (on ne découvre
+// rien, on ne sort pas de la grève) ne bougent pas. Et ψ est une fonction de θ
+// seul : périodique comme lui, ce qui garde le contour d'île fermé.
+const swashSkew = (G) => Math.max(0, Math.min(0.9, G.skew || 0));
+const swashSin = (th, k) => Math.sin(k > 0 ? th - k * Math.sin(th) : th);
+// Dérivée de swashSin par rapport à θ.
+const swashCosD = (th, k) => Math.cos(k > 0 ? th - k * Math.sin(th) : th) * (1 - k * Math.cos(th));
+
+// VITESSE DE MONTÉE de l'eau, normalisée : +1 = la lame la plus rapide possible,
+// négatif = elle se retire. C'est ce que lit l'ÉCUME : elle naît là où l'eau monte.
+// Dérivée ANALYTIQUE (pas une différence finie entre deux instants) : exacte, et
+// sans pas de temps à régler. Pure et exportée, comme l'onde qu'elle dérive.
+export function waveRise(s, t, side = 1, G = waveTune) {
+  const ph = side < 0 ? G.sidePhase : 0;
+  const sp1 = G.len > 0 ? s / G.len : 0, sp2 = G.len2 > 0 ? s / G.len2 : 0;
+  const w1 = G.period > 0 ? 1 / G.period : 0, w2 = G.period2 > 0 ? 1 / G.period2 : 0;
+  const m = Math.max(0, Math.min(1, G.mix2)), k = swashSkew(G);
+  // d/dt sin ψ(θ(t)) = cos ψ · (1 − k cos θ) · (−2π/P)
+  const d = -((1 - m) * w1 * swashCosD(2 * Math.PI * (sp1 - t * w1) + ph, k)
+    + m * w2 * swashCosD(2 * Math.PI * (sp2 - t * w2) + ph * 1.6, k));
+  const max = (1 + k) * ((1 - m) * w1 + m * w2);
+  return max > 0 ? d / max : 0;
+}
+
+// Même vitesse, sur le contour BOUCLÉ d'une île (cf. waveReachLoop).
+export function waveRiseLoop(u, perim, t, phase = 0, G = waveTune) {
+  const k1 = G.len > 0 ? Math.max(1, Math.round(perim / G.len)) : 0;
+  const k2 = G.len2 > 0 ? Math.max(1, Math.round(perim / G.len2)) : 0;
+  const w1 = G.period > 0 ? 1 / G.period : 0, w2 = G.period2 > 0 ? 1 / G.period2 : 0;
+  const m = Math.max(0, Math.min(1, G.mix2)), k = swashSkew(G);
+  const d = -((1 - m) * w1 * swashCosD(2 * Math.PI * (k1 * u - t * w1) + phase, k)
+    + m * w2 * swashCosD(2 * Math.PI * (k2 * u - t * w2) + phase * 1.6, k));
+  const max = (1 + k) * ((1 - m) * w1 + m * w2);
+  return max > 0 ? d / max : 0;
+}
+
+// Intensité d'écume 0..1 pour une vitesse de montée normalisée (cf. waveRise).
+export function swashFoam(rise, G = waveTune) {
+  const a = G.foamFrom, b = Math.max(a + 1e-3, G.foamFull);
+  return Math.max(0, Math.min(1, (rise - a) / (b - a)));
 }
 
 // Variante BOUCLÉE, pour le contour d'une île.
@@ -144,9 +230,9 @@ export function waveReachLoop(u, perim, t, phase = 0, G = waveTune) {
   const k1 = G.len > 0 ? Math.max(1, Math.round(perim / G.len)) : 0;
   const k2 = G.len2 > 0 ? Math.max(1, Math.round(perim / G.len2)) : 0;
   const tp1 = G.period > 0 ? t / G.period : 0, tp2 = G.period2 > 0 ? t / G.period2 : 0;
-  const m = Math.max(0, Math.min(1, G.mix2));
-  return 0.5 + 0.5 * ((1 - m) * Math.sin(2 * Math.PI * (k1 * u - tp1) + phase)
-    + m * Math.sin(2 * Math.PI * (k2 * u - tp2) + phase * 1.6));
+  const m = Math.max(0, Math.min(1, G.mix2)), k = swashSkew(G);
+  return 0.5 + 0.5 * ((1 - m) * swashSin(2 * Math.PI * (k1 * u - tp1) + phase, k)
+    + m * swashSin(2 * Math.PI * (k2 * u - tp2) + phase * 1.6, k));
 }
 
 /* ── LA LAISSE : JUSQU'OÙ L'EAU EST MONTÉE RÉCEMMENT ──────────────────────────
@@ -172,21 +258,30 @@ export function waveReachLoop(u, perim, t, phase = 0, G = waveTune) {
  * ------------------------------------------------------------------------- */
 export function waveWetReach(s, t, side = 1, G = waveTune) {
   if (!(G.wetMem > 0)) return waveReach(s, t, side, G);
-  const n = Math.max(1, G.wetSteps | 0), h = G.wetMem / n, dry = 1 / G.wetMem;
+  const n = Math.max(1, G.wetSteps | 0), h = G.wetMem / n, dry = wetDryRate(G);
   let best = 0;
   for (let k = 0; k <= n; k += 1) {
+    // Sortie EXACTE : l'onde ne dépasse jamais 1, donc aucun pas plus ancien ne
+    // peut battre `best` dès que le séchage a mangé l'écart (cf. waveHalfWidths,
+    // la laisse est le gros du calcul de la frame).
+    if (best >= 1 - k * h * dry) break;
     const v = waveReach(s, t - k * h, side, G) - k * h * dry;
     if (v > best) best = v;
   }
   return best;
 }
 
+// Vitesse de séchage (course de l'onde par seconde) : `wetDry` s'il est donné,
+// sinon la fenêtre elle-même (le couplage d'avant le 2026-10-01).
+const wetDryRate = (G) => 1 / (G.wetDry > 0 ? G.wetDry : G.wetMem);
+
 // Même laisse, sur le contour BOUCLÉ d'une île (cf. waveReachLoop).
 export function waveWetReachLoop(u, perim, t, phase = 0, G = waveTune) {
   if (!(G.wetMem > 0)) return waveReachLoop(u, perim, t, phase, G);
-  const n = Math.max(1, G.wetSteps | 0), h = G.wetMem / n, dry = 1 / G.wetMem;
+  const n = Math.max(1, G.wetSteps | 0), h = G.wetMem / n, dry = wetDryRate(G);
   let best = 0;
   for (let k = 0; k <= n; k += 1) {
+    if (best >= 1 - k * h * dry) break;               // sortie exacte (cf. waveWetReach)
     const v = waveReachLoop(u, perim, t - k * h, phase, G) - k * h * dry;
     if (v > best) best = v;
   }
@@ -267,32 +362,93 @@ function beginWaveFrame(now, z) {
 // Les tableaux sont RÉUTILISÉS d'une frame à l'autre : le ruban est reprojeté une
 // demi-douzaine de fois par frame, en allouer deux à chaque fois ferait des
 // centaines de ko/s de déchets pour un résultat identique.
+//
+// ⚠ SEULS LES SAMPLES À L'ÉCRAN SONT CALCULÉS (2026-10-01). La laisse regarde
+// 12 instants en arrière, l'écume lit la vitesse : ~56 sinus par sample et par
+// frame, et le fleuve d'une ville de bande 9 en compte 606 — mesuré +1 ms par
+// frame sur la passe du fleuve, presque tout HORS de la vue. Un sample loin de
+// l'écran garde son lit peint (pas d'onde) : rien n'y est dessiné. Le masque est
+// ÉLARGI de deux samples de chaque côté, pour qu'un segment qui traverse la vue
+// ait ses deux bouts animés — sinon son tracé se tordrait au bord de l'écran.
+// Clé = l'instant, l'amplitude ET la caméra : tous les appels d'une frame la
+// partagent, un pan la renouvelle.
+const WAVE_VIEW_DILATE = 2;
+function waveViewMask(pts, c) {
+  const n = pts.length, T = CM.TILE, z = CM.cam.zoom;
+  if (!c.vis || c.vis.length !== n) { c.vis = new Uint8Array(n); c.vis0 = new Uint8Array(n); }
+  const v0 = c.vis0, v = c.vis;
+  const W = CM.cw, H = CM.ch;
+  for (let i = 0; i < n; i += 1) {
+    const p = pts[i], s = worldToScreen(p.x * T, p.y * T);
+    // Demi-largeur + course maximale de l'onde + une tuile, projetées au pire.
+    const m = ((p.hw || 2) + 2) * T * z * 1.2 + 8;
+    v0[i] = (s.x > -m && s.x < W + m && s.y > -m && s.y < H + m) ? 1 : 0;
+  }
+  for (let i = 0; i < n; i += 1) {
+    let on = 0;
+    for (let d = -WAVE_VIEW_DILATE; d <= WAVE_VIEW_DILATE && !on; d += 1) {
+      const j = i + d;
+      if (j >= 0 && j < n && v0[j]) on = 1;
+    }
+    v[i] = on;
+  }
+  return v;
+}
 function waveHalfWidths(pts) {
   if (waveAmp <= 0) return null;
   let c = waveHwByPts.get(pts);
-  if (c && c.t === waveT && c.amp === waveAmp) return c;
+  const cam = CM.cam;
+  if (c && c.t === waveT && c.amp === waveAmp && c.cx === cam.x && c.cy === cam.y
+    && c.cz === cam.zoom && c.cw === CM.cw && c.ch === CM.ch) return c;
   const n = pts.length;
   if (!c || c.plus.length !== n) {
     c = {
-      pts: null, t: -1, amp: -1,
+      pts: null, t: -1, amp: -1, cx: NaN, cy: NaN, cz: NaN, cw: 0, ch: 0, vis: null, vis0: null,
       plus: new Float64Array(n), minus: new Float64Array(n),
       wetPlus: new Float64Array(n), wetMinus: new Float64Array(n),
+      risePlus: new Float64Array(n), riseMinus: new Float64Array(n),
     };
     waveHwByPts.set(pts, c);
   }
   const arc = ensureWaveArc(pts);
+  const foam = waveTune.foam > 0;
+  const vis = waveViewMask(pts, c);
   for (let i = 0; i < n; i += 1) {
     const hw = pts[i].hw;
+    if (!vis[i]) {
+      c.plus[i] = c.minus[i] = c.wetPlus[i] = c.wetMinus[i] = hw;
+      c.risePlus[i] = c.riseMinus[i] = 0;
+      continue;
+    }
     c.plus[i] = hw + waveAmp * waveReach(arc[i], waveT, 1);
     c.minus[i] = hw + waveAmp * waveReach(arc[i], waveT, -1);
     // La LAISSE : jusqu'où l'eau est montée récemment. Toujours ≥ la ligne d'eau
     // du moment (cf. waveWetReach), donc côté TERRE d'elle par construction.
     c.wetPlus[i] = hw + waveAmp * waveWetReach(arc[i], waveT, 1);
     c.wetMinus[i] = hw + waveAmp * waveWetReach(arc[i], waveT, -1);
+    // Vitesse de montée, pour l'écume (cf. drawSwashFoam).
+    c.risePlus[i] = foam ? waveRise(arc[i], waveT, 1) : 0;
+    c.riseMinus[i] = foam ? waveRise(arc[i], waveT, -1) : 0;
   }
   c.pts = pts; c.t = waveT; c.amp = waveAmp;
+  c.cx = cam.x; c.cy = cam.y; c.cz = cam.zoom; c.cw = CM.cw; c.ch = CM.ch;
   return c;
 }
+
+// Les BORDS que l'on sait tracer, par leur nom (même vocabulaire pour le ruban,
+// buildEdges et le contour d'île) : 'wave' le bord de l'eau du moment, 'base' le
+// lit peint, 'wet' la laisse, 'wet1'/'wet2' les deux paliers du sable mouillé
+// entre l'eau et la laisse (cf. `wetGrad`). Rend la fraction eau → laisse.
+function wetFracOf(mode) {
+  if (mode === 'wet') return 1;
+  if (mode === 'wet1') return waveTune.wetGrad[0];
+  if (mode === 'wet2') return waveTune.wetGrad[1];
+  return 0;
+}
+// Demi-largeur d'un bord pour un sample : `u` = eau du moment, `w` = laisse.
+// La laisse elle-même est rendue TELLE QUELLE (et non `u + 1·(w − u)`, qui peut
+// différer au dernier bit) : le clip de la frange doit retomber pile sur elle.
+const edgeAt = (u, w, f) => (f >= 1 ? w : f > 0 ? u + f * (w - u) : u);
 
 // Rives GAUCHE et DROITE du ruban, projetées à l'écran. Extrait de
 // riverRibbonPath pour que le pavage de l'eau (drawIsoWaterTiles) puisse borner
@@ -306,14 +462,15 @@ function waveHalfWidths(pts) {
 function riverRibbonScreen(pts, T, mode = 'wave') {
   const left = [], right = [];
   const wv = waveHalfWidths(pts);
+  const f = wetFracOf(mode);
   for (let i = 0; i < pts.length; i += 1) {
     const p = pts[i];
     const o = pts[Math.max(0, i - 1)], q = pts[Math.min(pts.length - 1, i + 1)];
     let tx = q.x - o.x, ty = q.y - o.y;
     const tl = Math.hypot(tx, ty) || 1; tx /= tl; ty /= tl;
     const nx = -ty, ny = tx;
-    const hl = wv ? (mode === 'wet' ? wv.wetPlus[i] : wv.plus[i]) : p.hw;
-    const hr = wv ? (mode === 'wet' ? wv.wetMinus[i] : wv.minus[i]) : p.hw;
+    const hl = wv ? edgeAt(wv.plus[i], wv.wetPlus[i], f) : p.hw;
+    const hr = wv ? edgeAt(wv.minus[i], wv.wetMinus[i], f) : p.hw;
     left.push(worldToScreen((p.x + nx * hl) * T, (p.y + ny * hl) * T));
     right.push(worldToScreen((p.x - nx * hr) * T, (p.y - ny * hr) * T));
   }
@@ -455,14 +612,18 @@ function islandOutline(il, T, N = 30, mode = 'wave') {
   // dit « le trou rétrécit ». Même règle que les berges, même sûreté — l'herbe
   // bakée de l'île se fait recouvrir, jamais découvrir.
   const on = mode !== 'base' && waveAmp > 0;
-  const reach = mode === 'wet' ? waveWetReachLoop : waveReachLoop;
+  const f = wetFracOf(mode);
   const rMid = (il.rx + il.ry) / 2, perim = 2 * Math.PI * rMid;
   // Phase propre à chaque île (sa position) : sans elle, les deux îles des bras du
   // fleuve battraient à l'unisson, ce qui se remarque tout de suite.
   const ph = on ? (il.x * 0.7 + il.y * 1.3) % (Math.PI * 2) : 0;
   for (let i = 0; i <= N; i += 1) {
     const a = (i / N) * Math.PI * 2;
-    const d = on ? waveAmp * islandWakeK(a) * reach(i / N, perim, waveT, ph) : 0;
+    // Paliers du sable mouillé : entre l'eau et la laisse, comme sur les berges.
+    const r = !on ? 0 : f >= 1 ? waveWetReachLoop(i / N, perim, waveT, ph)
+      : f > 0 ? edgeAt(waveReachLoop(i / N, perim, waveT, ph), waveWetReachLoop(i / N, perim, waveT, ph), f)
+        : waveReachLoop(i / N, perim, waveT, ph);
+    const d = on ? waveAmp * islandWakeK(a) * r : 0;
     // Retrait MÉTRIQUE sur les deux axes (et non un facteur d'échelle) : l'Aiguille
     // fait rx 7,6 pour ry 2,4, une homothétie y creuserait trois fois plus dans le
     // sens du courant qu'en travers.
@@ -1486,6 +1647,149 @@ function drawIsoIslandWake(ctx, pts, T, z, wb) {
   ctx.restore();
 }
 
+/* ── L'ÉCUME DE LA LAME (2026-10-01) ──────────────────────────────────────────
+ * Raph : « on améliore le fleuve ? les vagues, l'effet humide dû aux vagues ».
+ * Le ressac avançait et reculait sans rien qui dise qu'il DÉFERLE : le bord de
+ * l'eau n'était qu'un liseré bleu clair lissé, le même à la montée et au retrait.
+ *
+ * Ici, un liseré d'écume AU PIXEL (pixels d'art pleins, rabattus au pixel
+ * d'écran comme toute la petite vie — vieK), juste dans l'eau, sur le front :
+ *   · il n'existe que là où l'eau MONTE (waveRise) — il naît avec la lame, court
+ *     le long de la berge avec elle (l'onde voyage, l'écume aussi), et s'éteint
+ *     quand elle s'arrête ; au retrait, le sable mouillé prend le relais ;
+ *   · sa DENSITÉ suit la vitesse : lame franche = trait continu, lame qui ralentit
+ *     = dentelle qui se déchire. Chaque pixel a son seuil, tiré au hasard mais
+ *     ANCRÉ À L'ABSCISSE DU FLEUVE (pas à l'écran) : la dentelle ne grésille pas
+ *     au pan, et un pixel allumé le reste tant que la lame est assez forte ;
+ *   · un second rang plus pâle, vers le large, quand la lame est pleine.
+ * Au CONTACT de la terre et de l'eau, comme le bas-fond et la laisse — jamais au
+ * milieu du courant, où trois nappes animées ont été refusées.
+ * Purement f(now) comme toute l'onde : une capture au même `now` redonne la même
+ * écume. Sous les quais : seuls les tronçons de berge naturelle (mêmes `runs` que
+ * le bas-fond).
+ * ------------------------------------------------------------------------- */
+// Tronçons [a, b] privés des samples marqués dans `dock` (cf. drawIsoRiver, les
+// ports du XIXe). Sans masque, ou masque vide : les tronçons tels quels, même
+// tableau — rien ne change tant qu'aucun port ne publie. Pure et exportée.
+export function withoutDocks(runs, dock) {
+  if (!dock || !runs.length || dock.indexOf(1) < 0) return runs;
+  const out = [];
+  for (const [a, b] of runs) {
+    let i = a;
+    while (i <= b) {
+      if (dock[i]) { i += 1; continue; }
+      const s = i;
+      while (i + 1 <= b && !dock[i + 1]) i += 1;
+      if (i > s) out.push([s, i]);            // un sample seul ne trace rien
+      i += 1;
+    }
+  }
+  return out;
+}
+
+const FOAM_PX_PER_TILE = 24;            // ~ un pixel d'art par pas le long de la berge
+const FOAM_DASH = 3.5;                  // longueur moyenne d'un tiret d'écume, en pas
+function foamHash(n, salt) {
+  let x = Math.imul((n | 0) ^ Math.imul(salt | 0, 0x27d4eb2d), 0x9e3779b1);
+  x = Math.imul(x ^ (x >>> 15), 0x85ebca6b);
+  x = Math.imul(x ^ (x >>> 13), 0xc2b2ae35);
+  return ((x ^ (x >>> 16)) >>> 0) / 4294967296;
+}
+// Seuil de la dentelle au pas `id` : un BRUIT LISSÉ le long de la berge et non un
+// tirage par pixel. Tiré pixel par pixel, l'écume clairsemée faisait du SEL — des
+// points isolés qu'on lit comme des reflets, pas comme de l'écume ; lissé sur
+// quelques pas, les pixels allumés se groupent en TIRETS qui s'allongent quand la
+// lame forcit et se cassent quand elle faiblit.
+function foamLace(id, salt) {
+  const x = id / FOAM_DASH, i = Math.floor(x), f = x - i, u = f * f * (3 - 2 * f);
+  return foamHash(i, salt) * (1 - u) + foamHash(i + 1, salt) * u;
+}
+function drawSwashFoam(ctx, pts, T, runsPlus, runsMinus, withIslands) {
+  const G = waveTune;
+  if (!(G.foam > 0) || waveAmp <= 0 || CM.lodActive || CM.collapseAt) return;
+  const fade = Math.min(1, G.foam) * vieZoomFade();
+  if (fade <= 0.01) return;
+  const wv = waveHalfWidths(pts);
+  if (!wv) return;
+  const k = vieK(), d = CM.dpr || 1, K = Math.max(1, Math.round(k * d));
+  const r1 = [], r2 = [];
+  const W = CM.cw, H = CM.ch, M = 4 * k;
+  const r2From = Math.min(0.99, G.foamRow2);
+  // Un pas le long d'un segment de bord : E = bord de l'eau (écran), D = direction
+  // unitaire VERS LE LARGE, f = intensité d'écume, s = abscisse (tuiles), salt =
+  // la rive (deux berges voisines ne tirent pas la même dentelle).
+  const walk = (E0, E1, D0, D1, f0, f1, s0, s1, salt) => {
+    if (f0 <= 0 && f1 <= 0) return;
+    if ((E0.x < -M && E1.x < -M) || (E0.x > W + M && E1.x > W + M)
+      || (E0.y < -M && E1.y < -M) || (E0.y > H + M && E1.y > H + M)) return;
+    const n = Math.max(1, Math.ceil(Math.hypot(E1.x - E0.x, E1.y - E0.y) / k));
+    for (let q = 0; q < n; q += 1) {
+      const t = (q + 0.5) / n;
+      const f = (f0 + (f1 - f0) * t) * fade;
+      if (f <= 0) continue;
+      const id = Math.floor((s0 + (s1 - s0) * t) * FOAM_PX_PER_TILE);
+      if (foamLace(id, salt) >= f) continue;
+      const x = E0.x + (E1.x - E0.x) * t, y = E0.y + (E1.y - E0.y) * t;
+      const dx = D0.x + (D1.x - D0.x) * t, dy = D0.y + (D1.y - D0.y) * t;
+      r1.push(Math.round((x + dx * 0.5 * k) * d - K / 2), Math.round((y + dy * 0.5 * k) * d - K / 2));
+      if (f > r2From && foamLace(id, salt + 101) < (f - r2From) / (1 - r2From)) {
+        r2.push(Math.round((x + dx * 1.5 * k) * d - K / 2), Math.round((y + dy * 1.5 * k) * d - K / 2));
+      }
+    }
+  };
+  const arc = ensureWaveArc(pts), len0 = pts.length;
+  const unit = (ax, ay) => { const l = Math.hypot(ax, ay) || 1; return { x: ax / l, y: ay / l }; };
+  [1, -1].forEach((sgn, si) => {
+    const runs = si ? runsMinus : runsPlus;
+    if (!runs || !runs.length) return;
+    const hwA = si ? wv.minus : wv.plus, rise = si ? wv.riseMinus : wv.risePlus;
+    // Bord, direction du large et écume, projetés une fois par sample du tronçon.
+    const E = new Array(len0), D = new Array(len0), F = new Float64Array(len0);
+    const need = (i) => {
+      if (E[i]) return;
+      const p = pts[i], o = pts[Math.max(0, i - 1)], q = pts[Math.min(len0 - 1, i + 1)];
+      const tl = Math.hypot(q.x - o.x, q.y - o.y) || 1;
+      const nx = -(q.y - o.y) / tl, ny = (q.x - o.x) / tl, hw = hwA[i];
+      const e = worldToScreen((p.x + sgn * nx * hw) * T, (p.y + sgn * ny * hw) * T);
+      const c = worldToScreen(p.x * T, p.y * T);
+      E[i] = e; D[i] = unit(c.x - e.x, c.y - e.y); F[i] = swashFoam(rise[i]);
+    };
+    for (const [a, b] of runs) {
+      for (let i = a; i < b; i += 1) {
+        need(i); need(i + 1);
+        walk(E[i], E[i + 1], D[i], D[i + 1], F[i], F[i + 1], arc[i], arc[i + 1], si ? 7919 : 104729);
+      }
+    }
+  });
+  if (withIslands) {
+    const N = 30;
+    for (const il of (riverIslands() || [])) {
+      const path = islandOutline(il, T, N, 'wave');
+      if (!path || path.length < 2) continue;
+      const c = worldToScreen(il.x * T, il.y * T);
+      const perim = 2 * Math.PI * ((il.rx + il.ry) / 2);
+      const ph = (il.x * 0.7 + il.y * 1.3) % (Math.PI * 2);
+      const salt = 1301 + Math.round(il.x * 31 + il.y * 17);
+      // L'onde est modulée par le sillage (islandWakeK) : sa vitesse aussi.
+      const F = path.map((_, i) => swashFoam(islandWakeK((i / N) * Math.PI * 2) * waveRiseLoop(i / N, perim, waveT, ph)));
+      const D = path.map((e) => unit(e.x - c.x, e.y - c.y));
+      for (let i = 0; i < path.length - 1; i += 1) {
+        walk(path[i], path[i + 1], D[i], D[i + 1], F[i], F[i + 1], (i / N) * perim, ((i + 1) / N) * perim, salt);
+      }
+    }
+  }
+  if (!r1.length) return;
+  const put = (arr, a) => {
+    if (!arr.length || !(a > 0)) return;
+    ctx.fillStyle = `rgba(${G.foamTone},${a})`;
+    ctx.beginPath();
+    for (let j = 0; j < arr.length; j += 2) ctx.rect(arr[j] / d, arr[j + 1] / d, K / d, K / d);
+    ctx.fill();
+  };
+  put(r2, G.foamA[1]);
+  put(r1, G.foamA[0]);
+}
+
 function drawIsoIslandShore(ctx, T, z) {
   if (!BEACH.on || BEACH.islandW <= 0) return;
   const isles = riverIslands();
@@ -1615,8 +1919,15 @@ export function drawIsoRiver(now) {
       // découpent sur lui, puis se reportent sur le ruban rallongé (dont les
       // rallonges, sans quai, prolongent la berge naturelle des bouts).
       const kh = pts.core0 | 0, n = core.length;
-      runsPlus = extendRiverRuns(quayGapRuns(g && g.drawPlus, n), kh, n, len0);
-      runsMinus = extendRiverRuns(quayGapRuns(g && g.drawMinus, n), kh, n, len0);
+      // ⚠ LES PORTS DU XIXe (docs/PLAN-PORTS.md, session du port, 2026-10-02) : l'entrée
+      // du BASSIN et le terre-plein du port de COMMERCE coupent le quai mais ne sont
+      // PAS des grèves — un mur y tient le bord. Leurs samples (`dockPlus/dockMinus`)
+      // sortent donc des tronçons : ni bas-fond de grève, ni sable, ni sable mouillé,
+      // ni écume en travers de l'embouchure. Retirés APRÈS le rembourrage de
+      // quayGapRuns (qui déborde d'un sample sur la pointe du quai voisin, voulu),
+      // sans rembourrage à eux : le bord du port est franc.
+      runsPlus = extendRiverRuns(withoutDocks(quayGapRuns(g && g.drawPlus, n), g && g.dockPlus), kh, n, len0);
+      runsMinus = extendRiverRuns(withoutDocks(quayGapRuns(g && g.drawMinus, n), g && g.dockMinus), kh, n, len0);
     }
     // ÎLES : aucun quai ne les borde, donc rien ne leur dispute le bord de l'eau,
     // et elles entrent d'un seul morceau. Le drapeau `islands` (cf. le réglage)
@@ -1665,8 +1976,8 @@ export function drawIsoRiver(now) {
             // riverRibbonScreen (left = +n). L'inverser décollerait le liseré du
             // bord de l'eau d'un côté sur deux, et seulement quand l'onde est haute.
             const hw = (mode === 'base' || !wv) ? p.hw
-              : mode === 'wet' ? (si ? wv.wetMinus[i] : wv.wetPlus[i])
-                : (si ? wv.minus[i] : wv.plus[i]);
+              : si ? edgeAt(wv.minus[i], wv.wetMinus[i], wetFracOf(mode))
+                : edgeAt(wv.plus[i], wv.wetPlus[i], wetFracOf(mode));
             path.push(worldToScreen((p.x + sgn * n.nx * hw) * T, (p.y + sgn * n.ny * hw) * T));
           }
           out.push({ path, runs });
@@ -1755,7 +2066,8 @@ export function drawIsoRiver(now) {
         // pas réutiliser `edges` — mais rien n'oblige à les reconstruire à
         // chaque trait, et le ruban est déjà le goulot de la frame.
         const edgesSand = buildEdges('base', true);
-        const edgesWet = wv ? buildEdges('wet', true) : edgesSand;
+        // (Le remplissage en paliers n'a pas besoin des bords de la laisse.)
+        const edgesWet = (wv && !waveTune.wetFill) ? buildEdges('wet', true) : edgesSand;
         // BANDE DE SABLE, en TEXTURE (Raph : « tu ne peux pas faire le liseré en
         // texture de sable ? »). Même géométrie et mêmes tronçons que le bas-fond,
         // mais de l'autre côté de la ligne d'eau : elle suit la spline au pixel, là
@@ -1812,7 +2124,46 @@ export function drawIsoRiver(now) {
         // un trou du même chemin, donc l'intersection y donne l'anneau entre les
         // deux lignes. Onde éteinte (`wv` nul), les deux rubans se confondent et
         // le clip viderait tout : on garde alors l'ancien tracé, non borné.
-        if (wv) {
+        //
+        // ── LE SABLE MOUILLÉ EN DÉGRADÉ (2026-10-01) ────────────────────────────
+        // Raph : « l'effet humide dû aux vagues ». Mesuré avant : le liseré ne
+        // couvrait que `wetW/2` px de part et d'autre de la laisse — au zoom 3, la
+        // moitié de la bande découverte au mieux, et au zoom de jeu la bande
+        // entière tenait dans 3-4 px. On voyait l'eau bouger, rien ne le marquait
+        // sur le sable.
+        // On REMPLIT désormais toute la bande découverte, en trois paliers. Chaque
+        // palier est un POLYGONE MINCE fermé entre deux bords : le bord de l'eau du
+        // moment, puis le palier parcouru à rebours — rien que le sable découvert,
+        // sur les tronçons de berge naturelle (mêmes `runs` que le reste de la
+        // grève). Les trois s'empilent : le plus foncé au ras de l'eau (le sable
+        // qu'elle vient de quitter), le plus clair à la laisse (celui qui sèche).
+        // Même règle que le liseré qu'il remplace — rien devant la vague, tout
+        // derrière. Sur une île, les deux contours parcourus en sens inverse
+        // ferment un ANNEAU (règle nonzero).
+        // ⚠ Pas en remplissant le ruban entier sous le clip côté terre (premier
+        // jet) : trois remplissages de tout le fleuve pour en garder un liseré,
+        // mesuré +1 ms par frame en rendu logiciel sur une ville de bande 9.
+        if (wv && waveTune.wetFill) {
+          const A = waveTune.wetA;
+          const edgesU = buildEdges('wave', true);
+          ['wet', 'wet2', 'wet1'].forEach((mode, j) => {
+            if (!(A[j] > 0)) return;
+            const edgesJ = buildEdges(mode, true);
+            ctx.fillStyle = `rgba(${wt},${A[j]})`;
+            ctx.beginPath();
+            for (let e = 0; e < edgesU.length && e < edgesJ.length; e += 1) {
+              const U = edgesU[e].path, J = edgesJ[e].path;
+              for (const [a, b] of edgesU[e].runs) {
+                if (b <= a) continue;
+                ctx.moveTo(U[a].x, U[a].y);
+                for (let i = a + 1; i <= b; i += 1) ctx.lineTo(U[i].x, U[i].y);
+                for (let i = b; i >= a; i -= 1) ctx.lineTo(J[i].x, J[i].y);
+                ctx.closePath();
+              }
+            }
+            ctx.fill('nonzero');
+          });
+        } else if (wv) {
           ctx.save();
           riverRibbonPath(ctx, pts, T, false, 'wet');
           ctx.clip(WATER_FILL);
@@ -1823,6 +2174,10 @@ export function drawIsoRiver(now) {
         }
         ctx.restore();
       }
+      // L'ÉCUME DE LA LAME : sur le front de l'eau qui monte, par-dessus le bas-fond
+      // clair (elle est la crête blanche de ce liseré) et sur les seuls tronçons de
+      // berge naturelle — les mêmes que le bas-fond. Îles comprises.
+      drawSwashFoam(ctx, pts, T, runsPlus, runsMinus, true);
     }
   }
   // OMBRES DE POISSONS : sous les reflets (dessinées AVANT les vaguelettes).
