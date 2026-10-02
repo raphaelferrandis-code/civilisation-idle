@@ -1,0 +1,129 @@
+"use strict";
+// ── PEINTRE PIXEL DES ÉTAGES (docs/PLAN-ETAGES.md) ───────────────────────────
+//
+// Les étages de la ville (trafic aérien, viaducs, métro) sont DESSINÉS PAR LE CODE,
+// comme les ponts : des boîtes et des faces projetées en iso, remplies sur la grille
+// d'art (k px device par pixel d'art, le grain des maisons — vieK). Pas de dégradé,
+// pas d'anticrénelage : un polygone est rempli rangée d'art par rangée d'art.
+//
+// Ce qui se répète (un véhicule, son ombre, sa traînée) est CUIT une fois par
+// (forme, zoom, dpr) dans une petite image, puis blitté : un drawImage par objet et
+// par frame. ⚠ Remplir les polygones à chaque frame coûtait ~100 fillRect par
+// véhicule — 15 000 par frame dans un ciel de la bande 9, rédhibitoire en rendu
+// logiciel (cf. la fiche « Chrome de Raph : GPU désactivé »).
+import { ISO_X, ISO_Y } from './projection.js';
+
+// Remplit un polygone CONVEXE (points en px DEVICE) sur une grille de pas `kd`.
+// Une rangée d'art est peinte si son centre est dans le polygone ; ses bords sont
+// arrondis à la colonne d'art la plus proche.
+export function fillPolyDev(g, pts, kd, col) {
+  let minY = Infinity, maxY = -Infinity;
+  for (const p of pts) { if (p[1] < minY) minY = p[1]; if (p[1] > maxY) maxY = p[1]; }
+  const r0 = Math.floor(minY / kd), r1 = Math.ceil(maxY / kd);
+  g.fillStyle = col;
+  const n = pts.length;
+  for (let r = r0; r < r1; r += 1) {
+    const yc = (r + 0.5) * kd;
+    let xl = Infinity, xr = -Infinity;
+    for (let i = 0; i < n; i += 1) {
+      const a = pts[i], b = pts[(i + 1) % n];
+      if ((a[1] <= yc && b[1] > yc) || (b[1] <= yc && a[1] > yc)) {
+        const x = a[0] + (yc - a[1]) * (b[0] - a[0]) / (b[1] - a[1]);
+        if (x < xl) xl = x;
+        if (x > xr) xr = x;
+      }
+    }
+    if (xr > xl) {
+      const c0 = Math.round(xl / kd), c1 = Math.round(xr / kd);
+      if (c1 > c0) g.fillRect(c0 * kd, r * kd, (c1 - c0) * kd, kd);
+    }
+  }
+}
+
+// Projection LOCALE (px CSS, relative à l'origine de l'objet) — la même algèbre que
+// worldToScreen, sans la caméra : un objet cuit à l'origine se pose n'importe où.
+export function isoLocal(dx, dy, dz, z) {
+  return [(dx - dy) * ISO_X * z, (dx + dy) * ISO_Y * z - dz * z];
+}
+
+// Formes élémentaires, en px MONDE autour de l'origine de l'objet.
+//   { poly: [[dx,dy,dz], …], col, off?: [ox, oy] en pixels d'art }
+//   { px: [dx,dy,dz], col }  — un pixel d'art isolé
+// Une boîte alignée sur les axes : face +y (bas-gauche) ÉCLAIRÉE, face +x (bas-droite)
+// à l'OMBRE — lumière haut-gauche du jeu. `out` = contour d'un pixel d'art (silhouette
+// décalée dans les quatre directions, posée AVANT les faces).
+export function boxShapes(x0, y0, x1, y1, z0, z1, cT, cL, cR, out) {
+  const a = [x0, y0, z1], b = [x1, y0, z1], c = [x1, y1, z1], d = [x0, y1, z1];
+  const e = [x1, y1, z0], f = [x0, y1, z0], g = [x1, y0, z0];
+  const s = [];
+  if (out) for (const o of [[-1, 0], [1, 0], [0, -1], [0, 1]]) s.push({ poly: [a, b, g, e, f, d], col: out, off: o });
+  if (cL) s.push({ poly: [d, c, e, f], col: cL });
+  if (cR) s.push({ poly: [b, g, e, c], col: cR });
+  if (cT) s.push({ poly: [a, b, c, d], col: cT });
+  return s;
+}
+
+// Cuit une liste de formes à l'échelle (z, dpr) avec un pixel d'art de `kd` px device.
+// Rend { cv, ox, oy, w, h } : (ox, oy) = position, dans l'image, de l'ORIGINE de
+// l'objet (px device). null hors DOM (tests).
+export function bakeShapes(shapes, z, dpr, kd) {
+  if (typeof document === 'undefined') return null;
+  const P = [];
+  let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
+  const proj = (p, off) => {
+    const [x, y] = isoLocal(p[0], p[1], p[2], z);
+    const X = x * dpr + (off ? off[0] * kd : 0), Y = y * dpr + (off ? off[1] * kd : 0);
+    if (X < minX) minX = X; if (X > maxX) maxX = X;
+    if (Y < minY) minY = Y; if (Y > maxY) maxY = Y;
+    return [X, Y];
+  };
+  for (const s of shapes) P.push(s.poly ? s.poly.map((p) => proj(p, s.off)) : [proj(s.px)]);
+  if (!Number.isFinite(minX)) return null;
+  const Ox = Math.floor(minX / kd) * kd - 2 * kd, Oy = Math.floor(minY / kd) * kd - 2 * kd;
+  const w = Math.max(kd, Math.ceil((maxX - Ox) / kd) * kd + 2 * kd);
+  const h = Math.max(kd, Math.ceil((maxY - Oy) / kd) * kd + 2 * kd);
+  const cv = document.createElement('canvas');
+  cv.width = w; cv.height = h;
+  const g = cv.getContext('2d');
+  shapes.forEach((s, i) => {
+    const pts = P[i].map(([X, Y]) => [X - Ox, Y - Oy]);
+    if (s.poly) fillPolyDev(g, pts, kd, s.col);
+    else {
+      g.fillStyle = s.col;
+      g.fillRect(Math.round(pts[0][0] / kd - 0.5) * kd, Math.round(pts[0][1] / kd - 0.5) * kd, kd, kd);
+    }
+  });
+  return { cv, ox: -Ox, oy: -Oy, w, h };
+}
+
+// Pose une image cuite avec son ORIGINE au point écran (x, y) (px CSS). Position
+// rabattue sur la grille device, comme vieBlit.
+export function blitBaked(ctx, bk, x, y, dpr, alpha = 1) {
+  if (!bk || alpha <= 0.01) return false;
+  const X = Math.round(x * dpr) - bk.ox, Y = Math.round(y * dpr) - bk.oy;
+  const pa = ctx.globalAlpha, ps = ctx.imageSmoothingEnabled;
+  if (alpha < 1) ctx.globalAlpha = pa * alpha;
+  ctx.imageSmoothingEnabled = false;
+  ctx.drawImage(bk.cv, X / dpr, Y / dpr, bk.w / dpr, bk.h / dpr);
+  ctx.globalAlpha = pa; ctx.imageSmoothingEnabled = ps;
+  return true;
+}
+
+// Cache borné des images cuites (une ville affiche quelques dizaines de variantes ;
+// un changement de zoom en crée d'autres — on vide quand ça déborde).
+export function makeBakeCache(max = 240) {
+  const m = new Map();
+  return {
+    get(key, make) {
+      let v = m.get(key);
+      if (v === undefined) {
+        if (m.size >= max) m.clear();
+        v = make();
+        m.set(key, v);
+      }
+      return v;
+    },
+    clear() { m.clear(); },
+    get size() { return m.size; },
+  };
+}

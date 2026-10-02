@@ -446,6 +446,9 @@ export function paintIsoItems(bake, items, now) {
     } else if (it.kind === 'vie') {
       // Petite vie posée au sol (iso/isoVie.js) : l'acteur se dessine lui-même.
       it.v.draw(ctx, now);
+    } else if (it.kind === 'elev') {
+      // Les étages de la ville (iso/isoElevated.js) : idem.
+      it.v.draw(ctx, now);
     } else if (it.kind === 'campHearth') {
       // Foyer du campement (2026-09-28) : tout le calcul est dans
       // isoCampHearth.js (grain égalisé sur les tentes, flamme animée, lueur).

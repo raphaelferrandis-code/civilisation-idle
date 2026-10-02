@@ -40,6 +40,7 @@ import { WILD_THIN_UNIT, isoWildForest } from './isoWildForest.js';
 import { depthOf, wonderFootWorld } from './projection.js';
 import { districtMassTiles } from './isoDistricts.js';
 import { vieActors } from './isoVie.js';
+import { elevatedActors } from './isoElevated.js';
 
 // Pool et vue des items du peintre (cf. commentaire dans drawIsoLive) —
 // persistants au module : capacité conservée d'une frame à l'autre.
@@ -214,6 +215,11 @@ export function collectIsoItems(bake, now) {
     // `d` imposé : ce qui se pose SUR un bâtiment (drapeau, pigeon de toit) passe juste
     // après lui, à sa clé + ε, et non à la profondeur de son propre pied.
     const it = pushItem(); it.d = a.d != null ? a.d : depthOf(a.wx, a.wy); it.kind = 'vie'; it.v = a;
+  }
+  // LES ÉTAGES DE LA VILLE (iso/isoElevated.js, docs/PLAN-ETAGES.md) : ce qui vit
+  // AU-DESSUS du sol — trafic aérien, viaducs, métro. Même contrat que la petite vie.
+  for (const a of elevatedActors(now)) {
+    const it = pushItem(); it.d = a.d != null ? a.d : depthOf(a.wx, a.wy); it.kind = 'elev'; it.v = a;
   }
   // Forêt sauvage (ceinture autour de la ville, hors sol urbain) — cf. isoWildForest.
   // Culling aux bornes visibles ; le jitter (jx/jy) casse l'alignement sur la grille.
