@@ -11,12 +11,14 @@
 // se trie à son coin arrière, sa tranche à son coin avant).
 import { CM } from '../layout.js';
 import { skyTrafficActors } from './isoSkyTraffic.js';
+import { highwayActors } from './isoHighway.js';
 
 const _out = [];
 export function elevatedActors(now) {
   _out.length = 0;
   if (!CM.layout || CM.lodActive) return _out;
   try {
+    highwayActors(now, _out);
     skyTrafficActors(now, _out);
   } catch (e) {
     // Un étage qui plante ne doit jamais emporter la frame de la carte.

@@ -68,10 +68,37 @@ dense. Pur `f(now)`, aucun état. Ombre au sol décalée vers le soleil. Nuit : 
 feux, traînée courte, balises de couloir. Densité × santé de la cité (`CM.healthF`).
 Molette `__skyTraffic({ on, density, shadow, trails, beacons, jets })`.
 
-### Lot 2 — L'autoroute (B6+) · à venir
+### Lot 2 — L'autoroute (B6+) · `procedural/highwayPlan.js` + `iso/isoHighway.js`
+**Plan (pur, au layout)** : le tablier couvre l'artère du pont (colonnes `ax`, `ax+1`),
+sur chaque rive : au sol près de l'eau (`farStart` 6 cases — le futur métro du quai) et
+au-delà de la place centrale (`coreGap` 3 cases après elle), rampe de 8 cases (5 au
+plus court), tablier plein à 1,75 tuile, redescente avant la **lisière** (première
+rangée sans bâtiment tenu de part et d'autre de l'artère, à 5 rangées près). Il ne prend
+aucun terrain. **L'échangeur** (deux boucles de 270°, « trèfle partiel ») se pose sur la
+rive au plus long tablier, à une rue transversale qui arrive des deux côtés de l'artère
+(à 4 cases au plus : la rue est prolongée jusqu'à elle). Ses deux pelouses (4×4) entrent
+dans la réserve de la ville (herbe, jamais bâties) ; les bâtiments qui y tenaient leur
+place sont relogés une fois. Choix **figé** dans `s.cityCore.highway` (`sign`, `dy` en
+repère du centre). Publié : `L.highway`.
+**Dessin** : tronçons d'une demi-cellule, deux acteurs chacun (dessus trié au coin
+arrière, tranche au coin avant), piles en T sur le terre-plein (triées SOUS le dessus),
+lampadaires sur l'axe, ombre au sol ; matière par ère (béton B6, jade B7, nacre et or
+B8, cristal B9 — rives allumées la nuit aux ères cosmiques). Circulation : vraies
+voitures de l'ère (`drawIsoVehicle` + `vehSkinFor`) soulevées à la hauteur du tablier.
+Molette `__highway({ on, cars, lamps, shadow })`.
+⚠ Les voitures de la grille continuent de rouler AU SOL sur l'artère, sous le tablier :
+c'est voulu (l'avenue reste en dessous), mais elles y passent dans l'ombre.
 ### Lot 3 — Métro (B5) et monorail (B7) · à venir
 ### Lot 4 — Quartier flottant (B9) et ruines verticales · à venir
 
 ## 5. Journal
 
 - 2026-10-02 — plan écrit, lot 1 ouvert.
+- 2026-10-02 — lot 1 commité en local (`030ae68`). Coût mesuré en rendu logiciel (B9,
+  240 véhicules) : ~0 de jour, +4 ms de nuit. Pièges : la boîte monde d'un écran iso est
+  un losange deux fois trop grand (trier les candidats À L'ÉCRAN avant le plafond) ; les
+  plus longues lignes droites sont les routes de CAMPAGNE (filtrer par `urbanSet`).
+- 2026-10-02 — lot 2. Pièges : un chevêtre trié à l'aplomb de l'axe se peignait SUR la
+  chaussée (le trier sous le dessus) ; `organicLimit` couvre toute la grille, la lisière
+  se lit aux bâtiments tenus ; les maisons bordent l'artère, les rues transversales
+  s'arrêtent 1-2 cases avant elle (les prolonger au lieu d'exiger qu'elles la touchent).

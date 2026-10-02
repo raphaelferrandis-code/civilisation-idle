@@ -20,6 +20,7 @@ import { terrainFieldU, terrainFlatR } from './procedural/terrainField.js';
 import { ROAD_LINK_WAVE_FRACTION } from '../core/balance.js';
 import { createBuildingPlacer, placeCategorySlotted } from './procedural/buildingGenerator.js';
 import { createWaterModel } from './procedural/waterModel.js';
+import { planHighway } from './procedural/highwayPlan.js';
 import { CM_GIVEN, CM_EPITHETS, CM_TRADES, CM_HOUSES, CM_ROLES, CM_STREET_OF, CM_RESIDENCES } from './cityNaming.js';
 import {
   CM_MAP_BUILDINGS,
@@ -3239,6 +3240,62 @@ function computeCityLayout(s) {
   }
   lp("routes-gen");
 
+  // ── L'AUTOROUTE DE L'ARTÈRE (docs/PLAN-ETAGES.md, lot 2) ──────────────────
+  // À partir de la bande 6, un tablier sur piles couvre l'artère du pont (son
+  // dessin : iso/isoHighway.js). Il ne prend AUCUN terrain : il passe au-dessus de
+  // la chaussée. Seul l'ÉCHANGEUR en prend — deux pelouses pour ses boucles, au
+  // croisement d'une rue transversale, choisies une fois puis FIGÉES dans
+  // s.cityCore.highway (repère du centre de grille). Elles entrent dans la réserve
+  // de la ville (jamais bâties, repeintes en herbe) ; un bâtiment qui y tenait sa
+  // place est relogé, une fois, comme pour la percée de l'artère.
+  let highway = null;
+  if (townOn && arteryAx != null && (c.eraBand | 0) >= 6) {
+    const coreRows = [];
+    if (centralSite) forSiteCells(centralSite, (x, y) => { if (!coreRows.includes(y)) coreRows.push(y); });
+    const inGrid = (x, y) => x >= 1 && y >= 1 && x < N - 1 && y < N - 1;
+    highway = planHighway({
+      N, ax: arteryAx, cx, cy, band: c.eraBand | 0, coreRows,
+      isWet: (x, y) => riverSet.has(x + "," + y) || bankSet.has(x + "," + y),
+      isRoad: (x, y) => roadKey.has(x + "," + y),
+      // « Dans la ville » = des bâtiments TENUS de part et d'autre de l'artère à
+      // cette hauteur (la limite organique, elle, couvre déjà toute la grille).
+      inCity: (x, y) => {
+        let n = 0;
+        for (let dy = -1; dy <= 1; dy += 1) for (let dx = -6; dx <= 7; dx += 1) if (heldBy.has((arteryAx + dx) + "," + (y + dy))) n += 1;
+        return n >= 1;
+      },
+      hard: (x, y) => { const k = x + "," + y; return !inGrid(x, y) || riverSet.has(k) || bankSet.has(k) || townReserve.has(k) || frozenWonderCells.has(k); },
+      held: (x, y) => !!heldBy && heldBy.has(x + "," + y),
+      fix: s.cityCore && s.cityCore.highway ? s.cityCore.highway : null,
+    });
+    if (highway && highway.interchange) {
+      if (s.cityCore) s.cityCore.highway = { sign: highway.interchange.sign, dy: highway.interchange.yc - cy };
+      const evicted = new Set();
+      for (const k of highway.lawn) {
+        townReserve.add(k); townGreen.add(k);
+        const o = heldBy && heldBy.get(k);
+        if (o) evicted.add(o);
+      }
+      // Le RACCORD : la rue transversale s'arrêtait une ou deux cases avant l'artère
+      // (les maisons la bordent) — on la prolonge jusqu'à elle, sous le tablier.
+      for (const k of highway.pave) {
+        const o = heldBy && heldBy.get(k);
+        if (o) evicted.add(o);
+        if (!roadKey.has(k)) {
+          const ci = k.indexOf(",");
+          roadKey.add(k); roads.push({ gx: +k.slice(0, ci), gy: +k.slice(ci + 1) });
+          roadMeta.set(k, { h: true, v: false, rank: "secondary" });
+        }
+        memKeep.add(k);
+      }
+      if (evicted.size) {
+        const store = cmCityMapSlotsFor(s);
+        for (const [k, o] of Array.from(heldBy)) if (evicted.has(o)) heldBy.delete(k);
+        for (const o of evicted) delete store[o];
+      }
+    }
+  }
+
   // Pont central : largeur (2 voies dès la bande 2) + colonne de base. Réutilisés
   // par la carve des merveilles, la protection du trim et cmBuildRoadGraph — le pont
   // sanctuarisé ne doit être effacé par AUCUN d'eux.
@@ -5022,6 +5079,8 @@ function computeCityLayout(s) {
     // Les deux ports du XIXe (docs/PLAN-PORTS.md) : le bassin du Vieux-Port
     // { gx, gy, w, h } et le terre-plein de commerce { x0, len, side, depth, edge }.
     ports: (oldBasin || tradePort) ? { old: oldBasin, trade: tradePort } : null,
+    // L'autoroute de l'artère (procedural/highwayPlan.js) : tracé, rives, échangeur.
+    highway,
     // Exposé au runtime (habitants, véhicules, tooltips, décor de places) :
     plan: { archetype: plan.archetype, core: plan.core, order: plan.order, chaos: plan.chaos, plazas: plan.plazas || [], anchors: plan.anchors || [] },
     personality, ageCfg, mapSeed
