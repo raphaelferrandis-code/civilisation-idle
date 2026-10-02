@@ -186,13 +186,31 @@ const AGENT_FUTURE = { // ère 5 (band ≥ 7) : cyberpunk néon sci-fi — scale
   women: [{ name: 'futurewoman', scale: 1.24 }, { name: 'futurewoman2', scale: 1.24 }],
   child: { name: 'futurechild', scale: 0.87 },
 };
+// Ères cosmiques (PLAN-VIVANT, 2026-10-02) : UN jeu par bande, habillé comme sa
+// cité — jade et ivoire (7), nacre et or (8), marbre et cristal violet (9). Les
+// cyberpunks sombres d'août (AGENT_FUTURE) ne sont plus servis à partir de leur bande.
+const AGENT_COSMIC7 = {
+  men: [
+    { name: 'jademan', scale: 0.70 },    // tunique de jade, cape ivoire
+    { name: 'jademan2', scale: 0.70 },   // jardinier et son arbre en pot
+    { name: 'jademan3', scale: 0.70 },   // ingénieur à visière orange
+    { name: 'jademan4', scale: 0.70 },   // savant à tablette lumineuse
+  ],
+  women: [
+    { name: 'jadewoman', scale: 0.70 },  // robe de jade, ceinture d'or
+    { name: 'jadewoman2', scale: 0.70 }, // botaniste couronnée de fleurs
+    { name: 'jadewoman3', scale: 0.70 }, // pilote, foulard corail
+  ],
+  child: { name: 'jadechild', scale: 0.50 },
+};
 function agentSetForBand(band) {
   return band <= 1 ? AGENT_PREHISTORIC
     : band <= 3 ? AGENT_MEDIEVAL
       : band <= 4 ? AGENT_ANTIQUITY
         : band <= 5 ? AGENT_INDUSTRIAL   // Fonte : XIXe industriel
-          : band <= 6 ? AGENT_MODERN     // Néon : citoyen near-future de mégalopole
-            : AGENT_FUTURE;              // cosmique : cyberpunk sci-fi
+          : band <= 6 ? AGENT_MODERN     // la ville de bureaux
+            : band <= 7 ? AGENT_COSMIC7  // la cité de jade
+              : AGENT_FUTURE;            // (bandes 8-9 : à redessiner)
 }
 // Spec (nom+scale) d'un genre/variante. charType 0=homme 1=femme 2=enfant ; variant tiré au
 // spawn (p.skinVariant). Modulo → repli sur la variante 0 si l'ère n'a qu'une variante.
@@ -223,14 +241,15 @@ const AGENT_FALLBACK = { name: 'villager', scale: 0.82 }; // repli ultime si un 
 // route en biais — invisible au lint comme au rendu automatisé, d'où la garde
 // d'existence de __tests__/isoAgentDiagonals.test.js.
 const BASKET_CARRIERS = ['basket-man', 'basket-woman'];
+const AGENT_SETS = [AGENT_PREHISTORIC, AGENT_MEDIEVAL, AGENT_ANTIQUITY, AGENT_INDUSTRIAL, AGENT_MODERN, AGENT_COSMIC7, AGENT_FUTURE];
 const ISO_AGENT_NAMES = [...new Set([
-  ...[AGENT_PREHISTORIC, AGENT_MEDIEVAL, AGENT_ANTIQUITY, AGENT_INDUSTRIAL, AGENT_MODERN, AGENT_FUTURE]
+  ...AGENT_SETS
     .flatMap((set) => [...set.men, ...set.women, set.child].map((s) => s.name)),
   ...BASKET_CARRIERS,
 ])];
 
 ensureAgentChar('villager');
-for (const set of [AGENT_PREHISTORIC, AGENT_MEDIEVAL, AGENT_ANTIQUITY, AGENT_INDUSTRIAL, AGENT_MODERN, AGENT_FUTURE])
+for (const set of AGENT_SETS)
   for (const s of [...set.men, ...set.women, set.child]) ensureAgentChar(s.name);
 if (typeof window !== 'undefined') window.__villagerScale = (h) => { AGENT_SCALE = +h || 1; };
 
