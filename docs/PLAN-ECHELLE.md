@@ -367,3 +367,9 @@ trame gagne. Retiré, non commité.
   livraison (14-24 % de l'encre du second gratte-ciel).
 - Un seul dessin au cœur = une forêt de flèches identiques (vu à la capture) : deux
   dessins par ère, de hauteurs différentes, tirés par pâté.
+- ⚠⚠ **Vérifier L'ANGLE de chaque tour livrée** (Raph a pris l'atelier « vu de face » le
+  jour même) : en vue de coin, deux façades, la GAUCHE éclairée (lumière haut-gauche), le
+  toit en losange, les corniches en V. Revue faite : le gratte-ciel Art déco doré (bande
+  8) était une élévation de face → remplacé par le dessin jade dont le verre passe à
+  l'ambre (`hueSwap` 160-205° → 38°) ; la tour nacrée à nervures était éclairée de DROITE
+  → retournée en miroir aux trois ères (sans perte, la tour est symétrique).

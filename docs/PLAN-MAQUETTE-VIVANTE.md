@@ -484,6 +484,14 @@ sont un peu flous ; d'autres dénotent ; l'allumage de nuit est à fignoler ».*
   (couleurs du socle sous la rangée 50, buisson d'angle gardé), pied des murs assombri,
   vitres peintes jaunes « allumées en plein jour » passées en verre sombre (la nuit,
   houseWindows les allume), `ecartSol --darker` (crépi à l'ombre trop près du sol, b2-3).
+  Raph : « ça ne va pas du tout, c'est vu de face » → ⚠⚠ `create_map_object` sort des
+  ÉLÉVATIONS DE FACE malgré « the corner of the building faces the viewer » (la leçon de
+  juillet, cf. fiche « régé de face », ignorée une fois de plus : regarder L'ANGLE, pas
+  seulement la structure). Refait en objet 8 DIRECTIONS (`create_8_direction_object`,
+  128 px, la taberna comme objet de style), vue SUD-OUEST — porte et enseigne sur la face
+  gauche comme la maison de ville —, convertie nette à 53 px (`image_to_pixelart`), aucune
+  dalle cette fois. Ses tons (poutres sombres, pierre) sont ceux du dessin : luminance 82,
+  celle de la maison de pierre (87).
 - **La nuit des bâtiments-moteur** (`sceneWindows.js` réécrit) :
   - les fenêtres s'allument AUSSI au médiéval, au romain et au XIXe (le détecteur des
     maisons, `houseWindows.windowPixels`, sur les scènes de ces stades) ;
