@@ -53,7 +53,9 @@ import { pivotGround, setSunShadowReflectHook } from './isoSunShadow.js';
 // exact en physique, il se lisait comme une corniche pâle posée sur l'eau ; sans
 // lui, l'eau montre les façades et les toits retournés et l'œil lit « la ville dans
 // le fleuve ». Gardé pour l'A/B : __reflect({ wall: true }).
-export const REFLECT = { on: true, alpha: 0.6, tint: 0.15, wobble: 2, speed: 1, wall: false, minZoom: 0.6 };
+// `wallTaper` (2026-10-02) : le reflet descend de la hauteur du mur À CET ENDROIT (il
+// s'enfonce dans la grève au bout d'un quai) ; false = l'ancien tout-ou-rien (A/B).
+export const REFLECT = { on: true, alpha: 0.6, tint: 0.15, wobble: 2, speed: 1, wall: false, minZoom: 0.6, wallTaper: true };
 // Force de la frame : coupée en vue lointaine (LOD), à l'effondrement, au palier
 // « perf » ; en FONDU sous `minZoom` (0,6 → 0,7), comme l'ombre du soleil.
 function reflectK() {
@@ -192,7 +194,7 @@ let _ref = null;             // caméra + transform de la frame de cuisson
 let _cols = null;            // eau par colonne d'écran de la frame de cuisson
 let _drop = 0;               // hauteur du mur de quai à l'écran (px) de la frame
 let _wall = null;            // { runs, cols } : le mur de quai de la rive d'en face
-let _wallCol = null;         // par colonne d'écran (cf. _cols) : 1 si ce bord d'eau a un mur
+let _wallCol = null;         // par colonne d'écran (cf. _cols) : part du mur plein sur ce bord d'eau (0..1)
 // Ce que porte le calque, par bande : étendue x (px device), et bandes utilisées.
 let _sx0 = null, _sx1 = null, _s0 = Infinity, _s1 = -Infinity;
 
@@ -245,7 +247,12 @@ export function noteReflection(ctx, img, dx, dy, dw, dh, sx = 0, sy = 0, sw = 0,
   // plage du port, 2026-10-01), l'eau est au niveau du sable : la maison du port et
   // l'arbre de la plage se reflétaient décalés de toute la hauteur d'un mur absent,
   // et leur reflet flottait au milieu du fleuve, détaché d'eux.
-  else if (footY < top) drop = (!_wallCol || _wallCol[i]) ? _drop : 0;
+  // ⚠ PROGRESSIF, PAS TOUT-OU-RIEN (2026-10-02, retour Raph : la fin du quai sur la plage
+  // du port « fait buguer le reflet ») : là où le mur s'enfonce dans la grève (TAPER
+  // samples), un reflet tombait encore de toute sa hauteur — détaché de la rive, coupé
+  // en biais contre ses voisins de la plage. Il descend désormais de la hauteur du mur
+  // À CET ENDROIT (part du mur plein portée par les points du bord, cf. isoRiver).
+  else if (footY < top) drop = !_wallCol ? _drop : _drop * _wallCol[i];
   else if (footY <= bot) drop = 0;         // posé sur l'eau (bateau)
   else return;                             // rive proche : reflet sur sa propre berge
   if (footY + dh + 2 * drop < top) return; // trop loin de l'eau pour l'atteindre
@@ -304,11 +311,13 @@ function drawWallReflection() {
     for (const [a, b, col] of bands) {
       _lctx.fillStyle = col;
       _lctx.beginPath();
+      // Hauteur du mur À CET ENDROIT (`f`, cf. beginBuild) : il s'enfonce dans la grève.
+      const hh = (p) => h * (p.f == null ? 1 : p.f);
       for (let i = 0; i < run.length; i += 1) {
-        const p = run[i], y = p.y + h + a * h;
+        const p = run[i], y = p.y + hh(p) + a * hh(p);
         if (i) _lctx.lineTo(p.x, y); else _lctx.moveTo(p.x, y);
       }
-      for (let i = run.length - 1; i >= 0; i -= 1) _lctx.lineTo(run[i].x, run[i].y + h + b * h);
+      for (let i = run.length - 1; i >= 0; i -= 1) _lctx.lineTo(run[i].x, run[i].y + hh(run[i]) + b * hh(run[i]));
       _lctx.closePath();
       _lctx.fill();
     }
@@ -407,17 +416,25 @@ function beginBuild(ctx, edges, drop, wall, k = 1) {
   _cols = waterColumns(edges, CM.cw || cv.width);
   _drop = drop || 0;
   _wall = wall && wall.runs && wall.runs.length ? wall : null;
-  // Colonnes dont le bord d'eau HAUT est un mur de quai (les tronçons de `wall`). Sans
-  // description du mur (`wall` absent), on garde la règle d'avant : un mur partout.
+  // Colonnes dont le bord d'eau HAUT est un mur de quai (les tronçons de `wall`), avec la
+  // PART du mur plein à cet endroit (`f` des points, 1 si absent) interpolée le long du
+  // bord. Sans description du mur (`wall` absent), la règle d'avant : un mur partout.
   _wallCol = null;
   if (wall && wall.runs) {
     const C = _cols;
-    _wallCol = new Uint8Array(C.n);
+    _wallCol = new Float32Array(C.n);
     for (const run of wall.runs) {
       for (let k = 1; k < run.length; k += 1) {
-        const i0 = Math.max(0, Math.floor(Math.min(run[k - 1].x, run[k].x) / C.step));
-        const i1 = Math.min(C.n - 1, Math.ceil(Math.max(run[k - 1].x, run[k].x) / C.step));
-        for (let i = i0; i <= i1; i += 1) _wallCol[i] = 1;
+        const p = run[k - 1], q = run[k];
+        const fp = p.f == null || !REFLECT.wallTaper ? 1 : p.f, fq = q.f == null || !REFLECT.wallTaper ? 1 : q.f;
+        const i0 = Math.max(0, Math.floor(Math.min(p.x, q.x) / C.step));
+        const i1 = Math.min(C.n - 1, Math.ceil(Math.max(p.x, q.x) / C.step));
+        const dx = q.x - p.x;
+        for (let i = i0; i <= i1; i += 1) {
+          const u = Math.abs(dx) > 1e-6 ? Math.max(0, Math.min(1, ((i + 0.5) * C.step - p.x) / dx)) : 0.5;
+          const fv = fp + (fq - fp) * u;
+          if (fv > _wallCol[i]) _wallCol[i] = fv;
+        }
       }
     }
   }

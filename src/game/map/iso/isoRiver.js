@@ -32,6 +32,7 @@ import { WINTER } from '../seasonMode.js';
 import { orbitPoint, FLEET_TUNE } from '../riverFleet.js';
 import { ensureQuayGate, quayWallTune, quayGapRuns, quayWallTiles, quayWallColors } from '../quaysAndRiot.js';
 import { drawIsoReflections } from './isoReflect.js';
+import { quayTaperProfile } from './isoQuay.js';
 import { ISO_TILE_KEYS, isoWinterTile, beachTone, isoVariantKey, ensureIsoTileKey, BEACH } from './isoGroundTiles.js';
 import { WATER, waterShoreTune, rgb } from './isoPalette.js';
 import { RAIN_TUNE, precipKind } from './isoWeather.js';
@@ -2237,6 +2238,9 @@ export function drawIsoRiver(now) {
       const g = CM.quayGate;
       if (g && g.drawPlus && g.drawMinus) {
         const kh = pts.core0 | 0, n = core.length, runs = [];
+        // Part du mur plein par sample (1, puis → 0 là où le quai descend sur une
+        // grève, cf. quayTaperProfile) : le reflet descend de CETTE hauteur.
+        const tpP = quayTaperProfile(g, n, 1), tpM = quayTaperProfile(g, n, -1);
         let cur = null;
         for (let i = 0; i < pts.length; i += 1) {
           const c = i - kh;
@@ -2244,7 +2248,9 @@ export function drawIsoRiver(now) {
           const on = c >= 0 && c < n && (upLeft ? g.drawPlus[c] : g.drawMinus[c]);
           if (!on) { cur = null; continue; }
           if (!cur) { cur = []; runs.push(cur); }
-          cur.push(upLeft ? edges.left[i] : edges.right[i]);
+          const e = upLeft ? edges.left[i] : edges.right[i];
+          const tp = upLeft ? tpP : tpM;
+          cur.push({ x: e.x, y: e.y, f: tp ? tp[c] : 1 });
         }
         wall = { runs, cols: quayWallColors(band) };
       }

@@ -41,8 +41,11 @@ import { CM, cmHash } from '../layout.js';
 import { ISO_X, ISO_Y, depthOf, worldToScreen } from './projection.js';
 import { quayStyleFor, quayWallTune, quayWallColors, ensureQuayGate } from '../quaysAndRiot.js';
 
-// Molette : __quayArt({ bollards, grain, parapet, stairs }) ; __quayArt() rend l'état.
-export const QUAY_ART = { bollards: true, grain: true, parapet: true, stairs: true };
+// Molette : __quayArt({ bollards, grain, parapet, stairs, endRamp }) ; __quayArt() rend l'état.
+// `endRamp` (2026-10-02) : le quai qui finit sur une GRÈVE garde toute sa largeur et
+// descend sur le sable (cf. LA FIN DU QUAI SUR UNE GRÈVE) ; false = l'ancienne pointe
+// effilée en lame (A/B).
+export const QUAY_ART = { bollards: true, grain: true, parapet: true, stairs: true, endRamp: true };
 if (typeof window !== 'undefined') {
   window.__quayArt = (o) => {
     if (o && typeof o === 'object') Object.assign(QUAY_ART, o);
@@ -59,6 +62,47 @@ if (typeof window !== 'undefined') {
 
 const S = 128;                                       // côté d'une tuile, px d'art
 const TAPER = 2;
+
+// ── LA FIN DU QUAI SUR UNE GRÈVE (2026-10-02) ───────────────────────────────
+// Retour Raph (capture de la plage du port, bande 9) : « la fin du quai pour la plage
+// du port ne rend pas bien et fait buguer le reflet ». La promenade s'y EFFILAIT —
+// largeur et mur ramenés à zéro sur TAPER samples (~3 tuiles) : une lame violette
+// posée en biais sur le sable jusqu'au drapeau, qui ne se lisait ni comme un quai ni
+// comme une plage.
+// Désormais (`QUAY_ART.endRamp`) la promenade garde TOUTE SA LARGEUR jusqu'à son
+// dernier sample et finit CARRÉE sur la grève ; seul le MUR s'enfonce sur les TAPER
+// derniers samples : le quai descend sur le sable comme une cale. Le reflet suit la
+// même courbe (quayTaperProfile → isoRiver → isoReflect), au lieu de tomber de toute la
+// hauteur d'un mur qui n'y est plus.
+//
+// Profil d'effilement d'une rive, PAR SAMPLE : 1 = mur plein, 0 = pas de quai, entre
+// les deux sur les TAPER samples qui bordent une coupure EN VILLE (la grève du port) ;
+// un bout NATUREL (`naturalOff` : extrémités du fleuve, ports du XIXe) finit carré, à 1.
+// Pur, mis en cache sur le masque (un nouveau masque = un nouvel objet).
+export function quayTaperProfile(g, n0, side) {
+  if (!g) return null;
+  const gate = side > 0 ? g.drawPlus : g.drawMinus;
+  if (!gate) return null;
+  const ck = side > 0 ? '_taperPlus' : '_taperMinus';
+  if (g[ck] && g[ck].length === n0) return g[ck];
+  const out = new Float32Array(n0), no = g.naturalOff;
+  let i = 0;
+  while (i < n0) {
+    if (!gate[i]) { i += 1; continue; }
+    const a = i; while (i + 1 < n0 && gate[i + 1]) i += 1;
+    const b = i; i += 1;
+    // Effilement aux bouts qui bordent une interruption EN VILLE (port), pas aux
+    // bouts naturels (même règle que l'ancien quai) : un bout naturel finit carré.
+    const tA = a > 0 && no ? !no[a - 1] : a > 0, tB = b < n0 - 1 && no ? !no[b + 1] : b < n0 - 1;
+    for (let k = a; k <= b; k += 1) {
+      const dA = tA ? k - a : 1e9, dB = tB ? b - k : 1e9;
+      const t = Math.max(0, Math.min(1, Math.min(dA, dB) / TAPER));
+      out[k] = t * t * (3 - 2 * t);
+    }
+  }
+  try { Object.defineProperty(g, ck, { value: out, enumerable: false, configurable: true }); } catch { /* masque gelé : pas de cache */ }
+  return out;
+}
 const art = (wx, wy) => ({ x: (wx - wy) * ISO_X, y: (wx + wy) * ISO_Y });
 function riverNormalAt(sm, i) {
   const a = sm[Math.max(0, i - 1)], b = sm[Math.min(sm.length - 1, i + 1)];
@@ -181,7 +225,7 @@ function cacheKey(L, band) {
     + ':' + (CM.waterShore ? CM.waterShore.quay.join('|') : '-')
     + ':' + (quayWallTune.on ? 1 : 0) + quayWallTune.heightK + '_' + quayWallTune.light
     + ':' + (QUAY_ART.bollards ? 1 : 0) + (QUAY_ART.grain ? 1 : 0)
-    + (QUAY_ART.parapet ? 1 : 0) + (QUAY_ART.stairs ? 1 : 0);
+    + (QUAY_ART.parapet ? 1 : 0) + (QUAY_ART.stairs ? 1 : 0) + (QUAY_ART.endRamp ? 1 : 0);
 }
 function buildGeo(L, band) {
   const g = CM.quayGate, sm = L.river.samples, n0 = sm.length, T = CM.TILE;
@@ -196,18 +240,14 @@ function buildGeo(L, band) {
       const a = i; while (i + 1 < n0 && gate[i + 1]) i += 1;
       const b = i; i += 1;
       if (b <= a) continue;
-      // Effilement aux bouts qui bordent une interruption EN VILLE (port), pas aux
-      // bouts naturels (même règle que l'ancien quai) : un bout naturel finit carré.
-      const no = g.naturalOff;
-      const tA = a > 0 && no ? !no[a - 1] : a > 0, tB = b < n0 - 1 && no ? !no[b + 1] : b < n0 - 1;
-      const tt = (k) => {
-        const dA = tA ? k - a : 1e9, dB = tB ? b - k : 1e9;
-        const t = Math.max(0, Math.min(1, Math.min(dA, dB) / TAPER));
-        return t * t * (3 - 2 * t);
-      };
+      // Effilement (cf. quayTaperProfile) : il règle le MUR ; la LARGEUR de la
+      // promenade ne le suit plus que si `endRamp` est coupé (l'ancienne pointe).
+      const prof = quayTaperProfile(g, n0, side);
+      const tt = (k) => prof[k];
+      const wk = QUAY_ART.endRamp ? () => 1 : tt;
       const N = b - a + 1;
       const P = (k, base) => {
-        const s = sm[k], n = riverNormalAt(sm, k), off = s.hw + base * tt(k);
+        const s = sm[k], n = riverNormalAt(sm, k), off = s.hw + base * wk(k);
         return art((s.x + side * n.nx * off) * T, (s.y + side * n.ny * off) * T);
       };
       const edge = [], land = [], face = [], mid = [];
