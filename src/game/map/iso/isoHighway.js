@@ -103,6 +103,14 @@ function pierShapes(M, r, g, top, T) {
   else s.push(...boxShapes(-0.2 * T, -hw, 0.2 * T, hw, -0.18 * T, 0, M.mid, M.lit, M.dark, null));
   return s;
 }
+// Gravats d'une travée tombée : trois blocs de dalle et de pile, de travers.
+function rubbleShapes(M, T) {
+  return [
+    ...boxShapes(-0.45 * T, -0.3 * T, 0.2 * T, 0.25 * T, 0, 0.14 * T, M.top[0], M.mid, M.dark, M.out),
+    ...boxShapes(0.05 * T, -0.15 * T, 0.5 * T, 0.35 * T, 0, 0.22 * T, M.lit, M.mid, M.dark, M.out),
+    ...boxShapes(-0.2 * T, 0.1 * T, 0.08 * T, 0.42 * T, 0, 0.1 * T, M.pyl[0], M.pyl[1], M.dark, M.out),
+  ];
+}
 function lampShapes(M, T) {
   const s = [];
   for (let k = 0; k < 8; k += 1) s.push({ px: [0, 0, (0.62 * T * k) / 7], col: M.out });
@@ -169,14 +177,14 @@ function carActors(r, ri, now, band, T, out, vis) {
 
 // ── LES ACTEURS ──────────────────────────────────────────────────────────────
 export const hwyStats = { segs: 0, cars: 0 };
-export function highwayActors(now, out) {
+export function highwayActors(now, out, decay = 0) {
   hwyStats.segs = 0; hwyStats.cars = 0;
   const L = CM.layout;
   if (!HWY.on || !L || !L.highway || CM.lodActive) return;
   const T = CM.TILE, z = CM.cam.zoom, d = CM.dpr || 1;
   const band = (L.counts && L.counts.eraBand) | 0;
   const M = matFor(band);
-  const night = CM.nightF || 0;
+  const night = (CM.nightF || 0) * (1 - decay);
   const mg = 3 * T * z;
   const vis = (x, y, zz) => {
     const p = worldToScreen(x, y, zz);
@@ -190,6 +198,16 @@ export function highwayActors(now, out) {
       if (Math.max(a.z, b.z) < 0.03 * T) continue;      // au sol : la rue suffit
       const mx = (a.x + b.x) / 2, my = (a.y + b.y) / 2;
       if (!vis(mx, my, a.z) && !vis(mx, my, 0)) continue;
+      // LA CHUTE (lot 4) : des travées entières tombent, par grappes de 3 tronçons
+      // (un tirage par grappe) ; leurs gravats restent au sol, sous le vide.
+      if (decay > 0.5 && h01(ri * 977 + Math.floor(i / 3) * 31) < (decay - 0.4) * 1.0) {
+        if (i % 3 === 1) out.push({ wx: mx, wy: my, d: depthOf(mx, my), draw(ctx) {
+          const bk = baked('ru|' + band, () => rubbleShapes(M, T));
+          const s0 = worldToScreen(mx, my, 0);
+          blitBaked(ctx, bk, s0.x, s0.y, d);
+        } });
+        continue;
+      }
       hwyStats.segs += 1;
       const g = segGeo(a, b, w);
       const kGeo = r1(b.x - a.x) + ',' + r1(b.y - a.y) + ',' + r1(a.z) + ',' + r1(b.z - a.z) + '|' + r.w + '|' + (r.main ? 1 : 0);
@@ -217,9 +235,9 @@ export function highwayActors(now, out) {
         const p = worldToScreen(a.x, a.y, a.z);
         blitBaked(ctx, bk, p.x, p.y, d);
         // la nuit, les ères cosmiques allument la rive du tablier
-        if (M.edge && (CM.nightF || 0) > 0.05) {
+        if (M.edge && night > 0.05) {
           const pb = worldToScreen(b.x, b.y, b.z);
-          glowAt((p.x + pb.x) / 2, (p.y + pb.y) / 2 + HWY.th * T * z * 0.5, 3 * z / 0.625, M.edge, 0.35 * (CM.nightF || 0));
+          glowAt((p.x + pb.x) / 2, (p.y + pb.y) / 2 + HWY.th * T * z * 0.5, 3 * z / 0.625, M.edge, 0.35 * night);
         }
       } });
       // piles : sur le terre-plein (tablier principal) toutes les 3 cellules, sous
@@ -247,7 +265,7 @@ export function highwayActors(now, out) {
         } });
       }
     }
-    if (HWY.cars > 0) { const n0 = out.length; carActors(r, ri, now, band, T, out, vis); hwyStats.cars += out.length - n0; }
+    if (HWY.cars > 0 && decay < 0.5) { const n0 = out.length; carActors(r, ri, now, band, T, out, vis); hwyStats.cars += out.length - n0; }
   });
 }
 

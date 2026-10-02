@@ -206,7 +206,7 @@ function along(p, s) {
 
 // ── LES ACTEURS ──────────────────────────────────────────────────────────────
 export const metroStats = { segs: 0, cars: 0, where: null };
-export function metroActors(now, out) {
+export function metroActors(now, out, decay = 0) {
   metroStats.segs = 0; metroStats.cars = 0; metroStats.where = null;
   const L = CM.layout;
   if (!MET.on || !L || CM.lodActive) return;
@@ -224,6 +224,8 @@ export function metroActors(now, out) {
     if (Math.max(a.z, b.z) < 0.03 * T) continue;
     const mx = (a.x + b.x) / 2, my = (a.y + b.y) / 2;
     if (!vis(mx, my, a.z) && !vis(mx, my, 0)) continue;
+    // LA CHUTE (lot 4) : travées tombées par grappes de 3 tronçons.
+    if (decay > 0.5 && ((Math.floor(i / 3) * 2654435761) >>> 0) / 4294967296 < (decay - 0.4) * 1.0) continue;
     metroStats.segs += 1;
     const g = segGeo(a, b, w);
     const kGeo = r1(b.x - a.x) + ',' + r1(b.y - a.y) + ',' + r1(a.z) + ',' + r1(b.z - a.z);
@@ -248,7 +250,7 @@ export function metroActors(now, out) {
       const bk = baked('fr|' + band + '|' + kGeo, () => (mono ? monoFront : ironFront)(M, a, b, g, T));
       const s0 = worldToScreen(a.x, a.y, a.z);
       blitBaked(ctx, bk, s0.x, s0.y, d);
-      if (M.edge && (CM.nightF || 0) > 0.05) {
+      if (M.edge && (CM.nightF || 0) * (1 - decay) > 0.05) {
         const s1 = worldToScreen(b.x, b.y, b.z);
         elevGlow((s0.x + s1.x) / 2, (s0.y + s1.y) / 2 + th * z * 0.5, 2.5 * z / 0.625, M.edge, 0.3 * (CM.nightF || 0));
       }
@@ -275,12 +277,12 @@ export function metroActors(now, out) {
       const bk = baked('st|' + band + '|' + (Math.abs(g.ny) > Math.abs(g.nx) ? 1 : 0), () => stationShapes(M, g, T, mono));
       const s0 = worldToScreen(a.x, a.y, a.z);
       blitBaked(ctx, bk, s0.x, s0.y, d);
-      const n = CM.nightF || 0;
+      const n = (CM.nightF || 0) * (1 - decay);
       if (n > 0.05) elevGlow(s0.x, s0.y - 0.3 * T * z, 14 * z / 0.625, M.glow, 0.5 * n);
     } });
   }
   // rames : une par sens, 3 voitures (fer) ou 4 (monorail)
-  if (MET.trains > 0) {
+  if (MET.trains > 0 && decay < 0.5) {
     const total = p.cum[p.cum.length - 1];
     const t = now / 1000;
     const speed = (mono ? 3.2 : 2.4) * T;

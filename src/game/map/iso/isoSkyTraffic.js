@@ -29,6 +29,7 @@ import { vieK, vieHalo } from './isoVie.js';
 import { drawEraAgentIso } from '../agents.js';
 import { muteSunShadow } from './isoSunShadow.js';
 import { boxShapes, bakeShapes, blitBaked, makeBakeCache } from './elevPaint.js';
+import { floatIsleSpan } from './isoFloatIsle.js';
 
 export const SKY = { on: true, density: 1, shadow: 0.35, trails: 1, beacons: 1, jets: 1, minZoom: 0.42 };
 
@@ -266,7 +267,7 @@ function viewBounds(margin) {
 export const skyStats = { cars: 0, jets: 0, lanes: 0 };
 const _cand = [];
 
-export function skyTrafficActors(now, out) {
+export function skyTrafficActors(now, out, decay = 0) {
   skyStats.cars = 0; skyStats.jets = 0; skyStats.lanes = 0;
   const L = CM.layout;
   if (!SKY.on || !L || !L.counts || CM.lodActive) return;
@@ -279,7 +280,9 @@ export function skyTrafficActors(now, out) {
   const T = CM.TILE, d = CM.dpr || 1;
   const t = now / 1000;
   const health = CM.healthF == null ? 1 : CM.healthF;
-  const keep = cfg.keep * Math.max(0, Math.min(1.5, SKY.density)) * (0.4 + 0.6 * Math.max(0, Math.min(1, health)));
+  // La ville qui tombe vide son ciel (lot 4) : à l'effondrement il ne reste rien.
+  const keep = cfg.keep * Math.max(0, Math.min(1.5, SKY.density)) * (0.4 + 0.6 * Math.max(0, Math.min(1, health))) * (1 - decay);
+  const isle = floatIsleSpan(L);
   const lanes = lanesOf(L, band);
   skyStats.lanes = lanes.length;
   const maxAlt = Math.max(...cfg.tiers.x, ...cfg.tiers.y) * T;
@@ -304,6 +307,7 @@ export function skyTrafficActors(now, out) {
       // trop grande — sans ce test, le plafond se dépensait hors champ.
       const ps = worldToScreen(wx, wy, lane.alt);
       if (ps.x < -mg || ps.x > CM.cw + mg || ps.y < -mg || ps.y > CM.ch + mg) continue;
+      if (isle && lane.river && wx > isle.x0 && wx < isle.x1) continue;   // l'îlot flottant
       cand.push({ lane, wx, wy, alpha, kind: car.kind, pri: h01(lane.id * 7919 + car.i) });
     }
   }
@@ -343,7 +347,7 @@ export function skyTrafficActors(now, out) {
   // Balises de couloir, la nuit : une lueur toutes les 6 tuiles, sous la voie aller.
   for (const lane of lanes) {
     const ax = lane.axis === 'x';
-    if (SKY.beacons > 0 && n > 0.05 && lane.dir === 1 && !lane.river) {
+    if (SKY.beacons > 0 && n > 0.05 && lane.dir === 1 && !lane.river && decay < 0.3) {
       const step = 6 * T;
       for (let s = Math.ceil(lane.a / step) * step; s < lane.b; s += step) {
         const wx = ax ? s : lane.c - 0.22 * T, wy = ax ? lane.c - 0.22 * T : s;
@@ -356,7 +360,7 @@ export function skyTrafficActors(now, out) {
       }
     }
   }
-  if (cfg.jets > 0 && SKY.jets > 0 && _runs.length) jetActors(out, t, cfg, vb, zf, T, d);
+  if (cfg.jets > 0 && SKY.jets > 0 && _runs.length && decay < 0.3) jetActors(out, t, cfg, vb, zf, T, d);
 }
 
 // ── LES JETPACKS ─────────────────────────────────────────────────────────────

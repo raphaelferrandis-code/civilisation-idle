@@ -102,7 +102,23 @@ pierre, deux voies, marquises de verre. B7-B9 : deux poutres fines sur piles en 
 rames profilées et stations-capsules dans la matière de l'ère. Molette `__metro`.
 ⚠ Le tram de l'enceinte (agents.js `drawTram`, juin) n'est pas dessiné en iso : rien à
 concilier.
-### Lot 4 — Quartier flottant (B9) et ruines verticales · à venir
+### Lot 4 — Quartier flottant (B9) et chute des étages · `iso/isoFloatIsle.js`
+**Le quartier flottant** : un îlot de cristal au-dessus du fleuve (bande 9), à 16-30
+cases du pont, côté tiré par la graine, loin des Plaisirs et du Vieux-Port, là où l'eau
+fait au moins 6 cases. Six tours, un jardin et sa serre, une flèche de cristal ; dessous,
+une roche violette en pointe à veines claires, des cristaux pendus ; son ombre sur l'eau ;
+trois navettes en orbite ; la nuit, lueur sous la roche et sommet de la flèche allumé. Une
+image cuite par (zoom, dpr). Les couloirs aériens du fleuve s'en écartent. Molette
+`__floatIsle`.
+⚠ En iso, une chute verticale se cache derrière le DESSUS tant qu'elle ne dépasse pas la
+demi-hauteur écran de l'emprise : le premier îlot (dessous de 2,6 tuiles pour R 2,7) se
+lisait comme une dalle posée sur l'eau. Dessous de 3,7 tuiles pour R 2,3, à 5,6 tuiles.
+**La chute des étages** (`elevDecay` dans isoElevated) : 0 debout, 0,65 quand la ville est
+en ruine (`CM.frameRuined` : usure > 0,88 ou instabilité au max), 1 pendant
+l'effondrement (`CM.collapseAt`). Le ciel se vide (densité × (1 − decay), plus de
+jetpacks ni de balises), l'autoroute et le métro perdent des travées entières (par
+grappes de 3 tronçons, gravats au sol sous l'autoroute), plus de circulation ni de rames,
+lumières éteintes ; l'îlot descend vers l'eau.
 
 ## 5. Journal
 
@@ -121,4 +137,6 @@ concilier.
   treillis plus haut et plus contrasté ; marquises d'abord « flottantes » (poteaux
   d'un pixel invisibles) → poteaux en boîtes et toit à deux pans. Les aides de ruban
   (`segGeo`, `vquad`, `elevGlow`…) ont rejoint `elevPaint.js`, partagées avec
-  l'autoroute.
+  l'autoroute. Commit `bc07327`.
+- 2026-10-02 — lot 4 (îlot, chute). Vérifié en jeu : îlot de jour et de nuit, ville en
+  ruine aux bandes 6 et 9 (`state.timeWear = 0.95`).
