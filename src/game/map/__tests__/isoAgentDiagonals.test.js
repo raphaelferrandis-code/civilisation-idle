@@ -49,7 +49,7 @@ describe('bandes diagonales des personnages de la carte iso', () => {
   // qu'ils entrent par une autre porte que les habitants (v.type === 'basket').
   it('le roster couvre les habitants de toutes les ères ET les porteurs de panier', () => {
     for (const carrier of BASKET_CARRIERS) expect(ISO_AGENT_NAMES).toContain(carrier);
-    for (const era of ['caveman', 'villager', 'romanman', 'industrialman', 'modernman', 'futureman']) {
+    for (const era of ['caveman', 'villager', 'romanman', 'industrialman', 'modernman', 'jademan', 'stellarman', 'crystalman']) {
       expect(ISO_AGENT_NAMES).toContain(era);
     }
     expect(ISO_AGENT_NAMES.length).toBeGreaterThanOrEqual(30);

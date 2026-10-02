@@ -181,14 +181,12 @@ const AGENT_MODERN = { // band 6 : la ville de bureaux (PLAN-VIVANT, 2026-10-02)
   ],
   child: { name: 'modernchild', scale: 0.50 },  // ciré jaune
 };
-const AGENT_FUTURE = { // ère 5 (band ≥ 7) : cyberpunk néon sci-fi — scales ×1.46 (régé FLAT, ratio 0.50)
-  men: [{ name: 'futureman', scale: 1.24 }, { name: 'futureman2', scale: 1.24 }],       // + variante peau noire + tenue
-  women: [{ name: 'futurewoman', scale: 1.24 }, { name: 'futurewoman2', scale: 1.24 }],
-  child: { name: 'futurechild', scale: 0.87 },
-};
+// (AGENT_FUTURE, le jeu cyberpunk d'août des bandes 7-9 — futureman/futurewoman/
+// futurechild —, a été remplacé le 2026-10-02 par un jeu par cité, ci-dessous. Les
+// bandes restent sur le disque.)
 // Ères cosmiques (PLAN-VIVANT, 2026-10-02) : UN jeu par bande, habillé comme sa
 // cité — jade et ivoire (7), nacre et or (8), marbre et cristal violet (9). Les
-// cyberpunks sombres d'août (AGENT_FUTURE) ne sont plus servis à partir de leur bande.
+// cyberpunks sombres d'août ne sont plus servis.
 const AGENT_COSMIC7 = {
   men: [
     { name: 'jademan', scale: 0.70 },    // tunique de jade, cape ivoire
@@ -217,6 +215,20 @@ const AGENT_COSMIC8 = {
   ],
   child: { name: 'stellarchild', scale: 0.50 },  // ballon étoile
 };
+const AGENT_COSMIC9 = {
+  men: [
+    { name: 'crystalman', scale: 0.70 },    // mage, bâton de cristal violet
+    { name: 'crystalman2', scale: 0.70 },   // sculpteur et son bloc de marbre
+    { name: 'crystalman3', scale: 0.70 },   // moine blanc, écharpe violette
+    { name: 'crystalman4', scale: 0.70 },   // mineur de cristal
+  ],
+  women: [
+    { name: 'crystalwoman', scale: 0.70 },  // prêtresse lilas, couronne de cristal
+    { name: 'crystalwoman2', scale: 0.70 }, // tisserande aux rubans violets
+    { name: 'crystalwoman3', scale: 0.70 }, // danseuse en magenta
+  ],
+  child: { name: 'crystalchild', scale: 0.50 },
+};
 function agentSetForBand(band) {
   return band <= 1 ? AGENT_PREHISTORIC
     : band <= 3 ? AGENT_MEDIEVAL
@@ -225,7 +237,7 @@ function agentSetForBand(band) {
           : band <= 6 ? AGENT_MODERN     // la ville de bureaux
             : band <= 7 ? AGENT_COSMIC7  // la cité de jade
               : band <= 8 ? AGENT_COSMIC8   // la cité stellaire, nacre et or
-                : AGENT_FUTURE;             // (bande 9 : à redessiner)
+                : AGENT_COSMIC9;            // la cité du démiurge, marbre et cristal
 }
 // Spec (nom+scale) d'un genre/variante. charType 0=homme 1=femme 2=enfant ; variant tiré au
 // spawn (p.skinVariant). Modulo → repli sur la variante 0 si l'ère n'a qu'une variante.
@@ -240,11 +252,13 @@ function agentSpecFor(set, charType, variant = 0) {
 // le jeu de base non préfixé (fichiers rioter-<genre>-<arme> déjà présents). Les
 // autres ères sont préfixées (stone-/anti-/ind-/fut-) et servent de repli au médiéval
 // tant qu'elles n'ont pas encore leurs sprites.
+// La bande 6 a ses propres manifestants depuis le 2026-10-02 (PLAN-VIVANT) : avant,
+// elle prenait les ouvriers à casquette de l'industriel.
 function riotEraKey(band) {
   return band <= 1 ? 'stone-'
     : band <= 3 ? ''
       : band <= 4 ? 'anti-'
-        : band <= 6 ? 'ind-'
+        : band <= 6 ? 'ind-'   // RIOT_MOD : 'mod-' pour la bande 6 dès que ses bandes existent
           : 'fut-';
 }
 const AGENT_FALLBACK = { name: 'villager', scale: 0.82 }; // repli ultime si un sprite manque
@@ -256,7 +270,7 @@ const AGENT_FALLBACK = { name: 'villager', scale: 0.82 }; // repli ultime si un 
 // route en biais — invisible au lint comme au rendu automatisé, d'où la garde
 // d'existence de __tests__/isoAgentDiagonals.test.js.
 const BASKET_CARRIERS = ['basket-man', 'basket-woman'];
-const AGENT_SETS = [AGENT_PREHISTORIC, AGENT_MEDIEVAL, AGENT_ANTIQUITY, AGENT_INDUSTRIAL, AGENT_MODERN, AGENT_COSMIC7, AGENT_COSMIC8, AGENT_FUTURE];
+const AGENT_SETS = [AGENT_PREHISTORIC, AGENT_MEDIEVAL, AGENT_ANTIQUITY, AGENT_INDUSTRIAL, AGENT_MODERN, AGENT_COSMIC7, AGENT_COSMIC8, AGENT_COSMIC9];
 const ISO_AGENT_NAMES = [...new Set([
   ...AGENT_SETS
     .flatMap((set) => [...set.men, ...set.women, set.child].map((s) => s.name)),
@@ -496,8 +510,15 @@ function ensureVehDiag(type, skin) {
 // est dans le dessin → le code n'en ajoute pas (VEH_PULL ignoré). `skins` (au lieu de
 // `skin`) = plusieurs modèles/teintes tirés par véhicule (flotte moderne).
 const ERA_VEH = {
-  wagon: { 4: { skin: 'anti', size: 1.35, team: true } },
-  chariot: { 4: { skin: 'anti', size: 1.3, team: true } },
+  wagon: {
+    2: { skin: 'med', size: 1.35, team: true },   // chariot à foin, bœuf
+    3: { skin: 'med', size: 1.35, team: true },
+    4: { skin: 'anti', size: 1.35, team: true },  // chariot à amphores romain
+  },
+  chariot: {
+    3: { skin: 'med', size: 1.35, team: true },   // chevalier à caparaçon bleu et or
+    4: { skin: 'anti', size: 1.3, team: true },   // char romain
+  },
   caravan: { 4: { skin: 'anti', size: 1.4, team: true } },
 };
 function eraVehSpec(type, skin) {
