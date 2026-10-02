@@ -493,6 +493,17 @@ export const defaultState = () => ({
     complexity: 0,
     dissent: 0
   },
+  // Dette / recul de foyer déposé par les CRISES narratives (25/50/75 %) : une
+  // part ABSOLUE ajoutée au foyer (négative = la crise a été traitée, positive =
+  // on en a profité), jusqu'à la chute. Contrairement à l'aiguille de la jauge,
+  // c'est la CIBLE qui bouge : le choix se sent tout le cycle. [-1..1], remis à
+  // zéro à chaque cycle (cf. pressure.js).
+  foyerShift: {
+    scarcity: 0,
+    inequality: 0,
+    complexity: 0,
+    dissent: 0
+  },
   // Levier C : politiques permanentes actives (ids). Tant qu'actives, ralentissent
   // la montée de la Rupture contre un coût de production récupérable. Reset au cycle.
   activePolicies: [],
@@ -1101,6 +1112,17 @@ export function normalizeFoyerRelief(raw, fallback) {
   return out;
 }
 
+// Comme normalizeFoyerRelief, mais SIGNÉ : une crise peut creuser (+) ou
+// combler (−) un foyer.
+export function normalizeFoyerShift(raw, fallback) {
+  const source = isPlainObject(raw) ? raw : {};
+  const out = {};
+  for (const key of Object.keys(fallback)) {
+    out[key] = finiteNumber(source[key], fallback[key], -1, 1);
+  }
+  return out;
+}
+
 export function normalizeTerminalPreparations(raw, fallback) {
   const source = isPlainObject(raw) ? raw : {};
   const usedSource = isPlainObject(source.used) ? source.used : {};
@@ -1634,6 +1656,7 @@ export function hydrateState(parsed = {}) {
     crisisActions: normalizeCrisisActions(source.crisisActions, base.crisisActions),
     foyerRelief: normalizeFoyerRelief(source.foyerRelief, base.foyerRelief),
     foyerReform: normalizeFoyerRelief(source.foyerReform, base.foyerReform),
+    foyerShift: normalizeFoyerShift(source.foyerShift, base.foyerShift),
     activePolicies: normalizeStringArray(source.activePolicies, POLICY_MAX_ACTIVE, 40),
     regulFatigue: finiteNumber(source.regulFatigue, base.regulFatigue, 0, 1),
     regulLedger: normalizeRegulLedger(source.regulLedger),
@@ -1928,6 +1951,7 @@ export function resetTemporaryRunState(s) {
   s.crisisActions = freshDefaults.crisisActions;
   s.foyerRelief = freshDefaults.foyerRelief;
   s.foyerReform = freshDefaults.foyerReform;
+  s.foyerShift = freshDefaults.foyerShift;
   s.activePolicies = [];
   s.regulFatigue = 0;
   // Mémoires de régulation du cycle tombé : registre, jets d'augures, annales

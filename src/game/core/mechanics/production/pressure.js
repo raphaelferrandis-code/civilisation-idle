@@ -149,10 +149,16 @@ export function pressureBreakdown(forceDecimalPath = false) {
   // l'apaisement temporaire (fr) reste borné à FOYER_RELIEF_CAP à son dépôt, mais une
   // cité PLEINEMENT réformée descend plus bas (0.72). Anti-immortalité portée par l'Usure.
   const foyerCut = (key) => Math.min(FOYER_REFORM_CAP, (fr[key] || 0) + (rf[key] || 0) + policyFoyerDamp(key));
+  // Dette / recul déposé par les crises narratives (state.foyerShift) : part
+  // ABSOLUE ajoutée au foyer AVANT le recul — une cité qui a réformé un foyer
+  // encaisse donc mieux la dette qu'elle y prend. Plancher 0 : un foyer ne
+  // devient jamais négatif. À 0 (défaut) le calcul est inchangé au bit près.
+  const sh = state.foyerShift || {};
+  const shifted = (value, key) => Math.max(0, value + (sh[key] || 0));
   // Subsistance lissée : utilise l'EMA (state.scarcityRawEase) si initialisée,
   // sinon l'instantané (repli — golden master inchangé tant que l'EMA est null).
   const scarcityRawUsed = state.scarcityRawEase != null ? state.scarcityRawEase : scarcityRaw;
-  const scarcity = Math.max(0, Math.min(0.7, scarcityRawUsed * 0.55)) * (1 - foyerCut("scarcity"));
+  const scarcity = shifted(Math.max(0, Math.min(0.7, scarcityRawUsed * 0.55)), "scarcity") * (1 - foyerCut("scarcity"));
   // Inégalités ancrées sur la RÉSERVE D'OR en secondes de revenu (state.goldReserveEase,
   // lissée dans le tick) : stable à toute échelle, et la dépense la fait baisser
   // durablement. Repli sur l'ancienne formule gold/pop quand l'EMA n'est pas
@@ -163,10 +169,10 @@ export function pressureBreakdown(forceDecimalPath = false) {
   // « Franchises marchandes » (inequalityDamp) et « Académies libres »
   // (complexityDamp) : amortissement PERMANENT du foyer, multiplicatif avec les
   // reliefs/réformes (plafonné pour ne jamais annuler un foyer).
-  const inequality = softCap(inequalityArg, 0.55) * (1 - foyerCut("inequality")) * (1 - Math.min(0.8, ruinEffectSum("inequalityDamp")));
-  const complexity = softCap(complexityRaw * 0.34, 0.75) * (1 - foyerCut("complexity")) * (1 - Math.min(0.8, ruinEffectSum("complexityDamp")));
+  const inequality = shifted(softCap(inequalityArg, 0.55), "inequality") * (1 - foyerCut("inequality")) * (1 - Math.min(0.8, ruinEffectSum("inequalityDamp")));
+  const complexity = shifted(softCap(complexityRaw * 0.34, 0.75), "complexity") * (1 - foyerCut("complexity")) * (1 - Math.min(0.8, ruinEffectSum("complexityDamp")));
   const dissentRelief = has("ruin_liturgy") ? 0.035 + Math.min(0.06, toNum(state.ruins) * 0.0007) : 0;
-  const dissent = Math.max(0, Math.min(0.55, dissentRaw * 0.22) - dissentRelief) * (1 - foyerCut("dissent"));
+  const dissent = shifted(Math.max(0, Math.min(0.55, dissentRaw * 0.22) - dissentRelief), "dissent") * (1 - foyerCut("dissent"));
   // Charge structurelle : les bâtiments stabilisants (instabilité négative)
   // soustraient en PRISE DIRECTE, et l'infrastructure « porte » la charge.
   const structuralNet = Math.max(0, positiveInstability + negativeInstability * STABILIZER_DIRECT_FACTOR);

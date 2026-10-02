@@ -18,6 +18,7 @@ import {
 import {
   addProductionPenalty,
   cityVitals,
+  pressureBreakdown,
   ruinGain,
   terminalCrisisReady,
   terminalCrisisCost,
@@ -42,6 +43,7 @@ import { REGULATION_ACTIONS_BY_ID, POLICY_BY_ID } from '../../data/regulationAct
 
 import { runCollapseSequence, openChoiceDialog } from '../events.js';
 import { pushOutcomeFloat } from '../outcomeFloat.js';
+import { tr } from '../i18n.js';
 import { upgrades, dogmaIds } from '../../data/upgrades.js';
 import { eras, codexSavoirBonus, CRISIS_EVENTS, CRISIS_POOL } from '../../data/world.js';
 import { epitaphLegacyById } from '../../data/epitaphs.js';
@@ -65,6 +67,15 @@ import {
 } from './olympus.js';
 import { log, chronicle, cycleYear, resetCyclePeaks, regulLedgerPush, raiseRegulFatigue } from './utils.js';
 
+// Foyer qui pèse le plus sur la cible de Rupture en ce moment.
+const CRISIS_FOYERS = ["scarcity", "inequality", "complexity", "dissent"];
+function dominantFoyer() {
+  const p = pressureBreakdown();
+  let best = null;
+  for (const key of CRISIS_FOYERS) if ((p[key] || 0) > 0 && (!best || p[key] > p[best])) best = key;
+  return best;
+}
+
 export function pickCrisisEvent(threshold) {
   const vitals = cityVitals();
   const pool = CRISIS_POOL.filter((e) => e.threshold === threshold);
@@ -72,7 +83,13 @@ export function pickCrisisEvent(threshold) {
   const candidates = eligible.length ? eligible : pool;
   const recent = state.recentCrisisIds || [];
   const fresh = candidates.filter((e) => !recent.includes(e.id));
-  const choices = fresh.length ? fresh : candidates;
+  const unseen = fresh.length ? fresh : candidates;
+  // La crise parle du foyer qui pèse le PLUS (lisible : elle dit ce qui va mal
+  // dans CETTE cité). Parmi les crises pas encore vues seulement — la variété
+  // passe avant : sinon un foyer dominant ramènerait la même crise à chaque cycle.
+  const dominant = dominantFoyer();
+  const matching = dominant ? unseen.filter((e) => e.foyer === dominant) : [];
+  const choices = matching.length ? matching : unseen;
   // Garde runtime : aucune crise pour ce seuil (données incohérentes) →
   // `state.cycles % 0` = NaN → choices[NaN] = undefined → crash sur event.id.
   // L'invariant CRISIS_POOL↔CRISIS_EVENTS qui l'empêche est DEV-only (strippé du
@@ -136,6 +153,41 @@ function pushCrisisOutcome(outcome, choice, stabilized) {
   pushOutcomeFloat({ label: choice.label, kind: stabilized ? "gain" : "info", view: "regulation" });
 }
 
+// Cible de Rupture (pressureBreakdown().total, celle du fantôme de la jauge) si
+// `shift` était déposé sur `foyer` : calcul exact par le vrai moteur — on pose
+// la part, on lit la cible, on la retire.
+function projectedTarget(foyer, shift) {
+  if (!state.foyerShift) state.foyerShift = { scarcity: 0, inequality: 0, complexity: 0, dissent: 0 };
+  const prev = state.foyerShift[foyer] || 0;
+  state.foyerShift[foyer] = prev + shift;
+  renderCache._framePressureVer = -1;
+  const total = pressureBreakdown().total;
+  state.foyerShift[foyer] = prev;
+  renderCache._framePressureVer = -1;
+  return total;
+}
+function targetChip(total) {
+  const pct = Math.round(total * 100);
+  return {
+    label: tr({ fr: `Rupture visée : ${pct} %`, en: `Target Rupture: ${pct}%` }),
+    kind: total >= 1 ? "cost" : "info"
+  };
+}
+
+// Après un choix de crise : dit s'il compte comme STABILISÉ (Moisson de crise,
+// vœux, Olympe), c.-à-d. s'il a allégé la tension — pour une crise « qui
+// compte », c'est son foyer (foyerShift < 0), l'aiguille ne bouge plus ; sinon,
+// l'aiguille a baissé. Périme aussi le cache de pression quand la cible a bougé.
+function settleCrisisChoice(choice, instabilityBefore) {
+  if (typeof choice.foyerShift === "number") {
+    // La cible vient de bouger : le cache de pression de la frame est périmé
+    // (sinon le fantôme de cible ne suit qu'au tick suivant).
+    renderCache._framePressureVer = -1;
+    return choice.foyerShift < 0;
+  }
+  return (state.instability || 0) < instabilityBefore;
+}
+
 // Résolution automatique d'un event de crise selon la posture, SANS pause ni
 // dialogue (cf. CE-spec-idle-crises.md §A.3). Miroir des effets d'openCrisisEvent.
 export function autoResolveCrisisEvent(event, stance) {
@@ -158,8 +210,9 @@ export function autoResolveCrisisEvent(event, stance) {
   if (!choice || typeof choice.apply !== "function") return;
   const before = state.instability || 0;
   const outcome = choice.apply();
-  pushCrisisOutcome(outcome, choice, (state.instability || 0) < before);
-  if ((state.instability || 0) < before) {
+  const stabilized = settleCrisisChoice(choice, before);
+  pushCrisisOutcome(outcome, choice, stabilized);
+  if (stabilized) {
     registerOlympusCrisisResolved();
     // « Moisson de crise » : les crises narratives STABILISÉES du cycle comptent.
     state.cycleCrisesResolved = (state.cycleCrisesResolved || 0) + 1;
@@ -195,7 +248,14 @@ export async function openCrisisEvent(event) {
   // Héritage d'Atlas (l'Épaule) : un choix DE PLUS dans la gestion de crise —
   // la décision n'est pas d'appuyer, mais de choisir sur QUELLE crise du cycle
   // griller le coup. L'option disparaît une fois consommée.
-  const options = event.options ? [...event.options] : [];
+  // Crises « qui comptent » : chaque option dit où elle met la CIBLE de Rupture
+  // — l'information qui décide (profiter est gratuit loin du bord, traiter sauve
+  // près du bord). Montré au joueur, pas joué à sa place.
+  const options = (event.options || []).map((o) => (
+    typeof o.foyerShift === "number" && o.foyer
+      ? { ...o, effects: [...(o.effects || []), targetChip(projectedTarget(o.foyer, o.foyerShift))] }
+      : o
+  ));
   if (atlasSkipAvailable()) {
     options.push({
       label: "Atlas prend le coup",
@@ -207,7 +267,7 @@ export async function openCrisisEvent(event) {
   const choice = await openChoiceDialog({
     ...event,
     options,
-    footnote: "Sauf mention contraire, les effets sur la production durent jusqu'à la fin du cycle en cours."
+    footnote: tr({ fr: "Sauf mention contraire, les effets durent jusqu'à la fin du cycle en cours.", en: "Unless stated otherwise, effects last until the end of the current cycle." })
   });
 
   if (choice && choice.atlasSkip) {
@@ -223,8 +283,9 @@ export async function openCrisisEvent(event) {
   if (!choice || typeof choice.apply !== "function") { setGamePaused(false); render(); return; }
   const instabilityBefore = state.instability || 0;
   const outcome = choice.apply();
-  pushCrisisOutcome(outcome, choice, (state.instability || 0) < instabilityBefore);
-  if ((state.instability || 0) < instabilityBefore) {
+  const stabilized = settleCrisisChoice(choice, instabilityBefore);
+  pushCrisisOutcome(outcome, choice, stabilized);
+  if (stabilized) {
     registerOlympusCrisisResolved();
     // « Moisson de crise » : les crises narratives STABILISÉES du cycle comptent.
     state.cycleCrisesResolved = (state.cycleCrisesResolved || 0) + 1;

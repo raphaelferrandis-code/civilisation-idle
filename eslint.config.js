@@ -26,7 +26,7 @@ export default defineConfig([
     // __dirname, setImmediate...), pas dans le navigateur. Sans ce bloc ils sont
     // soit non lintés (.mjs/.cjs invisibles à la config `.js/.jsx`), soit criblés
     // de faux `no-undef`.
-    files: ['**/*.{mjs,cjs}', 'main.cjs', 'scripts/**/*.js', 'sim-10-profils.js'],
+    files: ['**/*.{mjs,cjs}', 'main.cjs', 'scripts/**/*.js', 'sim-10-profils.js', 'bench-crises.js'],
     extends: [js.configs.recommended],
     languageOptions: { globals: globals.node },
   },

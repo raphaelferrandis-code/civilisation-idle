@@ -182,6 +182,20 @@ export const FOYER_REFORM = {
   complexity: { add: 0.15, seconds: 180, resource: 'knowledge', label: { fr: 'Grand cadastre', en: 'Great Cadastre' } },
   dissent:    { add: 0.15, seconds: 160, resource: 'gold',      label: { fr: "Panthéon d'État", en: 'State Pantheon' } }
 };
+// ── Crises « qui comptent » (pilote 2026-10, cf. CRISIS_POOL dans world.js) ──
+// Par palier de crise (0.25 / 0.5 / 0.75) :
+//   TREAT  : part retirée au foyer de la crise jusqu'à la chute (« traiter »,
+//            payé en production par l'option elle-même) ;
+//   PROFIT : part ajoutée à ce foyer (« profiter ») ;
+//   PROFIT_PREP : préparation de chute gagnée en profitant (« Ruines +X % »,
+//            même réservoir que les édits terminaux, plafond COLLAPSE_PREP_MAX).
+// Calibré par bench-crises.js (2026-10-03, 24 h de partie neuve, 6 graines, les
+// 3 crises pilotes) : traiter toujours ≈ 1 669 Ruines, profiter toujours ≈ 1 590,
+// lire sa marge (profiter si la cible reste sous 50 % malgré la dette, ou si
+// traiter ne la ramène pas sous 100 %) ≈ 1 869 — gagnant sur les 6 graines.
+export const CRISIS_TREAT_SHIFT = { 0.25: 0.05, 0.5: 0.06, 0.75: 0.07 };
+export const CRISIS_PROFIT_SHIFT = { 0.25: 0.05, 0.5: 0.06, 0.75: 0.07 };
+export const CRISIS_PROFIT_PREP = { 0.25: 0.15, 0.5: 0.20, 0.75: 0.30 };
 // id d'action de réforme → foyer ciblé (miroir de ACTION_FOYER pour l'apaisement).
 export const REFORM_ACTION_FOYER = {
   reformScarcity: 'scarcity',
