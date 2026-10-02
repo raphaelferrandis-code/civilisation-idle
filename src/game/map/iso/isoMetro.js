@@ -52,14 +52,36 @@ export function metroPlanFor(L) {
   if (!p) return null;
   const T = CM.TILE;
   p.w = p.mono ? 0.9 : 0.8;
-  // Recentré d'un tiers de tuile vers les terres : le tablier couvre la promenade du
-  // quai, il ne déborde pas sur l'eau (il cachait le mur de quai).
-  p.wpts = p.pts.map((q) => ({ x: q.x * T, y: (q.y + p.sign * 0.32) * T, z: q.z * T }));
+  // DANS la case du quai (jamais bâtie) : ⚠ décalé d'un tiers de tuile vers les terres
+  // (premier jet), le tablier empiétait sur la rangée d'immeubles — une rame se
+  // peignait par-dessus l'immeuble qu'il traversait. Large de 0,8 tuile, à peine
+  // décalé : il ne déborde ni sur l'eau ni sur les maisons.
+  p.wpts = p.pts.map((q) => ({ x: q.x * T, y: (q.y + p.sign * LINE_SHIFT) * T, z: q.z * T }));
   p.cum = [0];
   for (let i = 1; i < p.wpts.length; i += 1) p.cum.push(p.cum[i - 1] + Math.hypot(p.wpts[i].x - p.wpts[i - 1].x, p.wpts[i].y - p.wpts[i - 1].y));
+  // Clé du peintre par tronçon = coin avant de l'emprise (comme un bâtiment ; cf. la
+  // même correction sur l'autoroute).
+  p.geo = []; p.dF = [];
+  for (let i = 0; i < p.wpts.length - 1; i += 1) {
+    const g = segGeo(p.wpts[i], p.wpts[i + 1], p.w * T);
+    p.geo.push(g);
+    p.dF.push(Math.max(...[g.AL, g.BL, g.AR, g.BR].map((q) => depthOf(q[0], q[1]))));
+  }
+  // LES BOUCHES DE TUNNEL (retour Raph, 2026-10-02 : la rame « disparaît dans le
+  // vide, alors qu'on devrait juste faire un tunnel à son entrée et sortie ») : aux
+  // deux bouts, la ligne s'enfonce sous une trémie ; la rame n'existe qu'entre les
+  // deux bouches, coupée net à leur plan.
+  const PL = PORTAL.len * T;
+  p.mouth0 = p.wpts[0].x + PL;
+  p.mouth1 = p.wpts[p.wpts.length - 1].x - PL;
   _plan = p;
   return p;
 }
+
+// Trémie : longueur le long de la ligne, demi-largeur, hauteur (tuiles).
+export const PORTAL = { len: 1.3, hw: 0.46, h: 0.8 };
+// Décalage de la ligne vers les terres, en tuiles (lu aussi par le téléphérique).
+export const LINE_SHIFT = 0.06;
 
 // ── FORMES ───────────────────────────────────────────────────────────────────
 const TH_IRON = 0.42, TH_MONO = 0.26, PAR = 0.1;
@@ -151,7 +173,7 @@ function pierShapes(M, g, top, T, mono) {
   return s;
 }
 function stationShapes(M, g, T, mono) {
-  const L = 0.85 * T, W = 0.44 * T, H = 0.5 * T;
+  const L = 0.85 * T, W = 0.4 * T, H = 0.5 * T;
   const ax = Math.abs(g.ny) > Math.abs(g.nx);              // ligne le long de x
   const box = (u0, u1, v0, v1, z0, z1, cT, cL, cR, out) => (ax ? boxShapes(u0, v0, u1, v1, z0, z1, cT, cL, cR, out) : boxShapes(v0, u0, v1, u1, z0, z1, cT, cL, cR, out));
   const s = [];
@@ -169,25 +191,55 @@ function stationShapes(M, g, T, mono) {
   }
   return s;
 }
-function trainShapes(M, ux, uy, T, mono) {
-  // une voiture, alignée sur (ux, uy) arrondi à l'axe dominant
+// Une voiture, alignée sur l'axe dominant ; [u0, u1] = la part visible le long de
+// la voiture, en fraction de sa demi-longueur (−1 → 1) — elle est coupée net au plan
+// d'une bouche de tunnel.
+function trainShapes(M, ux, uy, T, mono, u0 = -1, u1 = 1) {
   const ax = Math.abs(ux) >= Math.abs(uy);
   const Lh = (mono ? 0.46 : 0.44) * T, Wh = (mono ? 0.12 : 0.15) * T, H = (mono ? 0.32 : 0.4) * T;
-  const [ex, ey] = ax ? [Lh, Wh] : [Wh, Lh];
+  const a0 = u0 * Lh, a1 = u1 * Lh;
+  const B = (p0, p1, v0, v1, z0, z1, cT, cL, cR, out) => (ax ? boxShapes(p0, v0, p1, v1, z0, z1, cT, cL, cR, out) : boxShapes(v0, p0, v1, p1, z0, z1, cT, cL, cR, out));
   const c = M.car;
-  const s = [...boxShapes(-ex, -ey, ex, ey, mono ? -0.06 * T : 0.06 * T, H, c[0], c[1], c[2], c[4])];
+  const s = [...B(a0, a1, -Wh, Wh, mono ? -0.06 * T : 0.06 * T, H, c[0], c[1], c[2], c[4])];
   // bandeau de fenêtres sur les deux faces visibles
   const n = mono ? 14 : 6;
   for (let k = 1; k < n; k += 1) {
     const u = -1 + (2 * k) / n;
+    if (u < u0 + 0.04 || u > u1 - 0.04) continue;
     for (const zz of [H * 0.6, H * 0.6 + 0.04 * T]) {
       s.push({ px: ax ? [u * Lh * 0.92, Wh, zz] : [Wh, u * Lh * 0.92, zz], col: c[3] });
     }
   }
-  if (mono) s.push(...boxShapes(...(ax ? [-Lh, -Wh * 0.9, Lh, Wh * 0.9] : [-Wh * 0.9, -Lh, Wh * 0.9, Lh]), -0.12 * T, -0.06 * T, null, c[4], c[4], null));
+  if (mono) s.push(...B(a0, a1, -Wh * 0.9, Wh * 0.9, -0.12 * T, -0.06 * T, null, c[4], c[4], null));
   return s;
 }
-
+// La trémie d'un bout de ligne : un TALUS d'herbe (dessus et flancs) que la ligne
+// perce, avec une TÊTE DE TUNNEL maçonnée — pierre au XIXe, la matière de l'ère
+// ensuite. `openPlus` : la bouche s'ouvre sur la face +x (visible) — le bout OUEST ;
+// à l'est la bouche regarde l'ouest, face cachée : le talus recouvre la rame.
+function portalShapes(M, T, mono, openPlus) {
+  const L = PORTAL.len * T, hw = PORTAL.hw * T, H = PORTAL.h * T;
+  const head = mono ? M.beam : M.stone, out = mono ? M.out : M.stone[3];
+  const G = ['#86ad66', '#6d9450', '#557a3d'];                  // herbe : dessus, flanc éclairé, flanc à l'ombre
+  const x0 = openPlus ? -L : 0, x1 = openPlus ? 0 : L;           // origine = la bouche
+  const s = [...boxShapes(x0, -hw, x1, hw, 0, H, G[0], G[1], G[2], '#3d5530')];
+  // tête de tunnel : un mur maçonné sur la bouche, un peu plus haut que le talus
+  const t = 0.12 * T, xa = openPlus ? -t : 0, xb = openPlus ? 0 : t;
+  s.push(...boxShapes(xa, -hw - 0.04 * T, xb, hw + 0.04 * T, 0, H + 0.08 * T, head[0], head[1], head[2], out));
+  if (openPlus) {
+    // la bouche : une arche sombre, claveau clair autour
+    const r = 0.34 * T, zs = 0.38 * T;
+    const arch = (rr, dz) => {
+      const a = [[0, -rr, 0], [0, -rr, zs]];
+      for (let k = 0; k <= 10; k += 1) { const an = Math.PI - (k / 10) * Math.PI; a.push([0, Math.cos(an) * rr, zs + Math.sin(an) * rr * 0.7 + dz]); }
+      a.push([0, rr, zs], [0, rr, 0]);
+      return a.map(([x, y, z]) => [x + 0.003 * T, y, z]);
+    };
+    s.push({ poly: arch(r + 0.06 * T, 0.03 * T), col: head[0] });
+    s.push({ poly: arch(r, 0), col: '#121212' });
+  }
+  return s;
+}
 const _bakes = makeBakeCache(1200);
 function baked(key, make) {
   const z = CM.cam.zoom, d = CM.dpr || 1, kd = Math.max(1, Math.round(vieK() * d));
@@ -201,7 +253,7 @@ function along(p, s) {
   while (j < p.cum.length - 1 && p.cum[j] < s) j += 1;
   const a = p.wpts[j - 1], b = p.wpts[j], seg = (p.cum[j] - p.cum[j - 1]) || 1;
   const u = Math.max(0, Math.min(1, (s - p.cum[j - 1]) / seg));
-  return { x: a.x + (b.x - a.x) * u, y: a.y + (b.y - a.y) * u, z: a.z + (b.z - a.z) * u, ux: (b.x - a.x) / seg, uy: (b.y - a.y) / seg };
+  return { x: a.x + (b.x - a.x) * u, y: a.y + (b.y - a.y) * u, z: a.z + (b.z - a.z) * u, ux: (b.x - a.x) / seg, uy: (b.y - a.y) / seg, i: j - 1 };
 }
 
 // ── LES ACTEURS ──────────────────────────────────────────────────────────────
@@ -217,7 +269,6 @@ export function metroActors(now, out, decay = 0) {
   const M = matFor(band), mono = p.mono;
   const mg = 3 * T * z;
   const vis = (x, y, zz) => { const q = worldToScreen(x, y, zz); return q.x > -mg && q.x < CM.cw + mg && q.y > -mg && q.y < CM.ch + mg * 2; };
-  const w = p.w * T;
   const th = (mono ? TH_MONO : TH_IRON) * T;
   for (let i = 0; i < p.wpts.length - 1; i += 1) {
     const a = p.wpts[i], b = p.wpts[i + 1];
@@ -227,10 +278,9 @@ export function metroActors(now, out, decay = 0) {
     // LA CHUTE (lot 4) : travées tombées par grappes de 3 tronçons.
     if (decay > 0.5 && ((Math.floor(i / 3) * 2654435761) >>> 0) / 4294967296 < (decay - 0.4) * 1.0) continue;
     metroStats.segs += 1;
-    const g = segGeo(a, b, w);
+    const g = p.geo[i];
     const kGeo = r1(b.x - a.x) + ',' + r1(b.y - a.y) + ',' + r1(a.z) + ',' + r1(b.z - a.z);
-    const corners = [g.AL, g.BL, g.AR, g.BR].map((q) => depthOf(q[0], q[1]));
-    const dBack = Math.min(...corners), dFront = Math.max(...corners);
+    const dFront = p.dF[i];
     if (MET.shadow > 0) {
       const sk = MET.shadow;
       const o = { x: a.x + a.z * sk, y: a.y, z: 0 };
@@ -241,12 +291,12 @@ export function metroActors(now, out, decay = 0) {
         blitBaked(ctx, bk, s0.x, s0.y, d, (mono ? 0.11 : 0.15) * (1 - 0.75 * (CM.nightF || 0)));
       } });
     }
-    out.push({ wx: mx, wy: my, d: dBack + 0.05 * T, draw(ctx) {
+    out.push({ wx: mx, wy: my, d: dFront - 0.002 * T, draw(ctx) {
       const bk = baked('bk|' + band + '|' + kGeo, () => (mono ? monoBack : ironBack)(M, a, b, g, T));
       const s0 = worldToScreen(a.x, a.y, a.z);
       blitBaked(ctx, bk, s0.x, s0.y, d);
     } });
-    out.push({ wx: mx, wy: my, d: dFront + 0.4 * T, draw(ctx) {
+    out.push({ wx: mx, wy: my, d: dFront, draw(ctx) {
       const bk = baked('fr|' + band + '|' + kGeo, () => (mono ? monoFront : ironFront)(M, a, b, g, T));
       const s0 = worldToScreen(a.x, a.y, a.z);
       blitBaked(ctx, bk, s0.x, s0.y, d);
@@ -259,7 +309,7 @@ export function metroActors(now, out, decay = 0) {
     const every = mono ? 4 : 3;
     const top = a.z - th;
     if (i % every === 1 && top > 0.3 * T) {
-      out.push({ wx: a.x, wy: a.y, d: dBack - 0.02 * T, draw(ctx) {
+      out.push({ wx: a.x, wy: a.y, d: dFront - 0.3 * T, draw(ctx) {
         const bk = baked('pi|' + band + '|' + r1(top) + '|' + (Math.abs(g.ny) > Math.abs(g.nx) ? 1 : 0), () => pierShapes(M, g, top, T, mono));
         const s0 = worldToScreen(a.x, a.y, top);
         blitBaked(ctx, bk, s0.x, s0.y, d);
@@ -270,16 +320,36 @@ export function metroActors(now, out, decay = 0) {
   for (const sx of p.stations) {
     const i = sx - p.x0;
     if (i < 0 || i >= p.wpts.length - 1) continue;
-    const a = p.wpts[i], b = p.wpts[i + 1];
+    const a = p.wpts[i];
     if (!vis(a.x, a.y, a.z)) continue;
-    const g = segGeo(a, b, w);
-    out.push({ wx: a.x, wy: a.y, d: depthOf(a.x, a.y) + 0.45 * T, draw(ctx) {
+    const g = p.geo[i];
+    // ⚠ Triée APRÈS toute rame qui passe sous la marquise : la clé d'une voiture suit
+    // ses tronçons (jusqu'à i + 2), la gare prend le plus avant des tronçons qu'elle
+    // couvre, plus une marge. Avant : à l'aplomb du centre, la rame passait tantôt
+    // devant, tantôt derrière — « le train passe pas bien dans la gare, clignote ».
+    const dSt = Math.max(...[i - 1, i, i + 1, i + 2].filter((k) => k >= 0 && k < p.dF.length).map((k) => p.dF[k])) + 0.1 * T;
+    out.push({ wx: a.x, wy: a.y, d: dSt, draw(ctx) {
       const bk = baked('st|' + band + '|' + (Math.abs(g.ny) > Math.abs(g.nx) ? 1 : 0), () => stationShapes(M, g, T, mono));
       const s0 = worldToScreen(a.x, a.y, a.z);
       blitBaked(ctx, bk, s0.x, s0.y, d);
       const n = (CM.nightF || 0) * (1 - decay);
       if (n > 0.05) elevGlow(s0.x, s0.y - 0.3 * T * z, 14 * z / 0.625, M.glow, 0.5 * n);
     } });
+  }
+  // trémies des deux bouts
+  for (const end of [0, 1]) {
+    const q = end === 0 ? p.wpts[0] : p.wpts[p.wpts.length - 1];
+    const mx = end === 0 ? p.mouth0 : p.mouth1;
+    if (!vis(mx, q.y, 0)) continue;
+    const yc = q.y;
+    const x0b = end === 0 ? mx - PORTAL.len * T : mx, x1b = end === 0 ? mx : mx + PORTAL.len * T;
+    const dP = depthOf(x1b, yc + PORTAL.hw * T) + 0.02 * T;
+    out.push({ wx: mx, wy: yc, d: dP, draw(ctx) {
+      const bk = baked('po|' + band + '|' + end, () => portalShapes(M, T, mono, end === 0));
+      const s0 = worldToScreen(mx, yc, 0);
+      blitBaked(ctx, bk, s0.x, s0.y, d);
+    } });
+    void x0b;
   }
   // rames : une par sens, 3 voitures (fer) ou 4 (monorail)
   if (MET.trains > 0 && decay < 0.5) {
@@ -295,13 +365,18 @@ export function metroActors(now, out, decay = 0) {
         if (s < 0 || s > total) continue;
         const sd = dir > 0 ? s : total - s;
         const q = along(p, sd);
-        if (q.z < 0.5 * T) continue;                       // pas de rame sur les rampes basses
         const x = q.x + -q.uy * lane * T, y = q.y + q.ux * lane * T;
+        // Coupée net aux bouches : seule la part entre les deux trémies existe.
+        const Lh = (mono ? 0.46 : 0.44) * T;
+        const u0 = Math.max(-1, (p.mouth0 - x) / Lh), u1 = Math.min(1, (p.mouth1 - x) / Lh);
+        if (u1 - u0 < 0.08) continue;
+        const qu0 = Math.round(u0 * 16) / 16, qu1 = Math.round(u1 * 16) / 16;
         if (!vis(x, y, q.z)) continue;
         metroStats.cars += 1;
         if (!metroStats.where) metroStats.where = [Math.round(x / T), Math.round(y / T)];
-        out.push({ wx: x, wy: y, d: depthOf(x, y) + 0.3 * T, draw(ctx) {
-          const bk = baked('tr|' + band + '|' + (Math.abs(q.ux) >= Math.abs(q.uy) ? 1 : 0), () => trainShapes(M, q.ux, q.uy, T, mono));
+        const dCar = Math.max(depthOf(x, y), p.dF[q.i], p.dF[Math.min(p.dF.length - 1, q.i + 1)]) + 0.05 * T;
+        out.push({ wx: x, wy: y, d: dCar, draw(ctx) {
+          const bk = baked('tr|' + band + '|' + (Math.abs(q.ux) >= Math.abs(q.uy) ? 1 : 0) + '|' + qu0 + '|' + qu1, () => trainShapes(M, q.ux, q.uy, T, mono, qu0, qu1));
           const s0 = worldToScreen(x, y, q.z);
           blitBaked(ctx, bk, s0.x, s0.y, d);
           const n = CM.nightF || 0;

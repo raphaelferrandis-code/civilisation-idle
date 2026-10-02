@@ -3,7 +3,7 @@
 // un tablier plein entre deux rampes, un échangeur figé sur une rue transversale,
 // des pelouses qui ne mordent ni l'eau ni les sites de la ville.
 import { describe, it, expect } from 'vitest';
-import { HIGHWAY, arteryBanks, bankProfile, deckZAt, interchangeLawns, crossGaps, planHighway, bankRibbon, loopRibbons } from '../procedural/highwayPlan.js';
+import { HIGHWAY, arteryBanks, bankProfile, deckZAt, interchangeLawns, crossGaps, planHighway, bankRibbon, loopRibbons, vergeCells } from '../procedural/highwayPlan.js';
 
 // Grille synthétique : fleuve sur les rangées 48-52, artère colonnes 40-41 de 0 à 99,
 // rues transversales toutes les 5 rangées (0, 5, 10, …) sur toute la largeur.
@@ -111,5 +111,25 @@ describe('les rubans', () => {
       const ystreet = H.interchange.yc + 0.5;
       for (const p of r.pts.slice(2)) expect((p.y - ystreet) * H.interchange.sign).toBeGreaterThan(-0.05);
     }
+  });
+});
+
+describe('le dégagement sous le tablier', () => {
+  const H = planHighway({ N, ax: AX, cx: 50, cy: 50, band: 6, isWet: wet, isRoad: road, inCity: city, coreRows: [] });
+  it("une case de chaque côté de l'artère, seulement là où le tablier est en l'air", () => {
+    const cells = vergeCells(H).map((k) => k.split(',').map(Number));
+    expect(cells.length).toBeGreaterThan(0);
+    for (const [x] of cells) expect(x === AX - 1 || x === AX + 2).toBe(true);
+    for (const b of H.banks) {
+      // près de l'eau, le tablier est au sol : pas de dégagement
+      expect(cells.some(([, y]) => y === b.y0)).toBe(false);
+      // au milieu du tablier plein : dégagement des deux côtés
+      const ym = b.y0 + b.sign * Math.round((b.s0 + b.ramp + b.s1) / 2);
+      expect(cells.some(([x, y]) => x === AX - 1 && y === ym)).toBe(true);
+      expect(cells.some(([x, y]) => x === AX + 2 && y === ym)).toBe(true);
+    }
+  });
+  it("pas d'autoroute, pas de dégagement", () => {
+    expect(vergeCells(null)).toEqual([]);
   });
 });

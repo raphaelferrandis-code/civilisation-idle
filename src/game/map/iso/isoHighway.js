@@ -49,12 +49,51 @@ export function highwayRibbons(H, T) {
     r.pts = r.pts.map((p) => ({ x: p.x * T, y: p.y * T, z: p.z * T }));
     r.cum = [0];
     for (let i = 1; i < r.pts.length; i += 1) r.cum.push(r.cum[i - 1] + Math.hypot(r.pts[i].x - r.pts[i - 1].x, r.pts[i].y - r.pts[i - 1].y));
+    // Par tronçon : géométrie, et CLÉ DU PEINTRE = le coin avant (sud) de l'emprise,
+    // comme un bâtiment. ⚠ Triés au coin ARRIÈRE (premier jet), les tronçons passaient
+    // sous les tours situées DERRIÈRE eux (un bâtiment se trie à SON coin sud, plus
+    // loin que le coin arrière d'un tablier voisin) : « des bâtiments passent dans
+    // l'autoroute » (Raph, 2026-10-02).
+    r.geo = []; r.dF = [];
+    for (let i = 0; i < r.pts.length - 1; i += 1) {
+      const g = segGeo(r.pts[i], r.pts[i + 1], r.w * T);
+      r.geo.push(g);
+      r.dF.push(Math.max(...[g.AL, g.BL, g.AR, g.BR].map((p) => depthOf(p[0], p[1]))));
+    }
+    r.skipL = new Array(r.geo.length).fill(false);
+    r.skipR = new Array(r.geo.length).fill(false);
+  }
+  // LES BRETELLES S'INSÈRENT : la glissière du tablier s'ouvre là où une boucle le
+  // longe, et la boucle n'a pas de glissière tant qu'elle est sur le tablier
+  // (retour Raph : « la barrière de l'autoroute coupe le bras d'insertion »).
+  const x0 = H.ax * T, x1 = (H.ax + 2) * T;
+  for (const lp of out.filter((r) => !r.main)) {
+    const west = lp.pts[lp.pts.length - 1].x < x0;
+    let ymin = Infinity, ymax = -Infinity;
+    for (const p of lp.pts) {
+      const near = west ? p.x > x0 - 0.55 * T : p.x < x1 + 0.55 * T;
+      if (near && p.z > 0.2 * T) { if (p.y < ymin) ymin = p.y; if (p.y > ymax) ymax = p.y; }
+    }
+    ymin -= 0.25 * T; ymax += 0.25 * T;
+    for (const r of out.filter((q) => q.main)) {
+      r.geo.forEach((g, i) => {
+        const ya = Math.min(r.pts[i].y, r.pts[i + 1].y), yb = Math.max(r.pts[i].y, r.pts[i + 1].y);
+        if (yb < ymin || ya > ymax) return;
+        // ruban principal orienté vers +y : sa gauche est l'OUEST
+        if (west) r.skipL[i] = true; else r.skipR[i] = true;
+      });
+    }
+    const onDeck = (p) => p[0] > x0 - 0.06 * T && p[0] < x1 + 0.06 * T;
+    lp.geo.forEach((g, i) => {
+      if (onDeck(g.AL) || onDeck(g.BL)) lp.skipL[i] = true;
+      if (onDeck(g.AR) || onDeck(g.BR)) lp.skipR[i] = true;
+    });
   }
   _ribFor = H; _ribs = out;
   return out;
 }
 
-function backShapes(M, r, a, b, g, i, T) {
+function backShapes(M, r, a, b, g, i, T, skipL, skipR) {
   const s = [];
   const ph = HWY.ph * T;
   s.push({ poly: [rel(a, g.AL), rel(a, g.BL), rel(a, g.BR), rel(a, g.AR)], col: M.top[i % 2] });
@@ -73,23 +112,24 @@ function backShapes(M, r, a, b, g, i, T) {
   }
   // glissières dont la face extérieure regarde AILLEURS : on voit leur face intérieure
   const visL = (g.nx + g.ny) > 0, visR = (-g.nx - g.ny) > 0;
-  if (!visL) s.push(vquad(a, g.AL, g.BL, 0, ph, M.parIn));
-  if (!visR) s.push(vquad(a, g.AR, g.BR, 0, ph, M.parIn));
+  if (!visL && !skipL) s.push(vquad(a, g.AL, g.BL, 0, ph, M.parIn));
+  if (!visR && !skipR) s.push(vquad(a, g.AR, g.BR, 0, ph, M.parIn));
   return s;
 }
-function frontShapes(M, g, a, T) {
+function frontShapes(M, g, a, T, skipL, skipR, loop) {
   const s = [];
   const ph = HWY.ph * T, th = HWY.th * T;
   const visL = (g.nx + g.ny) > 0, visR = (-g.nx - g.ny) > 0;
-  if (visL) {
+  // Sur le tablier, une boucle n'a ni tranche ni glissière (elle EST la chaussée).
+  if (visL && !(loop && skipL)) {
     s.push(vquad(a, g.AL, g.BL, -th, 0, shade(M, g.nx, g.ny)));
     s.push(vquad(a, g.AL, g.BL, -th, -th * 0.72, M.under));
-    s.push(vquad(a, g.AL, g.BL, 0, ph, M.lit));
+    if (!skipL) s.push(vquad(a, g.AL, g.BL, 0, ph, M.lit));
   }
-  if (visR) {
+  if (visR && !(loop && skipR)) {
     s.push(vquad(a, g.AR, g.BR, -th, 0, shade(M, -g.nx, -g.ny)));
     s.push(vquad(a, g.AR, g.BR, -th, -th * 0.72, M.under));
-    s.push(vquad(a, g.AR, g.BR, 0, ph, M.mid));
+    if (!skipR) s.push(vquad(a, g.AR, g.BR, 0, ph, M.mid));
   }
   return s;
 }
@@ -114,7 +154,8 @@ function rubbleShapes(M, T) {
 }
 function lampShapes(M, T) {
   const s = [];
-  for (let k = 0; k < 8; k += 1) s.push({ px: [0, 0, (0.62 * T * k) / 7], col: M.out });
+  // mât plein (des pixels espacés se lisaient en pointillé au fort zoom)
+  s.push(...boxShapes(-0.025 * T, -0.025 * T, 0.025 * T, 0.025 * T, 0, 0.62 * T, null, M.out, M.out, null));
   s.push({ px: [-0.06 * T, 0.06 * T, 0.64 * T], col: '#d8d4c8' }, { px: [0, 0, 0.64 * T], col: '#d8d4c8' }, { px: [0.06 * T, -0.06 * T, 0.64 * T], col: '#d8d4c8' });
   return s;
 }
@@ -139,7 +180,7 @@ function along(r, s) {
   while (j < r.cum.length - 1 && r.cum[j] < s) j += 1;
   const a = r.pts[j - 1], b = r.pts[j], seg = (r.cum[j] - r.cum[j - 1]) || 1;
   const u = Math.max(0, Math.min(1, (s - r.cum[j - 1]) / seg));
-  return { x: a.x + (b.x - a.x) * u, y: a.y + (b.y - a.y) * u, z: a.z + (b.z - a.z) * u, ux: (b.x - a.x) / seg, uy: (b.y - a.y) / seg };
+  return { x: a.x + (b.x - a.x) * u, y: a.y + (b.y - a.y) * u, z: a.z + (b.z - a.z) * u, ux: (b.x - a.x) / seg, uy: (b.y - a.y) / seg, i: j - 1 };
 }
 const _veh = [];
 function carActors(r, ri, now, band, T, out, vis) {
@@ -164,7 +205,10 @@ function carActors(r, ri, now, band, T, out, vis) {
       const v = _veh[id] || (_veh[id] = { x: 0, y: 0, gx: 0, gy: 0, dir: 0, type, skin: vehSkinFor(type, id * 2654435761, band), rollDist: 0, fade: 1, _lox: 0, _loy: 0, tx: 0, ty: 0, parkT: 0, pauseT: 0 });
       if (v._band !== band) { v._band = band; v.type = type; v.skin = vehSkinFor(type, id * 2654435761, band) || undefined; }
       const z = p.z;
-      out.push({ wx: x, wy: y, d: depthOf(x, y) + 0.2 * T, draw(ctx, nw) {
+      // Clé : après SON tronçon et le suivant (le suivant, plus avant, recouvrirait le
+      // bas de la carrosserie), jamais avant le sol qu'elle survole.
+      const dCar = Math.max(depthOf(x, y), r.dF[p.i], r.dF[Math.min(r.dF.length - 1, p.i + 1)]) + 0.05 * T;
+      out.push({ wx: x, wy: y, d: dCar, draw(ctx, nw) {
         v.x = x; v.y = y; v.gx = Math.floor(x / T); v.gy = Math.floor(y / T);
         v.dir = vdir; v.rollDist = s; v.tx = x + hx * T; v.ty = y + hy * T;
         const zz = CM.cam.zoom, nn = CM.nightF || 0;
@@ -207,7 +251,6 @@ export function highwayActors(now, out, decay = 0) {
   };
   const ribs = highwayRibbons(L.highway, T);
   ribs.forEach((r, ri) => {
-    const w = r.w * T;
     for (let i = 0; i < r.pts.length - 1; i += 1) {
       const a = r.pts[i], b = r.pts[i + 1];
       if (Math.max(a.z, b.z) < 0.03 * T) continue;      // au sol : la rue suffit
@@ -224,10 +267,10 @@ export function highwayActors(now, out, decay = 0) {
         continue;
       }
       hwyStats.segs += 1;
-      const g = segGeo(a, b, w);
-      const kGeo = r1(b.x - a.x) + ',' + r1(b.y - a.y) + ',' + r1(a.z) + ',' + r1(b.z - a.z) + '|' + r.w + '|' + (r.main ? 1 : 0);
-      const corners = [g.AL, g.BL, g.AR, g.BR].map((p) => depthOf(p[0], p[1]));
-      const dBack = Math.min(...corners), dFront = Math.max(...corners);
+      const g = r.geo[i];
+      const skL = r.skipL[i], skR = r.skipR[i];
+      const kGeo = r1(b.x - a.x) + ',' + r1(b.y - a.y) + ',' + r1(a.z) + ',' + r1(b.z - a.z) + '|' + r.w + '|' + (r.main ? 1 : 0) + (skL ? 'l' : '') + (skR ? 'r' : '');
+      const dFront = r.dF[i];
       // ombre au sol, décalée vers le bas-droite (soleil haut-gauche)
       if (HWY.shadow > 0) {
         const sk = HWY.shadow;
@@ -240,13 +283,13 @@ export function highwayActors(now, out, decay = 0) {
           blitBaked(ctx, bk, p.x, p.y, d, 0.16 * (1 - 0.75 * (CM.nightF || 0)));
         } });
       }
-      out.push({ wx: mx, wy: my, d: dBack + 0.05 * T, draw(ctx) {
-        const bk = baked('bk|' + band + '|' + (i % 2) + '|' + kGeo, () => backShapes(M, r, a, b, g, i, T));
+      out.push({ wx: mx, wy: my, d: dFront - 0.002 * T, draw(ctx) {
+        const bk = baked('bk|' + band + '|' + (i % 2) + '|' + kGeo, () => backShapes(M, r, a, b, g, i, T, skL, skR));
         const p = worldToScreen(a.x, a.y, a.z);
         blitBaked(ctx, bk, p.x, p.y, d);
       } });
-      out.push({ wx: mx, wy: my, d: dFront + 0.4 * T, draw(ctx) {
-        const bk = baked('fr|' + band + '|' + kGeo, () => frontShapes(M, g, a, T));
+      out.push({ wx: mx, wy: my, d: dFront, draw(ctx) {
+        const bk = baked('fr|' + band + '|' + kGeo, () => frontShapes(M, g, a, T, skL, skR, !r.main));
         const p = worldToScreen(a.x, a.y, a.z);
         blitBaked(ctx, bk, p.x, p.y, d);
         // la nuit, les ères cosmiques allument la rive du tablier
@@ -262,7 +305,7 @@ export function highwayActors(now, out, decay = 0) {
       if (i % every === 0 && top > 0.35 * T) {
         // ⚠ AVANT le dessus du tablier : le chevêtre est SOUS la chaussée ; trié à
         // l'aplomb de l'axe, il se peignait par-dessus elle.
-        out.push({ wx: a.x, wy: a.y, d: dBack - 0.02 * T, draw(ctx) {
+        out.push({ wx: a.x, wy: a.y, d: dFront - 0.3 * T, draw(ctx) {
           const bk = baked('pi|' + band + '|' + r1(top) + '|' + (r.main ? 1 : 0) + '|' + (Math.abs(g.nx) > Math.abs(g.ny) ? 1 : 0), () => pierShapes(M, r, g, top, T));
           const p = worldToScreen(a.x, a.y, top);
           blitBaked(ctx, bk, p.x, p.y, d);
@@ -270,7 +313,7 @@ export function highwayActors(now, out, decay = 0) {
       }
       // lampadaires sur l'axe du tablier principal, toutes les 2 cellules
       if (HWY.lamps > 0 && r.main && i % 4 === 2 && a.z > 0.5 * T) {
-        out.push({ wx: a.x, wy: a.y, d: depthOf(a.x, a.y) + 0.25 * T, draw(ctx) {
+        out.push({ wx: a.x, wy: a.y, d: dFront + 0.01 * T, draw(ctx) {
           const p = worldToScreen(a.x, a.y, a.z);
           blitBaked(ctx, baked('la|' + band, () => lampShapes(M, T)), p.x, p.y, d);
           if (night > 0.05) {

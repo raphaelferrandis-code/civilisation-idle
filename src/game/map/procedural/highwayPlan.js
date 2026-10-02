@@ -193,6 +193,25 @@ export function planHighway({ N, ax, cx, cy, band, isWet, isRoad, inCity, coreRo
   return { ax, deck: cfg.deck, banks, interchange: ic ? { sign: ic.sign, yc: ic.yc } : null, lawn, pave };
 }
 
+// LE DÉGAGEMENT : une case de chaque côté de l'artère, sur toutes les rangées où le
+// tablier est en l'air (retour Raph, 2026-10-02 : « des bâtiments passent dans
+// l'autoroute » — les maisons qui bordaient l'artère se collaient au tablier). Le
+// layout en fait une pelouse jamais bâtie. Rend ['x,y', …] (cellules, sans doublon).
+export function vergeCells(H, cfg = HIGHWAY) {
+  if (!H) return [];
+  const out = new Set();
+  for (const b of H.banks) {
+    for (let s = 0; s < b.len; s += 1) {
+      const z = Math.max(deckZAt(s, b, cfg), deckZAt(s + 0.5, b, cfg), deckZAt(s + 1, b, cfg));
+      if (z < 0.35) continue;
+      const y = b.y0 + b.sign * s;
+      out.add(key(H.ax - 1, y));
+      out.add(key(H.ax + 2, y));
+    }
+  }
+  return [...out];
+}
+
 // ── GÉOMÉTRIE DES RUBANS (tuiles) ─────────────────────────────────────────────
 // Partagée par le rendu et les gardes. Un ruban = { id, pts: [{ x, y, z }], w,
 // lanes: [décalages latéraux], main }. x, y en TUILES, z en tuiles.

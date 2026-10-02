@@ -31,16 +31,15 @@ import { muteSunShadow } from './isoSunShadow.js';
 import { boxShapes, bakeShapes, blitBaked, makeBakeCache, elevGlow as glowAt } from './elevPaint.js';
 import { floatIsleSpan } from './isoFloatIsle.js';
 
-export const SKY = { on: true, density: 1, shadow: 0.35, trails: 1, beacons: 1, jets: 1, minZoom: 0.42 };
+export const SKY = { on: true, density: 1, shadow: 0.35, trails: 1, beacons: 1, jets: 1, gates: 1, minZoom: 0.42 };
 
 // Par bande : hauteurs (en tuiles) des couloirs en x et en y, écart minimal entre deux
 // couloirs parallèles (cellules), part de véhicules gardés, pas entre véhicules (base +
-// écart, en tuiles), couloirs au-dessus du fleuve (paires), plafond de véhicules
-// dessinés par frame, nombre de jetpacks. Sous la bande 7 : ciel vide.
+// écart, en tuiles), couloirs au-dessus du fleuve (paires), nombre de jetpacks. Sous la bande 7 : ciel vide.
 export const SKY_BANDS = {
-  7: { tiers: { x: [1.45], y: [1.95] }, sep: 16, keep: 0.45, gap: [3.4, 2.2], river: 0, cap: 70, jets: 0 },
-  8: { tiers: { x: [2.6], y: [3.9] }, sep: 9, keep: 0.8, gap: [2.4, 1.8], river: 1, cap: 170, jets: 12 },
-  9: { tiers: { x: [2.6, 5.2], y: [3.9] }, sep: 7, keep: 0.9, gap: [2.0, 1.6], river: 2, cap: 240, jets: 22 },
+  7: { tiers: { x: [1.45], y: [1.95] }, sep: 16, keep: 0.45, gap: [3.4, 2.2], river: 0, jets: 0 },
+  8: { tiers: { x: [2.6], y: [3.9] }, sep: 9, keep: 0.8, gap: [2.4, 1.8], river: 1, jets: 12 },
+  9: { tiers: { x: [2.6, 5.2], y: [3.9] }, sep: 7, keep: 0.9, gap: [2.0, 1.6], river: 2, jets: 22 },
 };
 
 // Palettes d'ère : carrosserie (dessus, flanc éclairé, flanc à l'ombre), vitrage,
@@ -122,8 +121,8 @@ export function pickLanes(runs, cfg, cx, cy, T) {
         const id = rel * 4 + (dir > 0 ? 1 : 2);
         lanes.push({
           id, axis, dir, alt,
-          c: (r.c + 0.5) * T + dir * 0.22 * T,
-          a: r.a * T, b: r.b * T,
+          c: (r.c + 0.5) * T + dir * 0.22 * T, row: r.c,
+          a: (r.a + 0.3) * T, b: (r.b - 0.3) * T,
           speed: (1.6 + h01(id * 5) * 0.7) * T,
           gap: (cfg.gap[0] + h01(id * 3) * cfg.gap[1]) * T,
           off: h01(id * 11) * 97 * T,
@@ -182,16 +181,22 @@ function laneY(lane, wx, L, T) {
 // Positions des véhicules d'un couloir à l'instant t (s) : pas régulier + gigue,
 // trous tirés (part `keep`), fondu aux deux bouts du tronçon (le véhicule « se
 // pose » plutôt que d'apparaître). Pur — c'est ce que les gardes vérifient.
+// Un couloir de rue finit dans une PORTE (anneau sur mât) : le véhicule y apparaît
+// et s'y efface sur GATE_FADE tuile — retour Raph : les voitures volantes
+// « disparaissent à la fin d'une route ». Au-dessus du fleuve (pas de porte), le
+// fondu reste long : les bouts du fleuve sont hors de la ville.
+export const GATE_FADE = 0.35;
 export function laneCars(lane, t, keep, T) {
   const len = lane.b - lane.a;
   if (len <= 0) return [];
   const n = Math.floor(len / lane.gap);
   const out = [];
+  const fl = (lane.river ? 1.5 : GATE_FADE) * T;
   for (let i = 0; i < n; i += 1) {
     if (h01(lane.id * 31 + i) >= keep) continue;
     const base = t * lane.speed * lane.dir + i * lane.gap + h01(lane.id * 97 + i) * lane.gap * 0.6 + lane.off;
     const s = ((base % len) + len) % len;
-    const fade = Math.min(1, Math.min(s, len - s) / (1.5 * T));
+    const fade = Math.min(1, Math.min(s, len - s) / fl);
     const r1 = h01(lane.id * 17 + i), r2 = h01(lane.id * 19 + i);
     const kind = r1 < 0.1 ? 2 : r2 < 0.12 ? 1 : r2 < 0.24 ? 3 : r2 < 0.32 ? 4 : 0;
     out.push({ s: lane.a + s, fade, kind, i });
@@ -255,6 +260,18 @@ function viewBounds(margin) {
 export const skyStats = { cars: 0, jets: 0, lanes: 0 };
 const _cand = [];
 
+// CLÉ DU PEINTRE d'un objet volant au-dessus d'une rue droite. ⚠ À l'aplomb de son
+// pied (premier jet), une voiture passait SOUS les tours de la rangée d'en face
+// quand celles-ci débordaient de deux cases le long de la rue (une tour se trie à son
+// coin sud). Retour Raph : elles « ne passent pas correctement la hiérarchie de
+// profondeur des bâtiments ». Au-dessus d'une rue de la rangée r (couloir en x),
+// tout ce qui est au nord (y ≤ r) est derrière, tout ce qui est au sud (y ≥ r + 1)
+// devant : la clé se pose au coin sud de la CASE DE RUE survolée, juste avant les
+// voisins de devant. En tuiles : x + (r + 1) + 0,999 ; idem en y.
+export function streetKey(axis, row, along, T) {
+  return (axis === 'x' ? along / T + (row + 1) : (row + 1) + along / T) * T + 0.999 * T;
+}
+
 export function skyTrafficActors(now, out, decay = 0) {
   skyStats.cars = 0; skyStats.jets = 0; skyStats.lanes = 0;
   const L = CM.layout;
@@ -277,9 +294,11 @@ export function skyTrafficActors(now, out, decay = 0) {
   const vb = viewBounds(maxAlt + 3 * T);
   const n = CM.nightF || 0;
   const pal = PAL[band] || PAL[9];
-  // Plafond ÉQUITABLE : on recense d'abord les candidats visibles, puis, s'ils
-  // dépassent le plafond, on garde ceux de plus petite PRIORITÉ — un tirage stable
-  // par (voie, rang) : le même véhicule reste visible d'une frame à l'autre.
+  // ⚠ PAS DE PLAFOND AU NOMBRE : couper les candidats au-delà d'un compte faisait
+  // apparaître et disparaître des voitures en plein ciel à chaque fois qu'une autre
+  // entrait dans le champ. La densité se règle par couloir (keep, gap) ; au dézoom,
+  // un tri STABLE par voiture (pri < part) en garde moins, sans clignotement.
+  const zPart = Math.max(0.25, Math.min(1, (z / 0.625) * (z / 0.625))) * (1 - 0.3 * Math.min(1, n * 1.5));
   const cand = _cand; cand.length = 0;
   const mg = T * z * 1.5;
   for (const lane of lanes) {
@@ -296,16 +315,16 @@ export function skyTrafficActors(now, out, decay = 0) {
       const ps = worldToScreen(wx, wy, lane.alt);
       if (ps.x < -mg || ps.x > CM.cw + mg || ps.y < -mg || ps.y > CM.ch + mg) continue;
       if (isle && lane.river && wx > isle.x0 && wx < isle.x1) continue;   // l'îlot flottant
-      cand.push({ lane, wx, wy, alpha, kind: car.kind, pri: h01(lane.id * 7919 + car.i) });
+      if (h01(lane.id * 7919 + car.i) >= zPart) continue;
+      cand.push({ lane, wx, wy, alpha, kind: car.kind, s: car.s });
     }
   }
-  // ⚠ PERF : la nuit, chaque véhicule coûte quatre poses de plus (phares, feu, traînée) ;
-  // le plafond baisse d'un tiers (les traînées remplissent l'œil) et l'ombre au sol,
-  // presque invisible sous le voile, n'est plus posée.
-  const cap = Math.round(cfg.cap * (1 - 0.35 * Math.min(1, n * 1.5)));
-  if (cand.length > cap) { cand.sort((p, q) => p.pri - q.pri); cand.length = cap; }
+  // ⚠ PERF : la nuit, chaque véhicule coûte quatre poses de plus (phares, feu, traînée) :
+  // la part gardée baisse d'un tiers (zPart) et l'ombre au sol, presque invisible sous
+  // le voile, n'est plus posée.
   for (const c of cand) {
     const { lane, wx, wy, alpha, kind } = c;
+    const dKey = lane.river ? depthOf(wx, wy) + 0.05 * T : streetKey(lane.axis, lane.row, c.s, T);
     const ax = lane.axis === 'x';
     skyStats.cars += 1;
     const alt = lane.alt;
@@ -317,7 +336,7 @@ export function skyTrafficActors(now, out, decay = 0) {
         blitBaked(ctx, bk, p.x, p.y, d, alpha * 0.26 * (1 - 0.7 * (CM.nightF || 0)));
       } });
     }
-    out.push({ wx, wy, d: depthOf(wx, wy) + 0.05 * T, draw(ctx) {
+    out.push({ wx, wy, d: dKey, draw(ctx) {
       const bk = baked('car|' + band + '|' + kind + '|' + lane.axis + '|' + lane.dir, () => carShapes(band, kind, lane.axis, lane.dir, T));
       const p = worldToScreen(wx, wy, alt);
       blitBaked(ctx, bk, p.x, p.y, d, alpha);
@@ -352,7 +371,67 @@ export function skyTrafficActors(now, out, decay = 0) {
       }
     }
   }
+  if (SKY.gates > 0 && decay < 0.5) gateActors(out, lanes, band, vb, zf, T, d, n);
   if (cfg.jets > 0 && SKY.jets > 0 && _runs.length && decay < 0.3) jetActors(out, t, cfg, vb, zf, T, d);
+}
+
+// ── LES PORTES DE COULOIR ────────────────────────────────────────────────────
+// Au bout de chaque couloir de rue : un anneau à la hauteur du couloir, perpendiculaire
+// à lui, porté par un mât fin. Les deux voies passent dedans ; un véhicule s'y efface
+// ou en sort (GATE_FADE). Deux moitiés triées de part et d'autre des véhicules qui la
+// traversent : l'arc arrière avant eux, l'arc avant après.
+const GATE_PAL = {
+  7: ['#e6f0ea', '#9fc2ae', '150,255,210'], 8: ['#fbf3dc', '#c9ad6a', '255,220,140'], 9: ['#f4f1fb', '#b8acd6', '190,160,255'],
+};
+function gateShapes(band, axis, half, alt, T) {
+  const P = GATE_PAL[band] || GATE_PAL[9];
+  const R = 0.42 * T, s = [];
+  const pt = (v, w) => (axis === 'x' ? [0, v, w] : [v, 0, w]);   // v : en travers, w : hauteur
+  // l'anneau : deux rangs de pixels (bord clair, cœur coloré), la moitié demandée
+  // ⚠ assez d'échantillons pour un trait CONTINU au plus fort zoom (40 donnait un pointillé)
+  for (let k = 0; k <= 160; k += 1) {
+    const a = (k / 160) * Math.PI * 2;
+    const v = Math.cos(a) * R, w = Math.sin(a) * R + 0.03 * T;
+    if (half === 'back' ? v > 0.01 * T : v < -0.01 * T) continue;
+    s.push({ px: pt(v, w), col: P[1] });
+    s.push({ px: pt(v * 0.86, w * 0.86 + 0.004 * T), col: P[0] });
+  }
+  if (half === 'back') {
+    // le mât : de la rue jusqu'au bas de l'anneau
+    s.push(...(axis === 'x' ? boxShapes(-0.04 * T, -0.04 * T, 0.04 * T, 0.04 * T, -alt, -R + 0.03 * T, null, P[0], P[1], null)
+      : boxShapes(-0.04 * T, -0.04 * T, 0.04 * T, 0.04 * T, -alt, -R + 0.03 * T, null, P[0], P[1], null)));
+  }
+  return s;
+}
+export function gateEnds(lanes) {
+  // une porte par COULOIR (paire de voies) et par bout : on prend la voie aller
+  const out = [];
+  for (const ln of lanes) {
+    if (ln.river || ln.dir !== 1) continue;
+    for (const end of [ln.a, ln.b]) out.push({ axis: ln.axis, row: ln.row, along: end, mid: ln.c - 0.22 * CM.TILE, alt: ln.alt, isStart: end === ln.a });
+  }
+  return out;
+}
+function gateActors(out, lanes, band, vb, zf, T, d, night) {
+  for (const g of gateEnds(lanes)) {
+    const ax = g.axis === 'x';
+    const wx = ax ? g.along : g.mid, wy = ax ? g.mid : g.along;
+    if (wx < vb.x0 || wx > vb.x1 || wy < vb.y0 || wy > vb.y1) continue;
+    const kIn = streetKey(g.axis, g.row, g.along, T);
+    const kBack = g.isStart ? kIn - 0.05 * T : kIn - 0.6 * T;
+    const kFront = g.isStart ? kIn + 0.6 * T : kIn + 0.05 * T;
+    for (const [half, dk] of [['back', kBack], ['front', kFront]]) {
+      out.push({ wx, wy, d: dk, draw(ctx) {
+        const bk = baked('gate|' + band + '|' + g.axis + '|' + half + '|' + Math.round(g.alt), () => gateShapes(band, g.axis, half, g.alt, T));
+        const p = worldToScreen(wx, wy, g.alt);
+        blitBaked(ctx, bk, p.x, p.y, d, zf);
+        if (half === 'front' && night > 0.05) {
+          const P = GATE_PAL[band] || GATE_PAL[9];
+          glowAt(p.x, p.y, 7 * CM.cam.zoom / 0.625, P[2], 0.5 * night * zf);
+        }
+      } });
+    }
+  }
 }
 
 // ── LES JETPACKS ─────────────────────────────────────────────────────────────
@@ -399,8 +478,11 @@ function jetActors(out, t, cfg, vb, zf, T, d) {
         blitBaked(ctx, baked('sh|jet|x', () => shadowShapes('jet', 'x', T)), p.x, p.y, d, zf * 0.3 * (1 - 0.7 * (CM.nightF || 0)));
       } });
     }
-    out.push({ wx, wy, d: depthOf(wx, wy) + 0.1 * T, draw(ctx, nw) {
+    const jf = Math.min(1, Math.min(u, 1 - u) / 0.08) * zf;
+    out.push({ wx, wy, d: streetKey(r.axis, r.c, along, T) + 0.01 * T, draw(ctx, nw) {
       const p = worldToScreen(wx, wy, alt);
+      const pa = ctx.globalAlpha;
+      ctx.globalAlpha = pa * jf;
       const k = vieK();
       const fl = 2 + Math.floor((nw / 70 + i) % 3);
       for (let j = 0; j < fl; j += 1) {
@@ -408,8 +490,9 @@ function jetActors(out, t, cfg, vb, zf, T, d) {
         ctx.fillRect(Math.round(p.x / k - 0.5) * k, Math.round(p.y / k + j) * k, k, k);
       }
       muteSunShadow(() => drawEraAgentIso(ctx, p.x, p.y, z, ddir, false, nw, i * 0.37, i % 3));
+      ctx.globalAlpha = pa;
       const nn = CM.nightF || 0;
-      if (nn > 0.05) glowAt(p.x, p.y + 2 * k, 6 * z / 0.625, '255,170,60', 0.6 * nn * zf);
+      if (nn > 0.05) glowAt(p.x, p.y + 2 * k, 6 * z / 0.625, '255,170,60', 0.6 * nn * jf);
     } });
   }
 }

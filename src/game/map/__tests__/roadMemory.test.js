@@ -125,9 +125,11 @@ describe("mémoire du réseau — une ville qui se souvient", () => {
       prev = roads; prevSlots = slots;
     }
     expect(lost, "rues disparues").toBe(0);
-    // La percée du boulevard déloge une rangée une fois (mesuré : 34 maisons) ;
-    // le reste du parcours en déplace une poignée.
-    expect(moved, "maisons déplacées").toBeLessThanOrEqual(80);
+    // Deux délogements voulus, chacun UNE fois : la percée du boulevard à la bande 5
+    // (mesuré : 54 maisons) et le dégagement sous l'autoroute à la bande 6 (41 —
+    // une case de pelouse de chaque côté de l'artère, docs/PLAN-ETAGES.md) ; mesuré
+    // pas à pas, plus rien ne bouge après (1 puis 0). Le reste en déplace une poignée.
+    expect(moved, "maisons déplacées").toBeLessThanOrEqual(130);
   }, 300000);
 
   it("un seul pont, et l'artère le prolonge sur les deux rives", () => {

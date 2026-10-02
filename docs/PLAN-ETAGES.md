@@ -167,3 +167,34 @@ autres postes (fleuve, nuit) varient de ±15 ms d'une passe à l'autre sans lien
   ruine aux bandes 6 et 9 (`state.timeWear = 0.95`). Commit `e15b5ce`.
 - 2026-10-02 — lot 5 (téléphérique) + passe de performance (cf. § Performance) ; captures
   cumulées jour et nuit des bandes 5 à 9 regardées : aucun étage ne se superpose.
+  Commit `42e2f29`.
+- 2026-10-02 soir — **retours de Raph en jeu (5 défauts), tous corrigés** :
+  1. « Des bâtiments passent dans l'autoroute » : les maisons bordaient l'artère et
+     se collaient au tablier, et les tronçons étaient triés au coin ARRIÈRE (une tour
+     voisine se trie à son coin sud, plus loin) → **clé du peintre au coin AVANT** de
+     chaque tronçon (comme un bâtiment), et **dégagement** : une case de pelouse de
+     chaque côté de l'artère sous le tablier en l'air (`vergeCells`, réserve de la
+     ville). Mesuré : 41 maisons relogées UNE fois à l'arrivée de l'autoroute (bande 6),
+     plus rien ensuite — seuil du test de mémoire des rues porté de 80 à 130 avec ce
+     relevé (la percée du boulevard en déloge 54 à la bande 5).
+  2. « La barrière de l'autoroute coupe le bras d'insertion » → la glissière du tablier
+     s'ouvre là où une boucle le longe ; la boucle n'a ni glissière ni tranche tant
+     qu'elle est sur le tablier (`skipL`/`skipR` par tronçon).
+  3. Voitures volantes qui « disparaissent à la fin d'une route » → une **porte de
+     couloir** (anneau sur mât, deux moitiés triées de part et d'autre) à chaque bout ;
+     le fondu ne dure plus que 0,35 tuile, DANS l'anneau. Le plafond au nombre est
+     retiré (il faisait apparaître/disparaître des voitures quand d'autres entraient
+     dans le champ) : la densité se règle par couloir, un tri stable par voiture allège
+     au dézoom et la nuit.
+  4. Voitures volantes mal triées contre les bâtiments → **clé « de rue »** : au-dessus
+     d'une rue de la rangée r, tout le nord est derrière, tout le sud devant (coin sud
+     de la case de rue survolée + 0,999). Même clé pour les jetpacks, qui ont aussi un
+     fondu au décollage et à l'atterrissage.
+  5. Le train « passe pas bien dans la gare, clignote » et « disparaît dans le vide » →
+     la gare se trie après tous les tronçons qu'elle couvre (plus d'aller-retour
+     devant/derrière la rame) ; **trémies de tunnel** aux deux bouts (talus d'herbe et
+     tête maçonnée, `PORTAL`), la rame est COUPÉE NET au plan de la bouche. La ligne
+     est recentrée dans la case du quai (`LINE_SHIFT` 0,06 au lieu de 0,32) : décalée,
+     elle mordait la rangée d'immeubles et la rame se peignait par-dessus.
+  Vérifié par séquences d'images déterministes (`captureFrame({ now })`) : passage en
+  gare, sortie des deux tunnels (bandes 5 et 7), couloirs aériens (bande 9).

@@ -20,7 +20,7 @@ import { terrainFieldU, terrainFlatR } from './procedural/terrainField.js';
 import { ROAD_LINK_WAVE_FRACTION } from '../core/balance.js';
 import { createBuildingPlacer, placeCategorySlotted } from './procedural/buildingGenerator.js';
 import { createWaterModel } from './procedural/waterModel.js';
-import { planHighway } from './procedural/highwayPlan.js';
+import { planHighway, vergeCells } from './procedural/highwayPlan.js';
 import { CM_GIVEN, CM_EPITHETS, CM_TRADES, CM_HOUSES, CM_ROLES, CM_STREET_OF, CM_RESIDENCES } from './cityNaming.js';
 import {
   CM_MAP_BUILDINGS,
@@ -3268,6 +3268,24 @@ function computeCityLayout(s) {
       held: (x, y) => !!heldBy && heldBy.has(x + "," + y),
       fix: s.cityCore && s.cityCore.highway ? s.cityCore.highway : null,
     });
+    // LE DÉGAGEMENT (retour Raph : « des bâtiments passent dans l'autoroute ») : une
+    // case de pelouse de chaque côté de l'artère sous le tablier en l'air — jamais
+    // bâtie, contournée par la desserte (townGardens), les rues qui la croisent
+    // restent des rues. Les bâtiments qui la tenaient sont relogés, une fois.
+    if (highway) {
+      const evictedV = new Set();
+      for (const k of vergeCells(highway)) {
+        if (roadKey.has(k) || riverSet.has(k) || bankSet.has(k)) continue;
+        townReserve.add(k); townGreen.add(k); townGardens.add(k);
+        const o = heldBy && heldBy.get(k);
+        if (o) evictedV.add(o);
+      }
+      if (evictedV.size) {
+        const store = cmCityMapSlotsFor(s);
+        for (const [k, o] of Array.from(heldBy)) if (evictedV.has(o)) heldBy.delete(k);
+        for (const o of evictedV) delete store[o];
+      }
+    }
     if (highway && highway.interchange) {
       if (s.cityCore) s.cityCore.highway = { sign: highway.interchange.sign, dy: highway.interchange.yc - cy };
       const evicted = new Set();

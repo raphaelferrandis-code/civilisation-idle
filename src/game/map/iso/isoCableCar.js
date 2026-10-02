@@ -14,7 +14,7 @@ import { CM } from '../layout.js';
 import { worldToScreen, depthOf } from './projection.js';
 import { vieK } from './isoVie.js';
 import { METRO, bankRowAt } from '../procedural/metroPlan.js';
-import { metroPlanFor } from './isoMetro.js';
+import { metroPlanFor, LINE_SHIFT } from './isoMetro.js';
 import { isleSideOf, floatIsleSite, ISLE } from './isoFloatIsle.js';
 import { boxShapes, bakeShapes, blitBaked, makeBakeCache, elevGlow } from './elevPaint.js';
 
@@ -52,7 +52,7 @@ export function cableSite(L, metro) {
     const yCore = bankRowAt(R, x, -metro.sign, L.gridN);
     if (yCore == null) continue;
     // tour côté cœur : sur la promenade, à mi-cellule ; arrivée : au-dessus de la station
-    return { x: x + 0.5, yN: yCore + 0.5 - metro.sign * 0.2, yS: mp.y + metro.sign * 0.32, baseN: 0, baseS: METRO.deck + 0.5, sign: metro.sign };
+    return { x: x + 0.5, yN: yCore + 0.5 - metro.sign * 0.2, yS: mp.y + metro.sign * LINE_SHIFT, baseN: 0, baseS: METRO.deck + 0.5, sign: metro.sign };
   }
   return null;
 }

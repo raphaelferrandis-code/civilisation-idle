@@ -3,7 +3,7 @@
 // tirages déterministes, ciel vide avant la bande 7.
 import { describe, it, expect, beforeEach, afterEach } from 'vitest';
 import { CM } from '../../layout.js';
-import { SKY, SKY_BANDS, roadRuns, pickLanes, laneCars, riverLanes, h01, skyTrafficActors, skyStats } from '../isoSkyTraffic.js';
+import { SKY, SKY_BANDS, roadRuns, pickLanes, laneCars, riverLanes, h01, skyTrafficActors, skyStats, streetKey, gateEnds, GATE_FADE } from '../isoSkyTraffic.js';
 import { elevatedActors } from '../isoElevated.js';
 
 const T = 32;
@@ -63,8 +63,9 @@ describe('SKY_BANDS — les règles de l\'air', () => {
     }
   });
   it('le ciel s\'épaissit avec les ères', () => {
-    expect(SKY_BANDS[8].cap).toBeGreaterThan(SKY_BANDS[7].cap);
-    expect(SKY_BANDS[9].cap).toBeGreaterThan(SKY_BANDS[8].cap);
+    expect(SKY_BANDS[8].keep).toBeGreaterThan(SKY_BANDS[7].keep);
+    expect(SKY_BANDS[9].keep).toBeGreaterThanOrEqual(SKY_BANDS[8].keep);
+    expect(SKY_BANDS[9].sep).toBeLessThan(SKY_BANDS[7].sep);
     expect(SKY_BANDS[9].jets).toBeGreaterThan(SKY_BANDS[8].jets);
   });
 });
@@ -155,5 +156,37 @@ describe('les acteurs', () => {
   });
   it('h01 dans [0, 1)', () => {
     for (let i = -50; i < 50; i += 1) { const v = h01(i * 7919); expect(v).toBeGreaterThanOrEqual(0); expect(v).toBeLessThan(1); }
+  });
+});
+
+describe('profondeur et portes de couloir', () => {
+  it("au-dessus d'une rue en x : après les voisins du nord, avant ceux du sud", () => {
+    const r = 10, x = 20.4;                       // rue sur la rangée 10, véhicule en x = 20,4
+    const k = streetKey('x', r, x * T, T) / T;
+    // voisin nord sur 2 cases de large qui déborde le long de la rue : coin sud (x1, r)
+    expect(k).toBeGreaterThan((x + 1.5) + r);
+    // voisin sud juste en face : coin sud (x1, r + 2)
+    expect(k).toBeLessThan(Math.ceil(x) + (r + 2));
+    // et après le sol de la rue qu'il survole
+    expect(k).toBeGreaterThan(x + r + 1);
+  });
+  it('une porte par couloir et par bout, jamais au-dessus du fleuve', () => {
+    const lanes = [
+      { id: 1, axis: 'x', dir: 1, c: 5.28 * T, row: 5, a: 10 * T, b: 40 * T, alt: 3 * T },
+      { id: 2, axis: 'x', dir: -1, c: 5.72 * T, row: 5, a: 10 * T, b: 40 * T, alt: 3 * T },
+      { id: 3, axis: 'x', dir: 1, c: 50 * T, river: true, a: 0, b: 90 * T, alt: 3 * T },
+    ];
+    const g = gateEnds(lanes);
+    expect(g).toHaveLength(2);
+    expect(g.map((q) => q.along / T).sort((p, q) => p - q)).toEqual([10, 40]);
+  });
+  it("un véhicule s'efface DANS la porte, pas au milieu du couloir", () => {
+    const lane = { id: 77, axis: 'x', dir: 1, alt: 3 * T, c: 5 * T, a: 10 * T, b: 60 * T, speed: 2 * T, gap: 2 * T, off: 0 };
+    for (let t = 0; t < 20; t += 0.37) {
+      for (const c of laneCars(lane, t, 1, T)) {
+        const dEnd = Math.min(c.s - lane.a, lane.b - c.s);
+        if (dEnd > GATE_FADE * T) expect(c.fade).toBe(1);
+      }
+    }
   });
 });
