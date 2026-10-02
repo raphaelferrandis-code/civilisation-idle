@@ -1036,6 +1036,13 @@ export const waterTilesTune = {
 if (typeof window !== 'undefined') window.__waterTiles = waterTilesTune;
 
 const WATER_TILE = 16, WATER_FRAMES = 8;
+// LE CARREAU N'EST PLUS FORCÉMENT DE 16 PX (2026-10-02, planche « écailles ») : sa
+// taille est lue sur la planche elle-même (hauteur de l'image, 8 images en largeur).
+// Un carreau de 16 px = UNE tuile de jeu, et ses anneaux clairs dessinaient une grille
+// d'alvéoles à partir du zoom 1,5. La période de DÉRIVE est celle du plus grand carreau
+// admis (64 px) : multiple de toutes les autres, elle ne change rien aux petites.
+const WATER_TILE_MAX = 64;
+const tileOf = (sh) => (sh && sh.tile) || WATER_TILE;
 // ⚠⚠ PHASE ACCUMULÉE — une VITESSE VARIABLE NE SE MULTIPLIE JAMAIS PAR UN TEMPS
 // ABSOLU. `Math.floor(t * fps)` avec un fps qui suit la météo saute à chaque
 // changement : à t = 1000 s, passer de 2,5 à 7 images/s fait bondir `t * fps` de
@@ -1086,6 +1093,18 @@ export function stepWaterPhase(prev, t, fps, drift, spatial) {
 // Exportée : un coloris ajouté sans son accord complet ferait retomber le liseré
 // en ardoise sans que rien ne proteste — c'est la table elle-même qu'on teste.
 export const WATER_SHEETS = {
+  // ── LA NAPPE SANS ÉCAILLES (2026-10-02, Raph sur planche : « go pour la nouvelle ») ──
+  // Les quatre coloris pointent vers les bandes « -v2 » de `scripts/eauSansEcailles.mjs` :
+  // un carreau de 64 px (4 tuiles de jeu, cf. WATER_TILE_MAX) sans forme fermée — creux
+  // allongés à l'horizontale, crête d'un pixel, reflets semés au hasard — au lieu du
+  // carreau de 16 px dont les anneaux clairs dessinaient une grille d'alvéoles dès le
+  // zoom 1,5. MÊMES cinq couleurs par coloris (lues sur les bandes de 16 px, qui
+  // restent sur le disque pour l'A/B : `__waterSheets.beau.src =
+  // '/pixelart/water/river-tiles-calm-ciel.png'`), donc liseré, quai et lavis inchangés.
+  // ⚠ La nouvelle nappe est un peu plus SOMBRE en moyenne (moins de pixels clairs :
+  // luminosité −3 au beau fixe, −7 à −10 sous l'averse, en hiver et à l'usure, même
+  // couleur dominante) et bouge moins (0,8 % des pixels par image contre ~10 %) :
+  // c'est le prix d'une surface sans motif, vu sur planche (waterSansEcailles.test.js).
   // ⚠ BEAU TEMPS RECOLORÉ le 2026-09-30 (docs/PLAN-MAQUETTE-VIVANTE.md, lot 1 ; Raph :
   // « oui, calme-la ») : l'azur natif était 3 à 7 fois plus saturé que la ville.
   // Même dessin, cinq couleurs remplacées une pour une (scripts/eauCalme.mjs) ; le
@@ -1094,24 +1113,24 @@ export const WATER_SHEETS = {
   // rejoue l'ancien. `dim` tombe à 0 : il existait pour RABATTRE l'azur trop vif
   // (« l'état normal est un peu trop flashy »), la nappe l'est désormais d'elle-même.
   beau: {
-    src: '/pixelart/water/river-tiles-calm-ciel.png', pale: '104,148,162', dim: 0,
+    src: '/pixelart/water/river-tiles-calm-ciel-v2.png', pale: '104,148,162', dim: 0,
     shore: ['86,128,142', '112,150,158', '160,188,186'],
     quay: ['rgba(104,146,158,0.50)', 'rgba(170,198,196,0.55)'], wash: '120,168,184',
   },
   usure: {
-    src: '/pixelart/water/river-tiles-calm-turquoise.png', pale: '207,255,255', dim: 0,
+    src: '/pixelart/water/river-tiles-calm-turquoise-v2.png', pale: '207,255,255', dim: 0,
     shore: ['74,190,175', '132,222,210', '206,248,242'],
     quay: ['rgba(110,200,188,0.50)', 'rgba(206,244,236,0.62)'], wash: '80,220,205',
   },
   hiver: {
-    src: '/pixelart/water/river-tiles-calm-hiver.png', pale: '219,243,243', dim: 0,
+    src: '/pixelart/water/river-tiles-calm-hiver-v2.png', pale: '219,243,243', dim: 0,
     shore: ['140,168,214', '178,202,232', '224,240,248'],
     quay: ['rgba(160,186,214,0.50)', 'rgba(224,238,248,0.62)'], wash: '150,190,225',
   },
   // Ardoise : valeurs HISTORIQUES à l'identique (liseré validé le 2026-07-16,
   // bas-fond de quai d'origine) — ce coloris ne doit rien changer à l'existant.
   pluie: {
-    src: '/pixelart/water/river-tiles-calm.png', pale: '158,184,192', dim: 0,
+    src: '/pixelart/water/river-tiles-calm-v2.png', pale: '158,184,192', dim: 0,
     shore: ['120,160,175', '150,192,205', '190,224,232'],
     quay: ['rgba(150,184,180,0.50)', 'rgba(202,224,214,0.62)'], wash: '150,190,205',
   },
@@ -1174,14 +1193,20 @@ const waterSheets = new Map();            // clé -> { img, ready, frames }
 function waterSheet(key) {
   const cfg = WATER_SHEETS[key] || WATER_SHEETS.pluie;
   let e = waterSheets.get(key);
-  if (e) return e;
+  // Une entrée vaut pour SA source : changer `src` d'un coloris (molette
+  // __waterSheets, essais de planche) recharge l'image au lieu de servir l'ancienne.
+  if (e && e.src === cfg.src) return e;
   if (typeof Image === 'undefined') return null;
   const im = new Image();
   // ⚠ L'entrée est capturée en LOCAL, jamais relue depuis la Map dans le
   // callback : deux chargements peuvent se croiser au basculement.
-  e = { img: im, ready: false, frames: null };
+  e = { img: im, ready: false, frames: null, src: cfg.src, tile: WATER_TILE };
   waterSheets.set(key, e);
-  im.onload = () => { e.ready = true; };
+  im.onload = () => {
+    const h = im.naturalHeight || WATER_TILE;
+    e.tile = h >= 4 && h <= WATER_TILE_MAX && WATER_TILE_MAX % h === 0 ? h : WATER_TILE;
+    e.ready = true;
+  };
   im.onerror = () => { e.ready = false; };   // PNG absent → fill WATER nu
   im.src = cfg.src;
   return e;
@@ -1213,12 +1238,13 @@ function waterFrameTile(sheet, fi) {
   if (!sheet.frames) sheet.frames = new Array(WATER_FRAMES).fill(null);
   let c = sheet.frames[fi];
   if (c) return c;
-  if (typeof OffscreenCanvas !== 'undefined') c = new OffscreenCanvas(WATER_TILE, WATER_TILE);
-  else { c = document.createElement('canvas'); c.width = WATER_TILE; c.height = WATER_TILE; }
+  const W = tileOf(sheet);
+  if (typeof OffscreenCanvas !== 'undefined') c = new OffscreenCanvas(W, W);
+  else { c = document.createElement('canvas'); c.width = W; c.height = W; }
   const cx = c.getContext('2d');
   if (!cx) return null;
   cx.imageSmoothingEnabled = false;
-  cx.drawImage(img, fi * WATER_TILE, 0, WATER_TILE, WATER_TILE, 0, 0, WATER_TILE, WATER_TILE);
+  cx.drawImage(img, fi * W, 0, W, W, 0, 0, W, W);
   sheet.frames[fi] = c;
   return c;
 }
@@ -1298,7 +1324,8 @@ function drawIsoWaterTiles(ctx, pts, T, z, now, wb) {
   let dx = pB.x - pA.x, dy = pB.y - pA.y;
   const dl = Math.hypot(dx, dy) || 1; dx /= dl; dy /= dl;
   const anchor = worldToScreen(0, 0);
-  const step = WATER_TILE * G.worldPx * z;               // période à l'écran
+  const TW = tileOf(sheet);                              // côté du carreau, px de tuile
+  const step = TW * G.worldPx * z;                       // période à l'écran
   if (step < 2) { if (dbg) dbg('pas trop fin', { step }); return; }
   const sz = Math.ceil(step) + 1;                        // +1 px : coutures au zoom fractionnaire
   const rf = snow ? rf0 * 0.35 : rf0;
@@ -1321,7 +1348,7 @@ function drawIsoWaterTiles(ctx, pts, T, z, now, wb) {
   // Phase : intégrée en jeu (cf. ⚠⚠ PHASE ACCUMULÉE), analytique en capture.
   // `captureFrame` force rainF à 0 → la vitesse y est CONSTANTE, donc le produit
   // temps × vitesse ne saute pas et reste déterministe, ce qu'exige une capture.
-  const spatial = WATER_TILE * G.worldPx;          // période spatiale, CONSTANTE
+  const spatial = WATER_TILE_MAX * G.worldPx;      // période spatiale, CONSTANTE (cf. WATER_TILE_MAX)
   let phaseFrame, phaseDrift;
   if (CM.capture) {
     phaseFrame = t * G.fair.fps;
@@ -1357,7 +1384,7 @@ function drawIsoWaterTiles(ctx, pts, T, z, now, wb) {
     // Repli SILENCIEUX sur le pavage tuile à tuile si le motif n'est pas
     // disponible (canvas hors écran refusé, source pas décodable) : la nappe
     // s'affiche toujours, elle coûte seulement plus cher.
-    const k = step / WATER_TILE;
+    const k = G.worldPx * z;                     // un pixel de carreau → k px d'écran, quel que soit le carreau
     const paint = (sh, alpha) => {
       if (!sh || !sh.ready || alpha <= 0) return false;
       let pat = null;
@@ -1480,7 +1507,7 @@ function drawIsoWaterTiles(ctx, pts, T, z, now, wb) {
       cB = Math.min(c1, Math.ceil((spanHi[ri] - ox) / step) + 1);
     }
     for (let col = cA; col <= cB; col += 1) {
-      ctx.drawImage(img, fi * WATER_TILE, 0, WATER_TILE, WATER_TILE,
+      ctx.drawImage(img, fi * TW, 0, TW, TW,
         Math.floor(ox + col * step), Math.floor(oy + row * step), sz, sz);
     }
   }
