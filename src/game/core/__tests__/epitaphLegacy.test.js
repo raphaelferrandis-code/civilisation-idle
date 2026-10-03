@@ -1,8 +1,9 @@
 "use strict";
-// Legs d'épitaphe — deux invariants issus de la remédiation "Lot A" :
-//  1. DURÉE UNIQUE : epitaphLegacyDurationMs() est la seule source de vérité
-//     (8 min de base, amplifiée par « Épitaphes profondes ») ; l'effet et
-//     l'affichage doivent expirer au même instant.
+// Legs d'épitaphe :
+//  1. TOUT LE CYCLE (« Choisir sa chute », 2026-10) : le legs agit jusqu'à la
+//     chute suivante (avant : une fenêtre de 8 min) ; « Épitaphes profondes »
+//     renforce ses BIENFAITS (pas ses contreparties) ; le Pillage endette la
+//     cité suivante (foyer Inégalités) au lieu de pousser l'aiguille.
 //  2. PARITÉ OFFLINE : les effondrements hors-ligne (simulateAwayCrises)
 //     re-gravent la « dernière volonté » (nextEpitaphLegacy) avec le MÊME
 //     multiplicateur de ruines que le dialogue, et rafraîchissent la cause
@@ -15,8 +16,11 @@ const { state, setState, hydrateState, invalidateRenderCache, setGamePaused } = 
 // Importer main.js enregistre le pont world.js↔core (cf. crisisDoctrine.test.js).
 import { applyOfflineProgress } from "../main.js";
 import { tick } from "../actions/tick.js";
-import { activeEpitaphLegacy, epitaphLegacyDurationMs } from "../mechanics.js";
-import { EPITAPH_LEGACY_DURATION_MS, epitaphLegacyById, epitaphLegacyChips } from "../../data/epitaphs.js";
+import { activeEpitaphLegacy, epitaphLegacyAmp } from "../mechanics.js";
+import { epitaphLegacyEffect } from "../mechanics/production/mythEffects.js";
+import { completeCollapse } from "../actions/crisis.js";
+import { epitaphLegacyById, epitaphLegacyChips } from "../../data/epitaphs.js";
+import { D } from "../num.js";
 import { CRISIS_EVENTS } from "../../data/world.js";
 import { toNum } from "../num.js";
 import { MID_GAME_FIXTURE, FIXED_NOW } from "./fixtures.js";
@@ -34,65 +38,50 @@ afterEach(() => {
   vi.restoreAllMocks();
 });
 
-describe("epitaphLegacyDurationMs — durée effective unique", () => {
-  it("8 min de base, 20 min avec « Épitaphes profondes »", () => {
-    expect(epitaphLegacyDurationMs()).toBe(EPITAPH_LEGACY_DURATION_MS);
-    state.upgrades.epitaphes_profondes = true;
-    invalidateRenderCache("all");
-    expect(epitaphLegacyDurationMs()).toBe(EPITAPH_LEGACY_DURATION_MS * 2.5);
-  });
-
-  it("un legs vieux de 10 min n'est actif QU'avec l'upgrade (8 < 10 < 20 min)", () => {
-    state.activeEpitaphLegacy = {
-      id: "granaries", cause: "famine", chosenCycle: 3,
-      startedAt: FIXED_NOW - 10 * 60 * 1000
-    };
-    expect(activeEpitaphLegacy()).toBeNull();
-
-    state.upgrades.epitaphes_profondes = true;
-    invalidateRenderCache("all");
-    expect(activeEpitaphLegacy()?.definition.id).toBe("granaries");
-  });
-});
-
-describe("extinction du legs — ligne de Chronique puis consommation", () => {
+describe("legs d'épitaphe — tout le cycle", () => {
   // Neutralise les crises narratives (dialogues async) pendant les ticks du test.
   const markAllThresholds = () =>
     (state.crisisThresholds = Object.fromEntries(CRISIS_EVENTS.map((e) => [e.id, true])));
 
-  it("à l'expiration : une ligne au Journal, l'état consommé, jamais de re-post", () => {
+  it("un legs gravé il y a 3 h agit encore, et le tick ne le consomme jamais", () => {
     markAllThresholds();
-    state.activeEpitaphLegacy = { id: "granaries", cause: "famine", chosenCycle: 3, startedAt: FIXED_NOW - 9 * 60 * 1000 };
-    tick(1);
-    expect(state.activeEpitaphLegacy).toBeNull();
-    const fadedLines = () => (state.history || []).filter((line) => line.includes("s'efface")).length;
-    expect(fadedLines()).toBe(1);
-    tick(1);
-    expect(fadedLines()).toBe(1);
-  });
-
-  it("un legs encore actif n'est ni consommé ni annoncé", () => {
-    markAllThresholds();
-    state.activeEpitaphLegacy = { id: "granaries", cause: "famine", chosenCycle: 3, startedAt: FIXED_NOW - 60 * 1000 };
+    state.activeEpitaphLegacy = { id: "granaries", cause: "famine", chosenCycle: 3, startedAt: FIXED_NOW - 3 * 3600 * 1000 };
+    expect(activeEpitaphLegacy()?.definition.id).toBe("granaries");
     tick(1);
     expect(state.activeEpitaphLegacy?.id).toBe("granaries");
-    expect((state.history || []).some((line) => line.includes("s'efface"))).toBe(false);
+    expect(epitaphLegacyEffect().foodMult).toBeGreaterThan(1);
   });
 
-  it("le Pillage (aucun effet fenêtré) s'éteint sans ligne", () => {
-    markAllThresholds();
-    state.activeEpitaphLegacy = { id: "plunder", cause: "avarice", chosenCycle: 3, startedAt: FIXED_NOW - 9 * 60 * 1000 };
-    tick(1);
-    expect(state.activeEpitaphLegacy).toBeNull();
-    expect((state.history || []).some((line) => line.includes("s'efface"))).toBe(false);
+  it("un legs gravé « dans le futur » (horloge virtuelle de la Clepsydre) n'agit pas", () => {
+    state.activeEpitaphLegacy = { id: "granaries", cause: "famine", chosenCycle: 3, startedAt: FIXED_NOW + 60 * 1000 };
+    expect(activeEpitaphLegacy()).toBeNull();
+  });
+
+  it("« Épitaphes profondes » renforce les bienfaits de moitié, pas les contreparties", () => {
+    state.activeEpitaphLegacy = { id: "granaries", cause: "rupture", chosenCycle: 3, startedAt: FIXED_NOW };
+    const plain = epitaphLegacyEffect();
+    state.upgrades.epitaphes_profondes = true;
+    invalidateRenderCache("all");
+    expect(epitaphLegacyAmp()).toBeCloseTo(0.5, 9);
+    const deep = epitaphLegacyEffect();
+    expect(deep.foodMult - 1).toBeCloseTo((plain.foodMult - 1) * 1.5, 9);
+    expect(deep.goldMult).toBeCloseTo(plain.goldMult, 9); // contrepartie inchangée
+  });
+
+  it("le Pillage endette la cité suivante (Inégalités), sans toucher l'aiguille", () => {
+    state.nextEpitaphLegacy = { id: "plunder", cause: "avarice", chosenCycle: state.cycles, startedAt: FIXED_NOW };
+    completeCollapse(D(1), "Test", "épitaphe", "auto_collapse");
+    const plunder = epitaphLegacyById("plunder");
+    expect(state.foyerShift.inequality).toBeCloseTo(plunder.effects.foyerShift.inequality, 9);
+    expect(state.instability).toBe(0);
   });
 });
 
 describe("epitaphLegacyChips — renfort d'affinité matérialisé", () => {
-  it("favorisé : « +25% → +40% » (base → renforcé), marqué boosted", () => {
+  it("favorisé : « −3% → −5% » sur la Subsistance (base → renforcé), marqué boosted", () => {
     const favoredChips = epitaphLegacyChips(epitaphLegacyById("granaries"), "famine");
     const boosted = favoredChips.find((chip) => chip.boosted);
-    expect(boosted.label).toContain("+25% → +40%");
+    expect(boosted.label).toContain("Subsistance −3% → −5%");
     expect(boosted.kind).toBe("gain");
   });
 
@@ -100,6 +89,18 @@ describe("epitaphLegacyChips — renfort d'affinité matérialisé", () => {
     const plainChips = epitaphLegacyChips(epitaphLegacyById("granaries"), "rupture");
     expect(plainChips.some((chip) => chip.label.includes("→"))).toBe(false);
     expect(plainChips.some((chip) => chip.boosted)).toBe(false);
+  });
+
+  it("les chips suivent « Épitaphes profondes » (même source que le moteur)", () => {
+    const deepChips = epitaphLegacyChips(epitaphLegacyById("granaries"), "rupture", 0.5);
+    expect(deepChips.some((chip) => chip.label.includes("+15%"))).toBe(true); // Nourriture +10 % × 1,5
+    const plunderDeep = epitaphLegacyChips(epitaphLegacyById("plunder"), "rupture", 0.5);
+    expect(plunderDeep.some((chip) => chip.kind === "cost" && chip.label.includes("+6%"))).toBe(true); // dette non amplifiée
+  });
+
+  it("le Pillage annonce sa dette", () => {
+    const chips = epitaphLegacyChips(epitaphLegacyById("plunder"), "avarice");
+    expect(chips.some((chip) => chip.kind === "cost" && chip.label.includes("Inégalités +6%"))).toBe(true);
   });
 });
 
@@ -128,7 +129,7 @@ describe("farm hors-ligne — la dernière volonté est re-gravée à l'identiqu
     return toNum(state.ruins) - before;
   };
 
-  it("applique le multiplicateur de ruines du legs (Lois ×0.85) comme le dialogue", () => {
+  it("applique le multiplicateur de ruines du legs (l'Ordre ×0.9) comme le dialogue", () => {
     const gainedWithoutLegacy = offlineRuinsGained();
     const gainedWithLaws = offlineRuinsGained({
       nextEpitaphLegacy: { id: "laws", cause: "rupture", chosenCycle: 9, startedAt: FIXED_NOW - 3600 * 1000 }
@@ -137,7 +138,7 @@ describe("farm hors-ligne — la dernière volonté est re-gravée à l'identiqu
     expect(gainedWithoutLegacy).toBeGreaterThan(0);
     // Assertion EXACTE (même arrondi entier que le moteur) : le gain projeté de
     // cette fixture est petit (~13 ruines), un ratio approché serait du bruit.
-    expect(gainedWithLaws).toBe(Math.round(gainedWithoutLegacy * 0.85));
+    expect(gainedWithLaws).toBe(Math.round(gainedWithoutLegacy * 0.9));
   });
 
   it("re-grave le legs pour le cycle suivant avec la cause de CETTE chute", () => {

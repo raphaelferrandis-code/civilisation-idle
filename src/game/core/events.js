@@ -17,7 +17,7 @@ import {
   cityVitals,
   pressureBreakdown,
   currentEraIndex,
-  epitaphLegacyDurationMs,
+  epitaphLegacyAmp,
   has
 } from './mechanics.js';
 
@@ -52,8 +52,18 @@ export function collapseCause() {
   const pressure = pressureBreakdown();
   const inequalityWithoutInfra = D(state.gold).gt(D(state.infrastructure).mul(400).add(D(state.population).mul(0.7)).max(500));
   if ((state.timeWear || 0) >= 1) return "time";
-  if (vitals.foodScore < 0.16 || (pressure.scarcity >= pressure.inequality && pressure.scarcity >= pressure.complexity)) return "famine";
-  if (inequalityWithoutInfra || pressure.inequality > Math.max(pressure.scarcity, pressure.complexity, pressure.structural)) return "avarice";
+  // Un édit terminal scellé DÉCLARE la cause (crisis-cost.TERMINAL_EDICT_CAUSE).
+  if (state.declaredFallCause) return state.declaredFallCause;
+  // Sinon, la cause suit le foyer qui pèse le PLUS (« Choisir sa chute ») : elle se
+  // pilote par les crises (dette ou recul d'un foyer), les réformes et la
+  // gestion des réserves. Avant, la Subsistance l'emportait dès qu'elle dépassait
+  // Inégalités et Complexité — même écrasée par la charge structurelle ou la
+  // Dissidence, et même quand tout valait 0.
+  const others = (key) => Math.max(...["scarcity", "inequality", "complexity", "dissent", "structural"]
+    .filter((k) => k !== key).map((k) => pressure[k] || 0));
+  const dominates = (key) => (pressure[key] || 0) > 0 && pressure[key] > others(key);
+  if (vitals.foodScore < 0.16 || dominates("scarcity")) return "famine";
+  if (inequalityWithoutInfra || dominates("inequality")) return "avarice";
   return "rupture";
 }
 
@@ -191,7 +201,7 @@ export async function runCollapseSequence(gain, reason) {
     return;
   }
 
-  const legacyMinutes = Math.round(epitaphLegacyDurationMs() / 60000);
+  const legacyAmp = epitaphLegacyAmp();
   const signedPct = (d) => `${d > 0 ? "+" : "−"}${Math.abs(d)}%`;
   const lastWillId = state.nextEpitaphLegacy?.id || null;
   const options = EPITAPH_LEGACIES.map((legacy) => {
@@ -202,10 +212,9 @@ export async function runCollapseSequence(gain, reason) {
     // Renfort d'affinité matérialisé aussi côté ruines (Pillage : +25% → +35%).
     const boostedRuin = favored && legacy.favoredRuinMult != null;
     const baseDeltaPct = Math.round(((legacy.ruinMult || 1) - 1) * 100);
-    const chips = epitaphLegacyChips(legacy, cause);
-    // Sablier uniquement si le legs a des effets FENÊTRÉS — la Rupture de
-    // départ du Pillage est posée une fois au démarrage, pas minutée.
-    const timed = Object.keys(legacy.effects || {}).some((key) => key !== "startingInstability");
+    // Le legs vaut pour TOUT le cycle suivant (rangée « Prochain cycle ») :
+    // plus de sablier de minutes.
+    const chips = epitaphLegacyChips(legacy, cause, legacyAmp);
     return {
       label: `${legacy.icon} ${legacy.label}`,
       rowLabelNow: tr({ fr: "Maintenant", en: "Now" }),
@@ -220,9 +229,7 @@ export async function runCollapseSequence(gain, reason) {
           }
         : null,
       rowLabelNext: tr({ fr: "Prochain cycle", en: "Next cycle" }),
-      effects: timed
-        ? [{ label: `⏳ ${legacyMinutes} min`, kind: "info" }, ...chips]
-        : chips,
+      effects: chips,
       badge: favored ? tr({ fr: "⚡ Affinité", en: "⚡ Affinity" }) : null,
       badgeTitle: favored
         ? tr({

@@ -515,6 +515,10 @@ export const defaultState = () => ({
     complexity: 0,
     dissent: 0
   },
+  // Cause de chute DÉCLARÉE par le dernier édit terminal scellé (« choisir sa
+  // chute » : exode → famine, archives → temps, ordre → rupture), ou null =
+  // cause naturelle (foyer dominant). Remise à null à chaque cycle.
+  declaredFallCause: null,
   // Levier C : politiques permanentes actives (ids). Tant qu'actives, ralentissent
   // la montée de la Rupture contre un coût de production récupérable. Reset au cycle.
   activePolicies: [],
@@ -1668,6 +1672,7 @@ export function hydrateState(parsed = {}) {
     foyerRelief: normalizeFoyerRelief(source.foyerRelief, base.foyerRelief),
     foyerReform: normalizeFoyerRelief(source.foyerReform, base.foyerReform),
     foyerShift: normalizeFoyerShift(source.foyerShift, base.foyerShift),
+    declaredFallCause: ["famine", "time", "rupture", "avarice"].includes(source.declaredFallCause) ? source.declaredFallCause : null,
     activePolicies: normalizeStringArray(source.activePolicies, POLICY_MAX_ACTIVE, 40),
     regulFatigue: finiteNumber(source.regulFatigue, base.regulFatigue, 0, 1),
     regulLedger: normalizeRegulLedger(source.regulLedger),
@@ -1963,6 +1968,7 @@ export function resetTemporaryRunState(s) {
   s.foyerRelief = freshDefaults.foyerRelief;
   s.foyerReform = freshDefaults.foyerReform;
   s.foyerShift = freshDefaults.foyerShift;
+  s.declaredFallCause = null;
   s.activePolicies = [];
   s.regulFatigue = 0;
   // Mémoires de régulation du cycle tombé : registre, jets d'augures, annales

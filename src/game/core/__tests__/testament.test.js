@@ -52,14 +52,14 @@ describe("hydratation — testamentLegacyId", () => {
 });
 
 describe("runCollapseSequence auto_collapse — grave sans modale", () => {
-  it("testament gravé : aucun dialogue, ×0.85 appliqué (l'Ordre), legs actif, testament conservé", async () => {
-    state.testamentLegacyId = "laws"; // ruinMult 0.85, jamais favorisé côté ruines
+  it("testament gravé : aucun dialogue, ×0.9 appliqué (l'Ordre), legs actif, testament conservé", async () => {
+    state.testamentLegacyId = "laws"; // ruinMult 0.9, jamais favorisé côté ruines
     const ruinsBefore = toNum(state.ruins);
 
     const dialogRequested = await runAutoCollapse(1000);
 
     expect(dialogRequested).toBe(false);
-    expect(toNum(state.ruins) - ruinsBefore).toBe(850);
+    expect(toNum(state.ruins) - ruinsBefore).toBe(900);
     expect(state.activeEpitaphLegacy?.id).toBe("laws");
     expect(["famine", "time", "rupture", "avarice"]).toContain(state.activeEpitaphLegacy.cause);
     expect(state.testamentLegacyId).toBe("laws"); // permanent de cycle en cycle
@@ -109,7 +109,7 @@ describe("runCollapseSequence manuel — la stèle seulement sans testament", ()
     unregister();
 
     expect(dialogRequested).toBe(false);
-    expect(toNum(state.ruins) - ruinsBefore).toBe(850); // ×0.85 (Lois)
+    expect(toNum(state.ruins) - ruinsBefore).toBe(900); // ×0.9 (l'Ordre)
     expect(state.activeEpitaphLegacy?.id).toBe("laws");
     expect(state.testamentLegacyId).toBe("laws"); // permanent
     expect(state.mourning).toBe(false);

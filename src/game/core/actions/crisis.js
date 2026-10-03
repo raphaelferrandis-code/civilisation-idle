@@ -23,6 +23,7 @@ import {
   terminalCrisisReady,
   terminalCrisisCost,
   TERMINAL_PREP_TIERS,
+  TERMINAL_EDICT_CAUSE,
   ruinEffectSum,
   computeStartFloor,
   enforceInfrastructureCap,
@@ -35,7 +36,8 @@ import {
   regulationPolicyUnlocked,
   regulFatigueEffectMult,
   ruinNodeCost,
-  boostedPrep
+  boostedPrep,
+  epitaphLegacyAmp
 } from '../mechanics.js';
 import { pushAnnalsMark } from '../annals.js';
 import { castAugury } from './augures.js';
@@ -46,7 +48,7 @@ import { pushOutcomeFloat } from '../outcomeFloat.js';
 import { tr } from '../i18n.js';
 import { upgrades, dogmaIds } from '../../data/upgrades.js';
 import { eras, codexSavoirBonus, CRISIS_EVENTS, CRISIS_POOL } from '../../data/world.js';
-import { epitaphLegacyById } from '../../data/epitaphs.js';
+import { epitaphLegacyById, legacyFoyerShift } from '../../data/epitaphs.js';
 import { rollCycleVow } from '../../data/vows.js';
 import { captureCurrentVestige, resetCameraCenter } from '../../map/cityMapBridge.js';
 import { newCitySeed } from '../../map/procedural/seedManager.js';
@@ -351,6 +353,8 @@ export function runTerminalCrisisAction(type, tier = 0) {
   });
   if (!tp.used) tp.used = {};
   tp.used[type] = true;
+  // « Choisir sa chute » : l'édit scellé déclare la cause de la chute.
+  state.declaredFallCause = TERMINAL_EDICT_CAUSE[type] || null;
   const addMalus = (key) => { tp[key] = Math.min(0.85, (tp[key] || 0) + tierDef.malus); };
   if (type === "exodus") {
     addMalus("foodMalus");
@@ -520,7 +524,9 @@ export function completeCollapse(gain, fallenDynasty, epitaph, reason) {
     ? { ...chosenEpitaphLegacy, startedAt: Date.now() }
     : null;
 
-  const startingInstability = chosenEpitaphDefinition?.effects?.startingInstability || 0;
+  // Parts du legs sur les FOYERS (allègement, ou dette du Pillage) pour tout le
+  // cycle suivant — posées APRÈS resetTemporaryRunState, qui remet foyerShift à 0.
+  const legacyShifts = legacyFoyerShift(chosenEpitaphDefinition, chosenEpitaphLegacy?.cause, epitaphLegacyAmp());
 
   state.buildings = { ...defaultState().buildings };
 
@@ -548,8 +554,8 @@ export function completeCollapse(gain, fallenDynasty, epitaph, reason) {
   if (keptReforms) state.foyerReform = keptReforms;
 
   state.activeEpitaphLegacy = activeEpitaphLegacyVal;
-  if (startingInstability > 0) {
-    state.instability = Math.max(0, Math.min(1, startingInstability));
+  for (const [foyer, shift] of Object.entries(legacyShifts)) {
+    state.foyerShift = { ...(state.foyerShift || {}), [foyer]: Math.max(-1, Math.min(1, shift)) };
   }
 
   if (runCadmosChronicle.length) {

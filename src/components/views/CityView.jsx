@@ -21,7 +21,7 @@ import {
   ruinGain,
   has,
   crisisOpen,
-  epitaphLegacyDurationMs,
+  epitaphLegacyAmp,
   exhumeChargesPerCycle
 } from '../../game/core/mechanics.js';
 import {
@@ -331,10 +331,8 @@ export default function CityView() {
   const isHeph = isMythEffectActive("mythe_d_hephaistos");
   const cycleSeconds = Math.floor((now - (cycleStartedAt || now)) / 1000);
   const activeEpitaphDefinition = activeEpitaphLegacy ? epitaphLegacyById(activeEpitaphLegacy.id) : null;
-  const epitaphRemainingSeconds = activeEpitaphLegacy
-    ? Math.max(0, Math.ceil((epitaphLegacyDurationMs() - (now - (activeEpitaphLegacy.startedAt || cycleStartedAt || now))) / 1000))
-    : 0;
-  const hasActiveEpitaphLegacy = Boolean(activeEpitaphDefinition && epitaphRemainingSeconds > 0);
+  // Le legs vaut pour tout le cycle (plus de compte à rebours).
+  const hasActiveEpitaphLegacy = Boolean(activeEpitaphDefinition);
   const phoenixWindowSecs = isPhoenix
     ? Math.max(0, Math.ceil(((cycleStartedAt || now) + PHENIX_REBIRTH_WINDOW_MS - now) / 1000))
     : null;
@@ -1202,7 +1200,7 @@ export default function CityView() {
                   className="myth-status-card epitaph-legacy"
                   {...tipProps(activeEpitaphDefinition.label, [
                     { label: activeEpitaphDefinition.tagline },
-                    ...epitaphLegacyChips(activeEpitaphDefinition, activeEpitaphLegacy.cause).map((chip) => ({ label: chip.label }))
+                    ...epitaphLegacyChips(activeEpitaphDefinition, activeEpitaphLegacy.cause, epitaphLegacyAmp()).map((chip) => ({ label: chip.label }))
                   ])}
                 >
                   {/* L'icône du LEGS, pas une stèle générique : c'est le même
@@ -1213,7 +1211,7 @@ export default function CityView() {
                   <div className="myth-card-info">
                     <span>{tr({ fr: `Legs : ${activeEpitaphDefinition.logLabel}`, en: `Legacy: ${activeEpitaphDefinition.logLabel}` })}</span>
                     <strong>
-                      {tr({ fr: `${Math.floor(epitaphRemainingSeconds / 60)}m ${String(epitaphRemainingSeconds % 60).padStart(2, "0")}s restantes`, en: `${Math.floor(epitaphRemainingSeconds / 60)}m ${String(epitaphRemainingSeconds % 60).padStart(2, "0")}s remaining` })}
+                      {tr({ fr: "Tout le cycle", en: "Whole cycle" })}
                     </strong>
                   </div>
                 </div>

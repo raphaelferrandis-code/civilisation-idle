@@ -59,7 +59,7 @@ export {
   babelExponentialMult,
   babelExponentialMultDec,
   activeEpitaphLegacy,
-  epitaphLegacyDurationMs
+  epitaphLegacyAmp
 } from './production/mythEffects.js';
 
 export {

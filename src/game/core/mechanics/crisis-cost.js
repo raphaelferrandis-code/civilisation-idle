@@ -70,7 +70,15 @@ export function regulationPolicyUnlocked(id, ctx = regulationContext()) {
 
 // Préparations terminales : 3 actions × 3 paliers. Chaque palier coûte un
 // montant flat + un malus de production (%) qui dure jusqu'à l'effondrement,
-// et ramène la rupture au niveau cible (75 / 50 / 25 %).
+// ramène la jauge au niveau cible (75 / 50 / 25 %) et DÉCLARE la cause de la
+// chute (TERMINAL_EDICT_CAUSE).
+// ⚠ ÉQUILIBRE EN SUSPENS (bench-crises.js --edict, 2026-10-03) : au coût actuel
+// (population × « profondeur » 1 + 0.08 × Ruines attendues) les édits ne sont
+// presque jamais payables ; rendus payables (part du stock), sceller rapporte
+// de +40 % à ×4 de Ruines par jour quel que soit l'édit — les malus de Savoir et
+// le bonus d'infrastructure allègent en douce la Complexité. Décision de Raph
+// attendue : « rites de la chute » (pas de sursis, seulement préparation + cause)
+// ou « dernier carré » rééquilibré.
 export const TERMINAL_PREP_TIERS = {
   exodus: [
     { malus: 0.15, target: 0.75, prep: 0.08, costScale: 1 },
@@ -82,12 +90,25 @@ export const TERMINAL_PREP_TIERS = {
     { malus: 0.25, target: 0.50, infraBonus: 0.20, prep: 0.26, costScale: 1.7 },
     { malus: 0.40, target: 0.25, infraBonus: 0.35, prep: 0.45, costScale: 2.6 }
   ],
+  // Frein modéré : depuis que les freins mordent aussi sous forte pression
+  // (tick.js), l'ancien 0.25 / 0.45 / 0.65 jusqu'à la chute doublait la moisson
+  // (mesuré, bench-crises.js --edict=holdOrder).
   holdOrder: [
-    { malus: 0.08, target: 0.75, ruptureSlow: 0.25, prep: 0.05, costScale: 1 },
-    { malus: 0.16, target: 0.50, ruptureSlow: 0.45, prep: 0.10, costScale: 1.7 },
-    { malus: 0.28, target: 0.25, ruptureSlow: 0.65, prep: 0.18, costScale: 2.6 }
+    { malus: 0.08, target: 0.75, ruptureSlow: 0.10, prep: 0.05, costScale: 1 },
+    { malus: 0.16, target: 0.50, ruptureSlow: 0.18, prep: 0.10, costScale: 1.7 },
+    { malus: 0.28, target: 0.25, ruptureSlow: 0.28, prep: 0.18, costScale: 2.6 }
   ]
 };
+
+// « Choisir sa chute » : sceller un édit DÉCLARE la cause de la chute (au lieu
+// du foyer dominant, cf. events.collapseCause) — donc l'affinité du legs.
+// L'Usure, si c'est elle qui a ouvert la crise, reste la cause.
+export const TERMINAL_EDICT_CAUSE = {
+  exodus: "famine",          // on fuit les champs → le Grain
+  prepareArchives: "time",   // on se consacre à la mémoire → la Mémoire
+  holdOrder: "rupture"       // on verrouille la cité → l'Ordre
+};
+
 
 export function terminalCrisisCost(type, tier = 0) {
   const extensionScale = 1 + (state.crisisExtensions || 0) * 0.55;

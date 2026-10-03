@@ -24,7 +24,6 @@ import {
   policyOvershootDamp,
   scarcityRawInstant,
   totalBuildingCount,
-  activeEpitaphLegacy,
   refreshGrandResetReveal,
   refreshBuildingReveal,
   regulationActionUnlocked,
@@ -66,7 +65,6 @@ import {
 
 import { log, chronicle } from './utils.js';
 import { eras, eraTier } from '../../data/world.js';
-import { epitaphLegacyById } from '../../data/epitaphs.js';
 import { refreshCycleVowDone, cycleVowStatus, rollCycleVow } from '../../data/vows.js';
 import { clamp01, canPayCost, fmt } from '../utils.js';
 import { D, toNum } from '../num.js';
@@ -289,19 +287,6 @@ export function tick(dt) {
   // pendant la simulation hors-ligne (comme les floats/jalons) — le throttle
   // interne (~1 Hz) borne de toute façon les rafales.
   if (!isNotifyPaused()) pushAnnalsSample(state.instability);
-
-  // Extinction du legs d'épitaphe : sans ça, la fenêtre expire en silence. Une
-  // ligne de Chronique clôt la boucle, puis l'état est CONSOMMÉ (null) — jamais
-  // de double post, même après rechargement. Le Pillage, sans effet fenêtré,
-  // s'éteint sans ligne (rien n'était « actif » à annoncer).
-  if (state.activeEpitaphLegacy && !activeEpitaphLegacy()) {
-    const expiredLegacy = epitaphLegacyById(state.activeEpitaphLegacy.id);
-    const hadTimedEffects = expiredLegacy && Object.keys(expiredLegacy.effects || {}).some((key) => key !== "startingInstability");
-    if (hadTimedEffects) {
-      chronicle(`Le legs gravé « ${expiredLegacy.logLabel} » s'efface ; la cité vole désormais de ses propres ailes.`);
-    }
-    state.activeEpitaphLegacy = null;
-  }
 
   // Étape 2 : déclin du relief temporaire des foyers (demi-vie FOYER_RELIEF_HALF_LIFE_S)
   // — l'apaisement obtenu en cliquant s'estompe, il faut ré-intervenir.

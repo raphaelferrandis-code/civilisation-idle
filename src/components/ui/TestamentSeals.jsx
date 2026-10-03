@@ -1,6 +1,7 @@
 import { useGameState } from '../../hooks/useGameState.js';
 import { setTestamentLegacy } from '../../game/core/actions.js';
 import { collapseCause } from '../../game/core/events.js';
+import { epitaphLegacyAmp } from '../../game/core/mechanics.js';
 import {
   EPITAPH_LEGACIES,
   FAVORED_CAUSE_LABELS,
@@ -25,6 +26,7 @@ export default function TestamentSeals() {
   useGameState(s => s.lastTick);
   const cause = collapseCause();
   const engraved = EPITAPH_LEGACIES.find(l => l.id === testamentLegacyId) || null;
+  const amp = epitaphLegacyAmp();
 
   return (
     <div className="testament-block">
@@ -41,7 +43,7 @@ export default function TestamentSeals() {
           const delta = Math.round((mult - 1) * 100);
           const favored = legacy.favoredCause === cause;
           const isEngraved = legacy.id === testamentLegacyId;
-          const chips = epitaphLegacyChips(legacy, cause);
+          const chips = epitaphLegacyChips(legacy, cause, amp);
           return (
             <div key={legacy.id} className="testament-seal-wrap">
               {/* L'ancien `title` tenait sur trois lignes séparées par des \n,
@@ -82,7 +84,7 @@ export default function TestamentSeals() {
           </span>
           <p className="testament-detail-tagline">{engraved.tagline}</p>
           <span className="effect-chips">
-            {epitaphLegacyChips(engraved, cause).map((chip, i) => (
+            {epitaphLegacyChips(engraved, cause, amp).map((chip, i) => (
               <span key={`${chip.label}-${i}`} className={`effect-chip is-${chip.kind || "info"}${chip.boosted ? " is-boosted" : ""}`}>
                 {chip.label}
               </span>

@@ -32,6 +32,7 @@ import {
 import { ACTIVE_RUIN_USURE_MULT, activeRuinMultiplier, hasActiveRuin } from '../../data/activeRuins.js';
 import { crisisOpen, ruinEffectMultiplier, ruinEffectSum, has } from './shared.js';
 import { tr } from '../i18n.js';
+import { epitaphLegacyEffect } from './production/mythEffects.js';
 
 function grandResetRuinMultiplier() {
   if (isMythEffectActive("mythe_du_chaos")) return 1;
@@ -236,6 +237,8 @@ export function timeWearRate() {
   const stagnationMult = has("stagnation_feconde")
     ? 1
     : 1 + Math.min(STAGNATION_USURE_MAX_BONUS, (state.stagnationSec || 0) / STAGNATION_USURE_RAMP_SEC);
-  return TIME_WEAR_BASE_RATE * cycleFatigue * scaleFatigue * stagnationMult * orImbalanceMult  * hephMult * eneeUsureMult * activeRuinUsureMult / (mitigation * ruinEffectMultiplier("timeWearSlow"));
+  // Legs « la Mémoire » : la cité qui a duré apprend à durer (wearMult < 1).
+  const legacyWearMult = epitaphLegacyEffect().wearMult;
+  return TIME_WEAR_BASE_RATE * cycleFatigue * scaleFatigue * stagnationMult * orImbalanceMult  * hephMult * eneeUsureMult * activeRuinUsureMult * legacyWearMult / (mitigation * ruinEffectMultiplier("timeWearSlow"));
 }
 

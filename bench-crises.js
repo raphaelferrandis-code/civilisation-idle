@@ -36,6 +36,18 @@
  *            effet que modifier CRISIS_*_SHIFT / CRISIS_PROFIT_PREP (balance.js).
  *   --cap : heures max par cycle ; un cycle tenu jusque-là tombe à ce moment
  *            (gain projeté, ruinGain(true)), comme le ferait un joueur.
+ *   --legacy=none|granaries|archives|laws|plunder|affinite : legs gravé à
+ *            chaque chute (« affinite » = celui qui correspond à la cause de
+ *            CETTE chute). Défaut : aucun.
+ *   --edict=none|exodus|prepareArchives|holdOrder|best : en crise terminale,
+ *            scelle d'abord l'édit (palier le plus haut payable, au plus 3 par
+ *            cycle ; « best » essaie Archives, Exode puis Ordre) avant de tomber.
+ *   --players=prudent,cupide,lucide,avare : joueurs à faire courir (défaut :
+ *            les trois premiers) ; « avare » pilote sa cause de chute en
+ *            profitant toujours des crises du foyer --steer=inequality.
+ *   --tiers='{"exodus":[{"target":0.9},{},{}]}' : molette des paliers d'édits.
+ *   --legfx='{"laws":{"ruinMult":0.9,"effects":{...}}}' : molette des legs
+ *            (remplace ruinMult / favoredRuinMult / effects des legs nommés).
  * Sortie : console + crisis-choices-impact.md (ou --out).
  * ========================================================================== */
 import fs from "fs";
@@ -62,6 +74,11 @@ const CYCLE_CAP_S = (Number(argv.cap) || 4) * 3600;
 const LUCIDE_MAX = Number(argv.lucide) || 0.5;
 const REGUL_AT = argv.regul === "off" ? Infinity : (Number(argv.regul) || 0.85);
 const BRANCH = Boolean(argv.branch);
+const LEGACY = typeof argv.legacy === "string" ? argv.legacy : "none";
+const EDICT = typeof argv.edict === "string" ? argv.edict : "none";
+const MAX_SEALS_PER_CYCLE = 3;
+const STEER = typeof argv.steer === "string" ? argv.steer : "inequality";
+const ONLY_POLICIES = typeof argv.players === "string" ? argv.players.split(",") : null;
 
 // --- Horloge virtuelle + hasard seedé RESTAURABLE ------------------------------
 // L'état du générateur est un simple entier : on peut le sauver/restaurer pour
@@ -87,7 +104,24 @@ const { canPayCost, payCost, clamp01 } = await import("./src/game/core/utils.js"
 const { D, toNum } = await import("./src/game/core/num.js");
 const actions = await import("./src/game/core/actions.js");
 const { completeCollapse, tick, chronicle, runCrisisAction } = actions;
-const { generateEpitaph } = await import("./src/game/core/events.js");
+const { generateEpitaph, collapseCause } = await import("./src/game/core/events.js");
+const { EPITAPH_LEGACIES, epitaphLegacyById, epitaphRuinMultiplier } = await import("./src/game/data/epitaphs.js");
+const { terminalCrisisReady } = mech;
+// Molette des paliers d'édits : --tiers='{"exodus":[{"target":0.9},{},{}]}'
+// (fusionne chaque palier dans TERMINAL_PREP_TIERS, en mémoire).
+if (typeof argv.tiers === "string") {
+  for (const [type, tiers] of Object.entries(JSON.parse(argv.tiers))) {
+    tiers.forEach((patch, i) => Object.assign(mech.TERMINAL_PREP_TIERS[type][i], patch));
+  }
+}
+if (typeof argv.legfx === "string") {
+  for (const [id, patch] of Object.entries(JSON.parse(argv.legfx))) {
+    const legacy = epitaphLegacyById(id);
+    if (!legacy) throw new Error("--legfx : legs inconnu " + id);
+    Object.assign(legacy, patch);
+  }
+}
+const { runTerminalCrisisAction } = actions;
 const { buildings, dynastyNames } = await import("./src/game/data/buildings.js");
 const { CRISIS_POOL } = await import("./src/game/data/world.js");
 const { registerWorldEffects } = await import("./src/game/data/worldEffects.js");
@@ -138,6 +172,14 @@ const POLICIES = {
     if (target + optionShift(greedy) < LUCIDE_MAX) return greedy;
     if (target + optionShift(safe) >= 1) return greedy;
     return safe;
+  },
+  // Pilote sa CAUSE de chute (« choisir sa chute ») : profite toujours des
+  // crises du foyer --steer (Inégalités par défaut → chute par avarice), lit
+  // sa marge sur les autres comme le lucide.
+  avare: (opts) => {
+    const greedy = opts.find((o) => o.stance === "temporiser");
+    if (greedy && greedy.foyer === STEER) return greedy;
+    return POLICIES.lucide(opts);
   }
 };
 // `decide` : politique courante ; `forced` : posture imposée à la PROCHAINE
@@ -233,9 +275,40 @@ const cycleOver = (cycleStartVT) => crisisOpen() || VT - cycleStartVT >= CYCLE_C
 // Gain du cycle qui s'arrête ici : réel s'il est tombé, projeté s'il a tenu
 // jusqu'au plafond (ou si le budget l'interrompt).
 const cycleGain = () => num(crisisOpen() ? ruinGain() : ruinGain(true));
+// Legs gravé à la chute (--legacy) : même arithmétique que la stèle (events.js).
+function pickLegacy(cause) {
+  if (LEGACY === "none") return null;
+  if (LEGACY === "affinite") return EPITAPH_LEGACIES.find((l) => l.favoredCause === cause) || null;
+  return epitaphLegacyById(LEGACY);
+}
 function collapseNow(gain) {
-  completeCollapse(D(gain), dynastyNames[state.cycles % dynastyNames.length], generateEpitaph(), crisisOpen() ? "auto" : "forced");
+  const cause = collapseCause();
+  const legacy = pickLegacy(cause);
+  state.nextEpitaphLegacy = legacy ? { id: legacy.id, cause, chosenCycle: state.cycles || 0, startedAt: Date.now() } : null;
+  const finalGain = Math.round(gain * epitaphRuinMultiplier(legacy, cause));
+  completeCollapse(D(finalGain), dynastyNames[state.cycles % dynastyNames.length], generateEpitaph(), crisisOpen() ? "auto" : "forced");
   setGamePaused(false); setCollapseInProgress(false);
+  return { finalGain, fall: cause, legacy: legacy ? legacy.id : "—" };
+}
+// Crise terminale ouverte : scelle un édit (--edict) plutôt que de tomber,
+// tant que le cycle n'en a pas scellé MAX_SEALS_PER_CYCLE. Rend true si scellé.
+const EDICT_ORDER = { best: ["prepareArchives", "exodus", "holdOrder"] };
+function trySeal(sealsThisCycle) {
+  if (EDICT === "none" || !crisisOpen() || sealsThisCycle >= MAX_SEALS_PER_CYCLE) return false;
+  if (argv.debugseal) {
+    const { terminalCrisisCost, rates: rr } = mech;
+    const r = rr();
+    const fmtn = (x) => num(x).toExponential(2);
+    console.log("[seal] stocks food/gold/know", fmtn(state.food), fmtn(state.gold), fmtn(state.knowledge), "| taux /s", fmtn(r.food), fmtn(r.gold), fmtn(r.knowledge), "| coût exode T1", JSON.stringify(Object.fromEntries(Object.entries(terminalCrisisCost("exodus", 0)).map(([k, v]) => [k, fmtn(v)]))));
+  }
+  for (const type of EDICT_ORDER[EDICT] || [EDICT]) {
+    for (let tier = 2; tier >= 0; tier--) {
+      if (!terminalCrisisReady(type, tier)) continue;
+      runTerminalCrisisAction(type, tier);
+      return !crisisOpen();
+    }
+  }
+  return false;
 }
 function freshGame() {
   VT = 0; rng.a = SEED; ctl.log = []; ctl.forced = null;
@@ -261,11 +334,18 @@ async function career(name) {
   const cycles = [];
   while (VT < BUDGET_S) {
     const start = VT;
-    while (!cycleOver(start) && VT < BUDGET_S) await step(start);
+    let seals = 0;
+    for (;;) {
+      while (!cycleOver(start) && VT < BUDGET_S) await step(start);
+      if (VT < BUDGET_S && trySeal(seals)) { seals++; continue; }
+      break;
+    }
     const gain = cycleGain();
-    cycles.push({ dur: VT - start, gain, peakPop: num(state.cyclePeaks?.population ?? state.population), cause: crisisOpen() ? ((state.timeWear || 0) >= 1 ? "usure" : "rupture") : (VT >= BUDGET_S ? "budget" : "plafond") });
+    const rec = { dur: VT - start, gain, seals, peakPop: num(state.cyclePeaks?.population ?? state.population), cause: crisisOpen() ? ((state.timeWear || 0) >= 1 ? "usure" : "rupture") : (VT >= BUDGET_S ? "budget" : "plafond") };
+    cycles.push(rec);
     if (gain <= 0 || VT >= BUDGET_S) break;
-    collapseNow(gain);
+    const fell = collapseNow(gain);
+    rec.gain = fell.finalGain; rec.fall = fell.fall; rec.legacy = fell.legacy;
   }
   const total = cycles.reduce((s, c) => s + c.gain, 0);
   return { name, cycles, total, picks: ctl.log.slice() };
@@ -323,6 +403,7 @@ let md = `# Choix de crise : impact mesuré
 > plafond ${CYCLE_CAP_S / 3600} h par cycle).
 > ${ONLY ? `Tirage limité à : ${ONLY.join(", ")}.` : "Tirage normal du jeu."}
 > Molettes : traiter ${TREAT ? TREAT.join("/") : "défaut"} · profiter ${PROFIT ? PROFIT.join("/") : "défaut"} · Ruines ${PREP ? PREP.join("/") : "défaut"}.
+> Legs à chaque chute : ${LEGACY} · édits terminaux : ${EDICT}.
 `;
 
 // Contrefactuel (--branch), ajouté APRÈS les carrières dans le même rapport.
@@ -347,7 +428,7 @@ de cycle). **Meilleur choix : profiter ${nProfit} fois, traiter ${rows.length - 
 };
 {
   const results = [];
-  for (const name of Object.keys(POLICIES)) {
+  for (const name of (ONLY_POLICIES || ["prudent", "cupide", "lucide"])) {
     const r = await career(name);
     results.push(r);
     console.log(`${name.padEnd(8)} ruines=${r.total.toFixed(0).padStart(6)} en ${BUDGET_S / 3600} h  cycles=${r.cycles.length}  traiter/profiter=${r.picks.filter((p) => p.stance === "stabiliser").length}/${r.picks.filter((p) => p.stance === "temporiser").length}`);
@@ -361,11 +442,11 @@ de cycle). **Meilleur choix : profiter ${nProfit} fois, traiter ${rows.length - 
   for (const r of results) {
     md += `| ${r.name} | ${r.total.toFixed(0)} | ${r.cycles.length} | ${r.picks.filter((p) => p.stance === "stabiliser").length} / ${r.picks.filter((p) => p.stance === "temporiser").length} |\n`;
   }
-  md += `\n### Détail par cycle\n\n| Joueur | Cycle | Durée | Pic de pop | Ruines | Fin |\n|---|---|---|---|---|---|\n`;
+  md += `\n### Détail par cycle\n\n| Joueur | Cycle | Durée | Pic de pop | Ruines | Fin | Cause | Legs | Édits |\n|---|---|---|---|---|---|---|---|---|\n`;
   // --detail premiers cycles par joueur (12 par défaut) : le cupide en enchaîne
   // plus d'une centaine.
   for (const r of results) r.cycles.slice(0, Number(argv.detail) || 12).forEach((c, i) => {
-    md += `| ${r.name} | ${i + 1} | ${fmtH(c.dur)} | ${c.peakPop.toExponential(2)} | ${c.gain.toFixed(0)} | ${c.cause} |\n`;
+    md += `| ${r.name} | ${i + 1} | ${fmtH(c.dur)} | ${c.peakPop.toExponential(2)} | ${c.gain.toFixed(0)} | ${c.cause} | ${c.fall || "—"} | ${c.legacy || "—"} | ${c.seals || 0} |\n`;
   });
 }
 if (BRANCH) await branchSection();

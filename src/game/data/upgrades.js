@@ -394,11 +394,11 @@ export const upgrades = [
     id: "epitaphes_profondes",
     group: "ruins",
     effectType: "epitaphAmp",
-    amount: 1.5,
+    amount: 0.5,
     name: { fr: "Épitaphes profondes", en: "Deep epitaphs" },
     cost: { ruins: 6000000000 },
     desc: { fr: "Gravées assez profond, les dernières volontés deviennent des fondations.", en: "Carved deep enough, last wills become foundations." },
-    effect: { fr: "Le legs d'épitaphe dure 20 minutes au lieu de 8.", en: "The epitaph legacy lasts 20 minutes instead of 8." }
+    effect: { fr: "Les bienfaits du legs d'épitaphe sont renforcés de moitié.", en: "The epitaph legacy's benefits are strengthened by half." }
   },
   {
     id: "chronicle_engine",

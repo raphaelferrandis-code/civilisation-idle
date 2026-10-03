@@ -11,6 +11,7 @@ import {
   terminalCrisisCost,
   terminalCrisisReady,
   TERMINAL_PREP_TIERS,
+  TERMINAL_EDICT_CAUSE,
   has,
   autoCollapseDelay
 } from '../../game/core/mechanics.js';
@@ -19,6 +20,9 @@ import {
   runTerminalCrisisAction,
 } from '../../game/core/actions.js';
 import { isMythEffectActive } from '../../game/data/myths.js';
+import { FAVORED_CAUSE_LABELS } from '../../game/data/epitaphs.js';
+
+const capitalize = (text) => (text ? text.charAt(0).toUpperCase() + text.slice(1) : "");
 import { costLabel } from '../../game/core/utils.js';
 import { tr } from '../../game/core/i18n.js';
 import CrisisDoctrinePanel from '../ui/CrisisDoctrinePanel.jsx';
@@ -272,6 +276,13 @@ export default function PrestigeView() {
                           <PixelIcon name={def.iconName} className="edict-emblem" />
                           <h4>{def.title}</h4>
                         </div>
+                        {/* « Choisir sa chute » : l'édit déclare la cause, donc l'affinité du legs. */}
+                        <span
+                          className="effect-chip is-info edict-cause"
+                          {...tipProps(null, tr({ fr: "Sceller cet édit décide de la cause de la chute, et donc du legs qui aura l'affinité.", en: "Sealing this edict decides the cause of the fall, and so which legacy gets the affinity." }))}
+                        >
+                          {capitalize(FAVORED_CAUSE_LABELS[TERMINAL_EDICT_CAUSE[def.type]])}
+                        </span>
                         {used ? (
                           <p className="edict-sealed-note">
                             <PixelIcon name="prep/sceau" className="edict-seal" />

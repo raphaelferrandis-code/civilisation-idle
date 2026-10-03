@@ -1,7 +1,23 @@
 import { tr, localizeData } from '../core/i18n.js';
 
-export const EPITAPH_LEGACY_DURATION_MS = 8 * 60 * 1000;
-
+// LES LEGS (« Choisir sa chute », 2026-10). Un legs agit sur TOUT le cycle
+// suivant (avant : 8 min, négligeable sur des cycles de plusieurs heures) et se
+// paie MAINTENANT (ruinMult) ou PLUS TARD. Comme les crises qui comptent, il agit
+// sur ce qui décide vraiment de la durée d'une cité — un FOYER de la cible de
+// Rupture (foyerShift, part absolue jusqu'à la chute) ou l'Usure (wearMult) —
+// plus un petit bonus de production. Logique : la cité lègue ce qui l'a tuée.
+//   Grain   (famine)  : Subsistance allégée, Nourriture +
+//   Mémoire (temps)   : Usure ralentie, Savoir + — le legs des cités qui durent
+//   Ordre   (rupture) : Complexité et Dissidence allégées
+//   Pillage (avarice) : Ruines + TOUT DE SUITE, Inégalités endettées ensuite
+// L'AFFINITÉ (favoredCause) renforce le legs assorti à la cause de la chute,
+// qui suit le foyer dominant (events.collapseCause) : elle se pilote par les
+// crises, les réformes et les réserves → choisir comment tomber.
+// Montants calibrés par bench-crises.js (--legacy / --legfx, 24 h, 6 graines,
+// joueur lucide) : sans legs 1 842 Ruines ; EN AFFINITÉ Grain 2 084, Pillage
+// 2 120, Ordre 2 251 ; hors affinité ≈ +4 %. La Mémoire (Usure) n'est pas
+// mesurable par le banc, qui coupe ses cycles à 4 h, avant l'échéance d'Usure.
+//
 // `icon` (emoji) sert aux libellés TEXTE (stèle, logs) ; `pixIcon` est
 // l'icône pixel-art maison (PixelIcon, /pixelart/ui/) pour les sceaux d'UI.
 export const EPITAPH_LEGACIES = [
@@ -15,9 +31,9 @@ export const EPITAPH_LEGACIES = [
     ruinMult: 0.9,
     favoredCause: "famine",
     effects: {
-      foodMult: 1.25,
-      foodMultFavored: 1.4,
-      goldMult: 0.92
+      foyerShift: { scarcity: -0.03 },
+      foyerShiftFavored: { scarcity: -0.05 },
+      foodMult: 1.1
     }
   },
   {
@@ -26,14 +42,15 @@ export const EPITAPH_LEGACIES = [
     logLabel: { fr: "la Mémoire", en: "Memory" },
     icon: "📜",
     pixIcon: "prep/archives",
-    tagline: { fr: "La prochaine cité apprendra plus vite.", en: "The next city will learn faster." },
+    tagline: { fr: "La prochaine cité apprendra à durer.", en: "The next city will learn to last." },
+    // Sans coût en Ruines : son bienfait (l'Usure) ne joue que pour une cité
+    // qui tient jusqu'à son échéance — situationnel par nature.
     ruinMult: 1,
     favoredCause: "time",
     effects: {
-      knowledgeMult: 1.18,
-      knowledgeMultFavored: 1.28,
-      infraMult: 1.1,
-      ruptureMult: 1.06
+      wearMult: 0.85,
+      wearMultFavored: 0.75,
+      knowledgeMult: 1.1
     }
   },
   {
@@ -43,12 +60,11 @@ export const EPITAPH_LEGACIES = [
     icon: "⚖️",
     pixIcon: "seals/neighborhoodMilitia",
     tagline: { fr: "La prochaine cité tiendra plus longtemps avant de céder.", en: "The next city will hold longer before it yields." },
-    ruinMult: 0.85,
+    ruinMult: 0.9,
     favoredCause: "rupture",
     effects: {
-      globalMult: 0.95,
-      ruptureMult: 0.78,
-      ruptureMultFavored: 0.66
+      foyerShift: { complexity: -0.02, dissent: -0.02 },
+      foyerShiftFavored: { complexity: -0.03, dissent: -0.03 }
     }
   },
   {
@@ -57,11 +73,11 @@ export const EPITAPH_LEGACIES = [
     logLabel: { fr: "le Pillage", en: "Plunder" },
     icon: "🔥",
     pixIcon: "ruins/gold-keep",
-    tagline: { fr: "Tout est pris maintenant. Plus de ruines, rien ne sera transmis.", en: "Everything is taken now. More ruins, nothing passed on." },
+    tagline: { fr: "Tout est pris maintenant. Plus de ruines ; la prochaine cité naîtra endettée.", en: "Everything is taken now. More ruins; the next city will be born in debt." },
     ruinMult: 1.25,
     favoredCause: "avarice",
     effects: {
-      startingInstability: 0.1
+      foyerShift: { inequality: 0.06 }
     },
     favoredRuinMult: 1.35
   }
@@ -116,26 +132,60 @@ const LEGACY_EFFECT_LABELS = [
   ["goldMult", { fr: "Trésor", en: "Treasury" }],
   ["infraMult", { fr: "Infrastructure", en: "Infrastructure" }],
   ["globalMult", { fr: "Production globale", en: "Global production" }],
-  ["ruptureMult", { fr: "Montée de la Rupture", en: "Rise of Rupture" }]
+  ["ruptureMult", { fr: "Rupture visée", en: "Target Rupture" }],
+  ["wearMult", { fr: "Usure", en: "Wear" }]
 ];
+// Effets où « moins » est un bienfait.
+const LOWER_IS_BETTER = new Set(["ruptureMult", "wearMult"]);
+const FOYER_LABELS = {
+  scarcity: { fr: "Subsistance", en: "Subsistence" },
+  inequality: { fr: "Inégalités", en: "Inequality" },
+  complexity: { fr: "Complexité", en: "Complexity" },
+  dissent: { fr: "Dissidence", en: "Dissent" }
+};
+export const LEGACY_EFFECT_KEYS = LEGACY_EFFECT_LABELS.map(([key]) => key);
+
+// Valeur EFFECTIVE d'un effet multiplicatif du legs (1 = sans effet) : la
+// valeur d'affinité si la chute y correspond, puis « Épitaphes profondes »
+// (amp = ruinEffectSum("epitaphAmp")) qui renforce les BIENFAITS seulement —
+// un nœud acheté n'aggrave pas les contreparties. Source unique : le moteur
+// (mythEffects.epitaphLegacyEffect) et les chips d'affichage la lisent.
+export function legacyEffectValue(legacy, key, cause, amp = 0) {
+  const fx = legacy?.effects || {};
+  if (fx[key] == null) return 1;
+  const favored = legacy.favoredCause === cause && fx[`${key}Favored`] != null;
+  const value = favored ? fx[`${key}Favored`] : fx[key];
+  const beneficial = LOWER_IS_BETTER.has(key) ? value < 1 : value > 1;
+  return beneficial ? 1 + (value - 1) * (1 + amp) : value;
+}
+
+// Parts déposées sur les FOYERS au début du cycle suivant ({ foyer: part }) :
+// négative = allègement (renforcé par l'affinité puis « Épitaphes profondes »),
+// positive = dette (le Pillage), jamais amplifiée. Lu par completeCollapse.
+export function legacyFoyerShift(legacy, cause, amp = 0) {
+  const fx = legacy?.effects || {};
+  const base = (legacy?.favoredCause === cause && fx.foyerShiftFavored) || fx.foyerShift || {};
+  const out = {};
+  for (const [foyer, shift] of Object.entries(base)) out[foyer] = shift < 0 ? shift * (1 + amp) : shift;
+  return out;
+}
 
 // Décrit le legs d'un point de vue joueur : un chip par effet, signé et
 // coloré (gain/coût), en tenant compte de l'affinité avec la cause de chute.
 // Sur un legs favorisé, le renfort est MATÉRIALISÉ (« +25% → +40% ») : la
 // valeur renforcée seule ne montrerait pas ce que l'affinité apporte.
-export function epitaphLegacyChips(legacy, cause) {
+// `amp` : renfort « Épitaphes profondes » (mythEffects.epitaphLegacyAmp()).
+export function epitaphLegacyChips(legacy, cause, amp = 0) {
   const fx = legacy?.effects || {};
-  const favored = legacy?.favoredCause === cause;
   const chips = [];
   const signed = (d) => `${d > 0 ? "+" : "−"}${Math.abs(d)}%`;
   for (const [key, label] of LEGACY_EFFECT_LABELS) {
     if (fx[key] == null) continue;
-    const boosted = favored && fx[`${key}Favored`] != null;
-    const value = boosted ? fx[`${key}Favored`] : fx[key];
-    const delta = Math.round((value - 1) * 100);
+    const boosted = legacy.favoredCause === cause && fx[`${key}Favored`] != null;
+    const delta = Math.round((legacyEffectValue(legacy, key, cause, amp) - 1) * 100);
     if (!delta) continue;
-    const beneficial = key === "ruptureMult" ? delta < 0 : delta > 0;
-    const baseDelta = Math.round((fx[key] - 1) * 100);
+    const beneficial = LOWER_IS_BETTER.has(key) ? delta < 0 : delta > 0;
+    const baseDelta = Math.round((legacyEffectValue(legacy, key, null, amp) - 1) * 100);
     chips.push({
       label: boosted
         ? `${tr(label)} ${signed(baseDelta)} → ${signed(delta)}`
@@ -144,8 +194,19 @@ export function epitaphLegacyChips(legacy, cause) {
       boosted
     });
   }
-  if (fx.startingInstability) {
-    chips.push({ label: `${tr({ fr: "Rupture de départ", en: "Starting Rupture" })} +${Math.round(fx.startingInstability * 100)}%`, kind: "cost" });
+  const shifts = legacyFoyerShift(legacy, cause, amp);
+  const baseShifts = legacyFoyerShift(legacy, null, amp);
+  for (const [foyer, shift] of Object.entries(shifts)) {
+    const pct = Math.round(shift * 100);
+    const basePct = Math.round((baseShifts[foyer] || 0) * 100);
+    const boosted = pct !== basePct;
+    chips.push({
+      label: boosted
+        ? `${tr(FOYER_LABELS[foyer])} ${signed(basePct)} → ${signed(pct)}`
+        : `${tr(FOYER_LABELS[foyer])} ${signed(pct)}`,
+      kind: shift < 0 ? "gain" : "cost",
+      boosted
+    });
   }
   if (!chips.length) {
     chips.push({ label: tr({ fr: "Aucun legs productif", en: "No productive legacy" }), kind: "info" });

@@ -57,7 +57,6 @@ import { dynastyNames } from '../data/buildings.js';
 import { epitaphLegacyById, epitaphRuinMultiplier } from '../data/epitaphs.js';
 import { cycleVowRuinMult } from '../data/vows.js';
 import { BRAISIERS_DURATION_MS, ENEE_HERITAGE_DURATION_MS, isMythEffectActive } from '../data/myths.js';
-import { epitaphLegacyEffect, epitaphLegacyDurationMs } from './mechanics/production/mythEffects.js';
 import { D } from './num.js';
 import { decideTickCredit } from './offlineCredit.js';
 
@@ -414,14 +413,12 @@ function creditSpanSegmented(seconds) {
   const end = realDateNow.call(Date);
   const start = end - seconds * 1000;
   const cs = state.cycleStartedAt || 0;
-  const ep = state.activeEpitaphLegacy;
   const cuts = [
     state.blessingUntil || 0,
     cs + BRAISIERS_DURATION_MS,
     cs + 120_000, // Atrides / pacte
     cs + REGROWTH_RUSH_MS,
-    cs + ENEE_HERITAGE_DURATION_MS,
-    ep && ep.startedAt ? ep.startedAt + epitaphLegacyDurationMs() : 0
+    cs + ENEE_HERITAGE_DURATION_MS
   ].filter((t) => t > start && t < end).sort((a, b) => a - b);
   const points = [start, ...cuts, end];
   try {
@@ -482,9 +479,8 @@ export function clepsydreRefusal() {
   if (ruinEffectSum("regrowthRush") > 0 && cycleElapsed < REGROWTH_RUSH_MS) return "bonus";
   if ((isMythEffectActive("mythe_atrides") || state.atridesPactActive) && cycleElapsed < 120_000) return "bonus";
   if (state.eneeHeritage && cycleElapsed < ENEE_HERITAGE_DURATION_MS) return "bonus";
-  const ep = epitaphLegacyEffect();
-  if (ep.globalMult !== 1 || ep.foodMult !== 1 || ep.goldMult !== 1
-      || ep.knowledgeMult !== 1 || ep.infraMult !== 1) return "bonus";
+  // Le legs d'épitaphe n'est plus une fenêtre (il dure tout le cycle) : verser
+  // au taux qu'il donne est juste, il ne bloque donc plus la Clepsydre.
   if (Math.floor(state.storedSeconds || 0) < CLEPSYDRE_MIN_POUR_SECONDS) return "empty";
   return null;
 }

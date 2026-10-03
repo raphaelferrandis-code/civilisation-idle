@@ -18,7 +18,7 @@ import {
   CADMOS_EPITAPH_BONUS_PCT,
   isMythEffectActive
 } from '../../../data/myths.js';
-import { EPITAPH_LEGACY_DURATION_MS, epitaphLegacyById } from '../../../data/epitaphs.js';
+import { epitaphLegacyById, legacyEffectValue } from '../../../data/epitaphs.js';
 import { ruinEffectSum } from '../shared.js';
 
 // ── Babel ────────────────────────────────────────────────────────────────
@@ -91,12 +91,11 @@ export function cadmosStabilityMultiplier() {
 }
 
 // ── Legs d'épitaphe ──────────────────────────────────────────────────────────
-// Durée EFFECTIVE du legs : constante de base amplifiée par « Épitaphes
-// profondes » (epitaphAmp 1.5 → 8 min ×2.5 = 20 min). Source unique : le timer
-// de CityView et le footnote du dialogue d'épitaphe doivent lire cette fonction,
-// jamais EPITAPH_LEGACY_DURATION_MS brut.
-export function epitaphLegacyDurationMs() {
-  return EPITAPH_LEGACY_DURATION_MS * (1 + ruinEffectSum("epitaphAmp"));
+// Le legs agit sur TOUT le cycle (« Choisir sa chute », 2026-10 ; avant : une
+// fenêtre de 8 min). « Épitaphes profondes » (epitaphAmp) renforce ses BIENFAITS
+// au lieu d'allonger sa durée — cf. legacyEffectValue (data/epitaphs.js).
+export function epitaphLegacyAmp() {
+  return ruinEffectSum("epitaphAmp");
 }
 
 export function activeEpitaphLegacy() {
@@ -108,24 +107,25 @@ export function activeEpitaphLegacy() {
   // elapsed < 0 : sous l'horloge virtuelle d'un versement de clepsydre, un legs
   // gravé « dans le futur » du référentiel n'est pas actif — sans ce garde, son
   // multiplicateur s'étalait sur tout le temps versé.
-  if (elapsed < 0 || elapsed > epitaphLegacyDurationMs()) return null;
+  if (elapsed < 0) return null;
   return { ...active, definition: legacy, elapsed };
 }
 
 export function epitaphLegacyEffect() {
   const active = activeEpitaphLegacy();
   if (!active) {
-    return { globalMult: 1, foodMult: 1, goldMult: 1, knowledgeMult: 1, infraMult: 1, ruptureMult: 1 };
+    return { globalMult: 1, foodMult: 1, goldMult: 1, knowledgeMult: 1, infraMult: 1, ruptureMult: 1, wearMult: 1 };
   }
-  const { definition } = active;
-  const effects = definition.effects || {};
-  const favored = active.cause === definition.favoredCause;
+  const { definition, cause } = active;
+  const amp = epitaphLegacyAmp();
+  const value = (key) => legacyEffectValue(definition, key, cause, amp);
   return {
-    globalMult: effects.globalMult || 1,
-    foodMult: favored && effects.foodMultFavored ? effects.foodMultFavored : (effects.foodMult || 1),
-    goldMult: effects.goldMult || 1,
-    knowledgeMult: favored && effects.knowledgeMultFavored ? effects.knowledgeMultFavored : (effects.knowledgeMult || 1),
-    infraMult: effects.infraMult || 1,
-    ruptureMult: favored && effects.ruptureMultFavored ? effects.ruptureMultFavored : (effects.ruptureMult || 1)
+    globalMult: value("globalMult"),
+    foodMult: value("foodMult"),
+    goldMult: value("goldMult"),
+    knowledgeMult: value("knowledgeMult"),
+    infraMult: value("infraMult"),
+    ruptureMult: value("ruptureMult"),
+    wearMult: value("wearMult")
   };
 }

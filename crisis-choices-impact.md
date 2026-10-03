@@ -5,6 +5,7 @@
 > plafond 4 h par cycle).
 > Tirage normal du jeu.
 > Molettes : traiter défaut · profiter défaut · Ruines défaut.
+> Legs à chaque chute : none · édits terminaux : none.
 
 ## Carrières (même budget de temps)
 
@@ -16,44 +17,44 @@
 
 ### Détail par cycle
 
-| Joueur | Cycle | Durée | Pic de pop | Ruines | Fin |
-|---|---|---|---|---|---|
-| prudent | 1 | 4 h 00 | 1.61e+7 | 97 | plafond |
-| prudent | 2 | 4 h 00 | 7.77e+7 | 216 | plafond |
-| prudent | 3 | 1 h 31 | 2.81e+7 | 115 | rupture |
-| prudent | 4 | 1 h 31 | 3.31e+7 | 125 | rupture |
-| prudent | 5 | 1 h 11 | 2.20e+7 | 98 | rupture |
-| prudent | 6 | 1 h 31 | 3.81e+7 | 134 | rupture |
-| prudent | 7 | 1 h 01 | 2.03e+7 | 93 | rupture |
-| prudent | 8 | 0 h 51 | 1.12e+7 | 66 | rupture |
-| prudent | 9 | 1 h 01 | 2.12e+7 | 95 | rupture |
-| prudent | 10 | 0 h 52 | 1.22e+7 | 70 | rupture |
-| prudent | 11 | 0 h 42 | 6.62e+6 | 50 | rupture |
-| prudent | 12 | 0 h 42 | 6.54e+6 | 50 | rupture |
-| cupide | 1 | 0 h 28 | 1.96e+5 | 13 | rupture |
-| cupide | 2 | 0 h 21 | 1.77e+5 | 12 | rupture |
-| cupide | 3 | 0 h 21 | 2.20e+5 | 13 | rupture |
-| cupide | 4 | 0 h 21 | 2.46e+5 | 14 | rupture |
-| cupide | 5 | 0 h 21 | 2.72e+5 | 15 | rupture |
-| cupide | 6 | 0 h 21 | 3.05e+5 | 15 | rupture |
-| cupide | 7 | 0 h 12 | 7.83e+4 | 8 | rupture |
-| cupide | 8 | 0 h 11 | 7.90e+4 | 8 | rupture |
-| cupide | 9 | 0 h 11 | 8.06e+4 | 8 | rupture |
-| cupide | 10 | 0 h 11 | 8.59e+4 | 8 | rupture |
-| cupide | 11 | 0 h 11 | 9.02e+4 | 9 | rupture |
-| cupide | 12 | 0 h 11 | 1.10e+5 | 9 | rupture |
-| lucide | 1 | 4 h 00 | 1.69e+7 | 114 | plafond |
-| lucide | 2 | 4 h 00 | 9.07e+7 | 234 | plafond |
-| lucide | 3 | 1 h 21 | 2.34e+7 | 103 | rupture |
-| lucide | 4 | 1 h 41 | 4.48e+7 | 148 | rupture |
-| lucide | 5 | 1 h 11 | 2.24e+7 | 99 | rupture |
-| lucide | 6 | 1 h 21 | 3.08e+7 | 119 | rupture |
-| lucide | 7 | 1 h 11 | 3.00e+7 | 115 | rupture |
-| lucide | 8 | 0 h 51 | 1.18e+7 | 68 | rupture |
-| lucide | 9 | 1 h 31 | 6.82e+7 | 180 | rupture |
-| lucide | 10 | 0 h 51 | 1.35e+7 | 74 | rupture |
-| lucide | 11 | 1 h 11 | 4.12e+7 | 135 | rupture |
-| lucide | 12 | 0 h 31 | 3.91e+6 | 45 | rupture |
+| Joueur | Cycle | Durée | Pic de pop | Ruines | Fin | Cause | Legs | Édits |
+|---|---|---|---|---|---|---|---|---|
+| prudent | 1 | 4 h 00 | 1.61e+7 | 97 | plafond | famine | — | 0 |
+| prudent | 2 | 4 h 00 | 7.77e+7 | 216 | plafond | famine | — | 0 |
+| prudent | 3 | 1 h 31 | 2.81e+7 | 115 | rupture | famine | — | 0 |
+| prudent | 4 | 1 h 31 | 3.31e+7 | 125 | rupture | famine | — | 0 |
+| prudent | 5 | 1 h 11 | 2.20e+7 | 98 | rupture | famine | — | 0 |
+| prudent | 6 | 1 h 31 | 3.81e+7 | 134 | rupture | famine | — | 0 |
+| prudent | 7 | 1 h 01 | 2.03e+7 | 93 | rupture | famine | — | 0 |
+| prudent | 8 | 0 h 51 | 1.12e+7 | 66 | rupture | famine | — | 0 |
+| prudent | 9 | 1 h 01 | 2.12e+7 | 95 | rupture | famine | — | 0 |
+| prudent | 10 | 0 h 52 | 1.22e+7 | 70 | rupture | famine | — | 0 |
+| prudent | 11 | 0 h 42 | 6.62e+6 | 50 | rupture | famine | — | 0 |
+| prudent | 12 | 0 h 42 | 6.54e+6 | 50 | rupture | famine | — | 0 |
+| cupide | 1 | 0 h 28 | 1.96e+5 | 13 | rupture | famine | — | 0 |
+| cupide | 2 | 0 h 21 | 1.77e+5 | 12 | rupture | famine | — | 0 |
+| cupide | 3 | 0 h 21 | 2.20e+5 | 13 | rupture | famine | — | 0 |
+| cupide | 4 | 0 h 21 | 2.46e+5 | 14 | rupture | famine | — | 0 |
+| cupide | 5 | 0 h 21 | 2.72e+5 | 15 | rupture | famine | — | 0 |
+| cupide | 6 | 0 h 21 | 3.05e+5 | 15 | rupture | famine | — | 0 |
+| cupide | 7 | 0 h 12 | 7.83e+4 | 8 | rupture | famine | — | 0 |
+| cupide | 8 | 0 h 11 | 7.90e+4 | 8 | rupture | famine | — | 0 |
+| cupide | 9 | 0 h 11 | 8.06e+4 | 8 | rupture | famine | — | 0 |
+| cupide | 10 | 0 h 11 | 8.59e+4 | 8 | rupture | famine | — | 0 |
+| cupide | 11 | 0 h 11 | 9.02e+4 | 9 | rupture | famine | — | 0 |
+| cupide | 12 | 0 h 11 | 1.10e+5 | 9 | rupture | famine | — | 0 |
+| lucide | 1 | 4 h 00 | 1.69e+7 | 114 | plafond | famine | — | 0 |
+| lucide | 2 | 4 h 00 | 9.07e+7 | 234 | plafond | famine | — | 0 |
+| lucide | 3 | 1 h 21 | 2.34e+7 | 103 | rupture | famine | — | 0 |
+| lucide | 4 | 1 h 41 | 4.48e+7 | 148 | rupture | famine | — | 0 |
+| lucide | 5 | 1 h 11 | 2.24e+7 | 99 | rupture | famine | — | 0 |
+| lucide | 6 | 1 h 21 | 3.08e+7 | 119 | rupture | famine | — | 0 |
+| lucide | 7 | 1 h 11 | 3.00e+7 | 115 | rupture | famine | — | 0 |
+| lucide | 8 | 0 h 51 | 1.18e+7 | 68 | rupture | famine | — | 0 |
+| lucide | 9 | 1 h 31 | 6.82e+7 | 180 | rupture | famine | — | 0 |
+| lucide | 10 | 0 h 51 | 1.35e+7 | 74 | rupture | famine | — | 0 |
+| lucide | 11 | 1 h 11 | 4.12e+7 | 135 | rupture | famine | — | 0 |
+| lucide | 12 | 0 h 31 | 3.91e+6 | 45 | rupture | famine | — | 0 |
 
 ## Contrefactuel : à chaque crise, quelle option rapporte le plus ?
 
