@@ -13,12 +13,13 @@
 
 @media (min-width: 981px) {
   :root:not([data-pointer="coarse"]) .app {
-    grid-template-columns: 6.75rem minmax(0, 1fr);
-    --nav-w: 6.75rem;
+    /* 5.5rem : la cote de la maquette (app.css --rail-w). */
+    grid-template-columns: 5.5rem minmax(0, 1fr);
+    --nav-w: 5.5rem;
   }
 
   :root:not([data-pointer="coarse"]) .sidebar {
-    padding: 0.55rem 0.4rem 0.6rem;
+    padding: 0.55rem 0.3rem 0.6rem;
     align-items: stretch;
     background: #0A0D16;
     box-shadow: inset -1px 0 0 rgba(201, 169, 104, 0.12), 4px 0 18px rgba(0, 0, 0, 0.45);
@@ -52,7 +53,7 @@
     align-items: center;
     gap: 0.25rem;
     min-height: 0;
-    padding: 0.45rem 0.15rem 0.45rem;
+    padding: 0.45rem 0 0.45rem;
     text-align: center;
     clip-path: none;
     border: 0;
@@ -69,7 +70,9 @@
     display: block;
     max-width: 100%;
     font: 700 0.6rem/1.1 var(--font-body);
-    letter-spacing: 0.08em;
+    /* 0.02em : le rail fait 5.5rem (maquette) ; à 0.08em « RÉGULATION » ne
+       tenait plus en 1600 px (mesuré : 73 px pour 70). */
+    letter-spacing: 0.02em;
     text-transform: uppercase;
   }
   :root:not([data-pointer="coarse"]) .tab:hover:not(:disabled):not(.active) {
@@ -149,7 +152,7 @@
   :root:not([data-pointer="coarse"]) .quick-actions [data-qa="options"] .qa-label {
     display: block;
     font: 700 0.6rem/1.1 var(--font-body);
-    letter-spacing: 0.08em;
+    letter-spacing: 0.02em;
     text-transform: uppercase;
   }
 }

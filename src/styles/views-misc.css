@@ -73,6 +73,13 @@
   align-items: center;
   gap: 0.55rem;
 }
+/* Chiffres et libellés de la barre repliée : montrés au bureau seulement
+   (cite.css, maquette V4) ; au doigt le résumé reste réduit aux jauges. */
+.regul-summary-pct,
+.regul-summary-label,
+.regul-summary-pol {
+  display: none;
+}
 
 .regul-summary-foyer {
   display: inline-flex;
@@ -80,11 +87,24 @@
   gap: 0.22rem;
 }
 
+/* 16 px : la taille native de la variante chargée (FoyerIcon, CrisisActionBar) —
+   le maître de 64 px réduit à 14 px sortait flou. */
+.regul-summary-pic {
+  display: inline-flex;
+  flex: 0 0 auto;
+}
 .regul-summary-icon {
-  width: 14px;
-  height: 14px;
+  width: 16px;
+  height: 16px;
   flex: 0 0 auto;
   image-rendering: pixelated;
+}
+/* Au-delà de 1900 px, FoyerIcon charge la 24 px : on l'affiche à sa taille. */
+@media (min-width: 1900px) {
+  .regul-summary-icon {
+    width: 24px;
+    height: 24px;
+  }
 }
 
 .regul-summary-track {

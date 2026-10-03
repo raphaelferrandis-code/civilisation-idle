@@ -160,11 +160,25 @@ function PolicyRow({ p, slotsFull }) {
  * C'est ce qui rend le repli honnête : on perd les actions et le détail, jamais
  * la surveillance. Replier ne doit pas revenir à éteindre le tableau de bord.
  */
+// Icône de foyer À SA TAILLE NATIVE : 16 px, 24 px sur grand écran (la maquette
+// V4 posait ses mini-icônes à 8 px × 2 ou × 3). Le maître de 64 px réduit à 14 px
+// par le navigateur sortait flou. La 24 px n'est chargée qu'au-delà de 1900 px.
+function FoyerIcon({ k }) {
+  return (
+    <picture className="regul-summary-pic" aria-hidden="true">
+      <source media="(min-width: 1900px)" srcSet={`/pixelart/ui/foyers/${k}@24.png`} />
+      <img className="regul-summary-icon" src={`/pixelart/ui/foyers/${k}@16.png`} alt="" />
+    </picture>
+  );
+}
+
 export function RegulSummary() {
   // Même abonnement que le panneau déplié : la pression bouge au tick (1 Hz).
   useGameState((s) => s.instability);
+  useGameState((s) => (s.activePolicies || []).join(','));
   const pressure = pressureBreakdown();
   const mitigationPct = Math.round((pressure.mitigation || 0) * 100);
+  const { activeCount, max: policyMax } = regulationPolicies();
   // Les valeurs en TEXTE partent dans l'infobulle : les jauges sont muettes pour
   // un lecteur d'écran, et `tipProps` pose l'aria-describedby qui les lui rend.
   const detail = FOYER_META
@@ -181,18 +195,27 @@ export function RegulSummary() {
     >
       {FOYER_META.map((m) => (
         <span key={m.key} className={`regul-summary-foyer regul-summary-foyer--${m.tone}`} aria-hidden="true">
-          <img className="regul-summary-icon" src={`/pixelart/ui/foyers/${m.key}.png`} alt="" />
+          <FoyerIcon k={m.key} />
           <span className="regul-summary-track">
             <span
               className="regul-summary-fill"
               style={{ width: `${Math.min(1, pressure[m.key] || 0) * 100}%` }}
             ></span>
           </span>
+          {/* Le chiffre et les libellés ci-dessous ne s'affichent qu'au bureau
+              (cite.css) : la barre repliée de la maquette V4. Au doigt, le
+              résumé reste réduit aux jauges. */}
+          <em className="regul-summary-pct">{Math.round(Math.min(1, pressure[m.key] || 0) * 100)}%</em>
         </span>
       ))}
       {mitigationPct > 0 && (
-        <span className="regul-summary-buffer" aria-hidden="true">−{mitigationPct}%</span>
+        <span className="regul-summary-buffer" aria-hidden="true">
+          <span className="regul-summary-label">{tr({ fr: 'Institutions', en: 'Institutions' })} </span>−{mitigationPct}%
+        </span>
       )}
+      <span className="regul-summary-pol" aria-hidden="true">
+        {tr({ fr: 'Politiques', en: 'Policies' })} <b>{activeCount}/{policyMax}</b>
+      </span>
     </span>
   );
 }
@@ -217,7 +240,7 @@ export function RegulQuick() {
         return (
           <div key={f.key} className={`regul-quick-foyer regul-summary-foyer--${f.tone}`}>
             <span className="regul-quick-head">
-              <img className="regul-summary-icon" src={`/pixelart/ui/foyers/${f.key}.png`} alt="" aria-hidden="true" />
+              <FoyerIcon k={f.key} />
               <span className="regul-quick-name">{f.label}</span>
               <strong className="regul-quick-val">{pct(f.value)}</strong>
             </span>

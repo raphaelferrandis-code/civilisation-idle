@@ -3,9 +3,19 @@
    ----------------------------------------------------------------------------
    AU BUREAU seulement (`:root:not([data-pointer="coarse"])`) : le tactile garde
    sa coquille (touch-shell.css), qui arbitre après cette feuille.
-   - la carte occupe TOUT le cadre ; le ruban des ressources flotte au centre
-     entre l'identité et la boutique (≥ 1500 px ; en dessous il reste en
-     bandeau, la place manquerait à ses cinq cases) ;
+
+   ⚠⚠ LES COTES SONT CELLES DE LA MAQUETTE (.preview-shots/maquette-ui/ecrans.css),
+   relevées côte à côte en 2560×1340 le 2026-10-03. Retour de Raph sur la
+   première version : « on était censé gagner de la place sur la map et là
+   l'interface est énorme ». Elle reprenait les panneaux du jeu (cartes illustrées
+   pleine largeur, Régulation dépliée, ruban à libellés, largeurs à 22vw) que la
+   racine fluide grandissait encore : chaque bloc faisait 1.5 à 2 fois sa taille
+   de maquette. Les cotes, en rem (la racine fluide les suit, comme la maquette) :
+     identité 24rem · boutique 24.5rem, rangées à vignette de ~4.3rem ·
+     ruban d'une ligne (icône, chiffre 1.28rem, débit) · Régulation repliée en
+     barre de 3.2rem · outils 4 × 2.9rem · rail 5.5rem (rail.css).
+   - la carte occupe TOUT le cadre ; le ruban flotte au centre entre l'identité
+     et la boutique (≥ 1500 px ; en dessous il reste en bandeau) ;
    - l'identité, la boutique et la Régulation sont des PLAQUES opaques (pas de
      verre sous le texte) ;
    - la poignée de Régulation court jusqu'aux outils de carte, dans le coin
@@ -16,11 +26,11 @@
 @media (min-width: 981px) {
   :root:not([data-pointer="coarse"]) .app {
     --hud-gap: 1rem;
-    --hud-id-w: clamp(24rem, 22vw, 34rem);
-    --shop-w: clamp(22rem, 22vw, 36rem);
-    /* Les outils de carte (4 boutons de 3 rem) et la poignée de Régulation. */
-    --map-tools-w: 13.3rem;
-    --regul-bar-h: 3.3rem;
+    --hud-id-w: 24rem;
+    --shop-w: 24.5rem;
+    --regul-bar-h: 3.2rem;
+    --map-tool-w: 2.9rem;
+    --map-tools-w: calc(4 * var(--map-tool-w) + 3 * 0.35rem);
     --regul-open-h: 10.5rem;
   }
 
@@ -42,7 +52,8 @@
   :root:not([data-pointer="coarse"]) .app[data-active-view="city"] .city-stage-hud {
     top: var(--hud-gap);
     left: var(--hud-gap);
-    padding: 0.7rem 1rem 0.8rem;
+    width: var(--hud-id-w);
+    padding: 0.85rem 1.1rem 0.8rem;
   }
 
   /* L'encart d'état, rangé dans l'identité (CityStatusPanel « identity ») :
@@ -51,9 +62,9 @@
     pointer-events: auto;
     display: grid;
     grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
-    gap: 0.45rem 1rem;
-    margin: 0.55rem 0 0;
-    padding: 0.6rem 0 0;
+    gap: 0.4rem 1rem;
+    margin: 0.5rem 0 0;
+    padding: 0.5rem 0 0;
     overflow: visible;
     clip-path: none;
     border: 0;
@@ -62,62 +73,172 @@
     box-shadow: none;
   }
   :root:not([data-pointer="coarse"]) .city-status-panel.is-identity .csp-divider { display: none; }
+  /* Cycles, multiplicateur, âge max et temps du cycle vivent dans la Chronique
+     (bandeau de la Bibliothèque) : la carte d'identité de la maquette ne les
+     porte pas. Le palier suivant de la réserve non plus. */
+  :root:not([data-pointer="coarse"]) .city-status-panel.is-identity .csp-stats,
+  :root:not([data-pointer="coarse"]) .city-status-panel.is-identity .csp-idle-next {
+    display: none;
+  }
   /* ⚠ Sous 1500 px, layout.css masque libellés et valeurs de l'encart : c'était
      la barre compacte, une gouttière de 4,5 rem. Dans l'identité il y a la
      place — et un « 2 h » sans « Réserve d'absence » ne se lit pas. */
   :root:not([data-pointer="coarse"]) .city-status-panel.is-identity .csp-label,
   :root:not([data-pointer="coarse"]) .city-status-panel.is-identity .csp-value,
   :root:not([data-pointer="coarse"]) .city-status-panel.is-identity .csp-laps,
-  :root:not([data-pointer="coarse"]) .city-status-panel.is-identity .csp-stat-label,
   :root:not([data-pointer="coarse"]) .city-status-panel.is-identity .csp-idle-label {
     display: revert;
-  }
-  :root:not([data-pointer="coarse"]) .city-status-panel.is-identity .csp-stat {
-    justify-content: flex-start;
-    font-size: 0.72rem;
-  }
-  :root:not([data-pointer="coarse"]) .city-status-panel.is-identity .csp-stats {
-    grid-column: 1 / -1;
-    flex-direction: row;
-    flex-wrap: wrap;
-    gap: 0.3rem 1.1rem;
-  }
-  :root:not([data-pointer="coarse"]) .city-status-panel.is-identity .csp-stat strong {
-    margin-left: 0.15rem;
   }
   :root:not([data-pointer="coarse"]) .city-status-panel.is-identity .csp-vow,
   :root:not([data-pointer="coarse"]) .city-status-panel.is-identity .csp-save {
     grid-column: 1 / -1;
   }
+  /* Verser la clepsydre : un petit bouton sous sa jauge, plus une barre pleine
+     largeur. */
   :root:not([data-pointer="coarse"]) .city-status-panel.is-identity .csp-clepsydre .csp-clepsydre-pour {
+    width: auto;
+    min-height: 0;
     margin-top: 0.3rem;
+    padding: 0.22rem 0.6rem 0.28rem;
+    font-size: 0.68rem;
   }
 
   /* ── La boutique : s'arrête au-dessus de la poignée de Régulation ───────── */
   :root:not([data-pointer="coarse"]) .app[data-active-view="city"] .city-shop-dock {
     top: var(--hud-gap);
     right: var(--hud-gap);
-    bottom: calc(var(--regul-bar-h) + 2 * var(--hud-gap));
+    width: var(--shop-w);
+    max-height: calc(100% - var(--regul-bar-h) - 3 * var(--hud-gap));
   }
   :root:not([data-pointer="coarse"]) .app[data-active-view="city"] .city-left-col:has(> .city-controls-panel.is-open) .city-shop-dock {
-    bottom: calc(var(--regul-open-h) + 2 * var(--hud-gap));
+    max-height: calc(100% - var(--regul-open-h) - 3 * var(--hud-gap));
   }
 
-  /* En-tête de la boutique, à l'échelle d'une boutique élargie : onglets et
-     modes d'achat lisibles d'un coup d'œil (le compteur reste AU-DESSUS du
-     libellé, choix de Raph : il ne vole pas de largeur aux noms). */
+  /* En-tête : onglets et modes d'achat aux cotes de la maquette (.shop-head). */
   :root:not([data-pointer="coarse"]) .app[data-active-view="city"] .city-shop-dock .shop-subtabs {
-    gap: 0.5rem;
+    gap: 0.45rem;
   }
   :root:not([data-pointer="coarse"]) .app[data-active-view="city"] .city-shop-dock .shop-subtab {
-    min-height: 2.5rem;
-    padding: 0.5rem 0.85rem 0.55rem;
-    font-size: 0.95rem;
+    min-height: 0;
+    padding: 0.5rem 0.5rem 0.55rem;
+    font-size: 0.8rem;
   }
   :root:not([data-pointer="coarse"]) .app[data-active-view="city"] .city-shop-dock .buy-mode {
-    min-height: 2rem;
-    padding: 0.3rem 0.7rem 0.4rem;
-    font-size: 0.82rem;
+    min-height: 0;
+    padding: 0.32rem 0.3rem 0.38rem;
+    font-size: 0.72rem;
+  }
+
+  /* RANGÉES À VIGNETTE (maquette .buy) : l'illustration devient une vignette de
+     3.7 × 3.3 rem à gauche — elle était le fond de toute la carte —, le nom et
+     la production au milieu, le bouton à droite, la piste du palier dessous.
+     Le compteur possédé se pose sur la vignette. Même DOM (PurchaseRow) : le
+     pied de carte s'efface (`display: contents`) pour que ses enfants prennent
+     place dans la grille. */
+  :root:not([data-pointer="coarse"]) .app[data-active-view="city"] .city-shop-dock .purchase-row {
+    display: grid;
+    /* Le gain du lot (« +0.7 % ») au bout de la ligne de production, comme
+       dans la maquette : une ligne de moins par rangée. */
+    grid-template-columns: 3.7rem minmax(0, 1fr) auto auto;
+    grid-template-areas:
+      "thumb name  name buy"
+      "thumb prod  gain buy"
+      "thumb eta   eta  buy"
+      "thumb track track buy";
+    grid-template-rows: auto auto auto auto;
+    align-content: center;
+    align-items: center;
+    column-gap: 0.7rem;
+    row-gap: 0.12rem;
+    min-height: 0;
+    padding: 0.45rem 0.5rem 0.5rem 0.45rem;
+    border: 0;
+    border-radius: 0;
+    background: rgba(255, 255, 255, 0.025);
+  }
+  :root:not([data-pointer="coarse"]) .app[data-active-view="city"] .city-shop-dock .purchase-row:hover {
+    background: rgba(255, 255, 255, 0.055);
+  }
+  :root:not([data-pointer="coarse"]) .app[data-active-view="city"] .city-shop-dock .purchase-row::before {
+    content: "";
+    grid-area: thumb;
+    position: relative;
+    inset: auto;
+    z-index: 0;
+    align-self: center;
+    width: 3.7rem;
+    height: 3.3rem;
+    opacity: 1;
+    background: var(--pr-splash, rgba(255, 255, 255, 0.05)) center / cover no-repeat;
+    -webkit-mask-image: none;
+    mask-image: none;
+    box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.08);
+    image-rendering: pixelated;
+  }
+  :root:not([data-pointer="coarse"]) .app[data-active-view="city"] .city-shop-dock .purchase-row::after {
+    display: none;
+  }
+  :root:not([data-pointer="coarse"]) .app[data-active-view="city"] .city-shop-dock .purchase-row.pr-locked::before {
+    filter: grayscale(0.7) brightness(0.45);
+  }
+  :root:not([data-pointer="coarse"]) .app[data-active-view="city"] .city-shop-dock .pr-name-row { grid-area: name; }
+  :root:not([data-pointer="coarse"]) .app[data-active-view="city"] .city-shop-dock .pr-name {
+    font: 400 1.16rem/1 var(--font-title);
+  }
+  :root:not([data-pointer="coarse"]) .app[data-active-view="city"] .city-shop-dock .pr-prod {
+    grid-area: prod;
+    gap: 0.15rem 0.55rem;
+  }
+  :root:not([data-pointer="coarse"]) .app[data-active-view="city"] .city-shop-dock .pr-prod-item {
+    font-size: 0.74rem;
+  }
+  :root:not([data-pointer="coarse"]) .app[data-active-view="city"] .city-shop-dock .pr-footer {
+    display: contents;
+  }
+  :root:not([data-pointer="coarse"]) .app[data-active-view="city"] .city-shop-dock .pr-gain {
+    grid-area: gain;
+    align-self: end;
+    font-size: 0.68rem;
+  }
+  :root:not([data-pointer="coarse"]) .app[data-active-view="city"] .city-shop-dock .pr-eta {
+    grid-area: eta;
+    margin: 0;
+    font-size: 0.66rem;
+  }
+  :root:not([data-pointer="coarse"]) .app[data-active-view="city"] .city-shop-dock .pr-step-track {
+    grid-area: track;
+    width: 100%;
+    height: 2px;
+    margin-top: 0.2rem;
+  }
+  :root:not([data-pointer="coarse"]) .app[data-active-view="city"] .city-shop-dock .pr-state-pip {
+    top: 0.35rem;
+    right: auto;
+    left: calc(0.45rem + 3.7rem - 12px);
+  }
+  :root:not([data-pointer="coarse"]) .app[data-active-view="city"] .city-shop-dock .pr-count {
+    position: absolute;
+    left: calc(0.45rem + 0.15rem);
+    bottom: 0.65rem;
+    z-index: 1;
+    padding: 0.08rem 0.25rem;
+    font-size: 0.72rem;
+  }
+  :root:not([data-pointer="coarse"]) .app[data-active-view="city"] .city-shop-dock .btn-purchase {
+    grid-area: buy;
+    flex-direction: column;
+    gap: 0.2rem;
+    min-width: 5.8rem;
+    min-height: 0;
+    padding: 0.42rem 0.55rem;
+  }
+  :root:not([data-pointer="coarse"]) .app[data-active-view="city"] .city-shop-dock .btn-purchase .bp-action {
+    font-size: 0.58rem;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+  }
+  :root:not([data-pointer="coarse"]) .app[data-active-view="city"] .city-shop-dock .btn-purchase .bp-cost {
+    font-size: 0.86rem;
   }
 
   /* ── La poignée de Régulation : jusqu'aux outils de carte ───────────────── */
@@ -125,31 +246,104 @@
     left: var(--hud-gap);
     right: calc(var(--map-tools-w) + 2 * var(--hud-gap));
     bottom: var(--hud-gap);
-    padding: 0.55rem 1rem 0.6rem;
+    padding: 0.5rem 0.95rem 0.6rem;
   }
+  /* Repliée : UNE ligne de 3.2rem (maquette .regul-bar) — titre, les quatre
+     foyers en mini-jauges chiffrées, les institutions, les politiques. */
   :root:not([data-pointer="coarse"]) .app[data-active-view="city"] .city-controls-panel.is-collapsed {
     min-height: var(--regul-bar-h);
     display: flex;
     align-items: center;
+    padding-block: 0;
+  }
+  :root:not([data-pointer="coarse"]) .app[data-active-view="city"] .city-controls-panel .hud-panel-toggle {
+    gap: 1rem;
+    font-size: 0.72rem;
+    letter-spacing: 0.12em;
   }
   :root:not([data-pointer="coarse"]) .app[data-active-view="city"] .city-controls-panel.is-collapsed .hud-panel-toggle {
     width: 100%;
   }
+  :root:not([data-pointer="coarse"]) .app[data-active-view="city"] .city-controls-panel .hud-panel-title {
+    flex: 0 0 auto;
+  }
+  :root:not([data-pointer="coarse"]) .app[data-active-view="city"] .city-controls-panel .hud-panel-summary {
+    flex: 1 1 auto;
+    min-width: 0;
+  }
+  :root:not([data-pointer="coarse"]) .app[data-active-view="city"] .regul-summary {
+    flex: 1 1 auto;
+    gap: 0.9rem;
+    min-width: 0;
+    font-family: var(--font-body);
+    letter-spacing: 0;
+    text-transform: none;
+  }
+  :root:not([data-pointer="coarse"]) .app[data-active-view="city"] .regul-summary-foyer {
+    gap: 0.35rem;
+  }
+  :root:not([data-pointer="coarse"]) .app[data-active-view="city"] .regul-summary .regul-summary-track {
+    width: 3.4rem;
+    height: 5px;
+  }
+  :root:not([data-pointer="coarse"]) .app[data-active-view="city"] .regul-summary-pct {
+    display: inline;
+    min-width: 2.2rem;
+    font: 400 0.7rem/1 var(--font-number);
+    font-style: normal;
+    color: var(--text-secondary);
+  }
+  :root:not([data-pointer="coarse"]) .app[data-active-view="city"] .regul-summary-buffer {
+    margin-left: auto;
+    font: 600 0.72rem/1 var(--font-body);
+    color: #8FD0E8;
+    white-space: nowrap;
+  }
+  :root:not([data-pointer="coarse"]) .app[data-active-view="city"] .regul-summary-label {
+    display: inline;
+  }
+  :root:not([data-pointer="coarse"]) .app[data-active-view="city"] .regul-summary-pol {
+    display: inline;
+    font: 650 0.72rem/1 var(--font-body);
+    color: var(--text-mid);
+    white-space: nowrap;
+  }
+  :root:not([data-pointer="coarse"]) .app[data-active-view="city"] .regul-summary-pol b {
+    color: var(--text-strong);
+  }
 
-  /* Dépliée : les quatre foyers, leur premier édit, la porte du Conseil. */
+  /* Dépliée (d'elle-même en crise) : le titre passe en colonne à gauche, sur la
+     ligne des foyers — une ligne de titre au-dessus coûtait 2 rem de carte. */
+  :root:not([data-pointer="coarse"]) .app[data-active-view="city"] .city-controls-panel.is-open {
+    display: grid;
+    grid-template-columns: auto minmax(0, 1fr);
+    align-items: center;
+    column-gap: 1.1rem;
+  }
+  :root:not([data-pointer="coarse"]) .app[data-active-view="city"] .city-controls-panel.is-open .hud-panel-toggle {
+    width: auto;
+    padding: 0;
+    border-bottom: 0;
+  }
+  :root:not([data-pointer="coarse"]) .app[data-active-view="city"] .city-controls-panel.is-open .regul-quick {
+    padding-top: 0;
+  }
+
+  /* Dépliée : les quatre foyers, leur premier édit, la porte du Conseil —
+     aux cotes de la maquette (.foyer / .act). */
   :root:not([data-pointer="coarse"]) .regul-quick {
     display: grid;
     grid-template-columns: repeat(4, minmax(0, 1fr)) auto;
     /* Colonnes de même hauteur : un décret au coût sur deux lignes ne décale
        plus la tête de son foyer, les boutons s'étirent tous ensemble. */
     align-items: stretch;
-    gap: 0.6rem 1rem;
+    gap: 0.5rem 0.9rem;
     padding-top: 0.45rem;
   }
   :root:not([data-pointer="coarse"]) .regul-quick-foyer {
     display: grid;
     grid-template-rows: auto auto 1fr;
-    gap: 0.35rem;
+    gap: 0.3rem;
     min-width: 0;
   }
   :root:not([data-pointer="coarse"]) .regul-quick-head {
@@ -163,12 +357,12 @@
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
-    font: 650 0.8rem/1.1 var(--font-body);
+    font: 650 0.78rem/1.1 var(--font-body);
     color: var(--text-strong);
   }
   :root:not([data-pointer="coarse"]) .regul-quick-val {
     margin-left: auto;
-    font: 400 0.78rem/1 var(--font-number);
+    font: 400 0.74rem/1 var(--font-number);
     color: var(--text-strong);
   }
   :root:not([data-pointer="coarse"]) .regul-quick-foyer .regul-summary-track {
@@ -178,6 +372,9 @@
   :root:not([data-pointer="coarse"]) .regul-quick .regul-quick-btn {
     width: 100%;
     height: 100%;
+    min-height: 0;
+    padding: 0.35rem 0.5rem 0.4rem;
+    font-size: 0.74rem;
   }
   :root:not([data-pointer="coarse"]) .regul-quick-council {
     align-self: end;
@@ -191,26 +388,34 @@
     bottom: var(--hud-gap);
     z-index: 21;
     display: grid;
-    grid-template-columns: repeat(4, 3rem);
-    gap: 0.43rem;
+    grid-template-columns: repeat(4, var(--map-tool-w));
+    gap: 0.35rem;
     width: var(--map-tools-w);
     pointer-events: auto;
   }
   :root:not([data-pointer="coarse"]) .map-tool {
     display: grid;
     place-items: center;
-    width: 3rem;
+    width: var(--map-tool-w);
     height: var(--regul-bar-h);
     padding: 0;
-    font: 700 1.3rem/1 var(--font-body);
+    font: 700 1.2rem/1 var(--font-body);
     color: var(--skin-cream);
   }
   :root:not([data-pointer="coarse"]) .map-tool svg {
-    width: 1.15rem;
-    height: 1.15rem;
+    width: 1.1rem;
+    height: 1.1rem;
   }
   :root:not([data-pointer="coarse"]) .app[data-contemplation="on"] .map-tools {
     display: none;
+  }
+}
+
+/* Écran moyen : les cotes « 1500 » de la maquette. */
+@media (min-width: 981px) and (max-width: 1500px) {
+  :root:not([data-pointer="coarse"]) .app {
+    --hud-id-w: 21rem;
+    --shop-w: 22rem;
   }
 }
 
@@ -219,40 +424,66 @@
   :root:not([data-pointer="coarse"]) .app[data-active-view="city"] .city-stage {
     inset: 0;
   }
+  /* Le ruban (maquette .res-ribbon) : UNE ligne, aussi large que son contenu,
+     centrée entre l'identité et la boutique. */
   :root:not([data-pointer="coarse"]) .app[data-active-view="city"] .topbar {
     /* Repère : <main>, qui commence déjà après le rail. */
     inset: var(--hud-gap) calc(var(--shop-w) + 2 * var(--hud-gap)) auto calc(var(--hud-id-w) + 2 * var(--hud-gap));
+    width: fit-content;
+    max-width: calc(100% - var(--shop-w) - var(--hud-id-w) - 4 * var(--hud-gap));
+    height: auto;
+    /* ⚠ Le bandeau réservait `--city-topbar-h` (6.8rem) : mesuré, la case ne
+       fait que 66 px en 2560 et le ruban en montait à 141. */
+    min-height: 0;
+    margin-inline: auto;
+  }
+  :root:not([data-pointer="coarse"]) .app[data-active-view="city"] .topbar-resources {
+    height: auto;
+    padding: 0.3rem;
   }
   /* Les Habitants sont dans l'identité (à côté du nom) : le ruban garde les
      cinq ressources. */
   :root:not([data-pointer="coarse"]) .app[data-active-view="city"] .topbar .topbar-people {
     display: none;
   }
-  :root:not([data-pointer="coarse"]) .app[data-active-view="city"] .topbar-resources:not(.is-partial) {
-    grid-template-columns: repeat(5, minmax(0, 1fr));
-  }
+  :root:not([data-pointer="coarse"]) .app[data-active-view="city"] .topbar-resources:not(.is-partial),
   :root:not([data-pointer="coarse"]) .app[data-active-view="city"] .topbar-resources.is-partial {
-    grid-auto-columns: minmax(0, calc(100% / 5));
+    grid-template-columns: none;
+    grid-auto-flow: column;
+    grid-auto-columns: auto;
   }
-  /* Le ruban flottant est plus étroit que le bandeau (l'identité et la boutique
-     l'encadrent) : libellé resserré, et coupé net plutôt que de déborder sur la
-     case voisine. Mesuré en 1920 : le titre « INFRASTRUCTURE » faisait 201 px
-     pour une case de ~170, et la racine fluide (echelle.css) l'agrandit encore. */
-  :root:not([data-pointer="coarse"]) .app[data-active-view="city"] .topbar .resource-title-wrapper {
-    max-width: 100%;
-    min-width: 0;
+  /* Une case = l'icône à gauche sur deux lignes, le chiffre, le débit dessous
+     (maquette .res). Le nom passe dans l'infobulle de la valeur. ⚠ Plus de
+     `container-type` : une case à taille de conteneur ne peut pas se
+     dimensionner sur son contenu — et le chiffre a désormais sa taille fixe. */
+  :root:not([data-pointer="coarse"]) .app[data-active-view="city"] .topbar .resource-card-unified {
+    container-type: normal;
+    grid-template-columns: auto auto;
+    grid-template-areas:
+      "nom valeur"
+      "nom debit";
+    justify-items: start;
+    align-items: center;
+    column-gap: 0.6rem;
+    row-gap: 0.15rem;
+    padding: 0.42rem 0.95rem 0.42rem 0.7rem;
   }
-  :root:not([data-pointer="coarse"]) .app[data-active-view="city"] .topbar .resource-name {
-    font-size: 0.74rem;
-    letter-spacing: 0.05em;
-  }
-}
-/* Sous 2 240 px, la case n'a pas la place du nom (mesuré en 1920 : 128 px pour
-   « INFRASTRUCTURE », 109 de libres ; en 1600, 116 pour 74) : l'icône seule,
-   centrée au-dessus du chiffre — c'était le ruban de la maquette V4 —, le nom
-   reste dans l'infobulle de la valeur. Pas de nom rogné. */
-@media (min-width: 1500px) and (max-width: 2239px) {
   :root:not([data-pointer="coarse"]) .app[data-active-view="city"] .topbar .resource-name {
     display: none;
+  }
+  :root:not([data-pointer="coarse"]) .app[data-active-view="city"] .topbar .resource-rate-row {
+    justify-self: start;
+    font-size: 0.72rem;
+  }
+  :root:not([data-pointer="coarse"]) .app[data-active-view="city"] .topbar .resource-value .odo {
+    font-size: round(down, 1.28rem, 1px);
+  }
+}
+/* Grand écran : l'icône de ressource à 48 px, comme la maquette (16 px × 3) — la
+   variante 24 px doublée au plus proche voisin, nette. */
+@media (min-width: 1900px) {
+  :root:not([data-pointer="coarse"]) .app[data-active-view="city"] .topbar .resource-icon .px-icon {
+    width: 48px;
+    height: 48px;
   }
 }
