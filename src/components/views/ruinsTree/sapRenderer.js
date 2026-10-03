@@ -119,7 +119,7 @@ export function prepareSapScene(img, paths, branchOf) {
       reveal: Int32Array.from(reveal),
     };
   }
-  return { w, h, base: new ImageData(base, w, h), lit, edges, coal };
+  return { w, h, base: new ImageData(base, w, h), lit, cls, edges, coal, fx: { parts: [], acc: {}, last: 0, primed: false, poolsFor: null, pools: null } };
 }
 
 // Prolongement des bords de l'illustration (la fenêtre est plus large qu'elle) :
@@ -161,6 +161,7 @@ export function edgeStrips(imageData) {
 //   st.colors  : { branche: { core, mid, glow } }
 //   st.marks   : [{ x, y, branch, kind }] — lueur sous un nœud (« lit » = acquis,
 //                couleur de sa matière ; « avail » = à prendre, or)
+//   st.usure   : 0..1 — l'Usure du monde : plus elle monte, plus il tombe de cendre
 //   st.still   : true = pas d'animation (prefers-reduced-motion)
 export function paintSap(out, scene, st, now) {
   const d = out.data, W = scene.w, lit = scene.lit;
@@ -250,6 +251,8 @@ export function paintSap(out, scene, st, now) {
       }
     }
   }
+
+  paintFx(put, scene, st, now);
 }
 
 const GOLD = [228, 199, 126];
@@ -294,4 +297,173 @@ function paintSparks(put, scene, st, now) {
     const c = SPARK[f < 0.3 ? 0 : f < 0.65 ? 1 : 2];
     put(y * W + x, c[0], c[1], c[2], 1 - f * f);
   }
+}
+
+// ── Ce qui tombe, ce qui monte ──────────────────────────────────────────────
+// Deux familles de particules, peintes au pixel (1 px source = 3 px à l'écran) :
+//   • le CIEL : des braises qui tombent lentement dans le vent, brûlent (blanc-
+//     chaud → orange), refroidissent (rouge → brun) et finissent en cendre avant
+//     le sol ; et des flocons de cendre d'autant plus nombreux que l'Usure monte ;
+//   • l'ARBRE : chaque branche perd sa MATIÈRE, seulement là où la sève l'a
+//     rallumée (plus on achète, plus l'arbre vit) — la Cendre fume des braises
+//     qui montent, la Sève lâche des feuilles qui virevoltent et des gouttes
+//     d'ambre, l'Écorce laisse s'échapper des lueurs de runes, la lave des
+//     Racines pétille.
+const FALL_HOT = [[255, 226, 156], [255, 188, 46], [255, 152, 12], [255, 106, 10]];
+const FALL_COOL = [[205, 61, 21], [162, 14, 1], [96, 10, 4], [59, 52, 55]];
+const ASH = [150, 146, 158];
+const LEAF = [[124, 152, 36], [99, 133, 119]];   // tons du feuillage de l'illustration
+const AMBER = [[255, 188, 46], [255, 152, 12]];
+const RUNE = [[81, 204, 251], [171, 206, 226]];
+const PARTS_MAX = 160;
+const rnd = (a, b) => a + Math.random() * (b - a);
+
+function fallEmber(w, y) {
+  const life = rnd(18, 34);
+  return { kind: "fall", x: rnd(0, w), y, vx: rnd(-2.5, 1.5), vy: rnd(5, 10), wob: rnd(0, 6.3), seed: Math.random(), age: y > 0 ? rnd(0, life * 0.5) : 0, life, big: Math.random() < 0.35 };
+}
+
+// Réserves de pixels « allumés » par matière (rebâties quand l'ensemble des
+// veines allumées change) : la Cendre (braises), la Sève (feuilles, ambre),
+// l'Écorce (runes), les Racines (lave).
+function poolsOf(scene, lit) {
+  const pools = { cycle_crise: [], leaf: [], amber: [], knowledge: [], resilience: [] };
+  const seen = new Set();
+  for (const id of lit) {
+    const e = scene.edges[id];
+    if (!e) continue;
+    for (const k of e.reveal) {
+      if (seen.has(k)) continue;
+      seen.add(k);
+      const c = scene.cls[k];
+      if (c === "prosperity-leaf") pools.leaf.push(k);
+      else if (c === "prosperity") pools.amber.push(k);
+      else if (c && pools[c]) pools[c].push(k);
+    }
+  }
+  return pools;
+}
+
+function paintFx(put, scene, st, now) {
+  const fx = scene.fx;
+  if (!fx || st.still) return;
+  const W = scene.w, GROUND = SAP_ART.ground;
+  const dt = fx.last ? Math.min(0.12, (now - fx.last) / 1000) : 0;
+  fx.last = now;
+  const parts = fx.parts;
+  const emit = (key, rate, make) => {
+    fx.acc[key] = (fx.acc[key] || 0) + dt * rate;
+    while (fx.acc[key] >= 1 && parts.length < PARTS_MAX) { fx.acc[key] -= 1; const p = make(); if (p) parts.push(p); }
+    if (fx.acc[key] >= 1) fx.acc[key] = 0;
+  };
+  if (!fx.primed) {
+    fx.primed = true;
+    for (let i = 0; i < 28; i++) parts.push(fallEmber(W, rnd(0, GROUND - 10)));
+  }
+
+  // le ciel : braises qui tombent, cendres d'usure
+  emit("fall", 1.1, () => fallEmber(W, -2));
+  const ashTarget = Math.round(40 * Math.max(0, Math.min(1, st.usure || 0)));
+  const ashNow = parts.reduce((n, p) => n + (p.kind === "ash"), 0);
+  if (ashNow < ashTarget) emit("ash", 3, () => ({ kind: "ash", x: rnd(0, W), y: -2, vx: rnd(-2, 2), vy: rnd(8, 15), wob: rnd(0, 6.3), age: 0, life: 40 }));
+
+  // l'arbre : chaque matière allumée perd un peu d'elle-même
+  if (fx.poolsFor !== st.lit) { fx.poolsFor = st.lit; fx.pools = poolsOf(scene, st.lit); }
+  const P = fx.pools;
+  const from = (pool) => pool[(Math.random() * pool.length) | 0];
+  const xy = (k) => [k % W, (k / W) | 0];
+  if (P.cycle_crise.length) emit("cendre", Math.min(3, P.cycle_crise.length * 0.014), () => {
+    const [x, y] = xy(from(P.cycle_crise));
+    return { kind: "smoke", branch: "cycle_crise", x, y, vx: rnd(-2, 2), vy: -rnd(6, 12), wob: rnd(0, 6.3), seed: Math.random(), age: 0, life: rnd(1.4, 3) };
+  });
+  if (P.leaf.length) emit("leaf", Math.min(0.9, P.leaf.length * 0.0016), () => {
+    const [x, y] = xy(from(P.leaf));
+    return { kind: "leaf", branch: "prosperity", x, y, vx: rnd(-3, 1), vy: rnd(4, 7), wob: rnd(0, 6.3), c: LEAF[(Math.random() * 2) | 0], age: 0, life: rnd(7, 12) };
+  });
+  if (P.amber.length) emit("amber", Math.min(0.5, P.amber.length * 0.006), () => {
+    const [x, y] = xy(from(P.amber));
+    return { kind: "drip", branch: "prosperity", x, y: y + 1, vx: 0, vy: 2, age: 0, life: 4 };
+  });
+  if (P.knowledge.length) emit("rune", Math.min(1.6, P.knowledge.length * 0.0012), () => {
+    const [x, y] = xy(from(P.knowledge));
+    return { kind: "rune", branch: "knowledge", x, y, vx: rnd(-1.5, 1.5), vy: -rnd(3, 6), wob: rnd(0, 6.3), age: 0, life: rnd(2, 4) };
+  });
+  if (P.resilience.length) emit("lava", Math.min(4, P.resilience.length * 0.002), () => {
+    const [x, y] = xy(from(P.resilience));
+    return { kind: "pop", branch: "resilience", x, y, vx: 0, vy: 0, age: 0, life: rnd(0.25, 0.5) };
+  });
+
+  // avancer, éteindre, peindre
+  let n = 0;
+  for (const p of parts) {
+    p.age += dt;
+    if (p.age >= p.life) continue;
+    const t = p.age / p.life;
+    let c, a = 1;
+    switch (p.kind) {
+      case "fall": {
+        p.wob += 1.3 * dt;
+        p.x += (p.vx + Math.sin(p.wob) * 1.6) * dt;
+        p.y += p.vy * dt;
+        if (p.y >= GROUND) continue;
+        // brûle (crépite entre les tons chauds), puis refroidit en 4 crans
+        c = t < 0.55 ? FALL_HOT[1 + (((now / 140 + p.seed * 7) | 0) % 3)] : FALL_COOL[Math.min(3, ((t - 0.55) / 0.45 * 4) | 0)];
+        break;
+      }
+      case "ash":
+        p.wob += 1.4 * dt;
+        p.x += (p.vx + Math.sin(p.wob) * 2.2) * dt;
+        p.y += p.vy * dt;
+        if (p.y >= GROUND) continue;
+        c = ASH; a = 0.55;
+        break;
+      case "smoke":
+        p.wob += 2 * dt;
+        p.x += (p.vx + Math.sin(p.wob) * 2.5) * dt;
+        p.y += p.vy * dt;
+        c = t < 0.45 ? FALL_HOT[1 + (((now / 110 + p.seed * 5) | 0) % 3)] : FALL_COOL[Math.min(2, ((t - 0.45) / 0.55 * 3) | 0)];
+        break;
+      case "leaf":
+        p.wob += 2.4 * dt;
+        p.x += (p.vx + Math.sin(p.wob) * 7) * dt;
+        p.y += p.vy * dt;
+        if (p.y >= GROUND) continue;
+        c = p.c; a = t > 0.85 ? (1 - t) / 0.15 : 1;
+        break;
+      case "drip":
+        p.vy += 70 * dt;
+        p.y += p.vy * dt;
+        if (p.y >= GROUND) continue;
+        c = AMBER[t < 0.5 ? 0 : 1];
+        break;
+      case "rune":
+        p.wob += 3 * dt;
+        p.x += (p.vx + Math.sin(p.wob) * 1.2) * dt;
+        p.y += p.vy * dt;
+        c = RUNE[Math.sin(p.age * 9) > 0 ? 0 : 1]; a = 1 - t * t;
+        break;
+      case "pop":
+        c = FALL_HOT[t < 0.5 ? 0 : 1]; a = 1 - t;
+        break;
+    }
+    const dim = p.branch && st.focus && st.focus !== p.branch ? 0.16 : 1;
+    const x = Math.round(p.x), y = Math.round(p.y);
+    if (x >= 0 && y >= 0 && x < W && y < scene.h) {
+      put(y * W + x, c[0], c[1], c[2], a * dim);
+      // une feuille est un éclat de 2 px qui tourne (à plat / de chant) ; une
+      // grosse braise du ciel fait 2 px de haut
+      if (p.kind === "leaf" && Math.sin(p.wob * 2) > 0 && x + 1 < W) put(y * W + x + 1, c[0], c[1], c[2], a * dim);
+      if (p.kind === "fall" && p.big && y + 1 < scene.h) put((y + 1) * W + x, c[0], c[1], c[2], a * 0.6);
+      // une braise encore chaude rayonne : une croix d'1 px, rouge sombre et translucide
+      if ((p.kind === "fall" || p.kind === "smoke") && t < 0.5) {
+        const g = FALL_COOL[0];
+        for (const [ox, oy] of [[1, 0], [-1, 0], [0, -1], [0, p.big ? 2 : 1]]) {
+          const gx = x + ox, gy = y + oy;
+          if (gx >= 0 && gy >= 0 && gx < W && gy < scene.h) put(gy * W + gx, g[0], g[1], g[2], 0.32 * dim);
+        }
+      }
+    }
+    parts[n++] = p;
+  }
+  parts.length = n;
 }

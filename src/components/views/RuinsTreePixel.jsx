@@ -140,6 +140,8 @@ function RuinsUsureSync({ targetRef }) {
 export default function RuinsTreePixel() {
   "use no memo"; // opt-out React Compiler : hooks manuels (Sets/refs)
   const ruins = useGameState((s) => s.ruins);
+  // Usure quantifiée à 5 % : la cendre qui tombe du ciel en dépend.
+  const usure = useGameState((s) => Math.round(Math.max(0, Math.min(1, s.timeWear || 0)) * 20) / 20);
   const purchases = useGameState((s) => s.lifetimePurchases);
   const cycles = useGameState((s) => s.cycles);
   void purchases; void cycles; // signaux de re-render (achats, unlockCycles)
@@ -517,6 +519,7 @@ export default function RuinsTreePixel() {
     st.pending = pending;
     st.focus = focus;
     st.marks = marks;
+    st.usure = usure;
   });
 
   // Registre : une plaque par branche.
