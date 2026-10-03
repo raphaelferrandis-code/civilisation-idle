@@ -624,6 +624,49 @@ export const BLACKJACK_STAKES = [             // mises en FAVEUR
   { id: "royale", faveur: 25, label: { fr: "Grand jeu", en: "High stakes" } }
 ];
 
+// ── La machine à sous (2026-10-03, demande de Raph : « avec des bonus type free spin
+// et mini jeux, qui déclenche une roue ») ────────────────────────────────────────
+// Ouvre à la FONTE (ère 25, la Liberty Bell date de 1895) dans la salle des machines.
+// Une VRAIE machine : trois rouleaux, trois rangées, cinq lignes (les trois rangées et
+// les deux diagonales). L'issue n'est pas tirée puis peinte (comme le gratteux) : ce
+// sont les ARRÊTS des rouleaux qui la décident, un Math.random par rouleau. Le RTP se
+// calcule donc EXACTEMENT, par énumération des 27³ arrêts (slots.js, slotsRtpRef) —
+// jamais saisi à la main. Calibré le 2026-10-03 :
+//   lignes 70,8 % · tours gratuits 14,3 % · roue 7,1 %  →  RTP 92,2 % (hors jackpot)
+//   ligne gagnante 1 tour sur 6 (toujours au moins la mise) ; tours gratuits et roue
+//   chacun 1 tour sur 91 ; une roue vaut ×6,5 la mise, une série de tours ×13.
+// Trois ÉTOILES n'importe où : SLOTS_FREE_SPINS tours gratuits, gains ×SLOTS_FREE_MULT
+// (trois étoiles pendant les tours en rajoutent autant). Trois ROUES n'importe où : la
+// roue, douze cases égales. Le JACKPOT de la roue rafle la cagnotte au prorata de la
+// mise (potRakeShare, comme Icare) : un TRANSFERT, il n'entre pas dans le RTP de
+// référence (seule l'ENTRÉE de la cagnotte compte, cf. TEMPLE_POT_RECYCLE).
+// ⚠ Les rouleaux sont FIGÉS ici : les re-mélanger change les co-occurrences et donc
+// le RTP (le test le recalcule et le borne).
+export const SLOTS_UNLOCK_ERA = 25;
+export const SLOTS_STAKES = [                 // mises en FAVEUR (toutes lignes comprises)
+  { id: "jeton", faveur: 4, label: { fr: "Jeton", en: "Token" } },
+  { id: "rouleau", faveur: 10, label: { fr: "Rouleau", en: "Roll" } },
+  { id: "lingot", faveur: 25, label: { fr: "Lingot", en: "Ingot" } }
+];
+// Trois symboles identiques sur une ligne : × la mise. Étoile et roue ne paient pas
+// sur les lignes (elles déclenchent, n'importe où dans la fenêtre).
+export const SLOTS_PAY = { cerise: 2, citron: 4, cloche: 8, fer: 15, bar: 30, sept: 80 };
+export const SLOTS_LINES = [[1, 1, 1], [0, 0, 0], [2, 2, 2], [0, 1, 2], [2, 1, 0]];
+export const SLOTS_REELS = [
+  ["bar", "cloche", "citron", "cloche", "cerise", "fer", "citron", "cerise", "roue", "etoile", "bar", "roue", "etoile", "citron", "sept", "cloche", "cerise", "fer", "cerise", "citron", "citron", "cloche", "cerise", "cerise", "fer", "cerise", "citron"],
+  ["fer", "cloche", "bar", "etoile", "cerise", "roue", "citron", "cerise", "cloche", "roue", "citron", "cerise", "fer", "citron", "cerise", "citron", "bar", "sept", "cerise", "etoile", "cerise", "fer", "cloche", "citron", "cloche", "citron", "cerise"],
+  ["fer", "fer", "cloche", "citron", "fer", "cerise", "sept", "cloche", "etoile", "citron", "cerise", "roue", "cerise", "cloche", "citron", "cerise", "citron", "citron", "bar", "citron", "bar", "roue", "etoile", "cerise", "cerise", "cloche", "cerise"]
+];
+export const SLOTS_FREE_SPINS = 8;
+export const SLOTS_FREE_MULT = 2;
+// La roue : douze cases ÉGALES (ce qu'on voit est ce qui tombe). Un nombre : × la mise.
+export const SLOTS_WHEEL = [2, 5, "coffres", 3, "tours", 10, 2, "coffres", 3, "vol", 20, "jackpot"];
+// Le mini-jeu des coffres : trois coffres fermés, un seul s'ouvre (× la mise).
+export const SLOTS_CHESTS = [3, 6, 20];
+// Le vol d'Icare de la roue suit la mise, comme le billet du Soleil des tickets.
+export const SLOTS_FLIGHT = { jeton: "plume", rouleau: "aile", lingot: "hecatombe" };
+export const SLOTS_HISTORY_LEN = 12;
+
 // ── Automatisation du Temple (moteur passif : jouer aux cadrans) ─────────────
 // Une fois débloquées (échoppe/arbre d'artefacts) et activées, les
 // automatisations jouent À LA PLACE du joueur au tick, gouvernées comme

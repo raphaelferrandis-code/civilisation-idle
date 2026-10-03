@@ -22,6 +22,7 @@ import { FaveurIcon, PotIcon } from './FaveurIcon.jsx';
 import { tipProps } from './HelpBubble.jsx';
 import CoffreSelect from './CoffreSelect.jsx';
 import StageHelp from './StageHelp.jsx';
+import PlaisirsTable, { TableStake } from '../views/plaisirs/PlaisirsTable.jsx';
 import { usePlaisirsBand, icarusSkyCss, icarusFlyer } from './plaisirsMaterial.js';
 
 /**
@@ -209,6 +210,15 @@ export default function IcarusStage({ table, onClose }) {
     else { setM(out.m); setPhase('landed'); }
   };
 
+  // Les derniers vols (sur le mur de la table à l'envol, au-dessus du ciel pendant le vol).
+  const historyChips = history.length > 0 && (
+    <div className="icarus-history" aria-label={tr({ fr: 'Derniers vols', en: 'Last flights' })}>
+      {history.map((c, i) => (
+        <span key={`${c}-${i}`} className={`icarus-crash-chip ${crashChipTone(c)}`}>×{c < 10 ? c.toFixed(2) : Math.round(c)}</span>
+      ))}
+    </div>
+  );
+
   return (
     <div className="icarus-stage">
       <div className="regul-block-title stage-title">
@@ -238,17 +248,18 @@ export default function IcarusStage({ table, onClose }) {
               en: `Landing at ×${ICARUS_JACKPOT_MULT} or more takes a share of the pot, pro rata of the stake. Free flights (Venus, Suns) are worth the base stake.`
             })}
           </p>
+          <ul className="stage-help-list">
+            {stakes.map((s) => (
+              <li key={s.id}>
+                <b>{tr(s.label)}</b> : {Math.round(potRakeShare(s.faveur * effMult) * 100)} % {tr({ fr: 'de la cagnotte', en: 'of the pot' })}
+              </li>
+            ))}
+          </ul>
         </StageHelp>
         <button type="button" className="stage-close" onClick={onClose} aria-label={tr({ fr: 'Quitter la table', en: 'Leave the table' })}>✕</button>
       </div>
 
-      {history.length > 0 && (
-        <div className="icarus-history" aria-label={tr({ fr: 'Derniers vols', en: 'Last flights' })}>
-          {history.map((c, i) => (
-            <span key={`${c}-${i}`} className={`icarus-crash-chip ${crashChipTone(c)}`}>×{c < 10 ? c.toFixed(2) : Math.round(c)}</span>
-          ))}
-        </div>
-      )}
+      {phase !== 'ready' && historyChips}
 
       {/* Le ciel ne s'affiche PLUS pendant le choix de mise (retour Raphaël
           2026-07-17 : « supprimer la preview d'Icare ») — il n'apparaît qu'au
@@ -305,70 +316,50 @@ export default function IcarusStage({ table, onClose }) {
       </div>
       )}
 
+      {/* ⭐ L'ENVOL SUR LA TABLE DE L'ÂGE (2026-10-03, plaisirs/PlaisirsTable.jsx) :
+          l'hôtesse derrière sa table, les trois mises posées sur le tapis. Le ciel
+          reste la scène du vol. */}
       {phase === 'ready' && (
-        <>
-          <CoffreSelect value={effMult} onChange={setCoffreMult} />
-          <div className="icarus-stakes">
-            {stakes.map((s) => {
-              const cost = s.faveur * effMult;
-              const freeHere = effMult === 1 && hasFreeFlight(s.id);
-              const broke = !freeHere && faveur < cost;
-              const chosen = stakeId === s.id;
-              return (
-                // Le bouton de jeu n'apparaît QUE dans la mise choisie, cousu au pied
-                // de SA colonne (retour Raph 2026-07-17 : « dans le cadre de la mise
-                // choisie »).
-                <div
-                  key={s.id}
-                  className={`icarus-stake${chosen ? ' is-chosen' : ''}${broke ? ' is-broke' : ''}`}
-                >
-                  <button
-                    type="button"
-                    className="stake-pick"
-                    onClick={() => setStakeId(s.id)}
-                    {...tipProps(tr(s.label), freeHere
+        <PlaisirsTable game="icare" className="ptable--bet ptable--icare" tablePx={260} dealer="g" variant={1}>
+          {(L) => (
+            <>
+              <div className="ptable-hud">
+                {historyChips}
+                <CoffreSelect value={effMult} onChange={setCoffreMult} />
+              </div>
+              {stakes.map((s, i) => {
+                const cost = s.faveur * effMult;
+                const freeHere = effMult === 1 && hasFreeFlight(s.id);
+                const broke = !freeHere && faveur < cost;
+                return (
+                  // Le bouton de jeu n'apparaît QUE sous la mise choisie (retour Raph
+                  // 2026-07-17 : « dans le cadre de la mise choisie »).
+                  <TableStake
+                    key={s.id}
+                    x={L.spots[i % L.spots.length]}
+                    y={L.spotY}
+                    art={STAKE_ART[s.id]}
+                    label={tr(s.label)}
+                    cost={<><FaveurIcon /> {fmt(cost)}</>}
+                    // La part de cagnotte de chaque mise est dans l'aide (« ? ») et
+                    // l'infobulle : plus de phrase sur la plaque (retour Raph 2026-10-03).
+                    info={freeHere && <span className="icarus-stake-free">🪽 {tr({ fr: 'OFFERT', en: 'FREE' })} ×{freeFlightCount(s.id)}</span>}
+                    chosen={stakeId === s.id}
+                    broke={broke}
+                    onPick={() => setStakeId(s.id)}
+                    tip={tipProps(tr(s.label), freeHere
                       ? tr({ fr: `Vol offert par un Coup de Vénus. La Maison paie la mise. Se poser à ×${ICARUS_JACKPOT_MULT}+ emporte ${Math.round(potRakeShare(s.faveur) * 100)} % de la cagnotte.`, en: `Flight offered by a Venus throw. The House pays the stake. Landing at ×${ICARUS_JACKPOT_MULT}+ takes ${Math.round(potRakeShare(s.faveur) * 100)}% of the pot.` })
                       : tr({ fr: `Mise de ${cost} Faveur. Se poser à ×m rapporte ${cost} × m. Se poser à ×${ICARUS_JACKPOT_MULT}+ emporte ${Math.round(potRakeShare(cost) * 100)} % de la cagnotte : la part suit la mise.`, en: `${cost} Favor stake. Landing at ×m pays ${cost} × m. Landing at ×${ICARUS_JACKPOT_MULT}+ takes ${Math.round(potRakeShare(cost) * 100)}% of the pot: the share follows the stake.` }))}
-                  >
-                    {/* L'emblème AVANT le nom : il fait la tête de colonne et
-                        remplit le haut du bandeau, resté vide depuis que les
-                        mises ont perdu leur cadre. `alt=""` + aria-hidden, le
-                        nom juste dessous dit déjà tout à un lecteur d'écran. */}
-                    {STAKE_ART[s.id] && (
-                      <img
-                        className="stake-art"
-                        src={STAKE_ART[s.id]}
-                        alt=""
-                        aria-hidden="true"
-                        width={64}
-                        height={64}
-                      />
-                    )}
-                    <strong>{tr(s.label)}</strong>
-                    <span><FaveurIcon /> {fmt(cost)}</span>
-                    {/* La part de cagnotte suit la mise (potRakeShare) : c'est la seule
-                        chose qui distingue les 3 mises autrement qu'à l'échelle, donc
-                        elle doit être LISIBLE sur le bandeau, pas seulement au survol. */}
-                    {potFaveur > 0 && (
-                      <span className="icarus-stake-rake">{Math.round(potRakeShare(cost) * 100)} % {tr({ fr: 'de la cagnotte', en: 'of the pot' })}</span>
-                    )}
-                    {freeHere && <span className="icarus-stake-free">🪽 {tr({ fr: 'OFFERT', en: 'FREE' })} ×{freeFlightCount(s.id)}</span>}
-                  </button>
-                  {chosen && (
-                    <button
-                      type="button"
-                      className="icarus-launch stake-play"
-                      disabled={!freeChosen && faveur < chosenCost}
-                      onClick={() => onLaunch()}
-                    >
-                      {tr({ fr: "S'envoler", en: 'Take flight' })}
-                    </button>
-                  )}
-                </div>
-              );
-            })}
-          </div>
-        </>
+                    play
+                    playLabel={tr({ fr: "S'envoler", en: 'Take flight' })}
+                    playDisabled={!freeChosen && faveur < chosenCost}
+                    onPlay={() => onLaunch()}
+                  />
+                );
+              })}
+            </>
+          )}
+        </PlaisirsTable>
       )}
 
       {phase === 'landed' && outcome && (
@@ -377,18 +368,12 @@ export default function IcarusStage({ table, onClose }) {
               la mise emporte VRAIMENT tout, sinon la bannière ment (et c'est le seul
               endroit où le joueur voit ce que sa mise lui a acheté). */}
           {outcome.jackpotFaveur && (
-            <p className="icarus-jackpot-banner"><PotIcon /> {potRakeShare(outcome.stakeFaveur) >= 1
-              ? tr({ fr: 'CAGNOTTE RAFLÉE', en: 'POT SWEPT' })
-              : tr({ fr: `PART DE CAGNOTTE (${Math.round(potRakeShare(outcome.stakeFaveur) * 100)} %)`, en: `POT SHARE (${Math.round(potRakeShare(outcome.stakeFaveur) * 100)}%)` })} : +{fmt(outcome.jackpotFaveur)} {tr({ fr: 'faveur', en: 'favor' })}</p>
+            <p className="icarus-jackpot-banner"><PotIcon /> +{fmt(outcome.jackpotFaveur)} {tr({ fr: 'faveur', en: 'favor' })}</p>
           )}
           <p className="icarus-result icarus-result--win">
             +{fmt(outcome.faveur)} {tr({ fr: 'faveur', en: 'favor' })} <span className="icarus-result-sub">(×{outcome.m.toFixed(2)})</span>
           </p>
-          <p className="icarus-reveal">
-            {nearMiss ? '🔥 ' : ''}
-            {tr({ fr: `Le soleil a frappé à ×${outcome.crashPoint.toFixed(2)}`, en: `The sun struck at ×${outcome.crashPoint.toFixed(2)}` })}
-            {nearMiss ? `, ${tr({ fr: "un battement d'aile après toi !", en: 'a wingbeat after you!' })}` : `. ${tr({ fr: 'Tu volais encore.', en: 'You were still flying.' })}`}
-          </p>
+          <p className="icarus-reveal">{nearMiss ? '🔥' : '☀'} ×{outcome.crashPoint.toFixed(2)}</p>
           {/* Rejeu DIRECT (phase 7) : « Revoler » relance à la mise mémorisée au lieu
               de renvoyer à l'écran de choix — le clic mort comptait le plus ici, le
               seul jeu du temple qui se rejoue en rafale sur un tronc plein. */}
@@ -412,16 +397,13 @@ export default function IcarusStage({ table, onClose }) {
       {phase === 'crashed' && outcome && (
         <>
           <p className="icarus-result icarus-result--burn">
-            {outcome.crashPoint <= 1.01
-              ? tr({ fr: 'Le soleil frappe au décollage : la cire fond d’un coup.', en: 'The sun strikes at takeoff: the wax melts at once.' })
-              : tr({ fr: `La cire fond à ×${outcome.crashPoint.toFixed(2)}. Icare tombe.`, en: `The wax melts at ×${outcome.crashPoint.toFixed(2)}. Icarus falls.` })}
+            {tr({ fr: `Brûlé à ×${outcome.crashPoint.toFixed(2)}`, en: `Burnt at ×${outcome.crashPoint.toFixed(2)}` })}
           </p>
-          <p className="icarus-reveal">
-            {tr({ fr: `La cagnotte de la Maison atteint ${fmt(potFaveur)} faveur`, en: `The House pot reaches ${fmt(potFaveur)} favor` })}
-            {almost && (
-              <span className="icarus-knife"> · {tr({ fr: `une seconde plus tôt : +${fmt(almost.faveur)} faveur (×${almost.m.toFixed(2)})`, en: `one second sooner: +${fmt(almost.faveur)} favor (×${almost.m.toFixed(2)})` })}</span>
-            )}
-          </p>
+          {almost && (
+            <p className="icarus-reveal">
+              <span className="icarus-knife">−1 s : +{fmt(almost.faveur)} {tr({ fr: 'faveur', en: 'favor' })} (×{almost.m.toFixed(2)})</span>
+            </p>
+          )}
           <menu className="choice-menu icarus-actions">
             <button
               type="button"

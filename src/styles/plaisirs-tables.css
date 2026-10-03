@@ -1,0 +1,349 @@
+/* ════════════════════════════════════════════════════════════════════════════
+   LA TABLE DE JEU EN GROS PLAN (plaisirs/PlaisirsTable.jsx, 2026-10-03)
+
+   Raph, sur le vingt-et-un du Jade : « que leurs tables collent à ce qu'on voit, et
+   que le lancement soit plus joli ». La partie ne se joue plus sur un panneau de
+   feutre uni : derrière le jeu, la table de l'âge PEINTE comme dans la coupe (le
+   mur et ses lampes, la croupière, le plateau, son rebord). Les mises se posent SUR
+   le tapis, chacune sur son cercle.
+
+   ⛔ La peau de l'interface ne change pas avec l'âge (arbitrage de Raph) : le cadre,
+   les plaques de texte et les boutons restent ceux de la « nuit dorée ». Seule la
+   table suit l'époque.
+   ════════════════════════════════════════════════════════════════════════════ */
+
+/* Le panneau du jeu n'est plus un tapis : un cadre fin autour de la table peinte. */
+.plaisirs-stage[data-age] .regulation-stage:not(.is-empty):has(.ptable),
+.plaisirs-stage .regulation-stage:not(.is-empty):has(.ptable) {
+  padding: 0;
+  background: #0d0a0c;
+  background-image: none;
+  border: 2px solid color-mix(in srgb, var(--gold), transparent 45%);
+  box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.6), 0 10px 28px rgba(0, 0, 0, 0.55);
+  backdrop-filter: none;
+  overflow: hidden;
+}
+.regulation-stage:has(.ptable)::before { display: none; }
+
+/* La scène porte la table : son titre (aide, fermeture) se pose sur le mur. */
+.blackjack-stage:has(.ptable),
+.augury-stage:has(.ptable),
+.scratch-stage:has(.ptable),
+.icarus-stage:has(.ptable) {
+  position: relative;
+}
+.regulation-stage:has(.ptable) .stage-title {
+  position: absolute;
+  top: 6px;
+  right: 8px;
+  z-index: 4;
+  margin: 0;
+  padding: 0.1rem 0.25rem;
+  background: rgba(12, 8, 10, 0.72);
+  border: 1px solid color-mix(in srgb, var(--gold), transparent 60%);
+}
+
+.ptable {
+  position: relative;
+  width: 100%;
+  overflow: hidden;
+  image-rendering: pixelated;
+}
+.ptable--bet { height: 300px; }
+.ptable--play { height: 472px; }
+.ptable-art {
+  position: absolute;
+  left: 0;
+  top: 0;
+  image-rendering: pixelated;
+  pointer-events: none;
+}
+.ptable-layer {
+  position: absolute;
+  inset: 0;
+}
+
+/* Ce qui s'affiche sur le mur, à gauche : les dernières mains, le coffre. */
+.ptable-hud {
+  position: absolute;
+  top: 6px;
+  left: 8px;
+  z-index: 3;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 0.25rem;
+}
+.ptable-hud .bj-history,
+.ptable-hud .scratch-history { justify-content: flex-start; margin: 0; }
+.ptable-hud .bj-chip,
+.ptable-hud .scratch-chip { background: rgba(12, 8, 10, 0.78); }
+.ptable-hud .coffre-select { margin: 0; padding: 0.15rem 0.3rem; background: rgba(12, 8, 10, 0.78); }
+
+/* ── LES MISES, POSÉES SUR LE TAPIS ─────────────────────────────────────────
+   Chaque mise sur son cercle : son emblème posé dessus, une plaque (nom, prix)
+   sous le cercle, et le bouton de jeu cousu sous la mise choisie. */
+.ptable-stake {
+  position: absolute;
+  z-index: 2;
+  transform: translateX(-50%);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  width: 11rem;
+}
+/* Le halo du cercle de la mise choisie (taille du cercle peint : 26 × 8 px d'art). */
+.ptable-stake::before {
+  content: '';
+  position: absolute;
+  top: 58px;
+  left: 50%;
+  width: calc(var(--pt-k, 4) * 28px);
+  height: calc(var(--pt-k, 4) * 10px);
+  transform: translate(-50%, -50%);
+  border-radius: 50%;
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity 0.15s;
+  box-shadow: 0 0 0 2px var(--gold-bright), 0 0 14px 2px color-mix(in srgb, var(--gold), transparent 30%);
+}
+.ptable-stake.is-chosen::before { opacity: 1; }
+.ptable-stake:hover:not(.is-chosen)::before { opacity: 0.45; }
+
+.ptable .ptable-pick {
+  all: unset;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  cursor: pointer;
+  position: relative;
+}
+.ptable .ptable-pick:focus-visible .ptable-plaque { outline: 2px solid var(--gold-bright); outline-offset: 2px; }
+/* La peau d'interface habille `.stake-pick` d'un cadre de bouton (chrome-wizard.css,
+   `::before` en border-image) : sur la table, la mise est POSÉE sur le tapis, sans
+   boîte autour — c'était tout le reproche fait aux trois cases sombres. */
+.app .ptable .ptable-pick::before,
+.app .ptable .ptable-pick::after { display: none; }
+.ptable-emblem {
+  width: 64px;
+  height: 64px;
+  image-rendering: pixelated;
+  filter: drop-shadow(0 3px 0 rgba(0, 0, 0, 0.45));
+  transition: transform 0.12s ease-out;
+}
+.ptable-pick:hover .ptable-emblem { transform: translateY(-3px); }
+.ptable-stake.is-chosen .ptable-emblem {
+  transform: translateY(-5px);
+  filter: drop-shadow(0 6px 0 rgba(0, 0, 0, 0.4)) drop-shadow(0 0 5px color-mix(in srgb, var(--gold-bright), transparent 30%));
+}
+.ptable-plaque {
+  margin-top: 6px;
+  padding: 0.18rem 0.6rem 0.2rem;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  background: rgba(12, 8, 10, 0.82);
+  border: 1px solid color-mix(in srgb, var(--gold), transparent 58%);
+  box-shadow: 0 2px 0 rgba(0, 0, 0, 0.45);
+  font-family: "Inter", "Baloo 2", system-ui, sans-serif;
+  white-space: nowrap;
+}
+.ptable-plaque strong {
+  font-size: 0.78rem;
+  color: var(--text-strong);
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+}
+.ptable-plaque .ptable-cost {
+  font-family: var(--font-number);
+  font-size: 0.74rem;
+  color: var(--gold-bright);
+}
+.ptable-plaque .ptable-info {
+  font-size: 0.66rem;
+  color: var(--muted);
+  white-space: normal;
+  text-align: center;
+  max-width: 10rem;
+}
+.ptable-stake.is-chosen .ptable-plaque { border-color: var(--gold); }
+.ptable-stake.is-broke { opacity: 0.5; }
+.ptable-stake .ptable-play {
+  margin-top: 0.4rem;
+  min-width: 8rem;
+  width: max-content;
+  white-space: nowrap;
+}
+
+/* ── LA MAIN EN COURS (vingt-et-un) : les cartes sur le tapis ───────────────
+   L'oracle (la croupière) devant elle, au fond ; le joueur près de son bord. Les
+   mains n'ont plus de drap à elles : c'est la table qui les porte. */
+/* (Sélecteur appuyé : le drap de l'âge de views-plaisirs.css vise .bj-table en 0,3,0.) */
+.plaisirs-stage[data-age] .ptable .bj-table,
+.ptable .bj-table {
+  position: absolute;
+  inset: 0;
+  display: block;
+  max-width: none;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  background: none;
+  box-shadow: none;
+}
+.ptable .bj-table .bj-side {
+  position: absolute;
+  left: 50%;
+  transform: translateX(-50%);
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  gap: 0.6rem;
+}
+.ptable .bj-table .bj-side + .bj-side { border-top: 0; padding-top: 0; }
+.ptable .bj-side-head {
+  flex-direction: column;
+  gap: 0;
+  padding: 0.15rem 0.45rem;
+  background: rgba(12, 8, 10, 0.8);
+  border: 1px solid color-mix(in srgb, var(--gold), transparent 58%);
+  min-width: 3.4rem;
+  align-items: center;
+}
+.ptable .bj-hand { min-height: 96px; flex-wrap: nowrap; }
+.ptable .bj-deck {
+  top: auto;
+  transform: none;
+}
+/* Ce qui se dit sur la table : des plaques à droite du tapis. */
+.ptable-say {
+  position: absolute;
+  right: 2.5%;
+  z-index: 3;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 0.3rem;
+  max-width: 30%;
+}
+.ptable-say > p {
+  margin: 0;
+  padding: 0.18rem 0.6rem;
+  background: rgba(12, 8, 10, 0.84);
+  border: 1px solid color-mix(in srgb, var(--gold), transparent 58%);
+  box-shadow: 0 2px 0 rgba(0, 0, 0, 0.45);
+  text-align: right;
+}
+/* Les boutons de la partie, sur le sol de la salle, sous la table. */
+.ptable-actions {
+  position: absolute;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 3;
+  width: max-content;
+  max-width: 96%;
+}
+.ptable-actions .choice-menu { margin: 0; padding: 0; flex-wrap: wrap; justify-content: center; gap: 0.35rem; }
+.ptable-actions .choice-menu button { white-space: nowrap; }
+.ptable-say .scratch-result { font-size: 0.92rem; }
+
+/* Au doigt (panneau plein écran, demi-hauteur) : la table se tasse, les mises aussi. */
+@media (max-width: 760px) {
+  .ptable--bet { height: 270px; }
+  .ptable--play { height: 470px; }
+  .ptable-stake { width: 7.5rem; }
+  .ptable-emblem { width: 48px; height: 48px; }
+  .ptable-stake::before { top: 44px; }
+  .ptable-plaque strong { font-size: 0.68rem; }
+  .ptable .bj-side-head { min-width: 2.6rem; }
+}
+
+/* ── LES OSSELETS : les rites sur le tapis, le jet au milieu ─────────────── */
+.ptable--rites { height: 330px; }
+.ptable--rites .ptable-stake { width: 12.5rem; }
+.ptable--dice { height: 420px; }
+.ptable-throw {
+  position: absolute;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 2;
+}
+.ptable-throw .augury-dice { margin: 0; }
+.ptable-hud .augury-odds { justify-content: flex-start; margin: 0; }
+.ptable-hud .augury-chip,
+.ptable-say .augury-chip { background: rgba(12, 8, 10, 0.82); }
+.ptable-say .augury-odds { justify-content: flex-end; margin: 0; gap: 0.25rem; flex-wrap: wrap; }
+.ptable-say .augury-callout { font-size: 1rem; }
+@media (max-width: 760px) {
+  .ptable--rites { height: 320px; }
+  .ptable--rites .ptable-stake { width: 6.5rem; }
+  .ptable--dice { height: 420px; }
+}
+
+/* ── LES TICKETS : le ticket posé sur le comptoir, le verdict à droite ─────── */
+.ptable--ticket { height: 440px; }
+.ptable-ticket {
+  position: absolute;
+  left: 4%;
+  z-index: 2;
+  /* Le ticket prend 100 % de son parent (plafonné à 320) : un parent positionné sans
+     largeur le réduisait à rien. */
+  width: min(320px, 44%);
+}
+.ptable-ticket .scratch-ticket { margin: 0; box-shadow: 0 6px 0 rgba(0, 0, 0, 0.45), 0 0 0 2px rgba(0, 0, 0, 0.5); }
+.ptable-side {
+  position: absolute;
+  right: 3%;
+  z-index: 3;
+  width: min(46%, 26rem);
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 0.45rem;
+}
+.ptable-side > p {
+  margin: 0;
+  padding: 0.25rem 0.6rem;
+  background: rgba(12, 8, 10, 0.84);
+  border: 1px solid color-mix(in srgb, var(--gold), transparent 58%);
+  box-shadow: 0 2px 0 rgba(0, 0, 0, 0.45);
+  text-align: center;
+}
+.ptable-side .choice-menu { flex-direction: column; align-items: stretch; margin: 0; padding: 0; }
+@media (max-width: 760px) {
+  .ptable--ticket { height: 620px; }
+  .ptable-ticket { left: 50%; transform: translateX(-50%); }
+  .ptable-side { right: auto; left: 50%; transform: translateX(-50%); width: 92%; top: auto !important; bottom: 8px; }
+}
+
+/* Au doigt, trois ou quatre plaques côte à côte sur 375 px : le nom et le prix
+   seulement (le détail des gains reste dans l'infobulle de la mise). */
+@media (max-width: 760px) {
+  .ptable-plaque { padding: 0.12rem 0.3rem; white-space: normal; max-width: 100%; }
+  .ptable-plaque strong { font-size: 0.6rem; text-align: center; letter-spacing: 0.02em; }
+  .ptable-plaque .ptable-info { display: none; }
+  .ptable-stake, .ptable--rites .ptable-stake { width: 5.6rem; }
+}
+
+/* L'aide « ? » reprend ce que les plaques ne disent plus (retour Raph 2026-10-03 :
+   « enlever toutes les explications, ce sera dans l'aide ») : une ligne par mise. */
+.stage-help-pop .stage-help-list { margin: 0 0 0.4rem; padding: 0 0 0 0.9rem; }
+.stage-help-pop .stage-help-list li { margin: 0 0 0.12rem; }
+.stage-help-pop .stage-help-list b { color: var(--text); font-weight: 600; }
+
+/* « QUITTER LA TABLE » A SA CASE, comme ses voisins (retour de Raph du 2026-10-03 :
+   « la case s'efface »). Le rôle sans plaque de chrome-wizard (`.btn-close`) vaut pour
+   les croix et les poignées ; dans la rangée d'actions d'une table, un bouton sans case
+   à côté de deux boutons qui en ont une se lit comme un défaut. */
+.app .plaisirs-stage .regulation-stage .btn-close::before,
+.app .plaisirs-stage .regulation-stage .btn-close:hover:not(:disabled)::before {
+  border-width: 6px;
+  border-image: url("/pixelart/ui/chrome/wizard/button.png") 3 3 6 3 fill stretch;
+}
+
+/* Les actions d'une table sont des BOUTONS, pas les grands choix d'une boîte de
+   dialogue : `.choice-menu button` (4,2 rem de haut) les étirait à 67 px chacun, et
+   la colonne des tickets débordait sous la table. Hauteur d'un bouton ordinaire. */
+.plaisirs-stage .ptable .choice-menu button {
+  min-height: 2.5rem;
+}

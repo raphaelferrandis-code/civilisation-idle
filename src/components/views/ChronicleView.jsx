@@ -475,6 +475,14 @@ const GAME_DEFS = [
       tr({ fr: `${fmtCount(g.naturals)} naturels`, en: `${fmtCount(g.naturals)} naturals` }),
       tr({ fr: `série max ${fmtCount(g.bestStreak)}`, en: `best streak ${fmtCount(g.bestStreak)}` })
     ]
+  },
+  {
+    key: "slots", emoji: "🎰", name: { fr: "Machine à sous", en: "Slot machine" },
+    hl: (g) => [
+      tr({ fr: `${fmtCount(g.freeSpins)} séries de tours gratuits`, en: `${fmtCount(g.freeSpins)} free-spin series` }),
+      tr({ fr: `${fmtCount(g.wheels)} roues`, en: `${fmtCount(g.wheels)} wheels` }),
+      tr({ fr: `${fmtCount(g.jackpots)} jackpots`, en: `${fmtCount(g.jackpots)} jackpots` })
+    ]
   }
 ];
 

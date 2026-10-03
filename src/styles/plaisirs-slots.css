@@ -1,0 +1,149 @@
+/* ════════════════════════════════════════════════════════════════════════════
+   LA MACHINE À SOUS (ui/SlotsStage.jsx, 2026-10-03)
+
+   La scène est une table comme les autres (`.ptable` : le cadre fin, le titre posé
+   sur le mur) ; la machine, ses rouleaux et sa roue sont PEINTS (plaisirsSlotsArt.js).
+   La peau de l'interface ne change pas avec l'âge : seule la machine suit l'époque.
+   Pas une phrase : des valeurs, les règles sont dans l'aide « ? ».
+   ════════════════════════════════════════════════════════════════════════════ */
+
+.slots-stage:has(.ptable) { position: relative; }
+.slots-ptable { width: 100%; }
+
+/* Le levier : une zone qu'on tire, sans plaque (le levier est peint). */
+.app .slots-ptable .slots-lever {
+  position: absolute;
+  min-height: 0;
+  padding: 0;
+  background: transparent;
+  border: 0;
+  cursor: grab;
+}
+.app .slots-ptable .slots-lever::before { display: none; }
+.app .slots-ptable .slots-lever:disabled { cursor: default; }
+.app .slots-ptable .slots-lever:focus-visible { outline: 2px solid var(--gold-bright); outline-offset: 2px; }
+
+/* Le compteur, sur le mur à droite de la machine : du TEXTE sur le décor. */
+.slots-hud {
+  position: absolute;
+  top: 34%;
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+  z-index: 3;
+  font-family: var(--font-number);
+  color: var(--gold-bright, #f3d58a);
+  text-shadow: 1px 1px 0 #000, 0 0 5px rgba(0, 0, 0, 0.9);
+  pointer-events: none;
+}
+.slots-series { font-size: 0.9rem; }
+.slots-win { font-size: 1.35rem; }
+
+.slots-history { display: flex; gap: 2px; }
+.slots-chip {
+  display: inline-grid;
+  place-items: center;
+  width: 1.1rem;
+  height: 1.1rem;
+  font-size: 0.7rem;
+  color: var(--muted);
+  background: rgba(12, 8, 10, 0.78);
+}
+.slots-chip.is-gain { color: #9be37a; }
+.slots-chip.is-tours { color: #ffe066; }
+.slots-chip.is-roue { color: #ff8ad0; }
+
+.slots-free {
+  position: absolute;
+  bottom: 12px;
+  transform: translateX(-50%);
+  z-index: 3;
+}
+.slots-free button { white-space: nowrap; }
+
+/* La ROUE, par-dessus la machine ; le pointeur en haut. */
+.slots-wheel {
+  position: absolute;
+  z-index: 5;
+  transform: translateX(-50%);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+.slots-wheel-art {
+  image-rendering: pixelated;
+  filter: drop-shadow(0 6px 10px rgba(0, 0, 0, 0.6));
+}
+.slots-wheel-pointer {
+  position: absolute;
+  display: block;
+  z-index: 1;
+  top: -4px;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 0;
+  height: 0;
+  border-left: 10px solid transparent;
+  border-right: 10px solid transparent;
+  border-top: 18px solid var(--gold-bright, #f3d58a);
+  filter: drop-shadow(0 2px 0 #000);
+}
+.slots-wheel-go {
+  position: absolute;
+  bottom: -2.8rem;
+  white-space: nowrap;
+}
+
+/* Les coffres (le mini-jeu) : trois coffres sur la roue, on en ouvre un. */
+.slots-chests {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  display: flex;
+  gap: 0.6rem;
+}
+.app .slots-wheel .slots-chest {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  min-height: 0;
+  padding: 0.2rem;
+  background: rgba(12, 8, 10, 0.82);
+  border: 0;
+}
+.app .slots-wheel button.slots-chest::before { display: none; }
+.app .slots-wheel button.slots-chest:hover { filter: brightness(1.25); }
+.slots-chest img { image-rendering: pixelated; }
+.slots-chests.is-open { position: static; transform: none; margin-bottom: 0.3rem; }
+.slots-chests.is-open .slots-chest { opacity: 0.55; }
+.slots-chests.is-open .slots-chest.is-picked { opacity: 1; }
+.slots-chest b { font-family: var(--font-number); color: var(--gold-bright, #f3d58a); }
+
+.slots-wheel-result {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.45rem;
+  padding: 0.5rem 0.8rem;
+  background: rgba(12, 8, 10, 0.86);
+  border: 1px solid color-mix(in srgb, var(--gold), transparent 50%);
+  white-space: nowrap;
+}
+.slots-wheel-result strong {
+  font-family: var(--font-number);
+  font-size: 1.15rem;
+  color: var(--gold-bright, #f3d58a);
+}
+.slots-wheel-result strong.is-jackpot { font-size: 1.5rem; color: #ffe066; }
+
+/* L'aide : la table des gains, en symboles. */
+.slots-paytable { display: flex; flex-wrap: wrap; gap: 0.25rem 0.8rem; margin: 0 0 0.45rem; }
+.slots-pay { display: inline-flex; align-items: center; gap: 0.2rem; white-space: nowrap; }
+.slots-pay img { image-rendering: pixelated; width: 16px; height: 16px; }
+.slots-pay b { color: var(--text); font-weight: 600; }

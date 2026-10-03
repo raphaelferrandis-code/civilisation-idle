@@ -16,6 +16,8 @@ import { FaveurIcon, PotIcon } from './FaveurIcon.jsx';
 import { tipProps } from './HelpBubble.jsx';
 import CoffreSelect from './CoffreSelect.jsx';
 import StageHelp from './StageHelp.jsx';
+import { usePlaisirsBand, ticketFace, TICKET_GRID } from './plaisirsMaterial.js';
+import PlaisirsTable, { TableStake } from '../views/plaisirs/PlaisirsTable.jsx';
 
 // Flamme votive du vernis (dessinée AU CANVAS — un <img> n'y entre pas).
 // Préchargée au module, gardée nulle hors navigateur (tests node).
@@ -172,6 +174,8 @@ function paintFoilTalent(ctx, w, h) {
 const FOILS = { obole: paintFoilObole, drachme: paintFoilDrachme, talent: paintFoilTalent };
 
 export default function ScratchStage({ table, onClose }) {
+  // L'âge de la Maison : la face du ticket suit sa matière.
+  const band = usePlaisirsBand();
   const [phase, setPhase] = useState('buy');
   // Aucun ticket choisi au départ (sketch Raph 2026-07-17 : « le bouton de jeu
   // n'apparaît que quand la mise est sélectionnée ») — le bouton Acheter reste
@@ -332,7 +336,12 @@ export default function ScratchStage({ table, onClose }) {
   const sunStakeLabel = (ICARUS_STAKES.find((s) => s.id === SCRATCH_SUN_FLIGHT[outcome?.stakeId]) || ICARUS_STAKES[0]).label;
 
   const ticket = (phase === 'scratch' || phase === 'done') && outcome && (
-    <div className={`scratch-ticket scratch-ticket--${outcome.stakeId}${revealed ? ' is-revealed' : ''}`}>
+    <div
+      className={`scratch-ticket scratch-ticket--${outcome.stakeId}${revealed ? ' is-revealed' : ''}`}
+      // La face du ticket, peinte à la matière de l'âge (plaisirsMaterial.js) : les
+      // planches `ui/scratch/ticket-*.png` n'ont jamais existé.
+      style={{ '--ticket-art': `url("${ticketFace(band, outcome.stakeId)}")`, '--ticket-dark': '0%', '--tgrid-pad': TICKET_GRID.pad, '--tgrid-gap': TICKET_GRID.gap }}
+    >
       <div className="scratch-grid" aria-hidden={phase === 'scratch' && !revealed ? 'true' : undefined}>
         {(outcome.grid || []).map((sym, i) => (
           <span
@@ -351,6 +360,17 @@ export default function ScratchStage({ table, onClose }) {
         drawFoil={drawFoil}
         disabled={revealed}
       />
+    </div>
+  );
+
+  // Les derniers tickets (sur le mur, en haut à gauche de la table).
+  const historyChips = history.length > 0 && (
+    <div className="scratch-history" aria-label={tr({ fr: 'Derniers tickets', en: 'Last tickets' })}>
+      {history.map((sym, i) => (
+        <span key={`${sym}-${i}`} className={`scratch-chip${sym === 'blank' ? ' is-blank' : ' is-win'}`}>
+          {sym === 'blank' ? '·' : <Sym name={sym} cls="scratch-sym-sm" />}
+        </span>
+      ))}
     </div>
   );
 
@@ -377,6 +397,12 @@ export default function ScratchStage({ table, onClose }) {
               en: 'Reveal 3 matching symbols under the varnish to win Favor. Three Venus grant a Feather, three Suns a flight at your ticket’s stake.'
             })}
           </p>
+          <p>
+            {tr({
+              fr: 'Un ticket perdant verse sa mise à la cagnotte de la Maison.',
+              en: 'A losing ticket pays its stake into the House pot.'
+            })}
+          </p>
           <div className="scratch-legend" aria-label={tr({ fr: 'Table des lots', en: 'Prize table' })}>
             {WIN_PRIZES.map((p) => (
               <span key={p.symbol} className="scratch-legend-item">
@@ -390,113 +416,109 @@ export default function ScratchStage({ table, onClose }) {
         <button type="button" className="stage-close" onClick={onClose} aria-label={tr({ fr: 'Quitter la table', en: 'Leave the table' })}>✕</button>
       </div>
 
-      {history.length > 0 && (
-        <div className="scratch-history" aria-label={tr({ fr: 'Derniers tickets', en: 'Last tickets' })}>
-          {history.map((sym, i) => (
-            <span key={`${sym}-${i}`} className={`scratch-chip${sym === 'blank' ? ' is-blank' : ' is-win'}`}>
-              {sym === 'blank' ? '·' : <Sym name={sym} cls="scratch-sym-sm" />}
-            </span>
-          ))}
-        </div>
-      )}
-
+      {/* ⭐ LA TABLE DE L'ÂGE (2026-10-03, plaisirs/PlaisirsTable.jsx) : le guichetier
+          derrière son comptoir ; les tickets posés SUR le comptoir, celui qu'on gratte
+          devant soi. */}
       {phase === 'buy' && (
-        <>
-          <CoffreSelect value={effMult} onChange={setCoffreMult} />
-          <div className="scratch-stakes">
-            {stakes.map((s) => {
-              const cost = s.faveur * effMult;
-              const cantPay = (state.faveur || 0) < cost;
-              const chosen = chosenStake === s.id;
-              return (
-                // Le bouton d'achat n'apparaît QUE dans le ticket choisi, cousu au pied
-                // de SA colonne (retour Raph 2026-07-17 : « dans le cadre de la mise
-                // choisie »).
-                <div
-                  key={s.id}
-                  className={`scratch-stake${chosen ? ' is-chosen' : ''}${cantPay ? ' is-broke' : ''}`}
-                >
-                  <button
-                    type="button"
-                    className="stake-pick"
-                    onClick={() => setChosenStake(s.id)}
-                    {...tipProps(tr(s.label), tr({ fr: `Ticket à ${cost} Faveur. Les lots sont des multiples de la mise.`, en: `${cost} Favor ticket. Prizes are multiples of the stake.` }))}
-                  >
-                    {STAKE_ART[s.id] && (
-                      <img className="stake-art" src={STAKE_ART[s.id]} alt="" aria-hidden="true" width={64} height={64} />
-                    )}
-                    <strong>{tr(s.label)}</strong>
-                    <span><FaveurIcon /> {fmt(cost)}</span>
-                  </button>
-                  {chosen && (
-                    <button type="button" className="scratch-buy stake-play" disabled={(state.faveur || 0) < chosenCost} onClick={() => onBuy()}>
-                      {tr({ fr: 'Acheter le ticket', en: 'Buy the ticket' })}
-                    </button>
-                  )}
-                </div>
-              );
-            })}
-          </div>
-        </>
-      )}
-
-      {phase === 'scratch' && (
-        <>
-          {ticket}
-          <menu className="choice-menu scratch-actions">
-            <button type="button" className="scratch-reveal-all" onClick={reveal}>
-              {tr({ fr: 'Tout révéler', en: 'Reveal all' })}
-            </button>
-          </menu>
-        </>
-      )}
-
-      {phase === 'done' && outcome && (
-        <>
-          {ticket}
-          {/* Le Soleil n'ouvre plus la cagnotte, il ouvre le CIEL : il renvoie à Icare
-              avec un billet à la hauteur du ticket. La promesse doit être aussi forte
-              que l'ancienne, et elle est plus juste : un magot tiré au sort devient
-              17 secondes de nerf à tenir soi-même. */}
-          {outcome.sunFlight ? (
-            <p className="scratch-jackpot-banner">☀ {tr({ fr: 'LE SOLEIL T’OUVRE LE CIEL', en: 'THE SUN OPENS THE SKY' })} : {tr({ fr: `vol d’Icare offert, mise « ${tr(sunStakeLabel)} »`, en: `free Icarus flight, ${tr(sunStakeLabel)} stake` })}</p>
-          ) : null}
-          {outcome.win ? (
-            <p className="scratch-result scratch-result--win">
-              +{fmt(totalFaveur)} {tr({ fr: 'faveur', en: 'favor' })}
-              {outcome.freeFlight && <span className="scratch-result-sub"> · 🪽 {tr({ fr: "vol d'Icare offert", en: 'free Icarus flight' })}</span>}
-            </p>
-          ) : (
-            <p className="scratch-result scratch-result--lose">
-              {tr({ fr: 'Vernis nu. La mise va à la cagnotte de la Maison.', en: 'Bare varnish. The stake goes to the House pot.' })}
-            </p>
+        <PlaisirsTable game="tickets" className="ptable--bet" tablePx={250} dealer={0} variant={1}>
+          {(L) => (
+            <>
+              <div className="ptable-hud">
+                {historyChips}
+                <CoffreSelect value={effMult} onChange={setCoffreMult} />
+              </div>
+              {stakes.map((s, i) => {
+                const cost = s.faveur * effMult;
+                const cantPay = (state.faveur || 0) < cost;
+                return (
+                  // Le bouton d'achat n'apparaît QUE sous le ticket choisi (retour Raph
+                  // 2026-07-17 : « dans le cadre de la mise choisie »).
+                  <TableStake
+                    key={s.id}
+                    x={L.spots[i % L.spots.length]}
+                    y={L.spotY}
+                    art={STAKE_ART[s.id]}
+                    label={tr(s.label)}
+                    cost={<><FaveurIcon /> {fmt(cost)}</>}
+                    chosen={chosenStake === s.id}
+                    broke={cantPay}
+                    onPick={() => setChosenStake(s.id)}
+                    tip={tipProps(tr(s.label), tr({ fr: `Ticket à ${cost} Faveur. Les lots sont des multiples de la mise.`, en: `${cost} Favor ticket. Prizes are multiples of the stake.` }))}
+                    play
+                    playLabel={tr({ fr: 'Acheter le ticket', en: 'Buy the ticket' })}
+                    playDisabled={(state.faveur || 0) < chosenCost}
+                    onPlay={() => onBuy()}
+                  />
+                );
+              })}
+            </>
           )}
-          <menu className="choice-menu scratch-actions">
-            {canReplay && (
-              <button
-                type="button"
-                className="scratch-replay"
-                {...tipProps(null, tr({ fr: 'L’offrande recopiée : le trésor de la Maison paie la mise du même ticket, une fois. Il doit la couvrir en entier.', en: 'The copied offering: the House hoard pays the same ticket’s stake, once. It must cover it in full.' }))}
-                onClick={onReplay}
-              >
-                {tr({ fr: `La cella rejoue le ticket (${fmt(outcome.stakeFaveur)})`, en: `The cella replays the ticket (${fmt(outcome.stakeFaveur)})` })}
-              </button>
-            )}
-            {/* Rejeu DIRECT (phase 7) : la mise est mémorisée, on rachète sans détour. */}
-            <button
-              type="button"
-              className="scratch-buy"
-              disabled={!chosen || (state.faveur || 0) < chosenCost}
-              onClick={() => { outcomeRef.current = null; onBuy(); }}
-            >
-              {tr({ fr: `Reprendre un ticket (${fmt(chosenCost)})`, en: `Take another ticket (${fmt(chosenCost)})` })}
-            </button>
-            <button type="button" onClick={onNewTicket}>
-              {tr({ fr: 'Changer de mise', en: 'Change stake' })}
-            </button>
-            <button type="button" className="btn-close" onClick={onClose}>{tr({ fr: 'Quitter la table', en: 'Leave the table' })}</button>
-          </menu>
-        </>
+        </PlaisirsTable>
+      )}
+
+      {(phase === 'scratch' || (phase === 'done' && outcome)) && (
+        <PlaisirsTable game="tickets" className="ptable--ticket" tablePx={300} marks={false} dealer={0} variant={1}>
+          {(L) => (
+            <>
+              <div className="ptable-hud">{historyChips}</div>
+              {/* Le ticket, posé sur le comptoir devant soi. */}
+              <div className="ptable-ticket" style={{ top: Math.max(8, L.top - 70) }}>{ticket}</div>
+              <div className="ptable-side" style={{ top: L.top + 4 }}>
+                {phase === 'scratch' && (
+                  <menu className="choice-menu scratch-actions">
+                    <button type="button" className="scratch-reveal-all" onClick={reveal}>
+                      {tr({ fr: 'Tout révéler', en: 'Reveal all' })}
+                    </button>
+                  </menu>
+                )}
+                {phase === 'done' && outcome && (
+                  <>
+                    {/* Le Soleil n'ouvre plus la cagnotte, il ouvre le CIEL : il renvoie à
+                        Icare avec un billet à la hauteur du ticket. */}
+                    {outcome.sunFlight ? (
+                      <p className="scratch-jackpot-banner">☀ {tr({ fr: `Vol d’Icare offert (${tr(sunStakeLabel)})`, en: `Free Icarus flight (${tr(sunStakeLabel)})` })}</p>
+                    ) : null}
+                    {outcome.win ? (
+                      <p className="scratch-result scratch-result--win">
+                        +{fmt(totalFaveur)} {tr({ fr: 'faveur', en: 'favor' })}
+                        {outcome.freeFlight && <span className="scratch-result-sub"> · 🪽 {tr({ fr: "vol d'Icare offert", en: 'free Icarus flight' })}</span>}
+                      </p>
+                    ) : (
+                      <p className="scratch-result scratch-result--lose">
+                        {tr({ fr: `Perdu : −${fmt(outcome.stakeFaveur)} faveur`, en: `Lost: −${fmt(outcome.stakeFaveur)} favor` })}
+                      </p>
+                    )}
+                    <menu className="choice-menu scratch-actions">
+                      {canReplay && (
+                        <button
+                          type="button"
+                          className="scratch-replay"
+                          {...tipProps(null, tr({ fr: 'L’offrande recopiée : le trésor de la Maison paie la mise du même ticket, une fois. Il doit la couvrir en entier.', en: 'The copied offering: the House hoard pays the same ticket’s stake, once. It must cover it in full.' }))}
+                          onClick={onReplay}
+                        >
+                          {tr({ fr: `Rejeu offert (${fmt(outcome.stakeFaveur)})`, en: `Free replay (${fmt(outcome.stakeFaveur)})` })}
+                        </button>
+                      )}
+                      {/* Rejeu DIRECT (phase 7) : la mise est mémorisée, on rachète sans détour. */}
+                      <button
+                        type="button"
+                        className="scratch-buy"
+                        disabled={!chosen || (state.faveur || 0) < chosenCost}
+                        onClick={() => { outcomeRef.current = null; onBuy(); }}
+                      >
+                        {tr({ fr: `Reprendre un ticket (${fmt(chosenCost)})`, en: `Take another ticket (${fmt(chosenCost)})` })}
+                      </button>
+                      <button type="button" onClick={onNewTicket}>
+                        {tr({ fr: 'Changer de mise', en: 'Change stake' })}
+                      </button>
+                      <button type="button" className="btn-close" onClick={onClose}>{tr({ fr: 'Quitter la table', en: 'Leave the table' })}</button>
+                    </menu>
+                  </>
+                )}
+              </div>
+            </>
+          )}
+        </PlaisirsTable>
       )}
     </div>
   );

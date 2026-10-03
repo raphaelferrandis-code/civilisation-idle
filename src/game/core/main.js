@@ -17,6 +17,7 @@ import {
   hydrateState
 } from './state.js';
 import { cloudMirrorSave } from './cloudSave.js';
+import { MUSIQUES, musiqueParId } from '../audio/musiques.js';
 
 import {
   has,
@@ -651,6 +652,44 @@ let optMusic = true;
 let optMusicActiveTabOnly = true;
 let optMusicVolume = 1;
 let musicRetryArmed = false;
+// Le MORCEAU choisi (nom de son fichier, cf. audio/musiques.js) : null = le premier.
+let optMusicTrack = null;
+// Deux facteurs sur le volume réglé : le FONDU d'un changement de morceau et
+// l'EFFACEMENT pendant la mélodie de la scène. Chacun glisse vers sa cible.
+const musicGain = { fondu: 1, efface: 1 };
+const musicRamps = { fondu: null, efface: null };
+let musicDuckTimer = null;
+
+function applyMusicVolume() {
+  if (bgAudio) bgAudio.volume = clamp(optMusicVolume * musicGain.fondu * musicGain.efface, 0, 1);
+}
+
+function rampMusic(key, to, ms, done) {
+  clearInterval(musicRamps[key]);
+  musicRamps[key] = null;
+  const from = musicGain[key];
+  if (!(ms > 0) || from === to) {
+    musicGain[key] = to;
+    applyMusicVolume();
+    if (done) done();
+    return;
+  }
+  const t0 = Date.now();
+  musicRamps[key] = setInterval(() => {
+    const k = Math.min(1, (Date.now() - t0) / ms);
+    musicGain[key] = from + (to - from) * k;
+    applyMusicVolume();
+    if (k >= 1) {
+      clearInterval(musicRamps[key]);
+      musicRamps[key] = null;
+      if (done) done();
+    }
+  }, 30);
+}
+
+function currentTrack() {
+  return musiqueParId(optMusicTrack) || MUSIQUES[0] || null;
+}
 
 function retryMusicStart() {
   musicRetryArmed = false;
@@ -704,9 +743,57 @@ export function getMusicActiveTabOnly() {
   return optMusicActiveTabOnly;
 }
 
+// Les morceaux : tout fichier du dossier `src/assets/musiques/` (audio/musiques.js).
+export function getMusicTracks() {
+  return MUSIQUES;
+}
+
+export function getMusicTrack() {
+  const t = currentTrack();
+  return t ? t.id : null;
+}
+
+// Change de morceau : fondu de sortie, nouveau fichier, fondu d'entrée. Le choix est
+// retenu comme les autres réglages de la musique.
+export function setMusicTrack(id) {
+  const t = musiqueParId(id);
+  if (!t) return;
+  optMusicTrack = t.id;
+  try {
+    localStorage.setItem("civ-opt-music-track", t.id);
+  } catch { /* Option persistence may be unavailable. */ }
+  notify();
+  if (!bgAudio || bgAudio.dataset.track === t.id) return;
+  const swap = () => {
+    bgAudio.src = t.url;
+    bgAudio.dataset.track = t.id;
+    bgAudio.currentTime = 0;
+    musicGain.fondu = 0;
+    applyMusicVolume();
+    if (shouldPlayMusic()) playMusic();
+    rampMusic("fondu", 1, 700);
+  };
+  if (bgAudio.paused) swap();
+  else rampMusic("fondu", 0, 450, swap);
+}
+
+export function stepMusicTrack(dir) {
+  const n = MUSIQUES.length;
+  if (n < 2) return;
+  const i = Math.max(0, MUSIQUES.findIndex((m) => m.id === getMusicTrack()));
+  setMusicTrack(MUSIQUES[(i + (dir < 0 ? n - 1 : 1)) % n].id);
+}
+
+// La musique s'efface sous la mélodie de la scène, puis revient (audio/melodieScene.js).
+export function duckMusic(ms) {
+  rampMusic("efface", 0.2, 250);
+  clearTimeout(musicDuckTimer);
+  musicDuckTimer = setTimeout(() => rampMusic("efface", 1, 1200), Math.max(0, ms));
+}
+
 export function setMusicVolume(vol) {
   optMusicVolume = clamp(vol, 0, 1);
-  if (bgAudio) bgAudio.volume = optMusicVolume;
+  applyMusicVolume();
   try {
     localStorage.setItem("civ-opt-music-volume", String(optMusicVolume));
   } catch { /* Option persistence may be unavailable. */ }
@@ -755,14 +842,19 @@ export function initAudio() {
     
     const savedVol = localStorage.getItem("civ-opt-music-volume");
     if (savedVol !== null) optMusicVolume = clamp(Number(savedVol), 0, 1);
+
+    optMusicTrack = localStorage.getItem("civ-opt-music-track");
   } catch { /* Option persistence may be unavailable. */ }
 
-  // Chemin relatif au document : indispensable pour l'exe Electron (file://),
-  // où un chemin absolu "/audio/…" pointe hors du dossier dist.
-  bgAudio = new Audio(`${import.meta.env.BASE_URL}audio/ludum-dare-30-05.ogg`);
+  // Le morceau vient du dossier des musiques (audio/musiques.js) : Vite en donne
+  // l'adresse RELATIVE au document (base './'), ce qu'exige l'exe Electron.
+  const track = currentTrack();
+  if (!track) return;
+  bgAudio = new Audio(track.url);
+  bgAudio.dataset.track = track.id;
   bgAudio.loop = true;
   bgAudio.preload = "auto";
-  bgAudio.volume = optMusicVolume;
+  applyMusicVolume();
 
   document.addEventListener("visibilitychange", syncMusicVisibility);
   

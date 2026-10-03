@@ -207,6 +207,69 @@ export function cardBackFor(band) {
   });
 }
 
+// ── Le ticket à gratter ──────────────────────────────────────────────────────
+// (2026-10-03) Les faces de ticket prévues (`ui/scratch/ticket-*.png`) n'ont jamais
+// existé : le ticket n'était que neuf symboles posés sur le tapis. Il est peint ici, à
+// la matière de l'âge, 80 × 80 (affiché ×4) : un tesson d'argile au campement, une
+// planchette au village, un billet de parchemin scellé, une tessère de bronze à Rome,
+// le billet imprimé du Fonte, la carte vernie du casino, la carte de cristal. Le métal
+// du liseré dit la mise (bronze, argent, or). Neuf alvéoles calées sur la grille de la
+// scène : marge 10 px, écart 3 px (`TICKET_GRID`).
+export const TICKET_GRID = { pad: '12.5%', gap: '3.75%' };
+const METALS = { obole: ['#e8a868', '#b8743a', '#7a4a22'], drachme: ['#f0f2f6', '#b8bec8', '#7a808c'], talent: ['#fff0b0', '#e8c050', '#9a7424'] };
+const TICKET_LOOK = [
+  { kind: 'shard', paper: ['#d8946a', '#c47e52', '#a8653e'], ink: '#5a2a18', cell: ['#b06a42', '#8a4e2e'] },   // le tesson
+  { kind: 'board', paper: ['#d8a868', '#c08c4c', '#9a6a36'], ink: '#4a3016', cell: ['#a87840', '#6e4a22'] },   // la planchette
+  { kind: 'parch', paper: ['#f4e8c8', '#e6d4a8', '#cdb682'], ink: '#6a4a2a', cell: ['#e0cc9c', '#a88a5a'], seal: '#a83430' },
+  { kind: 'parch', paper: ['#f4e8c8', '#e6d4a8', '#cdb682'], ink: '#3a2a6a', cell: ['#e0cc9c', '#a88a5a'], seal: '#2a4a98', gilt: true },
+  { kind: 'plate', paper: ['#d8b070', '#b88a48', '#8a6230'], ink: '#4a3014', cell: ['#9a7036', '#6a4a20'] },   // la tessère
+  { kind: 'print', paper: ['#fbf4e2', '#efe2c4', '#d8c49a'], ink: '#a2303e', cell: ['#f4ead2', '#c8a878'] },   // le billet imprimé
+  { kind: 'glossy', paper: ['#3a1a3a', '#2a1230', '#1c0c22'], ink: '#ff6fb5', cell: ['#4a2448', '#ff6fb5'] }, // la carte du casino
+  { kind: 'crystal', paper: ['#e6fff2', '#b8f0d4', '#8fd8b6'], ink: '#2ec88a', cell: ['#d4fbe8', '#5ad8a0'] },
+  { kind: 'crystal', paper: ['#fff8e0', '#ffe9b0', '#e8cc88'], ink: '#c89a30', cell: ['#fff2cc', '#e0b040'] },
+  { kind: 'crystal', paper: ['#f8f0ff', '#e2d0ff', '#c8b0f0'], ink: '#9a6ae0', cell: ['#f0e6ff', '#b48ae8'] },
+];
+export function ticketFace(band, stakeId) {
+  const b = Math.max(0, Math.min(9, band | 0)), T = TICKET_LOOK[b], M = METALS[stakeId] || METALS.drachme;
+  return sheet('ticket:' + b + ':' + stakeId, 80, 80, (px) => {
+    const round = T.kind === 'shard' ? 7 : T.kind === 'crystal' || T.kind === 'glossy' ? 4 : 1;
+    const inside = (x, y) => {
+      if (T.kind === 'shard') {                          // le tesson : des bords cassés
+        const e = Math.min(x, y, 79 - x, 79 - y), n = (Math.sin(x * 0.7) + Math.cos(y * 0.9)) * 1.6 + ((x * 7 + y * 3) % 5) * 0.3;
+        return e > 1.5 + n;
+      }
+      const cx = Math.max(round - x, 0, x - (79 - round)), cy = Math.max(round - y, 0, y - (79 - round));
+      return cx * cx + cy * cy <= round * round;
+    };
+    for (let y = 0; y < 80; y += 1) for (let x = 0; x < 80; x += 1) {
+      if (!inside(x, y)) continue;
+      const e = Math.min(x, y, 79 - x, 79 - y);
+      let c = (y < 26 ? T.paper[0] : y < 58 ? T.paper[1] : T.paper[2]);
+      if (T.kind === 'board' && (y * 5 + Math.round(Math.sin(x * 0.12) * 3)) % 7 === 0) c = T.paper[2];
+      if (T.kind === 'parch' && (x * 3 + y * 7) % 23 === 0) c = T.paper[2];
+      if (T.kind === 'plate' && (x + y) % 11 === 0) c = T.paper[0];
+      if (T.kind === 'crystal' && ((x - y + 80) % 29) < 3) c = '#ffffff';
+      if (T.kind === 'glossy' && (x * 13 + y * 7) % 53 === 0) c = '#fff2c8';
+      // Le liseré de la mise (bronze, argent, or), éclairé en haut à gauche.
+      if (e < 2) c = e === 0 ? (x < 40 && y < 40 ? M[1] : M[2]) : M[0];
+      if (T.gilt && e === 4 && (x + y) % 2 === 0) c = M[0];
+      if (T.kind === 'print' && (e === 4 || e === 6)) c = (x + y) % 4 < 2 ? T.ink : T.paper[0];
+      if (T.kind === 'glossy' && e === 3) c = T.ink;
+      px(x, y, c);
+    }
+    // Les neuf alvéoles (marge 10, écart 3, cases de 18).
+    for (let r = 0; r < 3; r += 1) for (let k = 0; k < 3; k += 1) {
+      const x0 = 10 + k * 21, y0 = 10 + r * 21;
+      px(x0, y0, T.cell[1], 18, 18);
+      px(x0 + 1, y0 + 1, T.cell[0], 16, 16);
+      px(x0 + 1, y0 + 1, T.kind === 'glossy' || T.kind === 'crystal' ? T.cell[1] : T.cell[1], 16, 1);
+    }
+    // Le sceau du billet de parchemin, le numéro du billet imprimé.
+    if (T.seal) { for (let j = -3; j <= 3; j += 1) for (let i = -3; i <= 3; i += 1) if (i * i + j * j <= 10) px(66 + i, 72 + j, j < 0 && i < 0 ? '#e86a5a' : T.seal); }
+    if (T.kind === 'print') for (let i = 0; i < 5; i += 1) px(30 + i * 4, 4, T.ink, 2, 3);
+  });
+}
+
 // ── Le ciel d'Icare ──────────────────────────────────────────────────────────
 // Bandes franches (le vrai grain pixel, cf. icarus-crash-game) du sol vers le haut.
 const SKIES = {

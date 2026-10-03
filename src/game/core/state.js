@@ -6,7 +6,7 @@ import { eras, CRISIS_EVENTS } from '../data/world.js';
 import { eraBandOf } from '../data/eraThemes.js';
 import { clamp01 } from './utils.js';
 import { Decimal, D } from './num.js';
-import { COLLAPSE_PREP_MAX, POLICY_MAX_ACTIVE, REGUL_LEDGER_MAX, GAMBLE_HISTORY_LEN, STEWARD_MAX_CLAUSES, STEWARD_THRESHOLDS, ICARUS_POT_CAP_FAVEUR, ICARUS_HISTORY_COLOMBIER, FLIGHTS_MAX_COLOMBIER, ICARUS_STAKES, SCRATCH_HISTORY_LEN, BLACKJACK_HISTORY_LEN, DICE_BOOST_MAX_LEVEL, WING_MAX_LEVEL, STYLET_MAX_LEVEL, GRAVEUR_MAX_LEVEL, COFFRE_MAX_LEVEL, AUTO_COLLAPSE_MIN_SECONDS, AUTO_ICARUS_TARGET_MIN, AUTO_ICARUS_TARGET_MAX, AUTO_TEMPLE_FAVEUR_FLOOR_DEFAULT, AUTO_TEMPLE_FAVEUR_FLOOR_MAX, TRUNK_CAP, TEMPLE_ARTIFACT_IDS, BOON_INTERVAL_MAX_SEC, CLEPSYDRE_HARD_MAX_SECONDS, MAX_BATCH_AMOUNT, grandResetProductionMult, grandResetRuinGainMult } from './balance.js';
+import { COLLAPSE_PREP_MAX, POLICY_MAX_ACTIVE, REGUL_LEDGER_MAX, GAMBLE_HISTORY_LEN, STEWARD_MAX_CLAUSES, STEWARD_THRESHOLDS, ICARUS_POT_CAP_FAVEUR, ICARUS_HISTORY_COLOMBIER, FLIGHTS_MAX_COLOMBIER, ICARUS_STAKES, SCRATCH_HISTORY_LEN, BLACKJACK_HISTORY_LEN, SLOTS_HISTORY_LEN, SLOTS_STAKES, DICE_BOOST_MAX_LEVEL, WING_MAX_LEVEL, STYLET_MAX_LEVEL, GRAVEUR_MAX_LEVEL, COFFRE_MAX_LEVEL, AUTO_COLLAPSE_MIN_SECONDS, AUTO_ICARUS_TARGET_MIN, AUTO_ICARUS_TARGET_MAX, AUTO_TEMPLE_FAVEUR_FLOOR_DEFAULT, AUTO_TEMPLE_FAVEUR_FLOOR_MAX, TRUNK_CAP, TEMPLE_ARTIFACT_IDS, BOON_INTERVAL_MAX_SEC, CLEPSYDRE_HARD_MAX_SECONDS, MAX_BATCH_AMOUNT, grandResetProductionMult, grandResetRuinGainMult } from './balance.js';
 import { resetAnnals } from './annals.js';
 import { normalizeUiReveal } from './uiReveal.js';
 import { normalizeOlympusState, defaultOlympusState } from '../data/olympus.js';
@@ -133,7 +133,9 @@ const CHRONICLE_GAME_EXTRAS = {
   osselets:  { venus: 0, dog: 0 },
   icarus:    { bestMult: 0, jackpots: 0, biggestJackpot: 0, crashes: 0 },
   scratch:   { venus: 0, soleil: 0 },
-  blackjack: { naturals: 0, bestStreak: 0 }
+  blackjack: { naturals: 0, bestStreak: 0 },
+  // La machine à sous (2026-10-03) : séries de tours gratuits, roues, jackpots.
+  slots:     { freeSpins: 0, wheels: 0, jackpots: 0, biggestJackpot: 0 }
 };
 
 export function defaultChronicleStats() {
@@ -154,6 +156,22 @@ export function defaultChronicleStats() {
     fastestEraGainSec: 0,   // 0 = jamais mesuré
     grTimings: {},          // { [gr]: { discovered:number|null, performed:number|null } }
     mythTimings: {}         // { [mythId]: { at, runSec, order, act } }
+  };
+}
+
+// Une série de tours gratuits de la machine à sous, ou null. Une mise inconnue (save
+// trafiquée, mise retirée) ou un compte nul la fait tomber.
+function normalizeSlotsFreeSpins(raw) {
+  if (!isPlainObject(raw)) return null;
+  const stake = SLOTS_STAKES.find((s) => s.id === raw.stakeId);
+  const left = finiteInteger(raw.left, 0, 0, 999);
+  if (!stake || left <= 0) return null;
+  return {
+    left,
+    stakeId: stake.id,
+    stakeFaveur: finiteNumber(raw.stakeFaveur, stake.faveur, 0),
+    won: finiteNumber(raw.won, 0, 0),
+    total: finiteInteger(raw.total, left, left, 9999)
   };
 }
 
@@ -567,6 +585,11 @@ export const defaultState = () => ({
   // (Clémence), il compte enfin les victoires. Reset au cycle avec l'historique ;
   // l'auto n'y touche jamais (la série se joue à la main).
   blackjackStreak: 0,
+  // La machine à sous — issues des derniers tours ('gain'|'perte'|'tours'|'roue'), et
+  // la série de TOURS GRATUITS en cours ({ left, stakeId, stakeFaveur, won, total } ou
+  // null) : elle survit à la fermeture de la machine, pas à l'effondrement.
+  slotsHistory: [],
+  slotsFreeSpins: null,
   // Boutique de Faveur — boosters ÉTERNELS : survivent aux effondrements ET au
   // Grand Reset (augments, cf. GR_PERSISTENT_FIELDS ; 2026-07-15). diceLevel =
   // dés pipés (odds osselets), wingLevel = ailes cirées (edge Icare abaissé),
@@ -1691,6 +1714,10 @@ export function hydrateState(parsed = {}) {
       ? source.blackjackHistory.filter((v) => typeof v === "string").slice(-BLACKJACK_HISTORY_LEN)
       : [],
     blackjackStreak: finiteInteger(source.blackjackStreak, 0, 0),
+    slotsHistory: Array.isArray(source.slotsHistory)
+      ? source.slotsHistory.filter((v) => typeof v === "string").slice(-SLOTS_HISTORY_LEN)
+      : [],
+    slotsFreeSpins: normalizeSlotsFreeSpins(source.slotsFreeSpins),
     // MIGRATION 2026-07-17 : entier → FILE d'ids de mise. Une save d'avant portait
     // un compteur de vols « Plume » implicites : N devient N plumes. Les ids sont
     // filtrés sur ICARUS_STAKES (une save trafiquée ne doit pas injecter une mise
@@ -1976,6 +2003,8 @@ export function resetTemporaryRunState(s) {
   s.scratchHistory = [];
   s.blackjackHistory = [];
   s.blackjackStreak = 0;
+  s.slotsHistory = [];
+  s.slotsFreeSpins = null;
   s.icarusFreeFlights = [];
   // Bénédiction = effet TEMPORAIRE de run : effacée à l'effondrement (les
   // boosters permanents dés/ailes, eux, SURVIVENT — comme la Faveur).

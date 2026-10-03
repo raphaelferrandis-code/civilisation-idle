@@ -80,6 +80,35 @@ export function recordScratch({ wagered = 0, won = 0, symbol = null } = {}) {
   else if (symbol === "soleil") g.soleil += 1;
 }
 
+// Machine à sous, à chaque tour (payé ou gratuit : `wagered` vaut 0 pour un tour
+// gratuit). `freeSpins` / `wheel` : le tour a déclenché une série ou la roue.
+export function recordSlots({ wagered = 0, won = 0, freeSpins = false, wheel = false } = {}) {
+  const g = bumpGame("slots", wagered, won);
+  if (!g) return;
+  if (freeSpins) g.freeSpins += 1;
+  if (wheel) g.wheels += 1;
+}
+
+// La roue de la machine encaissée : un GAIN de la même partie (pas une partie de plus).
+// `jackpot` : la part de cagnotte raflée par la case JACKPOT.
+export function recordSlotsBonus({ won = 0, jackpot = 0 } = {}) {
+  const s = reg();
+  const g = s && s.games.slots;
+  if (!g) return;
+  const w = pos(won);
+  if (w > 0) {
+    g.won += w;
+    if (w > g.biggest) g.biggest = w;
+    s.faveurEarned += w;
+  }
+  const jp = pos(jackpot);
+  if (jp > 0) {
+    g.jackpots += 1;
+    if (jp > g.biggestJackpot) g.biggestJackpot = jp;
+    if (jp > s.biggestPotRaked) s.biggestPotRaked = jp;
+  }
+}
+
 // Vingt-et-un, à la résolution d'une donne. `natural` = blackjack naturel servi ;
 // `streak` = la série de victoires courante (on garde le record).
 export function recordBlackjack({ wagered = 0, won = 0, natural = false, streak = 0 } = {}) {

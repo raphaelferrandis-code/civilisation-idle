@@ -23,6 +23,7 @@
 // Pilote : le FONTE (bande 5), validé ; puis les dix âges (styleHD).
 import { makeRaster } from './isoPixelPaint.js';
 import { plaisirsPlan, plaisirsProgramme } from './plaisirsPlan.js';
+import { slotRow } from './plaisirsSlotsCoupe.js';
 import {
   HD, LH, INK, bayer, mix, h32, painter, sym, piece, palOf, lightPool, FOOT, contactShadow, turnedLeg, BK, SD, FR,
 } from './plaisirsHDKit.js';
@@ -1183,6 +1184,8 @@ function furnish(ctx, id, x, y, w, x0r, x1r, y0, open, seed) {
       break;
     }
     case 'boudoir': boudoir(ctx, x, y, w, x0r, x1r, y0, seed); break;
+    // La salle des MACHINES à sous (2026-10-03) : la rangée de fonte et de laiton.
+    case 'machines': slotRow(ctx, { x, y, w, on, v }, 'fonte'); break;
     default: break;
   }
 }
@@ -2783,3 +2786,7 @@ export function bakeCoupeHD(K, open = {}) {
     hd: { spritePx: 1, haloR: 30, wheel: 36, floorH: LH, margin: 60, cabin: cab },
   };
 }
+
+// Le style d'un âge, ses matières et ses luminaires, pour la TABLE DE JEU en gros plan
+// (plaisirsTableBake.js) : la partie se joue sur la table qu'on voit dans la coupe.
+export { styleHD, wallAt, floorAt, lamp, WAINSCOT };

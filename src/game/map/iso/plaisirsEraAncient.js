@@ -10,9 +10,9 @@
 //   · la PIERRE (les étuves) : table de chêne et chopes d'étain, la BLANQUE (la loterie
 //     d'alors) et son urne, l'épicier et sa balance, la tapisserie au lion, et au
 //     boudoir le BAQUET des étuves sous son dais ;
-//   · la COURONNE (le château) : nappe verte à franges, gobelets d'or, la ROUE DE
-//     FORTUNE, le joaillier et son coffre, la scène aux fleurs de lys, le lit à
-//     baldaquin ;
+//   · la COURONNE (le château) : nappe verte à franges, gobelets d'or, la LOTERIE DU
+//     ROI (billets de parchemin scellés de bleu), le joaillier et son coffre, la scène
+//     aux fleurs de lys, le lit à baldaquin ;
 //   · le MARBRE (Rome) : table à pattes de lion et dés d'ivoire, l'urne de bronze des
 //     sorts, le comptoir d'un THERMOPOLIUM et ses amphores, le front de scène à
 //     colonnes, le lit maçonné du lupanar et son rideau rouge.
@@ -355,24 +355,64 @@ const COURONNE = {
     tableCrew(ctx, r, x, 20, 0, true);
   },
   tickets(ctx, r) {
-    const { O, P } = ctx, { x, y, w } = r, kx = x - (w >= 150 ? 16 : 0), yb = y + FOOT - 1;
-    // LA ROUE DE FORTUNE sur son chevalet : huit rais, secteurs peints, l'aiguille.
-    contactShadow(P, kx - 12, kx + 12, yb + 1);
-    piece(O, kx - 17, yb - 44, 35, 45, (Q) => {
-      for (const s of [-1, 1]) for (let j = 0; j < 22; j += 1) { Q.put(kx + s * (4 + (j >> 2)), yb - 21 + j, OAK[2]); Q.put(kx + s * (5 + (j >> 2)), yb - 21 + j, OAK[3]); }
-      const cy = yb - 28, R0 = 15;
-      for (let j = -R0; j <= R0; j += 1) for (let i = -R0; i <= R0; i += 1) {
-        const d = Math.sqrt(i * i + j * j);
-        if (d > R0) continue;
-        const a = Math.atan2(j, i), sec = Math.floor(((a + Math.PI) / (Math.PI * 2)) * 8) % 8;
-        let c = d > R0 - 1.5 ? (i + j < 0 ? BRASS[1] : BRASS[3]) : d < 2.5 ? BRASS[1] : ['#c83a3a', '#f0e0b0', '#2a5aa8', '#f0e0b0', '#3a8a5a', '#f0e0b0', '#c8a040', '#f0e0b0'][sec];
-        const ray = Math.abs(((a / (Math.PI * 2)) * 8 + 16) % 1) < 0.07;
-        if (ray && d > 2.5 && d < R0 - 1.5) c = OAK[3];
-        Q.put(kx + i, cy + j, c);
+    const { P } = ctx, { x, y, y0, w } = r, kx = x - (w >= 150 ? 14 : 0);
+    // LA LOTERIE DU ROI. Au mur, le tableau couronné des BILLETS DE PARCHEMIN, scellés
+    // de bleu et liserés d'or — le ticket même qu'on gratte à cet âge (TICKET_LOOK,
+    // plaisirsMaterial.js) ; au guichet, la pile de billets, le coffret, l'encrier.
+    // (Une roue de fortune occupait la salle : elle menait aux tickets sans en montrer
+    // un — retour de Raph du 2026-10-03, « c'est pas logique ».)
+    const SEAL = '#2a4a98', INKB = '#3a2a6a';
+    const bw = 40, bh = 24, bx0 = kx - bw / 2, by0 = y0 + 10;
+    piece(P, bx0 - 1, by0 - 7, bw + 2, bh + 8, (Q) => {
+      // La couronne au fronton : trois fleurons, un rubis.
+      Q.hline(kx - 6, by0 - 2, 13, BRASS[2]); Q.hline(kx - 6, by0 - 1, 13, BRASS[3]);
+      for (const [dx, h] of [[-5, 3], [0, 4], [5, 3]]) for (let j = 0; j < h; j += 1) Q.put(kx + dx, by0 - 3 - j, j === h - 1 ? BRASS[0] : BRASS[1]);
+      Q.put(kx, by0 - 2, '#c83a3a');
+      // Le cadre de laiton (éclairé en haut à gauche), le fond de chêne.
+      Q.rect(bx0, by0, bw, bh, BRASS[2]);
+      Q.hline(bx0, by0, bw, BRASS[1]); Q.vline(bx0, by0, bh, BRASS[1]);
+      Q.hline(bx0, by0 + bh - 1, bw, BRASS[3]); Q.vline(bx0 + bw - 1, by0, bh, BRASS[3]);
+      Q.rect(bx0 + 2, by0 + 2, bw - 4, bh - 4, OAK[3]);
+      // Dix billets épinglés : deux lignes d'encre, le sceau bleu, les coins dorés.
+      for (let row = 0; row < 2; row += 1) for (let k = 0; k < 5; k += 1) {
+        const tx = bx0 + 3 + k * 7, ty = by0 + 3 + row * 10;
+        Q.rect(tx, ty, 6, 8, LINEN[0]);
+        Q.vline(tx + 5, ty + 1, 7, LINEN[2]); Q.hline(tx + 1, ty + 7, 5, LINEN[2]);
+        for (const [cx2, cy2] of [[tx, ty], [tx + 5, ty], [tx, ty + 7], [tx + 5, ty + 7]]) Q.put(cx2, cy2, BRASS[1]);
+        Q.hline(tx + 1, ty + 2, 4, INKB); Q.hline(tx + 1, ty + 4, 3, LINEN[3]);
+        Q.put(tx + 2, ty + 6, SEAL); Q.put(tx + 3, ty + 6, SEAL);
+        Q.put(tx + 2, ty, BRASS[3]);                                   // l'épingle
       }
-      for (let j = 0; j < 5; j += 1) Q.put(kx, cy - R0 - 4 + j, j === 4 ? '#c83a3a' : BRASS[2]);
     });
-    counterCrew(ctx, r, kx, 16);
+    // Deux bannières fleurdelisées, de part et d'autre du tableau (si le mur les tient).
+    for (const s of [-1, 1]) {
+      const fx = kx + s * 30 - 4;
+      if (fx < r.x0r + 4 || fx + 9 > r.x1r - 4) continue;
+      piece(P, fx, y0 + 6, 9, 20, (Q) => {
+        Q.hline(fx, y0 + 6, 9, BRASS[2]);                               // la tringle
+        for (let j = 1; j < 19; j += 1) for (let i = 0; i < 9; i += 1) {
+          if (j > 15 && Math.abs(i - 4) < j - 15) continue;            // la queue d'aronde
+          Q.put(fx + i, y0 + 6 + j, i === 0 ? '#3a5ab8' : i === 8 ? '#16245a' : SEAL);
+        }
+        motif(Q, LYS, fx + 2, y0 + 10, BRASS[1]);
+      });
+    }
+    counterEra(ctx, kx, y, 44, {
+      top: [OAK[0], OAK[1]], face: [OAK[1], OAK[2], OAK[3]], style: 'panel',
+      items(Q, x0, yt) {
+        // La pile de billets, le sceau du dessus.
+        for (let s = 0; s < 3; s += 1) { Q.hline(x0 + 4, yt - 1 - s, 8, s === 2 ? LINEN[0] : LINEN[2 - s]); Q.put(x0 + 11, yt - 1 - s, LINEN[3]); }
+        Q.put(x0 + 8, yt - 3, SEAL);
+        // Le coffret entrouvert, des billets qui dépassent.
+        Q.rect(x0 + 17, yt - 4, 10, 4, OAK[2]); Q.hline(x0 + 17, yt - 4, 10, BRASS[2]); Q.vline(x0 + 26, yt - 4, 4, OAK[3]);
+        for (const dx of [19, 21, 23]) { Q.vline(x0 + dx, yt - 7, 3, LINEN[0]); Q.put(x0 + dx + 1, yt - 7, LINEN[2]); }
+        Q.put(x0 + 21, yt - 2, BRASS[0]);
+        // L'encrier et sa plume.
+        Q.rect(x0 + 33, yt - 2, 3, 2, INK); Q.put(x0 + 34, yt - 3, INK);
+        for (let j = 0; j < 4; j += 1) Q.put(x0 + 35 + (j >> 1), yt - 4 - j, j === 3 ? LINEN[2] : LINEN[0]);
+      },
+    });
+    counterCrew(ctx, r, kx, 22);
   },
   boutique(ctx, r) {
     const { x, y, w } = r, sw = Math.min(56, w - 34);

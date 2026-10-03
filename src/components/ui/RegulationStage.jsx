@@ -4,6 +4,7 @@ import AuguryStage from './AuguryStage.jsx';
 import IcarusStage from './IcarusStage.jsx';
 import ScratchStage from './ScratchStage.jsx';
 import BlackjackStage from './BlackjackStage.jsx';
+import SlotsStage from './SlotsStage.jsx';
 
 /**
  * La scène des jeux du temple (retour Raph 2026-07-14 : « les jeux se lancent
@@ -24,7 +25,8 @@ const STAGES = {
   augury: AuguryStage,
   icarus: IcarusStage,
   scratch: ScratchStage,
-  blackjack: BlackjackStage
+  blackjack: BlackjackStage,
+  slots: SlotsStage
 };
 
 export default function RegulationStage() {

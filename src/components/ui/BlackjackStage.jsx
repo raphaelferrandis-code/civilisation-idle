@@ -22,6 +22,7 @@ import { cardSrc, cardLabel, CARD_BACK_SRC, CARD_DECK_SRC } from './cardSprites.
 import { usePlaisirsBand, cardFaceFor, cardBackFor } from './plaisirsMaterial.js';
 import CoffreSelect from './CoffreSelect.jsx';
 import StageHelp from './StageHelp.jsx';
+import PlaisirsTable, { TableStake } from '../views/plaisirs/PlaisirsTable.jsx';
 
 /**
  * Le Vingt-et-un — SCÈNE INTÉGRÉE (bas de la page Régulation, comme osselets/
@@ -184,8 +185,19 @@ export default function BlackjackStage({ table, onClose }) {
     if (outcome.result === 'push') return tr({ fr: `Égalité : +${fmt(outcome.faveurGain)} faveur`, en: `Push: +${fmt(outcome.faveurGain)} favor` });
     // Cette table ne nourrit plus la cagnotte depuis la bascule (REF ≥ 1,
     // feedPot clampe à 0) : ne pas promettre un versement qui n'existe pas.
-    return tr({ fr: "Main perdue. L'oracle reprend la mise.", en: 'Hand lost. The oracle takes back the stake.' });
+    return tr({ fr: `Perdu : −${fmt(outcome.stakeFaveur || chosenCost)} faveur`, en: `Lost: −${fmt(outcome.stakeFaveur || chosenCost)} favor` });
   };
+
+  // Les pastilles des dernières mains (posées sur le mur, en haut à gauche de la table).
+  const historyChips = history.length > 0 && (
+    <div className="bj-history" aria-label={tr({ fr: 'Dernières mains', en: 'Last hands' })}>
+      {history.map((r, i) => (
+        <span key={`${r}-${i}`} className={`bj-chip is-${r}`} {...tipProps(null, tr(BJ_RESULT_LABEL[r] || { fr: r, en: r }))}>
+          {r === 'blackjack' ? '21' : r === 'win' ? '✓' : r === 'push' ? '=' : '✕'}
+        </span>
+      ))}
+    </div>
+  );
 
   return (
     <div className="blackjack-stage">
@@ -212,168 +224,171 @@ export default function BlackjackStage({ table, onClose }) {
         <button type="button" className="stage-close" onClick={onClose} aria-label={tr({ fr: 'Quitter la table', en: 'Leave the table' })}>✕</button>
       </div>
 
-      {history.length > 0 && (
-        <div className="bj-history" aria-label={tr({ fr: 'Dernières mains', en: 'Last hands' })}>
-          {history.map((r, i) => (
-            <span key={`${r}-${i}`} className={`bj-chip is-${r}`} {...tipProps(null, tr(BJ_RESULT_LABEL[r] || { fr: r, en: r }))}>
-              {r === 'blackjack' ? '21' : r === 'win' ? '✓' : r === 'push' ? '=' : '✕'}
-            </span>
-          ))}
-        </div>
-      )}
-
+      {/* ⭐ LA TABLE DE L'ÂGE (2026-10-03, plaisirs/PlaisirsTable.jsx) : la croupière
+          derrière sa table, peinte comme dans la coupe ; les mises se posent SUR le
+          tapis, chacune sur son cercle, et la main se distribue sur le feutre. */}
       {phase === 'bet' && (
-        <>
-          <CoffreSelect value={effMult} onChange={setCoffreMult} />
-          <div className="scratch-stakes">
-            {stakes.map((s) => {
-              const cost = s.faveur * effMult;
-              const cantPay = (state.faveur || 0) < cost;
-              const chosen = chosenStake === s.id;
-              return (
-                // Le bouton de distribution n'apparaît QUE dans la mise choisie, cousu
-                // au pied de SA colonne (retour Raph 2026-07-17 : « dans le cadre de la
-                // mise choisie »).
-                <div
-                  key={s.id}
-                  className={`scratch-stake${chosen ? ' is-chosen' : ''}${cantPay ? ' is-broke' : ''}`}
-                >
-                  <button
-                    type="button"
-                    className="stake-pick"
-                    onClick={() => setChosenStake(s.id)}
-                    {...tipProps(tr(s.label), tr({ fr: `Mise de ${cost} Faveur. Une victoire paie ×2, un vingt-et-un ×2.5.`, en: `${cost} Favor stake. A win pays ×2, a natural ×2.5.` }))}
-                  >
-                    {STAKE_ART[s.id] && (
-                      <img className="stake-art" src={STAKE_ART[s.id]} alt="" aria-hidden="true" width={64} height={64} />
-                    )}
-                    <strong>{tr(s.label)}</strong>
-                    <span><FaveurIcon /> {fmt(cost)}</span>
-                  </button>
-                  {chosen && (
-                    <button type="button" className="scratch-buy stake-play" disabled={(state.faveur || 0) < chosenCost} onClick={() => onDeal()}>
-                      {tr({ fr: 'Distribuer', en: 'Deal' })}
-                    </button>
-                  )}
-                </div>
-              );
-            })}
-          </div>
-        </>
+        <PlaisirsTable game="cartes" className="ptable--bet" tablePx={250} dealer="g">
+          {(L) => (
+            <>
+              <div className="ptable-hud">
+                {historyChips}
+                <CoffreSelect value={effMult} onChange={setCoffreMult} />
+              </div>
+              {stakes.map((s, i) => {
+                const cost = s.faveur * effMult;
+                const cantPay = (state.faveur || 0) < cost;
+                return (
+                  // Le bouton de distribution n'apparaît QUE sous la mise choisie
+                  // (retour Raph 2026-07-17 : « dans le cadre de la mise choisie »).
+                  <TableStake
+                    key={s.id}
+                    x={L.spots[i % L.spots.length]}
+                    y={L.spotY}
+                    art={STAKE_ART[s.id]}
+                    label={tr(s.label)}
+                    cost={<><FaveurIcon /> {fmt(cost)}</>}
+                    chosen={chosenStake === s.id}
+                    broke={cantPay}
+                    onPick={() => setChosenStake(s.id)}
+                    tip={tipProps(tr(s.label), tr({ fr: `Mise de ${cost} Faveur. Une victoire paie ×2, un vingt-et-un ×2.5.`, en: `${cost} Favor stake. A win pays ×2, a natural ×2.5.` }))}
+                    play
+                    playLabel={tr({ fr: 'Distribuer', en: 'Deal' })}
+                    playDisabled={(state.faveur || 0) < chosenCost}
+                    onPlay={() => onDeal()}
+                  />
+                );
+              })}
+            </>
+          )}
+        </PlaisirsTable>
       )}
 
       {(phase === 'player' || phase === 'done') && hand && (
-        <>
-          <div className="bj-table">
-            {/* Le sabot, posé à droite du drap. Pur décor : il ne diminue pas et
-                ne se distribue pas, le sabot réel vit dans le moteur. */}
-            <img className="bj-deck" src={CARD_DECK_SRC} alt="" aria-hidden="true" draggable="false" />
-            <div className="bj-side">
-              <div className="bj-side-head">
-                <span>{tr({ fr: 'Oracle', en: 'Dealer' })}</span>
-                <span className="bj-val">{dealerHideHole ? `${dealerValue}+` : dealerValue}</span>
-              </div>
-              <div className="bj-hand">
-                {hand.dealer.map((c, i) => <BjCard key={i} card={c} hidden={dealerHideHole && i > 0} />)}
-              </div>
-            </div>
-            <div className="bj-side">
-              <div className="bj-side-head">
-                <span>{tr({ fr: 'Toi', en: 'You' })}</span>
-                <span className={`bj-val${hand.playerValue > 21 ? ' is-bust' : ''}`}>{hand.playerValue}</span>
-              </div>
-              {/* La refente : les deux mains côte à côte, la main EN JEU marquée.
-                  Une main simple garde le rendu d'avant (hands = [la main]). */}
-              {hand.split ? (
-                hand.hands.map((h, hi) => (
-                  <div
-                    key={hi}
-                    className={`bj-hand bj-hand--split${phase === 'player' && hand.active === hi ? ' is-active' : ''}`}
-                  >
-                    {h.cards.map((c, i) => <BjCard key={i} card={c} />)}
-                    <span className={`bj-split-val${h.value > 21 ? ' is-bust' : ''}`}>
-                      {h.value}{h.doubled ? ' ×2' : ''}
-                    </span>
+        <PlaisirsTable game="cartes" className="ptable--play" tablePx={400} marks={false} dealer="g">
+          {(L) => (
+            <>
+              <div className="ptable-hud">{historyChips}</div>
+              <div className="bj-table">
+                {/* Le sabot, posé à droite sur le tapis. Pur décor : le sabot réel vit
+                    dans le moteur, il ne diminue pas. */}
+                <img className="bj-deck" src={CARD_DECK_SRC} alt="" aria-hidden="true" draggable="false" style={{ top: L.top + 6, right: '8%' }} />
+                {/* L'oracle (la croupière) : ses cartes devant elle, au fond du tapis. */}
+                <div className="bj-side" style={{ top: L.top + 4 }}>
+                  <div className="bj-side-head">
+                    <span>{tr({ fr: 'Oracle', en: 'Dealer' })}</span>
+                    <span className="bj-val">{dealerHideHole ? `${dealerValue}+` : dealerValue}</span>
                   </div>
-                ))
-              ) : (
-                <div className="bj-hand">
-                  {hand.player.map((c, i) => <BjCard key={i} card={c} />)}
+                  <div className="bj-hand">
+                    {hand.dealer.map((c, i) => <BjCard key={i} card={c} hidden={dealerHideHole && i > 0} />)}
+                  </div>
                 </div>
-              )}
-            </div>
-          </div>
-
-          {phase === 'player' && (
-            <>
-              {advice && (
-                <p className="bj-measure" {...tipProps(null, tr({ fr: 'La mesure gravée : le conseil de la stratégie de base, contre la carte visible de l’oracle.', en: 'The graven measure: basic strategy advice, against the oracle’s visible card.' }))}>
-                  {tr(MEASURE_LABEL[advice] || MEASURE_LABEL.stand)}
-                </p>
-              )}
-              <menu className="choice-menu scratch-actions">
-                <button type="button" className="scratch-buy" onClick={onHit}>{tr({ fr: 'Tirer', en: 'Hit' })}</button>
-                <button type="button" onClick={onStand}>{tr({ fr: 'Rester', en: 'Stand' })}</button>
-                {hand.canDouble && (
-                  <button
-                    type="button"
-                    className="bj-double"
-                    {...tipProps(tr({ fr: 'Doubler', en: 'Double' }), tr({ fr: `Double la mise (${fmt(hand.stakeFaveur)} de plus), une seule carte, et la main passe.`, en: `Double the stake (${fmt(hand.stakeFaveur)} more), one single card, and the hand passes.` }))}
-                    onClick={onDouble}
-                  >
-                    {tr({ fr: 'Doubler', en: 'Double' })}
-                  </button>
-                )}
-                {hand.canSplit && (
-                  <button
-                    type="button"
-                    className="bj-double"
-                    {...tipProps(tr({ fr: 'Refendre', en: 'Split' }), tr({ fr: `Sépare la paire en deux mains, chacune avec sa mise (${fmt(hand.stakeFaveur)} de plus). Un 21 refendu paie ×2.`, en: `Split the pair into two hands, each with its own stake (${fmt(hand.stakeFaveur)} more). A split 21 pays ×2.` }))}
-                    onClick={onSplit}
-                  >
-                    {tr({ fr: 'Refendre', en: 'Split' })}
-                  </button>
-                )}
-              </menu>
-            </>
-          )}
-
-          {phase === 'done' && outcome && (
-            <>
-              <p className={`scratch-result scratch-result--${outcome.result === 'lose' ? 'lose' : 'win'}`}>{resultText()}</p>
-              {outcome.split && (
-                <p className="bj-split-summary">
-                  {outcome.results.map((r, i) => (
-                    `${tr({ fr: 'main', en: 'hand' })} ${i + 1} : ${tr(BJ_RESULT_LABEL[r.result] || { fr: r.result, en: r.result })}`
-                  )).join(' · ')}
-                </p>
-              )}
-              {hasVoice && (
-                <p className="bj-oracle-line">
-                  {tr(oracleLine(outcome.result, state.blackjackStreak || 0))}
-                  {(state.blackjackStreak || 0) >= 2 && (
-                    <span className="bj-streak"> · {tr({ fr: `série de ${state.blackjackStreak}`, en: `streak of ${state.blackjackStreak}` })}</span>
+                {/* Le joueur : sa main près du bord, de son côté de la table. */}
+                <div className="bj-side" style={{ top: Math.max(L.top + 104, L.bottom - 102) }}>
+                  <div className="bj-side-head">
+                    <span>{tr({ fr: 'Toi', en: 'You' })}</span>
+                    <span className={`bj-val${hand.playerValue > 21 ? ' is-bust' : ''}`}>{hand.playerValue}</span>
+                  </div>
+                  {/* La refente : les deux mains côte à côte, la main EN JEU marquée.
+                      Une main simple garde le rendu d'avant (hands = [la main]). */}
+                  {hand.split ? (
+                    hand.hands.map((h, hi) => (
+                      <div
+                        key={hi}
+                        className={`bj-hand bj-hand--split${phase === 'player' && hand.active === hi ? ' is-active' : ''}`}
+                      >
+                        {h.cards.map((c, i) => <BjCard key={i} card={c} />)}
+                        <span className={`bj-split-val${h.value > 21 ? ' is-bust' : ''}`}>
+                          {h.value}{h.doubled ? ' ×2' : ''}
+                        </span>
+                      </div>
+                    ))
+                  ) : (
+                    <div className="bj-hand">
+                      {hand.player.map((c, i) => <BjCard key={i} card={c} />)}
+                    </div>
                   )}
-                </p>
-              )}
-              {/* Rejeu DIRECT (phase 7) : redistribuer à la même mise sans repasser
-                  par le pari — c'est le seul jeu du temple jouable en continu, le
-                  clic administratif y coûtait le plus. */}
-              <menu className="choice-menu scratch-actions">
-                <button
-                  type="button"
-                  className="scratch-buy"
-                  disabled={!chosen || (state.faveur || 0) < chosenCost}
-                  onClick={() => { setOutcome(null); onDeal(); }}
-                >
-                  {tr({ fr: `Redistribuer (${fmt(chosenCost)})`, en: `Deal again (${fmt(chosenCost)})` })}
-                </button>
-                <button type="button" onClick={onNewHand}>{tr({ fr: 'Changer de mise', en: 'Change stake' })}</button>
-                <button type="button" className="btn-close" onClick={onClose}>{tr({ fr: 'Quitter la table', en: 'Leave the table' })}</button>
-              </menu>
+                </div>
+              </div>
+
+              {/* Ce qu'on dit sur la table (conseil de la mesure, issue, voix de
+                  l'oracle) : à droite du tapis, en plaques ; les boutons sur le sol. */}
+              <div className="ptable-say" style={{ top: Math.max(L.top + 104, L.bottom - 102) + 8 }}>
+                {phase === 'player' && advice && (
+                  <p className="bj-measure" {...tipProps(null, tr({ fr: 'La mesure gravée : le conseil de la stratégie de base, contre la carte visible de l’oracle.', en: 'The graven measure: basic strategy advice, against the oracle’s visible card.' }))}>
+                    {tr(MEASURE_LABEL[advice] || MEASURE_LABEL.stand)}
+                  </p>
+                )}
+                {phase === 'done' && outcome && (
+                  <>
+                    <p className={`scratch-result scratch-result--${outcome.result === 'lose' ? 'lose' : 'win'}`}>{resultText()}</p>
+                    {outcome.split && (
+                      <p className="bj-split-summary">
+                        {outcome.results.map((r, i) => (
+                          `${tr({ fr: 'main', en: 'hand' })} ${i + 1} : ${tr(BJ_RESULT_LABEL[r.result] || { fr: r.result, en: r.result })}`
+                        )).join(' · ')}
+                      </p>
+                    )}
+                    {hasVoice && (
+                      <p className="bj-oracle-line">
+                        {tr(oracleLine(outcome.result, state.blackjackStreak || 0))}
+                        {(state.blackjackStreak || 0) >= 2 && (
+                          <span className="bj-streak"> · {tr({ fr: `série de ${state.blackjackStreak}`, en: `streak of ${state.blackjackStreak}` })}</span>
+                        )}
+                      </p>
+                    )}
+                  </>
+                )}
+              </div>
+
+              <div className="ptable-actions" style={{ top: L.floor + 8 }}>
+                {phase === 'player' && (
+                  <menu className="choice-menu scratch-actions">
+                    <button type="button" className="scratch-buy" onClick={onHit}>{tr({ fr: 'Tirer', en: 'Hit' })}</button>
+                    <button type="button" onClick={onStand}>{tr({ fr: 'Rester', en: 'Stand' })}</button>
+                    {hand.canDouble && (
+                      <button
+                        type="button"
+                        className="bj-double"
+                        {...tipProps(tr({ fr: 'Doubler', en: 'Double' }), tr({ fr: `Double la mise (${fmt(hand.stakeFaveur)} de plus), une seule carte, et la main passe.`, en: `Double the stake (${fmt(hand.stakeFaveur)} more), one single card, and the hand passes.` }))}
+                        onClick={onDouble}
+                      >
+                        {tr({ fr: 'Doubler', en: 'Double' })}
+                      </button>
+                    )}
+                    {hand.canSplit && (
+                      <button
+                        type="button"
+                        className="bj-double"
+                        {...tipProps(tr({ fr: 'Refendre', en: 'Split' }), tr({ fr: `Sépare la paire en deux mains, chacune avec sa mise (${fmt(hand.stakeFaveur)} de plus). Un 21 refendu paie ×2.`, en: `Split the pair into two hands, each with its own stake (${fmt(hand.stakeFaveur)} more). A split 21 pays ×2.` }))}
+                        onClick={onSplit}
+                      >
+                        {tr({ fr: 'Refendre', en: 'Split' })}
+                      </button>
+                    )}
+                  </menu>
+                )}
+                {/* Rejeu DIRECT (phase 7) : redistribuer à la même mise sans repasser
+                    par le pari — c'est le seul jeu du temple jouable en continu, le
+                    clic administratif y coûtait le plus. */}
+                {phase === 'done' && outcome && (
+                  <menu className="choice-menu scratch-actions">
+                    <button
+                      type="button"
+                      className="scratch-buy"
+                      disabled={!chosen || (state.faveur || 0) < chosenCost}
+                      onClick={() => { setOutcome(null); onDeal(); }}
+                    >
+                      {tr({ fr: `Redistribuer (${fmt(chosenCost)})`, en: `Deal again (${fmt(chosenCost)})` })}
+                    </button>
+                    <button type="button" onClick={onNewHand}>{tr({ fr: 'Changer de mise', en: 'Change stake' })}</button>
+                    <button type="button" className="btn-close" onClick={onClose}>{tr({ fr: 'Quitter la table', en: 'Leave the table' })}</button>
+                  </menu>
+                )}
+              </div>
             </>
           )}
-        </>
+        </PlaisirsTable>
       )}
     </div>
   );

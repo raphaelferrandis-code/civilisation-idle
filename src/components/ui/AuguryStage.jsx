@@ -20,6 +20,7 @@ import { FaveurIcon } from './FaveurIcon.jsx';
 import { tipProps } from './HelpBubble.jsx';
 import CoffreSelect from './CoffreSelect.jsx';
 import StageHelp from './StageHelp.jsx';
+import PlaisirsTable, { TableStake } from '../views/plaisirs/PlaisirsTable.jsx';
 import { usePlaisirsBand, diceSheetFor } from './plaisirsMaterial.js';
 import { wonderKitForBand } from '../../game/map/iso/wonderKits.js';
 
@@ -192,6 +193,9 @@ export default function AuguryStage({ table, onClose }) {
     startCast(res.bones, () => setDoubleOutcome({ ...res }));
   };
 
+  // Les rites offerts (le rite interdit attend son artefact).
+  const rites = Object.values(AUGURY_RITES).filter((rite) => !rite.artifact || hasTempleArtifact(rite.artifact));
+
   const tierChipCls = (tier) => tier === 'venus' ? 'augury-chip--venus'
     : tier === 'triple' || tier === 'pair' ? 'augury-chip--win'
     : 'augury-chip--lose';
@@ -205,155 +209,167 @@ export default function AuguryStage({ table, onClose }) {
         <StageHelp>
           <p>
             {tr({
-              fr: 'Paire haute : Faveur. Triple : grosse Faveur. 1·3·4·6 : Coup de Vénus, un vol d’Icare offert. Quatre as : le Chien, la mise est perdue. Une mise plus grosse donne plus de Vénus et plus de Chiens.',
-              en: 'High pair: Favor. Triple: big Favor. 1·3·4·6: Venus throw, a free Icarus flight. Four aces: the Dog, the stake is lost. A bigger stake means more Venus and more Dogs.'
+              fr: 'Paire haute : Faveur. Triple : grosse Faveur. Triple six : Coup de Vénus, un vol d’Icare offert. Carré de six : la cagnotte de la Maison. Quatre as : le Chien, la mise est perdue. Une mise plus grosse donne plus de Vénus et plus de Chiens.',
+              en: 'High pair: Favor. Triple: big Favor. Triple six: Venus throw, a free Icarus flight. Four sixes: the House pot. Four aces: the Dog, the stake is lost. A bigger stake means more Venus and more Dogs.'
+            })}
+          </p>
+          {/* Le détail des rites, qui ne s'écrit plus sur leurs plaques (retour Raph du
+              2026-10-03 : « enlever toutes les explications, ce sera dans l'aide »). */}
+          <ul className="stage-help-list">
+            {rites.map((rite) => {
+              const pay = auguryPaytable(table.id, rite.id);
+              const st = auguryStake(table.id, rite.id);
+              const ratio = (st.stake * effMult) / pay.stake;
+              return (
+                <li key={rite.id}>
+                  <b>{tr(rite.label)}</b> : {tr({ fr: 'paire', en: 'pair' })} +{Math.round(pay.gains.pair * ratio)} · {tr({ fr: 'Vénus', en: 'Venus' })} +{Math.round(pay.gains.venus * ratio)}
+                  {' · '}{rite.spread > 1.05 ? tr({ fr: 'plus de Vénus… et de Chiens', en: 'more Venus… and Dogs' })
+                    : rite.spread < 0.95 ? tr({ fr: 'moins de Chiens', en: 'fewer Dogs' })
+                      : tr({ fr: 'variance équilibrée', en: 'balanced variance' })}
+                </li>
+              );
+            })}
+          </ul>
+          <p>
+            {tr({
+              fr: 'Pitié : chaque revers allège la prochaine offrande (le Chien compte double), les gains suivent la mise payée. Une mise perdue nourrit la cagnotte de la Maison. Après un gain, le quitte ou double rejoue la Faveur gagnée à une chance sur deux.',
+              en: 'Mercy: each setback lightens the next offering (the Dog counts double), winnings follow the paid stake. A lost stake feeds the House pot. After a win, double or nothing replays the Favor won at even odds.'
             })}
           </p>
         </StageHelp>
         <button type="button" className="stage-close" onClick={onClose} aria-label={tr({ fr: 'Refermer la table', en: 'Close the table' })}>✕</button>
       </div>
 
+      {/* ⭐ LA TABLE DE L'ÂGE (2026-10-03, plaisirs/PlaisirsTable.jsx) : le croupier
+          derrière la table des dés de la coupe ; les rites posés SUR le tapis, les
+          osselets (ou les dés) jetés au milieu. */}
       {phase === 'stake' && (
-        <>
-          {/* Le solde de Faveur n'est plus répété ici : il s'affiche déjà en tête
-              de la Table des augures, à cent pixels (passe densité 2026-07-17). */}
-          <div className="augury-odds">
-            <span className="augury-chip">{tr({ fr: 'chance', en: 'chance' })} {Math.round(pBase * 100)} %</span>
-            {rebate > 0.001 && (
-              <span
-                className="augury-chip augury-chip--favor"
-                {...tipProps(null, tr({ fr: 'Clémence : tes revers allègent l’offrande (les gains suivent la mise payée). Un gain remet le compteur à zéro.', en: 'Clemency: your setbacks lighten the offering (winnings follow the paid stake). A win resets the counter.' }))}
-              >
-                {tr({ fr: 'pitié : offrande', en: 'mercy: offering' })} −{Math.round(rebate * 100)} %
-              </span>
-            )}
-          </div>
-          <CoffreSelect value={effMult} onChange={setCoffreMult} />
-          <div className="augury-rites">
-            {Object.values(AUGURY_RITES).filter((rite) => !rite.artifact || hasTempleArtifact(rite.artifact)).map((rite) => {
-              const pay = auguryPaytable(table.id, rite.id);
-              const st = auguryStake(table.id, rite.id);
-              const ratio = (st.stake * effMult) / pay.stake; // le coffre scale mise ET gains
-              const pairFav = Math.round(pay.gains.pair * ratio);
-              const venusFav = Math.round(pay.gains.venus * ratio);
-              const payable = faveur >= st.stake * effMult;
-              const chosen = riteId === rite.id;
-              return (
-                // La plaque est un conteneur : le corps (`stake-pick`) sélectionne,
-                // et le bouton de jeu n'apparaît QUE dans la mise choisie, cousu au
-                // pied de SA colonne (retour Raph 2026-07-17 : « il faut que
-                // visuellement il soit dans le cadre de la mise choisie »).
-                <div
-                  key={rite.id}
-                  className={`augury-rite${chosen ? ' is-chosen' : ''}${payable ? '' : ' is-broke'}`}
-                >
-                  <button
-                    type="button"
-                    className="stake-pick"
-                    {...tipProps(tr(rite.label), tr(rite.desc))}
-                    onClick={() => setRiteId(rite.id)}
-                  >
-                    {STAKE_ART[rite.id] && (
-                      <img className="stake-art" src={STAKE_ART[rite.id]} alt="" aria-hidden="true" width={64} height={64} />
-                    )}
-                    <strong>{tr(rite.label)}</strong>
-                    <span className="augury-rite-cost">
-                      <FaveurIcon /> {st.stake * effMult}{st.rebate > 0 ? ` (−${Math.round(st.rebate * 100)} %)` : ''}
-                    </span>
-                    <span className="augury-rite-fx">
-                      <span className="augury-fx-win">{tr({ fr: 'paire', en: 'pair' })} +{pairFav} · {tr({ fr: 'Vénus', en: 'Venus' })} +{venusFav} {tr({ fr: 'faveur', en: 'favor' })}</span>
-                      <span className="augury-fx-risk">{
-                        rite.spread > 1.05 ? tr({ fr: 'sort extrême : plus de Vénus… et de Chiens', en: 'extreme fate: more Venus… and Dogs' })
-                          : rite.spread < 0.95 ? tr({ fr: 'sort plus sage : moins de Chiens', en: 'calmer fate: fewer Dogs' })
-                            : tr({ fr: 'variance équilibrée', en: 'balanced variance' })
-                      }</span>
-                    </span>
-                  </button>
-                  {chosen && (
-                    <button
-                      type="button"
-                      className="augury-throw stake-play"
-                      disabled={faveur < castCost}
-                      onClick={() => onCast()}
+        <PlaisirsTable game="des" className="ptable--bet ptable--rites" tablePx={270} nSpots={rites.length} dealer={0}>
+          {(L) => (
+            <>
+              {/* Le solde de Faveur n'est plus répété ici : il s'affiche déjà en tête
+                  de la Maison (passe densité 2026-07-17). */}
+              <div className="ptable-hud">
+                <div className="augury-odds">
+                  <span className="augury-chip">{tr({ fr: 'chance', en: 'chance' })} {Math.round(pBase * 100)} %</span>
+                  {rebate > 0.001 && (
+                    <span
+                      className="augury-chip augury-chip--favor"
+                      {...tipProps(null, tr({ fr: 'Clémence : tes revers allègent l’offrande (les gains suivent la mise payée). Un gain remet le compteur à zéro.', en: 'Clemency: your setbacks lighten the offering (winnings follow the paid stake). A win resets the counter.' }))}
                     >
-                      {tr({ fr: 'Jeter les osselets', en: 'Cast the knucklebones' })}
-                    </button>
+                      {tr({ fr: 'pitié', en: 'mercy' })} −{Math.round(rebate * 100)} %
+                    </span>
                   )}
                 </div>
-              );
-            })}
-          </div>
-        </>
+                <CoffreSelect value={effMult} onChange={setCoffreMult} />
+              </div>
+              {rites.map((rite, i) => {
+                const st = auguryStake(table.id, rite.id);
+                const payable = faveur >= st.stake * effMult;
+                return (
+                  // Le bouton de jeu n'apparaît QUE sous la mise choisie (retour Raph
+                  // 2026-07-17 : « dans le cadre de la mise choisie »).
+                  <TableStake
+                    key={rite.id}
+                    x={L.spots[i % L.spots.length]}
+                    y={L.spotY}
+                    art={STAKE_ART[rite.id]}
+                    label={tr(rite.label)}
+                    cost={<><FaveurIcon /> {st.stake * effMult}{st.rebate > 0 ? ` (−${Math.round(st.rebate * 100)} %)` : ''}</>}
+                    chosen={riteId === rite.id}
+                    broke={!payable}
+                    onPick={() => setRiteId(rite.id)}
+                    tip={tipProps(tr(rite.label), tr(rite.desc))}
+                    play
+                    playLabel={diceSheet ? tr({ fr: 'Jeter les dés', en: 'Cast the dice' }) : tr({ fr: 'Jeter les osselets', en: 'Cast the knucklebones' })}
+                    playDisabled={faveur < castCost}
+                    onPlay={() => onCast()}
+                  />
+                );
+              })}
+            </>
+          )}
+        </PlaisirsTable>
       )}
 
       {phase !== 'stake' && (
-        <>
-          <div className="augury-dice" aria-live="polite" style={diceSheet ? { '--bones-sheet': `url("${diceSheet}")` } : undefined}>
-            {/* L'osselet est un SPRITE (planche 1·3·4·6) : tant qu'il roule il n'a
-                pas de face fixée — l'animation fait défiler la planche. La valeur
-                se lit aux pips gravés ; l'aria-label la donne en mode navigation.
-                Key STABLE (pas de `d-`/`t-` selon isDouble) : remonter les spans
-                dans la zone aria-live ferait annoncer 4× « osselet en l'air » à
-                chaque quitte-ou-double, et la culbute redémarre déjà toute seule
-                (retrait d'is-landed = changement d'animation-name). */}
-            {(bones || []).map((v, i) => (
-              <span
-                key={i}
-                className={`augury-die${i < landed ? ' is-landed' : ''}${i < landed && v === 1 ? ' is-ace' : ''}`}
-                data-face={i < landed ? v : undefined}
-                role="img"
-                aria-label={i < landed ? String(v) : (diceSheet ? tr({ fr: 'dé en l’air', en: 'die in the air' }) : tr({ fr: 'osselet en l’air', en: 'knucklebone in the air' }))}
-              />
-            ))}
-            {/* Annonce vocale : la zone aria-live n'annonce que les ADDITIONS de
-                nœuds (aria-relevant par défaut), pas les changements d'attributs —
-                donc un span PAR valeur tombée, les précédents restant intacts.
-                Surtout pas un seul texte qui s'allonge : React remplacerait le
-                nœud texte entier et la synthèse relirait tout le cumul. */}
-            <span className="sr-only">
-              {(bones || []).slice(0, landed).map((v, i) => <span key={i}>{`${v} `}</span>)}
-            </span>
-          </div>
-
-          {phase === 'cast' && (
-            <p className="augury-suspense">{tr({ fr: 'Les osselets roulent sur la table…', en: 'The knucklebones tumble across the table…' })}</p>
-          )}
-
-          {phase === 'result' && (isDouble ? doubleOutcome : outcome) && (
+        <PlaisirsTable game="des" className="ptable--play ptable--dice" tablePx={340} marks={false} dealer={0}>
+          {(L) => (
             <>
-              {!isDouble && outcome.tier === 'venus' && <p className="augury-callout augury-callout--venus">{tr({ fr: 'Coup de Vénus !', en: 'Venus throw!' })}</p>}
-              {!isDouble && outcome.tier === 'dog' && <p className="augury-callout augury-callout--dog">{tr({ fr: 'Le jet du Chien !', en: 'The Dog throw!' })}</p>}
+              {/* Le jet, au milieu du tapis. */}
+              <div className="ptable-throw" style={{ top: Math.round((L.top + L.bottom) / 2) - 34 }}>
+                <div className="augury-dice" aria-live="polite" style={diceSheet ? { '--bones-sheet': `url("${diceSheet}")` } : undefined}>
+                  {/* L'osselet est un SPRITE (planche 1·3·4·6) : tant qu'il roule il n'a
+                      pas de face fixée — l'animation fait défiler la planche. Key STABLE :
+                      remonter les spans dans la zone aria-live ferait annoncer 4× « osselet
+                      en l'air » à chaque quitte-ou-double. */}
+                  {(bones || []).map((v, i) => (
+                    <span
+                      key={i}
+                      className={`augury-die${i < landed ? ' is-landed' : ''}${i < landed && v === 1 ? ' is-ace' : ''}`}
+                      data-face={i < landed ? v : undefined}
+                      role="img"
+                      aria-label={i < landed ? String(v) : (diceSheet ? tr({ fr: 'dé en l’air', en: 'die in the air' }) : tr({ fr: 'osselet en l’air', en: 'knucklebone in the air' }))}
+                    />
+                  ))}
+                  {/* Annonce vocale : un span PAR valeur tombée (la zone n'annonce que
+                      les ajouts de nœuds). */}
+                  <span className="sr-only">
+                    {(bones || []).slice(0, landed).map((v, i) => <span key={i}>{`${v} `}</span>)}
+                  </span>
+                </div>
+              </div>
 
-              {!isDouble && (
-                <>
-                  <p className="augury-note">{outcome.note}</p>
-                  <div className="augury-odds">
-                    <span className={`augury-chip ${tierChipCls(outcome.tier)}`}>{tr(AUGURY_TIER_LABELS[outcome.tier])}</span>
-                    {outcome.win
-                      ? <span className="augury-chip augury-chip--win">+{outcome.faveurGain} {tr({ fr: 'faveur', en: 'favor' })}</span>
-                      : (
-                        <>
-                          <span className="augury-chip augury-chip--lose">−{outcome.stake} {tr({ fr: 'faveur sacrifiée', en: 'favor sacrificed' })}</span>
-                          <span className="augury-chip augury-chip--favor">
-                            {tr({ fr: 'pitié : prochaine offrande', en: 'mercy: next offering' })} −{Math.round(auguryRebate(table.id) * 100)} %
-                            {outcome.tier === 'dog' ? ` (${tr({ fr: 'Chien ×2', en: 'Dog ×2' })})` : ''}
-                          </span>
-                          <span className="augury-chip augury-chip--mut">🏺 {tr({ fr: "la cagnotte d'Icare s'épaissit", en: 'the Icarus pot thickens' })}</span>
-                        </>
+              {/* Ce qu'on dit sur la table : à droite, en plaques. */}
+              <div className="ptable-say" style={{ top: L.top + 6 }}>
+                {phase === 'result' && !isDouble && outcome && (
+                  <>
+                    {outcome.tier === 'venus' && <p className="augury-callout augury-callout--venus">{tr({ fr: 'Coup de Vénus !', en: 'Venus throw!' })}</p>}
+                    {outcome.tier === 'dog' && <p className="augury-callout augury-callout--dog">{tr({ fr: 'Le jet du Chien !', en: 'The Dog throw!' })}</p>}
+                    <div className="augury-odds">
+                      <span className={`augury-chip ${tierChipCls(outcome.tier)}`}>{tr(AUGURY_TIER_LABELS[outcome.tier])}</span>
+                      {outcome.win
+                        ? <span className="augury-chip augury-chip--win">+{outcome.faveurGain} {tr({ fr: 'faveur', en: 'favor' })}</span>
+                        : (
+                          <>
+                            <span className="augury-chip augury-chip--lose">−{outcome.stake} {tr({ fr: 'faveur', en: 'favor' })}</span>
+                            <span className="augury-chip augury-chip--favor">
+                              {tr({ fr: 'pitié', en: 'mercy' })} −{Math.round(auguryRebate(table.id) * 100)} %
+                            </span>
+                          </>
+                        )}
+                      {outcome.freeFlight && (
+                        <span className="augury-chip augury-chip--venus">🪽 {tr({ fr: "vol d'Icare offert", en: 'free Icarus flight' })}</span>
                       )}
-                    {outcome.freeFlight && (
-                      <span className="augury-chip augury-chip--venus">🪽 {tr({ fr: "vol d'Icare offert", en: 'free Icarus flight' })}</span>
-                    )}
-                    {/* Le carré de six. Affiché SEULEMENT s'il a rapporté : un
-                        jackpot sur cella vide donne 0, et annoncer « rafle » pour
-                        rien serait pris pour un bug. Les quatre six restent
-                        visibles sur les dés dans ce cas — c'est déjà l'événement. */}
-                    {outcome.jackpot && outcome.jackpotGain > 0 && (
-                      <span className="augury-chip augury-chip--venus">
-                        🏺 {tr({ fr: 'carré de six : la cagnotte', en: 'four sixes: the pot' })} +{outcome.jackpotGain}
-                      </span>
-                    )}
-                  </div>
+                      {/* Le carré de six : affiché SEULEMENT s'il a rapporté (un jackpot
+                          sur cella vide donne 0 : annoncer « rafle » serait pris pour un bug). */}
+                      {outcome.jackpot && outcome.jackpotGain > 0 && (
+                        <span className="augury-chip augury-chip--venus">
+                          🏺 +{outcome.jackpotGain} {tr({ fr: 'faveur', en: 'favor' })}
+                        </span>
+                      )}
+                    </div>
+                  </>
+                )}
+                {phase === 'result' && isDouble && doubleOutcome && (
+                  <>
+                    <div className="augury-odds">
+                      {doubleOutcome.win
+                        ? <span className="augury-chip augury-chip--win">+{doubleOutcome.wager} {tr({ fr: 'faveur', en: 'favor' })}</span>
+                        : <span className="augury-chip augury-chip--lose">−{doubleOutcome.wager} {tr({ fr: 'faveur', en: 'favor' })}</span>}
+                      {maxCrans > 1 && (
+                        <span className="augury-chip augury-chip--mut">
+                          {tr({ fr: `marche ${doubleCran} sur ${maxCrans}`, en: `step ${doubleCran} of ${maxCrans}` })}
+                        </span>
+                      )}
+                    </div>
+                  </>
+                )}
+              </div>
+
+              {/* Les boutons, sur le sol de la salle. */}
+              <div className="ptable-actions" style={{ top: L.floor + 8 }}>
+                {phase === 'result' && !isDouble && outcome && (
                   <menu className="choice-menu augury-actions">
                     {outcome.win && outcome.faveurGain > 0 && (
                       <button
@@ -362,18 +378,12 @@ export default function AuguryStage({ table, onClose }) {
                         {...tipProps(null, tr({ fr: "Gagné : la Faveur redouble. Perdu : la Faveur gagnée est reprise. La Clémence ne s'applique pas.", en: 'Won: the Favor doubles. Lost: the Favor won is taken back. Clemency does not apply.' }))}
                         onClick={onDouble}
                       >
-                        {tr({ fr: `Défier les dieux : quitte ou double (${Math.round(AUGURY_DOUBLE_P * 100)} %)`, en: `Defy the gods: double or nothing (${Math.round(AUGURY_DOUBLE_P * 100)}%)` })}
+                        {tr({ fr: `Quitte ou double (${Math.round(AUGURY_DOUBLE_P * 100)} %)`, en: `Double or nothing (${Math.round(AUGURY_DOUBLE_P * 100)}%)` })}
                       </button>
                     )}
-                    {/* Rejeu DIRECT (phase 7) : la mise est déjà mémorisée (riteId), le
-                        détour par l'écran de choix était un clic mort. Quand le quitte
-                        ou double est offert, il reste le bouton VEDETTE (le seul vrai
-                        levier stratégique) : le rejeu passe alors en simple bouton. */}
-                    <button
-                      type="button"
-                      disabled={faveur < castCost}
-                      onClick={() => { setDoubleOutcome(null); onCast(); }}
-                    >
+                    {/* Rejeu DIRECT (phase 7) : la mise est déjà mémorisée (riteId). Quand
+                        le quitte ou double est offert, il reste le bouton VEDETTE. */}
+                    <button type="button" disabled={faveur < castCost} onClick={() => { setDoubleOutcome(null); onCast(); }}>
                       {tr({ fr: `Rejeter (${castCost})`, en: `Cast again (${castCost})` })}
                     </button>
                     <button type="button" onClick={() => { setPhase('stake'); setRiteId(null); setOutcome(null); setDoubleOutcome(null); }}>
@@ -383,26 +393,8 @@ export default function AuguryStage({ table, onClose }) {
                       {tr({ fr: 'Refermer la table', en: 'Close the table' })}
                     </button>
                   </menu>
-                </>
-              )}
-
-              {isDouble && (
-                <>
-                  <p className="augury-note">
-                    {doubleOutcome.win
-                      ? tr({ fr: 'Défiés une seconde fois, les dieux sourient encore : la Faveur redouble.', en: 'Defied a second time, the gods smile again: the Favor doubles.' })
-                      : tr({ fr: 'Les dieux se lassent d’être éprouvés : la Faveur gagnée leur revient.', en: 'The gods grow weary of being tested: the Favor won returns to them.' })}
-                  </p>
-                  <div className="augury-odds">
-                    {doubleOutcome.win
-                      ? <span className="augury-chip augury-chip--win">+{doubleOutcome.wager} {tr({ fr: 'faveur de plus', en: 'more favor' })}</span>
-                      : <span className="augury-chip augury-chip--lose">−{doubleOutcome.wager} {tr({ fr: 'faveur reprise', en: 'favor taken back' })}</span>}
-                    {maxCrans > 1 && (
-                      <span className="augury-chip augury-chip--mut">
-                        {tr({ fr: `marche ${doubleCran} sur ${maxCrans}`, en: `step ${doubleCran} of ${maxCrans}` })}
-                      </span>
-                    )}
-                  </div>
+                )}
+                {phase === 'result' && isDouble && doubleOutcome && (
                   <menu className="choice-menu augury-actions">
                     {doubleOutcome.win && doubleCran < maxCrans && (
                       <button
@@ -411,14 +403,10 @@ export default function AuguryStage({ table, onClose }) {
                         {...tipProps(null, tr({ fr: "L'Échelle de Vénus : tout ce qui est sur la table se rejoue. Gagné : la Faveur redouble encore. Perdu : tout revient aux dieux.", en: "The Ladder of Venus: everything on the table is staked again. Won: the Favor doubles again. Lost: it all returns to the gods." }))}
                         onClick={onDouble}
                       >
-                        {tr({ fr: `Défier encore : quitte ou double (${Math.round(AUGURY_DOUBLE_P * 100)} %)`, en: `Defy again: double or nothing (${Math.round(AUGURY_DOUBLE_P * 100)}%)` })}
+                        {tr({ fr: `Quitte ou double (${Math.round(AUGURY_DOUBLE_P * 100)} %)`, en: `Double or nothing (${Math.round(AUGURY_DOUBLE_P * 100)}%)` })}
                       </button>
                     )}
-                    <button
-                      type="button"
-                      disabled={faveur < castCost}
-                      onClick={() => { setDoubleOutcome(null); setDoubleCran(0); onCast(); }}
-                    >
+                    <button type="button" disabled={faveur < castCost} onClick={() => { setDoubleOutcome(null); setDoubleCran(0); onCast(); }}>
                       {tr({ fr: `Rejeter (${castCost})`, en: `Cast again (${castCost})` })}
                     </button>
                     <button type="button" onClick={() => { setPhase('stake'); setRiteId(null); setOutcome(null); setDoubleOutcome(null); setDoubleCran(0); }}>
@@ -426,11 +414,11 @@ export default function AuguryStage({ table, onClose }) {
                     </button>
                     <button type="button" className="btn-close" onClick={onClose}>{tr({ fr: 'Refermer la table', en: 'Close the table' })}</button>
                   </menu>
-                </>
-              )}
+                )}
+              </div>
             </>
           )}
-        </>
+        </PlaisirsTable>
       )}
     </div>
   );

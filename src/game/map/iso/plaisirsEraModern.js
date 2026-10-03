@@ -2,14 +2,17 @@
 // ── LE MOBILIER DES ÂGES MODERNES : le Néon, les cités cosmiques ─────────────
 //
 // (2026-10-03, nuit.) Le NÉON est un casino des années cinquante : table de craps à
-// rambarde de chrome, vingt-et-un sous sa lampe verte, rangée de BANDITS MANCHOTS
-// (la loterie de l'âge), vitrine éclairée, piano-bar, revue sous un chapiteau
-// d'ampoules, lit rond et cœur de néon. Les âges COSMIQUES (jade, astral, cristal)
-// font flotter leurs tables sur la lumière : dés et cartes de lumière en suspens,
-// globe des sorts, étagères sans montants, harpe de lumière, lit-bulle derrière un
+// rambarde de chrome, vingt-et-un sous sa lampe verte, comptoir des TICKETS À GRATTER
+// sous son enseigne, vitrine éclairée, piano-bar, revue sous un chapiteau d'ampoules,
+// lit rond et cœur de néon. Les âges COSMIQUES (jade, astral, cristal) font flotter
+// leurs tables sur la lumière : dés et cartes de lumière en suspens, TICKETS DE
+// CRISTAL en suspens, étagères sans montants, harpe de lumière, lit-bulle derrière un
 // voile lumineux. La matière suit la cité : laque et jade, nuit et or, améthyste.
+// ⚠ La salle des tickets montre DES TICKETS (retour de Raph du 2026-10-03 : la roue de
+// fortune « menait aux tickets, c'est pas logique ») — on y voit ce qu'on va gratter.
 import { INK, mix, h32, piece, contactShadow, FOOT, BK, SD, FR } from './plaisirsHDKit.js';
 import { tableCrew, boudoirRoom, tableEra, counterEra, shelvesEra, stageEra, item } from './plaisirsEraRooms.js';
+import { slotRow } from './plaisirsSlotsCoupe.js';
 
 const CHROME = ['#ffffff', '#e2e8f0', '#b4bcc6', '#7f8892', '#4e5560'];
 const FELT = ['#3aa070', '#2a8a5c', '#1e6e48', '#14523a'];
@@ -18,34 +21,20 @@ const PINK = ['#ffe0ee', '#ffb0d4', '#ff6fb5', '#d8408a', '#a02a66'];
 const GOLD = ['#fff2b0', '#f0cf6a', '#d2a53e', '#9c7524'];
 
 // ── LE NÉON ──────────────────────────────────────────────────────────────────
-// Un BANDIT MANCHOT : coffre de chrome et laque rouge, trois rouleaux, le fronton allumé,
-// la manette.
-function slotMachine(ctx, x, y, k) {
-  const { O, P, N } = ctx, yb = y + FOOT - 1, body = ['#c8343a', '#a02a30', '#781e24'][k % 3] ? ['#c8343a', '#3a5ab8', '#2a8a5c'][k % 3] : '#c8343a';
-  contactShadow(P, x - 6, x + 6, yb + 1);
-  piece(O, x - 7, yb - 30, 16, 31, (Q) => {
-    Q.rect(x - 6, yb - 24, 13, 24, body); Q.vline(x - 6, yb - 24, 24, mix(body, '#ffffff', 0.3)); Q.vline(x + 6, yb - 24, 24, mix(body, '#000000', 0.35));
-    // Le fronton arrondi, son néon.
-    for (let i = -6; i <= 6; i += 1) { const a = Math.round(3 * Math.sqrt(1 - (i * i) / 49)); for (let j = 0; j <= a; j += 1) Q.put(x + i, yb - 25 - j, j === a ? CHROME[1] : '#fff2c8'); }
-    // Les rouleaux : trois fenêtres, un 7, une cerise, une cloche.
-    Q.rect(x - 5, yb - 21, 11, 7, CHROME[3]);
-    for (let t = 0; t < 3; t += 1) {
-      const rx = x - 4 + t * 4;
-      Q.rect(rx, yb - 20, 3, 5, '#fbf6e8');
-      const sym = (k + t) % 3;
-      if (sym === 0) { Q.hline(rx, yb - 19, 3, '#d8404a'); Q.put(rx + 2, yb - 18, '#d8404a'); Q.put(rx + 1, yb - 17, '#d8404a'); }
-      else if (sym === 1) { Q.put(rx, yb - 17, '#d8404a'); Q.put(rx + 2, yb - 17, '#d8404a'); Q.put(rx + 1, yb - 19, '#3a8a3a'); }
-      else { Q.rect(rx, yb - 18, 3, 2, GOLD[1]); Q.put(rx + 1, yb - 19, GOLD[1]); }
-    }
-    Q.rect(x - 5, yb - 12, 11, 2, CHROME[2]);                 // la bouche à jetons
-    Q.rect(x - 4, yb - 6, 9, 3, CHROME[3]); Q.hline(x - 4, yb - 6, 9, CHROME[1]);
-    // La manette, à droite.
-    for (let j = 0; j < 9; j += 1) Q.put(x + 8, yb - 22 + j, CHROME[2]);
-    Q.rect(x + 7, yb - 24, 3, 3, '#d8404a');
-  });
-  for (let i = -5; i <= 5; i += 1) N.put(x + i, yb - 26, '#fff2c8');
-  for (let t = 0; t < 3; t += 1) N.put(x - 3 + t * 4, yb - 18, '#fff6e0');
-  O.mark(x, yb - 24, '#ffe0a0');
+// Une enseigne en lettres de néon (3×5) : le tube clair au mur, son éclat la nuit.
+const NEON_GLYPHS = {
+  T: ['xxx', '.x.', '.x.', '.x.', '.x.'], I: ['x', 'x', 'x', 'x', 'x'], C: ['xxx', 'x..', 'x..', 'x..', 'xxx'],
+  K: ['x.x', 'x.x', 'xx.', 'x.x', 'x.x'], E: ['xxx', 'x..', 'xx.', 'x..', 'xxx'], S: ['xxx', 'x..', 'xxx', '..x', 'xxx'],
+};
+function neonWord(ctx, word, cx, y, tube, glow) {
+  const width = [...word].reduce((s, ch) => s + NEON_GLYPHS[ch][0].length + 1, -1);
+  let lx = Math.round(cx - width / 2);
+  for (const ch of word) {
+    const g = NEON_GLYPHS[ch];
+    g.forEach((row, j) => [...row].forEach((v, i) => { if (v === 'x') { ctx.P.put(lx + i, y + j, tube); ctx.N.put(lx + i, y + j, glow); } }));
+    lx += g[0].length + 1;
+  }
+  return width;
 }
 // Le PIANO À QUEUE noir, couvercle levé.
 function grandPiano(ctx, x, y) {
@@ -99,16 +88,46 @@ const NEON = {
     tableCrew(ctx, r, x, 23, 0, true);
   },
   tickets(ctx, r) {
-    const { fig } = ctx, { x, y, w, on, v } = r;
-    // La rangée de BANDITS MANCHOTS (la loterie du casino).
-    const n = Math.max(2, Math.min(5, Math.floor((w - 30) / 20))), x0 = x - Math.round(((n - 1) * 20) / 2);
-    for (let k = 0; k < n; k += 1) slotMachine(ctx, x0 + k * 20, y, k);
+    const { P, N, fig } = ctx, { x, y, y0, w, on, v } = r, kx = x - (w >= 150 ? 14 : 0);
+    // LE COMPTOIR DES TICKETS À GRATTER. L'enseigne au néon, le PRÉSENTOIR éclairé des
+    // cartes (laque sombre, liseré rose, la zone argentée à gratter : la carte même
+    // qu'on gratte à cet âge), le comptoir vitré. (Une rangée de bandits manchots
+    // l'occupait — un autre jeu ; retour de Raph du 2026-10-03 sur la roue de fortune.)
+    // L'enseigne : la plaque de laque, ses vis de chrome, le mot en tube rose.
+    P.rect(kx - 16, y0 + 4, 33, 9, LACQ[2]); P.hline(kx - 16, y0 + 4, 33, LACQ[0]);
+    for (const dx of [-15, 15]) P.put(kx + dx, y0 + 8, CHROME[2]);
+    neonWord(ctx, 'TICKETS', kx, y0 + 6, PINK[0], PINK[2]);
+    // Le présentoir : deux rangées de cinq cartes derrière un verre, sur le comptoir.
+    const dw = 38, dh = 21, dx0 = kx - dw / 2, dy0 = y0 + 15;
+    const CARD = [PINK[2], GOLD[1], '#5a8ae8', FELT[1], '#a060d8'];
+    piece(P, dx0, dy0, dw, dh, (Q) => {
+      Q.rect(dx0, dy0, dw, dh, CHROME[3]);
+      Q.hline(dx0, dy0, dw, CHROME[1]); Q.vline(dx0, dy0, dh, CHROME[2]); Q.vline(dx0 + dw - 1, dy0, dh, CHROME[4]);
+      Q.rect(dx0 + 2, dy0 + 2, dw - 4, dh - 4, '#1c0c22');
+      for (let row = 0; row < 2; row += 1) for (let k = 0; k < 5; k += 1) {
+        const tx = dx0 + 3 + k * 7, ty = dy0 + 3 + row * 8, c = CARD[(k + row * 2) % 5];
+        Q.rect(tx, ty, 6, 7, '#2a1230');
+        Q.hline(tx, ty, 6, c); Q.hline(tx, ty + 6, 6, c); Q.vline(tx, ty, 7, c); Q.vline(tx + 5, ty, 7, c);
+        Q.rect(tx + 1, ty + 3, 4, 2, CHROME[2]); Q.put(tx + 1, ty + 3, CHROME[1]);   // la zone à gratter
+        Q.hline(tx + 1, ty + 1, 2, c);
+      }
+    });
+    for (let i = dx0 + 2; i < dx0 + dw - 2; i += 1) N.put(i, dy0 + 2, '#fff0f6');
+    counterEra(ctx, kx, y, 46, {
+      top: [CHROME[1], CHROME[3]], face: [CHROME[2], CHROME[3], CHROME[4]], style: 'glass',
+      items(Q, x0, yt) {
+        // Trois cartes grattées sur le comptoir, la pièce qui a servi.
+        for (const [dx, c] of [[6, PINK[2]], [12, GOLD[1]], [33, '#5a8ae8']]) { Q.rect(x0 + dx, yt - 2, 5, 2, '#2a1230'); Q.hline(x0 + dx, yt - 2, 5, c); Q.put(x0 + dx + 2, yt - 1, CHROME[1]); }
+        Q.put(x0 + 19, yt - 1, GOLD[1]); Q.put(x0 + 20, yt - 1, GOLD[2]);
+      },
+    });
     if (!on) return;
-    // Les joueurs AUX BOUTS de la rangée (devant, ils cachaient les rouleaux).
-    fig(x0 - 17, y + SD, 0, 0, v(0), { role: 'joueur' });
-    fig(x0 + (n - 1) * 20 + 17, y + SD, 2, 'g', v(1));
-    if (w >= 150) fig(x0 - 34, y + SD, 0, 1, v(2));
+    fig(kx - 3, y + BK, 0, 'g', v(0), { back: true, role: 'marchande' });
+    fig(kx + 34, y + SD, 2, 1, v(1));
+    if (w >= 150) fig(kx - 34, y + SD, 0, 0, v(2), { role: 'joueur' });
   },
+  // La salle des MACHINES à sous : les bandits manchots, enfin à leur place (2026-10-03).
+  machines(ctx, r) { slotRow(ctx, r, 'neon'); },
   boutique(ctx, r) {
     const { x, y, w, y0 } = r, { P, N } = ctx, sw = Math.min(58, w - 32);
     // L'enseigne au néon BOUTIQUE n'existe pas : un cœur et une étoile au néon suffisent.
@@ -265,33 +284,46 @@ const COSMIC = {
     tableCrew(ctx, r, x, 22, 0, true);
   },
   tickets(ctx, r) {
-    const { S, O, N, P } = ctx, M = cosmicMat(S), { x, y, w } = r, kx = x - (w >= 150 ? 14 : 0), yb = y + FOOT - 1;
-    // Le GLOBE DES SORTS : une sphère de lumière sur un socle, les boules en orbite.
-    contactShadow(P, kx - 7, kx + 7, yb + 1);
-    piece(O, kx - 8, yb - 12, 17, 13, (Q) => {
-      for (let j = 0; j < 12; j += 1) { const hw = 3 + (j > 8 ? j - 8 : 0); for (let i = -hw; i <= hw; i += 1) Q.put(kx + i, yb - 11 + j, i < -1 ? M.body[0] : i > 1 ? M.body[3] : M.body[1]); }
-      Q.hline(kx - 5, yb - 12, 11, M.trim[0]);
+    const { S, O, N } = ctx, M = cosmicMat(S), { x, y, y0, w } = r, kx = x - (w >= 150 ? 14 : 0);
+    // LES TICKETS DE CRISTAL en suspens : deux rangées de lames de lumière au mur, chacune
+    // avec ses neuf alvéoles et son reflet — le ticket même qu'on gratte à ces âges
+    // (TICKET_LOOK, plaisirsMaterial.js) —, le comptoir flottant dessous. (Un globe de
+    // loterie l'occupait : un tirage, pas un ticket — même retour que la roue de fortune.)
+    const T = S.cosmo === 'jade' ? { paper: ['#e6fff2', '#b8f0d4', '#8fd8b6'], ink: '#2ec88a' }
+      : S.cosmo === 'astral' ? { paper: ['#fff8e0', '#ffe9b0', '#e8cc88'], ink: '#c89a30' }
+        : { paper: ['#f8f0ff', '#e2d0ff', '#c8b0f0'], ink: '#9a6ae0' };
+    for (let row = 0; row < 2; row += 1) for (let k = 0; k < 5; k += 1) {
+      // Chaque lame flotte à sa hauteur (un pixel de plus ou de moins), sans cadre.
+      const tx = kx - 19 + k * 8, ty = y0 + 9 + row * 13 + ((k + row) % 3 === 1 ? -1 : (k + row) % 3 === 2 ? 1 : 0);
+      for (let j = 0; j < 10; j += 1) for (let i = 0; i < 7; i += 1) {
+        let c = j < 3 ? T.paper[0] : j < 7 ? T.paper[1] : T.paper[2];
+        if (i === 0 || j === 0) c = '#ffffff';
+        if (i === 6 || j === 9) c = T.ink;
+        if (i > 0 && i < 6 && j > 1 && j < 8 && (i - 1) % 2 === 0 && (j - 2) % 2 === 0) c = T.ink;   // les neuf alvéoles
+        if (i + (9 - j) === 7 && i > 0 && i < 6) c = '#ffffff';                                       // le reflet
+        O.put(tx + i, ty + j, c);
+      }
+      // La lueur qui les porte, sous chacune — une par lame : des traits continus d'une
+      // lame à l'autre se lisaient comme des barreaux, la nuit.
+      for (let i = 1; i < 6; i += 1) { O.put(tx + i, ty + 12, mix(S.glow, '#ffffff', 0.3)); N.put(tx + i, ty + 12, S.glow); }
+      N.put(tx + 1, ty + 1, '#ffffff');
+    }
+    O.mark(kx, y0 + 20, S.glow);
+    counterEra(ctx, kx, y, 46, {
+      top: [M.glass[0], S.glow], face: [M.body[0], M.body[1], M.body[2]], style: 'light',
+      items(Q, x0, yt) {
+        // Deux lames posées sur le comptoir, à plat.
+        for (const dx of [8, 30]) { Q.hline(x0 + dx, yt - 1, 6, T.paper[1]); Q.hline(x0 + dx, yt - 2, 6, '#ffffff'); Q.put(x0 + dx + 5, yt - 1, T.ink); }
+      },
     });
-    const cy = yb - 26;
-    const { F } = ctx;
-    for (let j = -11; j <= 11; j += 1) for (let i = -11; i <= 11; i += 1) {
-      const d = Math.sqrt(i * i + j * j);
-      if (d > 11) continue;
-      const c = d > 10 ? S.glow2 : d > 9 ? S.glow : null;
-      if (c) { F.put(kx + i, cy + j, c); N.put(kx + i, cy + j, c); }
-    }
-    for (const [a, rr, c] of [[0.3, 6, '#ffffff'], [1.9, 7, '#d8404a'], [3.6, 5, '#ffe9a0'], [4.8, 7, '#7ab8e0'], [5.6, 4, '#ffffff']]) {
-      const bx = kx + Math.round(Math.cos(a) * rr), by = cy + Math.round(Math.sin(a) * rr * 0.7);
-      F.rect(bx, by, 2, 2, c); N.rect(bx, by, 2, 2, c);
-    }
-    O.mark(kx, cy, S.glow);
     const { fig } = ctx;
     if (r.on) {
-      fig(kx - 1, y + BK, 0, 0, r.v(0), { back: true, role: 'guichetier' });
-      fig(kx - 22, y + SD, 0, 1, r.v(1));
-      fig(kx + 24, y + SD, 2, 'g', r.v(2));
+      fig(kx - 3, y + BK, 0, 0, r.v(0), { back: true, role: 'guichetier' });
+      fig(kx + 34, y + SD, 2, 'g', r.v(1));
+      if (w >= 150) fig(kx - 34, y + SD, 0, 1, r.v(2));
     }
   },
+  machines(ctx, r) { slotRow(ctx, r, 'cosmic'); },
   boutique(ctx, r) {
     const { S, O, N } = ctx, M = cosmicMat(S), { x, y, w } = r, sw = Math.min(60, w - 30);
     // Les étagères sans montants : trois plans de lumière, les objets qui flottent dessus.

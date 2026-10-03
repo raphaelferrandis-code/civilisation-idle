@@ -427,7 +427,136 @@ Icare a sa plateforme d'envol au sommet (perchoir, ballon, mât selon l'âge).
     cache une table de 13) — derrière, aux bouts, au plus un de dos au coin
     (`tableCrew`).
   - Lint et 2 284 tests verts. Planches : `plaisirs/ext-v3.png` (dehors, jour et nuit),
-    `mdp-v3-b*.png` (coupes en jeu). RIEN commité.
+    `mdp-v3-b*.png` (coupes en jeu). Poussé dans `cd89de6` (Raph : « c'est super !! commit
+    et push »).
+- 2026-10-03 (soir) : **Raph : « on va revoir le design des jeux pour que leurs tables
+  collent à ce qu'on voit, et que le lancement soit plus joli que ça »** (capture : le
+  vingt-et-un du Jade, trois cases sombres sur un panneau de feutre uni).
+  - LA TABLE EN GROS PLAN (`iso/plaisirsTableBake.js`, `plaisirs/PlaisirsTable.jsx`,
+    `styles/plaisirs-tables.css`) : derrière chaque jeu, la table de l'âge peinte comme
+    dans la coupe (mêmes `styleHD`/`wallAt`/`lamp`) — le mur et ses lampes, la
+    CROUPIÈRE (ou le croupier, le guichetier) à la grille des filles, le plateau en
+    perspective qui déborde du cadre, son rebord, sa ceinture, le sol. Pixel entier
+    (`k` 3-5 réglé sur la largeur). Matière par jeu : dalle de pierre et nappe verte aux
+    dés, comptoir au guichet (chêne, acajou, laque).
+  - LE LANCEMENT : les mises sont POSÉES SUR LE TAPIS, chacune sur son cercle (peau
+    ronde au campement), son emblème dessus, une plaque (nom, prix, effet) dessous, le
+    bouton de jeu sous la mise choisie (`TableStake`). Plus de cadre de bouton autour
+    (la peau d'interface habillait `.stake-pick` d'un `::before` en border-image).
+  - LA PARTIE : vingt-et-un — les cartes de l'oracle devant la croupière, celles du
+    joueur au bord ; osselets — le jet au milieu du tapis ; tickets — le ticket posé sur
+    le comptoir (sa FACE est désormais peinte à la matière de l'âge, `ticketFace` :
+    les planches `ui/scratch/ticket-*.png` n'ont jamais existé) ; Icare — l'envol sur la
+    table, le ciel du vol inchangé. Verdicts en plaques à droite, boutons sur le sol.
+  - ⛔ Peau d'interface inchangée (cadre, plaques, boutons) : seule la table suit l'âge.
+  - ⚠ Le serveur de capture (61910) a une sauvegarde EN CRISE : les jeux s'y refusent.
+    Pour jouer une main de test, lever `state.crisisLimitAnnounced` le temps du SEUL
+    clic synchrone (jamais un getter permanent : la crise se re-déclenche à chaque tick,
+    bascule sur l'Effondrement et écrit dans la chronique).
+  - Lint et tests verts (+ `plaisirsTableBake.test.js`). RIEN commité.
+- **Raph, même soir : « même principe que le reste, il faut enlever toutes les explications,
+  ce sera dans l'aide du petit "?" ».** Les quatre écrans de jeu ne portent plus que des
+  VALEURS ; les phrases passent dans `StageHelp`.
+  - Osselets : plaques des rites = nom + prix (gains paire/Vénus et variance → une ligne par
+    rite dans l'aide) ; plus de « Les osselets roulent… », plus de note de verdict ; pastilles
+    « −6 faveur », « pitié −17 % », « 🏺 +N faveur » ; « Défier les dieux : quitte ou double »
+    → « Quitte ou double (50 %) » (et la fiche de l'Échelle de Vénus suit). Pitié, cagnotte
+    et quitte ou double expliqués dans l'aide. ⚠ L'aide disait encore « 1·3·4·6 : Coup de
+    Vénus » (les astragales d'avant le 2026-07-22) : c'est le TRIPLE SIX, le carré de six
+    rafle la cagnotte — corrigé.
+  - Vingt-et-un : « Main perdue. L'oracle reprend la mise. » → « Perdu : −N faveur ». La voix
+    de l'oracle (artefact) et la mesure restent : ce sont des effets achetés.
+  - Tickets : « Vernis nu… » → « Perdu : −N faveur », bandeau soleil « ☀ Vol d'Icare offert
+    (mise) », rejeu de la cella « Rejeu offert (N) » ; « un ticket perdant nourrit la
+    cagnotte » dans l'aide.
+  - Icare : part de cagnotte retirée des plaques (une ligne par mise dans l'aide, et
+    l'infobulle) ; « Brûlé à ×1.68 », « ☀ ×X » (🔥 si raté de peu), « −1 s : +N faveur (×m) ».
+  - Infobulles gardées. Tests 2345 verts. RIEN commité.
+- **Raph, même soir : « une petite mélodie quand on clique sur la scène. Et surtout la
+  possibilité de changer les musiques quand j'en rajouterai ».** La scène n'est plus
+  muette (son verbe devient « Écouter ») :
+  - LES MUSIQUES = UN DOSSIER, `src/assets/musiques/` (`game/audio/musiques.js`, glob
+    Vite) : y déposer un fichier en fait un morceau, sans code. Ordre = nom de fichier,
+    titre = nom sans numéro, mode d'emploi dans `LISEZMOI.md`. La musique de toujours y
+    est rangée en `01 - Track 5 (Abstraction).ogg`. On change de morceau sur la scène
+    (◀ titre ▶ pendu sous son plafond, `plaisirs/SceneJukebox.jsx`) et dans Options › Son
+    › Morceau ; fondu de sortie et d'entrée, choix retenu (`civ-opt-music-track`).
+  - LA PETITE MÉLODIE (`game/audio/melodieScene.js`) : jouée PAR LE CODE, un seul air
+    (quatre mesures en la mineur pentatonique) pour toute la Maison, par l'instrument de
+    l'âge — flûte d'os et tambour (feu), lyre (bois, pierre), luth et bourdon (couronne),
+    harpe (marbre), piano de bastringue (fonte), vibraphone en swing (néon), cloches sur
+    une nappe (jade, astral, cristal). La musique de fond s'efface à 20 % le temps de
+    l'air puis revient. Des fichiers dans `src/assets/musiques/scene/` la remplacent.
+  - Juger un son qu'on n'entend pas : analyse des hauteurs (Goertzel aux attaques de
+    l'air). Trois défauts trouvés ainsi, corrigés : écho de salle non normalisé (gain
+    ×25, l'air noyé dans les grandes salles), cloches FM à indice 2,4 (la fondamentale
+    s'éteint), cordes Karplus-Strong jusqu'à un sixième de demi-ton faux (accord par
+    passe-tout, mesuré juste au dixième de hertz). Après : 9 à 12 notes sur 12 reconnues
+    selon l'âge (les écarts = harmoniques de la basse sur la note de l'air).
+  - Vérifié en jeu : mélodie lancée au clic (6,4 s), musique effacée puis rendue,
+    changement de morceau avec un fichier d'essai (retiré), Options. Tests 2372 verts,
+    build : le morceau sort à côté du jeu, adresse relative. RIEN commité.
+- **Raph, même soir : « le design de la roue amène aux tickets, c'est pas logique ».**
+  RÈGLE : la salle d'un jeu MONTRE ce qu'on y joue. Revue des dix âges : le feu (les
+  sorts), le bois (la planche des marques), la pierre (la blanque), le marbre (les
+  tessères), la fonte (le kiosque LOTERIE) la tenaient ; trois non :
+  - COURONNE : la roue de fortune → la LOTERIE DU ROI : tableau couronné de dix billets
+    de parchemin scellés de bleu et liserés d'or (le ticket qu'on gratte à cet âge),
+    bannières fleurdelisées, guichet (pile de billets, coffret, encrier et plume) ;
+  - NÉON : les bandits manchots (un autre jeu) → le COMPTOIR DES TICKETS À GRATTER :
+    enseigne au néon « TICKETS », présentoir éclairé de cartes laquées (zone argentée),
+    comptoir vitré ;
+  - COSMIQUES : le globe de loterie (un tirage, pas un ticket) → TICKETS DE CRISTAL en
+    suspens, neuf alvéoles et reflet, une lueur sous chacun (des traits continus d'une
+    lame à l'autre faisaient des barreaux la nuit), comptoir flottant.
+- **« Quitter la table : la case s'efface ».** `.btn-close` est le rôle SANS plaque de
+  chrome-wizard (croix, poignées) ; dans la rangée d'actions d'une table il prend la
+  plaque de ses voisins (plaisirs-tables.css). Et `.choice-menu button` (4,2 rem, les
+  grands choix des dialogues) étirait ces boutons à 67 px : ramenés à 2,5 rem — la
+  colonne des tickets ne déborde plus sous la table. Tests 2423 verts. RIEN commité.
+- **Raph, même soir : « je rajouterais bien une machine à sous, avec des bonus type free
+  spin et mini jeux, qui déclenche une roue ».** Arbitrages (questions posées) : dès la
+  FONTE (ère 25, la Liberty Bell de 1895), dans une SALLE DES MACHINES, et une case
+  JACKPOT sur la roue (« mais on va revoir tous les bonus des jeux et leur fonctionnement »).
+  - MOTEUR (`core/actions/slots.js`, constantes SLOTS_* de balance.js) : une vraie
+    machine — trois rouleaux figés de 27 cases, trois rangées, cinq lignes ; ce sont
+    les ARRÊTS qui décident (un Math.random par rouleau). Trois étoiles n'importe où :
+    8 tours gratuits, gains ×2, relance possible ; trois roues : la ROUE, douze cases
+    égales (×2 à ×20, deux coffres, 8 tours, un vol d'Icare à la hauteur de la mise,
+    JACKPOT = la cagnotte au prorata de la mise, `potRake`). Le mini-jeu des COFFRES :
+    trois coffres (×3, ×6, ×20) battus, on en ouvre un. Mises Jeton 4 / Rouleau 10 /
+    Lingot 25 (le lingot rafle la cagnotte entière), coffres ×10ⁿ compris.
+  - RTP CALCULÉ, jamais saisi (`slotsOdds`) : énumération des 27³ arrêts + l'équation
+    qui lie une série de tours (F) et une roue (W, dont une case offre une série) —
+    92,2 % hors jackpot (lignes 70,8 · tours 14,3 · roue 7,1) ; une ligne gagnante un
+    tour sur six (toujours ≥ la mise : la règle « trois fruits mélangés » a été essayée
+    et retirée, elle faisait des « gains » inférieurs à la mise un tour sur deux) ;
+    tours gratuits et roue chacun 1 tour sur 91. Le test simule 150 000 tours et
+    retrouve le calcul à 3 points près. La cagnotte est nourrie sur l'edge d'un tour
+    PAYÉ (feedPot), le jackpot est un transfert.
+  - Les tours gratuits SURVIVENT à la fermeture (state.slotsFreeSpins, hydraté, borné),
+    tombent à l'effondrement ; registre de la Chronique (`slots` : séries, roues,
+    jackpots) et sa carte dans la Chronique.
+  - LE GROS PLAN (`ui/SlotsStage.jsx`, `iso/plaisirsSlotsArt.js`, `plaisirs-slots.css`) :
+    le mur et le sol de la salle de l'âge, la machine au centre — FONTE (fonte et
+    laiton, fronton festonné à la cloche de la Liberté ; symboles cœur, carreau, pique,
+    fer à cheval, trèfle, cloche fêlée), NÉON (laque rouge, chrome, fronton d'ampoules
+    qui courent, le 7 ; cerise, citron, cloche, fer, BAR, 7), COSMIQUES (cadre de
+    lumière qui flotte, symboles en cristal). Rouleaux animés au pixel (flou de
+    vitesse, rebond à l'arrêt, le 3e TRAÎNE quand deux étoiles ou deux roues sont déjà
+    là), levier qu'on tire, lignes gagnantes qui clignotent, tours qui s'enchaînent
+    seuls, roue qu'on LANCE d'un clic (tournée au pixel, étiquettes droites), coffres.
+    Mises posées au sol (TableStake, emblèmes jeton / rouleau / lingot) ; pas une phrase,
+    les règles et la table des gains en symboles dans l'aide « ? ».
+  - LA SALLE (`iso/plaisirsSlotsCoupe.js`) : `machines` au plan — Fonte au rez avec les
+    jeux, Néon/astral/cristal avec les tickets, Jade au rez ; une rangée de machines à
+    la toise de la coupe, joueurs aux bouts. Lieu « Les machines », verbe « Tirer ».
+  - Vérifié en jeu (fonte et néon) : tour perdant, roue forcée → coffres → +60, série
+    de tours gratuits (mise non débitée, « Tour gratuit (7) », compteur ★ 1/8).
+    Tests 2444 verts, build OK. RIEN commité.
+  - ⚠ Banc de test en crise : lever `crisisLimitAnnounced` le temps d'UN clic, dans le
+    MÊME appel — laissé faux entre deux appels, le jeu a ré-annoncé la crise (bascule
+    sur la Chute, une ligne de journal) sur la sauvegarde du serveur de test.
 
 ---
 

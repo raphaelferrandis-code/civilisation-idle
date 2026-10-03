@@ -3,6 +3,7 @@
 import { blackjackUnlocked } from "../../../game/core/actions/blackjack.js";
 import { icarusUnlocked } from "../../../game/core/actions/icarus.js";
 import { scratchUnlocked } from "../../../game/core/actions/scratch.js";
+import { slotsUnlocked } from "../../../game/core/actions/slots.js";
 import { regulationActionUnlocked } from "../../../game/core/mechanics/crisis-cost.js";
 import { REGULATION_ACTIONS } from "../../../game/data/regulationActions.js";
 import { state } from "../../../game/core/state.js";
@@ -28,6 +29,8 @@ export const PLAISIRS_SPOTS = [
   // jouent déjà pour le décor.
   { id: "scene",   kind: null,        label: "La scène" },
   { id: "tickets", kind: "scratch",   label: "Les tickets" },
+  // La machine à sous (2026-10-03) : sa salle n'existe qu'à partir de la Fonte.
+  { id: "machines", kind: "slots",    label: "Les machines" },
   // LA BOUTIQUE EN DERNIER (Raph, 2026-08-07) : c'est sa place dans le menu —
   // on y range ses gains, on n'y joue pas, elle ferme donc la liste.
   // Le nom suit celui de l'ONGLET (« Boutique ») : c'est la même destination,
@@ -48,6 +51,7 @@ export const SPOT_VERBES = {
   cartes: "Jouer",
   tickets: "Gratter",
   icare: "Voler",
+  machines: "Tirer",
   boutique: "Entrer"
 };
 export const spotVerbe = (spot) => (spot && SPOT_VERBES[spot.id]) || "Ouvrir";
@@ -69,6 +73,7 @@ function spotUnlocked(spot) {
   if (spot.kind === "blackjack") return blackjackUnlocked();
   if (spot.kind === "icarus") return icarusUnlocked();
   if (spot.kind === "scratch") return scratchUnlocked();
+  if (spot.kind === "slots") return slotsUnlocked();
   if (spot.kind === "augury") {
     // Les osselets sont une ACTION de régulation : leur verrou vit là-bas, et
     // l'identifiant se lit dans les données plutôt qu'écrit en dur (même

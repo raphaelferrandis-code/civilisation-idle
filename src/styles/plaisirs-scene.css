@@ -1,0 +1,33 @@
+/* LE PUPITRE DE LA SCÈNE (plaisirs/SceneJukebox.jsx) : ◀ titre ▶ pendu sous le
+   plafond de la scène. Le titre est du TEXTE sur le décor, pas une pastille encadrée
+   (règle de l'interface) : une ombre douce le détache du rideau. Tout reste BAS (une
+   ligne d'environ 26 px) : plus haut, il passait sur la tête de la troupe quand la
+   coupe est petite. */
+.scene-juke {
+  display: flex;
+  align-items: center;
+  gap: 0.3rem;
+  white-space: nowrap;
+}
+.scene-juke-titre {
+  max-width: 16rem;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  padding: 0.1rem 0.7rem;
+  font-family: var(--font-serif, inherit);
+  font-size: 0.8rem;
+  line-height: 1.2;
+  color: var(--gold-bright, #f3d58a);
+  text-shadow: 1px 1px 0 #000, 0 0 4px rgba(0, 0, 0, 0.9);
+  background: radial-gradient(ellipse at center, rgba(14, 8, 4, 0.72) 0%, rgba(14, 8, 4, 0.5) 55%, rgba(14, 8, 4, 0) 100%);
+}
+/* Les flèches : de petits boutons (le thème leur donne 40 px de haut, cible du doigt —
+   gardée au toucher, cf. touch-shell.css). */
+:root:not([data-pointer="coarse"]) .app .scene-juke .scene-juke-pas {
+  min-height: 0;
+  height: 1.55rem;
+  min-width: 1.55rem;
+  padding: 0;
+  font-size: 0.65rem;
+  line-height: 1;
+}

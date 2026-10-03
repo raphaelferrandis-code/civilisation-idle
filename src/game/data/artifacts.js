@@ -67,8 +67,8 @@ export const ARTIFACT_LINEAGES = [
         id: "echelle", kind: "artifact", cost: ARTIFACT_ECHELLE_COST,
         label: { fr: "L'Échelle de Vénus", en: "The Ladder of Venus" },
         desc: {
-          fr: `Défier les dieux s'enchaîne jusqu'à ${AUGURY_DOUBLE_MAX_CRANS} fois. Chaque marche remet tout en jeu.`,
-          en: `Defying the gods can be chained up to ${AUGURY_DOUBLE_MAX_CRANS} times. Each step stakes everything again.`
+          fr: `Le quitte ou double s'enchaîne jusqu'à ${AUGURY_DOUBLE_MAX_CRANS} fois. Chaque marche remet tout en jeu.`,
+          en: `Double or nothing can be chained up to ${AUGURY_DOUBLE_MAX_CRANS} times. Each step stakes everything again.`
         }
       },
       {

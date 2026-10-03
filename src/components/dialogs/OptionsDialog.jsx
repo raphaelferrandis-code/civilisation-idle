@@ -9,7 +9,10 @@ import {
   getMusicVolume,
   setMusicVolume,
   getMusicActiveTabOnly,
-  setMusicActiveTabOnly
+  setMusicActiveTabOnly,
+  getMusicTracks,
+  getMusicTrack,
+  setMusicTrack
 } from '../../game/core/main.js';
 import { numberFormatMode, setNumberFormatMode, encodeSaveText } from '../../game/core/utils.js';
 import { dayNightMode, setDayNightMode } from '../../game/map/dayNightMode.js';
@@ -68,6 +71,8 @@ export default function OptionsDialog({ isOpen, onClose, onSave, onExport, onImp
   const musicEnabled = getMusicEnabled();
   const musicVolume = getMusicVolume();
   const musicActiveTabOnly = getMusicActiveTabOnly();
+  const musicTracks = getMusicTracks();
+  const musicTrack = getMusicTrack();
   const formatMode = numberFormatMode;
   const autoScriptRules = getAutoScriptRules();
   const automateRules = getAutomateRules();
@@ -220,6 +225,11 @@ export default function OptionsDialog({ isOpen, onClose, onSave, onExport, onImp
   const handleVolumeChange = (event) => {
     const next = Number(event.target.value) / 100;
     setMusicVolume(next);
+    setOptionRevision((revision) => revision + 1);
+  };
+
+  const handleTrackChange = (id) => {
+    setMusicTrack(id);
     setOptionRevision((revision) => revision + 1);
   };
 
@@ -809,6 +819,29 @@ export default function OptionsDialog({ isOpen, onClose, onSave, onExport, onImp
                   
                 </button>
               </div>
+
+              {/* LE MORCEAU : un bouton par fichier du dossier src/assets/musiques/
+                  (audio/musiques.js) — le même choix que sur la scène des Plaisirs. */}
+              {musicTracks.length > 0 && (
+                <div className="options-row">
+                  <div>
+                    <OptionLabel label={tr({ fr: "Morceau", en: "Track" })} hint={tr({ fr: "Se change aussi sur la scène de la Maison des Plaisirs", en: "Can also be changed on the stage of the House of Pleasures" })} />
+                  </div>
+                  <div className="number-format-control" style={{ flexWrap: 'wrap', justifyContent: 'flex-end' }}>
+                    {musicTracks.map((t) => (
+                      <button
+                        key={t.id}
+                        className={`format-option ${musicTrack === t.id ? 'active' : ''}`}
+                        type="button"
+                        aria-pressed={musicTrack === t.id}
+                        onClick={() => handleTrackChange(t.id)}
+                      >
+                        {t.title}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              )}
 
               <div className="options-row options-row-volume">
                 <div>
