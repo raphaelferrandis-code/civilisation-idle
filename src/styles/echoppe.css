@@ -1,0 +1,333 @@
+/* ============================================================================
+   L'ÉCHOPPE — la Boutique refaite (HeritageView.jsx, maquette V4).
+   ----------------------------------------------------------------------------
+   Le décor en entier en haut (agrandi d'un facteur entier, sur un fond
+   d'ambiance flouté qui remplit les côtés), le flacon de l'article choisi
+   ALLUMÉ dans le décor ; en bas le comptoir : trois armoires en listes et la
+   fiche de l'article, seul cadre grec de l'écran. Peau du jeu : plaques
+   opaques, angle vif, or = achat possible maintenant.
+   Montée aussi en plein cadre dans la Maison des Plaisirs : la grille suit son
+   conteneur (hauteur 100 %).
+   ============================================================================ */
+
+/* L'onglet seul : la vue tient dans la fenêtre, chaque armoire défile. */
+.app[data-active-view="tech"] main {
+  display: flex;
+  flex-direction: column;
+  height: 100vh;
+  max-height: 100vh;
+  overflow: hidden;
+}
+.app[data-active-view="tech"] #tech.echoppe {
+  flex: 1 1 auto;
+}
+
+.app #tech.echoppe {
+  display: grid;
+  /* Le COMPTOIR d'abord : au moins six articles par armoire (22rem), 42 % de la
+     hauteur au-delà. Le décor prend le reste ; il ne s'agrandit que d'un facteur
+     ENTIER (400×224) : ×1 en 768 px de haut, ×2 en 1080, ×3 en 1340.
+     ⚠ Mesuré : un décor à 56 % laissait 270 px au comptoir en 1366×768 — les
+     armoires n'y montraient plus que leur titre. */
+  grid-template-rows: minmax(9rem, 1fr) minmax(22rem, 42%);
+  gap: 0.9rem;
+  height: 100%;
+  min-height: 0;
+  padding: 0;
+  /* Opaque : montée dans les Plaisirs, le fond de la salle transparaissait. */
+  background: var(--bg);
+}
+
+/* Montée dans la Maison des Plaisirs, le menu des lieux flotte à gauche par-dessus
+   (views-plaisirs.css : `left: 18px`, `min-width: 13rem`) : l'échoppe lui laisse sa
+   colonne — sinon il couvrait l'armoire des jeux. Sous 761 px il descend sous la
+   salle, plus rien à éviter. La bourse est déjà en tête du menu. */
+@media (min-width: 761px) {
+  .app[data-active-view="plaisirs"] #tech.echoppe { padding-left: calc(13rem + 36px); }
+}
+.app[data-active-view="plaisirs"] .echoppe-wallet { display: none; }
+
+/* ── LE DÉCOR ─────────────────────────────────────────────────────────────── */
+.app .echoppe-stage {
+  position: relative;
+  min-height: 0;
+  overflow: hidden;
+  background: #050407;
+}
+.app .echoppe-ambient {
+  position: absolute;
+  inset: -8%;
+  width: 116%;
+  height: 116%;
+  max-width: none;
+  object-fit: cover;
+  filter: blur(18px) brightness(0.42) saturate(0.85);
+  pointer-events: none;
+}
+.app .echoppe-scene {
+  position: absolute;
+  inset: 0;
+  background: transparent;
+}
+
+/* Le flacon de l'article : sa silhouette DÉTOURÉE (fond transparent : le mur et
+   l'étagère sont retirés, sinon l'éclat dessinait un rectangle), éclairée, posée
+   sur lui, et un halo de bougie. Le décor est agrandi d'un facteur entier : la
+   découpe aussi, donc ses pixels tombent pile sur ceux du dessin. */
+.app .bottle-halo {
+  position: absolute;
+  width: 7.5%;
+  aspect-ratio: 1;
+  transform: translate(-50%, -50%);
+  border-radius: 50%;
+  background: radial-gradient(circle, rgba(255, 214, 140, 0.55), rgba(255, 190, 90, 0.18) 45%, transparent 70%);
+  pointer-events: none;
+  animation: echoppe-halo 2.4s ease-in-out infinite;
+}
+.app .bottle-lit {
+  position: absolute;
+  max-width: none;
+  image-rendering: pixelated;
+  filter: brightness(1.5) saturate(1.25)
+    drop-shadow(0 0 2px rgba(255, 220, 150, 0.95))
+    drop-shadow(0 0 9px rgba(255, 190, 90, 0.55));
+  pointer-events: none;
+}
+@keyframes echoppe-halo {
+  0%, 100% { opacity: 0.75; transform: translate(-50%, -50%) scale(0.95); }
+  50% { opacity: 1; transform: translate(-50%, -50%) scale(1.06); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .app .bottle-halo { animation: none; }
+}
+
+/* La bourse, posée sur le décor. */
+.app .echoppe-wallet {
+  position: absolute;
+  top: 1rem;
+  right: 1rem;
+  z-index: 2;
+  display: flex;
+  align-items: center;
+  gap: 0.8rem;
+  padding: 0.5rem 0.6rem 0.5rem 0.9rem;
+  background: rgba(12, 15, 24, 0.94);
+  box-shadow:
+    inset 0 0 0 1px rgba(0, 0, 0, 0.6),
+    inset 0 0 0 2px rgba(196, 204, 221, 0.06),
+    0 4px 14px rgba(0, 0, 0, 0.5);
+}
+.app .echoppe-wallet-val {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  font: 400 1.3rem/1 var(--font-number);
+  color: var(--gold-bright);
+  cursor: default;
+}
+
+/* ── LE COMPTOIR ──────────────────────────────────────────────────────────── */
+.app .echoppe-counter {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr)) minmax(20rem, 26rem);
+  gap: 0.8rem;
+  min-height: 0;
+  padding: 0 1rem 1rem;
+}
+.app .echoppe-cabinet {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  min-height: 0;
+  background: rgba(13, 16, 26, 0.96);
+  box-shadow:
+    inset 0 0 0 1px rgba(0, 0, 0, 0.6),
+    inset 0 0 0 2px rgba(196, 204, 221, 0.06),
+    0 3px 0 rgba(0, 0, 0, 0.35);
+}
+.app #tech .echoppe-cabinet-head h2 {
+  margin: 0;
+  padding: 0.8rem 1rem 0.4rem;
+  font: 400 1.3rem/1 var(--font-title);
+  color: var(--gold-ivory);
+}
+.app .echoppe-cabinet-body {
+  min-height: 0;
+  overflow-y: auto;
+  padding: 0 0.7rem 0.8rem;
+  scrollbar-width: thin;
+  scrollbar-color: rgba(201, 169, 104, 0.3) transparent;
+}
+.app #tech .echoppe-line-title {
+  margin: 0.75rem 0.3rem 0.35rem;
+  font: 750 0.66rem/1 var(--font-body);
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--gold-dim);
+}
+.app .echoppe-wares {
+  display: grid;
+  gap: 0.25rem;
+}
+
+/* Une ligne d'article : flacon, nom, prix. Petite plaque de cuir ASSOMBRIE au
+   repos, éclairée quand l'article est choisi (le retenu est cuir, jamais or). */
+.app .ware {
+  display: grid;
+  grid-template-columns: 2rem minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 0.55rem;
+  width: 100%;
+  min-height: 2.6rem;
+  padding: 0.3rem 0.6rem 0.35rem 0.4rem;
+  text-align: left;
+}
+.app .ware::before {
+  border-width: 4px 2px 4px 4px;
+  border-image: url("/pixelart/ui/chrome/wizard/button-sm.png") 2 1 2 2 fill stretch;
+  filter: brightness(0.48) saturate(0.6);
+}
+.app .ware:hover:not(.is-sel)::before { filter: brightness(0.75) saturate(0.8); }
+.app .ware.is-sel::before { filter: none; }
+.app .ware-bottle {
+  display: grid;
+  place-items: center;
+  width: 2rem;
+  height: 2rem;
+}
+.app .ware-bottle img {
+  image-rendering: pixelated;
+}
+.app .ware-name {
+  min-width: 0;
+  font: 600 0.82rem/1.2 var(--font-body);
+  color: var(--skin-cream);
+}
+.app .ware-price {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+  font: 400 0.76rem/1 var(--font-number);
+  white-space: nowrap;
+  color: var(--text-mid);
+}
+.app .ware.is-afford .ware-price { color: var(--gold-bright); }
+.app .ware.is-owned .ware-price { color: #8EE0B0; font-family: var(--font-body); font-weight: 700; font-size: 0.7rem; }
+.app .ware.is-owned .ware-name,
+.app .ware.is-rank .ware-name { color: var(--text-mid); }
+.app .ware.is-rank .ware-bottle img { filter: grayscale(0.85) brightness(0.6); }
+
+/* ── LA FICHE — le seul cadre grec de l'écran ─────────────────────────────── */
+.app .echoppe-card {
+  display: grid;
+  align-content: start;
+  gap: 0.8rem;
+  min-height: 0;
+  overflow-y: auto;
+  padding: 0;
+  border-style: solid;
+  border-width: 48px 40px 42px 48px;
+  border-color: transparent;
+  border-image: var(--ui-greek-src) var(--ui-greek-slice) round;
+  background: rgba(13, 16, 26, 0.96);
+  background-clip: padding-box;
+  image-rendering: pixelated;
+}
+.app .echoppe-card-top {
+  display: flex;
+  align-items: center;
+  gap: 0.9rem;
+}
+.app .ware-bottle.is-big {
+  width: auto;
+  height: auto;
+  min-width: 3.5rem;
+}
+/* ×3 entier : la découpe garde ses pixels égaux. `zoom` et non `transform` :
+   la boîte grandit avec l'image, la mise en page suit. */
+.app .ware-bottle.is-big img {
+  zoom: 3;
+}
+.app .echoppe-card-title {
+  display: grid;
+  gap: 0.35rem;
+  min-width: 0;
+}
+.app .echoppe-card-line {
+  font: 750 0.66rem/1 var(--font-body);
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--gold-dim);
+}
+.app #tech .echoppe-card h3 {
+  margin: 0;
+  font: 400 1.45rem/1.05 var(--font-title);
+  color: var(--gold-ivory);
+}
+.app .echoppe-card-effect {
+  margin: 0;
+  font: 500 0.95rem/1.5 var(--font-body);
+  color: var(--text-secondary);
+}
+.app .echoppe-card-foot {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  flex-wrap: wrap;
+}
+.app .echoppe-card-price {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  font: 400 1.2rem/1 var(--font-number);
+  color: var(--gold-bright);
+}
+.app .echoppe-card-state {
+  font: 750 0.75rem/1 var(--font-body);
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--text-mid);
+}
+.app .echoppe-card-state.is-owned { color: #8EE0B0; }
+.app .echoppe-buy { min-width: 9rem; }
+
+/* ── ÉCRANS MOYENS ET PETITS ───────────────────────────────────────────────── */
+/* La fiche reste une colonne (sous les armoires, elle leur volait la moitié de la
+   hauteur) ; trop étroite pour le cadre grec — 88 px de bordure, qui ne se réduit
+   pas : ses pixels sont au 1:1 —, elle reprend la plaque. */
+@media (max-width: 1400px) {
+  .app .echoppe-counter { grid-template-columns: repeat(3, minmax(0, 1fr)) minmax(16rem, 18rem); }
+  .app .echoppe-card {
+    border-width: 1px;
+    border-image: none;
+    border-color: var(--border-soft);
+    padding: 1rem;
+  }
+}
+@media (max-width: 1100px) {
+  .app #tech.echoppe { grid-template-rows: minmax(9rem, 34%) minmax(0, 1fr); }
+  /* Une seule colonne qui défile. ⚠ `max-content` : les armoires portent
+     `min-height: 0` (pour défiler seules sur grand écran) ; dans des rangées
+     `auto` d'un conteneur de hauteur fixe, elles s'écrasaient alors les unes
+     sur les autres. */
+  .app .echoppe-counter {
+    grid-template-columns: minmax(0, 1fr);
+    grid-auto-rows: max-content;
+    overflow-y: auto;
+  }
+  .app .echoppe-cabinet-body { overflow: visible; }
+  /* La fiche reste collée au bas de l'écran : on choisit en défilant, on achète
+     sans remonter ni descendre. */
+  .app .echoppe-card {
+    position: sticky;
+    bottom: 0;
+    z-index: 1;
+    border-width: 1px;
+    border-image: none;
+    border-color: var(--border-soft);
+    padding: 0.9rem;
+    background: rgb(13, 16, 26);
+    box-shadow: 0 -8px 18px rgba(0, 0, 0, 0.55);
+  }
+}

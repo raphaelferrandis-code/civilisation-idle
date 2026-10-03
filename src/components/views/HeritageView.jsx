@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import { useGameState } from '../../hooks/useGameState.js';
 import {
   isUnlocked,
@@ -7,7 +7,7 @@ import {
   reseauRoutesCostMult
 } from '../../game/core/mechanics.js';
 import { buyUpgrade, engraveCadmosEpitaph, faveurShopItems, buyFaveurItem, artifactTree, buyArtifactNode, unlockTempleAuto, templeAutoUnlockCost } from '../../game/core/actions.js';
-import { state } from '../../game/core/state.js';
+import { state, openView } from '../../game/core/state.js';
 import { upgrades } from '../../game/data/upgrades.js';
 import { codexSavoirBonus } from '../../game/data/world.js';
 import { CADMOS_MAX_PERMANENT_EPITAPHS, CADMOS_EPITAPH_BONUS_PCT } from '../../game/data/myths.js';
@@ -15,14 +15,34 @@ import { pushOutcomeFloat } from '../../game/core/outcomeFloat.js';
 import { fmt } from '../../game/core/utils.js';
 import {
   LABELS as FAVEUR_LABELS,
-  ICONS as FAVEUR_ICONS,
   DESCS as FAVEUR_DESCS,
   effectLine as faveurEffectLine
 } from '../ui/faveurShopMeta.js';
 import { tr } from '../../game/core/i18n.js';
 import { FaveurIcon } from '../ui/FaveurIcon.jsx';
 import { tipProps } from '../ui/HelpBubble.jsx';
+import PlaceScene from '../ui/PlaceScene.jsx';
+import PixelIcon from '../ui/PixelIcon.jsx';
 import AutoDials, { RateBadge } from '../ui/TempleAutoDials.jsx';
+import { BOTTLE_POS, bottleOf } from './echoppeBottles.js';
+
+/**
+ * LA BOUTIQUE — l'échoppe du Chiffonnier des cycles (refonte V4, « toute
+ * l'échoppe à refaire », demande de Raph sur la V2).
+ *
+ * En haut, le décor PixelLab (echoppe-neuve.png) en entier, agrandi d'un facteur
+ * entier : trois armoires de flacons, le vieux marchand au comptoir. Les flacons
+ * NE SE CLIQUENT PLUS : celui de l'article présélectionné S'ILLUMINE (sa découpe
+ * exacte posée sur lui, éclairée, et un halo) — au survol d'une ligne, et pour
+ * l'article choisi.
+ * En bas, le COMPTOIR : les trois armoires en listes (jeux, confort, production),
+ * rangées par lignée, et la FICHE de l'article dans le cadre grec — effet, prix,
+ * achat (ou les cadrans d'un automate acquis).
+ * Tout se paie en FAVEUR (arbitrage Raph 2026-07-15) — sauf les épitaphes de
+ * Cadmos (héritage du mythe), gratuites et plafonnées, rangées en articles dans
+ * l'armoire de la production. Montée aussi en plein cadre
+ * dans la Maison des Plaisirs (PlaisirsView) : la mise en page suit son conteneur.
+ */
 
 // Effet « vivant » des upgrades qui scalent avec l'état (à la manière de la
 // Boutique de Faveur « edge 18 % → 16 % ») : lit la MÊME formule que la mécanique
@@ -46,58 +66,7 @@ function liveEffectLine(upgrade, cycles, bestEraIndex, owned) {
   return null;
 }
 
-// Les TROIS ARMOIRES de l'échoppe (arbitrage Raph 2026-07-16) : chaque marchandise
-// porte une armoire (`shelf`) et tombe sur la prochaine bouteille libre de la
-// sienne — GAUCHE = les jeux du temple (artefacts osselets/Icare), MILIEU = le
-// confort (QoL), DROITE = les bonus de production. Bouteilles PRÉ-CALIBRÉES par
-// Raph (__shopCalibPool, 2026-07-15) sur echoppe-scene.png (400×160), en % du
-// cadre — chaque {x,y} = CENTRE de la zone cliquable. Jamais un item masqué.
-const ARMOIRE_SLOTS = {
-  // Armoire de GAUCHE (x ≤ 35) — réserve pour les futurs achats liés aux jeux
-  // (les lignées actuelles ont leurs bouteilles FIXES dans LINEAGE_ROWS).
-  // 2026-07-17 : +3 positions interpolées dans le trou de l'étagère du haut
-  // (x 27-33, même alignement) — les 4 lignées posent 14 bouteilles sur cette
-  // armoire et le pool n'en avait que 11 : trois se chevauchaient (modulo).
-  // Approximatives : à recaler à l'œil via window.__shopCalibPool() si besoin.
-  jeu: [
-    { x: 15, y: 21 }, { x: 18, y: 21 }, { x: 21, y: 20 }, { x: 24, y: 21 },
-    { x: 27, y: 21 }, { x: 30, y: 20 }, { x: 33, y: 21 }, { x: 35, y: 21 },
-    { x: 26, y: 40 }, { x: 32, y: 40 },
-    { x: 17, y: 59 }, { x: 24, y: 59 }, { x: 30, y: 60 }, { x: 35, y: 60 }
-  ],
-  // Armoire du MILIEU (au-dessus du marchand, 38 ≤ x ≤ 61) — le confort.
-  qol: [
-    { x: 39, y: 20 }, { x: 45, y: 21 }, { x: 48, y: 20 }, { x: 42, y: 20 }, { x: 51, y: 21 },
-    { x: 53, y: 21 }, { x: 56, y: 21 }, { x: 59, y: 21 }, { x: 61, y: 21 },
-    { x: 39, y: 39 }, { x: 42, y: 40 }, { x: 45, y: 40 }, { x: 56, y: 39 }, { x: 59, y: 40 }
-  ],
-  // Armoire de DROITE (x ≥ 62) — les bonus de production. Comptoir en dernier.
-  prod: [
-    { x: 66, y: 39 }, { x: 69, y: 40 }, { x: 71, y: 40 }, { x: 74, y: 39 }, { x: 77, y: 40 },
-    { x: 79, y: 40 }, { x: 82, y: 39 }, { x: 85, y: 40 }, { x: 62, y: 40 },
-    { x: 62, y: 59 }, { x: 66, y: 59 }, { x: 69, y: 59 }, { x: 71, y: 60 }, { x: 76, y: 59 },
-    { x: 79, y: 59 }, { x: 83, y: 58 }, { x: 86, y: 58 },
-    { x: 66, y: 21 }, { x: 75, y: 21 }, { x: 77, y: 20 }, { x: 80, y: 21 }, { x: 83, y: 21 },
-    { x: 85, y: 21 },
-    { x: 74, y: 77 }, { x: 90, y: 78 }
-  ]
-};
-
-// Armoire de GAUCHE — une étagère PAR LIGNÉE d'artefacts, rang 1 → capstone de
-// gauche à droite (osselets = étagère du milieu, Icare = étagère basse). Positions
-// FIXES pour que les bouteilles ne bougent pas quand l'autre lignée s'ouvre.
-// Les lignées se sont allongées (2026-07-17 : osselets 6 rangs, Icare 7) et deux
-// nouvelles sont nées (gratteux, vingt-et-un). Les positions au-delà des rangées
-// calibrées tombent sur le POOL de bouteilles libres (slot null → AUTO_SLOTS),
-// prévu exactement pour ça (cf. __shopCalibPool).
-const LINEAGE_ROWS = {
-  osselets: [{ x: 18, y: 40 }, { x: 23, y: 39 }, { x: 29, y: 41 }, { x: 35, y: 40 }],
-  icarus:   [{ x: 15, y: 59 }, { x: 21, y: 59 }, { x: 27, y: 59 }, { x: 32, y: 60 }],
-  gratteux: [],
-  vingtetun: []
-};
-
-// Répartition des upgrades d'Héritage dans les armoires (défaut : droite/prod).
+// Répartition des upgrades d'Héritage dans les armoires (défaut : production).
 const HERITAGE_ARMOIRE = {
   reforme_administrative: 'qol',   // bouton Max
   protocoles_urgence: 'qol',       // Rationner/Recensement automatiques
@@ -106,6 +75,27 @@ const HERITAGE_ARMOIRE = {
   codex_mythique: 'prod',          // +Savoir à chaque cycle
   rituel_effondrement: 'prod'      // +25 % de ruines à l'effondrement
 };
+
+// L'état d'un article, pour la liste comme pour la fiche.
+function wareState(o, faveur) {
+  if (o.owned) return 'owned';
+  if (o.locked) return 'rank';
+  if (o.free) return o.canBuy ? 'afford' : 'poor';
+  return o.canBuy || faveur >= (o.price || 0) ? 'afford' : 'poor';
+}
+
+// Le flacon de l'article (sa silhouette, détourée dans le décor) ; à défaut son
+// emblème, à défaut la Faveur.
+function BottleThumb({ ware, className = '' }) {
+  const b = bottleOf(ware.id);
+  return (
+    <span className={`ware-bottle ${className}`.trim()} aria-hidden="true">
+      {b
+        ? <img src={`/pixelart/boutique/flacons/${b}.png`} alt="" draggable="false" />
+        : ware.icon ? <PixelIcon name={ware.icon} size={16} /> : <FaveurIcon />}
+    </span>
+  );
+}
 
 export default function HeritageView() {
   const faveur = useGameState((s) => s.faveur || 0);
@@ -130,23 +120,9 @@ export default function HeritageView() {
   const cadmosLastRunChronicle = useGameState((s) => s.cadmosLastRunChronicle) || [];
   const cadmosChronicle = useGameState((s) => s.cadmosChronicle) || [];
 
-  // Marchandise sélectionnée (dont le détail s'affiche en bas du comptoir).
+  // Article CHOISI (fiche + flacon allumé) et article SURVOLÉ (flacon allumé).
   const [selectedId, setSelectedId] = useState(null);
-
-  // CALIBRATION dev (console). Deux modes :
-  //   window.__shopCalib()      → place les items NOMMÉS dans l'ordre (→ SHELF_SLOTS) ;
-  //   window.__shopCalibPool()  → capture un POOL de bouteilles libres (→ AUTO_SLOTS),
-  //                                pour que les futurs augments tombent déjà sur de
-  //                                vraies bouteilles. Re-taper la commande = éteindre.
-  const [calibMode, setCalibMode] = useState(null); // null | 'items' | 'pool'
-  const [calibIdx, setCalibIdx] = useState(0);
-  const [calibItems, setCalibItems] = useState({});
-  const [calibPool, setCalibPool] = useState([]);
-  useEffect(() => {
-    window.__shopCalib = () => { setCalibMode((v) => (v === 'items' ? null : 'items')); setCalibIdx(0); setCalibItems({}); };
-    window.__shopCalibPool = () => { setCalibMode((v) => (v === 'pool' ? null : 'pool')); setCalibPool([]); };
-    return () => { delete window.__shopCalib; delete window.__shopCalibPool; };
-  }, []);
+  const [hoverId, setHoverId] = useState(null);
 
   // Âges chroniqués (cycle courant + dernier run) encore gravables.
   const cadmosEngravedIds = new Set(cadmosPermanentEpitaphs.map((e) => e.id));
@@ -160,278 +136,282 @@ export default function HeritageView() {
     (upgrade) => (upgrade.group || 'heritage') === 'heritage' && isUnlocked(upgrade)
   );
 
-  // Marchandises = objets cliquables sur les étagères. TOUT se paie en FAVEUR
-  // (arbitrage Raph 2026-07-15) : les upgrades d'Héritage comme la Boutique de
-  // Faveur — une seule monnaie à la Boutique.
+  // Les upgrades d'Héritage : payés en FAVEUR, comme tout à la Boutique.
   const heritageObjs = visibleHeritageUpgrades.map((u) => {
     const owned = has(u.id);
     return {
-      id: u.id, shelf: HERITAGE_ARMOIRE[u.id] || 'prod', slot: null, currency: 'faveur', icon: null,
+      id: u.id, shelf: HERITAGE_ARMOIRE[u.id] || 'prod',
       name: u.name, desc: u.desc, owned, canBuy: canBuyUpgrade(u),
+      price: u.cost?.faveur || 0,
       effect: liveEffectLine(u, cycles, bestEraIndex, owned) || u.effect,
-      cost: owned ? tr({ fr: 'Acquis', en: 'Owned' }) : <><FaveurIcon /> {fmt(u.cost?.faveur || 0)}</>,
       buy: () => { if (buyUpgrade(u.id)) pushOutcomeFloat({ label: `✓ ${u.name}`, kind: 'gain' }); }
     };
   });
-  // Boutique de Faveur : seul le consommable BÉNÉDICTION reste sur l'étagère —
-  // les dés pipés / ailes cirées ont migré dans l'arbre d'artefacts (rang 1 des
-  // lignées). Tout kind connu a ses libellés dans faveurShopMeta ; un nouveau
-  // kind est toléré (repli sur ses champs), jamais de crash.
+  // Boutique de Faveur : seul le consommable BÉNÉDICTION reste à l'étal — les
+  // dés pipés / ailes cirées ont migré dans l'arbre d'artefacts (rang 1 des
+  // lignées). Un nouveau kind est toléré (repli sur ses champs).
   const faveurObjs = faveurShopItems().filter((it) => it.kind === 'blessing').map((it) => {
-    const id = `faveur_${it.id}`;
     const known = FAVEUR_LABELS[it.kind];
     return {
-      id, shelf: 'prod', slot: null, currency: 'faveur',
-      icon: FAVEUR_ICONS[it.kind] || '✦',
+      id: `faveur_${it.id}`, shelf: 'prod',
       name: known ? tr(known) : (it.name || it.label || it.kind),
       desc: FAVEUR_DESCS[it.kind] ? tr(FAVEUR_DESCS[it.kind]) : (it.desc || ''),
-      owned: it.maxed, canBuy: it.canAfford && !it.maxed,
+      owned: it.maxed, canBuy: it.canAfford && !it.maxed, price: it.cost,
+      ownedLabel: tr({ fr: 'Complet', en: 'Full' }),
       effect: known ? faveurEffectLine(it) : (it.fx || it.effect || ''),
-      cost: it.maxed ? tr({ fr: 'Complet', en: 'Full' }) : <><FaveurIcon /> {fmt(it.cost)}</>,
       buy: () => { if (!it.maxed && it.canAfford) buyFaveurItem(it.id); }
     };
   });
-  // Armoire de GAUCHE — les artefacts des jeux du temple, en ÉCHELLE (le rang N
-  // exige le rang N-1 : bouteille 🔒 tant que le rang précédent manque). Une
-  // lignée n'expose ses bouteilles qu'une fois son ère atteinte. Le capstone
-  // acquis déplie ses cadrans dans la barre de détail (champ `dials`).
-  const templeObjs = artifactTree().filter((lin) => lin.eraOk).flatMap((lin) =>
-    lin.nodes.map((node, idx) => {
-      const isLevel = node.kind === 'level';
-      const lvl = isLevel && node.level > 0
-        ? ` · ${tr({ fr: 'niv.', en: 'lvl' })} ${node.level}${node.maxed ? ` (${tr({ fr: 'max', en: 'max' })})` : `/${node.maxLevel}`}`
-        : '';
-      return {
-        id: `temple_${node.id}`, shelf: 'jeu',
-        slot: (LINEAGE_ROWS[lin.id] || [])[idx] || null,
-        currency: 'faveur', icon: lin.icon,
-        name: `${tr(node.label)}${lvl}`,
-        desc: `${lin.icon} ${tr(lin.label)} · ${tr(lin.subtitle)}`,
-        effect: tr(node.desc),
-        owned: node.maxed, locked: !node.unlocked, canBuy: node.buyable,
-        ownedLabel: isLevel ? tr({ fr: 'Complet', en: 'Full' }) : null,
-        buyLabel: isLevel
-          ? tr({ fr: 'Améliorer', en: 'Upgrade' })
-          : node.kind === 'automation'
-            ? tr({ fr: 'Débloquer', en: 'Unlock' })
-            : tr({ fr: 'Acheter', en: 'Buy' }),
-        cost: node.maxed
-          ? tr(isLevel ? { fr: 'Complet', en: 'Full' } : { fr: 'Acquis', en: 'Owned' })
-          : !node.unlocked
-            ? tr({ fr: '🔒 Rang précédent requis', en: '🔒 Previous rank required' })
-            : <><FaveurIcon /> {fmt(node.cost)}</>,
-        buy: () => buyArtifactNode(node.id),
-        dials: node.kind === 'automation' && node.owned && state.templeAuto ? lin.id : null
-      };
-    })
-  );
-  // L'AUTO-RELÈVE DES OFFRANDES (achat déplacé de la Régulation à l'échoppe,
-  // arbitrage Raph 2026-07-16) : une bouteille de l'armoire des jeux. L'achat
-  // débloque ET active (unlockTempleAuto) ; le toggle on/off reste sur la
-  // ligne des Offrandes (AuguresPanel). Gatée comme la lignée osselets (ère II)
-  // — le tronc naît avec la table.
+  // Les artefacts des jeux du temple, en ÉCHELLE (le rang N exige le rang N-1).
+  // Une lignée n'expose ses articles qu'une fois son ère atteinte. Le capstone
+  // acquis déplie ses cadrans dans la fiche (champ `dials`).
+  const tree = artifactTree().filter((lin) => lin.eraOk);
+  const nodeObj = (lin, node) => {
+    const isLevel = node.kind === 'level';
+    const lvl = isLevel && node.level > 0
+      ? ` · ${tr({ fr: 'niv.', en: 'lvl' })} ${node.level}${node.maxed ? ` (${tr({ fr: 'max', en: 'max' })})` : `/${node.maxLevel}`}`
+      : '';
+    return {
+      id: `temple_${node.id}`,
+      name: `${tr(node.label)}${lvl}`,
+      desc: `${tr(lin.label)} · ${tr(lin.subtitle)}`,
+      effect: tr(node.desc),
+      owned: node.maxed, locked: !node.unlocked, canBuy: node.buyable, price: node.cost || 0,
+      ownedLabel: isLevel ? tr({ fr: 'Complet', en: 'Full' }) : null,
+      buyLabel: isLevel
+        ? tr({ fr: 'Améliorer', en: 'Upgrade' })
+        : node.kind === 'automation'
+          ? tr({ fr: 'Débloquer', en: 'Unlock' })
+          : tr({ fr: 'Acheter', en: 'Buy' }),
+      buy: () => buyArtifactNode(node.id),
+      dials: node.kind === 'automation' && node.owned && state.templeAuto ? lin.id : null
+    };
+  };
+  // L'AUTO-RELÈVE DES OFFRANDES (arbitrage Raph 2026-07-16) : la sébile du
+  // sacristain. L'achat débloque ET active ; le toggle reste sur la ligne des
+  // Offrandes. Gatée comme la lignée osselets (ère II) — le tronc naît avec la table.
   const trunkAutoState = state.templeAuto?.tronc || {};
   const trunkUnlockCost = templeAutoUnlockCost('tronc');
-  const osseletsEraOk = artifactTree().some((lin) => lin.id === 'osselets' && lin.eraOk);
-  const trunkObjs = osseletsEraOk ? [{
-    id: 'temple_autoTronc', shelf: 'jeu', slot: null, currency: 'faveur', icon: '🏺',
+  const trunkObjs = tree.some((lin) => lin.id === 'osselets') ? [{
+    id: 'temple_autoTronc',
     name: tr({ fr: 'Sébile du sacristain', en: "Sacristan's dish" }),
-    desc: `🏺 ${tr({ fr: 'Les jeux du temple · les Offrandes', en: 'The temple games · the Offerings' })}`,
+    desc: tr({ fr: 'Les jeux du temple · les Offrandes', en: 'The temple games · the Offerings' }),
     effect: tr({
       fr: "Auto-relève : le temple encaisse les offrandes avant qu'elles ne débordent (éternel).",
       en: 'Auto-collect: the temple cashes the offerings before they overflow (permanent).'
     }),
     owned: Boolean(trunkAutoState.unlocked), locked: false,
-    canBuy: !trunkAutoState.unlocked && faveur >= trunkUnlockCost,
+    canBuy: !trunkAutoState.unlocked && faveur >= trunkUnlockCost, price: trunkUnlockCost,
     buyLabel: tr({ fr: 'Débloquer', en: 'Unlock' }),
-    cost: trunkAutoState.unlocked ? tr({ fr: 'Acquis', en: 'Owned' }) : <><FaveurIcon /> {fmt(trunkUnlockCost)}</>,
     buy: () => unlockTempleAuto('tronc')
   }] : [];
-  // Bouteilles fixes (lignées) sinon prochaine bouteille libre de l'armoire de sa
-  // catégorie → AUCUN item n'est masqué (les nouveaux augments apparaissent tout
-  // seuls dans la bonne armoire, puis on affine leur position).
-  const nextSlot = { jeu: 0, qol: 0, prod: 0 };
-  const shopObjs = [...templeObjs, ...trunkObjs, ...heritageObjs, ...faveurObjs].map((o) => {
-    if (o.slot) return o;
-    const shelf = ARMOIRE_SLOTS[o.shelf] ? o.shelf : 'prod';
-    return { ...o, slot: ARMOIRE_SLOTS[shelf][(nextSlot[shelf]++) % ARMOIRE_SLOTS[shelf].length] };
-  });
-  const selected = shopObjs.find((o) => o.id === selectedId) || null;
 
-  // Calibration : chaque clic capture une position (%). Mode 'items' = pour l'item
-  // courant ; mode 'pool' = empile des bouteilles réservées (illimité).
-  const onCalibClick = (e) => {
-    const r = e.currentTarget.getBoundingClientRect();
-    const x = Math.round(((e.clientX - r.left) / r.width) * 100);
-    const y = Math.round(((e.clientY - r.top) / r.height) * 100);
-    if (calibMode === 'pool') { setCalibPool((prev) => [...prev, { x, y }]); return; }
-    const cur = shopObjs[calibIdx];
-    if (!cur) return;
-    setCalibItems((prev) => ({ ...prev, [cur.id]: { x, y } }));
-    setCalibIdx((i) => i + 1);
-  };
-  const calibConfig = calibMode === 'pool'
-    ? 'const AUTO_SLOTS = [\n' + calibPool.map((p) => `  { x: ${p.x}, y: ${p.y} },`).join('\n') + '\n];'
-    : Object.entries(calibItems).map(([id, p]) => `  ${id}: { x: ${p.x}, y: ${p.y} },`).join('\n');
+  // CADMOS (héritage du mythe) : les Âges de la Chronique à graver en Noms de
+  // Pouvoir permanents. Gratuits mais plafonnés ; la règle vit dans l'infobulle
+  // du titre de leur ligne.
+  const cadmosEffect = (e) => `${e.orientationLabel} +${cadmosBonusPct}% ${tr({ fr: 'permanent', en: 'permanent' })}`;
+  const cadmosObjs = cadmosHeritage ? [
+    ...cadmosPermanentEpitaphs.map((e) => ({
+      id: `epitaphe:${e.id}`, icon: 'myths/epitaph', free: true,
+      name: e.name, effect: cadmosEffect(e),
+      owned: true, ownedLabel: tr({ fr: 'Gravé', en: 'Engraved' })
+    })),
+    ...cadmosCandidates.map((e) => ({
+      id: `epitaphe:${e.id}`, icon: 'myths/epitaph', free: true,
+      name: e.name, effect: cadmosEffect(e),
+      owned: false, canBuy: !cadmosFull,
+      buyLabel: tr({ fr: 'Graver', en: 'Engrave' }),
+      blockedLabel: tr({ fr: 'Complet', en: 'Full' }),
+      buy: () => engraveCadmosEpitaph(e.id)
+    }))
+  ] : [];
+
+  // LES TROIS ARMOIRES du comptoir, par lignée. Le trésor du temple et la sébile
+  // se rangent avec le confort, comme sur l'étagère du milieu du décor.
+  const tresor = tree.find((lin) => lin.id === 'tresor');
+  const cabinets = [
+    {
+      key: 'jeux',
+      title: tr({ fr: "L'armoire des jeux", en: 'The games cabinet' }),
+      lines: tree.filter((lin) => lin.id !== 'tresor').map((lin) => ({
+        key: lin.id, title: tr(lin.label), wares: lin.nodes.map((n) => nodeObj(lin, n))
+      }))
+    },
+    {
+      key: 'confort',
+      title: tr({ fr: "L'armoire du confort", en: 'The comfort cabinet' }),
+      lines: [
+        { key: 'qol', title: tr({ fr: 'Confort', en: 'Comfort' }), wares: heritageObjs.filter((o) => o.shelf === 'qol') },
+        {
+          key: 'tresor',
+          title: tresor ? tr(tresor.label) : tr({ fr: 'Le Trésor', en: 'The Treasury' }),
+          wares: [...(tresor ? tresor.nodes.map((n) => nodeObj(tresor, n)) : []), ...trunkObjs]
+        }
+      ]
+    },
+    {
+      key: 'prod',
+      title: tr({ fr: "L'armoire de la production", en: 'The production cabinet' }),
+      lines: [
+        { key: 'prod', title: tr({ fr: 'Production', en: 'Production' }), wares: [...heritageObjs.filter((o) => o.shelf !== 'qol'), ...faveurObjs] },
+        {
+          key: 'cadmos',
+          title: tr({
+            fr: `Cadmos · ${cadmosPermanentEpitaphs.length} / ${CADMOS_MAX_PERMANENT_EPITAPHS}`,
+            en: `Cadmus · ${cadmosPermanentEpitaphs.length} / ${CADMOS_MAX_PERMANENT_EPITAPHS}`
+          }),
+          tip: tr({
+            fr: `Grave un Âge inscrit à la Chronique comme Nom de Pouvoir permanent : chaque épitaphe accorde +${cadmosBonusPct}% à son orientation (Nourriture, Trésor ou Stabilité), pour toujours. Maximum ${CADMOS_MAX_PERMANENT_EPITAPHS}.`,
+            en: `Engrave an Age recorded in the Chronicle as a permanent Name of Power: each epitaph grants +${cadmosBonusPct}% to its orientation (Food, Treasury or Stability), forever. Maximum ${CADMOS_MAX_PERMANENT_EPITAPHS}.`
+          }),
+          wares: cadmosObjs
+        }
+      ]
+    }
+  ]
+    .map((c) => ({ ...c, lines: c.lines.filter((l) => l.wares.length > 0) }))
+    .filter((c) => c.lines.length > 0);
+
+  const allWares = cabinets.flatMap((c) => c.lines.flatMap((l) => l.wares.map((w) => ({ ...w, lineTitle: l.title }))));
+  // Par défaut : le premier article payable, sinon le premier ouvert.
+  const selected = allWares.find((o) => o.id === selectedId)
+    || allWares.find((o) => wareState(o, faveur) === 'afford')
+    || allWares.find((o) => !o.owned && !o.locked)
+    || allWares[0]
+    || null;
+  const litId = hoverId || selected?.id || null;
+  const lit = litId ? BOTTLE_POS[bottleOf(litId)] : null;
+  const litBottle = litId ? bottleOf(litId) : null;
+  const selState = selected ? wareState(selected, faveur) : null;
 
   return (
-    <section className={`view active boutique-shop boutique-immersive${calibMode ? ' calib' : ''}`} id="tech">
-      {/* La scène : décor panoramique plein cadre, marchand au comptoir, props,
-          et les marchandises = pastilles cliquables sur les étagères (MUET). */}
-      <div className="shop-stage">
-        <img className="shop-backdrop-full" src="/pixelart/boutique/echoppe-scene.png" alt={tr({ fr: "L'échoppe du Chiffonnier des cycles", en: "The Rag-picker's shop" })} draggable="false" />
+    <section className="view active echoppe" id="tech">
+      <div className="echoppe-stage">
+        <img className="echoppe-ambient" src="/pixelart/boutique/echoppe-neuve.png" alt="" aria-hidden="true" draggable="false" />
+        <PlaceScene
+          className="echoppe-scene"
+          src="/pixelart/boutique/echoppe-neuve.png"
+          alt={tr({ fr: "L'échoppe du Chiffonnier des cycles : trois armoires de flacons, le vieux marchand au comptoir", en: "The Rag-picker's shop: three cabinets of flasks, the old merchant at his counter" })}
+          fit="contain"
+        >
+          {lit && (
+            <>
+              <i className="bottle-halo" style={{ left: `${lit.cx}%`, top: `${lit.cy}%` }} />
+              <img
+                className="bottle-lit"
+                src={`/pixelart/boutique/flacons/${litBottle}.png`}
+                alt=""
+                draggable="false"
+                style={{ left: `${lit.x}%`, top: `${lit.y}%`, width: `${lit.w}%`, height: `${lit.h}%` }}
+              />
+            </>
+          )}
+        </PlaceScene>
 
-        {/* Scène COMPLÈTE bakée (echoppe-scene.png) : le marchand, le chat, la
-            cloche, la bougie et les étagères sont dans l'image — plus de sprites
-            superposés (les positions props/marchand ne sont donc plus utilisées). */}
-
-        {/* Portefeuille : plaque de comptoir. La Boutique ne se paie QU'EN FAVEUR. */}
-        <div className="boutique-wallet">
-          <span className="wallet-balance wallet-faveur" {...tipProps(null, tr({ fr: 'Faveur. Se gagne aux jeux du temple (Régulation).', en: 'Favor. Earned at the temple games (Regulation).' }))}>
-            <span className="wallet-icon" aria-hidden="true"><FaveurIcon /></span>
-            <span className="wallet-amount">{fmt(faveur)}</span>
+        {/* La bourse : la Boutique ne se paie QU'EN FAVEUR, et la Faveur se gagne
+            aux tables — d'où la porte vers les Plaisirs. */}
+        <div className="echoppe-wallet">
+          <span className="echoppe-wallet-val" {...tipProps(tr({ fr: 'Faveur', en: 'Favor' }), tr({ fr: 'Se gagne aux jeux du temple et aux Offrandes.', en: 'Earned at the temple games and from the Offerings.' }))}>
+            <FaveurIcon /> {fmt(faveur)}
           </span>
+          <button type="button" className="btn-secondary echoppe-play" onClick={() => openView('plaisirs')}>
+            {tr({ fr: 'Aller jouer', en: 'Go play' })}
+          </button>
         </div>
-
-        {/* Marchandises cliquables sur les étagères. */}
-        {shopObjs.map((o) => (
-          <button
-            key={o.id}
-            type="button"
-            className={`shop-hotspot${o.locked ? ' is-locked' : o.owned ? ' is-owned' : o.canBuy ? ' is-affordable' : ''}${selectedId === o.id ? ' is-selected' : ''}`}
-            style={{ left: `${o.slot.x}%`, top: `${o.slot.y}%` }}
-            onClick={() => setSelectedId(selectedId === o.id ? null : o.id)}
-            aria-label={o.name}
-          />
-        ))}
-
-        {calibMode && (
-          <div className="shop-calib" onClick={onCalibClick}>
-            <div className="shop-calib-hud" onClick={(e) => e.stopPropagation()}>
-              <strong>
-                {calibMode === 'pool'
-                  ? `POOL — clique toutes les bouteilles à réserver (${calibPool.length} capturées). Re-tape __shopCalibPool() pour finir.`
-                  : (calibIdx < shopObjs.length
-                      ? `Clique la bouteille → ${shopObjs[calibIdx].name} (${calibIdx + 1}/${shopObjs.length})`
-                      : 'Terminé ! Copie ce bloc et donne-le moi :')}
-              </strong>
-              {calibConfig && <pre>{calibConfig}</pre>}
-            </div>
-          </div>
-        )}
       </div>
 
-      {/* Barre de détail SOUS la scène : le marchand présente l'objet choisi. */}
-      <div className={`shop-detail${selected ? ' is-open' : ''}`}>
-        {selected ? (
-          <>
-            <div className="shop-detail-text">
-              <span className="shop-detail-name">
-                {selected.icon ? `${selected.icon} ` : ''}{selected.name}
-                {selected.dials ? <> <RateBadge game={selected.dials} /></> : null}
-              </span>
-              <span className="shop-detail-fx">{selected.effect}</span>
-              <span className="shop-detail-desc">{selected.desc}</span>
+      <div className="echoppe-counter">
+        {cabinets.map((cab) => (
+          <section key={cab.key} className="echoppe-cabinet" aria-label={cab.title}>
+            <header className="echoppe-cabinet-head"><h2>{cab.title}</h2></header>
+            <div className="echoppe-cabinet-body">
+              {cab.lines.map((line) => (
+                <div key={line.key} className="echoppe-line">
+                  <h3 className="echoppe-line-title" {...(line.tip ? tipProps(line.title, line.tip) : {})}>{line.title}</h3>
+                  <div className="echoppe-wares">
+                    {line.wares.map((o) => {
+                      const st = wareState(o, faveur);
+                      return (
+                        <button
+                          key={o.id}
+                          type="button"
+                          className={`ware is-${st}${selected?.id === o.id ? ' is-sel' : ''}`}
+                          aria-pressed={selected?.id === o.id}
+                          onClick={() => setSelectedId(o.id)}
+                          onMouseEnter={() => setHoverId(o.id)}
+                          onMouseLeave={() => setHoverId(null)}
+                          onFocus={() => setHoverId(o.id)}
+                          onBlur={() => setHoverId(null)}
+                        >
+                          <BottleThumb ware={o} />
+                          <span className="ware-name">{o.name}</span>
+                          <span className="ware-price">
+                            {st === 'owned'
+                              ? `✓ ${o.ownedLabel || tr({ fr: 'Acquis', en: 'Owned' })}`
+                              : st === 'rank'
+                                ? '🔒'
+                                : o.free ? null : <><FaveurIcon /> {fmt(o.price)}</>}
+                          </span>
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+              ))}
             </div>
+          </section>
+        ))}
+
+        {/* LA FICHE de l'article : le seul cadre grec de l'écran — c'est là qu'on
+            décide. */}
+        {selected && (
+          <aside className="echoppe-card" aria-live="polite">
+            <div className="echoppe-card-top">
+              <BottleThumb ware={selected} className="is-big" />
+              <div className="echoppe-card-title">
+                <span className="echoppe-card-line">{selected.lineTitle}</span>
+                {/* Automate acquis : ce qu'il fait passe dans l'infobulle du titre,
+                    ses cadrans prennent la place (sinon le dernier débordait). */}
+                <h3 {...(selected.dials ? tipProps(selected.name, selected.effect) : {})}>
+                  {selected.name}
+                  {selected.dials ? <> <RateBadge game={selected.dials} /></> : null}
+                </h3>
+              </div>
+            </div>
+            {!selected.dials && <p className="echoppe-card-effect">{selected.effect}</p>}
             {selected.dials ? (
               /* Capstone d'automatisation acquis : ses cadrans remplacent l'achat. */
-              <div className="shop-detail-dials">
+              <div className="echoppe-card-dials">
                 <AutoDials game={selected.dials} />
               </div>
             ) : (
-              <div className="shop-detail-buyrow">
-                <span className={`shop-detail-cost shop-detail-cost--${selected.currency}`}>{selected.cost}</span>
-                <button
-                  type="button"
-                  className="shop-detail-buy"
-                  disabled={selected.owned || !selected.canBuy}
-                  onClick={() => selected.buy()}
-                >
-                  {selected.owned
-                    ? (selected.ownedLabel || tr({ fr: 'Acquis', en: 'Owned' }))
-                    : (selected.buyLabel || tr({ fr: 'Acheter', en: 'Buy' }))}
-                </button>
+              <div className="echoppe-card-foot">
+                <span className="echoppe-card-price">
+                  {selState === 'owned' || selected.free ? '' : <><FaveurIcon /> {fmt(selected.price)}</>}
+                </span>
+                {selState === 'owned' ? (
+                  <span className="echoppe-card-state is-owned">✓ {selected.ownedLabel || tr({ fr: 'Acquis', en: 'Owned' })}</span>
+                ) : selState === 'rank' ? (
+                  <span className="echoppe-card-state">🔒 {tr({ fr: 'Rang précédent', en: 'Previous rank' })}</span>
+                ) : (
+                  <button
+                    type="button"
+                    className="btn-primary echoppe-buy"
+                    disabled={!selected.canBuy}
+                    onClick={() => selected.buy()}
+                  >
+                    {selected.canBuy
+                      ? (selected.buyLabel || tr({ fr: 'Acheter', en: 'Buy' }))
+                      : selected.free
+                        ? selected.blockedLabel
+                        : tr({ fr: `Il manque ${fmt(Math.max(0, (selected.price || 0) - faveur))}`, en: `${fmt(Math.max(0, (selected.price || 0) - faveur))} short` })}
+                  </button>
+                )}
               </div>
             )}
-          </>
-        ) : (
-          <p className="shop-detail-hint">
-            {tr({
-              fr: "Le Chiffonnier des cycles. Choisis un objet sur les étagères.",
-              en: 'The Rag-picker of Cycles. Pick an item from the shelves.'
-            })}
-          </p>
+          </aside>
         )}
       </div>
-
-      {/* Cadmos — épitaphes permanentes (visible une fois l'héritage Cadmos acquis).
-          Gardé en panneau simple sous la scène : ne se prête pas au métaphore étagère. */}
-      {cadmosHeritage && (
-        <div className="panel cadmos-panel">
-          <div className="panel-heading">
-            <div>
-              <h2>{tr({ fr: "Cadmos : épitaphes permanentes", en: "Cadmus: permanent epitaphs" })}</h2>
-            </div>
-          </div>
-          <p className="body-copy">
-            {tr({
-              fr: "Grave un Âge inscrit à la Chronique comme Nom de Pouvoir permanent : chaque épitaphe accorde ",
-              en: "Engrave an Age recorded in the Chronicle as a permanent Name of Power: each epitaph grants "
-            })}
-            <strong>+{cadmosBonusPct}%</strong>
-            {tr({
-              fr: ` à son orientation (Nourriture, Trésor ou Stabilité), pour toujours. Maximum ${CADMOS_MAX_PERMANENT_EPITAPHS}.`,
-              en: ` to its orientation (Food, Treasury or Stability), forever. Maximum ${CADMOS_MAX_PERMANENT_EPITAPHS}.`
-            })}
-          </p>
-          <div className="prestige-stats">
-            <div>
-              <span>{tr({ fr: "Épitaphes gravées", en: "Epitaphs engraved" })}</span>
-              <strong>{cadmosPermanentEpitaphs.length} / {CADMOS_MAX_PERMANENT_EPITAPHS}</strong>
-            </div>
-          </div>
-
-          {cadmosPermanentEpitaphs.length > 0 && (
-            <div className="upgrade-grid">
-              {cadmosPermanentEpitaphs.map((entry) => (
-                <article key={entry.id} className="upgrade bought">
-                  <div>
-                    <h3>{entry.name}</h3>
-                    <p className="effect-line">{entry.orientationLabel} +{cadmosBonusPct}% {tr({ fr: "permanent", en: "permanent" })}</p>
-                  </div>
-                  <button disabled>{tr({ fr: "Gravé", en: "Engraved" })}</button>
-                </article>
-              ))}
-            </div>
-          )}
-
-          <p className="body-copy" style={{ marginTop: '0.6rem' }}>{tr({ fr: "Âges disponibles à graver :", en: "Ages available to engrave:" })}</p>
-          {cadmosCandidates.length === 0 ? (
-            <p className="body-copy">
-              <em>{tr({ fr: "Aucun Âge à graver. Nomme des Âges pendant un cycle sous le Mythe de Cadmos, puis reviens après l'effondrement.", en: "No Age to engrave. Name Ages during a cycle under the Myth of Cadmus, then come back after the collapse." })}</em>
-            </p>
-          ) : (
-            <div className="upgrade-grid">
-              {cadmosCandidates.map((entry) => (
-                <article key={entry.id} className="upgrade">
-                  <div>
-                    <h3>{entry.name}</h3>
-                    <p className="effect-line">{entry.orientationLabel} +{cadmosBonusPct}% {tr({ fr: "permanent", en: "permanent" })}</p>
-                  </div>
-                  <button
-                    disabled={cadmosFull}
-                    onClick={() => engraveCadmosEpitaph(entry.id)}
-                    title={cadmosFull ? tr({ fr: `Maximum de ${CADMOS_MAX_PERMANENT_EPITAPHS} épitaphes atteint`, en: `Maximum of ${CADMOS_MAX_PERMANENT_EPITAPHS} epitaphs reached` }) : undefined}
-                    {...tipProps(null, cadmosFull ? null : tr({ fr: "Graver cette épitaphe de façon permanente", en: "Engrave this epitaph permanently" }))}
-                  >
-                    {cadmosFull ? tr({ fr: "Complet", en: "Full" }) : tr({ fr: "Graver", en: "Engrave" })}
-                  </button>
-                </article>
-              ))}
-            </div>
-          )}
-        </div>
-      )}
     </section>
   );
 }
