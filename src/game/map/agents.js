@@ -811,9 +811,11 @@ function roadStepAllowed(gx, gy, dirIndex) {
   if (road) {
     if (road.mask & cityMapDirBit(dirIndex)) return true;
     // Quitter la chaussée vers une cellule piétonne HORS réseau (parvis de
-    // merveille) : le mask ne connaît que les routes — autorisé si la cellule
-    // visée est marchable-parvis. Piétons seulement (les véhicules suivent les masks).
-    return !!(CM.wonderWalkSet && CM.wonderWalkSet.has(cityMapWalkRoadKey(nx, ny)));
+    // merveille, anneau du feu de camp) : le mask ne connaît que les routes —
+    // autorisé si la cellule visée est marchable-parvis. Piétons seulement (les
+    // véhicules suivent les masks).
+    const k = cityMapWalkRoadKey(nx, ny);
+    return !!((CM.wonderWalkSet && CM.wonderWalkSet.has(k)) || (CM.hearthWalkSet && CM.hearthWalkSet.has(k)));
   }
   return CM.walkRoadSet.has(cityMapWalkRoadKey(nx, ny));
 }
@@ -1167,8 +1169,10 @@ if (typeof window !== 'undefined') window.__pedSpeed = (v) => { if (v > 0) PED_S
 // décrit un arc aux carrefours au lieu de sauter d'un côté à l'autre.
 // `p` = part des adultes qui s'accrochent, `pChild` = part des enfants ; `side` /
 // `back` en tuiles ; `chatP` = chance de causette à chaque case atteinte.
-// Molette : __companions({ on, p, pChild, side, back, chatP }).
-const COMPANIONS = { on: true, p: 0.24, pChild: 0.6, radius: 3, side: 0.2, back: 0.12, chatP: 0.03, chatMin: 2.5, chatMax: 6 };
+// `catchK` = vitesse maximale du compagnon, en multiple de l'allure du meneur ;
+// `radius` = distance maximale d'accrochage (1,5 case : il rejoint en marchant).
+// Molette : __companions({ on, p, pChild, side, back, chatP, catchK, radius }).
+const COMPANIONS = { on: true, p: 0.24, pChild: 0.6, radius: 1.5, side: 0.2, back: 0.12, chatP: 0.03, chatMin: 2.5, chatMax: 6, catchK: 1.6 };
 if (typeof window !== 'undefined') window.__companions = (o) => { if (o) Object.assign(COMPANIONS, o); return { ...COMPANIONS }; };
 let citTick = 0;   // compteur de passes : un meneur absent de la passe (liste refaite) est lâché
 const dirToward = (dx, dy) => (Math.abs(dx) > Math.abs(dy) ? (dx > 0 ? 0 : 1) : (dy > 0 ? 2 : 3));
@@ -1219,13 +1223,32 @@ function companionFollow(p, L, dt) {
   // Gauche du sens de marche (y vers le bas) = vers le milieu de la chaussée.
   const nx = L.x + (d[1] * side - d[0] * back) * T, ny = L.y + (-d[0] * side - d[1] * back) * T;
   const snap = !(L.fade >= 1) || p.x === undefined;   // meneur qui réapparaît : on le rejoint d'un coup
-  const k = snap ? 1 : Math.min(1, dt * 8);
   const ox = p.x, oy = p.y;
-  p.x = snap ? nx : ox + (nx - ox) * k;
-  p.y = snap ? ny : oy + (ny - oy) * k;
-  if (!snap) p.walkDist = (p.walkDist || 0) + Math.hypot(p.x - ox, p.y - oy);
-  else if (L.fade < 1) p.fade = Math.min(p.fade, L.fade);
-  if (L.dir >= 0) p.dir = L.dir;
+  if (snap) {
+    p.x = nx; p.y = ny;
+    if (L.fade < 1) p.fade = Math.min(p.fade, L.fade);
+    if (L.dir >= 0) p.dir = L.dir;
+    return;
+  }
+  // ⚠ VITESSE BORNÉE (retour Raph, 2026-10-03 : « les habitants font des dashs ») :
+  // le lissage seul (dt × 8) faisait couvrir en un tiers de seconde la place qui
+  // change de côté quand le meneur tourne, ou les cases qui le séparaient de son
+  // meneur à l'accrochage — mesuré jusqu'à 17 fois l'allure d'un passant, et 100 %
+  // des « dashs » venaient de là. Le compagnon garde le lissage mais ne dépasse
+  // jamais `catchK` fois l'allure du meneur ; quand il rattrape, il regarde où il va.
+  const ex = nx - ox, ey = ny - oy, gap = Math.hypot(ex, ey);
+  const runK = citizenSheltering(L) ? RUN_K : 1;   // le meneur court sous l'averse : on court avec lui
+  const step = Math.min(gap * Math.min(1, dt * 8), pedWalkSpeed(L) * runK * COMPANIONS.catchK * dt);
+  if (gap > 1e-6) { p.x = ox + ex / gap * step; p.y = oy + ey / gap * step; }
+  p.walkDist = (p.walkDist || 0) + step;
+  if (gap > T * 0.3) p.dir = dirToward(ex, ey);
+  else if (L.dir >= 0) p.dir = L.dir;
+}
+// Allure de marche d'un passant à l'écran (px monde / s) : la même formule que le pas
+// d'updateCitizens (vitesse propre × calme iso × allure piétonne).
+function pedWalkSpeed(p) {
+  const isoK = (typeof window !== 'undefined' && window.__isoWalkSpeed != null) ? window.__isoWalkSpeed : 0.72;
+  return (p.speed || 24) * isoK * PED_SPEED.k;
 }
 function companionChat(p) {
   p.pauseT = COMPANIONS.chatMin + Math.random() * (COMPANIONS.chatMax - COMPANIONS.chatMin);

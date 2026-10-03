@@ -1306,6 +1306,26 @@ function cityMapEnsureLayout(now, deps = {}) {
       }
     }
   }
+  // ── FOYER DU CAMPEMENT : on en fait le TOUR (retour Raph, 2026-10-03) ──────
+  // Les sentiers du camp convergent SUR le feu (layout.js, CAMP_HEARTH) : en les
+  // suivant, les habitants traversaient les flammes. La case du feu sort donc du
+  // réseau piéton, et ses huit voisines y entrent — un anneau de terre battue,
+  // gardé de tout bâti et de tout arbre par la pose (hearthClear). Comme un parvis :
+  // on y entre depuis la chaussée (roadStepAllowed lit CM.hearthWalkSet).
+  CM.hearthWalkSet = new Set();
+  if (L.campHearth) {
+    const h = L.campHearth, hk = h.gx * 10000 + h.gy;
+    const rivC = (L.river && L.river.present && L.river.cells) || null;
+    CM.walkRoadList = CM.walkRoadList.filter((r) => r.gx * 10000 + r.gy !== hk);
+    const onList = new Set(CM.walkRoadList.map((r) => r.gx * 10000 + r.gy));
+    for (let dx = -1; dx <= 1; dx += 1) for (let dy = -1; dy <= 1; dy += 1) {
+      if (!dx && !dy) continue;
+      const gx = h.gx + dx, gy = h.gy + dy, k = gx * 10000 + gy;
+      if (rivC && rivC.has(gx + "," + gy)) continue;
+      CM.hearthWalkSet.add(k);
+      if (!onList.has(k)) CM.walkRoadList.push({ gx, gy, rank: "path", hearthRing: true });
+    }
+  }
   // Clés numériques : évite les allocations string à chaque lookup dans les boucles agents
   CM.walkRoadSet = new Set(CM.walkRoadList.map((r) => r.gx * 10000 + r.gy));
   // ── Parvis des merveilles : réseau piéton + cibles d'attroupement ───────────

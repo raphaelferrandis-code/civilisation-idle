@@ -54,13 +54,26 @@ function hearthArt(name) {
   return e;
 }
 
-export function drawIsoCampHearth(ctx, wx, wy, T, z, now) {
+// LE SOL ET LA FLAMME, DEUX ITEMS (retour Raph, 2026-10-03 : « que le sol du feu de
+// camp soit considéré comme du sol et pas comme un bâtiment »). Le foyer entier était
+// UN item trié à la profondeur de son centre : un passant au nord du centre passait
+// dessous, et le disque de terre lui mangeait les jambes. Le SOL est désormais trié
+// au coin nord de l'anneau (comme un champ, cf. isoLiveCollect) — sous tout ce qui
+// marche autour —, la FLAMME reste debout au centre. Le sol publie sa boîte pour la
+// flamme de la même frame (le sol passe toujours avant elle : clé plus petite).
+let hearthBox = null, hearthBoxAt = -1;
+export function drawIsoCampHearthGround(ctx, wx, wy, T, z, now) {
   const ground = hearthArt('camp-hearth');
   if (!ground.ready) return;
   const p = worldToScreen(wx, wy);
   // Même k que les habitations : 1 px d'art = (lot 1×1 à 0,78) / HOUSE_UNIT.
   const k = (2 * HOUSE_LOT_WF * T * z * ISO_X) / HOUSE_UNIT;
   const g = drawIsoGroundedArt(ctx, ground, p.x, p.y, HEARTH_INK_W * k);
+  if (!g) return;
+  hearthBox = g; hearthBoxAt = now;
+}
+export function drawIsoCampHearthFire(ctx, wx, wy, T, z, now) {
+  const g = hearthBoxAt === now ? hearthBox : null;
   if (!g) return;
   // La flamme, image par image, sur la MÊME boîte que le sol (même canvas 96×80).
   // Figée sur l'image 0 quand le joueur coupe la vie de la carte (« aucune »).

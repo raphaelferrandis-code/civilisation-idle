@@ -370,15 +370,18 @@ export function collectIsoItems(bake, now) {
     // une ville sans fleuve, et un carré d'écran restait cliquable dans le vide.
     else CM._plaisirsBox = null;
   }
-  // FOYER DU CAMPEMENT (2026-09-28, cf. CAMP_HEARTH dans layout.js) : un
-  // item au tri peintre, à la profondeur de son centre — les tentes derrière
-  // passent dessous, celles devant le recouvrent.
+  // FOYER DU CAMPEMENT (2026-09-28, cf. CAMP_HEARTH dans layout.js). DEUX items
+  // depuis le 2026-10-03 (Raph : « le sol du feu de camp doit être du sol, pas un
+  // bâtiment ») : le SOL (disque de terre, souches, pots) trié au coin NORD de
+  // l'anneau de 3 × 3 — comme un champ : tout ce qui marche ou se dresse dessus
+  // passe par-dessus —, et la FLAMME, seule debout, à la profondeur du centre.
+  // Littéraux (comme les items de pont) : le pool a une forme figée.
   if (L.campHearth) {
     const h = L.campHearth;
     if (dvVis((h.gx - 0.5) * T, (h.gy - 0.5) * T, (h.gx + 1.5) * T, (h.gy + 1.5) * T)) {
-      const it = pushItem();
-      it.wx = (h.gx + 0.5) * T; it.wy = (h.gy + 0.5) * T;
-      it.d = depthOf(it.wx, it.wy); it.kind = 'campHearth';
+      const wx = (h.gx + 0.5) * T, wy = (h.gy + 0.5) * T;
+      items.push({ d: depthOf((h.gx - 1) * T, (h.gy - 1) * T), kind: 'campHearth', part: 'ground', wx, wy });
+      items.push({ d: depthOf(wx, wy), kind: 'campHearth', part: 'fire', wx, wy });
     }
   }
   // LAMPADAIRES : mâts de l'ère le long des routes (liste déterministe

@@ -43,7 +43,7 @@ import { vieTreeSway } from './isoVie.js';
 import { isoArt } from './isoArt.js';
 import { drawIsoBridgeSeg } from './isoBridge.js';
 import { drawIsoWonderSeg } from './isoWonder.js';
-import { drawIsoCampHearth } from './isoCampHearth.js';
+import { drawIsoCampHearthGround, drawIsoCampHearthFire } from './isoCampHearth.js';
 import { drawIsoEngineScene, isoEngineScenesFlag } from './isoEngineScene.js';
 import { drawIsoField } from './isoField.js';
 import { isoFrontOffset, seasonTree } from './isoGroundDetail.js';
@@ -452,7 +452,9 @@ export function paintIsoItems(bake, items, now) {
     } else if (it.kind === 'campHearth') {
       // Foyer du campement (2026-09-28) : tout le calcul est dans
       // isoCampHearth.js (grain égalisé sur les tentes, flamme animée, lueur).
-      drawIsoCampHearth(ctx, it.wx, it.wy, T, z, now);
+      // Deux items depuis le 2026-10-03 : le SOL (sous les passants) puis la FLAMME.
+      if (it.part === 'fire') drawIsoCampHearthFire(ctx, it.wx, it.wy, T, z, now);
+      else drawIsoCampHearthGround(ctx, it.wx, it.wy, T, z, now);
     } else if (it.kind === 'plazaProp') {
       // PLACE COMPOSÉE : un prop, à sa taille en TUILES (jamais en fraction de
       // la place). Tout le calcul est dans isoPlaza.js.
