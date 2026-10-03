@@ -1,7 +1,7 @@
 "use strict";
 // ── LES BATEAUX DE LA FONTE ET DU NÉON (docs/PLAN-BATEAUX.md §4) ───────────────
 //
-//   5 · Fonte  vapeur à aubes, cargo à vapeur ; péniche halée par un cheval ;
+//   5 · Fonte  vapeur à aubes, cargo à vapeur ; péniche automotrice ;
 //              barque peinte ; chaloupe à vapeur (le passeur) ; SERVICE : remorqueur
 //              et drague à godets
 //   6 · Néon   porte-conteneurs fluvial, pétrolier ; convoi poussé ; bateau à
@@ -192,7 +192,7 @@ const CARGO_VAPEUR = {
   },
 };
 
-const PENICHE = makeBarge({ id: 'peniche', L: 66, B: 15, tow: 'horse', hut: 'cabin', hatches: true, plank: 0, speed: [0.6, 0.8], paint: [GREEN, RED, WHITE] }, FONTE, CREW_IRON);
+const PENICHE = makeBarge({ id: 'peniche', L: 66, B: 15, pole: false, hut: 'cabin', hatches: true, plank: 0, speed: [0.6, 0.8], paint: [GREEN, RED, WHITE] }, FONTE, CREW_IRON);
 const BARQUE_PEINTE = makeRowboat({ id: 'barque-peinte', L: 24, B: 9, paint: [RED, ['#4c74b0', '#3b5e94', '#2c4874', '#1f3354'], GREEN, YELLOW] },
   { ...FONTE, hull: ['#efe9da', '#d9d1bf', '#bdb39c', '#9d927b', '#7c725d', '#5a5242'], hullIn: ['#c9bfa6', '#ada28a', '#8f846d', '#706651', '#524a3a'], rail: ['#9a7046', '#7b5636', '#5c3f27', '#3f2a1a'], deck: DECKW }, CREW_IRON);
 

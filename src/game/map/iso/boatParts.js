@@ -180,6 +180,23 @@ export function person(S, a, c, h, face, P, pose = 'stand', k = 0) {
   }));
 }
 
+// Le perchiste d'un chaland : debout SUR LE PLAT-BORD (le haut du bordé, côté
+// side = ±1, à l'abscisse a), face à la proue, la perche plantée en arrière et vers le
+// dehors. Même geste que celui du radeau (pose 'pole', phase k). Posé dans la cale, il
+// n'en sortait que la tête et la perche disparaissait derrière le bordé.
+export function poler(S, sh, a, side, P, wood, k) {
+  const u = sh.at(a), h = sh.g(u), c = side * (sh.w(u, h) - 0.5);
+  person(S, a, c, h, 0, P, 'pole', k);
+  const lean = 0.35 * Math.sin(k), out = side;
+  // La perche passe par les mains et dépasse au-dessus (40 % de sa partie basse) : c'est
+  // ce bout levé qui la fait lire à petit zoom.
+  const hand = [a + 2 + lean, c - 0.4 * out, h + 6.3], foot = [a - 9.5 + lean * 4, c + 3.4 * out, -0.8];
+  const top = hand.map((v, i) => v + (v - foot[i]) * 0.4);
+  asPart(S, PART.oar, () => {
+    tube(S, [top, foot], 0.32, (nw) => rampRGB(wood, nw));
+  });
+}
+
 // Un membre d'équipage tiré dans la garde-robe de l'époque.
 // C = { skin: [rampes], hair: [rampes], cloth: [rampes], hat: [rampes] | null,
 //       hatP (probabilité d'un couvre-chef) }

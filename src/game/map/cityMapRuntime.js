@@ -2100,8 +2100,6 @@ function initCityMap(canvas, options = {}) {
           ferry: CM.ferrySite || null,
           // Métier d'un bateau de service : celui de son MODÈLE (patrouille, drague, pompiers).
           serviceMode: fleetServiceMode,
-          // Le chaland est halé depuis la rive SANS ponton.
-          towSide: CM.shipBerths && CM.shipBerths[0] ? -CM.shipBerths[0].side : undefined,
           // Fenêtre de navigation : la carte (le ruban la déborde de 200 tuiles).
           bounds: CM.layout ? { x0: 0, y0: 0, x1: CM.layout.gridN || 0, y1: CM.layout.gridN || 0 } : null,
         });

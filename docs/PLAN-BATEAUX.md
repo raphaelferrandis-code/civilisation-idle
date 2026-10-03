@@ -10,7 +10,7 @@ le journal (§8) dit où on en est.
 |---|---|
 | Méthode | **Dessinés PAR LE CODE**, comme les ponts, les quais et les merveilles. Plus de PixelLab pour les coques. |
 | Variété | **Plusieurs marchands par époque** (modèles + coques, voiles, cargaisons tirées par bateau), **nouveaux métiers**, **davantage de bateaux**. |
-| Métiers | Marchand · pêcheur · **passeur / bac** · **péniche / chaland** (halée par un animal sur la berge aux ères anciennes) · **bateaux de service** (drague, pompe, police — ères modernes). Pas de bois flotté. |
+| Métiers | Marchand · pêcheur · **passeur / bac** · **péniche / chaland** (à la perche ; ⛔ plus de halage depuis le 2026-10-03, cf. §8) · **bateaux de service** (drague, pompe, police — ères modernes). Pas de bois flotté. |
 | Plaisancier | Toujours **retiré** de la flotte mobile (2026-07-30). La marina IMMOBILE est l'affaire de la session port (§7). |
 | Pêcheur | **Il évolue avec l'époque** (lève l'arbitrage de juillet « barque intemporelle »). |
 | Comportement | Les quatre : **vrai accostage** au ponton, **navigation crédible**, **animations à bord**, **petites scènes de vie**. |
@@ -64,7 +64,7 @@ des habitants.
 |---|---|---|
 | Marchand | **Corbita** | coque ronde, voile carrée, poupe en col de cygne, cabine, amphores |
 | Marchand | **Galère marchande** | longue, basse, rames animées + petite voile |
-| Péniche | **Codicaria** (chaland du Tibre) | à fond plat, mât de halage, blocs de marbre / amphores, halée depuis la berge |
+| Péniche | **Codicaria** (chaland du Tibre) | à fond plat, blocs de marbre / amphores, menée à la perche |
 | Pêcheur | **Scapha** | barque, deux hommes, filet |
 | Passeur | **Bac à perche** | plateforme, garde-corps bas, passeur, voyageurs |
 
@@ -80,7 +80,7 @@ rayures, safran), cargaison, ornements.
 - Accostage : le marchand vise un poste (portBerths), se range bord à bord, charge/décharge
   (porteurs), largue et repart ; poste occupé → il mouille à côté et attend.
 - Passeur : deux embarcadères, attente des voyageurs, traversée.
-- Péniche : halage depuis la berge (bête de trait), lente.
+- Péniche : à la perche (batelier sur le plat-bord), lente ; automotrice à l'ère de la fonte.
 - Pêcheur : jette son filet, le relève.
 - Scènes : salut en se croisant, attente au mouillage.
 - Densité : plafonds par métier, revus à la hausse.
@@ -192,3 +192,12 @@ façon Le Havre (b5-6+, navires amarrés fixes) et port de plaisance façon Vieu
 - Banc : serveur `vite-bateaux` (port 61850, sans rechargement auto) ; `performance.now`
   remplacé par une horloge factice (+33,4 ms par `CM.forceFrame()`) pour faire tourner la
   sim pane cachée — les timers y sont bridés.
+- 2026-10-03 — **Plus de halage** (Raph, après une capture : « c'est normal le cheval qui
+  tire un bateau ? » puis « le rendu est bizarre surtout avec les escaliers », et au choix
+  proposé : « plus de halage du tout »). La bête marchait en haut du quai, dans la rue, et
+  sa corde balayait le mur et les escaliers ; collé à sa rive, le chaland traversait le pied
+  des escaliers (qui avancent de 0,3 tuile dans l'eau). Retirés : la bête, son bouvier et
+  la corde (`boatScenes.js`, `isoPort.js`), le mât de halage, `towTop`, `tow`,
+  `towSide`. Le chaland (bandes 2, 3, 4) avance à la PERCHE (`poler`, boatParts.js : un
+  batelier sur le plat-bord, la perche plantée en arrière, pose animée sur 4 images) ; la
+  péniche de la fonte est automotrice (`pole: false`). Il tient sa droite comme les autres.

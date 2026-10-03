@@ -289,12 +289,14 @@ describe("le passeur", () => {
 });
 
 describe("le chaland", () => {
-  it("longe la rive de son chemin de halage, quel que soit son sens", () => {
-    const a = boat({ kind: "barge", id: 60, dir: 1, t: 0.3, towSide: -1, done: true, _vTiles: 0.6 });
-    const b = boat({ kind: "barge", id: 61, dir: -1, t: 0.7, towSide: -1, done: true, _vTiles: 0.6 });
+  // Plus de halage (Raph, 2026-10-03) : il ne longe plus une rive (collé au quai, il
+  // traversait les escaliers) — il tient sa droite selon son sens, comme les autres.
+  it("tient sa droite selon son sens, sans longer une rive", () => {
+    const a = boat({ kind: "barge", id: 60, dir: 1, t: 0.3, done: true, _vTiles: 0.6 });
+    const b = boat({ kind: "barge", id: 61, dir: -1, t: 0.7, done: true, _vTiles: 0.6 });
     run([a, b], 8);
-    expect(a.lat).toBeLessThan(-1);
-    expect(b.lat).toBeLessThan(-1);
+    expect(a.lat).toBeGreaterThan(0);
+    expect(b.lat).toBeLessThan(0);
     expect(FLEET_TUNE.bargeGap[0]).toBeGreaterThan(20);
   });
 });

@@ -3,8 +3,8 @@
 //
 // Un modèle = une fonction qui CONSTRUIT le bateau en volumes dans son repère
 // (cf. boatBake.js : a le long, c en travers tribord +, h au-dessus de l'eau, en
-// px monde au zoom 1), plus ses bornes, ses ancres (feux, tête de mât, point de
-// halage…) et ses variantes (coque, voile, cargaison tirées par bateau).
+// px monde au zoom 1), plus ses bornes, ses ancres (feux, tête de mât, poupe…)
+// et ses variantes (coque, voile, cargaison tirées par bateau).
 //
 // TOISE (docs/PLAN-BATEAUX.md §3) : un habitant fait ~7,5 px (1,7 m) → 1 px ≈
 // 0,23 m. Les petits métiers sont à l'échelle (barque ≈ 24 px), les gros porteurs
@@ -17,7 +17,7 @@ import {
   surf, box, boxRamp, ellipsoid, tube, rope, rampRGB, asPart, noReflect, PART, h32,
 } from './boatBake.js';
 import {
-  pick, chance, drawHull, person, crewPal as crewOf, amphora, cargo as cargoOf, squareRig as rigOf,
+  pick, chance, drawHull, person, poler, crewPal as crewOf, amphora, cargo as cargoOf, squareRig as rigOf,
 } from './boatParts.js';
 export { hullShape, drawHull, person } from './boatParts.js';
 import { ANCIENT_MODELS, ANCIENT_FLEET } from './boatKitsAncient.js';
@@ -272,15 +272,15 @@ const GALERE = {
   },
 };
 
-// LA CODICARIA — le chaland du Tibre : fond plat, bouts carrés relevés, un mât
-// court qui ne porte pas de voile mais la LIGNE DE HALAGE, tirée depuis la berge.
-// Chargée à ras bord ; une hutte de planches à l'arrière pour le batelier.
+// LA CODICARIA — le chaland du Tibre : fond plat, bouts carrés relevés. Chargée à
+// ras bord ; une hutte de planches à l'arrière pour le batelier. Elle avance à la
+// PERCHE (⛔ plus de halage depuis la berge : Raph, 2026-10-03, cf. makeBarge).
 const CODICARIA = {
   id: 'codicaria',
   role: 'barge',
-  tow: 'ox',
+  anim: { frames: 4, period: 3.2, still: ['dock'] },
   len: 60, beam: 16,
-  speed: [0.55, 0.75],         // halé au pas des bêtes
+  speed: [0.55, 0.75],         // au pas du perchiste
   bounds: [-34, 34, -12, 12, -1, 26],
   ink: '#1d1611',
   variant(seed) {
@@ -290,7 +290,7 @@ const CODICARIA = {
       cargo: pick(['marble', 'marble', 'amphorae', 'sacks', 'timber'], seed, 4), seed,
     };
   },
-  anchors() { return { towTop: [17, 0, 2.6 + 16], stern: [-28, 0, 8] }; },
+  anchors() { return { stern: [-28, 0, 8] }; },
   build(S, ctx) {
     const V = ctx.variant || CODICARIA.variant(1);
     const H = { L: 60, B: 16, D: 3.3, sb: 2.4, ss: 2.8, pb: 4, ps: 4, tb: 0.62, ts: 0.7, flare: 0.08, th: 1.1, plank: 1.9, open: true, floor: 1.1 };
@@ -306,16 +306,13 @@ const CODICARIA = {
           (u, v, nw) => rampRGB(PAL.thatch, nw, ((v * 9) % 1) < 0.25 ? 1 : 0));
       }
     });
-    // Mât de halage.
-    asPart(S, 8, () => {
-      tube(S, [[17, 0, H.floor], [17, 0, H.floor + 17.5]], (t) => 0.75 - 0.25 * t, (nw) => rampRGB(PAL.oak, nw));
-    });
     asPart(S, 13, () => {
       tube(S, [[-L2 + 1, 0, sh.g(-1) + 3.5], [-L2 - 4.5, 0, -0.5]], 0.5, (nw) => rampRGB(PAL.oakIn, nw));
       box(S, -L2 - 5.2, -L2 - 2.6, -0.3, 0.3, 0, 2.2, (f, u, v, nw) => rampRGB(PAL.oakIn, nw));
     });
     cargo(S, V.cargo, -L2 + 11.5, L2 - 4, -5.8, 5.8, fl, V.seed);
     person(S, -L2 + 1.8, 0, sh.g(-1) - 0.6, 0, crewPal(V.seed, 10), 'steer');
+    poler(S, sh, L2 * 0.3, chance(V.seed, 21, 0.5) ? 1 : -1, crewPal(V.seed, 30), PAL.oakIn, ctx.k || 0);
     if (ctx.state === 'salute' || chance(V.seed, 20, 0.5)) person(S, L2 - 3, 1.5, H.floor, 0, crewPal(V.seed, 20), ctx.state === 'salute' ? 'wave' : 'stand', 1);
   },
 };

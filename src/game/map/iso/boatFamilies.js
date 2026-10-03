@@ -3,7 +3,7 @@
 //
 // Des modèles PARAMÉTRÉS qu'on retrouve d'une époque à l'autre avec d'autres
 // matières : le radeau de rondins, la pirogue, la barque à rames du pêcheur, le
-// bac du passeur, le chaland halé, l'embarcadère. Chaque fabrique rend un modèle
+// bac du passeur, le chaland à la perche, l'embarcadère. Chaque fabrique rend un modèle
 // complet (même contrat que boatKits : id, role, len, beam, speed, bounds, variant,
 // anchors, build). Les kits d'époque (boatKitsAncient, boatKitsModern, boatKitsCosmic)
 // les appellent avec leurs matières (M) et leur garde-robe (C).
@@ -15,7 +15,7 @@
 
 import { surf, box, boxRamp, tube, rope, rampRGB, asPart, noReflect, PART, h32, inFrame } from './boatBake.js';
 import {
-  pick, chance, glow, drawHull, person, crewPal, cargo, rowOars, netPile, lateenRig, squareRig, railing,
+  pick, chance, glow, drawHull, person, poler, crewPal, cargo, rowOars, netPile, lateenRig, squareRig, railing,
 } from './boatParts.js';
 
 const rnd = (seed, salt, n) => h32(seed, salt, 97) % n;
@@ -221,14 +221,19 @@ export function makeBac(o, M, C) {
   };
 }
 
-// ── LE CHALAND HALÉ (péniche des époques de la traction animale) ───────────────
-// o = { id, L, B, tow: 'ox' | 'horse' | null, cargo: [kinds], hut: 'thatch' |
-//       'planks' | 'cabin', hatches (panneaux de cale au lieu de cargaison à l'air),
-//       speed, paint: [rampes] }
+// ── LE CHALAND À LA PERCHE ─────────────────────────────────────────────────────
+// o = { id, L, B, cargo: [kinds], hut: 'thatch' | 'planks' | 'cabin', hatches
+//       (panneaux de cale au lieu de cargaison à l'air), pole (false : automoteur,
+//       pas de perchiste), speed, paint: [rampes] }
+// ⛔ PLUS DE HALAGE (Raph, 2026-10-03 : « plus de halage du tout ») : la bête marchait
+// en haut du quai, dans la rue, et sa corde balayait le mur et les escaliers. Le
+// chaland avance à la PERCHE : un batelier sur le plat-bord, la perche plantée en arrière.
 export function makeBarge(o, M, C) {
   const L = o.L || 60, B = o.B || 16;
+  const pole = o.pole !== false;
   return {
-    id: o.id, role: 'barge', len: L, beam: B, speed: o.speed || [0.55, 0.75], tow: o.tow || null,
+    id: o.id, role: 'barge', len: L, beam: B, speed: o.speed || [0.55, 0.75],
+    ...(pole ? { anim: { frames: 4, period: 3.2, still: ['dock'] } } : {}),
     bounds: [-L / 2 - 8, L / 2 + 4, -B / 2 - 3, B / 2 + 3, -1, 26],
     ink: '#1d1611',
     variant(seed) {
@@ -239,9 +244,10 @@ export function makeBarge(o, M, C) {
         cargo: pick(o.cargo || ['sacks'], seed, 4), seed,
       };
     },
-    anchors() { return o.tow ? { towTop: [L * 0.28, 0, 3.3 + 16], stern: [-L / 2 + 2, 0, 8] } : { stern: [-L / 2 + 2, 0, 8] }; },
+    anchors() { return { stern: [-L / 2 + 2, 0, 8] }; },
     build(S, ctx) {
       const V = ctx.variant || this.variant(1);
+      const k = ctx.k || 0;
       const H = { L, B, D: 3.3, sb: 2.4, ss: 2.8, pb: 4, ps: 4, tb: 0.62, ts: 0.7, flare: 0.08, th: 1.1, plank: o.plank == null ? 1.9 : o.plank, open: !o.hatches, floor: 1.1, deck: o.hatches ? 0.8 : 0 };
       const sh = drawHull(S, H, V);
       const L2 = sh.L2;
@@ -264,10 +270,6 @@ export function makeBarge(o, M, C) {
           }
         }
       });
-      // Mât de halage (là où il y a une bête).
-      if (o.tow) {
-        asPart(S, 8, () => tube(S, [[L * 0.28, 0, floor], [L * 0.28, 0, floor + 17.5]], (t) => 0.75 - 0.25 * t, (nw) => rampRGB(M.wood, nw)));
-      }
       // Gouvernail de poupe (safran sur mèche).
       asPart(S, 13, () => {
         tube(S, [[-L2 + 1, 0, sh.g(-1) + 3.5], [-L2 - 4.5, 0, -0.5]], 0.5, (nw) => rampRGB(M.woodIn, nw));
@@ -285,10 +287,12 @@ export function makeBarge(o, M, C) {
         cargo(S, V.cargo, -L2 + 11.5, L2 - 4, -B / 2 + 2.2, B / 2 - 2.2, () => floor, V.seed, M);
       }
       person(S, -L2 + 1.8, 0, sh.g(-1) - 0.6, 0, crewPal(C, V.seed, 10), 'steer');
+      if (pole) poler(S, sh, L2 * 0.3, chance(V.seed, 21, 0.5) ? 1 : -1, crewPal(C, V.seed, 30), M.woodIn, k);
       if (ctx.state === 'salute' || chance(V.seed, 20, 0.5)) person(S, L2 - 3, 1.5, floor, 0, crewPal(C, V.seed, 20), ctx.state === 'salute' ? 'wave' : 'stand', 1);
     },
   };
 }
+
 
 // ── L'EMBARCADÈRE DU PASSEUR ──────────────────────────────────────────────────
 // o = { id, kind: 'logs' | 'planks' | 'iron' | 'steel' | 'nacre', glow (couleur) }

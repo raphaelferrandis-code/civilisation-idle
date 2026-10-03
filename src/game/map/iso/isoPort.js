@@ -39,7 +39,6 @@ import { drawTradePort } from './isoTradePort.js';
 import { boatSpecFor, boatSizeMul, boatHasLights, drawBoat, BOATKIT } from './boatKit.js';
 import { fleetFor } from './boatKits.js';
 import { dockPorters } from './boatBerths.js';
-import { haulerPose } from './boatScenes.js';
 import { BOAT_MODELS } from './boatKits.js';
 import { drawSmoke, drawJets } from './boatFx.js';
 
@@ -228,9 +227,7 @@ export function drawIsoShips(now) {
         continue;
       }
       sh._defer = null;
-      const r = drawKitShip(ctx, sh, pose, now);
-      // Le chaland : sa bête de halage marche sur la berge (item 'fleetScene').
-      sh._hauler = sh.kind === 'barge' && r && r.anchors.towTop ? haulerPose(sh, r.anchors.towTop, now, r.model && r.model.tow) : null;
+      drawKitShip(ctx, sh, pose, now);
       ctx.globalAlpha = prevAlpha;
       continue;
     }

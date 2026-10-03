@@ -178,8 +178,7 @@ export function collectIsoItems(bake, now) {
       items.push({ d: Math.max(isoUnitDepth(q.x * T, q.y * T), pd == null ? -Infinity : pd + 0.003), kind: 'porter', q, band: sh._portersBand });
     }
   }
-  // PETITES SCÈNES DU FLEUVE : embarcadères et voyageurs du passeur, bête de halage
-  // du chaland (iso/boatScenes.js).
+  // PETITES SCÈNES DU FLEUVE : embarcadères et voyageurs du passeur (iso/boatScenes.js).
   for (const it of fleetSceneItems(now, band)) items.push(it);
   // REPÈRES CIVIQUES (isoDistricts) : les emprises de district deviennent des
   // pseudo-tiles moteur — même item 'tile', même peintre, même scène span-aware,

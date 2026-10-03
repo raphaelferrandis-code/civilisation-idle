@@ -226,11 +226,7 @@ function spawn(kind, ctl, env, ships = []) {
     lastDock: -1,
   };
   if (kind === 'fisher') sh.anchorT = pickAnchorT(id, env.avoidT || [], env.win);
-  if (kind === 'barge') {
-    sh.done = true;                                      // il ne fait pas escale au port
-    // Le chemin de halage : la rive SANS ponton (env.towSide), sinon au hasard.
-    sh.towSide = env.towSide || (rnd01('towSide:' + id) < 0.5 ? -1 : 1);
-  }
+  if (kind === 'barge') sh.done = true;                 // il ne fait pas escale au port
   if (kind === 'service') {
     // Rang parmi les bateaux de service présents : il choisit le MODÈLE (police,
     // pompiers…) et donc le métier (cf. env.serviceMode, lu sur le modèle).
@@ -781,8 +777,8 @@ function navLaneGoal(sh, room) {
   const k = NAV_TUNE.keepRight[0] + (NAV_TUNE.keepRight[1] - NAV_TUNE.keepRight[0]) * Math.min(1, Math.abs(sh.lane || 0) / 0.8);
   // Le pêcheur ne suit pas la règle de route : il longe la berge de son choix.
   if (sh.kind === 'fisher') return (sh.lane >= 0 ? 1 : -1) * 0.82 * room;
-  // Le chaland longe la rive de son chemin de halage, quel que soit son sens.
-  if (sh.kind === 'barge') return (sh.towSide || 1) * 0.88 * room;
+  // Le chaland tient sa droite comme les autres : depuis la fin du halage (Raph,
+  // 2026-10-03), il ne longe plus une rive — collé au quai, il traversait les escaliers.
   // La drague travaille près de sa rive.
   if (sh.mode === 'work') return (sh.workSide || 1) * 0.7 * room;
   return sh.dir * k * room;

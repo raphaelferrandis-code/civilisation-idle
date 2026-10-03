@@ -6,7 +6,7 @@
 //   0 · Feu      radeau de rondins, pirogue monoxyle ; le pêcheur à la sagaie
 //   1 · Bois     radeau à voile de peau, barque cousue ; canot ; bac de planches
 //   2 · Pierre   knarr à bordé à clin, barque à voile ; chaland de pierre taillée
-//   3 · Couronne cogue à châteaux, gabare ; chaland halé ; barque à voile latine
+//   3 · Couronne cogue à châteaux, gabare ; chaland à la perche ; barque à voile latine
 //
 // Les gens sont ceux de la ville : peaux et fourrures aux deux premières bandes
 // (habitants préhistoriques), laines teintes et capuchons au Moyen Âge.
@@ -238,7 +238,7 @@ function makeSailBarque(id, M, C, sails, o = {}) {
   };
 }
 const BARQUE_VOILE = makeSailBarque('barque-voile', PIERRE, CREW_MEDIEVAL, [SAIL_OCHRE, SAIL_WOOL, SAIL_HIDE]);
-const CHALAND_PIERRE = makeBarge({ id: 'chaland-pierre', L: 58, B: 16, tow: 'horse', hut: 'planks', cargo: ['stone', 'stone', 'timber', 'sacks'], paint: [SAIL_RED] }, PIERRE, CREW_MEDIEVAL);
+const CHALAND_PIERRE = makeBarge({ id: 'chaland-pierre', L: 58, B: 16, hut: 'planks', cargo: ['stone', 'stone', 'timber', 'sacks'], paint: [SAIL_RED] }, PIERRE, CREW_MEDIEVAL);
 const BARQUE = makeRowboat({ id: 'barque', L: 24, B: 9, paint: [SAIL_RED, SAIL_BLUE, SAIL_OCHRE] }, PIERRE, CREW_MEDIEVAL);
 const BAC_PIERRE = makeBac({ id: 'bac-pierre', L: 30, B: 15 }, PIERRE, CREW_MEDIEVAL);
 
@@ -313,7 +313,7 @@ function boxRamp1(S, a, c, h, ramp) {
 
 const GABARE = makeSailBarque('gabare', COURONNE, CREW_MEDIEVAL, [SAIL_WOOL, SAIL_OCHRE, SAIL_RED],
   { L: 50, B: 14, transom: 0.5, cargo: ['barrels', 'wool', 'crates', 'sacks'], paint: [COURONNE.paintRed, COURONNE.paintBlue], cross: COURONNE.paintRed, speed: [0.85, 1.15] });
-const CHALAND = makeBarge({ id: 'chaland', L: 60, B: 16, tow: 'horse', hut: 'thatch', cargo: ['barrels', 'wool', 'sacks', 'timber'], paint: [COURONNE.paintRed, COURONNE.paintBlue] }, COURONNE, CREW_MEDIEVAL);
+const CHALAND = makeBarge({ id: 'chaland', L: 60, B: 16, hut: 'thatch', cargo: ['barrels', 'wool', 'sacks', 'timber'], paint: [COURONNE.paintRed, COURONNE.paintBlue] }, COURONNE, CREW_MEDIEVAL);
 const BARQUE_LATINE = makeRowboat({ id: 'barque-latine', L: 26, B: 9.5, lateen: SAIL_WOOL, paint: [COURONNE.paintRed, COURONNE.paintBlue, SAIL_OCHRE] }, COURONNE, CREW_MEDIEVAL);
 const BAC_TRAILLE = makeBac({ id: 'bac-couronne', L: 32, B: 16, cart: true }, COURONNE, CREW_MEDIEVAL);
 

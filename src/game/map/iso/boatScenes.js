@@ -4,18 +4,17 @@
 // Ce qui vit AU BORD de l'eau autour de la flotte, trié avec la ville par le
 // peintre (items 'fleetScene') :
 //   · les deux EMBARCADÈRES du passeur, et les voyageurs qui attendent le bac sur
-//     celui d'en face ;
-//   · la BÊTE DE HALAGE du chaland et son conducteur, sur la berge, la corde tendue
-//     jusqu'au mât de halage.
-// Les positions viennent de la sim (riverFleet) et de la pose de la frame que
-// drawIsoShips laisse sur chaque bateau : ici on ne fait que dessiner.
+//     celui d'en face.
+// ⛔ La BÊTE DE HALAGE du chaland, qui vivait ici, est RETIRÉE (Raph, 2026-10-03 :
+// « plus de halage du tout ») : elle marchait en haut du quai, dans la rue, sa corde
+// balayant le mur et les escaliers. Le chaland avance à la perche (makeBarge).
+// Les positions viennent de la sim (riverFleet) : ici on ne fait que dessiner.
 
 import { CM } from '../layout.js';
 import { worldToScreen } from './projection.js';
 import { isoUnitDepth } from './isoUnits.js';
-import { drawDraftIso } from './isoUnits.js';
 import { agentSetForBand, agentSpecFor, drawNamedAgentIso } from '../agents.js';
-import { ribbonAt, ribbonLength } from '../riverFleet.js';
+import { ribbonAt } from '../riverFleet.js';
 import { drawBoat } from './boatKit.js';
 import { fleetFor } from './boatKits.js';
 import { h32 } from './boatBake.js';
@@ -59,29 +58,7 @@ export function fleetSceneItems(now, band) {
       });
     }
   }
-  // La bête de halage de chaque chaland (pose laissée par drawIsoShips).
-  for (const sh of CM.ships || []) {
-    const H = sh._hauler;
-    if (!H || H.at !== now) continue;
-    out.push({ d: isoUnitDepth(H.x * T, H.y * T), kind: 'fleetScene', what: 'hauler', H, band });
-  }
   return out;
-}
-
-// Pose de halage d'un chaland pour cette frame : la bête marche 3,4 tuiles devant
-// lui, sur le BORD de la rive de son chemin (lat = ±(demi-largeur + 0,45)). À 0,85
-// elle marchait dans la forêt des berges sauvages, cachée par les arbres (banc).
-export function haulerPose(sh, rope, now, animal) {
-  const sm = CM.layout && CM.layout.river && CM.layout.river.samples;
-  if (!sm || sm.length < 2 || !rope) return null;
-  const Lr = ribbonLength(sm);
-  const t = sh.t + (sh.dir || 1) * 3.4 / Lr;
-  const r = ribbonAt(sm, t);
-  const side = sh.towSide || 1;
-  const x = r.x + r.nx * side * (r.hw + 0.45), y = r.y + r.ny * side * (r.hw + 0.45);
-  const mx = r.tx * (sh.dir || 1), my = r.ty * (sh.dir || 1);
-  const dir = Math.abs(mx) > Math.abs(my) ? (mx > 0 ? 0 : 1) : (my > 0 ? 2 : 3);
-  return { x, y, dir, roll: Math.abs(sh.t * Lr * CM.TILE), rope, at: now, ax: r.nx * side, ay: r.ny * side, seed: sh.id | 0, animal: animal || 'ox' };
 }
 
 export function drawFleetScene(ctx, it, now) {
@@ -98,25 +75,5 @@ export function drawFleetScene(ctx, it, now) {
     const p = worldToScreen(it.x * T, it.y * T, it.z);
     drawNamedAgentIso(ctx, p.x, p.y, z, spec.name, spec.scale, it.dir, false, now, 0, 1, null, true);
     return;
-  }
-  if (it.what === 'hauler') {
-    const H = it.H;
-    const p = worldToScreen(H.x * T, H.y * T);
-    // La CORDE : du mât de halage jusqu'au collier de la bête, légèrement creusée.
-    const hx = p.x, hy = p.y - 4 * z;
-    const mx = (H.rope.x + hx) / 2, my = (H.rope.y + hy) / 2 + 3 * z;
-    ctx.strokeStyle = 'rgba(74,54,34,0.9)';
-    ctx.lineWidth = Math.max(1, Math.round(z * 0.8));
-    ctx.beginPath();
-    ctx.moveTo(H.rope.x, H.rope.y);
-    ctx.quadraticCurveTo(mx, my, hx, hy);
-    ctx.stroke();
-    // Le BOUVIER marche à côté de la bête, côté terre.
-    const spec = agentSpecFor(agentSetForBand(it.band), 0, H.seed % 3);
-    const dp = worldToScreen((H.x + H.ax * 0.3) * T, (H.y + H.ay * 0.3) * T);
-    const drover = () => { if (spec) drawNamedAgentIso(ctx, dp.x, dp.y, z, spec.name, spec.scale, H.dir, true, now, 0.3, 1, H.roll, true); };
-    if (dp.y < p.y) drover();
-    drawDraftIso(ctx, p.x, p.y, z, H.animal || 'ox', { dir: H.dir, rollDist: H.roll });
-    if (dp.y >= p.y) drover();
   }
 }

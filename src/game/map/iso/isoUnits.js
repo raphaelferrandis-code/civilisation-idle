@@ -85,7 +85,7 @@ if (typeof window !== 'undefined') window.__vehStride = (x) => { vehStrideT.v = 
 // (v.rollDist, même odomètre que les roues). Renvoie false si les bandes ne
 // sont pas prêtes → repli sur la bande cardinale legacy (drawNamedAgent).
 const DRAFT_DIAG_MAP = { default: ['southeast', 'northwest', 'southwest', 'northeast'] };
-// Exportée pour la bête de halage du chaland (iso/boatScenes.js).
+// Exportée pour les bêtes de trait hors de la route (attelages des champs).
 export function drawDraftIso(ctx, x, yFeet, z, animal, v) {
   const dchr = ensureVehDiag(animal);
   if (!vehDiagReady(dchr)) return false;
