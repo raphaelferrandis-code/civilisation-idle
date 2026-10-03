@@ -606,15 +606,11 @@ export const defaultState = () => ({
     infrastructure: 1
   },
   collapsePreparation: 0,
-  // Préparations terminales : malus de production (%) actifs jusqu'à l'effondrement,
-  // bonus associés, et actions déjà utilisées pendant la crise en cours.
+  // Rite de la chute de la crise terminale en cours : rite accompli (used) et son
+  // palier (riteTier 0..2, -1 = aucun ; lu par le vœu « Le grand rite »).
   terminalPreparations: {
-    foodMalus: 0,
-    goldMalus: 0,
-    knowledgeMalus: 0,
-    infraBonus: 0,
-    ruptureSlow: 0,
     used: {},
+    riteTier: -1,
   },
   crisisExtensions: 0,
   crisisLimitAnnounced: false,
@@ -636,6 +632,8 @@ export const defaultState = () => ({
   // « Moisson de crise » : crises narratives STABILISÉES ce cycle (bonus de
   // ruines à l'effondrement, plafonné). Reset au cycle.
   cycleCrisesResolved: 0,
+  // Crises narratives du cycle dont on a PROFITÉ (vœu « L'audace »).
+  cycleCrisesProfited: 0,
   lastCollapsedBuildings: {},
   vestiges: [],
   wonders: [],
@@ -1146,12 +1144,8 @@ export function normalizeTerminalPreparations(raw, fallback) {
     if (usedSource[key]) used[key] = true;
   }
   return {
-    foodMalus: finiteNumber(source.foodMalus, fallback.foodMalus, 0, 0.85),
-    goldMalus: finiteNumber(source.goldMalus, fallback.goldMalus, 0, 0.85),
-    knowledgeMalus: finiteNumber(source.knowledgeMalus, fallback.knowledgeMalus, 0, 0.85),
-    infraBonus: finiteNumber(source.infraBonus, fallback.infraBonus, 0, 1),
-    ruptureSlow: finiteNumber(source.ruptureSlow, fallback.ruptureSlow, 0, 0.8),
-    used
+    used,
+    riteTier: finiteInteger(source.riteTier, fallback.riteTier ?? -1, -1, 2)
   };
 }
 
@@ -1207,6 +1201,7 @@ export function normalizePrevCycle(raw) {
     cycleSec: finiteNumber(raw.cycleSec, 0, 0, 1e12),
     ruinGain: typeof raw.ruinGain === "string" ? raw.ruinGain.slice(0, 64) : "0",
     peakPop: typeof raw.peakPop === "string" ? raw.peakPop.slice(0, 64) : "0",
+    peakEra: finiteInteger(raw.peakEra, 0, 0, 100000),
     cause
   };
 }
@@ -1230,7 +1225,7 @@ export function normalizeCycleVow(raw) {
     : [];
   const chosen = normalizeVowEntry(raw.chosen);
   if (!offered.length && !chosen) return null;
-  return { offered, chosen, done: Boolean(raw.done) };
+  return { offered, chosen, done: Boolean(raw.done), broken: Boolean(raw.broken) };
 }
 
 // Vestige = « record de cité morte » compact (v3). On garde 3 civilisations max.
@@ -1728,6 +1723,7 @@ export function hydrateState(parsed = {}) {
     // Rétro-compat : l'ancien booléen archaeologyUsed devient 1 exhumation utilisée.
     archaeologyUses: finiteInteger(source.archaeologyUses, source.archaeologyUsed ? 1 : 0, 0),
     cycleCrisesResolved: finiteInteger(source.cycleCrisesResolved, 0, 0),
+    cycleCrisesProfited: finiteInteger(source.cycleCrisesProfited, 0, 0),
     lastCollapsedBuildings: normalizeNumberMap(source.lastCollapsedBuildings, buildingIds, {}, true),
     vestiges: normalizeVestiges(source.vestiges),
     wonders: normalizeStringArray(source.wonders, 64, 80),
@@ -1994,19 +1990,13 @@ export function resetTemporaryRunState(s) {
   s.crisisThresholds = {};
   s.crisisProduction = freshDefaults.crisisProduction;
   s.collapsePreparation = 0;
-  s.terminalPreparations = {
-    foodMalus: 0,
-    goldMalus: 0,
-    knowledgeMalus: 0,
-    infraBonus: 0,
-    ruptureSlow: 0,
-    used: {}
-  };
+  s.terminalPreparations = { used: {}, riteTier: -1 };
   s.crisisExtensions = 0;
   s.crisisLimitAnnounced = false;
   s.crisisOpenedAt = null;
   s.archaeologyUses = 0;
   s.cycleCrisesResolved = 0;
+  s.cycleCrisesProfited = 0;
   // Le vœu du cycle (D2) meurt avec la civilisation : completeCollapse en tire un
   // nouveau juste après. Rangé ici (et non en champ éternel) → il disparaît aussi
   // quand resetCivilization scelle un pacte, ce qui est voulu (le pacte a ses

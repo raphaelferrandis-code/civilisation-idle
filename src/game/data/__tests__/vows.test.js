@@ -7,8 +7,9 @@
 import { describe, it, expect } from "vitest";
 import {
   CYCLE_VOWS, vowById, rollCycleVow,
-  cycleVowRuinMult, cycleVowStatus, refreshCycleVowDone,
+  cycleVowRuinMult, cycleVowStatus, refreshCycleVow, breakCycleVow,
 } from "../vows.js";
+import { VOW_FAIL_MULT } from "../../core/balance.js";
 import { CRISIS_EVENTS } from "../world.js";
 
 const fakeState = (over = {}) => ({ cycleCrisesResolved: 0, cycleVow: null, ...over });
@@ -40,7 +41,7 @@ describe("vœux du cycle (D2)", () => {
   // chaque palier de CRISIS_EVENTS ne s'ouvre qu'une fois par cycle. « La fermeté »
   // en demandait 4 pour 3 paliers — un vœu impossible, choisi puis jamais tenu.
   it("aucun vœu de crises ne dépasse le nombre de crises d'un cycle", () => {
-    for (const v of CYCLE_VOWS.filter((x) => x.kind === "crisis")) {
+    for (const v of CYCLE_VOWS.filter((x) => x.family === "crisis")) {
       expect(v.roll(fakeState()).target).toBeLessThanOrEqual(CRISIS_EVENTS.length);
     }
   });
@@ -55,31 +56,55 @@ describe("vœux du cycle (D2)", () => {
   });
 
   it("reconduit le vœu prêté lors d'une chute automatique hors ligne", () => {
-    const prev = { offered: [], chosen: { id: "vigilance", target: 2, base: 0 }, done: true };
+    const prev = { offered: [], chosen: { id: "fermete", target: 3, base: 0 }, done: true, broken: true };
     const cv = rollCycleVow(fakeState({ cycleVow: prev }), { reconduct: true });
-    expect(cv.chosen.id).toBe("vigilance");
+    expect(cv.chosen.id).toBe("fermete");
     expect(cv.done).toBe(false);
+    expect(cv.broken).toBe(false); // nouveau cycle : le vœu repart intact
   });
 
-  it("le multiplicateur ne s'applique QUE si le vœu est tenu", () => {
-    const notDone = fakeState({ cycleVow: { chosen: { id: "fermete", target: 4, base: 0 }, done: false } });
-    expect(cycleVowRuinMult(notDone)).toBe(1);
-    const done = fakeState({ cycleVow: { chosen: { id: "fermete", target: 4, base: 0 }, done: true } });
-    expect(cycleVowRuinMult(done)).toBe(vowById("fermete").ruinMult);
-    expect(cycleVowRuinMult(fakeState())).toBe(1); // aucun vœu prêté
+  it("tenu : la moisson est majorée ; manqué : elle est réduite ; sans vœu : rien", () => {
+    const missed = fakeState({ cycleCrisesResolved: 1, cycleVow: { chosen: { id: "fermete", target: 3, base: 0 }, done: false } });
+    expect(cycleVowRuinMult(missed)).toBe(VOW_FAIL_MULT);
+    const kept = fakeState({ cycleVow: { chosen: { id: "fermete", target: 3, base: 0 }, done: true } });
+    expect(cycleVowRuinMult(kept)).toBe(vowById("fermete").ruinMult);
+    expect(cycleVowRuinMult(fakeState())).toBe(1); // aucun vœu prêté : gratuit
+  });
+
+  it("un objectif atteint juste avant la chute compte (évalué en direct, sans attendre le tick)", () => {
+    const s = fakeState({ terminalPreparations: { used: { exodus: true }, riteTier: 2 }, cycleVow: { chosen: { id: "grand_rite", target: 3, base: 0 }, done: false } });
+    expect(cycleVowRuinMult(s)).toBe(vowById("grand_rite").ruinMult);
+    s.terminalPreparations.riteTier = 1; // rite Drastique : vœu manqué
+    expect(cycleVowRuinMult(s)).toBe(VOW_FAIL_MULT);
+  });
+
+  it("« aucun X » : tenu tant qu'on ne fait pas X, rompu au premier X", () => {
+    const s = fakeState({ cycleVow: { chosen: { id: "sans_reforme", target: 0, base: 0 }, done: false } });
+    expect(cycleVowStatus(s).kept).toBe(true);
+    expect(breakCycleVow(s, "policy")).toBe(false); // une politique n'est pas une réforme
+    expect(breakCycleVow(s, "reform")).toBe(true);
+    expect(cycleVowStatus(s).broken).toBe(true);
+    expect(cycleVowRuinMult(s)).toBe(VOW_FAIL_MULT);
+    expect(breakCycleVow(s, "reform")).toBe(false); // déjà rompu : pas de nouvelle annonce
+  });
+
+  it("aucun acte ne rompt un vœu d'objectif", () => {
+    const s = fakeState({ cycleVow: { chosen: { id: "fermete", target: 3, base: 0 }, done: false } });
+    expect(breakCycleVow(s, "reform")).toBe(false);
+    expect(breakCycleVow(s, "policy")).toBe(false);
   });
 
   it("latche « tenu » dès l'objectif atteint, une seule fois", () => {
     const s = fakeState({
-      cycleCrisesResolved: 1,
-      cycleVow: { offered: [], chosen: { id: "vigilance", target: 2, base: 0 }, done: false },
+      cycleCrisesProfited: 1,
+      cycleVow: { offered: [], chosen: { id: "audace", target: 3, base: 0 }, done: false },
     });
-    expect(refreshCycleVowDone(s)).toBe(false);        // 1 < 2 : pas encore
-    expect(cycleVowStatus(s).progress).toBeCloseTo(0.5, 5);
-    s.cycleCrisesResolved = 2;
-    expect(refreshCycleVowDone(s)).toBe(true);          // 2 ≥ 2 : latch
+    expect(refreshCycleVow(s)).toBe(null);             // 1 < 3 : pas encore
+    expect(cycleVowStatus(s).progress).toBeCloseTo(1 / 3, 5);
+    s.cycleCrisesProfited = 3;
+    expect(refreshCycleVow(s)).toBe("kept");          // 3 ≥ 3 : latch
     expect(s.cycleVow.done).toBe(true);
-    expect(refreshCycleVowDone(s)).toBe(false);         // déjà tenu : pas de re-latch
+    expect(refreshCycleVow(s)).toBe(null);             // déjà tenu : pas de re-latch
   });
 
   it("un id de vœu inconnu (sauvegarde d'une autre version) se résout en « aucun vœu »", () => {

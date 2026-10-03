@@ -833,6 +833,10 @@
 
 .csp-vow-mult { flex: 0 0 auto; color: var(--gold-ivory); font-variant-numeric: tabular-nums; }
 .csp-vow-mult.is-done { color: #9fe0a2; }
+/* Vœu rompu ou manqué (« pactes » 2026-10) : la moisson sera réduite. */
+.csp-vow-goal.is-broken,
+.csp-vow-mult.is-broken { color: #d98a7a; }
+.csp-vow-option-risk { opacity: 0.6; font-size: 0.85em; }
 
 /* Filet d'avancement : 2 px, pas la barre pleine des autres blocs. */
 .csp-vow-bar {

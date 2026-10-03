@@ -200,6 +200,10 @@ export const FOYER_REFORM = {
 // tôt, le plancher et le bonus plat de Ruines ne sont pas mûrs. Avant : 30 s /
 // 1 min, ce qui permettait une rente AFK de chutes éclair.
 export const AUTO_COLLAPSE_MIN_SECONDS = 600;
+// Vœu du cycle ROMPU ou MANQUÉ : la moisson de la chute est multipliée par ce
+// facteur (data/vows.js). Sans coût d'échec, on prenait toujours le vœu le plus
+// gros ; ne rien prêter reste gratuit.
+export const VOW_FAIL_MULT = 0.9;
 export const CRISIS_TREAT_SHIFT = { 0.25: 0.05, 0.5: 0.06, 0.75: 0.07 };
 export const CRISIS_PROFIT_SHIFT = { 0.25: 0.05, 0.5: 0.06, 0.75: 0.07 };
 export const CRISIS_PROFIT_PREP = { 0.25: 0.15, 0.5: 0.20, 0.75: 0.30 };

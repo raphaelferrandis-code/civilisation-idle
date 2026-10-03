@@ -43,6 +43,8 @@
  *            accomplit d'abord le rite de la chute (palier le plus haut payable ;
  *            « best » prend le plus haut palier payable, tous rites confondus)
  *            avant de tomber. Un seul rite par chute, sans sursis.
+ *   --vow=<id> : prête ce vœu du cycle à CHAQUE cycle (data/vows.js) ; la
+ *            moisson est majorée s'il est tenu, réduite s'il est rompu/manqué.
  *   --bank=0.9 : n'achète plus rien quand la jauge dépasse ce seuil (épargne
  *            pour un grand rite). Défaut : achète tout.
  *   --players=prudent,cupide,lucide,avare : joueurs à faire courir (défaut :
@@ -83,6 +85,7 @@ const MAX_SEALS_PER_CYCLE = 3;
 // Épargne avant la chute (--bank=0.9) : plus aucun achat quand la jauge dépasse
 // ce seuil, pour se payer un grand rite. Défaut : jamais (achète tout).
 const BANK_AT = Number(argv.bank) || Infinity;
+const VOW = typeof argv.vow === "string" ? argv.vow : null;
 const STEER = typeof argv.steer === "string" ? argv.steer : "inequality";
 const ONLY_POLICIES = typeof argv.players === "string" ? argv.players.split(",") : null;
 
@@ -112,6 +115,8 @@ const actions = await import("./src/game/core/actions.js");
 const { completeCollapse, tick, chronicle, runCrisisAction } = actions;
 const { generateEpitaph, collapseCause } = await import("./src/game/core/events.js");
 const { EPITAPH_LEGACIES, epitaphLegacyById, epitaphRuinMultiplier } = await import("./src/game/data/epitaphs.js");
+const { vowById, cycleVowRuinMult, cycleVowStatus } = await import("./src/game/data/vows.js");
+if (VOW && !vowById(VOW)) throw new Error("--vow : vœu inconnu " + VOW);
 const { terminalCrisisReady } = mech;
 // Molette des paliers d'édits : --tiers='{"exodus":[{"target":0.9},{},{}]}'
 // (fusionne chaque palier dans TERMINAL_PREP_TIERS, en mémoire).
@@ -291,10 +296,12 @@ function collapseNow(gain) {
   const cause = collapseCause();
   const legacy = pickLegacy(cause);
   state.nextEpitaphLegacy = legacy ? { id: legacy.id, cause, chosenCycle: state.cycles || 0, startedAt: Date.now() } : null;
-  const finalGain = Math.round(gain * epitaphRuinMultiplier(legacy, cause));
+  const vowMult = cycleVowRuinMult(state);
+  const vowKept = cycleVowStatus(state)?.kept ?? null;
+  const finalGain = Math.round(gain * epitaphRuinMultiplier(legacy, cause) * vowMult);
   completeCollapse(D(finalGain), dynastyNames[state.cycles % dynastyNames.length], generateEpitaph(), crisisOpen() ? "auto" : "forced");
   setGamePaused(false); setCollapseInProgress(false);
-  return { finalGain, fall: cause, legacy: legacy ? legacy.id : "—" };
+  return { finalGain, fall: cause, legacy: legacy ? legacy.id : "—", vowKept };
 }
 // Crise terminale ouverte : accomplit le rite de la chute (--edict) avant de
 // tomber. Un seul par chute (le jeu refuse le suivant). Rend true si accompli.
@@ -335,6 +342,14 @@ async function career(name) {
   while (VT < BUDGET_S) {
     const start = VT;
     let seals = 0;
+    // Vœu posé à CHAQUE début de cycle, avec ou sans --vow : le tirage paresseux
+    // du tick (Math.random) ne doit pas décaler le hasard entre les variantes.
+    if (VOW) {
+      const { target, base } = vowById(VOW).roll(state);
+      state.cycleVow = { offered: [], chosen: { id: VOW, target, base }, done: false, broken: false };
+    } else {
+      state.cycleVow = { offered: [], chosen: null, done: false, broken: false };
+    }
     for (;;) {
       while (!cycleOver(start) && VT < BUDGET_S) await step(start);
       if (VT < BUDGET_S && trySeal(seals)) { seals++; continue; }
@@ -345,9 +360,11 @@ async function career(name) {
     cycles.push(rec);
     if (gain <= 0 || VT >= BUDGET_S) break;
     const fell = collapseNow(gain);
-    rec.gain = fell.finalGain; rec.fall = fell.fall; rec.legacy = fell.legacy;
+    rec.gain = fell.finalGain; rec.fall = fell.fall; rec.legacy = fell.legacy; rec.vowKept = fell.vowKept;
   }
   const total = cycles.reduce((s, c) => s + c.gain, 0);
+  const vows = cycles.filter((c) => c.vowKept != null);
+  if (VOW) console.log(`  [${name}] vœu ${VOW} tenu ${vows.filter((c) => c.vowKept).length}/${vows.length} chutes`);
   return { name, cycles, total, picks: ctl.log.slice() };
 }
 

@@ -104,7 +104,7 @@ export const HELP_CHAPTERS = [
           { t: { fr: 'Le nom', en: 'The name' }, d: { fr: 'Il se change d\'un clic.', en: 'Click it to change it.' } },
           { t: { fr: 'La personnalité', en: 'Personality' }, d: { fr: 'Tirée à la fondation, elle façonne le plan de la ville, ses bâtiments et ses habitants.', en: 'Drawn at the founding, it shapes the town plan, its buildings and its inhabitants.' } },
           { t: { fr: 'La jauge', en: 'The gauge' }, d: { fr: 'La Rupture du moment, et le trait de sa cible. À côté, les Ruines que rapporterait une chute maintenant.', en: 'The current Rupture, and the mark of its target. Next to it, the Ruins a fall would bring right now.' } },
-          { t: { fr: 'Le vœu', en: 'The vow' }, d: { fr: 'Un objectif court, choisi parmi trois au début du cycle. Tenu, il augmente les Ruines de la prochaine chute. Manqué, il ne coûte rien.', en: 'A short goal, chosen among three at the start of the cycle. Kept, it raises the Ruins of the next fall. Missed, it costs nothing.' } }
+          { t: { fr: 'Le vœu', en: 'The vow' }, d: { fr: 'Au début du cycle, trois vœux au choix : un objectif (une durée, des crises, une ère, un grand rite) ou une contrainte (aucune politique, aucune réforme). Tenu, il augmente les Ruines de la prochaine chute ; rompu ou manqué, il les réduit de 10 %. Ne rien prêter ne coûte rien.', en: 'At the start of the cycle, three vows to choose from: a goal (a duration, crises, an era, a great rite) or a constraint (no policy, no reform). Kept, it raises the Ruins of the next fall; broken or missed, it lowers them by 10%. Making none costs nothing.' } },
         ]
       },
       {

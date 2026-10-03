@@ -8,6 +8,7 @@ import { pct, clamp01, fmtSecs } from '../../game/core/utils.js';
 import { state, getLastSaveAt, getLastSaveError } from '../../game/core/state.js';
 import { idleCapSeconds, nextIdleCapPalier, clepsydreCapSeconds, clepsydreRefusal, spendStoredTime, chooseCycleVow } from '../../game/core/main.js';
 import { cycleVowStatus, vowById } from '../../game/data/vows.js';
+import { VOW_FAIL_MULT } from '../../game/core/balance.js';
 import { pushOutcomeFloat } from '../../game/core/outcomeFloat.js';
 import { tr } from '../../game/core/i18n.js';
 import RollingNumber from './RollingNumber.jsx';
@@ -261,28 +262,30 @@ export default function CityStatusPanel() {
       </div>
       </>)}
 
-      {/* VŒU DU CYCLE (D2). Le seul objectif court terme VOLONTAIRE du jeu :
-          proposé au début du cycle, tenu il majore la moisson de la prochaine
-          chute, manqué il ne coûte rien. Bloc conditionnel comme la clepsydre —
+      {/* VŒU DU CYCLE (D2, « pactes » 2026-10). Proposé au début du cycle :
+          tenu il majore la moisson de la prochaine chute, rompu ou manqué il la
+          réduit ; ne rien prêter ne coûte rien. Bloc conditionnel comme la clepsydre —
           et dévoilé avec la tension dans la toute première partie : il parle
           d'une chute que le joueur ne connaît pas encore. */}
       {revealTension && cycleVow && (vowStatus || vowOffered.length > 0) && (
         <div
           className="csp-vow"
           {...tipProps(tr({ fr: 'Vœu du cycle', en: 'Cycle vow' }), tr({
-            fr: "Un objectif court terme, libre à toi de le tenir. Réussi, il majore la moisson de Ruines de la prochaine chute ; manqué, il ne coûte rien.",
-            en: "A short-term goal, yours to keep or not. Fulfilled, it raises the next collapse's Ruin harvest; missed, it costs nothing."
+            fr: "Un vœu pour ce cycle, libre à toi d'en prêter un. Tenu, il majore la moisson de Ruines de la prochaine chute ; rompu ou manqué, il la réduit de 10 %. Ne rien prêter ne coûte rien.",
+            en: "A vow for this cycle, yours to make or not. Kept, it raises the next collapse's Ruin harvest; broken or missed, it lowers it by 10%. Making none costs nothing."
           }))}
         >
           {vowStatus ? (
             <>
               <div className="csp-vow-line">
                 <span className="csp-vow-tag">{tr({ fr: 'Vœu', en: 'Vow' })}</span>
-                <span className={`csp-vow-goal ${vowStatus.done ? 'is-done' : ''}`}>
-                  {vowStatus.done ? '✓ ' : ''}{tr(vowStatus.def.short(vowStatus.target))}
+                <span className={`csp-vow-goal ${vowStatus.done ? 'is-done' : ''}${vowStatus.broken ? ' is-broken' : ''}`}>
+                  {vowStatus.done ? '✓ ' : vowStatus.broken ? '✗ ' : ''}{tr(vowStatus.def.short(vowStatus.target))}
                 </span>
-                <strong className={`csp-vow-mult ${vowStatus.done ? 'is-done' : ''}`}>
-                  +{Math.round((vowStatus.ruinMult - 1) * 100)}%
+                <strong className={`csp-vow-mult ${vowStatus.done ? 'is-done' : ''}${vowStatus.broken ? ' is-broken' : ''}`}>
+                  {vowStatus.broken
+                    ? `−${Math.round((1 - vowStatus.failMult) * 100)}%`
+                    : `+${Math.round((vowStatus.ruinMult - 1) * 100)}%`}
                 </strong>
               </div>
               <span className="csp-vow-bar">
@@ -317,6 +320,7 @@ export default function CityStatusPanel() {
                     const def = vowById(o.id);
                     if (!def) return null;
                     const pctBonus = Math.round((def.ruinMult - 1) * 100);
+                    const pctFail = Math.round((1 - VOW_FAIL_MULT) * 100);
                     return (
                       <button
                         key={o.id}
@@ -325,7 +329,9 @@ export default function CityStatusPanel() {
                         onClick={() => { chooseCycleVow(o.id); setVowPickerFor(null); }}
                       >
                         <span className="csp-vow-option-goal">{tr(def.describe(o.target))}</span>
-                        <strong className="csp-vow-option-mult">+{pctBonus}%</strong>
+                        <strong className="csp-vow-option-mult" title={tr({ fr: `Tenu : +${pctBonus} % · rompu ou manqué : −${pctFail} %`, en: `Kept: +${pctBonus}% · broken or missed: −${pctFail}%` })}>
+                          +{pctBonus}% <span className="csp-vow-option-risk">/ −{pctFail}%</span>
+                        </strong>
                       </button>
                     );
                   })}

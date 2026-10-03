@@ -49,7 +49,7 @@ import { tr } from '../i18n.js';
 import { upgrades, dogmaIds } from '../../data/upgrades.js';
 import { eras, codexSavoirBonus, CRISIS_EVENTS, CRISIS_POOL } from '../../data/world.js';
 import { epitaphLegacyById, legacyFoyerShift } from '../../data/epitaphs.js';
-import { rollCycleVow } from '../../data/vows.js';
+import { rollCycleVow, breakCycleVow, vowById } from '../../data/vows.js';
 import { captureCurrentVestige, resetCameraCenter } from '../../map/cityMapBridge.js';
 import { newCitySeed } from '../../map/procedural/seedManager.js';
 import { generateCityName } from '../../map/procedural/cityName.js';
@@ -220,6 +220,8 @@ export function autoResolveCrisisEvent(event, stance) {
     state.cycleCrisesResolved = (state.cycleCrisesResolved || 0) + 1;
   } else {
     registerOlympusCrisisIgnored();
+    // Vœu « L'audace » : les crises dont on a PROFITÉ.
+    if (choice.stance === "temporiser") state.cycleCrisesProfited = (state.cycleCrisesProfited || 0) + 1;
   }
   state.instability = clamp01(state.instability);
   chronicle(`Le Conseil de crise tranche : « ${choice.label} », appliqué sans délai.`);
@@ -293,6 +295,8 @@ export async function openCrisisEvent(event) {
     state.cycleCrisesResolved = (state.cycleCrisesResolved || 0) + 1;
   } else {
     registerOlympusCrisisIgnored();
+    // Vœu « L'audace » : les crises dont on a PROFITÉ.
+    if (choice.stance === "temporiser") state.cycleCrisesProfited = (state.cycleCrisesProfited || 0) + 1;
   }
   state.instability = clamp01(state.instability);
   setGamePaused(false);
@@ -339,6 +343,16 @@ const TERMINAL_PREP_CHRONICLES = {
   ]
 };
 
+// Un acte de la cité rompt-il le vœu du cycle (« aucune politique », « aucune
+// réforme ») ? Annonce la rupture — sa conséquence se lira à la chute.
+function noteVowAct(act) {
+  if (!breakCycleVow(state, act)) return;
+  const def = vowById(state.cycleVow?.chosen?.id);
+  const name = def ? tr(def.name) : "";
+  pushOutcomeFloat({ label: tr({ fr: `Vœu rompu : ${name}`, en: `Vow broken: ${name}` }), kind: "cost" });
+  chronicle(tr({ fr: `Le vœu du cycle est rompu (${name}) : la moisson de la chute en sera réduite.`, en: `The cycle's vow is broken (${name}): the harvest of the fall will be reduced.` }));
+}
+
 // Rite de la chute (cf. TERMINAL_PREP_TIERS) : UN par chute, sans sursis — la
 // crise reste ouverte, la cité tombera ensuite (bouton maintenu ou Édit).
 export function runTerminalCrisisAction(type, tier = 0) {
@@ -351,9 +365,10 @@ export function runTerminalCrisisAction(type, tier = 0) {
   state.crisisExtensions = (state.crisisExtensions || 0) + 1;
   registerOlympusCrisisResolved();
 
-  const tp = state.terminalPreparations || (state.terminalPreparations = { used: {} });
+  const tp = state.terminalPreparations || (state.terminalPreparations = { used: {}, riteTier: -1 });
   if (!tp.used) tp.used = {};
   tp.used[type] = true;
+  tp.riteTier = tier; // vœu « Le grand rite »
   // « Choisir sa chute » : le rite déclare la cause de la chute.
   state.declaredFallCause = TERMINAL_EDICT_CAUSE[type] || null;
   // « Préparations funèbres » : l'effet de préparation (boost du gain de ruines)
@@ -399,6 +414,8 @@ export function completeCollapse(gain, fallenDynasty, epitaph, reason) {
     cycleSec: collapseCycleSec,
     ruinGain: D(gain).toString(),
     peakPop: D(state.cyclePeaks?.population || state.population).toString(),
+    // Ère atteinte par la cité qui tombe (vœux « égaler / battre la cité précédente »).
+    peakEra: state.cyclePeaks?.eraIndex || 0,
     cause: reason || ""
   };
 
@@ -658,6 +675,7 @@ export function runCrisisAction(id, options = {}) {
     payCost(reformCost);
     const prevReform = rf[reformFoyer] || 0;
     rf[reformFoyer] = Math.min(FOYER_REFORM_CAP, prevReform + (FOYER_REFORM[reformFoyer]?.add || 0) * regulFatigueEffectMult());
+    noteVowAct("reform");
     regulLedgerPush({ id, kind: "reform", foyer: reformFoyer, delta: rf[reformFoyer] - prevReform, by: opts.by || null });
     // Kicker économique modeste : la réforme bâtit aussi de l'institution.
     state.infrastructure = D(state.infrastructure).add(Math.max(1, totalBuildingCount() * 0.05));
@@ -700,6 +718,7 @@ export function runCrisisAction(id, options = {}) {
       const rf = state.foyerReform;
       const prev = rf[foyer] || 0;
       rf[foyer] = Math.min(FOYER_REFORM_CAP, prev + (regAction.reformAdd || 0) * eff);
+      noteVowAct("reform");
       ledger = { kind: "reform", delta: rf[foyer] - prev };
     } else {
       const fr = state.foyerRelief || (state.foyerRelief = { scarcity: 0, inequality: 0, complexity: 0, dissent: 0 });
@@ -789,6 +808,7 @@ export function togglePolicy(id) {
     if (!regulationPolicyUnlocked(id)) return;
     if (list.length >= POLICY_MAX_ACTIVE) return;
     list.push(id);
+    noteVowAct("policy");
   }
   regulLedgerPush({ id, kind: idx >= 0 ? "policyOff" : "policyOn" });
   // Coût et ralentissement changent immédiatement (sinon ~1 tick de retard).

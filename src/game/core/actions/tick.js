@@ -65,7 +65,7 @@ import {
 
 import { log, chronicle } from './utils.js';
 import { eras, eraTier } from '../../data/world.js';
-import { refreshCycleVowDone, cycleVowStatus, rollCycleVow } from '../../data/vows.js';
+import { refreshCycleVow, cycleVowStatus, rollCycleVow } from '../../data/vows.js';
 import { clamp01, canPayCost, fmt } from '../utils.js';
 import { D, toNum } from '../num.js';
 import { checkAndTriggerChronicleEntries } from '../chronicleEvaluator.js';
@@ -395,7 +395,18 @@ export function tick(dt) {
   // pendant le rattrapage hors ligne, pour que le joueur qui revient le trouve
   // accompli) ; l'ANNONCE seule passe sous garde — même patron que les sceaux et
   // les bâtiments juste au-dessus.
-  if (refreshCycleVowDone(state) && !isNotifyPaused()) {
+  const vowChange = refreshCycleVow(state);
+  if (vowChange === "broken" && !isNotifyPaused()) {
+    const vowSt = cycleVowStatus(state);
+    if (vowSt) {
+      pushOutcomeFloat({ label: tr({ fr: `Vœu rompu : ${tr(vowSt.def.name)}`, en: `Vow broken: ${tr(vowSt.def.name)}` }), kind: "cost" });
+      log(tr({
+        fr: `Le vœu du cycle est rompu : la moisson de la prochaine chute sera réduite de ${Math.round((1 - vowSt.failMult) * 100)} %.`,
+        en: `The cycle's vow is broken: the next collapse's harvest will be reduced by ${Math.round((1 - vowSt.failMult) * 100)}%.`
+      }));
+    }
+  }
+  if (vowChange === "kept" && !isNotifyPaused()) {
     const vowSt = cycleVowStatus(state);
     if (vowSt) {
       pushOutcomeFloat({ label: tr({ fr: `🕊️ Vœu tenu : ${tr(vowSt.def.name)}`, en: `🕊️ Vow kept: ${tr(vowSt.def.name)}` }), kind: "gain" });

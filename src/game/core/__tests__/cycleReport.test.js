@@ -19,7 +19,7 @@ describe("prevCycle — le bilan du cycle précédent traverse la sauvegarde", (
 
   it("survit à un rechargement", () => {
     const s = defaultState();
-    s.prevCycle = { cycleSec: 842.5, ruinGain: "1.5e21", peakPop: "3.2e9", cause: "famine" };
+    s.prevCycle = { cycleSec: 842.5, ruinGain: "1.5e21", peakPop: "3.2e9", peakEra: 12, cause: "famine" };
     expect(roundTrip(s).prevCycle).toEqual(s.prevCycle);
   });
 
