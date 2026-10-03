@@ -3,7 +3,8 @@
 import { describe, it, expect } from "vitest";
 import fs from "node:fs";
 import { PNG } from "pngjs";
-import { sceneWindowUnits, SCENE_GLASS } from "../sceneWindows.js";
+import { sceneWindowUnits, SCENE_GLASS, SCENE_DARK } from "../sceneWindows.js";
+import { SCENE_WINDOWS_DATA } from "../sceneWindowsData.js";
 
 const BUILDINGS = new URL("../../../../public/pixelart/agents/buildings/", import.meta.url);
 const VERRE = [80, 90, 120], MUR = [230, 230, 224];
@@ -58,4 +59,36 @@ describe("bureaux allumés la nuit (bande 6)", () => {
       expect(on / ink, key).toBeLessThan(0.6);
     }
   });
+});
+
+// LES FENÊTRES SOMBRES RELEVÉES À LA MAIN (2026-10-03, Raph : « les lumières arrivent
+// n'importe où sur les bâtiments ») : chaque rectangle tombe sur l'encre de son dessin,
+// deux fenêtres ne se partagent pas un pixel, et la clé est bien un bâtiment à fenêtres
+// sombres (sinon la donnée ne serait jamais lue).
+describe("fenêtres relevées des bâtiments-moteur", () => {
+  const dark = new Set(SCENE_DARK.flatMap((k) => [k, k + "-grand"]));
+  // Plus de détecteur de secours : un dessin à fenêtres sombres sans relevé resterait
+  // noir sans que personne ne le voie. Une liste vide dit « relevé, aucune vitre ».
+  it("chaque dessin à fenêtres sombres a son relevé", () => {
+    const manquants = [...dark].filter((k) => fs.existsSync(new URL(`${k}.png`, BUILDINGS)) && !SCENE_WINDOWS_DATA[k]);
+    expect(manquants).toEqual([]);
+  });
+  for (const [key, wins] of Object.entries(SCENE_WINDOWS_DATA)) {
+    it(`${key} : sur l'encre, sans chevauchement`, () => {
+      expect(dark.has(key), key).toBe(true);
+      const p = PNG.sync.read(fs.readFileSync(new URL(`${key}.png`, BUILDINGS)));
+      const owner = new Map();
+      wins.forEach((r, i) => {
+        expect(r.length % 4).toBe(0);
+        for (let k = 0; k < r.length; k += 4) {
+          for (let y = r[k + 1]; y < r[k + 1] + r[k + 3]; y += 1) for (let x = r[k]; x < r[k] + r[k + 2]; x += 1) {
+            expect(x >= 0 && y >= 0 && x < p.width && y < p.height, `${key} ${x},${y}`).toBe(true);
+            expect(p.data[(y * p.width + x) * 4 + 3], `${key} ${x},${y}`).toBeGreaterThan(200);
+            expect(owner.has(y * p.width + x), `${key} ${x},${y}`).toBe(false);
+            owner.set(y * p.width + x, i);
+          }
+        }
+      });
+    });
+  }
 });

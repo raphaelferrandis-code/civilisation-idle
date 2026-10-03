@@ -6,8 +6,11 @@
 //   - VERRE NOMMÉ (bande 6) : le verre moderne est bleu, mais les murs à l'ombre aussi
 //     (lumière haut-gauche, ombre bleutée) — une fenêtre de teinte allumait des façades
 //     entières. Ses couleurs exactes sont donc relevées sprite par sprite (`GLASS`).
-//   - FENÊTRES SOMBRES (médiéval, romain, XIXe) : le détecteur des maisons
-//     (houseWindows.windowPixels — taches sombres, fermées, petites, dans les étages).
+//   - FENÊTRES SOMBRES (médiéval, romain, XIXe) : RELEVÉES À LA MAIN dessin par dessin
+//     (sceneWindowsData.js, 2026-10-03, Raph : « les lumières arrivent n'importe où ») —
+//     les 113 dessins, « -grand » compris. L'ancien détecteur de taches sombres prenait
+//     ardoises, ombres de colonnes et portes pour des vitres : il est retiré, et la garde
+//     (__tests__/sceneWindows.test.js) exige un relevé pour chaque dessin de la liste.
 //
 // Une vitre allumée n'est pas un aplat : les pixels de verre sont groupés en CARREAUX
 // (taches 4-connexes ; au-delà de 12 px, une grande surface vitrée est découpée en
@@ -28,7 +31,7 @@
 // faut le noir).
 import { CM } from './layout.js';
 import { lightCtx } from './lightLayer.js';
-import { windowPixels } from './houseWindows.js';
+import { SCENE_WINDOWS_DATA } from './sceneWindowsData.js';
 
 // Couleurs de verre par clé de sprite (hex sans #, séparées par une espace).
 const GLASS = {
@@ -132,6 +135,21 @@ export function sceneWindowUnits(data, width, height, glass) {
   return units;
 }
 
+// Fenêtres SOMBRES d'un sprite : relevées à la main (une fenêtre = des rectangles
+// [x, y, w, h, …]) ; un dessin sans relevé n'allume rien. Listes d'indices de pixels,
+// comme le verre nommé.
+export function darkWindowUnits(key, width) {
+  const wins = SCENE_WINDOWS_DATA[key];
+  if (!wins) return [];
+  return wins.map((r) => {
+    const px = [];
+    for (let i = 0; i < r.length; i += 4) {
+      for (let y = r[i + 1]; y < r[i + 1] + r[i + 3]; y += 1) for (let x = r[i]; x < r[i] + r[i + 2]; x += 1) px.push(y * width + x);
+    }
+    return px;
+  });
+}
+
 // Haut de l'encre (première rangée opaque) et hauteur d'encre d'une image RGBA.
 function inkRows(data, w, h) {
   let y0 = -1, y1 = -1;
@@ -155,7 +173,7 @@ function masksFor(img, key, mode, phase) {
   x.drawImage(img, 0, 0);
   const src = x.getImageData(0, 0, w, h);
   const light = x.createImageData(w, h), dark = x.createImageData(w, h);
-  const units = mode === 'glass' ? sceneWindowUnits(src.data, w, h, glassOf(key)) : windowPixels(src.data, w, h, 68);
+  const units = mode === 'glass' ? sceneWindowUnits(src.data, w, h, glassOf(key)) : darkWindowUnits(key, w);
   const lit = mode === 'glass' ? S.litGlass : S.litDark;
   const [iy0, iy1] = inkRows(src.data, w, h);
   const domeY = DOME[key] != null && iy0 >= 0 ? iy0 + (iy1 - iy0) * DOME[key] : -1;

@@ -315,9 +315,11 @@ function pixelHouseGeom(t, x, y, w, h) {
   // la bbox, donc le masque du sprite d'été s'y applique tel quel — et c'est le même
   // contrat que la boîte et le liseré juste au-dessus, pour la même raison (ni la
   // teinte ni la neige ne déplacent un pixel, elles repeignent DANS la silhouette).
+  // `ox`, `oy` : coin de la boîte d'encre dans le PNG de base, que la variante recadrée
+  // perd — les fenêtres relevées à la main (houseWindowsData.js) sont dans ce repère.
   const vc = variantCanvas(key, houseTintOf(t, key), CM.season === WINTER && snowRoofTune.on);
-  if (vc) return { img: vc, bb: { x0: 0, y0: 0, w: bb.w, h: bb.h, mask: bb.mask }, dx, dy, dw, dh, key };
-  return { img: e.img, bb, dx, dy, dw, dh, key };
+  if (vc) return { img: vc, bb: { x0: 0, y0: 0, w: bb.w, h: bb.h, mask: bb.mask }, dx, dy, dw, dh, key, ox: bb.x0, oy: bb.y0 };
+  return { img: e.img, bb, dx, dy, dw, dh, key, ox: bb.x0, oy: bb.y0 };
 }
 
 // Dessine le sprite. RENVOIE la boîte écran RÉELLEMENT dessinée {dx, dy, dw, dh},

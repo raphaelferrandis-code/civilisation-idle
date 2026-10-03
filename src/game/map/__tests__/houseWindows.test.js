@@ -1,50 +1,54 @@
 import { describe, it, expect } from 'vitest';
 import { readFileSync } from 'node:fs';
 import { PNG } from 'pngjs';
-import { windowPixels } from '../houseWindows.js';
+import { HOUSE_WINDOWS } from '../houseWindowsData.js';
 
-function facade() {
-  const data = new Uint8ClampedArray(20 * 30 * 4);
-  for (let i = 0; i < data.length; i += 4) data.set([180, 160, 130, 255], i);
-  const rect = (x, y, w, h, alpha = 255) => {
-    for (let yy = y; yy < y + h; yy += 1) for (let xx = x; xx < x + w; xx += 1) {
-      data.set([30, 25, 20, alpha], (yy * 20 + xx) * 4);
+// LES FENÊTRES DES MAISONS, RELEVÉES À LA MAIN (2026-10-03, Raph : « les lumières arrivent
+// n'importe où sur les bâtiments, il faut les reprendre une par une »). Une maison
+// allume ce qui est relevé dans houseWindowsData.js, et rien d'autre.
+describe('fenêtres relevées des maisons', () => {
+  const read = (nom) => PNG.sync.read(readFileSync(new URL(`../../../../public/pixelart/houses/${nom}.png`, import.meta.url)));
+  const pixelsOf = (win) => {
+    const out = [];
+    for (let i = 0; i < win.length; i += 4) {
+      for (let y = win[i + 1]; y < win[i + 1] + win[i + 3]; y += 1) for (let x = win[i]; x < win[i] + win[i + 2]; x += 1) out.push([x, y]);
     }
+    return out;
   };
-  return { data, rect };
-}
-describe('ouvertures éclairées des habitations', () => {
-  it('repère deux petites fenêtres indépendantes dans une façade opaque', () => {
-    const { data, rect } = facade();
-    rect(4, 13, 2, 4); rect(12, 15, 3, 5);
-    expect(windowPixels(data, 20, 30).map(p => p.length)).toEqual([8, 15]);
-  });
-  it('ne transforme ni un bord transparent ni une toiture ni une porte en lampe', () => {
-    const { data, rect } = facade();
-    rect(3, 2, 3, 4); rect(10, 22, 5, 8);
-    rect(3, 14, 2, 4); rect(2, 14, 1, 4, 0);
-    expect(windowPixels(data, 20, 30)).toEqual([]);
-  });
-  it('écarte les grandes masses sombres et conserve les vitres non rectangulaires', () => {
-    const { data, rect } = facade();
-    rect(1, 11, 9, 9); rect(14, 15, 1, 4); rect(15, 16, 1, 3);
-    expect(windowPixels(data, 20, 30).map(p => p.length)).toEqual([7]);
-  });
-});
-
-// Seuil par dessin (nuit du 2026-10-01) : la maison de ville et la tour de verre peignent
-// leurs vitres un cran plus clair que les autres — au seuil commun (68) elles n'en
-// livraient AUCUNE, et la moitié des maisons de la bande 2 restaient noires la nuit.
-describe('ouvertures des dessins aux vitres claires', () => {
-  const read = (nom) => {
-    const buf = readFileSync(new URL(`../../../../public/pixelart/houses/${nom}.png`, import.meta.url));
-    return PNG.sync.read(buf);
-  };
-  for (const nom of ['townhouse', 'tower']) {
-    it(`${nom} : aucune au seuil commun, des vraies au seuil 80`, () => {
-      const p = read(nom);
-      expect(windowPixels(p.data, p.width, p.height).length).toBe(0);
-      expect(windowPixels(p.data, p.width, p.height, 80).length).toBeGreaterThanOrEqual(5);
+  for (const [nom, wins] of Object.entries(HOUSE_WINDOWS)) {
+    it(`${nom} : chaque fenêtre tombe sur l'encre, sans chevaucher sa voisine`, () => {
+      const p = read(nom), owner = new Map();
+      expect(wins.length).toBeGreaterThan(0);
+      wins.forEach((win, i) => {
+        expect(win.length % 4).toBe(0);
+        for (const [x, y] of pixelsOf(win)) {
+          expect(x >= 0 && y >= 0 && x < p.width && y < p.height).toBe(true);
+          expect(p.data[(y * p.width + x) * 4 + 3]).toBeGreaterThan(200);
+          expect(owner.has(y * p.width + x)).toBe(false);
+          owner.set(y * p.width + x, i);
+        }
+      });
     });
   }
+  // Ce que Raph a refusé d'y voir allumé (« tu allumes des portes et des étals »).
+  const ETEINT = {
+    towerhouse: [[14, 60, 9, 13]],   // la porte cintrée
+    townhouse: [[17, 38, 6, 11]],    // la porte
+    taberna: [[0, 34, 32, 30]],      // l'étal sous l'auvent
+    courtyard: [[36, 26, 14, 14]],   // le porche
+    insula: [[0, 48, 64, 28]],       // les arcades du rez
+    stonehouse: [[13, 35, 4, 8]],    // la porte
+  };
+  for (const [nom, zones] of Object.entries(ETEINT)) {
+    it(`${nom} : portes, étals et arcades restent éteints`, () => {
+      for (const win of HOUSE_WINDOWS[nom]) {
+        for (const [x, y] of pixelsOf(win)) {
+          for (const [zx, zy, zw, zh] of zones) expect(x >= zx && x < zx + zw && y >= zy && y < zy + zh).toBe(false);
+        }
+      }
+    });
+  }
+  it('la maison artisane n a aucune vitre : seul son volet de bois s allume', () => {
+    expect(HOUSE_WINDOWS.crafthouse).toEqual([[51, 43, 3, 5]]);
+  });
 });
