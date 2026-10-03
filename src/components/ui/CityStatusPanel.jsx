@@ -60,7 +60,12 @@ function sedimentTipText(nextPalier, cycleStartedAt) {
   });
 }
 
-export default function CityStatusPanel() {
+// `variant` : « full » (barre latérale au doigt, sa feuille « État ») ou
+// « identity » (carte d'identité de la Cité sur bureau, refonte « la ville
+// d'abord ») — mêmes blocs et même logique, mise en page compacte, et les
+// phrases d'accompagnement passent en bulle.
+export default function CityStatusPanel({ variant = 'full' }) {
+  const identity = variant === 'identity';
   const {
     cycles, bestEraIndex, cycleStartedAt,
     timeWear, tickNow, storedSeconds, cycleVow
@@ -192,7 +197,7 @@ export default function CityStatusPanel() {
   const showCycleStats = !isFirstGame(state);
 
   return (
-    <div className="city-status-panel" aria-label={tr({ fr: "État de la civilisation", en: "Civilization status" })}>
+    <div className={`city-status-panel${identity ? ' is-identity' : ''}`} aria-label={tr({ fr: "État de la civilisation", en: "Civilization status" })}>
       <div
         className="csp-block"
         {...tipProps(tr({ fr: 'Âge', en: 'Age' }), tr({
@@ -388,6 +393,8 @@ export default function CityStatusPanel() {
             type="button"
             className="csp-clepsydre-pour"
             disabled={!!refusal}
+            title={identity && refusal ? refusalText : undefined}
+            {...tipProps(null, identity && !refusal ? tr({ fr: "Ne tournent pas : les fêtes de jalon, les bulles d'habitants.", en: "Will not run: milestone celebrations, citizen bubbles." }) : null)}
             onClick={() => {
               const res = spendStoredTime();
               if (!res.ok) {
@@ -401,8 +408,8 @@ export default function CityStatusPanel() {
           >
             {tr({ fr: `Verser ${fmtSecs(stored)}`, en: `Pour ${fmtSecs(stored)}` })}
           </button>
-          {refusal && <span className="csp-clepsydre-why">{refusalText}</span>}
-          {!refusal && (
+          {!identity && refusal && <span className="csp-clepsydre-why">{refusalText}</span>}
+          {!identity && !refusal && (
             <span className="csp-clepsydre-why">
               {tr({ fr: "Ne tournent pas : les fêtes de jalon, les bulles d'habitants.", en: "Will not run: milestone celebrations, citizen bubbles." })}
             </span>
@@ -420,7 +427,7 @@ export default function CityStatusPanel() {
         <div className="csp-save is-error" {...tipProps(null, tr({ fr: `Sauvegarde impossible : ${saveError}. La partie continue en mémoire, mais elle ne survivra pas à la fermeture.`, en: `Cannot save: ${saveError}. The game continues in memory, but it will not survive closing.` }))}>
           {tr({ fr: "Sauvegarde impossible", en: "Cannot save" })}
         </div>
-      ) : saveAgeSec !== null && (
+      ) : !identity && saveAgeSec !== null && (
         <div className="csp-save" {...tipProps(null, tr({ fr: "Dernière sauvegarde réussie. Le jeu sauvegarde aussi tout seul.", en: "Last successful save. The game also saves on its own." }))}>
           {saveAgeSec < 5
             ? tr({ fr: "sauvegardé à l'instant", en: "saved just now" })

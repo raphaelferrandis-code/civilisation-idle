@@ -1,0 +1,155 @@
+/* ============================================================================
+   LE RAIL — la navigation du bureau (refonte « la ville d'abord », maquette V4).
+   ----------------------------------------------------------------------------
+   Arbitrage de Raph (2026-10-03) : un rail d'icônes au lieu de la barre de
+   240 px, le logo en petit, Sauver/Exporter/Importer dans les Options. La carte
+   rend sa largeur à la ville.
+   Même DOM que la barre latérale (App.jsx) : seule la mise en forme change, et
+   SEULEMENT au curseur au-dessus de 980 px. Au doigt, la barre basse
+   (touch-shell.css) reste maîtresse ; sous 980 px, les règles d'origine.
+   ⚠ L'encart d'état n'est plus rendu dans la barre sur bureau (App.jsx) : il
+   vit dans la carte d'identité de la Cité.
+   ============================================================================ */
+
+@media (min-width: 981px) {
+  :root:not([data-pointer="coarse"]) .app {
+    grid-template-columns: 6.75rem minmax(0, 1fr);
+    --nav-w: 6.75rem;
+  }
+
+  :root:not([data-pointer="coarse"]) .sidebar {
+    padding: 0.55rem 0.4rem 0.6rem;
+    align-items: stretch;
+    background: #0A0D16;
+    box-shadow: inset -1px 0 0 rgba(201, 169, 104, 0.12), 4px 0 18px rgba(0, 0, 0, 0.45);
+  }
+
+  :root:not([data-pointer="coarse"]) .brand {
+    margin: 0 0 0.7rem;
+  }
+  :root:not([data-pointer="coarse"]) .brand-logo {
+    width: auto;
+    max-width: 5rem;
+    margin: 0 auto;
+  }
+
+  /* Les lieux, en colonne ; le rail défile s'il manque de hauteur (fenêtre
+     basse) plutôt que de pousser les Options sous l'écran. */
+  :root:not([data-pointer="coarse"]) .tabs {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 0.2rem;
+    margin-bottom: 0.4rem;
+    min-height: 0;
+    overflow-y: auto;
+    scrollbar-width: none;
+  }
+
+  /* Un lieu = son emblème au-dessus de son nom. Pas de plaque au repos : le
+     rail est une liste de lieux, pas une rangée de boutons. */
+  :root:not([data-pointer="coarse"]) .tab {
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+    gap: 0.25rem;
+    min-height: 0;
+    padding: 0.45rem 0.15rem 0.45rem;
+    text-align: center;
+    clip-path: none;
+    border: 0;
+    background: transparent;
+    box-shadow: none;
+    color: var(--text-mid);
+    text-shadow: 1px 1px 0 rgba(0, 0, 0, 0.6);
+  }
+  :root:not([data-pointer="coarse"]) .tab .tab-icon {
+    width: 48px;
+    height: 48px;
+  }
+  :root:not([data-pointer="coarse"]) .tab .tab-label {
+    display: block;
+    max-width: 100%;
+    font: 700 0.6rem/1.1 var(--font-body);
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+  }
+  :root:not([data-pointer="coarse"]) .tab:hover:not(:disabled):not(.active) {
+    transform: none;
+    border: 0;
+    background: transparent;
+    color: var(--text-strong);
+  }
+  :root:not([data-pointer="coarse"]) .tab:hover:not(:disabled):not(.active) .tab-icon {
+    filter: brightness(1.15);
+  }
+  /* Le lieu ouvert : la petite plaque de cuir ÉCLAIRÉE (le retenu est cuir,
+     jamais or — chrome-wizard.css), à la place de la barrette dorée. */
+  :root:not([data-pointer="coarse"]) .app .tab.active {
+    border: 0;
+    background: transparent;
+    box-shadow: none;
+    color: var(--skin-cream);
+  }
+  :root:not([data-pointer="coarse"]) .app .tab.active::before {
+    inset: 0;
+    top: 0;
+    bottom: 0;
+    width: auto;
+    border: solid transparent;
+    border-width: 4px 2px 4px 4px;
+    border-image: url("/pixelart/ui/chrome/wizard/button-sm.png") 2 1 2 2 fill stretch;
+    background: none;
+    image-rendering: pixelated;
+    filter: none;
+    z-index: -1;
+  }
+  /* La pastille d'attention se pose sur le coin de l'emblème. */
+  :root:not([data-pointer="coarse"]) .tab .tab-badge {
+    position: absolute;
+    top: 0.3rem;
+    right: 0.6rem;
+    margin-left: 0;
+  }
+
+  /* Le pied du rail : seulement les Options (Sauver, Exporter et Importer
+     vivent dans les Options › Sauvegarde). Posé comme un lieu. */
+  :root:not([data-pointer="coarse"]) .quick-actions {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 0;
+    margin-top: auto;
+    padding-top: 0.45rem;
+    border-top: 1px solid rgba(201, 169, 104, 0.14);
+  }
+  :root:not([data-pointer="coarse"]) .quick-actions [data-qa="save"],
+  :root:not([data-pointer="coarse"]) .quick-actions [data-qa="export"],
+  :root:not([data-pointer="coarse"]) .quick-actions [data-qa="import"] {
+    display: none;
+  }
+  :root:not([data-pointer="coarse"]) .quick-actions [data-qa="options"] {
+    flex-direction: column;
+    gap: 0.25rem;
+    min-height: 0;
+    padding: 0.45rem 0.15rem;
+    clip-path: none;
+    border: 0;
+    background: transparent;
+    box-shadow: none;
+    color: var(--text-mid);
+  }
+  :root:not([data-pointer="coarse"]) .app .quick-actions [data-qa="options"]::before {
+    border-image: none;
+    border-width: 0;
+  }
+  :root:not([data-pointer="coarse"]) .quick-actions [data-qa="options"]:hover {
+    color: var(--text-strong);
+  }
+  :root:not([data-pointer="coarse"]) .quick-actions [data-qa="options"] .qa-icon.px-icon {
+    width: 24px;
+    height: 24px;
+  }
+  :root:not([data-pointer="coarse"]) .quick-actions [data-qa="options"] .qa-label {
+    display: block;
+    font: 700 0.6rem/1.1 var(--font-body);
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+  }
+}

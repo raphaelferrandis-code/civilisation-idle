@@ -3,8 +3,8 @@ import { useGameState } from '../../hooks/useGameState.js';
 import { pressureBreakdown } from '../../game/core/mechanics.js';
 import { runCrisisAction, togglePolicy } from '../../game/core/actions.js';
 import { openAuguryTable } from '../../game/core/auguryTable.js';
-import { costLabel, canPayCost } from '../../game/core/utils.js';
-import { state } from '../../game/core/state.js';
+import { costLabel, canPayCost, pct } from '../../game/core/utils.js';
+import { state, openView } from '../../game/core/state.js';
 import { AUGURY_STAKES } from '../../game/core/balance.js';
 import { RES_LABEL, FOYER_META, regulationFoyers, regulationPolicies, policyEffectLabel, policyCostLabel } from './regulModel.js';
 import { tr } from '../../game/core/i18n.js';
@@ -194,6 +194,44 @@ export function RegulSummary() {
         <span className="regul-summary-buffer" aria-hidden="true">−{mitigationPct}%</span>
       )}
     </span>
+  );
+}
+
+/**
+ * POIGNÉE DÉPLIÉE de la Cité, au bureau (refonte « la ville d'abord », maquette
+ * V4) : les quatre foyers, chacun avec SON PREMIER ÉDIT — le geste réflexe — et
+ * la porte du Conseil, où vivent les réformes, les politiques et l'Intendance.
+ * Au doigt, la feuille garde la barre complète (CrisisActionBar).
+ */
+export function RegulQuick() {
+  useGameState((s) => s.instability);
+  useGameState((s) => s.cycles);
+  useGameState((s) => s.regulFatigue || 0);
+  const foyers = regulationFoyers();
+  return (
+    <div className="regul-quick">
+      {foyers.map((f) => {
+        // Le premier apaisement ouvert du foyer ; à défaut (Dissidence avant le
+        // cycle 2), sa première action, réforme comprise.
+        const first = f.actions.find((a) => !a.locked && !a.reform && !a.gamble) || f.actions.find((a) => !a.locked) || f.actions[0];
+        return (
+          <div key={f.key} className={`regul-quick-foyer regul-summary-foyer--${f.tone}`}>
+            <span className="regul-quick-head">
+              <img className="regul-summary-icon" src={`/pixelart/ui/foyers/${f.key}.png`} alt="" aria-hidden="true" />
+              <span className="regul-quick-name">{f.label}</span>
+              <strong className="regul-quick-val">{pct(f.value)}</strong>
+            </span>
+            <span className="regul-summary-track" aria-hidden="true">
+              <span className="regul-summary-fill" style={{ width: `${Math.min(1, f.value || 0) * 100}%` }}></span>
+            </span>
+            {first && <RegulButton a={first} label={first.label} btnClass="crisis-regul-btn regul-quick-btn" />}
+          </div>
+        );
+      })}
+      <button type="button" className="btn-secondary regul-quick-council" onClick={() => openView('regulation')}>
+        {tr({ fr: 'Le Conseil', en: 'The Council' })} ▸
+      </button>
+    </div>
   );
 }
 

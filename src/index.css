@@ -35,6 +35,10 @@
 @import './styles/places.css';
 @import './styles/conseil.css';
 @import './styles/lieux.css';
+/* Le rail du bureau (la barre latérale, couchée en colonne d'emblèmes). */
+@import './styles/rail.css';
+/* La Cité au bureau : la ville d'abord (identité, ruban, boutique, poignée, outils). */
+@import './styles/cite.css';
 /* Coquille TACTILE (P4) : tout en dernier, car c'est une surcouche de régime
    (`:root[data-pointer="coarse"]`) et non une variante à négocier règle par
    règle. ⚠ Le piège des 35 déclarations mortes de base.css vient précisément

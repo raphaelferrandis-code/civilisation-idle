@@ -290,7 +290,7 @@ export default function App() {
     { id: 'tech', label: { fr: 'Boutique', en: 'Shop' }, icon: 'nav/boutique', unlocked: isShopUnlocked },
     { id: 'mythView', label: { fr: 'Mythes', en: 'Myths' }, icon: 'nav/mythes', unlocked: isMythsUnlocked },
     // ⚠ Icône PLACEHOLDER (res/gold) : pas de nav/marchandage.png — à générer.
-    { id: 'comptoir', label: { fr: 'Marchandage', en: 'Trading' }, icon: 'res/gold', unlocked: isComptoirUnlocked },
+    { id: 'comptoir', label: { fr: 'Marchandage', en: 'Trading' }, short: { fr: 'Marché', en: 'Market' }, icon: 'res/gold', unlocked: isComptoirUnlocked },
     { id: 'history', label: { fr: 'Chronique', en: 'Chronicle' }, icon: 'nav/chronique', unlocked: true },
   ];
 
@@ -424,10 +424,13 @@ export default function App() {
               title={crisisLocked && tab.id !== 'prestige' ? tr({ fr: 'Résolvez la crise en cours pour naviguer', en: 'Resolve the current crisis to navigate' }) : undefined}
               aria-current={activeView === tab.id ? 'page' : undefined}
             >
-              <PixelIcon name={tab.icon} className="tab-icon" />
-              {/* Le libellé court ne sert QUE dans la rangée du doigt : au
-                  curseur la gouttière est verticale et le nom entier y tient. */}
-              <span className="tab-label">{tr(coarse && tab.short ? tab.short : tab.label)}</span>
+              {/* RAIL du bureau (refonte « la ville d'abord ») : l'icône en 48 px,
+                  sa taille de dessin — nette, sans rééchantillonnage. Au doigt,
+                  la barre basse garde sa variante 24. */}
+              <PixelIcon name={tab.icon} className="tab-icon" size={coarse ? undefined : 48} />
+              {/* Le libellé COURT sert partout où la place est comptée : la rangée
+                  du doigt et, depuis la refonte, le rail du bureau (≈ 6,75 rem). */}
+              <span className="tab-label">{tr(tab.short ? tab.short : tab.label)}</span>
               {/* Pastille EN FLUX (B10) et non en position absolue débordante :
                   `.tab` porte un clip-path (coins crantés de la DA) qui découpe
                   tous ses descendants, y compris en position fixe — une pastille
@@ -499,7 +502,10 @@ export default function App() {
           />
         )}
 
-        <CityStatusPanel />
+        {/* L'encart d'état ne vit dans la barre qu'AU DOIGT (sa feuille « État »).
+            Sur bureau, le rail n'est que navigation : l'encart passe dans la
+            carte d'identité de la Cité (CityView, variante « identity »). */}
+        {coarse && <CityStatusPanel />}
 
         {/* `data-qa` : prise CSS par action. En régime tactile la rangée n'en
             garde AUCUNE : Options et État sont passés dans la feuille « Plus »

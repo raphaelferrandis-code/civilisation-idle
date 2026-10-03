@@ -5,8 +5,10 @@ import { useCollapsiblePanel } from '../../hooks/useCollapsiblePanel.js';
 import CityMapCanvas from '../map/CityMapCanvas.jsx';
 import BuildingShop from '../ui/BuildingShop.jsx';
 import ChronicleTicker from '../ui/ChronicleTicker.jsx';
-import CrisisActionBar, { RegulSummary } from '../ui/CrisisActionBar.jsx';
+import CrisisActionBar, { RegulSummary, RegulQuick } from '../ui/CrisisActionBar.jsx';
+import MapTools from '../ui/MapTools.jsx';
 import CycleReportBanner from '../ui/CycleReportBanner.jsx';
+import CityStatusPanel from '../ui/CityStatusPanel.jsx';
 import FirstStepsPanel from '../ui/FirstStepsPanel.jsx';
 import IdleReportPanel from '../ui/IdleReportPanel.jsx';
 import HudPanel from '../ui/HudPanel.jsx';
@@ -563,6 +565,11 @@ export default function CityView() {
             );
           })()}
 
+          {/* CARTE D'IDENTITÉ (refonte « la ville d'abord », bureau) : l'encart
+              d'état quitte la barre latérale devenue rail et se range ici —
+              âge, Usure, vœu, réserve, clepsydre, sous la jauge de Rupture.
+              Au doigt il garde sa feuille « État » (App.jsx). */}
+          {!coarse && <CityStatusPanel variant="identity" />}
           </div>{/* /city-stage-hud */}
 
           {/* Bonus de bulle cliquée : annonce CENTRÉE en haut du monde, ancrée
@@ -677,9 +684,16 @@ export default function CityView() {
           summary={<RegulSummary />}
           swipeToClose
         >
-          <CrisisActionBar />
+          {/* Au bureau, la poignée dépliée ne garde que le geste réflexe de
+              chaque foyer et la porte du Conseil ; au doigt, la feuille porte
+              la barre complète. */}
+          {coarse ? <CrisisActionBar /> : <RegulQuick />}
         </HudPanel>
         )}
+
+        {/* Outils de la carte, coin bas-droit (bureau) : zoom, recentrage,
+            contemplation — les touches du clavier, en boutons. */}
+        {!coarse && <MapTools />}
 
         {/* Rail gauche : dock d'icônes + popovers (chronique / exhume / mythes) */}
         <div className="city-aux" ref={cityAuxRef}>
