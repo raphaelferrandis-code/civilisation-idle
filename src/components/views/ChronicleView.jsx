@@ -25,6 +25,7 @@ import { getMythById } from '../../game/data/myths.js';
 import { GRAND_RESET_MILESTONES } from '../../game/core/mechanics/grandResetMilestones.js';
 import PixelIcon from '../ui/PixelIcon.jsx';
 import CycleAnnals from '../ui/CycleAnnals.jsx';
+import Place, { PlaceKey } from '../ui/Place.jsx';
 import { tipProps } from '../ui/HelpBubble.jsx';
 
 // Chiffres romains pour les Grands Resets & actes de Mythes (1..11).
@@ -653,60 +654,97 @@ function TempleRegistry() {
 export default function ChronicleView() {
   const bestEraIndex = useGameState(s => s.bestEraIndex || 0);
   const eraIdx = useGameState(() => currentEraIndex());
+  const cycles = useGameState(s => s.cycles || 0);
+  const grandResetCount = useGameState(s => s.grandResetCount || 0);
+  // Le multiplicateur bouge au tick : signature quantifiée, comme l'Anatomie.
+  useGameState(() => {
+    const m = globalMultiplier();
+    return Number.isFinite(m) ? Math.round(m * 1000) : fmt(globalMultiplierDec());
+  });
 
   // Les âges déjà atteints (sur l'ensemble des cycles) sont révélés ; le
   // suivant est annoncé en silhouette, le reste demeure inconnu.
   const revealedMax = Math.max(bestEraIndex, eraIdx);
 
   return (
-    <section className="view active" id="history">
-      <CivilizationReview />
-      {/* Les Annales (courbe de la Rupture et registre des décrets) ont quitté
-          la Régulation devenue le Conseil, qui n'en garde que les derniers
-          décrets : la mémoire du cycle vit avec celle de la cité. */}
-      <div className="panel chronicle-annals">
-        <CycleAnnals />
+    <Place
+      id="history"
+      className="chronique"
+      scene="/pixelart/places/bibliotheque.png"
+      sceneAlt={tr({ fr: 'La bibliothèque de nuit, le grand livre ouvert sous la lune', en: 'The library at night, the great book open under the moon' })}
+      focus={[50, 45]}
+      eyebrow={tr({ fr: 'Chronique', en: 'Chronicle' })}
+      title={tr({ fr: 'La Bibliothèque', en: 'The Library' })}
+      bodyClassName="chronique-body"
+      keys={<>
+        <PlaceKey
+          label={tr({ fr: 'Cycles', en: 'Cycles' })}
+          value={cycles}
+          sub={grandResetCount > 0 ? tr({ fr: `${grandResetCount} Grand${grandResetCount > 1 ? 's' : ''} Reset${grandResetCount > 1 ? 's' : ''}`, en: `${grandResetCount} Grand Reset${grandResetCount > 1 ? 's' : ''}` }) : null}
+        />
+        <PlaceKey
+          label={tr({ fr: 'Multiplicateur', en: 'Multiplier' })}
+          value={`×${fmtMult(globalMultiplier(), globalMultiplierDec)}`}
+          valueClassName="is-gold"
+        />
+        <PlaceKey
+          label={tr({ fr: 'Meilleur âge', en: 'Best age' })}
+          value={eras[bestEraIndex].name}
+          valueClassName="is-title"
+        />
+      </>}
+    >
+      <div className="chronique-col">
+        <CivilizationReview />
       </div>
-      <CityAccounts />
-      <MultiplierAnatomy />
-      <TempleRegistry />
-
-      <div className="panel">
-        <div className="panel-heading">
-          <div>
-            <h2>{tr({ fr: 'Les Âges traversés', en: 'The Ages Traversed' })}</h2>
-          </div>
+      <div className="chronique-col">
+        {/* Les Annales (courbe de la Rupture et registre des décrets) ont quitté
+            la Régulation devenue le Conseil, qui n'en garde que les derniers
+            décrets : la mémoire du cycle vit avec celle de la cité. */}
+        <div className="panel chronicle-annals">
+          <CycleAnnals />
         </div>
-
-        <ol className="era-timeline">
-          {eras.map((era, i) => {
-            if (i > revealedMax + 1) return null;
-            const reached = i <= revealedMax;
-            const isCurrent = i === eraIdx;
-            return (
-              <li
-                key={era.name}
-                className={`era-timeline-item${reached ? ' is-reached' : ' is-next'}${isCurrent ? ' is-current' : ''}`}
-              >
-                <span className="era-timeline-marker" aria-hidden="true"></span>
-                <div className="era-timeline-body">
-                  <div className="era-timeline-head">
-                    <h3>{reached ? era.name : '???'}</h3>
-                    <span className="era-timeline-pop" {...tipProps(null, tr({ fr: `Rayonnement requis : ${fmt(era.at)}`, en: `Radiance required: ${fmt(era.at)}` }))}>
-                      ≈ {fmt(crediblePopulation(era.at))} {tr({ fr: 'habitants', en: 'inhabitants' })}
-                    </span>
-                    {isCurrent && <span className="era-timeline-now">{tr({ fr: 'Âge actuel', en: 'Current Age' })}</span>}
-                  </div>
-                  <p>{reached ? era.text : tr({ fr: "Cet âge reste à découvrir : le rayonnement doit encore croître.", en: "This age remains to be discovered: radiance must still grow." })}</p>
-                </div>
-              </li>
-            );
-          })}
-        </ol>
-        {revealedMax + 1 < eras.length - 1 && (
-          <p className="era-timeline-more">{tr({ fr: '… et encore de nombreux âges à traverser.', en: '… and many more ages yet to traverse.' })}</p>
-        )}
+        <CityAccounts />
+        <MultiplierAnatomy />
       </div>
-    </section>
+      <div className="chronique-col">
+        <div className="panel chronique-ages">
+          <div className="panel-heading">
+            <div>
+              <h2>{tr({ fr: 'Les Âges traversés', en: 'The Ages Traversed' })}</h2>
+            </div>
+          </div>
+          {/* Un âge = son nom ; son récit passe dans l'infobulle (aucune phrase
+              à l'écran). Le suivant reste une silhouette tant que le
+              Rayonnement ne l'atteint pas. */}
+          <ol className="era-timeline">
+            {eras.map((era, i) => {
+              if (i > revealedMax + 1) return null;
+              const reached = i <= revealedMax;
+              const isCurrent = i === eraIdx;
+              return (
+                <li
+                  key={era.name}
+                  className={`era-timeline-item${reached ? ' is-reached' : ' is-next'}${isCurrent ? ' is-current' : ''}`}
+                  {...tipProps(reached ? era.name : null, reached ? era.text : null)}
+                >
+                  <span className="era-timeline-marker" aria-hidden="true"></span>
+                  <div className="era-timeline-body">
+                    <div className="era-timeline-head">
+                      <h3>{reached ? era.name : '???'}</h3>
+                      <span className="era-timeline-pop" {...tipProps(null, tr({ fr: `Rayonnement requis : ${fmt(era.at)}`, en: `Radiance required: ${fmt(era.at)}` }))}>
+                        ≈ {fmt(crediblePopulation(era.at))} {tr({ fr: 'habitants', en: 'inhabitants' })}
+                      </span>
+                      {isCurrent && <span className="era-timeline-now">{tr({ fr: 'Âge actuel', en: 'Current Age' })}</span>}
+                    </div>
+                  </div>
+                </li>
+              );
+            })}
+          </ol>
+        </div>
+        <TempleRegistry />
+      </div>
+    </Place>
   );
 }

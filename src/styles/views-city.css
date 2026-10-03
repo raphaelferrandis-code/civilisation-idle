@@ -1686,17 +1686,6 @@
 }
 
 
-/* ── « Le Comptoir » (onglet Marchandage, héritage de l'Âge d'Or) ─────────── */
-#comptoir .panel { max-width: 34rem; margin: 1rem auto; }
-.comptoir-rows { display: flex; flex-direction: column; gap: 0.6rem; margin-top: 0.8rem; }
-.comptoir-row {
-  display: grid; grid-template-columns: auto 1fr auto; align-items: center;
-  gap: 0.8rem; padding: 0.55rem 0.75rem;
-  border: 1px solid var(--line, rgba(128,128,128,0.25)); border-radius: 0;
-}
-.comptoir-row--sell { margin-top: 0.5rem; }
-.comptoir-icon.px-icon { width: 32px; height: 32px; }
-.comptoir-terms { display: flex; flex-direction: column; gap: 0.1rem; }
-.comptoir-terms small { opacity: 0.75; }
+/* « Le Comptoir » est devenu un lieu illustré : ses règles vivent dans lieux.css. */
 
 .myth-status-card.atlas { border-left: 2px solid #6b7280; } /* pierre du ciel */

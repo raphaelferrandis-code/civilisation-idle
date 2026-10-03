@@ -33,8 +33,11 @@ export default function CrisisDoctrinePanel() {
 
   const stances = [
     { v: 'ask', t: { fr: 'Demander', en: 'Ask' }, tip: { fr: "La crise s'ouvre en dialogue et met le jeu en pause.", en: "The crisis opens as a dialog and pauses the game." } },
-    { v: 'stabiliser', t: { fr: 'Stabiliser', en: 'Stabilize' }, tip: { fr: "Le Conseil calme la Rupture, sans interruption.", en: "The Council calms the Rupture, without interruption." } },
-    { v: 'temporiser', t: { fr: 'Temporiser', en: 'Delay' }, tip: { fr: "Le Conseil laisse monter la Rupture, sans interruption.", en: "The Council lets the Rupture rise, without interruption." } }
+    // Les crises « traiter / profiter » (acaf817) : Stabiliser traite (une
+    // ressource paie, le foyer s'allège), Profiter profite (plus de Ruines, le
+    // foyer s'alourdit). La valeur interne reste "temporiser" (moteur, sauvegardes).
+    { v: 'stabiliser', t: { fr: 'Stabiliser', en: 'Stabilize' }, tip: { fr: "Le Conseil traite la crise, sans interruption : une ressource produit moins, le foyer s'allège.", en: "The Council treats the crisis, without interruption: one resource produces less, the source grows lighter." } },
+    { v: 'temporiser', t: { fr: 'Profiter', en: 'Profit' }, tip: { fr: "Le Conseil profite de la crise, sans interruption : plus de Ruines à la chute, le foyer s'alourdit.", en: "The Council profits from the crisis, without interruption: more Ruins at the fall, the source grows heavier." } }
   ];
 
   const triggers = [

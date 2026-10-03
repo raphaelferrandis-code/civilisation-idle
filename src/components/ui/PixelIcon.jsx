@@ -32,7 +32,6 @@ const SIZE_BY_CLASS = {
   'edict-seal': 32,      // views-crises.css
   'edict-emblem': 48,    // views-crises.css
   'policy-seal': 24,     // views-city.css — l'état désactivé passe size={16} explicitement
-  'comptoir-icon': 32,   // views-city.css
 };
 
 const DEFAULT_SIZE = 16;

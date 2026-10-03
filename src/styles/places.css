@@ -11,6 +11,20 @@
    Chargé APRÈS chrome-wizard.css.
    ============================================================================ */
 
+/* Un lieu occupe TOUTE la hauteur sous la barre des ressources et ne fait pas
+   défiler la page : <main> passe en colonne bornée (même montage que celui de
+   l'ancienne Régulation, views-regulation.css), le contenu défile seul. */
+.app:has(.place-view) main {
+  display: flex;
+  flex-direction: column;
+  height: 100vh;
+  max-height: 100vh;
+  overflow: hidden;
+}
+.app .place-view.view.active {
+  flex: 1 1 auto;
+}
+
 .app .place-view {
   /* Hauteur du bandeau : un lieu peut la régler par `--place-band`. */
   --place-band: clamp(9rem, 19vh, 16rem);
@@ -42,6 +56,14 @@
 .app .place-view > .place-band {
   grid-row: 1;
   grid-column: 1;
+}
+/* Lieu au GRAND décor (le Comptoir) : le décor prend toute la hauteur que le
+   contenu laisse, au lieu d'une bande fixe. */
+.app .place-view.is-tall-band {
+  grid-template-rows: minmax(12rem, 1fr) auto;
+}
+.app .place-view.is-tall-band > .place-body {
+  overflow: visible;
 }
 /* Fondu vers la nuit en bas (le contenu prend la suite) et voile à gauche
    (sous le titre). Des dégradés de COULEUR, pas de flou. */
@@ -138,6 +160,9 @@
   color: var(--text-strong);
 }
 .app .place-view .is-rupture { color: #FF8F73; }
+.app .place-view .is-gold { color: var(--res-treasure, #F0B429); }
+.app .place-view .is-food { color: var(--res-food, #36B37E); }
+.app .place-view .is-know { color: var(--res-knowledge, #4C9DE8); }
 .app .place-view .is-good { color: #7FC6E6; }
 .app .place-view .is-bad { color: #F0A36B; }
 

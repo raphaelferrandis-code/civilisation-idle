@@ -1,0 +1,386 @@
+/* ============================================================================
+   LES LIEUX — ce qui est propre à chacun (le Conseil a sa feuille, conseil.css).
+   Briques communes : places.css. Chargé après elles.
+   ============================================================================ */
+
+/* ── LE COMPTOIR (Marchandage) : quatre offres en cartes ──────────────────── */
+.app .comptoir-cards {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 0.9rem;
+}
+.app .comptoir-card {
+  display: grid;
+  justify-items: center;
+  align-content: start;
+  gap: 0.75rem;
+  padding: 1.1rem 1rem 1.2rem;
+  text-align: center;
+  background: rgba(13, 16, 26, 0.96);
+  box-shadow:
+    inset 0 0 0 1px rgba(0, 0, 0, 0.6),
+    inset 0 0 0 2px rgba(196, 204, 221, 0.06),
+    0 3px 0 rgba(0, 0, 0, 0.35);
+}
+.app .comptoir-card-icon {
+  width: 48px;
+  height: 48px;
+}
+.app #comptoir .comptoir-card h3 {
+  margin: 0;
+  font: 400 1.4rem/1.05 var(--font-title);
+  color: var(--gold-ivory);
+}
+.app .comptoir-flow {
+  display: grid;
+  justify-items: center;
+  gap: 0.45rem;
+}
+.app .comptoir-flow-line {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  font: 400 1.1rem/1 var(--font-number);
+  font-variant-numeric: tabular-nums;
+}
+.app .comptoir-flow-line .px-icon {
+  width: 16px;
+  height: 16px;
+}
+.app .comptoir-flow-line.is-gain { color: #8EE0B0; }
+.app .comptoir-flow-line.is-cost { color: #F2A08C; }
+.app .comptoir-card button {
+  min-width: 8rem;
+}
+
+@media (max-width: 1100px) {
+  .app .comptoir-cards { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+@media (max-width: 560px) {
+  .app .comptoir-cards { grid-template-columns: minmax(0, 1fr); }
+}
+
+/* ── LES MYTHES (le Panthéon) : les actes en tuiles, l'Olympe en cultes ─────── */
+.app .mythes { --place-band: clamp(12rem, 30vh, 24rem); }
+.app .mythes-body {
+  grid-template-columns: minmax(0, 1.7fr) minmax(19rem, 1fr);
+  align-items: start;
+}
+.app .mythes-main {
+  display: grid;
+  gap: 0.9rem;
+  min-width: 0;
+}
+.app .mythes-panel {
+  display: grid;
+  align-content: start;
+  gap: 0.8rem;
+  min-width: 0;
+  padding: 0.9rem 1rem 1rem;
+  background: rgba(13, 16, 26, 0.96);
+  box-shadow:
+    inset 0 0 0 1px rgba(0, 0, 0, 0.6),
+    inset 0 0 0 2px rgba(196, 204, 221, 0.06),
+    0 3px 0 rgba(0, 0, 0, 0.35);
+}
+.app .mythes-panel-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 1rem;
+}
+.app #mythView .mythes-panel-head h2 {
+  margin: 0;
+  font: 400 1.4rem/1 var(--font-title);
+  color: var(--gold-ivory);
+}
+/* Pastille plate à angle vif (seul le compteur est cranté). */
+.app .mythes-chip {
+  padding: 0.28rem 0.5rem;
+  font: 700 0.66rem/1 var(--font-body);
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--text-mid);
+  box-shadow: inset 0 0 0 1px currentColor;
+}
+.app .mythes-chip.is-gold { color: var(--gold-bright); }
+.app .place-key-val.is-title {
+  font: 400 1.25rem/1.05 var(--font-title);
+  color: #BFDDFB;
+  white-space: normal;
+}
+
+.app .myth-acts {
+  display: grid;
+  gap: 1rem;
+}
+.app .myth-act-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 1rem;
+  margin-bottom: 0.5rem;
+}
+.app #mythView .myth-act-head h3 {
+  margin: 0;
+  font: 400 1.15rem/1 var(--font-title);
+  color: var(--gold-ivory);
+}
+.app .myth-act-head small {
+  font: 400 0.75rem/1 var(--font-number);
+  color: var(--text-mid);
+}
+.app .myth-act-block.is-locked .myth-act-head h3 { color: var(--text-weak); }
+.app .myth-act-block.is-done .myth-act-head small { color: #8EE0B0; }
+.app .myth-tile-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(9.5rem, 1fr));
+  gap: 0.5rem;
+}
+.app .myth-tile-empty { color: var(--text-weak); }
+
+/* Une tuile = une carte du pack ; l'état se lit par la lumière et le liseré. */
+.app .myth-tile {
+  display: grid;
+  justify-items: center;
+  align-content: start;
+  gap: 0.35rem;
+  padding: 0.75rem 0.5rem 0.8rem;
+  text-align: center;
+}
+.app .myth-tile::before {
+  border-width: 6px;
+  border-image: url("/pixelart/ui/chrome/wizard/card.png") 6 3 6 3 fill stretch;
+  filter: brightness(0.62) saturate(0.75);
+}
+.app .myth-tile.is-open:hover::before,
+.app .myth-tile.is-active:hover::before { filter: brightness(0.95); }
+.app .myth-tile.is-done::before { filter: brightness(0.8) saturate(0.85); }
+.app .myth-tile.is-active { box-shadow: 0 0 0 2px #5B87B5, 0 0 12px rgba(91, 135, 181, 0.35); }
+.app .myth-tile.is-locked { cursor: default; }
+.app .myth-tile.is-locked::before { filter: grayscale(0.85) brightness(0.42); }
+.app .myth-tile.is-done { cursor: default; }
+.app .myth-tile-icon { width: 32px; height: 32px; }
+.app .myth-tile.is-locked .myth-tile-icon { filter: grayscale(1) brightness(0.55); }
+/* Médaillon d'initiale (seule forme ronde voulue : un médaillon). */
+.app .myth-tile-ph {
+  display: grid;
+  place-items: center;
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  font: 400 1.1rem/1 var(--font-title);
+  color: var(--skin-cream);
+  background: var(--skin-field);
+  box-shadow: inset 0 0 0 2px var(--skin-ink), inset 0 2px 0 2px var(--skin-raise);
+}
+.app .myth-tile.is-locked .myth-tile-ph { filter: grayscale(1) brightness(0.6); }
+.app #mythView .myth-tile b {
+  font: 650 0.8rem/1.15 var(--font-body);
+  color: var(--skin-cream);
+}
+.app .myth-tile.is-locked b { color: var(--text-weak); }
+.app .myth-tile-state {
+  font: 800 0.6rem/1 var(--font-body);
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--text-mid);
+}
+.app .myth-tile.is-done .myth-tile-state { color: #8EE0B0; }
+.app .myth-tile.is-active .myth-tile-state { color: #BFDDFB; }
+.app .myth-tile.is-open .myth-tile-state { color: var(--gold-bright); }
+
+.app .ragnarok-prophecy ul {
+  display: grid;
+  gap: 0.35rem;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  font: 500 0.88rem/1.35 var(--font-body);
+  color: var(--text-secondary);
+}
+.app .ragnarok-prophecy li b {
+  display: inline-block;
+  min-width: 4.2rem;
+  font: 400 0.82rem/1 var(--font-number);
+  color: #FF8F73;
+}
+
+/* L'Olympe : un culte par ligne, sa ferveur en jauge du pack. */
+.app .cult-list {
+  display: grid;
+  gap: 0.5rem;
+}
+.app .cult {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 0.35rem 0.8rem;
+  padding: 0.6rem 0.75rem 0.7rem;
+  cursor: default;
+  background: color-mix(in srgb, var(--skin-field), transparent 88%);
+  box-shadow: inset 0 0 0 2px var(--skin-ink), inset 0 3px 0 -1px var(--skin-raise), inset 0 -4px 0 -1px var(--skin-bevel);
+}
+.app .cult.is-top {
+  box-shadow: inset 0 0 0 2px var(--skin-ink), inset 0 0 0 3px rgba(201, 169, 104, 0.5), inset 0 -4px 0 -1px var(--skin-bevel);
+}
+.app .cult.is-proclaimed {
+  box-shadow: inset 0 0 0 2px var(--skin-ink), inset 0 0 0 3px rgba(240, 180, 41, 0.75), 0 0 12px rgba(240, 180, 41, 0.25);
+}
+.app .cult-names {
+  display: grid;
+  gap: 0.2rem;
+  min-width: 0;
+}
+.app .cult-names b {
+  font: 650 0.86rem/1.15 var(--font-body);
+  color: var(--text-strong);
+}
+.app .cult-names small {
+  font: 500 0.72rem/1.1 var(--font-body);
+  color: var(--text-mid);
+}
+.app .cult-score {
+  font: 400 0.8rem/1 var(--font-number);
+  color: var(--text-strong);
+  align-self: center;
+}
+.app .cult-track {
+  grid-column: 1 / -1;
+  position: relative;
+  display: block;
+  height: 10px;
+  border-style: solid;
+  border-width: 3px 4px;
+  border-color: transparent;
+  border-image: url("/pixelart/ui/chrome/wizard/gauge.png") 3 4 fill stretch;
+  image-rendering: pixelated;
+  overflow: hidden;
+}
+.app .cult-track > i {
+  position: absolute;
+  inset: 0 auto 0 0;
+  background: #5B6580;
+}
+.app .cult.is-top .cult-track > i,
+.app .cult.is-proclaimed .cult-track > i { background: var(--gold); }
+.app .cult-consecration {
+  grid-column: 1 / -1;
+  font: 600 0.7rem/1 var(--font-body);
+  color: var(--gold-dim);
+}
+
+.app .olympus-seen {
+  padding-top: 0.8rem;
+  box-shadow: inset 0 1px 0 color-mix(in srgb, var(--skin-ink), transparent 40%);
+}
+.app #mythView .olympus-seen h3 {
+  margin: 0 0 0.5rem;
+  font: 750 0.7rem/1 var(--font-body);
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--gold-dim);
+}
+.app .olympus-seen dl { margin: 0; display: grid; gap: 0.3rem; }
+.app .olympus-seen dl > div { display: flex; justify-content: space-between; gap: 1rem; }
+.app .olympus-seen dt { font: 500 0.82rem/1.3 var(--font-body); color: var(--text-secondary); }
+.app .olympus-seen dd { margin: 0; font: 400 0.8rem/1.3 var(--font-number); color: var(--text-strong); }
+
+@media (max-width: 1100px) {
+  .app .mythes-body { grid-template-columns: minmax(0, 1fr); }
+}
+
+/* ── LA CHRONIQUE (la Bibliothèque) : trois colonnes de lecture ─────────────── */
+.app .chronique { --place-band: clamp(11rem, 26vh, 22rem); }
+.app .chronique-body {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  align-items: start;
+}
+.app .chronique-col {
+  display: grid;
+  align-content: start;
+  gap: 0.9rem;
+  min-width: 0;
+}
+/* Un seul cadre grec par écran (maquette V4) : dans le lieu, les panneaux de
+   lecture deviennent des PLAQUES opaques — ni cadre, ni verre sous le texte. */
+.app #history.place-view .panel,
+.app #history.place-view .chronicle-bilan-section.city-accounts,
+.app #history.place-view .chronicle-bilan-section.mult-anatomy {
+  margin: 0;
+  padding: 0.9rem 1rem 1rem;
+  border: 0;
+  border-image: none;
+  border-radius: 0;
+  background: rgba(13, 16, 26, 0.96);
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
+  box-shadow:
+    inset 0 0 0 1px rgba(0, 0, 0, 0.6),
+    inset 0 0 0 2px rgba(196, 204, 221, 0.06),
+    0 3px 0 rgba(0, 0, 0, 0.35);
+}
+.app #history.place-view .panel > .panel-heading {
+  margin: 0 0 0.8rem;
+  padding: 0;
+  border: 0;
+  background: none;
+}
+.app #history.place-view .era-timeline-item { cursor: default; }
+
+@media (max-width: 1500px) {
+  .app .chronique-body { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+@media (max-width: 1000px) {
+  .app .chronique-body { grid-template-columns: minmax(0, 1fr); }
+}
+
+/* ── L'EFFONDREMENT hors crise : la Veille ──────────────────────────────────── */
+.app .veille { --place-band: clamp(11rem, 25vh, 22rem); }
+.app .veille-body {
+  grid-template-columns: minmax(0, 1.05fr) minmax(0, 1fr);
+  align-items: start;
+}
+.app .place-view .is-usure { color: #C9AEF5; }
+.app .place-view .is-cause {
+  font: 400 1.15rem/1.05 var(--font-title);
+  color: #F2A08C;
+  white-space: normal;
+}
+.app .conseil-rupture-track.is-usure > i { background: var(--state-usure, #9B5DE5); }
+/* Avant la toute première chute : un état, pas une explication (bulle). */
+.app .veille-closed {
+  grid-column: 1 / -1;
+  padding: 0.7rem 1rem;
+  font: 400 1.2rem/1.1 var(--font-title);
+  color: var(--text-mid);
+  cursor: help;
+  background: rgba(13, 16, 26, 0.96);
+  box-shadow: inset 0 0 0 1px rgba(0, 0, 0, 0.6), inset 0 0 0 2px rgba(196, 204, 221, 0.06);
+}
+/* Un seul cadre grec à l'écran, sur la zone où l'on décide : les Sceaux. La
+   Doctrine devient une plaque. */
+.app #prestige.place-view .doctrine-panel {
+  margin: 0;
+  padding: 0.9rem 1rem 1rem;
+  border: 0;
+  border-image: none;
+  border-radius: 0;
+  background: rgba(13, 16, 26, 0.96);
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
+  box-shadow:
+    inset 0 0 0 1px rgba(0, 0, 0, 0.6),
+    inset 0 0 0 2px rgba(196, 204, 221, 0.06),
+    0 3px 0 rgba(0, 0, 0, 0.35);
+}
+.app #prestige.place-view .doctrine-panel > .panel-heading {
+  margin: 0 0 0.8rem;
+  padding: 0;
+  border: 0;
+  background: none;
+}
+.app #prestige.place-view .gr-ladder-panel { margin: 0; }
+
+@media (max-width: 1200px) {
+  .app .veille-body { grid-template-columns: minmax(0, 1fr); }
+}

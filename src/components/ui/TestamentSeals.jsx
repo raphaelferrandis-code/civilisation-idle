@@ -82,7 +82,6 @@ export default function TestamentSeals() {
               <span className="testament-detail-affinity">⚡ {tr({ fr: "affinité", en: "affinity" })}</span>
             )}
           </span>
-          <p className="testament-detail-tagline">{engraved.tagline}</p>
           <span className="effect-chips">
             {epitaphLegacyChips(engraved, cause, amp).map((chip, i) => (
               <span key={`${chip.label}-${i}`} className={`effect-chip is-${chip.kind || "info"}${chip.boosted ? " is-boosted" : ""}`}>

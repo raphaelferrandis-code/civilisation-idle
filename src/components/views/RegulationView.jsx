@@ -6,7 +6,7 @@ import { canPayCost, fmt, pct } from '../../game/core/utils.js';
 import { AUGURY_STAKES, INEQUALITY_RESERVE_REF_S } from '../../game/core/balance.js';
 import { tr } from '../../game/core/i18n.js';
 import { RES_LABEL, regulationFoyers, regulationPolicies, policyEffectLabel, policyCostLabel } from '../ui/regulModel.js';
-import PlaceScene from '../ui/PlaceScene.jsx';
+import Place, { PlaceKey } from '../ui/Place.jsx';
 import PixelIcon from '../ui/PixelIcon.jsx';
 import StewardPanel from '../ui/StewardPanel.jsx';
 import { RecentDecrees } from '../ui/CycleAnnals.jsx';
@@ -321,19 +321,16 @@ export default function RegulationView() {
   const targetPos = Math.min(1, p.total) * 100;
 
   return (
-    <section className="view active place-view conseil" id="regulation">
-      <PlaceScene
-        className="place-band"
-        src="/pixelart/places/chancellerie.png"
-        alt={tr({ fr: 'La salle du conseil, de nuit', en: 'The council chamber, at night' })}
-        focus={[50, 42]}
-      />
-      <header className="place-head">
-        <div className="place-title">
-          <span className="place-eyebrow">{tr({ fr: 'Régulation', en: 'Regulation' })}</span>
-          <h1 className="place-name">{tr({ fr: 'Le Conseil', en: 'The Council' })}</h1>
-        </div>
-        <div className="place-keys">
+    <Place
+      id="regulation"
+      className="conseil"
+      scene="/pixelart/places/chancellerie.png"
+      sceneAlt={tr({ fr: 'La salle du conseil, de nuit', en: 'The council chamber, at night' })}
+      focus={[50, 42]}
+      eyebrow={tr({ fr: 'Régulation', en: 'Regulation' })}
+      title={tr({ fr: 'Le Conseil', en: 'The Council' })}
+      bodyClassName="conseil-body"
+      keys={<>
           <div
             className="place-key is-wide"
             {...tipProps(tr({ fr: 'Rupture', en: 'Rupture' }), tr({
@@ -354,70 +351,61 @@ export default function RegulationView() {
             </span>
             <span className="place-key-sub">{tr({ fr: 'cible', en: 'target' })} <b className={p.total >= 1 ? 'is-rupture' : ''}>{pct(p.total)}</b></span>
           </div>
-          <div className="place-key">
-            <span className="place-key-label">{tr({ fr: 'Institutions', en: 'Institutions' })}</span>
-            <strong className="place-key-val is-good">−{pct(absorbed)}</strong>
-          </div>
-          <div className="place-key">
-            <span className="place-key-label">{tr({ fr: 'Fatigue', en: 'Fatigue' })}</span>
-            <strong className="place-key-val">{Math.round(fatigue * 100)} %</strong>
-          </div>
-        </div>
-      </header>
+          <PlaceKey label={tr({ fr: 'Institutions', en: 'Institutions' })} value={`−${pct(absorbed)}`} valueClassName="is-good" />
+          <PlaceKey label={tr({ fr: 'Fatigue', en: 'Fatigue' })} value={`${Math.round(fatigue * 100)} %`} />
+      </>}
+    >
+      <Equation p={p} g={g} foyersSum={foyersSum} />
 
-      <div className="place-body conseil-body">
-        <Equation p={p} g={g} foyersSum={foyersSum} />
-
-        <div className="conseil-dossiers">
-          {foyers.map((f) => (
-            <Dossier
-              key={f.key}
-              dKey={f.key}
-              label={f.label}
-              value={f.value}
-              why={whyOf(f.key, g, cycles)}
-              heaviest={isHeaviest(f.value)}
-              plural={f.key === 'inequality'}
-            >
-              {f.actions.map((a) => <DecreeButton key={a.id} a={a} eff={eff} />)}
-            </Dossier>
-          ))}
-          {showStructural && (
-            <Dossier
-              dKey="structural"
-              label={tr({ fr: 'Structurelle', en: 'Structural' })}
-              value={p.structural}
-              why={whyOf('structural', g, cycles)}
-              heaviest={isHeaviest(p.structural)}
-            />
-          )}
+      <div className="conseil-dossiers">
+        {foyers.map((f) => (
           <Dossier
-            dKey="demesure"
-            label={tr({ fr: 'Démesure', en: 'Hubris' })}
-            value={p.demesure}
-            why={whyOf('demesure', g, cycles)}
-            heaviest={isHeaviest(p.demesure)}
+            key={f.key}
+            dKey={f.key}
+            label={f.label}
+            value={f.value}
+            why={whyOf(f.key, g, cycles)}
+            heaviest={isHeaviest(f.value)}
+            plural={f.key === 'inequality'}
           >
-            <PolicyDecree p={governance} slotsFull={slotsFull} />
+            {f.actions.map((a) => <DecreeButton key={a.id} a={a} eff={eff} />)}
           </Dossier>
-        </div>
-
-        <div className="conseil-foot">
-          <section className="conseil-panel conseil-policies" aria-labelledby="conseil-pol-title">
-            <header className="conseil-panel-head">
-              <h2 id="conseil-pol-title">{tr({ fr: 'Politiques permanentes', en: 'Permanent Policies' })}</h2>
-              <span className="conseil-count">{activeCount} / {max}</span>
-            </header>
-            <div className="conseil-policy-grid">
-              {policies.map((x) => <PolicyCard key={x.id} p={x} slotsFull={slotsFull} />)}
-            </div>
-          </section>
-          <section className="conseil-panel conseil-steward">
-            <StewardPanel />
-            <RecentDecrees limit={4} />
-          </section>
-        </div>
+        ))}
+        {showStructural && (
+          <Dossier
+            dKey="structural"
+            label={tr({ fr: 'Structurelle', en: 'Structural' })}
+            value={p.structural}
+            why={whyOf('structural', g, cycles)}
+            heaviest={isHeaviest(p.structural)}
+          />
+        )}
+        <Dossier
+          dKey="demesure"
+          label={tr({ fr: 'Démesure', en: 'Hubris' })}
+          value={p.demesure}
+          why={whyOf('demesure', g, cycles)}
+          heaviest={isHeaviest(p.demesure)}
+        >
+          <PolicyDecree p={governance} slotsFull={slotsFull} />
+        </Dossier>
       </div>
-    </section>
+
+      <div className="conseil-foot">
+        <section className="conseil-panel conseil-policies" aria-labelledby="conseil-pol-title">
+          <header className="conseil-panel-head">
+            <h2 id="conseil-pol-title">{tr({ fr: 'Politiques permanentes', en: 'Permanent Policies' })}</h2>
+            <span className="conseil-count">{activeCount} / {max}</span>
+          </header>
+          <div className="conseil-policy-grid">
+            {policies.map((x) => <PolicyCard key={x.id} p={x} slotsFull={slotsFull} />)}
+          </div>
+        </section>
+        <section className="conseil-panel conseil-steward">
+          <StewardPanel />
+          <RecentDecrees limit={4} />
+        </section>
+      </div>
+    </Place>
   );
 }

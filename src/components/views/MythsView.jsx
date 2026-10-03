@@ -11,11 +11,13 @@ import {
   isMythUnlocked
 } from '../../game/data/myths.js';
 import { activateMyth } from '../../game/core/actions.js';
+import Place, { PlaceKey } from '../ui/Place.jsx';
+import PixelIcon from '../ui/PixelIcon.jsx';
+import { tipProps } from '../ui/HelpBubble.jsx';
 import { tr } from '../../game/core/i18n.js';
 import { state } from '../../game/core/state.js';
 import {
   OLYMPUS_COMPLETION_SCORE,
-  OLYMPUS_MIN_DOMINANT_SCORE,
   OLYMPUS_PROFILES,
   defaultOlympusState,
   dominantOlympusProfile,
@@ -41,6 +43,84 @@ function actUnlockHint(act) {
     fr: `Complétez les ${mythCountInAct(from)} Mythes de l'Acte ${from === 1 ? "I" : "II"}`,
     en: `Complete the ${mythCountInAct(from)} Myths of Act ${from === 1 ? "I" : "II"}`
   });
+}
+
+// Un acte s'ouvre quand le précédent est accompli ; le Ragnarok, quand les trois
+// premiers le sont.
+function isActUnlocked(act) {
+  const allDone = (acts) => {
+    const list = MYTHS.filter((m) => acts.includes(m.act));
+    return list.length > 0 && list.every((m) => isMythCompleted(m.id));
+  };
+  if (act === 1) return true;
+  if (act === 2) return allDone([1]);
+  if (act === 3) return allDone([2]);
+  return allDone([1, 2, 3]);
+}
+
+// Emblème pixel de chaque mythe ; sans emblème (Chaos, Prométhée, Atlas, Antée,
+// Ragnarök), la tuile porte son initiale dans un médaillon.
+const MYTH_ICONS = {
+  mythe_d_enee: 'enee',
+  mythe_de_cadmos: 'epitaph',
+  mythe_d_hephaistos: 'hephaistos',
+  mythe_de_sisyphe: 'sisyphe',
+  mythe_de_babel: 'babel',
+  mythe_age_or: 'age-or',
+  mythe_d_icare: 'icare',
+  mythe_du_phenix: 'phenix',
+  mythe_atrides: 'atrides'
+};
+
+/**
+ * Un mythe = une tuile : emblème, nom, état. La règle, l'objectif ou l'héritage
+ * passent dans l'infobulle (aucune phrase à l'écran) et en entier dans la
+ * fenêtre de confirmation. Jamais `disabled` : un bouton désactivé ne reçoit
+ * aucun survol, et l'héritage d'un mythe accompli ne se lirait plus.
+ */
+function MythTile({ myth, onOpen }) {
+  const unlocked = isMythUnlocked(myth);
+  const completed = isMythCompleted(myth.id);
+  const active = isMythActive(myth.id);
+  const status = !unlocked ? 'locked' : completed ? 'done' : active ? 'active' : 'open';
+  const label = {
+    locked: tr({ fr: 'Verrouillé', en: 'Locked' }),
+    done: tr({ fr: 'Accompli', en: 'Completed' }),
+    active: tr({ fr: 'Actif', en: 'Active' }),
+    open: tr({ fr: 'Disponible', en: 'Available' })
+  }[status];
+  const tip = !unlocked
+    ? tr({ fr: "S'ouvre avec l'acte précédent.", en: 'Opens with the previous act.' })
+    : [
+      { label: `${tr({ fr: 'Règle', en: 'Rule' })} : ${tr(myth.description)}` },
+      completed
+        ? { label: `${tr({ fr: 'Héritage', en: 'Heritage' })} : ${tr(myth.heritageDescription)}` }
+        : { label: `${tr({ fr: 'Objectif', en: 'Objective' })} : ${tr(myth.objectif)}` }
+    ];
+  const icon = MYTH_ICONS[myth.id];
+  const name = tr(myth.name);
+  // « Le Mythe du Chaos » → C : on retire d'abord « Le Mythe de/du/d' », puis
+  // l'article (l'ordre compte : « Le » seul raterait le nom propre).
+  const initial = name
+    .replace(/^(le mythe (de la |de l'|des |du |de |d')|the myth of (the )?)/i, '')
+    .replace(/^(le |la |les |l'|the )/i, '')
+    .charAt(0)
+    .toUpperCase();
+  return (
+    <button
+      type="button"
+      className={`myth-tile is-${status}`}
+      aria-disabled={status === 'locked' || status === 'done'}
+      onClick={() => onOpen(myth)}
+      {...tipProps(name, tip)}
+    >
+      {icon
+        ? <PixelIcon name={`myths/${icon}`} size={32} className="myth-tile-icon" />
+        : <span className="myth-tile-ph" aria-hidden="true">{initial}</span>}
+      <b>{name}</b>
+      <span className="myth-tile-state">{label}</span>
+    </button>
+  );
 }
 
 const FALLBACK_OLYMPUS = defaultOlympusState(0);
@@ -84,239 +164,127 @@ export default function MythsView() {
     await activateMyth(mythId);
   };
 
+  const completedCount = MYTHS.filter((m) => isMythCompleted(m.id)).length;
+
   return (
-    <section className="view active" id="mythView">
-      <div className="panel">
-        <div className="panel-heading">
-          <div>
-            <h2>{tr({ fr: 'Les Mythes', en: 'The Myths' })}</h2>
-          </div>
-        </div>
+    <Place
+      id="mythView"
+      className="mythes"
+      scene="/pixelart/places/olympe.png"
+      sceneAlt={tr({ fr: 'Le temple de marbre au clair de lune', en: 'The marble temple by moonlight' })}
+      focus={[50, 38]}
+      eyebrow={tr({ fr: 'Mythes', en: 'Myths' })}
+      title={tr({ fr: 'Le Panthéon', en: 'The Pantheon' })}
+      bodyClassName="mythes-body"
+      keys={<>
+        <PlaceKey label={tr({ fr: 'Mythes accomplis', en: 'Myths fulfilled' })} value={`${completedCount} / ${MYTHS.length}`} />
+        {activeMyth && (
+          <PlaceKey
+            label={tr({ fr: 'Pacte actif', en: 'Active pact' })}
+            value={tr(activeMyth.name)}
+            valueClassName="is-title"
+            tip={[{ label: tr(activeMyth.description) }, { label: `${tr({ fr: 'Objectif', en: 'Objective' })} : ${tr(activeMyth.objectif)}` }]}
+          />
+        )}
+      </>}
+    >
+      <div className="mythes-main">
+        {/* « L'Hiver Fimbul » : la Prophétie — les échéances scriptées du boss
+            final (le compte à rebours vivant est sur la carte de la Cité). */}
+        {activeMythId === RAGNAROK_ID && (
+          <section className="mythes-panel ragnarok-prophecy">
+            <header className="mythes-panel-head"><h2>{tr({ fr: 'La Prophétie', en: 'The Prophecy' })}</h2></header>
+            <ul>
+              <li><b>8 min</b> {tr({ fr: "l'Hiver : la production gelée de moitié", en: 'the Winter: production frozen by half' })}</li>
+              <li><b>14 min</b> {tr({ fr: 'le Loup : il dévore les bâtiments', en: 'the Wolf: it devours buildings' })}</li>
+              <li><b>20 min</b> {tr({ fr: 'le Feu de Surt : la Rupture monte, insensible aux leviers', en: "Surtr's Fire: Rupture rises, deaf to every lever" })}</li>
+              <li><b>{RAGNAROK_DURATION_MS / 60_000} min</b> {tr({ fr: `la Fin — l'Arche : ${RAGNAROK_ARK_TARGET} offrandes`, en: `the End — the Ark: ${RAGNAROK_ARK_TARGET} offerings` })}</li>
+            </ul>
+          </section>
+        )}
 
-        <div className="myth-view-body">
-          {/* Active Myth Banner */}
-          {activeMyth && (
-            <div id="activeMythBanner" className="active-myth-banner">
-              <span className="label">{tr({ fr: 'Pacte actif ce cycle', en: 'Active Pact this cycle' })}</span>
-              <strong className="active-myth-name">{tr(activeMyth.name)}</strong>
-              <p className="active-myth-rule">{tr(activeMyth.description)}</p>
-            </div>
-          )}
-
-          {/* « L'Hiver Fimbul » : la Prophétie — les échéances scriptées du boss
-              final, statiques (le compte à rebours vivant est sur la carte de la
-              Cité). Remplace l'ancien panneau des 13 contraintes simultanées. */}
-          {activeMythId === RAGNAROK_ID && (
-            <div className="ragnarok-constraints-panel">
-              <div className="ragnarok-constraints-heading">
-                <span className="label">{tr({ fr: 'La Prophétie', en: 'The Prophecy' })}</span>
-                <strong>{tr({ fr: "La Fin est écrite — seule l'Arche la conjure", en: 'The End is written — only the Ark wards it off' })}</strong>
-              </div>
-              <ul>
-                <li>{tr({ fr: `À 8 min — l'HIVER : toute la production est gelée de moitié.`, en: `At 8 min — the WINTER: all production is frozen by half.` })}</li>
-                <li>{tr({ fr: `À 14 min — le LOUP : il dévore les bâtiments, bouchée par bouchée.`, en: `At 14 min — the WOLF: it devours buildings, bite by bite.` })}</li>
-                <li>{tr({ fr: `À 20 min — le FEU DE SURT : la Rupture monte, insensible aux leviers.`, en: `At 20 min — SURTR'S FIRE: Rupture rises, deaf to every lever.` })}</li>
-                <li>{tr({ fr: `À ${RAGNAROK_DURATION_MS / 60_000} min — la FIN : tout s'effondre. Achève l'Arche (${RAGNAROK_ARK_TARGET} offrandes) avant elle.`, en: `At ${RAGNAROK_DURATION_MS / 60_000} min — the END: everything collapses. Complete the Ark (${RAGNAROK_ARK_TARGET} offerings) before it.` })}</li>
-              </ul>
-            </div>
-          )}
-
-          {ragnarokCompleted && (
-            <div className="ragnarok-fresco-banner">
-              <span className="label">{tr({ fr: 'Fresque complete', en: 'Fresco complete' })}</span>
-              <strong>{tr({ fr: 'Tous les Mythes sont illumines.', en: 'All the Myths are illuminated.' })}</strong>
-            </div>
-          )}
-
-          <div className="olympus-section">
-            <div className="olympus-header">
-              <div>
-                <span className="label">{tr({ fr: 'Observation permanente', en: 'Permanent observation' })}</span>
-                <h3>{tr({ fr: "L'Olympe", en: 'Olympus' })}</h3>
-              </div>
-              <span className={`olympus-state ${olympusUnlocked ? "unlocked" : ""}`}>
-                {olympusUnlocked ? tr({ fr: 'Religion proclamée', en: 'Religion proclaimed' }) : tr({ fr: 'Croyance émergente', en: 'Emerging belief' })}
-              </span>
-            </div>
-
-            {/* Le mode d'emploi en deux phrases : SANS lui, les nombres des cartes
-                (ferveur, consécration) sont illisibles — c'était le reproche. */}
-            <p className="olympus-explain">
-              {tr({
-                fr: `La cité observe ta manière de régner : la ferveur de chaque culte suit tes habitudes. À chaque effondrement où le culte dominant atteint ${OLYMPUS_MIN_DOMINANT_SCORE} de ferveur, sa consécration progresse au prorata de la ferveur — 0,8 cran à 80 de ferveur. Au ${OLYMPUS_COMPLETION_SCORE}e cran, la religion est proclamée, une seule et pour toujours.`,
-                en: `The city watches how you reign: each cult's fervor follows your habits. At every collapse where the dominant cult reaches ${OLYMPUS_MIN_DOMINANT_SCORE} fervor, its consecration advances pro rata to fervor — 0.8 notch at 80 fervor. At the ${OLYMPUS_COMPLETION_SCORE}th notch, the religion is proclaimed, one and forever.`
-              })}
-            </p>
-
-            <div className="olympus-dominant">
-              <span>{olympusUnlocked ? tr({ fr: 'Religion proclamée', en: 'Proclaimed religion' }) : tr({ fr: 'Culte dominant', en: 'Dominant cult' })}</span>
-              <strong>{(olympusUnlocked || olympusDominant.profile).name}</strong>
-              <p>{(olympusUnlocked || olympusDominant.profile).description}</p>
-              <small>
-                {olympusUnlocked
-                  ? tr({ fr: `Héritage actif : ${olympusUnlocked.heritageDescription}`, en: `Active heritage: ${olympusUnlocked.heritageDescription}` })
-                  : tr({
-                      fr: `Ferveur ${olympusDominant.score}/100 · Consécration ${consecration(olympusProgress[olympusDominant.profile.id]).replace('.', ',')}/${OLYMPUS_COMPLETION_SCORE}`,
-                      en: `Fervor ${olympusDominant.score}/100 · Consecration ${consecration(olympusProgress[olympusDominant.profile.id])}/${OLYMPUS_COMPLETION_SCORE}`
-                    })}
-              </small>
-            </div>
-
-            <div className="olympus-profile-grid">
-              {Object.values(OLYMPUS_PROFILES).map(profile => {
-                const score = olympusDominant.scores[profile.id] || 0;
-                const progress = olympusProgress[profile.id] || 0;
-                const isDominant = profile.id === olympusDominant.profile.id;
-                const isUnlocked = olympusUnlocked?.id === profile.id;
-                return (
-                  <div
-                    key={profile.id}
-                    className={`olympus-profile ${isDominant ? "dominant" : ""} ${isUnlocked ? "unlocked" : ""}`}
-                  >
-                    <span>{profile.short}</span>
-                    <strong>{profile.name}</strong>
-                    <p className="olympus-feeds">{profile.feeds}</p>
-                    <div className="olympus-score-track">
-                      <span style={{ width: `${Math.min(100, score)}%` }}></span>
-                    </div>
-                    <small>
-                      {tr({ fr: `Ferveur ${score}/100`, en: `Fervor ${score}/100` })}
-                      {/* La consécration n'avance que pour le culte DOMINANT : on ne
-                          l'affiche ailleurs que si elle a déjà des crans gravés. */}
-                      {(isDominant || progress > 0) && tr({ fr: ` · Consécration ${consecration(progress).replace('.', ',')}/${OLYMPUS_COMPLETION_SCORE}`, en: ` · Consecration ${consecration(progress)}/${OLYMPUS_COMPLETION_SCORE}` })}
-                    </small>
-                    <small className="olympus-heritage">
-                      {isUnlocked
-                        ? tr({ fr: `Héritage actif : ${profile.heritageDescription}`, en: `Active heritage: ${profile.heritageDescription}` })
-                        : tr({ fr: `Si proclamé : ${profile.heritageDescription}`, en: `If proclaimed: ${profile.heritageDescription}` })}
-                    </small>
-                  </div>
-                );
-              })}
-            </div>
-
-            <div className="olympus-metrics">
-              <span className="olympus-metrics-title">{tr({ fr: 'Ce que la cité a vu', en: 'What the city has seen' })}</span>
-              <span>{tr({ fr: 'Effondrements volontaires :', en: 'Voluntary collapses:' })} {olympusMetricValues.collapseFrequency.toFixed(2)}/h</span>
-              <span>{tr({ fr: 'Crises résolues :', en: 'Crises resolved:' })} {Math.round(olympusMetricValues.crisisResolutionRatio * 100)}%</span>
-              <span>{tr({ fr: 'Temps sans intervenir :', en: 'Time without intervening:' })} {Math.round(olympusMetricValues.idleRatio * 100)}%</span>
-              <span>{tr({ fr: 'Rupture moyenne à la chute :', en: 'Average Rupture at collapse:' })} {Math.round(olympusMetricValues.averageCollapseRupture * 100)}%</span>
-            </div>
-          </div>
-
-          {/* Myth Act List */}
-          <div id="mythChallengeList" className={ragnarokCompleted ? "myth-fresco-complete" : ""}>
-            {[1, 2, 3, "ragnarok"].map(act => {
-              const mythsInAct = MYTHS.filter(m => m.act === act);
-              const meta = ACT_META[act] || { num: { fr: String(act), en: String(act) }, name: { fr: "", en: "" } };
-              const unlockHint = actUnlockHint(act);
-
-              // Check if Act is unlocked
-              let actUnlocked;
-              if (act === 1) {
-                actUnlocked = true;
-              } else if (act === 2) {
-                const a1 = MYTHS.filter(m => m.act === 1);
-                actUnlocked = a1.length > 0 && a1.every(m => isMythCompleted(m.id));
-              } else if (act === 3) {
-                const a2 = MYTHS.filter(m => m.act === 2);
-                actUnlocked = a2.length > 0 && a2.every(m => isMythCompleted(m.id));
-              } else {
-                const mains = MYTHS.filter(m => m.act === 1 || m.act === 2 || m.act === 3);
-                actUnlocked = mains.length > 0 && mains.every(m => isMythCompleted(m.id));
-              }
-
-              const actCompleted = mythsInAct.length > 0 && mythsInAct.every(m => isMythCompleted(m.id));
-
+        <section className="mythes-panel" aria-labelledby="mythes-acts-title">
+          <header className="mythes-panel-head">
+            <h2 id="mythes-acts-title">{tr({ fr: 'Les Actes', en: 'The Acts' })}</h2>
+            {ragnarokCompleted && <span className="mythes-chip is-gold">{tr({ fr: 'Fresque complète', en: 'Fresco complete' })}</span>}
+          </header>
+          <div className={`myth-acts${ragnarokCompleted ? ' myth-fresco-complete' : ''}`}>
+            {[1, 2, 3, 'ragnarok'].map((act) => {
+              const mythsInAct = MYTHS.filter((m) => m.act === act);
+              const meta = ACT_META[act] || { num: { fr: String(act), en: String(act) }, name: { fr: '', en: '' } };
+              const actUnlocked = isActUnlocked(act);
+              const done = mythsInAct.filter((m) => isMythCompleted(m.id)).length;
+              const actCompleted = mythsInAct.length > 0 && done === mythsInAct.length;
               return (
-                <div
-                  key={act}
-                  className={`myth-act ${!actUnlocked ? "myth-act-locked" : ""} ${actCompleted ? "myth-act-completed" : ""}`}
-                >
-                  <div className="myth-act-header">
-                    <span className="myth-act-num">{tr(meta.num)}</span>
-                    <span className="myth-act-sep">-</span>
-                    <span className="myth-act-name">{tr(meta.name)}</span>
-                    {!actUnlocked && unlockHint && (
-                      <span className="myth-act-lock-hint">{tr({ fr: 'Verrouille', en: 'Locked' })} - {unlockHint}</span>
-                    )}
-                    {actCompleted && (
-                      <span className="myth-act-lock-hint" style={{ color: 'var(--green)', opacity: 1 }}>
-                        {tr({ fr: 'Acte accompli', en: 'Act completed' })}
-                      </span>
-                    )}
-                  </div>
-
-                  <div className="myth-cards-grid">
-                    {mythsInAct.length === 0 && (
-                      <p className="myth-locked-hint" style={{ gridColumn: '1 / -1', padding: '0.25rem 0', fontStyle: 'italic' }}>
-                        {tr({ fr: "Les pactes de cet acte n'ont pas encore été gravés dans la pierre.", en: 'The pacts of this act have not yet been carved in stone.' })}
-                      </p>
-                    )}
-
-                    {mythsInAct.map(myth => {
-                      const unlocked = isMythUnlocked(myth);
-                      const completed = isMythCompleted(myth.id);
-                      const active = isMythActive(myth.id);
-
-                      let statusClass = "myth-locked";
-                      let statusLabel = tr({ fr: "Verrouille", en: "Locked" });
-                      if (unlocked && completed) {
-                        statusClass = "myth-completed";
-                        statusLabel = tr({ fr: "Accompli", en: "Completed" });
-                      } else if (unlocked && active) {
-                        statusClass = "myth-active";
-                        statusLabel = tr({ fr: "Actif", en: "Active" });
-                      } else if (unlocked) {
-                        statusClass = "myth-available";
-                        statusLabel = tr({ fr: "Disponible", en: "Available" });
-                      }
-
-                      return (
-                        <div key={myth.id} className={`myth-card ${statusClass}`}>
-                          <div className="myth-card-header">
-                            <span className="myth-name">{tr(myth.name)}</span>
-                            <span className="myth-status-badge">{statusLabel}</span>
-                          </div>
-
-                          {unlocked ? (
-                            <>
-                              <p className="myth-rule">
-                                <strong>{tr({ fr: 'Règle', en: 'Rule' })}</strong> {tr(myth.description)}
-                              </p>
-                              {completed ? (
-                                <p className="myth-heritage-desc">
-                                  <strong>{tr({ fr: 'Héritage', en: 'Heritage' })}</strong> {tr(myth.heritageDescription)}
-                                </p>
-                              ) : (
-                                <>
-                                  <p className="myth-objectif">
-                                    <strong>{tr({ fr: 'Objectif', en: 'Objective' })}</strong> {tr(myth.objectif)}
-                                  </p>
-                                  <button
-                                    className="myth-activate-btn"
-                                    onClick={() => handleOpenModal(myth)}
-                                  >
-                                    {active ? tr({ fr: 'Pacte actif', en: 'Pact active' }) : tr({ fr: 'Sceller ce pacte', en: 'Seal this pact' })}
-                                  </button>
-                                </>
-                              )}
-                            </>
-                          ) : (
-                            <p className="myth-locked-hint">
-                              {tr({ fr: "Complétez l'acte précédent pour déverrouiller ce pacte.", en: 'Complete the previous act to unlock this pact.' })}
-                            </p>
-                          )}
-                        </div>
-                      );
-                    })}
+                <div key={act} className={`myth-act-block${!actUnlocked ? ' is-locked' : ''}${actCompleted ? ' is-done' : ''}`}>
+                  <header className="myth-act-head">
+                    <h3>{tr(meta.num)} · {tr(meta.name)}</h3>
+                    {actUnlocked
+                      ? <small>{done} / {mythsInAct.length}</small>
+                      : <small {...tipProps(tr(meta.num), actUnlockHint(act))}>🔒</small>}
+                  </header>
+                  <div className="myth-tile-grid">
+                    {mythsInAct.length === 0
+                      ? <span className="myth-tile-empty">—</span>
+                      : mythsInAct.map((myth) => <MythTile key={myth.id} myth={myth} onOpen={handleOpenModal} />)}
                   </div>
                 </div>
               );
             })}
           </div>
-        </div>
+        </section>
       </div>
+
+      <section className="mythes-panel olympus-panel" aria-labelledby="mythes-olympus-title">
+        <header className="mythes-panel-head">
+          <h2 id="mythes-olympus-title">{tr({ fr: "L'Olympe", en: 'Olympus' })}</h2>
+          <span className={`mythes-chip${olympusUnlocked ? ' is-gold' : ''}`}>
+            {olympusUnlocked ? tr({ fr: 'Religion proclamée', en: 'Religion proclaimed' }) : tr({ fr: 'Croyance émergente', en: 'Emerging belief' })}
+          </span>
+        </header>
+        <div className="cult-list">
+          {Object.values(OLYMPUS_PROFILES).map((profile) => {
+            const score = olympusDominant.scores[profile.id] || 0;
+            const progress = olympusProgress[profile.id] || 0;
+            const isDominant = profile.id === olympusDominant.profile.id;
+            const isUnlocked = olympusUnlocked?.id === profile.id;
+            return (
+              <div
+                key={profile.id}
+                className={`cult${isDominant ? ' is-top' : ''}${isUnlocked ? ' is-proclaimed' : ''}`}
+                {...tipProps(profile.name, [
+                  { label: profile.feeds },
+                  {
+                    label: isUnlocked
+                      ? tr({ fr: `Héritage actif : ${profile.heritageDescription}`, en: `Active heritage: ${profile.heritageDescription}` })
+                      : tr({ fr: `Si proclamé : ${profile.heritageDescription}`, en: `If proclaimed: ${profile.heritageDescription}` })
+                  }
+                ])}
+              >
+                <span className="cult-names"><b>{profile.name}</b><small>{profile.short}</small></span>
+                <span className="cult-score">{score} / 100</span>
+                <span className="cult-track" aria-hidden="true"><i style={{ width: `${Math.min(100, score)}%` }} /></span>
+                {/* La consécration n'avance que pour le culte DOMINANT : ailleurs,
+                    seulement si elle a déjà des crans gravés. */}
+                {(isDominant || progress > 0) && (
+                  <span className="cult-consecration">
+                    {tr({ fr: 'consécration', en: 'consecration' })} {consecration(progress)} / {OLYMPUS_COMPLETION_SCORE}
+                  </span>
+                )}
+              </div>
+            );
+          })}
+        </div>
+        <div className="olympus-seen">
+          <h3>{tr({ fr: 'Ce que la cité a vu', en: 'What the city has seen' })}</h3>
+          <dl>
+            <div><dt>{tr({ fr: 'Effondrements volontaires', en: 'Voluntary collapses' })}</dt><dd>{olympusMetricValues.collapseFrequency.toFixed(2)} /h</dd></div>
+            <div><dt>{tr({ fr: 'Crises résolues', en: 'Crises resolved' })}</dt><dd>{Math.round(olympusMetricValues.crisisResolutionRatio * 100)} %</dd></div>
+            <div><dt>{tr({ fr: 'Temps sans intervenir', en: 'Time without intervening' })}</dt><dd>{Math.round(olympusMetricValues.idleRatio * 100)} %</dd></div>
+            <div><dt>{tr({ fr: 'Rupture moyenne à la chute', en: 'Average Rupture at collapse' })}</dt><dd>{Math.round(olympusMetricValues.averageCollapseRupture * 100)} %</dd></div>
+          </dl>
+        </div>
+      </section>
 
       {/* Confirmation Modal */}
       {modalMyth && (
@@ -394,6 +362,6 @@ export default function MythsView() {
           </div>
         </div>
       )}
-    </section>
+    </Place>
   );
 }

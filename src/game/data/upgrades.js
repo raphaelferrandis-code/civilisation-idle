@@ -233,7 +233,7 @@ export const upgrades = [
     name: { fr: "Conseil de crise", en: "Crisis council" },
     cost: { ruins: 8 },
     desc: { fr: "Un conseil permanent tranche les crises sans réveiller le prince. Tu fixes la ligne, il l'applique.", en: "A standing council settles crises without waking the prince. You set the line, it enforces it." },
-    effect: { fr: "Débloque la Doctrine de crise : réponse automatique (Stabiliser / Temporiser) à chaque palier de Rupture (25 / 50 / 75 %).", en: "Unlocks the Crisis Doctrine: automatic response (Stabilize / Stall) at each Rupture threshold (25 / 50 / 75%)." }
+    effect: { fr: "Débloque la Doctrine de crise : réponse automatique (Stabiliser / Profiter) à chaque palier de Rupture (25 / 50 / 75 %).", en: "Unlocks the Crisis Doctrine: automatic response (Stabilize / Profit) at each Rupture threshold (25 / 50 / 75%)." }
   },
   {
     id: "rites_feu_court",

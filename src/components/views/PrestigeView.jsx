@@ -15,8 +15,10 @@ import {
   TERMINAL_EDICT_CAUSE,
   TERMINAL_RITE_RESOURCE,
   has,
-  autoCollapseDelay
+  autoCollapseDelay,
+  pressureBreakdown
 } from '../../game/core/mechanics.js';
+import { collapseCause } from '../../game/core/events.js';
 import {
   collapse,
   runTerminalCrisisAction,
@@ -31,12 +33,12 @@ const RITE_RESOURCE_LABEL = {
 };
 
 const capitalize = (text) => (text ? text.charAt(0).toUpperCase() + text.slice(1) : "");
-import { costLabel } from '../../game/core/utils.js';
+import { costLabel, pct } from '../../game/core/utils.js';
 import { tr } from '../../game/core/i18n.js';
 import CrisisDoctrinePanel from '../ui/CrisisDoctrinePanel.jsx';
 import GrandResetLadder from '../ui/GrandResetLadder.jsx';
 import TestamentSeals from '../ui/TestamentSeals.jsx';
-import TensionBarometers from '../ui/TensionBarometers.jsx';
+import Place, { PlaceKey } from '../ui/Place.jsx';
 import { tipProps } from '../ui/HelpBubble.jsx';
 import { isFirstGame } from '../../game/core/onboarding.js';
 
@@ -194,6 +196,72 @@ export default function PrestigeView() {
   // qu'apporterait ce rite (et revient au départ du survol).
   const previewGain = hoverTarget ? ruinGainWithPrep(hoverTarget.prep) : null;
 
+  // HORS CRISE : LA VEILLE (refonte « chaque onglet est un lieu », maquette V4).
+  // Décor de la salle des sceaux, la Rupture, l'Usure et la chute annoncée en
+  // chiffres clés ; puis la Doctrine de crise et les Sceaux du Grand Reset.
+  // Avant la toute première chute, une plaque dit seulement que la chute n'est
+  // pas ouverte (décision de Raph 2026-09-28 : le tutoriel y envoie le joueur) —
+  // le pourquoi est dans sa bulle et dans l'Aide, plus en phrase à l'écran.
+  if (!isCrisisActive) {
+    const target = pressureBreakdown().total;
+    const causeLabel = String(FAVORED_CAUSE_LABELS[collapseCause()] || '').replace(/^(chute|fall) /i, '');
+    return (
+      <Place
+        id="prestige"
+        className="veille"
+        scene="/pixelart/places/salle-sceaux.png"
+        sceneAlt={tr({ fr: 'La salle des sceaux : un anneau de médaillons de bronze autour du sablier', en: 'The hall of seals: a ring of bronze medallions around the hourglass' })}
+        focus={[50, 27]}
+        eyebrow={tr({ fr: 'Effondrement', en: 'Collapse' })}
+        title={tr({ fr: 'La Veille', en: 'The Vigil' })}
+        bodyClassName="veille-body"
+        keys={<>
+          <div
+            className="place-key is-wide"
+            {...tipProps(tr({ fr: 'Rupture', en: 'Rupture' }), tr({ fr: `Elle glisse vers sa cible : ${pct(target)}.`, en: `It drifts toward its target: ${pct(target)}.` }))}
+          >
+            <span className="place-key-head">
+              <span className="place-key-label">{tr({ fr: 'Rupture', en: 'Rupture' })}</span>
+              <strong className="place-key-val is-rupture">{pct(instability || 0)}</strong>
+            </span>
+            <span className="conseil-rupture-track" aria-hidden="true">
+              <i style={{ width: `${Math.min(1, instability || 0) * 100}%` }} />
+              <span className="tick" style={{ left: '25%' }} />
+              <span className="tick" style={{ left: '50%' }} />
+              <span className="tick" style={{ left: '75%' }} />
+              <span className="ghost" style={{ left: `${Math.min(1, target) * 100}%` }} />
+            </span>
+            <span className="place-key-sub">{tr({ fr: 'cible', en: 'target' })} <b className={target >= 1 ? 'is-rupture' : ''}>{pct(target)}</b></span>
+          </div>
+          <div className="place-key" {...tipProps(tr({ fr: 'Usure du Temps', en: 'Wear of Time' }), null)}>
+            <span className="place-key-head">
+              <span className="place-key-label">{tr({ fr: 'Usure', en: 'Wear' })}</span>
+              <strong className="place-key-val is-usure">{pct(timeWear || 0)}</strong>
+            </span>
+            <span className="conseil-rupture-track is-usure" aria-hidden="true">
+              <i style={{ width: `${Math.min(1, timeWear || 0) * 100}%` }} />
+            </span>
+          </div>
+          <PlaceKey label={tr({ fr: 'Chute annoncée', en: 'Foretold fall' })} value={causeLabel} valueClassName="is-cause" />
+        </>}
+      >
+        {firstGame && (
+          <div
+            className="veille-closed"
+            {...tipProps(null, tr({
+              fr: "Elle s'ouvre quand la Rupture, ou l'Usure, atteint 100 % : la cité entre en crise, et c'est ici que tu pourras l'effondrer.",
+              en: 'It opens when Rupture, or Wear, reaches 100%: the city enters a crisis, and this is where you will be able to collapse it.'
+            }))}
+          >
+            {tr({ fr: "La chute n'est pas encore ouverte", en: 'The fall is not open yet' })}
+          </div>
+        )}
+        <CrisisDoctrinePanel />
+        <GrandResetLadder />
+      </Place>
+    );
+  }
+
   return (
     // En crise, la fresque devient le fond de TOUTE la page (retour Raph) :
     // la classe déclenche le débord pleine largeur + l'image dans le CSS.
@@ -238,13 +306,10 @@ export default function PrestigeView() {
           </div>
           <div className="panel-heading">
             <div>
-              <h2>{tr({ fr: "Chute & Transmission", en: "Fall & Transmission" })}</h2>
-              <p className="crisis-intro">
-                {tr({
-                  fr: "Avant de tomber, la cité peut accomplir un rite — un seul. Il rapporte des Ruines et décide de la cause de la chute, donc du legs qui aura l'affinité. Les grands rites demandent d'avoir mis de côté.",
-                  en: "Before it falls, the city may perform one rite — only one. It yields Ruins and decides the cause of the fall, and so which legacy gets the affinity. The great rites require savings."
-                })}
-              </p>
+              <h2 {...tipProps(tr({ fr: "Chute & Transmission", en: "Fall & Transmission" }), tr({
+                fr: "Avant de tomber, la cité peut accomplir un rite — un seul. Il rapporte des Ruines et décide de la cause de la chute, donc du legs qui aura l'affinité. Les grands rites demandent d'avoir mis de côté.",
+                en: "Before it falls, the city may perform one rite — only one. It yields Ruins and decides the cause of the fall, and so which legacy gets the affinity. The great rites require savings."
+              }))}>{tr({ fr: "Chute & Transmission", en: "Fall & Transmission" })}</h2>
             </div>
           </div>
 
@@ -272,7 +337,7 @@ export default function PrestigeView() {
                         {used ? (
                           <p className="edict-sealed-note">
                             <PixelIcon name="prep/sceau" className="edict-seal" />
-                            <span>{tr({ fr: "Rite accompli : la cité peut tomber.", en: "Rite performed: the city may fall." })}</span>
+                            <span>{tr({ fr: "Rite accompli", en: "Rite performed" })}</span>
                           </p>
                         ) : (
                           <div className="edict-tiers">
@@ -312,14 +377,14 @@ export default function PrestigeView() {
 
               <aside className="collapse-altar">
                 <h4>{tr({ fr: "Bilan de la Chute", en: "Fall Summary" })}</h4>
-                <div className={`harvest-count${previewGain ? " is-preview" : ""}`}>
+                <div
+                  className={`harvest-count${previewGain ? " is-preview" : ""}`}
+                  {...tipProps(null, tr({ fr: "Ruines récupérées à l'effondrement.", en: "Ruins recovered at the collapse." }))}
+                >
                   <span className="harvest-plus">+</span>
                   <OdometerNumber value={previewGain ?? ruinGainVal} />
                   <PixelIcon name="glyphs/ruines" className="harvest-glyph" />
                 </div>
-                <p className="harvest-caption">
-                  {tr({ fr: "Ruines récupérées à l'effondrement.", en: "Ruins recovered at the collapse." })}
-                </p>
                 <ul className="harvest-factors">
                   <li {...tipProps(
                     tr({ fr: "Patience du cycle", en: "Cycle patience" }),
@@ -407,39 +472,6 @@ export default function PrestigeView() {
         </div>
       )}
 
-      {/* 2 bis. AVANT LA PREMIÈRE CHUTE (décision de Raph, 2026-09-28) : hors crise,
-          cette page n'a pas d'autel — et le tutoriel y envoie le joueur vers 6 min
-          (« Provoque ton premier effondrement ») alors que la chute ne s'ouvre qu'à
-          100 % de Rupture ou d'Usure, soit vers 1 h 15 sur une première partie.
-          On dit donc pourquoi il n'y a pas de bouton, jauges à l'appui. Les jauges
-          sont le BANDEAU FIN de la Régulation (TensionBarometers) et non les
-          grandes cartes retirées de cette page le 2026-07-13 ; et l'encart
-          disparaît après la toute première partie, pour ne pas les y remettre. */}
-      {!isCrisisActive && firstGame && (
-        <div className="panel collapse-waiting-panel">
-          <div className="panel-heading">
-            <div>
-              <h2>{tr({ fr: "La chute n'est pas encore ouverte", en: "The fall is not open yet" })}</h2>
-              <p className="crisis-intro">
-                {tr({
-                  fr: "Elle s'ouvre quand la Rupture, ou l'Usure, atteint 100 % : la cité entre en crise, et c'est ici que tu pourras l'effondrer. Le trait blanc montre où la Rupture se dirige.",
-                  en: "It opens when Rupture, or Wear, reaches 100%: the city enters a crisis, and this is where you will be able to collapse it. The white tick shows where Rupture is heading."
-                })}
-              </p>
-            </div>
-          </div>
-          <TensionBarometers />
-        </div>
-      )}
-
-      {/* 3. DOCTRINE DE CRISE — automatisation des paliers (déplacée depuis les Options).
-          Le tableau tactique (Foyers de tension & Actions de régulation) vit
-          désormais dans son propre onglet Régulation. */}
-      {!isCrisisActive && <CrisisDoctrinePanel />}
-
-      {/* 4. LES GRANDS RESETS — échelle des 11 jalons marquants (jalons secrets
-          jusqu'à découverte), activables au gré du joueur. */}
-      {!isCrisisActive && <GrandResetLadder />}
     </section>
   );
 }

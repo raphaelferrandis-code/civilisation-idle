@@ -92,13 +92,12 @@ export default function GrandResetLadder() {
     <div className="panel gr-ladder-panel">
       <div className="panel-heading">
         <div>
-          <h2>{tr({ fr: "Les Sceaux du Grand Reset", en: "The Grand Reset Seals" })}</h2>
-          <p className="gr-ladder-hint">
-            {tr({
-              fr: "Débloque-les dans l'ordre que tu veux. Un sceau atteint reste réclamable à vie. Quand plusieurs sont prêts, coche-les pour tous les réclamer dans un seul reset.",
-              en: "Unlock them in any order. A reached seal stays claimable forever. When several are ready, tick them to claim them all in a single reset."
-            })}
-          </p>
+          {/* Le mode d'emploi passe dans la bulle du titre (aucune phrase à
+              l'écran) ; le détail est dans l'Aide › L'Effondrement. */}
+          <h2 {...tipProps(tr({ fr: "Les Sceaux du Grand Reset", en: "The Grand Reset Seals" }), tr({
+            fr: "Débloque-les dans l'ordre que tu veux. Un sceau atteint reste réclamable à vie. Quand plusieurs sont prêts, coche-les pour tous les réclamer dans un seul reset.",
+            en: "Unlock them in any order. A reached seal stays claimable forever. When several are ready, tick them to claim them all in a single reset."
+          }))}>{tr({ fr: "Les Sceaux du Grand Reset", en: "The Grand Reset Seals" })}</h2>
         </div>
         <div className="gr-ladder-progress">
           <span className="gr-notches" aria-hidden="true">

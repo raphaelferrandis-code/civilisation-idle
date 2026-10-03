@@ -59,7 +59,6 @@ describe('variantes natives des icônes d\'UI', () => {
   it('resolveIconSrc ne renvoie jamais un fichier absent', () => {
     const cas = [
       ['res/food', 'csp-stat-icon', undefined],
-      ['res/gold', 'comptoir-icon', undefined],
       ['res/food', '', 24],
       ['glyphs/ruines', 'harvest-glyph', undefined],
       ['glyphs/temps', '', undefined],
@@ -101,7 +100,7 @@ describe('variantes natives des icônes d\'UI', () => {
     };
     for (const [cls, attendu] of Object.entries({
       'csp-stat-icon': 16, 'myth-card-icon': 32, 'harvest-glyph': 24,
-      'edict-seal': 32, 'edict-emblem': 48, 'policy-seal': 24, 'comptoir-icon': 32,
+      'edict-seal': 32, 'edict-emblem': 48, 'policy-seal': 24,
     })) {
       expect(`${cls}=${tailleDe(cls)}`).toBe(`${cls}=${attendu}`);
     }
