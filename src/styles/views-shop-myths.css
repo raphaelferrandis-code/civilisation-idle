@@ -356,14 +356,7 @@
   font-weight: 700;
   color: var(--gold);
 }
-/* Ordre-libre : sous-titre explicatif + bandeau « N sceaux prêts ». */
-.gr-ladder-panel .gr-ladder-hint {
-  margin: 0.25rem 0 0;
-  font-size: 0.78rem;
-  opacity: 0.72;
-  max-width: 52ch;
-  line-height: 1.4;
-}
+/* Ordre-libre : bandeau « N sceaux prêts ». */
 .gr-ladder-ready {
   margin: 0;
   font-size: 0.82rem;

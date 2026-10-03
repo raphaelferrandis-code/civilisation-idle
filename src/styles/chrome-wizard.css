@@ -417,7 +417,6 @@ button:disabled::before,
 .app .pr-step-track,
 .app .era-track,
 .app .gr-gauge,
-.app .olympus-score-track,
 .app .rw-net-track,
 .app .rw-work-track,
 .app .work-bar,
@@ -557,24 +556,6 @@ button:disabled::before,
   background: color-mix(in srgb, var(--skin-field), transparent 84%);
 }
 
-/* Les PANNEAUX DE MYTHES et le profil de l'Olympe : champ de cuir très dilué,
-   contour dur, biseau haut clair et socle bas sombre — la recette du pack,
-   posée en ombres. */
-.app .myth-card,
-.app .olympus-profile,
-.app .active-myth-banner {
-  border: 0;
-  border-radius: 0;
-  background: color-mix(in srgb, var(--skin-field), transparent 88%);
-  box-shadow:
-    inset 0 0 0 2px var(--skin-ink),
-    inset 0 3px 0 -1px var(--skin-raise),
-    inset 0 -4px 0 -1px var(--skin-bevel);
-}
-.app .myth-card.myth-available {
-  background: color-mix(in srgb, var(--skin-field), transparent 78%);
-}
-
 /* L'ENCART D'ÉTAT de la barre latérale. Il portait déjà le crantage maison
    (layout.css:263) : on ne lui ajoute que la matière, pas une seconde forme. */
 .app .csp-block {
@@ -681,7 +662,6 @@ button:disabled::before,
 .app .icarus-crash-chip,
 .app .choice-badge,
 .app .milestone-badge,
-.app .myth-status-badge,
 .app .chronicle-reg-badge,
 .app .pr-milestone-badge {
   display: inline-flex;
@@ -717,7 +697,6 @@ button:disabled::before,
       permanent ne doit pas crier (même raison que le Testament). ─────────── */
 .app .choice-badge,
 .app .milestone-badge,
-.app .myth-status-badge,
 .app .pr-milestone-badge,
 .app .level-chip {
   padding: 0.12rem 0.5rem;

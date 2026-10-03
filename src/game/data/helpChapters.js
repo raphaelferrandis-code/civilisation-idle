@@ -353,8 +353,7 @@ export const HELP_CHAPTERS = [
   {
     id: 'marchandage',
     place: 'comptoir',
-    // ⚠ Même icône PLACEHOLDER que le rail (App.jsx) : à remplacer ensemble.
-    icon: 'res/gold',
+    icon: 'nav/marchandage',
     title: { fr: 'Le Marchandage', en: 'Trading' },
     lede: {
       fr: 'Le Comptoir s\'ouvre avec l\'héritage d\'un mythe. Le marchand échange à son tarif.',

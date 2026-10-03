@@ -815,29 +815,6 @@ body::before {
   .city-left-col { gap: 0.75rem; }
 }
 
-.active-myth-banner .label {
-  font-size: 0.72rem;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
-  color: var(--gold);
-}
-
-@keyframes mythActivePulse {
-  0%, 100% { box-shadow: 0 0 16px rgba(var(--era-rgb),0.10), inset 0 1px 0 rgba(var(--era-rgb),0.12); }
-  50%       { box-shadow: 0 0 36px rgba(var(--era-rgb),0.28), inset 0 1px 0 rgba(var(--era-rgb),0.22); }
-}
-
-/* Responsive */
-
-
-@media (max-width: 720px) {
-  .myth-view-body { padding: 1rem; }
-  .myth-cards-grid { grid-template-columns: 1fr; }
-  .myth-act-header { flex-wrap: wrap; }
-  .myth-act-lock-hint { margin-left: 0; }
-}
-
-
 /* Script d'Automatisation dans les Options */
 
 

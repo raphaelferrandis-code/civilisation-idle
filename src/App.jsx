@@ -289,8 +289,7 @@ export default function App() {
     { id: 'ruinsView', label: { fr: 'Ruines', en: 'Ruins' }, icon: 'glyphs/ruines', unlocked: isRuinsUnlocked },
     { id: 'tech', label: { fr: 'Boutique', en: 'Shop' }, icon: 'nav/boutique', unlocked: isShopUnlocked },
     { id: 'mythView', label: { fr: 'Mythes', en: 'Myths' }, icon: 'nav/mythes', unlocked: isMythsUnlocked },
-    // ⚠ Icône PLACEHOLDER (res/gold) : pas de nav/marchandage.png — à générer.
-    { id: 'comptoir', label: { fr: 'Marchandage', en: 'Trading' }, short: { fr: 'Marché', en: 'Market' }, icon: 'res/gold', unlocked: isComptoirUnlocked },
+    { id: 'comptoir', label: { fr: 'Marchandage', en: 'Trading' }, short: { fr: 'Marché', en: 'Market' }, icon: 'nav/marchandage', unlocked: isComptoirUnlocked },
     { id: 'history', label: { fr: 'Chronique', en: 'Chronicle' }, icon: 'nav/chronique', unlocked: true },
   ];
 
