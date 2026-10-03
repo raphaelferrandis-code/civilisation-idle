@@ -304,7 +304,7 @@ export function triggerCollapseChoices(shouldRender = true) {
   if (!state.crisisLimitAnnounced) {
     state.crisisLimitAnnounced = true;
     state.crisisOpenedAt = Date.now();
-    // Nouvelle crise : chaque préparation terminale redevient utilisable une fois.
+    // Nouvelle crise terminale : aucun rite encore accompli.
     if (state.terminalPreparations) state.terminalPreparations.used = {};
     const source = state.timeWear >= 1 ? "l'usure du temps" : "la rupture structurelle";
     chronicle(`La fin d'une ère approche : ${source} a vaincu nos dernières défenses. Le destin de notre cité se joue désormais dans la tourmente des crises.`);
@@ -323,62 +323,44 @@ export function resumeAfterCrisisOutcome() {
 
 const TERMINAL_PREP_CHRONICLES = {
   exodus: [
-    "Quelques familles quittent la cité par les portes de l'aube ; les champs se vident un peu, mais la colère retombe.",
-    "Une longue procession franchit les portes sacrées : l'exode est en marche, portant l'espoir d'une nouvelle fondation.",
-    "La moitié de la cité prend la route. Les entrepôts se taisent, mais ceux qui restent respirent enfin."
+    "Quelques familles chargent leurs grains et quittent la cité par les portes de l'aube : elle tombera par la faim.",
+    "Une longue procession emporte les réserves vers d'autres terres. Les greniers vides annoncent la fin.",
+    "La cité entière prend la route avec tout ce qui se mange. Elle mourra de faim, mais ses enfants vivront ailleurs."
   ],
   prepareArchives: [
-    "Nos scribes copient les registres essentiels ; quelques ateliers ferment pour fournir l'encre et les tablettes.",
-    "Alors que les fondations tremblent, nos scribes mettent les chroniques à l'abri ; la mémoire de notre peuple survivra aux ruines.",
-    "Tout le savoir de la cité est gravé, scellé, enterré. L'économie s'épuise à cette tâche, mais rien ne sera oublié."
+    "Nos scribes copient les registres essentiels avant la fin : le temps aura raison de nous, pas l'oubli.",
+    "Les chroniques sont mises à l'abri sous la pierre. La mémoire de notre peuple survivra aux ruines.",
+    "Tout le savoir de la cité est gravé, scellé, enterré. Elle s'éteindra lentement, et rien ne sera oublié."
   ],
   holdOrder: [
-    "La garde double les patrouilles ; l'ordre coûte cher, mais les rues se calment.",
-    "La garde maintient un ordre de fer à grands frais. Nos murs tiennent encore, mais le souffle de l'effondrement fait vaciller nos derniers feux.",
-    "La loi martiale est proclamée. La cité entière vit au pas de la garde : la rupture recule, étouffée sous le poids du contrôle."
+    "La garde double les patrouilles pour une dernière nuit : la cité tombera debout.",
+    "La garde tient les rues jusqu'au bout. Quand l'ordre cédera, il cédera d'un coup.",
+    "La loi martiale est proclamée pour la fin. La cité tombera sous la Rupture, mais en rangs serrés."
   ]
 };
 
+// Rite de la chute (cf. TERMINAL_PREP_TIERS) : UN par chute, sans sursis — la
+// crise reste ouverte, la cité tombera ensuite (bouton maintenu ou Édit).
 export function runTerminalCrisisAction(type, tier = 0) {
   if (!crisisOpen() || collapseInProgress) return;
   if (!terminalCrisisReady(type, tier)) return;
   const tierDef = TERMINAL_PREP_TIERS[type]?.[tier];
   if (!tierDef) return;
   payCost(terminalCrisisCost(type, tier));
+  // « Rite accompli » : la crise a été traitée (Olympe, cf. completeCollapse).
   state.crisisExtensions = (state.crisisExtensions || 0) + 1;
   registerOlympusCrisisResolved();
 
-  const tp = state.terminalPreparations || (state.terminalPreparations = {
-    foodMalus: 0, goldMalus: 0, knowledgeMalus: 0, infraBonus: 0, ruptureSlow: 0, used: {}
-  });
+  const tp = state.terminalPreparations || (state.terminalPreparations = { used: {} });
   if (!tp.used) tp.used = {};
   tp.used[type] = true;
-  // « Choisir sa chute » : l'édit scellé déclare la cause de la chute.
+  // « Choisir sa chute » : le rite déclare la cause de la chute.
   state.declaredFallCause = TERMINAL_EDICT_CAUSE[type] || null;
-  const addMalus = (key) => { tp[key] = Math.min(0.85, (tp[key] || 0) + tierDef.malus); };
-  if (type === "exodus") {
-    addMalus("foodMalus");
-  } else if (type === "prepareArchives") {
-    addMalus("knowledgeMalus");
-    addMalus("goldMalus");
-    tp.infraBonus = Math.min(1, (tp.infraBonus || 0) + (tierDef.infraBonus || 0));
-  } else if (type === "holdOrder") {
-    addMalus("foodMalus");
-    addMalus("goldMalus");
-    addMalus("knowledgeMalus");
-    tp.ruptureSlow = Math.min(0.8, (tp.ruptureSlow || 0) + (tierDef.ruptureSlow || 0));
-  }
   // « Préparations funèbres » : l'effet de préparation (boost du gain de ruines)
   // est renforcé — mourir proprement rapporte davantage.
   state.collapsePreparation = Math.min(COLLAPSE_PREP_MAX, (state.collapsePreparation || 0) + boostedPrep(tierDef.prep));
 
-  // Ramène la jauge qui a ouvert la crise au palier choisi, puis reprend la partie.
-  state.crisisLimitAnnounced = false;
-  if (state.instability >= 1) state.instability = Math.min(state.instability, tierDef.target);
-  if ((state.timeWear || 0) >= 1) state.timeWear = Math.min(state.timeWear, tierDef.target);
-  resumeAfterCrisisOutcome();
-
-  chronicle(TERMINAL_PREP_CHRONICLES[type]?.[tier] || "La cité s'organise face à la fin qui approche.");
+  chronicle(TERMINAL_PREP_CHRONICLES[type]?.[tier] || "La cité se prépare à tomber.");
   save();
   render();
 }

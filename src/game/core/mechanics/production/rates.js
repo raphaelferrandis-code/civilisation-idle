@@ -4,7 +4,7 @@
 // Decimal) et l'instabilité à partir des sommes de bâtiments, des multiplicateurs
 // globaux, des effets de Mythe/épitaphe et des leviers de crise. Sommet du DAG
 // (L2) : consomme pressure, globalMultipliers, buildingOutput, mythEffects,
-// crisisLevers. terminalPrepMultiplier reste privé (seul rates l'utilise).
+// crisisLevers.
 import { state, renderCache } from '../../state.js';
 import { Decimal, D, toNum } from '../../num.js';
 import {
@@ -32,17 +32,6 @@ import {
   cadmosProductionMultiplier
 } from './mythEffects.js';
 
-// Multiplicateur de production issu des préparations terminales (malus jusqu'à l'effondrement).
-function terminalPrepMultiplier(resource) {
-  const tp = state.terminalPreparations;
-  if (!tp) return 1;
-  if (resource === "infrastructure") return 1 + (tp.infraBonus || 0);
-  const malus = resource === "food" ? tp.foodMalus
-    : resource === "gold" ? tp.goldMalus
-    : resource === "knowledge" ? tp.knowledgeMalus
-    : 0;
-  return Math.max(0.15, 1 - (malus || 0));
-}
 
 // rates() retourne les 5 taux de ressources en Decimal (le tick fait .add) et
 // `instability` en number natif (jauge bornée 0-1).
@@ -123,10 +112,10 @@ export function rates(vitals = cityVitals(), pressure = pressureBreakdown(), for
     infra *= ruinEffectMultiplier("infraMult");
 
     let populationRate = pop * mult * _epitaphEffect.globalMult * vitals.populationMult * ruinEffectMultiplier("populationMult") * crisisProductionMultiplier("population") * _popSuppressFactor;
-    let foodRate = food * Math.sqrt(mult) * _epitaphEffect.globalMult * _epitaphEffect.foodMult * vitals.foodMult * crisisProductionMultiplier("food") * terminalPrepMultiplier("food") * cadmosProductionMultiplier("food");
-    let goldRate = gold * Math.sqrt(mult) * _epitaphEffect.globalMult * _epitaphEffect.goldMult * (1 + state.buildings.markets * 0.032 + state.buildings.guilds * 0.024) * vitals.goldMult * crisisProductionMultiplier("gold") * terminalPrepMultiplier("gold") * (hasActiveRuin(state, "age_or") ? ACTIVE_RUIN_GOLD_PROD_MULT : 1) * cadmosProductionMultiplier("gold");
-    let knowledgeRate = knowledge * mult * _epitaphEffect.globalMult * _epitaphEffect.knowledgeMult * (1 + Math.log10(popF + 10) * 0.05) * vitals.knowledgeMult * crisisProductionMultiplier("knowledge") * terminalPrepMultiplier("knowledge") + theocracyKnowledgeRate();
-    let infrastructureRate = infra * mult * _epitaphEffect.globalMult * _epitaphEffect.infraMult * (1 + Math.log10(knowF + 10) * 0.04) * vitals.infraMult * crisisProductionMultiplier("infrastructure") * terminalPrepMultiplier("infrastructure");
+    let foodRate = food * Math.sqrt(mult) * _epitaphEffect.globalMult * _epitaphEffect.foodMult * vitals.foodMult * crisisProductionMultiplier("food") * cadmosProductionMultiplier("food");
+    let goldRate = gold * Math.sqrt(mult) * _epitaphEffect.globalMult * _epitaphEffect.goldMult * (1 + state.buildings.markets * 0.032 + state.buildings.guilds * 0.024) * vitals.goldMult * crisisProductionMultiplier("gold") * (hasActiveRuin(state, "age_or") ? ACTIVE_RUIN_GOLD_PROD_MULT : 1) * cadmosProductionMultiplier("gold");
+    let knowledgeRate = knowledge * mult * _epitaphEffect.globalMult * _epitaphEffect.knowledgeMult * (1 + Math.log10(popF + 10) * 0.05) * vitals.knowledgeMult * crisisProductionMultiplier("knowledge") + theocracyKnowledgeRate();
+    let infrastructureRate = infra * mult * _epitaphEffect.globalMult * _epitaphEffect.infraMult * (1 + Math.log10(knowF + 10) * 0.04) * vitals.infraMult * crisisProductionMultiplier("infrastructure");
 
     if (atridesDrain) {
       foodRate *= 0.9;
@@ -187,10 +176,10 @@ export function rates(vitals = cityVitals(), pressure = pressureBreakdown(), for
   const theocracyD = has("trait_theocracy") ? D(state.gold).mul(0.01) : new Decimal(0);
   const baseRates = {
     population: popD.mul(multD).mul(_epitaphEffect.globalMult * vitals.populationMult * ruinEffectMultiplier("populationMult") * crisisProductionMultiplier("population") * _popSuppressFactor),
-    food: foodD.mul(sqrtMultD).mul(_epitaphEffect.globalMult * _epitaphEffect.foodMult * vitals.foodMult * crisisProductionMultiplier("food") * terminalPrepMultiplier("food") * cadmosProductionMultiplier("food")),
-    gold: goldD.mul(sqrtMultD).mul(_epitaphEffect.globalMult * _epitaphEffect.goldMult * (1 + state.buildings.markets * 0.032 + state.buildings.guilds * 0.024) * vitals.goldMult * crisisProductionMultiplier("gold") * terminalPrepMultiplier("gold") * (hasActiveRuin(state, "age_or") ? ACTIVE_RUIN_GOLD_PROD_MULT : 1) * cadmosProductionMultiplier("gold")),
-    knowledge: knowledgeD.mul(multD).mul(_epitaphEffect.globalMult * _epitaphEffect.knowledgeMult * (1 + D(state.population).add(10).log10() * 0.05) * vitals.knowledgeMult * crisisProductionMultiplier("knowledge") * terminalPrepMultiplier("knowledge")).add(theocracyD),
-    infrastructure: infraD.mul(multD).mul(_epitaphEffect.globalMult * _epitaphEffect.infraMult * (1 + D(state.knowledge).add(10).log10() * 0.04) * vitals.infraMult * crisisProductionMultiplier("infrastructure") * terminalPrepMultiplier("infrastructure")),
+    food: foodD.mul(sqrtMultD).mul(_epitaphEffect.globalMult * _epitaphEffect.foodMult * vitals.foodMult * crisisProductionMultiplier("food") * cadmosProductionMultiplier("food")),
+    gold: goldD.mul(sqrtMultD).mul(_epitaphEffect.globalMult * _epitaphEffect.goldMult * (1 + state.buildings.markets * 0.032 + state.buildings.guilds * 0.024) * vitals.goldMult * crisisProductionMultiplier("gold") * (hasActiveRuin(state, "age_or") ? ACTIVE_RUIN_GOLD_PROD_MULT : 1) * cadmosProductionMultiplier("gold")),
+    knowledge: knowledgeD.mul(multD).mul(_epitaphEffect.globalMult * _epitaphEffect.knowledgeMult * (1 + D(state.population).add(10).log10() * 0.05) * vitals.knowledgeMult * crisisProductionMultiplier("knowledge")).add(theocracyD),
+    infrastructure: infraD.mul(multD).mul(_epitaphEffect.globalMult * _epitaphEffect.infraMult * (1 + D(state.knowledge).add(10).log10() * 0.04) * vitals.infraMult * crisisProductionMultiplier("infrastructure")),
     instability
   };
 

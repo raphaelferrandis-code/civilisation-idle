@@ -258,7 +258,7 @@ export function tick(dt) {
   // ralentissent la MONTÉE de la rupture (jamais sa descente). Plafond commun 0.8
   // → même tout ralenti, la jauge monte encore : jamais un gel (anti-immortalité).
   const orderSlow = instabilityDrift > 0
-    ? 1 - Math.min(0.8, (state.terminalPreparations?.ruptureSlow || 0) + policyRiseSlow())
+    ? 1 - Math.min(0.8, policyRiseSlow())
     : 1;
   // Surcharge : au-delà du seuil, la dérive accélère proportionnellement au
   // dépassement (plafonné) — une cité en pression x3 ne peut plus être tenue

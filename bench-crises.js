@@ -40,8 +40,11 @@
  *            chaque chute (« affinite » = celui qui correspond à la cause de
  *            CETTE chute). Défaut : aucun.
  *   --edict=none|exodus|prepareArchives|holdOrder|best : en crise terminale,
- *            scelle d'abord l'édit (palier le plus haut payable, au plus 3 par
- *            cycle ; « best » essaie Archives, Exode puis Ordre) avant de tomber.
+ *            accomplit d'abord le rite de la chute (palier le plus haut payable ;
+ *            « best » prend le plus haut palier payable, tous rites confondus)
+ *            avant de tomber. Un seul rite par chute, sans sursis.
+ *   --bank=0.9 : n'achète plus rien quand la jauge dépasse ce seuil (épargne
+ *            pour un grand rite). Défaut : achète tout.
  *   --players=prudent,cupide,lucide,avare : joueurs à faire courir (défaut :
  *            les trois premiers) ; « avare » pilote sa cause de chute en
  *            profitant toujours des crises du foyer --steer=inequality.
@@ -77,6 +80,9 @@ const BRANCH = Boolean(argv.branch);
 const LEGACY = typeof argv.legacy === "string" ? argv.legacy : "none";
 const EDICT = typeof argv.edict === "string" ? argv.edict : "none";
 const MAX_SEALS_PER_CYCLE = 3;
+// Épargne avant la chute (--bank=0.9) : plus aucun achat quand la jauge dépasse
+// ce seuil, pour se payer un grand rite. Défaut : jamais (achète tout).
+const BANK_AT = Number(argv.bank) || Infinity;
 const STEER = typeof argv.steer === "string" ? argv.steer : "inequality";
 const ONLY_POLICIES = typeof argv.players === "string" ? argv.players.split(",") : null;
 
@@ -265,7 +271,7 @@ function regulate() {
 // --- Boucle de jeu ------------------------------------------------------------------
 async function step(cycleStartVT) {
   if (ONLY) state.recentCrisisIds = NOT_ONLY.slice();
-  buyBuildings(VT - cycleStartVT);
+  if ((state.instability || 0) < BANK_AT) buyBuildings(VT - cycleStartVT);
   regulate();
   tick(TICK);
   VT += TICK;
@@ -290,22 +296,16 @@ function collapseNow(gain) {
   setGamePaused(false); setCollapseInProgress(false);
   return { finalGain, fall: cause, legacy: legacy ? legacy.id : "—" };
 }
-// Crise terminale ouverte : scelle un édit (--edict) plutôt que de tomber,
-// tant que le cycle n'en a pas scellé MAX_SEALS_PER_CYCLE. Rend true si scellé.
+// Crise terminale ouverte : accomplit le rite de la chute (--edict) avant de
+// tomber. Un seul par chute (le jeu refuse le suivant). Rend true si accompli.
 const EDICT_ORDER = { best: ["prepareArchives", "exodus", "holdOrder"] };
 function trySeal(sealsThisCycle) {
   if (EDICT === "none" || !crisisOpen() || sealsThisCycle >= MAX_SEALS_PER_CYCLE) return false;
-  if (argv.debugseal) {
-    const { terminalCrisisCost, rates: rr } = mech;
-    const r = rr();
-    const fmtn = (x) => num(x).toExponential(2);
-    console.log("[seal] stocks food/gold/know", fmtn(state.food), fmtn(state.gold), fmtn(state.knowledge), "| taux /s", fmtn(r.food), fmtn(r.gold), fmtn(r.knowledge), "| coût exode T1", JSON.stringify(Object.fromEntries(Object.entries(terminalCrisisCost("exodus", 0)).map(([k, v]) => [k, fmtn(v)]))));
-  }
-  for (const type of EDICT_ORDER[EDICT] || [EDICT]) {
-    for (let tier = 2; tier >= 0; tier--) {
+  for (let tier = 2; tier >= 0; tier--) {
+    for (const type of EDICT_ORDER[EDICT] || [EDICT]) {
       if (!terminalCrisisReady(type, tier)) continue;
       runTerminalCrisisAction(type, tier);
-      return !crisisOpen();
+      return true;
     }
   }
   return false;

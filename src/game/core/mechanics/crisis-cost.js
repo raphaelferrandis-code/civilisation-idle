@@ -2,9 +2,9 @@
 
 // Coûts de crise & régulation : préparations terminales, coûts des actions de
 // régulation, contexte/déblocage du registre, fatigue, délai d'auto-effondrement.
-// Sommet du DAG : consomme production (rates) et prestige (ruinGain, mythes).
+// Sommet du DAG : consomme production (rates) et prestige (mythes).
 import { state } from '../state.js';
-import { D, toNum } from '../num.js';
+import { D } from '../num.js';
 import { canPayCost } from '../utils.js';
 import {
   CRISIS_COST_SECONDS,
@@ -15,9 +15,9 @@ import {
   AUGURY_DOG_CLEMENCY_CRANS
 } from '../balance.js';
 import { REGULATION_ACTIONS, REGULATION_ACTIONS_BY_ID, POLICY_BY_ID } from '../../data/regulationActions.js';
-import { totalBuildingCount, crisisOpen, currentEraIndex, mapStage, ruinEffectSum } from './shared.js';
+import { crisisOpen, currentEraIndex, mapStage, ruinEffectSum } from './shared.js';
 import { rates } from './production.js';
-import { ruinGain, completedMythCount } from './prestige.js';
+import { completedMythCount } from './prestige.js';
 
 // Fatigue de régulation — multiplicateurs dérivés de state.regulFatigue [0..1].
 // Efficacité : réduit l'effet des actions (jamais sous 1 - FATIGUE_EFFECT_PENALTY).
@@ -68,76 +68,63 @@ export function regulationPolicyUnlocked(id, ctx = regulationContext()) {
   return !p.unlock || p.unlock(ctx);
 }
 
-// Préparations terminales : 3 actions × 3 paliers. Chaque palier coûte un
-// montant flat + un malus de production (%) qui dure jusqu'à l'effondrement,
-// ramène la jauge au niveau cible (75 / 50 / 25 %) et DÉCLARE la cause de la
-// chute (TERMINAL_EDICT_CAUSE).
-// ⚠ ÉQUILIBRE EN SUSPENS (bench-crises.js --edict, 2026-10-03) : au coût actuel
-// (population × « profondeur » 1 + 0.08 × Ruines attendues) les édits ne sont
-// presque jamais payables ; rendus payables (part du stock), sceller rapporte
-// de +40 % à ×4 de Ruines par jour quel que soit l'édit — les malus de Savoir et
-// le bonus d'infrastructure allègent en douce la Complexité. Décision de Raph
-// attendue : « rites de la chute » (pas de sursis, seulement préparation + cause)
-// ou « dernier carré » rééquilibré.
+// LES RITES DE LA CHUTE (décision de Raph, 2026-10-03 : option « A »). En crise
+// terminale, la cité peut accomplir UN rite avant de tomber — sans sursis : la
+// jauge ne redescend pas, aucun malus, aucun frein. Le rite rapporte des Ruines
+// à la chute (préparation, × Préparations funèbres) et DÉCLARE la cause de la
+// chute, donc l'affinité du legs : CHOISIR COMMENT TOMBER.
+// Il se paie en SECONDES DE PRODUCTION de sa ressource : le palier Mesuré est à la
+// portée de tous, le Total demande d'avoir mis de côté avant la chute (un joueur
+// qui dépense tout ne garde que 20 à 70 s de production en stock — mesuré).
+// Pourquoi plus de sursis : rendus payables, les anciens édits (jauge ramenée à
+// 75/50/25 %, malus, frein) rapportaient de +40 % à ×4 de Ruines par jour quel que
+// soit l'édit — les malus de Savoir allégeaient en douce la Complexité ; prolonger
+// un cycle avec un bonus de Ruines est toujours rentable (bench-crises.js --edict).
+const RITE_TIERS = [
+  { prep: 0.10, seconds: 15 },
+  { prep: 0.20, seconds: 45 },
+  { prep: 0.35, seconds: 120 }
+];
 export const TERMINAL_PREP_TIERS = {
-  exodus: [
-    { malus: 0.15, target: 0.75, prep: 0.08, costScale: 1 },
-    { malus: 0.30, target: 0.50, prep: 0.16, costScale: 1.7 },
-    { malus: 0.50, target: 0.25, prep: 0.26, costScale: 2.6 }
-  ],
-  prepareArchives: [
-    { malus: 0.12, target: 0.75, infraBonus: 0.10, prep: 0.12, costScale: 1 },
-    { malus: 0.25, target: 0.50, infraBonus: 0.20, prep: 0.26, costScale: 1.7 },
-    { malus: 0.40, target: 0.25, infraBonus: 0.35, prep: 0.45, costScale: 2.6 }
-  ],
-  // Frein modéré : depuis que les freins mordent aussi sous forte pression
-  // (tick.js), l'ancien 0.25 / 0.45 / 0.65 jusqu'à la chute doublait la moisson
-  // (mesuré, bench-crises.js --edict=holdOrder).
-  holdOrder: [
-    { malus: 0.08, target: 0.75, ruptureSlow: 0.10, prep: 0.05, costScale: 1 },
-    { malus: 0.16, target: 0.50, ruptureSlow: 0.18, prep: 0.10, costScale: 1.7 },
-    { malus: 0.28, target: 0.25, ruptureSlow: 0.28, prep: 0.18, costScale: 2.6 }
-  ]
+  exodus: RITE_TIERS,
+  prepareArchives: RITE_TIERS,
+  holdOrder: RITE_TIERS
 };
-
-// « Choisir sa chute » : sceller un édit DÉCLARE la cause de la chute (au lieu
-// du foyer dominant, cf. events.collapseCause) — donc l'affinité du legs.
-// L'Usure, si c'est elle qui a ouvert la crise, reste la cause.
+// Ressource dont chaque rite consomme des secondes de production.
+export const TERMINAL_RITE_RESOURCE = {
+  exodus: "food",
+  prepareArchives: "knowledge",
+  holdOrder: "gold"
+};
+// Cause de chute DÉCLARÉE par chaque rite (au lieu du foyer dominant, cf.
+// events.collapseCause) — donc l'affinité du legs. Si c'est l'Usure qui a
+// ouvert la crise, elle reste la cause.
 export const TERMINAL_EDICT_CAUSE = {
   exodus: "famine",          // on fuit les champs → le Grain
-  prepareArchives: "time",   // on se consacre à la mémoire → la Mémoire
+  prepareArchives: "time",   // on grave la mémoire → la Mémoire
   holdOrder: "rupture"       // on verrouille la cité → l'Ordre
 };
 
-
 export function terminalCrisisCost(type, tier = 0) {
-  const extensionScale = 1 + (state.crisisExtensions || 0) * 0.55;
-  const depthScale = 1 + Math.max(0, toNum(ruinGain()) - 1) * 0.08;
-  const tierScale = TERMINAL_PREP_TIERS[type]?.[tier]?.costScale || 1;
+  const resource = TERMINAL_RITE_RESOURCE[type] || "gold";
+  const seconds = TERMINAL_PREP_TIERS[type]?.[tier]?.seconds || 0;
   // « Préparations funèbres » (terminalPrepDiscount) : mourir proprement coûte moins cher.
   const prepDiscount = 1 - Math.min(0.6, ruinEffectSum("terminalPrepDiscount"));
-  // Borné : un ruinGain au-delà du float donnerait Infinity, que Decimal.mul
-  // ne sait pas représenter proprement.
-  const scale = Math.min(Number.MAX_VALUE, extensionScale * depthScale * tierScale * prepDiscount);
-  if (type === "prepareArchives") {
-    return {
-      knowledge: D(state.population).mul(0.045).add(totalBuildingCount() * 18).max(90).mul(scale),
-      gold: D(state.population).mul(0.025).max(50).mul(scale)
-    };
-  }
-  if (type === "exodus") {
-    return { food: D(state.population).mul(0.55).max(120).mul(scale) };
-  }
-  return {
-    gold: D(state.population).mul(0.12).max(120).mul(scale),
-    knowledge: D(Math.max(60, totalBuildingCount() * 10)).mul(scale),
-    food: D(state.population).mul(0.18).max(80).mul(scale)
-  };
+  return { [resource]: D(rates()[resource]).max(0).mul(seconds * prepDiscount).max(1) };
+}
+
+// Un seul rite par chute : vrai dès qu'un rite a été accompli dans cette crise.
+export function terminalRiteSealed() {
+  return Object.values(state.terminalPreparations?.used || {}).some(Boolean);
 }
 
 export function terminalCrisisReady(type, tier = 0) {
   if (!crisisOpen()) return false;
-  if (state.terminalPreparations?.used?.[type]) return false;
+  if (terminalRiteSealed()) return false;
+  if (!TERMINAL_PREP_TIERS[type]?.[tier]) return false;
+  // Pas de scribes, pas d'archives : sans production de sa ressource, le rite
+  // coûterait 1 (plancher) — +35 % de Ruines gratuits avant l'ère du Savoir.
+  if (!D(rates()[TERMINAL_RITE_RESOURCE[type] || "gold"]).gt(0)) return false;
   return canPayCost(terminalCrisisCost(type, tier));
 }
 

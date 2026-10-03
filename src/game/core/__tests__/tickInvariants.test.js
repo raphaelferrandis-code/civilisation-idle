@@ -57,24 +57,24 @@ describe("tick() — invariants de bornes", () => {
     }
   });
 
-  // Les freins de montée (politiques permanentes, édit « Maintenir l'ordre »)
-  // promettent « ralentit la montée de X % ». Appliqués AVANT le plafond de
+  // Les freins de montée (politiques permanentes) promettent « ralentit la
+  // montée de X % ». Appliqués AVANT le plafond de
   // vitesse, ils ne servaient à rien dès que la jauge montait déjà au plafond —
   // c'est-à-dire précisément sous forte pression. Ils doivent mordre aussi là.
   it("un frein de montée ralentit la jauge même quand elle monte au plafond", () => {
-    const riseFrom0 = (slow) => {
+    const riseFrom0 = (policies) => {
       setState(hydrateState(MID_GAME_FIXTURE));
       state.crisisThresholds = Object.fromEntries(CRISIS_EVENTS.map((e) => [e.id, true]));
       state.instability = 0;
-      state.terminalPreparations = { ...(state.terminalPreparations || {}), ruptureSlow: slow };
+      state.activePolicies = policies;
       invalidateRenderCache("all");
       tick(1);
       return state.instability;
     };
-    const free = riseFrom0(0);
+    const free = riseFrom0([]);
     // Garde du scénario : sans frein, la jauge monte AU PLAFOND (cas qui était cassé).
     expect(free).toBeCloseTo(INSTABILITY_MAX_RISE_PER_SEC, 9);
-    expect(riseFrom0(0.5)).toBeCloseTo(free * 0.5, 9);
+    expect(riseFrom0(["curfew"])).toBeCloseTo(free * 0.75, 9); // Couvre-feu : −25 %
   });
 
   it("dt=0 : aucune progression temporelle (ressources inchangées)", () => {

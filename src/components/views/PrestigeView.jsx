@@ -10,8 +10,10 @@ import {
   crisisOpen,
   terminalCrisisCost,
   terminalCrisisReady,
+  terminalRiteSealed,
   TERMINAL_PREP_TIERS,
   TERMINAL_EDICT_CAUSE,
+  TERMINAL_RITE_RESOURCE,
   has,
   autoCollapseDelay
 } from '../../game/core/mechanics.js';
@@ -21,6 +23,12 @@ import {
 } from '../../game/core/actions.js';
 import { isMythEffectActive } from '../../game/data/myths.js';
 import { FAVORED_CAUSE_LABELS } from '../../game/data/epitaphs.js';
+
+const RITE_RESOURCE_LABEL = {
+  food: { fr: "Nourriture", en: "Food" },
+  knowledge: { fr: "Savoir", en: "Knowledge" },
+  gold: { fr: "Trésor", en: "Treasury" }
+};
 
 const capitalize = (text) => (text ? text.charAt(0).toUpperCase() + text.slice(1) : "");
 import { costLabel } from '../../game/core/utils.js';
@@ -40,7 +48,6 @@ export default function PrestigeView() {
   const firstGame = useGameState(isFirstGame);
   useGameState(s => s.activeMythId);
   const history = useGameState(s => s.history);
-  const crisisExtensions = useGameState(s => s.crisisExtensions);
   const terminalPreparations = useGameState(s => s.terminalPreparations);
   // L'auto-effondrement « rupture100 » est la SEULE configuration où le moteur
   // applique le délai de grâce après l'annonce de crise (cf. checkAutoCollapse,
@@ -153,57 +160,38 @@ export default function PrestigeView() {
       iconName: "prep/exode",
       title: tr({ fr: "Organiser l'exode", en: "Organize the exodus" }),
       desc: tr({
-        fr: "Des familles quittent la cité : moins de bras aux champs, mais la pression retombe.",
-        en: "Families leave the city: fewer hands in the fields, but the pressure eases."
-      }),
-      tierChips: (t) => [
-        { label: tr({ fr: `Nourriture −${Math.round(t.malus * 100)}%`, en: `Food −${Math.round(t.malus * 100)}%` }), kind: "cost" }
-      ]
+        fr: "Les familles partent avec les réserves de grain : la cité tombera par la famine, ses enfants vivront ailleurs. Se paie en Nourriture.",
+        en: "Families leave with the grain stores: the city will fall by famine, its children will live elsewhere. Paid in Food."
+      })
     },
     {
       type: "prepareArchives",
       iconName: "prep/archives",
       title: tr({ fr: "Préparer les archives", en: "Prepare the archives" }),
       desc: tr({
-        fr: "Scribes et ateliers se consacrent à la mémoire : savoir et trésor ralentissent, l'infrastructure profite des plans consignés.",
-        en: "Scribes and workshops devote themselves to memory: knowledge and treasury slow down, while infrastructure benefits from the recorded plans."
-      }),
-      tierChips: (t) => [
-        { label: tr({ fr: `Savoir & Trésor −${Math.round(t.malus * 100)}%`, en: `Knowledge & Treasury −${Math.round(t.malus * 100)}%` }), kind: "cost" },
-        { label: tr({ fr: `Infrastructure +${Math.round((t.infraBonus || 0) * 100)}%`, en: `Infrastructure +${Math.round((t.infraBonus || 0) * 100)}%` }), kind: "gain" }
-      ]
+        fr: "Les scribes gravent tout le savoir de la cité : elle s'éteindra par l'usure du temps, et rien ne sera oublié. Se paie en Savoir.",
+        en: "The scribes engrave all the city's knowledge: it will fade by the wear of time, and nothing will be forgotten. Paid in Knowledge."
+      })
     },
     {
       type: "holdOrder",
       iconName: "prep/ordre",
       title: tr({ fr: "Maintenir l'ordre", en: "Maintain order" }),
       desc: tr({
-        fr: "La garde verrouille la cité : toute l'économie ralentit, mais la rupture monte plus lentement.",
-        en: "The guard locks down the city: the whole economy slows, but Rupture rises more slowly."
-      }),
-      tierChips: (t) => [
-        { label: tr({ fr: `Toute production −${Math.round(t.malus * 100)}%`, en: `All production −${Math.round(t.malus * 100)}%` }), kind: "cost" },
-        { label: tr({ fr: `Montée de Rupture −${Math.round((t.ruptureSlow || 0) * 100)}%`, en: `Rupture rise −${Math.round((t.ruptureSlow || 0) * 100)}%` }), kind: "gain" }
-      ]
+        fr: "La garde tient les rues jusqu'au bout : la cité tombera sous la Rupture, mais en rangs serrés. Se paie en Trésor.",
+        en: "The guard holds the streets to the end: the city will fall to Rupture, but in close ranks. Paid in Treasury."
+      })
     }
   ];
-
-  const activeMaluses = [];
-  if ((tp.foodMalus || 0) > 0) activeMaluses.push({ label: tr({ fr: `Nourriture −${Math.round(tp.foodMalus * 100)}%`, en: `Food −${Math.round(tp.foodMalus * 100)}%` }), kind: "cost" });
-  if ((tp.goldMalus || 0) > 0) activeMaluses.push({ label: tr({ fr: `Trésor −${Math.round(tp.goldMalus * 100)}%`, en: `Treasury −${Math.round(tp.goldMalus * 100)}%` }), kind: "cost" });
-  if ((tp.knowledgeMalus || 0) > 0) activeMaluses.push({ label: tr({ fr: `Savoir −${Math.round(tp.knowledgeMalus * 100)}%`, en: `Knowledge −${Math.round(tp.knowledgeMalus * 100)}%` }), kind: "cost" });
-  if ((tp.infraBonus || 0) > 0) activeMaluses.push({ label: tr({ fr: `Infrastructure +${Math.round(tp.infraBonus * 100)}%`, en: `Infrastructure +${Math.round(tp.infraBonus * 100)}%` }), kind: "gain" });
-  if ((tp.ruptureSlow || 0) > 0) activeMaluses.push({ label: tr({ fr: `Montée de Rupture −${Math.round(tp.ruptureSlow * 100)}%`, en: `Rupture rise −${Math.round(tp.ruptureSlow * 100)}%` }), kind: "gain" });
 
   // ── Mode crise : jauge héros PLEINE à 100 % (échelle simple — l'échelle
   // étendue « avec zone de pression » lisait comme une jauge pas remplie),
   // crans aux cibles des édits, fantôme de prévisualisation au survol. ──
   const wearCrisis = isCrisisActive && (timeWear || 0) >= 1 && instability < 1;
-  const gaugeName = wearCrisis ? tr({ fr: "Usure", en: "Wear" }) : tr({ fr: "Rupture", en: "Rupture" });
   const factors = ruinGainFactors();
   const journal = (history || []).slice(-5);
   // Préviz de moisson : au survol d'un palier, l'odomètre roule vers le total
-  // qu'apporterait cet édit (et revient au départ du survol).
+  // qu'apporterait ce rite (et revient au départ du survol).
   const previewGain = hoverTarget ? ruinGainWithPrep(hoverTarget.prep) : null;
 
   return (
@@ -235,9 +223,6 @@ export default function PrestigeView() {
                   {...tipProps(null, `${Math.round(m * 100)} %`)}
                 ></span>
               ))}
-              {hoverTarget != null && (
-                <span className="barometer-target-ghost ghost-preview" style={{ left: `${hoverTarget.target * 100}%` }}></span>
-              )}
             </div>
           </div>
         </div>
@@ -256,8 +241,8 @@ export default function PrestigeView() {
               <h2>{tr({ fr: "Chute & Transmission", en: "Fall & Transmission" })}</h2>
               <p className="crisis-intro">
                 {tr({
-                  fr: "Chaque édit ramène la jauge au palier choisi et relance la cité. Coût immédiat, malus jusqu'à l'effondrement, plus de Ruines à la chute.",
-                  en: "Each edict brings the gauge back to the chosen tier and restarts the city. Immediate cost, penalties until the collapse, more Ruins at the fall."
+                  fr: "Avant de tomber, la cité peut accomplir un rite — un seul. Il rapporte des Ruines et décide de la cause de la chute, donc du legs qui aura l'affinité. Les grands rites demandent d'avoir mis de côté.",
+                  en: "Before it falls, the city may perform one rite — only one. It yields Ruins and decides the cause of the fall, and so which legacy gets the affinity. The great rites require savings."
                 })}
               </p>
             </div>
@@ -269,6 +254,7 @@ export default function PrestigeView() {
                 <div className="crisis-edicts">
                   {prepDefs.map((def) => {
                     const used = Boolean(tp.used?.[def.type]);
+                    const riteDone = terminalRiteSealed();
                     return (
                       <section className={`crisis-edict${used ? " edict-sealed" : ""}`} key={def.type}>
                         {/* La description vit en tooltip (retirée de l'écran — dé-boxing). */}
@@ -279,14 +265,14 @@ export default function PrestigeView() {
                         {/* « Choisir sa chute » : l'édit déclare la cause, donc l'affinité du legs. */}
                         <span
                           className="effect-chip is-info edict-cause"
-                          {...tipProps(null, tr({ fr: "Sceller cet édit décide de la cause de la chute, et donc du legs qui aura l'affinité.", en: "Sealing this edict decides the cause of the fall, and so which legacy gets the affinity." }))}
+                          {...tipProps(null, tr({ fr: "Accomplir ce rite décide de la cause de la chute, et donc du legs qui aura l'affinité.", en: "Performing this rite decides the cause of the fall, and so which legacy gets the affinity." }))}
                         >
                           {capitalize(FAVORED_CAUSE_LABELS[TERMINAL_EDICT_CAUSE[def.type]])}
                         </span>
                         {used ? (
                           <p className="edict-sealed-note">
                             <PixelIcon name="prep/sceau" className="edict-seal" />
-                            <span>{tr({ fr: "Édit scellé, en vigueur jusqu'à l'effondrement.", en: "Edict sealed, in effect until the collapse." })}</span>
+                            <span>{tr({ fr: "Rite accompli : la cité peut tomber.", en: "Rite performed: the city may fall." })}</span>
                           </p>
                         ) : (
                           <div className="edict-tiers">
@@ -295,26 +281,22 @@ export default function PrestigeView() {
                                 key={i}
                                 className="edict-tier"
                                 disabled={!terminalCrisisReady(def.type, i)}
-                                title={!terminalCrisisReady(def.type, i) ? tr({ fr: "Préparation non disponible pour l'instant", en: "Preparation not available yet" }) : undefined}
+                                title={terminalCrisisReady(def.type, i) ? undefined : riteDone
+                                  ? tr({ fr: "Un seul rite par chute.", en: "Only one rite per fall." })
+                                  : tr({ fr: `Pas assez de ${RITE_RESOURCE_LABEL[TERMINAL_RITE_RESOURCE[def.type]] ? tr(RITE_RESOURCE_LABEL[TERMINAL_RITE_RESOURCE[def.type]]) : ""} en réserve.`, en: "Not enough in reserve." })}
                                 onClick={() => { setHoverTarget(null); runTerminalCrisisAction(def.type, i); }}
-                                onMouseEnter={() => setHoverTarget({ target: t.target, prep: t.prep })}
+                                onMouseEnter={() => setHoverTarget({ prep: t.prep })}
                                 onMouseLeave={() => setHoverTarget(null)}
-                                onFocus={() => setHoverTarget({ target: t.target, prep: t.prep })}
+                                onFocus={() => setHoverTarget({ prep: t.prep })}
                                 onBlur={() => setHoverTarget(null)}
                               >
                                 <span className="edict-tier-row">
                                   <strong>{tierNames[i]}</strong>
-                                  <span className="edict-tier-target">{gaugeName} → {Math.round(t.target * 100)} %</span>
                                   <span className="effect-chip is-harvest">
                                     {tr({ fr: `Ruines +${Math.round(boostedPrep(t.prep) * 100)} %`, en: `Ruins +${Math.round(boostedPrep(t.prep) * 100)}%` })}
                                   </span>
                                 </span>
                                 <span className="edict-tier-sub">
-                                  <span className="effect-chips">
-                                    {def.tierChips(t).map((chip) => (
-                                      <span key={chip.label} className={`effect-chip is-${chip.kind}`}>{chip.label}</span>
-                                    ))}
-                                  </span>
                                   <span className="action-cost">{costLabel(terminalCrisisCost(def.type, i))}</span>
                                 </span>
                               </button>
@@ -326,25 +308,6 @@ export default function PrestigeView() {
                   })}
                 </div>
 
-                {(crisisExtensions || 0) > 0 && (
-                  <p className="edict-escalation">
-                    {tr({
-                      fr: `Chaque édit scellé renchérit les suivants : prochains coûts ×${(1 + crisisExtensions * 0.55).toFixed(2)}.`,
-                      en: `Each sealed edict raises the next prices: upcoming costs ×${(1 + crisisExtensions * 0.55).toFixed(2)}.`
-                    })}
-                  </p>
-                )}
-
-                {activeMaluses.length > 0 && (
-                  <div className="prep-active-maluses">
-                    <span>{tr({ fr: "En vigueur jusqu'à l'effondrement :", en: "In effect until collapse:" })}</span>
-                    <span className="effect-chips">
-                      {activeMaluses.map((chip) => (
-                        <span key={chip.label} className={`effect-chip is-${chip.kind}`}>{chip.label}</span>
-                      ))}
-                    </span>
-                  </div>
-                )}
               </div>
 
               <aside className="collapse-altar">
