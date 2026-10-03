@@ -110,6 +110,113 @@ export function drawDraftIso(ctx, x, yFeet, z, animal, v) {
   return true;
 }
 
+// ── LE POINT DE TRI D'UN VÉHICULE (retour Raph, 2026-10-03 : un passant debout sur un
+// chariot) ─────────────────────────────────────────────────────────────────────────
+// La carrosserie est dessinée CENTRÉE sur l'ancre : son contact au sol tombe plus bas à
+// l'écran, et c'est là que le véhicule doit se trier (isoLiveCollect déplace sa clé de
+// `h` sur chaque axe monde). Ce décalage était un 0,30 × la taille de BASE du type :
+// faux deux fois pour les véhicules d'époque, DESSINÉS à leur propre taille (1,3 à
+// 2,4 contre 0,8 à 1,4) et dont le contact mesuré va de 0,26 à 0,43 du cadre selon la
+// vue. Leur clé restait en arrière : un passant qui marchait juste derrière la caisse
+// se dessinait par-dessus. Le contact est désormais MESURÉ sur l'image servie (ligne
+// de sol roues/sabots au centre de l'encre, même enveloppe que l'ombre 'slope'), à la
+// taille réellement dessinée, et posé sur le véhicule (`v._sortH`) pour la collecte de
+// la frame suivante. Repli tant qu'il n'a jamais été dessiné : 0,30 × la bonne taille.
+const _contactF = new WeakMap();
+function vehContactF(img, fh) {
+  let m = _contactF.get(img);
+  if (m === undefined) {
+    m = null;
+    try {
+      if (typeof document !== 'undefined' && fh > 0) {
+        const c = document.createElement('canvas');
+        c.width = fh; c.height = fh;
+        const g = c.getContext('2d', { willReadFrequently: true });
+        g.drawImage(img, 0, 0, fh, fh, 0, 0, fh, fh);
+        const d = g.getImageData(0, 0, fh, fh).data;
+        m = contactFraction((x, y) => d[(y * fh + x) * 4 + 3], fh);
+      }
+    } catch { m = null; }
+    _contactF.set(img, m);
+  }
+  return m;
+}
+// Pure (testée) : fraction du cadre (0 = haut) où tombe le sol sous le CENTRE de l'encre,
+// sur l'enveloppe basse des pieds de colonne proches du bas (cf. slopeGround).
+export function contactFraction(alpha, fh) {
+  const bottom = new Int32Array(fh).fill(-1);
+  for (let x = 0; x < fh; x += 1) for (let y = fh - 1; y >= 0; y -= 1) if (alpha(x, y) > 16) { bottom[x] = y; break; }
+  let yb = -1, xa = fh, xb = -1;
+  for (let x = 0; x < fh; x += 1) if (bottom[x] >= 0) { if (bottom[x] > yb) yb = bottom[x]; if (x < xa) xa = x; xb = x; }
+  if (yb < 0) return null;
+  const hull = [];
+  for (let x = 0; x < fh; x += 1) {
+    if (bottom[x] < 0 || bottom[x] < yb - 0.35 * fh) continue;
+    const p = [x, bottom[x] + 1];
+    while (hull.length >= 2) {
+      const a = hull[hull.length - 2], b = hull[hull.length - 1];
+      if ((b[0] - a[0]) * (p[1] - a[1]) - (b[1] - a[1]) * (p[0] - a[0]) >= 0) hull.pop(); else break;
+    }
+    hull.push(p);
+  }
+  const xc = (xa + xb) / 2;
+  let g = hull[hull.length - 1][1];
+  if (xc <= hull[0][0]) g = hull[0][1];
+  else for (let i = 1; i < hull.length; i += 1) {
+    const a = hull[i - 1], b = hull[i];
+    if (xc <= b[0]) { g = a[1] + (b[1] - a[1]) * (xc - a[0]) / (b[0] - a[0]); break; }
+  }
+  return g / fh;
+}
+// Décalage de tri (px monde, sur chaque axe) d'un véhicule, lu par isoLiveCollect.
+const vehDrawSize = (v) => {
+  const era = v.skin ? eraVehSpec(v.type, v.skin) : null;
+  return era ? era.size : (VEH_SIZES[v.type] || 0);
+};
+export function vehSortLift(v, T) {
+  if (v._sortH != null) return v._sortH;
+  return T * 0.30 * vehDrawSize(v) * VEH_SCALE;
+}
+// Demi-largeur d'encre d'un véhicule pour le recouvrement de colonne (isoUnitDepthEx) :
+// ~40 % de la boîte dessinée (l'encre ne la remplit pas jusqu'aux bords).
+export function vehSortWide(v, T) {
+  return 0.4 * T * vehDrawSize(v) * VEH_SCALE;
+}
+
+// ── PASSANTS AUTOUR D'UN VÉHICULE : ordre LOCAL ──────────────────────────────────
+// Une seule clé par véhicule ne peut pas être juste sur toute sa longueur : vu en
+// biais, son sol monte d'un bout à l'autre (un chariot d'époque fait 1,3 tuile, un
+// tram 2,4). Un passant qui recoupe le véhicule à l'écran est donc rangé par rapport
+// à la ligne de sol du véhicule À SA COLONNE : pieds plus bas = devant (dessiné
+// après), plus haut = derrière (dessiné avant). La ligne : le segment au sol du
+// véhicule, centré sur son point de tri, le long de son axe de marche. Même règle
+// que l'audit du 2026-10-03 (avant : ~6 % des recouvrements mal rangés, dont des
+// passants debout sur les chariots). Molette : __vehOrder(false) pour comparer.
+export const VEH_ORDER = { on: true };
+if (typeof window !== 'undefined') window.__vehOrder = (on) => { VEH_ORDER.on = on !== false; return VEH_ORDER.on; };
+export function orderUnitsAroundVehicles(items, T) {
+  if (!VEH_ORDER.on) return;
+  let vs = null;
+  for (const it of items) if (it.kind === 'veh' && it.v && it.v.type !== 'basket') (vs || (vs = [])).push(it);
+  if (!vs) return;
+  const eps = T * 0.001, hp = T * 0.8;          // hauteur d'un passant, en unités de profondeur
+  for (const iv of vs) {
+    const v = iv.v, lh = vehSortWide(v, T);
+    if (!(lh > 0)) continue;
+    const hv = 3 * lh;                          // hauteur du véhicule au-dessus de son sol
+    const cx = iv.gwx, cy = iv.gwy, sc = cx - cy, alongX = v.dir === 0 || v.dir === 1;
+    for (const it of items) {
+      if (it.kind !== 'cit' && it.kind !== 'riot') continue;
+      const s = it.gwx - it.gwy;
+      if (s < sc - lh || s > sc + lh) continue;
+      const dp = it.gwx + it.gwy;
+      const dseg = alongX ? s + 2 * cy : 2 * cx - s;   // profondeur du sol du véhicule à cette colonne
+      if (dp < dseg - hv || dp > dseg + hp) continue;  // pas de recouvrement à l'écran
+      if (dp > dseg) { if (it.d <= iv.d) it.d = iv.d + eps; } else if (it.d >= iv.d) it.d = iv.d - eps;
+    }
+  }
+}
+
 export function drawIsoVehicle(ctx, v, now, z) {
   const T = CM.TILE, s = T * z;
   const lo = vehicleLaneOffset(v, T);              // offset en px MONDE (s = TILE)
@@ -181,6 +288,9 @@ export function drawIsoVehicle(ctx, v, now, z) {
     if (half && half.complete && half.naturalWidth > 0 && dh <= fh * 0.7) { img = half; fh = half.naturalHeight; }
   }
   const nf = Math.max(1, Math.round((img.naturalWidth || img.width || fh) / fh));
+  // Point de tri de la frame suivante : contact MESURÉ, à la taille dessinée (cf. vehSortLift).
+  const cf = vehContactF(img, fh);
+  if (cf != null) v._sortH = (cf - 0.5) * T * size * VEH_SCALE;
   // Diagonales : frame par DISTANCE parcourue (odomètre v.rollDist — anti-
   // patinage, molette __vehStride en fraction de tuile/frame). Cardinales :
   // cadence temporelle legacy inchangée.
@@ -202,6 +312,9 @@ export function drawIsoVehicle(ctx, v, now, z) {
     const bx = snapU(p.x - dw / 2), by = snapU(p.y - dh / 2);
     drawSunShadow(ctx, img, bx, by, dw, dh, fr * fh, 0, fh, fh, 'slope');
     ctx.drawImage(img, fr * fh, 0, fh, fh, bx, by, dw, dh);
+    // Sonde du tri (globalThis.__sortAudit, cf. isoRenderer) : la boîte réellement
+    // dessinée, pour l'audit « un passant debout sur un chariot ».
+    if (globalThis.__sortAudit && CM._vehBoxes) CM._vehBoxes.push({ v, img, sx: fr * fh, fh, bx, by, dw, dh });
   };
   // Attelage : bête(s) de trait DEVANT dans le sens de marche (monde → projeté).
   const pull = era && era.team ? null : VEH_PULL[v.type];
@@ -478,8 +591,14 @@ function isoUnitFiches() {
 // l'unité (elle sera dessinée AVANT lui, donc recouverte par son sprite s'il est assez
 // haut) — c'est le signal de la passe SILHOUETTE FANTÔME. Objet de sortie PARTAGÉ
 // (zéro alloc, ~600 appels/frame) : à consommer immédiatement, ne pas retenir.
+// `wide` (px monde d'écran, défaut 0) : demi-largeur de l'unité elle-même, ajoutée au
+// test de recouvrement de colonne. Un passant est un point ; un VÉHICULE est large
+// (jusqu'à 2,4 tuiles) : testé sur la seule colonne de son centre, il n'était pas
+// remonté devant un bâtiment que son flanc recouvrait, alors que le passant juste
+// derrière lui l'était — et se dessinait par-dessus la caisse (audit du 2026-10-03,
+// un passant à 30 px derrière l'omnibus).
 const _depthOut = { d: 0, hidden: false };
-export function isoUnitDepthEx(wx, wy) {
+export function isoUnitDepthEx(wx, wy, wide = 0) {
   const d = wx + wy;
   _depthOut.d = d; _depthOut.hidden = false;
   if (!isoUnitDepthFlag.on) return _depthOut;
@@ -496,7 +615,7 @@ export function isoUnitDepthEx(wx, wy) {
     for (let cx = gx - 1; cx <= gx + 1; cx += 1) {
       const b = F.get(cx * 10000 + cy);
       if (!b) continue;
-      if (Math.abs(sxScr - b.ax) > b.halfW) continue;   // pas de recouvrement de colonne
+      if (Math.abs(sxScr - b.ax) > b.halfW + wide) continue;   // pas de recouvrement de colonne
       if (d >= b.key) continue;                      // déjà dessinée après lui
       if (wy >= b.y1 - T * 0.02 || wx >= b.x1 - T * 0.02) {
         if (b.key + T * 0.02 > lift) lift = b.key + T * 0.02;   // devant : passe au-dessus du mur

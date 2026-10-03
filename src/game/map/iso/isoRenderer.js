@@ -201,6 +201,8 @@ function drawIsoWorldInner(dt, now) {
   // sur un disque au sol, qui rate une merveille qui lève — l'Œil flotte.
   // Jamais null, même en LOD : une merveille reste dessinée sprite par sprite.
   CM._wonderBoxes = [];
+  // Boîtes des véhicules dessinés, pour la sonde du tri seulement (coût nul éteinte).
+  CM._vehBoxes = globalThis.__sortAudit ? [] : null;
   refreshSeasonPalette();
   // Sim : mêmes mises à jour que le pipeline legacy (les agents vivent).
   updateCitizens(dt);

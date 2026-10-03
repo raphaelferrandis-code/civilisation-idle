@@ -15,7 +15,7 @@
 // l'englobante redeviennent des locales à leur nom, si bien que les 386 lignes sont
 // reprises SANS UNE LIGNE DE CHANGÉE. Aucune n'est réassignée — vérifié avant la coupe.
 import { state } from '../../core/state.js';
-import { VEH_SCALE, VEH_SIZES, vehicleLaneOffset } from '../agents.js';
+import { vehicleLaneOffset } from '../agents.js';
 import { CM, CM_WONDERS, cmEngineHomeHidden, cmHash, cmWonderActiveIds } from '../layout.js';
 import { pixelHouseReady } from '../pixelHouses.js';
 import { WINTER } from '../seasonMode.js';
@@ -38,7 +38,7 @@ import {
 } from './isoStreet.js';
 import { STREET_KIT, streetKitFor } from './streetKits.js';
 import { STREET_PROPS } from './isoStreetProps.js';
-import { isoUnitDepth, isoUnitDepthEx } from './isoUnits.js';
+import { isoUnitDepth, isoUnitDepthEx, vehSortLift, vehSortWide, orderUnitsAroundVehicles } from './isoUnits.js';
 import { WILD_THIN_UNIT, isoWildForest } from './isoWildForest.js';
 import { depthOf } from './projection.js';
 import { districtMassTiles } from './isoDistricts.js';
@@ -511,9 +511,10 @@ export function collectIsoItems(bake, now) {
       if (v.type === 'drone') continue;
       const lo = vehicleLaneOffset(v, T);
       if (!dvVis(v.x + lo.x, v.y + lo.y, v.x + lo.x, v.y + lo.y)) continue;
-      const h = T * 0.30 * (VEH_SIZES[v.type] || 0) * VEH_SCALE;
+      // Contact au sol MESURÉ sur l'image servie, à la taille dessinée (isoUnits).
+      const h = vehSortLift(v, T);
       { const gwx = v.x + lo.x + h, gwy = v.y + lo.y + h;
-        const dx = isoUnitDepthEx(gwx, gwy); const it = pushItem(); it.d = dx.d; it.ghost = dx.hidden; it.gwx = gwx; it.gwy = gwy; it.kind = 'veh'; it.v = v; }
+        const dx = isoUnitDepthEx(gwx, gwy, vehSortWide(v, T)); const it = pushItem(); it.d = dx.d; it.ghost = dx.hidden; it.gwx = gwx; it.gwy = gwy; it.kind = 'veh'; it.v = v; }
     }
   }
   // ÉMEUTE : émeutiers dans le TRI PEINTRE (clé pieds + offsets de file, comme
@@ -527,5 +528,8 @@ export function collectIsoItems(bake, now) {
         const dx = isoUnitDepthEx(gwx, gwy); items.push({ d: dx.d, ghost: dx.hidden, gwx, gwy, kind: 'riot', p }); }
     }
   }
+  // Passants et émeutiers qui recoupent un véhicule : rangés selon le sol du véhicule
+  // à leur colonne (une seule clé ne vaut pas sur toute sa longueur, cf. isoUnits).
+  orderUnitsAroundVehicles(items, T);
   return items;
 }
