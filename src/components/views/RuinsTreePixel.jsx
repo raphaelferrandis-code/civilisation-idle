@@ -447,6 +447,9 @@ export default function RuinsTreePixel() {
       status,
       left: toLeft(n.x),
       top: toTop(n.y),
+      sx: n.x,
+      sy: n.y,
+      k,
       bought: justBought === n.id,
       conflict: conflictIds.has(n.id),
       dim: !!focus && focus !== n.branch,
@@ -478,6 +481,9 @@ export default function RuinsTreePixel() {
       status,
       left: toLeft(d.x),
       top: toTop(d.y),
+      sx: d.x,
+      sy: d.y,
+      k,
       bought: justBought === d.id,
       conflict: conflictIds.has(d.id),
       dim: !!focus && focus !== d.branch,
@@ -502,11 +508,16 @@ export default function RuinsTreePixel() {
   for (const id of availIds) {
     for (let k2 = id; k2 && k2 !== "hub" && SAP_PATHS[k2] && !lit.has(k2); k2 = SAP_PATHS[k2][0]) pending.add(k2);
   }
+  // Lueurs au pixel sous les nœuds : la matière sous un nœud acquis, l'or sous un nœud à prendre.
+  const marks = allVMs
+    .filter((vm) => vm.status === "purchased" || vm.status === "available")
+    .map((vm) => ({ x: vm.sx, y: vm.sy, branch: vm.branch, kind: vm.status === "available" ? "avail" : "lit" }));
   useEffect(() => {
     const st = sapStRef.current;
     st.lit = lit;
     st.pending = pending;
     st.focus = focus;
+    st.marks = marks;
   });
 
   // Registre : une plaque par branche.

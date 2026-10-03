@@ -90,28 +90,27 @@
   pointer-events: none;
 }
 
-/* ── Les médaillons ─────────────────────────────────────────────────────────
-   Un disque sombre, un anneau dur, l'emblème à 1:1 (@32). L'OR ne sert qu'à
-   « à prendre » ; l'anneau d'un nœud acquis prend la couleur de sa matière. */
+/* ── Les nœuds ──────────────────────────────────────────────────────────────
+   Plus de médaillon : l'EMBLÈME, repeint dans la matière de sa branche
+   (atlas emblems.png, une ligne par état : acquis, à prendre — liseré d'or —,
+   éteint, verrouillé), posé à même le bois. Sa lueur (acquis, à prendre) est
+   peinte AU PIXEL dans le canvas de la sève, pas en filtre CSS. Taille et
+   position du glyphe viennent de TreeNode (zoom ×2, bourgeon ×1). */
 .rtp-stage .rt-node {
-  --d: calc(44px * var(--rt-k, 1));
-  --ring: #3a2e2c;
-  --halo: transparent;
-  --fill: #0e0b0c;
+  --d: calc(46px * var(--rt-k, 1));
   position: absolute;
   width: var(--d);
   height: var(--d);
   min-height: 0;
   margin: calc(var(--d) / -2) 0 0 calc(var(--d) / -2);
   padding: 0;
-  display: grid;
-  place-items: center;
+  display: block;
   pointer-events: auto;
   cursor: default;
   transition: opacity 160ms linear;
 }
 /* La règle GLOBALE des boutons (base.css) teinte le fond, pose une ombre et
-   déplace le bouton au survol / à l'appui : un médaillon n'en veut rien. */
+   déplace le bouton au survol / à l'appui : un nœud n'en veut rien. */
 .rtp-stage .rt-node,
 .rtp-stage .rt-node:hover:not(:disabled),
 .rtp-stage .rt-node:active:not(:disabled) {
@@ -120,23 +119,17 @@
   box-shadow: none;
   transform: none;
 }
-.rt-disc {
+.rt-glyph {
   position: absolute;
-  inset: 0;
-  border-radius: 50%;
-  background: var(--fill);
-  box-shadow: 0 0 0 2px #040304, 0 0 0 4px var(--ring), 0 0 0 6px var(--halo);
-}
-.rtp-stage .rt-emblem {
-  position: relative;
-  width: calc(32px * var(--rt-k, 1));
-  height: calc(32px * var(--rt-k, 1));
+  left: 50%;
+  top: 50%;
+  background-repeat: no-repeat;
   image-rendering: pixelated;
   pointer-events: none;
 }
 .rtp-stage .rt-crown {
   position: absolute;
-  top: calc(-14px * var(--rt-k, 1));
+  top: calc(-16px * var(--rt-k, 1));
   left: 50%;
   width: 16px;
   height: 16px;
@@ -144,51 +137,21 @@
   image-rendering: pixelated;
   pointer-events: none;
 }
-.rtp-stage .rt-node--dogma { --d: calc(42px * var(--rt-k, 1)); }
-.rtp-stage .rt-node--dogma .rt-disc { inset: 14%; border-radius: 0; transform: rotate(45deg); }
-.rtp-stage .rt-capstone { --d: calc(56px * var(--rt-k, 1)); }
+.rtp-stage .rt-capstone { --d: calc(60px * var(--rt-k, 1)); }
+.rtp-stage .rt-capstone .rt-crown { top: calc(-12px * var(--rt-k, 1)); }
+.rtp-stage .rt-locked { --d: calc(28px * var(--rt-k, 1)); }
+.rtp-stage .rt-locked .rt-crown { top: calc(-14px * var(--rt-k, 1)); filter: grayscale(1) brightness(0.55); }
 
-/* Acquis : la matière de la branche dans l'anneau. */
-.rtp-stage .rt-purchased {
-  --ring: rgb(var(--b-rgb));
-  --halo: rgba(var(--b-rgb), 0.3);
-  --fill: rgba(var(--b-glow), 0.75);
-}
-/* À prendre : le seul or de l'arbre, en anneau FIXE. Une « respiration » en
-   deux temps clignotait (retour Raph) : l'or suffit à signaler, et le fil de
-   sève qui y mène bouge déjà doucement. */
-.rtp-stage .rt-available {
-  --ring: #e4c77e;
-  --halo: rgba(228, 199, 126, 0.45);
-  --fill: #1c150c;
-  cursor: pointer;
-}
-.rtp-stage .rt-available .rt-disc {
-  box-shadow: 0 0 0 2px #040304, 0 0 0 4px var(--ring), 0 0 0 6px var(--halo), 0 0 0 9px rgba(228, 199, 126, 0.16);
-}
-.rtp-stage .rt-available:hover .rt-disc {
-  box-shadow: 0 0 0 2px #040304, 0 0 0 4px #ffe9b0, 0 0 0 6px rgba(255, 233, 176, 0.55), 0 0 0 9px rgba(228, 199, 126, 0.2);
-}
-/* Palier ouvert, Ruines insuffisantes : cuir terne, emblème éteint. */
-.rtp-stage .rt-cost { --ring: #6c534b; }
-.rtp-stage .rt-cost .rt-emblem { filter: saturate(0.5) brightness(0.72); }
-/* Verrouillé : un BOURGEON — petit, sombre, la silhouette de ce qui viendra. */
-.rtp-stage .rt-locked { --d: calc(24px * var(--rt-k, 1)); --ring: #2b2224; --fill: #0b090a; }
-.rtp-stage .rt-locked.rt-capstone { --d: calc(30px * var(--rt-k, 1)); }
-.rtp-stage .rt-locked.rt-node--dogma { --d: calc(26px * var(--rt-k, 1)); }
-.rtp-stage .rt-locked .rt-disc { box-shadow: 0 0 0 2px #040304, 0 0 0 3px var(--ring); }
-.rtp-stage .rt-locked .rt-emblem {
-  width: calc(16px * var(--rt-k, 1));
-  height: calc(16px * var(--rt-k, 1));
-  filter: grayscale(1) brightness(0.5);
-}
-.rtp-stage .rt-locked .rt-crown { top: calc(-11px * var(--rt-k, 1)); filter: grayscale(1) brightness(0.55); }
-/* Exclu (le jumeau adopté) : barré. */
-.rtp-stage .rt-blocked { --ring: #5b2b27; --fill: #0b090a; }
-.rtp-stage .rt-blocked .rt-emblem { filter: grayscale(1) brightness(0.4); }
+/* À prendre : liseré d'or (dans l'atlas), le seul or de l'arbre ; le survol
+   l'éclaire (filtre MOMENTANÉ, jamais permanent). */
+.rtp-stage .rt-available { cursor: pointer; }
+.rtp-stage .rt-available:hover .rt-glyph { filter: brightness(1.18); }
+/* Exclu (le jumeau adopté) : éteint et barré. */
 .rtp-stage .rt-blocked::after {
   content: "";
   position: absolute;
+  left: 14%;
+  top: 50%;
   width: 72%;
   height: 3px;
   background: #8e3a32;
@@ -196,22 +159,19 @@
   box-shadow: 0 0 0 1px #040304;
   pointer-events: none;
 }
-/* Le jumeau du dogme survolé s'allume en rouge. */
-.rtp-stage .rt-conflict { --ring: #c85a4a; --halo: rgba(200, 90, 74, 0.45); z-index: 3; }
-.rtp-stage .rt-conflict .rt-disc { animation: none; }
+/* Le jumeau du dogme survolé rougeoie (le temps du survol seulement). */
+.rtp-stage .rt-conflict { z-index: 3; }
+.rtp-stage .rt-conflict .rt-glyph { filter: sepia(1) hue-rotate(-45deg) saturate(3) brightness(0.95); }
 /* Une autre branche est mise en avant : celle-ci recule. */
 .rtp-stage .rt-dim { opacity: 0.2; }
 
-.rtp-stage .rt-node:focus-visible { outline: none; }
-.rtp-stage .rt-node:focus-visible .rt-disc {
-  box-shadow: 0 0 0 2px #040304, 0 0 0 4px #fff, 0 0 0 6px var(--halo);
-}
-/* La sève arrive : le médaillon s'embrase, en 4 temps. */
+.rtp-stage .rt-node:focus-visible { outline: 2px dashed #ffe9b0; outline-offset: 2px; }
+/* La sève arrive : l'emblème s'embrase, en 4 temps. */
 .rtp-stage .rt-bought { z-index: 4; }
-.rtp-stage .rt-bought .rt-disc { animation: rt-pop 560ms steps(4) 1; }
-@keyframes rt-pop {
-  0% { box-shadow: 0 0 0 2px #040304, 0 0 0 4px #fff, 0 0 0 10px rgba(var(--b-rgb), 0.6), 0 0 0 16px rgba(var(--b-rgb), 0.25); }
-  100% { box-shadow: 0 0 0 2px #040304, 0 0 0 4px rgb(var(--b-rgb)), 0 0 0 6px rgba(var(--b-rgb), 0.3), 0 0 0 6px transparent; }
+.rtp-stage .rt-bought .rt-glyph { animation: rt-kindle 560ms steps(4) 1; }
+@keyframes rt-kindle {
+  from { filter: brightness(2.2); }
+  to { filter: brightness(1); }
 }
 
 /* Porte de palier : la prochaine porte fermée de la branche, « n/m ». */
@@ -252,7 +212,7 @@
 
 /* Pendant le pan/zoom : rien ne s'anime, rien ne transite. */
 .rt-interacting .rt-node,
-.rt-interacting .rt-disc,
+.rt-interacting .rt-glyph,
 .rt-interacting .rtp-gate { animation: none !important; transition: none !important; }
 
 /* ── Le registre ────────────────────────────────────────────────────────────
@@ -502,7 +462,7 @@
 :root[data-pointer="coarse"] .rt-branch-count { grid-column: auto; }
 
 @media (prefers-reduced-motion: reduce) {
-  .rtp-stage .rt-bought .rt-disc,
+  .rtp-stage .rt-bought .rt-glyph,
   .rtp-float { animation: none; }
   .rtp-stage .rt-node { transition: none; }
 }
