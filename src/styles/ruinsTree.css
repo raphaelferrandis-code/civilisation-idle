@@ -254,19 +254,6 @@
   color: #ffe3a8;
   font-variant-numeric: tabular-nums;
 }
-.app .rt-registry .rt-next-buy {
-  justify-self: start;
-  display: inline-flex;
-  align-items: center;
-  gap: 0.45rem;
-  min-height: 2.5rem;
-  padding: 0 1rem 0.2rem;
-  font-weight: 750;
-}
-.app .rt-registry .rt-next-buy:not(:disabled) { color: #2a1d06; }
-.app .rt-registry .rt-next-buy:hover:not(:disabled) { background: transparent; color: #2a1d06; transform: none; }
-.rt-next-n { font-variant-numeric: tabular-nums; }
-
 .rt-branches { display: grid; gap: 0.5rem; margin: 0; padding: 0; list-style: none; }
 .app .rt-registry .rt-branch {
   position: relative;
@@ -441,7 +428,7 @@
    L'arbre se cadre AU-DESSUS (RuinsTreePixel mesure la place prise). */
 @media (max-width: 900px) {
   .rt-registry-slot { left: 0.5rem; right: 0.5rem; top: auto; bottom: 0.5rem; width: auto; }
-  .rt-registry { grid-template-columns: auto auto minmax(0, 1fr); align-items: center; gap: 0.55rem 0.8rem; padding: 0.6rem 0.7rem 0.7rem; }
+  .rt-registry { grid-template-columns: auto minmax(0, 1fr); align-items: center; gap: 0.55rem 0.8rem; padding: 0.6rem 0.7rem 0.7rem; }
   .rt-reg-title,
   .rt-branch-name,
   .rt-tiers { display: none; }
@@ -452,7 +439,7 @@
   .rt-branch-count { grid-column: auto; }
 }
 :root[data-pointer="coarse"] .rt-registry-slot { left: 0.5rem; right: 0.5rem; top: auto; bottom: 0.5rem; width: auto; }
-:root[data-pointer="coarse"] .rt-registry { grid-template-columns: auto auto minmax(0, 1fr); align-items: center; gap: 0.55rem 0.8rem; padding: 0.6rem 0.7rem 0.7rem; }
+:root[data-pointer="coarse"] .rt-registry { grid-template-columns: auto minmax(0, 1fr); align-items: center; gap: 0.55rem 0.8rem; padding: 0.6rem 0.7rem 0.7rem; }
 :root[data-pointer="coarse"] .rt-reg-title,
 :root[data-pointer="coarse"] .rt-branch-name,
 :root[data-pointer="coarse"] .rt-tiers { display: none; }

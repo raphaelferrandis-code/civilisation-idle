@@ -255,35 +255,20 @@ export function paintSap(out, scene, st, now) {
 const GOLD = [228, 199, 126];
 
 // Le cœur BRÛLE : chaque braise monte et descend dans la rampe du foyer selon un
-// bruit qui remonte (les flammes montent), et le foyer BAT — un double battement
-// toutes les 3,4 s qui l'avive et fait rougeoyer le bois autour (rythme lent :
-// à 2,6 s et au double de vitesse, Raph le trouvait « un poil trop rapide »).
+// bruit qui remonte lentement (les flammes montent). Ni battement ni halo : le
+// double battement (qui avivait le foyer et allumait un halo dans le bois) a
+// été retiré à la demande de Raph — seul le scintillement reste.
 function paintCoal(put, scene, st, t) {
   const coal = scene.coal;
   if (!coal) return;
   const W = scene.w;
-  const ph = (t % 3400) / 3400;
-  const beat = st.still ? 0 : Math.exp(-(((ph - 0.04) / 0.05) ** 2)) + 0.7 * Math.exp(-(((ph - 0.2) / 0.05) ** 2));
   const top = COAL_RAMP.length - 1;
   for (let q = 0; q < coal.idx.length; q++) {
     const k = coal.idx[q], x = k % W, y = (k / W) | 0;
     const n = st.still ? 0.5 : 0.65 * vnoise(x / 3, y / 3 + t / 180) + 0.35 * vnoise(x / 1.6 + 40, y / 1.6 + t / 100);
-    const lvl = Math.max(0, Math.min(top, coal.lvl[q] + Math.round((n - 0.5) * 3.2 + beat * 1.3)));
+    const lvl = Math.max(0, Math.min(top, coal.lvl[q] + Math.round((n - 0.5) * 3.2)));
     const c = COAL_RAMP[lvl];
     put(k, c[0], c[1], c[2], 1);
-  }
-  // le bois autour rougeoie au battement (trois anneaux francs)
-  if (beat > 0.05) {
-    for (let dy = -30; dy <= 30; dy++) {
-      for (let dx = -30; dx <= 30; dx++) {
-        const d = Math.hypot(dx, dy);
-        if (d < 16 || d > 30) continue;
-        const k = (COAL_C[1] + dy) * W + COAL_C[0] + dx;
-        if (coal.mask[k]) continue;
-        const a = d < 21 ? 0.26 : d < 26 ? 0.15 : 0.07;
-        put(k, 255, 110, 30, a * Math.min(1, beat));
-      }
-    }
   }
 }
 

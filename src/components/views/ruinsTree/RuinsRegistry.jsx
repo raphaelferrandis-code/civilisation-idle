@@ -6,11 +6,13 @@ import { branchTheme } from "./branchTheme.js";
 const ROMAN = ["I", "II", "III", "IV"];
 
 // Le registre de l'Arbre des Ruines, posé sur la nuit à gauche de l'arbre :
-// le compteur de Ruines, l'accès au prochain nœud à prendre, et une plaque par
-// branche (emblème de sa couronne, acquis/total, ses quatre paliers, la porte
-// suivante). Aucune phrase : des noms, des chiffres, des boutons.
+// le compteur de Ruines et une plaque par branche (emblème de sa couronne,
+// pastille des nœuds à prendre, acquis/total, ses quatre paliers, la porte
+// suivante). Aucune phrase : des noms, des chiffres, des boutons. (Le bouton
+// « N à prendre ▸ » a été retiré à la demande de Raph : le liseré d'or sur
+// l'arbre et la pastille de chaque branche suffisent.)
 // Survol d'une plaque = la branche seule reste allumée ; clic = on la cadre.
-export default function RuinsRegistry({ ruins, availCount, onNextBuy, branches, focus, pinned, onFocus, onPin }) {
+export default function RuinsRegistry({ ruins, branches, focus, pinned, onFocus, onPin }) {
   return (
     <section className="rt-registry" aria-label={tr({ fr: "Registre des Ruines", en: "Ruins ledger" })}>
       <h2 className="rt-reg-title">{tr({ fr: "Mémoire des Ruines", en: "Memory of the Ruins" })}</h2>
@@ -18,17 +20,6 @@ export default function RuinsRegistry({ ruins, availCount, onNextBuy, branches, 
         <PixelIcon name="glyphs/ruines" size={32} alt={tr({ fr: "Ruines", en: "Ruins" })} />
         <strong>{fmt(ruins)}</strong>
       </div>
-      <button
-        type="button"
-        className="btn-primary rt-next-buy"
-        disabled={availCount === 0}
-        onClick={onNextBuy}
-        onPointerDown={(e) => e.stopPropagation()}
-      >
-        <span className="rt-next-n">{availCount}</span>
-        {tr({ fr: "à prendre", en: "available" })} ▸
-      </button>
-
       <ol className="rt-branches">
         {branches.map((b) => {
           const theme = branchTheme(b.id);

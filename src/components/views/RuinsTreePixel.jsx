@@ -166,7 +166,6 @@ export default function RuinsTreePixel() {
   const [liveMsg, setLiveMsg] = useState("");
   const timersRef = useRef(new Set());
   const dragRef = useRef({ active: false, moved: false });
-  const nextCursorRef = useRef(-1);
   // État lu par la boucle de peinture de la sève (jamais pendant le rendu React).
   const sapStRef = useRef({ lit: new Set(), pending: new Set(), anim: new Map(), focus: null, colors: SAP_COLORS, still: prefersReducedMotion() });
 
@@ -552,19 +551,6 @@ export default function RuinsTreePixel() {
     frameIds(Object.keys(layout.pos).filter((id) => BRANCH_OF[id] === bid));
   };
 
-  const onNextBuy = () => {
-    const list = [...availIds].sort((a, b) => vmById[a].cost - vmById[b].cost);
-    if (!list.length) return;
-    nextCursorRef.current = (nextCursorRef.current + 1) % list.length;
-    const id = list[nextCursorRef.current];
-    const p = layout.pos[id];
-    const L = zoomLevels(viewRef.current);
-    const s1 = L[Math.min(1, L.length - 1)];
-    setCam({ s: s1, cx: p.x, cy: p.y });
-    setTip({ id, pinned: true });
-    setHoveredId(id);
-  };
-
   // Bulle : à côté du médaillon, retournée dans le tiers droit de la vue.
   let tipData = null;
   if (tip && vmById[tip.id]) {
@@ -640,8 +626,6 @@ export default function RuinsTreePixel() {
       <div ref={registryRef} className="rt-registry-slot" onPointerDown={(e) => e.stopPropagation()}>
         <RuinsRegistry
           ruins={ruins}
-          availCount={availIds.length}
-          onNextBuy={onNextBuy}
           branches={branches}
           focus={focus}
           pinned={pinned}
