@@ -142,11 +142,10 @@ describe("migration Decimal — fumée", () => {
     expect(fmt(999)).toBe("999");
     expect(fmt(1500)).toBe("1.50K");
     expect(fmt(new Decimal(1500))).toBe("1.50K");
-    expect(fmt(1e27)).toBe("1.00Oc");
-    expect(fmt(new Decimal("1e30"))).toBe("1.00No");
-    // 2e33 et pas 1e33 : la reconversion mantisse → float peut tomber juste
-    // sous la frontière (9.999…e32) et fausser l'arrondi d'affichage.
-    expect(fmt(new Decimal("2e33"))).toBe("2.00Dc");
+    // Notation unique : plus de suffixes au-delà du trillion (Qa…Dc retirés).
+    expect(fmt(1e27)).toBe("1.00e27");
+    expect(fmt(new Decimal("1e30"))).toBe("1.00e30");
+    expect(fmt(new Decimal("2e33"))).toBe("2.00e33");
     expect(fmt(new Decimal("2.5e45"))).toBe("2.50e45");
     expect(fmt(new Decimal("1.23e400"))).toBe("1.23e400");
   });

@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
-import { fmtShortLive, COMPACT_UNITS } from '../../game/core/utils.js';
+import { fmtShortLive, COMPACT_UNITS, SCIENTIFIC_FROM } from '../../game/core/utils.js';
 import { toNum } from '../../game/core/num.js';
 import { useCountUp } from '../../hooks/useCountUp.js';
 import { idealDecimals, reconcilePrecision, lastDigitRolls, nextRollMode, SETTLE_MS, COOLDOWN_MS } from './odoPrecision.js';
@@ -8,7 +8,7 @@ import { idealDecimals, reconcilePrecision, lastDigitRolls, nextRollMode, SETTLE
 // pour que le défilement ne s'arrête jamais entre deux ticks (voir là-bas).
 const DEFAULT_DURATION = 1100;
 
-// TAILLE DU SUFFIXE D'ÉCHELLE (K, M, Qi…), en em de la valeur. Elle vit dans le
+// TAILLE DU SUFFIXE D'ÉCHELLE (K, M, e41…), en em de la valeur. Elle vit dans le
 // CSS — `.odo-suffix` (components.css) au curseur, sa surcharge tactile
 // (touch-shell.css) au doigt — mais le calcul de largeur du cadran, plus bas, en
 // DÉPEND : les chasses y sont exprimées pour un suffixe à 0.72 em.
@@ -49,13 +49,23 @@ function suffixEm() {
  * sur un JALON — changement de suffixe (K→M→B…), de nombre de chiffres, ou
  * recalage de précision.
  *
- * Hors domaine odométrable (négatif, ≥1e36, infini) : repli texte plat.
+ * Au-delà du trillion, le cadran roule en NOTATION SCIENTIFIQUE : mantisse
+ * 1.00-9.99, exposant en suffixe (« e41 »), comme fmt — une seule notation.
+ * Hors domaine odométrable (négatif, infini, au-delà des flottants) : repli
+ * texte plat.
  */
 
 // Décompose un number fini en cadran : mantisse continue + suffixe (+ le
 // diviseur d'échelle, qui convertit un débit brut en pas de cadran).
 function dialParts(n) {
-  if (!Number.isFinite(n) || n < 0 || n >= 1e36) return null;
+  if (!Number.isFinite(n) || n < 0) return null;
+  if (n >= SCIENTIFIC_FROM) {
+    // log10 flotte au ras des puissances de dix (1e15 → 14.999…) : on recale.
+    let e = Math.floor(Math.log10(n));
+    let v = n / Math.pow(10, e);
+    if (v >= 10) { v /= 10; e += 1; } else if (v < 1) { v *= 10; e -= 1; }
+    return { mantissa: v, suffix: `e${e}`, div: Math.pow(10, e) };
+  }
   let v = n;
   let i = -1;
   let div = 1;
@@ -165,7 +175,10 @@ export default function OdometerNumber({ value, rate = 0, duration = DEFAULT_DUR
   // Même granularité que `shape` → la taille ne change qu'au re-mount jalon.
   // ⚠ La chasse du suffixe se met à l'échelle de sa taille RÉELLE (cf. suffixEm)
   // : les 0.56 / 0.92 valent pour 0.72 em, pas dans l'absolu.
-  const sufAdv = suffix ? (suffix.length > 1 ? 0.92 : 0.56) * (suffixEm() / SUF_EM_FINE) : 0;
+  // Exposant (« e41 ») : mesuré le 2026-10-03 à 0.72 em, e15 1.148, e99 1.279,
+  // e308 1.705 → 0.45 + 0.43 par chiffre, arrondi au-dessus.
+  const sufBase = !suffix ? 0 : suffix[0] === 'e' ? 0.45 + 0.43 * (suffix.length - 1) : suffix.length > 1 ? 0.92 : 0.56;
+  const sufAdv = sufBase * (suffixEm() / SUF_EM_FINE);
   const wEm = count * 0.595 + (decimals > 0 ? 0.24 : 0) + sufAdv;
 
   const slots = [];

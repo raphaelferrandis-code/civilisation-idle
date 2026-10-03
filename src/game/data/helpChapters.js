@@ -68,8 +68,8 @@ export const HELP_CHAPTERS = [
       {
         h: { fr: 'Les nombres', en: 'Numbers' },
         items: [
-          { t: { fr: 'Les suffixes', en: 'Suffixes' }, d: { fr: 'K pour mille, M pour million, B pour milliard, T pour mille milliards ; puis Qa, Qi, Sx, Sp, Oc, No et Dc, chacun mille fois plus grand que le précédent.', en: 'K for thousand, M for million, B for billion, T for trillion; then Qa, Qi, Sx, Sp, Oc, No and Dc, each a thousand times the one before.' } },
-          { t: { fr: 'Au-delà', en: 'Beyond' }, d: { fr: 'Les plus grands nombres passent en notation scientifique : 1.20e40 vaut 1.20 × 10⁴⁰. Le format se choisit dans l\'onglet Affichage.', en: 'Larger numbers switch to scientific notation: 1.20e40 means 1.20 × 10⁴⁰. The format is chosen in the Display tab.' } }
+          { t: { fr: 'Les suffixes', en: 'Suffixes' }, d: { fr: 'K pour mille, M pour million, B pour milliard, T pour mille milliards. La décimale s\'écrit avec un point : 1.5K, c\'est mille cinq cents.', en: 'K for thousand, M for million, B for billion, T for trillion. Decimals use a point: 1.5K is one thousand five hundred.' } },
+          { t: { fr: 'Au-delà', en: 'Beyond' }, d: { fr: 'Dès mille trillions, tous les nombres passent en notation scientifique : 1.20e40 vaut 1.20 × 10⁴⁰. Le format se choisit dans l\'onglet Affichage.', en: 'From a thousand trillion on, every number switches to scientific notation: 1.20e40 means 1.20 × 10⁴⁰. The format is chosen in the Display tab.' } }
         ]
       }
     ]

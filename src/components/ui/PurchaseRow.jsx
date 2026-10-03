@@ -16,13 +16,13 @@ const RES_CLASS = {
   infrastructure: "res-infra"
 };
 
-/* Valeur exacte pour le tooltip des suffixes (Sx, Oc, Qi…) */
+/* Valeur exacte pour le tooltip des suffixes (K, M, B, T) et de la notation scientifique */
 function exactLabel(value) {
   const n = typeof value?.toNumber === "function" ? value.toNumber() : value;
   if (!Number.isFinite(n)) {
-    return typeof value?.toExponential === "function" ? value.toExponential(3) : String(value);
+    return typeof value?.toExponential === "function" ? String(value.toExponential(3)).replace("e+", "e") : String(value);
   }
-  if (Math.abs(n) >= 1e15) return n.toExponential(3);
+  if (Math.abs(n) >= 1e15) return n.toExponential(3).replace("e+", "e");
   return Math.round(n).toLocaleString("fr-FR");
 }
 

@@ -194,7 +194,7 @@ export default function AuguresPanel() {
           className="scratch-banner augure-fresque fresque-vingtetun"
           {...tipProps(
             tr({ fr: 'Vingt-et-un', en: 'Twenty-one' }),
-            tr({ fr: "Approche 21 sans dépasser pour battre l'oracle. Un vingt-et-un paie ×2,5. Une main perdue va à la cagnotte du temple.", en: 'Get close to 21 without busting to beat the oracle. A natural pays ×2.5. A lost hand goes to the temple pot.' })
+            tr({ fr: "Approche 21 sans dépasser pour battre l'oracle. Un vingt-et-un paie ×2.5. Une main perdue va à la cagnotte du temple.", en: 'Get close to 21 without busting to beat the oracle. A natural pays ×2.5. A lost hand goes to the temple pot.' })
           )}
           onClick={() => openBlackjack()}
         >

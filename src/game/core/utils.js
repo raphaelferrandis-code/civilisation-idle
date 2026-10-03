@@ -43,16 +43,21 @@ function formatScientificNumber(value) {
 }
 
 // Suffixes du format compact — partagés avec l'odomètre (OdometerNumber.jsx).
-export const COMPACT_UNITS = ["K", "M", "B", "T", "Qa", "Qi", "Sx", "Sp", "Oc", "No", "Dc"];
+// NOTATION UNIQUE (refonte UI, maquette V4, 2026-10-03) : les suffixes familiers
+// s'arrêtent au trillion, la notation scientifique prend TOUT au-delà. Avant,
+// Qa…Dc menaient jusqu'à 1e36 et la même barre montrait « 13.8Qa » à côté de
+// « 8.90e41 » : deux notations, dont une que personne ne lit (Sx avant Sp ?).
+export const COMPACT_UNITS = ["K", "M", "B", "T"];
+// Premier nombre écrit en scientifique : mille trillions.
+export const SCIENTIFIC_FROM = 1e15;
 
-// Compact à suffixes (K/M/B…Dc), puis scientifique au-delà du décillion (1e36).
-// Empiler des suffixes exotiques plus loin n'aide personne.
+// Compact à suffixes (K, M, B, T), puis scientifique dès SCIENTIFIC_FROM.
 // `extraDecimals` : décimales de mantisse en plus (voir fmtShortLive).
 function formatCompactNumber(value, extraDecimals = 0) {
   const sign = value < 0 ? "-" : "";
   let v = Math.abs(value);
   if (v < 1000) return `${sign}${v.toFixed((v < 10 ? 1 : 0) + (extraDecimals ? 1 : 0))}`;
-  if (v >= 1e36) return formatScientificNumber(value);
+  if (v >= SCIENTIFIC_FROM) return value.toExponential(2 + extraDecimals).replace("e+", "e");
   let i = -1;
   while (v >= 1000 && i < COMPACT_UNITS.length - 1) {
     v /= 1000;
@@ -141,7 +146,7 @@ export const fmtHabitants = (n) => (n < 1e6 ? Math.round(n).toLocaleString("fr-F
 
 // Compact « vivant » : mantisse enrichie de 2 décimales pour que le count-up
 // de RollingNumber reste VISIBLE sur les grands nombres — avec 3 chiffres
-// significatifs (« 8.19No »), l'affichage paraît figé entre deux ticks alors
+// significatifs (« 8.19T »), l'affichage paraît figé entre deux ticks alors
 // que la valeur roule. Réservé aux gros compteurs animés (topbar).
 export const fmtShortLive = (value) => {
   if (value instanceof Decimal) {

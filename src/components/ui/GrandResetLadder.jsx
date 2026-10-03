@@ -27,7 +27,8 @@ const ROMAN = ['', 'I', 'II', 'III', 'IV', 'V', 'VI', 'VII', 'VIII', 'IX', 'X', 
 
 // Gain de production d'UN sceau, lu à la source (GRAND_RESET_PROD_BASE) : le
 // libellé suit la constante au lieu de la figer. Virgule décimale côté français.
-const prodStep = { fr: String(GRAND_RESET_PROD_BASE).replace('.', ','), en: String(GRAND_RESET_PROD_BASE) };
+// Décimale au POINT dans les deux langues, comme tous les nombres du jeu (fmt).
+const prodStep = { fr: String(GRAND_RESET_PROD_BASE), en: String(GRAND_RESET_PROD_BASE) };
 
 // Médaillon pixel-art de chaque sceau (emblèmes existants + 2 dédiés). Montré
 // SEULEMENT une fois le sceau révélé : avant, il vendrait la mèche du secret.

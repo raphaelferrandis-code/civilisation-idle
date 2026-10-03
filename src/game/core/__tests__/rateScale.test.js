@@ -74,8 +74,8 @@ describe("mantisse à 3 chiffres significatifs (B12)", () => {
 
   it("tient sur les grands ordres de grandeur et en Decimal", () => {
     expect(fmt(D("8.7e11"))).toBe("870B");
-    expect(fmt(D("1e27"))).toBe("1.00Oc");
-    expect(fmt(D("2e33"))).toBe("2.00Dc");
+    expect(fmt(D("1e27"))).toBe("1.00e27");
+    expect(fmt(D("2e33"))).toBe("2.00e33");
   });
 
   it("la mantisse ne dépasse jamais 3 chiffres significatifs", () => {

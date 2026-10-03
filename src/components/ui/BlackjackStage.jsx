@@ -198,7 +198,7 @@ export default function BlackjackStage({ table, onClose }) {
         <StageHelp>
           <p>
             {tr({
-              fr: 'Approche 21 sans dépasser. Le croupier tire jusqu’à 17. Un « vingt-et-un » (21 en deux cartes) paie ×2,5, une victoire ×2, l’égalité rend la mise. As : 1 ou 11, figures : 10.',
+              fr: 'Approche 21 sans dépasser. Le croupier tire jusqu’à 17. Un « vingt-et-un » (21 en deux cartes) paie ×2.5, une victoire ×2, l’égalité rend la mise. As : 1 ou 11, figures : 10.',
               en: 'Get close to 21 without going over. The dealer draws to 17. A natural (21 on two cards) pays ×2.5, a win ×2, a push returns the stake. Aces: 1 or 11, faces: 10.'
             })}
           </p>
@@ -242,7 +242,7 @@ export default function BlackjackStage({ table, onClose }) {
                     type="button"
                     className="stake-pick"
                     onClick={() => setChosenStake(s.id)}
-                    {...tipProps(tr(s.label), tr({ fr: `Mise de ${cost} Faveur. Une victoire paie ×2, un vingt-et-un ×2,5.`, en: `${cost} Favor stake. A win pays ×2, a natural ×2.5.` }))}
+                    {...tipProps(tr(s.label), tr({ fr: `Mise de ${cost} Faveur. Une victoire paie ×2, un vingt-et-un ×2.5.`, en: `${cost} Favor stake. A win pays ×2, a natural ×2.5.` }))}
                   >
                     {STAKE_ART[s.id] && (
                       <img className="stake-art" src={STAKE_ART[s.id]} alt="" aria-hidden="true" width={64} height={64} />
