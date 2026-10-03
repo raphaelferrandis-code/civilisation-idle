@@ -154,21 +154,20 @@
   --halo: rgba(var(--b-rgb), 0.3);
   --fill: rgba(var(--b-glow), 0.75);
 }
-/* À prendre : le seul or de l'arbre, qui respire (pas d'accélération continue). */
+/* À prendre : le seul or de l'arbre, en anneau FIXE. Une « respiration » en
+   deux temps clignotait (retour Raph) : l'or suffit à signaler, et le fil de
+   sève qui y mène bouge déjà doucement. */
 .rtp-stage .rt-available {
   --ring: #e4c77e;
   --halo: rgba(228, 199, 126, 0.45);
   --fill: #1c150c;
   cursor: pointer;
 }
-.rtp-stage .rt-available .rt-disc { animation: rt-breathe 1.5s steps(2, jump-none) infinite alternate; }
-.rtp-stage .rt-available:hover .rt-disc {
-  animation: none;
-  box-shadow: 0 0 0 2px #040304, 0 0 0 4px #ffe9b0, 0 0 0 6px rgba(255, 233, 176, 0.55), 0 0 0 9px rgba(228, 199, 126, 0.2);
+.rtp-stage .rt-available .rt-disc {
+  box-shadow: 0 0 0 2px #040304, 0 0 0 4px var(--ring), 0 0 0 6px var(--halo), 0 0 0 9px rgba(228, 199, 126, 0.16);
 }
-@keyframes rt-breathe {
-  from { box-shadow: 0 0 0 2px #040304, 0 0 0 4px #e4c77e, 0 0 0 6px rgba(228, 199, 126, 0.5), 0 0 0 9px rgba(228, 199, 126, 0.16); }
-  to   { box-shadow: 0 0 0 2px #040304, 0 0 0 4px #b8964e, 0 0 0 6px rgba(228, 199, 126, 0.2), 0 0 0 9px transparent; }
+.rtp-stage .rt-available:hover .rt-disc {
+  box-shadow: 0 0 0 2px #040304, 0 0 0 4px #ffe9b0, 0 0 0 6px rgba(255, 233, 176, 0.55), 0 0 0 9px rgba(228, 199, 126, 0.2);
 }
 /* Palier ouvert, Ruines insuffisantes : cuir terne, emblème éteint. */
 .rtp-stage .rt-cost { --ring: #6c534b; }
@@ -503,7 +502,6 @@
 :root[data-pointer="coarse"] .rt-branch-count { grid-column: auto; }
 
 @media (prefers-reduced-motion: reduce) {
-  .rtp-stage .rt-available .rt-disc,
   .rtp-stage .rt-bought .rt-disc,
   .rtp-float { animation: none; }
   .rtp-stage .rt-node { transition: none; }
