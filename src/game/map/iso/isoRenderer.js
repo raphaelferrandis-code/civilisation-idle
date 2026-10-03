@@ -46,8 +46,8 @@ import './isoVieDrapeaux.js';  // … (drapeaux des bâtiments publics et des qu
 import './isoQuayWalk.js';     // … (promeneurs des quais)
 import { drawVieClouds } from './isoVieNuages.js';
 import { paintQuays } from './isoQuay.js';
-import { drawIsoDrones } from './isoSky.js';
 import { paintPierUnder } from './isoPier.js';
+import { drawIsoDrones } from './isoSky.js';
 import { drawIsoNight } from './isoStreet.js';
 import { drawIsoRain } from './isoWeather.js';
 import { drawTerrainShade } from './isoTerrain.js';

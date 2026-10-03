@@ -3,12 +3,13 @@
 // (docs/PLAN-PORTS.md §5, contrat avec la session des bateaux, 2026-10-01)
 //
 // · `drawMooredHull` — UNE indirection pour tout navire posé à quai par les ports
-//   (terminal de commerce, bassin du Vieux-Port). Aujourd'hui elle peint les
-//   sprites boat-<métier>-<secteur> ; demain elle appellera iso/boatKit.js
-//   (drawBoat, boatFootprint) que la session des bateaux prépare — la bascule
-//   tiendra dans ce fichier. Aucun décalage codé ailleurs sur BOAT_SIZES × échelle.
-// · `hullFootprint` — longueur et largeur d'une coque, en tuiles (idem : passera
-//   par boatFootprint).
+//   (terminal de commerce, bassin du Vieux-Port). D'abord les coques DESSINÉES PAR
+//   LE CODE de la session des bateaux (iso/boatKit.js, drawMooredKit : cargos de
+//   l'ère au terminal, plaisance d'époque au bassin) ; repli sur les sprites
+//   boat-<métier>-<secteur> là où l'ère n'a pas de modèle. Aucun décalage codé
+//   ailleurs sur BOAT_SIZES × échelle.
+// · `hullFootprint` — longueur et largeur d'une coque, en tuiles (mêmes sources ;
+//   `kit: true` quand la coque vient du kit).
 // La flotte MOBILE (riverFleet) reste à la session des bateaux : rien ici ne
 // simule de navigation.
 import { CM } from '../layout.js';
@@ -19,6 +20,7 @@ import { noteReflection } from './isoReflect.js';
 import { drawSunShadow } from './isoSunShadow.js';
 import { snapDev } from '../blitSnap.js';
 import { ensureQuayGate } from '../quaysAndRiot.js';
+import { drawMooredKit, mooredFootprint } from './boatKit.js';
 
 // Rôle → sprite et échelle (unité : la largeur de dessin du sprite en tuiles). Les
 // échelles marchandes de la FLOTTE (FLEET_SCALE × 0,7 × 1,15) sont écrêtées pour passer
@@ -34,7 +36,13 @@ const HULLS = {
   rowboat: { key: 'rowboat', w: 0.7 * 1.0 * 1.15, len: 0.55, beam: 0.22 },
 };
 
-export function hullFootprint(role) {
+const curBand = () => (CM.layout && CM.layout.counts && CM.layout.counts.eraBand) | 0;
+
+// ⚠ Les longueurs du kit ne sont pas celles des sprites (porte-conteneurs 2,4 tuiles,
+// vedette 0,94, annexe 0,5) : les postes se cotent TOUJOURS par ici, à la bande du plan.
+export function hullFootprint(role, band = curBand()) {
+  const fp = mooredFootprint(role, band);
+  if (fp) return { len: fp.len, beam: fp.beam, kit: true };
   const h = HULLS[role] || HULLS.sail;
   return { len: h.len, beam: h.beam };
 }
@@ -45,7 +53,9 @@ export function hullFootprint(role) {
 // ⚠ Retour Raph (2026-10-02, capture du bassin) : « les bateaux sont dans le mur ».
 // Posés au niveau du sol, les bateaux amarrés au pied d'un quai chevauchaient la face
 // du mur, qui pend sous la margelle jusqu'à l'eau : un bateau à quai flotte EN BAS.
-export function drawMooredHull(ctx, { role, heading, x, y, z = 0, now = 0, bob = true }) {
+export function drawMooredHull(ctx, { role, heading, x, y, z = 0, now = 0, bob = true, band = null }) {
+  // Le kit pose coque, reflet, ombre et roulis ; il rend false sans modèle pour l'ère.
+  if (drawMooredKit(ctx, { role, heading, x, y, z, now, bob, band })) return true;
   const h = HULLS[role] || HULLS.sail;
   const art = isoArt('boat-' + h.key + '-' + boatSector(heading));
   if (!art || !art.ready) return false;

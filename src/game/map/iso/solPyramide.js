@@ -46,6 +46,32 @@ export const solPyramideStats = {
   cuites: 0, cuissonMs: 0, hits: 0, replis: 0, sales: 0, tuilesVisibles: 0, memoMo: 0,
 };
 
+// ── Coalescence des invalidations douces (pure) ──────────────────────────────
+// Un décodage tardif (tuile, sprite) périme les tuiles cuites sans lui. Au
+// chargement ils arrivent en RAFALE : une bascule d'époque par fenêtre suffit.
+// ⚠ Mais un décodage tombé DANS la fenêtre ne doit pas être perdu, seulement
+// RETENU : jeté, il laissait pour toujours les tuiles cuites entre-temps sans
+// lui. Capture de Raph (2026-10-03) : « un point de zoom précis où l'herbe ne
+// charge pas » — les tuiles du cran affiché au chargement avaient été cuites
+// juste avant le décodage de l'herbe, dont l'invalidation était tombée à moins
+// de 250 ms de la précédente ; les autres crans, cuits plus tard, étaient
+// justes. `hit` dit s'il faut basculer TOUT DE SUITE ; sinon le décodage est
+// mis de côté et `flush` (appelé à chaque frame) le rend dès la fenêtre passée.
+export function softCoalescer(windowMs = 250) {
+  let at = -1e9, pending = false;
+  return {
+    hit(now) {
+      if (now - at >= windowMs) { at = now; pending = false; return true; }
+      pending = true;
+      return false;
+    },
+    flush(now) {
+      if (pending && now - at >= windowMs) { at = now; pending = false; return true; }
+      return false;
+    },
+  };
+}
+
 // ── Géométrie (pure) ─────────────────────────────────────────────────────────
 
 // Le NIVEAU d'un zoom : le cran de la grille de molette (1/8) immédiatement

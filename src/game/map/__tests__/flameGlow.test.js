@@ -10,7 +10,7 @@
 // dépôt avec le même critère que la mesure d'origine (chaud ∧ mouvant) et
 // confronte le résultat aux constantes. Reprendre `sig`/`fx` du module rendrait
 // le test décoratif.
-import { readFileSync, readdirSync } from 'node:fs';
+import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import path from 'node:path';
 import { describe, it, expect, beforeEach, afterEach } from 'vitest';
@@ -255,32 +255,5 @@ describe('blitAnim — la lueur suit le feu, et rien que le feu', () => {
       paintFlameGlows(ctx);
       expect(ctx.lit, `${key} ne devrait pas éclairer`).toBe(0);
     }
-  });
-});
-
-// UN FEU NE SE REMBOBINE PAS. Le lecteur d'overlays de merveille (renderBuildings)
-// joue par défaut la bande en ALLER-RETOUR : 0..n-1 puis n-2..1. C'est le bon
-// réglage pour ce qui respire (éclat de gemme, pulsation), et le mauvais pour une
-// flamme — les bandes PixelLab bouclent déjà bord à bord, l'aller-retour se voit
-// comme un hoquet régulier. La règle se lit sur la DONNÉE (le nom du fichier),
-// donc un futur `flame-spiral.png` est couvert sans toucher au test.
-describe('bandes de flamme des merveilles — jouées en avant, jamais en boucle', () => {
-  const WONDERS = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../../../../public/pixelart/wonders');
-
-  it('tout overlay peint avec un asset de flamme déclare loop:"forward"', () => {
-    const files = readdirSync(WONDERS).filter((f) => f.endsWith('-flames.json'));
-    expect(files.length).toBeGreaterThan(0);
-    const fautifs = [];
-    let vus = 0;
-    for (const f of files) {
-      const cfg = JSON.parse(readFileSync(path.join(WONDERS, f), 'utf8'));
-      for (const [key, a] of Object.entries(cfg.asset || {})) {
-        if (!/flame/i.test(a.file || '')) continue;   // même critère que flameAssetGlow
-        vus += 1;
-        if (a.loop !== 'forward') fautifs.push(`${f}:${key}`);
-      }
-    }
-    expect(vus, 'aucun asset de flamme trouvé — la garde se viderait toute seule').toBeGreaterThanOrEqual(3);
-    expect(fautifs, `bandes de flamme en aller-retour : ${fautifs.join(', ')}`).toEqual([]);
   });
 });

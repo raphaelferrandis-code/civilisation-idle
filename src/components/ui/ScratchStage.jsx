@@ -364,7 +364,7 @@ export default function ScratchStage({ table, onClose }) {
         <span
           className="scratch-stage-pot"
           {...tipProps(
-            tr({ fr: 'La cagnotte du temple', en: 'The temple pot' }),
+            tr({ fr: 'La cagnotte de la Maison', en: 'The House pot' }),
             tr({ fr: 'Tes tickets perdants la nourrissent ; cette table ne la reprend jamais. Elle se rafle au Vol d’Icare, à ×10 et plus.', en: 'Your losing tickets feed it; this table never takes it back. It is swept at the Flight of Icarus, at ×10 and above.' })
           )}
         >
@@ -387,7 +387,7 @@ export default function ScratchStage({ table, onClose }) {
             ))}
           </div>
         </StageHelp>
-        <button type="button" className="stage-close" onClick={onClose} aria-label={tr({ fr: 'Quitter le temple', en: 'Leave the temple' })}>✕</button>
+        <button type="button" className="stage-close" onClick={onClose} aria-label={tr({ fr: 'Quitter la table', en: 'Leave the table' })}>✕</button>
       </div>
 
       {history.length > 0 && (
@@ -469,7 +469,7 @@ export default function ScratchStage({ table, onClose }) {
             </p>
           ) : (
             <p className="scratch-result scratch-result--lose">
-              {tr({ fr: 'Vernis nu. La mise va à la cagnotte du temple.', en: 'Bare varnish. The stake goes to the temple pot.' })}
+              {tr({ fr: 'Vernis nu. La mise va à la cagnotte de la Maison.', en: 'Bare varnish. The stake goes to the House pot.' })}
             </p>
           )}
           <menu className="choice-menu scratch-actions">
@@ -477,7 +477,7 @@ export default function ScratchStage({ table, onClose }) {
               <button
                 type="button"
                 className="scratch-replay"
-                {...tipProps(null, tr({ fr: 'L’offrande recopiée : le trésor du temple paie la mise du même ticket, une fois. Il doit la couvrir en entier.', en: 'The copied offering: the temple hoard pays the same ticket’s stake, once. It must cover it in full.' }))}
+                {...tipProps(null, tr({ fr: 'L’offrande recopiée : le trésor de la Maison paie la mise du même ticket, une fois. Il doit la couvrir en entier.', en: 'The copied offering: the House hoard pays the same ticket’s stake, once. It must cover it in full.' }))}
                 onClick={onReplay}
               >
                 {tr({ fr: `La cella rejoue le ticket (${fmt(outcome.stakeFaveur)})`, en: `The cella replays the ticket (${fmt(outcome.stakeFaveur)})` })}
@@ -495,7 +495,7 @@ export default function ScratchStage({ table, onClose }) {
             <button type="button" onClick={onNewTicket}>
               {tr({ fr: 'Changer de mise', en: 'Change stake' })}
             </button>
-            <button type="button" className="btn-close" onClick={onClose}>{tr({ fr: 'Quitter le temple', en: 'Leave the temple' })}</button>
+            <button type="button" className="btn-close" onClick={onClose}>{tr({ fr: 'Quitter la table', en: 'Leave the table' })}</button>
           </menu>
         </>
       )}

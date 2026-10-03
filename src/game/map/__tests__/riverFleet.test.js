@@ -32,7 +32,7 @@ describe("riverFleet — effectifs", () => {
 
   it("sans fleuve, aucun métier ne tourne", () => {
     const b = riverFleetBudget({ buildings: { river_ports: 9 } }, { river: { present: false } });
-    expect(b).toEqual({ trade: 0, fisher: 0 });
+    expect(b).toEqual({ trade: 0, fisher: 0, barge: 0, ferry: 0, service: 0 });
   });
 
   it("l'effectif marchand suit le port et sature au plafond", () => {
@@ -64,7 +64,9 @@ describe("riverFleet — effectifs", () => {
   it("la pêche ne dépend pas du port", () => {
     // On pêche sur le fleuve d'un village comme sur celui d'une mégapole.
     const sansPort = riverFleetBudget({ buildings: {} }, L);
-    expect(sansPort.fisher).toBe(1);
+    const grosPort = riverFleetBudget({ buildings: { river_ports: 40 } }, L);
+    expect(sansPort.fisher).toBeGreaterThanOrEqual(1);
+    expect(sansPort.fisher).toBe(grosPort.fisher);
   });
 
   it("le plaisancier ne navigue PLUS", () => {
@@ -75,7 +77,9 @@ describe("riverFleet — effectifs", () => {
       expect(riverFleetBudget({ buildings: b }, L).yacht).toBeUndefined();
     }
     expect(FLEET_KINDS).not.toContain("yacht");
-    expect(FLEET_KINDS).toEqual(["trade", "fisher"]);
+    // Les métiers ajoutés le 2026-10-02 (docs/PLAN-BATEAUX.md) sont des métiers du
+    // TRAVAIL : le chaland et le passeur — toujours pas de promeneur.
+    expect(FLEET_KINDS).toEqual(["trade", "fisher", "barge", "ferry", "service"]);
   });
 });
 

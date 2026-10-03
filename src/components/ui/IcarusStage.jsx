@@ -22,6 +22,7 @@ import { FaveurIcon, PotIcon } from './FaveurIcon.jsx';
 import { tipProps } from './HelpBubble.jsx';
 import CoffreSelect from './CoffreSelect.jsx';
 import StageHelp from './StageHelp.jsx';
+import { usePlaisirsBand, icarusSkyCss, icarusFlyer } from './plaisirsMaterial.js';
 
 /**
  * Le Vol d'Icare — SCÈNE INTÉGRÉE (ex-IcarusDialog, dé-modalisée 2026-07-14 :
@@ -81,6 +82,10 @@ function multiplierTone(m) {
 
 export default function IcarusStage({ table, onClose }) {
   const tickerRef = useRef(null);
+  // ⭐ Le ciel et l'aviateur de l'ÂGE (plaisirsMaterial.js) : Icare jusqu'au marbre,
+  // le ballon à la fonte, le deltaplane au néon, Icare de lumière ensuite.
+  const band = usePlaisirsBand();
+  const flyer = icarusFlyer(band);
   const [phase, setPhase] = useState('ready');
   // Aucune mise choisie au départ (sketch Raph 2026-07-17 : « le bouton de jeu
   // n'apparaît que quand la mise est sélectionnée ») — le bouton S'envoler reste
@@ -214,7 +219,7 @@ export default function IcarusStage({ table, onClose }) {
         <span
           className="icarus-stage-pot"
           {...tipProps(
-            tr({ fr: 'La cagnotte du temple', en: 'The temple pot' }),
+            tr({ fr: 'La cagnotte de la Maison', en: 'The House pot' }),
             tr({ fr: `Nourrie par les autres tables. Se poser à ×${ICARUS_JACKPOT_MULT} ou plus en emporte une part, au prorata de la mise : la Plume en prend peu, l’Hécatombe la rafle entière.`, en: `Fed by the other tables. Landing at ×${ICARUS_JACKPOT_MULT} or more takes a share, pro rata of the stake: the Feather takes little, the Hecatomb sweeps it all.` })
           )}
         >
@@ -234,7 +239,7 @@ export default function IcarusStage({ table, onClose }) {
             })}
           </p>
         </StageHelp>
-        <button type="button" className="stage-close" onClick={onClose} aria-label={tr({ fr: 'Quitter le temple', en: 'Leave the temple' })}>✕</button>
+        <button type="button" className="stage-close" onClick={onClose} aria-label={tr({ fr: 'Quitter la table', en: 'Leave the table' })}>✕</button>
       </div>
 
       {history.length > 0 && (
@@ -251,7 +256,7 @@ export default function IcarusStage({ table, onClose }) {
           il REMPLIT le cadran (retour Raphaël 2026-07-18 : « le jeu qui prend
           tout le cadran ») et porte la commande SE POSER en surimpression. */}
       {phase !== 'ready' && (
-      <div className={`icarus-sky${phase === 'crashed' ? ' is-crashed' : ''}${outcome?.jackpotFaveur ? ' is-jackpot' : ''}`}>
+      <div className={`icarus-sky${phase === 'crashed' ? ' is-crashed' : ''}${outcome?.jackpotFaveur ? ' is-jackpot' : ''}`} style={{ background: icarusSkyCss(band) }}>
         <img
           className={`icarus-sun${phase === 'crashed' ? ' is-flare' : ''}`}
           src="/pixelart/ui/icarus/sun.png"
@@ -278,7 +283,7 @@ export default function IcarusStage({ table, onClose }) {
         <span className="icarus-mult" style={{ color: multiplierTone(m) }}>×{m.toFixed(2)}</span>
         {(flying || phase === 'landed') && (
           <span className={`icarus-bird${phase === 'landed' ? ' is-safe' : ''}`} style={{ bottom: `${8 + climb * 76}%` }} aria-hidden="true">
-            <img src="/pixelart/ui/icarus/icarus.png" alt="" />
+            <img src={flyer.src} alt="" className={flyer.glow ? 'is-light' : undefined} />
           </span>
         )}
         {phase === 'crashed' && (
@@ -322,7 +327,7 @@ export default function IcarusStage({ table, onClose }) {
                     className="stake-pick"
                     onClick={() => setStakeId(s.id)}
                     {...tipProps(tr(s.label), freeHere
-                      ? tr({ fr: `Vol offert par un Coup de Vénus. Le temple paie la mise. Se poser à ×${ICARUS_JACKPOT_MULT}+ emporte ${Math.round(potRakeShare(s.faveur) * 100)} % de la cagnotte.`, en: `Flight offered by a Venus throw. The temple pays the stake. Landing at ×${ICARUS_JACKPOT_MULT}+ takes ${Math.round(potRakeShare(s.faveur) * 100)}% of the pot.` })
+                      ? tr({ fr: `Vol offert par un Coup de Vénus. La Maison paie la mise. Se poser à ×${ICARUS_JACKPOT_MULT}+ emporte ${Math.round(potRakeShare(s.faveur) * 100)} % de la cagnotte.`, en: `Flight offered by a Venus throw. The House pays the stake. Landing at ×${ICARUS_JACKPOT_MULT}+ takes ${Math.round(potRakeShare(s.faveur) * 100)}% of the pot.` })
                       : tr({ fr: `Mise de ${cost} Faveur. Se poser à ×m rapporte ${cost} × m. Se poser à ×${ICARUS_JACKPOT_MULT}+ emporte ${Math.round(potRakeShare(cost) * 100)} % de la cagnotte : la part suit la mise.`, en: `${cost} Favor stake. Landing at ×m pays ${cost} × m. Landing at ×${ICARUS_JACKPOT_MULT}+ takes ${Math.round(potRakeShare(cost) * 100)}% of the pot: the share follows the stake.` }))}
                   >
                     {/* L'emblème AVANT le nom : il fait la tête de colonne et
@@ -399,7 +404,7 @@ export default function IcarusStage({ table, onClose }) {
             <button type="button" onClick={() => { setPhase('ready'); setStakeId(null); setOutcome(null); setM(1); }}>
               {tr({ fr: 'Changer de mise', en: 'Change stake' })}
             </button>
-            <button type="button" className="btn-close" onClick={onClose}>{tr({ fr: 'Quitter le temple', en: 'Leave the temple' })}</button>
+            <button type="button" className="btn-close" onClick={onClose}>{tr({ fr: 'Quitter la table', en: 'Leave the table' })}</button>
           </menu>
         </>
       )}
@@ -412,7 +417,7 @@ export default function IcarusStage({ table, onClose }) {
               : tr({ fr: `La cire fond à ×${outcome.crashPoint.toFixed(2)}. Icare tombe.`, en: `The wax melts at ×${outcome.crashPoint.toFixed(2)}. Icarus falls.` })}
           </p>
           <p className="icarus-reveal">
-            {tr({ fr: `La cagnotte du temple atteint ${fmt(potFaveur)} faveur`, en: `The temple pot reaches ${fmt(potFaveur)} favor` })}
+            {tr({ fr: `La cagnotte de la Maison atteint ${fmt(potFaveur)} faveur`, en: `The House pot reaches ${fmt(potFaveur)} favor` })}
             {almost && (
               <span className="icarus-knife"> · {tr({ fr: `une seconde plus tôt : +${fmt(almost.faveur)} faveur (×${almost.m.toFixed(2)})`, en: `one second sooner: +${fmt(almost.faveur)} favor (×${almost.m.toFixed(2)})` })}</span>
             )}
@@ -429,7 +434,7 @@ export default function IcarusStage({ table, onClose }) {
             <button type="button" onClick={() => { setPhase('ready'); setStakeId(null); setOutcome(null); setM(1); }}>
               {tr({ fr: 'Changer de mise', en: 'Change stake' })}
             </button>
-            <button type="button" className="btn-close" onClick={onClose}>{tr({ fr: 'Quitter le temple', en: 'Leave the temple' })}</button>
+            <button type="button" className="btn-close" onClick={onClose}>{tr({ fr: 'Quitter la table', en: 'Leave the table' })}</button>
           </menu>
         </>
       )}

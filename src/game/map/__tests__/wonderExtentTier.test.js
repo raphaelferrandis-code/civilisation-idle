@@ -5,24 +5,37 @@
 // quel que soit le rang atteint. Une Couronne de Pierre rang I fait 128×88 px et
 // trônait au milieu d'un parvis taillé pour 400×256 : la place naissait finie.
 //
-// Le premier test est le seul ANCRAGE EXTERNE de la fiche : la table de
-// dimensions est confrontée aux en-têtes PNG des sprites réellement livrés. Sans
-// lui, tout le reste ne ferait que comparer le calcul à sa propre table — si un
-// sprite est regénéré à une autre taille, c'est ce test qui doit le dire.
+// Le premier test est l'ANCRAGE EXTERNE de la fiche. Il confrontait la table aux
+// en-têtes PNG des sprites « de face » ; depuis la refonte du 2026-10-02 les
+// merveilles sont CUITES par le code (iso/wonderBake.js) dans le socle et la
+// hauteur que cette table leur donne — l'ancrage vérifie donc que chaque monument
+// cuit, à chaque rang, tient dans l'emprise réservée. Sans lui, tout le reste ne
+// ferait que comparer le calcul à sa propre table.
 import { describe, it, expect } from 'vitest';
-import { readFileSync } from 'node:fs';
-import { join } from 'node:path';
 import {
   cmWonderExtent, cmWonderSpriteDims, cmWonderCoreR, cmForEachWonderCell, CM_WONDERS,
 } from '../layout.js';
+import { wonderKitForBand } from '../iso/wonderKits.js';
+import * as WB from '../iso/wonderBake.js';
 
-const WONDER_PPT = 34;          // doit rester synchronisé avec layout.js / renderBuildings.js
+const WONDER_PPT = 34;          // doit rester synchronisé avec layout.js
+const T = 32;
 const DRY = CM_WONDERS.map((w) => w.id).filter((id) => id !== 'era_mega');
-
-// En-tête PNG : largeur/hauteur en big-endian aux octets 16 et 20 (IHDR).
-function pngSize(id, tier) {
-  const b = readFileSync(join(process.cwd(), 'public/pixelart/wonders', `${id}-t${tier}.png`));
-  return { nw: b.readUInt32BE(16), nh: b.readUInt32BE(20) };
+const RECIPE = {
+  dynasty1: 'bakeMausoleum', pop1m: 'bakeColumn', era_kingdom: 'bakePalace',
+  era_empire: 'bakeCathedral', era_mega: 'bakeNeedle', era_singularity: 'bakeEye',
+};
+// Boîte d'encre d'un raster cuit, en coordonnées écran zoom 1 autour de l'origine.
+function inkBox(R) {
+  let x0 = Infinity, x1 = -Infinity, y0 = Infinity, y1 = -Infinity;
+  for (let j = 0; j < R.h; j += 1) {
+    for (let i = 0; i < R.w; i += 1) {
+      if (!R.data[(j * R.w + i) * 4 + 3]) continue;
+      x0 = Math.min(x0, R.ox + i); x1 = Math.max(x1, R.ox + i + 1);
+      y0 = Math.min(y0, R.oy + j); y1 = Math.max(y1, R.oy + j + 1);
+    }
+  }
+  return { x0, x1, y0, y1 };
 }
 
 const cellsAt = (id, tier) => {
@@ -32,10 +45,16 @@ const cellsAt = (id, tier) => {
 };
 
 describe('emprise des merveilles : la zone grandit avec le rang', () => {
-  it('la table de dimensions colle aux sprites livrés (ancrage sur les PNG)', () => {
-    for (const w of CM_WONDERS) {
+  it('chaque merveille cuite tient dans son emprise, à chaque rang (ancrage)', () => {
+    for (const id of DRY) {
       for (let t = 1; t <= 5; t += 1) {
-        expect(cmWonderSpriteDims(w.id, t), `${w.id}-t${t}`).toEqual(pngSize(w.id, t));
+        const d = cmWonderSpriteDims(id, t);
+        const out = WB[RECIPE[id]](wonderKitForBand(4), t, (d.nw / (2 * WONDER_PPT)) * T, (d.nh / WONDER_PPT) * T);
+        const b = inkBox(out.R), r = (cmWonderExtent(id, t).halfW + 0.5) * T;
+        // Le losange de l'emprise : 2r de part et d'autre en X, son coin avant à +r.
+        expect(b.x0, `${id} rang ${t} déborde à gauche`).toBeGreaterThanOrEqual(-2 * r);
+        expect(b.x1, `${id} rang ${t} déborde à droite`).toBeLessThanOrEqual(2 * r);
+        expect(b.y1, `${id} rang ${t} déborde devant`).toBeLessThanOrEqual(r);
       }
     }
   });

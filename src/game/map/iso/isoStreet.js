@@ -37,8 +37,13 @@ import { STREET_PROPS, computeStreetProps } from './isoStreetProps.js';
 // sa config (MEDIAN_TUNE, BED_PALETTES, medianSlots) vivait déjà dans ce module.
 import { WINTER } from '../seasonMode.js';
 import { SEASON_GRASS } from './isoGroundDetail.js';
-import { rgb } from './isoPalette.js';
-import { vieHalo, vieK } from './isoVie.js';
+import { GRASS, rgb } from './isoPalette.js';
+import { vieHalo, vieK, vieTreeSway } from './isoVie.js';
+import { lightCutImage } from '../lightLayer.js';
+import { drawSunShadow } from './isoSunShadow.js';
+// Le mobilier de rue PAR ÈRE, dessiné par le code (2026-10-02) : réverbère et
+// terre-plein. Une ère sans kit garde le mobilier d'avant (PNG, parterres).
+import { streetKitFor, streetKitGlow, streetKitLampArt, streetKitPlantArt, wildShrubArt } from './streetKits.js';
 
 // ── NUIT : voile bleu puis halos des lampadaires ────────────────────────────
 // Lit CM.nightF (cycle jour/nuit du runtime, forcé par les captures). Lumières
@@ -75,18 +80,47 @@ export function isoLamps(L, band) {
   // Les réverbères des PORTS du XIXe (bassin du Vieux-Port, terminal de commerce —
   // iso/portBerths.js, docs/PLAN-PORTS.md) : même format, même dessin par ère.
   const portLamps = portLampList(L, band);
-  const key = CM.layoutRecomputeAt + ':' + plazaLamps.length + ':q' + quayLamps.length + ':p' + portLamps.length;
+  const kit = streetKitFor(band);
+  const key = CM.layoutRecomputeAt + ':' + plazaLamps.length + ':q' + quayLamps.length + ':p' + portLamps.length
+    + ':k' + (kit ? kit.id : '-');
   if (_isoLampCache.key === key && _isoLampCache.lamps) return _isoLampCache.lamps;
   // ON N'ÉCLAIRE PAS LE VIDE. Même règle que le trottoir : une voie sans aucune
   // façade sur ses huit voisines n'est pas une rue, et un mât allumé au milieu
   // de rien est le signal le plus visible du défaut — de nuit, c'est même le
   // seul qu'on voie. Filtré ICI et pas dans `computeIsoLamps` : le corps pur
   // reste testable sans layout bâti.
-  const lamps = computeIsoLamps(L, CM.TILE)
-    .filter((lp) => builtNear(L, lp.gx, lp.gy))
-    .concat(plazaLamps, quayLamps, portLamps);
+  let street = computeIsoLamps(L, CM.TILE).filter((lp) => builtNear(L, lp.gx, lp.gy));
+  // BOULEVARDS (ères à kit) : « une seule file au milieu » (Raph, 2026-10-02).
+  // Chaque voie du boulevard choisissait son côté, et souvent les deux prenaient
+  // la couture : les mâts zigzaguaient d'un bord du terre-plein à l'autre, et
+  // 7 à 11 paires par ville se touchaient presque. Les voies bordant un terre-
+  // plein n'ont plus de mâts à elles ; le terre-plein porte sa propre file, au
+  // rythme de ses plantations (medianPlan).
+  if (kit && kit.median) {
+    const lanes = boulevardLanes(L);
+    street = street.filter((lp) => !lanes.has(lp.gx + ',' + lp.gy));
+    for (const sg of (L.terrePlein || [])) {
+      for (const sl of medianPlan(L, sg, CM.TILE, kit)) {
+        if (sl.kind !== 'lamp' || !sl.urban) continue;
+        street.push({ wx: sl.wx, wy: sl.wy, gx: Math.floor(sl.wx / CM.TILE), gy: Math.floor(sl.wy / CM.TILE), d: sl.wx + sl.wy });
+      }
+    }
+  }
+  const lamps = street.concat(plazaLamps, quayLamps, portLamps);
   _isoLampCache = { at: CM.layoutRecomputeAt, key, lamps };
   return lamps;
+}
+// Cellules des deux voies de chaque boulevard planté (L.terrePlein), mémoïsées
+// sur le plan.
+function boulevardLanes(L) {
+  if (L._bvLanes) return L._bvLanes;
+  const s = new Set();
+  for (const sg of (L.terrePlein || [])) {
+    if (sg.axis === 'h') for (let x = sg.x0; x <= sg.x1; x += 1) { s.add(x + ',' + sg.y); s.add(x + ',' + (sg.y + 1)); }
+    else for (let y = sg.y0; y <= sg.y1; y += 1) { s.add(sg.x + ',' + y); s.add((sg.x + 1) + ',' + y); }
+  }
+  L._bvLanes = s;
+  return s;
 }
 // Corps PUR (exporté pour les tests) : positions + PROFONDEUR peintre de chaque mât.
 // La clé d'un mât n'est PAS toujours wx+wy de son pied : côté 0.14 (bord nord/ouest
@@ -255,6 +289,25 @@ export const lampEraForBand = (band) => (band >= 7 ? 'energy' : band >= 6 ? 'ele
 // query, des navigateurs resservent l'ancien depuis le cache HTTP. Incrémenter
 // à chaque réécriture.
 export const LAMP_V = 3;
+// L'art du réverbère de la bande : celui du KIT de l'ère (dessiné par le code,
+// streetKits.js) s'il existe, sinon le PNG d'avant. Seule porte d'entrée — le
+// peintre, la lumière et les reflets lisent tous celle-ci.
+export function streetLampArt(band) {
+  return streetKitLampArt(band) || isoArt('lamp-' + lampEraForBand(band) + '?v=' + LAMP_V);
+}
+// Boîte d'écran d'un réverbère pour une unité (T·zoom). Le kit sait sa taille :
+// un pixel d'art = un pixel d'écran au zoom 1 (artH), comme le sol et le pont.
+// Le PNG, lui, est ramené à LAMP_TUNE.h tuiles de contenu visible.
+export function lampBox(art, unit) {
+  const m = (art && art.ready && lampFootMetrics(art)) || { footXf: 0.5, footYf: 0.97, usedHf: 0.92 };
+  if (m.artH) {
+    const k = unit / CM.TILE;
+    return { m, hpx: m.artH * k, wpx: m.artW * k };
+  }
+  const hpx = unit * LAMP_TUNE.h / (m.usedHf || 1);
+  const wpx = art && art.ready ? hpx * ((art.img.naturalWidth || 1) / (art.img.naturalHeight || 1)) : hpx * 0.5;
+  return { m, hpx, wpx };
+}
 // Taille & pose des mâts (retour Raph : « trop gros, et n'ont pas de pieds ») :
 // h = hauteur VISIBLE en tuiles, mesurée sur le CONTENU opaque du PNG (les 4
 // sprites ont 4 à 13 % de marge → même taille apparente aux 4 ères) ; 1.15 les
@@ -351,6 +404,122 @@ export function medianSlots(seg, T) {
   return out;
 }
 if (typeof window !== 'undefined') window.__medianSlots = medianSlots;   // sonde dev
+
+// ── TERRE-PLEIN D'UNE ÈRE À KIT (streetKits.js) ──────────────────────────────
+// Le plan : la suite du kit (`median.pattern`, un objet tous les `step` tuiles),
+// centrée sur la couture, et pour chaque objet si la VILLE le borde — une des
+// deux voies a une façade sur ses huit voisines (builtNear, la règle des mâts et
+// du trottoir). Hors de la ville, rien : « une bande d'herbe simple » (Raph,
+// 2026-10-02 ; 46 à 57 % des cases de terre-plein étaient en pleine forêt).
+// Source UNIQUE des plantations (peintre), des mâts (isoLamps) et de la bordure
+// (bake, medianUrbanRuns). Mémoïsé sur le plan, par segment et par kit.
+export function medianPlan(L, seg, T, kit) {
+  const memo = L._medianPlan || (L._medianPlan = new Map());
+  const mk = kit.id + ':' + seg.axis + ':' + (seg.axis === 'h' ? seg.y + ':' + seg.x0 + ':' + seg.x1 : seg.x + ':' + seg.y0 + ':' + seg.y1);
+  const hit = memo.get(mk);
+  if (hit) return hit;
+  const M = kit.median, ext = MEDIAN_TUNE.ext * T;
+  const horiz = seg.axis === 'h';
+  const a0 = (horiz ? seg.x0 : seg.y0) * T - ext;
+  const len = ((horiz ? seg.x1 - seg.x0 : seg.y1 - seg.y0) + 1) * T + 2 * ext;
+  const P = T * M.step, margin = T * 0.45;
+  const n = Math.max(0, Math.floor((len - 2 * margin) / P) + 1);
+  const t0 = (len - (n - 1) * P) / 2;                 // suite centrée sur le segment
+  const urban = medianUrbanCells(L, seg);
+  const out = [];
+  for (let i = 0; i < n; i += 1) {
+    const w = a0 + t0 + i * P;
+    const wx = horiz ? w : (seg.x + 1) * T, wy = horiz ? (seg.y + 1) * T : w;
+    const ci = Math.max(0, Math.min(urban.length - 1, Math.floor(w / T) - (horiz ? seg.x0 : seg.y0)));
+    const kind = M.pattern[i % M.pattern.length];
+    const h = cmHash('tpk:' + mk + ':' + i) >>> 0;
+    // gx/gy : la phase du vent (vieTreeSway) se tire de la position.
+    out.push({ kind, wx, wy, gx: wx / T, gy: wy / T, urban: urban[ci], h, draw: drawMedianPlantSelf });
+  }
+  memo.set(mk, out);
+  return out;
+}
+// Par case de la couture : la ville la borde-t-elle ? Même règle que le TROTTOIR
+// dessiné (isoStreetPropsFor) : une voie de sol urbain — pas retombée en herbe ou
+// en friche (courOf) — avec une façade sur ses huit voisines. La façade seule ne
+// suffisait pas : une caravane et son tas de bois au bord du boulevard, en pleine
+// forêt, y posaient deux cyprès, une vasque et un mât entre deux bouts de bordure.
+// Une tranche de moins de MEDIAN_TOWN_MIN cases ne compte pas non plus.
+const MEDIAN_TOWN_MIN = 3;
+export function medianUrbanCells(L, seg) {
+  const courK = COUR.on && COUR.sidewalk && L.urbanSet ? courOf(L) : null;
+  const street = (gx, gy) => (!courK || (courK.get(gx + ',' + gy) || 'urban') === 'urban') && builtNear(L, gx, gy);
+  const out = [];
+  if (seg.axis === 'h') for (let x = seg.x0; x <= seg.x1; x += 1) out.push(street(x, seg.y) || street(x, seg.y + 1));
+  else for (let y = seg.y0; y <= seg.y1; y += 1) out.push(street(seg.x, y) || street(seg.x + 1, y));
+  for (let i = 0; i < out.length; i += 1) {
+    if (!out[i]) continue;
+    let j = i;
+    while (j + 1 < out.length && out[j + 1]) j += 1;
+    if (j - i + 1 < MEDIAN_TOWN_MIN) for (let k = i; k <= j; k += 1) out[k] = false;
+    i = j;
+  }
+  return out;
+}
+// Une plantation du terre-plein, au peintre (item 'vie' : l'acteur se dessine).
+// Un pixel d'art = un pixel d'écran au zoom 1 ; ombre solaire au pied comme tout
+// le reste ; le cyprès bouge au vent comme les arbres ; la plantation DÉCOUPE les
+// halos qu'elle cache (calque de lumière).
+function drawMedianPlantSelf(ctx, now) { drawMedianPlant(ctx, this, now); }
+export function drawMedianPlant(ctx, sl, now) {
+  const L = CM.layout;
+  const band = (L && L.counts && L.counts.eraBand) | 0;
+  const art = streetKitPlantArt(band, sl.kind, sl.h, CM.season | 0);
+  if (art) drawKitSprite(ctx, art, sl, now, SWAYING.has(sl.kind));
+}
+// Ce qui plie au vent (le reste — bornes, vasques, bacs, colonnes — tient droit).
+const SWAYING = new Set(['tree', 'shrub', 'frond']);
+// Pose un objet de kit (streetKits.js) au pied (o.wx, o.wy) : au pixel d'appareil,
+// ombre solaire, vent en trois bandes (vieTreeSway, comme les arbres), découpe des
+// halos.
+function drawKitSprite(ctx, art, o, now, sways) {
+  const z = CM.cam.zoom, dpr = CM.dpr || 1;
+  const p = worldToScreen(o.wx, o.wy);
+  const f = art._foot, dw = art.w * z, dh = art.h * z;
+  const dx = Math.round((p.x - dw * f.footXf) * dpr) / dpr, dy = Math.round((p.y - dh * f.footYf) * dpr) / dpr;
+  drawSunShadow(ctx, art.img, dx, dy, dw, dh, 0, 0, 0, 0, f.footYf);
+  const prev = ctx.imageSmoothingEnabled;
+  ctx.imageSmoothingEnabled = false;
+  const sway = sways ? vieTreeSway(o, now, art.w, art.h, dh) : null;
+  if (!sway) ctx.drawImage(art.img, dx, dy, dw, dh);
+  else {
+    const k = dh / art.h;
+    for (const [y0, y1, off] of sway) {
+      if (y1 <= y0) continue;
+      ctx.drawImage(art.img, 0, y0, art.w, y1 - y0, dx + off * k, dy + y0 * k, dw, (y1 - y0) * k);
+    }
+  }
+  ctx.imageSmoothingEnabled = prev;
+  lightCutImage(art.img, dx, dy, dw, dh);
+}
+// BUISSONS DE L'ÎLE de la merveille (et tout buisson sauvage) : la même main que
+// le terre-plein de la Pierre — un pixel d'art par pixel d'écran, ombre solaire,
+// vent. Les images Cainos d'avant (28 à 72 px dessinés à la même taille) avaient
+// chacune sa taille de pixel, et une ellipse sombre en guise d'ombre.
+function drawWildShrubSelf(ctx, now) {
+  const art = wildShrubArt(this.h, CM.season | 0, this.size);
+  if (art) drawKitSprite(ctx, art, this, now, true);
+}
+export function wildShrubActor(wx, wy, h, size) {
+  return { wx, wy, gx: wx / CM.TILE, gy: wy / CM.TILE, h, size, draw: drawWildShrubSelf };
+}
+// Bandes de la couture que la ville borde, en tranches [i0, i1] de cases.
+function medianUrbanRuns(L, seg) {
+  const u = medianUrbanCells(L, seg), runs = [];
+  for (let i = 0; i < u.length; i += 1) {
+    if (!u[i]) continue;
+    let j = i;
+    while (j + 1 < u.length && u[j + 1]) j += 1;
+    runs.push([i, j]);
+    i = j;
+  }
+  return { runs, n: u.length };
+}
 // ── FLAMMES & LUMIÈRES DES LAMPADAIRES (animées) ─────────────────────────────
 // Chaque ère a sa/ses source(s) lumineuse(s), repérées en FRACTION du canvas du
 // sprite (fx depuis la gauche du sprite dessiné, fy depuis le haut) — mesurées sur
@@ -598,16 +767,16 @@ export function drawIsoNight(now) {
 export function isoLampLightFrame(L) {
   if (!LAMP_LIGHT.on || CM.lodActive || !L || !L.roadMap) return null;
   const band = (L.counts && L.counts.eraBand) | 0;
-  const lig = LAMP_LIGHTS[lampEraForBand(band)] || LAMP_LIGHTS.antique;
+  // Métriques du sprite pour placer les sources sur la tête (mêmes calculs que le
+  // peintre). Un réverbère de kit porte sa propre lumière (sources en fraction
+  // de son canvas, connues par construction).
+  const art = streetLampArt(band);
+  const lig = art.lig || LAMP_LIGHTS[lampEraForBand(band)] || LAMP_LIGHTS.antique;
   const n = CM.nightF || 0;
   const vis = lig.day + (1 - lig.day) * n;            // visibilité diurne/nocturne de la source
   if (vis <= 0.02) return null;
-  // Métriques du sprite pour placer les sources sur la tête (mêmes calculs que le peintre).
-  const art = isoArt('lamp-' + lampEraForBand(band) + '?v=' + LAMP_V);
-  const m = (art.ready && lampFootMetrics(art)) || { footXf: 0.5, footYf: 0.97, usedHf: 0.92 };
   const unit = CM.TILE * CM.cam.zoom;
-  const hpx = unit * LAMP_TUNE.h / (m.usedHf || 1);
-  const wpx = art.ready ? hpx * ((art.img.naturalWidth || 1) / (art.img.naturalHeight || 1)) : hpx * 0.5;
+  const { m, hpx, wpx } = lampBox(art, unit);
   return { band, lig, m, hpx, wpx, vis, n, unit, gain: LAMP_LIGHT.gain, stride: isoLampStride(L, band) };
 }
 
@@ -690,25 +859,15 @@ export function drawIsoMedians(ctx, tp, T, z) {
   if (tp && tp.length) {
     const wtp = T * 0.26;                        // demi-largeur monde de la capsule (< refuge agents ±0.34)
     const ext = MEDIAN_TUNE.ext * T;
+    // ÈRE À KIT (streetKits.js) : gazon au ton du pré, bordure dans la matière de
+    // l'ère et ombre de bordure là seulement où la ville borde la couture ; pas de
+    // parterres cuits — les plantations sont des objets du peintre (medianPlan).
+    const L = CM.layout;
+    const kit = L && streetKitFor((L.counts && L.counts.eraBand) | 0);
+    if (kit && kit.median) { drawKitMedians(ctx, tp, T, z, L, kit, wtp, ext); return; }
     // Trace la capsule en MONDE (bouts = demi-cercles échantillonnés) : projetée
     // par worldToScreen, elle s'écrase naturellement en rondelle iso au sol.
-    const capsulePath = (ax, ay, bx, by, w) => {
-      const dl = Math.hypot(bx - ax, by - ay) || 1;
-      const ux = (bx - ax) / dl, uy = (by - ay) / dl, pxw = -uy, pyw = ux;
-      ctx.beginPath();
-      const N = 7;
-      for (let i = 0; i <= N; i += 1) {          // bout A : +perp → −axe → −perp
-        const th = Math.PI * (i / N);
-        const q = worldToScreen(ax + (pxw * Math.cos(th) - ux * Math.sin(th)) * w, ay + (pyw * Math.cos(th) - uy * Math.sin(th)) * w);
-        if (i === 0) ctx.moveTo(q.x, q.y); else ctx.lineTo(q.x, q.y);
-      }
-      for (let i = 0; i <= N; i += 1) {          // bout B : −perp → +axe → +perp
-        const th = Math.PI * (i / N);
-        const q = worldToScreen(bx + (-pxw * Math.cos(th) + ux * Math.sin(th)) * w, by + (-pyw * Math.cos(th) + uy * Math.sin(th)) * w);
-        ctx.lineTo(q.x, q.y);
-      }
-      ctx.closePath();
-    };
+    const capsulePath = (ax, ay, bx, by, w) => medianCapsulePath(ctx, ax, ay, bx, by, w);
     for (const seg of tp) {
       let ax, ay, bx, by;
       if (seg.axis === 'h') { ax = seg.x0 * T - ext; ay = (seg.y + 1) * T; bx = (seg.x1 + 1) * T + ext; by = ay; }
@@ -839,6 +998,161 @@ export function drawIsoMedians(ctx, tp, T, z) {
           }
         }
       }
+    }
+  }
+}
+
+// Capsule du terre-plein tracée en MONDE (bouts = demi-cercles échantillonnés) :
+// projetée par worldToScreen, elle s'écrase naturellement en rondelle iso au sol.
+function medianCapsulePath(ctx, ax, ay, bx, by, w) {
+  const dl = Math.hypot(bx - ax, by - ay) || 1;
+  const ux = (bx - ax) / dl, uy = (by - ay) / dl, pxw = -uy, pyw = ux;
+  ctx.beginPath();
+  const N = 7;
+  for (let i = 0; i <= N; i += 1) {          // bout A : +perp → −axe → −perp
+    const th = Math.PI * (i / N);
+    const q = worldToScreen(ax + (pxw * Math.cos(th) - ux * Math.sin(th)) * w, ay + (pyw * Math.cos(th) - uy * Math.sin(th)) * w);
+    if (i === 0) ctx.moveTo(q.x, q.y); else ctx.lineTo(q.x, q.y);
+  }
+  for (let i = 0; i <= N; i += 1) {          // bout B : −perp → +axe → +perp
+    const th = Math.PI * (i / N);
+    const q = worldToScreen(bx + (-pxw * Math.cos(th) + ux * Math.sin(th)) * w, by + (-pyw * Math.cos(th) + uy * Math.sin(th)) * w);
+    ctx.lineTo(q.x, q.y);
+  }
+  ctx.closePath();
+}
+
+// Ton moyen de la texture `median-lawn` (mesuré à l'écran le 2026-10-02) : le
+// multiply qui la ramène au ton du kit se calcule contre lui.
+const LAWN_TEX_TONE = [121, 148, 82];
+// Le terre-plein d'une ère à kit, au bake. Gazon : la texture d'avant (même grain,
+// ancrée au monde), ramenée au ton du pré du kit par un multiply — le gazon était
+// deux fois plus clair que le pré (« trait de surligneur »). La saison décale ce
+// ton comme elle décale l'herbe. Tout ce qui est l'ŒUVRE de la ville — sable
+// stabilisé (Fonte), bandes de tonte (Néon), grilles de fonte au pied des arbres,
+// bordure de la matière de l'ère ou liseré lumineux (ères cosmiques), ombre de
+// bordure — ne se pose que dans les tranches que la ville borde ; ailleurs,
+// l'herbe nue.
+function drawKitMedians(ctx, tp, T, z, L, kit, wtp, ext) {
+  const M = kit.median;
+  const band = (L.counts && L.counts.eraBand) | 0;
+  const winter = CM.season === WINTER;
+  const tone = M.lawn ? M.lawn.map((c, i) => c * (SEASON_GRASS[i] / GRASS[i])) : SEASON_GRASS;
+  const mul = tone.map((c, i) => Math.max(0, Math.min(255, 255 * c / LAWN_TEX_TONE[i])));
+  const lawnArt = isoArt(winter ? 'median-lawn-winter' : 'median-lawn');
+  const curb = M.curbGlow ? streetKitGlow(band) : M.curb;
+  const pu = Math.max(1, Math.round(z));                 // un pixel d'art
+  for (const seg of tp) {
+    const horiz = seg.axis === 'h';
+    let ax, ay, bx, by;
+    if (horiz) { ax = seg.x0 * T - ext; ay = (seg.y + 1) * T; bx = (seg.x1 + 1) * T + ext; by = ay; }
+    else { ax = (seg.x + 1) * T; ay = seg.y0 * T - ext; bx = ax; by = (seg.y1 + 1) * T + ext; }
+    const { runs, n } = medianUrbanRuns(L, seg);
+    const s0 = horiz ? seg.x0 : seg.y0, c = horiz ? (seg.y + 1) * T : (seg.x + 1) * T;
+    // Quadrilatère monde [u0, u1] le long de l'axe × [−v, +v] en travers, projeté.
+    const quad = (u0, u1, v) => {
+      const pts = horiz ? [[u0, c - v], [u1, c - v], [u1, c + v], [u0, c + v]]
+        : [[c - v, u0], [c + v, u0], [c + v, u1], [c - v, u1]];
+      pts.forEach(([x, y], k) => { const q = worldToScreen(x, y); if (k) ctx.lineTo(q.x, q.y); else ctx.moveTo(q.x, q.y); });
+      ctx.closePath();
+    };
+    // Découpe des tranches bordées par la ville.
+    const urbanClip = () => {
+      ctx.beginPath();
+      for (const [i0, i1] of runs) {
+        quad((s0 + i0) * T - (i0 === 0 ? ext + wtp + 2 : 0), (s0 + i1 + 1) * T + (i1 === n - 1 ? ext + wtp + 2 : 0), T / 2);
+      }
+      ctx.clip();
+    };
+    if (runs.length && curb) {
+      ctx.save();
+      urbanClip();
+      ctx.translate(z * 1.4, z * 1.0);
+      medianCapsulePath(ctx, ax, ay, bx, by, wtp);
+      ctx.fillStyle = 'rgba(18,24,12,0.22)';
+      ctx.fill();
+      ctx.restore();
+    }
+    medianCapsulePath(ctx, ax, ay, bx, by, wtp);
+    ctx.fillStyle = winter ? 'rgb(224,232,236)' : rgb(tone, 1);
+    ctx.fill();
+    const pat = lawnArt.ready ? ctx.createPattern(lawnArt.img, 'repeat') : null;
+    if (pat) {
+      const sc = (T * z) / (lawnArt.img.naturalWidth || 64);
+      const o = worldToScreen(0, 0);
+      if (pat.setTransform) pat.setTransform(new DOMMatrix([sc, 0, 0, sc * 0.5, o.x, o.y]));
+      ctx.fillStyle = pat;
+      ctx.fill();
+      if (!winter) {
+        ctx.save();
+        ctx.globalCompositeOperation = 'multiply';
+        ctx.fillStyle = rgb(mul, 1);
+        ctx.fill();
+        ctx.restore();
+      }
+    }
+    if (!runs.length) continue;
+    const segKey = seg.axis + ':' + (horiz ? seg.y + ':' + seg.x0 : seg.x + ':' + seg.y0);
+    ctx.save();
+    urbanClip();
+    medianCapsulePath(ctx, ax, ay, bx, by, wtp);
+    ctx.clip();
+    if (M.ground === 'gravel') {
+      // SABLE STABILISÉ des boulevards du Second Empire, piqué de gravillons au
+      // pixel d'art (deux tons, au hash du monde : rien ne nage au pan).
+      const g = winter ? [222, 226, 228] : M.gravel;
+      ctx.fillStyle = rgb(g, 1);
+      ctx.fill();
+      const gl = rgb(g.map((v) => Math.min(255, v + 18)), 1), gd = rgb(g.map((v) => v * 0.8), 1);
+      const len = (horiz ? bx - ax : by - ay), u0 = horiz ? ax : ay;
+      for (let t = 0; t <= len; t += T * 0.05) {
+        for (let k = -4; k <= 4; k += 1) {
+          const h = cmHash('tpg:' + segKey + ':' + Math.round(t * 10) + ':' + k);
+          if ((h & 255) > (winter ? 40 : 120)) continue;
+          const off = k * wtp * 0.22 + (((h >>> 9) % 64) / 64 - 0.5) * wtp * 0.2;
+          const u = u0 + t + (((h >>> 16) % 64) / 64 - 0.5) * T * 0.05;
+          const q = worldToScreen(horiz ? u : c + off, horiz ? c + off : u);
+          ctx.fillStyle = (h & 1) ? gl : gd;
+          ctx.fillRect(Math.round(q.x), Math.round(q.y), pu, pu);
+        }
+      }
+    }
+    if (M.stripes && !winter) {
+      // BANDES DE TONTE : une sur deux un cran plus claire, en travers de l'axe.
+      ctx.beginPath();
+      const w = T * 0.25, from = (horiz ? ax : ay) - wtp, to = (horiz ? bx : by) + wtp;
+      for (let u = from, i = 0; u < to; u += w, i += 1) if (i & 1) quad(u, u + w, wtp + 1);
+      ctx.fillStyle = 'rgba(255,255,236,0.07)';
+      ctx.fill();
+    }
+    if (M.grate) {
+      // GRILLES DE FONTE au pied des arbres d'alignement : un carré de terre posé
+      // en losange, cerclé de fonte. Au sol, donc au bake : rien ne passe devant.
+      const gr = T * 0.13;
+      for (const sl of medianPlan(L, seg, T, kit)) {
+        if (!sl.urban || sl.kind !== 'tree') continue;
+        ctx.beginPath();
+        [[gr, 0], [0, gr], [-gr, 0], [0, -gr]].forEach(([dx, dy], k) => {
+          const q = worldToScreen(sl.wx + dx, sl.wy + dy);
+          if (k) ctx.lineTo(q.x, q.y); else ctx.moveTo(q.x, q.y);
+        });
+        ctx.closePath();
+        ctx.fillStyle = winter ? 'rgb(206,212,214)' : 'rgb(92,74,54)';
+        ctx.fill();
+        ctx.strokeStyle = 'rgb(42,51,47)';
+        ctx.lineWidth = Math.max(1, z * 0.9);
+        ctx.stroke();
+      }
+    }
+    ctx.restore();
+    if (curb) {
+      ctx.save();
+      urbanClip();
+      medianCapsulePath(ctx, ax, ay, bx, by, wtp);
+      ctx.strokeStyle = curb;
+      ctx.lineWidth = Math.max(1, z * 0.9);
+      ctx.stroke();
+      ctx.restore();
     }
   }
 }

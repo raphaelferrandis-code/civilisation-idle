@@ -153,7 +153,7 @@ function tradePlan(tp, level, band, T, sm) {
       row += 1;
     }
     // Porte-conteneurs à quai, entre les portiques.
-    const fp = hullFootprint('container');
+    const fp = hullFootprint('container', band);
     const nS = Math.max(1, Math.min(Math.floor(tp.len / (fp.len + 0.7)), level >= 100 ? 3 : level >= 30 ? 2 : 1));
     for (let k = 0; k < nS; k += 1) {
       const xs = x0 + tp.len * (k + 0.5) / nS;
@@ -195,7 +195,7 @@ function tradePlan(tp, level, band, T, sm) {
         box(low, 'goods', gx, gx + 0.2, 0.75, 0.97, 0, gh, { gk: i * 3 + j });
       }
     }
-    const fp = hullFootprint('steam');
+    const fp = hullFootprint('steam', band);
     const nS = Math.max(1, Math.min(Math.floor(tp.len / (fp.len + 0.8)), level >= 60 ? 3 : 2));
     for (let k2 = 0; k2 < nS; k2 += 1) {
       ships.push({ role: 'steam', x: x0 + tp.len * (k2 + 0.5) / nS, y: yF + dir * (fp.beam / 2 + 0.06), z: -wh });
@@ -366,7 +366,7 @@ export function drawTradePort(ctx, t, band, ei, now) {
   // niveau de l'eau (au pied du mur). Rive nord : ils sont DEVANT le quai (peints
   // après lui) ; rive sud : DERRIÈRE (peints avant, le quai cache leur flanc bas).
   const heading = Math.atan2(0.5, 1);
-  const ships = () => { for (const sh of g.plan.ships) drawMooredHull(ctx, { role: sh.role, heading, x: sh.x, y: sh.y, z: sh.z, now }); };
+  const ships = () => { for (const sh of g.plan.ships) drawMooredHull(ctx, { role: sh.role, heading, x: sh.x, y: sh.y, z: sh.z, now, band }); };
   const B = g.low;
   if (g.plan.dir < 0) ships();
   if (B) blitLayer(ctx, B.body);
@@ -390,7 +390,7 @@ registerPortProvider('commerce', (L) => {
     const g = tradeGeom(t, band);
     if (!g) continue;
     g.plan.ships.forEach((sh, i) => {
-      const fp = hullFootprint(sh.role);
+      const fp = hullFootprint(sh.role, band);
       berths.push({ id: 'commerce-' + i, kind: 'commerce', x: sh.x, y: sh.y, heading: Math.atan2(0.5, 1), axis: { x: 1, y: 0 }, maxLen: fp.len + 0.6, decor: true });
       for (let d = -fp.len / 2 + fp.beam / 2; d <= fp.len / 2 - fp.beam / 2 + 1e-6; d += fp.beam) water.push({ x: sh.x + d, y: sh.y, r: fp.beam / 2 + 0.15, id: 'navire-a-quai' });
     });

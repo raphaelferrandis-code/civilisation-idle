@@ -166,6 +166,42 @@ export const VIE_ART = {
     '..bb.',
     '...bw',
   ]] },
+  // LE PÊCHEUR DU PONT (isoBridge.drawRod). FLOTTEUR rouge à ceinture blanche :
+  // posé, enfoncé d'un pixel (il dodeline), puis coulé (la touche — seule la pointe
+  // dépasse). Pied = la ligne d'eau.
+  bobber: { foot: 2, frames: [[
+    '.a.',
+    'aaa',
+    '.W.',
+  ], [
+    '...',
+    '.a.',
+    'aaa',
+  ], [
+    '...',
+    '...',
+    '.a.',
+  ]] },
+  // La PRISE pendue à la ligne, bouche en haut : elle frétille (la queue bat).
+  // C'est la SILHOUETTE qui dit « poisson » : museau, corps, queue étranglée puis
+  // FOURCHUE. Toute en clair : sur l'eau sombre, un dos ou une queue foncés
+  // disparaissaient et il restait un pavé (vu à la capture — « une lanterne »).
+  // Il se tord : la 2e image montre l'autre flanc.
+  fishHang: { foot: 0, frames: [[
+    '.b.',
+    'wbS',
+    'wbS',
+    'wbS',
+    '.b.',
+    'b.b',
+  ], [
+    '.b.',
+    'Sbw',
+    'Sbw',
+    'Sbw',
+    '.b.',
+    'b.b',
+  ]] },
   // FEUILLES : quatre poses d'une feuille qui vrille (à plat, de biais, de chant,
   // de l'autre biais). 3 px : à 2, elle ne se voyait qu'agrandie ×5.
   leaf: { foot: 1, frames: [['ee.', '.ee'], ['eee', '...'], ['.ee', 'ee.'], ['.e.', '.e.']] },

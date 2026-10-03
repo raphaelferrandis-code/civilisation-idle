@@ -398,6 +398,18 @@
   max-height: 88%;
   overflow: auto;
 }
+/* ⭐ Posé BAS dans la salle (refonte 2026-10-02) : la salle zoome sur la table du
+   jeu ouvert (SalleCanvas, `focus`) — on la voit, avec ses joueurs, au-dessus du
+   tapis. Le calque reste centré au doigt (règle plus haut, en `fixed`). */
+@media (min-width: 761px) {
+  .plaisirs-stage[data-age] {
+    align-items: flex-end;
+    padding-bottom: 2%;
+  }
+  .plaisirs-stage[data-age] > * {
+    max-height: 80%;
+  }
+}
 
 /* ── LE PANNEAU DU JEU A BESOIN D'UN SOL ────────────────────────────────────
    Retour Raph 2026-08-07 : « on ne voit pas bien la police d'écriture, c'est un
@@ -434,6 +446,44 @@
 .plaisirs-stage .regulation-stage:not(.is-empty) {
   background-color: var(--panel-2);
   backdrop-filter: blur(4px);
+}
+
+/* ⭐ LA PARTIE SE JOUE SUR LA TABLE DE L'ÂGE (refonte du 2026-10-02, phase 3 —
+   docs/PLAN-MAISON-DES-PLAISIRS.md § ⭐). Raph : « la partie se joue SUR la table
+   du décor, plus dans une boîte sombre ; le matériel suit l'âge ». Le panneau
+   devient le TAPIS de la table — peau tannée au feu, drap, velours, tapis vert de
+   la fonte, tapis de casino au néon, lumière aux âges cosmiques — cerné du
+   REBORD de sa matière (bois, pierre, marbre, acajou, chrome, cristal). Les
+   couleurs viennent de plaisirsMaterial.js (tableVars), posées sur le calque par
+   PlaisirsView. Le grain et la vignette du drap d'origine sont gardés.
+   ⚠ Les boutons et le texte ne changent PAS avec l'âge (peau d'interface unique,
+   arbitrage de Raph) : seul le support de jeu suit l'époque. Les feutres restent
+   sombres pour que le crème et l'or du texte se lisent. */
+.plaisirs-stage[data-age] .regulation-stage:not(.is-empty) {
+  background-color: var(--table-felt-b);
+  background-image:
+    radial-gradient(ellipse at 50% 30%, transparent 55%, rgba(0, 0, 0, 0.38)),
+    repeating-linear-gradient(0deg, rgba(255, 255, 255, 0.022) 0 3px, transparent 3px 6px),
+    repeating-linear-gradient(90deg, rgba(0, 0, 0, 0.06) 0 3px, transparent 3px 6px),
+    linear-gradient(180deg, var(--table-felt-a), var(--table-felt-b));
+  border: 6px solid var(--table-rim-b);
+  box-shadow:
+    0 0 0 2px var(--table-rim-a),
+    0 10px 28px rgba(0, 0, 0, 0.5),
+    inset 0 0 0 2px color-mix(in srgb, var(--table-line), transparent 55%),
+    inset 0 0 42px rgba(0, 0, 0, 0.4);
+}
+/* Le drap du vingt-et-un (son propre feutre violet, hérité de la Régulation) prend
+   le feutre de l'âge : une nuance du tapis, cerclée du filet de la table — une
+   seule table, pas une boîte dans la boîte. */
+.plaisirs-stage[data-age] .bj-table {
+  background: radial-gradient(120% 95% at 50% 0%,
+    color-mix(in srgb, var(--table-felt-a), white 7%) 0%, var(--table-felt-a) 55%, var(--table-felt-b) 100%);
+  border-color: color-mix(in srgb, var(--table-line), transparent 45%);
+}
+/* Icare de LUMIÈRE (âges cosmiques) : le même dessin, illuminé. */
+.icarus-bird img.is-light {
+  filter: brightness(1.45) saturate(0.6) drop-shadow(0 0 4px rgba(200, 240, 255, 0.9));
 }
 
 /* Aucune partie en cours : la scène disparaît. On masque l'ENFANT vide et non

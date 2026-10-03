@@ -20,6 +20,8 @@ import { FaveurIcon } from './FaveurIcon.jsx';
 import { tipProps } from './HelpBubble.jsx';
 import CoffreSelect from './CoffreSelect.jsx';
 import StageHelp from './StageHelp.jsx';
+import { usePlaisirsBand, diceSheetFor } from './plaisirsMaterial.js';
+import { wonderKitForBand } from '../../game/map/iso/wonderKits.js';
 
 /**
  * La Table des augures — SCÈNE INTÉGRÉE. MONNAIE FERMÉE (2026-07-16) : la mise
@@ -77,6 +79,10 @@ export default function AuguryStage({ table, onClose }) {
   const [bones, setBones] = useState(null);
   const [landed, setLanded] = useState(0);
   useGameState((s) => s.instability); // odds/rabais vivants (1 Hz)
+  // ⭐ Le matériel de l'ÂGE (plaisirsMaterial.js) : les os de Raph aux âges anciens,
+  // puis des dés vus de dessus (ivoire, casino, lumière de l'ère).
+  const band = usePlaisirsBand();
+  const diceSheet = diceSheetFor(band, band >= 7 ? wonderKitForBand(band).pal.glow : null);
   const faveur = useGameState((s) => s.faveur || 0); // mises payables en direct
   const cycles = useGameState((s) => s.cycles);
 
@@ -282,7 +288,7 @@ export default function AuguryStage({ table, onClose }) {
 
       {phase !== 'stake' && (
         <>
-          <div className="augury-dice" aria-live="polite">
+          <div className="augury-dice" aria-live="polite" style={diceSheet ? { '--bones-sheet': `url("${diceSheet}")` } : undefined}>
             {/* L'osselet est un SPRITE (planche 1·3·4·6) : tant qu'il roule il n'a
                 pas de face fixée — l'animation fait défiler la planche. La valeur
                 se lit aux pips gravés ; l'aria-label la donne en mode navigation.
@@ -296,7 +302,7 @@ export default function AuguryStage({ table, onClose }) {
                 className={`augury-die${i < landed ? ' is-landed' : ''}${i < landed && v === 1 ? ' is-ace' : ''}`}
                 data-face={i < landed ? v : undefined}
                 role="img"
-                aria-label={i < landed ? String(v) : tr({ fr: 'osselet en l’air', en: 'knucklebone in the air' })}
+                aria-label={i < landed ? String(v) : (diceSheet ? tr({ fr: 'dé en l’air', en: 'die in the air' }) : tr({ fr: 'osselet en l’air', en: 'knucklebone in the air' }))}
               />
             ))}
             {/* Annonce vocale : la zone aria-live n'annonce que les ADDITIONS de

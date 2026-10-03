@@ -50,8 +50,11 @@ import { noteReflection } from './isoReflect.js';
 import { drawSunShadow, sunShadowAlpha, SUN_SHADOW } from './isoSunShadow.js';
 // Les drapeaux du pont claquent dans le MÊME vent que ceux de la ville (session
 // « petite vie ») : une seule recette. isoVie n'importe que layout.js et vieArt.js.
-import { drawVieFlag } from './isoVie.js';
-import { lightCtx, lightCutImage } from '../lightLayer.js';
+import { drawVieFlag, vieBlit, vieSprite, vieRing, viePixel, vieK, vieZoomFade, vieCount } from './isoVie.js';
+// Objets posés (statues, braseros, réverbères, flammes, lueurs) : partagés avec
+// les merveilles (iso/isoProps.js).
+import { PROP_LIGHT, glowAt, drawFlame, drawSpriteProp, hexToRgbStr } from './isoProps.js';
+import { lightCutImage } from '../lightLayer.js';
 // ⚠ PAS d'import d'isoRiver : il configure la vie du fleuve AU CHARGEMENT et la
 // chaîne isoRiverLife → … → isoBridge → isoRiver bouclait (CFG lu avant sa
 // déclaration, riverLife.test cassé). Le contour de l'eau est retracé ici à partir
@@ -75,6 +78,7 @@ export const bridgeTune = {
   under: '#7a8597',    // ombre sous le tablier (multiply), jour comme nuit
   underA: 0.85,
   slice: 16,           // largeur d'une tranche du tri, en colonnes d'art
+  shipFront: true,     // redessiner la coque des bateaux sortis devant la face aval (A/B)
 };
 
 // ── Géométrie ────────────────────────────────────────────────────────────────
@@ -332,10 +336,17 @@ function buildModel(sp, L, band, ei) {
     const n = Math.min(want.length, Math.max(2, Math.floor((rB - rA) / (T * 1.4))));
     for (let i = 0; i < n; i += 1) {
       const [side, dir, fisher] = want[i];
+      // Le pêcheur se met AU-DESSUS DE L'EAU, et sa ligne doit tomber dans une
+      // ARCHE, pas devant une pile ni la culée (vu : le bout de la canne sur le
+      // poteau de rive). La ligne (l − 1, t ≈ tDn + 14,5) a, à l'écran, la colonne
+      // du point de la face aval l − 15,5 : c'est lui qu'on écarte des piles.
+      const LF = 15.5;
+      const [lo, hi] = fisher && fB - fA > 48 ? [fA + LF + 5, fB - 5] : [rA + 16, rB - 16];
+      const clearOfPiers = (l) => !fisher || lay.piers.every((p) => Math.abs(p.l - (l - LF)) > (p.w || pw) / 2 + 3);
       for (let k = 0; k < 8; k += 1) {
         const u = ((Math.imul(seed + i * 131 + k * 17, 2654435761) >>> 0) % 1000) / 1000;
-        const l = rA + 16 + u * (rB - rA - 32);
-        if (!free(l)) continue;
+        const l = lo + u * (hi - lo);
+        if (!free(l) || !clearOfPiers(l)) continue;
         const r = ((Math.imul(seed + i * 977, 40503) >>> 0) % 1000) / 1000;
         idlers.push({
           l, side, dir, fisher,
@@ -473,74 +484,6 @@ function originScreen(B) {
   return worldToScreen(B.oy + B.ox / 2, B.oy - B.ox / 2);
 }
 
-// ── Art des objets posés (statues, braseros) ─────────────────────────────────
-// L'art des places de l'ère, tel quel : même main que la ville. Boîte d'encre
-// mesurée une fois (le canvas porte du vide).
-const _ink = new WeakMap();
-function inkBox(img) {
-  const known = _ink.get(img);
-  if (known !== undefined) return known;
-  let b;
-  try {
-    const w = img.naturalWidth || img.width, h = img.naturalHeight || img.height;
-    const cv = document.createElement('canvas');
-    cv.width = w; cv.height = h;
-    const cx = cv.getContext('2d', { willReadFrequently: true });
-    cx.drawImage(img, 0, 0);
-    const d = cx.getImageData(0, 0, w, h).data;
-    let x0 = w, y0 = h, x1 = -1, y1 = -1;
-    for (let y = 0; y < h; y += 1) for (let x = 0; x < w; x += 1) {
-      if (d[(y * w + x) * 4 + 3] > 16) { if (x < x0) x0 = x; if (x > x1) x1 = x; if (y < y0) y0 = y; if (y > y1) y1 = y; }
-    }
-    b = x1 < 0 ? null : { x: x0, y: y0, w: x1 - x0 + 1, h: y1 - y0 + 1 };
-  } catch { b = null; }
-  _ink.set(img, b);
-  return b;
-}
-// Hauteur d'ENCRE voulue (px d'art au zoom 1) par objet posé. Toise : un habitant
-// fait 7 à 8 px. Une statue de pont ≈ 1,3 habitant avec son socle rond ; un brasero
-// sur trépied dépasse la main courante d'une demi-taille d'homme ; un réverbère fait
-// deux habitants. (`small` ×0,72 : sur la main courante ; `big`/porte ×1,4 : vus de
-// loin, sur un attique ou un pylône.)
-const PROP_INK_H = { statue: 14, brazier: 8, gaslamp: 16, ledlamp: 17 };
-// Art des objets : places de l'ère (statue, brasero) ou réverbères de la ville.
-const PROP_ART = { gaslamp: 'lamp-gas', ledlamp: 'lamp-electric' };
-// Point chaud (fraction de la boîte d'encre) et rayon de lueur en tuiles. Un brasero
-// éclaire le parapet et le tablier autour de lui, pas le fleuve entier (à 1,1 tuile
-// les halos amont posaient des disques sur l'eau).
-const PROP_LIGHT = {
-  brazier: { fx: 0.5, fy: 0.18, r: 0.55, col: '255,190,110' },
-  gaslamp: { fx: 0.5, fy: 0.08, r: 0.6, col: '255,208,150' },
-  ledlamp: { fx: 0.5, fy: 0.06, r: 0.6, col: '150,225,255' },
-};
-function propArt(pr) {
-  const a = isoArt(PROP_ART[pr.prop] || ('plaza/' + pr.prop + '-' + pr.era));
-  return a.ready && a.img ? a.img : null;
-}
-// Statue DORÉE (pylônes de la fonte) : le marbre des places, recouvert d'or — une
-// fois par image, en cache.
-const _gold = new WeakMap();
-function goldOf(img) {
-  const known = _gold.get(img);
-  if (known !== undefined) return known;
-  let c;
-  try {
-    const w = img.naturalWidth || img.width, h = img.naturalHeight || img.height;
-    c = document.createElement('canvas');
-    c.width = w; c.height = h;
-    const cx = c.getContext('2d');
-    cx.drawImage(img, 0, 0);
-    cx.globalCompositeOperation = 'multiply';
-    cx.fillStyle = '#e9b44c';
-    cx.fillRect(0, 0, w, h);
-    cx.globalCompositeOperation = 'destination-in';
-    cx.drawImage(img, 0, 0);
-  } catch { c = null; }
-  _gold.set(img, c);
-  return c;
-}
-
-
 // ── Tri peintre ──────────────────────────────────────────────────────────────
 export function pushIsoBridgeItems(items, bounds) {
   const ms = bridgeGeoms(); if (!ms) return;
@@ -590,6 +533,22 @@ export function pushIsoBridgeItems(items, bounds) {
       const q = m.idlers[ii];
       items.push({ d: q.l + q.t + 0.3, kind: 'bridgeSeg', si, part: 'idler', ii });
       if (q.fisher) items.push({ d: q.l + m.tDn + S + 1, kind: 'bridgeSeg', si, part: 'rod', ii });
+    }
+    // BATEAUX SORTIS DE SOUS LE PONT. La flotte est peinte AVANT le pont (passe
+    // des bateaux, isoPort) : sans rien de plus, la face aval — qui pend de la
+    // hauteur d'un mur de quai sous le tablier — recouvrait un bateau DEVANT elle
+    // sur ~1,5 tuile après sa sortie (retour Raph). Un bateau croise le pont en
+    // travers (il avance en t) : la part de sa coque déjà passée devant la face
+    // (t > tDn) est, à l'écran, à DROITE de la verticale x = écran(tDn, l du
+    // bateau). On la redessine là, juste après les tranches avant qu'elle
+    // chevauche ; la part encore sous le tablier reste cachée.
+    if (v && CM.ships && bridgeTune.shipFront) {
+      for (const sh of CM.ships) {
+        const hb = sh._hull;
+        if (!hb) continue;
+        if (hb.wy < m.fA - T || hb.wy > m.fB + T || hb.wx < m.tUp - T || hb.wx > m.tDn + 4 * T) continue;
+        items.push({ d: hb.wy + m.tDn + S + 1, kind: 'bridgeSeg', si, part: 'ship', sh });
+      }
     }
     // MONUMENTS des coins : un item chacun, trié à son coin le plus proche.
     for (let mi = 0; mi < bk.mons.length; mi += 1) {
@@ -648,6 +607,20 @@ export function drawIsoBridgeSeg(ctx, it, now) {
         lightCutImage(gk.cv, gx0, gy0, gx1 - gx0, gy1 - gy0, it.c0, 0, it.c1 - it.c0, R.h);
       }
     }
+  } else if (it.part === 'ship') {
+    const hb = it.sh._hull;
+    if (hb) {
+      const cut = Math.round(worldToScreen(m.tDn, hb.wy).x);
+      if (hb.bx + hb.dw > cut) {
+        ctx.save();
+        ctx.beginPath();
+        ctx.rect(cut, hb.by - 2, hb.bx + hb.dw - cut + 2, hb.dw + 4);
+        ctx.clip();
+        ctx.globalAlpha = hb.a == null ? 1 : hb.a;
+        ctx.drawImage(hb.img, hb.bx, hb.by, hb.dw, hb.dw);
+        ctx.restore();
+      }
+    }
   } else if (it.part === 'mon') {
     const mk = bk.mons[it.mi];
     if (mk) {
@@ -673,22 +646,121 @@ export function drawIsoBridgeSeg(ctx, it, now) {
   ctx.imageSmoothingEnabled = prevSm;
 }
 
-// Canne à pêche : des mains du pêcheur, par-dessus le parapet, jusqu'au-dessus de
-// l'eau ; la ligne tombe droit et tremble un peu. Traits d'un pixel d'art.
+// LE PÊCHEUR (retour Raph 2026-10-02 : « il pêche ? on ne comprend pas trop, alors
+// que l'idée est bonne »). La canne partait presque à PLAT (8 px de montée pour 18
+// de long, donc horizontale à l'écran), brun sur planches brunes, et une ligne
+// blanche tombait seule dans l'eau, loin de lui : on lisait un piquet. Ce qui dit
+// « pêche » au premier coup d'œil : une canne LEVÉE et courbée, foncée sur le
+// tablier clair ; un FLOTTEUR rouge qui fait des ronds ; et de temps en temps la
+// touche — le flotteur coule, la canne se lève, un poisson remonte au bout de la
+// ligne jusqu'aux mains, puis il relance. Une prise un cycle sur deux.
+// Temps en ms dans un cycle de P, décalé par pêcheur.
+const FISHING = { P: 17000, bite: 10200, strike: 11800, land: 12900, cast: 13500, back: 13900 };
+const ROD_INK = [46, 30, 18], LINE_RGB = [232, 236, 228];
+
+// Trait au pixel d'art (k) le long d'une courbe de Bézier quadratique a → c → b.
+function artCurve(ctx, a, c, b, k, rgb) {
+  const n = Math.max(2, Math.ceil(Math.hypot(b.x - a.x, b.y - a.y) / k) * 2);
+  let last = '';
+  for (let i = 0; i <= n; i += 1) {
+    const s = i / n, u = 1 - s;
+    const x = u * u * a.x + 2 * s * u * c.x + s * s * b.x, y = u * u * a.y + 2 * s * u * c.y + s * s * b.y;
+    const key = Math.round(x / k) + ',' + Math.round(y / k);
+    if (key === last) continue;
+    last = key;
+    viePixel(ctx, Math.round(x / k) * k, Math.round(y / k) * k, k, rgb, 1);
+  }
+}
+// Ligne de pêche : UN pixel device (un fil, pas un trait d'art), en marches.
+function fishLine(ctx, a, b, alpha) {
+  const d = CM.dpr || 1, n = Math.max(1, Math.ceil(Math.abs(b.y - a.y) * d));
+  ctx.fillStyle = `rgba(${LINE_RGB[0]},${LINE_RGB[1]},${LINE_RGB[2]},${alpha})`;
+  for (let i = 0; i < n; i += 1) {
+    const s = i / n;
+    ctx.fillRect(Math.round((a.x + (b.x - a.x) * s) * d) / d, Math.round((a.y + (b.y - a.y) * s) * d) / d, 1 / d, 1 / d);
+  }
+}
+
 function drawRod(ctx, m, q, z, now) {
-  const hand = P(m, q.l, q.t + 1, 9), tip = P(m, q.l - 1, m.tDn + 12, 17);
-  const sway = Math.sin((now || 0) / 900 + q.l) * 0.6 * z;
-  const foot = P(m, q.l - 1, m.tDn + 12, -m.hq);
-  const w = Math.max(1, Math.round(z));
-  ctx.save();
-  ctx.lineCap = 'square';
-  ctx.strokeStyle = '#5a3d22';
-  ctx.lineWidth = w;
-  ctx.beginPath(); ctx.moveTo(hand.x, hand.y); ctx.lineTo(tip.x + sway, tip.y); ctx.stroke();
-  ctx.strokeStyle = 'rgba(235,235,225,0.55)';
-  ctx.lineWidth = Math.max(1, Math.round(z * 0.5));
-  ctx.beginPath(); ctx.moveTo(tip.x + sway, tip.y); ctx.lineTo(foot.x + sway * 0.3, foot.y); ctx.stroke();
-  ctx.restore();
+  const t = now || 0, k = vieK(), fz = vieZoomFade();
+  const seed = Math.floor(q.l * 37) % FISHING.P;
+  const tc = (t + seed) % FISHING.P, cycle = Math.floor((t + seed) / FISHING.P);
+  const catchIt = (cycle & 1) === 0;
+  const F = FISHING;
+  // Pose de la canne : tenue haute à l'attente, piquée d'un pixel à la touche,
+  // levée pendant qu'on remonte la ligne.
+  const dips = tc >= F.bite && tc < F.strike && [[0, 260], [620, 900], [1150, 1400]].some(([a, b]) => tc - F.bite >= a && tc - F.bite < b);
+  const pulling = tc >= F.strike && tc < F.cast;
+  const sway = Math.sin(t / 900 + q.l) * 0.5;
+  const hand = P(m, q.l, q.t + 1.5, 5);
+  // ⚠ OÙ TOMBE LE BOUT À L'ÉCRAN : un point (t, h) se projette comme le point du
+  // tablier (t − h, 0). Une canne LEVÉE (bout à h 18 pour t = tDn + 7) finit donc,
+  // à l'écran, AU MILIEU DU TABLIER — sur les passants, la ligne semble partir de
+  // l'un d'eux (vu à la capture). Il faut t − h > tDn : la canne sort au-dessus de
+  // l'eau, à peine relevée, vers le bas-droite de l'écran, et la ligne tombe
+  // devant la face du pont. À la remontée elle se lève, son bout reste au bord.
+  const tip = pulling ? P(m, q.l - 1, m.tDn + 14, 12) : P(m, q.l - 1 + sway, m.tDn + 13, dips ? 6 : 7);
+  // Courbe : la canne bombe vers le haut et le bout pique (le poids de la ligne) ;
+  // elle plie davantage quand elle tire.
+  const bend = (pulling ? 4 : dips ? 3 : 2.5) * k;
+  const ctl = { x: (hand.x + tip.x) / 2, y: (hand.y + tip.y) / 2 - bend };
+  // L'eau sous le bout de la canne, un peu dérivée vers l'aval (le courant).
+  const water = P(m, q.l - 1, m.tDn + 16, -m.hq);
+  const lineA = 0.5 * (1 - 0.5 * (CM.nightF || 0));
+  const prevSm = ctx.imageSmoothingEnabled;
+  ctx.imageSmoothingEnabled = false;
+
+  // Le bout de la ligne : flotteur à l'eau, prise (ou flotteur vide) remontée,
+  // poisson ramené aux mains, flotteur relancé.
+  let end = water, hang, ring = null;
+  if (tc < F.bite) {
+    const qr = (tc % 2600) / 2600;
+    ring = { r: 1 + qr * 3, a: (1 - qr) * 0.45 };
+    hang = { spr: vieSprite('bobber', Math.floor(tc / 900) & 1), at: water };
+  } else if (tc < F.strike) {
+    const u = tc - F.bite;
+    const lastDip = u >= 1150 ? 1150 : u >= 620 ? 620 : 0;
+    const qr = Math.min(1, (u - lastDip) / 600);
+    ring = { r: 1 + qr * 3, a: (1 - qr) * 0.6 };
+    hang = { spr: vieSprite('bobber', dips ? 2 : 1), at: water };
+  } else if (tc < F.land) {
+    // On remonte : la prise file de l'eau au bout de la canne.
+    const u = (tc - F.strike) / (F.land - F.strike), e = 1 - (1 - u) * (1 - u);
+    end = { x: water.x + (tip.x - water.x) * e, y: water.y + (tip.y + 6 * k - water.y) * e };
+    const qr = Math.min(1, (tc - F.strike) / 900);
+    ring = { r: 1 + qr * 5, a: (1 - qr) * 0.7 };
+    hang = catchIt ? { spr: vieSprite('fishHang', Math.floor(t / 110) & 1), at: end } : { spr: vieSprite('bobber', 0), at: { x: end.x, y: end.y + 2 * k } };
+    if (catchIt && u < 0.45) {
+      // Gerbe : deux gouttes qui montent et retombent.
+      const g = u / 0.45;
+      for (const side of [-1, 1]) viePixel(ctx, water.x + side * (1 + g * 3) * k, water.y - Math.sin(g * Math.PI) * 4 * k, k, [236, 244, 246], 0.9 * fz);
+    }
+  } else if (tc < F.cast) {
+    // La prise passe du bout de la canne aux mains (puis au panier : elle
+    // disparaît) ; ratée, le flotteur pend au bout de la canne.
+    const u = (tc - F.land) / (F.cast - F.land);
+    end = catchIt
+      ? { x: tip.x + (hand.x - tip.x) * u, y: tip.y + 6 * k + (hand.y - tip.y - 6 * k) * u }
+      : { x: tip.x, y: tip.y + 6 * k };
+    hang = catchIt ? { spr: vieSprite('fishHang', Math.floor(t / 110) & 1), at: end } : { spr: vieSprite('bobber', 0), at: { x: end.x, y: end.y + 2 * k } };
+  } else if (tc < F.back) {
+    // Relance : le flotteur part du bout de la canne et retombe à l'eau.
+    const u = (tc - F.cast) / (F.back - F.cast);
+    const x = tip.x + (water.x - tip.x) * u, y = tip.y + (water.y - tip.y) * u * u;
+    end = { x, y };
+    hang = { spr: vieSprite('bobber', 0), at: { x, y: y + 2 * k } };
+  } else {
+    // Le plouf de la relance, puis l'attente reprend.
+    const qr = Math.min(1, (tc - F.back) / 800);
+    ring = { r: 1 + qr * 4, a: (1 - qr) * 0.6 };
+    hang = { spr: vieSprite('bobber', Math.floor(tc / 900) & 1), at: water };
+  }
+  if (ring && ring.a > 0.02) vieRing(ctx, water.x, water.y, Math.round(ring.r), k, ring.a * fz);
+  // La ligne d'abord (elle passe derrière la prise), puis la canne, puis le bout.
+  fishLine(ctx, tip, end, lineA);
+  artCurve(ctx, hand, ctl, tip, k, ROD_INK);
+  if (hang && hang.spr && vieBlit(ctx, hang.spr, hang.at.x, hang.at.y, k, fz)) vieCount('pecheur');
+  ctx.imageSmoothingEnabled = prevSm;
 }
 
 // Écran d'un point (l, t, h) du repère du pont.
@@ -713,42 +785,6 @@ function drawDeckShade(ctx, m) {
   ctx.moveTo(q[0].x, q[0].y); for (let i = 1; i < 4; i += 1) ctx.lineTo(q[i].x, q[i].y);
   ctx.closePath(); ctx.fill();
   ctx.restore();
-}
-
-// Lueur dans le calque de lumière (nuit), autour d'un point écran.
-function glowAt(x, y, r, col, a) {
-  const nf = CM.nightF || 0;
-  if (nf <= 0.03) return;
-  const lc = lightCtx(x - r, y - r, x + r, y + r);
-  if (!lc) return;
-  const g = lc.createRadialGradient(x, y, 0, x, y, r);
-  g.addColorStop(0, `rgba(${col},${(a * nf).toFixed(3)})`);
-  g.addColorStop(1, `rgba(${col},0)`);
-  lc.fillStyle = g;
-  lc.fillRect(x - r, y - r, r * 2, r * 2);
-}
-
-// FLAMME procédurale (torches des totems, vasques, tour-porte) : 3 images d'un
-// petit feu en pixels d'art, qui ondule ; une lueur douce la nuit.
-const FLAME_PX = [
-  ['.y.', 'yoy', 'oro', '.r.'],
-  ['y..', 'oy.', 'ooy', '.rr'],
-  ['..y', '.yo', 'yoo', 'rr.'],
-];
-const FLAME_COL = { y: '#ffe9a0', o: '#f7a23b', r: '#c8452a' };
-function drawFlame(ctx, x, y, z, now, k = 1, phase = 0) {
-  const fr = FLAME_PX[Math.floor(((now || 0) / 140 + phase) % 3)];
-  const s = Math.max(1, Math.round(z * k));
-  const x0 = Math.round(x - 1.5 * s), y0 = Math.round(y - 4 * s);
-  for (let j = 0; j < fr.length; j += 1) {
-    for (let i = 0; i < 3; i += 1) {
-      const ch = fr[j][i];
-      if (ch === '.') continue;
-      ctx.fillStyle = FLAME_COL[ch];
-      ctx.fillRect(x0 + i * s, y0 + j * s, s, s);
-    }
-  }
-  glowAt(x, y - 2 * s, Math.max(6, CM.TILE * z * 0.5 * k), '255,170,90', 0.6);
 }
 
 function drawProp(ctx, m, pr, z, now) {
@@ -780,27 +816,8 @@ function drawProp(ctx, m, pr, z, now) {
     glowAt(p.x, p.y, Math.max(6, CM.TILE * z * 0.55), m.K.pal.led ? hexToRgbStr(m.K.pal.led) : '255,220,160', 0.8);
     return;
   }
-  let img = propArt(pr);
-  if (!img) return;
-  const bb = inkBox(img);
-  if (!bb) return;
-  if (pr.tint === 'gold') img = goldOf(img) || img;
-  const want = (PROP_INK_H[pr.prop] || 16) * (pr.small ? 0.72 : (pr.gate || pr.big) ? 1.4 : 1);
-  const s = (want / bb.h) * z;                       // px écran par px d'art
-  const dw = (img.naturalWidth || img.width) * s, dh = (img.naturalHeight || img.height) * s;
-  // Pied de l'encre (centre bas) posé sur son support.
-  const dx = Math.round(p.x - (bb.x + bb.w / 2) * s), dy = Math.round(p.y - (bb.y + bb.h) * s + s * 0.5);
-  drawSunShadow(ctx, img, dx, dy, dw, dh, 0, 0, 0, 0, 'column', false);
-  ctx.drawImage(img, dx, dy, dw, dh);
-  lightCutImage(img, dx, dy, dw, dh);
-  const L = PROP_LIGHT[pr.prop];
-  if (L) glowAt(dx + (bb.x + bb.w * L.fx) * s, dy + (bb.y + bb.h * L.fy) * s, Math.max(6, CM.TILE * z * L.r), L.col, 0.55);
+  drawSpriteProp(ctx, pr, p, z);
 }
-function hexToRgbStr(h) {
-  const n = parseInt(String(h).slice(1), 16);
-  return ((n >> 16) & 255) + ',' + ((n >> 8) & 255) + ',' + (n & 255);
-}
-
 // ── PASSE A : l'eau sous et à côté du pont (avant les bateaux) ────────────────
 // Clippé à l'eau VISIBLE : le ruban, et le ruban descendu de la hauteur du mur de
 // quai (sous la rive nord l'eau commence au pied du mur, pas à la margelle).

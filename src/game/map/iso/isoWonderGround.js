@@ -210,6 +210,11 @@ export function drawWonderGroundDetail(ctx, gx, gy, px, py, hw, hh, wg, tone = W
 // par 4 (gx, gy, px, py) — ce format appartient à qui le remplit et à qui le lit.
 // ⚠ L'ORDRE EST LE POINT : tout le dallage, PUIS toute la margelle. La margelle
 // encadre le parvis et doit rester au-dessus des joints.
+// LE LIEU des merveilles refaites (docs/PLAN-MERVEILLES.md §5) se peint par-dessus
+// le parvis, dans la même fournée. Injecté par iso/isoWonder.js (ce module-ci est
+// lu par toute la chaîne du sol : il n'importe pas le peintre des merveilles).
+let _placePainter = null;
+export function setWonderPlacePainter(fn) { _placePainter = fn; }
 export function drawWonderGroundAll(ctx, wonderCells, hw, hh, wg, tone = WONDER_GROUND.tone) {
   if (wonderCells.length) {
     for (let i = 0; i < wonderCells.length; i += 4) {
@@ -218,5 +223,6 @@ export function drawWonderGroundAll(ctx, wonderCells, hw, hh, wg, tone = WONDER_
     for (let i = 0; i < wonderCells.length; i += 4) {
       drawWonderGroundDetail(ctx, wonderCells[i], wonderCells[i + 1], wonderCells[i + 2], wonderCells[i + 3], hw, hh, wg, tone);
     }
+    if (_placePainter) _placePainter(ctx, wonderCells, hw, hh);
   }
 }

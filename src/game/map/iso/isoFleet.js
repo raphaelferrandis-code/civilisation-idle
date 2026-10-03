@@ -351,29 +351,55 @@ export function drawIsoShipNight(now) {
   const prevOp = ctx.globalCompositeOperation;
   ctx.globalCompositeOperation = 'lighter';
   for (const sh of CM.ships) {
-    if (!sh._nav || sh._navAt !== now || !boatHasNavLights(sh._nav.stage)) continue;
+    if (!sh._nav || sh._navAt !== now) continue;
+    // GYROPHARE (police, sentinelles) : il tourne la nuit, bleu, en deux temps.
+    if (sh._nav.beacon) drawBeacon(ctx, sh._nav.beacon, now, sh.id | 0, sh._nav.glow, night);
+    // Coque du KIT (boatKit.js) : les feux sont des ANCRES de la géométrie, déjà
+    // projetées à l'écran — ni calibrage, ni projection. Pas d'ancre = pas de feux
+    // (barque, bac, chaland : la règle de NAV_DARK, tenue par le modèle).
+    if (sh._nav.kit ? !sh._nav.pts : !boatHasNavLights(sh._nav.stage)) continue;
     // Battement propre à CE bateau : sans phase par coque, toute la flotte
     // respirerait au même rythme et l'œil y verrait un clignotant commun.
     const a = base * boatLampFlicker(now, sh.id * 0.7);
     const { x, y, dw, heading, stage, sector } = sh._nav;
     // FACE CALIBRÉE d'abord : la position est lue telle quelle sur le sprite de
     // cette rotation. Sinon, repli sur le relevé de profil projeté au cap.
-    const uv = navUvFor(stage, sector);
+    const uv = sh._nav.kit ? null : navUvFor(stage, sector);
     let off;
-    if (uv) {
+    if (sh._nav.pts) {
+      const P = sh._nav.pts;
+      off = { port: { x: P.port.x - x, y: P.port.y - y }, stbd: { x: P.stbd.x - x, y: P.stbd.y - y } };
+    } else if (uv) {
       const dwImg = dw * BOAT_IMG_K;
       const at = (c) => ({ x: (c[0] - 0.5) * dwImg, y: (c[1] - BOAT_IMG_TOP) * dwImg });
       off = { port: at(uv.p), stbd: at(uv.s) };
     } else {
       off = navLightOffsets(heading, dw, navAnchorFor(stage));
     }
-    const px = Math.max(1, Math.round(dw * 0.045 * NAV_LIGHTS.size));
+    // Un feu du kit fait UN pixel d'art (le grain du bateau), pas une fraction de coque.
+    const px = sh._nav.kit ? Math.max(1, Math.round((CM.cam.zoom || 1) * NAV_LIGHTS.size))
+      : Math.max(1, Math.round(dw * 0.045 * NAV_LIGHTS.size));
     for (const [o, col] of [[off.port, NAV_PORT_COL], [off.stbd, NAV_STBD_COL]]) {
       ctx.fillStyle = `rgba(${col},${Math.min(1, a).toFixed(3)})`;
       ctx.fillRect(Math.round(x + o.x - px / 2), Math.round(y + o.y - px / 2), px, px);
     }
   }
   ctx.globalCompositeOperation = prevOp;
+}
+
+function drawBeacon(ctx, at, now, seed, color, night) {
+  const ph = Math.floor((now || 0) / 260 + (seed % 5)) % 4;
+  if (ph === 1 || ph === 3) return;                      // deux éclats, deux noirs
+  const z = CM.cam.zoom || 1;
+  const col = color ? color : '#5aa8ff';
+  const c = parseInt(col.slice(1), 16);
+  const rgbS = ((c >> 16) & 255) + ',' + ((c >> 8) & 255) + ',' + (c & 255);
+  const a = Math.min(1, 0.35 + night);
+  ctx.fillStyle = 'rgba(' + rgbS + ',' + (0.18 * a).toFixed(3) + ')';
+  ctx.beginPath(); ctx.arc(at.x, at.y, 5 * z, 0, Math.PI * 2); ctx.fill();
+  const px = Math.max(1, Math.round(z * 1.5));
+  ctx.fillStyle = 'rgba(' + rgbS + ',' + a.toFixed(3) + ')';
+  ctx.fillRect(Math.round(at.x - px / 2), Math.round(at.y - px / 2), px, px);
 }
 
 // Aspect d'un bateau pour la frame : sprite, échelle, et force du sillage. Le

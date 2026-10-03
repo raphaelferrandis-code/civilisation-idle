@@ -362,14 +362,20 @@ const ISO_DIAG = ['southeast', 'northwest', 'southwest', 'northeast']; // index 
 // (batch PixelLab) répondait 404 une fois et restait mémorisé absent → repli
 // cardinal permanent jusqu'au F5 (vu par Raph sur les voitures). 3 re-essais
 // espacés (8/16/24 s) avec cache-buster ; au-delà, l'asset est réputé absent.
+// ⚠ Puis des essais LENTS (toutes les 30 s pendant 10 min) : le serveur de dev peut
+// mourir et revenir pendant qu'une partie tourne (retour Raph, 2026-10-03 : ère 0
+// entière retombée sur les vieilles bandes de face après un plantage du watcher).
+// Sans eux, la partie ouverte gardait ses replis jusqu'au F5. onFail est appelé UNE
+// fois, au passage aux essais lents.
 function loadWithRetry(src, onOk, onFail) {
   const im = new Image();
   let tries = 0;
   im.onload = () => onOk(im);
   im.onerror = () => {
     tries += 1;
+    if (tries === 4 && onFail) onFail();
     if (tries <= 3) setTimeout(() => { im.src = src + '?r=' + tries; }, tries * 8000);
-    else if (onFail) onFail();
+    else if (tries <= 23) setTimeout(() => { im.src = src + '?r=' + tries; }, 30000);
   };
   im.src = src;
   return im;
@@ -489,10 +495,24 @@ function drawNamedAgentIso(ctx, sx, groundY, z, name, scale, dir, walking, now, 
 // `variant` = p.skinVariant (dessin/métier tiré au spawn). ⚠ Jusqu'au 2026-10-01 il
 // n'était PAS transmis : tous les passants sortaient en variante 0, et les seconds
 // dessins de chaque ère n'apparaissaient que sur les places et les ponts.
+// REPLI DANS L'ÈRE (retour Raph, 2026-10-03 : « tu as remis les anciens habitants
+// ère 0, en vue de face ») : si la bande diagonale du dessin tiré manque, on prend un
+// AUTRE dessin diagonal de la même ère et du même genre avant d'avouer l'échec. Le repli
+// cardinal de l'appelant (drawEraAgent) sert les VIEILLES bandes de face d'avant la mise
+// à plat d'août : il ne doit plus jamais s'afficher tant que l'ère a une diagonale
+// prête. Cas vécu : trois métiers ajoutés au code AVANT que leurs PNG existent — le jeu
+// ouvert les a demandés, 404 × 4 (loadWithRetry), réputés absents jusqu'au F5, et un
+// passant sur trois marchait de face.
 function drawEraAgentIso(ctx, sx, groundY, z, dir, walking, now, phase, charType, scaleMul = 1, distPx = null, variant = 0) {
   const band = (CM.layout && CM.layout.counts && CM.layout.counts.eraBand) || 0;
-  const spec = agentSpecFor(agentSetForBand(band), charType, variant) || AGENT_FALLBACK;
-  return !!drawNamedAgentIso(ctx, sx, groundY, z, spec.name, spec.scale, dir, walking, now, phase, scaleMul, distPx);
+  const set = agentSetForBand(band);
+  const spec = agentSpecFor(set, charType, variant) || AGENT_FALLBACK;
+  if (drawNamedAgentIso(ctx, sx, groundY, z, spec.name, spec.scale, dir, walking, now, phase, scaleMul, distPx)) return true;
+  const list = charType === 2 ? [set.child] : (charType === 1 ? set.women : set.men);
+  for (const s of list) {
+    if (s !== spec && drawNamedAgentIso(ctx, sx, groundY, z, s.name, s.scale, dir, walking, now, phase, scaleMul, distPx)) return true;
+  }
+  return false;
 }
 
 // ── Vues DIAGONALES des véhicules (chantier iso) ─────────────────────────────

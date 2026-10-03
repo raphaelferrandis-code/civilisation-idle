@@ -36,6 +36,12 @@ import { noteReflection } from './isoReflect.js';
 import { PIER, drawPortPier, pierHouseFoot, pierMoorings } from './isoPier.js';
 import { drawOldPort, drawPortOffice } from './isoOldPort.js';
 import { drawTradePort } from './isoTradePort.js';
+import { boatSpecFor, boatSizeMul, boatHasLights, drawBoat, BOATKIT } from './boatKit.js';
+import { fleetFor } from './boatKits.js';
+import { dockPorters } from './boatBerths.js';
+import { haulerPose } from './boatScenes.js';
+import { BOAT_MODELS } from './boatKits.js';
+import { drawSmoke, drawJets } from './boatFx.js';
 
 // ── BATEAUX : flotte legacy (CM.ships) sur le ruban projeté ──────────────────
 // Reprend la recette drawShips (stade par ère, voie latérale, louvoiement,
@@ -66,7 +72,16 @@ export function drawIsoShips(now) {
     const vis = sh.kind === 'fisher'
       ? (sh.state === 'anchor' ? VIS.fisherPosed : VIS.fisherRow)
       : (VIS[sh.kind] || VIS.trade);
-    const vstage = vis.stage, sizeMul = vis.sizeMul;
+    const vstage = vis.stage;
+    // BATEAUX DESSINÉS PAR LE CODE (docs/PLAN-BATEAUX.md) : là où l'ère a sa flotte
+    // (boatKits.BAND_FLEET), le bateau est tiré parmi les modèles de son métier et
+    // cuit à son cap. Sa longueur réelle remplace la table d'échelle des sprites.
+    let kit = boatSpecFor(sh, band);
+    // Le passeur change de voyageurs à chaque traversée : la graine suit le voyage.
+    if (kit && sh.kind === 'ferry') kit = { ...kit, seed: kit.seed + (sh.trip || 0) * 31 };
+    // Les coques qui LÉVITENT ne laissent ni sillage ni ellipse sur l'eau.
+    const floats = !!(kit && BOAT_MODELS[kit.id] && BOAT_MODELS[kit.id].hover);
+    const sizeMul = kit ? boatSizeMul(kit) : vis.sizeMul;
     // Repli profil legacy : réservé aux stades marchands, seuls à avoir une
     // bande top-down sous /agents/boats/.
     const chr = BOAT_SIZES[vstage] ? ensureBoat(vis.key) : null;
@@ -90,9 +105,15 @@ export function drawIsoShips(now) {
     // quand le bateau fait demi-tour). Calculé dans les deux régimes plutôt que
     // reconstruit depuis `heading`, qui, lui, porte le sens.
     const orbIle = sh.orbit ? (rv.islands || [])[0] : null;
-    let p, heading, tilt;
+    // `thW` = cap MONDE (le kit cuit dans le repère du monde ; `heading` est l'angle écran).
+    let p, heading, tilt, wxS, wyS, thW;
+    // Coque peinte cette frame (cf. plus bas) : le PONT la redessine quand elle a
+    // passé sa face aval (isoBridge.pushIsoBridgeItems) — sinon peinte avant lui,
+    // elle restait cachée derrière la face ~1,5 tuile après être sortie de dessous.
+    sh._hull = null;
     if (orbIle) {
       const o = orbitPoint(orbIle, sh.orbit.ang);
+      wxS = o.x * T; wyS = o.y * T;
       p = worldToScreen(o.x * T, o.y * T);
       if (p.x < -s * 3 || p.x > CM.cw + s * 3 || p.y < -s * 3 || p.y > CM.ch + s * 3) continue;
       // Cap = tangente de l'orbite, PROJETÉE (et non l'angle monde) : en iso, une
@@ -102,6 +123,7 @@ export function drawIsoShips(now) {
       const o2 = orbitPoint(orbIle, sh.orbit.ang + da);
       const q = worldToScreen(o2.x * T, o2.y * T);
       heading = Math.atan2(q.y - p.y, q.x - p.x);
+      thW = Math.atan2(o2.y - o.y, o2.x - o.x);
       tilt = Math.max(-0.4, Math.min(0.4, Math.atan2(q.y - p.y, Math.abs(q.x - p.x) || 1e-6) * 0.45));
     } else {
       const fi = sh.t * (sm.length - 1);
@@ -122,8 +144,13 @@ export function drawIsoShips(now) {
       const wave = Math.sin((now || 0) / 2600 + (sh.phase || 0)) * 0.12;
       // `sh` sert de MÉMOIRE : le bord choisi pour doubler une île y reste
       // accroché tant que le bateau la longe (cf. riverDodge).
-      const lateral = riverDodge(((sh.lane || 0) + wave) * laneRoom, sh.t, effSize, hw, null, null, sh);
+      // NAVIGATION SIMULÉE (riverFleet, docs/PLAN-BATEAUX.md §5) : la voie et le cap
+      // viennent de la sim quand elle les fournit — règle de route, dépassements,
+      // passe du pont. Le calcul ci-dessus n'est plus que le repli.
+      const lateral = sh.lat != null ? sh.lat
+        : riverDodge(((sh.lane || 0) + wave) * laneRoom, sh.t, effSize, hw, null, null, sh);
       cgx += nx * lateral; cgy += ny * lateral;
+      wxS = cgx * T; wyS = cgy * T;
       p = worldToScreen(cgx * T, cgy * T);
       if (p.x < -s * 3 || p.x > CM.cw + s * 3 || p.y < -s * 3 || p.y > CM.ch + s * 3) continue;
       // Cap PROJETÉ complet (rad écran), signé par le sens de navigation.
@@ -131,6 +158,9 @@ export function drawIsoShips(now) {
       const b2 = worldToScreen(sm[i1].x * T, sm[i1].y * T);
       const sgn = sh.dir < 0 ? -1 : 1;
       heading = Math.atan2(sgn * (b2.y - a2.y), sgn * (b2.x - a2.x));
+      thW = sh.th != null ? sh.th : Math.atan2(sgn * (sm[i1].y - sm[i0].y), sgn * (sm[i1].x - sm[i0].x));
+      // Le cap ÉCRAN suit le cap monde simulé (sillage, ellipse de nuit, secteur).
+      if (sh.th != null) heading = Math.atan2((Math.cos(thW) + Math.sin(thW)) * 0.5, Math.cos(thW) - Math.sin(thW));
       tilt = Math.max(-0.4, Math.min(0.4, Math.atan2(b2.y - a2.y, Math.abs(b2.x - a2.x) || 1e-6) * 0.45));
     }
     const spd01 = Math.max(0, Math.min(1, (sh.speed - 0.008) / 0.012));
@@ -146,7 +176,7 @@ export function drawIsoShips(now) {
     ctx.save();
     ctx.translate(p.x, p.y);
     ctx.rotate(heading);
-    if (vis.wake > 0) {
+    if (vis.wake > 0 && !floats) {
       const WL = s * (0.85 + spd01 * 0.8) * (0.35 + 0.65 * moveF) * sizeMul * 0.7;
       const foam = vstage === 'cosmic' ? '150,220,255' : '225,238,245';
       // Le sillage dit le MÉTIER autant que la coque : un cargo laboure, un
@@ -170,7 +200,7 @@ export function drawIsoShips(now) {
     // Ellipse de flottaison : de jour, l'OMBRE DU SOLEIL de la coque la remplace
     // (ci-dessous) ; elle ne reste que la nuit, en fondu inverse.
     const nk = sunShadowNightK();
-    if (nk > 0.01) {
+    if (nk > 0.01 && !floats) {
       ctx.fillStyle = 'rgba(10,25,35,' + (0.20 * nk).toFixed(3) + ')';
       ctx.beginPath();
       ctx.ellipse(0, s * 0.06 * sizeMul, s * 0.24 * sizeMul, s * 0.08 * sizeMul, 0, 0, Math.PI * 2);
@@ -179,9 +209,33 @@ export function drawIsoShips(now) {
     ctx.restore();
     // COQUE : rotation d'objet PixelLab au SECTEUR du cap (8 vues, Phase 5 —
     // fini le profil penché « qui tombe »), sinon repli profil legacy amorti.
+    const bob = Math.sin((now || 0) / 1600 + (sh.phase || 0)) * s * 0.015;
+    if (kit) {
+      // Deux bateaux qui se croisent de près se saluent (riverFleet : salute).
+      const kstate = sh.state === 'cruise' && sh.salute > 0 ? 'salute' : sh.state;
+      const pose = { kit, x: p.x, y: snapDev(p.y + bob), thW, z, state: kstate, wx: wxS, wy: wyS, heading, sizeMul, at: now, alpha: ctx.globalAlpha / (prevAlpha || 1) };
+      // À QUAI, ou en train de s'y ranger : le bateau est trié AVEC le ponton (item
+      // 'fleetShip' du peintre, cf. drawIsoShipDeferred) — peint ici, avant la passe
+      // vivante, le ponton le recouvrait.
+      // (Le bac à son embarcadère aussi : il touche l'appontement.)
+      if (sh.state === 'dock' || sh.state === 'board' || (sh._berthApproach || 0) > 0.35) {
+        sh._defer = pose;
+        // Les porteurs du ponton pendant l'escale (items 'porter' du peintre).
+        const berth = sh.state === 'dock' && sh.berthId != null ? (CM.shipBerths || []).find((b) => b.id === sh.berthId) : null;
+        sh._porters = berth ? dockPorters(berth, (sh.dockDwell || 0) - (sh.stateT || 0), sh.id) : null;
+        sh._portersBand = band;
+        ctx.globalAlpha = prevAlpha;
+        continue;
+      }
+      sh._defer = null;
+      const r = drawKitShip(ctx, sh, pose, now);
+      // Le chaland : sa bête de halage marche sur la berge (item 'fleetScene').
+      sh._hauler = sh.kind === 'barge' && r && r.anchors.towTop ? haulerPose(sh, r.anchors.towTop, now, r.model && r.model.tow) : null;
+      ctx.globalAlpha = prevAlpha;
+      continue;
+    }
     const isoBoat = isoArt('boat-' + vis.key + '-' + boatSector(heading));
     const prevSm = ctx.imageSmoothingEnabled; ctx.imageSmoothingEnabled = false;
-    const bob = Math.sin((now || 0) / 1600 + (sh.phase || 0)) * s * 0.015;
     if (isoBoat && isoBoat.ready) {
       // Taille ET position sur la grille de blit DEVICE (blitSnap.js) : la coque
       // avance ET tangue, donc sans ça sa coupe de lignes bougeait à chaque image
@@ -202,6 +256,7 @@ export function drawIsoShips(now) {
       noteReflection(ctx, isoBoat.img, bx, by, dw, dw, 0, 0, 0, 0, 'column', 'water');
       drawSunShadow(ctx, isoBoat.img, bx, by, dw, dw, 0, 0, 0, 0, 'column', false);
       ctx.drawImage(isoBoat.img, bx, by, dw, dw);
+      sh._hull = { img: isoBoat.img, bx, by, dw, wx: wxS, wy: wyS, a: ctx.globalAlpha, at: now };
     } else if (sh.kind !== 'trade') {
       // Repli des métiers dont l'art n'est pas encore récolté. SANS lui on ne
       // verrait rien du tout et il serait impossible de régler vitesses, voies
@@ -238,6 +293,35 @@ export function drawIsoShips(now) {
 }
 
 
+
+// Coque du kit posée à sa pose de la frame : reflet, ombre, coque ; puis l'ancre
+// de la passe de nuit (feux) et la coque que le pont redessine à sa sortie.
+function drawKitShip(ctx, sh, P, now) {
+  const r = drawBoat(ctx, P.kit, P.x, P.y, P.thW, P.z, now, { state: P.state, memo: sh });
+  if (!r) return null;
+  // Ce qui bouge par-dessus la coque : la fumée des cheminées, les lances des pompiers.
+  if (r.anchors.smoke) drawSmoke(ctx, r.anchors.smoke, now, P.z, sh.id | 0, P.heading, sh.state !== 'dock' && sh.state !== 'anchor');
+  if (r.model && r.model.service === 'fire' && sh.state === 'anchor') drawJets(ctx, r.anchors, now, P.z, P.heading, sh.id | 0);
+  sh._hull = { img: r.img, bx: r.bx, by: r.by, dw: r.dw, wx: P.wx, wy: P.wy, a: ctx.globalAlpha, at: now };
+  sh._nav = {
+    x: P.x, y: P.y, dw: CM.TILE * P.z * 0.7 * P.sizeMul, heading: P.heading, stage: P.kit.id, sector: boatSector(P.heading), kit: true,
+    pts: boatHasLights(P.kit) && r.anchors.port ? { port: r.anchors.port, stbd: r.anchors.stbd } : null,
+    beacon: r.model && r.model.beacon && r.anchors.beacon ? r.anchors.beacon : null,
+    glow: r.model && r.model.glow ? r.model.glow : null,
+  };
+  sh._navAt = now;
+  return r;
+}
+
+// Le bateau à quai, peint par la passe vivante à SA profondeur (item 'fleetShip').
+export function drawIsoShipDeferred(ctx, sh, now) {
+  const P = sh._defer;
+  if (!P || P.at !== now) return;
+  const prevA = ctx.globalAlpha;
+  ctx.globalAlpha = prevA * (P.alpha == null ? 1 : P.alpha);
+  drawKitShip(ctx, sh, P, now);
+  ctx.globalAlpha = prevA;
+}
 
 // ── RIVERAIN (port fluvial, seul depuis la refonte éolienne du moulin) posé
 // sur le RUBAN (Phase 5). Sa scène legacy suppose l'eau « en bas de la boîte »
@@ -338,6 +422,9 @@ export function portMooring(t, spanX, T, band, ei, rv) {
 export function drawIsoPortBoat(ctx, moor, now, z, T) {
   const rv = CM.layout && CM.layout.river;
   if (!rv || !rv.samples || rv.samples.length < 2) return;
+  // Le kit de bateaux a sa flotte pour cette ère : le ponton est servi par de VRAIS
+  // marchands qui accostent (docs/PLAN-BATEAUX.md, lot 4), plus par un décor fixe.
+  if (BOATKIT.on && fleetFor(moor.band)) return;
   const { vstage, sizeMul, si, ccx } = moor;
   const s = T * z;
   const o = rv.samples[Math.max(0, si - 1)], q = rv.samples[Math.min(rv.samples.length - 1, si + 1)];

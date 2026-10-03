@@ -58,7 +58,30 @@ import { plaisirsHitTest } from './iso/isoPlaisirs.js';
 // teinte, pas du peintre. La molette `__waterShore` plus bas l'écrit par Object.assign
 // — mutation d'objet, donc légale sur une liaison importée.
 import { waterShoreTune } from './iso/isoPalette.js';
-import { riverIslandObstacles } from './iso/isoFleet.js';
+import { riverIslandObstacles, riverDodge, tradeStage, tradeSizeMul } from './iso/isoFleet.js';
+import { boatSpecFor, boatFootprint } from './iso/boatKit.js';
+import { fleetBerths, projectOnRibbon } from './iso/boatBerths.js';
+import { BOATKIT } from './iso/boatKit.js';
+import { fleetFor, fleetRoles, BOAT_MODELS } from './iso/boatKits.js';
+import { ferrySite, navWindow, ribbonLength } from './riverFleet.js';
+
+// Taille d'une coque pour la NAVIGATION (tuiles) : celle du kit de bateaux quand
+// l'ère en a un (iso/boatKits.js), sinon l'échelle historique des sprites PixelLab.
+function fleetServiceMode(sh) {
+  const c = (CM.layout && CM.layout.counts) || {};
+  const sp = boatSpecFor(sh, c.eraBand | 0);
+  const M = sp && BOAT_MODELS[sp.id];
+  return (M && M.service) || 'patrol';
+}
+function fleetHullSize(sh) {
+  const c = (CM.layout && CM.layout.counts) || {};
+  const band = c.eraBand | 0;
+  const fp = boatFootprint(boatSpecFor(sh, band));
+  if (fp) return fp;
+  if (sh.kind === 'fisher') return { len: 0.9, beam: 0.32 };
+  const len = 0.7 * tradeSizeMul(tradeStage(band, c.eraIndex | 0), band);
+  return { len, beam: len * 0.3 };
+}
 import { fpBegin, fp, fpEnd } from './framePerf.js';
 import { solTrace, solRec, keyDiff } from './solTrace.js';
 import { solInvalidate } from './iso/solInvalidate.js';
@@ -1552,7 +1575,10 @@ function cityMapEnsureLayout(now, deps = {}) {
   // en pose de 90 s n'y survivait pas).
   const hasRiver = !!(L.river && L.river.present);
   const portLvl = hasRiver ? Math.floor((state.buildings && state.buildings.river_ports) || 0) : 0;
-  CM.shipBudget = riverFleetBudget(state, L);
+  // Les métiers que l'ère sait DESSINER (kit de bateaux) : chaland et passeur n'existent
+  // que là (docs/PLAN-BATEAUX.md).
+  const kitFleet = BOATKIT.on && L.counts ? fleetFor(L.counts.eraBand | 0) : null;
+  CM.shipBudget = riverFleetBudget(state, L, kitFleet ? fleetRoles(L.counts.eraBand | 0) : null);
 
   // Quais d'escale : position sur le ruban de chaque PORT fluvial (pas les moulins),
   // mis en cache par layout. side = vers quelle berge le bateau dérive pour accoster
@@ -1582,6 +1608,20 @@ function cityMapEnsureLayout(now, deps = {}) {
     // (Les ponts sont des CELLULES DE ROUTE `roadSurface === 'bridge'` dans
     // roadMap — il n'existe pas de liste de ponts dans le layout.)
     CM.shipAvoidT = CM.shipDocks.map((d) => d.t);
+    // POSTES D'ACCOSTAGE (docs/PLAN-BATEAUX.md, lot 4) : le marchand vient se ranger
+    // au ponton. Vides là où l'ère n'a pas encore son kit de bateaux.
+    CM.shipBerths = fleetBerths(L);
+    // LE SITE DU PASSEUR : loin du pont et des pontons, près du cœur de la ville.
+    CM.ferrySite = null;
+    if (hasRiver && kitFleet && kitFleet.ferry && L.river.samples) {
+      const sm = L.river.samples;
+      const win = navWindow(sm, { x0: 0, y0: 0, x1: L.gridN || 0, y1: L.gridN || 0 });
+      const avoid = [...(CM.riverGates || []).map((g) => g.t), ...CM.shipBerths.map((b) => b.t)];
+      if (CM.riverIslandT != null) avoid.push(CM.riverIslandT);
+      const c = L.cx != null ? projectOnRibbon(sm, L.cx, L.cy) : null;
+      CM.ferrySite = ferrySite(sm, win, avoid, c ? c.t : null);
+      if (CM.ferrySite) CM.ferrySite.L = ribbonLength(sm);
+    }
     CM.riverGates = [];
     if (hasRiver && L.river.samples && L.roadMap) {
       const sm = L.river.samples, len = sm.length;
@@ -2028,6 +2068,22 @@ function initCityMap(canvas, options = {}) {
           island: (CM.layout && CM.layout.river && CM.layout.river.islands
             && CM.layout.river.islands[0]) || null,
           islandT: CM.riverIslandT,
+          // NAVIGATION (docs/PLAN-BATEAUX.md §5) : la voie et le cap vivent dans la
+          // sim — géométrie du ruban, passes de pont, obstacles plantés dans l'eau,
+          // et la taille RÉELLE de chaque coque (celle du kit quand l'ère en a un).
+          samples: (CM.layout && CM.layout.river && CM.layout.river.present && CM.layout.river.samples) || null,
+          gates: CM.riverGates || [],
+          obstacles: CM.riverObstacles || [],
+          dodge: riverDodge,
+          sizeOf: fleetHullSize,
+          berths: CM.shipBerths || [],
+          ferry: CM.ferrySite || null,
+          // Métier d'un bateau de service : celui de son MODÈLE (patrouille, drague, pompiers).
+          serviceMode: fleetServiceMode,
+          // Le chaland est halé depuis la rive SANS ponton.
+          towSide: CM.shipBerths && CM.shipBerths[0] ? -CM.shipBerths[0].side : undefined,
+          // Fenêtre de navigation : la carte (le ruban la déborde de 200 tuiles).
+          bounds: CM.layout ? { x0: 0, y0: 0, x1: CM.layout.gridN || 0, y1: CM.layout.gridN || 0 } : null,
         });
       fp('flotte');
       // LA CARTE N'A PLUS QU'UN CHEMIN DE RENDU. drawIsoWorld peint la frame

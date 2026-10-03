@@ -1,5 +1,146 @@
 # La Maison des Plaisirs
 
+## ⭐ REFONTE DU 2026-10-02 — cette section fait foi, le reste est l'historique
+
+Demande de Raph : « on revoit tout le bâtiment des plaisirs ? le design plus raccord,
+progressif avec le temps, ainsi que son intérieur, les jeux, les visuels, et le rendu ».
+
+### Constat (mesuré le 2026-10-02)
+
+- Les jeux ouvrent à l'**Ère II** (osselets, tickets) et à l'**Ère III** (vingt-et-un, Icare),
+  soit encore la bande 0 (campement). Le monument, lui, n'apparaît qu'en **bande 6** (Néon,
+  ère ~30) : le joueur joue ~25 ères dans un lieu absent de sa carte.
+- Le seul objet hors DA : un sprite violet/magenta de nuit (`plaisirs-t3.png`) dans une
+  maquette de jour dont les merveilles, ponts, quais et bateaux sont désormais **dessinés par
+  le code** dans la matière de l'ère.
+- La salle (`ui/plaisirs/salle.png`) est une illustration fixe néon, la même à tous les âges.
+- Les jeux s'ouvrent dans une boîte sombre générique posée sur l'image ; à 1440 px le menu
+  volant recouvre la première mise ; osselets = 4 carrés à glyphe ; textes « Quitter le
+  temple », « cagnotte du temple ».
+
+### Décisions de Raph (2026-10-02)
+
+| Sujet | Décision |
+|---|---|
+| Bâtiment | **Un ADN, 10 âges** : une seule famille reconnaissable partout (sur l'eau, plateaux autour d'un fût, lanternes rouges, dais en pétales) ; chaque jeu ajoute son pavillon, chaque âge change la matière |
+| Méthode | **Par le code**, même main que les merveilles (`wonderBake.js`, `wonderKits.js`) |
+| Intérieur | **Dessiné par le code** : la salle = le lieu vu de près, change avec l'âge et les jeux, habitants aux tables, jour/nuit de la carte, on clique les tables |
+| Jeux | **Refaits, suivant l'âge** : la partie se joue sur la table du décor ; le matériel suit l'âge ; **règles et équilibrage inchangés** |
+
+Par défaut (annoncé, sans objection) : placement au large **inchangé** (marche, domaine,
+aura) ; le lieu **apparaît avec l'onglet** (Ère II) au lieu de la bande 6 ; pilote bande 4
+→ planche → autres âges, nuit, hiver.
+
+### L'ADN, âge par âge
+
+| Bande | Âge | Le lieu |
+|---|---|---|
+| 0 | Feu | radeau amarré à un rocher, feu, joueurs d'osselets, torches, peaux tendues |
+| 1 | Bois | maison sur pilotis à galerie, toile tendue, lampions |
+| 2 | Pierre taillée | pavillon sur îlot maçonné, portique, braseros |
+| 3 | Couronne | palais des jeux au grand masque, toits en étages, bannières |
+| 4 | Marbre | rotonde à colonnade, dôme doré, vélums rouges, vasques |
+| 5 | Fonte | kiosque de fonte et verre, roue à aubes, globes de gaz |
+| 6 | Néon | la tour-fleur, refaite dans la DA de la carte, enseignes |
+| 7-9 | Cosmiques | plateaux en lévitation, passerelles de lumière |
+
+Icare a sa plateforme d'envol au sommet (perchoir, ballon, mât selon l'âge).
+
+### Phases
+
+1. **Bâtiment sur la carte** — pilote bande 4 (+ repères bandes 0 et 6), planche, puis tous
+   les âges, nuit, hiver ; apparition à l'Ère II ; retrait de `plaisirs-t3.png`.
+2. **Intérieur par le code** — la salle vue de près, tables cliquables, habitants.
+3. **Jeux** — chaque jeu sur sa table, matériel de l'âge.
+4. **Nettoyage** — textes « temple », menu qui recouvre, retrait de `salle.png`.
+
+### Journal
+
+- 2026-10-02 : constat, décisions de Raph, plan.
+- 2026-10-03 : **pilote en jeu, trois repères de l'ADN** — Feu (radeau, Ère II puis III),
+  Marbre (rotonde en pièce montée), Néon (tour-fleur en éventail) ; jour et nuit. Planche
+  `.preview-shots/plaisirs/planche-pilote.png`. Rien de commité ; verdict DA attendu.
+  - `iso/plaisirsBake.js` (pur) : pièces de l'ADN (`petalValance`, `lanternGarland`,
+    `stripedCone`, `petalPlate`), pavillons des jeux, recettes `bakeFeu` / `bakeMarbre` /
+    `bakeNeon` ; les autres bandes retombent sur le Marbre (`plaisirsRecipeBand`) ;
+    `plaisirsGames(s)` = pavillons selon les jeux ouverts.
+  - `iso/isoPlaisirs.js` : le sprite `plaisirs-t3.png` n'est plus lu ; cuisson en cache
+    (âge × jeux × hiver), TRANCHES triées au bord avant d'un pied rond (comme les
+    merveilles), ombre + reflet, calque de nuit, survol/clic au pixel du raster ; aura à la
+    couleur de l'âge, faisceaux seulement dès le Néon, lâcher de lanternes dès le Bois.
+    Molettes : `__plaisirsTune.band = n`, `__plaisirsBakes()`.
+  - `layout.js` : `PLAISIRS_REVEAL_BAND` (6) → `PLAISIRS_OPEN_ERA` (2), lu sur la meilleure
+    ère (`counts.plaisirsOpen`) ; obstacle des bateaux 2,6 → 3,1 tuiles (pied de 2,8).
+  - Test `map/__tests__/plaisirsBake.test.js` : pavillons ↔ verrous des jeux, seuil
+    d'apparition = premier jeu ouvert, chaque âge cuit (jour/hiver), le lieu grandit.
+    ⚠ Il a trouvé les AILES d'Icare jamais peintes (facette dos à l'œil : le point
+    intérieur doit être derrière le plan, x + y < 0) et le radeau sans lumière de nuit.
+  - ⚠ Dépend des modules NON SUIVIS de la session merveilles (`wonderBake.js`,
+    `wonderKits.js`, `isoPixelPaint.js`, `isoProps.js`) : committer après eux.
+- 2026-10-03 (suite) : **Raph valide le pilote** (« oui ça me va, juste le reflet feu est
+  trop grand. Enchaîne le reste »).
+  - **Reflet et ombre exacts** : le reflet générique retourne chaque colonne autour de son
+    pixel le plus bas — le pont plat du radeau se reflétait comme s'il était dressé. La
+    cuisson relève désormais la HAUTEUR de chaque pixel (enveloppes de `revolve`, `box`,
+    `facet` qui notent dans `R.hb` ; le reste complété par colonne, `heightsOf`) ; le
+    miroir (`plaisirsMirror`, un pixel de hauteur h tombe 2h plus bas, le plus proche
+    l'emporte) passe par `isoReflect.noteReflectionImage`, l'ombre (`plaisirsShadow`) par
+    `drawSunShadowPlane`.
+  - **Phase 1 terminée : les dix âges** — Bois (pilotis, galerie de chaume, toile rayée,
+    embarcadère), Pierre taillée (îlot et podium, portique à fronton, braseros, toit de
+    tuiles), Couronne (îlot à merlons, donjon au GRAND MASQUE d'or, toits d'ardoise en
+    étages, bannières, tente de tournoi), Fonte (ponton sur colonnettes, ROUE À AUBES,
+    rotonde de verre et de fonte, globes de gaz, Icare = BALLON captif), cosmiques 7-9
+    (disque en lévitation, colonne de lumière, plateaux-pétales flottants, passerelles,
+    nacelles de cristal, anneaux en 8-9, halo). Squelette commun `tiered()` (socle, fût par
+    tronçons, plateaux, festons, couronne). Planches `planche-10-ages.png` et
+    `planche-10-ages-nuit.png`. Test : le lieu ne baisse jamais d'un âge à l'autre.
+  - `plaisirs-t3.png` retiré. Molette `__plaisirsTune.band` (les bandes 8-9 ne
+    s'atteignent pas par la seule population : palier majeur).
+- 2026-10-03 : **phase 2 — la salle peinte par le code** (`iso/plaisirsSalle.js`, pur ;
+  `views/plaisirs/SalleCanvas.jsx` + `salleBake.js`). La terrasse du lieu en gros plan, à
+  l'échelle de la carte (habitant 7-8 px), agrandie d'un facteur ENTIER : au fond le fût de
+  l'âge qui monte hors cadre, l'auvent festonné de son premier plateau, des guirlandes
+  tendues vers les mâts du bord ; une table par lieu (osselets/roulette, vingt-et-un,
+  guichet des tickets, boutique, scène au rideau ouvert, ponton d'Icare avec l'engin de
+  l'âge : plumes, ailes, ballon, deltaplane, lumière) ; l'eau aux coins. Figurants = les
+  VRAIS habitants de l'âge (`agentSetForBand` + `drawNamedAgentIso`), deux promeneurs
+  animés. Nuit à l'heure murale (même courbe que la carte, dont la boucle s'arrête hors de
+  la Cité). Survol/clic AU PIXEL (la cuisson rend un numéro de table par pixel, relevé par
+  différence d'image avant/après chaque table) ; liseré d'or sur la table allumée ; zones
+  invisibles au clavier ; le bouton d'action en deux temps est conservé, posé sur l'ancre
+  cuite. Le cadre cuit (900 × 400) déborde : le canevas remplit le cadre, la zone des
+  tables (`SALLE_CONTENT`) tient au facteur entier le plus grand, centrée à droite du menu
+  volant. Captures `mdp-salle-*`, planches `salle-planche-1/2.png`. Test
+  `plaisirsSalle.test.js`. Porte de dev `__salleForce()` (volet masqué : rAF gelé).
+- 2026-10-03 : **phase 3 — les jeux sur la table de l'âge** (`components/ui/plaisirsMaterial.js`,
+  règles et équilibrage INCHANGÉS) :
+  - le panneau de jeu devient le TAPIS de la table de l'âge (peau, drap, velours, tapis vert,
+    tapis de casino, lumière) cerné du REBORD de sa matière (variables CSS `--table-*` posées
+    par PlaisirsView, `views-plaisirs.css`) ; le drap violet du vingt-et-un s'y fond ;
+    boutons et textes gardent la peau d'interface unique (arbitrage de Raph) ;
+  - la salle ZOOME d'un cran sur la table du jeu ouvert et la place au-dessus du tapis
+    (`focus`), le panneau est posé bas ;
+  - osselets : les OS de Raph (`bones.png`) jusqu'à la Couronne, puis des DÉS VUS DE DESSUS
+    (une seule face : « les dés n'ont aucun sens » en 3/4) — ivoire (Marbre, Fonte), casino
+    (Néon), lumière de l'ère (cosmiques) ; même planche 6 × 32 px, `--bones-sheet` ;
+  - vingt-et-un : cartes de BOIS (Feu → Pierre), de PARCHEMIN (Couronne, Marbre), les
+    cartes à jouer du pack (Fonte, Néon), de CRISTAL (cosmiques) ; rang tourné de 180° au
+    coin opposé, enseignes 7 × 7 ;
+  - Icare : ciel de l'époque (couchant du feu, ciel antique, fumées de la fonte, nuit néon,
+    espace) ; Icare jusqu'au Marbre, BALLON captif à la Fonte, DELTAPLANE au Néon, Icare de
+    LUMIÈRE ensuite ;
+  - tickets : le tapis seulement — les tablettes restent antiques (thème choisi par Raph en
+    juillet, mises en oboles/drachmes/talents).
+- 2026-10-03 : **phase 4 — nettoyage** : « Quitter le temple » → « Quitter la table »,
+  « cagnotte du temple » → « cagnotte de la Maison » (FR/EN, 4 jeux) ; le panneau de jeu se
+  décale de la largeur du menu volant (il recouvrait la première mise) ; `salle.png` et les
+  coordonnées à la main d'`anchors.js` retirés. Reste : les notes du moteur parlent d'« os »
+  même quand ce sont des dés (`regulationActions.js`, `noteFail`), la scène reste inerte
+  (pas de banque de sons).
+
+---
+
 > **État 2026-08-22 : le lieu est en jeu.** Ce fichier fait foi pour le chantier.
 > Sprite déposé, onglet ouvert, jeux migrés, placement en pleine eau, domaine
 > réservé et aura livrés. Restent le « où est Charlie » (volet 4) et les paliers

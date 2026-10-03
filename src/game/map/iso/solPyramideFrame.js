@@ -41,7 +41,7 @@ import { WONDER_GROUND, wonderGroundSet } from './isoWonderGround.js';
 import { beachPortCells } from './isoBeachCells.js';
 import { ISO_X, ISO_Y } from './projection.js';
 import {
-  solPyramideStats, levelZoom, tileSideCss, camSpace, tileSpace, tileOrigin, cookTile, ZOOM_MIN, ZOOM_MAX,
+  solPyramideStats, levelZoom, tileSideCss, camSpace, tileSpace, tileOrigin, cookTile, ZOOM_MIN, ZOOM_MAX, softCoalescer,
 } from './solPyramide.js';
 
 export const PYR = { budgetMs: 8, gestureBudgetMs: 12, gestureMaxTiles: 6, holeCapMs: 80, memMo: 96, ring: 1, gestureMs: 400 };
@@ -53,7 +53,7 @@ let sigCur = '';              // identité de CONTENU du plan (groundContentSig)
 let sufCur = '';              // tout le reste (ère, saison, plage, quai, relief, fleuve) — change rarement
 let curL = null;              // le plan courant, pour signer les tuiles
 let revealSeen = 0;           // compteur de révélation des maisons-moteur vu à la dernière frame
-let softAt = -1e9;
+const soft = softCoalescer(250);  // décodages en rafale : retenus, jamais perdus
 const costMs = new Map();     // z → coût lissé d'une tuile (ms)
 let lastCamX = NaN, lastCamY = NaN, lastZoom = NaN, lastMoveAt = -1e9;
 
@@ -210,13 +210,13 @@ function invalidate(kind) {
   // 'cells' (recompute de layout) : rien à faire ici — la frame voit la
   // signature globale changer et re-juge chaque tuile sur ses cellules.
   if (kind === 'cells') return;
-  if (kind === 'soft') {
-    // Décodages en rafale au chargement : une époque par fenêtre de 250 ms,
-    // pas une par sprite (les tuiles périmées restent affichées de toute façon).
-    const now = performance.now();
-    if (now - softAt < 250) return;
-    softAt = now;
-  }
+  // Décodages en rafale au chargement : une époque par fenêtre de 250 ms, pas une
+  // par sprite (les tuiles périmées restent affichées de toute façon). Ceux qui
+  // tombent dans la fenêtre sont RETENUS et rendus par la frame (flushSoft).
+  if (kind === 'soft' && !soft.hit(performance.now())) return;
+  bumpEpoch();
+}
+function bumpEpoch() {
   epoch += 1;
   solPyramideStats.sales += cache.size;
 }
@@ -376,6 +376,8 @@ function cachedLevelsNear(z) {
 // ── La frame ─────────────────────────────────────────────────────────────────
 export function paintGroundPyramid(ctx, L, nowMs) {
   if (!L) return false;
+  // Un décodage retenu par la fenêtre des invalidations douces : rendu ici.
+  if (soft.flush(performance.now())) bumpEpoch();
   ensureQuayGate();
   curL = L;
   sigCur = groundContentSig(L);

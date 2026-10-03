@@ -1400,9 +1400,11 @@
    animée : l'état de repli d'un dé sans face est la case vide — jamais la
    frame 0 de la planche (la face 1, le Chien), qui afficherait un faux « pire
    tirage » dès qu'un chemin quelconque neutralise l'animation. */
-.augury-die[data-face] { background-image: url("/pixelart/ui/augures/bones/bones.png"); }
+/* ⭐ `--bones-sheet` : la planche des DÉS de l'âge (plaisirsMaterial.js, posée sur la
+   rangée par AuguryStage) ; à défaut, les os de Raph. Même géométrie (6 × 32 px). */
+.augury-die[data-face] { background-image: var(--bones-sheet, url("/pixelart/ui/augures/bones/bones.png")); }
 @media (prefers-reduced-motion: no-preference) {
-  .augury-die:not([data-face]) { background-image: url("/pixelart/ui/augures/bones/bones.png"); }
+  .augury-die:not([data-face]) { background-image: var(--bones-sheet, url("/pixelart/ui/augures/bones/bones.png")); }
 }
 
 .augury-die[data-face="1"] { background-position-x: 0; }

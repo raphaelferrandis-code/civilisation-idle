@@ -189,3 +189,18 @@ La taille du port de commerce suit le nombre de « Ports » achetés (portiques,
   - Reste : voiliers de plaisance (kit de la session des bateaux), port cosmique à
     redessiner, escales de la flotte au port de commerce (session des bateaux, postes
     `portBerths` kind 'commerce').
+  - Commit local `73a33d2`. Puis, le même jour, **coques du kit** (session des bateaux :
+    `boatKit.drawMooredKit` / `mooredFootprint`) branchées dans `portBerths` : barques,
+    cotre et chaloupe à vapeur au bassin XIXe, plaisance moderne avec VOILIERS en bande 6,
+    esquifs de nacre 7-9, cargos de l'ère au terminal ; tous les postes cotés à la bande
+    du plan (`hullFootprint(role, band)`), repli sprites sans modèle. Planche
+    `.preview-shots/planche-ports-toutes-eres-v2.png`. ⚠ NON COMMITÉ : dépend de
+    `boatKit.js`, pas encore commité par sa session (à commiter ensemble ou juste après).
+  - **Le bassin passe à la session des bateaux** (demande de Raph, sur une capture de la
+    bande 5 : pas de pêcheur assis dans un bateau à quai, des escaliers et des pontons, un
+    meilleur dessin d'ensemble). Elle prend `iso/isoOldPort.js` jusqu'à son signal : coques
+    à quai VIDES (option `empty` du kit), ponton le long du quai du fond + pannes, passerelles
+    inclinées, escaliers de pierre, amarres. Commit commun proposé à Raph, avec les hunks
+    non commités de portBerths.js / isoTradePort.js. Porte-conteneurs : un modèle « de
+    quai » plus long (~2,9 tuiles) dessiné à sa taille plutôt qu'un agrandissement (qui
+    casserait la grille de pixels).

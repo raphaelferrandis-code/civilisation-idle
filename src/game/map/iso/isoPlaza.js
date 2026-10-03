@@ -63,6 +63,7 @@ import { AGENT_SCALE, agentSetForBand, agentSpecFor, drawNamedAgentIso } from '.
 import { worldToScreen, depthOf } from './projection.js';
 import { lightCutImage, lightCtx } from '../lightLayer.js';
 import { drawSunShadow } from './isoSunShadow.js';
+import { streetKitLampArt } from './streetKits.js';
 
 // ── ÉCHELLE DE RÉFÉRENCE ────────────────────────────────────────────────────
 // Unité : hT = HAUTEUR ÉCRAN du sprite en tuiles (1 tuile = TILE × zoom px).
@@ -1012,7 +1013,7 @@ function composeOne(L, era, box) {
       for (let k = 0; k < g; k += 1) {
         const [sx, sy] = at(side, segAt(k));
         const col = S.colors[(off + si * 2 + k) % S.colors.length];
-        if (add(S.prop + '-' + col, side.face, sx, sy, hS)) stalls.push({ x: sx, y: sy, face: side.face });
+        if (add(S.prop + '-' + col, side.face, sx, sy, hS)) stalls.push({ x: sx, y: sy, face: side.face, hT: hS });
       }
       if (R.side && R.side.length && g > 0) {
         const creux = [segAt(0) - usable / (2 * g), segAt(g - 1) + usable / (2 * g)];
@@ -1223,16 +1224,34 @@ function composeOne(L, era, box) {
       }
     }
   }
-  // 7. LES FANIONS : une guirlande d'un réverbère de coin au suivant, sur les
-  //    quatre côtés. Elle pend dans l'air entre deux têtes de mât ; triée à la
-  //    profondeur de son bout le plus proche, elle passe devant ce qui est derrière
-  //    elle et sous ce qui est devant.
-  if (R.garland && lamps.length === 4) {
+  // 7. LES FANIONS. Triés à la profondeur de leur bout le plus proche, ils passent
+  //    devant ce qui est derrière eux et sous ce qui est devant.
+  //    AU MARCHÉ, d'ÉTAL EN ÉTAL, noués au haut des auvents, tout autour de la place
+  //    — « ce sont des mâts avec une flamme au bout, accrocher les fils dessus n'est
+  //    pas logique » (Raph, 2026-10-03). AILLEURS, d'un réverbère de coin au suivant,
+  //    marqués `onLamps` : le dessin les saute si le mât de l'ère brûle (pas de
+  //    point d'attache, cf. drawPlazaGarland).
+  if (R.garland && stalls.length >= 2) {
+    const ring = stalls
+      .map((s) => ({ wx: s.x * T, wy: s.y * T, hT: s.hT, d: depthOf(s.x * T, s.y * T) }))
+      .sort((p, q) => Math.atan2(p.wy - cyc * T, p.wx - cxc * T) - Math.atan2(q.wy - cyc * T, q.wx - cxc * T));
+    const n = ring.length;
+    for (let i = 0; i < (n === 2 ? 1 : n); i += 1) {
+      const p = ring[i], q = ring[(i + 1) % n];
+      props.push({
+        prop: 'garland', variant: null, wx: (p.wx + q.wx) / 2, wy: (p.wy + q.wy) / 2, hT: 0,
+        a: { wx: p.wx, wy: p.wy }, b: { wx: q.wx, wy: q.wy }, d: Math.max(p.d, q.d) + 0.5,
+        liftT: Math.min(p.hT, q.hT) * GARLAND.stallTie,
+        seed: Math.floor(h01('plz' + sd + ':gl:' + p.wx + ':' + q.wx) * 4),
+      });
+    }
+  } else if (R.garland && lamps.length === 4) {
     const [a, b, c, d] = lamps;                      // (x0,y0) (x1,y0) (x0,y1) (x1,y1)
     for (const [p, q] of [[a, b], [b, d], [d, c], [c, a]]) {
       props.push({
         prop: 'garland', variant: null, wx: (p.wx + q.wx) / 2, wy: (p.wy + q.wy) / 2, hT: 0,
         a: { wx: p.wx, wy: p.wy }, b: { wx: q.wx, wy: q.wy }, d: Math.max(p.d, q.d) + 0.5,
+        onLamps: true,
         seed: Math.floor(h01('plz' + sd + ':gl:' + p.wx + ':' + q.wx) * 4),
       });
     }
@@ -1595,24 +1614,40 @@ function drawPlazaPerson(ctx, rec, now) {
 }
 
 // ── LES FANIONS ─────────────────────────────────────────────────────────────
-// Une corde tendue d'une tête de réverbère de coin à la suivante, qui pend en
-// chaînette, et des fanions triangulaires de quatre couleurs vives (rouge, ocre,
-// bleu, crème — celles des auvents du marché). LA NUIT, chaque fanion porte une
-// lanterne : une lueur chaude déposée dans le calque de lumière (lightLayer), qui
-// s'ajoute APRÈS le voile de nuit comme celle des lampadaires. Au loin (zoom < 0,6)
-// ce ne serait qu'un trait de bruit : rien.
-// Molette : __plaza({ garland: { hT, sag, step } }) — hT = hauteur des attaches
-// (tuiles), sag = flèche en part de la portée, step = pas des fanions (px d'art).
-export const GARLAND = { on: true, hT: 1.25, sag: 0.14, step: 9, cols: ['#c8402f', '#e2b441', '#3d6fb0', '#efe6d2'] };
+// Une corde tendue entre deux supports — le haut de deux auvents d'étal au marché,
+// deux réverbères de coin ailleurs —, qui pend en chaînette, et des fanions
+// triangulaires de quatre couleurs vives (rouge, ocre, bleu, crème — celles des
+// auvents du marché). LA NUIT, chaque fanion porte une lanterne : une lueur chaude
+// déposée dans le calque de lumière (lightLayer), qui s'ajoute APRÈS le voile de
+// nuit comme celle des lampadaires. Au loin (zoom < 0,6) ce ne serait qu'un trait
+// de bruit : rien.
+// Molette : __plaza({ garland: { hT, sag, step, stallTie } }) — hT = hauteur des
+// attaches sur un réverbère PNG (tuiles), sag = flèche en part de la portée, step =
+// pas des fanions (px d'art), stallTie = hauteur du nœud en part de la hauteur de
+// l'étal (le haut des poteaux d'auvent).
+export const GARLAND = { on: true, hT: 1.25, sag: 0.14, step: 9, stallTie: 0.85, cols: ['#c8402f', '#e2b441', '#3d6fb0', '#efe6d2'] };
 function drawPlazaGarland(ctx, rec) {
   const z = CM.cam.zoom;
   if (!GARLAND.on || z < 0.6) return;
-  const T = CM.TILE, lift = GARLAND.hT * T * z;
+  const T = CM.TILE;
+  // Où le fil est-il noué ? Sur un étal : au haut de ses poteaux. Sur un réverbère
+  // de KIT (iso/streetKits.js) : au point d'attache que son dessin déclare (tieY) —
+  // un mât qui porte une FLAMME n'en déclare pas, et la guirlande n'a alors rien
+  // pour la tenir (Raph, 2026-10-03). Réverbère PNG d'avant : GARLAND.hT.
+  let lift;
+  if (rec.liftT != null) lift = rec.liftT * T * z * PLAZA_TUNE.propScale;
+  else {
+    const kl = streetKitLampArt((CM.layout && CM.layout.counts && CM.layout.counts.eraBand) | 0);
+    if (kl && kl.tieY == null) return;
+    lift = kl ? kl.tieY * z : GARLAND.hT * T * z;
+  }
   const A = worldToScreen(rec.a.wx, rec.a.wy), B = worldToScreen(rec.b.wx, rec.b.wy);
   const ax = A.x, ay = A.y - lift, bx = B.x, by = B.y - lift;
   const len = Math.hypot(bx - ax, by - ay);
   if (len < 8) return;
-  const sag = len * GARLAND.sag;
+  // Flèche bornée : un fil noué bas (auvent, mât de kit) reste au-dessus des têtes
+  // au lieu de traîner sur le dallage au milieu d'une grande place.
+  const sag = Math.min(len * GARLAND.sag, lift * 0.3);
   // Point de la chaînette (approchée d'une parabole) au paramètre t.
   const at = (t) => [ax + (bx - ax) * t, ay + (by - ay) * t + sag * 4 * t * (1 - t)];
   const px = Math.max(1, z);                           // un pixel d'art

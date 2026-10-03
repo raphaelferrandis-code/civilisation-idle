@@ -38,25 +38,25 @@ import {
 import {
   drawPixelHouse, drawPixelHouseOutline, drawPixelHouseSunShadow, pixelHouseBox, pixelHouseReady,
 } from '../pixelHouses.js';
-import { drawWonder } from '../renderBuildings.js';
 import { drawIsoRevealPin, drawIsoSmoke } from './isoAmbient.js';
 import { vieTreeSway } from './isoVie.js';
 import { isoArt } from './isoArt.js';
 import { drawIsoBridgeSeg } from './isoBridge.js';
+import { drawIsoWonderSeg } from './isoWonder.js';
 import { drawIsoCampHearth } from './isoCampHearth.js';
-import { drawIsoEngineScene, drawSpriteOutline, isoEngineScenesFlag } from './isoEngineScene.js';
+import { drawIsoEngineScene, isoEngineScenesFlag } from './isoEngineScene.js';
 import { drawIsoField } from './isoField.js';
 import { isoFrontOffset, seasonTree } from './isoGroundDetail.js';
 import { ISO_TREE_VARIANTS, TREE_DEAD_VARIANT, drawIsoGroundedArt, treeAliveVariant, treeBaseVariant } from './isoGroundProps.js';
 import { maskHit } from './isoMask.js';
 import { HOVER_GOLD, rgb } from './isoPalette.js';
-import {
-  PLAISIRS_PPT, drawPlaisirsRing, plaisirsSprite, queuePlaisirsGlow,
-} from './isoPlaisirs.js';
+import { drawIsoPlaisirsSeg } from './isoPlaisirs.js';
 import { FA_V, FOUNTAIN_ANIM, FOUNTAIN_TUNE, drawIsoPlazaGrid, drawIsoPlazaProp } from './isoPlaza.js';
-import { drawIsoPortBoat, drawIsoRiverside } from './isoPort.js';
+import { drawIsoPortBoat, drawIsoRiverside, drawIsoShipDeferred } from './isoPort.js';
+import { drawDockPorter } from './boatBerths.js';
+import { drawFleetScene } from './boatScenes.js';
 import {
-  LAMP_TUNE, isoLampLightFrame, lampFootMetrics, lampGlowBox, lampLit, paintLampGlow,
+  isoLampLightFrame, lampBox, lampGlowBox, lampLit, paintLampGlow,
 } from './isoStreet.js';
 import { drawSunShadow, muteSunShadow } from './isoSunShadow.js';
 import { GHOST_TUNE, drawIsoCitizenItem, drawIsoRioter, drawIsoVehicle } from './isoUnits.js';
@@ -498,62 +498,28 @@ export function paintIsoItems(bake, items, now) {
       const wpx = (spanX + spanY) * T * z * ISO_X * 0.78;
       // MÊME géométrie que le sprite (cf. fumée) → le chevron suit tout recadrage.
       drawIsoRevealPin(pixelHouseBox(t, anchor.x - wpx / 2, anchor.y - wpx - hh * 0.5, wpx, wpx), t._revealPinAt, now);
-    } else if (it.kind === 'wonder') {
-      // MERVEILLE au tri peintre : drawWonder gère ancre/cull/érection lui-même.
-      drawWonder(it.w, it.wi, now);
+    } else if (it.kind === 'wonderSeg') {
+      drawIsoWonderSeg(ctx, it, now);
     } else if (it.kind === 'plaisirs') {
-      const art = plaisirsSprite();
-      if (art) {
-        const p = worldToScreen(it.pl.x * T, it.pl.y * T);
-        const nw = art.img.naturalWidth || 1, nh = art.img.naturalHeight || 1;
-        // Hauteur = celle du sprite convertie en tuiles au PPT des merveilles,
-        // largeur au ratio du PNG : un blit carré l'écraserait.
-        const hpx = T * z * (nh / PLAISIRS_PPT);
-        const wpx = hpx * (nw / nh);
-        // Boîte RÉELLEMENT dessinée, publiée pour le hit-test du clic
-        // (cityMapRuntime) ET pour l'aura (isoPlaisirs). Publiée ICI et pas
-        // recalculée là-bas : deux projections séparées finissent toujours par
-        // diverger, et la zone cliquable se retrouverait à côté de la tour.
-        // Posée AVANT le blit : l'aura s'y ancre et doit passer avant lui.
-        const box = { dx: p.x - wpx / 2, dy: p.y - hpx, dw: wpx, dh: hpx };
-        CM._plaisirsBox = box;
-        // AURA, à la profondeur du monument : le cerne de lumière sur l'eau puis
-        // les foyers de la tour. Déposés dans la couche de lumière, donc
-        // découpés par tout ce que le peintre dessine ensuite — à commencer par
-        // le sprite lui-même, trois lignes plus bas.
-        drawPlaisirsRing(it.pl, now);
-        queuePlaisirsGlow(box, now);
-        const prevPS = ctx.imageSmoothingEnabled;
-        ctx.imageSmoothingEnabled = false;
-        // Ancré sur le PIED (bas, centré) : le fût plonge dans l'eau au point
-        // exact qui a servi à évaser le lit.
-        // LISERÉ DE SURVOL, comme les habitations et les moteurs : le monument
-        // est CLIQUABLE, il doit donc dire qu'on le touche. Posé juste avant le
-        // sprite, à la même géométrie, il ne dépasse que d'un pixel.
-        if (CM.hover && CM.hover.plaisirs) {
-          drawSpriteOutline(art.img, box.dx, box.dy, wpx, hpx, HOVER_GOLD);
-        }
-        ctx.drawImage(art.img, box.dx, box.dy, wpx, hpx);
-        ctx.imageSmoothingEnabled = prevPS;
-        // La tour DÉCOUPE l'aura qu'elle vient de poser : sans ça le cerne
-        // additif blanchirait son pied et les foyers lui traverseraient la
-        // façade. Même geste que les scènes moteur (drawIsoGroundedArt).
-        lightCutImage(art.img, box.dx, box.dy, wpx, hpx);
-      }
+      // La Maison des Plaisirs, construite par le code (iso/isoPlaisirs.js) :
+      // cerne, foyers, ombre, reflet et survol sur la tranche « base », puis
+      // les tranches et les objets à leur profondeur.
+      drawIsoPlaisirsSeg(ctx, it, now);
     } else if (it.kind === 'lamp') {
       const p = worldToScreen(it.wx, it.wy);
-      const m = lampFootMetrics(it.art) || { footXf: 0.5, footYf: 0.97, usedHf: 0.92 };
-      // hauteur cible = CONTENU visible (LAMP_TUNE.h tuiles), pas le canvas.
-      const hpx = T * z * LAMP_TUNE.h / (m.usedHf || 1);
-      // Largeur au RATIO du PNG (les v3 sont 64×128 : un blit carré les étirerait ×2).
-      const wpx = hpx * ((it.art.img.naturalWidth || 1) / (it.art.img.naturalHeight || 1));
+      // Taille : celle du kit de l'ère (un pixel d'art = un pixel d'écran au zoom
+      // 1), ou pour un PNG le CONTENU visible ramené à LAMP_TUNE.h tuiles, largeur
+      // au ratio de l'image (cf. lampBox, isoStreet.js).
+      const { m, hpx, wpx } = lampBox(it.art, T * z);
+      const ldp = CM.dpr || 1;
+      const lx = Math.round((p.x - wpx * m.footXf) * ldp) / ldp, ly = Math.round((p.y - hpx * m.footYf) * ldp) / ldp;
       // L'ombre du soleil, pivot au PIED du mât (le mât est une colonne mince, sa
       // lanterne déborde : le pivot commun la projette loin, comme un arbre).
       // Sous 24 px, ce n'est plus qu'un trait d'un pixel : pas d'appel pour lui.
-      if (hpx >= 24) drawSunShadow(ctx, it.art.img, p.x - wpx * m.footXf, p.y - hpx * m.footYf, wpx, hpx, 0, 0, 0, 0, m.footYf);
+      if (hpx >= 24) drawSunShadow(ctx, it.art.img, lx, ly, wpx, hpx, 0, 0, 0, 0, m.footYf);
       const prevLS = ctx.imageSmoothingEnabled;
       ctx.imageSmoothingEnabled = false;
-      ctx.drawImage(it.art.img, p.x - wpx * m.footXf, p.y - hpx * m.footYf, wpx, hpx);
+      ctx.drawImage(it.art.img, lx, ly, wpx, hpx);
       ctx.imageSmoothingEnabled = prevLS;
       // HALO DÉPOSÉ ICI, à la profondeur du mât : tout ce que le peintre dessine
       // après lui (donc devant) viendra le découper. Sans ce dépôt en place, le
@@ -621,6 +587,12 @@ export function paintIsoItems(bake, items, now) {
       if (profParts) fp('vif-ponts');
     } else if (it.kind === 'portBoat') {
       drawIsoPortBoat(ctx, it.moor, now, z, T);
+    } else if (it.kind === 'fleetShip') {
+      drawIsoShipDeferred(ctx, it.sh, now);
+    } else if (it.kind === 'porter') {
+      drawDockPorter(ctx, it.q, it.band, now);
+    } else if (it.kind === 'fleetScene') {
+      drawFleetScene(ctx, it, now);
     } else if (it.kind === 'veh') {
       drawIsoVehicle(ctx, it.v, now, z);
     } else if (it.kind === 'riot') {

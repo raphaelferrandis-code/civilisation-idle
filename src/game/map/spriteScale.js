@@ -186,5 +186,5 @@ if (typeof window !== 'undefined') {
 export const TILE_REF = 32;         // CM.TILE (layout.js)
 export const HOUSE_LOT_WF = 0.78;   // isoRenderer.js « wpx = (spanX+spanY)·T·z·ISO_X·0.78 »
 export const ENGINE_UNIT_F = 0.72;  // isoRenderer.js « unit = T·z·ISO_X·0.72 » (boîte des scènes moteur)
-export const WONDER_PPT = 34;       // renderBuildings.js « PPT = 34 » (merveilles)
+export const WONDER_PPT = 34;       // layout.js « WONDER_PPT = 34 » (emprise des merveilles)
 export const COSMIC_TOWER_H = 1.72; // cityEngineSprites.js « __cosmicTowerH) || 1.72 » (tours cosmiques moteur, drawH = H × boîte)

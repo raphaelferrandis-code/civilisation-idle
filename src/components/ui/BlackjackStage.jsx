@@ -19,6 +19,7 @@ import { tr } from '../../game/core/i18n.js';
 import { FaveurIcon } from './FaveurIcon.jsx';
 import { tipProps } from './HelpBubble.jsx';
 import { cardSrc, cardLabel, CARD_BACK_SRC, CARD_DECK_SRC } from './cardSprites.js';
+import { usePlaisirsBand, cardFaceFor, cardBackFor } from './plaisirsMaterial.js';
 import CoffreSelect from './CoffreSelect.jsx';
 import StageHelp from './StageHelp.jsx';
 
@@ -78,11 +79,14 @@ const MEASURE_LABEL = {
    double exact). Le rang et la couleur sont déjà peints dedans, il n'y a donc
    plus rien à composer — juste l'alternative textuelle pour la voix. La carte
    cachée du croupier montre le dos du même pack. */
+// ⭐ Refonte du 2026-10-02 : les cartes suivent l'ÂGE de la ville — bois, parchemin,
+// cartes à jouer du pack, cristal (plaisirsMaterial.js). Même taille native 32×48.
 function BjCard({ card, hidden }) {
+  const band = usePlaisirsBand();
   if (hidden) {
-    return <img className="bj-card is-hidden" src={CARD_BACK_SRC} alt={tr({ fr: 'carte cachée', en: 'face-down card' })} draggable="false" />;
+    return <img className="bj-card is-hidden" src={cardBackFor(band) || CARD_BACK_SRC} alt={tr({ fr: 'carte cachée', en: 'face-down card' })} draggable="false" />;
   }
-  return <img className="bj-card" src={cardSrc(card)} alt={cardLabel(card)} draggable="false" />;
+  return <img className="bj-card" src={cardFaceFor(band, card) || cardSrc(card)} alt={cardLabel(card)} draggable="false" />;
 }
 
 export default function BlackjackStage({ table, onClose }) {
@@ -200,12 +204,12 @@ export default function BlackjackStage({ table, onClose }) {
           </p>
           <p>
             {tr({
-              fr: 'C’est la table la plus clémente du temple : bien jouée, elle ne garde presque rien.',
-              en: 'This is the temple’s most lenient table: played well, it keeps almost nothing.'
+              fr: 'C’est la table la plus clémente de la Maison : bien jouée, elle ne garde presque rien.',
+              en: 'This is the House’s most lenient table: played well, it keeps almost nothing.'
             })}
           </p>
         </StageHelp>
-        <button type="button" className="stage-close" onClick={onClose} aria-label={tr({ fr: 'Quitter le temple', en: 'Leave the temple' })}>✕</button>
+        <button type="button" className="stage-close" onClick={onClose} aria-label={tr({ fr: 'Quitter la table', en: 'Leave the table' })}>✕</button>
       </div>
 
       {history.length > 0 && (
@@ -365,7 +369,7 @@ export default function BlackjackStage({ table, onClose }) {
                   {tr({ fr: `Redistribuer (${fmt(chosenCost)})`, en: `Deal again (${fmt(chosenCost)})` })}
                 </button>
                 <button type="button" onClick={onNewHand}>{tr({ fr: 'Changer de mise', en: 'Change stake' })}</button>
-                <button type="button" className="btn-close" onClick={onClose}>{tr({ fr: 'Quitter le temple', en: 'Leave the temple' })}</button>
+                <button type="button" className="btn-close" onClick={onClose}>{tr({ fr: 'Quitter la table', en: 'Leave the table' })}</button>
               </menu>
             </>
           )}

@@ -208,19 +208,18 @@ if (typeof window !== "undefined") {
 // déjà le groupement par deux. Ne pas le remonter sans relancer la suite.
 export const ENGINE_SPREAD = { gap: 5, reach: 8 };
 
-// ── LA MAISON DES PLAISIRS ATTEND L'ÂGE DU NÉON ─────────────────────────────
-// Bande de carte à partir de laquelle le monument se dresse sur le fleuve.
-// Décision de Raph, 2026-09-28 : seul son palier NÉON est dessiné
-// (plaisirs-t3.png), et posé dès l'ère 0 il se dressait à côté d'un campement de
-// tentes — la première image du jeu. Les paliers « bois et toile » puis « pierre
-// à portique » (docs/PLAN-MAISON-DES-PLAISIRS.md) attendent un art qu'on ne peut
-// pas générer tant que l'abonnement PixelLab est expiré. 6 est la bande dont le
-// thème s'appelle « Néon » (eraThemes) et où les lampadaires deviennent
-// électriques (isoStreet, lampEraForBand) : le sprite est chez lui. Le jour où
-// les deux premiers paliers existent, ce seuil redescend à 0.
-// L'onglet Plaisirs, lui, reste ouvert dès le début (App.jsx) : ses jeux
-// s'ouvrent aux ères 2-3, bien avant que le lieu se voie.
-export const PLAISIRS_REVEAL_BAND = 6;
+// ── LA MAISON DES PLAISIRS PARAÎT AVEC SES JEUX ─────────────────────────────
+// Refonte du 2026-10-02 (docs/PLAN-MAISON-DES-PLAISIRS.md, § ⭐) : le lieu est
+// désormais construit par le code à TOUS les âges (iso/plaisirsBake.js), du
+// radeau du campement à la lévitation. Il se dresse donc le jour où ses premiers
+// jeux ouvrent — l'Ère II, celle des osselets et des tickets, qui révèle aussi
+// l'onglet Plaisirs (tick.js) —, et non plus à la bande du néon (seuil du
+// 2026-09-28, posé faute d'un art pour les premiers âges).
+// Lu sur la MEILLEURE ère atteinte : après un effondrement la ville repart au
+// campement, mais les jeux restent ouverts, et le lieu avec eux.
+// ⚠ Même seuil que `scratchUnlocked` / la table des osselets : plaisirsReveal.test.js
+// verrouille l'accord.
+export const PLAISIRS_OPEN_ERA = 2;
 
 // ── LE CŒUR DE LA VILLE SORT DE L'EAU ────────────────────────────────────────
 // Rayon (en cellules) du disque qui doit être AU SEC autour de plan.core. Cf. le
@@ -350,7 +349,8 @@ function cmWaterAffine(affinity) {
 }
 
 // ── Merveilles ───────────────────────────────────────────────────────────────
-// Chaque merveille a une identité propre : nom, sprite dédié (renderBuildings),
+// Chaque merveille a une identité propre : nom, monument construit par le code
+// (iso/wonderBake.js, docs/PLAN-MERVEILLES.md),
 // emplacement thématique, et 5 PALIERS d'évolution : franchir un nouveau jalon
 // (population ×10, dynastie suivante, ère plus avancée...) fait grandir le
 // monument et l'orne de nouveaux attributs. `metric` extrait la valeur de
@@ -368,7 +368,7 @@ const CM_WONDERS = [
     unlockedBy: "Rayonnement d'au moins 1 000 000.",
     metric: (s) => toNum(s.population) || 0, tiers: [1e6, 1e13, 1e20, 1e27, 1e34],
     tierLabel: (v) => `${fmtShort(v)} de Rayonnement` },
-  { id: "era_kingdom",    name: "La Couronne de Pierre",      icon: "crown",     slot: { angle: -1.25, ring: 1.18 }, reEra: 9,
+  { id: "era_kingdom",    name: "Le Palais de la Couronne",   icon: "crown",     slot: { angle: -1.25, ring: 1.18 }, reEra: 9,
     unlockedBy: "Âge du royaume atteint.",
     // Rééchelonné 2026-07-03 : « Royaume » = ère 19 depuis la refonte des ères
     // (les anciens seuils [9..25] faisaient naître la couronne au Bourg agricole).
@@ -376,7 +376,7 @@ const CM_WONDERS = [
     // Empire, Métropole, Machination (fin de course juste avant la Singularité).
     metric: (s) => cmEraIndexFor(s), tiers: [19, 22, 25, 29, 33],
     tierLabel: (v) => `ère « ${eras[v] ? eras[v].name : v} »` },
-  { id: "era_empire",     name: "L'Arc de Triomphe Éternel",  icon: "arch",      slot: { angle: 0.02, ring: 0.82 }, reEra: 13,
+  { id: "era_empire",     name: "La Cathédrale Inachevée",    icon: "arch",      slot: { angle: 0.02, ring: 0.82 }, reEra: 13,
     unlockedBy: "500 achats accomplis (bâtiments et décrets).",
     // Rééchelonné 2026-07-03 (×10 par rang) : un achat ×100 compte 100
     // (lifetimePurchases += amount) et Héphaïstos auto-achète en fin de méta —
@@ -436,10 +436,13 @@ const WONDER_CLEAR_R = 5; // rayon libre (tuiles) — repli pour merveille sans 
 // sous/autour du monument. On dérive une emprise rectangulaire NORD-BIAISÉE des
 // dimensions natives MAX (tier V) de chaque sprite. era_mega (L'Aiguille) est
 // DANS L'EAU : elle est de facto seule, on ne la dégage pas (pont/riverains).
-// PPT doit rester synchronisé avec renderBuildings.js (WONDER_PPT / PPT = 34).
+// Depuis le 2026-10-02 les merveilles sont CUITES par le code (iso/wonderBake.js)
+// dans le socle (nw / 2·PPT tuiles) et la hauteur (nh / PPT tuiles) que cette table
+// donne à chaque rang : les anciens sprites « de face » qui l'ont mesurée sont
+// retirés, la table reste le contrat de l'emprise (wonderExtentTier.test vérifie
+// que chaque monument cuit y tient).
 const WONDER_PPT = 34;
-// Dimensions natives de CHAQUE RANG (mesurées sur /pixelart/wonders/<id>-t<n>.png,
-// le fichier que wonderPixelSprite charge — même source que le rendu).
+// Dimensions de CHAQUE RANG (héritées des sprites retirés).
 //
 // ⚠ L'emprise se dérivait des dims du rang V pour TOUS les rangs (retour Raph
 // 2026-07-24 : « là c'est direct de la taille rang max »). Un era_kingdom rang I
@@ -1511,7 +1514,9 @@ function cityCounts(s) {
   // compteur de RÉVÉLATION (grandit d'1 par achat, rafraîchi sans recompute).
   let engineHomesRaw = 0;
   for (const meta of CM_MAP_BUILDINGS) engineHomesRaw += Math.floor((s.buildings && s.buildings[meta.id]) || 0);
-  return { houses, engineHomes, engineHomesRaw, engineQuarters, infraRings, megaDistricts, civicMonuments, urbanTier, campTier, eraIndex, eraBand, eraFrac };
+  // La Maison des Plaisirs se dresse quand ses jeux ouvrent (cf. PLAISIRS_OPEN_ERA).
+  const plaisirsOpen = Math.max(eraIndex, (s && s.bestEraIndex) | 0) >= PLAISIRS_OPEN_ERA;
+  return { houses, engineHomes, engineHomesRaw, engineQuarters, infraRings, megaDistricts, civicMonuments, urbanTier, campTier, eraIndex, eraBand, eraFrac, plaisirsOpen };
 }
 
 // ── Connexion des bâtiments au réseau ────────────────────────────────────────
@@ -2508,7 +2513,9 @@ function computeCityLayout(s) {
     spread: 2.5,    // demi-largeur gagnée au plus fort de l'évasement, en tuiles
     etale: 14,      // portée de l'évasement le long du cours, en tuiles
     drift: 1.4,     // décalage TRANSVERSAL du lit : c'est lui qui casse la symétrie
-    r: 2.6          // rayon d'obstacle pour les bateaux (le PIED, pas la couronne)
+    // Rayon d'obstacle pour les bateaux : le PIED (îlot de 2,8 tuiles de rayon
+    // depuis la refonte par le code, iso/plaisirsBake.js), plus un peu d'eau.
+    r: 3.1
   };
   let plaisirsSpot = null;
   {
@@ -2748,7 +2755,7 @@ function computeCityLayout(s) {
   // place, et la flotte en tire son obstacle (cf. CM.riverObstacles). Publié
   // ici, donc après l'évasement du lit — ses coordonnées sont déjà celles du
   // cours corrigé, il ne peut pas se retrouver au sec.
-  // ⛔ PUBLIÉ SEULEMENT À PARTIR DE PLAISIRS_REVEAL_BAND (cf. sa déclaration).
+  // ⛔ PUBLIÉ SEULEMENT QUAND SES JEUX SONT OUVERTS (PLAISIRS_OPEN_ERA).
   // On ne masque QUE la publication : la marche, l'évasement du lit,
   // `bridgeAvoid` et le domaine réservé lisent `plaisirsSpot` et restent les
   // mêmes à toutes les ères — le fleuve ne change pas de forme le jour où le lieu
@@ -2758,7 +2765,7 @@ function computeCityLayout(s) {
   // flotte (cityMapRuntime) — le pêcheur de l'ère 0 ne contourne plus le vide.
   // Le layout se recalcule à chaque changement d'ère : le lieu paraît au passage
   // de la bande, sans rien d'autre à signer.
-  river.plaisirs = (c.eraBand | 0) >= PLAISIRS_REVEAL_BAND ? plaisirsSpot : null;
+  river.plaisirs = c.plaisirsOpen ? plaisirsSpot : null;
   lp("plan-eau");
 
   // Fonction chaude : appelée pour chaque cellule de la grille + chaque tronçon

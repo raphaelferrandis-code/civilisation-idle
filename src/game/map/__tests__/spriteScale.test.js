@@ -95,8 +95,8 @@ describe('constantes de référence — verrouillées sur les sites vifs', () =>
     expect(SRC('iso/isoEngineScene.js')).toContain(
       `unit = T * z * ISO_X * ${ENGINE_UNIT_F}`);
   });
-  it('WONDER_PPT suit renderBuildings (merveilles)', () => {
-    expect(SRC('renderBuildings.js')).toContain(`PPT = ${WONDER_PPT}`);
+  it('WONDER_PPT suit layout (emprise des merveilles)', () => {
+    expect(SRC('layout.js')).toContain(`const WONDER_PPT = ${WONDER_PPT};`);
   });
   it('TILE_REF suit layout (CM.TILE)', () => {
     expect(SRC('layout.js')).toMatch(new RegExp(`TILE:\\s*${TILE_REF}[,\\s]`));

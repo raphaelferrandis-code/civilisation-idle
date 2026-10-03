@@ -70,6 +70,13 @@ function gameFullReloadPlugin() {
 export default defineConfig({
   base: './',
   plugins: [react(), previewShotPlugin(), gameFullReloadPlugin()],
+  // Le serveur de dev ne surveille PAS les dossiers de travail des sessions :
+  // `.preview-shots/` reçoit des captures en continu (harnais /__shot, planches),
+  // et sous Windows un PNG encore verrouillé par son écrivain fait planter le
+  // watcher (EBUSY → le serveur meurt, vu deux fois le 2026-10-02). La partie
+  // ouverte ne charge alors plus ses images : sol en aplats de secours, habitants
+  // retombés sur leurs vieilles bandes de face (retour Raph, ère 0).
+  server: { watch: { ignored: ['**/.preview-shots/**', '**/.claude/**'] } },
   // `.claude/worktrees` = copies de travail jetables de l'agent (gitignorées) ;
   // sans cette exclusion Vitest ré-exécute leurs suites → tests en triple et
   // échec golden compté plusieurs fois (portes non déterministes en local).

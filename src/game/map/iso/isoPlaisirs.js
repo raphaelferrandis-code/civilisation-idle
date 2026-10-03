@@ -41,20 +41,35 @@
  * Molette : window.__plaisirsAura({ ring: 0, beams: 1.4, … }).
  * ========================================================================== */
 import { CM } from '../layout.js';
+import { state } from '../../core/state.js';
 import { worldToScreen } from './projection.js';
-import { lightCtx } from '../lightLayer.js';
+import { lightCtx, lightCutImage } from '../lightLayer.js';
 import { queueFlameGlow } from '../flameGlow.js';
+import { WINTER } from '../seasonMode.js';
+import { wonderKitForBand } from './wonderKits.js';
+import { bakePlaisirs, plaisirsRecipeBand, plaisirsGames, plaisirsShadow } from './plaisirsBake.js';
+import { SUN_SHADOW, sunShear, drawSunShadowPlane } from './isoSunShadow.js';
+import { noteReflectionImage } from './isoReflect.js';
+import { drawFlame, glowAt, hexToRgbStr } from './isoProps.js';
+import { drawVieFlag } from './isoVie.js';
+import { drawSpriteOutline } from './isoEngineScene.js';
+import { HOVER_GOLD } from './isoPalette.js';
 
-// ── Palette RELEVÉE sur plaisirs-t3.png ─────────────────────────────────────
-// Histogramme des pixels à la fois clairs et saturés (max > 150, max−min > 60),
-// c'est-à-dire les LUMIÈRES du sprite et rien d'autre. Les trois plus fournies :
-//   232,40,128  (967 px, h=333) — le liseré néon des pétales ;
-//   249,96,45   (748 px, h=15)  — la braise des lanternes et des vitrines ;
-//   252,190,93  (199 px, h=37)  — l'or des ferrures.
-// Une aura peinte sur d'autres teintes se lirait comme une décalcomanie.
-const NEON = '232,40,128';
-const EMBER = '249,96,45';
-const GOLD = '252,190,93';
+// ── Palette de l'aura : celle des LUMIÈRES du lieu, à son âge ────────────────
+// Refonte du 2026-10-02 : le lieu n'est plus un sprite néon unique, il porte des
+// torches, des lampions, du gaz, du néon puis la lumière de l'ère. L'aura prend
+// donc la couleur de ce qui brûle sur lui — un liseré rose sur un radeau de
+// l'âge du feu se lirait comme une décalcomanie (la règle d'origine, relevée sur
+// le sprite : `232,40,128` néon, `249,96,45` braise, `252,190,93` or).
+// `NEON` = la teinte du LISERÉ, `EMBER` = celle du cœur, `GOLD` = les ferrures.
+let NEON = '232,72,58';
+let EMBER = '249,110,50';
+let GOLD = '252,190,93';
+function setAuraBand(band) {
+  if (band >= 7) { NEON = hexToRgbStr(wonderKitForBand(band).pal.glow); EMBER = '255,214,170'; GOLD = '252,190,93'; }
+  else if (band === 6) { NEON = '232,40,128'; EMBER = '249,96,45'; GOLD = '252,190,93'; }
+  else { NEON = '232,72,58'; EMBER = '249,110,50'; GOLD = '252,190,93'; }
+}
 
 export const PLAISIRS_AURA = {
   on: true,
@@ -64,7 +79,9 @@ export const PLAISIRS_AURA = {
   // la berge et la lumière de l'eau se met à éclairer de l'herbe.
   // `bandA` est VOLONTAIREMENT minuscule : la nappe n'est qu'un liant, ce sont
   // les éclats qui portent la figure (cf. le § MIROITEMENT).
-  ring: 1, a: 5.2, b: 3.3, bands: 4, bandA: 0.03, dots: 22, ringSec: 6.4, dotDay: 0.6,
+  // (2026-10-02 : 5,2 × 3,3 → 5,7 × 3,9 — l'îlot construit fait 2,8 tuiles de
+  // rayon, la guirlande flottante doit rester DEHORS, sur l'eau.)
+  ring: 1, a: 5.7, b: 3.9, bands: 4, bandA: 0.03, dots: 22, ringSec: 6.4, dotDay: 0.6,
   flecks: 84, fleckSec: 2.9,
   // LES FAISCEAUX. `len` et `w` en hauteurs de sprite ; `sweep` et `gap` en
   // radians. ⚠ `w` est le nerf du réglage : à 0,15 les trois rais se recouvraient
@@ -270,41 +287,25 @@ export function drawPlaisirsRing(spot, now) {
   if (direct) ctx.restore();
 }
 
-/* ── LA TOUR ÉCLAIRE ─────────────────────────────────────────────────────────
- * Elle ne le faisait pas. Le blit posait le sprite et rien d'autre : ses cent
- * lanternes cuites n'éclairaient pas un pixel d'eau, ce qui est exactement la
- * définition de l'autocollant donnée dans flameGlow.js. Trois foyers, un par
- * plateau, à la teinte de braise du sprite — c'est leur SOMME qui doit rendre
- * le monument incandescent, jamais un seul halo géant (la leçon des 57 braseros
- * du Mausolée). Déphasés, donc ils respirent sans battre à l'unisson.
- * Appelé DANS le peintre, AVANT le blit : la couche de lumière les dépose alors
- * à la profondeur du monument, et la découpe qui suit les range derrière lui.
+/* ── LE LIEU ÉCLAIRE ─────────────────────────────────────────────────────────
+ * Un monument qui porte des lanternes sans éclairer un pixel d'eau est un
+ * autocollant (en-tête de flameGlow.js). Un foyer par REBORD de plateau (les
+ * `ledges` que la recette publie : là où pendent les guirlandes), à la teinte de
+ * ce qui brûle à cet âge — c'est leur SOMME qui rend le lieu incandescent, jamais
+ * un seul halo géant (la leçon des 57 braseros du Mausolée). Déphasés.
+ * Appelé DANS le peintre, AVANT les tranches : la couche de lumière les dépose à
+ * la profondeur du lieu, et la découpe des tranches les range derrière lui.
  */
-const FOYERS = [[0.50, 0.42, 0.52], [0.50, 0.62, 0.62], [0.50, 0.79, 0.48]];
-export function queuePlaisirsGlow(box, now) {
-  if (!PLAISIRS_AURA.on || !box || CM.lodActive) return;
-  for (let i = 0; i < FOYERS.length; i += 1) {
-    const f = FOYERS[i];
-    queueFlameGlow(box.dx + box.dw * f[0], box.dy + box.dh * f[1], box.dw * f[2], EMBER, now, i * 2.63, 0.5);
+export function queuePlaisirsGlow(m, now) {
+  if (!PLAISIRS_AURA.on || !m || CM.lodActive) return;
+  const z = CM.cam.zoom, L = m.bk.ledges;
+  const step = Math.max(1, Math.floor(L.length / 6));
+  for (let i = 0; i < L.length; i += step) {
+    const p = worldToScreen(m.cx + L[i].x, m.cy + L[i].y, L[i].h);
+    queueFlameGlow(p.x, p.y, CM.TILE * z * 1.1, EMBER, now, i * 2.63, 0.45);
   }
 }
-
-/* ── LES PLATEAUX ────────────────────────────────────────────────────────────
- * Fractions de la boîte RÉELLEMENT DESSINÉE, relevées sur le profil d'encre du
- * PNG (largeur ligne par ligne) : les maxima locaux SONT les rebords de pétale,
- * là où des lanternes seraient accrochées. Mesuré, pas estimé :
- *   y=0,42 → bord haut  (x 0,20…0,83)
- *   y=0,62 → bord large (x 0,17…0,89)
- *   y=0,79 → bord bas   (x 0,25…0,82)
- * ⚠ Ces nombres vont AVEC le sprite : le recadrer sans les reprendre lâcherait
- * les lanternes dans le vide.
- */
-const LEDGES = [
-  [0.25, 0.42], [0.78, 0.42],
-  [0.20, 0.62], [0.86, 0.62],
-  [0.28, 0.79], [0.79, 0.79],
-];
-const LANT_COL = [EMBER, NEON, GOLD];
+const lantCol = (i) => [EMBER, NEON, GOLD][i % 3];
 
 /* ── FAISCEAUX + LANTERNES ───────────────────────────────────────────────────
  * Passe de NUIT, après le voile — comme les lanternes de pont. Part de
@@ -315,8 +316,8 @@ const LANT_COL = [EMBER, NEON, GOLD];
 export function drawPlaisirsSky(now) {
   const A = PLAISIRS_AURA;
   if (!A.on) return;
-  const box = CM._plaisirsBox;
-  if (!box || !(box.dh > 4)) return;
+  const box = CM._plaisirsBox, m = _frameModel;
+  if (!box || !(box.dh > 4) || !m) return;
   // ⚠ LES FAISCEAUX SURVIVENT AU LOD, tout le reste non. C'est leur raison
   // d'être : « visibles de très loin » (doc du lieu), or le LOD s'arme
   // précisément au dézoom. Vingt-et-un trapèzes ne pèsent rien ; les lanternes
@@ -329,13 +330,15 @@ export function drawPlaisirsSky(now) {
   ctx.globalCompositeOperation = 'lighter';
 
   // ── LES FAISCEAUX ─────────────────────────────────────────────────────────
-  // Apex sur la FLÈCHE (x 0,52 ; y 0,27 de la boîte — le sommet d'encre est à
-  // 0,247). Chaque rai est une suite de trapèzes à alpha décroissant : sept
-  // paliers francs plutôt qu'un dégradé, pour la même raison que les bandes du
-  // cerne. Balayage lent et déphasé ; un rai qui revient trop vite lit comme un
-  // gyrophare de police, pas comme une fête.
-  if (A.beams && nf > 0.15) {
-    const ax = box.dx + box.dw * 0.52, ay = box.dy + box.dh * 0.27;
+  // Apex au SOMMET publié par la recette. Chaque rai est une suite de trapèzes à
+  // alpha décroissant : sept paliers francs plutôt qu'un dégradé, pour la même
+  // raison que les bandes du cerne. Balayage lent et déphasé ; un rai qui revient
+  // trop vite lit comme un gyrophare de police, pas comme une fête.
+  // ⛔ Pas avant l'âge du NÉON : un projecteur sur un radeau de l'âge du feu ou
+  // une rotonde de marbre serait un anachronisme (refonte du 2026-10-02).
+  if (A.beams && nf > 0.15 && m.band >= 6) {
+    const ap = worldToScreen(m.cx + m.bk.apex.x, m.cy + m.bk.apex.y, m.bk.apex.h);
+    const ax = ap.x, ay = ap.y;
     const len = box.dh * A.len;
     const n = Math.max(1, A.beamN | 0);
     for (let i = 0; i < n; i += 1) {
@@ -368,12 +371,16 @@ export function drawPlaisirsSky(now) {
   // mais leur halo est nocturne. Fondu aux DEUX bouts : elles naissent au ras du
   // plateau et s'éteignent avant le haut de leur course — sans ça, une lanterne
   // apparaît et disparaît d'un coup, et l'œil ne voit que le pop.
-  if (A.lant && !lod) {
+  // ⛔ Pas de lâcher de lanternes à l'âge du feu : il n'y a ni papier ni lampion
+  // sur le radeau, seulement des torches.
+  if (A.lant && !lod && m.band >= 1) {
     const vis = auraVis() * A.lant;
-    const size = Math.max(1, Math.round(box.dh * 0.011));
+    const size = Math.max(1, Math.round(CM.TILE * CM.cam.zoom * 0.07));
     const per = Math.max(1, A.per | 0);
-    for (let e = 0; e < LEDGES.length; e += 1) {
-      const ex = box.dx + box.dw * LEDGES[e][0], ey = box.dy + box.dh * LEDGES[e][1];
+    const L = m.bk.ledges, step = Math.max(1, Math.floor(L.length / 6));
+    for (let e = 0; e < L.length; e += step) {
+      const lp = worldToScreen(m.cx + L[e].x, m.cy + L[e].y, L[e].h);
+      const ex = lp.x, ey = lp.y;
       for (let i = 0; i < per; i += 1) {
         const sd = _rnd(e + 1, i + 1), sd2 = _rnd(e + 7, i + 13);
         const ph = _frac(t / (A.lantSec * (0.8 + sd * 0.5)) + sd);
@@ -382,7 +389,7 @@ export function drawPlaisirsSky(now) {
         const ly = ey - ph * box.dh * A.rise;
         const lx = ex + (sd2 - 0.5) * box.dw * 0.035
           + Math.sin(ph * Math.PI * 2.2 + sd2 * 6.28) * box.dw * A.sway * ph;
-        const col = LANT_COL[(e + i) % LANT_COL.length];
+        const col = lantCol(e + i);
         addGlow(ctx, lx, ly, size * 3.2, col, Math.min(0.45, f * vis * nf * 0.6));
         ctx.fillStyle = `rgba(${col},${(f * vis * 0.9).toFixed(3)})`;
         ctx.fillRect(Math.round(lx - size / 2), Math.round(ly - size / 2), size, size);
@@ -392,85 +399,218 @@ export function drawPlaisirsSky(now) {
   ctx.restore();
 }
 
-// ── LE SPRITE DU MONUMENT, rapatrié d'isoRenderer le 2026-08-23 ──────────────
-// Ce module portait déjà l'AURA, l'ANNEAU et le CIEL de la Maison des Plaisirs ; il
-// ne lui manquait que le monument lui-même — son PNG, son échelle, et le test de
-// survol qui lit son encre. Le rapatriement ne coûte AUCUN import nouveau (`CM` y
-// était déjà) : le signe habituel qu'il était dû.
-// ⚠ Prélude au découpage de `drawIsoLive` (cf. docs/CARTO-drawIsoLive.md §4) : la
-// COLLECTE et le DESSIN lisent tous deux ce sprite, il devait sortir avant elles.
-// LA MAISON DES PLAISIRS. Un monument permanent posé en pleine eau, au large :
-// il n'a ni rang ni condition, donc rien à voir avec le cache des merveilles
-// (indexé id+rang). Un seul fichier, un seul chargement.
-// PPT PROPRE, et non celui des merveilles (34). Le sprite a été recadré au ras de
-// son encre — la moitié du canevas d'origine était vide —, si bien qu'à 34 il
-// n'aurait plus fait que 4,8 tuiles de large contre 6,6 avant recadrage.
-// 25 lui rend exactement sa présence : 207 px à l'écran, 6,5 tuiles.
-// ⚠ Ce nombre va AVEC les dimensions du PNG : redécouper le sprite sans reprendre
-// le PPT le ferait grandir ou rétrécir en silence.
-export const PLAISIRS_PPT = 25;
-let plaisirsArt = null;
-export function plaisirsSprite() {
-  if (!plaisirsArt) {
-    plaisirsArt = { img: new Image(), ready: false };
-    plaisirsArt.img.onload = () => { plaisirsArt.ready = true; };
-    plaisirsArt.img.src = '/pixelart/wonders/plaisirs-t3.png';
+// ── LE MONUMENT, CONSTRUIT PAR LE CODE (refonte du 2026-10-02) ───────────────
+// Le sprite néon unique (`plaisirs-t3.png`) cède la place à une CUISSON par âge et
+// par jeux ouverts (iso/plaisirsBake.js), même main que les merveilles. Ce module
+// la pose sur l'eau, la trie avec la ville, l'éclaire et la rend cliquable.
+
+const gamesKey = (g) => (g.osselets ? 'o' : '') + (g.tickets ? 't' : '') + (g.cartes ? 'c' : '') + (g.icare ? 'i' : '') + (g.boutique ? 'b' : '');
+
+// Molette : `__plaisirsTune.band = n` force l'âge (null : celui de la ville).
+export const plaisirsTune = { band: null, slice: 8 };
+
+function rasterCanvas(R) {
+  const cv = document.createElement('canvas');
+  cv.width = R.w; cv.height = R.h;
+  cv.getContext('2d').putImageData(new ImageData(R.data, R.w, R.h), 0, 0);
+  return cv;
+}
+const _bakes = new Map();
+function bakeFor(band, g, winter) {
+  if (typeof document === 'undefined') return null;
+  const key = plaisirsRecipeBand(band) + ':' + band + ':' + gamesKey(g) + (winter ? ':w' : '');
+  let e = _bakes.get(key);
+  if (e) return e;
+  const out = bakePlaisirs(wonderKitForBand(band, winter), g);
+  const R = out.R, occ = new Uint8Array(R.w);
+  let x0 = R.w, y0 = R.h, x1 = -1, y1 = -1;
+  for (let i = 0; i < R.w; i += 1) {
+    for (let j = 0; j < R.h; j += 1) {
+      if (!R.data[(j * R.w + i) * 4 + 3]) continue;
+      occ[i] = 1;
+      if (i < x0) x0 = i; if (i > x1) x1 = i; if (j < y0) y0 = j; if (j > y1) y1 = j;
+    }
   }
-  return plaisirsArt.ready ? plaisirsArt : null;
+  // Ombre et reflet EXACTS, tirés de la hauteur de chaque pixel (plaisirsBake.js) :
+  // le reflet générique retournait chaque colonne autour de son pixel le plus bas, et
+  // le pont du radeau se reflétait comme s'il était dressé (Raph, 2026-10-03).
+  const M = out.mirror;
+  const { kx, ky } = sunShear();
+  const S = plaisirsShadow(R, out.H, kx, ky);
+  let shCv = null;
+  if (S) {
+    shCv = document.createElement('canvas');
+    shCv.width = S.w; shCv.height = S.h;
+    const sc = shCv.getContext('2d');
+    sc.fillStyle = SUN_SHADOW.col;
+    for (let j = 0; j < S.h; j += 1) for (let i = 0; i < S.w; i += 1) if (S.mask[j * S.w + i]) sc.fillRect(i, j, 1, 1);
+  }
+  e = { key, R, cv: rasterCanvas(R), cvN: out.N ? rasterCanvas(out.N) : null, occ,
+    mir: M ? { ox: M.ox, oy: M.oy, w: M.w, h: M.h, cv: rasterCanvas(M) } : null,
+    sh: S ? { ox: S.ox, oy: S.oy, w: S.w, h: S.h, cv: shCv } : null,
+    box: x1 < 0 ? null : { x: x0, y: y0, w: x1 - x0 + 1, h: y1 - y0 + 1 },
+    props: out.props || [], ledges: out.ledges || [], apex: out.apex || { x: 0, y: 0, h: R.h }, foot: out.foot || 64 };
+  if (_bakes.size > 12) _bakes.delete(_bakes.keys().next().value);
+  _bakes.set(key, e);
+  return e;
 }
 
-// MASQUE D'ENCRE de la tour. Le survol et le clic doivent tomber sur le
-// BÂTIMENT, pas sur son rectangle : le sprite est une pagode à plateaux et son
-// encre n'occupe que x ∈ [0,17 ; 0,89] et y ∈ [0,25 ; 0,94] du PNG (mesuré) —
-// un quart de la hauteur au-dessus de la flèche est vide, et ce vide-là est
-// posé sur le FLEUVE. Au rectangle, viser l'eau à trois tuiles du pied
-// allumait le monument et ouvrait l'onglet.
-// Lu UNE fois, à la taille naturelle du PNG (224×376), soit 84 ko de masque.
-// `undefined` = pas encore tenté, `null` = illisible (canvas souillé), on
-// retombe alors sur la boîte.
-let plaisirsMask;
-function plaisirsInk() {
-  if (plaisirsMask !== undefined) return plaisirsMask;
-  const art = plaisirsSprite();
-  // Sprite pas encore chargé : on ne MÉMORISE PAS cet échec, il se corrigera
-  // tout seul à la frame où l'image arrive.
-  if (!art || typeof document === 'undefined') return null;
-  const w = art.img.naturalWidth | 0, h = art.img.naturalHeight | 0;
-  if (!w || !h) return null;
-  const c = document.createElement('canvas');
-  c.width = w; c.height = h;
-  const cx = c.getContext('2d', { willReadFrequently: true });
-  cx.drawImage(art.img, 0, 0);
-  let d;
-  try { d = cx.getImageData(0, 0, w, h).data; } catch { plaisirsMask = null; return null; }
-  const a = new Uint8Array(w * h);
-  for (let i = 0, n = w * h; i < n; i += 1) a[i] = d[i * 4 + 3] > 24 ? 1 : 0;
-  plaisirsMask = { w, h, a };
-  return plaisirsMask;
+// Le modèle de la frame (posé par la collecte, relu par le ciel et le survol).
+let _frameModel = null;
+function modelOf(pl) {
+  const L = CM.layout;
+  if (!L || !pl) return null;
+  const band = plaisirsTune.band != null ? plaisirsTune.band | 0 : (L.counts && L.counts.eraBand) | 0;
+  const g = plaisirsGames(state, L.counts && L.counts.eraIndex);
+  const bk = bakeFor(band, g, CM.season === WINTER);
+  if (!bk) return null;
+  const T = CM.TILE;
+  return { pl, band, g, bk, cx: pl.x * T, cy: pl.y * T };
+}
+// Le lieu est-il prêt à peindre ? (la collecte n'empile rien sinon).
+export function plaisirsReady() { return typeof document !== 'undefined'; }
+
+// Coin haut-gauche ÉCRAN du raster (repère local : X = x − y, Y = (x + y)/2 − h).
+function originScreen(m) {
+  const R = m.bk.R;
+  return worldToScreen(m.cx + R.oy + R.ox / 2, m.cy + R.oy - R.ox / 2);
+}
+// Profondeur du bord AVANT du pied (un disque de rayon `foot`) sur la verticale
+// locale X : sur la corde x − y = X, x + y vaut au plus √(2r² − X²).
+function frontDepth(m, X) {
+  const r = m.bk.foot;
+  return m.cx + m.cy + Math.sqrt(Math.max(0, 2 * r * r - X * X));
 }
 
-// SURVOL ET CLIC DE LA MAISON DES PLAISIRS : UN SEUL test, partagé par
-// l'infobulle et par le clic (cityMapRuntime). Deux tests séparés finiraient
-// par diverger, et on aurait un liseré qui s'allume là où le clic n'ouvre rien.
-// Part de la boîte RÉELLEMENT DESSINÉE à la dernière frame, puis descend au
-// pixel du masque.
+// ── Tri peintre : des TRANCHES verticales, comme les merveilles ──────────────
+// Un seul point de tri (l'ancien pied du sprite) faisait passer un bateau en
+// aval DEVANT tout le lieu ou DERRIÈRE tout le lieu ; découpé en tranches triées
+// au bord avant du pied dans leur colonne, il passe devant la façade qu'il longe
+// et derrière celle qu'il contourne.
+export function pushIsoPlaisirsItems(items, pl) {
+  const m = modelOf(pl);
+  _frameModel = m;
+  if (!m || !m.bk.box) { CM._plaisirsBox = null; return; }
+  setAuraBand(m.band);
+  const R = m.bk.R, S = plaisirsTune.slice, z = CM.cam.zoom, bx = m.bk.box;
+  const o = originScreen(m);
+  // Boîte d'encre RÉELLEMENT dessinée, publiée pour le clic, le survol et le ciel.
+  CM._plaisirsBox = { dx: o.x + bx.x * z, dy: o.y + bx.y * z, dw: bx.w * z, dh: bx.h * z };
+  // Le cerne, les foyers, l'ombre et le reflet : une fois, sous tout le lieu.
+  items.push({ d: m.cx + m.cy - 2 * m.bk.foot - 1, kind: 'plaisirs', m, part: 'base' });
+  for (let c0 = 0; c0 < R.w; c0 += S) {
+    const c1 = Math.min(R.w, c0 + S);
+    let any = false;
+    for (let i = c0; i < c1; i += 1) if (m.bk.occ[i]) { any = true; break; }
+    if (!any) continue;
+    const Xa = R.ox + c0, Xb = R.ox + c1;
+    const minAbs = Xa <= 0 && Xb >= 0 ? 0 : Math.min(Math.abs(Xa), Math.abs(Xb));
+    items.push({ d: frontDepth(m, minAbs), kind: 'plaisirs', m, part: 'slice', c0, c1 });
+  }
+  for (let pi = 0; pi < m.bk.props.length; pi += 1) {
+    const pr = m.bk.props[pi];
+    items.push({ d: frontDepth(m, pr.x - pr.y) + 0.5, kind: 'plaisirs', m, part: 'prop', pi });
+  }
+}
+
+export function drawIsoPlaisirsSeg(ctx, it, now) {
+  const m = it.m;
+  if (!m) return;
+  const R = m.bk.R, cv = m.bk.cv, z = CM.cam.zoom;
+  const o = originScreen(m);
+  const prevSm = ctx.imageSmoothingEnabled;
+  ctx.imageSmoothingEnabled = false;
+  const y0 = Math.round(o.y), y1 = Math.round(o.y + R.h * z);
+  const x0 = Math.round(o.x), x1 = Math.round(o.x + R.w * z);
+  if (it.part === 'base') {
+    // AURA, à la profondeur du lieu : le cerne sur l'eau puis les foyers. Déposés
+    // dans la couche de lumière, donc découpés par les tranches qui suivent.
+    drawPlaisirsRing(m.pl, now);
+    queuePlaisirsGlow(m, now);
+    // Ombre portée et REFLET dans l'eau, calculés à la cuisson (cf. bakeFor).
+    const layer = (L) => {
+      const lx = Math.round(o.x + (L.ox - R.ox) * z), ly = Math.round(o.y + (L.oy - R.oy) * z);
+      return [lx, ly, Math.round(o.x + (L.ox - R.ox + L.w) * z) - lx, Math.round(o.y + (L.oy - R.oy + L.h) * z) - ly];
+    };
+    if (m.bk.sh) drawSunShadowPlane(ctx, m.bk.sh.cv, ...layer(m.bk.sh));
+    if (m.bk.mir) noteReflectionImage(ctx, m.bk.mir.cv, ...layer(m.bk.mir));
+    // Liseré de survol : le lieu est CLIQUABLE, il doit dire qu'on le touche.
+    if (CM.hover && CM.hover.plaisirs) drawSpriteOutline(cv, x0, y0, x1 - x0, y1 - y0, HOVER_GOLD);
+  } else if (it.part === 'slice') {
+    const sx0 = Math.round(o.x + it.c0 * z), sx1 = Math.round(o.x + it.c1 * z);
+    if (sx1 > sx0 && y1 > y0) {
+      ctx.drawImage(cv, it.c0, 0, it.c1 - it.c0, R.h, sx0, y0, sx1 - sx0, y1 - y0);
+      lightCutImage(cv, sx0, y0, sx1 - sx0, y1 - y0, it.c0, 0, it.c1 - it.c0, R.h);
+      // LA NUIT : baies, fentes de rideaux, lampions — après la découpe.
+      const nf = CM.nightF || 0;
+      if (m.bk.cvN && nf > 0.03) {
+        const lc = lightCtx(sx0, y0, sx1, y1);
+        if (lc) {
+          lc.globalAlpha = Math.min(1, nf * 1.15);
+          lc.drawImage(m.bk.cvN, it.c0, 0, it.c1 - it.c0, R.h, sx0, y0, sx1 - sx0, y1 - y0);
+          lc.globalAlpha = 1;
+        }
+      }
+    }
+  } else if (it.part === 'prop') {
+    const pr = m.bk.props[it.pi];
+    if (pr) {
+      const p = worldToScreen(m.cx + pr.x, m.cy + pr.y, pr.h);
+      if (pr.prop === 'flame') drawFlame(ctx, p.x, p.y, z, now, pr.small ? 0.8 : pr.big ? 1.6 : 1, (pr.x * 0.37 + pr.y * 0.11) % 3);
+      else if (pr.prop === 'flag') {
+        drawVieFlag(ctx, p.x, p.y, { k: z, now, poleH: pr.poleH || 8, w: pr.fw || 6, h: pr.fh || 4, cols: ['#c8434a', '#7a2333', '#f0cf6a'], swallow: true, seed: it.pi * 7 + 3 });
+      } else if (pr.prop === 'glow') {
+        glowAt(p.x, p.y, Math.max(6, CM.TILE * z * (pr.big ? 1.1 : 0.7)), EMBER, 0.85);
+      } else if (pr.prop === 'beacon') {
+        // Balise d'aviation au sommet de la tour (âge du néon) : un feu rouge qui
+        // bat la seconde — même geste que les merveilles.
+        const on = Math.floor(now / 600) % 2 === 0, sz = Math.max(1, Math.round(z * 1.5));
+        ctx.fillStyle = on ? '#ff3b2e' : '#6a1a14';
+        ctx.fillRect(Math.round(p.x - sz / 2), Math.round(p.y - sz), sz, sz);
+        if (on) glowAt(p.x, p.y - sz / 2, Math.max(5, CM.TILE * z * 0.3), '255,70,50', 0.9);
+      } else if (pr.prop === 'halo') {
+        // Halo des âges cosmiques : un anneau de la lumière de l'ère qui flotte et
+        // respire au-dessus du sommet.
+        const bob = Math.sin(now / 900) * 2 * z, r = (pr.r || 16) * z;
+        ctx.save();
+        ctx.globalAlpha = 0.55 + 0.25 * Math.sin(now / 600);
+        ctx.strokeStyle = `rgb(${NEON})`;
+        ctx.lineWidth = Math.max(1, Math.round(z));
+        ctx.beginPath();
+        ctx.ellipse(Math.round(p.x), Math.round(p.y + bob), r * Math.SQRT2, r / Math.SQRT2, 0, 0, Math.PI * 2);
+        ctx.stroke();
+        ctx.restore();
+        glowAt(p.x, p.y + bob, r * 1.6, NEON, 0.6);
+      }
+    }
+  }
+  ctx.imageSmoothingEnabled = prevSm;
+}
+
+// SURVOL ET CLIC : UN SEUL test, partagé par l'infobulle et par le clic
+// (cityMapRuntime) — deux tests séparés finiraient par diverger. Part de la
+// boîte réellement dessinée, puis descend au PIXEL du raster cuit, avec une
+// tolérance d'un pixel source (garde-corps, mâts et guirlandes ne font qu'un ou
+// deux pixels de large : un test strict les rendrait invisibles à la souris).
 export function plaisirsHitTest(sx, sy) {
-  const b = CM._plaisirsBox;
-  if (!b) return false;
+  const b = CM._plaisirsBox, m = _frameModel;
+  if (!b || !m) return false;
   if (sx < b.dx || sx > b.dx + b.dw || sy < b.dy || sy > b.dy + b.dh) return false;
-  const m = plaisirsInk();
-  if (!m) return true;                       // pas de masque : la boîte fait office
-  // Tolérance d'UN pixel source autour du point visé : garde-corps, lanternes et
-  // haubans ne font qu'un ou deux pixels de large, un test strict les rendrait
-  // invisibles à la souris alors qu'ils portent la silhouette.
-  const u = Math.min(m.w - 1, ((sx - b.dx) / b.dw) * m.w | 0);
-  const v = Math.min(m.h - 1, ((sy - b.dy) / b.dh) * m.h | 0);
+  const R = m.bk.R, z = CM.cam.zoom, o = originScreen(m);
+  const u = Math.floor((sx - o.x) / z), v = Math.floor((sy - o.y) / z);
   for (let dv = -1; dv <= 1; dv += 1) {
-    const y = Math.min(m.h - 1, Math.max(0, v + dv));
+    const y = v + dv;
+    if (y < 0 || y >= R.h) continue;
     for (let du = -1; du <= 1; du += 1) {
-      const x = Math.min(m.w - 1, Math.max(0, u + du));
-      if (m.a[y * m.w + x]) return true;
+      const x = u + du;
+      if (x < 0 || x >= R.w) continue;
+      if (R.data[(y * R.w + x) * 4 + 3]) return true;
     }
   }
   return false;
+}
+
+if (typeof window !== 'undefined') {
+  window.__plaisirsTune = plaisirsTune;
+  window.__plaisirsBakes = () => { const n = _bakes.size; _bakes.clear(); return n; };
 }

@@ -1,0 +1,194 @@
+# PLAN-BATEAUX — la flotte refaite : dessin, variété, comportement (2026-10-01)
+
+Demande de Raph : « on va améliorer les bateaux et leur comportement, et faire en sorte
+que les designs soient plus variés et mieux faits (tous les bateaux) ». Ce plan fait foi ;
+le journal (§8) dit où on en est.
+
+## 1. Décisions de Raph (2026-10-01)
+
+| Sujet | Décision |
+|---|---|
+| Méthode | **Dessinés PAR LE CODE**, comme les ponts, les quais et les merveilles. Plus de PixelLab pour les coques. |
+| Variété | **Plusieurs marchands par époque** (modèles + coques, voiles, cargaisons tirées par bateau), **nouveaux métiers**, **davantage de bateaux**. |
+| Métiers | Marchand · pêcheur · **passeur / bac** · **péniche / chaland** (halée par un animal sur la berge aux ères anciennes) · **bateaux de service** (drague, pompe, police — ères modernes). Pas de bois flotté. |
+| Plaisancier | Toujours **retiré** de la flotte mobile (2026-07-30). La marina IMMOBILE est l'affaire de la session port (§7). |
+| Pêcheur | **Il évolue avec l'époque** (lève l'arbitrage de juillet « barque intemporelle »). |
+| Comportement | Les quatre : **vrai accostage** au ponton, **navigation crédible**, **animations à bord**, **petites scènes de vie**. |
+| Cosmique (b7-9) | « Un peu des trois » : classiques sublimés, glisseurs nacre/cristal, lévitation. Proposé : Noosphère = classiques sublimés, Stellaire = glisseurs, Démiurge = lévitation. |
+| Taille | Laissée à mon choix → **échelle par métier, toisée sur l'équipage** (§3). |
+| Ordre | **Pilote bande 4 Marbre**, planche, verdict, puis les autres ères. |
+
+## 2. État de départ (mesuré le 2026-10-01)
+
+- UNE coque marchande par stade : radeau (b0-1), voilier (b2-4, 15 ères), vapeur (b5),
+  porte-conteneurs (b6). Tous les marchands présents sont des clones.
+- Cosmique b7-9 : AUCUN art iso, le vieux sprite plat de profil recoloré.
+- 8 faces PixelLab qui ne sont pas le même objet tourné (feux calibrés face par face,
+  `NAV_UV`). Aucune animation (voile, fumée, aubes, rames figées).
+- Le marchand « accoste » 2,5 s au milieu du fleuve (`dockSide` jamais lu) ; le bateau du
+  ponton est un décor fixe. Aucun évitement entre bateaux. Cap par sauts de 45°.
+- Planche de l'existant : `node scripts/boatSheet.mjs` → `.preview-shots/boats-iso.png`.
+
+## 3. Méthode de dessin : un peintre de bateaux en 3D au pixel
+
+`iso/boatBake.js` (pur, testable en Node) **construit** chaque bateau en volumes dans son
+repère (a = le long, c = en travers, tribord +, h = hauteur au-dessus de l'eau, unités =
+px monde au zoom 1) et le **projette** à n'importe quel cap avec l'iso exact du jeu :
+X = wx − wy, Y = (wx + wy)/2 − h, profondeur = wx + wy + h (z-buffer).
+
+- Coque paramétrique (longueur, largeur, franc-bord, tonture, étrave, poupe, évasement),
+  bordé, plat-bord, intérieur visible pour les bateaux ouverts, pont pour les pontés.
+- Pièces : mâts, vergues, voiles gonflées, rames, avirons de gouverne, cabines, cargaisons
+  (amphores, sacs, blocs, tonneaux, conteneurs), ornements, équipage.
+- Lumière haut-gauche (normale +y éclairée, +x ombrée, dessus le plus clair), teintes
+  QUANTIFIÉES sur la rampe de chaque matière (pas de dégradé), contour d'encre comme les
+  ponts et les bâtiments.
+- **32 caps** cuits à la demande et mis en cache (au lieu de 8 vues incohérentes) ; les
+  virages deviennent progressifs.
+- Reflet cuit en 3D (h → −h), feux de position posés par la géométrie : plus de calibrage.
+- Grain : 1 px d'art = 1 px de sol au zoom 1 (densité de la carte, cf. PLAN-GRILLE-PIXELS).
+  ⚠ Leçon G1a : un art se DESSINE pour sa taille ; ici chaque bateau est construit à sa
+  vraie taille en pixels.
+
+**Toise** : habitant ≈ 7,5 px = 1,7 m → 1 px ≈ 0,23 m, 1 tuile ≈ 7,3 m. Les petits
+métiers sont à l'échelle réelle (barque ≈ 24 px), les gros porteurs sont comprimés
+(corbita ≈ 60 px au lieu de ~100), plafond = la passe du pont. L'équipage est à la taille
+des habitants.
+
+`iso/boatKits.js` : la flotte de chaque bande (modèles, matières, variantes).
+`iso/boatKit.js` : l'API (`drawBoat`, `boatFootprint`) servie au fleuve ET à la session port.
+
+## 4. La bande 4 Marbre (pilote)
+
+| Métier | Bateau | Détails |
+|---|---|---|
+| Marchand | **Corbita** | coque ronde, voile carrée, poupe en col de cygne, cabine, amphores |
+| Marchand | **Galère marchande** | longue, basse, rames animées + petite voile |
+| Péniche | **Codicaria** (chaland du Tibre) | à fond plat, mât de halage, blocs de marbre / amphores, halée depuis la berge |
+| Pêcheur | **Scapha** | barque, deux hommes, filet |
+| Passeur | **Bac à perche** | plateforme, garde-corps bas, passeur, voyageurs |
+
+Variantes par bateau : couleur de coque (bois, poix noire à liseré peint), voile (lin,
+rayures, safran), cargaison, ornements.
+
+## 5. Comportement (lots suivants)
+
+- Simulation : la voie TRANSVERSALE passe dans la sim (aujourd'hui calculée au rendu) ;
+  cap lissé à vitesse de giration bornée.
+- Règle de route : on tient sa droite ; dépassement si la voie est libre, sinon on ralentit.
+- Pont : la passe est à sens unique à un instant donné ; on attend si quelqu'un arrive en face.
+- Accostage : le marchand vise un poste (portBerths), se range bord à bord, charge/décharge
+  (porteurs), largue et repart ; poste occupé → il mouille à côté et attend.
+- Passeur : deux embarcadères, attente des voyageurs, traversée.
+- Péniche : halage depuis la berge (bête de trait), lente.
+- Pêcheur : jette son filet, le relève.
+- Scènes : salut en se croisant, attente au mouillage.
+- Densité : plafonds par métier, revus à la hausse.
+
+## 6. Lots
+
+1. **Peintre + kit Marbre** → planche des 5 bateaux × 32 caps + variantes + capture en jeu.
+2. Branchement en jeu (remplace les sprites pour la bande 4, A/B `__boatKit`).
+3. Navigation (voie dans la sim, cap lissé, croisements, passe du pont).
+4. Accostage + chargement.
+5. Passeur, péniche halée, pêcheur au filet.
+6. Scènes de vie + densité.
+7. Les autres bandes (0-3, 5-6, cosmiques), puis les bateaux de service.
+
+## 7. Coordination
+
+Session « Amélioration du port et de la plage » (`docs/PLAN-PORTS.md`) : port de commerce
+façon Le Havre (b5-6+, navires amarrés fixes) et port de plaisance façon Vieux-Port
+(bassin creusé, bateaux IMMOBILES). Contrat :
+- je fournis `iso/boatKit.js` → `drawBoat(...)`, `boatFootprint(spec)` ; elle pose ses
+  navires par son indirection `drawMooredHull` ;
+- elle exporte `portBerths(L)` et `portWaterObstacles(L)` (`iso/portBerths.js`) ;
+- le port CENTRAL est servi par MA flotte (vrai accostage) ; `pierMoorings` reste sa source ;
+- chacun prévient avant de toucher les fichiers de l'autre (isoPier.js chez elle ;
+  isoFleet.js, riverFleet.js, drawIsoShips/drawIsoPortBoat chez moi).
+
+## 8. Journal
+
+- 2026-10-01 : questions, décisions, état des lieux, plan.
+- 2026-10-02 (nuit) — **Lot 1 fait** : `iso/boatBake.js` (peintre à points + z-buffer,
+  contour EXTÉRIEUR, pièces fines sans contour, équipage cerné comme les habitants, reflet
+  3D), `iso/boatKits.js` (bande 4 : corbita, galère, codicaria, scapha, bac + variantes),
+  planche `node scripts/boatPlanche.mjs 4 3` → `.preview-shots/bateaux/planche-b4.png`
+  (~11 ms/cuisson). Planche envoyée à Raph, **verdict DA attendu**.
+- **Lot 2 fait** : `iso/boatKit.js` (cache LRU des 32 caps × poses, budget 3 cuissons/frame,
+  `drawBoat`, `boatFootprint`, `__boatKit({on})`), branché dans `drawIsoShips` pour les
+  bandes qui ont une flotte ; feux posés par les ancres du kit.
+- **Lot 3 fait** : la navigation vit dans `riverFleet.js` (voie `lat`, cap `th`) — droite,
+  suivre, doubler, s'écarter, passe du pont à sens unique (celui qui attend serre sa
+  droite), giration bornée. ⚠⚠ **Le ruban fait 590 tuiles pour une carte de 164** : les
+  vitesses sont désormais en TUILES/s (par modèle), et la vie se joue dans une FENÊTRE
+  (la carte + 18 tuiles) — avant, on naissait 200 tuiles hors champ et une corbita
+  filait à 4,7 tuiles/s. Tests : `__tests__/riverNav.test.js`.
+- **Lot 4 fait** : `iso/boatBerths.js` — un poste par port (tête du ponton, via
+  `pierMoorings`), le marchand s'y range (approche latérale, cap aligné), 16-26 s à quai
+  voile serrée, deux PORTEURS de l'ère font la navette sur le tablier (amphore à
+  l'épaule), poste pris → il attend avant ; le ponton est une passe à sens unique pour
+  les autres. Le bateau-décor disparaît dans les ères du kit. Bateau à quai et porteurs
+  triés avec la scène du port (items `fleetShip` / `porter`).
+- **Lot 5 fait** : métiers `barge` (chaland) et `ferry` (passeur) dans `riverFleet`
+  (FLEET_KINDS ; budget publié SEULEMENT si l'ère a leur dessin — paramètre `roles`).
+  Le passeur : site loin du pont et des pontons (`ferrySite`, ≥ 16 tuiles), attend à
+  l'embarcadère, ne part que si personne n'arrive à moins de 7 tuiles, et sa traversée
+  est une PASSE pour les autres ; nouveaux voyageurs à chaque voyage. Le chaland longe
+  la rive SANS ponton, halé par un bœuf + son bouvier au bord de la berge (corde tendue
+  au mât de halage). `iso/boatScenes.js` : embarcadères (dessinés par le même peintre),
+  voyageurs qui attendent, bête de halage (items `fleetScene`). Galère à quai : rames
+  relevées.
+- **Lot 6 fait** : salut quand deux bateaux se croisent de près (un matelot lève le
+  bras) ; densité : 6 marchands, 2 pêcheurs dès la Pierre, + chaland + passeur.
+- À trancher avec Raph : l'embarcadère posé sur un quai maçonné (il pourrait plutôt
+  partir des escaliers du quai) ; les autres bandes et les bateaux de service attendent
+  le verdict DA du pilote.
+- 2026-10-02 — **Pilote VALIDÉ par Raph : « c'est parfait, fais toutes les époques ».**
+- **Toutes les époques faites.** Organisation des fichiers :
+  `iso/boatParts.js` (coque, équipage, cargaisons, voiles carrée/latine, cheminée,
+  cabine, rambarde), `iso/boatFamilies.js` (radeau, pirogue, barque, bac, chaland halé,
+  embarcadère, paramétrés par matières), `iso/boatKits.js` (Marbre + registre
+  `BOAT_MODELS` / `BAND_FLEET`), `iso/boatKitsAncient.js` (bandes 0-3),
+  `iso/boatKitsModern.js` (5-6), `iso/boatKitsCosmic.js` (7-9), `iso/boatFx.js`
+  (fumée, lances, halo de lévitation). Vitrine : `node scripts/boatVitrine.mjs 2`.
+
+  | Bande | Marchands | Chaland | Pêcheur | Passeur | Service |
+  |---|---|---|---|---|---|
+  | 0 Feu | radeau, pirogue | — | pirogue (sagaie) | radeau à la perche | — |
+  | 1 Bois | radeau à voile de peau, barque cousue | — | canot | bac de planches | — |
+  | 2 Pierre | knarr, barque à voile | chaland de pierre (cheval) | barque | bac | — |
+  | 3 Couronne | cogue à châteaux, gabare | chaland (cheval) | barque à voile latine | bac à charrette | — |
+  | 4 Marbre | corbita, galère | codicaria (bœuf) | scapha | bac | — |
+  | 5 Fonte | vapeur à aubes, cargo à vapeur | péniche (cheval) | barque peinte | chaloupe à vapeur | remorqueur, drague à godets |
+  | 6 Néon | porte-conteneurs, pétrolier | convoi poussé | bateau à moteur | navette vitrée | police, pompiers |
+  | 7 Noosphère | voilier solaire, galion de verre | chaland de lumière | barque de nacre | disque | sentinelle |
+  | 8 Stellaire | glisseur, catamaran à aile | idem (or) | idem | idem | idem |
+  | 9 Démiurge | arche, nef — EN LÉVITATION | idem (violet) | idem | idem | idem |
+
+  Embarcadère par époque (rondins, planches, fer, acier, nacre). Feux de position sur
+  les marchands à mât/moteur (ancres), gyrophare (police, sentinelles), fumée animée,
+  aubes et rames animées, lances des pompiers, halo + ombre décalée sous les coques qui
+  lévitent (`HOVER` = 7 px, reflet cuit avec l'écart).
+- **Service** (`riverFleet`, métier `service`) : patrouille (demi-tour aux bouts de son
+  tronçon), drague à poste fixe, pompiers qui s'arrêtent pour arroser ; modèle choisi par
+  RANG (`sh.svc`) ; un bateau à la Fonte, deux au Néon, un aux cosmiques.
+- **Plaisance À QUAI** (jamais en navigation) pour les bassins de la session ports :
+  canot verni, cotre, chaloupe (5) ; annexe, dériveur, voilier, vedette (6) ; esquif et
+  petite voile de nacre (7-9). API `drawMooredKit` / `mooredFootprint` dans
+  `iso/boatKit.js` (rôles de leur table → modèles de l'ère), branchement proposé à la
+  session port dans SON `drawMooredHull`.
+- Tests : `__tests__/boatKits.test.js` (flotte complète par bande, chaque modèle cuit
+  à 4 caps × 4 états sans être ROGNÉ par son cadre, lévitation mesurée).
+- 2026-10-02 — **Le bassin du Vieux-Port repris** (à la demande de Raph, fichier de la
+  session ports cédé le temps du chantier : `iso/isoOldPort.js`). Retour de Raph : « ça ne
+  va pas de voir le pêcheur dans son bateau, ce n'est pas logique ; il faut aussi des
+  escaliers et des pontons ; améliore le design global du port ». Fait : bateaux à quai
+  VIDES (option `empty` du peintre, passée par `drawMooredKit`), ponton flottant le long
+  du quai du fond et passerelles inclinées, escaliers de pierre aux deux murs latéraux (pas
+  d'isoQuay), amarres (ponton, anneaux du mur), coin des pêcheurs à couple (bande 5),
+  caisses et filets sur le quai, pannes de marina sans chevauchement (6+). Porte-conteneurs
+  de quai (`porte-conteneurs-quai`, 2,9 tuiles) pour le terminal.
+- Banc : serveur `vite-bateaux` (port 61850, sans rechargement auto) ; `performance.now`
+  remplacé par une horloge factice (+33,4 ms par `CM.forceFrame()`) pour faire tourner la
+  sim pane cachée — les timers y sont bridés.

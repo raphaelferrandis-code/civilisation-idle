@@ -46,6 +46,7 @@ const PAL = {
   deck: [[150, 132, 108], [140, 124, 100], [158, 140, 114]], deckGap: [96, 84, 68], float: [214, 218, 222],
   fort: [196, 178, 146], fortD: [168, 150, 122], fortGap: [140, 124, 100], flag: [190, 52, 46], pole: [70, 66, 60],
   light: [236, 236, 230], lightBand: [186, 58, 50], lamp: [255, 214, 120], lantern: [70, 74, 80],
+  rope: [74, 62, 48], crate: [150, 116, 78], crateTop: [178, 144, 102], net: [118, 104, 82], netGap: [92, 80, 62],
 };
 
 // ── LE PLAN : boîtes en px monde ─────────────────────────────────────────────
@@ -81,45 +82,145 @@ function oldPortPlan(b, band, T, sm) {
   // Bornes d'amarrage.
   for (let x = gx + 0.35; x < gx + w - 0.1; x += 0.7) box(low, 'bollard', x, x + 0.08, gy - 0.18, gy - 0.1, 0, 0.08, { noMirror: true });
   for (let y = gy + 0.4; y < yE0 - 0.3; y += 0.7) box(low, 'bollard', gx - 0.18, gx - 0.1, y, y + 0.08, 0, 0.08, { noMirror: true });
-  // Le bassin : jusqu'où descend son eau, colonne par colonne (le bord du ruban).
+  // ── LE BASSIN AMÉNAGÉ (Raph, 2026-10-02, sur une capture de la bande 5) ──────
+  // « Ça ne va pas de voir le pêcheur dans son bateau, ce n'est pas logique ; il faut
+  // aussi des escaliers et des pontons. » D'où un bassin qu'on peut PARCOURIR :
+  //   · un PONTON flottant le long du quai du fond, au niveau de l'eau, relié au quai
+  //     par des PASSERELLES inclinées ;
+  //   · des ESCALIERS de pierre qui descendent à l'eau le long des deux murs latéraux
+  //     (même pas que ceux du quai du fleuve, isoQuay : marches de 2 px sur 4 de giron,
+  //     palier haut de 8 px, palier bas de 6 px, 0,3 tuile de large), dans le sens où
+  //     le mur DESCEND à l'écran (vers le sud) — l'autre sens s'écrase en damier ;
+  //   · des bateaux AMARRÉS, VIDES (le kit de bateaux ne construit pas d'équipage à
+  //     quai), retenus par leurs AMARRES au ponton ou aux bornes du quai ;
+  //   · bande 5 : à la méditerranéenne, cul au ponton, et le coin des pêcheurs à couple
+  //     le long du quai ouest, au pied de l'escalier ; bande 6+ : la marina, des pannes
+  //     accrochées au ponton, les bateaux de part et d'autre.
   const boats = [];
   const marina = band >= 6;
   // L'EAU DU BASSIN est au pied des murs, `wh` sous les quais : pontons et bateaux y
   // flottent (posés au niveau du sol, ils chevauchaient la face du mur).
   const zw = -wh;
+  const mzw = zw * T;
   const yIn = Math.min(yE0, yE1) - 0.25;           // le fond d'eau commun aux deux flancs
+  const px = 1 / T;                                // un pixel d'art, en tuiles
+  // Escalier le long d'un mur latéral, de x0 à x1, palier haut au quai à yTop ; rend
+  // l'ordonnée du bas de la volée (palier au ras de l'eau compris).
+  const stairs = (x0, x1, yTop) => {
+    const n = Math.max(2, Math.ceil((wh * T) / 2) - 1);
+    box(low, 'stair', x0, x1, yTop, yTop + 8 * px, zw, 0, { mz: mzw, noShadow: true });
+    let y = yTop + 8 * px;
+    for (let i = 1; i <= n; i += 1) {
+      box(low, 'stair', x0, x1, y, y + 4 * px, zw, -Math.min(wh - px, i * 2 * px), { mz: mzw, noShadow: true, step: i });
+      y += 4 * px;
+    }
+    box(low, 'stair', x0, x1, y, y + 6 * px, zw, zw + px, { mz: mzw, noShadow: true, landing: true });
+    return y + 6 * px;
+  };
+  // Passerelle inclinée du quai (z = 0, y = gy) jusqu'au ponton (z = zw, y = yB) : une
+  // marche de petites boîtes au pas d'un pixel d'art (le moteur n'a que des boîtes
+  // droites), deux filins de garde-corps.
+  const gangway = (xg, yB) => {
+    const yA = gy - 0.03, zA = 0, zB = zw + 0.05;
+    const n = Math.max(4, Math.round(((yB - yA) * T) / 1.5));
+    for (let i = 0; i < n; i += 1) {
+      const ya = yA + ((yB - yA) * i) / n, yb = yA + ((yB - yA) * (i + 1)) / n;
+      const z = zA + ((zB - zA) * (i + 0.5)) / n;
+      box(low, 'gangway', xg - 0.1, xg + 0.1, ya, yb, z - 0.035, z, { mz: mzw, noShadow: true });
+      for (const sd of [-1, 1]) box(low, 'rope', xg + sd * 0.1 - 0.012, xg + sd * 0.1 + 0.012, ya, yb, z + 0.11, z + 0.13, { noMirror: true, noShadow: true });
+    }
+    for (const sd of [-1, 1]) for (const [yy, zz] of [[yA + 0.02, zA], [yB - 0.02, zB]]) {
+      box(low, 'post', xg + sd * 0.1 - 0.02, xg + sd * 0.1 + 0.02, yy - 0.02, yy + 0.02, zz, zz + 0.14, { noMirror: true, noShadow: true });
+    }
+  };
+  // Les deux escaliers latéraux.
+  const yStW = stairs(gx, gx + 0.3, gy + 0.22);
+  stairs(gx + w - 0.3, gx + w, gy + 0.22);
+  // Le ponton du fond et ses passerelles (deux, trois sur un grand bassin), loin des
+  // escaliers et pas devant la capitainerie du quai du fond.
+  const yP0 = gy + 0.78, yP1 = gy + 1.02;
+  const xP0 = gx + 0.5, xP1 = gx + w - 0.5;
+  box(low, 'pontoonEW', xP0, xP1, yP0, yP1, zw, zw + 0.05, { noShadow: true, mz: mzw });
+  const nG = w >= 9 ? 3 : 2;
+  for (let k = 0; k < nG; k += 1) gangway(xP0 + 0.35 + ((xP1 - xP0 - 0.7) * k) / Math.max(1, nG - 1), yP0 + 0.02);
+  // Taquets du ponton (où les amarres se prennent).
+  for (let x = xP0 + 0.2; x < xP1 - 0.1; x += 0.52) box(low, 'bollard', x, x + 0.05, yP1 - 0.06, yP1 - 0.01, zw + 0.05, zw + 0.09, { noMirror: true, noShadow: true });
+  // Amarres : [x, y, z] côté bateau → [x, y, z] côté ponton/quai, en tuiles.
+  const rope2 = (a, b) => [a[0], a[1], a[2], b[0], b[1], b[2]];
+  const zDeck = zw + 0.1;
   if (marina) {
-    // MARINA : pontons flottants nord-sud, bateaux de part et d'autre, à quai par le flanc.
-    const nP = Math.max(2, Math.floor(w / 2));
+    // MARINA : des pannes accrochées au ponton du fond, bateaux de part et d'autre.
+    const nP = Math.max(2, Math.floor((w - 1.2) / 2));
+    const sailOk = !!hullFootprint('sail', band).kit;
+    const y1 = gy + (yIn - gy) * 0.88;
+    const xpOf = (k) => xP0 + 0.3 + ((xP1 - xP0 - 0.6) * (k + 0.5)) / nP;
     for (let k = 0; k < nP; k += 1) {
-      const xp = gx + w * (k + 0.5) / nP;
-      const y1 = gy + (yIn - gy) * 0.82;
-      box(low, 'pontoon', xp - 0.11, xp + 0.11, gy, y1, zw, zw + 0.045, { noShadow: true, mz: zw * T });
-      for (let y = gy + 0.32; y < y1 - 0.2; y += 0.56) {
+      const xp = xpOf(k);
+      box(low, 'pontoon', xp - 0.1, xp + 0.1, yP1, y1, zw, zw + 0.045, { noShadow: true, mz: mzw });
+      for (let y = yP1 + 0.3; y < y1 - 0.2; y += 0.56) {
         for (const sd of [-1, 1]) {
           if (h01(k * 7 + (sd > 0 ? 1 : 0), Math.round(y * 10), 41) < 0.18) continue;   // une place libre
           const r = h01(k, Math.round(y * 10) + sd, 43);
-          // Pas de voilier : le seul sprite à voile est une coque marchande ancienne
-          // (cogue) ; les voiliers de plaisance viendront du kit de la session des bateaux.
-          const role = r < 0.62 ? 'motorboat' : r < 0.86 ? 'dinghy' : 'rowboat';
-          const fp = hullFootprint(role);
-          boats.push({ role, x: xp + sd * (0.11 + fp.len * 0.5 + 0.02), y: y + 0.1, heading: sd > 0 ? Math.atan2(0.5, 1) : Math.atan2(-0.5, -1) });
+          const role = sailOk
+            ? (r < 0.4 ? 'motorboat' : r < 0.68 ? 'sail' : r < 0.88 ? 'dinghy' : 'rowboat')
+            : (r < 0.62 ? 'motorboat' : r < 0.86 ? 'dinghy' : 'rowboat');
+          // LA PLACE se mesure : entre deux pannes, chacune a la moitié de l'eau ; au
+          // bord, jusqu'aux escaliers. Une coque trop longue cède la place à une plus
+          // petite (sinon les vedettes de deux pannes voisines se chevauchaient).
+          const nb = k + sd;
+          const room = (nb < 0 ? xp - (gx + 0.38) : nb >= nP ? (gx + w - 0.38) - xp : Math.abs(xpOf(nb) - xp) / 2) - 0.13 - 0.04;
+          let role2 = role, fp = hullFootprint(role2, band);
+          for (const alt of ['dinghy', 'rowboat']) { if (fp.len <= room) break; role2 = alt; fp = hullFootprint(role2, band); }
+          if (fp.len > room) continue;
+          const bx = xp + sd * (0.1 + fp.len * 0.5 + 0.03);
+          const by = y + 0.1;
+          const edge = xp + sd * 0.1;
+          boats.push({
+            role: role2, x: bx, y: by, heading: sd > 0 ? Math.atan2(0.5, 1) : Math.atan2(-0.5, -1),
+            lines: [rope2([bx - sd * fp.len * 0.42, by - fp.beam * 0.3, zDeck], [edge, by - 0.12, zw + 0.06]),
+              rope2([bx + sd * fp.len * 0.1, by + fp.beam * 0.3, zDeck], [edge, by + 0.18, zw + 0.06])],
+          });
         }
       }
     }
   } else {
-    // Bande 5 : cul à quai le long du fond, à la méditerranéenne (proue vers le sud).
-    for (let x = gx + 0.3; x < gx + w - 0.2; x += 0.55) {
-      if (h01(Math.round(x * 10), 3, 47) < 0.2) continue;
-      const rr = h01(Math.round(x * 10), 5, 49), role = rr < 0.5 ? 'fisher' : rr < 0.8 ? 'dinghy' : 'rowboat';   // pas de cogue médiévale au XIXe
-      const fp = hullFootprint(role);
-      boats.push({ role, x: x + 0.15, y: gy + 0.05 + fp.len * 0.5, heading: Math.atan2(0.5, -1) });
+    // Bande 5 : à la méditerranéenne, CUL AU PONTON, proue vers le sud ; deux amarres
+    // de poupe au ponton.
+    for (let x = xP0 + 0.25; x < xP1 - 0.2; x += 0.52) {
+      if (h01(Math.round(x * 10), 3, 47) < 0.18) continue;
+      const rr = h01(Math.round(x * 10), 5, 49), role = rr < 0.45 ? 'fisher' : rr < 0.75 ? 'dinghy' : 'rowboat';   // pas de cogue médiévale au XIXe
+      const fp = hullFootprint(role, band);
+      const yc = yP1 + 0.04 + fp.len * 0.5;
+      const ys = yc - fp.len * 0.46;
+      boats.push({
+        role, x, y: yc, heading: Math.atan2(0.5, -1),
+        lines: [rope2([x - fp.beam * 0.3, ys, zDeck], [x - 0.13, yP1, zw + 0.07]), rope2([x + fp.beam * 0.3, ys, zDeck], [x + 0.13, yP1, zw + 0.07])],
+      });
     }
-    // Et quelques-uns le long du flanc ouest, proue vers l'est.
-    for (let y = gy + 1.1; y < yIn - 0.3; y += 0.5) {
-      if (h01(9, Math.round(y * 10), 51) < 0.35) continue;
-      const fp = hullFootprint('fisher');
-      boats.push({ role: 'fisher', x: gx + 0.06 + fp.len * 0.5, y, heading: Math.atan2(0.5, 1) });
+    // LE COIN DES PÊCHEURS : à couple le long du quai ouest, au pied de l'escalier,
+    // proue au sud, amarrés aux bornes du quai.
+    for (let y = yStW + 0.25; y < yIn - 0.3;) {
+      const role = h01(9, Math.round(y * 10), 51) < 0.7 ? 'fisher' : 'rowboat';
+      const fp = hullFootprint(role, band);
+      if (y + fp.len > yIn - 0.1) break;
+      const yc = y + fp.len * 0.5, xc = gx + 0.07 + fp.beam * 0.5 + 0.04;
+      boats.push({
+        role, x: xc, y: yc, heading: Math.atan2(0.5, -1),
+        // Aux ANNEAUX scellés dans le mur, un peu au-dessus de l'eau : tirées jusqu'aux
+        // bornes du quai, les amarres montaient en diagonale et se lisaient comme des mâts.
+        lines: [[...rope2([xc - fp.beam * 0.45, yc - fp.len * 0.4, zDeck], [gx + 0.005, yc - fp.len * 0.55, zw + wh * 0.35]), 1],
+          [...rope2([xc - fp.beam * 0.45, yc + fp.len * 0.38, zDeck], [gx + 0.005, yc + fp.len * 0.55, zw + wh * 0.35]), 1]],
+      });
+      y += fp.len + 0.14;
+    }
+    // Sur le quai du fond : caisses de poisson et filets qui sèchent (pas devant la
+    // capitainerie, au milieu du quai).
+    const ox = gx + Math.floor(w / 2) - 1;
+    for (let x = gx + 0.2; x < gx + w - 0.2; x += 0.9) {
+      if (x > ox - 0.4 && x < ox + 2.4) continue;
+      const r = h01(Math.round(x * 10), 7, 53);
+      if (r < 0.35) box(low, 'crate', x, x + 0.18, gy - 0.44, gy - 0.28, 0, 0.12, { noMirror: true });
+      else if (r < 0.7) box(low, 'net', x, x + 0.36, gy - 0.46, gy - 0.26, 0, 0.035, { noMirror: true, noShadow: true });
     }
   }
   // LES GARDIENS DE L'ENTRÉE (debout, au tri du peintre) : miroir sous le mur.
@@ -180,6 +281,28 @@ function shadeOldPort(plan) {
       return mul(col, FACE_LIGHT[face] * g);
     }
     if (part === 'bollard') return mul(face === 2 ? P.bollardTop : P.bollard, FACE_LIGHT[face]);
+    // Escaliers : la pierre du quai, nez de marche plus clair (la margelle), contremarches
+    // dans la teinte du mur — les marches se lisent en rayures, comme au fleuve.
+    if (part === 'stair') {
+      if (face === 2) return mul(bx.landing ? P.top[1] : P.coping, g * (bx.step ? 1 - (bx.step % 2) * 0.05 : 1));
+      return mul(mix(P.wall, P.gap, -zz > plan.wh - 2.2 ? 0.6 : 0.15), FACE_LIGHT[face] * g);
+    }
+    if (part === 'gangway') {
+      if (face !== 2) return mul(P.deckGap, FACE_LIGHT[face]);
+      return mul(P.deck[Math.floor(h01(Math.floor(wy / 2), 5, 13) * P.deck.length)], g);
+    }
+    if (part === 'rope') return P.rope;
+    if (part === 'post') return mul(P.pole, FACE_LIGHT[face]);
+    if (part === 'crate') return mul(face === 2 ? P.crateTop : P.crate, FACE_LIGHT[face] * g);
+    if (part === 'net') return ((Math.floor(wx) + Math.floor(wy)) % 3 === 0) ? P.netGap : mul(P.net, g);
+    // Ponton du fond (est-ouest) : planches en travers, flotteurs blancs.
+    if (part === 'pontoonEW') {
+      if (face !== 2) return mul(P.float, FACE_LIGHT[face]);
+      const k = Math.floor(wx / 3), r = wx - k * 3;
+      col = P.deck[Math.floor(h01(k, 7, 11) * P.deck.length)];
+      if (r < 1) col = P.deckGap;
+      return mul(col, g);
+    }
     if (part === 'pontoon') {
       if (face !== 2) return mul(P.float, FACE_LIGHT[face]);
       const k = Math.floor(wy / 3), r = wy - k * 3;
@@ -279,9 +402,38 @@ export function paintOldPortUnder(ctx, now) {
     if (!g) continue;
     paintBakeUnder(ctx, g.low, { shadow: false, reflect: false });
     if (g.low) blitLayer(ctx, g.low.body);
-    for (const bt of g.plan.boats) drawMooredHull(ctx, { role: bt.role, heading: bt.heading, x: bt.x, y: bt.y, z: bt.z, now });
+    for (const bt of g.plan.boats) drawMooredHull(ctx, { role: bt.role, heading: bt.heading, x: bt.x, y: bt.y, z: bt.z, now, band });
+    drawMooringLines(ctx, g.plan.boats);
     paintBakeUnder(ctx, g.high, { shadow: OLDPORT.shadow, reflect: OLDPORT.reflect });
   }
+}
+
+// Les AMARRES : un trait d'un pixel d'art, du bateau à son taquet ou à sa borne.
+function drawMooringLines(ctx, boats) {
+  const T = CM.TILE, z = CM.cam.zoom;
+  const lw = Math.max(1, Math.round(z));
+  ctx.save();
+  ctx.strokeStyle = 'rgb(' + PAL.rope.join(',') + ')';
+  ctx.lineWidth = lw;
+  ctx.beginPath();
+  for (const bt of boats) {
+    for (const L of bt.lines || []) {
+      const a = worldToScreen(L[0] * T, L[1] * T, L[2] * T), b = worldToScreen(L[3] * T, L[4] * T, L[5] * T);
+      ctx.moveTo(Math.round(a.x) + 0.5, Math.round(a.y) + 0.5);
+      ctx.lineTo(Math.round(b.x) + 0.5, Math.round(b.y) + 0.5);
+    }
+  }
+  ctx.stroke();
+  // L'ANNEAU au bout de chaque amarre prise au mur : un pixel d'encre sur la pierre.
+  ctx.fillStyle = 'rgb(40,38,36)';
+  for (const bt of boats) {
+    for (const L of bt.lines || []) {
+      if (!L[6]) continue;
+      const p = worldToScreen(L[3] * T, L[4] * T, L[5] * T);
+      ctx.fillRect(Math.round(p.x - lw / 2), Math.round(p.y - lw / 2), lw, lw);
+    }
+  }
+  ctx.restore();
 }
 
 // LA CAPITAINERIE, sur le quai du fond (sa propre tuile, cf. layout) : le sprite de
@@ -325,7 +477,7 @@ registerPortProvider('plaisance', (L) => {
     const g = oldPortGeom(t, band);
     if (!g) continue;
     g.plan.boats.forEach((bt, i) => {
-      const fp = hullFootprint(bt.role);
+      const fp = hullFootprint(bt.role, band);
       berths.push({ id: 'plaisance-' + i, kind: 'plaisance', x: bt.x, y: bt.y, heading: bt.heading, axis: null, maxLen: fp.len + 0.1, decor: true });
     });
   }

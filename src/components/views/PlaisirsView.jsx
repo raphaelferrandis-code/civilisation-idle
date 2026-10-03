@@ -1,6 +1,11 @@
-import { useState, lazy, Suspense } from 'react';
+import { useState, useRef, useEffect, lazy, Suspense } from 'react';
 import { useGameState } from '../../hooks/useGameState.js';
-import { PLAISIRS_ART, PLAISIRS_SPOTS, spotRadius, spotIsOpen, spotIsFullFrame, spotHasAnchor, spotVerbe } from './plaisirs/anchors.js';
+import { PLAISIRS_SPOTS, spotIsOpen, spotIsFullFrame, spotVerbe } from './plaisirs/anchors.js';
+import SalleCanvas from './plaisirs/SalleCanvas.jsx';
+import { tableVars } from '../ui/plaisirsMaterial.js';
+import { useSalleBake } from './plaisirs/salleBake.js';
+import { eraBandOf } from '../../game/data/eraThemes.js';
+import { currentEraIndex } from '../../game/core/mechanics/shared.js';
 import { openTempleGame, closeTempleStage } from '../../game/core/templeGames.js';
 import { REGULATION_ACTIONS } from '../../game/data/regulationActions.js';
 import RegulationStage from '../ui/RegulationStage.jsx';
@@ -18,7 +23,14 @@ const HeritageView = lazy(() => import('./HeritageView.jsx'));
 /**
  * La Maison des Plaisirs — écran de HUB, pas une page de boutons.
  *
- * Une illustration fixe, des lieux qu'on clique. Le jeu s'ouvre PAR-DESSUS et
+ * ⭐ Depuis la refonte du 2026-10-02 (docs/PLAN-MAISON-DES-PLAISIRS.md, phase 2),
+ * la salle n'est plus une illustration fixe : c'est la COUPE DU BÂTIMENT, de face,
+ * PEINTE PAR LE CODE à l'âge de la ville — un étage par jeu, autant d'étages que de
+ * plateaux dehors (iso/plaisirsCoupe.js, plaisirs/SalleCanvas.jsx). Le survol et le
+ * clic tombent au pixel du lieu ; les ancres du bouton d'action se lisent sur la
+ * cuisson (centre et cadre de chaque lieu), plus à la main.
+ *
+ * Des lieux qu'on clique. Le jeu s'ouvre PAR-DESSUS et
  * l'illustration reste visible derrière (arbitrage Raph) : on ne quitte jamais
  * le lieu, refermer ramène au hub.
  *
@@ -58,7 +70,49 @@ export default function PlaisirsView() {
   // On s'abonne à la SIGNATURE des verrous eux-mêmes, pas aux champs d'état qui
   // les alimentent : le jour où un jeu change de condition d'ouverture, il n'y a
   // rien à mettre à jour ici. Le re-rendu n'a lieu que si la chaîne change.
-  useGameState(() => PLAISIRS_SPOTS.map((s) => (spotIsOpen(s) ? '1' : '0')).join(''));
+  const verrous = useGameState(() => PLAISIRS_SPOTS.map((s) => (spotIsOpen(s) ? '1' : '0')).join(''));
+  // L'ÂGE de la salle : celui de la ville (même bande que la carte), suivi en direct.
+  // Molette de dev partagée avec la carte : `__plaisirsTune.band = n` force l'âge.
+  const band = useGameState(() => {
+    const t = typeof window !== 'undefined' ? window.__plaisirsTune : null;
+    return t && t.band != null ? t.band | 0 : eraBandOf(currentEraIndex());
+  });
+  // Ce que la salle MONTRE : chaque table dont le jeu est ouvert (la scène est
+  // toujours là, ses musiciens jouent pour le décor).
+  const open = { scene: true };
+  PLAISIRS_SPOTS.forEach((sp, i) => { if (sp.kind || sp.view) open[sp.id] = verrous[i] === '1'; });
+  const bake = useSalleBake(band, open);
+  // Où la salle est posée dans le cadre (facteur, origine) : rapporté par le canevas.
+  const [mise, setMise] = useState(null);
+  // La largeur masquée par le menu volant, pour que la salle se centre à côté.
+  const menuRef = useRef(null);
+  const [padLeft, setPadLeft] = useState(0);
+  useEffect(() => {
+    const m = menuRef.current;
+    if (!m || typeof ResizeObserver === 'undefined') return undefined;
+    const upd = () => {
+      const sec = m.parentElement && m.parentElement.getBoundingClientRect(), r = m.getBoundingClientRect();
+      // Menu posé SUR la salle (grand écran) : on la décale ; menu passé dessous
+      // (écran étroit, views-plaisirs.css) : rien à décaler.
+      setPadLeft(sec && r.top < sec.top + sec.height * 0.6 ? Math.max(0, r.right - sec.left + 8) : 0);
+    };
+    upd();
+    const ro = new ResizeObserver(upd);
+    ro.observe(m);
+    if (m.parentElement) ro.observe(m.parentElement);
+    return () => ro.disconnect();
+  }, []);
+  // Ancre d'un lieu : celle de la coupe cuite, ramenée en pixels CSS du cadre
+  // (centre, rayon, haut du lieu).
+  const geo = (spot) => {
+    const g = bake && bake.spots[spot.id];
+    if (!g || !mise) return null;
+    const k = mise.Z / mise.dpr, oy = mise.oy / mise.dpr;
+    return { x: (mise.ox / mise.dpr) + (g.x + 0.5) * k, y: oy + (g.y + 0.5) * k, r: g.r * k, top: oy + g.box.y0 * k };
+  };
+  // Seuls les LIEUX du menu s'allument au survol (le salon du dernier étage est un
+  // décor : l'entourer ferait croire qu'il s'ouvre).
+  const survoler = (id) => setSurvol(id && PLAISIRS_SPOTS.some((sp) => sp.id === id) ? id : null);
 
   // DEUX TEMPS, et c'est voulu (Raph, 2026-08-07) : choisir un lieu ne lance
   // rien, ça pose son bouton d'action SUR l'illustration, au niveau du lieu.
@@ -118,15 +172,6 @@ export default function PlaisirsView() {
   // téléphone — invisible en pratique.
   const depuisMenu = (spot) => (jeuEnCours() || spotIsFullFrame(spot) ? lancer(spot) : choisir(spot));
 
-  // Un clic n'importe où sur l'illustration journalise sa position source.
-  const releve = (e) => {
-    if (!window.__plaisirsAnchors) return;
-    const r = e.currentTarget.getBoundingClientRect();
-    const x = Math.round(((e.clientX - r.left) / r.width) * PLAISIRS_ART.w);
-    const y = Math.round(((e.clientY - r.top) / r.height) * PLAISIRS_ART.h);
-    console.log(`ancre source : x: ${x}, y: ${y}`);
-  };
-
   const allume = (id) => survol === id || selection === id;
 
   return (
@@ -136,7 +181,6 @@ export default function PlaisirsView() {
     // vide, sans la moindre erreur en console.
     <section className="view active" id="plaisirs">
       <div
-        onClick={releve}
         style={{
           position: 'relative',
           // PLEIN CADRE. L'ancien plafond à 3x la taille native bridait
@@ -150,17 +194,33 @@ export default function PlaisirsView() {
           margin: '0 auto',
           // En plein cadre, le ratio de l'illustration ne s'applique plus : une
           // page à trois armoires n'a aucune raison de tenir dans un 16:9.
-          aspectRatio: plein ? undefined : `${PLAISIRS_ART.w} / ${PLAISIRS_ART.h}`,
+          // La coupe est plus haute que large et DÉFILE d'étage en étage : le cadre
+          // prend toute la hauteur offerte, dans un 5:4 sur écran étroit.
+          aspectRatio: plein ? undefined : '5 / 4',
           minHeight: plein ? 'calc(100vh - 96px)' : undefined,
-          backgroundImage: plein ? 'none' : `url("${PLAISIRS_ART.src}")`,
-          backgroundSize: '100% 100%',
-          // L'illustration est du pixel art affiché bien au-dessus de sa taille
-          // native : sans ça le navigateur l'interpole et tout devient flou.
-          imageRendering: 'pixelated',
+          // Le fond du cadre : l'eau du fleuve, le temps que la salle se peigne
+          // (et les bandes d'appoint quand le facteur entier ne remplit pas tout).
+          background: '#3f6a86',
           borderRadius: 4,
           overflow: 'hidden'
         }}
       >
+        {/* LA SALLE, peinte par le code. Elle reçoit les lieux allumés (survol,
+            sélection) et rend le lieu sous la souris, au pixel. */}
+        {!plein && (
+          <div style={{ position: 'absolute', inset: 0 }}>
+            <SalleCanvas
+              bake={bake}
+              band={band}
+              padLeft={padLeft}
+              focus={selection}
+              onLayout={setMise}
+              lit={[survol, selection].filter(Boolean)}
+              onHover={survoler}
+              onPick={(id) => { const spot = PLAISIRS_SPOTS.find((sp) => sp.id === id); if (spot) choisir(spot); }}
+            />
+          </div>
+        )}
         {/* L'ÉCHOPPE EN PLEIN CADRE. Elle remplace l'illustration ; le menu, lui,
             reste monté plus bas et flotte par-dessus — c'est ce qui empêche de
             sortir de la Maison des Plaisirs sans l'avoir voulu. */}
@@ -179,10 +239,12 @@ export default function PlaisirsView() {
         {/* Les points chauds n'existent QUE sur l'illustration : les laisser
             montés en plein cadre poserait des zones cliquables invisibles
             par-dessus l'échoppe. */}
-        {!plein && PLAISIRS_SPOTS.filter(spotHasAnchor).map((spot) => {
-          const r = spotRadius(spot);
+        {/* Les lieux au CLAVIER : des zones invisibles posées sur chaque table (la
+            souris, elle, vise au pixel dans le canevas). Le liseré d'or est peint
+            par la salle quand le lieu a le focus. */}
+        {!plein && PLAISIRS_SPOTS.filter((sp) => geo(sp)).map((spot) => {
+          const g = geo(spot), r = g.r;
           const ouvert = spotIsOpen(spot);
-          const actif = allume(spot.id) && ouvert;
           return (
             // ⚠ Une DIV et non un <button> : le thème du projet habille les
             // boutons (fond, bordure, coins) avec assez de poids pour écraser
@@ -211,16 +273,15 @@ export default function PlaisirsView() {
               }}
               style={{
                 position: 'absolute',
-                // conversion source -> pourcentage : voir l'en-tête
-                left: `${((spot.x - r) / PLAISIRS_ART.w) * 100}%`,
-                top: `${((spot.y - r) / PLAISIRS_ART.h) * 100}%`,
-                width: `${((r * 2) / PLAISIRS_ART.w) * 100}%`,
-                height: `${((r * 2) / PLAISIRS_ART.h) * 100}%`,
+                left: g.x - r,
+                top: g.y - r,
+                width: r * 2,
+                height: r * 2,
                 borderRadius: '50%',
-                border: actif ? '2px solid rgba(255,120,210,0.9)' : '2px solid transparent',
-                background: actif ? 'rgba(255,120,210,0.16)' : 'transparent',
-                boxShadow: actif ? '0 0 16px 4px rgba(255,120,210,0.55)' : 'none',
-                cursor: ouvert ? 'pointer' : 'default',
+                // La souris passe AU TRAVERS (le canevas vise au pixel) ; seul le
+                // clavier s'arrête ici.
+                pointerEvents: 'none',
+                outline: 'none',
                 // ⚠ PRIORITÉ ÉCRITE, plus déduite de l'ordre du tableau : les
                 // tickets et la boutique partagent une ancre, et c'est `z` qui
                 // décide lequel reçoit le clic (cf. anchors.js). Sans lui,
@@ -241,14 +302,13 @@ export default function PlaisirsView() {
             Placé SOUS le point chaud (y + r) pour ne pas masquer ce qu'on vient
             de désigner. */}
         {!plein && (() => {
-          const spot = PLAISIRS_SPOTS.find((s) => s.id === selection && spotHasAnchor(s) && spotIsOpen(s));
+          const spot = PLAISIRS_SPOTS.find((sp) => sp.id === selection && geo(sp) && spotIsOpen(sp));
           if (!spot) return null;
-          const r = spotRadius(spot);
-          // Le bouton se met SOUS le lieu, sauf quand le lieu est déjà bas :
-          // il passe alors au-dessus. Le cadre est en `overflow: hidden`, et un
-          // bouton posé sous un lieu du premier plan tombait hors champ — c'est
-          // ce qui rendait les osselets muets, alors que le clic fonctionnait.
-          const basse = (spot.y + r) > PLAISIRS_ART.h * 0.74;
+          const g = geo(spot);
+          // Le bouton se pend en HAUT du lieu, sur son mur : la table et ses
+          // joueurs, au sol, restent visibles. (Sous le lieu, il tombait sur
+          // l'étage d'en dessous ou hors du cadre — c'est ce qui rendait les
+          // osselets muets, du temps de l'illustration.)
           return (
             <div
               // La classe porte l'effacement pendant la partie (views-plaisirs).
@@ -259,9 +319,9 @@ export default function PlaisirsView() {
               className="plaisirs-action"
               style={{
                 position: 'absolute',
-                left: `${(spot.x / PLAISIRS_ART.w) * 100}%`,
-                top: `${((basse ? spot.y - r : spot.y + r) / PLAISIRS_ART.h) * 100}%`,
-                transform: basse ? 'translate(-50%, -100%)' : 'translate(-50%, 6px)',
+                left: g.x,
+                top: g.top,
+                transform: 'translate(-50%, 6px)',
                 zIndex: 4
               }}
             >
@@ -283,7 +343,12 @@ export default function PlaisirsView() {
             masque alors tout le calque. C'est la seule façon propre de le savoir
             d'ici, `registerTempleStage` n'admettant qu'UN abonné — m'y abonner
             aussi arracherait la scène à son propre pont. */}
-        <div className="plaisirs-stage">
+        {/* Le calque porte le TAPIS et le REBORD de la table de l'âge (variables
+            CSS, plaisirsMaterial.js) — la partie se joue sur la table du décor. */}
+        {/* ⚠ Décalé de la largeur du menu volant quand il est posé sur la salle :
+            le menu (au-dessus, pour rester atteignable) recouvrait la première
+            mise — un défaut relevé au constat du 2026-10-02. */}
+        <div className="plaisirs-stage" data-age={band} style={{ ...tableVars(band), left: padLeft }}>
           <RegulationStage />
         </div>
       </div>
@@ -309,7 +374,7 @@ export default function PlaisirsView() {
           Sorti du cadre, il peut redescendre SOUS l'illustration quand la place
           manque (cf. la bascule de views-plaisirs.css) sans que l'image ait à se
           déformer ni les points chauds à se recalibrer. */}
-      <nav className="plaisirs-menu" aria-label="Les lieux de la Maison des Plaisirs">
+      <nav ref={menuRef} className="plaisirs-menu" aria-label="Les lieux de la Maison des Plaisirs">
         {/* LA BOURSE, en tête du menu : on lit ce qu'on peut miser avant de
             choisir où le miser. */}
         <OffrandesBloc />

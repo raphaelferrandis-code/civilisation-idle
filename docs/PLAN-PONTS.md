@@ -127,3 +127,13 @@ et nuit ; passants et attelages dessus ; bateau dessous ; les deux bouts ; A/B f
   têtes de mâts b6, têtes de tours b7-9), dessinés par la recette commune
   `isoVie.drawVieFlag` — même vent que les drapeaux de la ville. Planche
   `.preview-shots/ponts/planche-drapeaux.png`.
+- 2026-10-01 : poussé (`ff2aadb`, main `34fa75e`) ; CI rouge sur un test du campement trop
+  lent pour la machine CI → `4e68667` (testTimeout 30 s), CI verte.
+- 2026-10-01 : **le bateau caché derrière le pont, réglé** (demande de Raph). La flotte est
+  peinte avant le pont (isoPort) : la face aval recouvrait un bateau sorti devant elle sur
+  ~1,5 tuile. drawIsoShips mémorise la coque peinte (`sh._hull`) ; le pont pousse au tri un
+  item 'ship' juste après les tranches avant, qui redessine la coque CLIPPÉE à droite de la
+  verticale écran (tDn, l du bateau) — un bateau croise le pont en travers, la part de
+  coque passée devant la face est de ce côté-là ; la part encore sous le tablier reste
+  cachée. A/B `__bridgeTune.shipFront`. Planches `.preview-shots/ponts/bateau-avant-apres.png`
+  (14 et 30 px après la face) et `bateau-moitie.png` (encore dessous : rien ne ressort).

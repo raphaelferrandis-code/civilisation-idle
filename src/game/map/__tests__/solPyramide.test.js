@@ -108,3 +108,21 @@ describe('indices, origines, caméra de cuisson', () => {
     expect(tilesCovering(cam.x, cam.y, 1, 256, 256, S, 0).length).toBe(1);
   });
 });
+
+// UN DÉCODAGE TARDIF N'EST JAMAIS PERDU (Raph 2026-10-03, « un point de zoom précis où
+// l'herbe ne charge pas ») : la fenêtre de coalescence des invalidations douces
+// jetait les décodages tombés à moins de 250 ms du précédent ; les tuiles cuites
+// entre-temps restaient pour toujours sans eux.
+describe('invalidations douces — coalescées, jamais perdues', () => {
+  it('une rafale ne bascule qu une fois, puis le décodage retenu est rendu', async () => {
+    const { softCoalescer } = await import('../iso/solPyramide.js');
+    const s = softCoalescer(250);
+    expect(s.hit(0)).toBe(true);          // premier décodage : tout de suite
+    expect(s.hit(100)).toBe(false);       // dans la fenêtre : retenu…
+    expect(s.flush(200)).toBe(false);     // …pas encore rendu
+    expect(s.flush(260)).toBe(true);      // fenêtre passée : rendu (c'était le bug)
+    expect(s.flush(300)).toBe(false);     // une seule fois
+    expect(s.flush(10000)).toBe(false);   // rien de retenu : rien à rendre
+    expect(s.hit(10000)).toBe(true);
+  });
+});

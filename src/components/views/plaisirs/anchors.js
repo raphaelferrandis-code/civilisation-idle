@@ -7,80 +7,32 @@ import { regulationActionUnlocked } from "../../../game/core/mechanics/crisis-co
 import { REGULATION_ACTIONS } from "../../../game/data/regulationActions.js";
 import { state } from "../../../game/core/state.js";
 
-// Les lieux cliquables de la Maison des Plaisirs.
+// Les lieux de la Maison des Plaisirs : quel jeu (`kind`, celui qu'attend
+// templeGames.js) ou quelle vue (`view`) chacun ouvre, son nom, son verrou.
 //
-// Même patron que l'Arbre des Ruines (views/ruinsTree/anchors.js) : les
-// coordonnées sont en PIXELS SOURCE de l'illustration, jamais en pixels
-// d'écran. La vue met l'image à l'échelle, les points suivent — sinon tout
-// serait à recaler au premier changement de taille d'affichage.
+// ⭐ Refonte du 2026-10-02 (docs/PLAN-MAISON-DES-PLAISIRS.md, phase 2) : la salle
+// n'est plus une illustration fixe (`ui/plaisirs/salle.png`, retirée) mais une
+// scène PEINTE PAR LE CODE (iso/plaisirsSalle.js). Les coordonnées relevées à la
+// main ont disparu avec elle : chaque lieu a sa TABLE dans la salle cuite, du même
+// `id`, et c'est la cuisson qui rend son ancre (centre, rayon, pixels) — on clique
+// au pixel de la table. Un lieu qui n'a pas de table n'existe que dans le menu.
 //
-// CALIBRAGE : `window.__plaisirsAnchors = true` en console, puis chaque clic
-// sur l'illustration journalise ses coordonnées source. C'est la seule façon
-// raisonnable de poser des points chauds ; à la main on vise à l'aveugle.
-
-// Illustration de Raph (Midjourney, repixelisée par ses soins).
-//
-// Deux de mes planches ont été écartées avant elle, et la seconde pour une
-// raison de FOND : je l'avais demandée « interior » avec un plafond à caissons,
-// donc une salle CLOSE. Or le lieu est une tour à plateaux OUVERTS plantée dans
-// l'eau — il ne peut pas y avoir de plafond. Le hub doit rester à ciel ouvert,
-// sur la nuit et le fleuve.
-//
-// ⚠ Le fichier livré s'appelait « interieur polaisir.png » : renommé, un espace
-// dans un chemin d'asset finit toujours par se payer en %20 quelque part.
-export const PLAISIRS_ART = {
-  src: "/pixelart/ui/plaisirs/salle.png",
-  w: 397,   // dimensions SOURCE — la vue met à l'échelle, les ancres suivent
-  h: 216
-};
-
-// Rayon PAR DÉFAUT de la zone cliquable, en pixels source ; chaque lieu peut le
-// surcharger par son `r`. Généreux : un point chaud trop serré se rate à la
-// souris et devient inatteignable au doigt sur mobile.
-// ⚠ Le rayon suit la PROFONDEUR : la roue du fond est petite à l'écran, lui
-// donner le rayon de la table du premier plan ferait déborder sa zone sur ses
-// voisines, et le joueur cliquerait la roue en visant la loterie.
-export const HOTSPOT_R = 46;
-export const spotRadius = (spot) => (spot && spot.r) || HOTSPOT_R;
-
-// `kind` est celui que templeGames.js attend déjà (RegulationStage/STAGES) :
-// cliquer un lieu ouvre le jeu correspondant, aucun gameplay à réécrire.
-//
-// Positions relevées sur la planche. Les lieux sont ÉTAGÉS EN PROFONDEUR, pas
-// alignés : d'où des rayons différents plus bas, un lieu du fond occupant moins
-// de place à l'écran qu'un lieu du premier plan.
-// ⚠ À affiner au calibrage en jeu (`window.__plaisirsAnchors`) : ces valeurs
-// sont lues sur la planche, pas pointées à la souris.
-// Coordonnées CALIBRÉES en jeu par Raph (2026-08-07), pas estimées.
-//
-// Icare est monté dans le CIEL, et c'est plus juste que la roue de fortune où je
-// l'avais mis : on ne mise pas sur un vol en tournant une roue, on lève les yeux.
-// La roue reparaîtra plus tard, avec son propre jeu.
+// L'ordre du tableau est celui du MENU.
 export const PLAISIRS_SPOTS = [
   // Osselets et vingt et un ÉCHANGÉS (Raph, 2026-08-07).
-  { id: "des",     kind: "augury",    label: "Les osselets",   x: 72,  y: 157, r: 30 }, // grande table, premier plan
-  { id: "cartes",  kind: "blackjack", label: "Le vingt et un", x: 134, y: 143, r: 26 }, // table du fond
-  { id: "icare",   kind: "icarus",    label: "Le vol d'Icare", x: 185, y: 29,  r: 26 }, // dans le CIEL
+  { id: "des",     kind: "augury",    label: "Les osselets" },
+  { id: "cartes",  kind: "blackjack", label: "Le vingt et un" },
+  { id: "icare",   kind: "icarus",    label: "Le vol d'Icare" },
   // LA SCÈNE. Inerte pour l'instant : elle accueillera les instruments de
-  // musique. ⚠ J'avais pris ce lieu pour l'échoppe — l'échoppe visible sur
-  // l'illustration est celle des tickets, celle-ci est bien la scène.
-  { id: "scene",   kind: null,        label: "La scène",       x: 300, y: 128, r: 30 },
-  // L'ÉCHOPPE porte DEUX usages : on y achète (la boutique) et on y prend un
-  // ticket. Les deux partagent donc la MÊME ancre (Raph, 2026-08-07).
-  { id: "tickets", kind: "scratch",   label: "Les tickets",    x: 221, y: 123, r: 24, z: 2 },
+  // musique (le vrai coût de la musique est le SON, pas l'art). Ses musiciens
+  // jouent déjà pour le décor.
+  { id: "scene",   kind: null,        label: "La scène" },
+  { id: "tickets", kind: "scratch",   label: "Les tickets" },
   // LA BOUTIQUE EN DERNIER (Raph, 2026-08-07) : c'est sa place dans le menu —
   // on y range ses gains, on n'y joue pas, elle ferme donc la liste.
   // Le nom suit celui de l'ONGLET (« Boutique ») : c'est la même destination,
   // et deux noms pour une chose obligent le joueur à faire le rapprochement.
-  //
-  // ⚠ `z` — DEUX ZONES SUPERPOSÉES, une seule reçoit le clic. Avant, l'ordre de
-  // la liste en décidait (le dernier peint gagne) et les tickets étaient donc
-  // rangés en fin de tableau exprès. Déplacer la boutique en bas aurait
-  // silencieusement volé l'ancre aux tickets : la priorité est désormais
-  // ÉCRITE, pas déduite d'une position. Les tickets gardent la main parce que
-  // ce lieu est leur SEUL accès, alors que la boutique en a deux autres (son
-  // onglet et le menu).
-  { id: "boutique", view: "tech",     label: "Boutique",       x: 221, y: 123, r: 24, z: 1 }
+  { id: "boutique", view: "tech",     label: "Boutique" }
 ];
 
 // Le VERBE de chaque lieu — celui du bouton qui apparaît sur l'illustration une
@@ -142,23 +94,9 @@ export function spotIsOpen(spot) {
   return !!(spot && (spot.kind || spot.view)) && spotUnlocked(spot);
 }
 
-// Distingue les deux raisons d'être gris, pour l'infobulle seulement : un lieu
-// qui n'existe pas encore (« bientôt ») et un lieu qui existe mais qu'on n'a pas
-// mérité (« pas encore »). Visuellement ils sont identiques, c'est la demande.
-export function spotIsLocked(spot) {
-  return !!(spot && (spot.kind || spot.view)) && !spotUnlocked(spot);
-}
-
 // Les lieux qui prennent le CADRE ENTIER au lieu de s'ouvrir en panneau posé sur
 // l'illustration. Le menu volant, lui, survit dans les deux cas : c'est ce qui
 // évite de sortir de la Maison des Plaisirs sans l'avoir voulu.
 export function spotIsFullFrame(spot) {
   return !!(spot && spot.view);
-}
-
-// Un lieu sans ancre n'est PAS dessiné sur l'illustration : il n'existe que dans
-// le menu. Sans ce filtre, `x: null` poserait une zone cliquable dans le coin
-// haut gauche du cadre, invisible et pourtant active.
-export function spotHasAnchor(spot) {
-  return !!spot && Number.isFinite(spot.x) && Number.isFinite(spot.y);
 }
