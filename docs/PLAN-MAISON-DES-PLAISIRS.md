@@ -138,6 +138,296 @@ Icare a sa plateforme d'envol au sommet (perchoir, ballon, mât selon l'âge).
   coordonnées à la main d'`anchors.js` retirés. Reste : les notes du moteur parlent d'« os »
   même quand ce sont des dés (`regulationActions.js`, `noteFail`), la scène reste inerte
   (pas de banque de sons).
+- 2026-10-03 : **retour de Raph sur la salle** — « ça fait cheap ; quel intérêt d'avoir un
+  bâtiment de plus en plus grand si tout se passe au rez-de-chaussée ? vérifie la cohérence
+  du lieu, accentue le côté pixel art ». Choix : la salle devient la **COUPE du bâtiment, de
+  face, par le code** (`iso/plaisirsCoupe.js`, pur ; remplace `plaisirsSalle.js`, retiré
+  avec son test) :
+  - **un étage par plateau dehors** (`plaisirsProgramme(band)`, niveaux 1-2-2-3-3-2-5-4-5-5
+    du Feu au Démiurge) ; les jeux s'y rangent du bas vers le haut, ICARE est le TOIT (sa
+    plateforme d'envol au sommet), un SALON (bar, piano) au dernier étage des tours ;
+  - **la toise** (le vrai défaut du premier jet) : un habitant fait ~10 px, une salle 24 px
+    sous plafond (2,5 habitants), une table arrive à la taille (6 px), un comptoir à la
+    poitrine (8 px). Les tables hautes comme les joueurs faisaient « maison de poupée vide » ;
+  - **la cage d'escalier** traverse tous les niveaux : échelle (Feu, Bois), escalier
+    tournant (Pierre → Marbre), colimaçon de fonte, ascenseur vitré (Néon), colonne de
+    lumière (cosmiques). Au bout droit des rotondes ; au CENTRE aux âges des tours, où elle
+    EST le fût vitré qu'on voit dehors (niveaux presque égaux, plateaux en pétales qui
+    débordent large) ;
+  - **du monde, devant et derrière** : joueurs derrière la table (bas du corps caché), sur
+    les côtés, et DEVANT, de dos (`front`, peints après l'avant-plan) qui regardent le jeu ;
+    un passant par étage qui va d'un lieu à l'autre (`walk`, animé par la vue) ; le portier
+    du hall ; le liftier ;
+  - **chaque lieu a son ENSEIGNE** (dé, cartes, ticket, bourse, verre ; plaque de la matière
+    de l'âge, allumée la nuit dès le gaz), ses lustres, son tapis ; le décor mural de l'âge
+    (fourrures, boucliers, tapisseries, pilastres et tableaux, miroirs, néons, glyphes) se
+    pose dans les places libres du mur, jamais sous un lustre ni sur une enseigne ;
+  - **le HALL** à côté de la cage : deux objets tirés dans le mobilier de l'âge, jamais la
+    même paire d'un étage à l'autre (totem, tonneaux, vestiaire, brasero, statue, vasque,
+    lunette pour guetter Icare, aquarium, borne d'arcade, juke-box, orbe) ;
+  - pixel art : ombres PLEINES (teintes, pas de damier), tramage ordonné réservé aux
+    transitions, encre autour de chaque meuble, murs de verre qui laissent voir la ville ;
+  - la vue (`SalleCanvas.jsx`) : facteur ENTIER réglé sur la largeur du bâtiment ; quand il
+    est plus haut que le cadre, on DÉFILE à la molette, et le lieu choisi vient au milieu ;
+    pendant une partie, sa salle se pose JUSTE AU-DESSUS du panneau de jeu, un cran plus
+    près. Téléphone : le menu passé sous le cadre ne décale plus la coupe (mesuré : elle se
+    tassait à l'échelle 1 dans 60 % de la largeur).
+  Test `plaisirsCoupe.test.js` (programme, ancres au pixel, lieux sans chevauchement,
+  habitants au sol d'un étage). Planche hors jeu : `node <scratchpad>/csheet.mjs out.png
+  0,4,6 3` (CROP=225,495, NIGHT=1) ; planche en jeu `plaisirs/planche-coupe.png`.
+  **Reste : la passe pixel art de l'EXTÉRIEUR** (Raph l'a jugé « cheap » aussi).
+- 2026-10-03 (soir) : **Raph : « le concept est bon, comment est la vue extérieure ?
+  adaptée à la vue de face ? Il faut pousser le concept […] et ajouter le côté luxure qu'on
+  n'avait plus, des femmes qui se déplacent en tenue révélatrice. On est sur la maison des
+  plaisirs, il faut que ça se voie. »** Constat : non — Marbre 2 étages dehors / 3 dedans,
+  Fonte petite rotonde vitrée dehors / grands salons de damas dedans, tours = fût mince à
+  plateaux dehors / 5 étages vitrés dedans. Décisions (les 4 recommandations) :
+  **un plan, deux vues** ; **pilote puis déroulé** ; **pilote = Fonte** (la maison close
+  Belle Époque) ; luxure = **boudoir + spectacle + hôtesses + signes du dehors**. Registre :
+  tenues de scène et de cabaret de l'époque (corsets, jupons, fentes, plumes, épaules et
+  jambes nues) — suggestif, JAMAIS de nudité ; ce qui se passe derrière la tenture reste
+  en ombres chinoises. **PILOTE FONTE FAIT** (planches `plaisirs/planche-pilote-fonte.png`
+  et `-detail.png`) :
+  - `iso/plaisirsPlan.js` : LE plan (niveaux, lieux, largeurs, ascenseur, moulin, cage au
+    centre) ; la coupe le lit ; le BOUDOIR est en haut à tous les âges (on y MONTE) ; la
+    Fonte passe à 3 niveaux (jeux / cabaret + vingt-et-un / salons particuliers) ;
+  - extérieur de la Fonte TIRÉ DU PLAN (`bakeFonte`) : 3 rotondes de fonte et de verre aux
+    diamètres de la coupe (largeur / 6), étages de 24 px ; baies à rideaux de velours
+    (les mêmes, en coupe, sur le mur du fond) ; vitres ROSES au boudoir ; OMBRES CHINOISES
+    la nuit (`A_SIL` 252 : danseuse jambe levée au cabaret, couple au boudoir) ; verrière
+    de verre le jour, allumée en entier la nuit (`A_GLOW` 251, comme en coupe) ; lanternes
+    ROUGES ; MOULIN ROUGE sur le pont, ailes à ampoules allumées la nuit ; marquise
+    d'entrée et tapis rouge ; plus de pavillons de jeux sur le pont (les jeux sont DEDANS) ;
+  - **les filles de la Maison** (`iso/plaisirsCast.js`) : PixelLab v3 size 32, recette FLAT
+    de PLAN-VIVANT — `plaisirs-fonte-cancan` (corset noir, jupons rouges, bas noirs ;
+    ab523dba-6b58-4aad-9b96-a672ec9a5289, + DANSE cancan sud-est/sud-ouest 9 images),
+    `plaisirs-fonte-courtisane` (satin émeraude fendu, boa rose ;
+    8477ca75-d29b-41c3-baab-2e7fbb4b47e7), `plaisirs-fonte-chanteuse` (fourreau cramoisi,
+    gants blancs ; 9c5274e3-f570-4796-b020-8f53b1e6a995) ; ~22 générations. Bandes :
+    `assembleAgentUrls.mjs`, puis la danse `scripts/assembleAgentDance.mjs` + `padStrip.mjs
+    48` (la v3 agrandit la toile pour la jambe levée : `danseScale` = 0,71 × 48/32, pieds
+    mesurés) ;
+  - en coupe : la TROUPE danse le cancan sur l'estrade (type « d »), l'HÔTESSE du hall
+    (type « g ») prend un client et le MONTE AU BOUDOIR par l'ASCENSEUR À GRILLE (cabine
+    peinte par la vue, pistes datées `courtship` ; sans ascenseur ils disparaissent dans
+    l'escalier), ils passent derrière la tenture éclairée où deux silhouettes s'enlacent,
+    puis redescendent ; une fille sur deux parmi les passants ; boudoir : alcôve au lit à
+    baldaquin, méridienne, miroir en cœur, champagne et lampe rose (halo rose la nuit) ;
+  - sur la carte : deux filles font le tour du ponton, une accueille sous la marquise, une
+    s'accoude au balcon (`isoPlaisirs.js`, `strollers`). ⚠ Le ponton fait partie des
+    TRANCHES du lieu : triées à leur pied, les filles passaient sous la tranche de leur
+    colonne → peintes après toutes les tranches qu'elles chevauchent, cachées derrière la
+    rotonde.
+  Reste (déroulé, après verdict) : les autres âges — plan → extérieur pour chacun, 2-3
+  filles + danse par jeu d'habitants (~130 générations), boudoir et scène par âge.
+- 2026-10-03 (nuit) : **Raph : « la porte fait cheap. Fais-leur des formes plus
+  voluptueuses aux filles, et leurs seins doivent bouger quand elles marchent/dansent. »**
+  - L'ENTRÉE refaite : dans la baie de face du rez, double porte d'acajou à panneaux,
+    poignées de laiton, chambranle doré, porte ENTREBÂILLÉE (un trait de lumière), imposte
+    en éventail allumée ; AUVENT DE THÉÂTRE au-dessus (verrière ambrée `A_GLOW`, bandeau
+    cramoisi à traits d'or entre deux rangs d'ampoules, colonnettes) ; deux CANDÉLABRES à
+    globes de part et d'autre du tapis rouge. ⚠ Un auvent cache toujours le mur juste
+    au-dessous de lui : l'enseigne murale y disparaissait → elle est SUR l'auvent ; un
+    premier essai en éventail de verre (Guimard) lisait comme une aile blanche, écarté.
+  - LES FILLES redessinées en sablier (poitrine et hanches pleines, décolletés ; toujours
+    habillées) : cancan `f6ec6b97-4f02-409a-be70-f6fdd0e88d27`, courtisane
+    `5639e3cf-483f-43ab-a117-3c6d52a83b9c`, chanteuse `b10ecb17-9c29-4fb8-9f0d-14ac743050cd`
+    (mêmes noms de bandes, les v1 sont remplacées). La marche v3 « déhanchée » essayée
+    (3 gén.) DÉRIVAIT (la courtisane change d'orientation en marchant) → marche du gabarit
+    + REBOND posé par `scripts/bustBounce.mjs` : la zone du buste descend d'un rang aux
+    images d'appui (0, 3) et remonte à l'envol (1, 4) ; à la danse, aux battements (1, 5 /
+    3, 7). Nouvelle danse v3 du cancan (jambe plus haute). ~22 générations.
+    Aperçu animé ×8 : `plaisirs/filles-fonte.html`. Outils : `zipstrips.cjs` /
+    `zipdance.cjs` (scratchpad) quand un zip contient plusieurs animations par direction.
+- 2026-10-03 (nuit, suite) : **Raph : « les yeux des personnages ne sont pas beaux et la
+  courtisane est illisible. Reprends sur Aseprite directement les sprites : refais les
+  yeux, les animations, et les seins encore plus gros, type push-up. »** → les filles
+  sont DESSINÉES À LA MAIN : `scripts/plaisirsGirls.mjs` (générateur, `--preview=` /
+  `--build`), sources `art/plaisirs/*.aseprite` (Aseprite en ligne de commande, une
+  étiquette par animation : marche-se, marche-ne, cancan-se) ; PixelLab abandonné pour
+  elles.
+  - un CORPS commun en sablier, BUSTE en push-up (12 px de large, trois rangs au-dessus
+    du corset, il déborde des épaules), YEUX NETS (trait de cils, blanc et iris, pommettes),
+    poings sur les hanches (démarche chaloupée) ; trois TENUES lisibles d'un coup d'œil :
+    cancan (chignon auburn, corset noir à dentelle, jupons rouges, bas), courtisane
+    (blonde, robe émeraude FENDUE qui s'ouvre sur la jambe au pas, gants d'opéra noirs ;
+    le boa, qui la rendait illisible, est retiré), chanteuse (carré noir et plume, sirène
+    cramoisie à paillettes, gants blancs) ;
+  - le GRÉEMENT (6 images de marche) : le pas soulève le corps d'un pixel, les hanches
+    balancent, le BUSTE REBONDIT d'un pixel en retard ; le cancan (8 images) : jupons
+    relevés, genou levé, BATTEMENT en diagonale hors de la silhouette ;
+  - sud-ouest / nord-ouest = miroirs ; toile 32, semelles à y = 28 → même échelle que les
+    habitants (0,71) ; la danse n'est plus rembourrée (`danseScale` = 0,71).
+  - ⚠ Pièges : un trait par pièce rayait le buste de barres noires → les pièces du corps
+    n'ont PAS de trait, un seul contour de silhouette à la fin (bras et jambe lancée
+    gardent le leur) ; une rangée vide entre deux pièces devient un trait noir (le menton
+    et les épaules, le buste qui rebondit vers le bas) → les pièces se chevauchent.
+- 2026-10-03 (nuit, fin) : **Raph : « c'est bien, go »** → le DÉROULÉ sur les 10 âges.
+  - LES FILLES : 24 dessinées par `plaisirsGirls.mjs`, une troupe de trois par jeu
+    d'habitants (`iso/plaisirsCast.js`) : Feu/Bois (flamme, chasseresse, sauvage :
+    bandeau et fourrure, os, fleur), Pierre/Couronne (gigue, courtisane, dame : corselet
+    lacé, chemise, jupes), Marbre (bacchante, hétaïre, danseuse : bandeau d'or, robes
+    fendues, laurier), Fonte (le pilote), Néon (revue à coiffe de plumes et résille,
+    cocktail, sirène d'or), Jade/Astral/Cristal (même troupe, trois lumières : lumière en
+    justaucorps, voile en robe fendue, éclat en mini). Deux danses : BATTEMENT (cancan,
+    gigue, revue) et ONDULATION bras levés (flamme, bacchante, lumière).
+    ⚠ Le bord des bonnets (T) doit trancher sur la peau : pâle (astral), la danseuse
+    semblait torse nu de loin → couleur vive de l'âge. Le halo cosmique se lisait comme
+    des épis de cheveux → petit diadème.
+  - LE DEHORS de chaque âge compte les étages de sa coupe (`floorsFromPlan`) et reçoit
+    `nightLife` (cabaret : danseuse en ombre chinoise derrière une baie sur trois ;
+    boudoir : vitres roses et couple enlacé une baie sur deux) et `withDoor` (porte de
+    face, entrebâillée, à la matière de l'âge : bois, rustique, néon, cristal). Le Feu :
+    tente de peaux aux ouvertures allumées ; le Néon : salons sur plateaux, enseigne de
+    danseuse ; les âges cosmiques : salons de cristal sur plateaux flottants. Filles qui
+    flânent sur le ponton (`stroll`) à tous les âges.
+  - Retour « la fille passe derrière le rideau » (ses souliers dépassaient sous la
+    tenture du boudoir) : la tenture descend jusqu'au sol (`y + 3`) et le passant de
+    l'étage s'arrête à 16 px de l'alcôve ; seul le couple de l'hôtesse y entre.
+  - ⚠ Capture de la coupe après un changement d'âge : les sprites de l'âge se chargent
+    en plusieurs secondes → attendre ~10 s (forcer un dessin toutes les 2,5 s) avant le
+    `toBlob`, sinon scène vide et spectateurs absents (fausse alerte).
+  - Planches : `plaisirs/planche-coupes-10-ages.png`, `plaisirs/planche-exterieurs-ages.png`,
+    `plaisirs/filles-toutes.png`. Lint et 2 243 tests verts. RIEN commité.
+- 2026-10-03 (nuit, encore) : **Raph : « les intérieurs et extérieurs font très cheap et
+  pas pixel art »**. Mesuré : la coupe s'affichait ~5× quand le sprite d'une fille
+  s'affichait ~1,8× (décor aux pixels 3× plus gros que les personnages, et filles
+  redimensionnées d'un facteur NON entier) ; le lieu de la carte était 2× plus « plat »
+  que les sprites de la carte (46-68 % de pixels qui continuent leurs voisins, contre
+  24-43 %). Décisions de Raph (les deux recommandations) :
+  - INTÉRIEUR « à la main, grille des filles » : `iso/plaisirsCoupeHD.js`, UN PIXEL DE
+    COUPE = UN PIXEL DE FILLE (salle 60 px, table 14, comptoir 16 ; largeurs du plan
+    ×2,4). Papier peint damassé (motif dessiné, en quinconce), lambris d'acajou à
+    panneaux biseautés, cimaise et corniche dorées, parquet à chevrons, flaques de
+    lumière TRAMÉES sous chaque lampe, ombres de contact, lustre et appliques à gaz en
+    grilles de lettres, meubles en PIÈCES à contour d'encre extérieur (table de dés,
+    vingt-et-un en demi-lune, kiosque LOTERIE et guichet à grille, armoire à flacons,
+    caisse, scène à toile de fond et feux de rampe, alcôves, méridienne, paravent,
+    palmier, statue, vestiaire), cage d'ascenseur ajourée et cabine cuite (deux calques),
+    verrière à côtes et ballon d'Icare. Vue : `SalleCanvas` multiplie l'échelle des
+    habitants par 32 / (TILE × 0,71 × AGENT_SCALE) → toutes les planches (32 ou 56 px)
+    tombent pixel pour pixel. PILOTE : le Fonte seul (`HD_BANDS`), les autres âges
+    gardent l'ancienne coupe.
+  - EXTÉRIEUR « PixelLab guidé par notre rendu » : le rendu du code (recadré, 220×240,
+    remonté à un multiple de 4) envoyé en img2img (`create_image_pixflux`, isométrique,
+    fidélité 80 ; à 160 il ne fait que retexturer le gâteau). Sprite détouré (fond gris
+    uni + bruit tramé) → `public/pixelart/places/plaisirs-fonte.png`, posé par
+    `iso/plaisirsSkin.js` au coin exact du recadrage (`at`) : chaque pixel prend la
+    HAUTEUR du code sous lui (ombre et reflet exacts), la nuit allume ses vitres (teintes
+    bleu-violet), les lumières posées par la recette sont retirées. 2 générations.
+  - ⚠ PixelLab rend un fond OPAQUE même avec `no_background` : détourer depuis les
+    bords, avec tolérance sur les gris (le fond est tramé).
+  - ⚠ Une silhouette sur une tenture qui s'allume doit aussi être écrite dans la NUIT
+    (sinon le calque de nuit la repeint).
+  - Planches : `plaisirs/pilote2-coupe-jour.png`, `-nuit.png`, `pilote2-exterieur.png`,
+    `plaisirs/ext/cmp2z.png`. RIEN commité.
+- 2026-10-03 (nuit, suite) : **Raph : « l'extérieur bravo, j'aime beaucoup. L'intérieur par
+  contre, surtout la coupole et l'ascenseur »**, références Fallout Shelter (×2) et
+  Oxygen Not Included. → la coupe fine refaite en SALLES-BOÎTES :
+  - chaque lieu est une boîte (plafond à caissons vu d'en dessous, murs latéraux en
+    FUITE — le mur du fond comprimé et assombri, lambris en biais —, parquet en
+    profondeur), posée dans une CHARPENTE de fonte rivetée (poutres de 9 px, poteaux de
+    10 px percés d'une PORTE au ras du sol : on passe de salle en salle) ;
+  - lumière par salle : flaques tramées au mur ET au sol sous chaque lustre, coins
+    sombres ; deux lustres dès 110 px, l'enseigne au centre (le kiosque porte la sienne) ;
+  - l'ASCENSEUR : colonne laquée continue, rails de laiton, câbles, seuil à chaque étage,
+    CADRAN d'étage, lampe de palier, poulie en haut ; cabine boisée éclairée, arche dorée,
+    grille en accordéon (deux calques cuits) ;
+  - la COUPOLE n'est plus un volume dehors : la VERRIÈRE est une salle vue de l'intérieur
+    (côtes de fonte, ciel derrière le verre, rais de soleil sur la mosaïque, oculus, jardin
+    d'hiver, lanternes, invités) où le BALLON D'ICARE attend sous l'oculus.
+  - Mesures : CEIL 8, WALLH 52, FLOORD 12, STRUCT 9 (LH 81), largeurs du plan ×2,6.
+  - Planches : `plaisirs/pilote3-coupe-jour.png`, `-nuit.png`. RIEN commité.
+- 2026-10-03 (nuit, suite) : **Raph : « il faut que ça bouge, l'ombre : soit une fille seule,
+  on voit ses formes et elle aguiche avec une jambe qui bouge ; soit quand il y a un homme,
+  une petite animation »** → les OMBRES DE LA TENTURE sont animées (`shadowFrames`,
+  plaisirsCoupeHD.js) : silhouettes construites sur un squelette (une pose par image),
+  en volumes pleins aux courbes EXAGÉRÉES (à 30 px, une silhouette réaliste se lit comme
+  un bâton) ; SEULE : de profil, main derrière la tête, la jambe monte et se tend (5
+  poses, 230 ms) ; À DEUX, pendant que le manège cache l'hôtesse et son client derrière
+  la tenture : rapprochés, baiser, pied levé, renversé (4 poses, 380 ms ; le haut-de-forme
+  le signe). La vue les peint PAR-DESSUS la nuit (`show` dans la cuisson, `showCv` dans
+  salleBake). Rien d'explicite. Planche : `plaisirs/planche-ombres.png`.
+- 2026-10-03 (nuit, fin) : **Raph : « c'est bien, go pour les autres âges »** → les DIX âges
+  passent au nouveau régime, dedans comme dehors :
+  - EXTÉRIEUR : un habillage PixelLab par âge (`public/pixelart/places/plaisirs-{feu,
+    bois,pierre,couronne,marbre,fonte,neon,jade,astral,cristal}.png`, table `SKINS` de
+    `plaisirsSkin.js`, `at` dans le REPÈRE DU LIEU). Fidélité 80 pour les âges bas ; les
+    TOURS (Néon, Jade) restaient « gâteau » à 80 et 60 → fidélité 30. L'Astral et le
+    Cristal sont des RECOLORATIONS du Jade (PixelLab gardait le turquoise de l'image de
+    départ). La nuit : chaque âge nomme ses VITRES (`glass` : plage de teinte, saturation,
+    valeur ; null = pas de vitre, la tente et la maison de bois) + flammes et ampoules.
+  - INTÉRIEUR : `styleHD(band)` donne à chaque âge ses matières (bois, or, velours,
+    pierre, verre…) et ses PIÈCES (mur, sol, plafond, luminaire, salle du haut, engin
+    d'Icare, circulation, fondation, horizon, décor, objets du hall, chapeau des ombres,
+    écriture, caisse). Circulation : aucune au campement (un seul niveau), échelle,
+    escalier, ascenseur de fonte, ascenseur de verre, disque de lumière aux âges
+    cosmiques. Salle du haut par âge (tente, comble, coupole, verrière, dôme de verre…).
+    Pas de lettres avant l'écriture (enseignes en planchettes de bois), pas de caisse
+    avant la monnaie.
+  - Nettoyage : l'ancienne coupe (`plaisirsCoupe.js` et son test) supprimée,
+    `salleBake` ne cuit plus que la fine, la vue n'a plus de cabine de secours.
+    Test `plaisirsCoupeHD.test.js` : les dix âges (lieux, opacité, clic au pixel,
+    habitants dans le bâtiment, manège, ombres, cabine).
+  - ⚠ Captures dans la pane masquée : les minuteurs y sont bridés et un script de plus de
+    45 s est coupé → attendre par une boucle de `fetch` (`__nap`), un ou deux âges par
+    appel.
+  - Planches : `plaisirs/skins-0-4.png`, `skins-6-9.png`, `skins-nuit.png`,
+    `planche-hd-10-ages(-mini).png`, `hd-check2-mini.png`. RIEN commité.
+- 2026-10-03 (nuit, reprise) : **Raph : « c'est pas mal ! Fais attention aux toits et aux
+  entrées. Vérifie bien les lumières aussi. Les lumières néon ressemblent un peu à une
+  prison. Prends bien le temps de travailler chaque salle au maximum de tes capacités. »**
+  - TOITS ET ENTRÉES (dehors) : retouches PixelLab `edit_image` (le reste de l'image
+    gardé ; ~20 gén. chacune) — la Couronne devient un vrai donjon (UN toit d'ardoise
+    conique, des hourds) au lieu de trois jupes de toit empilées ; la Pierre ouvre sa
+    balustrade sur un escalier jusqu'à l'eau ; le Bois pose son escalier sur un ponton ;
+    le Marbre perd ses bornes de bronze et gagne un portique à fronton et un palier ; le
+    Jade pose ses escaliers sur une terrasse sèche (plus de douve) avec des marches
+    jusqu'à l'eau (l'Astral et le Cristal en sont recolorés). Enseignes du Néon
+    redessinées à la main (« PLAISIRS », « CLUB » : PixelLab gribouillait les lettres).
+  - LUMIÈRES (dehors) : la nuit d'un habillage a maintenant ses FENÊTRES DÉSIGNÉES
+    (`windows` : un point par baie, posé sur l'habillage ; la tache sombre qui l'entoure
+    s'allume) — la détection automatique allumait les joints du dallage ; plages de
+    VITRES resserrées (le Jade allumait ses murs, le Marbre l'eau de son pied) ;
+    enseignes du Néon allumées (`signs`). `skinNightPixels` dans plaisirsSkin.js.
+  - « LA PRISON » : c'était le CRISTAL (et les âges cosmiques) — des fils lumineux tous
+    les 16 px sur tous les murs, peints PAR-DESSUS la scène et les meubles la nuit, et une
+    colonne de lumière tramée en damier. Corrigé : murs propres à chaque cité (Jade :
+    laque rouge et panneaux de jade aux nuages ; Astral : nuit étoilée et constellations
+    dans des cadres de nacre ; Cristal : panneaux lilas et grappes d'améthyste), la nuit
+    des murs dans un calque à part ÉTEINT sous les meubles (`WNr`), faisceau lisse. Le
+    Néon quitte sa verrière à meneaux blancs (des barreaux, de jour) pour un casino art
+    déco : velours prune, éventails d'or (or VRAI : le « métal » du Néon est le chrome,
+    blanc), néon de corniche, globes dépolis, moquette de casino.
+  - CHAQUE SALLE À SON ÉPOQUE : le mobilier n'est plus celui du Fonte recoloré (tapis
+    vert et feux de rampe au campement, loterie foraine à Rome). Nouveaux modules :
+    `plaisirsHDKit.js` (outillage sorti de la coupe), `plaisirsEraRooms.js` (gabarits
+    table / comptoir / étagères / scène / alcôve + le Feu), `plaisirsEraAncient.js` (Bois,
+    Pierre, Couronne, Marbre), `plaisirsEraModern.js` (Néon, cosmiques),
+    `plaisirsEraFurnish.js` (l'aiguillage). Le Fonte garde le sien. Le matériel suit
+    celui des jeux (osselets jusqu'à la Couronne, dés d'ivoire au Marbre, cartes de bois,
+    de parchemin, de jeu, de cristal). Feu : dolmen et osselets, souche-table, jarre des
+    sorts, claie du troqueur, danse autour du feu sous les peintures de la grotte, couche
+    de fourrures derrière un rabat de peau. Bois : tréteaux, tonneau-table, coffre des
+    sorts, étal, lit clos. Pierre : chêne et étain, la BLANQUE, l'épicier et sa balance,
+    tapisserie au lion, BAQUET des étuves sous son dais. Couronne : nappe à franges, ROUE
+    DE FORTUNE, joaillier, scène fleurdelisée, lit à baldaquin. Marbre : pattes de lion et
+    dés d'ivoire, hydrie des sorts, THERMOPOLIUM et amphores, front de scène à colonnes,
+    lupanar ; murs pompéiens, mosaïque, lampes à huile. Néon : craps, vingt-et-un sous la
+    lampe verte, BANDITS MANCHOTS, vitrine, piano-bar, revue sous un chapiteau d'ampoules,
+    lit rond et cœur de néon. Cosmiques : tables qui flottent, dés et cartes de lumière,
+    globe des sorts, harpe de lumière, lit-bulle derrière un voile.
+  - Le reste de la boîte suit : charpente par âge (rondins liés, poutres chevillées,
+    entablement de marbre, fonte, acier à filet de néon, céramique / laque au Jade),
+    enseignes (planchette, tablette de marbre, émail, néon, verre), escalier à volées
+    (marches, rampe et balustres, paliers, meurtrières) au lieu d'un zigzag de dalles,
+    combles d'époque (pagode laquée aux cités cosmiques, grenier sous l'ardoise),
+    fenêtres à volets au village et au Moyen Âge, torches aux murs du campement.
+  - ⚠ Règle de figurants : JAMAIS de joueur au milieu devant une table (à 27 px, il
+    cache une table de 13) — derrière, aux bouts, au plus un de dos au coin
+    (`tableCrew`).
+  - Lint et 2 284 tests verts. Planches : `plaisirs/ext-v3.png` (dehors, jour et nuit),
+    `mdp-v3-b*.png` (coupes en jeu). RIEN commité.
 
 ---
 

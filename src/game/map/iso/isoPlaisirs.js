@@ -54,6 +54,9 @@ import { drawFlame, glowAt, hexToRgbStr } from './isoProps.js';
 import { drawVieFlag } from './isoVie.js';
 import { drawSpriteOutline } from './isoEngineScene.js';
 import { HOVER_GOLD } from './isoPalette.js';
+import { plaisirsCast } from './plaisirsCast.js';
+import { plaisirsSkin, applyPlaisirsSkin } from './plaisirsSkin.js';
+import { drawNamedAgentIso } from '../agents.js';
 
 // ── Palette de l'aura : celle des LUMIÈRES du lieu, à son âge ────────────────
 // Refonte du 2026-10-02 : le lieu n'est plus un sprite néon unique, il porte des
@@ -418,10 +421,15 @@ function rasterCanvas(R) {
 const _bakes = new Map();
 function bakeFor(band, g, winter) {
   if (typeof document === 'undefined') return null;
-  const key = plaisirsRecipeBand(band) + ':' + band + ':' + gamesKey(g) + (winter ? ':w' : '');
+  // L'HABILLAGE PixelLab de l'âge (plaisirsSkin.js) remplace la matière du code dès
+  // qu'il est chargé (la clé change : une seule recuisson).
+  const skin = plaisirsSkin(band);
+  const key = plaisirsRecipeBand(band) + ':' + band + ':' + gamesKey(g) + (winter ? ':w' : '') + (skin ? ':skin' : '');
   let e = _bakes.get(key);
   if (e) return e;
-  const out = bakePlaisirs(wonderKitForBand(band, winter), g);
+  let out = bakePlaisirs(wonderKitForBand(band, winter), g);
+  // Ses lumières et fanions posés par la recette tomberaient à côté de sa matière.
+  if (skin) out = { ...out, ...applyPlaisirsSkin(out, skin), props: [] };
   const R = out.R, occ = new Uint8Array(R.w);
   let x0 = R.w, y0 = R.h, x1 = -1, y1 = -1;
   for (let i = 0; i < R.w; i += 1) {
@@ -449,7 +457,7 @@ function bakeFor(band, g, winter) {
     mir: M ? { ox: M.ox, oy: M.oy, w: M.w, h: M.h, cv: rasterCanvas(M) } : null,
     sh: S ? { ox: S.ox, oy: S.oy, w: S.w, h: S.h, cv: shCv } : null,
     box: x1 < 0 ? null : { x: x0, y: y0, w: x1 - x0 + 1, h: y1 - y0 + 1 },
-    props: out.props || [], ledges: out.ledges || [], apex: out.apex || { x: 0, y: 0, h: R.h }, foot: out.foot || 64 };
+    props: out.props || [], ledges: out.ledges || [], apex: out.apex || { x: 0, y: 0, h: R.h }, foot: out.foot || 64, stroll: out.stroll || null };
   if (_bakes.size > 12) _bakes.delete(_bakes.keys().next().value);
   _bakes.set(key, e);
   return e;
@@ -511,6 +519,30 @@ export function pushIsoPlaisirsItems(items, pl) {
     const pr = m.bk.props[pi];
     items.push({ d: frontDepth(m, pr.x - pr.y) + 0.5, kind: 'plaisirs', m, part: 'prop', pi });
   }
+  // LES FILLES DE LA MAISON, dehors (les âges qui ont les leurs, plaisirsCast.js) :
+  // deux font le tour du ponton, une accueille sous la marquise, une s'accoude au
+  // balcon. ⚠ Le pont fait partie des TRANCHES du lieu (triées à leur bord avant) :
+  // triée à son pied, une fille passait SOUS la tranche de sa colonne. Elle se peint
+  // donc juste après elle ; celle qui passe derrière la rotonde n'est pas peinte.
+  const cast = plaisirsCast(m.band), st = m.bk.stroll;
+  if (cast && st) for (const q of strollers(cast, st, typeof performance !== 'undefined' ? performance.now() : 0)) {
+    if (q.x + q.y < 0 && Math.abs(q.x - q.y) < st.hideX) continue;
+    // Après TOUTES les tranches qu'elle chevauche (sa silhouette fait ~6 unités de X).
+    items.push({ d: frontDepth(m, Math.max(0, Math.abs(q.x - q.y) - 6)) + 0.6, kind: 'plaisirs', m, part: 'girl', q });
+  }
+}
+// Où est chacune à l'instant `now` : { x, y, h, dir, walking, spec }.
+const ISO_DIR = (vx, vy) => (Math.abs(vx) > Math.abs(vy) ? (vx > 0 ? 0 : 1) : (vy > 0 ? 2 : 3));
+function strollers(cast, st, now) {
+  const G = cast.girls, out = [], w = 7 / st.r;              // 7 px/s le long du ponton
+  for (let k = 0; k < 2; k += 1) {
+    const a = (now / 1000) * w * (k ? -1 : 1) + k * 2.6;
+    const vx = -Math.sin(a) * (k ? -1 : 1), vy = Math.cos(a) * (k ? -1 : 1);
+    out.push({ x: st.r * Math.cos(a), y: st.r * Math.sin(a), h: st.h, dir: ISO_DIR(vx, vy), walking: true, spec: G[k % G.length], k });
+  }
+  out.push({ x: st.door[0], y: st.door[1], h: st.door[2], dir: 0, walking: false, spec: G[2 % G.length], k: 2 });
+  out.push({ x: st.balcony[0], y: st.balcony[1], h: st.balcony[2], dir: 0, walking: false, spec: G[1 % G.length], k: 3 });
+  return out;
 }
 
 export function drawIsoPlaisirsSeg(ctx, it, now) {
@@ -552,6 +584,9 @@ export function drawIsoPlaisirsSeg(ctx, it, now) {
         }
       }
     }
+  } else if (it.part === 'girl') {
+    const q = it.q, p = worldToScreen(m.cx + q.x, m.cy + q.y, q.h);
+    drawNamedAgentIso(ctx, p.x, p.y, z, q.spec.name, q.spec.scale, q.dir, q.walking, now, q.k * 0.31, 1, null, true);
   } else if (it.part === 'prop') {
     const pr = m.bk.props[it.pi];
     if (pr) {

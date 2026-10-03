@@ -1,5 +1,7 @@
 import { useEffect, useRef } from 'react';
-import { agentSetForBand, agentSpecFor, drawNamedAgentIso } from '../../../game/map/agents.js';
+import { agentSetForBand, agentSpecFor, drawNamedAgentIso, AGENT_SCALE } from '../../../game/map/agents.js';
+import { CM } from '../../../game/map/layout.js';
+import { plaisirsCast } from '../../../game/map/iso/plaisirsCast.js';
 import { salleNightF } from './salleBake.js';
 
 /**
@@ -9,7 +11,7 @@ import { salleNightF } from './salleBake.js';
  * Retour de Raph sur la première salle (une terrasse iso, tout au rez) : « quel
  * intérêt d'avoir un bâtiment de plus en plus grand si tout se passe au
  * rez-de-chaussée ? ». La salle est donc la COUPE du bâtiment, de face, cuite par
- * iso/plaisirsCoupe.js : un étage par jeu, autant d'étages que de plateaux dehors.
+ * iso/plaisirsCoupeHD.js : un étage par jeu, autant d'étages que de plateaux dehors.
  *
  * Le canevas REMPLIT le cadre ; la coupe est agrandie d'un facteur ENTIER (pixel net)
  * réglé sur la LARGEUR du bâtiment. Quand il est plus haut que le cadre, on DÉFILE
@@ -19,6 +21,15 @@ import { salleNightF } from './salleBake.js';
  * de la carte et ses halos. Le survol et le clic tombent au pixel du LIEU.
  */
 
+// Où en est une PISTE (clés datées en secondes, cf. courtship dans plaisirsCoupeHD.js) :
+// position interpolée, tenue de la clé en cours.
+function trackAt(keys, period, now) {
+  const tt = ((now / 1000) % period + period) % period;
+  let k = 0;
+  while (k < keys.length - 1 && keys[k + 1].t <= tt) k += 1;
+  const a = keys[k], b = keys[k + 1] || a, f = b.t > a.t ? (tt - a.t) / (b.t - a.t) : 0;
+  return { x: a.x + (b.x - a.x) * f, y: a.y + (b.y - a.y) * f, dir: a.dir, walk: !!a.walk, hide: !!a.hide };
+}
 // Liseré d'or autour du lieu allumé (survol, sélection).
 function ring(g, box, ox, oy, Z, now) {
   const x = ox + box.x0 * Z, y = oy + box.y0 * Z, w = (box.x1 - box.x0) * Z, h = (box.y1 - box.y0) * Z;
@@ -51,10 +62,26 @@ export default function SalleCanvas({ bake, band, lit, padLeft = 0, focus = null
     if (!cv || !bake) return undefined;
     let raf = 0, last = 0, alive = true;
     const set = agentSetForBand(band);
+    // Les FILLES DE LA MAISON (type « g ») et la troupe de la scène (« d ») ; un âge
+    // qui n'a pas encore les siennes prend les femmes de son jeu d'habitants.
+    const cast = plaisirsCast(band);
+    const specOf = (type, variant) => {
+      if (type === 'g' || type === 'd') {
+        const list = cast && (type === 'd' ? cast.dancers : cast.girls);
+        return list && list.length ? list[variant % list.length] : agentSpecFor(set, 1, variant);
+      }
+      return agentSpecFor(set, type, variant);
+    };
+    const mo = bake.motions;
+    // LA GRILLE DES FILLES (coupe `hd`) : un pixel de coupe = un pixel de sprite. L'échelle
+    // d'un habitant (0,71 pour une planche de 32 px, 1,24 pour 56 px…) le ramène à la
+    // toise de la carte ; ce facteur commun le pose pixel pour pixel sur le décor.
+    const HDK = bake.hd ? 32 / (CM.TILE * 0.71 * AGENT_SCALE) : 1;
+    const haloR = bake.hd ? bake.hd.haloR : 12, floorH = bake.hd ? bake.hd.floorH * 2 : 70;
     const sc = scrollRef.current;
-    sc.target = null; sc.cur = null; sc.lastFocus = null;
+    sc.target = null; sc.cur = null; sc.x = null; sc.lastFocus = null;
     // Le bâtiment : de l'eau à la plateforme d'Icare, dalles débordantes comprises.
-    const wMax = Math.max(...bake.levels.map((l) => l.w)) + 36;
+    const wMax = Math.max(...bake.levels.map((l) => l.w)) + (bake.hd ? bake.hd.margin : 36);
     const artTop = bake.roofTop - 6, artBot = bake.H;
     const draw = (now) => {
       if (!alive) return;
@@ -65,26 +92,36 @@ export default function SalleCanvas({ bake, band, lit, padLeft = 0, focus = null
       const dpr = window.devicePixelRatio || 1;
       const W = Math.max(1, Math.round(box.width * dpr)), H = Math.max(1, Math.round(box.height * dpr));
       const pad = Math.min(W * 0.4, padRef.current * dpr), avail = W - pad;
+      // Pendant une PARTIE (la scène du jeu se pose en bas du cadre et se marque
+      // elle-même, cf. views-plaisirs.css), la salle choisie vient se poser JUSTE
+      // AU-DESSUS de la scène, un cran plus près : on joue sous sa table, entouré de
+      // ses joueurs.
+      const fid = focusRef.current, spot = fid && bake.spots[fid];
+      const stageEl = spot ? document.querySelector('.plaisirs-stage .regulation-stage:not(.is-empty)') : null;
+      const playing = !!stageEl;
       // Facteur ENTIER sur la largeur du bâtiment, borné pour qu'un étage entier et
       // son voisin tiennent en hauteur (on lit un étage, on devine le suivant).
-      const Z = Math.max(1, Math.min(Math.floor(avail / wMax), Math.floor(H / 70)));
+      const Z = Math.max(1, Math.min(Math.floor(avail / wMax), Math.floor(H / floorH))) + (playing ? 1 : 0);
       const viewH = H / Z, bodyH = artBot - artTop;
       // Haut de la vue : collé à l'eau en bas (on entre par le rez), jamais au-delà du
       // toit. Bâtiment plus bas que le cadre : l'eau en bas, le ciel au-dessus.
-      sc.max = artBot - viewH;
+      // Le haut de la scène du jeu, en pixels d'art depuis le haut du cadre (relu à
+      // chaque image : elle s'ouvre en glissant) ; le sol de la salle s'y pose.
+      const atStage = playing ? spot.box.y1 + 3 - Math.max(viewH * 0.3, ((stageEl.getBoundingClientRect().top - box.top) * dpr) / Z) : 0;
+      sc.max = playing ? Math.max(artBot - viewH, atStage) : artBot - viewH;
       sc.min = Math.min(sc.max, artTop);
-      // Le lieu choisi vient au milieu du cadre ; pendant une PARTIE (la scène du jeu
-      // se pose en bas du cadre et se marque elle-même, cf. views-plaisirs.css), il
-      // monte tout en haut : on joue sous sa table, entouré de ses joueurs.
-      const fid = focusRef.current, spot = fid && bake.spots[fid];
-      const playing = !!spot && !!document.querySelector('.plaisirs-stage .regulation-stage:not(.is-empty)');
+      // Le lieu choisi vient au milieu du cadre.
       const key = fid ? fid + (playing ? '*' : '') : null;
-      if (key !== sc.lastFocus) { sc.lastFocus = key; if (spot) sc.target = playing ? spot.box.y0 - 6 : spot.y - viewH * 0.5; }
-      if (sc.target == null || bodyH <= viewH) sc.target = sc.max;
+      if (key !== sc.lastFocus) { sc.lastFocus = key; sc.target = spot ? spot.y - viewH * 0.5 : null; }
+      if (playing) sc.target = atStage;
+      if (sc.target == null || (bodyH <= viewH && !playing)) sc.target = sc.max;
       sc.target = Math.max(sc.min, Math.min(sc.max, sc.target));
       sc.cur = sc.cur == null ? sc.target : sc.cur + (sc.target - sc.cur) * 0.3;
       if (Math.abs(sc.cur - sc.target) < 0.3) sc.cur = sc.target;
-      const ox = Math.round(pad + avail / 2 - (bake.W / 2) * Z), oy = Math.round(-sc.cur * Z);
+      const tx = playing ? spot.x : bake.W / 2;
+      sc.x = sc.x == null ? tx : sc.x + (tx - sc.x) * 0.3;
+      if (Math.abs(sc.x - tx) < 0.3) sc.x = tx;
+      const ox = Math.round(pad + avail / 2 - sc.x * Z), oy = Math.round(-sc.cur * Z);
       if (cv.width !== W || cv.height !== H) { cv.width = W; cv.height = H; }
       cv.style.width = W / dpr + 'px';
       cv.style.height = H / dpr + 'px';
@@ -100,14 +137,52 @@ export default function SalleCanvas({ bake, band, lit, padLeft = 0, focus = null
       // Le ciel au-delà de la coupe (au-dessus), puis la coupe.
       g.fillStyle = bake.skyHex || '#9fd0ee';
       g.fillRect(0, 0, W, H);
+      g.fillStyle = bake.waterHex || '#355d78';                    // et l'eau, en dessous
+      g.fillRect(0, oy + bake.H * Z, W, H);
+      // Cadre plus large que la coupe (petit facteur) : ses colonnes du bord,
+      // prolongées, continuent le ciel, la rive et l'eau jusqu'aux bords.
+      if (ox > 0) g.drawImage(bake.cv, 0, 0, 1, bake.H, 0, oy, ox, bake.H * Z);
+      if (ox + bake.W * Z < W) g.drawImage(bake.cv, bake.W - 1, 0, 1, bake.H, ox + bake.W * Z, oy, W - ox - bake.W * Z, bake.H * Z);
       g.drawImage(bake.cv, ox, oy, bake.W * Z, bake.H * Z);
       // Les HABITANTS de l'âge, entre le fond et l'avant-plan.
-      for (const f of bake.figures) {
-        const spec = agentSpecFor(set, f.type, f.variant);
-        if (!spec) continue;
-        drawNamedAgentIso(g, ox + (f.x + 0.5) * Z, oy + (f.y + 0.5) * Z, Z, spec.name, spec.scale, f.dir, false, now, (f.x * 0.13) % 1);
-      }
+      // Ceux de DEVANT (de dos, qui regardent le jeu) passent après l'avant-plan.
+      const people = (front) => {
+        // Le MANÈGE de l'hôtesse (elle, son client) suit ses pistes.
+        if (!front && mo) for (const tr of mo.tracks) {
+          const st = trackAt(tr.keys, mo.period, now), spec = specOf(tr.type, tr.variant);
+          if (st.hide || !spec) continue;
+          drawNamedAgentIso(g, ox + (Math.round(st.x) + 0.5) * Z, oy + (Math.round(st.y) + 0.5) * Z, Z, spec.name, spec.scale * HDK, st.dir, st.walk, now, 0);
+        }
+        for (const f of bake.figures) {
+          if (!!f.front !== front) continue;
+          const spec = specOf(f.type, f.variant);
+          if (!spec) continue;
+          // La troupe DANSE (sa bande de danse, jouée en boucle sur place).
+          if (f.type === 'd' && spec.danse) {
+            drawNamedAgentIso(g, ox + (f.x + 0.5) * Z, oy + (f.y + 0.5) * Z, Z, spec.danse, (spec.danseScale || spec.scale) * HDK, f.dir, true, now, f.phase || 0, 1, null, true);
+            continue;
+          }
+          let x = f.x, dir = f.dir, walking = false;
+          if (f.walk) {
+            // Le PASSANT va et vient d'un lieu à l'autre, à son pas (px d'art/s).
+            const [a, b] = f.walk, span = b - a, T = (2 * span) / (f.speed || 5) * 1000;
+            const p = ((now / T) + (f.x - a) / (2 * span)) % 1, there = p < 0.5;
+            x = a + span * (there ? p * 2 : 2 - p * 2);
+            dir = there ? 0 : 2;
+            walking = true;
+          }
+          drawNamedAgentIso(g, ox + (Math.round(x) + 0.5) * Z, oy + (f.y + 0.5) * Z, Z, spec.name, spec.scale * HDK, dir, walking, now, (f.x * 0.13) % 1);
+        }
+      };
+      // La cabine de l'ascenseur, à la hauteur où la porte le manège (au rez sinon).
+      const cabY = bake.lift ? Math.round(mo && mo.cabin ? trackAt(mo.cabin.map((k) => ({ t: k.t, x: 0, y: k.y })), mo.period, now).y : bake.lift.stops[0] + 1) : null;
+      // La CABINE (cuite en deux calques : le fond avant les passagers, la grille après).
+      const cab = bake.cabinCv, cabAt = (img) => g.drawImage(img, ox + (bake.lift.x0 + 2) * Z, oy + (cabY - cab.h + 1) * Z, cab.w * Z, cab.h * Z);
+      if (cabY != null && cab) cabAt(cab.back);
+      people(false);
+      if (cabY != null && cab) cabAt(cab.front);
       g.drawImage(bake.cvF, ox, oy, bake.W * Z, bake.H * Z);
+      people(true);
       // LA NUIT, à l'heure de la carte : la coupe s'assombrit, ses lumières restent,
       // et chaque applique, chaque lustre pose son halo.
       const nf = salleNightF();
@@ -121,16 +196,28 @@ export default function SalleCanvas({ bake, band, lit, padLeft = 0, focus = null
         g.globalAlpha = 1;
         g.globalCompositeOperation = 'lighter';
         for (const p of bake.lights) {
-          const x = ox + (p.x + 0.5) * Z, y = oy + (p.y + 0.5) * Z, r = Z * 12;
+          const x = ox + (p.x + 0.5) * Z, y = oy + (p.y + 0.5) * Z, r = Z * haloR;
           if (y < -r || y > H + r || x < -r || x > W + r) continue;
           const a = 0.3 * nf * (0.88 + 0.12 * Math.sin(now / 240 + p.x));
           const grd = g.createRadialGradient(x, y, 0, x, y, r);
-          grd.addColorStop(0, `rgba(255,190,110,${a.toFixed(3)})`);
-          grd.addColorStop(1, 'rgba(255,190,110,0)');
+          // Halo de la couleur de sa lampe (rose au boudoir), ambre par défaut.
+          const rgb = p.c ? [1, 3, 5].map((i) => parseInt(p.c.slice(i, i + 2), 16)).join(',') : '255,190,110';
+          grd.addColorStop(0, `rgba(${rgb},${a.toFixed(3)})`);
+          grd.addColorStop(1, `rgba(${rgb},0)`);
           g.fillStyle = grd;
           g.fillRect(x - r, y - r, r * 2, r * 2);
         }
         g.globalCompositeOperation = 'source-over';
+      }
+      // LES OMBRES DE LA TENTURE, par-dessus la nuit (la tenture s'y allume) : la fille
+      // seule qui aguiche, ou le couple quand l'hôtesse a mené son client derrière.
+      const sh = bake.show, shCv = bake.showCv;
+      if (sh && shCv) {
+        let duo = false;
+        if (mo) { const st = trackAt(mo.tracks[0].keys, mo.period, now); duo = st.hide && Math.abs(st.x - sh.x) < 14; }
+        const seq = duo ? sh.coupleSeq : sh.soloSeq, ms = duo ? sh.coupleMs : sh.soloMs;
+        const img = (duo ? shCv.couple : shCv.solo)[seq[Math.floor(now / ms) % seq.length]];
+        if (img) g.drawImage(img, ox + (sh.x - Math.floor(sh.w / 2)) * Z, oy + (sh.y - sh.h + 1) * Z, sh.w * Z, sh.h * Z);
       }
       // Le lieu allumé.
       for (const id of litRef.current || []) {
@@ -157,7 +244,8 @@ export default function SalleCanvas({ bake, band, lit, padLeft = 0, focus = null
   const onWheel = (e) => {
     const sc = scrollRef.current;
     if (sc.target == null || sc.max <= sc.min) return;
-    sc.target = Math.max(sc.min, Math.min(sc.max, sc.target + (e.deltaY > 0 ? 14 : -14)));
+    const step = bake && bake.hd ? bake.hd.wheel : 14;
+    sc.target = Math.max(sc.min, Math.min(sc.max, sc.target + (e.deltaY > 0 ? step : -step)));
   };
 
   return (

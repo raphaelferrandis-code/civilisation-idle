@@ -5,9 +5,10 @@
 //
 // Depuis le retour de Raph du 2026-10-03 (« quel intérêt d'avoir un bâtiment de plus
 // en plus grand si tout se passe au rez-de-chaussée ? ») la salle est la COUPE du
-// bâtiment, de face, un étage par jeu (iso/plaisirsCoupe.js).
+// bâtiment, de face, un étage par jeu (iso/plaisirsCoupeHD.js : à la grille des filles,
+// en salles-boîtes dans leur charpente, depuis le 2026-10-03).
 import { useMemo } from 'react';
-import { bakeCoupe } from '../../../game/map/iso/plaisirsCoupe.js';
+import { bakeCoupeHD } from '../../../game/map/iso/plaisirsCoupeHD.js';
 import { wonderKitForBand } from '../../../game/map/iso/wonderKits.js';
 import { dayNightMode } from '../../../game/map/dayNightMode.js';
 
@@ -44,8 +45,22 @@ export function useSalleBake(band, open) {
     const key = band + '|' + openKey;
     let e = _bakes.get(key);
     if (!e) {
-      const out = bakeCoupe(wonderKitForBand(band), open);
+      // La GRILLE DES FILLES (plaisirsCoupeHD.js) : 1 px de coupe = 1 px de sprite.
+      const out = bakeCoupeHD(wonderKitForBand(band), open);
       e = { ...out, cv: rasterCanvas(out.R), cvF: rasterCanvas(out.F), cvN: rasterCanvas(out.N) };
+      // Les OMBRES de la tenture du boudoir (une image par pose, couleur lie-de-vin).
+      if (out.show) {
+        const toCv = (m) => {
+          const cv = document.createElement('canvas');
+          cv.width = out.show.w; cv.height = out.show.h;
+          const id = new ImageData(out.show.w, out.show.h);
+          for (let k = 0; k < m.length; k += 1) if (m[k]) { id.data[k * 4] = 58; id.data[k * 4 + 1] = 22; id.data[k * 4 + 2] = 32; id.data[k * 4 + 3] = 255; }
+          cv.getContext('2d').putImageData(id, 0, 0);
+          return cv;
+        };
+        e.showCv = { solo: out.show.solo.map(toCv), couple: out.show.couple.map(toCv) };
+      }
+      if (out.hd && out.hd.cabin) e.cabinCv = { back: rasterCanvas(out.hd.cabin.back), front: rasterCanvas(out.hd.cabin.front), w: out.hd.cabin.w, h: out.hd.cabin.h };
       if (_bakes.size > 6) _bakes.delete(_bakes.keys().next().value);
       _bakes.set(key, e);
     }

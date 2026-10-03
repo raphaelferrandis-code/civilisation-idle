@@ -26,7 +26,7 @@ const HeritageView = lazy(() => import('./HeritageView.jsx'));
  * ⭐ Depuis la refonte du 2026-10-02 (docs/PLAN-MAISON-DES-PLAISIRS.md, phase 2),
  * la salle n'est plus une illustration fixe : c'est la COUPE DU BÂTIMENT, de face,
  * PEINTE PAR LE CODE à l'âge de la ville — un étage par jeu, autant d'étages que de
- * plateaux dehors (iso/plaisirsCoupe.js, plaisirs/SalleCanvas.jsx). Le survol et le
+ * plateaux dehors (iso/plaisirsCoupeHD.js, plaisirs/SalleCanvas.jsx). Le survol et le
  * clic tombent au pixel du lieu ; les ancres du bouton d'action se lisent sur la
  * cuisson (centre et cadre de chaque lieu), plus à la main.
  *
@@ -92,9 +92,13 @@ export default function PlaisirsView() {
     if (!m || typeof ResizeObserver === 'undefined') return undefined;
     const upd = () => {
       const sec = m.parentElement && m.parentElement.getBoundingClientRect(), r = m.getBoundingClientRect();
+      const cadre = m.parentElement && m.parentElement.firstElementChild, fr = cadre && cadre.getBoundingClientRect();
       // Menu posé SUR la salle (grand écran) : on la décale ; menu passé dessous
-      // (écran étroit, views-plaisirs.css) : rien à décaler.
-      setPadLeft(sec && r.top < sec.top + sec.height * 0.6 ? Math.max(0, r.right - sec.left + 8) : 0);
+      // (écran étroit, views-plaisirs.css) : rien à décaler. ⚠ Comparé au BAS DU
+      // CADRE, pas à la hauteur de la section : sur téléphone la section contient
+      // aussi le menu (plus haut que le cadre), et le menu « dessous » passait pour
+      // posé dessus — la coupe se tassait dans 60 % de la largeur, à l'échelle 1.
+      setPadLeft(sec && fr && r.top < fr.bottom - 8 ? Math.max(0, r.right - sec.left + 8) : 0);
     };
     upd();
     const ro = new ResizeObserver(upd);

@@ -12,7 +12,7 @@ import { state } from "../../../game/core/state.js";
 //
 // ⭐ Refonte du 2026-10-02 (docs/PLAN-MAISON-DES-PLAISIRS.md, phase 2) : la salle
 // n'est plus une illustration fixe (`ui/plaisirs/salle.png`, retirée) mais une
-// scène PEINTE PAR LE CODE (iso/plaisirsSalle.js). Les coordonnées relevées à la
+// scène PEINTE PAR LE CODE (iso/plaisirsCoupeHD.js). Les coordonnées relevées à la
 // main ont disparu avec elle : chaque lieu a sa TABLE dans la salle cuite, du même
 // `id`, et c'est la cuisson qui rend son ancre (centre, rayon, pixels) — on clique
 // au pixel de la table. Un lieu qui n'a pas de table n'existe que dans le menu.
