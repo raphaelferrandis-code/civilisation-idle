@@ -41,10 +41,19 @@ import {
   shortcutRejection, setShortcutKey
 } from '../../game/core/shortcuts.js';
 import { tipProps } from '../ui/HelpBubble.jsx';
+import HelpBook from './HelpBook.jsx';
+
+// Libellé d'un réglage. Son explication passe en INFOBULLE : règle de DA du
+// 2026-10-03 (Raph) — aucune phrase d'explication à l'écran, les mécanismes du
+// jeu vont dans l'Aide, et ce que fait un réglage se lit au survol.
+function OptionLabel({ label, hint }) {
+  return <span {...tipProps(label, hint)}>{label}</span>;
+}
 
 export default function OptionsDialog({ isOpen, onClose, onSave, onExport, onImport }) {
   const dialogRef = useDialogModal(isOpen, onClose);
-  const [activeGroup, setActiveGroup] = useState("display"); // "display", "sound", "other", "credits", "script", "automates"
+  // L'Aide ouvre la fenêtre : c'est son SEUL accès (arbitrage Raph 2026-10-03).
+  const [activeGroup, setActiveGroup] = useState("aide"); // "aide", "display", "sound", "shortcuts", "other", "credits", "script", "automates"
   const [optionRevision, setOptionRevision] = useState(0);
   // Raccourci en cours de réattribution (id), et refus à afficher.
   const [capturingId, setCapturingId] = useState(null);
@@ -354,6 +363,35 @@ export default function OptionsDialog({ isOpen, onClose, onSave, onExport, onImp
 
   if (!isOpen) return null;
 
+  // SAUVEGARDE NUAGE : un état court à l'écran, la phrase qui l'explique en
+  // infobulle. L'ordre des tests est celui de la priorité (le pire d'abord).
+  const cloudDir = cloudSaveDir();
+  const cloudStatus = cloudDir ? cloudSaveStatus() : null;
+  const [cloudTone, cloudLabel, cloudText] = !cloudDir
+    ? ['off', tr({ fr: "Inactive", en: "Inactive" }), tr({
+        fr: "« Google Drive pour ordinateur » n'est pas détecté sur ce poste (fonction réservée à la version installée du jeu).",
+        en: "“Google Drive for desktop” was not detected on this device (feature only available in the installed build)."
+      })]
+    : cloudStatus === 'unreadable'
+    ? ['warn', tr({ fr: "En pause", en: "Paused" }), tr({
+        fr: `La partie déjà dans ${cloudDir} n'a pas pu être lue (Drive hors ligne ou fichier pas encore téléchargé). Rien n'est envoyé tant qu'elle reste illisible — ta partie du nuage est intacte. Vérifie que Google Drive est connecté, puis relance le jeu.`,
+        en: `The save already in ${cloudDir} could not be read (Drive offline, or the file is not downloaded yet). Nothing is uploaded while it stays unreadable — your cloud save is untouched. Check that Google Drive is connected, then restart the game.`
+      })]
+    : cloudStatus === 'newer'
+    ? ['warn', tr({ fr: "En pause", en: "Paused" }), tr({
+        fr: `La partie dans ${cloudDir} vient d'une version PLUS RÉCENTE du jeu. Pour ne pas la rétrograder, rien n'est envoyé depuis ce poste. Mets le jeu à jour ici, puis relance.`,
+        en: `The save in ${cloudDir} comes from a NEWER version of the game. To avoid downgrading it, nothing is uploaded from this device. Update the game here, then restart.`
+      })]
+    : cloudSyncInfo().ok === false
+    ? ['bad', tr({ fr: "Erreur", en: "Error" }), tr({
+        fr: `La dernière écriture vers ${cloudDir} a échoué (dossier en lecture seule, quota Drive plein ou fichier verrouillé). Ta partie n'est peut-être plus répliquée — vérifie Google Drive.`,
+        en: `The last write to ${cloudDir} failed (read-only folder, full Drive quota, or a locked file). Your game may no longer be replicated — check Google Drive.`
+      })]
+    : ['on', tr({ fr: "Active", en: "Active" }), tr({
+        fr: `La partie suit ton Google Drive (${cloudDir}) — lance le jeu sur un autre poste équipé, elle t'y attend.`,
+        en: `The save follows your Google Drive (${cloudDir}) — launch the game on another equipped device and it will be there.`
+      })];
+
   return (
     <dialog
       ref={dialogRef}
@@ -371,6 +409,16 @@ export default function OptionsDialog({ isOpen, onClose, onSave, onExport, onImp
             lecteur d'écran annonce cinq boutons sans dire lequel est actif ni
             qu'ils forment un groupe d'onglets. */}
         <div className="options-tabs" role="tablist" aria-label={tr({ fr: "Categories d'options", en: "Option categories" })}>
+          <button
+            className={`options-tab ${activeGroup === 'aide' ? 'active' : ''}`}
+            data-group="aide"
+            type="button"
+            role="tab"
+            aria-selected={activeGroup === 'aide'}
+            onClick={() => setActiveGroup('aide')}
+          >
+            {tr({ fr: "Aide", en: "Help" })}
+          </button>
           <button
             className={`options-tab ${activeGroup === 'display' ? 'active' : ''}`}
             type="button"
@@ -410,7 +458,7 @@ export default function OptionsDialog({ isOpen, onClose, onSave, onExport, onImp
             aria-selected={activeGroup === 'other'}
             onClick={() => setActiveGroup('other')}
           >
-            {tr({ fr: "Autre", en: "Other" })}
+            {tr({ fr: "Sauvegarde", en: "Saves" })}
           </button>
           <button
             className={`options-tab ${activeGroup === 'credits' ? 'active' : ''}`}
@@ -450,14 +498,18 @@ export default function OptionsDialog({ isOpen, onClose, onSave, onExport, onImp
 
         {/* Hauteur fixée en CSS, pas ici : voir .options-rows. Un onglet court
             (Son) et un onglet long (Affichage) doivent rendre la MÊME fenêtre. */}
-        <div className="options-rows" role="tabpanel">
+        {/* `is-help` : l'Aide défile en DEUX colonnes indépendantes (table des
+            chapitres, page) ; l'encart ne défile donc plus lui-même. */}
+        <div className={`options-rows${activeGroup === 'aide' ? ' is-help' : ''}`} role="tabpanel">
+          {/* HELP PANEL */}
+          {activeGroup === 'aide' && <HelpBook />}
+
           {/* DISPLAY PANEL */}
           {activeGroup === 'display' && (
             <>
               <div className="options-row">
                 <div>
-                  <span>{t('language')}</span>
-                  <small>{t('languageHint')}</small>
+                  <OptionLabel label={t('language')} hint={t('languageHint')} />
                 </div>
                 <div className="number-format-control">
                   <button
@@ -479,8 +531,7 @@ export default function OptionsDialog({ isOpen, onClose, onSave, onExport, onImp
 
               <div className="options-row">
                 <div>
-                  <span>{tr({ fr: "Notifications du fil", en: "Feed notifications" })}</span>
-                  <small>{tr({ fr: "Messages des habitants en haut de l'ecran", en: "Citizen messages at the top of the screen" })}</small>
+                  <OptionLabel label={tr({ fr: "Notifications du fil", en: "Feed notifications" })} hint={tr({ fr: "Messages des habitants en haut de l'ecran", en: "Citizen messages at the top of the screen" })} />
                 </div>
                 <button
                   type="button"
@@ -495,8 +546,7 @@ export default function OptionsDialog({ isOpen, onClose, onSave, onExport, onImp
 
               <div className="options-row">
                 <div>
-                  <span>{tr({ fr: "Format des nombres", en: "Number format" })}</span>
-                  <small>{tr({ fr: "Affichage compact, complet ou scientifique des ressources", en: "Compact, full or scientific display of resources" })}</small>
+                  <OptionLabel label={tr({ fr: "Format des nombres", en: "Number format" })} hint={tr({ fr: "Affichage compact, complet ou scientifique des ressources", en: "Compact, full or scientific display of resources" })} />
                 </div>
                 <div className="number-format-control">
                   <button
@@ -525,8 +575,7 @@ export default function OptionsDialog({ isOpen, onClose, onSave, onExport, onImp
 
               <div className="options-row">
                 <div>
-                  <span>{tr({ fr: "Cycle jour/nuit", en: "Day/night cycle" })}</span>
-                  <small>{tr({ fr: "Ambiance de la carte : cycle automatique, ou figée en plein jour / de nuit", en: "Map ambience: automatic cycle, or locked to daytime / nighttime" })}</small>
+                  <OptionLabel label={tr({ fr: "Cycle jour/nuit", en: "Day/night cycle" })} hint={tr({ fr: "Ambiance de la carte : cycle automatique, ou figée en plein jour / de nuit", en: "Map ambience: automatic cycle, or locked to daytime / nighttime" })} />
                 </div>
                 <div className="number-format-control">
                   <button
@@ -555,8 +604,7 @@ export default function OptionsDialog({ isOpen, onClose, onSave, onExport, onImp
 
               <div className="options-row">
                 <div>
-                  <span>{tr({ fr: "Qualité graphique", en: "Graphics quality" })}</span>
-                  <small>{tr({ fr: "Préréglage de performance de la carte (résolution, densité d'habitants, fluidité). « Auto » s'adapte à votre appareil ; baissez d'un cran si la carte saccade au zoom ou au déplacement.", en: "Map performance preset (resolution, citizen density, smoothness). “Auto” adapts to your device; lower a notch if the map stutters when zooming or panning." })}</small>
+                  <OptionLabel label={tr({ fr: "Qualité graphique", en: "Graphics quality" })} hint={tr({ fr: "Préréglage de performance de la carte (résolution, densité d'habitants, fluidité). « Auto » s'adapte à votre appareil ; baissez d'un cran si la carte saccade au zoom ou au déplacement.", en: "Map performance preset (resolution, citizen density, smoothness). “Auto” adapts to your device; lower a notch if the map stutters when zooming or panning." })} />
                 </div>
                 <div className="number-format-control">
                   <button
@@ -598,8 +646,7 @@ export default function OptionsDialog({ isOpen, onClose, onSave, onExport, onImp
                       L'asymétrie du cran intermédiaire est DITE, pas masquée :
                       une animation CSS se coupe ou ne se coupe pas, il n'y a
                       pas de demi-mesure côté interface. */}
-                  <span>{tr({ fr: "Mouvement", en: "Motion" })}</span>
-                  <small>{tr({ fr: "Mouvement d'ambiance sur la carte (feuilles, lucioles, fontaines) et animations de l'interface. Sans effet sur la netteté : la qualité sert la machine, ce réglage sert le confort. « Sobre » n'allège que la carte ; « Aucune » fige aussi l'interface.", en: "Ambient motion on the map (leaves, fireflies, fountains) and interface animations. Does not affect sharpness: quality serves the machine, this setting serves comfort. \"Sober\" only lightens the map; \"None\" also freezes the interface." })}</small>
+                  <OptionLabel label={tr({ fr: "Mouvement", en: "Motion" })} hint={tr({ fr: "Mouvement d'ambiance sur la carte (feuilles, lucioles, fontaines) et animations de l'interface. Sans effet sur la netteté : la qualité sert la machine, ce réglage sert le confort. « Sobre » n'allège que la carte ; « Aucune » fige aussi l'interface.", en: "Ambient motion on the map (leaves, fireflies, fountains) and interface animations. Does not affect sharpness: quality serves the machine, this setting serves comfort. \"Sober\" only lightens the map; \"None\" also freezes the interface." })} />
                 </div>
                 <div className="number-format-control">
                   <button
@@ -638,8 +685,7 @@ export default function OptionsDialog({ isOpen, onClose, onSave, onExport, onImp
                   un réglage qui se bat avec la mise en page. */}
               <div className="options-row" data-opt="density">
                 <div>
-                  <span>{tr({ fr: "Densité des panneaux", en: "Panel density" })}</span>
-                  <small>{tr({ fr: "Espacement des panneaux et des rangées de la boutique. « Compacte » fait tenir plus de lignes à l'écran sans rien réduire du texte, utile sur un petit écran.", en: "Spacing of panels and shop rows. “Compact” fits more lines on screen without shrinking any text, useful on a small display." })}</small>
+                  <OptionLabel label={tr({ fr: "Densité des panneaux", en: "Panel density" })} hint={tr({ fr: "Espacement des panneaux et des rangées de la boutique. « Compacte » fait tenir plus de lignes à l'écran sans rien réduire du texte, utile sur un petit écran.", en: "Spacing of panels and shop rows. “Compact” fits more lines on screen without shrinking any text, useful on a small display." })} />
                 </div>
                 <div className="number-format-control">
                   <button
@@ -672,8 +718,7 @@ export default function OptionsDialog({ isOpen, onClose, onSave, onExport, onImp
                   est le cran au-dessus. */}
               <div className="options-row">
                 <div>
-                  <span>{tr({ fr: "Contraste renforcé", en: "High contrast" })}</span>
-                  <small>{tr({ fr: "Éclaircit les textes secondaires et marque les séparations entre panneaux. Utile sur un écran peu contrasté, en plein jour, ou si les petits textes gris vous demandent un effort.", en: "Brightens secondary text and strengthens the separations between panels. Useful on a low-contrast display, in daylight, or if small grey text takes you effort." })}</small>
+                  <OptionLabel label={tr({ fr: "Contraste renforcé", en: "High contrast" })} hint={tr({ fr: "Éclaircit les textes secondaires et marque les séparations entre panneaux. Utile sur un écran peu contrasté, en plein jour, ou si les petits textes gris vous demandent un effort.", en: "Brightens secondary text and strengthens the separations between panels. Useful on a low-contrast display, in daylight, or if small grey text takes you effort." })} />
                 </div>
                 <div className="number-format-control">
                   <button
@@ -695,8 +740,7 @@ export default function OptionsDialog({ isOpen, onClose, onSave, onExport, onImp
 
               <div className="options-row">
                 <div>
-                  <span>{tr({ fr: "Météo", en: "Weather" })}</span>
-                  <small>{tr({ fr: "« Auto » fait passer une averse courte de temps en temps : la lumière baisse, il pleut, les rues se vident, puis le temps se dégage. En hiver la même averse tombe en neige. Figez sur Dégagé si vous préférez une image stable.", en: "“Auto” brings a short shower now and then: the light dims, it rains, the streets empty, then it clears. In winter the same shower falls as snow. Set to Clear if you prefer a stable image." })}</small>
+                  <OptionLabel label={tr({ fr: "Météo", en: "Weather" })} hint={tr({ fr: "« Auto » fait passer une averse courte de temps en temps : la lumière baisse, il pleut, les rues se vident, puis le temps se dégage. En hiver la même averse tombe en neige. Figez sur Dégagé si vous préférez une image stable.", en: "“Auto” brings a short shower now and then: the light dims, it rains, the streets empty, then it clears. In winter the same shower falls as snow. Set to Clear if you prefer a stable image." })} />
                 </div>
                 <div className="number-format-control">
                   <button
@@ -725,8 +769,7 @@ export default function OptionsDialog({ isOpen, onClose, onSave, onExport, onImp
 
               <div className="options-row">
                 <div>
-                  <span>{tr({ fr: "Saison", en: "Season" })}</span>
-                  <small>{tr({ fr: "L'herbe, les fleurs et les feuillages changent de couleur au fil de quatre saisons très lentes. Seul repère de temps long de la carte : revenir après une longue absence montre une ville d'une autre couleur.", en: "Grass, flowers and foliage change color across four very slow seasons. The map's only marker of long time: coming back after a long absence shows a city of another color." })}</small>
+                  <OptionLabel label={tr({ fr: "Saison", en: "Season" })} hint={tr({ fr: "L'herbe, les fleurs et les feuillages changent de couleur au fil de quatre saisons très lentes. Seul repère de temps long de la carte : revenir après une longue absence montre une ville d'une autre couleur.", en: "Grass, flowers and foliage change color across four very slow seasons. The map's only marker of long time: coming back after a long absence shows a city of another color." })} />
                 </div>
                 <div className="number-format-control">
                   <button className={`format-option ${seasonMode === 'auto' ? 'active' : ''}`} type="button" onClick={() => handleSeasonChange('auto')}>
@@ -754,8 +797,7 @@ export default function OptionsDialog({ isOpen, onClose, onSave, onExport, onImp
             <>
               <div className="options-row">
                 <div>
-                  <span>{tr({ fr: "Musique", en: "Music" })}</span>
-                  <small>{tr({ fr: "Ambiance sonore de fond", en: "Background ambient sound" })}</small>
+                  <OptionLabel label={tr({ fr: "Musique", en: "Music" })} hint={tr({ fr: "Ambiance sonore de fond", en: "Background ambient sound" })} />
                 </div>
                 <button
                   type="button"
@@ -770,8 +812,7 @@ export default function OptionsDialog({ isOpen, onClose, onSave, onExport, onImp
 
               <div className="options-row options-row-volume">
                 <div>
-                  <span>{tr({ fr: "Volume", en: "Volume" })}</span>
-                  <small>{tr({ fr: "Niveau de la musique de fond", en: "Background music level" })}</small>
+                  <OptionLabel label={tr({ fr: "Volume", en: "Volume" })} hint={tr({ fr: "Niveau de la musique de fond", en: "Background music level" })} />
                 </div>
                 <div className="volume-control" style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
                   <input
@@ -791,8 +832,7 @@ export default function OptionsDialog({ isOpen, onClose, onSave, onExport, onImp
 
               <div className="options-row">
                 <div>
-                  <span>{tr({ fr: "Musique seulement en onglet actif", en: "Music only in active tab" })}</span>
-                  <small>{tr({ fr: "Met la musique en pause quand le jeu est en arrière-plan", en: "Pauses the music when the game is in the background" })}</small>
+                  <OptionLabel label={tr({ fr: "Musique seulement en onglet actif", en: "Music only in active tab" })} hint={tr({ fr: "Met la musique en pause quand le jeu est en arrière-plan", en: "Pauses the music when the game is in the background" })} />
                 </div>
                 <button
                   type="button"
@@ -819,8 +859,7 @@ export default function OptionsDialog({ isOpen, onClose, onSave, onExport, onImp
                      il se réattribue. */
                   <div key={def.id} className="options-row">
                     <div>
-                      <span>{tr(def.label)}</span>
-                      <small>{tr(def.hint)}</small>
+                      <OptionLabel label={tr(def.label)} hint={tr(def.hint)} />
                     </div>
                     <div className="shortcut-controls">
                       <button
@@ -841,16 +880,14 @@ export default function OptionsDialog({ isOpen, onClose, onSave, onExport, onImp
 
               <div className="options-row">
                 <div>
-                  <span>{tr({ fr: "Aller à une vue", en: "Go to a view" })}</span>
-                  <small>{tr({ fr: "Les vues débloquées, dans l'ordre de la barre latérale", en: "Unlocked views, in sidebar order" })}</small>
+                  <OptionLabel label={tr({ fr: "Aller à une vue", en: "Go to a view" })} hint={tr({ fr: "Les vues débloquées, dans l'ordre de la barre latérale", en: "Unlocked views, in sidebar order" })} />
                 </div>
                 <kbd className="shortcut-kbd">1 – 8</kbd>
               </div>
 
               <div className="options-row">
                 <div>
-                  <span>{tr({ fr: "Ouvrir les options", en: "Open options" })}</span>
-                  <small>{tr({ fr: "Ouvre ce menu à tout moment, et quitte la contemplation. Non réattribuable : c'est le chemin de secours.", en: "Opens this menu at any time, and leaves contemplation. Not remappable: it is the way back." })}</small>
+                  <OptionLabel label={tr({ fr: "Ouvrir les options", en: "Open options" })} hint={tr({ fr: "Ouvre ce menu à tout moment, et quitte la contemplation. Non réattribuable : c'est le chemin de secours.", en: "Opens this menu at any time, and leaves contemplation. Not remappable: it is the way back." })} />
                 </div>
                 <kbd className="shortcut-kbd">{tr({ fr: "Échap", en: "Esc" })}</kbd>
               </div>
@@ -869,11 +906,13 @@ export default function OptionsDialog({ isOpen, onClose, onSave, onExport, onImp
             {(onSave || onExport || onImport) && (
               <div className="options-row" data-opt="save-actions">
                 <div>
-                  <span>{tr({ fr: "Sauvegarde", en: "Save" })}</span>
-                  <small>{tr({
-                    fr: "La partie s'enregistre toute seule ; ces boutons servent à forcer un enregistrement, à sortir une copie de secours ou à en recharger une.",
-                    en: "The game saves itself; these buttons force a save, produce a backup copy, or load one back."
-                  })}</small>
+                  <OptionLabel
+                    label={tr({ fr: "Sauvegarde", en: "Save" })}
+                    hint={tr({
+                      fr: "La partie s'enregistre toute seule ; ces boutons servent à forcer un enregistrement, à sortir une copie de secours ou à en recharger une.",
+                      en: "The game saves itself; these buttons force a save, produce a backup copy, or load one back."
+                    })}
+                  />
                 </div>
                 <div className="options-save-actions">
                   {onSave && (
@@ -892,11 +931,13 @@ export default function OptionsDialog({ isOpen, onClose, onSave, onExport, onImp
                 qui dure des mois n'avait aucun filet avant un geste risqué. */}
             <div className="options-row">
               <div>
-                <span>{tr({ fr: "Emplacements de sauvegarde", en: "Save slots" })}</span>
-                <small>{tr({
-                  fr: "Trois instantanés manuels, indépendants de la sauvegarde automatique. Utile avant un Grand Reset ou un Mythe risqué.",
-                  en: "Three manual snapshots, separate from the autosave. Useful before a Great Reset or a risky Myth."
-                })}</small>
+                <OptionLabel
+                  label={tr({ fr: "Emplacements de sauvegarde", en: "Save slots" })}
+                  hint={tr({
+                    fr: "Trois instantanés manuels, indépendants de la sauvegarde automatique. Utile avant un Grand Reset ou un Mythe risqué.",
+                    en: "Three manual snapshots, separate from the autosave. Useful before a Great Reset or a risky Myth."
+                  })}
+                />
               </div>
               <button type="button" onClick={handleSaveToFile}>
                 {tr({ fr: "Exporter en fichier", en: "Export to file" })}
@@ -930,43 +971,26 @@ export default function OptionsDialog({ isOpen, onClose, onSave, onExport, onImp
               );
             })}
 
+            {/* Un ÉTAT court à l'écran (Active / En pause / Erreur / Inactive) ;
+                la phrase qui l'explique passe en infobulle — règle de DA du
+                2026-10-03 : aucune phrase d'explication à l'écran. */}
             <div className="options-row">
               <div>
                 <span>{tr({ fr: "Sauvegarde nuage", en: "Cloud save" })}</span>
-                <small>
-                  {!cloudSaveDir()
-                    ? tr({
-                        fr: "Inactive : « Google Drive pour ordinateur » n'est pas détecté sur ce poste (fonction réservée à la version installée du jeu).",
-                        en: "Inactive: “Google Drive for desktop” was not detected on this device (feature only available in the installed build)."
-                      })
-                    : cloudSaveStatus() === 'unreadable'
-                    ? tr({
-                        fr: `En pause : la partie déjà dans ${cloudSaveDir()} n'a pas pu être lue (Drive hors ligne ou fichier pas encore téléchargé). Rien n'est envoyé tant qu'elle reste illisible — ta partie du nuage est intacte. Vérifie que Google Drive est connecté, puis relance le jeu.`,
-                        en: `Paused: the save already in ${cloudSaveDir()} could not be read (Drive offline, or the file is not downloaded yet). Nothing is uploaded while it stays unreadable — your cloud save is untouched. Check that Google Drive is connected, then restart the game.`
-                      })
-                    : cloudSaveStatus() === 'newer'
-                    ? tr({
-                        fr: `En pause : la partie dans ${cloudSaveDir()} vient d'une version PLUS RÉCENTE du jeu. Pour ne pas la rétrograder, rien n'est envoyé depuis ce poste. Mets le jeu à jour ici, puis relance.`,
-                        en: `Paused: the save in ${cloudSaveDir()} comes from a NEWER version of the game. To avoid downgrading it, nothing is uploaded from this device. Update the game here, then restart.`
-                      })
-                    : cloudSyncInfo().ok === false
-                    ? tr({
-                        fr: `Attention : la dernière écriture vers ${cloudSaveDir()} a échoué (dossier en lecture seule, quota Drive plein ou fichier verrouillé). Ta partie n'est peut-être plus répliquée — vérifie Google Drive.`,
-                        en: `Warning: the last write to ${cloudSaveDir()} failed (read-only folder, full Drive quota, or a locked file). Your game may no longer be replicated — check Google Drive.`
-                      })
-                    : tr({
-                        fr: `Active : la partie suit ton Google Drive (${cloudSaveDir()}) — lance le jeu sur un autre poste équipé, elle t'y attend.`,
-                        en: `Active: the save follows your Google Drive (${cloudSaveDir()}) — launch the game on another equipped device and it will be there.`
-                      })}
-                </small>
               </div>
+              <span
+                className={`options-status is-${cloudTone}`}
+                tabIndex={0}
+                {...tipProps(tr({ fr: "Sauvegarde nuage", en: "Cloud save" }), cloudText)}
+              >
+                {cloudLabel}
+              </span>
             </div>
           </>)}
           {activeGroup === 'other' && (
             <div className="options-row options-row-danger">
               <div>
-                <span>{tr({ fr: "Réinitialiser la partie", en: "Reset the game" })}</span>
-                <small>{tr({ fr: "Efface toute la progression - irréversible", en: "Erases all progress - irreversible" })}</small>
+                <OptionLabel label={tr({ fr: "Réinitialiser la partie", en: "Reset the game" })} hint={tr({ fr: "Efface toute la progression - irréversible", en: "Erases all progress - irreversible" })} />
               </div>
               <button
                 type="button"

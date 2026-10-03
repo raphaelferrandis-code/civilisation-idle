@@ -1,0 +1,274 @@
+/* ============================================================================
+   L'AIDE — Options › Aide (HelpBook.jsx, contenu dans helpChapters.js).
+   ----------------------------------------------------------------------------
+   Une table des chapitres en cuir, une page de lecture. Chargé APRÈS
+   chrome-wizard.css : la table reprend la doctrine des segments (chapitre
+   retenu = cuir ÉCLAIRÉ, jamais or ; les autres assombris, cran visible) et doit
+   donc arbitrer après la plaque de base `.app button::before`.
+   ============================================================================ */
+
+/* L'encart des Options ne défile plus lui-même : la table et la page défilent
+   chacune de leur côté, pour que la liste des chapitres reste sous la main. */
+.options-rows.is-help {
+  overflow: hidden;
+  scrollbar-gutter: auto;
+  border-color: transparent;
+}
+
+.help-book {
+  display: grid;
+  grid-template-columns: minmax(12rem, 16rem) minmax(0, 1fr);
+  gap: 1.5rem;
+  height: 100%;
+  min-height: 0;
+}
+
+/* ── LA TABLE DES CHAPITRES ─────────────────────────────────────────────────── */
+.help-toc {
+  display: flex;
+  flex-direction: column;
+  gap: 0.3rem;
+  min-height: 0;
+  overflow: auto;
+  padding: 0.2rem 0.4rem 0.6rem 0.1rem;
+  scrollbar-width: thin;
+  scrollbar-color: rgba(201, 169, 104, 0.3) transparent;
+}
+
+.app .help-ch {
+  display: flex;
+  flex: none;
+  align-items: center;
+  gap: 0.6rem;
+  width: 100%;
+  min-height: 2.6rem;
+  padding: 0.45rem 0.75rem 0.5rem 0.65rem;
+  text-align: left;
+  font: 600 0.9rem/1.15 var(--font-body);
+  color: var(--skin-cream);
+}
+/* Petite plaque de cuir, ASSOMBRIE au repos : la silhouette et son cran
+   subsistent (« ça se clique »), le poids visuel recule. */
+.app .help-ch::before {
+  border-width: 4px 2px 4px 4px;
+  border-image: url("/pixelart/ui/chrome/wizard/button-sm.png") 2 1 2 2 fill stretch;
+  filter: brightness(0.52) saturate(0.65);
+}
+.app .help-ch:hover:not(:disabled):not(.active)::before {
+  filter: brightness(0.85) saturate(0.85);
+}
+.app .help-ch.active::before {
+  filter: none;
+}
+.app .help-ch.active {
+  color: #FFF3E2;
+}
+.help-ch .px-icon {
+  width: 24px;
+  height: 24px;
+  flex: none;
+}
+.help-ch-n {
+  min-width: 1.2rem;
+  font: 400 0.7rem/1 var(--font-number);
+  color: var(--text-mid);
+}
+.help-ch.active .help-ch-n {
+  color: var(--gold-bright);
+}
+.help-ch-t {
+  min-width: 0;
+}
+/* Chapitre d'un lieu pas encore découvert : présent (la table ne change pas de
+   longueur), mais sans titre ni plaque. */
+.app .help-ch.is-locked {
+  cursor: default;
+  color: var(--text-weak);
+  font-style: italic;
+  opacity: 0.6;
+}
+.app .help-ch.is-locked::before {
+  border-image: none;
+}
+
+/* ── LA PAGE ────────────────────────────────────────────────────────────────── */
+.help-page {
+  min-height: 0;
+  overflow: auto;
+  padding: 0.1rem 1.2rem 1.6rem 0.2rem;
+  scrollbar-width: thin;
+  scrollbar-color: rgba(201, 169, 104, 0.3) transparent;
+}
+.help-page > * {
+  max-width: 50rem;
+}
+.help-page:focus-visible {
+  outline: 2px solid var(--gold-bright);
+  outline-offset: 4px;
+}
+
+.help-eyebrow {
+  display: block;
+  font: 700 0.7rem/1 var(--font-body);
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--gold-dim);
+}
+
+.help-title {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  margin: 0.45rem 0 0.7rem;
+  font: 400 2.2rem/1 var(--font-title);
+  color: var(--gold-ivory);
+}
+.help-title .px-icon {
+  width: 48px;
+  height: 48px;
+  flex: none;
+}
+
+.help-lede {
+  margin: 0;
+  font: 400 1.05rem/1.6 var(--font-serif);
+  color: var(--text-strong);
+}
+
+.help-sec {
+  margin-top: 1.5rem;
+}
+.help-sec h4 {
+  margin: 0;
+  padding-bottom: 0.5rem;
+  font: 700 0.72rem/1 var(--font-body);
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--gold-dim);
+  box-shadow: inset 0 -2px 0 color-mix(in srgb, var(--skin-ink), transparent 20%);
+}
+
+.help-dl {
+  margin: 0;
+}
+.help-dl > div {
+  display: grid;
+  grid-template-columns: 11.5rem minmax(0, 1fr);
+  gap: 1.2rem;
+  padding: 0.65rem 0.3rem;
+  box-shadow: inset 0 -1px 0 color-mix(in srgb, var(--skin-ink), transparent 55%);
+}
+.help-dl > div:nth-child(even) {
+  background: color-mix(in srgb, var(--skin-field), transparent 93%);
+}
+.help-dl dt {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  gap: 0.4rem;
+  font: 400 1.15rem/1.2 var(--font-title);
+  color: var(--text-strong);
+}
+.help-dl dd {
+  margin: 0;
+  font: 400 0.93rem/1.6 var(--font-body);
+  color: var(--text-secondary);
+}
+
+/* Étiquette d'ère (« Ère II ») : pastille PLATE à angle vif, comme les autres. */
+.help-tag {
+  padding: 0.2rem 0.35rem 0.15rem;
+  font: 700 0.62rem/1 var(--font-body);
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--gold-ivory);
+  background: color-mix(in srgb, var(--skin-field), transparent 45%);
+  box-shadow: inset 0 0 0 1px var(--skin-ink);
+}
+
+/* Pastille de couleur des médaillons de l'arbre des Ruines (seul rond voulu :
+   elle reproduit l'anneau d'un médaillon). */
+.help-dot {
+  display: inline-block;
+  flex: none;
+  width: 0.75rem;
+  height: 0.75rem;
+  margin-top: 0.28rem;
+  border-radius: 50%;
+  background: #0B0910;
+  box-shadow: 0 0 0 2px var(--c), 0 0 6px var(--c);
+}
+
+/* Touches du clavier citées dans le texte : une petite plaque de cuir. */
+.help-kbd {
+  display: inline-block;
+  min-width: 1.6rem;
+  margin: 0 0.1rem;
+  padding: 0.12rem 0.4rem 0.18rem;
+  font: 700 0.75rem/1.2 var(--font-body);
+  text-align: center;
+  white-space: nowrap;
+  color: var(--skin-cream);
+  background: var(--skin-field);
+  border: 2px solid var(--skin-ink);
+  box-shadow: inset 0 2px 0 var(--skin-raise), inset 0 -3px 0 var(--skin-bevel);
+}
+
+.help-nav {
+  display: flex;
+  justify-content: space-between;
+  gap: 1rem;
+  margin-top: 2rem;
+  padding-top: 1rem;
+  box-shadow: inset 0 2px 0 color-mix(in srgb, var(--skin-ink), transparent 20%);
+}
+.app .help-nav-btn {
+  min-height: 2.2rem;
+  padding: 0.4rem 0.9rem 0.5rem;
+  font-size: 0.85rem;
+}
+
+/* ── ÉTAT DE LA SAUVEGARDE NUAGE (onglet Sauvegarde) ──────────────────────────
+   Un mot à l'écran, la phrase en infobulle. Pastille plate à angle vif. */
+.options-status {
+  flex: none;
+  padding: 0.3rem 0.55rem;
+  font: 700 0.72rem/1 var(--font-body);
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  cursor: help;
+  color: var(--text-mid);
+  box-shadow: inset 0 0 0 1px currentColor;
+}
+.options-status.is-on { color: #A8C860; }
+.options-status.is-warn { color: #E0B057; }
+.options-status.is-bad { color: #EF4444; }
+
+/* ── PETIT ÉCRAN : la table passe en bandeau défilant au-dessus de la page ── */
+@media (max-width: 720px) {
+  .help-book {
+    grid-template-columns: minmax(0, 1fr);
+    grid-template-rows: auto minmax(0, 1fr);
+    gap: 0.8rem;
+  }
+  .help-toc {
+    flex-direction: row;
+    overflow-x: auto;
+    overflow-y: hidden;
+    padding-bottom: 0.4rem;
+  }
+  .app .help-ch {
+    width: auto;
+    white-space: nowrap;
+  }
+  .app .help-ch.is-locked .help-ch-t {
+    display: none;
+  }
+  .help-dl > div {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 0.25rem;
+  }
+  .help-title {
+    font-size: 1.8rem;
+  }
+}

@@ -12,6 +12,7 @@ import { useGameState } from './hooks/useGameState.js';
 import { usePointerCoarse } from './hooks/usePointerCoarse.js';
 import { state, renderCache, openView, save, getLastSaveError } from './game/core/state.js';
 import { uiRevealed, uiRevealFresh } from './game/core/uiReveal.js';
+import { placeUnlocked } from './game/core/places.js';
 import { pushOutcomeFloat } from './game/core/outcomeFloat.js';
 import { resolveShortcut, resolveViewDigit } from './game/core/shortcuts.js';
 import { tabBadgeSignature, parseTabBadges } from './game/core/mechanics/tabBadges.js';
@@ -81,8 +82,6 @@ const DebugDialog = lazy(() => import('./components/dialogs/DebugDialog.jsx'));
 
 export default function App() {
   const activeView = useGameState(s => s.activeView);
-  const cycles = useGameState(s => s.cycles);
-  const grandResetCount = useGameState(s => s.grandResetCount || 0);
   const mourning = useGameState(s => s.mourning);
   // Niveau de crise continu (0→1), arrondi au pas de 5% pour limiter les re-renders.
   // Pilote la vignette progressive et la teinte de la carte via --crisis-level.
@@ -243,16 +242,12 @@ export default function App() {
     setChoiceDialog(dialog);
   })), []);
 
-  // Determine which tabs are unlocked
-  const isRuinsUnlocked = cycles >= 1 || grandResetCount > 0;
-  // Boutique : s'ouvre au 1er effondrement (Ruines) — ou dès qu'on détient de la
-  // Faveur (gagnable aux jeux du temple dès le cycle 0), sinon elle serait
-  // indépensable tant que la Boutique de Faveur y vit.
-  const hasFaveur = useGameState(s => (s.faveur || 0) > 0);
-  const isShopUnlocked = cycles >= 1 || grandResetCount > 0 || hasFaveur;
-  // « Le Comptoir » : l'onglet Marchandage, héritage du Mythe de l'Âge d'Or.
-  const isComptoirUnlocked = useGameState(s => Boolean(s.orHeritage));
-  const isMythsUnlocked = grandResetCount >= 1;
+  // Quels lieux sont ouverts : places.js, source partagée avec les chapitres de
+  // l'Aide (Options) — l'Aide ne doit pas ouvrir un chapitre que le rail cache.
+  const isRuinsUnlocked = useGameState((s) => placeUnlocked(s, 'ruinsView'));
+  const isShopUnlocked = useGameState((s) => placeUnlocked(s, 'tech'));
+  const isComptoirUnlocked = useGameState((s) => placeUnlocked(s, 'comptoir'));
+  const isMythsUnlocked = useGameState((s) => placeUnlocked(s, 'mythView'));
   // LE JEU QUI SE DÉVOILE (uiReveal.js). Pendant la TOUTE PREMIÈRE partie, la
   // Régulation et l'Effondrement arrivent avec la tension (premier quart de
   // Rupture), les Plaisirs avec leur premier jeu jouable, les boutons de

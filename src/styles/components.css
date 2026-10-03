@@ -1085,11 +1085,14 @@ dialog::backdrop { background: rgba(8, 5, 1, 0.72); }
    La première déclaration de chaque paire est le REPLI : si `round()` manquait,
    la seconde serait invalide et ignorée, sans casser la mise en page.
    88px = 48+40 (bandes gauche et droite), 90px = 48+42 (haute et basse). */
+/* 72rem × 52rem (2026-10-03) : la fenêtre porte aussi l'Aide, une table des
+   chapitres ET une page de lecture côte à côte ; à 52rem la page tombait sous
+   35 caractères par ligne. Même taille pour tous les onglets, comme avant. */
 .options-dialog {
-  width: min(52rem, calc(100vw - 2rem));
-  width: calc(88px + round(down, min(52rem, 100vw - 2rem) - 88px, 19px));
+  width: min(72rem, calc(100vw - 2rem));
+  width: calc(88px + round(down, min(72rem, 100vw - 2rem) - 88px, 19px));
   max-height: calc(100vh - 2rem);
-  height: calc(90px + round(down, min(48rem, 100vh - 2rem) - 90px, 19px));
+  height: calc(90px + round(down, min(52rem, 100vh - 2rem) - 90px, 19px));
   padding: 0;
   overflow: hidden;
 }
