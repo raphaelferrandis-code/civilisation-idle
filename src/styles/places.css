@@ -1,0 +1,182 @@
+/* ============================================================================
+   LES LIEUX ILLUSTRÉS — chaque onglet est un lieu (refonte « la ville
+   d'abord », maquette V4 validée par Raph le 2026-10-03).
+   ----------------------------------------------------------------------------
+   Un décor pixel art en BANDEAU (PlaceScene.jsx : agrandi d'un facteur entier,
+   cadré sur son point d'intérêt), le nom du lieu POSÉ dessus avec ses chiffres
+   clés, puis le contenu sur la nuit. Le Conseil l'inaugure ; la Veille, les
+   Mythes, le Comptoir et la Chronique suivront avec les mêmes briques.
+   Peau du jeu : angle vif, contour dur, pas de verre sous le texte ; or =
+   cliquable maintenant, cuir = état (chrome-wizard.css fait foi).
+   Chargé APRÈS chrome-wizard.css.
+   ============================================================================ */
+
+.app .place-view {
+  /* Hauteur du bandeau : un lieu peut la régler par `--place-band`. */
+  --place-band: clamp(9rem, 19vh, 16rem);
+  position: relative;
+  display: grid;
+  grid-template-rows: var(--place-band) minmax(0, 1fr);
+  grid-template-columns: minmax(0, 1fr);
+  /* Le bandeau va jusqu'aux bords : on reprend la marge intérieure de <main>. */
+  margin: 0 -0.75rem -0.75rem;
+  min-height: 0;
+  background: var(--surface-app);
+}
+
+/* ── LE DÉCOR ─────────────────────────────────────────────────────────────── */
+.place-scene {
+  position: relative;
+  overflow: hidden;
+  background: #07090F;
+}
+.place-scene-img,
+.place-scene-overlay {
+  position: absolute;
+  max-width: none;
+}
+.place-scene-img {
+  image-rendering: pixelated;
+  user-select: none;
+}
+.app .place-view > .place-band {
+  grid-row: 1;
+  grid-column: 1;
+}
+/* Fondu vers la nuit en bas (le contenu prend la suite) et voile à gauche
+   (sous le titre). Des dégradés de COULEUR, pas de flou. */
+.app .place-view > .place-band::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background:
+    linear-gradient(180deg, rgba(8, 10, 18, 0) 34%, rgba(14, 19, 32, 0.62) 74%, var(--surface-app) 100%),
+    linear-gradient(90deg, rgba(8, 10, 18, 0.72) 0%, rgba(8, 10, 18, 0) 42%);
+}
+
+/* ── LE TITRE ET LES CHIFFRES CLÉS, POSÉS SUR LE DÉCOR ───────────────────────── */
+.app .place-head {
+  grid-row: 1;
+  grid-column: 1;
+  align-self: end;
+  position: relative;
+  z-index: 2;
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 2rem;
+  margin: 0 2rem 1rem;
+  min-width: 0;
+}
+.app .place-title {
+  display: grid;
+  gap: 0.4rem;
+  min-width: 0;
+}
+.app .place-eyebrow {
+  font: 700 0.72rem/1 var(--font-body);
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--gold-bright);
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.9);
+}
+.app .place-view .place-name {
+  margin: 0;
+  font: 400 clamp(2.2rem, 1.4rem + 1.6vw, 3.6rem)/0.95 var(--font-title);
+  color: var(--gold-ivory);
+  text-shadow: 0 3px 0 rgba(0, 0, 0, 0.6), 0 0 26px rgba(0, 0, 0, 0.7);
+}
+
+.app .place-keys {
+  display: flex;
+  gap: 0.6rem;
+  align-items: stretch;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+}
+/* Une clé = une plaque opaque à contour dur (même recette que les cartes de
+   lecture du pack : la matière recule, ce n'est pas un objet à saisir). */
+.app .place-key {
+  display: grid;
+  align-content: start;
+  gap: 0.45rem;
+  min-width: 9rem;
+  padding: 0.7rem 0.9rem 0.75rem;
+  background: rgba(10, 13, 22, 0.94);
+  box-shadow:
+    inset 0 0 0 2px var(--skin-ink),
+    inset 0 0 0 3px rgba(196, 204, 221, 0.06),
+    0 3px 0 rgba(0, 0, 0, 0.35);
+}
+.app .place-key.is-wide { min-width: 17rem; }
+.app .place-key-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 1rem;
+}
+.app .place-key-label {
+  font: 700 0.68rem/1 var(--font-body);
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--text-mid);
+}
+.app .place-key-val {
+  font: 400 1.35rem/1 var(--font-number);
+  color: var(--text-strong);
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+.app .place-key-sub {
+  font: 500 0.75rem/1.2 var(--font-body);
+  color: var(--text-mid);
+}
+.app .place-key-sub b {
+  font-family: var(--font-number);
+  font-weight: 400;
+  color: var(--text-strong);
+}
+.app .place-view .is-rupture { color: #FF8F73; }
+.app .place-view .is-good { color: #7FC6E6; }
+.app .place-view .is-bad { color: #F0A36B; }
+
+/* ── LE CONTENU ───────────────────────────────────────────────────────────── */
+.app .place-body {
+  grid-row: 2;
+  grid-column: 1;
+  position: relative;
+  z-index: 1;
+  min-height: 0;
+  overflow: auto;
+  display: grid;
+  align-content: start;
+  gap: 1rem;
+  padding: 0.4rem 2rem 1.5rem;
+  scrollbar-width: thin;
+  scrollbar-color: rgba(201, 169, 104, 0.3) transparent;
+}
+
+/* Un plateau de lieu : surface OPAQUE, contour dur, angle vif. */
+.app .place-plate {
+  background: rgba(13, 16, 26, 0.96);
+  box-shadow:
+    inset 0 0 0 1px rgba(0, 0, 0, 0.6),
+    inset 0 0 0 2px rgba(196, 204, 221, 0.06),
+    0 3px 0 rgba(0, 0, 0, 0.35);
+}
+
+/* ── PETIT ÉCRAN : le titre passe au-dessus des clés, les marges se resserrent ── */
+@media (max-width: 900px) {
+  .app .place-view { --place-band: clamp(8rem, 26vw, 12rem); }
+  .app .place-head {
+    margin: 0 1rem 0.8rem;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 0.8rem;
+  }
+  .app .place-keys { justify-content: flex-start; }
+  .app .place-key,
+  .app .place-key.is-wide { min-width: 0; }
+  .app .place-body { padding: 0.4rem 1rem 1.2rem; }
+}

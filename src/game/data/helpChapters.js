@@ -123,10 +123,10 @@ export const HELP_CHAPTERS = [
     id: 'regulation',
     place: 'regulation',
     icon: 'nav/regulation',
-    title: { fr: 'La Régulation', en: 'Regulation' },
+    title: { fr: 'Le Conseil', en: 'The Council' },
     lede: {
-      fr: 'La Rupture mesure la tension de la cité. La Régulation montre d\'où elle vient et ce que tu peux y faire.',
-      en: 'Rupture measures the strain on the city. Regulation shows where it comes from and what you can do about it.'
+      fr: 'La Rupture mesure la tension de la cité. Le Conseil montre d\'où elle vient et ce que tu peux y faire.',
+      en: 'Rupture measures the strain on the city. The Council shows where it comes from and what you can do about it.'
     },
     secs: [
       {
@@ -187,7 +187,7 @@ export const HELP_CHAPTERS = [
         ]
       },
       {
-        h: { fr: 'Relancer ou tomber', en: 'Revive or fall' },
+        h: { fr: 'La chute', en: 'The fall' },
         items: [
           { t: { fr: 'Les rites de la chute', en: 'The rites of the fall' }, d: { fr: 'Organiser l\'exode, Préparer les archives, Maintenir l\'ordre : un seul par chute, et la cité ne repart pas. Le rite augmente les Ruines de la chute et en décide la cause. Il se paie en secondes de production de sa ressource (Nourriture, Savoir, Trésor) : Mesuré, Drastique et Total demandent de plus en plus de réserve. Sans production de sa ressource, pas de rite.', en: 'Organize the exodus, Prepare the archives, Maintain order: only one per fall, and the city does not start again. The rite raises the Ruins of the fall and decides its cause. It is paid in seconds of production of its resource (Food, Knowledge, Treasury): Measured, Drastic and Total need more and more in reserve. Without production of its resource, no rite.' } },
           { t: { fr: 'Le bilan', en: 'The tally' }, d: { fr: 'Les Ruines que rapporterait la chute. La patience du cycle les augmente avec la durée du cycle ; elle reste figée pendant la crise.', en: 'The Ruins the fall would bring. Cycle patience raises them with the length of the cycle; it stays frozen during the crisis.' } },

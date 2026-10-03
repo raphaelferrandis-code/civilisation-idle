@@ -1,0 +1,361 @@
+/* ============================================================================
+   LE CONSEIL — l'onglet Régulation, « comprendre et agir » (RegulationView.jsx).
+   ----------------------------------------------------------------------------
+   L'équation de la cible, un dossier par source avec ses décrets chiffrés, puis
+   les politiques, l'Intendance et les derniers décrets. Mise en page du lieu :
+   places.css. Peau : chrome-wizard.css (décret = bouton de cuir, politique =
+   carte du pack, retenu = cuir éclairé, jamais or).
+   Chargé APRÈS places.css.
+   ============================================================================ */
+
+/* L'ancienne Régulation était une colonne flex (views-regulation.css) : le lieu
+   est une grille bandeau / contenu. Même sélecteur, plus précis. */
+.app[data-active-view="regulation"] #regulation.view.active.place-view {
+  display: grid;
+  gap: 0;
+  overflow: hidden;
+}
+
+.app .conseil-body {
+  gap: 0.9rem;
+}
+
+/* ── L'ÉQUATION ───────────────────────────────────────────────────────────── */
+.app .conseil-equation {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: center;
+  gap: 0.2rem 0.6rem;
+  padding: 0.55rem 1rem;
+  background: rgba(13, 16, 26, 0.96);
+  box-shadow:
+    inset 0 0 0 1px rgba(0, 0, 0, 0.6),
+    inset 0 0 0 2px rgba(196, 204, 221, 0.06),
+    0 3px 0 rgba(0, 0, 0, 0.35);
+}
+.app .eq-term {
+  display: grid;
+  justify-items: center;
+  gap: 0.35rem;
+  padding: 0.25rem 0.95rem;
+  cursor: default;
+}
+.app #regulation .eq-term small {
+  font: 700 0.62rem/1 var(--font-body);
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--text-weak);
+}
+.app .eq-term b {
+  font: 400 1.3rem/1 var(--font-number);
+  color: var(--text-strong);
+  font-variant-numeric: tabular-nums;
+}
+.app .eq-term.is-good b { color: #7FC6E6; }
+.app .eq-term.is-bad b { color: #F0A36B; }
+.app .eq-term.is-result {
+  padding: 0.35rem 1.15rem;
+  box-shadow: inset 0 0 0 2px var(--skin-ink), inset 0 0 0 3px rgba(201, 169, 104, 0.35);
+}
+.app .eq-term.is-result b { font-size: 1.6rem; color: var(--gold-ivory); }
+.app .eq-term.is-result.is-over {
+  background: rgba(239, 68, 68, 0.08);
+  box-shadow: inset 0 0 0 2px var(--skin-ink), inset 0 0 0 3px rgba(239, 68, 68, 0.5);
+}
+.app .eq-term.is-result.is-over b { color: #FF8F73; }
+.app .eq-op {
+  font: 700 1.2rem/1 var(--font-body);
+  color: var(--text-weak);
+}
+
+/* ── LES DOSSIERS ─────────────────────────────────────────────────────────── */
+.app .conseil-dossiers {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(14.5rem, 1fr));
+  gap: 0.8rem;
+  align-items: start;
+}
+.app .conseil-dossier {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  padding-bottom: 0.75rem;
+  background: rgba(13, 16, 26, 0.96);
+  box-shadow:
+    inset 0 0 0 1px rgba(0, 0, 0, 0.6),
+    inset 0 0 0 2px rgba(196, 204, 221, 0.06),
+    0 3px 0 rgba(0, 0, 0, 0.35);
+}
+.app .dossier-head {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  padding: 0.75rem 0.9rem 0.5rem;
+  cursor: default;
+}
+.app .dossier-head .dossier-icon {
+  width: 32px;
+  height: 32px;
+  flex: none;
+}
+.app #regulation .dossier-head h3 {
+  margin: 0;
+  min-width: 0;
+  font: 400 1.35rem/1 var(--font-title);
+  color: var(--gold-ivory);
+}
+.app .dossier-val {
+  margin-left: auto;
+  font: 400 1.1rem/1 var(--font-number);
+  color: var(--text-strong);
+  font-variant-numeric: tabular-nums;
+}
+
+/* Piste fine = la jauge du pack (règle des pistes ≤ 12 px, chrome-wizard.css). */
+.app .dossier-track,
+.app .conseil-rupture-track {
+  position: relative;
+  display: block;
+  height: 10px;
+  border-style: solid;
+  border-width: 3px 4px;
+  border-color: transparent;
+  border-image: url("/pixelart/ui/chrome/wizard/gauge.png") 3 4 fill stretch;
+  image-rendering: pixelated;
+  overflow: hidden;
+}
+.app .dossier-track { margin: 0 0.9rem; }
+.app .dossier-track > i,
+.app .conseil-rupture-track > i {
+  position: absolute;
+  inset: 0 auto 0 0;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.22), inset 0 -1px 0 rgba(0, 0, 0, 0.25);
+  transition: width 0.3s ease;
+}
+.app .dossier-track.tone-scarcity > i { background: var(--res-food, #36B37E); }
+.app .dossier-track.tone-inequality > i { background: var(--res-treasure, #F0B429); }
+.app .dossier-track.tone-complexity > i { background: var(--res-knowledge, #4C9DE8); }
+.app .dossier-track.tone-dissent > i { background: var(--state-usure, #9B5DE5); }
+.app .dossier-track.tone-structural > i { background: var(--res-infra, #8893B8); }
+.app .dossier-track.tone-demesure > i { background: #D97A4E; }
+
+.app .dossier-state {
+  margin: 0.5rem 0.9rem 0.6rem;
+  font: 800 0.64rem/1 var(--font-body);
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--text-weak);
+}
+.app .conseil-dossier.is-calm .dossier-state { color: #2FC8A8; }
+.app .conseil-dossier.is-strain .dossier-state { color: #E8B339; }
+.app .conseil-dossier.is-fire .dossier-state { color: #EF8434; }
+.app .conseil-dossier.is-heaviest .dossier-state { color: #EF4444; }
+.app .conseil-dossier.is-heaviest {
+  box-shadow:
+    inset 0 0 0 1px rgba(0, 0, 0, 0.6),
+    inset 0 0 0 2px rgba(239, 68, 68, 0.28),
+    0 3px 0 rgba(0, 0, 0, 0.35);
+}
+
+.app .dossier-decrees {
+  display: grid;
+  gap: 0.35rem;
+  padding: 0 0.7rem;
+}
+.app .conseil-dossier.is-calm .dossier-decrees { opacity: 0.75; }
+
+/* ── UN DÉCRET : un bouton de cuir (plaque de base du jeu, button.png) ─────── */
+.app .conseil-decree {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 0.15rem 0.6rem;
+  width: 100%;
+  min-height: 2.9rem;
+  padding: 0.45rem 0.65rem 0.7rem;
+  text-align: left;
+}
+.app #regulation .conseil-decree b {
+  min-width: 0;
+  font: 650 0.84rem/1.15 var(--font-body);
+  color: var(--skin-cream);
+}
+.app .decree-costs {
+  display: inline-flex;
+  gap: 0.5rem;
+  justify-content: flex-end;
+}
+.app .decree-cost {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+  font: 400 0.76rem/1 var(--font-number);
+  color: var(--skin-cream);
+  white-space: nowrap;
+}
+.app .decree-cost .px-icon {
+  width: 16px;
+  height: 16px;
+}
+.app .decree-kind {
+  font: 600 0.72rem/1.25 var(--font-body);
+  color: color-mix(in srgb, var(--skin-cream), transparent 35%);
+}
+.app .decree-kind em {
+  font-style: normal;
+  color: #8EE0B0;
+}
+.app .conseil-decree.is-reform .decree-kind em { color: var(--gold-bright); }
+.app .decree-side {
+  font: 600 0.7rem/1.2 var(--font-body);
+  text-align: right;
+  white-space: nowrap;
+}
+.app .decree-side.is-cost { color: #F2A08C; }
+.app .decree-side.is-gain { color: #8EE0B0; }
+.app .decree-state {
+  font: 800 0.6rem/1 var(--font-body);
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: #A8C860;
+  text-align: right;
+}
+/* Verrouillé ou impayable : la plaque s'éteint (même doctrine que les politiques). */
+.app .conseil-decree:disabled { cursor: default; }
+.app .conseil-decree:disabled::before { filter: grayscale(0.7) brightness(0.5); }
+.app .conseil-decree:disabled b,
+.app .conseil-decree:disabled .decree-kind { color: var(--text-weak); }
+.app .conseil-decree:disabled .decree-kind em,
+.app .conseil-decree:disabled .decree-side { opacity: 0.6; }
+/* Politique active posée en décret : la case verte de la bascule, pas l'or. */
+.app .conseil-decree.is-policy.is-active::before {
+  border-width: 4px;
+  border-image: url("/pixelart/ui/chrome/wizard/segment.png") 2 fill stretch;
+  filter: hue-rotate(58deg) saturate(0.9);
+}
+
+/* ── POLITIQUES, INTENDANCE, DERNIERS DÉCRETS ──────────────────────────────── */
+.app .conseil-foot {
+  display: grid;
+  grid-template-columns: minmax(0, 1.9fr) minmax(18rem, 1fr);
+  gap: 0.8rem;
+  align-items: start;
+}
+.app .conseil-panel {
+  display: grid;
+  align-content: start;
+  gap: 0.75rem;
+  min-width: 0;
+  padding: 0.85rem 1rem 1rem;
+  background: rgba(13, 16, 26, 0.96);
+  box-shadow:
+    inset 0 0 0 1px rgba(0, 0, 0, 0.6),
+    inset 0 0 0 2px rgba(196, 204, 221, 0.06),
+    0 3px 0 rgba(0, 0, 0, 0.35);
+}
+.app .conseil-panel-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 1rem;
+}
+.app .conseil-panel-head h2 {
+  margin: 0;
+  font: 400 1.35rem/1 var(--font-title);
+  color: var(--gold-ivory);
+}
+.app .conseil-count {
+  font: 400 0.8rem/1 var(--font-number);
+  color: var(--text-mid);
+}
+
+.app .conseil-policy-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(8.5rem, 1fr));
+  gap: 0.5rem;
+}
+/* Une carte du pack (card.png) ; retenue = case verte de la bascule. */
+.app .conseil-policy {
+  display: grid;
+  justify-items: center;
+  align-content: start;
+  gap: 0.3rem;
+  padding: 0.65rem 0.45rem 0.75rem;
+  text-align: center;
+}
+.app .conseil-policy::before {
+  border-width: 6px;
+  border-image: url("/pixelart/ui/chrome/wizard/card.png") 6 3 6 3 fill stretch;
+  filter: brightness(0.62) saturate(0.75);
+}
+.app .conseil-policy:hover:not(:disabled)::before { filter: brightness(0.95); }
+.app .conseil-policy.is-active::before { filter: none; }
+.app .conseil-policy.is-active {
+  box-shadow: 0 0 0 2px #7FAA55, 0 0 12px rgba(168, 200, 96, 0.35);
+}
+.app .conseil-policy:disabled { cursor: default; }
+.app .conseil-policy:disabled::before { filter: grayscale(0.8) brightness(0.45); }
+.app .conseil-policy.is-locked .conseil-policy-seal { filter: grayscale(1) brightness(0.6); }
+.app .conseil-policy-seal {
+  width: 24px;
+  height: 24px;
+}
+.app #regulation .conseil-policy b {
+  font: 650 0.78rem/1.15 var(--font-body);
+  color: var(--skin-cream);
+}
+.app .conseil-policy-good {
+  font: 650 0.68rem/1.2 var(--font-body);
+  color: #8EE0B0;
+}
+.app .conseil-policy-bad {
+  font: 600 0.66rem/1.2 var(--font-body);
+  color: #F2A08C;
+}
+.app .conseil-policy-lock {
+  font: 600 0.66rem/1.2 var(--font-body);
+  color: var(--text-weak);
+}
+
+/* L'Intendance garde sa mise en page ; seul son titre rejoint ceux du lieu. */
+.app .conseil-steward .steward-block { margin: 0; }
+.app #regulation .conseil-steward .regul-block-title {
+  margin: 0 0 0.6rem;
+  font: 400 1.35rem/1 var(--font-title);
+  letter-spacing: normal;
+  text-transform: none;
+  color: var(--gold-ivory);
+  opacity: 1;
+}
+.app .conseil-ledger {
+  margin: 0;
+  padding-top: 0.6rem;
+  box-shadow: inset 0 1px 0 color-mix(in srgb, var(--skin-ink), transparent 40%);
+}
+
+/* ── LA JAUGE DE RUPTURE DU BANDEAU ───────────────────────────────────────── */
+.app .conseil-rupture-track > i {
+  background: linear-gradient(90deg, #dc5f4b, #ef4444);
+}
+.app .conseil-rupture-track > .tick {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  width: 1px;
+  background: rgba(0, 0, 0, 0.45);
+}
+.app .conseil-rupture-track > .ghost {
+  position: absolute;
+  top: -1px;
+  bottom: -1px;
+  width: 2px;
+  margin-left: -1px;
+  background: rgba(255, 255, 255, 0.9);
+  transition: left 0.3s ease;
+}
+
+/* ── ÉCRANS MOYENS : le pied passe sur une colonne ────────────────────────── */
+@media (max-width: 1280px) {
+  .app .conseil-foot { grid-template-columns: minmax(0, 1fr); }
+}

@@ -1,12 +1,12 @@
 import { useEffect, useRef } from 'react';
 import { useGameState } from '../../hooks/useGameState.js';
-import { pressureBreakdown, crisisCosts, regulationContext, regulationActionUnlocked, regulationPolicyUnlocked } from '../../game/core/mechanics.js';
+import { pressureBreakdown } from '../../game/core/mechanics.js';
 import { runCrisisAction, togglePolicy } from '../../game/core/actions.js';
 import { openAuguryTable } from '../../game/core/auguryTable.js';
 import { costLabel, canPayCost } from '../../game/core/utils.js';
 import { state } from '../../game/core/state.js';
-import { FOYER_RELIEF_ADD, FOYER_MALUS_RESOURCE, FOYER_MALUS_PCT, FOYER_REFORM, FOYER_REFORM_CAP, POLICY_MAX_ACTIVE, AUGURY_STAKES } from '../../game/core/balance.js';
-import { REGULATION_ACTIONS, REGULATION_POLICIES } from '../../game/data/regulationActions.js';
+import { AUGURY_STAKES } from '../../game/core/balance.js';
+import { RES_LABEL, FOYER_META, regulationFoyers, regulationPolicies, policyEffectLabel, policyCostLabel } from './regulModel.js';
 import { tr } from '../../game/core/i18n.js';
 import { FaveurIcon } from './FaveurIcon.jsx';
 import PixelIcon from './PixelIcon.jsx';
@@ -27,82 +27,6 @@ import { tipProps } from './HelpBubble.jsx';
  * équivalent en secondes de production). L'abonnement à `instability` cale le
  * recalcul (coûts, relief décroissant) sur le tick (1 Hz).
  */
-
-const RES_LABEL = {
-  food: { fr: 'nourriture', en: 'food' },
-  gold: { fr: 'trésor', en: 'treasury' },
-  knowledge: { fr: 'savoir', en: 'knowledge' },
-  infrastructure: { fr: 'infrastructure', en: 'infrastructure' }
-};
-
-// Descripteur d'affichage d'une action d'apaisement : ce qu'elle calme (relief
-// temporaire) et sa contrepartie (malus de production).
-function describeAction(id, cost) {
-  return {
-    id,
-    cost,
-    relief: FOYER_RELIEF_ADD[id] || 0,
-    malusRes: FOYER_MALUS_RESOURCE[id],
-    malusPct: FOYER_MALUS_PCT[id] || 0
-  };
-}
-
-// Métadonnées d'affichage des 4 foyers. SOURCE UNIQUE, partagée par le panneau
-// déplié (tableau d'actions) et par sa POIGNÉE repliée (RegulSummary, bas de
-// fichier) : sans elle, renommer un foyer d'un côté le ferait mentir de l'autre.
-const FOYER_META = [
-  { key: 'scarcity',   tone: 'food',  label: { fr: 'Subsistance', en: 'Subsistence' } },
-  { key: 'inequality', tone: 'gold',  label: { fr: 'Inégalités',  en: 'Inequality' } },
-  { key: 'complexity', tone: 'know',  label: { fr: 'Complexité',  en: 'Complexity' } },
-  { key: 'dissent',    tone: 'usure', label: { fr: 'Dissidence',  en: 'Dissent' } }
-];
-const FOYER_BY_KEY = Object.fromEntries(FOYER_META.map((m) => [m.key, m]));
-
-// Action id de la réforme de fond par foyer.
-const REFORM_ID = {
-  scarcity: 'reformScarcity',
-  inequality: 'reformInequality',
-  complexity: 'reformComplexity',
-  dissent: 'reformDissent'
-};
-
-// Descripteur d'une réforme de fond : recul DURABLE déposé sur le foyer, déjà
-// acquis (currentReform), et saturation au plafond de la RÉFORME (atCap) —
-// FOYER_REFORM_CAP (0.72), le même que le moteur (crisis.js) : griser à
-// FOYER_RELIEF_CAP (0.45, celui de l'apaisement) bloquait le joueur à mi-chemin.
-function describeReform(foyer, cost, currentReform) {
-  return {
-    id: REFORM_ID[foyer],
-    cost,
-    reform: true,
-    durableAdd: FOYER_REFORM[foyer]?.add || 0,
-    currentReform: currentReform || 0,
-    atCap: (currentReform || 0) >= FOYER_REFORM_CAP - 1e-6
-  };
-}
-
-// Descripteur d'une action déblocable (registre) : apaisement ou réforme, avec
-// éventuel effet économique (bonus), et état verrouillé/débloqué.
-function describeRegAction(action, cost, ctx, currentReform) {
-  const unlocked = regulationActionUnlocked(action.id, ctx);
-  const isReform = action.kind === 'reform';
-  return {
-    id: action.id,
-    label: action.label,
-    cost,
-    locked: !unlocked,
-    unlockLabel: action.unlockLabel,
-    reform: isReform,
-    durableAdd: action.reformAdd || 0,
-    currentReform: currentReform || 0,
-    atCap: isReform && (currentReform || 0) >= FOYER_REFORM_CAP - 1e-6,
-    malusRes: action.malusRes,
-    malusPct: action.malusPct || 0,
-    bonus: action.infraAdd ? 'infra' : null,
-    gamble: action.kind === 'gamble',
-    winPct: Math.round((action.p || 0) * 100)
-  };
-}
 
 // Bouton de régulation : libellé + coût (ligne 1), puis la contrepartie de
 // production (ligne 2).
@@ -193,38 +117,6 @@ function RegulButton({ a, label, btnClass }) {
   );
 }
 
-const FOYER_SHORT = {
-  scarcity: { fr: 'Subsistance', en: 'Subsistence' },
-  inequality: { fr: 'Inégalités', en: 'Inequality' },
-  complexity: { fr: 'Complexité', en: 'Complexity' },
-  dissent: { fr: 'Dissidence', en: 'Dissent' }
-};
-
-// Effet d'une politique en libellé court (cumule riseSlow / surcharge / étouffement).
-function policyEffectLabel(p) {
-  const parts = [];
-  if (p.riseSlow) parts.push(`−${Math.round(p.riseSlow * 100)}% ${tr({ fr: 'montée de la Rupture', en: 'Rupture rise' })}`);
-  if (p.overshootDamp) parts.push(`−${Math.round(p.overshootDamp * 100)}% ${tr({ fr: 'surcharge', en: 'overshoot' })}`);
-  if (p.foyerDamp) {
-    for (const [f, v] of Object.entries(p.foyerDamp)) {
-      parts.push(`−${Math.round(v * 100)}% ${tr(FOYER_SHORT[f]) || f} ${tr({ fr: '(continu)', en: '(continuous)' })}`);
-    }
-  }
-  if (p.demesureDamp) parts.push(`−${Math.round(p.demesureDamp * 100)}% ${tr({ fr: 'Démesure (échelle)', en: 'Hubris (scale)' })}`);
-  return parts.join(' · ');
-}
-
-// Coût continu d'une politique en libellé court (« −10% production · −15% trésor »).
-function policyCostLabel(cost) {
-  const parts = [];
-  if (cost.global) parts.push(`−${Math.round(cost.global * 100)}% ${tr({ fr: 'production', en: 'production' })}`);
-  for (const [res, v] of Object.entries(cost)) {
-    if (res === 'global') continue;
-    parts.push(`−${Math.round(v * 100)}% ${tr(RES_LABEL[res]) || res}`);
-  }
-  return parts.join(' · ');
-}
-
 // Bascule d'une politique permanente (Levier C) : ralentit la montée, coût continu.
 function PolicyRow({ p, slotsFull }) {
   const disabled = !p.active && (p.locked || slotsFull);
@@ -307,7 +199,8 @@ export function RegulSummary() {
 
 export default function CrisisActionBar() {
   useGameState(s => s.instability);
-  const cycles = useGameState(s => s.cycles);
+  // Les décrets de la Dissidence s'ouvrent aux cycles 2 et 3 (regulModel.js).
+  useGameState(s => s.cycles);
   // Les réformes ne touchent pas `instability` : on s'abonne aussi à la somme du
   // recul durable pour re-render dès le clic (sinon feedback retardé au tick).
   useGameState(s => {
@@ -336,60 +229,16 @@ export default function CrisisActionBar() {
   }, []);
 
   const pressure = pressureBreakdown();
-  const costs = crisisCosts();
   const relief = state.foyerRelief || {};
   const reform = state.foyerReform || {};
-  const showArchiveBtn = cycles >= 2;
-  const showAncestorBtn = cycles >= 3;
-
-  // Config unique des 4 foyers (key = foyer de pressureBreakdown / foyerRelief).
-  // `act` = apaisement (temporaire) ; `ref` = réforme de fond (recul durable).
-  const ctx = regulationContext();
-  const act = (id, label) => ({ label, ...describeAction(id, costs[id]) });
-  const ref = (foyer) => ({ label: tr(FOYER_REFORM[foyer].label), ...describeReform(foyer, costs[REFORM_ID[foyer]], reform[foyer]) });
-  // Actions déblocables du registre pour un foyer (triées par palier ; les
-  // verrouillées s'affichent en aperçu « 🔒 Ère / mythe »).
-  const regFor = (foyerKey) => REGULATION_ACTIONS
-    .filter((a) => a.foyer === foyerKey)
-    .sort((a, b) => a.tier - b.tier)
-    .map((a) => describeRegAction(a, costs[a.id], ctx, reform[foyerKey]));
-  const foyers = [
-    {
-      key: 'scarcity', icon: '🌾', label: tr(FOYER_BY_KEY.scarcity.label), tone: FOYER_BY_KEY.scarcity.tone, value: pressure.scarcity,
-      actions: [act('rationing', tr({ fr: 'Rationner', en: 'Ration' })), ref('scarcity'), ...regFor('scarcity')]
-    },
-    {
-      key: 'inequality', icon: '⚖️', label: tr(FOYER_BY_KEY.inequality.label), tone: FOYER_BY_KEY.inequality.tone, value: pressure.inequality,
-      actions: [act('festivals', tr({ fr: 'Jeux civiques', en: 'Civic Games' })), ref('inequality'), ...regFor('inequality')]
-    },
-    {
-      key: 'complexity', icon: '🏛️', label: tr(FOYER_BY_KEY.complexity.label), tone: FOYER_BY_KEY.complexity.tone, value: pressure.complexity,
-      actions: [act('census', tr({ fr: 'Recenser', en: 'Census' })), act('reforms', tr({ fr: 'Réformes', en: 'Reforms' })), ref('complexity'), ...regFor('complexity')]
-    },
-    {
-      key: 'dissent', icon: '📜', label: tr(FOYER_BY_KEY.dissent.label), tone: FOYER_BY_KEY.dissent.tone, value: pressure.dissent,
-      actions: [
-        showAncestorBtn && act('ancestorCrisis', tr({ fr: 'Culte des ancêtres', en: 'Ancestor Cult' })),
-        showArchiveBtn && act('archiveCrisis', tr({ fr: 'Catastrophes', en: 'Catastrophes' })),
-        ref('dissent'),
-        ...regFor('dissent')
-      ].filter(Boolean)
-    }
-  ];
-
-  // Levier C — politiques permanentes (toggles).
-  const activePolicies = state.activePolicies || [];
-  const policies = REGULATION_POLICIES.map((p) => ({
-    ...p,
-    active: activePolicies.includes(p.id),
-    locked: !regulationPolicyUnlocked(p.id, ctx)
-  }));
-  const slotsFull = activePolicies.length >= POLICY_MAX_ACTIVE;
+  // Foyers, décrets et politiques : regulModel.js, source partagée avec le Conseil.
+  const foyers = regulationFoyers();
+  const { policies, activeCount, max: policyMax, slotsFull } = regulationPolicies();
   const policiesSection = (
     <div className="crisis-policies">
       <div className="crisis-policies-head">
         <span className="crisis-regul-title">{tr({ fr: 'Politiques permanentes', en: 'Permanent Policies' })}</span>
-        <span className="crisis-policies-count">{activePolicies.length}/{POLICY_MAX_ACTIVE}</span>
+        <span className="crisis-policies-count">{activeCount}/{policyMax}</span>
       </div>
       <div className="crisis-policies-grid">
         {policies.map((p) => <PolicyRow key={p.id} p={p} slotsFull={slotsFull} />)}

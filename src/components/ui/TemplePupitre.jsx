@@ -14,7 +14,8 @@ import { PotIcon } from './FaveurIcon.jsx';
 import { tipProps } from './HelpBubble.jsx';
 
 /**
- * Le pupitre du temple (colonne droite de la Régulation, sous les Annales —
+ * Le pupitre du temple — dans le MENU DES PLAISIRS, sous la bourse, depuis la
+ * refonte du Conseil (2026-10-03 ; avant : colonne droite de la Régulation,
  * demande Raphaël 2026-07-17, format accordéon replié puis DÉ-LISSÉ à sa
  * relecture : « le côté parfait enlève l'âme ») — un MUR DE PLAQUETTES
  * votives, pas un panneau d'admin. Chaque auto est une tablette de bois
@@ -101,7 +102,6 @@ export default function TemplePupitre() {
   const pot = icarusPotFaveur();
   const flights = freeFlightCount();
   const streak = state.blackjackStreak || 0;
-  const anyUnlocked = games.some((g) => state.templeAuto?.[g.id]?.unlocked);
 
   return (
     <section className="regul-block temple-pupitre">
@@ -151,8 +151,8 @@ export default function TemplePupitre() {
                 })
               )}
             >
+              <img className="pupitre-flame-off" src="/pixelart/ui/faveur/flamme.png" alt="" aria-hidden="true" draggable="false" />
               <span className="pupitre-game-name">{tr(g.name)}</span>
-              <span className="pupitre-locked-note">{tr({ fr: `« ${tr(g.bottle)} » à l’échoppe`, en: `"${tr(g.bottle)}" at the shop` })}</span>
             </div>
           );
         }
@@ -164,6 +164,7 @@ export default function TemplePupitre() {
               role="button"
               tabIndex={0}
               aria-expanded={open}
+              {...tipProps(tr(g.name), open ? null : autoSummary(g.id, auto))}
               onClick={() => setOpenId(open ? null : g.id)}
               onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); setOpenId(open ? null : g.id); } }}
             >
@@ -181,7 +182,6 @@ export default function TemplePupitre() {
                 <img src="/pixelart/ui/faveur/flamme.png" alt="" aria-hidden="true" draggable="false" />
               </button>
               <span className="pupitre-game-name">{tr(g.name)}</span>
-              {!open && <span className="pupitre-summary">{autoSummary(g.id, auto)}</span>}
               <span className="pupitre-plaque"><RateBadge game={g.id} /></span>
             </div>
             {open && <AutoDials game={g.id} />}
@@ -189,14 +189,6 @@ export default function TemplePupitre() {
         );
       })}
 
-      {!anyUnlocked && (
-        <p className="pupitre-hint">
-          {tr({
-            fr: 'Le temple ne joue pas encore tout seul. Couronne une lignée à l’échoppe et son pupitre s’ouvrira ici.',
-            en: 'The temple does not play on its own yet. Crown a lineage at the shop and its desk will open here.'
-          })}
-        </p>
-      )}
     </section>
   );
 }

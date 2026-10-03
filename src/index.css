@@ -31,6 +31,9 @@
 @import './styles/chrome-wizard.css';
 /* L'Aide (Options › Aide) : après la peau cuir, dont elle reprend les segments. */
 @import './styles/help-book.css';
+/* Les lieux illustrés (décor en bandeau, titre posé dessus) et le Conseil. */
+@import './styles/places.css';
+@import './styles/conseil.css';
 /* Coquille TACTILE (P4) : tout en dernier, car c'est une surcouche de régime
    (`:root[data-pointer="coarse"]`) et non une variante à négocier règle par
    règle. ⚠ Le piège des 35 déclarations mortes de base.css vient précisément

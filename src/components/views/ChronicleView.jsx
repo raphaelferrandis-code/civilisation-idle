@@ -24,6 +24,7 @@ import { tr } from '../../game/core/i18n.js';
 import { getMythById } from '../../game/data/myths.js';
 import { GRAND_RESET_MILESTONES } from '../../game/core/mechanics/grandResetMilestones.js';
 import PixelIcon from '../ui/PixelIcon.jsx';
+import CycleAnnals from '../ui/CycleAnnals.jsx';
 import { tipProps } from '../ui/HelpBubble.jsx';
 
 // Chiffres romains pour les Grands Resets & actes de Mythes (1..11).
@@ -660,6 +661,12 @@ export default function ChronicleView() {
   return (
     <section className="view active" id="history">
       <CivilizationReview />
+      {/* Les Annales (courbe de la Rupture et registre des décrets) ont quitté
+          la Régulation devenue le Conseil, qui n'en garde que les derniers
+          décrets : la mémoire du cycle vit avec celle de la cité. */}
+      <div className="panel chronicle-annals">
+        <CycleAnnals />
+      </div>
       <CityAccounts />
       <MultiplierAnatomy />
       <TempleRegistry />

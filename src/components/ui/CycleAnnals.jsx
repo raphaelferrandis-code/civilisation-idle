@@ -1,6 +1,6 @@
 import { useGameState } from '../../hooks/useGameState.js';
 import { annalsWindow } from '../../game/core/annals.js';
-import { state } from '../../game/core/state.js';
+import { state, renderCache } from '../../game/core/state.js';
 import { tr } from '../../game/core/i18n.js';
 import { REGULATION_ACTIONS_BY_ID, POLICY_BY_ID } from '../../game/data/regulationActions.js';
 import { FOYER_REFORM, REFORM_ACTION_FOYER } from '../../game/core/balance.js';
@@ -78,16 +78,49 @@ function MarkGlyph({ mark, x }) {
   return <g>{shape}<title>{label}</title></g>;
 }
 
+// ⚠ « % » et non « pts » : le delta d'un décret est une PART retirée à son foyer
+// (relief et réforme sont multiplicatifs, cf. pressure.js foyerCut), pas des
+// points de Rupture — et le Conseil annonce ses décrets dans la même unité.
 function DeltaChip({ e }) {
   const pts = Math.round((e.delta || 0) * 100);
   if (e.kind === 'policyOn') return <span className="annals-chip annals-chip--policy">{tr({ fr: 'activée', en: 'enabled' })}</span>;
   if (e.kind === 'policyOff') return <span className="annals-chip annals-chip--mut">{tr({ fr: 'suspendue', en: 'disabled' })}</span>;
-  if (e.kind === 'gambleLoss') return <span className="annals-chip annals-chip--loss">+{pts} pts</span>;
-  if (e.kind === 'doubleWin') return <span className="annals-chip annals-chip--gain">−{pts} pts ×2</span>;
+  if (e.kind === 'gambleLoss') return <span className="annals-chip annals-chip--loss">+{pts} %</span>;
+  if (e.kind === 'doubleWin') return <span className="annals-chip annals-chip--gain">−{pts} % ×2</span>;
   if (e.kind === 'doubleLoss') return <span className="annals-chip annals-chip--loss">{tr({ fr: 'repris', en: 'taken back' })}</span>;
   if (pts <= 0) return <span className="annals-chip annals-chip--mut">{tr({ fr: 'sans effet', en: 'no effect' })}</span>;
   const cls = e.kind === 'reform' ? 'annals-chip--reform' : 'annals-chip--gain';
-  return <span className={`annals-chip ${cls}`}>−{pts} pts</span>;
+  return <span className={`annals-chip ${cls}`}>−{pts} %</span>;
+}
+
+function LedgerList({ ledger, now, className = '' }) {
+  return (
+    <ul className={`annals-ledger-list${className ? ` ${className}` : ''}`}>
+      {ledger.map((e, i) => (
+        <li key={`${e.t}-${i}`} className="annals-ledger-row">
+          <span className="annals-ledger-label">
+            {GAMBLE_KINDS.has(e.kind) && <span aria-hidden="true">🎲 </span>}
+            {regulActionLabel(e.id)}
+          </span>
+          <DeltaChip e={e} />
+          <span className="annals-ledger-meta">
+            {e.by ? `✍ ${e.by} · ` : ''}{ago(e.t, now)}
+          </span>
+        </li>
+      ))}
+    </ul>
+  );
+}
+
+/** Les derniers décrets du cycle (le registre), pour le Conseil. Rien tant
+ *  qu'aucun décret n'est passé : une liste vide n'a rien à dire. */
+export function RecentDecrees({ limit = 4 }) {
+  useGameState((s) => (s.regulLedger || []).map((e) => e.t).join(','));
+  // « il y a X s » avance avec le tick ; l'horloge du tick garde le rendu pur.
+  useGameState((s) => s.instability);
+  const ledger = (state.regulLedger || []).slice(-limit).reverse();
+  if (!ledger.length) return null;
+  return <LedgerList ledger={ledger} now={renderCache.tickNow || 0} className="conseil-ledger" />;
 }
 
 export default function CycleAnnals() {
@@ -138,22 +171,7 @@ export default function CycleAnnals() {
         <span><i className="annals-dot annals-dot--square" style={{ background: '#ef4444' }}></i>{tr({ fr: 'crise', en: 'crisis' })}</span>
         <span><i className="annals-dot annals-dot--diamond" style={{ background: '#9B5DE5' }}></i>{tr({ fr: 'politique', en: 'policy' })}</span>
       </div>
-      {ledger.length > 0 && (
-        <ul className="annals-ledger-list">
-          {ledger.map((e, i) => (
-            <li key={`${e.t}-${i}`} className="annals-ledger-row">
-              <span className="annals-ledger-label">
-                {GAMBLE_KINDS.has(e.kind) && <span aria-hidden="true">🎲 </span>}
-                {regulActionLabel(e.id)}
-              </span>
-              <DeltaChip e={e} />
-              <span className="annals-ledger-meta">
-                {e.by ? `✍ ${e.by} · ` : ''}{ago(e.t, now)}
-              </span>
-            </li>
-          ))}
-        </ul>
-      )}
+      {ledger.length > 0 && <LedgerList ledger={ledger} now={now} />}
     </section>
   );
 }
