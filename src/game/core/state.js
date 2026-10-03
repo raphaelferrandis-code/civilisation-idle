@@ -6,7 +6,7 @@ import { eras, CRISIS_EVENTS } from '../data/world.js';
 import { eraBandOf } from '../data/eraThemes.js';
 import { clamp01 } from './utils.js';
 import { Decimal, D } from './num.js';
-import { COLLAPSE_PREP_MAX, POLICY_MAX_ACTIVE, REGUL_LEDGER_MAX, GAMBLE_HISTORY_LEN, STEWARD_MAX_CLAUSES, STEWARD_THRESHOLDS, ICARUS_POT_CAP_FAVEUR, ICARUS_HISTORY_COLOMBIER, FLIGHTS_MAX_COLOMBIER, ICARUS_STAKES, SCRATCH_HISTORY_LEN, BLACKJACK_HISTORY_LEN, DICE_BOOST_MAX_LEVEL, WING_MAX_LEVEL, STYLET_MAX_LEVEL, GRAVEUR_MAX_LEVEL, COFFRE_MAX_LEVEL, AUTO_ICARUS_TARGET_MIN, AUTO_ICARUS_TARGET_MAX, AUTO_TEMPLE_FAVEUR_FLOOR_DEFAULT, AUTO_TEMPLE_FAVEUR_FLOOR_MAX, TRUNK_CAP, TEMPLE_ARTIFACT_IDS, BOON_INTERVAL_MAX_SEC, CLEPSYDRE_HARD_MAX_SECONDS, MAX_BATCH_AMOUNT, grandResetProductionMult, grandResetRuinGainMult } from './balance.js';
+import { COLLAPSE_PREP_MAX, POLICY_MAX_ACTIVE, REGUL_LEDGER_MAX, GAMBLE_HISTORY_LEN, STEWARD_MAX_CLAUSES, STEWARD_THRESHOLDS, ICARUS_POT_CAP_FAVEUR, ICARUS_HISTORY_COLOMBIER, FLIGHTS_MAX_COLOMBIER, ICARUS_STAKES, SCRATCH_HISTORY_LEN, BLACKJACK_HISTORY_LEN, DICE_BOOST_MAX_LEVEL, WING_MAX_LEVEL, STYLET_MAX_LEVEL, GRAVEUR_MAX_LEVEL, COFFRE_MAX_LEVEL, AUTO_COLLAPSE_MIN_SECONDS, AUTO_ICARUS_TARGET_MIN, AUTO_ICARUS_TARGET_MAX, AUTO_TEMPLE_FAVEUR_FLOOR_DEFAULT, AUTO_TEMPLE_FAVEUR_FLOOR_MAX, TRUNK_CAP, TEMPLE_ARTIFACT_IDS, BOON_INTERVAL_MAX_SEC, CLEPSYDRE_HARD_MAX_SECONDS, MAX_BATCH_AMOUNT, grandResetProductionMult, grandResetRuinGainMult } from './balance.js';
 import { resetAnnals } from './annals.js';
 import { normalizeUiReveal } from './uiReveal.js';
 import { normalizeOlympusState, defaultOlympusState } from '../data/olympus.js';
@@ -67,10 +67,21 @@ const OLD_RUIN_NODE_COSTS = {
   axiom_engine: 30000000000, last_refuges: 35000000000
 };
 
+// La règle « minutes » du Script du Phénix ne descend pas sous le plancher des
+// minuteurs d'effondrement (AUTO_COLLAPSE_MIN_SECONDS) — vieilles saves comprises.
+export function withAutoCollapseFloor(rules) {
+  if (!Array.isArray(rules)) return rules;
+  const minMinutes = AUTO_COLLAPSE_MIN_SECONDS / 60;
+  for (const r of rules) {
+    if (r && r.type === "time" && Number.isFinite(r.threshold)) r.threshold = Math.max(minMinutes, r.threshold);
+  }
+  return rules;
+}
+
 export const defaultAutoScriptRules = () => [
   { id: "rule_rupture", type: "rupture", label: "Effondrer si Rupture atteint", unit: "%", threshold: 80, enabled: false },
   { id: "rule_usure", type: "usure", label: "Effondrer si Usure atteint", unit: "%", threshold: 80, enabled: false },
-  { id: "rule_time", type: "time", label: "Effondrer apres", unit: "min", threshold: 5, enabled: false }
+  { id: "rule_time", type: "time", label: "Effondrer apres", unit: "min", threshold: 10, enabled: false }
 ];
 
 // Bornes des champs numériques des automates, PAR CHAMP. Le débit reste bas
@@ -1050,7 +1061,7 @@ export function normalizeCrisisDoctrine(raw, fallback) {
       enabled: Boolean(ac.enabled),
       trigger: ["rupture100", "usure", "temps"].includes(ac.trigger) ? ac.trigger : fac.trigger,
       usureThreshold: finiteNumber(ac.usureThreshold, fac.usureThreshold, 0.1, 1),
-      timeSeconds: finiteInteger(ac.timeSeconds, fac.timeSeconds, 30, 24 * 3600),
+      timeSeconds: finiteInteger(ac.timeSeconds, fac.timeSeconds, AUTO_COLLAPSE_MIN_SECONDS, 24 * 3600),
       prepare: ac.prepare === undefined ? fac.prepare : Boolean(ac.prepare)
     }
   };
@@ -1580,7 +1591,7 @@ export function hydrateState(parsed = {}) {
     hephHeritage: Boolean(source.hephHeritage),
     hephPopPeak: decimalField(source.hephPopPeak, 0),
     hephGoalReached: Boolean(source.hephGoalReached),
-    autoScriptRules: normalizeRuleList(source.autoScriptRules, defaultAutoScriptRules(), 1, 9999),
+    autoScriptRules: withAutoCollapseFloor(normalizeRuleList(source.autoScriptRules, defaultAutoScriptRules(), 1, 9999)),
     automateRules: normalizeRuleList(source.automateRules, defaultAutomateRules(), 1, 99, AUTOMATE_FIELD_BOUNDS),
     templeAuto: normalizeTempleAuto(source.templeAuto),
     templeArtifacts: normalizeBooleanMap(source.templeArtifacts, TEMPLE_ARTIFACT_IDS),

@@ -30,6 +30,7 @@ import {
   setAutomateField
 } from '../../game/core/actions.js';
 import { state, invalidateRenderCache, render, save, AUTOMATE_FIELD_BOUNDS } from '../../game/core/state.js';
+import { AUTO_COLLAPSE_MIN_SECONDS } from '../../game/core/balance.js';
 import { markPendingWipe } from '../../game/core/saveKey.js';
 import { SLOT_COUNT, readSlotMeta, slotIsEmpty, writeSlot, loadSlot, saveToFile } from '../../game/core/saveSlots.js';
 import { pushOutcomeFloat } from '../../game/core/outcomeFloat.js';
@@ -1070,7 +1071,7 @@ export default function OptionsDialog({ isOpen, onClose, onSave, onExport, onImp
                         type="number"
                         className="auto-script-input"
                         value={r.threshold}
-                        min="1"
+                        min={r.type === 'time' ? AUTO_COLLAPSE_MIN_SECONDS / 60 : 1}
                         max="9999"
                         onChange={(e) => handleAutoScriptThreshold(r.id, e.target.value)}
                       />

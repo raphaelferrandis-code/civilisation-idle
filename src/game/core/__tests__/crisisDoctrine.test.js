@@ -15,6 +15,7 @@ import { autoResolveCrisisEvent } from "../actions/crisis.js";
 import { CRISIS_POOL } from "../../data/world.js";
 import { toNum } from "../num.js";
 import { pressureBreakdown } from "../mechanics.js";
+import { AUTO_COLLAPSE_MIN_SECONDS } from "../balance.js";
 import { MID_GAME_FIXTURE, FIXED_NOW } from "./fixtures.js";
 
 beforeEach(() => {
@@ -51,8 +52,17 @@ describe("crisisDoctrine — état / hydratation / migration", () => {
     expect(h.crisisDoctrine.p25).toBe("stabiliser");
     expect(h.crisisDoctrine.p50).toBe("ask");
     expect(h.crisisDoctrine.autoCollapse.trigger).toBe("temps");
-    expect(h.crisisDoctrine.autoCollapse.timeSeconds).toBe(300);
+    // 300 s est sous le plancher des minuteurs d'effondrement → relevé.
+    expect(h.crisisDoctrine.autoCollapse.timeSeconds).toBe(AUTO_COLLAPSE_MIN_SECONDS);
     expect(h.crisisDoctrine.autoCollapse.usureThreshold).toBeLessThanOrEqual(1); // borné
+    const longer = hydrateState({ crisisDoctrine: { autoCollapse: { trigger: "temps", timeSeconds: 1800 } } });
+    expect(longer.crisisDoctrine.autoCollapse.timeSeconds).toBe(1800);
+  });
+
+  it("le Script du Phénix ne descend pas non plus sous le plancher (vieilles saves)", () => {
+    const h = hydrateState({ autoScriptRules: [{ id: "rule_time", type: "time", label: "x", unit: "min", threshold: 2, enabled: true }] });
+    const rule = h.autoScriptRules.find((r) => r.id === "rule_time");
+    expect(rule.threshold).toBe(AUTO_COLLAPSE_MIN_SECONDS / 60);
   });
 
   it("migration : anciens auto-effondrements → conseil_de_crise + edit_effondrement + auto activé", () => {
@@ -149,14 +159,18 @@ describe("simulateAwayCrises — farm hors-ligne (v2)", () => {
   });
 
   it("enchaîne des effondrements, banque des ruines, plafonné à OFFLINE_MAX_COLLAPSES, sans fuite de pause", () => {
-    setState(farmState());
+    // 8 h d'absence (Veilleurs de nuit I), cycle commencé au départ : minuteur
+    // relevé à 10 min (plancher) → ~48 chutes possibles, le plafond doit mordre.
+    const departed = FIXED_NOW - 8 * 3600 * 1000;
+    setState(farmState({ cycleStartedAt: departed, lastTick: departed }));
+    state.upgrades.veilleurs_nuit_1 = true;
     invalidateRenderCache("all");
     const cyclesBefore = state.cycles;
     const ruinsBefore = toNum(state.ruins);
-    applyOfflineProgress(2 * 3600); // 2 h, cap de base ; temps=180 s → > 20 cycles possibles
+    applyOfflineProgress(8 * 3600);
     const collapses = state.cycles - cyclesBefore;
     expect(collapses).toBeGreaterThan(0);
-    expect(collapses).toBeLessThanOrEqual(20); // OFFLINE_MAX_COLLAPSES
+    expect(collapses).toBe(20); // OFFLINE_MAX_COLLAPSES
     expect(toNum(state.ruins)).toBeGreaterThan(ruinsBefore);
     expect(stateModule.gamePaused).toBe(false);
     expect(state.crisisLimitAnnounced).toBe(false);

@@ -20,6 +20,7 @@ import {
 } from '../mechanics.js';
 
 import { buildings } from '../../data/buildings.js';
+import { AUTO_COLLAPSE_MIN_SECONDS } from '../balance.js';
 import { canPayCost, clamp } from '../utils.js';
 import { buyBuildingCore, BUY_ALL_CURRENCIES } from './building.js';
 import { tr } from '../i18n.js';
@@ -50,7 +51,9 @@ export function setAutoScriptThreshold(id, raw) {
   const rule = getAutoScriptRules().find((r) => r.id === id);
   if (!rule) return;
   const val = parseFloat(raw);
-  if (!isNaN(val)) rule.threshold = Math.max(1, Math.min(9999, val));
+  // La règle « minutes » ne descend pas sous le plancher des minuteurs d'effondrement.
+  const floor = rule.type === "time" ? AUTO_COLLAPSE_MIN_SECONDS / 60 : 1;
+  if (!isNaN(val)) rule.threshold = Math.max(floor, Math.min(9999, val));
   save();
   render();
 }
@@ -139,7 +142,7 @@ export function setAutoCollapseConfig(patch) {
   if ("enabled" in patch) ac.enabled = Boolean(patch.enabled);
   if ("trigger" in patch && ["rupture100", "usure", "temps"].includes(patch.trigger)) ac.trigger = patch.trigger;
   if ("usureThreshold" in patch) { const v = parseFloat(patch.usureThreshold); if (!isNaN(v)) ac.usureThreshold = Math.max(0.1, Math.min(1, v)); }
-  if ("timeSeconds" in patch) { const v = parseInt(patch.timeSeconds, 10); if (!isNaN(v)) ac.timeSeconds = Math.max(30, Math.min(24 * 3600, v)); }
+  if ("timeSeconds" in patch) { const v = parseInt(patch.timeSeconds, 10); if (!isNaN(v)) ac.timeSeconds = Math.max(AUTO_COLLAPSE_MIN_SECONDS, Math.min(24 * 3600, v)); }
   if ("prepare" in patch) ac.prepare = Boolean(patch.prepare);
   save();
   invalidateRenderCache("all");

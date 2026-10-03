@@ -176,10 +176,19 @@ export function ruinGain(projected = false, extraPrep = 0) {
     ? Math.log10(Math.max(10, peakPopulation))
     : D(peaks.population).max(10).log10();
   const scaleFloor = Math.floor(peakPopLog / RUIN_GAIN_SCALE_FLOOR_LOG_DIV);
-  const minGain = Math.max(age >= 120 ? 1 : 0, scaleFloor);
+  const atLeastOne = age >= 120 ? 1 : 0;
+  const minGain = Math.max(atLeastOne, scaleFloor);
   // Bonus PLAT par palier d'ère maximale jamais atteint : la retraversée
   // express des ères après un Grand Reset devient une pluie de gains visibles.
   const eraFlatBonus = ERA_RUIN_BONUS_PER_INDEX * eraTier(state.bestEraIndex || 0);
+  // Le plancher et le bonus plat MÛRISSENT avec le cycle, sur la courbe de
+  // patience (×0.18 avant 2 min, ×0.45 avant 5, ×0.8 avant 10, plein ensuite) :
+  // versés tels quels à CHAQUE chute, ils faisaient des cycles éclair une rente
+  // (mesuré, bench-crises.js : ~340 chutes de 3 min à 4 Ruines, dont 3 de bonus
+  // plat, ≈ autant qu'une partie soignée). Une cité doit vivre un peu pour léguer
+  // sa grandeur. « Au moins 1 Ruine après 2 min » reste garanti : à 0, le bouton
+  // d'effondrement se bloque (PrestigeView). À maturité (≥ 10 min), inchangé.
+  const flatMaturity = Math.min(1, patience);
   // Héritage du Chaos « Né du néant » : celui qui a bâti sans béquilles récolte
   // mieux, à jamais. (Reste ×1 sous le Mythe du Chaos lui-même : l'héritage ne
   // peut pas être acquis tant que le Mythe est encore activable.)
@@ -187,10 +196,12 @@ export function ruinGain(projected = false, extraPrep = 0) {
   const raw = ageDepth * populationDepth * civicDepth * patience * preparation * ruinEffectMultiplier("ruinGain") * atridesRuinMod * activeRuinMultiplier(state) * grandResetRuinMultiplier() * sedimentMod * shortCycleMod * crisisHarvestMod * chaosHeritageMod;
   // Chemin float (identique sous 2^53) ; au-delà du domaine float, seul
   // populationDepth peut exploser : on le recalcule en Decimal.
-  if (Number.isFinite(raw)) return new Decimal(Math.max(minGain, Math.floor(raw)) + eraFlatBonus);
+  if (Number.isFinite(raw)) {
+    return new Decimal(Math.max(atLeastOne, Math.floor(Math.max(minGain * flatMaturity, Math.floor(raw)) + eraFlatBonus * flatMaturity)));
+  }
   const populationDepthDec = D(peaks.population).max(10).div(RUIN_POP_DEPTH_REF).pow(RUIN_POP_DEPTH_EXP).max(0.35);
   const restProduct = ageDepth * civicDepth * patience * preparation * ruinEffectMultiplier("ruinGain") * atridesRuinMod * activeRuinMultiplier(state) * grandResetRuinMultiplier() * sedimentMod * shortCycleMod * crisisHarvestMod * chaosHeritageMod;
-  return populationDepthDec.mul(restProduct).floor().max(minGain).add(eraFlatBonus);
+  return populationDepthDec.mul(restProduct).floor().max(minGain * flatMaturity).add(eraFlatBonus * flatMaturity).floor().max(atLeastOne);
 }
 
 export function completedMythCount() {

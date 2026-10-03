@@ -11,7 +11,7 @@
 | Joueur | Ruines en 24 h | Cycles | Traiter / Profiter |
 |---|---|---|---|
 | prudent | 1601 | 20 | 60 / 0 |
-| cupide | 1577 | 357 | 0 / 1071 |
+| cupide | 856 | 358 | 0 / 1071 |
 | lucide | 1781 | 19 | 52 / 4 |
 
 ### Détail par cycle

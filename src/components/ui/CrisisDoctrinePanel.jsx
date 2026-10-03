@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { useGameState } from '../../hooks/useGameState.js';
 import { setCrisisPosture, setAutoCollapseConfig } from '../../game/core/actions.js';
 import { tr } from '../../game/core/i18n.js';
+import { AUTO_COLLAPSE_MIN_SECONDS } from '../../game/core/balance.js';
 import TestamentSeals from './TestamentSeals.jsx';
 import { tipProps } from './HelpBubble.jsx';
 
@@ -155,7 +156,7 @@ export default function CrisisDoctrinePanel() {
                         <input
                           type="number"
                           className="auto-script-input"
-                          min="1"
+                          min={AUTO_COLLAPSE_MIN_SECONDS / 60}
                           max="1440"
                           value={Math.round((autoCollapse.timeSeconds ?? 600) / 60)}
                           onChange={(e) => handleAutoCollapse({ timeSeconds: (parseFloat(e.target.value) || 0) * 60 })}

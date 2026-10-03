@@ -194,6 +194,12 @@ export const FOYER_REFORM = {
 // ≈ 1 590, lire sa marge (profiter si la cible reste sous 50 % malgré la dette,
 // ou si traiter ne la ramène pas sous 100 %) ≈ 1 869. Revalidé sur les 15 crises
 // au tirage normal : 1 701 / 1 583 / 1 843 (lire sa marge gagne 5 graines sur 6).
+// Durée MINIMALE d'un cycle avant qu'un minuteur d'effondrement automatique
+// (Édit d'effondrement « temps », règle « minutes » du Script du Phénix) puisse
+// le faire tomber. 10 min = l'âge où la patience atteint 1 (prestige.js) : plus
+// tôt, le plancher et le bonus plat de Ruines ne sont pas mûrs. Avant : 30 s /
+// 1 min, ce qui permettait une rente AFK de chutes éclair.
+export const AUTO_COLLAPSE_MIN_SECONDS = 600;
 export const CRISIS_TREAT_SHIFT = { 0.25: 0.05, 0.5: 0.06, 0.75: 0.07 };
 export const CRISIS_PROFIT_SHIFT = { 0.25: 0.05, 0.5: 0.06, 0.75: 0.07 };
 export const CRISIS_PROFIT_PREP = { 0.25: 0.15, 0.5: 0.20, 0.75: 0.30 };
