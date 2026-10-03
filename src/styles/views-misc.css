@@ -89,22 +89,11 @@
 
 /* 16 px : la taille native de la variante chargée (FoyerIcon, CrisisActionBar) —
    le maître de 64 px réduit à 14 px sortait flou. */
-.regul-summary-pic {
-  display: inline-flex;
-  flex: 0 0 auto;
-}
 .regul-summary-icon {
   width: 16px;
   height: 16px;
   flex: 0 0 auto;
   image-rendering: pixelated;
-}
-/* Au-delà de 1900 px, FoyerIcon charge la 24 px : on l'affiche à sa taille. */
-@media (min-width: 1900px) {
-  .regul-summary-icon {
-    width: 24px;
-    height: 24px;
-  }
 }
 
 .regul-summary-track {

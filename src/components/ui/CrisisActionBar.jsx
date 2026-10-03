@@ -160,16 +160,10 @@ function PolicyRow({ p, slotsFull }) {
  * C'est ce qui rend le repli honnête : on perd les actions et le détail, jamais
  * la surveillance. Replier ne doit pas revenir à éteindre le tableau de bord.
  */
-// Icône de foyer À SA TAILLE NATIVE : 16 px, 24 px sur grand écran (la maquette
-// V4 posait ses mini-icônes à 8 px × 2 ou × 3). Le maître de 64 px réduit à 14 px
-// par le navigateur sortait flou. La 24 px n'est chargée qu'au-delà de 1900 px.
+// Icône de foyer À SA TAILLE NATIVE (variante 16 px) : le maître de 64 px réduit
+// à 14 px par le navigateur sortait flou.
 function FoyerIcon({ k }) {
-  return (
-    <picture className="regul-summary-pic" aria-hidden="true">
-      <source media="(min-width: 1900px)" srcSet={`/pixelart/ui/foyers/${k}@24.png`} />
-      <img className="regul-summary-icon" src={`/pixelart/ui/foyers/${k}@16.png`} alt="" />
-    </picture>
-  );
+  return <img className="regul-summary-icon" src={`/pixelart/ui/foyers/${k}@16.png`} alt="" aria-hidden="true" />;
 }
 
 export function RegulSummary() {

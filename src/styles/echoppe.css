@@ -28,9 +28,8 @@
      hauteur au-delà. Le décor prend le reste ; il ne s'agrandit que d'un facteur
      ENTIER (400×224) : ×1 en 768 px de haut, ×2 en 1080, ×3 en 1340.
      ⚠ Mesuré : un décor à 56 % laissait 270 px au comptoir en 1366×768 — les
-     armoires n'y montraient plus que leur titre ; et à 42 %, la racine fluide
-     (echelle.css) grandissant la barre du haut, le décor retombait à ×2 en
-     2560×1340 (659 px pour 672). */
+     armoires n'y montraient plus que leur titre ; 38 % garde le décor ×3 en
+     2560×1340 avec de la marge (42 % le laissait au ras des 672 px). */
   grid-template-rows: minmax(9rem, 1fr) minmax(22rem, 38%);
   gap: 0.9rem;
   height: 100%;

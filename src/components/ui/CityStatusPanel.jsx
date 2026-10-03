@@ -13,7 +13,7 @@ import { pushOutcomeFloat } from '../../game/core/outcomeFloat.js';
 import { tr } from '../../game/core/i18n.js';
 import RollingNumber from './RollingNumber.jsx';
 import PixelIcon from './PixelIcon.jsx';
-import { tipProps } from './HelpBubble.jsx';
+import { tipProps, hideTip } from './HelpBubble.jsx';
 import { isFirstGame } from '../../game/core/onboarding.js';
 import { uiRevealed } from '../../game/core/uiReveal.js';
 
@@ -147,6 +147,10 @@ export default function CityStatusPanel({ variant = 'full' }) {
   // fonction qui en profite pour écrire un AUTRE état n'est plus rejouable.
   const toggleVowPicker = () => {
     if (vowPickerOpen) { setVowPickerFor(null); return; }
+    // La bulle du vœu (posée sur tout le bloc) restait ouverte sous la souris
+    // et recouvrait les choix (retour de Raph, 2026-10-03) : on la ferme, et
+    // le bloc ne la rouvre pas tant que la liste est ouverte (cf. plus bas).
+    hideTip();
     const r = vowTriggerRef.current?.getBoundingClientRect();
     if (r) {
       const guess = 34 * Math.max(1, vowOffered.length) + 12;   // hauteur estimée
@@ -275,7 +279,7 @@ export default function CityStatusPanel({ variant = 'full' }) {
       {revealTension && cycleVow && (vowStatus || vowOffered.length > 0) && (
         <div
           className="csp-vow"
-          {...tipProps(tr({ fr: 'Vœu du cycle', en: 'Cycle vow' }), tr({
+          {...tipProps(tr({ fr: 'Vœu du cycle', en: 'Cycle vow' }), vowPickerOpen ? null : tr({
             fr: "Un vœu pour ce cycle, libre à toi d'en prêter un. Tenu, il majore la moisson de Ruines de la prochaine chute ; rompu ou manqué, il la réduit de 10 %. Ne rien prêter ne coûte rien.",
             en: "A vow for this cycle, yours to make or not. Kept, it raises the next collapse's Ruin harvest; broken or missed, it lowers it by 10%. Making none costs nothing."
           }))}

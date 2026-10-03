@@ -97,7 +97,10 @@ function openTip(el, name, source) {
   }, delay);
 }
 
-function hideTip() {
+// Exportée pour les déclencheurs qui ouvrent une liste SOUS eux (vœu du cycle) :
+// la souris y reste posée, la bulle aussi, et elle recouvrait les choix.
+// eslint-disable-next-line react-refresh/only-export-components -- fonction pure, même précédent que tipProps
+export function hideTip() {
   cancelPending();
   if (showFn) {
     // lastHideAt SEULEMENT si une bulle était ouverte : fermer un simple timer

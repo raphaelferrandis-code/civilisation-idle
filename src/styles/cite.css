@@ -8,9 +8,10 @@
    relevées côte à côte en 2560×1340 le 2026-10-03. Retour de Raph sur la
    première version : « on était censé gagner de la place sur la map et là
    l'interface est énorme ». Elle reprenait les panneaux du jeu (cartes illustrées
-   pleine largeur, Régulation dépliée, ruban à libellés, largeurs à 22vw) que la
+   pleine largeur, Régulation dépliée, ruban à libellés, largeurs à 22vw) qu'une
    racine fluide grandissait encore : chaque bloc faisait 1.5 à 2 fois sa taille
-   de maquette. Les cotes, en rem (la racine fluide les suit, comme la maquette) :
+   de maquette. La racine fluide est retirée (« tout très très gros » sur son
+   écran de 2560 px) : la racine reste à 16 px. Les cotes, en rem :
      identité 24rem · boutique 24.5rem, rangées à vignette de ~4.3rem ·
      ruban d'une ligne (icône, chiffre 1.28rem, débit) · Régulation repliée en
      barre de 3.2rem · outils 4 × 2.9rem · rail 5.5rem (rail.css).
@@ -477,13 +478,5 @@
   }
   :root:not([data-pointer="coarse"]) .app[data-active-view="city"] .topbar .resource-value .odo {
     font-size: round(down, 1.28rem, 1px);
-  }
-}
-/* Grand écran : l'icône de ressource à 48 px, comme la maquette (16 px × 3) — la
-   variante 24 px doublée au plus proche voisin, nette. */
-@media (min-width: 1900px) {
-  :root:not([data-pointer="coarse"]) .app[data-active-view="city"] .topbar .resource-icon .px-icon {
-    width: 48px;
-    height: 48px;
   }
 }

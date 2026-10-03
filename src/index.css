@@ -41,8 +41,6 @@
 @import './styles/cite.css';
 /* La Boutique : l'échoppe du Chiffonnier (décor, flacons allumés, comptoir, fiche). */
 @import './styles/echoppe.css';
-/* L'interface grandit avec l'écran (racine fluide au bureau). */
-@import './styles/echelle.css';
 /* Coquille TACTILE (P4) : tout en dernier, car c'est une surcouche de régime
    (`:root[data-pointer="coarse"]`) et non une variante à négocier règle par
    règle. ⚠ Le piège des 35 déclarations mortes de base.css vient précisément

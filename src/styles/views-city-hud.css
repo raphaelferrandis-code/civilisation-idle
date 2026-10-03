@@ -585,6 +585,10 @@
    déclarations qu'on venait d'y remonter — en français, sous ~11px il ne reste
    plus de ligne de pixels pour poser un accent. On resserre donc les paddings,
    les gouttières et les réservations ; les corps de texte ne bougent pas.
+   ⛔ ET PAS VERS LE HAUT NON PLUS : une racine fluide au bureau (clamp 16 → 22 px,
+   20.8 px en 2560) a été essayée le 2026-10-03 (refonte UI, lot 9) et retirée le
+   jour même — Raph, sur son écran de 2560 px : « c'est vraiment tout très très
+   gros ». La racine reste aux 16 px du navigateur.
 
    ⚠ POURQUOI DES CONDITIONS EN « , » (OR) : la largeur seule ne dit pas tout.
    Une fenêtre 1600×700 posée dans un coin d'écran est large et pourtant
