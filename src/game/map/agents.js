@@ -1642,6 +1642,74 @@ function vehicleChooseNext(v) {
   v.ty = (v.gy + 0.5) * CM.TILE;
 }
 
+// ── DISTANCE ENTRE VÉHICULES (retour Raph, 2026-10-03 : un aurige dessiné par-dessus
+// une charrette d'amphores) ─────────────────────────────────────────────────────────
+// Avant, chaque véhicule roulait sans voir les autres : deux attelages d'une même file
+// se chevauchaient (~2 paires à tout instant en ère 4). Règle de suivi : un véhicule
+// RALENTIT quand l'écart net (entre carrosseries) avec celui qui le précède dans sa
+// file passe sous `free`, et S'ARRÊTE sous `stop`. Au carrefour, il cède à celui qui
+// est DÉJÀ dans son chemin (en travers). En face (autre file) : ignoré.
+// Patience : bloqué plus de `patience` s, il passe quand même `push` s — pas de nœud
+// à quatre au carrefour, pas de file figée derrière un véhicule sans issue.
+// Tout est en TUILES ; molette __vehGap({ on, stop, free, patience, push }).
+const VEH_GAP = { on: true, stop: 0.1, free: 0.5, patience: 3, push: 1.5, look: 2.5 };
+if (typeof window !== 'undefined') window.__vehGap = (o) => Object.assign(VEH_GAP, o || {});
+// Longueur au sol (tuiles) d'un véhicule : son encre couvre ~65 % de la boîte dessinée
+// (T·size·VEH_SCALE), boîte où il est vu en biais (longueur + largeur).
+function vehGroundLen(v) {
+  const e = v.skin ? eraVehSpec(v.type, v.skin) : null;
+  return 0.65 * (e ? e.size : (VEH_SIZES[v.type] || 0)) * VEH_SCALE;
+}
+// Ce qu'un véhicule offre au suivi : position RENDUE (file comprise), cap, longueur.
+// Le porteur de panier (un piéton) et le drone (en l'air) n'en font pas partie.
+function vehGapSnap(v, T) {
+  if (v.type === 'basket' || v.type === 'drone' || (v.parkT || 0) > 0) return null;
+  let hx = v.tx - v.x, hy = v.ty - v.y;
+  const hd = Math.hypot(hx, hy);
+  if (hd > 0.5) { hx /= hd; hy /= hd; } else { hx = CM_DIRS[v.dir]?.[0] ?? 1; hy = CM_DIRS[v.dir]?.[1] ?? 0; }
+  return { x: v.x / T + (v._lox || 0), y: v.y / T + (v._loy || 0), hx, hy, L: vehGroundLen(v) };
+}
+// Écart net (tuiles) de `a` à l'obstacle `b` s'il est sur le chemin de `a`, sinon
+// Infinity. `ib < ia` départage deux véhicules au même point (apparition groupée).
+function vehObstacleGap(a, b, ia, ib) {
+  const rx = b.x - a.x, ry = b.y - a.y;
+  const along = rx * a.hx + ry * a.hy;
+  if (along > VEH_GAP.look || along < -0.01 || (along <= 0.01 && ib > ia)) return Infinity;
+  const lat = Math.abs(rx * a.hy - ry * a.hx);
+  const c = a.hx * b.hx + a.hy * b.hy;
+  if (c < -0.7) return Infinity;                          // en face : l'autre file
+  if (c > 0.7) {                                          // même sens : même file ?
+    if (lat > 0.12) return Infinity;
+    return along - (a.L + b.L) / 2;
+  }
+  // En travers : son corps (sa longueur) barre-t-il ma voie (ma largeur ~0,4·L) ?
+  if (lat > 0.2 * a.L + 0.5 * b.L + 0.05) return Infinity;
+  return along - (a.L / 2 + 0.2 * b.L);
+}
+// Facteur d'allure (0 → arrêt, 1 → libre) de chaque véhicule, d'après les instantanés.
+// Deux véhicules EN TRAVERS qui se barrent mutuellement : le premier de la liste passe.
+function vehicleGapFactors(snaps) {
+  const n = snaps.length, k = new Array(n).fill(1);
+  if (!VEH_GAP.on) return k;
+  const span = VEH_GAP.free - VEH_GAP.stop;
+  for (let i = 0; i < n; i += 1) {
+    const a = snaps[i];
+    if (!a) continue;
+    let gap = Infinity;
+    for (let j = 0; j < n; j += 1) {
+      const b = snaps[j];
+      if (j === i || !b || Math.abs(b.x - a.x) > VEH_GAP.look || Math.abs(b.y - a.y) > VEH_GAP.look) continue;
+      const g = vehObstacleGap(a, b, i, j);
+      if (g >= gap) continue;
+      const cross = Math.abs(a.hx * b.hx + a.hy * b.hy) <= 0.7;
+      if (cross && j > i && vehObstacleGap(b, a, j, i) < VEH_GAP.free) continue;   // priorité au premier
+      gap = g;
+    }
+    if (gap < VEH_GAP.free) k[i] = gap <= VEH_GAP.stop ? 0 : (gap - VEH_GAP.stop) / span;
+  }
+  return k;
+}
+
 function updateVehicles(dt) {
   for (const v of CM.vehicles) {
     // Tenue de ligne : l'offset de file est LISSÉ (unités tuile) vers sa cible —
@@ -1650,14 +1718,24 @@ function updateVehicles(dt) {
     const lt = vehicleLaneTarget(v);
     if (v._lox === undefined) { v._lox = lt.x; v._loy = lt.y; }
     else { const kL = dt * 4 < 1 ? dt * 4 : 1; v._lox += (lt.x - v._lox) * kL; v._loy += (lt.y - v._loy) * kL; }
+  }
+  const T = CM.TILE;
+  const gapK = vehicleGapFactors(CM.vehicles.map((v) => vehGapSnap(v, T)));
+  for (let i = 0; i < CM.vehicles.length; i += 1) {
+    const v = CM.vehicles[i];
+    // Patience (cf. VEH_GAP) : un véhicule bloqué trop longtemps force le passage.
+    let gk = gapK[i];
+    if ((v._pushT || 0) > 0) { v._pushT -= dt; gk = 1; }
+    else if (gk < 0.05) { v._waitT = (v._waitT || 0) + dt; if (v._waitT > VEH_GAP.patience) { v._pushT = VEH_GAP.push; v._waitT = 0; } }
+    else v._waitT = 0;
     // Plus de pause ni de stationnement : les véhicules avancent en continu.
     const dx = v.tx - v.x, dy = v.ty - v.y, d = Math.hypot(dx, dy);
     if (d < 2.4) {
       vehicleChooseNext(v);
-    } else {
+    } else if (gk > 0) {
       // Le porteur de panier est un « véhicule » côté moteur mais un PIÉTON à l'écran :
       // il suit le ralentissement des habitants, pas l'allure des attelages.
-      const sp = v.speed * dt * (v.type === 'basket' ? PED_SPEED.k : 1);
+      const sp = v.speed * dt * gk * (v.type === 'basket' ? PED_SPEED.k : 1);
       v.x += dx / d * sp;
       v.y += dy / d * sp;
       // Odomètre (px monde) : les bandes diagonales iso animent les ROUES par
@@ -1724,7 +1802,7 @@ function drawVehicleHeadlights(ctx, v) {
 
 // ⚠ Retirés le 2026-08-23 (étape 6) avec le rendu top-down : `drawCitizens`,
 // `drawGroundAgents`, `drawShips`, `drawVehicles`, `frontByPainter`.
-export { agentSetForBand, agentSpecFor, chooseRoadVehicleType, getVehicleDensity, updateVehicles, updateCitizens, CM_DIRS, cityMapWalkRoadKey, roadStepAllowed, drawCitizenThoughts, vehicleLaneOffset, drawEraAgent, drawEraAgentIso, drawNamedAgent, drawNamedAgentIso, drawVehicleHeadlights, thoughtBubbleAnchor, riotEraKey, ensureVeh, vehReady, VEH_SIZES, VEH_PULL, VEH_PUSH, ensureBoat, boatReady, BOAT_SIZES, BOAT_LIFT, ensureDrone, drawDroneRotors, ensureVehDiag, vehDiagReady, vehSkinFor, eraVehSpec, ISO_DIAG, ISO_AGENT_NAMES, BASKET_CARRIERS, agentDir, AGENT_SCALE, VEH_SCALE,
+export { agentSetForBand, agentSpecFor, chooseRoadVehicleType, getVehicleDensity, updateVehicles, vehicleGapFactors, VEH_GAP, updateCitizens, CM_DIRS, cityMapWalkRoadKey, roadStepAllowed, drawCitizenThoughts, vehicleLaneOffset, drawEraAgent, drawEraAgentIso, drawNamedAgent, drawNamedAgentIso, drawVehicleHeadlights, thoughtBubbleAnchor, riotEraKey, ensureVeh, vehReady, VEH_SIZES, VEH_PULL, VEH_PUSH, ensureBoat, boatReady, BOAT_SIZES, BOAT_LIFT, ensureDrone, drawDroneRotors, ensureVehDiag, vehDiagReady, vehSkinFor, eraVehSpec, ISO_DIAG, ISO_AGENT_NAMES, BASKET_CARRIERS, agentDir, AGENT_SCALE, VEH_SCALE,
   citizenSpawnCell, citizenAtDoorstep };
 // AGENT_SCALE / VEH_SCALE sont exportés en LIAISON VIVE (ESM) : le rendu iso les relit
 // à chaque frame, donc __villagerScale / __vehScale agissent aussi sur la vue iso.

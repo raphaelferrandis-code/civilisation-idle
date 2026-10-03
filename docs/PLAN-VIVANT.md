@@ -212,3 +212,17 @@ tram de la muraille (`computeTramRing`, juin) a disparu du code depuis. Les fair
   Corrigé dans `isoUnitFiches` (isoUnits.js) + test ; après : **0 avalé, 0 sur le toit**
   aux bandes 2 à 8. Non couverts par l'audit : merveilles (découpage en tranches à elles,
   refonte en cours dans une autre session), ponts, arbres.
+- **2026-10-03 (retours de Raph sur le jeu)** — habitants « vus de face » à l'ère 0
+  (chargement raté → repli sur le frère de même genre + relances lentes) ; « dashs »
+  (rattrapage des compagnons plafonné à l'allure de marche) et feu de camp traversé (le
+  foyer sort du graphe piéton, ses 8 voisins deviennent du sol) ; ombres de véhicules qui
+  « volent » (pivot `slope` : un sol incliné qui passe par roues et sabots) ; passant
+  debout sur un chariot (point de tri mesuré sur l'image + ordre local autour du
+  véhicule, 6,5 % → 0,8 % de recouvrements mal rangés, 0 « sur le chariot »).
+  **Distance entre véhicules** (« un aurige par-dessus une charrette d'amphores ») :
+  règle de suivi dans `updateVehicles` (`VEH_GAP`, molette `__vehGap`) — ralentit sous
+  0,5 case d'écart net, s'arrête sous 0,1, cède au carrefour à celui qui est dans son
+  chemin, patience 3 s anti-nœud. Mesure (15 s, paires dont les centres sont à moins de
+  80 % de leur demi-longueur cumulée) : même file, ère 4 **3,0 → 0** par instant, ère 5
+  2,2 → 0, ère 6 1,05 → 0 ; véhicules arrêtés 0,1 %, plus long arrêt 0,8 s. Restent les
+  croisements de la file d'en face (deux files côte à côte, le tri les range).
