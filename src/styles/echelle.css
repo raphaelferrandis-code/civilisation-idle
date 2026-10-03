@@ -1,0 +1,21 @@
+/* ============================================================================
+   L'INTERFACE GRANDIT AVEC L'ÉCRAN (refonte UI, lot 9 — maquette V4).
+   ----------------------------------------------------------------------------
+   Constat de la refonte : la racine était figée aux 16 px du navigateur, réglée
+   pour ~1 600 px de large. Sur la fenêtre de Raph (~2 560 px CSS), le texte
+   paraissait minuscule et les pages restaient vides aux deux tiers.
+   Au curseur et au-dessus de 980 px, la racine suit la largeur : 16 px jusqu'à
+   1 600 px, puis +0.5 px par 100 px, plafonnée à 22 px (≈ 17.6 px en 1920,
+   20.8 px en 2560). Tout ce qui est en rem suit. Les PIXELS (icônes, cadres,
+   décors) ne bougent pas ici : ils ne grandissent que par facteurs entiers, là
+   où ils sont dessinés (PlaceScene pour les décors). Les icônes gardent leur
+   taille : le texte ne prend que ×1.3 en 2560, un ×2 entier les rendrait
+   énormes à côté (mesuré sur les captures 2560 du lot 9).
+   Au doigt, la coquille tactile (touch-shell.css) garde la main.
+   ============================================================================ */
+
+@media (min-width: 981px) {
+  :root:not([data-pointer="coarse"]) {
+    font-size: clamp(16px, calc(8px + 0.5vw), 22px);
+  }
+}

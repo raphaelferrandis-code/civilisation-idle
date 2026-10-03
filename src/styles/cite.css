@@ -234,4 +234,25 @@
   :root:not([data-pointer="coarse"]) .app[data-active-view="city"] .topbar-resources.is-partial {
     grid-auto-columns: minmax(0, calc(100% / 5));
   }
+  /* Le ruban flottant est plus étroit que le bandeau (l'identité et la boutique
+     l'encadrent) : libellé resserré, et coupé net plutôt que de déborder sur la
+     case voisine. Mesuré en 1920 : le titre « INFRASTRUCTURE » faisait 201 px
+     pour une case de ~170, et la racine fluide (echelle.css) l'agrandit encore. */
+  :root:not([data-pointer="coarse"]) .app[data-active-view="city"] .topbar .resource-title-wrapper {
+    max-width: 100%;
+    min-width: 0;
+  }
+  :root:not([data-pointer="coarse"]) .app[data-active-view="city"] .topbar .resource-name {
+    font-size: 0.74rem;
+    letter-spacing: 0.05em;
+  }
+}
+/* Sous 2 240 px, la case n'a pas la place du nom (mesuré en 1920 : 128 px pour
+   « INFRASTRUCTURE », 109 de libres ; en 1600, 116 pour 74) : l'icône seule,
+   centrée au-dessus du chiffre — c'était le ruban de la maquette V4 —, le nom
+   reste dans l'infobulle de la valeur. Pas de nom rogné. */
+@media (min-width: 1500px) and (max-width: 2239px) {
+  :root:not([data-pointer="coarse"]) .app[data-active-view="city"] .topbar .resource-name {
+    display: none;
+  }
 }
