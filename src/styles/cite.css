@@ -223,6 +223,9 @@
     bottom: 0.65rem;
     z-index: 1;
     padding: 0.08rem 0.25rem;
+    /* Posé sur la vignette : il garde son fond sombre pour se lire, mais
+       perd son filet (« vilaines puces », Raph). */
+    border: 0;
     font-size: 0.72rem;
   }
   :root:not([data-pointer="coarse"]) .app[data-active-view="city"] .city-shop-dock .btn-purchase {

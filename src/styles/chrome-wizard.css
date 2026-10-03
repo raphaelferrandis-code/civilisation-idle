@@ -731,6 +731,42 @@ button:disabled::before,
   );
 }
 
+/* ── DÉ-BOXING : les VALEURS et les ÉTATS deviennent du TEXTE ──────────────
+   Retour de Raph (2026-10-03, refonte UI) : « il y a encore des vilaines
+   puces », sur les effets d'un legs du Testament (« Nourriture +10 % »,
+   « Subsistance −3 % » dans deux encadrés verts). Même verdict que sur la
+   maquette V2. Le filet, le fond dilué et l'ombre partent ; la COULEUR seule
+   porte le sens — exactement ce que la zone de crise faisait déjà
+   (views-crises.css, « Dé-boxing »). Une liste d'effets se lit alors comme
+   une phrase : « Nourriture +10 % · Subsistance −3 % ».
+   ⚠ (0,3,0) : les variantes par palier (`.purchase-row[data-tier] …`) et par
+   sens (`.app .effect-chip.is-gain`) en valent autant ; cette feuille passe
+   après elles. Les jeux du temple (augury/scratch/bj/icarus) ne sont PAS
+   dedans : la session Plaisirs les refait. Le COMPTE (pastille dorée sur un
+   onglet) reste cranté : c'est une notification, pas une valeur. */
+:root .app :is(
+  .effect-chip, .annals-chip, .choice-badge, .milestone-badge,
+  .chronicle-reg-badge, .pr-milestone-badge, .level-chip, .output-chip, .gr-rung-reward,
+  .era-timeline-now
+) {
+  padding: 0;
+  border: 0;
+  background: none;
+  box-shadow: none;
+}
+:root .app .effect-chips {
+  gap: 0 0.5rem;
+}
+:root .app .effect-chips > .effect-chip + .effect-chip::before {
+  content: "·";
+  margin-right: 0.5rem;
+  color: var(--text-mid);
+}
+/* Renforcé par l'affinité : une lueur d'or sur le texte, plus de liseré. */
+:root .app .effect-chip.is-boosted {
+  text-shadow: 0 0 6px rgba(212, 186, 128, 0.6);
+}
+
 /* ════════════════════════════════════════════════════════════════════════════
    3 quinquies · LE SEGMENTÉ ET LES BASCULES  (lot 5 de l'audit)
    ----------------------------------------------------------------------------
