@@ -16,7 +16,10 @@ import { fmt } from '../../game/core/utils.js';
 
 // Un compteur de sceau s'écrit en entier ; seul le Rayonnement, qui dépasse le
 // domaine lisible, passe par le format compact.
-const grNombre = (v) => (typeof v === "number" ? String(Math.floor(v)) : fmt(v));
+// ⚠ Le SEUIL et non le type : la cible du sceau IV est un `number` (1e45) quand
+// le compteur est un Decimal. String() l'écrivait « 1e+45 » à côté d'un
+// « 8.90e41 » de fmt() — deux notations dans la même jauge.
+const grNombre = (v) => (typeof v === "number" && Math.abs(v) < 1e4 ? String(Math.floor(v)) : fmt(v));
 import PixelIcon from './PixelIcon.jsx';
 import { tipProps } from './HelpBubble.jsx';
 

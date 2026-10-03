@@ -1077,13 +1077,6 @@
   pointer-events: none;
 }
 
-.scratch-hint {
-  text-align: center;
-  font-size: 0.8rem;
-  color: var(--muted);
-  font-family: "Inter", "Baloo 2", system-ui, sans-serif;
-}
-
 .scratch-result {
   text-align: center;
   font-family: var(--font-number);

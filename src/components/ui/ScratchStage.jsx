@@ -443,7 +443,6 @@ export default function ScratchStage({ table, onClose }) {
       {phase === 'scratch' && (
         <>
           {ticket}
-          <p className="scratch-hint">{tr({ fr: 'Gratte le vernis avec la souris ou le doigt…', en: 'Scratch the varnish with the mouse or finger…' })}</p>
           <menu className="choice-menu scratch-actions">
             <button type="button" className="scratch-reveal-all" onClick={reveal}>
               {tr({ fr: 'Tout révéler', en: 'Reveal all' })}
