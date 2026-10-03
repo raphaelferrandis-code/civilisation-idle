@@ -107,13 +107,16 @@ export default function CrisisDoctrinePanel() {
             <>
               <div className="doctrine-line">
                 <span className="doctrine-line-label">{tr({ fr: "Automatique", en: "Automatic" })}</span>
+                {/* Une CASE (chrome-wizard.css « LES BASCULES ») : pas de texte
+                    dedans — « Actif » débordait du carré (« ■TIF », retour de Raph).
+                    L'état passe par aria-label / aria-pressed. */}
                 <button
                   type="button"
                   className={`toggle-btn ${autoCollapse.enabled ? 'on' : 'off'}`}
+                  aria-pressed={Boolean(autoCollapse.enabled)}
+                  aria-label={autoCollapse.enabled ? tr({ fr: "Actif", en: "On" }) : tr({ fr: "Inactif", en: "Off" })}
                   onClick={() => handleAutoCollapse({ enabled: !autoCollapse.enabled })}
-                >
-                  {autoCollapse.enabled ? tr({ fr: "Actif", en: "On" }) : tr({ fr: "Inactif", en: "Off" })}
-                </button>
+                ></button>
               </div>
 
               {autoCollapse.enabled && (
@@ -179,10 +182,10 @@ export default function CrisisDoctrinePanel() {
                     <button
                       type="button"
                       className={`toggle-btn ${autoCollapse.prepare ? 'on' : 'off'}`}
+                      aria-pressed={Boolean(autoCollapse.prepare)}
+                      aria-label={autoCollapse.prepare ? tr({ fr: "Oui", en: "Yes" }) : tr({ fr: "Non", en: "No" })}
                       onClick={() => handleAutoCollapse({ prepare: !autoCollapse.prepare })}
-                    >
-                      {autoCollapse.prepare ? tr({ fr: "Oui", en: "Yes" }) : tr({ fr: "Non", en: "No" })}
-                    </button>
+                    ></button>
                   </div>
                 </>
               )}

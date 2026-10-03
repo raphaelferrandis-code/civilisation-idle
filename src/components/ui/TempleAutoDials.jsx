@@ -101,13 +101,15 @@ function Toggle({ game, onLabel }) {
   return (
     <div className="doctrine-line">
       <span className="doctrine-line-label">{onLabel}</span>
+      {/* Une CASE sans texte (chrome-wizard.css « LES BASCULES ») : l'état
+          passe par aria-label / aria-pressed. */}
       <button
         type="button"
         className={`toggle-btn ${g.on ? 'on' : 'off'}`}
+        aria-pressed={Boolean(g.on)}
+        aria-label={g.on ? tr({ fr: 'Actif', en: 'On' }) : tr({ fr: 'Inactif', en: 'Off' })}
         onClick={() => setTempleAuto(game, { on: !g.on })}
-      >
-        {g.on ? tr({ fr: 'Actif', en: 'On' }) : tr({ fr: 'Inactif', en: 'Off' })}
-      </button>
+      ></button>
     </div>
   );
 }
