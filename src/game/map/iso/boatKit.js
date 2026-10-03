@@ -26,6 +26,8 @@ import { HOVER } from './boatKitsCosmic.js';
 import { drawHoverGlow } from './boatFx.js';
 import { drawSunShadow } from './isoSunShadow.js';
 import { snapDev } from '../blitSnap.js';
+import { agentFrameIso } from '../agents.js';
+import { crewName, crewDir } from './boatCrew.js';
 
 export const BOATKIT = { on: true, budget: 3 };
 if (typeof window !== 'undefined') {
@@ -118,10 +120,60 @@ function getBake(spec, dir, state, pose, force, now, empty = false) {
     cv: toCanvas(b.img), w: b.img.w, h: b.img.h, ox: b.img.ox, oy: b.img.oy,
     rcv: toCanvas(b.refl), rw: b.refl.w, rh: b.refl.h, rox: b.refl.ox, roy: b.refl.oy,
     anchors: b.anchors,
+    crew: b.crew, mcv: crewMaskCanvas(b.crew),
   };
   _cache.set(key, e);
   if (_cache.size > CACHE_MAX) _cache.delete(_cache.keys().next().value);
   return e;
+}
+
+// ── L'ÉQUIPAGE : les habitants de l'ère, découpés par leur coque ───────────────
+// Les masques d'une cuisson (boatBake.crewMasks), empilés en une planche : opaque là
+// où le bateau passe devant le marin.
+function crewMaskCanvas(crew) {
+  if (!crew || !crew.length || typeof document === 'undefined') return null;
+  const w = crew[0].w, h = crew[0].h;
+  const data = new Uint8ClampedArray(w * h * crew.length * 4);
+  crew.forEach((cr, n) => {
+    for (let k = 0; k < w * h; k += 1) if (cr.mask[k]) data[(n * w * h + k) * 4 + 3] = 255;
+  });
+  const cv = document.createElement('canvas');
+  cv.width = w; cv.height = h * crew.length;
+  cv.getContext('2d').putImageData(new ImageData(data, w, cv.height), 0, 0);
+  return cv;
+}
+
+// Chaque marin est peint dans une toile de travail À LA GRILLE DEVICE (comme les
+// habitants à terre : même bande, même finesse à tous les zooms), on y efface ce que
+// le masque dit caché, puis on la pose. Le masque est mis à l'échelle EXACTEMENT
+// comme l'image du bateau (k = dw / côté) : ses bords tombent sur ceux du plat-bord.
+let _crewCv = null;
+function drawCrew(ctx, e, M, bx, by, k, z, band) {
+  if (!e.crew || !e.crew.length || !e.mcv) return;
+  const d = CM.dpr || 1;
+  if (!_crewCv) _crewCv = document.createElement('canvas');
+  const cv = _crewCv;
+  for (let n = 0; n < e.crew.length; n += 1) {
+    const cr = e.crew[n];
+    const F = agentFrameIso(crewName(band, M, cr), crewDir(cr.phi), z);
+    if (!F) continue;
+    const ex0 = bx + (cr.x0 - e.ox) * k, ey0 = by + (cr.y0 - e.oy) * k;
+    const mx = Math.floor(ex0 * d) / d, my = Math.floor(ey0 * d) / d;
+    const W = Math.ceil((cr.w * k + ex0 - mx) * d), H = Math.ceil((cr.h * k + ey0 - my) * d);
+    if (cv.width < W || cv.height < H) { cv.width = Math.max(cv.width, W); cv.height = Math.max(cv.height, H); }
+    const g = cv.getContext('2d');
+    g.setTransform(d, 0, 0, d, 0, 0);
+    g.globalCompositeOperation = 'source-over';
+    g.clearRect(0, 0, W / d + 1, H / d + 1);
+    g.imageSmoothingEnabled = false;
+    const fx = bx + (cr.X - e.ox) * k, fy = by + (cr.Y - e.oy) * k;
+    const left = snapDev(fx - F.drawH / 2), top = snapDev(fy - F.feetF * F.drawH);
+    g.drawImage(F.img, 0, 0, F.fh, F.fh, left - mx, top - my, F.drawH, F.drawH);
+    g.globalCompositeOperation = 'destination-out';
+    g.drawImage(e.mcv, 0, n * cr.h, cr.w, cr.h, ex0 - mx, ey0 - my, cr.w * k, cr.h * k);
+    g.globalCompositeOperation = 'source-over';
+    ctx.drawImage(cv, 0, 0, W, H, mx, my, W / d, H / d);
+  }
 }
 
 // États de la flotte → états du kit (le kit ne connaît que ce qui change le
@@ -166,10 +218,17 @@ export function drawBoat(ctx, spec, x, y, theta, z, now, opts = {}) {
   ctx.imageSmoothingEnabled = false;
   drawSunShadow(ctx, e.cv, bx, by + (M.hover ? snapDev(HOVER * z) : 0), dw, dh, 0, 0, 0, 0, 'column', false);
   ctx.drawImage(e.cv, bx, by, dw, dh);
+  // L'équipage par-dessus, découpé par ce qui passe devant lui. L'ère des habits est
+  // celle de la ville (un bateau de l'ère d'avant qui finit sa route s'est rhabillé).
+  const band = opts.band != null ? opts.band : ((CM.layout && CM.layout.counts && CM.layout.counts.eraBand) | 0);
+  const crew = e.crew && e.crew.length ? (c2) => drawCrew(c2, e, M, bx, by, dw / side, z, band) : null;
+  if (crew) crew(ctx);
   ctx.imageSmoothingEnabled = prevSm;
   const anchors = {};
   for (const [k, a] of Object.entries(e.anchors || {})) anchors[k] = { x: x + a.X * z, y: y + a.Y * z };
-  return { img: e.cv, bx, by, dw, dh, anchors, model: M };
+  // `crew` : le pont redessine la coque d'un bateau sorti de sous lui (isoBridge,
+  // part 'ship') — et ses marins avec.
+  return { img: e.cv, bx, by, dw, dh, anchors, model: M, crew };
 }
 
 // ── À QUAI : L'API DES PORTS (session « port et plage », drawMooredHull) ──────────

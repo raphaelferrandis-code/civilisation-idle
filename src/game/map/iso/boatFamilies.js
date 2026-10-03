@@ -23,7 +23,7 @@ const rnd = (seed, salt, n) => h32(seed, salt, 97) % n;
 // ── RADEAU DE RONDINS ─────────────────────────────────────────────────────────
 // o = { id, role, L, B, logR, sail: rampe | null, cargo: [kinds], crew (nombre),
 //       passengers (bac), speed }
-export function makeRaft(o, M, C) {
+export function makeRaft(o, M) {
   const L = o.L || 34, B = o.B || 15, R = o.logR || 1.25;
   const n = Math.max(4, Math.round(B / (2 * R)));
   return {
@@ -62,18 +62,18 @@ export function makeRaft(o, M, C) {
       if (o.passengers) {
         const np = 2 + (h32(V.seed, 40) % 3);
         for (let i = 0; i < np; i += 1) {
-          person(S, -L / 2 + 10 + i * 4.4, ((h32(V.seed, 41, i) % 5) - 2) * 1.3, top, (h32(V.seed, 42, i) % 8) * (Math.PI / 4), crewPal(C, V.seed, 50 + i * 7), ctx.state === 'salute' && i === 0 ? 'wave' : 'stand', 1);
+          person(S, -L / 2 + 10 + i * 4.4, ((h32(V.seed, 41, i) % 5) - 2) * 1.3, top, (h32(V.seed, 42, i) % 8) * (Math.PI / 4), crewPal(V.seed, 50 + i * 7), ctx.state === 'salute' && i === 0 ? 'wave' : 'stand', 1);
         }
       } else {
         cargo(S, V.cargo, -6, 8, -B / 2 + 2, B / 2 - 2, hAt, V.seed, M);
       }
       // Le perchiste à l'arrière (toujours).
-      person(S, -L / 2 + 3.5, 1.4, top, 0, crewPal(C, V.seed, 10), 'pole', k);
+      person(S, -L / 2 + 3.5, 1.4, top, 0, crewPal(V.seed, 10), 'pole', k);
       asPart(S, PART.oar, () => {
         const lean = 0.35 * Math.sin(k);
         tube(S, [[-L / 2 + 5.5 + lean, 1.0, top + 6.3], [-L / 2 - 6 + lean * 4, 2.2, -0.8]], 0.32, (nw) => rampRGB(M.wood, nw));
       });
-      if (o.crew > 1 && !o.passengers) person(S, L / 2 - 4, -1.5, top, 0.2, crewPal(C, V.seed, 20), ctx.state === 'salute' ? 'wave' : 'stand', 1);
+      if (o.crew > 1 && !o.passengers) person(S, L / 2 - 4, -1.5, top, 0.2, crewPal(V.seed, 20), ctx.state === 'salute' ? 'wave' : 'stand', 1);
     },
   };
 }
@@ -81,7 +81,7 @@ export function makeRaft(o, M, C) {
 // ── PIROGUE MONOXYLE ──────────────────────────────────────────────────────────
 // Un tronc évidé : étroit, bas, pagayeurs à genoux. o.fisher : un homme se lève,
 // la sagaie pointée vers l'eau, quand la pirogue est posée.
-export function makeDugout(o, M, C) {
+export function makeDugout(o, M) {
   const L = o.L || 30, B = o.B || 6.4;
   return {
     id: o.id, role: o.role || 'trade', len: L, beam: B, speed: o.speed || [0.8, 1.1],
@@ -96,11 +96,11 @@ export function makeDugout(o, M, C) {
       drawHull(S, H, { hull: M.log, hullIn: M.logIn || M.woodIn, rail: M.logEnd, floor: M.logIn || M.woodIn });
       const k = ctx.k || 0;
       const fishing = o.fisher && (ctx.state === 'anchor' || ctx.state === 'fish');
-      const kneel = (a, salt, pose) => person(S, a, 0, H.floor - 0.3, 0, crewPal(C, V.seed, salt), pose, k);
+      const kneel = (a, salt, pose) => person(S, a, 0, H.floor - 0.3, 0, crewPal(V.seed, salt), pose, k);
       if (fishing) {
         kneel(-L / 2 + 6, 10, 'sit');
         // Debout à la proue, la sagaie pointée vers l'eau.
-        person(S, L / 2 - 8, 0, H.floor, Math.PI / 2, crewPal(C, V.seed, 20), 'haul', k);
+        person(S, L / 2 - 8, 0, H.floor, Math.PI / 2, crewPal(V.seed, 20), 'haul', k);
         asPart(S, PART.oar, () => tube(S, [[L / 2 - 6, 1.6, 7.5], [L / 2 - 2, 5.5, -0.5]], 0.28, (nw) => rampRGB(M.wood, nw)));
       } else {
         kneel(-L / 2 + 6, 10, ctx.state === 'dock' ? 'sit' : 'paddle');
@@ -123,7 +123,7 @@ export function makeDugout(o, M, C) {
 // ── BARQUE À RAMES (le pêcheur, toutes époques à voile et à rames) ─────────────
 // o = { id, L, B, lateen: rampe (voile latine en route) | null, paint: [rampes],
 //       speed }
-export function makeRowboat(o, M, C) {
+export function makeRowboat(o, M) {
   const L = o.L || 24, B = o.B || 9;
   return {
     id: o.id, role: o.role || 'fisher', len: L, beam: B, speed: o.speed || [0.7, 0.95],
@@ -157,16 +157,16 @@ export function makeRowboat(o, M, C) {
       if (!fishing) {
         if (o.lateen) {
           lateenRig(S, { am: L2 * 0.45, hBase: H.floor, mastH: 13, len: 16, bil: 1.6, ramp: o.lateen, mast: M.wood });
-          person(S, -L2 + 3, 0, H.floor, 0, crewPal(C, V.seed, 10), 'steer');
-          person(S, -1, 0.5, 1.9, 0, crewPal(C, V.seed, 20), ctx.state === 'salute' ? 'wave' : 'sit', 1);
+          person(S, -L2 + 3, 0, H.floor, 0, crewPal(V.seed, 10), 'steer');
+          person(S, -1, 0.5, 1.9, 0, crewPal(V.seed, 20), ctx.state === 'salute' ? 'wave' : 'sit', 1);
         } else {
           rowOars(S, -L2 * 0.12, sh.w(-0.12, 3) + 0.2, 3.6, L * 0.33, k, M.wood, ctx.state === 'dock');
-          person(S, -L2 * 0.27, 0, 1.9, Math.PI, crewPal(C, V.seed, 10), 'row', k);
-          person(S, -L2 + 3, 0, H.floor, 0, crewPal(C, V.seed, 20), ctx.state === 'salute' ? 'wave' : 'sit', 1);
+          person(S, -L2 * 0.27, 0, 1.9, Math.PI, crewPal(V.seed, 10), 'row', k);
+          person(S, -L2 + 3, 0, H.floor, 0, crewPal(V.seed, 20), ctx.state === 'salute' ? 'wave' : 'sit', 1);
         }
       } else {
-        person(S, L2 * 0.3, 1.0, H.floor, Math.PI / 2, crewPal(C, V.seed, 10), 'haul', k);
-        person(S, -L2 * 0.375, -0.6, 1.9, 0, crewPal(C, V.seed, 20), 'sit');
+        person(S, L2 * 0.3, 1.0, H.floor, Math.PI / 2, crewPal(V.seed, 10), 'haul', k);
+        person(S, -L2 * 0.375, -0.6, 1.9, 0, crewPal(V.seed, 20), 'sit');
         noReflect(S, () => rope(S, [L2 * 0.4, 3.2, 2.6], [L2 * 0.55, 7.5, 0], M.netLine || '#cfc4a6'));
       }
     },
@@ -175,7 +175,7 @@ export function makeRowboat(o, M, C) {
 
 // ── LE BAC DU PASSEUR (plateforme à la perche) ────────────────────────────────
 // o = { id, L, B, cart: bool (une charrette et son âne à bord), speed }
-export function makeBac(o, M, C) {
+export function makeBac(o, M) {
   const L = o.L || 30, B = o.B || 15;
   return {
     id: o.id, role: 'ferry', len: L, beam: B, speed: o.speed || [0.45, 0.6],
@@ -192,7 +192,7 @@ export function makeBac(o, M, C) {
       const hdk = sh.deckH(0);
       for (const side of [-1, 1]) railing(S, -L2 + 3, L2 - 3, side * (sh.w(0, H.D) - 0.6), hdk, 3.2, M.woodIn, 4.8);
       const k = ctx.k || 0;
-      person(S, -L2 + 3, 1.5, hdk, 0, crewPal(C, V.seed, 10), 'pole', k);
+      person(S, -L2 + 3, 1.5, hdk, 0, crewPal(V.seed, 10), 'pole', k);
       asPart(S, PART.oar, () => {
         const lean = 0.35 * Math.sin(k);
         tube(S, [[-L2 + 5 + lean, 1.1, hdk + 6.3], [-L2 - 6 + lean * 4, 2.2, -0.8]], 0.32, (nw) => rampRGB(M.wood, nw));
@@ -208,13 +208,13 @@ export function makeBac(o, M, C) {
           }
           tube(S, [[5, 0, hdk + 2.6], [10, 0, hdk + 0.4]], 0.35, (nw) => rampRGB(M.wood, nw));
         });
-        person(S, L2 - 4, -2.5, hdk, Math.PI, crewPal(C, V.seed, 60), 'stand', k);
+        person(S, L2 - 4, -2.5, hdk, Math.PI, crewPal(V.seed, 60), 'stand', k);
       } else {
         const n = 2 + (h32(V.seed, 40) % 3);
         for (let i = 0; i < n; i += 1) {
           const a = -L2 + 9 + i * 4.6;
           const c = ((h32(V.seed, 41, i) % 5) - 2) * 1.4;
-          person(S, a, c, hdk, (h32(V.seed, 42, i) % 8) * (Math.PI / 4), crewPal(C, V.seed, 50 + i * 7), i === 0 && (ctx.state === 'salute' || chance(V.seed, 43, 0.3)) ? 'wave' : 'stand', k);
+          person(S, a, c, hdk, (h32(V.seed, 42, i) % 8) * (Math.PI / 4), crewPal(V.seed, 50 + i * 7), i === 0 && (ctx.state === 'salute' || chance(V.seed, 43, 0.3)) ? 'wave' : 'stand', k);
         }
       }
     },
@@ -224,11 +224,12 @@ export function makeBac(o, M, C) {
 // ── LE CHALAND À LA PERCHE ─────────────────────────────────────────────────────
 // o = { id, L, B, cargo: [kinds], hut: 'thatch' | 'planks' | 'cabin', hatches
 //       (panneaux de cale au lieu de cargaison à l'air), pole (false : automoteur,
-//       pas de perchiste), speed, paint: [rampes] }
+//       pas de perchiste), crew (false : personne sur le pont — la péniche, un grand
+//       bateau), speed, paint: [rampes] }
 // ⛔ PLUS DE HALAGE (Raph, 2026-10-03 : « plus de halage du tout ») : la bête marchait
 // en haut du quai, dans la rue, et sa corde balayait le mur et les escaliers. Le
 // chaland avance à la PERCHE : un batelier sur le plat-bord, la perche plantée en arrière.
-export function makeBarge(o, M, C) {
+export function makeBarge(o, M) {
   const L = o.L || 60, B = o.B || 16;
   const pole = o.pole !== false;
   return {
@@ -286,50 +287,75 @@ export function makeBarge(o, M, C) {
       } else {
         cargo(S, V.cargo, -L2 + 11.5, L2 - 4, -B / 2 + 2.2, B / 2 - 2.2, () => floor, V.seed, M);
       }
-      person(S, -L2 + 1.8, 0, sh.g(-1) - 0.6, 0, crewPal(C, V.seed, 10), 'steer');
-      if (pole) poler(S, sh, L2 * 0.3, chance(V.seed, 21, 0.5) ? 1 : -1, crewPal(C, V.seed, 30), M.woodIn, k);
-      if (ctx.state === 'salute' || chance(V.seed, 20, 0.5)) person(S, L2 - 3, 1.5, floor, 0, crewPal(C, V.seed, 20), ctx.state === 'salute' ? 'wave' : 'stand', 1);
+      if (o.crew === false) return;
+      person(S, -L2 + 1.8, 0, sh.g(-1) - 0.6, 0, crewPal(V.seed, 10), 'steer');
+      if (pole) poler(S, sh, L2 * 0.3, chance(V.seed, 21, 0.5) ? 1 : -1, crewPal(V.seed, 30), M.woodIn, k);
+      if (ctx.state === 'salute' || chance(V.seed, 20, 0.5)) person(S, L2 - 3, 1.5, floor, 0, crewPal(V.seed, 20), ctx.state === 'salute' ? 'wave' : 'stand', 1);
     },
   };
 }
 
 
 // ── L'EMBARCADÈRE DU PASSEUR ──────────────────────────────────────────────────
-// o = { id, kind: 'logs' | 'planks' | 'iron' | 'steel' | 'nacre', glow (couleur) }
+// o = { id, kind: 'logs' | 'planks' | 'iron' | 'steel' | 'nacre', glow (couleur),
+//       reach (px d'art de tablier EN PLUS vers le large, 0 par défaut) }
+// Origine = le bord du ruban, +a vers le large : le tablier part de la berge (−14)
+// et s'avance de 10 px au-dessus de l'eau.
+//
+// LE TABLIER ALLONGÉ (`reach`, retour Raph du 2026-10-03 : le bac ne doit plus
+// monter sur le quai). Sur la rive dont on voit le MUR de quai, l'eau commence au
+// pied du mur, plus bas à l'écran : le bac s'arrête là, et le tablier s'avance
+// au-dessus de la face du mur jusqu'à lui, sur des pieux qui descendent jusqu'à
+// l'eau. La profondeur d'un pieu se lit dans le cap de la cuisson : la ligne du pied
+// du mur passe par le bout du tablier (posé sur l'eau), et un pas d'un px vers la
+// berge la place 1 / (cos θ + sin θ) px plus bas sous lui (cf. riverFleet.
+// quayHiddenDepth — même projection). Modèle dérivé : `withReach(px)`.
 export function makeLanding(o, M) {
+  const R = Math.max(0, Math.round(o.reach || 0));
+  const tip = 10 + R;
   return {
-    id: o.id, role: 'landing', len: 30, beam: 22,
-    bounds: [-20, 20, -14, 14, -1, 14],
+    id: o.id, role: 'landing', len: 30 + R, beam: 22,
+    bounds: [-20, 20 + R, -14, 14, R ? -40 : -1, 14],
     ink: '#1d1611',
     variant(seed) { return { seed }; },
     anchors() { return {}; },
+    withReach(r) { return makeLanding({ ...o, id: o.id + '@' + Math.round(r), reach: r }, M); },
     build(S) {
       const k = o.kind || 'planks';
       asPart(S, 2, () => {
         if (k === 'logs') {
-          for (let c = -6; c <= 6; c += 2.4) tube(S, [[-14, c, 3.4], [10, c, 3.4]], 1.15, (nw) => rampRGB(M.log, nw));
+          for (let c = -6; c <= 6; c += 2.4) tube(S, [[-14, c, 3.4], [tip, c, 3.4]], 1.15, (nw) => rampRGB(M.log, nw));
         } else {
-          box(S, -14, 10, -7, 7, 3.2, 4.2, (f, u, v, nw) => {
+          const D = 24 + R;
+          box(S, -14, tip, -7, 7, 3.2, 4.2, (f, u, v, nw) => {
             if (f !== 'top') return rampRGB(M.landSide || M.woodIn, nw, 1);
-            if (k === 'nacre') return rampRGB(M.deck, nw, (u * 24) % 6 < 0.4 ? 1 : 0);
+            if (k === 'nacre') return rampRGB(M.deck, nw, (u * D) % 6 < 0.4 ? 1 : 0);
             const step = k === 'planks' ? 2.2 : 4;
-            const kk = Math.floor(u * 24 / step);
-            return rampRGB(M.landDeck || M.deck, nw, (u * 24) % step < 0.45 ? 2 : (h32(kk, 3, 7) % 3 === 0 ? 1 : 0));
+            const kk = Math.floor(u * D / step);
+            return rampRGB(M.landDeck || M.deck, nw, (u * D) % step < 0.45 ? 2 : (h32(kk, 3, 7) % 3 === 0 ? 1 : 0));
           });
         }
       });
       asPart(S, PART.mast, () => {
-        for (const a of [-11, -3, 5]) for (const c of [-6.2, 6.2]) {
-          tube(S, [[a, c, -0.5], [a, c, 3.2]], 0.55, (nw) => rampRGB(M.landPost || M.woodIn, nw, 1));
+        // Pieux : les trois d'origine, puis un tous les 8 px sous le tablier allongé.
+        const piles = [-11, -3, 5];
+        for (let a = 13; a <= tip - 3; a += 8) piles.push(a);
+        const k45 = Math.max(0.3, S.fx + S.fy);
+        for (const a of piles) for (const c of [-6.2, 6.2]) {
+          // Au-dessus de la face du mur (0 < a < bout) : jusqu'au pied du mur.
+          const low = R && a > 0 ? Math.max(-38, -0.5 - (tip - a) / k45) : -0.5;
+          const pile = () => tube(S, [[a, c, low], [a, c, 3.2]], 0.55, (nw) => rampRGB(M.landPost || M.woodIn, nw, 1));
+          // Sous la ligne d'eau, un pieu n'a pas de reflet (il serait retourné AU-DESSUS).
+          if (low < -0.5) noReflect(S, pile); else pile();
         }
       });
       asPart(S, 10, () => {
         for (const c of [-5.6, 5.6]) {
-          tube(S, [[9, c, 3], [9, c, 7.2]], 0.75, o.glow ? glow(o.glow) : (nw) => rampRGB(M.landPost || M.wood, nw));
+          tube(S, [[tip - 1, c, 3], [tip - 1, c, 7.2]], 0.75, o.glow ? glow(o.glow) : (nw) => rampRGB(M.landPost || M.wood, nw));
         }
         if (k === 'iron' || k === 'steel' || k === 'nacre') {
-          railing(S, -13, 8, -6.6, 4.2, 3, M.landRail || M.woodIn, 3.5);
-          railing(S, -13, 8, 6.6, 4.2, 3, M.landRail || M.woodIn, 3.5);
+          railing(S, -13, tip - 2, -6.6, 4.2, 3, M.landRail || M.woodIn, 3.5);
+          railing(S, -13, tip - 2, 6.6, 4.2, 3, M.landRail || M.woodIn, 3.5);
         }
       });
     },

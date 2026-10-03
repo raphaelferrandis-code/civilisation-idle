@@ -491,6 +491,24 @@ function drawNamedAgentIso(ctx, sx, groundY, z, name, scale, dir, walking, now, 
   ctx.imageSmoothingEnabled = prevS;
   return { drawW, drawH, top };
 }
+// L'IMAGE d'un habitant nommé, pour qui le dessine lui-même (l'équipage des bateaux,
+// boatKit.drawCrew, qui le découpe par le masque de sa coque) : même bande que
+// drawNamedAgentIso (pleine ou -half, même bascule), frame 0, taille à l'écran et
+// ligne de pieds MESURÉE. null tant que les quatre bandes ne sont pas décodées.
+const AGENT_SCALE_OF = new Map(AGENT_SETS.flatMap((set) => [...set.men, ...set.women, set.child]).map((s) => [s.name, s.scale]));
+function agentFrameIso(name, dir, z) {
+  const c = ensureAgentDiag(name);
+  if (c.ready < ISO_DIAG.length) return null;
+  let img = c.img[ISO_DIAG[(dir >= 0 && dir < 4) ? dir : 2]];
+  let fh = img.naturalHeight || AGENT_FH;
+  const drawH = Math.max(1, snapDev(CM.TILE * z * (AGENT_SCALE_OF.get(name) || AGENT_FALLBACK.scale) * AGENT_SCALE));
+  const half = halfBands.on ? c.imgHalf[ISO_DIAG[(dir >= 0 && dir < 4) ? dir : 2]] : null;
+  if (half && half.complete && half.naturalWidth > 0 && drawH <= fh * 0.7) {
+    img = half;
+    fh = half.naturalHeight;
+  }
+  return { img, fh, drawH, feetF: agentFootF(c, img) };
+}
 // Habitant d'ère en VUE DIAGONALE si sa bande existe ; false sinon (repli cardinal).
 // `variant` = p.skinVariant (dessin/métier tiré au spawn). ⚠ Jusqu'au 2026-10-01 il
 // n'était PAS transmis : tous les passants sortaient en variante 0, et les seconds
@@ -1802,7 +1820,7 @@ function drawVehicleHeadlights(ctx, v) {
 
 // ⚠ Retirés le 2026-08-23 (étape 6) avec le rendu top-down : `drawCitizens`,
 // `drawGroundAgents`, `drawShips`, `drawVehicles`, `frontByPainter`.
-export { agentSetForBand, agentSpecFor, chooseRoadVehicleType, getVehicleDensity, updateVehicles, vehicleGapFactors, VEH_GAP, updateCitizens, CM_DIRS, cityMapWalkRoadKey, roadStepAllowed, drawCitizenThoughts, vehicleLaneOffset, drawEraAgent, drawEraAgentIso, drawNamedAgent, drawNamedAgentIso, drawVehicleHeadlights, thoughtBubbleAnchor, riotEraKey, ensureVeh, vehReady, VEH_SIZES, VEH_PULL, VEH_PUSH, ensureBoat, boatReady, BOAT_SIZES, BOAT_LIFT, ensureDrone, drawDroneRotors, ensureVehDiag, vehDiagReady, vehSkinFor, eraVehSpec, ISO_DIAG, ISO_AGENT_NAMES, BASKET_CARRIERS, agentDir, AGENT_SCALE, VEH_SCALE,
+export { agentSetForBand, agentSpecFor, agentFrameIso, chooseRoadVehicleType, getVehicleDensity, updateVehicles, vehicleGapFactors, VEH_GAP, updateCitizens, CM_DIRS, cityMapWalkRoadKey, roadStepAllowed, drawCitizenThoughts, vehicleLaneOffset, drawEraAgent, drawEraAgentIso, drawNamedAgent, drawNamedAgentIso, drawVehicleHeadlights, thoughtBubbleAnchor, riotEraKey, ensureVeh, vehReady, VEH_SIZES, VEH_PULL, VEH_PUSH, ensureBoat, boatReady, BOAT_SIZES, BOAT_LIFT, ensureDrone, drawDroneRotors, ensureVehDiag, vehDiagReady, vehSkinFor, eraVehSpec, ISO_DIAG, ISO_AGENT_NAMES, BASKET_CARRIERS, agentDir, AGENT_SCALE, VEH_SCALE,
   citizenSpawnCell, citizenAtDoorstep };
 // AGENT_SCALE / VEH_SCALE sont exportés en LIAISON VIVE (ESM) : le rendu iso les relit
 // à chaque frame, donc __villagerScale / __vehScale agissent aussi sur la vue iso.

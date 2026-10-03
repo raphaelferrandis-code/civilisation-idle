@@ -7,6 +7,7 @@ import { PNG } from 'pngjs';
 import fs from 'node:fs';
 import { bakeBoat, dirTheta } from '../src/game/map/iso/boatBake.js';
 import { BOAT_MODELS, fleetFor } from '../src/game/map/iso/boatKits.js';
+import { compositeCrew } from './boatCrewRaster.mjs';
 
 const Z = +(process.argv[2] || 3);
 const OUT = '.preview-shots/bateaux';
@@ -26,7 +27,7 @@ for (let band = 0; band <= 9; band += 1) {
     if (!id || !BOAT_MODELS[id]) { cells.push(null); continue; }
     const M = BOAT_MODELS[id];
     const th = role === 'landing' ? dirTheta(20) : dirTheta(0);
-    cells.push(bakeBoat(M, th, { variant: M.variant(band * 7 + 3), state: 'cruise', k: 1.2 }));
+    cells.push({ ...bakeBoat(M, th, { variant: M.variant(band * 7 + 3), state: 'cruise', k: 1.2 }), M });
   }
   rows.push({ band, cells });
 }
@@ -61,6 +62,7 @@ rows.forEach((r, ri) => {
       const cx = x + Math.round(colW[c] / 2), cy = y + Math.round(rowH[ri] * 0.62);
       blit(b.refl, cx + b.refl.ox * Z, cy + b.refl.oy * Z, 0.4);
       blit(b.img, cx + b.img.ox * Z, cy + b.img.oy * Z);
+      compositeCrew(out, b, b.M, r.band, cx, cy, Z);
     }
     x += colW[c];
   });

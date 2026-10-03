@@ -618,6 +618,7 @@ export function drawIsoBridgeSeg(ctx, it, now) {
         ctx.clip();
         ctx.globalAlpha = hb.a == null ? 1 : hb.a;
         ctx.drawImage(hb.img, hb.bx, hb.by, hb.dw, hb.dw);
+        if (hb.crew) hb.crew(ctx);          // ses marins avec (boatKit.drawCrew)
         ctx.restore();
       }
     }

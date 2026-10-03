@@ -17,14 +17,14 @@ import {
   surf, box, boxRamp, ellipsoid, tube, rope, rampRGB, asPart, noReflect, PART, h32,
 } from './boatBake.js';
 import {
-  pick, chance, drawHull, person, poler, crewPal as crewOf, amphora, cargo as cargoOf, squareRig as rigOf,
+  pick, chance, drawHull, person, poler, crewPal, amphora, cargo as cargoOf, squareRig as rigOf,
 } from './boatParts.js';
 export { hullShape, drawHull, person } from './boatParts.js';
+import { makeLanding } from './boatFamilies.js';
 import { ANCIENT_MODELS, ANCIENT_FLEET } from './boatKitsAncient.js';
 import { MODERN_MODELS, MODERN_FLEET } from './boatKitsModern.js';
 import { COSMIC_MODELS, COSMIC_FLEET } from './boatKitsCosmic.js';
 
-const crewPal = (seed, salt) => crewOf(CREW, seed, salt);
 const cargo = (S, kind, a0, a1, c0, c1, hAt, seed) => cargoOf(S, kind, a0, a1, c0, c1, hAt, seed, PAL);
 const squareRig = (S, sp) => rigOf(S, { mast: PAL.oak, ...sp });
 
@@ -59,8 +59,6 @@ const PAL = {
   // Grumes : écorce rousse, plus sombre que le bordé de chêne.
   bark: ['#a8693f', '#8b5430', '#6f4125', '#53301b', '#3a2113'],
   net: ['#b8ab8a', '#9c8f70', '#807457', '#635940'],
-  skin: [['#f0c29a', '#d9a47c', '#b98460', '#8f6246'], ['#d9a070', '#bf8458', '#9c6744', '#734a30'], ['#a8714a', '#8c5a38', '#6e442a', '#4f2f1d']],
-  hair: [['#4a3424', '#36261a', '#251a12'], ['#2a2420', '#1d1916', '#13100e'], ['#8a6a44', '#6c5134', '#4e3a25'], ['#c9c2b8', '#a9a196', '#87807a']],
   cloth: [
     ['#f2ece0', '#ddd3c2', '#c2b6a2', '#9e917c'],   // tunique écrue
     ['#d9734e', '#bc5a3a', '#984429', '#72311d'],   // terre rouge
@@ -72,8 +70,6 @@ const PAL = {
 };
 export { PAL as MARBRE_PAL };
 
-// L'équipage romain (toges et tuniques).
-const CREW = { skin: PAL.skin, hair: PAL.hair, cloth: PAL.cloth, legs: PAL.skin[1] };
 
 // ── BANDE 4 · MARBRE ──────────────────────────────────────────────────────────
 
@@ -421,33 +417,10 @@ const BAC = {
 // L'EMBARCADÈRE du passeur (pas un bateau, mais le même peintre) : un petit
 // appontement de planches sur pieux, qui s'avance d'une tuile depuis la rive, deux
 // poteaux d'amarrage au bout. a = vers le large (cap = la normale de la rive).
-const EMBARCADERE = {
-  id: 'embarcadere',
-  role: 'landing',
-  len: 30, beam: 22,
-  bounds: [-20, 20, -14, 14, -1, 12],
-  ink: '#1d1611',
-  variant(seed) { return { seed }; },
-  anchors() { return {}; },
-  build(S) {
-    asPart(S, 2, () => {
-      // Tablier : planches en travers, une teinte par planche.
-      box(S, -14, 10, -7, 7, 3.2, 4.2, (f, u, v, nw) => {
-        if (f !== 'top') return rampRGB(PAL.oakIn, nw, 1);
-        const k = Math.floor(u * 24 / 2.2);
-        return rampRGB(PAL.deck, nw, (u * 24) % 2.2 < 0.45 ? 2 : (h32(k, 3, 7) % 3 === 0 ? 1 : 0));
-      });
-    });
-    asPart(S, PART.mast, () => {
-      for (const a of [-11, -3, 5]) for (const c of [-6.2, 6.2]) {
-        tube(S, [[a, c, -0.5], [a, c, 3.2]], 0.55, (nw) => rampRGB(PAL.oakIn, nw, 1));
-      }
-    });
-    asPart(S, 10, () => {
-      for (const c of [-5.6, 5.6]) tube(S, [[9, c, 3], [9, c, 7.2]], 0.75, (nw) => rampRGB(PAL.oak, nw));
-    });
-  },
-};
+// La famille commune (boatFamilies.makeLanding, planches) avec le chêne du Marbre :
+// même dessin que l'appontement écrit ici à la main pour le pilote, et il sait
+// allonger son tablier jusqu'au pied d'un mur de quai (`withReach`).
+const EMBARCADERE = makeLanding({ id: 'embarcadere', kind: 'planks' }, { deck: PAL.deck, woodIn: PAL.oakIn, wood: PAL.oak });
 
 export const BOAT_MODELS = {
   ...ANCIENT_MODELS, ...MODERN_MODELS, ...COSMIC_MODELS,

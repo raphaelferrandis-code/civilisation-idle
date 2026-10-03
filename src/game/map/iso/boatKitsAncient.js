@@ -15,33 +15,6 @@ import { surf, box, tube, rope, rampRGB, asPart, noReflect, PART } from './boatB
 import { pick, chance, drawHull, person, crewPal, cargo, squareRig } from './boatParts.js';
 import { makeRaft, makeDugout, makeRowboat, makeBac, makeBarge, makeLanding, pennant } from './boatFamilies.js';
 
-// ── Garde-robes ───────────────────────────────────────────────────────────────
-const SKIN = [['#f0c29a', '#d9a47c', '#b98460', '#8f6246'], ['#d9a070', '#bf8458', '#9c6744', '#734a30'], ['#a8714a', '#8c5a38', '#6e442a', '#4f2f1d']];
-const HAIR = [['#4a3424', '#36261a', '#251a12'], ['#2a2420', '#1d1916', '#13100e'], ['#8a6a44', '#6c5134', '#4e3a25'], ['#b0703c', '#8c5530', '#663c22']];
-// Peaux et fourrures (bandes 0-1).
-const CREW_STONE = {
-  skin: SKIN, hair: HAIR, legs: SKIN[1],
-  cloth: [
-    ['#b38a5e', '#97704a', '#795739', '#5a3f29'],
-    ['#8c6a4a', '#725438', '#58402a', '#3e2c1d'],
-    ['#cfae84', '#b39168', '#93734f', '#6f5539'],
-    ['#6f5a46', '#5a4836', '#463728', '#32271c'],
-  ],
-};
-// Laines teintes, capuchons et bonnets (bandes 2-3).
-const CREW_MEDIEVAL = {
-  skin: SKIN, hair: HAIR, legs: [['#6b5a48', '#56483a', '#41362b', '#2d251d']][0],
-  cloth: [
-    ['#8c6a46', '#735637', '#5a4229', '#41301e'],   // bure
-    ['#6f8a4e', '#58713d', '#43582e', '#304020'],   // vert de gaude
-    ['#b0503c', '#934030', '#743124', '#552318'],   // garance
-    ['#5878a0', '#466286', '#354b69', '#25354c'],   // guède
-    ['#d8cba8', '#c0b18a', '#a1916b', '#7e704f'],   // écru
-  ],
-  hat: [['#7a5a3a', '#624830', '#4a3624'], ['#a04436', '#80362a', '#60281f'], ['#4c6a8a', '#3c5470', '#2c3e54']],
-  hatP: 0.45,
-};
-
 // ── Matières ──────────────────────────────────────────────────────────────────
 const LOG = ['#a97d52', '#8d6640', '#714f31', '#553923', '#3a2617', '#24170d'];
 const LOG_END = ['#e2c391', '#c9a674', '#a98758', '#87683f'];
@@ -99,14 +72,14 @@ const SAIL_RED = ['#cf5a44', '#b24734', '#913728', '#6e291d', '#4f1d14'];
 const SAIL_BLUE = ['#6688b8', '#506f9c', '#3d577c', '#2c405c', '#1e2c40'];
 
 // ── BANDE 0 · FEU ─────────────────────────────────────────────────────────────
-const RADEAU = makeRaft({ id: 'radeau', role: 'trade', L: 34, B: 15, cargo: ['hides', 'baskets', 'pots'], crew: 2, speed: [0.5, 0.7] }, FEU, CREW_STONE);
-const PIROGUE = makeDugout({ id: 'pirogue', role: 'trade', L: 32, B: 6.6, cargo: ['hides', 'baskets'], speed: [0.85, 1.15] }, FEU, CREW_STONE);
-const PIROGUE_PECHE = makeDugout({ id: 'pirogue-peche', role: 'fisher', L: 26, B: 6, fisher: true, speed: [0.75, 1.0] }, FEU, CREW_STONE);
-const RADEAU_BAC = makeRaft({ id: 'radeau-bac', role: 'ferry', L: 30, B: 16, passengers: true, speed: [0.4, 0.55] }, FEU, CREW_STONE);
+const RADEAU = makeRaft({ id: 'radeau', role: 'trade', L: 34, B: 15, cargo: ['hides', 'baskets', 'pots'], crew: 2, speed: [0.5, 0.7] }, FEU);
+const PIROGUE = makeDugout({ id: 'pirogue', role: 'trade', L: 32, B: 6.6, cargo: ['hides', 'baskets'], speed: [0.85, 1.15] }, FEU);
+const PIROGUE_PECHE = makeDugout({ id: 'pirogue-peche', role: 'fisher', L: 26, B: 6, fisher: true, speed: [0.75, 1.0] }, FEU);
+const RADEAU_BAC = makeRaft({ id: 'radeau-bac', role: 'ferry', L: 30, B: 16, passengers: true, speed: [0.4, 0.55] }, FEU);
 const EMB_RONDINS = makeLanding({ id: 'embarcadere-rondins', kind: 'logs' }, FEU);
 
 // ── BANDE 1 · BOIS ────────────────────────────────────────────────────────────
-const RADEAU_VOILE = makeRaft({ id: 'radeau-voile', role: 'trade', L: 40, B: 16, logR: 1.3, sail: SAIL_HIDE, cargo: ['baskets', 'pots', 'sacks', 'hides'], crew: 2, speed: [0.6, 0.85] }, BOIS, CREW_STONE);
+const RADEAU_VOILE = makeRaft({ id: 'radeau-voile', role: 'trade', L: 40, B: 16, logR: 1.3, sail: SAIL_HIDE, cargo: ['baskets', 'pots', 'sacks', 'hides'], crew: 2, speed: [0.6, 0.85] }, BOIS);
 
 // LA BARQUE COUSUE — des planches liées de fibres sur une quille, deux bouts
 // relevés en volute ; deux rameurs, des jarres et des paniers.
@@ -139,15 +112,15 @@ const BARQUE_COUSUE = {
           }
         });
       }
-      person(S, a, 0, 1.6, Math.PI, crewPal(CREW_STONE, V.seed, salt), docked ? 'sit' : 'row', k);
+      person(S, a, 0, 1.6, Math.PI, crewPal(V.seed, salt), docked ? 'sit' : 'row', k);
     }
     cargo(S, V.cargo, -2.5, 3.5, -3, 3, () => H.floor, V.seed, BOIS);
     cargo(S, V.cargo, 9.5, 14, -2.4, 2.4, () => H.floor, V.seed + 1, BOIS);
-    person(S, -L2 + 4, 0, H.floor, 0, crewPal(CREW_STONE, V.seed, 30), ctx.state === 'salute' ? 'wave' : 'steer', 1);
+    person(S, -L2 + 4, 0, H.floor, 0, crewPal(V.seed, 30), ctx.state === 'salute' ? 'wave' : 'steer', 1);
   },
 };
-const CANOT = makeRowboat({ id: 'canot', L: 22, B: 8.4, plank: 1.4, speed: [0.7, 0.95] }, { ...BOIS, net: COMMON.net }, CREW_STONE);
-const BAC_BOIS = makeBac({ id: 'bac-bois', L: 30, B: 15 }, BOIS, CREW_STONE);
+const CANOT = makeRowboat({ id: 'canot', L: 22, B: 8.4, plank: 1.4, speed: [0.7, 0.95] }, { ...BOIS, net: COMMON.net });
+const BAC_BOIS = makeBac({ id: 'bac-bois', L: 30, B: 15 }, BOIS);
 const EMB_PLANCHES = makeLanding({ id: 'embarcadere-planches', kind: 'planks' }, BOIS);
 
 // ── BANDE 2 · PIERRE TAILLÉE ──────────────────────────────────────────────────
@@ -203,15 +176,15 @@ const KNARR = {
       tube(S, [[-L2 + 8, c0, sh.g(-0.8) + 2.5], [-L2 + 2, c0 + 1.4, -0.5]], 0.5, (nw) => rampRGB(OAK_IN, nw));
       box(S, -L2 + 1.2, -L2 + 4, c0 + 1.1, c0 + 1.7, 0, 2.8, (f, u, v, nw) => rampRGB(OAK_IN, nw));
     });
-    person(S, -L2 + 6, 1.8, sh.g(-0.8) - 1.2, 0, crewPal(CREW_MEDIEVAL, V.seed, 10), 'steer');
-    person(S, 4.5, -2.5, H.floor, Math.PI / 2, crewPal(CREW_MEDIEVAL, V.seed, 20), ctx.state === 'dock' ? 'haul' : 'stand', ctx.k || 0);
-    if (ctx.state === 'salute' || chance(V.seed, 30, 0.6)) person(S, L2 - 7, 0, sh.g(0.75) - 1.2, 0.3, crewPal(CREW_MEDIEVAL, V.seed, 30), ctx.state === 'salute' ? 'wave' : 'stand', 1);
+    person(S, -L2 + 6, 1.8, sh.g(-0.8) - 1.2, 0, crewPal(V.seed, 10), 'steer');
+    person(S, 4.5, -2.5, H.floor, Math.PI / 2, crewPal(V.seed, 20), ctx.state === 'dock' ? 'haul' : 'stand', ctx.k || 0);
+    if (ctx.state === 'salute' || chance(V.seed, 30, 0.6)) person(S, L2 - 7, 0, sh.g(0.75) - 1.2, 0.3, crewPal(V.seed, 30), ctx.state === 'salute' ? 'wave' : 'stand', 1);
   },
 };
 
 // LA BARQUE À VOILE — le caboteur de rivière : bordé à clin, une voile carrée
 // d'ocre, deux hommes, des sacs.
-function makeSailBarque(id, M, C, sails, o = {}) {
+function makeSailBarque(id, M, sails, o = {}) {
   const L = o.L || 40, B = o.B || 11;
   return {
     id, role: 'trade', len: L, beam: B, speed: o.speed || [0.9, 1.2],
@@ -232,15 +205,15 @@ function makeSailBarque(id, M, C, sails, o = {}) {
         tube(S, [[-L2 + 1, 0, sh.g(-1) + 2.5], [-L2 - 3, 0, -0.5]], 0.45, (nw) => rampRGB(M.woodIn, nw));
         box(S, -L2 - 3.6, -L2 - 1.4, -0.3, 0.3, 0, 2.2, (f, u, v, nw) => rampRGB(M.woodIn, nw));
       });
-      person(S, -L2 + 3, 0, H.floor, 0, crewPal(C, V.seed, 10), 'steer');
-      person(S, L2 - 6, 0.8, H.floor, 0.2, crewPal(C, V.seed, 20), ctx.state === 'salute' ? 'wave' : (ctx.state === 'dock' ? 'haul' : 'stand'), ctx.k || 1);
+      person(S, -L2 + 3, 0, H.floor, 0, crewPal(V.seed, 10), 'steer');
+      person(S, L2 - 6, 0.8, H.floor, 0.2, crewPal(V.seed, 20), ctx.state === 'salute' ? 'wave' : (ctx.state === 'dock' ? 'haul' : 'stand'), ctx.k || 1);
     },
   };
 }
-const BARQUE_VOILE = makeSailBarque('barque-voile', PIERRE, CREW_MEDIEVAL, [SAIL_OCHRE, SAIL_WOOL, SAIL_HIDE]);
-const CHALAND_PIERRE = makeBarge({ id: 'chaland-pierre', L: 58, B: 16, hut: 'planks', cargo: ['stone', 'stone', 'timber', 'sacks'], paint: [SAIL_RED] }, PIERRE, CREW_MEDIEVAL);
-const BARQUE = makeRowboat({ id: 'barque', L: 24, B: 9, paint: [SAIL_RED, SAIL_BLUE, SAIL_OCHRE] }, PIERRE, CREW_MEDIEVAL);
-const BAC_PIERRE = makeBac({ id: 'bac-pierre', L: 30, B: 15 }, PIERRE, CREW_MEDIEVAL);
+const BARQUE_VOILE = makeSailBarque('barque-voile', PIERRE, [SAIL_OCHRE, SAIL_WOOL, SAIL_HIDE]);
+const CHALAND_PIERRE = makeBarge({ id: 'chaland-pierre', L: 58, B: 16, hut: 'planks', cargo: ['stone', 'stone', 'timber', 'sacks'], paint: [SAIL_RED] }, PIERRE);
+const BARQUE = makeRowboat({ id: 'barque', L: 24, B: 9, paint: [SAIL_RED, SAIL_BLUE, SAIL_OCHRE] }, PIERRE);
+const BAC_PIERRE = makeBac({ id: 'bac-pierre', L: 30, B: 15 }, PIERRE);
 
 // ── BANDE 3 · COURONNE ────────────────────────────────────────────────────────
 // LA COGUE — le gros porteur des royaumes : coque haute et ronde, étrave droite,
@@ -301,9 +274,9 @@ const COGUE = {
     });
     // Gouvernail d'étambot.
     asPart(S, 13, () => box(S, -L2 - 2.2, -L2 + 0.4, -0.35, 0.35, 0, sh.g(-1) - 1, (f, u, v, nw) => rampRGB(OAK_IN, nw)));
-    person(S, -L2 + 6, 0, hd(-L2 + 8) + 6, 0, crewPal(CREW_MEDIEVAL, V.seed, 10), 'steer');
-    person(S, 3.5, 3, hB, -Math.PI / 2, crewPal(CREW_MEDIEVAL, V.seed, 20), ctx.state === 'dock' ? 'haul' : 'stand', ctx.k || 0);
-    if (ctx.state === 'salute' || chance(V.seed, 30, 0.6)) person(S, L2 - 6, 0, hd(L2 - 6) + 3.4, 0.3, crewPal(CREW_MEDIEVAL, V.seed, 30), ctx.state === 'salute' ? 'wave' : 'stand', 1);
+    person(S, -L2 + 6, 0, hd(-L2 + 8) + 6, 0, crewPal(V.seed, 10), 'steer');
+    person(S, 3.5, 3, hB, -Math.PI / 2, crewPal(V.seed, 20), ctx.state === 'dock' ? 'haul' : 'stand', ctx.k || 0);
+    if (ctx.state === 'salute' || chance(V.seed, 30, 0.6)) person(S, L2 - 6, 0, hd(L2 - 6) + 3.4, 0.3, crewPal(V.seed, 30), ctx.state === 'salute' ? 'wave' : 'stand', 1);
   },
 };
 // Merlon : un petit cube coloré posé sur le château.
@@ -311,11 +284,11 @@ function boxRamp1(S, a, c, h, ramp) {
   box(S, a - 0.6, a + 0.6, c - 0.5, c + 0.5, h, h + 1.2, (f, u, v, nw) => rampRGB(ramp, nw));
 }
 
-const GABARE = makeSailBarque('gabare', COURONNE, CREW_MEDIEVAL, [SAIL_WOOL, SAIL_OCHRE, SAIL_RED],
+const GABARE = makeSailBarque('gabare', COURONNE, [SAIL_WOOL, SAIL_OCHRE, SAIL_RED],
   { L: 50, B: 14, transom: 0.5, cargo: ['barrels', 'wool', 'crates', 'sacks'], paint: [COURONNE.paintRed, COURONNE.paintBlue], cross: COURONNE.paintRed, speed: [0.85, 1.15] });
-const CHALAND = makeBarge({ id: 'chaland', L: 60, B: 16, hut: 'thatch', cargo: ['barrels', 'wool', 'sacks', 'timber'], paint: [COURONNE.paintRed, COURONNE.paintBlue] }, COURONNE, CREW_MEDIEVAL);
-const BARQUE_LATINE = makeRowboat({ id: 'barque-latine', L: 26, B: 9.5, lateen: SAIL_WOOL, paint: [COURONNE.paintRed, COURONNE.paintBlue, SAIL_OCHRE] }, COURONNE, CREW_MEDIEVAL);
-const BAC_TRAILLE = makeBac({ id: 'bac-couronne', L: 32, B: 16, cart: true }, COURONNE, CREW_MEDIEVAL);
+const CHALAND = makeBarge({ id: 'chaland', L: 60, B: 16, hut: 'thatch', cargo: ['barrels', 'wool', 'sacks', 'timber'], paint: [COURONNE.paintRed, COURONNE.paintBlue] }, COURONNE);
+const BARQUE_LATINE = makeRowboat({ id: 'barque-latine', L: 26, B: 9.5, lateen: SAIL_WOOL, paint: [COURONNE.paintRed, COURONNE.paintBlue, SAIL_OCHRE] }, COURONNE);
+const BAC_TRAILLE = makeBac({ id: 'bac-couronne', L: 32, B: 16, cart: true }, COURONNE);
 
 export const ANCIENT_MODELS = {
   radeau: RADEAU, pirogue: PIROGUE, 'pirogue-peche': PIROGUE_PECHE, 'radeau-bac': RADEAU_BAC, 'embarcadere-rondins': EMB_RONDINS,

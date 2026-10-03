@@ -116,6 +116,8 @@ function makeScene(theta, bounds) {
     // Partie courante (sert au trait intérieur : deux pièces qui se recouvrent).
     curPart: 1,
     noReflect: 0,
+    // L'équipage : des places, pas des volumes (cf. crewSlot).
+    crew: [],
   };
   return S;
 }
@@ -136,6 +138,23 @@ export function asPart(S, id, fn) {
 export function noReflect(S, fn) {
   S.noReflect += 1;
   try { fn(); } finally { S.noReflect -= 1; }
+}
+
+// ── L'ÉQUIPAGE : DES HABITANTS, PAS DES VOLUMES ───────────────────────────────
+// Les marins construits en boîtes et en boules se lisaient comme des tonneaux à la
+// taille de la carte (Raph, 2026-10-03 : « faut revoir les personnages sur les
+// bateaux »). Le kit ne les dessine plus : il dit OÙ ils se tiennent (pied, cap dans
+// le repère courant, pose) et le jeu y pose les sprites des HABITANTS de l'ère
+// (boatKit.drawCrew) — les mêmes gens que sur le quai, à la même finesse à tous les
+// zooms. La cuisson rend pour chacun un MASQUE lu dans le z-buffer : ce qui, du
+// bateau, passe devant lui (plat-bord, cargaison, voile) le cache.
+// rec = { pose, sink (px d'art enfoncés sous l'appui : assis), id (tirage du dessin) }.
+export function crewSlot(S, a, c, h, face, rec) {
+  if (S.empty) return;
+  let ang = face;
+  for (const F of S.frames) ang += Math.atan2(F.si, F.co);
+  const q = toBoat(S, [a, c, h]);
+  S.crew.push({ ...rec, a: q.a, c: q.c, h: q.h, face: ang });
 }
 
 function toBoat(S, p, n) {
@@ -332,7 +351,7 @@ export function revolve(S, a, c, h, profile, col) {
 // noirs (vu sur la première planche : la barque ramait avec deux bâtons d'encre).
 export const PART = {
   hull: 2, inside: 3, rail: 4, cargo: 6, mast: 8, sail: 9, ornament: 10, cabin: 11,
-  bowsprit: 12, steer: 13, eye: 14, oar: 15, yard: 16, rope: 17, crew0: 20,
+  bowsprit: 12, steer: 13, eye: 14, oar: 15, yard: 16, rope: 17,
 };
 const THIN = new Set([PART.mast, PART.steer, PART.oar, PART.yard, PART.rope]);
 
@@ -371,20 +390,6 @@ function finish(S, ink, edge = 0.5) {
       }
     }
   }
-  // L'ÉQUIPAGE porte un contour COMPLET, comme les habitants à terre : posé sur
-  // le pont, il n'a presque aucun voisin vide, et sans encre il se fondait dans
-  // les planches (planche d'essai des poses). Le contour se pose sur ce qui est
-  // DERRIÈRE lui ; ce qui passe devant (le plat-bord qui cache ses jambes) reste.
-  for (let k = 0; k < w * h; k += 1) {
-    const pk = S.part[k];
-    if (!src[k] || pk < PART.crew0 || pk > PART.crew0 + 20) continue;
-    const i = k % w;
-    for (const q of [k - w, k + w, i > 0 ? k - 1 : -1, i < w - 1 ? k + 1 : -1]) {
-      if (q < 0 || q >= w * h || !src[q]) continue;
-      if (S.part[q] === pk || S.dep[q] > S.dep[k] - 0.5) continue;
-      outl.push(q);
-    }
-  }
   for (const k of darken) {
     const o = k * 4;
     D[o] = D[o] * (1 - edge) + inkc[0] * edge;
@@ -395,6 +400,42 @@ function finish(S, ink, edge = 0.5) {
     const o = k * 4;
     D[o] = inkc[0]; D[o + 1] = inkc[1]; D[o + 2] = inkc[2]; D[o + 3] = 255;
   }
+  // Le contour prend la profondeur de ce qu'il borde : le trait du plat-bord cache
+  // les jambes d'un marin comme le plat-bord lui-même (masques de l'équipage).
+  for (const k of outl) {
+    if (S.dep[k] !== -Infinity) continue;
+    let d = -Infinity;
+    for (const q of [k - w, k + w, k - 1, k + 1]) if (q >= 0 && q < w * h && src[q] === 1 && S.dep[q] > d) d = S.dep[q];
+    S.dep[k] = d;
+  }
+}
+
+// Masque de chaque marin, en px d'art autour de son pied (repère de l'origine du
+// bateau, comme les ancres). Le marin est un PANNEAU vertical : à la rangée y, il est
+// à la hauteur hb = base/2 − y, de profondeur base + hb. Un pixel du bateau le cache
+// s'il est plus près que lui (au-delà de son épaisseur), et tout ce qui descend sous
+// son appui (le pont, le banc du rameur) est DANS la coque.
+const CREW_BOX = { left: 11, up: 17, w: 23, h: 21 };
+const CREW_THICK = 1.2;
+function crewMasks(S) {
+  return S.crew.map((cr) => {
+    const wx = cr.a * S.fx + cr.c * S.sx, wy = cr.a * S.fy + cr.c * S.sy;
+    const base = wx + wy, X = wx - wy, Y = base / 2 - (cr.h - (cr.sink || 0));
+    const x0 = Math.floor(X) - CREW_BOX.left, y0 = Math.floor(Y) - CREW_BOX.up;
+    const { w, h } = CREW_BOX;
+    const mask = new Uint8Array(w * h);
+    for (let j = 0; j < h; j += 1) {
+      const hb = base / 2 - (y0 + j + 0.5);
+      const jj = y0 + j - S.oy;
+      for (let i = 0; i < w; i += 1) {
+        let m = hb < cr.h - 0.3;
+        const ii = x0 + i - S.ox;
+        if (!m && jj >= 0 && jj < S.h && ii >= 0 && ii < S.w) m = S.dep[jj * S.w + ii] > base + hb + CREW_THICK;
+        mask[j * w + i] = m ? 1 : 0;
+      }
+    }
+    return { X, Y, x0, y0, w, h, mask, phi: S.theta + cr.face, pose: cr.pose, id: cr.id | 0 };
+  });
 }
 
 function cropRaster(R) {
@@ -420,6 +461,7 @@ function cropRaster(R) {
 //   refl : son reflet, déjà en miroir, même convention (à poser tel quel) ;
 //   anchors : points nommés du kit (feux, tête de mât, poupe…) projetés en
 //          coordonnées écran zoom 1 relatives à l'origine du bateau.
+//   crew : les places de l'équipage et leurs masques (crewSlot, crewMasks).
 export function bakeBoat(model, theta, ctx = {}) {
   const S = makeScene(theta, model.bounds);
   // Un bateau À QUAI est VIDE (Raph, 2026-10-02 : « ça ne va pas de voir le pêcheur
@@ -437,7 +479,7 @@ export function bakeBoat(model, theta, ctx = {}) {
   for (const [name, p] of Object.entries(model.anchors ? model.anchors(ctx) : {})) {
     anchors[name] = projectLocal(theta, p);
   }
-  return { img: cropRaster(S.col), refl: cropRaster(S.rcol), anchors };
+  return { img: cropRaster(S.col), refl: cropRaster(S.rcol), anchors, crew: crewMasks(S) };
 }
 
 // Point du repère bateau → écran zoom 1 (relatif à l'origine du bateau).

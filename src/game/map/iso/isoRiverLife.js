@@ -12,6 +12,8 @@
 //
 // ⚠ AUCUN ÉTAT ENTRE LES FRAMES : tout est fonction de (now, hash). C'est ce qui
 // rend les captures reproductibles et évite une file d'objets à faire vivre.
+// UNE exception (2026-10-03) : l'écart des canards et des cygnes qui fuient un
+// bateau (cf. ILS S'ÉCARTENT DES BATEAUX) — à `now` figé, il ne bouge pas.
 //
 // ⚠ ANCRÉ AU FLEUVE, PAS À LA VUE. L'ancienne vie semait ses feuilles dans la
 // portion VISIBLE du ruban : chaque pan de caméra les faisait toutes sauter
@@ -331,6 +333,116 @@ function familiesOf(sm, band) {
   familiesOf._k = key; familiesOf._v = out;
   return out;
 }
+
+// ── ILS S'ÉCARTENT DES BATEAUX ───────────────────────────────────────────────
+// Retour Raph (2026-10-03, le bac passait sur un cygne) : « il faut que les oiseaux
+// s'éloignent quand il s'approche ». Chaque bête porte un ÉCART (tuiles, monde) qui
+// la sort de la route d'une coque : quand un bateau arrive, elle file sur le côté —
+// en travers de SON cap, du côté où elle est déjà —, puis, une fois le danger passé,
+// elle revient lentement à sa promenade. Le bac qui traverse les chasse donc le long
+// du fleuve, le marchand qui le descend vers la berge.
+//
+// ⚠ Le SEUL état de ce module (cf. l'en-tête) : une bête effrayée met du temps à
+// revenir, ce qu'aucune fonction de `now` ne dit sans mémoire. Il ne dépend que des
+// frames — une capture à `now` figé n'avance pas l'écart (dt nul).
+const FLEE = {
+  ahead: 3.2,     // portée devant l'étrave (tuiles) — elle a le temps de s'écarter
+  behind: 1.0,    // derrière la poupe
+  clear: 1.0,     // marge voulue entre la bête et le flanc d'un bateau en route
+  still: 0.55,    // … et d'une coque à l'arrêt (ancre, quai, bac à l'embarcadère)
+  out: 1.5,       // vitesse de fuite (tuiles/s)
+  back: 0.28,     // vitesse de retour
+};
+const _flee = new Map();
+// Les coques sur l'eau cette frame : centre (monde, tuiles), cap, taille, à l'arrêt ?
+// Même pose que drawIsoShips (iso/isoPort.js) : point du ruban + voie `lat`.
+function hullsOnWater(sm) {
+  const out = [];
+  for (const sh of CM.ships || []) {
+    if (sh.orbit || sh.t == null) continue;
+    if (sh.fade != null && sh.fade <= 0) continue;
+    const f = riverFrame(sm, sh.t);
+    const lat = sh.lat || 0;
+    const sg = sh.dir < 0 ? -1 : 1;
+    const th = sh.th != null ? sh.th : Math.atan2(sg * f.ty, sg * f.tx);
+    const stopped = sh.state === 'dock' || sh.state === 'anchor' || sh.state === 'board';
+    out.push({
+      id: sh.id, x: f.x + f.nx * lat, y: f.y + f.ny * lat, hx: Math.cos(th), hy: Math.sin(th),
+      half: (sh._len || 1) / 2, need: (sh._beam || 0.4) / 2 + (stopped ? FLEE.still : FLEE.clear), stopped,
+    });
+  }
+  return out;
+}
+const smooth01 = (x) => { const u = Math.max(0, Math.min(1, x)); return u * u * (3 - 2 * u); };
+// Écart VOULU pour une bête dont la promenade passe en (bx, by), à `lim` tuiles au
+// plus de l'axe (berge). Compté depuis la PROMENADE et non depuis la place tenue :
+// le but ne bouge pas avec la bête, elle ne tremble pas au bord de la zone.
+// `st.sides` retient de quel côté elle passe chaque coque : décidé une fois à
+// l'approche (vers où il y a la place), sinon elle changerait de bord en plein passage.
+function fleeGoal(st, bx, by, fr, lim, hulls) {
+  let ox = 0, oy = 0;
+  const seen = {};
+  for (const s of hulls) {
+    const dx = bx - s.x, dy = by - s.y;
+    if (dx * dx + dy * dy > 49) continue;
+    const u = dx * s.hx + dy * s.hy;                 // le long du cap (+ = devant)
+    const v = -dx * s.hy + dy * s.hx;                // en travers (+ = bâbord)
+    const fwd = s.half + (s.stopped ? FLEE.still : FLEE.ahead);
+    const aft = s.half + (s.stopped ? FLEE.still : FLEE.behind);
+    if (u > fwd || u < -aft) continue;
+    seen[s.id] = 1;
+    // Poids plein le long de la coque, qui s'éteint en douceur aux deux bouts.
+    const w = u > s.half ? smooth01((fwd - u) / (fwd - s.half))
+      : u < -s.half ? smooth01((aft + u) / (aft - s.half)) : 1;
+    // Combien la poussée en travers déplace la bête vers la berge (lat signée).
+    const pn = -s.hy * fr.nx + s.hx * fr.ny;
+    const lat0 = (bx - fr.x) * fr.nx + (by - fr.y) * fr.ny;
+    let side = st.sides[s.id];
+    if (side == null) {
+      side = v >= 0 ? 1 : -1;
+      // Pas la place entre la coque et la berge : elle passe de l'autre côté.
+      if (Math.abs(lat0 + pn * (side * s.need - v)) > lim) side = -side;
+      st.sides[s.id] = side;
+    }
+    if (side * v >= s.need) continue;
+    const push = (side * s.need - v) * w;
+    ox += -s.hy * push; oy += s.hx * push;
+  }
+  for (const id of Object.keys(st.sides)) if (!seen[id]) delete st.sides[id];
+  return { ox, oy };
+}
+// Pose d'une bête au temps `now` : sa promenade + son écart, tenu dans l'eau.
+// `hulls` au format de hullsOnWater. Exportée pour les tests (riverLife.test.js).
+export function fleePos(key, base, fr, lim, hulls, now) {
+  let st = _flee.get(key);
+  if (!st) { st = { ox: 0, oy: 0, vx: 0, vy: 0, at: now, sides: {} }; _flee.set(key, st); }
+  const dt = Math.max(0, Math.min(0.1, (now - st.at) / 1000));
+  st.at = now; st.seen = now;
+  const g = hulls.length ? fleeGoal(st, base.x, base.y, fr, lim, hulls) : { ox: 0, oy: 0 };
+  const ex = g.ox - st.ox, ey = g.oy - st.oy, el = Math.hypot(ex, ey);
+  let mx = 0, my = 0;
+  if (el > 1e-4 && dt > 0) {
+    // Elle FUIT quand le but l'éloigne de sa promenade ; elle revient sans hâte.
+    const fleeing = Math.hypot(g.ox, g.oy) > Math.hypot(st.ox, st.oy) + 1e-3;
+    const stepL = Math.min(el, fleeing ? Math.min(el * dt * 6, FLEE.out * dt) : FLEE.back * dt);
+    mx = (ex / el) * stepL; my = (ey / el) * stepL;
+  }
+  st.ox += mx; st.oy += my;
+  // Toujours dans l'eau : on rabat ce qui passerait la berge.
+  const lat = (base.x + st.ox - fr.x) * fr.nx + (base.y + st.oy - fr.y) * fr.ny;
+  if (Math.abs(lat) > lim) {
+    const over = lat - Math.sign(lat) * lim;
+    st.ox -= fr.nx * over; st.oy -= fr.ny * over;
+  }
+  if (dt > 0) { st.vx = mx / dt; st.vy = my / dt; }
+  return { x: base.x + st.ox, y: base.y + st.oy, vx: st.vx, vy: st.vy };
+}
+// Les bêtes qui ne sont plus dessinées (hors champ longtemps, autre ville) sortent.
+function fleeSweep(now) {
+  if (_flee.size < 64) return;
+  for (const [key, st] of _flee) if (now - st.seen > 20000 || st.seen > now) _flee.delete(key);
+}
+
 function drawDucks(ctx, sm, T, z, now, k, fz) {
   if (VIE.canards <= 0 && VIE.cygnes <= 0) return;
   const band = bandOf();
@@ -338,6 +450,8 @@ function drawDucks(ctx, sm, T, z, now, k, fz) {
   const t = (now || 0) / 1000;
   const young = CM.season === 0 || CM.season === 1;      // couvées au printemps et l'été
   const list = [];
+  const hulls = hullsOnWater(sm);
+  fleeSweep(now || 0);
   for (const fam of familiesOf(sm, band)) {
     if (fam.swan ? VIE.cygnes <= 0 : VIE.canards <= 0) continue;
     // Membres : [image, retard en s, décalage latéral].
@@ -351,9 +465,16 @@ function drawDucks(ctx, sm, T, z, now, k, fz) {
     for (let j = 0; j < mem.length; j += 1) {
       const [name, lag, dl] = mem[j];
       const a = familyAt(fam, t - lag), b = familyAt(fam, t - lag - 0.6);
-      const p = S(ribbonPoint(sm, a.tt, a.lat + dl), T);
+      const wa = ribbonPoint(sm, a.tt, a.lat + dl), wb = ribbonPoint(sm, b.tt, b.lat + dl);
+      // L'écart qui l'éloigne des coques (tenu à jour même hors champ : une bête qui
+      // rentre dans le champ ne doit pas sauter). Pas trop près du mur de quai d'en
+      // face, dont la face cache une bande d'eau.
+      const fr = riverFrame(sm, a.tt);
+      const P = fleePos(fam.g + ':' + j, wa, fr, Math.min(fr.hw * 0.82, fr.hw - 0.75), hulls, now || 0);
+      const p = S(P, T);
       if (!onScreen(p, 30)) continue;
-      const q = S(ribbonPoint(sm, b.tt, b.lat + dl), T);
+      // Sens et sillage : sa promenade + sa fuite, sur les 0,6 dernières secondes.
+      const q = S({ x: P.x - (wa.x - wb.x) - P.vx * 0.6, y: P.y - (wa.y - wb.y) - P.vy * 0.6 }, T);
       const vx = p.x - q.x, vy = p.y - q.y;
       list.push({ name, x: p.x, y: p.y, left: vx < 0, moving: Math.hypot(vx, vy) > 0.35 * k, j, fam });
     }
@@ -577,7 +698,9 @@ if (typeof window !== 'undefined') {
     const sm = rv.samples, t = now / 1000;
     const fams = familiesOf(sm, bandOf()).map((f) => { const a = familyAt(f, t); return { kind: f.kind, ...ribbonPoint(sm, a.tt, a.lat) }; });
     const hs = (heronState(now) || []).map((s) => ({ fly: s.fly, x: s.A.wx, y: s.A.wy }));
-    return { fams, hs };
+    // L'écart de chaque bête qui fuit un bateau (clé = famille:rang).
+    const flee = [..._flee].filter(([, s]) => s.ox || s.oy).map(([k, s]) => ({ k, ox: s.ox, oy: s.oy }));
+    return { fams, hs, flee };
   };
 }
 

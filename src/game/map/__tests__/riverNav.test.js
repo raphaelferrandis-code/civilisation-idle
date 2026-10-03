@@ -3,8 +3,10 @@
 import { describe, it, expect } from "vitest";
 import {
   updateRiverFleet, makeFleetCtl, ribbonAt, ribbonLength, mergeGates, navWindow, NAV_TUNE,
-  ferrySite, ferryLat, riverFleetBudget, FLEET_TUNE,
+  ferrySite, ferryLat, riverFleetBudget, FLEET_TUNE, FERRY_TIP, quayHiddenDepth,
 } from "../riverFleet.js";
+import fs from "node:fs";
+import path from "node:path";
 
 // Un fleuve droit d'ouest en est, 60 tuiles, demi-largeur 3.
 const SM = Array.from({ length: 61 }, (_, i) => ({ x: i, y: 10, hw: 3 }));
@@ -262,6 +264,65 @@ describe("le passeur", () => {
     expect(sides.length).toBeGreaterThanOrEqual(3);
     for (let k = 1; k < sides.length; k += 1) expect(sides[k]).toBe(-sides[k - 1]);
     expect(Math.abs(f.lat)).toBeLessThanOrEqual(ferryLat(SITE, 1) + 1e-6);
+  });
+
+  // Retour Raph (2026-10-03) : « qu'il ne rentre pas dans le quai, il s'arrête
+  // avant ». Le bac aborde DE FACE (cap perpendiculaire au courant) : c'est sa
+  // demi-LONGUEUR qui va vers la berge. On comptait sa demi-largeur — son bout
+  // montait sur le tablier de l'embarcadère et sur le quai.
+  it("il aborde par le bout et s'arrête au bout du tablier, jamais sur la berge", () => {
+    const f = ferry();
+    let worst = -Infinity, docked = null;
+    run([f], 60, { ferry: SITE }, () => {
+      worst = Math.max(worst, Math.abs(f.lat) + SIZE.len / 2);
+      if (f.state === "board") docked = Math.abs(f.lat) + SIZE.len / 2;
+    });
+    expect(worst).toBeLessThanOrEqual(SITE.hw - FERRY_TIP + 1e-6);
+    // … et il le touche (un pixel d'eau, pas une tuile).
+    expect(SITE.hw - FERRY_TIP - docked).toBeLessThan(2 / 32);
+  });
+
+  it("sur la rive dont on voit le mur, il s'arrête au PIED du mur", () => {
+    const site = { t: 0.5, hw: 3, reach: [0.9, FERRY_TIP] };   // mur côté −1
+    const f = ferry({ ferrySide: 1, state: "board" });
+    const ends = { [-1]: -Infinity, [1]: -Infinity };
+    run([f], 60, { ferry: site }, () => {
+      const side = f.lat < 0 ? -1 : 1;
+      ends[side] = Math.max(ends[side], Math.abs(f.lat) + SIZE.len / 2);
+    });
+    expect(ends[-1]).toBeGreaterThan(0);                          // il y est allé
+    expect(ends[-1]).toBeLessThanOrEqual(3 - 0.9 + 1e-6);
+    expect(ends[1]).toBeLessThanOrEqual(3 - FERRY_TIP + 1e-6);
+  });
+
+  it("l'eau cachée par le mur : sur la rive dont on voit la face, pas sur l'autre", () => {
+    // Fleuve vers l'est : la rive −1 est en haut de l'écran, on voit son mur ; un pas
+    // d'une tuile vers le large y descend d'une tuile d'écran sous la ligne du bord.
+    expect(quayHiddenDepth(SM, 0.5, -1, 0.7)).toBeCloseTo(0.7, 6);
+    expect(quayHiddenDepth(SM, 0.5, 1, 0.7)).toBe(0);
+    expect(quayHiddenDepth(SM, 0.5, -1, 0)).toBe(0);
+    // Fleuve vers le nord-est (horizontal à l'écran) : le pas vers le large ne
+    // descend que de 1/√2 — la bande cachée est plus profonde.
+    const NE = Array.from({ length: 41 }, (_, i) => ({ x: i, y: 40 - i, hw: 3 }));
+    expect(quayHiddenDepth(NE, 0.5, -1, 0.7)).toBeCloseTo(0.7 * Math.SQRT2, 6);
+    // Vers le sud-est (vertical à l'écran) : la face du mur se voit de profil.
+    const SE = Array.from({ length: 41 }, (_, i) => ({ x: i, y: i, hw: 3 }));
+    expect(quayHiddenDepth(SE, 0.5, -1, 0.7)).toBeCloseTo(0, 6);
+    expect(quayHiddenDepth(SE, 0.5, 1, 0.7)).toBeCloseTo(0, 6);
+  });
+
+  // Retour Raph (2026-10-03) : « pas logique que le passeur soit à côté du pont ».
+  // Le site était choisi AVANT le calcul des passes de pont : il lisait celles du
+  // layout précédent — aucune au chargement.
+  it("son site se choisit APRÈS les ponts, les obstacles et l'île (runtime)", () => {
+    const src = fs.readFileSync(path.join(process.cwd(), "src/game/map/cityMapRuntime.js"), "utf8");
+    const at = src.indexOf("CM.ferrySite = ferrySite(");
+    expect(at).toBeGreaterThan(0);
+    for (const before of ["CM.riverGates.push(", "CM.riverObstacles.push(", "CM.riverIslandT = bi"]) {
+      const k = src.indexOf(before);
+      expect(k).toBeGreaterThan(0);
+      expect(k).toBeLessThan(at);
+    }
   });
 
   it("ne part pas quand un bateau arrive tout près", () => {

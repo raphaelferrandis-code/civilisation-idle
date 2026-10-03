@@ -14,9 +14,9 @@ import { CM } from '../layout.js';
 import { worldToScreen } from './projection.js';
 import { isoUnitDepth } from './isoUnits.js';
 import { agentSetForBand, agentSpecFor, drawNamedAgentIso } from '../agents.js';
-import { ribbonAt } from '../riverFleet.js';
+import { ribbonAt, ferryReach, FERRY_TIP } from '../riverFleet.js';
 import { drawBoat } from './boatKit.js';
-import { fleetFor } from './boatKits.js';
+import { fleetFor, BOAT_MODELS } from './boatKits.js';
 import { h32 } from './boatBake.js';
 
 
@@ -25,6 +25,22 @@ function landingPose(site, side, sm) {
   const r = ribbonAt(sm, site.t);
   const x = r.x + r.nx * side * site.hw, y = r.y + r.ny * side * site.hw;
   return { x, y, th: Math.atan2(-side * r.ny, -side * r.nx), dx: -side * r.nx, dy: -side * r.ny, ax: r.tx, ay: r.ty };
+}
+
+// L'embarcadère de cette rive : celui de l'ère, son tablier ALLONGÉ jusqu'au pied du
+// mur de quai quand on en voit la face (le bac s'arrête là, cf. riverFleet.ferryLat).
+// Rend { id, ext } — ext = px d'art de tablier en plus. Modèle dérivé enregistré une
+// fois (le peintre ne connaît que BOAT_MODELS).
+function landingFor(base, site, side) {
+  const ext = Math.round((ferryReach(site, side) - FERRY_TIP) * 32);
+  if (ext <= 0) return { id: base, ext: 0 };
+  const id = base + '@' + ext;
+  if (!BOAT_MODELS[id]) {
+    const M0 = BOAT_MODELS[base];
+    if (!M0 || !M0.withReach) return { id: base, ext: 0 };
+    BOAT_MODELS[id] = M0.withReach(ext);
+  }
+  return { id, ext };
 }
 
 // Les items de la frame. `band` = bande d'ère (habits des gens).
@@ -36,11 +52,14 @@ export function fleetSceneItems(now, band) {
   const site = CM.ferrySite;
   const ferry = site ? (CM.ships || []).find((s) => s.kind === 'ferry') : null;
   if (site && ferry) {
+    const fl = fleetFor(band);
     for (const side of [-1, 1]) {
       const P = landingPose(site, side, sm);
-      // Le tablier s'avance de 10 px dans l'eau : sa profondeur est celle de son milieu.
-      const fl = fleetFor(band);
-      out.push({ d: isoUnitDepth((P.x + P.dx * 0.1) * T, (P.y + P.dy * 0.1) * T), kind: 'fleetScene', what: 'landing', P, landing: (fl && fl.landing) || 'embarcadere' });
+      const lg = landingFor((fl && fl.landing) || 'embarcadere', site, side);
+      // Le tablier s'avance de 10 px dans l'eau (plus son allonge) : sa profondeur est
+      // celle de son milieu.
+      const m = 0.1 + lg.ext / 64;
+      out.push({ d: isoUnitDepth((P.x + P.dx * m) * T, (P.y + P.dy * m) * T), kind: 'fleetScene', what: 'landing', P, landing: lg.id });
     }
     // Les VOYAGEURS attendent sur l'embarcadère que le bac va chercher : celui d'en
     // face quand il est à quai, sa destination quand il traverse.

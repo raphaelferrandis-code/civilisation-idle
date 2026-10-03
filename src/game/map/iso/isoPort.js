@@ -299,7 +299,7 @@ function drawKitShip(ctx, sh, P, now) {
   // Ce qui bouge par-dessus la coque : la fumée des cheminées, les lances des pompiers.
   if (r.anchors.smoke) drawSmoke(ctx, r.anchors.smoke, now, P.z, sh.id | 0, P.heading, sh.state !== 'dock' && sh.state !== 'anchor');
   if (r.model && r.model.service === 'fire' && sh.state === 'anchor') drawJets(ctx, r.anchors, now, P.z, P.heading, sh.id | 0);
-  sh._hull = { img: r.img, bx: r.bx, by: r.by, dw: r.dw, wx: P.wx, wy: P.wy, a: ctx.globalAlpha, at: now };
+  sh._hull = { img: r.img, bx: r.bx, by: r.by, dw: r.dw, wx: P.wx, wy: P.wy, a: ctx.globalAlpha, at: now, crew: r.crew };
   sh._nav = {
     x: P.x, y: P.y, dw: CM.TILE * P.z * 0.7 * P.sizeMul, heading: P.heading, stage: P.kit.id, sector: boatSector(P.heading), kit: true,
     pts: boatHasLights(P.kit) && r.anchors.port ? { port: r.anchors.port, stbd: r.anchors.stbd } : null,

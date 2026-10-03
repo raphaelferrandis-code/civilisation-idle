@@ -201,3 +201,62 @@ façon Le Havre (b5-6+, navires amarrés fixes) et port de plaisance façon Vieu
   `towSide`. Le chaland (bandes 2, 3, 4) avance à la PERCHE (`poler`, boatParts.js : un
   batelier sur le plat-bord, la perche plantée en arrière, pose animée sur 4 images) ; la
   péniche de la fonte est automotrice (`pole: false`). Il tient sa droite comme les autres.
+- 2026-10-03 — **Le passeur et les oiseaux** (Raph, sur trois captures : « ce n'est pas
+  logique que le passeur soit à côté du pont. Aussi il faut que les oiseaux s'éloignent
+  quand il s'approche. Également qu'il ne rentre pas dans le quai, il s'arrête avant »).
+  · **Site** : `ferrySite` lisait `CM.riverGates` AVANT que le runtime le remplisse —
+  les passes du layout précédent, aucune au chargement : le bac s'installait au pied du
+  pont. Le calcul passe en fin de bloc (après ponts, obstacles plantés dans l'eau — eux
+  aussi évités désormais — et île) ; garde-fou dans `riverNav.test.js`.
+  · **Accostage** : le bac aborde de face, c'est sa demi-LONGUEUR qui va vers la berge
+  (`ferryLat` comptait la demi-largeur : son bout montait sur le tablier et le quai). Il
+  touche l'eau qu'on VOIT : `site.reach[side]` = bout du tablier (10 px), ou pied du mur
+  de quai quand on voit sa face — le mur pend sous le bord et cache
+  `quayHiddenDepth` = hauteur × |tx − ty| tuiles d'eau. L'embarcadère allonge alors son
+  tablier jusqu'au bac, sur des pieux qui descendent au pied du mur
+  (`makeLanding({ reach })` / `withReach`, modèles dérivés `<id>@<px>` enregistrés à la
+  volée par `boatScenes`). L'embarcadère du Marbre passe par `makeLanding` (même rendu,
+  vérifié à l'octet sur les 32 caps).
+  · **Oiseaux** (`isoRiverLife.js`) : canards et cygnes s'écartent en travers du cap de
+  toute coque qui approche (3,2 tuiles devant l'étrave), du côté où il y a la place, puis
+  reviennent lentement (1,5 tuile/s en fuite, 0,28 au retour), toujours dans l'eau. Seul
+  état du module (`_flee`) ; `__vieSpots().flee` montre les écarts.
+- 2026-10-03 (nuit) — **L'ÉQUIPAGE = LES HABITANTS DE L'ÈRE** (Raph, capture d'un chaland :
+  « faut revoir les personnages sur les bateaux »). Les marins construits en volumes (boîte
+  des jambes, tunique, boule de tête) se lisaient comme des tonneaux à la taille de la
+  carte, et restaient au gros pixel de la cuisson quand les habitants du quai gagnent en
+  finesse avec le zoom. Désormais :
+  · le kit ne dessine plus personne : `person()` pose une PLACE (`boatBake.crewSlot` : pied,
+    cap, pose, tirage) ; les assis (`row`, `sit`, `paddle`) sont ENFONCÉS de 3 px sous leur
+    banc, le bordé cache leurs jambes ;
+  · la cuisson rend pour chaque place un MASQUE lu dans le z-buffer (`crewMasks`) : le
+    marin est un panneau vertical, un pixel du bateau plus proche que lui (au-delà de
+    1,2 px d'épaisseur) le cache — plat-bord, cargaison, voile, perche — et tout ce qui
+    descend sous son appui est dans la coque. Le contour d'encre prend la profondeur de ce
+    qu'il borde (le trait du plat-bord coupe les jambes comme le plat-bord) ;
+  · le jeu y pose le SPRITE de l'habitant (`boatKit.drawCrew`, `agents.agentFrameIso` :
+    même bande pleine/-half, frame 0, pieds mesurés), peint dans une toile de travail à la
+    grille DEVICE, découpé par le masque mis à l'échelle exactement comme la coque, puis
+    posé ; le pont redessine les marins avec la coque (`sh._hull.crew`) ;
+  · QUI est à bord : `iso/boatCrew.js` (`BOAT_CAST` par bande — marins, pêcheur, passagers
+    du bac, police — sans chaman ni moine aux rames ni joggeur à la barre) ; l'ère des
+    habits est celle de la ville ; les garde-robes des marins en volumes sont retirées.
+  Ni ombre au soleil (le `multiply` de l'ombre ne passe pas par une toile de travail
+  transparente) ni reflet pour les marins. Planches : `boatVitrine`/`boatPlanche` posent
+  l'équipage (`scripts/boatCrewRaster.mjs`, même calcul sur PNG). Test :
+  `__tests__/boatCrew.test.js`.
+  · **Personne sur le pont des grands navires** (Raph, sur la vitrine : « personne sur les
+  grands bateaux ») : vapeurs, cargo à vapeur, péniche (`makeBarge({ crew: false })`),
+  remorqueur, drague, porte-conteneurs, pétrolier, pousseur. Un habitant y faisait une
+  miette au pied de la cheminée. L'équipage reste aux petits bateaux (barques, chaloupe,
+  navette, police, pompiers) et aux voiliers anciens et cosmiques. Verrouillé par
+  `boatCrew.test.js`.
+  · **La navette redessinée en BATEAU-BUS** (Raph : « revois le design de ce bateau, on ne
+  comprend pas ce que c'est ») : la coque blanche sous une verrière cintrée bleu ciel ne
+  donnait qu'un savon bleu. Désormais coque marine au liseré de la LIGNE et carène rouge,
+  cabine blanche HAUTE (5,4 px) percée d'une bande de vitres sombres, toit bombé à la
+  couleur de la ligne (turquoise, jaune ou vert — pas de rouge, c'est le bateau-pompe),
+  timonerie vitrée à l'avant du toit et son mât (feux de tête et de bord : la navette a
+  désormais ses feux), bouées orange, plateforme arrière à garde-corps, pavillon de la
+  ligne. Essayés et écartés sur planche : verrière sombre à arceaux (un damier), toit
+  blanc à bande de couleur (un yacht).

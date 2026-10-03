@@ -38,16 +38,6 @@ function nacre(band) {
   };
 }
 
-// Garde-robe des époques cosmiques : combinaisons claires, liserés de l'ère.
-function crewCosmic(band) {
-  const N = nacre(band);
-  return {
-    skin: [['#f0c29a', '#d9a47c', '#b98460', '#8f6246'], ['#d9a070', '#bf8458', '#9c6744', '#734a30'], ['#a8714a', '#8c5a38', '#6e442a', '#4f2f1d'], ['#7a4f33', '#643f28', '#4e301e', '#382115']],
-    hair: [['#2a2420', '#1d1916', '#13100e'], ['#e9e4f0', '#cdc7d8', '#aaa3b8'], ['#8a6a44', '#6c5134', '#4e3a25'], [N.glow, N.glow, N.deep]],
-    legs: N.shellIn,
-    cloth: [N.shell, N.crystal, N.shellIn, [N.glow, N.glow, N.deep, N.deep]],
-  };
-}
 
 // Cargaison de LUMIÈRE : cubes de cristal qui luisent par la tranche.
 function lightCargo(S, a0, a1, c0, c1, h, N, seed) {
@@ -88,7 +78,7 @@ function lift(band, S, fn) {
 
 // ── Marchand A : voilier solaire (7) · glisseur (8) · arche (9) ────────────────
 function makeTradeA(band) {
-  const N = nacre(band), C = crewCosmic(band);
+  const N = nacre(band);
   const hover = band >= 9;
   const L = band === 8 ? 66 : 60, B = band === 8 ? 13 : 15;
   const id = band === 7 ? 'voilier-solaire' : band === 8 ? 'glisseur' : 'arche';
@@ -120,7 +110,7 @@ function makeTradeA(band) {
           cabin(S, -L / 2 + 6, -L / 2 + 17, -4.2, 4.2, hd, hd + 4, { wall: N.shell, roof: N.shell, win: N.crystal, winEvery: 1.8, winH: [0.3, 0.85] });
           asPart(S, PART.mast, () => tube(S, [[-14, 0, hd + 4], [-14, 0, hd + 13]], 0.35, glow(N.glow)));
         }
-        person(S, -L / 2 + 6, 0, hd + (band === 7 ? 0 : 4), 0, crewPal(C, V.seed, 10), ctx.state === 'salute' ? 'wave' : 'steer', 1);
+        person(S, -L / 2 + 6, 0, hd + (band === 7 ? 0 : 4), 0, crewPal(V.seed, 10), ctx.state === 'salute' ? 'wave' : 'steer', 1);
       });
     },
   };
@@ -128,7 +118,7 @@ function makeTradeA(band) {
 
 // ── Marchand B : galion de verre (7) · catamaran à aile (8) · nef (9) ──────────
 function makeTradeB(band) {
-  const N = nacre(band), C = crewCosmic(band);
+  const N = nacre(band);
   const hover = band >= 9;
   const L = 56, B = band === 8 ? 20 : 15;
   const id = band === 7 ? 'galion-verre' : band === 8 ? 'catamaran-stellaire' : 'nef-levitante';
@@ -150,7 +140,7 @@ function makeTradeB(band) {
           asPart(S, PART.sail, () => surf(S, (u, v) => [-8 + 4 * Math.sin(Math.PI * u) * 0.4 + u * 6, 0.6 * Math.sin(Math.PI * u), 4.6 + v * 24], 0, 1, 0, 1,
             (u, v, nw) => (u < 0.06 || u > 0.94 || v > 0.97 ? rgbOf(N.glow) : rampRGB(N.light, nw))));
           cabin(S, -24, -16, -4, 4, 4.6, 8, { wall: N.shell, roof: N.shell, win: N.crystal, winEvery: 1.8, winH: [0.3, 0.85] });
-          person(S, -20, 0, 8, 0, crewPal(C, V.seed, 10), ctx.state === 'salute' ? 'wave' : 'steer', 1);
+          person(S, -20, 0, 8, 0, crewPal(V.seed, 10), ctx.state === 'salute' ? 'wave' : 'steer', 1);
           return;
         }
         const H = { L, B, D: 5.4, sb: 4.5, ss: 6, pb: 1.7, ps: 2.2, flare: 0.2, th: 0.9, plank: 0, deck: 0.9, bottom: hover };
@@ -164,7 +154,7 @@ function makeTradeB(band) {
           // La nef : des flèches de lumière au lieu de mâts.
           asPart(S, PART.mast, () => { for (const a of [-12, 0, 12]) tube(S, [[a, 0, hd], [a, 0, hd + 14 + (a === 0 ? 8 : 0)]], (t) => 0.9 - 0.7 * t, glow(N.glow)); });
         }
-        person(S, -L / 2 + 6, 0, sh.deckH(-0.8), 0, crewPal(C, V.seed, 10), ctx.state === 'salute' ? 'wave' : 'steer', 1);
+        person(S, -L / 2 + 6, 0, sh.deckH(-0.8), 0, crewPal(V.seed, 10), ctx.state === 'salute' ? 'wave' : 'steer', 1);
       });
     },
   };
@@ -172,7 +162,7 @@ function makeTradeB(band) {
 
 // ── Chaland cosmique : une longue barque de nacre chargée de lumière ─────────────
 function makeBargeC(band) {
-  const N = nacre(band), C = crewCosmic(band);
+  const N = nacre(band);
   const hover = band >= 9;
   return {
     id: 'chaland-lumiere-' + band, role: 'barge', hover, glow: N.glow, len: 62, beam: 15, speed: [0.7, 0.9],
@@ -186,7 +176,7 @@ function makeBargeC(band) {
         drawHull(S, H, V);
         lightCargo(S, -22, 26, -5.6, 5.6, 1, N, V.seed);
         cabin(S, -29, -23, -4, 4, 1, 5, { wall: N.shell, roof: N.crystal, win: N.glow, winEvery: 2, winH: [0.45, 0.65] });
-        person(S, -29.5, 0, 5, 0, crewPal(C, V.seed, 10), ctx.state === 'salute' ? 'wave' : 'steer', 1);
+        person(S, -29.5, 0, 5, 0, crewPal(V.seed, 10), ctx.state === 'salute' ? 'wave' : 'steer', 1);
       });
     },
   };
@@ -194,7 +184,7 @@ function makeBargeC(band) {
 
 // ── Pêcheur cosmique : barque de nacre, filet qui luit ──────────────────────────
 function makeFisherC(band) {
-  const N = nacre(band), C = crewCosmic(band);
+  const N = nacre(band);
   const hover = band >= 9;
   return {
     id: 'barque-nacre-' + band, role: 'fisher', hover, glow: N.glow, len: 22, beam: 8.5, speed: [0.85, 1.1],
@@ -209,7 +199,7 @@ function makeFisherC(band) {
         drawHull(S, H, V);
         asPart(S, 11, () => surf(S, (u, v) => [-6 + 2.2 * v * Math.cos(u), 0.4 + 2 * v * Math.sin(u), 0.9 + 1.4 * (1 - v * v)], 0, Math.PI * 2, 0, 1,
           (u, v, nw) => (h32(Math.round(u * 9), Math.round(v * 6), 3) % 3 === 0 ? rgbOf(N.glow) : rampRGB(N.crystal, nw))));
-        person(S, fishing ? 3.5 : -2, fishing ? 1 : 0, 0.9, fishing ? Math.PI / 2 : 0, crewPal(C, V.seed, 10), fishing ? 'haul' : (ctx.state === 'salute' ? 'wave' : 'sit'), ctx.k || 1);
+        person(S, fishing ? 3.5 : -2, fishing ? 1 : 0, 0.9, fishing ? Math.PI / 2 : 0, crewPal(V.seed, 10), fishing ? 'haul' : (ctx.state === 'salute' ? 'wave' : 'sit'), ctx.k || 1);
       });
     },
   };
@@ -217,7 +207,7 @@ function makeFisherC(band) {
 
 // ── Passeur cosmique : un disque flottant cerclé de lumière ───────────────────
 function makeFerryC(band) {
-  const N = nacre(band), C = crewCosmic(band);
+  const N = nacre(band);
   const hover = band >= 9;
   return {
     id: 'disque-' + band, role: 'ferry', hover, glow: N.glow, len: 24, beam: 24, speed: [0.5, 0.65],
@@ -235,7 +225,7 @@ function makeFerryC(band) {
         const n = 2 + (h32(V.seed, 40) % 3);
         for (let i = 0; i < n; i += 1) {
           const an = (i / n) * Math.PI * 2 + 0.4;
-          person(S, 5.5 * Math.cos(an), 5.5 * Math.sin(an), 2.4, an + Math.PI, crewPal(C, V.seed, 50 + i * 7), i === 0 && ctx.state === 'salute' ? 'wave' : 'stand', 1);
+          person(S, 5.5 * Math.cos(an), 5.5 * Math.sin(an), 2.4, an + Math.PI, crewPal(V.seed, 50 + i * 7), i === 0 && ctx.state === 'salute' ? 'wave' : 'stand', 1);
         }
         asPart(S, PART.mast, () => tube(S, [[0, 0, 2.4], [0, 0, 9]], 0.5, glow(N.glow)));
       });

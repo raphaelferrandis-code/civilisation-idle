@@ -900,19 +900,46 @@ function navSteer(ships, env, step, nav) {
  * ne part que si aucun bateau n'arrive à moins de ferryClear tuiles, traverse en
  * travers du courant, et pendant ce temps barre le fleuve (une passe, cf.
  * navPrepare). À chaque traversée, d'autres voyageurs (`trip` change la graine).
+ *
+ * OÙ IL S'ARRÊTE (retour Raph, 2026-10-03 : « qu'il ne rentre pas dans le quai, il
+ * s'arrête avant »). Il aborde la rive DE FACE, cap perpendiculaire au courant :
+ * c'est sa DEMI-LONGUEUR qui va vers la berge, pas sa demi-largeur (on comptait la
+ * largeur — le bout du bac montait sur le tablier et sur le quai). Et il touche
+ * l'eau qu'on VOIT : `site.reach[side]` = distance du bord du ruban au point où sa
+ * coque s'arrête — le bout du tablier de l'embarcadère, ou plus loin le pied du mur
+ * de quai quand on voit sa face (quayHiddenDepth).
  * ------------------------------------------------------------------------- */
-export function ferryLat(site, side, beam = 0.47) {
-  return side * Math.max(0.3, (site.hw || 2) - beam / 2 - 0.3);
+// Le tablier de l'embarcadère s'avance de 10 px d'art dans l'eau (boatFamilies.makeLanding).
+export const FERRY_TIP = 10 / 32;
+const FERRY_GAP = 1 / 32;                      // un pixel d'eau entre la coque et le tablier
+export function ferryReach(site, side) {
+  const r = site.reach && site.reach[side > 0 ? 1 : 0];
+  return r != null && r > FERRY_TIP ? r : FERRY_TIP;
+}
+export function ferryLat(site, side, len = 0.95) {
+  return side * Math.max(0.3, (site.hw || 2) - ferryReach(site, side) - FERRY_GAP - len / 2);
+}
+// L'EAU CACHÉE PAR LE MUR DE QUAI, en tuiles depuis le bord du ruban. Le mur est
+// une face verticale de `wallT` tuiles pendue SOUS le bord (isoQuay) : sur la rive
+// dont on voit la face — l'eau est devant elle, plus bas à l'écran —, elle recouvre
+// une bande d'eau, et ce qui s'y pose semble collé au mur. Projection du jeu
+// (projection.js, ISO_X = 1, ISO_Y = 0,5) : un pas d'une tuile vers le large descend
+// de 1 / |tx − ty| sous la ligne du bord, d'où cette profondeur. Pur.
+export function quayHiddenDepth(sm, t, side, wallT) {
+  if (!(wallT > 0) || !sm || sm.length < 2) return 0;
+  const r = ribbonAt(sm, t);
+  const k = -side * (r.tx - r.ty);             // > 0 : on voit la face du mur
+  return k > 0 ? wallT * k : 0;
 }
 function ferryStep(sh, site, ships, step, nav) {
   sh.t = site.t;
   sh._len = sh._len || 0.95; sh._beam = sh._beam || 0.47;
-  if (sh.lat == null) { sh.lat = ferryLat(site, sh.ferrySide, sh._beam); sh.latV = 0; }
+  if (sh.lat == null) { sh.lat = ferryLat(site, sh.ferrySide, sh._len); sh.latV = 0; }
   const r = ribbonAt(nav.samples || [], site.t);
   if (sh.th == null) sh.th = Math.atan2(r.ny * -sh.ferrySide, r.nx * -sh.ferrySide);
   if (sh.state === 'board') {
     sh.stateT -= step;
-    sh.lat = ferryLat(site, sh.ferrySide, sh._beam);
+    sh.lat = ferryLat(site, sh.ferrySide, sh._len);
     if (sh.stateT > 0) return;
     const busy = ships.some((o) => o !== sh && o.kind !== 'ferry' && !o.orbit
       && Math.abs((o.t - site.t) * nav.L) < FLEET_TUNE.ferryClear);
@@ -922,7 +949,7 @@ function ferryStep(sh, site, ships, step, nav) {
     return;
   }
   // Traversée : on accélère au départ, on ralentit à l'approche (pas d'à-coup).
-  const target = ferryLat(site, sh.ferrySide, sh._beam);
+  const target = ferryLat(site, sh.ferrySide, sh._len);
   const d = target - sh.lat;
   const v = Math.sign(d) * Math.min(FLEET_TUNE.ferryCross, Math.abs(d) * 0.9 + 0.04);
   sh.latV += (v - sh.latV) * Math.min(1, step * 2);

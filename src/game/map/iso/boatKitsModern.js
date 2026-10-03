@@ -9,40 +9,17 @@
 //
 // Les cheminées publient une ancre `smoke` (fumée animée au rendu), la police une
 // ancre `beacon` (gyrophare), les pompiers deux lances `jetL` / `jetR`.
+//
+// PERSONNE SUR LE PONT DES GRANDS NAVIRES (Raph, 2026-10-03 : « personne sur les
+// grands bateaux ») : vapeurs, cargos, péniche, remorqueur, drague, porte-conteneurs,
+// pétrolier, pousseur. Un habitant à leur pied n'y faisait qu'une miette ; l'équipage
+// reste aux petits bateaux (barque, chaloupe, navette, police, pompiers).
 
 import { surf, box, boxRamp, tube, rope, rampRGB, asPart, noReflect, PART, h32 } from './boatBake.js';
 import {
   pick, chance, glow, drawHull, person, crewPal, cargo, funnel, cabin, railing, container,
 } from './boatParts.js';
 import { makeBarge, makeRowboat, makeLanding, pennant } from './boatFamilies.js';
-
-// ── Garde-robes ───────────────────────────────────────────────────────────────
-const SKIN = [['#f0c29a', '#d9a47c', '#b98460', '#8f6246'], ['#d9a070', '#bf8458', '#9c6744', '#734a30'], ['#a8714a', '#8c5a38', '#6e442a', '#4f2f1d'], ['#7a4f33', '#643f28', '#4e301e', '#382115']];
-const HAIR = [['#4a3424', '#36261a', '#251a12'], ['#2a2420', '#1d1916', '#13100e'], ['#8a6a44', '#6c5134', '#4e3a25'], ['#c9c2b8', '#a9a196', '#87807a']];
-// Bleus de travail, vestons, casquettes plates (XIXe).
-const CREW_IRON = {
-  skin: SKIN, hair: HAIR, legs: ['#3e3a36', '#2f2c29', '#22201e', '#171614'],
-  cloth: [
-    ['#4c6288', '#3d506f', '#2f3e57', '#222d40'],
-    ['#7a6450', '#62503f', '#4b3d30', '#352b22'],
-    ['#e8e2d4', '#d0c8b6', '#b2a993', '#8e8571'],
-    ['#5e6b50', '#4b5640', '#394231', '#282f23'],
-  ],
-  hat: [['#3c3a38', '#2c2b29', '#1e1d1c'], ['#5a4a3a', '#46392d', '#332a21']],
-  hatP: 0.65,
-};
-// Gilets haute visibilité, marine, blanc ; casques de chantier.
-const CREW_NEON = {
-  skin: SKIN, hair: HAIR, legs: ['#2f3540', '#242932', '#1a1e25', '#111419'],
-  cloth: [
-    ['#f08a2a', '#d0721f', '#a85a17', '#7e4310'],
-    ['#e8e24a', '#c9c339', '#a29d2b', '#78741f'],
-    ['#2f4466', '#253652', '#1b283e', '#121b2b'],
-    ['#eef0f2', '#d6dade', '#b6bcc2', '#8f969e'],
-  ],
-  hat: [['#f4f4f2', '#d8d8d4', '#b4b4ae'], ['#f08a2a', '#cc6f1c', '#9e5313'], ['#e8d84a', '#c6b838', '#9a8f29']],
-  hatP: 0.5,
-};
 
 // ── Matières ──────────────────────────────────────────────────────────────────
 const BLACK = ['#58585d', '#44444a', '#343438', '#26262a', '#1a1a1d', '#101012'];
@@ -143,9 +120,6 @@ const VAPEUR = {
     }
     pennant(S, -L2 + 2, 0, hd + 9, 5, RED, V.seed % 5);
     asPart(S, PART.mast, () => tube(S, [[-L2 + 2, 0, hd], [-L2 + 2, 0, hd + 9.5]], 0.3, (nw) => rampRGB(IRON, nw)));
-    // Passagers au pont-promenade.
-    const n = 1 + (V.seed % 3);
-    for (let i = 0; i < n; i += 1) person(S, -18 + i * 6, (i % 2 ? -2.6 : 2.4), hd + 4.4, (V.seed + i) % 2 ? Math.PI / 2 : -Math.PI / 2, crewPal(CREW_IRON, V.seed, 40 + i * 5), i === 0 && ctx.state === 'salute' ? 'wave' : 'stand', 1);
   },
 };
 
@@ -187,14 +161,12 @@ const CARGO_VAPEUR = {
     for (const side of [-1, 1]) railing(S, -L2 + 3, -24, side * (sh.w(-0.85, H.D) - 0.5), hd(-28), 2.2, IRON, 2.4);
     pennant(S, -L2 + 2, 0, hd(-L2 + 2) + 8, 5, pick([RED, WHITE, YELLOW], V.seed, 9), V.seed % 5);
     asPart(S, PART.mast, () => tube(S, [[-L2 + 2, 0, hd(-L2 + 2)], [-L2 + 2, 0, hd(-L2 + 2) + 8.5]], 0.3, (nw) => rampRGB(IRON, nw)));
-    person(S, -13.5, 0, hd(-16) + 4.2, 0, crewPal(CREW_IRON, V.seed, 10), 'steer');
-    person(S, 8, -3, hd(8) + 1.2, Math.PI / 2, crewPal(CREW_IRON, V.seed, 20), ctx.state === 'dock' ? 'haul' : (ctx.state === 'salute' ? 'wave' : 'stand'), ctx.k || 1);
   },
 };
 
-const PENICHE = makeBarge({ id: 'peniche', L: 66, B: 15, pole: false, hut: 'cabin', hatches: true, plank: 0, speed: [0.6, 0.8], paint: [GREEN, RED, WHITE] }, FONTE, CREW_IRON);
+const PENICHE = makeBarge({ id: 'peniche', L: 66, B: 15, pole: false, crew: false, hut: 'cabin', hatches: true, plank: 0, speed: [0.6, 0.8], paint: [GREEN, RED, WHITE] }, FONTE);
 const BARQUE_PEINTE = makeRowboat({ id: 'barque-peinte', L: 24, B: 9, paint: [RED, ['#4c74b0', '#3b5e94', '#2c4874', '#1f3354'], GREEN, YELLOW] },
-  { ...FONTE, hull: ['#efe9da', '#d9d1bf', '#bdb39c', '#9d927b', '#7c725d', '#5a5242'], hullIn: ['#c9bfa6', '#ada28a', '#8f846d', '#706651', '#524a3a'], rail: ['#9a7046', '#7b5636', '#5c3f27', '#3f2a1a'], deck: DECKW }, CREW_IRON);
+  { ...FONTE, hull: ['#efe9da', '#d9d1bf', '#bdb39c', '#9d927b', '#7c725d', '#5a5242'], hullIn: ['#c9bfa6', '#ada28a', '#8f846d', '#706651', '#524a3a'], rail: ['#9a7046', '#7b5636', '#5c3f27', '#3f2a1a'], deck: DECKW });
 
 // LA CHALOUPE À VAPEUR — le passeur de la Fonte : coque vernie, tendelet rayé sur
 // ses montants, petite cheminée de laiton, les voyageurs assis dessous.
@@ -215,8 +187,8 @@ const CHALOUPE = {
     asPart(S, PART.yard, () => { for (const a of [-6, 2.5, 11]) for (const c of [-4.4, 4.4]) tube(S, [[a, c, 1.2], [a, c, 9.8]], 0.28, (nw) => rampRGB(FONTE.rail, nw)); });
     funnel(S, -8, 0, 1.2, 11.5, 1.1, ['#e6c46a', '#c9a24a', '#a07c34', '#785c25'], null, COAL);
     const n = 2 + (V.seed % 4);
-    for (let i = 0; i < n; i += 1) person(S, -4 + i * 3.4, (i % 2 ? -3.4 : 3.4), 2.6, i % 2 ? Math.PI / 2 : -Math.PI / 2, crewPal(CREW_IRON, V.seed, 50 + i * 7), i === 0 && ctx.state === 'salute' ? 'wave' : 'sit', 1);
-    person(S, -L2 + 3, 0, H.floor, 0, crewPal(CREW_IRON, V.seed, 10), 'steer');
+    for (let i = 0; i < n; i += 1) person(S, -4 + i * 3.4, (i % 2 ? -3.4 : 3.4), 2.6, i % 2 ? Math.PI / 2 : -Math.PI / 2, crewPal(V.seed, 50 + i * 7), i === 0 && ctx.state === 'salute' ? 'wave' : 'sit', 1);
+    person(S, -L2 + 3, 0, H.floor, 0, crewPal(V.seed, 10), 'steer');
   },
 };
 
@@ -242,8 +214,6 @@ const REMORQUEUR = {
       boxRamp(S, -L2 + 4, -L2 + 6, -1, 1, hd, hd + 2.2, IRON);
       surf(S, (u, v) => [L2 - 0.6 + 1.2 * Math.cos(u), 1.1 * Math.sin(u) * 3, 1.5 + v * 2.5], -Math.PI / 2, Math.PI / 2, 0, 1, (u, v, nw) => rampRGB(COAL, nw));
     });
-    person(S, 3, 0, hd + 4.4, 0, crewPal(CREW_IRON, V.seed, 10), 'steer');
-    if (ctx.state === 'salute' || chance(V.seed, 20, 0.5)) person(S, -L2 + 8, 2, hd, Math.PI, crewPal(CREW_IRON, V.seed, 20), ctx.state === 'salute' ? 'wave' : 'stand', 1);
   },
 };
 
@@ -284,7 +254,6 @@ const DRAGUE = {
     funnel(S, -12, 0, hd + 5, 11, 1.4, BLACK, null, COAL);
     // Le déblai : un tas de vase dans la marie-salope amarrée à couple.
     asPart(S, 6, () => surf(S, (u, v) => [8 + 6 * v * Math.cos(u), -9.5 + 2.2 * v * Math.sin(u), 2.5 + 2.2 * (1 - v * v)], 0, Math.PI * 2, 0, 1, (u, v, nw) => rampRGB(['#7d6e58', '#685b48', '#524738', '#3d3529'], nw)));
-    person(S, -6, 3, hd, Math.PI / 2, crewPal(CREW_IRON, V.seed, 10), 'haul', k);
   },
 };
 
@@ -344,7 +313,6 @@ function makeContainerShip(id, L, B, rows) {
         tube(S, [[aB + 5, 0, top], [aB + 5, 0, top + 6]], 0.35, (nw) => rampRGB(STEEL, nw));
         tube(S, [[aB + 5, -2.2, top + 4.6], [aB + 5, 2.2, top + 4.6]], 0.3, (nw) => rampRGB(STEEL, nw));
       });
-      person(S, aB + 8, Math.min(5.6, B / 2 - 2.4), hd + 9, Math.PI / 2, crewPal(CREW_NEON, V.seed, 10), ctx.state === 'salute' ? 'wave' : 'stand', 1);
     },
   };
 }
@@ -375,7 +343,6 @@ const PETROLIER = {
     const top = bridgeBlock(S, -34, -25, 6, hd, 3, WHITE, CYAN_GLASS);
     funnel(S, -33, 0, top, 4.5, 1.6, WHITE, V.ring, ['#2a2a2e', '#1f1f22', '#141416']);
     asPart(S, PART.mast, () => tube(S, [[-28, 0, top], [-28, 0, top + 7]], 0.32, (nw) => rampRGB(STEEL, nw)));
-    person(S, 4, 5.5, hd, Math.PI / 2, crewPal(CREW_NEON, V.seed, 20), ctx.state === 'salute' ? 'wave' : 'stand', 1);
   },
 };
 
@@ -406,7 +373,6 @@ const POUSSEUR = {
     asPart(S, PART.mast, () => { for (const c of [-1.5, 1.5]) tube(S, [[P0 - 6, c, 6.8], [P0 - 6, c, 14]], 0.45, (nw) => rampRGB(STEEL, nw)); });
     cabin(S, P0 - 8.5, P0 - 3.5, -3, 3, 14, 18, { wall: WHITE, roof: RED, win: CYAN_GLASS, winEvery: 1.6, winH: [0.3, 0.85] });
     asPart(S, PART.mast, () => tube(S, [[P0 - 3, 0, 18], [P0 - 3, 0, 22]], 0.3, (nw) => rampRGB(STEEL, nw)));
-    person(S, P0 - 6, 0, 14, 0, crewPal(CREW_NEON, V.seed, 10), 'steer');
   },
 };
 
@@ -431,36 +397,87 @@ const BATEAU_MOTEUR = {
       tube(S, [[-L2 - 1, 0, 1.2], [-L2 - 1.2, 0, -1]], 0.5, (nw) => rampRGB(['#2c2e32', '#1f2124'], nw));
     });
     const fishing = ctx.state === 'anchor' || ctx.state === 'fish';
-    person(S, -L2 + 4, 0, H.floor, fishing ? Math.PI / 2 : 0, crewPal(CREW_NEON, V.seed, 10), fishing ? 'haul' : 'steer', ctx.k || 0);
+    person(S, -L2 + 4, 0, H.floor, fishing ? Math.PI / 2 : 0, crewPal(V.seed, 10), fishing ? 'haul' : 'steer', ctx.k || 0);
     if (fishing) {
       noReflect(S, () => {
         rope(S, [-L2 + 5.5, 2, 6.5], [-L2 + 6, 9, 10], '#2a2c30');
         rope(S, [-L2 + 6, 9, 10], [-L2 + 6.5, 12, 0], '#e8eef2');
       });
-    } else person(S, 4.5, 0.6, H.floor, 0, crewPal(CREW_NEON, V.seed, 20), ctx.state === 'salute' ? 'wave' : 'sit', 1);
+    } else person(S, 4.5, 0.6, H.floor, 0, crewPal(V.seed, 20), ctx.state === 'salute' ? 'wave' : 'sit', 1);
   },
 };
 
-// LA NAVETTE — le passeur du Néon : un bateau-bus blanc, une longue verrière
-// cintrée, des voyageurs sur la plateforme arrière.
+// LA NAVETTE — le passeur du Néon : un BATEAU-BUS. Coque marine au liseré de la
+// ligne, longue cabine blanche percée d'une BANDE DE VITRES SOMBRES sous un toit à la
+// couleur de la ligne (on lit un bus sur l'eau), timonerie vitrée à l'avant du toit,
+// plateforme arrière ouverte où les voyageurs se tiennent, bouées orange, pavillon.
+// ⛔ La première version — coque blanche sous une verrière cintrée bleu ciel — ne
+// se lisait pas : « on ne comprend pas ce que c'est » (Raph, 2026-10-03). Blanc sur
+// blanc, verre clair : il n'en restait qu'un savon bleu.
+const DARK_GLASS = ['#4f7f99', '#3a6680', '#2a4f66', '#1c3a4d', '#122a38'];
+const LINES = [
+  ['#2fb0a8', '#24918a', '#1a716b', '#11524e'],   // turquoise
+  ['#5cb860', '#47984c', '#36783a', '#26582a'],   // vert (pas de rouge : le bateau-pompe l'est)
+  ['#f0c23c', '#d2a42c', '#a98221', '#7e6017'],   // jaune
+];
+const BUOY = ['#f3742e', '#d65d20', '#ab4817', '#7f3510'];
 const NAVETTE = {
-  id: 'navette', role: 'ferry', len: 36, beam: 12, speed: [0.5, 0.65],
-  bounds: [-22, 22, -14, 14, -1, 18], ink: '#1d1611',
-  variant(seed) { return { hull: WHITE, hullIn: NEON.hullIn, rail: NEON.rail, deck: STEEL, band: [0.3, 1.1], bandRamp: pick([['#3fa8a4', '#328a86', '#256b68', '#194b49'], ['#4474b6', '#375f96', '#2a4a76', '#1e3556'], YELLOW], seed, 2), seed }; },
-  anchors() { return { stern: [-17, 0, 5] }; },
+  id: 'navette', role: 'ferry', lights: true, len: 36, beam: 12, speed: [0.5, 0.65],
+  bounds: [-22, 22, -14, 14, -1, 20], ink: '#1d1611',
+  variant(seed) {
+    const line = pick(LINES, seed, 2);
+    return { hull: NAVY, hullIn: NEON.hullIn, rail: NEON.rail, deck: STEEL, band: [0.25, 0.95], bandRamp: line, boot: [0, 0.6], bootRamp: RED, line, seed };
+  },
+  anchors() { return { masthead: [10.2, 0, 2.5 + 12.6], port: [10.2, -2.9, 2.5 + 7.4], stbd: [10.2, 2.9, 2.5 + 7.4], stern: [-17, 0, 5] }; },
   build(S, ctx) {
     const V = ctx.variant || this.variant(1);
     const H = { L: 36, B: 12, D: 3, sb: 0.8, ss: 0.6, pb: 2.4, ps: 4, ts: 0.7, flare: 0.05, th: 0.7, plank: 0, deck: 0.5 };
     const sh = drawHull(S, H, V);
     const hd = sh.deckH(0);
+    const A0 = -8, A1 = 12.5, CW = 4.6, CH = 5.4;
+    // La cabine, HAUTE (5,4 px : sous 4,4, la bande de vitres ne faisait que deux
+    // pixels et le toit seul se voyait de trois quarts) : soubassement blanc, BANDE
+    // DE VITRES SOMBRES à montants fins (un pixel blanc tous les 2,6), haut blanc.
+    // Essayés et écartés : verrière sombre à arceaux (un damier), toit blanc à bande
+    // de couleur (un yacht).
     asPart(S, 11, () => {
-      surf(S, (u, s) => [-6 + u * 20, s * 4.6 * (1 - 0.25 * Math.pow(u, 3)), hd + 4.8 * Math.sqrt(Math.max(0, 1 - s * s * 0.55))], 0, 1, -1, 1,
-        (u, s, nw) => ((u * 20) % 3 < 0.35 ? rampRGB(WHITE, nw, 1) : rampRGB(CYAN_GLASS, nw)));
-      boxRamp(S, -6.2, 14.4, -4.7, 4.7, hd, hd + 1.4, WHITE);
+      box(S, A0, A1, -CW, CW, hd, hd + CH, (fc, u, v, nw) => {
+        if (fc === 'top') return rampRGB(WHITE, nw);
+        if (v > 0.26 && v < 0.88) {
+          const n = (fc === 'a0' || fc === 'a1') ? 2 * CW : A1 - A0;
+          if ((u * n) % 2.6 > 0.6) return rampRGB(DARK_GLASS, nw, v > 0.78 ? -1 : 0);
+        }
+        return rampRGB(WHITE, nw, v < 0.06 ? 1 : 0);
+      });
+      // Le toit bombé à la couleur de la ligne, qui déborde un peu : vu d'en haut,
+      // c'est lui qui signe le bateau.
+      surf(S, (u, t) => [A0 - 0.4 + u * (A1 - A0 + 0.8), t * (CW + 0.35), hd + CH + 0.8 * (1 - t * t)], 0, 1, -1, 1,
+        (u, t, nw) => rampRGB(V.line, nw, Math.abs(t) > 0.86 ? 1 : 0));
+      // Timonerie à l'avant du toit : pare-brise sombre tout autour, toit blanc.
+      box(S, A1 - 4.6, A1 - 0.6, -2.7, 2.7, hd + CH + 0.4, hd + CH + 3.2, (fc, u, v, nw) => {
+        if (fc === 'top') return rampRGB(WHITE, nw);
+        return v > 0.3 && v < 0.86 ? rampRGB(DARK_GLASS, nw) : rampRGB(WHITE, nw);
+      });
     });
-    for (const side of [-1, 1]) railing(S, -16, -7, side * 5, hd, 2.6, NEON.rail, 3);
+    // Mât de la timonerie (feu de tête) et feux de bord.
+    asPart(S, PART.mast, () => tube(S, [[A1 - 2.3, 0, hd + CH + 3.2], [A1 - 2.3, 0, hd + CH + 7.2]], 0.3, (nw) => rampRGB(STEEL, nw)));
+    // Bouées couronnes orange et blanc, une par bord, au bout arrière de la cabine.
+    asPart(S, 10, () => {
+      for (const side of [-1, 1]) {
+        const R = 0.95, r = 0.38, a = A0 + 1.3, c = side * (CW + 0.25), h = hd + 2.3;
+        surf(S, (th, ph) => [a + (R + r * Math.cos(ph)) * Math.cos(th), c + side * r * Math.sin(ph), h + (R + r * Math.cos(ph)) * Math.sin(th)],
+          0, Math.PI * 2, 0, Math.PI * 2, (th, ph, nw) => (Math.floor((th + 0.4) / (Math.PI / 2)) % 2 ? rampRGB(WHITE, nw) : rampRGB(BUOY, nw)));
+      }
+    });
+    // Plateforme arrière ouverte : garde-corps sur les bords et en travers de la poupe.
+    for (const side of [-1, 1]) railing(S, -16, A0, side * 5, hd, 2.4, NEON.rail, 2.7);
+    asPart(S, PART.yard, () => tube(S, [[-16.4, -4.6, hd + 2.4], [-16.4, 4.6, hd + 2.4]], 0.3, (nw) => rampRGB(NEON.rail, nw)));
+    // Pavillon de la ligne à la poupe.
+    asPart(S, PART.mast, () => tube(S, [[-17.2, 0, hd], [-17.2, 0, hd + 6.4]], 0.28, (nw) => rampRGB(STEEL, nw)));
+    pennant(S, -17.2, 0, hd + 6.3, 4, V.line, V.seed % 5);
+    // Les voyageurs sur la plateforme.
     const n = 1 + (V.seed % 3);
-    for (let i = 0; i < n; i += 1) person(S, -14 + i * 3, (i % 2 ? -2 : 2), hd, i % 2 ? Math.PI / 2 : -Math.PI / 2, crewPal(CREW_NEON, V.seed, 50 + i * 7), i === 0 && ctx.state === 'salute' ? 'wave' : 'stand', 1);
+    for (let i = 0; i < n; i += 1) person(S, -14 + i * 2.6, (i % 2 ? -2.4 : 2.4), hd, i % 2 ? Math.PI / 2 : -Math.PI / 2, crewPal(V.seed, 50 + i * 7), i === 0 && ctx.state === 'salute' ? 'wave' : 'stand', 1);
   },
 };
 
@@ -481,7 +498,7 @@ const POLICE = {
       const blue = glow('#5aa8ff')(), red = glow('#ff4a4a')();
       box(S, 0.5, 2.5, -2.2, 2.2, hd + 4, hd + 4.8, (f, u) => (u < 0.5 ? blue : red));
     });
-    person(S, -8, 0, hd, Math.PI, crewPal(CREW_NEON, V.seed, 20), ctx.state === 'salute' ? 'wave' : 'stand', 1);
+    person(S, -8, 0, hd, Math.PI, crewPal(V.seed, 20), ctx.state === 'salute' ? 'wave' : 'stand', 1);
   },
 };
 
@@ -505,7 +522,7 @@ const POMPIERS = {
         tube(S, [[4.5, c, hd + 7.6], [6.6, c, hd + 8.8]], 0.45, (nw) => rampRGB(['#e8c24a', '#c9a034', '#a07c26'], nw));
       }
     });
-    person(S, -10, 2, hd, Math.PI, crewPal(CREW_NEON, V.seed, 20), ctx.state === 'salute' ? 'wave' : 'stand', 1);
+    person(S, -10, 2, hd, Math.PI, crewPal(V.seed, 20), ctx.state === 'salute' ? 'wave' : 'stand', 1);
   },
 };
 
@@ -540,7 +557,7 @@ function makeSmallSail(id, Lh, Bh, hull, band, cabinWall, mastH, M) {
   };
 }
 const ROWBOAT_IRON = makeRowboat({ id: 'canot-plaisance', role: 'pleasure', L: 20, B: 7.4, empty: true, paint: [RED, GREEN, ['#4c74b0', '#3b5e94', '#2c4874', '#1f3354']] },
-  { ...FONTE, hull: ['#c99560', '#ab7c4c', '#8c6239', '#6c4a2a', '#4e341c', '#33210f'], hullIn: ['#b5844f', '#966b3e', '#78542f', '#5a3e21', '#3e2a15'], rail: ['#e6c48c', '#caa870', '#a98a56', '#856b40'] }, CREW_IRON);
+  { ...FONTE, hull: ['#c99560', '#ab7c4c', '#8c6239', '#6c4a2a', '#4e341c', '#33210f'], hullIn: ['#b5844f', '#966b3e', '#78542f', '#5a3e21', '#3e2a15'], rail: ['#e6c48c', '#caa870', '#a98a56', '#856b40'] });
 const COTRE = makeSmallSail('cotre', 28, 9.5, [BLACK, GREEN, WHITE], [RED, YELLOW, WHITE], ['#c99560', '#ab7c4c', '#8c6239', '#6c4a2a'], 20, { ...FONTE, mast: FONTE.wood, cover: CANVAS });
 
 // L'annexe pneumatique : boudins gris, hors-bord.

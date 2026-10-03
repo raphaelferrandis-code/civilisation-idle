@@ -8,11 +8,11 @@
 // la Noosphère.
 //
 // Repère et unités : ceux de boatBake.js (a le long, c en travers tribord +, h au-
-// dessus de l'eau, px monde au zoom 1). Toise : un homme debout fait 7,2 px.
+// dessus de l'eau, px monde au zoom 1). Toise : un habitant debout fait ~9 px.
 // Pur : aucun DOM, aucun CM.
 
 import {
-  surf, box, boxRamp, ellipsoid, tube, revolve, rampRGB, inFrame, asPart, PART, h32, rgbOf,
+  surf, box, ellipsoid, tube, revolve, rampRGB, asPart, PART, h32, rgbOf, crewSlot,
 } from './boatBake.js';
 
 // ── Tirages ───────────────────────────────────────────────────────────────────
@@ -128,56 +128,15 @@ export function drawHull(S, H, V) {
 }
 
 // ── L'ÉQUIPAGE ────────────────────────────────────────────────────────────────
-// Un homme debout fait 7,2 px, comme un habitant. Construit en volumes pour
-// tourner avec le bateau ; le contour d'encre du peintre fait le reste.
-// pose : 'stand' | 'row' (assis, bras tendus) | 'sit' | 'pole' (bras levés devant)
-//        | 'haul' (penché, bras vers l'eau) | 'wave' (un bras en l'air) | 'steer'
-//        | 'paddle' (à genoux, pagaie d'un bord).
-// face = angle dans le plan du bateau (0 = regarde la proue).
-// P = { skin, hair, cloth, legs, hat (rampe d'un couvre-chef, facultatif) }.
-let _crewPart = 20;
-export function person(S, a, c, h, face, P, pose = 'stand', k = 0) {
-  if (S.empty) return;                         // bateau amarré : personne à bord
-  _crewPart = _crewPart >= 40 ? 20 : _crewPart + 1;
-  asPart(S, _crewPart, () => inFrame(S, a, c, h, face, () => {
-    const seated = pose === 'row' || pose === 'sit' || pose === 'paddle';
-    const hip = seated ? 0.9 : 2.5;
-    const lean = pose === 'haul' ? 0.7 : pose === 'pole' ? 0.35 * Math.sin(k) : 0;
-    if (!seated) boxRamp(S, -0.45, 0.45, -0.8, 0.8, 0, 2.6, P.legs || P.cloth);
-    else boxRamp(S, 0, 1.6, -0.8, 0.8, 0, 0.9, P.legs || P.cloth);            // cuisses
-    // Tunique : du bassin aux épaules.
-    box(S, -0.62 + lean * 0.4, 0.62 + lean * 0.6, -1.15, 1.15, hip - 0.5, hip + 2.5, (f, u, v, nw) => rampRGB(P.cloth, nw));
-    // Tête GROSSE, comme celle des habitants (≈ 3 px sur 8) : c'est elle qui fait
-    // lire un homme à cette taille.
-    const hx = lean, hz = hip + 3.75;
-    ellipsoid(S, hx, 0, hz, 1.25, 1.25, 1.25, (nw) => rampRGB(P.skin, nw));
-    // Couvre-chef PLAT (casquette, casque) : plus large et haut, il faisait de la
-    // tête un champignon — on lisait un tonneau, pas un homme.
-    if (P.hat) ellipsoid(S, hx - 0.05, 0, hz + 0.72, 1.28, 1.3, 0.5, (nw) => rampRGB(P.hat, nw), 0);
-    else ellipsoid(S, hx - 0.35, 0, hz + 0.45, 1.15, 1.3, 0.9, (nw) => rampRGB(P.hair, nw), 0);
-    const armR = 0.42;
-    const sh = hip + 2.2;
-    const arm = (side, pts) => tube(S, pts.map((p) => [p[0], side * p[1], p[2]]), armR, (nw, t) => rampRGB(t < 0.6 ? P.cloth : P.skin, nw));
-    if (pose === 'row') {
-      const reach = 1.3 + 0.9 * Math.cos(k);
-      for (const s of [-1, 1]) arm(s, [[0.1, 1.15, sh], [reach, 0.95, sh - 0.4]]);
-    } else if (pose === 'paddle') {
-      const sw = Math.cos(k);
-      arm(1, [[0.1, 1.15, sh], [0.6 + sw, 1.9, sh - 1.2]]);
-      arm(-1, [[0.1, 1.15, sh], [0.9 + sw, 1.2, sh + 0.4]]);
-    } else if (pose === 'pole') {
-      for (const s of [-1, 1]) arm(s, [[lean, 1.1, sh], [lean + 1.2, 0.5, sh + 1.0 + 0.4 * s]]);
-    } else if (pose === 'haul') {
-      for (const s of [-1, 1]) arm(s, [[lean, 1.1, sh], [lean + 1.6, 0.8, sh - 1.4 + 0.5 * Math.sin(k + s)]]);
-    } else if (pose === 'wave') {
-      arm(-1, [[0, 1.15, sh], [0.1, 1.25, sh - 1.9]]);
-      arm(1, [[0, 1.15, sh], [0.2, 1.6, sh + 1.2], [0.3, 1.7 + 0.3 * Math.sin(k * 3), sh + 2.4]]);
-    } else if (pose === 'steer') {
-      for (const s of [-1, 1]) arm(s, [[0, 1.15, sh], [-0.4, 1.5, sh - 1.0]]);
-    } else {
-      for (const s of [-1, 1]) arm(s, [[0, 1.15, sh], [0.05, 1.25, sh - 1.9]]);
-    }
-  }));
+// Une PLACE à bord, où le jeu pose un HABITANT de l'ère (boatBake.crewSlot,
+// boatKit.drawCrew) : les marins en volumes se lisaient comme des tonneaux.
+// pose : 'stand' | 'steer' | 'haul' | 'wave' | 'pole' (debout) | 'row' | 'sit' |
+//        'paddle' (assis : ENFONCÉ sous son appui, le bordé cache ses jambes).
+// face = angle dans le plan du bateau (0 = regarde la proue). P = crewPal (le tirage
+// du dessin). Un bateau amarré est vide : crewSlot n'y pose personne.
+const SINK = { row: 3, sit: 3, paddle: 3, haul: 0.8 };
+export function person(S, a, c, h, face, P, pose = 'stand') {
+  crewSlot(S, a, c, h, face, { pose, sink: SINK[pose] || 0, id: P ? P.id : 0 });
 }
 
 // Le perchiste d'un chaland : debout SUR LE PLAT-BORD (le haut du bordé, côté
@@ -197,17 +156,11 @@ export function poler(S, sh, a, side, P, wood, k) {
   });
 }
 
-// Un membre d'équipage tiré dans la garde-robe de l'époque.
-// C = { skin: [rampes], hair: [rampes], cloth: [rampes], hat: [rampes] | null,
-//       hatP (probabilité d'un couvre-chef) }
-export function crewPal(C, seed, salt) {
-  return {
-    skin: pick(C.skin, seed, salt + 1),
-    hair: pick(C.hair, seed, salt + 2),
-    cloth: pick(C.cloth, seed, salt),
-    legs: C.legs || C.skin[1],
-    hat: C.hat && chance(seed, salt + 3, C.hatP == null ? 0.5 : C.hatP) ? pick(C.hat, seed, salt + 4) : null,
-  };
+// Un membre d'équipage : le TIRAGE de son dessin parmi les habitants de l'ère
+// (boatCrew.crewName). Ce sont les sprites des habitants qui portent l'époque — les
+// garde-robes des marins en volumes ont suivi ces derniers.
+export function crewPal(seed, salt) {
+  return { id: mix(seed, salt, 97) };
 }
 
 // ── CARGAISONS ────────────────────────────────────────────────────────────────

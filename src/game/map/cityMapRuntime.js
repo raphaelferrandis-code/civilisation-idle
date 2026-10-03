@@ -63,7 +63,7 @@ import { boatSpecFor, boatFootprint } from './iso/boatKit.js';
 import { fleetBerths, projectOnRibbon } from './iso/boatBerths.js';
 import { BOATKIT } from './iso/boatKit.js';
 import { fleetFor, fleetRoles, BOAT_MODELS } from './iso/boatKits.js';
-import { ferrySite, navWindow, ribbonLength } from './riverFleet.js';
+import { ferrySite, navWindow, ribbonLength, quayHiddenDepth, FERRY_TIP } from './riverFleet.js';
 
 // Taille d'une coque pour la NAVIGATION (tuiles) : celle du kit de bateaux quand
 // l'ère en a un (iso/boatKits.js), sinon l'échelle historique des sprites PixelLab.
@@ -100,7 +100,7 @@ import { tissuMetrics, tissuReport } from './tissuMetrics.js';
 // du pont retiré. La mesure avait raison de le retenir alors, et raison de le lâcher
 // maintenant ; c'est le plan qui avait tort les deux fois.
 import { maskHit } from './iso/isoMask.js';
-import { cityMapCalmRioterAt, quayWallTune } from './quaysAndRiot.js';
+import { cityMapCalmRioterAt, quayWallTune, quayWallTiles, ensureQuayGate } from './quaysAndRiot.js';
 import { getVehicleDensity, chooseRoadVehicleType, vehSkinFor, thoughtBubbleAnchor, citizenSpawnCell } from './agents.js';
 import { makeFleetCtl, riverFleetBudget, updateRiverFleet } from './riverFleet.js';
 
@@ -1631,17 +1631,6 @@ function cityMapEnsureLayout(now, deps = {}) {
     // POSTES D'ACCOSTAGE (docs/PLAN-BATEAUX.md, lot 4) : le marchand vient se ranger
     // au ponton. Vides là où l'ère n'a pas encore son kit de bateaux.
     CM.shipBerths = fleetBerths(L);
-    // LE SITE DU PASSEUR : loin du pont et des pontons, près du cœur de la ville.
-    CM.ferrySite = null;
-    if (hasRiver && kitFleet && kitFleet.ferry && L.river.samples) {
-      const sm = L.river.samples;
-      const win = navWindow(sm, { x0: 0, y0: 0, x1: L.gridN || 0, y1: L.gridN || 0 });
-      const avoid = [...(CM.riverGates || []).map((g) => g.t), ...CM.shipBerths.map((b) => b.t)];
-      if (CM.riverIslandT != null) avoid.push(CM.riverIslandT);
-      const c = L.cx != null ? projectOnRibbon(sm, L.cx, L.cy) : null;
-      CM.ferrySite = ferrySite(sm, win, avoid, c ? c.t : null);
-      if (CM.ferrySite) CM.ferrySite.L = ribbonLength(sm);
-    }
     CM.riverGates = [];
     if (hasRiver && L.river.samples && L.roadMap) {
       const sm = L.river.samples, len = sm.length;
@@ -1725,6 +1714,43 @@ function cityMapEnsureLayout(now, deps = {}) {
         if (dd < bd) { bd = dd; bi = i; }
       }
       CM.riverIslandT = bi / Math.max(1, sm.length - 1);
+    }
+    // LE SITE DU PASSEUR : loin du pont et des pontons, près du cœur de la ville.
+    // ⚠ EN DERNIER : il lit les passes des ponts (riverGates), les obstacles plantés
+    // dans l'eau et l'île, tous calculés ci-dessus. Placé avant eux, il lisait les
+    // passes du layout PRÉCÉDENT — vides au chargement : le bac s'installait au pied
+    // du pont (retour Raph, 2026-10-03 : « pas logique que le passeur soit à côté
+    // du pont »).
+    CM.ferrySite = null;
+    if (hasRiver && kitFleet && kitFleet.ferry && L.river.samples) {
+      const sm = L.river.samples;
+      const win = navWindow(sm, { x0: 0, y0: 0, x1: L.gridN || 0, y1: L.gridN || 0 });
+      const avoid = [
+        ...CM.riverGates.map((g) => g.t),
+        ...CM.shipBerths.map((b) => b.t),
+        ...CM.riverObstacles.map((o) => o.t),
+      ];
+      if (CM.riverIslandT != null) avoid.push(CM.riverIslandT);
+      const c = L.cx != null ? projectOnRibbon(sm, L.cx, L.cy) : null;
+      CM.ferrySite = ferrySite(sm, win, avoid, c ? c.t : null);
+      if (CM.ferrySite) {
+        CM.ferrySite.L = ribbonLength(sm);
+        // OÙ LE BAC TOUCHE L'EAU, rive par rive ([−1, +1]) : au bout du tablier de
+        // l'embarcadère, ou au PIED DU MUR de quai quand on voit sa face — le mur
+        // pend sous le bord et cache une bande d'eau (retour Raph, 2026-10-03 :
+        // « qu'il ne rentre pas dans le quai, il s'arrête avant »). L'embarcadère
+        // allonge alors son tablier jusque-là (boatScenes). Pas de mur avant la
+        // bande 2 (campement), ni là où le quai ne court pas (grève, port).
+        const band = (L.counts && L.counts.eraBand) | 0;
+        const wallT = band >= 2 && quayWallTune.on ? quayWallTiles(band) * (quayWallTune.heightK || 1) : 0;
+        ensureQuayGate();
+        const g = CM.quayGate, i = Math.round(CM.ferrySite.t * (sm.length - 1));
+        CM.ferrySite.reach = [-1, 1].map((side) => {
+          const run = g && (side > 0 ? g.drawPlus : g.drawMinus);
+          const walled = !!(run && run[i]);
+          return Math.max(FERRY_TIP, walled ? quayHiddenDepth(sm, CM.ferrySite.t, side, wallT) : 0);
+        });
+      }
     }
   }
 }
