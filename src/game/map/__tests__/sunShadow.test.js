@@ -118,4 +118,36 @@ describe('ombre solaire', () => {
     const col = sunShadowPixels(fromSet(s), 30, 20, 'column', KX, KY);
     expect(Math.max(...cells(col).map(([x]) => x))).toBeLessThan(maxX);
   });
+
+  // 9. Un véhicule vu en BIAIS touche le sol à plusieurs hauteurs d'écran (retour Raph,
+  //    2026-10-03 : « le chariot vole »). Pivot 'slope' : l'ombre part des DEUX roues,
+  //    et elle reste d'un seul tenant (un sol par colonne source laissait des stries).
+  describe('véhicule vu en biais (pivot slope)', () => {
+    // Caisse en parallélogramme qui descend vers la droite, roue arrière haute, roue
+    // avant basse (≈ 8 px plus bas à l'écran), comme un chariot tourné vers le sud-est.
+    const s = new Set();
+    const top = (x) => Math.round(8 + 0.4 * (x - 4));
+    for (let x = 4; x <= 30; x += 1) for (let y = top(x); y < top(x) + 10; y += 1) s.add(x + ',' + y);
+    const wheel = (x0) => { for (let x = x0; x < x0 + 4; x += 1) for (let y = top(x) + 10; y < top(x) + 13; y += 1) s.add(x + ',' + y); };
+    wheel(5); wheel(25);
+    const rearFoot = Math.max(...[...s].map((k) => k.split(',').map(Number)).filter(([x]) => x <= 8).map(([, y]) => y));
+    const near = (c) => c.some(([x, y]) => x >= 5 && x <= 10 && y >= rearFoot - 1 && y <= rearFoot + 2);
+    it('l\'ombre touche la roue arrière (en pivot bottom, elle s\'en décollait)', () => {
+      expect(near(cells(sunShadowPixels(fromSet(s), 40, 40, 'slope', KX, KY)))).toBe(true);
+      expect(near(cells(sunShadowPixels(fromSet(s), 40, 40, 'bottom', KX, KY)))).toBe(false);
+    });
+    it('l\'ombre et le véhicule ne forment qu\'une seule tache (pas de strie détachée)', () => {
+      const all = new Set(s);
+      for (const [x, y] of cells(sunShadowPixels(fromSet(s), 40, 40, 'slope', KX, KY))) all.add(x + ',' + y);
+      const seen = new Set(), start = all.values().next().value, stack = [start];
+      while (stack.length) {
+        const k = stack.pop();
+        if (seen.has(k) || !all.has(k)) continue;
+        seen.add(k);
+        const [x, y] = k.split(',').map(Number);
+        stack.push((x + 1) + ',' + y, (x - 1) + ',' + y, x + ',' + (y + 1), x + ',' + (y - 1));
+      }
+      expect(seen.size).toBe(all.size);
+    });
+  });
 });

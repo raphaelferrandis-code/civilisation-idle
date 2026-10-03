@@ -38,9 +38,13 @@
 //        pivot par colonne, il aurait projeté une fausse bande sous son arête avant.
 //      · un nombre (arbres, réverbères) : la rangée du PIED, commune à tout le
 //        sprite — la couronne d'un arbre flotte, elle projette loin de son tronc.
-//      · 'bottom' (habitants, véhicules, bêtes, bateaux) : le pied commun est la
-//        rangée d'encre la plus BASSE de l'image — pied posé, roues, coque. Mesuré
-//        sur chaque image d'animation : rien à régler par personnage.
+//      · 'bottom' (habitants) : le pied commun est la rangée d'encre la plus BASSE
+//        de l'image — le pied posé. Mesuré sur chaque image d'animation : rien à
+//        régler par personnage.
+//      · 'slope' (véhicules et bêtes d'attelage, depuis le 2026-10-03) : un sol
+//        INCLINÉ qui passe par les contacts (roues, sabots), cf. slopeGround. En
+//        'bottom', un chariot vu en biais « volait » : ses roues arrière, plus haut
+//        à l'écran que les sabots de tête, projetaient loin dessous.
 //
 // L'ombre est posée AVANT le sprite, au tri du peintre : ce qui est devant la
 // recouvre, et elle s'efface la nuit (pas de soleil) et en dézoom (au loin elle ne
@@ -120,13 +124,62 @@ export function pivotGround(alpha, w, h, pivot) {
     for (let x = 0; x < w; x += 1) if (bottom[x] >= 0) { if (x < xa) xa = x; if (x > xb) xb = x; if (bottom[x] > yb) yb = bottom[x]; }
     foot = yb + 1 - (xb - xa + 1) / 4;
   }
+  if (pivot === 'slope') {
+    const at = slopeGround(bottom, w, h);
+    const g = new Float64Array(w);
+    for (let x = 0; x < w; x += 1) g[x] = bottom[x] < 0 || !at ? -1 : at[x];
+    return { bottom, g, at };
+  }
   const g = new Float64Array(w);
   for (let x = 0; x < w; x += 1) g[x] = bottom[x] < 0 ? -1 : (pivot === 'column' ? bottom[x] + 1 : foot);
   return { bottom, g };
 }
+// LE SOL INCLINÉ des véhicules (pivot 'slope', retour Raph 2026-10-03 : « certaines
+// ombres de véhicules donnent l'impression que le chariot vole »). Un attelage ou un
+// tram vu en biais touche le sol à plusieurs HAUTEURS d'écran : roues arrière plus haut
+// que les sabots de tête. Le pivot 'bottom' (sol commun = rangée la plus basse) tenait
+// donc les roues arrière pour suspendues, et leur ombre partait loin dessous. Ici le
+// sol passe par les CONTACTS : l'enveloppe basse des pieds de colonne, en ne retenant
+// que ceux proches du bas de l'encre (35 % du cadre : une pointe de lance, une
+// bannière ou une tête ne touchent pas le sol). Prolongée à plat au-delà des contacts
+// extrêmes, sur toute la largeur (l'ombre tombe aussi à droite du sprite).
+// Rend at[x] (coordonnée de BORD, comme g) pour x ∈ [0, w + marge[, ou null.
+function slopeGround(bottom, w, h) {
+  let yb = -1;
+  for (let x = 0; x < w; x += 1) if (bottom[x] > yb) yb = bottom[x];
+  if (yb < 0) return null;
+  const D = 0.35 * h, hull = [];
+  for (let x = 0; x < w; x += 1) {
+    if (bottom[x] < 0 || bottom[x] < yb - D) continue;
+    const p = [x, bottom[x] + 1];
+    while (hull.length >= 2) {
+      const a = hull[hull.length - 2], b = hull[hull.length - 1];
+      // garde l'enveloppe du côté BAS de l'écran (y max) : b sort s'il est au-dessus de a→p
+      if ((b[0] - a[0]) * (p[1] - a[1]) - (b[1] - a[1]) * (p[0] - a[0]) >= 0) hull.pop(); else break;
+    }
+    hull.push(p);
+  }
+  const W = w + h;   // l'ombre s'étend à droite du sprite (au plus kx·h)
+  const at = new Float64Array(W);
+  let i = 1;
+  for (let x = 0; x < W; x += 1) {
+    if (x <= hull[0][0]) { at[x] = hull[0][1]; continue; }
+    if (x >= hull[hull.length - 1][0]) { at[x] = hull[hull.length - 1][1]; continue; }
+    while (x > hull[i][0]) i += 1;
+    const a = hull[i - 1], b = hull[i];
+    at[x] = a[1] + (b[1] - a[1]) * (x - a[0]) / (b[0] - a[0]);
+  }
+  return at;
+}
 
 export function sunShadowPixels(alpha, w, h, pivot, kx, ky) {
-  const { bottom, g: ground } = pivotGround(alpha, w, h, pivot);
+  const { bottom, g: ground, at } = pivotGround(alpha, w, h, pivot);
+  // 'slope' : l'ombre est calculée dans le repère APLATI (chaque colonne remontée pour
+  // que ses contacts tombent sur une même ligne : le cisaillement uniforme y est sans
+  // fente), puis RECOURBÉE selon le sol de la colonne où elle tombe (+ at[tx] − g[x]).
+  // Un sol propre à chaque colonne SOURCE décalait les ombres de colonnes voisines et
+  // laissait des stries (essayé, vu sur le bœuf et le chariot antique).
+  const atMax = at ? at.length - 1 : 0;
   const out = [];
   let x0 = Infinity, y0 = Infinity, x1 = -Infinity, y1 = -Infinity;
   const seen = new Set();
@@ -137,7 +190,8 @@ export function sunShadowPixels(alpha, w, h, pivot, kx, ky) {
       if (alpha(x, y) <= 16) continue;
       const hgt = g - (y + 0.5);
       if (hgt <= 0) continue;
-      const tx = x + Math.round(kx * hgt), ty = y + Math.round(ky * hgt);
+      const tx = x + Math.round(kx * hgt);
+      const ty = y + Math.round(ky * hgt + (at ? at[Math.max(0, Math.min(atMax, tx))] - g : 0));
       const k = tx + ',' + ty;
       if (seen.has(k)) continue;
       seen.add(k);

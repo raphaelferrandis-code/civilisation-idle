@@ -104,7 +104,8 @@ export function drawDraftIso(ctx, x, yFeet, z, animal, v) {
   const dh2 = Math.max(1, snapU(s * 0.975 * AGENT_SCALE)), dw2 = dh2;
   if (pxProbe.on) recPx('bete · ' + animal, fh, dh2);   // sonde G0 (pixelGrid.js)
   const bx = snapU(x - dw2 / 2), by = snapU(yFeet - dh2 * 0.82);
-  drawSunShadow(ctx, img, bx, by, dw2, dh2, fr * fh, 0, fh, fh, 'bottom');
+  // Sol INCLINÉ : une bête vue en biais a ses sabots à plusieurs hauteurs d'écran.
+  drawSunShadow(ctx, img, bx, by, dw2, dh2, fr * fh, 0, fh, fh, 'slope');
   ctx.drawImage(img, fr * fh, 0, fh, fh, bx, by, dw2, dh2);
   return true;
 }
@@ -191,13 +192,15 @@ export function drawIsoVehicle(ctx, v, now, z) {
   const drawBody = () => {
     // ⛔ PAS D'ELLIPSE D'OMBRE SOUS UN VÉHICULE (Raph 2026-08-05) : la tache du
     // moteur faisait doublon. Depuis le 2026-09-30, le véhicule porte l'OMBRE DU
-    // SOLEIL comme tout objet de la carte (une seule lumière, décision de Raph) :
-    // pivot au pied des roues, la plus basse rangée d'encre de l'image.
+    // SOLEIL comme tout objet de la carte (une seule lumière, décision de Raph).
+    // Pivot 'slope' (2026-10-03) : un sol incliné qui passe par les roues et les
+    // sabots. L'ancien pivot unique (rangée la plus basse) faisait « voler » les
+    // véhicules vus en biais, roues arrière comprises (retour Raph, chariot à bœuf).
     // Sonde G0 : le SKIN d'instance a sa propre planche (pack MinZinn) — c'est
     // `fh`, lu sur l'image servie, qui la porte, pas la table VEH_SIZES.
     if (pxProbe.on) recPx('vehicule · ' + v.type, fh, dh);
     const bx = snapU(p.x - dw / 2), by = snapU(p.y - dh / 2);
-    drawSunShadow(ctx, img, bx, by, dw, dh, fr * fh, 0, fh, fh, 'bottom');
+    drawSunShadow(ctx, img, bx, by, dw, dh, fr * fh, 0, fh, fh, 'slope');
     ctx.drawImage(img, fr * fh, 0, fh, fh, bx, by, dw, dh);
   };
   // Attelage : bête(s) de trait DEVANT dans le sens de marche (monde → projeté).
