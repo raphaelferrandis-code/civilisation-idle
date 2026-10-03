@@ -1,133 +1,16 @@
 /* ============================================================================
- * Arbre des Ruines — vue « skill-tree » radiale.
- * SVG (troncs/arêtes/portes) + boutons HTML (nœuds) avec cadre Kenney biseauté
- * teinté par branche + icône Font Awesome.
+ * Arbre des Ruines — « l'Arbre de la Mémoire » (RuinsTreePixel).
+ * L'illustration est peinte sur deux canvas à la résolution source et agrandie
+ * à un zoom ENTIER (pixels nets) ; les médaillons, portes et chiffres vivent
+ * dans un calque ÉCRAN au-dessus (taille constante). Le registre des quatre
+ * branches flotte à gauche, dans la nuit.
+ *
+ * ⚠ PERF (Chrome de Raph sans GPU) : aucun `filter: blur/drop-shadow` ni
+ * `will-change` sur le monde transformé ; les halos sont des anneaux DURS
+ * (box-shadow sans flou) et la sève est peinte au pixel dans son canvas.
  * ========================================================================== */
 
-/* Conteneur-cadre : entoure la zone de ruines ; déborde pour laisser les
-   ornements de coin dépasser. */
-.ruins-tree-frame {
-  position: relative;
-  margin: 0.8rem 12px 0;
-}
-
-.ruins-tree {
-  position: relative;
-  width: 100%;
-  height: clamp(460px, 78vh, 1120px);
-  overflow: hidden;
-  /* Double filet or qui ENTOURE la zone (les coins ornés sont posés par-dessus,
-     et débordent — cf. .rt-corner). Identité propre à l'onglet Ruines. */
-  border: 2px solid rgba(214, 188, 130, 0.85);
-  border-radius: 3px;
-  /* « Torche dans un temple en ruine » : SCÈNE pixel-art (sanctuaire à colonnades)
-     en filigrane au fond, tonalisée par un voile sombre (le sanctuaire reste
-     lisible au centre, éteint vers les bords) qui s'assombrit AVEC l'usure ; par
-     DESSUS : glow ambré central (--rt-glow, vire au froid/rouge), vignette rouge
-     (--rt-usure), grain organique non-directionnel (turbulence). La scène est fixe,
-     l'AMBIANCE vire (chaud→froid) via les calques réactifs — cf. RuinsUsureSync. */
-  background:
-    url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='150' height='150'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2' stitchTiles='stitch'/%3E%3CfeColorMatrix type='matrix' values='0 0 0 0 0.62 0 0 0 0 0.5 0 0 0 0 0.36 0 0 0 0.1 0'/%3E%3C/filter%3E%3Crect width='150' height='150' filter='url(%23n)'/%3E%3C/svg%3E") repeat,
-    radial-gradient(circle at 50% 50%, transparent 56%, rgba(122, 42, 32, calc(var(--rt-usure, 0) * 0.26)) 100%),
-    radial-gradient(circle at 50% 46%, rgba(var(--rt-glow, 216, 150, 74), var(--rt-glow-a, 0.14)), rgba(var(--rt-glow, 216, 150, 74), 0) 42%),
-    radial-gradient(circle at 50% 46%,
-      rgba(18, 14, 12, calc(0.48 + var(--rt-usure, 0) * 0.14)) 0%,
-      rgba(13, 10, 9, calc(0.70 + var(--rt-usure, 0) * 0.12)) 46%,
-      rgba(8, 6, 5, calc(0.92 + var(--rt-usure, 0) * 0.06)) 100%),
-    url("/pixelart/ruins-tree/sanctuary.png") center / cover no-repeat,
-    #0b0908;
-  box-shadow: inset 0 0 150px rgba(0, 0, 0, 0.82);
-  isolation: isolate;
-  touch-action: none; /* le drag pilote le pan, pas le scroll de page */
-}
-/* filet intérieur (2e ligne du double filet) */
-.ruins-tree::before {
-  content: "";
-  position: absolute;
-  inset: 5px;
-  border: 1.5px solid rgba(214, 188, 130, 0.4);
-  border-radius: 2px;
-  pointer-events: none;
-  z-index: 1;
-}
-.ruins-tree.is-zoomed { cursor: grab; }
-.ruins-tree.is-zoomed:active { cursor: grabbing; }
-
-/* Ornements de coin entrelacés (clé grecque), POSÉS aux 4 angles et débordant. */
-.rt-corner {
-  position: absolute;
-  width: 56px;
-  height: 56px;
-  background: url(/pixelart/ui/ruins/corner.png) center/contain no-repeat;
-  image-rendering: pixelated;
-  pointer-events: none;
-  z-index: 4;
-  filter: drop-shadow(0 1px 2px rgba(0, 0, 0, 0.65));
-}
-.rt-corner--tl { top: -13px; left: -13px; }
-.rt-corner--tr { top: -13px; right: -13px; transform: scaleX(-1); }
-.rt-corner--bl { bottom: -13px; left: -13px; transform: scaleY(-1); }
-.rt-corner--br { bottom: -13px; right: -13px; transform: scale(-1, -1); }
-
-/* ---- Contrôles de zoom ---- */
-/* Décalés sous l'ornement de coin (56px à -13px → couvre ~43px depuis les bords)
-   pour ne pas le chevaucher. */
-.rt-zoom-controls {
-  position: absolute;
-  top: 56px;
-  right: 12px;
-  z-index: 15;
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
-}
-.rt-zoom-btn {
-  width: 34px;
-  height: 34px;
-  display: grid;
-  place-items: center;
-  padding: 0;
-  border: 1px solid var(--border);
-  border-radius: 8px;
-  background: rgba(16, 19, 30, 0.88);
-  color: var(--gold-ivory);
-  font-size: 0.85rem;
-  cursor: pointer;
-  transition: border-color 120ms ease, background 120ms ease;
-}
-.rt-zoom-btn:hover {
-  border-color: var(--gold);
-  background: rgba(40, 50, 74, 0.92);
-}
-.rt-zoom-btn:focus-visible {
-  outline: 2px solid var(--brand-gold-bright);
-  outline-offset: 2px;
-}
-
-/* Monde à l'échelle 1:1 (world units = px), mis à l'échelle du conteneur. */
-.rt-world {
-  position: absolute;
-  top: 0;
-  left: 0;
-  transform-origin: top left;
-}
-
-.rt-svg {
-  position: absolute;
-  inset: 0;
-  pointer-events: none;
-  overflow: visible;
-}
-
-/* ============================================================================
-   Rendu PEINT (refonte Phase C — RuinsTreePixel), PLEIN CADRE.
-   Retours Raphaël : plus de « cadre dans un cadre » — la vue occupe tout
-   l'écran comme la carte de la Cité, et le fond du conteneur PROLONGE l'œuvre
-   (ciel au-dessus de la ligne de sol --rtp-ground suivie par la caméra,
-   sous-sol dessous) → la frontière du PNG disparaît.
-   ========================================================================== */
-/* Comme la Cité : main = scène plein écran. La barre de ressources est
-   RETIRÉE sur cet onglet (retour Raphaël) — l'arbre est seul à l'écran. */
+/* Comme la Cité : main = scène plein écran, sans barre de ressources. */
 .app[data-active-view="ruinsView"] main {
   position: relative;
   height: 100vh;
@@ -149,62 +32,49 @@
   inset: 0;
   overflow: hidden;
   touch-action: none; /* le drag pilote le pan, pas le scroll de page */
-  /* Fresque élargie : ses bords extérieurs convergent vers des aplats
-     (widen-tree.cjs) — ciel transparent au-dessus de l'horizon y=200 (source),
-     rgb(6,4,9) en dessous. L'arrêt vient du JS et suit la caméra. Repli 50 %
-     avant la 1re mesure. */
+  cursor: grab;
+  user-select: none;
+  /* au-delà de l'image : le ton de son bord haut au-dessus du milieu, celui de
+     son bord bas en dessous (les bandes latérales font le reste) */
   background: linear-gradient(
     to bottom,
-    #444249 0,
-    #444249 var(--rtp-ground, 50%),
-    #060409 var(--rtp-ground, 50%),
-    #060409 100%
+    var(--rt-top, #0c0f22) 0,
+    var(--rt-top, #0c0f22) var(--rt-my, 50%),
+    var(--rt-bottom, #241812) var(--rt-my, 50%),
+    var(--rt-bottom, #241812) 100%
   );
 }
-.rtp-stage.is-zoomed { cursor: grab; }
-.rtp-stage.is-zoomed:active { cursor: grabbing; }
+.rtp-stage.rt-interacting { cursor: grabbing; }
 
 /* Vignette d'usure discrète (RuinsUsureSync pousse --rt-usure). */
 .rtp-stage::after {
   content: "";
   position: absolute;
   inset: 0;
+  z-index: 1;
   pointer-events: none;
   background: radial-gradient(circle at 50% 45%, transparent 55%, rgba(122, 42, 32, calc(var(--rt-usure, 0) * 0.3)) 100%);
-  z-index: 3;
 }
 
-/* Titre en surimpression (remplace l'en-tête de panneau) — en bas à gauche,
-   la topbar de ressources flotte en haut. */
-.rtp-title {
+/* Bandes de prolongement des bords de l'illustration. */
+.rtp-edge {
   position: absolute;
-  bottom: 14px;
-  left: 18px;
-  z-index: 15;
-  font-size: 14px;
-  letter-spacing: 0.12em;
-  text-transform: uppercase;
-  color: rgba(214, 188, 130, 0.8);
-  text-shadow: 0 1px 3px rgba(0, 0, 0, 0.85);
-  pointer-events: none;
-}
-
-/* Plus de topbar sur cet onglet : les contrôles remontent au bord. */
-.rtp-stage .rt-zoom-controls { top: 14px; }
-
-.rtp-art {
-  position: absolute;
-  inset: 0;
-  width: 100%;
-  height: 100%;
+  top: 0;
+  bottom: 0;
+  background-repeat: repeat-x;
+  background-position: 0 var(--rt-ty, 0);
   image-rendering: pixelated;
-  user-select: none;
   pointer-events: none;
 }
 
-/* Particules ambiantes (braises/cendres) — même résolution source que l'art,
-   pixels nets, jamais interactives. */
-.rtp-fx {
+.rt-world {
+  position: absolute;
+  top: 0;
+  left: 0;
+  transform-origin: 0 0;
+}
+.rtp-art,
+.rtp-sap {
   position: absolute;
   inset: 0;
   width: 100%;
@@ -213,518 +83,366 @@
   pointer-events: none;
 }
 
-/* Porte de palier : pastille-compteur « n/m » posée sur le chemin. */
-.rtp-gate {
+.rtp-layers {
   position: absolute;
-  transform: translate(-50%, -50%);
-  font-family: var(--font-number);
-  font-size: 14px;
-  letter-spacing: 0.04em;
-  color: #d9c491;
-  background: rgba(12, 9, 8, 0.85);
-  border: 1px solid rgba(214, 188, 130, 0.5);
-  border-radius: 999px;
-  padding: 2px 9px;
-  pointer-events: none;
-  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.8);
+  inset: 0;
   z-index: 2;
+  pointer-events: none;
 }
 
-/* Le compteur de ruines vit SUR la boule de braise : pas de plaque derrière,
-   l'œuvre EST l'emblème. Double classe = bat .rt-hub / .rt-hub::before définis
-   PLUS BAS dans ce fichier (même spécificité sinon → la plaque or gagnait). */
-.rt-hub.rt-hub--core {
-  pointer-events: none;
-  width: auto;
-  height: auto;
+/* ── Les médaillons ─────────────────────────────────────────────────────────
+   Un disque sombre, un anneau dur, l'emblème à 1:1 (@32). L'OR ne sert qu'à
+   « à prendre » ; l'anneau d'un nœud acquis prend la couleur de sa matière. */
+.rtp-stage .rt-node {
+  --d: calc(44px * var(--rt-k, 1));
+  --ring: #3a2e2c;
+  --halo: transparent;
+  --fill: #0e0b0c;
+  position: absolute;
+  width: var(--d);
+  height: var(--d);
+  min-height: 0;
+  margin: calc(var(--d) / -2) 0 0 calc(var(--d) / -2);
   padding: 0;
-  background: none;
+  display: grid;
+  place-items: center;
+  pointer-events: auto;
+  cursor: default;
+  transition: opacity 160ms linear;
+}
+/* La règle GLOBALE des boutons (base.css) teinte le fond, pose une ombre et
+   déplace le bouton au survol / à l'appui : un médaillon n'en veut rien. */
+.rtp-stage .rt-node,
+.rtp-stage .rt-node:hover:not(:disabled),
+.rtp-stage .rt-node:active:not(:disabled) {
+  border: 0;
+  background: transparent;
   box-shadow: none;
-  border-radius: 0;
+  transform: none;
 }
-.rt-hub.rt-hub--core::before { display: none; }
-.rt-hub.rt-hub--core .rt-hub-count {
-  font-size: 30px;
-  color: #ffe9b0;
-  text-shadow: 0 0 6px rgba(240, 150, 60, 0.55), 0 2px 3px rgba(0, 0, 0, 0.85);
-}
-
-/* ---- Médaillons repensés (retour « pas lisible / pas beau ») ---------------
-   Disque quasi NOIR (retour Raphaël : les emblèmes transparents doivent se
-   détacher) + anneau couleur de branche ; états très contrastés. Remplace le
-   cadre biseauté Kenney (::before/::after coupés). */
-.rtp-stage .rt-frame {
+.rt-disc {
+  position: absolute;
+  inset: 0;
   border-radius: 50%;
-  background: radial-gradient(circle at 42% 34%, #16110d, #050403 78%);
-  border: 2px solid rgba(var(--b-rgb), 0.75);
-  box-shadow: 0 0 0 2px rgba(0, 0, 0, 0.8), 0 2px 6px rgba(0, 0, 0, 0.6);
+  background: var(--fill);
+  box-shadow: 0 0 0 2px #040304, 0 0 0 4px var(--ring), 0 0 0 6px var(--halo);
 }
-.rtp-stage .rt-frame::before,
-.rtp-stage .rt-frame::after { display: none; }
 .rtp-stage .rt-emblem {
-  width: 72%;
-  height: 72%;
+  position: relative;
+  width: calc(32px * var(--rt-k, 1));
+  height: calc(32px * var(--rt-k, 1));
   image-rendering: pixelated;
-  filter: drop-shadow(0 1px 1px rgba(0, 0, 0, 0.7));
-}
-
-/* JAMAIS de translucidité sur le nœud entier (retour Raphaël : le disque doit
-   rester NOIR OPAQUE en tout état) — les états s'expriment par l'anneau et
-   l'emblème. Écrase les opacity des états hérités (.rt-locked .52, .rt-blocked
-   .6, hover .ruins-tree…). */
-.rtp-stage .rt-node { opacity: 1; }
-/* Anti-saut (TOUS les nœuds) : la règle GLOBALE `button:hover { transform:
-   translateY(-1px) }` (base.css) REMPLACE le translate(-50%,-50%) de centrage
-   → le nœud bondissait d'une demi-taille au survol (« grand mouvement »).
-   On ré-impose le centrage, SANS zoom (retour Raphaël). */
-.rtp-stage .rt-node:hover { transform: translate(-50%, -50%); }
-
-/* Achetable = l'élément le plus saillant : anneau or vif + halo braise
-   (l'intérieur reste noir pour l'emblème). Feedback hover = lumière, pas de
-   mouvement. */
-.rtp-stage .rt-available .rt-frame {
-  border-color: #f4c96f;
-  background: radial-gradient(circle at 42% 34%, #1e150c, #060403 78%);
-  box-shadow: 0 0 0 2px rgba(0, 0, 0, 0.85), 0 0 12px rgba(242, 181, 81, 0.5);
-}
-.rtp-stage .rt-available:hover .rt-frame { filter: brightness(1.2); }
-
-/* Acquis : braise couvant dans l'anneau de branche, intérieur noir. */
-.rtp-stage .rt-purchased .rt-frame {
-  border-color: rgba(var(--b-rgb), 0.95);
-  background: radial-gradient(circle at 42% 34%, #1c1009, #060403 78%);
-  box-shadow: 0 0 0 2px rgba(0, 0, 0, 0.85), inset 0 0 8px rgba(240, 150, 60, 0.35);
-}
-
-/* Verrouillé : disque noir OPAQUE, anneau et emblème grisés (pas d'opacity
-   globale — le fond doit rester plein). */
-.rtp-stage .rt-locked .rt-frame {
-  border-color: rgba(150, 144, 132, 0.38);
-  background: radial-gradient(circle at 42% 34%, #14110e, #050403 78%);
-  box-shadow: 0 0 0 2px rgba(0, 0, 0, 0.7);
-}
-.rtp-stage .rt-locked .rt-emblem { filter: grayscale(0.85) brightness(0.6); }
-
-/* « Palier ouvert mais pas assez de Ruines » : anneau AMBRE + emblème réchauffé
-   (≠ gris verrouillé) — dit « à portée, il ne manque que le coût ». Non cliquable. */
-.rtp-stage .rt-cost .rt-frame {
-  border-color: color-mix(in srgb, var(--state-soon) 60%, rgba(0, 0, 0, 0.5));
-  background: radial-gradient(circle at 42% 34%, #1a140a, #070503 78%);
-  box-shadow: 0 0 0 2px rgba(0, 0, 0, 0.7);
-}
-.rtp-stage .rt-cost .rt-emblem { filter: grayscale(0.25) brightness(0.82) sepia(0.3); }
-
-/* Exclu (jumeau adopté) + surlignage du conflit au survol. */
-.rtp-stage .rt-blocked .rt-frame { border-color: rgba(200, 90, 80, 0.75); }
-.rtp-stage .rt-blocked .rt-emblem { filter: grayscale(0.5) brightness(0.7); }
-.rtp-stage .rt-node.rt-conflict { opacity: 1; z-index: 4; }
-.rtp-stage .rt-node.rt-conflict .rt-frame {
-  border-color: #ef4444;
-  box-shadow: 0 0 0 2px rgba(0, 0, 0, 0.85), 0 0 12px rgba(239, 68, 68, 0.6);
-}
-
-/* Capstone : double anneau (branche + or) — l'objectif de la branche. */
-.rtp-stage .rt-capstone .rt-frame {
-  box-shadow:
-    0 0 0 2px rgba(0, 0, 0, 0.85),
-    0 0 0 4px rgba(var(--b-rgb), 0.35),
-    0 0 14px rgba(242, 181, 81, 0.35);
-}
-
-/* ---- Chaîne, rayons, sceaux, portes, exclusion ---- */
-/* Lien gravé = rainure sombre creusée (.rt-trunk-groove) + rail métallique teinté
-   par branche (.rt-trunk) posé dedans. Plus de trait néon. */
-.rt-trunk-groove {
-  fill: none;
-  stroke: #06070b;
-  stroke-width: 9;
-  stroke-linecap: round;
-  opacity: 0.92;}
-.rt-trunk {
-  fill: none;
-  stroke-width: 3.4;
-  stroke-linecap: round;
-  opacity: 0.66;
-  /* Désaturé : le rail teinté branche devient une incrustation chaude discrète
-     (le vert Résilience ne doit pas former de « bande » criarde sur la palette or). */
-  filter: saturate(0.48);
-}
-
-/* Rayons internes cœur ↔ nœud (« roue »), clippés : canal sombre flouté (profondeur)
-   + rail net avec relief. Incrustation gravée, lisible sur le décor. */
-.rt-edge-groove {
-  fill: none;
-  stroke: #06070b;
-  stroke-width: 6.5;
-  stroke-linecap: round;
-  opacity: 0.9;}
-.rt-edge {
-  fill: none;
-  stroke-width: 2.6;
-  stroke-linecap: round;
-  filter: saturate(0.48);
-}
-.rt-edge--gated { opacity: 0.15; stroke-dasharray: 3 8; }
-.rt-edge--open { opacity: 0.4; }
-.rt-edge--on { opacity: 0.68; stroke-width: 3; }
-
-/* Lien d'exclusion : affiché UNIQUEMENT au survol d'un des 2 nœuds (cf. JSX) →
-   on peut le rendre franc + apparition douce, plus de bruit permanent. */
-.rt-exclusion {
-  fill: none;
-  stroke: var(--red);
-  stroke-width: 3.5;
-  stroke-dasharray: 4 7;
-  opacity: 0.92;
-  stroke-linecap: round;
-  filter: drop-shadow(0 0 4px rgba(239, 68, 68, 0.6));
-  animation: rt-excl-in 160ms ease;
-}
-@keyframes rt-excl-in { from { opacity: 0; } }
-
-.rt-gate circle {
-  fill: rgba(10, 14, 24, 0.92);
-  stroke-width: 2.5;
-}
-.rt-gate.is-closed circle { opacity: 0.55; }
-.rt-gate.is-open circle { opacity: 0.95; }
-.rt-gate-text {
-  fill: var(--text-mid);
-  font-family: var(--font-body);
-  font-size: 17px;
-  font-weight: 700;
-}
-
-/* Le disque SVG du moyeu est remplacé par le médaillon HTML (cf. .rt-hub). */
-.rt-hub-disc { display: none; }
-
-/* Anneaux de strates : cercles concentriques très discrets rayonnant du moyeu,
-   ancrés au monde (suivent le pan/zoom) — donnent de la profondeur au fond. */
-.rt-strata {
-  fill: none;
-  stroke: rgba(var(--rt-strata, 174, 150, 118), var(--rt-strata-a, 0.06));
-  stroke-width: 1.5;
-  stroke-dasharray: 36 24 10 46 78 16 6 30;
-  stroke-linecap: round;
-}
-
-/* Cœur-sceau (HTML) d'un rond sans dogme/capstone : SPRITE pixel-art de sceau
-   (public/pixelart/ui/ruins/seal.png). Terne/désaturé tant que le rond n'est pas
-   complété ; vif + halo teinté branche une fois SCELLÉ (tous ses nœuds acquis). */
-.rt-seal2 {
-  position: absolute;
-  transform: translate(-50%, -50%);
   pointer-events: none;
-  background: center / contain no-repeat url("/pixelart/ui/ruins/seal.png");
+}
+.rtp-stage .rt-crown {
+  position: absolute;
+  top: calc(-14px * var(--rt-k, 1));
+  left: 50%;
+  width: 16px;
+  height: 16px;
+  margin-left: -8px;
   image-rendering: pixelated;
-  opacity: 0.82;
-  filter: grayscale(0.55) brightness(0.62) drop-shadow(0 2px 2px rgba(0, 0, 0, 0.6));
-  transition: filter 200ms ease, opacity 200ms ease;
-}
-.rt-seal2.is-complete {
-  opacity: 1;
-  filter: brightness(1.05) drop-shadow(0 0 8px rgba(var(--b-rgb), 0.6)) drop-shadow(0 2px 2px rgba(0, 0, 0, 0.6));
-}
-
-/* ---- Moyeu : médaillon monumental d'or (HTML) ---- */
-.rt-hub {
-  position: absolute;
-  transform: translate(-50%, -50%);
-  width: 150px;
-  height: 150px;
-  box-sizing: border-box;
-  padding: 6px;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  gap: 1px;
-  text-align: center;
   pointer-events: none;
-  border-radius: 50%;
-  /* Rebord d'or massif biseauté (conique = reflets) + halo + relief. */
-  background: conic-gradient(from 215deg, #f2dfa3, #94702f, #f2dfa3, #79592a, #f2dfa3);
-  box-shadow:
-    0 10px 26px rgba(0, 0, 0, 0.6),
-    0 0 44px rgba(201, 169, 104, 0.22),
-    inset 0 1px 2px rgba(255, 255, 255, 0.55);
 }
-/* Visage de pierre gravé (creux, liseré d'or interne). */
-.rt-hub::before {
+.rtp-stage .rt-node--dogma { --d: calc(42px * var(--rt-k, 1)); }
+.rtp-stage .rt-node--dogma .rt-disc { inset: 14%; border-radius: 0; transform: rotate(45deg); }
+.rtp-stage .rt-capstone { --d: calc(56px * var(--rt-k, 1)); }
+
+/* Acquis : la matière de la branche dans l'anneau. */
+.rtp-stage .rt-purchased {
+  --ring: rgb(var(--b-rgb));
+  --halo: rgba(var(--b-rgb), 0.3);
+  --fill: rgba(var(--b-glow), 0.75);
+}
+/* À prendre : le seul or de l'arbre, qui respire (pas d'accélération continue). */
+.rtp-stage .rt-available {
+  --ring: #e4c77e;
+  --halo: rgba(228, 199, 126, 0.45);
+  --fill: #1c150c;
+  cursor: pointer;
+}
+.rtp-stage .rt-available .rt-disc { animation: rt-breathe 1.5s steps(2, jump-none) infinite alternate; }
+.rtp-stage .rt-available:hover .rt-disc {
+  animation: none;
+  box-shadow: 0 0 0 2px #040304, 0 0 0 4px #ffe9b0, 0 0 0 6px rgba(255, 233, 176, 0.55), 0 0 0 9px rgba(228, 199, 126, 0.2);
+}
+@keyframes rt-breathe {
+  from { box-shadow: 0 0 0 2px #040304, 0 0 0 4px #e4c77e, 0 0 0 6px rgba(228, 199, 126, 0.5), 0 0 0 9px rgba(228, 199, 126, 0.16); }
+  to   { box-shadow: 0 0 0 2px #040304, 0 0 0 4px #b8964e, 0 0 0 6px rgba(228, 199, 126, 0.2), 0 0 0 9px transparent; }
+}
+/* Palier ouvert, Ruines insuffisantes : cuir terne, emblème éteint. */
+.rtp-stage .rt-cost { --ring: #6c534b; }
+.rtp-stage .rt-cost .rt-emblem { filter: saturate(0.5) brightness(0.72); }
+/* Verrouillé : un BOURGEON — petit, sombre, la silhouette de ce qui viendra. */
+.rtp-stage .rt-locked { --d: calc(24px * var(--rt-k, 1)); --ring: #2b2224; --fill: #0b090a; }
+.rtp-stage .rt-locked.rt-capstone { --d: calc(30px * var(--rt-k, 1)); }
+.rtp-stage .rt-locked.rt-node--dogma { --d: calc(26px * var(--rt-k, 1)); }
+.rtp-stage .rt-locked .rt-disc { box-shadow: 0 0 0 2px #040304, 0 0 0 3px var(--ring); }
+.rtp-stage .rt-locked .rt-emblem {
+  width: calc(16px * var(--rt-k, 1));
+  height: calc(16px * var(--rt-k, 1));
+  filter: grayscale(1) brightness(0.5);
+}
+.rtp-stage .rt-locked .rt-crown { top: calc(-11px * var(--rt-k, 1)); filter: grayscale(1) brightness(0.55); }
+/* Exclu (le jumeau adopté) : barré. */
+.rtp-stage .rt-blocked { --ring: #5b2b27; --fill: #0b090a; }
+.rtp-stage .rt-blocked .rt-emblem { filter: grayscale(1) brightness(0.4); }
+.rtp-stage .rt-blocked::after {
   content: "";
   position: absolute;
-  inset: 6px;
-  border-radius: 50%;
-  z-index: 0;
-  background: radial-gradient(circle at 42% 32%, #2c2e36, #131419 72%);
-  box-shadow:
-    inset 0 0 0 2px rgba(201, 169, 104, 0.5),
-    inset 0 3px 7px rgba(255, 255, 255, 0.08),
-    inset 0 -7px 13px rgba(0, 0, 0, 0.66);
+  width: 72%;
+  height: 3px;
+  background: #8e3a32;
+  transform: rotate(-45deg);
+  box-shadow: 0 0 0 1px #040304;
+  pointer-events: none;
 }
-.rt-hub-icon { position: relative; z-index: 1; font-size: 30px; color: #ecd79c; text-shadow: 0 2px 1px rgba(0, 0, 0, 0.7); }
-.rt-hub-emblem { position: relative; z-index: 1; width: 58px; height: 58px; object-fit: contain; image-rendering: pixelated; filter: drop-shadow(0 2px 2px rgba(0, 0, 0, 0.72)); margin-bottom: -2px; }
-.rt-hub-count { position: relative; z-index: 1; font-family: var(--font-number); font-size: 28px; color: #f3e2ab; line-height: 1; text-shadow: 0 1px 3px rgba(0, 0, 0, 0.6); }
-.rt-hub-label { position: relative; z-index: 1; font-family: var(--font-body); font-size: 13px; color: #b8b09a; letter-spacing: 0.02em; }
+/* Le jumeau du dogme survolé s'allume en rouge. */
+.rtp-stage .rt-conflict { --ring: #c85a4a; --halo: rgba(200, 90, 74, 0.45); z-index: 3; }
+.rtp-stage .rt-conflict .rt-disc { animation: none; }
+/* Une autre branche est mise en avant : celle-ci recule. */
+.rtp-stage .rt-dim { opacity: 0.2; }
 
-/* ---- Nœuds (boutons) ---- */
-/* PERF pan/zoom : pendant l'interaction (classe posée en JS sur .ruins-tree), on
-   coupe animations (pulse box-shadow), transitions et filtres → le calque se
-   repeint sans effet coûteux à chaque frame. Le rendu riche revient au relâché. */
-.rt-interacting .rt-frame,
-.rt-interacting .rt-frame::after,
-.rt-interacting .rt-emblem,
-.rt-interacting .rt-node,
-.rt-interacting .rt-seal2,
-.rt-interacting .rt-hub { animation: none !important; transition: none !important; }
-.rt-interacting .rt-trunk,
-.rt-interacting .rt-edge,
-.rt-interacting .rt-trunk-groove,
-.rt-interacting .rt-edge-groove { animation: none !important; transition: none !important; filter: none !important; }
+.rtp-stage .rt-node:focus-visible { outline: none; }
+.rtp-stage .rt-node:focus-visible .rt-disc {
+  box-shadow: 0 0 0 2px #040304, 0 0 0 4px #fff, 0 0 0 6px var(--halo);
+}
+/* La sève arrive : le médaillon s'embrase, en 4 temps. */
+.rtp-stage .rt-bought { z-index: 4; }
+.rtp-stage .rt-bought .rt-disc { animation: rt-pop 560ms steps(4) 1; }
+@keyframes rt-pop {
+  0% { box-shadow: 0 0 0 2px #040304, 0 0 0 4px #fff, 0 0 0 10px rgba(var(--b-rgb), 0.6), 0 0 0 16px rgba(var(--b-rgb), 0.25); }
+  100% { box-shadow: 0 0 0 2px #040304, 0 0 0 4px rgb(var(--b-rgb)), 0 0 0 6px rgba(var(--b-rgb), 0.3), 0 0 0 6px transparent; }
+}
 
-.rt-node {
+/* Porte de palier : la prochaine porte fermée de la branche, « n/m ». */
+.rtp-gate {
   position: absolute;
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  padding: 2px 6px 2px 3px;
   transform: translate(-50%, -50%);
+  background: #0b090a;
+  box-shadow: 0 0 0 1px #000, inset 0 0 0 1px rgba(var(--b-rgb), 0.5);
+  font-family: var(--font-number);
+  font-size: 12px;
+  line-height: 1;
+  color: rgb(var(--b-rgb));
+  white-space: nowrap;
+  pointer-events: none;
+  transition: opacity 160ms linear;
+}
+.rtp-gate img { width: 16px; height: 16px; image-rendering: pixelated; }
+.rtp-gate.rt-dim { opacity: 0.2; }
+
+/* Ce que coûte l'achat, qui s'envole du médaillon. */
+.rtp-float {
+  position: absolute;
+  font-family: var(--font-number);
+  font-size: 0.95rem;
+  color: #ffe3a8;
+  text-shadow: 2px 2px 0 #000;
+  pointer-events: none;
+  animation: rt-rise 900ms steps(9) forwards;
+}
+@keyframes rt-rise {
+  from { transform: translate(-50%, -100%); opacity: 1; }
+  to { transform: translate(-50%, -260%); opacity: 0; }
+}
+
+/* Pendant le pan/zoom : rien ne s'anime, rien ne transite. */
+.rt-interacting .rt-node,
+.rt-interacting .rt-disc,
+.rt-interacting .rtp-gate { animation: none !important; transition: none !important; }
+
+/* ── Le registre ────────────────────────────────────────────────────────────
+   Préfixé `.app .rt-registry` : les règles globales des boutons (base.css en
+   0,2,1 au survol, chrome-wizard.css) doivent perdre ici. */
+.rt-registry-slot {
+  position: absolute;
+  z-index: 10;
+  left: 1rem;
+  top: 1rem;
+  width: 21.5rem;
+  cursor: default;
+}
+.rt-registry {
+  display: grid;
+  gap: 0.8rem;
+  padding: 1rem 1rem 1.1rem;
+  background: rgba(11, 9, 11, 0.94);
+  box-shadow: inset 0 0 0 1px #000, inset 0 0 0 2px rgba(231, 204, 186, 0.07), 0 3px 0 rgba(0, 0, 0, 0.4);
+}
+.rt-reg-title {
+  margin: 0;
+  font-family: var(--font-title);
+  font-size: 1.95rem;
+  font-weight: 400;
+  line-height: 0.95;
+  color: var(--gold-ivory);
+}
+.rt-reg-count { display: flex; align-items: center; gap: 0.6rem; }
+.rt-reg-count img { width: 32px; height: 32px; }
+/* Pixelify en 400 et à un corps ENTIER, comme l'odomètre de la barre du haut :
+   en gras, ses « 2 » se ferment et « 22 » se lisait « 88 ». */
+.rt-reg-count strong {
+  font-family: var(--font-number-display);
+  font-size: 1.875rem;
+  font-weight: 400;
+  letter-spacing: 0.02em;
+  line-height: 1;
+  color: #ffe3a8;
+  font-variant-numeric: tabular-nums;
+}
+.app .rt-registry .rt-next-buy {
+  justify-self: start;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.45rem;
+  min-height: 2.5rem;
+  padding: 0 1rem 0.2rem;
+  font-weight: 750;
+}
+.app .rt-registry .rt-next-buy:not(:disabled) { color: #2a1d06; }
+.app .rt-registry .rt-next-buy:hover:not(:disabled) { background: transparent; color: #2a1d06; transform: none; }
+.rt-next-n { font-variant-numeric: tabular-nums; }
+
+.rt-branches { display: grid; gap: 0.5rem; margin: 0; padding: 0; list-style: none; }
+.app .rt-registry .rt-branch {
+  position: relative;
+  isolation: isolate;
+  width: 100%;
+  min-height: 0;
+  display: grid;
+  grid-template-columns: 44px minmax(0, 1fr) auto;
+  grid-template-rows: auto auto;
+  column-gap: 0.75rem;
+  row-gap: 0.5rem;
+  align-items: center;
+  padding: 0.7rem 0.8rem 0.85rem;
+  text-align: left;
+  color: var(--text-strong, #f1e9dc);
+}
+.app .rt-registry .rt-branch,
+.app .rt-registry .rt-branch:hover:not(:disabled),
+.app .rt-registry .rt-branch:active:not(:disabled) {
+  border: 0;
+  background: transparent;
+  box-shadow: none;
+  transform: none;
+  color: var(--text-strong, #f1e9dc);
+}
+/* la plaque de carte du pack, assombrie : une tuile de lecture qui se clique */
+.app .rt-registry .rt-branch::before {
+  border-width: 6px;
+  border-image: url("/pixelart/ui/chrome/wizard/card.png") 6 3 6 3 fill stretch;
+  filter: brightness(0.46) saturate(0.7);
+}
+.app .rt-registry .rt-branch:hover:not(:disabled)::before,
+.app .rt-registry .rt-branch.is-focus::before { filter: brightness(0.8) saturate(0.9); }
+.app .rt-registry .rt-branch.is-pinned::before { filter: none; }
+
+.rt-sig {
+  position: relative;
+  grid-row: 1 / 3;
+  width: 44px;
+  height: 44px;
+  border-radius: 50%;
+  display: grid;
+  place-items: center;
+  background: rgba(var(--b-glow), 0.75);
+  box-shadow: 0 0 0 2px #040304, 0 0 0 4px rgb(var(--b-rgb));
+}
+.rt-sig img { width: 32px; height: 32px; image-rendering: pixelated; }
+/* COMPTE : la pastille crantée, seul objet de ce genre (posée sur l'emblème) */
+.rt-sig-badge {
+  position: absolute;
+  top: -8px;
+  right: -10px;
+  min-width: 1.35rem;
+  padding: 0.2rem 0.3rem;
+  border: 2px solid #100a06;
+  background: var(--brand-gold, #e4c77e);
+  color: #140d06;
+  font-family: var(--font-pixel);
+  font-size: 0.6875rem;
+  font-weight: 700;
+  line-height: 1;
+  text-align: center;
+  box-shadow: inset 0 0.12rem 0 rgba(255, 255, 255, 0.28), inset 0 -0.12rem 0 rgba(0, 0, 0, 0.3);
+  clip-path: polygon(0 3px, 3px 3px, 3px 0, calc(100% - 3px) 0, calc(100% - 3px) 3px, 100% 3px, 100% calc(100% - 3px), calc(100% - 3px) calc(100% - 3px), calc(100% - 3px) 100%, 3px 100%, 3px calc(100% - 3px), 0 calc(100% - 3px));
+}
+.rt-branch-name {
+  min-width: 0;
+  font-family: var(--font-title);
+  font-size: 1.4rem;
+  line-height: 1;
+  color: var(--gold-ivory);
+}
+.rt-branch-count {
+  grid-column: 3;
+  justify-self: end;
+  font-family: var(--font-number);
+  font-size: 0.95rem;
+  color: rgb(var(--b-rgb));
+  font-variant-numeric: tabular-nums;
+}
+.rt-tiers { grid-column: 2 / 4; display: flex; align-items: center; gap: 4px; }
+.rt-tiers i {
+  flex: 1;
+  height: 10px;
+  background: linear-gradient(90deg, rgb(var(--b-rgb)) var(--p, 0%), #2a2022 var(--p, 0%));
+  box-shadow: inset 0 0 0 1px #000, inset 0 2px 0 rgba(255, 255, 255, 0.12);
+}
+.rt-tiers i.is-closed { background: #0e0b0c; box-shadow: inset 0 0 0 1px #000, inset 0 0 0 2px #2a2224; }
+.rt-tiers-gate {
+  flex: none;
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  margin-left: 2px;
+  font-family: var(--font-number);
+  font-size: 0.72rem;
+  font-style: normal;
+  color: var(--text-mid, #9c8f80);
+}
+.rt-tiers-gate img { width: 16px; height: 16px; }
+
+/* ── Zoom ─────────────────────────────────────────────────────────────────── */
+.rt-zoom-controls {
+  position: absolute;
+  z-index: 15;
+  top: 1rem;
+  right: 1rem;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.rtp-stage .rt-zoom-btn {
+  width: 38px;
+  height: 38px;
+  min-height: 0;
   display: grid;
   place-items: center;
   padding: 0;
   border: 0;
-  background: transparent;
-  cursor: default;
-  color: var(--b, var(--gold));
-  transition: transform 120ms ease, filter 120ms ease;
+  background: rgba(12, 9, 11, 0.86);
+  box-shadow: inset 0 0 0 1px #000, inset 0 0 0 2px rgba(231, 204, 186, 0.08);
+  color: var(--gold-ivory);
+  font-size: 0.85rem;
 }
-.rt-node:focus-visible {
-  outline: none;
+.rtp-stage .rt-zoom-btn:hover:not(:disabled) {
+  background: rgba(44, 32, 28, 0.92);
+  box-shadow: inset 0 0 0 1px #000, inset 0 0 0 2px rgba(231, 204, 186, 0.16);
+  transform: none;
 }
-.rt-node:focus-visible .rt-frame {
-  box-shadow: 0 0 0 3px var(--brand-gold-bright), 0 0 16px rgba(201, 169, 104, 0.5);
-}
-
-/* Disque dessiné en CSS (pas de raster) : pastille pleine teintée par branche,
-   léger bombé (highlight haut + ombre basse) + anneau net. Aucun cadre sombre. */
-/* Sceau de pierre & or : rebord d'or biseauté (.rt-frame) + visage de pierre
-   creusé teinté par branche (::before). Aucun aplat. */
-.rt-frame {
-  position: absolute;
-  inset: 0;
-  border-radius: 50%;
-  background: linear-gradient(145deg, #e8d293, #79592a);
-  box-shadow: 0 3px 8px rgba(0, 0, 0, 0.55), inset 0 1px 1px rgba(255, 255, 255, 0.4);
-  transition: box-shadow 130ms ease, filter 130ms ease, background 130ms ease;
-}
-.rt-frame::before {
-  content: "";
-  position: absolute;
-  inset: 22%;
-  border-radius: 50%;
-  background: radial-gradient(circle at 38% 30%, rgba(var(--b-rgb), 0.42), rgba(11, 13, 17, 0.97) 74%);
-  box-shadow: inset 0 3px 5px rgba(255, 255, 255, 0.08), inset 0 -5px 10px rgba(0, 0, 0, 0.62);
-  transition: background 130ms ease, box-shadow 130ms ease;
-}
-/* Anneau pixel-art (sprite) posé PAR-DESSUS le sceau : c'est le rebord visible.
-   Le centre teinté branche (::before) transparaît dans son trou, l'emblème au-dessus.
-   Tous les états/glows/pips restent portés par .rt-frame (dessous) ; on ne fait que
-   dimmer/éclaircir l'anneau par état. Les dogmes sont RONDS comme les autres
-   (retour Raphaël : le carré arrondi évoquait l'ancien rendu SVG). */
-.rt-frame::after {
-  content: "";
-  position: absolute;
-  inset: 0;
-  background: center / contain no-repeat url("/pixelart/ui/ruins/frame.png");
-  image-rendering: pixelated;
-  transition: filter 130ms ease;
-}
-.rt-node--dogma .rt-frame::after { display: none; }
-.rt-locked .rt-frame::after { filter: grayscale(0.5) brightness(0.68); }
-.rt-available .rt-frame::after { filter: brightness(1.12) saturate(1.06); }
-.rt-purchased .rt-frame::after { filter: brightness(0.74) saturate(0.82); }
-.rt-capstone .rt-frame::after { filter: brightness(1.08); }
-
-/* Icône CREUSÉE dans la pierre (couleur chaude teintée branche + emboss). */
-.rt-icon {
-  position: relative;
-  z-index: 2;
-  line-height: 1;
-  color: #ece0c6;
-  color: color-mix(in srgb, rgb(var(--b-rgb)) 46%, #f1e7ce);
-  text-shadow: 0 1.5px 0 rgba(0, 0, 0, 0.82), 0 -1px 0 rgba(255, 255, 255, 0.13);
-  transition: color 130ms ease, text-shadow 130ms ease;
+.rtp-stage .rt-zoom-btn:focus-visible {
+  outline: 2px solid var(--brand-gold-bright);
+  outline-offset: 2px;
 }
 
-/* Emblème pixel-art centré (remplace le glyphe FA). L'anneau .rt-frame porte
-   l'état + la couleur de branche ; l'emblème (neutre, or gravé) ne porte que
-   l'art de l'effet. Servi depuis /pixelart/ui/ruins/<clé>.png. */
-.rt-emblem {
-  position: relative;
-  z-index: 2;
-  width: 52%;
-  height: 52%;
-  object-fit: contain;
-  image-rendering: pixelated;
-  pointer-events: none;
-}
-.rt-node--dogma .rt-emblem { width: 54%; height: 54%; }
-.rt-capstone .rt-emblem { width: 54%; height: 54%; }
-
-.rt-crown {
-  position: absolute;
-  z-index: 3;
-  top: -0.42em;
-  font-size: 0.5em;
-  color: var(--brand-gold-bright);
-  filter: drop-shadow(0 0 3px rgba(0, 0, 0, 0.7));
-}
-
-.rt-pip {
-  position: absolute;
-  z-index: 3;
-  right: 0;
-  bottom: 0;
-  font-size: 0.42em;
-  width: 1.5em;
-  height: 1.5em;
-  display: grid;
-  place-items: center;
-  border-radius: 50%;
-  background: rgba(10, 14, 24, 0.95);
-}
-.rt-pip--ok { color: var(--green); box-shadow: 0 0 0 1.5px rgba(54, 179, 126, 0.7); }
-.rt-pip--no { color: var(--red); box-shadow: 0 0 0 1.5px rgba(239, 68, 68, 0.7); }
-
-/* ---- États (hiérarchie : achetable ≫ acheté ≫ verrouillé) ---- */
-
-/* Verrouillé : désaturé/atténué (PAS le call-to-action), mais un anneau clair le
-   garde visible sur le navy — règle le « brun/gris invisible ». */
-.rt-locked { opacity: 0.52; }
-.rt-locked .rt-frame {
-  background: linear-gradient(145deg, #6f6a5a, #34322a);
-  box-shadow: 0 2px 5px rgba(0, 0, 0, 0.5), inset 0 1px 1px rgba(255, 255, 255, 0.14);
-  animation: none;
-}
-.rt-locked .rt-frame::before {
-  background: radial-gradient(circle at 38% 30%, #3b3b40, #141519 74%);
-}
-.rt-locked .rt-icon { color: rgba(222, 218, 206, 0.5); text-shadow: 0 1px 0 rgba(0, 0, 0, 0.7); }
-.rt-locked .rt-emblem { opacity: 0.55; filter: grayscale(0.35) drop-shadow(0 1px 1px rgba(0, 0, 0, 0.6)); }
-
-/* « Trop cher (de peu) » : plus visible que le gris verrouillé (opacity ↑) +
-   cadre/emblème teintés ambre (var(--state-soon)). Reste non cliquable. */
-.rt-cost { opacity: 0.66; }
-.rt-cost .rt-frame {
-  background: linear-gradient(145deg, #7a6a45, #3a3222);
-  box-shadow: 0 2px 5px rgba(0, 0, 0, 0.5), inset 0 1px 1px rgba(255, 255, 255, 0.14);
-  animation: none;
-}
-.rt-cost .rt-frame::before { background: radial-gradient(circle at 38% 30%, #4a3c1e, #191509 74%); }
-.rt-cost .rt-icon { color: color-mix(in srgb, var(--state-soon) 80%, #fff); text-shadow: 0 1px 0 rgba(0, 0, 0, 0.7); }
-.rt-cost .rt-emblem { opacity: 0.75; filter: grayscale(0.15) drop-shadow(0 1px 1px rgba(0, 0, 0, 0.6)); }
-
-/* Achetable = l'élément le PLUS saillant : couleur vive + anneau plein + halo
-   large qui respire. */
-.rt-available { cursor: pointer; }
-.rt-available .rt-frame {
-  background: linear-gradient(145deg, #f6e3a4, #9a7636);
-  box-shadow:
-    0 3px 9px rgba(0, 0, 0, 0.55),
-    0 0 16px rgba(var(--b-rgb), 0.45),
-    inset 0 1px 1px rgba(255, 255, 255, 0.5);
-  animation: rt-avail-pulse 2.6s ease-in-out infinite;
-}
-.rt-available .rt-frame::before {
-  background: radial-gradient(circle at 38% 30%, rgba(var(--b-rgb), 0.6), rgba(14, 18, 22, 0.95) 76%);
-}
-@keyframes rt-avail-pulse {
-  0%, 100% {
-    box-shadow:
-      0 3px 9px rgba(0, 0, 0, 0.55),
-      0 0 12px rgba(var(--b-rgb), 0.4),
-      inset 0 1px 1px rgba(255, 255, 255, 0.5);
-  }
-  50% {
-    box-shadow:
-      0 3px 9px rgba(0, 0, 0, 0.55),
-      0 0 27px rgba(var(--b-rgb), 0.85),
-      inset 0 1px 1px rgba(255, 255, 255, 0.55);
-  }
-}
-/* Survol : AUCUN mouvement — le nœud s'illumine (pleine opacité + icône blanche
-   qui rayonne). La spécificité `.ruins-tree .rt-node:hover` (et le transform
-   ré-imposé) neutralise la règle GLOBALE `button:hover { transform: translateY(-1px) }`
-   de base.css qui, sinon, écrase le centrage et fait sauter le nœud. */
-/* Anti-saut (TOUS les nœuds) : ré-impose le centrage, neutralise button:hover global. */
-.ruins-tree .rt-node:hover {
-  z-index: 5;
-  transform: translate(-50%, -50%);
-  background: transparent;
-  border-color: transparent;
-}
-/* Illumination UNIQUEMENT sur les ruines achetables. */
-.ruins-tree .rt-available:hover { opacity: 1; }
-.ruins-tree .rt-available:hover .rt-icon {
-  color: #fff6e2;
-  text-shadow: 0 0 9px rgba(255, 240, 200, 0.55), 0 1px 0 rgba(0, 0, 0, 0.6);
-}
-.ruins-tree .rt-available:hover .rt-frame { filter: brightness(1.12); }
-
-/* Acheté : il a fait son job → s'efface en arrière-plan (calme, désaturé, sans
-   halo) mais reste reconnaissable (teinte de branche + pastille ✓). */
-/* Acheté : sceau ENFONCÉ et terni (or assombri, pierre creusée), pastille ✓. */
-.rt-purchased { opacity: 0.72; }
-.rt-purchased .rt-frame {
-  background: linear-gradient(145deg, #9a824a, #463619);
-  box-shadow: 0 2px 5px rgba(0, 0, 0, 0.5), inset 0 1px 1px rgba(255, 255, 255, 0.16);
-  animation: none;
-}
-.rt-purchased .rt-frame::before {
-  background: radial-gradient(circle at 38% 34%, rgba(var(--b-rgb), 0.22), rgba(9, 11, 15, 0.98) 70%);
-  box-shadow: inset 0 4px 9px rgba(0, 0, 0, 0.72), inset 0 -1px 1px rgba(255, 255, 255, 0.05);
-}
-.rt-purchased .rt-icon {
-  color: #b3a98f;
-  color: color-mix(in srgb, rgb(var(--b-rgb)) 32%, #b3a98f);
-}
-
-.rt-blocked { opacity: 0.6; }
-.rt-blocked .rt-frame {
-  background: linear-gradient(145deg, #b06a52, #561f17);
-  box-shadow: 0 2px 5px rgba(0, 0, 0, 0.5), 0 0 0 1px rgba(239, 68, 68, 0.5), inset 0 1px 1px rgba(255, 255, 255, 0.14);
-  animation: none;
-}
-.rt-blocked .rt-frame::before { background: radial-gradient(circle at 38% 30%, #5a2422, #190f0f 74%); }
-.rt-blocked .rt-icon { color: #f1c6bd; }
-
-/* Nœud INCOMPATIBLE avec celui qu'on survole : surligné en rouge (« ses
-   incompatibilités s'illuminent »). Écrase l'état courant + coupe le pulse. */
-.ruins-tree .rt-node.rt-conflict { opacity: 1; z-index: 4; }
-.ruins-tree .rt-node.rt-conflict .rt-frame {
-  animation: none;
-  background: linear-gradient(145deg, #e88a72, #7a3424);
-  box-shadow: 0 0 0 2px rgba(239, 68, 68, 0.92), 0 0 18px rgba(239, 68, 68, 0.55);
-}
-.ruins-tree .rt-node.rt-conflict .rt-frame::before { background: radial-gradient(circle at 38% 30%, #6a2a24, #1a0f0f 74%); }
-.ruins-tree .rt-node.rt-conflict .rt-icon { color: #fff; }
-
-/* Capstone : objectif final de l'axe — toujours encadré OR (double anneau +
-   halo), jamais le pulse de branche. Couronne + label persistant le nomment. */
-.rt-capstone .rt-frame {
-  animation: none;
-  background: linear-gradient(145deg, #f4e2a0, #8a6a30);
-  box-shadow:
-    0 4px 13px rgba(0, 0, 0, 0.6),
-    0 0 0 2px rgba(255, 238, 198, 0.5),
-    0 0 26px rgba(214, 173, 95, 0.5),
-    inset 0 1px 2px rgba(255, 255, 255, 0.55);
-}
-.rt-capstone .rt-frame::before {
-  background: radial-gradient(circle at 40% 30%, rgba(var(--b-rgb), 0.42), #13151b 76%);
-}
-.rt-capstone .rt-icon { color: #fff3d8; }
-.rt-capstone.rt-purchased { opacity: 1; }
-.rt-capstone.rt-purchased .rt-frame { filter: none; }
-.rt-crown { font-size: 0.56em; top: -0.46em; }
-
-/* ---- Tooltip ---- */
+/* ── Bulle (nom, effet, coût — l'essentiel seulement, retour Raphaël) ──────── */
 .rt-tooltip {
   position: absolute;
   z-index: 20;
@@ -753,47 +471,40 @@
 .rt-status--locked { color: var(--text-mid); }
 .rt-status--blocked { color: var(--red, #ef4444); }
 
-/* La région d'annonce a11y (ex .rt-live) utilise l'utilitaire .sr-only
-   (components.css) — même masquage que toutes les zones aria-live du jeu. */
+/* ── Écran moyen : un registre plus étroit (l'emblème suffit à nommer) ────── */
+@media (max-width: 1500px) {
+  .rt-registry-slot { width: 15rem; }
+  .rt-reg-title { font-size: 1.55rem; }
+  .rt-branch-name { display: none; }
+}
 
-/* Dogmes : même disque bombé mais en médaillon arrondi (border-radius 26 %
-   défini plus haut) — distinct des nœuds ronds, sans cadre sombre. */
-
-/* ---- Croissance « l'arbre pousse » ---- */
-@keyframes rt-grow-in {
-  from { opacity: 0; scale: 0.42; }
-  60% { opacity: 1; }
-  to { opacity: 1; scale: 1; }
+/* ── Petit écran / doigt : le registre descend en bas, sur une rangée ─────────
+   L'arbre se cadre AU-DESSUS (RuinsTreePixel mesure la place prise). */
+@media (max-width: 900px) {
+  .rt-registry-slot { left: 0.5rem; right: 0.5rem; top: auto; bottom: 0.5rem; width: auto; }
+  .rt-registry { grid-template-columns: auto auto minmax(0, 1fr); align-items: center; gap: 0.55rem 0.8rem; padding: 0.6rem 0.7rem 0.7rem; }
+  .rt-reg-title,
+  .rt-branch-name,
+  .rt-tiers { display: none; }
+  .rt-reg-count strong { font-size: 1.5rem; }
+  .rt-branches { grid-column: 1 / -1; grid-template-columns: repeat(4, minmax(0, 1fr)); }
+  .app .rt-registry .rt-branch { grid-template-columns: 44px auto; grid-template-rows: auto; column-gap: 0.5rem; padding: 0.5rem 0.55rem 0.65rem; }
+  .rt-sig { grid-row: auto; }
+  .rt-branch-count { grid-column: auto; }
 }
-.rt-entering {
-  animation: rt-grow-in 650ms cubic-bezier(0.2, 0.85, 0.3, 1.25) both;
-  animation-delay: var(--enter-delay, 0ms);
-}
-@keyframes rt-fade-in { from { opacity: 0; } }
-.is-growing .rt-trunk { animation: rt-fade-in 750ms ease both; }
-.is-growing .rt-edge { animation: rt-fade-in 850ms ease both; }
-
-/* ---- Flash d'achat ---- */
-@keyframes rt-pop {
-  0% { scale: 1; }
-  40% { scale: 1.34; }
-  100% { scale: 1; }
-}
-@keyframes rt-bought-glow {
-  0% { box-shadow: 0 0 0 3px rgba(var(--b-rgb), 1), 0 0 28px rgba(var(--b-rgb), 0.85); }
-  100% { box-shadow: 0 0 0 2px rgba(var(--b-rgb), 0.85), inset 0 0 14px rgba(var(--b-rgb), 0.5); }
-}
-.rt-bought { animation: rt-pop 480ms ease; z-index: 6; }
-.rt-bought .rt-frame { animation: rt-bought-glow 480ms ease; }
+:root[data-pointer="coarse"] .rt-registry-slot { left: 0.5rem; right: 0.5rem; top: auto; bottom: 0.5rem; width: auto; }
+:root[data-pointer="coarse"] .rt-registry { grid-template-columns: auto auto minmax(0, 1fr); align-items: center; gap: 0.55rem 0.8rem; padding: 0.6rem 0.7rem 0.7rem; }
+:root[data-pointer="coarse"] .rt-reg-title,
+:root[data-pointer="coarse"] .rt-branch-name,
+:root[data-pointer="coarse"] .rt-tiers { display: none; }
+:root[data-pointer="coarse"] .rt-branches { grid-column: 1 / -1; grid-template-columns: repeat(4, minmax(0, 1fr)); }
+:root[data-pointer="coarse"] .app .rt-registry .rt-branch { grid-template-columns: 44px auto; grid-template-rows: auto; column-gap: 0.5rem; padding: 0.5rem 0.55rem 0.65rem; }
+:root[data-pointer="coarse"] .rt-sig { grid-row: auto; }
+:root[data-pointer="coarse"] .rt-branch-count { grid-column: auto; }
 
 @media (prefers-reduced-motion: reduce) {
-  .rt-node,
-  .rt-frame { transition: none; }
-  .rt-available:hover { transform: translate(-50%, -50%); }
-  .rt-entering,
-  .rt-bought,
-  .rt-bought .rt-frame,
-  .rt-available .rt-frame,
-  .is-growing .rt-trunk,
-  .is-growing .rt-edge { animation: none; }
+  .rtp-stage .rt-available .rt-disc,
+  .rtp-stage .rt-bought .rt-disc,
+  .rtp-float { animation: none; }
+  .rtp-stage .rt-node { transition: none; }
 }

@@ -19,27 +19,43 @@ import {
 import { fmt } from "../../game/core/utils.js";
 import { tr } from "../../game/core/i18n.js";
 import { computePixelTreeLayout } from "./ruinsTree/pixelLayout.js";
-import { TREE_ART } from "./ruinsTree/anchors.js";
-import { createEmberField } from "./ruinsTree/emberParticles.js";
-import { iconFor } from "./ruinsTree/nodeIcon.js";
+import { TREE_ART, PIXEL_LAYOUT } from "./ruinsTree/anchors.js";
+import { SAP_PATHS } from "./ruinsTree/sapPaths.js";
+import { SAP_COLORS } from "./ruinsTree/sapMaterials.js";
+import { prepareSapScene, paintSap, edgeStrips } from "./ruinsTree/sapRenderer.js";
 import TreeNode from "./ruinsTree/TreeNode.jsx";
 import NodeTooltip from "./ruinsTree/NodeTooltip.jsx";
+import RuinsRegistry from "./ruinsTree/RuinsRegistry.jsx";
 
-// Rendu PEINT de l'Arbre des Ruines (refonte Phase C) : l'illustration
-// (tree-base.png ×TREE_ART.scale, pixelated) porte les nœuds, posés LE LONG des
-// branches — aucun lien dessiné, aucune nappe de brume (retours Raphaël) :
-// TOUT l'arbre est visible d'emblée, les nœuds verrouillés sont simplement
-// GRISÉS (.rt-locked) et les portes n/m disent la progression. Caméra,
-// tooltips, achat et a11y repris du rendu radial (RuinsTreeGraph).
+// L'ARBRE DE LA MÉMOIRE (piste B, choisie par Raphaël le 2026-10-03) :
+// l'illustration (memoire.png, 688×384) affichée à un zoom ENTIER — pixels
+// nets — porte les médaillons, posés le long de ses quatre membres. Chaque
+// branche a sa MATIÈRE (runes, sève, braise, lave) ; ses lumières sont éteintes
+// au départ et la sève les rallume, du cœur de braise jusqu'à chaque nœud acquis,
+// en un faisceau continu (sapRenderer.js). Les médaillons vivent dans un calque
+// ÉCRAN (taille constante). Le registre à gauche donne le compte des Ruines et
+// des quatre branches ; le survoler n'allume qu'une branche.
 
 const STATUS_LABEL = {
-  purchased: { fr: "Acheté", en: "Owned" },
+  purchased: { fr: "Acquis", en: "Owned" },
   available: { fr: "Disponible", en: "Available" },
+  cost: { fr: "Pas assez de ruines", en: "Not enough ruins" },
   blocked: { fr: "Exclu", en: "Excluded" },
   locked: { fr: "Verrouillé", en: "Locked" },
 };
 
 const UNLOCK = Object.fromEntries(PRESTIGE_TREE_BRANCHES.map((b) => [b.id, b.unlock || []]));
+const ART_W = TREE_ART.w;
+const ART_H = TREE_ART.h;
+const ALL_NODE_IDS = new Set(PRESTIGE_TREE.map((n) => n.id));
+const DOGMA_IDS = new Set(PRESTIGE_DOGMAS.map((d) => d.id));
+const BRANCH_OF = Object.fromEntries([
+  ...PRESTIGE_TREE.map((n) => [n.id, n.branch]),
+  ...PRESTIGE_DOGMAS.map((d) => [d.id, d.branch]),
+]);
+const CAP_OF = Object.fromEntries(PRESTIGE_TREE.filter((n) => n.capstone).map((n) => [n.branch, n.id]));
+// Ordre du registre = l'arbre lu de haut en bas : couronne, gauche, droite, racines.
+const REGISTRY_ORDER = ["knowledge", "prosperity", "cycle_crise", "resilience"];
 
 function tierOpen(branch, tier) {
   return ownedInBranchBelowTier(branch, tier) >= (UNLOCK[branch]?.[tier] ?? 0);
@@ -51,41 +67,72 @@ function prefersReducedMotion() {
     window.matchMedia("(prefers-reduced-motion: reduce)").matches;
 }
 
-const WORLD_W = TREE_ART.w * TREE_ART.scale;
-const WORLD_H = TREE_ART.h * TREE_ART.scale;
-
-// Horizon des BORDS EXTÉRIEURS de la fresque élargie (widen-tree.cjs y fait
-// converger les colonnes extrêmes vers un aplat : transparent au-dessus de
-// OUT_HORIZON, rgb(6,4,9) en dessous). Le fond du conteneur prolonge ces deux
-// zones via --rtp-ground → la frontière du PNG disparaît sur les écrans plus
-// larges que la fresque. La borne suit la caméra (render + drag).
-const GROUND_SRC_Y = 200;
-
-function groundStop(camYPx, worldScale) {
-  return camYPx + GROUND_SRC_Y * TREE_ART.scale * worldScale;
+// La scène (image, lumières éteintes, faisceaux) se prépare UNE fois par session.
+let scenePromise = null;
+function loadScene() {
+  if (!scenePromise) {
+    scenePromise = new Promise((resolve) => {
+      const img = new Image();
+      img.onload = () => {
+        let scene;
+        try { scene = prepareSapScene(img, SAP_PATHS, (id) => BRANCH_OF[id]); } catch { scene = null; }
+        resolve({ img, scene, strips: scene ? edgeStrips(scene.base) : null });
+      };
+      img.onerror = () => { scenePromise = null; resolve(null); };
+      img.src = TREE_ART.src;
+    });
+  }
+  return scenePromise;
 }
 
-// Tous les ids sont TOUJOURS affichés (l'arbre entier se lit dès le début).
-const ALL_NODE_IDS = new Set(PRESTIGE_TREE.map((n) => n.id));
-
-// Borne une translation d'axe : centre si le monde est plus petit que la vue,
-// sinon le contraint à couvrir la vue (pas de zone vide au bord).
-function clampAxis(p, worldSize, viewSize) {
-  if (worldSize <= viewSize) return (viewSize - worldSize) / 2;
-  return Math.min(0, Math.max(viewSize - worldSize, p));
+// ── Caméra : zoom ENTIER (pixels nets), pan borné ──────────────────────────
+// L'arbre se cadre dans l'espace LAISSÉ LIBRE par le registre (view.l à gauche
+// sur grand écran, view.b en bas sur petit écran) : le registre ne cache rien.
+// Le zoom de base est le plus grand entier où l'image y tient (×3 dans une
+// fenêtre de 2 560 px) ; sous ×2 (petit écran) on accepte un zoom fractionnaire.
+function areaOf(view) {
+  const L = view.l || 0;
+  const aw = Math.max(view.w - L, view.w * 0.5);
+  const ah = Math.max(view.h - (view.b || 0), view.h * 0.4);
+  return { L, aw, ah, cX: L + aw / 2, cY: ah / 2 };
 }
+function fitScale(view) {
+  if (!view.w || !view.h) return 1;
+  const { aw, ah } = areaOf(view);
+  const f = Math.min(aw / ART_W, ah / ART_H);
+  return f >= 2 ? Math.floor(f) : f;
+}
+function zoomLevels(view) {
+  const f = fitScale(view);
+  const out = [f];
+  let s = Number.isInteger(f) ? f + 1 : Math.ceil(f);
+  while (out.length < 6) out.push(s++);
+  return out;
+}
+const sameLevel = (a, b) => Math.abs(a - b) < 1e-6;
+// cam = { s, cx, cy } (cx/cy = point source au centre de l'espace libre) ou
+// null = vue entière. Zoomé, l'image peut glisser jusque SOUS le registre.
+function resolveCam(cam, view) {
+  const { L, aw, ah, cX, cY } = areaOf(view);
+  const s = cam?.s ?? fitScale(view);
+  const cx = cam?.cx ?? ART_W / 2;
+  const cy = cam?.cy ?? ART_H / 2;
+  const ww = ART_W * s, wh = ART_H * s;
+  let tx = cX - cx * s;
+  let ty = cY - cy * s;
+  tx = ww <= aw ? L + (aw - ww) / 2 : Math.min(L, Math.max(view.w - ww, tx));
+  ty = wh <= ah ? (ah - wh) / 2 : Math.min(0, Math.max(ah - wh, ty));
+  return { s, tx: Math.round(tx), ty: Math.round(ty) };
+}
+// Point source au centre de l'espace libre, pour une translation donnée.
+const centerOf = (view, s, tx, ty) => { const { cX, cY } = areaOf(view); return { cx: (cX - tx) / s, cy: (cY - ty) / s }; };
 
-// Fond réactif à l'usure — même mécanique que le rendu radial (variables CSS
-// poussées en DOM direct, quantifiées à 0,5 % pour ne pas repeindre par tick).
+// Ambiance d'usure — même mécanique qu'avant (variable CSS poussée en DOM
+// direct, quantifiée à 0,5 % pour ne pas repeindre par tick).
 function RuinsUsureSync({ targetRef }) {
   const u = useGameState((s) => Math.round(Math.max(0, Math.min(1, s.timeWear || 0)) * 200) / 200);
   useEffect(() => {
-    const el = targetRef.current;
-    if (!el) return;
-    const lerp = (a, b) => Math.round(a + (b - a) * u);
-    el.style.setProperty("--rt-glow", `${lerp(216, 158)}, ${lerp(150, 72)}, ${lerp(74, 66)}`);
-    el.style.setProperty("--rt-glow-a", (0.13 + 0.08 * u).toFixed(3));
-    el.style.setProperty("--rt-usure", u.toFixed(3));
+    targetRef.current?.style.setProperty("--rt-usure", u.toFixed(3));
   }, [u, targetRef]);
   return null;
 }
@@ -99,227 +146,274 @@ export default function RuinsTreePixel() {
 
   const containerRef = useRef(null);
   const worldRef = useRef(null);
-  const fxCanvasRef = useRef(null);
-  const usureRef = useRef(0);
-  const [view, setView] = useState({ w: 0, h: 0 });
-  // x: null = « auto-centré sur l'arbre » (la fresque est PLUS LARGE que la vue
-  // au zoom 1 : sans ça, le clamp collerait la caméra au bord gauche).
-  const [cam, setCam] = useState({ z: 1, x: null, y: 0 });
+  const layersRef = useRef(null);
+  const registryRef = useRef(null);
+  const artRef = useRef(null);
+  const sapRef = useRef(null);
+  const [view, setView] = useState({ w: 0, h: 0, l: 0, b: 0 });
+  const [cam, setCam] = useState(null);
+  const viewRef = useRef(view);
   const camRef = useRef(cam);
-  const viewRef = useRef({ w: 0, h: 0 });
-  const dragRef = useRef({ active: false, moved: false, sx: 0, sy: 0, cx: 0, cy: 0 });
-  const [tip, setTip] = useState(null);
-  const [hoveredId, setHoveredId] = useState(null);
-
+  useEffect(() => { viewRef.current = view; }, [view]);
   useEffect(() => { camRef.current = cam; }, [cam]);
-
+  const [ready, setReady] = useState(null);
+  const [tip, setTip] = useState(null); // { id, pinned }
+  const [hoveredId, setHoveredId] = useState(null);
+  const [hoverFocus, setHoverFocus] = useState(null);
+  const [pinned, setPinned] = useState(null);
   const [justBought, setJustBought] = useState(null);
-  const justBoughtTimerRef = useRef(null);
-  useEffect(() => () => clearTimeout(justBoughtTimerRef.current), []);
+  const [floats, setFloats] = useState([]);
   const [liveMsg, setLiveMsg] = useState("");
+  const timersRef = useRef(new Set());
+  const dragRef = useRef({ active: false, moved: false });
+  const nextCursorRef = useRef(-1);
+  // État lu par la boucle de peinture de la sève (jamais pendant le rendu React).
+  const sapStRef = useRef({ lit: new Set(), pending: new Set(), anim: new Map(), focus: null, colors: SAP_COLORS, still: prefersReducedMotion() });
 
-  const layout = useMemo(
-    () => computePixelTreeLayout(ALL_NODE_IDS, { dogmas: PRESTIGE_DOGMAS }),
-    []
-  );
-
-  // Usure pour les cendres — quantifiée à 5 %, lue par la boucle via ref (les
-  // particules ne redémarrent jamais).
-  const usure = useGameState((s) => Math.round(Math.max(0, Math.min(1, s.timeWear || 0)) * 20) / 20);
-  useEffect(() => { usureRef.current = usure; }, [usure]);
-
-  // ── Particules ambiantes (braises du cratère/cœur + cendres d'usure) ─────
-  // Canvas à la résolution SOURCE, ~15 fps (pas-à-pas chunky assumé), en pause
-  // onglet caché, coupé si prefers-reduced-motion.
   useEffect(() => {
-    const canvas = fxCanvasRef.current;
-    if (!canvas || prefersReducedMotion()) return undefined;
-    const ctx = canvas.getContext("2d");
-    const field = createEmberField();
-    // Première frame SYNCHRONE : un onglet caché (rAF suspendu — cf. piège
-    // preview) montre au moins la scène initiale au lieu d'un calque vide.
-    field.step(0.05, usureRef.current);
-    field.paint(ctx);
+    const timers = timersRef.current;
+    return () => { for (const t of timers) clearTimeout(t); };
+  }, []);
+  const later = useCallback((fn, ms) => {
+    const t = setTimeout(() => { timersRef.current.delete(t); fn(); }, ms);
+    timersRef.current.add(t);
+  }, []);
+
+  const layout = useMemo(() => computePixelTreeLayout(ALL_NODE_IDS, { dogmas: PRESTIGE_DOGMAS }), []);
+
+  // ── Scène : image + lumières éteintes + faisceaux ─────────────────────────
+  useEffect(() => {
+    let alive = true;
+    loadScene().then((r) => { if (alive) setReady(r); });
+    return () => { alive = false; };
+  }, []);
+
+  useEffect(() => {
+    const cv = artRef.current;
+    if (!cv || !ready) return;
+    const ctx = cv.getContext("2d");
+    if (ready.scene) ctx.putImageData(ready.scene.base, 0, 0);
+    else ctx.drawImage(ready.img, 0, 0);
+  }, [ready]);
+
+  // Boucle de la sève : ~15 i/s, en pause onglet caché. Première image
+  // SYNCHRONE (un onglet caché suspend rAF, cf. piège du navigateur intégré).
+  useEffect(() => {
+    const cv = sapRef.current;
+    const scene = ready?.scene;
+    if (!cv || !scene) return undefined;
+    const ctx = cv.getContext("2d");
+    const out = ctx.createImageData(scene.w, scene.h);
+    paintSap(out, scene, sapStRef.current, performance.now());
+    ctx.putImageData(out, 0, 0);
     let raf = 0;
-    let last = performance.now();
-    let acc = 0;
-    const FRAME = 1000 / 15;
+    let last = 0;
     const loop = (now) => {
       raf = requestAnimationFrame(loop);
-      const dt = Math.min(0.25, (now - last) / 1000);
+      if (document.hidden || now - last < 66) return;
       last = now;
-      if (document.hidden) return;
-      acc += dt * 1000;
-      if (acc < FRAME) return;
-      acc = 0;
-      field.step(Math.max(dt, FRAME / 1000), usureRef.current);
-      field.paint(ctx);
+      paintSap(out, scene, sapStRef.current, now);
+      ctx.putImageData(out, 0, 0);
     };
     raf = requestAnimationFrame(loop);
     return () => cancelAnimationFrame(raf);
-  }, []);
-
-  // Calé sur la HAUTEUR : l'arbre entier est visible au zoom 1, et la fresque
-  // élargie déborde à gauche/droite (c'est son rôle — le pan y emmène ; sur les
-  // écrans plus larges que 2:1, les aplats extérieurs + le fond CSS prennent
-  // le relais). Un fit min(w,h) exposerait le BAS de la fresque (couture).
-  const fitScale = view.h > 0 ? Math.min(1.1, view.h / WORLD_H) : 0;
-  const zMax = fitScale > 0 ? Math.max(3.2, 1.6 / fitScale) : 3.2;
+  }, [ready]);
 
   useLayoutEffect(() => {
     const el = containerRef.current;
     if (!el) return undefined;
     const measure = () => {
-      const v = { w: el.clientWidth, h: el.clientHeight };
+      const w = el.clientWidth, h = el.clientHeight;
+      // le registre est à gauche (grand écran) ou posé en bas (petit écran)
+      const slot = registryRef.current;
+      let l = 0, b = 0;
+      if (slot && slot.offsetWidth) {
+        if (slot.offsetTop > h / 3) b = h - slot.offsetTop + 8;
+        else l = slot.offsetLeft + slot.offsetWidth + 16;
+      }
+      const v = { w, h, l, b };
       viewRef.current = v;
-      setView(v);
+      setView((old) => (old.w === w && old.h === h && old.l === l && old.b === b ? old : v));
     };
     measure();
     const ro = new ResizeObserver(measure);
     ro.observe(el);
+    if (registryRef.current) ro.observe(registryRef.current);
     return () => ro.disconnect();
   }, []);
 
-  // x auto-centré résolu en px concrets (pour zoomer/glisser DEPUIS cet état).
-  const resolveCamX = useCallback((c, viewW) =>
-    c.x == null ? (viewW - WORLD_W * fitScale * c.z) / 2 : c.x, [fitScale]);
+  // ── Caméra ────────────────────────────────────────────────────────────────
+  const currentCam = useCallback(() => {
+    const v = viewRef.current;
+    const c = camRef.current;
+    const L = zoomLevels(v);
+    return resolveCam(c && L.some((x) => sameLevel(x, c.s)) ? c : null, v);
+  }, []);
 
-  // ── Caméra (pan/zoom) — reprise du rendu radial, monde RECTANGULAIRE ─────
-  const zoomAt = useCallback((factor, cx, cy) => {
-    setCam((c) => {
-      const z = Math.max(1, Math.min(zMax, c.z * factor));
-      const v = viewRef.current;
-      const x0 = resolveCamX(c, v.w);
-      const x = clampAxis(cx - (cx - x0) * (z / c.z), WORLD_W * fitScale * z, v.w);
-      const y = clampAxis(cy - (cy - c.y) * (z / c.z), WORLD_H * fitScale * z, v.h);
-      return { z, x, y };
-    });
-  }, [fitScale, zMax, resolveCamX]);
+  const zoomStep = useCallback((dir, mx, my) => {
+    const v = viewRef.current;
+    const L = zoomLevels(v);
+    const cur = currentCam();
+    let i = L.findIndex((x) => sameLevel(x, cur.s));
+    if (i < 0) i = 0;
+    const ni = Math.max(0, Math.min(L.length - 1, i + dir));
+    if (ni === i) return;
+    if (mx == null) { const a = areaOf(v); mx = a.cX; my = a.cY; }
+    const px = (mx - cur.tx) / cur.s;
+    const py = (my - cur.ty) / cur.s;
+    const s1 = L[ni];
+    setCam({ s: s1, ...centerOf(v, s1, mx - px * s1, my - py * s1) });
+  }, [currentCam]);
 
-  const resetCam = useCallback(() => setCam({ z: 1, x: null, y: 0 }), []);
+  // Cadre un ensemble de points au plus grand zoom entier qui les contient.
+  const frameIds = useCallback((ids) => {
+    const v = viewRef.current;
+    const pts = ids.map((id) => layout.pos[id]).filter(Boolean);
+    if (!pts.length) return;
+    const xs = pts.map((p) => p.x), ys = pts.map((p) => p.y);
+    const { aw, ah } = areaOf(v);
+    const bw = Math.max(...xs) - Math.min(...xs) + 40;
+    const bh = Math.max(...ys) - Math.min(...ys) + 40;
+    const L = zoomLevels(v);
+    let s = L[0];
+    for (const x of L) if (bw * x <= aw * 0.86 && bh * x <= ah * 0.86) s = x;
+    setCam({ s, cx: (Math.min(...xs) + Math.max(...xs)) / 2, cy: (Math.min(...ys) + Math.max(...ys)) / 2 });
+  }, [layout]);
 
   useEffect(() => {
     const el = containerRef.current;
     if (!el) return undefined;
     let wheelTimer = 0;
     const onWheel = (e) => {
+      if (e.target.closest?.(".rt-registry")) return;
       e.preventDefault();
       const rect = el.getBoundingClientRect();
-      zoomAt(e.deltaY < 0 ? 1.18 : 1 / 1.18, e.clientX - rect.left, e.clientY - rect.top);
+      zoomStep(e.deltaY < 0 ? 1 : -1, e.clientX - rect.left, e.clientY - rect.top);
       el.classList.add("rt-interacting");
       clearTimeout(wheelTimer);
       wheelTimer = setTimeout(() => el.classList.remove("rt-interacting"), 220);
     };
     el.addEventListener("wheel", onWheel, { passive: false });
-    // La classe aussi : le timer purgé ne la retirera plus, et un démontage en
-    // pleine molette la laissait collée au conteneur.
     return () => { clearTimeout(wheelTimer); el.classList.remove("rt-interacting"); el.removeEventListener("wheel", onWheel); };
-  }, [zoomAt]);
+  }, [zoomStep]);
 
+  // Pan : pendant le geste, le monde ET les calques écran glissent en DOM
+  // direct (aucun re-rendu React par mouvement) ; la caméra s'écrit au relâché.
   const onPointerDown = useCallback((e) => {
-    const d = dragRef.current;
-    d.active = true;
-    d.moved = false;
-    d.sx = e.clientX;
-    d.sy = e.clientY;
-    d.cx = resolveCamX(camRef.current, viewRef.current.w);
-    d.cy = camRef.current.y;
-    d.liveX = d.cx;
-    d.liveY = d.cy;
-    d.pointerId = e.pointerId;
-    d.target = e.currentTarget;
-  }, [resolveCamX]);
+    if (e.button !== 0) return;
+    const base = currentCam();
+    const v = viewRef.current;
+    dragRef.current = {
+      active: true, moved: false, sx: e.clientX, sy: e.clientY, base,
+      ...centerOf(v, base.s, base.tx, base.ty),
+      pointerId: e.pointerId, target: e.currentTarget, live: null,
+    };
+  }, [currentCam]);
 
   const onPointerMove = useCallback((e) => {
     const d = dragRef.current;
     if (!d.active) return;
     const dx = e.clientX - d.sx;
     const dy = e.clientY - d.sy;
-    if (!d.moved && Math.hypot(dx, dy) > 4) {
+    if (!d.moved && Math.hypot(dx, dy) < 5) return;
+    if (!d.moved) {
       d.moved = true;
       containerRef.current?.classList.add("rt-interacting");
       try { d.target?.setPointerCapture(d.pointerId); } catch { /* noop */ }
+      setTip(null);
     }
-    if (!d.moved) return;
     const v = viewRef.current;
-    const z = camRef.current.z;
-    d.liveX = clampAxis(d.cx + dx, WORLD_W * fitScale * z, v.w);
-    d.liveY = clampAxis(d.cy + dy, WORLD_H * fitScale * z, v.h);
-    if (worldRef.current) {
-      worldRef.current.style.transform = `translate(${d.liveX}px, ${d.liveY}px) scale(${fitScale * z})`;
-    }
-    // La ligne de sol du fond suit le pan en DIRECT (même chemin sans re-render
-    // que le transform du monde) — sinon le raccord ciel/sous-sol décroche.
-    containerRef.current?.style.setProperty("--rtp-ground", `${groundStop(d.liveY, fitScale * z)}px`);
-  }, [fitScale]);
+    const s = d.base.s;
+    const r = resolveCam({ s, cx: d.cx - dx / s, cy: d.cy - dy / s }, v);
+    d.live = { s, ...centerOf(v, s, r.tx, r.ty) };
+    if (worldRef.current) worldRef.current.style.transform = `translate(${r.tx}px, ${r.ty}px) scale(${s})`;
+    if (layersRef.current) layersRef.current.style.transform = `translate(${r.tx - d.base.tx}px, ${r.ty - d.base.ty}px)`;
+    containerRef.current?.style.setProperty("--rt-ty", `${r.ty}px`);
+    containerRef.current?.style.setProperty("--rt-my", `${r.ty + (ART_H * s) / 2}px`);
+  }, []);
 
-  const onPointerUp = useCallback((e) => {
+  const onPointerUp = useCallback(() => {
     const d = dragRef.current;
     if (!d.active) return;
     d.active = false;
     containerRef.current?.classList.remove("rt-interacting");
     try { d.target?.releasePointerCapture?.(d.pointerId); } catch { /* noop */ }
     if (d.moved) {
-      setCam((c) => ({ z: c.z, x: d.liveX, y: d.liveY }));
-      // Le clic qui SUIT un pan (même geste) doit rester avalé par onBuy →
-      // on ne réarme qu'à la tâche suivante (le click est dispatché avant les
-      // timers). Sans ça, `moved` restait vrai jusqu'au prochain pointerdown
-      // et bloquait l'activation CLAVIER (Entrée/Espace) après un pan.
+      if (layersRef.current) layersRef.current.style.transform = "";
+      if (d.live) setCam(d.live);
+      // Le clic qui SUIT un pan reste avalé par onBuy ; on réarme à la tâche
+      // suivante (le click est dispatché avant les timers).
       setTimeout(() => { d.moved = false; }, 0);
     }
-    void e;
   }, []);
 
   // Réglage des ancres : `window.__ruinsAnchors = true` → un clic journalise
-  // les coordonnées dans le REPÈRE DE L'ART de Raphaël (celui d'anchors.js,
-  // l'offset de la fresque élargie est déjà soustrait).
+  // les coordonnées SOURCE de l'illustration (celles d'anchors.js).
   const onWorldClick = useCallback((e) => {
     if (!window.__ruinsAnchors) return;
     const rect = worldRef.current?.getBoundingClientRect();
     if (!rect || rect.width === 0) return;
-    const sx = Math.round(((e.clientX - rect.left) / rect.width) * TREE_ART.w) - (TREE_ART.artOffsetX || 0);
-    const sy = Math.round(((e.clientY - rect.top) / rect.height) * TREE_ART.h);
-    console.log(`[ancres] repère art: [${sx}, ${sy}]`);
+    const sx = Math.floor(((e.clientX - rect.left) / rect.width) * ART_W);
+    const sy = Math.floor(((e.clientY - rect.top) / rect.height) * ART_H);
+    console.log(`[ancres] source: { x: ${sx}, y: ${sy} }`);
   }, []);
 
+  // ── Achat : la sève coule du cœur de braise jusqu'au nœud ─────────────────
   const onBuy = useCallback((id) => {
     if (dragRef.current.moved) return;
+    const st = sapStRef.current;
+    const chain = [];
+    for (let k = id; k && k !== "hub" && SAP_PATHS[k] && !st.lit.has(k); k = SAP_PATHS[k][0]) chain.unshift(k);
+    const u = upgradeById[id];
+    const cost = DOGMA_IDS.has(id) ? 0 : ruinNodeCost(u);
     buyUpgrade(id);
-    if (has(id)) {
-      const u = upgradeById[id];
-      setJustBought(id);
-      setLiveMsg(tr({ fr: `${u?.name || id} acquis.`, en: `${u?.name || id} acquired.` }));
-      clearTimeout(justBoughtTimerRef.current);
-      justBoughtTimerRef.current = setTimeout(() => setJustBought((cur) => (cur === id ? null : cur)), 520);
+    if (!has(id)) return;
+    let t = performance.now();
+    for (const e of chain) {
+      const dur = st.still ? 1 : 180 + (SAP_PATHS[e][1].length / 2) * 7;
+      st.anim.set(e, { t0: t, dur });
+      t += dur;
     }
-  }, []);
+    const arrive = Math.max(0, t - performance.now());
+    later(() => {
+      setJustBought(id);
+      later(() => setJustBought((cur) => (cur === id ? null : cur)), 560);
+    }, arrive);
+    if (cost > 0) {
+      const key = `${id}-${Date.now()}`;
+      setFloats((f) => [...f, { key, id, text: `−${fmt(cost)}` }]);
+      later(() => setFloats((f) => f.filter((x) => x.key !== key)), 950);
+    }
+    setLiveMsg(tr({ fr: `${u?.name || id} acquis.`, en: `${u?.name || id} acquired.` }));
+  }, [later]);
 
-  const onHover = useCallback((vm, evt) => {
+  const onHover = useCallback((vm) => {
     if (!vm) {
-      setTip(null);
+      setTip((t) => (t?.pinned ? t : null));
       setHoveredId(null);
       return;
     }
     if (dragRef.current.active && dragRef.current.moved) return;
-    const rect = containerRef.current?.getBoundingClientRect();
-    const cx = evt && rect ? evt.clientX - rect.left : 0;
-    const cy = evt && rect ? evt.clientY - rect.top : 0;
-    setTip({
-      ...vm.tip,
-      left: cx,
-      top: cy,
-      flip: rect ? cx > rect.width * 0.62 : false,
-    });
+    setTip({ id: vm.id, pinned: false });
     setHoveredId(vm.id);
   }, []);
 
+  // ── Rendu ─────────────────────────────────────────────────────────────────
+  const levels = zoomLevels(view);
+  const camEff = cam && levels.some((x) => sameLevel(x, cam.s)) ? cam : null;
+  const { s, tx, ty } = resolveCam(camEff, view);
+  const k = Math.max(0.6, Math.min(1, s / PIXEL_LAYOUT.REF_SCALE)); // médaillons plus petits sous ×3
+  const toLeft = (x) => Math.round(tx + (x + 0.5) * s);
+  const toTop = (y) => Math.round(ty + (y + 0.5) * s);
+  const focus = hoverFocus || pinned;
+
   // Exclusions : le jumeau du nœud/dogme survolé est mis en évidence.
-  const activeExclusions = hoveredId
-    ? layout.exclusionLinks.filter((l) => l.ids.includes(hoveredId))
-    : [];
   const conflictIds = new Set();
-  for (const l of activeExclusions) {
-    for (const id of l.ids) if (id !== hoveredId) conflictIds.add(id);
+  if (hoveredId) {
+    for (const l of layout.exclusionLinks) {
+      if (!l.ids.includes(hoveredId)) continue;
+      for (const id of l.ids) if (id !== hoveredId) conflictIds.add(id);
+    }
   }
 
   const nodeVMs = layout.nodes.map((n) => {
@@ -341,6 +435,8 @@ export default function RuinsTreePixel() {
     else if (!isUnlocked(u)) { statusLine = tr({ fr: "Verrouillé jusqu'aux cycles suivants", en: "Locked until later cycles" }); statusKind = "locked"; }
     else { statusLine = tr({ fr: "Pas assez de ruines", en: "Not enough ruins" }); statusKind = "cost"; }
 
+    // « locked » (palier fermé, cycles) = un BOURGEON ; « cost » = palier ouvert,
+    // il ne manque que les Ruines.
     const costText = status === "purchased" ? null : `${fmt(ruinNodeCost(u))}`;
 
     return {
@@ -349,22 +445,14 @@ export default function RuinsTreePixel() {
       branch: n.branch,
       capstone: n.capstone,
       status,
-      icon: iconFor(u, n.branch),
-      x: n.x,
-      y: n.y,
-      size: 2 * n.r,
-      font: n.r * (n.capstone ? 1.04 : 0.94),
+      left: toLeft(n.x),
+      top: toTop(n.y),
       bought: justBought === n.id,
       conflict: conflictIds.has(n.id),
-      aria: [u?.name || n.id, tr(STATUS_LABEL[status]), costText].filter(Boolean).join(", "),
-      tip: {
-        branch: n.branch,
-        name: u?.name || n.id,
-        effect: u?.effect || "",
-        costText,
-        statusLine,
-        statusKind,
-      },
+      dim: !!focus && focus !== n.branch,
+      cost: ruinNodeCost(u),
+      aria: [u?.name || n.id, tr(STATUS_LABEL[status] || STATUS_LABEL.locked), costText].filter(Boolean).join(", "),
+      tip: { branch: n.branch, name: u?.name || n.id, effect: u?.effect || "", costText, statusLine, statusKind },
     };
   });
 
@@ -388,37 +476,107 @@ export default function RuinsTreePixel() {
       branch: d.branch,
       capstone: false,
       status,
-      icon: iconFor(u, d.branch),
-      x: d.x,
-      y: d.y,
-      size: 2 * d.r,
-      font: d.r * 0.86,
+      left: toLeft(d.x),
+      top: toTop(d.y),
       bought: justBought === d.id,
       conflict: conflictIds.has(d.id),
+      dim: !!focus && focus !== d.branch,
+      cost: 0,
       aria: `${u?.name || d.id}, ${statusLine}`,
-      tip: {
-        branch: d.branch,
-        name: u?.name || d.id,
-        effect: u?.effect || "",
-        costText: null,
-        statusLine,
-        statusKind: dStatusKind,
-      },
+      tip: { branch: d.branch, name: u?.name || d.id, effect: u?.effect || "", costText: null, statusLine, statusKind: dStatusKind },
     };
   });
 
-  // Ligne de sol écran (le fond du conteneur y coud ciel et sous-sol) —
-  // recalculée à chaque render (zoom/pan figé) et suivie en direct pendant le
-  // drag (cf. onPointerMove).
-  const camXClamped = clampAxis(resolveCamX(cam, view.w), WORLD_W * fitScale * cam.z, view.w);
-  const camYClamped = clampAxis(cam.y, WORLD_H * fitScale * cam.z, view.h);
-  const groundPx = groundStop(camYClamped, fitScale * cam.z);
+  const allVMs = [...nodeVMs, ...dogmaVMs];
+  const vmById = Object.fromEntries(allVMs.map((vm) => [vm.id, vm]));
+  const availIds = allVMs.filter((vm) => vm.status === "available").map((vm) => vm.id);
+
+  // Veines : un nœud acquis allume toute sa lignée ; un nœud à prendre tire un
+  // fil continu, atténué, depuis la dernière veine allumée.
+  const lit = new Set();
+  for (const id of Object.keys(SAP_PATHS)) {
+    if (!has(id)) continue;
+    for (let k2 = id; k2 && k2 !== "hub" && SAP_PATHS[k2]; k2 = SAP_PATHS[k2][0]) lit.add(k2);
+  }
+  const pending = new Set();
+  for (const id of availIds) {
+    for (let k2 = id; k2 && k2 !== "hub" && SAP_PATHS[k2] && !lit.has(k2); k2 = SAP_PATHS[k2][0]) pending.add(k2);
+  }
+  useEffect(() => {
+    const st = sapStRef.current;
+    st.lit = lit;
+    st.pending = pending;
+    st.focus = focus;
+  });
+
+  // Registre : une plaque par branche.
+  const branches = REGISTRY_ORDER.map((bid) => {
+    const def = PRESTIGE_TREE_BRANCHES.find((b) => b.id === bid);
+    const nodes = PRESTIGE_TREE.filter((n) => n.branch === bid);
+    const tiers = def.tiers.map((ids, t) => ({ open: tierOpen(bid, t), own: ids.filter((id) => has(id)).length, size: ids.length }));
+    const firstClosed = tiers.findIndex((t) => !t.open);
+    return {
+      id: bid,
+      capId: CAP_OF[bid],
+      owned: nodes.filter((n) => has(n.id)).length,
+      total: nodes.length,
+      tiers,
+      firstClosed,
+      gate: firstClosed > 0 ? { have: ownedInBranchBelowTier(bid, firstClosed), need: UNLOCK[bid][firstClosed] } : null,
+      avail: availIds.filter((id) => BRANCH_OF[id] === bid).length,
+    };
+  });
+  // Sur l'arbre : seulement la PROCHAINE porte fermée de chaque branche.
+  const gates = branches
+    .filter((b) => b.gate)
+    .map((b) => {
+      const g = layout.gates.find((x) => x.branch === b.id && x.tier === b.firstClosed);
+      return g ? { key: `${b.id}:${b.firstClosed}`, branch: b.id, left: toLeft(g.x), top: toTop(g.y), text: `${b.gate.have}/${b.gate.need}` } : null;
+    })
+    .filter(Boolean);
+
+  const onPin = (bid) => {
+    if (pinned === bid) { setPinned(null); setCam(null); return; }
+    setPinned(bid);
+    frameIds(Object.keys(layout.pos).filter((id) => BRANCH_OF[id] === bid));
+  };
+
+  const onNextBuy = () => {
+    const list = [...availIds].sort((a, b) => vmById[a].cost - vmById[b].cost);
+    if (!list.length) return;
+    nextCursorRef.current = (nextCursorRef.current + 1) % list.length;
+    const id = list[nextCursorRef.current];
+    const p = layout.pos[id];
+    const L = zoomLevels(viewRef.current);
+    const s1 = L[Math.min(1, L.length - 1)];
+    setCam({ s: s1, cx: p.x, cy: p.y });
+    setTip({ id, pinned: true });
+    setHoveredId(id);
+  };
+
+  // Bulle : à côté du médaillon, retournée dans le tiers droit de la vue.
+  let tipData = null;
+  if (tip && vmById[tip.id]) {
+    const vm = vmById[tip.id];
+    const flip = vm.left > view.w * 0.62;
+    const r = (vm.capstone ? PIXEL_LAYOUT.CAPSTONE_R : PIXEL_LAYOUT.NODE_R) * k;
+    tipData = { ...vm.tip, left: vm.left + (flip ? -r : r), top: vm.top - 30, flip };
+  }
+
+  const strips = ready?.strips;
+  const artW = ART_W * s, artH = ART_H * s;
 
   return (
     <div
-      className={`rtp-stage${cam.z > 1 ? " is-zoomed" : ""}`}
+      className={`rtp-stage${focus ? " has-focus" : ""}`}
       ref={containerRef}
-      style={{ "--rtp-ground": `${groundPx}px` }}
+      style={{
+        "--rt-ty": `${ty}px`,
+        "--rt-my": `${ty + artH / 2}px`,
+        "--rt-top": strips?.top,
+        "--rt-bottom": strips?.bottom,
+        "--rt-k": k.toFixed(3),
+      }}
       onPointerDown={onPointerDown}
       onPointerMove={onPointerMove}
       onPointerUp={onPointerUp}
@@ -426,83 +584,74 @@ export default function RuinsTreePixel() {
     >
       <RuinsUsureSync targetRef={containerRef} />
       <div className="sr-only" aria-live="polite" role="status">{liveMsg}</div>
+
+      {/* Les bords de l'illustration se prolongent : aucune couture visible. */}
+      {strips && tx > 0 && (
+        <>
+          <div className="rtp-edge" aria-hidden="true" style={{ left: 0, width: `${tx}px`, backgroundImage: `url(${strips.left})`, backgroundSize: `${s}px ${artH}px` }} />
+          <div className="rtp-edge" aria-hidden="true" style={{ left: `${tx + artW}px`, right: 0, backgroundImage: `url(${strips.right})`, backgroundSize: `${s}px ${artH}px` }} />
+        </>
+      )}
+
       <div
         className="rt-world"
         ref={worldRef}
-        style={{
-          width: `${WORLD_W}px`,
-          height: `${WORLD_H}px`,
-          transform: `translate(${camXClamped}px, ${camYClamped}px) scale(${fitScale * cam.z})`,
-        }}
+        style={{ width: `${ART_W}px`, height: `${ART_H}px`, transform: `translate(${tx}px, ${ty}px) scale(${s})` }}
         onClick={onWorldClick}
       >
-        {/* L'œuvre : l'arbre peint, agrandi en pixels nets. */}
-        <img
-          className="rtp-art"
-          src={TREE_ART.src}
-          alt=""
-          aria-hidden="true"
-          draggable="false"
-          width={WORLD_W}
-          height={WORLD_H}
-        />
-        {/* Particules ambiantes (braises + cendres), résolution source. */}
-        <canvas
-          className="rtp-fx"
-          ref={fxCanvasRef}
-          width={TREE_ART.w}
-          height={TREE_ART.h}
-          aria-hidden="true"
-        />
-
-        {/* Portes de palier : compteur n/m tant que le palier est fermé. */}
-        {layout.gates.map((g) => {
-          if (tierOpen(g.branch, g.tier)) return null;
-          const ownedBelow = ownedInBranchBelowTier(g.branch, g.tier);
-          return (
-            <div
-              key={`gate-${g.branch}-${g.tier}`}
-              className="rtp-gate"
-              style={{ left: `${g.x}px`, top: `${g.y}px` }}
-              aria-hidden="true"
-            >
-              {ownedBelow}/{g.need}
-            </div>
-          );
-        })}
-
-        {/* Calque des nœuds HTML (boutons accessibles), posés LE LONG des branches. */}
-        {nodeVMs.map((vm) => (
-          <TreeNode key={vm.id} vm={vm} onHover={onHover} onBuy={onBuy} />
-        ))}
-        {dogmaVMs.map((vm) => (
-          <TreeNode key={vm.id} vm={vm} onHover={onHover} onBuy={onBuy} />
-        ))}
-
-        {/* Le compteur de ruines vit SUR le fruit de braise (cœur du tronc). */}
-        <div className="rt-hub rt-hub--core" style={{ left: `${layout.hub.x}px`, top: `${layout.hub.y}px` }}>
-          <strong className="rt-hub-count">{fmt(ruins)}</strong>
-        </div>
+        <canvas className="rtp-art" ref={artRef} width={ART_W} height={ART_H} aria-hidden="true" />
+        <canvas className="rtp-sap" ref={sapRef} width={ART_W} height={ART_H} aria-hidden="true" />
       </div>
 
-      {/* Titre en surimpression (plus de panneau ni de cadre autour de la vue). */}
-      <div className="rtp-title" aria-hidden="true">{tr({ fr: "Mémoire des Ruines", en: "Memory of the Ruins" })}</div>
+      {/* Calques ÉCRAN : portes, médaillons, chiffres d'achat. */}
+      <div className="rtp-layers" ref={layersRef}>
+        {gates.map((g) => (
+          <span
+            key={g.key}
+            className={`rtp-gate${focus && focus !== g.branch ? " rt-dim" : ""}`}
+            style={{ left: `${g.left}px`, top: `${g.top}px`, "--b-rgb": SAP_COLORS[g.branch].mid.join(", ") }}
+            aria-hidden="true"
+          >
+            <img src="/pixelart/ui/glyphs/verrou@16.png" alt="" draggable="false" />
+            {g.text}
+          </span>
+        ))}
+        {allVMs.map((vm) => (
+          <TreeNode key={vm.id} vm={vm} onHover={onHover} onBuy={onBuy} />
+        ))}
+        {floats.map((f) => vmById[f.id] && (
+          <span key={f.key} className="rtp-float" style={{ left: `${vmById[f.id].left}px`, top: `${vmById[f.id].top - 26}px` }} aria-hidden="true">
+            {f.text}
+          </span>
+        ))}
+      </div>
+
+      <div ref={registryRef} className="rt-registry-slot" onPointerDown={(e) => e.stopPropagation()}>
+        <RuinsRegistry
+          ruins={ruins}
+          availCount={availIds.length}
+          onNextBuy={onNextBuy}
+          branches={branches}
+          focus={focus}
+          pinned={pinned}
+          onFocus={setHoverFocus}
+          onPin={onPin}
+        />
+      </div>
 
       <div className="rt-zoom-controls" onPointerDown={(e) => e.stopPropagation()}>
-        <button type="button" className="rt-zoom-btn" aria-label={tr({ fr: "Zoom avant", en: "Zoom in" })}
-          onClick={() => zoomAt(1.4, view.w / 2, view.h / 2)}>
+        <button type="button" className="rt-zoom-btn" aria-label={tr({ fr: "Zoom avant", en: "Zoom in" })} onClick={() => zoomStep(1)}>
           <i className="fa-solid fa-plus" aria-hidden="true" />
         </button>
-        <button type="button" className="rt-zoom-btn" aria-label={tr({ fr: "Zoom arrière", en: "Zoom out" })}
-          onClick={() => zoomAt(1 / 1.4, view.w / 2, view.h / 2)}>
+        <button type="button" className="rt-zoom-btn" aria-label={tr({ fr: "Zoom arrière", en: "Zoom out" })} onClick={() => zoomStep(-1)}>
           <i className="fa-solid fa-minus" aria-hidden="true" />
         </button>
-        <button type="button" className="rt-zoom-btn" aria-label={tr({ fr: "Recentrer la vue", en: "Recenter view" })} onClick={resetCam}>
+        <button type="button" className="rt-zoom-btn" aria-label={tr({ fr: "Vue entière", en: "Whole tree" })} onClick={() => { setPinned(null); setCam(null); }}>
           <i className="fa-solid fa-expand" aria-hidden="true" />
         </button>
       </div>
 
-      <NodeTooltip data={tip} />
+      <NodeTooltip data={tipData} />
     </div>
   );
 }

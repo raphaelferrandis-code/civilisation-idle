@@ -1,11 +1,9 @@
 "use strict";
 
 // Layout de l'Arbre des Ruines PEINT : projette les ancres posées à la main sur
-// l'illustration (anchors.js, px SOURCE) vers le monde affiché (px MONDE =
-// source × TREE_ART.scale). Pur et déterministe — aucun calcul de géométrie :
-// la composition EST l'illustration, ce module ne fait que filtrer (visibilité)
-// et convertir les unités. Remplace l'ancien layout radial (layout.js, conservé
-// pour référence tant que la transition n'est pas actée).
+// l'illustration (anchors.js) en positions SOURCE (px de l'image). Pur et
+// déterministe — la composition EST l'illustration, ce module ne fait que
+// filtrer (visibilité) et rassembler. L'écran multiplie par le zoom entier.
 import {
   PRESTIGE_TREE,
   PRESTIGE_TREE_BRANCHES,
@@ -21,14 +19,8 @@ import {
   GATE_ANCHORS,
 } from "./anchors.js";
 
-const S = TREE_ART.scale;
-// Les ancres sont posées dans le repère de l'ART de Raphaël (320×400) ; la
-// fresque élargie le centre à artOffsetX → converti ici, une fois pour toutes.
-const OX = TREE_ART.artOffsetX || 0;
-
 // Invariant dev-only : chaque nœud/dogme des DONNÉES doit avoir une ancre —
-// un id ajouté sans ancre casserait silencieusement (nœud invisible). Même
-// pattern que le garde-fou des ids de bâtiments dans production.js.
+// un id ajouté sans ancre casserait silencieusement (nœud invisible).
 if (import.meta.env?.DEV) {
   for (const node of PRESTIGE_TREE) {
     if (!NODE_ANCHORS[node.id]) throw new Error(`Ancre manquante pour le nœud de ruines "${node.id}" (anchors.js).`);
@@ -43,46 +35,45 @@ if (import.meta.env?.DEV) {
   }
 }
 
+// Rayons en px SOURCE (les rayons d'anchors.js sont en px écran au zoom de référence).
+const toSrc = (r) => r / PIXEL_LAYOUT.REF_SCALE;
+
 export function computePixelTreeLayout(visibleIds, options = {}) {
   const dogmaDefs = options.dogmas || PRESTIGE_DOGMAS;
 
   const nodes = [];
-  const pos = {}; // id → {x, y} monde (fils d'exclusion, tooltips)
+  const pos = {}; // id → {x, y} source (fils d'exclusion, bulles)
 
   for (const node of PRESTIGE_TREE) {
     if (!visibleIds.has(node.id)) continue;
     const a = NODE_ANCHORS[node.id];
     if (!a) continue;
-    const x = (a.x + OX) * S;
-    const y = a.y * S;
     nodes.push({
       id: node.id,
       branch: node.branch,
       tier: node.tier,
-      x,
-      y,
-      r: node.capstone ? PIXEL_LAYOUT.CAPSTONE_R : PIXEL_LAYOUT.NODE_R,
+      x: a.x,
+      y: a.y,
+      r: toSrc(node.capstone ? PIXEL_LAYOUT.CAPSTONE_R : PIXEL_LAYOUT.NODE_R),
       capstone: node.capstone,
     });
-    pos[node.id] = { x, y };
+    pos[node.id] = { x: a.x, y: a.y };
   }
 
   const dogmas = [];
   for (const d of dogmaDefs) {
     const a = DOGMA_ANCHORS[d.id];
     if (!a) continue;
-    const x = (a.x + OX) * S;
-    const y = a.y * S;
     dogmas.push({
       id: d.id,
       branch: d.branch,
       requiredPurchases: d.requiredPurchases,
       tier: d.tier,
-      x,
-      y,
-      r: PIXEL_LAYOUT.DOGMA_R,
+      x: a.x,
+      y: a.y,
+      r: toSrc(PIXEL_LAYOUT.DOGMA_R),
     });
-    pos[d.id] = { x, y };
+    pos[d.id] = { x: a.x, y: a.y };
   }
 
   // Portes de palier : une par (branche, palier ≥ 1) — le compteur n/m vit là.
@@ -91,7 +82,7 @@ export function computePixelTreeLayout(visibleIds, options = {}) {
     for (let t = 1; t < branch.tiers.length; t++) {
       const g = GATE_ANCHORS[`${branch.id}:${t}`];
       if (!g) continue;
-      gates.push({ branch: branch.id, tier: t, x: (g.x + OX) * S, y: g.y * S, need: branch.unlock?.[t] ?? 0 });
+      gates.push({ branch: branch.id, tier: t, x: g.x, y: g.y, need: branch.unlock?.[t] ?? 0 });
     }
   }
 
@@ -114,7 +105,7 @@ export function computePixelTreeLayout(visibleIds, options = {}) {
     gates,
     exclusionLinks,
     pos,
-    hub: { x: (HUB_ANCHOR.x + OX) * S, y: HUB_ANCHOR.y * S },
-    size: { w: TREE_ART.w * S, h: TREE_ART.h * S },
+    hub: { x: HUB_ANCHOR.x, y: HUB_ANCHOR.y },
+    size: { w: TREE_ART.w, h: TREE_ART.h },
   };
 }

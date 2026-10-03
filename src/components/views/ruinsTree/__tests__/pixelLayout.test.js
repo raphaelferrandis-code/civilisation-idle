@@ -1,8 +1,8 @@
 "use strict";
-// Invariants du layout PEINT de l'Arbre des Ruines (Phase C — ancres posées à
-// la main sur l'illustration). Garantit qu'aucun nœud n'est orphelin d'ancre,
-// que les veines ARRIVENT bien à leur nœud (la braise coule jusqu'au médaillon),
-// que rien ne se chevauche et que tout reste dans les bornes de l'œuvre.
+// Invariants du layout PEINT de l'Arbre des Ruines (ancres posées à la main sur
+// l'illustration, en px SOURCE). Garantit qu'aucun nœud n'est orphelin d'ancre,
+// que rien ne se chevauche (rayons écran au zoom de référence ramenés en px
+// source) et que tout reste dans les bornes de l'œuvre.
 
 import { describe, it, expect } from "vitest";
 import { computePixelTreeLayout } from "../pixelLayout.js";
@@ -14,7 +14,6 @@ import {
 } from "../../../../game/data/upgrades.js";
 
 const allIds = new Set(PRESTIGE_TREE.map((n) => n.id));
-const S = TREE_ART.scale;
 
 describe("Layout peint — bijection des ancres", () => {
   it("ancre chaque nœud des données (et rien d'autre)", () => {
@@ -41,8 +40,8 @@ describe("Layout peint — géométrie", () => {
       expect(Number.isFinite(p.x) && Number.isFinite(p.y), p.id || "hub").toBe(true);
       expect(p.x, p.id || "hub").toBeGreaterThanOrEqual(0);
       expect(p.y, p.id || "hub").toBeGreaterThanOrEqual(0);
-      expect(p.x, p.id || "hub").toBeLessThanOrEqual(TREE_ART.w * S);
-      expect(p.y, p.id || "hub").toBeLessThanOrEqual(TREE_ART.h * S);
+      expect(p.x, p.id || "hub").toBeLessThanOrEqual(TREE_ART.w);
+      expect(p.y, p.id || "hub").toBeLessThanOrEqual(TREE_ART.h);
     }
   });
 
