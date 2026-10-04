@@ -32,7 +32,7 @@ import { tipProps } from '../ui/HelpBubble.jsx';
  * la poignée de la Cité : les deux endroits annoncent les mêmes chiffres.
  */
 
-const RES_ICON = { food: 'res/food', gold: 'res/gold', knowledge: 'res/knowledge', infrastructure: 'res/infra' };
+const RES_ICON = { food: 'res/food', gold: 'res/gold', knowledge: 'res/knowledge', infrastructure: 'res/infra', ruins: 'glyphs/ruines' };
 
 // Échelle commune des pistes de dossier : 75 % de pression = piste pleine (le
 // plus haut plafond doux d'une source, cf. pressure.js).

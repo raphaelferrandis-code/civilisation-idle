@@ -1,6 +1,6 @@
 import { useEffect, useRef } from 'react';
 import { useGameState } from '../../hooks/useGameState.js';
-import { pressureBreakdown } from '../../game/core/mechanics.js';
+import { pressureBreakdown, regulFatigueEffectMult } from '../../game/core/mechanics.js';
 import { runCrisisAction, togglePolicy } from '../../game/core/actions.js';
 import { openAuguryTable } from '../../game/core/auguryTable.js';
 import { costLabel, canPayCost, pct, fmt } from '../../game/core/utils.js';
@@ -87,7 +87,8 @@ function RegulButton({ a, label, btnClass }) {
         </span>
         <span className="regul-btn-line regul-btn-sub">
           <span className="regul-reform-tag">
-            {a.atCap ? tr({ fr: '✓ réformé au max', en: '✓ reformed to max' }) : `−${Math.round(a.durableAdd * 100)}% ${tr({ fr: 'durable', en: 'lasting' })}`}
+            {/* × la fatigue de régulation, comme le Conseil et le moteur au dépôt. */}
+            {a.atCap ? tr({ fr: '✓ réformé au max', en: '✓ reformed to max' }) : `−${Math.round(a.durableAdd * regulFatigueEffectMult() * 100)}% ${tr({ fr: 'durable', en: 'lasting' })}`}
           </span>
         </span>
       </button>

@@ -49,6 +49,7 @@ import {
 } from '../../game/core/shortcuts.js';
 import { tipProps } from '../ui/HelpBubble.jsx';
 import HelpBook from './HelpBook.jsx';
+import DraftNumberInput from '../ui/DraftNumberInput.jsx';
 
 // Libellé d'un réglage. Son explication passe en INFOBULLE : règle de DA du
 // 2026-10-03 (Raph) — aucune phrase d'explication à l'écran, les mécanismes du
@@ -1176,13 +1177,12 @@ export default function OptionsDialog({ isOpen, onClose, onSave, onExport, onImp
                   <div>
                     <span className="auto-script-label">{r.label}</span>
                     <div className="auto-script-threshold">
-                      <input
-                        type="number"
+                      <DraftNumberInput
                         className="auto-script-input"
                         value={r.threshold}
                         min={r.type === 'time' ? AUTO_COLLAPSE_MIN_SECONDS / 60 : 1}
                         max="9999"
-                        onChange={(e) => handleAutoScriptThreshold(r.id, e.target.value)}
+                        onCommit={(raw) => handleAutoScriptThreshold(r.id, raw)}
                       />
                       <span className="auto-script-unit">{r.unit}</span>
                     </div>
