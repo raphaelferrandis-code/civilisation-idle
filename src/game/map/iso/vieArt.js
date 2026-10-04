@@ -505,7 +505,10 @@ export function mistStrand(seed, dx, dy, len, dens, wide = 1) {
 // L'ancienne fumée posait des CARRÉS qui grossissaient. Une bouffée pixel art est
 // un disque éclairé en haut à gauche (la lumière du jeu) et ombré en bas à droite,
 // au bord tramé (un pixel sur deux) pour qu'il se fonde sans devenir flou.
-export function puffSprite(r) {
+// `pal` = [éclairé, milieu, ombre] : la fumée blanche des cheminées par défaut, la
+// SUIE des incendies de crise (isoAmbient, drawIsoCrisisSmoke) en sombre.
+const PUFF_WHITE = [[244, 242, 236], [222, 220, 214], [190, 190, 188]];
+export function puffSprite(r, pal = PUFF_WHITE) {
   const R = Math.max(1, Math.round(r)), w = R * 2 + 1, h = R * 2 + 1;
   const data = new Uint8ClampedArray(w * h * 4);
   for (let y = 0; y < h; y += 1) {
@@ -516,7 +519,7 @@ export function puffSprite(r) {
       const rim = d > 0.7 && R > 1;
       if (rim && ((x + y) & 1)) continue;
       const lit = dx + dy < -R * 0.5, shade = dx + dy > R * 0.6;
-      const c = lit ? [244, 242, 236] : shade ? [190, 190, 188] : [222, 220, 214];
+      const c = lit ? pal[0] : shade ? pal[2] : pal[1];
       const i = (y * w + x) * 4;
       data[i] = c[0]; data[i + 1] = c[1]; data[i + 2] = c[2]; data[i + 3] = rim ? 170 : 225;
     }

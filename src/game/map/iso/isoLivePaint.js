@@ -38,7 +38,7 @@ import {
 import {
   drawPixelHouse, drawPixelHouseOutline, drawPixelHouseSunShadow, pixelHouseBox, pixelHouseReady,
 } from '../pixelHouses.js';
-import { drawIsoRevealPin, drawIsoSmoke } from './isoAmbient.js';
+import { drawIsoCrisisSmoke, drawIsoRevealPin, drawIsoSmoke } from './isoAmbient.js';
 import { vieTreeSway } from './isoVie.js';
 import { isoArt } from './isoArt.js';
 import { drawIsoBridgeSeg } from './isoBridge.js';
@@ -500,6 +500,13 @@ export function paintIsoItems(bake, items, now) {
       // MÊME appel de géométrie que le dessin du sprite : la source de la fumée
       // se recale donc automatiquement sur tout changement de cadrage du sprite.
       drawIsoSmoke(pixelHouseBox(t, anchor.x - wpx / 2, anchor.y - wpx - hh * 0.5, wpx, wpx), t._smokeS, now, smokeK);
+    } else if (it.kind === 'crisissmoke') {
+      // Même géométrie que la cheminée ci-dessus (la boîte RÉELLE du sprite).
+      const t = it.t;
+      const spanX = t.spanX || t.size || 1, spanY = t.spanY || t.size || 1;
+      const anchor = worldToScreen((t.gx + spanX) * T, (t.gy + spanY) * T);
+      const wpx = (spanX + spanY) * T * z * ISO_X * 0.78;
+      drawIsoCrisisSmoke(pixelHouseBox(t, anchor.x - wpx / 2, anchor.y - wpx - hh * 0.5, wpx, wpx), t._crisisS, now);
     } else if (it.kind === 'revealpin') {
       const t = it.t;
       const spanX = t.spanX || t.size || 1, spanY = t.spanY || t.size || 1;

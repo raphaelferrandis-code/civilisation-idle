@@ -198,3 +198,15 @@ export function rates(vitals = cityVitals(), pressure = pressureBreakdown(), for
   renderCache._frameRatesVer = renderCache.frameVersion;
   return baseRates;
 }
+
+// LA cible de Rupture : le niveau vers lequel la jauge dérive au tick (tick.js lit
+// rates().instability). Source UNIQUE de tous les repères de cible — jauge de la
+// Cité, Veille, Conseil, pastille « Rupture visée » des crises. Ils lisaient
+// pressureBreakdown().total, qui ignore l'apaisement de l'abondance et les
+// multiplicateurs (Icare, Babel, Cadmos, épitaphe, plafond de l'Âge d'Or) : le
+// fantôme pouvait annoncer 80 % pendant que la jauge filait vers 100.
+// NON bornée à 1 (« Rupture visée : 104 % » est une information) : chaque jauge
+// borne elle-même son repère.
+export function ruptureTarget() {
+  return Math.max(0, rates().instability || 0);
+}

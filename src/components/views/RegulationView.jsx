@@ -1,5 +1,5 @@
 import { useGameState } from '../../hooks/useGameState.js';
-import { pressureBreakdown, ruinEffectSum, regulFatigueEffectMult } from '../../game/core/mechanics.js';
+import { pressureBreakdown, ruptureTarget, ruinEffectSum, regulFatigueEffectMult } from '../../game/core/mechanics.js';
 import { runCrisisAction, togglePolicy } from '../../game/core/actions.js';
 import { openAuguryTable } from '../../game/core/auguryTable.js';
 import { canPayCost, fmt, pct } from '../../game/core/utils.js';
@@ -213,17 +213,21 @@ function EqTerm({ label, value, cls = '', tip }) {
 // qu'elles ABSORBENT (au plus ce qui arrive) et non leur capacité : la cible
 // est max(0, foyers × théocratie − institutions) + démesure, et une capacité
 // supérieure aux foyers ferait mentir la soustraction.
-function Equation({ p, g, foyersSum }) {
+// Le dernier terme (« autres ») ferme l'équation sur la VRAIE cible (ruptureTarget) :
+// l'apaisement de l'abondance et les multiplicateurs de mythes/legs s'appliquent
+// APRÈS la pression — sans lui, « = cible » mentait dès qu'Icare ou Babel volait.
+function Equation({ p, g, foyersSum, target }) {
   const growth = g.ruptureGrowth || 1;
   const absorbed = Math.min(p.mitigation, foyersSum * growth);
+  const rest = target - p.total;
   const op = (o) => <span className="eq-op" aria-hidden="true">{o}</span>;
   return (
     <div
       className="conseil-equation"
       role="img"
       aria-label={tr({
-        fr: `Foyers ${pct(foyersSum)}, moins les institutions ${pct(absorbed)}, plus la démesure ${pct(p.demesure)} : cible ${pct(p.total)}`,
-        en: `Sources ${pct(foyersSum)}, minus institutions ${pct(absorbed)}, plus hubris ${pct(p.demesure)}: target ${pct(p.total)}`
+        fr: `Foyers ${pct(foyersSum)}, moins les institutions ${pct(absorbed)}, plus la démesure ${pct(p.demesure)} : cible ${pct(target)}`,
+        en: `Sources ${pct(foyersSum)}, minus institutions ${pct(absorbed)}, plus hubris ${pct(p.demesure)}: target ${pct(target)}`
       })}
     >
       <EqTerm
@@ -259,8 +263,22 @@ function Equation({ p, g, foyersSum }) {
           <EqTerm label={tr({ fr: 'démesure', en: 'hubris' })} value={pct(p.demesure)} cls="is-bad" />
         </>
       )}
+      {Math.abs(rest) >= 0.005 && (
+        <>
+          {op(rest > 0 ? '+' : '−')}
+          <EqTerm
+            label={tr({ fr: 'autres', en: 'other' })}
+            value={pct(Math.abs(rest))}
+            cls={rest > 0 ? 'is-bad' : 'is-good'}
+            tip={tr({
+              fr: "Apaisement de l'abondance, mythes (Icare, Babel, Cadmos, Âge d'Or) et legs de l'épitaphe",
+              en: 'Relief from abundance, myths (Icarus, Babel, Cadmus, Golden Age) and the epitaph legacy'
+            })}
+          />
+        </>
+      )}
       {op('=')}
-      <EqTerm label={tr({ fr: 'cible', en: 'target' })} value={pct(p.total)} cls={`is-result${p.total >= 1 ? ' is-over' : ''}`} />
+      <EqTerm label={tr({ fr: 'cible', en: 'target' })} value={pct(target)} cls={`is-result${target >= 1 ? ' is-over' : ''}`} />
     </div>
   );
 }
@@ -319,7 +337,9 @@ export default function RegulationView() {
   const values = [...foyers.map((f) => f.value), p.demesure, showStructural ? p.structural : 0];
   const heaviestValue = Math.max(...values);
   const isHeaviest = (v) => v >= 0.03 && v === heaviestValue;
-  const targetPos = Math.min(1, p.total) * 100;
+  // La VRAIE cible (celle vers laquelle dérive la jauge), pas la seule pression.
+  const target = ruptureTarget();
+  const targetPos = Math.min(1, target) * 100;
 
   return (
     <Place
@@ -335,8 +355,8 @@ export default function RegulationView() {
           <div
             className="place-key is-wide"
             {...tipProps(tr({ fr: 'Rupture', en: 'Rupture' }), tr({
-              fr: `Elle glisse vers sa cible : ${pct(p.total)}.`,
-              en: `It drifts toward its target: ${pct(p.total)}.`
+              fr: `Elle glisse vers sa cible : ${pct(target)}.`,
+              en: `It drifts toward its target: ${pct(target)}.`
             }))}
           >
             <span className="place-key-head">
@@ -348,15 +368,16 @@ export default function RegulationView() {
               <span className="tick" style={{ left: '25%' }} />
               <span className="tick" style={{ left: '50%' }} />
               <span className="tick" style={{ left: '75%' }} />
+              <span className="tick" style={{ left: '90%' }} />
               <span className="ghost" style={{ left: `${targetPos}%` }} />
             </span>
-            <span className="place-key-sub">{tr({ fr: 'cible', en: 'target' })} <b className={p.total >= 1 ? 'is-rupture' : ''}>{pct(p.total)}</b></span>
+            <span className="place-key-sub">{tr({ fr: 'cible', en: 'target' })} <b className={target >= 1 ? 'is-rupture' : ''}>{pct(target)}</b></span>
           </div>
           <PlaceKey label={tr({ fr: 'Institutions', en: 'Institutions' })} value={`−${pct(absorbed)}`} valueClassName="is-good" />
           <PlaceKey label={tr({ fr: 'Fatigue', en: 'Fatigue' })} value={`${Math.round(fatigue * 100)} %`} />
       </>}
     >
-      <Equation p={p} g={g} foyersSum={foyersSum} />
+      <Equation p={p} g={g} foyersSum={foyersSum} target={target} />
 
       <div className="conseil-dossiers">
         {foyers.map((f) => (

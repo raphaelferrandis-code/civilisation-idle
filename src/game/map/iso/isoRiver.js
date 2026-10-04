@@ -1085,7 +1085,8 @@ export function stepWaterPhase(prev, t, fps, drift, spatial) {
 }
 // ── QUATRE CORPS D'EAU, UN PAR ÉTAT DE LA PARTIE ────────────────────────────
 // Demande de Raph (2026-07-30) : le fleuve change de coloris selon ce que vit la
-// cité — azur quand tout va bien, turquoise quand l'usure monte, bleu pâle en
+// cité — azur quand tout va bien, turquoise quand l'usure monte (eau TROUBLE
+// depuis le 2026-10-04, cf. le coloris `usure`), bleu pâle en
 // hiver, ardoise sous l'averse. Coloris NATIFS du pack (`bakeWaterTiles --native`)
 // : ici la teinte EST l'information, la rabattre sur WATER la détruirait — c'est
 // l'exception assumée à la règle « la texture ne déplace pas le ton du fleuve ».
@@ -1136,10 +1137,18 @@ export const WATER_SHEETS = {
     shore: ['86,128,142', '112,150,158', '160,188,186'],
     quay: ['rgba(104,146,158,0.50)', 'rgba(170,198,196,0.55)'], wash: '120,168,184',
   },
+  // EAU TROUBLE (2026-10-04, analyse du visuel de crise, Raph : oui) : la cité en
+  // ruine avait le fleuve le plus VIF de l'écran (turquoise, éclats 207,255,255) —
+  // un lagon au pire moment. Même dessin, cinq couleurs remplacées par rôle
+  // (scripts/eauTrouble.mjs) : boue olive-brun presque sans saturation, reflets
+  // éteints ; liseré, bas-fond du quai et lavis de nuit suivent. Le turquoise reste
+  // sur le disque : `src: '/pixelart/water/river-tiles-calm-turquoise-v2.png'` avec
+  // pale '207,255,255', shore ['74,190,175','132,222,210','206,248,242'],
+  // quay ['rgba(110,200,188,0.50)','rgba(206,244,236,0.62)'], wash '80,220,205'.
   usure: {
-    src: '/pixelart/water/river-tiles-calm-turquoise-v2.png', pale: '207,255,255', dim: 0,
-    shore: ['74,190,175', '132,222,210', '206,248,242'],
-    quay: ['rgba(110,200,188,0.50)', 'rgba(206,244,236,0.62)'], wash: '80,220,205',
+    src: '/pixelart/water/river-tiles-calm-trouble-v2.png', pale: '126,124,98', dim: 0,
+    shore: ['94,97,76', '114,116,92', '148,150,120'],
+    quay: ['rgba(106,108,86,0.50)', 'rgba(148,150,120,0.60)'], wash: '124,124,100',
   },
   hiver: {
     src: '/pixelart/water/river-tiles-calm-hiver-v2.png', pale: '219,243,243', dim: 0,
@@ -1173,7 +1182,7 @@ if (typeof window !== 'undefined') window.__waterSheets = WATER_SHEETS;
 // contraste voulu d'une eau profonde. États DIRIGÉS, jamais d'interpolation
 // libre (la règle des saisons vaut ici aussi). S'additionne uniformément à
 // tous les coloris : l'averse reste plus sombre que le beau temps, l'usure
-// reste turquoise — les rapports entre humeurs ne bougent pas. En dessous de
+// reste trouble — les rapports entre humeurs ne bougent pas. En dessous de
 // la bande 5, zéro : l'azur validé des ères basses ne change pas d'un pixel.
 // Molette : window.__waterEra (p.ex. __waterEra[0] = [9, 0.3]).
 export const WATER_ERA_DIM = [
@@ -1187,7 +1196,7 @@ export function waterEraDim(band) {
 }
 if (typeof window !== 'undefined') window.__waterEra = WATER_ERA_DIM;
 // PRIORITÉ : averse > hiver > usure > beau fixe. La précipitation et la saison
-// habillent TOUTE la scène (sol enneigé, voile de pluie) — un fleuve turquoise au
+// habillent TOUTE la scène (sol enneigé, voile de pluie) — un fleuve trouble au
 // milieu d'une carte blanche se lirait comme un bug, alors que l'usure, elle, se
 // lit ailleurs (bâtiments, palette). Et l'averse ne peut pas entrer en conflit
 // avec l'hiver : en hiver elle tombe en NEIGE (precipKind), donc `snow` coupe la

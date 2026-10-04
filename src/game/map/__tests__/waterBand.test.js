@@ -28,7 +28,7 @@ describe("coloris du fleuve selon l'état", () => {
     expect(waterBandKey({ winter: true, rainF: 1, snow: true })).toBe('hiver');
   });
 
-  it("turquoise quand l'usure est haute", () => {
+  it("eau trouble quand l'usure est haute (turquoise jusqu'au 2026-10-04)", () => {
     expect(waterBandKey({ ruined: true })).toBe('usure');
   });
 

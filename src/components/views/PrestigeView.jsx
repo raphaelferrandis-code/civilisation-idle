@@ -16,7 +16,7 @@ import {
   TERMINAL_RITE_RESOURCE,
   has,
   autoCollapseDelay,
-  pressureBreakdown
+  ruptureTarget
 } from '../../game/core/mechanics.js';
 import { collapseCause } from '../../game/core/events.js';
 import {
@@ -203,7 +203,7 @@ export default function PrestigeView() {
   // pas ouverte (décision de Raph 2026-09-28 : le tutoriel y envoie le joueur) —
   // le pourquoi est dans sa bulle et dans l'Aide, plus en phrase à l'écran.
   if (!isCrisisActive) {
-    const target = pressureBreakdown().total;
+    const target = ruptureTarget();
     const causeLabel = String(FAVORED_CAUSE_LABELS[collapseCause()] || '').replace(/^(chute|fall) /i, '');
     return (
       <Place
@@ -229,6 +229,7 @@ export default function PrestigeView() {
               <span className="tick" style={{ left: '25%' }} />
               <span className="tick" style={{ left: '50%' }} />
               <span className="tick" style={{ left: '75%' }} />
+              <span className="tick" style={{ left: '90%' }} />
               <span className="ghost" style={{ left: `${Math.min(1, target) * 100}%` }} />
             </span>
             <span className="place-key-sub">{tr({ fr: 'cible', en: 'target' })} <b className={target >= 1 ? 'is-rupture' : ''}>{pct(target)}</b></span>
@@ -281,17 +282,8 @@ export default function PrestigeView() {
             </div>
             {/* Barre-SPRITE « digue rompue » : en crise la jauge est épinglée à
                 100 % (jeu gelé) — le sprite pixel-art fissuré EST le remplissage.
-                Crans des édits et fantôme de survol en surimpression. */}
-            <div className="barometer-track barometer-track--crisis rupture-bar">
-              {[0.25, 0.5, 0.75].map((m) => (
-                <span
-                  key={m}
-                  className="barometer-mark"
-                  style={{ left: `${m * 100}%` }}
-                  {...tipProps(null, `${Math.round(m * 100)} %`)}
-                ></span>
-              ))}
-            </div>
+                Sans crans : sur une barre pleine, 25/50/75 ne marquaient plus rien. */}
+            <div className="barometer-track barometer-track--crisis rupture-bar"></div>
           </div>
         </div>
       )}

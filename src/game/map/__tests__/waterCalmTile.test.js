@@ -112,7 +112,10 @@ const teintes = ({ png, key }) => {
 const BANDES = [
   { cle: 'pluie', fichier: 'river-tiles-calm.png', ardoise: true },
   { cle: 'beau', fichier: 'river-tiles-calm-azur.png', ardoise: false },
-  { cle: 'usure', fichier: 'river-tiles-calm-turquoise.png', ardoise: false },
+  // Usure : l'EAU TROUBLE (2026-10-04, scripts/eauTrouble.mjs) = la bande turquoise
+  // recolorée par table exacte. Sa matière se juge sur le DESSIN d'origine (`dessin`) :
+  // ses cinq teintes sont volontairement serrées (une eau morte ne scintille plus).
+  { cle: 'usure', fichier: 'river-tiles-calm-trouble.png', ardoise: false, dessin: 'river-tiles-calm-turquoise.png' },
   { cle: 'hiver', fichier: 'river-tiles-calm-hiver.png', ardoise: false },
 ].map((b) => ({ ...b, png: load(b.fichier) }));
 const vive = load("river-tiles.png");        // la bande du pack — témoin
@@ -137,7 +140,7 @@ describe("bandes d'eau calmes du fleuve", () => {
       it("reste de la MATIÈRE, pas un aplat calmé à mort", () => {
         // Le repli facile pour baisser le churn serait d'écraser le contraste — on
         // retomberait sur l'aplat d'avant la texture, écart-type 0.
-        expect(ecartLum(b.png)).toBeGreaterThan(0.9 * ecartLum(vive));
+        expect(ecartLum(b.dessin ? load(b.dessin) : b.png)).toBeGreaterThan(0.9 * ecartLum(vive));
       });
     });
   }

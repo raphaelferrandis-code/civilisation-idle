@@ -19,7 +19,7 @@ import { vehicleLaneOffset } from '../agents.js';
 import { CM, CM_WONDERS, cmEngineHomeHidden, cmHash, cmWonderActiveIds } from '../layout.js';
 import { pixelHouseReady } from '../pixelHouses.js';
 import { WINTER } from '../seasonMode.js';
-import { REVEAL_PIN_MS, SMOKE_TUNE } from './isoAmbient.js';
+import { REVEAL_PIN_MS, SMOKE_TUNE, crisisSmokeShare } from './isoAmbient.js';
 import { isoArt } from './isoArt.js';
 import { bridgeBlocks, pushIsoBridgeItems } from './isoBridge.js';
 import { pushIsoWonderItems } from './isoWonder.js';
@@ -57,6 +57,7 @@ export function collectIsoItems(bake, now) {
   figuresBeginFrame();
   const portDepth = {};          // scène du port par poste (porteurs du ponton)
   const { T, L, b, band, dvVis, z, smokeK, eraIdx } = bake;
+  const crisisP = crisisSmokeShare(state.instability);
   const items = ISO_ITEM_VIEW;
   items.length = 0;
   let itemN = 0;
@@ -138,6 +139,12 @@ export function collectIsoItems(bake, now) {
     if (smokeK > 0 && (t.type === 'house' || t.type === 'enginehome') && pixelHouseReady(t)) {
       if (t._smokeS === undefined) t._smokeS = cmHash('smk:' + t.gx + ':' + t.gy) >>> 0;
       if (t._smokeS % SMOKE_TUNE.share === 0) { const it = pushItem(); it.d = d + 0.001; it.kind = 'smoke'; it.t = t; }
+    }
+    // FUMÉE DE CRISE (isoAmbient) : colonne de suie, tirage FIXE par maison (le
+    // même hash à chaque frame → une maison qui fume continue de fumer).
+    if (crisisP > 0 && (t.type === 'house' || t.type === 'enginehome') && pixelHouseReady(t)) {
+      if (t._crisisS === undefined) t._crisisS = cmHash('crs:' + t.gx + ':' + t.gy) >>> 0;
+      if ((t._crisisS % 1000) < crisisP * 1000) { const it = pushItem(); it.d = d + 0.0012; it.kind = 'crisissmoke'; it.t = t; }
     }
     // CHEVRON « nouveau bâtiment » (A4) : item SÉPARÉ juste au-dessus du sien
     // (profondeur > fumée), le temps de REVEAL_PIN_MS après l'achat. Coupé par le

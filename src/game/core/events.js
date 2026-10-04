@@ -247,18 +247,14 @@ export async function runCollapseSequence(gain, reason) {
 
   const choice = await openChoiceDialog({
     title: tr({ fr: `Chute de ${fallenDynasty}`, en: `Fall of ${fallenDynasty}` }),
-    body: tr({
-      fr: `${epitaph}\n\nLes survivants ne choisissent plus seulement combien sauver, mais ce que la prochaine civilisation devra retenir.`,
-      en: `${epitaph}\n\nThe survivors no longer choose only how much to save, but what the next civilization must remember.`
-    }),
+    // L'épitaphe seule : plus de phrase d'explication sous la stèle (règle de Raph :
+    // aucune explication à l'écran). L'affinité s'explique dans l'infobulle de son
+    // badge ⚡, et les touches 1 à 4 gravent toujours sans qu'on l'écrive.
+    body: epitaph,
     // Stèle-bilan : les faits du cycle qui s'achève, gravés sous l'épitaphe.
     inscription: tr({
       fr: `An ${fmt(cycleYear())} · Âge ${eras[currentEraIndex()].name} · pic ${fmt(crediblePopulation(state.cyclePeaks?.population || state.population))} habitants`,
       en: `Year ${fmt(cycleYear())} · Age of ${eras[currentEraIndex()].name} · peak ${fmt(crediblePopulation(state.cyclePeaks?.population || state.population))} inhabitants`
-    }),
-    footnote: tr({
-      fr: `L'affinité ⚡ renforce le legs assorti à la cause de la chute : les valeurs « → » s'appliquent. Touches 1 à 4 pour graver directement.`,
-      en: `The ⚡ affinity strengthens the legacy matching the cause of the fall: the "→" values apply. Keys 1 to 4 engrave directly.`
     }),
     mourning: true,
     preventClose: true,

@@ -43,6 +43,7 @@ import { weatherState, weatherMode } from './weatherMode.js';
 import { firstGameGraceActive, makeGraceLatch } from './firstGameGrace.js';
 import { currentSeason } from './seasonMode.js';
 import { buildNecropolis } from './necropolis.js';
+import { cityCrisisBand } from './procedural/cityPersonality.js';
 import { preloadHouseSprites, houseSpriteHeightTiles, houseSpriteReachTilesIso, pixelHouseImages } from './pixelHouses.js';
 import { glInit, glBegin, glQuad, glFlush, glFinish, glGetCanvas, glStats } from './glPainter.js';
 // CHANTIER ISO (Phase 1) : projection unique — obligatoire pour TOUT passage
@@ -1113,8 +1114,8 @@ function cityMapEnsureLayout(now, deps = {}) {
 
   // Bande de crise : 0 normal, 1 crise, 2 effondrement imminent — force une
   // régénération du layout quand l'état de la ville bascule (chaos procédural).
-  const crisisBand = ((state.timeWear || 0) > 0.88 || (state.instability || 0) >= 1) ? 2
-    : ((state.timeWear || 0) > 0.6 || (state.instability || 0) >= 0.6) ? 1 : 0;
+  // Seuils et hystérésis : cityCrisisBand (cityPersonality.js), source unique.
+  const crisisBand = cityCrisisBand(state);
   // Les merveilles réservent leur clairière au prochain calcul du plan : leur
   // érection doit donc invalider le layout, sinon elles s'affichent par-dessus
   // les bâtiments existants jusqu'à la régénération suivante.
@@ -1967,10 +1968,14 @@ function initCityMap(canvas, options = {}) {
   // lumières en valeur — plus de transition permanente façon sinus.
   const DAY_CYCLE_MS = 540000;                              // cycle complet : 9 min
   const DAY_END = 0.55, DUSK_END = 0.65, NIGHT_END = 0.90;  // jour 55 % / crépuscule 10 % / nuit 25 % / aube 10 %
-  // Fenêtre d'émeutes : la FIN du plateau de jour — « l'après-midi ». 23 % du
-  // cycle, soit la dose de l'ancienne courbe sinus (23,4 %) recalée sur les
-  // plateaux (arbitrage Raph 2026-07-20 : revenir à la dose d'origine).
-  const RIOT_START = 0.32;                                  // fenêtre = [0.32, DAY_END)
+  // Fenêtre d'émeutes : la fin de l'après-midi QUI DÉBORDE SUR LE CRÉPUSCULE.
+  // 23 % du cycle, soit la dose de l'ancienne courbe sinus (23,4 %) recalée sur
+  // les plateaux (arbitrage Raph 2026-07-20 : revenir à la dose d'origine).
+  // 2026-10-04 (analyse du visuel de crise, Raph : oui) : la fenêtre s'arrêtait
+  // PILE à DAY_END, là où le crépuscule commence — les torches des émeutiers (halo
+  // dès nightF > 0,05) ne s'allumaient donc jamais. Décalée de 8 points, même dose :
+  // ~40 s de torches dans le soir qui tombe, à chaque émeute.
+  const RIOT_START = 0.40, RIOT_END = 0.63;                 // fenêtre = [0.40, 0.63)
   const smooth01 = (t) => t * t * (3 - 2 * t);
   function cmDayNightF(p) {
     if (p < DAY_END) return 0;
@@ -2044,7 +2049,7 @@ function initCityMap(canvas, options = {}) {
       // En capture, la fenêtre est COUPÉE : un cliché est déterministe, l'heure
       // murale ne doit pas décider si une foule d'émeute y figure (captureFrame
       // isole aussi CM.rioters — la frame forcée purge la sim, cf. updateCrisis).
-      CM.riotWindow = !CM.capture && dayP >= RIOT_START && dayP < DAY_END;
+      CM.riotWindow = !CM.capture && dayP >= RIOT_START && dayP < RIOT_END;
       // Grâce de la première partie : lue UNE fois par frame, partagée par le jour
       // et le ciel. Elle ne touche que l'AFFICHAGE en mode « auto » : un choix
       // explicite du joueur (Options : Nuit, Averse) gagne toujours, et la

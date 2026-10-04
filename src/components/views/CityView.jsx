@@ -19,6 +19,7 @@ import {
   cityVitals,
   pressureBreakdown,
   rates,
+  ruptureTarget,
   ruinEffectSum,
   unspentRuinsPowerMultiplier,
   ruinGain,
@@ -493,10 +494,15 @@ export default function CityView() {
           {revealGauge && (() => {
             const lvl = clamp01(instability);
             const pctValue = Math.round(lvl * 100);
+            // Paliers 25 / 50 / 75 / 90 — LES seuils de toute l'approche de crise :
+            // vignette (layout.css), lueur de la carte (views-city.css), émeutiers
+            // (quaysAndRiot.js), plan « en crise » (cityPersonality.js) s'y calent.
+            // 75 % n'est PAS la crise : elle s'ouvre à 100 % (crisisOpen) — d'où
+            // « Crise profonde » et non plus « Crise ouverte ».
             const tier = lvl >= 0.9
-              ? { cls: "sg-collapse", icon: "💀", label: { fr: "Effondrement imminent", en: "Imminent Collapse" }, desc: { fr: "La cité est au bord du gouffre. Résolvez la crise avant l'effondrement total.", en: "The city is on the brink. Resolve the crisis before total collapse." } }
+              ? { cls: "sg-collapse", icon: "💀", label: { fr: "Effondrement imminent", en: "Imminent Collapse" }, desc: { fr: "La cité est au bord du gouffre : apaisez-la vite, ou préparez sa chute.", en: "The city is on the brink: calm it quickly, or prepare its fall." } }
               : lvl >= 0.75
-              ? { cls: "sg-crisis", icon: "🚨", label: { fr: "Crise ouverte", en: "Open Crisis" }, desc: { fr: "Les pressions montent. Construisez, stabilisez, ou acceptez l'inévitable.", en: "Pressures are rising. Build, stabilize, or accept the inevitable." } }
+              ? { cls: "sg-crisis", icon: "🚨", label: { fr: "Crise profonde", en: "Deep Crisis" }, desc: { fr: "Les pressions montent. Construisez, stabilisez, ou acceptez l'inévitable.", en: "Pressures are rising. Build, stabilize, or accept the inevitable." } }
               : lvl >= 0.5
               ? { cls: "sg-strain", icon: "🔥", label: { fr: "Instabilité croissante", en: "Growing Instability" }, desc: { fr: "Les fractures s'élargissent. Le progrès coûte de plus en plus de stabilité.", en: "The fractures widen. Progress costs ever more stability." } }
               : lvl >= 0.25
@@ -505,7 +511,7 @@ export default function CityView() {
             const crackOpacity = (threshold, ramp, max) =>
               lvl >= threshold ? Math.min(max, 0.3 + (lvl - threshold) * ramp) : 0;
             // Reworks §5.1/§5.2 surfacés ici : cible (fantôme) + gain projeté.
-            const targetLvl = clamp01(pressure.total);
+            const targetLvl = clamp01(ruptureTarget());
             const projectedRuin = ruinGain(true);
             // Bulle détaillée : une ligne par source de pression (B1). Fonction et
             // non chaîne, et relue sur pressureBreakdown() : les parts bougent au
@@ -544,15 +550,16 @@ export default function CityView() {
                   <span className="sg-target-ghost" style={{ left: `${targetLvl * 100}%` }} {...tipProps(null, () => {
                     // Fonction : la cible dérive au tick, une chaîne resterait au
                     // pourcentage lu à l'ouverture de la bulle.
-                    const pct = Math.round(clamp01(pressureBreakdown().total) * 100);
+                    const pct = Math.round(ruptureTarget() * 100);
                     return tr({ fr: `Cible : ${pct} %. La jauge dérive vers ce niveau.`, en: `Target: ${pct}%. The gauge drifts toward this level.` });
                   })}></span>
-                  {lvl >= 0.68 && (
+                  {/* Fissures : la 1re au palier 75, la dernière à 90 (« imminent »). */}
+                  {lvl >= 0.75 && (
                     <svg className="sg-cracks" viewBox="0 0 320 40" preserveAspectRatio="none" aria-hidden="true">
                       {[
-                        { d: "M250 13 L246 17.5 L249 21.5 L244 26.5 M246 17.5 L241 19.5 L238 25 M286 13 L283 17 L286 20.5 L282 26.5 M286 20.5 L290.5 23.5", opacity: crackOpacity(0.70, 3, 0.8) },
-                        { d: "M196 12.5 L192 17 L195 21 L190 27 M192 17 L186.5 19 M222 13.5 L226 18.5 L223 23 L227 27 M226 18.5 L231 20.5 L234.5 25.5 M305 12 L301 16 L304 21 L300 27.5 M301 16 L296 18 M304 21 L309 24", opacity: crackOpacity(0.82, 5, 0.9) },
-                        { d: "M150 7.5 L146 13.5 L149 18.5 L144 24 L147 31.5 M146 13.5 L140.5 16 M144 24 L154 26.5 M172 6 L176 12 L173 17 L177 23 L174 32.5 M176 12 L181.5 14 M177 23 L170 26.5 M262 7 L258 13 L261 18 L256 25 L259 33.5 M261 18 L267 20.5 M118 9.5 L114 15.5 L117 21.5 L112 28 M117 21.5 L123 24", opacity: crackOpacity(0.92, 7, 1) }
+                        { d: "M250 13 L246 17.5 L249 21.5 L244 26.5 M246 17.5 L241 19.5 L238 25 M286 13 L283 17 L286 20.5 L282 26.5 M286 20.5 L290.5 23.5", opacity: crackOpacity(0.75, 3, 0.8) },
+                        { d: "M196 12.5 L192 17 L195 21 L190 27 M192 17 L186.5 19 M222 13.5 L226 18.5 L223 23 L227 27 M226 18.5 L231 20.5 L234.5 25.5 M305 12 L301 16 L304 21 L300 27.5 M301 16 L296 18 M304 21 L309 24", opacity: crackOpacity(0.83, 5, 0.9) },
+                        { d: "M150 7.5 L146 13.5 L149 18.5 L144 24 L147 31.5 M146 13.5 L140.5 16 M144 24 L154 26.5 M172 6 L176 12 L173 17 L177 23 L174 32.5 M176 12 L181.5 14 M177 23 L170 26.5 M262 7 L258 13 L261 18 L256 25 L259 33.5 M261 18 L267 20.5 M118 9.5 L114 15.5 L117 21.5 L112 28 M117 21.5 L123 24", opacity: crackOpacity(0.9, 7, 1) }
                       ].map((g, i) => (
                         <g key={i} className="sg-crack-group" style={{ opacity: g.opacity }}>
                           <path className="sg-crack-light" d={g.d} transform="translate(0.7 0.9)" vectorEffect="non-scaling-stroke" />

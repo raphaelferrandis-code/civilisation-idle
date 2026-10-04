@@ -65,6 +65,7 @@ import { noteFig, FIG } from '../figures.js';
 import { worldToScreen, depthOf } from './projection.js';
 import { lightCutImage, lightCtx } from '../lightLayer.js';
 import { drawSunShadow } from './isoSunShadow.js';
+import { stallVideProp } from './isoFamine.js';
 import { streetKitLampArt } from './streetKits.js';
 
 // ── ÉCHELLE DE RÉFÉRENCE ────────────────────────────────────────────────────
@@ -1631,7 +1632,9 @@ export function drawIsoPlazaProp(ctx, rec, era, now) {
   const p = worldToScreen(rec.wx, rec.wy);
   let hPx = rec.hT * T * z * PLAZA_TUNE.propScale;
   if (hPx < 1.5) return;                        // sous le pixel : rien à montrer
-  const im = propImage(rec.prop, era, rec.variant);
+  // FAMINE (isoFamine.js) : un étal de nourriture passe à son art VIDE, en place.
+  const vide = stallVideProp(rec, era, now);
+  const im = (vide && propImage(vide, era, rec.variant)) || propImage(rec.prop, era, rec.variant);
   if (!im) {
     if (PLAZA_TUNE.placeholders && !NO_PLACEHOLDER.has(rec.prop)) drawPlaceholder(ctx, p, hPx, rec);
     return;

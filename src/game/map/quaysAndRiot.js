@@ -453,20 +453,25 @@ function cityMapCalmRioterAt(sx, sy) {
 // items du TRI PEINTRE (drawIsoLive) ; le legacy garde son rendu planaire dans
 // drawCrisis ci-dessous, inchangé. Pose CM.riotDraw = { pts, cx, cy } (émeutiers
 // actifs remappés sur route + centre de foule) ou null, consommé par les DEUX.
+const RIOT_MIN = 0.5;
 function updateCrisis(dt, now) {
   if (!CM.layout) return;
   const inst = state.instability || 0;
 
   if (!CM.rioters) CM.rioters = [];
-  // Les émeutes n'éclatent que l'après-midi. La fenêtre est publiée par le
-  // point de bascule du cycle (CM.riotWindow, cityMapRuntime) : elle suit
-  // l'horloge SIMULÉE — l'option d'affichage Jour/Nuit ne la touche pas — et
-  // vaut 23 % du temps réel, la dose de l'ancienne courbe sinus. Ne PAS la
-  // re-dériver de CM.dayRising/nightF : ceux-là portent le VISUEL (forçables).
+  // Les émeutes n'éclatent qu'en fin d'après-midi, jusque dans le soir. La
+  // fenêtre est publiée par le point de bascule du cycle (CM.riotWindow,
+  // cityMapRuntime) : elle suit l'horloge SIMULÉE — l'option d'affichage
+  // Jour/Nuit ne la touche pas — et vaut 23 % du temps réel, la dose de
+  // l'ancienne courbe sinus. Ne PAS la re-dériver de CM.dayRising/nightF :
+  // ceux-là portent le VISUEL (forçables).
   // En capture (CM.capture), la fenêtre est coupée à la source : les clichés
   // __cityShot sont déterministes, jamais de foule dessus.
+  // Seuil = palier 50 de la jauge (« Instabilité croissante », naissance de la
+  // vignette) ; il était à 55, un palier qui n'existait nulle part ailleurs.
+  // Même foule au sommet : 8 émeutiers au seuil, 44 à 100 %.
   const afternoon = CM.riotWindow === true;
-  const baseWant = afternoon && inst > 0.55 && CM.walkRoadList.length ? Math.floor((inst - 0.55) / 0.45 * 36) + 8 : 0;
+  const baseWant = afternoon && inst > RIOT_MIN && CM.walkRoadList.length ? Math.floor((inst - RIOT_MIN) / (1 - RIOT_MIN) * 36) + 8 : 0;
   // Les apaisements au clic réduisent la foule ; l'effet s'estompe avec le temps
   // (1 émeutier "revient" toutes les ~8 s tant que la tension persiste).
   if ((CM.riotCalmed || 0) > 0) {

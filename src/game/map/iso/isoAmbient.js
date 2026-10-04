@@ -219,6 +219,65 @@ export function drawIsoSmoke(box, s, now, k) {
   }
 }
 
+// ── FUMÉES DE CRISE ─────────────────────────────────────────────────────────
+// Analyse du visuel de crise (2026-10-04, lot B, Raph : oui) : la carte ne montait
+// pas avec la jauge — rien avant les émeutiers, qui ne sortent qu'en fin d'après-
+// midi. Dès le palier 50 de la Rupture, quelques maisons fument NOIR : un feu qu'on
+// ne voit pas, une colonne de suie qui se lit de loin, de jour comme de nuit.
+// Leur nombre suit la jauge : aucune sous 50 %, ~5 % des maisons à 75 %, ~10 % à
+// 100 %. Le tirage par maison est FIXE (hash de la tuile, isoLiveCollect) donc
+// monotone : une maison qui fume à 60 % fume encore à 80 % — rien ne clignote.
+// Mêmes bouffées rondes au pixel que la cheminée (vieArt.puffSprite), en SUIE,
+// plus grosses, plus lentes, plus hautes ; braise au pied la nuit seulement.
+// Item du tri peintre comme la cheminée : la colonne passe derrière le voisin au nord.
+// Molette : __crisisSmoke({ on, from, max, puffs, rise, size, fadePow }).
+// Réglé à l'œil sur une cité médiévale (2026-10-04) : à 6 bouffées de taille 1, la
+// colonne ne se devinait qu'à ×2,5 ; 10 bouffées (pas 12 : le Chrome de Raph rend
+// sans GPU, ~10 % des maisons × bouffées = des centaines de blits à 100 %).
+export const CRISIS_SMOKE_TUNE = { on: true, from: 0.5, max: 0.10, puffs: 10, rise: 4.6, size: 1.7, fadePow: 0.25 };
+if (typeof window !== 'undefined') {
+  window.__crisisSmoke = (o) => { if (o) Object.assign(CRISIS_SMOKE_TUNE, o); return { ...CRISIS_SMOKE_TUNE }; };
+}
+
+// Part des maisons qui fument noir pour une Rupture donnée (0 → max).
+export function crisisSmokeShare(instability) {
+  const S = CRISIS_SMOKE_TUNE;
+  if (!S.on) return 0;
+  const k = ((instability || 0) - S.from) / (1 - S.from);
+  return k <= 0 ? 0 : Math.min(1, k) * S.max;
+}
+
+const SOOT = [[132, 126, 120], [98, 93, 90], [68, 64, 63]];   // éclairé, milieu, ombre
+export function drawIsoCrisisSmoke(box, s, now) {
+  if (!box) return;
+  const ctx = CM.ctx, T = CM.TILE, z = CM.cam.zoom;
+  // Le feu est DANS la maison : la colonne part du haut du toit, pas au-dessus.
+  const ox = box.dx + box.dw * (0.38 + _rnd(s, 31) * 0.24);
+  const oy = box.dy + box.dh * 0.18;
+  const rise = T * z * 1.5 * CRISIS_SMOKE_TUNE.rise;
+  const n = Math.max(1, Math.round(CRISIS_SMOKE_TUNE.puffs));
+  const kv = vieK();
+  const w2 = (CM.windX || 0) * 1.6 + 0.15;
+  const night = CM.nightF || 0;
+  if (night > 0.05) {
+    const flick = 0.8 + 0.2 * Math.sin((now || 0) / 180 + (s % 97));
+    addGlow(ctx, ox, oy, Math.max(4, T * z * 0.35), '255,120,50', 0.35 * night * flick);
+  }
+  for (let i = 0; i < n; i += 1) {
+    const sd = _rnd(s, i + 40);
+    const ph = _frac((now || 0) / (3200 + sd * 1600) + sd);
+    // Dense longtemps (racine basse) : une colonne de suie se lit de LOIN, sa
+    // traîne ne doit pas s'éteindre à mi-hauteur comme la vapeur d'une cheminée.
+    const fade = Math.pow(1 - ph, CRISIS_SMOKE_TUNE.fadePow) * 0.95;
+    if (fade < 0.03) continue;
+    const rArt = Math.max(1, Math.round((2 + ph * 5.5) * CRISIS_SMOKE_TUNE.size * (T * z / 32) * 1.135 / kv));
+    const img = vieGenerated('soot:' + rArt, () => puffSprite(rArt, SOOT));
+    const x = ox + w2 * rise * Math.pow(ph, 1.6) + Math.sin(ph * 4 + sd * 6.28) * T * z * 0.06;
+    const y = oy - ph * rise * (1 - Math.min(0.45, Math.abs(w2) * 0.35));
+    if (vieBlitAt(ctx, img, x, y, kv, fade)) vieCount('suie');
+  }
+}
+
 // ── CHEVRON « NOUVEAU BÂTIMENT » (A4) ────────────────────────────────────────
 // Quand un achat fait sortir une maison-moteur de terre, le runtime estampille la
 // tuile (t._revealPinAt, cf. cityMapRuntime). Ici on pose un chevron doré discret

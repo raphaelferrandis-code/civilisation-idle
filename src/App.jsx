@@ -83,11 +83,13 @@ const DebugDialog = lazy(() => import('./components/dialogs/DebugDialog.jsx'));
 export default function App() {
   const activeView = useGameState(s => s.activeView);
   const mourning = useGameState(s => s.mourning);
-  // Niveau de crise continu (0→1), arrondi au pas de 5% pour limiter les re-renders.
+  // Niveau de crise continu (0→1), au pas de 5% pour limiter les re-renders.
   // Pilote la vignette progressive et la teinte de la carte via --crisis-level.
+  // Arrondi INFÉRIEUR : les paliers tombent pile sur ceux de la jauge (vignette à
+  // 50 %, battement à 90 %) — l'arrondi au plus proche les avançait de 2,5 points.
   const crisisLevel = useGameState(s => {
     const lvl = Math.max(s.instability || 0, s.timeWear || 0);
-    return Math.min(1, Math.round(lvl * 20) / 20);
+    return Math.min(1, Math.floor(lvl * 20 + 1e-9) / 20);
   });
   const isCrisisExtreme = crisisLevel >= 0.9;
   const crisisLocked = useGameState(s => !!s.crisisLimitAnnounced);
@@ -420,7 +422,7 @@ export default function App() {
               // survole jamais, et c'est justement là que l'attente se remarque.
               onMouseEnter={() => preloadView(tab.id)}
               onFocus={() => preloadView(tab.id)}
-              title={crisisLocked && tab.id !== 'prestige' ? tr({ fr: 'Résolvez la crise en cours pour naviguer', en: 'Resolve the current crisis to navigate' }) : undefined}
+              title={crisisLocked && tab.id !== 'prestige' ? tr({ fr: 'La cité tombe : effondrez-la pour continuer', en: 'The city is falling: collapse it to continue' }) : undefined}
               aria-current={activeView === tab.id ? 'page' : undefined}
             >
               {/* RAIL du bureau (refonte « la ville d'abord ») : l'icône en 48 px,
@@ -466,7 +468,7 @@ export default function App() {
               disabled={crisisLocked}
               aria-expanded={moreSheet}
               onClick={() => setMoreSheet((v) => !v)}
-              title={crisisLocked ? tr({ fr: 'Résolvez la crise en cours pour naviguer', en: 'Resolve the current crisis to navigate' }) : undefined}
+              title={crisisLocked ? tr({ fr: 'La cité tombe : effondrez-la pour continuer', en: 'The city is falling: collapse it to continue' }) : undefined}
             >
               <i className="fa-solid fa-ellipsis tab-icon" aria-hidden="true"></i>
               <span className="tab-label">{tr({ fr: 'Plus', en: 'More' })}</span>

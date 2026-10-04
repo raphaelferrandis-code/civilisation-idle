@@ -16,15 +16,17 @@
 }
 
 /* ── Crise progressive (Audit UI Phase 5) ──
-   Vignette STATIQUE dont l'intensité suit --crisis-level (0→1) : invisible
-   sous 50%, pleine à 100%. Le pulse animé est réservé au-delà de 90%. */
+   Vignette STATIQUE dont l'intensité suit --crisis-level (0→1) : elle naît
+   AU palier 50 de la jauge (0,1), pleine vers 95 %. Le pulse animé est réservé
+   au palier 90 (.crisis-extreme). --crisis-level est arrondi à l'inférieur
+   (App.jsx), donc 0,5 = « la jauge a passé 50 ». */
 .app::after {
   content: "";
   position: fixed;
   inset: 0;
   z-index: 9999;
   pointer-events: none;
-  opacity: clamp(0, (var(--crisis-level, 0) - 0.5) * 2.2, 1);
+  opacity: clamp(0, (var(--crisis-level, 0) - 0.45) * 2, 1);
   box-shadow: inset 0 0 calc(28px + 52px * var(--crisis-level, 0)) rgba(190, 42, 36, 0.34);
   transition: opacity 1.2s ease, box-shadow 1.2s ease;
 }

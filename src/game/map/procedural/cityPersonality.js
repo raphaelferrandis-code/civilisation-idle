@@ -114,14 +114,33 @@ function personalityWeights(s) {
   ];
 }
 
+// Bande de crise de la CARTE : 0 normale, 1 « en crise », 2 « au bord de
+// l'effondrement ». Source UNIQUE (plan, libellé sous le nom, signature de layout
+// dans cityMapRuntime) — calée sur les paliers de la jauge : la Rupture entre « en
+// crise » au palier 75 (« Crise profonde »), comme la lueur rouge de la carte ;
+// elle était à 60, un palier qui n'existait nulle part ailleurs.
+// HYSTÉRÉSIS de 5 points à la descente (on ne quitte « en crise » que sous 70) :
+// chaque changement de bande recalcule tout le plan (300-560 ms mesurés), et un
+// aller-retour autour du seuil rebattait le campement à chaque passage.
+// L'Usure garde ses seuils (0,6 / 0,88) : c'est une autre horloge.
+export const CRISIS_BAND_ENTER = 0.75;
+export const CRISIS_BAND_LEAVE = 0.70;
+let _lastCrisisBand = 0;
+export function cityCrisisBand(s) {
+  const timeWear = (s && s.timeWear) || 0;
+  const instability = (s && s.instability) || 0;
+  const held = _lastCrisisBand >= 1 && instability >= CRISIS_BAND_LEAVE;
+  const band = (timeWear > 0.88 || instability >= 1) ? 2
+    : (timeWear > 0.6 || instability >= CRISIS_BAND_ENTER || held) ? 1 : 0;
+  _lastCrisisBand = band;
+  return band;
+}
+
 export function computeCityPersonality(seed, s) {
   const baseId = seededWeightedPick(seed, "personality", personalityWeights(s));
   const base = PERSONALITIES[baseId] || PERSONALITIES.marchande;
-  const timeWear = (s && s.timeWear) || 0;
-  const instability = (s && s.instability) || 0;
-  const collapsing = timeWear > 0.88 || instability >= 1;
-  const inCrisis = !collapsing && (timeWear > 0.6 || instability >= 0.6);
-  const overlay = collapsing ? OVERLAYS.effondrement : inCrisis ? OVERLAYS.crise : null;
+  const band = cityCrisisBand(s);
+  const overlay = band === 2 ? OVERLAYS.effondrement : band === 1 ? OVERLAYS.crise : null;
 
   // Micro-variations seedées pour que deux villes du même profil divergent.
   const jitterRng = rngFrom(seed, "personality-jitter");

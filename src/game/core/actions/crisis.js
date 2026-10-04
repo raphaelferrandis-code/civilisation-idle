@@ -20,7 +20,7 @@ import {
   addProductionPenalty,
   cityVitals,
   pressureBreakdown,
-  rates,
+  ruptureTarget,
   ruinGain,
   terminalCrisisReady,
   terminalCrisisCost,
@@ -159,7 +159,8 @@ function pushCrisisOutcome(outcome, choice, stabilized) {
 // Cible de Rupture si les parts `shifts` (foyer → part signée, une option peut
 // en bouger deux) étaient déposées : calcul exact par le vrai moteur — on pose
 // les parts, on lit la cible, on les retire. La cible est celle vers laquelle
-// DÉRIVE la jauge, rates().instability (pression, moins le soulagement des
+// DÉRIVE la jauge, ruptureTarget() = rates().instability — la même que le repère
+// de toutes les jauges (pression, moins le soulagement des
 // vitaux, × Icare/Babel/Cadmos/épitaphe), pas le seul total des foyers. Sans
 // plafond : « 104 % » dit qu'on passe le bord.
 function projectedTarget(shifts) {
@@ -172,7 +173,7 @@ function projectedTarget(shifts) {
   }
   renderCache._framePressureVer = -1;
   renderCache._frameRatesVer = -1;
-  const target = Math.max(0, rates().instability);
+  const target = ruptureTarget();
   for (const foyer of Object.keys(shifts)) fs[foyer] = prev[foyer] || 0;
   renderCache._framePressureVer = -1;
   renderCache._frameRatesVer = -1;

@@ -21,7 +21,7 @@ const key = (p, x, y) => { const i = (y * p.width + x) * 4; return `${p.data[i]}
 // Coloris branché → son ancienne bande de 16 px (même palette de cinq couleurs).
 const COLORIS = [
   ["beau", "/pixelart/water/river-tiles-calm-ciel.png"],
-  ["usure", "/pixelart/water/river-tiles-calm-turquoise.png"],
+  ["usure", "/pixelart/water/river-tiles-calm-trouble.png"],
   ["hiver", "/pixelart/water/river-tiles-calm-hiver.png"],
   ["pluie", "/pixelart/water/river-tiles-calm.png"],
 ].map(([cle, ancien]) => ({ cle, png: read(WATER_SHEETS[cle].src), ancien: read(ancien) }));

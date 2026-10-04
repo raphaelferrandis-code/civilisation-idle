@@ -1566,8 +1566,9 @@
 }
 
 /* ── Crise sur la carte de ville (Audit UI Phase 5) ──
-   Lueur rouge montant du sol au-delà de 75% de pression (--crisis-level
-   hérité de .app). La carte devient le baromètre émotionnel de la cité. */
+   Lueur rouge montant du sol dès le palier 75 de la jauge (--crisis-level
+   hérité de .app, arrondi à l'inférieur) : 0,2 à 75 %, pleine vers 95 %.
+   La carte devient le baromètre émotionnel de la cité. */
 .city-map-container::after {
   content: "";
   position: absolute;
@@ -1575,7 +1576,7 @@
   z-index: 5;
   pointer-events: none;
   background: radial-gradient(ellipse at 50% 115%, rgba(185, 42, 32, 0.42), transparent 62%);
-  opacity: clamp(0, (var(--crisis-level, 0) - 0.75) * 4, 1);
+  opacity: clamp(0, (var(--crisis-level, 0) - 0.7) * 4, 1);
   transition: opacity 1.5s ease;
 }
 

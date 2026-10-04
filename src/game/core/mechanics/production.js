@@ -77,4 +77,4 @@ export {
   cityVitals
 } from './production/pressure.js';
 
-export { rates } from './production/rates.js';
+export { rates, ruptureTarget } from './production/rates.js';
