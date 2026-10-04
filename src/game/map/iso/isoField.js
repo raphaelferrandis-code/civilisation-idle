@@ -10,6 +10,96 @@
 import { CM } from '../layout.js';
 import { fillWorldQuad } from './isoQuad.js';
 import { rgb } from './isoPalette.js';
+import { worldToScreen } from './projection.js';
+import { bakeFieldParcel } from './fieldBake.js';
+import { wonderKitForBand } from './wonderKits.js';
+import { lightCtx } from '../lightLayer.js';
+
+// ── LE TERROIR AU PIXEL (docs/PLAN-TERROIR.md, T2) ───────────────────────────
+// Chaque parcelle du terroir est CUITE par fieldBake.js (lanières, rangs d'un
+// pixel, clôture de l'ère, récolte) puis posée à la grille, comme le pont et les
+// merveilles — à toutes les bandes. Le patchwork vectoriel plus bas (drawIsoField)
+// n'est plus que l'« avant » de la molette : __fieldTune({ on: false }).
+export const fieldTune = { on: true, band: null };
+const _fieldBakes = new Map();
+// Cellules de TOUTES les parcelles (mémoïsé sur le plan) : une limite entre deux
+// parcelles ne porte qu'UNE haie — celle du côté nord/ouest de la parcelle du
+// sud/est ; les bords sud et est n'en portent que face à la campagne.
+function fieldCellsOf(L) {
+  if (L._fieldCells) return L._fieldCells;
+  const s = new Set();
+  for (const t of L.tiles || []) {
+    if (t.type !== 'engine' || t.buildingId !== 'irrigated_fields') continue;
+    const sx = t.spanX || t.size || 1, sy = t.spanY || t.size || 1;
+    for (let ax = 0; ax < sx; ax += 1) for (let ay = 0; ay < sy; ay += 1) s.add((t.gx + ax) + ',' + (t.gy + ay));
+  }
+  L._fieldCells = s;
+  return s;
+}
+function hedgesOf(t, sx, sy, L) {
+  const T = CM.TILE, cells = fieldCellsOf(L);
+  const open = (n, at) => {
+    const out = [];
+    for (let k = 0; k < n; k += 1) {
+      if (cells.has(at(k))) continue;
+      const last = out[out.length - 1];
+      if (last && last[1] === k * T) last[1] = (k + 1) * T; else out.push([k * T, (k + 1) * T]);
+    }
+    return out;
+  };
+  return {
+    n: [[0, sx * T]], w: [[0, sy * T]],
+    s: open(sx, (k) => (t.gx + k) + ',' + (t.gy + sy)),
+    e: open(sy, (k) => (t.gx + sx) + ',' + (t.gy + k)),
+  };
+}
+function fieldCanvas(R) {
+  const cv = document.createElement('canvas');
+  cv.width = Math.max(1, R.w); cv.height = Math.max(1, R.h);
+  cv.getContext('2d').putImageData(new ImageData(R.data, R.w, R.h), 0, 0);
+  return cv;
+}
+export function drawIsoFieldPixel(ctx, t, spanX, spanY, band) {
+  if (!fieldTune.on || typeof document === 'undefined') return false;
+  const L = CM.layout;
+  if (!L) return false;
+  const b = Math.max(0, Math.min(9, fieldTune.band != null ? fieldTune.band | 0 : band | 0));
+  const season = CM.season | 0;
+  const hedges = hedgesOf(t, spanX, spanY, L);
+  const key = t.gx + ',' + t.gy + ':' + spanX + 'x' + spanY + ':' + b + ':' + season + ':' + JSON.stringify(hedges);
+  let e = _fieldBakes.get(key);
+  if (!e) {
+    const seed = (Math.imul(t.gx + 7, 73856093) ^ Math.imul(t.gy + 3, 19349663)) >>> 0;
+    const { R, N } = bakeFieldParcel(spanX, spanY, { band: b, K: wonderKitForBand(b, season === 3), season, seed, hedges });
+    e = { R, cv: fieldCanvas(R), N: N ? fieldCanvas(N) : null };
+    if (_fieldBakes.size > 48) _fieldBakes.delete(_fieldBakes.keys().next().value);
+    _fieldBakes.set(key, e);
+  }
+  const T = CM.TILE, z = CM.cam.zoom, o = worldToScreen(t.gx * T, t.gy * T), R = e.R;
+  const dx = Math.round(o.x + R.ox * z), dy = Math.round(o.y + R.oy * z);
+  const dw = Math.round(o.x + (R.ox + R.w) * z) - dx, dh = Math.round(o.y + (R.oy + R.h) * z) - dy;
+  const prev = ctx.imageSmoothingEnabled;
+  ctx.imageSmoothingEnabled = false;
+  ctx.drawImage(e.cv, dx, dy, dw, dh);
+  ctx.imageSmoothingEnabled = prev;
+  // La nuit (âges cosmiques) : les rangs de plantes de lumière et les piquets luisent.
+  const nf = CM.nightF || 0;
+  if (e.N && nf > 0.03) {
+    const lc = lightCtx(dx, dy, dx + dw, dy + dh);
+    if (lc) {
+      const sm = lc.imageSmoothingEnabled;
+      lc.imageSmoothingEnabled = false;
+      lc.globalAlpha = Math.min(1, nf * 1.1);
+      lc.drawImage(e.N, dx, dy, dw, dh);
+      lc.globalAlpha = 1;
+      lc.imageSmoothingEnabled = sm;
+    }
+  }
+  return true;
+}
+if (typeof window !== 'undefined') {
+  window.__fieldTune = (o) => { if (o) Object.assign(fieldTune, o); _fieldBakes.clear(); return { ...fieldTune }; };
+}
 
 // ── CHAMP iso « façon TheoTown » : patchwork de parcelles cultivées ──────────
 // Refonte du champ plat (retour Raph « améliore mes champs », réf TheoTown).

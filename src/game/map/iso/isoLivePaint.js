@@ -45,7 +45,9 @@ import { drawIsoBridgeSeg } from './isoBridge.js';
 import { drawIsoWonderSeg } from './isoWonder.js';
 import { drawIsoCampHearthGround, drawIsoCampHearthFire } from './isoCampHearth.js';
 import { drawIsoEngineScene, isoEngineScenesFlag } from './isoEngineScene.js';
-import { drawIsoField } from './isoField.js';
+import { drawIsoField, drawIsoFieldPixel } from './isoField.js';
+import { drawIsoMill } from './isoMill.js';
+import { drawTerroirTeam } from './terroirLife.js';
 import { isoFrontOffset, seasonTree } from './isoGroundDetail.js';
 import { ISO_TREE_VARIANTS, TREE_DEAD_VARIANT, drawIsoGroundedArt, treeAliveVariant, treeBaseVariant } from './isoGroundProps.js';
 import { maskHit } from './isoMask.js';
@@ -253,7 +255,8 @@ export function paintIsoItems(bake, items, now) {
         ? null : isoFrontOffset(t, L.roadMap);
       const anchor = worldToScreen((t.gx + spanX + (fOff ? fOff.ox : 0)) * T,
         (t.gy + spanY + (fOff ? fOff.oy : 0)) * T);
-      const isHouse = t.type === 'house' || t.type === 'enginehome';
+      // `t.body` : un atelier logé dans une rangée (corps de maison, cf. layout.js).
+      const isHouse = t.type === 'house' || t.type === 'enginehome' || !!t.body;
       // Bâtiment RIVERAIN (port : l'empreinte mord la berge/l'eau) : scène iso
       // DÉDIÉE (drawIsoRiverside — bâtiment sur berge, ponton vers le ruban,
       // bateau amarré). Ni scène-boîte legacy ni socle : la boîte legacy
@@ -310,6 +313,10 @@ export function paintIsoItems(bake, items, now) {
         // parcourt à l'envers pour toucher d'abord ce qui est devant.
         if (box && houseBoxes && houseBoxes.length < HOUSE_BOX_CAP) houseBoxes.push({ b: box, t });
         if (profParts) fp('vif-maisons');
+      } else if (t.type === 'engine' && t.buildingId === 'water_mills' && (engineBox = drawIsoMill(ctx, t, now))) {
+        // MOULIN À VENT cuit par le code (docs/PLAN-TERROIR.md) : tour + pose
+        // d'ailes en perspective. Boîte publiée au survol, comme les scènes.
+        if (houseBoxes && houseBoxes.length < HOUSE_BOX_CAP) houseBoxes.push({ b: engineBox, t });
       } else if (t.type === 'engine' && isoEngineScenesFlag.on && (engineBox = drawIsoEngineScene(ctx, t, anchor, spanX, spanY, T, z, hh, now))) {
         // Scène moteur legacy posée sur le losange (Phase 3-lite) — cf. helper.
         // ⚠ ON PUBLIE SA BOÎTE, exactement comme les habitations juste au-dessus.
@@ -329,7 +336,7 @@ export function paintIsoItems(bake, items, now) {
           // CHAMPS : patchwork de parcelles cultivées façon TheoTown (cf. drawIsoField) —
           // la scène legacy (peinture carrée du sol) ne se pose pas sur le losange.
           if (profParts) fp('vif-peinture');
-          drawIsoField(ctx, t, spanX, spanY, band, eraIdx);
+          if (!drawIsoFieldPixel(ctx, t, spanX, spanY, band)) drawIsoField(ctx, t, spanX, spanY, band, eraIdx);
           if (profParts) fp('vif-champs');
           continue;
         }
@@ -595,6 +602,8 @@ export function paintIsoItems(bake, items, now) {
       drawDockPorter(ctx, it.q, it.band, now);
     } else if (it.kind === 'fleetScene') {
       drawFleetScene(ctx, it, now);
+    } else if (it.kind === 'terroirTeam') {
+      drawTerroirTeam(ctx, it, now);
     } else if (it.kind === 'veh') {
       drawIsoVehicle(ctx, it.v, now, z);
     } else if (it.kind === 'riot') {

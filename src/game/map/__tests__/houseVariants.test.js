@@ -56,7 +56,15 @@ const SANS_TEINTE = new Set([
   "haussmann",
   // Les maisons cosmiques (même nuit) : nacre, verre teinté et jardins — leur blanc est
   // l'identité de l'ère, pas une matière à permuter.
-  "gardentower", "domehome", "podstack"
+  "gardentower", "domehome", "podstack",
+  // Les romaines TOURNÉES vers leur rue (2026-10-04, docs/PLAN-ILOTS.md) : autres vues
+  // des mêmes objets, ramenées à la palette du sprite d'origine — sans teinte comme lui.
+  "domus-fr", "domus-bl", "domus-br", "taberna-bl", "taberna-br",
+  "insula2-fr", "insula2-bl", "insula2-br",
+  // Les RANGÉES MITOYENNES (même jour) : déjà repeintes dans la palette de la maison
+  // dont elles prennent la place (échoppe, domus, maison à cour → popina, insula).
+  "row-taberna-fl", "row-taberna-fr", "row-domus-fl", "row-domus-fr", "row-popina-fl",
+  "row-popina-fr", "row-insula-fl", "row-insula-fr", "row-insula-bl", "row-insula-br"
 ]);
 
 // Sprites lus une fois, réutilisés par les tests qui mesurent sur l'art réel.

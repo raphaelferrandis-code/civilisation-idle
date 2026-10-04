@@ -1911,41 +1911,41 @@
    "key": "guild-collegium",
    "nature": "batiment",
    "door": {
-    "x": 29,
+    "x": 21,
     "y": 46,
-    "w": 17,
-    "h": 25
+    "w": 6,
+    "h": 14
    },
    "doorKind": "portail",
    "window": {
-    "x": 62,
-    "y": 48,
-    "w": 10,
-    "h": 13
+    "x": 67,
+    "y": 52,
+    "w": 2,
+    "h": 6
    },
    "floorPitch": null,
-   "confidence": 0.8,
-   "note": "entree a pilastres"
+   "confidence": 0.7,
+   "note": "redessine 2026-10-04 (salle a fronton dans l axe) : porte = baie du portique entre colonnes"
   },
   {
    "key": "guild-collegium-grand",
    "nature": "batiment",
    "door": {
-    "x": 40,
-    "y": 105,
-    "w": 20,
-    "h": 31
+    "x": 37,
+    "y": 76,
+    "w": 10,
+    "h": 28
    },
    "doorKind": "portail",
    "window": {
-    "x": 28,
-    "y": 79,
-    "w": 7,
-    "h": 16
+    "x": 106,
+    "y": 84,
+    "w": 3,
+    "h": 12
    },
    "floorPitch": null,
-   "confidence": 0.85,
-   "note": "deux arches murees, porte ramenee de 46 a 31 px"
+   "confidence": 0.75,
+   "note": "redessine 2026-10-04 (salle a fronton dans l axe) : porte = baie du portique entre colonnes"
   },
   {
    "key": "guild-consortium",

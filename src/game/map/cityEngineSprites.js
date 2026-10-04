@@ -448,7 +448,9 @@ const PROP_KEYS = ['forager-prop-tree', 'forager-prop-basket', 'forager-orchard-
   'forager-hortus-classical', 'granary-horreum-classical', 'guild-collegium', 'mint-moneta', 'bank-basilica-roman',
   'port-house-classical', 'mill-house-roman', 'storyteller-odeon', 'scribes-tabularium', 'schools-ludus', 'academies-athenaeum', 'cult-vesta',
   'observatories-horologium', 'libraries-classical', 'universities-classical', 'printing-scriptorium', 'think-stoa-roman', 'watch-classical',
-  'bureau-tabularium', 'courthouses-basilica', 'works-classical', 'ministries-curia', 'archive-tabularium', 'ruins-restoration-roman', 'sewers-classical'];
+  'bureau-tabularium', 'courthouses-basilica', 'works-classical', 'ministries-curia', 'archive-tabularium', 'ruins-restoration-roman', 'sewers-classical',
+  // Les ateliers des guildes (bande 4) — cf. GUILD_CRAFTS_B4.
+  'guild-officina-forge', 'guild-officina-potter', 'guild-officina-dyer'];
 // Version des props : bump à CHAQUE décodage d'image. Consommée par la clé du
 // cache des scènes cuites (engineSceneCache) — une scène cuite pendant que ses
 // PNG chargeaient encore serait figée incomplète pour toute la session sinon.
@@ -1085,8 +1087,65 @@ function drawFieldSprinkler(ctx, ox, oy, sw, sh, now, stage, litWarm, litGold) {
 // bâtiment ; ce helper ne pilote que le dispatch des 4 stades pixel. Source UNIQUE (ex-×29 dupliqué).
 function engineStage(ei) { return ei < 10 ? 0 : ei < 25 ? 1 : ei < 30 ? 2 : 3; }
 
+// ── LES ATELIERS DES GUILDES (bande 4) ──────────────────────────────────────
+// Raph 2026-10-03 : « le bâtiment des guildes n'est pas bon ». À la bande 4, les 47
+// annexes recevaient le COLLÈGE lui-même (portique, fronton, autel) en petit : un
+// monument public répété dans toute la ville — les « maisonnettes identiques » déjà
+// relevées par l'audit du rendu. La doctrine halle + ateliers (cmEngineInstances) veut
+// l'inverse : la monumentalité à la halle, la QUANTITÉ aux ateliers. Le collège reste
+// donc la halle ; chaque annexe est l'atelier d'UN métier (forge, potier, teinturier),
+// tiré par son rang — trois dessins qui alternent, jamais deux voisins identiques (les
+// ateliers sont semés, cf. cmRequestZone). PixelLab 64 px, taille des maisons : même
+// grain qu'elles. 0 = pas de métier (halle, autres bâtiments, autres âges).
+const GUILD_CRAFTS_B4 = ['guild-officina-forge', 'guild-officina-potter', 'guild-officina-dyer'];
+export function engineCraft(t) {
+  if ((t.buildingId || t.variant) !== 'guilds' || !((t.groupIndex || 1) > 1)) return 0;
+  return 1 + ((t.groupIndex - 2) % GUILD_CRAFTS_B4.length);
+}
+// Fumée qui monte d'un point du sprite (fractions de boîte) : trois bouffées en boucle,
+// le même geste que la fumée du faîte de la maison de guilde.
+function guildSmoke(ctx, ox, oy, sw, sh, fx, fy, now, a = 0.26) {
+  for (let i = 0; i < 3; i++) {
+    const t = ((now / 2600) + i / 3) % 1;
+    ctx.fillStyle = `rgba(208,198,188,${(a * (1 - t)).toFixed(2)})`;
+    ctx.beginPath();
+    ctx.arc(ox + sw * (fx + 0.05 * t + 0.01 * Math.sin(now / 300 + i)), oy + sh * (fy - 0.2 * t), sw * (0.016 + 0.035 * t), 0, Math.PI * 2);
+    ctx.fill();
+  }
+}
+// L'atelier : le dessin, puis ce qui vit — la forge rougeoie et fume, le four du potier
+// fume ; la teinturerie, elle, ne bouge pas (ses étoffes sont dans le dessin).
+// CADRAGE : le PNG (68 px, pied de l'encre à 2 px du bord) remplit la boîte (×1) — un
+// atelier a la carrure d'une maison voisine (à ×0,86 il en paraissait le cadet), et son
+// grain (~0,95 px écran par px d'art au zoom 1) est celui des maisons (~0,85-0,9). Centre
+// vertical 0,405 : le pied tombe à 0,876 de la boîte, sur le coin sud du lot (la boîte
+// descend d'un quart de tuile sous ce coin, cf. drawIsoEngineScene).
+// Points de fumée et de lueur relevés sur les PNG, en fractions de la boîte :
+// forge — souche de cheminée (33,12), arche du foyer (25,46) ; potier — dôme du four (17,41).
+const OFFICINA_CY = 0.405, OFFICINA_F = 1;
+const OFFICINA_LIFE = {
+  1: { smoke: [0.485, 0.081], glow: [0.368, 0.581] },
+  2: { smoke: [0.25, 0.508] },
+  3: {},
+};
+function drawGuildOfficina(ctx, ox, oy, sw, sh, craft, now, dBack, dAnim) {
+  if (dBack) blitProp(ctx, ox, oy, sw, sh, GUILD_CRAFTS_B4[craft - 1], 0.5, OFFICINA_CY, OFFICINA_F, OFFICINA_F);
+  if (!dAnim) return;
+  const life = OFFICINA_LIFE[craft] || {};
+  if (life.glow) {
+    const nF = Math.max(0, Math.min(1, CM.nightF || 0));
+    const gx = ox + sw * life.glow[0], gy = oy + sh * life.glow[1], gr = sw * 0.06;
+    const fl = 0.2 + 0.05 * Math.abs(Math.sin(now / 1100)) + nF * 0.2;
+    ctx.save(); ctx.globalCompositeOperation = "lighter";
+    const g = ctx.createRadialGradient(gx, gy, 0, gx, gy, gr);
+    g.addColorStop(0, `rgba(255,150,55,${Math.min(0.5, fl).toFixed(2)})`); g.addColorStop(1, "rgba(255,150,55,0)");
+    ctx.fillStyle = g; ctx.beginPath(); ctx.arc(gx, gy, gr, 0, Math.PI * 2); ctx.fill(); ctx.restore();
+  }
+  if (life.smoke) guildSmoke(ctx, ox, oy, sw, sh, life.smoke[0], life.smoke[1], now);
+}
+
 function drawCityEngineSprite(context) {
-  const { ctx, id, tier, litWarm, litGold, ox, oy, sw, sh, px, strokeRect, now, band = 0, ei = 0, gw = 1, gh = 1, pass = 'all', seed = 0 } = context;
+  const { ctx, id, tier, litWarm, litGold, ox, oy, sw, sh, px, strokeRect, now, band = 0, ei = 0, gw = 1, gh = 1, pass = 'all', seed = 0, craft = 0 } = context;
   // Passes de cache : 'back' = statique dessiné SOUS les animations · 'anim' = tout ce qui
   // lit `now`, une bande animée ou sceneHumanH · 'front' = statique dessiné PAR-DESSUS.
   // Avec pass='all' (défaut) les trois booléens valent true → ordre et appels STRICTEMENT
@@ -1102,6 +1161,7 @@ function drawCityEngineSprite(context) {
   // (véhicule) et markets (branche dédiée) sont traités séparément — pas dans cette table.
   const RB4 = { foragers: 'forager-hortus-classical', granaries_city: 'granary-horreum-classical', guilds: 'guild-collegium', mint_houses: 'mint-moneta', imperial_exchanges: 'bank-basilica-roman' };
   // (le palier de halle est posé par blitProp lui-même, cf. palierImg)
+  if (band === 4 && craft > 0 && propReady(GUILD_CRAFTS_B4[craft - 1])) { drawGuildOfficina(ctx, ox, oy, sw, sh, craft, now, dBack, dAnim); return true; }
   if (band === 4 && RB4[id] && propReady(RB4[id])) { if (dBack) blitProp(ctx, ox, oy, sw, sh, RB4[id], 0.5, 0.46, 0.86, 0.76); return true; }
   if (id === "foragers") {
     if (band >= 7) {

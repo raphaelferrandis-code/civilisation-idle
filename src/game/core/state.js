@@ -1346,7 +1346,45 @@ export function normalizeCityCore(raw) {
   if (central) out.central = central;
   const ports = normalizeCityPorts(raw.ports);
   if (ports) out.ports = ports;
+  // La ville par îlots (docs/PLAN-ILOTS.md) : sa PRÉSENCE dit que la
+  // réorganisation unique a eu lieu — perdue au rechargement, la ville se
+  // réorganiserait à chaque partie ouverte.
+  const ilot = normalizeCityIlot(raw.ilot);
+  if (ilot) out.ilot = ilot;
   return out;
+}
+
+// Fiche d'îlots : la LISTE des îlots ouverts ("i:j", dans l'ordre d'ouverture), le
+// rôle des places ("i:j" → sorte), l'îlot de chaque halle, le lot de chaque atelier
+// ([dx, dy] depuis le centre de grille). Clés de slot "cycle:bâtiment:index". Une
+// entrée abîmée est oubliée (l'îlot ou le bâtiment se reposera).
+// ⚠⚠ TDZ : cette fonction tourne PENDANT `export let state = load()` (hydrateState →
+// normalizeCityCore). Une constante de module déclarée sous cette ligne n'existe pas
+// encore à ce moment-là : la lecture jette et la sauvegarde part en « illisible »
+// (vécu au premier essai). Tout ce dont elle a besoin est donc LOCAL.
+function normalizeCityIlot(raw) {
+  if (!isPlainObject(raw)) return null;
+  const ILOT_KEY = /^-?[0-9]+:-?[0-9]+$/;
+  const ILOT_PLAZA_KINDS = new Set(["centrale", "marche", "jardin", "parvis"]);
+  const blocks = Array.isArray(raw.blocks) ? [...new Set(raw.blocks.filter((k) => typeof k === "string" && ILOT_KEY.test(k)))].slice(0, 4000) : [];
+  const plazas = {};
+  if (isPlainObject(raw.plazas)) {
+    for (const [k, v] of Object.entries(raw.plazas).slice(0, 1000)) if (ILOT_KEY.test(k) && ILOT_PLAZA_KINDS.has(v)) plazas[k] = v;
+  }
+  const halls = {}, annexes = {};
+  if (isPlainObject(raw.halls)) {
+    for (const [k, v] of Object.entries(raw.halls).slice(0, 2000)) {
+      if (/^[0-9]+:[a-z0-9_]+:[0-9]+$/i.test(k) && typeof v === "string" && ILOT_KEY.test(v)) halls[k] = v;
+    }
+  }
+  if (isPlainObject(raw.annexes)) {
+    for (const [k, v] of Object.entries(raw.annexes).slice(0, 4000)) {
+      if (!/^[0-9]+:[a-z0-9_]+:[0-9]+$/i.test(k) || !Array.isArray(v) || v.length !== 2) continue;
+      const gx = Number(v[0]), gy = Number(v[1]);
+      if (Number.isFinite(gx) && Number.isFinite(gy) && Math.abs(gx) <= 400 && Math.abs(gy) <= 400) annexes[k] = [Math.round(gx), Math.round(gy)];
+    }
+  }
+  return { v: 1, blocks, plazas, halls, annexes };
 }
 
 // Les deux ports figés à leur fondation (docs/PLAN-PORTS.md, map/portSites.js) :

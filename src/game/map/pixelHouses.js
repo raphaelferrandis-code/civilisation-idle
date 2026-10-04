@@ -97,6 +97,90 @@ function spriteKeyFor(variant) {
   return variant;
 }
 
+// ── LES MAISONS TOURNÉES VERS LEUR RUE (docs/PLAN-ILOTS.md, lot I6) ──────────
+// Sur un lot de bord d'îlot (`t.row`, posé par layout.js avec `t.face`, le côté de sa
+// rue), une maison romaine de la bande 4 présente sa FAÇADE à la rue : la vue du même
+// objet PixelLab qui la montre de ce côté. Raph 2026-10-04 : les mitoyennes générées
+// pour l'occasion « dénotent un peu du reste avec leur ton orange — les bâtiments déjà
+// faits ne peuvent pas être réorientés ? ». Si : les quatre romaines (domus, taberna,
+// insula2, villa) sont des objets à 8 vues dont TOUTES les diagonales sont éclairées à
+// gauche (lumière liée à la caméra, mesuré) ; les vues neuves sont converties comme le
+// sprite en jeu puis ramenées à SA palette — même matière, au pixel près.
+//   S (rue au sud, +gy) = le sprite d'origine (façade à gauche)
+//   E (rue à l'est, +gx) = « -fr », façade à droite
+//   N / W (rue derrière) = « -bl » / « -br », le dos tourné vers le spectateur
+// Les deux maisons sans autres vues (l'insula de brique, la maison à cour) cèdent la
+// place, hors des lots au sud, à leur sœur réorientable (insula2, domus). L'échoppe
+// vue « façade à droite » sortait DE FACE (refusé de longue date) : à l'est, un domus.
+const ORIENT = {
+  domus: { E: "domus-fr", N: "domus-bl", W: "domus-br" },
+  taberna: { E: "domus-fr", N: "taberna-bl", W: "taberna-br" },
+  insula2: { E: "insula2-fr", N: "insula2-bl", W: "insula2-br" },
+};
+ORIENT.courtyard = ORIENT.domus;
+ORIENT.insula = ORIENT.insula2;
+const ORIENT_BANDS = new Set([4]);
+export const ORIENT_KEYS = [...new Set(Object.values(ORIENT).flatMap((o) => Object.values(o)))];
+// Variante dessinée : celle de la maison, ou le CORPS de ville d'une annexe de
+// bâtiment-moteur (`t.body`, cf. layout.js — une boutique au lieu du monument miniature).
+const bodyOf = (t) => t.body || t.variant;
+function orientKeyOf(t) {
+  if (!t.row || !t.face || t.face === "S" || !ORIENT_BANDS.has(CM.layout?.counts?.eraBand | 0)) return null;
+  const o = ORIENT[bodyOf(t)];
+  return (o && o[t.face]) || null;
+}
+
+// ── LES RANGÉES MITOYENNES (même lot I6) ─────────────────────────────────────
+// Raph 2026-10-04 : « il faut un mélange mitoyen et ce qu'on a déjà ». Un côté
+// d'îlot sur deux, et les îlots longs des axes, sont des RANGÉES (`t.terrace`) :
+// unités mitoyennes qui REMPLISSENT leur losange coin sur coin (rowGeom), dessinées
+// dans la PALETTE des maisons existantes (échoppe, domus, maison à cour → popina,
+// insula ocre) — les premières, en couleurs PixelLab brutes, « dénotaient ».
+// Vues : fl/fr = façade à gauche/droite, bl/br = dos. Les DOS et les BOUTS de rangée
+// sont des insulae (fenêtres sur quatre faces) : un dos de boutique est un mur aveugle.
+const ROW_OF = { taberna: "taberna", domus: "domus", courtyard: "popina", insula: "insula", insula2: "insula" };
+const ROW_VIEW = { S: "fl", E: "fr", N: "bl", W: "br" };
+export const ROW_KEYS = ["insula-fl", "insula-fr", "insula-bl", "insula-br",
+  "taberna-fl", "taberna-fr", "domus-fl", "domus-fr", "popina-fl", "popina-fr"].map((k) => "row-" + k);
+function rowKeyOf(t) {
+  if (!t.terrace || !t.face || !ORIENT_BANDS.has(CM.layout?.counts?.eraBand | 0)) return null;
+  let d = ROW_OF[bodyOf(t)];
+  if (!d) return null;
+  if (t.rowEnd || t.face === "N" || t.face === "W") d = "insula";
+  return "row-" + d + "-" + ROW_VIEW[t.face];
+}
+// Repères d'une unité mitoyenne, en px du PNG : le coin AVANT de son pied (le point
+// d'encre le plus bas) et la LARGEUR de son losange (encre la plus à gauche → la plus
+// à droite, avant-toits compris : ce sont eux qui doivent toucher les voisins).
+function rowMetrics(img) {
+  const w = img.naturalWidth, h = img.naturalHeight;
+  const c = document.createElement("canvas");
+  c.width = w; c.height = h;
+  const cx = c.getContext("2d", { willReadFrequently: true });
+  cx.drawImage(img, 0, 0);
+  let d;
+  try { d = cx.getImageData(0, 0, w, h).data; } catch { return null; }
+  let yb = -1, lx = w, rx = -1;
+  for (let y = 0; y < h; y += 1) for (let x = 0; x < w; x += 1) {
+    if (d[(y * w + x) * 4 + 3] <= 16) continue;
+    yb = Math.max(yb, y); lx = Math.min(lx, x); rx = Math.max(rx, x);
+  }
+  if (yb < 0) return null;
+  let sx = 0, n = 0;
+  for (let y = Math.max(0, yb - 1); y <= yb; y += 1) for (let x = 0; x < w; x += 1) if (d[(y * w + x) * 4 + 3] > 16) { sx += x; n += 1; }
+  return { fx: sx / n + 0.5, fy: yb + 1, bw: rx - lx + 1 };
+}
+// Clé EFFECTIVE d'une tuile : l'unité de rangée, sinon la vue tournée vers sa rue, si
+// leur dessin est prêt ; sinon le sprite de la variante (jamais de trou ni de repli
+// procédural pendant le chargement).
+function houseKeyOf(t) {
+  const rk = rowKeyOf(t);
+  if (rk) { const e = ensure(rk); if (e.ready && e.bbox && e.row) return rk; }
+  const ok = orientKeyOf(t);
+  if (ok) { const e = ensure(ok); if (e.ready && e.bbox) return ok; }
+  return spriteKeyFor(bodyOf(t));
+}
+
 // B — Teinte d'une tuile. Déterministe sur (gx, gy).
 // ⚠ cmHash rend un entier SIGNÉ : sans `>>> 0` le tirage se biaise silencieusement
 // (même piège que le seed de fumée juste à côté).
@@ -110,7 +194,8 @@ function spriteKeyFor(variant) {
 function houseTintOf(t, key) {
   if (!houseVarTune.on) return 0;
   if (key.indexOf("-cosmic-") >= 0) return 0;
-  return pickHouseTint(cmHash("hvar:" + t.gx + ":" + t.gy) >>> 0, t.variant);
+  if (key.startsWith("row-")) return 0;     // rangées : déjà dans la palette de leur maison
+  return pickHouseTint(cmHash("hvar:" + t.gx + ":" + t.gy) >>> 0, bodyOf(t));
 }
 
 // B — Canvas d'une teinte, RECADRÉ sur la bbox de contenu et mis en cache. Renvoie null
@@ -163,6 +248,7 @@ function ensure(key) {
   e.img.onload = () => {
     e.ready = true;
     e.bbox = contentBBox(e.img, INK_BOX_PIN[key] || null);
+    if (key.startsWith("row-")) e.row = rowMetrics(e.img);
   };
   e.img.src = "/pixelart/houses/" + key + ".png";
   cache.set(key, e);
@@ -192,6 +278,7 @@ export function pixelHouseImages() {
 export function preloadHouseSprites(band) {
   if (!pixelHousesFlag.on || typeof Image === "undefined") return;
   for (const v of AVAILABLE) ensure(v);
+  if (ORIENT_BANDS.has(band | 0)) for (const k of [...ORIENT_KEYS, ...ROW_KEYS]) ensure(k);
   if ((band | 0) >= 5) {
     for (const v of COSMIC_VARIANTS) for (const b of [7, 8, 9]) ensure(v + "-cosmic-" + b);
   }
@@ -252,7 +339,7 @@ function contentBBox(img, pin = null) {
 // et la neige ne déplacent aucun pixel, une seule ombre sert toutes les variantes.
 // À appeler avant le liseré de survol et le sprite.
 export function drawPixelHouseSunShadow(t, x, y, w, h) {
-  const e = cache.get(spriteKeyFor(t.variant));
+  const e = cache.get(houseKeyOf(t));
   if (!e || !e.ready || !e.bbox) return;
   const g = pixelHouseGeom(t, x, y, w, h);
   if (!g) return;
@@ -267,8 +354,8 @@ export function drawPixelHouseSunShadow(t, x, y, w, h) {
 // procédural (corps ET ombre carrée). Déclenche le chargement paresseux.
 export function pixelHouseReady(t) {
   if (!pixelHousesFlag.on) return false;
-  if ((t.type !== "house" && t.type !== "enginehome") || !AVAILABLE.has(t.variant)) return false;
-  const e = ensure(spriteKeyFor(t.variant));
+  if ((t.type !== "house" && t.type !== "enginehome" && !t.body) || !AVAILABLE.has(bodyOf(t))) return false;
+  const e = ensure(spriteKeyFor(bodyOf(t)));
   return !!(e.ready && e.bbox);
 }
 
@@ -278,10 +365,29 @@ export function pixelHouseReady(t) {
 // un liseré décalé d'un pixel se voit tout de suite.
 // (x,y,w,h) = boîte-tuile (≈ carré s×s après inset/sizeVar). Base ancrée au bas
 // de la tuile ; largeur = bb.w × k (k = w/HOUSE_UNIT), hauteur au ratio.
+// L'UNITÉ MITOYENNE remplit son losange. (x, y, w, h) est la boîte-lot du peintre
+// (isoLivePaint : w = 2·T·z·HOUSE_LOT_WF, bas de boîte = coin sud − ¼ de tuile à
+// l'écran) : on en tire le coin SUD exact et la largeur du losange (2·T·z), puis le
+// PNG est posé coin avant sur coin sud, largeur d'avant-toit sur largeur de losange.
+// Pas de poussé vers la rue (cf. isoFrontOffset) : l'unité EST le front de rue.
+function rowGeom(t, x, y, w, h, key, e) {
+  const Tz = w / (2 * HOUSE_LOT_WF);
+  const sx = x + w / 2, sy = y + h + Tz / 4;
+  const m = e.row, bb = e.bbox;
+  const k = (2 * Tz) / m.bw;
+  recDens(key, k / ((CM.cam && CM.cam.zoom) || 1));
+  const dw = Math.max(1, Math.round(bb.w * k)), dh = Math.max(1, Math.round(bb.h * k));
+  const dx = Math.round(sx - (m.fx - bb.x0) * k), dy = Math.round(sy - (m.fy - bb.y0) * k);
+  const vc = variantCanvas(key, 0, CM.season === WINTER && snowRoofTune.on);
+  if (vc) return { img: vc, bb: { x0: 0, y0: 0, w: bb.w, h: bb.h, mask: bb.mask }, dx, dy, dw, dh, key, ox: bb.x0, oy: bb.y0 };
+  return { img: e.img, bb, dx, dy, dw, dh, key, ox: bb.x0, oy: bb.y0 };
+}
+
 function pixelHouseGeom(t, x, y, w, h) {
-  const key = spriteKeyFor(t.variant);
+  const key = houseKeyOf(t);
   const e = cache.get(key);
   if (!e || !e.ready || !e.bbox) return null;
+  if (e.row) return rowGeom(t, x, y, w, h, key, e);
   const bb = e.bbox;
   // Empreinte multi-tuiles : on scale sur la taille d'UNE tuile (w/span), pas sur
   // toute la boîte → le sprite garde sa taille naturelle et NE grandit PAS avec

@@ -552,6 +552,70 @@ function topOf(R) {
   }
   return null;
 }
+// ── FINITION PIXEL-ART ───────────────────────────────────────────────────────
+// Raph (2026-10-03) : « du rendu un peu cheap, on n'a pas assez le côté pixel art
+// maintenant que c'est en code ». Ce qui fait qu'une forme CALCULÉE se lit comme
+// DESSINÉE, appliqué à toute image cuite (monuments, décor, îlot, enceinte) :
+//   1. contour SÉLECTIF : le bord prend une version sombre et froide de SA propre
+//      couleur — plus sombre à droite qu'en haut — au lieu d'un trait d'encre
+//      uniforme qui cerne tout de la même façon (et fait « vectoriel ») ;
+//   2. reflet de bord : la rangée sous un bord haut et la colonne contre un bord
+//      gauche prennent la lumière (soleil haut-gauche), la colonne contre un bord
+//      droit s'assombrit — le volume se détache du fond ;
+//   3. grain : de petites grappes, un cran plus sombres ou plus claires, brisent
+//      les aplats (jamais sur une vitre ni une lumière, marquées par leur alpha) ;
+//   4. teintes décalées : les ombres glissent vers le bleu, les lumières vers
+//      l'ocre — la palette respire au lieu de n'être que du clair au foncé.
+// Ne touche pas l'alpha : les marqueurs de nuit (253/254) passent intacts.
+export function pixelFinish(R, inkHex, o = {}) {
+  const { w, h, data } = R;
+  if (!w || !h) return R;
+  const src = new Uint8ClampedArray(data);
+  const A = (i, j) => (i < 0 || j < 0 || i >= w || j >= h ? 0 : src[(j * w + i) * 4 + 3]);
+  const same = (k1, k2) => src[k1] === src[k2] && src[k1 + 1] === src[k2 + 1] && src[k1 + 2] === src[k2 + 2];
+  const ink = rgbOf(inkHex);
+  // Grain : un multiplicateur par pixel, posé d'abord (les grappes débordent sur
+  // le voisin de droite), appliqué ensuite.
+  const grain = new Float32Array(w * h).fill(1);
+  if (o.grain !== false) {
+    for (let j = 1; j < h - 1; j += 1) {
+      for (let i = 1; i < w - 2; i += 1) {
+        const k = (j * w + i) * 4;
+        if (src[k + 3] !== 255 || src[k + 7] !== 255 || !same(k, k + 4) || !same(k, k + w * 4)) continue;
+        const n = h32(i, j, 97) % 61;
+        if (n === 0) { grain[j * w + i] = 0.9; grain[j * w + i + 1] = 0.9; }
+        else if (n === 1) grain[j * w + i] = 1.09;
+      }
+    }
+  }
+  for (let j = 0; j < h; j += 1) {
+    for (let i = 0; i < w; i += 1) {
+      const k = (j * w + i) * 4, a = src[k + 3];
+      if (!a) continue;
+      if (a === 253 || a === 254) continue;                  // vitres, lumières
+      let r = src[k], g = src[k + 1], b = src[k + 2];
+      const up = A(i, j - 1), lf = A(i - 1, j), rt = A(i + 1, j);
+      if (!up || !lf || !rt) {
+        const f = !rt ? 0.36 : !up ? 0.5 : 0.44;
+        r = r * f * 0.8 + ink[0] * 0.2; g = g * f * 0.8 + ink[1] * 0.2; b = b * f * 0.8 + ink[2] * 0.2 + 6;
+      } else {
+        let m = grain[j * w + i];
+        if (!A(i, j - 2)) m *= 1.1;                            // sous un bord haut
+        else if (!A(i - 2, j)) m *= 1.06;                      // contre un bord gauche
+        else if (!A(i + 2, j)) m *= 0.9;                       // contre un bord droit
+        r *= m; g *= m; b *= m;
+      }
+      // Teintes décalées.
+      const l = 0.3 * r + 0.59 * g + 0.11 * b;
+      const sh = Math.max(0, Math.min(1, (150 - l) / 150)), li = Math.max(0, Math.min(1, (l - 165) / 90));
+      data[k] = r - 9 * sh + 9 * li;
+      data[k + 1] = g - 3 * sh + 5 * li;
+      data[k + 2] = b + 11 * sh - 8 * li;
+    }
+  }
+  return R;
+}
+
 function finish(R, X, props, B, H, o = {}) {
   outline(R, X.ink);
   const N = nightOf(R, X);

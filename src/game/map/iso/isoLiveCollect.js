@@ -44,6 +44,7 @@ import { depthOf } from './projection.js';
 import { districtMassTiles } from './isoDistricts.js';
 import { vieActors } from './isoVie.js';
 import { elevatedActors } from './isoElevated.js';
+import { pushTerroirTeams } from './terroirLife.js';
 
 // Pool et vue des items du peintre (cf. commentaire dans drawIsoLive) —
 // persistants au module : capacité conservée d'une frame à l'autre.
@@ -165,6 +166,9 @@ export function collectIsoItems(bake, now) {
       }
     }
   }
+  // LE LABOUREUR (docs/PLAN-TERROIR.md) : les attelages du terroir, chacun à sa
+  // profondeur — sur la parcelle, donc toujours devant elle (triée au coin nord).
+  pushTerroirTeams(items, L, band, now);
   // BATEAUX À QUAI (docs/PLAN-BATEAUX.md, lot 4) : un marchand amarré au ponton —
   // ou qui s'y range — est trié avec lui (pose calculée par drawIsoShips, plus tôt
   // dans la frame). Même contact visuel que le bateau-décor qu'il remplace.
