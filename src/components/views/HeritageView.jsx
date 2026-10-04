@@ -108,12 +108,13 @@ export default function HeritageView() {
     const tr_ = t.tronc || {};
     const arts = Object.keys(s.templeArtifacts || {}).sort().join(',');
     // Un fragment de clé par auto de jeu : les 4 jeux ont les mêmes cadrans
-    // (on/mise ou rite/tempo/plancher), Icare a la cible en plus. stakePow (le
-    // cadran Coffre) en fait partie : l'omettre retardait son affichage d'un tick.
+    // (on/mise/tempo/plancher), plus le rite des osselets et la cible d'Icare. La mise
+    // (stakeStep, une part de la limite) en fait partie : l'omettre retardait son
+    // affichage d'un tick.
     const autoKey = ['osselets', 'icarus', 'gratteux', 'vingtetun']
-      .map((k) => { const g = t[k] || {}; return `${g.unlocked}:${g.on}:${g.rite || g.stakeId}:${g.tempo}:${g.faveurFloor}:${g.target || 0}:${g.stakePow || 0}`; })
+      .map((k) => { const g = t[k] || {}; return `${g.unlocked}:${g.on}:${g.rite || ''}:${g.tempo}:${g.faveurFloor}:${g.target || 0}:${g.stakeStep || ''}`; })
       .join('|');
-    return `${s.diceLevel || 0}:${s.wingLevel || 0}:${s.styletLevel || 0}:${s.blessingUntil || 0}:${Math.floor((s.instability || 0) * 1000)}:${arts}:${tr_.unlocked}:${autoKey}`;
+    return `${s.styletLevel || 0}:${s.blessingUntil || 0}:${Math.floor((s.instability || 0) * 1000)}:${arts}:${tr_.unlocked}:${autoKey}`;
   });
   const cadmosHeritage = useGameState((s) => Boolean(s.cadmosHeritage));
   const cadmosPermanentEpitaphs = useGameState((s) => s.cadmosPermanentEpitaphs) || [];
@@ -147,9 +148,9 @@ export default function HeritageView() {
       buy: () => { if (buyUpgrade(u.id)) pushOutcomeFloat({ label: `✓ ${u.name}`, kind: 'gain' }); }
     };
   });
-  // Boutique de Faveur : seul le consommable BÉNÉDICTION reste à l'étal — les
-  // dés pipés / ailes cirées ont migré dans l'arbre d'artefacts (rang 1 des
-  // lignées). Un nouveau kind est toléré (repli sur ses champs).
+  // Boutique de Faveur : seul le consommable BÉNÉDICTION reste à l'étal (les dés
+  // pipés et les ailes cirées ont disparu au lot 1 des gains « vrai casino »). Un
+  // nouveau kind est toléré (repli sur ses champs).
   const faveurObjs = faveurShopItems().filter((it) => it.kind === 'blessing').map((it) => {
     const known = FAVEUR_LABELS[it.kind];
     return {

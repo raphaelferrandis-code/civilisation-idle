@@ -12,8 +12,9 @@
 // auguryPaytable, donc un jeu sur quatre, cagnotte exclue).
 
 import { state } from '../state.js';
-import { RAFLE_MISE_PLEINE, SERRES_RAKE_MULT, TEMPLE_POT_RECYCLE, TEMPLE_POT_RECYCLE_CAP, ICARUS_POT_CAP_FAVEUR, NOYE_POT_MULT, COFFRE_MAX_LEVEL } from '../balance.js';
+import { SERRES_RAKE_MULT, TEMPLE_POT_RECYCLE, TEMPLE_POT_RECYCLE_CAP, NOYE_POT_MULT } from '../balance.js';
 import { hasTempleArtifact } from './templeArtifacts.js';
+import { tableLimits, potCap } from './maisonTable.js';
 
 // Recycle EFFECTIF : la part de l'edge qui repart à la cagnotte. L'osselet du noyé
 // le multiplie, mais le clamp est ce qui garantit TOUT le reste : recycle < 1 ⟹
@@ -41,11 +42,16 @@ export function potRecycle() {
 //
 // `rtpBase` doit être le RTP RÉEL de la ligne de jeu (arrondi du payout compris) :
 // le sous-estimer gonflerait le versement et rongerait la marge.
+//
+// Seul écart connu à la formule : un vol offert (Vénus des osselets et des tickets)
+// est compté dans le rtp de son jeu à 97 %, puis nourrit encore la cagnotte sur son
+// propre edge quand il se joue à Icare. Le total réel prend 0,1 à 0,2 point de plus
+// (pire cas mesuré ~99,8 %, noyé + grand rite) : il reste sous 1.
 export function feedPot(stakePaid, rtpBase) {
   const stake = Math.max(0, Number(stakePaid) || 0);
   const rtp = Math.max(0, Math.min(1, Number(rtpBase) || 0));
   const feed = stake * potRecycle() * (1 - rtp);
-  state.icarusPotFaveur = Math.min(ICARUS_POT_CAP_FAVEUR, Math.max(0, state.icarusPotFaveur || 0) + feed);
+  state.icarusPotFaveur = Math.min(potCap(), Math.max(0, state.icarusPotFaveur || 0) + feed);
   return feed;
 }
 
@@ -72,19 +78,6 @@ export function payRound(exact) {
   return base + (Math.random() < x - base ? 1 : 0);
 }
 
-// LES COFFRES DU TEMPLE : le multiplicateur de mise autorisé. Chaque rang de
-// coffre (state.coffreLevel) autorise ×10 de plus ; tout ce qui est demandé
-// au-delà est CLAMPÉ au rang possédé, et seules les puissances de 10 existent
-// (le cadran de l'UI et les autos ne proposent que ça — le clamp protège les
-// saves trafiquées et les appels programmatiques).
-export function clampStakeMult(mult) {
-  const lvl = Math.max(0, Math.min(COFFRE_MAX_LEVEL, state.coffreLevel || 0));
-  const m = Number(mult) || 1;
-  if (m <= 1) return 1;
-  const pow = Math.max(0, Math.min(lvl, Math.round(Math.log10(m))));
-  return 10 ** pow;
-}
-
 // Prélève sur la cagnotte (consolations des plumes) : ce qui sort du pot n'est
 // JAMAIS créé, il vient de ce que les revers y ont versé. Rend ce qui a pu être
 // prélevé (0 si la cella est vide) — c'est la contrepartie assumée du filet.
@@ -107,19 +100,20 @@ export function drawFromPot(amount) {
 //      (la rafle) ignorait la mise, donc la petite mise dominait strictement.
 //   3. La stratégie dominante était de gonfler le pot ailleurs, puis de le vider
 //      en vols à 4 Faveur.
-// Au prorata, la Plume emporte 16 % et l'Hécatombe 100 % : le magot se paie à la
-// hauteur du risque pris, et ce qui reste dans la cella continue d'exister après
-// la rafle (le pot devient un objet économique lisible au lieu d'un tout ou rien).
+// Au prorata, le magot se paie à la hauteur du risque pris, et ce qui reste dans la
+// cella continue d'exister après la rafle (le pot devient un objet économique
+// lisible au lieu d'un tout ou rien). Lot 1 (2026-10-04) : la référence est la
+// LIMITE HAUTE de la table — miser le maximum rafle tout, un dixième de la limite
+// en emporte 10 %. (Avant, une mise fixe de 25 servait de référence.)
 //
 // La borne à 1 est ce qui garantit qu'on ne peut jamais emporter plus que le pot.
-// Les serres (artefact) montent la part de moitié : Plume 16 → 24 %, Aile 40 →
-// 60 %. C'est de la SORTIE de pot uniquement — démontré plus haut : la sortie ne
-// change pas le RTP long terme, donc les serres vendent du TEMPO, pas du
-// rendement. Le magot se prend plus vite, il ne grossit pas plus.
+// Les serres (artefact) montent la part de moitié. C'est de la SORTIE de pot
+// uniquement — démontré plus haut : la sortie ne change pas le RTP long terme,
+// donc les serres vendent du TEMPO, pas du rendement.
 export function potRakeShare(stakeFaveur) {
   const stake = Math.max(0, Number(stakeFaveur) || 0);
   const mult = hasTempleArtifact("serres") ? SERRES_RAKE_MULT : 1;
-  return Math.min(1, (stake * mult) / RAFLE_MISE_PLEINE);
+  return Math.min(1, (stake * mult) / Math.max(1, tableLimits().max));
 }
 
 // Montant réellement emporté (Faveur ENTIÈRE) et solde restant, à partir du pot

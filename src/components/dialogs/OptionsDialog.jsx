@@ -12,7 +12,11 @@ import {
   setMusicActiveTabOnly,
   getMusicTracks,
   getMusicTrack,
-  setMusicTrack
+  setMusicTrack,
+  getSfxEnabled,
+  setSfxEnabled,
+  getSfxVolume,
+  setSfxVolume
 } from '../../game/core/main.js';
 import { numberFormatMode, setNumberFormatMode, encodeSaveText } from '../../game/core/utils.js';
 import { dayNightMode, setDayNightMode } from '../../game/map/dayNightMode.js';
@@ -73,6 +77,8 @@ export default function OptionsDialog({ isOpen, onClose, onSave, onExport, onImp
   const musicActiveTabOnly = getMusicActiveTabOnly();
   const musicTracks = getMusicTracks();
   const musicTrack = getMusicTrack();
+  const sfxEnabled = getSfxEnabled();
+  const sfxVolume = getSfxVolume();
   const formatMode = numberFormatMode;
   const autoScriptRules = getAutoScriptRules();
   const automateRules = getAutomateRules();
@@ -225,6 +231,16 @@ export default function OptionsDialog({ isOpen, onClose, onSave, onExport, onImp
   const handleVolumeChange = (event) => {
     const next = Number(event.target.value) / 100;
     setMusicVolume(next);
+    setOptionRevision((revision) => revision + 1);
+  };
+
+  const handleSfxToggle = () => {
+    setSfxEnabled(!sfxEnabled);
+    setOptionRevision((revision) => revision + 1);
+  };
+
+  const handleSfxVolume = (event) => {
+    setSfxVolume(Number(event.target.value) / 100);
     setOptionRevision((revision) => revision + 1);
   };
 
@@ -859,6 +875,42 @@ export default function OptionsDialog({ isOpen, onClose, onSave, onExport, onImp
                   />
                   <strong style={{ minWidth: '40px', textAlign: 'right' }}>
                     {Math.round(musicVolume * 100)}%
+                  </strong>
+                </div>
+              </div>
+
+              {/* LES BRUITAGES (2026-10-03 : la machine à sous) — à part de la musique. */}
+              <div className="options-row">
+                <div>
+                  <OptionLabel label={tr({ fr: "Bruitages", en: "Sound effects" })} hint={tr({ fr: "Les sons des jeux de la Maison des Plaisirs", en: "The sounds of the House of Pleasures games" })} />
+                </div>
+                <button
+                  type="button"
+                  className={`toggle-btn ${sfxEnabled ? 'on' : 'off'}`}
+                  aria-label={tr({ fr: sfxEnabled ? 'Activé' : 'Désactivé', en: sfxEnabled ? 'On' : 'Off' })}
+                  aria-pressed={Boolean(sfxEnabled)}
+                  onClick={handleSfxToggle}
+                >
+                  
+                </button>
+              </div>
+
+              <div className="options-row options-row-volume">
+                <div>
+                  <OptionLabel label={tr({ fr: "Volume des bruitages", en: "Effects volume" })} hint={tr({ fr: "Niveau des sons des jeux", en: "Level of the game sounds" })} />
+                </div>
+                <div className="volume-control" style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                  <input
+                    type="range"
+                    min="0"
+                    max="100"
+                    step="5"
+                    value={Math.round(sfxVolume * 100)}
+                    onChange={handleSfxVolume}
+                    aria-label={tr({ fr: "Volume des bruitages", en: "Effects volume" })}
+                  />
+                  <strong style={{ minWidth: '40px', textAlign: 'right' }}>
+                    {Math.round(sfxVolume * 100)}%
                   </strong>
                 </div>
               </div>

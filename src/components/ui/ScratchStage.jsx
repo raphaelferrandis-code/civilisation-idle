@@ -3,21 +3,22 @@ import { useGameState } from '../../hooks/useGameState.js';
 import { state, save } from '../../game/core/state.js';
 import {
   playScratch,
-  scratchStakes,
   scratchPayout,
+  scratchOdds,
   icarusPotFaveur
 } from '../../game/core/actions.js';
-import { SCRATCH_PRIZES, SCRATCH_REVEAL_PCT, SCRATCH_SUN_FLIGHT, ICARUS_STAKES, STYLET_RADIUS_STEP } from '../../game/core/balance.js';
+import { SCRATCH_PRIZES, SCRATCH_REVEAL_PCT, STYLET_RADIUS_STEP } from '../../game/core/balance.js';
 import { hasTempleArtifact } from '../../game/core/actions/templeArtifacts.js';
-import { clampStakeMult } from '../../game/core/actions/templePot.js';
+import { tableLimits } from '../../game/core/actions/maisonTable.js';
 import { fmt } from '../../game/core/utils.js';
 import { tr } from '../../game/core/i18n.js';
-import { FaveurIcon, PotIcon } from './FaveurIcon.jsx';
+import { PotIcon } from './FaveurIcon.jsx';
 import { tipProps } from './HelpBubble.jsx';
-import CoffreSelect from './CoffreSelect.jsx';
 import StageHelp from './StageHelp.jsx';
 import { usePlaisirsBand, ticketFace, TICKET_GRID } from './plaisirsMaterial.js';
-import PlaisirsTable, { TableStake } from '../views/plaisirs/PlaisirsTable.jsx';
+import PlaisirsTable from '../views/plaisirs/PlaisirsTable.jsx';
+import TableMise from '../views/plaisirs/TableMise.jsx';
+import { initialStake, rememberStake, fmtMise } from '../views/plaisirs/miseMemory.js';
 
 // Flamme votive du vernis (dessinée AU CANVAS — un <img> n'y entre pas).
 // Préchargée au module, gardée nulle hors navigateur (tests node).
@@ -26,20 +27,15 @@ if (FLAME_IMG) FLAME_IMG.src = '/pixelart/ui/faveur/flamme.png';
 import ScratchCanvas from './ScratchCanvas.jsx';
 import { scratchSymbolSrc } from './scratchSymbols.js';
 
-// L'EMBLÈME DE CHAQUE MISE, en tête de sa colonne. Les trois tickets portent des
-// NOMS DE MONNAIE, et l'escalade est celle du métal : bronze, argent, or. C'est
-// donc l'argent lui-même qu'on montre — le ticket, lui, se voit une fois acheté.
-//
-// ⚠ Ce n'est PAS l'art du ticket (ui/scratch/ticket-*.png) : ces planches-là font
-// 512 px et sont des SURFACES DE JEU, une grille d'alvéoles. Réduites à 64 elles
-// ne donnent qu'un quadrillage indistinct.
-// ⚠ Table explicite plutôt qu'un chemin déduit de `s.id` : une mise ajoutée
-// demain sortirait un 404 muet. Cf. la même table dans IcarusStage.
-const STAKE_ART = {
-  obole: '/pixelart/ui/plaisirs/mises/tickets-obole.png',
-  drachme: '/pixelart/ui/plaisirs/mises/tickets-drachme.png',
-  talent: '/pixelart/ui/plaisirs/mises/tickets-talent.png'
-};
+// LE MÉTAL DU TICKET suit la mise (lot 1 des gains « vrai casino », mise libre) :
+// bronze sous le dixième de la limite de la table, argent jusqu'à la moitié, or
+// au-delà. Les trois habits du ticket (liseré, vernis, rayon du grattoir) restent
+// ceux des anciennes mises fixes — obole, drachme, talent.
+function ticketTier(stakeFaveur) {
+  const { max } = tableLimits();
+  const r = (stakeFaveur || 0) / Math.max(1, max);
+  return r < 0.1 ? 'obole' : r < 0.5 ? 'drachme' : 'talent';
+}
 
 // Symbole d'un ticket = icône pixel-art réutilisée du jeu (scratchSymbols.js),
 // rendue nette (image-rendering: pixelated). Décoratif → aria-hidden.
@@ -177,12 +173,9 @@ export default function ScratchStage({ table, onClose }) {
   // L'âge de la Maison : la face du ticket suit sa matière.
   const band = usePlaisirsBand();
   const [phase, setPhase] = useState('buy');
-  // Aucun ticket choisi au départ (sketch Raph 2026-07-17 : « le bouton de jeu
-  // n'apparaît que quand la mise est sélectionnée ») — le bouton Acheter reste
-  // masqué tant qu'on n'a pas cliqué un choix.
-  const [chosenStake, setChosenStake] = useState(null);
-  // La puissance de mise du coffre (×1, ×10…), re-clampée au rendu ET au moteur.
-  const [coffreMult, setCoffreMult] = useState(1);
+  // LA MISE LIBRE : le prix du ticket, en jetons. Une table rouverte repart de la
+  // dernière mise jouée.
+  const [stake, setStake] = useState(() => initialStake('tickets', state.faveur || 0));
   const [outcome, setOutcome] = useState(null);
   const [revealed, setRevealed] = useState(false);
   const [ticketNonce, setTicketNonce] = useState(0);
@@ -198,7 +191,7 @@ export default function ScratchStage({ table, onClose }) {
     outcomeRef.current = null;
     // eslint-disable-next-line react-hooks/set-state-in-effect -- remise à zéro VOULUE de la scène à chaque réouverture (openedAt)
     setPhase('buy');
-    setChosenStake(null);
+    setStake(initialStake('tickets', state.faveur || 0));
     setOutcome(null);
     setRevealed(false);
   }, [table?.openedAt]);
@@ -252,7 +245,7 @@ export default function ScratchStage({ table, onClose }) {
   // (ResizeObserver repeint : un Math.random ici ferait sauter le trou).
   const ticketNonceRef = useRef(0);
   const drawFoil = useCallback((ctx, w, h) => {
-    const paint = FOILS[outcomeRef.current?.stakeId] || paintFoilDrachme;
+    const paint = FOILS[ticketTier(outcomeRef.current?.stakeFaveur)] || paintFoilDrachme;
     paint(ctx, w, h);
     if (hasTempleArtifact('coin')) {
       const cell = (ticketNonceRef.current * 7 + 3) % 9;
@@ -272,12 +265,10 @@ export default function ScratchStage({ table, onClose }) {
     }
   }, []);
 
-  const stakes = scratchStakes();
   const pot = icarusPotFaveur();
   const history = (state.scratchHistory || []).slice().reverse();
-  const chosen = stakes.find((s) => s.id === chosenStake) || stakes[0];
-  const effMult = clampStakeMult(coffreMult); // parité stricte avec le moteur
-  const chosenCost = chosen ? chosen.faveur * effMult : 0;
+  const { max: tableMax } = tableLimits();
+  const faveur = state.faveur || 0;
 
   const startTicket = (res) => {
     // Défense en profondeur : un ticket encore en attente d'application ne doit
@@ -291,25 +282,24 @@ export default function ScratchStage({ table, onClose }) {
     setPhase('scratch');
   };
 
-  // L'achat part sur le ticket SÉLECTIONNÉ (chosen) : le bouton Acheter et le
-  // « Reprendre un ticket » de résultat appellent tous onBuy() sans argument.
-  const onBuy = () => {
-    if (!chosen || (state.faveur || 0) < chosenCost) return;
-    const res = playScratch(chosen.id, { defer: true, stakeMult: effMult });
+  // L'achat, à la mise posée (`amount`, la pile par défaut) : le bouton Acheter,
+  // « Même mise » et « Laisser courir » passent par ici.
+  const onBuy = (amount = stake) => {
+    if (amount <= 0 || (state.faveur || 0) < amount) return;
+    const res = playScratch(amount, { defer: true });
     if (!res) return;
+    rememberStake('tickets', res.stakeFaveur);
+    setStake(res.stakeFaveur);
     startTicket(res);
   };
 
   // L'OFFRANDE RECOPIÉE (artefact) : rejouer un ticket perdant, la CELLA paie la
   // mise (transfert strict : couverture entière ou rien — cf. playScratch). Une
   // seule relance par ticket, et jamais d'une relance elle-même (outcome.potFunded).
-  // La relance rejoue LE MÊME ticket, coffre compris : le multiplicateur est
-  // relu sur la mise réellement payée (pas sur le sélecteur, qui a pu changer).
+  // La relance rejoue LE MÊME ticket, à la mise réellement payée.
   const onReplay = () => {
     if (!outcome || outcome.win || outcome.potFunded) return;
-    const base = stakes.find((s) => s.id === outcome.stakeId);
-    const multUsed = base ? Math.max(1, Math.round((outcome.stakeFaveur || base.faveur) / base.faveur)) : 1;
-    const res = playScratch(outcome.stakeId, { defer: true, potFunded: true, stakeMult: multUsed });
+    const res = playScratch(outcome.stakeFaveur, { defer: true, potFunded: true });
     if (!res) return;
     startTicket(res);
   };
@@ -321,26 +311,25 @@ export default function ScratchStage({ table, onClose }) {
 
   const onNewTicket = () => {
     // Le ticket courant est déjà appliqué (reveal a flush) : on repart à l'achat,
-    // sans mise pré-choisie (le bouton Acheter réapparaîtra au clic d'un choix).
+    // la pile garde la dernière mise.
     outcomeRef.current = null;
-    setChosenStake(null);
     setOutcome(null);
     setRevealed(false);
     setPhase('buy');
   };
 
-  // Le gain d'un ticket est le SEUL gain de cette table depuis que le Soleil ne
-  // rafle plus (2026-07-17) : plus de jackpotFaveur à additionner.
+  // Le gain d'un ticket est le SEUL gain de cette table (elle ne rafle jamais).
   const totalFaveur = outcome ? outcome.faveurGain : 0;
-  // Libellé de la mise du vol qu'offre le Soleil (elle suit celle du ticket).
-  const sunStakeLabel = (ICARUS_STAKES.find((s) => s.id === SCRATCH_SUN_FLIGHT[outcome?.stakeId]) || ICARUS_STAKES[0]).label;
+  const tier = ticketTier(outcome?.stakeFaveur);
+  // Laisser courir : tout le gain du ticket sur le suivant, plafonné à la limite.
+  const rideAmount = outcome && outcome.win ? Math.min(tableMax, totalFaveur) : 0;
 
   const ticket = (phase === 'scratch' || phase === 'done') && outcome && (
     <div
-      className={`scratch-ticket scratch-ticket--${outcome.stakeId}${revealed ? ' is-revealed' : ''}`}
+      className={`scratch-ticket scratch-ticket--${tier}${revealed ? ' is-revealed' : ''}`}
       // La face du ticket, peinte à la matière de l'âge (plaisirsMaterial.js) : les
       // planches `ui/scratch/ticket-*.png` n'ont jamais existé.
-      style={{ '--ticket-art': `url("${ticketFace(band, outcome.stakeId)}")`, '--ticket-dark': '0%', '--tgrid-pad': TICKET_GRID.pad, '--tgrid-gap': TICKET_GRID.gap }}
+      style={{ '--ticket-art': `url("${ticketFace(band, tier)}")`, '--ticket-dark': '0%', '--tgrid-pad': TICKET_GRID.pad, '--tgrid-gap': TICKET_GRID.gap }}
     >
       <div className="scratch-grid" aria-hidden={phase === 'scratch' && !revealed ? 'true' : undefined}>
         {(outcome.grid || []).map((sym, i) => (
@@ -354,7 +343,7 @@ export default function ScratchStage({ table, onClose }) {
       </div>
       <ScratchCanvas
         nonce={ticketNonce}
-        radius={(SCRATCH_RADIUS[outcome.stakeId] || 11) + (state.styletLevel || 0) * STYLET_RADIUS_STEP}
+        radius={(SCRATCH_RADIUS[tier] || 11) + (state.styletLevel || 0) * STYLET_RADIUS_STEP}
         threshold={SCRATCH_REVEAL_PCT}
         onReveal={reveal}
         drawFoil={drawFoil}
@@ -385,7 +374,7 @@ export default function ScratchStage({ table, onClose }) {
           className="scratch-stage-pot"
           {...tipProps(
             tr({ fr: 'La cagnotte de la Maison', en: 'The House pot' }),
-            tr({ fr: 'Tes tickets perdants la nourrissent ; cette table ne la reprend jamais. Elle se rafle au Vol d’Icare, à ×10 et plus.', en: 'Your losing tickets feed it; this table never takes it back. It is swept at the Flight of Icarus, at ×10 and above.' })
+            tr({ fr: 'Tes tickets la nourrissent ; cette table ne la reprend jamais. Elle se rafle au Vol d’Icare, à ×10 et plus.', en: 'Your tickets feed it; this table never takes it back. It is swept at the Flight of Icarus, at ×10 and above.' })
           )}
         >
           <PotIcon /> <strong>{fmt(pot)}</strong> {tr({ fr: 'en cagnotte', en: 'in the pot' })}
@@ -393,22 +382,17 @@ export default function ScratchStage({ table, onClose }) {
         <StageHelp>
           <p>
             {tr({
-              fr: 'Découvre 3 symboles identiques sous le vernis pour gagner de la Faveur. Trois Vénus offrent une Plume, trois Soleils un vol à la mise de ton ticket.',
-              en: 'Reveal 3 matching symbols under the varnish to win Favor. Three Venus grant a Feather, three Suns a flight at your ticket’s stake.'
-            })}
-          </p>
-          <p>
-            {tr({
-              fr: 'Un ticket perdant verse sa mise à la cagnotte de la Maison.',
-              en: 'A losing ticket pays its stake into the House pot.'
+              fr: `Le prix du ticket est ta mise, jusqu'à la limite de la table (${fmtMise(tableMax)}). Découvre 3 symboles identiques sous le vernis : les lots sont des multiples de la mise. Trois Vénus offrent aussi un vol d'Icare ; trois Soleils, le gros lot. C'est la loterie de la Maison : un ticket sur quatre gagne, et elle rend 75 % sur la durée.`,
+              en: `The ticket price is your stake, up to the table limit (${fmtMise(tableMax)}). Reveal 3 matching symbols under the varnish: prizes are multiples of the stake. Three Venus also grant an Icarus flight; three Suns, the jackpot. It is the House lottery: one ticket in four wins, and it returns 75% over time.`
             })}
           </p>
           <div className="scratch-legend" aria-label={tr({ fr: 'Table des lots', en: 'Prize table' })}>
             {WIN_PRIZES.map((p) => (
               <span key={p.symbol} className="scratch-legend-item">
                 <b><Sym name={p.symbol} cls="scratch-sym-sm" />×3</b>
-                {`+${fmt(scratchPayout(p.symbol, chosen ? chosen.faveur * effMult : 0))}`}
-                {p.sunFlight || p.freeFlight ? ' 🪽' : ''}
+                {`+${fmt(scratchPayout(p.symbol, stake))}`}
+                {p.freeFlight ? ' 🪽' : ''}
+                <small>{` 1/${fmt(Math.round(1 / Math.max(1e-9, scratchOdds(p.symbol))))}`}</small>
               </span>
             ))}
           </div>
@@ -420,44 +404,31 @@ export default function ScratchStage({ table, onClose }) {
           derrière son comptoir ; les tickets posés SUR le comptoir, celui qu'on gratte
           devant soi. */}
       {phase === 'buy' && (
-        <PlaisirsTable game="tickets" className="ptable--bet" tablePx={250} dealer={0} variant={1}>
+        <PlaisirsTable game="tickets" className="ptable--bet ptable--mise" tablePx={250} nSpots={1}>
           {(L) => (
             <>
               <div className="ptable-hud">
                 {historyChips}
-                <CoffreSelect value={effMult} onChange={setCoffreMult} />
               </div>
-              {stakes.map((s, i) => {
-                const cost = s.faveur * effMult;
-                const cantPay = (state.faveur || 0) < cost;
-                return (
-                  // Le bouton d'achat n'apparaît QUE sous le ticket choisi (retour Raph
-                  // 2026-07-17 : « dans le cadre de la mise choisie »).
-                  <TableStake
-                    key={s.id}
-                    x={L.spots[i % L.spots.length]}
-                    y={L.spotY}
-                    art={STAKE_ART[s.id]}
-                    label={tr(s.label)}
-                    cost={<><FaveurIcon /> {fmt(cost)}</>}
-                    chosen={chosenStake === s.id}
-                    broke={cantPay}
-                    onPick={() => setChosenStake(s.id)}
-                    tip={tipProps(tr(s.label), tr({ fr: `Ticket à ${cost} Faveur. Les lots sont des multiples de la mise.`, en: `${cost} Favor ticket. Prizes are multiples of the stake.` }))}
-                    play
-                    playLabel={tr({ fr: 'Acheter le ticket', en: 'Buy the ticket' })}
-                    playDisabled={(state.faveur || 0) < chosenCost}
-                    onPlay={() => onBuy()}
-                  />
-                );
-              })}
+              <TableMise
+                game="tickets"
+                x={L.spots[0]}
+                y={L.spotY}
+                k={L.k}
+                rackY={L.floor + 6}
+                stake={stake}
+                onStake={setStake}
+                faveur={faveur}
+                playLabel={tr({ fr: 'Acheter le ticket', en: 'Buy the ticket' })}
+                onPlay={() => onBuy()}
+              />
             </>
           )}
         </PlaisirsTable>
       )}
 
       {(phase === 'scratch' || (phase === 'done' && outcome)) && (
-        <PlaisirsTable game="tickets" className="ptable--ticket" tablePx={300} marks={false} dealer={0} variant={1}>
+        <PlaisirsTable game="tickets" className="ptable--ticket" tablePx={300} marks={false}>
           {(L) => (
             <>
               <div className="ptable-hud">{historyChips}</div>
@@ -473,10 +444,9 @@ export default function ScratchStage({ table, onClose }) {
                 )}
                 {phase === 'done' && outcome && (
                   <>
-                    {/* Le Soleil n'ouvre plus la cagnotte, il ouvre le CIEL : il renvoie à
-                        Icare avec un billet à la hauteur du ticket. */}
-                    {outcome.sunFlight ? (
-                      <p className="scratch-jackpot-banner">☀ {tr({ fr: `Vol d’Icare offert (${tr(sunStakeLabel)})`, en: `Free Icarus flight (${tr(sunStakeLabel)})` })}</p>
+                    {/* Le Soleil : le gros lot. */}
+                    {outcome.symbol === 'soleil' ? (
+                      <p className="scratch-jackpot-banner">☀ {tr({ fr: 'Le gros lot !', en: 'The jackpot!' })}</p>
                     ) : null}
                     {outcome.win ? (
                       <p className="scratch-result scratch-result--win">
@@ -485,7 +455,7 @@ export default function ScratchStage({ table, onClose }) {
                       </p>
                     ) : (
                       <p className="scratch-result scratch-result--lose">
-                        {tr({ fr: `Perdu : −${fmt(outcome.stakeFaveur)} faveur`, en: `Lost: −${fmt(outcome.stakeFaveur)} favor` })}
+                        {tr({ fr: `Perdu : −${fmtMise(outcome.stakeFaveur)} faveur`, en: `Lost: −${fmtMise(outcome.stakeFaveur)} favor` })}
                       </p>
                     )}
                     <menu className="choice-menu scratch-actions">
@@ -496,17 +466,28 @@ export default function ScratchStage({ table, onClose }) {
                           {...tipProps(null, tr({ fr: 'L’offrande recopiée : le trésor de la Maison paie la mise du même ticket, une fois. Il doit la couvrir en entier.', en: 'The copied offering: the House hoard pays the same ticket’s stake, once. It must cover it in full.' }))}
                           onClick={onReplay}
                         >
-                          {tr({ fr: `Rejeu offert (${fmt(outcome.stakeFaveur)})`, en: `Free replay (${fmt(outcome.stakeFaveur)})` })}
+                          {tr({ fr: `Rejeu offert (${fmtMise(outcome.stakeFaveur)})`, en: `Free replay (${fmtMise(outcome.stakeFaveur)})` })}
                         </button>
                       )}
-                      {/* Rejeu DIRECT (phase 7) : la mise est mémorisée, on rachète sans détour. */}
+                      {/* Laisser courir : le gain du ticket sur le suivant. */}
+                      {rideAmount > 0 && (
+                        <button
+                          type="button"
+                          className="scratch-buy ptable-ride"
+                          disabled={(state.faveur || 0) < rideAmount}
+                          onClick={() => { outcomeRef.current = null; onBuy(rideAmount); }}
+                        >
+                          {tr({ fr: `Laisser courir (${fmtMise(rideAmount)})`, en: `Let it ride (${fmtMise(rideAmount)})` })}
+                        </button>
+                      )}
+                      {/* Rejeu DIRECT : même mise, on rachète sans détour. */}
                       <button
                         type="button"
                         className="scratch-buy"
-                        disabled={!chosen || (state.faveur || 0) < chosenCost}
+                        disabled={(state.faveur || 0) < stake}
                         onClick={() => { outcomeRef.current = null; onBuy(); }}
                       >
-                        {tr({ fr: `Reprendre un ticket (${fmt(chosenCost)})`, en: `Take another ticket (${fmt(chosenCost)})` })}
+                        {tr({ fr: `Même mise (${fmtMise(stake)})`, en: `Same bet (${fmtMise(stake)})` })}
                       </button>
                       <button type="button" onClick={onNewTicket}>
                         {tr({ fr: 'Changer de mise', en: 'Change stake' })}

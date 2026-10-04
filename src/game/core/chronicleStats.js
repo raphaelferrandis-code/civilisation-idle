@@ -81,12 +81,14 @@ export function recordScratch({ wagered = 0, won = 0, symbol = null } = {}) {
 }
 
 // Machine à sous, à chaque tour (payé ou gratuit : `wagered` vaut 0 pour un tour
-// gratuit). `freeSpins` / `wheel` : le tour a déclenché une série ou la roue.
-export function recordSlots({ wagered = 0, won = 0, freeSpins = false, wheel = false } = {}) {
+// gratuit). `freeSpins` / `wheel` / `holdWin` : le tour a déclenché une série, la roue,
+// le Hold & Win.
+export function recordSlots({ wagered = 0, won = 0, freeSpins = false, wheel = false, holdWin = false } = {}) {
   const g = bumpGame("slots", wagered, won);
   if (!g) return;
   if (freeSpins) g.freeSpins += 1;
   if (wheel) g.wheels += 1;
+  if (holdWin) g.holdWins += 1;
 }
 
 // La roue de la machine encaissée : un GAIN de la même partie (pas une partie de plus).

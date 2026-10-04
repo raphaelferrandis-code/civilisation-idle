@@ -8,21 +8,20 @@ import {
   blackjackHand,
   blackjackActive,
   blackjackLastOutcome,
-  blackjackStakes,
   handValue
 } from '../../game/core/actions.js';
 import { doubleBlackjack, splitBlackjack, basicAction } from '../../game/core/actions/blackjack.js';
 import { hasTempleArtifact } from '../../game/core/actions/templeArtifacts.js';
-import { clampStakeMult } from '../../game/core/actions/templePot.js';
+import { tableLimits } from '../../game/core/actions/maisonTable.js';
 import { fmt } from '../../game/core/utils.js';
 import { tr } from '../../game/core/i18n.js';
-import { FaveurIcon } from './FaveurIcon.jsx';
 import { tipProps } from './HelpBubble.jsx';
 import { cardSrc, cardLabel, CARD_BACK_SRC, CARD_DECK_SRC } from './cardSprites.js';
 import { usePlaisirsBand, cardFaceFor, cardBackFor } from './plaisirsMaterial.js';
-import CoffreSelect from './CoffreSelect.jsx';
 import StageHelp from './StageHelp.jsx';
-import PlaisirsTable, { TableStake } from '../views/plaisirs/PlaisirsTable.jsx';
+import PlaisirsTable from '../views/plaisirs/PlaisirsTable.jsx';
+import TableMise from '../views/plaisirs/TableMise.jsx';
+import { initialStake, rememberStake, fmtMise } from '../views/plaisirs/miseMemory.js';
 
 /**
  * Le Vingt-et-un — SCÈNE INTÉGRÉE (bas de la page Régulation, comme osselets/
@@ -34,20 +33,6 @@ import PlaisirsTable, { TableStake } from '../views/plaisirs/PlaisirsTable.jsx';
  * Fermer/changer de cycle
  * en pleine main abandonne la mise (déjà payée).
  */
-
-// L'EMBLÈME DE CHAQUE MISE, en tête de sa colonne. Ici ce sont des CARTES et non
-// de l'argent : les tickets voisins portent déjà l'escalade du métal (bronze,
-// argent, or), et deux jeux à emblèmes de monnaie croissante auraient été des
-// jumeaux dans le même hub. La table monte donc par le JEU qu'on engage — une
-// carte, deux cartes, la couronne posée dessus.
-//
-// ⚠ Table explicite plutôt qu'un chemin déduit de `s.id` : une mise ajoutée
-// demain sortirait un 404 muet. Cf. la même table dans IcarusStage.
-const STAKE_ART = {
-  legere: '/pixelart/ui/plaisirs/mises/vingtetun-legere.png',
-  pleine: '/pixelart/ui/plaisirs/mises/vingtetun-pleine.png',
-  royale: '/pixelart/ui/plaisirs/mises/vingtetun-royale.png'
-};
 
 // Libellés d'issue pour l'infobulle des pastilles d'historique (résolus par tr()).
 const BJ_RESULT_LABEL = {
@@ -92,12 +77,9 @@ function BjCard({ card, hidden }) {
 
 export default function BlackjackStage({ table, onClose }) {
   const [phase, setPhase] = useState('bet');
-  // Aucune mise choisie au départ (sketch Raph 2026-07-17 : « le bouton de jeu
-  // n'apparaît que quand la mise est sélectionnée ») — le bouton Distribuer reste
-  // masqué tant qu'on n'a pas cliqué un choix.
-  const [chosenStake, setChosenStake] = useState(null);
-  // La puissance de mise du coffre (×1, ×10…), re-clampée au rendu ET au moteur.
-  const [coffreMult, setCoffreMult] = useState(1);
+  // LA MISE LIBRE (lot 1 des gains « vrai casino ») : des jetons sur le tapis. Une
+  // table rouverte repart de la dernière mise jouée.
+  const [stake, setStake] = useState(() => initialStake('cartes', state.faveur || 0));
   const [hand, setHand] = useState(null);
   const [outcome, setOutcome] = useState(null);
   useGameState((s) => s.instability); // or, cagnotte, mises vivants (1 Hz)
@@ -110,14 +92,13 @@ export default function BlackjackStage({ table, onClose }) {
     if (blackjackActive()) {
       const h = blackjackHand();
       setHand(h);
-      // Main reprise : on RESTAURE la mise réelle depuis le moteur — sinon
-      // « Redistribuer » retombait sur la première mise ×1 (une royale ×coffre
-      // rejouée en légère). Même geste qu'IcarusStage à la reprise d'un vol.
-      setChosenStake(h?.stakeId ?? null);
-      setCoffreMult(h?.stakeMult ?? 1);
+      // Main reprise : la mise de la main d'origine (une refente ou un double la
+      // multiplient, la mise de base est celle de la première main).
+      const first = h?.hands?.[0];
+      if (first) setStake(first.doubled ? Math.round(first.stake / 2) : first.stake);
       setPhase('player');
     } else {
-      setChosenStake(null);
+      setStake(initialStake('cartes', state.faveur || 0));
       setHand(null);
       setPhase('bet');
     }
@@ -130,23 +111,23 @@ export default function BlackjackStage({ table, onClose }) {
     prevCyclesRef.current = cycles;
   }, [cycles, onClose]);
 
-  const stakes = blackjackStakes();
   const history = (state.blackjackHistory || []).slice().reverse();
-  const chosen = stakes.find((s) => s.id === chosenStake) || stakes[0];
-  const effMult = clampStakeMult(coffreMult); // parité stricte avec le moteur
-  const chosenCost = chosen ? chosen.faveur * effMult : 0;
+  const { max: tableMax } = tableLimits();
+  const faveur = state.faveur || 0;
 
   const finish = (h) => {
     setHand(h);
     if (h.resolved) { setOutcome(blackjackLastOutcome()); setPhase('done'); }
   };
 
-  // La donne part sur la mise SÉLECTIONNÉE (chosen) : le bouton Distribuer et le
-  // « Redistribuer » de résultat appellent tous onDeal() sans argument.
-  const onDeal = () => {
-    if (!chosen || (state.faveur || 0) < chosenCost) return;
-    const h = dealBlackjack(chosen.id, { stakeMult: effMult });
+  // La donne, à la mise posée (`amount`, la pile par défaut) : Distribuer, « Même
+  // mise » et « Laisser courir » passent par ici.
+  const onDeal = (amount = stake) => {
+    if (amount <= 0 || (state.faveur || 0) < amount) return;
+    const h = dealBlackjack(amount);
     if (!h) return;
+    rememberStake('cartes', h.stakeFaveur);
+    setStake(h.stakeFaveur);
     setOutcome(null);
     setPhase('player');
     finish(h); // un naturel se résout d'emblée → passe direct au résultat
@@ -164,7 +145,7 @@ export default function BlackjackStage({ table, onClose }) {
   const onStand = () => { const h = standBlackjack(); if (h) finish(h); };
   const onDouble = () => { const h = doubleBlackjack(); if (h) finish(h); };
   const onSplit = () => { const h = splitBlackjack(); if (h) finish(h); };
-  const onNewHand = () => { setHand(null); setOutcome(null); setChosenStake(null); setPhase('bet'); };
+  const onNewHand = () => { setHand(null); setOutcome(null); setPhase('bet'); };
 
   // Le conseil de la Mesure gravée : ce que la stratégie de base ferait avec
   // cette main contre la carte visible de l'oracle. Pure information, calculée
@@ -180,12 +161,10 @@ export default function BlackjackStage({ table, onClose }) {
 
   const resultText = () => {
     if (!outcome) return null;
-    if (outcome.result === 'blackjack') return tr({ fr: `Vingt-et-un ! +${fmt(outcome.faveurGain)} faveur`, en: `Twenty-one! +${fmt(outcome.faveurGain)} favor` });
-    if (outcome.result === 'win') return tr({ fr: `Gagné : +${fmt(outcome.faveurGain)} faveur`, en: `Win: +${fmt(outcome.faveurGain)} favor` });
-    if (outcome.result === 'push') return tr({ fr: `Égalité : +${fmt(outcome.faveurGain)} faveur`, en: `Push: +${fmt(outcome.faveurGain)} favor` });
-    // Cette table ne nourrit plus la cagnotte depuis la bascule (REF ≥ 1,
-    // feedPot clampe à 0) : ne pas promettre un versement qui n'existe pas.
-    return tr({ fr: `Perdu : −${fmt(outcome.stakeFaveur || chosenCost)} faveur`, en: `Lost: −${fmt(outcome.stakeFaveur || chosenCost)} favor` });
+    if (outcome.result === 'blackjack') return tr({ fr: `Vingt-et-un ! +${fmtMise(outcome.faveurGain)} faveur`, en: `Twenty-one! +${fmtMise(outcome.faveurGain)} favor` });
+    if (outcome.result === 'win') return tr({ fr: `Gagné : +${fmtMise(outcome.faveurGain)} faveur`, en: `Win: +${fmtMise(outcome.faveurGain)} favor` });
+    if (outcome.result === 'push') return tr({ fr: `Égalité : +${fmtMise(outcome.faveurGain)} faveur`, en: `Push: +${fmtMise(outcome.faveurGain)} favor` });
+    return tr({ fr: `Perdu : −${fmt(outcome.stakeFaveur || stake)} faveur`, en: `Lost: −${fmt(outcome.stakeFaveur || stake)} favor` });
   };
 
   // Les pastilles des dernières mains (posées sur le mur, en haut à gauche de la table).
@@ -201,23 +180,22 @@ export default function BlackjackStage({ table, onClose }) {
 
   return (
     <div className="blackjack-stage">
-      {/* Plus de cagnotte dans ce titre : depuis la bascule, cette table ne la
-          nourrit plus et ne la rafle jamais — l'afficher ici était une vitrine
-          mensongère (passe densité 2026-07-17). */}
+      {/* Pas de cagnotte dans ce titre : cette table ne la rafle jamais (elle la
+          nourrit à peine, son avantage est le plus mince de la Maison). */}
       <div className="regul-block-title stage-title">
         {/* Nom du jeu retiré (retour Raphaël 2026-07-17 : « plus de nom en tête ») —
             la ligne se réduit à une barrette de contrôles (aide, fermeture) à droite. */}
         <StageHelp>
           <p>
             {tr({
-              fr: 'Approche 21 sans dépasser. Le croupier tire jusqu’à 17. Un « vingt-et-un » (21 en deux cartes) paie ×2.5, une victoire ×2, l’égalité rend la mise. As : 1 ou 11, figures : 10.',
-              en: 'Get close to 21 without going over. The dealer draws to 17. A natural (21 on two cards) pays ×2.5, a win ×2, a push returns the stake. Aces: 1 or 11, faces: 10.'
+              fr: `Approche 21 sans dépasser. Le croupier tire jusqu’à 17. Un « vingt-et-un » (21 en deux cartes) paie 6 contre 5 (×2,2), une victoire ×2, l’égalité rend la mise. As : 1 ou 11, figures : 10. Sur tes deux premières cartes, tu peux doubler la mise (une seule carte de plus) ou refendre une paire. La mise est libre, jusqu'à la limite de la table (${fmtMise(tableMax)}).`,
+              en: `Get close to 21 without going over. The dealer draws to 17. A natural (21 on two cards) pays 6 to 5 (×2.2), a win ×2, a push returns the stake. Aces: 1 or 11, faces: 10. On your first two cards you can double the stake (one more card only) or split a pair. The stake is free, up to the table limit (${fmtMise(tableMax)}).`
             })}
           </p>
           <p>
             {tr({
-              fr: 'C’est la table la plus clémente de la Maison : bien jouée, elle ne garde presque rien.',
-              en: 'This is the House’s most lenient table: played well, it keeps almost nothing.'
+              fr: 'C’est la table la plus clémente de la Maison : jouée parfaitement, elle rend près de 99 %.',
+              en: 'This is the House’s most lenient table: played perfectly, it returns nearly 99%.'
             })}
           </p>
         </StageHelp>
@@ -228,44 +206,31 @@ export default function BlackjackStage({ table, onClose }) {
           derrière sa table, peinte comme dans la coupe ; les mises se posent SUR le
           tapis, chacune sur son cercle, et la main se distribue sur le feutre. */}
       {phase === 'bet' && (
-        <PlaisirsTable game="cartes" className="ptable--bet" tablePx={250} dealer="g">
+        <PlaisirsTable game="cartes" className="ptable--bet ptable--mise" tablePx={250} nSpots={1}>
           {(L) => (
             <>
               <div className="ptable-hud">
                 {historyChips}
-                <CoffreSelect value={effMult} onChange={setCoffreMult} />
               </div>
-              {stakes.map((s, i) => {
-                const cost = s.faveur * effMult;
-                const cantPay = (state.faveur || 0) < cost;
-                return (
-                  // Le bouton de distribution n'apparaît QUE sous la mise choisie
-                  // (retour Raph 2026-07-17 : « dans le cadre de la mise choisie »).
-                  <TableStake
-                    key={s.id}
-                    x={L.spots[i % L.spots.length]}
-                    y={L.spotY}
-                    art={STAKE_ART[s.id]}
-                    label={tr(s.label)}
-                    cost={<><FaveurIcon /> {fmt(cost)}</>}
-                    chosen={chosenStake === s.id}
-                    broke={cantPay}
-                    onPick={() => setChosenStake(s.id)}
-                    tip={tipProps(tr(s.label), tr({ fr: `Mise de ${cost} Faveur. Une victoire paie ×2, un vingt-et-un ×2.5.`, en: `${cost} Favor stake. A win pays ×2, a natural ×2.5.` }))}
-                    play
-                    playLabel={tr({ fr: 'Distribuer', en: 'Deal' })}
-                    playDisabled={(state.faveur || 0) < chosenCost}
-                    onPlay={() => onDeal()}
-                  />
-                );
-              })}
+              <TableMise
+                game="cartes"
+                x={L.spots[0]}
+                y={L.spotY}
+                k={L.k}
+                rackY={L.floor + 6}
+                stake={stake}
+                onStake={setStake}
+                faveur={faveur}
+                playLabel={tr({ fr: 'Distribuer', en: 'Deal' })}
+                onPlay={() => onDeal()}
+              />
             </>
           )}
         </PlaisirsTable>
       )}
 
       {(phase === 'player' || phase === 'done') && hand && (
-        <PlaisirsTable game="cartes" className="ptable--play" tablePx={400} marks={false} dealer="g">
+        <PlaisirsTable game="cartes" className="ptable--play" tablePx={400} marks={false}>
           {(L) => (
             <>
               <div className="ptable-hud">{historyChips}</div>
@@ -373,13 +338,24 @@ export default function BlackjackStage({ table, onClose }) {
                     clic administratif y coûtait le plus. */}
                 {phase === 'done' && outcome && (
                   <menu className="choice-menu scratch-actions">
+                    {/* Laisser courir : tout le gain de la main sur la suivante. */}
+                    {outcome.faveurGain > 0 && outcome.result !== 'push' && (
+                      <button
+                        type="button"
+                        className="scratch-buy ptable-ride"
+                        disabled={(state.faveur || 0) < Math.min(tableMax, outcome.faveurGain)}
+                        onClick={() => { setOutcome(null); onDeal(Math.min(tableMax, outcome.faveurGain)); }}
+                      >
+                        {tr({ fr: `Laisser courir (${fmtMise(Math.min(tableMax, outcome.faveurGain))})`, en: `Let it ride (${fmtMise(Math.min(tableMax, outcome.faveurGain))})` })}
+                      </button>
+                    )}
                     <button
                       type="button"
                       className="scratch-buy"
-                      disabled={!chosen || (state.faveur || 0) < chosenCost}
+                      disabled={(state.faveur || 0) < stake}
                       onClick={() => { setOutcome(null); onDeal(); }}
                     >
-                      {tr({ fr: `Redistribuer (${fmt(chosenCost)})`, en: `Deal again (${fmt(chosenCost)})` })}
+                      {tr({ fr: `Même mise (${fmtMise(stake)})`, en: `Same bet (${fmtMise(stake)})` })}
                     </button>
                     <button type="button" onClick={onNewHand}>{tr({ fr: 'Changer de mise', en: 'Change stake' })}</button>
                     <button type="button" className="btn-close" onClick={onClose}>{tr({ fr: 'Quitter la table', en: 'Leave the table' })}</button>

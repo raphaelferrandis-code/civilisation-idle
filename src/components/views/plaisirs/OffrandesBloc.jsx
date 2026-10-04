@@ -1,6 +1,5 @@
 import { useGameState } from '../../../hooks/useGameState.js';
-import { TRUNK_CAP, TRUNK_RATE_PER_S } from '../../../game/core/balance.js';
-import { trunkValue, collectTrunk } from '../../../game/core/actions.js';
+import { trunkValue, trunkCap, collectTrunk, recettesPerHour } from '../../../game/core/actions.js';
 import { fmt } from '../../../game/core/utils.js';
 import { tr } from '../../../game/core/i18n.js';
 import { tipProps } from '../../ui/HelpBubble.jsx';
@@ -25,6 +24,10 @@ export default function OffrandesBloc() {
   // rafraîchirait pas.
   const trunk = trunkValue();
   const gain = Math.floor(trunk);
+  const cap = trunkCap();
+  // Les RECETTES de la Maison (lot 1 des gains « vrai casino ») : elles suivent l'ère
+  // record de la ville, le plafond de la caisse aussi (30 min de recettes).
+  const perMin = recettesPerHour() / 60;
 
   return (
     <div className="plaisirs-bourse">
@@ -43,17 +46,17 @@ export default function OffrandesBloc() {
       <div
         className="plaisirs-bourse-tronc"
         {...tipProps(
-          tr({ fr: 'Les Offrandes', en: 'The Offerings' }),
+          tr({ fr: 'Les recettes de la Maison', en: 'The House takings' }),
           tr({
-            fr: `Les habitants déposent leurs oboles : +${Math.round(TRUNK_RATE_PER_S * 60)} Faveur par minute. Un tronc plein ne collecte plus, relève-le pour encaisser.`,
-            en: `The townsfolk drop their obols: +${Math.round(TRUNK_RATE_PER_S * 60)} Favor per minute. A full trunk stops collecting, empty it to cash in.`
+            fr: `Les habitants jouent, la Maison verse sa part à la cité : +${fmt(perMin)} Faveur par minute, plus à mesure que la ville grandit. Une caisse pleine ne collecte plus, relève-la pour encaisser.`,
+            en: `The townsfolk gamble, the House pays its share to the city: +${fmt(perMin)} Favor per minute, more as the city grows. A full till stops collecting, empty it to cash in.`
           })
         )}
       >
         <span className="plaisirs-jauge" aria-hidden="true">
-          <i style={{ width: `${Math.round((trunk / TRUNK_CAP) * 100)}%` }} />
+          <i style={{ width: `${Math.round((trunk / Math.max(1, cap)) * 100)}%` }} />
         </span>
-        <span className="plaisirs-bourse-chiffre">{gain} / {TRUNK_CAP}</span>
+        <span className="plaisirs-bourse-chiffre">{fmt(gain)} / {fmt(cap)}</span>
       </div>
       <button
         type="button"
@@ -61,7 +64,7 @@ export default function OffrandesBloc() {
         disabled={gain < 1}
         onClick={() => collectTrunk()}
       >
-        {tr({ fr: 'Relever', en: 'Collect' })}{gain >= 1 ? ` +${gain}` : ''}
+        {tr({ fr: 'Relever', en: 'Collect' })}{gain >= 1 ? ` +${fmt(gain)}` : ''}
       </button>
     </div>
   );

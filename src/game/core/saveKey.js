@@ -10,7 +10,7 @@ export const SAVE_KEY = "civilization-collapse-idle-v1";
 // cloudSave.js puisse la lire sans importer state.js — ce qui déclencherait le
 // chargement de la save trop tôt. state.js la ré-exporte ; l'historique des
 // versions est documenté à côté de cette ré-export.
-export const CURRENT_SAVE_VERSION = 4;
+export const CURRENT_SAVE_VERSION = 5;
 
 // ── « Recommencer depuis le tout premier feu » ───────────────────────────────
 // L'effacement ne se fait PAS sur place : il pose un drapeau et recharge la

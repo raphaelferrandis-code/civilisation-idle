@@ -347,3 +347,151 @@
 .plaisirs-stage .ptable .choice-menu button {
   min-height: 2.5rem;
 }
+
+/* LA PANCARTE « FERMÉ » (crise terminale : les tables de la Maison ne jouent plus).
+   Pendue de travers sur la table ; les boutons de la table s'éteignent dessous — la
+   croix et l'aide, hors de la table, restent. Retour de Raph du 2026-10-04 : « je
+   clique il ne se passe rien ». */
+.ptable-closed {
+  position: absolute;
+  z-index: 6;
+  transform: translate(-50%, -50%) rotate(-5deg);
+  padding: 0.3rem 1.1rem;
+  font-family: var(--font-number);
+  font-size: 1.5rem;
+  letter-spacing: 0.14em;
+  color: #ffe2d6;
+  background: #4a1612;
+  border: 2px solid #b8452e;
+  box-shadow: 0 4px 0 rgba(0, 0, 0, 0.45);
+  text-shadow: 1px 1px 0 #000;
+  white-space: nowrap;
+  cursor: help;
+}
+.ptable.is-fermee .ptable-layer button {
+  pointer-events: none;
+  opacity: 0.45;
+}
+
+/* ── LA MISE LIBRE, EN JETONS (lot 1 des gains « vrai casino », 2026-10-04) ───
+   plaisirs/TableMise.jsx : la pile de jetons POSÉE sur le cercle de la table, le
+   montant et le bouton de jeu dessous ; le râtelier (cinq jetons, Effacer, Même
+   mise, Tapis) au bord de la table. Les jetons sont dessinés par le code au pixel
+   de la table (×k) : jamais de lissage. */
+.ptable-mise {
+  position: absolute;
+  z-index: 2;
+  transform: translateX(-50%);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.3rem;
+  padding-top: calc(var(--pt-k, 4) * 6px);
+  width: max-content;
+}
+.ptable .ptable-pile {
+  all: unset;
+  position: absolute;
+  left: 50%;
+  top: 0;
+  transform: translate(-50%, -100%) translateY(calc(var(--pt-k, 4) * 4px));
+  display: block;
+  line-height: 0;
+  cursor: pointer;
+}
+.app .ptable .ptable-pile::before,
+.app .ptable .ptable-pile::after { display: none; }
+.ptable-pile img,
+.ptable-chip img {
+  image-rendering: pixelated;
+  filter: drop-shadow(0 2px 0 rgba(0, 0, 0, 0.45));
+}
+.ptable-mise-sum {
+  padding: 0.12rem 0.55rem;
+  background: rgba(12, 8, 10, 0.84);
+  border: 1px solid color-mix(in srgb, var(--gold), transparent 50%);
+  box-shadow: 0 2px 0 rgba(0, 0, 0, 0.45);
+  font-family: var(--font-number);
+  font-size: 0.82rem;
+  color: var(--gold-bright);
+  white-space: nowrap;
+}
+.ptable-mise-sum.is-broke { color: #ff8f7a; }
+.ptable-mise .ptable-play { min-width: 8rem; width: max-content; white-space: nowrap; }
+
+.ptable-rack {
+  position: absolute;
+  z-index: 3;
+  transform: translateX(-50%);
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+  flex-wrap: wrap;
+  gap: 0.15rem 0.35rem;
+  width: max-content;
+  max-width: 96%;
+  padding: 0.2rem 0.45rem 0.25rem;
+  background: rgba(12, 8, 10, 0.8);
+  border: 1px solid color-mix(in srgb, var(--gold), transparent 58%);
+  box-shadow: 0 2px 0 rgba(0, 0, 0, 0.45);
+}
+.ptable .ptable-chip {
+  all: unset;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 1px;
+  cursor: pointer;
+}
+.app .ptable .ptable-chip::before,
+.app .ptable .ptable-chip::after { display: none; }
+.ptable-chip img { transition: transform 0.1s ease-out; }
+.ptable-chip:hover:not(:disabled) img { transform: translateY(-3px); }
+.ptable-chip:focus-visible span { outline: 2px solid var(--gold-bright); outline-offset: 1px; }
+.ptable-chip:disabled { opacity: 0.38; cursor: default; }
+.ptable-chip span {
+  font-family: var(--font-number);
+  font-size: 0.66rem;
+  color: var(--text);
+  line-height: 1;
+}
+.ptable-rack-sep {
+  width: 1px;
+  align-self: stretch;
+  margin: 0 0.15rem;
+  background: color-mix(in srgb, var(--gold), transparent 60%);
+}
+.plaisirs-stage .ptable .ptable-rack-btn {
+  min-height: 2rem;
+  padding: 0.1rem 0.55rem;
+  font-size: 0.74rem;
+  white-space: nowrap;
+}
+.ptable-rack-btn.is-tapis { color: var(--gold-bright); }
+
+/* Après un gain : « Laisser courir » remise tout le gain sur le coup suivant. */
+.ptable-ride { color: var(--gold-bright); }
+
+@media (max-width: 760px) {
+  .ptable-rack { gap: 0.1rem 0.2rem; padding: 0.15rem 0.25rem; }
+  .ptable-chip span { font-size: 0.58rem; }
+  .plaisirs-stage .ptable .ptable-rack-btn { padding: 0.1rem 0.35rem; font-size: 0.66rem; }
+}
+/* La table de mise porte maintenant le râtelier sous le plateau. */
+.ptable--mise { height: 344px; }
+@media (max-width: 760px) {
+  .ptable--mise { height: 330px; }
+}
+.ptable-mise-sum { display: flex; flex-direction: column; align-items: center; gap: 0; }
+.ptable-mise-sum strong {
+  font-family: "Inter", "Baloo 2", system-ui, sans-serif;
+  font-size: 0.74rem;
+  color: var(--text-strong);
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+}
+.ptable-mise-sum small {
+  font-family: var(--font-number);
+  font-size: 0.66rem;
+  color: var(--muted);
+}

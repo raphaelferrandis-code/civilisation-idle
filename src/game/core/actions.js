@@ -34,22 +34,33 @@ export {
 export {
   castAugury,
   doubleAugury,
-  auguryStake,
-  auguryRebate,
   auguryPaytable,
-  auguryBaseOdds,
+  auguryRiteOdds,
   auguryTierOdds,
   auguryTierBones,
   AUGURY_RITES,
   AUGURY_TIER_LABELS
 } from './actions/augures.js';
 
-export { trunkValue, collectTrunk } from './actions/offeringTrunk.js';
+export { trunkValue, trunkCap, collectTrunk } from './actions/offeringTrunk.js';
+
+// La table de la Maison (lot 1 des gains « vrai casino ») : recettes, limites, jetons.
+export {
+  recettesPerHour,
+  tableLimits,
+  clampStake,
+  autoStake,
+  blessingCost,
+  potCap,
+  chipRack,
+  chipPile,
+  chipIndexOf,
+  chipValueAt
+} from './actions/maisonTable.js';
 
 export {
   launchIcarus,
   cashOutIcarus,
-  icarusStakes,
   icarusFlying,
   icarusFlightInfo,
   icarusTakeoffAt,
@@ -64,15 +75,17 @@ export {
   resolveIcarusHeadless
 } from './actions/icarus.js';
 
-export { tickTempleAutomation, resetOfflineTempleQuota, setTempleAuto, unlockTempleAuto, templeAutoUnlockCost, templeAutoThroughput, buyArtifactNode, artifactTree } from './actions/templeAutomation.js';
+export { tickTempleAutomation, resetOfflineTempleQuota, setTempleAuto, unlockTempleAuto, templeAutoUnlockCost, templeAutoThroughput, autoFloorMax, buyArtifactNode, artifactTree } from './actions/templeAutomation.js';
 export { hasTempleArtifact } from './actions/templeArtifacts.js';
 
 export {
   playScratch,
-  scratchStakes,
   scratchGrid,
   scratchUnlocked,
-  scratchPayout
+  scratchPayout,
+  scratchPrizes,
+  scratchOdds,
+  scratchRtpRef
 } from './actions/scratch.js';
 
 export {
@@ -82,7 +95,6 @@ export {
   blackjackHand,
   blackjackActive,
   blackjackLastOutcome,
-  blackjackStakes,
   blackjackUnlocked,
   blackjackResult,
   handValue,
@@ -94,9 +106,7 @@ export {
   faveurShopItems,
   buyFaveurItem,
   buyTempleArtifact,
-  blessingMultiplier,
-  diceOddsBonus,
-  wingEdgeReduction
+  blessingMultiplier
 } from './actions/faveurShop.js';
 
 export {

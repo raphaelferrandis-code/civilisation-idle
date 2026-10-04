@@ -268,24 +268,24 @@ export const HELP_CHAPTERS = [
       {
         h: { fr: 'La Faveur', en: 'Favor' },
         items: [
-          { t: { fr: 'La gagner', en: 'Earning it' }, d: { fr: 'Aux tables, et aux Offrandes : les habitants y déposent deux Faveur par minute, jusqu\'à ce qu\'elles soient pleines. Relève-les pour encaisser.', en: 'At the tables, and from the Offerings: the inhabitants leave two Favor a minute there, until they are full. Collect them to cash in.' } },
+          { t: { fr: 'La gagner', en: 'Earning it' }, d: { fr: 'Aux tables, et à la caisse : les habitants jouent, la Maison verse sa part à la cité. Les recettes grandissent avec la ville ; la caisse se remplit en une demi-heure, relève-la pour encaisser.', en: 'At the tables, and from the till: the townsfolk gamble, the House pays its share to the city. The takings grow with the city; the till fills in half an hour, collect it to cash in.' } },
           { t: { fr: 'La dépenser', en: 'Spending it' }, d: { fr: 'À la Boutique.', en: 'At the Shop.' } }
         ]
       },
       {
         h: { fr: 'Les tables', en: 'The tables' },
         items: [
-          { t: { fr: 'Les osselets', en: 'Knucklebones' }, d: { fr: 'Quatre os jetés sur la table. Le rite choisi règle la mise, le risque et le gain. Après un gain, tu peux tenter un quitte ou double.', en: 'Four bones thrown on the table. The chosen rite sets the stake, the risk and the prize. After a win, you can try double or nothing.' }, tag: { fr: 'Ère II', en: 'Era II' } },
-          { t: { fr: 'Les tickets à gratter', en: 'Scratch tickets' }, d: { fr: 'Gratte le vernis : trois symboles identiques font gagner.', en: 'Scratch off the varnish: three matching symbols win.' }, tag: { fr: 'Ère II', en: 'Era II' } },
-          { t: { fr: 'Le vingt-et-un', en: 'Twenty-one' }, d: { fr: 'Approche 21 sans le dépasser. Le croupier tire jusqu\'à 17.', en: 'Get close to 21 without going over. The dealer draws up to 17.' }, tag: { fr: 'Ère III', en: 'Era III' } },
+          { t: { fr: 'Les osselets', en: 'Knucklebones' }, d: { fr: 'Quatre dés jetés sur la table. Le rite choisi est un pari : le prudent gagne souvent et paie peu, le grand sacrifice gagne rarement et paie gros. Après un gain, tu peux tenter un quitte ou double.', en: 'Four dice thrown on the table. The chosen rite is a bet: the cautious one wins often and pays little, the great sacrifice rarely wins and pays big. After a win, you can try double or nothing.' }, tag: { fr: 'Ère II', en: 'Era II' } },
+          { t: { fr: 'Les tickets à gratter', en: 'Scratch tickets' }, d: { fr: 'Gratte le vernis : trois symboles identiques font gagner. La loterie de la Maison : un ticket sur quatre gagne, trois Soleils paient cinq mille fois la mise.', en: 'Scratch off the varnish: three matching symbols win. The House lottery: one ticket in four wins, three Suns pay five thousand times the stake.' }, tag: { fr: 'Ère II', en: 'Era II' } },
+          { t: { fr: 'Le vingt-et-un', en: 'Twenty-one' }, d: { fr: 'Approche 21 sans le dépasser. Le croupier tire jusqu\'à 17. Tu peux doubler ou refendre une paire.', en: 'Get close to 21 without going over. The dealer draws up to 17. You can double down or split a pair.' }, tag: { fr: 'Ère III', en: 'Era III' } },
           { t: { fr: "Le vol d'Icare", en: "Icarus's flight" }, d: { fr: 'Le multiplicateur grimpe tant qu\'Icare vole. Pose-toi avant que le soleil ne frappe.', en: 'The multiplier climbs as long as Icarus flies. Land before the sun strikes.' }, tag: { fr: 'Ère III', en: 'Era III' } }
         ]
       },
       {
         h: { fr: 'Autour des tables', en: 'Around the tables' },
         items: [
-          { t: { fr: 'La cagnotte', en: 'The pot' }, d: { fr: 'Les mises perdues la nourrissent. Icare en emporte une part s\'il se pose à ×10 ou plus.', en: 'Lost stakes feed it. Icarus takes a share of it if he lands at ×10 or more.' } },
-          { t: { fr: 'Le coffre', en: 'The chest' }, d: { fr: 'Chaque rang, acheté à la Boutique, autorise une mise dix fois plus lourde.', en: 'Each rank, bought at the Shop, allows a stake ten times heavier.' } },
+          { t: { fr: 'La mise', en: 'The stake' }, d: { fr: 'Tu poses tes jetons sur la table, de 1 jusqu\'à la limite de la table, qui grandit avec la ville. Les chances ne changent jamais : chaque jeu garde sa part, la même pour tous. Après un gain, « Laisser courir » remet tout le gain en jeu.', en: 'You place your chips on the table, from 1 up to the table limit, which grows with the city. The odds never change: each game keeps its share, the same for everyone. After a win, “Let it ride” puts the whole win back in play.' } },
+          { t: { fr: 'La cagnotte', en: 'The pot' }, d: { fr: 'Chaque mise la nourrit d\'une part de l\'avantage de la Maison. Icare en emporte une part s\'il se pose à ×10 ou plus, au prorata de la mise : la mise maximale la rafle entière.', en: 'Every stake feeds it a share of the House edge. Icarus takes a share of it if he lands at ×10 or more, pro rata of the stake: the maximum stake sweeps it all.' } },
           { t: { fr: 'Le pupitre', en: 'The temple desk' }, d: { fr: 'Un jeu dont l\'automatisation est achetée joue seul. Son pupitre règle la mise, le rythme et la Faveur à garder en réserve.', en: 'A game whose automation has been bought plays on its own. Its desk sets the stake, the pace and the Favor to keep in reserve.' } }
         ]
       }

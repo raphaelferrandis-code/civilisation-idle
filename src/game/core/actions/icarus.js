@@ -1,15 +1,15 @@
 "use strict";
 
 // Le Vol d'Icare — MOTEUR du crash game du temple (cf. constantes ICARUS_* de
-// balance.js pour la loi du jeu). MONNAIE FERMÉE (2026-07-16) : mise et gain
-// en FAVEUR — payout = mise × m, donc RTP = 1-EDGE par construction (< 1 sans
-// normalisation). Les ailes cirées abaissent l'edge : le WIN RATE monte, les
-// paiements ne bougent pas (même contrat que les dés pipés aux osselets).
+// balance.js pour la loi du jeu). Mise et gain en FAVEUR — payout = mise × m,
+// donc RTP = 1-EDGE par construction (< 1 sans normalisation). Lot 1 des gains
+// « vrai casino » (2026-10-04) : l'edge est FIXE (3 %, plus d'ailes cirées) et la
+// mise est LIBRE entre les limites de la table (actions/maisonTable.js).
 // Le vol est un état MODULE (éphémère : un rechargement en plein vol abandonne
 // la mise — le vol dure ~5-30 s) ; le point de crash est tiré à l'envol et un
 // setTimeout AUTORITAIRE résout la chute même si le dialogue est fermé. L'UI
 // (IcarusDialog) ne fait que lire icarusMultiplier()/icarusLastOutcome().
-//   - launchIcarus(stakeId) : paie la mise (Faveur), tire C = (1-EDGE)/U et
+//   - launchIcarus(stake) : paie la mise (Faveur), tire C = (1-EDGE)/U et
 //     programme la chute à t = ln(C)/K.
 //   - cashOutIcarus() : si m(now) < C, paie round(mise × m) ; à ×JACKPOT ou
 //     plus, rafle la cagnotte du temple. Révèle C (near-miss).
@@ -29,17 +29,14 @@ import {
   ICARUS_HISTORY_LEN,
   ICARUS_HISTORY_COLOMBIER,
   SOUFFLE_CONSOLATION_MULT,
-  ICARUS_STAKES,
-  WING_STEP,
-  WING_MAX_LEVEL,
-  ICARUS_EDGE_FLOOR,
   ICARUS_CAP_SOLAR,
   PLUMES_CONSOLATION_MULT
 } from '../balance.js';
 import { chronicle } from './utils.js';
 import { hasTempleArtifact } from './templeArtifacts.js';
-import { potRake, feedPot, drawFromPot, payRound, clampStakeMult } from './templePot.js';
+import { potRake, feedPot, drawFromPot, payRound } from './templePot.js';
 import { consumeFreeFlight } from './templeFlights.js';
+import { clampStake } from './maisonTable.js';
 import { pushOutcomeFloat } from '../outcomeFloat.js';
 import { recordIcarus } from '../chronicleStats.js';
 
@@ -50,11 +47,10 @@ export function icarusUnlocked(ctx = regulationContext()) {
   return ctx.bestEra >= 3;
 }
 
-// Edge EFFECTIF : l'edge de base abaissé par les ailes cirées (boutique de
-// Faveur), avec un plancher. Un edge plus bas = odds meilleures.
+// Edge de la maison : FIXE depuis le lot 1 (les ailes cirées ont disparu). La
+// fonction reste le point de lecture unique (tirage, cagnotte, badge, tests).
 export function icarusEffectiveEdge() {
-  const reduction = Math.min(WING_MAX_LEVEL, state.wingLevel || 0) * WING_STEP;
-  return Math.max(ICARUS_EDGE_FLOOR, ICARUS_EDGE - reduction);
+  return ICARUS_EDGE;
 }
 
 // Plafond EFFECTIF du multiplicateur : relevé par l'artefact « Ailes solaires ».
@@ -77,15 +73,9 @@ export function icarusCrashConsolation(stakeFaveur) {
 }
 
 // Longueur de l'historique des pastilles : le colombier fait noter 24 vols au
-// guetteur au lieu de 12 — l'historique est la meilleure lecture de l'edge du jeu
-// (≈ 2 braises sur 12 aux ailes 0, 0,5 aux ailes 6).
+// guetteur au lieu de 12.
 export function icarusHistoryLen() {
   return hasTempleArtifact("colombier") ? ICARUS_HISTORY_COLOMBIER : ICARUS_HISTORY_LEN;
-}
-
-// Mises proposées (FAVEUR, fixes — cf. ICARUS_STAKES).
-export function icarusStakes() {
-  return ICARUS_STAKES.map((s) => ({ ...s }));
 }
 
 export function icarusFlying() {
@@ -96,11 +86,11 @@ export function icarusTakeoffAt() {
   return flight && !flight.resolved ? flight.takeoffAt : 0;
 }
 
-// La mise du vol EN COURS (id + Faveur payée), pour qu'une scène rouverte en plein
-// vol restaure la bonne mise (rejeu « Revoler » correct + aperçu de gain juste).
+// La mise du vol EN COURS (Faveur, et s'il est offert), pour qu'une scène rouverte
+// en plein vol restaure la bonne mise (rejeu correct + aperçu de gain juste).
 // null si aucun vol actif.
 export function icarusFlightInfo() {
-  return flight && !flight.resolved ? { stakeId: flight.stakeId, stakeFaveur: flight.stakeFaveur } : null;
+  return flight && !flight.resolved ? { stakeFaveur: flight.stakeFaveur, freeFlight: Boolean(flight.freeFlight) } : null;
 }
 
 // Multiplicateur du vol en cours (1 si aucun vol). Courbe partagée avec l'UI.
@@ -179,36 +169,33 @@ function resolveCrash() {
   render();
 }
 
-export function launchIcarus(stakeId, options = {}) {
+// Décollage. `stake` = la mise en Faveur (ramenée dans les limites de la table ;
+// sous la limite basse, refusé). Option `free` : joue le prochain vol OFFERT de la
+// file (la Maison paie sa mise, le gain éventuel est calculé dessus) — `stake` est
+// alors ignoré.
+export function launchIcarus(stake, options = {}) {
   const opts = (typeof options === "object" && options !== null) ? options : {};
   if (flight && !flight.resolved) return null;
   if (gamePaused || collapseInProgress || state.crisisLimitAnnounced) return null;
   if (!icarusUnlocked()) return null;
-  const stake = icarusStakes().find((s) => s.id === stakeId);
-  if (!stake) return null;
-  // LES COFFRES : mise × 10^rang (clampée au moteur). Le payout mise × m scale
-  // tout seul. Un vol OFFERT ne vaut que pour la mise DE BASE (un billet est un
-  // billet) : au coffre > ×1, la Faveur est débitée normalement.
-  const mult = clampStakeMult(opts.stakeMult ?? 1);
-  const stakeFaveur = stake.faveur * mult;
-  // Vol OFFERT (mise payée par le temple ; le gain éventuel reste calculé sur cette
-  // mise). Les Coups de Vénus donnent une Plume, le Soleil du gratteux un billet à
-  // la hauteur du ticket : la file porte donc N'IMPORTE QUELLE mise, plus seulement
-  // « plume » (c'était un compteur d'entiers avant le 2026-07-17).
-  const freeFlight = mult === 1 && consumeFreeFlight(stakeId);
-  if (!freeFlight) {
+  let stakeFaveur, freeFlight = false;
+  if (opts.free) {
+    stakeFaveur = consumeFreeFlight();
+    if (stakeFaveur <= 0) return null;
+    freeFlight = true;
+  } else {
+    stakeFaveur = clampStake(stake);
+    if (stakeFaveur <= 0) return null;
     if ((state.faveur || 0) < stakeFaveur) return null;
     state.faveur = Math.max(0, (state.faveur || 0) - stakeFaveur);
   }
 
-  // Point de crash : C = (1-EDGE)/U — EDGE % des vols brûlent au décollage
-  // (C=1). L'edge est abaissé par les ailes cirées (boutique de Faveur).
+  // Point de crash : C = (1-EDGE)/U — EDGE % des vols brûlent au décollage (C=1).
   const u = Math.random();
   const crashPoint = Math.min(icarusEffectiveCap(), Math.max(1, (1 - icarusEffectiveEdge()) / Math.max(u, 1e-9)));
   const takeoffAt = Date.now();
   const crashInMs = (Math.log(crashPoint) / ICARUS_K) * 1000;
   flight = {
-    stakeId,
     stakeFaveur,
     // Vol OFFERT : la mise n'est pas sortie de la poche du joueur → le registre
     // de la Chronique ne la compte pas comme misée (le gain, lui, reste gagné).
@@ -300,20 +287,21 @@ export function cashOutIcarus() {
 // (silencieux, pour ne pas polluer le jeu interactif) : un seul appel synchrone.
 // GAIN ⟺ T < crashPoint (STRICT, fidèle à cashOut qui traite m>=crashPoint comme
 // une chute). Ne perturbe JAMAIS un vol interactif en cours. Ne rend PAS (le
-// caller rend). Retourne l'issue (pour le débit de Faveur et les tests), ou null.
-export function resolveIcarusHeadless(stakeId, targetMult, options = {}) {
+// caller rend). Option `free` : joue le prochain vol OFFERT (parité launchIcarus).
+// Retourne l'issue (pour le débit de Faveur et les tests), ou null.
+export function resolveIcarusHeadless(stake, targetMult, options = {}) {
   const opts = (typeof options === "object" && options !== null) ? options : {};
   if (flight && !flight.resolved) return null; // ne pas résoudre par-dessus un vol interactif
   if (gamePaused || collapseInProgress || state.crisisLimitAnnounced) return null;
   if (!icarusUnlocked()) return null;
-  const stake = icarusStakes().find((s) => s.id === stakeId);
-  if (!stake) return null;
-  // LES COFFRES : parité stricte avec launchIcarus (mise ×, vol offert au ×1 seul).
-  const mult = clampStakeMult(opts.stakeMult ?? 1);
-  const stakeFaveur = stake.faveur * mult;
-  // Vol OFFERT si la file en porte un À CETTE MISE ; sinon débit de Faveur.
-  const freeFlight = mult === 1 && consumeFreeFlight(stakeId);
-  if (!freeFlight) {
+  let stakeFaveur, freeFlight = false;
+  if (opts.free) {
+    stakeFaveur = consumeFreeFlight();
+    if (stakeFaveur <= 0) return null;
+    freeFlight = true;
+  } else {
+    stakeFaveur = clampStake(stake);
+    if (stakeFaveur <= 0) return null;
     if ((state.faveur || 0) < stakeFaveur) return null;
     state.faveur = Math.max(0, (state.faveur || 0) - stakeFaveur);
   }

@@ -1,39 +1,34 @@
 "use strict";
 
 // Les tickets à gratter — MOTEUR du jeu de grattage du temple (cf. constantes
-// SCRATCH_* de balance.js). MONNAIE FERMÉE (2026-07-16) : mise et gain en
-// FAVEUR. INSTANTANÉ (pas de timer moteur comme Icare) → calqué sur augures.js :
+// SCRATCH_* de balance.js). Mise et gain en FAVEUR ; la mise (le prix du ticket)
+// est LIBRE entre les limites de la table depuis le lot 1 des gains « vrai casino »
+// (2026-10-04). INSTANTANÉ (pas de timer moteur comme Icare) → calqué sur augures.js :
 // l'issue est tirée tout de suite, mais l'EFFET est DIFFÉRÉ (option defer +
 // apply() idempotent) jusqu'à ce que l'UI ait fini de « gratter » les 9 cases
 // — zéro spoiler, float + Faveur synchronisés à la révélation.
-//   - playScratch(stakeId) : paie la mise (Faveur), tire UN symbole d'issue
+//   - playScratch(stake) : paie la mise (Faveur), tire UN symbole d'issue
 //     contre les poids de SCRATCH_PRIZES, génère une grille 3×3 COSMÉTIQUE qui
 //     matche (le symbole gagnant y apparaît 3 fois ; une perte n'aligne aucun
 //     triple).
-//   - Gagner = round(mise × payoutMult) en Faveur ; `venus` offre en plus un vol
-//     d'Icare (Plume), `soleil` en offre un À LA HAUTEUR DU TICKET (2026-07-17 :
-//     il NE RAFLE PLUS la cagnotte — Icare en est le seul rafleur).
-//     Un ticket perdant épaissit la cagnotte (SCRATCH_POT_SHARE).
-// Ni fatigue ni registre : le temple est sa propre économie. L'edge maison
-// (~18 %, cf. balance.js) est le seul frein — recyclé en cagnotte.
+//   - Gagner = payRound(mise × payoutMult) en Faveur ; `venus` offre en plus un
+//     vol d'Icare à la mise du ticket ; `soleil` est le GROS LOT (×5 000).
+//     Chaque ticket nourrit la cagnotte sur son edge, sans jamais la rafler.
+// Ni fatigue ni registre : la Maison est sa propre économie. L'edge maison
+// (25 %, la loterie) est le seul frein — recyclé en partie en cagnotte.
 
 import { state, render, gamePaused, collapseInProgress } from '../state.js';
 import { regulationContext } from '../mechanics.js';
 import { fmt } from '../utils.js';
-import { tr } from '../i18n.js';
 import {
-  ICARUS_STAKES,
-  ICARUS_EDGE_FLOOR,
-  SCRATCH_STAKES,
+  ICARUS_RTP,
   SCRATCH_PRIZES,
-  SCRATCH_SUN_FLIGHT,
-  SCRATCH_HISTORY_LEN,
-  GRAVEUR_MAX_LEVEL,
-  GRAVEUR_WEIGHT_SHIFT
+  SCRATCH_HISTORY_LEN
 } from '../balance.js';
 import { chronicle } from './utils.js';
 import { grantFreeFlight } from './templeFlights.js';
-import { feedPot, drawFromPot, payRound, clampStakeMult } from './templePot.js';
+import { feedPot, drawFromPot, payRound } from './templePot.js';
+import { clampStake } from './maisonTable.js';
 import { hasTempleArtifact } from './templeArtifacts.js';
 import { pushOutcomeFloat } from '../outcomeFloat.js';
 import { recordScratch } from '../chronicleStats.js';
@@ -53,45 +48,30 @@ export function scratchUnlocked(ctx = regulationContext()) {
   return ctx.bestEra >= 2;
 }
 
-// Mises proposées (FAVEUR, fixes — cf. SCRATCH_STAKES).
-export function scratchStakes() {
-  return SCRATCH_STAKES.map((s) => ({ ...s }));
+// La table des lots (fixe : aucun achat ne la touche depuis le lot 1).
+export function scratchPrizes() {
+  return SCRATCH_PRIZES;
 }
 
-// Table EFFECTIVE des lots : les planches du graveur (state.graveurLevel)
-// déplacent du poids du « blank » vers les symboles gagnants, AU PRORATA de
-// leurs poids de base — le winrate monte, les PAIEMENTS ne bougent jamais
-// (contrat des dés pipés, garde-fou A12 du bench). Le total reste exactement
-// SCRATCH_WEIGHT_TOTAL : (730 − s) + 270 × (270 + s)/270 = 1000.
-export function scratchPrizesEff() {
-  const shift = Math.min(GRAVEUR_MAX_LEVEL, state.graveurLevel || 0) * GRAVEUR_WEIGHT_SHIFT;
-  if (shift <= 0) return SCRATCH_PRIZES;
-  const winMass = SCRATCH_WEIGHT_TOTAL - SCRATCH_BY_SYMBOL.blank.weight;
-  const k = (winMass + shift) / winMass;
-  return SCRATCH_PRIZES.map((p) => p.symbol === "blank"
-    ? { ...p, weight: p.weight - shift }
-    : { ...p, weight: p.weight * k });
+// Chance d'un lot sur un ticket (0..1), pour l'aide « ? ».
+export function scratchOdds(symbol) {
+  const p = SCRATCH_BY_SYMBOL[symbol];
+  return p ? p.weight / SCRATCH_WEIGHT_TOTAL : 0;
 }
 
-// RTP de RÉFÉRENCE d'une mise, DÉRIVÉ de la table effective — jamais saisi à la
-// main. Il inclut : (1) le payout NOMINAL exact — le payout réel passe par
-// payRound, d'espérance exacte (E[payRound(x)] = x), donc la ligne vaut son
-// payoutMult tel quel (l'ancien Math.round surévaluait l'obole de ~0,7 pt et
-// rendait le badge d'auto-gratteux optimiste autour de la bascule) ; (2) la
-// VALEUR DES VOLS OFFERTS (Vénus → Plume, Soleil → la mise du ticket), comptée
-// au PLANCHER d'edge d'Icare — elle MAJORE la valeur réelle. C'est ce total-là
-// que feedPot doit connaître : le sous-estimer gonflerait le versement à la
-// cagnotte et rongerait l'invariant rtp_base + recycle × (1 − rtp_base) < 1.
-export function scratchRtpRef(stakeId) {
-  const stake = SCRATCH_STAKES.find((s) => s.id === stakeId) || SCRATCH_STAKES[0];
-  const flightEv = (id) => (ICARUS_STAKES.find((s) => s.id === id)?.faveur || 0) * (1 - ICARUS_EDGE_FLOOR);
+// RTP de RÉFÉRENCE, DÉRIVÉ de la table — jamais saisi à la main. Il inclut : (1) le
+// payout NOMINAL exact (payRound est d'espérance exacte) ; (2) la VALEUR du vol
+// offert de Vénus (la mise du ticket × le RTP d'Icare). C'est ce total-là que
+// feedPot doit connaître : le sous-estimer gonflerait le versement à la cagnotte et
+// rongerait l'invariant rtp_base + recycle × (1 − rtp_base) < 1. Indépendant de la
+// mise (tout est proportionnel).
+export function scratchRtpRef() {
   let rtp = 0;
-  for (const p of scratchPrizesEff()) {
+  for (const p of SCRATCH_PRIZES) {
     if (p.symbol === "blank") continue;
     const w = p.weight / SCRATCH_WEIGHT_TOTAL;
     rtp += w * p.payoutMult;
-    if (p.freeFlight) rtp += w * (flightEv("plume") / stake.faveur);
-    if (p.sunFlight) rtp += w * (flightEv(SCRATCH_SUN_FLIGHT[stake.id]) / stake.faveur);
+    if (p.freeFlight) rtp += w * ICARUS_RTP;
   }
   return rtp;
 }
@@ -99,7 +79,7 @@ export function scratchRtpRef(stakeId) {
 // Tirage de l'issue : UN SEUL Math.random() (les tests le pilotent). Retourne
 // l'entrée de la table EFFECTIVE (`blank` ou un symbole gagnant).
 function drawPrize() {
-  const prizes = scratchPrizesEff();
+  const prizes = SCRATCH_PRIZES;
   const r = Math.random() * SCRATCH_WEIGHT_TOTAL;
   let acc = 0;
   for (const p of prizes) {
@@ -156,28 +136,24 @@ export function scratchGrid(winSymbol) {
 // (Faveur, cagnotte, vol offert, float, chronique, historique) sont regroupés
 // dans un `apply()` IDEMPOTENT. Sans option `defer`, apply() court aussitôt
 // (chemin programmatique, tests). Avec `defer: true`, l'UI le tient jusqu'à la
-// révélation par grattage → aucun spoiler. Retourne { stakeId, symbol, win,
-// payoutMult, grid, stakeFaveur, faveurGain, freeFlight, sunFlight, apply } —
-// faveurGain/freeFlight/sunFlight peuplés PAR apply() (sur le même objet), lus par
-// l'UI après la révélation. `jackpotFaveur` et `sweep` ont disparu avec la rafle du
-// Soleil (2026-07-17) : ce jeu ne touche plus jamais à la cagnotte, il la nourrit.
-export function playScratch(stakeId, options = {}) {
+// révélation par grattage → aucun spoiler. `stake` = le prix du ticket en Faveur
+// (ramené dans les limites ; sous la limite basse, refusé). Retourne { symbol, win,
+// payoutMult, grid, stakeFaveur, faveurGain, freeFlight, apply } — faveurGain et
+// freeFlight peuplés PAR apply() (sur le même objet), lus par l'UI après la
+// révélation. Ce jeu ne touche jamais à la cagnotte, il la nourrit.
+export function playScratch(stake, options = {}) {
   const opts = (typeof options === "object" && options !== null) ? options : {};
-  const { render: doRender = true, defer = false, silent = false, potFunded = false, stakeMult = 1 } = opts;
+  const { render: doRender = true, defer = false, silent = false, potFunded = false } = opts;
   if (gamePaused || collapseInProgress) return null;
   if (state.crisisLimitAnnounced) return null; // la crise terminale a ses propres autels
   if (!scratchUnlocked()) return null;
-  const stake = scratchStakes().find((s) => s.id === stakeId);
-  if (!stake) return null;
-  // LES COFFRES : mise × 10^rang (clampée au moteur), gains au prorata.
-  const mult = clampStakeMult(stakeMult);
-  const stakeFaveur = stake.faveur * mult;
+  const stakeFaveur = clampStake(stake);
+  if (stakeFaveur <= 0) return null;
   if (potFunded) {
     // LA RELANCE (artefact, 2026-07-17) : la CELLA paie la mise, pas le joueur.
     // C'est un TRANSFERT (drawFromPot), jamais un mint — A9-neutre par
     // construction. STRICT : si la cella ne couvre pas la mise ENTIÈRE, pas de
-    // relance (un financement partiel minterait la différence). Aux gros coffres,
-    // la cella ne couvre plus : la relance reste un filet d'échelle humaine.
+    // relance (un financement partiel minterait la différence).
     if (!hasTempleArtifact("relance")) return null;
     if (Math.floor(Math.max(0, state.icarusPotFaveur || 0)) < stakeFaveur) return null;
     drawFromPot(stakeFaveur);
@@ -191,7 +167,6 @@ export function playScratch(stakeId, options = {}) {
   const grid = scratchGrid(win ? prize.symbol : null);
 
   const result = {
-    stakeId,
     symbol: prize.symbol,
     win,
     payoutMult: prize.payoutMult,
@@ -199,8 +174,7 @@ export function playScratch(stakeId, options = {}) {
     stakeFaveur,
     potFunded: Boolean(potFunded),
     faveurGain: 0,
-    freeFlight: false,
-    sunFlight: false
+    freeFlight: false
   };
 
   let applied = false;
@@ -213,36 +187,22 @@ export function playScratch(stakeId, options = {}) {
     if (hist.length > SCRATCH_HISTORY_LEN) hist.splice(0, hist.length - SCRATCH_HISTORY_LEN);
 
     if (win) {
-      // payRound : E exact — au coffre ×1 c'est l'arrondi non biaisé, aux gros
-      // coffres la fraction devient négligeable mais l'exactitude ne coûte rien.
+      // payRound : E exact (E[payRound(x)] = x), quelle que soit la mise.
       result.faveurGain = payRound(stakeFaveur * prize.payoutMult);
       state.faveur = Math.max(0, (state.faveur || 0) + result.faveurGain);
       if (prize.freeFlight) {
-        // Trois Vénus → vol d'Icare offert (mise Plume payée par le temple),
-        // comme le Coup de Vénus aux osselets.
-        result.freeFlight = grantFreeFlight("plume");
-        if (result.freeFlight) chronicle(`Trois Vénus sous le vernis : le temple offre un vol d'Icare.`);
+        // Trois Vénus → vol d'Icare offert à la mise du ticket, comme le Coup de
+        // Vénus aux osselets.
+        result.freeFlight = grantFreeFlight(stakeFaveur);
+        if (result.freeFlight) chronicle(`Trois Vénus sous le vernis : la Maison offre un vol d'Icare.`);
       }
-      if (prize.sunFlight) {
-        // Trois Soleils → le temple ne verse pas son trésor, il t'envoie le
-        // CHERCHER : un vol d'Icare offert À LA HAUTEUR DU TICKET (obole → plume,
-        // talent → hécatombe). Le Soleil ne rafle plus lui-même (cf. balance.js) :
-        // il brade sinon à 4 Faveur et deux clics ce qu'Icare réserve au jeu manuel,
-        // et sa rafle ignorait la mise, ce qui tuait le talent.
-        const flightId = SCRATCH_SUN_FLIGHT[stakeId] || "plume";
-        result.sunFlight = grantFreeFlight(flightId);
-        if (result.sunFlight) {
-          const label = ICARUS_STAKES.find((s) => s.id === flightId);
-          chronicle(`Trois Soleils ! Le temple ne rend pas son or : il t'ouvre le ciel. Vol d'Icare offert (mise « ${tr(label.label)} »).`);
-        }
+      if (prize.symbol === "soleil") {
+        chronicle(`Trois Soleils sous le vernis : le gros lot ! La Maison paie ${fmt(result.faveurGain)} faveur.`);
       }
     }
     // La cagnotte est nourrie sur l'EDGE du ticket, à CHAQUE tirage (gagné comme
-    // perdu, cf. feedPot). Avant, un ticket perdant versait 30 % de la MISE contre
-    // un edge de ~18 % : la table imprimait (105,5 % sur l'obole). Cette table ne
-    // reprend JAMAIS ce qu'elle verse : le pot se rafle au Vol d'Icare. Le RTP de
-    // référence suit le niveau des planches du graveur (moins d'edge à recycler).
-    feedPot(stakeFaveur, scratchRtpRef(stakeId));
+    // perdu, cf. feedPot). Cette table ne reprend JAMAIS ce qu'elle verse.
+    feedPot(stakeFaveur, scratchRtpRef());
     // Registre de la Chronique : un ticket de plus (mise, gain, temps forts
     // trois-Vénus / trois-Soleils via le symbole d'issue). Une relance payée par
     // la CELLA (potFunded) n'est pas une mise du joueur — sa Faveur n'a pas bougé,
@@ -251,7 +211,7 @@ export function playScratch(stakeId, options = {}) {
 
     if (!silent) {
       const floatLabel = win
-        ? (result.sunFlight ? `🎟️ +${fmt(result.faveurGain)} faveur · vol offert` : `🎟️ +${fmt(result.faveurGain)} faveur`)
+        ? (result.freeFlight ? `🎟️ +${fmt(result.faveurGain)} faveur · vol offert` : `🎟️ +${fmt(result.faveurGain)} faveur`)
         : "🎟️ vernis nu";
       pushOutcomeFloat({ label: floatLabel, kind: win ? "gain" : "cost" });
     }

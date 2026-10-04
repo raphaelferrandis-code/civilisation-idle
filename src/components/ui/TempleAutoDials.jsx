@@ -1,10 +1,9 @@
 import { state } from '../../game/core/state.js';
-import { setTempleAuto, templeAutoThroughput } from '../../game/core/actions.js';
-import { AUTO_ICARUS_TARGET_MIN, AUTO_ICARUS_TARGET_MAX, AUTO_TEMPLE_FAVEUR_FLOOR_MAX } from '../../game/core/balance.js';
-import { fmt } from '../../game/core/utils.js';
+import { setTempleAuto, templeAutoThroughput, autoFloorMax, autoStake } from '../../game/core/actions.js';
+import { AUTO_ICARUS_TARGET_MIN, AUTO_ICARUS_TARGET_MAX } from '../../game/core/balance.js';
+import { fmt, fmtHabitants } from '../../game/core/utils.js';
 import { tr } from '../../game/core/i18n.js';
 import { FaveurIcon } from './FaveurIcon.jsx';
-import { coffreLevel, fmtMult } from './coffreMeta.js';
 import { tipProps } from './HelpBubble.jsx';
 
 /**
@@ -23,20 +22,13 @@ const RITE_OPTS = [
   // Le rite interdit n'apparaît qu'avec son artefact (filtré au rendu).
   { id: 'interdit', label: { fr: 'Interdit', en: 'Forbidden' }, artifact: 'interdit' }
 ];
-const STAKE_OPTS = [
-  { id: 'plume', label: { fr: 'Plume', en: 'Feather' } },
-  { id: 'aile', label: { fr: 'Aile', en: 'Wing' } },
-  { id: 'hecatombe', label: { fr: 'Hécatombe', en: 'Hecatomb' } }
-];
-const SCRATCH_OPTS = [
-  { id: 'obole', label: { fr: 'Obole', en: 'Obol' } },
-  { id: 'drachme', label: { fr: 'Drachme', en: 'Drachma' } },
-  { id: 'talent', label: { fr: 'Talent', en: 'Talent' } }
-];
-const BLACKJACK_OPTS = [
-  { id: 'legere', label: { fr: 'Légère', en: 'Light' } },
-  { id: 'pleine', label: { fr: 'Pleine', en: 'Full' } },
-  { id: 'royale', label: { fr: 'Grand jeu', en: 'High' } }
+// Le cadran de MISE, commun aux quatre autos de jeu (lot 1 des gains « vrai
+// casino ») : une part de la limite de la table, qui grandit avec la ville.
+const STAKE_STEP_OPTS = [
+  { id: 'min', label: { fr: 'Min', en: 'Min' } },
+  { id: 'quart', label: { fr: '¼', en: '¼' } },
+  { id: 'moitie', label: { fr: '½', en: '½' } },
+  { id: 'max', label: { fr: 'Max', en: 'Max' } }
 ];
 // Le cadran TEMPS de l'arbitrage gain/temps/risque : multiplie l'intervalle
 // entre deux parties (recueilli ×2, mesuré ×1, fervent ×0.5). L'espérance PAR
@@ -48,16 +40,15 @@ const TEMPO_OPTS = [
 ];
 
 export function RateBadge({ game }) {
-  // Le débit est NÉGATIF tant que la table garde un edge (l'auto consomme de la
-  // Faveur en espérance) et devient POSITIF passé la bascule (dés 11+, ailes 7+,
-  // planches 6+, coffre à l'échelle) : le badge est la jauge de l'imprimante.
+  // Le débit des JEUX est NÉGATIF (les cotes sont fixes et la maison garde son
+  // avantage : l'auto consomme de la Faveur en espérance) ; seule la caisse rapporte.
   const v = Math.round(templeAutoThroughput(game) * 10) / 10;
   return (
     <span
       className="temple-auto-rate"
       {...tipProps(null, tr({
-        fr: "Débit de Faveur estimé aux réglages actuels, coffre compris. 0 si à l'arrêt ou avant l'ère requise. Négatif tant que la table garde un avantage ; positif quand tes augments l'ont retourné.",
-        en: 'Estimated Favor throughput at current settings, chest included. 0 when off or before the required era. Negative while the table keeps an edge; positive once your augments have turned it around.'
+        fr: "Débit de Faveur estimé aux réglages actuels. 0 si à l'arrêt ou avant l'ère requise. Négatif pour les jeux : la Maison garde son avantage, l'auto joue pour le plaisir et les coups rares.",
+        en: 'Estimated Favor throughput at current settings. 0 when off or before the required era. Negative for the games: the House keeps its edge, the automation plays for fun and the rare hits.'
       }))}
     >
       <FaveurIcon /> {v < 0 ? `−${fmt(-v)}` : fmt(v)}<span className="temple-auto-rate-unit"> {tr({ fr: '/min', en: '/min' })}</span>
@@ -86,7 +77,7 @@ function FaveurFloor({ game }) {
           type="number"
           className="auto-script-input"
           min="0"
-          max={AUTO_TEMPLE_FAVEUR_FLOOR_MAX}
+          max={autoFloorMax()}
           value={Math.round(g.faveurFloor)}
           onChange={(e) => setTempleAuto(game, { faveurFloor: parseFloat(e.target.value) || 0 })}
         />
@@ -132,37 +123,22 @@ function Seg({ game, keyName, opts }) {
   );
 }
 
-// Le cadran de COFFRE, commun aux quatre autos de jeu : la puissance de mise
-// (mise × 10^stakePow), bornée au rang de coffre possédé. N'apparaît qu'au
-// premier rang acquis — avant, l'auto mise ×1 et le cadran serait un mensonge.
-function CoffreLine({ game }) {
-  const lvl = coffreLevel();
-  if (lvl < 1) return null;
+// Le cadran de MISE, commun aux quatre autos de jeu : une part de la limite de la
+// table. La mise du moment s'affiche à côté (elle grandit avec la ville).
+function StakeLine({ game, tip }) {
   const g = state.templeAuto[game];
-  const cur = Math.max(0, Math.min(lvl, g.stakePow || 0));
   return (
     <div className="doctrine-line">
       <span
         className="doctrine-line-label"
-        {...tipProps(tr({ fr: 'Coffre', en: 'Chest' }), tr({
-          fr: 'La puissance de mise du coffre. L’auto mise ×10 par rang choisi ; les gains suivent la mise, le plancher aussi.',
-          en: 'The chest’s stake power. The automation stakes ×10 per chosen rank; winnings follow the stake, so does the floor.'
+        {...tipProps(tr({ fr: 'Mise', en: 'Stake' }), tip || tr({
+          fr: 'Une part de la limite de la table, qui grandit avec la ville.',
+          en: 'A share of the table limit, which grows with the city.'
         }))}
       >
-        {tr({ fr: 'Coffre', en: 'Chest' })}
+        {tr({ fr: 'Mise', en: 'Stake' })} <FaveurIcon /> {fmtHabitants(autoStake(g.stakeStep))}
       </span>
-      <div className="doctrine-seg">
-        {Array.from({ length: lvl + 1 }, (_, i) => (
-          <button
-            key={i}
-            type="button"
-            className={`doctrine-seg-btn${cur === i ? ' is-active' : ''}`}
-            onClick={() => setTempleAuto(game, { stakePow: i })}
-          >
-            ×{fmtMult(10 ** i)}
-          </button>
-        ))}
-      </div>
+      <Seg game={game} keyName="stakeStep" opts={STAKE_STEP_OPTS} />
     </div>
   );
 }
@@ -210,10 +186,6 @@ export default function AutoDials({ game }) {
       {game === 'icarus' && (
         <>
           <div className="doctrine-line">
-            <span className="doctrine-line-label">{tr({ fr: 'Mise', en: 'Stake' })}</span>
-            <Seg game="icarus" keyName="stakeId" opts={STAKE_OPTS} />
-          </div>
-          <div className="doctrine-line">
             <span
               className="doctrine-line-label"
               {...tipProps(tr({ fr: 'Cible', en: 'Target' }), tr({
@@ -237,27 +209,13 @@ export default function AutoDials({ game }) {
           </div>
         </>
       )}
-      {game === 'gratteux' && (
-        <div className="doctrine-line">
-          <span className="doctrine-line-label">{tr({ fr: 'Mise', en: 'Stake' })}</span>
-          <Seg game="gratteux" keyName="stakeId" opts={SCRATCH_OPTS} />
-        </div>
-      )}
-      {game === 'vingtetun' && (
-        <div className="doctrine-line">
-          <span
-            className="doctrine-line-label"
-            {...tipProps(tr({ fr: 'Mise', en: 'Stake' }), tr({
-              fr: "L'auto joue la stratégie de la mesure (tirer ou rester), jamais le double. Les séries de l'oracle ne comptent que tes mains.",
-              en: 'The automation plays the measure (hit or stand), never the double. Oracle streaks only count your own hands.'
-            }))}
-          >
-            {tr({ fr: 'Mise', en: 'Stake' })}
-          </span>
-          <Seg game="vingtetun" keyName="stakeId" opts={BLACKJACK_OPTS} />
-        </div>
-      )}
-      <CoffreLine game={game} />
+      <StakeLine
+        game={game}
+        tip={game === 'vingtetun' ? tr({
+          fr: "Une part de la limite de la table. L'auto joue la stratégie de la mesure (tirer, rester, doubler), jamais la refente. Les séries de l'oracle ne comptent que tes mains.",
+          en: 'A share of the table limit. The automation plays the measure (hit, stand, double), never splits. Oracle streaks only count your own hands.'
+        }) : null}
+      />
       <TempoLine game={game} />
       <FaveurFloor game={game} />
     </div>

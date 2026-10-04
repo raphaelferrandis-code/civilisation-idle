@@ -115,12 +115,14 @@ export const REGULATION_ACTIONS = [
 
   // ─── 🎲 LES OSSELETS DU TEMPLE (kind: gamble) — le jeu de dés UNIFIÉ ──────────
   // FUSION 2026-07-15 : les 3 anciennes tables (pluie/loterie/bouc) ne font plus
-  // qu'UN jeu. La MISE est en FAVEUR (monnaie fermée 2026-07-16, cf.
-  // AUGURY_STAKES) : le rite (prudent/classique/grand) fixe la mise ET la
-  // VARIANCE (gros sacrifice = plus de Vénus ET plus de Chiens, via `spread`) ;
-  // les ITEMS (dés pipés) pilotent les ODDS et le RTP. Id « prayForRain »
-  // CONSERVÉ (tests, persistance, historique des jets). Pas de champ `cost` :
-  // les gambles sont hors crisisCosts (le temple est sa propre économie).
+  // qu'UN jeu. La MISE est en FAVEUR (monnaie fermée 2026-07-16), LIBRE depuis le
+  // lot 1 des gains « vrai casino » (2026-10-04, cf. actions/maisonTable.js) ; le
+  // rite (prudent/ancestral/grand/interdit) est un PARI : il fixe la chance et la
+  // VARIANCE (AUGURY_RITE_BETS), chacun rendant 97 %. Plus rien ne s'achète pour
+  // pencher les cotes. `p` n'est plus lu par le moteur (regulModel en tire un
+  // winPct que rien n'affiche). Id « prayForRain » CONSERVÉ (tests, persistance,
+  // historique des jets). Pas de champ `cost` : les gambles sont hors crisisCosts
+  // (le temple est sa propre économie).
   {
     id: "prayForRain", foyer: "dissent", tier: 3, kind: "gamble",
     label: { fr: "Les osselets du temple", en: "The Temple Knucklebones" },

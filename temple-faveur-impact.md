@@ -1,241 +1,79 @@
-# Jeux du temple en Faveur - rapport d'equilibrage (systeme cable)
+# Jeux de la Maison des Plaisirs — banc d'equilibrage (lot 1, cotes fixes)
 
-> Genere par `bench-temple.js` (seed 20260716, 400 runs x 8 h par config). Valide le
-> systeme CABLE (2026-07-16) - mises des osselets en **Faveur** (plus d'or), **tronc des
-> offrandes** passif, gains **normalises sur un RTP cible < 1** (anti-imprimante),
-> Clemence = **rabais de mise**. Tout vient du vrai code (`auguryPaytable`,
-> `auguryBaseOdds`, `auguryTierOdds`, `clemencyCrans`) et des constantes de
-> `balance.js` - a regenerer apres chaque retouche d'equilibrage (`node bench-temple.js`).
-
-## Parametres cables (balance.js)
-
-| Parametre | Avant (mise-or, 2026-07-15) | Cable |
-|---|---|---|
-| Mise osselets | 30 s de prod d'or x rite (0.6/1/2) | **Faveur : 4 / 6 / 12** (prudent/classique/grand) |
-| Gains osselets | plats : Venus 20, Triple 8, Paire 3 (x costMult) | **normalises sur RTP cible** (cf. paytables) |
-| Consolations Creux/Chien | 1 / 2 Faveur | **0** (le pot d'Icare reste nourri par une part des mises perdues) |
-| RTP (edge maison) | - (mise en or : EV toujours positive en Faveur) | **paiements FIXES normalises a 99.0 % au win rate MAX** -> RTP effectif ~57.3 % a des 0, ~99.0 % a des 10 |
-| Odds (win rate) | p 0.55 x scale 0.5 = 27.5 % (+2 pts / de) | inchange - LE levier de progression (les paiements ne bougent pas) |
-| Clemence | +5 pts d'odds / cran (Chien double) | **echelle de mises ENTIERES** : classique 6/5/4/3/3/3 par cran (plancher = moitie, aucun cran no-op — A13) |
-| NOUVEAU : tronc des offrandes | - | **+120 Faveur/h**, plafond 60, plein au deblocage, releve manuelle |
-| Des pipes (prix) | 40 x 1.6 | **130 x 1.45** (niv. 10 : ~3683 ; total 10 niv. ~35893) |
-| Ailes cirees (prix) | 60 x 1.7 | **90 x 1.8** |
-| Benediction | 45 | **60** |
-| Automatisations | osselets 200 (mise l'or, plancher d'or) | **tronc 520 (auto-releve) / osselets 700 (auto-jeu, plancher de Faveur)** ; Icare 350 inchange (or) |
+> Genere par `bench-temple.js` sur le vrai code. Lot 1 des gains « vrai casino »
+> (2026-10-04, `docs/PLAN-GAINS-CASINO.md`) : cotes fixes pour toujours, mise libre,
+> aucun jeu au-dessus de 100 %. A regenerer apres toute retouche : `node bench-temple.js`.
 
 ## Garde-fous
 
-- **PASS** - A1 anti-imprimante SOUS L'ANCRE (des <= 10) : RTP effectif < 1 jusqu'a l'ancre (des 10) et rtpRef < cap partout ; des 13 : la bascule imprime (voulu, cf. A14)
-- **PASS** - A2 arrondi : pire deviation d'arrondi 1.70 pts sous le cap (classique, ivoire) - tolerance 3 pts (toujours SOUS)
-- **PASS** - A3 gagner paie : chaque issue gagnante rend STRICTEMENT plus que la mise, partout
-- **PASS** - A8 paiements FIXES vs des : les des pipes ne changent AUCUN paiement : seul le win rate monte (contrat Raph)
-- **PASS** - A11 BLACKJACK_RTP_REF majore le meilleur jeu (refente comprise) : REF 1.01 >= meilleur mesure 100.23 % (marge 0.77 pt, viser >= 0.4 pt) ; REF >= 1 -> feedPot clampe a 0, la table ne nourrit plus le pot
-- **PASS** - A12 graveur : paiements FIXES, masse conservee : payoutMult identiques et poids sommant a 1000 sur les 11 niveaux (contrat des des pipes)
-- **PASS** - A13 Clemence entiere : echelle stricte, prorata EXACT : chaque cran descend jusqu'au plancher (moitie) sans no-op ; l'esperance du jet en Clemence = jet plein (payRound + vol au prorata), < 1 partout
-- **PASS** - A9 anti-imprimante SOUS-BASCULE (cagnotte comprise, 4 jeux) : rtp_total < 1 pour les 875 configurations sous-bascule (des <= 10, ailes <= 6, planches <= 5, sans refente) ; 258 configs supra-bascule impriment VOLONTAIREMENT (cf. A14)
-- **PASS** - A14 robinet de la bascule : debit positif, farm d'un rang dans [4 h, 24 h] : net/h x1 : osselets 2011, icare 540, gratteux 113 (21 manuel : marge 0.2 pt) ; rang de coffre ~8.0 h au meilleur debit (osselets)
-- **PASS** - A10 recycle < 1 (le clamp qui prouve A9) : recycle 0.6 (nu) / 0.85 (noye, clampe depuis 1.20) ; cap 0.85 < 1
-- **PASS** - A4 early peu rentable : net 1 h median : flambeur 5 vs epargnant 168 Faveur
-- **PASS** - A5 bonus etales : epargne stricte : 1er de a 54 min, auto-releve a 4.1 h
-- **PASS** - A6 progression sensible : perte mediane PAR JET du flambeur : 1.93 Faveur (des 0) -> 0.28 (des 10)
-- **PASS** - A7 Clemence saine (mode rabais) : RTP realise du sniper : rabais 54.6 % (borne) ; statu quo odds 81.0 % -> sous 100 % ici mais non borne
+- **PASS** - A2 osselets : chaque rite rend 97 % : prudent 97.000 %, classique 97.000 %, grand 97.000 %, interdit 97.000 %
+- **PASS** - A3 osselets : echelle de risque (chance baisse, paiements et ecart-type montent) : prudent 62.0 % paire x1.37 Venus x2.11 sigma 0.74 ; classique 47.5 % paire x1.54 Venus x3.08 sigma 1.02 ; grand 32.0 % paire x1.85 Venus x4.62 sigma 1.45 ; interdit 18.0 % paire x1.95 Venus x9.37 sigma 2.41
+- **PASS** - A4 21 : REF majore le jeu parfait (marge >= 3 ecarts-types) : REF 99.50 % ; parfait 98.86 % +- 0.11 %
+- **PASS** - A4 21 : AUTO colle au chemin de l'auto (base + double, +-0,5 pt) : AUTO 98.30 % ; mesure 98.19 %
+- **PASS** - A2 Icare : 97 % quelle que soit la cible (C = (1 - e)/U) : 97.00 %
+- **PASS** - A2 tickets : la loterie rend 75 % (+-0,5 pt) : 75.019 % ; P(gain) 25.92 % ; gros lot 1 sur 100 000
+- **PASS** - A2 machine : ~92 % (calibree par la session machine a sous) : 91.993 %
+- **PASS** - A1 aucun jeu ne rend 100 % ou plus : osselets prudent 97.00 %, osselets classique 97.00 %, osselets grand 97.00 %, osselets interdit 97.00 %, Icare 97.00 %, tickets 75.02 %, vingt-et-un (REF) 99.50 %, machine 91.99 %
+- **PASS** - A5 cagnotte : rtp + recycle x (1 - rtp) < 1 partout (recycle borne < 1) : recycle nu 0.6, noye 0.85 ; pire total 99.92 %
+- **PASS** - A6 Monte-Carlo osselets (ancestral) ~97 % (+-1 pt) : 97.22 % sur 400 000 jets
+- **PASS** - A6 Monte-Carlo Icare (cible x2) ~97 % (+-1 pt) : 97.13 % sur 400 000 vols
+- **PASS** - A6 Monte-Carlo 21 auto ~98,3 % (+-1 pt), par Faveur misee : 98.23 % sur 300 000 mains
+- **PASS** - A7 recettes et limite montent avec l'ere record : ere 2 : 120/h, limite 30
 
-## A9 : RTP total, cagnotte comprise (les 4 jeux)
+## Les osselets : quatre paris
 
-> **La cagnotte n'est pas un puits.** En solo, tout ce qui y entre revient au MEME
-> joueur (elle se rafle a Icare a x10) : c'est un **paiement differe**. Donc
-> `rtp_total = rtp_base + part_versee`, et A1..A8 n'en voyaient rien (ils passent
-> tous par `auguryPaytable`, donc un jeu sur quatre, cagnotte exclue).
->
-> **Depuis le 2026-07-17, le pot est finance par l'EDGE et non par la mise :**
-> `feed = mise x recycle x (1 - rtp_base)`, d'ou
-> `rtp_total = rtp_base + recycle x (1 - rtp_base) < 1` pour tout `recycle < 1`.
-> L'anti-imprimante est vrai par ALGEBRE, quels que soient le jeu, le niveau, la mise
-> et les artefacts. Recycle cable : 0.6 (0.85 avec l'osselet du noye, clampe
-> depuis 1.20). A10 verrouille ce clamp : c'est le point de defaillance UNIQUE.
->
-> Avant, la part etait prelevee sur la MISE (0.25 a 0.5) alors que l'edge ne prend que
-> 0.018 (vingt-et-un) a 0.18 (Icare) de cette meme mise : on rendait plus qu'on ne
-> prenait, et **746 configurations sur 813 imprimaient** (Icare x10 a 118,7 % des le
-> 1er jour, x50+plumes a 186 %).
->
-> Hypothese assumee et conservatrice : le joueur finit par vider le pot. Elle MAJORE
-> le RTP, ce qu'un anti-imprimante doit faire.
-
-**Sous-bascule : 0 configuration sur 875 imprime** (des <= 10, ailes <= 6, planches <= 5, sans refente).
-Les 258 configurations SUPRA-bascule impriment volontairement (cf. la section bascule). Pire cas sous-bascule par jeu :
-
-| Jeu | Configuration | Mise | RTP base | Part versee | Consolations | **RTP total** |
+| Rite | Gagne | Paire | Triple | Venus | Ecart-type (mises) | RTP |
 |---|---|---|---|---|---|---|
-| osselets | prudent, des 10, noye | 4 | 99.0 % | +0.9 % | +0.0 % | **99.8 %** |
-| icare | plume, cible x1.4, ailes 6 | 4 | 98.2 % | +1.1 % | +0.0 % | **99.3 %** |
-| gratteux | obole, graveur 5 | 4 | 93.3 % | +4.0 % | +0.0 % | **97.3 %** |
-| vingt-et-un | legere, base + double | 4 | 99.6 % | +0.0 % | +0.0 % | **99.6 %** |
+| prudent | 62.0 % | x1.37 | x1.58 | x2.11 | 0.74 | 97.00 % |
+| classique | 47.5 % | x1.54 | x2.05 | x3.08 | 1.02 | 97.00 % |
+| grand | 32.0 % | x1.85 | x2.77 | x4.62 | 1.45 | 97.00 % |
+| interdit | 18.0 % | x1.95 | x3.12 | x9.37 | 2.41 | 97.00 % |
 
-Les 12 configurations sous-bascule les plus proches du bord, tous jeux confondus :
+Venus offre en plus un vol d'Icare a la mise du jet (compte dans le RTP).
 
-| Jeu | Configuration | RTP base | Part versee | **RTP total** |
-|---|---|---|---|---|
-| osselets | prudent, des 10, noye | 99.0 % | +0.9 % | **99.8 %** |
-| osselets | prudent, des 10, ivoire, noye | 99.0 % | +0.9 % | **99.8 %** |
-| osselets | grand, des 10, ivoire, noye | 98.8 % | +1.0 % | **99.8 %** |
-| osselets | classique, des 10, noye | 98.8 % | +1.1 % | **99.8 %** |
-| osselets | interdit, des 10, ivoire, noye | 98.7 % | +1.1 % | **99.8 %** |
-| osselets | interdit, des 10, noye | 98.7 % | +1.1 % | **99.8 %** |
-| osselets | grand, des 10, noye | 98.7 % | +1.1 % | **99.8 %** |
-| osselets | prudent, des 10 | 99.0 % | +0.6 % | **99.6 %** |
-| osselets | classique, des 10, ivoire, noye | 97.3 % | +2.3 % | **99.6 %** |
-| osselets | prudent, des 10, ivoire | 99.0 % | +0.6 % | **99.6 %** |
-| vingt-et-un | legere, base + double | 99.6 % | +0.0 % | **99.6 %** |
-| vingt-et-un | pleine, base + double | 99.6 % | +0.0 % | **99.6 %** |
+## Le vingt-et-un mesure (1 000 000 mains par politique)
 
-## La bascule : l'imprimante volontaire (A14)
+| Politique | RTP |
+|---|---|
+| naif | 92.90 % +- 0.10 % |
+| base | 96.63 % +- 0.10 % |
+| base + double | 98.19 % +- 0.11 % |
+| base + double + refente | 98.86 % +- 0.11 % |
 
-> Arbitrage Raphael (2026-07-17) : « au bout d'un moment le joueur gagne plus
-> qu'il ne depense », « des chiffres absurdement gros », « temps de farm
-> classique, gain exponentiel a vie ». Passe la bascule (des 11+, ailes 7+,
-> planches 6+, la refente au 21), rtp > 1 est le PRODUIT VENDU. Le debit est
-> borne par la cadence de l'auto (net/h = parties/h x mise x marge) et le COFFRE
-> (mise x10^rang, prix x10/rang) rend le temps de farm d'un rang CONSTANT.
+`BLACKJACK_RTP_REF` = 99.5 % (majore le jeu parfait), `BLACKJACK_RTP_AUTO` = 98.3 %.
 
-| Table au sommet | Marge (rtp - 1) | Net/h (coffre x1, fervent) |
-|---|---|---|
-| interdit, des 13, fervent | +11.2 % | ~2011 Faveur/h |
-| hecatombe, ailes 8, fervent | +3.6 % | ~540 Faveur/h |
-| talent, graveur 10, fervent | +0.8 % | ~113 Faveur/h |
-| refente + double, royale | +0.2 % | manuel (l'auto joue la base, sous 1) |
+## Tous les jeux, cagnotte comprise
 
-- **Un rang de coffre** se farme en ~8.0 h au meilleur debit (osselets) — constant a chaque rang (prix x10, debit x10).
-- **Les 8 rangs** : ~2.7 jours de farm cumules.
-- **Les reliques** (au coffre max) : le Char ~moins d'une heure, la Corne ~0.0 h, l'Oeil d'or ~0.2 jours — apres les ~2.7 jours de coffres : les objets a « jours de farm » demandes.
-
-> Lecture : plus `rtp_base` est haut, MOINS la table peut recycler — le vingt-et-un
-> n'a que 1,8 point d'edge, donc il ne verse presque rien, et c'est correct. Les
-> configurations du haut de ce tableau sont celles ou il reste le moins de marge : ce
-> sont elles qu'il faut relire si `AUGURY_RTP_CAP` ou `WING_STEP` montent.
->
-> Les **plumes de secours** n'apparaissent plus : elles PRELEVENT desormais sur la
-> cella au lieu de minter `round(mise x 0.5)` a chaque crash. Ce qui sort du pot est
-> deja compte dans la part versee, donc la consolation n'ajoute plus rien au RTP —
-> c'etait le poste le plus lourd de l'imprimante (+51 pts a la cible x50).
-> L'**osselet du noye** ne double plus une part de mise : il booste le recycle, et le
-> clamp le tient sous 1 (A10).
-
-## RTP analytique (hors Clemence)
-
-> Paiements FIXES (normalises au win rate MAX sur le cap) : le RTP EFFECTIF suit le
-> win rate courant (rtp = rtpRef x pEff/pRef) - il monte avec les des, jamais au-dela
-> du cap. L'ivoire (artefact) redistribue la variance : la table est RECALCULEE a
-> l'achat, le RTP reste sous le cap.
-
-| Rite | Des | Win rate | RTP ref (des max) | RTP effectif | RTP eff (ivoire) | Perte moy./jet |
-|---|---|---|---|---|---|---|
-| prudent | 0 | 27.5 % | 99.0 % | 57.3 % | 57.3 % | 1.7 Faveur |
-| prudent | 3 | 33.5 % | 99.0 % | 69.8 % | 69.8 % | 1.2 Faveur |
-| prudent | 5 | 37.5 % | 99.0 % | 78.1 % | 78.1 % | 0.9 Faveur |
-| prudent | 8 | 43.5 % | 99.0 % | 90.7 % | 90.6 % | 0.4 Faveur |
-| prudent | 10 | 47.5 % | 99.0 % | 99.0 % | 99.0 % | 0 Faveur |
-| prudent | 11 | 49.5 % | 99.0 % | 103.2 % | 103.1 % | -0.1 Faveur |
-| prudent | 13 | 53.5 % | 99.0 % | 111.5 % | 111.5 % | -0.5 Faveur |
-| classique | 0 | 27.5 % | 98.8 % | 57.2 % | 56.3 % | 2.6 Faveur |
-| classique | 3 | 33.5 % | 98.8 % | 69.6 % | 68.6 % | 1.8 Faveur |
-| classique | 5 | 37.5 % | 98.8 % | 78.0 % | 76.8 % | 1.3 Faveur |
-| classique | 8 | 43.5 % | 98.8 % | 90.4 % | 89.1 % | 0.6 Faveur |
-| classique | 10 | 47.5 % | 98.8 % | 98.8 % | 97.3 % | 0.1 Faveur |
-| classique | 11 | 49.5 % | 98.8 % | 102.9 % | 101.4 % | -0.2 Faveur |
-| classique | 13 | 53.5 % | 98.8 % | 111.2 % | 109.6 % | -0.7 Faveur |
-| grand | 0 | 27.5 % | 98.7 % | 57.1 % | 57.2 % | 5.1 Faveur |
-| grand | 3 | 33.5 % | 98.7 % | 69.6 % | 69.7 % | 3.6 Faveur |
-| grand | 5 | 37.5 % | 98.7 % | 77.9 % | 78.0 % | 2.7 Faveur |
-| grand | 8 | 43.5 % | 98.7 % | 90.4 % | 90.5 % | 1.2 Faveur |
-| grand | 10 | 47.5 % | 98.7 % | 98.7 % | 98.8 % | 0.2 Faveur |
-| grand | 11 | 49.5 % | 98.7 % | 102.8 % | 103.0 % | -0.3 Faveur |
-| grand | 13 | 53.5 % | 98.7 % | 111.1 % | 111.3 % | -1.3 Faveur |
-| interdit | 0 | 27.5 % | 98.7 % | 57.1 % | 57.2 % | 8.6 Faveur |
-| interdit | 3 | 33.5 % | 98.7 % | 69.6 % | 69.6 % | 6.1 Faveur |
-| interdit | 5 | 37.5 % | 98.7 % | 77.9 % | 78.0 % | 4.4 Faveur |
-| interdit | 8 | 43.5 % | 98.7 % | 90.4 % | 90.4 % | 1.9 Faveur |
-| interdit | 10 | 47.5 % | 98.7 % | 98.7 % | 98.7 % | 0.3 Faveur |
-| interdit | 11 | 49.5 % | 98.7 % | 102.9 % | 102.9 % | -0.6 Faveur |
-| interdit | 13 | 53.5 % | 98.7 % | 111.2 % | 111.2 % | -2.2 Faveur |
-
-## Paytables affichees au joueur (FIXES a tous les niveaux de des)
-
-| Rite | Mise | Venus | Triple | Paire |
-|---|---|---|---|---|
-| prudent | 4 | 15 | 11 | 6 |
-| classique | 6 | 23 | 12 | 9 |
-| grand | 12 | 39 | 24 | 16 |
-| interdit | 20 | 55 | 37 | 27 |
-
-> Contrat (arbitrage Raph 2026-07-16) : les des pipes montent le WIN RATE
-> (+2 pts/niveau), les paiements ne bougent JAMAIS - verrouille par A8.
-
-## Clemence : pourquoi le rabais de mise (et pas le bonus d'odds)
-
-En monnaie fermee, l'ancienne Clemence (+5 pts d'odds par cran, Chien double,
-jusqu'a +50 pts) rendait la table **exploitable** : les gains etant normalises hors
-Clemence, chaque cran multipliait le RTP effectif (~lineaire en p, les pertes payant 0).
-Strategie mesuree ("sniper" : charger les crans en prudent, degainer le grand rite a 3+ crans) :
-
-| Mode Clemence | RTP realise (sniper) | Net median 8 h | Verdict |
+| Jeu | RTP | + cagnotte (recycle 0.6) | + cagnotte (noye, 0.85) |
 |---|---|---|---|
-| Odds (ancien systeme, contrefactuel) | 81.0 % | 8 Faveur | borderline |
-| Rabais de mise (CABLE) | 54.6 % | 10 Faveur | borne par construction |
+| osselets prudent | 97.00 % | 98.80 % | 99.55 % |
+| osselets classique | 97.00 % | 98.80 % | 99.55 % |
+| osselets grand | 97.00 % | 98.80 % | 99.55 % |
+| osselets interdit | 97.00 % | 98.80 % | 99.55 % |
+| Icare | 97.00 % | 98.80 % | 99.55 % |
+| tickets | 75.02 % | 90.01 % | 96.25 % |
+| vingt-et-un (REF) | 99.50 % | 99.80 % | 99.92 % |
+| machine | 91.99 % | 96.80 % | 98.80 % |
 
-L'echelle ENTIERE (2026-07-17 : classique 6/5/4/3/3/3 par cran, gains au prorata
-de la mise payee) descend a CHAQUE revers jusqu'au plancher (la moitie) — l'ancien
-rabais en pourcentage laissait les crans 2 et 4 no-op par round(). La serie noire
-brule moins vite ("le temple allege l'offrande des eprouves"), le prorata reste
-borne < 1 (A13) et inexploitable (A7).
+## Recettes de la Maison et limites de table (ere record)
 
-## Sessions simulees (Monte Carlo, 8 h actives, mode rabais)
-
-> Tronc plein a l'arrivee (burst de ~10 jets classiques), releve manuelle au plafond,
-> 1 jet / 12 s max (rythme d'animation). "A sec" = bankroll sous la mise classique.
-
-| Politique | Des | Jets/h | RTP realise | Net 1 h (p10/p50/p90) | Net 8 h (p50) | A sec |
-|---|---|---|---|---|---|---|
-| epargnant | 0 | 0 | - | 168 / 168 / 168 | 979 | 0 % |
-| modere | 0 | 63 | 54.1 % | 16 / 31 / 56 | 14 | 0 % |
-| flambeur | 0 | 63 | 54.1 % | 3 / 5 / 28 | 5 | 80 % |
-| hecatombe | 0 | 32 | 54.3 % | 5 / 8 / 11 | 9 | 10 % |
-| sniper (rabais) | 0 | 59 | 54.6 % | 6 / 10 / 36 | 10 | 4 % |
-| flambeur | 5 | 102 | 73.7 % | 3 / 22 / 58 | 5 | 67 % |
-| flambeur | 10 | 278 | 94.3 % | 23 / 85 / 203 | 306 | 8 % |
-| flambeur + ivoire | 10 | 207 | 89.3 % | 11 / 51 / 120 | 21 | 32 % |
-
-## Temps d'acces aux achats (mediane, pure accumulation)
-
-| Achat | Prix | Epargnant | Modere |
-|---|---|---|---|
-| de pipe 1 | 130 | 54 min | > 8 h |
-| benediction | 60 | 0 min | 27 min |
-| aile ciree 1 | 90 | 27 min | > 8 h |
-| auto-releve du tronc | 520 | 4.1 h | > 8 h |
-| auto-jeu | 700 | 5.4 h | > 8 h |
-
-## Verdict
-
-- **Jouer vite** : burst d'entree de ~10 jets classiques (tronc plein), puis le tronc (+120/h)
-  finance ~47 jets classiques/h en regime permanent a des 0 (par vagues : un gain repaie ses jets).
-- **Early peu rentable** : le flambeur finit l'heure a ~5 Faveur la ou l'epargnant
-  en garde ~168 - jouer coute, comme voulu ; la marge de progression est le moteur.
-- **Bonus etales** : 1er de a 54 min en epargne stricte (bien plus en jouant),
-  automatisations a 4.1 h / 5.4 h, les 10 des ~35893 Faveur
-  (~299 h de tronc) : progression long terme.
-- **De mieux en mieux** : la perte de jeu du flambeur fond de 122 a 78 Faveur/h
-  entre des 0 et des 10 (win rate 27.5 % -> 47.5 %, paiements INCHANGES : le RTP
-  effectif grimpe de ~57.3 % a ~99.0 %).
-- **Clemence** : passer au rabais de mise (l'actuelle est exploitable en monnaie fermee).
-
-### Suites possibles (hors du cable actuel)
-- **La bascule est un CONTRAT en deux moities** : sous l'ancre (des <= 10,
-  ailes <= 6, planches <= 5, sans refente), l'anti-imprimante reste vrai par
-  algebre (A9) ; au-dela, rtp > 1 est le produit vendu et son DEBIT est la seule
-  chose a surveiller (A14 : cadence x mise x marge, coffres a prix x10).
-- Le RTP effectif des osselets a des 0 est DUR (~56 %) : c'est le choix "early peu
-  rentable" pousse au bout - chaque de pipe rend ~+4 pts de RTP effectif, la
-  progression se SENT. A adoucir via AUGURY_RTP_CAP ou DICE_BOOST_STEP si trop rude.
-- Les couts d'artefacts, des coffres et des reliques restent ajustables au ressenti ;
-  la bande [4 h, 24 h] du farm d'un rang (A14) est le curseur central.
+| Ere | Recettes/h | Mise max | Benediction | Plafond cagnotte |
+|---|---|---|---|---|
+| 2 Abris | 120 | 30 | 60 | 5 000 |
+| 3 Clans | 178 | 44 | 89 | 5 000 |
+| 5 Hameau | 380 | 95 | 190 | 9 122 |
+| 8 Les Entrepôts | 1 120 | 270 | 560 | 26 868 |
+| 10 Bourg des artisans | 2 247 | 560 | 1 123 | 53 921 |
+| 13 Cité commerciale | 6 228 | 1 500 | 3 114 | 149 482 |
+| 15 Cité fortifiée | 12 128 | 3 000 | 6 064 | 291 067 |
+| 18 Principauté marchande | 32 422 | 8 100 | 16 211 | 778 132 |
+| 20 Royaume diplomate | 61 877 | 15 000 | 30 939 | 1.49e+6 |
+| 23 Empire naissant | 161 216 | 40 000 | 80 608 | 3.87e+6 |
+| 25 Empire | 303 118 | 75 000 | 151 559 | 7.27e+6 |
+| 27 Capitale monumentale | 567 059 | 140 000 | 283 529 | 1.36e+7 |
+| 29 Métropole | 1.09e+6 | 270 000 | 546 817 | 2.62e+7 |
+| 30 Mégalopole | 1.54e+6 | 380 000 | 772 400 | 3.71e+7 |
+| 32 Réseau continental | 3.08e+6 | 770 000 | 1.54e+6 | 7.40e+7 |
+| 34 Singularité | 6.15e+6 | 1.50e+6 | 3.07e+6 | 1.48e+8 |
+| 45 Conscience planétaire | 4.56e+7 | 1.10e+7 | 2.28e+7 | 1.09e+9 |
+| 60 Noosphère · V | 1.82e+9 | 4.50e+8 | 9.09e+8 | 4.37e+10 |

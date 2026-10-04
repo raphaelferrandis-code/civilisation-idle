@@ -784,6 +784,29 @@ export function stepMusicTrack(dir) {
   setMusicTrack(MUSIQUES[(i + (dir < 0 ? n - 1 : 1)) % n].id);
 }
 
+// ── Les BRUITAGES (2026-10-03 : la machine à sous) — un réglage À PART de la musique :
+// on peut couper l'une et garder l'autre. Joués par le code (audio/slotsSound.js).
+let optSfx = true;
+let optSfxVolume = 0.8;
+export function getSfxEnabled() {
+  return optSfx;
+}
+export function getSfxVolume() {
+  return optSfxVolume;
+}
+export function setSfxEnabled(enabled) {
+  optSfx = Boolean(enabled);
+  try {
+    localStorage.setItem("civ-opt-sfx", String(optSfx));
+  } catch { /* Option persistence may be unavailable. */ }
+}
+export function setSfxVolume(vol) {
+  optSfxVolume = clamp(vol, 0, 1);
+  try {
+    localStorage.setItem("civ-opt-sfx-volume", String(optSfxVolume));
+  } catch { /* Option persistence may be unavailable. */ }
+}
+
 // La musique s'efface sous la mélodie de la scène, puis revient (audio/melodieScene.js).
 export function duckMusic(ms) {
   rampMusic("efface", 0.2, 250);
@@ -844,6 +867,11 @@ export function initAudio() {
     if (savedVol !== null) optMusicVolume = clamp(Number(savedVol), 0, 1);
 
     optMusicTrack = localStorage.getItem("civ-opt-music-track");
+
+    const savedSfx = localStorage.getItem("civ-opt-sfx");
+    if (savedSfx !== null) optSfx = savedSfx !== "false";
+    const savedSfxVol = localStorage.getItem("civ-opt-sfx-volume");
+    if (savedSfxVol !== null) optSfxVolume = clamp(Number(savedSfxVol), 0, 1);
   } catch { /* Option persistence may be unavailable. */ }
 
   // Le morceau vient du dossier des musiques (audio/musiques.js) : Vite en donne

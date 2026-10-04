@@ -1,39 +1,36 @@
 "use strict";
 
-// Moteur d'AUTOMATISATION du Temple (Phase 2, 2026-07-15) — un petit moteur
+// Moteur d'AUTOMATISATION de la Maison (Phase 2, 2026-07-15) — un petit moteur
 // PASSIF. Quand le joueur a débloqué et activé une automatisation, le tick joue
 // À SA PLACE, aux CADRANS qu'il règle. Gouverné comme l'Intendance (tickSteward) :
 //   - cooldown Date.now() par jeu (offline-safe : la sim monkeypatch Date.now) ;
 //   - UNE partie par jeu et par tick (jamais de rafale) ;
-//   - plancher = réserve à NE PAS entamer (l'auto se met en veille dessous).
-// Trois automatisations, TOUTES en monnaie fermée (2026-07-16) :
-//   - TRONC : auto-relève des offrandes quand elles frôlent le plafond —
-//     ne crée rien, évite le gaspillage (le tronc plafonne, cf. offeringTrunk) ;
-//   - OSSELETS et ICARE : mise en FAVEUR, plancher de Faveur. L'auto joue À
-//     PERTE en espérance (edge maison) : un divertissement automatisé qui
-//     chasse les Vénus / joue les vols offerts et nourrit la cagnotte — pas un
-//     revenu.
-// ONLINE pour l'instant : early-return si isNotifyPaused() (offline/sim). Un
-// crédit offline serait un hook dédié dans applyOfflineProgress — le TRONC,
-// lui, est déjà offline-safe par construction (calcul à la volée).
+//   - plancher = réserve de Faveur à NE PAS entamer (l'auto se met en veille dessous).
+// Les automatisations :
+//   - CAISSE (ex-tronc) : auto-relève quand elle frôle le plafond — ne crée rien,
+//     évite le gaspillage (la caisse plafonne, cf. offeringTrunk) ;
+//   - les JEUX : mise en FAVEUR, cotes fixes. L'auto joue À PERTE en espérance
+//     (avantage de la maison) : un divertissement automatisé qui chasse les Vénus,
+//     joue les vols offerts et nourrit la cagnotte — pas un revenu.
+// Lot 1 des gains « vrai casino » (2026-10-04) : le cadran de mise est une PART DE
+// LA LIMITE de la table (min, ¼, ½, max — cf. autoStake), qui grandit avec la ville.
 //
 // Les jeux sont appelés en HEADLESS (moteur pur, jamais la scène UI) :
-//   - osselets : castAugury(id, rite, { render:false, silent:true }) — débite
-//     la mise et crédite le gain synchro, sans float ni scène ;
-//   - Icare : resolveIcarusHeadless(stakeId, cible) — même loi que le jeu
+//   - osselets : castAugury(id, rite, { stake, render:false, silent:true }) ;
+//   - Icare : resolveIcarusHeadless(stake, cible) — même loi que le jeu
 //     interactif, sans état de vol ni timer.
 
 import { state, render, save, saveSoon, isNotifyPaused, isOfflineSim, defaultTempleAuto } from '../state.js';
 import { regulationActionUnlocked } from '../mechanics.js';
-import { castAugury, auguryStake, auguryPaytable, AUGURY_RITES } from './augures.js';
-import { collectTrunk, trunkValue } from './offeringTrunk.js';
-import { resolveIcarusHeadless, icarusStakes, icarusEffectiveEdge, icarusUnlocked, icarusCrashConsolation } from './icarus.js';
+import { castAugury, auguryPaytable, AUGURY_RITES } from './augures.js';
+import { collectTrunk, trunkValue, trunkCap } from './offeringTrunk.js';
+import { resolveIcarusHeadless, icarusEffectiveEdge, icarusUnlocked } from './icarus.js';
 import { playScratch, scratchUnlocked, scratchRtpRef } from './scratch.js';
 import { resolveBlackjackHeadless, blackjackUnlocked } from './blackjack.js';
 import { buyFaveurItem, buyTempleArtifact } from './faveurShop.js';
 import { hasTempleArtifact } from './templeArtifacts.js';
 import { hasFreeFlight } from './templeFlights.js';
-import { clampStakeMult } from './templePot.js';
+import { autoStake, recettesPerHour } from './maisonTable.js';
 import { ARTIFACT_LINEAGES, ARTIFACT_NODES } from '../../data/artifacts.js';
 import { chronicle } from './utils.js';
 import { recordShopSpend } from '../chronicleStats.js';
@@ -47,22 +44,24 @@ import {
   AUTO_ICARUS_TARGET_MIN,
   AUTO_ICARUS_TARGET_MAX,
   AUTO_TEMPLE_FAVEUR_FLOOR_MAX,
+  AUTO_STAKE_STEPS,
   AUTO_OSSELETS_UNLOCK_COST,
   AUTO_ICARUS_UNLOCK_COST,
   AUTO_TRUNK_UNLOCK_COST,
   AUTO_SCRATCH_UNLOCK_COST,
   AUTO_BLACKJACK_UNLOCK_COST,
-  TRUNK_CAP,
-  TRUNK_RATE_PER_S,
-  ICARUS_STAKES,
-  SCRATCH_STAKES,
-  BLACKJACK_STAKES,
   BLACKJACK_RTP_AUTO,
   OFFLINE_MAX_TEMPLE_PLAYS_PER_GAME
 } from '../balance.js';
 
 // La table d'osselets fusionnée conserve cet id interne (cf. regulationActions).
 const AUGURY_TABLE_ID = "prayForRain";
+
+// Plafond du curseur de réserve : jamais sous l'ancien plafond fixe, et 24 h de
+// recettes ensuite (la réserve doit pouvoir suivre une Maison qui grandit).
+export function autoFloorMax() {
+  return Math.max(AUTO_TEMPLE_FAVEUR_FLOOR_MAX, Math.round(recettesPerHour() * 24));
+}
 
 // Appelé à chaque tick (1 Hz) juste après tickSteward, sous les mêmes gardes
 // (pause / effondrement / crise terminale). Ne fait rien tant qu'aucune
@@ -81,6 +80,19 @@ function countOfflinePlay(game) {
   if (isOfflineSim()) offlinePlays[game] = (offlinePlays[game] || 0) + 1;
 }
 
+// La mise d'une auto (cadran min/¼/½/max de la limite haute).
+function autoStakeOf(g) {
+  return autoStake(g && g.stakeStep);
+}
+
+// La réserve EFFECTIVE d'une auto : celle réglée, bornée par le maximum du curseur du
+// moment. Les cadrans survivent au Grand Reset alors que l'ère record y retombe : une
+// grosse réserve de fin de partie (1 000 000) endormait sinon les autos jusqu'à ce que
+// le joueur retouche le curseur, devenu bien plus court.
+function floorOf(g) {
+  return Math.min(Math.max(0, (g && g.faveurFloor) || 0), autoFloorMax());
+}
+
 export function tickTempleAutomation() {
   // Hors ligne, la MÉCANIQUE tourne (c'est la promesse des cadrans qu'on a
   // payés) mais PLAFONNÉE par jeu, et sans le moindre retour visuel : les jeux
@@ -88,77 +100,74 @@ export function tickTempleAutomation() {
   // simulateAwayCrises. Une pause de notification SANS simulation (cas futur)
   // continue, elle, de tout arrêter.
   if (isNotifyPaused() && !isOfflineSim()) return;
+  announceMaisonRefund();
   const auto = state.templeAuto;
   if (!auto) return;
   const now = Date.now();
   let played = false;
 
-  // ── TRONC — auto-relève quand il frôle le plafond (AVANT les osselets : la
-  // relève peut financer le jet du même tick). Pas de cooldown : la condition
-  // « quasi plein » n'est vraie qu'une fois par ~remplissage (~29 min).
+  // ── CAISSE — auto-relève quand elle frôle le plafond (AVANT les jeux : la
+  // relève peut financer la partie du même tick). Pas de cooldown : la condition
+  // « quasi pleine » n'est vraie qu'une fois par remplissage (~30 min).
   const t = auto.tronc;
-  if (t && t.on && t.unlocked && trunkValue(now) >= TRUNK_CAP - 1) {
-    if (collectTrunk({ render: false }) > 0) played = true;
+  if (t && t.on && t.unlocked) {
+    const cap = trunkCap();
+    if (trunkValue(now) >= cap - Math.max(1, cap * 0.02)) {
+      if (collectTrunk({ render: false }) > 0) played = true;
+    }
   }
 
-  // ── OSSELETS — auto-lancé au rite choisi, mise en FAVEUR ──
+  // ── OSSELETS — auto-lancé au rite choisi ──
   const o = auto.osselets;
   if (o && o.on && o.unlocked && offlineQuotaLeft("osselets") && now - (o.lastAt || 0) >= autoInterval("osselets")) {
     // Un rite gaté par artefact (le rite interdit) retombe sur le classique si
     // l'artefact manque (save trafiquée) : castAugury refuserait, ne pas bloquer.
     const riteId = riteAllowed(o.rite) ? o.rite : "classique";
-    const mult = autoStakeMult(o);
-    const stake = auguryStake(AUGURY_TABLE_ID, riteId).stake * mult;
+    const stake = autoStakeOf(o);
     // Vraie RÉSERVE : jouer seulement si la Faveur reste au-dessus du plancher
-    // APRÈS la mise (mise du coffre comprise).
-    if ((state.faveur || 0) - stake >= (o.faveurFloor || 0)) {
-      const res = castAugury(AUGURY_TABLE_ID, riteId, { render: false, silent: true, stakeMult: mult });
+    // APRÈS la mise.
+    if ((state.faveur || 0) - stake >= floorOf(o)) {
+      const res = castAugury(AUGURY_TABLE_ID, riteId, { stake, render: false, silent: true });
       // Cooldown consommé SEULEMENT si le jet a eu lieu (castAugury renvoie null
       // si verrouillé/impayable — ne pas brûler le cooldown sur un no-op).
       if (res) { o.lastAt = now; played = true; countOfflinePlay("osselets"); }
     }
   }
 
-  // ── ICARE — autopush au multiplicateur cible, mise en FAVEUR ──
+  // ── ICARE — autopush au multiplicateur cible ──
   const i = auto.icarus;
   if (i && i.on && i.unlocked && offlineQuotaLeft("icarus") && now - (i.lastAt || 0) >= autoInterval("icarus")) {
-    const stakeId = i.stakeId || "plume";
-    const mult = autoStakeMult(i);
-    // Vol OFFERT à CETTE mise (au coffre ×1 seulement) : coût nul → ignore le
-    // plancher ; sinon vraie réserve de Faveur préservée APRÈS la mise. Lecture
-    // SEULE ici : c'est resolveIcarusHeadless qui consomme.
-    const freeFlight = mult === 1 && hasFreeFlight(stakeId);
-    const found = icarusStakes().find((s) => s.id === stakeId);
-    if (freeFlight || (found && (state.faveur || 0) - found.faveur * mult >= (i.faveurFloor || 0))) {
+    // Un vol OFFERT en attente passe d'abord : coût nul → ignore le plancher.
+    // Lecture SEULE ici : c'est resolveIcarusHeadless qui consomme.
+    const free = hasFreeFlight();
+    const stake = autoStakeOf(i);
+    if (free || (state.faveur || 0) - stake >= floorOf(i)) {
       const target = Math.min(AUTO_ICARUS_TARGET_MAX, Math.max(AUTO_ICARUS_TARGET_MIN, i.target || 2));
-      const res = resolveIcarusHeadless(stakeId, target, { stakeMult: mult });
+      const res = resolveIcarusHeadless(stake, target, { free });
       if (res) { i.lastAt = now; played = true; countOfflinePlay("icarus"); }
     }
   }
 
-  // ── GRATTEUX — un ticket à la mise choisie (capstone 2026-07-17). Depuis que
-  // le Soleil ne rafle plus, c'est le seul jeu automatisable sans rien détruire :
-  // zéro décision en cours de partie, zéro rafle. Le billet du Soleil (vol offert)
-  // s'accumule dans la file, l'auto-Icare ou la main le joueront.
+  // ── GRATTEUX — un ticket à la mise choisie : zéro décision en cours de
+  // partie, zéro rafle. Le vol offert de Vénus s'accumule dans la file, l'auto-Icare
+  // ou la main le joueront.
   const g = auto.gratteux;
   if (g && g.on && g.unlocked && offlineQuotaLeft("gratteux") && now - (g.lastAt || 0) >= autoInterval("gratteux")) {
-    const found = SCRATCH_STAKES.find((s) => s.id === (g.stakeId || "obole")) || SCRATCH_STAKES[0];
-    const mult = autoStakeMult(g);
-    if ((state.faveur || 0) - found.faveur * mult >= (g.faveurFloor || 0)) {
-      const res = playScratch(found.id, { render: false, silent: true, stakeMult: mult });
+    const stake = autoStakeOf(g);
+    if ((state.faveur || 0) - stake >= floorOf(g)) {
+      const res = playScratch(stake, { render: false, silent: true });
       if (res) { g.lastAt = now; played = true; countOfflinePlay("gratteux"); }
     }
   }
 
-  // ── VINGT-ET-UN — une main à la stratégie de base (capstone 2026-07-17).
-  // L'auto joue hit/stand (basicAction), JAMAIS le double ni la refente (les
-  // leviers de skill restent à la main), ni série ni historique.
+  // ── VINGT-ET-UN — une main à la stratégie de base avec le double, jamais la
+  // refente (le levier de skill reste à la main), ni série ni historique. Le double
+  // engage une seconde mise : il ne se joue que si la réserve tient encore après.
   const v = auto.vingtetun;
   if (v && v.on && v.unlocked && offlineQuotaLeft("vingtetun") && now - (v.lastAt || 0) >= autoInterval("vingtetun")) {
-    const found = BLACKJACK_STAKES.find((s) => s.id === (v.stakeId || "legere")) || BLACKJACK_STAKES[0];
-    const mult = autoStakeMult(v);
-    if ((state.faveur || 0) - found.faveur * mult >= (v.faveurFloor || 0)) {
-      const res = resolveBlackjackHeadless(found.id, { stakeMult: mult });
+    const stake = autoStakeOf(v);
+    if ((state.faveur || 0) - stake >= floorOf(v)) {
+      const res = resolveBlackjackHeadless(stake, { floor: floorOf(v) });
       if (res) { v.lastAt = now; played = true; countOfflinePlay("vingtetun"); }
     }
   }
@@ -168,10 +177,16 @@ export function tickTempleAutomation() {
   if (played && !isNotifyPaused()) render();
 }
 
-// Multiplicateur de mise d'une auto : 10^stakePow, re-clampé au rang de coffre
-// POSSÉDÉ (le cadran a pu être réglé avant un Grand Reset qui garde le réglage).
-function autoStakeMult(g) {
-  return clampStakeMult(10 ** Math.max(0, g.stakePow || 0));
+// Le remboursement des achats supprimés au lot 1 (migration 4 → 5 de state.js) est
+// annoncé UNE fois, au premier tick en ligne : la migration court avant que l'état
+// n'existe, elle ne peut ni chroniquer ni afficher.
+function announceMaisonRefund() {
+  const refund = state.maisonRefund || 0;
+  if (refund <= 0 || isOfflineSim()) return;
+  state.maisonRefund = 0;
+  chronicle(`La Maison des Plaisirs change ses règles : les chances ne s'achètent plus. Elle rend ${Math.round(refund).toLocaleString("fr-FR")} faveur dépensée en dés pipés, ailes cirées, planches et coffres.`);
+  pushOutcomeFloat({ label: `🏺 +${Math.round(refund).toLocaleString("fr-FR")} faveur rendue`, kind: "gain" });
+  saveSoon();
 }
 
 // Intervalle EFFECTIF d'une auto : la base du jeu × le tempo choisi (recueilli
@@ -201,11 +216,7 @@ function riteAllowed(riteId) {
 // setter (validation/bornage calqués sur normalizeTempleAuto) puis save+render,
 // exactement comme setStewardClause pour l'Intendance.
 const VALID_RITES = Object.keys(AUGURY_RITES);
-const VALID_STAKES_BY_GAME = {
-  icarus: ICARUS_STAKES.map((s) => s.id),
-  gratteux: SCRATCH_STAKES.map((s) => s.id),
-  vingtetun: BLACKJACK_STAKES.map((s) => s.id)
-};
+const VALID_STAKE_STEPS = Object.keys(AUTO_STAKE_STEPS);
 const AUTO_GAMES = ["osselets", "icarus", "gratteux", "vingtetun", "tronc"];
 const VALID_TEMPOS = Object.keys(AUTO_TEMPO_MULT);
 
@@ -216,21 +227,17 @@ export function setTempleAuto(game, patch) {
   const p = (patch && typeof patch === "object") ? patch : {};
   if ("on" in p) g.on = Boolean(p.on);
   if (game !== "tronc" && "faveurFloor" in p) {
-    g.faveurFloor = Math.round(Math.max(0, Math.min(AUTO_TEMPLE_FAVEUR_FLOOR_MAX, Number(p.faveurFloor) || 0)));
+    g.faveurFloor = Math.round(Math.max(0, Math.min(autoFloorMax(), Number(p.faveurFloor) || 0)));
   }
   if (game !== "tronc" && typeof p.tempo === "string" && VALID_TEMPOS.includes(p.tempo)) {
     g.tempo = p.tempo;
   }
-  // Le cadran de coffre : la PUISSANCE de mise de l'auto (mise × 10^stakePow),
-  // bornée au rang de coffre possédé — re-clampée au tick par clampStakeMult.
-  if (game !== "tronc" && "stakePow" in p) {
-    g.stakePow = Math.round(Math.max(0, Math.min(state.coffreLevel || 0, Number(p.stakePow) || 0)));
+  // Le cadran de mise : une part de la limite haute de la table.
+  if (game !== "tronc" && typeof p.stakeStep === "string" && VALID_STAKE_STEPS.includes(p.stakeStep)) {
+    g.stakeStep = p.stakeStep;
   }
   if (game === "osselets" && typeof p.rite === "string" && VALID_RITES.includes(p.rite)) {
     g.rite = p.rite;
-  }
-  if (game in VALID_STAKES_BY_GAME && typeof p.stakeId === "string" && VALID_STAKES_BY_GAME[game].includes(p.stakeId)) {
-    g.stakeId = p.stakeId;
   }
   if (game === "icarus" && "target" in p) {
     g.target = Math.max(AUTO_ICARUS_TARGET_MIN, Math.min(AUTO_ICARUS_TARGET_MAX, Number(p.target) || AUTO_ICARUS_TARGET_MIN));
@@ -263,7 +270,7 @@ function autoGamePlayable(game) {
 
 const AUTO_LABELS = {
   osselets: { verbe: "l'auto-lancé des osselets", court: "Osselets auto" },
-  tronc: { verbe: "l'auto-relève des offrandes", court: "Offrandes auto" },
+  tronc: { verbe: "l'auto-relève de la caisse", court: "Caisse auto" },
   icarus: { verbe: "l'autopush d'Icare", court: "Icare auto" },
   gratteux: { verbe: "l'auto-gratteux", court: "Gratteux auto" },
   vingtetun: { verbe: "l'auto-vingt-et-un", court: "Vingt-et-un auto" }
@@ -285,7 +292,7 @@ export function unlockTempleAuto(game) {
   g.unlocked = true;
   g.on = true;
   const label = AUTO_LABELS[game];
-  chronicle(`Le temple prend vie : ${label.verbe} tourne désormais tout seul${game === "tronc" ? "" : ", aux cadrans que tu règles"}.`);
+  chronicle(`La Maison prend vie : ${label.verbe} tourne désormais tout seul${game === "tronc" ? "" : ", aux cadrans que tu règles"}.`);
   pushOutcomeFloat({ label: `⚙️ ${label.court}`, kind: "gain" });
   save();
   render();
@@ -300,10 +307,9 @@ export function templeAutoUnlockCost(game) {
 // Débit ✦/min ESTIMÉ (espérance) d'une automatisation, aux réglages courants.
 // Renvoie 0 si l'auto est À L'ARRÊT ou si le jeu n'est pas encore jouable (l'ère
 // requise) — le badge reflète alors la production RÉELLE (nulle). La cadence est
-// une BORNE HAUTE (le plancher peut la réduire). Depuis la monnaie fermée, le
-// débit des OSSELETS et du VINGT-ET-UN est NÉGATIF (edge maison) : l'estimation
-// est honnête — l'auto-jeu consomme de la Faveur en espérance. Le rabais Clémence est ignoré
-// (il ne change pas le RTP, seulement l'échelle des mises en série noire).
+// une BORNE HAUTE (le plancher peut la réduire). Les cotes étant fixes et sous
+// 100 %, le débit des JEUX est NÉGATIF : l'estimation est honnête — l'auto-jeu
+// consomme de la Faveur en espérance. Seule la caisse rapporte.
 export function templeAutoThroughput(game) {
   const auto = state.templeAuto;
   if (!auto) return 0;
@@ -311,47 +317,34 @@ export function templeAutoThroughput(game) {
   if (!g || !g.on) return 0; // à l'arrêt → aucune production réelle
   if (game === "tronc") {
     if (!regulationActionUnlocked(AUGURY_TABLE_ID)) return 0; // Ère II requise
-    return TRUNK_RATE_PER_S * 60; // le goutte-à-goutte, sans plus jamais déborder
+    return recettesPerHour() / 60; // les recettes, sans plus jamais déborder
   }
   if (!autoGamePlayable(game)) return 0; // l'ère du jeu n'est pas atteinte
   const perMin = 60000 / autoInterval(game); // le tempo entre dans la cadence
-  const mult = autoStakeMult(g);            // le coffre entre dans la mise
+  const stake = autoStakeOf(g);             // la part de la limite entre dans la mise
   if (game === "osselets") {
     const riteId = riteAllowed(g.rite) ? g.rite : "classique";
     const pay = auguryPaytable(AUGURY_TABLE_ID, riteId);
-    // Aux dés 11+ (la bascule), rtp > 1 : le badge devient POSITIF — le débit
-    // de l'imprimante, borné par cadence × mise × marge (garde A14 du banc).
-    const evPerGame = (pay.rtp - 1) * pay.stake * mult;
-    return evPerGame * perMin;
+    return (pay.rtp - 1) * stake * perMin;
   }
   if (game === "icarus") {
     const T = Math.min(AUTO_ICARUS_TARGET_MAX, Math.max(AUTO_ICARUS_TARGET_MIN, g.target || 2));
     const Tr = Math.floor(T * 100) / 100;
     const pWin = Math.min(1, (1 - icarusEffectiveEdge()) / T);
-    const stake = ICARUS_STAKES.find((s) => s.id === (g.stakeId || "plume")) || ICARUS_STAKES[0];
-    const stakeF = stake.faveur * mult;
-    // EV NETTE = payout espéré + consolation (plumes, bornée par la cella) − mise.
-    // Espérance EXACTE : le payout passe par payRound (E = x). Positive aux
-    // ailes 7-8 (edge négatif : la bascule d'Icare).
-    const win = stakeF * Tr;
-    const loss = icarusCrashConsolation(stakeF);
-    const evPerGame = pWin * win + (1 - pWin) * loss - stakeF;
+    // EV NETTE = payout espéré − mise. Espérance EXACTE : le payout passe par payRound
+    // (E = x). La consolation des plumes N'EST PAS comptée : elle sort de la cagnotte,
+    // que seul l'avantage des tables remplit — la compter comme un gain affichait un
+    // débit POSITIF (jusqu'à +200/min avec le souffle), ce que le jeu ne rend jamais.
+    const evPerGame = pWin * stake * Tr - stake;
     return evPerGame * perMin;
   }
   if (game === "gratteux") {
-    const stake = SCRATCH_STAKES.find((s) => s.id === (g.stakeId || "obole")) || SCRATCH_STAKES[0];
-    // Le RTP de référence suit les planches du graveur : positif aux planches 6+.
-    const evPerGame = (scratchRtpRef(stake.id) - 1) * stake.faveur * mult;
-    return evPerGame * perMin;
+    return (scratchRtpRef() - 1) * stake * perMin;
   }
   if (game === "vingtetun") {
-    const stake = BLACKJACK_STAKES.find((s) => s.id === (g.stakeId || "legere")) || BLACKJACK_STAKES[0];
-    // L'auto joue la base SANS double ni refente : son RTP est SOUS 1, donc le
-    // badge est NÉGATIF comme celui des osselets et d'Icare. Lire ici le RTP de
-    // référence (le jeu parfait, > 1) ne majorait pas « légèrement » : il
-    // INVERSAIT le signe et promettait un gain là où l'auto consomme.
-    const evPerGame = (BLACKJACK_RTP_AUTO - 1) * stake.faveur * mult;
-    return evPerGame * perMin;
+    // L'auto joue la base AVEC le double, SANS refente : BLACKJACK_RTP_AUTO, mesuré
+    // sur ce chemin exact (sous 1 : le badge est négatif, et c'est honnête).
+    return (BLACKJACK_RTP_AUTO - 1) * stake * perMin;
   }
   return 0;
 }
@@ -359,7 +352,7 @@ export function templeAutoThroughput(game) {
 // ── L'ARBRE D'ARTEFACTS (Phase 4) — dispatcher d'achat + descripteur UI ──────
 // Deux lignées en ÉCHELLE : le rang N n'est achetable que si le rang N-1 est
 // ACQUIS (le rang 1 exige l'ère du jeu). Trois kinds routés vers leur achat :
-// level → buyFaveurItem (dés/ailes), artifact → buyTempleArtifact (booléen),
+// level → buyFaveurItem (stylet), artifact → buyTempleArtifact (booléen),
 // automation → unlockTempleAuto (capstone). Tout reste DÉCOUPLÉ de la Rupture.
 
 function lineageEraOk(lineageId) {
@@ -367,7 +360,7 @@ function lineageEraOk(lineageId) {
   if (lineageId === "icarus") return icarusUnlocked();
   if (lineageId === "gratteux") return scratchUnlocked();
   if (lineageId === "vingtetun") return blackjackUnlocked();
-  // Le Trésor (coffres + reliques) ouvre avec les tables de l'Ère III : il
+  // Le Trésor (les reliques) ouvre avec les tables de l'Ère III : il
   // n'a de sens que quand les quatre jeux tournent.
   if (lineageId === "tresor") return icarusUnlocked();
   return false;

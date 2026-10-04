@@ -97,6 +97,7 @@ function outlineAll(cv, K) {
   for (const [x, y] of ring) cv.set(x, y, K);
 }
 SKIN.Z = '#ffe6cf';   // le reflet de la peau (le haut du buste, l'épaule)
+SKIN.U = '#c08068';   // le pli sous le sein (plus sombre que l'ombre s)
 
 // ── Les pièces, vue de trois-quarts face (sud-est) ──────────────────────────
 // Repère : toile 32 × 32, semelles sur la ligne y = 28 (AGENT_FEET 0,88). La figure
@@ -126,20 +127,29 @@ const SHOULDERS_SE = ['.sSSSSs.', 'SZSSSSSS', 'SSSSSSSS'];
 // Le BUSTE en push-up : deux rondeurs, la ligne du décolleté (s), un reflet (Z) ; le
 // lointain dépasse à droite. Pièce à part : il rebondit.
 // Raph : « encore plus gros, type push-up » → douze pixels de large (il déborde des
-// épaules), quatre rangs dont trois au-dessus du corset : il monte presque à la ligne
-// des épaules.
+// épaules) ; il monte presque à la ligne des épaules.
+// Raph, 2026-10-04 : « arrondis davantage ses seins, le dessous un peu comme ça » →
+// six rangs : des sommets ronds (les reflets Z en haut à gauche), le sillon (s) qui
+// finit en pli au centre (U), et le DESSOUS : la peau qui s'arrondit sous chaque
+// bonnet (s S S s), puis le pli sous chaque sein (U U). Les hauts posés par-dessus
+// cachent ce qu'ils couvrent ; le bandeau laisse voir le dessous.
 const BUST_SE = [
-  '.SZZSSsSZZS.',
-  'SSZZSSsSSZSS',
-  'SSSSSsSsSSSS',
-  '.sSSSsSsSSs.',
+  '...ZZSsSZZS.',
+  '..ZZSSsSZSSs',
+  '.SSSSSsSSSSs',
+  '.sSSSSUSSSSs',
+  '..sSSs.sSSs.',
+  '...UU...UU..',
 ];
-// Le CORSET, posé par-dessus : bord de dentelle des bonnets, taille de guêpe.
+// Le CORSET, posé par-dessus : encolure EN CŒUR (2026-10-04) — un arc de dentelle (T)
+// sur chaque bonnet, le V au milieu, les bonnets qui s'arrondissent (a, dessous) avant
+// la taille de guêpe. Douze de large comme le buste, posé en x 11, y 15.
 const CORSET_SE = [
-  'TTTTTATTTT',
-  '.AAAAQAAA.',
-  '..AAAQAA..',
-  '..AAQAAA..',
+  '...TT...TT..',
+  '.TTAQT.TQATT',
+  '.AAAAATAAAAA',
+  '..aAAAQAAAa.',
+  '...AAAQAAA..',
 ];
 // Les JUPONS du cancan (deux images : l'ourlet ondule, les hanches balancent).
 const SKIRT_SE = [
@@ -235,8 +245,12 @@ const CORSET_NE = ['AAAAAAAAA.', '.AATATAAA.', '..AATAA...', '..ATAAAA..'];
 // corset (dentelle, taille de guêpe) ; corsage (chemise blanche sous un corselet lacé) ;
 // bandeau (fourrure, étoffe ou or, sur un ventre nu) ; justaucorps (le corset, et le
 // bas échancré haut sur la hanche).
-const BODICE_SE = ['TTTTTTTTTT', '.AAQAQAAA.', '..AQAQAA..', '..AAQAAA..'];
-const BANDEAU_SE = ['.AAAAsAAAAA.', 'AAAAAAAAAAAA', 'TTTTTTTTTTTT'];
+// Depuis le 2026-10-04 (les seins arrondis) : la chemise du corsage fait deux bonnets
+// ronds au-dessus du corselet lacé ; le bandeau devient deux bonnets ronds (plus
+// étroits en haut et en bas qu'au milieu, le reflet Q en haut à gauche, le dessous
+// assombri a), sous lesquels on voit le dessous des seins.
+const BODICE_SE = ['...TT...TT..', '.TTTTT.TTTTT', '.AAAQAAQAAAA', '..AAAQQAAAA.', '...AAQQAAA..'];
+const BANDEAU_SE = ['..AQAA.AQAA.', '.AQAAAaQAAAA', '.aAAAa.aAAAa'];
 const BANDEAU_NE = ['AAAAAAAAA', 'TTTTTTTTT'];
 const MIDRIFF = ['.SSSSSSSS.', '..SSSSSS..', '..SSsSSS..', '..SSSSSS..'];
 // ── Les BAS ──────────────────────────────────────────────────────────────────
@@ -355,7 +369,15 @@ for (const [k, c] of COSMIC) {
 // (le buste rebondit, en retard), legNear / legFar (décalage x), liftNear / liftFar
 // (pied levé), sway (les hanches balancent), skirt (image de l'ourlet), slit (la fente
 // s'ouvre), kick (0 au sol, 1 genou levé, 2 battement), lifted (jupons relevés), up
-// (bras levés : 'both', 'near', 'far').
+// (bras levés : 'both', 'near', 'far'), blink (les yeux fermés), look (l'iris de
+// l'autre côté).
+// Le REGARD, sur les rangs de la tête de face : fermés, le trait de cils (E) descend
+// sur l'œil (W I) ; tourné, l'iris passe de l'autre côté du blanc.
+function eyes(rows, g) {
+  if (g.blink) return rows.map((r) => (/[WI]/.test(r) ? r.replace(/[WI]/g, 'E') : r.replace(/E/g, 'S')));
+  if (g.look) return rows.map((r) => r.replace(/WI/g, 'IW'));
+  return rows;
+}
 function frame(who, view, g) {
   const R0 = ROSTER[who], pal = { ...SKIN, ...R0.pal }, cv = makeCanvas();
   const b = g.bob || 0, bu = g.bust || 0, sw = g.sway || 0, se = view === 'se';
@@ -384,11 +406,11 @@ function frame(who, view, g) {
   if (se) body.push({ x: 11, y: 13 + b + bu, rows: BUST_SE, name: 'buste' });
   else body.push({ x: 12, y: 13 + b, rows: BACK_NE, name: 'dos' });
   if (R0.top === 'bandeau') body.push(se ? { x: 11, y: 14 + b + bu, rows: BANDEAU_SE, name: 'bandeau' } : { x: 12, y: 15 + b, rows: BANDEAU_NE, name: 'bandeau' });
-  else body.push({ x: 12, y: 16 + b, rows: se ? (R0.top === 'bodice' ? BODICE_SE : CORSET_SE) : CORSET_NE, name: 'corset' });
+  else body.push(se ? { x: 11, y: 15 + b, rows: R0.top === 'bodice' ? BODICE_SE : CORSET_SE, name: 'corset' } : { x: 12, y: 16 + b, rows: CORSET_NE, name: 'corset' });
   const sk = (g.lifted && bottom === 'short' ? SKIRT_LIFT : SKIRTS[bottom])[g.skirt || 0];
   body.push({ x: (bottom === 'short' || bottom === 'fur' || bottom === 'leotard' ? 10 : 9) + sw, y: 20 + b, rows: sk, name: 'bas' });
   if (R0.slit && se && g.slit) body.push({ x: 17 + sw, y: 23 + b, rows: SLIT_SE, name: 'fente' });
-  body.push({ x: 10, y: 1 + b, rows: se ? head.se : head.ne, name: 'tête' });
+  body.push({ x: 10, y: 1 + b, rows: se ? eyes(head.se, g) : head.ne, name: 'tête' });
   if (head.backNE && !se) body.push({ x: 12, y: 11 + b, rows: head.backNE, name: 'cheveux' });
   for (const a of R0.acc) { const A = ACC[a]; if (A.front && !se) continue; body.push({ x: A.at[0], y: A.at[1] + b + (A.front ? bu : 0), rows: A.rows, name: a }); }
   for (const p of body) stamp(cv, p, pal, { outline: false });
@@ -441,6 +463,26 @@ const SWAY = [
   { up: 'far', sway: 0, bust: -1, bob: 0, skirt: 1 },
 ];
 const DANCES = { kick: KICK, sway: SWAY };
+// LE REPOS DE LA CROUPIÈRE (Raph, 2026-10-04 : « garde toujours la même croupière à
+// chaque table et anime-la un peu ») : debout derrière la table, poings sur les
+// hanches, elle respire (le buste monte d'UN pixel), cligne des yeux, jette un regard
+// de côté. Une image dure 160 ms comme la marche : les poses se répètent pour donner
+// le tempo (34 images, 5,4 s la boucle, deux respirations).
+// Amplitude réduite (Raph, même jour : « réduis un peu l'amplitude du mouvement ») :
+// les épaules et la tête ne montent plus avec le souffle (le buste culminait à deux
+// pixels), seul le buste se soulève, un pixel.
+const R_N = { bob: 0, bust: 0 }, R_I = { bob: 0, bust: -1 };
+const fois = (n, g) => Array.from({ length: n }, () => g);
+const REPOS = [
+  ...fois(6, R_N), ...fois(7, R_I), ...fois(3, R_N), { ...R_N, blink: true }, ...fois(3, R_N),
+  ...fois(7, R_I), ...fois(4, { ...R_N, look: true }), ...fois(3, R_N),
+];
+// Les croupières : la PREMIÈRE fille de chaque troupe (plaisirsCast, `girls[0]`), la
+// même à toutes les tables d'un âge.
+const CROUPIERES = [
+  'plaisirs-feu-chasseresse', 'plaisirs-moyen-courtisane', 'plaisirs-antique-hetaire', 'plaisirs-fonte-courtisane',
+  'plaisirs-neon-cocktail', 'plaisirs-jade-voile', 'plaisirs-astral-voile', 'plaisirs-cristal-voile',
+];
 
 // ── Aperçu ───────────────────────────────────────────────────────────────────
 function preview(out, rowsOfFrames, k = 10) {
@@ -482,8 +524,16 @@ function build(only) {
       for (const [dir, fr] of [['southeast', d], ['southwest', d.map(mirror)], ['northeast', d], ['northwest', d.map(mirror)]]) save(`${n}-danse-${dir}.png`, fr);
       sheets[n].push([`${dance}-se`, d]);
     }
+    if (CROUPIERES.includes(n)) sheets[n].push(['repos-se', saveRepos(n, save)]);
   }
   return { written, sheets };
+}
+// La bande de REPOS d'une croupière ({nom}-repos-{direction}.png), face seulement : le
+// dos recopie, comme la danse. Jouée à la table (PlaisirsTable.jsx).
+function saveRepos(n, save) {
+  const r = REPOS.map((g) => frame(n, 'se', g));
+  for (const [dir, fr] of [['southeast', r], ['southwest', r.map(mirror)], ['northeast', r], ['northwest', r.map(mirror)]]) save(`${n}-repos-${dir}.png`, fr);
+  return r;
 }
 // La source Aseprite : les images d'une bande temporaire, rangées en étiquettes.
 async function asepriteSources(sheets) {
@@ -516,6 +566,21 @@ if (process.argv.includes('--build')) {
   const { written, sheets } = build(only);
   console.log('bandes', written.length);
   await asepriteSources(sheets);
+}
+// --repos : les SEULES bandes de repos des croupières (les autres bandes ne bougent
+// pas) ; --preview-repos=out.png : leurs quatre poses (repos, souffle, yeux fermés,
+// regard), une croupière par rang.
+if (process.argv.includes('--repos')) {
+  const written = [];
+  const save = (file, frames) => { fs.writeFileSync(path.join(OUT, file), PNG.sync.write(strip(frames))); written.push(file); };
+  for (const n of CROUPIERES) saveRepos(n, save);
+  console.log('bandes de repos', written.length);
+}
+const PREV_REPOS = process.argv.find((a) => a.startsWith('--preview-repos='));
+if (PREV_REPOS) {
+  const poses = [R_N, R_I, { ...R_N, blink: true }, { ...R_N, look: true }];
+  preview(PREV_REPOS.slice(16), CROUPIERES.map((n) => poses.map((g) => frame(n, 'se', g))), 8);
+  console.log('aperçu', PREV_REPOS.slice(16));
 }
 
 const PREV = process.argv.find((a) => a.startsWith('--preview='));

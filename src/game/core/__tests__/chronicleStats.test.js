@@ -138,12 +138,13 @@ describe("chronicleStats — intégration jeu", () => {
     state.icarusPotFaveur = 0;
     __resetBlackjackForTests();
     invalidateRenderCache("all");
-    // Sabot injecté : joueur A+K (naturel), croupier 9+7.
-    dealBlackjack("legere", { deck: [C("A"), C("K"), C("9"), C("7")] });
+    // Sabot injecté : joueur A+K (naturel), croupier 9+7. Mise libre de 4 (lot 1).
+    dealBlackjack(4, { deck: [C("A"), C("K"), C("9"), C("7")] });
     const g = state.chronicleStats.games.blackjack;
     expect(g.plays).toBe(1);
+    expect(g.wagered).toBe(4);
     expect(g.naturals).toBe(1);
-    expect(g.won).toBeGreaterThan(0);
+    expect(g.won).toBeGreaterThan(0); // 4 × 2,2 = 8,8 → 8 ou 9 (payRound)
   });
 });
 

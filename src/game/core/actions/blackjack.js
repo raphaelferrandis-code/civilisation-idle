@@ -1,13 +1,14 @@
 "use strict";
 
 // Le Vingt-et-un — MOTEUR du blackjack du temple (cf. constantes BLACKJACK_* de
-// balance.js). MONNAIE FERMÉE (2026-07-16) : mise et gain en FAVEUR — gain =
-// round(mise × mult), le push (mult 1) rend exactement la mise. TOUR PAR TOUR,
-// sans timer : l'état de la main est un état MODULE éphémère (comme le vol
-// d'Icare) — un rechargement en pleine main abandonne la mise (déjà payée). Le
-// croupier (l'oracle) tire jusqu'à BLACKJACK_DEALER_STAND ; un « naturel »
-// (21 en 2 cartes) paie 3:2.
-//   - dealBlackjack(stakeId) : paie la mise, bat le sabot, donne 2+2 (une carte
+// balance.js). Mise et gain en FAVEUR — gain = payRound(mise × mult), le push
+// (mult 1) rend exactement la mise. La mise est LIBRE entre les limites de la table
+// (lot 1 des gains « vrai casino », 2026-10-04). TOUR PAR TOUR, sans timer : l'état
+// de la main est un état MODULE éphémère (comme le vol d'Icare) — un rechargement
+// en pleine main abandonne la mise (déjà payée). Le croupier (l'oracle) tire
+// jusqu'à BLACKJACK_DEALER_STAND ; un « naturel » (21 en 2 cartes) paie 6:5. Le
+// double et la refente sont des règles de base.
+//   - dealBlackjack(stake) : paie la mise, bat le sabot, donne 2+2 (une carte
 //     du croupier cachée) et résout tout de suite un éventuel naturel.
 //   - hitBlackjack() : le joueur tire ; s'il crève (>21), la main se résout.
 //   - standBlackjack() : le croupier joue, puis la main se résout.
@@ -23,14 +24,13 @@ import { state, render, gamePaused, collapseInProgress } from '../state.js';
 import { regulationContext } from '../mechanics.js';
 import { fmt } from '../utils.js';
 import {
-  BLACKJACK_STAKES,
   BLACKJACK_MULT,
   BLACKJACK_RTP_REF,
   BLACKJACK_DEALER_STAND,
   BLACKJACK_HISTORY_LEN
 } from '../balance.js';
-import { feedPot, payRound, clampStakeMult } from './templePot.js';
-import { hasTempleArtifact } from './templeArtifacts.js';
+import { feedPot, payRound } from './templePot.js';
+import { clampStake } from './maisonTable.js';
 import { pushOutcomeFloat } from '../outcomeFloat.js';
 import { recordBlackjack } from '../chronicleStats.js';
 
@@ -49,11 +49,6 @@ let lastOutcome = null; // { result, mult, faveurGain, playerValue, dealerValue,
 
 export function blackjackUnlocked(ctx = regulationContext()) {
   return ctx.bestEra >= 3;
-}
-
-// Mises proposées (FAVEUR, fixes — cf. BLACKJACK_STAKES).
-export function blackjackStakes() {
-  return BLACKJACK_STAKES.map((s) => ({ ...s }));
 }
 
 // Valeur d'une main : les As valent 11, dégradés à 1 tant que la main crève.
@@ -133,21 +128,19 @@ export function blackjackHand() {
     playerValue: handValue(act.cards),
     dealerValue: handValue(hand.dealer),
     stakeFaveur: act.stake,
-    stakeId: hand.stakeId || null,
-    stakeMult: hand.stakeMult || 1,
     doubled: Boolean(act.doubled),
     split: hand.hands.length > 1,
     active: hand.active,
     hands: hand.hands.map((h) => ({ cards: h.cards.slice(), stake: h.stake, doubled: Boolean(h.doubled), value: handValue(h.cards) })),
     // Le double n'est proposé QUE sur les 2 premières cartes de la main active,
-    // avec l'artefact, et s'il reste de quoi doubler SA mise.
+    // et s'il reste de quoi doubler SA mise (règle de base depuis le lot 1).
     canDouble: hand.phase === "player" && !act.doubled && act.cards.length === 2
-      && hasTempleArtifact("double") && (state.faveur || 0) >= act.stake,
+      && (state.faveur || 0) >= act.stake,
     // La refente : une seule fois, sur la main initiale, deux cartes de même
-    // valeur, avec l'artefact, et de quoi payer la seconde mise.
+    // valeur, et de quoi payer la seconde mise (règle de base depuis le lot 1).
     canSplit: hand.phase === "player" && hand.hands.length === 1 && act.cards.length === 2
       && splitRank(act.cards[0]) === splitRank(act.cards[1])
-      && hasTempleArtifact("refente") && (state.faveur || 0) >= act.stake
+      && (state.faveur || 0) >= act.stake
   };
 }
 
@@ -178,12 +171,12 @@ function isSoftHand(cards) {
 }
 
 // LA STRATÉGIE DE BASE (S17, sans refente) — fonction PURE : 'hit' | 'stand' |
-// 'double'. C'est la mesure exacte du plafond de skill de cette table (98,2 %
-// sans le double, ~99,5 % avec — mesuré au bench, cf. BLACKJACK_RTP_REF).
-// Le chemin sans double est celui de l'auto : son RTP vit dans
-// BLACKJACK_RTP_AUTO, pas dans BLACKJACK_RTP_REF (qui majore le jeu PARFAIT).
+// 'double'. Mesures du lot 1 (naturel à 6 contre 5, 2 M de mains) : 96,7 % sans
+// le double, 98,3 % avec, 98,9 % avec la refente en plus (le jeu parfait, que
+// BLACKJACK_RTP_REF majore). Le chemin avec le double est celui de l'auto : son
+// RTP vit dans BLACKJACK_RTP_AUTO.
 // Trois consommateurs : le conseil de la Mesure gravée (artefact, UI),
-// l'automatisation (qui joue hit/stand, jamais le double), et le bench.
+// l'automatisation (qui double quand il le faut, ne refend jamais), et le bench.
 // `allowDouble` n'est proposé que sur les 2 premières cartes.
 export function basicAction(player, dealerUp, opts = {}) {
   const allowDouble = Boolean(opts.allowDouble) && player.length === 2;
@@ -220,17 +213,16 @@ function resolve() {
   const results = hand.hands.map((h) => {
     let result = blackjackResult(h.cards, hand.dealer);
     // Convention classique : un 21 en 2 cartes APRÈS refente n'est PAS un
-    // naturel — il gagne ×2, pas ×2,5 (c'est cette règle qui tient la refente
-    // à 100,3 % mesurés et pas plus).
+    // naturel — il gagne comme une main simple (×2), pas comme le naturel.
     if (split && result === "blackjack") result = "win";
     const mult = BLACKJACK_MULT[result] ?? 0;
-    // Arrondi NON BIAISÉ (payRound, parité avec Icare) : seul le naturel de la
-    // royale est fractionnaire (25 × 2,5 = 62,5) — Math.round offrait +0,09 pt.
+    // Arrondi NON BIAISÉ (payRound, parité avec Icare) : le naturel à ×2,2 est
+    // souvent fractionnaire — Math.round biaiserait le RTP.
     const faveurGain = payRound(h.stake * mult);
     if (faveurGain > 0) state.faveur = Math.max(0, (state.faveur || 0) + faveurGain);
     // La cagnotte est nourrie sur l'EDGE de CHAQUE main (gagnée comme perdue, cf.
-    // feedPot). Au sommet (double + refente : REF > 1), feedPot clampe à 0 : la
-    // table n'a plus d'edge à recycler, et c'est exact.
+    // feedPot) — calculé sur REF, qui MAJORE le jeu parfait : le versement ne peut
+    // jamais dépasser ce que la table a vraiment pris.
     feedPot(h.stake, BLACKJACK_RTP_REF);
     hist.push(result);
     // La série (la Voix de l'oracle) : les victoires comptent enfin, main par
@@ -289,17 +281,14 @@ function advanceOrResolve() {
 
 // Donne une main. `options.deck` (tests) : sabot injecté (tiré du DÉBUT) au lieu
 // du sabot battu. Résout tout de suite un naturel (joueur et/ou croupier).
-export function dealBlackjack(stakeId, options = {}) {
+export function dealBlackjack(stake, options = {}) {
   const opts = (typeof options === "object" && options !== null) ? options : {};
   if (handLive()) return null;                  // une main VIVANTE à la fois (une main de cycle mort n'en est pas une)
   if (gamePaused || collapseInProgress) return null;
   if (state.crisisLimitAnnounced) return null;  // la crise terminale a ses propres autels
   if (!blackjackUnlocked()) return null;
-  const stake = blackjackStakes().find((s) => s.id === stakeId);
-  if (!stake) return null;
-  // LES COFFRES : mise × 10^rang (clampée au moteur), gains au prorata.
-  const mult = clampStakeMult(opts.stakeMult ?? 1);
-  const stakeFaveur = stake.faveur * mult;
+  const stakeFaveur = clampStake(stake);
+  if (stakeFaveur <= 0) return null;
   if ((state.faveur || 0) < stakeFaveur) return null;
   state.faveur = Math.max(0, (state.faveur || 0) - stakeFaveur);
 
@@ -313,11 +302,7 @@ export function dealBlackjack(stakeId, options = {}) {
     active: 0,
     phase: "player",
     resolved: false,
-    cycle: state.cycles || 0, // tampon de cycle : un effondrement abandonne la main
-    // Mise d'ORIGINE (id + rang de coffre) : la scène rouverte en pleine main les
-    // restaure — sans eux, « Redistribuer » retombait sur la première mise ×1.
-    stakeId,
-    stakeMult: mult
+    cycle: state.cycles || 0 // tampon de cycle : un effondrement abandonne la main
   };
   lastOutcome = null;
   if (isBlackjack(player) || isBlackjack(dealer)) resolve(); // naturel → résolution immédiate
@@ -340,15 +325,13 @@ export function standBlackjack() {
   return blackjackHand();
 }
 
-// LE DOUBLE (artefact « Le double », 2026-07-17) : sur les 2 premières cartes de
-// la main ACTIVE, doubler SA mise, recevoir UNE carte, et passer. Un achat gaté
-// par le SKILL : ~+1,3 pt de RTP bien joué (la Mesure sait quand), NÉGATIF mal
-// joué. Autorisé APRÈS refente (DAS) : c'est la règle mesurée à 100,3 %.
+// LE DOUBLE (règle de base depuis le lot 1) : sur les 2 premières cartes de la
+// main ACTIVE, doubler SA mise, recevoir UNE carte, et passer. ~+1,6 pt de RTP bien
+// joué (la Mesure sait quand), NÉGATIF mal joué. Autorisé APRÈS refente (DAS).
 export function doubleBlackjack() {
   if (!handLive() || hand.phase !== "player") return null;
   const act = activeHand();
   if (act.doubled || act.cards.length !== 2) return null;
-  if (!hasTempleArtifact("double")) return null;
   if ((state.faveur || 0) < act.stake) return null;
   state.faveur = Math.max(0, (state.faveur || 0) - act.stake);
   act.stake *= 2;
@@ -358,18 +341,16 @@ export function doubleBlackjack() {
   return blackjackHand();
 }
 
-// LA REFENTE (artefact « La refente », 2026-07-17) — LA BASCULE DU 21. Deux
-// cartes de même valeur se séparent en DEUX mains, chacune avec sa mise (la
-// seconde est débitée ici) et sa seconde carte. Une seule refente par donne,
-// le double reste permis sur chaque main (DAS), un 21 en 2 cartes refendu paie
-// ×2 et non ×2,5. Mesurée à 100,3 % de RTP de base en jeu parfait : c'est le
-// rang d'IMPRIMANTE du vingt-et-un (cf. BLACKJACK_RTP_REF et A14).
+// LA REFENTE (règle de base depuis le lot 1). Deux cartes de même valeur se
+// séparent en DEUX mains, chacune avec sa mise (la seconde est débitée ici) et sa
+// seconde carte. Une seule refente par donne, le double reste permis sur chaque
+// main (DAS), un 21 en 2 cartes refendu paie comme un gain simple. Jeu parfait
+// mesuré à 98,9 % (cf. BLACKJACK_RTP_REF).
 export function splitBlackjack() {
   if (!handLive() || hand.phase !== "player") return null;
   if (hand.hands.length > 1) return null; // une seule refente
   const act = activeHand();
   if (act.cards.length !== 2 || splitRank(act.cards[0]) !== splitRank(act.cards[1])) return null;
-  if (!hasTempleArtifact("refente")) return null;
   if ((state.faveur || 0) < act.stake) return null;
   state.faveur = Math.max(0, (state.faveur || 0) - act.stake);
   const [c1, c2] = act.cards;
@@ -382,27 +363,32 @@ export function splitBlackjack() {
   return blackjackHand();
 }
 
-// Main HEADLESS pour l'automatisation : joue la STRATÉGIE DE BASE (hit/stand,
-// jamais le double ni la refente — les cadrans le disent), sans toucher la main
-// interactive, sans float, sans historique, sans série (parité avec l'auto-Icare
-// qui ne rafle pas : ce qui se savoure se joue à la main). Retourne l'issue ou null.
-export function resolveBlackjackHeadless(stakeId, options = {}) {
-  const opts = (typeof options === "object" && options !== null) ? options : {};
+// Main HEADLESS pour l'automatisation : joue la STRATÉGIE DE BASE avec le double
+// (si la Faveur couvre la seconde mise SANS entamer la réserve `floor` de l'auto),
+// jamais la refente, sans toucher la main interactive, sans float, sans historique,
+// sans série (parité avec l'auto-Icare qui ne rafle pas : ce qui se savoure se joue
+// à la main). Retourne l'issue ou null.
+export function resolveBlackjackHeadless(stake, options = {}) {
   if (gamePaused || collapseInProgress || state.crisisLimitAnnounced) return null;
   if (!blackjackUnlocked()) return null;
-  const stake = blackjackStakes().find((s) => s.id === stakeId);
-  if (!stake) return null;
-  // LES COFFRES : parité stricte avec dealBlackjack.
-  const mult = clampStakeMult(opts.stakeMult ?? 1);
-  const stakeFaveur = stake.faveur * mult;
-  if ((state.faveur || 0) < stakeFaveur) return null;
-  state.faveur = Math.max(0, (state.faveur || 0) - stakeFaveur);
+  const base = clampStake(stake);
+  if (base <= 0) return null;
+  if ((state.faveur || 0) < base) return null;
+  state.faveur = Math.max(0, (state.faveur || 0) - base);
+  let stakeFaveur = base;
 
-  const deck = buildDeck();
+  const deck = Array.isArray(options && options.deck) ? options.deck.slice() : buildDeck();
   const player = [deck.shift(), deck.shift()];
   const dealer = [deck.shift(), deck.shift()];
   if (handValue(player) !== 21 && handValue(dealer) !== 21) {
-    while (handValue(player) <= 21 && basicAction(player, dealer[0]) === "hit") player.push(deck.shift());
+    const floor = Math.max(0, Number(options && options.floor) || 0);
+    if (basicAction(player, dealer[0], { allowDouble: true }) === "double" && (state.faveur || 0) - base >= floor) {
+      state.faveur = Math.max(0, (state.faveur || 0) - base);
+      stakeFaveur = base * 2;
+      player.push(deck.shift());
+    } else {
+      while (handValue(player) <= 21 && basicAction(player, dealer[0]) === "hit") player.push(deck.shift());
+    }
     if (handValue(player) <= 21) {
       while (handValue(dealer) < BLACKJACK_DEALER_STAND) dealer.push(deck.shift());
     }
@@ -414,7 +400,7 @@ export function resolveBlackjackHeadless(stakeId, options = {}) {
   // Registre de la Chronique : les donnes auto comptent aussi (mise, gain,
   // naturel) ; l'auto ne construit pas de série, donc pas de record de streak.
   recordBlackjack({ wagered: stakeFaveur, won: faveurGain, natural: result === "blackjack", streak: 0 });
-  return { result, faveurGain, stakeFaveur };
+  return { result, faveurGain, stakeFaveur, doubled: stakeFaveur > base };
 }
 
 // Purge la main EN COURS et le dernier résultat. Appelée au Grand Reset : sinon la

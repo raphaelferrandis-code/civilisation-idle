@@ -3,9 +3,9 @@ import { useGameState } from '../../hooks/useGameState.js';
 import { pressureBreakdown } from '../../game/core/mechanics.js';
 import { runCrisisAction, togglePolicy } from '../../game/core/actions.js';
 import { openAuguryTable } from '../../game/core/auguryTable.js';
-import { costLabel, canPayCost, pct } from '../../game/core/utils.js';
+import { costLabel, canPayCost, pct, fmt } from '../../game/core/utils.js';
 import { state, openView } from '../../game/core/state.js';
-import { AUGURY_STAKES } from '../../game/core/balance.js';
+import { tableLimits } from '../../game/core/actions/maisonTable.js';
 import { RES_LABEL, FOYER_META, regulationFoyers, regulationPolicies, policyEffectLabel, policyCostLabel } from './regulModel.js';
 import { tr } from '../../game/core/i18n.js';
 import { FaveurIcon } from './FaveurIcon.jsx';
@@ -57,7 +57,7 @@ function RegulButton({ a, label, btnClass }) {
       >
         <span className="regul-btn-line">
           <strong>{label}</strong>
-          <span className="regul-cost"><FaveurIcon /> {AUGURY_STAKES.prudent} à {AUGURY_STAKES.grand}</span>
+          <span className="regul-cost"><FaveurIcon /> {fmt(tableLimits().min)} à {fmt(tableLimits().max)}</span>
         </span>
         <span className="regul-btn-line regul-btn-sub">
           <span className="regul-gamble-tag">🎲 {tr({ fr: 'mise en Faveur', en: 'Favor stake' })} · {tr({ fr: 'ouvre la table', en: 'opens the table' })}</span>

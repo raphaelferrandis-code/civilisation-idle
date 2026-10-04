@@ -2,65 +2,62 @@
 
 // LES VOLS OFFERTS — file partagée des billets pour Icare (state.icarusFreeFlights).
 // Module FEUILLE volontaire, comme templeArtifacts.js et templePot.js : n'importe
-// QUE state + balance → aucun cycle avec les moteurs qui l'écrivent (augures,
-// scratch) ni celui qui la consomme (icarus, templeAutomation).
+// QUE state + balance + la table → aucun cycle avec les moteurs qui l'écrivent
+// (augures, scratch, machine) ni celui qui la consomme (icarus, templeAutomation).
 //
-// FORME : une FILE d'ids de mise (['plume', 'hecatombe', …]), plafonnée à
-// ICARUS_FREE_FLIGHTS_MAX. C'était un ENTIER avant le 2026-07-17 (donc un compteur
-// de vols « Plume » implicites) : le Soleil du gratteux offre désormais un vol À LA
-// HAUTEUR DU TICKET (obole → plume, talent → hécatombe), ce qu'un simple compteur
-// ne peut pas porter. La migration de l'entier vit dans hydrateState (state.js).
+// FORME : une FILE de MONTANTS (la mise de chaque vol, en Faveur), plafonnée à
+// ICARUS_FREE_FLIGHTS_MAX. Depuis le lot 1 (2026-10-04, mise libre), un vol se joue
+// à la mise du coup qui l'a gagné (le Coup de Vénus, la roue, la Vénus des tickets),
+// bornée par la limite haute de la table. Avant : une file d'ids de mise ('plume',
+// 'aile', 'hecatombe'), et un entier encore avant ; les deux migrent dans state.js.
 
 import { state } from '../state.js';
-import { ICARUS_FREE_FLIGHTS_MAX, FLIGHTS_MAX_COLOMBIER, ICARUS_STAKES } from '../balance.js';
+import { ICARUS_FREE_FLIGHTS_MAX, FLIGHTS_MAX_COLOMBIER } from '../balance.js';
 import { hasTempleArtifact } from './templeArtifacts.js';
-
-const VALID_IDS = ICARUS_STAKES.map((s) => s.id);
+import { clampStake } from './maisonTable.js';
 
 // Plafond de la file : le colombier (artefact) l'élargit de 5 à 8, pour que les
-// billets gagnés (Vénus, Soleils) ne se perdent plus quand la file est pleine.
+// billets gagnés ne se perdent plus quand la file est pleine.
 export function freeFlightCap() {
   return hasTempleArtifact("colombier") ? FLIGHTS_MAX_COLOMBIER : ICARUS_FREE_FLIGHTS_MAX;
 }
 
-// Id de mise reconnu ? (garde-fou d'hydratation ET de don : une save trafiquée ou
-// un mapping cassé ne doit jamais injecter un vol à une mise qui n'existe pas.)
-export function isFlightStakeId(id) {
-  return VALID_IDS.includes(id);
-}
-
-// La file, toujours un tableau (défensif : une save d'avant la migration, ou
-// corrompue, ne doit pas faire planter les moteurs).
-export function freeFlightIds() {
+// La file brute (montants).
+export function freeFlightQueue() {
   return Array.isArray(state.icarusFreeFlights) ? state.icarusFreeFlights : [];
 }
 
-// Combien de vols offerts, au total ou pour une mise donnée.
-export function freeFlightCount(stakeId = null) {
-  const q = freeFlightIds();
-  return stakeId === null ? q.length : q.filter((id) => id === stakeId).length;
+// Nombre de vols en attente.
+export function freeFlightCount() {
+  return freeFlightQueue().length;
 }
 
-export function hasFreeFlight(stakeId) {
-  return freeFlightCount(stakeId) > 0;
+export function hasFreeFlight() {
+  return freeFlightCount() > 0;
 }
 
-// Offre un vol à `stakeId`. Retourne false si l'id est inconnu ou si la file est
-// pleine (le plafond porte sur le TOTAL, comme l'ancien compteur entier).
-export function grantFreeFlight(stakeId) {
-  if (!isFlightStakeId(stakeId)) return false;
-  const q = freeFlightIds();
+// Le prochain vol offert (son montant), ou 0.
+export function nextFreeFlight() {
+  const q = freeFlightQueue();
+  return q.length ? q[0] : 0;
+}
+
+// Ajoute un billet à la mise donnée (bornée par la table). false si la file est
+// pleine ou la mise invalide.
+export function grantFreeFlight(stake) {
+  const amount = clampStake(stake);
+  if (amount <= 0) return false;
+  const q = freeFlightQueue();
   if (q.length >= freeFlightCap()) return false;
-  state.icarusFreeFlights = [...q, stakeId];
+  state.icarusFreeFlights = [...q, amount];
   return true;
 }
 
-// Consomme UN vol à `stakeId` (le premier de la file : premier offert, premier
-// parti). Retourne false s'il n'y en a pas — le caller doit alors débiter la mise.
-export function consumeFreeFlight(stakeId) {
-  const q = freeFlightIds();
-  const i = q.indexOf(stakeId);
-  if (i < 0) return false;
-  state.icarusFreeFlights = [...q.slice(0, i), ...q.slice(i + 1)];
-  return true;
+// Retire le prochain billet et rend son montant (0 si la file est vide). Le montant
+// est re-borné par la limite courante (une save trafiquée ne vole pas plus haut).
+export function consumeFreeFlight() {
+  const q = freeFlightQueue();
+  if (!q.length) return 0;
+  state.icarusFreeFlights = q.slice(1);
+  return clampStake(q[0]);
 }

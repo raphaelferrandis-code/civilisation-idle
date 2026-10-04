@@ -1,30 +1,30 @@
 "use strict";
 
-// L'ARBRE D'ARTEFACTS du Temple (Phase 4) — DEUX LIGNÉES en ÉCHELLE : on achète
+// L'ARBRE D'ARTEFACTS de la Maison (Phase 4) — des LIGNÉES en ÉCHELLE : on achète
 // les rangs dans l'ordre (le rang N exige le rang N-1 acquis). Tout reste
-// DÉCOUPLÉ (aucun lien à la Rupture — arbitrage Raph). Chaque lignée enchaîne :
-// un booster existant → des refontes de RISQUE (profils, pas des sticks de stats)
-// → son AUTOMATISATION en capstone. La Bénédiction reste HORS lignées (consommable).
+// DÉCOUPLÉ (aucun lien à la Rupture — arbitrage Raph). Chaque lignée enchaîne des
+// refontes de RISQUE (profils, pas des sticks de stats) puis son AUTOMATISATION en
+// capstone. La Bénédiction reste HORS lignées (consommable).
+// Lot 1 des gains « vrai casino » (2026-10-04) : plus AUCUN rang n'achète des
+// chances — dés pipés, dé d'ivoire, ailes cirées, planches du graveur et Coffres
+// ont disparu (remboursés) ; le double et la refente du 21 sont des règles de base.
 //
 // kinds :
-//   'level'      — booster à niveaux (state.diceLevel / state.wingLevel), coût géométrique
+//   'level'      — augment à niveaux (state.styletLevel), coût géométrique
 //   'artifact'   — refonte booléenne (state.templeArtifacts[id]), coût fixe
 //   'automation' — capstone : débloque templeAuto[game] (moteur Phase 3)
 
 import {
-  DICE_BOOST_MAX_LEVEL, WING_MAX_LEVEL, STYLET_MAX_LEVEL, GRAVEUR_MAX_LEVEL,
-  DICE_COST_BASE, DICE_COST_GROWTH, WING_COST_BASE, WING_COST_GROWTH,
-  STYLET_COST_BASE, STYLET_COST_GROWTH, GRAVEUR_COST_BASE, GRAVEUR_COST_GROWTH,
-  ARTIFACT_IVOIRE_COST, ARTIFACT_NOYE_COST, ARTIFACT_PLUMES_COST, ARTIFACT_SOLAIRES_COST,
+  STYLET_MAX_LEVEL,
+  STYLET_COST_BASE, STYLET_COST_GROWTH,
+  ARTIFACT_NOYE_COST, ARTIFACT_PLUMES_COST, ARTIFACT_SOLAIRES_COST,
   ARTIFACT_ECHELLE_COST, ARTIFACT_INTERDIT_COST,
   ARTIFACT_SOUFFLE_COST, ARTIFACT_SERRES_COST, ARTIFACT_COLOMBIER_COST,
   ARTIFACT_COIN_COST, ARTIFACT_RELANCE_COST,
-  ARTIFACT_VOIX_COST, ARTIFACT_MESURE_COST, ARTIFACT_DOUBLE_COST,
+  ARTIFACT_VOIX_COST, ARTIFACT_MESURE_COST,
   AUTO_OSSELETS_UNLOCK_COST, AUTO_ICARUS_UNLOCK_COST,
   AUTO_SCRATCH_UNLOCK_COST, AUTO_BLACKJACK_UNLOCK_COST,
   AUGURY_DOUBLE_MAX_CRANS,
-  ARTIFACT_REFENTE_COST,
-  COFFRE_MAX_LEVEL, COFFRE_COST_BASE, COFFRE_COST_GROWTH,
   RELIC_CHAR_COST, RELIC_CORNE_COST, RELIC_OEIL_COST,
   ICARUS_CAP_SOLAR
 } from '../core/balance.js';
@@ -36,16 +36,6 @@ export const ARTIFACT_LINEAGES = [
     label: { fr: "Osselets", en: "Knucklebones" },
     subtitle: { fr: "la chance des dés · Ère II", en: "the luck of the dice · Era II" },
     nodes: [
-      {
-        id: "dice", kind: "level", levelField: "diceLevel", maxLevel: DICE_BOOST_MAX_LEVEL, costBase: DICE_COST_BASE, costGrowth: DICE_COST_GROWTH,
-        label: { fr: "Dés pipés", en: "Loaded dice" },
-        desc: { fr: "Chaque niveau relève tes chances aux osselets.", en: "Each level raises your knucklebones odds." }
-      },
-      {
-        id: "ivoire", kind: "artifact", cost: ARTIFACT_IVOIRE_COST,
-        label: { fr: "Dé d'ivoire", en: "Ivory die" },
-        desc: { fr: "Moitié moins de Chiens et plus de Coups de Vénus. Le taux de victoire ne change pas.", en: "Half as many Dogs and more Venus throws. The win rate does not change." }
-      },
       {
         // ⚠ 2026-07-17 : il multipliait la part de la MISE versée à la cagnotte (ce qui
         // faisait imprimer la table à 133,4 %) ; il multiplie désormais le RECYCLE de
@@ -94,17 +84,6 @@ export const ARTIFACT_LINEAGES = [
     label: { fr: "Icare", en: "Icarus" },
     subtitle: { fr: "le vol · Ère III", en: "the flight · Era III" },
     nodes: [
-      {
-        // La desc dit la vérité EXACTE, pas une image. Avec C = max(1, (1−e)/U) :
-        // P(C > m) = (1−e)/m, donc P(C > m | C > 1) = 1/m — INDÉPENDANT de l'edge.
-        // Conditionnellement au décollage, un vol à ailes 0 et un vol à ailes 6 sont
-        // statistiquement IDENTIQUES : l'intégralité de l'effet des ailes vit dans la
-        // masse de décollage (P(C = 1) = e, soit 18 % → 4,2 % à WING_MAX_LEVEL). Elles
-        // n'achètent donc PAS « de voler loin » : elles achètent de la cire qui tient.
-        id: "wing", kind: "level", levelField: "wingLevel", maxLevel: WING_MAX_LEVEL, costBase: WING_COST_BASE, costGrowth: WING_COST_GROWTH,
-        label: { fr: "Ailes cirées", en: "Waxed wings" },
-        desc: { fr: "De la cire qui tient. Moins de vols qui ne décollent jamais.", en: "Wax that holds. Fewer flights that never leave the ground." }
-      },
       {
         // Rang 2 et pas rang 6 (déplacé le 2026-07-17) : une bouteille de CONFORT à
         // 200 n'a rien à faire derrière les serres à 550, et son utilité est
@@ -177,15 +156,6 @@ export const ARTIFACT_LINEAGES = [
         desc: { fr: "Un stylet mieux taillé : chaque niveau élargit le grattoir.", en: "A better cut stylus: each level widens the scratcher." }
       },
       {
-        // LA courbe de rendement du gratteux (il n'en avait aucune : 83,9 % à vie,
-        // seul jeu du temple sans échelle). Poids déplacés du blank vers les
-        // gagnants, PAIEMENTS FIXES — le contrat des dés pipés. RTP ~84 → ~93 % au
-        // niveau 5 : il reste le jeu dur, mais il progresse enfin.
-        id: "graveur", kind: "level", levelField: "graveurLevel", maxLevel: GRAVEUR_MAX_LEVEL, costBase: GRAVEUR_COST_BASE, costGrowth: GRAVEUR_COST_GROWTH,
-        label: { fr: "Les planches du graveur", en: "The engraver's plates" },
-        desc: { fr: "Des planches mieux gravées : plus de tickets gagnants. Les lots ne changent pas.", en: "Finer engraved plates: more winning tickets. The prizes do not change." }
-      },
-      {
         // Info PURE : la grille est peinte APRÈS le tirage (scratchGrid est
         // cosmétique), donc dévoiler une case ne change RIEN à l'issue.
         id: "coin", kind: "artifact", cost: ARTIFACT_COIN_COST,
@@ -233,67 +203,37 @@ export const ARTIFACT_LINEAGES = [
         }
       },
       {
-        // Info PURE : le conseil affiche basicAction. Le naïf joue à 94,3 %, la
-        // base à 98,2 % : cet artefact vend ~4 pts de RTP en pure information,
-        // sans toucher une constante — le jumeau structurel des dés pipés.
+        // Info PURE : le conseil affiche basicAction. Le naïf joue à 93 %, la
+        // mesure (avec le double) à 98,3 % : cet artefact vend ~5 pts de RTP en pure
+        // information, sans toucher une constante — c'est de l'habileté, pas de la
+        // chance achetée.
         id: "mesure", kind: "artifact", cost: ARTIFACT_MESURE_COST,
         label: { fr: "La mesure gravée", en: "The graven measure" },
         desc: {
-          fr: "Le fronton conseille chaque main : tirer ou rester, comme la mesure l'exige.",
-          en: "The pediment advises every hand: hit or stand, as the measure demands."
-        }
-      },
-      {
-        // Gaté par le SKILL : ~+1,3 pt bien joué, négatif mal joué. Le RTP de
-        // référence est mesuré AVEC le double (bench) : feedPot reste exact.
-        // La REFENTE est REFUSÉE : mesurée à 100,3 % de RTP de base, imprimante
-        // structurelle — n'existera qu'avec un nerf de paiement (arbitrage Raphaël).
-        id: "double", kind: "artifact", cost: ARTIFACT_DOUBLE_COST,
-        label: { fr: "Le double", en: "The double" },
-        desc: {
-          fr: "Sur tes deux premières cartes : double la mise, reçois une seule carte, et tiens-la. La mesure sait quand oser.",
-          en: "On your first two cards: double the stake, take a single card, and hold it. The measure knows when to dare."
-        }
-      },
-      {
-        // LA BASCULE DU 21 (2026-07-17, arbitrage Raphaël « imprimante volontaire »).
-        // Mesurée à 100,3 % de RTP de base en jeu parfait : refusée tant que
-        // l'imprimante était un bug, c'est désormais LE rang d'imprimante du jeu.
-        // Un 21 en 2 cartes refendu paie ×2 (pas ×2,5) — c'est la règle qui tient
-        // la marge à 0,3 pt, la plus fine des quatre.
-        id: "refente", kind: "artifact", cost: ARTIFACT_REFENTE_COST,
-        label: { fr: "La refente", en: "The split" },
-        desc: {
-          fr: "Deux cartes de même valeur se séparent en deux mains, chacune avec sa mise. La mesure devient profitable à qui la connaît par cœur.",
-          en: "Two cards of equal value split into two hands, each with its own stake. The measure turns profitable for those who know it by heart."
+          fr: "Le fronton conseille chaque main : tirer, rester ou doubler, comme la mesure l'exige.",
+          en: "The pediment advises every hand: hit, stand or double, as the measure demands."
         }
       },
       {
         id: "autoVingtEtUn", kind: "automation", game: "vingtetun", cost: AUTO_BLACKJACK_UNLOCK_COST,
         label: { fr: "L'oracle joue seul", en: "The oracle plays alone" },
         desc: {
-          fr: "Débloque l'auto-vingt-et-un : le temple joue la mesure à ta place, sans doubler ni refendre. Les séries restent à ta main.",
-          en: "Unlocks auto-twenty-one: the temple plays the measure for you, never doubling nor splitting. Streaks stay in your own hand."
+          fr: "Débloque l'auto-vingt-et-un : la Maison joue la mesure à ta place, double quand il faut, ne refend jamais. Les séries restent à ta main.",
+          en: "Unlocks auto-twenty-one: the House plays the measure for you, doubles when it should, never splits. Streaks stay in your own hand."
         }
       }
     ]
   },
   {
-    // LE TRÉSOR (2026-07-17, arbitrage Raphaël) : la lignée de l'IMPRIMANTE.
-    // Les Coffres multiplient la mise des quatre jeux (le moteur exponentiel,
-    // freiné par le prix ×10 par rang : chaque palier se farme en ~une
-    // demi-journée au meilleur build — calibré par A14). Les Reliques sont les
-    // puits légendaires qui paient dans la CITÉ.
+    // LE TRÉSOR (2026-07-17, arbitrage Raphaël) : les Reliques, puits légendaires
+    // qui paient dans la CITÉ (les jeux financent la production). Les Coffres qui
+    // ouvraient la lignée ont disparu au lot 1 (la limite des tables suit les
+    // recettes de la Maison).
     id: "tresor",
     icon: "🏺",
     label: { fr: "Le Trésor", en: "The Treasury" },
-    subtitle: { fr: "l'imprimante · Ère III", en: "the mint · Era III" },
+    subtitle: { fr: "les reliques · Ère III", en: "the relics · Era III" },
     nodes: [
-      {
-        id: "coffre", kind: "level", levelField: "coffreLevel", maxLevel: COFFRE_MAX_LEVEL, costBase: COFFRE_COST_BASE, costGrowth: COFFRE_COST_GROWTH,
-        label: { fr: "Les Coffres du temple", en: "The temple Coffers" },
-        desc: { fr: "Chaque rang multiplie par dix la mise maximale des quatre tables. Les gains suivent.", en: "Each rank multiplies the four tables' maximum stake tenfold. Winnings follow." }
-      },
       {
         id: "char", kind: "artifact", cost: RELIC_CHAR_COST,
         label: { fr: "Le Char du Soleil", en: "The Chariot of the Sun" },

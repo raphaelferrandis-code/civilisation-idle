@@ -3,7 +3,8 @@ import { pressureBreakdown, ruinEffectSum, regulFatigueEffectMult } from '../../
 import { runCrisisAction, togglePolicy } from '../../game/core/actions.js';
 import { openAuguryTable } from '../../game/core/auguryTable.js';
 import { canPayCost, fmt, pct } from '../../game/core/utils.js';
-import { AUGURY_STAKES, INEQUALITY_RESERVE_REF_S } from '../../game/core/balance.js';
+import { INEQUALITY_RESERVE_REF_S } from '../../game/core/balance.js';
+import { tableLimits } from '../../game/core/actions/maisonTable.js';
 import { tr } from '../../game/core/i18n.js';
 import { RES_LABEL, regulationFoyers, regulationPolicies, policyEffectLabel, policyCostLabel } from '../ui/regulModel.js';
 import Place, { PlaceKey } from '../ui/Place.jsx';
@@ -118,7 +119,7 @@ function DecreeButton({ a, eff }) {
     return (
       <button type="button" className="conseil-decree is-gamble" onClick={() => openAuguryTable(a.id)} {...tipProps(a.label, a.note)}>
         <b>{a.label}</b>
-        <span className="decree-cost"><FaveurIcon /> {AUGURY_STAKES.prudent} – {AUGURY_STAKES.grand}</span>
+        <span className="decree-cost"><FaveurIcon /> {fmt(tableLimits().min)} – {fmt(tableLimits().max)}</span>
         <span className="decree-kind">{tr({ fr: 'pari', en: 'wager' })}</span>
       </button>
     );

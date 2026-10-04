@@ -118,6 +118,11 @@ const GLYPH = {
   B: ['xx.', 'x.x', 'xx.', 'x.x', 'xx.'], A: ['.x.', 'x.x', 'xxx', 'x.x', 'x.x'], R: ['xx.', 'x.x', 'xx.', 'x.x', 'x.x'],
   J: ['..x', '..x', '..x', 'x.x', '.x.'], P: ['xx.', 'x.x', 'xx.', 'x..', 'x..'], C: ['xxx', 'x..', 'x..', 'x..', 'xxx'],
   K: ['x.x', 'x.x', 'xx.', 'x.x', 'x.x'], O: ['xxx', 'x.x', 'x.x', 'x.x', 'xxx'], T: ['xxx', '.x.', '.x.', '.x.', '.x.'],
+  // v2 (le joker, les jackpots du Hold & Win).
+  I: ['x', 'x', 'x', 'x', 'x'], N: ['x..x', 'xx.x', 'x.xx', 'x..x', 'x..x'], M: ['x.x', 'xxx', 'x.x', 'x.x', 'x.x'],
+  G: ['xxx', 'x..', 'x.x', 'x.x', 'xxx'], D: ['xx.', 'x.x', 'x.x', 'x.x', 'xx.'], E: ['xxx', 'x..', 'xx.', 'x..', 'xxx'],
+  L: ['x..', 'x..', 'x..', 'x..', 'xxx'], U: ['x.x', 'x.x', 'x.x', 'x.x', 'xxx'], W: ['x.x', 'x.x', 'x.x', 'xxx', 'x.x'],
+  Y: ['x.x', 'x.x', '.x.', '.x.', '.x.'],
 };
 export function textWidth(s) { return [...String(s)].reduce((w, ch) => w + (GLYPH[ch] ? GLYPH[ch][0].length + 1 : 3), -1); }
 function text(B, s, x, y, c) {
@@ -215,6 +220,40 @@ function drawSymbol(B, id, look) {
       B.put(8, 0, rim[3]); B.put(7, 0, rim[3]);
       break;
     }
+    case 'joker': {
+      if (fonte) {
+        // Le bonnet du fou : trois pointes (rouge, vert, rouge), leurs grelots, le bandeau d'or.
+        blob(B, tri(3, 11.5, 8, 11.5, 1.3, 3.2), 3, 7, 6, k(RED));
+        blob(B, tri(8, 11.5, 13, 11.5, 14.7, 3.2), 11, 7, 6, k(RED));
+        blob(B, tri(5.4, 11.5, 10.6, 11.5, 8, 1.2), 8, 6, 6, k(GREEN));
+        blob(B, (x, y) => x >= 2.5 && x <= 13.5 && y >= 11 && y <= 14, 7, 12, 6, k(GOLD));
+        for (const [cx2, cy2] of [[1.6, 3.2], [8, 1.4], [14.4, 3.2]]) blob(B, disc(cx2, cy2, 1.25), cx2, cy2, 1.5, k(GOLD));
+        break;
+      }
+      if (look === 'neon') {
+        blob(B, (x, y) => x >= 0.5 && x <= 15.5 && y >= 3.5 && y <= 12.5 && !((x < 1.5 || x > 14.5) && (y < 4.5 || y > 11.5)), 6, 6, 8, ['#e0b8ff', '#9a4ad8', '#6a2aa8', '#3a1468'], false);
+        text(B, 'WILD', 1, 6, '#ffe680');
+        break;
+      }
+      // Le prisme : un losange taillé, l'arc-en-ciel en bandes.
+      const BANDS = ['#ff8aa8', '#ffc078', '#fff08a', '#9ef0a8', '#8ad0ff', '#c8a8ff'];
+      for (let y = 0; y < SLOT_ICON; y += 1) for (let x = 0; x < SLOT_ICON; x += 1) {
+        const px = x + 0.5, py = y + 0.5;
+        if (Math.abs(px - 8) / 6.8 + Math.abs(py - 8) / 7.4 > 1) continue;
+        let c = BANDS[Math.min(BANDS.length - 1, Math.floor(((py - 1) / 14) * BANDS.length))];
+        if (px - py > 3 && px - py < 5) c = '#ffffff';
+        B.put(x, y, c);
+      }
+      break;
+    }
+    case 'piece': {
+      // La PIÈCE du Hold & Win : un disque d'or, son grènetis, une étoile frappée.
+      const ramp = fonte ? BRONZE : look === 'cosmic' ? lighten(GOLD, 0.25) : GOLD;
+      blob(B, disc(8, 8, 7), 6, 6, 7.5, ramp);
+      for (let a = 0; a < 16; a += 1) { const t = (a / 16) * Math.PI * 2; B.put(8 + Math.cos(t) * 5.6, 8 + Math.sin(t) * 5.6, ramp[2]); }
+      for (const [x, y] of [[8, 5], [7, 6], [8, 6], [9, 6], [5, 7], [6, 7], [7, 7], [8, 7], [9, 7], [10, 7], [11, 7], [7, 8], [8, 8], [9, 8], [6, 9], [7, 9], [9, 9], [10, 9], [6, 10], [10, 10]]) B.put(x, y, ramp[2]);
+      break;
+    }
     default: break;
   }
   outline(B, look === 'cosmic' ? null : INK);
@@ -238,8 +277,9 @@ export function symbolRaster(id, band) {
 // Rend { back (raster W×H), win {x, y, w, h} (la fenêtre des rouleaux), reelX[3],
 // lever {x, y0, y1} (le levier : sa boule et son pivot), bulbs [{x, y}] (les ampoules
 // qui clignotent), glow (la couleur de la lueur), look }.
-// `W` : la largeur native voulue (la scène remplit le cadre ; la machine reste au centre).
-export function bakeSlotsScene(band, W = SCENE_W) {
+// `W` : la largeur native voulue (la scène remplit le cadre) ; `cxFrac` : où se tient la
+// machine (0,5 au centre ; décalée à droite, elle laisse la place aux mises).
+export function bakeSlotsScene(band, W = SCENE_W, cxFrac = 0.5) {
   W = Math.max(SCENE_W, W | 0);
   const H = SCENE_H, S = styleHD(Math.max(5, band | 0)), pal = palOf(S), look = slotsLook(band);
   const back = makeRaster(0, 0, W, H);
@@ -248,7 +288,8 @@ export function bakeSlotsScene(band, W = SCENE_W) {
   // Le mur (la matière de la coupe), la corniche, les lampes et leurs flaques.
   const wallH = 108;
   for (let y = 0; y < wallH; y += 1) for (let x = 0; x < W; x += 1) P.put(x, y, wallAt(S, x + 1000, y, 0, wallH + 30));
-  for (const x of [Math.round(W / 2) - 86, Math.round(W / 2) + 86]) {
+  const cx = Math.round(W * cxFrac);
+  for (const x of [cx - 96, cx + 96]) {
     lightPool(P, x, 44, 30, 46, 0, W - 1, 0, wallH - 1, S.poolTint || '#ffcf8a');
     lamp(P, N, S, pal, x, S.light === 'torch' ? -10 : -3);
   }
@@ -258,21 +299,23 @@ export function bakeSlotsScene(band, W = SCENE_W) {
   }
   // Les coins sombres : la machine est la lumière.
   for (let y = 0; y < H; y += 1) for (let x = 0; x < W; x += 1) {
-    const d = Math.abs(x - W / 2) / (W / 2);
+    const d = Math.abs(x - cx) / Math.max(cx, W - cx);
     if (d > 0.62 && bayer(x, y) < (d - 0.62) * 1.6) P.put(x, y, mix(P.get(x, y), INK, 0.3));
   }
-  const geo = machine(P, look, S, Math.round(W / 2), wallH + 28);
+  const geo = machine(P, look, S, cx, wallH + 28);
   return { back, ...geo, look, glow: look === 'cosmic' ? S.glow : look === 'neon' ? '#fff2c8' : '#ffd890', W, H };
 }
 
-// La MACHINE : `cx` son axe, `yb` le sol sous son socle. Les cotes sont communes aux
-// trois habits (la fenêtre, le levier) ; seul le meuble change.
-function machine(P, look, S, cx, yb) {
-  const MW = 98, x0 = cx - (MW >> 1), top = yb - 132;
-  const win = { x: cx - 29, y: top + 44, w: 58, h: 54 };
-  const reelX = [win.x, win.x + 20, win.x + 40];
+// La MACHINE : `cx` son axe, `yb` le sol sous son socle, `N` ses rouleaux (cinq depuis la
+// v2). Les cotes suivent la fenêtre (N cases de 18 et leurs filets) ; seul le meuble
+// change d'un habit à l'autre.
+function machine(P, look, S, cx, yb, N = 5) {
+  const winW = N * SLOT_CELL + (N - 1) * 2, MW = winW + 40, hw = MW >> 1, x0 = cx - hw, top = yb - 132;
+  const win = { x: cx - (winW >> 1), y: top + 44, w: winW, h: SLOT_CELL * 3 };
+  const reelX = Array.from({ length: N }, (_, r) => win.x + r * (SLOT_CELL + 2));
   const lever = { x: x0 + MW - 4, y0: top + 34, y1: top + 74 };
   const bulbs = [];
+  let sign = null;
   if (look === 'fonte') {
     const IR = ['#6a6874', '#4a4852', '#34323a', '#222026', '#141218'], BR = ['#fff0b0', '#f0cf6a', '#c89a3e', '#8e6a26'], WD = S.wood;
     // Le socle de bois, ses pieds tournés.
@@ -281,30 +324,36 @@ function machine(P, look, S, cx, yb) {
     // Le meuble de fonte : panneaux en relief, liserés de laiton.
     for (let y = top + 22; y < yb - 12; y += 1) for (let x = x0 + 6; x < x0 + MW - 6; x += 1) {
       const u = (x - x0 - 6) / (MW - 12);
-      let c = u < 0.08 ? IR[1] : u > 0.92 ? IR[3] : IR[2];
+      let c = u < 0.06 ? IR[1] : u > 0.94 ? IR[3] : IR[2];
       if ((x + y * 3) % 11 === 0) c = IR[3];
       P.put(x, y, c);
     }
     P.vline(x0 + 6, top + 22, yb - 12 - top - 22, BR[2]); P.vline(x0 + MW - 7, top + 22, yb - 12 - top - 22, BR[3]);
-    // Le fronton : un arc de laiton, la cloche au centre, les volutes.
     // Le fronton : un arc festonné de laiton, la CLOCHE DE LA LIBERTÉ au centre (le gros
     // lot de cette machine), deux volutes.
-    for (let i = -46; i <= 46; i += 1) {
-      const a = Math.round(20 * Math.sqrt(Math.max(0, 1 - (i * i) / (46 * 46))));
+    const rx = hw - 3;
+    for (let i = -rx; i <= rx; i += 1) {
+      const a = Math.round(20 * Math.sqrt(Math.max(0, 1 - (i * i) / (rx * rx))));
       const scal = (Math.abs(i) % 8) < 2 ? 1 : 0;
       for (let j = 0; j <= a + scal; j += 1) P.put(cx + i, top + 22 - j, j >= a ? BR[0] : j > a - 2 ? BR[1] : j > a - 4 ? BR[3] : (i * 3 + j * 5) % 13 === 0 ? IR[3] : IR[2]);
     }
-    for (let i = -46; i <= 46; i += 1) { P.put(cx + i, top + 22, BR[2]); P.put(cx + i, top + 23, BR[3]); }
-    for (const sx of [-1, 1]) for (let t = 0; t < 14; t += 1) { const a = t * 0.45; P.put(cx + sx * (30 + Math.cos(a) * (6 - t * 0.35)), top + 15 + Math.sin(a) * (6 - t * 0.35), BR[1]); }
+    for (let i = -rx; i <= rx; i += 1) { P.put(cx + i, top + 22, BR[2]); P.put(cx + i, top + 23, BR[3]); }
+    for (const sx of [-1, 1]) for (let t = 0; t < 14; t += 1) { const a = t * 0.45; P.put(cx + sx * (rx * 0.62 + Math.cos(a) * (6 - t * 0.35)), top + 15 + Math.sin(a) * (6 - t * 0.35), BR[1]); }
     blitIcon(P, symbolRaster('sept', 5), cx - 8, top + 4);
+    // La plaque gravée LIBERTY BELL, entre le fronton et la fenêtre.
+    const tw = textWidth('LIBERTY BELL'), px0 = cx - (tw >> 1) - 4;
+    P.rect(px0, top + 29, tw + 8, 9, BR[2]); P.hline(px0, top + 29, tw + 8, BR[0]); P.hline(px0, top + 37, tw + 8, BR[3]);
+    P.vline(px0, top + 29, 9, BR[1]); P.vline(px0 + tw + 7, top + 29, 9, BR[3]);
+    text(P, 'LIBERTY BELL', px0 + 4, top + 31, BR[3]);
     // La plaque de la fenêtre : un cadre de laiton à rivets.
-    frame(P, win, 4, BR, IR[4]);
-    for (const [rx, ry] of [[win.x - 3, win.y - 3], [win.x + win.w + 2, win.y - 3], [win.x - 3, win.y + win.h + 2], [win.x + win.w + 2, win.y + win.h + 2]]) P.put(rx, ry, BR[0]);
+    frame(P, win, 4, BR, IR[4], N);
+    for (const [rx2, ry] of [[win.x - 3, win.y - 3], [win.x + win.w + 2, win.y - 3], [win.x - 3, win.y + win.h + 2], [win.x + win.w + 2, win.y + win.h + 2]]) P.put(rx2, ry, BR[0]);
     // La plaque des paiements (des traits gravés), la fente à pièces, le plateau.
-    P.rect(cx - 30, win.y + win.h + 8, 60, 8, BR[3]); P.rect(cx - 29, win.y + win.h + 9, 58, 6, BR[2]);
-    for (let r = 0; r < 2; r += 1) for (let i = 0; i < 9; i += 1) P.hline(cx - 26 + i * 6, win.y + win.h + 10 + r * 3, 4, BR[3]);
-    P.rect(cx + 18, top + 30, 8, 3, IR[4]); P.hline(cx + 18, top + 30, 8, BR[2]);
-    P.rect(cx - 22, yb - 24, 44, 8, IR[4]); P.hline(cx - 22, yb - 24, 44, BR[1]); P.hline(cx - 22, yb - 17, 44, BR[3]);
+    const pw = win.w + 2;
+    P.rect(cx - (pw >> 1) - 1, win.y + win.h + 8, pw + 2, 8, BR[3]); P.rect(cx - (pw >> 1), win.y + win.h + 9, pw, 6, BR[2]);
+    for (let r = 0; r < 2; r += 1) for (let i = 0; i < Math.floor(pw / 6) - 1; i += 1) P.hline(cx - (pw >> 1) + 3 + i * 6, win.y + win.h + 10 + r * 3, 4, BR[3]);
+    P.rect(cx + 30, top + 30, 8, 3, IR[4]); P.hline(cx + 30, top + 30, 8, BR[2]);
+    P.rect(cx - 30, yb - 24, 60, 8, IR[4]); P.hline(cx - 30, yb - 24, 60, BR[1]); P.hline(cx - 30, yb - 17, 60, BR[3]);
     // Le levier (sa tige se peint à part : il s'abaisse quand on tire).
     P.rect(x0 + MW - 7, top + 70, 5, 8, BR[2]); P.put(x0 + MW - 6, top + 71, BR[0]);
   } else if (look === 'neon') {
@@ -314,23 +363,29 @@ function machine(P, look, S, cx, yb) {
     // Le coffre : laque rouge, flancs de chrome.
     for (let y = top + 24; y < yb - 10; y += 1) for (let x = x0 + 6; x < x0 + MW - 6; x += 1) {
       const u = (x - x0 - 6) / (MW - 12);
-      P.put(x, y, u < 0.07 ? CH[1] : u > 0.93 ? CH[3] : u < 0.14 ? RD[0] : u > 0.86 ? RD[3] : y < top + 30 ? RD[1] : RD[2]);
+      P.put(x, y, u < 0.05 ? CH[1] : u > 0.95 ? CH[3] : u < 0.1 ? RD[0] : u > 0.9 ? RD[3] : y < top + 30 ? RD[1] : RD[2]);
     }
     // Le fronton d'ampoules : un arc chromé, le 7 lumineux, les ampoules qui courent.
-    for (let i = -44; i <= 44; i += 1) {
-      const a = Math.round(18 * Math.sqrt(Math.max(0, 1 - (i * i) / (44 * 44))));
+    const rx = hw - 5;
+    for (let i = -rx; i <= rx; i += 1) {
+      const a = Math.round(18 * Math.sqrt(Math.max(0, 1 - (i * i) / (rx * rx))));
       for (let j = 0; j <= a; j += 1) P.put(cx + i, top + 24 - j, j >= a - 1 ? CH[1] : j >= a - 3 ? CH[3] : '#2a1430');
     }
-    for (let t = 0; t <= 20; t += 1) {
-      const ang = Math.PI * (t / 20), bx = Math.round(cx - Math.cos(ang) * 40), by = Math.round(top + 23 - Math.sin(ang) * 15);
+    for (let t = 0; t <= 28; t += 1) {
+      const ang = Math.PI * (t / 28), bx = Math.round(cx - Math.cos(ang) * (rx - 4)), by = Math.round(top + 23 - Math.sin(ang) * 15);
       bulbs.push({ x: bx, y: by });
       P.put(bx, by, '#a08850');
     }
     blitIcon(P, symbolRaster('sept', 6), cx - 8, top + 6);
-    frame(P, win, 4, CH, '#0e0e14');
+    // L'enseigne JACKPOT : une plaque de laque, les lettres de néon (paintLive les allume).
+    const tw = textWidth('JACKPOT'), px0 = cx - (tw >> 1) - 5;
+    P.rect(px0, top + 28, tw + 10, 10, '#1a0c20'); P.hline(px0, top + 28, tw + 10, CH[2]); P.hline(px0, top + 37, tw + 10, CH[4]);
+    sign = { text: 'JACKPOT', x: px0 + 5, y: top + 30 };
+    text(P, 'JACKPOT', px0 + 5, top + 30, '#6a2a50');
+    frame(P, win, 4, CH, '#0e0e14', N);
     // Les boutons de mise, le plateau chromé.
-    for (let i = 0; i < 5; i += 1) { P.rect(cx - 24 + i * 10, win.y + win.h + 9, 7, 4, i === 4 ? RD[0] : CH[1]); P.hline(cx - 24 + i * 10, win.y + win.h + 12, 7, CH[3]); }
-    P.rect(cx - 24, yb - 24, 48, 9, CH[4]); P.hline(cx - 24, yb - 24, 48, CH[1]); P.hline(cx - 24, yb - 16, 48, CH[2]);
+    for (let i = 0; i < 7; i += 1) { P.rect(cx - 34 + i * 10, win.y + win.h + 9, 7, 4, i === 6 ? RD[0] : CH[1]); P.hline(cx - 34 + i * 10, win.y + win.h + 12, 7, CH[3]); }
+    P.rect(cx - 32, yb - 24, 64, 9, CH[4]); P.hline(cx - 32, yb - 24, 64, CH[1]); P.hline(cx - 32, yb - 16, 64, CH[2]);
     P.rect(x0 + MW - 7, top + 70, 5, 8, CH[2]); P.put(x0 + MW - 6, top + 71, CH[0]);
   } else {
     // COSMIQUE : un cadre de lumière qui flotte, des panneaux de verre, la lueur dessous.
@@ -344,22 +399,24 @@ function machine(P, look, S, cx, yb) {
     for (let y = top + 18; y < yb - 16; y += 1) { P.put(x0 + 8, y, '#ffffff'); P.put(x0 + MW - 9, y, G2); }
     P.hline(x0 + 8, top + 18, MW - 16, '#ffffff'); P.hline(x0 + 8, yb - 17, MW - 16, G2);
     // Le fronton : un croissant de lumière.
-    for (let i = -40; i <= 40; i += 1) {
-      const a = Math.round(14 * Math.sqrt(Math.max(0, 1 - (i * i) / 1600)));
+    const rx = hw - 9;
+    for (let i = -rx; i <= rx; i += 1) {
+      const a = Math.round(14 * Math.sqrt(Math.max(0, 1 - (i * i) / (rx * rx))));
       for (let j = Math.max(0, a - 3); j <= a; j += 1) P.put(cx + i, top + 18 - j, j === a ? '#ffffff' : G);
     }
-    for (let t = 0; t <= 12; t += 1) { const ang = Math.PI * (t / 12); bulbs.push({ x: Math.round(cx - Math.cos(ang) * 34), y: Math.round(top + 12 - Math.sin(ang) * 8) }); }
+    for (let t = 0; t <= 16; t += 1) { const ang = Math.PI * (t / 16); bulbs.push({ x: Math.round(cx - Math.cos(ang) * (rx - 6)), y: Math.round(top + 12 - Math.sin(ang) * 8) }); }
     blitIcon(P, symbolRaster('etoile', S.band), cx - 8, top + 2);
-    frame(P, win, 3, [mix(G, '#ffffff', 0.6), '#ffffff', G, G2], mix(G2, INK, 0.75));
+    for (let k2 = -3; k2 <= 3; k2 += 1) { const sx = cx + k2 * 9, sy = top + 32; P.put(sx, sy, '#ffffff'); for (const [dx, dy] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) P.put(sx + dx, sy + dy, G); }
+    frame(P, win, 3, [mix(G, '#ffffff', 0.6), '#ffffff', G, G2], mix(G2, INK, 0.75), N);
     // La lueur sous le meuble (il flotte), les orbes du plateau.
     for (let y = yb - 14; y < yb - 2; y += 1) for (let x = x0 + 14; x < x0 + MW - 14; x += 1) {
       const d = Math.abs(x - cx) / (MW / 2 - 14) + (y - yb + 14) / 12;
       if (bayer(x, y) < 0.9 - d * 0.7) P.put(x, y, mix(G, '#ffffff', 0.2));
     }
-    for (let i = 0; i < 5; i += 1) { P.rect(cx - 22 + i * 10, win.y + win.h + 10, 4, 4, i % 2 ? G : '#ffffff'); }
+    for (let i = 0; i < 7; i += 1) { P.rect(cx - 32 + i * 10, win.y + win.h + 10, 4, 4, i % 2 ? G : '#ffffff'); }
     P.rect(x0 + MW - 9, top + 70, 4, 6, G);
   }
-  return { win, reelX, lever, bulbs };
+  return { win, reelX, lever, bulbs, sign };
 }
 
 // Pose un symbole (raster 16×16) dans la scène.
@@ -370,7 +427,7 @@ function blitIcon(P, ic, x, y) {
   }
 }
 // Le cadre de la fenêtre des rouleaux : `t` d'épaisseur, la rampe du métal, le fond.
-function frame(P, win, t, M, inside) {
+function frame(P, win, t, M, inside, N = 3) {
   for (let j = -t; j < win.h + t; j += 1) for (let i = -t; i < win.w + t; i += 1) {
     const inW = i >= 0 && j >= 0 && i < win.w && j < win.h;
     if (inW) { P.put(win.x + i, win.y + j, inside); continue; }
@@ -378,38 +435,122 @@ function frame(P, win, t, M, inside) {
     P.put(win.x + i, win.y + j, (top || left) ? (i + j < -t ? M[0] : M[1]) : M[2]);
   }
   // Les filets entre les rouleaux.
-  for (const dx of [18, 38]) for (let j = 0; j < win.h; j += 1) { P.put(win.x + dx, win.y + j, M[3] || M[2]); P.put(win.x + dx + 1, win.y + j, M[2]); }
+  for (let k = 1; k < N; k += 1) for (let j = 0; j < win.h; j += 1) {
+    const dx = k * (SLOT_CELL + 2) - 2; P.put(win.x + dx, win.y + j, M[3] || M[2]); P.put(win.x + dx + 1, win.y + j, M[2]); }
 }
 
 // ── LES ROULEAUX, à un instant ────────────────────────────────────────────────
 // Peint la fenêtre dans `R` (le raster de la scène, recopié) : chaque rouleau montre
 // sa bande à la position `pos[r]` (en cases, fractionnaire pendant qu'il tourne), le
 // tambour s'assombrit en haut et en bas (il est rond), `blur[r]` étire les symboles.
-export function paintReels(R, scene, reels, pos, band, blur = [0, 0, 0]) {
-  const { win, reelX } = scene, C = SLOT_CELL;
-  for (let r = 0; r < 3; r += 1) {
-    const reel = reels[r], n = reel.length, x0 = reelX[r];
-    for (let j = 0; j < win.h; j += 1) {
-      // La case vue en (j) : pos est l'arrêt au centre de la rangée du milieu.
-      const v = pos[r] + (j - win.h / 2) / C, cell = Math.floor(v + 0.5), fy = (v + 0.5 - cell) * C;
-      const sym = reel[((cell % n) + n) % n];
-      const ic = symbolRaster(sym, band);
-      const shade = Math.abs(j - win.h / 2) / (win.h / 2);
-      const bg = mix(scene.look === 'cosmic' ? '#f8fbff' : '#fbf6e8', '#5a5048', Math.max(0, shade - 0.35) * 0.9);
+export function paintReels(R, scene, reels, pos, band, blur = []) {
+  // (Polissage, 2026-10-04 : « il faut que tous les visuels soient beaux, fluides et
+  // agréables ».) Tout en NOMBRES (plus une chaîne de couleur par pixel) ; le FLOU de
+  // vitesse est une moyenne des positions traversées (une traînée fondue, plus des
+  // symboles recopiés) ; les rouleaux DESCENDENT, comme sur une vraie machine (la vue
+  // décroît `pos`) : la traînée est donc au-dessus du symbole.
+  const { win, reelX } = scene, C = SLOT_CELL, H = win.h, mid = H / 2;
+  const L = rgb(scene.look === 'cosmic' ? '#f8fbff' : '#fbf6e8'), D = rgb('#5a5048');
+  for (let r = 0; r < reelX.length; r += 1) {
+    const reel = reels[r], n = reel.length, x0 = reelX[r], nb = Math.max(1, Math.min(7, (blur[r] || 0) + 1));
+    for (let j = 0; j < H; j += 1) {
+      const shade = Math.abs(j - mid) / mid;
+      const bt = Math.max(0, shade - 0.35) * 0.9, st = 1 - Math.max(0, shade - 0.45) * 0.8;
+      const br = L[0] + (D[0] - L[0]) * bt, bg = L[1] + (D[1] - L[1]) * bt, bb = L[2] + (D[2] - L[2]) * bt;
       for (let i = 0; i < C; i += 1) {
-        let col = bg;
-        const sy = Math.floor(fy) - 1, sx = i - 1;
-        let hit = null;
-        if (sx >= 0 && sx < SLOT_ICON) {
-          for (let b = 0; b <= blur[r]; b += 1) {
-            const yy = sy - b;
-            if (yy >= 0 && yy < SLOT_ICON) { const k = (yy * SLOT_ICON + sx) * 4; if (ic.data[k + 3]) { hit = [ic.data[k], ic.data[k + 1], ic.data[k + 2]]; break; } }
+        let ar = 0, ag = 0, ab = 0;
+        const sx = i - 1;
+        for (let b = 0; b < nb; b += 1) {
+          const v = pos[r] + (j + b - mid) / C, cell = Math.floor(v + 0.5), sy = Math.floor((v + 0.5 - cell) * C) - 1;
+          let pr = br, pg = bg, pb = bb;
+          if (sx >= 0 && sx < SLOT_ICON && sy >= 0 && sy < SLOT_ICON) {
+            const ic = symbolRaster(reel[((cell % n) + n) % n], band), k = (sy * SLOT_ICON + sx) * 4;
+            if (ic.data[k + 3]) { pr = ic.data[k] * st; pg = ic.data[k + 1] * st; pb = ic.data[k + 2] * st; }
           }
+          ar += pr; ag += pg; ab += pb;
         }
-        if (hit) col = mix('#' + hit.map((c) => c.toString(16).padStart(2, '0')).join(''), '#000000', Math.max(0, shade - 0.45) * 0.8);
-        const k2 = ((win.y + j) * R.w + x0 + i) * 4, c = rgb(col);
-        R.data[k2] = c[0]; R.data[k2 + 1] = c[1]; R.data[k2 + 2] = c[2]; R.data[k2 + 3] = 255;
+        const q = ((win.y + j) * R.w + x0 + i) * 4;
+        R.data[q] = ar / nb; R.data[q + 1] = ag / nb; R.data[q + 2] = ab / nb; R.data[q + 3] = 255;
       }
+    }
+  }
+  paintGlass(R, scene);
+}
+
+// La VITRE devant les rouleaux : une ombre portée sous le cadre (en haut), un reflet
+// oblique très léger qui court sur toute la largeur.
+function paintGlass(R, scene) {
+  const { win } = scene;
+  for (let j = 0; j < win.h; j += 1) for (let i = 0; i < win.w; i += 1) {
+    const q = ((win.y + j) * R.w + win.x + i) * 4;
+    let t = 0, w = 0;
+    if (j < 3) t = (3 - j) * 0.12;                            // l'ombre du cadre
+    const d = (((i - j * 0.7) % 70) + 70) % 70;
+    if (d < 7) w = d < 2 || d > 5 ? 0.06 : 0.12;             // le reflet
+    if (t) { R.data[q] *= 1 - t; R.data[q + 1] *= 1 - t; R.data[q + 2] *= 1 - t; }
+    if (w) { R.data[q] += (255 - R.data[q]) * w; R.data[q + 1] += (255 - R.data[q + 1]) * w; R.data[q + 2] += (255 - R.data[q + 2]) * w; }
+  }
+}
+
+// LES CASES QUI PAIENT : elles respirent (une lumière qui monte et descend), un cadre d'or,
+// des étincelles aux coins au sommet du souffle. `cells` : [[rouleau, rangée], …].
+export function paintWinCells(R, scene, cells, t) {
+  const C = SLOT_CELL, p = 0.5 + 0.5 * Math.sin(t * Math.PI * 4);
+  const gold = [255, 216, 74], white = [255, 255, 255];
+  const put = (x, y, c) => { const q = (y * R.w + x) * 4; R.data[q] = c[0]; R.data[q + 1] = c[1]; R.data[q + 2] = c[2]; R.data[q + 3] = 255; };
+  for (const [r, row] of cells) {
+    const x0 = scene.reelX[r], y0 = scene.win.y + row * C;
+    for (let j = 1; j < C - 1; j += 1) for (let i = 1; i < C - 1; i += 1) {
+      const q = ((y0 + j) * R.w + x0 + i) * 4, w = 0.1 + 0.18 * p;
+      R.data[q] += (255 - R.data[q]) * w; R.data[q + 1] += (240 - R.data[q + 1]) * w; R.data[q + 2] += (190 - R.data[q + 2]) * w;
+    }
+    for (let i = 0; i < C; i += 1) { put(x0 + i, y0, gold); put(x0 + i, y0 + C - 1, gold); }
+    for (let j = 0; j < C; j += 1) { put(x0, y0 + j, gold); put(x0 + C - 1, y0 + j, gold); }
+    if (p > 0.75) for (const [cx, cy] of [[x0, y0], [x0 + C - 1, y0], [x0, y0 + C - 1], [x0 + C - 1, y0 + C - 1]]) {
+      put(cx, cy, white);
+      for (const [dx, dy] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) { const x = cx + dx, y = cy + dy; if (x >= 0 && y >= 0 && x < R.w && y < R.h) put(x, y, white); }
+    }
+  }
+}
+
+// LA PLUIE DE PIÈCES des gros gains : des pièces qui jaillissent de la machine, tournent
+// sur elles-mêmes (leur largeur bat), retombent et rebondissent sur le sol de la salle.
+export function lancerPieces(scene, n, rnd = Math.random) {
+  const cx = scene.win.x + scene.win.w / 2, out = [];
+  for (let k = 0; k < n; k += 1) {
+    out.push({
+      x: cx + (rnd() - 0.5) * scene.win.w, y: scene.win.y + rnd() * 10,
+      vx: (rnd() - 0.5) * 140, vy: -120 - rnd() * 120, ph: rnd() * 6, spin: 8 + rnd() * 10,
+      delay: rnd() * 0.9, bounces: 0
+    });
+  }
+  return out;
+}
+export function avancerPieces(pieces, dt, floorY) {
+  for (const p of pieces) {
+    if (p.delay > 0) { p.delay -= dt; continue; }
+    p.vy += 420 * dt; p.x += p.vx * dt; p.y += p.vy * dt; p.ph += p.spin * dt;
+    if (p.y > floorY - 3 && p.vy > 0) {
+      p.y = floorY - 3; p.vy *= -0.45; p.vx *= 0.7; p.bounces += 1;
+      if (p.bounces > 2) p.done = true;
+    }
+  }
+  return pieces.filter((p) => !p.done);
+}
+export function paintPieces(R, pieces, look) {
+  const ramp = (look === 'fonte' ? BRONZE : GOLD).map(rgb);
+  for (const p of pieces) {
+    if (p.delay > 0) continue;
+    const hw = Math.max(0.5, 2.6 * Math.abs(Math.cos(p.ph)));
+    const x0 = Math.round(p.x), y0 = Math.round(p.y);
+    for (let j = -2; j <= 2; j += 1) for (let i = -3; i <= 3; i += 1) {
+      if ((i * i) / (hw * hw) + (j * j) / 6.5 > 1) continue;
+      const x = x0 + i, y = y0 + j;
+      if (x < 0 || y < 0 || x >= R.w || y >= R.h) continue;
+      const edge = (i * i) / (hw * hw) + (j * j) / 6.5 > 0.55;
+      const c = edge ? ramp[3] : i <= 0 && j <= 0 ? ramp[0] : ramp[1];
+      const q = (y * R.w + x) * 4;
+      R.data[q] = c[0]; R.data[q + 1] = c[1]; R.data[q + 2] = c[2]; R.data[q + 3] = 255;
     }
   }
 }
@@ -420,7 +561,10 @@ export function paintReels(R, scene, reels, pos, band, blur = [0, 0, 0]) {
 // `labels[i]` : un texte court ('×20') ou un pictogramme ('coffres', 'tours', 'vol',
 // 'jackpot').
 export const WHEEL_SIZE = 96;
-export function wheelRaster(band, segments, angle) {
+// `hi` : la case gagnante, qui s'allume à `pulse` (0 à 1) une fois la roue arrêtée ;
+// les autres s'éteignent à `dim` (0 à 1) — blanchir seule la gagnante ne se voyait pas
+// sur une case crème.
+export function wheelRaster(band, segments, angle, hi = -1, pulse = 0, dim = 1) {
   const look = slotsLook(band), S = styleHD(Math.max(5, band | 0)), n = segments.length;
   const R = makeRaster(0, 0, WHEEL_SIZE, WHEEL_SIZE), B = brush(R), c0 = WHEEL_SIZE / 2, r0 = c0 - 2;
   const pairs = look === 'fonte' ? [['#b8282e', '#f0e2c0'], ['#2a4a6a', '#f0e2c0']]
@@ -439,7 +583,8 @@ export function wheelRaster(band, segments, angle) {
     const special = seg === 'jackpot';
     let c = special ? (look === 'cosmic' ? '#ffffff' : '#141218') : pairs[i % 2][(i >> 1) % 2 ? 1 : 0];
     if (seg === 'jackpot' && look !== 'cosmic' && (x + y) % 3 === 0) c = '#3a2a10';
-    if (fr < 0.03 || fr > 0.97) c = rim[2];                  // les rayons
+    if (i === hi) c = mix(c, '#fff4c0', 0.2 + 0.45 * pulse);
+    if (fr < 0.03 || fr > 0.97) c = i === hi ? '#ffd84a' : rim[2];   // les rayons
     if (d > r0 - 6 && d <= r0 - 4) c = mix(c, '#000000', 0.25);
     B.put(x, y, c);
   }
@@ -458,6 +603,19 @@ export function wheelRaster(band, segments, angle) {
       text(B, s, lx - (tw >> 1), ly - 2, ink);
     } else pictogram(B, seg, lx, ly, look, S);
   }
+  // Les autres cases s'éteignent (étiquettes comprises).
+  if (hi >= 0 && dim > 0) {
+    const k = 0.45 * Math.min(1, dim);
+    for (let y = 0; y < WHEEL_SIZE; y += 1) for (let x = 0; x < WHEEL_SIZE; x += 1) {
+      const dx = x + 0.5 - c0, dy = y + 0.5 - c0, d = Math.hypot(dx, dy);
+      if (d < 6 || d > r0 - 4) continue;
+      let a = Math.atan2(dy, dx) + Math.PI / 2 - angle;
+      a = ((a % (Math.PI * 2)) + Math.PI * 2) % (Math.PI * 2);
+      if (Math.floor((a / (Math.PI * 2)) * n) === hi) continue;
+      const q = (y * WHEEL_SIZE + x) * 4;
+      R.data[q] *= 1 - k; R.data[q + 1] *= 1 - k; R.data[q + 2] *= 1 - k;
+    }
+  }
   return R;
 }
 // Les pictogrammes de la roue (7×7 environ, centrés).
@@ -468,11 +626,15 @@ function pictogram(B, seg, x, y, look, S) {
     for (const [i, j] of [[-5, -3], [5, -3], [-5, 4], [5, 4]]) B.put(x + i, y + j, INK);
     B.hline(x - 4, y - 4, 9, INK); B.hline(x - 4, y + 4, 9, INK); B.vline(x - 5, y - 3, 7, INK); B.vline(x + 5, y - 3, 7, INK);
   } else if (seg === 'tours') {
-    const ic = symbolRaster('etoile', look === 'fonte' ? 5 : look === 'neon' ? 6 : S.band);
-    for (let j = 0; j < SLOT_ICON; j += 2) for (let i = 0; i < SLOT_ICON; i += 2) {
-      const k = (j * SLOT_ICON + i) * 4;
-      if (ic.data[k + 3]) B.put(x - 4 + (i >> 1), y - 4 + (j >> 1), '#' + [ic.data[k], ic.data[k + 1], ic.data[k + 2]].map((c) => c.toString(16).padStart(2, '0')).join(''));
-    }
+    // L'étoile des tours gratuits, dessinée à sa taille (l'icône du rouleau réduite d'un
+    // pixel sur deux n'était plus qu'une tache), cernée comme l'aile.
+    const STAR = ['...x...', '...x...', 'xxxxxxx', '.xxxxx.', '..xxx..', '.xx.xx.', 'xx...xx'];
+    const fill = look === 'cosmic' ? ['#ffffff', S.glow] : ['#fff4c0', '#ffd84a'];
+    STAR.forEach((row, j) => [...row].forEach((v, i) => { if (v === 'x') B.put(x - 3 + i, y - 3 + j, j < 3 ? fill[0] : fill[1]); }));
+    STAR.forEach((row, j) => [...row].forEach((v, i) => {
+      if (v !== 'x') return;
+      for (const [di, dj] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) { const r2 = STAR[j + dj]; if (!r2 || r2[i + di] !== 'x') B.put(x - 3 + i + di, y - 3 + j + dj, INK); }
+    }));
   } else if (seg === 'vol') {
     // L'aile d'Icare : des pennes en éventail, cernées.
     const WING = ['....xxx', '..xxxxx', '.xxxxxx', 'xxxxxx.', 'xxxxx..', '.xxx...', '..x....'];
@@ -520,7 +682,7 @@ export function chestRaster(band, open) {
 // ampoules du fronton (`t` en secondes : elles courent).
 export function paintLive(R, scene, t, pull = 0, win = false) {
   const B = brush(R), { lever, bulbs, look } = scene;
-  const ky = Math.round(lever.y0 + (lever.y1 + 14 - lever.y0) * pull);
+  const ky = Math.round(lever.y0 + (lever.y1 + 14 - lever.y0) * Math.max(-0.15, pull));
   const rod = look === 'fonte' ? ['#fff0b0', '#c89a3e'] : look === 'neon' ? ['#ffffff', '#8a94a0'] : ['#ffffff', scene.glow];
   const ball = look === 'fonte' ? BRONZE : look === 'neon' ? RED : ['#ffffff', mix(scene.glow, '#ffffff', 0.4), scene.glow, mix(scene.glow, INK, 0.4)];
   const y0 = Math.min(ky, lever.y1), y1 = Math.max(ky, lever.y1);
@@ -529,6 +691,15 @@ export function paintLive(R, scene, t, pull = 0, win = false) {
     const d = i * i + j * j;
     if (d > 10) continue;
     B.put(lever.x + i, ky + j, d > 6 ? ball[3] : i + j < -1 ? ball[0] : i + j < 2 ? ball[1] : ball[2]);
+  }
+  // L'enseigne au néon : allumée, elle clignote lettre à lettre aux gains.
+  if (scene.sign) {
+    let lx = scene.sign.x;
+    [...scene.sign.text].forEach((ch, k) => {
+      const g = GLYPH[ch], on = !win || (Math.floor(t * 6) + k) % 3 !== 0;
+      if (g) g.forEach((row, j) => [...row].forEach((v, i) => { if (v === 'x') B.put(lx + i, scene.sign.y + j, on ? (win ? '#ffe066' : '#ff8ad0') : '#6a2a50'); }));
+      lx += (g ? g[0].length : 2) + 1;
+    });
   }
   // Les ampoules : une sur trois allumée, la vague tourne ; toutes à la victoire.
   const step = Math.floor(t * 8);
@@ -571,4 +742,75 @@ export function stakeArtRaster(stakeId) {
   }
   outline(B, INK);
   return R;
+}
+
+// ── LE HOLD & WIN, dans la fenêtre ────────────────────────────────────────────
+// Une pièce du Hold & Win (16×16) : or (les valeurs), argent bleuté (MINI), rubis (MAJEUR).
+const _coins = new Map();
+function coinRaster(look, jp) {
+  const key = look + '|' + (jp || '');
+  if (_coins.has(key)) return _coins.get(key);
+  const R = makeRaster(0, 0, SLOT_ICON, SLOT_ICON), B = brush(R);
+  const ramp = jp === 'mini' ? ['#ffffff', '#b8d4ff', '#6a8ad8', '#2a3a78'] : jp === 'majeur' ? ['#ffc8c8', '#e8343e', '#a01828', '#560a12']
+    : look === 'fonte' ? BRONZE : look === 'cosmic' ? lighten(GOLD, 0.2) : GOLD;
+  blob(B, disc(8, 8, 7.4), 6, 6, 7.5, ramp);
+  for (let a = 0; a < 20; a += 1) { const t = (a / 20) * Math.PI * 2; B.put(8 + Math.cos(t) * 6.2, 8 + Math.sin(t) * 6.2, ramp[2]); }
+  outline(B, INK);
+  _coins.set(key, R);
+  return R;
+}
+// `hold` : { cells: [15] ({ v, jp } | null), fresh: Set (les cases qui viennent de tomber),
+// drops: Map (case → instant de sa chute, en s), spinning (les cases vides tournent) } ;
+// `t` en secondes. Une pièce qui arrive TOMBE dans sa case depuis le haut de la fenêtre et
+// rebondit ; les pièces figées sont balayées de temps en temps par un reflet.
+const bounce = (u) => {
+  const n = 7.5625, d = 2.75;
+  if (u < 1 / d) return n * u * u;
+  if (u < 2 / d) { u -= 1.5 / d; return n * u * u + 0.75; }
+  if (u < 2.5 / d) { u -= 2.25 / d; return n * u * u + 0.9375; }
+  u -= 2.625 / d; return n * u * u + 0.984375;
+};
+export function paintHold(R, scene, hold, band, t) {
+  const B = brush(R), { win, reelX } = scene, look = scene.look, C = SLOT_CELL;
+  const bg = rgb(look === 'cosmic' ? '#20183a' : look === 'neon' ? '#1a0c24' : '#1c1410');
+  const setq = (x, y, c0, c1, c2) => { const q = (y * R.w + x) * 4; R.data[q] = c0; R.data[q + 1] = c1; R.data[q + 2] = c2; R.data[q + 3] = 255; };
+  for (let r = 0; r < reelX.length; r += 1) for (let row = 0; row < 3; row += 1) {
+    const x0 = reelX[r], y0 = win.y + row * C, idx = r * 3 + row, cell = hold.cells[idx];
+    for (let j = 0; j < C; j += 1) for (let i = 0; i < C; i += 1) setq(x0 + i, y0 + j, bg[0], bg[1], bg[2]);
+    if (!cell) {
+      // La case vide qui tourne : des reflets qui défilent, de plus en plus vite.
+      if (hold.spinning) for (let j = 0; j < C; j += 1) {
+        const v = (j + Math.floor(t * 110) + r * 5 + row * 7) % 9;
+        if (v < 3) for (let i = 3; i < C - 3; i += 1) { const w = v === 1 ? 0.32 : 0.16; setq(x0 + i, y0 + j, bg[0] + (150 - bg[0]) * w, bg[1] + (130 - bg[1]) * w, bg[2] + (170 - bg[2]) * w); }
+      }
+      continue;
+    }
+    // La chute : depuis le haut de la fenêtre, avec un rebond.
+    const t0 = hold.drops ? hold.drops.get(idx) : undefined;
+    let dy = 0;
+    if (t0 !== undefined && t - t0 < 0.42) dy = Math.round(-(1 - bounce(Math.max(0, (t - t0) / 0.42))) * (row * C + C));
+    const ic = coinRaster(look, cell.jp);
+    // Un reflet BREF (½ s) toutes les 4 s, décalé d'une case à l'autre (les voisines ne
+    // brillent pas ensemble) ; fondu sur ses bords — un trait net faisait une rayure.
+    const glint = ((t + idx * 0.53) % 4) / 0.5;
+    for (let j = 0; j < SLOT_ICON; j += 1) for (let i = 0; i < SLOT_ICON; i += 1) {
+      const k = (j * SLOT_ICON + i) * 4, y = y0 + 1 + j + dy;
+      if (!ic.data[k + 3] || y < win.y || y >= win.y + win.h) continue;
+      let c0 = ic.data[k], c1 = ic.data[k + 1], c2 = ic.data[k + 2];
+      const gd = glint < 1 ? Math.abs(i - j - (glint * 34 - 16)) : 9;
+      if (gd < 2.5) { const w = 0.5 * (1 - gd / 2.5); c0 += (255 - c0) * w; c1 += (255 - c1) * w; c2 += (255 - c2) * w; }
+      setq(x0 + 1 + i, y, c0, c1, c2);
+    }
+    if (dy === 0) {
+      const label = cell.jp === 'mini' ? 'MINI' : cell.jp === 'majeur' ? 'MAJ' : String(cell.v);
+      const tw = textWidth(label);
+      text(B, label, x0 + 1 + ((SLOT_ICON - tw) >> 1), y0 + 7, cell.jp ? '#ffffff' : '#3a2408');
+    }
+    // La pièce qui vient de tomber : un liseré qui clignote une fois posée.
+    if (dy === 0 && hold.fresh && hold.fresh.has(idx) && Math.floor(t * 8) % 2 === 0) {
+      for (let i = 0; i < C; i += 1) { setq(x0 + i, y0, 255, 255, 255); setq(x0 + i, y0 + C - 1, 255, 255, 255); }
+      for (let j = 0; j < C; j += 1) { setq(x0, y0 + j, 255, 255, 255); setq(x0 + C - 1, y0 + j, 255, 255, 255); }
+    }
+  }
+  paintGlass(R, scene);
 }
