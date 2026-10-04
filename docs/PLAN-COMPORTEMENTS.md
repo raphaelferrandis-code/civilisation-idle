@@ -320,3 +320,65 @@
     déplacer dans des fichiers que d'autres sessions tiennent ouverts ;
   - banc `__tests__/comportementsLot6.test.js` (3).
 
+## 7. Passe d'analyse (2026-10-04, après les six lots)
+
+Chaque constat du §1, revérifié dans le code, au banc et EN JEU (serveur de capture,
+ville de bande 4, 943 passants, sim pas à pas). ✅ = réglé et mesuré ; ◐ = en partie ;
+le reste dit pourquoi.
+
+### 7.1 Les passants des rues
+1. **Pas de vrai trajet** ✅ — A* (lot 2). En jeu sur 40 s simulées : **0** changement de
+   but en route, **0** passant immobile plus de 5 s sans raison (halte, porte, émeute).
+2. **Ne s'arrêtent jamais** ◐ — on entre par la porte (travail, courses, maison), on
+   lèche les vitrines, on se salue en se croisant, on s'abrite sous un auvent (lots 2,
+   4) ; en jeu ~7 % de la foule est à l'intérieur en journée. Reste : personne ne
+   **s'assoit** (pas de dessin assis — un lot de dessin à part).
+3. **La journée n'a pas de rythme** ✅ — travail tiré près de la maison : **13 cases en
+   médiane, 17 pour 90 %** (il était tiré dans toute la ville) ; rentrer le soir,
+   ressortir à l'aube étalé. ⚠ **Trouvé par cette passe** : les buts de la journée
+   survivaient à la nuit (36 s après la tombée de la nuit, 372 passants sur 943
+   marchaient encore vers une place, **40 traversaient le fleuve**). Corrigé (agents.js,
+   `DUSK_RETHINK`) : chacun revoit son programme à son heure (étalé sur ~45 s) ;
+   remesuré : **1** traversée, 194 rentrent, 17 % déjà chez eux 46 s après, les 88 en
+   route vers une place sont tous des couche-tard partis APRÈS le crépuscule (la sortie
+   du soir voulue). Banc `comportementsAnalyse.test.js`.
+4. **Ne voient personne** ✅ — trottoir tenu (lot 2), rencontres (lot 2), évitement par le
+   registre (lot 6). En jeu, passants À L'ÉCRAN qui se superposent (< 3 px) : **3,07 →
+   0,04** par relevé (évitement éteint / allumé, même ville, même minute).
+5. **La pluie à moitié** ✅ — lot 4, mesuré (454 → 48 en route vers une place, abri ~15-20
+   %, on ressort après l'averse).
+6. **L'émeute à côté d'eux** ✅ — lot 4 (sortent des passants et y retournent, allure de
+   foule, fuite / regard), banc.
+7. **Bugs** ✅ — fondus dessinés, bulles à l'écran, obstacles des places, porteuses,
+   chien, compagnons (lot 1) ; porteuses posées (lot 3).
+
+### 7.2 Tous les autres
+1. **Des statues** ◐ — 66 habitants + 2 porteurs de panier respirent à l'arrêt (lot 3),
+   et l'équipage des bateaux aussi. Restent figées : les filles de la Maison des
+   Plaisirs à la porte et au balcon (leurs dessins ne sont pas ceux des habitants), et
+   le geste « salut » d'un matelot (pas de dessin de salut).
+2. **Apparitions / disparitions à vue** ✅ — bac (on monte, on descend), porteurs (de la
+   rive à la rive), quais (fondu), chiens (lot 1), émeutiers (lot 4), accoudés des ponts
+   (arrivent et repartent), laboureur (rentre au crépuscule).
+3. **Boucles mécaniques** ✅ — laboureur (sillons, souffle, arc), porteurs (pauses
+   tirées), navettes des scènes de bâtiment (élan, haltes, allures), filles des Plaisirs
+   (vitesse au sol constante, pas calés sur la distance, un couloir chacune — fait par la
+   session « Passage des filles », NON COMMITÉ chez elle).
+4. **Le temps qu'il fait ignoré** ✅ — passants, places, quais (lot 4) ; laboureur (nuit,
+   hiver, été), accoudés (nuit) (lot 5).
+5. **Distribution pauvre** ✅ — promeneuses et enfants sur les quais, porteuses, lieuse,
+   ponts tirés par travée, charge de l'ère, clients et clientes, habitants de l'ère dans
+   les scènes industrielles et après. (Les scènes d'avant gardent leurs dessins dédiés —
+   cueilleur, paysan au chapeau, chaland au panier — qui sont de leur époque.)
+6. **Ils s'ignorent** ✅ — mouettes et pigeons fuient tout ce qui marche (registre), le
+   héron s'envole quand on approche, les chats restent sur le parapet (hors des files de
+   marche : personne ne les traverse).
+
+### 7.3 Ce qui reste, et à qui
+- **S'asseoir** (bancs, marches, terrasses) et le **salut** : du dessin (PixelLab), à
+  chiffrer — pas lancé.
+- **Filles de la Maison des Plaisirs** : leurs promeneuses sont faites mais dans la copie
+  de la session « Passage des filles » ; leur respiration à la porte / au balcon passe
+  par leurs propres habillages.
+- **Attendants de la navette cliquables** : faits par la session « PNJ cliquables »,
+  non commités chez elle.

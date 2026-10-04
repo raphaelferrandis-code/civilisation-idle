@@ -1567,6 +1567,7 @@ function citizenGreetings() {
 }
 
 const RAIN_RETHINK = new Set(['plaza', 'wonder', 'wander', 'cross', 'night']);
+const DUSK_RETHINK = new Set(['plaza', 'wonder', 'wander', 'cross', 'errand', 'work']);
 // L'évitement (lot 6), en cases : on regarde `reach` devant soi (et `back` derrière,
 // le temps de dépasser), dans un couloir de ± `half`, et l'on s'écarte de `step`.
 // Molette : __avoid({ on, reach, half, step, back }).
@@ -1639,6 +1640,10 @@ function updateCitizens(dt) {
   // L'instant où l'averse devient franche : les buts de loisir choisis AVANT sont revus.
   if (env.rain > 0.3 && !CM._rainOn) { CM._rainOn = true; CM._rainAt = CM.citT; }
   else if (env.rain < 0.15) CM._rainOn = false;
+  // Le soir qui tombe : l'instant où commence l'heure de rentrer (cf. DUSK_RETHINK).
+  const dusk = homeTime(dpNow);
+  if (dusk && !CM._duskOn) { CM._duskOn = true; CM._duskAt = CM.citT; }
+  else if (!dusk) CM._duskOn = false;
   // L'ÉMEUTE en cours (CM.riotDraw, posé par updateCrisis) : son centre, et un numéro
   // par émeute — chacun ne décide qu'une fois par émeute s'il fuit ou s'il regarde.
   const rd = CM.riotDraw;
@@ -1781,6 +1786,22 @@ function updateCitizens(dt) {
       if (Math.random() < 0.75) {
         p.goal = null; p._path = null;
         if (p.pauseT > 0 && !p.chatT) p.pauseT = 0;      // la halte de place s'écourte
+      }
+    }
+    // LE SOIR TOMBE (passe d'analyse du 2026-10-04, PLAN-COMPORTEMENTS §7) : les buts
+    // de la journée survivaient à la nuit jusqu'à l'arrivée — 36 s après la tombée de la
+    // nuit, 372 passants sur 943 marchaient encore vers une place et 40 traversaient le
+    // fleuve. Chacun revoit son programme à SON heure (les départs s'étalent sur ~45 s,
+    // comme les sorties de l'aube) : le pickAgenda du soir le renvoie chez lui ; un
+    // couche-tard sur deux garde sa sortie.
+    if (CM._duskOn && !p.lead && !p.leaving && !p._enter && (p._goalAt || 0) < CM._duskAt && DUSK_RETHINK.has(p.goalKind)) {
+      const trD = p._tr || (p._tr = citizenTraits(p));
+      if ((CM.citT || 0) - CM._duskAt >= trD.stagger * 45) {
+        p._goalAt = CM.citT;
+        if (!trD.owl || Math.random() < 0.5) {
+          p.goal = null; p._path = null;
+          if (p.pauseT > 0 && !p.chatT) p.pauseT = 0;
+        }
       }
     }
     // FACE À L'ÉMEUTE (lot 4) : à moins de 6 cases de la foule, on décide UNE fois —
