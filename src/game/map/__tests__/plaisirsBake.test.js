@@ -9,6 +9,7 @@
 //     temps (« progressif avec le temps », la demande de Raph).
 import { describe, it, expect } from 'vitest';
 import { bakePlaisirs, plaisirsGames, plaisirsRecipeBand } from '../iso/plaisirsBake.js';
+import { applyPlaisirsSkin } from '../iso/plaisirsSkin.js';
 import { wonderKitForBand } from '../iso/wonderKits.js';
 import { PLAISIRS_OPEN_ERA } from '../layout.js';
 import { scratchUnlocked } from '../../core/actions/scratch.js';
@@ -93,5 +94,54 @@ describe('les âges du lieu', () => {
   });
   it('les âges pas encore dessinés retombent sur une recette existante', () => {
     for (const b of [0, 1, 2, 3, 4, 5, 6, 7, 8, 9]) expect(Number.isInteger(plaisirsRecipeBand(b))).toBe(true);
+  });
+});
+
+// LES FILLES DE LA MAISON passent derrière ce qui est DEVANT elles, au pixel : la cuisson
+// note la profondeur (x + y) de chaque pixel (retour de Raph, 2026-10-03 : coupées sur le
+// pont qu'elles foulaient, la fille du balcon du mauvais côté de la balustrade).
+describe('la profondeur de chaque pixel', () => {
+  it('chaque pixel a sa profondeur, et le pont sous les pieds d une promeneuse est à la sienne', () => {
+    for (let b = 0; b <= 9; b += 1) {
+      const out = bakePlaisirs(wonderKitForBand(b), ALL), R = out.R, D = out.D, st = out.stroll;
+      for (let k = 0; k < R.w * R.h; k += 1) if (R.data[k * 4 + 3] && Number.isNaN(D[k])) throw new Error(`bande ${b} : pixel ${k} sans profondeur`);
+      // Le tour du ponton, moitié avant : le pixel sous ses pieds est le pont, à sa
+      // profondeur (les poteaux et les fils de la guirlande font le reste).
+      let n = 0, ok = 0;
+      for (let a = 0; a < 360; a += 5) {
+        const t = (a * Math.PI) / 180, x = st.r * Math.cos(t), y = st.r * Math.sin(t);
+        if (x + y <= 0) continue;
+        const k = Math.floor((x + y) / 2 - st.h - R.oy) * R.w + Math.floor(x - y - R.ox);
+        if (!R.data[k * 4 + 3]) continue;
+        n += 1;
+        if (Math.abs(D[k] - (x + y)) <= 2.5) ok += 1;
+      }
+      expect(ok / n, `bande ${b} : ${ok}/${n}`).toBeGreaterThan(0.8);
+    }
+  });
+  it('l habillage replace la fille du balcon sur son plancher, derrière sa balustrade', () => {
+    const out = bakePlaisirs(wonderKitForBand(4), ALL), R = out.R;
+    // Un habillage d'un pixel opaque, posé sur le pied du fût (un pixel du code).
+    const img = { width: 1, height: 2, data: new Uint8ClampedArray([200, 200, 200, 255, 200, 200, 200, 255]) };
+    const at = [0, -1], skin = { img, at, glass: null, balcony: { foot: [30, 40], h: 57, rail: [20, 37, 50, 41] } };
+    const sk = applyPlaisirsSkin(out, skin);
+    const [x, y, h] = sk.balcony;
+    expect(x - y).toBeCloseTo(at[0] + 30);
+    expect((x + y) / 2 - h).toBeCloseTo(at[1] + 40);
+    expect(h).toBe(57);
+    expect(sk.rail).toEqual([at[0] - R.ox + 20, at[1] - R.oy + 37, at[0] - R.ox + 50, at[1] - R.oy + 41]);
+    // L'hôtesse de la porte, sur le seuil dessiné ; le tour en ellipse de l'image.
+    const sk2 = applyPlaisirsSkin(out, { ...skin, door: { foot: [12, 34], h: 10 }, walk: { e: [5, 6, 64, 20], h: 10, gap: [8, 82] } });
+    const [dx, dy] = sk2.door;
+    expect(dx - dy).toBeCloseTo(at[0] + 12);
+    expect((dx + dy) / 2 - 10).toBeCloseTo(at[1] + 34);
+    expect(sk2.walk.ex).toEqual([at[0] + 5, at[1] + 6, 64, 20]);
+    expect(sk2.walk.gap).toEqual([8, 82]);
+    expect(sk2.walk.r).toBeCloseTo(64 / Math.SQRT2);
+    // Sur un pixel du code, la profondeur du code ; ailleurs, −∞ ou celle portée d'en dessous.
+    for (let k = 0; k < R.w * R.h; k += 1) {
+      if (!sk.R.data[k * 4 + 3]) continue;
+      if (R.data[k * 4 + 3]) expect(sk.D[k]).toBe(out.D[k]);
+    }
   });
 });

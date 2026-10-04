@@ -651,6 +651,36 @@ Icare a sa plateforme d'envol au sommet (perchoir, ballon, mât selon l'âge).
     (`views/plaisirs/fermeture.js`) : `PlaisirsTable` la pend d'elle-même au milieu du
     plateau en crise terminale (osselets, 21, tickets, Icare), éteint les boutons de la
     table (classe `is-fermee`) ; la machine à sous prend la même. Vu sur les cinq.
+- **2026-10-04 — les filles du dehors, devant/derrière au PIXEL.** Retour de Raph : « le
+  passage des filles autour de la maison les coupe trop tôt, alors qu'elles sont sur le
+  chemin ; en haut elles sont du mauvais côté de la barrière ». Deux causes :
+  - le tri en TRANCHES verticales : la tranche voisine, plus centrale, repeignait son pont
+    sur la promeneuse. → La cuisson note la PROFONDEUR (x + y) de chaque pixel
+    (`plaisirsBake.depthsOf`, rails, traits, toits en croupe et lanternes compris ;
+    l'habillage la reprend du code, `applyPlaisirsSkin`) ; la fille se peint après toutes
+    les tranches qu'elle chevauche, puis le lieu repeint sur elle ce qui est DEVANT elle
+    (`isoPlaisirs.girlOccluders`, mêmes appels que les tranches). L'ancienne règle « cachée
+    derrière la rotonde » (`hideX`) est retirée : derrière le bâtiment, le premier plateau
+    la cache pour de vrai — sans découpe, elle apparaissait DEBOUT sur la balustrade du
+    balcon (le « mauvais côté » vu par Raph).
+  - les HABILLAGES PixelLab n'ont pas les planchers du code : balustrades de dix pixels
+    pour une fille de huit, cour de la Couronne bordée d'un rempart, socle du Néon plus
+    petit (elles marchaient sur l'eau), kiosque de la Pierre resté sur le ponton. → Par
+    habillage (`SKINS` de plaisirsSkin.js) : `balcony` (pieds sur l'image + ligne du haut
+    de la balustrade, tout ce qui est dessous passe devant elle) et `walk` (rayon du tour,
+    secteur `gap` où elles font demi-tour). Calé sur planches, les 10 âges.
+  - Molettes : `__plaisirsTune.occlude = false` (A/B), `__plaisirsSkins[b].balcony|walk`
+    puis `__plaisirsBakes()`. Captures `.preview-shots/occ-*`.
+  - Puis, même nuit : « c'est bien, mais elles passent au travers des marches ». Le tour
+    du Marbre suivait la marche du socle et coupait l'escalier de l'embarcadère ; tracé
+    sur les habillages, même défaut ailleurs (escaliers de la Pierre, de la Couronne et
+    du Jade, lanternes du tapis de la Fonte, feu du campement), et l'hôtesse de la porte
+    debout sur les marches. → `walk.gap` : un secteur où elles font DEMI-TOUR (au Marbre
+    elles vont d'un trépied à l'autre par l'arrière, sur le socle) ; `walk.e` : le tour
+    en ELLIPSE de l'image, PixelLab ayant aplati les ponts du Bois et de la Pierre ;
+    `door` : l'hôtesse sur le seuil, sans découpe (la profondeur du code voyait le mur
+    d'une tour que l'habillage dessine plus petite). Les filles sont triées ENTRE ELLES
+    par profondeur. Tracé de contrôle : le chemin dessiné sur l'image de l'habillage.
 
 ---
 

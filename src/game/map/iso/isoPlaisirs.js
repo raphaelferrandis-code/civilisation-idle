@@ -56,7 +56,7 @@ import { drawSpriteOutline } from './isoEngineScene.js';
 import { HOVER_GOLD } from './isoPalette.js';
 import { plaisirsCast } from './plaisirsCast.js';
 import { plaisirsSkin, applyPlaisirsSkin } from './plaisirsSkin.js';
-import { drawNamedAgentIso } from '../agents.js';
+import { drawNamedAgentIso, AGENT_SCALE } from '../agents.js';
 
 // ── Palette de l'aura : celle des LUMIÈRES du lieu, à son âge ────────────────
 // Refonte du 2026-10-02 : le lieu n'est plus un sprite néon unique, il porte des
@@ -409,8 +409,9 @@ export function drawPlaisirsSky(now) {
 
 const gamesKey = (g) => (g.osselets ? 'o' : '') + (g.tickets ? 't' : '') + (g.cartes ? 'c' : '') + (g.icare ? 'i' : '') + (g.boutique ? 'b' : '');
 
-// Molette : `__plaisirsTune.band = n` force l'âge (null : celui de la ville).
-export const plaisirsTune = { band: null, slice: 8 };
+// Molette : `__plaisirsTune.band = n` force l'âge (null : celui de la ville) ;
+// `occlude = false` coupe la découpe des filles par ce qui est devant elles (A/B).
+export const plaisirsTune = { band: null, slice: 8, occlude: true };
 
 function rasterCanvas(R) {
   const cv = document.createElement('canvas');
@@ -453,11 +454,15 @@ function bakeFor(band, g, winter) {
     sc.fillStyle = SUN_SHADOW.col;
     for (let j = 0; j < S.h; j += 1) for (let i = 0; i < S.w; i += 1) if (S.mask[j * S.w + i]) sc.fillRect(i, j, 1, 1);
   }
-  e = { key, R, cv: rasterCanvas(R), cvN: out.N ? rasterCanvas(out.N) : null, occ,
+  e = { key, R, D: out.D || null, cv: rasterCanvas(R), cvN: out.N ? rasterCanvas(out.N) : null, occ,
     mir: M ? { ox: M.ox, oy: M.oy, w: M.w, h: M.h, cv: rasterCanvas(M) } : null,
     sh: S ? { ox: S.ox, oy: S.oy, w: S.w, h: S.h, cv: shCv } : null,
     box: x1 < 0 ? null : { x: x0, y: y0, w: x1 - x0 + 1, h: y1 - y0 + 1 },
-    props: out.props || [], ledges: out.ledges || [], apex: out.apex || { x: 0, y: 0, h: R.h }, foot: out.foot || 64, stroll: out.stroll || null };
+    props: out.props || [], ledges: out.ledges || [], apex: out.apex || { x: 0, y: 0, h: R.h }, foot: out.foot || 64,
+    // L'habillage replace les filles sur SES planchers : le tour de SON pont, le balcon
+    // derrière SA balustrade (plaisirsSkin.js).
+    stroll: out.stroll ? { ...out.stroll, ...(out.walk || {}), ...(out.balcony ? { balcony: out.balcony } : {}), ...(out.door ? { door: out.door, doorFree: true } : {}) } : null,
+    rail: out.rail || null };
   if (_bakes.size > 12) _bakes.delete(_bakes.keys().next().value);
   _bakes.set(key, e);
   return e;
@@ -523,26 +528,114 @@ export function pushIsoPlaisirsItems(items, pl) {
   // deux font le tour du ponton, une accueille sous la marquise, une s'accoude au
   // balcon. ⚠ Le pont fait partie des TRANCHES du lieu (triées à leur bord avant) :
   // triée à son pied, une fille passait SOUS la tranche de sa colonne. Elle se peint
-  // donc juste après elle ; celle qui passe derrière la rotonde n'est pas peinte.
+  // donc après TOUTES les tranches que sa silhouette chevauche, puis le lieu repeint
+  // sur elle ce qui est DEVANT elle, au pixel (cf. girlOccluders) — la tranche
+  // entière la coupait sur le pont qu'elle foulait, et la fille du balcon passait
+  // devant la balustrade (Raph, 2026-10-03).
   const cast = plaisirsCast(m.band), st = m.bk.stroll;
-  if (cast && st) for (const q of strollers(cast, st, typeof performance !== 'undefined' ? performance.now() : 0)) {
-    if (q.x + q.y < 0 && Math.abs(q.x - q.y) < st.hideX) continue;
-    // Après TOUTES les tranches qu'elle chevauche (sa silhouette fait ~6 unités de X).
-    items.push({ d: frontDepth(m, Math.max(0, Math.abs(q.x - q.y) - 6)) + 0.6, kind: 'plaisirs', m, part: 'girl', q });
+  if (!cast || !st) return;
+  const hw = CM.TILE * AGENT_SCALE / 2, girls = strollers(cast, st, typeof performance !== 'undefined' ? performance.now() : 0);
+  let minAbs = Infinity;
+  for (const q of girls) {
+    // Sa boîte (carrée, `hw` de demi-largeur) en X.
+    const X = q.x - q.y, w = hw * q.spec.scale;
+    minAbs = Math.min(minAbs, X - w <= 0 && X + w >= 0 ? 0 : Math.min(Math.abs(X - w), Math.abs(X + w)));
   }
+  // Toutes après les tranches que l'une d'elles chevauche (élargi d'une tranche : une
+  // tranche qui la touche peut s'étendre de S − 1 vers le centre), et entre elles dans
+  // l'ordre de la profondeur : la promeneuse qui passe devant l'hôtesse est peinte après.
+  const d0 = frontDepth(m, Math.max(0, minAbs - S)) + 0.6;
+  for (const q of girls) items.push({ d: d0 + (q.x + q.y + 500) * 1e-5, kind: 'plaisirs', m, part: 'girl', q });
 }
 // Où est chacune à l'instant `now` : { x, y, h, dir, walking, spec }.
 const ISO_DIR = (vx, vy) => (Math.abs(vx) > Math.abs(vy) ? (vx > 0 ? 0 : 1) : (vy > 0 ? 2 : 3));
+// `gap` (degrés) : un secteur où le ponton est pris (le kiosque d'un habillage) — elles
+// font alors les cent pas sur l'arc ouvert, demi-tour à ses deux bouts. `ex` : le tour
+// est une ELLIPSE de l'écran ([X, Y] du centre, demi-axes ; repère du lieu) et non un
+// cercle du sol — PixelLab a aplati les ponts de ses habillages (plaisirsSkin.js).
+export function strollAt(st, a) {
+  if (!st.ex) return [st.r * Math.cos(a), st.r * Math.sin(a)];
+  const f = a + Math.PI / 4, X = st.ex[0] + st.ex[2] * Math.cos(f), s = 2 * (st.ex[1] + st.ex[3] * Math.sin(f) + st.h);
+  return [(s + X) / 2, (s - X) / 2];
+}
 function strollers(cast, st, now) {
   const G = cast.girls, out = [], w = 7 / st.r;              // 7 px/s le long du ponton
+  const g0 = st.gap ? st.gap[0] * Math.PI / 180 : 0, open = st.gap ? 2 * Math.PI - (st.gap[1] - st.gap[0]) * Math.PI / 180 : 0;
   for (let k = 0; k < 2; k += 1) {
-    const a = (now / 1000) * w * (k ? -1 : 1) + k * 2.6;
-    const vx = -Math.sin(a) * (k ? -1 : 1), vy = Math.cos(a) * (k ? -1 : 1);
-    out.push({ x: st.r * Math.cos(a), y: st.r * Math.sin(a), h: st.h, dir: ISO_DIR(vx, vy), walking: true, spec: G[k % G.length], k });
+    let a = (now / 1000) * w * (k ? -1 : 1) + k * 2.6, sg = k ? -1 : 1;
+    if (st.gap) {
+      const s = (((now / 1000) * w + k * 2.6) % (2 * open) + 2 * open) % (2 * open);
+      a = g0 - (s > open ? 2 * open - s : s);
+      sg = s > open ? 1 : -1;
+    }
+    const [x, y] = strollAt(st, a), [x2, y2] = strollAt(st, a + sg * 0.01);
+    out.push({ x, y, h: st.h, dir: ISO_DIR(x2 - x, y2 - y), walking: true, spec: G[k % G.length], k });
   }
-  out.push({ x: st.door[0], y: st.door[1], h: st.door[2], dir: 0, walking: false, spec: G[2 % G.length], k: 2 });
+  // L'hôtesse posée sur le seuil d'un habillage n'a rien devant elle (`free`) : la
+  // profondeur du code y voit le mur de la tour, que PixelLab a dessinée plus petite.
+  out.push({ x: st.door[0], y: st.door[1], h: st.door[2], dir: 0, walking: false, spec: G[2 % G.length], k: 2, free: !!st.doorFree });
   out.push({ x: st.balcony[0], y: st.balcony[1], h: st.balcony[2], dir: 0, walking: false, spec: G[1 % G.length], k: 3 });
   return out;
+}
+
+// CE QUI PASSE DEVANT UNE FILLE : les pixels du lieu plus proches de l'œil qu'elle
+// (profondeur cuite, plaisirsBake.depthsOf), repeints sur elle avec les MÊMES appels
+// que les tranches (mêmes arrondis : pas un pixel de décalage), bornés à sa boîte.
+// Le pont derrière elle reste dessous ; la colonne, la balustrade, la rotonde devant
+// elle la recouvrent. Rend la part cachée de son corps (0 à 1).
+const GIRL_EPS = 3;          // le pont sous ses pieds, à la rangée près, ne la coupe pas
+let _occ = null;
+function girlOccluders(ctx, m, q, p, d, o) {
+  const D = m.bk.D, R = m.bk.R;
+  if (!D || typeof ImageData === 'undefined') return 0;
+  const z = CM.cam.zoom, S = plaisirsTune.slice;
+  // Sa boîte, allongée vers le bas-droite : son ombre au soleil (isoSunShadow) part
+  // de ses pieds, et ce qui est devant elle la recouvre aussi.
+  const bx0 = Math.floor(p.x - d.drawW / 2) - 1, bx1 = Math.ceil(p.x + d.drawW) + 1;
+  const by0 = Math.floor(d.top) - 1, by1 = Math.ceil(d.top + d.drawH * 1.3) + 1;
+  const u0 = Math.max(0, Math.floor((bx0 - o.x) / z)), u1 = Math.min(R.w, Math.ceil((bx1 - o.x) / z));
+  const v0 = Math.max(0, Math.floor((by0 - o.y) / z)), v1 = Math.min(R.h, Math.ceil((by1 - o.y) / z));
+  if (u1 <= u0 || v1 <= v0) return 0;
+  const dg = q.x + q.y + GIRL_EPS, uw = u1 - u0, vh = v1 - v0, img = new ImageData(uw, vh);
+  // La fille du balcon d'un HABILLAGE : sa balustrade (redessinée par PixelLab, que la
+  // profondeur du code ne connaît pas) — tout ce qui est sous son bord haut est devant.
+  const L = q.k === 3 ? m.bk.rail : null;
+  const railY = L ? (u) => L[1] + (L[3] - L[1]) * (u + 0.5 - L[0]) / ((L[2] - L[0]) || 1) : null;
+  // Son corps : la boîte du clic (citizenFocus.noteSceneFigure), dans le raster.
+  const fx0 = (p.x - d.drawW * 0.28 - o.x) / z, fx1 = (p.x + d.drawW * 0.28 - o.x) / z;
+  const fy0 = (d.top + d.drawH * 0.03 - o.y) / z, fy1 = (d.top + d.drawH * 0.91 - o.y) / z;
+  let nIn = 0, nHid = 0, any = false;
+  for (let v = v0; v < v1; v += 1) {
+    for (let u = u0; u < u1; u += 1) {
+      const k = v * R.w + u, body = u + 0.5 > fx0 && u + 0.5 < fx1 && v + 0.5 > fy0 && v + 0.5 < fy1;
+      if (body) nIn += 1;
+      if (!R.data[k * 4 + 3] || !(L ? v >= railY(u) : D[k] > dg)) continue;
+      if (body) nHid += 1;
+      any = true;
+      const t = ((v - v0) * uw + (u - u0)) * 4;
+      img.data[t] = R.data[k * 4]; img.data[t + 1] = R.data[k * 4 + 1]; img.data[t + 2] = R.data[k * 4 + 2]; img.data[t + 3] = 255;
+    }
+  }
+  if (!any) return 0;
+  if (!_occ) _occ = { cv: document.createElement('canvas'), r: null };
+  const cv = _occ.cv;
+  if (cv.width !== R.w || cv.height !== R.h) { cv.width = R.w; cv.height = R.h; _occ.r = null; }
+  const g = cv.getContext('2d');
+  if (_occ.r) g.clearRect(_occ.r[0], _occ.r[1], _occ.r[2], _occ.r[3]);
+  g.putImageData(img, u0, v0);
+  _occ.r = [u0, v0, uw, vh];
+  ctx.save();
+  ctx.beginPath();
+  ctx.rect(bx0, by0, bx1 - bx0, by1 - by0);
+  ctx.clip();
+  ctx.imageSmoothingEnabled = false;
+  const y0 = Math.round(o.y), y1 = Math.round(o.y + R.h * z);
+  for (let c0 = Math.floor(u0 / S) * S; c0 < u1; c0 += S) {
+    const c1 = Math.min(R.w, c0 + S), sx0 = Math.round(o.x + c0 * z), sx1 = Math.round(o.x + c1 * z);
+    if (sx1 > sx0 && y1 > y0) ctx.drawImage(cv, c0, 0, c1 - c0, R.h, sx0, y0, sx1 - sx0, y1 - y0);
+  }
+  ctx.restore();
+  return nIn ? nHid / nIn : 0;
 }
 
 export function drawIsoPlaisirsSeg(ctx, it, now) {
@@ -586,7 +679,9 @@ export function drawIsoPlaisirsSeg(ctx, it, now) {
     }
   } else if (it.part === 'girl') {
     const q = it.q, p = worldToScreen(m.cx + q.x, m.cy + q.y, q.h);
-    drawNamedAgentIso(ctx, p.x, p.y, z, q.spec.name, q.spec.scale, q.dir, q.walking, now, q.k * 0.31, 1, null, true);
+    const d = drawNamedAgentIso(ctx, p.x, p.y, z, q.spec.name, q.spec.scale, q.dir, q.walking, now, q.k * 0.31, 1, null, true);
+    // Le lieu repeint sur elle ce qui est devant elle.
+    if (d && !q.free && plaisirsTune.occlude !== false) girlOccluders(ctx, m, q, p, d, o);
   } else if (it.part === 'prop') {
     const pr = m.bk.props[it.pi];
     if (pr) {

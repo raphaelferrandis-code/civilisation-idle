@@ -23,7 +23,8 @@
 // Pur : aucun DOM, aucun CM. Testable en Node.
 import { rgbOf, h32, frameOf, outline, put } from './isoPixelPaint.js';
 import {
-  mats, box as box0, facet as facet0, revolve as revolve0, cyl, taper, domeProf, ring3d, PLANE_H, line, pick, band5, stairs, hip, nightOf,
+  mats, box as box0, facet as facet0, revolve as revolve0, cyl, taper, domeProf, ring3d as ring3d0, PLANE_H, line as line0, pick, band5, stairs,
+  hip as hip0, nightOf,
 } from './wonderBake.js';
 import { plaisirsPlan } from './plaisirsPlan.js';
 
@@ -43,11 +44,62 @@ const TAU = Math.PI * 2;
 // `R.hb`. Ce que les enveloppes ne voient pas (traits, toits en croupe, contour
 // d'encre, lanternes posées au pixel) est complété dans `heightsOf`.
 function hbOf(R) { return R.hb || (R.hb = new Float32Array(R.w * R.h).fill(NaN)); }
+// LA PROFONDEUR de chaque pixel (x + y du point du monde qu'il montre), notée du
+// même geste dans `R.db` : les filles de la maison passent derrière ce qui est
+// DEVANT elles, au pixel (isoPlaisirs.js). Triées en tranches verticales entières,
+// le pont qu'elles foulaient les coupait (Raph, 2026-10-03).
+function dbOf(R) { return R.db || (R.db = new Float32Array(R.w * R.h).fill(NaN)); }
 function note(R, x, y, h, c) {
   if (!c) return c;
   const i = Math.floor(x - y - R.ox), j = Math.floor((x + y) / 2 - h - R.oy);
-  if (i >= 0 && j >= 0 && i < R.w && j < R.h) hbOf(R)[j * R.w + i] = h;
+  if (i >= 0 && j >= 0 && i < R.w && j < R.h) { hbOf(R)[j * R.w + i] = h; dbOf(R)[j * R.w + i] = x + y; }
   return c;
+}
+// La profondeur SEULE (rails, traits, toits en croupe, lanternes) : leur hauteur
+// reste celle que heightsOf leur porte — l'ombre et le reflet ne bougent pas.
+function noteD(R, x, y, h) {
+  const i = Math.floor(x - y - R.ox), j = Math.floor((x + y) / 2 - h - R.oy);
+  if (i >= 0 && j >= 0 && i < R.w && j < R.h) dbOf(R)[j * R.w + i] = x + y;
+}
+function ring3d(R, c, rad, th, U, W, col, part) {
+  return ring3d0(R, c, rad, th, U, W, (I, p) => {
+    const v = col(I, p);
+    if (v) noteD(R, p.x, p.y, p.h);
+    return v;
+  }, part);
+}
+function hip(R, x0, x1, y0, y1, h0, H, col) {
+  const f = typeof col === 'function' ? col : () => col;
+  return hip0(R, x0, x1, y0, y1, h0, H, (I, x, y, h) => {
+    const v = f(I, x, y, h);
+    if (v) noteD(R, x, y, h);
+    return v;
+  });
+}
+// Le trait : le même tracé que paintLine (Bresenham entre les deux projections),
+// profondeur interpolée le long du trait.
+function line(R, a, b, col, w = 1) {
+  line0(R, a, b, col, w);
+  if (!col) return;
+  for (let k = 0; k < w; k += 1) {
+    const o = k - Math.floor((w - 1) / 2);
+    const ax = a[0] + o / 2, ay = a[1] - o / 2, bx = b[0] + o / 2, by = b[1] - o / 2;
+    const xs = Math.floor(ax - ay - R.ox), ys = Math.floor((ax + ay) / 2 - a[2] - R.oy);
+    const x1 = Math.floor(bx - by - R.ox), y1 = Math.floor((bx + by) / 2 - b[2] - R.oy);
+    const dx = Math.abs(x1 - xs), dy = -Math.abs(y1 - ys), sx = xs < x1 ? 1 : -1, sy = ys < y1 ? 1 : -1;
+    const n = Math.max(dx, -dy) || 1, d0 = ax + ay, d1 = bx + by, db = dbOf(R);
+    let x0 = xs, y0 = ys, err = dx + dy;
+    for (let guard = 0; guard < 4000; guard += 1) {
+      if (x0 >= 0 && y0 >= 0 && x0 < R.w && y0 < R.h) {
+        const t = Math.max(Math.abs(x0 - xs), Math.abs(y0 - ys)) / n;
+        db[y0 * R.w + x0] = d0 + (d1 - d0) * t;
+      }
+      if (x0 === x1 && y0 === y1) break;
+      const e2 = 2 * err;
+      if (e2 >= dy) { err += dy; x0 += sx; }
+      if (e2 <= dx) { err += dx; y0 += sy; }
+    }
+  }
 }
 export function revolve(R, cx, cy, h0, h1, prof, col, facets) {
   return revolve0(R, cx, cy, h0, h1, prof, (I, h, a, rho, cap) =>
@@ -76,6 +128,34 @@ export function heightsOf(R) {
     }
   }
   return H;
+}
+// Profondeurs complétées : un pixel opaque que rien n'a noté (marches, enseigne posée
+// au pixel) prend celle de son voisin noté le plus PROCHE de l'œil, sinon celle du
+// pixel sous lui dans sa colonne (porté verticalement : même x + y) ; rien : −∞, il
+// ne cache jamais rien.
+export function depthsOf(R) {
+  const db = dbOf(R), w = R.w, h = R.h, D = new Float32Array(w * h).fill(-Infinity);
+  for (let k = 0; k < w * h; k += 1) {
+    if (!R.data[k * 4 + 3]) continue;
+    let v = db[k];
+    if (!Number.isFinite(v)) {
+      const i = k % w, j = (k - i) / w;
+      for (let dj = -1; dj <= 1; dj += 1) for (let di = -1; di <= 1; di += 1) {
+        const ii = i + di, jj = j + dj;
+        if ((di || dj) && ii >= 0 && jj >= 0 && ii < w && jj < h && Number.isFinite(db[jj * w + ii])) v = Number.isFinite(v) ? Math.max(v, db[jj * w + ii]) : db[jj * w + ii];
+      }
+    }
+    D[k] = Number.isFinite(v) ? v : NaN;
+  }
+  for (let i = 0; i < w; i += 1) {
+    let last = -Infinity;
+    for (let j = h - 1; j >= 0; j -= 1) {
+      const k = j * w + i;
+      if (!R.data[k * 4 + 3]) continue;
+      if (Number.isNaN(D[k])) D[k] = last; else last = D[k];
+    }
+  }
+  return D;
 }
 // LE MIROIR par le plan de l'eau : le pixel de hauteur h tombe 2h plus bas, même
 // colonne. Deux points qui tombent au même endroit : le plus PROCHE de l'œil dans la
@@ -220,14 +300,24 @@ export function lanternGarland(R, cx, cy, r, h, n, part, opt = {}) {
 function pennantDot(R, x, y, h, c) {
   const X = Math.floor(x - y - R.ox), Y = Math.floor((x + y) / 2 - h - R.oy), v = rgbOf(c);
   put(R, X, Y, v); put(R, X + 1, Y, v); put(R, X, Y + 1, v); put(R, X, Y + 2, v);
+  dotDepth(R, X, Y, 2, 1, x + y); dotDepth(R, X, Y + 1, 1, 2, x + y);
 }
 function bulbDot(R, x, y, h, c) {
   put(R, Math.floor(x - y - R.ox), Math.floor((x + y) / 2 - h - R.oy), lit(c));
+  noteD(R, x, y, h);
 }
 function lanternDot(R, x, y, h, c, cDark) {
   const X = Math.floor(x - y - R.ox), Y = Math.floor((x + y) / 2 - h - R.oy);
   put(R, X, Y, lit(c)); put(R, X + 1, Y, lit(c));
   put(R, X, Y + 1, lit(cDark)); put(R, X + 1, Y + 1, lit(c));
+  dotDepth(R, X, Y, 2, 2, x + y);
+}
+// La profondeur d'un petit bloc posé au pixel (lanterne, fanion) : là où il a peint.
+function dotDepth(R, X, Y, w, h, d) {
+  const db = dbOf(R);
+  for (let j = Y; j < Y + h; j += 1) for (let i = X; i < X + w; i += 1) {
+    if (i >= 0 && j >= 0 && i < R.w && j < R.h && R.data[(j * R.w + i) * 4 + 3]) db[j * R.w + i] = d;
+  }
 }
 // POTEAU fin (mât de guirlande, lampadaire) de h0 à h1.
 export function post(R, x, y, h0, h1, col) {
@@ -470,7 +560,7 @@ function bakeMarbre(K, g) {
   const N = nightLayer(R, K.pal.night);
   const sb = Math.PI / 4 + 0.45;
   return { R, N, props, ledges, apex: { x: 0, y: 0, h: hl + 39 }, foot: RB,
-    stroll: { r: 66, h: h0, door: [41.6, 37.6, h0], balcony: [51 * Math.cos(sb), 51 * Math.sin(sb), t1], hideX: rF * 1.42 + 4 } };
+    stroll: { r: 66, h: h0, door: [41.6, 37.6, h0], balcony: [51 * Math.cos(sb), 51 * Math.sin(sb), t1] } };
 }
 
 // ══ BANDE 0 — LE FEU : le radeau des joueurs ═════════════════════════════════
@@ -588,7 +678,7 @@ function bakeFeu(K, g) {
   const N = nightLayer(R, K.pal.night);
   return { R, N, props, ledges, apex: { x: 0, y: 0, h: dH + 30 }, foot: RB,
     // Les filles du foyer : le tour du radeau, l'entrée de la tente, la danse au feu.
-    stroll: { r: 42, h: h0, door: [dR * 0.64 + 6, dR * 0.64 - 4, h0], balcony: [fx - 8, fy - 2, h0], hideX: dR * 1.3 } };
+    stroll: { r: 42, h: h0, door: [dR * 0.64 + 6, dR * 0.64 - 4, h0], balcony: [fx - 8, fy - 2, h0] } };
 }
 
 // ══ BANDE 6 — LE NÉON : la tour-fleur ════════════════════════════════════════
@@ -726,7 +816,7 @@ function bakeNeon(K, g) {
   const N = nightLayer(R, K.pal.night);
   const sb = Math.PI / 4 + 0.45;
   return { R, N, props, ledges, apex: { x: 0, y: 0, h: hTop + 56 }, foot: RB,
-    stroll: { r: 74, h: h0, door: [widths[0] / 6 * 0.707 + 10, widths[0] / 6 * 0.707 + 2, h0], balcony: [6 + 44 * Math.cos(sb), 8 + 44 * Math.sin(sb), plates[0].h + 5], hideX: widths[0] / 6 * 1.42 + 4 } };
+    stroll: { r: 74, h: h0, door: [widths[0] / 6 * 0.707 + 10, widths[0] / 6 * 0.707 + 2, h0], balcony: [6 + 44 * Math.cos(sb), 8 + 44 * Math.sin(sb), plates[0].h + 5] } };
 }
 
 // ══ LE SQUELETTE COMMUN : socle, fût, plateaux, festons, couronne ════════════
@@ -875,7 +965,7 @@ function bakeBois(K, g) {
   const futCol = nightLife(withDoor(windowsCol(mats(K), 8, 42, 54, baysCol(6, 10, 26, woodL)), 10, DOOR_RUSTIC), floors, 8);
   return tiered(K, g, {
     RB: 66, H: 190,
-    stroll: { r: 48, h: 10, door: [25.6, 17.6, 10], balcony: [8.2, 23.6, 39], hideX: 35.2 },
+    stroll: { r: 48, h: 10, door: [25.6, 17.6, 10], balcony: [8.2, 23.6, 39] },
     base(R) {
       pileRing(R, 58, 14, 0, 7, 2.6, (I, h) => (h < 1.5 ? rgbOf(K.pal.wet[1]) : pick(W, I)));
       revolve(R, 0, 0, 7, 10, cyl(66), (I, h, a, rho, cap) => {
@@ -935,7 +1025,7 @@ function bakePierre(K, g) {
   const futCol = nightLife(withDoor(windowsCol(X, 12, 58, 68, baysCol(8, 13, 32, X.stoneL)), 13, DOOR_WOOD), floors, 12);
   return {
     RB: 72, H: 210,
-    stroll: { r: 56, h: 8, door: [28.4, 20.4, 8], balcony: [9.2, 26.4, 54], hideX: 40.9 },
+    stroll: { r: 56, h: 8, door: [28.4, 20.4, 8], balcony: [9.2, 26.4, 54] },
     base(R, X, props) {
       revolve(R, 0, 0, 0, 8, cyl(72), (I, h, a, rho, cap) => {
         if (cap) return X.marble(1);
@@ -1006,7 +1096,7 @@ function bakeCouronne(K, g) {
   const futCol = nightLife(withDoor(windowsCol(X, 10, 76, 89, windowsCol(X, 8, 104, 115, stone)), 10, DOOR_WOOD), floors, 8);
   return {
     RB: 78, H: 260,
-    stroll: { r: 62, h: 10, door: [29.8, 21.8, 10], balcony: [10.2, 29.3, 70], hideX: 43.8 },
+    stroll: { r: 62, h: 10, door: [29.8, 21.8, 10], balcony: [10.2, 29.3, 70] },
     base(R, X) {
       revolve(R, 0, 0, 0, 10, cyl(78), (I, h, a, rho, cap) => {
         if (cap) return X.marble(1);
@@ -1305,7 +1395,7 @@ function bakeFonte(K, g) {
     // du ponton, l'entrée sous la marquise, le balcon du premier.
     stroll: (() => {
       const e = floors[0].r * 0.707, rb = (floors[0].r + 3 + floors[1].r) / 2, ab = Math.PI / 4 + 0.45;
-      return { r: 64, h: deck, door: [e + 13, e + 1, deck], balcony: [rb * Math.cos(ab), rb * Math.sin(ab), floors[0].h1 + TH], hideX: floors[0].r * 1.42 + 4 };
+      return { r: 64, h: deck, door: [e + 13, e + 1, deck], balcony: [rb * Math.cos(ab), rb * Math.sin(ab), floors[0].h1 + TH] };
     })(),
     futR: (h) => fOf(h).r,
     futCol: wall,
@@ -1430,7 +1520,7 @@ function bakeCosmique(K, g) {
   const N = nightLayer(R, K.pal.night);
   const sb = Math.PI / 4 + 0.45, r0 = widths[0] / 6;
   return { R, N, props, ledges, apex: { x: 0, y: 0, h: hTop + 40 }, foot: RB,
-    stroll: { r: 70, h: h0 + 3, door: [r0 * 0.707 + 10, r0 * 0.707 + 2, h0 + 3], balcony: [plates[0].ox + 46 * Math.cos(sb), plates[0].oy + 46 * Math.sin(sb), plates[0].h + 4], hideX: r0 * 1.42 + 4 } };
+    stroll: { r: 70, h: h0 + 3, door: [r0 * 0.707 + 10, r0 * 0.707 + 2, h0 + 3], balcony: [plates[0].ox + 46 * Math.cos(sb), plates[0].oy + 46 * Math.sin(sb), plates[0].h + 4] } };
 }
 
 // Les jeux ouverts, lus sur la MEILLEURE ère (les jeux survivent à l'effondrement,
@@ -1455,10 +1545,11 @@ export function plaisirsRecipeBand(band) {
   return 4;
 }
 // Rend aussi `H` (hauteur de chaque pixel, pour l'ombre) et `mirror` (le reflet
-// exact, cf. plaisirsMirror).
+// exact, cf. plaisirsMirror) et `D` (profondeur de chaque pixel, cf. depthsOf).
 export function bakePlaisirs(K, g = {}) {
   const out = RECIPES[plaisirsRecipeBand(K.band)](K, g);
   out.H = heightsOf(out.R);
+  out.D = depthsOf(out.R);
   out.mirror = plaisirsMirror(out.R, out.H);
   return out;
 }

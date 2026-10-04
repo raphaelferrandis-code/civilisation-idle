@@ -29,27 +29,67 @@ import { plaisirsMirror } from './plaisirsBake.js';
 // (et ses recolorations) pose ses escaliers sur une terrasse sèche, des marches jusqu'à
 // l'eau. Les enseignes du Néon sont redessinées à la main (« PLAISIRS », « CLUB »).
 // `windows` : un point dans chaque baie (repère de l'image), cf. skinNightPixels.
+// `balcony` : où se tient la fille du balcon SUR L'HABILLAGE (repère de l'image) — `foot`
+// ses pieds, `h` l'altitude du plancher, `rail` le haut de la balustrade devant elle
+// (deux points d'une droite : tout ce qui est dessous, dans sa colonne, passe devant
+// elle). Retour de Raph (2026-10-03) : « en haut elles sont du mauvais côté de la
+// barrière » — posée d'après le plan du code, elle tombait sur les balustrades que
+// PixelLab a redessinées plus hautes (dix pixels pour une fille de huit) et ailleurs.
+// `walk` : le tour des promeneuses sur le pont de l'habillage — `r` et `h` le cercle du
+// sol, ou `e` une ellipse de l'image (centre, demi-axes : PixelLab a APLATI certains
+// ponts, étroits devant et larges sur les côtés) ; `gap` un secteur pris (degrés : 0 à
+// droite, 90 à gauche, devant entre les deux) où elles font demi-tour — escaliers,
+// marches, kiosque, lanternes. Retour de Raph (2026-10-04) : « elles passent au travers
+// des marches ». `door` : l'hôtesse de la porte, sur le seuil (pas sur les marches).
+
+// Le Jade et ses deux recolorations : le balcon d'angle doré en haut de l'escalier de
+// gauche, le tour sur l'anneau bas (demi-tour à l'escalier de l'eau), la porte sur la
+// terrasse devant la pagode.
+const JADE = {
+  balcony: { foot: [66, 195], h: 85, rail: [55, 196, 78, 199] },
+  walk: { gap: [30, 60] }, door: { foot: [120, 255], h: 37 },
+};
 const SKINS = {
-  0: { src: '/pixelart/places/plaisirs-feu.png', at: [-75, -63], glass: null, windows: [[95, 66, 8]] },
+  // Le feu de camp est sur leur tour : demi-tour de part et d'autre.
+  0: { src: '/pixelart/places/plaisirs-feu.png', at: [-75, -63], glass: null, windows: [[95, 66, 8]], walk: { gap: [6, 38] } },
   1: { src: '/pixelart/places/plaisirs-bois.png', at: [-93, -115], glass: null,
-    windows: [[110, 72], [109, 114], [82, 74], [78, 110]] },
+    windows: [[110, 72], [109, 114], [82, 74], [78, 110]],
+    balcony: { foot: [88, 89], h: 39, rail: [80, 85, 100, 86] },
+    walk: { e: [96, 110, 64, 21], h: 10, gap: [85, 125] } },
   2: { src: '/pixelart/places/plaisirs-pierre.png', at: [-102, -133], glass: null,
-    windows: [[77, 80], [102, 82], [125, 80], [71, 122], [132, 122], [55, 135], [151, 135]] },
+    windows: [[77, 80], [102, 82], [125, 80], [71, 122], [132, 122], [55, 135], [151, 135]],
+    // Le kiosque (resté de l'ancien rendu du code) tient le ponton côté ouest, les deux
+    // lanternes et l'escalier le devant : elles vont de la lanterne de droite au kiosque.
+    balcony: { foot: [80, 94], h: 54, rail: [70, 90, 100, 91] },
+    walk: { e: [102, 122, 64, 20], h: 8, gap: [-8, 175] }, door: { foot: [102, 139], h: 8 } },
   3: { src: '/pixelart/places/plaisirs-couronne.png', at: [-110, -185], glass: null,
-    windows: [[87, 85], [110, 86], [132, 85], [85, 142], [110, 142], [136, 142]] },
-  4: { src: '/pixelart/places/plaisirs-marbre.png', at: [-127, -188], glass: [195, 260, 0.18, 0.22, 0.72] },
-  5: { src: '/pixelart/places/plaisirs-fonte.png', at: [-110, -189] },
+    windows: [[87, 85], [110, 86], [132, 85], [85, 142], [110, 142], [136, 142]],
+    balcony: { foot: [108, 125], h: 70, rail: [96, 122, 120, 122] },
+    walk: { r: 46, h: 10, gap: [20, 75] }, door: { foot: [112, 194], h: 10 } },
+  4: { src: '/pixelart/places/plaisirs-marbre.png', at: [-127, -188], glass: [195, 260, 0.18, 0.22, 0.72],
+    // Le socle est bordé de marches et le portique en tient tout le devant : elles font
+    // les cent pas sur le socle, d'un trépied de bronze à l'autre par l'arrière.
+    balcony: { foot: [98, 157], h: 57, rail: [90, 153, 110, 157] },
+    walk: { r: 58, h: 10, gap: [8, 82] }, door: { foot: [126, 205], h: 10 } },
+  5: { src: '/pixelart/places/plaisirs-fonte.png', at: [-110, -189],
+    balcony: { foot: [88, 169], h: 38, rail: [76, 166, 100, 166] },
+    walk: { r: 58, gap: [5, 85] }, door: { foot: [110, 201], h: 11 } },
   // `glass` : [teinte min, max, saturation min, valeur min, max] des VITRES qui s'allument
   // la nuit (défaut : le bleu-violet) ; null : pas de vitre (la tente, la maison de bois).
   6: { src: '/pixelart/places/plaisirs-neon.png', at: [-124, -270], glass: [165, 200, 0.3, 0.3, 1],
-    signs: [[153, 56, 160, 210], [153, 230, 173, 262]] },
+    signs: [[153, 56, 160, 210], [153, 230, 173, 262]],
+    // Pas de balustrade : le toit-terrasse du socle, son rebord bas devant elle.
+    balcony: { foot: [84, 208], h: 53, rail: [70, 205, 130, 235] },
+    walk: { r: 57 }, door: { foot: [104, 283], h: 12 } },
   // Les trois âges cosmiques partagent la pagode du Jade (même plan) : l'Astral et le
   // Cristal en sont des RECOLORATIONS (le vert-turquoise vers l'or, vers le violet) —
   // PixelLab gardait les toits turquoise de l'image de départ.
-  7: { src: '/pixelart/places/plaisirs-jade.png', at: [-122, -273], glass: [140, 185, 0.3, 0.08, 0.42] },
-  8: { src: '/pixelart/places/plaisirs-astral.png', at: [-122, -273], glass: [30, 55, 0.4, 0.08, 0.42] },
-  9: { src: '/pixelart/places/plaisirs-cristal.png', at: [-122, -273], glass: [255, 290, 0.3, 0.08, 0.42] },
+  7: { src: '/pixelart/places/plaisirs-jade.png', at: [-122, -273], glass: [140, 185, 0.3, 0.08, 0.42], ...JADE },
+  8: { src: '/pixelart/places/plaisirs-astral.png', at: [-122, -273], glass: [30, 55, 0.4, 0.08, 0.42], ...JADE },
+  9: { src: '/pixelart/places/plaisirs-cristal.png', at: [-122, -273], glass: [255, 290, 0.3, 0.08, 0.42], ...JADE },
 };
+// Molette : `__plaisirsSkins[b].balcony = { … }` (ou `.walk`) puis `__plaisirsBakes()`.
+if (typeof window !== 'undefined') window.__plaisirsSkins = SKINS;
 
 const _img = new Map();
 // L'habillage prêt pour cet âge ({ src, at, img: ImageData }), ou null (pas
@@ -141,7 +181,7 @@ export function skinNightPixels(img, skin = {}) {
   return N;
 }
 
-// Pose l'habillage sur la sortie d'une recette ({ R, H, … }) : rend { R, H, N, mirror }
+// Pose l'habillage sur la sortie d'une recette ({ R, H, D, … }) : rend { R, H, D, N, mirror }
 // dans le même cadre que R.
 export function applyPlaisirsSkin(out, skin) {
   const R = out.R, H = out.H, img = skin.img, [ax, ay] = skin.at;
@@ -158,14 +198,17 @@ export function applyPlaisirsSkin(out, skin) {
   // PixelLab déborde un peu), celle du pixel du code le plus proche SOUS lui dans sa
   // colonne, plus l'écart (porté verticalement, comme heightsOf) ; rien dessous : au
   // ras de l'eau.
-  const H2 = new Float32Array(R.w * R.h);
+  // La PROFONDEUR (qui passe devant les filles de la maison) suit la même règle : un
+  // pixel porté verticalement garde celle du pixel sous lui ; rien dessous : −∞.
+  const H2 = new Float32Array(R.w * R.h), D = out.D, D2 = new Float32Array(R.w * R.h).fill(-Infinity);
   for (let i = 0; i < R.w; i += 1) {
-    let lastH = 0, lastJ = -1;
+    let lastH = 0, lastJ = -1, lastD = -Infinity;
     for (let j = R.h - 1; j >= 0; j -= 1) {
       const k = j * R.w + i, code = R.data[k * 4 + 3] > 0;
-      if (code) { lastH = H[k]; lastJ = j; }
+      if (code) { lastH = H[k]; lastJ = j; if (D) lastD = D[k]; }
       if (!R2.data[k * 4 + 3]) continue;
       H2[k] = code ? H[k] : lastJ < 0 ? 0 : lastH + (lastJ - j);
+      D2[k] = lastD;
     }
   }
   // LA NUIT (skinNightPixels), reportée dans le cadre de R.
@@ -179,5 +222,23 @@ export function applyPlaisirsSkin(out, skin) {
     const q = (y * R.w + x) * 4;
     for (let c = 0; c < 4; c += 1) N.data[q + c] = Ns.data[s + c];
   }
-  return { R: R2, H: H2, N, mirror: plaisirsMirror(R2, H2) };
+  // LE BALCON et LA PORTE de l'habillage : les filles (repère du lieu), la balustrade
+  // (raster). Un point de l'image et l'altitude de son plancher donnent x et y.
+  const onFloor = (foot, hb) => {
+    const X = ax + foot[0], s = 2 * (ay + foot[1] + hb);
+    return [(s + X) / 2, (s - X) / 2, hb];
+  };
+  let balcony = null, rail = null;
+  if (skin.balcony) {
+    const L = skin.balcony.rail;
+    balcony = onFloor(skin.balcony.foot, skin.balcony.h);
+    rail = [ax - R.ox + L[0], ay - R.oy + L[1], ax - R.ox + L[2], ay - R.oy + L[3]];
+  }
+  const door = skin.door ? onFloor(skin.door.foot, skin.door.h) : null;
+  // Le tour en ELLIPSE de l'image (`e` : centre et demi-axes) → repère du lieu ; `r`
+  // équivalent pour la vitesse de marche.
+  const wk = skin.walk;
+  const walk = !wk ? null : !wk.e ? wk
+    : { ...wk, ex: [ax + wk.e[0], ay + wk.e[1], wk.e[2], wk.e[3]], r: wk.e[2] / Math.SQRT2 };
+  return { R: R2, H: H2, D: D2, N, mirror: plaisirsMirror(R2, H2), balcony, rail, door, walk };
 }
