@@ -188,6 +188,24 @@ function walkEdge(run, k0, s) {
 }
 // Profondeur de la marche sous la margelle à l'abscisse s (0 = bout du palier d'entrée).
 const stairDepth = (s, h) => (s < TOPL ? 0 : Math.min(h, (Math.floor((s - TOPL) / TREAD) + 1) * RISE));
+// ── LES VOLÉES DEMANDÉES (Raph, 2026-10-04 : « le ponton depuis le quai ça fait
+// bizarre, il faut enlever la rambarde à ce niveau-là et faire un escalier ») ─────
+// Le runtime DEMANDE une volée près d'un sample du fleuve, du côté où l'on voit le mur
+// (cf. cityMapRuntime, ponton de la navette des Plaisirs) : elle est posée AVANT les
+// autres, même en lisière de ville, avec son ouverture du garde-corps, et son PIED — le
+// palier au ras de l'eau — est publié (quayWantedFoot) : le ponton s'y amarre.
+// `gapOnly` : pas de volée possible (rive dont on ne voit pas le mur) — on ouvre
+// seulement le garde-corps au droit du ponton — au point (x, y), en monde (tuiles),
+// quand il est donné : là où l'on voit le ponton passer sous le bord.
+// [{ id, i (sample du fleuve), side, gapOnly?, x?, y? }]
+let _want = [];
+const keyOf = (arr) => arr.map((w) => w.id + ':' + w.side + '@' + w.i + (w.gapOnly ? 'g' + Math.round((w.x || 0) * 32) + ',' + Math.round((w.y || 0) * 32) : '')).join(',');
+const wantKey = () => keyOf(_want);
+// Même demande qu'avant : on garde les volées déjà posées (la géométrie ne sera pas refaite).
+export function wantQuayStairs(list) {
+  const next = Array.isArray(list) ? list.map((w) => ({ ...w })) : [];
+  if (keyOf(next) !== wantKey()) _want = next;
+}
 function placeStairs(L, runs, wh) {
   const stairs = [], gaps = [];
   if (!QUAY_ART.stairs) return { stairs, gaps };
@@ -195,14 +213,14 @@ function placeStairs(L, runs, wh) {
   const flight = TOPL + Math.ceil(wh / RISE) * TREAD;    // palier + volée
   for (const run of runs) {
     const N = run.edge.length, taken = [];
-    const tryAt = (k0, spacing) => {
+    const tryAt = (k0, spacing, anywhere = false) => {
       if (k0 < 1 || k0 >= N - 2 || taken.some((t) => Math.abs(t - k0) < spacing)) return false;
       const len = flight;
       // Sens de la volée : celui où le bord d'eau descend à l'écran (cf. l'en-tête).
       const dir = run.edge[k0 + 1].y >= run.edge[k0 - 1].y ? 1 : -1;
       const end = walkEdge(run, k0, dir * (len + LAND));
       if (!end || end.k >= N - 1 || end.k < 1) return false;
-      for (let k = Math.min(k0, end.k); k <= Math.max(k0, end.k) + 1 && k < N; k += 1) if (run.bridge[k] || !run.urban[k]) return false;
+      for (let k = Math.min(k0, end.k); k <= Math.max(k0, end.k) + 1 && k < N; k += 1) if (run.bridge[k] || (!anywhere && !run.urban[k])) return false;
       let x0 = Infinity, y0 = Infinity, x1 = -Infinity, y1 = -Infinity;
       for (let s = 0; s <= len + LAND; s += 2) {
         const p = walkEdge(run, k0, dir * s);
@@ -222,6 +240,23 @@ function placeStairs(L, runs, wh) {
       if (gc) gaps.push({ x: gc.x, y: gc.y, r: TOPL / 2 - 0.5 });
       return true;
     };
+    // 0) Les volées DEMANDÉES, au plus près du sample voulu.
+    for (const w of _want) {
+      if (run.ri === 0) { w.stair = null; w.gap = false; }       // une nouvelle géométrie
+      if (w.side !== run.side || w.i < run.a || w.i > run.b) continue;
+      if (w.gapOnly) {
+        // Au point exact demandé (monde, tuiles) s'il est donné ; sinon au sample.
+        const p = w.x != null ? art(w.x * T, w.y * T) : run.edge[w.i - run.a];
+        gaps.push({ x: p.x, y: p.y, r: 7.5 });
+        w.gap = true;
+        continue;
+      }
+      for (let d = 0; d <= 8 && !w.stair; d += 1) {
+        for (const k0 of d ? [w.i - run.a + d, w.i - run.a - d] : [w.i - run.a]) {
+          if (tryAt(k0, 6, true)) { w.stair = stairs[stairs.length - 1]; break; }
+        }
+      }
+    }
     // 1) Au pied des ponts, de part et d'autre : la volée la plus proche qui tient.
     for (let k = 1; k < N - 1; k += 1) {
       if (run.bridge[k - 1] && !run.bridge[k]) for (let j = k + 1; j <= k + 6; j += 1) if (tryAt(j, 6)) break;
@@ -245,7 +280,34 @@ function cacheKey(L, band) {
     + ':' + (CM.waterShore ? CM.waterShore.quay.join('|') : '-')
     + ':' + (quayWallTune.on ? 1 : 0) + quayWallTune.heightK + '_' + quayWallTune.light
     + ':' + (QUAY_ART.bollards ? 1 : 0) + (QUAY_ART.grain ? 1 : 0)
-    + (QUAY_ART.parapet ? 1 : 0) + (QUAY_ART.stairs ? 1 : 0) + (QUAY_ART.endRamp ? 1 : 0);
+    + (QUAY_ART.parapet ? 1 : 0) + (QUAY_ART.stairs ? 1 : 0) + (QUAY_ART.endRamp ? 1 : 0)
+    + ':' + wantKey();
+}
+// La géométrie de la ville, construite au besoin — par la pose des tuiles, ou par le
+// runtime qui veut le pied d'une volée demandée avant la première image.
+export function ensureQuayGeo(L) {
+  if (!L || !L.river || !L.river.present || !L.river.samples) return null;
+  const band = L.counts ? (L.counts.eraBand | 0) : 0;
+  if (band <= 1) return null;                          // campement : pas de quai
+  ensureQuayGate();
+  if (!CM.quayGate) return null;
+  const key = cacheKey(L, band);
+  if (key !== _key) { _key = key; _tiles.clear(); _geo = buildGeo(L, band); }
+  return _geo;
+}
+// Le PIED d'une volée demandée (`id`), en MONDE (tuiles) : le BOUT du palier d'en bas,
+// sur la ligne du pied du mur — un ponton en part, collé au mur, dans le sens de la
+// volée (« vraiment au pied de l'escalier », Raph). null si la volée n'a pas pu être
+// posée (pont, mur effilé, pas de quai).
+export function quayWantedFoot(id) {
+  const w = _want.find((x) => x.id === id);
+  const stp = w && w.stair;
+  if (!stp) return null;
+  const p = walkEdge(stp.run, stp.k0, stp.dir * (stp.len + LAND));
+  if (!p) return null;
+  const ax = p.x, ay = p.y + p.h, T = CM.TILE;
+  // dir : le sens de la volée le long du fleuve (+1 = vers les samples croissants).
+  return { x: (ax / ISO_X + ay / ISO_Y) / 2 / T, y: (ay / ISO_Y - ax / ISO_X) / 2 / T, i: stp.run.a + p.k, dir: stp.dir };
 }
 function buildGeo(L, band) {
   const g = CM.quayGate, sm = L.river.samples, n0 = sm.length, T = CM.TILE;
@@ -649,10 +711,7 @@ export function paintQuays(ctx) {
   if (!L || !L.river || !L.river.present || !L.river.samples) return;
   const band = L.counts ? (L.counts.eraBand | 0) : 0;
   if (band <= 1 || CM.collapseAt) return;              // campement : pas de quai
-  ensureQuayGate();
-  if (!CM.quayGate) return;
-  const key = cacheKey(L, band);
-  if (key !== _key) { _key = key; _tiles.clear(); _geo = buildGeo(L, band); }
+  if (!ensureQuayGeo(L)) return;
   const z = CM.cam.zoom, dpr = CM.dpr || 1;
   const m = levelOf(z), SM = S << m;
   const cam = art(CM.cam.x, CM.cam.y);
@@ -684,6 +743,38 @@ export function paintQuays(ctx) {
   ctx.imageSmoothingEnabled = prevS;
   paintNeonEdge(ctx);
   paintQuayLapping(ctx, cam, z, dpr);
+}
+
+// LE QUAI DEVANT CE QUI EST DERRIÈRE LUI (Raph, 2026-10-04 : « la barrière doit passer
+// devant le ponton ») : le quai est peint AVANT les objets triés ; un ponton qui flotte
+// derrière le bord, plus bas que la promenade (rive au mur caché, iso/boatLandings.js),
+// était peint par-dessus le garde-corps. Celui qui le peint repasse ici le quai dans un
+// rectangle d'écran : les tuiles déjà cuites (aucune cuisson), dont l'eau est
+// transparente — seuls le garde-corps et la promenade se reposent devant lui.
+export function repaintQuayRect(ctx, x0, y0, x1, y1) {
+  const L = CM.layout;
+  if (!_geo || !L || CM.collapseAt) return;
+  const z = CM.cam.zoom, dpr = CM.dpr || 1;
+  const m = levelOf(z), SM = S << m;
+  const cam = art(CM.cam.x, CM.cam.y);
+  const snap = (v) => Math.round(v * dpr) / dpr;
+  const sx = (ax) => snap((ax - cam.x) * z + CM.cw / 2), sy = (ay) => snap((ay - cam.y) * z + CM.ch / 2);
+  const ax = (X) => (X - CM.cw / 2) / z + cam.x, ay = (Y) => (Y - CM.ch / 2) / z + cam.y;
+  const tx0 = Math.floor(ax(x0) / SM), tx1 = Math.floor(ax(x1) / SM), ty0 = Math.floor(ay(y0) / SM), ty1 = Math.floor(ay(y1) / SM);
+  ctx.save();
+  ctx.beginPath();
+  ctx.rect(x0, y0, x1 - x0, y1 - y0);
+  ctx.clip();
+  ctx.imageSmoothingEnabled = z * (1 << m) < 0.999;
+  for (let ty = ty0; ty <= ty1; ty += 1) {
+    for (let tx = tx0; tx <= tx1; tx += 1) {
+      const t = _tiles.get(m + ':' + tx + ',' + ty);
+      if (!t || t.empty) continue;
+      const X = sx(tx * SM), Y = sy(ty * SM), X1 = sx((tx + 1) * SM), Y1 = sy((ty + 1) * SM);
+      ctx.drawImage(t.cv, X, Y, X1 - X, Y1 - Y);
+    }
+  }
+  ctx.restore();
 }
 
 // Le clapotis (cf. LE CLAPOTIS AU PIED DU MUR). Colonne par colonne d'ART le long du

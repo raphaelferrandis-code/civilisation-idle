@@ -6,14 +6,14 @@
 // bac du passeur, le chaland à la perche, l'embarcadère. Chaque fabrique rend un modèle
 // complet (même contrat que boatKits : id, role, len, beam, speed, bounds, variant,
 // anchors, build). Les kits d'époque (boatKitsAncient, boatKitsModern, boatKitsCosmic)
-// les appellent avec leurs matières (M) et leur garde-robe (C).
+// les appellent avec leurs matières (M) ; l'équipage, ce sont les habitants de l'ère
+// (boatParts.person, boatCrew.js).
 //
 // M (matières) : hull, hullIn, rail, deck, floor, wood (mâts, perches), woodIn,
 //   rope (couleur), net, + couleurs de cargaison (cf. boatParts.cargo) et, au besoin,
 //   log / logEnd (rondins), thatch, tile, paint (rampes de liserés).
-// C (équipage) : cf. boatParts.crewPal.
 
-import { surf, box, boxRamp, tube, rope, rampRGB, asPart, noReflect, PART, h32, inFrame } from './boatBake.js';
+import { surf, box, boxRamp, tube, rope, ellipsoid, rampRGB, asPart, noReflect, PART, h32, inFrame } from './boatBake.js';
 import {
   pick, chance, glow, drawHull, person, poler, crewPal, cargo, rowOars, netPile, lateenRig, squareRig, railing,
 } from './boatParts.js';
@@ -310,6 +310,45 @@ export function makeBarge(o, M) {
 // du mur passe par le bout du tablier (posé sur l'eau), et un pas d'un px vers la
 // berge la place 1 / (cos θ + sin θ) px plus bas sous lui (cf. riverFleet.
 // quayHiddenDepth — même projection). Modèle dérivé : `withReach(px)`.
+//
+// LE PONTON FLOTTANT (makeLanding.asPontoon, iso/boatLandings.js) : un plancher posé sur
+// des flotteurs, au ras de l'eau — au pied d'un escalier du quai (il prolonge le palier
+// d'en bas, collé au mur, de la largeur de la volée) ou au bord d'une rive au mur caché.
+// `len` px de long (a de −3 à len : il mord sur le palier, pas un pixel d'eau entre
+// eux), FLOAT_W de large (c de −FLOAT_W/2 à +FLOAT_W/2), des taquets, et pour la navette
+// des Plaisirs la potence de la lanterne rouge au bout.
+export const FLOAT_W = 10;
+function floatingPontoon(S, k, M, len, lantern) {
+  const FLOAT_LEN = len;
+  const deckCol = (f, u, v, nw) => {
+    if (f !== 'top') return rampRGB(M.landSide || M.woodIn, nw, 1);
+    if (k === 'nacre' || k === 'steel') return rampRGB(M.landDeck || M.deck, nw, (u * FLOAT_LEN) % 6 < 0.45 ? 1 : 0);
+    return rampRGB(M.landDeck || M.deck, nw, (u * FLOAT_LEN) % 2.2 < 0.45 ? 2 : 0);
+  };
+  asPart(S, 2, () => {
+    // Les flotteurs : une bande sombre au ras de l'eau, en retrait du plancher.
+    boxRamp(S, 0, FLOAT_LEN - 1, -FLOAT_W / 2 + 0.8, FLOAT_W / 2 - 0.8, 0, 1.3, M.landSide || M.woodIn, 2);
+    box(S, -3, FLOAT_LEN, -FLOAT_W / 2, FLOAT_W / 2, 1.3, 2.3, deckCol);
+  });
+  asPart(S, 10, () => {
+    for (const a of FLOAT_LEN >= 30 ? [8, FLOAT_LEN / 2, FLOAT_LEN - 8] : [3, FLOAT_LEN - 3]) boxRamp(S, a - 0.6, a + 0.6, FLOAT_W / 2 - 1.4, FLOAT_W / 2 - 0.4, 2.3, 3.3, M.landPost || M.woodIn, 1);
+  });
+  if (lantern) landingLantern(S, FLOAT_LEN - 1.5, 0, 2.3, 9.4, M);
+}
+// La potence et sa lanterne rouge (la même que celles du bateau-lanterne). (a, c) : le
+// pied de la potence ; h0 : le plancher ; hl : la lanterne.
+function landingLantern(S, a, c, h0, hl, M) {
+  asPart(S, PART.mast, () => {
+    tube(S, [[a, c, h0], [a, c, hl + 2.2]], 0.45, (nw) => rampRGB(M.landPost || M.woodIn, nw));
+    tube(S, [[a, c, hl + 2], [a + 2.4, c, hl + 2]], 0.3, (nw) => rampRGB(M.landPost || M.woodIn, nw));
+  });
+  asPart(S, 10, () => {
+    ellipsoid(S, a + 2.2, c, hl, 0.95, 0.95, 1.15, (nw) => rampRGB(['#ff6a4c', '#f04a35', '#cf3328', '#a8241d'], nw));
+    boxRamp(S, a + 1.75, a + 2.65, c - 0.45, c + 0.45, hl + 1.0, hl + 1.4, ['#f6dc7a', '#e3bb4f', '#c49738', '#9a7228']);
+    boxRamp(S, a + 1.75, a + 2.65, c - 0.45, c + 0.45, hl - 1.4, hl - 1.0, ['#f6dc7a', '#e3bb4f', '#c49738', '#9a7228']);
+  });
+}
+
 export function makeLanding(o, M) {
   const R = Math.max(0, Math.round(o.reach || 0));
   const tip = 10 + R;
@@ -318,10 +357,23 @@ export function makeLanding(o, M) {
     bounds: [-20, 20 + R, -14, 14, R ? -40 : -1, 14],
     ink: '#1d1611',
     variant(seed) { return { seed }; },
-    anchors() { return {}; },
+    // La lanterne du ponton de la NAVETTE DES PLAISIRS (o.lantern) : allumée la nuit.
+    anchors() {
+      if (!o.lantern) return {};
+      return o.float ? { lamp0: [o.float + 0.7, 0, 9.4] } : { lamp0: [tip + 1.2, -5.6, 11.2] };
+    },
     withReach(r) { return makeLanding({ ...o, id: o.id + '@' + Math.round(r), reach: r }, M); },
+    withLantern() { return makeLanding({ ...o, id: o.id + '!lanterne', lantern: true }, M); },
+    // Le PONTON FLOTTANT de la navette, au pied d'un escalier du quai (isoQuay, volée
+    // demandée) : au ras de l'eau, il part du palier d'en bas vers le large.
+    // `len` px de long ; `lantern` : la lanterne rouge de la navette des Plaisirs.
+    asPontoon(len, lantern = false) {
+      const M2 = makeLanding({ ...o, id: o.id + '!ponton' + len + (lantern ? 'L' : ''), lantern, float: len }, M);
+      return { ...M2, bounds: [-8, len + 6, -FLOAT_W, FLOAT_W, -1, 14] };
+    },
     build(S) {
       const k = o.kind || 'planks';
+      if (o.float) { floatingPontoon(S, k, M, o.float, o.lantern); return; }
       asPart(S, 2, () => {
         if (k === 'logs') {
           for (let c = -6; c <= 6; c += 2.4) tube(S, [[-14, c, 3.4], [tip, c, 3.4]], 1.15, (nw) => rampRGB(M.log, nw));
@@ -358,6 +410,8 @@ export function makeLanding(o, M) {
           railing(S, -13, tip - 2, 6.6, 4.2, 3, M.landRail || M.woodIn, 3.5);
         }
       });
+      // Le signe de la Maison au bout du ponton : une potence et sa lanterne rouge.
+      if (o.lantern) landingLantern(S, tip - 1, -5.6, 3, 11.2, M);
     },
   };
 }

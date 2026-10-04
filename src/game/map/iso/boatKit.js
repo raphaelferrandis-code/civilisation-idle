@@ -27,7 +27,7 @@ import { drawHoverGlow } from './boatFx.js';
 import { drawSunShadow } from './isoSunShadow.js';
 import { snapDev } from '../blitSnap.js';
 import { agentFrameIso } from '../agents.js';
-import { crewName, crewDir } from './boatCrew.js';
+import { crewSpec, crewDir } from './boatCrew.js';
 
 export const BOATKIT = { on: true, budget: 3 };
 if (typeof window !== 'undefined') {
@@ -155,7 +155,8 @@ function drawCrew(ctx, e, M, bx, by, k, z, band) {
   const cv = _crewCv;
   for (let n = 0; n < e.crew.length; n += 1) {
     const cr = e.crew[n];
-    const F = agentFrameIso(crewName(band, M, cr), crewDir(cr.phi), z);
+    const sp = crewSpec(band, M, cr);
+    const F = agentFrameIso(sp.name, crewDir(cr.phi), z, sp.scale);
     if (!F) continue;
     const ex0 = bx + (cr.x0 - e.ox) * k, ey0 = by + (cr.y0 - e.oy) * k;
     const mx = Math.floor(ex0 * d) / d, my = Math.floor(ey0 * d) / d;
@@ -181,6 +182,8 @@ function drawCrew(ctx, e, M, bx, by, k, z, band) {
 function kitState(spec, state) {
   if (state === 'dock' || state === 'board') return 'dock';
   if (state === 'salute') return 'salute';
+  // La navette des Plaisirs : au retour, presque vide ; à la Maison, ses passagers sont montés.
+  if (state === 'return' || state === 'unload') return state;
   if (state === 'anchor' || state === 'fish') return spec.id === 'scapha' ? 'anchor' : 'cruise';
   return 'cruise';
 }
@@ -225,10 +228,14 @@ export function drawBoat(ctx, spec, x, y, theta, z, now, opts = {}) {
   if (crew) crew(ctx);
   ctx.imageSmoothingEnabled = prevSm;
   const anchors = {};
-  for (const [k, a] of Object.entries(e.anchors || {})) anchors[k] = { x: x + a.X * z, y: y + a.Y * z };
+  const lamps = [];
+  for (const [k, a] of Object.entries(e.anchors || {})) {
+    anchors[k] = { x: x + a.X * z, y: y + a.Y * z };
+    if (k.startsWith('lamp')) lamps.push(anchors[k]);
+  }
   // `crew` : le pont redessine la coque d'un bateau sorti de sous lui (isoBridge,
   // part 'ship') — et ses marins avec.
-  return { img: e.cv, bx, by, dw, dh, anchors, model: M, crew };
+  return { img: e.cv, bx, by, dw, dh, anchors, model: M, crew, lamps: lamps.length ? lamps : null };
 }
 
 // ── À QUAI : L'API DES PORTS (session « port et plage », drawMooredHull) ──────────

@@ -434,7 +434,7 @@ function crewMasks(S) {
         mask[j * w + i] = m ? 1 : 0;
       }
     }
-    return { X, Y, x0, y0, w, h, mask, phi: S.theta + cr.face, pose: cr.pose, id: cr.id | 0 };
+    return { X, Y, x0, y0, w, h, mask, phi: S.theta + cr.face, pose: cr.pose, id: cr.id | 0, role: cr.role || null };
   });
 }
 

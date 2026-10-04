@@ -495,13 +495,15 @@ function drawNamedAgentIso(ctx, sx, groundY, z, name, scale, dir, walking, now, 
 // boatKit.drawCrew, qui le découpe par le masque de sa coque) : même bande que
 // drawNamedAgentIso (pleine ou -half, même bascule), frame 0, taille à l'écran et
 // ligne de pieds MESURÉE. null tant que les quatre bandes ne sont pas décodées.
+// `scale` : celle du dessin quand il n'est pas d'un jeu d'habitants (les filles de
+// la Maison des Plaisirs, plaisirsCast).
 const AGENT_SCALE_OF = new Map(AGENT_SETS.flatMap((set) => [...set.men, ...set.women, set.child]).map((s) => [s.name, s.scale]));
-function agentFrameIso(name, dir, z) {
+function agentFrameIso(name, dir, z, scale = null) {
   const c = ensureAgentDiag(name);
   if (c.ready < ISO_DIAG.length) return null;
   let img = c.img[ISO_DIAG[(dir >= 0 && dir < 4) ? dir : 2]];
   let fh = img.naturalHeight || AGENT_FH;
-  const drawH = Math.max(1, snapDev(CM.TILE * z * (AGENT_SCALE_OF.get(name) || AGENT_FALLBACK.scale) * AGENT_SCALE));
+  const drawH = Math.max(1, snapDev(CM.TILE * z * (scale || AGENT_SCALE_OF.get(name) || AGENT_FALLBACK.scale) * AGENT_SCALE));
   const half = halfBands.on ? c.imgHalf[ISO_DIAG[(dir >= 0 && dir < 4) ? dir : 2]] : null;
   if (half && half.complete && half.naturalWidth > 0 && drawH <= fh * 0.7) {
     img = half;

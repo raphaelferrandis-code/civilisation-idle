@@ -24,6 +24,7 @@ import { makeLanding } from './boatFamilies.js';
 import { ANCIENT_MODELS, ANCIENT_FLEET } from './boatKitsAncient.js';
 import { MODERN_MODELS, MODERN_FLEET } from './boatKitsModern.js';
 import { COSMIC_MODELS, COSMIC_FLEET } from './boatKitsCosmic.js';
+import { PLAISIRS_MODELS, shuttleModelFor } from './boatKitsPlaisirs.js';
 
 const cargo = (S, kind, a0, a1, c0, c1, hAt, seed) => cargoOf(S, kind, a0, a1, c0, c1, hAt, seed, PAL);
 const squareRig = (S, sp) => rigOf(S, { mast: PAL.oak, ...sp });
@@ -423,7 +424,7 @@ const BAC = {
 const EMBARCADERE = makeLanding({ id: 'embarcadere', kind: 'planks' }, { deck: PAL.deck, woodIn: PAL.oakIn, wood: PAL.oak });
 
 export const BOAT_MODELS = {
-  ...ANCIENT_MODELS, ...MODERN_MODELS, ...COSMIC_MODELS,
+  ...ANCIENT_MODELS, ...MODERN_MODELS, ...COSMIC_MODELS, ...PLAISIRS_MODELS,
   corbita: CORBITA, galere: GALERE, codicaria: CODICARIA, scapha: SCAPHA, bac: BAC, embarcadere: EMBARCADERE,
 };
 
@@ -435,6 +436,8 @@ export const BAND_FLEET = {
   ...MODERN_FLEET,
   ...COSMIC_FLEET,
 };
+// La NAVETTE DES PLAISIRS, à tous les âges (boatKitsPlaisirs.js) : le bateau-lanterne.
+for (const b of Object.keys(BAND_FLEET)) BAND_FLEET[b] = { ...BAND_FLEET[b], shuttle: [shuttleModelFor(+b)] };
 // Les MÉTIERS d'une bande (sans l'embarcadère, qui n'est pas un bateau).
 export function fleetRoles(band) {
   const fl = BAND_FLEET[band];

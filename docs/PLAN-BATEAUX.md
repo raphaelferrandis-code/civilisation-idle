@@ -260,3 +260,78 @@ façon Le Havre (b5-6+, navires amarrés fixes) et port de plaisance façon Vieu
   désormais ses feux), bouées orange, plateforme arrière à garde-corps, pavillon de la
   ligne. Essayés et écartés sur planche : verrière sombre à arceaux (un damier), toit
   blanc à bande de couleur (un yacht).
+- 2026-10-04 — **LA NAVETTE DES PLAISIRS** (Raph : « tu fais une navette qui amène à la
+  maison des plaisirs ? » ; réponses : son propre ponton, un bateau-lanterne à la marque de
+  la Maison, des habitants qui y vont + une hôtesse, surtout la nuit).
+  · **Ligne** (`riverFleet.js`, métier `shuttle`, `shuttleStep`) : de son ponton en ville à
+  l'embarcadère de la Maison — au pied de l'escalier qui descend à l'eau, face au SUD,
+  coque en travers — et retour. Elle navigue avec les autres (file, passes, cap) en serrant
+  la rive de ses deux arrêts (du même bord) ; son ponton est une passe quand elle y est ou
+  y vient ; amarrée à la Maison, elle prolonge l'obstacle du lieu (on la contourne au
+  large) ; en partant, elle contourne la Maison par SON bord (`_dodgeSide` préréglé), et
+  elle ne l'évite plus quand elle l'accoste. SURTOUT LA NUIT : l'attente au ponton de la
+  ville (55-95 s) s'écoule `shuttleNight` = 7 fois plus vite en pleine nuit.
+  · **Arrêts** (runtime, `CM.shuttleSite`) : le ponton par `shuttleSite` (entre le cœur et
+  la Maison, à ≥ 12 tuiles des passes, postes, bac et obstacles, à ≥ 18 de la Maison) ;
+  l'embarcadère de la Maison par `MAISON_LANDING_PX` (pied de l'escalier MESURÉ sur la
+  cuisson de la Maison, remesuré par `riverShuttle.test.js`).
+  · **Bateau** (`iso/boatKitsPlaisirs.js`) : le bateau-lanterne, un par âge, même
+  silhouette — dais à frange de PÉTALES, guirlandes de LANTERNES rouges (torches à l'âge
+  du feu, orbes aux âges cosmiques), étrave dorée, pavillon rouge. À bord : l'HÔTESSE de la
+  Maison (une fille de la troupe de l'âge, `boatCrew` rôle `hostess`) et 2 à 4 passagers
+  assis à l'aller ; au retour au plus un ; amarrée à la Maison, personne (ils sont montés).
+  La nuit, chaque lanterne (ancres `lamp*`) luit (`boatFx.drawLamps`, passe de nuit).
+  · **Ponton** (`boatScenes`) : l'embarcadère de l'ère avec sa potence et sa lanterne
+  rouge (`makeLanding.withLantern`), allongé comme celui du bac quand on voit le mur de
+  quai ; ceux qui attendent la navette quand elle est partie. Le bateau à quai est trié à
+  son CENTRE (avancé comme un marchand, il couvrait le bout du ponton).
+  Planche : `node scripts/boatNavettePlaisirs.mjs 3`. Tests : `riverShuttle.test.js`,
+  `boatCrew.test.js`.
+  · **Le ponton de la navette : un ESCALIER DU QUAI et un ponton flottant à son pied**
+  (Raph, 2026-10-04 : « le ponton depuis le quai ça fait bizarre, il faut enlever la
+  rambarde à ce niveau-là et faire un escalier »). Le ponton sur pieux partait de la
+  promenade, par-dessus le garde-corps. Désormais, sur la rive dont on VOIT le mur (de
+  l'autre, une volée se cacherait derrière le bord de la promenade — l'en-tête des
+  escaliers d'`isoQuay` le dit), le runtime DEMANDE une volée au quai
+  (`isoQuay.wantQuayStairs`, posée avant les autres, même en lisière de ville, garde-corps
+  ouvert, rambarde de l'escalier comprise) ; le quai publie son PIED (`quayWantedFoot`) ;
+  un ponton FLOTTANT (`makeLanding.asPontoon`, 44 × 8 px) longe le mur depuis le palier
+  d'en bas, la lanterne rouge au bout, et la navette s'amarre bord à bord contre lui.
+  Elle serre la rive de l'arrêt qu'elle vise (son ponton peut être sur l'autre rive que
+  l'escalier de la Maison) et traverse en route. Repli (rive sans quai au mur visible) :
+  l'ancien ponton sur pieux, garde-corps ouvert à sa racine (`gapOnly`).
+  ⚠ Banc : `CM.zoomGoal` écrase `CM.cam.zoom` (régler les deux) ; une capture juste après
+  une recuisson du quai le montre absent (tuiles pas encore cuites) — laisser tourner.
+  · **Le ponton vraiment au pied de l'escalier, et le passeur aussi** (Raph : « mets le
+  ponton vraiment au pied de l'escalier, et oui tu peux le faire pour le passeur aussi »).
+  Le ponton flottant part du BOUT du palier d'en bas (`quayWantedFoot` publie ce point,
+  sur la ligne du pied du mur), collé au mur, de la largeur de la volée (FLOAT_W = 10 px),
+  et mord de 3 px sur le palier : escalier → palier → ponton sans un pixel d'eau. Tout
+  le placement vit dans `iso/boatLandings.js` (`stairPontoon`, `edgePontoon`,
+  `pontoonFace`, `PONTOON_LEN`). LE PASSEUR : sur la rive dont on voit le mur, son
+  escalier et son ponton (30 px), et le bac traverse AU DROIT du ponton (le site glisse
+  sur son milieu) pour l'aborder par l'avant ; sur la rive au mur caché, le garde-corps
+  s'ouvre et un ponton (20 px) part pile du bord du quai, vers le large ; sans quai,
+  l'embarcadère sur pieux d'avant. Les voyageurs attendent DEBOUT sur le ponton (peints
+  après lui). Les volées demandées par le bac et la navette sont réunies (`quayWant`).
+  · **La rive au mur caché : le ponton AU NIVEAU DE L'EAU** (Raph, sur la rive sud du
+  passeur : « supprime ça… enfin, faut respecter la profondeur »). Posé au niveau de la
+  promenade, il couvrait le bord du quai. L'eau y est aussi bas qu'en face (`wallT` tuiles
+  sous la promenade) : le ponton y flotte (`edgePontoon` : `sink` px d'enfoncement),
+  passe SOUS le bord du quai, qui en cache la racine (`hid` tuiles, même mesure que
+  `quayHiddenDepth`) — le dessin est découpé à la ligne du bord (boatScenes) ; on en voit
+  `PONTOON_LEN.edge` px au large, et le bac l'aborde au bout TEL QU'ON LE VOIT
+  (`pontoonFace`). L'escalier qui y descend reste derrière le mur ; l'ouverture du
+  garde-corps le dit.
+  · **Le garde-corps PASSE DEVANT** le ponton enfoncé (Raph : « la barrière doit passer
+  devant le ponton ») : plus d'ouverture de ce côté ; le quai, peint avant les objets triés,
+  est REPOSÉ par-dessus le ponton et ceux qui s'y tiennent (`isoQuay.repaintQuayRect` :
+  les tuiles déjà cuites, dans le cadre du ponton, côté eau de la ligne du bord — l'eau
+  des tuiles est transparente, seul le garde-corps se repose). Item `quayFront`, trié
+  juste après les voyageurs.
+  · **Une ouverture au droit du ponton** (Raph : « il faut garder une ouverture ») : le
+  garde-corps passe devant le ponton enfoncé SAUF là où on le voit passer sous le bord —
+  l'ouverture est posée au point EXACT où son axe croise la ligne du bord à l'écran
+  (`edgePontoon` : `gx, gy`, résolu dans l'écran zoom 1 ; enfoncé, il y sort ~22 px le long
+  du quai plus loin que sa racine), via `wantQuayStairs({ gapOnly, x, y })` — le sample du
+  fleuve le plus proche était à une tuile près.

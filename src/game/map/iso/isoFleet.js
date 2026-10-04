@@ -13,6 +13,7 @@
 // déterministes (3 ères × jour/nuit/crépuscule/ruine).
 import { CM } from '../layout.js';
 import { configureNavCalib } from './navCalib.js';
+import { drawLamps } from './boatFx.js';
 
 // Cap écran (rad, 0 = est, +π/2 = sud/bas) → nom de rotation d'objet PixelLab.
 const BOAT_SECTORS = ['east', 'southeast', 'south', 'southwest', 'west', 'northwest', 'north', 'northeast'];
@@ -350,10 +351,14 @@ export function drawIsoShipNight(now) {
   const ctx = CM.ctx;
   const prevOp = ctx.globalCompositeOperation;
   ctx.globalCompositeOperation = 'lighter';
+  // La lanterne du ponton de la navette des Plaisirs (boatScenes la publie).
+  if (CM._sceneLamps && CM._sceneLamps.at === now) drawLamps(ctx, CM._sceneLamps.pts, now, CM.cam.zoom || 1, 7, night);
   for (const sh of CM.ships) {
     if (!sh._nav || sh._navAt !== now) continue;
     // GYROPHARE (police, sentinelles) : il tourne la nuit, bleu, en deux temps.
     if (sh._nav.beacon) drawBeacon(ctx, sh._nav.beacon, now, sh.id | 0, sh._nav.glow, night);
+    // LANTERNES (navette des Plaisirs) : les ancres `lamp*` du bateau-lanterne.
+    if (sh._nav.lamps) drawLamps(ctx, sh._nav.lamps, now, CM.cam.zoom || 1, sh.id | 0, night);
     // Coque du KIT (boatKit.js) : les feux sont des ANCRES de la géométrie, déjà
     // projetées à l'écran — ni calibrage, ni projection. Pas d'ancre = pas de feux
     // (barque, bac, chaland : la règle de NAV_DARK, tenue par le modèle).

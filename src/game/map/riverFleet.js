@@ -100,13 +100,22 @@ export const FLEET_TUNE = {
   patrolSpan: 0.3,           // la patrouille tient le milieu de la fenêtre (± 30 %)
   fireEvery: [40, 75],       // secondes de ronde entre deux arrosages
   fireDwell: 14,
+  // LA NAVETTE DES PLAISIRS (Raph, 2026-10-03 : « une navette qui amène à la maison
+  // des plaisirs ») : un bateau-lanterne fait l'aller-retour entre son ponton en
+  // ville et l'embarcadère de la Maison. SURTOUT LA NUIT : le jour il attend
+  // longtemps ses passagers, la nuit il repart presque aussitôt (l'attente au ponton
+  // s'écoule plus vite à mesure que la nuit tombe, cf. shuttleStep).
+  shuttleBoard: [55, 95],    // attente au ponton de la ville, en plein jour (s)
+  shuttleNight: 7,           // … divisée par tant en pleine nuit
+  shuttleMoor: [10, 16],     // escale à la Maison, le temps que les passagers montent
+  shuttleGap: [2, 4],
 };
 
 // LES MÉTIERS (docs/PLAN-BATEAUX.md §1) : le marchand et le pêcheur d'origine,
 // plus le CHALAND (péniche halée depuis la berge) et le PASSEUR (le bac d'une rive
 // à l'autre). Les deux nouveaux n'existent que là où l'ère a leur art (cf. le
 // paramètre `roles` de riverFleetBudget) : pas de repli procédural pour eux.
-export const FLEET_KINDS = ['trade', 'fisher', 'barge', 'ferry', 'service'];
+export const FLEET_KINDS = ['trade', 'fisher', 'barge', 'ferry', 'service', 'shuttle'];
 
 // Un pas de sim plus long qu'un gros hoquet de frame ne veut rien dire : onglet
 // caché, l'horloge revient avec plusieurs secondes d'un coup et toute la flotte
@@ -135,14 +144,14 @@ export function shipAlpha(sh) {
 const lerp = (a, b, f) => a + (b - a) * f;
 
 export function makeFleetCtl() {
-  return { nextId: 1, birth: { trade: 0, fisher: 0, barge: 0, ferry: 0, service: 0 }, berthOwner: {} };
+  return { nextId: 1, birth: { trade: 0, fisher: 0, barge: 0, ferry: 0, service: 0, shuttle: 0 }, berthOwner: {} };
 }
 
 // Effectif VOULU par métier. Les marchands gardent la formule historique (port
 // + un peu de marchés et d'ère), seul le plafond descend ; sans port, le fleuve
 // de village garde sa barque isolée à partir de l'âge de bronze.
 export function riverFleetBudget(state, L, roles = null) {
-  const empty = { trade: 0, fisher: 0, barge: 0, ferry: 0, service: 0 };
+  const empty = { trade: 0, fisher: 0, barge: 0, ferry: 0, service: 0, shuttle: 0 };
   if (!L || !L.river || !L.river.present) return empty;
   const b = (state && state.buildings) || {};
   const portLvl = Math.floor(b.river_ports || 0);
@@ -181,7 +190,10 @@ export function riverFleetBudget(state, L, roles = null) {
   // Service : un bateau à la Fonte, deux au Néon (police et pompiers), un aux
   // époques cosmiques (la sentinelle).
   const service = has('service') ? (band === 6 ? 2 : 1) : 0;
-  return { trade, fisher, barge, ferry, service };
+  // La navette des Plaisirs : une, dès que la Maison est sur la carte (le layout ne
+  // publie `river.plaisirs` qu'une fois le lieu ouvert).
+  const shuttle = has('shuttle') && L.river.plaisirs ? 1 : 0;
+  return { trade, fisher, barge, ferry, service, shuttle };
 }
 
 // Point d'ancrage du pêcheur : à l'écart des quais (on ne jette pas l'ancre
@@ -247,6 +259,15 @@ function spawn(kind, ctl, env, ships = []) {
       sh.patrol = [mid - half, mid + half];
       if (sh.mode === 'fire') sh.fireNext = lerp(FLEET_TUNE.fireEvery[0], FLEET_TUNE.fireEvery[1], rnd01('fire:' + id));
     }
+  }
+  if (kind === 'shuttle' && env.shuttle) {
+    // Née À SON PONTON (fondu), à quai, ses premiers passagers à bord.
+    const st = env.shuttle.city;
+    sh.t = st.t; sh.win = null; sh.done = true;
+    sh.lat = st.lat; sh.latV = 0; sh.th = st.th;
+    sh.dir = env.shuttle.maison.t >= st.t ? 1 : -1;
+    sh.state = 'dock'; sh.stateT = 4; sh.at = 'city'; sh.trip = 0;
+    sh.berthLat = st.lat; sh.berthTh = st.th;
   }
   if (kind === 'ferry' && env.ferry) {
     sh.t = env.ferry.t;
@@ -354,6 +375,11 @@ export function updateRiverFleet(ships, ctl, budget, dt, env = {}) {
     if (sh.kind === 'ferry') {
       if (!env.ferry || !nav) { ships.splice(i, 1); continue; }
       ferryStep(sh, env.ferry, ships, step, nav);
+      continue;
+    }
+    if (sh.kind === 'shuttle') {
+      if (!env.shuttle || !nav) { ships.splice(i, 1); continue; }
+      shuttleStep(sh, env.shuttle, step, nav, env.night || 0);
       continue;
     }
     if (sh.state === 'dock' || sh.state === 'anchor') {
@@ -523,6 +549,7 @@ export function updateRiverFleet(ships, ctl, budget, dt, env = {}) {
     ctl.birth[kind] -= step;
     if (ctl.birth[kind] > 0) continue;
     if (kind === 'ferry' && (!env.ferry || !nav)) continue;
+    if (kind === 'shuttle' && (!env.shuttle || !nav)) continue;
     const ne = spawn(kind, ctl, env, ships);
     // UN SEUL pêcheur d'île à la fois, et c'est le premier qui naît quand l'île
     // existe. Les suivants font leur métier normal ailleurs sur le fleuve : deux
@@ -538,7 +565,7 @@ export function updateRiverFleet(ships, ctl, budget, dt, env = {}) {
     }
     // Une naissance ne se pose pas sur un bateau déjà là (même bord, même sens) :
     // elle attend la prochaine occasion plutôt que d'apparaître DANS une coque.
-    if (nav && kind !== 'ferry' && ships.some((o) => o.dir === ne.dir && !o.orbit && o.kind !== 'ferry' && Math.abs(o.t - ne.t) * nav.L < 3.5)) {
+    if (nav && kind !== 'ferry' && kind !== 'shuttle' && ships.some((o) => o.dir === ne.dir && !o.orbit && o.kind !== 'ferry' && Math.abs(o.t - ne.t) * nav.L < 3.5)) {
       ctl.birth[kind] = 2;
       ctl.nextId -= 1;
       continue;
@@ -578,7 +605,7 @@ export const NAV_TUNE = {
   // fait aujourd'hui 590 tuiles, dont ~210 dans la carte — exprimée en t, la même
   // consigne faisait filer une corbita à 4,7 tuiles/s (120 km/h à la toise des
   // habitants). Le kit peut donner la sienne par modèle (sizeOf → speed).
-  speed: { trade: [0.95, 1.45], fisher: [0.7, 1.0] },
+  speed: { trade: [0.95, 1.45], fisher: [0.7, 1.0], shuttle: [0.85, 1.0] },
   winMargin: 18,            // tuiles de fleuve gardées de part et d'autre de la carte
   keepRight: [0.3, 0.72],   // place dans sa demi-largeur utile (tirage par bateau)
   latSpeed: 0.42,           // vitesse transversale max (tuiles/s)
@@ -661,6 +688,26 @@ function navPrepare(ships, env) {
   // franchit tant qu'il y est (même règle d'attente que sous le pont).
   const ferryX = ships.find((sh) => sh.kind === 'ferry' && sh.state === 'cross');
   if (ferryX) gates.push({ t: ferryX.t, t0: ferryX.t, t1: ferryX.t, lat: 0, ferry: true, zone: 1.4 });
+  // LA NAVETTE DES PLAISIRS. À son ponton de la ville (à quai, ou qui y vient), elle
+  // tient le bord comme un marchand à son poste : une passe, le chenal libre en face.
+  // À la Maison, amarrée au pied de l'escalier, elle prolonge l'obstacle du lieu :
+  // les autres la contournent au large au lieu de faire la queue derrière elle.
+  let obstacles = env.obstacles || [];
+  const sx = env.shuttle ? ships.find((sh) => sh.kind === 'shuttle') : null;
+  if (sx) {
+    const C = env.shuttle.city, side = C.side || 1;
+    const near = (to) => sx.state !== 'dock' && sx.dest === to && Math.abs(((to === 'city' ? C : env.shuttle.maison).t - sx.t) * L) < 12;
+    if ((sx.state === 'dock' && sx.at === 'city') || near('city')) {
+      const r = ribbonAt(sm, C.t);
+      const far = -side * laneRoom(r.hw, 0.5);
+      const edge = C.lat - side * ((sx._beam || 0.4) / 2 + 0.75);
+      const open = side > 0 ? Math.min(edge, (edge + far) / 2) : Math.max(edge, (edge + far) / 2);
+      gates.push({ t: C.t, t0: C.t, t1: C.t, lat: open, shuttle: true, zone: 1.7 });
+    }
+    if (sx.state === 'dock' && sx.at === 'maison') {
+      obstacles = [...obstacles, { t: sx.t, lat: sx.lat, r: (sx._beam || 0.4) / 2 + 0.2, id: 'navette' }];
+    }
+  }
   for (const sh of live) {
     const z = sizeOf(env, sh);
     sh._len = z.len; sh._beam = z.beam;
@@ -728,6 +775,7 @@ function navPrepare(ships, env) {
     A._gateWait = 0;
     for (const g of gates) {
       if (g.berth && A.berthId === g.berth) continue;
+      if (g.shuttle && A.kind === 'shuttle') continue;   // son propre ponton
       const zone = g.zone || NAV_TUNE.gateZone + ((g.t1 - g.t0) * L) / 2;
       const dA = (g.t - A.t) * A.dir * L;              // distance du centre de la passe, devant
       const myEntry = dA - zone - A._len / 2;           // distance avant d'y entrer
@@ -750,7 +798,7 @@ function navPrepare(ships, env) {
     }
     A._navF = f;
   }
-  return { L, gates, win, samples: sm };
+  return { L, gates, win, samples: sm, obstacles };
 }
 
 // FENÊTRE de navigation : la portion du ruban qui traverse la carte (bornes du
@@ -777,6 +825,7 @@ function navLaneGoal(sh, room) {
   const k = NAV_TUNE.keepRight[0] + (NAV_TUNE.keepRight[1] - NAV_TUNE.keepRight[0]) * Math.min(1, Math.abs(sh.lane || 0) / 0.8);
   // Le pêcheur ne suit pas la règle de route : il longe la berge de son choix.
   if (sh.kind === 'fisher') return (sh.lane >= 0 ? 1 : -1) * 0.82 * room;
+  if (sh.kind === 'shuttle') return (sh.side || 1) * 0.8 * room;
   // Le chaland tient sa droite comme les autres : depuis la fin du halage (Raph,
   // 2026-10-03), il ne longe plus une rive — collé au quai, il traversait les escaliers.
   // La drague travaille près de sa rive.
@@ -848,12 +897,18 @@ function navSteer(ships, env, step, nav) {
         goal += ((g.lat || 0) - goal) * p * p * (3 - 2 * p);
       }
       // Obstacles plantés dans l'eau (île, Aiguille) ; les passes sont traitées ci-dessus.
-      if (env.dodge) goal = env.dodge(goal, A.t, A._len, r.hw, env.obstacles || [], [], A);
+      // La navette qui accoste la Maison ne la contourne plus : elle y va.
+      const toStop = A.kind === 'shuttle' && A._stop ? A._stopApproach || 0 : 0;
+      if (env.dodge && !(toStop > 0 && A.dest === 'maison')) goal = env.dodge(goal, A.t, A._len, r.hw, nav.obstacles || env.obstacles || [], [], A);
       goal = Math.max(-room, Math.min(room, goal));
-      if (A._berthApproach > 0) {
+      if (A._berthApproach > 0 && A.kind !== 'shuttle') {
         const Bx = env.berths.find((x) => x.id === A.berthId);
         const p = A._berthApproach;
         goal += (Bx.lat - goal) * p * p * (3 - 2 * p);
+      }
+      if (toStop > 0) {
+        goal += (A._stop.lat - goal) * toStop * toStop * (3 - 2 * toStop);
+        A._berthApproach = toStop;                   // le rendu la trie avec son ponton
       }
     }
     // Dynamique transversale amortie : la coque glisse vers sa file, sans à-coup.
@@ -964,6 +1019,80 @@ function ferryStep(sh, site, ships, step, nav) {
     sh.stateT = lerp(FLEET_TUNE.ferryBoard[0], FLEET_TUNE.ferryBoard[1], rnd01('ferryBoard:' + sh.id + ':' + sh.trip));
     sh.trip = (sh.trip || 0) + 1;
   }
+}
+
+/* ── LA NAVETTE DES PLAISIRS ──────────────────────────────────────────────────
+ * Un bateau-lanterne fait l'aller-retour entre son ponton en ville
+ * (env.shuttle.city) et l'embarcadère de la Maison des Plaisirs (env.shuttle.maison,
+ * au pied de son escalier, face au sud). Arrêts = { t, lat, th } ; elle y est « à
+ * quai » (state 'dock', `at` = 'city' | 'maison'), sinon en route vers `dest`.
+ * Elle navigue comme les autres (file, suivre, passes, cap : navPrepare/navSteer) ;
+ * ce pas-ci ne fait qu'avancer le long du fleuve et décider des escales.
+ * SURTOUT LA NUIT : l'attente au ponton de la ville s'écoule `shuttleNight` fois
+ * plus vite en pleine nuit — une attente commencée en plein jour se raccourcit donc
+ * d'elle-même quand le soir tombe.
+ * ------------------------------------------------------------------------- */
+function shuttleStep(sh, site, step, nav, night) {
+  if (sh.state === 'dock') {
+    sh.side = Math.sign(sh.berthLat) || 1;
+    const n = Math.max(0, Math.min(1, night));
+    sh.stateT -= step * (sh.at === 'city' ? 1 + (FLEET_TUNE.shuttleNight - 1) * n : 1);
+    sh._moveF = 0;
+    if (sh.stateT > 0) return;
+    sh.dest = sh.at === 'city' ? 'maison' : 'city';
+    sh.at = null;
+    const to = sh.dest === 'city' ? site.city : site.maison;
+    sh.dir = to.t >= sh.t ? 1 : -1;
+    sh.state = 'cruise';
+    // En quittant la Maison, elle la contourne par SON bord (celui de l'escalier) :
+    // l'évitement choisirait sinon le bord de sa file — à travers le bâtiment.
+    if (sh.dest === 'city') sh._dodgeSide = { plaisirs: Math.sign(site.maison.lat) || 1 };
+    return;
+  }
+  const to = sh.dest === 'city' ? site.city : site.maison;
+  sh._stop = to;
+  // Elle serre la rive de l'arrêt qu'elle VISE : son ponton peut être sur l'autre rive
+  // que l'escalier de la Maison (celle dont on voit le mur), elle traverse en route.
+  sh.side = Math.sign(to.lat) || 1;
+  const dist = (to.t - sh.t) * sh.dir * nav.L;     // reste à parcourir le long du fleuve
+  sh._stopApproach = Math.max(0, Math.min(1, 1 - (dist - 1) / 9));
+  const moveF = dist < 14 ? Math.max(0.25, Math.min(1, dist / 3)) : 1;
+  if (dist <= 0.12) {
+    sh.t = to.t;
+    sh.state = 'dock';
+    sh.at = sh.dest;
+    sh._moveF = 0; sh._stopApproach = 0; sh._berthApproach = 0;
+    sh.berthLat = to.lat; sh.berthTh = to.th;
+    if (sh.at === 'city') sh.trip = (sh.trip || 0) + 1;      // d'autres passagers
+    const span = sh.at === 'maison' ? FLEET_TUNE.shuttleMoor : FLEET_TUNE.shuttleBoard;
+    sh.stateT = lerp(span[0], span[1], rnd01('shuttle:' + sh.id + ':' + sh.trip + ':' + sh.at));
+    return;
+  }
+  sh.t += sh.dir * sh.speed * moveF * (sh._navF == null ? 1 : sh._navF) * step;
+  sh._moveF = moveF;
+}
+
+// LE PONTON DE LA NAVETTE : en ville, entre le cœur et la Maison (elle ne passe donc
+// jamais sous le pont), à l'écart des passes, des postes et des obstacles, à mi-
+// chemin de préférence — assez loin du cœur pour laisser le quai aux marchands,
+// assez près pour être EN ville. Pur ; `avoid` = positions t à fuir.
+export function shuttleSite(sm, win, avoid, centerT, maisonT) {
+  if (!sm || sm.length < 2 || !win || centerT == null || maisonT == null) return null;
+  const L = ribbonLength(sm);
+  let best = null, bs = Infinity;
+  for (let k = 0; k <= 40; k += 1) {
+    const f = 0.15 + 0.65 * (k / 40);
+    const t = centerT + (maisonT - centerT) * f;
+    if (t < win[0] || t > win[1]) continue;
+    if (Math.abs(maisonT - t) * L < 18) continue;            // pas au pied de la Maison
+    let dmin = Infinity;
+    for (const a of avoid || []) dmin = Math.min(dmin, Math.abs(t - a) * L);
+    if (dmin < 12) continue;                                 // ni pont, ni poste, ni bac
+    const score = Math.abs(f - 0.45);
+    if (score < bs) { bs = score; best = t; }
+  }
+  if (best == null) return null;
+  return { t: best, hw: ribbonAt(sm, best).hw };
 }
 
 // LE SITE DU PASSEUR : dans la fenêtre, le plus loin possible des passes (pont,

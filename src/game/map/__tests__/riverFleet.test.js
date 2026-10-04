@@ -32,7 +32,7 @@ describe("riverFleet — effectifs", () => {
 
   it("sans fleuve, aucun métier ne tourne", () => {
     const b = riverFleetBudget({ buildings: { river_ports: 9 } }, { river: { present: false } });
-    expect(b).toEqual({ trade: 0, fisher: 0, barge: 0, ferry: 0, service: 0 });
+    expect(b).toEqual({ trade: 0, fisher: 0, barge: 0, ferry: 0, service: 0, shuttle: 0 });
   });
 
   it("l'effectif marchand suit le port et sature au plafond", () => {
@@ -78,8 +78,10 @@ describe("riverFleet — effectifs", () => {
     }
     expect(FLEET_KINDS).not.toContain("yacht");
     // Les métiers ajoutés le 2026-10-02 (docs/PLAN-BATEAUX.md) sont des métiers du
-    // TRAVAIL : le chaland et le passeur — toujours pas de promeneur.
-    expect(FLEET_KINDS).toEqual(["trade", "fisher", "barge", "ferry", "service"]);
+    // TRAVAIL : le chaland et le passeur — toujours pas de promeneur. La navette des
+    // Plaisirs (2026-10-03) non plus : elle fait la ligne entre deux pontons, à heures
+    // de passagers, elle ne se promène pas.
+    expect(FLEET_KINDS).toEqual(["trade", "fisher", "barge", "ferry", "service", "shuttle"]);
   });
 });
 

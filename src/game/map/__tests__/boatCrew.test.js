@@ -4,8 +4,10 @@
 import { describe, it, expect } from "vitest";
 import { BOAT_MODELS, BAND_FLEET } from "../iso/boatKits.js";
 import { bakeBoat, dirTheta } from "../iso/boatBake.js";
-import { BOAT_CAST, crewName, crewDir } from "../iso/boatCrew.js";
+import { BOAT_CAST, crewName, crewSpec, crewDir } from "../iso/boatCrew.js";
 import { ISO_AGENT_NAMES } from "../agents.js";
+import fs from "node:fs";
+import path from "node:path";
 
 // Les métiers à équipage (les sentinelles cosmiques du service naviguent seules)…
 const MANNED = ["trade", "barge", "fisher", "ferry"];
@@ -61,6 +63,21 @@ describe("l'équipage des bateaux", () => {
     expect(crewDir(Math.PI)).toBe(1);
     expect(crewDir(-Math.PI / 2)).toBe(3);
     expect(crewDir(2 * Math.PI + 0.3)).toBe(0);
+  });
+  it("la navette des Plaisirs : l'hôtesse de la Maison à la proue, des passagers à l'aller, personne à la Maison", () => {
+    for (let b = 0; b <= 9; b += 1) {
+      const M = BOAT_MODELS[BAND_FLEET[b].shuttle[0]];
+      const ctx = { variant: M.variant(3), state: "cruise", k: 1.2 };
+      const go = bakeBoat(M, dirTheta(5), ctx);
+      const host = go.crew.filter((c) => c.role === "hostess");
+      expect(host.length, "bande " + b).toBe(1);
+      const name = crewSpec(b, M, host[0]).name;
+      expect(fs.existsSync(path.join(process.cwd(), "public/pixelart/agents/inhabitants", name + "-southeast.png")), name).toBe(true);
+      expect(go.crew.length, "bande " + b).toBeGreaterThanOrEqual(3);
+      for (const cr of go.crew) if (cr.role !== "hostess") expect(ISO_AGENT_NAMES).toContain(crewName(b, M, cr));
+      expect(bakeBoat(M, dirTheta(5), { ...ctx, state: "unload" }).crew.length, "bande " + b).toBe(1);
+      expect(bakeBoat(M, dirTheta(5), { ...ctx, state: "return" }).crew.length).toBeLessThanOrEqual(2);
+    }
   });
   it("le bac distingue le passeur de ses passagers", () => {
     const M = { role: "ferry" };

@@ -110,6 +110,10 @@ export function drawIsoShips(now) {
     // passé sa face aval (isoBridge.pushIsoBridgeItems) — sinon peinte avant lui,
     // elle restait cachée derrière la face ~1,5 tuile après être sortie de dessous.
     sh._hull = null;
+    // De même la pose À QUAI (item 'fleetShip') : sortie du champ, la coque gardait celle
+    // de sa dernière image — et deux captures de suite (horloge figée à la même valeur)
+    // la redessinaient là, à l'échelle d'alors.
+    sh._defer = null;
     if (orbIle) {
       const o = orbitPoint(orbIle, sh.orbit.ang);
       wxS = o.x * T; wyS = o.y * T;
@@ -211,7 +215,10 @@ export function drawIsoShips(now) {
     const bob = Math.sin((now || 0) / 1600 + (sh.phase || 0)) * s * 0.015;
     if (kit) {
       // Deux bateaux qui se croisent de près se saluent (riverFleet : salute).
-      const kstate = sh.state === 'cruise' && sh.salute > 0 ? 'salute' : sh.state;
+      // La navette des Plaisirs : vide amarrée à la Maison, presque vide au retour.
+      const kstate = sh.kind === 'shuttle' && sh.at === 'maison' ? 'unload'
+        : sh.kind === 'shuttle' && sh.state === 'cruise' && sh.dest === 'city' ? 'return'
+          : sh.state === 'cruise' && sh.salute > 0 ? 'salute' : sh.state;
       const pose = { kit, x: p.x, y: snapDev(p.y + bob), thW, z, state: kstate, wx: wxS, wy: wyS, heading, sizeMul, at: now, alpha: ctx.globalAlpha / (prevAlpha || 1) };
       // À QUAI, ou en train de s'y ranger : le bateau est trié AVEC le ponton (item
       // 'fleetShip' du peintre, cf. drawIsoShipDeferred) — peint ici, avant la passe
@@ -305,6 +312,7 @@ function drawKitShip(ctx, sh, P, now) {
     pts: boatHasLights(P.kit) && r.anchors.port ? { port: r.anchors.port, stbd: r.anchors.stbd } : null,
     beacon: r.model && r.model.beacon && r.anchors.beacon ? r.anchors.beacon : null,
     glow: r.model && r.model.glow ? r.model.glow : null,
+    lamps: r.lamps || null,
   };
   sh._navAt = now;
   return r;

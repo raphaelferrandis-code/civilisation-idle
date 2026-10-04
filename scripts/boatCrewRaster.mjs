@@ -4,7 +4,7 @@
 // puis effacé là où le masque de la cuisson dit que le bateau passe devant.
 import { PNG } from 'pngjs';
 import fs from 'node:fs';
-import { crewName, crewDir } from '../src/game/map/iso/boatCrew.js';
+import { crewSpec, crewDir } from '../src/game/map/iso/boatCrew.js';
 import { agentSetForBand } from '../src/game/map/agents.js';
 
 const ISO_DIAG = ['southeast', 'northwest', 'southwest', 'northeast'];
@@ -30,10 +30,10 @@ function footF(p) {
 export function compositeCrew(out, b, M, band, cx, cy, Z) {
   const W = out.width, H = out.height;
   for (const cr of b.crew || []) {
-    const name = crewName(band, M, cr), dir = crewDir(cr.phi);
+    const sp = crewSpec(band, M, cr), name = sp.name, dir = crewDir(cr.phi);
     const full = strip(name, dir, false);
     if (!full) continue;
-    const drawH = Math.max(1, Math.round(32 * Z * (SCALE.get(name) || 0.7) * 0.5));
+    const drawH = Math.max(1, Math.round(32 * Z * (sp.scale || SCALE.get(name) || 0.7) * 0.5));
     const half = strip(name, dir, true);
     const p = half && drawH <= full.height * 0.7 ? half : full;
     const fh = p.height;

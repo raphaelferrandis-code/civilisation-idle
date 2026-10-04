@@ -11,7 +11,11 @@
 //   fisher : le pêcheur (le pêcheur au poisson sur l'épaule de l'âge de pierre)
 //   pass   : passagers du bac (assis, debout, qui saluent)
 //   police : la vedette de police, quand l'ère a son uniforme
+//   hostess: l'hôtesse de la navette des Plaisirs, une fille de la troupe de la
+//            Maison (plaisirsCast), à son âge
 // Pur : aucun DOM, aucun CM (les planches de scripts/ s'en servent aussi).
+
+import { plaisirsCast } from './plaisirsCast.js';
 
 const STONE = { crew: ['caveman', 'caveman2'], fisher: ['caveman3'], pass: ['cavewoman', 'cavewoman2', 'cavewoman3', 'caveman'] };
 const MEDIEVAL = { crew: ['villager', 'villager2'], fisher: ['villager', 'villager2'], pass: ['villagerwoman', 'villagerwoman2', 'villagerwoman3', 'villager'] };
@@ -31,15 +35,23 @@ export const BOAT_CAST = {
 // Ceux qui mènent le bac ; les autres poses y sont des passagers.
 const HANDS = new Set(['steer', 'pole', 'row', 'paddle', 'haul']);
 
-// Le dessin d'un membre d'équipage `cr` (place cuite : pose, id) sur le bateau `M`.
-export function crewName(band, M, cr) {
-  const C = BOAT_CAST[Math.max(0, Math.min(9, band | 0))];
+// Le dessin d'un membre d'équipage `cr` (place cuite : pose, id, role) sur le bateau
+// `M` : { name, scale } — scale nulle = celle du jeu d'habitants (agents.js).
+export function crewSpec(band, M, cr) {
+  const b = Math.max(0, Math.min(9, band | 0));
+  if (cr.role === 'hostess') {
+    const girls = (plaisirsCast(b) || {}).girls;
+    if (girls && girls.length) { const g = girls[(cr.id >>> 0) % girls.length]; return { name: g.name, scale: g.scale }; }
+  }
+  const C = BOAT_CAST[b];
   let list = C.crew;
   if (M && M.role === 'fisher') list = C.fisher;
   else if (M && M.beacon && C.police) list = C.police;
   else if (M && M.role === 'ferry' && !HANDS.has(cr.pose)) list = C.pass;
-  return list[(cr.id >>> 0) % list.length];
+  else if (M && M.role === 'shuttle') list = C.pass;   // les passagers de la navette
+  return { name: list[(cr.id >>> 0) % list.length], scale: null };
 }
+export const crewName = (band, M, cr) => crewSpec(band, M, cr).name;
 
 // Cap MONDE (rad) → bande diagonale des habitants (agents.ISO_DIAG : 0 = est → sud-
 // est, 1 = ouest → nord-ouest, 2 = sud → sud-ouest, 3 = nord → nord-est).

@@ -175,7 +175,11 @@ export function collectIsoItems(bake, now) {
   for (const sh of CM.ships || []) {
     const P = sh._defer;
     if (!P || P.at !== now) continue;
-    const hb = T * 0.30 * (sh._len || 1);
+    // La navette des Plaisirs se range LE LONG du bout de son ponton (ou de l'escalier
+    // de la Maison) : triée à son centre, derrière le ponton de la rive d'en face de
+    // l'œil, devant celui de l'autre — avancée comme un marchand, elle couvrait le bout
+    // du ponton et sa lanterne.
+    const hb = sh.kind === 'shuttle' ? 0 : T * 0.30 * (sh._len || 1);
     items.push({ d: isoUnitDepth(P.wx + hb, P.wy + hb), kind: 'fleetShip', sh });
     const pd = portDepth[sh.berthId];
     for (const q of sh._porters || []) {

@@ -63,7 +63,10 @@ import { boatSpecFor, boatFootprint } from './iso/boatKit.js';
 import { fleetBerths, projectOnRibbon } from './iso/boatBerths.js';
 import { BOATKIT } from './iso/boatKit.js';
 import { fleetFor, fleetRoles, BOAT_MODELS } from './iso/boatKits.js';
-import { ferrySite, navWindow, ribbonLength, quayHiddenDepth, FERRY_TIP } from './riverFleet.js';
+import { ferrySite, navWindow, ribbonLength, quayHiddenDepth, FERRY_TIP, shuttleSite, ribbonAt } from './riverFleet.js';
+import { MAISON_LANDING_PX } from './iso/boatKitsPlaisirs.js';
+import { visibleSide, stairPontoon, edgePontoon, pontoonFace, PONTOON_LEN } from './iso/boatLandings.js';
+import { wantQuayStairs, ensureQuayGeo, quayWantedFoot } from './iso/isoQuay.js';
 
 // Taille d'une coque pour la NAVIGATION (tuiles) : celle du kit de bateaux quand
 // l'ère en a un (iso/boatKits.js), sinon l'échelle historique des sprites PixelLab.
@@ -1722,6 +1725,10 @@ function cityMapEnsureLayout(now, deps = {}) {
     // du pont (retour Raph, 2026-10-03 : « pas logique que le passeur soit à côté
     // du pont »).
     CM.ferrySite = null;
+    // Les volées que le bac et la navette demandent au quai (isoQuay.wantQuayStairs),
+    // réunies : la géométrie du quai se refait à chaque nouvelle liste.
+    const quayWant = [];
+    wantQuayStairs(quayWant);
     if (hasRiver && kitFleet && kitFleet.ferry && L.river.samples) {
       const sm = L.river.samples;
       const win = navWindow(sm, { x0: 0, y0: 0, x1: L.gridN || 0, y1: L.gridN || 0 });
@@ -1741,17 +1748,120 @@ function cityMapEnsureLayout(now, deps = {}) {
         // « qu'il ne rentre pas dans le quai, il s'arrête avant »). L'embarcadère
         // allonge alors son tablier jusque-là (boatScenes). Pas de mur avant la
         // bande 2 (campement), ni là où le quai ne court pas (grève, port).
+        // DEPUIS LE 2026-10-04 (Raph : « mets le ponton vraiment au pied de l'escalier, et
+        // oui tu peux le faire pour le passeur aussi ») : sur la rive dont on voit le mur,
+        // un escalier du quai et un ponton flottant à son pied — le bac traverse au droit de
+        // ce ponton ; sur la rive au mur caché, le garde-corps s'ouvre et un ponton part du
+        // bord (iso/boatLandings.js). Sans quai : l'embarcadère sur pieux d'avant.
+        const FS = CM.ferrySite;
         const band = (L.counts && L.counts.eraBand) | 0;
         const wallT = band >= 2 && quayWallTune.on ? quayWallTiles(band) * (quayWallTune.heightK || 1) : 0;
         ensureQuayGate();
-        const g = CM.quayGate, i = Math.round(CM.ferrySite.t * (sm.length - 1));
-        CM.ferrySite.reach = [-1, 1].map((side) => {
-          const run = g && (side > 0 ? g.drawPlus : g.drawMinus);
-          const walled = !!(run && run[i]);
-          return Math.max(FERRY_TIP, walled ? quayHiddenDepth(sm, CM.ferrySite.t, side, wallT) : 0);
+        const g = CM.quayGate, idx = (t) => Math.round(t * (sm.length - 1));
+        const walledAt = (t, sd) => { const run = g && (sd > 0 ? g.drawPlus : g.drawMinus); return !!(run && run[idx(t)]); };
+        FS.landings = {};
+        const vis = visibleSide(sm, FS.t);
+        if (wallT > 0 && vis && walledAt(FS.t, vis)) {
+          quayWant.push({ id: 'passeur', i: idx(FS.t), side: vis });
+          wantQuayStairs(quayWant);
+          ensureQuayGeo(L);
+          const foot = quayWantedFoot('passeur');
+          const P = foot ? stairPontoon(sm, foot, vis, PONTOON_LEN.ferry) : null;
+          const face = P ? pontoonFace(sm, P) : null;
+          if (face && Math.sign(face.lat) === vis) {
+            FS.t = face.t;
+            FS.hw = ribbonAt(sm, face.t).hw;
+            FS.landings[vis] = P;
+          }
+        }
+        FS.reach = [-1, 1].map((side) => {
+          if (FS.landings[side]) return Math.max(FERRY_TIP, FS.hw - Math.abs(pontoonFace(sm, FS.landings[side]).lat));
+          const walled = walledAt(FS.t, side);
+          const hid = walled ? quayHiddenDepth(sm, FS.t, side, wallT) : 0;
+          if (wallT > 0 && walled && hid <= 0) {
+            // Le garde-corps passe DEVANT lui (« la barrière doit passer devant le
+            // ponton »), avec une OUVERTURE là où on le voit passer sous le bord (« il faut
+            // garder une ouverture ») : on y descend par un escalier caché derrière le mur.
+            FS.landings[side] = edgePontoon(sm, FS.t, side, wallT);
+            const G = FS.landings[side];
+            quayWant.push({ id: 'passeur' + side, i: idx(FS.t), side, gapOnly: true, x: G.gx, y: G.gy });
+            return Math.max(FERRY_TIP, FS.hw - Math.abs(pontoonFace(sm, FS.landings[side]).lat));
+          }
+          return Math.max(FERRY_TIP, hid);
         });
+        wantQuayStairs(quayWant);
       }
     }
+    // LA NAVETTE DES PLAISIRS (boatKitsPlaisirs.js, riverFleet.shuttleStep) : ses deux
+    // arrêts. À la Maison, au pied de l'escalier qui descend à l'eau, face au SUD
+    // (+y), coque en travers ; en ville, son propre ponton, du même bord, entre le
+    // cœur et la Maison. Après le passeur : elle fuit son site comme les autres passes.
+    CM.shuttleSite = null;
+    const plS = L.river && L.river.plaisirs;
+    if (hasRiver && kitFleet && kitFleet.shuttle && plS && L.river.samples) {
+      const sm = L.river.samples;
+      const band = (L.counts && L.counts.eraBand) | 0;
+      const fpS = boatFootprint({ id: kitFleet.shuttle[0] });
+      const beam = fpS ? fpS.beam : 0.4;
+      const dockY = plS.y + ((MAISON_LANDING_PX[band] || 90) + 1) / 32 + beam / 2;
+      const pm = projectOnRibbon(sm, plS.x, dockY);
+      const c = L.cx != null ? projectOnRibbon(sm, L.cx, L.cy) : null;
+      const win = navWindow(sm, { x0: 0, y0: 0, x1: L.gridN || 0, y1: L.gridN || 0 });
+      const avoid = [
+        ...CM.riverGates.map((g) => g.t),
+        ...CM.shipBerths.map((b) => b.t),
+        ...CM.riverObstacles.filter((o) => o.id !== 'plaisirs').map((o) => o.t),
+      ];
+      if (CM.ferrySite) avoid.push(CM.ferrySite.t);
+      const site = pm && c ? shuttleSite(sm, win, avoid, c.t, pm.t) : null;
+      if (site) {
+        const wallT = band >= 2 && quayWallTune.on ? quayWallTiles(band) * (quayWallTune.heightK || 1) : 0;
+        ensureQuayGate();
+        const g = CM.quayGate, i = Math.round(site.t * (sm.length - 1));
+        const walled = (sd) => { const run = g && (sd > 0 ? g.drawPlus : g.drawMinus); return !!(run && run[i]); };
+        const r = ribbonAt(sm, site.t);
+        let city = null;
+        // UN ESCALIER DU QUAI ET UN PONTON À SON PIED (Raph, 2026-10-04 : « le ponton
+        // depuis le quai ça fait bizarre, il faut enlever la rambarde à ce niveau-là et
+        // faire un escalier »). Sur la rive dont on VOIT le mur : de l'autre, la volée se
+        // cacherait derrière le bord de la promenade. Le quai pose la volée (isoQuay,
+        // volée demandée, garde-corps ouvert) et publie son pied ; le ponton flotte là,
+        // la navette s'amarre à son bout.
+        const vis = visibleSide(sm, site.t);
+        // Le ponton longe le mur depuis le palier d'en bas de la volée ; la navette s'amarre
+        // bord à bord le long de son flanc côté large (pontoonFace).
+        if (wallT > 0 && vis && walled(vis)) {
+          quayWant.push({ id: 'navette', i, side: vis });
+          wantQuayStairs(quayWant);
+          ensureQuayGeo(L);
+          const foot = quayWantedFoot('navette');
+          const P = foot ? stairPontoon(sm, foot, vis, PONTOON_LEN.shuttle) : null;
+          const face = P ? pontoonFace(sm, P) : null;
+          if (face && Math.sign(face.lat) === vis) {
+            const rb = ribbonAt(sm, face.t);
+            city = { t: face.t, hw: rb.hw, side: vis, lat: face.lat - vis * (1 / 32 + beam / 2), th: Math.atan2(rb.ty, rb.tx), pontoon: P };
+          }
+        }
+        if (!city) {
+          // Repli, du bord de la Maison : sur une rive au mur caché, le garde-corps s'ouvre
+          // et un ponton part du bord (la navette s'amarre le long de son bout) ; sans
+          // quai, l'embarcadère sur pieux.
+          const side = Math.sign(pm.lat) || 1;
+          const hid = walled(side) ? quayHiddenDepth(sm, site.t, side, wallT) : 0;
+          if (wallT > 0 && walled(side) && hid <= 0) {
+            const E = edgePontoon(sm, site.t, side, wallT);
+            quayWant.push({ id: 'navette', i, side, gapOnly: true, x: E.gx, y: E.gy });
+            const face = pontoonFace(sm, E);
+            city = { t: face.t, hw: site.hw, side, lat: face.lat - side * (1 / 32 + beam / 2), th: Math.atan2(r.ty, r.tx), pontoon: E };
+          } else {
+            const reach = Math.max(FERRY_TIP, hid);
+            city = { t: site.t, hw: site.hw, side, reach, lat: side * Math.max(0.3, site.hw - reach - 1 / 32 - beam / 2), th: Math.atan2(r.ty, r.tx) };
+          }
+        }
+        CM.shuttleSite = { city, maison: { t: pm.t, lat: pm.lat, th: 0 } };
+      }
+    }
+    wantQuayStairs(quayWant);
   }
 }
 
@@ -2124,6 +2234,9 @@ function initCityMap(canvas, options = {}) {
           sizeOf: fleetHullSize,
           berths: CM.shipBerths || [],
           ferry: CM.ferrySite || null,
+          // La navette des Plaisirs : ses arrêts, et la nuit (elle sort surtout le soir).
+          shuttle: CM.shuttleSite || null,
+          night: CM.nightF || 0,
           // Métier d'un bateau de service : celui de son MODÈLE (patrouille, drague, pompiers).
           serviceMode: fleetServiceMode,
           // Fenêtre de navigation : la carte (le ruban la déborde de 200 tuiles).

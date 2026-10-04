@@ -69,3 +69,25 @@ export function drawHoverGlow(ctx, x, y, z, len, color, now, seed) {
   ctx.globalCompositeOperation = prevOp;
   ctx.globalAlpha = prevA;
 }
+
+// LES LANTERNES DE LA NAVETTE DES PLAISIRS, la nuit (passe de nuit, après le voile) :
+// une lueur ronde rouge-orangé et un cœur d'un pixel d'art, qui palpite un peu comme
+// une flamme sous le papier. `pts` = points écran ; `night` = 0…1.
+export function drawLamps(ctx, pts, now, z, seed, night) {
+  if (!pts || !pts.length || !(night > 0.02)) return;
+  const prevA = ctx.globalAlpha;
+  const px = Math.max(1, snapDev(z));
+  pts.forEach((p, i) => {
+    const fl = 0.85 + 0.15 * Math.sin((now || 0) / 170 + i * 1.9 + (seed % 13));
+    const a = Math.min(1, night * 1.2) * fl;
+    ctx.globalAlpha = prevA * a * 0.22;
+    ctx.fillStyle = '#ff6a46';
+    ctx.beginPath(); ctx.arc(p.x, p.y, 4.5 * z, 0, Math.PI * 2); ctx.fill();
+    ctx.globalAlpha = prevA * a * 0.4;
+    ctx.beginPath(); ctx.arc(p.x, p.y, 2.2 * z, 0, Math.PI * 2); ctx.fill();
+    ctx.globalAlpha = prevA * a;
+    ctx.fillStyle = '#ffd08a';
+    ctx.fillRect(snapDev(p.x - px / 2), snapDev(p.y - px / 2), px, px);
+  });
+  ctx.globalAlpha = prevA;
+}
