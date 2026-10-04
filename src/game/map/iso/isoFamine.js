@@ -3,8 +3,9 @@
 // Analyse du visuel de crise (2026-10-04, lot B, Raph : oui) : aucune des crises
 // de mi-parcours n'avait de rendu sur la carte — une famine ne se voyait pas. Ici,
 // quand le foyer SUBSISTANCE monte, des étals de nourriture des places de marché
-// passent à leur version VIDE (comptoir nu, même étal, même place) : pain et
-// fromages, légumes. Les étals de draps ne changent pas (rien à manger dessus).
+// passent à leur version VIDE (comptoir nu, même étal, même place), à toutes les
+// ères qui ont un marché (antique → cosmique). Les étals qui ne vendent pas à
+// manger ne changent pas.
 //
 // · Le signal est la Subsistance de pressureBreakdown() — la valeur du dossier
 //   « Subsistance » du Conseil, celle que les crises de famine (grain_panic,
@@ -41,8 +42,16 @@ export function famineK(now) {
 
 // Les étals qui ONT un art vide (`<prop>-vide-<face>-<ère>.png`, PixelLab inpaint
 // du comptoir). Liste fermée : demander un art absent coûterait un 404 par étal.
-// Pilote 2026-10-04 : marché médiéval, pain/fromages (rouge) et légumes (vert).
-export const STALLS_VIDES = new Set(['stall-red-medieval', 'stall-green-medieval']);
+// Seuls les étals de NOURRITURE ont une version vide : draps (bleu antique), amphores
+// (ocre antique), fleurs (rouge industriel, bleu moderne) et gadgets (magenta
+// cosmique) restent pleins — une famine ne vide pas un fleuriste.
+export const STALLS_VIDES = new Set([
+  'stall-red-antique',                               // légumes et fruits
+  'stall-red-medieval', 'stall-green-medieval',      // pain et fromages, légumes
+  'stall-green-industrial', 'stall-yellow-industrial', // choux et carottes, pain et fromages
+  'stall-red-modern', 'stall-yellow-modern',         // cagettes de fruits, pain
+  'stall-amber-cosmic', 'stall-cyan-cosmic',         // vivres, poissons et légumes
+]);
 
 // Le nom de prop VIDE de cet étal pour cette ère, ou null (pas vide / pas d'art).
 export function stallVideProp(rec, era, now) {

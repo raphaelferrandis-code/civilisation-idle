@@ -51,7 +51,7 @@ describe("étals vides de la famine", () => {
     const now = famine(1);
     expect(stallVideProp({ prop: "stall-red", wx: 1, wy: 1 }, "medieval", now)).toBe("stall-red-vide");
     expect(stallVideProp({ prop: "stall-blue", wx: 1, wy: 1 }, "medieval", now)).toBe(null);
-    expect(stallVideProp({ prop: "stall-red", wx: 1, wy: 1 }, "antique", now)).toBe(null);
+    expect(stallVideProp({ prop: "stall-red", wx: 1, wy: 1 }, "industrial", now)).toBe(null); // fleurs
   });
 
   for (const key of STALLS_VIDES) {
@@ -72,8 +72,8 @@ describe("étals vides de la famine", () => {
           y0 = Math.min(y0, y); y1 = Math.max(y1, y);
         }
         expect(n).toBeGreaterThan(60);          // le comptoir a bien été vidé
-        expect(y0).toBeGreaterThanOrEqual(16);  // sous l'auvent
-        expect(y1).toBeLessThanOrEqual(32);     // au-dessus des pieds
+        expect(y0).toBeGreaterThanOrEqual(14);  // sous l'auvent
+        expect(y1).toBeLessThanOrEqual(35);     // au-dessus des pieds (bord avant des tables modernes : 35)
       });
     }
   }
