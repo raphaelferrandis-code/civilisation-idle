@@ -118,7 +118,7 @@ function spots(L, c, seed) {
   if (st === 0 || st === 7) {
     // Au bord du terroir (le seuil d'un champ), sinon à la lisière.
     const d = doorstepForType(L, 'irrigated_fields', seed);
-    if (d && d.open >= 0) return [{ ...d, roof: false, t: null, key: 'enclos:' + d.key }];
+    if (d && d.open >= 0) return [{ ...d, roof: false, key: 'enclos:' + d.key }];
     return lisiereSpots(L).slice(0, 20);
   }
   const roofs = roofSpots(L, st, seed);

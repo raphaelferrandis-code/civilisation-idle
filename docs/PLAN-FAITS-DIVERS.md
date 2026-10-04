@@ -363,3 +363,22 @@ le 30/10).
     (`drawnBoxOf` + `inkTopAt`), triée JUSTE APRÈS sa maison — ⚠ avec la même clé
     poussée vers la rue (`isoFrontOffset`), sinon elle passe avant la maison et la
     boîte du toit n'existe pas encore. Un Seguin en bas, la tête levée (de dos).
+  - Commité `21f528dd`.
+- **Lot 4 : les Grandvent, la Borne, le Monstre, le Musicien.**
+  - Grandvent : une boucle à graine — élan (ailes qui battent), saut en arc, plouf
+    (ronds dans l'eau), retour ; catapulte, montgolfière qui dérive et descend dans le
+    fleuve, réacteur trois secondes ; au Stellaire il vole et tremble ; au Démiurge,
+    ailes rangées, il nous regarde.
+  - La Borne : épées qui se fendent, pistolets qui fument tous les « mardis », caméra
+    au procès télévisé, robots géants, la savante agenouillée au Démiurge.
+  - Le Monstre : la ligne du pêcheur jusqu'à l'eau, l'aileron qui longe la rive, le
+    sous-marin et ses bulles, la caméra et son projecteur la nuit, l'ombre immense,
+    le dos d'Anselme et sa bulle au baptême (la foule : des figurants `mute`).
+  - Le Musicien : un instrument par âge, des notes qui montent ; au clic, sa mélodie
+    JOUE (`jouerMelodieScene`) ; au Démiurge, ses ancêtres en silhouettes pâles, chacun
+    au costume de SON âge (`fdFigure(f, band)`), et la mélodie du premier soir.
+  - ⚠ BERGES : sur le modèle des hérons (iso/isoRiverLife) — cadre du fleuve, quai à
+    hw + 0,35, ni pont (`bridgeBlocks`) ni quai coupé (`CM.quayGate`), loin des
+    merveilles (leur parvis compte désormais comme bâti). Le point d'EAU à
+    max(0,3·hw, hw − 1,4) du fil : le lit dessiné garde une bande de VASE le long des
+    quais (l'aileron s'y posait à mi-largeur).

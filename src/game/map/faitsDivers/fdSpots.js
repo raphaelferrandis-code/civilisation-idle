@@ -15,6 +15,7 @@
 import { CM, cmHash } from '../layout.js';
 import { isoWildForest } from '../iso/isoWildForest.js';
 import { isoPlazaBoxes, isoPlazaCompositions } from '../iso/isoPlaza.js';
+import { bridgeBlocks } from '../iso/isoBridge.js';
 
 const key = (x, y) => x + ',' + y;
 // Brassage (fmix32) : cmHash de graines voisines sort des valeurs voisines.
@@ -31,6 +32,10 @@ export function fdFootprints(L) {
     const sx = t.spanX || t.size || 1, sy = t.spanY || t.size || 1;
     for (let ax = 0; ax < sx; ax += 1) for (let ay = 0; ay < sy; ay += 1) map.set(key(t.gx + ax, t.gy + ay), t);
   }
+  // Les MERVEILLES : leur parvis compte comme bâti (on n'y pose rien, et un monument
+  // planté devant une scène la cache — vu en jeu : un pêcheur derrière un temple).
+  const WONDER = { type: 'wonder' };
+  if (L.wonderGround && L.wonderGround.forEach) L.wonderGround.forEach((k) => { if (!map.has(k)) map.set(k, WONDER); });
   _foot = { at, n, L, map };
   return map;
 }
@@ -338,31 +343,50 @@ export function bankSpots(L) {
   const out = [];
   const rv = L.river;
   if (rv && rv.present && rv.samples && rv.samples.length > 4) {
+    const T = CM.TILE;
     const foot = fdFootprints(L);
     const busy = new Set();
     for (const tr of (L.trees || [])) busy.add(key(tr.gx, tr.gy));
     const sm = rv.samples, N = L.gridN | 0;
+    const band = (L.counts && L.counts.eraBand) | 0;
+    const quays = band >= 2;
+    const g = CM.quayGate;
     for (let i = 2; i < sm.length - 2; i += 2) {
-      const q = sm[i], a = sm[i - 1], b = sm[i + 1];
-      let tx = b.x - a.x, ty = b.y - a.y;
+      const q = sm[i], a2 = sm[i - 1], b = sm[i + 1];
+      let tx = b.x - a2.x, ty = b.y - a2.y;
       const tl = Math.hypot(tx, ty) || 1; tx /= tl; ty /= tl;
+      const hw = q.hw || 2;
       for (const side of [-1, 1]) {
-        const off = (q.hw || 2) + 0.45;
-        const x = q.x - ty * side * off, y = q.y + tx * side * off;
+        const nx = -ty * side, ny = tx * side;
+        // Comme les hérons (iso/isoRiverLife) : sur le quai, un pas en retrait du
+        // bord ; sur une berge naturelle, au ras de l'eau.
+        const off = quays ? hw + 0.35 : hw + 0.1;
+        const x = q.x + nx * off, y = q.y + ny * off;
         if (x < 1 || y < 1 || x > N - 1 || y > N - 1) continue;
         const gx = Math.floor(x), gy = Math.floor(y), k = key(gx, gy);
-        // Sur la berge elle-même (le quai, la rive) : seule l'EAU est refusée.
-        if ((rv.isWater && rv.isWater(gx, gy)) || foot.has(k) || busy.has(k) || busy.has(key(gx + 1, gy + 1)) || busy.has(key(gx + 1, gy)) || busy.has(key(gx, gy + 1))) continue;
+        if (foot.has(k) || busy.has(k) || busy.has(key(gx + 1, gy + 1)) || busy.has(key(gx + 1, gy)) || busy.has(key(gx, gy + 1))) continue;
+        // Ni sur un pont (ni à côté : ses piles et son tablier montent), ni là où le
+        // quai est coupé (port, bouts du fleuve).
+        if (bridgeBlocks(x * T, y * T, T * 2)) continue;
+        if (quays && g && (side > 0 ? g.drawPlus : g.drawMinus) && !(side > 0 ? g.drawPlus : g.drawMinus)[i]) continue;
+        // Loin des merveilles (leurs îles et leurs parvis montent haut au-dessus de l'eau).
+        if ((L.wonderSlots || []).some((w) => Math.hypot(w.gx - x, w.gy - y) < 5)) continue;
         // En ville ou tout contre (le bord du fleuve sauvage reste aux hérons).
         const urban = L.urbanSet && (L.urbanSet.has(k) || L.urbanSet.has(key(gx + 1, gy)) || L.urbanSet.has(key(gx - 1, gy)) || L.urbanSet.has(key(gx, gy + 1)) || L.urbanSet.has(key(gx, gy - 1)));
         if (!urban) continue;
-        const wx = q.x - x, wy = q.y - y;
-        const face = Math.abs(wx) > Math.abs(wy) ? (wx > 0 ? 0 : 1) : (wy > 0 ? 2 : 3);
-        out.push({ x, y, face, wxd: wx, wyd: wy, key: 'berge:' + i + ':' + side, open: openFront(L, foot, gx, gy), h: fdHash('berge:' + i + ':' + side + ':' + (L.mapSeed || 0)) });
+        // Le point d'EAU de cette berge, de son côté du fil. ⚠ Le lit dessiné garde une
+        // bande de vase et de roseaux le long des quais (vu en jeu : l'aileron et le
+        // sous-marin posés sur la vase à mi-largeur).
+        // Les canards de la petite vie s'y tiennent à moins de hw − 0,75 du fil : on se
+        // met un peu plus à l'intérieur, juste au-delà de la vase.
+        const lat = Math.max(hw * 0.3, hw - 1.4);
+        const wxp = q.x + nx * lat, wyp = q.y + ny * lat;
+        const face = Math.abs(nx) > Math.abs(ny) ? (nx < 0 ? 0 : 1) : (ny < 0 ? 2 : 3);
+        out.push({ x, y, face, wxd: -nx, wyd: -ny, wxp, wyp, key: 'berge:' + i + ':' + side, open: openFront(L, foot, gx, gy), h: fdHash('berge:' + i + ':' + side + ':' + (L.mapSeed || 0)) });
       }
     }
   }
-  out.sort((a, b) => (b.open - a.open) || (a.h - b.h));
+  out.sort((a2, b) => (b.open - a2.open) || (a2.h - b.h));
   _bank = { at, L, list: out };
   return out;
 }

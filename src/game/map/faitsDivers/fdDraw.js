@@ -111,7 +111,8 @@ export function fdFigure(ctx, f, band, now, alpha = 1) {
   ctx.globalAlpha = pa;
   if (!d) return null;
   const box = { x0: p.x - d.drawW * 0.28, x1: p.x + d.drawW * 0.28, y0: d.top + d.drawH * 0.03, y1: f.sit ? p.y : d.top + d.drawH * 0.91 };
-  noteFait(f, box);
+  // `mute` : un figurant (la foule du baptême, les ancêtres du musicien) — peint, pas cliquable.
+  if (!f.mute) noteFait(f, box);
   return { x: p.x, y: p.y, top: d.top, h: d.drawH, w: d.drawW };
 }
 

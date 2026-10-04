@@ -337,6 +337,127 @@ export const FD_ART = {
     'k.......k',
   ]] },
 
+  // ── LES GRANDVENT (l'homme-volant) ─────────────────────────────────────────
+  // Les ailes de plumes (ou de cire, à l'âge du Marbre), posées aux épaules : deux
+  // images, battement haut et bas.
+  ailes: { foot: 3, frames: [[
+    'ww.......ww',
+    'Www.....wwW',
+    '.WWw...wWW.',
+    '..Ww...wW..',
+  ], [
+    '...........',
+    '..ww...ww..',
+    '.Www...wwW.',
+    'WW.......WW',
+  ]] },
+  // Rangées par terre, à la fin.
+  ailesPliees: { foot: 2, frames: [[
+    '.wwWW.',
+    'wWWwwW',
+    '.kkkk.',
+  ]] },
+  // La catapulte empruntée aux armées du roi.
+  catapulte: { foot: 6, frames: [[
+    'kk........',
+    'ktk.......',
+    '.ktk......',
+    '..ktk...k.',
+    '...ktkkktk',
+    'kkkkkttkkk',
+    'k.k....k.k',
+  ]] },
+  // La montgolfière des Grandvent : enveloppe à rayures, nacelle d'osier.
+  montgolfiere: { foot: 13, frames: [[
+    '...kkkkk...',
+    '..kryryrk..',
+    '.krryrryrk.',
+    'kryyryyryyk',
+    'krryrryrryk',
+    'kryyryyryyk',
+    '.krryrryrk.',
+    '..kryryrk..',
+    '...kkykk...',
+    '....k.k....',
+    '....k.k....',
+    '...kttTk...',
+    '...kTttk...',
+    '...kkkkk...',
+  ]] },
+
+  // ── LA QUERELLE DE LA BORNE ────────────────────────────────────────────────
+  // La borne : une pierre dressée entre deux champs (la météorite, en vérité).
+  borne: { foot: 4, frames: [[
+    '.kk.',
+    'kgGk',
+    'kgGk',
+    'kGGk',
+    'kkkk',
+  ]] },
+  // La caméra de télévision sur son trépied (procès télévisé, émission du monstre).
+  camera: { foot: 6, frames: [[
+    'kkkk.',
+    'kiiIk',
+    'kiiik',
+    '.kk..',
+    '.kk..',
+    'k..k.',
+    'k...k',
+  ]] },
+  // Les robots géants des deux familles (40 m… et 39,5).
+  robot: { foot: 17, frames: [[
+    '..kkkk..',
+    '..kyIk..',
+    '..kkkk..',
+    '.kkiikk.',
+    'kiiIiiik',
+    'kIkiikIk',
+    'kIkiikIk',
+    'kikIIkik',
+    'kk.ii.kk',
+    '..kiik..',
+    '..kiik..',
+    '..k..k..',
+    '.kik.kik',
+    '.kik.kik',
+    '.kik.kik',
+    '.kIk.kIk',
+    'kkkk.kkkk',
+    'kkkk.kkkk',
+  ]] },
+
+  // ── LE MONSTRE DU FLEUVE ───────────────────────────────────────────────────
+  // L'aileron qui fend l'eau.
+  aileron: { foot: 3, frames: [[
+    '...k',
+    '..kG',
+    '.kGG',
+    'kGGG',
+  ]] },
+  // Le dos du vieux poisson qui affleure (au baptême) : une longue échine sombre.
+  dos: { foot: 2, frames: [[
+    '....kkkkkkk....',
+    '..kkGGGGGGGkk..',
+    'kkGGGgGGGGGGGkk',
+  ]] },
+  // Le sous-marin à vapeur du savant, son périscope et sa cheminée.
+  sousmarin: { foot: 4, frames: [[
+    '......k....',
+    '......k.kk.',
+    '...kkkkkkk.',
+    '.kkiIiiiiikk',
+    'kiiiiUiiiiik',
+  ]] },
+
+  // ── LE MUSICIEN ────────────────────────────────────────────────────────────
+  // Les instruments, tenus à la main (posés en points écran, cf. fdBlitScreen).
+  lyre: { foot: 3, frames: [['k.k', 'kyk', 'kyk', '.k.']] },
+  vielle: { foot: 2, frames: [['.kkk', 'kttT', 'kkkk']] },
+  accordeon: { foot: 3, frames: [['kkk', 'rkr', 'krk', 'kkk']] },
+  guitare: { foot: 3, frames: [['k...', '.k..', '.kn.', 'knnk']] },
+  ampli: { foot: 3, frames: [['kkkk', 'kiik', 'kIik', 'kkkk']] },
+  theremine: { foot: 3, frames: [['...k', '...k', 'kkkk', 'kiik']] },
+
   // ── LA CHÈVRE DES TOITS ────────────────────────────────────────────────────
   // L'enclos des Seguin, vu en biais : le portillon de devant est ouvert.
   enclos: { foot: 6, frames: [[

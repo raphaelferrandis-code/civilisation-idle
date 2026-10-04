@@ -8,6 +8,10 @@ import { SECTE_SCENE } from './fdSecte.js';
 import { CYNIQUE_SCENE } from './fdCynique.js';
 import { TORTUE_SCENE } from './fdTortue.js';
 import { CHEVRE_SCENE } from './fdChevre.js';
+import { VOLANT_SCENE } from './fdVolant.js';
+import { BORNE_SCENE } from './fdBorne.js';
+import { MONSTRE_SCENE } from './fdMonstre.js';
+import { MUSICIEN_SCENE } from './fdMusicien.js';
 import { loversSceneFor } from './fdLovers.js';
 
 export const FD_BUILDERS = {
@@ -15,6 +19,10 @@ export const FD_BUILDERS = {
   cynique: CYNIQUE_SCENE,
   tortue: TORTUE_SCENE,
   chevre: CHEVRE_SCENE,
+  volant: VOLANT_SCENE,
+  borne: BORNE_SCENE,
+  monstre: MONSTRE_SCENE,
+  musicien: MUSICIEN_SCENE,
 };
 
 // Le constructeur d'un candidat (core/faitsDivers.fdCandidates), ou null.
