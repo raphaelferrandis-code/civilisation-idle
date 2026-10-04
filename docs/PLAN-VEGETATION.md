@@ -252,3 +252,15 @@ Méthode habituelle : planche avant/après sur de vraies captures, validation de
     12 tours.
   - Test rouge HORS chantier : `comportementsAnalyse.test.js` (agents.js modifié par la
     session « comportements », non commité) — pas touché.
+  - Commit local `08196930`.
+- **Lot 5 fait** : la pelouse de ville (`LAWN`, `townLawnAt` dans `iso/isoMeadow.js`,
+  molette `__lawn`).
+  - Pelouse = `L.townGreen` (jardins, cours et air des îlots, prés et ceintures de la
+    structure de ville) + friche de quartier (`courField` → 'grass'). C'étaient les
+    « taches de moquette » de la capture de Raph.
+  - Voile clair (178,204,120) à 0,16, lissé avec les prés (une pelouse ne prend pas les
+    zones sèches/grasses) ; ni touffes, ni brins, ni herbes folles ; fleurs seulement en
+    MASSIF au cœur (cellule dont les 8 voisines sont de la pelouse, `LAWN_FLOWER_P` 0,5).
+  - La couture avec le pavé n'est PAS décorée (7 refus) : la frange existante reste telle
+    quelle, seule la matière change.
+  - Tests ajoutés à `meadowFlowers.test.js`.

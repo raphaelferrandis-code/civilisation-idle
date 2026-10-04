@@ -172,6 +172,8 @@ const GD_FLOWERS = [
 // fleurs tombent dans une colonie.
 // Molette : __grassDetail({ colony: false }) rejoue le semis uniforme.
 export const FLOWER_COLONY = { from: 0.45, span: 0.2, norm: 2.34, scale: 9, dominant: 0.7 };
+// Part de fleurs d'une cellule au CŒUR d'une pelouse de ville (massif, cf. isoMeadow.LAWN).
+export const LAWN_FLOWER_P = 0.5;
 // Colonies par couleur dominante : pâquerettes, boutons d'or, coquelicots, bleuets, mêlées.
 const COLONY_KINDS = [[0.3, 0], [0.25, 3], [0.15, 6], [0.12, 8], [0.18, -1]];
 // Facteur de colonie en (gx, gy), de moyenne 1 sur la carte.
@@ -194,7 +196,9 @@ function colonyFlower(gx, gy) {
 // de Skia (aucun path construit) — contrairement aux diamondPath des voiles, que
 // le remisage par palier fait gagner pour de bon (194 → 102 ms). Le vrai coût
 // résiduel ici est la CHAÎNE de style reconstruite par rect, pas l'appel de dessin.
-export function drawGrassDetail(ctx, gx, gy, px, py, hw, hh, onGrass = null, flowerK = 1) {
+// `lawn` : 0 herbe sauvage, 1 pelouse de ville, 2 cœur de pelouse (isoMeadow.townLawnAt) —
+// la pelouse n'a ni touffes ni herbes folles, et ses fleurs vont en massif au cœur.
+export function drawGrassDetail(ctx, gx, gy, px, py, hw, hh, onGrass = null, flowerK = 1, lawn = 0) {
   const pu = Math.max(1, Math.round(hw * 0.055));    // « pixel » d'art (suit le zoom)
   // LISIÈRE ARRONDIE (cf. isoLisiere) : dans une cellule de bord, un motif ne se pose
   // que si SON point est de l'herbe — sinon la fleur tomberait dans la terre que
@@ -216,7 +220,7 @@ export function drawGrassDetail(ctx, gx, gy, px, py, hw, hh, onGrass = null, flo
     if (ok(fx, fy)) rect(sx, sy, pu, pu, (h1 & 1) ? GD_SPECK_Y : GD_SPECK_L, 0.5);
   }
   // Touffe de brins (knob tuftP, défaut 0) : 2-3 brins verticaux, corps foncé + pointe.
-  if (GRASS_DETAIL.tuftP > 0 && (h2 & 255) / 255 < GRASS_DETAIL.tuftP) {
+  if (!lawn && GRASS_DETAIL.tuftP > 0 && (h2 & 255) / 255 < GRASS_DETAIL.tuftP) {
     const fx = 0.28 + ((h2 >> 8) & 31) / 31 * 0.44;
     const fy = 0.30 + ((h2 >> 13) & 31) / 31 * 0.42;
     const bx = Math.round(px + (fx - fy) * hw), by = Math.round(py + (fx + fy) * hh);
@@ -234,8 +238,9 @@ export function drawGrassDetail(ctx, gx, gy, px, py, hw, hh, onGrass = null, flo
   // La saison module la densité : rien ne fleurit en hiver, le printemps déborde.
   // `flowerK` : l'herbe piétinée du camp (campFlowerK) en porte moins, ou pas.
   const colony = GRASS_DETAIL.colony !== false;
-  const colK = colony ? flowerColonyK(gx, gy) : 1;
-  if (colK > 0 && (cmHash('gf:' + gx + ':' + gy) & 1023) / 1023 < GRASS_DETAIL.flowerP * SEASON_FLOWER_MUL * flowerK * colK) {
+  // Pelouse : rien au bord, un massif au cœur (LAWN_FLOWER_P) ; ailleurs, la colonie.
+  const fP = lawn ? (lawn === 2 ? LAWN_FLOWER_P : 0) : GRASS_DETAIL.flowerP * (colony ? flowerColonyK(gx, gy) : 1);
+  if (fP > 0 && (cmHash('gf:' + gx + ':' + gy) & 1023) / 1023 < fP * SEASON_FLOWER_MUL * flowerK) {
     const fl = colony ? colonyFlower(gx, gy) : GD_FLOWERS[cmHash('fc:' + gx + ':' + gy) % GD_FLOWERS.length];
     const petal = fl[0], core = fl[1];
     const fx = 0.3 + ((h1 >> 20) & 15) / 15 * 0.4;
@@ -280,7 +285,7 @@ export function drawGrassDetail(ctx, gx, gy, px, py, hw, hh, onGrass = null, flo
   // touffe dessinée fait ~une demi-cellule, à la densité des brins elle
   // re-carpetterait le sol — l'écueil déjà tranché avec Raph le 2026-07-12.
   const h3 = cmHash('gc:' + gx + ':' + gy);
-  if (GRASS_DETAIL.clumpP > 0 && (h3 & 1023) / 1023 < GRASS_DETAIL.clumpP) {
+  if (!lawn && GRASS_DETAIL.clumpP > 0 && (h3 & 1023) / 1023 < GRASS_DETAIL.clumpP) {
     const fx = 0.24 + ((h3 >> 10) & 31) / 31 * 0.52;
     const fy = 0.24 + ((h3 >> 16) & 31) / 31 * 0.52;
     deco(isoArt('deco/tuft-' + (1 + (h3 % GD_TUFTS))), fx, fy, GRASS_DETAIL.clumpScale);
@@ -1019,7 +1024,7 @@ if (typeof window !== 'undefined') {
 // ⚠ Le LISSAGE est coupé UNE FOIS pour toute la fournée : les touffes sont des
 // sprites agrandis au pixel d'art, et le poser par cellule coûterait des centaines
 // d'écritures de propriété pour le même résultat.
-export function drawGrassDetailAll(ctx, grassCells, hw, hh, lisiere = null, flowerK = null) {
+export function drawGrassDetailAll(ctx, grassCells, hw, hh, lisiere = null, flowerK = null, lawn = null) {
   const prevGDS = ctx.imageSmoothingEnabled;
   ctx.imageSmoothingEnabled = false;
   // Lisière arrondie : le test de matière ne coûte que dans les cellules de BORD.
@@ -1027,7 +1032,7 @@ export function drawGrassDetailAll(ctx, grassCells, hw, hh, lisiere = null, flow
   for (let i = 0; i < grassCells.length; i += 4) {
     const gx = grassCells[i], gy = grassCells[i + 1];
     drawGrassDetail(ctx, gx, gy, grassCells[i + 2], grassCells[i + 3], hw, hh,
-      onGrass && lisiere.isEdge(gx, gy) ? onGrass : null, flowerK ? flowerK(gx, gy) : 1);
+      onGrass && lisiere.isEdge(gx, gy) ? onGrass : null, flowerK ? flowerK(gx, gy) : 1, lawn ? lawn(gx, gy) : 0);
   }
   ctx.imageSmoothingEnabled = prevGDS;
 }

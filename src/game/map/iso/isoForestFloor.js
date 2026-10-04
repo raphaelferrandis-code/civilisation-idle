@@ -25,7 +25,8 @@ import { WINTER } from '../seasonMode.js';
 import { worldToScreen } from './projection.js';
 import { FOREST, forestDensity, forestLifeDist } from './isoWildForest.js';
 import { solInvalidate } from './solInvalidate.js';
-import { meadowPixel } from './isoMeadow.js';
+import { meadowPixel, townLawnAt } from './isoMeadow.js';
+import { courOf } from './isoTissu.js';
 
 export const FOREST_FLOOR = {
   on: true,
@@ -122,13 +123,14 @@ export function drawForestFloor(ctx, b, L, T) {
   });
 }
 
-// LES VOILES LISSÉS DE L'HERBE — prés (isoMeadow) puis sous-bois — DANS l'herbe seule :
+// LES VOILES LISSÉS DE L'HERBE — prés et pelouse de ville (isoMeadow) puis sous-bois —
+// DANS l'herbe seule :
 // le lissage déborderait d'une demi-cellule sur le trottoir voisin. `mask` : coins nord
 // des losanges d'herbe (x, y à plat) ; `maskR` : rectangles d'herbe des cellules de
 // lisière arrondie (x0, y0, x1, y1 à plat) — la géométrie même des voiles de prés.
 export function drawGrassVeils(ctx, b, L, T, hw, hh, mask, maskR) {
   if (!L || (!mask.length && !maskR.length)) return;
-  const meadow = meadowPixel(L);
+  const meadow = meadowPixel(L, townLawnAt(L, courOf(L)));
   if (!meadow && !FOREST_FLOOR.on) return;
   ctx.save();
   // ⚠ Pas diamondPath (isoQuad) : il ouvre un NOUVEAU chemin à chaque losange, le

@@ -4,7 +4,8 @@ import { describe, it, expect } from "vitest";
 import fs from "node:fs";
 import { PNG } from "pngjs";
 import { FLOWER_COLONY, GRASS_DETAIL, GRASS_TILE_UNDER, flowerColonyK } from "../iso/isoGroundDetail.js";
-import { MEADOW, meadowAt } from "../iso/isoMeadow.js";
+import { LAWN, MEADOW, meadowAt, meadowPixel, townLawnAt } from "../iso/isoMeadow.js";
+import { CM } from "../layout.js";
 
 const DIR = new URL("../../../../public/pixelart/iso/", import.meta.url);
 const read = (name) => PNG.sync.read(fs.readFileSync(new URL(name + ".png", DIR)));
@@ -95,5 +96,31 @@ describe("les fleurs en colonies", () => {
       if (k >= FLOWER_COLONY.norm * 0.5) inCol += k;
     }
     expect(inCol / tot).toBeGreaterThan(0.7);
+  });
+});
+
+describe("la pelouse de ville (lot 5)", () => {
+  // Un jardin de 5 × 5 cellules (L.townGreen) et une friche de quartier (cour 'grass').
+  const green = new Set();
+  for (let y = 10; y < 15; y += 1) for (let x = 10; x < 15; x += 1) green.add(x + "," + y);
+  const cour = new Map([["30,30", "grass"], ["31,30", "urban"]]);
+  const L = { gridN: 60, townGreen: green, river: null };
+  const lawn = townLawnAt(L, cour);
+
+  it("jardins et friche sont de la pelouse ; le cœur du jardin est reconnu", () => {
+    expect(lawn(12, 12)).toBe(2);          // ses 8 voisines sont du jardin
+    expect(lawn(10, 12)).toBe(1);          // bord
+    expect(lawn(30, 30)).toBe(1);          // friche d'une cellule
+    expect(lawn(31, 30)).toBe(0);          // sol de ville
+    expect(lawn(40, 40)).toBe(0);          // herbe sauvage
+  });
+
+  it("la pelouse prend le voile clair de la pelouse, pas celui des prés", () => {
+    CM.season = 1;
+    const px = meadowPixel(L, lawn);
+    const d = new Uint8ClampedArray(4);
+    expect(px(12, 12, d, 0)).toBe(true);
+    expect([...d]).toEqual([...LAWN.col, Math.round(LAWN.alpha * 255)]);
+    MEADOW.on = true;
   });
 });

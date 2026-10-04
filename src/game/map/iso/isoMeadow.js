@@ -49,13 +49,59 @@ export function meadowAt(L) {
   return at;
 }
 
+// ── LA PELOUSE DE VILLE (lot 5, 2026-10-04) ──────────────────────────────────
+// Les jardins, les cours et l'air des îlots (L.townGreen) et la friche d'un quartier
+// (courField → 'grass') étaient un morceau de campagne découpé dans le pavé : même
+// tuile sombre, mêmes touffes, mêmes fleurs que la forêt — une tache de moquette
+// (capture de Raph). C'est maintenant une herbe ENTRETENUE : plus claire et plus
+// régulière (voile clair, lissé comme les prés), sans touffes ni herbes folles, et des
+// fleurs seulement en MASSIF au cœur du jardin (cellules dont les 8 voisines sont de la
+// pelouse). ⛔ La couture avec le pavé n'est PAS décorée (7 refus) : c'est la matière
+// qui change, pas son bord.
+// Molette : __lawn(false) | ({ alpha, col }) ; la part de fleurs du massif est LAWN_FLOWER_P
+// (isoGroundDetail).
+export const LAWN = { on: true, alpha: 0.16, col: [178, 204, 120] };
+if (typeof window !== 'undefined') {
+  window.__lawn = (o) => {
+    if (o === false) LAWN.on = false;
+    else if (o && typeof o === 'object') Object.assign(LAWN, { on: true }, o);
+    else LAWN.on = true;
+    solInvalidate('all');
+    return { ...LAWN };
+  };
+}
+// Pelouse de ville en (gx, gy) : 0 herbe sauvage, 1 pelouse, 2 cœur de pelouse.
+// `cour` : courField du layout (isoTissu.courOf), passé par l'appelant (pas d'import ici).
+export function townLawnAt(L, cour) {
+  if (!LAWN.on || !L) return null;
+  if (L._townLawn) return L._townLawn;
+  const green = L.townGreen || null;
+  const is = (gx, gy) => {
+    const k = gx + ',' + gy;
+    return !!((green && green.has(k)) || (cour && cour.get && cour.get(k) === 'grass'));
+  };
+  if (!(green && green.size) && !(cour && cour.size)) { L._townLawn = () => 0; return L._townLawn; }
+  const at = (gx, gy) => {
+    if (!is(gx, gy)) return 0;
+    for (let dy = -1; dy <= 1; dy += 1) for (let dx = -1; dx <= 1; dx += 1) if ((dx || dy) && !is(gx + dx, gy + dy)) return 1;
+    return 2;
+  };
+  L._townLawn = at;
+  return at;
+}
+
 // Remplit le pixel RGBA `o` de l'image du voile pour la cellule (gx, gy) ; false si rien.
-export function meadowPixel(L) {
-  if (!MEADOW.on || CM.season === WINTER) return null;
+// `lawn` (townLawnAt) : la pelouse de ville prend son voile clair, pas celui des prés.
+export function meadowPixel(L, lawn = null) {
+  const winter = CM.season === WINTER;
+  if (winter || (!MEADOW.on && !lawn)) return null;
   const at = meadowAt(L);
   const k = CM.season === AUTUMN ? MEADOW.autumn : 1;
   const { dry, wet, dryCol, wetCol } = MEADOW;
+  const lc = LAWN.col, la = Math.round(LAWN.alpha * 255);
   return (gx, gy, d, o) => {
+    if (lawn && lawn(gx, gy)) { d[o] = lc[0]; d[o + 1] = lc[1]; d[o + 2] = lc[2]; d[o + 3] = la; return true; }
+    if (!MEADOW.on) return false;
     const s = at(gx, gy);
     const c = s > 0 ? dryCol : wetCol;
     d[o] = c[0]; d[o + 1] = c[1]; d[o + 2] = c[2];
