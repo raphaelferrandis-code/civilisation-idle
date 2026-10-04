@@ -5,8 +5,10 @@ import { icarusUnlocked } from "../../../game/core/actions/icarus.js";
 import { scratchUnlocked } from "../../../game/core/actions/scratch.js";
 import { slotsUnlocked } from "../../../game/core/actions/slots.js";
 import { rouletteUnlocked, rouletteVipUnlocked } from "../../../game/core/actions/roulette.js";
+import { coursesUnlocked } from "../../../game/core/actions/courses.js";
+import { duelOuvert } from "../../../game/core/actions/duel.js";
 import { maisonRank } from "../../../game/core/actions/maisonTable.js";
-import { BOUDOIR_UNLOCK_RANK, ROULETTE_UNLOCK_RANK } from "../../../game/core/balance.js";
+import { BOUDOIR_UNLOCK_RANK, ROULETTE_UNLOCK_RANK, COURSES_UNLOCK_RANK } from "../../../game/core/balance.js";
 import { regulationActionUnlocked } from "../../../game/core/mechanics/crisis-cost.js";
 import { REGULATION_ACTIONS } from "../../../game/data/regulationActions.js";
 import { state } from "../../../game/core/state.js";
@@ -46,7 +48,12 @@ export const PLAISIRS_SPOTS = [
   { id: "boudoir", kind: "rouletteVip", label: "Le boudoir" },
   // LE SALON est la salle de la ROULETTE (lot 3, Raph 2026-10-04) : il s'ouvre au titre
   // de Familier. Même `id` que sa salle dans la coupe.
-  { id: "salon",   kind: "roulette",  label: "La roulette" }
+  { id: "salon",   kind: "roulette",  label: "La roulette" },
+  // LES COURSES et LE GRAND FLAMBEUR (2026-10-04, docs/PLAN-NUIT-DES-PLAISIRS.md) : pas
+  // de salle à eux dans la coupe — le menu les range au rez-de-chaussée. Les courses
+  // s'ouvrent au Notable ; le flambeur pendant la Nuit du Grand Jeu (ou pour un Prince).
+  { id: "courses", kind: "courses",   label: "Les courses" },
+  { id: "flambeur", kind: "duel",     label: "Le grand flambeur" }
 ];
 
 // Le VERBE de chaque lieu — celui du bouton qui apparaît sur l'illustration une
@@ -66,7 +73,9 @@ export const SPOT_VERBES = {
   boutique: "Entrer",
   scene: "Écouter",
   boudoir: "Miser",
-  salon: "Miser"
+  salon: "Miser",
+  courses: "Parier",
+  flambeur: "Défier"
 };
 export const spotVerbe = (spot) => (spot && SPOT_VERBES[spot.id]) || "Ouvrir";
 
@@ -94,6 +103,8 @@ function spotUnlocked(spot) {
   if (spot.kind === "scratch") return scratchUnlocked();
   if (spot.kind === "slots") return slotsUnlocked();
   if (spot.kind === "roulette") return rouletteUnlocked();
+  if (spot.kind === "courses") return coursesUnlocked();
+  if (spot.kind === "duel") return duelOuvert();
   if (spot.kind === "rouletteVip") return rouletteVipUnlocked();
   if (spot.kind === "augury") {
     // Les osselets sont une ACTION de régulation : leur verrou vit là-bas, et
@@ -125,8 +136,28 @@ export function spotIsOpen(spot) {
 export function spotRankLock(spot) {
   if (!spot) return null;
   if (spot.kind === "roulette" && !rouletteUnlocked()) return ROULETTE_UNLOCK_RANK;
-  if (spot.id === "boudoir" && maisonRank() < BOUDOIR_UNLOCK_RANK) return BOUDOIR_UNLOCK_RANK;
+  if (spot.id === "boudoir" && !rouletteVipUnlocked()) return BOUDOIR_UNLOCK_RANK;
+  if (spot.kind === "courses" && !coursesUnlocked()) return COURSES_UNLOCK_RANK;
   return null;
+}
+
+// Le lieu qui attend LA NUIT (le grand flambeur) : fermé hors de la Nuit du Grand Jeu,
+// sauf pour un Prince de la Maison.
+export function spotNightLock(spot) {
+  return !!spot && spot.kind === "duel" && !duelOuvert();
+}
+
+// CE QUE LA COUPE MONTRE OUVERT (2026-10-04) : les lieux ACQUIS, sans ce que la Nuit
+// du Grand Jeu ouvre pour vingt minutes. La coupe se recuit à chaque changement de
+// cette liste, et une cuisson fige la page plusieurs secondes : la Nuit n'en
+// déclenche aucune (le menu, lui, suit spotIsOpen et ouvre bien ses portes). Les
+// courses et le flambeur n'ont pas de salle : jamais dans la liste.
+export function spotOuvertSalle(spot) {
+  if (!spot) return false;
+  if (spot.kind === "courses" || spot.kind === "duel") return false;
+  if (spot.kind === "roulette") return maisonRank() >= ROULETTE_UNLOCK_RANK;
+  if (spot.kind === "rouletteVip") return maisonRank() >= BOUDOIR_UNLOCK_RANK;
+  return spotIsOpen(spot);
 }
 
 // Un lieu qu'on regarde ET dont on a le titre : on peut s'y rendre.

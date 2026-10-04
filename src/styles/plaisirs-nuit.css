@@ -1,0 +1,261 @@
+/* ── LA NUIT DU GRAND JEU : le duel des grands flambeurs, les courses, le bandeau ──
+   (2026-10-04, docs/PLAN-NUIT-DES-PLAISIRS.md). Importé par les composants qui s'en
+   servent (DuelStage, CoursesStage, NuitBandeau). */
+
+/* ── Le duel ─────────────────────────────────────────────────────────────────── */
+.duel-nom {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  font-family: var(--font-serif);
+  font-size: 0.86rem;
+  color: #ffd9e4;
+  background: rgba(40, 6, 18, 0.86);
+  border-color: color-mix(in srgb, #e84a7a, transparent 45%);
+}
+.duel-nom.is-toi { color: var(--gold-bright); border-color: color-mix(in srgb, var(--gold), transparent 45%); }
+.duel-nuit { color: #cdb8ff; background: rgba(14, 8, 30, 0.86); }
+.duel-pips { display: inline-flex; gap: 3px; }
+.duel-pips i {
+  width: 8px;
+  height: 8px;
+  background: rgba(0, 0, 0, 0.55);
+  border: 1px solid color-mix(in srgb, var(--gold), transparent 50%);
+}
+.duel-pips i.is-won { background: var(--gold-bright); box-shadow: 0 0 6px #ffd76a; }
+.duel-row {
+  display: flex;
+  align-items: center;
+  gap: 0.7rem;
+}
+.duel-row .augury-dice.duel-dice {
+  --bone: 64px;
+  gap: 0.45rem;
+  padding: 0;
+}
+.duel-somme {
+  min-width: 2.6rem;
+  font-family: var(--font-number);
+  font-size: 1.5rem;
+  color: var(--text);
+  text-align: center;
+  text-shadow: 2px 2px 0 #000;
+  transition: color 0.2s, transform 0.2s;
+}
+.duel-somme.is-win { color: var(--gold-bright); transform: scale(1.25); text-shadow: 2px 2px 0 #000, 0 0 10px #ffd76a; }
+.duel-somme.is-lose { color: #8a7a74; }
+.duel-row.is-flambeur .augury-die { filter: drop-shadow(0 3px 2px rgba(0, 0, 0, 0.5)) hue-rotate(-12deg) saturate(1.15); }
+@media (max-width: 760px) {
+  .duel-row .augury-dice.duel-dice { --bone: 64px; gap: 0.2rem; }
+  .duel-somme { font-size: 1.2rem; min-width: 2rem; }
+  /* Au doigt, les boutons de fin de duel passent sur deux rangs : la table s'allonge
+     pour les garder (le cadre de la table rogne ce qui dépasse). */
+  .ptable.ptable--duel.ptable--play { height: 540px; }
+}
+
+/* ── Les courses ─────────────────────────────────────────────────────────────── */
+.courses-stage { display: flex; flex-direction: column; gap: 0.45rem; }
+.courses-piste {
+  position: relative;
+  width: 100%;
+  min-height: 160px;
+  overflow: hidden;
+  background: #0a0b1c;
+  box-shadow: inset 0 0 0 1px rgba(0, 0, 0, 0.6), 0 2px 0 rgba(0, 0, 0, 0.45);
+}
+.courses-toile {
+  display: block;
+  margin: 0 auto;
+  image-rendering: pixelated;
+}
+.courses-hud {
+  position: absolute;
+  top: 6px;
+  left: 8px;
+  z-index: 2;
+  display: flex;
+  gap: 0.3rem;
+}
+.courses-photo { animation: courses-flash 0.5s steps(2) 3; }
+@keyframes courses-flash {
+  from { filter: brightness(2.2); }
+  to { filter: none; }
+}
+
+/* Les plaques des partants : un bouton par cheval, le numéro aux couleurs de sa
+   casaque, son nom, sa cote ; la mise posée dessus, puis son rang à l'arrivée. */
+.ptable.courses-dessous {
+  overflow: visible;
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+}
+.courses-paris {
+  display: grid;
+  grid-template-columns: repeat(6, minmax(0, 1fr));
+  gap: 0.3rem;
+}
+.ptable .courses-plaque {
+  all: unset;
+  position: relative;
+  display: grid;
+  grid-template-columns: auto 1fr;
+  grid-template-rows: auto auto auto;
+  align-items: center;
+  column-gap: 0.35rem;
+  padding: 0.3rem 0.4rem 0.35rem;
+  min-height: 3.6rem;
+  cursor: pointer;
+  background: linear-gradient(180deg, rgba(58, 22, 34, 0.92), rgba(28, 10, 18, 0.94));
+  border: 1px solid color-mix(in srgb, var(--gold), transparent 62%);
+  box-shadow: 0 2px 0 rgba(0, 0, 0, 0.5);
+  -webkit-touch-callout: none;
+  touch-action: manipulation;
+}
+.app .ptable .courses-plaque::before,
+.app .ptable .courses-plaque::after { display: none; }
+.ptable .courses-plaque:hover:not(:disabled) { background: linear-gradient(180deg, rgba(78, 30, 46, 0.95), rgba(38, 14, 24, 0.95)); }
+.ptable .courses-plaque:focus-visible { outline: 2px solid var(--gold-bright); outline-offset: 1px; }
+.ptable .courses-plaque:disabled { cursor: default; }
+.ptable .courses-plaque.has-mise { border-color: color-mix(in srgb, var(--gold-bright), transparent 25%); }
+.ptable .courses-plaque.is-win {
+  border-color: var(--gold-bright);
+  box-shadow: 0 0 0 1px var(--gold-bright), 0 0 14px rgba(255, 215, 106, 0.55);
+}
+.courses-num {
+  grid-row: 1 / span 2;
+  display: grid;
+  place-items: center;
+  width: 1.5rem;
+  height: 1.7rem;
+  font-family: var(--font-number);
+  font-size: 0.9rem;
+  border: 1px solid rgba(0, 0, 0, 0.6);
+  box-shadow: inset 0 -2px 0 rgba(0, 0, 0, 0.25);
+}
+.courses-nom {
+  font-family: var(--font-serif);
+  font-size: 0.86rem;
+  color: var(--text-strong);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.courses-cote {
+  font-family: var(--font-number);
+  font-size: 0.78rem;
+  color: var(--gold-bright);
+}
+.courses-mise {
+  grid-column: 1 / span 2;
+  display: flex;
+  align-items: center;
+  gap: 0.3rem;
+  margin-top: 0.15rem;
+  font-family: var(--font-number);
+  font-size: 0.72rem;
+  color: #fff6c8;
+}
+.courses-mise img { image-rendering: pixelated; filter: drop-shadow(0 1px 0 rgba(0, 0, 0, 0.6)); }
+.courses-rang {
+  position: absolute;
+  top: -0.45rem;
+  right: -0.3rem;
+  display: grid;
+  place-items: center;
+  width: 1.3rem;
+  height: 1.3rem;
+  font-family: var(--font-number);
+  font-size: 0.72rem;
+  color: #1a1012;
+  background: #8a7a74;
+  border: 1px solid rgba(0, 0, 0, 0.6);
+}
+.courses-rang.is-1 { background: var(--gold-bright); box-shadow: 0 0 8px #ffd76a; }
+.courses-rang.is-2 { background: #d8d8e0; }
+.courses-rang.is-3 { background: #c98a52; }
+
+.ptable-rack.courses-rack {
+  position: static;
+  transform: none;
+  width: auto;
+  max-width: none;
+  align-self: center;
+}
+
+@media (max-width: 760px) {
+  .courses-paris { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+  .ptable .courses-plaque { min-height: 3.2rem; padding: 0.25rem 0.3rem; }
+  .courses-nom { font-size: 0.78rem; }
+  .ptable-rack.courses-rack { position: sticky; bottom: 0; background: rgba(12, 8, 10, 0.96); }
+}
+
+/* ── La bourse : la lune de la Nuit, le bouton du spectacle ───────────────────── */
+.pm-nuit { color: #6e6488; }
+.pm-nuit.is-nuit {
+  color: #e6dcff;
+  text-shadow: 0 0 6px #aa8cff;
+}
+.app .pm-actions .pm-spectacle { flex: 0 0 auto; padding-inline: 0.7rem; }
+.app .pm-actions .pm-spectacle.is-live {
+  color: #ffd9e4;
+  animation: pm-rampe 1.6s ease-in-out infinite alternate;
+}
+@keyframes pm-rampe {
+  from { text-shadow: 0 0 2px #e84a7a; }
+  to { text-shadow: 0 0 10px #ff6f9a, 0 0 2px #ffd76a; }
+}
+
+/* ── Le bandeau de la Nuit : un ruban de velours qui descend sur la salle ─────── */
+.nuit-bandeau {
+  position: absolute;
+  top: 7%;
+  left: 50%;
+  z-index: 6;
+  transform: translateX(-50%);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.2rem;
+  padding: 0.55rem 2.2rem 0.6rem;
+  cursor: pointer;
+  background:
+    linear-gradient(180deg, rgba(255, 215, 106, 0.16), transparent 40%),
+    linear-gradient(180deg, #4a0c24, #2a0614);
+  border: 2px solid #e8bc5a;
+  box-shadow: 0 0 0 2px #2a0614, 0 0 28px rgba(232, 74, 122, 0.55), 0 6px 0 rgba(0, 0, 0, 0.5);
+  animation: nuit-descend 0.7s cubic-bezier(0.2, 1.4, 0.4, 1) both, nuit-lueur 1.8s ease-in-out 0.7s infinite alternate;
+}
+.nuit-titre {
+  font-family: var(--font-title);
+  font-size: 1.7rem;
+  letter-spacing: 0.08em;
+  color: #ffe6a8;
+  text-transform: uppercase;
+  text-shadow: 2px 2px 0 #000, 0 0 12px #ffb35a;
+  white-space: nowrap;
+}
+.nuit-sous {
+  font-family: var(--font-serif);
+  font-size: 0.95rem;
+  color: #ffd9e4;
+  white-space: nowrap;
+}
+.nuit-sous b { font-family: var(--font-number); color: var(--gold-bright); font-weight: 400; }
+@keyframes nuit-descend {
+  from { transform: translate(-50%, -140%); opacity: 0; }
+  to { transform: translate(-50%, 0); opacity: 1; }
+}
+@keyframes nuit-lueur {
+  from { box-shadow: 0 0 0 2px #2a0614, 0 0 18px rgba(232, 74, 122, 0.4), 0 6px 0 rgba(0, 0, 0, 0.5); }
+  to { box-shadow: 0 0 0 2px #2a0614, 0 0 36px rgba(255, 179, 90, 0.7), 0 6px 0 rgba(0, 0, 0, 0.5); }
+}
+@media (max-width: 760px) {
+  .nuit-titre { font-size: 1.15rem; }
+  .nuit-sous { font-size: 0.8rem; }
+  .nuit-bandeau { padding: 0.4rem 1rem 0.45rem; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .nuit-bandeau { animation: none; }
+  .app .pm-actions .pm-spectacle.is-live { animation: none; }
+}

@@ -20,6 +20,9 @@ import { lastStakeOf, fmtMise } from './miseMemory.js';
  *     voulus, là où la place manque : le panneau étroit de la machine à sous).
  * Pas une phrase à l'écran : la limite et les règles vivent dans les infobulles et
  * l'aide « ? ».
+ *
+ * `limits` ({ min, max }) : les bornes d'une table qui n'a pas celles de la salle (le
+ * duel des grands flambeurs : une heure de recettes au moins, sans plafond).
  */
 
 const PILE_SHOWN = 8; // au-delà, la pile est coupée (le montant, lui, reste exact)
@@ -27,10 +30,10 @@ const PILE_SHOWN = 8; // au-delà, la pile est coupée (le montant, lui, reste e
 export default function TableMise({
   game, x, y, k = 4, rackY, rackX, rackWidth, rackStack = false, label, sub,
   stake, onStake, faveur,
-  playLabel, playDisabled, onPlay, children
+  playLabel, playDisabled, onPlay, limits, children
 }) {
   const band = usePlaisirsBand();
-  const { min, max } = tableLimits();
+  const { min, max } = limits || tableLimits();
   const cap = Math.max(0, Math.min(max, Math.floor(faveur || 0)));
   const rack = useMemo(() => chipRack(max), [max]);
   const pile = useMemo(() => chipPile(stake, rack, PILE_SHOWN).slice().reverse(), [stake, rack]);

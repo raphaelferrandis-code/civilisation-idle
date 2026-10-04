@@ -19,6 +19,7 @@ import { pushOutcomeFloat } from '../outcomeFloat.js';
 import { recordOffering } from '../chronicleStats.js';
 import { fmt } from '../utils.js';
 import { recettesPerSecond, caisseCap, CAISSE_INITIAL } from './maisonTable.js';
+import { affluenceEntre } from './affluence.js';
 
 // Contenu courant de la caisse (Faveur, fractionnaire). Une save d'avant le tronc
 // (trunkFaveur absent) la découvre PLEINE — l'amorce vaut aussi pour les
@@ -31,8 +32,18 @@ export function trunkValue(now = Date.now()) {
   // de 190 — et l'auto-relève, qui attend le plafond, ne la relevait jamais.
   if (!(Number.isFinite(state.trunkAt) && state.trunkAt > 0)) return cap;
   const base = Number.isFinite(state.trunkFaveur) ? state.trunkFaveur : CAISSE_INITIAL;
-  const elapsed = Math.max(0, (now - state.trunkAt) / 1000);
+  // La salle pleine (spectacle, Nuit du Grand Jeu — affluence.js) remplit plus vite.
+  const elapsed = Math.max(0, (now - state.trunkAt) / 1000) + affluenceEntre(state.trunkAt, now);
   return Math.max(0, Math.min(cap, base + elapsed * recettesPerSecond()));
+}
+
+// FIGE la caisse : ce qu'elle contient devient sa base, l'horloge repart d'ici — sans
+// rien relever. Avant de changer le débit (un spectacle, une Nuit), pour que le
+// nouveau débit ne vaille que pour la suite.
+export function figerCaisse(now = Date.now()) {
+  if (!(Number.isFinite(state.trunkAt) && state.trunkAt > 0)) return;
+  state.trunkFaveur = trunkValue(now);
+  state.trunkAt = now;
 }
 
 // Le plafond courant (pour la jauge de l'UI et l'auto-relève).

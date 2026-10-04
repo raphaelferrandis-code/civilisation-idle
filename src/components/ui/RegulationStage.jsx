@@ -7,6 +7,8 @@ import BlackjackStage from './BlackjackStage.jsx';
 import SlotsStage from './SlotsStage.jsx';
 import RouletteStage from './RouletteStage.jsx';
 import RoueStage from './RoueStage.jsx';
+import CoursesStage from './CoursesStage.jsx';
+import DuelStage from './DuelStage.jsx';
 import GrandGain from './GrandGain.jsx';
 
 /**
@@ -35,7 +37,10 @@ const STAGES = {
   // Le salon privé du boudoir : la même roulette, sans plafond (Mécène, 2026-10-04).
   rouletteVip: RouletteVipStage,
   // La roue de la Maison : un tour offert par heure (2026-10-04).
-  roue: RoueStage
+  roue: RoueStage,
+  // Les courses et le duel des grands flambeurs (la Nuit du Grand Jeu, 2026-10-04).
+  courses: CoursesStage,
+  duel: DuelStage
 };
 
 function RouletteVipStage(props) {

@@ -59,6 +59,32 @@ function bakeFor(band, game, W, H, tableH, marks, nSpots) {
 // Une image de la bande de repos de la croupière (la cadence de la marche des filles).
 const DEALER_FRAME_MS = 160;
 
+// LA HAUTEUR D'UN HOMME DE L'ÂGE (pieds → haut de la tête) à l'échelle de la table,
+// mesurée une fois sur son image : les planches n'ont pas toutes la même marge au-dessus
+// de la tête. null tant que l'image charge (la table ré-essaie).
+const hauteurs = new Map();
+function hauteurDe(name, sc) {
+  const key = name + ':' + sc.toFixed(4);
+  if (hauteurs.has(key)) return hauteurs.get(key);
+  if (typeof document === 'undefined') return null;
+  const S = 192, pied = 184;
+  const cv = document.createElement('canvas');
+  cv.width = S; cv.height = S;
+  const g = cv.getContext('2d');
+  const r = drawNamedAgentIso(g, S / 2 + 0.5, pied + 0.5, 1, name, sc, 0, false, 0, 0);
+  if (!r) return null;
+  // Seules les colonnes de la silhouette (l'ombre portée déborde sur le côté).
+  const x0 = Math.max(0, Math.floor(S / 2 - r.drawW / 2)), x1 = Math.min(S, Math.ceil(S / 2 + r.drawW / 2));
+  const d = g.getImageData(0, 0, S, S).data;
+  let haut = pied;
+  for (let y = 0; y < pied && haut === pied; y += 1) {
+    for (let x = x0; x < x1; x += 1) if (d[(y * S + x) * 4 + 3] > 0) { haut = y; break; }
+  }
+  const h = pied - haut;
+  hauteurs.set(key, h);
+  return h;
+}
+
 // `dealer` : qui se tient derrière la table — 'g' (une fille de la Maison), 0 (un
 // homme de l'âge), null (personne). Toutes les tables gardent LA MÊME croupière, la
 // première fille de la troupe de l'âge (Raph, 2026-10-04) : les tables n'ont plus à le
@@ -107,7 +133,13 @@ export default function PlaisirsTable({ game, dealer = 'g', variant = 0, tablePx
       g.drawImage(bake.cvBack, 0, 0);
       let anime = false, ok = true;
       if (spec) {
-        const x = bake.dealer.x + 0.5, y = bake.dealer.y + 0.5, sc = spec.scale * HDK;
+        // Un homme de l'âge (le grand flambeur du duel) est plus grand qu'une fille de la
+        // Maison : il S'ASSIED à la table — ses pieds descendent sous le plateau jusqu'à
+        // ce que sa tête tienne dans le cadre, à la hauteur de celle de la croupière.
+        const sc = spec.scale * HDK;
+        const h = dealer !== 'g' ? hauteurDe(spec.name, sc) : null;
+        const assis = h != null ? Math.max(0, h + 3 - bake.dealer.y) : 0;
+        const x = bake.dealer.x + 0.5, y = bake.dealer.y + assis + 0.5;
         anime = !!(repos && !calme && drawNamedAgentIso(g, x, y, 1, repos, sc, 0, true, now, 0));
         if (!anime) ok = !!drawNamedAgentIso(g, x, y, 1, spec.name, sc, 0, false, 0, 0);
       }

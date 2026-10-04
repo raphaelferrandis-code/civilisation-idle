@@ -144,7 +144,11 @@ const CHRONICLE_GAME_EXTRAS = {
   // La machine à sous (2026-10-03) : séries de tours gratuits, roues, jackpots.
   slots:     { freeSpins: 0, wheels: 0, holdWins: 0, jackpots: 0, biggestJackpot: 0 },
   // La roulette du salon (lot 3 des gains « vrai casino ») : les zéros tombés.
-  roulette:  { zeros: 0 }
+  roulette:  { zeros: 0 },
+  // Le duel des grands flambeurs (2026-10-04) : les duels gagnés.
+  duel:      { gagnes: 0 },
+  // Les courses (2026-10-04) : les outsiders (cote ×10 et plus) gagnés.
+  courses:   { outsiders: 0 }
 };
 
 export function defaultChronicleStats() {
@@ -605,6 +609,17 @@ export const defaultState = () => ({
   // La roue de la Maison (2026-10-04) : l'heure (ms) du dernier tour, 0 = jamais. Un
   // tour par heure ; survit à l'effondrement, repart à zéro au Grand Reset.
   roueAt: 0,
+  // La Nuit du Grand Jeu et le spectacle (2026-10-04, actions/nuitGrandJeu.js) : les
+  // heures (ms) de la Nuit en cours ou passée, de la prochaine (0 : pas encore
+  // prévue), le flambeur tiré, le compte des Nuits ; la fenêtre du spectacle.
+  nuitDebut: 0,
+  nuitProchaine: 0,
+  nuitFlambeur: 0,
+  nuitCompte: 0,
+  spectacleDebut: 0,
+  spectacleFin: 0,
+  // La course qui attend ses paris (actions/courses.js) : six partants { couloir, nom, p }.
+  courseField: null,
   // La roulette du salon (lot 3) : les dernières cases tombées (0-36).
   rouletteHistory: [],
   // Boutique de Faveur — augment ÉTERNEL : survit aux effondrements ET au Grand
@@ -1921,6 +1936,16 @@ export function hydrateState(parsed = {}) {
       : [],
     slotsFreeSpins: normalizeSlotsFreeSpins(source.slotsFreeSpins),
     roueAt: finiteNumber(source.roueAt, 0, 0, 1e15),
+    courseField: Array.isArray(source.courseField) && source.courseField.length === 6
+      && source.courseField.every((x) => x && Number.isInteger(x.couloir) && typeof x.nom === "string" && Number(x.p) > 0 && Number(x.p) < 1)
+      ? source.courseField.map((x) => ({ couloir: x.couloir, nom: x.nom, p: Number(x.p) }))
+      : null,
+    nuitDebut: finiteNumber(source.nuitDebut, 0, 0, 1e15),
+    nuitProchaine: finiteNumber(source.nuitProchaine, 0, 0, 1e15),
+    nuitFlambeur: finiteInteger(source.nuitFlambeur, 0, 0, 99),
+    nuitCompte: finiteInteger(source.nuitCompte, 0, 0),
+    spectacleDebut: finiteNumber(source.spectacleDebut, 0, 0, 1e15),
+    spectacleFin: finiteNumber(source.spectacleFin, 0, 0, 1e15),
     // MIGRATIONS : entier (N plumes) → file d'ids → file de MONTANTS (lot 1). Les
     // ids inconnus et les montants invalides tombent, puis la file est tronquée.
     icarusFreeFlights: migrateFreeFlights(source.icarusFreeFlights),
@@ -2322,6 +2347,10 @@ export const GR_PERSISTENT_FIELDS = [
   "styletLevel", "templeAuto", "templeArtifacts",
   // Le rang de la Maison (lot 2) : la réputation ne se perd jamais.
   "maisonReputation", "maisonRank",
+  // L'horloge de la Nuit du Grand Jeu (2026-10-04) : la Maison est hors du temps, ses
+  // Nuits ne recommencent pas à zéro à chaque Grand Reset (sinon, au rythme des sceaux,
+  // on n'en verrait plus une). Une Nuit EN COURS, elle, s'éteint avec la cité.
+  "nuitProchaine", "nuitCompte",
   // Registre de la Chronique : cumul À VIE de stats/records/horodatages — c'est
   // un journal de records, il traverse le Grand Reset (l'horloge à vie, les
   // timings de GR/Mythes et les compteurs de jeux ne se réinitialisent jamais).

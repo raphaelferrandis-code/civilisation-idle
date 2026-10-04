@@ -30,7 +30,9 @@ const OU = {
   tickets: "aux tickets",
   vingtetun: "au vingt-et-un",
   machine: "à la machine à sous",
-  roulette: "à la roulette"
+  roulette: "à la roulette",
+  duel: "au duel des grands flambeurs",
+  courses: "aux courses"
 };
 
 let listener = null;

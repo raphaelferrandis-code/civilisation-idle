@@ -139,6 +139,18 @@ export function recordOffering(gain) {
   s.faveurEarned += g;
 }
 
+// Le duel des grands flambeurs (2026-10-04).
+export function recordDuel({ wagered = 0, won = 0, gagne = false } = {}) {
+  const g = bumpGame("duel", wagered, won);
+  if (g && gagne) g.gagnes += 1;
+}
+
+// Les courses (2026-10-04) : un outsider (cote ×10 et plus) gagné avec sa mise dessus.
+export function recordCourse({ wagered = 0, won = 0, cote = 0 } = {}) {
+  const g = bumpGame("courses", wagered, won);
+  if (g && won > 0 && cote >= 10) g.outsiders += 1;
+}
+
 // La roue de la Maison : un tour pris (le gain compte comme Faveur gagnée à vie).
 export function recordRoue(gain) {
   const s = reg();

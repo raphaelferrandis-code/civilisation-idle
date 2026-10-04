@@ -117,6 +117,15 @@ export {
 // La roue de la Maison (2026-10-04) : un tour offert par heure.
 export { spinRoue, roueReady, roueUnlocked, roueValues, roueWaitMinutes } from './actions/roueMaison.js';
 
+// La Nuit du Grand Jeu, le spectacle, le duel des grands flambeurs, les courses
+// (2026-10-04, docs/PLAN-NUIT-DES-PLAISIRS.md).
+export {
+  nuitUnlocked, nuitActive, nuitResteMin, nuitAttenteMin, tickNuit, ouvrirNuit, flambeurDeLaNuit,
+  spectaclePret, spectacleActif, spectacleCout, lancerSpectacle
+} from './actions/nuitGrandJeu.js';
+export { jouerDuel, duelOuvert, duelMiseMin } from './actions/duel.js';
+export { lancerCourse, coursePartants, coursesUnlocked, coteAffichee } from './actions/courses.js';
+
 export {
   dealBlackjack,
   hitBlackjack,

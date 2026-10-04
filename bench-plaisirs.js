@@ -4,8 +4,9 @@
  *
  * Raph, 2026-10-04 : « c'est fait pour tenir 20 heures ? » — on MESURE au lieu
  * d'estimer. Des PROFILS de joueur jouent la Maison sur le VRAI moteur : les six
- * jeux (osselets, tickets, Icare, vingt-et-un, machine, roulette), la caisse, la
- * réputation et les titres (avec leurs cadeaux), les automatisations, l'arbre des
+ * jeux (osselets, tickets, Icare, vingt-et-un, machine, roulette, courses, duel), la
+ * caisse, la Nuit du Grand Jeu et le spectacle, la réputation et les titres (avec leurs
+ * cadeaux), les automatisations, l'arbre des
  * artefacts et les reliques de la Boutique, le Grand Reset (champs persistants du
  * jeu). Rien n'est recopié : seules les DÉCISIONS du joueur sont écrites ici.
  *
@@ -75,6 +76,9 @@ const { resolveBlackjackHeadless, blackjackUnlocked } = await import("./src/game
 const { spinSlots, slotsUnlocked, slotsFreeSpins } = await import("./src/game/core/actions/slots.js");
 const { spinRoulette, rouletteUnlocked, rouletteVipUnlocked } = await import("./src/game/core/actions/roulette.js");
 const { spinRoue, roueReady } = await import("./src/game/core/actions/roueMaison.js");
+const { jouerDuel, duelOuvert, duelMiseMin } = await import("./src/game/core/actions/duel.js");
+const { lancerCourse, coursesUnlocked, coursePartants } = await import("./src/game/core/actions/courses.js");
+const { lancerSpectacle, spectaclePret } = await import("./src/game/core/actions/nuitGrandJeu.js");
 const { collectTrunk } = await import("./src/game/core/actions/offeringTrunk.js");
 const { recettesPerHour, tableLimits } = await import("./src/game/core/actions/maisonTable.js");
 const { maisonRank, RANK_LABELS } = await import("./src/game/core/actions/maisonRang.js");
@@ -200,6 +204,8 @@ function openGames() {
   if (blackjackUnlocked()) o.push("vingtetun");
   if (slotsUnlocked()) o.push("machine");
   if (rouletteUnlocked()) o.push("roulette");
+  if (coursesUnlocked()) o.push("courses");
+  if (duelOuvert()) o.push("duel");
   return o;
 }
 
@@ -243,6 +249,20 @@ function playOne(game, p) {
       : p.roulette === "douzaine" ? { d2: s }
       : { rouge: s };
     if (!spinRoulette(bets, { render: false, silent: true, vip })) return null;
+    return { stake: s, gain: Math.max(0, st().faveur - before + s) };
+  } else if (game === "courses") {
+    // Le prudent joue le favori, le joueur un cheval au hasard, l'agressif l'outsider.
+    const champ = coursePartants().slice().sort((a, b) => b.p - a.p);
+    const c = p.frac <= 0.02 ? champ[0] : p.frac >= 0.25 ? champ[champ.length - 1] : champ[Math.floor(Math.random() * champ.length)];
+    if (!lancerCourse({ [c.couloir]: stake }, { render: false, silent: true })) return null;
+  } else if (game === "duel") {
+    // Le duel n'a pas de plafond : la mise suit la bourse. Sous la mise minimale (une
+    // heure de recettes), le profil passe son tour — sinon la mise minimale le forçait
+    // à tout jouer (seul le « tout ou rien » mise toute sa bourse).
+    const f = Math.floor(st().faveur || 0), mn = duelMiseMin();
+    const s = p.frac >= 1 ? f : Math.floor(f * p.frac);
+    if (s < mn) return null;
+    if (!jouerDuel(s, { render: false, silent: true })) return null;
     return { stake: s, gain: Math.max(0, st().faveur - before + s) };
   }
   return { stake, gain: Math.max(0, st().faveur - before + stake) };
@@ -289,7 +309,7 @@ function run(curve, p) {
     titles: {}, relics: {}, buys: [], samples: [], ruins: 0, bets: 0, wins: 0, ldw: 0,
     tiers: { gros: 0, enorme: 0, legende: 0 }, bestMult: 0, bestGainH: 0,
     peakH: 0, peakNominal: 0, staked: 0, won: 0, income: 0, ruinLog: [],
-    brokeSteps: 0, tableSteps: 0, treeDone: null, gifted: 0
+    brokeSteps: 0, tableSteps: 0, treeDone: null, gifted: 0, spectacles: 0
   };
   let peakSinceGR = 0;
   let grIdx = 0;
@@ -330,6 +350,8 @@ function run(curve, p) {
     // Les minutes de table : les `share × 60` premières de chaque heure.
     const minuteOfHour = Math.floor((VT % 3600) / 60);
     const atTable = minuteOfHour < p.share * 60;
+    // Le spectacle : le joueur présent le lève dès que la troupe est prête.
+    if (atTable && VT % 60 === 0 && spectaclePret() && lancerSpectacle()) out.spectacles += 1;
     if (atTable && VT % 60 === 0) {
       out.tableSteps += 1;
       // « Fauché » : la bourse ne couvre plus cinq mises minimales de la table.
@@ -382,6 +404,7 @@ function run(curve, p) {
     if (VT % 1800 === 0) out.samples.push({ h, era: st().bestEraIndex, R, f: st().faveur || 0, fH, rank: rk, rep: st().maisonReputation || 0 });
   }
   out.final = { f: st().faveur || 0, fH: (st().faveur || 0) / Math.max(1, recettesPerHour()), rank: maisonRank(), rep: st().maisonReputation || 0 };
+  out.nuits = st().nuitCompte || 0;
   return out;
 }
 
@@ -395,7 +418,7 @@ const profileIds = argv.profile ? [argv.profile] : Object.keys(PROFILES);
 const rankName = (r) => RANK_LABELS[bal.MAISON_RANKS[r].id].fr;
 
 let md = `# La Maison des Plaisirs sur ${HOURS} h — bench-plaisirs.js\n\n`;
-md += `> Généré par \`node bench-plaisirs.js\` (graine ${SEED}). Vrai moteur : six jeux, caisse, titres et cadeaux, automatisations, arbre et reliques, Grand Reset. Les profils ne décident que de la mise, du jeu, des relèves et des achats.\n`;
+md += `> Généré par \`node bench-plaisirs.js\` (graine ${SEED}). Vrai moteur : huit jeux (dont les courses et le duel), caisse, Nuit du Grand Jeu et spectacle, titres et cadeaux, automatisations, arbre et reliques, Grand Reset. Les profils ne décident que de la mise, du jeu, des relèves et des achats.\n`;
 md += `> ⚠ L'ère record selon le temps de jeu est une HYPOTHÈSE (trois courbes). Ce qui se compte en heures de recettes (titres, bourse, ruines) n'en dépend pas ; les reliques et la Faveur nominale, si.\n\n`;
 console.log(`[bench-plaisirs] ${HOURS} h, graine ${SEED}, courbes ${curveIds.join(", ")}`);
 
@@ -414,7 +437,7 @@ for (const cid of curveIds) {
     const winRate = o.bets ? `${Math.round((o.wins / o.bets) * 100)} %` : "—";
     const broke = o.tableSteps ? `${Math.round((o.brokeSteps / o.tableSteps) * 100)} %` : "—";
     md += `| ${p.label} | ${titles.join(" | ")} | ${fmtH(o.treeDone)} | ${relics} | ${o.peakH.toFixed(1)} | ${fmtN(o.peakNominal)} | ${o.final.fH.toFixed(1)} | ${o.ruins} | ${broke} | ${fmtN(o.bets)} | ${winRate} | ${o.tiers.gros}/${o.tiers.enorme}/${o.tiers.legende} | ${o.bestGainH.toFixed(1)} |\n`;
-    console.log(`  ${cid} · ${p.label} : titre ${rankName(o.final.rank)} (rép. ${o.final.rep.toFixed(1)} h), bourse max ${o.peakH.toFixed(1)} h, finale ${o.final.fH.toFixed(1)} h, ruines ${o.ruins}, fauché ${broke}, arbre ${fmtH(o.treeDone)}, reliques ${relics}`);
+    console.log(`  ${cid} · ${p.label} : titre ${rankName(o.final.rank)} (rép. ${o.final.rep.toFixed(1)} h), bourse max ${o.peakH.toFixed(1)} h, finale ${o.final.fH.toFixed(1)} h, ruines ${o.ruins}, fauché ${broke}, arbre ${fmtH(o.treeDone)}, reliques ${relics}, nuits ${o.nuits}, spectacles ${o.spectacles}`);
     if (pid === "joueur") {
       md += `\n<details><summary>Le joueur, heure par heure</summary>\n\n| Heure | Ère | Recettes/h | Bourse | Bourse (h) | Titre | Réputation (h) |\n|---|---|---|---|---|---|---|\n`;
       for (const s of o.samples.filter((x) => Math.abs(x.h - Math.round(x.h)) < 1e-6)) {

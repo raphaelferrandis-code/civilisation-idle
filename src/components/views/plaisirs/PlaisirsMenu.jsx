@@ -6,7 +6,7 @@ import { tr } from '../../../game/core/i18n.js';
 import { tipProps } from '../../ui/HelpBubble.jsx';
 import AutoDials, { RateBadge } from '../../ui/TempleAutoDials.jsx';
 import OffrandesBloc from './OffrandesBloc.jsx';
-import { PLAISIRS_SPOTS, spotIsOpen, spotIsVisit, spotRankLock, spotVerbe } from './anchors.js';
+import { PLAISIRS_SPOTS, spotIsOpen, spotIsVisit, spotRankLock, spotNightLock, spotVerbe } from './anchors.js';
 import { RANK_LABELS } from '../../../game/core/actions/maisonRang.js';
 import { MAISON_RANKS } from '../../../game/core/balance.js';
 
@@ -95,7 +95,9 @@ export default function PlaisirsMenu({ navRef, bake, band, survol, selection, pl
               const visite = spotIsVisit(spot);
               // Le titre qu'attend le lieu (le salon : Familier ; le boudoir : Mécène).
               const verrouRang = spotRankLock(spot);
-              const titre = verrouRang != null ? tr(RANK_LABELS[MAISON_RANKS[verrouRang].id]) : null;
+              // … ou la Nuit du Grand Jeu (le grand flambeur).
+              const nuit = spotNightLock(spot);
+              const titre = verrouRang != null ? tr(RANK_LABELS[MAISON_RANKS[verrouRang].id]) : nuit ? tr({ fr: 'Nuit', en: 'Night' }) : null;
               const ouvert = (visite && verrouRang == null) || spotIsOpen(spot);
               const choisi = selection === spot.id || plein === spot.id;
               const autoId = AUTO_OF[spot.kind];
@@ -105,7 +107,9 @@ export default function PlaisirsMenu({ navRef, bake, band, survol, selection, pl
                 <div
                   key={spot.id}
                   className={`pm-lieu${choisi ? ' is-sel' : ''}${survol === spot.id ? ' is-hover' : ''}${visite ? ' is-visit' : ''}`}
-                  {...(titre ? tipProps(spot.label, tr({ fr: `S'ouvre au titre de ${titre}.`, en: `Opens at the title ${titre}.` })) : {})}
+                  {...(titre ? tipProps(spot.label, nuit
+                    ? tr({ fr: "S'ouvre pendant la Nuit du Grand Jeu, et à toute heure pour un Prince de la Maison.", en: 'Opens during the Night of High Play, and at any hour for a Prince of the House.' })
+                    : tr({ fr: `S'ouvre au titre de ${titre}.`, en: `Opens at the title ${titre}.` })) : {})}
                 >
                   {choisi && <span className="pm-lanterne" aria-hidden="true" />}
                   <button

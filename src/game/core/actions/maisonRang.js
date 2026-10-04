@@ -20,6 +20,7 @@ import { MAISON_RANKS, RANK_GIFT_AUTOS } from '../balance.js';
 import { ARTIFACT_NODES, RANK_OF_GIFT } from '../../data/artifacts.js';
 import { recettesPerHour, tableLimits, maisonRank } from './maisonTable.js';
 import { grantFreeFlight } from './templeFlights.js';
+import { nuitReputationMult } from './nuitGrandJeu.js';
 import { chronicle } from './utils.js';
 import { fmt } from '../utils.js';
 import { pushOutcomeFloat } from '../outcomeFloat.js';
@@ -76,7 +77,8 @@ export function recordWager(stake, rtp) {
   const s = Number(stake);
   const edge = 1 - Number(rtp);
   if (!(s > 0) || !(edge > 0)) return 0;
-  const hours = (s * edge) / Math.max(1e-9, recettesPerHour());
+  // Pendant la Nuit du Grand Jeu, la Maison note double (nuitGrandJeu.js).
+  const hours = ((s * edge) / Math.max(1e-9, recettesPerHour())) * nuitReputationMult();
   if (!Number.isFinite(hours) || hours <= 0) return 0;
   state.maisonReputation = maisonReputation() + hours;
   promoteRank();

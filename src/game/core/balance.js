@@ -706,6 +706,50 @@ export const RELIC_STEP_PROD_MULT = 1.25;
 export const ROUE_INTERVAL_S = 3600;
 export const ROUE_SEGMENTS_H = [0.25, 0.5, 0.25, 1, 0.5, 2, 0.25, 0.75, 0.5, 3, 0.25, 1, 0.5, 1.5, 0.75, 5];
 
+// ── LA NUIT DU GRAND JEU (2026-10-04, Raph : « un véritable casino, lieu de luxure et
+// d'argent hors du temps ») ─────────────────────────────────────────────────────
+// Toutes les NUIT_INTERVAL_H heures (la première une heure après l'ouverture de la
+// Maison), la Maison donne sa grande nuit pendant NUIT_DUREE_MIN minutes : elle verse
+// NUIT_POT_H heures de recettes à la cagnotte, ouvre toutes ses portes (la roulette et
+// le salon privé sans titre, les courses, le grand flambeur et son duel), offre un tour
+// de roue, double la réputation gagnée, et la troupe joue toute la nuit (la caisse ×2).
+export const NUIT_INTERVAL_H = 3;
+export const NUIT_PREMIERE_H = 1;
+export const NUIT_DUREE_MIN = 20;
+export const NUIT_POT_H = 6;
+export const NUIT_REPUTATION_MULT = 2;
+// LE SPECTACLE : la troupe se paie SPECTACLE_COUT_H heures de recettes ; pendant
+// SPECTACLE_DUREE_MIN minutes la salle se remplit et la caisse se remplit
+// SPECTACLE_AFFLUENCE fois plus vite ; puis la troupe se repose SPECTACLE_REPOS_MIN.
+// (À 0,25 h le spectacle de 20 min rapporte ~0,33 h : un petit bénéfice, et la salle
+// pleine — le geste, plus que le gain.)
+export const SPECTACLE_COUT_H = 0.25;
+export const SPECTACLE_DUREE_MIN = 20;
+export const SPECTACLE_AFFLUENCE = 2;
+export const SPECTACLE_REPOS_MIN = 40;
+// LE DUEL DES GRANDS FLAMBEURS : pendant la Nuit (et à toute heure pour un Prince de
+// la Maison), un grand flambeur défie le joueur aux dés (quatre chacun), au meilleur des
+// DUEL_MANCHES manches. Mise libre au-dessus de DUEL_MISE_MIN_H heures de recettes
+// (« un grand flambeur ne joue pas petit »), sans plafond ; le vainqueur emporte le pot
+// moins la part de la Maison : 97 %.
+export const DUEL_RTP = 0.97;
+export const DUEL_MISE_MIN_H = 1;
+export const DUEL_MANCHES = 3;
+export const DUEL_PRINCE_RANK = 4;
+// LES COURSES : six partants à cotes FIXES (cote = COURSES_RTP / chance), chaque pari
+// rend 95 %. Au titre de Notable (et pour tous pendant la Nuit).
+export const COURSES_RTP = 0.95;
+export const COURSES_UNLOCK_RANK = 2;
+export const COURSES_PARTANTS = 6;
+// Les profils de chances d'une course (un favori net, une course serrée, deux
+// outsiders) ; la course en tire un et le répartit au hasard entre les couloirs.
+export const COURSES_PROFILS = [
+  [0.32, 0.22, 0.16, 0.12, 0.10, 0.08],
+  [0.22, 0.20, 0.18, 0.16, 0.13, 0.11],
+  [0.40, 0.18, 0.14, 0.11, 0.09, 0.08],
+  [0.26, 0.24, 0.16, 0.14, 0.12, 0.08]
+];
+
 // ── Intendance (consignes conditionnelles, onglet Régulation) ────────────────
 // Délégation configurable : « si la Rupture dépasse X % → lancer telle action
 // d'apaisement ». L'intendance clique COMME LE JOUEUR (mêmes coûts croissants,

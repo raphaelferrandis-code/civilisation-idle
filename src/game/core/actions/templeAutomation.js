@@ -31,6 +31,7 @@ import { buyFaveurItem, buyTempleArtifact, artifactCost } from './faveurShop.js'
 import { hasTempleArtifact } from './templeArtifacts.js';
 import { hasFreeFlight } from './templeFlights.js';
 import { autoStake, recettesPerHour } from './maisonTable.js';
+import { tickNuit } from './nuitGrandJeu.js';
 import { ARTIFACT_LINEAGES, ARTIFACT_NODES } from '../../data/artifacts.js';
 import { RANK_LABELS } from './maisonRang.js';
 import { chronicle } from './utils.js';
@@ -104,6 +105,8 @@ export function tickTempleAutomation() {
   // continue, elle, de tout arrêter.
   if (isNotifyPaused() && !isOfflineSim()) return;
   announceMaisonRefund();
+  // La Nuit du Grand Jeu s'ouvre à son heure (nuitGrandJeu.js), autos ou pas.
+  tickNuit();
   const auto = state.templeAuto;
   if (!auto) return;
   const now = Date.now();

@@ -18,6 +18,7 @@ import { tableLimits, maisonRank } from './maisonTable.js';
 import { feedPot } from './templePot.js';
 import { recordWager } from './maisonRang.js';
 import { recordRoulette } from '../chronicleStats.js';
+import { nuitActive } from './nuitGrandJeu.js';
 import { pushOutcomeFloat } from '../outcomeFloat.js';
 import { fmt } from '../utils.js';
 
@@ -66,13 +67,14 @@ export function betPayout(key) {
 export const isBetKey = (key) => betPayout(key) > 0;
 
 export function rouletteUnlocked() {
-  return maisonRank() >= ROULETTE_UNLOCK_RANK;
+  // La Nuit du Grand Jeu ouvre toutes les portes (nuitGrandJeu.js).
+  return maisonRank() >= ROULETTE_UNLOCK_RANK || nuitActive();
 }
 
 // LE SALON PRIVÉ du boudoir (Raph, 2026-10-04 : « salon privé sans limite ») : la même
 // roulette, sans plafond de mise — on peut y poser toute sa bourse. Au titre de Mécène.
 export function rouletteVipUnlocked() {
-  return maisonRank() >= BOUDOIR_UNLOCK_RANK;
+  return maisonRank() >= BOUDOIR_UNLOCK_RANK || nuitActive();
 }
 
 // Les limites d'une table de roulette : celles du titre, ou, au salon privé, la bourse

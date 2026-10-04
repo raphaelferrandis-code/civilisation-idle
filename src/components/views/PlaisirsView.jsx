@@ -1,6 +1,6 @@
 import { useState, useRef, useEffect, lazy, Suspense } from 'react';
 import { useGameState } from '../../hooks/useGameState.js';
-import { PLAISIRS_SPOTS, spotIsOpen, spotIsFullFrame, spotIsVisit, spotCanVisit, spotRankLock, spotVerbe } from './plaisirs/anchors.js';
+import { PLAISIRS_SPOTS, spotIsOpen, spotIsFullFrame, spotIsVisit, spotCanVisit, spotRankLock, spotVerbe, spotOuvertSalle } from './plaisirs/anchors.js';
 import SalleCanvas from './plaisirs/SalleCanvas.jsx';
 import { tableVars } from '../ui/plaisirsMaterial.js';
 import { useSalleBake } from './plaisirs/salleBake.js';
@@ -16,6 +16,7 @@ import PlaisirsMenu from './plaisirs/PlaisirsMenu.jsx';
 // morceau qui tourne, qu'on change d'un pas (dossier src/assets/musiques/).
 import SceneJukebox from './plaisirs/SceneJukebox.jsx';
 import AnnoncesSalle from './plaisirs/AnnoncesSalle.jsx';
+import NuitBandeau from './plaisirs/NuitBandeau.jsx';
 import { jouerMelodieScene } from '../../game/audio/melodieScene.js';
 
 // L'échoppe s'ouvre DANS la salle, en plein cadre. Chargée paresseusement comme
@@ -75,17 +76,21 @@ export default function PlaisirsView() {
   // les alimentent : le jour où un jeu change de condition d'ouverture, il n'y a
   // rien à mettre à jour ici. Le re-rendu n'a lieu que si la chaîne change.
   // Lot 3 : les verrous de TITRE (le salon, le boudoir) en font partie.
-  const verrous = useGameState(() => PLAISIRS_SPOTS.map((s) => (spotIsOpen(s) ? '1' : spotRankLock(s) != null ? 'r' : '0')).join(''));
+  // (La valeur ne sert plus qu'à ça depuis que la coupe suit les lieux ACQUIS, plus bas.)
+  useGameState(() => PLAISIRS_SPOTS.map((s) => (spotIsOpen(s) ? '1' : spotRankLock(s) != null ? 'r' : '0')).join(''));
   // L'ÂGE de la salle : celui de la ville (même bande que la carte), suivi en direct.
   // Molette de dev partagée avec la carte : `__plaisirsTune.band = n` force l'âge.
   const band = useGameState(() => {
     const t = typeof window !== 'undefined' ? window.__plaisirsTune : null;
     return t && t.band != null ? t.band | 0 : eraBandOf(currentEraIndex());
   });
-  // Ce que la salle MONTRE : chaque table dont le jeu est ouvert (la scène est
-  // toujours là, ses musiciens jouent pour le décor).
+  // Ce que la salle MONTRE : chaque table dont le jeu est ACQUIS (la scène est
+  // toujours là, ses musiciens jouent pour le décor). Pas ce que la Nuit du Grand Jeu
+  // ouvre pour vingt minutes : la coupe se recuirait (la page figée plusieurs
+  // secondes) à l'ouverture et à la fermeture de chaque Nuit (anchors.spotOuvertSalle).
+  const salle = useGameState(() => PLAISIRS_SPOTS.map((s) => (spotOuvertSalle(s) ? '1' : '0')).join(''));
   const open = { scene: true };
-  PLAISIRS_SPOTS.forEach((sp, i) => { if (sp.kind || sp.view) open[sp.id] = verrous[i] === '1'; });
+  PLAISIRS_SPOTS.forEach((sp, i) => { if (sp.kind || sp.view) open[sp.id] = salle[i] === '1'; });
   const bake = useSalleBake(band, open);
   // Où la salle est posée dans le cadre (facteur, origine) : rapporté par le canevas.
   const [mise, setMise] = useState(null);
@@ -361,6 +366,8 @@ export default function PlaisirsView() {
 
         {/* La salle annonce les gros gains de ses habitants (2026-10-04). */}
         {!plein && <AnnoncesSalle />}
+        {/* La Nuit du Grand Jeu s'annonce sur la salle (2026-10-04). */}
+        {!plein && <NuitBandeau />}
 
         {/* LE JEU, EN SURIMPRESSION sur l'illustration — plus jamais à côté.
             Il ne se voit QUE lorsqu'une partie est ouverte : la scène se marque
