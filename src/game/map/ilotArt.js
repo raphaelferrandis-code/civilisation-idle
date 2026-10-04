@@ -8,12 +8,14 @@
 // Bandes où la ville se bâtit par îlots. Le campement et le hameau (0, 1) gardent
 // leur placement, validé par Raph : la ville s'y réorganise une fois en îlots à
 // l'entrée du village (bande 2), puis grandit d'îlot en îlot jusqu'à la fin.
-export const ILOT_BANDS = [4, 5];
+export const ILOT_BANDS = [3, 4, 5];
 
 // LES BOUTIQUES DE LA RUE (Raph 2026-10-04 : « avoir plein de fois le même bâtiment
 // qui a l'air d'un grand bâtiment rend mal ») : une annexe de bâtiment-moteur prend
 // un corps de maison de son âge, tiré dans cette liste (variantes d'une case).
 export const ANNEX_BODIES = {
+  // Bourg : l'atelier à colombages (maison artisane), la maison de pierre, la maison de ville.
+  3: ["crafthouse", "crafthouse", "stonehouse", "townhouse"],
   4: ["taberna", "taberna", "domus", "courtyard"],
   // Fonte (XIXe) : l'immeuble haussmannien a sa boutique au rez ; la brique ouvrière.
   5: ["haussmann", "haussmann", "block", "terrace"],
@@ -28,6 +30,11 @@ export function annexOwnArt(id, band) {
 // de rue autre que le sud (le sprite d'origine). E = « -fr » (façade à droite),
 // N/W = « -bl »/« -br » (le dos). Absent = la variante garde son sprite.
 export const ORIENT = {
+  // Bourg : la maison artisane du jeu EST la vue sud-ouest d'un objet PixelLab à 8 vues
+  // (« crafthouse v4 natif 64 ») — ses autres vues, à la même taille, sont gratuites.
+  3: {
+    crafthouse: { E: "crafthouse-fr", N: "crafthouse-bl", W: "crafthouse-br" },
+  },
   4: {
     domus: { E: "domus-fr", N: "domus-bl", W: "domus-br" },
     taberna: { E: "domus-fr", N: "taberna-bl", W: "taberna-br" },
@@ -50,6 +57,15 @@ export const ORIENT = {
 // (ils font leur propre bout), `models` = vues disponibles de chaque modèle. Fichiers
 // `houses/row-<modèle>-<vue>.png` ; vues fl/fr = façade à gauche/droite, bl/br = dos.
 export const ROWS = {
+  // Bourg : la rangée À COLOMBAGES (objet neuf house-colombage-rangee-b23, palette de la
+  // maison artisane) : deux maisons sous un toit de tuiles, rez de pierre et volets
+  // d'échoppe, pignons percés.
+  3: {
+    of: { crafthouse: "colombage", townhouse: "colombage", stonehouse: "colombage" },
+    end: "colombage",
+    selfEnd: ["colombage"],
+    models: { colombage: ["fl", "fr", "bl", "br"] },
+  },
   4: {
     of: { taberna: "taberna", domus: "domus", courtyard: "popina", insula: "insula", insula2: "insula" },
     end: "insula",

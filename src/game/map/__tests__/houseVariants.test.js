@@ -67,7 +67,10 @@ const SANS_TEINTE = new Set([
   "row-popina-fr", "row-insula-fl", "row-insula-fr", "row-insula-bl", "row-insula-br",
   // Fonte (même jour) : l'immeuble haussmannien tourné et ses unités de rangée.
   "haussmann-fr", "row-haussmann-fl", "row-haussmann-fr",
-  "row-terrace-fl", "row-terrace-fr", "row-terrace-bl", "row-terrace-br"
+  "row-terrace-fl", "row-terrace-fr", "row-terrace-bl", "row-terrace-br",
+  // Bourg : la maison artisane tournée et la rangée à colombages.
+  "crafthouse-fr", "crafthouse-bl", "crafthouse-br",
+  "row-colombage-fl", "row-colombage-fr", "row-colombage-bl", "row-colombage-br"
 ]);
 
 // Sprites lus une fois, réutilisés par les tests qui mesurent sur l'art réel.

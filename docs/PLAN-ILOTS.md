@@ -163,6 +163,12 @@ PLAN-ROUTES) et « une maison ne bouge jamais » (keepInPlace).
   - ⚠ PixelLab : une rotation Pro Flash À PARTIR d'un sprite du jeu pris de trois
     quarts échoue (il est lu comme une vue de FACE : vues tournées frontales, chiffres
     incrustés, pixels verts). Passer par un objet à 8 vues généré, puis convertir.
+  - **Bourg (bande 3)** : bastide en damier autour de sa place ; boutiques = maison
+    artisane (atelier à colombages), maison de pierre, maison de ville ; la maison
+    artisane du jeu EST la vue sud-ouest d'un objet PixelLab à 8 vues : ses vues tournées
+    sont gratuites ; rangées À COLOMBAGES (objet neuf, deux maisons sous un toit de
+    tuiles, rez de pierre et volets d'échoppe, palette de la maison artisane). Fenêtres :
+    volets d'échoppe fermés, lucarne, petites fenêtres du rez ; pans de bois éteints.
 - ⚠ Fragilité connue, hors îlots : quand le niveau des champs change leur découpage
   (`cmTerroirParcels`), la parcelle 0 qui s'épaissit mord sa propre rangée de moulins
   (distance 1, plus les sentiers qui les desservent) et le terroir entier se refonde
