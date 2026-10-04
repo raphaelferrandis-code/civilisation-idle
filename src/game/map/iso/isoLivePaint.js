@@ -237,6 +237,20 @@ export function paintIsoItems(bake, items, now) {
   // tuile de LIGHT_LAYER.minUnit pixels on y renonce (halos minuscules, découpes
   // innombrables) et la passe de nuit repeint les halos en direct, comme avant.
   const lampK = beginLightLayer(T * z >= LIGHT_LAYER.minUnit) ? isoLampLightFrame(L) : null;
+  // Ancre ÉCRAN d'un bâtiment : coin SUD de l'empreinte (point monde (gx+spanX,
+  // gy+spanY)), DÉCALÉE vers la façade sur rue (cf. FRONT ; une rangée, elle, recule
+  // derrière son trottoir) : sans ça le bâtiment flotte au milieu de son lot et la
+  // rue n'a pas de mur. Le même décalage est appliqué à la clé de tri, plus haut —
+  // les deux ne se séparent jamais. La fumée, la fumée de crise et le chevron la
+  // reprennent : avec le coin nu, ils sortaient à côté de la cheminée.
+  // ⚠ Les REPÈRES CIVIQUES (pseudo-tiles de district, __district) ne prennent
+  // PAS le poussé de front : la masse reste centrée sur son esplanade — et la
+  // collecte a trié sans offset, l'ancre doit suivre le même contrat.
+  const tileAnchor = (t, spanX, spanY) => {
+    const fOff = (t.__district || /field|farm|crop|orchard/i.test(t.buildingId || t.variant || ''))
+      ? null : isoFrontOffset(t, L.roadMap);
+    return worldToScreen((t.gx + spanX + (fOff ? fOff.ox : 0)) * T, (t.gy + spanY + (fOff ? fOff.oy : 0)) * T);
+  };
   for (const it of items) {
     // Un item NON basculé doit être peint APRÈS le lot en cours : on compose
     // d'abord, sinon la série GL passerait par-dessus lui.
@@ -244,17 +258,7 @@ export function paintIsoItems(bake, items, now) {
     if (it.kind === 'tile') {
       const t = it.t;
       const spanX = t.spanX || t.size || 1, spanY = t.spanY || t.size || 1;
-      // Ancre = coin SUD de l'empreinte (point monde (gx+spanX, gy+spanY)),
-      // DÉCALÉE vers la façade sur rue (cf. FRONT) : sans ça le bâtiment flotte
-      // au milieu de son lot et la rue n'a pas de mur. Le même décalage est
-      // appliqué à la clé de tri, plus haut — les deux ne se séparent jamais.
-      // ⚠ Les REPÈRES CIVIQUES (pseudo-tiles de district, __district) ne prennent
-      // PAS le poussé de front : la masse reste centrée sur son esplanade — et la
-      // collecte a trié sans offset, l'ancre doit suivre le même contrat.
-      const fOff = (t.__district || /field|farm|crop|orchard/i.test(t.buildingId || t.variant || ''))
-        ? null : isoFrontOffset(t, L.roadMap);
-      const anchor = worldToScreen((t.gx + spanX + (fOff ? fOff.ox : 0)) * T,
-        (t.gy + spanY + (fOff ? fOff.oy : 0)) * T);
+      const anchor = tileAnchor(t, spanX, spanY);   // poussé / recul de front compris
       // `t.body` : un atelier logé dans une rangée (corps de maison, cf. layout.js).
       const isHouse = t.type === 'house' || t.type === 'enginehome' || !!t.body;
       // Bâtiment RIVERAIN (port : l'empreinte mord la berge/l'eau) : scène iso
@@ -495,7 +499,7 @@ export function paintIsoItems(bake, items, now) {
     } else if (it.kind === 'smoke') {
       const t = it.t;
       const spanX = t.spanX || t.size || 1, spanY = t.spanY || t.size || 1;
-      const anchor = worldToScreen((t.gx + spanX) * T, (t.gy + spanY) * T);
+      const anchor = tileAnchor(t, spanX, spanY);
       const wpx = (spanX + spanY) * T * z * ISO_X * 0.78;
       // MÊME appel de géométrie que le dessin du sprite : la source de la fumée
       // se recale donc automatiquement sur tout changement de cadrage du sprite.
@@ -504,13 +508,13 @@ export function paintIsoItems(bake, items, now) {
       // Même géométrie que la cheminée ci-dessus (la boîte RÉELLE du sprite).
       const t = it.t;
       const spanX = t.spanX || t.size || 1, spanY = t.spanY || t.size || 1;
-      const anchor = worldToScreen((t.gx + spanX) * T, (t.gy + spanY) * T);
+      const anchor = tileAnchor(t, spanX, spanY);
       const wpx = (spanX + spanY) * T * z * ISO_X * 0.78;
       drawIsoCrisisSmoke(pixelHouseBox(t, anchor.x - wpx / 2, anchor.y - wpx - hh * 0.5, wpx, wpx), t._crisisS, now);
     } else if (it.kind === 'revealpin') {
       const t = it.t;
       const spanX = t.spanX || t.size || 1, spanY = t.spanY || t.size || 1;
-      const anchor = worldToScreen((t.gx + spanX) * T, (t.gy + spanY) * T);
+      const anchor = tileAnchor(t, spanX, spanY);
       const wpx = (spanX + spanY) * T * z * ISO_X * 0.78;
       // MÊME géométrie que le sprite (cf. fumée) → le chevron suit tout recadrage.
       drawIsoRevealPin(pixelHouseBox(t, anchor.x - wpx / 2, anchor.y - wpx - hh * 0.5, wpx, wpx), t._revealPinAt, now);

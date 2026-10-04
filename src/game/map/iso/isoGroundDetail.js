@@ -366,8 +366,8 @@ export function isoBuildingFront(t, roadMap) {
 // contre une rue (demi-largeur 0,25) plante le bâtiment DANS un boulevard
 // (0,36). La borne se calcule, elle ne se règle pas à l'œil.
 export function isoFrontOffset(t, roadMap, cfg = FRONT) {
+  if (t.terrace) return isoRowSetback(t, roadMap);   // rangée mitoyenne : elle RECULE (plus bas)
   if (!cfg.on || !cfg.push) return null;
-  if (t.terrace) return null;     // rangée mitoyenne : elle remplit son lot (pixelHouses.rowGeom)
   const f = isoBuildingFront(t, roadMap);
   if (!f) return null;
   const room = 0.5 - isoRoadHalfW(f.rank) - cfg.gap;
@@ -386,6 +386,45 @@ if (typeof window !== 'undefined') {
     if (CM.layout && CM.layout.tiles) for (const t of CM.layout.tiles) delete t._front;
     solInvalidate('all');   // les allées de seuil vivent dans le bake
     return { ...FRONT };
+  };
+}
+// RECUL DES RANGÉES (Raph 2026-10-04 : « il n'y a plus de trottoir, donc les gens et
+// les objets apparaissent sur les bâtiments »). Une rangée remplit son lot : sa façade
+// tombe au bord de la cellule de rue (pixelHouses.rowGeom). Or la bande où marchent
+// les passants et où se posent bancs, bacs et réverbères va jusqu'à `demi-chaussée +
+// SIDEWALK_ISO.w` de l'axe : 0,47 devant une rue ordinaire, 0,55 devant une avenue,
+// 0,58 devant une grand-rue — DANS le mur, et le peintre les dessinait par-dessus.
+// L'unité recule donc vers l'intérieur de l'îlot pour laisser `margin` de sol entre
+// cette bande et sa façade (devant une maison poussée, il en reste 0,09). Seulement
+// des rues côté caméra (S, E) : de l'autre côté la façade est cachée et le bâtiment
+// recouvre son trottoir, ce qui est juste. Une rangée borde une seule rue, donc toutes
+// ses unités reculent d'autant et les toits restent alignés ; une unité d'angle recule
+// aussi de la rue transverse, en glissant sous sa voisine le long de la rangée.
+// Mesuré (îlots des âges 3-6) : derrière une rangée, jardin, maison ou retour d'angle
+// — jamais une autre rangée dos à dos.
+export const ROW_SETBACK = { on: true, margin: 0.1 };
+export function isoRowSetback(t, roadMap, cfg = ROW_SETBACK) {
+  if (!cfg.on || !roadMap) return null;
+  if (t._rowBack !== undefined) return t._rowBack;
+  let ox = 0, oy = 0;
+  for (const [dx, dy] of [[0, 1], [1, 0]]) {
+    const rc = roadMap.get((t.gx + dx) + ',' + (t.gy + dy));
+    if (!rc || rc.roadSurface === 'bridge' || rc.rank === 'plaza') continue;
+    const s = isoRoadHalfW(rc.rank) + SIDEWALK_ISO.w + cfg.margin - 0.5;
+    if (s > 0) { ox -= dx * s; oy -= dy * s; }
+  }
+  t._rowBack = (ox || oy) ? { ox, oy } : null;
+  return t._rowBack;
+}
+if (typeof window !== 'undefined') {
+  // Molette : __rowSetback(false) recolle les rangées au bord du lot ;
+  // __rowSetback({margin}) règle le sol gardé entre trottoir et façade.
+  window.__rowSetback = (arg) => {
+    if (arg === false) ROW_SETBACK.on = false;
+    else if (arg && typeof arg === 'object') { ROW_SETBACK.on = true; Object.assign(ROW_SETBACK, arg); }
+    else ROW_SETBACK.on = true;
+    if (CM.layout && CM.layout.tiles) for (const t of CM.layout.tiles) delete t._rowBack;
+    return { ...ROW_SETBACK };
   };
 }
 // Cette cellule frontalière rend-elle la matière de l'AUTRE côté ? Pure et

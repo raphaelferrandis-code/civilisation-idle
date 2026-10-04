@@ -11,10 +11,10 @@
 //     Elle vivait dans la boucle de dessin des allées ; elle est maintenant
 //     partagée, et ce fichier est ce qui empêche qu'elles se remettent à diverger.
 import { describe, it, expect } from "vitest";
-import { isoBuildingFront, isoFrontOffset, FRONT } from "../iso/isoGroundDetail.js";
+import { isoBuildingFront, isoFrontOffset, FRONT, ROW_SETBACK } from "../iso/isoGroundDetail.js";
 // La GÉOMÉTRIE de rue est partie dans isoRoad.js le 2026-08-23 : que de la config,
 // aucune ligne de dessin. Le front de rue, lui, est resté avec le peintre.
-import { ISO_ROAD_HALFW } from "../iso/isoRoad.js";
+import { ISO_ROAD_HALFW, SIDEWALK_ISO } from "../iso/isoRoad.js";
 
 const carte = (cells) => {
   const m = new Map();
@@ -115,5 +115,50 @@ describe("poussé vers la rue", () => {
     const trop = isoFrontOffset(tuile(5, 5), carte({ "5,6": { rank: "secondary" } }),
       { ...FRONT, push: FRONT.push + 0.1 });
     expect(trop.oy).toBeCloseTo(o.oy, 6);
+  });
+});
+
+// RECUL DES RANGÉES (Raph 2026-10-04 : « il n'y a plus de trottoir, donc les gens et
+// les objets apparaissent sur les bâtiments ») : une rangée remplit son lot, sa
+// façade tombe au bord de la rue — là où marchent les passants devant une avenue.
+describe("recul des rangées", () => {
+  const rangee = (gx, gy, face = "S") => ({ ...tuile(gx, gy), terrace: 1, row: 1, face });
+  // Bord extérieur de la bande des passants et du mobilier, depuis l'axe de la rue
+  // (mêmes termes que isoStreet : outerOf = demi-chaussée + SIDEWALK_ISO.w).
+  const bande = (rank) => ISO_ROAD_HALFW[rank] + SIDEWALK_ISO.w;
+
+  it("la façade d'une rangée laisse du sol entre le trottoir et le mur, quel que soit le rang", () => {
+    for (const rank of Object.keys(ISO_ROAD_HALFW)) {
+      const o = isoFrontOffset(rangee(5, 5), carte({ "5,6": { rank } }));
+      const facade = 0.5 - (o ? o.oy : 0);                 // distance axe de rue → façade
+      expect(facade - bande(rank), rank).toBeGreaterThanOrEqual(ROW_SETBACK.margin - 1e-9);
+      if (o) expect(o.ox).toBe(0);
+    }
+  });
+
+  it("recule DEPUIS la rue (vers l'intérieur de l'îlot), jamais vers elle", () => {
+    const s = isoFrontOffset(rangee(5, 5), carte({ "5,6": { rank: "main" } }));
+    expect(s.oy).toBeLessThan(0);
+    const e = isoFrontOffset(rangee(5, 5, "E"), carte({ "6,5": { rank: "main" } }));
+    expect(e.ox).toBeLessThan(0);
+    expect(e.oy).toBe(0);
+  });
+
+  it("une unité d'angle recule des deux rues côté caméra ; derrière, rien ne bouge", () => {
+    const c = isoFrontOffset(rangee(5, 5), carte({ "5,6": { rank: "main" }, "6,5": { rank: "avenue" } }));
+    expect(c.oy).toBeLessThan(0);
+    expect(c.ox).toBeLessThan(0);
+    // Rues au nord et à l'ouest : façade cachée, le bâtiment couvre son trottoir.
+    expect(isoFrontOffset(rangee(5, 5, "N"), carte({ "5,4": { rank: "main" }, "4,5": { rank: "main" } }))).toBe(null);
+  });
+
+  it("toute une rangée recule d'autant : les toits restent alignés", () => {
+    const m = carte({ "4,6": { rank: "avenue" }, "5,6": { rank: "avenue" }, "6,6": { rank: "avenue" } });
+    const ys = [4, 5, 6].map((gx) => isoFrontOffset(rangee(gx, 5), m).oy);
+    expect(new Set(ys).size).toBe(1);
+  });
+
+  it("une maison ordinaire garde son poussé vers la rue", () => {
+    expect(isoFrontOffset(tuile(5, 5), carte({ "5,6": { rank: "main" } })).oy).toBeGreaterThan(0);
   });
 });

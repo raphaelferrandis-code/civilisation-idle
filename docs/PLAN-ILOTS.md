@@ -218,6 +218,19 @@ PLAN-ROUTES) et « une maison ne bouge jamais » (keepInPlace).
   l'éclat (passé / frais). Ordre des variantes mélangé par côté (`rowSide`) : deux
   voisines jamais pareilles, deux côtés jamais la même suite. Même dessin = même
   emprise, même hauteur, mêmes fenêtres de nuit.
+- 2026-10-04 (soir — Raph, 3 captures : « attention il n'y a plus de trottoir, donc les
+  gens et les objets apparaissent sur les bâtiments !! ») : une rangée remplit son lot,
+  façade au bord de la cellule de rue ; or la bande des passants et du mobilier va
+  jusqu'à `demi-chaussée + SIDEWALK_ISO.w` de l'axe — 0,47 devant une rue, 0,55 devant
+  une avenue, 0,58 devant une grand-rue : DANS le mur (bacs sur les portes, réverbère
+  planté dans une façade de brique). Les rangées RECULENT désormais vers l'intérieur
+  de l'îlot (`isoRowSetback`, via `isoFrontOffset` : ancre du sprite, clé de tri,
+  fiches des passants, toits des oiseaux et fanions suivent) pour garder 0,1 tuile de
+  sol entre cette bande et la façade — rues côté caméra (S, E) seulement, l'autre
+  côté est caché. Mesuré : derrière une rangée, jardin, maison ou retour d'angle,
+  jamais une rangée dos à dos. Au passage, fumée, fumée de crise et chevron
+  « nouveau » prennent la même ancre que le sprite (ils sortaient à côté de la
+  cheminée des maisons poussées vers la rue). Molette `__rowSetback(false|{margin})`.
 - ⚠ Fragilité connue, hors îlots : quand le niveau des champs change leur découpage
   (`cmTerroirParcels`), la parcelle 0 qui s'épaissit mord sa propre rangée de moulins
   (distance 1, plus les sentiers qui les desservent) et le terroir entier se refonde

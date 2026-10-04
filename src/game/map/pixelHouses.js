@@ -378,7 +378,8 @@ export function pixelHouseReady(t) {
 // (isoLivePaint : w = 2·T·z·HOUSE_LOT_WF, bas de boîte = coin sud − ¼ de tuile à
 // l'écran) : on en tire le coin SUD exact et la demi-largeur du losange (Tz), puis le
 // PNG est posé coin avant sur coin sud, sa façade couvrant le côté du lot.
-// Pas de poussé vers la rue (cf. isoFrontOffset) : l'unité EST le front de rue.
+// Pas de poussé vers la rue : au contraire, le peintre RECULE la boîte-lot derrière
+// le trottoir (isoFrontOffset → isoRowSetback), et la géométrie la suit.
 function rowGeom(t, x, y, w, h, key, e) {
   const Tz = w / (2 * HOUSE_LOT_WF);
   const sx = x + w / 2, sy = y + h + Tz / 4;
