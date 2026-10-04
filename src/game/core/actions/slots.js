@@ -120,8 +120,11 @@ function addFreeSpins(stakeFaveur, n, session = null) {
   state.slotsFreeSpins = { left: n, stakeFaveur, won: 0, total: n };
   return state.slotsFreeSpins;
 }
+// Seule la série EXPLICITEMENT jouée encaisse : le bonus (roue, Hold & Win) d'un
+// tour PAYÉ dont les étoiles viennent d'ouvrir une série n'appartient pas à
+// celle-ci (sinon « ★ 0/8 · +2 000 » avant le premier tour gratuit).
 function addToSeries(session, won) {
-  const f = slotsFreeSpins() || (session && session === state.slotsFreeSpins ? session : null);
+  const f = session && session === state.slotsFreeSpins ? session : null;
   if (f && won > 0) f.won += won;
 }
 
