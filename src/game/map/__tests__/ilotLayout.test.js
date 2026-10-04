@@ -126,7 +126,7 @@ describe("ville par îlots (bande 4)", () => {
   // LES AUTRES ÂGES (Raph 2026-10-04 : « fais-les toutes ») : chaque bande de ILOT_BANDS
   // se bâtit par îlots, loge TOUTES ses maisons-moteur (la demande compte les grands
   // logis de la bande), et ses ateliers sont des corps de maison de son âge.
-  for (const [era, band] of [[17, 3], [21, 4], [27, 5]]) {
+  for (const [era, band] of [[12, 2], [17, 3], [21, 4], [27, 5]]) {
     it(`bande ${band} : îlots, maisons-moteur toutes logées, boutiques de l'âge`, () => {
       const L = grow(era);
       expect(L.counts.eraBand).toBe(band);
