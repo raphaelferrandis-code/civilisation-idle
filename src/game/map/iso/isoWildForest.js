@@ -53,6 +53,13 @@ function lifeDistFor(L, buildFoot, camp) {
   L[key] = cmLifeDistance(L.gridN | 0, sources, treeLifeRange());
   return L[key];
 }
+// La même distance, pour ceux qui suivent la forêt sans la planter (le sous-bois,
+// isoForestFloor.js) ; null quand la règle est coupée hors camp.
+export function forestLifeDist(L) {
+  const campOn = campGroundOn(L);
+  if (!(campOn || TREE_LIFE.on)) return null;
+  return lifeDistFor(L, isoBuildFootSet(L), campOn);
+}
 
 // ── Forêt sauvage : ceinture d'arbres autour de la ville ─────────────────────
 // Le legacy (cityMapDrawTrees) peignait une forêt sur TOUTE l'herbe hors « sol

@@ -28,6 +28,7 @@ import { terrainKey, terrainMaxPx } from './isoTerrain.js';
 import { rgb } from './isoPalette.js';
 import { drawIsoMedians } from './isoStreet.js';
 import { drawWonderGroundAll, wonderToneFor } from './isoWonderGround.js';
+import { drawForestFloor, forestFlowerK } from './isoForestFloor.js';
 import { WINTER } from '../seasonMode.js';
 
 // ── SOL : l'ordre des passes ─────────────────────────────────────────────────
@@ -147,9 +148,12 @@ export function drawIsoGround() {
   // cellule → « tous les voiles puis toutes les fleurs » == l'entrelacé par cellule.
   const tV = PR && performance.now();
   flushVeils();
+  // SOUS-BOIS (isoForestFloor.js) : l'ombre des fourrés, en un voile lissé — avant
+  // les fleurs, qui s'y éteignent.
+  if (!LOD) drawForestFloor(ctx, b, L, T);
   // Camp : l'herbe piétinée au ras de la terre battue ne fleurit pas (campFlowerK).
   const campFK = campFlowerK(L);
-  drawGrassDetailAll(ctx, grassCells, hw, hh, lisiere, campFK);
+  drawGrassDetailAll(ctx, grassCells, hw, hh, lisiere, forestFlowerK(L, campFK));
   if (PR) PR.grass += performance.now() - tV;
   // FRANGE D'HERBE : après le fond (les langues mordent sur des cellules déjà
   // peintes), AVANT les rubans de chaussée (la route recouvre ce qui la borde).

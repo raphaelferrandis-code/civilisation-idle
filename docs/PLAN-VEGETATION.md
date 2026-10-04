@@ -205,3 +205,18 @@ Méthode habituelle : planche avant/après sur de vraies captures, validation de
     5 651 → 5 613.
   - Garde `forestStands.test.js` (regroupement, chaque essence domine quelque part,
     pionniers, moyenne de densité, trouées franches et lisses).
+  - Commit local `c6f3a367`.
+- **Lot 3 fait** (`iso/isoForestFloor.js`, réglages `FOREST_FLOOR`, molette
+  `__forestFloor`) : le sous-bois.
+  - ⛔ Pas de voile par losange : à 30 % d'alpha, un voile dosé cellule par cellule
+    montrerait la grille (4 refus de ton par cellule). Le voile est UNE image d'un pixel
+    par cellule, posée sous la transformée iso avec le lissage du navigateur : dégradé
+    continu d'un centre de cellule à l'autre, aucune marche (vérifié à l'œil, jointures
+    de tuiles comprises).
+  - Part de sous-bois = densité des fourrés (`forestDensity`, celle qui plante) entre
+    0,42 et 0,78, × la part TREE_LIFE (rien au ras de la vie), 0 sur route et eau.
+    Couleur (20,36,26) à 0,32 ; × 0,55 en hiver.
+  - Fleurs éteintes sous les couronnes (`forestFlowerK`, combiné à `campFlowerK`).
+  - Signature de tuile (`tileSig` → `forestFloorSig`) : la distance à la vie dépend de
+    routes et d'emprises jusqu'à 5 cellules hors de la tuile.
+  - Garde `forestFloor.test.js`.
