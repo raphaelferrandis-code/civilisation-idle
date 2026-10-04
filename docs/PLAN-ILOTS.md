@@ -169,6 +169,11 @@ PLAN-ROUTES) et « une maison ne bouge jamais » (keepInPlace).
     sont gratuites ; rangées À COLOMBAGES (objet neuf, deux maisons sous un toit de
     tuiles, rez de pierre et volets d'échoppe, palette de la maison artisane). Fenêtres :
     volets d'échoppe fermés, lucarne, petites fenêtres du rez ; pans de bois éteints.
+  - **Village (bande 2)** : la PREMIÈRE bande en îlots — la ville du hameau s'y
+    réorganise une fois en damier autour de sa place (le campement et le hameau, validés,
+    gardent leur placement). Boutiques = maison artisane, maison de ville, maison à cour ;
+    mêmes rangées à colombages et maison artisane tournée qu'au bourg.
+    roadMemory.test.js (campement → bourg) exempte ce seul pas de réorganisation.
 - ⚠ Fragilité connue, hors îlots : quand le niveau des champs change leur découpage
   (`cmTerroirParcels`), la parcelle 0 qui s'épaissit mord sa propre rangée de moulins
   (distance 1, plus les sentiers qui les desservent) et le terroir entier se refonde

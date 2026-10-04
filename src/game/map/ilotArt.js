@@ -8,12 +8,14 @@
 // Bandes où la ville se bâtit par îlots. Le campement et le hameau (0, 1) gardent
 // leur placement, validé par Raph : la ville s'y réorganise une fois en îlots à
 // l'entrée du village (bande 2), puis grandit d'îlot en îlot jusqu'à la fin.
-export const ILOT_BANDS = [3, 4, 5];
+export const ILOT_BANDS = [2, 3, 4, 5];
 
 // LES BOUTIQUES DE LA RUE (Raph 2026-10-04 : « avoir plein de fois le même bâtiment
 // qui a l'air d'un grand bâtiment rend mal ») : une annexe de bâtiment-moteur prend
 // un corps de maison de son âge, tiré dans cette liste (variantes d'une case).
 export const ANNEX_BODIES = {
+  // Village : l'atelier à colombages, la maison de ville, la petite maison à cour.
+  2: ["crafthouse", "crafthouse", "townhouse", "courtyard"],
   // Bourg : l'atelier à colombages (maison artisane), la maison de pierre, la maison de ville.
   3: ["crafthouse", "crafthouse", "stonehouse", "townhouse"],
   4: ["taberna", "taberna", "domus", "courtyard"],
@@ -32,6 +34,9 @@ export function annexOwnArt(id, band) {
 export const ORIENT = {
   // Bourg : la maison artisane du jeu EST la vue sud-ouest d'un objet PixelLab à 8 vues
   // (« crafthouse v4 natif 64 ») — ses autres vues, à la même taille, sont gratuites.
+  2: {
+    crafthouse: { E: "crafthouse-fr", N: "crafthouse-bl", W: "crafthouse-br" },
+  },
   3: {
     crafthouse: { E: "crafthouse-fr", N: "crafthouse-bl", W: "crafthouse-br" },
   },
@@ -57,6 +62,13 @@ export const ORIENT = {
 // (ils font leur propre bout), `models` = vues disponibles de chaque modèle. Fichiers
 // `houses/row-<modèle>-<vue>.png` ; vues fl/fr = façade à gauche/droite, bl/br = dos.
 export const ROWS = {
+  // Village : la même rangée à colombages (la maison de ville et l'atelier s'y alignent).
+  2: {
+    of: { crafthouse: "colombage", townhouse: "colombage" },
+    end: "colombage",
+    selfEnd: ["colombage"],
+    models: { colombage: ["fl", "fr", "bl", "br"] },
+  },
   // Bourg : la rangée À COLOMBAGES (objet neuf house-colombage-rangee-b23, palette de la
   // maison artisane) : deux maisons sous un toit de tuiles, rez de pierre et volets
   // d'échoppe, pignons percés.

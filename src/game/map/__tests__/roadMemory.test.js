@@ -40,10 +40,15 @@ beforeEach(() => {
 
 describe("mémoire du réseau — une ville qui se souvient", () => {
   it("campement → bourg : aucune rue ne disparaît, aucun bâtiment ne déménage", () => {
-    let prevRoads = null, prevSlots = null, lostRoads = 0, moved = 0, core = null;
+    let prevRoads = null, prevSlots = null, lostRoads = 0, moved = 0, core = null, prevIlot = false;
     for (let i = 0; i <= 14; i += 2) {
       for (const f of [1, 4]) {
         const L = grow(i, f);
+        // La RÉORGANISATION UNIQUE à l'entrée du village (première bande en îlots,
+        // docs/PLAN-ILOTS.md) ne compte pas ; avant comme après, la règle tient.
+        const ilotNow = !!(state.cityCore && state.cityCore.ilot);
+        if (ilotNow && !prevIlot) { prevRoads = null; prevSlots = null; }
+        prevIlot = ilotNow;
         expect(L.counts.eraBand).toBeLessThanOrEqual(ROAD_MEMORY.lastBand);
         const cr = [Math.round(L.plan.core.x) - L.cx, Math.round(L.plan.core.y) - L.cy].join(",");
         if (core) expect(cr, `le cœur a glissé à l'ère ${i}`).toBe(core);
