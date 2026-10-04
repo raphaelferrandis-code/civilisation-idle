@@ -172,7 +172,7 @@ describe("Vol d'Icare — la mise libre", () => {
   });
 
   it("une mise au-dessus de la limite est RAMENÉE à la limite, et arrondie à l'entier", () => {
-    expect(tableLimits()).toEqual({ min: 1, max: LIMITE });
+    expect(tableLimits()).toEqual({ min: 1, max: LIMITE, base: LIMITE });
     launch(1e6, 0.01);
     expect(icarusFlightInfo().stakeFaveur).toBe(LIMITE);
     expect(state.faveur).toBe(FAVEUR_START - LIMITE); // débitée à la limite, pas à la demande

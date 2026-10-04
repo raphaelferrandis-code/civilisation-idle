@@ -4,6 +4,7 @@ import { fmt } from '../../../game/core/utils.js';
 import { tr } from '../../../game/core/i18n.js';
 import { tipProps } from '../../ui/HelpBubble.jsx';
 import { FaveurIcon } from '../../ui/FaveurIcon.jsx';
+import RangMaison from './RangMaison.jsx';
 
 /**
  * La bourse de la Maison des Plaisirs : la Faveur qu'on mise, et le tronc
@@ -43,6 +44,8 @@ export default function OffrandesBloc() {
       >
         <FaveurIcon /> {fmt(faveur)}
       </div>
+      {/* Le titre à la Maison (lot 2) : le rang, et le chemin vers le suivant. */}
+      <RangMaison />
       <div
         className="plaisirs-bourse-tronc"
         {...tipProps(

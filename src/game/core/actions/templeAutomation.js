@@ -32,6 +32,7 @@ import { hasTempleArtifact } from './templeArtifacts.js';
 import { hasFreeFlight } from './templeFlights.js';
 import { autoStake, recettesPerHour } from './maisonTable.js';
 import { ARTIFACT_LINEAGES, ARTIFACT_NODES } from '../../data/artifacts.js';
+import { RANK_LABELS } from './maisonRang.js';
 import { chronicle } from './utils.js';
 import { recordShopSpend } from '../chronicleStats.js';
 import { pushOutcomeFloat } from '../outcomeFloat.js';
@@ -51,7 +52,9 @@ import {
   AUTO_SCRATCH_UNLOCK_COST,
   AUTO_BLACKJACK_UNLOCK_COST,
   BLACKJACK_RTP_AUTO,
-  OFFLINE_MAX_TEMPLE_PLAYS_PER_GAME
+  OFFLINE_MAX_TEMPLE_PLAYS_PER_GAME,
+  MAISON_RANKS,
+  RANK_GIFT_AUTOS
 } from '../balance.js';
 
 // La table d'osselets fusionnée conserve cet id interne (cf. regulationActions).
@@ -181,11 +184,20 @@ export function tickTempleAutomation() {
 // annoncé UNE fois, au premier tick en ligne : la migration court avant que l'état
 // n'existe, elle ne peut ni chroniquer ni afficher.
 function announceMaisonRefund() {
+  if (isOfflineSim()) return;
   const refund = state.maisonRefund || 0;
-  if (refund <= 0 || isOfflineSim()) return;
-  state.maisonRefund = 0;
-  chronicle(`La Maison des Plaisirs change ses règles : les chances ne s'achètent plus. Elle rend ${Math.round(refund).toLocaleString("fr-FR")} faveur dépensée en dés pipés, ailes cirées, planches et coffres.`);
-  pushOutcomeFloat({ label: `🏺 +${Math.round(refund).toLocaleString("fr-FR")} faveur rendue`, kind: "gain" });
+  const gifts = state.maisonGiftRefund || 0;
+  if (refund <= 0 && gifts <= 0) return;
+  if (refund > 0) {
+    state.maisonRefund = 0;
+    chronicle(`La Maison des Plaisirs change ses règles : les chances ne s'achètent plus. Elle rend ${Math.round(refund).toLocaleString("fr-FR")} faveur dépensée en dés pipés, ailes cirées, planches et coffres.`);
+  }
+  // Lot 2 (migration 5 → 6) : les cadeaux de rang qu'on avait achetés restent à soi.
+  if (gifts > 0) {
+    state.maisonGiftRefund = 0;
+    chronicle(`La Maison des Plaisirs récompense désormais ses habitués : ce qu'elle offre à ses titres ne se vend plus. Tu gardes ce que tu avais acheté, et elle te rend ${Math.round(gifts).toLocaleString("fr-FR")} faveur.`);
+  }
+  pushOutcomeFloat({ label: `🏺 +${Math.round(refund + gifts).toLocaleString("fr-FR")} faveur rendue`, kind: "gain" });
   saveSoon();
 }
 
@@ -276,8 +288,12 @@ const AUTO_LABELS = {
   vingtetun: { verbe: "l'auto-vingt-et-un", court: "Vingt-et-un auto" }
 };
 
+// Lot 2 : les automatisations des QUATRE JEUX sont des cadeaux de rang (maisonRang.js),
+// elles ne s'achètent plus ; seule la sébile du tronc (la caisse) reste à vendre.
+const GIFTED_AUTO_GAMES = new Set(Object.values(RANK_GIFT_AUTOS));
 export function unlockTempleAuto(game) {
   if (!(game in AUTO_UNLOCK_COSTS)) return false;
+  if (GIFTED_AUTO_GAMES.has(game)) return false;
   if (!state.templeAuto) state.templeAuto = defaultTempleAuto();
   const g = state.templeAuto[game];
   if (g.unlocked) return false;
@@ -375,9 +391,17 @@ function nodeAcquired(node) {
   return false;
 }
 
+// Le nœud ACHETABLE qui précède dans la lignée (les cadeaux de rang ne comptent pas
+// dans l'échelle : on les reçoit, on ne les gravit pas). null pour le premier.
+function previousBuyable(lin, idx) {
+  for (let j = idx - 1; j >= 0; j -= 1) if (lin.nodes[j].gift == null) return lin.nodes[j];
+  return null;
+}
+
 function nodeUnlocked(node) {
   const lin = ARTIFACT_LINEAGES.find((l) => l.id === node.lineage);
   if (!lin) return false;
+  if (node.gift != null) return false; // cadeau de rang : jamais à vendre
   // Garde d'ère pour TOUT rang, pas seulement le premier : après un Grand Reset,
   // les artefacts/niveaux persistent (éternels) mais l'ère retombe à 0. Sans ce
   // filtre, un rang N>1 paraîtrait déverrouillé (rang N-1 persisté) alors que
@@ -386,8 +410,9 @@ function nodeUnlocked(node) {
   // re-atteinte. On aligne la garde d'échelle sur la garde d'ère.
   if (!lineageEraOk(node.lineage)) return false;
   const idx = lin.nodes.findIndex((n) => n.id === node.id);
-  if (idx <= 0) return true; // rang 1 : l'ère suffit
-  return nodeAcquired({ ...lin.nodes[idx - 1], lineage: lin.id });
+  const prev = previousBuyable(lin, idx);
+  if (!prev) return true; // premier achat de la lignée : l'ère suffit
+  return nodeAcquired({ ...prev, lineage: lin.id });
 }
 
 // Achat d'un nœud de l'arbre : garde d'échelle (rang précédent acquis) + routage.
@@ -409,10 +434,23 @@ export function artifactTree() {
     const eraOk = lineageEraOk(lin.id);
     const nodes = lin.nodes.map((node, idx) => {
       const withLin = { ...node, lineage: lin.id };
+      // Cadeau de rang (lot 2) : ni prix ni achat, le titre qui l'offre.
+      if (node.gift != null) {
+        const owned = nodeAcquired(withLin);
+        const rk = MAISON_RANKS[node.gift];
+        return {
+          id: node.id, kind: node.kind, label: node.label, desc: node.desc,
+          level: null, maxLevel: null, owned, maxed: owned, cost: null, canAfford: false, buyable: false,
+          unlocked: false, lockedReason: owned ? "owned" : "gift",
+          gift: node.gift, giftLabel: rk ? RANK_LABELS[rk.id] : null
+        };
+      }
       // Miroir de nodeUnlocked : l'ère de la lignée conditionne TOUT rang (les
       // rangs persistés après un GR ne rouvrent pas la voie tant que l'ère n'est
-      // pas re-atteinte) → descripteur cohérent avec buyArtifactNode.
-      const unlocked = eraOk && (idx === 0 ? true : nodeAcquired({ ...lin.nodes[idx - 1], lineage: lin.id }));
+      // pas re-atteinte) → descripteur cohérent avec buyArtifactNode. L'échelle saute
+      // les cadeaux de rang.
+      const prev = previousBuyable(lin, idx);
+      const unlocked = eraOk && (prev ? nodeAcquired({ ...prev, lineage: lin.id }) : true);
       let level = null, maxLevel = null, cost, maxed, owned;
       if (node.kind === "level") {
         level = state[node.levelField] || 0;

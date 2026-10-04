@@ -104,7 +104,9 @@ export function drawFromPot(amount) {
 // cella continue d'exister après la rafle (le pot devient un objet économique
 // lisible au lieu d'un tout ou rien). Lot 1 (2026-10-04) : la référence est la
 // LIMITE HAUTE de la table — miser le maximum rafle tout, un dixième de la limite
-// en emporte 10 %. (Avant, une mise fixe de 25 servait de référence.)
+// en emporte 10 %. (Avant, une mise fixe de 25 servait de référence.) Lot 2 : la
+// limite de la SALLE COMMUNE (`base`), pas celle que le rang ouvre — sans quoi un
+// Prince devrait miser dix mille fois plus pour la même part.
 //
 // La borne à 1 est ce qui garantit qu'on ne peut jamais emporter plus que le pot.
 // Les serres (artefact) montent la part de moitié. C'est de la SORTIE de pot
@@ -113,7 +115,7 @@ export function drawFromPot(amount) {
 export function potRakeShare(stakeFaveur) {
   const stake = Math.max(0, Number(stakeFaveur) || 0);
   const mult = hasTempleArtifact("serres") ? SERRES_RAKE_MULT : 1;
-  return Math.min(1, (stake * mult) / Math.max(1, tableLimits().max));
+  return Math.min(1, (stake * mult) / Math.max(1, tableLimits().base));
 }
 
 // Montant réellement emporté (Faveur ENTIÈRE) et solde restant, à partir du pot

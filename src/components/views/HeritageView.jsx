@@ -79,6 +79,7 @@ const HERITAGE_ARMOIRE = {
 // L'état d'un article, pour la liste comme pour la fiche.
 function wareState(o, faveur) {
   if (o.owned) return 'owned';
+  if (o.gift) return 'gift';
   if (o.locked) return 'rank';
   if (o.free) return o.canBuy ? 'afford' : 'poor';
   return o.canBuy || faveur >= (o.price || 0) ? 'afford' : 'poor';
@@ -172,12 +173,15 @@ export default function HeritageView() {
     const lvl = isLevel && node.level > 0
       ? ` · ${tr({ fr: 'niv.', en: 'lvl' })} ${node.level}${node.maxed ? ` (${tr({ fr: 'max', en: 'max' })})` : `/${node.maxLevel}`}`
       : '';
+    // Cadeau de rang (lot 2) : le titre de la Maison qui l'offre, à la place du prix.
+    const gift = node.lockedReason === 'gift' && node.giftLabel ? tr(node.giftLabel) : null;
     return {
       id: `temple_${node.id}`,
+      gift,
       name: `${tr(node.label)}${lvl}`,
       desc: `${tr(lin.label)} · ${tr(lin.subtitle)}`,
       effect: tr(node.desc),
-      owned: node.maxed, locked: !node.unlocked, canBuy: node.buyable, price: node.cost || 0,
+      owned: node.maxed, locked: !node.unlocked && !gift, canBuy: node.buyable, price: node.cost || 0,
       ownedLabel: isLevel ? tr({ fr: 'Complet', en: 'Full' }) : null,
       buyLabel: isLevel
         ? tr({ fr: 'Améliorer', en: 'Upgrade' })
@@ -349,9 +353,11 @@ export default function HeritageView() {
                           <span className="ware-price">
                             {st === 'owned'
                               ? `✓ ${o.ownedLabel || tr({ fr: 'Acquis', en: 'Owned' })}`
-                              : st === 'rank'
-                                ? '🔒'
-                                : o.free ? null : <><FaveurIcon /> {fmt(o.price)}</>}
+                              : st === 'gift'
+                                ? `🎁 ${o.gift}`
+                                : st === 'rank'
+                                  ? '🔒'
+                                  : o.free ? null : <><FaveurIcon /> {fmt(o.price)}</>}
                           </span>
                         </button>
                       );
@@ -388,10 +394,20 @@ export default function HeritageView() {
             ) : (
               <div className="echoppe-card-foot">
                 <span className="echoppe-card-price">
-                  {selState === 'owned' || selected.free ? '' : <><FaveurIcon /> {fmt(selected.price)}</>}
+                  {selState === 'owned' || selState === 'gift' || selected.free ? '' : <><FaveurIcon /> {fmt(selected.price)}</>}
                 </span>
                 {selState === 'owned' ? (
                   <span className="echoppe-card-state is-owned">✓ {selected.ownedLabel || tr({ fr: 'Acquis', en: 'Owned' })}</span>
+                ) : selState === 'gift' ? (
+                  <span
+                    className="echoppe-card-state is-gift"
+                    {...tipProps(tr({ fr: 'Un cadeau de la Maison', en: 'A gift from the House' }), tr({
+                      fr: `Il ne se vend pas : la Maison l'offre au titre de ${selected.gift}, que l'on gagne en jouant à ses tables.`,
+                      en: `Not for sale: the House gives it with the title ${selected.gift}, earned by playing at its tables.`
+                    }))}
+                  >
+                    🎁 {selected.gift}
+                  </span>
                 ) : selState === 'rank' ? (
                   <span className="echoppe-card-state">🔒 {tr({ fr: 'Rang précédent', en: 'Previous rank' })}</span>
                 ) : (

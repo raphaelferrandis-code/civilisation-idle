@@ -38,6 +38,7 @@ import {
 import { chronicle } from './utils.js';
 import { grantFreeFlight } from './templeFlights.js';
 import { feedPot, drawFromPot, payRound, potRake } from './templePot.js';
+import { recordWager } from './maisonRang.js';
 import { clampStake } from './maisonTable.js';
 import { pushOutcomeFloat } from '../outcomeFloat.js';
 import { recordSlots, recordSlotsBonus } from '../chronicleStats.js';
@@ -274,7 +275,8 @@ export function spinSlots(stake, options = {}) {
     result.freeLeft = slotsFreeSpins() ? slotsFreeSpins().left : 0;
     // La cagnotte est nourrie sur l'EDGE d'un tour PAYÉ ; tours gratuits, roue et Hold &
     // Win sont dans le RTP de référence (ils n'en nourrissent donc pas une seconde fois).
-    if (!fs) feedPot(stakeFaveur, slotsRtpRef());
+    // La réputation (lot 2), elle aussi sur les seuls tours PAYÉS.
+    if (!fs) { feedPot(stakeFaveur, slotsRtpRef()); recordWager(stakeFaveur, slotsRtpRef()); }
     recordSlots({ wagered: fs ? 0 : stakeFaveur, won: result.faveurGain, freeSpins: ev.freeSpins > 0, wheel: ev.wheel, holdWin: ev.holdWin });
 
     if (!silent) {

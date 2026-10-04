@@ -106,6 +106,7 @@ export function buyFaveurItem(id) {
 export function buyTempleArtifact(id) {
   const node = ARTIFACT_NODES[id];
   if (!node || node.kind !== "artifact") return false;
+  if (node.gift != null) return false; // cadeau de rang (lot 2) : la Maison l'offre, il ne se vend pas
   if (hasTempleArtifact(id)) return false; // déjà acquis
   const cost = node.cost || 0;
   const faveur = state.faveur || 0;

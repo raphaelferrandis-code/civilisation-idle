@@ -37,6 +37,7 @@ import { chronicle } from './utils.js';
 import { hasTempleArtifact } from './templeArtifacts.js';
 import { grantFreeFlight } from './templeFlights.js';
 import { feedPot, payRound, potRake } from './templePot.js';
+import { recordWager } from './maisonRang.js';
 import { clampStake } from './maisonTable.js';
 import { recordOsselets } from '../chronicleStats.js';
 
@@ -293,6 +294,8 @@ export function castAugury(id, riteId = "classique", options = {}) {
     // La cagnotte est nourrie sur l'EDGE de la table, à CHAQUE jet — gagné comme
     // perdu (cf. feedPot) : rtp_total < 1 est vrai par algèbre.
     feedPot(stake, pay.rtp);
+    // La réputation (lot 2) : la Maison note l'avantage de cette mise.
+    recordWager(stake, pay.rtp);
     // Registre de la Chronique : une partie d'osselets de plus (mise débitée, gain
     // net, temps forts Vénus/Chien).
     recordOsselets({ wagered: stake, won: result.faveurGain, tier });

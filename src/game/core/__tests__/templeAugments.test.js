@@ -22,7 +22,7 @@ import {
   dealBlackjack, standBlackjack, blackjackHand, blackjackLastOutcome,
   playScratch, scratchRtpRef,
   tickTempleAutomation, setTempleAuto, unlockTempleAuto, autoFloorMax,
-  tableLimits, autoStake
+  tableLimits, autoStake, promoteRank
 } from "../actions.js";
 import { icarusCrashConsolation, icarusHistoryLen } from "../actions/icarus.js";
 import {
@@ -359,13 +359,15 @@ describe("Auto-gratteux et auto-vingt-et-un (capstones)", () => {
     state.templeAuto = hydrateState({ ...MID_GAME_FIXTURE, templeAuto: {} }).templeAuto;
   });
 
-  it("se débloquent contre leur coût, une fois l'ère atteinte", () => {
+  it("offerts au rang Notable (plus à vendre), sans débit", () => {
     state.faveur = AUTO_SCRATCH_UNLOCK_COST + AUTO_BLACKJACK_UNLOCK_COST;
-    expect(unlockTempleAuto("gratteux")).toBe(true);
-    expect(unlockTempleAuto("vingtetun")).toBe(true);
-    expect(state.faveur).toBe(0);
+    expect(unlockTempleAuto("gratteux")).toBe(false);
+    expect(unlockTempleAuto("vingtetun")).toBe(false);
+    state.maisonReputation = 3; // le seuil de Notable
+    promoteRank();
     expect(state.templeAuto.gratteux.unlocked).toBe(true);
     expect(state.templeAuto.vingtetun.unlocked).toBe(true);
+    expect(state.faveur).toBe(AUTO_SCRATCH_UNLOCK_COST + AUTO_BLACKJACK_UNLOCK_COST);
   });
 
   it("le tick joue un ticket perdant au cadran de mise : mise débitée, rien en retour", () => {

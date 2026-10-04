@@ -58,6 +58,18 @@ export {
   chipValueAt
 } from './actions/maisonTable.js';
 
+// Le rang de la Maison (lot 2) : réputation, titres, cadeaux.
+export {
+  maisonReputation,
+  maisonRank,
+  rankProgress,
+  rankForReputation,
+  recordWager,
+  promoteRank,
+  RANK_LABELS,
+  RANK_OF_GIFT
+} from './actions/maisonRang.js';
+
 export {
   launchIcarus,
   cashOutIcarus,

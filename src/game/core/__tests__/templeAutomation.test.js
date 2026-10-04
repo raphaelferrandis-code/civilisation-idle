@@ -24,7 +24,8 @@ import {
 import {
   tickTempleAutomation, resetOfflineTempleQuota, resolveIcarusHeadless, setTempleAuto, unlockTempleAuto,
   templeAutoUnlockCost, templeAutoThroughput, autoFloorMax, auguryPaytable, icarusEffectiveEdge,
-  scratchRtpRef, trunkCap, trunkValue, recettesPerHour, tableLimits, autoStake
+  scratchRtpRef, trunkCap, trunkValue, recettesPerHour, tableLimits, autoStake,
+  promoteRank
 } from "../actions.js";
 import { tick } from "../actions/tick.js";
 import { toNum } from "../num.js";
@@ -700,19 +701,25 @@ describe("Automatisation — réglages (setter), déblocage & débit estimé", (
     expect(autoFloorMax()).toBeGreaterThanOrEqual(AUTO_TEMPLE_FAVEUR_FLOOR_MAX);
   });
 
-  it("unlockTempleAuto : refuse sans Faveur, débloque+active en payant, pas de double débit", () => {
-    state.templeAuto.osselets.unlocked = false; // partir verrouillé (beforeEach débloque)
-    state.templeAuto.osselets.on = false;
-    const cost = templeAutoUnlockCost("osselets");
+  it("unlockTempleAuto : la sébile du tronc s'achète (refus sans Faveur, débit unique) ; les autos des jeux ne se vendent plus", () => {
+    state.templeAuto.tronc.unlocked = false;
+    state.templeAuto.tronc.on = false;
+    const cost = templeAutoUnlockCost("tronc");
     state.faveur = cost - 1;
-    expect(unlockTempleAuto("osselets")).toBe(false);
-    expect(state.templeAuto.osselets.unlocked).toBe(false);
+    expect(unlockTempleAuto("tronc")).toBe(false);
+    expect(state.templeAuto.tronc.unlocked).toBe(false);
     state.faveur = cost + 100;
-    expect(unlockTempleAuto("osselets")).toBe(true);
-    expect(state.templeAuto.osselets.unlocked).toBe(true);
-    expect(state.templeAuto.osselets.on).toBe(true);   // activé d'emblée
+    expect(unlockTempleAuto("tronc")).toBe(true);
+    expect(state.templeAuto.tronc).toMatchObject({ unlocked: true, on: true }); // activée d'emblée
     expect(state.faveur).toBe(100);                    // débité du coût
-    expect(unlockTempleAuto("osselets")).toBe(false);  // déjà débloqué → pas de double débit
+    expect(unlockTempleAuto("tronc")).toBe(false);     // déjà débloquée → pas de double débit
+    expect(state.faveur).toBe(100);
+    // Lot 2 : les automatisations des quatre jeux sont des CADEAUX DE RANG.
+    for (const jeu of JEUX) {
+      state.templeAuto[jeu].unlocked = false;
+      expect(unlockTempleAuto(jeu)).toBe(false);
+      expect(state.templeAuto[jeu].unlocked).toBe(false);
+    }
     expect(state.faveur).toBe(100);
   });
 
@@ -841,20 +848,18 @@ describe("Automatisation — réglages (setter), déblocage & débit estimé", (
     expect(state.templeAuto.osselets.stakeStep).toBe("min");
   });
 
-  it("unlockTempleAuto Icare : coût 350, REFUSÉ avant l'Ère III", () => {
-    state.templeAuto.icarus.unlocked = false;
-    state.templeAuto.icarus.on = false;
-    const cost = templeAutoUnlockCost("icarus");
-    expect(cost).toBe(350);
-    state.faveur = cost + 300;
-    state.bestEraIndex = 2;                                        // Icare pas encore jouable
-    expect(unlockTempleAuto("icarus")).toBe(false);
-    expect(state.templeAuto.icarus.unlocked).toBe(false);
-    state.bestEraIndex = 4;                                        // Ère IV → jouable
-    expect(unlockTempleAuto("icarus")).toBe(true);
-    expect(state.templeAuto.icarus.unlocked).toBe(true);
-    expect(state.templeAuto.icarus.on).toBe(true);
-    expect(state.faveur).toBe(300);
+  it("les automatisations viennent du RANG : Familier offre osselets et Icare, à l'arrêt, sans débit", () => {
+    for (const jeu of JEUX) { state.templeAuto[jeu].unlocked = false; state.templeAuto[jeu].on = false; }
+    state.faveur = 10000;
+    expect(unlockTempleAuto("icarus")).toBe(false);    // plus à vendre
+    state.maisonReputation = 0.5;                      // le seuil de Familier
+    expect(promoteRank()).toBe(1);
+    expect(state.maisonRank).toBe(1);
+    expect(state.templeAuto.osselets).toMatchObject({ unlocked: true, on: false });
+    expect(state.templeAuto.icarus).toMatchObject({ unlocked: true, on: false });
+    expect(state.templeAuto.gratteux.unlocked).toBe(false); // celles-ci : au rang Notable
+    expect(state.templeAuto.vingtetun.unlocked).toBe(false);
+    expect(state.faveur).toBe(10000);
   });
 
   it("defaultState fournit un templeAuto COMPLET (pas null) — panneau visible en partie fraîche", () => {

@@ -109,12 +109,39 @@ Calcul par log10 (les seuils dépassent 1e308 au-delà des ères transcendantes)
 - Cagnotte : `rtp_total = rtp + recycle × (1 − rtp) < 1` tient toujours (A9/A10).
 - Remboursement : exact, une seule fois, champs remis à zéro.
 
-## Lot 2 — le rang (à venir)
+## Lot 2 — le rang (fait le 2026-10-04)
 
-Réputation = perte théorique (mise × avantage), jamais perdue. Rangs Habitué → Familier →
-Notable → Mécène → Prince de la Maison : limite ×10 par rang, paris en plus (rite interdit,
-échelle, ailes solaires, serres), cadeaux (vols offerts, colombier, coin, mesure,
-automatisations), boudoir et salon.
+**La réputation** est la perte théorique du joueur, comme dans un vrai casino : chaque mise
+PAYÉE y ajoute mise × avantage de la Maison (le même retour que celui qui nourrit la
+cagnotte), comptée en **heures de recettes** au moment de la mise. Le même effort de jeu fait
+donc le même chemin à toute ère. Les coups offerts (vols, tours gratuits, relance de la
+cella) et le quitte ou double (sans avantage) n'y comptent pas ; les automatisations, si.
+Elle ne se perd jamais : ni à l'effondrement, ni au Grand Reset (le titre non plus).
+
+| Titre | Seuil (h de recettes) | Tables | Cadeaux | Vols offerts |
+|---|---|---|---|---|
+| Habitué | 0 | ×1 | — | — |
+| Familier | 0,5 | ×10 | le colombier, la mesure gravée, auto des osselets, auto d'Icare | 3 |
+| Notable | 3 | ×100 | l'échelle de Vénus, le coin décollé, auto des tickets, auto du 21 | 5 |
+| Mécène | 15 | ×1 000 | le rite interdit, les ailes solaires | 8 |
+| Prince de la Maison | 75 | ×10 000 | les serres | 8 |
+
+À la limite de base et 3 % d'avantage, une mise vaut 0,0075 h : Familier vient en ~70 grosses
+mises. Atteindre un titre coûte, en espérance, son seuil en heures de recettes, quelle que
+soit la taille des mises (les grosses mises n'y vont que plus vite, et plus au hasard).
+
+- **Ce que le titre ouvre** : la limite haute des tables, ×10 par titre. La salle commune des
+  automatisations (leur cadran Max) et la rafle de la cagnotte (miser la limite de base rafle
+  tout) restent à la base : un Prince n'a pas à miser dix mille fois plus pour la même part.
+- **Les cadeaux** ne s'achètent plus. Une automatisation offerte arrive à l'arrêt (on la règle
+  et on l'allume). Les vols offerts portent la limite de base ; le colombier passe avant eux.
+- **Les cotes ne bougent pas** avec le titre (A8 du banc).
+- **Restent à vendre** : le noyé, les plumes, le second souffle, le stylet, l'offrande recopiée,
+  la voix de l'oracle, les reliques, la sébile (auto de la caisse), la Bénédiction.
+- **Sauvegarde v6** : qui avait déjà acheté un cadeau de rang le garde, et sa Faveur revient
+  (annoncé une fois dans la Chronique).
+- **Pas encore fait** : ouvrir le salon et le boudoir par le titre (ils appartiennent à la coupe
+  et au menu de la Maison, travail d'autres sessions non commité).
 
 ## Lot 3 — les contenus (à venir)
 
@@ -170,3 +197,26 @@ Icare) : +0,1 à 0,2 point, pire cas ~99,8 %, toujours sous 1 (note dans `temple
 **À vérifier par Raph en jeu.** Taille et lisibilité des jetons, place du râtelier (surtout sur
 la machine à sous, où il se pose au-dessus de la pile à gauche), mise de départ proposée
 (l'avant-dernier jeton, au plus un cinquième de la Faveur).
+
+### 2026-10-04 — lot 1 commité (`90ba098`), lot 2 livré et commité, tout poussé
+
+**Lot 1** commité en local (`90ba098`, pas poussé), avec la machine à sous v2 de la session
+Plaisirs, indissociable dans les mêmes fichiers. Vérifié dans un worktree propre : lint,
+2 480 tests, build.
+
+**Lot 2, moteur.** `actions/maisonRang.js` (réputation, titres, cadeaux, `recordWager` appelé
+à chaque mise payée des cinq jeux) ; `MAISON_RANKS` et `RANK_GIFT_AUTOS` dans `balance.js` ;
+`tableLimits()` rend `{ min, max, base }` (max = base × 10 par titre) ; `autoStake` et
+`potRakeShare` lisent `base`. L'arbre (`data/artifacts.js`) marque les cadeaux (`gift`), l'échelle
+d'achat les saute, la boutique et `unlockTempleAuto` refusent de les vendre (seule la sébile du
+tronc reste à acheter). Sauvegarde v6 (migration 5 → 6, remboursement annoncé par
+`state.maisonGiftRefund`).
+
+**Lot 2, interface.** `plaisirs/RangMaison.jsx` : le titre et sa piste dans la bourse, le détail
+en infobulle. La Boutique montre « 🎁 Familier » (ou le titre) à la place du prix. L'aide gagne
+« Le titre ». Le bouton « Vol offert » d'Icare passe à côté de « S'envoler » (dessous, le
+râtelier le recouvrait, ce qui sautait aux yeux avec huit vols offerts).
+
+**Banc.** 16 garde-fous verts, dont A8 : le titre ne touche à aucune cote ; limite ×10 par titre,
+salle commune et rafle à la base ; la réputation suit la perte réelle (Icare, 300 000 vols,
+1,3 % d'écart). Tests : `maisonRang.test.js` (15), arbre et automatisations mis à jour.

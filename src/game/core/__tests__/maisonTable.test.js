@@ -93,7 +93,7 @@ describe("Recettes de la Maison", () => {
 describe("Limites de table", () => {
   it("haute = 15 min de recettes, arrondie à deux chiffres ; basse = 1", () => {
     state.bestEraIndex = 2;
-    expect(tableLimits()).toEqual({ min: 1, max: 30 });
+    expect(tableLimits()).toEqual({ min: 1, max: 30, base: 30 }); // Habitué : la table ouverte = la salle commune
     state.bestEraIndex = 3;
     expect(tableLimits().max).toBe(44);
     state.bestEraIndex = 10;

@@ -30,6 +30,7 @@ import {
   BLACKJACK_HISTORY_LEN
 } from '../balance.js';
 import { feedPot, payRound } from './templePot.js';
+import { recordWager } from './maisonRang.js';
 import { clampStake } from './maisonTable.js';
 import { pushOutcomeFloat } from '../outcomeFloat.js';
 import { recordBlackjack } from '../chronicleStats.js';
@@ -224,6 +225,8 @@ function resolve() {
     // feedPot) — calculé sur REF, qui MAJORE le jeu parfait : le versement ne peut
     // jamais dépasser ce que la table a vraiment pris.
     feedPot(h.stake, BLACKJACK_RTP_REF);
+    // La réputation (lot 2), main par main (doubles et refentes compris).
+    recordWager(h.stake, BLACKJACK_RTP_REF);
     hist.push(result);
     // La série (la Voix de l'oracle) : les victoires comptent enfin, main par
     // main ; le push ne compte pas. L'auto n'y touche jamais.
@@ -397,6 +400,7 @@ export function resolveBlackjackHeadless(stake, options = {}) {
   const faveurGain = payRound(stakeFaveur * (BLACKJACK_MULT[result] ?? 0));
   if (faveurGain > 0) state.faveur = Math.max(0, (state.faveur || 0) + faveurGain);
   feedPot(stakeFaveur, BLACKJACK_RTP_REF);
+  recordWager(stakeFaveur, BLACKJACK_RTP_REF);
   // Registre de la Chronique : les donnes auto comptent aussi (mise, gain,
   // naturel) ; l'auto ne construit pas de série, donc pas de record de streak.
   recordBlackjack({ wagered: stakeFaveur, won: faveurGain, natural: result === "blackjack", streak: 0 });

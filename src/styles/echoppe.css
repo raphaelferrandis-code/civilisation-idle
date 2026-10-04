@@ -332,3 +332,10 @@
     box-shadow: 0 -8px 18px rgba(0, 0, 0, 0.55);
   }
 }
+
+/* Les cadeaux de rang de la Maison (lot 2 des gains « vrai casino ») : ni prix ni
+   achat, le titre qui les offre, en or pâle. */
+.app .ware.is-gift .ware-price,
+.app .echoppe-card-state.is-gift { color: #E8C878; font-family: var(--font-body); font-weight: 700; }
+.app .ware.is-gift .ware-price { font-size: 0.7rem; }
+.app .ware.is-gift .ware-bottle img { filter: saturate(0.6) brightness(0.85); }

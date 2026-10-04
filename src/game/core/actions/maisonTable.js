@@ -8,7 +8,9 @@
 //     record de la ville ;
 //   - la LIMITE HAUTE des tables suit les recettes (15 min de recettes) ;
 //   - le prix de la Bénédiction et le plafond de la cagnotte aussi.
-// Le rang (lot 2) multipliera la limite haute.
+// Le RANG (lot 2, actions/maisonRang.js) multiplie la limite haute par 10 à chaque
+// titre ; la salle commune des automatisations et la rafle de la cagnotte restent
+// à la limite de base.
 //
 // Module FEUILLE : n'importe que state, balance et les données d'ères — les
 // moteurs de jeu, la cagnotte et la caisse l'importent sans cycle.
@@ -26,7 +28,8 @@ import {
   BLESSING_COST_H,
   POT_CAP_MIN,
   POT_CAP_H,
-  AUTO_STAKE_STEPS
+  AUTO_STAKE_STEPS,
+  MAISON_RANKS
 } from '../balance.js';
 
 // L'ère record de la ville (et non l'ère du moment) : un effondrement ne vide pas
@@ -74,11 +77,22 @@ function twoSignificant(x) {
   return Math.floor(x / p) * p;
 }
 
-// Les limites de la table : { min, max } en Faveur. Toutes les tables de la Maison
-// partagent la même (le rang du lot 2 ouvrira les tables ×10).
+// Le RANG atteint (index dans MAISON_RANKS) : il ne redescend jamais. Lu ici (et non
+// dans maisonRang.js) pour que les limites restent un module feuille.
+export function maisonRank() {
+  const r = Math.floor(Number(state.maisonRank) || 0);
+  return Math.max(0, Math.min(MAISON_RANKS.length - 1, r));
+}
+export function rankMult() {
+  return MAISON_RANKS[maisonRank()].mult;
+}
+
+// Les limites de la table : { min, max, base } en Faveur. Toutes les tables de la
+// Maison partagent la même. `base` = la salle commune (15 min de recettes) ; `max` =
+// celle que le rang ouvre (base × 10 par titre).
 export function tableLimits() {
-  const max = Math.max(TABLE_MIN, twoSignificant(recettesPerHour() * TABLE_MAX_H));
-  return { min: TABLE_MIN, max };
+  const base = Math.max(TABLE_MIN, twoSignificant(recettesPerHour() * TABLE_MAX_H));
+  return { min: TABLE_MIN, max: base * rankMult(), base };
 }
 
 // Ramène une mise demandée dans les limites : entière, au plus la limite haute.
@@ -90,11 +104,12 @@ export function clampStake(amount) {
   return Math.min(max, a);
 }
 
-// La mise d'une automatisation : une part de la limite haute (cadran min/¼/½/max).
+// La mise d'une automatisation : une part de la limite de la SALLE COMMUNE (cadran
+// min/¼/½/max) — le rang ouvre les grandes tables à la main, pas aux automates.
 export function autoStake(step) {
-  const { min, max } = tableLimits();
+  const { min, base } = tableLimits();
   const frac = AUTO_STAKE_STEPS[step] ?? 0;
-  return Math.max(min, Math.floor(max * frac));
+  return Math.max(min, Math.floor(base * frac));
 }
 
 // Bénédiction : 30 min de recettes.

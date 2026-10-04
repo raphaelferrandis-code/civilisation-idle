@@ -18,7 +18,10 @@
  *       (recycle nu ET noye) — l'invariant par algebre de juillet tient toujours ;
  *   A6  Monte-Carlo sur les moteurs (osselets, Icare, 21 auto) : le RTP empirique
  *       tombe dans l'intervalle attendu ;
- *   A7  les recettes, les limites et la Benediction par ere (table).
+ *   A7  les recettes, les limites et la Benediction par ere (table) ;
+ *   A8  le RANG (lot 2) : il ne touche a aucune cote ; la reputation suit la
+ *       perte reelle (Monte-Carlo Icare) ; la limite x10 par titre, la salle
+ *       commune et la rafle restent a la base.
  *
  * Sortie : temple-faveur-impact.md (+ resume console).
  * Usage  : node bench-temple.js
@@ -43,7 +46,9 @@ const { scratchRtpRef, scratchOdds } = await import("./src/game/core/actions/scr
 const { handValue, isBlackjack, blackjackResult, resolveBlackjackHeadless, BLACKJACK_SUITS } = await import("./src/game/core/actions/blackjack.js");
 const { slotsOdds } = await import("./src/game/core/actions/slots.js");
 const { potRecycle } = await import("./src/game/core/actions/templePot.js");
-const { recettesPerHour, tableLimits, blessingCost, potCap } = await import("./src/game/core/actions/maisonTable.js");
+const { recettesPerHour, tableLimits, blessingCost, potCap, autoStake } = await import("./src/game/core/actions/maisonTable.js");
+const { recordWager, maisonReputation } = await import("./src/game/core/actions/maisonRang.js");
+const { potRakeShare } = await import("./src/game/core/actions/templePot.js");
 const { eras } = await import("./src/game/data/world.js");
 const bal = await import("./src/game/core/balance.js");
 const {
@@ -281,10 +286,53 @@ check("A7 recettes et limite montent avec l'ere record", mono && eraRows[0].r >=
   `ere 2 : ${Math.round(eraRows[0].r)}/h, limite ${eraRows[0].max}`);
 
 /* ============================================================================
+ * A8 : le rang (lot 2)
+ * ========================================================================== */
+const { MAISON_RANKS } = bal;
+const oddsAt = (rank) => {
+  setState(defaultState());
+  state.bestEraIndex = 25;
+  state.maisonRank = rank;
+  return JSON.stringify({
+    osselets: ["prudent", "classique", "grand", "interdit"].map((r) => auguryPaytable("prayForRain", r)),
+    icare: icarusEffectiveEdge(), tickets: scratchRtpRef(), machine: slotsOdds().rtp
+  });
+};
+check("A8 le rang ne touche a aucune cote", oddsAt(0) === oddsAt(4), "osselets (4 rites), Icare, tickets, machine identiques de Habitue a Prince");
+
+setState(defaultState());
+state.bestEraIndex = 25;
+const limits = MAISON_RANKS.map((rk, r) => { state.maisonRank = r; return { ...tableLimits(), auto: autoStake("max"), rake: potRakeShare(tableLimits().base) }; });
+const limOk = limits.every((l, r) => l.max === l.base * MAISON_RANKS[r].mult && l.auto === l.base && l.rake === 1);
+check("A8 limite x10 par titre ; salle commune et rafle a la base", limOk,
+  `base ${limits[0].base.toLocaleString("fr-FR")}, Prince ${limits[4].max.toLocaleString("fr-FR")} ; auto max = base ; la mise de base rafle tout`);
+
+// La reputation contre la perte REELLE : vols d'Icare payes (cible x2, sans artefact
+// ni rafle en headless), la Faveur perdue / les recettes horaires doit coller a la
+// reputation ajoutee (meme esperance : mise x avantage).
+setState(defaultState());
+state.bestEraIndex = 25;
+state.faveur = 1e15;
+const repStake = tableLimits().base;
+const REP_N = 300_000;
+const repRng = mulberry32(2026);
+const realRandom = Math.random;
+Math.random = repRng;
+const fav0 = state.faveur;
+for (let n = 0; n < REP_N; n += 1) resolveIcarusHeadless(repStake, 2);
+Math.random = realRandom;
+const realH = (fav0 - state.faveur) / recettesPerHour();
+const repH = maisonReputation();
+const repErr = Math.abs(realH - repH) / repH;
+check("A8 la reputation suit la perte reelle (Icare, +-15 %)", repErr < 0.15,
+  `${repH.toFixed(1)} h notees contre ${realH.toFixed(1)} h perdues sur ${REP_N.toLocaleString("fr-FR")} vols (${pct(repErr, 1)} d'ecart)`);
+const titleRows = MAISON_RANKS.map((rk) => ({ id: rk.id, h: rk.threshold, mult: rk.mult, bets: Math.ceil(rk.threshold / (bal.TABLE_MAX_H * (1 - AUGURY_RTP))), gifts: rk.gifts.join(", ") || "-", flights: rk.flights }));
+
+/* ============================================================================
  * Rapport
  * ========================================================================== */
 const f = (x) => (x >= 1e6 ? x.toExponential(2) : Math.round(x).toLocaleString("fr-FR"));
-const md = `# Jeux de la Maison des Plaisirs — banc d'equilibrage (lot 1, cotes fixes)
+const md = `# Jeux de la Maison des Plaisirs — banc d'equilibrage (lots 1 et 2 : cotes fixes, rang)
 
 > Genere par \`bench-temple.js\` sur le vrai code. Lot 1 des gains « vrai casino »
 > (2026-10-04, \`docs/PLAN-GAINS-CASINO.md\`) : cotes fixes pour toujours, mise libre,
@@ -315,6 +363,15 @@ ${Object.entries(bj).map(([k, v]) => `| ${k} | ${pct(v.rtp)} +- ${pct(v.se, 2)} 
 | Jeu | RTP | + cagnotte (recycle ${recNu}) | + cagnotte (noye, ${recNoye}) |
 |---|---|---|---|
 ${potRows.map((x) => `| ${x.g} | ${pct(x.r)} | ${pct(x.nu)} | ${pct(x.noye)} |`).join("\n")}
+
+## Les titres de la Maison (lot 2)
+
+Reputation = perte theorique (mise x avantage), en heures de recettes. Mises a la
+limite de base, 3 % d'avantage : 0,0075 h par mise.
+
+| Titre | Seuil (h) | Tables | Mises de base a 3 % | Cadeaux | Vols offerts |
+|---|---|---|---|---|---|
+${titleRows.map((x) => `| ${x.id} | ${x.h} | x${x.mult.toLocaleString("fr-FR")} | ${x.bets.toLocaleString("fr-FR")} | ${x.gifts} | ${x.flights} |`).join("\n")}
 
 ## Recettes de la Maison et limites de table (ere record)
 

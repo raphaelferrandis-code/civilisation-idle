@@ -22,12 +22,12 @@ import {
   auguryTierOdds, auguryRiteOdds, auguryPaytable, AUGURY_RITES, castAugury,
   resolveIcarusHeadless, icarusEffectiveEdge, icarusEffectiveCap, icarusMultiplierAt,
   scratchRtpRef,
-  hasTempleArtifact, buyTempleArtifact, buyArtifactNode, artifactTree
+  hasTempleArtifact, buyTempleArtifact, buyArtifactNode, artifactTree, unlockTempleAuto
 } from "../actions.js";
 import {
   ICARUS_CAP, ICARUS_CAP_SOLAR, ICARUS_EDGE, PLUMES_CONSOLATION_MULT,
   NOYE_POT_MULT, TEMPLE_POT_RECYCLE, TEMPLE_POT_RECYCLE_CAP, AUGURY_RTP,
-  ARTIFACT_NOYE_COST, ARTIFACT_ECHELLE_COST, ARTIFACT_PLUMES_COST,
+  ARTIFACT_NOYE_COST, ARTIFACT_PLUMES_COST, ARTIFACT_SOUFFLE_COST,
   STYLET_COST_BASE, STYLET_MAX_LEVEL, TEMPLE_ARTIFACT_IDS
 } from "../balance.js";
 import { potRecycle } from "../actions/templePot.js";
@@ -264,64 +264,64 @@ describe("Arbre — échelle (rang N exige N-1)", () => {
     expect(state.faveur).toBe(f0);
   });
 
-  it("verrouille l'échelle tant que le noyé n'est pas acquis", () => {
-    expect(buyArtifactNode("echelle")).toBe(false); // rang 2 verrouillé
+  it("les cadeaux de rang ne s'achètent pas, et l'échelle d'achat les saute", () => {
+    // Lot 2 : l'échelle de Vénus, le rite interdit et les automatisations des jeux sont
+    // offerts par le rang de la Maison (MAISON_RANKS), plus vendus.
+    const f0 = state.faveur;
+    for (const id of ["echelle", "interdit", "autoOsselets", "colombier", "solaires", "serres", "autoIcare", "coin", "autoGratteux", "mesure", "autoVingtEtUn"]) {
+      expect(buyArtifactNode(id)).toBe(false);
+    }
+    expect(buyTempleArtifact("colombier")).toBe(false); // la boutique non plus
     expect(hasTempleArtifact("echelle")).toBe(false);
+    expect(state.faveur).toBe(f0);
 
-    expect(buyArtifactNode("noye")).toBe(true);     // rang 1 : l'ère suffit
-    expect(buyArtifactNode("echelle")).toBe(true);  // débloqué → buyTempleArtifact
-    expect(hasTempleArtifact("echelle")).toBe(true);
+    // Icare : le colombier offert, le premier ACHAT est les plumes, puis le souffle.
+    expect(buyArtifactNode("souffle")).toBe(false);
+    expect(buyArtifactNode("plumes")).toBe(true);
+    expect(buyArtifactNode("souffle")).toBe(true);
+    // Tickets : la relance suit le stylet (le coin, entre les deux, est un cadeau).
+    expect(buyArtifactNode("relance")).toBe(false);
+    expect(buyArtifactNode("stylet")).toBe(true);
+    expect(buyArtifactNode("relance")).toBe(true);
   });
 
-  it("route chaque kind : niveau → boutique, artefact → flag, automation → capstone", () => {
-    // Chaîne complète osselets (lot 1, 4 rangs) : noye → echelle → interdit →
-    // autoOsselets (capstone).
-    expect(buyArtifactNode("interdit")).toBe(false);     // encore verrouillé (échelle manquante)
-    buyArtifactNode("noye");
-    buyArtifactNode("echelle");
-    expect(buyArtifactNode("autoOsselets")).toBe(false); // capstone verrouillé : un rang manque
-    expect(buyArtifactNode("interdit")).toBe(true);
-    expect(hasTempleArtifact("interdit")).toBe(true);
-    expect(buyArtifactNode("autoOsselets")).toBe(true);  // capstone → unlockTempleAuto
-    expect(state.templeAuto.osselets.unlocked).toBe(true);
-
-    // Le rang à niveaux (stylet, rang 1 des tickets) → buyFaveurItem.
-    expect(buyArtifactNode("coin")).toBe(false);         // le stylet ouvre la voie
+  it("route chaque kind : niveau → boutique, artefact → flag ; plus d'automatisation à vendre", () => {
+    expect(buyArtifactNode("noye")).toBe(true);
+    expect(hasTempleArtifact("noye")).toBe(true);
     const f0 = state.faveur;
     expect(buyArtifactNode("stylet")).toBe(true);
     expect(state.styletLevel).toBe(1);
     expect(state.faveur).toBe(f0 - STYLET_COST_BASE);
-    expect(buyArtifactNode("coin")).toBe(true);
-    expect(hasTempleArtifact("coin")).toBe(true);
+    // Les automatisations des jeux sont des cadeaux de rang : ni l'arbre ni le
+    // déblocage direct ne les vendent.
+    expect(buyArtifactNode("autoOsselets")).toBe(false);
+    expect(unlockTempleAuto("osselets")).toBe(false);
+    expect(state.templeAuto.osselets.unlocked).toBe(false);
   });
 
-  it("descripteur artifactTree : verrous, coûts et raisons", () => {
+  it("descripteur artifactTree : achats, cadeaux de rang, coûts et raisons", () => {
     const tree = artifactTree();
     const oss = tree[0];
     expect(oss.eraOk).toBe(true); // Ère II ouverte (fixture)
-    const [noye, echelle] = oss.nodes;
-    const auto = oss.nodes[oss.nodes.length - 1]; // le capstone est TOUJOURS le dernier rang
-    expect(noye.unlocked).toBe(true);             // rang 1 : garde d'ère seule
-    expect(noye.kind).toBe("artifact");
-    expect(noye.cost).toBe(ARTIFACT_NOYE_COST);
-    expect(noye.buyable).toBe(true);
-    expect(echelle.unlocked).toBe(false);         // rang 2 verrouillé au départ
-    expect(echelle.lockedReason).toBe("prereq");
-    expect(echelle.cost).toBe(ARTIFACT_ECHELLE_COST);
-    expect(auto.kind).toBe("automation");
+    const [noye, echelle, interdit, auto] = oss.nodes;
+    expect(noye).toMatchObject({ kind: "artifact", unlocked: true, cost: ARTIFACT_NOYE_COST, buyable: true });
+    expect(noye.gift).toBeUndefined();
+    // Les cadeaux : ni prix ni achat, le titre qui les offre.
+    expect(echelle).toMatchObject({ gift: 2, cost: null, buyable: false, unlocked: false, lockedReason: "gift" });
+    expect(echelle.giftLabel.fr).toBe("Notable");
+    expect(interdit).toMatchObject({ gift: 3, lockedReason: "gift" });
+    expect(auto).toMatchObject({ kind: "automation", gift: 1, lockedReason: "gift" });
+    expect(auto.giftLabel.fr).toBe("Familier");
 
     // Le rang à niveaux : niveau courant, plafond, coût du prochain niveau.
     expect(tree[2].nodes[0]).toMatchObject({
       id: "stylet", kind: "level", level: 0, maxLevel: STYLET_MAX_LEVEL, cost: STYLET_COST_BASE, unlocked: true
     });
 
-    // Après le noyé, l'échelle se déverrouille et devient achetable.
-    buyArtifactNode("noye");
-    const t2 = artifactTree()[0].nodes;
-    expect(t2[0].owned).toBe(true);               // noyé acquis
-    expect(t2[0].lockedReason).toBe("owned");
-    expect(t2[1].unlocked).toBe(true);            // échelle déverrouillée
-    expect(t2[1].buyable).toBe(true);
+    // Un cadeau reçu passe « acquis ».
+    state.templeArtifacts = { ...state.templeArtifacts, echelle: true };
+    const e2 = artifactTree()[0].nodes[1];
+    expect(e2).toMatchObject({ owned: true, lockedReason: "owned" });
   });
 
   it("post-GR : une ère non ré-atteinte re-verrouille TOUTE la voie, malgré les rangs persistés", () => {
@@ -348,14 +348,14 @@ describe("Arbre — échelle (rang N exige N-1)", () => {
   });
 
   it("verrou de Faveur : achetable seulement si on peut payer", () => {
-    buyArtifactNode("noye"); // ouvre l'échelle
-    state.faveur = ARTIFACT_ECHELLE_COST - 1;
-    const echelle = artifactTree()[0].nodes[1];
-    expect(echelle.unlocked).toBe(true);
-    expect(echelle.canAfford).toBe(false);
-    expect(echelle.buyable).toBe(false);
-    expect(echelle.lockedReason).toBe("faveur");
-    expect(buyArtifactNode("echelle")).toBe(false); // le débit refuse aussi
-    expect(state.faveur).toBe(ARTIFACT_ECHELLE_COST - 1);
+    buyArtifactNode("plumes"); // ouvre le second souffle
+    state.faveur = ARTIFACT_SOUFFLE_COST - 1;
+    const souffle = artifactTree()[1].nodes.find((n) => n.id === "souffle");
+    expect(souffle.unlocked).toBe(true);
+    expect(souffle.canAfford).toBe(false);
+    expect(souffle.buyable).toBe(false);
+    expect(souffle.lockedReason).toBe("faveur");
+    expect(buyArtifactNode("souffle")).toBe(false); // le débit refuse aussi
+    expect(state.faveur).toBe(ARTIFACT_SOUFFLE_COST - 1);
   });
 });

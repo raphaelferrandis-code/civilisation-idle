@@ -26,7 +26,8 @@ import {
   AUTO_SCRATCH_UNLOCK_COST, AUTO_BLACKJACK_UNLOCK_COST,
   AUGURY_DOUBLE_MAX_CRANS,
   RELIC_CHAR_COST, RELIC_CORNE_COST, RELIC_OEIL_COST,
-  ICARUS_CAP_SOLAR
+  ICARUS_CAP_SOLAR,
+  MAISON_RANKS
 } from '../core/balance.js';
 
 export const ARTIFACT_LINEAGES = [
@@ -252,6 +253,14 @@ export const ARTIFACT_LINEAGES = [
     ]
   }
 ];
+
+// Les CADEAUX DE RANG (lot 2 des gains « vrai casino ») : ces nœuds ne s'achètent
+// plus, la Maison les offre au titre indiqué (MAISON_RANKS, balance.js). `gift` =
+// l'index du titre qui les offre ; l'échelle d'achat les saute.
+export const RANK_OF_GIFT = Object.fromEntries(MAISON_RANKS.flatMap((rk, r) => rk.gifts.map((id) => [id, r])));
+for (const lin of ARTIFACT_LINEAGES) {
+  for (const n of lin.nodes) if (RANK_OF_GIFT[n.id] != null) n.gift = RANK_OF_GIFT[n.id];
+}
 
 // Index id → node (avec sa lignée). Utilisé par le dispatcher d'achat.
 export const ARTIFACT_NODES = {};

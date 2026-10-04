@@ -1,0 +1,32 @@
+/* LE TITRE À LA MAISON (lot 2 des gains « vrai casino ») : une ligne de la bourse,
+   le titre puis la piste vers le suivant (même piste du pack que celle de la caisse,
+   remplie d'or pâle). */
+.pm-rang {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  min-width: 0;
+}
+.pm-rang-name {
+  flex: none;
+  font-family: var(--font-body);
+  font-size: 0.74rem;
+  font-weight: 700;
+  color: #e8c878;
+  white-space: nowrap;
+}
+.pm-rang-gauge {
+  flex: 1 1 auto;
+  min-width: 0;
+  height: 8px;
+  border: solid transparent;
+  border-width: 3px 4px;
+  border-image: url("/pixelart/ui/chrome/wizard/gauge.png") 3 4 fill stretch;
+  image-rendering: pixelated;
+  overflow: hidden;
+}
+.pm-rang-gauge > i {
+  display: block;
+  height: 100%;
+  background: #e8c878;
+}

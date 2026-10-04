@@ -1,4 +1,4 @@
-# Jeux de la Maison des Plaisirs — banc d'equilibrage (lot 1, cotes fixes)
+# Jeux de la Maison des Plaisirs — banc d'equilibrage (lots 1 et 2 : cotes fixes, rang)
 
 > Genere par `bench-temple.js` sur le vrai code. Lot 1 des gains « vrai casino »
 > (2026-10-04, `docs/PLAN-GAINS-CASINO.md`) : cotes fixes pour toujours, mise libre,
@@ -19,6 +19,9 @@
 - **PASS** - A6 Monte-Carlo Icare (cible x2) ~97 % (+-1 pt) : 97.13 % sur 400 000 vols
 - **PASS** - A6 Monte-Carlo 21 auto ~98,3 % (+-1 pt), par Faveur misee : 98.23 % sur 300 000 mains
 - **PASS** - A7 recettes et limite montent avec l'ere record : ere 2 : 120/h, limite 30
+- **PASS** - A8 le rang ne touche a aucune cote : osselets (4 rites), Icare, tickets, machine identiques de Habitue a Prince
+- **PASS** - A8 limite x10 par titre ; salle commune et rafle a la base : base 75 000, Prince 750 000 000 ; auto max = base ; la mise de base rafle tout
+- **PASS** - A8 la reputation suit la perte reelle (Icare, +-15 %) : 2226.9 h notees contre 2256.0 h perdues sur 300 000 vols (1.3 % d'ecart)
 
 ## Les osselets : quatre paris
 
@@ -54,6 +57,19 @@ Venus offre en plus un vol d'Icare a la mise du jet (compte dans le RTP).
 | tickets | 75.02 % | 90.01 % | 96.25 % |
 | vingt-et-un (REF) | 99.50 % | 99.80 % | 99.92 % |
 | machine | 91.99 % | 96.80 % | 98.80 % |
+
+## Les titres de la Maison (lot 2)
+
+Reputation = perte theorique (mise x avantage), en heures de recettes. Mises a la
+limite de base, 3 % d'avantage : 0,0075 h par mise.
+
+| Titre | Seuil (h) | Tables | Mises de base a 3 % | Cadeaux | Vols offerts |
+|---|---|---|---|---|---|
+| habitue | 0 | x1 | 0 | - | 0 |
+| familier | 0.5 | x10 | 67 | colombier, mesure, autoOsselets, autoIcare | 3 |
+| notable | 3 | x100 | 400 | echelle, coin, autoGratteux, autoVingtEtUn | 5 |
+| mecene | 15 | x1 000 | 2 000 | interdit, solaires | 8 |
+| prince | 75 | x10 000 | 10 000 | serres | 8 |
 
 ## Recettes de la Maison et limites de table (ere record)
 

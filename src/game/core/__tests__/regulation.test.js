@@ -402,7 +402,7 @@ describe("La mise libre — limites de la table", () => {
 
   it("au-dessus de la limite haute, la mise est PLAFONNÉE — le vol de Vénus aussi", () => {
     state.bestEraIndex = 2; // Ère II (la Maison ouvre) : 15 min de recettes = 30 Faveur
-    expect(tableLimits()).toEqual({ min: 1, max: 30 });
+    expect(tableLimits()).toEqual({ min: 1, max: 30, base: 30 });
     const pay = auguryPaytable("prayForRain", "classique");
     const res = withRandom([0.01, 0.5], 0.5, () => castAugury("prayForRain", "classique", { stake: 500, render: false }));
     expect(res.stake).toBe(30);

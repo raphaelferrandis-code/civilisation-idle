@@ -35,6 +35,8 @@ export { SAVE_KEY };
 // v5 : lot 1 des gains « vrai casino » — les achats de chances (dés pipés, ailes
 // cirées, planches, Coffres, dé d'ivoire, double, refente) sont REMBOURSÉS en Faveur
 // et retirés ; les vols offerts deviennent des montants.
+// v6 : lot 2 (le rang de la Maison) — les artefacts et automatisations devenus des
+// CADEAUX DE RANG sont gardés, et la Faveur qu'ils ont coûtée est rendue.
 export { CURRENT_SAVE_VERSION }; // défini dans saveKey.js (lisible par cloudSave.js sans importer state.js)
 
 // Champs de premier niveau migrés en Decimal (sérialisés en string dans le save).
@@ -597,6 +599,13 @@ export const defaultState = () => ({
   // Faveur rendue par la migration 4 → 5 (achats supprimés), en attente d'être
   // ANNONCÉE au premier tick en ligne (templeAutomation), puis remise à 0.
   maisonRefund: 0,
+  // Idem pour la migration 5 → 6 (les cadeaux de rang déjà achetés).
+  maisonGiftRefund: 0,
+  // LE RANG DE LA MAISON (lot 2, actions/maisonRang.js) : la réputation (perte
+  // théorique, en heures de recettes) et le plus haut titre atteint. ÉTERNELS :
+  // ni l'effondrement ni le Grand Reset ne les touchent (GR_PERSISTENT_FIELDS).
+  maisonReputation: 0,
+  maisonRank: 0,
   // Bénédiction — bonus TEMPORAIRE de production (multiplicateur global actif
   // jusqu'à blessingUntil). Effet de run : remis à zéro à l'effondrement.
   blessingUntil: 0,
@@ -849,6 +858,28 @@ const MIGRATIONS = {
       const faveur = Number(s.faveur);
       s.faveur = (Number.isFinite(faveur) && faveur > 0 ? faveur : 0) + refund;
       s.maisonRefund = refund;
+    }
+  },
+  // 5 -> 6 : lot 2, le rang de la Maison. Les artefacts et automatisations devenus
+  // des CADEAUX DE RANG ne s'achètent plus : qui les a déjà les garde, et la Faveur
+  // qu'ils ont coûtée revient (prix écrits ICI, TDZ comme plus haut). Annoncé au
+  // premier tick en ligne (state.maisonGiftRefund, templeAutomation).
+  5: (s) => {
+    const artifacts = { colombier: 200, mesure: 250, echelle: 350, coin: 240, interdit: 500, solaires: 520, serres: 550 };
+    const autos = { osselets: 700, icarus: 350, gratteux: 500, vingtetun: 700 };
+    let refund = 0;
+    if (isPlainObject(s.templeArtifacts)) {
+      for (const [id, cost] of Object.entries(artifacts)) if (s.templeArtifacts[id]) refund += cost;
+    }
+    if (isPlainObject(s.templeAuto)) {
+      for (const [game, cost] of Object.entries(autos)) {
+        if (isPlainObject(s.templeAuto[game]) && s.templeAuto[game].unlocked) refund += cost;
+      }
+    }
+    if (refund > 0) {
+      const faveur = Number(s.faveur);
+      s.faveur = (Number.isFinite(faveur) && faveur > 0 ? faveur : 0) + refund;
+      s.maisonGiftRefund = refund;
     }
   },
 };
@@ -1800,6 +1831,9 @@ export function hydrateState(parsed = {}) {
     icarusFreeFlights: migrateFreeFlights(source.icarusFreeFlights),
     styletLevel: finiteInteger(source.styletLevel, 0, 0, STYLET_MAX_LEVEL),
     maisonRefund: finiteNumber(source.maisonRefund, 0, 0, 1e300),
+    maisonGiftRefund: finiteNumber(source.maisonGiftRefund, 0, 0, 1e300),
+    maisonReputation: finiteNumber(source.maisonReputation, 0, 0, 1e12),
+    maisonRank: finiteInteger(source.maisonRank, 0, 0, 4),
     blessingUntil: finiteNumber(source.blessingUntil, 0, 0),
     blessingMult: finiteNumber(source.blessingMult, 1, 1, 10),
     scarcityRawEase: source.scarcityRawEase == null ? null : finiteNumber(source.scarcityRawEase, 0, 0, 1),
@@ -2189,6 +2223,8 @@ export const GR_PERSISTENT_FIELDS = [
   // templeAuto = réglages d'automatisation (Phase 2) : éternels aussi.
   // templeArtifacts = refontes de risque déblocables (Phase 4) : éternelles aussi.
   "styletLevel", "templeAuto", "templeArtifacts",
+  // Le rang de la Maison (lot 2) : la réputation ne se perd jamais.
+  "maisonReputation", "maisonRank",
   // Registre de la Chronique : cumul À VIE de stats/records/horodatages — c'est
   // un journal de records, il traverse le Grand Reset (l'horloge à vie, les
   // timings de GR/Mythes et les compteurs de jeux ne se réinitialisent jamais).

@@ -28,6 +28,7 @@ import {
 import { chronicle } from './utils.js';
 import { grantFreeFlight } from './templeFlights.js';
 import { feedPot, drawFromPot, payRound } from './templePot.js';
+import { recordWager } from './maisonRang.js';
 import { clampStake } from './maisonTable.js';
 import { hasTempleArtifact } from './templeArtifacts.js';
 import { pushOutcomeFloat } from '../outcomeFloat.js';
@@ -203,6 +204,8 @@ export function playScratch(stake, options = {}) {
     // La cagnotte est nourrie sur l'EDGE du ticket, à CHAQUE tirage (gagné comme
     // perdu, cf. feedPot). Cette table ne reprend JAMAIS ce qu'elle verse.
     feedPot(stakeFaveur, scratchRtpRef());
+    // La réputation (lot 2) : une relance payée par la cella n'en donne pas.
+    recordWager(potFunded ? 0 : stakeFaveur, scratchRtpRef());
     // Registre de la Chronique : un ticket de plus (mise, gain, temps forts
     // trois-Vénus / trois-Soleils via le symbole d'issue). Une relance payée par
     // la CELLA (potFunded) n'est pas une mise du joueur — sa Faveur n'a pas bougé,

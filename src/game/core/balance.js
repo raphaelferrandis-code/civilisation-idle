@@ -301,9 +301,32 @@ export const CAISSE_INITIAL = 60;            // pleine au déblocage (amorce, co
 // joue petit si l'on veut.
 export const TABLE_MAX_H = 0.25;
 export const TABLE_MIN = 1;
-// Les cadrans de mise des automatisations : une part de la limite haute (la limite
-// grandit avec la ville, une mise absolue deviendrait vite dérisoire).
+// Les cadrans de mise des automatisations : une part de la limite haute de la SALLE
+// COMMUNE (la limite grandit avec la ville, une mise absolue deviendrait vite
+// dérisoire ; le rang, lui, n'ouvre que les tables où l'on joue à la main).
 export const AUTO_STAKE_STEPS = { min: 0, quart: 0.25, moitie: 0.5, max: 1 };
+
+// ── LE RANG DE LA MAISON (lot 2 des gains « vrai casino ») ───────────────────
+// La RÉPUTATION est la perte théorique du joueur, comme dans un vrai casino : chaque
+// mise PAYÉE y ajoute mise × avantage de la Maison, comptée en HEURES DE RECETTES
+// (la même à toute ère : ce que la Maison a gagné sur toi, en temps de caisse). Les
+// coups offerts (vols, tours gratuits, relance de la cella) n'y comptent pas. Elle
+// ne se perd jamais : ni à l'effondrement, ni au Grand Reset.
+// Chaque rang multiplie par 10 la limite haute des tables (la salle commune des
+// automatisations reste à ×1) et offre ses CADEAUX, qui ne s'achètent plus :
+// artefacts et automatisations (ids de data/artifacts.js) et des vols offerts à la
+// limite de la salle commune. Seuils en heures de recettes : à la limite de base et
+// 3 % d'avantage, Familier vient en ~70 grosses mises ; Prince quand la Maison t'a
+// pris ~75 h de recettes.
+export const MAISON_RANKS = [
+  { id: "habitue", threshold: 0, mult: 1, flights: 0, gifts: [] },
+  { id: "familier", threshold: 0.5, mult: 10, flights: 3, gifts: ["colombier", "mesure", "autoOsselets", "autoIcare"] },
+  { id: "notable", threshold: 3, mult: 100, flights: 5, gifts: ["echelle", "coin", "autoGratteux", "autoVingtEtUn"] },
+  { id: "mecene", threshold: 15, mult: 1000, flights: 8, gifts: ["interdit", "solaires"] },
+  { id: "prince", threshold: 75, mult: 10000, flights: 8, gifts: ["serres"] }
+];
+// L'automatisation offerte, par id de nœud de l'arbre → jeu de templeAuto.
+export const RANK_GIFT_AUTOS = { autoOsselets: "osselets", autoIcare: "icarus", autoGratteux: "gratteux", autoVingtEtUn: "vingtetun" };
 
 // ── Les osselets à cotes fixes : chaque RITE est un PARI ─────────────────────
 // La mise étant libre, le rite ne fixe plus le prix : il fixe le RISQUE. `p` = la

@@ -132,8 +132,8 @@ function StakeLine({ game, tip }) {
       <span
         className="doctrine-line-label"
         {...tipProps(tr({ fr: 'Mise', en: 'Stake' }), tip || tr({
-          fr: 'Une part de la limite de la table, qui grandit avec la ville.',
-          en: 'A share of the table limit, which grows with the city.'
+          fr: 'Une part de la limite de la salle commune, qui grandit avec la ville. Les titres de la Maison n’ouvrent les grandes tables qu’à la main.',
+          en: 'A share of the common room limit, which grows with the city. The House titles open the high tables to hand play only.'
         }))}
       >
         {tr({ fr: 'Mise', en: 'Stake' })} <FaveurIcon /> {fmtHabitants(autoStake(g.stakeStep))}
@@ -212,8 +212,8 @@ export default function AutoDials({ game }) {
       <StakeLine
         game={game}
         tip={game === 'vingtetun' ? tr({
-          fr: "Une part de la limite de la table. L'auto joue la stratégie de la mesure (tirer, rester, doubler), jamais la refente. Les séries de l'oracle ne comptent que tes mains.",
-          en: 'A share of the table limit. The automation plays the measure (hit, stand, double), never splits. Oracle streaks only count your own hands.'
+          fr: "Une part de la limite de la salle commune. L'auto joue la stratégie de la mesure (tirer, rester, doubler), jamais la refente. Les séries de l'oracle ne comptent que tes mains.",
+          en: 'A share of the common room limit. The automation plays the measure (hit, stand, double), never splits. Oracle streaks only count your own hands.'
         }) : null}
       />
       <TempoLine game={game} />
