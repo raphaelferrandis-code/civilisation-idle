@@ -265,6 +265,15 @@ PLAN-ROUTES) et « une maison ne bouge jamais » (keepInPlace).
     voudrait en faire une berge — sauf au pied d'un pont (case qui touche un tablier).
     Le dessin du fleuve ne change pas. riverQuays.test.js (ères 17, 21, 27) ; le test
     « rien ne bouge » est redevenu strict.
+  - Puis LES PLAISIRS (Raph : « vas-y pour les Plaisirs aussi ») : le lieu s'éloigne de
+    la ville à chaque âge et évase le lit (+2,5 de demi-largeur, axe poussé de 1,4, sur
+    14 cases). Mesuré d'abord, 3 graines × 11 passages d'âge : AUCUNE rue noyée par lui.
+    Les seules pertes restantes : le bassin du Vieux-Port à la Fonte (24 à 29 cases de
+    rue, voulu — « il déloge », décision du 01/10) et, rarement, 1 à 4 cases au ras de
+    l'eau. Garde posée quand même, à la source : une place dont l'évasement noierait
+    une rue mémorisée (hors tablier) est sautée, le lieu prend la suivante. Sans rue sur
+    son chemin, sa place est identique au pixel (15 cas comparés à la version publiée).
+    plaisirsRues.test.js (échoue sans la garde).
 - ⚠ Fragilité connue, hors îlots : quand le niveau des champs change leur découpage
   (`cmTerroirParcels`), la parcelle 0 qui s'épaissit mord sa propre rangée de moulins
   (distance 1, plus les sentiers qui les desservent) et le terroir entier se refonde
