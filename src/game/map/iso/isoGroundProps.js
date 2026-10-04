@@ -91,10 +91,71 @@ export function drawIsoGroundedArt(ctx, e, px, py, targetW) {
   // les pixels source (eau de fontaine animée des places).
   return { x: dx, y: dy, w: boxW, h: boxH };
 }
-// Arbres pixel iso : tree-1..tree-N (feuillus + conifères, choisis par hash).
+// ── LA FAMILLE D'ARBRES (docs/PLAN-VEGETATION.md, lot 1, 2026-10-04) ─────────
+// Il n'y avait que TROIS arbres vivants pour toute la forêt (deux feuillus ronds
+// lime et un sapin) : des milliers de copies du même rond, un papier peint. La
+// famille compte 4 essences × 3 âges et des buissons de lisière, dessinés par
+// PixelLab dans une seule main (scripts/installVegetation.mjs, sources brutes et
+// choix dans scripts/data/) à la dose B choisie par Raph : couronnes plus sombres
+// que le pré, reflets gardés en haut à gauche.
 // (Des feuillus du pack Cainos ont été essayés en variantes 5-7 le 2026-07-22 puis
 // RETIRÉS — « je n'aime pas les arbres », Raph. Ne pas re-proposer.)
-export const ISO_TREE_VARIANTS = 4;
+//
+// LE GRAIN NE BOUGE PAS. Chaque PNG a son canevas (`px`) : 64 pour un jeune arbre,
+// 96 pour un adulte (le canevas historique, celui de treeCanvasT), 104-128 pour un
+// grand ou un vieil arbre. Le moteur dessine un canevas de `px` à px/96 de la taille
+// de référence (treeSpriteK) : un pixel d'art reste un pixel d'habitation (grainR).
+// La variété de taille vient donc des DESSINS, jamais d'un facteur d'échelle — la
+// règle posée pour les tentes le 2026-09-29. Le pied de chaque image est à 0,92 du
+// canevas et au milieu, comme avant.
+//
+// Index 1..4 = CONTRAT : les places (`_tv` 1..4, treeFootMetrics), l'île des
+// merveilles (ISLE_TREES) et le sapin mort (4) les nomment par leur numéro. tree-1..3
+// ont reçu les nouveaux adultes (chêne, chêne rond, sapin) ; tree-4 est inchangé.
+// `sp` : essence ('chene', 'bouleau', 'sapin', 'pin', 'buisson', 'mort') ;
+// `age` : 0 jeune, 1 adulte, 2 vieux.
+// ⚠ `px` = taille RÉELLE du PNG posé (installVegetation agrandit le canevas quand
+// l'encre n'y tient pas) — vérifié par vegetationFamily.test.js.
+export const TREE_SPRITES = [
+  null,
+  { name: 'tree-1', sp: 'chene', age: 1, px: 96 },
+  { name: 'tree-2', sp: 'chene', age: 1, px: 96 },
+  { name: 'tree-3', sp: 'sapin', age: 1, px: 96 },
+  { name: 'tree-4', sp: 'mort', age: 1, px: 96 },
+  { name: 'tree-chene-a3', sp: 'chene', age: 1, px: 112 },
+  { name: 'tree-chene-v1', sp: 'chene', age: 2, px: 128 },
+  { name: 'tree-chene-v2', sp: 'chene', age: 2, px: 128 },
+  { name: 'tree-chene-v3', sp: 'chene', age: 2, px: 96 },
+  { name: 'tree-chene-j1', sp: 'chene', age: 0, px: 64 },
+  { name: 'tree-chene-j2', sp: 'chene', age: 0, px: 64 },
+  { name: 'tree-chene-j3', sp: 'chene', age: 0, px: 64 },
+  { name: 'tree-chene-j4', sp: 'chene', age: 0, px: 64 },
+  { name: 'tree-chene-j5', sp: 'chene', age: 0, px: 64 },
+  { name: 'tree-bouleau-a1', sp: 'bouleau', age: 1, px: 96 },
+  { name: 'tree-bouleau-a2', sp: 'bouleau', age: 1, px: 96 },
+  { name: 'tree-bouleau-v1', sp: 'bouleau', age: 2, px: 96 },
+  { name: 'tree-bouleau-j1', sp: 'bouleau', age: 0, px: 96 },
+  { name: 'tree-bouleau-j2', sp: 'bouleau', age: 0, px: 64 },
+  { name: 'tree-sapin-a2', sp: 'sapin', age: 1, px: 104 },
+  { name: 'tree-sapin-a3', sp: 'sapin', age: 1, px: 104 },
+  { name: 'tree-sapin-v1', sp: 'sapin', age: 2, px: 104 },
+  { name: 'tree-sapin-j1', sp: 'sapin', age: 0, px: 64 },
+  { name: 'tree-sapin-j2', sp: 'sapin', age: 0, px: 64 },
+  { name: 'tree-sapin-j3', sp: 'sapin', age: 0, px: 64 },
+  { name: 'tree-sapin-j4', sp: 'sapin', age: 0, px: 64 },
+  { name: 'tree-pin-a1', sp: 'pin', age: 1, px: 104 },
+  { name: 'tree-pin-a2', sp: 'pin', age: 1, px: 96 },
+  { name: 'tree-pin-v1', sp: 'pin', age: 2, px: 104 },
+  { name: 'tree-pin-j1', sp: 'pin', age: 0, px: 64 },
+  { name: 'tree-pin-j2', sp: 'pin', age: 0, px: 64 },
+  { name: 'tree-pin-j3', sp: 'pin', age: 0, px: 64 },
+  { name: 'tree-buisson-1', sp: 'buisson', age: 0, px: 48 },
+  { name: 'tree-buisson-2', sp: 'buisson', age: 0, px: 48 },
+  { name: 'tree-buisson-3', sp: 'buisson', age: 0, px: 64 },
+];
+export const ISO_TREE_VARIANTS = TREE_SPRITES.length - 1;
+// Rapport de taille de dessin d'un arbre à l'arbre de référence (canevas de 96).
+export function treeSpriteK(v) { const t = TREE_SPRITES[v]; return t ? t.px / 96 : 1; }
 // LE SAPIN MORT (tree-4 : tronc noir, branches grises, mousse pendante) : un
 // arbre sur quatre, en toute saison, au milieu des feuillus vifs — il lisait
 // comme une forêt malade (constat du 2026-09-29 sur la capture du campement).
@@ -102,11 +163,26 @@ export const ISO_TREE_VARIANTS = 4;
 // neige, et dans une civilisation EN RUINE (CM.frameRuined) ; le reste du temps
 // sa cellule reçoit une des essences vivantes (treeAliveVariant).
 export const TREE_DEAD_VARIANT = 4;
-// Essence d'une cellule (1..ISO_TREE_VARIANTS), stable : le tirage historique.
-export function treeBaseVariant(gx, gy) { return 1 + (cmHash('tree:' + gx + ':' + gy) % ISO_TREE_VARIANTS); }
+// Les arbres VIVANTS (ni le sapin mort, ni les buissons, réservés à la lisière).
+export const TREE_LIVING = TREE_SPRITES.map((t, i) => (t && t.sp !== 'mort' && t.sp !== 'buisson' ? i : 0)).filter(Boolean);
+// Index des dessins d'une essence à un âge (listes figées au chargement).
+export function treeVariantsOf(sp, age) {
+  const out = [];
+  TREE_SPRITES.forEach((t, i) => { if (t && t.sp === sp && (age == null || t.age === age)) out.push(i); });
+  return out;
+}
+// Essence d'une cellule, stable. Le sapin mort garde sa part historique (un tirage
+// sur quatre, même hash qu'avant) ; le reste se tire parmi les arbres vivants.
+export function treeBaseVariant(gx, gy) {
+  if (cmHash('tree:' + gx + ':' + gy) % 4 === 3) return TREE_DEAD_VARIANT;
+  return TREE_LIVING[cmHash('treeL:' + gx + ':' + gy) % TREE_LIVING.length];
+}
 // Essence VIVANTE qui remplace le sapin mort hors hiver et hors ruines : un tirage
-// à part, parmi les autres (jamais TREE_DEAD_VARIANT, qui est la dernière).
-export function treeAliveVariant(gx, gy) { return 1 + (cmHash('treeA:' + gx + ':' + gy) % (ISO_TREE_VARIANTS - 1)); }
+// à part, parmi les vivants (jamais TREE_DEAD_VARIANT).
+export function treeAliveVariant(gx, gy) { return TREE_LIVING[cmHash('treeA:' + gx + ':' + gy) % TREE_LIVING.length]; }
+// Dessin d'un arbre posé, SANS rien mémoïser (le peintre tient `_tv`) : pour ceux qui
+// ont besoin de sa taille avant ou en dehors du dessin (particules d'ambiance).
+export function treeVariantOf(tr) { return tr._tv || tr.v || treeBaseVariant(tr.gx, tr.gy); }
 // Buissons DÉDIÉS bush-1..N (pack Cainos, cf. scripts/sliceCainosPlants.mjs),
 // rangés du plus petit au plus grand. Avant, un « buisson » de terre-plein était
 // un feuillu rapetissé — donc un tronc d'arbre miniature. Repli sur tree-N si le
