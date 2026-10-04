@@ -143,6 +143,26 @@ PLAN-ROUTES) et « une maison ne bouge jamais » (keepInPlace).
     (comme la fenêtre haute du dessin d'origine) ; la marque de 2 px sous l'avant-toit du
     domus « fr » = éteinte ; la face noire de l'échoppe « bl » = éteinte. Vérifié en jeu
     (`.preview-shots/tournees-nuit.png`).
+- 2026-10-04 (nuit, I7 — Raph : « une ère à la fois, commit après chacune, fais-les
+  toutes ») :
+  - Le code se décline par âge : `map/ilotArt.js` (bandes en îlots, corps des boutiques,
+    vues tournées, rangées, ateliers qui gardent leur dessin). Un âge sans art dédié
+    retombe sur ses maisons d'origine, poussées vers la rue.
+  - La demande de lots compte les GRANDS LOGIS tirage par tirage (le tirage des
+    variantes est déterministe par numéro de lot) : la part de liste sous-comptait les
+    villas d'une cité « rurale » (24 maisons-moteur sans lot).
+  - Le pont débouche sur 5 cases de cardo sur l'autre rive (v1 : 2) ; la traversée est
+    cherchée au nord comme au sud du cœur (v1 : au sud seulement — « l'autre rive »
+    était mal définie quand le fleuve passait au nord).
+  - **Fonte (bande 5)** : boutiques = haussmannien (boutique au rez), rangée de brique,
+    immeuble ; rangées HAUSSMANNIENNES (objet PixelLab existant à 8 vues, converti à la
+    taille d'une unité de rangée) et rangées de BRIQUE (objet neuf, deux maisons sous un
+    toit d'ardoise, palette de la rangée ouvrière du jeu) ; haussmannien tourné à l'est.
+    Les dos haussmanniens (murs mitoyens presque aveugles, grands pans beiges à
+    l'écran) sont écartés : au nord et à l'ouest, la rangée prend les dos de brique.
+  - ⚠ PixelLab : une rotation Pro Flash À PARTIR d'un sprite du jeu pris de trois
+    quarts échoue (il est lu comme une vue de FACE : vues tournées frontales, chiffres
+    incrustés, pixels verts). Passer par un objet à 8 vues généré, puis convertir.
 - ⚠ Fragilité connue, hors îlots : quand le niveau des champs change leur découpage
   (`cmTerroirParcels`), la parcelle 0 qui s'épaissit mord sa propre rangée de moulins
   (distance 1, plus les sentiers qui les desservent) et le terroir entier se refonde

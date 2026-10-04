@@ -622,5 +622,13 @@
       "hall": "0edeb7c0-2f45-4fa4-8d8b-0983d8bfd4a6",
       "petitConversion": "7481643b-436a-4f18-9fe9-eac5b1d1d136"
     }
+  },
+  "ilotsParEre": {
+    "note": "Ville par îlots, autres âges (2026-10-04 nuit). Vues SW=fl/sprite, SE=fr, NE=bl, NW=br ; conversions image_to_pixelart faithful 200, silhouette de la source, palette du sprite en jeu (scratchpad orient2.cjs).",
+    "b5": {
+      "haussmannObjet": "a9ab4a04-ccfb-4e93-87e1-998120babbd7 (existant, 160 px) → haussmann-fr (80) + row-haussmann-fl/fr (104)",
+      "rangeeBrique": "ba6f5495-581b-4d8b-b8a1-df900dd1c72d (Pro Flash 128, style = terrace.png) → row-terrace-fl/fr/bl/br (80)",
+      "echec": "b71ada0b-3f5a-4345-8179-a0a037d87327 (rotation depuis terrace.png : vues frontales + chiffres incrustés, inutilisable)"
+    }
   }
 }

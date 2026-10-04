@@ -24,6 +24,8 @@ export const ILOT_PLAZA_EVERY = 16;
 const PLAZA_KINDS = ["marche", "jardin", "parvis"];
 // Lots de marge : la ville ouvre un peu d'avance (achats à venir, grands logis).
 const LOT_MARGIN = 6;
+// Cases de cardo sur la rive d'en face, au débouché du pont.
+const BRIDGE_LANDING = 5;
 // Lots de maisons par îlot plein (4×4 : 12 lots de bord) — pour l'ESTIMATION du
 // rayon seulement ; le compte réel se fait îlot par îlot.
 export const ILOT_LOTS_PER_BLOCK = 11;
@@ -86,17 +88,30 @@ export function planIlots(o) {
   const streetOk = (x, y) => x >= 0 && y >= 0 && x < N && y < N && !o.isReserved(x, y) && (onCardo(x) || !o.isWet(x, y));
 
   // Rues de départ : le cardo, du decumanus jusqu'à la rive d'en face — le pont
-  // fait partie de la ville dès le premier îlot.
-  let southEnd = oy;
-  for (let y = oy; y < N - 1; y += 1) if (o.isWet(bx, y) || o.isWet(twin, y)) southEnd = y;
+  // fait partie de la ville dès le premier îlot, et il DÉBOUCHE sur une rue : le cardo
+  // court BRIDGE_LANDING cases sur l'autre rive (v1 : deux cases, un pont qui finissait
+  // dans l'herbe tant que la rive d'en face n'avait pas d'îlot). Le fleuve peut passer
+  // au sud ou au nord du cœur : on cherche la traversée la plus proche des deux côtés.
+  const wetAt = (y) => o.isWet(bx, y) || o.isWet(twin, y);
+  const crossing = (dir) => {
+    let lo = null, hi = null;
+    for (let y = oy; y > 0 && y < N - 1; y += dir) {
+      if (wetAt(y)) { if (lo === null) lo = y; hi = y; } else if (lo !== null) break;
+    }
+    return lo === null ? null : { near: lo, far: hi, d: Math.abs(lo - oy) };
+  };
+  const cs = crossing(1), cn = crossing(-1);
+  const cross = cs && (!cn || cs.d <= cn.d) ? { ...cs, dir: 1 } : cn ? { ...cn, dir: -1 } : null;
   const seed = [];
-  for (let y = oy; y <= Math.min(N - 1, southEnd + 2); y += 1) {
+  const yEnd = cross ? Math.max(0, Math.min(N - 1, cross.far + cross.dir * BRIDGE_LANDING)) : oy;
+  for (let y = oy; cross ? (cross.dir > 0 ? y <= yEnd : y >= yEnd) : y === oy; y += cross ? cross.dir : 1) {
     seed.push({ x: bx, y, h: y === oy, v: true });
     seed.push({ x: twin, y, h: y === oy, v: true });
+    if (!cross) break;
   }
   // La rive d'en face coûte la traversée : on y bâtit quand le cœur est servi.
-  const coreBank = Math.sign((core.y + 0.5) - (southEnd + 0.5)) || -1;
-  const extraCost = (i, j, c) => (Math.sign(c.y - (southEnd + 0.5)) !== coreBank ? 1.5 : 0);
+  const riverMid = cross ? (cross.near + cross.far + 1) / 2 : null;
+  const extraCost = (i, j, c) => (riverMid !== null && Math.sign(c.y - riverMid) !== Math.sign((core.y + 0.5) - riverMid) ? 1.5 : 0);
   const order = blockOrder({ N, core, grid, usable, streetOk, seed, extraCost, maxBlocks: 2000 });
 
   // ── LA MÉMOIRE DES ÎLOTS ─────────────────────────────────────────────────

@@ -64,7 +64,10 @@ const SANS_TEINTE = new Set([
   // Les RANGÉES MITOYENNES (même jour) : déjà repeintes dans la palette de la maison
   // dont elles prennent la place (échoppe, domus, maison à cour → popina, insula).
   "row-taberna-fl", "row-taberna-fr", "row-domus-fl", "row-domus-fr", "row-popina-fl",
-  "row-popina-fr", "row-insula-fl", "row-insula-fr", "row-insula-bl", "row-insula-br"
+  "row-popina-fr", "row-insula-fl", "row-insula-fr", "row-insula-bl", "row-insula-br",
+  // Fonte (même jour) : l'immeuble haussmannien tourné et ses unités de rangée.
+  "haussmann-fr", "row-haussmann-fl", "row-haussmann-fr",
+  "row-terrace-fl", "row-terrace-fr", "row-terrace-bl", "row-terrace-br"
 ]);
 
 // Sprites lus une fois, réutilisés par les tests qui mesurent sur l'art réel.
