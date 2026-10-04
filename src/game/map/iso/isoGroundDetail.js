@@ -402,7 +402,9 @@ if (typeof window !== 'undefined') {
 // aussi de la rue transverse, en glissant sous sa voisine le long de la rangée.
 // Mesuré (îlots des âges 3-6) : derrière une rangée, jardin, maison ou retour d'angle
 // — jamais une autre rangée dos à dos.
-export const ROW_SETBACK = { on: true, margin: 0.1 };
+// margin 0,1 → 0,2 (Raph 2026-10-04 : « les trottoirs fins ») : un vrai trottoir devant
+// les rangées, au lieu d'une bande à peine plus large que la marche.
+export const ROW_SETBACK = { on: true, margin: 0.2 };
 export function isoRowSetback(t, roadMap, cfg = ROW_SETBACK) {
   if (!cfg.on || !roadMap) return null;
   if (t._rowBack !== undefined) return t._rowBack;
