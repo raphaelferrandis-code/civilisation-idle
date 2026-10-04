@@ -6,7 +6,7 @@ import { toNum } from '../core/num.js';
 import { currentEraIndex } from '../core/mechanics.js';
 import { chronicle } from '../core/actions.js';
 import { setCaptureVestigeHandler } from './cityMapBridge.js';
-import { ensureMapSeed, mixSeed } from './procedural/seedManager.js';
+import { ensureMapSeed, mixSeed, hashString } from './procedural/seedManager.js';
 import { ageConfigFor } from './procedural/ageVisualConfig.js';
 import { eraBandOf } from '../data/eraThemes.js';
 import { CRITTER_HERD, CRITTER_PETS } from './critters.js';
@@ -18,8 +18,9 @@ import { CITY_QUARTERS, QUARTER_PLAZA, forSiteCells, hearthOfSite, centralSiteFo
 import { PORT_SITES, BASIN_NORTH_QUAY, oldPortBasinFor, basinCells, tradePortSiteFor, tradeCells } from './portSites.js';
 import { terrainFieldU, terrainFlatR } from './procedural/terrainField.js';
 import { ROAD_LINK_WAVE_FRACTION } from '../core/balance.js';
-import { createBuildingPlacer, placeCategorySlotted } from './procedural/buildingGenerator.js';
+import { createBuildingPlacer, placeCategorySlotted, VARIANTS_HOUSE, houseFootprint } from './procedural/buildingGenerator.js';
 import { planIlots, ilotReachFor } from './ilotLayout.js';
+import { ILOT_BANDS, ANNEX_BODIES, annexOwnArt, ROWS } from './ilotArt.js';
 import { createWaterModel } from './procedural/waterModel.js';
 import { planHighway, vergeCells } from './procedural/highwayPlan.js';
 import { CM_GIVEN, CM_EPITHETS, CM_TRADES, CM_HOUSES, CM_ROLES, CM_STREET_OF, CM_RESIDENCES } from './cityNaming.js';
@@ -218,7 +219,7 @@ export const ENGINE_SPREAD = { gap: 5, reach: 8 };
 // Pilote : la bande 4 (grille romaine). Le premier calcul en mode îlots RÉORGANISE
 // la ville une fois (décision de Raph) ; ensuite plus rien ne bouge.
 // Molette : __ilots(false) → retour au placement d'avant (sans effacer la mémoire).
-export const ILOT_MODE = { on: true, bands: [4] };
+export const ILOT_MODE = { on: true, bands: ILOT_BANDS };
 // Hors des îlots, même en mode îlots : la campagne (champs, moulins) et le fleuve
 // (port) gardent leur placement dédié.
 const ILOT_OUTSIDE = new Set(["irrigated_fields", "water_mills", "river_ports"]);
@@ -227,8 +228,25 @@ const ILOT_OUTSIDE_RE = /:(irrigated_fields|water_mills|river_ports):/;
 // « enginehome ») — remonté au niveau du module : le plan d'îlots en tient compte
 // dans sa demande de lots. ⛔ Ne pas le réduire (cf. mémoire du projet).
 const ENGINE_HOME_LOOKAHEAD = 44;
-// Lots de bord en plus par logis demandé (grands logis 2×2, cf. ilotDemand).
-const ILOT_BIG_HOME_EXTRA = 0.2;
+// Lots de bord en plus pour les GRANDS LOGIS (villa, manoir, grand ensemble 2×2, tour
+// 1×2) : un 2×2 posé dans un îlot prend 2 à 3 lots de bord (un angle, ou deux lots et
+// la cour), un 1×2 un ou deux. Le tirage des variantes est DÉTERMINISTE par numéro de
+// lot (buildingGenerator.chooseVariant, bandes < 7) : on compte donc les grands logis
+// exactement, au lieu d'estimer une part (vécu : 24 maisons-moteur sans lot dans une
+// cité « rurale » où toutes les villas trouvaient leur place, la part de liste les
+// sous-comptait). Aux bandes cosmiques le tirage dépend de la case : moyenne de liste.
+function ilotBigHomeLots(band, bias, seed, nHouse, nHome) {
+  const row = VARIANTS_HOUSE[Math.max(0, Math.min(VARIANTS_HOUSE.length - 1, band | 0))];
+  const list = (bias && row[bias]) || row.base;
+  const extraOf = list.map((v) => { const [x, y] = houseFootprint(v, band); const a = x * y; return a >= 4 ? 1.3 * (a - 1) / 3 : a === 2 ? 0.7 : 0; });
+  if (!extraOf.some(Boolean)) return 0;
+  if ((band | 0) >= 7) return Math.round((nHouse + nHome) * extraOf.reduce((u, e) => u + e, 0) / list.length);
+  let extra = 0;
+  for (const [cat, n] of [["house", nHouse], ["enginehome", nHome]]) {
+    for (let k = 0; k < n; k += 1) extra += extraOf[hashString(seed + ":" + cat + ":v" + k) % list.length];
+  }
+  return Math.round(extra);
+}
 // LES ATELIERS DANS LA RANGÉE (Raph 2026-10-04 : « avoir plein de fois le même
 // bâtiment qui a l'air d'un grand bâtiment rend mal ») : en mode îlots, une
 // annexe de bâtiment-moteur n'est plus la scène de sa halle en réduction (22
@@ -236,10 +254,9 @@ const ILOT_BIG_HOME_EXTRA = 0.2;
 // d'une case, un corps de maison (`t.body`, dessiné par pixelHouses.js). La
 // halle reste le seul monument de son métier. Gardent leur dessin : les ateliers
 // des guildes (dessinés pour être semés, cf. GUILD_CRAFTS_B4) et les points d'eau.
-const ILOT_ANNEX_OWN_ART = new Set(["guilds", "aqueducts"]);
-const ILOT_ANNEX_BODIES = ["taberna", "taberna", "domus", "courtyard"];
+// Corps par âge et exceptions : ilotArt.js (ANNEX_BODIES, annexOwnArt).
 const ILOT_TUNE = { annexBody: true };
-const ilotTownBody = (id) => ILOT_TUNE.annexBody && !ILOT_ANNEX_OWN_ART.has(id);
+const ilotTownBody = (id, band) => ILOT_TUNE.annexBody && !!ANNEX_BODIES[band | 0] && !annexOwnArt(id, band | 0);
 // Une HALLE ne dépasse pas 3×3 dans un îlot 4×4 : à 4×4 elle prend l'îlot entier et sa
 // scène (≈ 2 cases de large) trône sur un parvis vide — refusé en v1 (« 25 parvis
 // vides »), revu le 2026-10-04 sur les Ministères au dernier palier.
@@ -2518,16 +2535,16 @@ function computeCityLayout(s) {
         const key = cmMapSlotKey(s.cycles, meta.id, ei);
         // Les points d'eau n'ont pas de halle : tous sont des repères d'une case.
         if (ei === 0 && meta.id !== "aqueducts") { halls.push({ key, zone: meta.zone, id: meta.id, size: Math.min(ILOT_HALL_MAX, cmEngineGroupFoot(meta.id, inst[0], 0)) }); continue; }
-        const size = meta.id === "aqueducts" || ilotTownBody(meta.id) ? 1 : cmEngineAtelierFoot(meta.id);
+        const size = meta.id === "aqueducts" || ilotTownBody(meta.id, c.eraBand) ? 1 : cmEngineAtelierFoot(meta.id);
         annexes.push({ key, id: meta.id, size, zone: meta.zone, index: ei });
         annexLots += size * size;
       }
     }
-    // Les GRANDS LOGIS (villa 2×2) mangent 2 à 3 lots de bord chacun (un angle, ou
-    // deux lots et la cour) : mesuré à la bande 4, 85 villas sur 688 logis, 48
-    // maisons-moteur achetées restées sans lot — d'où ~0,2 lot de plus par logis.
-    const homes = Math.round(c.houses * (bias.house || 1)) + (c.engineHomes || 0) + ENGINE_HOME_LOOKAHEAD;
-    const lots = homes + Math.round(homes * ILOT_BIG_HOME_EXTRA) + annexLots;
+    // Mêmes comptes que placeDecor (« house », puis « enginehome ») ; les grands
+    // logis comptés tirage par tirage (cf. ilotBigHomeLots).
+    const nHouse = Math.max(0, Math.round(c.houses * (bias.house || 1)));
+    const nHome = (c.engineHomes || 0) + ENGINE_HOME_LOOKAHEAD;
+    const lots = nHouse + nHome + ilotBigHomeLots(c.eraBand, personality.variantBias, mapSeed, nHouse, nHome) + annexLots;
     ilotDemand = { lots, halls, annexes };
   }
   const cityReachBase = ilotMode ? ilotReachFor({ lots: ilotDemand.lots, halls: ilotDemand.halls.length }) : eraReachBase;
@@ -2829,7 +2846,7 @@ function computeCityLayout(s) {
         if (meta.id === "irrigated_fields") { const fsp = cmFieldSpan(level); spanOf.set(key, [fsp.w, fsp.h]); }
         else if (meta.id === "river_ports") spanOf.set(key, [cmRiverPortSpan(level).w, 0]);
         else {
-          let z = ilotMode && ei > 0 && ilotTownBody(meta.id) ? 1 : cmEngineGroupFoot(meta.id, inst[ei], ei);
+          let z = ilotMode && ei > 0 && ilotTownBody(meta.id, c.eraBand) ? 1 : cmEngineGroupFoot(meta.id, inst[ei], ei);
           if (ilotMode && ei === 0 && !ILOT_OUTSIDE.has(meta.id)) z = Math.min(ILOT_HALL_MAX, z);
           spanOf.set(key, [z, z]);
         }
@@ -4975,8 +4992,9 @@ function computeCityLayout(s) {
       const an = ilot.annexAt.get(req.slotKey);
       if (!an) continue;
       tileOf(req, an.gx, an.gy, an.size);
-      if (an.size === 1 && ilotTownBody(req.meta.id)) {
-        tiles[tiles.length - 1].body = ILOT_ANNEX_BODIES[(cmHash("body:" + req.slotKey) >>> 0) % ILOT_ANNEX_BODIES.length];
+      if (an.size === 1 && ilotTownBody(req.meta.id, c.eraBand)) {
+        const bodies = ANNEX_BODIES[c.eraBand | 0];
+        tiles[tiles.length - 1].body = bodies[(cmHash("body:" + req.slotKey) >>> 0) % bodies.length];
       }
     }
     for (const b of ilot.blocks) for (const q of b.cells) {
@@ -5108,7 +5126,8 @@ function computeCityLayout(s) {
     const sideMode = new Map();
     const terraceSide = (e, face) => {
       const k = e.block + ":" + face;
-      if (!sideMode.has(k)) sideMode.set(k, (e.long && longSide(e, face)) || ((cmHash("rangee:" + k) >>> 0) & 1) === 0);
+      // Une bande sans rangée dessinée (ilotArt.ROWS) garde ses maisons isolées.
+      if (!sideMode.has(k)) sideMode.set(k, !!ROWS[c.eraBand | 0] && ((e.long && longSide(e, face)) || ((cmHash("rangee:" + k) >>> 0) & 1) === 0));
       return sideMode.get(k);
     };
     const terraceAt = new Set();

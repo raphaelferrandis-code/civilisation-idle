@@ -7,6 +7,7 @@ import { state, normalizeCityCore } from "../../core/state.js";
 import { D } from "../../core/num.js";
 import { eras } from "../../data/world.js";
 import { ROAD_MEMORY } from "../roadMemory.js";
+import { ANNEX_BODIES } from "../ilotArt.js";
 
 const KEYS = Object.keys(state.buildings).filter((k) => k !== "roads");
 function grow(i, level = 30) {
@@ -121,6 +122,23 @@ describe("ville par îlots (bande 4)", () => {
       expect(t.body, t.buildingId).toBeTruthy();
     }
   }, 120000);
+
+  // LES AUTRES ÂGES (Raph 2026-10-04 : « fais-les toutes ») : chaque bande de ILOT_BANDS
+  // se bâtit par îlots, loge TOUTES ses maisons-moteur (la demande compte les grands
+  // logis de la bande), et ses ateliers sont des corps de maison de son âge.
+  for (const [era, band] of [[21, 4], [27, 5]]) {
+    it(`bande ${band} : îlots, maisons-moteur toutes logées, boutiques de l'âge`, () => {
+      const L = grow(era);
+      expect(L.counts.eraBand).toBe(band);
+      expect(state.cityCore.ilot).toBeTruthy();
+      const placed = L.tiles.filter((t) => t.type === "enginehome").length;
+      expect(placed).toBe((L.counts.engineHomes | 0) + 44);
+      const bodies = new Set(ANNEX_BODIES[band]);
+      const annexes = L.tiles.filter((t) => t.body);
+      expect(annexes.length).toBeGreaterThan(20);
+      for (const t of annexes) expect(bodies.has(t.body), t.body).toBe(true);
+    }, 120000);
+  }
 
   it("la fiche d'îlots survit au rechargement : la réorganisation n'a lieu qu'une fois", () => {
     grow(21);

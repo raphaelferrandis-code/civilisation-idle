@@ -53,6 +53,10 @@ describe('fenêtres relevées des maisons', () => {
     'row-insula-fr': [[55, 64, 6, 14]],
     'row-insula-br': [[55, 64, 6, 14]],
     'row-insula-bl': [[20, 63, 6, 12]],
+    // Fonte (2026-10-04) : boutiques du rez des vues haussmanniennes.
+    'haussmann-fr': [[32, 63, 30, 17]],
+    'row-haussmann-fl': [[18, 80, 40, 22]],
+    'row-haussmann-fr': [[50, 80, 32, 22]],
   };
   for (const [nom, zones] of Object.entries(ETEINT)) {
     it(`${nom} : portes, étals et arcades restent éteints`, () => {
