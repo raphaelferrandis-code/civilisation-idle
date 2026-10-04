@@ -557,6 +557,100 @@ Icare a sa plateforme d'envol au sommet (perchoir, ballon, mât selon l'âge).
   - ⚠ Banc de test en crise : lever `crisisLimitAnnounced` le temps d'UN clic, dans le
     MÊME appel — laissé faux entre deux appels, le jeu a ré-annoncé la crise (bascule
     sur la Chute, une ligne de journal) sur la sauvegarde du serveur de test.
+- **V2, Raph : « vas-y pour la v2, commence par le son ».** Les BRUITAGES de la machine
+  (`game/audio/slotsSound.js`), joués par le code comme la mélodie de la scène, dans
+  l'habit de l'âge — fonte (cliquets de fer, la cloche de la Liberty Bell sonne aux
+  gains, cornet), néon (moteur, ressort du levier, vibraphone, fanfare de cuivres),
+  cosmique (souffles, cloches de verre) : le levier, le RONRON des rouleaux (une boucle
+  dont le volume suit leur vitesse), un TIC par symbole quand un rouleau ralentit, le
+  clac de chaque arrêt, la TENSION quand le troisième traîne (roulement de caisse claire,
+  accord qui monte, scintillement), trois mesures de gain (×2 et ×10 la mise font les
+  seuils), la pluie de pièces, les tours gratuits, la fanfare de la roue, son CLIQUET à
+  chaque case qui passe, le jackpot, le coffre qui grince, l'aile d'Icare. Les gros
+  moments couvrent la musique un instant.
+  - Les instruments de la mélodie sortent dans `game/audio/synth.js` (un seul contexte
+    audio pour tout le jeu). Rendus un par un à l'ouverture de la machine (~250 ms d'un
+    coup sinon, un à-coup sur le Chrome logiciel de Raph).
+  - Un réglage À PART : Options › Son › Bruitages (et leur volume).
+  - Mesuré, pas écouté : chaque son de chaque habit sonne, sans écrêter ni claquer à la
+    fin (test) ; en jeu, l'enchaînement relevé — levier + ronron, tics, trois arrêts,
+    tension, fanfare de la roue, 70 cliquets, gain ×20. À JUGER À L'OREILLE par Raph.
+    RIEN commité.
+- **V2, Raph : « vas-y : 5 rouleaux, joker et Hold & Win ».**
+  - LA MACHINE : CINQ rouleaux de 29 cases, trois rangées, VINGT lignes ; une ligne paie
+    3, 4 ou 5 symboles alignés depuis la gauche (table ronde : cerise ×0,2/×0,5/×2,5 …
+    sept ×3/×10/×50 la mise) ; le JOKER (bonnet de fou à la fonte, plaque WILD au néon,
+    prisme arc-en-ciel aux cosmiques) remplace les symboles, rouleaux 2 à 4 seulement.
+    Étoiles 3/4/5 : 8/12/20 tours gratuits ×2 ; trois roues : la roue ; SIX PIÈCES : le
+    HOLD & WIN — les pièces se figent, 3 relances rechargées par chaque nouvelle pièce,
+    pièces ×1 à ×10, MINI ×20, MAJEUR ×100, les quinze cases : le GRAND (la cagnotte au
+    prorata de la mise, comme la case jackpot de la roue, rebaptisée GRAND).
+  - LE CALCUL (`core/actions/slotsMath.js`, pur) : 29⁵ arrêts ne s'énumèrent plus ; une
+    ligne a la même loi sur toutes les rangées et ses cinq cases sont indépendantes →
+    10⁵ combinaisons pondérées, ×20 (linéarité) ; les déclencheurs par convolution des
+    rouleaux ; le Hold & Win par programmation dynamique (pièces × relances) ; tours et
+    roue par l'équation linéaire. 92,0 % pile (lignes 55,5 · tours 11,5 · roue 6,1 ·
+    Hold & Win 19,0) ; ligne gagnante 41 % des tours (20 % ≥ la mise) ; tours et roue
+    1/106, Hold & Win 1/183 (×35 la mise en moyenne), grille pleine 1 % des Hold & Win.
+    ⚠ La fréquence du Hold & Win dépend énormément de l'ORDRE des pièces sur les bandes
+    (1/116 à 1/308 pour les mêmes quantités) : piles de trois pièces interdites, puis la
+    disposition n° 218 d'une recherche sur 300, figée.
+  - Tests : la DP confrontée à 30 000 Hold & Win simulés, le RTP à 200 000 tours (< 3,5
+    points), le moteur (lignes et joker, tours 3/4, roue, Hold & Win cohérent, GRAND).
+    Vérifié aussi : 20 000 Hold & Win du moteur depuis 7 pièces → grille pleine 1,18 %
+    (1,15 % attendu), 9,87 pièces (9,87).
+  - LA SCÈNE : machine élargie (5 fenêtres), décalée aux 3/5 (les mises au sol à
+    gauche) ; l'échelle des jackpots au mur (GRAND / MAJEUR / MINI pour la mise en jeu) ;
+    les rouleaux TRAÎNENT dès que deux étoiles, deux roues ou QUATRE PIÈCES sont déjà là ;
+    les lignes gagnantes s'allument UNE À UNE (tracé + cadre des symboles qui paient) ;
+    le Hold & Win se rejoue relance par relance (bandeau au fronton, cases vides qui
+    tournent, pièce qui tombe et clignote, ↻ relances et total au mur), puis la roue si
+    elle a été gagnée au même tour. Deux sons de plus : la pièce qui tombe, la relance.
+  - Vérifié en jeu (néon) : Hold & Win forcé jusqu'au GRAND (+456 : 450 de pièces et 6 de
+    cagnotte, un coup de chance à 1/87 — vérifié ensuite), lignes et joker. RIEN commité.
+- **2026-10-04 — polissage, Raph : « il faut que tous les visuels soient beaux, fluides
+  et agréables ».**
+  - ROULEAUX : peints en nombres (plus une chaîne de couleur par pixel) ; ils DESCENDENT
+    comme sur une vraie machine ; le flou de vitesse est une moyenne des positions
+    traversées (traînée fondue) ; élan au départ, rebond à l'arrêt ; une VITRE devant
+    (ombre du cadre, reflet oblique).
+  - GAINS : les cases qui paient respirent (lumière, cadre d'or, étincelles aux coins) ;
+    pluie de pièces qui tournent et rebondissent au sol ; au-delà de ×10 la mise, un
+    BANDEAU (GROS / ÉNORME / MÉGA GAIN) sur un halo sombre, montant qui défile. Pas de
+    filtre ni de reflet animé en CSS (le Chrome de Raph rend en logiciel).
+  - HOLD & WIN : la pièce TOMBE dans sa case et rebondit, liseré qui clignote une fois
+    posée ; reflet bref (½ s toutes les 4 s, décalé d'une case à l'autre, fondu — un
+    trait net faisait une rayure).
+  - ROUE : recentrée sur la machine (le pointeur collait au bord haut), la salle
+    s'assombrit dessous ; le pointeur bat contre chaque picot ; à l'arrêt la case
+    gagnante s'allume et les AUTRES S'ÉTEIGNENT (blanchir la seule gagnante ne se voyait
+    pas sur une case crème) ; l'étoile des tours dessinée à sa taille (l'icône du
+    rouleau réduite n'était qu'une tache) ; coffres qui tombent en cascade, le choisi
+    grossi. Bug corrigé : au choix d'un coffre, la roue revenait d'un coup à sa
+    position de départ (l'angle d'arrêt n'était pas gardé).
+  - Vérifié en jeu (fonte, cosmique) : flou, ligne gagnante, chute des pièces image par
+    image, roue jusqu'aux coffres. Lint propre, 2 472 tests. RIEN commité.
+- **2026-10-04 — Raph : « je ne peux pas essayer, ça ne marche pas, et le levier pour
+  actionner la machine doit fonctionner ».** Cause : la machine s'ouvrait SANS mise
+  choisie → levier désactivé, et le bouton Tirer n'apparaît que sous la mise choisie.
+  - La machine s'ouvre prête : la dernière mise jouée (sinon la première qu'on peut payer).
+  - Le LEVIER se tire à la main : on l'attrape, il suit la souris (ou le doigt) ; lâché
+    au-delà de 55 % de sa course, la machine part et il remonte sur son ressort ; avant,
+    il remonte seul. Un simple clic le fait partir seul ; Entrée au clavier aussi.
+  - Quand on ne peut pas jouer (mise trop chère, machine occupée), il cogne en butée
+    avec un clac sourd. En crise terminale (toutes les tables de la Maison sont fermées,
+    règle déjà en place), infobulle « Machine fermée ».
+  - Vérifié par gestes simulés : à mi-course il remonte, jusqu'au bout il lance le tour.
+  - Puis, capture de Raph « je clique il ne se passe rien » : c'était la partie de test, en
+    CRISE TERMINALE (toutes les tables fermées, en silence). → En crise, une pancarte
+    « FERMÉ » pend devant la vitre (infobulle), le tour gratuit est grisé. Pour qu'il
+    essaie : partie de test sortie de la crise EN MÉMOIRE (`resumeAfterCrisisOutcome`,
+    rupture retenue sous 0,8 par un minuteur de l'onglet — elle remontait à 1 en ~80 s) ;
+    vrai clic sur le levier → le tour part, les tours gratuits s'enchaînent.
+  - Raph : « même pancarte pour les autres tables ». → `PancarteFermee` + `tablesFermees()`
+    (`views/plaisirs/fermeture.js`) : `PlaisirsTable` la pend d'elle-même au milieu du
+    plateau en crise terminale (osselets, 21, tickets, Icare), éteint les boutons de la
+    table (classe `is-fermee`) ; la machine à sous prend la même. Vu sur les cinq.
 
 ---
 

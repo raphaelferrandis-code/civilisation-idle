@@ -481,6 +481,7 @@ const GAME_DEFS = [
     hl: (g) => [
       tr({ fr: `${fmtCount(g.freeSpins)} séries de tours gratuits`, en: `${fmtCount(g.freeSpins)} free-spin series` }),
       tr({ fr: `${fmtCount(g.wheels)} roues`, en: `${fmtCount(g.wheels)} wheels` }),
+      tr({ fr: `${fmtCount(g.holdWins)} Hold & Win`, en: `${fmtCount(g.holdWins)} Hold & Win` }),
       tr({ fr: `${fmtCount(g.jackpots)} jackpots`, en: `${fmtCount(g.jackpots)} jackpots` })
     ]
   },
