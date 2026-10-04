@@ -3,6 +3,18 @@ import { agentSetForBand, agentSpecFor, drawNamedAgentIso, AGENT_SCALE } from '.
 import { CM } from '../../../game/map/layout.js';
 import { plaisirsCast } from '../../../game/map/iso/plaisirsCast.js';
 import { salleNightF } from './salleBake.js';
+import { nuitActive, spectacleActif } from '../../../game/core/actions/nuitGrandJeu.js';
+
+// LA FÊTE (la Nuit du Grand Jeu, le spectacle) : des paillettes d'or et de rose tombent
+// dans la coupe, et les lustres brillent plus fort. Une paillette = un pixel d'art, sa
+// place se tire de son numéro (rien à garder d'une image à l'autre).
+const PAILLETTES = 90;
+const PAILLETTE_COULEURS = ['#ffe08a', '#ffd76a', '#ff8fb5', '#fff6dc', '#f2c230'];
+const hashP = (i, k) => {
+  let x = (i | 0) * 374761393 + (k | 0) * 668265263;
+  x = (x ^ (x >>> 13)) * 1274126177;
+  return ((x ^ (x >>> 16)) >>> 0) / 4294967296;
+};
 
 /**
  * LA MAISON DES PLAISIRS EN COUPE (refonte du 2026-10-02, phase 2 reprise le
@@ -183,9 +195,11 @@ export default function SalleCanvas({ bake, band, lit, padLeft = 0, focus = null
       if (cabY != null && cab) cabAt(cab.front);
       g.drawImage(bake.cvF, ox, oy, bake.W * Z, bake.H * Z);
       people(true);
-      // LA NUIT, à l'heure de la carte : la coupe s'assombrit, ses lumières restent,
-      // et chaque applique, chaque lustre pose son halo.
+      // LA NUIT — la Maison est hors du temps, il y fait toujours nuit (salleNightF) :
+      // la coupe s'assombrit, ses lumières restent, chaque applique, chaque lustre pose
+      // son halo ; plus fort pendant la fête.
       const nf = salleNightF();
+      const fete = nuitActive() || spectacleActif();
       if (nf > 0.02) {
         g.globalCompositeOperation = 'multiply';
         g.fillStyle = `rgba(52,62,104,${(0.72 * nf).toFixed(3)})`;
@@ -198,7 +212,7 @@ export default function SalleCanvas({ bake, band, lit, padLeft = 0, focus = null
         for (const p of bake.lights) {
           const x = ox + (p.x + 0.5) * Z, y = oy + (p.y + 0.5) * Z, r = Z * haloR;
           if (y < -r || y > H + r || x < -r || x > W + r) continue;
-          const a = 0.3 * nf * (0.88 + 0.12 * Math.sin(now / 240 + p.x));
+          const a = (fete ? 0.42 : 0.3) * nf * (0.88 + 0.12 * Math.sin(now / 240 + p.x));
           const grd = g.createRadialGradient(x, y, 0, x, y, r);
           // Halo de la couleur de sa lampe (rose au boudoir), ambre par défaut.
           const rgb = p.c ? [1, 3, 5].map((i) => parseInt(p.c.slice(i, i + 2), 16)).join(',') : '255,190,110';
@@ -208,6 +222,21 @@ export default function SalleCanvas({ bake, band, lit, padLeft = 0, focus = null
           g.fillRect(x - r, y - r, r * 2, r * 2);
         }
         g.globalCompositeOperation = 'source-over';
+      }
+      // LA FÊTE : les paillettes tombent sur toute la largeur du bâtiment, en oscillant.
+      if (fete) {
+        const x0 = bake.W / 2 - wMax / 2, span = artBot - artTop;
+        for (let i = 0; i < PAILLETTES; i += 1) {
+          const v = 6 + hashP(i, 1) * 10;                        // px d'art par seconde
+          const y = artTop + ((hashP(i, 2) * span + (now / 1000) * v) % span);
+          const x = x0 + hashP(i, 3) * wMax + Math.round(Math.sin(now / 700 + i) * 2);
+          const sx = ox + Math.round(x) * Z, sy = oy + Math.round(y) * Z;
+          if (sy < -Z || sy > H || sx < -Z || sx > W) continue;
+          // Une paillette sur trois scintille (elle s'éteint un instant).
+          if (i % 3 === 0 && Math.sin(now / 160 + i * 1.7) < -0.6) continue;
+          g.fillStyle = PAILLETTE_COULEURS[i % PAILLETTE_COULEURS.length];
+          g.fillRect(sx, sy, Z, Z);
+        }
       }
       // LES OMBRES DE LA TENTURE, par-dessus la nuit (la tenture s'y allume) : la fille
       // seule qui aguiche, ou le couple quand l'hôtesse a mené son client derrière.

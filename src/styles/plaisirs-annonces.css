@@ -3,7 +3,8 @@
 .salle-annonce {
   position: absolute;
   left: 50%;
-  top: 14px;
+  /* Sous l'enseigne de la cagnotte (CagnotteSalle, en haut de la salle). */
+  top: 62px;
   z-index: 5;
   display: inline-flex;
   align-items: baseline;
@@ -34,4 +35,53 @@
 }
 @media (prefers-reduced-motion: reduce) {
   .salle-annonce { animation: none; transform: translateX(-50%); }
+}
+
+/* LES GAGNANTS QU'ON VOIT (lot 2, docs/PLAN-NUIT-DES-PLAISIRS.md) : une gerbe de pièces
+   jaillit de la table du jeu annoncé, et le gain monte au-dessus. Les pièces sont des
+   carrés de pixels (or, liseré sombre, reflet). */
+.salle-pluie {
+  position: absolute;
+  z-index: 4;
+  width: 0;
+  height: 0;
+  pointer-events: none;
+}
+.salle-piece {
+  position: absolute;
+  left: -4px;
+  top: -4px;
+  width: 8px;
+  height: 8px;
+  background: #ffd76a;
+  box-shadow: inset -2px -2px 0 #b8801e, inset 2px 2px 0 #fff2b0, 0 0 0 1px #3a2408;
+  opacity: 0;
+  animation: salle-piece 1500ms cubic-bezier(0.25, 0.7, 0.45, 1) var(--d, 0ms) both;
+}
+@keyframes salle-piece {
+  0% { opacity: 1; transform: translate(0, 0); }
+  45% { opacity: 1; transform: translate(calc(var(--dx) * 0.6), var(--up)); }
+  100% { opacity: 0; transform: translate(var(--dx), var(--down)); }
+}
+.salle-pluie-gain {
+  position: absolute;
+  left: 0;
+  top: -18px;
+  transform: translateX(-50%);
+  font-family: var(--font-number);
+  font-size: 1.05rem;
+  color: #ffe066;
+  white-space: nowrap;
+  text-shadow: 2px 2px 0 #3a2408, 0 0 8px rgba(255, 200, 60, 0.7);
+  animation: salle-pluie-gain 2600ms ease-out both;
+}
+@keyframes salle-pluie-gain {
+  0% { opacity: 0; transform: translate(-50%, 10px); }
+  15% { opacity: 1; transform: translate(-50%, 0); }
+  80% { opacity: 1; transform: translate(-50%, -26px); }
+  100% { opacity: 0; transform: translate(-50%, -34px); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .salle-piece { display: none; }
+  .salle-pluie-gain { animation: none; transform: translateX(-50%); }
 }

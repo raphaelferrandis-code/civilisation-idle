@@ -17,6 +17,7 @@ import PlaisirsMenu from './plaisirs/PlaisirsMenu.jsx';
 import SceneJukebox from './plaisirs/SceneJukebox.jsx';
 import AnnoncesSalle from './plaisirs/AnnoncesSalle.jsx';
 import NuitBandeau from './plaisirs/NuitBandeau.jsx';
+import CagnotteSalle from './plaisirs/CagnotteSalle.jsx';
 import { jouerMelodieScene } from '../../game/audio/melodieScene.js';
 
 // L'échoppe s'ouvre DANS la salle, en plein cadre. Chargée paresseusement comme
@@ -364,8 +365,16 @@ export default function PlaisirsView() {
           return g ? <SceneJukebox x={g.x} y={g.top} /> : null;
         })()}
 
-        {/* La salle annonce les gros gains de ses habitants (2026-10-04). */}
-        {!plein && <AnnoncesSalle />}
+        {/* L'enseigne de la cagnotte, en haut de la salle, au milieu de la coupe (le menu
+            volant en masque la gauche), puis les gros gains des habitants : la gerbe de
+            pièces jaillit de la table du jeu (2026-10-04). */}
+        {!plein && <CagnotteSalle centre={`calc(50% + ${Math.round(padLeft / 2)}px)`} />}
+        {!plein && (
+          <AnnoncesSalle
+            centre={`calc(50% + ${Math.round(padLeft / 2)}px)`}
+            posOf={(id) => { const sp = PLAISIRS_SPOTS.find((s) => s.id === id); return sp ? geo(sp) : null; }}
+          />
+        )}
         {/* La Nuit du Grand Jeu s'annonce sur la salle (2026-10-04). */}
         {!plein && <NuitBandeau />}
 

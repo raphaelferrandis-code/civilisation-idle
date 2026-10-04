@@ -12,7 +12,7 @@ Quatre lots, dans l'ordre.
 | Lot | Contenu | État |
 |---|---|---|
 | 1 | La Nuit du Grand Jeu, le spectacle, le duel des grands flambeurs, les courses | ✅ fait |
-| 2 | La salle hors du temps : toujours la nuit, la cagnotte au mur, les jetons sur les tables, les gagnants qu'on voit | à faire |
+| 2 | La salle hors du temps : toujours la nuit, la cagnotte au mur, les gagnants qu'on voit, la fête | ✅ fait |
 | 3 | La luxure poussée au maximum (suggestive) | à faire |
 | 4 | Compter les cartes au vingt-et-un (le sabot, le videur) | à faire |
 
@@ -108,19 +108,25 @@ Le banc joue désormais huit jeux, la Nuit et le spectacle. Sur la graine 7 :
 
 ---
 
-## Lot 2 — la salle hors du temps (à faire)
+## Lot 2 — la salle hors du temps ✅
 
-- **Toujours la nuit** dans la Maison : la salle ne suit plus l'horloge murale
-  (`salleNightF` → 1, SalleCanvas).
-- **La cagnotte au mur** : un grand compteur (la cagnotte de la Maison) en haut de la
-  coupe ; les annonces de la salle descendent d'un cran.
-- **Des jetons sur les tables** de la coupe (piles par âge, la matière des jetons).
-- **Les gagnants qu'on voit** : une pluie de pièces et « +X » sur la table du jeu
-  annoncé (`geo(spot)`).
-- **La Nuit dans le décor** : confettis d'or, lueurs, salle plus pleine pendant le
-  spectacle et la Nuit.
-- Respecter les tests de la coupe (`plaisirsCoupeHD.test.js`) et prévenir la session
-  « Bâtiment des plaisirs » avant de toucher ses fichiers.
+- **Toujours la nuit** dans la Maison (`salleBake.salleNightF`) : la salle ne suit plus
+  le cycle de 9 min de la carte. Seul le réglage d'affichage « toujours plein jour » du
+  joueur la rallume.
+- **L'enseigne de la cagnotte** (`plaisirs/CagnotteSalle.jsx`) en haut de la salle, au
+  milieu de la coupe : velours, cadre d'or, deux rangs d'ampoules qui courent, le
+  montant qui ROULE vers sa nouvelle valeur (jamais depuis zéro). Elle s'emballe pendant
+  la Nuit. Les annonces de la salle descendent sous elle, le bandeau de la Nuit dessous.
+- **Les gagnants qu'on voit** (`AnnoncesSalle`) : à chaque annonce, une gerbe de pièces
+  jaillit de la TABLE du jeu annoncé dans la coupe (`posOf` → `geo(spot)` de la vue), et
+  le gain monte au-dessus. Les courses (pas de salle) n'ont que la ligne d'annonce.
+- **La fête** (Nuit du Grand Jeu, spectacle) : des paillettes d'or et de rose tombent
+  dans la coupe (un pixel d'art chacune, tirées de leur numéro), les lustres brillent
+  plus fort.
+- **Les jetons sur les tables** : déjà dans la coupe (la table de dés porte ses piles,
+  le vingt-et-un sa boîte à jetons) — rien à ajouter.
+- Pas de salle plus pleine pendant la fête : il faudrait recuire la coupe (voir le piège
+  de la cuisson au lot 1).
 
 ## Lot 3 — la luxure, poussée au maximum, suggestive (à faire)
 

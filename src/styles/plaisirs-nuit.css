@@ -209,7 +209,8 @@
 /* ── Le bandeau de la Nuit : un ruban de velours qui descend sur la salle ─────── */
 .nuit-bandeau {
   position: absolute;
-  top: 7%;
+  /* Sous l'enseigne de la cagnotte et la ligne des annonces. */
+  top: 108px;
   left: 50%;
   z-index: 6;
   transform: translateX(-50%);
@@ -253,9 +254,77 @@
 @media (max-width: 760px) {
   .nuit-titre { font-size: 1.15rem; }
   .nuit-sous { font-size: 0.8rem; }
-  .nuit-bandeau { padding: 0.4rem 1rem 0.45rem; }
+  .nuit-bandeau { top: 90px; padding: 0.4rem 1rem 0.45rem; }
 }
 @media (prefers-reduced-motion: reduce) {
   .nuit-bandeau { animation: none; }
   .app .pm-actions .pm-spectacle.is-live { animation: none; }
+}
+
+/* ── L'enseigne de la cagnotte, en haut de la salle (CagnotteSalle) ──────────────
+   Velours lie-de-vin, cadre d'or, deux rangs d'ampoules qui courent ; le montant roule
+   vers sa nouvelle valeur. Pendant la Nuit, l'enseigne s'emballe. */
+.salle-cagnotte {
+  position: absolute;
+  top: 12px;
+  left: 50%;
+  z-index: 5;
+  transform: translateX(-50%);
+  display: flex;
+  align-items: baseline;
+  gap: 0.7rem;
+  padding: 0.35rem 1.3rem 0.4rem;
+  background: linear-gradient(180deg, #34101e, #160810);
+  border: 2px solid #c8902a;
+  box-shadow: 0 0 0 2px #160810, 0 4px 0 rgba(0, 0, 0, 0.5), inset 0 0 14px rgba(255, 170, 60, 0.22);
+  white-space: nowrap;
+}
+.salle-cagnotte::before,
+.salle-cagnotte::after {
+  content: '';
+  position: absolute;
+  left: 6px;
+  right: 6px;
+  height: 3px;
+  background: repeating-linear-gradient(90deg, #ffe08a 0 3px, transparent 3px 9px);
+  filter: drop-shadow(0 0 2px #ffb35a);
+  animation: cagnotte-ampoules 0.9s steps(3) infinite;
+}
+.salle-cagnotte::before { top: 3px; }
+.salle-cagnotte::after { bottom: 3px; animation-direction: reverse; }
+@keyframes cagnotte-ampoules {
+  from { background-position-x: 0; }
+  to { background-position-x: 9px; }
+}
+.salle-cagnotte-titre {
+  font-family: var(--font-title);
+  font-size: 1rem;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: #ffb8cc;
+  text-shadow: 1px 1px 0 #000, 0 0 6px #e84a7a;
+}
+.salle-cagnotte-montant {
+  min-width: 5ch;
+  font-family: var(--font-number);
+  font-size: 1.45rem;
+  color: #ffe066;
+  text-align: right;
+  text-shadow: 2px 2px 0 #3a2408, 0 0 10px rgba(255, 200, 60, 0.7);
+}
+.salle-cagnotte.is-nuit {
+  border-color: #ffd76a;
+  animation: cagnotte-nuit 1.1s ease-in-out infinite alternate;
+}
+@keyframes cagnotte-nuit {
+  from { box-shadow: 0 0 0 2px #160810, 0 4px 0 rgba(0, 0, 0, 0.5), 0 0 14px rgba(232, 74, 122, 0.5); }
+  to { box-shadow: 0 0 0 2px #160810, 0 4px 0 rgba(0, 0, 0, 0.5), 0 0 30px rgba(255, 200, 60, 0.85); }
+}
+@media (max-width: 760px) {
+  .salle-cagnotte { top: 6px; padding: 0.25rem 0.8rem 0.3rem; gap: 0.45rem; }
+  .salle-cagnotte-titre { font-size: 0.8rem; }
+  .salle-cagnotte-montant { font-size: 1.1rem; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .salle-cagnotte::before, .salle-cagnotte::after, .salle-cagnotte.is-nuit { animation: none; }
 }

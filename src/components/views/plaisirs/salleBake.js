@@ -1,5 +1,5 @@
 "use strict";
-// La salle des Plaisirs : cuisson partagée (en cache) et heure de la nuit — hors du
+// La salle des Plaisirs : cuisson partagée (en cache) et la nuit de la salle — hors du
 // composant (SalleCanvas.jsx), pour que le rafraîchissement à chaud de React reste
 // possible sur celui-ci.
 //
@@ -12,20 +12,14 @@ import { bakeCoupeHD } from '../../../game/map/iso/plaisirsCoupeHD.js';
 import { wonderKitForBand } from '../../../game/map/iso/wonderKits.js';
 import { dayNightMode } from '../../../game/map/dayNightMode.js';
 
-// Même courbe que la carte (cityMapRuntime.js, cmDayNightF : jour 55 %, crépuscule
-// 10 %, nuit 25 %, aube 10 % d'un cycle de 9 min à l'horloge murale). La boucle de
-// la carte s'arrête quand on quitte la Cité : la salle lit l'heure elle-même.
-// ⚠ À tenir alignée avec cityMapRuntime.js si le cycle change.
-const DAY_CYCLE_MS = 540000, DAY_END = 0.55, DUSK_END = 0.65, NIGHT_END = 0.90;
-const smooth01 = (t) => t * t * (3 - 2 * t);
-export function salleNightF(nowMs = Date.now()) {
-  if (dayNightMode === 'day') return 0;
-  if (dayNightMode === 'night') return 1;
-  const p = (nowMs / DAY_CYCLE_MS) % 1;
-  if (p < DAY_END) return 0;
-  if (p < DUSK_END) return smooth01((p - DAY_END) / (DUSK_END - DAY_END));
-  if (p < NIGHT_END) return 1;
-  return smooth01((1 - p) / (1 - NIGHT_END));
+// LA MAISON EST HORS DU TEMPS (Raph, 2026-10-04 : « un véritable casino, lieu de luxure
+// et d'argent hors du temps » — docs/PLAN-NUIT-DES-PLAISIRS.md, lot 2) : dans la salle,
+// il fait TOUJOURS nuit, quelle que soit l'heure de la carte — les lustres allumés, les
+// halos, la tenture du boudoir. Seul le réglage « toujours plein jour » du joueur (une
+// préférence d'affichage, dayNightMode.js) la rallume.
+// Avant : la salle suivait le cycle de 9 min de la carte (jour 55 % du temps).
+export function salleNightF() {
+  return dayNightMode === 'day' ? 0 : 1;
 }
 
 function rasterCanvas(R) {
