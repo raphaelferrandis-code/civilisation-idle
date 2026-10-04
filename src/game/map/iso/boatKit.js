@@ -26,7 +26,7 @@ import { HOVER } from './boatKitsCosmic.js';
 import { drawHoverGlow } from './boatFx.js';
 import { drawSunShadow } from './isoSunShadow.js';
 import { snapDev } from '../blitSnap.js';
-import { agentFrameIso } from '../agents.js';
+import { agentFrameIso, agentIdleFrameIso } from '../agents.js';
 import { crewSpec, crewDir } from './boatCrew.js';
 
 export const BOATKIT = { on: true, budget: 3 };
@@ -159,6 +159,9 @@ function drawCrew(ctx, e, M, bx, by, k, z, band) {
     const sp = crewSpec(band, M, cr);
     const F = agentFrameIso(sp.name, crewDir(cr.phi), z, sp.scale);
     if (!F) continue;
+    // Il respire (lot 3 de PLAN-COMPORTEMENTS) : la bande d'attente, déphasée par marin.
+    const I = agentIdleFrameIso(sp.name, crewDir(cr.phi), z, sp.scale, typeof performance !== 'undefined' ? performance.now() : 0, ((cr.id >>> 0) % 97) / 97);
+    const S = I || { img: F.img, sx: 0, fh: F.fh };
     const ex0 = bx + (cr.x0 - e.ox) * k, ey0 = by + (cr.y0 - e.oy) * k;
     const mx = Math.floor(ex0 * d) / d, my = Math.floor(ey0 * d) / d;
     const W = Math.ceil((cr.w * k + ex0 - mx) * d), H = Math.ceil((cr.h * k + ey0 - my) * d);
@@ -170,7 +173,7 @@ function drawCrew(ctx, e, M, bx, by, k, z, band) {
     g.imageSmoothingEnabled = false;
     const fx = bx + (cr.X - e.ox) * k, fy = by + (cr.Y - e.oy) * k;
     const left = snapDev(fx - F.drawH / 2), top = snapDev(fy - F.feetF * F.drawH);
-    g.drawImage(F.img, 0, 0, F.fh, F.fh, left - mx, top - my, F.drawH, F.drawH);
+    g.drawImage(S.img, S.sx, 0, S.fh, S.fh, left - mx, top - my, F.drawH, F.drawH);
     g.globalCompositeOperation = 'destination-out';
     g.drawImage(e.mcv, 0, n * cr.h, cr.w, cr.h, ex0 - mx, ey0 - my, cr.w * k, cr.h * k);
     g.globalCompositeOperation = 'source-over';

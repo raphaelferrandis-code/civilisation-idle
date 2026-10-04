@@ -217,3 +217,22 @@
     tombée », « Avec » pendant une causette de rencontre ;
   - banc `__tests__/comportementsLot2.test.js` (10) ; 1 000 passants : 0,6 ms par
     frame (p95 1 ms) ; en jeu 0 passant sans chemin.
+- 2026-10-04 — **LOT 3 FAIT** :
+  - **attente animée** (3b, PixelLab direct) : chaque habitant de la garde-robe (66
+    personnages, 10 ères, enfants compris) a sa bande d'attente « respiration » —
+    4 images × 4 diagonales + demi-bandes, `{nom}-idle-{dir}.png`, même cadre et
+    même palette que sa marche (`scripts/fetchAgentIdle.mjs` : archive PixelLab →
+    ombre retirée → couleurs ramenées sur la palette de la marche) ;
+    `drawNamedAgentIso` la joue dès qu'un passant est ARRÊTÉ (causette, vitrine,
+    place, parvis, seuil), 280 ms par image, déphasée par passant — plus aucune
+    image figée ; molette `__idleAnim` ;
+  - **l'équipage des bateaux** respire aussi (boatKit.drawCrew posait l'image 0 de la
+    marche : `agentIdleFrameIso`, déphasé par marin) ;
+  - **regards** (3a) : sur la place, le flâneur en halte se tourne vers le centre (sa
+    fontaine, son marché) ; ceux des places (plazaFolk) jettent un coup d'œil de
+    côté de temps en temps (toutes les 6-11 s, 1,6 s) ;
+  - **porteuses de panier** : `basket-woman` existait (commit 36b9976f, toutes ses
+    directions) mais `v.woman` n'était jamais vrai — une porteuse sur deux
+    (cityMapRuntime) ;
+  - banc `__tests__/comportementsLot3.test.js` (une garde par habitant : 4 bandes +
+    demi-bandes, format de la marche, palette incluse).

@@ -383,12 +383,35 @@ function loadWithRetry(src, onOk, onFail) {
   return im;
 }
 
+// L'ATTENTE ANIMÉE (docs/PLAN-COMPORTEMENTS.md, lot 3 — « fini les statues ») : tout
+// personnage ARRÊTÉ était figé sur l'image 0 de sa marche. Les habitants des ères et
+// les porteurs de panier ont maintenant une courte bande d'attente (respiration, 4
+// images, gabarit PixelLab breathing-idle, scripts/fetchAgentIdle.mjs) :
+// {name}-idle-{dir}.png et sa demi-bande. ⚠ LISTE EXPLICITE des noms qui en ont une :
+// en dev Vite répond 200 sur un fichier absent, mais le .exe compte chaque demande
+// manquante en ERR_FILE_NOT_FOUND (leçon des bandes de place, isoPlaza.js).
+// `__idleAnim(false)` coupe l'attente (retour à l'image 0, pour un A/B).
+const IDLE_NAMES = new Set([...AGENT_SETS.flatMap((set) => [...set.men, ...set.women, set.child]).map((s) => s.name), ...BASKET_CARRIERS]);
+const IDLE_ANIM = { on: true, ms: 280 };
+if (typeof window !== 'undefined') window.__idleAnim = (on) => { if (on != null) IDLE_ANIM.on = !!on; return IDLE_ANIM.on; };
+
 const agentDiagChars = {};
 function ensureAgentDiag(name) {
   let c = agentDiagChars[name];
   if (c) return c;
-  c = { img: {}, imgHalf: {}, ready: 0, failed: 0 };
+  c = { img: {}, imgHalf: {}, ready: 0, failed: 0, idle: {}, idleHalf: {}, idleReady: 0 };
   agentDiagChars[name] = c;
+  if (typeof Image !== 'undefined' && IDLE_NAMES.has(name)) for (const d of ISO_DIAG) {
+    // Bande d'ATTENTE : un seul essai, comme la demi-bande ; absente → image 0.
+    const base = '/pixelart/agents/' + agentDir(name) + '/' + name + '-idle-' + d;
+    const im = new Image();
+    im.onload = () => { c.idleReady += 1; };
+    im.src = base + '.png';
+    c.idle[d] = im;
+    const ih = new Image();
+    ih.src = base + '-half.png';
+    c.idleHalf[d] = ih;
+  }
   if (typeof Image !== 'undefined') for (const d of ISO_DIAG) {
     c.img[d] = loadWithRetry(
       '/pixelart/agents/' + agentDir(name) + '/' + name + '-' + d + '.png',
@@ -469,9 +492,19 @@ function drawNamedAgentIso(ctx, sx, groundY, z, name, scale, dir, walking, now, 
     img = half;
     fh = half.naturalHeight;
   }
+  // ARRÊTÉ : la bande d'attente si elle est là (lot 3), à la même bascule demi-taille.
+  if (!walking && IDLE_ANIM.on && c.idleReady >= ISO_DIAG.length) {
+    const fhFull = c.idle[ISO_DIAG[d]].naturalHeight || fh;
+    const ih = halfBands.on ? c.idleHalf[ISO_DIAG[d]] : null;
+    if (ih && ih.complete && ih.naturalWidth > 0 && drawH <= fhFull * 0.7) { img = ih; fh = ih.naturalHeight; }
+    else { img = c.idle[ISO_DIAG[d]]; fh = fhFull; }
+  }
   const nf = Math.max(1, Math.round((img.naturalWidth || fh) / fh));
   let frame = 0;
-  if (walking) {
+  if (!walking && IDLE_ANIM.on && c.idleReady >= ISO_DIAG.length) {
+    // Respiration lente, désynchronisée par la phase du personnage.
+    frame = Math.floor((now || 0) / IDLE_ANIM.ms + (phase || 0) * 7.3) % nf;
+  } else if (walking) {
     if (distPx != null) {
       // Pas exprimé AVANT AGENT_SCALE (2.75 · 0.8 = 2.2, le réglage d'origine) : la
       // longueur d'un pas suit la taille du sprite, sinon un habitant rétréci couvre
@@ -500,6 +533,22 @@ function drawNamedAgentIso(ctx, sx, groundY, z, name, scale, dir, walking, now, 
 // `scale` : celle du dessin quand il n'est pas d'un jeu d'habitants (les filles de
 // la Maison des Plaisirs, plaisirsCast).
 const AGENT_SCALE_OF = new Map(AGENT_SETS.flatMap((set) => [...set.men, ...set.women, set.child]).map((s) => [s.name, s.scale]));
+// La frame d'ATTENTE d'un habitant (bande -idle, lot 3 de PLAN-COMPORTEMENTS) pour qui
+// le dessine à sa main — l'équipage des bateaux (boatKit.drawCrew), qui restait figé sur
+// l'image 0 de sa marche. Même choix de bande pleine / demi que agentFrameIso.
+// Rend { img, fh, sx } ou null (pas de bande d'attente, ou pas encore chargée).
+function agentIdleFrameIso(name, dir, z, scale, now, phase) {
+  if (!IDLE_ANIM.on || !IDLE_NAMES.has(name)) return null;
+  const c = ensureAgentDiag(name);
+  if (c.idleReady < ISO_DIAG.length) return null;
+  const dd = ISO_DIAG[(dir >= 0 && dir < 4) ? dir : 2];
+  let img = c.idle[dd], fh = img.naturalHeight || AGENT_FH;
+  const drawH = Math.max(1, snapDev(CM.TILE * z * (scale || AGENT_SCALE_OF.get(name) || AGENT_FALLBACK.scale) * AGENT_SCALE));
+  const half = halfBands.on ? c.idleHalf[dd] : null;
+  if (half && half.complete && half.naturalWidth > 0 && drawH <= fh * 0.7) { img = half; fh = half.naturalHeight; }
+  const nf = Math.max(1, Math.round((img.naturalWidth || fh) / fh));
+  return { img, fh, sx: (Math.floor((now || 0) / IDLE_ANIM.ms + (phase || 0) * 7.3) % nf) * fh };
+}
 function agentFrameIso(name, dir, z, scale = null) {
   const c = ensureAgentDiag(name);
   if (c.ready < ISO_DIAG.length) return null;
@@ -1023,6 +1072,17 @@ function citizenChooseNext(p) {
     // marché, contemplation). Partout ailleurs les habitants ne s'arrêtent JAMAIS.
     p.social = false;
     p.pauseT = 2.5 + Math.random() * 5;
+    // Sur une PLACE, on se tourne vers son centre (sa fontaine, son marché) plutôt que
+    // de garder le cap de la marche (lot 3, regards).
+    const pls = p.goalKind === 'plaza' && CM.layout && CM.layout.plan && CM.layout.plan.plazas;
+    if (pls) {
+      let best = null, bd = Infinity;
+      for (const pl of pls) {
+        const d = Math.abs(pl.gx - p.gx) + Math.abs(pl.gy - p.gy);
+        if (d < bd) { bd = d; best = pl; }
+      }
+      if (best && bd <= (best.size || 4) + 1 && bd > 0) p.dir = dirToward(best.gx - p.gx, best.gy - p.gy);
+    }
     if (p.gatherDir != null) {
       // Attroupement : on se TOURNE vers le monument et on contemple plus longtemps.
       p.dir = p.gatherDir;
@@ -2103,6 +2163,6 @@ function drawVehicleHeadlights(ctx, v) {
 // ⚠ Retirés le 2026-08-23 (étape 6) avec le rendu top-down : `drawCitizens`,
 // `drawGroundAgents`, `drawShips`, `drawVehicles`, `frontByPainter`.
 export { agentSetForBand, agentSpecFor, agentFrameIso, chooseRoadVehicleType, getVehicleDensity, updateVehicles, vehicleGapFactors, VEH_GAP, updateCitizens, CM_DIRS, cityMapWalkRoadKey, roadStepAllowed, drawCitizenThoughts, vehicleLaneOffset, drawEraAgent, drawEraAgentIso, drawNamedAgent, drawNamedAgentIso, drawVehicleHeadlights, thoughtBubbleAnchor, riotEraKey, ensureVeh, vehReady, VEH_SIZES, VEH_PULL, VEH_PUSH, ensureBoat, boatReady, BOAT_SIZES, BOAT_LIFT, ensureDrone, drawDroneRotors, ensureVehDiag, vehDiagReady, vehSkinFor, eraVehSpec, ISO_DIAG, ISO_AGENT_NAMES, BASKET_CARRIERS, agentDir, AGENT_SCALE, VEH_SCALE,
-  citizenSpawnCell, citizenAtDoorstep, citizenWorkNear };
+  citizenSpawnCell, citizenAtDoorstep, citizenWorkNear, IDLE_NAMES, agentIdleFrameIso };
 // AGENT_SCALE / VEH_SCALE sont exportés en LIAISON VIVE (ESM) : le rendu iso les relit
 // à chaque frame, donc __villagerScale / __vehScale agissent aussi sur la vue iso.

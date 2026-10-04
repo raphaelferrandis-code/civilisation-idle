@@ -545,6 +545,14 @@ export function folkAt(F, nowMs, T, depthOf) {
       x = L.B.x; y = L.B.y; dir = L.B.dir; act = L.B.act;
       // Un tour trop court (petite place) : il attend la fin du créneau là où il est.
       if (act === 'stroll') { act = 'pause'; dir = L.endDir; }
+      // REGARDS (docs/PLAN-COMPORTEMENTS.md, lot 3) : qui fait une halte jette un coup
+      // d'œil ailleurs de temps en temps (1,6 s toutes les 6 à 10 s) ; qui admire la
+      // pièce maîtresse, plus rarement. Ceux qui causent ou regardent un étal restent
+      // tournés vers ce qui les occupe.
+      if (act === 'pause' || act === 'look') {
+        const per = (act === 'pause' ? 6 : 11) + 4 * a.ph, slot = Math.floor((t + a.ph * 37) / per);
+        if (t + a.ph * 37 - slot * per < 1.6) dir = (dir + 1 + (fmix(cmHash(F.sd + ':fg:' + i + ':' + slot) >>> 0) % 3)) % 4;
+      }
     } else {
       let s = 1;
       while (s < L.cum.length - 1 && L.cum[s] < d) s += 1;

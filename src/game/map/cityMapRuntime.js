@@ -1560,6 +1560,9 @@ function cityMapEnsureLayout(now, deps = {}) {
         // Plus de stationnement : les véhicules démarrent et restent en mouvement.
         parkT: 0,
         parkSide: n % 2 ? 1 : -1,
+        // Une porteuse sur deux (docs/PLAN-COMPORTEMENTS.md, lot 3) : dessinée en
+        // août (basket-woman-flat) mais jamais posée — `v.woman` n'était jamais vrai.
+        woman: vehicleType === "basket" && ((n * 2654435761) >>> 0) % 2 === 1,
         type: vehicleType,
         // Modèle et teinte de CETTE voiture-là (flotte moderne). Sans ça une
         // avenue aligne vingt fois la même carrosserie ; c'est le seul endroit
