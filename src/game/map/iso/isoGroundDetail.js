@@ -26,6 +26,7 @@ import { CM, cmHash } from '../layout.js';
 import { solInvalidate } from './solInvalidate.js';
 import { seasonGrass, seasonWild, seasonTip, seasonFlowerMul, seasonCanopyTint, WINTER } from '../seasonMode.js';
 import { isoArt } from './isoArt.js';
+import { vegHash, vegNoise } from './vegNoise.js';
 import { GRASS, GRASS_WILD } from './isoPalette.js';
 import { isoTileCache } from './isoGroundTiles.js';
 import {
@@ -61,7 +62,11 @@ export let SEASON_GRASS = GRASS, SEASON_WILD = GRASS_WILD, SEASON_TIP = null, SE
 // clumpScale (Raph 2026-07-28 : « les grosses touffes dénotent trop ») : les
 // touffes Cainos passaient à l'échelle pleine du pixel d'art (~une demi-cellule
 // à côté de brins de 2 px) — réduites, pas supprimées ; 0 touffe = clumpP: 0.
-export const GRASS_DETAIL = { on: true, tileAlpha: 1, flowerP: 0.22, tuftP: 0.45, speckleP: 0, wildShade: 0, meadow: 0.16, clumpP: 0.09, clumpScale: 0.55 };
+// meadow 0.16 → 0 et colony (2026-10-04, lot 4 de docs/PLAN-VEGETATION.md) : les prés
+// ne se voyaient pas (voile ≤ 8 %, dosé losange par losange — plus haut, la grille
+// ressortirait) ; ils sont maintenant des ZONES lissées (iso/isoMeadow.js), et les
+// fleurs vont en colonies (FLOWER_COLONY, plus bas).
+export const GRASS_DETAIL = { on: true, tileAlpha: 1, flowerP: 0.22, tuftP: 0.45, speckleP: 0, wildShade: 0, meadow: 0, clumpP: 0.09, clumpScale: 0.55, colony: true };
 // Sous-couche des tuiles d'herbe À CREUX (noFill, cf. fetchGroundTiles) : les
 // trous entre brins doivent lire comme l'OMBRE sous l'herbe, pas comme le fond
 // olive du bake (plus clair que les brins → relief inversé, points clairs).
@@ -75,7 +80,9 @@ export const GRASS_DETAIL = { on: true, tileAlpha: 1, flowerP: 0.22, tuftP: 0.45
 // ne peut donner une largeur RÉGULIÈRE sur un objet de 4,8 tuiles de large, et
 // c'était la demande. Leurs tests partent avec elles : garder des gardes sur du
 // code que plus rien n'appelle, c'est de la décoration.
-export const GRASS_TILE_UNDER = [42, 85, 39];
+// Dose B (2026-10-04, scripts/vegetationDose.mjs grass) : le ton moyen des creux suit
+// les tuiles d'herbe éclaircies — [42, 85, 39] avant.
+export const GRASS_TILE_UNDER = [69, 104, 61];
 export const GRASS_TILE_UNDER_WINTER = [126, 143, 137];   // ton mesuré du lot hiver (fetchGroundTiles)
 const GD_BLADE = [66, 100, 46];      // brin foncé
 const GD_TIP = [156, 180, 96];       // pointe claire du brin (référence = été)
@@ -142,17 +149,46 @@ const GD_SPECK_Y = [198, 208, 126];  // speckle jaune pâle
 // Palette de fleurs [pétale, cœur] : pâquerette blanche dominante + accents jaune
 // (bouton d'or), rose, rouge/coquelicot, violet, bleuet. Poids par RÉPÉTITION
 // (blanc/jaune plus fréquents que les vives) → un pré fleuri, pas des confettis.
+// 3e élément : la FORME (lot 4 de docs/PLAN-VEGETATION.md — un seul motif, la croix,
+// faisait des confettis) : croix = pâquerette, bouton = trois pétales en triangle,
+// pavot = carré de pétales à cœur sombre, bleuet = croix de Saint-André.
 const GD_FLOWERS = [
-  [[240, 242, 228], [234, 206, 96]],   // blanc (pâquerette)
-  [[240, 242, 228], [234, 206, 96]],
-  [[240, 242, 228], [234, 206, 96]],
-  [[244, 216, 102], [220, 168, 60]],   // jaune (bouton d'or)
-  [[244, 216, 102], [220, 168, 60]],
-  [[236, 152, 178], [234, 206, 96]],   // rose
-  [[224, 104, 96], [234, 206, 96]],    // rouge (coquelicot)
-  [[184, 148, 216], [234, 206, 96]],   // violet
-  [[150, 176, 226], [234, 206, 96]],   // bleuet
+  [[240, 242, 228], [234, 206, 96], 'croix'],    // blanc (pâquerette)
+  [[240, 242, 228], [234, 206, 96], 'croix'],
+  [[240, 242, 228], [234, 206, 96], 'croix'],
+  [[244, 216, 102], [220, 168, 60], 'bouton'],   // jaune (bouton d'or)
+  [[244, 216, 102], [220, 168, 60], 'bouton'],
+  [[236, 152, 178], [234, 206, 96], 'croix'],    // rose
+  [[224, 104, 96], [70, 34, 30], 'pavot'],       // rouge (coquelicot)
+  [[184, 148, 216], [234, 206, 96], 'croix'],    // violet
+  [[150, 176, 226], [92, 108, 170], 'bleuet'],   // bleuet
 ];
+// ── FLEURS EN COLONIES (docs/PLAN-VEGETATION.md, lot 4, 2026-10-04) ──────────
+// Le semis était UNIFORME (22 % des cellules, partout) : des confettis. Les fleurs se
+// regroupent maintenant en colonies (bruit lisse, `scale` cellules), chacune d'une
+// couleur dominante — un pré de pâquerettes ici, de coquelicots là, une prairie verte
+// entre les deux. Le NOMBRE de fleurs ne change pas : `norm` ramène la moyenne du
+// facteur de colonie à 1 (mesuré sur 400 × 400 cellules : 0,427 → ×2,34), et 91 % des
+// fleurs tombent dans une colonie.
+// Molette : __grassDetail({ colony: false }) rejoue le semis uniforme.
+export const FLOWER_COLONY = { from: 0.45, span: 0.2, norm: 2.34, scale: 9, dominant: 0.7 };
+// Colonies par couleur dominante : pâquerettes, boutons d'or, coquelicots, bleuets, mêlées.
+const COLONY_KINDS = [[0.3, 0], [0.25, 3], [0.15, 6], [0.12, 8], [0.18, -1]];
+// Facteur de colonie en (gx, gy), de moyenne 1 sur la carte.
+export function flowerColonyK(gx, gy, cfg = FLOWER_COLONY) {
+  const c = vegNoise(gx, gy, cfg.scale, 7);
+  const k = (c - cfg.from) / cfg.span;
+  return (k <= 0 ? 0 : k >= 1 ? 1 : k) * cfg.norm;
+}
+function colonyFlower(gx, gy) {
+  // Étiré : un bruit lissé se serre autour de 0,5, les colonies du bord de plage
+  // (pâquerettes, mêlées) ne sortiraient presque jamais.
+  const u = Math.max(0, Math.min(0.999, 0.5 + (vegNoise(gx, gy, FLOWER_COLONY.scale * 1.7, 8) - 0.5) * 2.2));
+  let acc = 0, dom = -1;
+  for (const [w, i] of COLONY_KINDS) { acc += w; if (u < acc) { dom = i; break; } }
+  if (dom >= 0 && vegHash(gx, gy, 9) < FLOWER_COLONY.dominant) return GD_FLOWERS[dom];
+  return GD_FLOWERS[cmHash('fc:' + gx + ':' + gy) % GD_FLOWERS.length];
+}
 // ⚠ NE PAS « batcher » ces rects par couleur : essayé et MESURÉ le 2026-07-17 →
 // aucun gain (154 ms vs 158 ms sur ~30 000 rects). fillRect est un chemin rapide
 // de Skia (aucun path construit) — contrairement aux diamondPath des voiles, que
@@ -197,16 +233,30 @@ export function drawGrassDetail(ctx, gx, gy, px, py, hw, hh, onGrass = null, flo
   // cassé + cœur jaune. « De temps en temps » sur un fond uni.
   // La saison module la densité : rien ne fleurit en hiver, le printemps déborde.
   // `flowerK` : l'herbe piétinée du camp (campFlowerK) en porte moins, ou pas.
-  if ((cmHash('gf:' + gx + ':' + gy) & 1023) / 1023 < GRASS_DETAIL.flowerP * SEASON_FLOWER_MUL * flowerK) {
-    const fl = GD_FLOWERS[cmHash('fc:' + gx + ':' + gy) % GD_FLOWERS.length];
+  const colony = GRASS_DETAIL.colony !== false;
+  const colK = colony ? flowerColonyK(gx, gy) : 1;
+  if (colK > 0 && (cmHash('gf:' + gx + ':' + gy) & 1023) / 1023 < GRASS_DETAIL.flowerP * SEASON_FLOWER_MUL * flowerK * colK) {
+    const fl = colony ? colonyFlower(gx, gy) : GD_FLOWERS[cmHash('fc:' + gx + ':' + gy) % GD_FLOWERS.length];
     const petal = fl[0], core = fl[1];
     const fx = 0.3 + ((h1 >> 20) & 15) / 15 * 0.4;
     const fy = 0.3 + ((h2 >> 20) & 15) / 15 * 0.4;
     const cx = Math.round(px + (fx - fy) * hw), cy = Math.round(py + (fx + fy) * hh);
     if (ok(fx, fy)) {
-      rect(cx - pu, cy, pu, pu, petal, 1); rect(cx + pu, cy, pu, pu, petal, 1);
-      rect(cx, cy - pu, pu, pu, petal, 1); rect(cx, cy + pu, pu, pu, petal, 1);
-      rect(cx, cy, pu, pu, core, 1);
+      const shape = colony ? fl[2] : 'croix';
+      if (shape === 'bouton') {
+        rect(cx - pu, cy, pu, pu, petal, 1); rect(cx + pu, cy, pu, pu, petal, 1);
+        rect(cx, cy - pu, pu, pu, petal, 1); rect(cx, cy, pu, pu, core, 1);
+      } else if (shape === 'pavot') {
+        rect(cx - pu, cy - pu, 2 * pu, 2 * pu, petal, 1); rect(cx, cy, pu, pu, core, 1);
+      } else if (shape === 'bleuet') {
+        rect(cx - pu, cy - pu, pu, pu, petal, 1); rect(cx + pu, cy - pu, pu, pu, petal, 1);
+        rect(cx - pu, cy + pu, pu, pu, petal, 1); rect(cx + pu, cy + pu, pu, pu, petal, 1);
+        rect(cx, cy, pu, pu, core, 1);
+      } else {
+        rect(cx - pu, cy, pu, pu, petal, 1); rect(cx + pu, cy, pu, pu, petal, 1);
+        rect(cx, cy - pu, pu, pu, petal, 1); rect(cx, cy + pu, pu, pu, petal, 1);
+        rect(cx, cy, pu, pu, core, 1);
+      }
     }
   }
   // ── TOUFFES et PIERRES (sprites, pack Cainos) ──────────────────────────────

@@ -25,7 +25,6 @@ import { visibleCellBounds, ISO_X, ISO_Y } from './projection.js';
 import { terrainMaxPx } from './isoTerrain.js';
 import { ensureQuayGate } from '../quaysAndRiot.js';
 import { isoArt } from './isoArt.js';
-import { diamondPath } from './isoQuad.js';
 import { COUR, builtCells, courOf } from './isoTissu.js';
 import { ROAD_DETAIL, roadTone } from './isoRoad.js';
 import { BEACH, ISO_TILE_KEYS, plazaEraTileKey } from './isoGroundTiles.js';
@@ -268,6 +267,9 @@ export function makeGroundBake(ISO_GROUND_LOD) {
   const VEIL_COL = [[24, 38, 16], [214, 226, 150], [26, 36, 18]];
   const veil = [new Map(), new Map(), new Map()];
   const grassCells = [];               // (gx, gy, px, py) à plat — fleurs différées
+  // Géométrie de l'herbe (losanges, rectangles de lisière) : le gabarit des voiles
+  // lissés (prés, sous-bois — isoForestFloor.drawGrassVeils).
+  const grassMask = [], grassMaskR = [];
   const veilPush = (fam, a, px, py) => {
     const q = Math.min(255, Math.max(1, Math.round(a * 255)));
     const m = veil[fam];
@@ -293,7 +295,11 @@ export function makeGroundBake(ISO_GROUND_LOD) {
         let n = 0;
         ctx.beginPath();
         for (let i = 0; i < arr.length; i += 2) {
-          diamondPath(ctx, arr[i], arr[i + 1], hw, hh);
+          // ⚠ Pas diamondPath (isoQuad) : il ouvre un NOUVEAU chemin à chaque losange,
+          // et seul le dernier de chaque paquet était rempli — d'où des prés
+          // invisibles pendant des mois (trouvé le 2026-10-04, PLAN-VEGETATION lot 4).
+          const x = arr[i], y = arr[i + 1];
+          ctx.moveTo(x, y); ctx.lineTo(x + hw, y + hh); ctx.lineTo(x, y + 2 * hh); ctx.lineTo(x - hw, y + hh); ctx.closePath();
           n += 1;
           if (n >= 256) { ctx.fill(); ctx.beginPath(); n = 0; }   // bbox locale (cf. joints)
         }
@@ -316,6 +322,6 @@ export function makeGroundBake(ISO_GROUND_LOD) {
   return {
     bake: { ctx, T, z, hw, hh, LOD, HARD, b, L, band, mat, urb, road, roadMap, riverCells, plazaEra, wg, PR },
     resolve: { kindAt, grassAt, keyOfKind, lisiere },
-    out: { fringes, roads, wonderCells, grassCells, veilPush, veilPushRects, flushVeils },
+    out: { fringes, roads, wonderCells, grassCells, grassMask, grassMaskR, veilPush, veilPushRects, flushVeils },
   };
 }

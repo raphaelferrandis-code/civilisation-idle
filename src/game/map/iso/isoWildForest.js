@@ -16,6 +16,7 @@ import { WONDER_GROUND, wonderGroundSet } from './isoWonderGround.js';
 import { riverEndRays, nearRiverEndRay } from './riverEnds.js';
 import { campGroundOn, courOf } from './isoTissu.js';
 import { treeVariantsOf } from './isoGroundProps.js';
+import { vegHash, vegNoise } from './vegNoise.js';
 
 // Marge des demi-droites qui prolongent le fleuve (riverEnds.js) : les MÊMES
 // rayons que les cellules d'eau et de berge du layout — centre de cellule à
@@ -173,21 +174,9 @@ if (typeof window !== 'undefined') {
   };
 }
 // Hachage entier (bien plus rapide que cmHash sur une chaîne : ~10 appels par arbre).
-function ih(x, y, s) {
-  let h = Math.imul(x | 0, 0x27d4eb2d) ^ Math.imul(y | 0, 0x165667b1) ^ Math.imul(s | 0, 0x9e3779b9);
-  h = Math.imul(h ^ (h >>> 15), 0x85ebca6b);
-  h = Math.imul(h ^ (h >>> 13), 0xc2b2ae35);
-  return ((h ^ (h >>> 16)) >>> 0) / 4294967296;
-}
-// Bruit de valeur LISSÉ (interpolation bilinéaire en easing cubique) : 0..1, sans
-// couture de bloc.
-export function forestNoise(gx, gy, sc, s) {
-  const fx = gx / sc, fy = gy / sc, x0 = Math.floor(fx), y0 = Math.floor(fy);
-  let tx = fx - x0, ty = fy - y0;
-  tx = tx * tx * (3 - 2 * tx); ty = ty * ty * (3 - 2 * ty);
-  const a = ih(x0, y0, s), b = ih(x0 + 1, y0, s), c = ih(x0, y0 + 1, s), d = ih(x0 + 1, y0 + 1, s);
-  return a + (b - a) * tx + (c - a) * ty + (a - b - c + d) * tx * ty;
-}
+// (vegNoise.js : un module feuille, partagé avec le sol — prés et fleurs.)
+const ih = vegHash;
+const forestNoise = vegNoise;
 const clamp01 = (v) => (v < 0 ? 0 : v > 1 ? 1 : v);
 // Densité de la forêt (0..1, moyenne ~0,5) : trouées lisses et franches.
 export function forestDensity(gx, gy, cfg = FOREST) {

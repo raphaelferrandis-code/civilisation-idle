@@ -220,3 +220,35 @@ Méthode habituelle : planche avant/après sur de vraies captures, validation de
   - Signature de tuile (`tileSig` → `forestFloorSig`) : la distance à la vie dépend de
     routes et d'emprises jusqu'à 5 cellules hors de la tuile.
   - Garde `forestFloor.test.js`.
+  - Commit local `bbbe2aab`.
+- **Lot 4 fait** : le pré.
+  - Tuiles d'herbe à la dose B : `node scripts/vegetationDose.mjs grass` (depuis le commit
+    source épinglé, un seul gamma pour les 4 variantes : écarts gardés). Moyenne 72 → 92 ;
+    `GRASS_TILE_UNDER` [42,85,39] → [69,104,61]. Les touffes dessinées (lum ~92) n'ont pas
+    bougé : elles se fondent maintenant dans le pré au lieu d'en ressortir.
+  - Prés en ZONES (`iso/isoMeadow.js`, `MEADOW`, molette `__meadow`) : herbe grasse vert
+    profond près du fleuve (6 cellules) et dans les creux du bruit, herbe sèche blonde sur
+    les bosses ; l'automne sèche (×1,35), l'hiver rien. Même technique que le sous-bois
+    (image d'un pixel par cellule lissée), et les deux voiles sont maintenant DÉCOUPÉS à
+    l'herbe (`drawGrassVeils` : gabarit des losanges d'herbe et des rectangles de lisière
+    remisé par le balayage) — le lissage débordait d'une demi-cellule sur les trottoirs.
+  - ⚠⚠ TROUVÉ : `diamondPath` (isoQuad) ouvre un NOUVEAU chemin à chaque appel ; le
+    `flushVeils` des anciens voiles de prés l'appelait en boucle avant un seul `fill` →
+    seul le dernier losange de chaque paquet était peint. C'est pourquoi les prés ne se
+    voyaient pas. Corrigé (tracé en ligne) ; `GRASS_DETAIL.meadow` passe à 0, remplacé
+    par les zones lissées. Le même piège a mordu mon gabarit au premier essai.
+  - Fleurs en COLONIES (`FLOWER_COLONY`, isoGroundDetail) : bruit lisse, facteur ramené à
+    1 en moyenne (×2,34 : même nombre de fleurs), 91 % des fleurs dans une colonie ;
+    chaque colonie a une couleur dominante (70 %) ; 4 formes (croix = pâquerette, bouton
+    d'or, coquelicot à cœur sombre, bleuet en X). `__grassDetail({ colony: false })`
+    rejoue le semis uniforme.
+  - `iso/vegNoise.js` : bruit et hachage partagés (forêt, sous-bois, prés, fleurs) —
+    isoGroundDetail ne peut pas importer la forêt sans boucle.
+  - Garde `meadowFlowers.test.js` (luminance des tuiles, écarts gardés, couronne ÷ pré
+    entre 0,85 et 1, zones grasses au bord de l'eau, zones lisses, colonies).
+  - ⚠ Banc : juste après un rechargement, le sol peut rester en aplat plusieurs images
+    (tuiles du plancher cuites avant le décodage) : `warm()` de
+    `.preview-shots/vegetation/vegHelpers-v4.js` attend le décodage, recuit tout, laisse
+    12 tours.
+  - Test rouge HORS chantier : `comportementsAnalyse.test.js` (agents.js modifié par la
+    session « comportements », non commité) — pas touché.
