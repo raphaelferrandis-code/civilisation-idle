@@ -371,7 +371,7 @@ export function collectIsoItems(bake, now) {
   // contourne.
   {
     const pl = L.river && L.river.plaisirs;
-    if (pl && plaisirsReady()) pushIsoPlaisirsItems(items, pl);
+    if (pl && plaisirsReady()) pushIsoPlaisirsItems(items, pl, now);
     // Rien à peindre cette frame (pas de fleuve, donc pas de monument) : on
     // PÉRIME la boîte. Sans ça elle survivait à un effondrement qui redessine
     // une ville sans fleuve, et un carré d'écran restait cliquable dans le vide.

@@ -185,7 +185,11 @@ export function drawPlaisirsRing(spot, now) {
   if (vis < 0.02) return;
   const b = ringToScreen(spot, 1);
   if (b.x1 < 0 || b.y1 < 0 || b.x0 > (CM.cw || 0) || b.y0 > (CM.ch || 0)) return;
-  const lc = lightCtx(b.x0, b.y0, b.x1, b.y1);
+  // La guirlande RESPIRE (+3 % de rayon) et ses halos débordent de 2,6 ampoules :
+  // la zone déclarée à la couche de lumière les couvre — hors d'elle, leur lumière
+  // était coupée, et s'accumulait sans être effacée.
+  const pad = Math.ceil(0.03 * Math.max(b.x1 - b.x0, b.y1 - b.y0) / 2 + 3 * Math.max(3, Math.round(CM.TILE * CM.cam.zoom * 0.11)));
+  const lc = lightCtx(b.x0 - pad, b.y0 - pad, b.x1 + pad, b.y1 + pad);
   const ctx = lc || CM.ctx;
   const direct = !lc;
   if (direct) { ctx.save(); ctx.globalCompositeOperation = 'lighter'; }
@@ -500,7 +504,7 @@ function frontDepth(m, X) {
 // aval DEVANT tout le lieu ou DERRIÈRE tout le lieu ; découpé en tranches triées
 // au bord avant du pied dans leur colonne, il passe devant la façade qu'il longe
 // et derrière celle qu'il contourne.
-export function pushIsoPlaisirsItems(items, pl) {
+export function pushIsoPlaisirsItems(items, pl, now = null) {
   const m = modelOf(pl);
   _frameModel = m;
   if (!m || !m.bk.box) { CM._plaisirsBox = null; return; }
@@ -534,7 +538,7 @@ export function pushIsoPlaisirsItems(items, pl) {
   // devant la balustrade (Raph, 2026-10-03).
   const cast = plaisirsCast(m.band), st = m.bk.stroll;
   if (!cast || !st) return;
-  const hw = CM.TILE * AGENT_SCALE / 2, girls = strollers(cast, st, typeof performance !== 'undefined' ? performance.now() : 0);
+  const hw = CM.TILE * AGENT_SCALE / 2, girls = strollers(cast, st, now != null ? now : (typeof performance !== 'undefined' ? performance.now() : 0));   // l'horloge de la FRAME : figée, la capture est reproductible
   let minAbs = Infinity;
   for (const q of girls) {
     // Sa boîte (carrée, `hw` de demi-largeur) en X.
