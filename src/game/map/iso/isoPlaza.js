@@ -61,6 +61,7 @@ import { CM, cmHash, treeCanvasT } from '../layout.js';
 import { solInvalidate } from './solInvalidate.js';
 import { AGENT_SCALE, agentSetForBand, agentSpecFor, drawNamedAgentIso } from '../agents.js';
 import { buildFolk, folkAt, folkRev } from './plazaFolk.js';
+import { noteFig, FIG } from '../figures.js';
 import { worldToScreen, depthOf } from './projection.js';
 import { lightCutImage, lightCtx } from '../lightLayer.js';
 import { drawSunShadow } from './isoSunShadow.js';
@@ -1286,6 +1287,45 @@ function plazaBases(props, lamps, T) {
   return out;
 }
 
+// LES PASSANTS DES RUES SUR LA PLACE (docs/PLAN-COMPORTEMENTS.md, lot 1). Ils vont de
+// centre de case en centre de case, et sur une place ce centre tombe parfois DANS un
+// étal, un banc, une margelle : ils traversaient le mobilier. La seule parade
+// (cityMapRuntime, « fountainCells/plazaPropCells ») recopiait la géométrie du décor
+// supprimé de juillet. Chaque case de place reçoit ici son POINT DE PASSAGE — le point
+// libre le plus proche de son centre, au sens de la base au sol du mobilier
+// (plazaBases) — ou rien si la case est pleine (le cœur d'une grande fontaine) : elle
+// sort alors du réseau piéton. Clés au format de cityMapWalkRoadKey (gx·10000 + gy),
+// décalages en CELLULES.
+const STREET_R = 0.15;                      // demi-largeur d'un passant + jeu
+let _anchors = { comps: null, v: null };
+export function plazaWalkAnchors(L, band) {
+  if (!L || !isoPlazaKitOn(band)) return null;
+  const comps = isoPlazaCompositions(L, band);
+  if (_anchors.comps === comps && _anchors.v) return _anchors.v;
+  const blocked = new Set(), offset = new Map();
+  const T = CM.TILE;
+  for (const comp of comps) {
+    const bases = plazaBases(comp.props, comp.lamps, T);
+    const free = (x, y) => bases.every((b) => Math.abs(x - b.cx) >= b.ex + STREET_R || Math.abs(y - b.cy) >= b.ey + STREET_R);
+    for (const c of comp.cells) {
+      const cx = c.gx + 0.5, cy = c.gy + 0.5;
+      let best = null, bd = Infinity;
+      for (let j = -4; j <= 4; j += 1) {
+        for (let i = -4; i <= 4; i += 1) {
+          const d = i * i + j * j;
+          if (d >= bd || !free(cx + i * 0.1, cy + j * 0.1)) continue;
+          bd = d; best = [i * 0.1, j * 0.1];
+        }
+      }
+      const k = c.gx * 10000 + c.gy;
+      if (!best) blocked.add(k);
+      else if (bd > 0) offset.set(k, best);
+    }
+  }
+  _anchors = { comps, v: { blocked, offset } };
+  return _anchors.v;
+}
+
 // LES ENTRÉES DE LA PLACE : chaque arête où une rue l'aborde (c'est aussi là que la
 // grille du square laisse sa porte, cf. fenceEdges `gateOnRoad`). `a` = l'ancre côté
 // place, `o` = le point de fuite, à mi-chemin dans la cellule de rue.
@@ -1408,14 +1448,8 @@ export const isoPlazaSceneCoversGround = (band) => isoPlazaSceneOn(band);
 // Pousse un item par prop : chacun trie à SA profondeur, donc un passant au sud
 // d'un banc passe devant et celui du nord derrière. C'est exactement ce que la
 // scène unique ne savait pas faire (un seul item pour toute la place).
-// Les flâneurs EN MARCHE de toutes les places à la dernière frame ({ x, y } en px
-// monde) : les pigeons s'envolent devant eux comme devant un passant des rues
-// (isoVieOiseaux). Ceux qui sont arrêtés ne comptent pas — une volée posée près
-// d'une causette repartirait sans fin.
-export const plazaFolkWalking = [];
 export function isoPlazaItems(L, band, pushItem, visible, now = 0) {
   let n = 0;
-  plazaFolkWalking.length = 0;
   for (const comp of isoPlazaCompositions(L, band)) n += pushOne(comp, pushItem, visible, now);
   return n;
 }
@@ -1443,7 +1477,9 @@ function pushOne(comp, pushItem, visible, now) {
   // LES FLÂNEURS, à leur position du moment (plazaFolk.js), triés comme le mobilier.
   if (comp.folk && (!PLAZA_TUNE.only || PLAZA_TUNE.only === 'person')) {
     for (const rec of folkAt(comp.folk, now, CM.TILE, depthOf)) {
-      if (rec.walking) plazaFolkWalking.push(rec);
+      // Registre des figures : les pigeons s'envolent devant un flâneur EN MARCHE ;
+      // arrêté, il ne compte pas — une volée posée près d'une causette repartirait sans fin.
+      noteFig(rec.wx, rec.wy, FIG.PLAZA | (rec.walking ? FIG.MOVING : 0));
       if (visible && !visible(rec.wx, rec.wy)) continue;
       const it = pushItem();
       it.d = rec.d; it.kind = 'plazaProp'; it.art = rec; it.eraKey = comp.era;

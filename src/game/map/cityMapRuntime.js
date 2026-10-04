@@ -54,6 +54,7 @@ import { drawIsoWorld } from './iso/isoRenderer.js';
 // monument dont il lit l'encre : c'est ce sprite qu'il interroge pour savoir si le
 // clic tombe sur la maison. Le peintre n'avait aucune raison de le porter.
 import { plaisirsHitTest } from './iso/isoPlaisirs.js';
+import { plazaWalkAnchors } from './iso/isoPlaza.js';
 // Les faits divers (docs/PLAN-FAITS-DIVERS.md) : leurs scènes passent par la petite
 // vie ; leur clic passe AVANT celui de la carte (bindFaitsDiversInput).
 import { bindFaitsDiversInput } from './faitsDivers/index.js';
@@ -1265,47 +1266,15 @@ function cityMapEnsureLayout(now, deps = {}) {
     return true;
   });
   CM.roadSet = validRoadSet;
-  // Cellules occupées par le MOBILIER de place (fontaine au centre + drapeaux/lampadaires
-  // aux coins) → NON-marchables (sinon les piétons "marchent" dessus). Même géométrie que
-  // cityMapDrawPlazas (renderWorld) : centre de dalle = (gx-half + size/2). On exclut ces
-  // cellules de walkRoadList → tout l'aval (spawn, pas, flânerie) les évite automatiquement.
-  //   • fountainCells : fontaine (centre, +0.34 au sud) — sert AUSSI au Y-SORT (occulteur, agents.js).
-  //   • plazaPropCells : coins (drapeaux/lampadaires) — blocage SEUL (thème stable par seedH,
-  //     répliqué à l'identique du rendu ; ⚠ garder synchro si cityMapDrawPlazas change).
-  CM.fountainCells = new Set();
-  CM.plazaPropCells = new Set();
-  if (L.plan && Array.isArray(L.plan.plazas)) {
-    const band = L.counts ? L.counts.eraBand : 0;
-    const pid = L.personality ? L.personality.id : "";
-    for (const p of L.plan.plazas) {
-      if (!p.size || p.size < 2) continue;
-      const half = Math.floor(p.size / 2);
-      const cx = (p.gx - half) + p.size / 2, cy = (p.gy - half) + p.size / 2;
-      // Fontaine (centre, décalée +0.34 au sud comme le sprite).
-      const fwy = cy + 0.34, radX = 0.7, radY = 0.5;
-      for (let gy = Math.floor(fwy - radY - 0.5); gy <= Math.ceil(fwy + radY + 0.5); gy += 1)
-        for (let gx = Math.floor(cx - radX - 0.5); gx <= Math.ceil(cx + radX + 0.5); gx += 1)
-          if (Math.abs((gx + 0.5) - cx) < radX && Math.abs((gy + 0.5) - fwy) < radY) CM.fountainCells.add(gx * 10000 + gy);
-      // Coins (drapeaux/lampadaires) : band ≥ 2, thème + saut par coin stables (seedH).
-      if (band >= 2) {
-        const seedH = ((p.gx * 73856093) ^ (p.gy * 19349663)) >>> 0;
-        const croll = ((Math.imul(seedH, 2654435761 + 97) >>> 0) % 1000) / 1000;
-        const military = p.kind === "centrale" && pid === "militaire";
-        const theme = military ? "flag" : croll < 0.34 ? "none" : croll < 0.67 ? "flag" : "lamp";
-        if (theme !== "none") {
-          const cd = (p.size / 2) * 0.66;
-          let ci = 0;
-          for (const [lx, ly] of [[-1, -1], [1, -1], [-1, 1], [1, 1]]) {
-            const skip = ((Math.imul(seedH, 2654435761 + 211 + ci * 17) >>> 0) % 1000) / 1000;
-            ci += 1;
-            if (skip < 0.16) continue;
-            CM.plazaPropCells.add(Math.floor(cx + lx * cd) * 10000 + Math.floor(cy + ly * cd));
-          }
-        }
-      }
-    }
-  }
-  CM.walkRoadList = L.roads.filter((r) => { const k = r.gx * 10000 + r.gy; return cmIsWalkableRoad(L, r.gx, r.gy) && !CM.fountainCells.has(k) && !CM.plazaPropCells.has(k); });
+  // MOBILIER DES PLACES (docs/PLAN-COMPORTEMENTS.md, lot 1) : chaque case de place a
+  // son POINT DE PASSAGE, hors de la base au sol des étals, bancs, margelles, pièce
+  // maîtresse (plazaWalkAnchors, isoPlaza.js) ; une case PLEINE sort du réseau piéton.
+  // Le blocage précédent recopiait la géométrie du décor de juillet (fontaine au centre,
+  // drapeaux aux coins), supprimé depuis : les passants traversaient le kit iso.
+  // `CM.plazaWalkOffset` est lu au pas par citizenChooseNext (décalage, en cellules).
+  const plazaAnchors = plazaWalkAnchors(L, L.counts ? L.counts.eraBand : 0);
+  CM.plazaWalkOffset = plazaAnchors ? plazaAnchors.offset : null;
+  CM.walkRoadList = L.roads.filter((r) => cmIsWalkableRoad(L, r.gx, r.gy) && !(plazaAnchors && plazaAnchors.blocked.has(r.gx * 10000 + r.gy)));
   // Cellules de route appartenant aux places : cibles de flânerie des piétons.
   CM.plazaRoadCells = [];
   if (L.plan && Array.isArray(L.plan.plazas)) {

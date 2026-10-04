@@ -28,6 +28,7 @@ import { worldToScreen } from './projection.js';
 import { isoUnitDepthEx, drawIsoCitizenItem } from './isoUnits.js';
 import { registerVieActors } from './isoVie.js';
 import { quayWalkSpans, quayLanePoint } from './isoQuay.js';
+import { noteFig, FIG } from '../figures.js';
 
 // Molette : __quayWalk({ on, density, speed }).
 export const QUAY_WALK = { on: true, density: 1, speed: 1 };
@@ -115,6 +116,7 @@ registerVieActors((now, out) => {
       dir = DIRS(a.x - pos.x, a.y - pos.y);
     }
     p.dir = dir;
+    noteFig(pos.x, pos.y, FIG.QUAY | (paused ? 0 : FIG.MOVING));
     out.push({
       wx: pos.x, wy: pos.y, d: isoUnitDepthEx(pos.x, pos.y).d,
       draw(ctx, nowD) { drawIsoCitizenItem(ctx, p, nowD, z); },
@@ -123,6 +125,7 @@ registerVieActors((now, out) => {
     if (m) {
       const mp = quayLanePoint(w.sp.run, u, Math.min(0.9, lane + PAIR_GAP));
       m.x = mp.x; m.y = mp.y; m.dir = dir; m.pauseT = p.pauseT; m.walkDist = distPx + 7;
+      noteFig(mp.x, mp.y, FIG.QUAY | (paused ? 0 : FIG.MOVING));
       out.push({
         wx: mp.x, wy: mp.y, d: isoUnitDepthEx(mp.x, mp.y).d,
         draw(ctx, nowD) { drawIsoCitizenItem(ctx, m, nowD, z); },

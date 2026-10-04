@@ -231,8 +231,11 @@ export function drawIsoVehicle(ctx, v, now, z) {
     const walking = (v.pauseT || 0) <= 0;
     // 1.24 = compensation des bandes FLAT (ratio perso/canvas 0.50 vs 0.73 avant,
     // cf. tables AGENT_* d'agents.js) — diagonales ET cardinales régénérées 2026-08-03.
-    if (!drawNamedAgentIso(ctx, p.x, p.y, z, nm, 1.24, v.dir, walking, now, v.x * 0.02, 1, v.rollDist != null ? v.rollDist : null)) {
-      drawNamedAgent(ctx, p.x, p.y, z, nm, 1.24, v.dir, walking, now, v.x * 0.02);
+    // Phase de pas tirée de la GRAINE du porteur, pas de sa position : v.x·0,02 glissait
+    // en marchant (foulée plus rapide vers l'est, plus lente vers l'ouest).
+    const bph = ((v.seed >>> 0) % 997) / 997;
+    if (!drawNamedAgentIso(ctx, p.x, p.y, z, nm, 1.24, v.dir, walking, now, bph, 1, v.rollDist != null ? v.rollDist : null)) {
+      drawNamedAgent(ctx, p.x, p.y, z, nm, 1.24, v.dir, walking, now, bph);
     }
     return;
   }
@@ -660,11 +663,21 @@ export function isoUnitDepth(wx, wy) {
 export function drawIsoCitizenItem(ctx, p, now, z) {
   const sp = worldToScreen(p.x + (p.lox || 0), p.y + (p.loy || 0));
   const walking = (p.pauseT || 0) <= 0;
+  // FONDUS (docs/PLAN-COMPORTEMENTS.md, lot 1) : naître devant une porte, rentrer par
+  // une porte. `fade` (apparition) et `_sleepFade` (rentrée du soir, départ) étaient
+  // calculés par agents.js depuis juillet mais jamais APPLIQUÉS au dessin : le passant
+  // surgissait d'un coup et disparaissait d'un coup. L'ombre du soleil suit (elle
+  // multiplie l'alpha courant).
+  const fa = (p.fade == null ? 1 : p.fade) * (p._sleepFade == null ? 1 : p._sleepFade);
+  if (fa <= 0.02) return;
+  const prevA = ctx.globalAlpha;
+  if (fa < 1) ctx.globalAlpha = prevA * fa;
   // Vue DIAGONALE (Phase 4) si la bande existe, sinon bande cardinale.
   // p.walkDist = odomètre → animation par DISTANCE (anti-patinage).
   if (!drawEraAgentIso(ctx, sp.x, sp.y, z, p.dir, walking, now, p.phase || 0, p.charType || 0, 1, p.walkDist != null ? p.walkDist : null, p.skinVariant || 0)) {
     drawEraAgent(ctx, sp.x, sp.y, z, p.dir, walking, now, p.phase || 0, p.charType || 0);
   }
+  ctx.globalAlpha = prevA;
 }
 
 // Silhouettes fantômes : réglage live. __ghost({ on: true }) rallume, __ghost({ alpha: 0.5 })

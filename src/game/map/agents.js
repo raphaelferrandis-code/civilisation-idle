@@ -1154,11 +1154,20 @@ function citizenChooseNext(p) {
     const e = pedEdge;
     if (p.dir === 0 || p.dir === 1) { p.tox = 0; p.toy = isMain(p.gx, p.gy + 1) ? -e : isMain(p.gx, p.gy - 1) ? e : 0; }
     else { p.toy = 0; p.tox = isMain(p.gx + 1, p.gy) ? -e : isMain(p.gx - 1, p.gy) ? e : 0; }
+  } else if (rank === "plaza") {
+    // PLACE (docs/PLAN-COMPORTEMENTS.md, lot 1) : on passe par le POINT DE PASSAGE de la
+    // case, hors du mobilier (CM.plazaWalkOffset, cf. plazaWalkAnchors) — au centre exact
+    // de la case, on marchait dans les étals. Là où le centre est libre, chacun garde un
+    // petit écart PERSONNEL : tous au même point, les badauds s'y superposaient.
+    const off = CM.plazaWalkOffset && CM.plazaWalkOffset.get(cityMapWalkRoadKey(p.gx, p.gy));
+    if (p.pedJ === undefined) p.pedJ = ((((p.phase || 0) * 389.71) % 1) - 0.5) * 2;
+    const jy = (((((p.phase || 0) * 613.37) % 1) + 1) % 1 - 0.5) * 2;
+    p.tox = (off ? off[0] : p.pedJ * 0.1) * CM.TILE;
+    p.toy = (off ? off[1] : jy * 0.1) * CM.TILE;
   } else {
-    // Rue simple : trottoir sur le bord DROIT du sens de marche ; esplanade (place) = centré.
-    const edge = rank === "plaza" ? 0 : pedEdge;
-    p.tox = p.dir === 2 ? -edge : p.dir === 3 ? edge : 0;
-    p.toy = p.dir === 0 ? edge : p.dir === 1 ? -edge : 0;
+    // Rue simple : trottoir sur le bord DROIT du sens de marche.
+    p.tox = p.dir === 2 ? -pedEdge : p.dir === 3 ? pedEdge : 0;
+    p.toy = p.dir === 0 ? pedEdge : p.dir === 1 ? -pedEdge : 0;
   }
 }
 
@@ -1216,7 +1225,6 @@ function companionAssign(p) {
   p.lead = best;
   p._grp = best._nf;                  // 1 = à côté, 2 = derrière, entre les deux
   if (p._grp === 1) best._f1 = p;
-  p.fade = 0;                         // il rejoint son meneur en fondu, pas d'un bond
 }
 function companionDetach(p) {
   const L = p.lead;
@@ -1224,6 +1232,7 @@ function companionDetach(p) {
   p.lead = null;
   p.goal = null;
   p.tx = (p.gx + 0.5) * CM.TILE; p.ty = (p.gy + 0.5) * CM.TILE;
+  p._grp = undefined;   // il pourra se raccrocher à un autre (companionAssign)
 }
 function companionFollow(p, L, dt) {
   p.gx = L.gx; p.gy = L.gy; p.tx = L.tx; p.ty = L.ty;
@@ -1304,20 +1313,31 @@ function updateCitizens(dt) {
 
   CM.globalBubbleCooldown -= dt;
   if (CM.globalBubbleCooldown <= 0) {
-    if (!hasActiveThought && CM.citizens.length > 0) {
-      // Construction tardive — seulement toutes les 90-180s
-      const idleCitizens = CM.citizens.filter(c => !c.thoughtType || c.thoughtTimer <= 0);
-      if (idleCitizens.length > 0) {
-        const p = idleCitizens[Math.floor(Math.random() * idleCitizens.length)];
+    // ⚠ TIRÉE PARMI CEUX QU'ON VOIT (docs/PLAN-COMPORTEMENTS.md, lot 1 ; diagnostic de
+    // REPRISE-bulles-habitants.md, resté sans suite). Le porteur était tiré parmi TOUS
+    // les habitants — jusqu'à ~900, la caméra en montre une fraction — donc presque
+    // toujours hors champ, ou endormi derrière une porte : « il n'y a plus de bulles ».
+    // Désormais : un passant à l'écran, éveillé, ni en partance ni en fondu, et pas au
+    // dézoom (LOD : personne n'y est dessiné). Une bulle toutes les 30 à 70 s au lieu
+    // de 90 à 180, puisqu'on la voit maintenant à chaque fois. Personne à l'écran :
+    // on réessaie dans 5 s.
+    CM.globalBubbleCooldown = 5;
+    if (!hasActiveThought && CM.citizens.length > 0 && !CM.lodActive) {
+      const seen = [];
+      for (const c of CM.citizens) {
+        if ((c.thoughtType && c.thoughtTimer > 0) || c.leaving || c._vanish !== undefined || c._nightHidden) continue;
+        if (c.fade != null && c.fade < 1) continue;
+        const sp = projWorldToScreen(c.x + (c.lox || 0), c.y + (c.loy || 0));
+        if (sp.x < 40 || sp.y < 60 || sp.x > (CM.cw || 0) - 40 || sp.y > (CM.ch || 0) - 20) continue;
+        seen.push(c);
+      }
+      if (seen.length > 0) {
+        const p = seen[Math.floor(Math.random() * seen.length)];
         const types = ["thought", "scroll", "lightning"];
         p.thoughtType = types[Math.floor(Math.random() * types.length)];
         p.thoughtTimer = 18;
-        CM.globalBubbleCooldown = Math.random() * 90 + 90;
-      } else {
-        CM.globalBubbleCooldown = 5;
+        CM.globalBubbleCooldown = 30 + Math.random() * 40;
       }
-    } else {
-      CM.globalBubbleCooldown = 5;
     }
   }
 
@@ -1359,7 +1379,7 @@ function updateCitizens(dt) {
       p.fade = 0;
     }
     if (p.fade === undefined) p.fade = 1;
-    else if (p.fade < 1) p.fade = Math.min(1, p.fade + dt * 4); // apparition rapide (~0,25 s) : plus d'effet « fantôme »
+    else if (p.fade < 1) p.fade = Math.min(1, p.fade + dt * 2); // apparition en ~0,5 s, devant sa porte (dessinée depuis le lot 1 de PLAN-COMPORTEMENTS)
 
     // ── Fondu de DISPARITION : jamais au milieu de la rue ─────────────────────
     // Deux causes d'effacement — le tiers « dormeur » quand la nuit s'installe, et
@@ -1371,11 +1391,32 @@ function updateCitizens(dt) {
     // exactement ce qu'il était censé éviter.
     const nightF = CM.nightF || 0;
     const sleeper = nightF > 0.55 && (((p.phase * 100) | 0) % 3) === 0;
-    if ((sleeper || p.leaving) && p._vanish === undefined && citizenAtShelter(p)) p._vanish = 1;
-    if (p._vanish !== undefined) {
-      const back = !sleeper && !p.leaving;   // le jour se lève : il ressort par sa porte
-      p._vanish = back ? Math.min(1, p._vanish + dt * 2.2) : Math.max(0, p._vanish - dt * 2.2);
-      if (back && p._vanish >= 1) p._vanish = undefined;
+    // COMPAGNON : il vit au rythme de son meneur (docs/PLAN-COMPORTEMENTS.md, lot 1).
+    // Il était LÂCHÉ dès que le meneur partait ou se couchait : il rentrait seul par
+    // une autre porte, dormait seul, et à l'aube rattrapait son meneur EN LIGNE DROITE
+    // à travers les maisons. Désormais il rentre AVEC lui (même porte, même fondu), il
+    // s'endort et ressort avec lui ; le meneur rentré pour de bon, il est rentré aussi.
+    const L0 = p.lead;
+    const leadOk = !!L0 && !L0._dead && COMPANIONS.on && L0._tick >= citTick - 1;
+    if (L0 && L0._dead && p.leaving) { p._nightHidden = true; p._dead = true; anyDead = true; continue; }
+    if (leadOk && L0.leaving && !p.leaving) p.leaving = true;
+    if (leadOk && !(p.leaving && !L0.leaving)) {
+      p._vanish = L0._vanish;
+    } else {
+      // DÉLAI DE GRÂCE du partant : un seuil derrière le fleuve ou au fond d'une
+      // impasse le gardait dehors pour toujours (aucun re-tirage pour qui part).
+      // 40 s : on vise la porte la plus PROCHE ; 80 s : il entre où il est.
+      if (p.leaving && p._vanish === undefined) {
+        p.leaveT = (p.leaveT || 0) + dt;
+        if (p.leaveT > 40 && !p._leaveRetry) { p._leaveRetry = true; p.leaveCell = nearestDoorstep(p); p.goal = null; }
+        if (p.leaveT > 80) p._vanish = 1;
+      }
+      if ((sleeper || p.leaving) && p._vanish === undefined && citizenAtShelter(p)) p._vanish = 1;
+      if (p._vanish !== undefined) {
+        const back = !sleeper && !p.leaving;   // le jour se lève : il ressort par sa porte
+        p._vanish = back ? Math.min(1, p._vanish + dt * 2.2) : Math.max(0, p._vanish - dt * 2.2);
+        if (back && p._vanish >= 1) p._vanish = undefined;
+      }
     }
     p._sleepFade = p._vanish === undefined ? 1 : p._vanish;
     if (p._sleepFade <= 0) {
@@ -1391,7 +1432,10 @@ function updateCitizens(dt) {
     if (p._grp === undefined) companionAssign(p);
     if (p.lead) {
       const L = p.lead;
-      if (L._dead || L.leaving || p.leaving || L._vanish !== undefined || !COMPANIONS.on || !(L._tick >= citTick - 1)) companionDetach(p);
+      // Lâché seulement si le meneur n'est plus là, ou si LUI part sans son meneur
+      // (la foule baisse et c'est lui qu'elle renvoie) ; un meneur qui rentre ou qui
+      // s'endort, on le suit (cf. plus haut).
+      if (L._dead || !COMPANIONS.on || !(L._tick >= citTick - 1) || (p.leaving && !L.leaving)) companionDetach(p);
       else { companionFollow(p, L, dt); continue; }
     }
 
@@ -1486,7 +1530,7 @@ function thoughtBubbleAnchor(p) {
   // Rendu ET hit-test du clic lisent cette ancre (source unique).
   const sp = projWorldToScreen(p.x + (p.lox || 0), p.y + (p.loy || 0));
   const band = (CM.layout && CM.layout.counts && CM.layout.counts.eraBand) || 0;
-  const spec = agentSpecFor(agentSetForBand(band), p.charType || 0) || AGENT_FALLBACK;
+  const spec = agentSpecFor(agentSetForBand(band), p.charType || 0, p.skinVariant || 0) || AGENT_FALLBACK;
   const drawH = CM.TILE * CM.cam.zoom * spec.scale * AGENT_SCALE;
   // Sommet du sprite ≈ pieds − AGENT_FEET·drawH ; la bulle flotte juste au-dessus.
   return { x: sp.x, y: sp.y - drawH * AGENT_FEET - 10 };

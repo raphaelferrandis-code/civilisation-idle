@@ -45,6 +45,7 @@ import { districtMassTiles } from './isoDistricts.js';
 import { vieActors } from './isoVie.js';
 import { elevatedActors } from './isoElevated.js';
 import { pushTerroirTeams } from './terroirLife.js';
+import { figuresBeginFrame, noteFig, FIG } from '../figures.js';
 
 // Pool et vue des items du peintre (cf. commentaire dans drawIsoLive) —
 // persistants au module : capacité conservée d'une frame à l'autre.
@@ -52,6 +53,8 @@ const ISO_ITEM_POOL = [];
 const ISO_ITEM_VIEW = [];
 
 export function collectIsoItems(bake, now) {
+  // Registre des figures (figures.js) : la frame qui s'achève devient la référence.
+  figuresBeginFrame();
   const portDepth = {};          // scène du port par poste (porteurs du ponton)
   const { T, L, b, band, dvVis, z, smokeK, eraIdx } = bake;
   const items = ISO_ITEM_VIEW;
@@ -183,6 +186,7 @@ export function collectIsoItems(bake, now) {
     items.push({ d: isoUnitDepth(P.wx + hb, P.wy + hb), kind: 'fleetShip', sh });
     const pd = portDepth[sh.berthId];
     for (const q of sh._porters || []) {
+      noteFig(q.x * T, q.y * T, FIG.PORT | (q.walking ? FIG.MOVING : 0));
       items.push({ d: Math.max(isoUnitDepth(q.x * T, q.y * T), pd == null ? -Infinity : pd + 0.003), kind: 'porter', q, band: sh._portersBand });
     }
   }
@@ -506,6 +510,7 @@ export function collectIsoItems(bake, now) {
       // Cull écran ABSENT jusqu'ici en iso (le legacy l'avait) : jusqu'à 450
       // piétons hors champ payaient tri + drawImage à chaque frame.
       if (!dvVis(pwx, pwy, pwx, pwy)) continue;
+      noteFig(pwx, pwy, FIG.STREET | ((p.pauseT || 0) > 0 ? 0 : FIG.MOVING));
       { const dx = isoUnitDepthEx(pwx, pwy); const it = pushItem(); it.d = dx.d; it.ghost = dx.hidden; it.gwx = pwx; it.gwy = pwy; it.kind = 'cit'; it.p = p; }
     }
     // Véhicules : mêmes règles (drones = passe aérienne, plus tard). La
@@ -532,6 +537,7 @@ export function collectIsoItems(bake, now) {
       const laneX = (p.dir === 2 || p.dir === 3) ? (p.lane || 0) : 0;
       const laneY = (p.dir === 0 || p.dir === 1) ? (p.lane || 0) : 0;
       { const gwx = p.x + laneX, gwy = p.y + laneY;
+        noteFig(gwx, gwy, FIG.RIOT | FIG.MOVING);
         const dx = isoUnitDepthEx(gwx, gwy); items.push({ d: dx.d, ghost: dx.hidden, gwx, gwy, kind: 'riot', p }); }
     }
   }

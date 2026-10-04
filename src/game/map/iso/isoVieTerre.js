@@ -27,7 +27,6 @@ function h32(n) {
   return ((x ^ (x >>> 15)) >>> 0) / 4294967296;
 }
 const bandOf = () => ((CM.layout && CM.layout.counts && CM.layout.counts.eraBand) | 0);
-const nightOk = () => (CM.nightF || 0) < 0.55;
 
 // ── CHIENS ──────────────────────────────────────────────────────────────────
 function dogOf(c) {
@@ -42,11 +41,17 @@ function dogOf(c) {
 function pushDogs(now, out) {
   if (VIE.chiens <= 0 || !CM.citizens) return;
   const band = bandOf();
-  if (band < 1 || band > 6 || !nightOk()) return;
+  if (band < 1 || band > 6) return;
   const T = CM.TILE;
   for (const c of CM.citizens) {
     const d = dogOf(c);
-    if (!d || (c.fade != null && c.fade < 0.5)) continue;
+    // Le chien vit au rythme de son MAÎTRE (docs/PLAN-COMPORTEMENTS.md, lot 1) : il
+    // sort et rentre avec lui, dans le même fondu — tous les chiens de la ville
+    // disparaissaient d'un coup à 0,55 de nuit, et restaient opaques pendant que
+    // leur maître s'effaçait sur le seuil.
+    if (!d || c._nightHidden) continue;
+    const ma = (c.fade == null ? 1 : c.fade) * (c._sleepFade == null ? 1 : c._sleepFade);
+    if (ma <= 0.02) continue;
     let hx = c.tx - c.x, hy = c.ty - c.y;
     const hl = Math.hypot(hx, hy);
     const moving = hl > T * 0.05 && !(c.pauseT > 0);
@@ -54,14 +59,16 @@ function pushDogs(now, out) {
     d.hx = hx; d.hy = hy;
     // À CÔTÉ du maître, un peu devant (il tire sur la laisse) : placé derrière, il se
     // cachait sous l'habitant dès que celui-ci marchait vers le bas de l'écran.
-    const wx = c.x + hx * T * 0.12 - hy * T * 0.34 * d.side;
-    const wy = c.y + hy * T * 0.12 + hx * T * 0.34 * d.side;
+    // Posé à côté du maître DESSINÉ : sa ligne de trottoir (lox/loy) comprise — sans
+    // elle, le chien marchait à un demi-trottoir de lui.
+    const wx = c.x + (c.lox || 0) + hx * T * 0.12 - hy * T * 0.34 * d.side;
+    const wy = c.y + (c.loy || 0) + hy * T * 0.12 + hx * T * 0.34 * d.side;
     out.push({
       wx, wy,
       draw(ctx) {
-        // Opaque : un chien à demi transparent ne se lit plus (le fondu d'apparition de
-        // l'habitant ne sert qu'à le faire naître, cf. le filtre fade < 0,5 plus haut).
-        const k = vieK(), fz = vieZoomFade();
+        // Le fondu du maître, et rien d'autre : un chien à demi transparent hors
+        // fondu ne se lirait plus.
+        const k = vieK(), fz = vieZoomFade() * ma;
         if (fz <= 0) return;
         const p = worldToScreen(wx, wy);
         const q = worldToScreen(wx + hx * T, wy + hy * T);
