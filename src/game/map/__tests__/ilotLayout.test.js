@@ -84,18 +84,10 @@ describe("ville par îlots (bande 4)", () => {
     }
     expect(moved, "bâtiments déplacés").toBe(0);
     const roads2 = new Set(L2.roads.map((r) => (r.gx - L2.cx) + "," + (r.gy - L2.cy)));
-    // ⚠ Connu (2026-10-04, mesuré) : la grille grandit avec les achats (N 164 → 170),
-    // le fleuve et ses îles se recalculent avec elle, et une rue de quai qui devient
-    // BERGE est abandonnée (layout.js, mémoire du réseau). Fragilité du fleuve, pas des
-    // îlots — elle n'apparaissait pas ici tant que la ville, sans jardins, n'atteignait
-    // pas cette rive à l'ère 21 (cf. docs/PLAN-ILOTS.md §5).
+    // La grille grandit entre les deux (N 164 → 170) : le fleuve, FIGÉ en cases depuis le
+    // 2026-10-04, ne bouge plus — une rue de quai ne bascule plus en berge.
     let lost = 0;
-    for (const k of roads1) {
-      if (roads2.has(k)) continue;
-      const ci = k.indexOf(","), x = +k.slice(0, ci) + L2.cx, y = +k.slice(ci + 1) + L2.cy;
-      if (L2.river && L2.river.isBank(x, y)) continue;
-      lost += 1;
-    }
+    for (const k of roads1) if (!roads2.has(k)) lost += 1;
     expect(lost, "rues disparues").toBe(0);
   }, 180000);
 
