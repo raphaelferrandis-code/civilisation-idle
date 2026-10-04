@@ -303,3 +303,20 @@
     filles des Plaisirs (vitesse constante sur l'ellipse, pas calés sur la distance,
     ne plus se traverser — demandé à la session « Passage des filles ») ; les
     attendants de la navette cliquables (demandé à la session « PNJ cliquables »).
+- 2026-10-04 — **LOT 6 FAIT** :
+  - **registre des figures** (`figures.js`) : rangé par cases de 64 px à la première
+    question de la frame (il parcourait toute la liste pour chaque pigeon, mouette,
+    héron) ; y entrent désormais aussi les voyageurs du bac, les laboureurs et
+    moissonneurs, les accoudés des ponts (en plus des passants, flâneurs, promeneurs,
+    porteurs, émeutiers des lots 1-5) ; `figAhead` (quelqu'un devant ou à côté ?) et
+    `figFree` (une place libre, pour qui veut se poser — faits divers) ;
+  - **on s'évite** (agents.js, `AVOID`, molette `__avoid`) : un passant qui a quelqu'un
+    devant lui — de n'importe quel peuple — fait un pas de côté du côté libre et le
+    garde tant que l'autre est à côté ; vécu au banc : en dépassant un lent sur le même
+    bord, 0 px d'écart avant (il lui passait au travers), 6 px après ; coût mesuré en
+    jeu (576 passants) : dans le bruit (0,7 ms médian contre 0,9) ;
+  - les **aides communes** (fondu, regard) ne sont pas factorisées : chaque peuple garde
+    les siennes, déjà écrites et testées lot par lot ; rien de visible à gagner à les
+    déplacer dans des fichiers que d'autres sessions tiennent ouverts ;
+  - banc `__tests__/comportementsLot6.test.js` (3).
+

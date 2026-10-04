@@ -39,6 +39,7 @@
 // de pied et la voûte se reflétait dans l'arche).
 
 import { CM } from '../layout.js';
+import { noteFig, FIG } from '../figures.js';
 import { worldToScreen } from './projection.js';
 import { quayWallTiles, quayWallTune, quayStyleFor } from '../quaysAndRiot.js';
 import { tradeStage, tradeSizeMul } from './isoFleet.js';
@@ -579,6 +580,8 @@ export function pushIsoBridgeItems(items, bounds, now = 0) {
       const st = idlerNow(q, now);
       if (!st) continue;                         // parti (il reviendra)
       items.push({ d: st.l + q.t + 0.3, kind: 'bridgeSeg', si, part: 'idler', ii });
+      // Lot 6 : l'accoudé dans le registre des figures (px monde : l le long du pont).
+      noteFig(m.vertical ? q.t : st.l, m.vertical ? st.l : q.t, FIG.SCENE | (st.walking ? FIG.MOVING : 0));
       if (q.fisher) items.push({ d: q.l + m.tDn + S + 1, kind: 'bridgeSeg', si, part: 'rod', ii });
     }
     // BATEAUX SORTIS DE SOUS LE PONT. La flotte est peinte AVANT le pont (passe

@@ -15,6 +15,13 @@
 // Positions en px MONDE (le repère de CM.citizens : cellule × CM.TILE), aux pieds.
 // Double tampon de tableaux typés : pas une allocation par figure et par frame.
 // Pur : n'importe rien, ne dessine rien.
+//
+// LOT 6 (« un seul peuple ») : les gens des SCÈNES s'y inscrivent aussi (voyageurs du
+// bac, laboureurs et moissonneurs, accoudés des ponts), et la frame précédente est
+// rangée par CASES de 64 px à la première question (`figNear` parcourait toute la
+// liste — un millier de figures — pour chaque pigeon, chaque mouette, chaque héron).
+// `figAhead` sert à s'éviter (agents.js : un pas de côté devant quelqu'un) et
+// `figFree` à savoir si une place est libre (un fait divers qui veut se poser).
 
 const CAP = 8192;
 let cur = { x: new Float32Array(CAP), y: new Float32Array(CAP), f: new Uint8Array(CAP), n: 0 };
@@ -23,9 +30,38 @@ let prev = { x: new Float32Array(CAP), y: new Float32Array(CAP), f: new Uint8Arr
 // Genres de figures (bits de `f`, avec MOVING en bit 0).
 export const FIG = { MOVING: 1, STREET: 2, PLAZA: 4, QUAY: 8, PORT: 16, RIOT: 32, SCENE: 64 };
 
+// Le rangement par cases de la frame précédente, refait à la première question.
+const CELL = 64;
+const _head = new Map(), _next = new Int32Array(CAP);
+let _stamp = 0, _hashed = -1;
+const cellKey = (cx, cy) => (cx + 4096) * 8192 + (cy + 4096);
+function ensureHash() {
+  if (_hashed === _stamp) return;
+  _hashed = _stamp; _head.clear();
+  for (let i = 0; i < prev.n; i += 1) {
+    const k = cellKey(Math.floor(prev.x[i] / CELL), Math.floor(prev.y[i] / CELL));
+    const h = _head.get(k);
+    _next[i] = h === undefined ? -1 : h;
+    _head.set(k, i);
+  }
+}
+// Visite les figures dont la case touche le carré [x ± r, y ± r] : fn(i) — `true` arrête.
+function visit(x, y, r, fn) {
+  ensureHash();
+  const c0 = Math.floor((x - r) / CELL), c1 = Math.floor((x + r) / CELL);
+  const d0 = Math.floor((y - r) / CELL), d1 = Math.floor((y + r) / CELL);
+  for (let cx = c0; cx <= c1; cx += 1) {
+    for (let cy = d0; cy <= d1; cy += 1) {
+      for (let i = _head.get(cellKey(cx, cy)); i !== undefined && i >= 0; i = _next[i]) if (fn(i) === true) return true;
+    }
+  }
+  return false;
+}
+
 // Début de frame : la frame qui s'achève devient la référence lue par tous.
 export function figuresBeginFrame() {
   const t = prev; prev = cur; cur = t; cur.n = 0;
+  _stamp += 1;
 }
 
 // Une figure à (x, y) px monde ; `flags` = FIG.* (dont MOVING si elle marche).
@@ -44,12 +80,37 @@ export function eachFig(fn) {
 // Quelqu'un (qui marche, si `movingOnly`) à moins de `r` px de (x, y) ?
 export function figNear(x, y, r, movingOnly = true) {
   const r2 = r * r;
-  for (let i = 0; i < prev.n; i += 1) {
-    if (movingOnly && !(prev.f[i] & FIG.MOVING)) continue;
+  return visit(x, y, r, (i) => {
+    if (movingOnly && !(prev.f[i] & FIG.MOVING)) return false;
     const dx = prev.x[i] - x, dy = prev.y[i] - y;
-    if (dx * dx + dy * dy < r2) return true;
-  }
-  return false;
+    return dx * dx + dy * dy < r2;
+  });
+}
+
+// Personne, même immobile, à moins de `r` px : la place est libre.
+export const figFree = (x, y, r) => !figNear(x, y, r, false);
+
+// Quelqu'un DEVANT (ou à côté) ? Depuis (x, y), cap unitaire (hx, hy) : une figure
+// entre `back` px derrière et `r` px devant, à moins de `half` px de l'axe. Rend le
+// côté où elle se trouve (+1 à droite du cap, −1 à gauche) ou 0. On garde l'écart tant
+// que l'autre est À CÔTÉ (back) : relâché dès qu'il n'était plus devant, on lui
+// rentrait dedans au moment de le dépasser. Sa propre trace de la frame d'avant (un pas
+// derrière soi, à moins de `self` px) ne compte pas.
+export function figAhead(x, y, hx, hy, r, half, back = 0, self = 2.5) {
+  let best = Infinity, side = 0;
+  const s2 = self * self;
+  visit(x, y, r, (i) => {
+    const dx = prev.x[i] - x, dy = prev.y[i] - y;
+    const d2 = dx * dx + dy * dy;
+    if (d2 < s2 || d2 >= best) return false;
+    const a = dx * hx + dy * hy;
+    if (a <= -back || a >= r) return false;
+    const l = -dx * hy + dy * hx;
+    if (Math.abs(l) >= half) return false;
+    best = d2; side = l >= 0 ? 1 : -1;
+    return false;
+  });
+  return side;
 }
 
 export const figCount = () => prev.n;

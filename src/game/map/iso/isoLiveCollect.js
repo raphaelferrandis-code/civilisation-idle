@@ -178,7 +178,13 @@ export function collectIsoItems(bake, now) {
   }
   // LE LABOUREUR (docs/PLAN-TERROIR.md) : les attelages du terroir, chacun à sa
   // profondeur — sur la parcelle, donc toujours devant elle (triée au coin nord).
+  const nT0 = items.length;
   pushTerroirTeams(items, L, band, now);
+  // Lot 6 : les laboureurs et les moissonneurs dans le registre des figures.
+  for (let i = nT0; i < items.length; i += 1) {
+    const q = items[i].team;
+    if (q) noteFig(q.x * T, q.y * T, FIG.SCENE | (q.walking !== false ? FIG.MOVING : 0));
+  }
   // BATEAUX À QUAI (docs/PLAN-BATEAUX.md, lot 4) : un marchand amarré au ponton —
   // ou qui s'y range — est trié avec lui (pose calculée par drawIsoShips, plus tôt
   // dans la frame). Même contact visuel que le bateau-décor qu'il remplace.
@@ -198,7 +204,11 @@ export function collectIsoItems(bake, now) {
     }
   }
   // PETITES SCÈNES DU FLEUVE : embarcadères et voyageurs du passeur (iso/boatScenes.js).
-  for (const it of fleetSceneItems(now, band)) items.push(it);
+  for (const it of fleetSceneItems(now, band)) {
+    items.push(it);
+    // Lot 6 : ceux qui attendent le bac, qui y montent ou en descendent.
+    if (it.what === 'traveller') noteFig(it.x * T, it.y * T, FIG.SCENE | (it.walking ? FIG.MOVING : 0));
+  }
   // REPÈRES CIVIQUES (isoDistricts) : les emprises de district deviennent des
   // pseudo-tiles moteur — même item 'tile', même peintre, même scène span-aware,
   // même survol. PAS de poussé de front (cf. le marqueur __district) : une masse

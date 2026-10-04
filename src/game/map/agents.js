@@ -9,6 +9,7 @@ import { snapDev } from './blitSnap.js';
 import { drawSunShadow } from './iso/isoSunShadow.js';
 import { walkPath, walkNearest, walkComponent } from './citizenRoute.js';
 import { dayPhase, citizenTraits, homeTime, dawnFor, pickAgenda, dwellFor, paceFor } from './citizenDay.js';
+import { figAhead } from './figures.js';
 
 /* ---- legacy citymap rendering\agents.js ---- */
 
@@ -1566,6 +1567,11 @@ function citizenGreetings() {
 }
 
 const RAIN_RETHINK = new Set(['plaza', 'wonder', 'wander', 'cross', 'night']);
+// L'évitement (lot 6), en cases : on regarde `reach` devant soi (et `back` derrière,
+// le temps de dépasser), dans un couloir de ± `half`, et l'on s'écarte de `step`.
+// Molette : __avoid({ on, reach, half, step, back }).
+export const AVOID = { on: true, reach: 0.6, half: 0.24, step: 0.22, back: 0.3 };
+if (typeof window !== 'undefined') window.__avoid = (o) => { if (o) Object.assign(AVOID, o); return { ...AVOID }; };
 function updateCitizens(dt) {
   if (!CM.walkRoadList.length) return;
 
@@ -1856,7 +1862,22 @@ function updateCitizens(dt) {
     // changement d'axe du bord (±edge en X ↔ ±edge en Y) devenait un « dash » en
     // travers de la route (vu par Raph). Étalé sur l'avancée, le virage devient un
     // arc qui coupe le coin ; à l'arrêt (pause), l'offset ne glisse plus du tout.
-    const tox = p.tox || 0, toy = p.toy || 0;
+    // ON S'ÉVITE (docs/PLAN-COMPORTEMENTS.md, lot 6) : quelqu'un juste devant — passant,
+    // flâneur de place, promeneur du quai, porteur, voyageur du bac… (le registre de la
+    // frame d'avant, figures.js) — et l'on fait un pas de côté, du côté libre, le temps
+    // de le croiser ; puis on reprend son bord. Ils se traversaient. Le compagnon suit
+    // son meneur, il ne décide pas.
+    if (moved > 0 && !p.lead && AVOID.on) {
+      const hx = p.tx - p.x, hy = p.ty - p.y, hl = Math.hypot(hx, hy);
+      if (hl > 0.01) {
+        const side = figAhead(p.x + (p.lox || 0), p.y + (p.loy || 0), hx / hl, hy / hl, CM.TILE * AVOID.reach, CM.TILE * AVOID.half, CM.TILE * AVOID.back);
+        const want = side ? -side * CM.TILE * AVOID.step : 0;
+        p._dodge = (p._dodge || 0) + (want - (p._dodge || 0)) * Math.min(1, dt * 5);
+        p._dhx = -hy / hl; p._dhy = hx / hl;          // la droite du cap
+      }
+    } else if (p._dodge) p._dodge *= Math.max(0, 1 - dt * 3);
+    const dgx = (p._dodge || 0) * (p._dhx || 0), dgy = (p._dodge || 0) * (p._dhy || 0);
+    const tox = (p.tox || 0) + dgx, toy = (p.toy || 0) + dgy;
     if (p.lox === undefined) { p.lox = tox; p.loy = toy; }
     else if (moved > 0) {
       const Lt = CM.TILE * ((typeof window !== 'undefined' && window.__pedTurn != null) ? window.__pedTurn : 0.9);
@@ -1864,6 +1885,9 @@ function updateCitizens(dt) {
       p.lox += (tox - p.lox) * k;
       p.loy += (toy - p.loy) * k;
     }
+    // Le pas de côté est vif (le lissage du bord, lui, s'étale sur ~1 case de marche).
+    p.lox += dgx - (p._dgx || 0); p.loy += dgy - (p._dgy || 0);
+    p._dgx = dgx; p._dgy = dgy;
   }
   citizenGreetings();
   // Compaction : les partants rentrés quittent la liste. Filtre alloué SEULEMENT
