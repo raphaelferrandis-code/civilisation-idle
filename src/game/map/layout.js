@@ -19,7 +19,7 @@ import { PORT_SITES, BASIN_NORTH_QUAY, oldPortBasinFor, basinCells, tradePortSit
 import { terrainFieldU, terrainFlatR } from './procedural/terrainField.js';
 import { ROAD_LINK_WAVE_FRACTION } from '../core/balance.js';
 import { createBuildingPlacer, placeCategorySlotted, VARIANTS_HOUSE, houseFootprint } from './procedural/buildingGenerator.js';
-import { planIlots, ilotReachFor } from './ilotLayout.js';
+import { planIlots, ilotReachFor, ilotMemoryCells } from './ilotLayout.js';
 import { ILOT_BANDS, ANNEX_BODIES, annexOwnArt, ROWS } from './ilotArt.js';
 import { createWaterModel } from './procedural/waterModel.js';
 import { planHighway, vergeCells } from './procedural/highwayPlan.js';
@@ -3015,6 +3015,10 @@ function computeCityLayout(s) {
   //   - le tout est FIGÉ dans `s.cityCore` (central, quarters).
   // (En mode îlots, la structure — places, artère, jardins — vient des îlots.)
   const townOn = memOn && CITY_QUARTERS.on && !ilotMode;
+  // (Mode îlots) les îlots déjà OUVERTS — intérieurs et rues de pourtour, lus dans la
+  // mémoire : ce qui se pose avant planIlots (port de commerce, merveille neuve) se
+  // tient hors d'eux, sans rogner la ville déjà bâtie.
+  const ilotBuilt = ilotMode && s.cityCore ? ilotMemoryCells({ core: plan.core, bx: Math.round(riverBridge.x), memory: s.cityCore.ilot }) : null;
   const townReserve = new Set();   // jamais bâti (sites de place) — passable
   const townGreen = new Set();     // repeint en herbe (prés, jardins, ceintures)
   const townGardens = new Set();   // jardins + ceintures seuls : la desserte les contourne
@@ -3022,6 +3026,32 @@ function computeCityLayout(s) {
   const townSites = [];            // tous les sites (central + quartiers), pour les merveilles
   let centralSite = null, arteryAx = null, arteryRoad = [];
   let tradePort = null;            // terre-plein du port de commerce (lot P2), cf. plus bas
+  // Le terre-plein du port de commerce : relu dans cityCore.ports.trade, sinon fondé
+  // (cf. LE PORT DE COMMERCE, plus bas). `blocked(k)` : cases en plus à éviter (sites
+  // de place ; îlots ouverts). `recheck` (îlots) : un terre-plein fondé AVANT la
+  // réorganisation peut se trouver sous les îlots — on le refonde alors ailleurs.
+  const foundTradePort = (blocked, arteryX, recheck) => {
+    const plR = plaisirsSpot ? (plaisirsSpot.clear || 0) + PORT_SITES.tradeGap : 0;
+    const free = (x, y) => {
+      const k = x + "," + y;
+      if (heldBy.has(k) || frozenWonderCells.has(k) || blocked(k)) return false;
+      if (oldBasinQuay && oldBasinQuay.has(k)) return false;
+      return !(plaisirsSpot && Math.hypot(x + 0.5 - plaisirsSpot.x, y + 0.5 - plaisirsSpot.y) <= plR);
+    };
+    const ft = (s.cityCore.ports || {}).trade;
+    let tp = ft ? { x0: cx + ft.dx, len: ft.len, side: ft.side, depth: ft.depth, edge: ft.edge.map((v) => cy + v) } : null;
+    if (tp && recheck && !tradeCells(tp).every(([x, y]) => free(x, y))) tp = null;
+    if (!tp) {
+      tp = tradePortSiteFor({
+        N, isWater: (x, y) => riverSet.has(x + "," + y), riverYAt, riverHwAt,
+        inCity: (x, y) => organicLimit(x, y, PORT_SITES.tradeGap),
+        free,
+        coreX: plan.core.x, downX: plaisirsSpot ? plaisirsSpot.x : plan.core.x + 1, bridgeX: riverBridge.x, arteryAx: arteryX,
+      });
+      if (tp) s.cityCore.ports = { ...(s.cityCore.ports || {}), trade: { dx: tp.x0 - cx, len: tp.len, side: tp.side, depth: tp.depth, edge: tp.edge.map((v) => v - cy) } };
+    }
+    return tp;
+  };
   if (townOn) {
     const CQ = CITY_QUARTERS;
     const ax = Math.round(riverBridge.x);
@@ -3126,24 +3156,7 @@ function computeCityLayout(s) {
     // fois et figé (cityCore.ports.trade), réservé à sa taille MAXIMALE : il grandit
     // avec les Ports achetés sans déloger personne. Jamais sur une cellule tenue.
     if (portsSplit) {
-      const fixP = s.cityCore.ports || {};
-      const ft = fixP.trade;
-      let tp = ft ? { x0: cx + ft.dx, len: ft.len, side: ft.side, depth: ft.depth, edge: ft.edge.map((v) => cy + v) } : null;
-      if (!tp) {
-        const plR = plaisirsSpot ? (plaisirsSpot.clear || 0) + PORT_SITES.tradeGap : 0;
-        tp = tradePortSiteFor({
-          N, isWater: (x, y) => riverSet.has(x + "," + y), riverYAt, riverHwAt,
-          inCity: (x, y) => organicLimit(x, y, PORT_SITES.tradeGap),
-          free: (x, y) => {
-            const k = x + "," + y;
-            if (heldBy.has(k) || frozenWonderCells.has(k) || siteCells.has(k)) return false;
-            if (oldBasinQuay && oldBasinQuay.has(k)) return false;
-            return !(plaisirsSpot && Math.hypot(x + 0.5 - plaisirsSpot.x, y + 0.5 - plaisirsSpot.y) <= plR);
-          },
-          coreX: plan.core.x, downX: plaisirsSpot ? plaisirsSpot.x : plan.core.x + 1, bridgeX: riverBridge.x, arteryAx: ax,
-        });
-        if (tp) s.cityCore.ports = { ...(s.cityCore.ports || {}), trade: { dx: tp.x0 - cx, len: tp.len, side: tp.side, depth: tp.depth, edge: tp.edge.map((v) => v - cy) } };
-      }
+      const tp = foundTradePort((k) => siteCells.has(k), ax, false);
       if (tp) {
         tradePort = tp;
         for (const [x, y] of tradeCells(tp)) townReserve.add(x + "," + y);
@@ -3152,6 +3165,20 @@ function computeCityLayout(s) {
         const dir = tp.side === "N" ? 1 : -1, mi = Math.floor(tp.len / 2);
         townSites.push({ gx: tp.x0 + mi, gy: tp.edge[mi] - dir * tp.depth, size: 2, kind: "port" });
       }
+    }
+  }
+
+  // Mode îlots : le port de commerce garde son placement dédié (PLAN-ILOTS : « champs,
+  // moulins et port gardent leur placement dédié ») — il était resté dans le bloc
+  // `townOn`, et plus aucun port de commerce ne se fondait des bandes 5 à 9. Hors des
+  // îlots ouverts, le cardo (colonne du pont) tenant le rôle de l'artère ; son terrain
+  // est réservé (jamais bâti), planIlots le contourne, sa rue d'accès est tracée
+  // après les rues d'îlots.
+  if (ilotMode && portsSplit) {
+    const tp = foundTradePort((k) => !!ilotBuilt && ilotBuilt.has(k), Math.round(riverBridge.x), true);
+    if (tp) {
+      tradePort = tp;
+      for (const [x, y] of tradeCells(tp)) townReserve.add(x + "," + y);
     }
   }
 
@@ -3304,7 +3331,8 @@ function computeCityLayout(s) {
   // ni merveille, ni Plaisirs), du milieu de son arrière jusqu'au réseau stable le
   // plus proche — posé dans le squelette et dans memKeep (aucun émondage n'y touche), rang
   // `secondary` : une vraie rue de desserte. La mémoire des rues la garde ensuite.
-  if (tradePort && roadKey.size) {
+  // `avoid` (mode îlots) : les intérieurs d'îlots, que la rue contourne.
+  const routeTradePort = (avoid) => {
     const dirT = tradePort.side === "N" ? 1 : -1, mi = Math.floor(tradePort.len / 2);
     const sx = tradePort.x0 + mi, sy = tradePort.edge[mi] - dirT * tradePort.depth;
     const plR = plaisirsSpot ? (plaisirsSpot.clear || 0) + 1 : 0;
@@ -3312,6 +3340,7 @@ function computeCityLayout(s) {
       if (x < 1 || y < 1 || x >= N - 1 || y >= N - 1) return false;
       const k = x + "," + y;
       if (riverSet.has(k) || heldBy.has(k) || frozenWonderCells.has(k)) return false;
+      if (avoid && avoid.has(k)) return false;
       return !(plaisirsSpot && Math.hypot(x + 0.5 - plaisirsSpot.x, y + 0.5 - plaisirsSpot.y) <= plR);
     };
     const par = new Map([[sx + "," + sy, null]]), q = [[sx, sy]];
@@ -3351,7 +3380,9 @@ function computeCityLayout(s) {
       const hm = roadMeta.get(hit), hy = xy(hit)[1], py = xy(chain[1] || hit)[1];
       if (hm) { if (py === hy) hm.h = true; else hm.v = true; }
     }
-  }
+  };
+  // (Mode îlots : aucun réseau ici — la rue se trace après les rues d'îlots.)
+  if (tradePort && roadKey.size && !ilotMode) routeTradePort(null);
   // ── LES EXTENSIONS PLANIFIÉES (lot L5, « fais toutes les ères ») ───────────
   // À partir de la cité, le plan de l'ère (rocades, damier, mégalopole) est tracé
   // comme avant… mais uniquement sur le TERRAIN NEUF. Toute cellule tracée à moins
@@ -3592,6 +3623,10 @@ function computeCityLayout(s) {
   // libre : ni artère, ni site de place, ni bâtiment déjà posé, et WONDER_GAP
   // cases au moins de tout autre parvis. Les merveilles déjà érigées sont figées
   // (plus bas) ; leur emprise compte dès le départ.
+  // En mode îlots aussi (revue du 04/10) : sans cette garde, une merveille neuve
+  // (Cathédrale, Œil…) se posait sur les îlots déjà bâtis et en délogeait les
+  // maisons et les halles. Là, elle évite en plus les îlots ouverts (ilotBuilt).
+  const wonderGuard = townOn || ilotMode;
   const WONDER_GAP = 4;
   const wonderTaken = new Set(frozenWonderCells);
   const wonderFits = (w) => (gx, gy) => {
@@ -3602,6 +3637,7 @@ function computeCityLayout(s) {
         if (wonderTaken.has(k)) return false;
         if (Math.abs(dx) > r || Math.abs(dy) > r) continue;
         if (townReserve.has(k) || heldBy.has(k)) return false;
+        if (ilotBuilt && ilotBuilt.has(k)) return false;
         if (arteryAx != null && (x === arteryAx || x === arteryAx + 1)) return false;
       }
     }
@@ -3609,12 +3645,12 @@ function computeCityLayout(s) {
   };
   const wonderSlots = [];
   CM_WONDERS.forEach((w, wi) => {
-    const own = townOn && builtWonderIds.has(w.id) && !(s.cityCore && s.cityCore.wonders && s.cityCore.wonders[w.id]);
+    const own = wonderGuard && builtWonderIds.has(w.id) && !(s.cityCore && s.cityCore.wonders && s.cityCore.wonders[w.id]);
     const slot = w.id === "era_mega"
       ? cmWetWonderSlot(wi, N, cx, cy, riverYAt, riverSet, cityReachBase, bridgeGx)
       : cmDryWonderSlot(wi, N, cx, cy, riverSet, bankSet, plazasFor(w), cityReachBase, own ? wonderFits(w) : null);
     wonderSlots.push(slot);
-    if (townOn && builtWonderIds.has(w.id) && w.id !== "era_mega") {
+    if (wonderGuard && builtWonderIds.has(w.id) && w.id !== "era_mega") {
       const f = s.cityCore && s.cityCore.wonders && s.cityCore.wonders[w.id];
       const at = f ? { gx: cx + f[0], gy: cy + f[1] } : slot;
       cmForEachWonderCell(at, w.id, N, (gx, gy, k) => wonderTaken.add(k), tierOf(w.id));
@@ -3781,11 +3817,19 @@ function computeCityLayout(s) {
       for (let dy = -3; dy <= 3; dy += 1) for (let dx = -3; dx <= 3; dx += 1) ruralCells.add((x + dx) + "," + (y + dy));
     }
     const ruralHeld = (k) => ruralCells.has(k);
+    // Le terre-plein du port de commerce, et la rangée juste derrière (sa rue
+    // d'accès y part) : ni îlot ni rue d'îlot dessus.
+    const tradeHeld = new Set();
+    if (tradePort) {
+      const dirT = tradePort.side === "N" ? 1 : -1;
+      for (const [x, y] of tradeCells(tradePort)) tradeHeld.add(x + "," + y);
+      for (let i = 0; i < tradePort.len; i += 1) tradeHeld.add((tradePort.x0 + i) + "," + (tradePort.edge[i] - dirT * tradePort.depth));
+    }
     ilot = planIlots({
       N, cx, cy, core: plan.core, bx: Math.round(riverBridge.x),
       isWet: (x, y) => riverSet.has(x + "," + y),
       isBank: (x, y) => bankSet.has(x + "," + y),
-      isReserved: (x, y) => { const k = x + "," + y; return wonderCells.has(k) || plaisirsClear.has(k); },
+      isReserved: (x, y) => { const k = x + "," + y; return wonderCells.has(k) || plaisirsClear.has(k) || tradeHeld.has(k); },
       isRural: (x, y) => ruralHeld(x + "," + y),
       isHeld: (x, y) => !!heldBy && heldBy.has(x + "," + y),
       heldOwner: (x, y) => (heldBy && heldBy.get(x + "," + y)) || null,
@@ -3813,6 +3857,13 @@ function computeCityLayout(s) {
         roadMeta.set(k, { h: true, v: true, rank: "plaza" });
         memKeep.add(k);
       }
+    }
+    // La rue du port de commerce, maintenant que les rues d'îlots existent : elle
+    // rejoint la plus proche sans traverser un îlot.
+    if (tradePort) {
+      const inner = new Set();
+      for (const b of ilot.blocks) for (const c2 of b.cells) inner.add(c2.x + "," + c2.y);
+      routeTradePort(inner);
     }
   }
   // FOYER DU CAMPEMENT (cf. CAMP_HEARTH) : la cellule du cœur et ses huit

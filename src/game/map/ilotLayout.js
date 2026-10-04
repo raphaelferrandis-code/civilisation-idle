@@ -39,6 +39,39 @@ const hash = (str) => {
 };
 const bkey = (b) => b.i + ":" + b.j;
 
+// ÎLOTS LONGS le long des axes (Raph 2026-10-04) : les îlots qui bordent le
+// decumanus (j = −1, 0) se marient deux à deux le long de X, ceux qui bordent le
+// cardo (i = −1, 0) le long de Y — de longues rangées sur les grandes rues, comme
+// les insulae d'une via. Les quatre îlots du croisement restent carrés (le forum).
+const odd = (n) => ((n % 2) + 2) % 2 === 1;
+function ilotMerge(i, j) {
+  const onDecu = j === -1 || j === 0, onCardo = i === -1 || i === 0;
+  if (onDecu && !onCardo && odd(i)) return "x";
+  if (onCardo && !onDecu && odd(j)) return "y";
+  return null;
+}
+
+/**
+ * Les cellules (intérieurs ET rues de pourtour) des îlots déjà OUVERTS, lus dans
+ * la mémoire (`cityCore.ilot.blocks`) — même grille que planIlots. Pour ce qui se
+ * pose AVANT les îlots (merveille neuve, port de commerce) : le garder hors de la
+ * ville déjà bâtie au lieu de rogner ses îlots.
+ */
+export function ilotMemoryCells({ core, bx, memory, pitch = ILOT_DEFAULTS.pitch }) {
+  const out = new Set();
+  const keys = memory && Array.isArray(memory.blocks) ? memory.blocks : [];
+  if (!keys.length) return out;
+  const grid = gridOf({ ox: bx, oy: Math.round(core.y), pitch, merge: ilotMerge });
+  for (const k of keys) {
+    const ci = String(k).indexOf(":");
+    const i = Number(String(k).slice(0, ci)), j = Number(String(k).slice(ci + 1));
+    if (ci < 0 || !Number.isInteger(i) || !Number.isInteger(j)) continue;
+    const { x0, y0, x1, y1 } = grid.interior(i, j);
+    for (let y = y0 - 1; y <= y1 + 1; y += 1) for (let x = x0 - 1; x <= x1 + 1; x += 1) out.add(x + "," + y);
+  }
+  return out;
+}
+
 /**
  * Rayon (en cases) d'une ville par îlots qui logerait ce contenu. Sert à caler
  * ce qui, ailleurs, se pose « au bord de la ville » (merveilles, champs).
@@ -69,18 +102,7 @@ export function planIlots(o) {
   const pitch = o.pitch || ILOT_DEFAULTS.pitch;
   const mem = o.memory || {};
   const oy = Math.round(core.y);
-  // ÎLOTS LONGS le long des axes (Raph 2026-10-04) : les îlots qui bordent le
-  // decumanus (j = −1, 0) se marient deux à deux le long de X, ceux qui bordent le
-  // cardo (i = −1, 0) le long de Y — de longues rangées sur les grandes rues, comme
-  // les insulae d'une via. Les quatre îlots du croisement restent carrés (le forum).
-  const odd = (n) => ((n % 2) + 2) % 2 === 1;
-  const merge = (i, j) => {
-    const onDecu = j === -1 || j === 0, onCardo = i === -1 || i === 0;
-    if (onDecu && !onCardo && odd(i)) return "x";
-    if (onCardo && !onDecu && odd(j)) return "y";
-    return null;
-  };
-  const grid = gridOf({ ox: bx, oy, pitch, merge });
+  const grid = gridOf({ ox: bx, oy, pitch, merge: ilotMerge });
   const twin = bx + 1;
   const inGrid = (x, y) => x >= 1 && y >= 1 && x < N - 1 && y < N - 1;
   // La 2e voie du cardo n'est jamais un lot : c'est la rue, de bout en bout.
