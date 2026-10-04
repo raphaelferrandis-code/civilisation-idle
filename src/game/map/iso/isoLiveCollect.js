@@ -285,7 +285,7 @@ export function collectIsoItems(bake, now) {
         // Culling par une boîte d'UNE cellule autour du pied : un prop monte
         // au-dessus de son point d'ancrage, un test sur le point seul le ferait
         // disparaître au ras du bord haut de l'écran.
-        isoPlazaItems(L, band, pushItem, (wx, wy) => dvVis(wx - T, wy - T, wx + T, wy + T));
+        isoPlazaItems(L, band, pushItem, (wx, wy) => dvVis(wx - T, wy - T, wx + T, wy + T), now);
       } else if (isoPlazaSceneOn(band)) {
         const pArt = isoArt('plaza-' + pKey);
         if (pArt.ready) {

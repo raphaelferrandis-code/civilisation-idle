@@ -60,6 +60,7 @@
 import { CM, cmHash, treeCanvasT } from '../layout.js';
 import { solInvalidate } from './solInvalidate.js';
 import { AGENT_SCALE, agentSetForBand, agentSpecFor, drawNamedAgentIso } from '../agents.js';
+import { buildFolk, folkAt, folkRev } from './plazaFolk.js';
 import { worldToScreen, depthOf } from './projection.js';
 import { lightCutImage, lightCtx } from '../lightLayer.js';
 import { drawSunShadow } from './isoSunShadow.js';
@@ -1165,64 +1166,58 @@ function composeOne(L, era, box) {
       add(pick.prop, face, fx, fy, hOf(pick.prop, pick), { field: true });
     }
   }
-  // 6. DES GENS QUI S'ARRÊTENT (kits par sorte). Des habitants de l'ère, IMMOBILES
-  //    (première image de leur bande de marche : pieds joints), posés au filet
-  //    comme le mobilier — autour de la pièce maîtresse, en petits groupes qui se
-  //    font face, ou devant les étals, tournés vers la marchandise.
+  // 6. DES GENS QUI FLÂNENT (kits par sorte). Ce furent des figurants IMMOBILES,
+  //    un ou deux devant chaque étal, ou en groupes sur un anneau autour de la
+  //    fontaine — vus d'en haut, un cercle parfait : « là ça fait secte ^^ » (Raph,
+  //    2026-10-04). Ils vivent maintenant dans plazaFolk.js : ils se promènent
+  //    autour du mobilier, s'arrêtent aux étals, à la fontaine, se retrouvent pour
+  //    causer, repartent, quittent la place par une rue et d'autres arrivent.
+  //    Plus aucun passant n'entre dans `props` : ils sont poussés à chaque frame
+  //    par pushOne, à leur position du moment.
+  //    DEUX TESTS, PAS UN. Le filet (`placed`) est une empreinte ÉCRAN, faite pour
+  //    que deux objets ne se recouvrent pas à l'image : pour un piéton elle est
+  //    bien trop large — un arbre de part et d'autre de la fontaine coupait la
+  //    place en deux, les bancs fermaient le square. On MARCHE donc sur la base
+  //    au sol des objets (`walkFree`, ci-dessous) — passer devant ou derrière une
+  //    fontaine est permis, c'est le peintre qui trie — mais on ne S'ARRÊTE que
+  //    là où le filet passe (`stand`) : personne ne reste planté dans un étal.
+  let folk = null;
   if (R.people) {
     const band = (L.counts && L.counts.eraBand) | 0;
     const set = agentSetForBand(band);
     const pH = personHT();
-    const face = (fx, fy, tx, ty) => {
-      const dx = tx - fx, dy = ty - fy;
-      return Math.abs(dx) >= Math.abs(dy) ? (dx >= 0 ? 0 : 1) : (dy >= 0 ? 2 : 3);
-    };
-    let pi = 0;
-    const person = (gxf, gyf, dir) => {
-      const r = h01('plz' + sd + ':p:' + pi);
-      const charType = r < 0.46 ? 0 : r < 0.9 ? 1 : 2;
-      const spec = agentSpecFor(set, charType, Math.floor(h01('plz' + sd + ':pv:' + pi) * 4));
-      pi += 1;
-      if (!spec || !fits(gxf, gyf, 'person', pH)) return false;
-      const wx = gxf * T, wy = gyf * T;
-      props.push({ prop: 'person', variant: null, wx, wy, hT: pH, d: depthOf(wx, wy), name: spec.name, scale: spec.scale, dir });
+    const obst = placed.slice();
+    const stand = (x, y) => {
+      const f = foot(x, y, 'person', pH);
+      for (const o2 of obst) if (footClash(f, o2, PLAZA_TUNE.minGap)) return false;
       return true;
     };
-    if (R.people.mode === 'stalls') {
-      // Devant chaque étal, côté centre : un ou deux acheteurs qui le regardent.
-      for (let k = 0; k < stalls.length; k += 1) {
-        const s0 = stalls[k];
-        const vx = cxc - s0.x, vy = cyc - s0.y, vl = Math.hypot(vx, vy) || 1;
-        const nx = vx / vl, ny = vy / vl;
-        const n = Math.max(1, R.people.perItem | 0);
-        for (let j = 0; j < n; j += 1) {
-          const lat = (j - (n - 1) / 2) * 0.42;
-          const px0 = s0.x + nx * 0.78 - ny * lat, py0 = s0.y + ny * 0.78 + nx * lat;
-          if (h01('plz' + sd + ':ps:' + k + ':' + j) < 0.8) person(px0, py0, face(px0, py0, s0.x, s0.y));
-        }
-      }
-    } else {
-      // Autour de la pièce maîtresse : groupes de 2 ou 3 sur un anneau juste
-      // au-delà de son bord, le premier regarde le centre, les autres lui.
-      const hc = R.centre ? hOf(R.centre.prop, R.centre) : pH;
-      const ring = (hc * aspectOf(R.centre ? R.centre.prop : 'person')) * 0.5 + 0.55;
-      const want = R.people.n | 0;
-      const groups = Math.max(1, Math.round(want / 2.5));
-      const a0 = h01('plz' + sd + ':pa') * Math.PI * 2;
-      let posed = 0;
-      for (let gI = 0; gI < groups && posed < want; gI += 1) {
-        const ang = a0 + (gI / groups) * Math.PI * 2 + (h01('plz' + sd + ':pg:' + gI) - 0.5) * 0.6;
-        const size = Math.min(want - posed, h01('plz' + sd + ':pn:' + gI) < 0.5 ? 2 : 3);
-        const lx = cxc + Math.cos(ang) * ring, ly = cyc + Math.sin(ang) * ring;
-        const tx = -Math.sin(ang), ty = Math.cos(ang);
-        for (let j = 0; j < size; j += 1) {
-          const u = (j - (size - 1) / 2) * 0.4;
-          const px0 = lx + tx * u, py0 = ly + ty * u;
-          const dir = j === 0 ? face(px0, py0, cxc, cyc) : face(px0, py0, lx, ly);
-          if (person(px0, py0, dir)) posed += 1;
-        }
-      }
-    }
+    const bases = plazaBases(props, lamps, T);
+    const walkFree = (x, y) => {
+      for (const b of bases) if (Math.abs(x - b.cx) < b.ex + FOLK_R && Math.abs(y - b.cy) < b.ey + FOLK_R) return false;
+      return true;
+    };
+    const cellSet = new Set(cells.map((c) => c.gx + ',' + c.gy));
+    const n = R.people.mode === 'stalls'
+      ? Math.round(stalls.length * Math.max(1, R.people.perItem | 0) * 0.8)
+      : (R.people.n | 0);
+    folk = buildFolk({
+      sd: 'plz' + sd, box, cx: cxc, cy: cyc, n, mode: R.people.mode,
+      inPlaza: (gx, gy) => cellSet.has(gx + ',' + gy), free: walkFree, stand,
+      stalls, exits: plazaExits(L, cells, cellSet),
+      centre: centrePris && R.centre ? { x: cxc, y: cyc, prop: String(R.centre.prop).split('-')[0] } : null,
+      // UN VISAGE PAR VENUE : celui qui revient sur la place après l'avoir quittée
+      // est quelqu'un d'autre. `charType` et `figSeed` fondent son identité de fiche
+      // (citizenFocus.js).
+      ident: (i, run) => {
+        const kk = 'plz' + sd + ':fp:' + i + ':' + run;
+        const r = h01(kk + ':c');
+        const charType = r < 0.46 ? 0 : r < 0.9 ? 1 : 2;
+        const spec = agentSpecFor(set, charType, Math.floor(h01(kk + ':v') * 4));
+        if (!spec) return null;
+        return { name: spec.name, scale: spec.scale, charType, figSeed: Math.floor(h01(kk + ':id') * 4294967295) >>> 0 };
+      },
+    });
   }
   // 7. LES FANIONS. Triés à la profondeur de leur bout le plus proche, ils passent
   //    devant ce qui est derrière eux et sous ce qui est devant.
@@ -1258,7 +1253,58 @@ function composeOne(L, era, box) {
   }
   props.sort((a, b) => a.d - b.d);
 
-  return { box, era, kind, w, h, cxc, cyc, cells, props, benchPerSide, trees, centrePris, lamps };
+  return { box, era, kind, w, h, cxc, cyc, cells, props, benchPerSide, trees, centrePris, lamps, folk };
+}
+
+// LA BASE AU SOL DU MOBILIER, en cellules — ce que heurte un flâneur. Un prop est
+// ancré par le BAS de son encre (plazaAnchor) : sa base part de ce point et
+// recule dans la profondeur (vers −x −y). Une encre de largeur W (unités sx de
+// propFootprint) couvre une base carrée de côté W/2 ; l'étal et le banc, tournés
+// vers le centre, sont des rectangles (long le long du bord, peu profonds). Un
+// arbre ne gêne que par son TRONC — on passe sous sa couronne. Un mât : son pied.
+const FOLK_R = 0.12;                        // demi-largeur d'un flâneur (cellules)
+const BASE_DEPTH = { stall: 0.45, bench: 0.35 };
+function plazaBases(props, lamps, T) {
+  const out = [];
+  for (const p of props) {
+    if (p.prop === 'garland' || p.front) continue;
+    const fam = String(p.prop).split('-')[0];
+    const ax = p.wx / T, ay = p.wy / T;
+    if (fam === 'tree') { out.push({ cx: ax, cy: ay, ex: 0.16, ey: 0.16 }); continue; }
+    const W = (p.hT || 0) * aspectOf(p.prop);
+    let ex = W / 4, ey = W / 4;
+    const r = BASE_DEPTH[fam];
+    if (r != null && p.variant) {
+      const long = W / (1 + r) / 2, deep = long * r;
+      const alongX = p.variant === 'n' || p.variant === 's';
+      ex = alongX ? long : deep; ey = alongX ? deep : long;
+    }
+    const back = (ex + ey) / 2;
+    out.push({ cx: ax - back, cy: ay - back, ex, ey });
+  }
+  for (const lp of lamps) out.push({ cx: lp.wx / T, cy: lp.wy / T, ex: 0.08, ey: 0.08 });
+  return out;
+}
+
+// LES ENTRÉES DE LA PLACE : chaque arête où une rue l'aborde (c'est aussi là que la
+// grille du square laisse sa porte, cf. fenceEdges `gateOnRoad`). `a` = l'ancre côté
+// place, `o` = le point de fuite, à mi-chemin dans la cellule de rue.
+function plazaExits(L, cells, cellSet) {
+  const out = [];
+  if (!L.roadMap) return out;
+  for (const c of cells) {
+    for (const [dx, dy] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) {
+      const nk = (c.gx + dx) + ',' + (c.gy + dy);
+      if (cellSet.has(nk)) continue;
+      const rc = L.roadMap.get(nk);
+      if (!rc || rc.rank === 'plaza' || rc.roadSurface === 'bridge') continue;
+      out.push({
+        ax: c.gx + 0.5 + dx * 0.2, ay: c.gy + 0.5 + dy * 0.2,
+        ox: c.gx + 0.5 + dx * 0.95, oy: c.gy + 0.5 + dy * 0.95,
+      });
+    }
+  }
+  return out;
 }
 
 // TOUTES les places de la ville, mémoïsées ensemble.
@@ -1268,7 +1314,7 @@ export function isoPlazaCompositions(L, band) {
   // ⚠ AGENT_SCALE et le nombre de pieds d'arbre mesurés entrent dans la CLÉ : le
   // mobilier en `p` dépend du premier, le recentrage des arbres du second.
   const key = CM.layoutRecomputeAt + '|' + era + '|' + PLAZA_TUNE.rev + '|'
-    + PLAZA_TUNE.seed + '|' + AGENT_SCALE + '|' + _artRev;
+    + PLAZA_TUNE.seed + '|' + AGENT_SCALE + '|' + _artRev + '|' + folkRev();
   if (_compCache.key === key && _compCache.comps) return _compCache.comps;
   const comps = [];
   for (const box of isoPlazaBoxes(L)) {
@@ -1362,12 +1408,18 @@ export const isoPlazaSceneCoversGround = (band) => isoPlazaSceneOn(band);
 // Pousse un item par prop : chacun trie à SA profondeur, donc un passant au sud
 // d'un banc passe devant et celui du nord derrière. C'est exactement ce que la
 // scène unique ne savait pas faire (un seul item pour toute la place).
-export function isoPlazaItems(L, band, pushItem, visible) {
+// Les flâneurs EN MARCHE de toutes les places à la dernière frame ({ x, y } en px
+// monde) : les pigeons s'envolent devant eux comme devant un passant des rues
+// (isoVieOiseaux). Ceux qui sont arrêtés ne comptent pas — une volée posée près
+// d'une causette repartirait sans fin.
+export const plazaFolkWalking = [];
+export function isoPlazaItems(L, band, pushItem, visible, now = 0) {
   let n = 0;
-  for (const comp of isoPlazaCompositions(L, band)) n += pushOne(comp, pushItem, visible);
+  plazaFolkWalking.length = 0;
+  for (const comp of isoPlazaCompositions(L, band)) n += pushOne(comp, pushItem, visible, now);
   return n;
 }
-function pushOne(comp, pushItem, visible) {
+function pushOne(comp, pushItem, visible, now) {
   let n = 0;
   if (PLAZA_TUNE.grid || PLAZA_TUNE.ruler) {
     const it = pushItem();
@@ -1387,6 +1439,16 @@ function pushOne(comp, pushItem, visible) {
       it.kind = 'plazaProp'; it.art = rec; it.eraKey = comp.era;
     }
     n += 1;
+  }
+  // LES FLÂNEURS, à leur position du moment (plazaFolk.js), triés comme le mobilier.
+  if (comp.folk && (!PLAZA_TUNE.only || PLAZA_TUNE.only === 'person')) {
+    for (const rec of folkAt(comp.folk, now, CM.TILE, depthOf)) {
+      if (rec.walking) plazaFolkWalking.push(rec);
+      if (visible && !visible(rec.wx, rec.wy)) continue;
+      const it = pushItem();
+      it.d = rec.d; it.kind = 'plazaProp'; it.art = rec; it.eraKey = comp.era;
+      n += 1;
+    }
   }
   return n;
 }
@@ -1604,13 +1666,21 @@ export function drawIsoPlazaProp(ctx, rec, era, now) {
 // Posés À PLAT (bassin, massif, puits) : pivot 'plate' de l'ombre du soleil.
 const PLATE_PROPS = new Set(['fountain', 'fountain-forum', 'flowerbed', 'well']);
 
-// ── UN PASSANT ARRÊTÉ ───────────────────────────────────────────────────────
+// ── UN FLÂNEUR DE LA PLACE ──────────────────────────────────────────────────
 // Le dessinateur des habitants lui-même (agents.js) : même bande, même échelle,
-// même ombre du soleil et même reflet — immobile (première image, pieds joints),
-// les pieds MESURÉS sur le sol (groundFeet), tourné vers ce qu'il regarde.
+// même ombre du soleil et même reflet, les pieds MESURÉS sur le sol (groundFeet).
+// En marche, le pas suit la DISTANCE parcourue (les pieds ne patinent pas) ;
+// arrêté, première image (pieds joints), tourné vers ce qu'il regarde. Il
+// s'efface en quittant la place par une rue et apparaît en y arrivant (`alpha`).
 function drawPlazaPerson(ctx, rec, now) {
-  const p = worldToScreen(rec.wx, rec.wy);
-  drawNamedAgentIso(ctx, p.x, p.y, CM.cam.zoom, rec.name, rec.scale || 1, rec.dir, false, now, 0, 1, null, true);
+  const p = worldToScreen(rec.wx, rec.wy), z = CM.cam.zoom;
+  const a = rec.alpha == null ? 1 : rec.alpha;
+  if (a <= 0.02) return;
+  const prevA = ctx.globalAlpha;
+  if (a < 1) ctx.globalAlpha = prevA * a;
+  drawNamedAgentIso(ctx, p.x, p.y, z, rec.name, rec.scale || 1, rec.dir, !!rec.walking, now,
+    rec.phase || 0, 1, rec.walking ? rec.walkDist : null, true);
+  ctx.globalAlpha = prevA;
 }
 
 // ── LES FANIONS ─────────────────────────────────────────────────────────────
@@ -1749,7 +1819,7 @@ export function drawIsoPlazaGrid(ctx, comp) {
 // `inkBox` est exporté pour les CLÔTURES (lot L9) : la composition d'une bande a
 // besoin de la boîte d'encre du panneau, et une seconde implémentation de la mesure
 // dériverait de celle qui sert au dessin.
-export { PLAZA_TUNE, RECIPES, KIND_KITS, HOUSE_HT, houseF, TALL_PROPS, personHT, ADULT_SCALE, inkBox };
+export { PLAZA_TUNE, RECIPES, KIND_KITS, HOUSE_HT, houseF, TALL_PROPS, personHT, ADULT_SCALE, inkBox, plazaBases };
 
 // ── LA FONTAINE DE LA SCÈNE DE PLACE, rapatriée d'isoRenderer le 2026-08-23
 // (Q10). Elle décrivait déjà une scène de CE module ; la laisser dans le peintre

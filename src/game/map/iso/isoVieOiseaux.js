@@ -16,7 +16,7 @@
 import { CM, cmHash } from '../layout.js';
 import { worldToScreen, depthOf } from './projection.js';
 import { isoFrontOffset } from './isoGroundDetail.js';
-import { isoPlazaCompositions, propFootprint, footClash, lampFootprint } from './isoPlaza.js';
+import { isoPlazaCompositions, propFootprint, footClash, lampFootprint, plazaFolkWalking } from './isoPlaza.js';
 import { VIE, vieK, vieZoomFade, vieSprite, vieBlit, vieCount, registerVieActors, registerVieAir, vieOccupied, drawnBoxOf, inkTopAt } from './isoVie.js';
 
 function h32(n) {
@@ -150,7 +150,7 @@ function pickDest(f, now) {
 }
 
 // ── LE DÉRANGEMENT ──────────────────────────────────────────────────────────
-// Un passant (ou une charrette) à moins de ~0,7 tuile d'un oiseau fait partir TOUTE
+// Un passant (une charrette, un flâneur de place en marche) à moins de ~0,7 tuile d'un oiseau fait partir TOUTE
 // la volée — c'est ce qui rend la scène vraie : les pigeons ne s'envolent pas au
 // hasard, ils s'envolent devant quelqu'un.
 const FLY_S = { pigeon: 3.6, gull: 5.5 };
@@ -158,7 +158,7 @@ function disturbed(f, T) {
   const s = spotOf(f, f.home);
   const R = T * (f.kind === 'pigeon' ? 0.75 : 0.9), R2 = R * R;
   const cx = s.x * T, cy = s.y * T;
-  for (const pool of [CM.citizens, CM.vehicles]) {
+  for (const pool of [CM.citizens, CM.vehicles, plazaFolkWalking]) {
     if (!pool) continue;
     for (const a of pool) {
       const dx = a.x - cx, dy = a.y - cy;
