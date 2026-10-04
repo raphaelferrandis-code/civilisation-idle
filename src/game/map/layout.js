@@ -235,10 +235,13 @@ const ENGINE_HOME_LOOKAHEAD = 44;
 // exactement, au lieu d'estimer une part (vécu : 24 maisons-moteur sans lot dans une
 // cité « rurale » où toutes les villas trouvaient leur place, la part de liste les
 // sous-comptait). Aux bandes cosmiques le tirage dépend de la case : moyenne de liste.
+// 1,8 lot par 2×2 et 0,8 par 1×2 : mesuré au Néon (516 grands ensembles, 289 tours
+// sur 1 100 logis : 83 maisons-moteur sans lot à 1,3 / 0,7). L'excédent, quand des
+// tirages 2×2 se replient sur une case, reste en jardins (lots libres, cf. urbanSet).
 function ilotBigHomeLots(band, bias, seed, nHouse, nHome) {
   const row = VARIANTS_HOUSE[Math.max(0, Math.min(VARIANTS_HOUSE.length - 1, band | 0))];
   const list = (bias && row[bias]) || row.base;
-  const extraOf = list.map((v) => { const [x, y] = houseFootprint(v, band); const a = x * y; return a >= 4 ? 1.3 * (a - 1) / 3 : a === 2 ? 0.7 : 0; });
+  const extraOf = list.map((v) => { const [x, y] = houseFootprint(v, band); const a = x * y; return a >= 4 ? 1.8 * (a - 1) / 3 : a === 2 ? 0.8 : 0; });
   if (!extraOf.some(Boolean)) return 0;
   if ((band | 0) >= 7) return Math.round((nHouse + nHome) * extraOf.reduce((u, e) => u + e, 0) / list.length);
   let extra = 0;
@@ -5606,6 +5609,10 @@ function computeCityLayout(s) {
     for (const b of ilot.blocks) for (const q of b.cells) urbanSet.add(q.x + "," + q.y);
     for (const k of roadKey) if (!riverSet.has(k)) urbanSet.add(k);
     for (const q of ilot.courts) townGreen.add(q.gx + "," + q.gy);
+    // Les lots restés LIBRES (la réserve pour les grands logis et les achats à venir,
+    // cf. ilotBigHomeLots) sont des jardins, pas des dalles nues : comme les cours, ils
+    // sortent du sol de ville plus bas, sauf ceux qu'un bâtiment occupe.
+    for (const l of ilot.lots) townGreen.add(l.gx + "," + l.gy);
   } else for (let gy = 0; gy < N; gy += 1) for (let gx = 0; gx < N; gx += 1) {
     const k = gx + "," + gy;
     if (organicLimit(gx, gy, 1.5) && !riverSet.has(k)) urbanSet.add(k);

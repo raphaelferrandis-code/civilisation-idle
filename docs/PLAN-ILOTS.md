@@ -174,6 +174,13 @@ PLAN-ROUTES) et « une maison ne bouge jamais » (keepInPlace).
     gardent leur placement). Boutiques = maison artisane, maison de ville, maison à cour ;
     mêmes rangées à colombages et maison artisane tournée qu'au bourg.
     roadMemory.test.js (campement → bourg) exempte ce seul pas de réorganisation.
+  - **Âges cosmiques (bandes 7, 8, 9)** : mégapole en îlots, le cœur en tours existant
+    s'y range ; boutiques = maison-dôme, grappe de capsules, tour-jardin (skins d'âge) ;
+    pas de rangée (des tours ne font pas de mitoyenneté). Testé aux vraies ères (36, 92,
+    136 : les ères factices gardent la bande de leur palier).
+  - Réserve des grands logis relevée (1,8 lot par 2×2, 0,8 par 1×2 : mesuré au Néon, 516
+    grands ensembles et 83 maisons-moteur sans lot) ; les lots restés LIBRES deviennent
+    des jardins comme les cours (plus de dalles nues en lisière).
 - ⚠ Fragilité connue, hors îlots : quand le niveau des champs change leur découpage
   (`cmTerroirParcels`), la parcelle 0 qui s'épaissit mord sa propre rangée de moulins
   (distance 1, plus les sentiers qui les desservent) et le terroir entier se refonde
