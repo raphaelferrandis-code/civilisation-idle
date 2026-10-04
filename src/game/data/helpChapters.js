@@ -243,13 +243,15 @@ export const HELP_CHAPTERS = [
         ]
       },
       {
-        h: { fr: 'Les médaillons', en: 'Medallions' },
+        // L'Arbre de la Mémoire n'a plus de médaillons (TreeNode.jsx) : l'emblème est
+        // repeint dans la matière de sa branche, et son état se lit sur lui.
+        h: { fr: 'Les nœuds', en: 'Nodes' },
         items: [
-          { t: { fr: 'À acheter', en: 'To buy' }, d: { fr: 'Anneau d\'or vif.', en: 'Bright gold ring.' }, dot: '#F4C96F' },
-          { t: { fr: 'Acquis', en: 'Owned' }, d: { fr: 'Anneau de la couleur de sa branche.', en: 'Ring in the colour of its branch.' }, dot: '#C9A968' },
-          { t: { fr: 'Trop cher', en: 'Too dear' }, d: { fr: 'Anneau ambre : il manque des Ruines.', en: 'Amber ring: Ruins are missing.' }, dot: '#E0B057' },
-          { t: { fr: 'Verrouillé', en: 'Locked' }, d: { fr: 'Gris : son palier ou ses cycles ne sont pas atteints.', en: 'Grey: its tier or its cycles are not reached yet.' }, dot: '#6B6672' },
-          { t: { fr: 'Exclu', en: 'Excluded' }, d: { fr: 'Rouge : son dogme jumeau a été choisi.', en: 'Red: its twin dogma was chosen.' }, dot: '#B04A4A' }
+          { t: { fr: 'À acheter', en: 'To buy' }, d: { fr: "Cerné d'or : le seul or de l'arbre.", en: 'Outlined in gold: the only gold on the tree.' }, dot: '#F4D68C' },
+          { t: { fr: 'Acquis', en: 'Owned' }, d: { fr: 'Allumé, dans la matière de sa branche.', en: 'Lit, in the material of its branch.' }, dot: '#C9A968' },
+          { t: { fr: 'Trop cher', en: 'Too dear' }, d: { fr: "Terni, sans liseré d'or : il manque des Ruines.", en: 'Dulled, with no gold outline: Ruins are missing.' }, dot: '#8A7A5E' },
+          { t: { fr: 'Verrouillé', en: 'Locked' }, d: { fr: 'Un petit bourgeon gravé : son palier ou ses cycles ne sont pas atteints.', en: 'A small engraved bud: its tier or its cycles are not reached yet.' }, dot: '#6B6672' },
+          { t: { fr: 'Exclu', en: 'Excluded' }, d: { fr: 'Éteint et barré de rouge : son dogme jumeau a été choisi.', en: 'Dulled and struck through in red: its twin dogma was chosen.' }, dot: '#8E3A32' }
         ]
       }
     ]
