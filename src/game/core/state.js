@@ -1012,6 +1012,25 @@ export function normalizeCityMapSlots(raw) {
       zone: typeof slot.zone === "string" ? slot.zone : "",
       id: typeof slot.id === "string" ? slot.id : ""
     };
+    // Le TERROIR mémorise ses parcelles ([dx, dy, w, h], layout.js) et le port de la
+    // grève sa hauteur (sy) : jetés ici, champs et moulins se refondaient à chaque
+    // rechargement (F5, import, nuage) — la mémoire de placement ne tenait qu'en session.
+    const parcels = normalizeSlotParcels(slot.parcels);
+    if (parcels) out[key].parcels = parcels;
+    const sy = Number(slot.sy);
+    if (Number.isInteger(sy) && sy >= 1 && sy <= 8) out[key].sy = sy;
+  }
+  return out;
+}
+
+function normalizeSlotParcels(raw) {
+  if (!Array.isArray(raw) || raw.length < 1 || raw.length > 8) return null;
+  const out = [];
+  for (const q of raw) {
+    if (!Array.isArray(q) || q.length !== 4 || !q.every((v) => Number.isFinite(Number(v)))) return null;
+    const [dx, dy, w, h] = q.map((v) => Math.round(Number(v)));
+    if (Math.abs(dx) > 400 || Math.abs(dy) > 400 || w < 1 || h < 1 || w > 24 || h > 24) return null;
+    out.push([dx, dy, w, h]);
   }
   return out;
 }
