@@ -12,7 +12,8 @@ import {
   setCollapseInProgress,
   save,
   renderCache,
-  resetTemporaryRunState
+  resetTemporaryRunState,
+  isOfflineSim
 } from '../state.js';
 
 import {
@@ -40,7 +41,6 @@ import {
   epitaphLegacyAmp
 } from '../mechanics.js';
 import { pushAnnalsMark } from '../annals.js';
-import { castAugury } from './augures.js';
 import { REGULATION_ACTIONS_BY_ID, POLICY_BY_ID } from '../../data/regulationActions.js';
 
 import { runCollapseSequence, openChoiceDialog } from '../events.js';
@@ -308,8 +308,11 @@ export function triggerCollapseChoices(shouldRender = true) {
   if (!state.crisisLimitAnnounced) {
     state.crisisLimitAnnounced = true;
     state.crisisOpenedAt = Date.now();
-    // Nouvelle crise terminale : aucun rite encore accompli.
-    if (state.terminalPreparations) state.terminalPreparations.used = {};
+    // terminalPreparations.used n'est PAS remis à zéro ici : « un rite par
+    // chute ». Une crise terminale fermée (Rationnement forcé de l'Édit avec
+    // « préparer ») puis rouverte dans le même cycle n'offre pas un second rite —
+    // sinon collapsePreparation s'empilait jusqu'à COLLAPSE_PREP_MAX. La remise à
+    // zéro se fait au cycle neuf (resetTemporaryRunState).
     const source = state.timeWear >= 1 ? "l'usure du temps" : "la rupture structurelle";
     chronicle(`La fin d'une ère approche : ${source} a vaincu nos dernières défenses. Le destin de notre cité se joue désormais dans la tourmente des crises.`);
     openView("prestige");
@@ -368,7 +371,7 @@ export function runTerminalCrisisAction(type, tier = 0) {
   const tp = state.terminalPreparations || (state.terminalPreparations = { used: {}, riteTier: -1 });
   if (!tp.used) tp.used = {};
   tp.used[type] = true;
-  tp.riteTier = tier; // vœu « Le grand rite »
+  tp.riteTier = Math.max(tp.riteTier ?? -1, tier); // vœu « Le grand rite » : le plus haut palier accompli
   // « Choisir sa chute » : le rite déclare la cause de la chute.
   state.declaredFallCause = TERMINAL_EDICT_CAUSE[type] || null;
   // « Préparations funèbres » : l'effet de préparation (boost du gain de ruines)
@@ -603,8 +606,9 @@ export function completeCollapse(gain, fallenDynasty, epitaph, reason) {
   // Le vœu du cycle (D2) : la civilisation neuve prête un nouveau vœu, tiré
   // maintenant que son ère de départ est fixée. Chute AUTOMATIQUE hors ligne
   // (auto_collapse) : on reconduit le vœu déjà choisi — aucun dialogue ne peut
-  // s'ouvrir pour en proposer un, comme la « dernière volonté » des épitaphes.
-  state.cycleVow = rollCycleVow(state, { reconduct: reason === "auto_collapse" });
+  // s'ouvrir pour en proposer un, comme la « dernière volonté » des épitaphes —
+  // sauf un vœu que la simulation ne peut pas tenir (crises, rite : cf. vows.js).
+  state.cycleVow = rollCycleVow(state, { reconduct: reason === "auto_collapse", offline: isOfflineSim() });
 
   resetCameraCenter();
 }
@@ -694,14 +698,10 @@ export function runCrisisAction(id, options = {}) {
   const regAction = REGULATION_ACTIONS_BY_ID[id];
   if (regAction) {
     if (!regulationActionUnlocked(id)) return; // pas encore débloquée
-    // Paris : délégués au moteur de la Table des augures (augures.js) — le
-    // rite « classique » reproduit le comportement historique de cette
-    // branche. L'UI ouvre normalement le mini-jeu (AuguryDialog) ; ce chemin
-    // reste l'API programmatique (tests, compat).
-    if (regAction.kind === "gamble") {
-      castAugury(id, "classique", { render: doRender, by: opts.by });
-      return;
-    }
+    // Paris : ils se jouent À LA TABLE des augures, mise en main (mise libre en
+    // jetons) — l'UI ouvre le mini-jeu (openAuguryTable), l'automate passe par
+    // templeAutomation. Sans mise, castAugury refuserait : rien à faire ici.
+    if (regAction.kind === "gamble") return;
     const foyer = regAction.foyer;
     if (regAction.kind === "reform") {
       const rf = state.foyerReform || (state.foyerReform = { scarcity: 0, inequality: 0, complexity: 0, dissent: 0 });

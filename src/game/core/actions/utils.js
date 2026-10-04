@@ -45,6 +45,16 @@ export function cycleYear() {
   return Math.floor(elapsed / 60) + 1;
 }
 
+// L'an du cycle sur l'horloge FIGÉE pendant la crise terminale — la même que
+// cycleClockNow (mechanics/prestige.js), ne pas laisser diverger. Lu par les vœux
+// de durée : la cité gelée ne vieillit pas, ni devant l'autel ni jeu fermé (sinon
+// « Le grand âge » se tenait en attendant, « Le feu court » se rompait en délibérant).
+export function cycleYearFrozen() {
+  const now = (state.crisisLimitAnnounced && state.crisisOpenedAt) ? state.crisisOpenedAt : Date.now();
+  const elapsed = Math.max(0, (now - (state.cycleStartedAt || now)) / 1000);
+  return Math.floor(elapsed / 60) + 1;
+}
+
 export function chronicleBuilding(building, previousCount, newCount) {
   const amount = newCount - previousCount;
   if (amount <= 0) return;

@@ -56,7 +56,7 @@ import { runCollapseSequence, generateEpitaph, collapseCause } from './events.js
 import { resumeActiveRuinsChoiceIfPending } from './actions/myths.js';
 import { dynastyNames } from '../data/buildings.js';
 import { epitaphLegacyById, epitaphRuinMultiplier } from '../data/epitaphs.js';
-import { cycleVowRuinMult } from '../data/vows.js';
+import { cycleVowRuinMult, cycleVowChoosable } from '../data/vows.js';
 import { BRAISIERS_DURATION_MS, ENEE_HERITAGE_DURATION_MS, isMythEffectActive } from '../data/myths.js';
 import { D } from './num.js';
 import { decideTickCredit } from './offlineCredit.js';
@@ -531,9 +531,10 @@ export function spendStoredTime(seconds = Infinity) {
 // Le joueur prête son vœu du cycle (D2) parmi les trois proposés. Rendu immédiat
 // pour que la rangée bascule de « choisir » à « en cours » au clic, sans attendre
 // le prochain tick. Idempotent : une fois choisi, le vœu ne se rechange plus.
+// Seulement dans la fenêtre du début de cycle (cycleVowChoosable).
 export function chooseCycleVow(id) {
   const cv = state.cycleVow;
-  if (!cv || cv.chosen || !Array.isArray(cv.offered)) return false;
+  if (collapseInProgress || !cycleVowChoosable(state)) return false;
   const entry = cv.offered.find((o) => o.id === id);
   if (!entry) return false;
   // Nouvelle RÉFÉRENCE : le sélecteur plat de useCityViewState compare en surface.

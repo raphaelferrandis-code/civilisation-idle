@@ -7,7 +7,7 @@ import { getEraTheme } from '../../game/data/eraThemes.js';
 import { pct, clamp01, fmtSecs } from '../../game/core/utils.js';
 import { state, getLastSaveAt, getLastSaveError } from '../../game/core/state.js';
 import { idleCapSeconds, nextIdleCapPalier, clepsydreCapSeconds, clepsydreRefusal, spendStoredTime, chooseCycleVow } from '../../game/core/main.js';
-import { cycleVowStatus, vowById } from '../../game/data/vows.js';
+import { cycleVowStatus, vowById, cycleVowChoosable, VOW_CHOICE_WINDOW_YEARS } from '../../game/data/vows.js';
 import { VOW_FAIL_MULT } from '../../game/core/balance.js';
 import { pushOutcomeFloat } from '../../game/core/outcomeFloat.js';
 import { tr } from '../../game/core/i18n.js';
@@ -120,9 +120,11 @@ export default function CityStatusPanel({ variant = 'full' }) {
 
   // VŒU DU CYCLE (D2). Lu sur le state vivant (comme currentEraIndex ci-dessus) ;
   // le composant se re-rend déjà à 1 Hz via tickNow, donc l'avancement suit. Un
-  // vœu PRÊTÉ (chosen) affiche sa jauge ; sinon on propose les trois candidats.
+  // vœu PRÊTÉ (chosen) affiche sa jauge ; sinon on propose les trois candidats —
+  // tant que la fenêtre du début de cycle est ouverte (cycleVowChoosable) : passé
+  // l'an VOW_CHOICE_WINDOW_YEARS ou la première crise, l'offre disparaît.
   const vowStatus = cycleVow && cycleVow.chosen ? cycleVowStatus(state) : null;
-  const vowOffered = cycleVow && !cycleVow.chosen ? (cycleVow.offered || []) : [];
+  const vowOffered = cycleVow && !cycleVow.chosen && cycleVowChoosable(state) ? (cycleVow.offered || []) : [];
 
   // Les trois propositions s'ouvrent en SURCOUCHE et non dans la gouttière : à
   // trois pastilles côte à côte, il fallait descendre sous 8 px de texte pour
@@ -280,8 +282,8 @@ export default function CityStatusPanel({ variant = 'full' }) {
         <div
           className="csp-vow"
           {...tipProps(tr({ fr: 'Vœu du cycle', en: 'Cycle vow' }), vowPickerOpen ? null : tr({
-            fr: "Un vœu pour ce cycle, libre à toi d'en prêter un. Tenu, il majore la moisson de Ruines de la prochaine chute ; rompu ou manqué, il la réduit de 10 %. Ne rien prêter ne coûte rien.",
-            en: "A vow for this cycle, yours to make or not. Kept, it raises the next collapse's Ruin harvest; broken or missed, it lowers it by 10%. Making none costs nothing."
+            fr: `Un vœu pour ce cycle, libre à toi d'en prêter un — jusqu'à l'an ${VOW_CHOICE_WINDOW_YEARS} ou la première crise. Tenu, il majore la moisson de Ruines de la prochaine chute ; rompu ou manqué, il la réduit de 10 %. Ne rien prêter ne coûte rien.`,
+            en: `A vow for this cycle, yours to make or not — until year ${VOW_CHOICE_WINDOW_YEARS} or the first crisis. Kept, it raises the next collapse's Ruin harvest; broken or missed, it lowers it by 10%. Making none costs nothing.`
           }))}
         >
           {vowStatus ? (

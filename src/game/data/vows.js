@@ -18,7 +18,7 @@
 // minutes tenues), les crises traitées / dont on a profité, l'ère atteinte
 // RELATIVE à l'ère de départ du cycle, le rite de la chute. Aucun seuil absolu de
 // population ou de ruines (ils exploseraient d'ordre de grandeur en fin de partie).
-import { cycleYear } from '../core/actions/utils.js';
+import { cycleYear, cycleYearFrozen } from '../core/actions/utils.js';
 import { currentEraIndex } from '../core/mechanics/shared.js';
 import { VOW_FAIL_MULT } from '../core/balance.js';
 import { eras } from './world.js';
@@ -32,7 +32,7 @@ const timeVow = (id, years, ruinMult, name) => ({
   id, kind: 'goal', family: 'time', ruinMult, name,
   roll: () => ({ target: years, base: 0 }),
   available: () => true,
-  cur: () => cycleYear(),
+  cur: () => cycleYearFrozen(),
   describe: (t) => ({ fr: `Mener la cité jusqu'à l'an ${t}`, en: `Lead the city to year ${t}` }),
   short: (t) => ({ fr: `An ${t}`, en: `Yr ${t}` }),
 });
@@ -41,7 +41,7 @@ const beforeVow = (id, years, ruinMult, name) => ({
   id, kind: 'before', family: 'time', ruinMult, name,
   roll: () => ({ target: years, base: 0 }),
   available: () => true,
-  cur: () => cycleYear(),
+  cur: () => cycleYearFrozen(),
   describe: (t) => ({ fr: `Tomber avant l'an ${t}`, en: `Fall before year ${t}` }),
   short: (t) => ({ fr: `< an ${t}`, en: `< yr ${t}` }),
 });
@@ -160,19 +160,42 @@ function pickOffered(state) {
   return offered;
 }
 
-// Pose (ou reconduit) le vœu du cycle. reconduct = chute automatique pendant une
-// absence : on garde le vœu déjà choisi, comme la « dernière volonté » des
-// épitaphes, plutôt que d'en proposer un que personne ne verra (main.js:257,
-// aucun dialogue ne peut s'ouvrir hors ligne).
-export function rollCycleVow(state, { reconduct = false } = {}) {
+// Familles qu'une chute SIMULÉE hors ligne ne peut pas tenir : la simulation
+// pré-latche les trois paliers (aucune crise à traiter ni dont profiter) et
+// n'accomplit jamais de rite. Les reconduire, c'était ×VOW_FAIL_MULT à chaque chute.
+const OFFLINE_UNKEEPABLE = new Set(['crisis', 'rite']);
+
+// Pose (ou reconduit) le vœu du cycle. reconduct = chute automatique : on garde le
+// vœu déjà choisi, comme la « dernière volonté » des épitaphes, plutôt que d'en
+// proposer un que personne ne verra (main.js:257, aucun dialogue ne peut s'ouvrir
+// hors ligne). offline = chute simulée pendant l'absence : un vœu impossible à
+// tenir là (OFFLINE_UNKEEPABLE) n'est pas reconduit — ne rien prêter ne coûte rien.
+export function rollCycleVow(state, { reconduct = false, offline = false } = {}) {
   const prev = state.cycleVow;
-  if (reconduct && prev && prev.chosen && vowById(prev.chosen.id)) {
-    const def = vowById(prev.chosen.id);
+  const prevDef = prev && prev.chosen ? vowById(prev.chosen.id) : null;
+  if (reconduct && prevDef && !(offline && OFFLINE_UNKEEPABLE.has(prevDef.family))) {
+    const def = prevDef;
     const { target, base } = def.roll(state);
     return { offered: [{ id: def.id, target, base }], chosen: { id: def.id, target, base }, done: false, broken: false };
   }
   const offered = pickOffered(state);
   return { offered, chosen: null, done: false, broken: false };
+}
+
+// LA FENÊTRE DU CHOIX : le vœu se prête au DÉBUT du cycle, avant la première
+// crise. Sans elle, on attendait qu'un objectif soit atteint (l'an 60, la 3e crise
+// traitée, la fin d'un cycle sans politique) pour le « prêter » — tenu d'office,
+// sans le moindre risque.
+export const VOW_CHOICE_WINDOW_YEARS = 10;
+
+// Le vœu proposé peut-il encore être prêté ? Pas de crise ouverte ni de palier
+// déjà franchi, et pas au-delà de l'an VOW_CHOICE_WINDOW_YEARS.
+export function cycleVowChoosable(state) {
+  const cv = state.cycleVow;
+  if (!cv || cv.chosen || !Array.isArray(cv.offered) || !cv.offered.length) return false;
+  if (state.crisisLimitAnnounced) return false;
+  if (Object.values(state.crisisThresholds || {}).some(Boolean)) return false;
+  return cycleYear() <= VOW_CHOICE_WINDOW_YEARS;
 }
 
 // État lisible du vœu choisi (affichage, latch au tick, moisson). null si aucun
