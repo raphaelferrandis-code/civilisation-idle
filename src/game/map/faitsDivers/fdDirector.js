@@ -98,7 +98,7 @@ function makeApp(c, spot, rerun = false, who = null) {
   const seed = 'fd:' + c.kind + ':' + (c.story ? c.story.id + ':' + c.ch.id : c.step ? c.step.id : '') + ':' + spot.key + ':' + (CM.layout.mapSeed || 0);
   const base = {
     id: nextId++, kind: c.kind, spot, seed, band: bandNow(), alive: true,
-    alpha: 1, age: 0, leaving: false, inscribed: false, rerun,
+    alpha: 1, age: 0, leaving: false, inscribed: false, rerun, isNewStory: !!c.isNew,
   };
   const b = buildersFor(c);
   if (!b) return null;
@@ -161,6 +161,8 @@ function spawnOne(L, nightF) {
     }
     if (apps.some((a) => appKey(a) === k)) return false;
     if ((cool.get(k) || 0) > clock) return false;
+    // Une seule histoire INCONNUE à la fois sur la carte : la surprise vient une par une.
+    if (c.isNew && apps.some((x) => x.isNewStory && !x.inscribed && !(x.said && Object.keys(x.said).length))) return false;
     const b = buildersFor(c);
     // `when` : une condition propre à la scène (pas de sieste sous la neige).
     return !!b && (!b.when || b.when());
