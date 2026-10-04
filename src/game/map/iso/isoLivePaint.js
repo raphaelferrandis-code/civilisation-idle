@@ -393,7 +393,7 @@ export function paintIsoItems(bake, items, now) {
       if (tv === TREE_DEAD_VARIANT && !deadTreeOk) {
         if (tr._ta === undefined || !treeMemo) tr._ta = treeAliveVariant(tr.gx, tr.gy);
         tv = tr._ta;
-      }
+      } else if (tr.dead && deadTreeOk) tv = TREE_DEAD_VARIANT;   // conifère de la forêt (isoWildForest)
       // __treeMemo = false : rejoue la résolution par arbre (A/B de la mesure).
       const tImg0 = treeMemo ? treeImgs[tv] : (() => { const nm = TREE_SPRITES[tv].name, a = isoArt(nm); return a.ready ? (seasonTree(a, nm) || a.img) : null; })();
       if (tImg0) {

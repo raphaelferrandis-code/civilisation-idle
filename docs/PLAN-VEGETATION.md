@@ -187,3 +187,21 @@ Méthode habituelle : planche avant/après sur de vraies captures, validation de
     30 vivants (`TREE_LIVING`). Le lot 2 le remplace.
   - Garde `vegetationFamily.test.js` (table = manifeste = PNG : taille, pied, 24 teintes) ;
     `isoWinterTreeAssets.test.js` lit le manifeste.
+  - Commit local `30957f17`.
+- **Lot 2 fait** (`isoWildForest.js`, réglages `FOREST`, molette `__forest`) : chaque arbre
+  sauvage reçoit son dessin `v` à la plantation.
+  - Essence par PEUPLEMENT : bruit lisse (`standScale` 17) de la sapinière (0) à la
+    chênaie (1), pinède en PALIER (posée en un seul point, aucune pinède ne se formait —
+    vu par le test), bois mêlé ; bouleaux pionniers (+0,22) en lisière et trouées.
+  - Âge par position : jeunes à la lisière (distance TREE_LIFE) et dans les trouées,
+    vieux dans les fourrés denses et seuls au pré ; un vieil arbre laisse libres ses
+    voisins droite/bas. Buissons sur les cellules de lisière laissées vides.
+  - Trouées lisses (bruit interpolé, `holeScale` 8, `contrast` 1,55) au lieu des blocs
+    de 5 et 11 cellules.
+  - Sapin mort : 35 % des conifères adultes en hiver/ruines (`dead`) ; les arbres de VILLE
+    ne tirent plus que des adultes (`TREE_ADULTS`).
+  - Mesuré, même ville (bande 4, graine 1198668116), dézoom 0,125 : 31 405 → 29 902 arbres
+    (−4,8 %), image p50 109-121 → 107-110 ms (A/B alterné, même séance). Zoom 0,25 :
+    5 651 → 5 613.
+  - Garde `forestStands.test.js` (regroupement, chaque essence domine quelque part,
+    pionniers, moyenne de densité, trouées franches et lisses).

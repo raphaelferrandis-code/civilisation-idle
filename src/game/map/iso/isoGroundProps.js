@@ -171,15 +171,19 @@ export function treeVariantsOf(sp, age) {
   TREE_SPRITES.forEach((t, i) => { if (t && t.sp === sp && (age == null || t.age === age)) out.push(i); });
   return out;
 }
-// Essence d'une cellule, stable. Le sapin mort garde sa part historique (un tirage
-// sur quatre, même hash qu'avant) ; le reste se tire parmi les arbres vivants.
+// Les ADULTES : les arbres de ville (L.trees) n'en prennent pas d'autres (lot 2) —
+// un vieil arbre de 128 px couvrirait une maison, un jeune se perdrait dans la rue.
+export const TREE_ADULTS = TREE_LIVING.filter((i) => TREE_SPRITES[i].age === 1);
+// Essence d'une cellule (arbres de ville ; la forêt sauvage décide la sienne à la
+// plantation, cf. isoWildForest), stable. Le sapin mort garde sa part historique (un
+// tirage sur quatre, même hash qu'avant) ; le reste se tire parmi les adultes.
 export function treeBaseVariant(gx, gy) {
   if (cmHash('tree:' + gx + ':' + gy) % 4 === 3) return TREE_DEAD_VARIANT;
-  return TREE_LIVING[cmHash('treeL:' + gx + ':' + gy) % TREE_LIVING.length];
+  return TREE_ADULTS[cmHash('treeL:' + gx + ':' + gy) % TREE_ADULTS.length];
 }
 // Essence VIVANTE qui remplace le sapin mort hors hiver et hors ruines : un tirage
-// à part, parmi les vivants (jamais TREE_DEAD_VARIANT).
-export function treeAliveVariant(gx, gy) { return TREE_LIVING[cmHash('treeA:' + gx + ':' + gy) % TREE_LIVING.length]; }
+// à part, parmi les adultes (jamais TREE_DEAD_VARIANT).
+export function treeAliveVariant(gx, gy) { return TREE_ADULTS[cmHash('treeA:' + gx + ':' + gy) % TREE_ADULTS.length]; }
 // Dessin d'un arbre posé, SANS rien mémoïser (le peintre tient `_tv`) : pour ceux qui
 // ont besoin de sa taille avant ou en dehors du dessin (particules d'ambiance).
 export function treeVariantOf(tr) { return tr._tv || tr.v || treeBaseVariant(tr.gx, tr.gy); }

@@ -15,6 +15,7 @@ import {
 import { WONDER_GROUND, wonderGroundSet } from './isoWonderGround.js';
 import { riverEndRays, nearRiverEndRay } from './riverEnds.js';
 import { campGroundOn, courOf } from './isoTissu.js';
+import { treeVariantsOf } from './isoGroundProps.js';
 
 // Marge des demi-droites qui prolongent le fleuve (riverEnds.js) : les MÊMES
 // rayons que les cellules d'eau et de berge du layout — centre de cellule à
@@ -117,25 +118,151 @@ export const WILD_THIN_UNIT = 14;
 export const WILD_BLOCK = 32;                  // cellules par côté de bloc
 const WILD_BLOCK_CAP = 512;             // blocs gardés (au-delà : on repart à neuf)
 
+// ── PEUPLEMENTS, ÂGES ET LISIÈRE (docs/PLAN-VEGETATION.md, lot 2, 2026-10-04) ──
+// L'essence était tirée au hasard cellule par cellule : feuillus et sapins mêlés
+// uniformément partout, aucune sapinière, aucune chênaie, et un bord de bois fait du
+// même arbre adulte, juste plus clairsemé. Chaque arbre reçoit maintenant, à la
+// plantation, son DESSIN (`v`, cf. TREE_SPRITES) :
+//  - l'ESSENCE suit un PEUPLEMENT : un bruit lisse à grande échelle (`standScale`
+//    cellules) glisse de la sapinière à la chênaie en passant par la pinède et le
+//    bois mêlé (STANDS, mélange interpolé : jamais de frontière nette) ;
+//  - l'ÂGE suit la POSITION : jeunes arbres et bouleaux pionniers à la lisière (la
+//    distance à la vie de TREE_LIFE) et dans les trouées ; adultes au cœur ; quelques
+//    vieux arbres, dans les fourrés denses et, rares, seuls au milieu d'un pré ;
+//  - les BUISSONS ferment la lisière, sur des cellules que la lisière laisse vides ;
+//  - les TROUÉES sont lisses (bruit interpolé, `holeScale`) et franches (`contrast`) :
+//    l'ancien bruit par blocs de 5 et 11 cellules dessinait des clairières carrées.
+// Le NOMBRE d'arbres ne monte pas (mesuré au dézoom, cf. le journal du plan) : le
+// coût d'une frame suit le nombre d'arbres. Un vieil arbre (canevas de 128) laisse
+// libres ses voisins de droite et du dessous.
+// Le SAPIN MORT : une part des conifères adultes le devient en hiver et dans les
+// ruines (`dead`), au lieu d'un arbre sur quatre pris parmi toutes les essences.
+// Molette : __forest(false) rejoue la forêt du lot 1 ; __forest({ standScale, … }).
+export const FOREST = {
+  on: true, standScale: 17, holeScale: 8, contrast: 1.55,
+  young: 0.10, edgeYoung: 0.5, openYoung: 0.35, old: 0.06, loneOld: 0.16,
+  pioneer: 0.22, bushP: 0.35, deadP: 0.35,
+};
+// Composition (chêne, bouleau, sapin, pin) aux ancres du peuplement ; entre deux
+// ancres, le mélange est interpolé. La pinède a un PALIER (deux ancres) : posée en un
+// seul point, le peuplement ne faisait qu'y passer et aucune pinède ne se formait
+// (mesuré, forestStands.test.js).
+const STAND_AT = [0, 0.3, 0.46, 0.68, 1];
+const STANDS = [
+  [0.08, 0.06, 0.76, 0.10],     // sapinière
+  [0.12, 0.10, 0.13, 0.65],     // pinède…
+  [0.12, 0.10, 0.13, 0.65],     // …jusqu'ici
+  [0.55, 0.22, 0.10, 0.13],     // bois mêlé
+  [0.82, 0.13, 0.02, 0.03],     // chênaie
+];
+const SPECIES = ['chene', 'bouleau', 'sapin', 'pin'];
+if (typeof window !== 'undefined') {
+  window.__forest = (o) => {
+    if (o === false) FOREST.on = false;
+    else if (o && typeof o === 'object') Object.assign(FOREST, o);
+    else FOREST.on = true;
+    CM._isoWildForest = null; CM._treeCells = null; CM._vegAnchors = null;
+    return { ...FOREST };
+  };
+}
+// Hachage entier (bien plus rapide que cmHash sur une chaîne : ~10 appels par arbre).
+function ih(x, y, s) {
+  let h = Math.imul(x | 0, 0x27d4eb2d) ^ Math.imul(y | 0, 0x165667b1) ^ Math.imul(s | 0, 0x9e3779b9);
+  h = Math.imul(h ^ (h >>> 15), 0x85ebca6b);
+  h = Math.imul(h ^ (h >>> 13), 0xc2b2ae35);
+  return ((h ^ (h >>> 16)) >>> 0) / 4294967296;
+}
+// Bruit de valeur LISSÉ (interpolation bilinéaire en easing cubique) : 0..1, sans
+// couture de bloc.
+export function forestNoise(gx, gy, sc, s) {
+  const fx = gx / sc, fy = gy / sc, x0 = Math.floor(fx), y0 = Math.floor(fy);
+  let tx = fx - x0, ty = fy - y0;
+  tx = tx * tx * (3 - 2 * tx); ty = ty * ty * (3 - 2 * ty);
+  const a = ih(x0, y0, s), b = ih(x0 + 1, y0, s), c = ih(x0, y0 + 1, s), d = ih(x0 + 1, y0 + 1, s);
+  return a + (b - a) * tx + (c - a) * ty + (a - b - c + d) * tx * ty;
+}
+const clamp01 = (v) => (v < 0 ? 0 : v > 1 ? 1 : v);
+// Densité de la forêt (0..1, moyenne ~0,5) : trouées lisses et franches.
+export function forestDensity(gx, gy, cfg = FOREST) {
+  const raw = forestNoise(gx, gy, cfg.holeScale, 1) * 0.6 + forestNoise(gx, gy, cfg.holeScale * 2.1, 2) * 0.4;
+  return clamp01(0.5 + (raw - 0.5) * cfg.contrast * 1.6);
+}
+// Valeur du peuplement (0 sapinière … 1 chênaie) en (gx, gy).
+export function forestStand(gx, gy, cfg = FOREST) {
+  return clamp01(0.5 + (forestNoise(gx, gy, cfg.standScale, 3) - 0.5) * 2.2);
+}
+// Essence en (gx, gy) selon le peuplement ; `pion` (0..1) ajoute des bouleaux pionniers.
+export function forestSpecies(gx, gy, pion = 0, cfg = FOREST) {
+  const n = forestStand(gx, gy, cfg);
+  let k = 0;
+  while (k < STAND_AT.length - 2 && n > STAND_AT[k + 1]) k += 1;
+  const t = (n - STAND_AT[k]) / (STAND_AT[k + 1] - STAND_AT[k]);
+  const w = STANDS[k].map((v, i) => v + (STANDS[k + 1][i] - v) * t);
+  w[1] += cfg.pioneer * pion;
+  let r = ih(gx, gy, 11) * (w[0] + w[1] + w[2] + w[3]);
+  for (let i = 0; i < 4; i += 1) { r -= w[i]; if (r < 0) return SPECIES[i]; }
+  return SPECIES[3];
+}
+// Dessins par (essence, âge), figés au chargement.
+const VARIANTS = {};
+for (const sp of [...SPECIES, 'buisson']) for (const age of [0, 1, 2]) VARIANTS[sp + age] = treeVariantsOf(sp, age);
+function pickVariant(sp, age, u) {
+  const l = VARIANTS[sp + age].length ? VARIANTS[sp + age] : VARIANTS[sp + 1];
+  return l[Math.floor(u * l.length) % l.length];
+}
+
 function isoWildForestBlock(L, bx, by, ctx) {
   const gx0 = bx * WILD_BLOCK, gy0 = by * WILD_BLOCK;
   const gx1 = gx0 + WILD_BLOCK - 1, gy1 = gy0 + WILD_BLOCK - 1;
-  const { isWild, nearCity, cellNoise, lifeKeep, densK } = ctx;
+  const { isWild, nearCity, cellNoise, lifeKeep, lifeAt, densK } = ctx;
+  const F = FOREST.on;
   const arr = [];
+  const shade = new Set();              // cellules laissées libres par un vieil arbre
+  const R = TREE_LIFE.clear + TREE_LIFE.keep.length;
   for (let gy = gy0; gy <= gy1; gy += 1) {
     for (let gx = gx0; gx <= gx1; gx += 1) {
       if (!isWild(gx, gy)) continue;
-      let thr = (cellNoise(gx, gy) * 1.25 - 0.08) * densK;   // fourrés (haut) / trouées (bas)
+      const dens = F ? forestDensity(gx, gy) : cellNoise(gx, gy);
+      let thr = (dens * 1.25 - 0.08) * densK;               // fourrés (haut) / trouées (bas)
       if (lifeKeep) thr *= lifeKeep(gx, gy);                  // camp : recule devant la vie
       else if (nearCity(gx, gy)) thr -= 0.35;               // aère la lisière
-      if ((cmHash(gx + 'f' + gy) % 1000) / 1000 >= thr) continue;
+      // Lisière : 1 au premier rang permis par TREE_LIFE, 0 au-delà de sa portée.
+      let edgeK = 0;
+      if (F) {
+        if (lifeAt) {
+          const d = lifeAt(gx, gy);
+          edgeK = d <= R + 1 ? clamp01(1 - (d - TREE_LIFE.clear - 1) / (TREE_LIFE.keep.length + 1)) : 0;
+          if (d <= TREE_LIFE.clear) edgeK = 0;                // la clairière de vie reste nue
+        } else if (nearCity(gx, gy)) edgeK = 1;
+      }
+      const planted = (cmHash(gx + 'f' + gy) % 1000) / 1000 < thr && !shade.has(gx * 65536 + gy);
+      if (!planted) {
+        // BUISSON de lisière, sur une cellule que la lisière a laissée vide, côté bois.
+        if (edgeK > 0 && ih(gx, gy, 13) < FOREST.bushP * edgeK * clamp01(dens * 1.6)) {
+          arr.push({
+            gx, gy, jx: (ih(gx, gy, 15) - 0.5) * 0.6, jy: (ih(gx, gy, 16) - 0.5) * 0.6,
+            r: treeRadius(0), v: pickVariant('buisson', 0, ih(gx, gy, 17)),
+          });
+        }
+        continue;
+      }
       // Décalage sous-cellule + taille par arbre (hash riche) : casse la grille et
       // l'uniformité — mêmes plages que les arbres décoratifs (r ≈ 0.62..0.96).
       const h = cmHash('wf:' + gx + ':' + gy);
       const jx = ((h % 100) / 100 - 0.5) * 0.6;
       const jy = (((h >> 7) % 100) / 100 - 0.5) * 0.6;
       const r = treeRadius(h);
-      arr.push({ gx, gy, jx, jy, r });
+      if (!F) { arr.push({ gx, gy, jx, jy, r }); continue; }
+      const openK = clamp01((0.45 - dens) / 0.25), denseK = clamp01((dens - 0.6) / 0.25);
+      const sp = forestSpecies(gx, gy, Math.max(edgeK, openK));
+      const u = ih(gx, gy, 12);
+      const pYoung = FOREST.young + FOREST.edgeYoung * edgeK + FOREST.openYoung * openK;
+      const pOld = FOREST.old * denseK + (openK > 0.75 && edgeK === 0 ? FOREST.loneOld : 0);
+      const age = u < pYoung ? 0 : u > 1 - pOld ? 2 : 1;
+      const t = { gx, gy, jx, jy, r, v: pickVariant(sp, age, ih(gx, gy, 14)) };
+      if ((sp === 'sapin' || sp === 'pin') && age > 0 && ih(gx, gy, 18) < FOREST.deadP) t.dead = true;
+      arr.push(t);
+      if (age === 2) { shade.add((gx + 1) * 65536 + gy); shade.add(gx * 65536 + gy + 1); shade.add((gx + 1) * 65536 + gy + 1); }
     }
   }
   return arr;
@@ -147,7 +274,8 @@ export function isoWildForest(L, b) {
   const sig = (CM.layoutRecomputeAt || 0) + ':' + (L.gridN | 0) + ':' + (L.mapSeed || 0)
     + (CM.previewWonder ? ':pv' + CM.previewWonder.id : '')
     + ':g' + (TREE_TUNE.grainR || 0) + '/' + treeDensK()
-    + ':l' + (TREE_LIFE.on ? TREE_LIFE.clear + '/' + TREE_LIFE.keep.join('/') : 'off');
+    + ':l' + (TREE_LIFE.on ? TREE_LIFE.clear + '/' + TREE_LIFE.keep.join('/') : 'off')
+    + ':f' + (FOREST.on ? Object.values(FOREST).join('/') : 'off');
   let st = CM._isoWildForest;
   if (!st || st.sig !== sig || st.blocks.size > WILD_BLOCK_CAP) {
     st = CM._isoWildForest = { sig, blocks: new Map(), list: [], key: '' };
@@ -197,7 +325,8 @@ export function isoWildForest(L, b) {
   // (__treeLife(false), hors camp), null — l'aération historique d'une cellule
   // (nearCity) revient.
   const lifeKeep = lifeOn ? (gx, gy) => treeLifeKeep(lifeD.at(gx, gy)) : null;
-  const ctx = { isWild, nearCity, cellNoise, lifeKeep, densK: treeDensK() };
+  const lifeAt = lifeOn ? (gx, gy) => lifeD.at(gx, gy) : null;
+  const ctx = { isWild, nearCity, cellNoise, lifeKeep, lifeAt, densK: treeDensK() };
   // Liste RÉUTILISÉE (vidée, jamais réallouée) : elle ne se reconstruit qu'au
   // changement d'ensemble de blocs, et seuls les blocs neufs sont dispersés.
   const list = st.list;
