@@ -22,9 +22,13 @@
 const S = 0.71;
 // Une troupe par jeu d'habitants (mêmes bandes que agentSetForBand) : trois filles
 // qui circulent (la danseuse de la troupe d'abord, puis l'hôtesse et la courtisane).
+// `alanguie` : la COURTISANE ALANGUIE de l'âge (2026-10-04, Raph : « la luxure, pousse
+// au max » puis « dessine sur PixelLab ») — allongée sur le meuble de son époque, un
+// sprite à part (48 × 32, scripts/plaisirsAlanguies.mjs), posé dans les antichambres.
 const troupe = (k, girls, dancer) => ({
   girls: girls.map((g) => ({ name: `plaisirs-${k}-${g}`, scale: S })),
   dancers: [{ name: `plaisirs-${k}-${dancer}`, scale: S, danse: `plaisirs-${k}-${dancer}-danse`, danseScale: S }],
+  alanguie: `plaisirs-${k}-alanguie`,
 });
 const FEU = troupe('feu', ['chasseresse', 'sauvage', 'flamme'], 'flamme');            // fourrures et os
 const MOYEN = troupe('moyen', ['courtisane', 'dame', 'gigue'], 'gigue');              // chemises et corselets

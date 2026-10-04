@@ -326,6 +326,22 @@ export function alcoveEra(ctx, x, y, closed, A) {
     }
   }
 }
+// LA COURTISANE ALANGUIE (2026-10-04, PixelLab, plaisirsCast().alanguie) : son sprite,
+// meuble compris, fait 48 px de large. Elle s'allonge dans une antichambre d'au moins
+// 70 px, à côté du meuble du hall (plaisirsCoupeHD.js) ; aux âges qui n'en ont pas
+// (ctx.alanguieBoudoir), elle reçoit au boudoir, à la place du canapé : la tête au mur,
+// tournée vers l'alcôve, un client debout à ses pieds quand la place le permet. Rend sa
+// position, ou null (salle large, ou trop étroite pour elle).
+export const ALANGUIE_W = 48, ALANGUIE_HALL = 70;
+export function alanguieBoudoir(ctx, r, ax) {
+  const { x0r, y, w, seed } = r;
+  const libre = ax - 25 - Math.round(x0r);
+  if (w >= 220 || !ctx.alanguieBoudoir || libre < ALANGUIE_W + 4) return null;
+  const lx = Math.round(x0r) + 2 + ALANGUIE_W / 2;
+  ctx.fig(lx, y + FOOT, 0, 'L', 0, { role: 'alanguie' });
+  if (libre >= ALANGUIE_W + 16) ctx.fig(lx + ALANGUIE_W / 2 + 6, y + SD + 1, 2, 0, seed + 3);
+  return lx;
+}
 export function boudoirRoom(ctx, r, A) {
   const { fig } = ctx, { x0r, x1r, y, w, y0, seed } = r;
   const wide = w >= 220;
@@ -334,6 +350,11 @@ export function boudoirRoom(ctx, r, A) {
   ctx.boudoir = { x: ax, level: ctx.level };
   ctx.show = { x: ax + 1, y: y + 1 };
   if (wide) alcoveEra(ctx, bx, y, false, A);
+  const lx = alanguieBoudoir(ctx, r, ax);
+  if (lx != null) {
+    if (A.wall) A.wall(ctx, lx, y0);
+    return;
+  }
   const mid = wide ? Math.round((bx + ax) / 2) : Math.round((x0r + ax) / 2) - 6;
   A.couch(ctx, mid - 10, y);
   if (A.wall) A.wall(ctx, mid - 10, y0);

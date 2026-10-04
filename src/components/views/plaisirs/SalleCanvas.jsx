@@ -11,6 +11,19 @@ import { dehorsCss } from './salleLumiere.js';
 // place se tire de son numéro (rien à garder d'une image à l'autre).
 const PAILLETTES = 90;
 const PAILLETTE_COULEURS = ['#ffe08a', '#ffd76a', '#ff8fb5', '#fff6dc', '#f2c230'];
+// Les COURTISANES ALANGUIES (type 'L' des figures) : un sprite par âge, chargé une fois.
+const alanguies = new Map();
+function alanguieImg(name) {
+  if (!name || typeof Image === 'undefined') return null;
+  let im = alanguies.get(name);
+  if (!im) {
+    im = new Image();
+    im.src = `/pixelart/agents/inhabitants/${name}.png`;
+    alanguies.set(name, im);
+  }
+  return im.complete && im.naturalWidth > 0 ? im : null;
+}
+
 // Les ÉTOILES du ciel de nuit, au-dessus de la verrière.
 const ETOILES = 70;
 const hashP = (i, k) => {
@@ -170,6 +183,20 @@ export default function SalleCanvas({ bake, band, lit, padLeft = 0, focus = null
         }
         for (const f of bake.figures) {
           if (!!f.front !== front) continue;
+          // La courtisane alanguie : son sprite, posé sur le sol, retourné vers la gauche.
+          if (f.type === 'L') {
+            const im = alanguieImg(cast && cast.alanguie);
+            if (!im) continue;
+            const w = im.naturalWidth, h = im.naturalHeight, x0 = ox + (f.x - Math.floor(w / 2)) * Z, y0 = oy + (f.y - h + 1) * Z;
+            if (f.dir === 2) {
+              g.save();
+              g.translate(x0 + w * Z, y0);
+              g.scale(-1, 1);
+              g.drawImage(im, 0, 0, w * Z, h * Z);
+              g.restore();
+            } else g.drawImage(im, x0, y0, w * Z, h * Z);
+            continue;
+          }
           const spec = specOf(f.type, f.variant);
           if (!spec) continue;
           // La troupe DANSE (sa bande de danse, jouée en boucle sur place).

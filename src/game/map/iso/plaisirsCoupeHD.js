@@ -27,7 +27,7 @@ import { slotRow } from './plaisirsSlotsCoupe.js';
 import {
   HD, LH, INK, bayer, mix, h32, painter, sym, piece, palOf, lightPool, FOOT, contactShadow, turnedLeg, BK, SD, FR,
 } from './plaisirsHDKit.js';
-import { flame } from './plaisirsEraRooms.js';
+import { flame, alanguieBoudoir, ALANGUIE_HALL } from './plaisirsEraRooms.js';
 import { furnishEra } from './plaisirsEraFurnish.js';
 
 
@@ -1273,6 +1273,12 @@ function boudoir(ctx, x, y, w, x0r, x1r, y0, seed) {
   ctx.boudoir = { x: ax, level: ctx.level };
   ctx.show = { x: ax + 1, y: y + 1 };                      // les ombres de la tenture
   if (wide) alcove(O, F, N, R, S, bx, y, false);
+  // Sans antichambre pour elle, la courtisane alanguie prend la place du canapé.
+  const lx = alanguieBoudoir(ctx, { x0r, y, w, seed }, ax);
+  if (lx != null) {
+    O.spr(lx - 6, y0 + 9, HEART, pal);
+    return;
+  }
   const mid = wide ? Math.round((bx + ax) / 2) : Math.round((x0r + ax) / 2) - 6;
   chaise(O, R, S, mid - 10, y);
   O.spr(mid - 16, y0 + 9, HEART, pal);
@@ -1284,16 +1290,11 @@ function boudoir(ctx, x, y, w, x0r, x1r, y0, seed) {
 }
 
 // ── LE NIVEAU : ses boîtes dans la charpente ─────────────────────────────────
-// Les LIEUX à gauche de la cage, le HALL à droite ; entre deux boîtes un poteau percé
-// d'une porte. Chaque boîte a son mur, ses lampes, son ornement, son mobilier.
-function level(ctx, lv, rooms, open, i, core) {
-  const { P, N, S, pal, ids, spots, fig } = ctx;
-  const { cx, w, yT } = lv;
-  const x0 = Math.round(cx - w / 2), x1 = Math.round(cx + w / 2);
-  const ix0 = x0 + HD.WALL, ix1 = x1 - HD.WALL;
-  const yF = yT + HD.CEIL + HD.WALLH, yB = yF + HD.FLOORD, door = [yF - 30, yB];
-  // Les segments : à gauche de la cage (les lieux), à droite (le hall) ; aux âges des
-  // tours, la cage est au centre et les lieux de part et d'autre.
+// Les segments d'un niveau : à gauche de la cage (les lieux), à droite (le hall) ; aux
+// âges des tours, la cage est au centre et les lieux de part et d'autre.
+function segments(lv, rooms, i, core) {
+  const { cx, w } = lv;
+  const ix0 = Math.round(cx - w / 2) + HD.WALL, ix1 = Math.round(cx + w / 2) - HD.WALL;
   const L = [ix0, core.x0 - HD.WALLW], Rt = [core.x1 + HD.WALLW, ix1];
   const segs = [];
   // Un hall dès 34 px (un vestibule) : plus étroit, la charpente restait une case noire.
@@ -1302,6 +1303,21 @@ function level(ctx, lv, rooms, open, i, core) {
     if (rooms.length === 1) { const sd = i & 1 ? [Rt, L] : [L, Rt]; segs.push([sd[0], rooms]); hall = sd[1]; }
     else { const k = Math.ceil(rooms.length / 2); segs.push([L, rooms.slice(0, k)], [Rt, rooms.slice(k)]); hall = null; }
   } else segs.push([L, rooms]);
+  return { segs, hall };
+}
+// La marge latérale d'une boîte (le mur vu en biais) et sa largeur intérieure.
+const sideOf = (b0, b1) => Math.min(HD.SIDE, Math.floor((b1 - b0) / 5));
+const innerOf = (b0, b1) => b1 - b0 - 2 * sideOf(b0, b1);
+
+// Les LIEUX à gauche de la cage, le HALL à droite ; entre deux boîtes un poteau percé
+// d'une porte. Chaque boîte a son mur, ses lampes, son ornement, son mobilier.
+function level(ctx, lv, rooms, open, i, core) {
+  const { P, N, S, pal, ids, spots, fig } = ctx;
+  const { cx, w, yT } = lv;
+  const x0 = Math.round(cx - w / 2), x1 = Math.round(cx + w / 2);
+  const ix0 = x0 + HD.WALL, ix1 = x1 - HD.WALL;
+  const yF = yT + HD.CEIL + HD.WALLH, yB = yF + HD.FLOORD, door = [yF - 30, yB];
+  const { segs, hall } = segments(lv, rooms, i, core);
   // Les poteaux de part et d'autre de la cage.
   if (!core.none && core.x0 - HD.WALLW >= ix0) post(P, S, core.x0 - HD.WALLW, HD.WALLW, yT, yB, door);
   if (!core.none && core.x1 + HD.WALLW <= ix1) post(P, S, core.x1, HD.WALLW, yT, yB, hall || core.center ? door : null);
@@ -1316,7 +1332,7 @@ function level(ctx, lv, rooms, open, i, core) {
   });
   if (hall) boxes.push({ id: null, b0: hall[0], b1: hall[1] });
   boxes.forEach(({ id, b0, b1 }, r) => {
-    const B = box(P, S, b0, b1, yT, Math.min(HD.SIDE, Math.floor((b1 - b0) / 5)), ctx.WN);
+    const B = box(P, S, b0, b1, yT, sideOf(b0, b1), ctx.WN);
     const bw = B.bx - B.ax, mx = Math.round((B.ax + B.bx) / 2);
     // Les lampes et leur lumière (pas de lustre devant la toile de la scène).
     // Deux lustres dès 110 px, aux cinquièmes : le centre reste à l'enseigne du lieu.
@@ -1351,7 +1367,10 @@ function level(ctx, lv, rooms, open, i, core) {
       // Le HALL : un palmier, une statue, le vestiaire ; l'hôtesse qui accueille.
       const H = S.hall, a = B.ax + Math.round(bw * 0.24), b = B.ax + Math.round(bw * 0.76);
       hallPieceHD(H[i % H.length], ctx.O, P, S, bw < 70 ? mx : a, B.yF);
-      if (bw >= 70) hallPieceHD(H[(i + 1) % H.length], ctx.O, P, S, b, B.yF);
+      // LA COURTISANE ALANGUIE (2026-10-04, PixelLab) : dans l'antichambre, allongée sur
+      // le meuble de son âge, tournée vers le milieu du hall (type 'L' : la vue la dessine
+      // d'un seul sprite, plaisirsCast().alanguie). Elle prend la place du second meuble.
+      if (bw >= ALANGUIE_HALL) fig(b, B.yF + FOOT, 2, 'L', 0, { role: 'alanguie' });
       if (bw >= 50) fig(Math.round((a + b) / 2), B.yF + SD, i & 1 ? 2 : 0, 'g', i + 1, { role: 'hotesse' });
     }
   });
@@ -2810,6 +2829,12 @@ export function bakeCoupeHD(K, open = {}) {
   if (!core.center) core.x0 = core.x1 - HD.CORE;
   // Le campement n'a qu'un niveau : pas de cage, les lieux prennent toute la largeur.
   if (S.circ === 'none') { core.x1 = Math.round(cx + wTop / 2) - HD.WALL + HD.WALLW; core.x0 = core.x1; core.none = true; }
+  // La courtisane alanguie : dans une antichambre assez large, sinon au boudoir
+  // (alanguieBoudoir, plaisirsEraRooms.js).
+  ctx.alanguieBoudoir = !prog.some((rooms, i) => {
+    const { hall } = segments({ cx, w: widths[Math.min(i, widths.length - 1)] }, rooms, i, core);
+    return hall && innerOf(hall[0], hall[1]) >= ALANGUIE_HALL;
+  });
   const levels = [];
   let yT = deckY - (HD.CEIL + HD.WALLH + HD.FLOORD);
   for (let i = 0; i < L; i += 1) {

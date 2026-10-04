@@ -394,8 +394,14 @@ function frame(who, view, g) {
     const leg = (x, lift, nm) => stamp(cv, { x, y: legTop - (lift ? 1 : 0), rows, name: nm }, pal);
     // Les deux jambes gardent un pixel d'écart : collées, le trait de la proche
     // noircissait la lointaine (des jambes nues sortaient noires).
-    leg(17 + (g.legFar || 0) + sw, g.liftFar, 'jambe-loin');
-    if (!g.kick) leg(13 + (g.legNear || 0) + sw, g.liftNear, 'jambe-près');
+    if (g.ecart) {
+      // Le grand écart : les deux jambes à plat sur les planches, de part et d'autre.
+      stamp(cv, { x: 3, y: 27, rows: SPLIT_NEAR, name: 'jambe-près' }, pal);
+      stamp(cv, { x: 20, y: 27, rows: SPLIT_FAR, name: 'jambe-loin' }, pal);
+    } else {
+      leg(17 + (g.legFar || 0) + sw, g.liftFar, 'jambe-loin');
+      if (!g.kick) leg(13 + (g.legNear || 0) + sw, g.liftNear, 'jambe-près');
+    }
   } else {
     stamp(cv, { x: 18 + (g.legFar || 0), y: 28 - (g.liftFar ? 1 : 0), rows: SHOE, name: 'soulier-loin' }, pal);
     stamp(cv, { x: 14 + (g.legNear || 0), y: 28 - (g.liftNear ? 1 : 0), rows: SHOE, name: 'soulier-près' }, pal);
@@ -407,15 +413,17 @@ function frame(who, view, g) {
   else body.push({ x: 12, y: 13 + b, rows: BACK_NE, name: 'dos' });
   if (R0.top === 'bandeau') body.push(se ? { x: 11, y: 14 + b + bu, rows: BANDEAU_SE, name: 'bandeau' } : { x: 12, y: 15 + b, rows: BANDEAU_NE, name: 'bandeau' });
   else body.push(se ? { x: 11, y: 15 + b, rows: R0.top === 'bodice' ? BODICE_SE : CORSET_SE, name: 'corset' } : { x: 12, y: 16 + b, rows: CORSET_NE, name: 'corset' });
-  const sk = (g.lifted && bottom === 'short' ? SKIRT_LIFT : SKIRTS[bottom])[g.skirt || 0];
-  body.push({ x: (bottom === 'short' || bottom === 'fur' || bottom === 'leotard' ? 10 : 9) + sw, y: 20 + b, rows: sk, name: 'bas' });
+  const flip = g.kick === 3 && bottom === 'short';
+  const sk = flip ? SKIRT_FLIP : (g.lifted && bottom === 'short' ? SKIRT_LIFT : SKIRTS[bottom])[g.skirt || 0];
+  body.push({ x: (bottom === 'short' || bottom === 'fur' || bottom === 'leotard' ? 10 : 9) + sw, y: (flip ? 16 : 20) + b, rows: sk, name: 'bas' });
   if (R0.slit && se && g.slit) body.push({ x: 17 + sw, y: 23 + b, rows: SLIT_SE, name: 'fente' });
   body.push({ x: 10, y: 1 + b, rows: se ? eyes(head.se, g) : head.ne, name: 'tête' });
   if (head.backNE && !se) body.push({ x: 12, y: 11 + b, rows: head.backNE, name: 'cheveux' });
   for (const a of R0.acc) { const A = ACC[a]; if (A.front && !se) continue; body.push({ x: A.at[0], y: A.at[1] + b + (A.front ? bu : 0), rows: A.rows, name: a }); }
   for (const p of body) stamp(cv, p, pal, { outline: false });
   // La jambe LANCÉE du cancan passe devant les jupons (son trait la détache).
-  if (g.kick === 2) stamp(cv, { x: 18, y: 14 + b, rows: KICK_LEG, name: 'jambe-lancée' }, pal);
+  if (g.kick === 3) stamp(cv, { x: 19, y: 10 + b, rows: KICK_LEG_HAUT, name: 'jambe-lancée' }, pal);
+  else if (g.kick === 2) stamp(cv, { x: 18, y: 14 + b, rows: KICK_LEG, name: 'jambe-lancée' }, pal);
   else if (g.kick === 1) stamp(cv, { x: 16, y: 21 + b, rows: KNEE_LEG, name: 'genou-levé' }, pal);
   // Devant : le bras proche (son trait le détache du corps).
   if (upN) stamp(cv, { x: 8, y: 4 + b, rows: ARM_UP_NEAR, name: 'bras-près' }, pal);
@@ -440,15 +448,46 @@ const SKIRT_LIFT = [
 ];
 const KNEE_LEG = ['BBBBB.', 'BbbbBB', '...BBb', '...BBb', '...rrr'];
 const KICK_LEG = ['........rr', '.......BBr', '......BBb.', '.....BBb..', '....BBb...', '...BBb....', '..BBb.....', '.BBb......'];
+// LE FRENCH CANCAN (2026-10-04, Raph : « la luxure, pousse l'idée au max » ; le dessin
+// de la pose tiré d'une passe PixelLab, retracé ici pour garder le visage et le corps
+// des filles) : le GRAND BATTEMENT — la jambe presque droite, la pointe au menton —,
+// le jupon RETROUSSÉ sur ses volants (T) du côté de la jambe, et le GRAND ÉCART final,
+// les jambes à plat sur les planches, les bras en V.
+const KICK_LEG_HAUT = [
+  '....rr.',
+  '....BBr',
+  '...BBb.',
+  '...BBb.',
+  '..BBb..',
+  '..BBb..',
+  '..BBb..',
+  '.BBb...',
+  '.BBb...',
+  'BBb....',
+  'BBb....',
+];
+const SKIRT_FLIP = [
+  '........TTT..',
+  '.......TTRRT.',
+  '......TTRRRT.',
+  '...RRRTRRRT..',
+  '.RRRrRTTTT...',
+  'RRRRRrTT.....',
+  'TTTTTTT......',
+  '.TTTTT.......',
+];
+const SPLIT_NEAR = ['rBBBBBBBBB', 'rrbbbbbbBB'];
+const SPLIT_FAR = ['BBBBBBBBBr', 'BBbbbbbbrr'];
+const K_BASE = { lifted: true, bob: 0, bust: 0, skirt: 0 };
+const K_GENOU = { lifted: true, kick: 1, bob: -1, bust: 1, skirt: 1 };
+const K_LANCE = { lifted: true, kick: 2, bob: -1, bust: -1, skirt: 0 };
+const K_HAUT = { lifted: true, kick: 3, bob: -1, bust: -1, skirt: 0 };
+const K_ECART = { up: 'both', ecart: true, bob: 5, bust: 1, skirt: 0, lifted: true };
 const KICK = [
-  { lifted: true, bob: 0, bust: 0, skirt: 0 },
-  { lifted: true, kick: 1, bob: -1, bust: 1, skirt: 1 },
-  { lifted: true, kick: 2, bob: -1, bust: -1, skirt: 0 },
-  { lifted: true, kick: 1, bob: 0, bust: 1, skirt: 1 },
-  { lifted: true, bob: 0, bust: 0, skirt: 0, legNear: -1, legFar: 1 },
-  { lifted: true, kick: 1, bob: -1, bust: 1, skirt: 1 },
-  { lifted: true, kick: 2, bob: -1, bust: -1, skirt: 0 },
-  { lifted: true, kick: 1, bob: 0, bust: 1, skirt: 1 },
+  K_BASE, K_GENOU, K_LANCE, { ...K_GENOU, bob: 0 },
+  { ...K_BASE, legNear: -1, legFar: 1 }, K_GENOU, K_HAUT, K_HAUT,
+  { ...K_GENOU, bob: 0 }, K_BASE, K_GENOU, K_LANCE,
+  { ...K_GENOU, bob: 0 }, K_ECART, { ...K_ECART, bust: 0 }, K_ECART,
 ];
 // L'ONDULATION (feu, bacchanale, lumière) : bras levés, hanches qui roulent, le buste
 // qui rebondit à chaque coup de hanche.
@@ -581,6 +620,16 @@ if (PREV_REPOS) {
   const poses = [R_N, R_I, { ...R_N, blink: true }, { ...R_N, look: true }];
   preview(PREV_REPOS.slice(16), CROUPIERES.map((n) => poses.map((g) => frame(n, 'se', g))), 8);
   console.log('aperçu', PREV_REPOS.slice(16));
+}
+
+// --preview-danse=out.png : toutes les images de la danse des danseuses du battement.
+const PREV_DANSE = process.argv.find((a) => a.startsWith('--preview-danse='));
+if (PREV_DANSE) {
+  const quoi = (process.argv.find((a) => a.startsWith('--images=')) || '').slice(9);
+  const idx = quoi ? quoi.split(',').map(Number) : KICK.map((_, i) => i);
+  const rows = Object.keys(ROSTER).filter((n) => ROSTER[n].dance === 'kick').map((n) => idx.map((i) => frame(n, 'se', KICK[i])));
+  preview(PREV_DANSE.slice(16), rows, +((process.argv.find((a) => a.startsWith('--k=')) || '').slice(4)) || 6);
+  console.log('aperçu danse', PREV_DANSE.slice(16), rows.length);
 }
 
 const PREV = process.argv.find((a) => a.startsWith('--preview='));

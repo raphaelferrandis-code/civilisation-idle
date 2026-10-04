@@ -16,7 +16,7 @@ Quatre lots, dans l'ordre.
 | 3 | La luxure poussée au maximum (suggestive) | ✅ fait |
 | 4 | Compter les cartes au vingt-et-un (le sabot, le videur) | ✅ fait |
 | 5 | La lumière de la salle de nuit | ✅ fait |
-| 6 | Le french cancan et les courtisanes alanguies (PixelLab) | en cours |
+| 6 | Le french cancan et les courtisanes alanguies (PixelLab) | ✅ fait |
 
 ---
 
@@ -151,9 +151,8 @@ Le banc joue désormais huit jeux, la Nuit et le spectacle. Sur la graine 7 :
   les gros duels s'écrivent à la Chronique (le mouchoir parfumé, « une fille à chaque
   bras »).
 - ⛔ Pas de nudité, pas d'acte explicite.
-- Pas fait, et pourquoi : le french cancan sur la scène et des courtisanes alanguies
-  demandent de NOUVELLES bandes de sprites pour les filles — dessinées à la main par Raph
-  (.aseprite) : à lui de dire s'il les veut, et dessinées par qui.
+- Pas fait ici : le french cancan sur la scène et les courtisanes alanguies demandaient
+  de NOUVELLES images des filles. Raph les a voulues, dessinées sur PixelLab : lot 6.
 
 ## Lot 4 — compter les cartes ✅
 
@@ -204,6 +203,43 @@ ajoutés par-dessus. Maintenant (`plaisirs/salleLumiere.js`, cuite une fois par 
 
 ---
 
+## Lot 6 — le french cancan et les courtisanes alanguies ✅
+
+Raph : « Je veux oui, dessine sur PixelLab ».
+
+- **Le french cancan** (`scripts/plaisirsGirls.mjs`, danse `kick`) : la danse des trois
+  danseuses du battement (la cancan de la Fonte, la gigue du Moyen Âge, la revue du
+  néon) passe de huit à SEIZE images — les battements, puis le GRAND BATTEMENT (la jambe
+  presque droite, la pointe au menton) avec le jupon RETROUSSÉ sur ses volants (jupes
+  courtes seulement), et le GRAND ÉCART pour finir (les jambes à plat sur les planches,
+  les bras en V). La passe PixelLab a donné la pose mais pas la fille (corps plus petit,
+  yeux fermés : ce que Raph avait déjà refusé) : la pose est retracée dans le gréement,
+  qui garde le visage, le buste et les proportions de la troupe.
+  Aperçu : `node scripts/plaisirsGirls.mjs --preview-danse=<sortie.png>` ; bandes :
+  `--build --only=cancan` (puis `gigue`, `revue`), puis leurs demi-bandes
+  (`node scripts/bakeHalfBands.mjs inhabitants plaisirs-fonte-cancan-danse --div=2`,
+  de même pour les deux autres).
+- **Les courtisanes alanguies** : une par âge, allongée sur le meuble de son époque —
+  les peaux de bête (Feu), le banc à coussins et sa coupe de vin (Moyen Âge), le lit de
+  banquet et sa grappe (Antiquité), la méridienne rouge (Fonte), le sofa rose (néon),
+  la méridienne d'écume (jade), le divan de nacre (astral), le divan de cristal violet.
+  PixelLab « Create Image (Pro) », 48 × 32, seize tirages par âge, la fille de l'âge en
+  référence de personnage (sa bande de marche, PAR ADRESSE). Les tirages choisis sont
+  gardés bruts dans `art/plaisirs/pixellab/<âge>-alanguie.png` ;
+  `node scripts/plaisirsAlanguies.mjs` les exporte (alpha binaire, îlots de pixels
+  détachés retirés) en `plaisirs-<âge>-alanguie.png`.
+- **Où** : dans les antichambres d'au moins 70 px (âges 5 à 9), à la place du second
+  meuble, tournée vers le milieu du hall ; aux âges qui n'en ont pas (1 à 4 : les halls y
+  sont des vestibules, et le couple qui monte au boudoir y attend), elle reçoit AU
+  BOUDOIR, à la place du canapé — la tête au mur, tournée vers l'alcôve, un client debout
+  à ses pieds quand la place le permet (`alanguieBoudoir`, plaisirsEraRooms.js, partagé
+  par le boudoir du Fonte). Le campement (âge 0) n'a de place nulle part. Figure `L` de
+  la coupe, dessinée par la vue d'un seul sprite (`plaisirsCast(band).alanguie`),
+  retournée quand elle regarde à gauche ; elle prend la lumière de la salle.
+- ⛔ Toujours suggestif : robes fendues, jambes, décolletés ; pas de nudité.
+
+---
+
 ## Pièges relevés en route
 
 - **Capture sans écran** : le Chrome sans écran ne produit pas d'images entre deux
@@ -216,3 +252,10 @@ ajoutés par-dessus. Maintenant (`plaisirs/salleLumiere.js`, cuite une fois par 
 - **Un homme de l'âge derrière une table** est bien plus grand qu'une fille de la
   Maison (planche de 56 px, marge au-dessus de la tête) : mesurer sa hauteur sur son
   image plutôt que l'estimer.
+- **PixelLab, les références** : une image passée en base64 à la main arrive tronquée
+  ou brouillée ; la passer PAR ADRESSE (le fichier brut de `main` sur GitHub, donc déjà
+  poussé). Un tirage garde parfois des pixels détachés (paillettes, bouts de décor
+  coupés par le cadre) : l'export les retire.
+- **Où tombe une figure de la coupe** : `bakeCoupeHD` tourne en node pur (import direct
+  du module) ; compter ses `figures` par âge avant de juger une capture — la courtisane
+  du hall ne tombait qu'aux âges 5 à 9.
