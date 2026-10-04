@@ -19,7 +19,7 @@ import { CM } from '../layout.js';
 import { worldToScreen } from './projection.js';
 import { propReady } from '../cityEngineSprites.js';
 import { blitPropAnchored } from './isoPortProps.js';
-import { orbitPoint, shipAlpha } from '../riverFleet.js';
+import { orbitPoint, shipAlpha, ferryDeckHidden } from '../riverFleet.js';
 import { ensureBoat, boatReady, BOAT_SIZES, BOAT_LIFT } from '../agents.js';
 import { bridgeBlocks } from './isoBridge.js';
 import {
@@ -76,8 +76,9 @@ export function drawIsoShips(now) {
     // (boatKits.BAND_FLEET), le bateau est tiré parmi les modèles de son métier et
     // cuit à son cap. Sa longueur réelle remplace la table d'échelle des sprites.
     let kit = boatSpecFor(sh, band);
-    // Le passeur change de voyageurs à chaque traversée : la graine suit le voyage.
-    if (kit && sh.kind === 'ferry') kit = { ...kit, seed: kit.seed + (sh.trip || 0) * 31 };
+    // Le passeur garde SES places d'une traversée à l'autre : ce sont les voyageurs qui
+    // changent — ceux qui attendaient au ponton (boatScenes, sh._passNames ; lot 5 de
+    // PLAN-COMPORTEMENTS). La graine suivait le voyage : sur le pont, d'autres gens.
     // Les coques qui LÉVITENT ne laissent ni sillage ni ellipse sur l'eau.
     const floats = !!(kit && BOAT_MODELS[kit.id] && BOAT_MODELS[kit.id].hover);
     const sizeMul = kit ? boatSizeMul(kit) : vis.sizeMul;
@@ -220,6 +221,7 @@ export function drawIsoShips(now) {
         : sh.kind === 'shuttle' && sh.state === 'cruise' && sh.dest === 'city' ? 'return'
           : sh.state === 'cruise' && sh.salute > 0 ? 'salute' : sh.state;
       const pose = { kit, x: p.x, y: snapDev(p.y + bob), thW, z, state: kstate, wx: wxS, wy: wyS, heading, sizeMul, at: now, alpha: ctx.globalAlpha / (prevAlpha || 1) };
+      if (sh.kind === 'ferry') { pose.passNames = sh._passNames || null; pose.hidePass = ferryDeckHidden(sh); }
       // À QUAI, ou en train de s'y ranger : le bateau est trié AVEC le ponton (item
       // 'fleetShip' du peintre, cf. drawIsoShipDeferred) — peint ici, avant la passe
       // vivante, le ponton le recouvrait.
@@ -228,7 +230,7 @@ export function drawIsoShips(now) {
         sh._defer = pose;
         // Les porteurs du ponton pendant l'escale (items 'porter' du peintre).
         const berth = sh.state === 'dock' && sh.berthId != null ? (CM.shipBerths || []).find((b) => b.id === sh.berthId) : null;
-        sh._porters = berth ? dockPorters(berth, (sh.dockDwell || 0) - (sh.stateT || 0), sh.id) : null;
+        sh._porters = berth ? dockPorters(berth, (sh.dockDwell || 0) - (sh.stateT || 0), sh.id, sh.dockDwell || Infinity) : null;
         sh._portersBand = band;
         ctx.globalAlpha = prevAlpha;
         continue;
@@ -301,8 +303,9 @@ export function drawIsoShips(now) {
 // Coque du kit posée à sa pose de la frame : reflet, ombre, coque ; puis l'ancre
 // de la passe de nuit (feux) et la coque que le pont redessine à sa sortie.
 function drawKitShip(ctx, sh, P, now) {
-  const r = drawBoat(ctx, P.kit, P.x, P.y, P.thW, P.z, now, { state: P.state, memo: sh });
+  const r = drawBoat(ctx, P.kit, P.x, P.y, P.thW, P.z, now, { state: P.state, memo: sh, passNames: P.passNames, hidePass: P.hidePass });
   if (!r) return null;
+  if (r.pass) sh._deckSlots = r.pass;          // les places des voyageurs (boatScenes)
   // Ce qui bouge par-dessus la coque : la fumée des cheminées, les lances des pompiers.
   if (r.anchors.smoke) drawSmoke(ctx, r.anchors.smoke, now, P.z, sh.id | 0, P.heading, sh.state !== 'dock' && sh.state !== 'anchor');
   if (r.model && r.model.service === 'fire' && sh.state === 'anchor') drawJets(ctx, r.anchors, now, P.z, P.heading, sh.id | 0);

@@ -39,6 +39,14 @@ if (typeof window !== 'undefined') {
 const LANES = [0.5, 0.68];        // fraction de la largeur : vers l'aval, vers l'amont
 const PER_SAMPLES = 1.1;          // un promeneur pour ~1,1 sample de quai (≈ 1,6 tuile)
 const PAIR = 0.33, PAIR_GAP = 0.15; // un sur trois flâne à deux, côte à côte (écart en largeur)
+// LOT 5 de PLAN-COMPORTEMENTS : la promenade n'avait que des HOMMES seuls ; elle a ses
+// promeneuses, et l'accompagnant d'un sur trois est un enfant. L'accompagnant se tient
+// du côté EXTÉRIEUR de sa file (l'eau pour qui descend, la terre pour qui remonte) : à
+// 0,65, celui de la file aval croisait la file amont (0,68) en plein. Et l'on se DOUBLE :
+// qui rattrape un promeneur plus lent de sa file s'écarte vers le milieu le temps de le
+// passer, au lieu de lui marcher au travers.
+const MATE_SIDE = [-1, 1];          // file aval : vers l'eau (pas plus près que 0,38 : le garde-corps) ; file amont : vers la terre
+const PASS = { gap: 0.45, off: 0.09 };   // en samples ; écart latéral (fraction de largeur)
 const SPEED_PX = 4.6;             // px monde / s : un flâneur, plus lent qu'un passant
 const DIRS = (tx, ty) => (Math.abs(tx) > Math.abs(ty) ? (tx > 0 ? 0 : 1) : (ty > 0 ? 2 : 3));
 // ⚠ BRASSÉ (fmix32) : cmHash de graines voisines (« …:0o », « …:1o ») sort des
@@ -65,10 +73,10 @@ function walkers(spans) {
         stop: 3 + 4 * h01(sd + 's'),                     // s d'arrêt face à l'eau
         night: h01(sd + 'n'),                            // qui rentre quand la nuit tombe
         p: { x: 0, y: 0, lox: 0, loy: 0, dir: 0, pauseT: 0, phase: h01(sd + 'p'),
-          charType: 0, walkDist: 0, skinVariant: fmix(cmHash(sd + 'k') >>> 0) % 12 },
+          charType: h01(sd + 'g') < 0.5 ? 0 : 1, walkDist: 0, skinVariant: fmix(cmHash(sd + 'k') >>> 0) % 12 },
         // Le compagnon : même pas, même arrêt, à côté (côté terre), un autre dessin.
         mate: h01(sd + 'c') < PAIR ? { x: 0, y: 0, lox: 0, loy: 0, dir: 0, pauseT: 0, phase: h01(sd + 'q'),
-          charType: 0, walkDist: 0, skinVariant: fmix(cmHash(sd + 'j') >>> 0) % 12 } : null,
+          charType: h01(sd + 'h') < 0.35 ? 2 : (h01(sd + 'g') < 0.5 ? 1 : 0), walkDist: 0, skinVariant: fmix(cmHash(sd + 'j') >>> 0) % 12 } : null,
       });
     }
   }
@@ -96,8 +104,9 @@ registerVieActors((now, out) => {
   // s'EFFACE en fondu au lieu de disparaître d'un coup.
   const rain = CM.rainF || 0;
   const th = Math.max(night * 0.6, rain > 0.15 ? rain * 0.7 + 0.1 : 0, (CM.season | 0) === 3 ? 0.35 : 0);
+  const live = [];
   for (const w of walkers(spans)) {
-    const fade = Math.min(1, (w.night - th) / 0.06);
+    const fade = Math.min(1, (w.night - th) / 0.12);     // un fondu de quelques secondes au crépuscule
     if (fade <= 0) continue;
     const cyc = w.move + w.stop, k = Math.floor(t / cyc), ph = t - k * cyc;
     const moved = k * w.move + Math.min(ph, w.move);      // secondes de marche écoulées
@@ -107,7 +116,26 @@ registerVieActors((now, out) => {
     const q = (((distPx / stepPx + w.off) % per) + per) % per;
     const fwd = q < w.len;
     const u = w.sp.i0 + (fwd ? q : per - q);
-    const lane = LANES[fwd ? 0 : 1];
+    live.push({ w, u, fwd, paused, distPx, fade, lane: LANES[fwd ? 0 : 1] });
+  }
+  // On se double : dans une même file, celui qui en suit un autre de près (dans son sens
+  // de marche) s'écarte vers le milieu de la promenade.
+  const byRun = new Map();
+  for (const e of live) {
+    const k = e.w.sp.run.ri + ':' + (e.fwd ? 1 : 0);
+    if (!byRun.has(k)) byRun.set(k, []);
+    byRun.get(k).push(e);
+  }
+  for (const list of byRun.values()) {
+    list.sort((a, b) => a.u - b.u);
+    for (let i = 0; i < list.length; i += 1) {
+      const e = list[i], ahead = e.fwd ? list[i + 1] : list[i - 1];
+      if (!ahead || e.paused) continue;
+      const d = Math.abs(ahead.u - e.u);
+      if (d < PASS.gap) e.lane += (e.fwd ? 1 : -1) * PASS.off * (1 - d / PASS.gap);
+    }
+  }
+  for (const { w, u, fwd, paused, distPx, fade, lane } of live) {
     const pos = quayLanePoint(w.sp.run, u, lane);
     const p = w.p;
     p.x = pos.x; p.y = pos.y; p.pauseT = paused ? 1 : 0; p.walkDist = distPx; p.fade = fade;
@@ -129,7 +157,7 @@ registerVieActors((now, out) => {
     });
     const m = w.mate;
     if (m) {
-      const mp = quayLanePoint(w.sp.run, u, Math.min(0.9, lane + PAIR_GAP));
+      const mp = quayLanePoint(w.sp.run, u, Math.max(0.38, Math.min(0.9, lane + MATE_SIDE[fwd ? 0 : 1] * PAIR_GAP)));
       m.x = mp.x; m.y = mp.y; m.dir = dir; m.pauseT = p.pauseT; m.walkDist = distPx + 7; m.fade = fade;
       noteFig(mp.x, mp.y, FIG.QUAY | (paused ? 0 : FIG.MOVING));
       out.push({

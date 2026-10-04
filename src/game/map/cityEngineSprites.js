@@ -7,7 +7,7 @@
  * Partagé par TOUS les bâtiments achetés : `kind` choisit le motif (food, market,
  * …), `band` l'époque. Coords normalisées via ox+sw*x / oy+sh*y comme le reste.
  * ========================================================================== */
-import { AGENT_SCALE } from './agents.js';
+import { AGENT_SCALE, agentSetForBand, agentSpecFor, drawNamedAgentIso } from './agents.js';
 import { CM } from './layout.js';
 import { queueFlameGlow } from './flameGlow.js';
 import { lightCut, lightCutImage } from './lightLayer.js';
@@ -372,20 +372,54 @@ function drawPixelForager(ctx, ox, oy, sw, sh, now, phase, hFrac) {
   }
 }
 
+// ── LA NAVETTE D'UN HUMAIN DE SCÈNE (docs/PLAN-COMPORTEMENTS.md, lot 5) ──────
+// Elle allait au MÉTRONOME : vitesse constante, demi-tour instantané à chaque bout, et
+// des pas tirés de l'horloge — les pieds glissaient. Désormais : élan et freinage, une
+// halte au bout (cueillir, payer au comptoir), une autre au départ, des allures qui
+// changent d'un aller-retour à l'autre, et des pas calés sur la DISTANCE parcourue.
+// Rend { cx, dir (+1 vers xB), walking, dist (px marchés depuis le départ), c (rang du
+// tour), u (avancement dans le tour) }.
+const sceneEase = (x) => x * x * (3 - 2 * x);
+function sceneShuttle(now, xA, xB, T, phase, sw) {
+  const f = (now || 0) / T + phase, c = Math.floor(f), u = f - c;
+  const h = (((Math.imul(c + 1013, 2654435761) >>> 0) % 1000) / 1000);
+  const go = 0.34 + 0.08 * h, back = 0.34 + 0.08 * (1 - h);     // part de marche aller / retour
+  const stay = (1 - go - back) * (0.45 + 0.3 * h);                 // halte au bout, le reste au départ
+  const len = Math.abs(xB - xA) * sw;
+  if (u < go) { const s = sceneEase(u / go); return { cx: xA + (xB - xA) * s, dir: 1, walking: true, dist: s * len, c, u }; }
+  if (u < go + stay) return { cx: xB, dir: 1, walking: false, dist: len, c, u };
+  if (u < go + stay + back) { const s = sceneEase((u - go - stay) / back); return { cx: xB + (xA - xB) * s, dir: -1, walking: true, dist: len * (1 + s), c, u }; }
+  const uA = go + stay + back;
+  return { cx: xA, dir: -1, walking: false, dist: 2 * len, c, u, tail: (u - uA) / Math.max(1e-6, 1 - uA) };
+}
+// Le bonhomme de l'ÈRE (aux âges où le chapeau de paille et le panier d'osier n'ont
+// plus cours) : un habitant de la ville, à la taille d'un humain de scène.
+let _sceneBand = 0;
+function drawSceneCitizen(ctx, ox, oy, sw, sh, cx, fy, st, charType, variant, hFrac, now, phase) {
+  const spec = agentSpecFor(agentSetForBand(_sceneBand), charType, variant);
+  if (!spec) return false;
+  const z = (CM.cam && CM.cam.zoom) || 1;
+  // Bandes diagonales : sud-est vers la droite de l'écran, sud-ouest vers la gauche.
+  const d = drawNamedAgentIso(ctx, Math.round(ox + sw * cx), Math.round(oy + sh * fy), z, spec.name, spec.scale,
+    st.dir > 0 === (st.right !== false) ? 0 : 2, st.walking, now, phase, (hFrac || SCENE_HUMAN.ref) / SCENE_HUMAN.ref, st.walking ? st.dist : null, true);
+  return !!d;
+}
+
 // Paysan RÉUTILISÉ (blitFarmer) en navette entre deux abscisses (xA gauche ↔ xB droite)
 // sur la ligne de pieds fy : marche est (aller) puis ouest (retour, petit fruit en main).
 // T = période ms ; phase décale un 2e paysan ; hFrac = hauteur humaine PAR CELLULE.
 // Sert aux stades 1-2 du cueilleur (verger / serre), à la place du perso caveman du stade 0.
 function drawFarmerShuttle(ctx, ox, oy, sw, sh, now, xA, xB, fy, T, phase, hFrac) {
-  const cyc = ((((now || 0) / T) + phase) % 1 + 1) % 1;
-  const going = cyc < 0.5;                          // xA → xB (est) puis xB → xA (ouest)
-  const k = going ? cyc * 2 : (1 - cyc) * 2;        // 0 (xA) → 1 (xB)
-  const cx = xA + (xB - xA) * k;
-  const dir = going ? 'east' : 'west';
-  const carry = !going;                             // fruit rapporté vers xA
-  const frame = Math.floor((now || 0) / 150) % FARMER_NF;
+  const st = sceneShuttle(now, xA, xB, T, phase, sw);
+  const cx = st.cx;
+  const dir = st.dir > 0 ? 'east' : 'west';
+  const carry = st.dir < 0;                         // fruit rapporté vers xA
+  const frame = st.walking ? Math.floor(st.dist / Math.max(1, sceneHumanH(hFrac) * 0.11)) % FARMER_NF : 0;
   sceneHumanShadow(ctx, ox, oy, sw, sh, cx, fy, hFrac, 0.2);
-  blitFarmer(ctx, ox, oy, sw, sh, cx, fy, dir, frame, hFrac);
+  // Aux âges industriels et après, l'habitant de l'ère (le chapeau de paille et la
+  // fourche y étaient anachroniques).
+  if (_sceneBand >= 5) drawSceneCitizen(ctx, ox, oy, sw, sh, cx, fy, { ...st, right: xB > xA }, phase >= 0.5 ? 1 : 0, Math.floor(phase * 7), hFrac, now, phase);
+  else blitFarmer(ctx, ox, oy, sw, sh, cx, fy, dir, frame, hFrac);
   if (carry) { // fruit tenu devant, côté ouest — offsets ∝ taille humaine
     const dH = sceneHumanH(hFrac), hx = ox + sw * cx, fyPx = oy + sh * fy;
     ctx.fillStyle = '#c83010';
@@ -402,6 +436,8 @@ const BASKET_FH = 68, BASKET_NF = 6; // FH = repli si l'image n'est pas décodé
 const BASKET_DIRS = ['south', 'east', 'north', 'west'];
 const basketImg = {};
 const basketHalf = {};
+const basketWImg = {};
+const basketWHalf = {};
 let basketInit = false, basketReadyN = 0;
 function ensureBasket() {
   if (basketInit || typeof Image === 'undefined') return;
@@ -409,15 +445,19 @@ function ensureBasket() {
   for (const d of BASKET_DIRS) {
     const im = new Image(); im.onload = () => { basketReadyN += 1; }; im.src = '/pixelart/agents/inhabitants/basket-man-' + d + '.png'; basketImg[d] = im;
     const hf = new Image(); hf.src = '/pixelart/agents/inhabitants/basket-man-' + d + '-half.png'; basketHalf[d] = hf;
+    const iw = new Image(); iw.src = '/pixelart/agents/inhabitants/basket-woman-' + d + '.png'; basketWImg[d] = iw;
+    const hw = new Image(); hw.src = '/pixelart/agents/inhabitants/basket-woman-' + d + '-half.png'; basketWHalf[d] = hw;
   }
 }
 const basketReady = () => { ensureBasket(); return basketReadyN >= BASKET_DIRS.length; };
 // Mêmes règles que blitForager : frame déduite, coordonnées entières, bascule -half.
-function blitBasket(ctx, ox, oy, sw, sh, cx, fy, dir, frame, hFrac) {
-  let im = basketImg[dir]; if (!im) return;
+function blitBasket(ctx, ox, oy, sw, sh, cx, fy, dir, frame, hFrac, woman = false) {
+  const wi = woman ? basketWImg[dir] : null;
+  const useW = !!(wi && wi.complete && wi.naturalWidth > 0);
+  let im = useW ? wi : basketImg[dir]; if (!im) return;
   let fh = im.naturalHeight || BASKET_FH;
   const drawH = Math.max(1, Math.round(sceneHumanH(hFrac) * stripMetrics(im).k)), drawW = drawH;
-  const half = basketHalf[dir];
+  const half = useW ? basketWHalf[dir] : basketHalf[dir];
   if (half && half.complete && half.naturalWidth > 0 && drawH <= fh * 0.7) { im = half; fh = half.naturalHeight; }
   const left = Math.round(ox + sw * cx - drawW / 2), top = Math.round(oy + sh * fy - stripFootF(im) * drawH);
   const prev = ctx.imageSmoothingEnabled; ctx.imageSmoothingEnabled = false;
@@ -427,14 +467,24 @@ function blitBasket(ctx, ox, oy, sw, sh, cx, fy, dir, frame, hFrac) {
 // Chaland en navette entre xA (bord) et xB (comptoir) sur la ligne de pieds fy ; T période,
 // phase décale un 2e chaland. hFrac = hauteur humaine par cellule. (Panier déjà dans le sprite.)
 function drawShopperShuttle(ctx, ox, oy, sw, sh, now, xA, xB, fy, T, phase, hFrac) {
-  const cyc = ((((now || 0) / T) + phase) % 1 + 1) % 1;
-  const going = cyc < 0.5;
-  const k = going ? cyc * 2 : (1 - cyc) * 2;
-  const cx = xA + (xB - xA) * k;
-  const dir = going ? 'west' : 'east';                  // va vers le comptoir (gauche) puis repart
-  const frame = Math.floor((now || 0) / 150) % BASKET_NF;
-  sceneHumanShadow(ctx, ox, oy, sw, sh, cx, fy, hFrac, 0.2);
-  blitBasket(ctx, ox, oy, sw, sh, cx, fy, dir, frame, hFrac);
+  const st = sceneShuttle(now, xA, xB, T, phase, sw);
+  const cx = st.cx;
+  const dir = (st.dir > 0) === (xB < xA) ? 'west' : 'east';   // va vers le comptoir puis repart
+  // UN CLIENT DIFFÉRENT À CHAQUE TOUR : il repart par le bord (xA) où il s'efface, le
+  // suivant en arrive — un sur deux est une cliente.
+  const tail = st.tail || 0;                          // halte au bord : 0 → 1
+  const cl = st.c + (tail > 0.5 ? 1 : 0);              // le suivant arrive à mi-halte
+  const woman = ((Math.imul(cl + 7, 2246822519) >>> 0) % 2) === 1;
+  const a = st.tail == null ? 1 : Math.abs(1 - 2 * tail);
+  const pa = ctx.globalAlpha;
+  if (a < 1) ctx.globalAlpha = pa * a;
+  sceneHumanShadow(ctx, ox, oy, sw, sh, cx, fy, hFrac, 0.2 * a);
+  if (_sceneBand >= 5) drawSceneCitizen(ctx, ox, oy, sw, sh, cx, fy, { ...st, right: xB > xA }, woman ? 1 : 0, ((cl % 3) + 3) % 3, hFrac, now, phase);
+  else {
+    const frame = st.walking ? Math.floor(st.dist / Math.max(1, sceneHumanH(hFrac) * 0.11)) % BASKET_NF : 0;
+    blitBasket(ctx, ox, oy, sw, sh, cx, fy, dir, frame, hFrac, woman);
+  }
+  ctx.globalAlpha = pa;
 }
 
 // Props pixel-art STATIQUES des scènes de moteur (PixelLab) — remplacent les formes
@@ -1145,6 +1195,7 @@ function drawGuildOfficina(ctx, ox, oy, sw, sh, craft, now, dBack, dAnim) {
 }
 
 function drawCityEngineSprite(context) {
+  _sceneBand = (context && context.band) | 0;
   const { ctx, id, tier, litWarm, litGold, ox, oy, sw, sh, px, strokeRect, now, band = 0, ei = 0, gw = 1, gh = 1, pass = 'all', seed = 0, craft = 0 } = context;
   // Passes de cache : 'back' = statique dessiné SOUS les animations · 'anim' = tout ce qui
   // lit `now`, une bande animée ou sceneHumanH · 'front' = statique dessiné PAR-DESSUS.

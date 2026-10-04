@@ -269,3 +269,37 @@
   - banc `__tests__/comportementsLot4.test.js` (11) ; en jeu sous l'averse forcée :
     728 → 330 passants (palier existant), 454 → 48 en route vers une place, 72 à
     l'abri au pic.
+- 2026-10-04 — **LOT 5 FAIT** (sauf les filles des Plaisirs, cf. fin) :
+  - **bac** : ce sont LES MÊMES — le groupe qui attend au ponton est celui qu'on voit
+    ensuite sur le pont (boatKit `passNames` sur les places de voyageur du bac, qui
+    garde ses places d'une traversée à l'autre) ; pendant l'escale, ceux qui arrivent
+    DESCENDENT à pied jusqu'au bout de l'embarcadère où ils s'effacent, puis ceux qui
+    attendaient MONTENT chacun à sa place ; le pont cuit ne montre ses voyageurs
+    qu'une fois tous arrivés (`ferryDeckHidden`) ; le groupe suivant apparaît en fondu
+    sur l'autre rive ; chacun respire à son rythme ;
+  - **porteurs** : pauses tirées à chaque aller-retour, départ décalé, une porteuse sur
+    trois, charge de l'ère (ballot, panier, sac, amphore, caisse, carton, conteneur à
+    voyant), arrivée de la rive en fondu et RETOUR à la rive avant le départ du bateau
+    (plus d'escale trop courte avec deux porteurs qui popent) ;
+  - **laboureur** : sillon après sillon en zigzag, souffle au bout du champ, demi-tour en
+    ARC (la bête mène — plus de saut de 0,54 case), rentre au crépuscule ; **l'été,
+    les moissonneurs** (deux faucheurs à la faux, une lieuse qui s'arrête lier) ;
+  - **quais** : promeneuses, un accompagnant sur trois est un enfant ; l'accompagnant
+    se tient du côté extérieur de sa file (il croisait l'autre file en plein) ; on se
+    double en s'écartant ; fondu du soir allongé ; **le héron s'envole** quand un
+    passant marche à moins de 0,8 case (il se laissait traverser) ;
+  - **ponts** : ordre et dessins tirés par travée, un pont sur trois sans pêcheur ; les
+    habitués ARRIVENT en longeant le parapet, s'accoudent, jettent des regards le long
+    du pont, REPARTENT ; chacun son souffle ; la nuit, deux sur trois sont rentrés ;
+  - **scènes de bâtiment** : la navette (paysan, chaland) a élan, freinage, halte au
+    bout et au départ, des allures qui changent d'un tour à l'autre, des pas calés sur
+    la distance ; un CLIENT DIFFÉRENT à chaque tour (fondu au bord), une cliente sur
+    deux (`basket-woman`) ; aux âges industriels et après, ce sont les habitants de
+    l'ère (le chapeau de paille y était anachronique) ;
+  - banc `__tests__/comportementsLot5.test.js` (10) ; en jeu : descente/montée du bac
+    filmée à l'escalier du quai, porteurs filmés sur une escale de 16 s, laboureur et
+    moissonneurs en bande 4.
+  - **Laissé aux sessions qui tiennent ces fichiers** (non commités chez elles) : les
+    filles des Plaisirs (vitesse constante sur l'ellipse, pas calés sur la distance,
+    ne plus se traverser — demandé à la session « Passage des filles ») ; les
+    attendants de la navette cliquables (demandé à la session « PNJ cliquables »).

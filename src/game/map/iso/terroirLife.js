@@ -16,12 +16,55 @@ import { CM } from '../layout.js';
 import { worldToScreen } from './projection.js';
 import { isoUnitDepth, drawDraftIso } from './isoUnits.js';
 import { agentSetForBand, agentSpecFor, drawNamedAgentIso } from '../agents.js';
-import { WINTER } from '../seasonMode.js';
+import { WINTER, SUMMER } from '../seasonMode.js';
 
 export const terroirLifeTune = { on: true, speed: 0.3 };   // cases par seconde
 
+// LOT 5 de PLAN-COMPORTEMENTS : il labourait le MÊME sillon pour toujours, la bête
+// sautait d'un côté à l'autre à chaque bout (demi-tour instantané), et il labourait la
+// nuit. Désormais il passe de sillon en sillon (en zigzag sur la largeur), souffle au
+// bout du champ, tourne en ARC (la bête mène, le laboureur suit), et rentre au
+// crépuscule (fondu) pour revenir au matin. L'été, ce sont les MOISSONNEURS : deux
+// faucheurs qui avancent à petits pas, la faux qui balaie, et une lieuse derrière eux
+// qui s'arrête pour lier les gerbes. Toujours une fonction pure de `now`.
+const dirOf = (vx, vy) => (Math.abs(vx) > Math.abs(vy) ? (vx > 0 ? 0 : 1) : (vy > 0 ? 2 : 3));
+const hh = (seed, i, salt) => ((((seed ^ (i * 2654435761) ^ (salt * 40503)) >>> 0) % 1000) / 1000);
+const TURN = 1.6;                                   // secondes d'un demi-tour au bout du champ
+// Où en est l'attelage, `time` secondes dans sa journée : position (le long, en travers),
+// cap (ua le long, ul en travers), distance marchée (tuiles), marche ou souffle.
+function ploughAt(seed, Lc, Wc, time, v) {
+  const nL = Math.max(2, Math.min(5, Math.round(Wc * 1.6)));
+  const laneOf = (j) => Wc * (0.2 + 0.6 * j / (nL - 1));
+  const nP = 2 * (nL - 1), len = Lc - 1.6, a0 = 0.8, a1 = 0.8 + len, W = len / v;
+  const seq = (i) => { const m = i % nP; return m < nL ? m : nP - m; };   // 0,1,…,nL−1,…,1
+  const rest = (i) => 1.5 + 2.5 * hh(seed, i, 7);
+  let P = 0;
+  for (let i = 0; i < nP; i += 1) P += W + rest(i) + TURN;
+  let t = ((time % P) + P) % P, roll = 0;
+  for (let i = 0; i < nP; i += 1) {
+    const fwd = i % 2 === 0, sgn = fwd ? 1 : -1, lane = laneOf(seq(i)), aEnd = fwd ? a1 : a0;
+    if (t < W) return { a: (fwd ? a0 : a1) + sgn * t * v, lane, ua: sgn, ul: 0, roll: roll + t * v, walking: true };
+    t -= W; roll += len;
+    if (t < rest(i)) return { a: aEnd, lane, ua: sgn, ul: 0, roll, walking: false };
+    t -= rest(i);
+    const gap = laneOf(seq(i + 1)) - lane, sl = gap >= 0 ? 1 : -1;
+    if (t < TURN) {
+      const th = Math.PI * t / TURN, bulge = Math.min(0.35, Math.abs(gap) / 2);
+      return {
+        a: aEnd + sgn * bulge * Math.sin(th), lane: lane + gap * (1 - Math.cos(th)) / 2,
+        ua: sgn * Math.cos(th), ul: sl * Math.sin(th), roll: roll + t / TURN * Math.PI * Math.abs(gap) / 2, walking: true,
+      };
+    }
+    t -= TURN; roll += Math.PI * Math.abs(gap) / 2;
+  }
+  return { a: a0, lane: laneOf(0), ua: 1, ul: 0, roll, walking: false };
+}
+
 export function pushTerroirTeams(items, L, band, now) {
   if (!terroirLifeTune.on || band > 5 || CM.season === WINTER || !L || !L.tiles) return;
+  // Le soir, on rentre : l'attelage s'efface quand la nuit tombe et revient au matin.
+  const alpha = Math.max(0, Math.min(1, (0.55 - (CM.nightF || 0)) / 0.3));
+  if (alpha <= 0) return;
   const T = CM.TILE, v = Math.max(0.05, terroirLifeTune.speed);
   for (const t of L.tiles) {
     if (t.buildingId !== 'irrigated_fields' || !t.rural || ((t.parcel | 0) % 2) !== 0) continue;
@@ -29,24 +72,64 @@ export function pushTerroirTeams(items, L, band, now) {
     if (Math.max(sx, sy) < 3) continue;
     const alongX = sx >= sy, Lc = alongX ? sx : sy, Wc = alongX ? sy : sx;
     const seed = ((t.gx * 73856093) ^ (t.gy * 19349663)) >>> 0;
-    // Aller-retour sur la longueur, à une voie fixe tirée par parcelle.
-    const len = Lc - 1.6;
-    const run = ((now || 0) / 1000) * v + (seed % 997) / 97;
-    const ph = run % (2 * len), fwd = ph < len, a = fwd ? ph : 2 * len - ph;
-    const lane = Wc * (0.28 + 0.44 * ((seed >>> 5) % 9) / 9);
-    const along = 0.8 + a;
-    const x = t.gx + (alongX ? along : lane), y = t.gy + (alongX ? lane : along);
-    const dir = alongX ? (fwd ? 0 : 1) : (fwd ? 2 : 3);
+    const tile = t.gx + ',' + t.gy;
+    const at = (a, lane) => ({ x: t.gx + (alongX ? a : lane), y: t.gy + (alongX ? lane : a) });
+    const time = (now || 0) / 1000 + (seed % 997) / 9.7;
+    if (CM.season === SUMMER) {
+      // LES MOISSONNEURS : ils avancent ensemble le long du champ (aller, puis retour
+      // sur la bande d'à côté), la lieuse un pas derrière.
+      const len = Lc - 1.6, vr = 0.11, lap = (2 * len) / vr;
+      const u = (time % lap) / lap, fwd = u < 0.5, a = 0.8 + (fwd ? u * 2 : 2 - u * 2) * len;
+      const base = Wc * (fwd ? 0.3 : 0.62), ua = fwd ? 1 : -1;
+      const crew = [[0, 0, 'reap'], [0.32, -0.18, 'reap'], [0.16, -0.75, 'bind']];
+      crew.forEach(([dl, da, role], k) => {
+        const p = at(Math.max(0.6, Math.min(Lc - 0.6, a + ua * da)), base + dl);
+        const tw = time + k * 1.7;
+        // La lieuse s'arrête lier une gerbe (3 s toutes les 7 s) ; les faucheurs, à chaque coup de faux.
+        const walking = role === 'bind' ? (tw % 7) > 3 : (tw % 1.6) < 0.9;
+        items.push({
+          d: isoUnitDepth(p.x * T, p.y * T), kind: 'terroirTeam',
+          team: { mode: 'harvest', role, x: p.x, y: p.y, dir: alongX ? (fwd ? 0 : 1) : (fwd ? 2 : 3), roll: time * vr * T, walking, band, seed: seed + k, k, tile, alpha, tw },
+        });
+      });
+      continue;
+    }
+    const s = ploughAt(seed, Lc, Wc, time, v);
+    const p = at(s.a, s.lane);
+    const ux = alongX ? s.ua : s.ul, uy = alongX ? s.ul : s.ua;
     items.push({
-      d: isoUnitDepth(x * T, y * T), kind: 'terroirTeam',
-      team: { x, y, dir, ux: alongX ? (fwd ? 1 : -1) : 0, uy: alongX ? 0 : (fwd ? 1 : -1), roll: run * T, band, seed },
+      d: isoUnitDepth(p.x * T, p.y * T), kind: 'terroirTeam',
+      team: { x: p.x, y: p.y, dir: dirOf(ux, uy), ux, uy, roll: s.roll * T, walking: s.walking, band, seed, tile, alpha },
     });
   }
 }
+// Un moissonneur (lot 5) : l'habitant de l'ère, et sa faux qui balaie devant lui ; la
+// lieuse, elle, se penche sur la gerbe (son attente animée).
+function drawHarvester(ctx, q, now) {
+  const T = CM.TILE, z = CM.cam.zoom;
+  const p = worldToScreen(q.x * T, q.y * T);
+  const spec = agentSpecFor(agentSetForBand(q.band), q.role === 'bind' ? 1 : (q.k === 1 && (q.seed % 3) === 0 ? 1 : 0), q.seed % 3);
+  if (!spec) return;
+  drawNamedAgentIso(ctx, p.x, p.y, z, spec.name, spec.scale, q.dir, q.walking, now, (q.seed % 7) * 0.13, 1, q.walking ? q.roll : null, true);
+  if (q.role !== 'reap') return;
+  const u = Math.max(1, Math.round(z));
+  const side = (q.dir === 0 || q.dir === 2) ? 1 : -1;
+  const sw = Math.sin((q.tw % 1.6) / 1.6 * Math.PI * 2);           // le coup de faux
+  const hx = Math.round(p.x + side * 2 * u), hy = Math.round(p.y - 4 * u);
+  const bx = Math.round(hx + side * (3 + 2 * sw) * u), by = Math.round(p.y - (0.5 - 0.5 * sw) * u);
+  ctx.strokeStyle = '#5a3a1e'; ctx.lineWidth = u;
+  ctx.beginPath(); ctx.moveTo(hx, hy); ctx.lineTo(bx, by); ctx.stroke();
+  ctx.fillStyle = '#c8ccd0';
+  ctx.fillRect(Math.min(bx, bx - side * 3 * u), by, 3 * u, u);
+}
+
 
 export function drawTerroirTeam(ctx, it, now) {
   const q = it.team;
   if (!q) return;
+  const pa0 = ctx.globalAlpha;
+  if (q.alpha != null && q.alpha < 1) { if (q.alpha <= 0.02) return; ctx.globalAlpha = pa0 * q.alpha; }
+  if (q.mode === 'harvest') { drawHarvester(ctx, q, now); ctx.globalAlpha = pa0; return; }
   const T = CM.TILE, z = CM.cam.zoom;
   // La bête devant, la charrue au milieu, le laboureur derrière.
   const po = worldToScreen((q.x + q.ux * 0.24) * T, (q.y + q.uy * 0.24) * T);
@@ -71,11 +154,12 @@ export function drawTerroirTeam(ctx, it, now) {
     }],
     [pf.y, () => {
       if (!spec) return;
-      drawNamedAgentIso(ctx, pf.x, pf.y, z, spec.name, spec.scale, q.dir, true, now, (q.seed % 7) * 0.13, 1, q.roll, true);
+      drawNamedAgentIso(ctx, pf.x, pf.y, z, spec.name, spec.scale, q.dir, q.walking !== false, now, (q.seed % 7) * 0.13, 1, q.roll, true);
     }],
   ];
   parts.sort((a, b) => a[0] - b[0]);
   for (const [, fn] of parts) fn();
+  ctx.globalAlpha = pa0;
 }
 
 if (typeof window !== 'undefined') {

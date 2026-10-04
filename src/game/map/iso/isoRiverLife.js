@@ -28,6 +28,7 @@
 import { CM, cmHash } from '../layout.js';
 import { worldToScreen } from './projection.js';
 import { bridgeBlocks } from './isoBridge.js';
+import { figNear } from '../figures.js';
 import {
   VIE, vieK, vieZoomFade, vieSprite, fishShadowSprite, vieGenerated, vieBlit, vieBlitAt,
   viePixel, vieRing, vieCount, vieMistF, registerVieActors, registerVieAir, vieIsOccupied,
@@ -593,6 +594,11 @@ function heronSpotIdx(h, c, n) {
   const v = n * 0.5 + n * 0.4 * Math.sin(c * 0.23 + h32(g) * 6.28) + n * 0.08 * Math.sin(c * 0.71 + h32(g + 1) * 6.28);
   return Math.max(0, Math.min(n - 1, Math.round(v)));
 }
+// LE HÉRON S'ENVOLE QUAND ON APPROCHE (lot 5 de PLAN-COMPORTEMENTS) : les promeneurs
+// des quais lui marchaient au travers. Un passant qui marche à moins de 0,8 tuile d'un
+// héron posé le fait partir AUSSITÔT vers son poste suivant : on avance son horloge
+// jusqu'au début de son vol (_heronSkip, gardé tant que la ville ne change pas).
+const _heronSkip = { key: '', v: [] };
 function heronState(now) {
   const L = CM.layout, rv = L && L.river;
   if (!rv || !rv.present || !rv.samples || rv.samples.length < 12) return null;
@@ -616,11 +622,20 @@ function heronState(now) {
     return i;
   };
   const at = (h, c) => spots[idxOf(h, c)];
+  const sk = (CM.layoutRecomputeAt || 0) + ':' + n;
+  if (_heronSkip.key !== sk) { _heronSkip.key = sk; _heronSkip.v = []; }
+  const T = CM.TILE;
   for (let h = 0; h < nh; h += 1) {
-    const tc = t + h * 61;
-    const c = Math.floor(tc / HERON_P), u = tc % HERON_P;
-    const A = at(h, c), B = at(h, c + 1);
-    const F = A === B ? 0 : heronFlyS(A, B);
+    let tc = t + h * 61 + (_heronSkip.v[h] || 0);
+    let c = Math.floor(tc / HERON_P), u = tc % HERON_P;
+    let A = at(h, c), B = at(h, c + 1);
+    let F = A === B ? 0 : heronFlyS(A, B);
+    if (u < HERON_P - F && F > 0 && figNear(A.wx * T, A.wy * T, 0.8 * T)) {
+      _heronSkip.v[h] = (_heronSkip.v[h] || 0) + (HERON_P - F - u);
+      tc = t + h * 61 + _heronSkip.v[h];
+      c = Math.floor(tc / HERON_P); u = tc % HERON_P;
+      A = at(h, c); B = at(h, c + 1); F = A === B ? 0 : heronFlyS(A, B);
+    }
     if (u < HERON_P - F) {
       out.push({ h, fly: false, A, t: u });
     } else {

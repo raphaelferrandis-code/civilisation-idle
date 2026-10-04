@@ -27,7 +27,7 @@ import { drawHoverGlow } from './boatFx.js';
 import { drawSunShadow } from './isoSunShadow.js';
 import { snapDev } from '../blitSnap.js';
 import { agentFrameIso, agentIdleFrameIso } from '../agents.js';
-import { crewSpec, crewDir } from './boatCrew.js';
+import { crewSpec, crewDir, isFerryPassenger } from './boatCrew.js';
 
 export const BOATKIT = { on: true, budget: 3 };
 if (typeof window !== 'undefined') {
@@ -149,14 +149,24 @@ function crewMaskCanvas(crew) {
 // le masque dit caché, puis on la pose. Le masque est mis à l'échelle EXACTEMENT
 // comme l'image du bateau (k = dw / côté) : ses bords tombent sur ceux du plat-bord.
 let _crewCv = null;
-function drawCrew(ctx, e, M, bx, by, k, z, band) {
+// `po` (le bac, lot 5 de PLAN-COMPORTEMENTS) : { names, hide } — ses places de voyageur
+// reçoivent ceux qui attendaient au ponton (names[j], place de trop = vide), ou restent
+// vides le temps qu'ils montent (hide).
+function drawCrew(ctx, e, M, bx, by, k, z, band, po = null) {
   if (!e.crew || !e.crew.length || !e.mcv) return;
+  let pj = 0;
   const d = CM.dpr || 1;
   if (!_crewCv) _crewCv = document.createElement('canvas');
   const cv = _crewCv;
   for (let n = 0; n < e.crew.length; n += 1) {
     const cr = e.crew[n];
-    const sp = crewSpec(band, M, cr);
+    let sp = null;
+    if (po && isFerryPassenger(M, cr)) {
+      const j = pj; pj += 1;
+      if (po.hide) continue;
+      if (po.names) { sp = po.names[j]; if (!sp) continue; }
+    }
+    if (!sp) sp = crewSpec(band, M, cr);
     const F = agentFrameIso(sp.name, crewDir(cr.phi), z, sp.scale);
     if (!F) continue;
     // Il respire (lot 3 de PLAN-COMPORTEMENTS) : la bande d'attente, déphasée par marin.
@@ -228,7 +238,8 @@ export function drawBoat(ctx, spec, x, y, theta, z, now, opts = {}) {
   // L'équipage par-dessus, découpé par ce qui passe devant lui. L'ère des habits est
   // celle de la ville (un bateau de l'ère d'avant qui finit sa route s'est rhabillé).
   const band = opts.band != null ? opts.band : ((CM.layout && CM.layout.counts && CM.layout.counts.eraBand) | 0);
-  const crew = e.crew && e.crew.length ? (c2) => drawCrew(c2, e, M, bx, by, dw / side, z, band) : null;
+  const po = (opts.passNames || opts.hidePass) ? { names: opts.passNames || null, hide: !!opts.hidePass } : null;
+  const crew = e.crew && e.crew.length ? (c2) => drawCrew(c2, e, M, bx, by, dw / side, z, band, po) : null;
   if (crew) crew(ctx);
   ctx.imageSmoothingEnabled = prevSm;
   const anchors = {};
@@ -239,7 +250,15 @@ export function drawBoat(ctx, spec, x, y, theta, z, now, opts = {}) {
   }
   // `crew` : le pont redessine la coque d'un bateau sorti de sous lui (isoBridge,
   // part 'ship') — et ses marins avec.
-  return { img: e.cv, bx, by, dw, dh, anchors, model: M, crew, lamps: lamps.length ? lamps : null };
+  // Les places de VOYAGEUR du bac, en px monde autour de son origine (au cap de la
+    // cuisson) : on y monte et on en descend à pied (boatScenes, lot 5).
+  let pass = null;
+  if (M.role === 'ferry' && e.crew) {
+    const th = dirTheta(dir), fx = Math.cos(th), fy = Math.sin(th);
+    pass = e.crew.filter((cr) => cr.a != null && isFerryPassenger(M, cr))
+      .map((cr) => ({ dx: cr.a * fx - cr.c * fy, dy: cr.a * fy + cr.c * fx, h: cr.ft }));
+  }
+  return { img: e.cv, bx, by, dw, dh, anchors, model: M, crew, lamps: lamps.length ? lamps : null, pass };
 }
 
 // ── À QUAI : L'API DES PORTS (session « port et plage », drawMooredHull) ──────────

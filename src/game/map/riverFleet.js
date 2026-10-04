@@ -1021,8 +1021,22 @@ function ferryStep(sh, site, ships, step, nav) {
     sh.lat = target; sh.latV = 0;
     sh.state = 'board';
     sh.stateT = lerp(FLEET_TUNE.ferryBoard[0], FLEET_TUNE.ferryBoard[1], rnd01('ferryBoard:' + sh.id + ':' + sh.trip));
+    sh.boardD = sh.stateT;                     // durée de l'escale (montée, descente : boatScenes)
     sh.trip = (sh.trip || 0) + 1;
   }
+}
+
+// MONTER, DESCENDRE (docs/PLAN-COMPORTEMENTS.md, lot 5) : pendant l'escale, ceux qui
+// arrivent descendent à pied jusqu'à la rive, puis ceux qui attendaient au ponton
+// montent prendre leur place (iso/boatScenes.js) ; le pont cuit ne montre ses voyageurs
+// qu'une fois chacun arrivé à la sienne (`_revealAt`, posé par la scène). Secondes
+// depuis l'accostage ; vitesse en tuiles/s.
+export const FERRY_WALK = { off0: 0.5, gap: 0.6, pause: 1.3, speed: 0.7, reveal: 6.5 };
+export function ferryBoardEl(sh) {
+  return sh && sh.state === 'board' && sh.boardD != null ? sh.boardD - (sh.stateT || 0) : Infinity;
+}
+export function ferryDeckHidden(sh) {
+  return ferryBoardEl(sh) < (sh._revealAt != null ? sh._revealAt : FERRY_WALK.reveal);
 }
 
 /* ── LA NAVETTE DES PLAISIRS ──────────────────────────────────────────────────

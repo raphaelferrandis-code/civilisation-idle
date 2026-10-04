@@ -434,7 +434,9 @@ function crewMasks(S) {
         mask[j * w + i] = m ? 1 : 0;
       }
     }
-    return { X, Y, x0, y0, w, h, mask, phi: S.theta + cr.face, pose: cr.pose, id: cr.id | 0, role: cr.role || null };
+    // a, c, h : sa place dans le repère du bateau (lot 5 de PLAN-COMPORTEMENTS : les
+    // voyageurs du bac y montent et en descendent à pied, cf. boatScenes).
+    return { X, Y, x0, y0, w, h, mask, phi: S.theta + cr.face, pose: cr.pose, id: cr.id | 0, role: cr.role || null, a: cr.a, c: cr.c, ft: cr.h - (cr.sink || 0) };
   });
 }
 

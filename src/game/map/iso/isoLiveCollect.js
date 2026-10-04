@@ -508,7 +508,7 @@ export function collectIsoItems(bake, now) {
   // parapets devant les jambes des traverseurs, le tout derrière/devant les
   // bâtiments voisins selon la profondeur. Seule l'ombre reste en passe
   // globale (drawIsoBridgeUnder, avant les bateaux). Cf. isoBridge.js.
-  pushIsoBridgeItems(items, b);
+  pushIsoBridgeItems(items, b, now);
   // Habitants : clé aux PIEDS, remontée devant les murs mitoyens (isoUnitDepth).
   if (!CM.lodActive) {
     for (const p of CM.citizens) {

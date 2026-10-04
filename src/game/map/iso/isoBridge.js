@@ -332,7 +332,15 @@ function buildModel(sp, L, band, ei) {
     const busy = [...peds.map((p) => p.l), ...props.filter((p) => p.small || p.prop === 'flag').map((p) => p.l), ...masts, ...towers];
     const free = (l) => busy.every((b) => Math.abs(b - l) > 8) && idlers.every((q) => Math.abs(q.l - l) > 14);
     const seed = sp.gx0 * 7919 + sp.gy0 * 104729;
-    const want = [['dn', 0, false], ['dn', 0, true], ['dn', 0, false], ['up', 1, false], ['dn', 0, false], ['up', 1, false]];
+    // LOT 5 de PLAN-COMPORTEMENTS : tous les ponts avaient le MÊME ordre (le pêcheur
+    // toujours deuxième, les mêmes dessins dans le même ordre). L'ordre et les dessins
+    // sont tirés par travée ; un pont sur trois n'a pas de pêcheur.
+    const want = [['dn', 0, false], ['dn', 0, false], ['up', 1, false], ['dn', 0, false], ['up', 1, false]];
+    for (let i = want.length - 1; i > 0; i -= 1) {
+      const j = (Math.imul(seed + i * 613, 2246822519) >>> 0) % (i + 1);
+      [want[i], want[j]] = [want[j], want[i]];
+    }
+    if (((Math.imul(seed, 3266489917) >>> 0) % 3) !== 0) want.splice((Math.imul(seed + 7, 668265263) >>> 0) % 3, 0, ['dn', 0, true]);
     const n = Math.min(want.length, Math.max(2, Math.floor((rB - rA) / (T * 1.4))));
     for (let i = 0; i < n; i += 1) {
       const [side, dir, fisher] = want[i];
@@ -351,7 +359,8 @@ function buildModel(sp, L, band, ei) {
         idlers.push({
           l, side, dir, fisher,
           t: side === 'dn' ? tDn - pth - 4 : tUp + pth + 4,
-          charType: r < 0.5 ? 0 : r < 0.9 ? 1 : 2, variant: i % 4,
+          charType: r < 0.5 ? 0 : r < 0.9 ? 1 : 2, variant: (Math.imul(seed + i * 389, 2654435761) >>> 0) % 4,
+          ...idlerRhythm(seed, i, v),
         });
         break;
       }
@@ -485,7 +494,43 @@ function originScreen(B) {
 }
 
 // ── Tri peintre ──────────────────────────────────────────────────────────────
-export function pushIsoBridgeItems(items, bounds) {
+// LES HABITUÉS VONT ET VIENNENT (lot 5) : chacun a son cycle — il arrive en longeant
+// le parapet depuis un bout, s'accoude (et jette de temps en temps un regard le long du
+// pont), puis repart de l'autre côté ; il s'efface en partant et revient plus tard. Le
+// pêcheur, lui, reste à sa ligne. La nuit, la plupart sont rentrés. Fonction pure du
+// temps : rien à simuler.
+const IDLER = { walk: 4.5, dist: 76 };          // s d'arrivée/départ ; px parcourus le long du pont
+function idlerRhythm(seed, i, vertical) {
+  const h = (salt) => ((Math.imul(seed + i * 7919 + salt * 104729, 2654435761) >>> 0) % 1000) / 1000;
+  return {
+    ph: h(1), cyc: 70 + 70 * h(2), stay: 40 + 40 * h(3), from: h(4) < 0.5 ? -1 : 1, night: h(5),
+    along: vertical ? [2, 3] : [0, 1],            // marcher vers +l, vers −l (bandes diagonales)
+  };
+}
+export function idlerNow(q, now) {
+  const nf = CM.nightF || 0;
+  if (q.fisher || !q.cyc) return { l: q.l, dir: q.dir, walking: false, alpha: 1, dist: 0 };   // le pêcheur reste à sa ligne, même la nuit
+  // La nuit, il en reste un sur trois (s'efface en fondu au crépuscule).
+  const na = Math.max(0, Math.min(1, (q.night - nf * 0.7) / 0.1));
+  if (na <= 0) return null;
+  const W = IDLER.walk, t = ((now || 0) / 1000 + q.ph * q.cyc) % q.cyc;
+  const fwdDir = q.along[q.from > 0 ? 1 : 0];   // il vient de +l (from = 1) : il marche vers −l
+  if (t < W) {
+    const u = t / W;
+    return { l: q.l + q.from * IDLER.dist * (1 - u), dir: fwdDir, walking: true, alpha: na * Math.min(1, u * 3), dist: u * IDLER.dist };
+  }
+  if (t < W + q.stay) {
+    const tt = t - W, glance = tt > 3 && ((tt + q.ph * 11) % 11) < 1.6;
+    return { l: q.l, dir: glance ? q.along[(Math.floor(tt / 11) + (q.from > 0 ? 1 : 0)) % 2] : q.dir, walking: false, alpha: na, dist: 0 };
+  }
+  if (t < 2 * W + q.stay) {
+    const u = (t - W - q.stay) / W;
+    return { l: q.l - q.from * IDLER.dist * u, dir: fwdDir, walking: true, alpha: na * Math.min(1, (1 - u) * 3), dist: (1 + u) * IDLER.dist };
+  }
+  return null;
+}
+
+export function pushIsoBridgeItems(items, bounds, now = 0) {
   const ms = bridgeGeoms(); if (!ms) return;
   const T = CM.TILE;
   for (let si = 0; si < ms.length; si += 1) {
@@ -531,7 +576,9 @@ export function pushIsoBridgeItems(items, bounds) {
     // coupe à la taille). La canne du pêcheur passe PAR-DESSUS ce parapet.
     for (let ii = 0; ii < m.idlers.length; ii += 1) {
       const q = m.idlers[ii];
-      items.push({ d: q.l + q.t + 0.3, kind: 'bridgeSeg', si, part: 'idler', ii });
+      const st = idlerNow(q, now);
+      if (!st) continue;                         // parti (il reviendra)
+      items.push({ d: st.l + q.t + 0.3, kind: 'bridgeSeg', si, part: 'idler', ii });
       if (q.fisher) items.push({ d: q.l + m.tDn + S + 1, kind: 'bridgeSeg', si, part: 'rod', ii });
     }
     // BATEAUX SORTIS DE SOUS LE PONT. La flotte est peinte AVANT le pont (passe
@@ -637,9 +684,13 @@ export function drawIsoBridgeSeg(ctx, it, now) {
   } else if (it.part === 'idler') {
     const q = m.idlers[it.ii];
     const spec = agentSpecFor(agentSetForBand(m.band), q.charType, q.variant);
-    if (spec) {
-      const p = P(m, q.l, q.t);
-      drawNamedAgentIso(ctx, p.x, p.y, z, spec.name, spec.scale, q.dir, false, now, 0, 1, null, true);
+    const st = idlerNow(q, now);
+    if (spec && st && st.alpha > 0.02) {
+      const p = P(m, st.l, q.t);
+      const pa0 = ctx.globalAlpha;
+      if (st.alpha < 1) ctx.globalAlpha = pa0 * st.alpha;
+      drawNamedAgentIso(ctx, p.x, p.y, z, spec.name, spec.scale, st.dir, st.walking, now, q.ph || 0, 1, st.walking ? st.dist : null, true);
+      ctx.globalAlpha = pa0;
     }
   } else if (it.part === 'rod') {
     drawRod(ctx, m, m.idlers[it.ii], z, now);

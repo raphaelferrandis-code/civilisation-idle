@@ -91,28 +91,62 @@ export function fleetBerths(L) {
 }
 
 // ── LES PORTEURS DU PONTON (docs/PLAN-BATEAUX.md, lot 4) ──────────────────────
-// Pendant l'escale, deux hommes de l'ère font la navette sur le tablier : à vide
-// vers le bateau, CHARGÉS (amphore à l'épaule) vers la rive — on décharge. Leur
+// Pendant l'escale, deux porteurs de l'ère font la navette sur le tablier : à vide
+// vers le bateau, CHARGÉS (la charge de l'ère à l'épaule) vers la rive — on décharge. Leur
 // position ne dépend que du temps passé à quai : rien à simuler, rien à sauver.
 // `elapsed` = secondes depuis l'amarrage.
-const PORTER = { speed: 0.75, pause: 1.4, n: 2 };
-export function dockPorters(berth, elapsed, seed = 0) {
+// LOT 5 de PLAN-COMPORTEMENTS : ils allaient au métronome (deux demi-cycles exacts,
+// pauses fixes), apparaissaient au bout du ponton et disparaissaient en plein pas au
+// départ du bateau, et portaient l'amphore à toutes les ères. Désormais chaque
+// aller-retour a ses pauses (tirées par porteur et par voyage), ils descendent de la
+// rive en fondu et y REMONTENT avant que le bateau ne largue (`dwell` = durée de
+// l'escale), un sur trois est une porteuse, et la charge est celle de l'ère
+// (PORTER_LOAD). Toujours une fonction pure du temps passé à quai.
+const PORTER = { speed: 0.75, pause: [0.8, 2.6], n: 2, fade: 0.5 };
+const ph01 = (seed, k, i, salt) => (((((seed | 0) * 2654435761) ^ (k * 40503 + i * 9973 + salt * 7919)) >>> 0) % 1000) / 1000;
+// Où en est le porteur k, `t` secondes après sa descente : { a, toShip, walking }.
+function porterAt(seed, k, t, a0, len, leg) {
+  for (let i = 0; i < 64; i += 1) {
+    const p1 = PORTER.pause[0] + (PORTER.pause[1] - PORTER.pause[0]) * ph01(seed, k, i, 1);   // charger au bateau
+    const p2 = PORTER.pause[0] + (PORTER.pause[1] - PORTER.pause[0]) * ph01(seed, k, i, 2);   // poser à terre
+    if (t < leg) return { a: a0 + (t / leg) * len, toShip: true, walking: true };
+    t -= leg;
+    if (t < p1) return { a: a0 + len, toShip: false, walking: false };
+    t -= p1;
+    if (t < leg) return { a: a0 + len - (t / leg) * len, toShip: false, walking: true };
+    t -= leg;
+    if (t < p2) return { a: a0, toShip: true, walking: false };
+    t -= p2;
+  }
+  return { a: a0, toShip: true, walking: false };
+}
+export function dockPorters(berth, elapsed, seed = 0, dwell = Infinity) {
   const P = berth && berth.pier;
   if (!P || !PIER.on || !(elapsed >= 0)) return [];
   const a0 = -0.45, a1 = Math.max(a0 + 0.6, P.reach - 0.45);
   const len = a1 - a0;
   const leg = len / PORTER.speed;
-  const cyc = 2 * (leg + PORTER.pause);
   const out = [];
   for (let k = 0; k < PORTER.n; k += 1) {
-    const t = elapsed - k * (cyc / 2) - 1.2;
+    // Le second descend un peu après le premier — pas pile à la demi-période.
+    const start = 1.2 + k * (leg * (0.6 + 0.8 * ph01(seed, k, 0, 3)) + 1);
+    const t = elapsed - start;
     if (t < 0) continue;                               // il n'est pas encore descendu
-    const u = t % cyc;
-    let a, toShip, walking = true;
-    if (u < leg) { a = a0 + (u / leg) * len; toShip = true; }
-    else if (u < leg + PORTER.pause) { a = a1; toShip = false; walking = false; }
-    else if (u < 2 * leg + PORTER.pause) { a = a1 - ((u - leg - PORTER.pause) / leg) * len; toShip = false; }
-    else { a = a0; toShip = true; walking = false; }
+    let st = porterAt(seed, k, t, a0, len, leg);
+    let alpha = Math.min(1, t / PORTER.fade);          // il arrive de la rive
+    // La fin de l'escale : là où il en est, il regagne la rive (posant sa charge s'il
+    // allait la chercher) et s'y efface avant que le bateau ne largue.
+    // (dans SON temps : il doit avoir le temps de revenir du bout et de s'effacer)
+    const tEnd = dwell - start - leg - PORTER.fade - 0.3;
+    if (tEnd <= 0) continue;                           // escale trop courte : il ne descend pas
+    if (t > tEnd) {
+      const e = porterAt(seed, k, tEnd, a0, len, leg);
+      const a = Math.max(a0, e.a - (t - tEnd) * PORTER.speed);
+      st = { a, toShip: false, walking: a > a0, carry: !e.toShip };
+      if (a <= a0) alpha = Math.max(0, 1 - (t - tEnd - (e.a - a0) / PORTER.speed) / PORTER.fade);
+    }
+    if (alpha <= 0) continue;
+    const toShip = st.toShip;
     // Un pas de côté par porteur : ils se croisent sans se traverser.
     const c = (k ? 0.16 : -0.16);
     const ac = P.dx ? { x: 0, y: 1 } : { x: 1, y: 0 };
@@ -120,8 +154,9 @@ export function dockPorters(berth, elapsed, seed = 0) {
     const wdx = P.dx * sgn, wdy = P.dy * sgn;
     const dir = Math.abs(wdx) > Math.abs(wdy) ? (wdx > 0 ? 0 : 1) : (wdy > 0 ? 2 : 3);
     out.push({
-      x: P.rx + P.dx * a + ac.x * c, y: P.ry + P.dy * a + ac.y * c, z: P.deckZ,
-      dir, walking, carry: !toShip, dist: t * PORTER.speed * CM.TILE, k, seed,
+      x: P.rx + P.dx * st.a + ac.x * c, y: P.ry + P.dy * st.a + ac.y * c, z: P.deckZ,
+      dir, walking: st.walking, carry: st.carry != null ? st.carry : !toShip, dist: t * PORTER.speed * CM.TILE, k, seed, berthId: berth.id,
+      alpha, charType: ph01(seed, k, 0, 4) < 0.34 ? 1 : 0, load: PORTER_LOAD[Math.max(0, Math.min(9, (berth.band | 0)))],
     });
   }
   return out;
@@ -129,21 +164,45 @@ export function dockPorters(berth, elapsed, seed = 0) {
 
 // Un porteur, à sa profondeur (item 'porter' du peintre).
 export function drawDockPorter(ctx, q, band, now) {
-  const spec = agentSpecFor(agentSetForBand(band), 0, (q.seed + q.k) % 3);
+  const spec = agentSpecFor(agentSetForBand(band), q.charType | 0, (q.seed + q.k) % 3);
   if (!spec) return;
+  const pa0 = ctx.globalAlpha;
+  if (q.alpha != null && q.alpha < 1) { if (q.alpha <= 0.02) return; ctx.globalAlpha = pa0 * q.alpha; }
   const T = CM.TILE, z = CM.cam.zoom;
   const p = worldToScreen(q.x * T, q.y * T, q.z * T);
   drawNamedAgentIso(ctx, p.x, p.y, z, spec.name, spec.scale, q.dir, q.walking, now, q.k * 0.5, 1, q.walking ? q.dist : null, true);
-  if (!q.carry) return;
-  // L'amphore SUR l'épaule : deux pixels d'art de large, quatre de haut, cernée
-  // d'encre comme les habitants — à la toise du porteur (≈ 8 px), pas de la caméra.
-  // (Première version à 3×5 posée à côté de lui : on lisait une caisse qui flotte.)
+  if (q.carry) drawPorterLoad(ctx, q.load || 'amphora', p, q.dir, z);
+  ctx.globalAlpha = pa0;
+}
+
+// LA CHARGE DE L'ÈRE (lot 5) : sur l'épaule, à la toise du porteur (≈ 8 px d'art),
+// cernée d'encre comme les habitants. L'amphore n'était juste qu'à l'Antiquité.
+const PORTER_LOAD = ['bundle', 'basket', 'sack', 'sack', 'amphora', 'crate', 'box', 'case', 'case', 'case'];
+const LOAD_ART = {
+  // [largeur, hauteur, corps, reflet, détail] en px d'art
+  bundle: [4, 3, '#8a5a32', '#b07a48', '#5a3a1e'],
+  basket: [4, 3, '#c89a4a', '#e0b868', '#8a6a2a'],
+  sack: [4, 3, '#d8c08a', '#ecd8a8', '#8a6a3a'],
+  amphora: [2, 4, '#c97a4e', '#e8a072', null],
+  crate: [4, 4, '#a8743a', '#c8945a', '#6a4422'],
+  box: [4, 3, '#c9a46a', '#e0c08a', '#8a6a3a'],
+  case: [4, 3, '#b8c4cc', '#dfe8ee', '#7fe8ff'],
+};
+function drawPorterLoad(ctx, kind, p, dir, z) {
+  const A = LOAD_ART[kind] || LOAD_ART.amphora;
   const u = Math.max(1, snapDev(z));
-  const x = snapDev(p.x + (q.dir === 0 || q.dir === 2 ? 0 : -u)), y = snapDev(p.y - 10 * u);
+  const [w, h, body, hi, det] = A;
+  const x = snapDev(p.x + (dir === 0 || dir === 2 ? 0 : -u) - (w > 2 ? u : 0)), y = snapDev(p.y - (5 + h) * u);   // posée sur l'épaule, pas au-dessus de la tête
   ctx.fillStyle = '#2a1b12';
-  ctx.fillRect(x - u, y - u, 4 * u, 6 * u);
-  ctx.fillStyle = '#c97a4e';
-  ctx.fillRect(x, y, 2 * u, 4 * u);
-  ctx.fillStyle = '#e8a072';
+  ctx.fillRect(x - u, y - u, (w + 2) * u, (h + 2) * u);
+  ctx.fillStyle = body;
+  ctx.fillRect(x, y, w * u, h * u);
+  ctx.fillStyle = hi;
   ctx.fillRect(x, y + u, u, u);
+  if (det) {
+    ctx.fillStyle = det;
+    if (kind === 'crate' || kind === 'box') ctx.fillRect(x, y + Math.floor(h / 2) * u, w * u, u);   // planche, ruban
+    else if (kind === 'case') ctx.fillRect(x + (w - 1) * u, y + u, u, u);                             // le voyant
+    else ctx.fillRect(x + Math.floor(w / 2) * u, y, u, u);                                           // le lien
+  }
 }
