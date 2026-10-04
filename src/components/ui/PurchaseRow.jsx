@@ -2,11 +2,10 @@ import { memo, useEffect, useRef, useState } from 'react';
 import { buyBuilding } from '../../game/core/actions.js';
 import { state, setBuyAmount, invalidateRenderCache } from '../../game/core/state.js';
 import { fmt, fmtShort, signed, signedShort, labelFor, rateScale } from '../../game/core/utils.js';
-import { currentEraIndex } from '../../game/core/mechanics.js';
 import { tr } from '../../game/core/i18n.js';
 import { RES_ICONS } from './resourceIcons.js';
 import { tipProps } from './HelpBubble.jsx';
-import { splashSrcFor } from '../../game/data/pixelSplash.js';
+import { buildingIconSrc } from '../../game/data/buildingIcons.js';
 
 const RES_CLASS = {
   population: "res-pop",
@@ -69,9 +68,9 @@ function PurchaseRow({
   const nextIn = stepSize - inStep;
   const stepPct = (inStep / stepSize) * 100;
 
-  // Splash-art de fond (filigrane), résolu selon le bâtiment ET l'ère en cours.
-  // null tant qu'aucun splash n'existe pour ce bâtiment → carte normale.
-  const splash = splashSrcFor(b.id, currentEraIndex());
+  // Icône du bâtiment (vignette), la même à toutes les ères. null s'il n'en a
+  // pas → rangée sans vignette.
+  const icon = buildingIconSrc(b.id);
 
   // Devises manquantes : signature fournie par le parent (abonné aux ressources).
   const lackingSet = lackingKey ? new Set(lackingKey.split(",")) : null;
@@ -125,7 +124,7 @@ function PurchaseRow({
     babelBlocked ? "babel-blocked" : "",
     pulse ? "pr-pulse" : "",
     shaking ? "pr-shake" : "",
-    splash ? "pr-has-splash" : ""
+    icon ? "pr-has-thumb" : ""
   ].filter(Boolean).join(" ");
 
   return (
@@ -138,7 +137,7 @@ function PurchaseRow({
       // TROIS états et le CSS y accroche une FORME, pas une nuance.
       data-state={rowState}
       data-tier={tier > 0 ? tier : undefined}
-      style={splash ? { "--pr-splash": `url(${splash})` } : undefined}
+      style={icon ? { "--pr-icon": `url(${icon})` } : undefined}
       onPointerDown={handleRowPointerDown}
     >
       {/* Pastille d'état (E5). ⚠ AUCUNE PASTILLE QUAND C'EST ACHETABLE : la

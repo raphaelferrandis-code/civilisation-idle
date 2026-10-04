@@ -387,7 +387,7 @@ button:disabled::before,
 }
 
 /* ── CARTES CLIQUABLES ──────────────────────────────────────────────────────
-   ⛔ PAS `.purchase-row` : ses deux pseudo-éléments appartiennent au splash-art
+   ⛔ PAS `.purchase-row` : son ::before porte la vignette de l'icône
    et son bord gauche de 3 px est déjà son témoin d'état, lu comme tel. */
 .app .policy-btn::before,
 .app .gr-rung-btn::before {

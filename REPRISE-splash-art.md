@@ -1,5 +1,13 @@
 # Point de reprise — SPLASH-ARTS des cartes d'achat (2026-07-06)
 
+> **REMPLACÉS le 2026-10-04 par des icônes façon Monster Hunter** (demande de Raph :
+> une fois réduits en vignette de 64 px par la refonte de la boutique, les splash-arts
+> 400 × 240 devenaient illisibles). Une icône 32 × 32 par bâtiment, la même à toutes
+> les ères, affichée ×2 : `public/pixelart/ui/buildings/<id>.png`, résolue par
+> `src/game/data/buildingIcons.js` (pixelSplash.js supprimé). Classe de rangée
+> `pr-has-thumb`, variable `--pr-icon`. Les 150 PNG de `public/pixelart/splash/` ne
+> sont plus lus par le jeu. Ce document ne sert plus que d'historique.
+
 But : chaque **carte d'achat de bâtiment** (BuildingShop / PurchaseRow) reçoit en **fond
 un splash-art pixel de scène COMPLÈTE** (illustration pleine façon photo, décor + profondeur),
 affiché en **filigrane discret** derrière le texte, et **évoluant par époque**.
