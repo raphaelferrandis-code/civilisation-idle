@@ -154,6 +154,64 @@
 .rl-hist.is-noir { background: #22181e; }
 .rl-hist.is-vert { background: #1f8a44; }
 
+/* AU TÉLÉPHONE (sous 720 px) : la table raccourcit (la roue seule dessus, le râtelier au
+   pied), le tapis se déplie DEBOUT en dessous — cinq colonnes (chances simples,
+   douzaines, trois de numéros) et quatorze rangées. Les cases font ~80 px de large. */
+.ptable--roulette.is-etroit { height: 290px; }
+.ptable.rl-dessous { overflow: visible; }  /* sinon le râtelier ne colle pas au pied */
+.rl-tapis.is-debout {
+  position: relative;
+  margin: 0.5rem 0.5rem 0.6rem;
+  grid-template-columns: 0.85fr 0.85fr 1fr 1fr 1fr;
+  grid-template-rows: repeat(14, 28px);
+}
+.rl-tapis.is-debout .rl-case { font-size: 0.8rem; }
+/* Les cases gardent leur rangée de 28 px, même au doigt (la règle tactile des boutons
+   de scène les montait à 40 : le tapis sortait de l'écran). */
+.roulette-stage .rl-tapis.is-debout .rl-case,
+:root[data-pointer="coarse"] .roulette-stage .rl-tapis.is-debout .rl-case { min-height: 0; height: auto; }
+/* Le râtelier au pied de l'écran : collé en bas pendant qu'on fait défiler le tapis. */
+.ptable-rack.rl-rack.is-pied {
+  position: sticky;
+  bottom: 0;
+  left: auto;
+  transform: none;
+  width: auto;
+  max-width: none;
+  margin: 0 0.5rem 0.4rem;
+  justify-content: center;
+  background: rgba(12, 8, 10, 0.96); /* opaque : le tapis défile dessous */
+}
+.plaisirs-stage .rl-dessous .ptable-rack-btn {
+  min-height: 2rem;
+  padding: 0.1rem 0.35rem;
+  font-size: 0.66rem;
+  white-space: nowrap;
+}
+.rl-tapis.is-debout .rl-dehors.is-rouge .rl-label,
+.rl-tapis.is-debout .rl-dehors.is-noir .rl-label { font-size: 1.1rem; }
+/* Au doigt : un appui long ne doit pas ouvrir de menu ni sélectionner le texte. */
+.rl-tapis .rl-case { -webkit-touch-callout: none; touch-action: manipulation; }
+
+/* LE SALON PRIVÉ du boudoir (Mécène) : la même table, feutre de velours lie-de-vin et
+   laiton plus vif — on voit tout de suite qu'on n'est plus dans la salle commune. */
+.ptable--vip .rl-tapis, .rl-tapis.is-vip { background: #3a0c22; border-color: #e8bc5a; }
+.ptable--vip .rl-case, .rl-tapis.is-vip .rl-case { background: #561634; border-color: rgba(255, 220, 160, 0.55); }
+.ptable--vip .rl-case:hover:not(:disabled), .rl-tapis.is-vip .rl-case:hover:not(:disabled) { background: #6c1e42; }
+.ptable--vip .rl-case.is-vert, .rl-tapis.is-vip .rl-case.is-vert { background: #1f8a44; }
+.ptable--vip .rl-case.is-win, .rl-tapis.is-vip .rl-case.is-win { background: #c89a2a; }
+.rl-vip-plaque {
+  align-self: flex-start;
+  padding: 0.1rem 0.5rem;
+  border: 1px solid #e8bc5a;
+  background: #3a0c22;
+  font-family: var(--font-number);
+  font-size: 0.7rem;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: #ffe08a;
+}
+
 @media (prefers-reduced-motion: reduce) {
   .rl-numero { animation: none; }
 }

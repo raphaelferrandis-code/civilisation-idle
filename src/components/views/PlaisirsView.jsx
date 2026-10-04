@@ -15,6 +15,7 @@ import PlaisirsMenu from './plaisirs/PlaisirsMenu.jsx';
 // LA SCÈNE JOUE (2026-10-03) : une petite mélodie à chaque visite, et l'affiche du
 // morceau qui tourne, qu'on change d'un pas (dossier src/assets/musiques/).
 import SceneJukebox from './plaisirs/SceneJukebox.jsx';
+import AnnoncesSalle from './plaisirs/AnnoncesSalle.jsx';
 import { jouerMelodieScene } from '../../game/audio/melodieScene.js';
 
 // L'échoppe s'ouvre DANS la salle, en plein cadre. Chargée paresseusement comme
@@ -159,6 +160,10 @@ export default function PlaisirsView() {
   };
 
   const revenir = () => { setPlein(null); setSelection(null); };
+
+  // La roue de la Maison (2026-10-04) : sa scène se pose par-dessus la salle, comme un
+  // jeu — on quitte donc le plein cadre (la boutique la cacherait).
+  const tournerRoue = () => { setPlein(null); openTempleGame('roue'); };
 
   // Un lieu qu'on REGARDE (scène, boudoir, salon) : il n'ouvre rien, la coupe
   // défile jusqu'à lui (`focus`). La partie en cours se referme — son panneau
@@ -354,6 +359,9 @@ export default function PlaisirsView() {
           return g ? <SceneJukebox x={g.x} y={g.top} /> : null;
         })()}
 
+        {/* La salle annonce les gros gains de ses habitants (2026-10-04). */}
+        {!plein && <AnnoncesSalle />}
+
         {/* LE JEU, EN SURIMPRESSION sur l'illustration — plus jamais à côté.
             Il ne se voit QUE lorsqu'une partie est ouverte : la scène se marque
             elle-même `is-empty` quand elle ne porte rien, et la feuille de style
@@ -404,6 +412,7 @@ export default function PlaisirsView() {
         onHover={(id, quitte) => (quitte ? setSurvol((s) => (s === quitte ? null : s)) : setSurvol(id))}
         onPick={depuisMenu}
         onBack={revenir}
+        onRoue={tournerRoue}
       />
 
     </section>

@@ -23,11 +23,12 @@ import { crisisProductionMultiplier } from "../mechanics/production/crisisLevers
 import {
   BLESSING_MULT, BLESSING_DURATION_S, BLESSING_COST_H,
   STYLET_MAX_LEVEL, STYLET_COST_BASE, STYLET_COST_GROWTH,
-  ICARUS_EDGE, AUGURY_RTP, AUGURY_RITE_BETS
-} from "../balance.js";
+  ICARUS_EDGE, AUGURY_RTP, AUGURY_RITE_BETS, FAVEUR_ECHELLE } from "../balance.js";
 import { MID_GAME_FIXTURE, FIXED_NOW } from "./fixtures.js";
 
-const FAVEUR_START = 100000;
+// ×FAVEUR_ECHELLE : l'échelle de la Faveur (2026-10-04) — une bourse de test qui couvre
+// encore la limite des tables.
+const FAVEUR_START = 100000 * FAVEUR_ECHELLE;
 
 beforeEach(() => {
   vi.useFakeTimers();
@@ -124,24 +125,28 @@ describe("Boutique — bénédiction (prod temporaire)", () => {
     expect(state.faveur).toBe(0);
   });
 
-  it("son prix suit l'ère RECORD de la ville : 60 à l'Ère II, puis 30 min de recettes", () => {
+  it("son prix suit l'ère RECORD de la ville : ~60 000 à l'Ère II, puis 30 min de recettes", () => {
+    const demiHeure = () => Math.round(recettesPerHour() * BLESSING_COST_H);
     state.bestEraIndex = 2;
-    expect(blessingCost()).toBe(60);              // l'ancien prix fixe, à l'ouverture de la Maison
+    expect(blessingCost()).toBe(demiHeure());     // ~60 000 (60 × l'échelle de la Faveur) à l'ouverture de la Maison
+    expect(blessingCost()).toBeCloseTo(60 * FAVEUR_ECHELLE, -3);
     state.bestEraIndex = 10;
-    expect(blessingCost()).toBe(1123);            // Bourg des artisans : 2 247 recettes/h
-    expect(faveurShopItems()[0].cost).toBe(1123); // l'étal affiche le prix courant
+    const prix10 = demiHeure();                   // Bourg des artisans : ~2,25 M recettes/h
+    expect(prix10).toBeCloseTo(1123 * FAVEUR_ECHELLE, -3);
+    expect(blessingCost()).toBe(prix10);
+    expect(faveurShopItems()[0].cost).toBe(prix10); // l'étal affiche le prix courant
     state.bestEraIndex = 20;
-    expect(blessingCost()).toBe(Math.round(recettesPerHour() * BLESSING_COST_H)); // ~31 000
+    expect(blessingCost()).toBe(demiHeure());     // ~31 M
     // L'achat débite le prix COURANT.
     state.bestEraIndex = 10;
     expect(buyFaveurItem("blessing")).toBe(true);
-    expect(state.faveur).toBe(FAVEUR_START - 1123);
+    expect(state.faveur).toBe(FAVEUR_START - prix10);
     // L'ère RECORD, pas la ville du moment : un effondrement ne fait pas baisser le prix…
     resetTemporaryRunState(state);
-    expect(blessingCost()).toBe(1123);
+    expect(blessingCost()).toBe(prix10);
     // … le Grand Reset, si : l'ère record retombe, le prix avec elle.
     setState(buildGrandResetState(2));
-    expect(blessingCost()).toBe(60);
+    expect(blessingCost()).toBeCloseTo(60 * FAVEUR_ECHELLE, -3);
   });
 });
 

@@ -6,6 +6,7 @@ import ScratchStage from './ScratchStage.jsx';
 import BlackjackStage from './BlackjackStage.jsx';
 import SlotsStage from './SlotsStage.jsx';
 import RouletteStage from './RouletteStage.jsx';
+import RoueStage from './RoueStage.jsx';
 import GrandGain from './GrandGain.jsx';
 
 /**
@@ -30,8 +31,16 @@ const STAGES = {
   blackjack: BlackjackStage,
   slots: SlotsStage,
   // La roulette du salon (lot 3 des gains « vrai casino »).
-  roulette: RouletteStage
+  roulette: RouletteStage,
+  // Le salon privé du boudoir : la même roulette, sans plafond (Mécène, 2026-10-04).
+  rouletteVip: RouletteVipStage,
+  // La roue de la Maison : un tour offert par heure (2026-10-04).
+  roue: RoueStage
 };
+
+function RouletteVipStage(props) {
+  return <RouletteStage {...props} vip />;
+}
 
 export default function RegulationStage() {
   const [game, setGame] = useState(null); // { kind, openedAt, …req } | null

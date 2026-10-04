@@ -27,7 +27,7 @@ import { collectTrunk, trunkValue, trunkCap } from './offeringTrunk.js';
 import { resolveIcarusHeadless, icarusEffectiveEdge, icarusUnlocked } from './icarus.js';
 import { playScratch, scratchUnlocked, scratchRtpRef } from './scratch.js';
 import { resolveBlackjackHeadless, blackjackUnlocked } from './blackjack.js';
-import { buyFaveurItem, buyTempleArtifact } from './faveurShop.js';
+import { buyFaveurItem, buyTempleArtifact, artifactCost } from './faveurShop.js';
 import { hasTempleArtifact } from './templeArtifacts.js';
 import { hasFreeFlight } from './templeFlights.js';
 import { autoStake, recettesPerHour } from './maisonTable.js';
@@ -461,7 +461,7 @@ export function artifactTree() {
       } else {
         owned = nodeAcquired(withLin);
         maxed = owned;
-        cost = owned ? null : node.cost;
+        cost = owned ? null : artifactCost(node);
       }
       const canAfford = cost != null && faveur >= cost;
       const buyable = unlocked && !maxed && canAfford;

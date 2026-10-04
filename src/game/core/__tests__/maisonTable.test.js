@@ -21,7 +21,7 @@ import { templeRelicProdMult, blessingMultiplier } from "../actions/faveurShop.j
 import { artifactTree, buyArtifactNode } from "../actions/templeAutomation.js";
 import { crisisProductionMultiplier } from "../mechanics/production/crisisLevers.js";
 import { eras } from "../../data/world.js";
-import { BLESSING_MULT, RELIC_CORNE_PROD_MULT, RELIC_OEIL_PROD_MULT, POT_CAP_MIN } from "../balance.js";
+import { BLESSING_MULT, RELIC_CORNE_PROD_MULT, RELIC_OEIL_PROD_MULT, POT_CAP_MIN, FAVEUR_ECHELLE as K } from "../balance.js";
 import { MID_GAME_FIXTURE, FIXED_NOW } from "./fixtures.js";
 
 const FAVEUR_START = 50_000;
@@ -47,19 +47,19 @@ afterEach(() => {
 
 // ── Les recettes suivent l'ère record ─────────────────────────────────────────
 describe("Recettes de la Maison", () => {
-  it("valent l'ancien tronc à l'Ère II (120/h), puis ~×1,4 par ère", () => {
+  it("valent l'ancien tronc à l'Ère II (120/h, ×1 000 depuis l'échelle), puis ~×1,4 par ère", () => {
     state.bestEraIndex = 2;
-    expect(recettesPerHour()).toBeCloseTo(120, 0); // seuil de l'Ère II : 4 018 (réf. 4 000)
-    expect(caisseCap()).toBe(60);
+    expect(recettesPerHour()).toBeCloseTo(120 * K, -3); // seuil de l'Ère II : 4 018 (réf. 4 000)
+    expect(caisseCap()).toBe(Math.round(recettesPerHour() * 0.5));
     state.bestEraIndex = 3;
-    expect(recettesPerHour()).toBeCloseTo(178, 0);
+    expect(recettesPerHour()).toBeCloseTo(178 * K, -3);
     state.bestEraIndex = 10;
-    expect(recettesPerHour()).toBeCloseTo(2247, 0);
+    expect(recettesPerHour()).toBeCloseTo(2247 * K, -3);
   });
 
   it("ne descendent jamais sous la base, et montent à chaque ère (jusqu'aux transcendantes)", () => {
     state.bestEraIndex = 0;
-    expect(recettesPerHour()).toBe(120);
+    expect(recettesPerHour()).toBe(120 * K);
     let prev = 0;
     for (let e = 2; e < eras.length; e += 7) {
       const r = recettesPerHour(e);
@@ -82,7 +82,7 @@ describe("Recettes de la Maison", () => {
 
   it("la Bénédiction coûte 30 min de recettes, la cagnotte plafonne à 24 h (jamais sous 5 000)", () => {
     state.bestEraIndex = 2;
-    expect(blessingCost()).toBe(60);
+    expect(blessingCost()).toBe(Math.round(recettesPerHour() * 0.5));
     expect(potCap()).toBe(POT_CAP_MIN);
     state.bestEraIndex = 20;
     expect(blessingCost()).toBe(Math.round(recettesPerHour() * 0.5));
@@ -94,17 +94,17 @@ describe("Recettes de la Maison", () => {
 describe("Limites de table", () => {
   it("haute = 15 min de recettes, arrondie à deux chiffres ; basse = 1", () => {
     state.bestEraIndex = 2;
-    expect(tableLimits()).toEqual({ min: 1, max: 30, base: 30 }); // Habitué : la table ouverte = la salle commune
+    expect(tableLimits()).toEqual({ min: 1, max: 30 * K, base: 30 * K }); // Habitué : la table ouverte = la salle commune
     state.bestEraIndex = 3;
-    expect(tableLimits().max).toBe(44);
+    expect(tableLimits().max).toBe(44 * K);
     state.bestEraIndex = 10;
-    expect(tableLimits().max).toBe(560);
+    expect(tableLimits().max).toBe(560 * K);
     state.bestEraIndex = 20;
-    expect(tableLimits().max).toBe(15000);
+    expect(tableLimits().max).toBe(15000 * K);
   });
 
   it("clampStake : entière, refusée sous 1, plafonnée à la limite", () => {
-    state.bestEraIndex = 2; // limite 30
+    state.bestEraIndex = 2; // limite 30 000
     expect(clampStake(0)).toBe(0);
     expect(clampStake(0.6)).toBe(0);
     expect(clampStake(-5)).toBe(0);
@@ -112,25 +112,25 @@ describe("Limites de table", () => {
     expect(clampStake(undefined)).toBe(0);
     expect(clampStake(12.7)).toBe(12);
     expect(clampStake(30)).toBe(30);
-    expect(clampStake(1e9)).toBe(30);
+    expect(clampStake(1e9)).toBe(30 * K);
   });
 
   it("autoStake : une part de la limite (min, ¼, ½, max)", () => {
-    state.bestEraIndex = 10; // limite 560
+    state.bestEraIndex = 10; // limite 560 000
     expect(autoStake("min")).toBe(1);
-    expect(autoStake("quart")).toBe(140);
-    expect(autoStake("moitie")).toBe(280);
-    expect(autoStake("max")).toBe(560);
+    expect(autoStake("quart")).toBe(140 * K);
+    expect(autoStake("moitie")).toBe(280 * K);
+    expect(autoStake("max")).toBe(560 * K);
     expect(autoStake("inconnu")).toBe(1);
   });
 
   it("la rafle de la cagnotte suit la mise rapportée à la limite (la mise max rafle tout)", () => {
-    state.bestEraIndex = 2; // limite 30
-    expect(potRakeShare(3)).toBeCloseTo(0.1, 12);
-    expect(potRakeShare(30)).toBe(1);
-    expect(potRakeShare(300)).toBe(1); // bornée à 1
+    state.bestEraIndex = 2; // limite 30 000
+    expect(potRakeShare(3 * K)).toBeCloseTo(0.1, 12);
+    expect(potRakeShare(30 * K)).toBe(1);
+    expect(potRakeShare(300 * K)).toBe(1); // bornée à 1
     state.templeArtifacts = { serres: true };
-    expect(potRakeShare(3)).toBeCloseTo(0.15, 12);
+    expect(potRakeShare(3 * K)).toBeCloseTo(0.15, 12);
   });
 });
 
@@ -162,9 +162,10 @@ describe("Migration 4 → 5 (remboursement)", () => {
       diceLevel: 2, wingLevel: 1, graveurLevel: 0, coffreLevel: 1,
       templeArtifacts: { ivoire: true, double: true, noye: true }
     });
-    // dés 130 + 189, aile 90, coffre 16 000, ivoire 300, double 1 200.
-    expect(out.maisonRefund).toBe(17909);
-    expect(out.faveur).toBe(10 + 17909);
+    // dés 130 + 189, aile 90, coffre 16 000, ivoire 300, double 1 200 — puis la
+    // migration 6 → 7 passe toute la Faveur à l'échelle (×1 000).
+    expect(out.maisonRefund).toBe(17909 * K);
+    expect(out.faveur).toBe((10 + 17909) * K);
     expect(out.templeArtifacts).toEqual({ noye: true });
     expect("diceLevel" in out).toBe(false);
     expect("coffreLevel" in out).toBe(false);
@@ -173,14 +174,14 @@ describe("Migration 4 → 5 (remboursement)", () => {
 
   it("une save sans achat de chance ne reçoit rien (et n'annonce rien)", () => {
     const out = migrate({ saveVersion: 4, faveur: 42, templeArtifacts: { voix: true } });
-    expect(out.faveur).toBe(42);
+    expect(out.faveur).toBe(42 * K);
     expect(out.maisonRefund).toBeUndefined();
   });
 
   it("l'hydratation garde le remboursement à annoncer et oublie les champs retirés", () => {
     const s = hydrateState({ ...MID_GAME_FIXTURE, saveVersion: 4, faveur: 0, wingLevel: 2 });
-    expect(s.faveur).toBe(90 + 162);
-    expect(s.maisonRefund).toBe(252);
+    expect(s.faveur).toBe((90 + 162) * K);
+    expect(s.maisonRefund).toBe(252 * K);
     expect(s.wingLevel).toBeUndefined();
   });
 
@@ -263,18 +264,32 @@ describe("Les reliques du trésor", () => {
     expect(crisisProductionMultiplier("food")).toBeCloseTo(base * RELIC_CORNE_PROD_MULT * RELIC_OEIL_PROD_MULT, 12);
   });
 
-  it("lot 3 : une relique à chaque ×10 du prix, chaque nouvelle ×1,25 (les sept : ×19,5)", () => {
+  it("les sept reliques, au prix en HEURES de recettes (3 → 100 h), chaque nouvelle ×1,25", () => {
     const tresor = artifactTree().find((l) => l.id === "tresor");
+    const R = recettesPerHour();
     expect(tresor.nodes.map((n) => [n.id, n.cost])).toEqual([
-      ["char", 1e6], ["lyre", 1e7], ["miroir", 1e8], ["corne", 1e9], ["toison", 1e10], ["pomme", 1e11], ["oeil", 1e12]
+      ["char", Math.round(3 * R)], ["lyre", Math.round(6 * R)], ["miroir", Math.round(12 * R)], ["corne", Math.round(20 * R)],
+      ["toison", Math.round(35 * R)], ["pomme", Math.round(60 * R)], ["oeil", Math.round(100 * R)]
     ]);
+    // Le prix suit les recettes du moment (l'ère record).
+    state.bestEraIndex = 20;
+    const tresor20 = artifactTree().find((l) => l.id === "tresor");
+    expect(tresor20.nodes[0].cost).toBe(Math.round(3 * recettesPerHour()));
+    state.bestEraIndex = 4;
+    // La PRODUCTION de la ville les lit (crisisLevers.js) — la revue du 2026-10-04 a
+    // trouvé que seule une copie morte comptait les quatre nouvelles.
+    state.templeArtifacts = {};
+    const base = crisisProductionMultiplier("food");
     state.templeArtifacts = { lyre: true };
     expect(templeRelicProdMult()).toBeCloseTo(1.25, 12);
+    expect(crisisProductionMultiplier("food")).toBeCloseTo(base * 1.25, 12);
+    state.templeArtifacts = { lyre: true, miroir: true, toison: true, pomme: true };
+    expect(crisisProductionMultiplier("food")).toBeCloseTo(base * Math.pow(1.25, 4), 12);
     state.templeArtifacts = { char: true, lyre: true, miroir: true, corne: true, toison: true, pomme: true, oeil: true };
     expect(templeRelicProdMult()).toBeCloseTo(RELIC_CORNE_PROD_MULT * RELIC_OEIL_PROD_MULT * Math.pow(1.25, 4), 9);
     // L'échelle : la Lyre suit le Char, la Corne suit le Miroir.
     state.templeArtifacts = {};
-    state.faveur = 2e9;
+    state.faveur = 1e12;
     expect(buyArtifactNode("lyre")).toBe(false);
     expect(buyArtifactNode("char")).toBe(true);
     expect(buyArtifactNode("lyre")).toBe(true);

@@ -19,7 +19,7 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from "vitest";
 import {
   state, setState, hydrateState, defaultState, defaultTempleAuto, invalidateRenderCache,
-  resetTemporaryRunState, buildGrandResetState, setNotifyPaused, setOfflineSim
+  resetTemporaryRunState, buildGrandResetState, setNotifyPaused, setOfflineSim, CURRENT_SAVE_VERSION
 } from "../state.js";
 import {
   tickTempleAutomation, resetOfflineTempleQuota, resolveIcarusHeadless, setTempleAuto, unlockTempleAuto,
@@ -34,11 +34,12 @@ import {
   AUTO_AUGURY_INTERVAL_MS, AUTO_ICARUS_INTERVAL_MS, AUTO_SCRATCH_INTERVAL_MS, AUTO_BLACKJACK_INTERVAL_MS,
   AUTO_ICARUS_TARGET_MIN, AUTO_ICARUS_TARGET_MAX, AUTO_TEMPO_MULT, AUTO_STAKE_STEPS,
   AUTO_TEMPLE_FAVEUR_FLOOR_MAX, AUTO_TEMPLE_FAVEUR_FLOOR_DEFAULT,
-  BLACKJACK_RTP_AUTO, BLACKJACK_RTP_REF, OFFLINE_MAX_TEMPLE_PLAYS_PER_GAME
-} from "../balance.js";
+  BLACKJACK_RTP_AUTO, BLACKJACK_RTP_REF, OFFLINE_MAX_TEMPLE_PLAYS_PER_GAME, FAVEUR_ECHELLE, MAISON_RANKS } from "../balance.js";
 import { MID_GAME_FIXTURE, FIXED_NOW } from "./fixtures.js";
 
-const FAVEUR_START = 500;
+// ×FAVEUR_ECHELLE : l'échelle de la Faveur (2026-10-04) — une bourse de test qui couvre
+// encore la limite des tables.
+const FAVEUR_START = 500 * FAVEUR_ECHELLE;
 const STEPS = Object.keys(AUTO_STAKE_STEPS); // min, quart, moitie, max
 const JEUX = ["osselets", "icarus", "gratteux", "vingtetun"];
 
@@ -121,12 +122,13 @@ describe("Automatisation — osselets (auto-lancé, mise en Faveur)", () => {
       return avant - state.faveur;
     };
     vi.spyOn(Math, "random").mockReturnValue(R_MOITIE); // jet creux : la mise part, rien ne revient
-    expect(tableLimits().max).toBe(65); // Ère IV
-    expect(STEPS.map(joue)).toEqual([1, 16, 32, 65]);
-    state.bestEraIndex = 10; // la ville a grandi : limite haute 560
-    state.faveur = 5000;
-    expect(joue("max")).toBe(560);
-    expect(joue("quart")).toBe(140);
+    const K = FAVEUR_ECHELLE;
+    expect(tableLimits().max).toBe(65 * K); // Ère IV
+    expect(STEPS.map(joue)).toEqual([1, 16250, 32500, 65 * K]);
+    state.bestEraIndex = 10; // la ville a grandi : limite haute 560 000
+    state.faveur = 5000 * K;
+    expect(joue("max")).toBe(560 * K);
+    expect(joue("quart")).toBe(140 * K);
     Math.random.mockRestore();
   });
 
@@ -561,8 +563,8 @@ describe("Automatisation — persistance des réglages", () => {
     allumer("osselets", { stakeStep: "moitie" });
     state.templeAuto.icarus.target = 4;
     state.templeAuto.gratteux.tempo = "fervent";
-    state.faveur = 300;
-    expect(autoStake("moitie")).toBe(32); // Ère IV : la moitié de 65
+    state.faveur = 300 * FAVEUR_ECHELLE;
+    expect(autoStake("moitie")).toBe(32500); // Ère IV : la moitié de 65 000
     const fresh = buildGrandResetState(2);
     expect(fresh.templeAuto.tronc.unlocked).toBe(true);
     expect(fresh.templeAuto.osselets.unlocked).toBe(true);
@@ -573,7 +575,7 @@ describe("Automatisation — persistance des réglages", () => {
     expect(fresh.faveur).toBe(0); // carburant re-gagné
     // Le cadran est une PART : l'ère record retombe, la mise réelle avec elle.
     setState(fresh);
-    expect(autoStake(state.templeAuto.osselets.stakeStep)).toBe(15); // la moitié de 30
+    expect(autoStake(state.templeAuto.osselets.stakeStep)).toBe(15 * FAVEUR_ECHELLE); // la moitié de 30
   });
 
   it("les réglages SURVIVENT à l'effondrement (hors resetTemporaryRunState)", () => {
@@ -595,6 +597,7 @@ describe("Automatisation — persistance des réglages", () => {
     for (const jeu of JEUX) expect(def.templeAuto[jeu].stakeStep).toBe("min");
 
     const s = hydrateState({
+      saveVersion: CURRENT_SAVE_VERSION, // au format courant : la migration v7 multiplierait le plancher
       templeAuto: { osselets: { on: true, faveurFloor: 99999 }, icarus: { target: 999, on: true, unlocked: true, stakeStep: "moitie" } }
     });
     expect(s.templeAuto.icarus.target).toBe(AUTO_ICARUS_TARGET_MAX); // 999 borné à 10
@@ -853,13 +856,14 @@ describe("Automatisation — réglages (setter), déblocage & débit estimé", (
     state.faveur = 10000;
     expect(unlockTempleAuto("icarus")).toBe(false);    // plus à vendre
     state.maisonReputation = 0.5;                      // le seuil de Familier
+    const bourse = Math.round(MAISON_RANKS[1].faveurH * recettesPerHour()); // la bourse du titre (2026-10-04)
     expect(promoteRank()).toBe(1);
     expect(state.maisonRank).toBe(1);
     expect(state.templeAuto.osselets).toMatchObject({ unlocked: true, on: false });
     expect(state.templeAuto.icarus).toMatchObject({ unlocked: true, on: false });
     expect(state.templeAuto.gratteux.unlocked).toBe(false); // celles-ci : au rang Notable
     expect(state.templeAuto.vingtetun.unlocked).toBe(false);
-    expect(state.faveur).toBe(10000);
+    expect(state.faveur).toBe(10000 + bourse); // rien n'est débité ; le titre verse sa bourse
   });
 
   it("defaultState fournit un templeAuto COMPLET (pas null) — panneau visible en partie fraîche", () => {

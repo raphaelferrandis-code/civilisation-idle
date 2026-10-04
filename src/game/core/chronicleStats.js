@@ -139,6 +139,16 @@ export function recordOffering(gain) {
   s.faveurEarned += g;
 }
 
+// La roue de la Maison : un tour pris (le gain compte comme Faveur gagnée à vie).
+export function recordRoue(gain) {
+  const s = reg();
+  if (!s) return;
+  const g = pos(gain);
+  s.roueSpins = (s.roueSpins || 0) + 1;
+  if (g > (s.roueBest || 0)) s.roueBest = g;
+  s.faveurEarned += g;
+}
+
 // Faveur dépensée à la Boutique de Faveur (augments, bénédiction, artefacts).
 export function recordShopSpend(cost) {
   const s = reg();

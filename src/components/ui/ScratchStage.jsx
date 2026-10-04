@@ -20,6 +20,7 @@ import { usePlaisirsBand, ticketFace, TICKET_GRID } from './plaisirsMaterial.js'
 import PlaisirsTable from '../views/plaisirs/PlaisirsTable.jsx';
 import TableMise from '../views/plaisirs/TableMise.jsx';
 import { initialStake, rememberStake, fmtMise } from '../views/plaisirs/miseMemory.js';
+import Monte from './Monte.jsx';
 
 // Flamme votive du vernis (dessinée AU CANVAS — un <img> n'y entre pas).
 // Préchargée au module, gardée nulle hors navigateur (tests node).
@@ -455,7 +456,7 @@ export default function ScratchStage({ table, onClose }) {
                     ) : null}
                     {outcome.win ? (
                       <p className="scratch-result scratch-result--win">
-                        +{fmt(totalFaveur)} {tr({ fr: 'faveur', en: 'favor' })}
+                        +<Monte value={totalFaveur} /> {tr({ fr: 'faveur', en: 'favor' })}
                         {outcome.freeFlight && <span className="scratch-result-sub"> · 🪽 {tr({ fr: "vol d'Icare offert", en: 'free Icarus flight' })}</span>}
                       </p>
                     ) : (

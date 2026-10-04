@@ -68,7 +68,7 @@ function Cadran({ level }) {
   return <span className="pm-cadran" aria-hidden="true" style={{ backgroundPositionX: `${-CADRANS.indexOf(ch) * 26}px` }} />;
 }
 
-export default function PlaisirsMenu({ navRef, bake, band, survol, selection, plein, onHover, onPick, onBack }) {
+export default function PlaisirsMenu({ navRef, bake, band, survol, selection, plein, onHover, onPick, onBack, onRoue }) {
   useGameState((s) => JSON.stringify(s.templeAuto || {})); // flammes et cadrans en direct
   useGameState((s) => s.maisonRank || 0); // les lieux que le titre ouvre (lot 3)
   // Une automatisation au moins : la colonne des flammes est réservée sur TOUTES
@@ -78,7 +78,7 @@ export default function PlaisirsMenu({ navRef, bake, band, survol, selection, pl
   return (
     <nav ref={navRef} className={`plaisirs-menu${autos ? ' has-autos' : ''}`} aria-label="Les lieux de la Maison des Plaisirs">
       {/* LA BOURSE, en tête : on lit ce qu'on peut miser avant de choisir où. */}
-      <OffrandesBloc />
+      <OffrandesBloc onRoue={onRoue} />
 
       {/* Le retour n'apparaît qu'en plein cadre (l'échoppe) : sur la salle, on y est. */}
       {plein && (

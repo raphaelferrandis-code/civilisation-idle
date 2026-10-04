@@ -25,6 +25,7 @@ import StageHelp from './StageHelp.jsx';
 import PlaisirsTable from '../views/plaisirs/PlaisirsTable.jsx';
 import TableMise from '../views/plaisirs/TableMise.jsx';
 import { initialStake, rememberStake, fmtMise } from '../views/plaisirs/miseMemory.js';
+import Monte from './Monte.jsx';
 import { usePlaisirsBand, icarusSkyCss, icarusFlyer } from './plaisirsMaterial.js';
 
 /**
@@ -345,7 +346,7 @@ export default function IcarusStage({ table, onClose }) {
             <p className="icarus-jackpot-banner"><PotIcon /> +{fmt(outcome.jackpotFaveur)} {tr({ fr: 'faveur', en: 'favor' })}</p>
           )}
           <p className="icarus-result icarus-result--win">
-            +{fmt(outcome.faveur)} {tr({ fr: 'faveur', en: 'favor' })} <span className="icarus-result-sub">(×{outcome.m.toFixed(2)})</span>
+            +<Monte value={outcome.faveur} /> {tr({ fr: 'faveur', en: 'favor' })} <span className="icarus-result-sub">(×{outcome.m.toFixed(2)})</span>
           </p>
           <p className="icarus-reveal">{nearMiss ? '🔥' : '☀'} ×{outcome.crashPoint.toFixed(2)}</p>
           {/* Rejeu DIRECT (phase 7) : « Revoler » relance à la mise mémorisée au lieu

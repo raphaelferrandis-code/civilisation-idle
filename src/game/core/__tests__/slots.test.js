@@ -10,10 +10,12 @@ import { state, setState, hydrateState, invalidateRenderCache } from "../state.j
 import { spinSlots, slotsOdds, slotsRtpRef, slotsWindow, slotsEvaluate, slotsFreeSpins, slotsUnlocked, slotsJackpots, SLOTS_CFG, SLOTS_CELLS } from "../actions/slots.js";
 import { lineWin, hwOutlook, slotsOddsOf } from "../actions/slotsMath.js";
 import { tableLimits } from "../actions/maisonTable.js";
-import { ICARUS_RTP, TEMPLE_POT_RECYCLE, SLOTS_REELS, SLOTS_FREE_SPINS, SLOTS_FREE_MULT, SLOTS_WHEEL, SLOTS_UNLOCK_ERA, SLOTS_PAY, SLOTS_HW, SLOTS_WILD, SLOTS_GRAND_FLOOR } from "../balance.js";
+import { ICARUS_RTP, TEMPLE_POT_RECYCLE, SLOTS_REELS, SLOTS_FREE_SPINS, SLOTS_FREE_MULT, SLOTS_WHEEL, SLOTS_UNLOCK_ERA, SLOTS_PAY, SLOTS_HW, SLOTS_WILD, SLOTS_GRAND_FLOOR, FAVEUR_ECHELLE } from "../balance.js";
 import { MID_GAME_FIXTURE, FIXED_NOW } from "./fixtures.js";
 
-const FAVEUR_START = 100000;
+// ×FAVEUR_ECHELLE : l'échelle de la Faveur (2026-10-04) — une bourse de test qui couvre
+// encore la limite des tables.
+const FAVEUR_START = 100000 * FAVEUR_ECHELLE;
 // Les trois anciennes mises fixes (jeton, rouleau, lingot), jouées en mise libre.
 const JETON = 4;
 const ROULEAU = 10;

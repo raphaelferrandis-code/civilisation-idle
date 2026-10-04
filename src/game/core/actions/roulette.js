@@ -13,7 +13,7 @@
 //     quand la bille s'arrête.
 
 import { state, render, gamePaused, collapseInProgress } from '../state.js';
-import { ROULETTE_RTP, ROULETTE_UNLOCK_RANK, ROULETTE_HISTORY_LEN } from '../balance.js';
+import { ROULETTE_RTP, ROULETTE_UNLOCK_RANK, ROULETTE_HISTORY_LEN, BOUDOIR_UNLOCK_RANK } from '../balance.js';
 import { tableLimits, maisonRank } from './maisonTable.js';
 import { feedPot } from './templePot.js';
 import { recordWager } from './maisonRang.js';
@@ -69,6 +69,20 @@ export function rouletteUnlocked() {
   return maisonRank() >= ROULETTE_UNLOCK_RANK;
 }
 
+// LE SALON PRIVÉ du boudoir (Raph, 2026-10-04 : « salon privé sans limite ») : la même
+// roulette, sans plafond de mise — on peut y poser toute sa bourse. Au titre de Mécène.
+export function rouletteVipUnlocked() {
+  return maisonRank() >= BOUDOIR_UNLOCK_RANK;
+}
+
+// Les limites d'une table de roulette : celles du titre, ou, au salon privé, la bourse
+// entière (le minimum de la Maison reste).
+export function rouletteLimits(vip = false) {
+  const lim = tableLimits();
+  if (!vip) return lim;
+  return { ...lim, max: Math.max(lim.min, Math.floor(state.faveur || 0)) };
+}
+
 // Les paris assainis : clés connues, montants entiers ≥ 1.
 export function cleanBets(bets) {
   const out = {};
@@ -100,10 +114,11 @@ export function spinRoulette(bets, options = {}) {
   const opts = (typeof options === "object" && options !== null) ? options : {};
   const { render: doRender = true, defer = false, silent = false } = opts;
   if (gamePaused || collapseInProgress || state.crisisLimitAnnounced) return null;
-  if (!rouletteUnlocked()) return null;
+  const vip = Boolean(opts.vip);
+  if (!(vip ? rouletteVipUnlocked() : rouletteUnlocked())) return null;
   const clean = cleanBets(bets);
   const total = betsTotal(clean);
-  const { min, max } = tableLimits();
+  const { min, max } = rouletteLimits(vip);
   if (total < min || total > max) return null;
   if ((state.faveur || 0) < total) return null;
   state.faveur = Math.max(0, (state.faveur || 0) - total);

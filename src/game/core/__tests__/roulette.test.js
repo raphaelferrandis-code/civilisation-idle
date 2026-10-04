@@ -6,7 +6,7 @@ import { describe, it, expect, beforeEach, afterEach, vi } from "vitest";
 import { state, setState, hydrateState, resetTemporaryRunState, invalidateRenderCache } from "../state.js";
 import {
   spinRoulette, rouletteUnlocked, betCovers, betPayout, payoutFor, cleanBets, betsTotal,
-  couleurOf, rouletteHistory, ROULETTE_WHEEL, ROUGES
+  couleurOf, rouletteHistory, ROULETTE_WHEEL, ROUGES, rouletteVipUnlocked, rouletteLimits
 } from "../actions/roulette.js";
 import { tableLimits, recettesPerHour } from "../actions/maisonTable.js";
 import { maisonReputation } from "../actions/maisonRang.js";
@@ -121,6 +121,28 @@ describe("Un tour de roue", () => {
     expect(hydrateState({ rouletteHistory: [3, 40, -1, "x", 7] }).rouletteHistory).toEqual([3, 7]);
     resetTemporaryRunState(state);
     expect(state.rouletteHistory).toEqual([]);
+  });
+
+  it("LE SALON PRIVÉ (Mécène) : pas de plafond, la mise va jusqu'à toute la bourse", () => {
+    const { max } = tableLimits();
+    // Familier : le salon commun est ouvert, le privé non.
+    expect(rouletteVipUnlocked()).toBe(false);
+    expect(spinRoulette({ rouge: max * 3 }, { vip: true, silent: true })).toBeNull();
+    // Au salon commun, la limite tient.
+    expect(spinRoulette({ rouge: max * 3 }, { silent: true })).toBeNull();
+    state.maisonRank = 3; // Mécène
+    expect(rouletteVipUnlocked()).toBe(true);
+    expect(rouletteLimits(true)).toMatchObject({ min: 1, max: Math.floor(state.faveur) });
+    tombe(1); // rouge
+    const res = spinRoulette({ rouge: state.faveur }, { vip: true, silent: true, render: false });
+    expect(res.stakeFaveur).toBe(1e7);
+    expect(res.faveurGain).toBe(2e7);
+    expect(state.faveur).toBe(2e7);
+    // La réputation suit la mise, comme partout (la Maison t'a pris 1/37 en théorie).
+    expect(maisonReputation()).toBeCloseTo((1e7 * (1 - ROULETTE_RTP)) / recettesPerHour(), 9);
+    // Pas plus que la bourse.
+    Math.random.mockRestore();
+    expect(spinRoulette({ rouge: state.faveur + 1 }, { vip: true, silent: true })).toBeNull();
   });
 
   it("Monte-Carlo : 97,3 % sur la durée (±1 pt)", () => {

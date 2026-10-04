@@ -6,7 +6,7 @@
 // `crisisProductionMultiplier`, `ruptureGrowthMultiplier` et `theocracyKnowledgeRate`
 // sont consommés par pressure.js/rates.js (exportés, hors API publique du baril).
 import { state } from '../../state.js';
-import { BLESSING_MULT, RELIC_CORNE_PROD_MULT, RELIC_OEIL_PROD_MULT } from '../../balance.js';
+import { BLESSING_MULT, RELIC_CORNE_PROD_MULT, RELIC_OEIL_PROD_MULT, RELIC_STEP_PROD_MULT } from '../../balance.js';
 import { POLICY_BY_ID } from '../../../data/regulationActions.js';
 import { toNum } from '../../num.js';
 import { has, ruinEffectSum } from '../shared.js';
@@ -26,13 +26,18 @@ function blessingProductionMultiplier() {
 }
 
 // LES RELIQUES du temple (2026-07-17, arbitrage Raphaël : l'imprimante de Faveur
-// finance la PRODUCTION). Multiplicatives : Corne ×2, Œil d'or ×4 → ×8 les deux.
-// Inline (lecture directe de state.templeArtifacts, même raison anti-cycle).
-function templeRelicMultiplier() {
+// finance la PRODUCTION). Multiplicatives : Corne ×2, Œil d'or ×4, et depuis le lot 3
+// (2026-10-04) la Lyre, le Miroir, la Toison et la Pomme ×1,25 chacune — les sept :
+// ×19,5. Inline (lecture directe de state.templeArtifacts, même raison anti-cycle) ;
+// SEULE source du calcul : la Boutique le ré-exporte (templeRelicProdMult). Une copie
+// dans faveurShop.js avait dérivé, et les quatre reliques ne touchaient pas la ville.
+const STEP_RELICS = ["lyre", "miroir", "toison", "pomme"];
+export function templeRelicMultiplier() {
   const arts = state.templeArtifacts || {};
   let m = 1;
   if (arts.corne) m *= RELIC_CORNE_PROD_MULT;
   if (arts.oeil) m *= RELIC_OEIL_PROD_MULT;
+  for (const id of STEP_RELICS) if (arts[id]) m *= RELIC_STEP_PROD_MULT;
   return m;
 }
 

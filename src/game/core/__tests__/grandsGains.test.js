@@ -21,24 +21,25 @@ afterEach(() => {
 });
 
 describe("Les grands gains", () => {
-  it("trois paliers : ×10, ×50, ×250 (le plus haut atteint)", () => {
-    expect(PALIERS.map((p) => p.x)).toEqual([250, 50, 10]);
-    expect([0, 9.99, 10, 49, 50, 249, 250, 5000, NaN].map((m) => palierOf(m)?.id ?? null))
-      .toEqual([null, null, "gros", "gros", "enorme", "enorme", "legende", "legende", null]);
+  it("quatre paliers : ×5, ×10, ×50, ×250 (le plus haut atteint)", () => {
+    expect(PALIERS.map((p) => p.x)).toEqual([250, 50, 10, 5]);
+    expect([0, 4.99, 5, 9.99, 10, 49, 50, 249, 250, 5000, NaN].map((m) => palierOf(m)?.id ?? null))
+      .toEqual([null, null, "beau", "beau", "gros", "gros", "enorme", "enorme", "legende", "legende", null]);
   });
 
   it("l'effet reçoit le palier ; la Chronique ne retient que la légende", () => {
     const seen = [];
     off = onGrandGain((e) => seen.push(e));
     const n0 = state.history.length;
-    expect(celebrerGain({ gain: 900, stake: 100, game: "icare" })).toBeNull(); // ×9
+    expect(celebrerGain({ gain: 400, stake: 100, game: "icare" })).toBeNull(); // ×4
+    expect(celebrerGain({ gain: 900, stake: 100, game: "icare" }).id).toBe("beau"); // ×9
     expect(celebrerGain({ gain: 1200, stake: 100, game: "icare" }).id).toBe("gros");
     expect(state.history.length).toBe(n0);
     expect(celebrerGain({ gain: 30000, stake: 100, game: "tickets" }).id).toBe("legende");
     expect(state.history.length).toBe(n0 + 1);
     expect(state.history[state.history.length - 1]).toContain("Coup de légende aux tickets : ×300 la mise");
-    expect(seen.map((e) => e.palier.id)).toEqual(["gros", "legende"]);
-    expect(seen[1]).toMatchObject({ gain: 30000, stake: 100, mult: 300, game: "tickets" });
+    expect(seen.map((e) => e.palier.id)).toEqual(["beau", "gros", "legende"]);
+    expect(seen[2]).toMatchObject({ gain: 30000, stake: 100, mult: 300, game: "tickets" });
   });
 
   it("show: false écrit la légende sans l'effet (la machine a son bandeau)", () => {

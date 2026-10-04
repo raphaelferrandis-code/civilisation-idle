@@ -290,7 +290,8 @@ for (const i of [2, 3, 5, 8, 10, 13, 15, 18, 20, 23, 25, 27, 29, 30, 32, 34, 45,
   eraRows.push({ i, name: eras[i].name, r: recettesPerHour(), max: tableLimits().max, ben: blessingCost(), pot: potCap() });
 }
 const mono = eraRows.every((x, k) => k === 0 || (x.r >= eraRows[k - 1].r && x.max >= eraRows[k - 1].max));
-check("A7 recettes et limite montent avec l'ere record", mono && eraRows[0].r >= 119 && eraRows[0].max === 30,
+// L'echelle de la Faveur (x1 000 depuis le 2026-10-04) : 120 000/h et 30 000 a l'Ere II.
+check("A7 recettes et limite montent avec l'ere record", mono && eraRows[0].r >= 119 * bal.FAVEUR_ECHELLE && eraRows[0].max === 30 * bal.FAVEUR_ECHELLE,
   `ere 2 : ${Math.round(eraRows[0].r)}/h, limite ${eraRows[0].max}`);
 
 /* ============================================================================

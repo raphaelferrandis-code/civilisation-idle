@@ -291,14 +291,21 @@ export const AUGURY_JACKPOT_SHARE = 0.10; // part des Vénus qui tombent en carr
 // (bestEraIndex) et non la population du moment : un effondrement ne vide pas la
 // salle, le Grand Reset si (comme la Faveur). Calcul en log10 : les seuils des
 // ères transcendantes dépassent 1e308 (actions/maisonTable.js).
-export const MAISON_RECETTES_BASE_H = 120;   // Faveur/h à l'Ère II (l'ancien tronc)
+// L'ÉCHELLE DE LA FAVEUR (Raph, 2026-10-04 : « on gonfle artificiellement tous les
+// nombres, le jeu reste le même, mais comme au casino, miser gros, grosse perte ») :
+// TOUT ce qui se compte en Faveur est multiplié par ce facteur — recettes, caisse,
+// limites (donc jetons et mises), prix de la Boutique, réserves des automatisations.
+// Les cotes, les rapports et tout ce qui se compte en heures de recettes ne bougent
+// pas. La sauvegarde v7 multiplie la Faveur des parties existantes (state.js).
+export const FAVEUR_ECHELLE = 1000;
+export const MAISON_RECETTES_BASE_H = 120 * FAVEUR_ECHELLE; // 120 000/h à l'Ère II (l'ancien tronc, ×1 000)
 export const MAISON_RECETTES_POP_REF = 4000; // ~ seuil de population de l'Ère II (Abris)
 export const MAISON_RECETTES_EXP = 0.15;     // ~×1,4 par ère
 export const CAISSE_CAP_H = 0.5;             // la caisse se remplit en 30 min, puis attend
-export const CAISSE_INITIAL = 60;            // pleine au déblocage (amorce, comme l'ancien tronc)
-// LES LIMITES DE TABLE. Haute = 15 min de recettes (30 Faveur à l'Ère II, l'ancienne
-// grosse mise valait 25), arrondie à deux chiffres significatifs. Basse = 1 : on
-// joue petit si l'on veut.
+export const CAISSE_INITIAL = 60 * FAVEUR_ECHELLE; // pleine au déblocage (amorce, comme l'ancien tronc)
+// LES LIMITES DE TABLE. Haute = 15 min de recettes (30 000 Faveur à l'Ère II),
+// arrondie à deux chiffres significatifs. Basse = 1 : on joue petit si l'on veut
+// (le râtelier, lui, ne propose que les plus gros jetons sous la limite).
 export const TABLE_MAX_H = 0.25;
 export const TABLE_MIN = 1;
 // Les cadrans de mise des automatisations : une part de la limite haute de la SALLE
@@ -317,13 +324,15 @@ export const AUTO_STAKE_STEPS = { min: 0, quart: 0.25, moitie: 0.5, max: 1 };
 // artefacts et automatisations (ids de data/artifacts.js) et des vols offerts à la
 // limite de la salle commune. Seuils en heures de recettes : à la limite de base et
 // 3 % d'avantage, Familier vient en ~70 grosses mises ; Prince quand la Maison t'a
-// pris ~75 h de recettes.
+// pris ~40 h de recettes (75 avant la mesure des 20 h : hors d'atteinte).
+// `faveurH` (2026-10-04, « comme les applis ») : le titre offre aussi une bourse, en
+// heures de recettes au moment du passage.
 export const MAISON_RANKS = [
-  { id: "habitue", threshold: 0, mult: 1, flights: 0, gifts: [] },
-  { id: "familier", threshold: 0.5, mult: 10, flights: 3, gifts: ["colombier", "mesure", "autoOsselets", "autoIcare"] },
-  { id: "notable", threshold: 3, mult: 100, flights: 5, gifts: ["echelle", "coin", "autoGratteux", "autoVingtEtUn"] },
-  { id: "mecene", threshold: 15, mult: 1000, flights: 8, gifts: ["interdit", "solaires"] },
-  { id: "prince", threshold: 75, mult: 10000, flights: 8, gifts: ["serres"] }
+  { id: "habitue", threshold: 0, mult: 1, flights: 0, faveurH: 0, gifts: [] },
+  { id: "familier", threshold: 0.5, mult: 10, flights: 3, faveurH: 2, gifts: ["colombier", "mesure", "autoOsselets", "autoIcare"] },
+  { id: "notable", threshold: 3, mult: 100, flights: 5, faveurH: 5, gifts: ["echelle", "coin", "autoGratteux", "autoVingtEtUn"] },
+  { id: "mecene", threshold: 15, mult: 1000, flights: 8, faveurH: 10, gifts: ["interdit", "solaires"] },
+  { id: "prince", threshold: 40, mult: 10000, flights: 8, faveurH: 20, gifts: ["serres"] }
 ];
 // L'automatisation offerte, par id de nœud de l'arbre → jeu de templeAuto.
 export const RANK_GIFT_AUTOS = { autoOsselets: "osselets", autoIcare: "icarus", autoGratteux: "gratteux", autoVingtEtUn: "vingtetun" };
@@ -372,7 +381,7 @@ export const TEMPLE_POT_RECYCLE = 0.6;      // part de l'EDGE reversée à la ca
 export const TEMPLE_POT_RECYCLE_CAP = 0.85; // borne dure < 1 : LE point de défaillance unique (A10)
 // Plafond de la cagnotte : 24 h de recettes (elle grandit avec la Maison), jamais
 // sous l'ancien plafond fixe.
-export const POT_CAP_MIN = 5000;
+export const POT_CAP_MIN = 5000 * FAVEUR_ECHELLE;
 export const POT_CAP_H = 24;
 // Coup de Vénus (et autres) : un vol d'Icare offert, à la mise du coup qui l'a gagné.
 export const ICARUS_FREE_FLIGHTS_MAX = 5;
@@ -389,7 +398,7 @@ export const ICARUS_FREE_FLIGHTS_MAX = 5;
 // (+6), on reste sous l'ancien rayon : 19/17/15.
 export const STYLET_RADIUS_STEP = 2;      // +2 px de rayon par niveau
 export const STYLET_MAX_LEVEL = 3;
-export const STYLET_COST_BASE = 120;
+export const STYLET_COST_BASE = 120 * FAVEUR_ECHELLE;
 export const STYLET_COST_GROWTH = 1.7;
 // Bénédiction — bonus TEMPORAIRE de production (multiplicateur GLOBAL, N s) :
 // le pont vers le cœur du jeu. Re-jouable, effet temporaire remis à zéro à
@@ -577,8 +586,8 @@ export const AUTO_SCRATCH_INTERVAL_MS = 10_000; // délai min entre 2 tickets au
 export const AUTO_BLACKJACK_INTERVAL_MS = 10_000; // délai min entre 2 mains auto
 export const AUTO_ICARUS_TARGET_MIN = 1.2;      // cadran cible : bas = revenu régulier
 export const AUTO_ICARUS_TARGET_MAX = ICARUS_JACKPOT_MULT; // 10 = mise max auto (gros payout, faibles odds) ; cagnotte + jalon GR VII restent MANUELS
-export const AUTO_TEMPLE_FAVEUR_FLOOR_DEFAULT = 30;  // réserve de Faveur sous laquelle une auto de jeu se met en veille
-export const AUTO_TEMPLE_FAVEUR_FLOOR_MAX = 2000;    // curseur plancher de Faveur
+export const AUTO_TEMPLE_FAVEUR_FLOOR_DEFAULT = 30 * FAVEUR_ECHELLE;  // réserve de Faveur sous laquelle une auto de jeu se met en veille
+export const AUTO_TEMPLE_FAVEUR_FLOOR_MAX = 2000 * FAVEUR_ECHELLE;    // curseur plancher de Faveur
 // TEMPO des automatisations (arbitrage Raphaël 2026-07-17 : « paramétrable selon
 // des critères de gain, temps ou risques ») : multiplie l'intervalle de base.
 // recueilli = moitié moins de parties, fervent = deux fois plus. Le tempo ne
@@ -592,13 +601,13 @@ export const AUTO_TEMPO_MULT = { recueilli: 2, mesure: 1, fervent: 0.5 };
 // stratégie de base (basicAction) avec le double, jamais la refente, et ne compte
 // ni série ni historique (parité avec l'auto-Icare qui ne rafle pas : la main se
 // joue aussi à la main).
-export const AUTO_OSSELETS_UNLOCK_COST = 700;        // Faveur pour l'auto-lancé des osselets
-export const AUTO_ICARUS_UNLOCK_COST = 350;          // Faveur pour l'autopush d'Icare
+export const AUTO_OSSELETS_UNLOCK_COST = 700 * FAVEUR_ECHELLE;   // Faveur pour l'auto-lancé des osselets
+export const AUTO_ICARUS_UNLOCK_COST = 350 * FAVEUR_ECHELLE;     // Faveur pour l'autopush d'Icare
 // 350 → 520 (phase 6) : compense le robinet doublé — (520 − 60)/2 = 230 min,
 // A5 exige ≥ 3,5 h d'épargne stricte avant l'auto-relève.
-export const AUTO_TRUNK_UNLOCK_COST = 520;           // Faveur pour l'auto-relève du tronc des offrandes
-export const AUTO_SCRATCH_UNLOCK_COST = 500;         // Faveur pour l'auto-gratteux
-export const AUTO_BLACKJACK_UNLOCK_COST = 700;       // Faveur pour l'auto-vingt-et-un
+export const AUTO_TRUNK_UNLOCK_COST = 520 * FAVEUR_ECHELLE;      // Faveur pour l'auto-relève du tronc des offrandes
+export const AUTO_SCRATCH_UNLOCK_COST = 500 * FAVEUR_ECHELLE;    // Faveur pour l'auto-gratteux
+export const AUTO_BLACKJACK_UNLOCK_COST = 700 * FAVEUR_ECHELLE;  // Faveur pour l'auto-vingt-et-un
 
 // ── Artefacts du Temple (Phase 4 : arbre de lignées, refontes de RISQUE) ──────
 // Débloqués en Faveur, ÉTERNELS (state.templeArtifacts, cf. GR_PERSISTENT_FIELDS).
@@ -644,18 +653,18 @@ export const SERRES_RAKE_MULT = 1.5;
 // au lieu de 12 (l'historique des pastilles est la meilleure lecture de l'edge).
 export const FLIGHTS_MAX_COLOMBIER = 8;
 export const ICARUS_HISTORY_COLOMBIER = 24;
-export const ARTIFACT_NOYE_COST = 260;     // Faveur
-export const ARTIFACT_PLUMES_COST = 380;
-export const ARTIFACT_SOLAIRES_COST = 520;
-export const ARTIFACT_ECHELLE_COST = 350;  // osselets : le quitte ou double s'enchaîne
-export const ARTIFACT_INTERDIT_COST = 500; // osselets : le 4e rite (le pari le plus risqué)
-export const ARTIFACT_SOUFFLE_COST = 450;
-export const ARTIFACT_SERRES_COST = 550;
-export const ARTIFACT_COLOMBIER_COST = 200;
-export const ARTIFACT_COIN_COST = 240;     // gratteux : une case arrive dégagée
-export const ARTIFACT_RELANCE_COST = 420;  // gratteux : la cella rejoue un ticket perdant
-export const ARTIFACT_VOIX_COST = 150;     // vingt-et-un : l'oracle parle (séries)
-export const ARTIFACT_MESURE_COST = 250;   // vingt-et-un : le conseil de la mesure
+export const ARTIFACT_NOYE_COST = 260 * FAVEUR_ECHELLE;     // Faveur
+export const ARTIFACT_PLUMES_COST = 380 * FAVEUR_ECHELLE;
+export const ARTIFACT_SOLAIRES_COST = 520 * FAVEUR_ECHELLE;
+export const ARTIFACT_ECHELLE_COST = 350 * FAVEUR_ECHELLE;  // osselets : le quitte ou double s'enchaîne
+export const ARTIFACT_INTERDIT_COST = 500 * FAVEUR_ECHELLE; // osselets : le 4e rite (le pari le plus risqué)
+export const ARTIFACT_SOUFFLE_COST = 450 * FAVEUR_ECHELLE;
+export const ARTIFACT_SERRES_COST = 550 * FAVEUR_ECHELLE;
+export const ARTIFACT_COLOMBIER_COST = 200 * FAVEUR_ECHELLE;
+export const ARTIFACT_COIN_COST = 240 * FAVEUR_ECHELLE;     // gratteux : une case arrive dégagée
+export const ARTIFACT_RELANCE_COST = 420 * FAVEUR_ECHELLE;  // gratteux : la cella rejoue un ticket perdant
+export const ARTIFACT_VOIX_COST = 150 * FAVEUR_ECHELLE;     // vingt-et-un : l'oracle parle (séries)
+export const ARTIFACT_MESURE_COST = 250 * FAVEUR_ECHELLE;   // vingt-et-un : le conseil de la mesure
 // Le quitte ou double des osselets s'enchaîne jusqu'à N crans avec l'Échelle de
 // Vénus (1 sans elle). Chaque cran est à EV EXACTEMENT nulle (p = 0.5, gain =
 // +wager) : enchaîner ne déplace pas le RTP d'un dixième, A9 intact par
@@ -668,23 +677,34 @@ export const AUGURY_DOUBLE_MAX_CRANS = 3;
 
 // ── LES RELIQUES (le trésor du temple, 2026-07-17) ───────────────────────────
 // Les puits légendaires qui donnent un sens aux grands chiffres : des objets
-// uniques à prix exponentiels, qui paient DANS LA CITÉ (l'arbitrage Raphaël :
-// les jeux financent la production). Effets multiplicatifs, éternels
-// (templeArtifacts → GR_PERSISTENT_FIELDS).
-export const RELIC_CHAR_COST = 1e6;       // le Char du Soleil : Bénédiction PERMANENTE
-export const RELIC_CORNE_COST = 1e9;      // la Corne du temple : production ×2
-export const RELIC_OEIL_COST = 1e12;      // l'Œil d'or : production ×4
+// uniques, qui paient DANS LA CITÉ (l'arbitrage Raphaël : les jeux financent la
+// production). Effets multiplicatifs, éternels (templeArtifacts →
+// GR_PERSISTENT_FIELDS).
+// PRIX EN HEURES DE RECETTES (Raph, 2026-10-04, après la mesure des 20 h de
+// bench-plaisirs.js : à prix fixes, elles n'arrivaient presque jamais en 20 h) :
+// le prix se lit au moment de l'achat (recettes de l'ère record), comme la
+// Bénédiction. Mesuré : le Char vers 5 h de jeu, puis une relique toutes les
+// quelques heures pour un joueur régulier, quelle que soit l'avancée de la ville.
+export const RELIC_CHAR_COST_H = 3;       // le Char du Soleil : Bénédiction PERMANENTE
+export const RELIC_LYRE_COST_H = 6;       // la Lyre d'Orphée
+export const RELIC_MIROIR_COST_H = 12;    // le Miroir d'Aphrodite
+export const RELIC_CORNE_COST_H = 20;     // la Corne du temple : production ×2
+export const RELIC_TOISON_COST_H = 35;    // la Toison d'or
+export const RELIC_POMME_COST_H = 60;     // la Pomme d'or des Hespérides
+export const RELIC_OEIL_COST_H = 100;     // l'Œil d'or : production ×4
 export const RELIC_CORNE_PROD_MULT = 2;
 export const RELIC_OEIL_PROD_MULT = 4;
-// Lot 3 des gains « vrai casino » : une relique à CHAQUE ×10 du prix (Raph, 2026-10-04 :
-// « des reliques plus rapprochées »), pour qu'un gros gain serve toujours en fin de
-// partie. Les quatre nouvelles s'intercalent entre les trois anciennes, qui gardent
-// prix et effets : chacune multiplie la production par 1,25 (les sept : ×8 → ×19,5).
-export const RELIC_LYRE_COST = 1e7;       // la Lyre d'Orphée
-export const RELIC_MIROIR_COST = 1e8;     // le Miroir d'Aphrodite
-export const RELIC_TOISON_COST = 1e10;    // la Toison d'or
-export const RELIC_POMME_COST = 1e11;     // la Pomme d'or des Hespérides
+// Lot 3 des gains « vrai casino » : sept reliques (Raph, 2026-10-04 : « des reliques
+// plus rapprochées »). Les quatre nouvelles multiplient chacune la production par
+// 1,25 (les sept : ×1,5 le Char, ×2 la Corne, ×4 l'Œil, ×2,44 les quatre autres).
 export const RELIC_STEP_PROD_MULT = 1.25;
+
+// ── LA ROUE DE LA MAISON (2026-10-04, « comme les applis de casino ») ─────────
+// Un tour OFFERT par heure : seize cases égales (ce qu'on voit est la chance), en
+// heures de recettes — en moyenne 1,125 h. Le tour attend qu'on le prenne : une
+// absence n'en accumule pas plusieurs. Pas une mise : ni cagnotte, ni réputation.
+export const ROUE_INTERVAL_S = 3600;
+export const ROUE_SEGMENTS_H = [0.25, 0.5, 0.25, 1, 0.5, 2, 0.25, 0.75, 0.5, 3, 0.25, 1, 0.5, 1.5, 0.75, 5];
 
 // ── Intendance (consignes conditionnelles, onglet Régulation) ────────────────
 // Délégation configurable : « si la Rupture dépasse X % → lancer telle action

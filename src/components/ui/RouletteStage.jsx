@@ -1,12 +1,12 @@
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState, useSyncExternalStore } from 'react';
 import { useGameState } from '../../hooks/useGameState.js';
-import { state } from '../../game/core/state.js';
-import { spinRoulette, couleurOf, betsTotal, cleanBets } from '../../game/core/actions/roulette.js';
-import { tableLimits, chipRack, chipIndexOf } from '../../game/core/actions/maisonTable.js';
+import { state, save } from '../../game/core/state.js';
+import { spinRoulette, couleurOf, betsTotal, cleanBets, rouletteLimits } from '../../game/core/actions/roulette.js';
+import { chipRack, chipIndexOf } from '../../game/core/actions/maisonTable.js';
 import { celebrerGain } from '../../game/core/grandsGains.js';
-import { fmt } from '../../game/core/utils.js';
 import { tr } from '../../game/core/i18n.js';
 import { FaveurIcon } from './FaveurIcon.jsx';
+import Monte from './Monte.jsx';
 import { tipProps } from './HelpBubble.jsx';
 import StageHelp from './StageHelp.jsx';
 import { usePlaisirsBand } from './plaisirsMaterial.js';
@@ -24,9 +24,38 @@ import '../../styles/plaisirs-roulette.css';
  * un clic sur une case l'y pose (clic droit : la case se vide). « Lancer la bille » :
  * la roue tourne, la bille court à rebours, tombe dans sa case ; les cases gagnantes
  * s'allument. Pas de phrase à l'écran : les règles sont dans l'aide « ? ».
+ *
+ * `vip` : LE SALON PRIVÉ du boudoir (Raph, 2026-10-04, au titre de Mécène) — la même
+ * table, sans plafond : la mise va jusqu'à toute la bourse. Feutre de velours.
  */
 
 const SPIN_MS = 3800;
+
+// AU TÉLÉPHONE (2026-10-04) : sous 720 px, le tapis de 14 colonnes posé sur la table
+// donnait des cases de 10 px. Il quitte la table et se déplie EN DESSOUS, debout, comme
+// sur une vraie table vue du joueur : le zéro en haut, douze rangées de trois numéros,
+// les « 2:1 » en bas, douzaines et chances simples sur le côté. La roue se centre.
+const ETROIT = '(max-width: 720px)';
+function abonnerEtroit(cb) {
+  if (typeof window === 'undefined' || !window.matchMedia) return () => {};
+  const mq = window.matchMedia(ETROIT);
+  mq.addEventListener('change', cb);
+  return () => mq.removeEventListener('change', cb);
+}
+const lireEtroit = () => typeof window !== 'undefined' && !!window.matchMedia && window.matchMedia(ETROIT).matches;
+// La place d'une case dans le tapis DEBOUT (grille 5 colonnes × 14 rangées).
+function placeDebout(key) {
+  if (key === 'n0') return { gridColumn: '3 / span 3', gridRow: 1 };
+  const n = /^n(\d+)$/.exec(key);
+  if (n) { const v = Number(n[1]); return { gridColumn: 3 + ((v - 1) % 3), gridRow: 2 + Math.floor((v - 1) / 3) }; }
+  const col = { c1: 3, c2: 4, c3: 5 }[key];
+  if (col) return { gridColumn: col, gridRow: 14 };
+  const d = { d1: 0, d2: 1, d3: 2 }[key];
+  if (d != null) return { gridColumn: 2, gridRow: `${2 + 4 * d} / span 4` };
+  const i = DEHORS.findIndex((x) => x.key === key);
+  if (i >= 0) return { gridColumn: 1, gridRow: `${2 + 2 * i} / span 2` };
+  return undefined;
+}
 
 const NOMBRES = Array.from({ length: 12 }, (_, col) => [3 * col + 3, 3 * col + 2, 3 * col + 1]); // [haut, milieu, bas] par colonne
 const DEHORS = [
@@ -56,19 +85,22 @@ function Jeton({ band, amount }) {
   );
 }
 
-export default function RouletteStage({ onClose }) {
+export default function RouletteStage({ onClose, table, vip: vipProp = false }) {
+  const vip = Boolean(vipProp || (table && table.vip));
+  const memo = vip ? 'rouletteVip' : 'roulette';
   const faveur = useGameState((s) => s.faveur || 0);
   useGameState((s) => s.maisonRank || 0);
   const history = useGameState((s) => (Array.isArray(s.rouletteHistory) ? s.rouletteHistory.join(',') : ''));
   const band = usePlaisirsBand();
-  const { min, max } = tableLimits();
+  const etroit = useSyncExternalStore(abonnerEtroit, lireEtroit, () => false);
+  const { min, max } = rouletteLimits(vip);
   const rack = useMemo(() => chipRack(max), [max]);
   const [chipPick, setChip] = useState(() => rack[Math.max(0, rack.length - 4)] || 1);
   // Un jeton qui ne tient plus sous la limite : le plus gros du râtelier le remplace.
   const chip = rack.includes(chipPick) ? chipPick : rack[rack.length - 1] || 1;
-  const dernierJeu = lastBetsOf('roulette');
+  const dernierJeu = lastBetsOf(memo);
   const [bets, setBets] = useState(() => {
-    const last = cleanBets(lastBetsOf('roulette') || {});
+    const last = cleanBets(lastBetsOf(memo) || {});
     return betsTotal(last) <= Math.min(max, state.faveur || 0) ? last : {};
   });
   const [phase, setPhase] = useState('bet');
@@ -87,6 +119,24 @@ export default function RouletteStage({ onClose }) {
   useEffect(() => () => {
     clearTimeout(timerRef.current);
     if (pendingRef.current) { pendingRef.current(); pendingRef.current = null; }
+  }, []);
+
+  // F5 / fermeture d'onglet pendant que la bille roule : aucun cleanup React ne court au
+  // rechargement — le gain tiré serait perdu (revue du 2026-10-04 ; même garde que les
+  // osselets et les tickets). save() explicite : la sauvegarde de sortie est passée.
+  useEffect(() => {
+    const flushOnExit = () => {
+      if (!pendingRef.current) return;
+      pendingRef.current();
+      pendingRef.current = null;
+      save();
+    };
+    window.addEventListener('pagehide', flushOnExit);
+    window.addEventListener('beforeunload', flushOnExit);
+    return () => {
+      window.removeEventListener('pagehide', flushOnExit);
+      window.removeEventListener('beforeunload', flushOnExit);
+    };
   }, []);
 
   // La roue au repos (ou arrêtée) : la bille dans la dernière case tombée.
@@ -113,14 +163,15 @@ export default function RouletteStage({ onClose }) {
   const onSpin = (paris = bets) => {
     const t = betsTotal(paris);
     if (t < min || t > Math.min(max, state.faveur || 0)) return;
-    const res = spinRoulette(paris, { defer: true });
+    const res = spinRoulette(paris, { defer: true, vip });
     if (!res) return;
-    rememberBets('roulette', res.bets);
+    rememberBets(memo, res.bets);
     pendingRef.current = res.apply;
     setBets(res.bets);
     setResult(res);
     setPhase('spin');
     const cv = canvas;
+    if (etroit && cv && cv.scrollIntoView) cv.scrollIntoView({ behavior: 'smooth', block: 'center' });
     const wheel0 = poseRef.current.wheel % (Math.PI * 2);
     let raf = 0, t0 = null;
     const frame = (now) => {
@@ -164,6 +215,75 @@ export default function RouletteStage({ onClose }) {
 
   const histChips = history ? history.split(',').map(Number) : [];
 
+  // Les cases du tapis. Couché (sur la table) : les numéros portent leur place, les
+  // autres cases la tiennent de leur classe (plaisirs-roulette.css). Debout : tout est
+  // placé ici (placeDebout).
+  const cases = (debout) => {
+    const p = (key, style) => (debout ? placeDebout(key) : style);
+    return (
+      <>
+        {cell('n0', '0', 'is-vert rl-zero', p('n0'))}
+        {NOMBRES.map((col, ci) => col.map((n, ri) => cell(`n${n}`, String(n), `is-${couleurOf(n)}`, p(`n${n}`, { gridColumn: ci + 2, gridRow: ri + 1 }))))}
+        {cell('c3', '2:1', 'rl-col rl-col-3', p('c3'))}
+        {cell('c2', '2:1', 'rl-col rl-col-2', p('c2'))}
+        {cell('c1', '2:1', 'rl-col rl-col-1', p('c1'))}
+        {DOUZAINES.map((d, i) => cell(d.key, tr({ fr: d.fr, en: d.en }), `rl-douz rl-douz-${i + 1}`, p(d.key)))}
+        {DEHORS.map((d, i) => cell(d.key, tr({ fr: d.fr, en: d.en }), `rl-dehors rl-dehors-${i + 1} ${d.cls || ''}`, p(d.key)))}
+      </>
+    );
+  };
+
+  // Le râtelier (jetons, mise, boutons) : sur la table, ou au pied de l'écran au
+  // téléphone. `k` : l'échelle des jetons (celle de la table).
+  const ratelier = (k) => (phase !== 'result' ? (
+              <>
+                {rack.map((v) => (
+                  <button
+                    key={v}
+                    type="button"
+                    className={`ptable-chip${chip === v ? ' is-chosen' : ''}`}
+                    disabled={phase === 'spin'}
+                    aria-pressed={chip === v}
+                    onClick={() => setChip(v)}
+                    aria-label={tr({ fr: `Jeton de ${fmtMise(v)}`, en: `${fmtMise(v)} chip` })}
+                  >
+                    <img src={chipUrl(band, chipIndexOf(v))} alt="" aria-hidden="true" draggable="false" style={{ width: CHIP_ART.w * k, height: CHIP_ART.h * k }} />
+                    <span>{fmtMise(v)}</span>
+                  </button>
+                ))}
+                <span className="ptable-rack-sep" aria-hidden="true" />
+                <span className="rl-total" {...tipProps(tr({ fr: 'La mise', en: 'The stake' }), tr({ fr: `De ${fmtMise(min)} à ${fmtMise(max)} Faveur, tous paris compris.`, en: `From ${fmtMise(min)} to ${fmtMise(max)} Favor, all bets included.` }))}>
+                  <FaveurIcon /> {fmtMise(total)}
+                </span>
+                <button type="button" className="ptable-rack-btn" disabled={!total || phase === 'spin'} onClick={() => setBets({})}>
+                  {tr({ fr: 'Effacer', en: 'Clear' })}
+                </button>
+                <button
+                  type="button"
+                  className="ptable-rack-btn"
+                  disabled={phase === 'spin' || !dernierJeu || betsTotal(dernierJeu) > cap}
+                  onClick={() => setBets(cleanBets(dernierJeu))}
+                >
+                  {tr({ fr: 'Même mise', en: 'Same bet' })}
+                </button>
+                <button type="button" className="scratch-buy rl-lancer" disabled={phase === 'spin' || total < min || total > cap} onClick={() => onSpin()}>
+                  {tr({ fr: 'Lancer la bille', en: 'Roll the ball' })}
+                </button>
+              </>
+            ) : (
+              <>
+                <span className={`rl-gain${result && result.faveurGain > 0 ? ' is-win' : ''}`}>
+                  {result && result.faveurGain > 0 ? <>+<Monte value={result.faveurGain} /> <FaveurIcon /></> : '—'}
+                </span>
+                <button type="button" className="ptable-rack-btn is-tapis" disabled={total > cap || total < min} onClick={() => onSpin(bets)}>
+                  {tr({ fr: 'Relancer', en: 'Roll again' })} ({fmtMise(total)})
+                </button>
+                <button type="button" className="ptable-rack-btn" onClick={() => { setPhase('bet'); setResult(null); }}>
+                  {tr({ fr: 'Changer de mise', en: 'Change stake' })}
+                </button>
+              </>
+            ));
+
   return (
     <div className="roulette-stage">
       <div className="regul-block-title stage-title">
@@ -175,25 +295,32 @@ export default function RouletteStage({ onClose }) {
             })}
           </p>
           <p>
-            {tr({
-              fr: `La mise totale va de ${fmtMise(min)} à ${fmtMise(max)} Faveur. Une roue à un seul zéro : chaque pari rend 97,3 % sur la durée.`,
-              en: `The total stake goes from ${fmtMise(min)} to ${fmtMise(max)} Favor. A single-zero wheel: every bet returns 97.3% over time.`
-            })}
+            {vip
+              ? tr({
+                fr: `Le salon privé n'a pas de plafond : la mise totale va de ${fmtMise(min)} à toute ta bourse. Une roue à un seul zéro : chaque pari rend 97,3 % sur la durée.`,
+                en: `The private salon has no ceiling: the total stake goes from ${fmtMise(min)} to your whole purse. A single-zero wheel: every bet returns 97.3% over time.`
+              })
+              : tr({
+                fr: `La mise totale va de ${fmtMise(min)} à ${fmtMise(max)} Faveur. Une roue à un seul zéro : chaque pari rend 97,3 % sur la durée.`,
+                en: `The total stake goes from ${fmtMise(min)} to ${fmtMise(max)} Favor. A single-zero wheel: every bet returns 97.3% over time.`
+              })}
           </p>
         </StageHelp>
         <button type="button" className="stage-close" onClick={onClose} aria-label={tr({ fr: 'Quitter la table', en: 'Leave the table' })}>✕</button>
       </div>
 
-      <PlaisirsTable game="roulette" className="ptable--roulette" tablePx={310}>
+      <PlaisirsTable game="roulette" className={`ptable--roulette${vip ? ' ptable--vip' : ''}${etroit ? ' is-etroit' : ''}`} tablePx={etroit ? 280 : 310} marks={false}>
         {(L) => {
           const surfH = Math.max(40, L.bottom - L.top);
           const s = Math.max(1, Math.floor((surfH * 0.92) / WHEEL_H));
           const wheelW = WHEEL_D * s, wheelH = WHEEL_H * s;
-          const left = Math.round(L.W * L.k * 0.03);
+          // Debout, le tapis n'est plus sur la table : la roue s'y centre.
+          const left = etroit ? Math.round((L.W * L.k - wheelW) / 2) : Math.round(L.W * L.k * 0.03);
           const tapisLeft = left + wheelW + Math.round(L.k * 4);
           return (
             <>
               <div className="ptable-hud">
+                {vip && <span className="rl-vip-plaque">{tr({ fr: 'Salon privé', en: 'Private salon' })}</span>}
                 {histChips.length > 0 && (
                   <div className="rl-history" aria-label={tr({ fr: 'Dernières cases', en: 'Last numbers' })}>
                     {histChips.map((n, i) => <span key={`${n}-${i}`} className={`rl-hist is-${couleurOf(n)}`}>{n}</span>)}
@@ -206,73 +333,35 @@ export default function RouletteStage({ onClose }) {
                   <span className={`rl-numero is-${result.couleur}`}>{result.n}</span>
                 )}
               </div>
-              <div
-                className="rl-tapis"
-                style={{ left: tapisLeft, top: L.top + 2, width: `calc(100% - ${tapisLeft + Math.round(L.W * L.k * 0.03)}px)`, height: surfH - 4 }}
-              >
-                {cell('n0', '0', 'is-vert rl-zero')}
-                {NOMBRES.map((col, ci) => col.map((n, ri) => cell(`n${n}`, String(n), `is-${couleurOf(n)}`, { gridColumn: ci + 2, gridRow: ri + 1 })))}
-                {cell('c3', '2:1', 'rl-col rl-col-3')}
-                {cell('c2', '2:1', 'rl-col rl-col-2')}
-                {cell('c1', '2:1', 'rl-col rl-col-1')}
-                {DOUZAINES.map((d, i) => cell(d.key, tr({ fr: d.fr, en: d.en }), `rl-douz rl-douz-${i + 1}`))}
-                {DEHORS.map((d, i) => cell(d.key, tr({ fr: d.fr, en: d.en }), `rl-dehors rl-dehors-${i + 1} ${d.cls || ''}`))}
-              </div>
+              {!etroit && (
+                <div
+                  className="rl-tapis"
+                  style={{ left: tapisLeft, top: L.top + 2, width: `calc(100% - ${tapisLeft + Math.round(L.W * L.k * 0.03)}px)`, height: surfH - 4 }}
+                >
+                  {cases(false)}
+                </div>
+              )}
 
-              <div className="ptable-rack rl-rack" style={{ left: '50%', top: L.floor + 6 }} role="group" aria-label={tr({ fr: 'Jetons', en: 'Chips' })}>
-                {phase !== 'result' ? (
-                  <>
-                    {rack.map((v) => (
-                      <button
-                        key={v}
-                        type="button"
-                        className={`ptable-chip${chip === v ? ' is-chosen' : ''}`}
-                        disabled={phase === 'spin'}
-                        aria-pressed={chip === v}
-                        onClick={() => setChip(v)}
-                        aria-label={tr({ fr: `Jeton de ${fmtMise(v)}`, en: `${fmtMise(v)} chip` })}
-                      >
-                        <img src={chipUrl(band, chipIndexOf(v))} alt="" aria-hidden="true" draggable="false" style={{ width: CHIP_ART.w * L.k, height: CHIP_ART.h * L.k }} />
-                        <span>{fmtMise(v)}</span>
-                      </button>
-                    ))}
-                    <span className="ptable-rack-sep" aria-hidden="true" />
-                    <span className="rl-total" {...tipProps(tr({ fr: 'La mise', en: 'The stake' }), tr({ fr: `De ${fmtMise(min)} à ${fmtMise(max)} Faveur, tous paris compris.`, en: `From ${fmtMise(min)} to ${fmtMise(max)} Favor, all bets included.` }))}>
-                      <FaveurIcon /> {fmtMise(total)}
-                    </span>
-                    <button type="button" className="ptable-rack-btn" disabled={!total || phase === 'spin'} onClick={() => setBets({})}>
-                      {tr({ fr: 'Effacer', en: 'Clear' })}
-                    </button>
-                    <button
-                      type="button"
-                      className="ptable-rack-btn"
-                      disabled={phase === 'spin' || !dernierJeu || betsTotal(dernierJeu) > cap}
-                      onClick={() => setBets(cleanBets(dernierJeu))}
-                    >
-                      {tr({ fr: 'Même mise', en: 'Same bet' })}
-                    </button>
-                    <button type="button" className="scratch-buy rl-lancer" disabled={phase === 'spin' || total < min || total > cap} onClick={() => onSpin()}>
-                      {tr({ fr: 'Lancer la bille', en: 'Roll the ball' })}
-                    </button>
-                  </>
-                ) : (
-                  <>
-                    <span className={`rl-gain${result && result.faveurGain > 0 ? ' is-win' : ''}`}>
-                      {result && result.faveurGain > 0 ? <>+{fmt(result.faveurGain)} <FaveurIcon /></> : '—'}
-                    </span>
-                    <button type="button" className="ptable-rack-btn is-tapis" disabled={total > cap || total < min} onClick={() => onSpin(bets)}>
-                      {tr({ fr: 'Relancer', en: 'Roll again' })} ({fmtMise(total)})
-                    </button>
-                    <button type="button" className="ptable-rack-btn" onClick={() => { setPhase('bet'); setResult(null); }}>
-                      {tr({ fr: 'Changer de mise', en: 'Change stake' })}
-                    </button>
-                  </>
-                )}
-              </div>
+              {!etroit && (
+                <div className="ptable-rack rl-rack" style={{ left: '50%', top: L.floor + 6 }} role="group" aria-label={tr({ fr: 'Jetons', en: 'Chips' })}>
+                  {ratelier(L.k)}
+                </div>
+              )}
             </>
           );
         }}
       </PlaisirsTable>
+      {etroit && (
+        // La classe `ptable` : les cases et les jetons y gardent leur habit de table.
+        <div className="ptable rl-dessous">
+          <div className={`rl-tapis is-debout${vip ? ' is-vip' : ''}`}>
+            {cases(true)}
+          </div>
+          <div className="ptable-rack rl-rack is-pied" role="group" aria-label={tr({ fr: 'Jetons', en: 'Chips' })}>
+            {ratelier(3)}
+          </div>
+        </div>
+      )}
     </div>
   );
 }

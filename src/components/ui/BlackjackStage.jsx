@@ -22,6 +22,7 @@ import StageHelp from './StageHelp.jsx';
 import PlaisirsTable from '../views/plaisirs/PlaisirsTable.jsx';
 import TableMise from '../views/plaisirs/TableMise.jsx';
 import { initialStake, rememberStake, fmtMise } from '../views/plaisirs/miseMemory.js';
+import Monte from './Monte.jsx';
 
 /**
  * Le Vingt-et-un — SCÈNE INTÉGRÉE (bas de la page Régulation, comme osselets/
@@ -161,8 +162,10 @@ export default function BlackjackStage({ table, onClose }) {
 
   const resultText = () => {
     if (!outcome) return null;
-    if (outcome.result === 'blackjack') return tr({ fr: `Vingt-et-un ! +${fmtMise(outcome.faveurGain)} faveur`, en: `Twenty-one! +${fmtMise(outcome.faveurGain)} favor` });
-    if (outcome.result === 'win') return tr({ fr: `Gagné : +${fmtMise(outcome.faveurGain)} faveur`, en: `Win: +${fmtMise(outcome.faveurGain)} favor` });
+    // Le gain d'une main gagnée MONTE (2026-10-04, « la sensation de gagner »).
+    const gain = <>+<Monte value={outcome.faveurGain} format={fmtMise} /> {tr({ fr: 'faveur', en: 'favor' })}</>;
+    if (outcome.result === 'blackjack') return <>{tr({ fr: 'Vingt-et-un ! ', en: 'Twenty-one! ' })}{gain}</>;
+    if (outcome.result === 'win') return <>{tr({ fr: 'Gagné : ', en: 'Win: ' })}{gain}</>;
     if (outcome.result === 'push') return tr({ fr: `Égalité : +${fmtMise(outcome.faveurGain)} faveur`, en: `Push: +${fmtMise(outcome.faveurGain)} favor` });
     return tr({ fr: `Perdu : −${fmt(outcome.stakeFaveur || stake)} faveur`, en: `Lost: −${fmt(outcome.stakeFaveur || stake)} favor` });
   };

@@ -1,6 +1,6 @@
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { useGameState } from '../../hooks/useGameState.js';
-import { state } from '../../game/core/state.js';
+import { state, save } from '../../game/core/state.js';
 import { icarusPotFaveur } from '../../game/core/actions.js';
 import { spinSlots, slotsFreeSpins, slotsJackpots, slotsRtpRef, SLOTS_CELLS } from '../../game/core/actions/slots.js';
 import { SLOTS_REELS, SLOTS_WHEEL, SLOTS_PAY, SLOTS_LINES, SLOTS_FREE_SPINS, SLOTS_FREE_MULT, SLOTS_CHESTS, SLOTS_HW, SLOTS_GRAND_FLOOR } from '../../game/core/balance.js';
@@ -148,6 +148,26 @@ export default function SlotsStage({ table, onClose }) {
     if (pending.current.hold) pending.current.hold.apply();
     if (pending.current.wheel) pending.current.wheel.apply(0);
   }, [table.openedAt]);
+  // … et un F5 / une fermeture d'onglet aussi : aucun cleanup React ne court au
+  // rechargement, la mise (ou le tour gratuit) déjà consommée resterait sans issue
+  // (revue du 2026-10-04 ; même garde que les osselets et les tickets). La roue qui
+  // attend un clic s'ouvre sur son premier coffre.
+  useEffect(() => {
+    const flushOnExit = () => {
+      const p = pending.current;
+      if (!p.spin && !p.hold && !p.wheel) return;
+      if (p.spin) { p.spin.apply(); p.spin = null; }
+      if (p.hold) { p.hold.apply(); p.hold = null; }
+      if (p.wheel) { p.wheel.apply(0); p.wheel = null; }
+      save();
+    };
+    window.addEventListener('pagehide', flushOnExit);
+    window.addEventListener('beforeunload', flushOnExit);
+    return () => {
+      window.removeEventListener('pagehide', flushOnExit);
+      window.removeEventListener('beforeunload', flushOnExit);
+    };
+  }, []);
   useEffect(() => () => {
     const a = anim.current;
     a.timers.forEach(clearTimeout);

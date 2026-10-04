@@ -157,6 +157,9 @@ export function defaultChronicleStats() {
     faveurEarned: 0,
     faveurSpentShop: 0,
     offeringsCollected: 0,
+    // La roue de la Maison (2026-10-04) : tours pris, plus beau gain.
+    roueSpins: 0,
+    roueBest: 0,
     biggestPotRaked: 0,
     biggestRuinGain: "0",   // string Decimal
     longestCycleSec: 0,
@@ -172,12 +175,14 @@ export function defaultChronicleStats() {
 function normalizeSlotsFreeSpins(raw) {
   if (!isPlainObject(raw)) return null;
   const left = finiteInteger(raw.left, 0, 0, 999);
-  const stakeFaveur = finiteNumber(raw.stakeFaveur, 0, 0);
+  // 1e300 : la Faveur est à l'échelle ×1 000 (2026-10-04) ; le plafond par défaut de
+  // finiteNumber (MAX_SAFE_INTEGER, ~9e15) tronquait une fin de partie au rechargement.
+  const stakeFaveur = finiteNumber(raw.stakeFaveur, 0, 0, 1e300);
   if (stakeFaveur <= 0 || left <= 0) return null;
   return {
     left,
     stakeFaveur,
-    won: finiteNumber(raw.won, 0, 0),
+    won: finiteNumber(raw.won, 0, 0, 1e300),
     total: finiteInteger(raw.total, left, left, 9999)
   };
 }
@@ -188,13 +193,14 @@ function normalizeChronicleStats(raw) {
   const games = {};
   for (const [game, extras] of Object.entries(CHRONICLE_GAME_EXTRAS)) {
     const g = isPlainObject(s.games?.[game]) ? s.games[game] : {};
+    // Montants de Faveur : bornés à 1e300, pas à MAX_SAFE_INTEGER (l'échelle ×1 000).
     const out = {
       plays: finiteInteger(g.plays, 0, 0),
-      wagered: finiteNumber(g.wagered, 0, 0),
-      won: finiteNumber(g.won, 0, 0),
-      biggest: finiteNumber(g.biggest, 0, 0)
+      wagered: finiteNumber(g.wagered, 0, 0, 1e300),
+      won: finiteNumber(g.won, 0, 0, 1e300),
+      biggest: finiteNumber(g.biggest, 0, 0, 1e300)
     };
-    for (const key of Object.keys(extras)) out[key] = finiteNumber(g[key], 0, 0);
+    for (const key of Object.keys(extras)) out[key] = finiteNumber(g[key], 0, 0, 1e300);
     games[game] = out;
   }
   // Horodatages GR : { [gr]: { discovered, performed } } — gr borné 1..11.
@@ -225,10 +231,12 @@ function normalizeChronicleStats(raw) {
   return {
     lifetimePlaySec: finiteNumber(s.lifetimePlaySec, 0, 0),
     games,
-    faveurEarned: finiteNumber(s.faveurEarned, 0, 0),
-    faveurSpentShop: finiteNumber(s.faveurSpentShop, 0, 0),
-    offeringsCollected: finiteNumber(s.offeringsCollected, 0, 0),
-    biggestPotRaked: finiteNumber(s.biggestPotRaked, 0, 0),
+    faveurEarned: finiteNumber(s.faveurEarned, 0, 0, 1e300),
+    faveurSpentShop: finiteNumber(s.faveurSpentShop, 0, 0, 1e300),
+    offeringsCollected: finiteNumber(s.offeringsCollected, 0, 0, 1e300),
+    roueSpins: finiteInteger(s.roueSpins, 0, 0),
+    roueBest: finiteNumber(s.roueBest, 0, 0, 1e300),
+    biggestPotRaked: finiteNumber(s.biggestPotRaked, 0, 0, 1e300),
     // Conservé en STRING Decimal ; decimalField().toString() re-normalise toute
     // forme (number/string/Decimal déshydraté) sans coercition native.
     biggestRuinGain: decimalField(s.biggestRuinGain, def.biggestRuinGain).toString(),
@@ -593,6 +601,9 @@ export const defaultState = () => ({
   // null) : elle survit à la fermeture de la machine, pas à l'effondrement.
   slotsHistory: [],
   slotsFreeSpins: null,
+  // La roue de la Maison (2026-10-04) : l'heure (ms) du dernier tour, 0 = jamais. Un
+  // tour par heure ; survit à l'effondrement, repart à zéro au Grand Reset.
+  roueAt: 0,
   // La roulette du salon (lot 3) : les dernières cases tombées (0-36).
   rouletteHistory: [],
   // Boutique de Faveur — augment ÉTERNEL : survit aux effondrements ET au Grand
@@ -884,6 +895,57 @@ const MIGRATIONS = {
       const faveur = Number(s.faveur);
       s.faveur = (Number.isFinite(faveur) && faveur > 0 ? faveur : 0) + refund;
       s.maisonGiftRefund = refund;
+    }
+  },
+  // 6 -> 7 : L'ÉCHELLE DE LA FAVEUR (Raph, 2026-10-04 : « on gonfle tous les nombres »).
+  // Tout ce qui se compte en Faveur passe ×1 000 (FAVEUR_ECHELLE de balance.js à cette
+  // date — écrit ICI en dur : si l'échelle change un jour, ce sera une autre migration).
+  // La bourse, la cagnotte, la caisse, les vols offerts, la série de tours gratuits,
+  // les réserves des automatisations, les remboursements en attente et les compteurs
+  // de Faveur de la Chronique ; la réputation (en heures) ne bouge pas.
+  6: (s) => {
+    const K = 1000;
+    const scale = (v) => {
+      const n = Number(v);
+      return Number.isFinite(n) && n > 0 ? n * K : v;
+    };
+    for (const f of ["faveur", "icarusPotFaveur", "trunkFaveur", "maisonRefund", "maisonGiftRefund"]) {
+      if (s[f] != null) s[f] = scale(s[f]);
+    }
+    // Vols offerts : un tableau de montants (ou d'anciens ids de mise), ou un entier
+    // de plumes (format d'avant le lot 1 : 4 Faveur la plume).
+    const legacy = { plume: 4, aile: 10, hecatombe: 25 };
+    if (Array.isArray(s.icarusFreeFlights)) {
+      s.icarusFreeFlights = s.icarusFreeFlights.map((v) => (typeof v === "string" ? (legacy[v] || 0) * K : scale(v)));
+    } else if (Number.isFinite(Number(s.icarusFreeFlights)) && Number(s.icarusFreeFlights) > 0) {
+      s.icarusFreeFlights = new Array(Math.min(8, Math.floor(Number(s.icarusFreeFlights)))).fill(legacy.plume * K);
+    }
+    if (isPlainObject(s.slotsFreeSpins)) {
+      s.slotsFreeSpins = { ...s.slotsFreeSpins, stakeFaveur: scale(s.slotsFreeSpins.stakeFaveur), won: scale(s.slotsFreeSpins.won) };
+    }
+    if (isPlainObject(s.templeAuto)) {
+      const auto = { ...s.templeAuto };
+      for (const g of Object.keys(auto)) {
+        if (isPlainObject(auto[g]) && auto[g].faveurFloor != null) auto[g] = { ...auto[g], faveurFloor: scale(auto[g].faveurFloor) };
+      }
+      s.templeAuto = auto;
+    }
+    if (isPlainObject(s.chronicleStats)) {
+      const cs = { ...s.chronicleStats };
+      for (const f of ["faveurEarned", "faveurSpentShop", "offeringsCollected", "biggestPotRaked"]) {
+        if (cs[f] != null) cs[f] = scale(cs[f]);
+      }
+      if (isPlainObject(cs.games)) {
+        const games = {};
+        for (const [id, g] of Object.entries(cs.games)) {
+          if (!isPlainObject(g)) { games[id] = g; continue; }
+          const out = { ...g };
+          for (const f of ["wagered", "won", "biggest", "biggestJackpot"]) if (out[f] != null) out[f] = scale(out[f]);
+          games[id] = out;
+        }
+        cs.games = games;
+      }
+      s.chronicleStats = cs;
     }
   },
 };
@@ -1808,7 +1870,8 @@ export function hydrateState(parsed = {}) {
     regulLedger: normalizeRegulLedger(source.regulLedger),
     gambleHistory: normalizeGambleHistory(source.gambleHistory),
     stewardClauses: normalizeStewardClauses(source.stewardClauses),
-    faveur: finiteNumber(source.faveur, base.faveur, 0),
+    // 1e300 et non MAX_SAFE_INTEGER : la Faveur est à l'échelle ×1 000 (2026-10-04).
+    faveur: finiteNumber(source.faveur, base.faveur, 0, 1e300),
     // Tronc des offrandes : une save d'avant le tronc le découvre PLEIN (base),
     // l'amorce vaut aussi pour les migrations.
     trunkFaveur: finiteNumber(source.trunkFaveur, base.trunkFaveur, 0, 1e300),
@@ -1833,6 +1896,7 @@ export function hydrateState(parsed = {}) {
       ? source.rouletteHistory.filter((v) => Number.isInteger(v) && v >= 0 && v <= 36).slice(-ROULETTE_HISTORY_LEN)
       : [],
     slotsFreeSpins: normalizeSlotsFreeSpins(source.slotsFreeSpins),
+    roueAt: finiteNumber(source.roueAt, 0, 0, 1e15),
     // MIGRATIONS : entier (N plumes) → file d'ids → file de MONTANTS (lot 1). Les
     // ids inconnus et les montants invalides tombent, puis la file est tronquée.
     icarusFreeFlights: migrateFreeFlights(source.icarusFreeFlights),

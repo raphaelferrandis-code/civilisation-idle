@@ -21,7 +21,7 @@ import { resolveIcarusHeadless } from "../actions/icarus.js";
 import { playScratch, scratchRtpRef } from "../actions/scratch.js";
 import { grantFreeFlight, freeFlightQueue } from "../actions/templeFlights.js";
 import { tickTempleAutomation, setTempleAuto } from "../actions/templeAutomation.js";
-import { MAISON_RANKS, AUGURY_RTP, ICARUS_EDGE, FLIGHTS_MAX_COLOMBIER } from "../balance.js";
+import { MAISON_RANKS, AUGURY_RTP, ICARUS_EDGE, FLIGHTS_MAX_COLOMBIER, FAVEUR_ECHELLE } from "../balance.js";
 import { MID_GAME_FIXTURE, FIXED_NOW } from "./fixtures.js";
 
 beforeEach(() => {
@@ -114,7 +114,8 @@ describe("Les titres", () => {
       expect(MAISON_RANKS[i].threshold).toBeGreaterThan(MAISON_RANKS[i - 1].threshold);
     }
     expect(RANK_LABELS.prince.fr).toBe("Prince de la Maison");
-    expect([0, 0.49, 0.5, 2.99, 3, 15, 74, 75, 1e9].map(rankForReputation)).toEqual([0, 0, 1, 1, 2, 3, 3, 4, 4]);
+    // Prince à 40 h de réputation (75 avant la mesure des 20 h, 2026-10-04).
+    expect([0, 0.49, 0.5, 2.99, 3, 15, 39.9, 40, 1e9].map(rankForReputation)).toEqual([0, 0, 1, 1, 2, 3, 3, 4, 4]);
   });
 
   it("monte titre par titre, chacun donne ses cadeaux UNE fois", () => {
@@ -209,8 +210,9 @@ describe("Migration 5 → 6 : les cadeaux de rang déjà achetés", () => {
       templeAuto: { osselets: { unlocked: true, on: true }, icarus: { unlocked: true }, tronc: { unlocked: true } }
     });
     // colombier 200 + serres 550 + osselets 700 + Icare 350 ; le noyé et la sébile se vendent encore.
-    expect(out.maisonGiftRefund).toBe(1800);
-    expect(out.faveur).toBe(1810);
+    // Puis la migration 6 → 7 passe la Faveur à l'échelle (×1 000).
+    expect(out.maisonGiftRefund).toBe(1800 * FAVEUR_ECHELLE);
+    expect(out.faveur).toBe(1810 * FAVEUR_ECHELLE);
     expect(out.templeArtifacts).toEqual({ colombier: true, serres: true, noye: true });
     expect(out.templeAuto.osselets).toMatchObject({ unlocked: true, on: true });
     expect(out.saveVersion).toBe(CURRENT_SAVE_VERSION);
@@ -218,14 +220,14 @@ describe("Migration 5 → 6 : les cadeaux de rang déjà achetés", () => {
 
   it("sans cadeau acheté : rien à rendre, rien à annoncer", () => {
     const out = migrate({ saveVersion: 5, faveur: 42, templeArtifacts: { noye: true } });
-    expect(out.faveur).toBe(42);
+    expect(out.faveur).toBe(42 * FAVEUR_ECHELLE);
     expect(out.maisonGiftRefund).toBeUndefined();
   });
 
   it("le remboursement est annoncé une fois, au premier tick", () => {
     setState(hydrateState({ ...MID_GAME_FIXTURE, saveVersion: 5, faveur: 0, templeArtifacts: { mesure: true } }));
-    expect(state.faveur).toBe(250);
-    expect(state.maisonGiftRefund).toBe(250);
+    expect(state.faveur).toBe(250 * FAVEUR_ECHELLE);
+    expect(state.maisonGiftRefund).toBe(250 * FAVEUR_ECHELLE);
     tickTempleAutomation();
     expect(state.maisonGiftRefund).toBe(0);
     expect(state.history.some((l) => l.includes("récompense désormais ses habitués"))).toBe(true);

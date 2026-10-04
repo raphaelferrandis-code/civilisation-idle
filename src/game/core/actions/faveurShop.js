@@ -15,18 +15,16 @@ import {
   STYLET_MAX_LEVEL,
   STYLET_COST_BASE,
   STYLET_COST_GROWTH,
-  RELIC_CORNE_PROD_MULT,
-  RELIC_OEIL_PROD_MULT,
   BLESSING_MULT,
-  BLESSING_DURATION_S,
-  RELIC_STEP_PROD_MULT
+  BLESSING_DURATION_S
 } from '../balance.js';
 import { chronicle } from './utils.js';
 import { pushOutcomeFloat } from '../outcomeFloat.js';
 import { ARTIFACT_NODES } from '../../data/artifacts.js';
 import { hasTempleArtifact } from './templeArtifacts.js';
-import { blessingCost } from './maisonTable.js';
+import { blessingCost, recettesPerHour } from './maisonTable.js';
 import { recordShopSpend } from '../chronicleStats.js';
+import { templeRelicMultiplier } from '../mechanics/production/crisisLevers.js';
 
 // Coût du PROCHAIN niveau d'un augment à niveaux (croissant). Arrondi.
 function tierCost(base, growth, level) {
@@ -39,14 +37,10 @@ function tierCost(base, growth, level) {
 // rend la Bénédiction PERMANENTE (cf. blessingMultiplier). Lu par la production
 // aux côtés de blessingMultiplier.
 // Lot 3 : la Lyre, le Miroir, la Toison et la Pomme ajoutent chacune ×1,25.
+// Le multiplicateur de production des reliques : celui que lit la PRODUCTION
+// (crisisLevers.js), ré-exporté — une seule source.
 export function templeRelicProdMult() {
-  let mult = 1;
-  if (hasTempleArtifact("corne")) mult *= RELIC_CORNE_PROD_MULT;
-  if (hasTempleArtifact("oeil")) mult *= RELIC_OEIL_PROD_MULT;
-  for (const id of ["lyre", "miroir", "toison", "pomme"]) {
-    if (hasTempleArtifact(id)) mult *= RELIC_STEP_PROD_MULT;
-  }
-  return mult;
+  return templeRelicMultiplier();
 }
 
 // Multiplicateur de Bénédiction actif (1 hors bénédiction) — lu par la
@@ -104,6 +98,14 @@ export function buyFaveurItem(id) {
   return true;
 }
 
+// Le prix d'un nœud de l'arbre : fixe (`cost`), ou en HEURES de recettes (`costH`,
+// les reliques depuis 2026-10-04), lu au moment de l'achat comme la Bénédiction.
+export function artifactCost(node) {
+  if (!node) return 0;
+  if (node.costH != null) return Math.max(1, Math.round(node.costH * recettesPerHour()));
+  return node.cost || 0;
+}
+
 // Achat d'un ARTEFACT booléen du Temple (osselet du noyé, plumes, ailes solaires,
 // reliques…). La garde d'échelle (rang précédent acquis) est faite par
 // buyArtifactNode (templeAutomation.js) ; ici on ne gère que le débit + le flag.
@@ -113,7 +115,7 @@ export function buyTempleArtifact(id) {
   if (!node || node.kind !== "artifact") return false;
   if (node.gift != null) return false; // cadeau de rang (lot 2) : la Maison l'offre, il ne se vend pas
   if (hasTempleArtifact(id)) return false; // déjà acquis
-  const cost = node.cost || 0;
+  const cost = artifactCost(node);
   const faveur = state.faveur || 0;
   if (faveur < cost) return false;
   state.faveur = faveur - cost;

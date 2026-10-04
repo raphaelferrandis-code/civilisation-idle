@@ -25,8 +25,8 @@ import {
   AUTO_OSSELETS_UNLOCK_COST, AUTO_ICARUS_UNLOCK_COST,
   AUTO_SCRATCH_UNLOCK_COST, AUTO_BLACKJACK_UNLOCK_COST,
   AUGURY_DOUBLE_MAX_CRANS,
-  RELIC_CHAR_COST, RELIC_CORNE_COST, RELIC_OEIL_COST,
-  RELIC_LYRE_COST, RELIC_MIROIR_COST, RELIC_TOISON_COST, RELIC_POMME_COST,
+  RELIC_CHAR_COST_H, RELIC_CORNE_COST_H, RELIC_OEIL_COST_H,
+  RELIC_LYRE_COST_H, RELIC_MIROIR_COST_H, RELIC_TOISON_COST_H, RELIC_POMME_COST_H,
   ICARUS_CAP_SOLAR,
   MAISON_RANKS
 } from '../core/balance.js';
@@ -237,38 +237,39 @@ export const ARTIFACT_LINEAGES = [
     subtitle: { fr: "les reliques · Ère III", en: "the relics · Era III" },
     nodes: [
       {
-        id: "char", kind: "artifact", cost: RELIC_CHAR_COST,
+        // `costH` : prix en HEURES de recettes, lu à l'achat (artifactCost, faveurShop.js).
+        id: "char", kind: "artifact", costH: RELIC_CHAR_COST_H,
         label: { fr: "Le Char du Soleil", en: "The Chariot of the Sun" },
         desc: { fr: "La Bénédiction ne s'éteint plus jamais : la production de la cité reste élevée à demeure.", en: "The Blessing never fades again: the city's production stays raised for good." }
       },
       {
-        // Lot 3 : une relique à chaque ×10 du prix (balance.js, RELIC_STEP_PROD_MULT).
-        id: "lyre", kind: "artifact", cost: RELIC_LYRE_COST,
+        // Lot 3 : sept reliques rapprochées (balance.js, RELIC_STEP_PROD_MULT).
+        id: "lyre", kind: "artifact", costH: RELIC_LYRE_COST_H,
         label: { fr: "La Lyre d'Orphée", en: "Orpheus's Lyre" },
         desc: { fr: "La cité travaille au chant de la lyre : sa production gagne un quart, pour toujours.", en: "The city works to the lyre's song: its production rises by a quarter, forever." }
       },
       {
-        id: "miroir", kind: "artifact", cost: RELIC_MIROIR_COST,
+        id: "miroir", kind: "artifact", costH: RELIC_MIROIR_COST_H,
         label: { fr: "Le Miroir d'Aphrodite", en: "Aphrodite's Mirror" },
         desc: { fr: "La cité se plaît à elle-même : sa production gagne encore un quart, pour toujours.", en: "The city delights in itself: its production rises by another quarter, forever." }
       },
       {
-        id: "corne", kind: "artifact", cost: RELIC_CORNE_COST,
+        id: "corne", kind: "artifact", costH: RELIC_CORNE_COST_H,
         label: { fr: "La Corne du temple", en: "The temple Horn" },
         desc: { fr: "La production entière de la cité est doublée, pour toujours.", en: "The city's entire production is doubled, forever." }
       },
       {
-        id: "toison", kind: "artifact", cost: RELIC_TOISON_COST,
+        id: "toison", kind: "artifact", costH: RELIC_TOISON_COST_H,
         label: { fr: "La Toison d'or", en: "The Golden Fleece" },
         desc: { fr: "La toison de Colchide pend au temple : la production gagne un quart, pour toujours.", en: "The Colchian fleece hangs in the temple: production rises by a quarter, forever." }
       },
       {
-        id: "pomme", kind: "artifact", cost: RELIC_POMME_COST,
+        id: "pomme", kind: "artifact", costH: RELIC_POMME_COST_H,
         label: { fr: "La Pomme d'or des Hespérides", en: "The Golden Apple of the Hesperides" },
         desc: { fr: "Le fruit du jardin des dieux : la production gagne encore un quart, pour toujours.", en: "The fruit of the gods' garden: production rises by another quarter, forever." }
       },
       {
-        id: "oeil", kind: "artifact", cost: RELIC_OEIL_COST,
+        id: "oeil", kind: "artifact", costH: RELIC_OEIL_COST_H,
         label: { fr: "L'Œil d'or", en: "The Golden Eye" },
         desc: { fr: "La production entière de la cité est quadruplée, pour toujours.", en: "The city's entire production is quadrupled, forever." }
       }

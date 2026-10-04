@@ -1,9 +1,10 @@
 "use strict";
 
 // LES GRANDS GAINS — lot 3 des gains « vrai casino » (2026-10-04,
-// docs/PLAN-GAINS-CASINO.md). Trois paliers, sur TOUTES les tables, au multiple de la
-// mise que paie le coup : ×10 un gros gain, ×50 un énorme, ×250 un COUP DE LÉGENDE —
-// celui-là s'écrit dans la Chronique. La table qui RÉVÈLE un gain appelle
+// docs/PLAN-GAINS-CASINO.md). Quatre paliers, sur TOUTES les tables, au multiple de la
+// mise que paie le coup : ×5 un beau coup (ajouté le 2026-10-04, « la sensation de
+// gagner »), ×10 un gros gain, ×50 un énorme, ×250 un COUP DE LÉGENDE — celui-là
+// s'écrit dans la Chronique. La table qui RÉVÈLE un gain appelle
 // celebrerGain ; l'effet à l'écran (components/ui/GrandGain.jsx) s'y abonne. Les
 // automatisations ne fêtent rien : le spectacle est pour la main.
 
@@ -13,7 +14,8 @@ import { fmt } from './utils.js';
 export const PALIERS = [
   { x: 250, id: "legende", label: { fr: "COUP DE LÉGENDE", en: "LEGENDARY WIN" } },
   { x: 50, id: "enorme", label: { fr: "ÉNORME GAIN", en: "HUGE WIN" } },
-  { x: 10, id: "gros", label: { fr: "GROS GAIN", en: "BIG WIN" } }
+  { x: 10, id: "gros", label: { fr: "GROS GAIN", en: "BIG WIN" } },
+  { x: 5, id: "beau", label: { fr: "BEAU COUP", en: "NICE WIN" } }
 ];
 
 // Le palier d'un multiple de la mise (le plus haut atteint), ou null.

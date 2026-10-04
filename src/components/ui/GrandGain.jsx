@@ -1,37 +1,20 @@
 import { useEffect, useRef, useState } from 'react';
+import Monte from './Monte.jsx';
 import { onGrandGain } from '../../game/core/grandsGains.js';
 import { sonSlots } from '../../game/audio/slotsSound.js';
-import { fmt } from '../../game/core/utils.js';
 import { tr } from '../../game/core/i18n.js';
 import { FaveurIcon } from './FaveurIcon.jsx';
 import '../../styles/grands-gains.css';
 
 /**
  * LE BANDEAU DES GRANDS GAINS (lot 3 des gains « vrai casino ») : au-dessus de la table
- * qui vient de payer ×10, ×50 ou ×250 la mise, le palier et le gain qui monte. Un son
+ * qui vient de payer ×5 (2026-10-04), ×10, ×50 ou ×250 la mise, le palier et le gain qui
+ * monte. Un son
  * de la machine à sous l'accompagne (réglage des bruitages respecté). Pas de phrase :
  * le palier, le chiffre.
  */
-const DUREE = { gros: 2600, enorme: 3200, legende: 4400 };
-const SON = { gros: 'gain2', enorme: 'gain3', legende: 'jackpot' };
-
-function Monte({ value, dur }) {
-  const ref = useRef(null);
-  useEffect(() => {
-    const el = ref.current;
-    if (!el) return undefined;
-    let raf = 0, t0 = null;
-    const step = (now) => {
-      if (t0 === null) t0 = now;
-      const u = Math.min(1, (now - t0) / dur);
-      el.textContent = fmt(Math.round(value * (1 - Math.pow(1 - u, 3))));
-      if (u < 1) raf = requestAnimationFrame(step);
-    };
-    raf = requestAnimationFrame(step);
-    return () => cancelAnimationFrame(raf);
-  }, [value, dur]);
-  return <span ref={ref}>{fmt(0)}</span>;
-}
+const DUREE = { beau: 1700, gros: 2600, enorme: 3200, legende: 4400 };
+const SON = { beau: 'gain1', gros: 'gain2', enorme: 'gain3', legende: 'jackpot' };
 
 export default function GrandGain() {
   const [fete, setFete] = useState(null);

@@ -19,6 +19,7 @@ import StageHelp from './StageHelp.jsx';
 import PlaisirsTable, { TableStake } from '../views/plaisirs/PlaisirsTable.jsx';
 import TableMise from '../views/plaisirs/TableMise.jsx';
 import { initialStake, rememberStake, fmtMise } from '../views/plaisirs/miseMemory.js';
+import Monte from './Monte.jsx';
 import { usePlaisirsBand, diceSheetFor } from './plaisirsMaterial.js';
 import { wonderKitForBand } from '../../game/map/iso/wonderKits.js';
 
@@ -332,7 +333,7 @@ export default function AuguryStage({ table, onClose }) {
                     <div className="augury-odds">
                       <span className={`augury-chip ${tierChipCls(outcome.tier)}`}>{tr(AUGURY_TIER_LABELS[outcome.tier])}</span>
                       {outcome.win
-                        ? <span className="augury-chip augury-chip--win">+{fmtMise(outcome.faveurGain)} {tr({ fr: 'faveur', en: 'favor' })}</span>
+                        ? <span className="augury-chip augury-chip--win">+<Monte value={outcome.faveurGain} format={fmtMise} /> {tr({ fr: 'faveur', en: 'favor' })}</span>
                         : (
                           <span className="augury-chip augury-chip--lose">−{fmtMise(outcome.stake)} {tr({ fr: 'faveur', en: 'favor' })}</span>
                         )}

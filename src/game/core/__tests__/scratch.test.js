@@ -14,10 +14,12 @@ import { state, setState, hydrateState, invalidateRenderCache, resetTemporaryRun
 import { playScratch, scratchGrid } from "../actions.js";
 import { scratchRtpRef, scratchPrizes, scratchOdds } from "../actions/scratch.js";
 import { tableLimits, potCap } from "../actions/maisonTable.js";
-import { ICARUS_RTP, ICARUS_FREE_FLIGHTS_MAX, TEMPLE_POT_RECYCLE, SCRATCH_HISTORY_LEN, SCRATCH_PRIZES } from "../balance.js";
+import { ICARUS_RTP, ICARUS_FREE_FLIGHTS_MAX, TEMPLE_POT_RECYCLE, SCRATCH_HISTORY_LEN, SCRATCH_PRIZES, FAVEUR_ECHELLE } from "../balance.js";
 import { MID_GAME_FIXTURE, FIXED_NOW } from "./fixtures.js";
 
-const FAVEUR_START = 500;
+// ×FAVEUR_ECHELLE : l'échelle de la Faveur (2026-10-04) — une bourse de test qui couvre
+// encore la limite des tables.
+const FAVEUR_START = 500 * FAVEUR_ECHELLE;
 const TOTAL = SCRATCH_PRIZES.reduce((s, p) => s + p.weight, 0);
 const PRIZE = Object.fromEntries(SCRATCH_PRIZES.map((p) => [p.symbol, p]));
 

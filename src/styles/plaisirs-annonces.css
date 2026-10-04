@@ -1,0 +1,37 @@
+/* LA SALLE ANNONCE SES GROS GAINS (2026-10-04) : une ligne d'or en haut de la coupe,
+   qui monte, reste et s'efface. Pas de cadre : une enseigne lumineuse. */
+.salle-annonce {
+  position: absolute;
+  left: 50%;
+  top: 14px;
+  z-index: 5;
+  display: inline-flex;
+  align-items: baseline;
+  gap: 0.45rem;
+  padding: 0.3rem 1.2rem;
+  pointer-events: none;
+  white-space: nowrap;
+  background: radial-gradient(ellipse at center, rgba(14, 8, 4, 0.82) 0%, rgba(14, 8, 4, 0.55) 55%, rgba(14, 8, 4, 0) 80%);
+  animation: salle-annonce 5200ms ease-out both;
+}
+.salle-annonce-icon { font-size: 1rem; }
+.salle-annonce-qui {
+  font-size: 0.85rem;
+  color: #f6e4bc;
+  text-shadow: 1px 1px 0 #000;
+}
+.salle-annonce-gain {
+  font-family: var(--font-number);
+  font-size: 1.05rem;
+  color: #ffe066;
+  text-shadow: 1px 1px 0 #3a2408, 0 0 6px rgba(255, 200, 60, 0.6);
+}
+@keyframes salle-annonce {
+  0% { opacity: 0; transform: translate(-50%, 8px); }
+  10% { opacity: 1; transform: translate(-50%, 0); }
+  85% { opacity: 1; transform: translate(-50%, 0); }
+  100% { opacity: 0; transform: translate(-50%, -6px); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .salle-annonce { animation: none; transform: translateX(-50%); }
+}

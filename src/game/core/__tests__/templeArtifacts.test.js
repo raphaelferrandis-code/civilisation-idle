@@ -28,8 +28,7 @@ import {
   ICARUS_CAP, ICARUS_CAP_SOLAR, ICARUS_EDGE, PLUMES_CONSOLATION_MULT,
   NOYE_POT_MULT, TEMPLE_POT_RECYCLE, TEMPLE_POT_RECYCLE_CAP, AUGURY_RTP,
   ARTIFACT_NOYE_COST, ARTIFACT_PLUMES_COST, ARTIFACT_SOUFFLE_COST,
-  STYLET_COST_BASE, STYLET_MAX_LEVEL, TEMPLE_ARTIFACT_IDS
-} from "../balance.js";
+  STYLET_COST_BASE, STYLET_MAX_LEVEL, TEMPLE_ARTIFACT_IDS, FAVEUR_ECHELLE } from "../balance.js";
 import { potRecycle } from "../actions/templePot.js";
 import { MID_GAME_FIXTURE, FIXED_NOW } from "./fixtures.js";
 
@@ -41,7 +40,7 @@ beforeEach(() => {
   vi.useFakeTimers();
   vi.setSystemTime(FIXED_NOW);
   setState(hydrateState(MID_GAME_FIXTURE)); // bestEraIndex 5 → les cinq lignées ouvertes (Ères II et III)
-  state.faveur = 100000;    // de quoi acheter tous les rangs ET miser aux jeux (monnaie fermée)
+  state.faveur = 100000 * FAVEUR_ECHELLE; // de quoi acheter tous les rangs ET miser aux jeux (monnaie fermée)
   invalidateRenderCache("all");
 });
 

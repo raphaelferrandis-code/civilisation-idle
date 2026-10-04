@@ -13,7 +13,7 @@
 //   • la rafle se prend au prorata de la mise rapportée à la LIMITE HAUTE.
 
 import { describe, it, expect, beforeEach, afterEach, vi } from "vitest";
-import { state, setState, hydrateState, invalidateRenderCache, resetTemporaryRunState } from "../state.js";
+import { state, setState, hydrateState, invalidateRenderCache, resetTemporaryRunState, CURRENT_SAVE_VERSION } from "../state.js";
 import {
   launchIcarus,
   cashOutIcarus,
@@ -30,11 +30,13 @@ import {
 import { __resetIcarusForTests } from "../actions/icarus.js";
 import { potRakeShare, potRake, potRecycle, payRound } from "../actions/templePot.js";
 import { toNum } from "../num.js";
-import { ICARUS_EDGE, ICARUS_RTP, ICARUS_HISTORY_LEN, TEMPLE_POT_RECYCLE, TEMPLE_POT_RECYCLE_CAP } from "../balance.js";
+import { ICARUS_EDGE, ICARUS_RTP, ICARUS_HISTORY_LEN, TEMPLE_POT_RECYCLE, TEMPLE_POT_RECYCLE_CAP, FAVEUR_ECHELLE } from "../balance.js";
 import { MID_GAME_FIXTURE, FIXED_NOW } from "./fixtures.js";
 
-const FAVEUR_START = 1000;
-const LIMITE = 44; // limite haute de la table à l'Ère III (15 min de recettes, 2 chiffres significatifs)
+// ×FAVEUR_ECHELLE : l'échelle de la Faveur (2026-10-04) — une bourse de test qui couvre
+// encore la limite des tables.
+const FAVEUR_START = 1000 * FAVEUR_ECHELLE;
+const LIMITE = 44 * FAVEUR_ECHELLE; // limite haute de la table à l'Ère III (15 min de recettes, 2 chiffres significatifs)
 const MISE = 10;
 
 beforeEach(() => {
@@ -228,7 +230,7 @@ describe("Vol d'Icare — les vols offerts (des MONTANTS)", () => {
   });
 
   it("le montant d'un billet est re-borné par la limite (une save trafiquée ne vole pas plus haut)", () => {
-    state.icarusFreeFlights = [5000];
+    state.icarusFreeFlights = [5000 * FAVEUR_ECHELLE];
     launch(1, 0.01, { free: true });
     expect(icarusFlightInfo()).toEqual({ stakeFaveur: LIMITE, freeFlight: true });
     expect(state.icarusFreeFlights).toEqual([]);
@@ -246,7 +248,7 @@ describe("Vol d'Icare — les vols offerts (des MONTANTS)", () => {
 
 describe("Vol d'Icare — la cagnotte", () => {
   it("se poser à ×10+ emporte une part AU PRORATA de la mise rapportée à la LIMITE HAUTE", () => {
-    const stake = 11; // un quart de la limite (44)
+    const stake = 11 * FAVEUR_ECHELLE; // un quart de la limite (44 000)
     const jackpots = state.icarusJackpots || 0;
     state.icarusPotFaveur = 1000;
     invalidateRenderCache("all");
@@ -307,7 +309,7 @@ describe("Vol d'Icare — la cagnotte", () => {
 
   it("la rafle ne peut jamais emporter plus que la cella (part bornée à 1)", () => {
     // Contrôle négatif : une mise absurde ne crée pas de Faveur depuis un pot vide.
-    expect(potRakeShare(10_000)).toBe(1);
+    expect(potRakeShare(10_000 * FAVEUR_ECHELLE)).toBe(1);
     expect(potRake(0, 25)).toEqual({ rake: 0, left: 0 });
     expect(potRake(7, 4).rake).toBeLessThanOrEqual(7);
     // La fraction reste dans la cella, rien ne se perd ni ne se crée à l'arrondi.
@@ -316,7 +318,7 @@ describe("Vol d'Icare — la cagnotte", () => {
   });
 
   it("la cagnotte plafonne à potCap() (24 h de recettes, jamais sous 5 000)", () => {
-    expect(potCap()).toBe(5000); // Ère III : 24 h de recettes < 5 000
+    expect(potCap()).toBe(5000 * FAVEUR_ECHELLE); // Ère III : 24 h de recettes < 5 000 000
     state.icarusPotFaveur = potCap() - 0.05;
     launch(MISE, 0.5);
     vi.advanceTimersByTime(6000); // chute → versement de 0,18, écrêté au plafond
@@ -326,7 +328,7 @@ describe("Vol d'Icare — la cagnotte", () => {
   it("hydratation : cagnotte assainie (le plafond s'applique au versement), historique re-typé", () => {
     // Plus de plafond fixe : il suit les recettes de la Maison (potCap), lu à chaque
     // versement. L'hydratation ne fait que rejeter le négatif et l'illisible.
-    const s = hydrateState({ icarusPotFaveur: 4321.5, icarusHistory: [2.4, "junk", -3, 1.1, Infinity] });
+    const s = hydrateState({ saveVersion: CURRENT_SAVE_VERSION, icarusPotFaveur: 4321.5, icarusHistory: [2.4, "junk", -3, 1.1, Infinity] });
     expect(s.icarusPotFaveur).toBe(4321.5);
     expect(s.icarusHistory).toEqual([2.4, 1.1]);
     expect(hydrateState({ icarusPotFaveur: -5 }).icarusPotFaveur).toBe(0);

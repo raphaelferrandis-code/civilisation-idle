@@ -379,6 +379,11 @@
   font-size: 0.8rem;
   font-weight: 700;
 }
+/* Relever et la roue (2026-10-04), côte à côte : la caisse prend la place, la roue
+   son mot. */
+.pm-actions { display: flex; gap: 0.35rem; }
+.pm-actions .pm-collect { flex: 1 1 auto; min-width: 0; }
+.app .pm-actions .pm-roue { flex: 0 0 auto; padding-inline: 0.8rem; }
 /* OR = un clic qui rapporte MAINTENANT ; tronc vide = cuir éteint (base). */
 .app .pm-collect:not(:disabled) { color: #2a1d06; }
 .app .pm-collect:not(:disabled)::before {

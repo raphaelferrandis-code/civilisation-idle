@@ -188,6 +188,66 @@ inerte sur la coupe. Même chose pour le salon avant Familier.
 **Reste du lot 3 (idées, rien de fait)** : courses, grands flambeurs en duel, Nuit du Grand Jeu,
 compteur de cartes, le spectacle attire les clients.
 
+## La mesure des 20 h et l'économie « comme les applis » (2026-10-04)
+
+Raph : « la Maison est finie ? c'est fait pour tenir 20 heures ? » puis, après la mesure : « il
+faut que la sensation de gagner soit agréable, qu'on ait l'impression d'avoir énormément de sous
+au bout d'un moment, mais qu'une mise trop agressive puisse faire tout perdre — comme les applis
+de casino qui ne font pas jouer d'argent réel ».
+
+**La mesure** (`bench-plaisirs.js`, rapport `plaisirs-20h.md`). Six profils (prudent 2 % de la
+bourse par coup, joueur 5 %, agressif 25 %, tout ou rien, collectionneur, absent) jouent 20 h sur
+le VRAI moteur : six jeux, caisse, titres et cadeaux, automatisations, arbre et reliques, Grand
+Reset. L'ère record selon le temps de jeu est une HYPOTHÈSE en trois courbes (la sim complète du
+jeu, `sim-10-profils.js`, reste bloquée aux ères 1-2 après un Grand Reset précoce : son bot est
+à refaire). Avant les changements, pour le joueur : Familier ~3 h, Notable ~9 h, Mécène 16-17 h
+(pas toujours), Prince jamais ; la bourse sous 2 h de recettes presque tout le temps ; l'arbre fini
+vers 5-8 h puis plus rien à acheter, les reliques n'arrivant qu'à 16-18 h sur la courbe la plus
+rapide (jamais sur les deux autres).
+
+**Ce que font les applis** (sources publiques : analyses de game design, études) : l'argent rentre
+en continu (bonus horaires, cadeaux de niveau), les mises grandissent avec le niveau, les soldes se
+comptent en millions puis en milliards, les gros gains sont fêtés par paliers avec un compteur qui
+défile. Pas retenu : fêter les pertes déguisées en gains (les études montrent que ça fausse l'idée
+qu'on se fait de ses chances), ni rendre plus de 100 % au début (la règle de juillet tient).
+
+**Décisions de Raph et ce qui est fait :**
+- **Tout gonfler** : `FAVEUR_ECHELLE` = 1 000 (balance.js) sur tout ce qui se compte en Faveur —
+  recettes (120 000/h à l'Ère II), caisse, limites donc jetons et mises, prix de la Boutique et de
+  l'Héritage, réserves des automatisations, plancher de la cagnotte. Les cotes ne bougent pas.
+  Sauvegarde v7 : la migration 6 → 7 multiplie la Faveur des parties existantes (bourse, cagnotte,
+  caisse, vols offerts, série de tours gratuits, réserves, remboursements, compteurs de la
+  Chronique) ; la réputation (en heures) ne bouge pas.
+- **La roue de la Maison** (`actions/roueMaison.js`, `ui/RoueStage.jsx`, `plaisirs/roueArt.js`) :
+  un tour offert par heure, depuis le bouton « Roue » de la bourse (or quand il attend). Seize
+  cases égales en heures de recettes (1,125 h en moyenne, la couronne 5 h) ; la valeur se lit en
+  pièces sur la roue. Une absence n'accumule pas de tours.
+- **Les bourses des titres** : 2, 5, 10 et 20 h de recettes (`MAISON_RANKS[].faveurH`).
+- **Prince à 40 h** de réputation (au lieu de 75).
+- **Les reliques en heures de recettes** : 3, 6, 12, 20, 35, 60, 100 h (Char → Œil), lues à
+  l'achat comme la Bénédiction (`artifactCost`, faveurShop.js).
+- **Le boudoir devient le salon privé** (Mécène) : la roulette SANS PLAFOND, la mise va jusqu'à
+  toute la bourse (`spinRoulette(…, { vip })`, `rouletteLimits(true)`), feutre de velours.
+- **Gagner** : un palier « Beau coup » dès ×5 ; le gain de chaque coup gagnant défile (`Monte`,
+  osselets, tickets, Icare, vingt-et-un, roulette — la machine avait déjà le sien) ; la salle
+  annonce de temps en temps le gros gain d'un habitant (`plaisirs/AnnoncesSalle.jsx`, décor : pas
+  de Faveur).
+
+**Mesuré après** (joueur régulier, 5 graines × 3 courbes) : Mécène 11 fois sur 15 en 20 h, Prince
+4 fois ; bourse au plus haut 12 à 36 h de recettes (~18 h en médiane) ; le Char vers 4-8 h, la Lyre
+5-16 h, le Miroir 9-18 h une fois sur deux, la Corne vers 19 h parfois ; l'agressif reste fauché la
+moitié de son temps de table, le tout-ou-rien 83 %.
+
+**La revue d'une autre session** (« Refactoring et vérification ») a trouvé deux bugs, corrigés :
+(1) au rechargement, la bourse était bornée à MAX_SAFE_INTEGER (9e15, atteint ~20 ères plus tôt
+avec l'échelle) — bornes à 1e300 sur la Faveur, la série de tours gratuits et les compteurs de la
+Chronique ; (2) la Lyre, le Miroir, la Toison et la Pomme ne touchaient PAS la production (une copie
+du calcul dans crisisLevers.js ne comptait que la Corne et l'Œil) — une seule source désormais,
+testée sur la production. Plus : un F5 pendant un tour de roulette, de roue ou de machine ne perd
+plus le gain (écouteur pagehide). Restent notés : le gain « de série » affiché par la machine
+peut compter un gain de roue du tour payé ; une montée de titre pendant l'absence n'est pas
+annoncée au retour.
+
 ## Journal
 
 ### 2026-10-04 — lot 1 livré (non commité)

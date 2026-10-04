@@ -3,6 +3,8 @@ import { trunkValue, trunkCap, collectTrunk, icarusPotFaveur, recettesPerHour } 
 import { freeFlightCount } from '../../../game/core/actions/templeFlights.js';
 import { hasTempleArtifact } from '../../../game/core/actions/templeArtifacts.js';
 import { state } from '../../../game/core/state.js';
+import { roueReady, roueUnlocked, roueWaitMinutes } from '../../../game/core/actions/roueMaison.js';
+import { openTempleGame } from '../../../game/core/templeGames.js';
 import { fmt } from '../../../game/core/utils.js';
 import { tr } from '../../../game/core/i18n.js';
 import { tipProps } from '../../ui/HelpBubble.jsx';
@@ -20,7 +22,7 @@ import RangMaison from './RangMaison.jsx';
  * l'en-tête du pupitre du temple, retiré : la cagnotte, les vols offerts, la
  * série de l'oracle — des réserves de la Maison, pas des réglages d'un jeu.
  */
-export default function OffrandesBloc() {
+export default function OffrandesBloc({ onRoue }) {
   const faveur = useGameState((s) => s.faveur || 0);
   useGameState((s) => s.instability); // cagnotte, vols, tronc (1 Hz)
   // trunkValue() se recalcule à chaque rendu : la valeur DÉRIVE du temps écoulé,
@@ -34,6 +36,11 @@ export default function OffrandesBloc() {
   const pot = icarusPotFaveur();
   const flights = freeFlightCount();
   const streak = state.blackjackStreak || 0;
+  // La roue de la Maison (2026-10-04) : un tour offert par heure.
+  useGameState((s) => s.roueAt || 0);
+  const roueOuverte = roueUnlocked();
+  const rouePrete = roueReady();
+  const roueAttente = roueWaitMinutes();
 
   return (
     <div className="plaisirs-bourse">
@@ -88,14 +95,34 @@ export default function OffrandesBloc() {
       </div>
       {/* OR quand le tronc a de quoi : c'est un clic qui rapporte MAINTENANT
           (chrome-wizard : l'or est réservé à ce qui appelle un clic). */}
-      <button
-        type="button"
-        className="pm-collect"
-        disabled={gain < 1}
-        onClick={() => collectTrunk()}
-      >
-        {tr({ fr: 'Relever', en: 'Collect' })}{gain >= 1 ? ` +${fmt(gain)}` : ''}
-      </button>
+      <div className="pm-actions">
+        <button
+          type="button"
+          className="pm-collect"
+          disabled={gain < 1}
+          onClick={() => collectTrunk()}
+        >
+          {tr({ fr: 'Relever', en: 'Collect' })}{gain >= 1 ? ` +${fmt(gain)}` : ''}
+        </button>
+        {/* La roue : OR quand un tour attend (un clic qui rapporte), éteinte sinon ;
+            l'attente se lit dans l'infobulle. */}
+        {roueOuverte && (
+          <button
+            type="button"
+            className={`pm-collect pm-roue${rouePrete ? ' is-ready' : ''}`}
+            disabled={!rouePrete}
+            onClick={() => (onRoue ? onRoue() : openTempleGame('roue'))}
+            {...tipProps(
+              tr({ fr: 'La roue de la Maison', en: 'The House wheel' }),
+              rouePrete
+                ? tr({ fr: 'Un tour offert.', en: 'A free spin.' })
+                : tr({ fr: `Prochain tour dans ${roueAttente} min.`, en: `Next spin in ${roueAttente} min.` })
+            )}
+          >
+            {tr({ fr: 'Roue', en: 'Wheel' })}
+          </button>
+        )}
+      </div>
     </div>
   );
 }

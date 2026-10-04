@@ -35,12 +35,13 @@ import {
   BLACKJACK_RTP_AUTO,
   BLACKJACK_HISTORY_LEN,
   BLACKJACK_MULT,
-  TEMPLE_POT_RECYCLE
-} from "../balance.js";
+  TEMPLE_POT_RECYCLE, FAVEUR_ECHELLE } from "../balance.js";
 import { MID_GAME_FIXTURE } from "./fixtures.js";
 
 const C = (rank, suit = "olive") => ({ rank, suit });
-const FAVEUR_START = 500;
+// ×FAVEUR_ECHELLE : l'échelle de la Faveur (2026-10-04) — une bourse de test qui couvre
+// encore la limite des tables.
+const FAVEUR_START = 500 * FAVEUR_ECHELLE;
 // Une petite mise (l'ancienne « légère » valait 4) et une grosse (l'ancien « grand
 // jeu », 25), toutes deux sous la limite haute de la fixture (95 à l'ère 5).
 const MISE = 4;

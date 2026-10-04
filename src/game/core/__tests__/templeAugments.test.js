@@ -39,11 +39,13 @@ import {
   ICARUS_HISTORY_LEN, ICARUS_HISTORY_COLOMBIER,
   SOUFFLE_CONSOLATION_MULT, SERRES_RAKE_MULT,
   AUTO_SCRATCH_UNLOCK_COST, AUTO_BLACKJACK_UNLOCK_COST, AUTO_STAKE_STEPS,
-  TEMPLE_POT_RECYCLE, BLACKJACK_RTP_REF
-} from "../balance.js";
+  TEMPLE_POT_RECYCLE, BLACKJACK_RTP_REF, FAVEUR_ECHELLE, MAISON_RANKS } from "../balance.js";
 import { MID_GAME_FIXTURE, FIXED_NOW } from "./fixtures.js";
+import { recettesPerHour } from "../actions/maisonTable.js";
 
-const FAVEUR_START = 5000;
+// ×FAVEUR_ECHELLE : l'échelle de la Faveur (2026-10-04) — une bourse de test qui couvre
+// encore la limite des tables.
+const FAVEUR_START = 5000 * FAVEUR_ECHELLE;
 const C = (rank, suit = "olive") => ({ rank, suit });
 
 // payRound(x) = floor(x), +1 si le tirage u tombe sous la partie fractionnaire.
@@ -364,28 +366,32 @@ describe("Auto-gratteux et auto-vingt-et-un (capstones)", () => {
     expect(unlockTempleAuto("gratteux")).toBe(false);
     expect(unlockTempleAuto("vingtetun")).toBe(false);
     state.maisonReputation = 3; // le seuil de Notable
+    const avant = state.faveur;
     promoteRank();
     expect(state.templeAuto.gratteux.unlocked).toBe(true);
     expect(state.templeAuto.vingtetun.unlocked).toBe(true);
-    expect(state.faveur).toBe(AUTO_SCRATCH_UNLOCK_COST + AUTO_BLACKJACK_UNLOCK_COST);
+    // Rien n'est débité ; les titres versent leur bourse (Familier puis Notable, en
+    // heures de recettes — 2026-10-04).
+    const bourses = Math.round(MAISON_RANKS[1].faveurH * recettesPerHour()) + Math.round(MAISON_RANKS[2].faveurH * recettesPerHour());
+    expect(state.faveur).toBe(avant + bourses);
   });
 
   it("le tick joue un ticket perdant au cadran de mise : mise débitée, rien en retour", () => {
     state.templeAuto.gratteux = { unlocked: true, on: true, stakeStep: "quart", tempo: "mesure", faveurFloor: 0, lastAt: 0 };
-    state.faveur = 100;
+    state.faveur = 100 * FAVEUR_ECHELLE;
     const stake = autoStake("quart");
     expect(stake).toBe(Math.floor(tableLimits().max / 4)); // un quart de la limite haute
     vi.spyOn(Math, "random").mockReturnValue(0.1); // blank (perte)
     tickTempleAutomation();
     Math.random.mockRestore();
     expect(state.templeAuto.gratteux.lastAt).toBe(FIXED_NOW);
-    expect(state.faveur).toBe(100 - stake); // ticket perdant
+    expect(state.faveur).toBe(100 * FAVEUR_ECHELLE - stake); // ticket perdant
     expect(state.icarusPotFaveur).toBeCloseTo(stake * TEMPLE_POT_RECYCLE * (1 - scratchRtpRef()), 9);
   });
 
   it("le tick joue UNE main de vingt-et-un au cadran de mise, et dort sous le plancher", () => {
     state.templeAuto.vingtetun = { unlocked: true, on: true, stakeStep: "quart", tempo: "mesure", faveurFloor: 0, lastAt: 0 };
-    state.faveur = 100;
+    state.faveur = 100 * FAVEUR_ECHELLE;
     const stake = autoStake("quart");
     const stats = () => state.chronicleStats.games.blackjack;
     const avant = { plays: stats().plays, wagered: stats().wagered, won: stats().won };
@@ -398,11 +404,11 @@ describe("Auto-gratteux et auto-vingt-et-un (capstones)", () => {
     const wagered = stats().wagered - avant.wagered;
     expect([stake, 2 * stake]).toContain(wagered);
     // Bilan exact d'une main : la mise sort, le gain (éventuel) entre.
-    expect(state.faveur).toBe(100 - wagered + (stats().won - avant.won));
+    expect(state.faveur).toBe(100 * FAVEUR_ECHELLE - wagered + (stats().won - avant.won));
 
     // Plancher : la réserve doit tenir APRÈS la mise → trop court, l'auto dort.
     state.templeAuto.vingtetun.lastAt = 0;
-    state.templeAuto.vingtetun.faveurFloor = 2000;
+    state.templeAuto.vingtetun.faveurFloor = 2000 * FAVEUR_ECHELLE;
     vi.spyOn(Math, "random").mockReturnValue(0.1);
     tickTempleAutomation();
     Math.random.mockRestore();

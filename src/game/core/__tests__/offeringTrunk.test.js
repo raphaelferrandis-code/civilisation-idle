@@ -12,7 +12,7 @@ import { describe, it, expect, beforeEach, afterEach, vi } from "vitest";
 import { state, setState, hydrateState, resetTemporaryRunState, buildGrandResetState } from "../state.js";
 import { trunkValue, trunkCap, collectTrunk, recettesPerHour } from "../actions.js";
 import { recettesPerSecond } from "../actions/maisonTable.js";
-import { CAISSE_INITIAL, AUTO_TRUNK_UNLOCK_COST } from "../balance.js";
+import { CAISSE_INITIAL, AUTO_TRUNK_UNLOCK_COST, FAVEUR_ECHELLE } from "../balance.js";
 import { setTempleAuto, unlockTempleAuto, tickTempleAutomation, templeAutoThroughput } from "../actions.js";
 import { MID_GAME_FIXTURE, FIXED_NOW } from "./fixtures.js";
 
@@ -40,10 +40,10 @@ describe("Caisse de la Maison", () => {
     expect(trunkValue()).toBe(trunkCap());
   });
 
-  it("à l'Ère II : 2 Faveur/min et 60 de plafond (l'ancien tronc), pleine en 30 min", () => {
-    expect(recettesPerSecond() * 60).toBeCloseTo(2, 2);
-    expect(trunkCap()).toBe(60);
-    expect(trunkCap()).toBe(CAISSE_INITIAL); // l'amorce remplit la caisse de l'Ère II
+  it("à l'Ère II : ~2 000 Faveur/min et ~60 000 de plafond (l'ancien tronc ×1 000), pleine en 30 min", () => {
+    expect(recettesPerSecond() * 60).toBeCloseTo(2 * FAVEUR_ECHELLE, -1);
+    expect(trunkCap()).toBe(Math.round(recettesPerHour() * 0.5));
+    expect(trunkCap()).toBeGreaterThanOrEqual(CAISSE_INITIAL); // l'amorce remplit la caisse de l'Ère II
     vi.setSystemTime(FIXED_NOW + 29 * 60_000);
     expect(trunkValue()).toBeLessThan(trunkCap());
     vi.setSystemTime(FIXED_NOW + 31 * 60_000);
@@ -64,14 +64,14 @@ describe("Caisse de la Maison", () => {
       prevRate = rate;
       prevCap = cap;
     }
-    // L'Ère V (la fixture) : ~380/h, soit 6,3 Faveur/min et un plafond de 190.
+    // L'Ère V (la fixture) : ~380 000/h, soit ~6 330 Faveur/min et un plafond de ~190 000.
     state.bestEraIndex = 5;
-    expect(recettesPerSecond() * 60).toBeCloseTo(6.33, 2);
-    expect(trunkCap()).toBe(190);
+    expect(recettesPerSecond() * 60).toBeCloseTo(6.33 * FAVEUR_ECHELLE, -2);
+    expect(trunkCap()).toBe(Math.round(recettesPerHour() * 0.5));
     vi.setSystemTime(FIXED_NOW + 10 * 60_000);
     expect(trunkValue()).toBeCloseTo(600 * recettesPerSecond(), 9); // ~63, quand l'Ère II en donnait ~20
     vi.setSystemTime(FIXED_NOW + 10 * 3600_000);
-    expect(trunkValue()).toBe(190);
+    expect(trunkValue()).toBe(trunkCap());
   });
 
   it("le nouveau débit vaut pour la caisse EN COURS, borné par le plafond", () => {

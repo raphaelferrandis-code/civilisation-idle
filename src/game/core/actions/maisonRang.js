@@ -21,6 +21,7 @@ import { ARTIFACT_NODES, RANK_OF_GIFT } from '../../data/artifacts.js';
 import { recettesPerHour, tableLimits, maisonRank } from './maisonTable.js';
 import { grantFreeFlight } from './templeFlights.js';
 import { chronicle } from './utils.js';
+import { fmt } from '../utils.js';
 import { pushOutcomeFloat } from '../outcomeFloat.js';
 
 export { maisonRank };
@@ -96,18 +97,22 @@ export function promoteRank() {
 }
 
 // Les cadeaux d'un titre. Le colombier passe avant les vols : il agrandit leur file.
-// Les vols portent la limite de la salle commune. Rend ce qui a été réellement donné
-// (ce qu'on avait déjà ne se redonne pas).
+// Les vols portent la limite de la salle commune. Depuis le 2026-10-04 (« comme les
+// applis de casino »), le titre offre aussi une BOURSE : `faveurH` heures de recettes
+// au moment du passage. Rend ce qui a été réellement donné (ce qu'on avait déjà ne se
+// redonne pas).
 export function grantRankGifts(r) {
   const rk = MAISON_RANKS[r];
-  if (!rk) return { gifts: [], flights: 0, amount: 0 };
+  if (!rk) return { gifts: [], flights: 0, amount: 0, faveur: 0 };
   const gifts = rk.gifts.filter((id) => giveGift(id));
   const amount = tableLimits().base;
   let flights = 0;
   for (let i = 0; i < (rk.flights || 0); i += 1) {
     if (grantFreeFlight(amount)) flights += 1;
   }
-  return { gifts, flights, amount };
+  const faveur = Math.round((rk.faveurH || 0) * recettesPerHour());
+  if (faveur > 0) state.faveur = (state.faveur || 0) + faveur;
+  return { gifts, flights, amount, faveur };
 }
 
 function giveGift(id) {
@@ -132,9 +137,10 @@ function announceRank(r, given) {
   const rk = MAISON_RANKS[r];
   const label = RANK_LABELS[rk.id].fr;
   const parts = [`les tables montent à ×${rk.mult.toLocaleString("fr-FR")}`];
+  if (given.faveur > 0) parts.push(`elle te verse ${fmt(given.faveur)} faveur`);
   const names = given.gifts.map((id) => (ARTIFACT_NODES[id] ? ARTIFACT_NODES[id].label.fr : id));
   if (names.length) parts.push(`elle t'offre ${names.join(", ")}`);
   if (given.flights > 0) parts.push(`${given.flights} vol${given.flights > 1 ? "s" : ""} d'Icare`);
   chronicle(`La Maison des Plaisirs t'élève au rang de ${label} : ${parts.join(" ; ")}.`);
-  if (!isNotifyPaused()) pushOutcomeFloat({ label: `🎖 ${label}`, kind: "gain" });
+  if (!isNotifyPaused()) pushOutcomeFloat({ label: given.faveur > 0 ? `🎖 ${label} : +${fmt(given.faveur)} faveur` : `🎖 ${label}`, kind: "gain" });
 }

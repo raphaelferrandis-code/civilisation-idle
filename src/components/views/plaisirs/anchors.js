@@ -4,7 +4,7 @@ import { blackjackUnlocked } from "../../../game/core/actions/blackjack.js";
 import { icarusUnlocked } from "../../../game/core/actions/icarus.js";
 import { scratchUnlocked } from "../../../game/core/actions/scratch.js";
 import { slotsUnlocked } from "../../../game/core/actions/slots.js";
-import { rouletteUnlocked } from "../../../game/core/actions/roulette.js";
+import { rouletteUnlocked, rouletteVipUnlocked } from "../../../game/core/actions/roulette.js";
 import { maisonRank } from "../../../game/core/actions/maisonTable.js";
 import { BOUDOIR_UNLOCK_RANK, ROULETTE_UNLOCK_RANK } from "../../../game/core/balance.js";
 import { regulationActionUnlocked } from "../../../game/core/mechanics/crisis-cost.js";
@@ -38,9 +38,12 @@ export const PLAISIRS_SPOTS = [
   // du boudoir). Les choisir fait défiler la coupe jusqu'à eux, sans bouton
   // d'action (`spotIsVisit`).
   { id: "scene",   kind: null,        label: "La scène" },
-  // Le boudoir se REGARDE, mais il faut le titre de Mécène pour y entrer (lot 3 des
-  // gains « vrai casino », spotRankLock).
-  { id: "boudoir", kind: null,        label: "Le boudoir" },
+  // LE BOUDOIR est le SALON PRIVÉ (Raph, 2026-10-04 : « salon privé sans limite ») : la
+  // roulette sans plafond de mise, au titre de Mécène (spotRankLock). Même `id` que sa
+  // salle dans la coupe.
+  // Le menu garde le nom de la SALLE (« Le salon privé » est la plaque de la table) :
+  // il tient sur sa ligne, cadenas compris.
+  { id: "boudoir", kind: "rouletteVip", label: "Le boudoir" },
   // LE SALON est la salle de la ROULETTE (lot 3, Raph 2026-10-04) : il s'ouvre au titre
   // de Familier. Même `id` que sa salle dans la coupe.
   { id: "salon",   kind: "roulette",  label: "La roulette" }
@@ -62,12 +65,12 @@ export const SPOT_VERBES = {
   machines: "Tirer",
   boutique: "Entrer",
   scene: "Écouter",
-  boudoir: "Regarder",
+  boudoir: "Miser",
   salon: "Miser"
 };
 export const spotVerbe = (spot) => (spot && SPOT_VERBES[spot.id]) || "Ouvrir";
 
-// Un lieu qu'on REGARDE (scène, boudoir, salon) : il n'ouvre rien, on s'y rend.
+// Un lieu qu'on REGARDE (la scène) : il n'ouvre rien, on s'y rend.
 export function spotIsVisit(spot) {
   return !!spot && !spot.kind && !spot.view;
 }
@@ -91,6 +94,7 @@ function spotUnlocked(spot) {
   if (spot.kind === "scratch") return scratchUnlocked();
   if (spot.kind === "slots") return slotsUnlocked();
   if (spot.kind === "roulette") return rouletteUnlocked();
+  if (spot.kind === "rouletteVip") return rouletteVipUnlocked();
   if (spot.kind === "augury") {
     // Les osselets sont une ACTION de régulation : leur verrou vit là-bas, et
     // l'identifiant se lit dans les données plutôt qu'écrit en dur (même

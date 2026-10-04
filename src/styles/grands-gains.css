@@ -36,6 +36,10 @@
   color: #fff6c8;
   text-shadow: 1px 1px 0 #000, 0 0 6px rgba(0, 0, 0, 0.9);
 }
+/* Le beau coup (×5) : plus petit, plus bref — il revient souvent. */
+.grand-gain.is-beau { padding: 0.5rem 2rem; top: 30%; }
+.grand-gain.is-beau .grand-gain-label { font-size: 1.4rem; color: #ffd97a; }
+.grand-gain.is-beau .grand-gain-value { font-size: 1.1rem; }
 .grand-gain.is-enorme .grand-gain-label { font-size: 2.4rem; color: #ffb43c; }
 .grand-gain.is-legende .grand-gain-label {
   font-size: 2.8rem;

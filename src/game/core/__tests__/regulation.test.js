@@ -12,7 +12,7 @@
 //    que le joueur, cooldown par consigne, slots gatés par la progression.
 
 import { describe, it, expect, beforeEach, afterEach, vi } from "vitest";
-import { state, setState, hydrateState, invalidateRenderCache, resetTemporaryRunState } from "../state.js";
+import { state, setState, hydrateState, invalidateRenderCache, resetTemporaryRunState, CURRENT_SAVE_VERSION } from "../state.js";
 import {
   runCrisisAction, setStewardClause, tickSteward, stewardSlotCount,
   castAugury, doubleAugury, auguryPaytable, auguryRiteOdds, auguryTierOdds, auguryTierBones,
@@ -27,7 +27,7 @@ import { toNum } from "../num.js";
 import {
   GAMBLE_HISTORY_LEN, REGUL_LEDGER_MAX, STEWARD_COOLDOWN_MS,
   AUGURY_RTP, AUGURY_RITE_BETS,
-  TEMPLE_POT_RECYCLE, ICARUS_RTP
+  TEMPLE_POT_RECYCLE, ICARUS_RTP, FAVEUR_ECHELLE
 } from "../balance.js";
 import { MID_GAME_FIXTURE, FIXED_NOW } from "./fixtures.js";
 
@@ -157,6 +157,7 @@ describe("Registre des édits & annales", () => {
 
   it("hydratation : entrées re-typées, seuils ramenés aux crans, jets 0/1/2", () => {
     const s = hydrateState({
+      saveVersion: CURRENT_SAVE_VERSION, // au format courant : la migration v7 multiplierait la Faveur
       regulLedger: [{ id: "rationing", kind: "soothe", delta: 0.2 }, { pas: "de champ id" }, "junk"],
       gambleHistory: { prayForRain: [1, 0, 2, "x"], "bad id!": [1] },
       stewardClauses: [{ threshold: 0.9, actionId: "rationing", enabled: true, lastAt: 123 }],
@@ -212,7 +213,8 @@ describe("Table des osselets — mise libre en Faveur, cotes fixes", () => {
   // Minter ce jackpot casserait l'invariant du temple
   // (rtp_total = rtp_base + recycle × (1 − rtp_base) < 1, cf. templePot.js).
   it("le carré de six rafle la cagnotte au prorata de la mise, sans jamais créer de Faveur", () => {
-    state.icarusPotFaveur = 400;
+    state.icarusPotFaveur = 400 * FAVEUR_ECHELLE;
+    state.faveur = 1000 * FAVEUR_ECHELLE; // de quoi miser la limite haute plus bas
     const faveurAvant = state.faveur;
     const potAvant = state.icarusPotFaveur;
     const pay = auguryPaytable("prayForRain", "classique");
@@ -401,20 +403,22 @@ describe("La mise libre — limites de la table", () => {
   });
 
   it("au-dessus de la limite haute, la mise est PLAFONNÉE — le vol de Vénus aussi", () => {
-    state.bestEraIndex = 2; // Ère II (la Maison ouvre) : 15 min de recettes = 30 Faveur
-    expect(tableLimits()).toEqual({ min: 1, max: 30, base: 30 });
+    const K = FAVEUR_ECHELLE;
+    state.bestEraIndex = 2; // Ère II (la Maison ouvre) : 15 min de recettes = 30 000 Faveur
+    state.faveur = 1000 * K;
+    expect(tableLimits()).toEqual({ min: 1, max: 30 * K, base: 30 * K });
     const pay = auguryPaytable("prayForRain", "classique");
-    const res = withRandom([0.01, 0.5], 0.5, () => castAugury("prayForRain", "classique", { stake: 500, render: false }));
-    expect(res.stake).toBe(30);
-    expect(res.faveurGain).toBe(payRoundAt(30 * pay.mult.venus, 0.5));
-    expect(state.faveur).toBe(1000 - 30 + res.faveurGain);
-    expect(state.icarusFreeFlights).toEqual([30]);
+    const res = withRandom([0.01, 0.5], 0.5, () => castAugury("prayForRain", "classique", { stake: 500 * K, render: false }));
+    expect(res.stake).toBe(30 * K);
+    expect(res.faveurGain).toBe(payRoundAt(30 * K * pay.mult.venus, 0.5));
+    expect(state.faveur).toBe(1000 * K - 30 * K + res.faveurGain);
+    expect(state.icarusFreeFlights).toEqual([30 * K]);
 
     // La garde de solde lit la mise PLAFONNÉE : « tapis » avec juste la limite en poche.
-    state.faveur = 30;
-    const tapis = rollGamble("prayForRain", 0.5, 10_000);
+    state.faveur = 30 * K;
+    const tapis = rollGamble("prayForRain", 0.5, 10_000 * K);
     expect(tapis).not.toBeNull();
-    expect(tapis.stake).toBe(30);
+    expect(tapis.stake).toBe(30 * K);
     expect(state.faveur).toBe(0);
   });
 

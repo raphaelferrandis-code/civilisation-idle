@@ -109,8 +109,13 @@ export {
   betCovers,
   payoutFor,
   ROULETTE_WHEEL,
-  couleurOf
+  couleurOf,
+  rouletteVipUnlocked,
+  rouletteLimits
 } from './actions/roulette.js';
+
+// La roue de la Maison (2026-10-04) : un tour offert par heure.
+export { spinRoue, roueReady, roueUnlocked, roueValues, roueWaitMinutes } from './actions/roueMaison.js';
 
 export {
   dealBlackjack,
