@@ -111,6 +111,13 @@ export function recordSlotsBonus({ won = 0, jackpot = 0 } = {}) {
   }
 }
 
+// La roulette (lot 3), à chaque tour : `number` = la case tombée (le zéro compté à part).
+export function recordRoulette({ wagered = 0, won = 0, number = null } = {}) {
+  const g = bumpGame("roulette", wagered, won);
+  if (!g) return;
+  if (number === 0) g.zeros += 1;
+}
+
 // Vingt-et-un, à la résolution d'une donne. `natural` = blackjack naturel servi ;
 // `streak` = la série de victoires courante (on garde le record).
 export function recordBlackjack({ wagered = 0, won = 0, natural = false, streak = 0 } = {}) {

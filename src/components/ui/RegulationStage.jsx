@@ -5,6 +5,7 @@ import IcarusStage from './IcarusStage.jsx';
 import ScratchStage from './ScratchStage.jsx';
 import BlackjackStage from './BlackjackStage.jsx';
 import SlotsStage from './SlotsStage.jsx';
+import RouletteStage from './RouletteStage.jsx';
 import GrandGain from './GrandGain.jsx';
 
 /**
@@ -27,7 +28,9 @@ const STAGES = {
   icarus: IcarusStage,
   scratch: ScratchStage,
   blackjack: BlackjackStage,
-  slots: SlotsStage
+  slots: SlotsStage,
+  // La roulette du salon (lot 3 des gains « vrai casino »).
+  roulette: RouletteStage
 };
 
 export default function RegulationStage() {

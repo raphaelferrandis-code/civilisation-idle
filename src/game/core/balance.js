@@ -552,6 +552,15 @@ export const SLOTS_GRAND_FLOOR = 250;
 // Le vol d'Icare de la roue se joue à la mise du tour qui l'a gagné.
 export const SLOTS_HISTORY_LEN = 12;
 
+// ── LA ROULETTE (lot 3 des gains « vrai casino », actions/roulette.js) ─────────
+// Une roue européenne à un zéro : chaque pari rend 36/37 de la mise (97,3 %), quelle
+// que soit sa nature. C'est la table du SALON, que le titre de Familier ouvre ; le
+// BOUDOIR attend celui de Mécène (index dans MAISON_RANKS).
+export const ROULETTE_RTP = 36 / 37;
+export const ROULETTE_UNLOCK_RANK = 1;   // Familier
+export const BOUDOIR_UNLOCK_RANK = 3;    // Mécène
+export const ROULETTE_HISTORY_LEN = 12;
+
 // ── Automatisation du Temple (moteur passif : jouer aux cadrans) ─────────────
 // Une fois débloquées (échoppe/arbre d'artefacts) et activées, les
 // automatisations jouent À LA PLACE du joueur au tick, gouvernées comme

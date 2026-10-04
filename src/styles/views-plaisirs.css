@@ -34,16 +34,17 @@
      menu étant en absolu il sort du flux — la hauteur de la section reste donc
      celle de la salle, et un `top: 50%` y désigne le même point qu'avant. */
   position: relative;
+  /* La largeur du menu volant, lue aussi par l'échoppe montée en plein cadre
+     (echoppe.css) pour lui laisser sa colonne. */
+  --pm-w: 16rem;
 }
 
 /* LE MENU VOLANT — aux codes du jeu, plus aux miens.
  *
  * Il était habillé en styles EN LIGNE, avec des couleurs inventées : c'est
  * précisément ce qui le faisait dénoter. Il reprend ici les variables de
- * l'interface (`--panel`, `--border`) et la typographie des libellés du jeu
- * (majuscules, `letter-spacing: 0.12em`), comme la barre de ressources.
- * Le magenta n'intervient plus que sur le lieu ACTIF : c'est la signature de la
- * Maison des Plaisirs, elle doit rester un accent, pas un fond. */
+ * l'interface (`--border`) et la typographie des libellés du jeu (majuscules).
+ * Son contenu — le tableau d'étages — est stylé plus bas. */
 .plaisirs-menu {
   position: absolute;
   left: 18px;
@@ -51,18 +52,17 @@
   transform: translateY(-50%);
   display: flex;
   flex-direction: column;
-  gap: 3px;
-  min-width: 13rem;
-  padding: 10px;
-  background: var(--panel);
+  width: var(--pm-w);
+  /* Pas de marge basse : la poutre du ponton ferme le tableau. */
+  padding: 0.7rem 0.7rem 0;
+  /* OPAQUE, sans flou : une plaque, pas du verre dépoli sous du texte. */
+  background: var(--surface-panel, #161c2b);
   border: 1px solid var(--border);
-  /* Coins francs : le décor est du pixel art, un rayon marqué ferait tache. */
-  border-radius: 3px;
+  border-radius: 0;
   box-shadow: 0 6px 22px rgba(8, 4, 14, 0.55);
-  backdrop-filter: blur(2px);
   z-index: 6;
   /* Le conteneur ne capte rien : sans ça, ses marges voleraient les clics
-     destinés au décor. Seuls ses boutons sont actifs. */
+     destinés au décor. Seul son contenu est actif. */
   pointer-events: none;
   /* ⚠ FILET : le menu ne dépasse JAMAIS la salle. `100%` désigne ici la hauteur
      de #plaisirs, qui est celle de la salle (le menu étant hors flux). Sans ce
@@ -72,8 +72,17 @@
      dur dans une media query ne peut pas suivre ça ; ce plafond, si. */
   max-height: calc(100% - 24px);
   overflow-y: auto;
+  /* RIEN ne sort du cadre sur le côté (Raph, 2026-10-03 : « vérifie que les
+     cadres et puces rentrent dans le cadre ») : ce qui ne tient pas passe à la
+     ligne, voir les réglages plus bas. */
+  overflow-x: hidden;
   overscroll-behavior: contain;
+  /* Il défile quand des réglages sont dépliés sur un écran bas : une barre
+     FINE, sinon ses 10 px rognaient « Le vol d'Icare » (mesuré en 880×1000). */
+  scrollbar-width: thin;
+  scrollbar-color: var(--skin-field) transparent;
 }
+.plaisirs-menu > * { pointer-events: auto; }
 
 /* ---- ÉCRAN ÉTROIT : LE MENU DESCEND SOUS L'ILLUSTRATION ----
  *
@@ -288,91 +297,274 @@
   }
 }
 
-.plaisirs-lieu {
-  pointer-events: auto;
-  display: block;
-  width: 100%;
-  text-align: left;
-  white-space: nowrap;
-  font: inherit;
-  font-size: 0.82rem;
-  font-weight: 700;
-  letter-spacing: 0.09em;
-  text-transform: uppercase;
-  padding: 7px 10px;
-  border-radius: 2px;
-  border: 1px solid transparent;
-  background: transparent;
-  color: var(--text-mid, #b9c2d8);
-  cursor: pointer;
-  transition: background 120ms, color 120ms, border-color 120ms;
-}
+/* ════════════════════════════════════════════════════════════════════════════
+   LE TABLEAU D'ÉTAGES (2026-10-03, plaisirs/PlaisirsMenu.jsx)
+   ----------------------------------------------------------------------------
+   Un étage du menu = un étage de la coupe. Peau du jeu (chrome-wizard : cuir au
+   lieu choisi, or pour ce qui appelle un clic) + la MATIÈRE DU BÂTIMENT : poutre
+   de fonte rivetée entre les étages, cadran de laiton de l'ascenseur, lanterne
+   rouge et crème des festons sur le lieu choisi. Sprites dessinés au pixel dans
+   les couleurs relevées sur la coupe (scripts/plaisirsMenuSprites.mjs), rendus ×2.
+   Le magenta de l'ancien menu est retiré : la Maison est rouge lanterne et or.
+   ════════════════════════════════════════════════════════════════════════════ */
 
-.plaisirs-lieu:hover:not(:disabled),
-.plaisirs-lieu.is-actif {
-  color: #ffd9f2;
-  background: rgba(255, 120, 210, 0.16);
-  border-color: rgba(255, 120, 210, 0.6);
-}
-
-.plaisirs-lieu:disabled {
-  color: #6d6478;
-  cursor: default;
-}
-
-/* LA BOURSE, en tête du menu volant. Compacte : elle partage la largeur des
-   entrées de lieux, et le menu ne doit pas manger l'illustration. */
+/* ── LA BOURSE ── */
 .plaisirs-bourse {
-  pointer-events: auto;
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
-  padding: 6px 8px 8px;
-  margin-bottom: 6px;
-  border-bottom: 1px solid rgba(255, 120, 210, 0.3);
-  font-size: 0.82rem;
-  color: #e6cfe0;
+  display: grid;
+  gap: 0.45rem;
+  padding: 0 0.1rem 0.7rem;
+  min-width: 0;
 }
-
-.plaisirs-bourse-faveur {
+.pm-purse-top {
   display: flex;
   align-items: center;
-  gap: 5px;
-  font-weight: 700;
-  color: #ffd9f2;
+  gap: 0.5rem;
+  min-width: 0;
 }
-
-.plaisirs-bourse-tronc {
-  display: flex;
+.pm-faveur {
+  display: inline-flex;
   align-items: center;
-  gap: 6px;
+  gap: 0.4rem;
+  font-family: var(--font-number);
+  font-size: 1.15rem;
+  color: var(--gold-bright);
   white-space: nowrap;
 }
-
-.plaisirs-jauge {
+/* Glyphes à la MOITIÉ de leur dessin (flamme 24×30, amphore 16×29) : le ×0,5
+   tombe sur des pixels entiers à 16 px de racine. */
+.pm-faveur .faveur-glyph { height: 15px; vertical-align: 0; }
+.pm-reserves {
+  margin-left: auto;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.6rem;
+  min-width: 0;
+  font-family: var(--font-number);
+  font-size: 0.72rem;
+  color: var(--muted);
+  white-space: nowrap;
+}
+.pm-reserves .pot-glyph { height: 14.5px; }
+.pm-streak { color: var(--gold-bright); }
+.pm-trunk {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  min-width: 0;
+}
+/* La piste du tronc : `gauge.png` du pack (piste ≤ 12 px → pack, chrome-wizard §3). */
+.pm-gauge {
   flex: 1 1 auto;
-  min-width: 46px;
-  height: 6px;
-  border-radius: 3px;
-  background: rgba(255, 255, 255, 0.12);
+  min-width: 0;
+  height: 8px;
+  border: solid transparent;
+  border-width: 3px 4px;
+  border-image: url("/pixelart/ui/chrome/wizard/gauge.png") 3 4 fill stretch;
+  image-rendering: pixelated;
   overflow: hidden;
 }
-
-.plaisirs-jauge > i {
+.pm-gauge > i {
   display: block;
   height: 100%;
-  background: linear-gradient(90deg, #b8602f, #ffb35c);
+  background: #f0b450;
+}
+.pm-trunk-num {
+  flex: none;
+  font-family: var(--font-number);
+  font-size: 0.7rem;
+  color: var(--muted);
+}
+.app .pm-collect {
+  height: 2.3rem;
+  font-size: 0.8rem;
+  font-weight: 700;
+}
+/* OR = un clic qui rapporte MAINTENANT ; tronc vide = cuir éteint (base). */
+.app .pm-collect:not(:disabled) { color: #2a1d06; }
+.app .pm-collect:not(:disabled)::before {
+  border-width: 6px;
+  border-image: url("/pixelart/ui/chrome/wizard/button-gold.png") 3 3 6 3 fill stretch;
+}
+.app .pm-back {
+  height: 2.15rem;
+  margin: 0 0 0.6rem;
+  font-size: 0.78rem;
+  font-weight: 700;
 }
 
-.plaisirs-bourse-chiffre {
-  font-variant-numeric: tabular-nums;
-  opacity: 0.85;
+/* ── LES ÉTAGES ── */
+/* La poutre court de bord à bord du panneau, comme la charpente de la coupe. */
+.pm-poutre {
+  position: relative;
+  flex: none;
+  height: 12px;
+  margin: 0 -0.7rem;
+  background: url("/pixelart/ui/plaisirs/menu-poutre.png") repeat-x 6px 0 / 24px 12px;
+  image-rendering: pixelated;
+}
+/* Le cadran d'étage, riveté SUR la poutre (R, 1, 2… T) : une planche de 7. */
+.pm-cadran {
+  position: absolute;
+  left: 0.6rem;
+  top: 50%;
+  width: 26px;
+  height: 26px;
+  transform: translateY(-50%);
+  background: url("/pixelart/ui/plaisirs/menu-cadrans.png") no-repeat 0 0 / 182px 26px;
+  image-rendering: pixelated;
+  z-index: 1;
+}
+/* Gouttière gauche (2rem) : elle dégage le cadran et reçoit la lanterne. */
+.pm-lieux {
+  display: grid;
+  gap: 2px;
+  min-width: 0;
+  padding: 0.6rem 0 0.5rem 2rem;
+}
+.pm-lieu {
+  position: relative;
+  min-width: 0;
+}
+.app .pm-go {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  width: 100%;
+  min-width: 0;
+  height: 2.15rem;
+  padding: 0 0.5rem 2px 0.6rem;
+  text-align: left;
+  color: var(--skin-cream);
+}
+.app .has-autos .pm-go { padding-left: 1.4rem; }
+/* Au repos, des FANTÔMES (le segmenté du système) ; le lieu choisi prend la
+   plaque de cuir, éclairée — jamais l'or, qui reste à ce qui se paie. */
+.app .pm-go::before {
+  border-image: none;
+  border-width: 0;
+  filter: none;
+}
+.app .pm-lieu:not(.is-sel) .pm-go:hover:not(:disabled)::before,
+.app .pm-lieu.is-hover:not(.is-sel) .pm-go:not(:disabled)::before {
+  background: color-mix(in srgb, var(--skin-field), transparent 70%);
+}
+.app .pm-lieu.is-sel .pm-go::before {
+  border-width: 6px;
+  border-image: url("/pixelart/ui/chrome/wizard/button.png") 3 3 6 3 fill stretch;
+  filter: brightness(1.18);
+}
+.pm-nom {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 0.78rem;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+.pm-verbe {
+  flex: none;
+  margin-left: auto;
+  font-size: 0.68rem;
+  font-weight: 600;
+  color: var(--muted);
+}
+.pm-lieu.is-sel .pm-verbe { color: var(--skin-cream); }
+.pm-lieu.is-visit .pm-verbe { font-style: italic; }
+.app .pm-go:disabled .pm-nom { color: #6d6478; }
+
+/* La lanterne des festons, pendue dans la gouttière du lieu choisi. */
+.pm-lanterne {
+  position: absolute;
+  left: -1.3rem;
+  top: 5px;
+  width: 12px;
+  height: 20px;
+  background: url("/pixelart/ui/plaisirs/menu-lanterne.png") no-repeat 0 0 / 12px 20px;
+  image-rendering: pixelated;
+  filter: drop-shadow(0 0 4px rgba(255, 110, 80, 0.75));
+  pointer-events: none;
 }
 
-.plaisirs-relever:disabled {
-  opacity: 0.45;
-  cursor: default;
+/* La FLAMME d'une automatisation achetée : allumée elle vacille, éteinte elle
+   charbonne. Posée dans la marge gauche de la ligne de son jeu. */
+.app .pm-flame {
+  position: absolute;
+  left: 0.25rem;
+  top: 0;
+  z-index: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 1.2rem;
+  height: 2.15rem;
+  padding: 0;
 }
+.app .pm-flame::before {
+  border-image: none;
+  border-width: 0;
+  filter: none;
+}
+.pm-flame img {
+  width: 12px;
+  height: 15px;
+  image-rendering: pixelated;
+  filter: grayscale(1) brightness(0.42);
+  opacity: 0.75;
+  transition: filter 0.2s ease, opacity 0.2s ease;
+}
+.pm-flame:hover img { opacity: 1; }
+.pm-flame.is-on img {
+  filter: none;
+  opacity: 1;
+  animation: pm-flicker 1.1s steps(2, jump-none) infinite;
+}
+@keyframes pm-flicker {
+  0%, 100% { transform: translateY(0) scaleY(1); filter: brightness(1); }
+  35% { transform: translateY(-1px) scaleY(1.06); filter: brightness(1.18); }
+  70% { transform: translateY(0) scaleY(0.97); filter: brightness(0.92); }
+}
+
+/* Les RÉGLAGES du jeu choisi, dépliés sous sa ligne. ⚠ Sur 16rem, une rangée
+   de segments (« Prudent · Ancestral · Grand · Interdit ») ne tient pas à côté
+   de son libellé : mesuré sur la maquette, elle sortait du cadre et poussait la
+   ligne choisie avec elle. Le libellé passe donc AU-DESSUS, et les segments
+   vont à la ligne plutôt que de déborder. */
+.pm-dials {
+  min-width: 0;
+  padding: 0.45rem 0.3rem 0.55rem 0.6rem;
+}
+.pm-dials .artifact-dials { gap: 0.4rem; }
+.pm-dials .doctrine-line {
+  flex-direction: column;
+  align-items: stretch;
+  justify-content: flex-start;
+  gap: 0.25rem;
+  min-height: 0;
+  min-width: 0;
+}
+.pm-dials .doctrine-line-label {
+  font-size: 0.7rem;
+  font-weight: 600;
+  color: var(--muted);
+}
+.pm-dials .doctrine-seg {
+  flex-wrap: wrap;
+  gap: 2px;
+  min-width: 0;
+}
+.pm-dials .doctrine-seg-btn {
+  flex: 1 1 auto;
+  min-width: 0;
+  min-height: 1.75rem;
+  padding: 0 0.35rem;
+  font-size: 0.68rem;
+}
+.pm-dials .doctrine-input-wrap { align-self: flex-start; }
+.pm-dials .temple-auto-slider,
+.pm-dials .temple-auto-slider input[type="range"] { min-width: 0; }
+.pm-dials .temple-auto-rate { font-size: 0.75rem; }
 
 .plaisirs-stage {
   position: absolute;

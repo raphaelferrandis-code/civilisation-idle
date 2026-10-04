@@ -172,11 +172,13 @@ const TOGGLE_LABELS = {
 // Cadrans dépliés d'une automatisation débloquée. Les QUATRE jeux ont les mêmes
 // trois axes (arbitrage Raphaël 2026-07-17) : le RISQUE (rite, mise, cible), le
 // TEMPS (tempo) et le GAIN GARDÉ (plancher de Faveur) — plus le toggle.
-export default function AutoDials({ game }) {
+// `toggle={false}` : la marche/arrêt est portée ailleurs (la flamme de la ligne du
+// jeu, dans le menu de la Maison) — la case ferait doublon.
+export default function AutoDials({ game, toggle = true }) {
   const riteOpts = RITE_OPTS.filter((o) => !o.artifact || (state.templeArtifacts || {})[o.artifact]);
   return (
     <div className="artifact-dials">
-      <Toggle game={game} onLabel={tr(TOGGLE_LABELS[game] || TOGGLE_LABELS.osselets)} />
+      {toggle && <Toggle game={game} onLabel={tr(TOGGLE_LABELS[game] || TOGGLE_LABELS.osselets)} />}
       {game === 'osselets' && (
         <div className="doctrine-line">
           <span className="doctrine-line-label">{tr({ fr: 'Rite', en: 'Rite' })}</span>

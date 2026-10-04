@@ -8,7 +8,7 @@
  * code (moteurs et constantes de balance.js) :
  *   A1  chaque jeu, chaque option : RTP < 1 (plus de configuration « imprimante ») ;
  *   A2  les cibles : osselets 97 % par rite, Icare 97 %, tickets 75 %, 21 parfait
- *       ~99 %, machine ~92 % ;
+ *       ~99 %, machine ~93,5 %, roulette 36/37 sur chaque pari (lot 3) ;
  *   A3  les rites des osselets forment une echelle de risque (chance qui baisse,
  *       paiements qui montent, ecart-type qui monte) ;
  *   A4  le vingt-et-un MESURE (paquet unique, croupier S17, une refente, double
@@ -45,6 +45,7 @@ const { icarusEffectiveEdge, resolveIcarusHeadless } = await import("./src/game/
 const { scratchRtpRef, scratchOdds } = await import("./src/game/core/actions/scratch.js");
 const { handValue, isBlackjack, blackjackResult, resolveBlackjackHeadless, BLACKJACK_SUITS } = await import("./src/game/core/actions/blackjack.js");
 const { slotsOdds } = await import("./src/game/core/actions/slots.js");
+const { betCovers, betPayout } = await import("./src/game/core/actions/roulette.js");
 const { potRecycle } = await import("./src/game/core/actions/templePot.js");
 const { recettesPerHour, tableLimits, blessingCost, potCap, autoStake } = await import("./src/game/core/actions/maisonTable.js");
 const { recordWager, maisonReputation } = await import("./src/game/core/actions/maisonRang.js");
@@ -202,9 +203,16 @@ const slots = slotsOdds().rtp;
 check("A2 Icare : 97 % quelle que soit la cible (C = (1 - e)/U)", Math.abs(icare - ICARUS_RTP) < 1e-12 && Math.abs(icare - 0.97) < 1e-12, pct(icare));
 check("A2 tickets : la loterie rend 75 % (+-0,5 pt)", Math.abs(tickets - 0.75) < 0.005, `${pct(tickets, 3)} ; P(gain) ${pct(1 - scratchOdds("blank"))} ; gros lot 1 sur ${Math.round(1 / scratchOdds("soleil")).toLocaleString("fr-FR")}`);
 check("A2 machine : ~93,5 % (plancher du GRAND x250 compris)", slots > 0.925 && slots < 0.95, pct(slots, 3));
+// La roulette (lot 3) : chaque pari, exact sur les 37 cases.
+const RL_KEYS = [...Array.from({ length: 37 }, (_, i) => `n${i}`), "rouge", "noir", "pair", "impair", "manque", "passe", "d1", "d2", "d3", "c1", "c2", "c3"];
+const rlRtp = (key) => Array.from({ length: 37 }, (_, n) => (betCovers(key, n) ? betPayout(key) : 0)).reduce((a, b) => a + b, 0) / 37;
+const rlRows = RL_KEYS.map((k) => [k, rlRtp(k)]);
+const roulette = rlRows[0][1];
+check("A2 roulette : chaque pari rend 36/37 (le zero est la part de la Maison)", rlRows.every(([, r]) => Math.abs(r - bal.ROULETTE_RTP) < 1e-12) && Math.abs(bal.ROULETTE_RTP - 36 / 37) < 1e-12,
+  `${pct(roulette, 3)} sur ${rlRows.length} paris (plein, chances simples, douzaines, colonnes)`);
 const games = [
   ...riteRows.map((r) => [`osselets ${r.id}`, r.rtp]),
-  ["Icare", icare], ["tickets", tickets], ["vingt-et-un (REF)", BLACKJACK_RTP_REF], ["machine", slots]
+  ["Icare", icare], ["tickets", tickets], ["vingt-et-un (REF)", BLACKJACK_RTP_REF], ["machine", slots], ["roulette", roulette]
 ];
 check("A1 aucun jeu ne rend 100 % ou plus", games.every(([, r]) => r < 1), games.map(([g, r]) => `${g} ${pct(r)}`).join(", "));
 

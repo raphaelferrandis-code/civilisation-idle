@@ -100,6 +100,18 @@ export {
   scratchRtpRef
 } from './actions/scratch.js';
 
+// La roulette du salon (lot 3) : ouverte au titre de Familier.
+export {
+  spinRoulette,
+  rouletteUnlocked,
+  rouletteHistory,
+  betPayout,
+  betCovers,
+  payoutFor,
+  ROULETTE_WHEEL,
+  couleurOf
+} from './actions/roulette.js';
+
 export {
   dealBlackjack,
   hitBlackjack,

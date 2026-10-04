@@ -1,6 +1,6 @@
 import { useState, useRef, useEffect, lazy, Suspense } from 'react';
 import { useGameState } from '../../hooks/useGameState.js';
-import { PLAISIRS_SPOTS, spotIsOpen, spotIsFullFrame, spotVerbe } from './plaisirs/anchors.js';
+import { PLAISIRS_SPOTS, spotIsOpen, spotIsFullFrame, spotIsVisit, spotCanVisit, spotRankLock, spotVerbe } from './plaisirs/anchors.js';
 import SalleCanvas from './plaisirs/SalleCanvas.jsx';
 import { tableVars } from '../ui/plaisirsMaterial.js';
 import { useSalleBake } from './plaisirs/salleBake.js';
@@ -9,10 +9,13 @@ import { currentEraIndex } from '../../game/core/mechanics/shared.js';
 import { openTempleGame, closeTempleStage } from '../../game/core/templeGames.js';
 import { REGULATION_ACTIONS } from '../../game/data/regulationActions.js';
 import RegulationStage from '../ui/RegulationStage.jsx';
-// La bourse SEULE (Faveur + tronc), extraite d'AuguresPanel. Le panneau entier
-// aurait rapporté ses quatre boutons de partie, doublons du menu, et sa colonne
-// aurait mangé la largeur de l illustration.
-import OffrandesBloc from './plaisirs/OffrandesBloc.jsx';
+// Le MENU : un tableau d'étages calqué sur la coupe, la bourse en tête et les
+// automatisations (l'ancien pupitre du temple) sur la ligne de leur jeu.
+import PlaisirsMenu from './plaisirs/PlaisirsMenu.jsx';
+// LA SCÈNE JOUE (2026-10-03) : une petite mélodie à chaque visite, et l'affiche du
+// morceau qui tourne, qu'on change d'un pas (dossier src/assets/musiques/).
+import SceneJukebox from './plaisirs/SceneJukebox.jsx';
+import { jouerMelodieScene } from '../../game/audio/melodieScene.js';
 
 // L'échoppe s'ouvre DANS la salle, en plein cadre. Chargée paresseusement comme
 // dans App.jsx : elle reste aussi son propre onglet (Raph veut les deux accès),
@@ -70,7 +73,8 @@ export default function PlaisirsView() {
   // On s'abonne à la SIGNATURE des verrous eux-mêmes, pas aux champs d'état qui
   // les alimentent : le jour où un jeu change de condition d'ouverture, il n'y a
   // rien à mettre à jour ici. Le re-rendu n'a lieu que si la chaîne change.
-  const verrous = useGameState(() => PLAISIRS_SPOTS.map((s) => (spotIsOpen(s) ? '1' : '0')).join(''));
+  // Lot 3 : les verrous de TITRE (le salon, le boudoir) en font partie.
+  const verrous = useGameState(() => PLAISIRS_SPOTS.map((s) => (spotIsOpen(s) ? '1' : spotRankLock(s) != null ? 'r' : '0')).join(''));
   // L'ÂGE de la salle : celui de la ville (même bande que la carte), suivi en direct.
   // Molette de dev partagée avec la carte : `__plaisirsTune.band = n` force l'âge.
   const band = useGameState(() => {
@@ -114,8 +118,8 @@ export default function PlaisirsView() {
     const k = mise.Z / mise.dpr, oy = mise.oy / mise.dpr;
     return { x: (mise.ox / mise.dpr) + (g.x + 0.5) * k, y: oy + (g.y + 0.5) * k, r: g.r * k, top: oy + g.box.y0 * k };
   };
-  // Seuls les LIEUX du menu s'allument au survol (le salon du dernier étage est un
-  // décor : l'entourer ferait croire qu'il s'ouvre).
+  // Seuls les LIEUX du menu s'allument au survol — jeux, boutique, et depuis le
+  // tableau d'étages les lieux qu'on regarde (scène, boudoir, salon).
   const survoler = (id) => setSurvol(id && PLAISIRS_SPOTS.some((sp) => sp.id === id) ? id : null);
 
   // DEUX TEMPS, et c'est voulu (Raph, 2026-08-07) : choisir un lieu ne lance
@@ -156,27 +160,29 @@ export default function PlaisirsView() {
 
   const revenir = () => { setPlein(null); setSelection(null); };
 
-  // Une partie est-elle en cours ? Lu dans le DOM, et non tenu en état : la
-  // scène peut se refermer par sa propre croix ou par Échap, sans que la vue en
-  // soit avertie — un drapeau local se serait désynchronisé au premier de ces
-  // gestes. `registerTempleStage` n'admettant qu'un abonné, c'est la seule
-  // lecture fiable dont on dispose ici.
-  const jeuEnCours = () => !!document.querySelector('.plaisirs-stage .regulation-stage:not(.is-empty)');
+  // Un lieu qu'on REGARDE (scène, boudoir, salon) : il n'ouvre rien, la coupe
+  // défile jusqu'à lui (`focus`). La partie en cours se referme — son panneau
+  // couvrirait ce qu'on est venu voir (une main de vingt-et-un se reprend à la
+  // réouverture, un vol d'Icare se résout seul).
+  const regarder = (spot) => {
+    if (spotRankLock(spot) != null) return; // le boudoir attend son titre
+    closeTempleStage();
+    setPlein(null);
+    setSelection(spot.id);
+    if (spot.id === 'scene') jouerMelodieScene(band);
+  };
+  // Viser un lieu sur la COUPE (clic, clavier) : on le regarde ou on le choisit.
+  const viser = (spot) => (spotIsVisit(spot) ? regarder(spot) : choisir(spot));
 
-  // Depuis le MENU : si on joue déjà, on bascule DIRECTEMENT sur l'autre jeu
-  // (Raph, 2026-08-07) — repasser par le bouton d'action obligerait à fermer,
-  // viser le lieu, puis relancer. Hors partie, on garde les deux temps.
-  //
-  // ⚠ SAUF LA BOUTIQUE, qui s'ouvre toujours d'un seul tap. Les deux temps
-  // existent pour qu'un clic distrait sur le DÉCOR n'engage pas une mise — ils
-  // protègent de la Faveur perdue. Entrer dans une boutique ne coûte rien, et
-  // depuis le menu le geste est délibéré : on a lu un nom et on l'a touché.
-  // Rapporté par Raph : « l'échoppe n'amène pas à la boutique ». Elle amenait à
-  // un bouton « Entrer » de 63×40 posé sur une illustration haute de 198px sur
-  // téléphone — invisible en pratique.
-  const depuisMenu = (spot) => (jeuEnCours() || spotIsFullFrame(spot) ? lancer(spot) : choisir(spot));
-
-  const allume = (id) => survol === id || selection === id;
+  // Depuis le MENU, un clic OUVRE le lieu (Raph, 2026-10-04 : « il faut que les
+  // boutons du menu fonctionnent ») : chaque ligne porte son verbe (Jouer, Jeter,
+  // Voler…), elle fait ce qu'elle dit. Les deux temps ne valent plus que pour le
+  // DÉCOR, où un clic distrait est possible ; depuis le menu le geste est délibéré
+  // (on a lu un nom et on l'a touché), et ouvrir une table n'engage aucune mise.
+  // Avant : hors partie, le menu ne faisait que CHOISIR le lieu et posait un bouton
+  // d'action sur l'illustration (2026-08-07) ; seule la boutique s'ouvrait d'un tap
+  // (« l'échoppe n'amène pas à la boutique »).
+  const depuisMenu = (spot) => (spotIsVisit(spot) ? regarder(spot) : lancer(spot));
 
   return (
     // ⚠ `view active` et pas `view` seul : `.view` est masquée par défaut
@@ -221,7 +227,7 @@ export default function PlaisirsView() {
               onLayout={setMise}
               lit={[survol, selection].filter(Boolean)}
               onHover={survoler}
-              onPick={(id) => { const spot = PLAISIRS_SPOTS.find((sp) => sp.id === id); if (spot) choisir(spot); }}
+              onPick={(id) => { const spot = PLAISIRS_SPOTS.find((sp) => sp.id === id); if (spot) viser(spot); }}
             />
           </div>
         )}
@@ -248,7 +254,8 @@ export default function PlaisirsView() {
             par la salle quand le lieu a le focus. */}
         {!plein && PLAISIRS_SPOTS.filter((sp) => geo(sp)).map((spot) => {
           const g = geo(spot), r = g.r;
-          const ouvert = spotIsOpen(spot);
+          // Un lieu qu'on regarde se vise aussi : on s'y rend (s'il a son titre).
+          const ouvert = spotIsOpen(spot) || spotCanVisit(spot);
           return (
             // ⚠ Une DIV et non un <button> : le thème du projet habille les
             // boutons (fond, bordure, coins) avec assez de poids pour écraser
@@ -258,8 +265,7 @@ export default function PlaisirsView() {
             <div
               key={spot.id}
               role="button"
-              // Un lieu sans jeu reste DESSINÉ mais non cliquable : mieux vaut
-              // un lieu inerte qu'un panneau vide qui s'ouvre sur rien.
+              // Un jeu pas encore ouvert reste DESSINÉ mais non cliquable.
               tabIndex={ouvert ? 0 : -1}
               aria-disabled={!ouvert}
               aria-label={spot.label}
@@ -268,12 +274,12 @@ export default function PlaisirsView() {
               onMouseLeave={() => setSurvol((s) => (s === spot.id ? null : s))}
               onFocus={() => setSurvol(spot.id)}
               onBlur={() => setSurvol((s) => (s === spot.id ? null : s))}
-              onClick={(e) => { e.stopPropagation(); choisir(spot); }}
+              onClick={(e) => { e.stopPropagation(); viser(spot); }}
               onKeyDown={(e) => {
                 if (e.key !== 'Enter' && e.key !== ' ') return;
                 e.preventDefault();      // sinon Espace fait défiler la page
                 e.stopPropagation();
-                choisir(spot);
+                viser(spot);
               }}
               style={{
                 position: 'absolute',
@@ -341,6 +347,13 @@ export default function PlaisirsView() {
           );
         })()}
 
+        {/* La scène choisie : l'affiche du morceau (◀ titre ▶), au même endroit
+            que le bouton d'action d'un jeu. */}
+        {!plein && selection === 'scene' && (() => {
+          const g = geo(PLAISIRS_SPOTS.find((sp) => sp.id === 'scene'));
+          return g ? <SceneJukebox x={g.x} y={g.top} /> : null;
+        })()}
+
         {/* LE JEU, EN SURIMPRESSION sur l'illustration — plus jamais à côté.
             Il ne se voit QUE lorsqu'une partie est ouverte : la scène se marque
             elle-même `is-empty` quand elle ne porte rien, et la feuille de style
@@ -377,44 +390,21 @@ export default function PlaisirsView() {
           la coquille tactile.
           Sorti du cadre, il peut redescendre SOUS l'illustration quand la place
           manque (cf. la bascule de views-plaisirs.css) sans que l'image ait à se
-          déformer ni les points chauds à se recalibrer. */}
-      <nav ref={menuRef} className="plaisirs-menu" aria-label="Les lieux de la Maison des Plaisirs">
-        {/* LA BOURSE, en tête du menu : on lit ce qu'on peut miser avant de
-            choisir où le miser. */}
-        <OffrandesBloc />
+          déformer ni les points chauds à se recalibrer.
 
-        {/* Le retour n'apparaît qu'en plein cadre : sur l'illustration, on est
-            déjà dans la salle et l'entrée n'aurait aucun sens. */}
-        {plein && (
-          <button
-            type="button"
-            onClick={(e) => { e.stopPropagation(); revenir(); }}
-            className="plaisirs-lieu is-actif"
-          >
-            Retour à la salle
-          </button>
-        )}
-        {PLAISIRS_SPOTS.map((spot) => {
-          const ouvert = spotIsOpen(spot);
-          const actif = allume(spot.id);
-          return (
-            <button
-              key={spot.id}
-              type="button"
-              disabled={!ouvert}
-              onMouseEnter={() => setSurvol(spot.id)}
-              onMouseLeave={() => setSurvol((s) => (s === spot.id ? null : s))}
-              onFocus={() => setSurvol(spot.id)}
-              onBlur={() => setSurvol((s) => (s === spot.id ? null : s))}
-              onClick={(e) => { e.stopPropagation(); depuisMenu(spot); }}
-              title={ouvert ? undefined : 'Bientôt'}
-              className={`plaisirs-lieu${actif && ouvert ? ' is-actif' : ''}`}
-            >
-              {spot.label}
-            </button>
-          );
-        })}
-      </nav>
+          Depuis le 2026-10-03 : un TABLEAU D'ÉTAGES calqué sur la coupe cuite
+          (plaisirs/PlaisirsMenu.jsx). */}
+      <PlaisirsMenu
+        navRef={menuRef}
+        bake={bake}
+        band={band}
+        survol={survol}
+        selection={selection}
+        plein={plein}
+        onHover={(id, quitte) => (quitte ? setSurvol((s) => (s === quitte ? null : s)) : setSurvol(id))}
+        onPick={depuisMenu}
+        onBack={revenir}
+      />
 
     </section>
   );

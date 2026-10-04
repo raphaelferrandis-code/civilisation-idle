@@ -6,7 +6,7 @@ import { eras, CRISIS_EVENTS } from '../data/world.js';
 import { eraBandOf } from '../data/eraThemes.js';
 import { clamp01 } from './utils.js';
 import { Decimal, D } from './num.js';
-import { COLLAPSE_PREP_MAX, POLICY_MAX_ACTIVE, REGUL_LEDGER_MAX, GAMBLE_HISTORY_LEN, STEWARD_MAX_CLAUSES, STEWARD_THRESHOLDS, ICARUS_HISTORY_COLOMBIER, FLIGHTS_MAX_COLOMBIER, SCRATCH_HISTORY_LEN, BLACKJACK_HISTORY_LEN, SLOTS_HISTORY_LEN, STYLET_MAX_LEVEL, AUTO_COLLAPSE_MIN_SECONDS, AUTO_ICARUS_TARGET_MIN, AUTO_ICARUS_TARGET_MAX, AUTO_TEMPLE_FAVEUR_FLOOR_DEFAULT, AUTO_STAKE_STEPS, CAISSE_INITIAL, TEMPLE_ARTIFACT_IDS, BOON_INTERVAL_MAX_SEC, CLEPSYDRE_HARD_MAX_SECONDS, MAX_BATCH_AMOUNT, grandResetProductionMult, grandResetRuinGainMult } from './balance.js';
+import { COLLAPSE_PREP_MAX, POLICY_MAX_ACTIVE, REGUL_LEDGER_MAX, GAMBLE_HISTORY_LEN, STEWARD_MAX_CLAUSES, STEWARD_THRESHOLDS, ICARUS_HISTORY_COLOMBIER, FLIGHTS_MAX_COLOMBIER, SCRATCH_HISTORY_LEN, BLACKJACK_HISTORY_LEN, SLOTS_HISTORY_LEN, ROULETTE_HISTORY_LEN, STYLET_MAX_LEVEL, AUTO_COLLAPSE_MIN_SECONDS, AUTO_ICARUS_TARGET_MIN, AUTO_ICARUS_TARGET_MAX, AUTO_TEMPLE_FAVEUR_FLOOR_DEFAULT, AUTO_STAKE_STEPS, CAISSE_INITIAL, TEMPLE_ARTIFACT_IDS, BOON_INTERVAL_MAX_SEC, CLEPSYDRE_HARD_MAX_SECONDS, MAX_BATCH_AMOUNT, grandResetProductionMult, grandResetRuinGainMult } from './balance.js';
 import { resetAnnals } from './annals.js';
 import { normalizeUiReveal } from './uiReveal.js';
 import { normalizeOlympusState, defaultOlympusState } from '../data/olympus.js';
@@ -141,7 +141,9 @@ const CHRONICLE_GAME_EXTRAS = {
   scratch:   { venus: 0, soleil: 0 },
   blackjack: { naturals: 0, bestStreak: 0 },
   // La machine à sous (2026-10-03) : séries de tours gratuits, roues, jackpots.
-  slots:     { freeSpins: 0, wheels: 0, holdWins: 0, jackpots: 0, biggestJackpot: 0 }
+  slots:     { freeSpins: 0, wheels: 0, holdWins: 0, jackpots: 0, biggestJackpot: 0 },
+  // La roulette du salon (lot 3 des gains « vrai casino ») : les zéros tombés.
+  roulette:  { zeros: 0 }
 };
 
 export function defaultChronicleStats() {
@@ -591,6 +593,8 @@ export const defaultState = () => ({
   // null) : elle survit à la fermeture de la machine, pas à l'effondrement.
   slotsHistory: [],
   slotsFreeSpins: null,
+  // La roulette du salon (lot 3) : les dernières cases tombées (0-36).
+  rouletteHistory: [],
   // Boutique de Faveur — augment ÉTERNEL : survit aux effondrements ET au Grand
   // Reset (cf. GR_PERSISTENT_FIELDS). styletLevel = stylet du gratteux (rayon de
   // grattage, pur confort). Les dés pipés, ailes cirées, planches du graveur et
@@ -1825,6 +1829,9 @@ export function hydrateState(parsed = {}) {
     slotsHistory: Array.isArray(source.slotsHistory)
       ? source.slotsHistory.filter((v) => typeof v === "string").slice(-SLOTS_HISTORY_LEN)
       : [],
+    rouletteHistory: Array.isArray(source.rouletteHistory)
+      ? source.rouletteHistory.filter((v) => Number.isInteger(v) && v >= 0 && v <= 36).slice(-ROULETTE_HISTORY_LEN)
+      : [],
     slotsFreeSpins: normalizeSlotsFreeSpins(source.slotsFreeSpins),
     // MIGRATIONS : entier (N plumes) → file d'ids → file de MONTANTS (lot 1). Les
     // ids inconnus et les montants invalides tombent, puis la file est tronquée.
@@ -2111,6 +2118,7 @@ export function resetTemporaryRunState(s) {
   s.blackjackStreak = 0;
   s.slotsHistory = [];
   s.slotsFreeSpins = null;
+  s.rouletteHistory = [];
   s.icarusFreeFlights = [];
   // Bénédiction = effet TEMPORAIRE de run : effacée à l'effondrement (les
   // boosters permanents dés/ailes, eux, SURVIVENT — comme la Faveur).

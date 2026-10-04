@@ -483,6 +483,13 @@ const GAME_DEFS = [
       tr({ fr: `${fmtCount(g.wheels)} roues`, en: `${fmtCount(g.wheels)} wheels` }),
       tr({ fr: `${fmtCount(g.jackpots)} jackpots`, en: `${fmtCount(g.jackpots)} jackpots` })
     ]
+  },
+  // La roulette du salon (lot 3 des gains « vrai casino ») : les zéros tombés.
+  {
+    key: "roulette", emoji: "🎡", name: { fr: "Roulette", en: "Roulette" },
+    hl: (g) => [
+      tr({ fr: `${fmtCount(g.zeros)} zéros`, en: `${fmtCount(g.zeros)} zeros` })
+    ]
   }
 ];
 

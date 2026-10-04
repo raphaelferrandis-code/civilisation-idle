@@ -40,11 +40,11 @@
 }
 
 /* Montée dans la Maison des Plaisirs, le menu des lieux flotte à gauche par-dessus
-   (views-plaisirs.css : `left: 18px`, `min-width: 13rem`) : l'échoppe lui laisse sa
+   (views-plaisirs.css : `left: 18px`, largeur `--pm-w`) : l'échoppe lui laisse sa
    colonne — sinon il couvrait l'armoire des jeux. Sous 761 px il descend sous la
    salle, plus rien à éviter. La bourse est déjà en tête du menu. */
 @media (min-width: 761px) {
-  .app[data-active-view="plaisirs"] #tech.echoppe { padding-left: calc(13rem + 36px); }
+  .app[data-active-view="plaisirs"] #tech.echoppe { padding-left: calc(var(--pm-w, 16rem) + 36px); }
 }
 .app[data-active-view="plaisirs"] .echoppe-wallet { display: none; }
 

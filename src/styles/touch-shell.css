@@ -1143,7 +1143,7 @@
 :root[data-pointer="coarse"] .blackjack-stage button,
 :root[data-pointer="coarse"] .scratch-stage button,
 :root[data-pointer="coarse"] .augury-stage button,
-:root[data-pointer="coarse"] .temple-pupitre button {
+:root[data-pointer="coarse"] .pm-dials button {
   min-height: var(--touch-target);
 }
 
@@ -1464,8 +1464,14 @@
    étroit il descend sous l'illustration (views-plaisirs.css), et ce n'était PAS
    un défaut tactile — la même troncature se produisait au curseur dans une
    fenêtre étroite. */
-:root[data-pointer="coarse"] .plaisirs-lieu,
-:root[data-pointer="coarse"] .plaisirs-relever {
+:root[data-pointer="coarse"] .pm-go,
+:root[data-pointer="coarse"] .pm-collect,
+:root[data-pointer="coarse"] .pm-back {
+  min-height: var(--touch-target);
+}
+/* La flamme d'automatisation du tableau d'étages : la ligne entière au doigt. */
+:root[data-pointer="coarse"] .pm-flame {
+  height: 100%;
   min-height: var(--touch-target);
 }
 

@@ -15,6 +15,15 @@ export function lastStakeOf(game) {
   return lastStakes[game] || 0;
 }
 
+// Les derniers PARIS d'une table à plusieurs cases (la roulette du lot 3) : { clé: mise }.
+const lastBets = {};
+export function rememberBets(game, bets) {
+  if (bets && Object.keys(bets).length) lastBets[game] = { ...bets };
+}
+export function lastBetsOf(game) {
+  return lastBets[game] ? { ...lastBets[game] } : null;
+}
+
 // La mise de départ d'une table : la dernière jouée (si la bourse la couvre), sinon
 // un jeton raisonnable — l'avant-dernier du râtelier (~1/5 de la limite), et pas plus
 // d'un cinquième de la Faveur — toujours ramenée dans les limites du moment (elles

@@ -140,14 +140,53 @@ soit la taille des mises (les grosses mises n'y vont que plus vite, et plus au h
   la voix de l'oracle, les reliques, la sébile (auto de la caisse), la Bénédiction.
 - **Sauvegarde v6** : qui avait déjà acheté un cadeau de rang le garde, et sa Faveur revient
   (annoncé une fois dans la Chronique).
-- **Pas encore fait** : ouvrir le salon et le boudoir par le titre (ils appartiennent à la coupe
-  et au menu de la Maison, travail d'autres sessions non commité).
+- **Le salon et le boudoir** s'ouvrent par le titre depuis le lot 3 (voir plus bas).
 
-## Lot 3 — les contenus (à venir)
+## Lot 3 — les contenus (premiers pas le 2026-10-04)
 
-Roulette (si pas déjà là), courses, grands flambeurs en duel, coups de légende, Nuit du
-Grand Jeu, compteur de cartes, le spectacle attire les clients, reliques plus serrées,
-paliers de gain ×10 / ×50 / ×250.
+Raph : « fais les 4 et résous les deux défauts majeurs ». Ses choix : la roulette dans le
+SALON dès Familier, le boudoir au Mécène ; le GRAND à ×250 la mise au moins ; le menu en
+étages (autre session) part avec le lot ; commiter sans pousser.
+
+**Les deux défauts de la machine.**
+- Le râtelier passait à la ligne au hasard de la largeur : il tient sur DEUX rangs voulus,
+  les jetons dessus, Effacer / Même mise / Tapis dessous (`rackStack` de `TableMise`).
+- Le GRAND (les quinze cases du Hold & Win) payait moins que le MAJEUR (×100) : il paie au
+  moins ×250 la mise (`SLOTS_GRAND_FLOOR`), plus la cagnotte au prorata de la mise. La case
+  « JP » de la roue verse la cagnotte et le dit. La machine rend **93,55 %** (calcul exact,
+  `slotsMath.js`).
+
+**Les grands gains** (`core/grandsGains.js`, `ui/GrandGain.jsx`). Un gain de ×10 la mise
+(« Gros gain »), ×50 (« Énorme gain ») ou ×250 (« Coup de légende ») fait monter un bandeau
+par-dessus la table, avec la musique de la machine ; un coup de légende entre dans la Chronique.
+Branchés : osselets (jet et quitte ou double), Icare (retrait), tickets, machine (son propre
+bandeau), roulette (contre la mise TOTALE du tour : un plein seul paie ×36, un gros gain). Le
+vingt-et-un ne paie jamais ×10.
+
+**Les reliques rapprochées** : une à chaque ×10 du prix, ×1,25 de production chacune pour les
+nouvelles — Char du Soleil (1 M), **Lyre d'Orphée (10 M)**, **Miroir d'Aphrodite (100 M)**,
+Corne du temple (1 G, ×2), **Toison d'or (10 G)**, **Pomme d'or (100 G)**, Œil d'or (1 T, ×4).
+Leurs flacons prennent les places laissées par les achats retirés au lot 1.
+
+**La roulette du salon** (`actions/roulette.js`, `ui/RouletteStage.jsx`, `plaisirs/rouletteArt.js`).
+- Une roue européenne à UN zéro : plein ×36, douzaine et colonne ×3, chances simples ×2 (rouge,
+  noir, pair, impair, 1-18, 19-36). Chaque pari rend 36/37 = **97,30 %** (A2 du banc, exact sur
+  les 49 paris). Le zéro ne paie que son plein.
+- Ouverte au titre de **Familier** (`ROULETTE_UNLOCK_RANK`). Les limites sont celles des autres
+  tables, pour la mise TOTALE ; la cagnotte et la réputation se nourrissent à chaque tour.
+- La table : la croupière de toutes les tables, la roue peinte par le code au pixel (ellipse,
+  lumière en haut à gauche) à gauche, le tapis à droite. Un jeton choisi au râtelier, un clic
+  le pose (clic droit : la case se vide), « Même mise », « Lancer la bille ». La roue tourne,
+  la bille court à rebours et tombe ; la case tombée est cerclée, les cases gagnantes
+  s'allument ; « Relancer » ou « Changer de mise ». Fermer pendant le tour l'encaisse quand même.
+- L'historique (12 cases) au mur ; la Chronique compte les tours et les zéros (carte 🎡).
+
+**Le boudoir** se regarde à partir du titre de **Mécène** (`BOUDOIR_UNLOCK_RANK`). Avant, sa
+ligne du menu est grisée « 🔒 Mécène » (infobulle : le titre qui l'ouvre) et sa salle reste
+inerte sur la coupe. Même chose pour le salon avant Familier.
+
+**Reste du lot 3 (idées, rien de fait)** : courses, grands flambeurs en duel, Nuit du Grand Jeu,
+compteur de cartes, le spectacle attire les clients.
 
 ## Journal
 
@@ -220,3 +259,22 @@ râtelier le recouvrait, ce qui sautait aux yeux avec huit vols offerts).
 **Banc.** 16 garde-fous verts, dont A8 : le titre ne touche à aucune cote ; limite ×10 par titre,
 salle commune et rafle à la base ; la réputation suit la perte réelle (Icare, 300 000 vols,
 1,3 % d'écart). Tests : `maisonRang.test.js` (15), arbre et automatisations mis à jour.
+
+### 2026-10-04 — lot 3 : les deux défauts, les grands gains, les reliques, la roulette
+
+**Commit `d58edd5`** (local) : le GRAND à ×250, le râtelier en deux rangs, les grands gains,
+les reliques. Tests : `grandsGains.test.js` (4), machine, arbre et limites mis à jour.
+
+**Commit suivant** (local, pas poussé) : la roulette, le salon et le boudoir par le titre, et
+le **menu en étages** de la session Plaisirs-menu (`PlaisirsMenu.jsx`, le pupitre fondu, la
+bourse), avec l'accord de Raph — avec lui, le crochet de la mélodie de la scène dans
+`PlaisirsView.jsx` (session musique). Vérifié en jeu (Chrome sans fenêtre, 2560×1340) : salon
+et boudoir verrouillés puis ouverts au titre, un tour perdu, un tour gagné (plein + douzaine +
+noir sur le 17 : +30 500 exact), le bandeau « Coup de légende », la machine (GRAND 12,5 M >
+MAJEUR 5 M à 50 000 la mise), les reliques à la Boutique.
+
+**Corrigé en vérifiant.** (1) Le tapis sortait en désordre : le `all: unset` des cases effaçait
+leur place dans la grille (sélecteurs renforcés). (2) La roue n'apparaissait qu'au premier
+tour : la table monte la toile APRÈS avoir mesuré sa place, la toile est tenue en état.
+
+**Banc.** 17 garde-fous verts (A2 roulette ajouté). Tests : `roulette.test.js` (9).
