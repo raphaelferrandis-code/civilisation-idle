@@ -2687,11 +2687,78 @@ function computeCityLayout(s) {
     // depuis la refonte par le code, iso/plaisirsBake.js), plus un peu d'eau.
     r: 3.1
   };
+  // La MÉMOIRE DU RÉSEAU, décodée ici — avant le lieu des Plaisirs et le lit : le lieu
+  // l'interroge pour ne noyer aucune rue, le lit pour garder ses rues de quai (plus bas),
+  // le tracé pour repartir du réseau d'hier (plus bas encore).
+  const roadMem = memOn ? decodeRoadMemory(s.cityRoads, mapSeed, cx, cy) : null;
   let plaisirsSpot = null;
   {
     const last = riverSamples.length - 1;
     const idxOf = (u) => Math.max(0, Math.min(last, Math.round(u * last)));
     const iMin = idxOf(PLAISIRS.uMin), iMax = idxOf(PLAISIRS.uMax);
+    // Sens du renflement tiré au sort, mais REBRASSÉ : le bit faible de cmHash
+    // vaut la parité de l'entrée, s'en servir tel quel donnerait un damier.
+    const h = cmHash("plaisirs:drift:" + (mapSeed || 0)) >>> 0;
+    const side = ((h >>> 13) & 1) ? 1 : -1;
+    // L'ÉVASEMENT du lit si le lieu se pose sur l'échantillon `si` : pour chaque
+    // échantillon touché, son nouvel axe et sa nouvelle demi-largeur. Calculé sans rien
+    // toucher — le même calcul sert à ESSAYER une place et à l'appliquer.
+    //   - L'élargissement : `hw` gagne `spread` au plus fort, en smoothstep (les rives
+    //     s'ouvrent en douceur).
+    //   - L'ASYMÉTRIE. Élargir `hw` seul donne un fuseau parfaitement symétrique ; un
+    //     vrai élargissement de rivière creuse davantage une rive. On pousse donc aussi
+    //     l'AXE du lit en travers du courant. ⚠ Modeste, et pour la même raison que
+    //     l'évasement de l'île : un lit trop poussé finit sous une route, qui devient
+    //     alors un pont que personne n'a demandé.
+    //   ⚠ L'échantillon central se décale lui-même (k = 1) avant que les suivants ne
+    //   mesurent leur distance à lui : c'était l'ordre de la boucle d'origine, il est
+    //   gardé tel quel (la place du lieu ne bouge pas d'un pixel).
+    const evasement = (si) => {
+      const s0 = riverSamples[si];
+      // Tangente du courant, prise sur deux échantillons de part et d'autre.
+      const a = riverSamples[Math.max(0, si - 2)], b = riverSamples[Math.min(last, si + 2)];
+      let tx = b.x - a.x, ty = b.y - a.y;
+      const tl = Math.hypot(tx, ty) || 1; tx /= tl; ty /= tl;
+      const c1 = { x: s0.x - side * PLAISIRS.drift * ty, y: s0.y + side * PLAISIRS.drift * tx };
+      const out = [];
+      for (let j = 0; j <= last; j += 1) {
+        const sp = riverSamples[j], c = j <= si ? s0 : c1;
+        const d = Math.hypot(sp.x - c.x, sp.y - c.y);
+        if (d > PLAISIRS.etale) continue;
+        const u = 1 - d / PLAISIRS.etale;
+        const k = u * u * (3 - 2 * u);
+        out.push({ j, hw: sp.hw + PLAISIRS.spread * k, x: sp.x - side * PLAISIRS.drift * k * ty, y: sp.y + side * PLAISIRS.drift * k * tx });
+      }
+      return { tx, ty, spot: c1, out };
+    };
+    // AUCUNE RUE NOYÉE (Raph 2026-10-04 : « vas-y pour les Plaisirs aussi »). Le lieu
+    // s'éloigne de la ville à mesure qu'elle grandit, et son évasement (+2,5 cases de
+    // demi-largeur, axe poussé de 1,4 sur 14 cases) suit : posé sur une rue déjà là, il
+    // la mettrait sous l'eau. Une place dont l'évasement noierait une rue MÉMORISÉE
+    // (hors tablier de pont, déjà sur l'eau) est sautée — le lieu prend la suivante,
+    // toujours hors de la ville. Mesuré avant ce garde : aucune rue noyée sur 3 graines
+    // × 11 passages d'âge ; c'est une assurance, la place ne change que si elle noie.
+    const noie = (si) => {
+      if (!roadMem) return false;
+      const wetBefore = (gx, gy, j) => {
+        for (let q = Math.max(0, j - 24); q <= Math.min(last, j + 24); q += 1) {
+          const sp = riverSamples[q];
+          if (Math.hypot(gx + 0.5 - sp.x, gy + 0.5 - sp.y) <= sp.hw + 0.5) return true;
+        }
+        return false;
+      };
+      for (const e of evasement(si).out) {
+        const R = e.hw + 0.5;
+        for (let gx = Math.floor(e.x - R); gx <= Math.ceil(e.x + R); gx += 1) {
+          for (let gy = Math.floor(e.y - R); gy <= Math.ceil(e.y + R); gy += 1) {
+            if (!roadMem.has(gx + "," + gy)) continue;
+            if (Math.hypot(gx + 0.5 - e.x, gy + 0.5 - e.y) > R) continue;
+            if (!wetBefore(gx, gy, e.j)) return true;
+          }
+        }
+      }
+      return false;
+    };
     // HORS DE LA VILLE, dans la direction de l'échantillon lui-même. `reachFor`
     // est le contour urbain à cet angle — le même que consulte `organicLimit`
     // pour décider si une cellule est constructible : on interroge donc bien la
@@ -2705,35 +2772,14 @@ function computeCityLayout(s) {
     const loinDuPont = (sp) => Math.abs(sp.x - riverBridge.x) >= PLAISIRS.minBridge;
     let si = iMax;                                  // repli : la borne aval
     for (let i = iMin; i <= iMax; i += 1) {
-      if (dehors(riverSamples[i]) && loinDuPont(riverSamples[i])) { si = i; break; }
+      if (dehors(riverSamples[i]) && loinDuPont(riverSamples[i]) && !noie(i)) { si = i; break; }
     }
-    const s0 = riverSamples[si];
-    // Tangente du courant, prise sur deux échantillons de part et d'autre.
-    const a = riverSamples[Math.max(0, si - 2)], b = riverSamples[Math.min(riverSamples.length - 1, si + 2)];
-    let tx = b.x - a.x, ty = b.y - a.y;
-    const tl = Math.hypot(tx, ty) || 1; tx /= tl; ty /= tl;
-    // Sens du renflement tiré au sort, mais REBRASSÉ : le bit faible de cmHash
-    // vaut la parité de l'entrée, s'en servir tel quel donnerait un damier.
-    const h = cmHash("plaisirs:drift:" + (mapSeed || 0)) >>> 0;
-    const side = ((h >>> 13) & 1) ? 1 : -1;
-    for (const sp of riverSamples) {
-      const d = Math.hypot(sp.x - s0.x, sp.y - s0.y);
-      if (d > PLAISIRS.etale) continue;
-      const u = 1 - d / PLAISIRS.etale;
-      const k = u * u * (3 - 2 * u);                 // smoothstep : les rives s'ouvrent en douceur
-      sp.hw += PLAISIRS.spread * k;
-      // L'ASYMÉTRIE. Élargir `hw` seul donne un fuseau parfaitement symétrique ;
-      // un vrai élargissement de rivière creuse davantage une rive. On pousse
-      // donc aussi l'AXE du lit en travers du courant. ⚠ Modeste, et pour la
-      // même raison que l'évasement de l'île : un lit trop poussé finit sous une
-      // route, qui devient alors un pont que personne n'a demandé.
-      sp.y += side * PLAISIRS.drift * k * tx;
-      sp.x -= side * PLAISIRS.drift * k * ty;
-    }
+    const { tx, ty, spot, out: evase } = evasement(si);
+    for (const e of evase) { const sp = riverSamples[e.j]; sp.hw = e.hw; sp.x = e.x; sp.y = e.y; }
     // `clear` VOYAGE AVEC LE SPOT : le domaine réservé (ni bâti, ni traversée) se
     // lit là où la place se lit, sinon les deux divergeraient au premier réglage.
     plaisirsSpot = {
-      x: s0.x, y: s0.y, tx, ty,
+      x: spot.x, y: spot.y, tx, ty,
       r: PLAISIRS.r, rx: PLAISIRS.r, ry: PLAISIRS.r * 0.6,
       clear: PLAISIRS.clear,
     };
@@ -2766,8 +2812,7 @@ function computeCityLayout(s) {
   // de rive qui touche un tablier (case d'eau portant elle-même une rue) : c'est la
   // berge qui fait d'elle une culée. Une rue de quai, elle, touche l'eau nue. Le dessin
   // du fleuve ne change pas (le ruban suit les échantillons, pas les Sets).
-  // (Décodée ici plutôt qu'avec le réseau, plus bas : elle sert aux deux.)
-  const roadMem = memOn ? decodeRoadMemory(s.cityRoads, mapSeed, cx, cy) : null;
+  // (La mémoire du réseau, `roadMem`, est décodée plus haut, avant le lieu des Plaisirs.)
   if (roadMem) {
     const deck = (k) => riverSet.has(k) && roadMem.has(k);
     for (const k of roadMem.keys()) {
