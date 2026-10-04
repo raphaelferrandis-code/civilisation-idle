@@ -70,11 +70,13 @@ export const ORIENT = {
 // LES RANGÉES MITOYENNES : `of` = modèle de rangée de chaque variante, `end` = le
 // modèle des BOUTS de rangée et des DOS (mur latéral à découvert : il lui faut des
 // fenêtres sur quatre faces), `selfEnd` = modèles dont le pignon a déjà ses fenêtres
-// (ils font leur propre bout), `models` = vues disponibles de chaque modèle. Fichiers
+// (ils font leur propre bout), `models` = vues disponibles de chaque modèle, `sides` = les
+// modèles qu'un CÔTÉ d'îlot peut prendre (un seul par côté, tiré par côté). Fichiers
 // `houses/row-<modèle>-<vue>.png` ; vues fl/fr = façade à gauche/droite, bl/br = dos.
 export const ROWS = {
   // Village : la même rangée à colombages (la maison de ville et l'atelier s'y alignent).
   2: {
+    sides: ["colombage"],
     of: { crafthouse: "colombage", townhouse: "colombage" },
     end: "colombage",
     selfEnd: ["colombage"],
@@ -84,12 +86,14 @@ export const ROWS = {
   // maison artisane) : deux maisons sous un toit de tuiles, rez de pierre et volets
   // d'échoppe, pignons percés.
   3: {
+    sides: ["colombage"],
     of: { crafthouse: "colombage", townhouse: "colombage", stonehouse: "colombage" },
     end: "colombage",
     selfEnd: ["colombage"],
     models: { colombage: ["fl", "fr", "bl", "br"] },
   },
   4: {
+    sides: ["taberna", "domus", "popina", "insula"],
     of: { taberna: "taberna", domus: "domus", courtyard: "popina", insula: "insula", insula2: "insula" },
     end: "insula",
     models: { taberna: ["fl", "fr"], domus: ["fl", "fr"], popina: ["fl", "fr"], insula: ["fl", "fr", "bl", "br"] },
@@ -99,6 +103,7 @@ export const ROWS = {
   // Et la rangée de BRIQUE (objet neuf house-terrace-b5-rangee, palette de la rangée
   // ouvrière du jeu) : deux maisons sous un toit d'ardoise, pignons percés.
   5: {
+    sides: ["haussmann", "terrace"],
     of: { haussmann: "haussmann", block: "terrace", terrace: "terrace" },
     // Les dos de la rangée haussmannienne (murs aveugles) cèdent la place à ceux de brique.
     end: "terrace",
@@ -109,6 +114,7 @@ export const ROWS = {
 ROWS[6] = {
   // Néon : la rue commerçante — boutiques néon en façade, dos et bouts en brique (la
   // rangée de la Fonte, que la bande 6 tire encore ; les dos néon sont des murs aveugles).
+  sides: ["neonshop", "terrace"],
   of: { neonshop: "neonshop", block: "neonshop", terrace: "terrace" },
   end: "terrace",
   selfEnd: ["neonshop", "terrace"],

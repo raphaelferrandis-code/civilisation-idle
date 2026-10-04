@@ -106,6 +106,16 @@ describe("ville par îlots (bande 4)", () => {
       if (n && n.row && n.face === t.face && !!n.terrace !== !!t.terrace) mixed += 1;
     }
     expect(mixed, "côtés d'îlot mélangés").toBe(0);
+    // Un côté, UN modèle (Raph 2026-10-04 : « les toits et bâtiments ne se suivent pas ») :
+    // deux unités voisines d'une même rangée tirent le même modèle.
+    let split = 0;
+    for (const t of rows) {
+      if (!t.terrace) continue;
+      const along = t.face === "S" || t.face === "N";
+      const n = byKey.get(along ? (t.gx + 1) + "," + t.gy : t.gx + "," + (t.gy + 1));
+      if (n && n.terrace && n.face === t.face && n.rowSide !== t.rowSide) split += 1;
+    }
+    expect(split, "rangées à deux modèles").toBe(0);
     // Bout de rangée = mur latéral à découvert : son voisin de devant n'est pas une rangée.
     for (const t of rows) {
       if (!t.terrace) continue;

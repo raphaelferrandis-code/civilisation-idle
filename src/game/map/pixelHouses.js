@@ -134,7 +134,10 @@ function rowKeyOf(t) {
   if (!t.terrace || !t.face) return null;
   const R = ROWS[bandNow()];
   if (!R) return null;
-  let d = R.of[bodyOf(t)];
+  // UN modèle par côté d'îlot (Raph 2026-10-04 : « les toits et bâtiments ne se suivent
+  // pas parfaitement ») : tiré par côté (`t.rowSide`, layout.js), pas par maison — sinon
+  // un haussmannien de six étages s'intercalait entre deux maisons de brique.
+  let d = R.sides ? R.sides[(t.rowSide >>> 0) % R.sides.length] : R.of[bodyOf(t)];
   if (!d) return null;
   const view = ROW_VIEW[t.face];
   const ownEnd = R.selfEnd && R.selfEnd.includes(d);
@@ -143,8 +146,14 @@ function rowKeyOf(t) {
   return "row-" + d + "-" + view;
 }
 // Repères d'une unité mitoyenne, en px du PNG : le coin AVANT de son pied (le point
-// d'encre le plus bas) et la LARGEUR de son losange (encre la plus à gauche → la plus
-// à droite, avant-toits compris : ce sont eux qui doivent toucher les voisins).
+// d'encre le plus bas) et l'EMPRISE AU SOL de ses deux murs — la ligne de base suivie
+// de part et d'autre du coin avant (encre la plus basse par colonne, pente ½ en iso)
+// jusqu'aux coins ouest et est. Un étal, une marche, un auvent peuvent masquer la base
+// sur quelques colonnes : on en tolère GAP avant de conclure au coin.
+// ⚠ v1 calait la LARGEUR D'ENCRE sur celle du losange : juste pour une maison carrée,
+// faux pour une maison longue (rangée de brique : façade 43 px, profondeur 15) — sa
+// façade débordait de 40 % sur le lot voisin et les toits se chevauchaient en dents de
+// scie (Raph, captures du 2026-10-04).
 function rowMetrics(img) {
   const w = img.naturalWidth, h = img.naturalHeight;
   const c = document.createElement("canvas");
@@ -153,15 +162,21 @@ function rowMetrics(img) {
   cx.drawImage(img, 0, 0);
   let d;
   try { d = cx.getImageData(0, 0, w, h).data; } catch { return null; }
-  let yb = -1, lx = w, rx = -1;
-  for (let y = 0; y < h; y += 1) for (let x = 0; x < w; x += 1) {
-    if (d[(y * w + x) * 4 + 3] <= 16) continue;
-    yb = Math.max(yb, y); lx = Math.min(lx, x); rx = Math.max(rx, x);
+  const low = new Array(w).fill(-1);
+  let yb = -1;
+  for (let x = 0; x < w; x += 1) {
+    for (let y = h - 1; y >= 0; y -= 1) if (d[(y * w + x) * 4 + 3] > 16) { low[x] = y; if (y > yb) yb = y; break; }
   }
   if (yb < 0) return null;
   let sx = 0, n = 0;
-  for (let y = Math.max(0, yb - 1); y <= yb; y += 1) for (let x = 0; x < w; x += 1) if (d[(y * w + x) * 4 + 3] > 16) { sx += x; n += 1; }
-  return { fx: sx / n + 0.5, fy: yb + 1, bw: rx - lx + 1 };
+  for (let x = 0; x < w; x += 1) if (low[x] >= yb - 1) { sx += x; n += 1; }
+  const fx = sx / n + 0.5, fy = yb + 1;
+  const TOL = 2.5, GAP = 4;
+  const onBase = (x, dx) => low[x] >= 0 && low[x] + 1 >= fy - dx * 0.5 - TOL;
+  let west = fx, east = fx;
+  for (let x = Math.floor(fx - 0.5), miss = 0; x >= 0 && miss <= GAP; x -= 1) { if (onBase(x, fx - x)) { west = x; miss = 0; } else miss += 1; }
+  for (let x = Math.ceil(fx - 0.5), miss = 0; x < w && miss <= GAP; x += 1) { if (onBase(x, x - fx)) { east = x + 1; miss = 0; } else miss += 1; }
+  return { fx, fy, left: Math.max(4, fx - west), right: Math.max(4, east - fx) };
 }
 // Clé EFFECTIVE d'une tuile : l'unité de rangée, sinon la vue tournée vers sa rue, si
 // leur dessin est prêt ; sinon le sprite de la variante (jamais de trou ni de repli
@@ -358,16 +373,20 @@ export function pixelHouseReady(t) {
 // un liseré décalé d'un pixel se voit tout de suite.
 // (x,y,w,h) = boîte-tuile (≈ carré s×s après inset/sizeVar). Base ancrée au bas
 // de la tuile ; largeur = bb.w × k (k = w/HOUSE_UNIT), hauteur au ratio.
-// L'UNITÉ MITOYENNE remplit son losange. (x, y, w, h) est la boîte-lot du peintre
+// L'UNITÉ MITOYENNE remplit son lot. (x, y, w, h) est la boîte-lot du peintre
 // (isoLivePaint : w = 2·T·z·HOUSE_LOT_WF, bas de boîte = coin sud − ¼ de tuile à
-// l'écran) : on en tire le coin SUD exact et la largeur du losange (2·T·z), puis le
-// PNG est posé coin avant sur coin sud, largeur d'avant-toit sur largeur de losange.
+// l'écran) : on en tire le coin SUD exact et la demi-largeur du losange (Tz), puis le
+// PNG est posé coin avant sur coin sud, sa façade couvrant le côté du lot.
 // Pas de poussé vers la rue (cf. isoFrontOffset) : l'unité EST le front de rue.
 function rowGeom(t, x, y, w, h, key, e) {
   const Tz = w / (2 * HOUSE_LOT_WF);
   const sx = x + w / 2, sy = y + h + Tz / 4;
   const m = e.row, bb = e.bbox;
-  const k = (2 * Tz) / m.bw;
+  // La façade (le mur LE LONG de la rangée) couvre exactement un lot : de coin à coin, les
+  // unités voisines se touchent et leurs toits, identiques, se suivent. Rangée le long
+  // de X (vues fl, bl) : le mur de gauche ; le long de Y (fr, br) : celui de droite.
+  const alongX = key.endsWith("-fl") || key.endsWith("-bl");
+  const k = Tz / (alongX ? m.left : m.right);
   recDens(key, k / ((CM.cam && CM.cam.zoom) || 1));
   const dw = Math.max(1, Math.round(bb.w * k)), dh = Math.max(1, Math.round(bb.h * k));
   const dx = Math.round(sx - (m.fx - bb.x0) * k), dy = Math.round(sy - (m.fy - bb.y0) * k);
