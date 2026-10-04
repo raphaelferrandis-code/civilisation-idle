@@ -191,6 +191,23 @@ PLAN-ROUTES) et « une maison ne bouge jamais » (keepInPlace).
     grands, le dessin d'une case de la liste prend la place — au Néon (trois dessins sur
     cinq sont grands), une maison-moteur achetée sur 129 n'était jamais posée. Marge fixe
     de lots 6 → 12 ; réserve des grands logis 2,0 lots par 2×2 et 0,9 par 1×2.
+- 2026-10-04 (après-midi — Raph, 4 captures : « les toits et bâtiments ne se suivent pas
+  parfaitement, ce n'est pas satisfaisant ») : deux causes, corrigées.
+  - GÉOMÉTRIE : chaque unité était mise à l'échelle sur sa LARGEUR D'ENCRE (= le
+    losange). Juste pour une maison carrée (domus, insula), faux pour une maison longue :
+    rangée de brique 43 px de façade pour 15 de profondeur, colombages 35/16, néon
+    35/22 → la façade débordait de ~40 % sur le lot voisin, toits en dents de scie.
+    Désormais `rowMetrics` mesure l'EMPRISE AU SOL (ligne de base des murs, de part et
+    d'autre du coin avant) et `rowGeom` cale la façade (le mur le long de la rangée)
+    sur exactement un côté de lot, coin avant sur coin sud : les unités se touchent coin
+    à coin et leurs toits, identiques, se suivent.
+  - UN MODÈLE PAR CÔTÉ : le modèle se tirait par maison (un haussmannien de six étages
+    entre deux maisons de brique) ; il se tire maintenant par côté d'îlot
+    (`t.rowSide`, ilotArt `sides`).
+  - GRAIN : calées sur leur façade, les trois rangées longues (brique, colombages, néon)
+    tombaient à 0,65 du grain des maisons → reconverties depuis leurs objets à la taille
+    où la façade fait ~29 px (le grain des maisons) ; fenêtres de nuit reprises (cadres
+    mis à l'échelle, volets d'échoppe éteints).
 - ⚠ Fragilité connue, hors îlots : quand le niveau des champs change leur découpage
   (`cmTerroirParcels`), la parcelle 0 qui s'épaissit mord sa propre rangée de moulins
   (distance 1, plus les sentiers qui les desservent) et le terroir entier se refonde

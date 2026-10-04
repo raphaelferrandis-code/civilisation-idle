@@ -5192,7 +5192,11 @@ function computeCityLayout(s) {
       const f = e.faces;
       t.face = f.includes("S") ? "S" : f.includes("E") ? "E" : f.includes("W") ? "W" : "N";
       t.row = 1;
-      if (terraceSide(e, t.face)) { t.terrace = 1; terraceAt.add(t.gx + "," + t.gy); }
+      if (terraceSide(e, t.face)) {
+        t.terrace = 1; terraceAt.add(t.gx + "," + t.gy);
+        // Le modèle de rangée se tire par CÔTÉ (pixelHouses.rowKeyOf) : un côté, une rangée.
+        t.rowSide = cmHash("rangee-modele:" + e.block + ":" + t.face) >>> 0;
+      }
     }
     for (const t of tiles) {
       if (!t.terrace) continue;
