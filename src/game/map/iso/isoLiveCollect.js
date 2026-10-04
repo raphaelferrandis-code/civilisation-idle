@@ -38,7 +38,7 @@ import {
 } from './isoStreet.js';
 import { STREET_KIT, streetKitFor } from './streetKits.js';
 import { STREET_PROPS } from './isoStreetProps.js';
-import { isoUnitDepth, isoUnitDepthEx, vehSortLift, vehSortWide, orderUnitsAroundVehicles } from './isoUnits.js';
+import { isoUnitDepth, isoUnitDepthEx, vehSortLift, vehSortWide, orderUnitsAroundVehicles, rioterLane } from './isoUnits.js';
 import { WILD_THIN_UNIT, isoWildForest } from './isoWildForest.js';
 import { depthOf } from './projection.js';
 import { districtMassTiles } from './isoDistricts.js';
@@ -543,10 +543,13 @@ export function collectIsoItems(bake, now) {
   // ÉMEUTE : émeutiers dans le TRI PEINTRE (clé pieds + offsets de file, comme
   // les habitants) — poussés MÊME au LOD (le signal de crise doit rester
   // visible, parité legacy). La sim tourne dans drawIsoWorld (updateCrisis).
-  if (CM.riotDraw) {
-    for (const p of CM.riotDraw.pts) {
-      const laneX = (p.dir === 2 || p.dir === 3) ? (p.lane || 0) : 0;
-      const laneY = (p.dir === 0 || p.dir === 1) ? (p.lane || 0) : 0;
+  // + ceux qui s'effacent à la fin de l'émeute (lot 4, CM.riotFading).
+  const riotPts = CM.riotDraw ? (CM.riotFading && CM.riotFading.length ? [...CM.riotDraw.pts, ...CM.riotFading] : CM.riotDraw.pts)
+    : (CM.riotFading && CM.riotFading.length ? CM.riotFading : null);
+  if (riotPts) {
+    for (const p of riotPts) {
+      const ln = rioterLane(p);
+      const laneX = ln.x, laneY = ln.y;
       { const gwx = p.x + laneX, gwy = p.y + laneY;
         noteFig(gwx, gwy, FIG.RIOT | FIG.MOVING);
         const dx = isoUnitDepthEx(gwx, gwy); items.push({ d: dx.d, ghost: dx.hidden, gwx, gwy, kind: 'riot', p }); }

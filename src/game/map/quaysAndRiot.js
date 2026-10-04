@@ -423,6 +423,39 @@ function drawRiotWeapon(ctx, hx, hy, u, weapon, now, phase, pulse) {
   }
 }
 
+// ── LES ÉMEUTIERS SORTENT DES PASSANTS (docs/PLAN-COMPORTEMENTS.md, lot 4) ──────
+// Ils surgissaient de nulle part et disparaissaient d'un coup à la fin de la fenêtre.
+// Désormais un émeutier PREND la place d'un passant proche (celui-ci est masqué le
+// temps de l'émeute, cf. agents.js) et la lui REND quand il se calme — fin de
+// l'émeute, foule qui décroît, clic d'apaisement : le passant reprend sa journée là
+// où l'émeutier s'est arrêté. Sans passant à portée, l'émeutier d'appoint s'EFFACE en
+// fondu au lieu de disparaître.
+function riotRecruit(anchor) {
+  if (!anchor || !Array.isArray(CM.citizens)) return null;
+  let best = null, bd = 11;
+  for (const c of CM.citizens) {
+    if (c._riot || c._nightHidden || c.leaving || c.lead || c._enter || c.charType === 2 || c._vanish !== undefined) continue;
+    if (c.fade != null && c.fade < 1) continue;
+    if (cityMapRiotBlocked(c.gx, c.gy) || !CM.walkRoadSet.has(cityMapWalkRoadKey(c.gx, c.gy))) continue;
+    const d = Math.abs(c.gx - anchor.gx) + Math.abs(c.gy - anchor.gy);
+    if (d < bd) { bd = d; best = c; }
+  }
+  return best;
+}
+function riotRelease(p) {
+  const c = p._cit;
+  if (c && c._riot === p) {
+    c._riot = null;
+    c.gx = p.gx; c.gy = p.gy; c.x = p.x; c.y = p.y; c.tx = p.tx; c.ty = p.ty;
+    c.dir = p.dir; c.lox = p.lx || 0; c.loy = p.ly || 0;
+    c.goal = null; c._path = null; c.pauseT = 0.6 + Math.random(); c.fade = 0.35;
+    return;
+  }
+  if (!CM.riotFading) CM.riotFading = [];
+  p._alpha = 1;
+  CM.riotFading.push(p);
+}
+
 // Apaisement au clic : retire l'émeutier visé, fait retomber un peu la rupture
 // et empêche le groupe de se re-remplir aussitôt (compteur à décroissance).
 function cityMapCalmRioterAt(sx, sy) {
@@ -440,6 +473,8 @@ function cityMapCalmRioterAt(sx, sy) {
   }
   if (bi < 0) return false;
   const p = CM.rioters.splice(bi, 1)[0];
+  // Calmé, il redevient le passant qu'il était (lot 4) — le « poof » marque l'instant.
+  if (p._cit) riotRelease(p);
   CM.riotCalmed = (CM.riotCalmed || 0) + 1;
   if (!CM.calmPoofs) CM.calmPoofs = [];
   CM.calmPoofs.push({ x: p.x, y: p.y, t: performance.now() });
@@ -479,7 +514,13 @@ function updateCrisis(dt, now) {
     if (CM.riotCalmDecayT >= 8) { CM.riotCalmDecayT = 0; CM.riotCalmed -= 1; }
   }
   const want = baseWant > 0 ? Math.max(0, baseWant - (CM.riotCalmed || 0)) : 0;
+  // Les émeutiers d'appoint qui s'effacent (sans passant à rendre) : 0,8 s de fondu.
+  if (CM.riotFading && CM.riotFading.length) {
+    for (const f of CM.riotFading) f._alpha -= dt / 0.8;
+    CM.riotFading = CM.riotFading.filter((f) => f._alpha > 0);
+  }
   if (want === 0) {
+    for (const r of CM.rioters) riotRelease(r);
     CM.rioters.length = 0;
     CM.riotGoal = null;
     if (baseWant === 0) { CM.riotCalmed = 0; CM.riotCalmDecayT = 0; }
@@ -496,28 +537,40 @@ function updateCrisis(dt, now) {
     const RIOT_OUTFITS = ["#9a4d38", "#3f6a8a", "#7a8a3c", "#8a5d9a", "#b08a3a", "#5d7a6a"];
     const RIOT_SKINS = ["#e8c8a0", "#d4a878", "#b88a58", "#8a5c38"];
     while (CM.rioters.length < want) {
-      const r = cityMapPickRiotRoadNear(spawnAnchor, 2 + Math.round(inst));
-      if (!r) break;
       const n = CM.rioters.length;
+      // Un passant de la foule qui se lève (lot 4), sinon l'émeutier d'appoint d'avant.
+      const cit = riotRecruit(spawnAnchor);
+      const r = cit ? null : cityMapPickRiotRoadNear(spawnAnchor, 2 + Math.round(inst));
+      if (!cit && !r) break;
       CM.rioters.push({
-        gx: r.gx,
-        gy: r.gy,
-        x: (r.gx + 0.5) * CM.TILE,
-        y: (r.gy + 0.5) * CM.TILE,
-        tx: (r.gx + 0.5) * CM.TILE,
-        ty: (r.gy + 0.5) * CM.TILE,
-        dir: -1,
+        gx: cit ? cit.gx : r.gx,
+        gy: cit ? cit.gy : r.gy,
+        x: cit ? cit.x : (r.gx + 0.5) * CM.TILE,
+        y: cit ? cit.y : (r.gy + 0.5) * CM.TILE,
+        tx: cit ? cit.tx : (r.gx + 0.5) * CM.TILE,
+        ty: cit ? cit.ty : (r.gy + 0.5) * CM.TILE,
+        dir: cit ? cit.dir : -1,
         pauseT: 0,
-        speed: 24 + Math.random() * 10,
+        // Allure d'une foule échauffée : un pas pressé (≈ 1,8 × un passant). Elle était
+        // de 24-34 px/s — trois à huit fois un passant, la foule « glissait ».
+        speed: 13 + Math.random() * 4,
+        // Décalage de file LISSÉ (lx/ly), parti de celui du passant.
+        lx: cit ? cit.lox || 0 : 0,
+        ly: cit ? cit.loy || 0 : 0,
+        _cit: cit || null,
         phase: Math.random() * Math.PI * 2,
         lane: (Math.random() - 0.5) * CM.TILE * 0.38,
         col: RIOT_OUTFITS[n % RIOT_OUTFITS.length],
         skin: RIOT_SKINS[(n * 7 + 3) % RIOT_SKINS.length],
         weapon: n % 2 === 0 ? "torch" : "fork",
-        charType: n % 3 === 0 ? 1 : 0 // émeutiers adultes : ~1/3 de femmes, pas d'enfants
+        charType: cit ? cit.charType : (n % 3 === 0 ? 1 : 0) // émeutiers adultes, pas d'enfants
       });
+      if (cit) cit._riot = CM.rioters[CM.rioters.length - 1];
     }
-    if (CM.rioters.length > want) CM.rioters.length = want;
+    if (CM.rioters.length > want) {
+      for (const r of CM.rioters.slice(want)) riotRelease(r);
+      CM.rioters.length = want;
+    }
     const goal = CM.riotGoal;
     const cohesion = cityMapRiotGroupCenter(CM.rioters) || goal;
     let mx = 0, my = 0;
@@ -576,6 +629,13 @@ function updateCrisis(dt, now) {
           const sp = p.speed * dt;
           p.x += ddx / dd * sp;
           p.y += ddy / dd * sp;
+          // File lissée par la distance marchée (comme les passants) : le décalage
+          // sautait d'un côté à l'autre à chaque virage.
+          const tlx = (p.dir === 2 || p.dir === 3) ? (p.lane || 0) : 0;
+          const tly = (p.dir === 0 || p.dir === 1) ? (p.lane || 0) : 0;
+          const lk = Math.min(1, sp / (CM.TILE * 0.9));
+          p.lx = (p.lx || 0) + (tlx - (p.lx || 0)) * lk;
+          p.ly = (p.ly || 0) + (tly - (p.ly || 0)) * lk;
           // Odomètre de marche (px monde) : anime les bandes diagonales PAR
           // DISTANCE (drawNamedAgentIso) — les pieds accrochent le sol.
           p.walkDist = (p.walkDist || 0) + sp;

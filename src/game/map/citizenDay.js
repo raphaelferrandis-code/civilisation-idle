@@ -41,10 +41,14 @@ export const dawnFor = (dp, stagger) => !homeTime(dp) && (dp >= 0.9 + stagger * 
 
 // Envies selon l'heure. Rend le genre de but : 'work' | 'errand' | 'plaza' | 'wonder'
 // | 'cross' | 'wander' | 'home' | 'night'. `r` = tirage uniforme dans [0, 1).
-export function pickAgenda(dp, traits, r, wonderPull = 0) {
+// `env` (lot 4 — la ville réagit) : { rain 0-1, season 0-3 (printemps, été, automne,
+// hiver) }. Sous l'averse on fuit les places et la flânerie pour l'intérieur ; l'hiver
+// on flâne moins, l'été davantage.
+export function pickAgenda(dp, traits, r, wonderPull = 0, env = null) {
+  const rain = env ? env.rain || 0 : 0, season = env ? env.season : null;
   if (homeTime(dp)) {
-    if (!traits.owl) return 'home';
-    return r < 0.15 ? 'home' : r < 0.6 ? 'night' : 'plaza';
+    if (!traits.owl || rain > 0.4) return 'home';           // sous la pluie, même les couche-tard rentrent
+    return r < (season === 3 ? 0.4 : 0.15) ? 'home' : r < 0.6 ? 'night' : 'plaza';
   }
   let w;
   if (dp >= 0.9 || dp < 0.12) w = { work: 0.6, errand: 0.1, plaza: 0.05, wonder: 0.02, cross: 0.05, wander: 0.18 };
@@ -53,6 +57,13 @@ export function pickAgenda(dp, traits, r, wonderPull = 0) {
   else w = { work: 0.34, errand: 0.2, plaza: 0.2, wonder: 0.05, cross: 0.05, wander: 0.16 };
   // Les vagues d'attroupement aux merveilles (CM.wonderPull) gardent leur force.
   w.wonder += 0.55 * wonderPull;
+  if (rain > 0.15) {
+    const k = Math.min(1, (rain - 0.15) / 0.45);
+    w.plaza *= 1 - 0.8 * k; w.wonder *= 1 - 0.8 * k; w.wander *= 1 - 0.6 * k; w.cross *= 1 - 0.7 * k;
+    w.errand *= 1 + 0.3 * k; w.work *= 1 + 0.2 * k; w.home = 0.25 * k;
+  }
+  if (season === 3) { w.plaza *= 0.6; w.wander *= 0.6; w.home = (w.home || 0) + 0.06; }
+  else if (season === 1) { w.plaza *= 1.3; w.wander *= 1.2; }
   let tot = 0;
   for (const k in w) tot += w[k];
   let x = r * tot;
@@ -69,9 +80,15 @@ export function dwellFor(kind, dp, traits, r) {
   return null;
 }
 
-// Allure : multiplicateur de la vitesse propre selon le moment et le passant.
-export function paceFor(p, traits, dp, goalKind) {
+// Allure : multiplicateur de la vitesse propre selon le moment et le passant — et
+// (lot 4) la pluie (on presse le pas), l'hiver (on ne traîne pas), la fuite (on file).
+export function paceFor(p, traits, dp, goalKind, env = null) {
   let k = traits.slow ? 0.78 : 1;
+  if (env) {
+    if ((env.rain || 0) > 0.15) k *= 1.35;
+    else if (env.season === 3) k *= 1.1;
+  }
+  if (goalKind === 'flee') return k * 1.45;
   if (goalKind === 'home' && homeTime(dp)) k *= 1.12;          // on rentre d'un bon pas
   else if (goalKind === 'work' && dp >= 0.1 && dp < 0.25) k *= 1.08;   // un peu en retard
   else if (goalKind === 'night') k *= 0.88;                     // la flânerie du soir

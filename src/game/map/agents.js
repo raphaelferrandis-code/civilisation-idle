@@ -1039,6 +1039,23 @@ function citizenChooseNext(p) {
   const arrived = p.goal && p.goal.gx === p.gx && p.goal.gy === p.gy;
   const dp = dayPhase(CM.dayP, CM.nightF);
   const tr = p._tr || (p._tr = citizenTraits(p));
+  // S'ABRITER (lot 4) : sous une averse franche, qui passe devant une porte s'y met
+  // parfois à couvert, dos au mur, face à la rue, le temps d'une accalmie qui ne vient
+  // pas (12-40 s), puis repart en pressant le pas — l'averse finie, la halte est
+  // levée (updateCitizens). Jusqu'à la fin de la pluie, c'était la moitié de la foule
+  // figée sous les auvents (mesuré en jeu). Ceux qui RENTRENT, eux, courent (RUN_K).
+  const env = CM._citEnv || null;
+  if (env && env.rain > 0.3 && !p.leaving && !p.social && !p.lead && !homeTime(dp) && p.goalKind !== "home" && (CM.citT || 0) >= (p._shelterAt || 0)
+    && CM.buildingEdgeSet && CM.buildingEdgeSet.has(cityMapWalkRoadKey(p.gx, p.gy)) && Math.random() < 0.05) {
+    const fd = facingBuilding(p.gx, p.gy);
+    if (fd >= 0) {
+      p._shelter = true;
+      p.pauseT = 12 + Math.random() * 28;
+      p.dir = fd ^ 1;
+      p._shelterAt = (CM.citT || 0) + 150;   // ~15 % de la foule à l'abri à la fois (ville dense : chaque case est un seuil)
+      return;
+    }
+  }
   // LÈCHE-VITRINE (lot 2) : en passant devant un atelier, on s'arrête parfois un
   // instant, tourné vers lui — de jour, sans but social, pas en partance, une fois par
   // demi-minute au plus. (Les seules haltes étaient la place et le parvis.)
@@ -1127,15 +1144,18 @@ function citizenChooseNext(p) {
     const plazaCells = CM.plazaRoadCells;
     const wonderCells = CM.wonderGatherCells;
     p.gatherDir = null; // ne survit qu'au but « merveille » repiqué ci-dessous
-    const set = (g, kind, social) => { p.goal = { gx: g.gx, gy: g.gy }; p.goalKind = kind; p.social = !!social; };
+    const set = (g, kind, social) => { p.goal = { gx: g.gx, gy: g.gy }; p.goalKind = kind; p.social = !!social; p._goalAt = CM.citT || 0; };
+    // Pendant une émeute (lot 4), on ne se donne pas rendez-vous dans son quartier.
+    const rc = CM._riotC;
+    const calm = (c) => !rc || Math.abs(c.gx - rc.gx) + Math.abs(c.gy - rc.gy) >= 7;
     const pickIn = (list, ok) => {
       for (let i = 0; list && list.length && i < 12; i += 1) {
         const r = list[Math.floor(Math.random() * list.length)];
-        if ((!ok || ok(r)) && sameIsland(p, r)) return r;
+        if ((!ok || ok(r)) && calm(r) && sameIsland(p, r)) return r;
       }
       return null;
     };
-    const kind = pickAgenda(dp, tr, Math.random(), CM.wonderPull || 0);
+    const kind = pickAgenda(dp, tr, Math.random(), CM.wonderPull || 0, CM._citEnv);
     if (kind === 'home' && reachable(p.home) && sameIsland(p, p.home)) set(p.home, 'home');
     else if (kind === 'home') {
       // Sans maison à portée (logis rasé, autre rive) : la porte la plus proche EN
@@ -1172,7 +1192,7 @@ function citizenChooseNext(p) {
     // d'attroupement vers une merveille hors d'atteinte versait toute la ville en
     // errance.
     if (!p.goal && kind !== 'home') {
-      const r = pickIn(plazaCells);
+      const r = CM._rainOn ? null : pickIn(plazaCells);   // sous l'averse : au travail, pas sur la place
       if (r && !homeTime(dp)) set(r, 'plaza', true);
       else if (reachable(p.work) && sameIsland(p, p.work) && !homeTime(dp)) set(p.work, 'work');
     }
@@ -1545,6 +1565,7 @@ function citizenGreetings() {
   }
 }
 
+const RAIN_RETHINK = new Set(['plaza', 'wonder', 'wander', 'cross', 'night']);
 function updateCitizens(dt) {
   if (!CM.walkRoadList.length) return;
 
@@ -1606,6 +1627,19 @@ function updateCitizens(dt) {
   // rencontres s'y mesurent ; et l'heure du jour, pour l'emploi du temps.
   CM.citT = (CM.citT || 0) + dt;
   const dpNow = dayPhase(CM.dayP, CM.nightF);
+  // LA VILLE RÉAGIT (lot 4) : la pluie et la saison de la frame (agenda, allure, abri).
+  const env = CM._citEnv || (CM._citEnv = { rain: 0, season: 0 });
+  env.rain = CM.rainF || 0; env.season = CM.season | 0;
+  // L'instant où l'averse devient franche : les buts de loisir choisis AVANT sont revus.
+  if (env.rain > 0.3 && !CM._rainOn) { CM._rainOn = true; CM._rainAt = CM.citT; }
+  else if (env.rain < 0.15) CM._rainOn = false;
+  // L'ÉMEUTE en cours (CM.riotDraw, posé par updateCrisis) : son centre, et un numéro
+  // par émeute — chacun ne décide qu'une fois par émeute s'il fuit ou s'il regarde.
+  const rd = CM.riotDraw;
+  if (rd && rd.pts && rd.pts.length) {
+    if (!CM._riotC) CM.riotEpoch = (CM.riotEpoch || 0) + 1;
+    CM._riotC = { gx: rd.cx / CM.TILE - 0.5, gy: rd.cy / CM.TILE - 0.5 };
+  } else CM._riotC = null;
   for (const p of CM.citizens) {
     p._tick = citTick;
     if (p.thoughtTimer === undefined) p.thoughtTimer = 0;
@@ -1619,6 +1653,10 @@ function updateCitizens(dt) {
       p.thoughtTimer -= dt;
       if (p.thoughtTimer <= 0) p.thoughtType = null;
     }
+    // ÉMEUTIER (lot 4) : le temps de l'émeute, il EST l'émeutier qui marche à sa place
+    // (quaysAndRiot.js) — ni dessiné ni simulé ici ; il reprend sa vie où l'émeutier
+    // s'arrête.
+    if (p._riot) { p._nightHidden = true; continue; }
 
     if (!CM.walkRoadSet.has(cityMapWalkRoadKey(p.gx, p.gy))) {
       // PR3 — remap vers la route SURVIVANTE la plus proche (pas un saut
@@ -1726,10 +1764,53 @@ function updateCitizens(dt) {
       else { companionFollow(p, L, dt); continue; }
     }
 
+    // L'AVERSE QUI COMMENCE (lot 4) : qui était parti flâner (place, merveille,
+    // balade, autre rive) AVANT la pluie revoit son programme — trois sur quatre
+    // rebroussent chemin vers un but de temps de pluie (citizenChooseNext tire avec la
+    // météo). Sans cela la place restait pleine de ceux partis au sec, et les trajets
+    // vers les places sont les plus longs de la ville.
+    if (CM._rainOn && !p.lead && !p.leaving && !p._enter && !p._shelter && (p._goalAt || 0) < CM._rainAt
+      && RAIN_RETHINK.has(p.goalKind)) {
+      p._goalAt = CM.citT;
+      if (Math.random() < 0.75) {
+        p.goal = null; p._path = null;
+        if (p.pauseT > 0 && !p.chatT) p.pauseT = 0;      // la halte de place s'écourte
+      }
+    }
+    // FACE À L'ÉMEUTE (lot 4) : à moins de 6 cases de la foule, on décide UNE fois —
+    // un peu plus d'un sur deux s'éloigne d'un bon pas, un sur quatre s'arrête à
+    // distance pour regarder, les autres passent leur chemin.
+    const rc = CM._riotC;
+    if (rc && p._riotSeen !== CM.riotEpoch && !p.leaving && !p._enter && !p._shelter) {
+      const dR = Math.hypot(p.gx - rc.gx, p.gy - rc.gy);
+      if (dR < 6) {
+        p._riotSeen = CM.riotEpoch;
+        const roll = Math.random();
+        if (roll < 0.55) {
+          let goal = null;
+          if (p.home && Math.hypot(p.home.gx - rc.gx, p.home.gy - rc.gy) > dR + 2 && CM.walkRoadSet.has(cityMapWalkRoadKey(p.home.gx, p.home.gy))) goal = p.home;
+          for (let i = 0; !goal && i < 16; i += 1) {
+            const c = CM.walkRoadList[Math.floor(Math.random() * CM.walkRoadList.length)];
+            if (Math.hypot(c.gx - rc.gx, c.gy - rc.gy) >= 9 && sameIsland(p, c)) goal = c;
+          }
+          if (goal) {
+            p.goal = { gx: goal.gx, gy: goal.gy }; p.goalKind = 'flee'; p.social = false;
+            p._path = null; p.pauseT = 0; p.chatT = 0; p._browse = false;
+          }
+        } else if (roll < 0.8 && dR >= 2.5) {
+          p.pauseT = 4 + Math.random() * 5;
+          p._watch = true;
+          p.dir = dirToward(rc.gx - p.gx, rc.gy - p.gy);
+        }
+      }
+    }
+
     let moved = 0;   // distance parcourue CE tick (pilote le lissage du trottoir)
     // Qui court s'abriter ne flâne plus : l'averse coupe court à la halte des badauds
     // (place, parvis de merveille) au lieu de les laisser contempler sous la pluie.
     const abri = citizenSheltering(p);
+    // L'averse passée, on quitte l'abri (lot 4).
+    if (p._shelter && (CM.rainF || 0) < 0.12) { p._shelter = false; p.pauseT = 0; }
     if (p.pauseT > 0 && !abri) {
       p.pauseT -= dt;
       if (p.chatT > 0) p.chatT = Math.max(0, p.chatT - dt);
@@ -1738,6 +1819,8 @@ function updateCitizens(dt) {
       p.chatT = 0;
       p._browse = false;
       p._chatWith = null;
+      p._watch = false;
+      p._shelter = false;
       const dx = p.tx - p.x, dy = p.ty - p.y, dist = Math.hypot(dx, dy);
       if (dist < 2.4) {
         // Un meneur accompagné s'arrête parfois pour bavarder (jamais en partance,
@@ -1755,7 +1838,7 @@ function updateCitizens(dt) {
         // le pas lent, rentrer d'un bon pas le soir…), et un DÉMARRAGE progressif après
         // un arrêt (une demi-seconde) au lieu de repartir d'un bond à pleine vitesse.
         p._ramp = Math.min(1, (p._ramp == null ? 1 : p._ramp) + dt / 0.5);
-        const pace = paceFor(p, p._tr || (p._tr = citizenTraits(p)), dpNow, p.goalKind) * (0.35 + 0.65 * p._ramp);
+        const pace = paceFor(p, p._tr || (p._tr = citizenTraits(p)), dpNow, p.goalKind, env) * (0.35 + 0.65 * p._ramp);
         const sp = p.speed * dt * isoK * PED_SPEED.k * (abri ? RUN_K : pace);
         p.x += dx / dist * sp;
         p.y += dy / dist * sp;

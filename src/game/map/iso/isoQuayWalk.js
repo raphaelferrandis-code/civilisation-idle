@@ -91,8 +91,14 @@ registerVieActors((now, out) => {
     L._quayWalkStep = (d / Math.max(1, sm.length - 1)) * T;
   }
   const stepPx = L._quayWalkStep;
+  // Qui reste sur la promenade (lot 4 de PLAN-COMPORTEMENTS) : la nuit ~40 %, sous
+  // l'averse ~30 %, l'hiver ~65 %. Chacun a son seuil (w.night) ; près du seuil il
+  // s'EFFACE en fondu au lieu de disparaître d'un coup.
+  const rain = CM.rainF || 0;
+  const th = Math.max(night * 0.6, rain > 0.15 ? rain * 0.7 + 0.1 : 0, (CM.season | 0) === 3 ? 0.35 : 0);
   for (const w of walkers(spans)) {
-    if (w.night < night * 0.6) continue;                // la nuit, il en reste ~40 %
+    const fade = Math.min(1, (w.night - th) / 0.06);
+    if (fade <= 0) continue;
     const cyc = w.move + w.stop, k = Math.floor(t / cyc), ph = t - k * cyc;
     const moved = k * w.move + Math.min(ph, w.move);      // secondes de marche écoulées
     const paused = ph >= w.move;
@@ -104,7 +110,7 @@ registerVieActors((now, out) => {
     const lane = LANES[fwd ? 0 : 1];
     const pos = quayLanePoint(w.sp.run, u, lane);
     const p = w.p;
-    p.x = pos.x; p.y = pos.y; p.pauseT = paused ? 1 : 0; p.walkDist = distPx;
+    p.x = pos.x; p.y = pos.y; p.pauseT = paused ? 1 : 0; p.walkDist = distPx; p.fade = fade;
     const s = worldToScreen(pos.x, pos.y);
     if (s.x < -40 || s.x > CM.cw + 40 || s.y < -20 || s.y > CM.ch + 80) continue;
     let dir;
@@ -124,7 +130,7 @@ registerVieActors((now, out) => {
     const m = w.mate;
     if (m) {
       const mp = quayLanePoint(w.sp.run, u, Math.min(0.9, lane + PAIR_GAP));
-      m.x = mp.x; m.y = mp.y; m.dir = dir; m.pauseT = p.pauseT; m.walkDist = distPx + 7;
+      m.x = mp.x; m.y = mp.y; m.dir = dir; m.pauseT = p.pauseT; m.walkDist = distPx + 7; m.fade = fade;
       noteFig(mp.x, mp.y, FIG.QUAY | (paused ? 0 : FIG.MOVING));
       out.push({
         wx: mp.x, wy: mp.y, d: isoUnitDepthEx(mp.x, mp.y).d,

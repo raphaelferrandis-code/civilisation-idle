@@ -1477,7 +1477,7 @@ function pushOne(comp, pushItem, visible, now) {
   }
   // LES FLÂNEURS, à leur position du moment (plazaFolk.js), triés comme le mobilier.
   if (comp.folk && (!PLAZA_TUNE.only || PLAZA_TUNE.only === 'person')) {
-    for (const rec of folkAt(comp.folk, now, CM.TILE, depthOf)) {
+    for (const rec of folkAt(comp.folk, now, CM.TILE, depthOf, { night: CM.nightF || 0, rain: CM.rainF || 0, season: CM.season | 0 })) {
       // Registre des figures : les pigeons s'envolent devant un flâneur EN MARCHE ;
       // arrêté, il ne compte pas — une volée posée près d'une causette repartirait sans fin.
       noteFig(rec.wx, rec.wy, FIG.PLAZA | (rec.walking ? FIG.MOVING : 0));

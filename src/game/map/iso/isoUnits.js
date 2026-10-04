@@ -23,6 +23,7 @@ import { worldToScreen } from './projection.js';
 import { drawRiotWeapon } from '../quaysAndRiot.js';
 import { pxProbe, recPx } from '../pixelGrid.js';
 import { snapDev as snapU } from '../blitSnap.js';
+import { queueFlameGlow, FLAME_COL, FIRE_INK } from '../flameGlow.js';
 import { drawSunShadow, sunShadowNightK } from './isoSunShadow.js';
 import {
   drawEraAgent, drawEraAgentIso, drawNamedAgent, drawNamedAgentIso, drawVehicleHeadlights,
@@ -376,9 +377,24 @@ export function drawIsoVehicle(ctx, v, now, z) {
 // isoUnitDepth aux pieds, offsets de file compris. Vues encore CARDINALES :
 // repli assumé du plan (« émeutiers : PLUS TARD ») tant que le batch des
 // diagonales est en pause.
+// Fondu (lot 4) : l'émeutier d'appoint qui s'efface à la fin de l'émeute (p._alpha).
 export function drawIsoRioter(ctx, p, now, z) {
-  const laneX = (p.dir === 2 || p.dir === 3) ? (p.lane || 0) : 0;
-  const laneY = (p.dir === 0 || p.dir === 1) ? (p.lane || 0) : 0;
+  const ra = p._alpha == null ? 1 : p._alpha;
+  if (ra <= 0.02) return;
+  if (ra >= 1) { drawIsoRioterInner(ctx, p, now, z); return; }
+  const pa = ctx.globalAlpha;
+  ctx.globalAlpha = pa * ra;
+  try { drawIsoRioterInner(ctx, p, now, z); } finally { ctx.globalAlpha = pa; }
+}
+// Décalage de file LISSÉ (p.lx/p.ly, quaysAndRiot.js — lot 4) ; repli sur l'ancien
+// décalage par direction, qui sautait d'un côté à l'autre à chaque virage.
+export const rioterLane = (p) => ({
+  x: p.lx != null ? p.lx : ((p.dir === 2 || p.dir === 3) ? (p.lane || 0) : 0),
+  y: p.ly != null ? p.ly : ((p.dir === 0 || p.dir === 1) ? (p.lane || 0) : 0),
+});
+function drawIsoRioterInner(ctx, p, now, z) {
+  const ln = rioterLane(p);
+  const laneX = ln.x, laneY = ln.y;
   const sp = worldToScreen(p.x + laneX, p.y + laneY);
   const wob = Math.sin(now / 170 + (p.phase || 0)) * 0.8;
   const sx = sp.x, groundY = sp.y + wob * z;
@@ -686,7 +702,52 @@ export function drawIsoCitizenItem(ctx, p, now, z) {
   if (!drawEraAgentIso(ctx, sp.x, sp.y, z, p.dir, walking, now, p.phase || 0, p.charType || 0, 1, p.walkDist != null ? p.walkDist : null, p.skinVariant || 0)) {
     drawEraAgent(ctx, sp.x, sp.y, z, p.dir, walking, now, p.phase || 0, p.charType || 0);
   }
+  carryLight(ctx, p, sp, z, now, fa);
   ctx.globalAlpha = prevA;
+}
+
+// UNE LUMIÈRE À LA MAIN (docs/PLAN-COMPORTEMENTS.md, lot 4) : la nuit, aux ères
+// d'avant l'éclairage public (bandes 0-5), une partie des passants (et tous les
+// couche-tard en promenade) porte une TORCHE (préhistoire) ou une LANTERNE. La
+// lueur passe par la file des feux (flameGlow.js) : posée au tri du peintre, masquée
+// par ce qui passe devant, chaude par-dessus le voile de nuit. Pas d'enfant
+// porte-lumière. Molette : __carryLight({ on, share }).
+export const CARRY_LIGHT = { on: true, share: 0.55 };
+if (typeof window !== 'undefined') window.__carryLight = (o) => { if (o) Object.assign(CARRY_LIGHT, o); return { ...CARRY_LIGHT }; };
+function carryLight(ctx, p, sp, z, now, fa) {
+  const nf = CM.nightF || 0;
+  if (!CARRY_LIGHT.on || nf < 0.35 || (p.charType || 0) === 2) return;
+  const band = (CM.layout && CM.layout.counts && CM.layout.counts.eraBand) | 0;
+  if (band > 5) return;
+  const ph = p.phase || 0;
+  if (p.goalKind !== 'night' && ((((ph * 911.7) % 1) + 1) % 1) >= CARRY_LIGHT.share) return;
+  const Hf = CM.TILE * z * 0.85 * AGENT_SCALE;          // hauteur d'un adulte à l'écran
+  const side = (p.dir === 0 || p.dir === 2) ? 1 : -1;   // la main côté où il regarde
+  const u = Math.max(1, Math.round(Hf / 14));
+  // La main, bras tendu le long du corps (à hauteur de hanche) ; la torche se lève.
+  const hx = Math.round(sp.x + side * Hf * 0.24), hy = Math.round(sp.y - Hf * (band <= 1 ? 0.42 : 0.34));
+  const k = Math.min(1, (nf - 0.35) / 0.25) * (fa == null ? 1 : fa);
+  const pa = ctx.globalAlpha;
+  ctx.globalAlpha = pa * Math.min(1, k * 1.5);
+  const torch = band <= 1;
+  if (torch) {
+    ctx.fillStyle = '#5a3a1e'; ctx.fillRect(hx, hy - u * 2, u, u * 3);       // le manche
+    ctx.fillStyle = FIRE_INK.body; ctx.fillRect(hx - u, hy - u * 4, u * 2, u * 2);
+    ctx.fillStyle = FIRE_INK.core; ctx.fillRect(hx, hy - u * 4, u, u);
+  } else {
+    // Lanterne pendue à la main : anse, chapeau, verre ambré sur deux rangs, pied.
+    // Le verre est clair : le voile de nuit l'assombrit, la lueur (après le voile)
+    // le rallume.
+    ctx.fillStyle = '#2e2216';
+    ctx.fillRect(hx, hy, u, u);                                               // l'anse
+    ctx.fillRect(hx - u, hy + u, u * 3, u);                                   // le chapeau
+    ctx.fillRect(hx - u, hy + u * 4, u * 3, u);                               // le pied
+    ctx.fillStyle = '#ffb64a'; ctx.fillRect(hx - u, hy + u * 2, u * 3, u * 2);  // le verre
+    ctx.fillStyle = '#fff1b8'; ctx.fillRect(hx, hy + u * 2, u, u * 2);          // la flamme
+  }
+  ctx.globalAlpha = pa;
+  queueFlameGlow(hx + u * 0.5, torch ? hy - u * 3 : hy + u * 3, Hf * (torch ? 0.8 : 0.55),
+    torch ? FLAME_COL : '255,196,110', now, ph * 3, (torch ? 0.9 : 0.75) * k);
 }
 
 // Silhouettes fantômes : réglage live. __ghost({ on: true }) rallume, __ghost({ alpha: 0.5 })

@@ -360,14 +360,29 @@ export function buildFolk(o) {
     sd, g, mode: o.mode === 'stalls' ? 'stalls' : 'centre', lookAt: o.centre ? o.centre.prop : null,
     posts, sites: sites.map((l) => ({ 2: l.filter((s) => s.size === 2), 3: l.filter((s) => s.size === 3) })),
     exits, actors, tour, ident: o.ident,
-    rev: _rev, am: new Map(), lm: new Map(), recs: new Map(), frame: 0,
+    rev: _rev, am: new Map(), lm: new Map(), recs: new Map(), frame: 0, env: null, envAt: new Map(),
   };
 }
 
 // ── LE CRÉNEAU k : QUI VA OÙ ─────────────────────────────────────────────────
+// LA PLACE RÉAGIT (docs/PLAN-COMPORTEMENTS.md, lot 4) : la nuit, sous l'averse et
+// l'hiver, plus de flâneurs QUITTENT la place (par une rue, en fondu — jamais en
+// disparaissant). Le temps qu'il fait est FIGÉ par créneau à sa première lecture :
+// l'identité d'un flâneur (runOf) relit les départs passés, et une averse qui
+// commence ne doit pas lui changer le visage rétroactivement.
+function envFor(F, k) {
+  let e = F.envAt.get(k);
+  if (e == null) {
+    const n = F.env || {};
+    e = Math.min(0.75, (n.night || 0) * 0.45 + ((n.rain || 0) > 0.15 ? (n.rain || 0) * 0.6 : 0) + (n.season === 3 ? 0.12 : 0));
+    F.envAt.set(k, e);
+    if (F.envAt.size > 400) F.envAt.delete(F.envAt.keys().next().value);
+  }
+  return e;
+}
 function isAway(F, i, k) {
   if (!F.exits.length) return false;
-  return h01(F.sd + ':fa:' + k + ':' + i) < FOLK.leaveP || ((k + F.actors[i].fa) % FORCE_AWAY + FORCE_AWAY) % FORCE_AWAY === 0;
+  return h01(F.sd + ':fa:' + k + ':' + i) < FOLK.leaveP + envFor(F, k) || ((k + F.actors[i].fa) % FORCE_AWAY + FORCE_AWAY) % FORCE_AWAY === 0;
 }
 // Deux INCONNUS arrêtés en même temps se tiennent à DSOLO au moins : plus près, on
 // croirait qu'ils se parlent (ceux d'une causette sont posés ensemble, entre eux).
@@ -527,8 +542,10 @@ function runOf(F, i, k) {
 // Les passants visibles de la place, en fiches stables (le même objet tant que la même
 // personne est là : la fiche d'habitant et la caméra qui suit s'y accrochent).
 // `T` = taille d'une cellule en px monde, `depthOf` = la profondeur du peintre.
-export function folkAt(F, nowMs, T, depthOf) {
+// `env` (lot 4) : { night 0-1, rain 0-1, season 0-3 } du moment — cf. envFor.
+export function folkAt(F, nowMs, T, depthOf, env = null) {
   if (F.rev !== _rev) { F.rev = _rev; F.am.clear(); F.lm.clear(); }
+  F.env = env;
   const S = Math.max(4, +FOLK.slot || 30);
   const t = FOLK.on ? (nowMs || 0) / 1000 : 0;
   const out = [], byI = new Map();

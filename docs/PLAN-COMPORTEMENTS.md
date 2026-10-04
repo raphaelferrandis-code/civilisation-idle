@@ -236,3 +236,36 @@
     (cityMapRuntime) ;
   - banc `__tests__/comportementsLot3.test.js` (une garde par habitant : 4 bandes +
     demi-bandes, format de la marche, palette incluse).
+- 2026-10-04 — **LOT 4 FAIT** :
+  - **pluie** : on presse le pas (×1,35), l'agenda se replie (moins de place, de
+    merveille, de balade ; plus de maison, de courses) ; à l'instant où l'averse
+    devient franche, trois flâneurs sur quatre partis AU SEC revoient leur programme
+    (vécu : 454 passants sur 728 marchaient encore vers une place) ; repli sans
+    place sous la pluie ; on s'abrite parfois sous un auvent, dos au mur, 12-40 s
+    (≈ 15-20 % de la foule à la fois — à 30 % par seuil et jusqu'à la fin de
+    l'averse, c'était la MOITIÉ de la ville figée) ; qui rentre chez soi ne
+    s'abrite pas ; l'averse passée, ceux que la pluie renvoyait chez eux et pas
+    encore rentrés reprennent leur journée (`cmRetireExcessCitizens`) ;
+  - **places** (plazaFolk) : la nuit, sous l'averse et l'hiver, plus de flâneurs
+    quittent la place par une rue (en fondu) ; le temps qu'il fait est FIGÉ par
+    créneau (une averse ne réécrit pas l'identité des flâneurs passés) ;
+  - **quais** : moins de promeneurs sous la pluie (~30 %) et l'hiver (~65 %), qui
+    s'effacent en fondu au seuil ;
+  - **nuit** : lanterne pendue à la main (bandes 2-5) ou torche levée (bandes 0-1)
+    pour un peu plus de la moitié des passants et tous les couche-tard ; verre
+    ambré + lueur dans la couche de lumière, masquée par ce qui passe devant ;
+    molette `__carryLight` ;
+  - **saisons** : l'hiver, moins de place et de balade, une part de la journée au
+    logis, un pas plus vif ; l'été, plus de flânerie ;
+  - **émeute** : les émeutiers SORTENT des passants (le plus proche de la foule,
+    masqué le temps de l'émeute) et leur RENDENT la place à la fin, au clic
+    d'apaisement ou quand la foule décroît — là où l'émeutier s'est arrêté, en
+    fondu ; sans passant, l'émeutier d'appoint s'efface en 0,8 s ; allure d'une
+    foule échauffée (13-17 px/s, elle « glissait » à 24-34) ; file lissée ; à moins
+    de 6 cases, un passant sur deux s'éloigne d'un bon pas, un sur quatre s'arrête à
+    distance pour regarder (une décision par émeute) ; pas de rendez-vous dans le
+    quartier de l'émeute ;
+  - fiche : « Attend sous un auvent », « Fuit l'émeute », « Regarde l'émeute » ;
+  - banc `__tests__/comportementsLot4.test.js` (11) ; en jeu sous l'averse forcée :
+    728 → 330 passants (palier existant), 454 → 48 en route vers une place, 72 à
+    l'abri au pic.

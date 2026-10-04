@@ -236,7 +236,18 @@ function cmRecomputeCitizenTarget() {
 // foule à l'abri en courant (cf. citizenSheltering, agents.js).
 function cmRetireExcessCitizens(want) {
   const list = CM.citizens;
-  if (!list || list.length <= want) return;
+  if (!list) return;
+  if (list.length <= want) {
+    // L'AVERSE PASSÉE, on RESSORT (docs/PLAN-COMPORTEMENTS.md, lot 4) : ceux que la
+    // pluie avait renvoyés chez eux et qui ne sont pas encore rentrés reprennent leur
+    // journée — ils disparaissaient, remplacés par d'autres sortis des maisons.
+    for (const p of list) {
+      if (!p.leaving || p._vanish !== undefined || p.lead) continue;
+      p.leaving = false; p.leaveCell = null; p.leaveT = 0; p._leaveRetry = false;
+      p.goal = null; p._path = null;
+    }
+    return;
+  }
   if (list.length > want * 4 + 60) { list.splice(want); return; }
   for (let i = want; i < list.length; i += 1) list[i].leaving = true;
 }
