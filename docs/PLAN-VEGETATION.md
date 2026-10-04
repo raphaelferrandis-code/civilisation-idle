@@ -264,3 +264,19 @@ Méthode habituelle : planche avant/après sur de vraies captures, validation de
   - La couture avec le pavé n'est PAS décorée (7 refus) : la frange existante reste telle
     quelle, seule la matière change.
   - Tests ajoutés à `meadowFlowers.test.js`.
+  - Commit local `971b6751`.
+- **Lot 6 fait** : les arbres de ville par ère (`CITY_TREES`, `cityTreeVariant` dans
+  `iso/isoGroundProps.js`).
+  - 10 dessins PixelLab (4 appels, 80 générations ; images de style = tree-1, tree-2,
+    tree-3, tree-pin-a1 posés) : cyprès ×3, pin parasol ×2, platane ×2 (écorce tachetée),
+    tilleul ×3. Posés par `installVegetation.mjs` (nouvelle dose `cypres`), hiver dérivé.
+    ⚠ Une génération dont l'encre touche le bord du canevas est ROGNÉE (3 pins parasols
+    sur 4, un platane) : contrôler la boîte d'encre avant de choisir.
+  - Médiéval (bandes 2-3) : tilleuls, chênes, bouleaux ; antique (4) : cyprès, pins
+    parasols, tilleuls, chênes ; industriel (5) : platanes, tilleuls, chênes ; moderne
+    (6) : platanes, bouleaux, tilleuls, pins ; cosmique (7+) : platanes, bouleaux, cyprès,
+    tilleuls. Adultes seulement, pas de sapin mort en ville ; places et île inchangées.
+  - Les essences de ville ne poussent jamais en forêt (`TREE_LIVING` = chêne, bouleau,
+    sapin, pin). Tests dans `vegetationFamily.test.js` (proportions par bande à 5 %).
+  - PixelLab : 634 générations restantes au début du lot (les autres sessions
+    consomment aussi), 554 après.

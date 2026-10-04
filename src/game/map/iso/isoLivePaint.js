@@ -49,7 +49,7 @@ import { drawIsoField, drawIsoFieldPixel } from './isoField.js';
 import { drawIsoMill } from './isoMill.js';
 import { drawTerroirTeam } from './terroirLife.js';
 import { isoFrontOffset, seasonTree } from './isoGroundDetail.js';
-import { ISO_TREE_VARIANTS, TREE_DEAD_VARIANT, TREE_SPRITES, drawIsoGroundedArt, treeAliveVariant, treeBaseVariant, treeSpriteK } from './isoGroundProps.js';
+import { ISO_TREE_VARIANTS, TREE_DEAD_VARIANT, TREE_SPRITES, cityTreeVariant, drawIsoGroundedArt, treeAliveVariant, treeSpriteK } from './isoGroundProps.js';
 import { maskHit } from './isoMask.js';
 import { HOVER_GOLD, rgb } from './isoPalette.js';
 import { drawIsoPlaisirsSeg } from './isoPlaisirs.js';
@@ -385,9 +385,9 @@ export function paintIsoItems(bake, items, now) {
       // forêt sauvage) — le hash de chaîne ne se paie donc qu'une fois par arbre
       // et par vie de cache, au lieu d'une fois par arbre et par frame.
       // `tr.v` : essence et âge décidés à la plantation (forêt sauvage, cf.
-      // isoWildForest) ; sinon le tirage par cellule.
+      // isoWildForest) ; sinon un arbre de VILLE, de l'essence de son ère (lot 6).
       let tv = tr._tv;
-      if (tv === undefined || !treeMemo) tv = tr._tv = tr.v || treeBaseVariant(tr.gx, tr.gy);
+      if (tv === undefined || !treeMemo) tv = tr._tv = tr.v || cityTreeVariant(tr.gx, tr.gy, band);
       // Hors hiver et hors ruines, la cellule du sapin mort reçoit une essence
       // vivante — tirée à part, et mémoïsée comme la variante.
       if (tv === TREE_DEAD_VARIANT && !deadTreeOk) {

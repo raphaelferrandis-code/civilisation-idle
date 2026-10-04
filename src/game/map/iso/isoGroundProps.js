@@ -152,6 +152,17 @@ export const TREE_SPRITES = [
   { name: 'tree-buisson-1', sp: 'buisson', age: 0, px: 48 },
   { name: 'tree-buisson-2', sp: 'buisson', age: 0, px: 48 },
   { name: 'tree-buisson-3', sp: 'buisson', age: 0, px: 64 },
+  // Arbres de VILLE par ère (lot 6) — jamais en forêt (cf. CITY_TREES).
+  { name: 'tree-cypres-1', sp: 'cypres', age: 1, px: 96 },
+  { name: 'tree-cypres-2', sp: 'cypres', age: 1, px: 96 },
+  { name: 'tree-cypres-3', sp: 'cypres', age: 1, px: 96 },
+  { name: 'tree-pinparasol-1', sp: 'pinparasol', age: 1, px: 104 },
+  { name: 'tree-pinparasol-2', sp: 'pinparasol', age: 1, px: 104 },
+  { name: 'tree-platane-1', sp: 'platane', age: 1, px: 96 },
+  { name: 'tree-platane-2', sp: 'platane', age: 1, px: 104 },
+  { name: 'tree-tilleul-1', sp: 'tilleul', age: 1, px: 96 },
+  { name: 'tree-tilleul-2', sp: 'tilleul', age: 1, px: 96 },
+  { name: 'tree-tilleul-3', sp: 'tilleul', age: 1, px: 96 },
 ];
 export const ISO_TREE_VARIANTS = TREE_SPRITES.length - 1;
 // Rapport de taille de dessin d'un arbre à l'arbre de référence (canevas de 96).
@@ -163,8 +174,10 @@ export function treeSpriteK(v) { const t = TREE_SPRITES[v]; return t ? t.px / 96
 // neige, et dans une civilisation EN RUINE (CM.frameRuined) ; le reste du temps
 // sa cellule reçoit une des essences vivantes (treeAliveVariant).
 export const TREE_DEAD_VARIANT = 4;
-// Les arbres VIVANTS (ni le sapin mort, ni les buissons, réservés à la lisière).
-export const TREE_LIVING = TREE_SPRITES.map((t, i) => (t && t.sp !== 'mort' && t.sp !== 'buisson' ? i : 0)).filter(Boolean);
+// Les arbres VIVANTS de la forêt (ni le sapin mort, ni les buissons réservés à la
+// lisière, ni les essences de ville du lot 6).
+const FOREST_SP = new Set(['chene', 'bouleau', 'sapin', 'pin']);
+export const TREE_LIVING = TREE_SPRITES.map((t, i) => (t && FOREST_SP.has(t.sp) ? i : 0)).filter(Boolean);
 // Index des dessins d'une essence à un âge (listes figées au chargement).
 export function treeVariantsOf(sp, age) {
   const out = [];
@@ -184,9 +197,39 @@ export function treeBaseVariant(gx, gy) {
 // Essence VIVANTE qui remplace le sapin mort hors hiver et hors ruines : un tirage
 // à part, parmi les adultes (jamais TREE_DEAD_VARIANT).
 export function treeAliveVariant(gx, gy) { return TREE_ADULTS[cmHash('treeA:' + gx + ':' + gy) % TREE_ADULTS.length]; }
+// ── LES ARBRES DE VILLE PAR ÈRE (docs/PLAN-VEGETATION.md, lot 6, 2026-10-04) ──
+// La forêt reste tempérée à toutes les ères (réponse Q2 de Raph) ; les arbres plantés
+// EN VILLE (L.trees) prennent l'essence de leur époque : tilleuls de la ville médiévale,
+// cyprès et pins parasols de la ville de marbre, platanes d'avenue au XIXe et après.
+// Poids par essence, par bande (index = eraBand ; null = pas d'arbre de ville : camp et
+// village). Les arbres de PLACE (`fixed`, recette cotée) et de l'île gardent tree-1..4.
+// Pas de sapin mort en ville : un arbre planté est un arbre soigné.
+export const CITY_TREES = [
+  null, null,
+  [['tilleul', 5], ['chene', 3], ['bouleau', 2]],                       // 2-3 médiéval
+  [['tilleul', 5], ['chene', 3], ['bouleau', 2]],
+  [['cypres', 4], ['pinparasol', 3], ['tilleul', 2], ['chene', 1]],      // 4 antique
+  [['platane', 5], ['tilleul', 3], ['chene', 2]],                       // 5 industriel
+  [['platane', 4], ['bouleau', 3], ['tilleul', 2], ['pin', 1]],          // 6 moderne
+  [['platane', 3], ['bouleau', 3], ['cypres', 2], ['tilleul', 2]],      // 7+ cosmique
+];
+const CITY_SP = {};
+for (const mix of CITY_TREES) if (mix) for (const [sp] of mix) CITY_SP[sp] = TREE_SPRITES.map((t, i) => (t && t.sp === sp && t.age === 1 ? i : 0)).filter(Boolean);
+export function cityTreeVariant(gx, gy, band) {
+  const mix = CITY_TREES[Math.max(0, Math.min(band | 0, CITY_TREES.length - 1))];
+  if (!mix) return treeAliveVariant(gx, gy);
+  let tot = 0;
+  for (const [, w] of mix) tot += w;
+  let r = cmHash('cityT:' + gx + ':' + gy) % tot;
+  let sp = mix[0][0];
+  for (const [s, w] of mix) { if (r < w) { sp = s; break; } r -= w; }
+  const l = CITY_SP[sp];
+  return l[cmHash('cityV:' + gx + ':' + gy) % l.length];
+}
 // Dessin d'un arbre posé, SANS rien mémoïser (le peintre tient `_tv`) : pour ceux qui
-// ont besoin de sa taille avant ou en dehors du dessin (particules d'ambiance).
-export function treeVariantOf(tr) { return tr._tv || tr.v || treeBaseVariant(tr.gx, tr.gy); }
+// ont besoin de sa taille avant ou en dehors du dessin (particules d'ambiance). `band` :
+// l'ère de la ville, pour un arbre de ville (sans `v`).
+export function treeVariantOf(tr, band = 0) { return tr._tv || tr.v || cityTreeVariant(tr.gx, tr.gy, band); }
 // Buissons DÉDIÉS bush-1..N (pack Cainos, cf. scripts/sliceCainosPlants.mjs),
 // rangés du plus petit au plus grand. Avant, un « buisson » de terre-plein était
 // un feuillu rapetissé — donc un tronc d'arbre miniature. Repli sur tree-N si le

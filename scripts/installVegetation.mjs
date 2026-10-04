@@ -42,6 +42,7 @@ const FAMILY = {
   sapin: { y: 62, sat: 0.9, hue: -18 },
   pin: { y: 66, sat: 0.78, hue: -20, bark: 0.6 },
   buisson: { y: 80, sat: 1, hue: 0, hi: [0.5, 0.78, 0.85] },
+  cypres: { y: 60, sat: 0.95, hue: 0 },          // arbres de ville (lot 6) : déjà vert franc
 };
 
 // Feuillage = teinte verte (50-200°) assez saturée (saturation HSV > 0,15). Le masque

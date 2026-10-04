@@ -46,7 +46,8 @@ function isoVegAnchors(L, b) {
     if (list.length >= 260) return;                 // garde-fou perf
     list.push({ wx: (gx + 0.5 + jx) * T, wy: (gy + 0.9 + jy) * T, r: r || 0.7, k: k || 1, s: (cmHash('veg:' + gx + ':' + gy) >>> 0) });
   };
-  for (const tr of (L.trees || [])) push(tr.gx, tr.gy, 0, 0, tr.r, treeSpriteK(treeVariantOf(tr)));
+  const eraBand = (L.counts && L.counts.eraBand) | 0;
+  for (const tr of (L.trees || [])) push(tr.gx, tr.gy, 0, 0, tr.r, treeSpriteK(treeVariantOf(tr, eraBand)));
   for (const wt of isoVegForestSample(L, b)) push(wt.gx, wt.gy, wt.jx || 0, wt.jy || 0, wt.r, treeSpriteK(treeVariantOf(wt)));
   CM._vegAnchors = { sig, list };
   return list;

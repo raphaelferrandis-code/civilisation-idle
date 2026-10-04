@@ -13,7 +13,7 @@ import { describe, it, expect } from "vitest";
 import fs from "node:fs";
 import { PNG } from "pngjs";
 import {
-  TREE_SPRITES, ISO_TREE_VARIANTS, TREE_DEAD_VARIANT, TREE_LIVING, treeSpriteK,
+  TREE_SPRITES, ISO_TREE_VARIANTS, TREE_DEAD_VARIANT, TREE_LIVING, CITY_TREES, cityTreeVariant, treeSpriteK,
 } from "../iso/isoGroundProps.js";
 
 const DIR = new URL("../../../../public/pixelart/iso/", import.meta.url);
@@ -61,4 +61,24 @@ describe("famille d'arbres : table, manifeste et PNG", () => {
       expect(cols.size).toBeLessThanOrEqual(24);
     });
   }
+});
+
+describe("arbres de ville par ère (lot 6)", () => {
+  it("chaque bande plante les essences de son époque, dans ses proportions", () => {
+    for (let band = 2; band < CITY_TREES.length; band += 1) {
+      const mix = CITY_TREES[band], tot = mix.reduce((a, [, w]) => a + w, 0);
+      const n = {};
+      for (let y = 0; y < 60; y += 1) for (let x = 0; x < 60; x += 1) {
+        const t = TREE_SPRITES[cityTreeVariant(x, y, band)];
+        expect(t.age, `bande ${band}`).toBe(1);                       // des adultes seulement
+        n[t.sp] = (n[t.sp] || 0) + 1;
+      }
+      for (const [sp, w] of mix) expect(Math.abs(n[sp] / 3600 - w / tot), `bande ${band} ${sp}`).toBeLessThan(0.05);
+      expect(Object.keys(n).sort()).toEqual(mix.map(([sp]) => sp).sort());
+    }
+  });
+
+  it("les essences de ville ne poussent pas en forêt", () => {
+    for (const v of TREE_LIVING) expect(["chene", "bouleau", "sapin", "pin"]).toContain(TREE_SPRITES[v].sp);
+  });
 });
