@@ -5,6 +5,7 @@ import IcarusStage from './IcarusStage.jsx';
 import ScratchStage from './ScratchStage.jsx';
 import BlackjackStage from './BlackjackStage.jsx';
 import SlotsStage from './SlotsStage.jsx';
+import GrandGain from './GrandGain.jsx';
 
 /**
  * La scène des jeux du temple (retour Raph 2026-07-14 : « les jeux se lancent
@@ -59,6 +60,8 @@ export default function RegulationStage() {
            openedAt est déjà le contrat de reset des scènes — on le donne à React. */
         <Stage key={`${game.kind}:${game.openedAt}`} table={game} onClose={() => closeTempleStage()} />
       )}
+      {/* Les grands gains (lot 3) : ×10, ×50, ×250 la mise, au-dessus de la table. */}
+      {!empty && <GrandGain />}
     </section>
   );
 }

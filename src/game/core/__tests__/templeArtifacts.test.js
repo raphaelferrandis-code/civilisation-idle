@@ -66,14 +66,14 @@ describe("Artefacts — persistance", () => {
     });
     expect(s.templeArtifacts).toEqual({ noye: true }); // plumes:0 faux → tombé, ivoire/bogus inconnus → tombés
     expect(s.maisonRefund).toBe(0);
-    // 15 artefacts sur 5 lignées (lot 1, 2026-10-04) — la liste est le filtre
-    // d'hydratation.
+    // 19 artefacts sur 5 lignées (lot 1, puis les reliques rapprochées du lot 3) — la
+    // liste est le filtre d'hydratation.
     expect(TEMPLE_ARTIFACT_IDS).toEqual([
       "noye", "echelle", "interdit",
       "plumes", "souffle", "solaires", "serres", "colombier",
       "coin", "relance",
       "voix", "mesure",
-      "char", "corne", "oeil"
+      "char", "lyre", "miroir", "corne", "toison", "pomme", "oeil"
     ]);
   });
 
@@ -246,7 +246,7 @@ describe("Arbre — échelle (rang N exige N-1)", () => {
       ["colombier", "plumes", "souffle", "solaires", "serres", "autoIcare"],
       ["stylet", "coin", "relance", "autoGratteux"],
       ["voix", "mesure", "autoVingtEtUn"],
-      ["char", "corne", "oeil"]
+      ["char", "lyre", "miroir", "corne", "toison", "pomme", "oeil"]
     ]);
     // Le seul rang à NIVEAUX qui reste est le stylet : un augment de geste, zéro math.
     const nodes = tree.flatMap((l) => l.nodes);

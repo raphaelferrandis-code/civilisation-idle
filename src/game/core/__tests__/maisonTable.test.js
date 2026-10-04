@@ -18,6 +18,7 @@ import {
   doubleBlackjack, splitBlackjack, __resetBlackjackForTests
 } from "../actions/blackjack.js";
 import { templeRelicProdMult, blessingMultiplier } from "../actions/faveurShop.js";
+import { artifactTree, buyArtifactNode } from "../actions/templeAutomation.js";
 import { crisisProductionMultiplier } from "../mechanics/production/crisisLevers.js";
 import { eras } from "../../data/world.js";
 import { BLESSING_MULT, RELIC_CORNE_PROD_MULT, RELIC_OEIL_PROD_MULT, POT_CAP_MIN } from "../balance.js";
@@ -260,6 +261,26 @@ describe("Les reliques du trésor", () => {
     state.templeArtifacts = { corne: true, oeil: true };
     expect(templeRelicProdMult()).toBe(RELIC_CORNE_PROD_MULT * RELIC_OEIL_PROD_MULT);
     expect(crisisProductionMultiplier("food")).toBeCloseTo(base * RELIC_CORNE_PROD_MULT * RELIC_OEIL_PROD_MULT, 12);
+  });
+
+  it("lot 3 : une relique à chaque ×10 du prix, chaque nouvelle ×1,25 (les sept : ×19,5)", () => {
+    const tresor = artifactTree().find((l) => l.id === "tresor");
+    expect(tresor.nodes.map((n) => [n.id, n.cost])).toEqual([
+      ["char", 1e6], ["lyre", 1e7], ["miroir", 1e8], ["corne", 1e9], ["toison", 1e10], ["pomme", 1e11], ["oeil", 1e12]
+    ]);
+    state.templeArtifacts = { lyre: true };
+    expect(templeRelicProdMult()).toBeCloseTo(1.25, 12);
+    state.templeArtifacts = { char: true, lyre: true, miroir: true, corne: true, toison: true, pomme: true, oeil: true };
+    expect(templeRelicProdMult()).toBeCloseTo(RELIC_CORNE_PROD_MULT * RELIC_OEIL_PROD_MULT * Math.pow(1.25, 4), 9);
+    // L'échelle : la Lyre suit le Char, la Corne suit le Miroir.
+    state.templeArtifacts = {};
+    state.faveur = 2e9;
+    expect(buyArtifactNode("lyre")).toBe(false);
+    expect(buyArtifactNode("char")).toBe(true);
+    expect(buyArtifactNode("lyre")).toBe(true);
+    expect(buyArtifactNode("corne")).toBe(false);
+    expect(buyArtifactNode("miroir")).toBe(true);
+    expect(buyArtifactNode("corne")).toBe(true);
   });
 
   it("le Char du Soleil rend la Bénédiction permanente (plus d'expiration)", () => {

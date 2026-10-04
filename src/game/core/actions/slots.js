@@ -33,6 +33,7 @@ import {
   SLOTS_WHEEL_SPINS,
   SLOTS_CHESTS,
   SLOTS_HW,
+  SLOTS_GRAND_FLOOR,
   SLOTS_HISTORY_LEN
 } from '../balance.js';
 import { chronicle } from './utils.js';
@@ -50,7 +51,7 @@ export const SLOTS_CFG = {
   scatter: 'etoile', bonus: 'roue', coin: 'piece',
   freeSpins: SLOTS_FREE_SPINS, freeMult: SLOTS_FREE_MULT,
   wheel: SLOTS_WHEEL, wheelAt: SLOTS_WHEEL_AT, wheelSpins: SLOTS_WHEEL_SPINS,
-  chests: SLOTS_CHESTS, hw: SLOTS_HW
+  chests: SLOTS_CHESTS, hw: SLOTS_HW, grandFloor: SLOTS_GRAND_FLOOR
 };
 export const SLOTS_CELLS = SLOTS_REELS.length * SLOT_ROWS;
 
@@ -67,7 +68,8 @@ export function slotsEvaluate(grid) {
 }
 
 // ── LE RTP DE RÉFÉRENCE, calculé (slotsMath.js) ─────────────────────────────────
-// Le GRAND est un transfert, il ne compte pas. Mémorisé (le calcul prend ~20 ms).
+// Le plancher du GRAND y compte (la machine le paie) ; sa part de cagnotte, transfert,
+// non. Mémorisé (le calcul prend ~20 ms).
 // Les chances et le RTP exacts de la machine (actions/slotsMath.js), calculés une
 // fois : la case « vol » de la roue offre un vol d'Icare À LA MISE DU TOUR, donc sa
 // valeur vaut la mise × le RTP d'Icare, quelle que soit la mise.
@@ -77,20 +79,21 @@ export function slotsOdds() {
   return _odds;
 }
 
-// RTP de RÉFÉRENCE (hors GRAND, qui est un transfert de la cagnotte) — lu par feedPot.
+// RTP de RÉFÉRENCE (hors cagnotte, qui est un transfert) — lu par feedPot.
 export function slotsRtpRef() {
   return slotsOdds().rtp;
 }
 
 // Les jackpots du Hold & Win, en Faveur, pour une mise : MINI et MAJEUR fixes, GRAND
-// = la part de cagnotte que raflerait la mise (affichés sur la machine).
+// = son plancher (×SLOTS_GRAND_FLOOR la mise) + la part de cagnotte que raflerait la
+// mise (affichés sur la machine). Le GRAND passe toujours devant le MAJEUR.
 export function slotsJackpots(stakeFaveur) {
   const mini = SLOTS_HW.values.find((c) => c.jp === 'mini');
   const majeur = SLOTS_HW.values.find((c) => c.jp === 'majeur');
   return {
     mini: Math.round((mini ? mini.v : 0) * stakeFaveur),
     majeur: Math.round((majeur ? majeur.v : 0) * stakeFaveur),
-    grand: potRake(state.icarusPotFaveur || 0, stakeFaveur).rake
+    grand: Math.round(SLOTS_GRAND_FLOOR * stakeFaveur) + potRake(state.icarusPotFaveur || 0, stakeFaveur).rake
   };
 }
 
@@ -141,17 +144,18 @@ function drawWheel(stakeFaveur, session = null) {
     } else if (segment === 'vol') {
       wheel.flight = grantFreeFlight(stakeFaveur);
     } else if (segment === 'jackpot') {
-      // Le GRAND : la cagnotte, au prorata de la mise (la mise maximale la rafle entière).
+      // La case « JP » : la CAGNOTTE, au prorata de la mise (la limite de base la rafle
+      // entière). Pas de plancher ici : cette case tombe bien plus souvent que le GRAND.
       const { rake } = potRake(state.icarusPotFaveur || 0, stakeFaveur);
       wheel.jackpotFaveur = drawFromPot(rake);
-      if (wheel.jackpotFaveur > 0) chronicle(`GRAND JACKPOT à la machine à sous : la cagnotte de la Maison verse ${fmt(wheel.jackpotFaveur)} faveur.`);
+      if (wheel.jackpotFaveur > 0) chronicle(`La roue de la machine à sous tombe sur la cagnotte de la Maison : elle verse ${fmt(wheel.jackpotFaveur)} faveur.`);
     }
     const won = wheel.faveurGain + wheel.jackpotFaveur;
     if (won > 0) state.faveur = Math.max(0, (state.faveur || 0) + won);
     addToSeries(session, won);
     recordSlotsBonus({ won, jackpot: wheel.jackpotFaveur });
     pushOutcomeFloat({
-      label: wheel.jackpotFaveur > 0 ? `🎰 GRAND +${fmt(wheel.jackpotFaveur)} faveur`
+      label: wheel.jackpotFaveur > 0 ? `🎰 Cagnotte +${fmt(wheel.jackpotFaveur)} faveur`
         : wheel.freeSpins ? `🎰 +${wheel.freeSpins} tours gratuits`
           : wheel.flight ? '🎰 vol d’Icare offert'
             : `🎰 +${fmt(wheel.faveurGain)} faveur`,
@@ -201,8 +205,9 @@ function drawHoldWin(stakeFaveur, coinCells, session = null) {
     applied = true;
     hw.faveurGain = payRound(stakeFaveur * total);
     if (hw.full) {
+      // Le GRAND : son plancher (payé par la machine), plus la part de cagnotte de la mise.
       const { rake } = potRake(state.icarusPotFaveur || 0, stakeFaveur);
-      hw.grandFaveur = drawFromPot(rake);
+      hw.grandFaveur = payRound(stakeFaveur * SLOTS_GRAND_FLOOR) + drawFromPot(rake);
       chronicle(`Hold & Win : les quinze cases de la machine à sous ! Le GRAND verse ${fmt(hw.grandFaveur)} faveur.`);
     } else if (hw.majeurs) chronicle(`Hold & Win : le MAJEUR tombe à la machine à sous (+${fmt(Math.round(stakeFaveur * 100))} faveur).`);
     const won = hw.faveurGain + hw.grandFaveur;

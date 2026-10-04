@@ -38,6 +38,12 @@ export const BOTTLE_POS = {
   char_soleil: { x: 45, y: 43.75, w: 2.75, h: 8.482, cx: 46.25, cy: 47.77 },
   corne: { x: 47.75, y: 42.857, w: 3.25, h: 9.375, cx: 49.25, cy: 47.32 },
   oeil_or: { x: 51, y: 43.75, w: 2.75, h: 8.482, cx: 52.25, cy: 47.77 },
+  // Les reliques du lot 3 s'allument aux places laissées par les achats retirés au lot 1
+  // (Coffres, double, refente, planches) : leurs flacons en sont la recoloration.
+  lyre_orphee: { x: 41.75, y: 42.857, w: 3.25, h: 9.375, cx: 43.25, cy: 47.32 },
+  miroir_aphrodite: { x: 17.5, y: 56.696, w: 3.25, h: 7.589, cx: 19, cy: 60.27 },
+  toison_or: { x: 22.75, y: 56.25, w: 3.25, h: 8.482, cx: 24.25, cy: 60.27 },
+  pomme_or: { x: 15, y: 47.768, w: 2.75, h: 8.482, cx: 16.25, cy: 51.79 },
   sebile: { x: 53.75, y: 41.964, w: 4.25, h: 10.268, cx: 55.75, cy: 46.88 },
   reseau_routes: { x: 72.25, y: 29.464, w: 3.75, h: 9.375, cx: 74, cy: 33.93 },
   memoire_cycles: { x: 76.25, y: 29.464, w: 3.75, h: 9.375, cx: 78, cy: 33.93 },
@@ -82,6 +88,10 @@ export const BOTTLE_OF = {
   temple_char: 'char_soleil',
   temple_corne: 'corne',
   temple_oeil: 'oeil_or',
+  temple_lyre: 'lyre_orphee',
+  temple_miroir: 'miroir_aphrodite',
+  temple_toison: 'toison_or',
+  temple_pomme: 'pomme_or',
   temple_autoTronc: 'sebile',
   // Héritage
   reforme_administrative: 'reforme',

@@ -506,3 +506,9 @@
   white-space: nowrap;
   color: var(--gold-bright);
 }
+
+/* Le râtelier sur DEUX rangs voulus (la machine à sous, dont le panneau est étroit) :
+   les jetons, puis Effacer, Même mise, Tapis — au lieu d'un Tapis orphelin qui passait
+   seul à la ligne. Le séparateur devient le saut de ligne. */
+.ptable-rack.is-stack { row-gap: 0.25rem; }
+.ptable-rack.is-stack .ptable-rack-sep { flex: 0 0 100%; width: 100%; height: 0; margin: 0; border: 0; }

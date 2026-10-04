@@ -542,6 +542,13 @@ export const SLOTS_HW = {
     { v: 20, w: 3.5, jp: "mini" }, { v: 100, w: 0.5, jp: "majeur" }
   ]
 };
+// Le GRAND (les quinze cases du Hold & Win) paie AU MOINS ce plancher, × la mise, plus la
+// part de cagnotte de la mise (Raph, 2026-10-04 : « le GRAND doit dépasser le MAJEUR »).
+// La cagnotte seule plafonne à 24 h de recettes, soit ~96 limites de base : sous le
+// MAJEUR (×100) à toute mise. Le plancher est payé par la machine (dans son RTP : ~92 %
+// → ~93,6 %) ; la part de cagnotte reste un transfert. La case « JP » de la roue, bien
+// plus fréquente (1 tour sur ~1 270), ne verse que la cagnotte.
+export const SLOTS_GRAND_FLOOR = 250;
 // Le vol d'Icare de la roue se joue à la mise du tour qui l'a gagné.
 export const SLOTS_HISTORY_LEN = 12;
 
@@ -595,7 +602,7 @@ export const TEMPLE_ARTIFACT_IDS = [
   "plumes", "souffle", "solaires", "serres", "colombier", // lignée Icare
   "coin", "relance",                                      // lignée gratteux
   "voix", "mesure",                                       // lignée vingt-et-un
-  "char", "corne", "oeil"                                 // les Reliques (le trésor)
+  "char", "lyre", "miroir", "corne", "toison", "pomme", "oeil" // les Reliques (le trésor)
 ];
 // Osselet du noyé — ⚠ SÉMANTIQUE CHANGÉE le 2026-07-17. Il multipliait la part de
 // la MISE versée à la cagnotte ; il multiplie désormais le RECYCLE de l'edge, et il
@@ -660,6 +667,15 @@ export const RELIC_CORNE_COST = 1e9;      // la Corne du temple : production ×2
 export const RELIC_OEIL_COST = 1e12;      // l'Œil d'or : production ×4
 export const RELIC_CORNE_PROD_MULT = 2;
 export const RELIC_OEIL_PROD_MULT = 4;
+// Lot 3 des gains « vrai casino » : une relique à CHAQUE ×10 du prix (Raph, 2026-10-04 :
+// « des reliques plus rapprochées »), pour qu'un gros gain serve toujours en fin de
+// partie. Les quatre nouvelles s'intercalent entre les trois anciennes, qui gardent
+// prix et effets : chacune multiplie la production par 1,25 (les sept : ×8 → ×19,5).
+export const RELIC_LYRE_COST = 1e7;       // la Lyre d'Orphée
+export const RELIC_MIROIR_COST = 1e8;     // le Miroir d'Aphrodite
+export const RELIC_TOISON_COST = 1e10;    // la Toison d'or
+export const RELIC_POMME_COST = 1e11;     // la Pomme d'or des Hespérides
+export const RELIC_STEP_PROD_MULT = 1.25;
 
 // ── Intendance (consignes conditionnelles, onglet Régulation) ────────────────
 // Délégation configurable : « si la Rupture dépasse X % → lancer telle action

@@ -12,8 +12,8 @@
 - **PASS** - A4 21 : AUTO colle au chemin de l'auto (base + double, +-0,5 pt) : AUTO 98.30 % ; mesure 98.19 %
 - **PASS** - A2 Icare : 97 % quelle que soit la cible (C = (1 - e)/U) : 97.00 %
 - **PASS** - A2 tickets : la loterie rend 75 % (+-0,5 pt) : 75.019 % ; P(gain) 25.92 % ; gros lot 1 sur 100 000
-- **PASS** - A2 machine : ~92 % (calibree par la session machine a sous) : 91.993 %
-- **PASS** - A1 aucun jeu ne rend 100 % ou plus : osselets prudent 97.00 %, osselets classique 97.00 %, osselets grand 97.00 %, osselets interdit 97.00 %, Icare 97.00 %, tickets 75.02 %, vingt-et-un (REF) 99.50 %, machine 91.99 %
+- **PASS** - A2 machine : ~93,5 % (plancher du GRAND x250 compris) : 93.548 %
+- **PASS** - A1 aucun jeu ne rend 100 % ou plus : osselets prudent 97.00 %, osselets classique 97.00 %, osselets grand 97.00 %, osselets interdit 97.00 %, Icare 97.00 %, tickets 75.02 %, vingt-et-un (REF) 99.50 %, machine 93.55 %
 - **PASS** - A5 cagnotte : rtp + recycle x (1 - rtp) < 1 partout (recycle borne < 1) : recycle nu 0.6, noye 0.85 ; pire total 99.92 %
 - **PASS** - A6 Monte-Carlo osselets (ancestral) ~97 % (+-1 pt) : 97.22 % sur 400 000 jets
 - **PASS** - A6 Monte-Carlo Icare (cible x2) ~97 % (+-1 pt) : 97.13 % sur 400 000 vols
@@ -56,7 +56,7 @@ Venus offre en plus un vol d'Icare a la mise du jet (compte dans le RTP).
 | Icare | 97.00 % | 98.80 % | 99.55 % |
 | tickets | 75.02 % | 90.01 % | 96.25 % |
 | vingt-et-un (REF) | 99.50 % | 99.80 % | 99.92 % |
-| machine | 91.99 % | 96.80 % | 98.80 % |
+| machine | 93.55 % | 97.42 % | 99.03 % |
 
 ## Les titres de la Maison (lot 2)
 

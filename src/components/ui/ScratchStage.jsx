@@ -12,6 +12,7 @@ import { hasTempleArtifact } from '../../game/core/actions/templeArtifacts.js';
 import { tableLimits } from '../../game/core/actions/maisonTable.js';
 import { fmt } from '../../game/core/utils.js';
 import { tr } from '../../game/core/i18n.js';
+import { celebrerGain } from '../../game/core/grandsGains.js';
 import { PotIcon } from './FaveurIcon.jsx';
 import { tipProps } from './HelpBubble.jsx';
 import StageHelp from './StageHelp.jsx';
@@ -230,8 +231,12 @@ export default function ScratchStage({ table, onClose }) {
   // Révélation : applique l'effet (crédite la Faveur / nourrit la cagnotte),
   // découvre la grille et passe au résultat. Stable (refs + setters).
   const reveal = useCallback(() => {
+    const fresh = Boolean(pendingRef.current);
     if (pendingRef.current) { pendingRef.current(); pendingRef.current = null; }
     if (outcomeRef.current) setOutcome({ ...outcomeRef.current });
+    // Le gros lot se fête à la révélation (une fois : le ticket déjà crédité ne rejoue rien).
+    const o = outcomeRef.current;
+    if (fresh && o && o.win) celebrerGain({ gain: o.faveurGain, stake: o.stakeFaveur, game: 'tickets' });
     setRevealed(true);
     setPhase('done');
   }, []);

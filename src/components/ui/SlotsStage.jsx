@@ -2,8 +2,8 @@ import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { useGameState } from '../../hooks/useGameState.js';
 import { state } from '../../game/core/state.js';
 import { icarusPotFaveur } from '../../game/core/actions.js';
-import { spinSlots, slotsFreeSpins, slotsJackpots, SLOTS_CELLS } from '../../game/core/actions/slots.js';
-import { SLOTS_REELS, SLOTS_WHEEL, SLOTS_PAY, SLOTS_LINES, SLOTS_FREE_SPINS, SLOTS_FREE_MULT, SLOTS_CHESTS, SLOTS_HW } from '../../game/core/balance.js';
+import { spinSlots, slotsFreeSpins, slotsJackpots, slotsRtpRef, SLOTS_CELLS } from '../../game/core/actions/slots.js';
+import { SLOTS_REELS, SLOTS_WHEEL, SLOTS_PAY, SLOTS_LINES, SLOTS_FREE_SPINS, SLOTS_FREE_MULT, SLOTS_CHESTS, SLOTS_HW, SLOTS_GRAND_FLOOR } from '../../game/core/balance.js';
 import { potRakeShare } from '../../game/core/actions/templePot.js';
 import { tableLimits } from '../../game/core/actions/maisonTable.js';
 import { bakeSlotsScene, paintReels, paintLive, paintHold, paintWinCells, lancerPieces, avancerPieces, paintPieces, wheelRaster, chestRaster, symbolRaster, slotsLook, SLOT_CELL, SCENE_H, WHEEL_SIZE } from '../../game/map/iso/plaisirsSlotsArt.js';
@@ -11,6 +11,7 @@ import { bakeSlotsScene, paintReels, paintLive, paintHold, paintWinCells, lancer
 import { sonSlots, ronronSlots, prechaufferSons } from '../../game/audio/slotsSound.js';
 import { fmt } from '../../game/core/utils.js';
 import { tr } from '../../game/core/i18n.js';
+import { celebrerGain, palierOf } from '../../game/core/grandsGains.js';
 import { FaveurIcon, PotIcon } from './FaveurIcon.jsx';
 import { tipProps } from './HelpBubble.jsx';
 import StageHelp from './StageHelp.jsx';
@@ -76,8 +77,9 @@ const LEVIER_SEUIL = 0.55;                              // tiré au-delà : la m
 // La dernière mise jouée est gardée d'une ouverture à l'autre (miseMemory) : la machine
 // s'ouvre PRÊTE (2026-10-04, Raph : « je ne peux pas essayer, ça ne marche pas » — sans
 // mise choisie, le levier ne répondait pas et le bouton Tirer n'apparaissait pas).
-// Les gros gains : leur bandeau, selon le multiple de la mise.
-const bandeau = (x) => (x >= 50 ? { fr: 'MÉGA GAIN', en: 'MEGA WIN' } : x >= 25 ? { fr: 'ÉNORME GAIN', en: 'HUGE WIN' } : x >= 10 ? { fr: 'GROS GAIN', en: 'BIG WIN' } : null);
+// Les gros gains : leur bandeau, selon le multiple de la mise — les paliers de toutes les
+// tables (×10, ×50, ×250 : grandsGains.js), la machine gardant sa pluie de pièces.
+const bandeau = (x) => { const p = palierOf(x); return p ? p.label : null; };
 
 // Un montant qui DÉFILE jusqu'à sa valeur (écrit directement dans le DOM, image par image :
 // pas un rendu React par image).
@@ -210,6 +212,8 @@ export default function SlotsStage({ table, onClose }) {
   const fete_ = (gain, stakeFaveur, label = null, pieces = 0) => {
     const x = gain / Math.max(1, stakeFaveur);
     const b = label || bandeau(x);
+    // Un coup de légende (×250) s'écrit dans la Chronique ; le bandeau, la machine l'a.
+    celebrerGain({ gain, stake: stakeFaveur, game: 'machine', show: false });
     const n = pieces || (b ? Math.min(70, 24 + Math.round(x)) : 0);
     if (n && scene) anim.current.coins = anim.current.coins.concat(lancerPieces(scene, n));
     if (b) { feteKey.current += 1; setFete({ label: b, value: gain, key: feteKey.current }); later(() => setFete(null), 2800); }
@@ -416,7 +420,7 @@ export default function SlotsStage({ table, onClose }) {
       w.apply();
       pending.current.wheel = null;
       sonSlots(w.jackpotFaveur > 0 ? 'jackpot' : w.freeSpins ? 'tours' : w.segment === 'vol' ? 'vol' : typeof w.segment === 'number' && w.segment >= 10 ? 'gain3' : 'gain2', look);
-      if (w.jackpotFaveur > 0) fete_(w.jackpotFaveur, w.stakeFaveur, { fr: 'GRAND JACKPOT', en: 'GRAND JACKPOT' }, 90);
+      if (w.jackpotFaveur > 0) fete_(w.jackpotFaveur, w.stakeFaveur, { fr: 'LA CAGNOTTE', en: 'THE POT' }, 60);
       else if (w.faveurGain > 0) fete_(w.faveurGain, w.stakeFaveur);
       setWheelState({ ...wheelState, angle: ang, lit: i, done: true });
       setPhase('wheelDone');
@@ -540,20 +544,20 @@ export default function SlotsStage({ table, onClose }) {
           </div>
           <p>
             {tr({
-              fr: `Hold & Win : les pièces se figent, ${SLOTS_HW.respins} relances, chaque nouvelle pièce les recharge. Chaque pièce vaut ×1 à ×10 la mise, ou le MINI (×${coinsJp[0].v}) ou le MAJEUR (×${coinsJp[1].v}). Les quinze cases remplies : le GRAND, la cagnotte de la Maison au prorata de la mise.`,
-              en: `Hold & Win: the coins lock, ${SLOTS_HW.respins} respins, each new coin resets them. Each coin is worth ×1 to ×10 the stake, or the MINI (×${coinsJp[0].v}) or the MAJOR (×${coinsJp[1].v}). All fifteen cells filled: the GRAND, the House pot pro rata of the stake.`
+              fr: `Hold & Win : les pièces se figent, ${SLOTS_HW.respins} relances, chaque nouvelle pièce les recharge. Chaque pièce vaut ×1 à ×10 la mise, ou le MINI (×${coinsJp[0].v}) ou le MAJEUR (×${coinsJp[1].v}). Les quinze cases remplies : le GRAND, au moins ×${SLOTS_GRAND_FLOOR} la mise, plus la cagnotte de la Maison au prorata de la mise.`,
+              en: `Hold & Win: the coins lock, ${SLOTS_HW.respins} respins, each new coin resets them. Each coin is worth ×1 to ×10 the stake, or the MINI (×${coinsJp[0].v}) or the MAJOR (×${coinsJp[1].v}). All fifteen cells filled: the GRAND, at least ×${SLOTS_GRAND_FLOOR} the stake, plus the House pot pro rata of the stake.`
             })}
           </p>
           <p>
             {tr({
-              fr: `La roue : ×2 à ×20 la mise, les coffres (×${SLOTS_CHESTS.join(', ×')} : on en ouvre un), des tours gratuits, un vol d’Icare à ta mise, et le GRAND.`,
-              en: `The wheel: ×2 to ×20 the stake, the chests (×${SLOTS_CHESTS.join(', ×')}: you open one), free spins, an Icarus flight at your stake, and the GRAND.`
+              fr: `La roue : ×2 à ×20 la mise, les coffres (×${SLOTS_CHESTS.join(', ×')} : on en ouvre un), des tours gratuits, un vol d’Icare à ta mise, et la cagnotte (JP).`,
+              en: `The wheel: ×2 to ×20 the stake, the chests (×${SLOTS_CHESTS.join(', ×')}: you open one), free spins, an Icarus flight at your stake, and the pot (JP).`
             })}
           </p>
           <p>
             {tr({
-              fr: `La mise est libre, toutes lignes comprises, jusqu'à la limite de la table (${fmtMise(tableMax)}). Le GRAND emporte une part de la cagnotte au prorata de la mise : ${Math.round(potRakeShare(stake) * 100)} % à ta mise actuelle, tout à la mise maximale. La machine rend 92 % sur la durée.`,
-              en: `The stake is free, all lines included, up to the table limit (${fmtMise(tableMax)}). The GRAND takes a share of the pot pro rata of the stake: ${Math.round(potRakeShare(stake) * 100)}% at your current stake, all of it at the maximum stake. The machine returns 92% over time.`
+              fr: `La mise est libre, toutes lignes comprises, jusqu'à la limite de la table (${fmtMise(tableMax)}). La cagnotte se rafle au prorata de la mise : ${Math.round(potRakeShare(stake) * 100)} % à ta mise actuelle, toute à la limite de la salle commune. La machine rend ${(slotsRtpRef() * 100).toFixed(1).replace('.', ',')} % sur la durée.`,
+              en: `The stake is free, all lines included, up to the table limit (${fmtMise(tableMax)}). The pot is swept pro rata of the stake: ${Math.round(potRakeShare(stake) * 100)}% at your current stake, all of it at the common room limit. The machine returns ${(slotsRtpRef() * 100).toFixed(1)}% over time.`
             })}
           </p>
         </StageHelp>
@@ -617,6 +621,7 @@ export default function SlotsStage({ table, onClose }) {
                 rackX={stakeXs[1]}
                 rackY={54}
                 rackWidth={Math.max(220, leftRoom - 12)}
+                rackStack
                 stake={stake}
                 onStake={setStake}
                 faveur={state.faveur || 0}
@@ -710,10 +715,10 @@ export default function SlotsStage({ table, onClose }) {
                       </div>
                     )}
                     <strong className={wr.jackpotFaveur > 0 ? 'is-jackpot' : ''}>
-                      {wr.jackpotFaveur > 0 ? <>GRAND +{fmt(wr.jackpotFaveur)} <FaveurIcon /></>
+                      {wr.jackpotFaveur > 0 ? <>{tr({ fr: 'Cagnotte', en: 'Pot' })} +{fmt(wr.jackpotFaveur)} <FaveurIcon /></>
                         : wr.freeSpins ? <>★ +{wr.freeSpins} {tr({ fr: 'tours gratuits', en: 'free spins' })}</>
                           : wr.segment === 'vol' ? (wr.flight ? <>🪽 {tr({ fr: 'Vol d’Icare offert', en: 'Free Icarus flight' })}</> : <>🪽 —</>)
-                            : wr.segment === 'jackpot' ? <>GRAND +0</>
+                            : wr.segment === 'jackpot' ? <>{tr({ fr: 'Cagnotte', en: 'Pot' })} +0</>
                               : <>+{fmt(wr.faveurGain)} <FaveurIcon /></>}
                     </strong>
                     <button type="button" onClick={closeWheel}>{tr({ fr: 'Continuer', en: 'Continue' })}</button>

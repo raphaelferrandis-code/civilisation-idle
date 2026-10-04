@@ -18,7 +18,8 @@ import {
   RELIC_CORNE_PROD_MULT,
   RELIC_OEIL_PROD_MULT,
   BLESSING_MULT,
-  BLESSING_DURATION_S
+  BLESSING_DURATION_S,
+  RELIC_STEP_PROD_MULT
 } from '../balance.js';
 import { chronicle } from './utils.js';
 import { pushOutcomeFloat } from '../outcomeFloat.js';
@@ -37,10 +38,14 @@ function tierCost(base, growth, level) {
 // financent la cité). Multiplicatif : Corne ×2 puis Œil ×4 → ×8. Le Char, lui,
 // rend la Bénédiction PERMANENTE (cf. blessingMultiplier). Lu par la production
 // aux côtés de blessingMultiplier.
+// Lot 3 : la Lyre, le Miroir, la Toison et la Pomme ajoutent chacune ×1,25.
 export function templeRelicProdMult() {
   let mult = 1;
   if (hasTempleArtifact("corne")) mult *= RELIC_CORNE_PROD_MULT;
   if (hasTempleArtifact("oeil")) mult *= RELIC_OEIL_PROD_MULT;
+  for (const id of ["lyre", "miroir", "toison", "pomme"]) {
+    if (hasTempleArtifact(id)) mult *= RELIC_STEP_PROD_MULT;
+  }
   return mult;
 }
 

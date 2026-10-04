@@ -13,6 +13,7 @@ import { state, save } from '../../game/core/state.js';
 import { tableLimits } from '../../game/core/actions/maisonTable.js';
 import { REGULATION_ACTIONS_BY_ID } from '../../game/data/regulationActions.js';
 import { tr } from '../../game/core/i18n.js';
+import { celebrerGain } from '../../game/core/grandsGains.js';
 import { tipProps } from './HelpBubble.jsx';
 import StageHelp from './StageHelp.jsx';
 import PlaisirsTable, { TableStake } from '../views/plaisirs/PlaisirsTable.jsx';
@@ -167,7 +168,10 @@ export default function AuguryStage({ table, onClose }) {
     setOutcome(res);
     setDoubleOutcome(null);
     setDoubleCran(0);
-    startCast(res.bones, () => setOutcome({ ...res }));
+    startCast(res.bones, () => {
+      setOutcome({ ...res });
+      celebrerGain({ gain: res.faveurGain, stake: res.stake, game: 'osselets' });
+    });
   };
 
   const maxCrans = hasTempleArtifact('echelle') ? AUGURY_DOUBLE_MAX_CRANS : 1;
@@ -183,7 +187,12 @@ export default function AuguryStage({ table, onClose }) {
     pendingRef.current = res.apply;
     setDoubleCran(doubleCran + 1);
     setDoubleOutcome(res);
-    startCast(res.bones, () => setDoubleOutcome({ ...res }));
+    // Un quitte ou double gagné se fête au multiple de la mise du jet d'origine.
+    const origine = outcome.stake;
+    startCast(res.bones, () => {
+      setDoubleOutcome({ ...res });
+      if (res.win) celebrerGain({ gain: res.wager * 2, stake: origine, game: 'osselets' });
+    });
   };
 
   // Les rites offerts (le rite interdit attend son artefact).

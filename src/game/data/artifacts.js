@@ -26,6 +26,7 @@ import {
   AUTO_SCRATCH_UNLOCK_COST, AUTO_BLACKJACK_UNLOCK_COST,
   AUGURY_DOUBLE_MAX_CRANS,
   RELIC_CHAR_COST, RELIC_CORNE_COST, RELIC_OEIL_COST,
+  RELIC_LYRE_COST, RELIC_MIROIR_COST, RELIC_TOISON_COST, RELIC_POMME_COST,
   ICARUS_CAP_SOLAR,
   MAISON_RANKS
 } from '../core/balance.js';
@@ -241,9 +242,30 @@ export const ARTIFACT_LINEAGES = [
         desc: { fr: "La Bénédiction ne s'éteint plus jamais : la production de la cité reste élevée à demeure.", en: "The Blessing never fades again: the city's production stays raised for good." }
       },
       {
+        // Lot 3 : une relique à chaque ×10 du prix (balance.js, RELIC_STEP_PROD_MULT).
+        id: "lyre", kind: "artifact", cost: RELIC_LYRE_COST,
+        label: { fr: "La Lyre d'Orphée", en: "Orpheus's Lyre" },
+        desc: { fr: "La cité travaille au chant de la lyre : sa production gagne un quart, pour toujours.", en: "The city works to the lyre's song: its production rises by a quarter, forever." }
+      },
+      {
+        id: "miroir", kind: "artifact", cost: RELIC_MIROIR_COST,
+        label: { fr: "Le Miroir d'Aphrodite", en: "Aphrodite's Mirror" },
+        desc: { fr: "La cité se plaît à elle-même : sa production gagne encore un quart, pour toujours.", en: "The city delights in itself: its production rises by another quarter, forever." }
+      },
+      {
         id: "corne", kind: "artifact", cost: RELIC_CORNE_COST,
         label: { fr: "La Corne du temple", en: "The temple Horn" },
         desc: { fr: "La production entière de la cité est doublée, pour toujours.", en: "The city's entire production is doubled, forever." }
+      },
+      {
+        id: "toison", kind: "artifact", cost: RELIC_TOISON_COST,
+        label: { fr: "La Toison d'or", en: "The Golden Fleece" },
+        desc: { fr: "La toison de Colchide pend au temple : la production gagne un quart, pour toujours.", en: "The Colchian fleece hangs in the temple: production rises by a quarter, forever." }
+      },
+      {
+        id: "pomme", kind: "artifact", cost: RELIC_POMME_COST,
+        label: { fr: "La Pomme d'or des Hespérides", en: "The Golden Apple of the Hesperides" },
+        desc: { fr: "Le fruit du jardin des dieux : la production gagne encore un quart, pour toujours.", en: "The fruit of the gods' garden: production rises by another quarter, forever." }
       },
       {
         id: "oeil", kind: "artifact", cost: RELIC_OEIL_COST,

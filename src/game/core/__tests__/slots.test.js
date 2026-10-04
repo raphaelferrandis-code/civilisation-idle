@@ -7,10 +7,10 @@
 
 import { describe, it, expect, beforeEach, afterEach, vi } from "vitest";
 import { state, setState, hydrateState, invalidateRenderCache } from "../state.js";
-import { spinSlots, slotsOdds, slotsRtpRef, slotsWindow, slotsEvaluate, slotsFreeSpins, slotsUnlocked, SLOTS_CFG, SLOTS_CELLS } from "../actions/slots.js";
+import { spinSlots, slotsOdds, slotsRtpRef, slotsWindow, slotsEvaluate, slotsFreeSpins, slotsUnlocked, slotsJackpots, SLOTS_CFG, SLOTS_CELLS } from "../actions/slots.js";
 import { lineWin, hwOutlook, slotsOddsOf } from "../actions/slotsMath.js";
 import { tableLimits } from "../actions/maisonTable.js";
-import { ICARUS_RTP, TEMPLE_POT_RECYCLE, SLOTS_REELS, SLOTS_FREE_SPINS, SLOTS_FREE_MULT, SLOTS_WHEEL, SLOTS_UNLOCK_ERA, SLOTS_PAY, SLOTS_HW, SLOTS_WILD } from "../balance.js";
+import { ICARUS_RTP, TEMPLE_POT_RECYCLE, SLOTS_REELS, SLOTS_FREE_SPINS, SLOTS_FREE_MULT, SLOTS_WHEEL, SLOTS_UNLOCK_ERA, SLOTS_PAY, SLOTS_HW, SLOTS_WILD, SLOTS_GRAND_FLOOR } from "../balance.js";
 import { MID_GAME_FIXTURE, FIXED_NOW } from "./fixtures.js";
 
 const FAVEUR_START = 100000;
@@ -245,9 +245,9 @@ describe("Machine à sous — un tour", () => {
     expect(state.faveur - before).toBe(Math.round(ROULEAU * hw.total));
   });
 
-  it("les quinze cases : le GRAND rafle la cagnotte au prorata de la mise", () => {
+  it("les quinze cases : le GRAND paie son plancher ×250 PLUS la cagnotte au prorata de la mise", () => {
     const st = stopsWhere((ev) => ev.holdWin && !ev.wheel && !ev.freeSpins);
-    const { max } = tableLimits(); // la mise maximale de la table rafle tout
+    const max = tableLimits().base; // la limite de la salle commune rafle toute la cagnotte
     state.icarusPotFaveur = 1000;
     // Tout aléa sous pNew : chaque case vide reçoit une pièce dès la première relance.
     const res = spinWith(st, max, [], { defer: true }, 0.001);
@@ -255,22 +255,25 @@ describe("Machine à sous — un tour", () => {
     res.apply();                                     // le tour payé nourrit d'abord la cagnotte
     const pot = Math.floor(state.icarusPotFaveur), before = state.faveur;
     res.holdWin.apply();
-    expect(res.holdWin.grandFaveur).toBe(pot);
-    expect(state.faveur - before).toBe(Math.round(max * res.holdWin.total) + pot);
+    expect(res.holdWin.grandFaveur).toBe(max * SLOTS_GRAND_FLOOR + pot);
+    expect(state.faveur - before).toBe(Math.round(max * res.holdWin.total) + max * SLOTS_GRAND_FLOOR + pot);
+    // Le GRAND affiché sur la machine dit la même chose, et passe devant le MAJEUR.
+    expect(slotsJackpots(max).grand).toBeGreaterThan(slotsJackpots(max).majeur);
     expect(state.icarusPotFaveur).toBeLessThan(1);
   });
 
-  it("à un dixième de la limite, le GRAND n'emporte qu'un dixième de la cagnotte", () => {
+  it("à un dixième de la limite, le GRAND n'emporte qu'un dixième de la cagnotte (plancher compris)", () => {
     const st = stopsWhere((ev) => ev.holdWin && !ev.wheel && !ev.freeSpins);
-    const stake = tableLimits().max / 10;
+    const stake = tableLimits().base / 10;
     state.icarusPotFaveur = 1000;
     const res = spinWith(st, stake, [], { defer: true }, 0.001);
     expect(res.holdWin.full).toBe(true);
     res.apply();
     const pot = state.icarusPotFaveur;
     res.holdWin.apply();
-    expect(res.holdWin.grandFaveur).toBe(Math.round(pot * 0.1));
-    expect(state.icarusPotFaveur).toBeCloseTo(pot - res.holdWin.grandFaveur, 9); // le reste demeure en cella
+    const share = Math.round(pot * 0.1);
+    expect(res.holdWin.grandFaveur).toBe(stake * SLOTS_GRAND_FLOOR + share);
+    expect(state.icarusPotFaveur).toBeCloseTo(pot - share, 9); // le reste demeure en cella
   });
 
   it("la série survit à la sauvegarde (en montant), tombe si sa mise est invalide", () => {

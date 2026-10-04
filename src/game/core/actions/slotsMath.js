@@ -157,7 +157,9 @@ export function slotsOddsOf(cfg, flight = 0) {
     const o = hwOutlook(n, cfg.hw);
     pH += p; Hcoins += p * o.coins; Hfull += p * o.full;
   });
-  const H = pH > 0 ? (Hcoins / pH) * cm : 0;            // × la mise, GRAND exclu
+  // × la mise : les pièces, et le PLANCHER du GRAND quand les quinze cases se remplissent
+  // (payé par la machine ; la part de cagnotte, transfert, reste hors RTP).
+  const H = pH > 0 ? (Hcoins / pH) * cm + (Hfull / pH) * (cfg.grandFloor || 0) : 0;
   // Tours gratuits (relances comprises) et roue, qui se répondent :
   //   F = n·(m·L + pW·W + pH·H)    n = E[tours d'une série] = N̄ / (1 − N̄·pS... ) — ici par
   //   tour gratuit, la série s'allonge de fsN tours en moyenne : n = N / (1 − fsN).

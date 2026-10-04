@@ -1,0 +1,57 @@
+/* LES GRANDS GAINS (lot 3 des gains « vrai casino ») : le bandeau au-dessus de la
+   table, au palier ×10 (or), ×50 (or chaud) ou ×250 (coup de légende, or et pourpre).
+   Ombres franches et halo en dégradé : pas de filtre, que le rendu logiciel de Raph
+   repeindrait à chaque image. */
+.grand-gain {
+  position: absolute;
+  left: 50%;
+  top: 34%;
+  z-index: 8;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.05rem;
+  pointer-events: none;
+  white-space: nowrap;
+  padding: 0.8rem 3rem;
+  background: radial-gradient(ellipse at center, rgba(14, 8, 4, 0.86) 0%, rgba(14, 8, 4, 0.6) 50%, rgba(14, 8, 4, 0) 75%);
+  animation: grand-gain 2600ms ease-out both;
+}
+.grand-gain-label {
+  font-family: var(--font-number);
+  font-size: 2rem;
+  letter-spacing: 0.08em;
+  color: #ffe066;
+  text-shadow: 2px 2px 0 #3a2408, -1px -1px 0 #3a2408, 0 0 10px rgba(255, 200, 60, 0.7);
+}
+.grand-gain-mult {
+  font-family: var(--font-number);
+  font-size: 1rem;
+  color: #f6d68a;
+  text-shadow: 1px 1px 0 #000;
+}
+.grand-gain-value {
+  font-family: var(--font-number);
+  font-size: 1.35rem;
+  color: #fff6c8;
+  text-shadow: 1px 1px 0 #000, 0 0 6px rgba(0, 0, 0, 0.9);
+}
+.grand-gain.is-enorme .grand-gain-label { font-size: 2.4rem; color: #ffb43c; }
+.grand-gain.is-legende .grand-gain-label {
+  font-size: 2.8rem;
+  color: #ffe9a0;
+  text-shadow: 3px 3px 0 #3a1240, -1px -1px 0 #3a1240, 0 0 14px rgba(200, 120, 255, 0.75);
+}
+.grand-gain.is-legende {
+  background: radial-gradient(ellipse at center, rgba(30, 8, 40, 0.9) 0%, rgba(30, 8, 40, 0.62) 50%, rgba(30, 8, 40, 0) 76%);
+}
+@keyframes grand-gain {
+  0% { opacity: 0; transform: translate(-50%, -50%) scale(0.3); }
+  10% { opacity: 1; transform: translate(-50%, -50%) scale(1.14); }
+  18% { transform: translate(-50%, -50%) scale(1); }
+  86% { opacity: 1; transform: translate(-50%, -50%) scale(1); }
+  100% { opacity: 0; transform: translate(-50%, -50%) scale(1.05); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .grand-gain { animation: none; transform: translate(-50%, -50%); }
+}

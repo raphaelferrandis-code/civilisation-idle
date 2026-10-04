@@ -18,6 +18,7 @@ import { freeFlightCount, nextFreeFlight } from '../../game/core/actions/templeF
 import { tableLimits } from '../../game/core/actions/maisonTable.js';
 import { fmt } from '../../game/core/utils.js';
 import { tr } from '../../game/core/i18n.js';
+import { celebrerGain } from '../../game/core/grandsGains.js';
 import { PotIcon } from './FaveurIcon.jsx';
 import { tipProps } from './HelpBubble.jsx';
 import StageHelp from './StageHelp.jsx';
@@ -184,7 +185,11 @@ export default function IcarusStage({ table, onClose }) {
     stopTicker();
     setOutcome(out);
     if (out.type === 'crash') { setM(out.crashPoint); setPhase('crashed'); }
-    else { setM(out.m); setPhase('landed'); }
+    else {
+      setM(out.m);
+      setPhase('landed');
+      celebrerGain({ gain: out.faveur + (out.jackpotFaveur || 0), stake: out.stakeFaveur, game: 'icare' });
+    }
   };
 
   // Les derniers vols (sur le mur de la table à l'envol, au-dessus du ciel pendant le vol).

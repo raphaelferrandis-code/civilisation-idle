@@ -201,7 +201,7 @@ const tickets = scratchRtpRef();
 const slots = slotsOdds().rtp;
 check("A2 Icare : 97 % quelle que soit la cible (C = (1 - e)/U)", Math.abs(icare - ICARUS_RTP) < 1e-12 && Math.abs(icare - 0.97) < 1e-12, pct(icare));
 check("A2 tickets : la loterie rend 75 % (+-0,5 pt)", Math.abs(tickets - 0.75) < 0.005, `${pct(tickets, 3)} ; P(gain) ${pct(1 - scratchOdds("blank"))} ; gros lot 1 sur ${Math.round(1 / scratchOdds("soleil")).toLocaleString("fr-FR")}`);
-check("A2 machine : ~92 % (calibree par la session machine a sous)", slots > 0.9 && slots < 0.95, pct(slots, 3));
+check("A2 machine : ~93,5 % (plancher du GRAND x250 compris)", slots > 0.925 && slots < 0.95, pct(slots, 3));
 const games = [
   ...riteRows.map((r) => [`osselets ${r.id}`, r.rtp]),
   ["Icare", icare], ["tickets", tickets], ["vingt-et-un (REF)", BLACKJACK_RTP_REF], ["machine", slots]

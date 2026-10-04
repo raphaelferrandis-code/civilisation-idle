@@ -16,7 +16,8 @@ import { lastStakeOf, fmtMise } from './miseMemory.js';
  *   - la PILE, sur le cercle (x, y) : la mise décomposée en jetons de l'âge ;
  *   - le montant sous la pile, puis le bouton de jeu ;
  *   - le RÂTELIER (rackY) : les cinq plus gros jetons sous la limite, puis Effacer,
- *     Même mise, Tapis.
+ *     Même mise, Tapis. `rackStack` : les boutons passent sous les jetons (deux rangs
+ *     voulus, là où la place manque : le panneau étroit de la machine à sous).
  * Pas une phrase à l'écran : la limite et les règles vivent dans les infobulles et
  * l'aide « ? ».
  */
@@ -24,7 +25,7 @@ import { lastStakeOf, fmtMise } from './miseMemory.js';
 const PILE_SHOWN = 8; // au-delà, la pile est coupée (le montant, lui, reste exact)
 
 export default function TableMise({
-  game, x, y, k = 4, rackY, rackX, rackWidth, label, sub,
+  game, x, y, k = 4, rackY, rackX, rackWidth, rackStack = false, label, sub,
   stake, onStake, faveur,
   playLabel, playDisabled, onPlay, children
 }) {
@@ -72,7 +73,7 @@ export default function TableMise({
         </button>
         {children}
       </div>
-      <div className="ptable-rack" style={{ left: rackX ?? x, top: rackY, ...(rackWidth ? { width: rackWidth, maxWidth: rackWidth } : null) }} role="group" aria-label={tr({ fr: 'Jetons', en: 'Chips' })}>
+      <div className={`ptable-rack${rackStack ? ' is-stack' : ''}`} style={{ left: rackX ?? x, top: rackY, ...(rackWidth ? { width: rackWidth, maxWidth: rackWidth } : null) }} role="group" aria-label={tr({ fr: 'Jetons', en: 'Chips' })}>
         {rack.map((v) => (
           <button
             key={v}
