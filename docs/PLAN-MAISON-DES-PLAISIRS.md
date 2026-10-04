@@ -557,6 +557,8 @@ Icare a sa plateforme d'envol au sommet (perchoir, ballon, mât selon l'âge).
   - ⚠ Banc de test en crise : lever `crisisLimitAnnounced` le temps d'UN clic, dans le
     MÊME appel — laissé faux entre deux appels, le jeu a ré-annoncé la crise (bascule
     sur la Chute, une ligne de journal) sur la sauvegarde du serveur de test.
+  - Poussé `cf2d2c9` (CI verte) ; le crochet de la scène dans PlaisirsView est parti
+    ensuite, dans `f70b80c`.
 - **V2, Raph : « vas-y pour la v2, commence par le son ».** Les BRUITAGES de la machine
   (`game/audio/slotsSound.js`), joués par le code comme la mélodie de la scène, dans
   l'habit de l'âge — fonte (cliquets de fer, la cloche de la Liberty Bell sonne aux

@@ -19,10 +19,10 @@
 - **PASS** - A6 Monte-Carlo osselets (ancestral) ~97 % (+-1 pt) : 97.22 % sur 400 000 jets
 - **PASS** - A6 Monte-Carlo Icare (cible x2) ~97 % (+-1 pt) : 97.13 % sur 400 000 vols
 - **PASS** - A6 Monte-Carlo 21 auto ~98,3 % (+-1 pt), par Faveur misee : 98.23 % sur 300 000 mains
-- **PASS** - A7 recettes et limite montent avec l'ere record : ere 2 : 120/h, limite 30
+- **PASS** - A7 recettes et limite montent avec l'ere record : ere 2 : 120081/h, limite 30000
 - **PASS** - A8 le rang ne touche a aucune cote : osselets (4 rites), Icare, tickets, machine identiques de Habitue a Prince
-- **PASS** - A8 limite x10 par titre ; salle commune et rafle a la base : base 75 000, Prince 750 000 000 ; auto max = base ; la mise de base rafle tout
-- **PASS** - A8 la reputation suit la perte reelle (Icare, +-15 %) : 2226.9 h notees contre 2256.0 h perdues sur 300 000 vols (1.3 % d'ecart)
+- **PASS** - A8 limite x10 par titre ; salle commune et rafle a la base : base 75 000 000, Prince 750 000 000 000 ; auto max = base ; la mise de base rafle tout
+- **PASS** - A8 la reputation suit la perte reelle (Icare, +-15 %) : 2226.9 h notees contre 2219.0 h perdues sur 300 000 vols (0.4 % d'ecart)
 
 ## Les osselets : quatre paris
 
@@ -71,27 +71,27 @@ limite de base, 3 % d'avantage : 0,0075 h par mise.
 | familier | 0.5 | x10 | 67 | colombier, mesure, autoOsselets, autoIcare | 3 |
 | notable | 3 | x100 | 400 | echelle, coin, autoGratteux, autoVingtEtUn | 5 |
 | mecene | 15 | x1 000 | 2 000 | interdit, solaires | 8 |
-| prince | 75 | x10 000 | 10 000 | serres | 8 |
+| prince | 40 | x10 000 | 5 334 | serres | 8 |
 
 ## Recettes de la Maison et limites de table (ere record)
 
 | Ere | Recettes/h | Mise max | Benediction | Plafond cagnotte |
 |---|---|---|---|---|
-| 2 Abris | 120 | 30 | 60 | 5 000 |
-| 3 Clans | 178 | 44 | 89 | 5 000 |
-| 5 Hameau | 380 | 95 | 190 | 9 122 |
-| 8 Les Entrepôts | 1 120 | 270 | 560 | 26 868 |
-| 10 Bourg des artisans | 2 247 | 560 | 1 123 | 53 921 |
-| 13 Cité commerciale | 6 228 | 1 500 | 3 114 | 149 482 |
-| 15 Cité fortifiée | 12 128 | 3 000 | 6 064 | 291 067 |
-| 18 Principauté marchande | 32 422 | 8 100 | 16 211 | 778 132 |
-| 20 Royaume diplomate | 61 877 | 15 000 | 30 939 | 1.49e+6 |
-| 23 Empire naissant | 161 216 | 40 000 | 80 608 | 3.87e+6 |
-| 25 Empire | 303 118 | 75 000 | 151 559 | 7.27e+6 |
-| 27 Capitale monumentale | 567 059 | 140 000 | 283 529 | 1.36e+7 |
-| 29 Métropole | 1.09e+6 | 270 000 | 546 817 | 2.62e+7 |
-| 30 Mégalopole | 1.54e+6 | 380 000 | 772 400 | 3.71e+7 |
-| 32 Réseau continental | 3.08e+6 | 770 000 | 1.54e+6 | 7.40e+7 |
-| 34 Singularité | 6.15e+6 | 1.50e+6 | 3.07e+6 | 1.48e+8 |
-| 45 Conscience planétaire | 4.56e+7 | 1.10e+7 | 2.28e+7 | 1.09e+9 |
-| 60 Noosphère · V | 1.82e+9 | 4.50e+8 | 9.09e+8 | 4.37e+10 |
+| 2 Abris | 120 081 | 30 000 | 60 040 | 5.00e+6 |
+| 3 Clans | 178 441 | 44 000 | 89 220 | 5.00e+6 |
+| 5 Hameau | 380 082 | 95 000 | 190 041 | 9.12e+6 |
+| 8 Les Entrepôts | 1.12e+6 | 270 000 | 559 753 | 2.69e+7 |
+| 10 Bourg des artisans | 2.25e+6 | 560 000 | 1.12e+6 | 5.39e+7 |
+| 13 Cité commerciale | 6.23e+6 | 1.50e+6 | 3.11e+6 | 1.49e+8 |
+| 15 Cité fortifiée | 1.21e+7 | 3.00e+6 | 6.06e+6 | 2.91e+8 |
+| 18 Principauté marchande | 3.24e+7 | 8.10e+6 | 1.62e+7 | 7.78e+8 |
+| 20 Royaume diplomate | 6.19e+7 | 1.50e+7 | 3.09e+7 | 1.49e+9 |
+| 23 Empire naissant | 1.61e+8 | 4.00e+7 | 8.06e+7 | 3.87e+9 |
+| 25 Empire | 3.03e+8 | 7.50e+7 | 1.52e+8 | 7.27e+9 |
+| 27 Capitale monumentale | 5.67e+8 | 1.40e+8 | 2.84e+8 | 1.36e+10 |
+| 29 Métropole | 1.09e+9 | 2.70e+8 | 5.47e+8 | 2.62e+10 |
+| 30 Mégalopole | 1.54e+9 | 3.80e+8 | 7.72e+8 | 3.71e+10 |
+| 32 Réseau continental | 3.08e+9 | 7.70e+8 | 1.54e+9 | 7.40e+10 |
+| 34 Singularité | 6.15e+9 | 1.50e+9 | 3.07e+9 | 1.48e+11 |
+| 45 Conscience planétaire | 4.56e+10 | 1.10e+10 | 2.28e+10 | 1.09e+12 |
+| 60 Noosphère · V | 1.82e+12 | 4.50e+11 | 9.09e+11 | 4.37e+13 |
