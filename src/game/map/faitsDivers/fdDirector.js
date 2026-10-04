@@ -54,8 +54,9 @@ let nextId = 1;
 const candKey = (c) => (c.kind === 'story' ? 's:' + c.story.id : c.kind === 'lovers' ? 'lovers' : 'c:' + (c.curio && c.curio.id));
 const appKey = (a) => (a.kind === 'story' ? 's:' + a.story.id : a.kind === 'lovers' ? 'lovers' : 'c:' + a.curioId);
 export const fdApps = () => apps;
-// Combien d'HISTOIRES sont en scène (le couple séparé n'en fait qu'une).
-const activeCount = () => new Set(apps.map(appKey)).size;
+// Combien d'HISTOIRES sont en scène (le couple séparé n'en fait qu'une ; les
+// résidentes — la tortue qui longe le fleuve — ne comptent pas).
+const activeCount = () => new Set(apps.filter((a) => !a.resident).map(appKey)).size;
 
 function bandNow() {
   const L = CM.layout;
@@ -140,6 +141,15 @@ function spawnOne(L, nightF) {
   const band = bandNow();
   const cands = fdCandidates({ band, nightF }).filter((c) => {
     const k = candKey(c);
+    // La résidente cède la place à son chapitre suivant (elle « avance ») — quand
+    // on ne la regarde pas.
+    const res = apps.find((a) => a.resident && appKey(a) === k);
+    if (res && c.kind === 'story') {
+      const p = screenOf(res.spot);
+      if (!hidden() && spotOnScreen(p.x, p.y, 80)) return false;
+      res.alive = false;
+      apps = apps.filter((x) => x !== res);
+    }
     if (apps.some((a) => appKey(a) === k)) return false;
     if ((cool.get(k) || 0) > clock) return false;
     return !!buildersFor(c);
@@ -201,8 +211,29 @@ function stillValid(app, nightF) {
   return true;
 }
 
+// LES RÉSIDENTES : une histoire marquée `resident` (la tortue) reste sur la carte
+// une fois rencontrée, à son dernier chapitre vu — on revient voir où elle en est.
+function keepResidents(L) {
+  for (const [id, b] of Object.entries(FD_BUILDERS)) {
+    if (!b.resident) continue;
+    const story = FD_STORIES[id];
+    const pr = fdProgress(story);
+    if (!pr.n || apps.some((a) => appKey(a) === 's:' + id)) continue;
+    const ch = story.chapters[pr.n - 1];
+    const c = { kind: 'story', story, ch, idx: pr.n - 1 };
+    const list = spotsFor(L, c, 'res:' + id + ':' + ch.id);
+    if (!list.length) continue;
+    const app = makeApp(c, list[0], true);
+    if (!app) continue;
+    app.resident = true;
+    app.ttl = Infinity;
+    apps.push(app);
+  }
+}
+
 function tick(nightF) {
   const L = CM.layout;
+  keepResidents(L);
   // Naissances.
   if (FD_DIR.on && FD_TUNE.on && (fdHash('t:' + Math.floor(clock)) % 1000) / 1000 < FD_DIR.spawnP * (waitOn > 0 ? 6 : 1)) spawnOne(L, nightF);
   // Vies et départs.
@@ -255,6 +286,10 @@ let lastLayout = null;
 function spotStillFree(app, L) {
   const s = app.spot;
   const foot = fdFootprints(L);
+  if (s.roof && s.t) {
+    const t = foot.get(s.t.gx + ',' + s.t.gy);
+    return !!t && t.type === s.t.type;
+  }
   if (s.t) {
     const t = foot.get(s.t.gx + ',' + s.t.gy);
     if (!t || t.buildingId !== s.t.buildingId) return false;

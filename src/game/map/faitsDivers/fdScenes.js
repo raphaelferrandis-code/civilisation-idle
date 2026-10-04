@@ -6,11 +6,15 @@
 // scène attend simplement son lot, sans rien casser.
 import { SECTE_SCENE } from './fdSecte.js';
 import { CYNIQUE_SCENE } from './fdCynique.js';
+import { TORTUE_SCENE } from './fdTortue.js';
+import { CHEVRE_SCENE } from './fdChevre.js';
 import { loversSceneFor } from './fdLovers.js';
 
 export const FD_BUILDERS = {
   secte: SECTE_SCENE,
   cynique: CYNIQUE_SCENE,
+  tortue: TORTUE_SCENE,
+  chevre: CHEVRE_SCENE,
 };
 
 // Le constructeur d'un candidat (core/faitsDivers.fdCandidates), ou null.

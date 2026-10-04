@@ -349,3 +349,17 @@ le 30/10).
     de l'œil) la cache entièrement. Toutes les places sont classées par le CÔNE VERS
     L'ŒIL (`openFront` : dx + dy = 1…prof, |dx − dy| ≤ 1, plus profond aux âges des
     tours) — les arbres de ville comptent aussi.
+  - Commité `aecd22fa`.
+- **Lot 3 : la Tortue de Zénon et la Chèvre des toits.**
+  - La tortue longe le fleuve (la berge la plus habitée, du premier au dernier point
+    « en ville ») ; à chaque chapitre la moitié de ce qui reste (`ZENON`). Achille la
+    suit à partir du Marbre, en courant sur place (l'odomètre fait tourner les
+    jambes) : vélocipède, réacteur (flammes), traînées de lumière. La ligne d'arrivée
+    au Démiurge.
+  - RÉSIDENTE : une fois rencontrée, la tortue reste sur la carte à son dernier
+    chapitre vu (hors du plafond des deux scènes) ; son chapitre suivant la remplace,
+    hors champ — elle a avancé.
+  - Blanquette se pose sur la ligne d'encre d'un toit, comme les pigeons
+    (`drawnBoxOf` + `inkTopAt`), triée JUSTE APRÈS sa maison — ⚠ avec la même clé
+    poussée vers la rue (`isoFrontOffset`), sinon elle passe avant la maison et la
+    boîte du toit n'existe pas encore. Un Seguin en bas, la tête levée (de dos).

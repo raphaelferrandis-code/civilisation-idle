@@ -40,6 +40,10 @@ export const FD_PAL = {
   q: [244, 196, 178], Q: [214, 150, 132],
   // la capsule (blanc de coque, hublot bleu nuit)
   v: [214, 220, 228], V: [150, 158, 170], u: [40, 66, 110], U: [110, 170, 220],
+  // la tortue (carapace olive, peau sable)
+  a: [112, 124, 66], A: [72, 82, 44], f: [176, 160, 104],
+  // le ruban d'arrivée
+  z: [214, 40, 44],
 };
 
 export const FD_ART = {
@@ -301,6 +305,50 @@ export const FD_ART = {
   ]] },
 
   // ── NANCY ET WILLIAM ─────────────────────────────────────────────────────
+  // ── LA TORTUE DE ZÉNON ─────────────────────────────────────────────────────
+  // Sept pixels de long, la tête à droite ; deux images de pattes.
+  tortue: { foot: 3, frames: [[
+    '..kkk..',
+    '.kaAak.',
+    'kaAAAak',
+    '.f..f.f',
+  ], [
+    '..kkk..',
+    '.kaAak.',
+    'kaAAAak',
+    'f..f..f',
+  ]] },
+  // Le vélocipède d'Achille II (grande roue devant, petite derrière).
+  velo: { foot: 5, frames: [[
+    '.....kk.',
+    '....kIIk',
+    '.kkkk..k',
+    'k.k.k..k',
+    'kkk.kIIk',
+    '.....kk.',
+  ]] },
+  // La ligne d'arrivée : deux piquets et un ruban rouge.
+  arrivee: { foot: 5, frames: [[
+    'k.......k',
+    'kzzzzzzzk',
+    't.......t',
+    't.......t',
+    't.......t',
+    'k.......k',
+  ]] },
+
+  // ── LA CHÈVRE DES TOITS ────────────────────────────────────────────────────
+  // L'enclos des Seguin, vu en biais : le portillon de devant est ouvert.
+  enclos: { foot: 6, frames: [[
+    '...t...t...t.',
+    '.ttttttttttt.',
+    '.t.........t.',
+    't...........t',
+    'ttttt....tttt',
+    't...t....t..t',
+    't...........t',
+  ]] },
+
   // L'arche fleurie du mariage : du lierre et des fleurs sur un arc de bois.
   arche: { foot: 13, frames: [[
     '...mrmymm...',
