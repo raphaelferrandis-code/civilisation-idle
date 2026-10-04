@@ -2801,6 +2801,9 @@ export function bakeCoupeHD(K, open = {}) {
   paintSky(P, S, W, waterY);
   skylineFor(P, S, W, waterY);
   paintWater(P, S, W, waterY, H);
+  // Le FOND tel qu'il est avant le bâtiment : ce qui n'aura pas changé à la fin est le
+  // dehors (la lumière de nuit de la salle n'y tombe pas, salleLumiere.js).
+  const fondAvant = Rr.data.slice();
   foundationFor(P, S, cx, widths[0], deckY, waterY);
   // La cage : contre la façade droite du dernier étage (au centre aux âges des tours).
   const core = plan.center ? { x0: cx - HD.CORE / 2, x1: cx + HD.CORE / 2, center: true } : { x1: Math.round(cx + wTop / 2) - HD.WALL };
@@ -2841,6 +2844,13 @@ export function bakeCoupeHD(K, open = {}) {
     if (!Or.data[q + 3]) continue;
     Rr.data[q] = Or.data[q]; Rr.data[q + 1] = Or.data[q + 1]; Rr.data[q + 2] = Or.data[q + 2]; Rr.data[q + 3] = 255;
   }
+  // Le FOND : ce que le bâtiment ne recouvre pas (avant le reflet, qui ne compte pas).
+  const fond = new Uint8Array(W * H);
+  for (let k = 0; k < W * H; k += 1) {
+    const q = k * 4;
+    if (Fr.data[q + 3] || Or.data[q + 3] || Nr.data[q + 3]) continue;
+    if (Rr.data[q] === fondAvant[q] && Rr.data[q + 1] === fondAvant[q + 1] && Rr.data[q + 2] === fondAvant[q + 2]) fond[k] = 1;
+  }
   // Le reflet du bâtiment dans l'eau.
   for (let y = waterY + 1; y < H; y += 1) {
     const sy = waterY - (y - waterY) * 2;
@@ -2853,7 +2863,7 @@ export function bakeCoupeHD(K, open = {}) {
   }
   const cab = cabinFor(S);
   return {
-    R: Rr, F: Fr, N: Nr, ids: idb, spots, figures, levels, lights, W, H, waterY,
+    R: Rr, F: Fr, N: Nr, ids: idb, fond, spots, figures, levels, lights, W, H, waterY,
     roofTop: apex - 6, band: b, motions, lift: ctx.lift || null,
     show: ctx.show ? { x: ctx.show.x, y: ctx.show.y, ...shadowFrames(S.hat || 'none') } : null,
     waterHex: S.water[S.water.length - 1], skyHex: S.sky[0],

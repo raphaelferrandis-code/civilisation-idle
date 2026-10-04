@@ -4,12 +4,15 @@ import { CM } from '../../../game/map/layout.js';
 import { plaisirsCast } from '../../../game/map/iso/plaisirsCast.js';
 import { salleNightF } from './salleBake.js';
 import { nuitActive, spectacleActif } from '../../../game/core/actions/nuitGrandJeu.js';
+import { dehorsCss } from './salleLumiere.js';
 
 // LA FÊTE (la Nuit du Grand Jeu, le spectacle) : des paillettes d'or et de rose tombent
 // dans la coupe, et les lustres brillent plus fort. Une paillette = un pixel d'art, sa
 // place se tire de son numéro (rien à garder d'une image à l'autre).
 const PAILLETTES = 90;
 const PAILLETTE_COULEURS = ['#ffe08a', '#ffd76a', '#ff8fb5', '#fff6dc', '#f2c230'];
+// Les ÉTOILES du ciel de nuit, au-dessus de la verrière.
+const ETOILES = 70;
 const hashP = (i, k) => {
   let x = (i | 0) * 374761393 + (k | 0) * 668265263;
   x = (x ^ (x >>> 13)) * 1274126177;
@@ -200,19 +203,86 @@ export default function SalleCanvas({ bake, band, lit, padLeft = 0, focus = null
       // son halo ; plus fort pendant la fête.
       const nf = salleNightF();
       const fete = nuitActive() || spectacleActif();
-      if (nf > 0.02) {
+      const lum = bake.lumiere;
+      const bw = bake.W * Z, bh = bake.H * Z;
+      if (nf > 0.02 && lum) {
+        // LA LUMIÈRE CALCULÉE (salleLumiere.js) : la carte d'éclairage en multiply — la
+        // nuit dehors, la pénombre dedans, les lampes et les cônes des tables.
         g.globalCompositeOperation = 'multiply';
-        g.fillStyle = `rgba(52,62,104,${(0.72 * nf).toFixed(3)})`;
-        g.fillRect(0, 0, W, H);
+        g.fillStyle = dehorsCss();
+        if (oy > 0) g.fillRect(0, 0, W, oy);
+        if (oy + bh < H) g.fillRect(0, oy + bh, W, H - oy - bh);
+        if (ox > 0) g.fillRect(0, Math.max(0, oy), ox, Math.min(H, oy + bh) - Math.max(0, oy));
+        if (ox + bw < W) g.fillRect(ox + bw, Math.max(0, oy), W - ox - bw, Math.min(H, oy + bh) - Math.max(0, oy));
+        g.drawImage(lum.cv, ox, oy, bw, bh);
         g.globalCompositeOperation = 'source-over';
-        g.globalAlpha = Math.min(1, nf * 1.1);
-        g.drawImage(bake.cvN, ox, oy, bake.W * Z, bake.H * Z);
-        g.globalAlpha = 1;
+        // Ce qui brille par lui-même : flammes, lanternes, néons.
+        g.drawImage(bake.cvN, ox, oy, bw, bh);
         g.globalCompositeOperation = 'lighter';
+        // Les ÉTOILES au-dessus du toit, qui scintillent.
+        const yCiel = Math.min(H, oy + (bake.roofTop - 4) * Z);
+        for (let i = 0; i < ETOILES && yCiel > 0; i += 1) {
+          const sx = Math.round(hashP(i, 11) * W / Z) * Z, sy = Math.round(hashP(i, 12) * yCiel / Z) * Z;
+          const a = 0.35 + 0.45 * Math.max(0, Math.sin(now / (600 + (i % 7) * 130) + i));
+          g.fillStyle = `rgba(255,246,220,${a.toFixed(3)})`;
+          g.fillRect(sx, sy, Z, Z);
+        }
+        // Les REFLETS des lumières dans l'eau : la couche des lumières renversée sous la
+        // ligne d'eau, rangée par rangée, ondulante, de plus en plus pâle.
+        const wy = bake.waterY;
+        if (wy) {
+          const vague = Math.floor(now / 180);
+          for (let y = wy + 1; y < bake.H; y += 1) {
+            const sy = Math.round(wy - (y - wy) * 1.4);
+            if (sy < 0) break;
+            if ((y + vague) % 3 === 0) continue;
+            const dx = Math.round(Math.sin(now / 520 + y * 0.9) * 1.6);
+            g.globalAlpha = Math.max(0, 0.36 - (y - wy) * 0.009);
+            g.drawImage(bake.cvN, 0, sy, bake.W, 1, ox + dx * Z, oy + y * Z, bw, Z);
+          }
+          g.globalAlpha = 1;
+        }
+        // Les RAIS des tables : la lumière vue dans l'air, plus dense pendant la fête.
+        g.globalAlpha = fete ? 0.95 : 0.7;
+        g.drawImage(lum.rais, ox, oy, bw, bh);
+        // La LUEUR autour des flammes et des néons (un flou agrandi).
+        if (bake.lueurCv) {
+          g.imageSmoothingEnabled = true;
+          g.globalAlpha = (fete ? 0.75 : 0.55) * (lum.lueur || 1);
+          g.drawImage(bake.lueurCv, ox, oy, bw, bh);
+          g.imageSmoothingEnabled = false;
+        }
+        g.globalAlpha = 1;
+        // Les POURSUITES de la scène : deux faisceaux des cintres vers la troupe, qui
+        // balayent lentement ; roses et dorés pendant la fête.
+        const sc = bake.spots.scene;
+        if (sc) {
+          const b = sc.box, top = oy + (b.y0 + 9) * Z, solY = oy + (b.y1 - 9) * Z, cxs = ox + sc.x * Z;
+          for (const [src, k] of [[ox + (b.x0 + 8) * Z, 0], [ox + (b.x1 - 8) * Z, 1]]) {
+            const cible = cxs + Math.sin(now / 1700 + k * 2.1) * 22 * Z, w2 = 13 * Z;
+            const grd = g.createLinearGradient(0, top, 0, solY);
+            const tint = fete ? (k ? '255,150,200' : '255,215,120') : '255,236,200';
+            grd.addColorStop(0, `rgba(${tint},0.30)`);
+            grd.addColorStop(1, `rgba(${tint},0.08)`);
+            g.fillStyle = grd;
+            g.beginPath();
+            g.moveTo(src - 2 * Z, top); g.lineTo(src + 2 * Z, top);
+            g.lineTo(cible + w2, solY); g.lineTo(cible - w2, solY);
+            g.closePath();
+            g.fill();
+            // La tache de la poursuite sur les planches.
+            g.fillStyle = `rgba(${tint},0.22)`;
+            g.beginPath();
+            g.ellipse(cible, solY, w2, 3 * Z, 0, 0, Math.PI * 2);
+            g.fill();
+          }
+        }
+        // Les halos des lampes : resserrés (la carte éclaire déjà la salle), vacillants.
         for (const p of bake.lights) {
-          const x = ox + (p.x + 0.5) * Z, y = oy + (p.y + 0.5) * Z, r = Z * haloR;
+          const x = ox + (p.x + 0.5) * Z, y = oy + (p.y + 0.5) * Z, r = Z * haloR * 0.6;
           if (y < -r || y > H + r || x < -r || x > W + r) continue;
-          const a = (fete ? 0.42 : 0.3) * nf * (0.88 + 0.12 * Math.sin(now / 240 + p.x));
+          const vac = 0.82 + 0.1 * Math.sin(now / 240 + p.x) + 0.08 * Math.sin(now / 97 + p.y * 1.3);
+          const a = (fete ? 0.34 : 0.24) * vac;
           const grd = g.createRadialGradient(x, y, 0, x, y, r);
           // Halo de la couleur de sa lampe (rose au boudoir), ambre par défaut — rose
           // partout pendant la fête : la Maison passe à la lumière rouge.

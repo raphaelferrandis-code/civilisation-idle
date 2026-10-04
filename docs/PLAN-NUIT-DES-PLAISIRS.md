@@ -15,6 +15,8 @@ Quatre lots, dans l'ordre.
 | 2 | La salle hors du temps : toujours la nuit, la cagnotte au mur, les gagnants qu'on voit, la fête | ✅ fait |
 | 3 | La luxure poussée au maximum (suggestive) | ✅ fait |
 | 4 | Compter les cartes au vingt-et-un (le sabot, le videur) | ✅ fait |
+| 5 | La lumière de la salle de nuit | ✅ fait |
+| 6 | Le french cancan et les courtisanes alanguies (PixelLab) | en cours |
 
 ---
 
@@ -174,6 +176,31 @@ Le banc joue désormais huit jeux, la Nuit et le spectacle. Sur la graine 7 :
   hautes seulement avant la carte de coupe) : ≈ 98,4 % à mise fixe, ≈ 99 % avec un écart
   ×8 sur un vrai compte ≥ +2. Le comptage allège la note mais ne bat PAS la Maison (le
   naturel paie 6 contre 5) : aucun risque pour l'économie, le videur est du jeu.
+
+---
+
+## Lot 5 — la lumière de la salle de nuit ✅
+
+Raph, après les quatre lots : « s'il fait tout le temps nuit, il faut faire un gros
+travail de lumière dedans ». Avant : un voile bleu uniforme en multiply, des halos
+ajoutés par-dessus. Maintenant (`plaisirs/salleLumiere.js`, cuite une fois par salle) :
+
+- **Une carte d'éclairage au pixel de la coupe**, posée en multiply sur tout (personnages
+  compris) : la nuit dehors (bleu de lune), la pénombre chaude dedans, puis chaque lampe
+  qui éclaire SA salle — jamais à travers un mur (la carte des lieux de la cuisson) —
+  avec son halo et la flaque au sol sous elle, et le CÔNE de chaque table de jeu, du
+  plafond au tapis. Tramée en sept crans (Bayer) : une lumière de pixel art. Les fonds
+  nus restent unis (tramés, ils dessinaient une couture autour de la coupe).
+- **Le fond** : la cuisson rend le masque de ce que le bâtiment ne recouvre pas (le ciel,
+  l'horizon, l'eau, `bake.fond`) — la lumière n'y tombe pas (avant, la boîte de la salle
+  du toit allumait un rectangle de ciel autour de la verrière).
+- **Par image** : ce qui brille par soi-même (flammes, lanternes, néons), sa LUEUR (la
+  couche réduite deux fois et agrandie en ajout), les RAIS des cônes (une poussière de
+  lumière dans l'air), les POURSUITES de la scène (deux faisceaux qui balayent, roses et
+  or pendant la fête), les REFLETS des lumières dans l'eau (rangées rompues, ondulantes),
+  les ÉTOILES au-dessus du toit, les halos resserrés qui vacillent.
+- Les âges de lumière (7-9) éclairent moins fort et gardent une pénombre plus froide,
+  leur lueur est réduite de moitié (sinon tout blanchit).
 
 ---
 

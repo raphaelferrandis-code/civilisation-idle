@@ -11,6 +11,7 @@ import { useMemo } from 'react';
 import { bakeCoupeHD } from '../../../game/map/iso/plaisirsCoupeHD.js';
 import { wonderKitForBand } from '../../../game/map/iso/wonderKits.js';
 import { dayNightMode } from '../../../game/map/dayNightMode.js';
+import { bakeLumiere } from './salleLumiere.js';
 
 // LA MAISON EST HORS DU TEMPS (Raph, 2026-10-04 : « un véritable casino, lieu de luxure
 // et d'argent hors du temps » — docs/PLAN-NUIT-DES-PLAISIRS.md, lot 2) : dans la salle,
@@ -55,6 +56,23 @@ export function useSalleBake(band, open) {
         e.showCv = { solo: out.show.solo.map(toCv), couple: out.show.couple.map(toCv) };
       }
       if (out.hd && out.hd.cabin) e.cabinCv = { back: rasterCanvas(out.hd.cabin.back), front: rasterCanvas(out.hd.cabin.front), w: out.hd.cabin.w, h: out.hd.cabin.h };
+      // LA LUMIÈRE DE NUIT (salleLumiere.js) : la carte d'éclairage, les rais des tables.
+      e.lumiere = bakeLumiere(e);
+      // La LUEUR des flammes et des néons : la couche des lumières réduite en douceur
+      // (un flou de pauvre, deux réductions), que la vue agrandit en ajout.
+      e.lueurCv = (() => {
+        const a = document.createElement('canvas');
+        a.width = Math.max(1, Math.ceil(out.W / 4)); a.height = Math.max(1, Math.ceil(out.H / 4));
+        const ga = a.getContext('2d');
+        ga.imageSmoothingEnabled = true;
+        ga.drawImage(e.cvN, 0, 0, a.width, a.height);
+        const b = document.createElement('canvas');
+        b.width = Math.max(1, Math.ceil(out.W / 8)); b.height = Math.max(1, Math.ceil(out.H / 8));
+        const gb = b.getContext('2d');
+        gb.imageSmoothingEnabled = true;
+        gb.drawImage(a, 0, 0, b.width, b.height);
+        return b;
+      })();
       if (_bakes.size > 6) _bakes.delete(_bakes.keys().next().value);
       _bakes.set(key, e);
     }
