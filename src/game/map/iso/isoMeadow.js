@@ -5,7 +5,7 @@
 // aurait montré la grille (4 refus de ton par cellule). Les prés sont maintenant un champ
 // LISSÉ, peint comme le sous-bois (une image d'un pixel par cellule sous la transformée
 // iso, cf. isoForestFloor.drawCellVeil) :
-//  - HERBE GRASSE, vert profond, près de l'eau (`water` cellules du fleuve) et dans les
+//  - HERBE GRASSE, vert vif, près de l'eau (`water` cellules du fleuve) et dans les
 //    creux du bruit ;
 //  - HERBE SÈCHE, blond doré, loin de l'eau sur les bosses du bruit ;
 //  - entre les deux, l'herbe telle quelle.
@@ -19,7 +19,9 @@ import { solInvalidate } from './solInvalidate.js';
 export const MEADOW = {
   on: true, scale: 13, water: 6,
   dry: 0.17, dryCol: [204, 190, 112],
-  wet: 0.2, wetCol: [30, 64, 38],
+  // Herbe grasse = plus VERTE, pas plus sombre : au premier jet (30,64,38 à 0,2), au dézoom
+  // la zone près de l'eau se lisait comme une grande ombre (planche du matin, bande 8).
+  wet: 0.16, wetCol: [58, 104, 46],
   autumn: 1.35,
 };
 if (typeof window !== 'undefined') {
