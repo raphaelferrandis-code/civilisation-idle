@@ -25,6 +25,7 @@ import { noteReflection } from './iso/isoReflect.js';
 import { drawHouseWindows } from './houseWindows.js';
 import { drawSceneEmissive, EMISSIVE_HOUSE } from './sceneEmissive.js';
 import { ORIENT, ROWS, ROW_VIEW, ilotArtKeys } from './ilotArt.js';
+import { ROW_VARIANTS, rowVariantIndex, recolorData } from './rowVariants.js';
 
 export const pixelHousesFlag = { on: true };
 
@@ -390,9 +391,38 @@ function rowGeom(t, x, y, w, h, key, e) {
   recDens(key, k / ((CM.cam && CM.cam.zoom) || 1));
   const dw = Math.max(1, Math.round(bb.w * k)), dh = Math.max(1, Math.round(bb.h * k));
   const dx = Math.round(sx - (m.fx - bb.x0) * k), dy = Math.round(sy - (m.fy - bb.y0) * k);
-  const vc = variantCanvas(key, 0, CM.season === WINTER && snowRoofTune.on);
+  // LES RANGÉES ALTERNENT (rowVariants.js) : même dessin, matière différente d'une
+  // maison à l'autre — jamais deux voisines pareilles. La neige passe APRÈS la couleur.
+  const model = key.slice(4, key.lastIndexOf("-"));
+  const vi = rowVariantIndex(model, t.rowSide | 0, alongX ? t.gx : t.gy);
+  const winter = CM.season === WINTER && snowRoofTune.on;
+  const vc = vi ? rowVariantCanvas(key, model, vi, winter) : variantCanvas(key, 0, winter);
   if (vc) return { img: vc, bb: { x0: 0, y0: 0, w: bb.w, h: bb.h, mask: bb.mask }, dx, dy, dw, dh, key, ox: bb.x0, oy: bb.y0 };
   return { img: e.img, bb, dx, dy, dw, dh, key, ox: bb.x0, oy: bb.y0 };
+}
+
+// Toile d'une variante de rangée, recadrée sur la boîte d'encre et mise en cache (même
+// contrat que variantCanvas : ni la couleur ni la neige ne déplacent un pixel).
+function rowVariantCanvas(key, model, vi, winter) {
+  const vk = key + ":rv" + vi + (winter ? ":w" : "");
+  const hit = variants.get(vk);
+  if (hit) return hit;
+  const e = cache.get(key);
+  const rules = ROW_VARIANTS[model] && ROW_VARIANTS[model][vi - 1];
+  if (!e || !e.ready || !e.bbox || !rules) return null;
+  const bb = e.bbox;
+  const c = document.createElement("canvas");
+  c.width = bb.w; c.height = bb.h;
+  const cx = c.getContext("2d", { willReadFrequently: true });
+  cx.imageSmoothingEnabled = false;
+  cx.drawImage(e.img, bb.x0, bb.y0, bb.w, bb.h, 0, 0, bb.w, bb.h);
+  let img;
+  try { img = cx.getImageData(0, 0, bb.w, bb.h); } catch { return null; }
+  recolorData(img.data, rules);
+  if (winter) snowImageData(img, bb.w, bb.h);
+  cx.putImageData(img, 0, 0);
+  variants.set(vk, c);
+  return c;
 }
 
 function pixelHouseGeom(t, x, y, w, h) {

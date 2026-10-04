@@ -208,6 +208,16 @@ PLAN-ROUTES) et « une maison ne bouge jamais » (keepInPlace).
     tombaient à 0,65 du grain des maisons → reconverties depuis leurs objets à la taille
     où la façade fait ~29 px (le grain des maisons) ; fenêtres de nuit reprises (cadres
     mis à l'échelle, volets d'échoppe éteints).
+- 2026-10-04 (soir — Raph : « vas-y pour alterner des dessins de même hauteur ») : une
+  rangée garde UN dessin (les toits se suivent) mais chaque maison a sa MATIÈRE —
+  `rowVariants.js` recolore une partie du dessin (règles teinte / saturation /
+  luminosité, la rampe d'ombre est conservée) : enduit des colombages (ocre, rose, bleu,
+  sauge), brique victorienne (jaune, rouge sombre, brun gris), auvent haussmannien
+  (bordeaux, bleu nuit, noir), néon (cyan, jaune, vert, orange), enduits romains (chaux,
+  ocre, rose). Échoppe et popina : leur toit est du même ton que leurs murs → seulement
+  l'éclat (passé / frais). Ordre des variantes mélangé par côté (`rowSide`) : deux
+  voisines jamais pareilles, deux côtés jamais la même suite. Même dessin = même
+  emprise, même hauteur, mêmes fenêtres de nuit.
 - ⚠ Fragilité connue, hors îlots : quand le niveau des champs change leur découpage
   (`cmTerroirParcels`), la parcelle 0 qui s'épaissit mord sa propre rangée de moulins
   (distance 1, plus les sentiers qui les desservent) et le terroir entier se refonde
