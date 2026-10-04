@@ -21,7 +21,7 @@ const ANCESTORS = [{ band: 0, st: 0 }, { band: 2, st: 1 }, { band: 3, st: 2 }, {
 const NOTE = [255, 236, 190];
 
 // L'instrument tenu à la main (ou la flûte : deux pixels d'os à la bouche).
-function drawInstrument(ctx, r, stage, alpha, side) {
+export function drawInstrument(ctx, r, stage, alpha, side) {
   const k = vieK();
   const name = INSTR[stage];
   if (name === 'flute') {
@@ -33,7 +33,7 @@ function drawInstrument(ctx, r, stage, alpha, side) {
   fdBlitScreen(ctx, name, 0, r.x + side * r.w * 0.16, r.top + r.h * 0.62, alpha);
 }
 // Les notes qui montent (un pixel, puis deux), une toutes les 1,4 s.
-function drawNotes(ctx, r, now, phase, alpha) {
+export function drawNotes(ctx, r, now, phase, alpha) {
   const k = vieK();
   for (let i = 0; i < 2; i += 1) {
     const v = ((now / 2800) + i / 2 + phase) % 1;
@@ -106,3 +106,5 @@ function spots(L, c, seed, band) {
 }
 
 export const MUSICIEN_SCENE = { build: buildMusicien, spots };
+// L'instrument d'un âge (la bande), pour le musicien venu jouer ailleurs.
+export const INSTR_STAGE_OF_BAND = [0, 0, 1, 2, 3, 4, 5, 6, 6, 7];

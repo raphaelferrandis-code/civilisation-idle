@@ -183,6 +183,12 @@ describe("faitsDivers — le texte", () => {
     expect(accordePiste("{Il} est parti{e}.", true)).toBe("Elle est partie.");
     expect(accordePiste("{He} left {his} hat.", true, "en")).toBe("She left her hat.");
   });
+  it("chaque histoire laisse une trace qui se lit, en deux langues", () => {
+    for (const s of [...FD_STORY_LIST, AMOUREUX]) {
+      expect(s.traceSay, s.id).toBeTruthy();
+      expect(s.traceSay.who.fr && s.traceSay.who.en && s.traceSay.line.fr && s.traceSay.line.en).toBeTruthy();
+    }
+  });
   it("les rendez-vous de Nancy et William sont complets", () => {
     for (const st of AMOUREUX.steps) {
       expect(st.title.fr && st.chronicle.en).toBeTruthy();

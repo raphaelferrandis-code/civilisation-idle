@@ -17,7 +17,10 @@ import {
 } from './fdSpots.js';
 import { fdFocus } from './fdPick.js';
 import { dirOf, figure, pushFig, pushProp } from './fdKit.js';
-import { fdLoversInscrire, fdState } from '../../core/faitsDivers.js';
+import { fdLoversInscrire, fdState, fdProgress } from '../../core/faitsDivers.js';
+import { FD_STORIES } from '../../data/faitsDivers.js';
+import { drawInstrument, drawNotes, INSTR_STAGE_OF_BAND } from './fdMusicien.js';
+import { jouerMelodieScene } from '../../audio/melodieScene.js';
 import { AMOUREUX, AMOUREUX_NAMES, AMOUREUX_PISTES, accordePiste } from '../../data/faitsDiversAmoureux.js';
 
 const LOVER_VARIANT = { nancy: 3, william: 5 };
@@ -146,9 +149,33 @@ function buildWedding(app) {
     const gx = x + sx * a + fx * b, gy = y + sy * a + fy * b;
     return figure(app, 2 + i, gx, gy, { ct: g.ct, dir: dirOf(x - gx, y - gy), cast: i, who: 'guest' });
   });
-  app.figs = [n, w, ...gfigs];
+  // Les invités venus d'autres histoires (si on les a rencontrées) : le musicien, qui
+  // joue ; Diogène, assis dans son tonneau à l'écart, qui regarde.
+  const cameos = [];
+  const cm = app.step.cameos || {};
+  if (cm.musicien && fdProgress(FD_STORIES.musicien).n > 0) {
+    const m = figure(app, 20, x + sx * 1.45 - fx * 0.1, y + sy * 1.45 - fy * 0.1, { ct: 0, dir: dirOf(-sx, -sy), cast: 0, variant: 5, who: 'cameo' });
+    m.say = cm.musicien; m.music = true;
+    cameos.push(m);
+  }
+  if (cm.cynique && fdProgress(FD_STORIES.cynique).n > 0) {
+    const d = figure(app, 21, x - sx * 1.7 + fx * 0.2, y - sy * 1.7 + fy * 0.2, { ct: 0, dir: 2, sit: true, cast: 0, variant: 6, who: 'cameo' });
+    d.say = cm.cynique; d.lift = 2; d.logis = true;
+    cameos.push(d);
+  }
+  app.figs = [n, w, ...gfigs, ...cameos];
   const petals = [[226, 120, 150], [250, 244, 236], [238, 196, 90], [214, 92, 120]];
   app.actors = (now, out, alpha) => {
+    for (const c of cameos) {
+      if (c.logis) {
+        pushProp(out, 'tonneau', c.wx / CM.TILE, c.wy / CM.TILE, alpha, { unit: true, eps: -0.01 });
+        pushProp(out, 'tonneau', c.wx / CM.TILE, c.wy / CM.TILE, alpha, { unit: true, eps: 0.01, frame: () => 1 });
+      }
+      pushFig(out, c, app.band, alpha, c.music ? (ctx, r, nowD) => {
+        drawInstrument(ctx, r, INSTR_STAGE_OF_BAND[Math.max(0, Math.min(9, app.band))], alpha, c.dir === 1 || c.dir === 2 ? -1 : 1);
+        drawNotes(ctx, r, nowD, 0.3, alpha);
+      } : null);
+    }
     // L'arche fleurie, juste derrière le couple (c'est elle qui dit « mariage »).
     pushProp(out, 'arche', x - fx * 0.18, y - fy * 0.18, alpha, { unit: true, eps: -0.02 });
     pushFig(out, n, app.band, alpha, (ctx, r) => fdRibbon(ctx, r, ribbonSide(n)));
@@ -166,6 +193,17 @@ function buildWedding(app) {
     for (const g of gfigs) pushFig(out, g, app.band, alpha);
   };
   app.open = (t) => {
+    if (t.who === 'cameo') {
+      const cur0 = AMOUREUX.steps[fdState().lovers.step];
+      let isNew0 = false;
+      if (cur0 === app.step && !(app.said && Object.keys(app.said).length)) {
+        isNew0 = fdLoversInscrire(cur0.id, app.band, { place: app.spot.key });
+        app.said = app.said || {};
+        app.said.cameo = t.say.line;
+      }
+      if (t.music) { try { jouerMelodieScene(app.band); } catch { /* sans son */ } }
+      return { who: t.say.who, line: t.say.line, isNew: isNew0 };
+    }
     if (t.who !== 'guest') return openLover(app, t.who);
     // Un invité : il dit la sienne ; le premier clic inscrit aussi le mariage.
     const g = guests[t.cast % guests.length];

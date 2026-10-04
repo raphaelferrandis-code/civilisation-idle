@@ -97,14 +97,16 @@ export function fdFigure(ctx, f, band, now, alpha = 1) {
   if (alpha < 1) ctx.globalAlpha = pa * alpha;
   let d;
   if (f.sit) {
-    const drop = Math.round(drawH * 0.3);
+    // `sink` : la part du dessin qui passe sous le sol (0,3 = assis ; la sieste dans le
+    // blé n'en laisse dépasser que la tête).
+    const drop = Math.round(drawH * (f.sink || 0.3));
     ctx.save();
     ctx.beginPath();
     ctx.rect(p.x - drawH, p.y - drawH * 2, drawH * 2, drawH * 2 + Math.round(drawH * 0.04));
     ctx.clip();
     d = drawNamedAgentIso(ctx, p.x, p.y + drop, z, spec.name, spec.scale, f.dir | 0, false, now, f.phase || 0, 1, null, true);
     ctx.restore();
-    if (d) d = { drawW: d.drawW, drawH: d.drawH * 0.7, top: d.top };
+    if (d) d = { drawW: d.drawW, drawH: d.drawH * (1 - (f.sink || 0.3)), top: d.top };
   } else {
     d = drawNamedAgentIso(ctx, p.x, p.y, z, spec.name, spec.scale, f.dir | 0, !!f.walk, now, f.phase || 0, 1, f.walk && f.dist != null ? f.dist : null, true);
   }

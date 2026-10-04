@@ -458,6 +458,52 @@ export const FD_ART = {
   ampli: { foot: 3, frames: [['kkkk', 'kiik', 'kIik', 'kkkk']] },
   theremine: { foot: 3, frames: [['...k', '...k', 'kkkk', 'kiik']] },
 
+  // ── LES TRACES ─────────────────────────────────────────────────────────────
+  // Une plaque de bronze sur son petit poteau (les Grandvent, la Borne).
+  plaque: { foot: 4, frames: [[
+    'kkkk',
+    'kyok',
+    'kkkk',
+    '.kk.',
+    '.kk.',
+  ]] },
+  // Le chapeau du musicien, posé par terre, une pièce dedans.
+  chapeau: { foot: 2, frames: [[
+    '.kkk.',
+    'kBBBk',
+    'kkykk',
+  ]] },
+
+  // ── LES GAGS ───────────────────────────────────────────────────────────────
+  // L'échelle trop courte, appuyée au mur.
+  echelle: { foot: 8, frames: [[
+    'k.k',
+    'ktk',
+    'k.k',
+    'ktk',
+    'k.k',
+    'ktk',
+    'k.k',
+    'ktk',
+    'k.k',
+  ]] },
+  // La charrette renversée (roue en l'air).
+  charrette: { foot: 4, frames: [[
+    '.....kkk.',
+    '....kTtTk',
+    'kkkkkkkTk',
+    'ktttttkk.',
+    'kkkkkkk..',
+  ]] },
+  // Le cerf-volant coincé (losange, et sa queue).
+  cerfvolant: { foot: 4, frames: [[
+    '.k.',
+    'kyk',
+    'rkr',
+    '.k.',
+    '..r',
+  ]] },
+
   // ── LA CHÈVRE DES TOITS ────────────────────────────────────────────────────
   // L'enclos des Seguin, vu en biais : le portillon de devant est ouvert.
   enclos: { foot: 6, frames: [[

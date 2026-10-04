@@ -382,3 +382,18 @@ le 30/10).
     merveilles (leur parvis compte désormais comme bâti). Le point d'EAU à
     max(0,3·hw, hw − 1,4) du fil : le lit dessiné garde une bande de VASE le long des
     quais (l'aileron s'y posait à mi-largeur).
+  - Commité `051ff5a1`.
+- **Lot 5 : les gags, les traces, les croisements.**
+  - Les huit gags (`fdGags.js`) : la file d'attente le long d'une rue, la charrette de
+    citrouilles, l'homme coincé sur un toit (posé sur la ligne d'encre, l'échelle trop
+    courte en bas), la sieste dans le blé (on ne voit que les têtes — `sink` ; jamais
+    sous la neige : condition `when` d'une scène), la sérénade (notes, fenêtre qui
+    s'allume, seau d'eau), le cerf-volant dans un arbre de ville, la vache, le mime.
+    Ils passent APRÈS les histoires (une chance sur deux quand aucune n'est à tirer).
+    ⚠ Rues : en ville seulement (les chemins de campagne filent sous la forêt).
+  - Les traces (`fdTraces.js`) des histoires finies : RÉSIDENTES (hors plafond, sans
+    départ), écartées les unes des autres, fondues si elles naissent à l'écran ; un clic
+    dit ce qu'on y lit (`traceSay` des données).
+  - Croisements : au mariage, le musicien (s'il a été rencontré) joue — et sa mélodie
+    joue au clic — ; Diogène regarde depuis son tonneau ; chez la secte (dès le Marbre),
+    une chèvre sacrée si Blanquette a été rencontrée.

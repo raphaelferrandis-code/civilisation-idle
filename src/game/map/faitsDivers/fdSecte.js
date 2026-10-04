@@ -12,6 +12,11 @@ import { fdBlit, fdPixel, fdNoteThing } from './fdDraw.js';
 import { fdHash, lisiereSpots } from './fdSpots.js';
 import { fdFocus } from './fdPick.js';
 import { T, dirOf, figure, thing, pushFig, ringPoints, openStory } from './fdKit.js';
+import { CM } from '../layout.js';
+import { drawCritterIso } from '../critters.js';
+import { AGENT_SCALE } from '../agents.js';
+import { fdProgress } from '../../core/faitsDivers.js';
+import { FD_STORIES } from '../../data/faitsDivers.js';
 
 export function buildSecte(app) {
   const { x, y } = app.spot;
@@ -37,6 +42,9 @@ export function buildSecte(app) {
   const fireCast = app.ch.cast.findIndex((c) => c.ct < 0);
   const fire = fireCast >= 0 ? thing(app, N, x, y, fireCast) : null;
   if (fire) figs.push(fire);
+  // La chèvre sacrée (si Blanquette a été rencontrée) : assise parmi les fidèles.
+  const goat = st >= 2 && app.story.cameo && fdProgress(FD_STORIES.chevre).n > 0 ? thing(app, N + 1, x + R * 0.75, y - R * 0.55, 0) : null;
+  if (goat) { goat.say = app.story.cameo; figs.push(goat); }
   // Les pierres levées (âges de la Pierre et du Démiurge) : huit, en couronne.
   const stones = st === 1 || st === 6 ? ringPoints(8, st === 1 ? 1.42 : 1.2, 0.2).map((p, i) => ({ x: x + p.dx, y: y + p.dy, v: i % 2 })) : [];
   const phase = (fdHash(app.seed + ':f') % 1000) / 100;
@@ -45,6 +53,20 @@ export function buildSecte(app) {
   app.actors = (now, out, alpha) => {
     const band = app.band;
     for (const f of figs) if (f.kind === 'fig') pushFig(out, f, band, alpha);
+    if (goat) {
+      out.push({
+        wx: goat.wx, wy: goat.wy, d: goat.wx + goat.wy,
+        draw(ctx) {
+          const p = worldToScreen(goat.wx, goat.wy);
+          const z = CM.cam ? CM.cam.zoom : 1;
+          const pa = ctx.globalAlpha;
+          if (alpha < 1) ctx.globalAlpha = pa * alpha;
+          const m = drawCritterIso(ctx, p.x, p.y, CM.TILE * z, { kind: 'goat', dir: 1 }, AGENT_SCALE, CM.dpr);
+          ctx.globalAlpha = pa;
+          if (m) fdNoteThing(goat, { x0: p.x - m.box * 0.45, x1: p.x + m.box * 0.45, y0: p.y - m.box * 0.85, y1: p.y });
+        },
+      });
+    }
     for (const s of stones) {
       const wx = s.x * T(), wy = s.y * T();
       out.push({ wx, wy, d: depthOf(wx, wy), draw(ctx) { fdBlit(ctx, s.v ? 'menhir2' : 'menhir', 0, wx, wy, alpha); } });

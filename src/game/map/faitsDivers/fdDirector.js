@@ -23,12 +23,13 @@
 import { CM } from '../layout.js';
 import { worldToScreen } from '../iso/projection.js';
 import { registerVieActors, vieZoomFade } from '../iso/isoVie.js';
-import { fdCandidates, fdState, fdCycle, fdProgress, FD_TUNE } from '../../core/faitsDivers.js';
+import { fdCandidates, fdState, fdCycle, fdProgress, fdLoversProgress, FD_TUNE } from '../../core/faitsDivers.js';
 import { FD_STORIES } from '../../data/faitsDivers.js';
 import { AMOUREUX } from '../../data/faitsDiversAmoureux.js';
 import { fdFrame, fdHoverTick, fdFocusCheck } from './fdPick.js';
 import { fdHash, fdFootprints, spotOnScreen } from './fdSpots.js';
 import { FD_BUILDERS, buildersFor } from './fdScenes.js';
+import { FD_TRACES } from './fdTraces.js';
 import { loverAppWanted } from './fdLovers.js';
 
 // Molette : __faits({ ... }) — cf. le bas du fichier.
@@ -51,8 +52,8 @@ let lastNow = null, lastTick = -1;
 let waitOn = 0;             // secondes passées à attendre une place hors champ
 let nextId = 1;
 
-const candKey = (c) => (c.kind === 'story' ? 's:' + c.story.id : c.kind === 'lovers' ? 'lovers' : 'c:' + (c.curio && c.curio.id));
-const appKey = (a) => (a.kind === 'story' ? 's:' + a.story.id : a.kind === 'lovers' ? 'lovers' : 'c:' + a.curioId);
+const candKey = (c) => (c.kind === 'story' ? 's:' + c.story.id : c.kind === 'lovers' ? 'lovers' : c.kind === 'trace' ? 't:' + c.storyId : 'c:' + (c.curio && c.curio.id));
+const appKey = (a) => (a.kind === 'story' ? 's:' + a.story.id : a.kind === 'lovers' ? 'lovers' : a.kind === 'trace' ? 't:' + a.storyId : 'c:' + a.curioId);
 export const fdApps = () => apps;
 // Combien d'HISTOIRES sont en scène (le couple séparé n'en fait qu'une ; les
 // résidentes — la tortue qui longe le fleuve — ne comptent pas).
@@ -105,6 +106,14 @@ function makeApp(c, spot, rerun = false, who = null) {
     const app = { ...base, story: c.story, ch: c.ch, ttl: 60 * (FD_DIR.showMin + (fdHash(seed + ':ttl') % 1000) / 1000 * (FD_DIR.showMax - FD_DIR.showMin)) };
     return b.build(app);
   }
+  if (c.kind === 'curio') {
+    const app = { ...base, curio: c.curio, curioId: c.curio.id, ttl: 60 * (4 + (fdHash(seed + ':ttl') % 1000) / 500) };
+    return b.build(app);
+  }
+  if (c.kind === 'trace') {
+    const app = { ...base, storyId: c.storyId, resident: true, ttl: Infinity };
+    return b.build(app);
+  }
   if (c.kind === 'lovers') {
     const L = fdState().lovers;
     const app = {
@@ -152,19 +161,25 @@ function spawnOne(L, nightF) {
     }
     if (apps.some((a) => appKey(a) === k)) return false;
     if ((cool.get(k) || 0) > clock) return false;
-    return !!buildersFor(c);
+    const b = buildersFor(c);
+    // `when` : une condition propre à la scène (pas de sieste sous la neige).
+    return !!b && (!b.when || b.when());
   });
   const reruns = rerunCands(cands, nightF);
   if (!cands.length && !reruns.length) return;
   const r = (fdHash('pick:' + Math.floor(clock) + ':' + nextId) % 1000) / 1000;
   let c = null;
-  if (cands.length && (!reruns.length || r >= FD_DIR.rerunP)) {
+  const storyC = cands.filter((x) => x.kind !== 'curio'), curioC = cands.filter((x) => x.kind === 'curio');
+  if (storyC.length && (!reruns.length || r >= FD_DIR.rerunP)) {
     // Les histoires commencées et Nancy-William d'abord ; une nouveauté suit l'ordre
     // d'introduction sept fois sur dix.
-    const started = cands.filter((x) => !x.isNew);
-    const fresh = cands.filter((x) => x.isNew).sort((a, b) => a.intro - b.intro);
+    const started = storyC.filter((x) => !x.isNew);
+    const fresh = storyC.filter((x) => x.isNew).sort((a, b) => a.intro - b.intro);
     if (started.length && (!fresh.length || r < 0.6)) c = started[fdHash('s' + clock) % started.length];
     else if (fresh.length) c = r < 0.7 ? fresh[0] : fresh[fdHash('f' + clock) % fresh.length];
+  } else if (curioC.length && r < 0.55) {
+    // Une curiosité (un gag d'un seul coup), quand aucune histoire n'est à tirer.
+    c = curioC[fdHash('c' + clock) % curioC.length];
   } else if (reruns.length) {
     c = reruns[fdHash('r' + clock) % reruns.length];
   }
@@ -214,17 +229,40 @@ function stillValid(app, nightF) {
 // LES RÉSIDENTES : une histoire marquée `resident` (la tortue) reste sur la carte
 // une fois rencontrée, à son dernier chapitre vu — on revient voir où elle en est.
 function keepResidents(L) {
+  // Les TRACES des histoires finies (fdTraces.js) : présentes à jamais.
+  for (const id of Object.keys(FD_TRACES)) {
+    const done = id === 'amoureux' ? fdLoversProgress().done : !!(FD_STORIES[id] && fdProgress(FD_STORIES[id]).done);
+    if (!done || apps.some((a) => appKey(a) === 't:' + id)) continue;
+    // La tortue en route cède la place à la tortue endormie.
+    for (const a of apps) if (a.resident && appKey(a) === 's:' + id) a.alive = false;
+    apps = apps.filter((a) => a.alive);
+    const c = { kind: 'trace', storyId: id };
+    const list = spotsFor(L, c, 'trace:' + id);
+    // Une place à elle (deux traces ne se partagent pas la même berge) ; à l'écran,
+    // elle se fond plutôt que de surgir.
+    const got = pickSpot(list, true);
+    if (!got) continue;
+    const app = makeApp(c, got.s);
+    if (!app) continue;
+    app.alpha = got.on ? 0 : 1;
+    app.fadeIn = got.on;
+    apps.push(app);
+  }
   for (const [id, b] of Object.entries(FD_BUILDERS)) {
     if (!b.resident) continue;
     const story = FD_STORIES[id];
     const pr = fdProgress(story);
-    if (!pr.n || apps.some((a) => appKey(a) === 's:' + id)) continue;
+    if (!pr.n || pr.done || apps.some((a) => appKey(a) === 's:' + id)) continue;
     const ch = story.chapters[pr.n - 1];
     const c = { kind: 'story', story, ch, idx: pr.n - 1 };
     const list = spotsFor(L, c, 'res:' + id + ':' + ch.id);
     if (!list.length) continue;
-    const app = makeApp(c, list[0], true);
+    const got = pickSpot(list, true);
+    if (!got) continue;
+    const app = makeApp(c, got.s, true);
     if (!app) continue;
+    app.alpha = got.on ? 0 : 1;
+    app.fadeIn = got.on;
     app.resident = true;
     app.ttl = Infinity;
     apps.push(app);
@@ -286,7 +324,7 @@ let lastLayout = null;
 function spotStillFree(app, L) {
   const s = app.spot;
   const foot = fdFootprints(L);
-  if (s.roof && s.t) {
+  if ((s.roof || s.inField) && s.t) {
     const t = foot.get(s.t.gx + ',' + s.t.gy);
     return !!t && t.type === s.t.type;
   }

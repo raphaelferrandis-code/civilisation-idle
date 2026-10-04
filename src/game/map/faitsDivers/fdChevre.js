@@ -97,7 +97,7 @@ export function buildChevre(app) {
 
 // Les toits possibles : des maisons dont l'avant se voit, les plus grandes d'abord à
 // partir de la Couronne (« un grand toit », « tout en haut »).
-function roofSpots(L, st, seed) {
+export function roofSpots(L, st, seed) {
   const foot = fdFootprints(L);
   const out = [];
   for (const t of (L.tiles || [])) {

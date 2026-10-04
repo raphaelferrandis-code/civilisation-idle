@@ -80,6 +80,9 @@ export function openStory(app, t, again, sub = null) {
     isNew = fdInscrire(story.id, ch.id, app.band);
     app.inscribed = true;
   }
+  // Une apparition venue d'une autre histoire (la chèvre sacrée de la secte) : sa
+  // propre réplique.
+  if (t.say) return { who: t.say.who, line: t.say.line, isNew, title: ch.title, sub };
   let line = cast.line;
   // Re-clic (ou scène rejouée) : une histoire qui a une réserve de répliques
   // (Diogène) en tire une, pour son personnage principal.

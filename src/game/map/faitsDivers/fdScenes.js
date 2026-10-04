@@ -13,6 +13,8 @@ import { BORNE_SCENE } from './fdBorne.js';
 import { MONSTRE_SCENE } from './fdMonstre.js';
 import { MUSICIEN_SCENE } from './fdMusicien.js';
 import { loversSceneFor } from './fdLovers.js';
+import { FD_GAGS } from './fdGags.js';
+import { FD_TRACES } from './fdTraces.js';
 
 export const FD_BUILDERS = {
   secte: SECTE_SCENE,
@@ -29,5 +31,7 @@ export const FD_BUILDERS = {
 export function buildersFor(cand) {
   if (cand.kind === 'story') return FD_BUILDERS[cand.story.id] || null;
   if (cand.kind === 'lovers') return loversSceneFor(cand.step);
+  if (cand.kind === 'curio') return FD_GAGS[cand.curio.id] || null;
+  if (cand.kind === 'trace') return FD_TRACES[cand.storyId] || null;
   return null;
 }

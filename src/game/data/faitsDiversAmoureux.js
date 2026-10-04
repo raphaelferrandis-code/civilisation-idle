@@ -218,6 +218,11 @@ export const AMOUREUX = {
         nancy: { fr: 'Il a dit oui avant que je finisse la question.', en: 'He said yes before I finished the question.' },
         william: { fr: 'On part demain, voir le reste du monde. Et après, on reviendra ici. Il y a tout, ici.', en: 'Tomorrow we leave to see the rest of the world. And afterwards we’ll come back here. Everything is here.' },
       },
+      // Les invités venus d'autres histoires, s'ils ont été rencontrés.
+      cameos: {
+        musicien: { who: { fr: 'Le musicien', en: 'The musician' }, line: { fr: 'Pour un mariage, je la joue un peu plus vite. Eux, ils ne se sont pas pressés.', en: 'For a wedding I play it a little faster. They certainly took their time.' } },
+        cynique: { who: { fr: 'Diogène', en: 'Diogenes' }, line: { fr: 'Je ne vais pas aux mariages. Mais je regarde. C’est gratuit, de regarder.', en: 'I don’t go to weddings. But I watch. Watching is free.' } },
+      },
       // Les invités : petits groupes lâches (jamais un cercle — « ça fait secte »).
       guests: [
         { ct: 1, who: { fr: 'Une invitée', en: 'A guest' }, line: { fr: 'Ils se sont cherchés pendant des années. Moi, j’ai juste demandé à ma voisine.', en: 'They spent years looking for each other. I just asked my neighbour.' } },
@@ -247,6 +252,7 @@ export const AMOUREUX = {
     en: 'We lost each other in the collapse. Everything fell, except this.',
   },
   trace: { fr: 'Un banc, au bord de l’eau', en: 'A bench by the water' },
+  traceSay: { who: { fr: 'Un banc', en: 'A bench' }, line: { fr: '(Deux prénoms sont gravés dans le bois, et un petit ruban rouge est noué au dossier.)', en: '(Two names are carved into the wood, and a little red ribbon is tied to the backrest.)' } },
 };
 
 // ── LES PISTES ──────────────────────────────────────────────────────────────

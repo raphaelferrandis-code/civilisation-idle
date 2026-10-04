@@ -302,11 +302,14 @@ export function roadRunSpots(L, len = 4) {
   if (_runs && _runs.at === at && _runs.L === L && _runs.len === len) return _runs.list;
   const out = [];
   const rm = L.roadMap;
+  // En VILLE seulement : un chemin de campagne file sous la forêt (vu en jeu : une
+  // file d'attente sous un arbre), et une place n'est pas une rue.
   const isRoad = (x, y) => {
     const k = key(x, y);
     if (!L.roadSet || !L.roadSet.has(k)) return false;
+    if (L.urbanSet && !L.urbanSet.has(k)) return false;
     const c = rm && rm.get(k);
-    return !(c && c.rank === 'plaza');
+    return !(c && (c.rank === 'plaza' || c.rank === 'path'));
   };
   if (L.roadSet) {
     for (const k of L.roadSet) {
@@ -388,6 +391,23 @@ export function bankSpots(L) {
   }
   out.sort((a2, b) => (b.open - a2.open) || (a2.h - b.h));
   _bank = { at, L, list: out };
+  return out;
+}
+
+// ── UN ARBRE DE LA VILLE ─────────────────────────────────────────────────────
+// Un arbre du décor (L.trees) dont l'avant se voit : on se tient au pied, côté œil.
+export function treeSpots(L) {
+  const foot = fdFootprints(L);
+  const out = [];
+  for (const tr of (L.trees || [])) {
+    const x = tr.gx + 1.15, y = tr.gy + 1.15;
+    const k = key(Math.floor(x), Math.floor(y));
+    if (foot.has(k) || isWet(L, Math.floor(x), Math.floor(y))) continue;
+    const open = openFront(L, foot, Math.floor(x), Math.floor(y));
+    if (open < 0) continue;
+    out.push({ x, y, tx: tr.gx + 0.5 + (tr.jx || 0), ty: tr.gy + 0.5 + (tr.jy || 0), r: tr.r || 0.7, key: 'arbre:' + tr.gx + ',' + tr.gy, open, h: fdHash('arbre:' + tr.gx + ':' + tr.gy + ':' + (L.mapSeed || 0)) });
+  }
+  out.sort((a2, b) => a2.h - b.h);
   return out;
 }
 

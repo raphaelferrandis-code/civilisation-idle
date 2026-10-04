@@ -148,6 +148,9 @@ const SECTE = {
     },
   ],
   trace: { fr: 'Le cercle de pierres', en: 'The stone circle' },
+  // Si Blanquette a été rencontrée : une chèvre parmi les fidèles, à partir du Marbre.
+  cameo: { who: { fr: 'Une chèvre sacrée', en: 'A sacred goat' }, line: { fr: 'Mêêh. (Les fidèles disent qu’elle est descendue d’un toit, un soir, et qu’elle a regardé le feu très longtemps.)', en: 'Mehh. (The faithful say she came down from a rooftop one evening and stared at the fire for a long time.)' } },
+  traceSay: { who: { fr: 'Le cercle de pierres', en: 'The stone circle' }, line: { fr: '(Au milieu, une braise couve encore. Personne ne sait qui l’entretient.)', en: '(In the middle, an ember still glows. No one knows who tends it.)' } },
 };
 
 // ── 2. LA TORTUE DE ZÉNON ──────────────────────────────────────────────────
@@ -244,6 +247,7 @@ const TORTUE = {
     },
   ],
   trace: { fr: 'La tortue, endormie au bout du monde', en: 'The tortoise, asleep at the end of the world' },
+  traceSay: { who: { fr: 'La tortue', en: 'The tortoise' }, line: { fr: '(Elle dort, au bout du monde. Elle a l’air contente d’y être, et pas pressée d’en repartir.)', en: '(She sleeps at the end of the world. She looks glad to be there, and in no hurry to leave.)' } },
 };
 
 // ── 3. LA CHÈVRE DES TOITS ─────────────────────────────────────────────────
@@ -353,6 +357,7 @@ const CHEVRE = {
     },
   ],
   trace: { fr: 'L’enclos à la barrière ouverte', en: 'The pen with the open gate' },
+  traceSay: { who: { fr: 'Blanquette', en: 'Blanquette' }, line: { fr: 'Mêêh. (La barrière est ouverte. Elle reste quand même.)', en: 'Mehh. (The gate is open. She stays anyway.)' } },
 };
 
 // ── 4. LE CYNIQUE ──────────────────────────────────────────────────────────
@@ -496,6 +501,7 @@ const CYNIQUE = {
     { fr: 'Tu peux rester. Mais un peu plus à gauche. Là. Le soleil.', en: 'You can stay. But a bit to the left. There. The sun.' },
   ],
   trace: { fr: 'Le tonneau, où dort le chien', en: 'The barrel, where the dog sleeps' },
+  traceSay: { who: { fr: 'Le tonneau de Diogène', en: 'Diogenes’ barrel' }, line: { fr: '(Le chien dort dedans. Il n’a besoin de rien, lui non plus.)', en: '(The dog sleeps inside. He needs nothing either.)' } },
 };
 
 // ── 5. L’HOMME-VOLANT ──────────────────────────────────────────────────────
@@ -595,6 +601,7 @@ const VOLANT = {
     },
   ],
   trace: { fr: 'Une plaque au bord de l’eau', en: 'A plaque by the water' },
+  traceSay: { who: { fr: 'Une plaque', en: 'A plaque' }, line: { fr: 'Ici, les Grandvent ont presque volé.', en: 'Here, the Grandvents almost flew.' } },
 };
 
 // ── 6. LA QUERELLE DE LA BORNE ─────────────────────────────────────────────
@@ -695,6 +702,7 @@ const BORNE = {
     },
   ],
   trace: { fr: 'La borne, et sa plaque', en: 'The stone, and its plaque' },
+  traceSay: { who: { fr: 'Une plaque', en: 'A plaque' }, line: { fr: 'Ici s’est tenue, de la Pierre au Démiurge, la plus longue querelle de la ville. Elle portait sur ce caillou.', en: 'Here, from the Stone Age to the Demiurge, stood the longest feud in town. It was about this rock.' } },
 };
 
 // ── 7. LE MONSTRE DU FLEUVE ────────────────────────────────────────────────
@@ -776,6 +784,7 @@ const MONSTRE = {
     },
   ],
   trace: { fr: 'Une ombre immense, à l’aube, sous le pont', en: 'A vast shadow under the bridge at dawn' },
+  traceSay: { who: { fr: 'Anselme', en: 'Anselme' }, line: { fr: '(une bulle)', en: '(a bubble)' } },
 };
 
 // ── 8. LE MUSICIEN DES RUES ────────────────────────────────────────────────
@@ -876,6 +885,7 @@ const MUSICIEN = {
     },
   ],
   trace: { fr: 'Un chapeau posé au coin de la place', en: 'A hat set down at the corner of the square' },
+  traceSay: { who: { fr: 'Un chapeau', en: 'A hat' }, line: { fr: '(Quelqu’un y a laissé une pièce. Et un os taillé, qui ressemble à une flûte.)', en: '(Someone left a coin in it. And a carved bone that looks like a flute.)' } },
 };
 
 // ── LES GAGS D’UN SEUL COUP ────────────────────────────────────────────────
