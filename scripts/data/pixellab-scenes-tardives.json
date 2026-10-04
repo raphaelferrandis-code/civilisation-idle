@@ -629,6 +629,10 @@
       "haussmannObjet": "a9ab4a04-ccfb-4e93-87e1-998120babbd7 (existant, 160 px) → haussmann-fr (80) + row-haussmann-fl/fr (104)",
       "rangeeBrique": "ba6f5495-581b-4d8b-b8a1-df900dd1c72d (Pro Flash 128, style = terrace.png) → row-terrace-fl/fr/bl/br (80)",
       "echec": "b71ada0b-3f5a-4345-8179-a0a037d87327 (rotation depuis terrace.png : vues frontales + chiffres incrustés, inutilisable)"
+    },
+    "b3": {
+      "maisonArtisane": "449928b7-6ecc-4db0-b85b-d2ece7b72b42 (existant, 68 px, SW = crafthouse.png) → crafthouse-fr/bl/br sans conversion",
+      "rangeeColombage": "2d04e859-d25e-4865-8cfc-22817b4d8ba5 (Pro Flash 128, style = crafthouse.png) → row-colombage-fl/fr/bl/br (72)"
     }
   }
 }

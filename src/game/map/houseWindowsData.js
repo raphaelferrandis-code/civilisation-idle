@@ -254,6 +254,38 @@ export const HOUSE_WINDOWS = {
     [55, 19, 1, 3], [48, 29, 2, 3], [48, 39, 2, 4], [48, 48, 2, 4], [48, 58, 2, 3], [48, 68, 2, 3],
     [54, 28, 2, 2], [54, 39, 2, 2], [54, 48, 2, 2], [54, 58, 2, 2], [54, 67, 2, 2],
   ],
+  // Les RANGÉES À COLOMBAGES du bourg (ville par îlots, bande 3, 2026-10-04 ; objet
+  // house-colombage-rangee-b23) : volets d'échoppe fermés (comme le volet de la maison
+  // artisane), lucarne, petites fenêtres du rez de pierre ; portes éteintes, pans de bois
+  // de l'étage éteints (aucune vitre franche). Les vues tournées de la maison artisane
+  // (crafthouse-fr/bl/br) n'ont pas de relevé : comme elle, aucune vitre, et leur volet
+  // n'est pas lisible.
+  'row-colombage-fl': [
+    [37, 36, 1, 7, 38, 42, 1, 2],
+    [19, 45, 1, 5, 20, 45, 1, 1, 21, 45, 1, 1, 24, 47, 1, 1, 24, 52, 1, 1, 25, 47, 1, 1,
+      25, 52, 1, 1, 26, 46, 1, 8],
+    [50, 52, 1, 2, 51, 53, 1, 7, 52, 53, 1, 1, 52, 58, 1, 1],
+    [40, 58, 1, 1, 41, 53, 1, 6, 42, 53, 1, 1, 42, 59, 1, 1, 43, 54, 1, 1, 43, 59, 1, 1,
+      44, 54, 1, 6],
+  ],
+  'row-colombage-fr': [
+    [52, 45, 1, 10, 53, 49, 1, 1, 53, 51, 1, 1, 54, 49, 1, 1, 54, 51, 1, 1],
+    [46, 46, 1, 11, 47, 56, 1, 1],
+    [57, 42, 1, 1, 57, 47, 1, 1, 58, 42, 1, 6, 59, 47, 1, 2],
+    [38, 55, 1, 1, 39, 50, 1, 1, 39, 55, 1, 1, 40, 50, 1, 6, 38, 48, 1, 1, 39, 48, 1, 1,
+      40, 47, 1, 2],
+    [14, 50, 1, 2, 14, 53, 1, 2, 15, 50, 1, 6], [20, 53, 1, 4, 21, 52, 1, 2, 22, 53, 1, 8],
+  ],
+  'row-colombage-bl': [
+    [14, 43, 1, 5, 15, 43, 1, 2, 15, 46, 1, 2], [19, 45, 1, 5, 20, 46, 1, 4],
+    [32, 51, 1, 4, 33, 51, 1, 2, 33, 54, 1, 1], [37, 53, 1, 2, 37, 56, 1, 2, 38, 54, 1, 4],
+    [54, 51, 1, 5, 55, 51, 1, 2, 55, 54, 1, 2],
+  ],
+  'row-colombage-br': [
+    [15, 41, 1, 1, 16, 39, 1, 4, 16, 44, 1, 1, 17, 41, 1, 4],
+    [50, 45, 1, 5, 51, 47, 1, 1, 51, 49, 1, 1, 52, 44, 1, 5],
+    [31, 54, 1, 2, 32, 53, 1, 2, 33, 53, 1, 1],
+  ],
   // L'IMMEUBLE HAUSSMANNIEN TOURNÉ et ses UNITÉS DE RANGÉE (ville par îlots, bande 5,
   // 2026-10-04) : autres vues du même objet PixelLab. Lucarnes et fenêtres franches ;
   // l'étage derrière la grande rambarde, la boutique du rez et les ferronneries de bord
