@@ -35,8 +35,10 @@ import {
 
 import {
   IDLE_BASE_CAP_SECONDS, IDLE_CAP_PALIERS, OFFLINE_MAX_COLLAPSES, OFFLINE_UNCAPPED_COLLAPSES,
-  CLEPSYDRE_CAP_MULT, CLEPSYDRE_MIN_POUR_SECONDS, REGROWTH_RUSH_MS
+  CLEPSYDRE_CAP_MULT, CLEPSYDRE_MIN_POUR_SECONDS, REGROWTH_RUSH_MS, MAISON_RANKS
 } from './balance.js';
+import { RANK_LABELS } from './actions/maisonRang.js';
+import { maisonRank } from './actions/maisonTable.js';
 import { idleResumeNarrative } from '../data/idleNarrative.js';
 import { publishIdleReport } from './idleReport.js';
 
@@ -348,6 +350,20 @@ const REPORT_RESOURCES = ["population", "food", "gold", "knowledge", "infrastruc
 // n'est pas une absence, et le crédit de visibilitychange applique déjà 60 s.
 const REPORT_MIN_SEC = 60;
 
+// Un TITRE de la Maison gagné pendant l'absence (les autos du temple jouent sur le
+// chemin farm) : son annonce passait à la trappe — float coupé, ligne de Chronique
+// jetée avec l'historique hors ligne. Une ligne ici, une ligne au rapport.
+function awayRankLabel(before) {
+  const r = maisonRank();
+  if (!(r > (before.maisonRank || 0))) return null;
+  const labels = RANK_LABELS[MAISON_RANKS[r].id];
+  return labels ? tr(labels) : null;
+}
+function chronicleAwayRank(before) {
+  const label = awayRankLabel(before);
+  if (label) chronicle(tr({ fr: `Pendant ton absence, la Maison des Plaisirs t'a élevé au rang de ${label}.`, en: `While you were away, the House of Pleasures raised you to the rank of ${label}.` }));
+}
+
 // Assemble le rapport à partir de l'instantané pris avant la simulation. Les
 // montants sortent en CHAÎNES : ils dépassent le float, et la vue n'a qu'à les
 // afficher. Rien de ce qui est calculé ici n'est relu par le moteur.
@@ -390,6 +406,7 @@ function buildIdleReport({ narrative, heading, before, farm, elapsedSeconds, ela
     collapses: farm ? farm.collapses : 0,
     ruinsGained: farm && farm.collapses > 0 ? fmt(farm.ruinsGained) : null,
     wearDelta: Math.round(((state.timeWear || 0) - wearBefore) * 100),
+    rank: awayRankLabel(before),
     deltas,
     idle
   };
@@ -503,6 +520,7 @@ export function spendStoredTime(seconds = Infinity) {
 
   const before = {};
   for (const key of REPORT_RESOURCES) before[key] = D(state[key]);
+  before.maisonRank = maisonRank();
   const { farm, wearBefore } = advanceWorldBy(spend, { fromStore: true });
 
   // Même récit que la reprise d'absence : c'est le même temps, joué au même
@@ -516,6 +534,7 @@ export function spendStoredTime(seconds = Infinity) {
     ruinsGained: farm && farm.collapses > 0 ? fmt(farm.ruinsGained) : null
   });
   chronicle(narrative);
+  chronicleAwayRank(before);
   publishIdleReport(buildIdleReport({
     narrative,
     heading: tr({ fr: "La clepsydre s'est vidée", en: "The clepsydra has emptied" }),
@@ -558,6 +577,7 @@ export function applyOfflineProgress(elapsedSeconds = (Date.now() - state.lastTi
   // celle-ci peut effondrer la cité et rendre `elapsed` incomparable après coup.
   const before = {};
   for (const key of REPORT_RESOURCES) before[key] = D(state[key]);
+  before.maisonRank = maisonRank();
   const clepsydreBefore = state.storedSeconds || 0;
   const overflow = Math.max(0, elapsedSeconds - elapsed);
   if (overflow > 0) {
@@ -579,6 +599,7 @@ export function applyOfflineProgress(elapsedSeconds = (Date.now() - state.lastTi
     ruinsGained: farm && farm.collapses > 0 ? fmt(farm.ruinsGained) : null
   });
   chronicle(narrative);
+  chronicleAwayRank(before);
   // Pas de rapport pour un aller-retour d'onglet : on n'annonce une récolte que
   // s'il y a eu une vraie absence.
   if (elapsedSeconds >= REPORT_MIN_SEC) {

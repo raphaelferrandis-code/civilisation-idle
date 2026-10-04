@@ -174,6 +174,17 @@ export default function SlotsStage({ table, onClose }) {
     clearTimeout(a.freeTimer);
     if (a.ronron) { a.ronron.stop(); a.ronron = null; }
   }, []);
+  // Onglet masqué en plein tour : le rAF s'arrête, donc le tour ne finit pas, mais le
+  // ronron des rouleaux (en boucle) jouait jusqu'au retour. On le coupe ; au retour, le
+  // tour s'achève d'un coup, sans lui.
+  useEffect(() => {
+    const onHide = () => {
+      const a = anim.current;
+      if (document.hidden && a.ronron) { a.ronron.stop(); a.ronron = null; }
+    };
+    document.addEventListener('visibilitychange', onHide);
+    return () => document.removeEventListener('visibilitychange', onHide);
+  }, []);
   const later = (fn, ms) => { anim.current.timers.push(setTimeout(fn, ms)); };
 
   // ── LE DESSIN : une boucle qui ne peint que ce qui bouge (20 i/s au repos : les
@@ -328,6 +339,10 @@ export default function SlotsStage({ table, onClose }) {
       a.lines = res.lines.map((l) => ({ line: l.line, count: l.count }));
       a.win = res.faveurGain > 0 || res.freeSpinsWon > 0 || !!res.wheel || !!res.holdWin;
       if (a.ronron) { a.ronron.stop(); a.ronron = null; }
+      // Un GROS gain de lignes se fête même si un bonus tombe sur le même tour : la
+      // chaîne ci-dessous ne fêtait (et n'écrivait à la Chronique) que les lignes seules.
+      if ((res.holdWin || res.wheel || res.freeSpinsWon > 0) && res.faveurGain > 0
+        && bandeau(res.faveurGain / Math.max(1, res.stakeFaveur))) fete_(res.faveurGain, res.stakeFaveur);
       if (res.holdWin) { sonSlots('roue', look); later(() => startHold(res), 900); setPhase('hold'); return; }
       if (res.wheel) sonSlots('roue', look);
       else if (res.freeSpinsWon > 0) sonSlots('tours', look);

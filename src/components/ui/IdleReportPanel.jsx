@@ -100,6 +100,12 @@ export default function IdleReportPanel() {
             </p>
           )}
 
+          {report.rank && (
+            <p className={`idle-report-farm ${visible(1)}`}>
+              🎖 {tr({ fr: 'Maison des Plaisirs', en: 'House of Pleasures' })} · <strong>{report.rank}</strong>
+            </p>
+          )}
+
           <ul className="idle-report-lines">
             {report.deltas.map((d, i) => (
               <li key={d.key} className={`${d.negative ? 'is-down' : 'is-up'} ${visible(i + 2)}`}>
