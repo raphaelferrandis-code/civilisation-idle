@@ -34,6 +34,9 @@
  *   --treat/--profit/--prep : molettes de calibrage des crises « qui comptent »
  *            (par palier 25/50/75 %), appliquées aux options en mémoire — même
  *            effet que modifier CRISIS_*_SHIFT / CRISIS_PROFIT_PREP (balance.js).
+ *   --flat : rend à chaque crise les montants de RÉFÉRENCE de son palier (malus
+ *            10/12/15 %, foyer ∓5/6/7 %, Ruines +15/20/30 %) et retire les
+ *            déplacements vers un second foyer — l'A/B des crises « à caractère ».
  *   --cap : heures max par cycle ; un cycle tenu jusque-là tombe à ce moment
  *            (gain projeté, ruinGain(true)), comme le ferait un joueur.
  *   --legacy=none|granaries|archives|laws|plunder|affinite : legs gravé à
@@ -134,7 +137,7 @@ if (typeof argv.legfx === "string") {
 }
 const { runTerminalCrisisAction } = actions;
 const { buildings, dynastyNames } = await import("./src/game/data/buildings.js");
-const { CRISIS_POOL } = await import("./src/game/data/world.js");
+const { CRISIS_POOL, crisisOptionShifts } = await import("./src/game/data/world.js");
 const { registerWorldEffects } = await import("./src/game/data/worldEffects.js");
 registerWorldEffects({ addProductionPenalty, chronicle, clamp01, state });
 
@@ -151,10 +154,17 @@ if (ONLY) {
 const NOT_ONLY = ONLY ? CRISIS_POOL.filter((e) => !ONLY.includes(e.id)).map((e) => e.id) : [];
 const knob = (k) => (typeof argv[k] === "string" ? argv[k].split(",").map(Number) : null);
 const TREAT = knob("treat"), PROFIT = knob("profit"), PREP = knob("prep");
+const FLAT = Boolean(argv.flat);
 const LEVEL = { 0.25: 0, 0.5: 1, 0.75: 2 };
+const REF = { treat: [0.05, 0.06, 0.07], profit: [0.05, 0.06, 0.07], prep: [0.15, 0.20, 0.30], malus: [0.10, 0.12, 0.15] };
 for (const ev of CRISIS_POOL) for (const o of ev.options || []) {
   if (typeof o.foyerShift !== "number") continue;
   const i = LEVEL[ev.threshold];
+  if (FLAT) {
+    o.side = null;
+    if (o.stance === "stabiliser") { o.foyerShift = -REF.treat[i]; o.malus = REF.malus[i]; }
+    if (o.stance === "temporiser") { o.foyerShift = REF.profit[i]; o.prep = REF.prep[i]; }
+  }
   if (o.stance === "stabiliser" && TREAT) o.foyerShift = -TREAT[i];
   if (o.stance === "temporiser" && PROFIT) o.foyerShift = PROFIT[i];
   if (o.stance === "temporiser" && PREP) o.prep = PREP[i];
@@ -162,12 +172,23 @@ for (const ev of CRISIS_POOL) for (const o of ev.options || []) {
 const CRISIS_BY_ID = Object.fromEntries(CRISIS_POOL.map((e) => [e.id, e]));
 
 // --- Politiques de réponse aux crises --------------------------------------------
-// Dette effective d'une option : son déplacement de foyer, freiné par la
-// réforme/l'apaisement déjà acquis sur ce foyer (même formule que pressure.js).
+// Dette effective d'une option (repli quand la fenêtre n'affiche pas de cible) :
+// ses parts de foyer (deux pour un déplacement), freinées par la réforme/
+// l'apaisement déjà acquis sur chaque foyer (même formule que pressure.js).
 function optionShift(opt) {
-  if (!opt || typeof opt.foyerShift !== "number" || !opt.foyer) return 0;
-  const cut = Math.min(0.72, (state.foyerRelief?.[opt.foyer] || 0) + (state.foyerReform?.[opt.foyer] || 0));
-  return opt.foyerShift * (1 - cut);
+  let sum = 0;
+  for (const [foyer, amount] of Object.entries(crisisOptionShifts(opt))) {
+    const cut = Math.min(0.72, (state.foyerRelief?.[foyer] || 0) + (state.foyerReform?.[foyer] || 0));
+    sum += amount * (1 - cut);
+  }
+  return sum;
+}
+// Cible projetée par la fenêtre (pastille « Rupture visée ») : ce que lit le
+// joueur, calculée par le vrai moteur. null si l'option n'en porte pas.
+function shownTarget(opt) {
+  const chip = (opt?.effects || []).find((e) => /Rupture/.test(String(e.label)));
+  const m = chip && String(chip.label).match(/(\d+)/);
+  return m ? Number(m[1]) / 100 : null;
 }
 const POLICIES = {
   prudent: (opts) => opts.find((o) => o.stance === "stabiliser"),
@@ -179,6 +200,12 @@ const POLICIES = {
   lucide: (opts) => {
     const greedy = opts.find((o) => o.stance === "temporiser");
     const safe = opts.find((o) => o.stance === "stabiliser");
+    const tg = shownTarget(greedy), ts = shownTarget(safe);
+    if (tg != null && ts != null) {
+      if (tg < LUCIDE_MAX) return greedy;
+      if (ts >= 1) return greedy;
+      return safe;
+    }
     const target = pressureBreakdown().total;
     if (target + optionShift(greedy) < LUCIDE_MAX) return greedy;
     if (target + optionShift(safe) >= 1) return greedy;
@@ -419,6 +446,7 @@ let md = `# Choix de crise : impact mesuré
 > tick ${TICK} s, plan d'achats de simulate-ce, réforme du foyer dominant dès ${REGUL_AT === Infinity ? "jamais" : "une cible de " + REGUL_AT},
 > plafond ${CYCLE_CAP_S / 3600} h par cycle).
 > ${ONLY ? `Tirage limité à : ${ONLY.join(", ")}.` : "Tirage normal du jeu."}
+> Crises : ${FLAT ? "montants de RÉFÉRENCE du palier, sans déplacement (--flat)" : "montants propres à chaque crise"}.
 > Molettes : traiter ${TREAT ? TREAT.join("/") : "défaut"} · profiter ${PROFIT ? PROFIT.join("/") : "défaut"} · Ruines ${PREP ? PREP.join("/") : "défaut"}.
 > Legs à chaque chute : ${LEGACY} · édits terminaux : ${EDICT}.
 `;

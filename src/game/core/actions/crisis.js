@@ -20,6 +20,7 @@ import {
   addProductionPenalty,
   cityVitals,
   pressureBreakdown,
+  rates,
   ruinGain,
   terminalCrisisReady,
   terminalCrisisCost,
@@ -47,7 +48,7 @@ import { runCollapseSequence, openChoiceDialog } from '../events.js';
 import { pushOutcomeFloat } from '../outcomeFloat.js';
 import { tr } from '../i18n.js';
 import { upgrades, dogmaIds } from '../../data/upgrades.js';
-import { eras, codexSavoirBonus, CRISIS_EVENTS, CRISIS_POOL } from '../../data/world.js';
+import { eras, codexSavoirBonus, CRISIS_EVENTS, CRISIS_POOL, crisisOptionShifts } from '../../data/world.js';
 import { epitaphLegacyById, legacyFoyerShift } from '../../data/epitaphs.js';
 import { rollCycleVow, breakCycleVow, vowById } from '../../data/vows.js';
 import { captureCurrentVestige, resetCameraCenter } from '../../map/cityMapBridge.js';
@@ -155,18 +156,27 @@ function pushCrisisOutcome(outcome, choice, stabilized) {
   pushOutcomeFloat({ label: choice.label, kind: stabilized ? "gain" : "info", view: "regulation" });
 }
 
-// Cible de Rupture (pressureBreakdown().total, celle du fantôme de la jauge) si
-// `shift` était déposé sur `foyer` : calcul exact par le vrai moteur — on pose
-// la part, on lit la cible, on la retire.
-function projectedTarget(foyer, shift) {
+// Cible de Rupture si les parts `shifts` (foyer → part signée, une option peut
+// en bouger deux) étaient déposées : calcul exact par le vrai moteur — on pose
+// les parts, on lit la cible, on les retire. La cible est celle vers laquelle
+// DÉRIVE la jauge, rates().instability (pression, moins le soulagement des
+// vitaux, × Icare/Babel/Cadmos/épitaphe), pas le seul total des foyers. Sans
+// plafond : « 104 % » dit qu'on passe le bord.
+function projectedTarget(shifts) {
   if (!state.foyerShift) state.foyerShift = { scarcity: 0, inequality: 0, complexity: 0, dissent: 0 };
-  const prev = state.foyerShift[foyer] || 0;
-  state.foyerShift[foyer] = prev + shift;
+  const fs = state.foyerShift;
+  const prev = { ...fs };
+  // Même borne que shiftFoyer (world.js) : la projection dit ce que fera apply.
+  for (const [foyer, amount] of Object.entries(shifts)) {
+    fs[foyer] = Math.max(-1, Math.min(1, (prev[foyer] || 0) + amount));
+  }
   renderCache._framePressureVer = -1;
-  const total = pressureBreakdown().total;
-  state.foyerShift[foyer] = prev;
+  renderCache._frameRatesVer = -1;
+  const target = Math.max(0, rates().instability);
+  for (const foyer of Object.keys(shifts)) fs[foyer] = prev[foyer] || 0;
   renderCache._framePressureVer = -1;
-  return total;
+  renderCache._frameRatesVer = -1;
+  return target;
 }
 function targetChip(total) {
   const pct = Math.round(total * 100);
@@ -257,7 +267,7 @@ export async function openCrisisEvent(event) {
   // près du bord). Montré au joueur, pas joué à sa place.
   const options = (event.options || []).map((o) => (
     typeof o.foyerShift === "number" && o.foyer
-      ? { ...o, effects: [...(o.effects || []), targetChip(projectedTarget(o.foyer, o.foyerShift))] }
+      ? { ...o, effects: [...(o.effects || []), targetChip(projectedTarget(crisisOptionShifts(o)))] }
       : o
   ));
   if (atlasSkipAvailable()) {
@@ -268,11 +278,9 @@ export async function openCrisisEvent(event) {
     });
   }
 
-  const choice = await openChoiceDialog({
-    ...event,
-    options,
-    footnote: tr({ fr: "Sauf mention contraire, les effets durent jusqu'à la fin du cycle en cours.", en: "Unless stated otherwise, effects last until the end of the current cycle." })
-  });
+  // Pas de pied explicatif (aucune phrase d'explication à l'écran) : « jusqu'à
+  // la chute » est l'infobulle des pastilles qui durent (world.js).
+  const choice = await openChoiceDialog({ ...event, options });
 
   if (choice && choice.atlasSkip) {
     atlasTakeHit(event);

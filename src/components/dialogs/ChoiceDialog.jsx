@@ -126,7 +126,7 @@ export default function ChoiceDialog({ dialog, onChoose }) {
             const chipsEl = Array.isArray(option.effects) && option.effects.length > 0 ? (
               <span className="effect-chips">
                 {option.effects.map((effect, effectIndex) => (
-                  <span key={`${effect.label}-${effectIndex}`} className={`effect-chip is-${effect.kind || "info"}${effect.boosted ? " is-boosted" : ""}`}>
+                  <span key={`${effect.label}-${effectIndex}`} className={`effect-chip is-${effect.kind || "info"}${effect.boosted ? " is-boosted" : ""}`} {...tipProps(null, effect.tip)}>
                     {effect.label}
                   </span>
                 ))}

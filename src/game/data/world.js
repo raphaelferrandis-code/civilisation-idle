@@ -196,8 +196,20 @@ export const codexSavoirBonus = (bestEraIndex) => 250 * eraTier(bestEraIndex || 
 // CIBLE qui bouge, et les deux options ont un vrai gain : TRAITER (la production
 // paie, le foyer s'allège : la cité tiendra plus longtemps) ou PROFITER (la
 // chute rapportera plus de Ruines, le foyer s'alourdit : elle tombera plus tôt).
-// La bonne réponse dépend de la marge sous 100 %. Montants par palier dans
-// balance.js (CRISIS_TREAT_SHIFT, CRISIS_PROFIT_SHIFT, CRISIS_PROFIT_PREP).
+// La bonne réponse dépend de la marge sous 100 %.
+//
+// CHAQUE CRISE A SON CARACTÈRE (2026-10-04) : les montants par palier de
+// balance.js (CRISIS_TREAT_SHIFT, CRISIS_PROFIT_SHIFT, CRISIS_PROFIT_PREP) ne sont
+// plus que la RÉFÉRENCE du palier, et la moyenne de chaque palier la respecte ;
+// une crise s'en écarte selon ce qu'elle raconte (traiter bon marché mais
+// timide, profiter juteux mais lourd, petite crise sans grand enjeu…). Et une
+// option peut DÉPLACER la tension au lieu de seulement l'ajouter ou l'ôter
+// (`side`, un second foyer) : soulager un foyer en en chargeant un autre, ou
+// partager une dette. Ce que vaut un déplacement dépend de la cité : la part se
+// pose AVANT le recul (un foyer réformé n'en encaisse qu'une fraction), et un
+// foyer déjà vide ne descend pas sous 0. La pastille « Rupture visée » le chiffre
+// pour CETTE cité. Règle de posture, gardée par le test : traiter allège
+// toujours le foyer de la crise, profiter l'alourdit toujours.
 const shiftFoyer = (foyer, amount) => {
   const s = effects.state;
   if (!s) return;
@@ -219,36 +231,59 @@ const RES_NAME = {
 };
 const pct = (x) => Math.round(Math.abs(x) * 100);
 const signed = (x) => `${x < 0 ? "−" : "+"}${pct(x)}%`;
+// « Jusqu'à la chute » : en infobulle sur les pastilles qui durent (pas de phrase
+// d'explication à l'écran).
+const UNTIL_FALL = { fr: "Jusqu'à la chute", en: "Until the fall" };
 const foyerChip = (foyer, shift) => ({
   label: { fr: `${FOYER_NAME[foyer].fr} ${signed(shift)}`, en: `${FOYER_NAME[foyer].en} ${signed(shift)}` },
-  kind: shift < 0 ? "gain" : "cost"
+  kind: shift < 0 ? "gain" : "cost",
+  tip: UNTIL_FALL
 });
+// Parts déposées par une option, foyer → part signée (le foyer de la crise, puis
+// le second foyer d'un déplacement). Source unique : apply, la pastille « Rupture
+// visée » (crisis.js) et le banc lisent ceci.
+export function crisisOptionShifts(opt) {
+  const out = {};
+  if (!opt || typeof opt.foyerShift !== "number" || !opt.foyer) return out;
+  out[opt.foyer] = opt.foyerShift;
+  if (opt.side && opt.side.foyer && typeof opt.side.shift === "number") {
+    out[opt.side.foyer] = (out[opt.side.foyer] || 0) + opt.side.shift;
+  }
+  return out;
+}
+const applyShifts = (opt) => {
+  for (const [foyer, amount] of Object.entries(crisisOptionShifts(opt))) shiftFoyer(foyer, amount);
+};
 // Traiter : la production de `res` paie `malus` jusqu'à la chute, le foyer
-// s'allège. Les montants vivent SUR l'option (lus par apply) : un banc peut les
-// régler sans recharger les données.
-function treatOption({ threshold, foyer, label, res, malus, chronicle }) {
-  const opt = { label, stance: "stabiliser", foyer, foyerShift: -CRISIS_TREAT_SHIFT[threshold], malusRes: res, malus };
+// s'allège de `shift` (référence du palier par défaut). `side` : { foyer, shift }
+// signé, un second foyer qui bouge aussi. Les montants vivent SUR l'option (lus
+// par apply) : un banc peut les régler sans recharger les données.
+function treatOption({ threshold, foyer, label, res, malus, shift = CRISIS_TREAT_SHIFT[threshold], side = null, chronicle }) {
+  const opt = { label, stance: "stabiliser", foyer, foyerShift: -shift, side, malusRes: res, malus };
   opt.effects = [
-    { label: { fr: `${RES_NAME[res].fr} ${signed(-malus)}`, en: `${RES_NAME[res].en} ${signed(-malus)}` }, kind: "cost" },
-    foyerChip(foyer, opt.foyerShift)
+    { label: { fr: `${RES_NAME[res].fr} ${signed(-malus)}`, en: `${RES_NAME[res].en} ${signed(-malus)}` }, kind: "cost", tip: UNTIL_FALL },
+    foyerChip(foyer, opt.foyerShift),
+    ...(side ? [foyerChip(side.foyer, side.shift)] : [])
   ];
   opt.apply = () => {
     effects.addProductionPenalty(opt.malusRes, opt.malus);
-    shiftFoyer(foyer, opt.foyerShift);
+    applyShifts(opt);
     effects.chronicle(tr(chronicle));
   };
   return opt;
 }
-// Profiter : la chute rapportera plus (préparation, comme les édits terminaux ;
-// les Préparations funèbres ne renforcent que les édits), le foyer s'alourdit.
-function profitOption({ threshold, foyer, label, chronicle }) {
-  const opt = { label, stance: "temporiser", foyer, foyerShift: CRISIS_PROFIT_SHIFT[threshold], prep: CRISIS_PROFIT_PREP[threshold] };
+// Profiter : la chute rapportera `prep` de plus (préparation, comme les rites ;
+// les Préparations funèbres ne renforcent que les rites), le foyer s'alourdit de
+// `shift`. `side` comme pour traiter.
+function profitOption({ threshold, foyer, label, prep = CRISIS_PROFIT_PREP[threshold], shift = CRISIS_PROFIT_SHIFT[threshold], side = null, chronicle }) {
+  const opt = { label, stance: "temporiser", foyer, foyerShift: shift, side, prep };
   opt.effects = [
     { label: { fr: `Ruines +${pct(opt.prep)}%`, en: `Ruins +${pct(opt.prep)}%` }, kind: "gain" },
-    foyerChip(foyer, opt.foyerShift)
+    foyerChip(foyer, opt.foyerShift),
+    ...(side ? [foyerChip(side.foyer, side.shift)] : [])
   ];
   opt.apply = () => {
-    shiftFoyer(foyer, opt.foyerShift);
+    applyShifts(opt);
     const st = effects.state;
     if (st) st.collapsePreparation = Math.min(COLLAPSE_PREP_MAX, (st.collapsePreparation || 0) + opt.prep);
     effects.chronicle(tr(chronicle));
@@ -267,13 +302,15 @@ export const CRISIS_POOL = [
     title: { fr: "Les entrepôts font parler d'eux", en: "The warehouses become the talk of the town" },
     body: { fr: "On commence à compter les sacs. Les voisins se regardent différemment. Le mot 'famine' n'est pas encore prononcé, mais il flotte.", en: "People begin to count the sacks. Neighbors look at one another differently. The word 'famine' has not yet been spoken, but it hangs in the air." },
     options: [
+      // Traiter franc (le grain sort, la peur tombe) ; profiter partage sa dette
+      // avec les Inégalités : les coffres qui se remplissent.
       treatOption({
-        threshold: 0.25, foyer: "scarcity", res: "food", malus: 0.10,
+        threshold: 0.25, foyer: "scarcity", res: "food", malus: 0.12, shift: 0.06,
         label: { fr: "Ouvrir les réserves", en: "Open the stores" },
         chronicle: { fr: "Les réserves sont ouvertes. La peur redescend d'un cran.", en: "The stores are opened. The fear eases by a notch." }
       }),
       profitOption({
-        threshold: 0.25, foyer: "scarcity",
+        threshold: 0.25, foyer: "scarcity", shift: 0.03, side: { foyer: "inequality", shift: 0.02 },
         label: { fr: "Vendre le grain au plus offrant", en: "Sell the grain to the highest bidder" },
         chronicle: { fr: "Le grain part au plus offrant. Quelques coffres se remplissent ; les ventres, non.", en: "The grain goes to the highest bidder. A few coffers fill up; the bellies do not." }
       })
@@ -287,10 +324,11 @@ export const CRISIS_POOL = [
     title: { fr: "Les marchands bloquent les prix", en: "The merchants are rigging prices" },
     body: { fr: "Dans les étals, les prix grimpent sans raison visible. On murmure que quelques maisons contrôlent les stocks et attendent que la faim les enrichisse.", en: "At the stalls, prices climb for no visible reason. It is whispered that a few houses control the stocks and wait for hunger to make them rich." },
     options: [
+      // Traiter pas cher, mais il déplace : prix plafonnés, étals qui se vident.
       treatOption({
-        threshold: 0.25, foyer: "inequality", res: "gold", malus: 0.10,
+        threshold: 0.25, foyer: "inequality", res: "gold", malus: 0.08, shift: 0.05, side: { foyer: "scarcity", shift: 0.02 },
         label: { fr: "Plafonner les prix", en: "Cap the prices" },
-        chronicle: { fr: "Les prix sont plafonnés par décret. Les marchands grincent des dents, la rue respire.", en: "Prices are capped by decree. The merchants gnash their teeth, the street breathes." }
+        chronicle: { fr: "Les prix sont plafonnés par décret. La rue respire ; les étals, eux, se vident un peu.", en: "Prices are capped by decree. The street breathes; the stalls, for their part, empty a little." }
       }),
       profitOption({
         threshold: 0.25, foyer: "inequality",
@@ -312,8 +350,9 @@ export const CRISIS_POOL = [
         label: { fr: "Réorganiser les quartiers", en: "Reorganize the districts" },
         chronicle: { fr: "Des scribes cartographient la cité. L'administration devient lisible. C'est déjà ça.", en: "Scribes map the city. The administration becomes legible. That much, at least." }
       }),
+      // Profiter gourmand : la meilleure prise du palier, la plus lourde dette.
       profitOption({
-        threshold: 0.25, foyer: "complexity",
+        threshold: 0.25, foyer: "complexity", prep: 0.22, shift: 0.07,
         label: { fr: "Continuer à construire", en: "Keep building" },
         chronicle: { fr: "On continue. La cité grandit plus vite que sa propre compréhension d'elle-même.", en: "We carry on. The city grows faster than its own understanding of itself." }
       })
@@ -327,13 +366,14 @@ export const CRISIS_POOL = [
     title: { fr: "La jeunesse ne reconnaît plus la cité", en: "The young no longer recognize the city" },
     body: { fr: "Ceux qui sont nés ici n'ont pas vu les fondations. Ils veulent autre chose sans savoir quoi. Leurs aînées appellent ça de l'ingratitude. Eux appellent ça une vision.", en: "Those born here never saw the foundations laid. They want something else without knowing what. Their elders call it ingratitude. They call it a vision." },
     options: [
+      // Petite crise, petit enjeu des deux côtés.
       treatOption({
-        threshold: 0.25, foyer: "dissent", res: "knowledge", malus: 0.10,
+        threshold: 0.25, foyer: "dissent", res: "knowledge", malus: 0.06, shift: 0.04,
         label: { fr: "Organiser une assemblée", en: "Hold an assembly" },
         chronicle: { fr: "L'assemblée crie, débat, et finit par se disperser. La tension baisse un peu.", en: "The assembly shouts, debates, and finally disperses. The tension drops a little." }
       }),
       profitOption({
-        threshold: 0.25, foyer: "dissent",
+        threshold: 0.25, foyer: "dissent", prep: 0.12, shift: 0.04,
         label: { fr: "Envoyer la jeunesse sur les chantiers", en: "Send the young to the building sites" },
         chronicle: { fr: "La jeunesse est envoyée bâtir. Les monuments montent ; la rancœur aussi.", en: "The young are sent to build. The monuments rise; so does the resentment." }
       })
@@ -347,13 +387,15 @@ export const CRISIS_POOL = [
     title: { fr: "Des rumeurs circulent dans les rues", en: "Rumors are spreading through the streets" },
     body: { fr: "Quelqu'un diffuse des histoires. Personne ne sait d'où elles viennent, mais tout le monde les répète. Les versions changent selon les quartiers.", en: "Someone is spreading stories. No one knows where they come from, but everyone repeats them. The versions change from district to district." },
     options: [
+      // Traiter cher mais radical ; profiter partage sa dette avec les
+      // Inégalités : le pouvoir sort grandi.
       treatOption({
-        threshold: 0.25, foyer: "dissent", res: "knowledge", malus: 0.10,
+        threshold: 0.25, foyer: "dissent", res: "knowledge", malus: 0.14, shift: 0.07,
         label: { fr: "Enquêter sur la source", en: "Investigate the source" },
         chronicle: { fr: "L'enquête remonte une piste. La rumeur s'étouffe, pour l'instant.", en: "The inquiry traces a lead. The rumor is smothered, for now." }
       }),
       profitOption({
-        threshold: 0.25, foyer: "dissent",
+        threshold: 0.25, foyer: "dissent", shift: 0.03, side: { foyer: "inequality", shift: 0.02 },
         label: { fr: "Retourner la rumeur contre les rivaux", en: "Turn the rumor against rivals" },
         chronicle: { fr: "La rumeur change de cible. Le pouvoir en sort grandi ; la confiance, non.", en: "The rumor changes target. Power comes out stronger; trust does not." }
       })
@@ -369,15 +411,17 @@ export const CRISIS_POOL = [
     title: { fr: "Les riches proposent de l'aide", en: "The wealthy offer their help" },
     body: { fr: "Quelques grandes maisons offrent d'investir dans la stabilité, en échange de leur nom gravé quelque part de visible.", en: "A few great houses offer to invest in stability, in exchange for their name carved somewhere visible." },
     options: [
+      // Traiter cher et fort ; profiter fait payer les travaux par les riches :
+      // la Complexité s'allège pendant que les Inégalités montent.
       treatOption({
-        threshold: 0.5, foyer: "inequality", res: "gold", malus: 0.12,
+        threshold: 0.5, foyer: "inequality", res: "gold", malus: 0.15, shift: 0.08,
         label: { fr: "Taxer les élites", en: "Tax the elites" },
-        chronicle: { fr: "Les élites financent des travaux publics. Le commerce ralentit, les murs tiennent.", en: "The elites fund public works. Trade slows, the walls hold." }
+        chronicle: { fr: "Les élites paient l'impôt. Le commerce ralentit ; l'écart, lui, se resserre.", en: "The elites pay the tax. Trade slows; the gap, for its part, narrows." }
       }),
       profitOption({
-        threshold: 0.5, foyer: "inequality",
+        threshold: 0.5, foyer: "inequality", prep: 0.18, side: { foyer: "complexity", shift: -0.03 },
         label: { fr: "Graver leurs noms partout", en: "Carve their names everywhere" },
-        chronicle: { fr: "Leurs noms ornent chaque fronton. La cité brille ; elle appartient un peu moins à tous.", en: "Their names adorn every pediment. The city shines; it belongs a little less to everyone." }
+        chronicle: { fr: "Leurs noms ornent chaque fronton. Les murs sont neufs ; la cité appartient un peu moins à tous.", en: "Their names adorn every pediment. The walls are new; the city belongs a little less to everyone." }
       })
     ]
   },
@@ -389,10 +433,11 @@ export const CRISIS_POOL = [
     title: { fr: "Quelqu'un accapare le pouvoir", en: "Someone is seizing power" },
     body: { fr: "Une faction monte. Pas encore assez forte pour gouverner seule, mais assez pour bloquer les autres. Elle attend que la cité soit suffisamment fragilisée.", en: "A faction is rising. Not yet strong enough to govern alone, but strong enough to block the others. It waits for the city to grow fragile enough." },
     options: [
+      // Traiter pas cher, mais il déplace : plus de sièges, plus de procédures.
       treatOption({
-        threshold: 0.5, foyer: "dissent", res: "gold", malus: 0.12,
+        threshold: 0.5, foyer: "dissent", res: "gold", malus: 0.10, side: { foyer: "complexity", shift: 0.03 },
         label: { fr: "Partager les institutions", en: "Share the institutions" },
-        chronicle: { fr: "Les institutions sont ouvertes. La faction accepte un rôle moindre. Pour l'instant.", en: "The institutions are opened. The faction accepts a lesser role. For now." }
+        chronicle: { fr: "Les institutions sont ouvertes. La faction accepte un rôle moindre, et chaque décision passe désormais par trois conseils.", en: "The institutions are opened. The faction accepts a lesser role, and every decision now goes through three councils." }
       }),
       profitOption({
         threshold: 0.5, foyer: "dissent",
@@ -409,13 +454,15 @@ export const CRISIS_POOL = [
     title: { fr: "Les savants se querellent", en: "The scholars are at war" },
     body: { fr: "Deux écoles d'idées s'affrontent dans les académies. L'une veut codifier, l'autre expérimenter. Chacune demande que l'autre soit interdite. Les étudiants prennent parti dans les rues.", en: "Two schools of thought clash in the academies. One would codify, the other experiment. Each demands the other be banned. The students take sides in the streets." },
     options: [
+      // Traiter déplace vers la Dissidence (l'école vaincue entre en secret) ;
+      // profiter gourmand.
       treatOption({
-        threshold: 0.5, foyer: "complexity", res: "knowledge", malus: 0.12,
+        threshold: 0.5, foyer: "complexity", res: "knowledge", malus: 0.12, shift: 0.07, side: { foyer: "dissent", shift: 0.03 },
         label: { fr: "Imposer une doctrine", en: "Impose a doctrine" },
         chronicle: { fr: "Une doctrine s'impose. L'autre école continue en secret, plus soudée que jamais.", en: "One doctrine prevails. The other school carries on in secret, more united than ever." }
       }),
       profitOption({
-        threshold: 0.5, foyer: "complexity",
+        threshold: 0.5, foyer: "complexity", prep: 0.25, shift: 0.08,
         label: { fr: "Laisser le débat ouvert", en: "Leave the debate open" },
         chronicle: { fr: "Le débat s'envenime. Les idées prospèrent, les tensions aussi.", en: "The debate festers. Ideas flourish, and so do tensions." }
       })
@@ -434,10 +481,12 @@ export const CRISIS_POOL = [
         label: { fr: "Intégrer la milice", en: "Absorb the militia" },
         chronicle: { fr: "La milice est intégrée. Elle protège les rues. Le trésor paye l'uniforme.", en: "The militia is absorbed. It guards the streets. The treasury pays for the uniforms." }
       }),
+      // Profiter : la milice tient les rues (peu de Dissidence) mais se paie au
+      // passage — la dette tombe surtout sur les Inégalités.
       profitOption({
-        threshold: 0.5, foyer: "dissent",
+        threshold: 0.5, foyer: "dissent", shift: 0.03, side: { foyer: "inequality", shift: 0.04 },
         label: { fr: "Leur confier les rues", en: "Hand them the streets" },
-        chronicle: { fr: "La milice patrouille à sa façon. L'ordre règne : le sien.", en: "The militia patrols in its own way. Order reigns: its own." }
+        chronicle: { fr: "La milice patrouille à sa façon. L'ordre règne : le sien, et il se paie à chaque coin de rue.", en: "The militia patrols in its own way. Order reigns: its own, and it is paid for on every street corner." }
       })
     ]
   },
@@ -449,13 +498,15 @@ export const CRISIS_POOL = [
     title: { fr: "Les fondations fissurent", en: "The foundations are cracking" },
     body: { fr: "Les fontaines perdent leurs joints. Les routes s'effondrent entre les pierres. On a construit vite, mais personne n'a prévenu les budgets d'entretien.", en: "The fountains lose their seals. The roads collapse between the stones. We built fast, but no one warned the maintenance budgets." },
     options: [
+      // Gros enjeu des deux côtés : réparer coûte cher et tient ; reporter rapporte
+      // presque autant qu'une crise de 75 %, et pèse autant.
       treatOption({
-        threshold: 0.5, foyer: "complexity", res: "gold", malus: 0.12,
+        threshold: 0.5, foyer: "complexity", res: "gold", malus: 0.16, shift: 0.08,
         label: { fr: "Investir dans les réparations", en: "Invest in repairs" },
         chronicle: { fr: "Les ouvriers réparent. La cité tient encore. Le trésor aussi, tout juste.", en: "The workers repair. The city still holds. So does the treasury, barely." }
       }),
       profitOption({
-        threshold: 0.5, foyer: "complexity",
+        threshold: 0.5, foyer: "complexity", prep: 0.28, shift: 0.09,
         label: { fr: "Reporter aux prochains", en: "Leave it to those who come next" },
         chronicle: { fr: "On reporte. Les fissures s'élargissent. Quelqu'un d'autre paiera.", en: "We defer. The cracks widen. Someone else will pay." }
       })
@@ -476,8 +527,10 @@ export const CRISIS_POOL = [
         label: { fr: "Importer du grain", en: "Import grain" },
         chronicle: { fr: "Le grain arrive. Les bas quartiers respirent. Le trésor s'essouffle.", en: "The grain arrives. The lower districts breathe. The treasury runs short of breath." }
       }),
+      // Profiter partage sa dette avec la Dissidence : les bas quartiers
+      // n'oublieront pas.
       profitOption({
-        threshold: 0.75, foyer: "scarcity",
+        threshold: 0.75, foyer: "scarcity", shift: 0.05, side: { foyer: "dissent", shift: 0.03 },
         label: { fr: "Nourrir d'abord les ateliers", en: "Feed the workshops first" },
         chronicle: { fr: "Les rations vont d'abord à ceux qui produisent. Les ateliers tournent ; les bas quartiers, eux, n'oublieront pas.", en: "Rations go first to those who produce. The workshops run; the lower districts will not forget." }
       })
@@ -491,15 +544,18 @@ export const CRISIS_POOL = [
     title: { fr: "Les riches font leurs bagages", en: "The wealthy are packing their bags" },
     body: { fr: "Les maisons aisées ont des plans depuis longtemps. Des caisses chargées quittent la cité par des chemins discrets. Ils savent quelque chose que les autres ne savent pas encore.", en: "The well-off houses have had their plans for a long time. Laden chests leave the city by discreet roads. They know something the others do not yet know." },
     options: [
+      // Les deux options déplacent, en miroir : bloquer garde l'or et la colère ;
+      // saisir enrichit les puissants, mais la rue applaudit. (Parts principales
+      // relevées : avec les seuls déplacements, profiter gagnait 7 fois sur 7 au banc.)
       treatOption({
-        threshold: 0.75, foyer: "inequality", res: "population", malus: 0.15,
+        threshold: 0.75, foyer: "inequality", res: "population", malus: 0.15, shift: 0.09, side: { foyer: "dissent", shift: 0.03 },
         label: { fr: "Bloquer les sorties", en: "Seal the exits" },
         chronicle: { fr: "Les routes sont fermées. Le trésor reste. La colère aussi.", en: "The roads are closed. The treasury stays. So does the anger." }
       }),
       profitOption({
-        threshold: 0.75, foyer: "inequality",
+        threshold: 0.75, foyer: "inequality", shift: 0.08, side: { foyer: "dissent", shift: -0.03 },
         label: { fr: "Saisir ce qu'ils laissent", en: "Seize what they leave behind" },
-        chronicle: { fr: "Les riches partent, leurs palais restent. La cité s'en empare, et s'en vante.", en: "The rich leave, their palaces remain. The city seizes them, and boasts of it." }
+        chronicle: { fr: "Les riches partent, leurs palais restent. Les puissants s'en emparent, et la rue applaudit.", en: "The rich leave, their palaces remain. The powerful seize them, and the street cheers." }
       })
     ]
   },
@@ -511,13 +567,15 @@ export const CRISIS_POOL = [
     title: { fr: "Le palais est divisé", en: "The palace is divided" },
     body: { fr: "Deux prétendants au conseil supérieur. L'un soutenu par les marchands, l'autre par les soldats. La rue n'attend plus qu'un signal pour choisir son camp.", en: "Two claimants to the high council. One backed by the merchants, the other by the soldiers. The street waits only for a signal to choose its side." },
     options: [
+      // Le pari : le décret rapporte le plus de tout le pool, et pèse le plus ;
+      // le vote, lui, coûte peu et soulage peu.
       treatOption({
-        threshold: 0.75, foyer: "dissent", res: "knowledge", malus: 0.15,
+        threshold: 0.75, foyer: "dissent", res: "knowledge", malus: 0.12, shift: 0.06,
         label: { fr: "Laisser les quartiers voter", en: "Let the districts vote" },
         chronicle: { fr: "Le vote est houleux. Un nom sort. La cité se retrouve derrière lui, du moins officiellement.", en: "The vote is stormy. One name emerges. The city falls in behind it, officially at least." }
       }),
       profitOption({
-        threshold: 0.75, foyer: "dissent",
+        threshold: 0.75, foyer: "dissent", prep: 0.35, shift: 0.09,
         label: { fr: "Trancher par décret", en: "Settle it by decree" },
         chronicle: { fr: "Le décret est signé. L'un des deux prétendants disparaît. Avec ses partisans.", en: "The decree is signed. One of the two claimants vanishes. Along with his followers." }
       })
@@ -531,13 +589,14 @@ export const CRISIS_POOL = [
     title: { fr: "Une maladie s'installe dans les bas-fonds", en: "A sickness takes root in the slums" },
     body: { fr: "Personne ne sait encore ce que c'est. Les médecins disent quarantaine. Les marchands disent non. Les gens toussent.", en: "No one knows yet what it is. The physicians say quarantine. The merchants say no. The people cough." },
     options: [
+      // La quarantaine coûte le plus cher du pool et soulage le plus.
       treatOption({
-        threshold: 0.75, foyer: "scarcity", res: "population", malus: 0.15,
+        threshold: 0.75, foyer: "scarcity", res: "population", malus: 0.20, shift: 0.09,
         label: { fr: "Décréter la quarantaine", en: "Order a quarantine" },
         chronicle: { fr: "La quarantaine est imposée. L'épidémie ralentit. L'économie aussi.", en: "The quarantine is imposed. The epidemic slows. So does the economy." }
       }),
       profitOption({
-        threshold: 0.75, foyer: "scarcity",
+        threshold: 0.75, foyer: "scarcity", prep: 0.28,
         label: { fr: "Laisser circuler", en: "Let it spread freely" },
         chronicle: { fr: "On laisse circuler. La maladie se répand dans les rues et les ateliers.", en: "We let it move freely. The sickness spreads through the streets and the workshops." }
       })
@@ -551,13 +610,15 @@ export const CRISIS_POOL = [
     title: { fr: "Les dettes de la cité arrivent à échéance", en: "The city's debts are coming due" },
     body: { fr: "Quelqu'un a promis plus qu'il ne pouvait tenir. Des créanciers attendaient patiemment. Ils n'attendent plus.", en: "Someone promised more than they could keep. The creditors waited patiently. They wait no longer." },
     options: [
+      // Honorer coûte cher ; renégocier de force rapporte moins que les autres
+      // crises du palier, et fait payer la parole donnée (Dissidence).
       treatOption({
-        threshold: 0.75, foyer: "inequality", res: "gold", malus: 0.15,
+        threshold: 0.75, foyer: "inequality", res: "gold", malus: 0.18,
         label: { fr: "Honorer les dettes", en: "Honor the debts" },
         chronicle: { fr: "Les dettes sont payées. La cité survit, lessivée. Le crédit reste intact.", en: "The debts are paid. The city survives, drained. Its credit stays intact." }
       }),
       profitOption({
-        threshold: 0.75, foyer: "inequality",
+        threshold: 0.75, foyer: "inequality", prep: 0.25, shift: 0.04, side: { foyer: "dissent", shift: 0.04 },
         label: { fr: "Renégocier de force", en: "Renegotiate by force" },
         chronicle: { fr: "La renégociation tourne mal pour les créanciers. La cité garde son or ; sa parole ne vaut plus grand-chose.", en: "The renegotiation goes badly for the creditors. The city keeps its gold; its word is worth little now." }
       })
@@ -583,6 +644,15 @@ if (import.meta.env?.DEV) {
     const temp = (ev.options || []).filter((o) => o.stance === "temporiser").length;
     if (stab !== 1 || temp !== 1) {
       throw new Error(`Crise "${ev.id}" : attendu 1 stabiliser + 1 temporiser, obtenu ${stab}/${temp} — la Doctrine de crise ne saurait pas quelle option jouer.`);
+    }
+    // Traiter allège TOUJOURS le foyer de la crise, profiter l'alourdit toujours
+    // (« stabilisée » se lit sur ce signe, cf. settleCrisisChoice) ; un
+    // déplacement porte sur un AUTRE foyer.
+    for (const o of ev.options || []) {
+      const sign = o.stance === "stabiliser" ? -1 : 1;
+      if (o.foyer !== ev.foyer || !(o.foyerShift * sign > 0) || (o.side && o.side.foyer === o.foyer)) {
+        throw new Error(`Crise "${ev.id}", option « ${o.label} » : part de foyer incohérente avec sa posture.`);
+      }
     }
   }
 }
