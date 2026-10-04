@@ -57,6 +57,16 @@ export function fdBlit(ctx, name, fi, wx, wy, alpha = 1, flip = false, lift = 0)
   const top = y - (spr.foot + 1) * k;
   return { x0: p.x - W / 2, x1: p.x + W / 2, y0: top, y1: top + H, cx: p.x, cy: y };
 }
+// Pose un décor à un point ÉCRAN (ce qu'un personnage tient à la main : le poulet,
+// la lanterne). Rend sa boîte écran, ou null.
+export function fdBlitScreen(ctx, name, fi, sx, sy, alpha = 1, flip = false) {
+  const spr = fdSprite(name, fi, flip);
+  if (!spr) return null;
+  const k = vieK();
+  if (!vieBlit(ctx, spr, sx, sy, k, alpha)) return null;
+  const W = spr.w * k, H = spr.h * k, top = sy - (spr.foot + 1) * k;
+  return { x0: sx - W / 2, x1: sx + W / 2, y0: top, y1: top + H };
+}
 // Un pixel d'art isolé, au grain des décors.
 export function fdPixel(ctx, x, y, rgb, alpha = 1) {
   if (alpha <= 0.01) return;
@@ -77,7 +87,9 @@ export function fdFigure(ctx, f, band, now, alpha = 1) {
   const spec = agentSpecFor(set, f.ct === 1 || f.ct === 2 ? f.ct : 0, f.variant | 0);
   if (!spec || !CM.cam) return null;
   const z = CM.cam.zoom;
-  const p = worldToScreen(f.wx, f.wy);
+  const p0 = worldToScreen(f.wx, f.wy);
+  // `lift` (pixels d'art) : assis DANS quelque chose (la jarre de Diogène), il monte.
+  const p = f.lift ? { x: p0.x, y: p0.y - f.lift * vieK() } : p0;
   const drawH = Math.max(1, snapDev(CM.TILE * z * spec.scale * AGENT_SCALE));
   const mark = fdMark(f);
   if (mark) vieRing(ctx, p.x, p.y, Math.max(3, Math.round(drawH * 0.3 / vieK())), vieK(), mark === 2 ? 0.95 : 0.55, mark === 2 ? [255, 227, 154] : [232, 181, 74]);

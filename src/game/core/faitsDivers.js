@@ -192,6 +192,7 @@ export function fdLoversInscrire(stepId, band, rec = {}) {
   if (L.step === 0) {
     fd.lastNewAt = life;
     if (rec.type) L.first = rec.type;
+    if (rec.place) L.firstPlace = rec.place;
   }
   if (fd.firstAt == null) fd.firstAt = life;
   L.step += 1;

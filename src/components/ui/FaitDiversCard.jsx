@@ -55,6 +55,7 @@ export default function FaitDiversCard() {
           <i className="fa-solid fa-xmark" aria-hidden="true"></i>
         </button>
       </div>
+      {sheet.sub && <p className="fc-sub">{tr(sheet.sub)}</p>}
       <p className={`fc-line${stage ? ' is-stage' : ''}`}>
         {stage ? line : `${tr({ fr: '« ', en: '“' })}${line}${tr({ fr: ' »', en: '”' })}`}
       </p>

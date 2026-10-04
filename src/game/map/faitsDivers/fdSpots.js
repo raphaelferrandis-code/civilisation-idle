@@ -14,6 +14,7 @@
 // Les autres lieux (place, berge, pont, toit…) arrivent avec leurs histoires.
 import { CM, cmHash } from '../layout.js';
 import { isoWildForest } from '../iso/isoWildForest.js';
+import { isoPlazaBoxes, isoPlazaCompositions } from '../iso/isoPlaza.js';
 
 const key = (x, y) => x + ',' + y;
 // Brassage (fmix32) : cmHash de graines voisines sort des valeurs voisines.
@@ -110,10 +111,10 @@ export function lisiereSpots(L) {
   // DEVANT (plus près de l'œil) : la couronne d'un arbre planté une ou deux cases au
   // sud-est monte par-dessus la scène — vu en jeu, le cercle entier disparaissait
   // sous la forêt. Un losange vers l'avant doit rester sans arbre.
-  const frontClear = (gx, gy, reach) => {
-    for (let dy = -1; dy <= reach; dy += 1) {
-      for (let dx = -1; dx <= reach; dx += 1) {
-        if (dx + dy > reach || dx + dy < 1 || Math.abs(dx - dy) > 2) continue;
+  const frontClear = (gx, gy, reach, width = 2) => {
+    for (let dy = -width; dy <= reach; dy += 1) {
+      for (let dx = -width; dx <= reach; dx += 1) {
+        if (dx + dy > reach || dx + dy < 1 || Math.abs(dx - dy) > width) continue;
         if (busy.has(key(gx + dx, gy + dy))) return false;
       }
     }
@@ -132,7 +133,8 @@ export function lisiereSpots(L) {
       if (blocked(gx, gy) || blocked(gx + 1, gy) || blocked(gx - 1, gy) || blocked(gx, gy + 1) || blocked(gx, gy - 1)) continue;
       const full = d >= 2 && !blocked(gx + 1, gy + 1) && !blocked(gx - 1, gy - 1) && !blocked(gx + 1, gy - 1) && !blocked(gx - 1, gy + 1);
       let tier = -1;
-      if (full && frontClear(gx, gy, 4)) tier = 0;
+      // Les fidèles de devant avancent d'une case vers l'œil : le losange va loin.
+      if (full && frontClear(gx, gy, 5, 3)) tier = 0;
       else if (d <= 4 && frontClear(gx, gy, 3)) tier = 1;
       if (tier < 0) continue;
       tiers[tier].push({ x: gx + 0.5, y: gy + 0.5, key: 'lis:' + gx + ',' + gy, tier, h: fdHash('lis:' + gx + ':' + gy + ':' + (L.mapSeed || 0)) });
@@ -169,24 +171,200 @@ export function doorstepOf(L, t, salt = '') {
     return !foot.has(k) && !isWet(L, c.gx, c.gy) && c.gx > 1 && c.gy > 1 && c.gx < (L.gridN | 0) - 2 && c.gy < (L.gridN | 0) - 2;
   });
   if (!ok.length) return null;
-  // Préférence au milieu de la façade, puis à la graine.
-  ok.sort((a, b) => fdHash(salt + a.gx + ':' + a.gy) - fdHash(salt + b.gx + ':' + b.gy));
+  // DÉGAGÉ VERS L'AVANT : un bâtiment planté juste devant le seuil (de l'autre côté
+  // d'une rue étroite) le cache entièrement — vu en jeu, le poulet de Diogène sous un
+  // toit. On préfère les seuils dont l'avant est libre, puis la graine.
+  for (const c of ok) c.open = openFront(L, foot, c.gx, c.gy);
+  ok.sort((a, b) => (b.open - a.open) || (fdHash(salt + a.gx + ':' + a.gy) - fdHash(salt + b.gx + ':' + b.gy)));
   const c = ok[0];
   // Collé à la façade : 0,3 case dans la cellule de seuil.
   const x = c.face === 1 ? c.gx + 0.3 : c.gx + 0.5;
   const y = c.face === 3 ? c.gy + 0.3 : c.gy + 0.5;
-  return { x, y, key: 'door:' + t.gx + ',' + t.gy, type: t.buildingId, t, face: c.face };
+  return { x, y, key: 'door:' + t.gx + ',' + t.gy, type: t.buildingId, t, face: c.face, open: c.open };
+}
+// Combien l'avant d'une case est dégagé : le CÔNE VERS L'ŒIL — les cases qui se
+// dessinent devant elle et dans sa colonne d'écran (dx + dy = 1…prof, |dx − dy| ≤ 1).
+// Un bâtiment posé là couvre la scène (vu en jeu : des retrouvailles et un mariage
+// entiers sous des toits). Plus profond aux âges des tours : un immeuble cache de loin.
+// Rend 0 quand rien ne masque, négatif sinon (−1 par case bâtie, les proches comptent
+// double) — plus grand = mieux.
+export function coneDepth(band) {
+  return band >= 6 ? 6 : band >= 4 ? 4 : 3;
+}
+// Les arbres de la ville (décor des jardins et des rues) masquent aussi : leur
+// couronne monte d'une case et demie (vu en jeu : l'écuelle de Diogène sous un arbre).
+let _trees = null;
+function treeCells(L) {
+  const at = CM.layoutRecomputeAt || 0;
+  if (_trees && _trees.at === at && _trees.L === L) return _trees.set;
+  const set = new Set();
+  for (const tr of (L.trees || [])) set.add(key(tr.gx, tr.gy));
+  _trees = { at, L, set };
+  return set;
+}
+function openFront(L, foot, gx, gy, depth = coneDepth((L.counts && L.counts.eraBand) | 0)) {
+  const trees = treeCells(L);
+  let score = 0;
+  for (let s = 1; s <= depth; s += 1) {
+    for (let dx = 0; dx <= s; dx += 1) {
+      const dy = s - dx;
+      if (Math.abs(dx - dy) > 1) continue;
+      const k = key(gx + dx, gy + dy);
+      if (foot.has(k)) score -= s <= 2 ? 2 : 1;
+      else if (s <= 2 && trees.has(k)) score -= 1;
+    }
+  }
+  return score;
+}
+export function spotOpen(L, x, y) {
+  return openFront(L, fdFootprints(L), Math.floor(x), Math.floor(y));
 }
 // Un seuil pour un type de bâtiment (le premier dans l'ordre de la graine).
 export function doorstepForType(L, type, salt = '') {
   const list = engineTilesByType(L).get(type);
   if (!list || !list.length) return null;
-  const sorted = list.slice().sort((a, b) => fdHash(salt + type + a.gx + ':' + a.gy) - fdHash(salt + type + b.gx + ':' + b.gy));
-  for (const t of sorted) {
+  // Le mieux dégagé des bâtiments de ce type (à égalité, la graine).
+  let best = null;
+  for (const t of list) {
     const d = doorstepOf(L, t, salt);
-    if (d) return d;
+    if (!d) continue;
+    if (!best || d.open > best.open || (d.open === best.open && fdHash(salt + type + d.key) < fdHash(salt + type + best.key))) best = d;
   }
-  return null;
+  return best;
+}
+
+// ── LE BORD D'UNE PLACE ──────────────────────────────────────────────────────
+// Les flâneurs des places (iso/plazaFolk.js) ne S'ARRÊTENT qu'au cœur de la place ;
+// la bande du bord ne leur sert qu'à passer (convenu avec leur session). Une scène
+// s'y tient donc sans jamais être recouverte par quelqu'un d'arrêté — à distance
+// du mobilier (étals, bancs, fontaine) et des réverbères des coins.
+let _plz = null;
+export function plazaEdgeSpots(L, band) {
+  const at = CM.layoutRecomputeAt || 0;
+  if (_plz && _plz.at === at && _plz.L === L && _plz.band === band) return _plz.list;
+  const T = CM.TILE;
+  const boxes = isoPlazaBoxes(L) || [];
+  let comps;
+  try { comps = isoPlazaCompositions(L, band) || []; } catch { comps = []; }
+  const obst = [];
+  for (const c of comps) {
+    for (const p of (c.props || [])) if (Number.isFinite(p.wx)) obst.push({ x: p.wx / T, y: p.wy / T, r: 0.5 });
+    for (const l of (c.lamps || [])) if (Number.isFinite(l.wx)) obst.push({ x: l.wx / T, y: l.wy / T, r: 0.42 });
+  }
+  const foot = fdFootprints(L);
+  const free = (x, y) => obst.every((o) => Math.hypot(o.x - x, o.y - y) >= o.r);
+  const out = [];
+  boxes.forEach((b, bi) => {
+    const cx = (b.gx0 + b.gx1 + 1) / 2, cy = (b.gy0 + b.gy1 + 1) / 2;
+    const push = (x, y, face, outside) => {
+      if (!free(x, y)) return;
+      // Au bord EXTÉRIEUR (côté rue, tourné vers la place) : sur la chaussée, jamais
+      // sur une emprise de bâtiment.
+      if (outside) {
+        const k = key(Math.floor(x), Math.floor(y));
+        if (foot.has(k) || !(L.roadSet && L.roadSet.has(k)) || isWet(L, Math.floor(x), Math.floor(y))) return;
+      }
+      out.push({ x, y, face, key: 'place:' + bi + ':' + x.toFixed(2) + ',' + y.toFixed(2), box: b, cx, cy, main: bi === 0, open: openFront(L, foot, Math.floor(x), Math.floor(y)), h: fdHash('plz:' + bi + ':' + x + ':' + y + ':' + (L.mapSeed || 0)) });
+    };
+    // La bande intérieure du bord (le passage des flâneurs), puis le trottoir d'en face.
+    for (let x = b.gx0; x <= b.gx1; x += 1) {
+      push(x + 0.5, b.gy0 + 0.3, 2, false);
+      push(x + 0.5, b.gy1 + 0.7, 3, false);
+      push(x + 0.5, b.gy0 - 0.25, 2, true);
+      push(x + 0.5, b.gy1 + 1.25, 3, true);
+    }
+    for (let y = b.gy0; y <= b.gy1; y += 1) {
+      push(b.gx0 + 0.3, y + 0.5, 0, false);
+      push(b.gx1 + 0.7, y + 0.5, 1, false);
+      push(b.gx0 - 0.25, y + 0.5, 0, true);
+      push(b.gx1 + 1.25, y + 0.5, 1, true);
+    }
+  });
+  // Les places VUES d'abord (rien de bâti devant), puis la place centrale (la plus
+  // grande), puis les mieux dégagées ; à la graine dedans.
+  const vis = (s) => (s.open >= 0 ? 0 : 1);
+  out.sort((a, b) => (vis(a) - vis(b)) || (a.main === b.main ? 0 : a.main ? -1 : 1) || (b.open - a.open) || (a.h - b.h));
+  _plz = { at, L, band, list: out };
+  return out;
+}
+
+// ── UN TRONÇON DE RUE DROIT ──────────────────────────────────────────────────
+// Quatre cases de chaussée alignées (hors places) : de quoi marcher à reculons, ou
+// faire la queue. { x, y } = le milieu ; (ax, ay) = l'axe ; len en cases.
+let _runs = null;
+export function roadRunSpots(L, len = 4) {
+  const at = CM.layoutRecomputeAt || 0;
+  if (_runs && _runs.at === at && _runs.L === L && _runs.len === len) return _runs.list;
+  const out = [];
+  const rm = L.roadMap;
+  const isRoad = (x, y) => {
+    const k = key(x, y);
+    if (!L.roadSet || !L.roadSet.has(k)) return false;
+    const c = rm && rm.get(k);
+    return !(c && c.rank === 'plaza');
+  };
+  if (L.roadSet) {
+    for (const k of L.roadSet) {
+      const c = k.indexOf(',');
+      const gx = +k.slice(0, c), gy = +k.slice(c + 1);
+      for (const [ax, ay] of [[1, 0], [0, 1]]) {
+        // Un départ de tronçon seulement (la case d'avant n'est pas de la rue droite).
+        if (isRoad(gx - ax, gy - ay)) continue;
+        let n = 0;
+        while (n < len + 2 && isRoad(gx + ax * n, gy + ay * n)) n += 1;
+        if (n < len) continue;
+        const mid = (n - 1) / 2;
+        const foot = fdFootprints(L);
+        const mx = gx + 0.5 + ax * mid, my = gy + 0.5 + ay * mid;
+        out.push({
+          x: mx, y: my, ax, ay, len: n, open: openFront(L, foot, Math.floor(mx), Math.floor(my)),
+          key: 'rue:' + gx + ',' + gy + ':' + ax, h: fdHash('rue:' + gx + ':' + gy + ':' + ax + ':' + (L.mapSeed || 0)),
+        });
+      }
+    }
+  }
+  out.sort((a, b) => (b.open - a.open) || (a.h - b.h));
+  _runs = { at, L, len, list: out };
+  return out;
+}
+
+// ── LA BERGE ─────────────────────────────────────────────────────────────────
+// Au bord du fleuve, côté terre, là où la ville le longe (une case au plus de la
+// vie) : un banc, un pêcheur, des badauds. `face` = la direction MONDE vers l'eau.
+let _bank = null;
+export function bankSpots(L) {
+  const at = CM.layoutRecomputeAt || 0;
+  if (_bank && _bank.at === at && _bank.L === L) return _bank.list;
+  const out = [];
+  const rv = L.river;
+  if (rv && rv.present && rv.samples && rv.samples.length > 4) {
+    const foot = fdFootprints(L);
+    const busy = new Set();
+    for (const tr of (L.trees || [])) busy.add(key(tr.gx, tr.gy));
+    const sm = rv.samples, N = L.gridN | 0;
+    for (let i = 2; i < sm.length - 2; i += 2) {
+      const q = sm[i], a = sm[i - 1], b = sm[i + 1];
+      let tx = b.x - a.x, ty = b.y - a.y;
+      const tl = Math.hypot(tx, ty) || 1; tx /= tl; ty /= tl;
+      for (const side of [-1, 1]) {
+        const off = (q.hw || 2) + 0.45;
+        const x = q.x - ty * side * off, y = q.y + tx * side * off;
+        if (x < 1 || y < 1 || x > N - 1 || y > N - 1) continue;
+        const gx = Math.floor(x), gy = Math.floor(y), k = key(gx, gy);
+        // Sur la berge elle-même (le quai, la rive) : seule l'EAU est refusée.
+        if ((rv.isWater && rv.isWater(gx, gy)) || foot.has(k) || busy.has(k) || busy.has(key(gx + 1, gy + 1)) || busy.has(key(gx + 1, gy)) || busy.has(key(gx, gy + 1))) continue;
+        // En ville ou tout contre (le bord du fleuve sauvage reste aux hérons).
+        const urban = L.urbanSet && (L.urbanSet.has(k) || L.urbanSet.has(key(gx + 1, gy)) || L.urbanSet.has(key(gx - 1, gy)) || L.urbanSet.has(key(gx, gy + 1)) || L.urbanSet.has(key(gx, gy - 1)));
+        if (!urban) continue;
+        const wx = q.x - x, wy = q.y - y;
+        const face = Math.abs(wx) > Math.abs(wy) ? (wx > 0 ? 0 : 1) : (wy > 0 ? 2 : 3);
+        out.push({ x, y, face, wxd: wx, wyd: wy, key: 'berge:' + i + ':' + side, open: openFront(L, foot, gx, gy), h: fdHash('berge:' + i + ':' + side + ':' + (L.mapSeed || 0)) });
+      }
+    }
+  }
+  out.sort((a, b) => (b.open - a.open) || (a.h - b.h));
+  _bank = { at, L, list: out };
+  return out;
 }
 
 // ── LE FEU DU CAMPEMENT ──────────────────────────────────────────────────────

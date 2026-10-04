@@ -69,6 +69,13 @@
   flex: 0 0 auto;
 }
 
+/* Une ligne de fiche (Diogène : son logis, son humeur) — libellés, pas une phrase. */
+.fait-card .fc-sub {
+  margin: 0.2rem 0 0;
+  font-size: 0.75rem;
+  color: #d7c69a;
+  opacity: 0.85;
+}
 .fait-card .fc-line {
   margin: 0.55rem 0 0;
   font-size: 0.95rem;

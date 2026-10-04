@@ -6,7 +6,8 @@
 // les tue et la fenêtre cachée les endort), il regarde ce que le registre autorise
 // (core/faitsDivers.fdCandidates), en tire au plus une nouvelle scène, lui trouve
 // une place et la fait vivre quelques minutes. Règles tenues :
-//   · deux scènes au plus à la fois ;
+//   · deux scènes au plus à la fois (le couple séparé de Nancy et William compte
+//     pour une : deux personnes, une histoire) ;
 //   · une scène NAÎT HORS CHAMP (ou quand la carte est trop dézoomée pour la montrer) :
 //     on ne la voit jamais surgir ; si aucune place hors champ n'existe longtemps,
 //     elle se fond à l'écran en une seconde et demie ;
@@ -14,7 +15,9 @@
 //   · sa durée se compte en temps de carte VISIBLE : une scène attend qu'on ait eu
 //     la chance de la voir ;
 //   · une scène ratée revient plus tard (rafraîchie), sans rien coûter ;
-//   · Nancy ou William, quand on les cherche, attendent jusqu'à être trouvés.
+//   · Nancy ou William, quand on les cherche, attendent jusqu'à être trouvés ;
+//   · un chapitre déjà vu revient parfois, pour l'ambiance (le cercle est toujours
+//     là, d'autres nuits ; Diogène a toujours une phrase de plus).
 // Tout est dessiné par la petite vie (registerVieActors) : même tri du peintre que
 // les passants, même extinction au loin (vieZoomFade).
 import { CM } from '../layout.js';
@@ -24,8 +27,9 @@ import { fdCandidates, fdState, fdCycle, fdProgress, FD_TUNE } from '../../core/
 import { FD_STORIES } from '../../data/faitsDivers.js';
 import { AMOUREUX } from '../../data/faitsDiversAmoureux.js';
 import { fdFrame, fdHoverTick, fdFocusCheck } from './fdPick.js';
-import { fdHash, fdFootprints, lisiereSpots, spotOnScreen, engineTilesByType, doorstepOf } from './fdSpots.js';
-import { FD_BUILDERS, buildersFor, loverSpot } from './fdScenes.js';
+import { fdHash, fdFootprints, spotOnScreen } from './fdSpots.js';
+import { FD_BUILDERS, buildersFor } from './fdScenes.js';
+import { loverAppWanted } from './fdLovers.js';
 
 // Molette : __faits({ ... }) — cf. le bas du fichier.
 export const FD_DIR = {
@@ -38,7 +42,6 @@ export const FD_DIR = {
   rerunP: 0.25,         // part des tirages qui rejouent un chapitre déjà vu (l'ambiance)
   fadeS: 1.6,           // fondu d'entrée/sortie quand la place est à l'écran
   popAfterS: 150,       // attente d'une place hors champ avant d'accepter le fondu
-  hideZoom: 0.5,        // sous ce zoom, rien ne se dessine (vieZoomFade)
 };
 
 let apps = [];
@@ -51,6 +54,8 @@ let nextId = 1;
 const candKey = (c) => (c.kind === 'story' ? 's:' + c.story.id : c.kind === 'lovers' ? 'lovers' : 'c:' + (c.curio && c.curio.id));
 const appKey = (a) => (a.kind === 'story' ? 's:' + a.story.id : a.kind === 'lovers' ? 'lovers' : 'c:' + a.curioId);
 export const fdApps = () => apps;
+// Combien d'HISTOIRES sont en scène (le couple séparé n'en fait qu'une).
+const activeCount = () => new Set(apps.map(appKey)).size;
 
 function bandNow() {
   const L = CM.layout;
@@ -66,30 +71,18 @@ function hidden() {
 
 // Les places possibles pour un candidat, dans l'ordre de préférence.
 function spotsFor(L, c, seed) {
-  if (c.kind === 'story') {
-    const place = c.ch.place || c.story.place;
-    if (place === 'lisiere') return lisiereSpots(L).slice(0, 40);
+  const b = buildersFor(c);
+  if (!b || !b.spots) return [];
+  try { return b.spots(L, c, seed, bandNow()) || []; } catch (e) {
+    if (!CM._fdErr) { CM._fdErr = true; console.warn('faits divers', e); }
     return [];
   }
-  if (c.kind === 'lovers') {
-    const st = c.step;
-    if (st.where === 'piste' && fdState().lovers.next) {
-      const list = (engineTilesByType(L).get(fdState().lovers.next) || []).map((t) => doorstepOf(L, t, seed)).filter(Boolean);
-      if (list.length) return list.sort((a, b) => fdHash(seed + a.key) - fdHash(seed + b.key));
-    }
-    const out = [];
-    for (let i = 0; i < 6; i += 1) {
-      const s = loverSpot(L, { ...st, where: 'hasard' }, seed + ':' + i);
-      if (s && !out.some((o) => o.key === s.key)) out.push(s);
-    }
-    return out;
-  }
-  return [];
 }
 // Une place libre : loin des autres scènes, hors champ si possible.
-function pickSpot(list, allowOn) {
+function pickSpot(list, allowOn, avoid = null) {
   for (const s of list) {
     if (apps.some((a) => Math.hypot(a.spot.x - s.x, a.spot.y - s.y) < 4)) continue;
+    if (avoid && Math.hypot(avoid.x - s.x, avoid.y - s.y) < 7) continue;
     const p = screenOf(s);
     const on = !hidden() && spotOnScreen(p.x, p.y, 80);
     if (!on) return { s, on: false };
@@ -99,24 +92,22 @@ function pickSpot(list, allowOn) {
 }
 
 // Fabrique l'apparition d'un candidat (sans la poser).
-function makeApp(c, spot, rerun = false) {
+function makeApp(c, spot, rerun = false, who = null) {
   const seed = 'fd:' + c.kind + ':' + (c.story ? c.story.id + ':' + c.ch.id : c.step ? c.step.id : '') + ':' + spot.key + ':' + (CM.layout.mapSeed || 0);
   const base = {
     id: nextId++, kind: c.kind, spot, seed, band: bandNow(), alive: true,
     alpha: 1, age: 0, leaving: false, inscribed: false, rerun,
   };
+  const b = buildersFor(c);
+  if (!b) return null;
   if (c.kind === 'story') {
-    const b = FD_BUILDERS[c.story.id];
-    if (!b) return null;
     const app = { ...base, story: c.story, ch: c.ch, ttl: 60 * (FD_DIR.showMin + (fdHash(seed + ':ttl') % 1000) / 1000 * (FD_DIR.showMax - FD_DIR.showMin)) };
     return b.build(app);
   }
   if (c.kind === 'lovers') {
-    const b = buildersFor(c);
-    if (!b) return null;
     const L = fdState().lovers;
     const app = {
-      ...base, step: c.step, who: b.lover, ttl: Infinity,
+      ...base, step: c.step, who: who || b.lover || null, ttl: Infinity,
       // Un effondrement est passé depuis le dernier rendez-vous : ils le diront.
       collapsed: L.cycle != null && L.cycle !== fdCycle(),
     };
@@ -125,18 +116,9 @@ function makeApp(c, spot, rerun = false) {
   return null;
 }
 
-function spawnOne(L, nightF) {
-  if (apps.length >= FD_DIR.maxActive) return;
-  const band = bandNow();
-  let cands = fdCandidates({ band, nightF }).filter((c) => {
-    const k = candKey(c);
-    if (apps.some((a) => appKey(a) === k)) return false;
-    if ((cool.get(k) || 0) > clock) return false;
-    return c.kind === 'story' ? !!FD_BUILDERS[c.story.id] : c.kind === 'lovers' ? !!buildersFor(c) : false;
-  });
-  // L'ambiance : un chapitre déjà vu peut revenir, d'autres nuits (le cercle est
-  // toujours là). Jamais la PREMIÈRE fois — il faut avoir vu quelque chose.
-  const reruns = [];
+// Les chapitres déjà vus qui peuvent revenir pour l'ambiance (jamais la première fois).
+function rerunCands(cands, nightF) {
+  const out = [];
   for (const id of Object.keys(FD_BUILDERS)) {
     const story = FD_STORIES[id];
     const pr = fdProgress(story);
@@ -148,8 +130,21 @@ function spawnOne(L, nightF) {
     const night = ch.night != null ? ch.night : story.night;
     if (night === true && nightF < 0.5) continue;
     if (night === false && nightF > 0.3) continue;
-    reruns.push({ kind: 'story', story, ch, idx: pr.n - 1, rerun: true });
+    out.push({ kind: 'story', story, ch, idx: pr.n - 1, rerun: true });
   }
+  return out;
+}
+
+function spawnOne(L, nightF) {
+  if (activeCount() >= FD_DIR.maxActive) return;
+  const band = bandNow();
+  const cands = fdCandidates({ band, nightF }).filter((c) => {
+    const k = candKey(c);
+    if (apps.some((a) => appKey(a) === k)) return false;
+    if ((cool.get(k) || 0) > clock) return false;
+    return !!buildersFor(c);
+  });
+  const reruns = rerunCands(cands, nightF);
   if (!cands.length && !reruns.length) return;
   const r = (fdHash('pick:' + Math.floor(clock) + ':' + nextId) % 1000) / 1000;
   let c = null;
@@ -167,8 +162,24 @@ function spawnOne(L, nightF) {
   const seed = 'spot:' + candKey(c) + ':' + (c.ch ? c.ch.id : c.step ? c.step.id : '');
   const list = spotsFor(L, c, seed);
   if (!list.length) { cool.set(candKey(c), clock + 120); return; }
-  const got = pickSpot(list, waitOn >= FD_DIR.popAfterS);
+  const allowOn = waitOn >= FD_DIR.popAfterS;
+  const got = pickSpot(list, allowOn);
   if (!got) { waitOn += 1; return; }
+  const b = buildersFor(c);
+  // Le couple séparé : deux scènes, loin l'une de l'autre.
+  if (b && b.pair) {
+    const got2 = pickSpot(list, allowOn, got.s);
+    if (!got2) { waitOn += 1; return; }
+    waitOn = 0;
+    for (const [g, who] of [[got, 'nancy'], [got2, 'william']]) {
+      const app = makeApp(c, g.s, false, who);
+      if (!app) continue;
+      app.alpha = g.on ? 0 : 1;
+      app.fadeIn = g.on;
+      apps.push(app);
+    }
+    return;
+  }
   waitOn = 0;
   const app = makeApp(c, got.s, !!c.rerun);
   if (!app) return;
@@ -185,12 +196,8 @@ function stillValid(app, nightF) {
     if (night === true && nightF < 0.35) return false;
     if (night === false && nightF > 0.45) return false;
   }
-  if (app.kind === 'lovers') {
-    // Le rendez-vous a été trouvé ailleurs (deux onglets ?) ou l'histoire a avancé.
-    const L = fdState().lovers;
-    const st = AMOUREUX.steps[L.step];
-    if (!app.inscribed && st !== app.step && !app.line) return false;
-  }
+  // Nancy et William : partis si l'histoire ne les attend plus là.
+  if (app.kind === 'lovers' && !loverAppWanted(app)) return false;
   return true;
 }
 
@@ -201,7 +208,8 @@ function tick(nightF) {
   // Vies et départs.
   for (const app of apps) {
     app.age += 1;
-    if (app.line && app.kind === 'lovers' && !Number.isFinite(app.ttl)) app.ttl = app.age + 60 * FD_DIR.loversMin;
+    // Trouvés, ils restent encore un moment (on revient relire ce qu'ils ont dit).
+    if (app.kind === 'lovers' && !Number.isFinite(app.ttl) && app.said && Object.keys(app.said).length) app.ttl = app.age + 60 * FD_DIR.loversMin;
     if (!app.leaving && (app.age >= app.ttl || !stillValid(app, nightF))) app.leaving = true;
   }
 }
@@ -233,8 +241,8 @@ function step(now) {
     for (const a of apps) {
       if (a.alive) continue;
       // Ratée (jamais ouverte) : elle reviendra, mais pas tout de suite.
-      if (!a.inscribed && !a.line) cool.set(appKey(a), clock + 60 * FD_DIR.coolMin);
-      else cool.set(appKey(a), clock + 60 * 2);
+      const seen = a.inscribed || (a.said && Object.keys(a.said).length);
+      cool.set(appKey(a), clock + 60 * (seen ? 2 : FD_DIR.coolMin));
     }
     apps = apps.filter((a) => a.alive);
   }
@@ -256,7 +264,9 @@ function spotStillFree(app, L) {
   for (let dy = -1; dy <= 1; dy += 1) {
     for (let dx = -1; dx <= 1; dx += 1) {
       const k = (gx + dx) + ',' + (gy + dy);
-      if (foot.has(k) || (L.roadSet && L.roadSet.has(k))) return false;
+      if (foot.has(k)) return false;
+      // La lisière doit rester hors des routes (une rue neuve a pu y passer).
+      if (String(s.key).startsWith('lis:') && L.roadSet && L.roadSet.has(k)) return false;
     }
   }
   return true;
@@ -293,15 +303,10 @@ registerVieActors((now, out) => {
 // __faits({ lovers: true })              le rendez-vous en cours de Nancy et William
 // __faits({ clear: true })               vide la carte
 // __faits({ dir: {...}, tune: {...} })   règle le metteur en scène / le rythme
-function nearCenter(list) {
+function nearCenter(list, n = 1) {
   const cx = (CM.cw || 0) / 2, cy = (CM.ch || 0) / 2;
-  let best = null, bd = Infinity;
-  for (const s of list) {
-    const p = screenOf(s);
-    const d = Math.hypot(p.x - cx, p.y - cy);
-    if (d < bd) { bd = d; best = s; }
-  }
-  return best;
+  return list.map((s) => ({ s, d: Math.hypot(screenOf(s).x - cx, screenOf(s).y - cy) }))
+    .sort((a, b) => a.d - b.d).slice(0, n).map((e) => e.s);
 }
 export function fdForce(o = {}) {
   const L = CM.layout;
@@ -319,24 +324,33 @@ export function fdForce(o = {}) {
     const st = AMOUREUX.steps[Math.min(AMOUREUX.steps.length - 1, fdState().lovers.step)];
     c = { kind: 'lovers', step: st, idx: fdState().lovers.step };
   }
-  if (!c) return null;
+  if (!c) return o.dir || o.tune ? true : null;
+  const b = buildersFor(c);
+  if (!b) return null;
   const list = spotsFor(L, c, 'force:' + Date.now());
-  const s = nearCenter(list);
-  if (!s) return null;
+  // Les places VUES d'abord (fdSpots.openFront), la plus proche du centre parmi elles.
+  const seen = list.filter((s) => s.open == null || s.open >= 0);
+  const near = nearCenter(seen.length ? seen : list, b.pair ? 6 : 1);
+  if (!near.length) return null;
   for (const a of apps) if (appKey(a) === candKey(c)) a.alive = false;
   apps = apps.filter((a) => a.alive);
-  const app = makeApp(c, s, !!o.rerun);
-  if (!app) return null;
-  app.forced = true;
-  apps.push(app);
-  return { id: app.id, x: s.x, y: s.y, key: s.key };
+  const made = [];
+  const pairs = b.pair ? [[near[0], 'nancy'], [near[near.length - 1], 'william']] : [[near[0], null]];
+  for (const [s, who] of pairs) {
+    const app = makeApp(c, s, !!o.rerun, who);
+    if (!app) continue;
+    app.forced = true;
+    apps.push(app);
+    made.push({ id: app.id, who: app.who, x: s.x, y: s.y, key: s.key });
+  }
+  return made.length === 1 ? made[0] : made;
 }
 if (typeof window !== 'undefined') {
   window.__faits = (o) => {
     if (o) return fdForce(o);
     return {
       clock: Math.round(clock), dir: { ...FD_DIR }, tune: { ...FD_TUNE },
-      apps: apps.map((a) => ({ id: a.id, kind: a.kind, story: a.story && a.story.id, ch: a.ch && a.ch.id, step: a.step && a.step.id, x: +a.spot.x.toFixed(1), y: +a.spot.y.toFixed(1), age: a.age, ttl: a.ttl, alpha: +a.alpha.toFixed(2), leaving: a.leaving })),
+      apps: apps.map((a) => ({ id: a.id, kind: a.kind, story: a.story && a.story.id, ch: a.ch && a.ch.id, step: a.step && a.step.id, who: a.who, x: +a.spot.x.toFixed(1), y: +a.spot.y.toFixed(1), age: a.age, ttl: a.ttl, alpha: +a.alpha.toFixed(2), leaving: a.leaving })),
       cool: Object.fromEntries([...cool].map(([k, v]) => [k, Math.round(v - clock)])),
       state: JSON.parse(JSON.stringify(fdState())),
     };

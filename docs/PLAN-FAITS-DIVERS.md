@@ -330,3 +330,22 @@ le 30/10).
     couronne d'un arbre au sud-est la recouvrait entièrement).
   - Banc : `__faits({ story: 'secte', ch: 2 })`, `__faits({ lovers: true })`,
     `__faits()` (état), `__faits({ clear: true })`.
+  - Commité `5ef12ee0`.
+- **Lot 2 : Diogène et Nancy-William en entier.**
+  - Un module par histoire (`fdSecte.js`, `fdCynique.js`, `fdLovers.js`), les outils
+    communs dans `fdKit.js`, le registre dans `fdScenes.js`.
+  - Diogène se tient au BORD des places (convenu avec la session des places : leurs
+    flâneurs ne s'arrêtent qu'au cœur), devant l'Académie pour le poulet, dans une rue
+    droite pour la marche à reculons. Jarre, tonneau et capsule sont vus PAR
+    L'OUVERTURE : le fond avant lui, la lèvre après — il est assis dedans. Sa plaque
+    porte une ligne de fiche (« Logis : un tonneau · Humeur : parfaitement content ») ;
+    quand on le regarde, il tourne le dos.
+  - Nancy et William : rendez-vous à deux, le couple séparé (DEUX scènes à la fois,
+    une seule « histoire » pour le plafond de deux), « là où tout a commencé » retenu
+    par sa clé de bâtiment (`lovers.firstPlace`), le mariage sous une arche fleurie
+    avec des pétales (invités en grappes lâches, jamais en cercle), le banc au bord de
+    l'eau.
+  - ⚠ VISIBILITÉ : dans une ville dense, un bâtiment planté devant une scène (plus près
+    de l'œil) la cache entièrement. Toutes les places sont classées par le CÔNE VERS
+    L'ŒIL (`openFront` : dx + dy = 1…prof, |dx − dy| ≤ 1, plus profond aux âges des
+    tours) — les arbres de ville comptent aussi.

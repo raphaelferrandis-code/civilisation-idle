@@ -32,6 +32,14 @@ export const FD_PAL = {
   n: [255, 64, 92], N: [255, 214, 222], p: [70, 70, 78],
   // bois clair (boîte, piquets)
   t: [168, 122, 72], T: [120, 84, 50],
+  // terre cuite (la jarre de Diogène)
+  c: [196, 112, 64], C: [146, 74, 40], d: [52, 30, 22],
+  // douelles et cerclages du tonneau
+  h: [150, 102, 58], H: [104, 68, 38], e: [96, 98, 104],
+  // le poulet plumé (rose pâle, crête rouge)
+  q: [244, 196, 178], Q: [214, 150, 132],
+  // la capsule (blanc de coque, hublot bleu nuit)
+  v: [214, 220, 228], V: [150, 158, 170], u: [40, 66, 110], U: [110, 170, 220],
 };
 
 export const FD_ART = {
@@ -173,6 +181,149 @@ export const FD_ART = {
     'kkkk',
     'ktok',
     'kTTk',
+  ]] },
+
+  // ── DIOGÈNE ──────────────────────────────────────────────────────────────
+  // Les logis de Diogène, vus PAR L'OUVERTURE (tournée vers l'œil) : image 0 = le
+  // fond (la panse et l'intérieur sombre), posé AVANT lui ; image 1 = la lèvre du
+  // bas, posée APRÈS — il est assis dedans, on ne voit que sa tête et ses épaules.
+  // La jarre couchée (un pithos : c'était une jarre, pas un tonneau).
+  jarre: { foot: 10, frames: [[
+    '...kkkkkk...',
+    '.kkcccccCkk.',
+    'kccckkkkcCck',
+    'kcckddddkcCk',
+    'kckddddddkck',
+    'kckddddddkck',
+    'kckddddddkck',
+    'kcckddddkcck',
+    'kCcckkkkccCk',
+    '.kkCCccCCkk.',
+    '...kkkkkk...',
+  ], [
+    '............',
+    '............',
+    '............',
+    '............',
+    '............',
+    '............',
+    '............',
+    'kcckddddkcck',
+    'kCcckkkkccCk',
+    '.kkCCccCCkk.',
+    '...kkkkkk...',
+  ]] },
+  // Le tonneau couché, cerclé de fer, fond ouvert vers l'œil.
+  tonneau: { foot: 10, frames: [[
+    '...eeeeee...',
+    '.eehhhhhHee.',
+    'ehhhkkkkhHhe',
+    'ehhkddddkhHe',
+    'ehkddddddkhe',
+    'ehkddddddkhe',
+    'ehkddddddkhe',
+    'ehhkddddkhhe',
+    'eHhhkkkkhhHe',
+    '.eeHHhhHHee.',
+    '...eeeeee...',
+  ], [
+    '............',
+    '............',
+    '............',
+    '............',
+    '............',
+    '............',
+    '............',
+    'ehhkddddkhhe',
+    'eHhhkkkkhhHe',
+    '.eeHHhhHHee.',
+    '...eeeeee...',
+  ]] },
+  // La capsule de survie (âge stellaire), écoutille ouverte.
+  capsuleLogis: { foot: 10, frames: [[
+    '...kkkkkk...',
+    '.kkvvvvvVkk.',
+    'kvvvkkkkvVvk',
+    'kvvkuuuukvVk',
+    'kvkuuuuuukvk',
+    'kvkuuuuuukvk',
+    'kvkuuuuuukvk',
+    'kvvkuuuukvvk',
+    'kVvvkkkkvvVk',
+    '.kkVVvvVVkk.',
+    '...kkkkkk...',
+  ], [
+    '............',
+    '............',
+    '............',
+    '............',
+    '............',
+    '............',
+    '............',
+    'kvvkuuuukvvk',
+    'kVvvkkkkvvVk',
+    '.kkVVvvVVkk.',
+    '...kkkkkk...',
+  ]] },
+  // L'écuelle jetée : deux morceaux par terre.
+  ecuelle: { foot: 1, frames: [[
+    'kc...kc',
+    'kCk..kk',
+  ]] },
+  // La statue à qui il tend la main : un personnage de pierre sur son socle.
+  statue: { foot: 11, frames: [[
+    '..kk..',
+    '.kgGk.',
+    '..kgk.',
+    '.kggGk',
+    'kgggGk',
+    '.kgGk.',
+    '.kgGk.',
+    '.kg.k.',
+    'kkkkkk',
+    'kGgggk',
+    'kGgggk',
+    'kkkkkk',
+  ]] },
+  // Le poulet plumé, brandi à bout de bras.
+  poulet: { foot: 3, frames: [[
+    '.r..',
+    'kqqk',
+    'qqQq',
+    '.kk.',
+  ]] },
+  // La lanterne allumée en plein midi.
+  lanterne: { foot: 3, frames: [[
+    '.k.',
+    'kyk',
+    'kok',
+    '.k.',
+  ]] },
+
+  // ── NANCY ET WILLIAM ─────────────────────────────────────────────────────
+  // L'arche fleurie du mariage : du lierre et des fleurs sur un arc de bois.
+  arche: { foot: 13, frames: [[
+    '...mrmymm...',
+    '..mymk.kmrm.',
+    '.mrk.....kym',
+    '.mk.......km',
+    'mrk.......kr',
+    'mk.........m',
+    'tk.........t',
+    'mt.........m',
+    'tk.........t',
+    'mt.........r',
+    'tk.........t',
+    'mt.........m',
+    'tk.........t',
+    'kk.........k',
+  ]] },
+  // Le banc au bord de l'eau (âge quelconque : du bois et deux pieds).
+  banc: { foot: 3, frames: [[
+    'kkkkkkkkk',
+    'kthththtk',
+    'kkkkkkkkk',
+    '.kT...Tk.',
   ]] },
 };
 

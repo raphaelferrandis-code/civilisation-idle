@@ -31,6 +31,7 @@ export function defaultFaitsDiversLovers() {
     step: 0,          // rang du PROCHAIN rendez-vous à trouver
     at: null,         // temps à vie du dernier rendez-vous trouvé
     first: null,      // type du bâtiment du tout premier rendez-vous
+    firstPlace: null, // … et sa clé (« door:gx,gy ») : « là où tout a commencé »
     next: null,       // type du bâtiment désigné par la dernière piste
     piste: 0,         // variante de la phrase de la dernière piste
     place: null,      // clé de l'endroit du dernier rendez-vous (pour « au même endroit »)
@@ -92,6 +93,7 @@ export function normalizeFaitsDiversLovers(raw) {
     step: int(raw.step, 0, 0, 99),
     at: optNum(raw.at),
     first: id(raw.first),
+    firstPlace: typeof raw.firstPlace === 'string' && raw.firstPlace.length <= 64 ? raw.firstPlace : null,
     next: id(raw.next),
     piste: int(raw.piste, 0, 0, 9),
     place: typeof raw.place === 'string' && raw.place.length <= 64 ? raw.place : null,
