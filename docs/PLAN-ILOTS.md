@@ -181,6 +181,16 @@ PLAN-ROUTES) et « une maison ne bouge jamais » (keepInPlace).
   - Réserve des grands logis relevée (1,8 lot par 2×2, 0,8 par 1×2 : mesuré au Néon, 516
     grands ensembles et 83 maisons-moteur sans lot) ; les lots restés LIBRES deviennent
     des jardins comme les cours (plus de dalles nues en lisière).
+  - **Néon (bande 6)** : la BOUTIQUE NÉON (objet neuf : béton et verre, vitrine éclairée,
+    auvent rose, enseigne ; béton accordé à la palette du grand ensemble) = corps des
+    ateliers et façade des rangées ; dos et bouts de rangée en brique (la rangée de la
+    Fonte, encore tirée à cette bande) : les dos néon sont des murs aveugles. Fenêtres :
+    rubans de vitres des étages. Un premier objet (trottoir clair et réverbères au pied,
+    comme un « sol sous le bâtiment ») a été écarté.
+  - Repli d'un grand logis sans place (buildingGenerator) : après huit tirages tous
+    grands, le dessin d'une case de la liste prend la place — au Néon (trois dessins sur
+    cinq sont grands), une maison-moteur achetée sur 129 n'était jamais posée. Marge fixe
+    de lots 6 → 12 ; réserve des grands logis 2,0 lots par 2×2 et 0,9 par 1×2.
 - ⚠ Fragilité connue, hors îlots : quand le niveau des champs change leur découpage
   (`cmTerroirParcels`), la parcelle 0 qui s'épaissit mord sa propre rangée de moulins
   (distance 1, plus les sentiers qui les desservent) et le terroir entier se refonde

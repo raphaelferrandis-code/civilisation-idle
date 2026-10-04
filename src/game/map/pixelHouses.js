@@ -67,7 +67,10 @@ const AVAILABLE = new Set([
   "gardentower", "domehome", "podstack",
   // 2026-10-02 — le gratte-ciel d'une case du CŒUR EN TOURS (Raph : « pas géant »). Pas
   // de PNG de base : il ne sort qu'aux bandes 7-9, sa clé est toujours celle de l'ère.
-  "skytower", "skytower2"
+  "skytower", "skytower2",
+  // 2026-10-04 (ville par îlots, Néon) — la boutique néon : corps des ateliers de la
+  // bande 6 et modèle de ses rangées ; jamais tirée comme maison (hors VARIANTS_HOUSE).
+  "neonshop"
 ]);
 
 // Variantes tardives qui reçoivent un SKIN COSMIQUE par bande (7 émeraude / 8 or /

@@ -530,6 +530,10 @@ export function placeCategorySlotted(category, count, ctx) {
           const [fx, fy] = houseFootprint(v, eraBand);
           if (fx === 1 && fy === 1) repli = v;
         }
+        // Huit tirages tous grands, ça arrive quand la liste en a beaucoup (Néon : trois
+        // dessins sur cinq, mesuré : une maison-moteur achetée sur 129 jamais posée) —
+        // le dessin d'une case de la liste, tiré de façon déterministe, prend la place.
+        if (!repli && smallVariant) repli = smallVariant(category, i, ordered[cursor]);
         if (!repli) continue;                       // liste sans aucun 1×1 : on saute
         finalize(i, ordered[cursor], repli);
         cursor += 1;
