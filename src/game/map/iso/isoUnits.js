@@ -600,8 +600,17 @@ function isoUnitFiches() {
 // remonté devant un bâtiment que son flanc recouvrait, alors que le passant juste
 // derrière lui l'était — et se dessinait par-dessus la caisse (audit du 2026-10-03,
 // un passant à 30 px derrière l'omnibus).
+// `ex`, `ey` (px monde, défaut 0) : demi-ÉTENDUE au sol de l'unité le long de X et de
+// Y — sa caisse, pour un véhicule, le long de son axe de marche. « Devant » se juge
+// alors sur TOUTE la caisse : elle doit être entière au sud de la façade sud, ou
+// entière à l'est de la façade est. Sur le seul point de tri, un fiacre qui roulait
+// dans la rue DERRIÈRE une rangée, son point juste passé le bord est d'une maison,
+// était jugé à l'est de celle-ci — donc devant — et peint sur son toit (Raph
+// 2026-10-04, capture ; mesuré : 7 véhicules sur 80 à un instant, âge 5). Le gros de
+// sa caisse est au nord, derrière : c'est le plafond qui doit gagner. Un passant est
+// un point (0, 0) : verdict inchangé.
 const _depthOut = { d: 0, hidden: false };
-export function isoUnitDepthEx(wx, wy, wide = 0) {
+export function isoUnitDepthEx(wx, wy, wide = 0, ex = 0, ey = 0) {
   const d = wx + wy;
   _depthOut.d = d; _depthOut.hidden = false;
   if (!isoUnitDepthFlag.on) return _depthOut;
@@ -620,7 +629,7 @@ export function isoUnitDepthEx(wx, wy, wide = 0) {
       if (!b) continue;
       if (Math.abs(sxScr - b.ax) > b.halfW + wide) continue;   // pas de recouvrement de colonne
       if (d >= b.key) continue;                      // déjà dessinée après lui
-      if (wy >= b.y1 - T * 0.02 || wx >= b.x1 - T * 0.02) {
+      if (wy - ey >= b.y1 - T * 0.02 || wx - ex >= b.x1 - T * 0.02) {
         if (b.key + T * 0.02 > lift) lift = b.key + T * 0.02;   // devant : passe au-dessus du mur
       } else if (b.key - T * 0.02 < cap) {
         cap = b.key - T * 0.02;                      // derrière : jamais par-dessus son toit

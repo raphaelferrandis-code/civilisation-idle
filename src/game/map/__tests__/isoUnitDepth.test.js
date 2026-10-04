@@ -113,6 +113,24 @@ describe("isoUnitDepth — unités face aux emprises multi-tuiles", () => {
     expect(deux.hidden).toBe(true);                  // → passe silhouette fantôme
   });
 
+  it("VÉHICULE dans la rue DERRIÈRE une rangée : jamais peint sur un toit (Raph 2026-10-04)", () => {
+    // Deux maisons d'une rangée, la rue au nord. Le point de tri du fiacre vient de
+    // passer le bord est de la maison A : sur ce seul point, il était « à l'est de A »,
+    // donc devant elle, et se peignait sur son toit. Sa caisse, elle, est au nord.
+    setLayout([house(10, 10, 1, 1), house(11, 10, 1, 1)]);
+    const wx = 11.1 * T, wy = 9.8 * T, wide = 0.5 * T;
+    const brut = wx + wy;
+    expect(isoUnitDepthEx(wx, wy, wide).d).toBeGreaterThan(22 * T);      // l'ancien verdict : devant A
+    const d = isoUnitDepthEx(wx, wy, wide, wide, 0);                     // caisse le long de X
+    expect(d.d).toBe(brut);                                              // derrière les deux maisons
+    expect(d.hidden).toBe(true);
+    // Le même véhicule dans la rue à l'EST, caisse le long de Y : il longe la façade
+    // est de B, devant elle.
+    expect(isoUnitDepthEx(12.3 * T, 10.4 * T, wide, 0, wide).d).toBeGreaterThan(23 * T);
+    // …et au SUD, caisse le long de X : devant les deux.
+    expect(isoUnitDepthEx(11.1 * T, 11.3 * T, wide, wide, 0).d).toBeGreaterThan(23 * T);
+  });
+
   it("façade POUSSÉE vers sa rue (front de rue) : le passant du trottoir passe devant la clé RÉELLE", () => {
     // Le peintre trie la maison à son coin sud DÉCALÉ vers la rue (isoFrontOffset) :
     // la fiche doit porter la même clé, sinon le passant remonté à « coin nu + ε »
