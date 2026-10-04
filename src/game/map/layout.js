@@ -19,6 +19,7 @@ import { PORT_SITES, BASIN_NORTH_QUAY, oldPortBasinFor, basinCells, tradePortSit
 import { terrainFieldU, terrainFlatR } from './procedural/terrainField.js';
 import { ROAD_LINK_WAVE_FRACTION } from '../core/balance.js';
 import { createBuildingPlacer, placeCategorySlotted } from './procedural/buildingGenerator.js';
+import { planIlots, ilotReachFor } from './ilotLayout.js';
 import { createWaterModel } from './procedural/waterModel.js';
 import { planHighway, vergeCells } from './procedural/highwayPlan.js';
 import { CM_GIVEN, CM_EPITHETS, CM_TRADES, CM_HOUSES, CM_ROLES, CM_STREET_OF, CM_RESIDENCES } from './cityNaming.js';
@@ -207,6 +208,55 @@ if (typeof window !== "undefined") {
 // mais par ces contrats : 5/8 est le dernier cran qui les respecte, et il divise
 // déjà le groupement par deux. Ne pas le remonter sans relancer la suite.
 export const ENGINE_SPREAD = { gap: 5, reach: 8 };
+
+// ── LA VILLE PAR ÎLOTS (docs/PLAN-ILOTS.md) ─────────────────────────────────
+// Raph 2026-10-04 : « il faut tout refaire le placement des bâtiments, là on a un
+// gros brouillon ». Aux bandes listées, la ville n'est plus un réseau de rues
+// tracé d'avance puis semé de maisons : c'est une grille d'ÎLOTS ouverts du cœur
+// vers l'extérieur à mesure du contenu (ilotLayout.js), maisons en rangée sur le
+// pourtour, halles sur un îlot entier, places sur un îlot, cours au milieu.
+// Pilote : la bande 4 (grille romaine). Le premier calcul en mode îlots RÉORGANISE
+// la ville une fois (décision de Raph) ; ensuite plus rien ne bouge.
+// Molette : __ilots(false) → retour au placement d'avant (sans effacer la mémoire).
+export const ILOT_MODE = { on: true, bands: [4] };
+// Hors des îlots, même en mode îlots : la campagne (champs, moulins) et le fleuve
+// (port) gardent leur placement dédié.
+const ILOT_OUTSIDE = new Set(["irrigated_fields", "water_mills", "river_ports"]);
+const ILOT_OUTSIDE_RE = /:(irrigated_fields|water_mills|river_ports):/;
+// Maisons-moteur posées d'AVANCE au-delà de celles déjà révélées (cf. placeDecor
+// « enginehome ») — remonté au niveau du module : le plan d'îlots en tient compte
+// dans sa demande de lots. ⛔ Ne pas le réduire (cf. mémoire du projet).
+const ENGINE_HOME_LOOKAHEAD = 44;
+// Lots de bord en plus par logis demandé (grands logis 2×2, cf. ilotDemand).
+const ILOT_BIG_HOME_EXTRA = 0.2;
+// LES ATELIERS DANS LA RANGÉE (Raph 2026-10-04 : « avoir plein de fois le même
+// bâtiment qui a l'air d'un grand bâtiment rend mal ») : en mode îlots, une
+// annexe de bâtiment-moteur n'est plus la scène de sa halle en réduction (22
+// petits temples blancs par type, mesuré) mais une BOUTIQUE de la rue — un lot
+// d'une case, un corps de maison (`t.body`, dessiné par pixelHouses.js). La
+// halle reste le seul monument de son métier. Gardent leur dessin : les ateliers
+// des guildes (dessinés pour être semés, cf. GUILD_CRAFTS_B4) et les points d'eau.
+const ILOT_ANNEX_OWN_ART = new Set(["guilds", "aqueducts"]);
+const ILOT_ANNEX_BODIES = ["taberna", "taberna", "domus", "courtyard"];
+const ILOT_TUNE = { annexBody: true };
+const ilotTownBody = (id) => ILOT_TUNE.annexBody && !ILOT_ANNEX_OWN_ART.has(id);
+// Une HALLE ne dépasse pas 3×3 dans un îlot 4×4 : à 4×4 elle prend l'îlot entier et sa
+// scène (≈ 2 cases de large) trône sur un parvis vide — refusé en v1 (« 25 parvis
+// vides »), revu le 2026-10-04 sur les Ministères au dernier palier.
+const ILOT_HALL_MAX = 3;
+if (typeof window !== "undefined") {
+  window.__ilots = (on) => {
+    if (on != null) ILOT_MODE.on = on !== false;
+    if (typeof window.__cityRecompute === "function") window.__cityRecompute();
+    return { ...ILOT_MODE };
+  };
+  // Molette : __annexBody(false) → les annexes reprennent la scène de leur halle.
+  window.__annexBody = (on) => {
+    if (on != null) ILOT_TUNE.annexBody = on !== false;
+    if (typeof window.__cityRecompute === "function") window.__cityRecompute();
+    return { ...ILOT_TUNE };
+  };
+}
 
 // ── LA MAISON DES PLAISIRS PARAÎT AVEC SES JEUX ─────────────────────────────
 // Refonte du 2026-10-02 (docs/PLAN-MAISON-DES-PLAISIRS.md, § ⭐) : le lieu est
@@ -690,15 +740,71 @@ function cmWaterPointCount(level) {
 // recompare pour valider un emplacement mémorisé. Passer par req.zone des deux
 // côtés est ce qui garde les deux en phase.
 const CM_WATER_POINT_ZONES = ["mid", "center", "edge"];
+// ── LES ATELIERS DES GUILDES SONT SEMÉS DANS LA VILLE ────────────────────────
+// Raph 2026-10-03, capture de la bande 4 : « les bâtiments sont tous les uns sur
+// les autres ». MESURÉ (band 4, 400 guildes → 48 instances) : les 47 ateliers
+// tombaient TOUS à moins de 16 cases du centre, 83 % collés à un autre atelier,
+// là où les autres métiers du cœur en ont 9 à 43 %. La zone « center » se score
+// à la seule distance au centre (le terme angulaire n'y pèse presque rien) et les
+// guildes, moteur posé après le savoir et l'infra, ramassaient les dernières cases
+// libres autour du cœur civique : un tapis de collèges, l'écartement (ENGINE_SPREAD,
+// borné à `reach`) n'avait nulle part où les glisser.
+// Le COLLÈGE (instance nº 0, la halle) reste au cœur ; ses ateliers vivent parmi
+// les maisons, comme un atelier d'artisan vit dans son quartier. Zone « sown » :
+// cible = un angle par instance (régulier) ET un rayon par instance, tiré dans la
+// silhouette de la ville (cmSownFrac, puis plan.reachFor dans engineCandidates).
+// Rien ne change pour les autres métiers.
+// ⚠ Les slots mémorisés des ateliers (zone « center ») sont écartés par slotCompat :
+// sur une partie en cours, les ateliers se reposent UNE fois, puis tiennent.
 function cmRequestZone(meta, index) {
+  if (meta.id === "guilds" && index > 0) return "sown";
   if (meta.id !== "aqueducts") return meta.zone;
   return CM_WATER_POINT_ZONES[index % CM_WATER_POINT_ZONES.length];
+}
+// Fraction du rayon de ville visée par l'atelier nº `index` d'un type semé. Suite
+// de Weyl (pas d'or) : deux ateliers d'indices voisins — donc d'angles voisins —
+// ont des rayons éloignés ; la racine répartit à AIRE égale (sans elle, le cœur
+// serait plus dense que les faubourgs). Bornes : on laisse le cœur civique aux
+// institutions (0,3) et la lisière aux champs et aux entrepôts (0,85).
+const CM_SOWN_MIN = 0.3, CM_SOWN_MAX = 0.85;
+function cmSownFrac(id, index) {
+  const u = ((index * 0.6180339887 + ((cmHash("sown:" + id) >>> 0) % 1000) / 1000) % 1 + 1) % 1;
+  return CM_SOWN_MIN + (CM_SOWN_MAX - CM_SOWN_MIN) * Math.sqrt(u);
 }
 function cmFieldSpan(level) {
   // Ceinture de champs : un bloc unique, plus large que haut, qui grandit avec
   // le niveau. Croissance en sqrt pour ralentir l'expansion en fin de partie.
   const r = Math.sqrt(Math.max(1, Math.floor(level)));
   return { w: cmClamp(2 + Math.floor(r * 1.4), 2, 11), h: cmClamp(2 + Math.floor(r * 0.7), 2, 6) };
+}
+// ── LE TERROIR (docs/PLAN-TERROIR.md) ───────────────────────────────────────
+// Raph 2026-10-03 : le bloc de champs unique se lisait comme un tapis posé. La
+// même AIRE (celle de cmFieldSpan, rien ne change pour le jeu) se découpe en 1 à
+// 4 PARCELLES de formes différentes — des lanières plutôt que des carrés —, que le
+// placement pose jointives : un bout de campagne, pas une dalle. Pur et
+// déterministe (niveau + graine) : la même partie redonne les mêmes parcelles.
+// La parcelle 0 est la plus grande, couchée le long de X comme l'ancien bloc.
+const TERROIR_SHARES = [[1], [0.58, 0.42], [0.42, 0.33, 0.25], [0.34, 0.27, 0.22, 0.17]];
+export function cmTerroirParcels(level, seed = 0) {
+  const fs = cmFieldSpan(level);
+  const A = fs.w * fs.h;
+  const K = A < 10 ? 1 : A < 24 ? 2 : A < 42 ? 3 : 4;
+  if (K === 1) return [{ w: fs.w, h: fs.h }];
+  const out = [];
+  for (let i = 0; i < K; i += 1) {
+    const a = Math.max(4, Math.round(A * TERROIR_SHARES[K - 1][i]));
+    const hsh = cmHash("terroir:" + (seed >>> 0) + ":" + i) >>> 0;
+    // Côté court : 2 pour une petite parcelle, 2-3 au-delà, 3 pour la grande —
+    // une lanière a un côté court et un côté long (au moins deux de plus),
+    // jamais un carré : le carré, c'était la dalle.
+    const s = a <= 8 ? 2 : a <= 18 ? 2 + (hsh % 2) : 3;
+    const l = cmClamp(Math.max(s + 2, Math.round(a / s)), 2, 10);
+    // Couchée le long de X (w = long) ou de Y : la 0 l'est toujours, les autres
+    // alternent, avec un tirage pour ne pas faire un damier régulier.
+    const alongX = i === 0 || ((i + ((hsh >>> 3) & 1)) & 1) === 0;
+    out.push(alongX ? { w: l, h: s } : { w: s, h: l });
+  }
+  return out;
 }
 function cmRiverPortSpan(level) {
   // Port fluvial UNIQUE : emprise rectangulaire large le long du fleuve (quai +
@@ -849,6 +955,8 @@ function treeCanvasT(r, fixed) { return (r || 0.7) * TREE_TUNE.h * treeBandMul(f
 // ~80 vise la mégalopole et demande le placement append-only avant d'être armé.
 // Molette : window.__engineDensityCap.
 const CM_ENGINE_LIN = 12, CM_ENGINE_K = 2.6, CM_ENGINE_CAP = 48;
+// Plafond PROPRE aux moulins (docs/PLAN-TERROIR.md) : la halle + 14 moulins.
+export const CM_MILL_CAP = 15;
 function cmEngineCount(n) {
   if (n <= CM_ENGINE_LIN) return n;
   const cap = (typeof globalThis !== "undefined" && globalThis.__engineDensityCap) || CM_ENGINE_CAP;
@@ -880,7 +988,11 @@ function cmEngineInstances(count, id) {
   // (scène riche) et l'emprise croissante. Les suivantes sont des ATELIERS de
   // niveau 1 → tier 0 → scène humble à taille fixe. La monumentalité vient de la
   // halle, la quantité des ateliers : un quartier, pas un bloc.
-  const n = Math.floor(count), out = [n], k = cmEngineCount(n);
+  // MOULINS plafonnés à CM_MILL_CAP (Raph 2026-10-03, devant la planche du
+  // terroir : « ça fait beaucoup effectivement, limite à 15 ») — au-delà, la
+  // rangée de moulins autour des champs devenait un verger.
+  const n = Math.floor(count), out = [n];
+  const k = id === "water_mills" ? Math.min(CM_MILL_CAP, cmEngineCount(n)) : cmEngineCount(n);
   for (let i = 1; i < k; i += 1) out.push(1);
   return out;
 }
@@ -2384,7 +2496,41 @@ function computeCityLayout(s) {
   // ce réglage change TOUTE la silhouette (squelette routier, ancres de quartier,
   // position relative du fleuve), il ne se grave pas au jugé.
   // Molette : `__cityReach(0.85)`.
-  const cityReachBase = Math.max(5, Math.min(N * 0.46, N * (0.18 + c.eraFrac * 0.24) + Math.sqrt(total + enginePressure * 1.1) * 0.25)) * CITY_REACH.k;
+  const eraReachBase = Math.max(5, Math.min(N * 0.46, N * (0.18 + c.eraFrac * 0.24) + Math.sqrt(total + enginePressure * 1.1) * 0.25)) * CITY_REACH.k;
+  // ── LA VILLE PAR ÎLOTS : sa DEMANDE, et la portée qui en découle ───────────
+  // (cf. ILOT_MODE, docs/PLAN-ILOTS.md.) La ville compacte (décision de Raph) : sa
+  // portée suit son contenu — lots de maisons, ateliers, halles —, plus son âge.
+  // Les bâtiments posés « au bord de la ville » (merveilles, champs) la suivent.
+  // ⚠ Pas la Maison des Plaisirs : sa place a été arbitrée sur la portée d'ÂGE
+  // (trois poses refusées), elle garde `eraReachBase`.
+  const ilotMode = ILOT_MODE.on && roadMemoryActive(c.eraBand) && ILOT_MODE.bands.includes(c.eraBand | 0);
+  let ilotDemand = null;
+  if (ilotMode) {
+    const bias = personality.buildingBias || {};
+    const halls = [], annexes = [];
+    let annexLots = 0;
+    for (const meta of CM_MAP_BUILDINGS) {
+      if (ILOT_OUTSIDE.has(meta.id)) continue;            // champs, moulins, ports : hors des îlots
+      const level = Math.floor((s.buildings && s.buildings[meta.id]) || 0);
+      if (level <= 0) continue;
+      const inst = cmEngineInstances(level, meta.id);
+      for (let ei = 0; ei < inst.length; ei += 1) {
+        const key = cmMapSlotKey(s.cycles, meta.id, ei);
+        // Les points d'eau n'ont pas de halle : tous sont des repères d'une case.
+        if (ei === 0 && meta.id !== "aqueducts") { halls.push({ key, zone: meta.zone, id: meta.id, size: Math.min(ILOT_HALL_MAX, cmEngineGroupFoot(meta.id, inst[0], 0)) }); continue; }
+        const size = meta.id === "aqueducts" || ilotTownBody(meta.id) ? 1 : cmEngineAtelierFoot(meta.id);
+        annexes.push({ key, id: meta.id, size, zone: meta.zone, index: ei });
+        annexLots += size * size;
+      }
+    }
+    // Les GRANDS LOGIS (villa 2×2) mangent 2 à 3 lots de bord chacun (un angle, ou
+    // deux lots et la cour) : mesuré à la bande 4, 85 villas sur 688 logis, 48
+    // maisons-moteur achetées restées sans lot — d'où ~0,2 lot de plus par logis.
+    const homes = Math.round(c.houses * (bias.house || 1)) + (c.engineHomes || 0) + ENGINE_HOME_LOOKAHEAD;
+    const lots = homes + Math.round(homes * ILOT_BIG_HOME_EXTRA) + annexLots;
+    ilotDemand = { lots, halls, annexes };
+  }
+  const cityReachBase = ilotMode ? ilotReachFor({ lots: ilotDemand.lots, halls: ilotDemand.halls.length }) : eraReachBase;
   // ── Plan de ville procédural : archétype, cœur urbain, quartiers, places ──
   // Corridor du fleuve = eau ∪ berge : les places ne s'y posent jamais (seuls
   // routes/ponts traversent l'eau). Le reste (quartiers, merveilles) l'évite déjà.
@@ -2528,7 +2674,7 @@ function computeCityLayout(s) {
     // ville, pas une fraction de grille.
     const dehors = (sp) => {
       const dx = sp.x - plan.core.x, dy = sp.y - plan.core.y;
-      const contour = plan.reachFor(cityReachBase, Math.atan2(dy, dx));
+      const contour = plan.reachFor(eraReachBase, Math.atan2(dy, dx));
       return Math.hypot(dx, dy) >= contour * PLAISIRS.reachMul + PLAISIRS.gap;
     };
     // …et jamais sur la traversée historique, qui n'est PAS filtrée ailleurs.
@@ -2640,6 +2786,19 @@ function computeCityLayout(s) {
     };
   }
   if (memOn && s.cityCore) s.cityCore.maxN = Math.max(s.cityCore.maxN | 0, N);
+  // ── LA RÉORGANISATION UNIQUE (ville par îlots, décision de Raph 2026-10-04) ──
+  // Le premier calcul en mode îlots d'une ville efface ce qui la figeait sous
+  // l'ancien placement — slots des bâtiments du cycle, rues mémorisées, places de
+  // merveilles, quartiers, place centrale — puis pose sa fiche d'îlots. Le cœur et
+  // le pont, eux, restent. Ensuite plus rien ne bouge : les îlots s'ajoutent.
+  if (ilotMode && s.cityCore && !s.cityCore.ilot) {
+    const store = cmCityMapSlotsFor(s), pre = `${s.cycles || 0}:`;
+    for (const k of Object.keys(store)) if (k.startsWith(pre)) delete store[k];
+    s.cityRoads = null;
+    delete s.cityCore.wonders; delete s.cityCore.quarters; delete s.cityCore.central;
+    delete s.cityCore.districts; delete s.cityCore.highway;
+    s.cityCore.ilot = { v: 1, blocks: [], plazas: {}, halls: {}, annexes: {} };
+  }
 
   // Quartiers et places : ils demandent le lit PEINT (corridorAt), c'est pour
   // ça que `finalize` reste ici alors que le plan, lui, est calculé plus haut.
@@ -2652,10 +2811,15 @@ function computeCityLayout(s) {
   // une place neuve a le droit de s'ouvrir.
   const roadMem = memOn ? decodeRoadMemory(s.cityRoads, mapSeed, cx, cy) : null;
   const heldBy = memOn ? new Map() : null;
+  // Cases rendues par les ateliers qui quittent le cœur pour être semés (cf.
+  // cmRequestZone) : autant de maisons de la lisière viendront les reprendre,
+  // juste avant la pose des maisons (cf. « LES MAISONS REPRENNENT LA PLACE »).
+  let sownVacated = 0;
   if (heldBy) {
     const store = cmCityMapSlotsFor(s);
     const prefix = `${s.cycles || 0}:`;
     const spanOf = new Map();
+    const sownKeys = new Set();
     for (const meta of CM_MAP_BUILDINGS) {
       const level = Math.floor((s.buildings && s.buildings[meta.id]) || 0);
       if (level <= 0) continue;
@@ -2664,10 +2828,35 @@ function computeCityLayout(s) {
         const key = cmMapSlotKey(s.cycles, meta.id, ei);
         if (meta.id === "irrigated_fields") { const fsp = cmFieldSpan(level); spanOf.set(key, [fsp.w, fsp.h]); }
         else if (meta.id === "river_ports") spanOf.set(key, [cmRiverPortSpan(level).w, 0]);
-        else { const z = cmEngineGroupFoot(meta.id, inst[ei], ei); spanOf.set(key, [z, z]); }
+        else {
+          let z = ilotMode && ei > 0 && ilotTownBody(meta.id) ? 1 : cmEngineGroupFoot(meta.id, inst[ei], ei);
+          if (ilotMode && ei === 0 && !ILOT_OUTSIDE.has(meta.id)) z = Math.min(ILOT_HALL_MAX, z);
+          spanOf.set(key, [z, z]);
+        }
+        if (cmRequestZone(meta, ei) === "sown") sownKeys.add(key);
       }
     }
+    // Un atelier mémorisé AVANT d'être semé (slot de zone « center ») sera écarté
+    // par slotCompat et reposé ailleurs : sa case ne doit plus lui être tenue, sans
+    // quoi elle resterait vide — ni à lui, ni aux maisons qui l'entourent.
+    const leaving = (key, slot) => !ilotMode && sownKeys.has(key) && slot.zone !== "sown";   // (îlots : zone « ilot »)
     const hold = (key, slot) => {
+      if (leaving(key, slot)) {
+        const [sx, sy] = spanOf.get(key) || [1, 1];
+        sownVacated += sx * sy;
+        return;
+      }
+      // Le terroir tient ses PARCELLES (docs/PLAN-TERROIR.md), pas la boîte
+      // cmFieldSpan de l'ancien bloc unique.
+      if (Array.isArray(slot.parcels)) {
+        for (const q of slot.parcels) {
+          for (let ax = 0; ax < (q[2] | 0); ax += 1) for (let ay = 0; ay < (q[3] | 0); ay += 1) {
+            const k = (cx + q[0] + ax) + "," + (cy + q[1] + ay);
+            if (!heldBy.has(k)) heldBy.set(k, key);
+          }
+        }
+        return;
+      }
       const gx = cx + (Number(slot.dx) || 0);
       let gy = cy + (Number(slot.dy) || 0);
       let [sx, sy] = spanOf.get(key) || [1, 1];
@@ -2804,7 +2993,8 @@ function computeCityLayout(s) {
   //   - chaque QUARTIER est fondé une fois, au bord de la ville du moment, avec
   //     son site réservé (un pré, puis sa place quand l'ère la justifie) ;
   //   - le tout est FIGÉ dans `s.cityCore` (central, quarters).
-  const townOn = memOn && CITY_QUARTERS.on;
+  // (En mode îlots, la structure — places, artère, jardins — vient des îlots.)
+  const townOn = memOn && CITY_QUARTERS.on && !ilotMode;
   const townReserve = new Set();   // jamais bâti (sites de place) — passable
   const townGreen = new Set();     // repeint en herbe (prés, jardins, ceintures)
   const townGardens = new Set();   // jardins + ceintures seuls : la desserte les contourne
@@ -2954,7 +3144,8 @@ function computeCityLayout(s) {
   // sur un terrain libre — jamais sur une maison.
   // La place CENTRALE naît sur le site réservé depuis le campement (cf. la
   // réserve, plus bas) : le feu du village devient la place du bourg.
-  if (memOn && !townOn) {
+  if (ilotMode) plan.plazas = [];                   // posées par les îlots, plus bas
+  else if (memOn && !townOn) {
     const kept = [];
     const memP = (s.cityRoads && (s.cityRoads.seed >>> 0) === (mapSeed >>> 0) && Array.isArray(s.cityRoads.plazas)) ? s.cityRoads.plazas : [];
     for (const q of memP) kept.push({ gx: cx + q.dx, gy: cy + q.dy, size: q.size, kind: q.kind });
@@ -3001,14 +3192,20 @@ function computeCityLayout(s) {
   const terrCtx = river.present
     ? { seed: mapSeed | 0, riverYAt, islands: (river.islands || null), cx: plan.core.x, cy: plan.core.y, flatR: terrainFlatR(c) }
     : { seed: mapSeed | 0, riverYAt: null, islands: null, cx: plan.core.x, cy: plan.core.y, flatR: terrainFlatR(c) };
-  const { roads, roadKey, roadMeta, skeletonKey, bridgeCols } = generateRoadsGraph({
-    plan, seed: mapSeed, counts: c, ageCfg, N,
-    riverSet, bankSet, riverBridgeX: riverBridge.x, organicLimit,
-    bridgeAvoid: plaisirsSpot ? { x: plaisirsSpot.x, r: plaisirsSpot.clear } : null,
-    fieldAt: (gx, gy) => terrainFieldU(gx, gy, terrCtx),
-    axisX: townOn ? arteryAx : null,
-    singleBridge: townOn,
-  });
+  // En mode îlots, AUCUN réseau tracé d'avance : les rues sont les pourtours des
+  // îlots, posés plus bas (une fois les merveilles connues). Le pont central garde
+  // ses deux colonnes protégées (cmBuildRoadGraph, carve des merveilles).
+  const { roads, roadKey, roadMeta, skeletonKey, bridgeCols } = ilotMode
+    ? { roads: [], roadKey: new Set(), roadMeta: new Map(), skeletonKey: null,
+      bridgeCols: new Set([Math.round(riverBridge.x), Math.round(riverBridge.x) + 1]) }
+    : generateRoadsGraph({
+      plan, seed: mapSeed, counts: c, ageCfg, N,
+      riverSet, bankSet, riverBridgeX: riverBridge.x, organicLimit,
+      bridgeAvoid: plaisirsSpot ? { x: plaisirsSpot.x, r: plaisirsSpot.clear } : null,
+      fieldAt: (gx, gy) => terrainFieldU(gx, gy, terrCtx),
+      axisX: townOn ? arteryAx : null,
+      singleBridge: townOn,
+    });
   lp("routes-tracé");
   // ── LA MÉMOIRE DU RÉSEAU (docs/PLAN-ROUTES.md, lot L2) ─────────────────────
   // Les rues du calcul précédent rejoignent le réseau AVANT le placement : elles
@@ -3539,6 +3736,65 @@ function computeCityLayout(s) {
       }
     }
   }
+  // ── LES ÎLOTS (docs/PLAN-ILOTS.md, lot I1) ─────────────────────────────────
+  // Posés ICI : assez tard pour connaître le fleuve définitif (bras de l'île) et
+  // l'emprise des merveilles, assez tôt pour que tout ce qui suit (districts,
+  // carves, cellules, placement, desserte) voie leurs rues comme un réseau ordinaire.
+  // Les rues entrent dans `memKeep` : aucun émondage ne touche une rue d'îlot.
+  let ilot = null;
+  if (ilotMode) {
+    const wonderCells = new Set();
+    for (let wi = 0; wi < CM_WONDERS.length; wi += 1) {
+      const w = CM_WONDERS[wi];
+      if (!builtWonderIds.has(w.id) || w.id === "era_mega") continue;
+      cmForEachWonderCell(wonderSlots[wi], w.id, N, (gx, gy, k) => wonderCells.add(k), tierOf(w.id));
+    }
+    // La CAMPAGNE déjà posée (champs, moulins, port) tient ses cases : la ville
+    // qui grandit l'entoure au lieu de la chasser (mesuré sans ça : 17 champs et
+    // moulins passés sur l'autre rive d'un achat à l'autre).
+    // Avec une MARGE de 3 cases : un champ qui gagne une case de long à l'achat
+    // suivant doit la trouver libre, sinon il se refonde ailleurs (même mesure).
+    const ruralCells = new Set();
+    if (heldBy) for (const [k, ow] of heldBy) {
+      if (!ILOT_OUTSIDE_RE.test(ow)) continue;
+      const ci = k.indexOf(","), x = +k.slice(0, ci), y = +k.slice(ci + 1);
+      for (let dy = -3; dy <= 3; dy += 1) for (let dx = -3; dx <= 3; dx += 1) ruralCells.add((x + dx) + "," + (y + dy));
+    }
+    const ruralHeld = (k) => ruralCells.has(k);
+    ilot = planIlots({
+      N, cx, cy, core: plan.core, bx: Math.round(riverBridge.x),
+      isWet: (x, y) => riverSet.has(x + "," + y),
+      isBank: (x, y) => bankSet.has(x + "," + y),
+      isReserved: (x, y) => { const k = x + "," + y; return wonderCells.has(k) || plaisirsClear.has(k); },
+      isRural: (x, y) => ruralHeld(x + "," + y),
+      isHeld: (x, y) => !!heldBy && heldBy.has(x + "," + y),
+      heldOwner: (x, y) => (heldBy && heldBy.get(x + "," + y)) || null,
+      demand: ilotDemand,
+      memory: s.cityCore && s.cityCore.ilot,
+    });
+    if (s.cityCore) s.cityCore.ilot = { v: 1, ...ilot.memory };
+    for (const [k, m] of ilot.streets) {
+      const e = roadMeta.get(k);
+      if (e) { e.h = e.h || m.h; e.v = e.v || m.v; if (rankAbove(m.rank, e.rank)) e.rank = m.rank; }
+      else {
+        const ci = k.indexOf(",");
+        roadMeta.set(k, { h: m.h, v: m.v, rank: m.rank });
+        roads.push({ gx: +k.slice(0, ci), gy: +k.slice(ci + 1) });
+        roadKey.add(k);
+      }
+      memKeep.add(k);
+    }
+    // Places : l'îlot entier devient place (rang `plaza`, comme les places du réseau).
+    plan.plazas = ilot.plazas.map((p) => ({ gx: p.gx, gy: p.gy, size: p.size, kind: p.kind }));
+    for (const p of ilot.plazas) {
+      for (const c2 of p.block.cells) {
+        const k = c2.x + "," + c2.y;
+        if (!roadKey.has(k)) { roads.push({ gx: c2.x, gy: c2.y }); roadKey.add(k); }
+        roadMeta.set(k, { h: true, v: true, rank: "plaza" });
+        memKeep.add(k);
+      }
+    }
+  }
   // FOYER DU CAMPEMENT (cf. CAMP_HEARTH) : la cellule du cœur et ses huit
   // voisines sont gardées de tout bâti et de tout arbre, AVANT la pose — sinon
   // une tente se plantait dans le cercle du feu (1,4 tuile de large). Même
@@ -3625,7 +3881,9 @@ function computeCityLayout(s) {
   // n'en bouge plus — avant, sa place dépendait des routes et des maisons du
   // moment, il sautait d'un calcul à l'autre en rasant ce qu'il rencontrait.
   const distFix = townOn && s.cityCore ? { ...(s.cityCore.districts || {}) } : null;
-  for (let n = 0; n < c.megaDistricts; n += 1) {
+  // (Mode îlots : pas de grands ensembles décoratifs — les halles des bâtiments
+  // achetés tiennent chacune un îlot, c'est déjà la hiérarchie du bâti.)
+  for (let n = 0; n < (ilotMode ? 0 : c.megaDistricts); n += 1) {
     const civicKinds = c.eraBand >= 6 ? ["spire","archive","observatory"] : c.eraBand >= 5 ? ["tower","station","archive"] : c.eraBand >= 4 ? ["palace","forum","archive"] : ["keep","market","temple"];
     const denseKinds = c.eraBand >= 6 ? ["arcology","grid","tower"]       : c.eraBand >= 5 ? ["tower","station","dense"]   : c.eraBand >= 4 ? ["forum","dense","market"]   : ["keep","market"];
     const kind = n < c.civicMonuments ? civicKinds[n % civicKinds.length] : denseKinds[n % denseKinds.length];
@@ -3677,8 +3935,8 @@ function computeCityLayout(s) {
     // l'emprise est une pelouse (townGreen). Le monument, posé socle centré (cf.
     // wonderFootWorld, L.wonderPaveR), se tient au milieu d'une place à sa mesure
     // au lieu de flotter dans un carré gris taillé pour sa silhouette.
-    const paveR = townOn ? Math.ceil(cmWonderBaseTiles(w.id, tierOf(w.id) || 1) / 2 + 1.5) : Infinity;
-    if (townOn) wonderPaveR[w.id] = paveR;
+    const paveR = (townOn || ilotMode) ? Math.ceil(cmWonderBaseTiles(w.id, tierOf(w.id) || 1) / 2 + 1.5) : Infinity;
+    if (townOn || ilotMode) wonderPaveR[w.id] = paveR;
     const sl = wonderSlots[wi];
     cmForEachWonderCell(sl, w.id, N, (gx, gy, k) => {
       reserved.add(k);
@@ -3701,7 +3959,7 @@ function computeCityLayout(s) {
     // l'artère. Mesuré : la Colonne, montée au rang 4, étendait son emprise sur le
     // débouché sud du pont — la découpe effaçait l'artère, toute la rive sud se
     // retrouvait coupée du réseau et l'élagage de connexité rasait ses rues.
-    const sl = wonderSlots[wi], pr = townOn ? wonderPaveR[w.id] : null;
+    const sl = wonderSlots[wi], pr = (townOn || ilotMode) ? wonderPaveR[w.id] : null;
     cmForEachWonderCell(sl, w.id, N, (gx, gy, k) => {
       if (isBridgeSpanCell(gx, k)) return; // JAMAIS carver la travée du pont central sanctuarisé
       if (pr != null && Math.max(Math.abs(gx - sl.gx), Math.abs(gy - sl.gy)) > pr) return;
@@ -3946,7 +4204,9 @@ function computeCityLayout(s) {
       const dist = Math.hypot(px - cx, py - cy);
       ang[i] = Math.atan2(py - cy, px - cx);
       h[i] = Math.imul(cell.gx | 0, 73856093) ^ Math.imul(cell.gy | 0, 19349663);
-      if (zone === "center")         { radA[i] = dist; }
+      // « sown » garde la distance BRUTE : son rayon cible dépend de l'instance
+      // (cmSownFrac), l'écart se prend dans engineCandidates.
+      if (zone === "center" || zone === "sown") { radA[i] = dist; }
       else if (zone === "mid")       { radA[i] = Math.abs(dist - N * 0.24); }
       else if (zone === "caravan")   { radA[i] = Math.abs(dist - N * 0.38); }
       else if (zone === "edge")      { radA[i] = Math.abs(dist - N * 0.44); radB[i] = Math.max(0, cell.gy - cy) * 0.02; }
@@ -3979,6 +4239,15 @@ function computeCityLayout(s) {
     const waterAffine = cmWaterAffine(affinity);
     const idHash = cmHash(id + ":" + index) >>> 0;
     const angleTarget = (Math.PI * 2 * index) / Math.max(1, total) + (cmHash(id) % 628) / 100;
+    // Zone « sown » (cf. cmRequestZone) : la cible est un POINT — rayon propre à
+    // l'instance, pris dans la silhouette de la ville dans la direction visée — et
+    // le terme angulaire compte en LONGUEUR D'ARC (½ par case), sinon l'atelier
+    // glisserait d'une quinzaine de cases le long de son cercle au gré du grain.
+    // Écart d'angle replié proprement dans [0, π] : angleTarget dépasse 2π.
+    const sown = zone === "sown";
+    const sownR = sown ? cmSownFrac(id, index) * plan.reachFor(cityReachBase, angleTarget) : 0;
+    const sownW = Math.max(2.4, sownR * 0.5);
+    const sownGap = (a) => { let d = (a - angleTarget) % (Math.PI * 2); if (d < 0) d += Math.PI * 2; return d > Math.PI ? Math.PI * 2 - d : d; };
     let base, keys, n;
     // Bascule d'équivalence (A/B) : `globalThis.__engineGeoCache = false` rejoue le
     // scoring d'origine, cellule par cellule. Sert à prouver que le cache produit
@@ -3999,6 +4268,7 @@ function computeCityLayout(s) {
         let k;
         if (waterAffine || zone === "river") k = Math.abs(py - riverYAt(px)) + Math.abs(px - (cx + (index - total / 2) * 4)) * 0.22;
         else if (zone === "center")    k = dist + angular * 1.8;
+        else if (sown)                 k = Math.abs(dist - sownR) + sownGap(Math.atan2(py - cy, px - cx)) * sownW;
         else if (zone === "mid")       k = Math.abs(dist - N * 0.24) + angular * 2.4;
         else if (zone === "caravan")   k = Math.abs(dist - N * 0.38) + angular * 1.4;
         else if (zone === "edge")      k = Math.abs(dist - N * 0.44) + angular * 2 + Math.max(0, cell.gy - cy) * 0.02;
@@ -4028,7 +4298,12 @@ function computeCityLayout(s) {
       base = g.base;
       n = base.length;
       keys = engineKeyBuf(n);
-      for (let i = 0; i < n; i += 1) {
+      if (sown) {
+        for (let i = 0; i < n; i += 1) {
+          const jitter = (((gh[i] ^ idHash) >>> 0) % 1000) / 1000;
+          keys[i] = Math.abs(radA[i] - sownR) + sownGap(ang[i]) * sownW + jitter;
+        }
+      } else for (let i = 0; i < n; i += 1) {
         let angular = Math.abs(ang[i] - angleTarget);
         if (angular > Math.PI) angular = Math.PI * 2 - angular;
         const jitter = (((gh[i] ^ idHash) >>> 0) % 1000) / 1000;
@@ -4107,49 +4382,223 @@ function computeCityLayout(s) {
   // Centres des instances DÉJÀ posées, par type : c'est contre eux que se mesure
   // l'écart minimal entre deux bâtiments d'un même métier (cf. ENGINE_SPREAD).
   const sameTypeCells = new Map();
+  // LE TERROIR posé par la branche des champs (docs/PLAN-TERROIR.md) : ses
+  // parcelles, puis — à la demande — les rangées où s'alignent les moulins.
+  let terroir = null;
+  // Les RANGÉES DE MOULINS, calculées une fois par layout. Rangée r = les cellules
+  // à distance de Chebyshev 1 + 2r du terroir (la 2r+2 reste libre : un chemin
+  // entre deux rangées), côté CAMPAGNE seulement (dos à la ville). Dans une
+  // rangée, une cellule sur deux au plus (jamais deux moulins jointifs, même en
+  // diagonale), puis ordonnées depuis le milieu du bord extérieur : les premiers
+  // achats tombent au centre de la crête, les suivants s'en écartent tour à tour.
+  // Les côtés tournés vers la ville ne viennent qu'en dernier recours.
+  const terroirRows = () => {
+    if (terroir.rows) return terroir.rows;
+    const P = terroir.parcels;
+    const dist = (x, y) => {
+      let d = Infinity;
+      for (const p of P) {
+        const ddx = Math.max(p.gx - x, 0, x - (p.gx + p.w - 1)), ddy = Math.max(p.gy - y, 0, y - (p.gy + p.h - 1));
+        d = Math.min(d, Math.max(ddx, ddy));
+      }
+      return d;
+    };
+    let x0 = Infinity, y0 = Infinity, x1 = -Infinity, y1 = -Infinity, ax = 0, ay = 0, aw = 0;
+    for (const p of P) {
+      x0 = Math.min(x0, p.gx); y0 = Math.min(y0, p.gy); x1 = Math.max(x1, p.gx + p.w); y1 = Math.max(y1, p.gy + p.h);
+      ax += (p.gx + p.w / 2) * p.w * p.h; ay += (p.gy + p.h / 2) * p.w * p.h; aw += p.w * p.h;
+    }
+    const tcx = ax / aw, tcy = ay / aw;
+    let ox = tcx - cx, oy = tcy - cy;
+    const on = Math.hypot(ox, oy);
+    if (on < 1e-6) { ox = 0; oy = -1; } else { ox /= on; oy /= on; }
+    const outA = Math.atan2(oy, ox);
+    const angGap = (a) => { let g = Math.abs(a - outA); if (g > Math.PI) g = Math.PI * 2 - g; return g; };
+    const kept = [];
+    const farFrom = (x, y) => kept.every((q) => Math.max(Math.abs(q.gx - x), Math.abs(q.gy - y)) >= 2);
+    const rowOf = (r, outer) => {
+      const R = 1 + 2 * r, row = [];
+      for (let y = y0 - R; y < y1 + R; y += 1) for (let x = x0 - R; x < x1 + R; x += 1) {
+        if (x < 0 || y < 0 || x >= N || y >= N || dist(x, y) !== R) continue;
+        const vx = x + 0.5 - tcx, vy = y + 0.5 - tcy, vn = Math.hypot(vx, vy) || 1;
+        const facing = (vx * ox + vy * oy) / vn;
+        if (outer ? facing <= -0.55 : facing > -0.55) continue;
+        row.push({ gx: x, gy: y, a: Math.atan2(vy, vx) });
+      }
+      // Marche le long du bord (angle autour du centre du terroir), une case sur deux.
+      row.sort((p, q) => p.a - q.a);
+      const pick = [];
+      for (const c2 of row) if (farFrom(c2.gx, c2.gy)) { kept.push(c2); pick.push(c2); }
+      pick.sort((p, q) => angGap(p.a) - angGap(q.a));
+      return pick;
+    };
+    // Une seule rangée le long de tout le bord campagne (tout sauf la face tournée
+    // vers la ville) avant d'en ouvrir une deuxième : deux ou trois rangées serrées d'un même côté faisaient un verger
+    // de moulins, pas une crête (vu à la capture, 23 moulins).
+    const rows = [];
+    for (let r = 0; r < 3; r += 1) rows.push(...rowOf(r, true));
+    rows.push(...rowOf(0, false));
+    terroir.rows = rows;
+    terroir.near = (gx, gy, sz) => {
+      let d = Infinity;
+      for (let ax2 = 0; ax2 < sz; ax2 += 1) for (let ay2 = 0; ay2 < sz; ay2 += 1) d = Math.min(d, dist(gx + ax2, gy + ay2));
+      return d >= 1 && d <= 5;
+    };
+    terroir.distTo = dist;
+    return rows;
+  };
   const placeRequest   = (req, preferSavedSlot) => {
     placingOwner = req.slotKey;
     // (Un bloc « aqueduc » vivait ici : structure linéaire span×1 posée le long
     //  de la berge, prise d'eau au bord. Retiré le 2026-08-05 — cf. le pavé de
     //  cmWaterPointCount. Les points d'eau sont des 1×1 ordinaires et passent
     //  désormais par le chemin générique, comme n'importe quel atelier.)
-    // ── Champs : ceinture agricole 2D (spanX × spanY) collée à la lisière ──
-    // Un seul bloc qui grandit avec le niveau, placé tangent au bord de la ville
-    // (comme la ferme qui s'étend autour du bourg) plutôt que des tuiles éparses.
+    // ── Champs : le TERROIR — parcelles jointives sur l'anneau agricole ──────
+    // (docs/PLAN-TERROIR.md.) Même aire qu'avant, découpée par cmTerroirParcels.
+    // La parcelle 0 se pose comme l'ancien bloc unique : tangente à la lisière de
+    // la ville. Les suivantes se COLLENT aux précédentes (au moins deux cases de
+    // côté commun), en restant sur l'anneau — la campagne s'étend autour du bourg
+    // au lieu de faire une dalle. Une tuile par parcelle, toutes RURALES : pas de
+    // sol de ville dessous ni autour (cf. urbanSet).
     if (req.meta.id === "irrigated_fields") {
-      const fs = cmFieldSpan(req.level);
-      let spanX = fs.w, spanY = fs.h, placed = null;
+      const plan = cmTerroirParcels(req.level, cmHash(req.slotKey + ":" + mapSeed) >>> 0);
       const slot = slotStore[req.slotKey];
-      if (preferSavedSlot && slot) {
-        const saved = { gx: cmClamp(cx + (Number(slot.dx) || 0), 0, N - spanX), gy: cmClamp(cy + (Number(slot.dy) || 0), 0, N - spanY) };
-        if (footprintFits(saved.gx, saved.gy, spanX, false, false, spanY)) placed = saved;
+      const ringOf = (w, h) => Math.min(N * 0.46, cityReachBase + Math.max(w, h) / 2 + 1);
+      const fitsRect = (p) => footprintFits(p.gx, p.gy, p.w, false, false, p.h);
+      const parcels = [];
+      const take = (p) => { claimFootprint(p.gx, p.gy, p.w, p.h); parcels.push(p); };
+      // 1. Le terroir mémorisé, repris tel quel s'il a le même plan et tient encore.
+      if (preferSavedSlot && slot && Array.isArray(slot.parcels) && slot.parcels.length === plan.length
+          && slot.parcels.every((q, i) => q[2] === plan[i].w && q[3] === plan[i].h)) {
+        const ps = slot.parcels.map((q) => ({ gx: cx + q[0], gy: cy + q[1], w: q[2], h: q[3] }));
+        if (ps.every(fitsRect)) for (const p of ps) take(p);
       }
-      if (!placed) {
-        const fieldRing = Math.min(N * 0.46, cityReachBase + Math.max(spanX, spanY) / 2 + 1);
-        const fieldCells = cells
-          .map((c2) => ({ c2, s: Math.abs(Math.hypot(c2.gx + spanX / 2 - cx, c2.gy + spanY / 2 - cy) - fieldRing) + (cmHash("field:" + c2.gx + ":" + c2.gy) % 1000) / 1000 }))
-          .sort((a, b) => a.s - b.s)
-          .map((e) => e.c2);
-        const tryPlace = () => { for (const c2 of fieldCells) if (footprintFits(c2.gx, c2.gy, spanX, false, false, spanY)) return c2; return null; };
-        placed = tryPlace();
-        // Repli : rétrécir le bloc si la ville est trop dense pour le loger.
-        while (!placed && (spanX > 2 || spanY > 2)) { spanX = Math.max(2, spanX - 1); spanY = Math.max(2, spanY - 1); placed = tryPlace(); }
+      if (!parcels.length) {
+        // 2. L'ancre : la parcelle 0, comme l'ancien bloc (slot puis anneau).
+        let w0 = plan[0].w, h0 = plan[0].h, a0 = null;
+        if (preferSavedSlot && slot) {
+          const sv = { gx: cmClamp(cx + (Number(slot.dx) || 0), 0, N - w0), gy: cmClamp(cy + (Number(slot.dy) || 0), 0, N - h0), w: w0, h: h0 };
+          if (fitsRect(sv)) a0 = sv;
+        }
+        if (!a0) {
+          const tryPlace = () => {
+            const ring = ringOf(w0, h0);
+            const order = cells
+              .map((c2) => ({ c2, s: Math.abs(Math.hypot(c2.gx + w0 / 2 - cx, c2.gy + h0 / 2 - cy) - ring) + (cmHash("field:" + c2.gx + ":" + c2.gy) % 1000) / 1000 }))
+              .sort((a, b) => a.s - b.s);
+            for (const e of order) { const p = { gx: e.c2.gx, gy: e.c2.gy, w: w0, h: h0 }; if (fitsRect(p)) return p; }
+            return null;
+          };
+          a0 = tryPlace();
+          // Repli : rétrécir l'ancre si la ville est trop dense pour la loger.
+          while (!a0 && (w0 > 2 || h0 > 2)) { w0 = Math.max(2, w0 - 1); h0 = Math.max(2, h0 - 1); a0 = tryPlace(); }
+        }
+        if (!a0) return false;
+        take(a0);
+        // 3. Les parcelles suivantes, collées à l'une des précédentes.
+        for (let i = 1; i < plan.length; i += 1) {
+          let w = plan[i].w, h = plan[i].h, best = null;
+          for (let tries = 0; tries < 3 && !best; tries += 1) {
+            const ring = ringOf(w, h);
+            let bestS = Infinity;
+            const consider = (gx, gy, align) => {
+              const p = { gx, gy, w, h };
+              if (!fitsRect(p)) return;
+              const s2 = Math.abs(Math.hypot(gx + w / 2 - cx, gy + h / 2 - cy) - ring)
+                + align * 0.12 + ((cmHash("parcel:" + i + ":" + gx + ":" + gy) >>> 0) % 1000) / 2000;
+              if (s2 < bestS) { bestS = s2; best = p; }
+            };
+            for (const q of parcels) {
+              const ov = (n1, n2) => Math.min(2, n1, n2);   // côté commun minimal
+              for (let gy = q.gy - h + ov(h, q.h); gy <= q.gy + q.h - ov(h, q.h); gy += 1) {
+                const al = Math.min(Math.abs(gy - q.gy), Math.abs(gy + h - q.gy - q.h));
+                consider(q.gx + q.w, gy, al);   // est
+                consider(q.gx - w, gy, al);     // ouest
+              }
+              for (let gx = q.gx - w + ov(w, q.w); gx <= q.gx + q.w - ov(w, q.w); gx += 1) {
+                const al = Math.min(Math.abs(gx - q.gx), Math.abs(gx + w - q.gx - q.w));
+                consider(gx, q.gy + q.h, al);   // sud
+                consider(gx, q.gy - h, al);     // nord
+              }
+            }
+            if (!best) { if (w >= h) w = Math.max(2, w - 1); else h = Math.max(2, h - 1); }
+          }
+          if (best) take(best);
+        }
       }
-      if (!placed) return false;
-      claimFootprint(placed.gx, placed.gy, spanX, spanY);
-      for (let ax = 0; ax < spanX; ax += 1) for (let ay = 0; ay < spanY; ay += 1) {
-        engineFootprint.add((placed.gx + ax) + "," + (placed.gy + ay));
-        usedKeys.add((placed.gx + ax) + "," + (placed.gy + ay));
-      }
-      const dx = placed.gx + spanX / 2 - cx, dy = placed.gy + spanY / 2 - cy;
-      tiles.push({ gx: placed.gx, gy: placed.gy, type: "engine", variant: "irrigated_fields", buildingId: "irrigated_fields",
-        buildingName: req.meta.name, level: req.level, groupLevel: req.groupLevel,
-        groupIndex: 1, groupTotal: 1, tier: req.tier, size: Math.max(spanX, spanY), spanX, spanY,
-        key: `engine:irrigated_fields:0:${req.slotKey}:${req.tier}`, d2: dx * dx + dy * dy });
-      slotStore[req.slotKey] = { dx: placed.gx - cx, dy: placed.gy - cy, zone: req.zone, id: req.meta.id };
+      const tcx0 = parcels.reduce((a, p) => a + p.gx + p.w / 2, 0) / parcels.length;
+      const tcy0 = parcels.reduce((a, p) => a + p.gy + p.h / 2, 0) / parcels.length;
+      parcels.forEach((p, i) => {
+        for (let ax = 0; ax < p.w; ax += 1) for (let ay = 0; ay < p.h; ay += 1) {
+          engineFootprint.add((p.gx + ax) + "," + (p.gy + ay));
+          usedKeys.add((p.gx + ax) + "," + (p.gy + ay));
+        }
+        const dx = p.gx + p.w / 2 - cx, dy = p.gy + p.h / 2 - cy;
+        tiles.push({ gx: p.gx, gy: p.gy, type: "engine", variant: "irrigated_fields", buildingId: "irrigated_fields",
+          buildingName: req.meta.name, level: req.level, groupLevel: req.groupLevel,
+          groupIndex: 1, groupTotal: 1, tier: req.tier, size: Math.max(p.w, p.h), spanX: p.w, spanY: p.h,
+          parcel: i, parcels: parcels.length, rural: true, terroirX: tcx0, terroirY: tcy0,
+          key: `engine:irrigated_fields:${i}:${req.slotKey}:${req.tier}`, d2: dx * dx + dy * dy });
+      });
+      terroir = { parcels };
+      slotStore[req.slotKey] = { dx: parcels[0].gx - cx, dy: parcels[0].gy - cy, zone: req.zone, id: req.meta.id,
+        parcels: parcels.map((p) => [p.gx - cx, p.gy - cy, p.w, p.h]) };
       liveSlotKeys.add(req.slotKey);
       placedSlotKeys.add(req.slotKey);
       return true;
+    }
+    // ── Moulins à vent : EN RANGÉE au bord du terroir ─────────────────────────
+    // (docs/PLAN-TERROIR.md, choix de Raph : tous les moulins gardés, alignés.)
+    // Un moulin vit au vent, au bord de ses champs — pas entre deux maisons. La
+    // HALLE (instance nº 0, la minoterie) se pose contre le terroir du côté de la
+    // ville ; les ATELIERS prennent, dans l'ordre, les places libres des rangées
+    // (cf. terroirRows). Slot de zone « terroir » : les anciens slots « outer »
+    // (moulins semés dans le faubourg) ne sont pas repris. Rien ne tient → chemin
+    // générique ci-dessous, comme avant.
+    if (req.meta.id === "water_mills" && terroir) {
+      const sz = req.size;
+      const rows = terroirRows();
+      const slot = slotStore[req.slotKey];
+      const ok = (gx, gy) => footprintFits(gx, gy, sz) && hasFreeDoor(gx, gy, sz, sz);
+      let at = null;
+      if (preferSavedSlot && slot && slot.zone === "terroir") {
+        const sv = { gx: cx + (Number(slot.dx) || 0), gy: cy + (Number(slot.dy) || 0) };
+        if (terroir.near(sv.gx, sv.gy, sz) && ok(sv.gx, sv.gy)) at = sv;
+      }
+      if (!at && req.groupIndex === 1) {
+        // La halle : la place qui touche le terroir la plus proche du cœur.
+        let bestS = Infinity;
+        for (const p of terroir.parcels) {
+          for (let gy = p.gy - sz - 1; gy <= p.gy + p.h + 1; gy += 1) {
+            for (let gx = p.gx - sz - 1; gx <= p.gx + p.w + 1; gx += 1) {
+              let d = Infinity;
+              for (let ax = 0; ax < sz; ax += 1) for (let ay = 0; ay < sz; ay += 1) d = Math.min(d, terroir.distTo(gx + ax, gy + ay));
+              if (d !== 1) continue;
+              const s2 = Math.hypot(gx + sz / 2 - cx, gy + sz / 2 - cy);
+              if (s2 < bestS && ok(gx, gy)) { bestS = s2; at = { gx, gy }; }
+            }
+          }
+        }
+      }
+      if (!at && sz === 1) for (const c2 of rows) if (ok(c2.gx, c2.gy)) { at = c2; break; }
+      if (at) {
+        claimFootprint(at.gx, at.gy, sz);
+        for (let ax = 0; ax < sz; ax += 1) for (let ay = 0; ay < sz; ay += 1) {
+          engineFootprint.add((at.gx + ax) + "," + (at.gy + ay));
+          usedKeys.add((at.gx + ax) + "," + (at.gy + ay));
+        }
+        const arr = sameTypeCells.get(req.meta.id), c2 = [at.gx + sz / 2, at.gy + sz / 2];
+        if (arr) arr.push(c2); else sameTypeCells.set(req.meta.id, [c2]);
+        const dx = at.gx + sz / 2 - cx, dy = at.gy + sz / 2 - cy;
+        tiles.push({ gx: at.gx, gy: at.gy, type: "engine", variant: req.meta.id, buildingId: req.meta.id,
+          buildingName: req.meta.name, level: req.level, groupLevel: req.groupLevel,
+          groupIndex: req.groupIndex, groupTotal: req.groupTotal, tier: req.tier, size: sz, rural: true,
+          key: `engine:${req.meta.id}:${req.groupIndex - 1}:${req.slotKey}:${req.tier}`, d2: dx * dx + dy * dy });
+        slotStore[req.slotKey] = { dx: at.gx - cx, dy: at.gy - cy, zone: "terroir", id: req.meta.id };
+        liveSlotKeys.add(req.slotKey);
+        placedSlotKeys.add(req.slotKey);
+        return true;
+      }
     }
     // ── Port fluvial : bâtiment UNIQUE forcé sur la rive ──────────────────────
     // Emprise rectangulaire posée sur la rive nord, bord SUD plaqué contre l'eau
@@ -4496,12 +4945,53 @@ function computeCityLayout(s) {
     placedSlotKeys.add(req.slotKey);
     return true;
   };
+  // ── LES ÎLOTS : halles sur leur îlot, ateliers et points d'eau sur leur lot ──
+  // (docs/PLAN-ILOTS.md, lot I2.) Le plan (ilotLayout.js) a déjà décidé de tout ;
+  // on pose. Une HALLE tient l'angle NORD de son îlot (le haut de l'écran), à sa
+  // taille ; des maisons bordent le reste de l'îlot (cf. ilotLayout, hallAt).
+  // Ensuite, le temps des bâtiments HORS îlots (champs, moulins, port), les cases
+  // d'îlot encore libres sont tenues : un champ ne vient pas s'y étaler.
+  const ilotTempClaim = [];
+  if (ilot) {
+    const tileOf = (req, gx, gy, size) => {
+      claimFootprint(gx, gy, size);
+      for (let ax = 0; ax < size; ax += 1) for (let ay = 0; ay < size; ay += 1) {
+        engineFootprint.add((gx + ax) + "," + (gy + ay));
+        usedKeys.add((gx + ax) + "," + (gy + ay));
+      }
+      const dx = gx + size / 2 - cx, dy = gy + size / 2 - cy;
+      tiles.push({ gx, gy, type: "engine", variant: req.meta.id, buildingId: req.meta.id,
+        buildingName: req.meta.name, level: req.level, groupLevel: req.groupLevel,
+        groupIndex: req.groupIndex, groupTotal: req.groupTotal, tier: req.tier, size,
+        key: `engine:${req.meta.id}:${req.groupIndex - 1}:${req.slotKey}:${req.tier}`, d2: dx * dx + dy * dy });
+      slotStore[req.slotKey] = { dx: gx - cx, dy: gy - cy, zone: "ilot", id: req.meta.id };
+      liveSlotKeys.add(req.slotKey);
+      placedSlotKeys.add(req.slotKey);
+    };
+    for (const req of requests) {
+      if (ILOT_OUTSIDE.has(req.meta.id)) continue;
+      const ha = ilot.hallAt.get(req.slotKey);
+      if (ha) { tileOf(req, ha.gx, ha.gy, ha.size); continue; }
+      const an = ilot.annexAt.get(req.slotKey);
+      if (!an) continue;
+      tileOf(req, an.gx, an.gy, an.size);
+      if (an.size === 1 && ilotTownBody(req.meta.id)) {
+        tiles[tiles.length - 1].body = ILOT_ANNEX_BODIES[(cmHash("body:" + req.slotKey) >>> 0) % ILOT_ANNEX_BODIES.length];
+      }
+    }
+    for (const b of ilot.blocks) for (const q of b.cells) {
+      const k = q.x + "," + q.y;
+      if (!claimed.has(k)) { claimed.add(k); ilotTempClaim.push(k); }
+    }
+  }
   const savedRequests = requests.slice().sort((a, b) => {
     const pa = cmMapSlotPriority(a.meta), pb = cmMapSlotPriority(b.meta);
     return pa - pb || a.slotKey.localeCompare(b.slotKey);
   });
-  for (const req of savedRequests) if (slotStore[req.slotKey]) placeRequest(req, true);
-  for (const req of requests)       if (!placedSlotKeys.has(req.slotKey)) placeRequest(req, false);
+  const outsideIlots = (req) => !ilot || ILOT_OUTSIDE.has(req.meta.id);
+  for (const req of savedRequests) if (slotStore[req.slotKey] && outsideIlots(req)) placeRequest(req, true);
+  for (const req of requests)       if (!placedSlotKeys.has(req.slotKey) && outsideIlots(req)) placeRequest(req, false);
+  for (const k of ilotTempClaim) claimed.delete(k);
   lp("moteurs");
   // NB: la purge des slots morts est déplacée APRÈS le placement décoratif (qui
   // crée des slots `dec_*`) — sinon, ajoutés après la purge, ils fuiteraient.
@@ -4546,7 +5036,8 @@ function computeCityLayout(s) {
   const placeDecor = (category, count) => {
     if (!CM_SLOTTED_DECOR) { placer.placeCategory(category, count, usedKeys, pushTile); return; }
     placeCategorySlotted(category, count, {
-      ordered: placer.orderedList(category),
+      // Mode îlots : les lots de bord, îlot par îlot, en rangée (ilotLayout.js).
+      ordered: ilot ? ilot.lots : placer.orderedList(category),
       store: slotStore, live: liveSlotKeys,
       cx, cy, N, cycle: s.cycles || 0,
       eraBand: c.eraBand | 0,
@@ -4565,16 +5056,77 @@ function computeCityLayout(s) {
       clamp: cmClamp
     });
   };
-  placeDecor("house", biasedCount(c.houses, bias.house));
+  const houseCount = biasedCount(c.houses, bias.house);
+  // ── LES MAISONS REPRENNENT LA PLACE ─────────────────────────────────────────
+  // Une partie en cours dont les ateliers des guildes viennent d'être semés (cf.
+  // cmRequestZone) : ils ont quitté le cœur, et les maisons, elles, ne bougent
+  // jamais (keepInPlace) — le cœur restait troué de dizaines de lots vides
+  // (mesuré, band 4 : 77 % du cœur bâti avant, 64 % après). On libère donc autant
+  // de places de maisons qu'il y a de cases rendues, en prenant les plus
+  // ÉLOIGNÉES du centre : ces maisons-là repassent par la passe 2, qui comble les
+  // meilleures cases libres, donc le cœur. Une seule fois : dès ce calcul, les
+  // slots des ateliers portent la zone « sown » et `sownVacated` retombe à 0.
+  if (sownVacated > 0) {
+    const pre = cycleSlotPrefix + "dec_house:";
+    const far = [];
+    for (const key of Object.keys(slotStore)) {
+      if (!key.startsWith(pre) || !(Number(key.slice(pre.length)) < houseCount)) continue;
+      const sl = slotStore[key];
+      far.push({ key, d: Math.hypot(Number(sl.dx) || 0, Number(sl.dy) || 0) });
+    }
+    far.sort((a, b) => b.d - a.d || (a.key < b.key ? -1 : 1));
+    for (const e of far.slice(0, sownVacated)) delete slotStore[e.key];
+  }
+  placeDecor("house", houseCount);
   // Maisons-MOTEUR : pool = engineHomes (palier) + marge LOOKAHEAD (couvre les achats
   // jusqu'au prochain palier), placées SANS chevauchement par le même pipeline. Elles
   // sont RÉVÉLÉES une par une au rendu (drawTile) selon engineHomesRaw → « 1 achat =
   // 1 bâtiment » sans recompute. Chaque tuile porte revealIdx (index de slot).
-  const ENGINE_HOME_LOOKAHEAD = 44;
+  // (ENGINE_HOME_LOOKAHEAD vit au niveau du module : le plan d'îlots le compte.)
   // ⚠ Camp : AUCUNE (cf. CAMP_LIFE) — elles n'y paraîtraient jamais, et leurs
   // sentiers et leurs cours, eux, se voyaient.
   placeDecor("enginehome", campLife ? 0 : (c.engineHomes || 0) + ENGINE_HOME_LOOKAHEAD);
   placingOwner = null;   // fin des poses à propriétaire (cf. heldBy)
+  // ── LES MAISONS TOURNÉES VERS LEUR RUE (docs/PLAN-ILOTS.md, lot I6) ────────
+  // Une maison d'une case posée sur un lot de bord d'îlot reçoit `face`, le côté de
+  // sa rue (même ordre que isoBuildingFront : S, E, W, N — le poussé vers la rue et
+  // la façade dessinée désignent ainsi le MÊME côté), et `row` : le dessin suit
+  // (pixelHouses.js, orientKeyOf). Les ateliers logés dans la rangée (`body`) aussi.
+  // LE MÉLANGE (Raph : « il faut un mélange mitoyen et ce qu'on a déjà ») : un côté
+  // d'îlot sur deux, tiré par (îlot, côté), et les grands côtés des îlots LONGS des
+  // axes sont des RANGÉES MITOYENNES (`terrace`) ; les autres gardent les maisons
+  // existantes, tournées. Une unité de rangée dont le mur latéral se voit (le voisin
+  // de devant n'est pas une rangée : coin, lot vide, maison isolée) est un BOUT de
+  // rangée (`rowEnd`) : une insula, fenêtres sur quatre faces.
+  if (ilot) {
+    const longSide = (e, face) => {
+      const b = ilot.blocks.find((q) => q.i + ":" + q.j === e.block);
+      if (!b) return false;
+      const wx = b.x1 - b.x0, wy = b.y1 - b.y0;
+      return wx > wy ? face === "S" || face === "N" : face === "E" || face === "W";
+    };
+    const sideMode = new Map();
+    const terraceSide = (e, face) => {
+      const k = e.block + ":" + face;
+      if (!sideMode.has(k)) sideMode.set(k, (e.long && longSide(e, face)) || ((cmHash("rangee:" + k) >>> 0) & 1) === 0);
+      return sideMode.get(k);
+    };
+    const terraceAt = new Set();
+    for (const t of tiles) {
+      if ((t.type !== "house" && t.type !== "enginehome" && !t.body) || (t.spanX || 1) !== 1 || (t.spanY || 1) !== 1) continue;
+      const e = ilot.lotFace.get(t.gx + "," + t.gy);
+      if (!e || !e.faces.length) continue;
+      const f = e.faces;
+      t.face = f.includes("S") ? "S" : f.includes("E") ? "E" : f.includes("W") ? "W" : "N";
+      t.row = 1;
+      if (terraceSide(e, t.face)) { t.terrace = 1; terraceAt.add(t.gx + "," + t.gy); }
+    }
+    for (const t of tiles) {
+      if (!t.terrace) continue;
+      const along = t.face === "S" || t.face === "N";
+      if (!terraceAt.has(along ? (t.gx + 1) + "," + t.gy : t.gx + "," + (t.gy + 1))) t.rowEnd = 1;
+    }
+  }
 
   // Purge des slots morts (moteurs + décoratifs `dec_*`) : ne garde que le cycle
   // courant ET les slots réellement posés cette frame (émonde la frange quand la
@@ -5028,7 +5580,14 @@ function computeCityLayout(s) {
   // les routes qui sortent vers la campagne restent sur l'herbe (pas de tentacule).
   // Consommée par le SOL BAKÉ (iso/isoGroundBake) ; les rues se dessinent PAR-DESSUS.
   const urbanSet = new Set();
-  for (let gy = 0; gy < N; gy += 1) for (let gx = 0; gx < N; gx += 1) {
+  if (ilot) {
+    // Mode îlots : le sol de ville, ce SONT les îlots ouverts et leurs rues — la
+    // ville s'arrête à sa dernière rue, l'herbe commence derrière. Les cours des
+    // îlots de maisons sont des jardins (townGreen, repeints en herbe plus bas).
+    for (const b of ilot.blocks) for (const q of b.cells) urbanSet.add(q.x + "," + q.y);
+    for (const k of roadKey) if (!riverSet.has(k)) urbanSet.add(k);
+    for (const q of ilot.courts) townGreen.add(q.gx + "," + q.gy);
+  } else for (let gy = 0; gy < N; gy += 1) for (let gx = 0; gx < N; gx += 1) {
     const k = gx + "," + gy;
     if (organicLimit(gx, gy, 1.5) && !riverSet.has(k)) urbanSet.add(k);
   }
@@ -5050,7 +5609,11 @@ function computeCityLayout(s) {
   // de ville. La marge n'est pas cosmétique — une cellule urbaine ISOLÉE au milieu
   // de l'herbe se lit comme une tache géométrique (même écueil que les losanges
   // isolés de la lisière) ; avec le pourtour, un bâtiment écarté a une COUR.
+  // ⚠ SAUF LE TERROIR (docs/PLAN-TERROIR.md) : champs et moulins de rangée sont de
+  // la CAMPAGNE. Sous eux, un carré de pavé gris faisait du champ un tapis posé
+  // sur une dalle (capture de Raph, 2026-10-03) ; ils dessinent eux-mêmes leur sol.
   for (const t of tiles) {
+    if (t.rural) continue;
     const sx = t.spanX || t.size || 1, sy = t.spanY || t.size || 1;
     for (let ax = -1; ax <= sx; ax += 1) for (let ay = -1; ay <= sy; ay += 1) {
       const gx = t.gx + ax, gy = t.gy + ay;
@@ -5062,13 +5625,32 @@ function computeCityLayout(s) {
   // Lot L8 : prés, jardins et ceintures se lisent en HERBE — sortis du sol de
   // ville (sinon le champ de densité les repeignait en pavé, cf. COUR), sauf
   // sous un bâtiment ou une rue.
-  if (townOn && townGreen.size) {
+  if ((townOn || ilot) && townGreen.size) {
     const builtK = new Set();
     for (const t of tiles) {
       const sx = t.spanX || t.size || 1, sy = t.spanY || t.size || 1;
       for (let ax = 0; ax < sx; ax += 1) for (let ay = 0; ay < sy; ay += 1) builtK.add((t.gx + ax) + "," + (t.gy + ay));
     }
     for (const k of townGreen) if (!builtK.has(k) && !roadKey.has(k)) urbanSet.delete(k);
+  }
+  // LE TERROIR se tient dans l'HERBE (docs/PLAN-TERROIR.md) : ses parcelles et deux
+  // cases tout autour sortent du sol de ville, sauf sous un bâtiment de ville ou
+  // une rue. Sans ça, un champ posé à la lisière gardait un pan de pavé gris
+  // contre ses haies (la frontière organique du bourg le traverse).
+  {
+    const keep = new Set();
+    for (const t of tiles) {
+      if (t.rural) continue;
+      const sx = t.spanX || t.size || 1, sy = t.spanY || t.size || 1;
+      for (let ax = 0; ax < sx; ax += 1) for (let ay = 0; ay < sy; ay += 1) keep.add((t.gx + ax) + "," + (t.gy + ay));
+    }
+    for (const t of tiles) {
+      if (t.buildingId !== "irrigated_fields" || !t.rural) continue;
+      for (let gy = t.gy - 2; gy < t.gy + t.spanY + 2; gy += 1) for (let gx = t.gx - 2; gx < t.gx + t.spanX + 2; gx += 1) {
+        const k = gx + "," + gy;
+        if (!keep.has(k) && !roadKey.has(k)) urbanSet.delete(k);
+      }
+    }
   }
   lp("urbain");
   lpEnd();
@@ -5100,7 +5682,7 @@ function computeCityLayout(s) {
     campHearth: hearthCell,
     gridN: N, cx, cy, tiles, urbanSet,
     roads: roadGraph.roads, roadSet: roadGraph.roadSet, roadMap: roadGraph.roadMap, roadMeta,
-    districts, trees, critters, maxD2, counts: c, roadCover: netCover, roadWorksInfo, median, roadMedian, terrePlein, river, water, engineTileMap, wonderSlots, wonderGround, wonderTiers, wonderPaveR, townGreen: townOn ? townGreen : null,
+    districts, trees, critters, maxD2, counts: c, roadCover: netCover, roadWorksInfo, median, roadMedian, terrePlein, river, water, engineTileMap, wonderSlots, wonderGround, wonderTiers, wonderPaveR, townGreen: (townOn || ilot) ? townGreen : null,
     // Les deux ports du XIXe (docs/PLAN-PORTS.md) : le bassin du Vieux-Port
     // { gx, gy, w, h } et le terre-plein de commerce { x0, len, side, depth, edge }.
     ports: (oldBasin || tradePort) ? { old: oldBasin, trade: tradePort } : null,

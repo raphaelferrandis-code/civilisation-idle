@@ -28,7 +28,7 @@
 
 import { CM } from './layout.js';
 import { drawEngineSprite } from './engineSprites.js';
-import { getPropVersion } from './cityEngineSprites.js';
+import { getPropVersion, engineCraft } from './cityEngineSprites.js';
 import { suspendFlameGlow } from './flameGlow.js';
 import { suspendLightLayer, lightCutImage } from './lightLayer.js';
 import { captureSunShadows, bakeSunShadowPlane, drawSunShadowPlane, sunShadowVersion } from './iso/isoSunShadow.js';
@@ -121,7 +121,10 @@ function sceneKey(t, side, now) {
   // l'autre. Une halle et un atelier pouvaient alors partager une scène cuite,
   // et donc le sprite de PALIER (substitué sur l'empreinte, cf. palierImg).
   const sx = t.spanX || t.size || 1, sy = t.spanY || t.size || 1;
-  t._scnKey = id + ':' + (t.tier || 0) + ':' + side + ':' + sx + 'x' + sy + ':' + ep;
+  // Le MÉTIER d'un atelier des guildes change son dessin (cf. engineCraft) : sans
+  // lui, les trois ateliers partageraient la scène cuite du premier venu.
+  const craft = engineCraft(t);
+  t._scnKey = id + (craft ? '~' + craft : '') + ':' + (t.tier || 0) + ':' + side + ':' + sx + 'x' + sy + ':' + ep;
   return t._scnKey;
 }
 

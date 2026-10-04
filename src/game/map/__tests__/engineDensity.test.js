@@ -70,6 +70,12 @@ describe('densité moteur — la ville ne rétrécit jamais', () => {
     expect(count('water_mills', 13)).toBe(13);   // le moulin à vent suit le régime commun
   });
 
+  it('les moulins plafonnent à 15 (Raph, planche du terroir 2026-10-03)', () => {
+    expect(count('water_mills', 15)).toBe(15);
+    expect(count('water_mills', 300)).toBe(15);
+    expect(count('foragers', 300)).toBeGreaterThan(15);   // le plafond ne fuit pas sur les autres
+  });
+
   it('la fin de partie est une ville, pas une dizaine de blocs', () => {
     expect(count('foragers', 300)).toBeGreaterThanOrEqual(40);
     expect(legacyInstances(300).length).toBeLessThan(16);   // l'avant, pour mémoire

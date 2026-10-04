@@ -150,13 +150,18 @@ export const SCENE_WINDOWS_DATA = {
     [76, 71, 3, 11], [38, 84, 2, 8], [102, 87, 2, 4], [129, 68, 2, 4], [128, 78, 4, 12],
     [101, 114, 3, 6], [38, 60, 1, 3], [59, 64, 2, 8],
   ],
-  // Collège : les deux fentes du flanc ; portique éteint.
+  // Collège (redessiné le 2026-10-04, salle à fronton dans l'axe de la grille) : les trois
+  // fenêtres du long flanc droit ; portique et porte éteints.
   'guild-collegium': [
-    [60, 67, 1, 6], [64, 69, 1, 5, 65, 70, 1, 4],
+    [67, 52, 1, 6, 68, 52, 1, 5],
+    [79, 46, 1, 6, 80, 46, 1, 5],
+    [89, 41, 1, 7, 90, 40, 1, 6],
   ],
   // Idem, grand.
   'guild-collegium-grand': [
-    [95, 112, 2, 8], [103, 116, 2, 8],
+    [106, 85, 1, 12, 107, 85, 1, 10, 108, 84, 1, 10],
+    [125, 76, 1, 11, 126, 75, 1, 10, 127, 75, 1, 9],
+    [142, 67, 1, 11, 143, 67, 1, 10, 144, 66, 1, 10, 145, 65, 1, 10],
   ],
   // Moneta : panneaux de bois sans vitre — éteinte.
   'mint-moneta': [],

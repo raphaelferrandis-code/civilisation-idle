@@ -597,5 +597,30 @@
       "archive-tabularium": "4d7e0fe0-3f6a-4390-9f73-39c165292861",
       "ruins-restoration-roman": "e0c6533e-0b6c-4273-aaa5-8c4bd1b1f185"
     }
+  },
+  "ateliersGuildes": {
+    "note": "Bande 4 : ateliers des guildes (annexes ; la halle garde le collège). create_8_direction_object size 64, low top-down ; forge = south-west en miroir, potier = south-east en miroir, teinturerie = south-west ; pied à 2 px du bas, quantize 24.",
+    "guild-officina-forge": "b825f6a6-05c7-4e8a-afd5-a27df849d656",
+    "guild-officina-potter": "bdabb6d6-1193-45e1-b1f2-7b31cf4e8847",
+    "guild-officina-dyer": "a872037a-b418-4928-8cf2-c2a305cf3023"
+  },
+  "mitoyens": {
+    "note": "Ville par îlots, bande 4 : unités de rangée (houses/row-<modèle>-<vue>.png). 64 px (lot 1, abandonné : trop étroit) puis 80 px avec objet de style ; vues choisies par mesure de lumière, miroir si besoin ; petits modèles normalisés à 58 px d’encre par image_to_pixelart fidèle ; insula = rotation d’origine.",
+    "lot1_64": {
+      "taberna": "e4a60270-fc4d-46e3-8545-3fd7c3bb5bd0",
+      "domus": "dc91926e-611a-4c9b-becc-e0a596eed0aa",
+      "insula": "a649fac0-7b79-43ae-b185-3b6cc9c14bb3",
+      "popina": "544268d1-06ff-42d2-9333-93e6ba798c9d"
+    },
+    "lot2_80": {
+      "taberna": "b297a688-a813-4aca-980d-63020834b23b",
+      "domus": "59df3c8b-bc8b-4285-9202-8db6145a66b8",
+      "insula": "ecc4651c-78b7-4f54-91e3-eb8d07b54115",
+      "popina": "1aab1cb0-60a8-4847-be83-894339cd42f1"
+    },
+    "college": {
+      "hall": "0edeb7c0-2f45-4fa4-8d8b-0983d8bfd4a6",
+      "petitConversion": "7481643b-436a-4f18-9fe9-eac5b1d1d136"
+    }
   }
 }

@@ -1,5 +1,5 @@
 /* eslint-disable */
-import { drawCityEngineSprite, engineStage, cosmicBase, softGround, propReady, blitProp, blitCosmicTower, animReady, blitAnim, setEngineSpan, setEngineSeed, cosmicSceneKey, ENGINE_HALO } from './cityEngineSprites.js';
+import { drawCityEngineSprite, engineStage, cosmicBase, softGround, propReady, blitProp, blitCosmicTower, animReady, blitAnim, setEngineSpan, setEngineSeed, cosmicSceneKey, ENGINE_HALO, engineCraft } from './cityEngineSprites.js';
 import { CM } from './layout.js';
 import { drawPixelBuilding } from './pixelBuildings.js';
 
@@ -1710,8 +1710,10 @@ function drawEngineSpriteCore(t, x, y, w, h, now, pass = 'all') {
   // gw/gh : les tuiles RECTANGULAIRES (ports, champs) portent spanX/spanY, les
   // moteurs CARRÉS (halle+ateliers) portent `size` — sans le repli, gw valait
   // toujours 1 pour eux et le palier de halle (grain G2) ne s'armait jamais.
+  // `craft` : le métier d'un atelier des guildes (cf. engineCraft) — porté aussi par
+  // la clé du cache des scènes cuites, qui sinon servirait la forge à tout le monde.
   if (drawCityEngineSprite({ ctx, id, tier, litWarm, litGold, ox, oy, sw, sh, px, strokeRect, now, band, ei,
-    gw: t.spanX || t.size || 1, gh: t.spanY || t.size || 1, pass,
+    gw: t.spanX || t.size || 1, gh: t.spanY || t.size || 1, pass, craft: engineCraft(t),
     seed: ((Math.imul(t.gx | 0, 73856093) ^ Math.imul(t.gy | 0, 19349663)) >>> 0) })) return;
 
 }

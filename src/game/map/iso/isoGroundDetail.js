@@ -367,6 +367,7 @@ export function isoBuildingFront(t, roadMap) {
 // (0,36). La borne se calcule, elle ne se règle pas à l'œil.
 export function isoFrontOffset(t, roadMap, cfg = FRONT) {
   if (!cfg.on || !cfg.push) return null;
+  if (t.terrace) return null;     // rangée mitoyenne : elle remplit son lot (pixelHouses.rowGeom)
   const f = isoBuildingFront(t, roadMap);
   if (!f) return null;
   const room = 0.5 - isoRoadHalfW(f.rank) - cfg.gap;

@@ -23,6 +23,7 @@ import { fp } from '../framePerf.js';
 import { worldToScreen, ISO_X } from './projection.js';
 import { grainTune } from '../spriteScale.js';
 import { drawEngineSprite } from '../engineSprites.js';
+import { engineCraft } from '../cityEngineSprites.js';
 import { drawCachedEngineScene } from '../engineSceneCache.js';
 import { engineAnimNow } from '../engineAnim.js';
 import { suspendFlameGlow } from '../flameGlow.js';
@@ -93,7 +94,8 @@ const _engInkCache = new Map();
 let _engInkCanvas = null;
 function engineInkFrac(t, now) {
   if (typeof document === 'undefined') return null;
-  const key = (t.buildingId || t.variant || '?') + ':' + (t.tier || 0)
+  const craft = engineCraft(t);   // un atelier des guildes = un dessin par métier
+  const key = (t.buildingId || t.variant || '?') + (craft ? '~' + craft : '') + ':' + (t.tier || 0)
     + ':' + (CM.layout?.counts?.eraBand ?? 0) + ':' + (CM.layout?.counts?.eraIndex ?? 0);
   const cached = _engInkCache.get(key);
   if (cached) return cached;

@@ -106,9 +106,15 @@ describe("mémoire du réseau — une ville qui se souvient", () => {
     // le terrain neuf, la vieille ville garde ses rues. Pas de 2 à 3 ères pour
     // tenir le temps de test ; la percée du boulevard (bande 5) et le passage
     // aux tours cosmiques (bande 7) sont dedans.
-    let prev = null, lost = 0, moved = 0, prevSlots = null;
+    let prev = null, lost = 0, moved = 0, prevSlots = null, prevIlot = false;
     for (const i of [12, 15, 18, 21, 24, 26, 29, 32, 35, 37]) {
       const L = grow(i);
+      // LA RÉORGANISATION UNIQUE (docs/PLAN-ILOTS.md, décision de Raph 2026-10-04) :
+      // le calcul qui fait passer la ville aux îlots la retrace, une fois — ses
+      // pertes et déménagements ne comptent pas. Avant comme après, la règle tient.
+      const ilotNow = !!(state.cityCore && state.cityCore.ilot);
+      if (ilotNow && !prevIlot) { prev = null; prevSlots = null; }
+      prevIlot = ilotNow;
       const roads = roadSet(L);
       const wg = L.wonderGround || new Set();
       const wet = (k) => {

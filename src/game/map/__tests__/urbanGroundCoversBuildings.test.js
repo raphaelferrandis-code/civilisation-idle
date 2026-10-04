@@ -35,9 +35,13 @@ function city(perType) {
 // Tuiles dont une cellule d'emprise n'est PAS du sol de ville. Les cellules de
 // fleuve sont exclues : le ponton d'un port et la roue d'un moulin mordent l'eau
 // par construction, et l'eau n'est pas du sol.
+// ⚠ SAUF LE TERROIR (docs/PLAN-TERROIR.md, 2026-10-03) : champs et moulins de
+// rangée (`rural`) sont de la CAMPAGNE — le pavé sous eux faisait du champ un tapis
+// posé sur une dalle. Leur invariant est l'inverse, gardé plus bas.
 function homeless(L) {
   const out = [];
   for (const t of L.tiles) {
+    if (t.rural) continue;
     const sx = t.spanX || t.size || 1, sy = t.spanY || t.size || 1;
     for (let ax = 0; ax < sx; ax += 1) {
       for (let ay = 0; ay < sy; ay += 1) {

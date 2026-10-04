@@ -38,6 +38,21 @@ describe('fenêtres relevées des maisons', () => {
     courtyard: [[36, 26, 14, 14]],   // le porche
     insula: [[0, 48, 64, 28]],       // les arcades du rez
     stonehouse: [[13, 35, 4, 8]],    // la porte
+    // Les romaines tournées (2026-10-04) : portes, porche, portes cintrées, rambarde.
+    'domus-fr': [[31, 34, 5, 11], [40, 37, 7, 8]],
+    'domus-bl': [[42, 30, 6, 14]],
+    'insula2-fr': [[33, 33, 22, 5], [33, 54, 21, 16]],
+    // Les rangées mitoyennes (2026-10-04) : étals, comptoirs, portiques, portes, balcon.
+    'row-taberna-fl': [[18, 57, 33, 24]],
+    'row-taberna-fr': [[50, 46, 25, 30]],
+    'row-domus-fl': [[26, 53, 14, 20]],
+    'row-domus-fr': [[56, 52, 16, 20]],
+    'row-popina-fl': [[24, 46, 28, 30]],
+    'row-popina-fr': [[50, 46, 27, 30]],
+    'row-insula-fl': [[8, 57, 34, 26], [24, 45, 9, 14]],
+    'row-insula-fr': [[55, 64, 6, 14]],
+    'row-insula-br': [[55, 64, 6, 14]],
+    'row-insula-bl': [[20, 63, 6, 12]],
   };
   for (const [nom, zones] of Object.entries(ETEINT)) {
     it(`${nom} : portes, étals et arcades restent éteints`, () => {
