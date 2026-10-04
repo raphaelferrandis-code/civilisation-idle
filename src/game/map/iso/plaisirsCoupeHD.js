@@ -1197,7 +1197,7 @@ function furnish(ctx, id, x, y, w, x0r, x1r, y0, open, seed) {
       at.forEach((tx, t) => {
         diceTable(F, R, S, tx, y);
         if (!on) return;
-        fig(tx - 6, y + BK, 0, 0, v(t), { back: true, role: 'croupier' });
+        fig(tx - 6, y + BK, 0, 'm', 1 + t, { back: true, role: 'croupier' });
         fig(tx + 14, y + BK, 2, t & 1, v(t + 1), { back: true });
         if (w >= 130) fig(tx - 30, y + SD, 0, 1 - (t & 1), v(t + 2));
         fig(tx + 33, y + SD, 2, 'g', v(t + 3), { role: 'hotesse' });
@@ -1252,7 +1252,7 @@ function furnish(ctx, id, x, y, w, x0r, x1r, y0, open, seed) {
       const px = x - Math.round(w / 4), bx = x + Math.round(w / 4);
       O.spr(px - 10, y + FOOT - 18, PIANO, pal, false, 'z', N);
       counter(F, R, S, bx, y, 44);
-      fig(bx, y + BK, 0, 0, v(0), { back: true, role: 'barman' });
+      fig(bx, y + BK, 0, 'm', 0, { back: true, role: 'barman' });
       fig(px + 2, y + SD, 1, 0, v(1), { role: 'pianiste' });
       fig(bx - 10, y + FR, 3, 1, v(2), { front: true });
       fig(px + 22, y + SD, 2, 'g', v(3));
@@ -1379,9 +1379,10 @@ function level(ctx, lv, rooms, open, i, core) {
   let wa = ix0 + HD.SIDE + 14, wb = (core.center ? ix1 : core.x0 - HD.WALLW) - HD.SIDE - 14;
   const al = ctx.boudoir && ctx.boudoir.level === i ? ctx.boudoir.x : null;
   if (al != null) { if (al - 32 - wa >= wb - (al + 32)) wb = Math.min(wb, al - 32); else wa = Math.max(wa, al + 32); }
+  // Aux niveaux impairs, c'est un GIGOLO qui passe, son plateau à la main (le service).
   if (wb - wa >= 120) {
-    const s = i * 7 + 2;
-    fig(wa + (s * 29) % (wb - wa), yF + 7, 0, i % 2 === 0 ? 'g' : 0, s, { walk: [wa, wb], speed: 12 + (s % 5) });
+    const s = i * 7 + 2, fille = i % 2 === 0;
+    fig(wa + (s * 29) % (wb - wa), yF + 7, 0, fille ? 'g' : 'm', fille ? s : (i - 1) / 2, { walk: [wa, wb], speed: 12 + (s % 5), tray: !fille });
   }
 }
 

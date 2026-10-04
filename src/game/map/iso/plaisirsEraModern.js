@@ -186,7 +186,7 @@ const NEON = {
       top: [CHROME[1], CHROME[3]], face: ['#7a3a2a', '#5a2a1e', '#3a1a12'], style: 'panel',
       items(Q, x0, yt) { item(Q, 'martini', x0 + 8, yt - 1); item(Q, 'martini', x0 + 34, yt - 1); },
     });
-    fig(bx, y + BK, 0, 0, r.v(0), { back: true, role: 'barman' });
+    fig(bx, y + BK, 0, 'm', 0, { back: true, role: 'barman' });
     fig(px - 8, y + SD, 1, 0, r.v(1), { role: 'pianiste' });
     fig(px + 24, y + SD, 2, 'g', r.v(3));
     fig(bx + 30, y + SD, 2, 1, r.v(2));
@@ -378,7 +378,7 @@ const COSMIC = {
     for (let i = bx - 22; i < bx + 22; i += 1) { P.put(i, y0 + 20, S.glow); N.put(i, y0 + 20, S.glow); }
     for (let k = 0; k < 9; k += 1) { const c = [S.glow, '#ffffff', M.trim[0]][k % 3]; P.rect(bx - 20 + k * 5, y0 + 14, 2, 6, c); N.rect(bx - 20 + k * 5, y0 + 14, 2, 6, c); }
     counterEra(ctx, bx, y, 48, { top: [M.glass[0], S.glow], face: [M.body[0], M.body[1], M.body[2]], style: 'light' });
-    fig(bx, y + BK, 0, 0, r.v(0), { back: true, role: 'barman' });
+    fig(bx, y + BK, 0, 'm', 0, { back: true, role: 'barman' });
     fig(px + 14, y + SD, 2, 'g', r.v(3), { role: 'harpiste' });
     fig(bx + 30, y + SD, 2, 1, r.v(2));
   },

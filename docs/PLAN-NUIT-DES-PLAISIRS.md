@@ -17,6 +17,7 @@ Quatre lots, dans l'ordre.
 | 4 | Compter les cartes au vingt-et-un (le sabot, le videur) | ✅ fait |
 | 5 | La lumière de la salle de nuit | ✅ fait |
 | 6 | Le french cancan et les courtisanes alanguies (PixelLab) | ✅ fait |
+| 7 | Les gigolos (moins nombreux, au service) | ✅ fait |
 
 ---
 
@@ -237,6 +238,33 @@ Raph : « Je veux oui, dessine sur PixelLab ».
   la coupe, dessinée par la vue d'un seul sprite (`plaisirsCast(band).alanguie`),
   retournée quand elle regarde à gauche ; elle prend la lumière de la salle.
 - ⛔ Toujours suggestif : robes fendues, jambes, décolletés ; pas de nudité.
+
+---
+
+## Lot 7 — les gigolos ✅
+
+Raph : « on a fait des filles mais il faut un peu de gigolos aussi (moins, plus dans le
+service) ».
+
+- **Deux par âge**, dessinés dans le même gréement que les filles
+  (`scripts/plaisirsGirls.mjs --gigolos`) : la même tête aux yeux nets, la même toise,
+  le torse large, nu sous le haut de son époque, les bras qui balancent avec le pas.
+  Le pagne et la cruche (Feu : le pagne, le colosse à la fourrure) ; la chemise lacée
+  ouverte et le pourpoint de cuir (Moyen Âge : le tavernier, l'écuyer) ; la toge sur
+  l'épaule et le pagne de lin (Antiquité : l'échanson, l'athlète) ; le gilet sur la peau
+  et la moustache, la marinière et le foulard rouge (Fonte : le garçon, l'apache) ; le
+  col et le nœud sur le torse nu, la chemise de satin (néon : le Chippendale, le
+  crooner) ; la veste à liseré de lumière et le harnais (âges de lumière : le servant,
+  l'ange).
+- **Au service** : le croupier des dés (une table sur deux, l'autre des deux), le
+  barman du salon, et le passant des niveaux impairs devient un SERVEUR, son plateau à
+  la main — une bouteille et une coupe (bande `-plateau`, la vue la prend quand la
+  figure porte `tray`). Les figures `m` de la coupe (`plaisirsCast(band).gigolos`).
+- **Moins que les filles** : de 1 à 5 gigolos par coupe pour 10 à 20 filles (toutes les
+  salles ouvertes).
+- Bandes : `node scripts/plaisirsGirls.mjs --gigolos [--only=<âge>]`, puis
+  `node scripts/bakeHalfBands.mjs inhabitants plaisirs-<âge>-<nom> --div=2` ; aperçu :
+  `--preview-gigolos=<sortie.png>`.
 
 ---
 

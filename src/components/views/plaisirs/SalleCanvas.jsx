@@ -98,6 +98,11 @@ export default function SalleCanvas({ bake, band, lit, padLeft = 0, focus = null
         const list = cast && (type === 'd' ? cast.dancers : cast.girls);
         return list && list.length ? list[variant % list.length] : agentSpecFor(set, 1, variant);
       }
+      // Les GIGOLOS (« m ») ; sans les siens, un âge prend les hommes de son jeu d'habitants.
+      if (type === 'm') {
+        const list = cast && cast.gigolos;
+        return list && list.length ? list[variant % list.length] : agentSpecFor(set, 0, variant);
+      }
       return agentSpecFor(set, type, variant);
     };
     const mo = bake.motions;
@@ -213,7 +218,9 @@ export default function SalleCanvas({ bake, band, lit, padLeft = 0, focus = null
             dir = there ? 0 : 2;
             walking = true;
           }
-          drawNamedAgentIso(g, ox + (Math.round(x) + 0.5) * Z, oy + (f.y + 0.5) * Z, Z, spec.name, spec.scale * HDK, dir, walking, now, (f.x * 0.13) % 1);
+          // Le SERVEUR passe avec son plateau (sa bande « -plateau »).
+          const nom = f.tray && spec.plateau ? spec.plateau : spec.name;
+          drawNamedAgentIso(g, ox + (Math.round(x) + 0.5) * Z, oy + (f.y + 0.5) * Z, Z, nom, spec.scale * HDK, dir, walking, now, (f.x * 0.13) % 1);
         }
       };
       // La cabine de l'ascenseur, à la hauteur où la porte le manège (au rez sinon).

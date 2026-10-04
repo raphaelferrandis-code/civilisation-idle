@@ -283,11 +283,12 @@ export function fireBowl(ctx, x, y) {
 // L'ÉQUIPE D'UNE TABLE (tous les âges) : le croupier et un joueur DERRIÈRE, deux joueurs
 // AUX BOUTS, l'hôtesse à côté, et au plus un joueur de dos au COIN de la table quand la
 // salle est large. Jamais au milieu devant : à 27 px, un joueur cache une table de 13.
+// Le croupier est un GIGOLO de la Maison (une table sur deux, l'autre des deux).
 export function tableCrew(ctx, r, tx, half, t = 0, girlCroupier = false) {
   const { fig } = ctx, { x, y, w, on, v } = r;
   if (!on) return;
   const inRoom = (px) => Math.abs(px - x) <= w / 2 - 12;
-  fig(tx - 5, y + BK, 0, girlCroupier ? 'g' : 0, v(t), { back: true, role: girlCroupier ? 'croupière' : 'croupier' });
+  fig(tx - 5, y + BK, 0, girlCroupier ? 'g' : 'm', girlCroupier ? v(t) : 1 + Math.round(t / 5), { back: true, role: girlCroupier ? 'croupière' : 'croupier' });
   fig(tx + Math.round(half * 0.55), y + BK, 2, 1, v(t + 1), { back: true });
   if (inRoom(tx - half - 9)) fig(tx - half - 9, y + SD, 0, 0, v(t + 2));
   if (inRoom(tx + half + 9)) fig(tx + half + 9, y + SD, 2, 'g', v(t + 3), { role: 'hotesse' });

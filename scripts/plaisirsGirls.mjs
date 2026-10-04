@@ -17,6 +17,8 @@
 // Écrit les bandes dans public/pixelart/agents/inhabitants (mêmes noms que les
 // personnages PixelLab qu'elles remplacent) et, si Aseprite est là, les sources
 // art/plaisirs/<nom>.aseprite (un calque par pièce, une étiquette par animation).
+// Les GIGOLOS de la Maison (2026-10-04) passent par le même gréement : section « LES
+// GIGOLOS », `--gigolos`, `--preview-gigolos=out.png`.
 import fs from 'node:fs';
 import path from 'node:path';
 import { PNG } from 'pngjs';
@@ -523,6 +525,320 @@ const CROUPIERES = [
   'plaisirs-neon-cocktail', 'plaisirs-jade-voile', 'plaisirs-astral-voile', 'plaisirs-cristal-voile',
 ];
 
+// ── LES GIGOLOS DE LA MAISON ────────────────────────────────────────────────
+// Raph, 2026-10-04 : « on a fait des filles mais il faut un peu de gigolos aussi (moins,
+// plus dans le service) ». Deux par âge, dessinés dans le même gréement que les filles :
+// la même tête (yeux nets), la même toise (semelles à y = 28), mais le TORSE large, nu
+// sous le gilet, la chemise ouverte ou la toge de son époque, les bras qui balancent.
+// Ils SERVENT : le barman, le croupier des dés, le serveur qui passe d'une salle à
+// l'autre, son plateau à la main (bande « -plateau »).
+// Lettres : peau S s Z U, sourcils et yeux E W I, bouche M, barbe naissante u ; cheveux
+// H h L ; haut A a Q (gilet, veste, liseré) ; étoffe claire T t (chemise, toge) ; bas
+// R r ; souliers F f ; or et nœud G N ; plateau Y y, verres C, boisson D.
+const SKIN_M = {
+  K: '#1a1018', S: '#f2c6a0', s: '#d09a78', Z: '#ffe2c8', U: '#b07a5c', E: '#24122a', W: '#ffffff', M: '#a8584e', u: '#c4a088',
+  Y: '#d8d8e0', y: '#8a8aa0', C: '#f4f0ff', c: '#c8c8d8', D: '#f0c040', B: '#1e5a3a', G: '#f0c040',
+};
+// La TÊTE (trois-quarts face) : cheveux courts plaqués, raie sur le côté, l'oreille ;
+// les yeux aux mêmes places que ceux des filles, la mâchoire plus carrée.
+const HEAD_M = {
+  court: {
+    se: [
+      '..HHHHHH....',
+      '.HHLLLLHHH..',
+      'HHLHHHHHHHH.',
+      'HHHHHHHHHHHh',
+      'HHHHHHHHhhHh',
+      'HHHHhSSSSSSh',
+      'HHHsSSEESEES',
+      'HHsSSSWISWIS',
+      '.HhSSSSSsSS.',
+      '..hSSSSsMS..',
+      '...sSSSSs...',
+    ],
+    ne: [
+      '..HHHHHH....',
+      '.HHHHHHHHH..',
+      'HHHHHHHHHHH.',
+      'HHHHHHHHHHHh',
+      'HHHHHHHHHHHh',
+      'HHHHHHHHHHhS',
+      'HHHHHHHHHhSS',
+      'HHHHHHHHHsSS',
+      '.HHHHHHHhSS.',
+      '..sSSSSSSs..',
+      '...sSSSSs...',
+    ],
+  },
+  // Les boucles (l'Antiquité, le néon) : le dessus frisé, des mèches sur le front.
+  boucle: {
+    se: [
+      '..HhHhHH....',
+      '.HHhHHhHHH..',
+      'HhHHLHHhHHH.',
+      'HHhHHHhHHhHh',
+      'HHHhHHHhHhHh',
+      'HHHHhSShSSSh',
+      'HHHsSSEESEES',
+      'HHsSSSWISWIS',
+      '.HhSSSSSsSS.',
+      '..hSSSSsMS..',
+      '...sSSSSs...',
+    ],
+    ne: [
+      '..HhHhHH....',
+      '.HHhHHhHHH..',
+      'HhHHhHHhHHH.',
+      'HHhHHHhHHhHh',
+      'HHHhHHHhHhHh',
+      'HhHHhHHhHHhS',
+      'HHhHHhHHHhSS',
+      'HHHhHHhHHsSS',
+      '.HhHHhHHhSS.',
+      '..sSSSSSSs..',
+      '...sSSSSs...',
+    ],
+  },
+  // Les cheveux longs (le Feu, le Moyen Âge) : la masse tombe derrière la nuque.
+  long: {
+    se: [
+      '..HHHHHH....',
+      '.HHLLHHHHH..',
+      'HHLHHHHHHHH.',
+      'HHHHHHHHHHHh',
+      'HHHHHHHHhHHh',
+      'HHHHhSSSSSSh',
+      'HHHHSSEESEES',
+      'HHHhSSWISWIS',
+      'HHHhSSSSsSS.',
+      'HHH.hSSsMS..',
+      'HH..sSSSSs..',
+    ],
+    ne: [
+      '..HHHHHH....',
+      '.HHHHHHHHH..',
+      'HHHHHHHHHHH.',
+      'HHHHHHHHHHHh',
+      'HHHHHHHHHHHh',
+      'HHHHHHHHHHhS',
+      'HHHHHHHHHhSS',
+      'HHHHHHHHHhSS',
+      'HHHHHHHHHhS.',
+      'HHHHHHHHHH..',
+      '.HHHHHHHH...',
+    ],
+    backSE: ['HHH', 'HHh', 'Hh.', 'h..'],
+  },
+};
+// La moustache, la barbe naissante (posées sur la tête de face).
+const ACC_M = {
+  moustache: { rows: ['HHH'], at: [16, 10] },
+  barbe: { rows: ['uu...u', '.uuuu.'], at: [13, 10] },
+  laurier: { rows: ['G.G.G.G.G'], at: [11, 3] },
+  casquette: { rows: ['..AAAAAA....', '.AAQAAAAAAA.', 'AAAAAAAAAAAa'], at: [10, 0] },
+  bandeau: { rows: ['GGGGGGGGGGGG'], at: [10, 4] },
+  os: { rows: ['WhWhWhW'], at: [12, 13], front: true },
+};
+// Le TORSE nu (dix de large, en x 11) : le cou, les épaules, les pectoraux (le reflet Z
+// sur le proche, le sillon s, l'ombre U dessous), les abdominaux, la taille.
+const TORSO_SE = [
+  '...sSSs...',
+  '.sZSSSSSs.',
+  'sZZSSSsSSs',
+  'SZSSSSsSSs',
+  'SSUUSsUUSs',
+  '.SSSSsSSs.',
+  '.sSSsSsSs.',
+  '..SSSSSS..',
+];
+const TORSO_NE = [
+  '...sSSs...',
+  '.sSSSSSZs.',
+  'sSSSSSSZSs',
+  'SSsSSSSsSs',
+  'SSSsSSsSSs',
+  '.SSSsSSSs.',
+  '.sSSSsSSs.',
+  '..SSSSSS..',
+];
+// Les HAUTS posés sur le torse (« . » laisse voir la peau).
+const TOPS_M = {
+  nu: null,
+  // Le gilet ouvert sur le torse nu, boutonné bas, le nœud papillon au cou.
+  gilet: {
+    se: ['..NNnNN...', 'AA......AA', 'AAA....AAA', 'AAAA..AAAA', 'AAAAA.AAAa', '.AAAAQAAA.', '.AAAAQAAA.', '..AAAAAA..'],
+    ne: ['..........', 'AAAAAAAAAA', 'AAAAAAAAAA', 'AAAAAAAAAA', 'AAAaAAAAAA', '.AAAaAAAA.', '.AAAAaAAA.', '..AAAAAA..'],
+  },
+  // Le col blanc et le nœud sur le torse nu (la revue).
+  col: {
+    se: ['..WNnNW...', '..........', '..........', '..........', '..........', '..........', '..........', '..........'],
+    ne: ['..WWWW....', '..........', '..........', '..........', '..........', '..........', '..........', '..........'],
+  },
+  // La chemise ouverte jusqu'au ventre, lacée (le Moyen Âge, le crooner).
+  chemise: {
+    se: ['..T....T..', 'TTTT..TTTT', 'TTTt..tTTT', 'TTTTa.tTTt', 'TTTTt.aTTt', '.TTTTtTTT.', '.TTTTtTTT.', '..TTTTTT..'],
+    ne: ['..TTTTT...', 'TTTTTTTTTT', 'TTTTTTTTTT', 'TTtTTTTTTT', 'TTTtTTTtTT', '.TTTtTTTT.', '.TTTTtTTT.', '..TTTTTT..'],
+  },
+  // La toge sur l'épaule lointaine, l'épaule proche nue (l'échanson).
+  toge: {
+    se: ['......TT..', '.....TTTTt', '....TTTTTt', '...TTtTTTt', '..TTTTtTTt', '.TTTTTTtTt', 'TTTTTTTTtT', 'GGGGGGGGGG'],
+    ne: ['..TT......', 'tTTTT.....', 'tTTTTT....', 'tTTTtTT...', 'tTTTTtTT..', 'tTtTTTTTT.', 'TtTTTTTTTT', 'GGGGGGGGGG'],
+  },
+  // La fourrure jetée sur l'épaule lointaine (le colosse du Feu).
+  fourrure: {
+    se: ['......RR..', '.....RRRRr', '....RRrRRr', '...RrRRRrR', '..RRRRrRRr', '.R.RrRRR.r', '.....R.r..', '..........'],
+    ne: ['..RR......', 'rRRRR.....', 'rRRrRR....', 'RrRRRrR...', 'rRRrRRRR..', 'r.RRRrR.R.', '..r.R.....', '..........'],
+  },
+  // La veste ouverte des âges de lumière (liseré lumineux Q) sur le torse nu.
+  veste: {
+    se: ['AA......AA', 'AAQ....QAA', 'AAQ....QAA', 'AAQ....QAA', 'AAQ....QAa', '.AQ....QA.', '.AQ....QA.', '..Q....Q..'],
+    ne: ['AAAAAAAAAA', 'AAAAAAAAAA', 'AAAAAAAAAA', 'AAAAaAAAAA', 'AAAAaAAAAa', '.AAAAaAAA.', '.AAAAAaAA.', '..AAAAAA..'],
+  },
+  // Le harnais de lumière (deux sangles croisées) sur le torse nu.
+  harnais: {
+    se: ['..........', '.Q......Q.', '..Q....Q..', '...Q..Q...', '....QQ....', '...Q..Q...', '..Q....Q..', '..........'],
+    ne: ['..........', '.Q......Q.', '..Q....Q..', '...Q..Q...', '....QQ....', '...Q..Q...', '..Q....Q..', '..........'],
+  },
+  // La marinière sans manches, ouverte au col, le foulard rouge (l'apache).
+  mariniere: {
+    se: ['...GGG....', 'TT.GG..TTT', 'AAAA..AAAA', 'TTTT..TTTT', 'AAAAA.AAAA', '.TTTTTTTT.', '.AAAAAAAA.', '..TTTTTT..'],
+    ne: ['..........', 'TTTTTTTTTT', 'AAAAAAAAAA', 'TTTTTTTTTT', 'AAAAAAAAAA', '.TTTTTTTT.', '.AAAAAAAA.', '..TTTTTT..'],
+  },
+  // Le pourpoint de cuir sans manches, lacé (l'écuyer).
+  pourpoint: {
+    se: ['..........', 'AAA....AAA', 'AAAA..AAAA', 'AAAAQ.AAAA', 'AAAA.QAAAa', '.AAAQ.AAA.', '.AAAAAAAA.', '..AAAAAA..'],
+    ne: ['..........', 'AAAAAAAAAA', 'AAAAAAAAAA', 'AAAaAAAAAA', 'AAAAaAAAAa', '.AAAAaAAA.', '.AAAAAaAA.', '..AAAAAA..'],
+  },
+};
+// Les BAS : la ceinture (y 20), les hanches (y 21), puis les jambes (trois de large, un
+// écart de deux entre elles) et les souliers (y 28) ; le pagne et la jupe de toge
+// laissent les jambes nues.
+const BOTTOMS_M = {
+  pantalon: { belt: 'aaaaGaaa', hips: 'RRRRRRRR', leg: 'RRr', top: 22 },
+  braies: { belt: 'aaaaGaaa', hips: 'RRRRRRRR', leg: 'RRr', top: 22, botte: 24 },
+  pagne: { cover: ['RRRRRRRRRR', 'RrRRRrRRrR', 'R.rRR.RrR.'], at: 11, y: 20, leg: 'SSs', top: 23 },
+  toge: { cover: ['TTTTTTTTTT', 'TtTTTtTTtT', 'TTtTTTtTTT', '.TTtTTTtT.'], at: 11, y: 20, leg: 'SSs', top: 24 },
+};
+// Les BRAS, le long du corps : proche (devant le torse, son trait l'en détache) et
+// lointain (derrière) ; la main avance ou recule avec le pas. `T` : la manche.
+const ARM_M = {
+  near: {
+    mid: ['.SS.', '.SS.', '.SS.', '.SS.', '.Ss.', '.SS.', '.SS.', '.ss.'],
+    fwd: ['.SS.', '.SS.', '.SS.', '..SS', '..Ss', '..SS', '..SS', '..ss'],
+    back: ['.SS.', '.SS.', '.SS.', 'SS..', 'Ss..', 'SS..', 'SS..', 'ss..'],
+  },
+  far: { mid: ['.SS', '.SS', '.SS', '.Ss', '.SS', '.SS', '.SS', '.ss'] },
+};
+// Le PLATEAU du serveur, porté de la main lointaine à hauteur de poitrine : une
+// bouteille (B, sa capsule d'or G) et une coupe (le bord C, la boisson D, le pied c).
+// Deux coupes côte à côte faisaient deux yeux ; un pixel de verre se noyait dans le
+// contour. Le bras lointain plié dessous.
+const TRAY = ['.G.....', '.B..CCC', 'BBB.DDD', 'BBB..c.', 'YYYYYYY', '.yyyyy.'];
+const ARM_TRAY = ['.SS...', '.SS...', '.SS...', '.SSs..', '..SSSS', '...sss'];
+
+// Un bras habillé : les `n` premiers rangs passent à la couleur de la manche (`c`, son
+// ombre en minuscule), le rang `cuff` devient la manchette blanche.
+function sleeveRows(rows, R0) {
+  if (!R0.sleeve && R0.cuff == null) return rows;
+  const c = R0.sleeve, lo = c ? c.toLowerCase() : null;
+  return rows.map((r, j) => {
+    if (R0.cuff != null && j === R0.cuff) return r.replace(/[Ss]/g, R0.cuffColor || 'W');
+    if (c && j < (R0.sleeveLen || 6)) return r.replace(/S/g, c).replace(/s/g, lo);
+    return r;
+  });
+}
+// Les rangs d'une jambe, du haut du bas jusqu'à la cheville (les bottes des braies
+// prennent la couleur des souliers), puis le soulier.
+function legRowsM(bot) {
+  const r = [];
+  for (let y = bot.top; y < 28; y += 1) r.push(bot.botte && y >= bot.botte ? 'FFf' : bot.leg);
+  r.push('FFF');
+  return r;
+}
+// g : bob, legNear / legFar, liftNear / liftFar (comme les filles), arm ('mid', 'fwd',
+// 'back' : la main proche qui balance), tray (le plateau), blink, look.
+function frameM(who, view, g) {
+  const R0 = ROSTER_M[who], pal = { ...SKIN_M, ...R0.pal }, cv = makeCanvas();
+  const b = g.bob || 0, se = view === 'se';
+  const head = HEAD_M[R0.head], bot = BOTTOMS_M[R0.bottom], top = TOPS_M[R0.top];
+  // Derrière : les cheveux longs, le bras lointain (ou celui du plateau), les jambes.
+  if (head.backSE && se) stamp(cv, { x: 9, y: 10 + b, rows: head.backSE, name: 'cheveux' }, pal, { outline: false });
+  if (g.tray) stamp(cv, { x: 20, y: 13 + b, rows: sleeveRows(ARM_TRAY, R0), name: 'bras-plateau' }, pal);
+  else stamp(cv, { x: 20, y: 13 + b, rows: sleeveRows(ARM_M.far.mid, R0), name: 'bras-loin' }, pal);
+  const legs = legRowsM(bot);
+  stamp(cv, { x: 17 + (g.legFar || 0), y: bot.top - (g.liftFar ? 1 : 0), rows: legs, name: 'jambe-loin' }, pal);
+  stamp(cv, { x: 12 + (g.legNear || 0), y: bot.top - (g.liftNear ? 1 : 0), rows: legs, name: 'jambe-près' }, pal);
+  // Le corps, d'un seul tenant : le torse, son haut, le bas, la tête.
+  const body = [{ x: 11, y: 12 + b, rows: se ? TORSO_SE : TORSO_NE, name: 'torse' }];
+  if (top) body.push({ x: 11, y: 12 + b, rows: se ? top.se : top.ne, name: 'haut' });
+  if (bot.cover) body.push({ x: bot.at, y: bot.y + b, rows: bot.cover, name: 'bas' });
+  else body.push({ x: 12, y: 20 + b, rows: [bot.belt, bot.hips], name: 'bas' });
+  body.push({ x: 10, y: 1 + b, rows: se ? eyes(head.se, g) : head.ne, name: 'tête' });
+  for (const a of R0.acc || []) { const A = ACC_M[a]; if (!se && (A.front || a === 'moustache' || a === 'barbe')) continue; body.push({ x: A.at[0], y: A.at[1] + b, rows: A.rows, name: a }); }
+  for (const p of body) stamp(cv, p, pal, { outline: false });
+  // Devant : le bras proche, qui balance avec le pas ; le plateau et ses verres.
+  stamp(cv, { x: 8, y: 13 + b, rows: sleeveRows(ARM_M.near[g.arm || 'mid'], R0), name: 'bras-près' }, pal);
+  if (g.tray) stamp(cv, { x: 21, y: 11 + b, rows: TRAY, name: 'plateau' }, pal);
+  outlineAll(cv, pal.K);
+  return cv;
+}
+// LA MARCHE en six images (le même pas que les filles) ; la main proche balance à
+// contre-jambe.
+const WALK_M = [
+  { legNear: 1, legFar: 0, bob: 0, arm: 'back' },
+  { legNear: 0, legFar: 0, liftFar: true, bob: -1, arm: 'mid' },
+  { legNear: -1, legFar: 1, bob: -1, arm: 'fwd' },
+  { legNear: -1, legFar: 1, bob: 0, arm: 'fwd' },
+  { legNear: 0, legFar: 0, liftNear: true, bob: -1, arm: 'mid' },
+  { legNear: 1, legFar: 0, bob: -1, arm: 'back' },
+];
+
+// ── LES GIGOLOS, âge par âge ─────────────────────────────────────────────────
+// Deux par troupe (plaisirsCast `gigolos`) : le premier sert (le plateau lui va), le
+// second tient le bar ou la table des dés. Chacun : sa tête, son haut, son bas, ses
+// manches, sa palette (peau comprise quand elle change).
+const TAN = { S: '#e0ac80', s: '#b8805c', Z: '#f4caa0', U: '#9a6448', u: '#a07c62' };
+const OLIVE = { S: '#e8b88c', s: '#c08c66', Z: '#f8d4b0', U: '#a06a4a', u: '#a88a6a' };
+const BRUN = { S: '#a8704a', s: '#7e4e30', Z: '#c88e64', U: '#603820', u: '#6e4a34' };
+const ROSTER_M = {
+  // 5 — LA FONTE : le garçon de café en gilet sur la peau, l'apache et son foulard rouge.
+  'plaisirs-fonte-garcon': { head: 'court', acc: ['moustache'], top: 'gilet', bottom: 'pantalon',
+    pal: { H: '#2a1c16', h: '#140c0a', L: '#4a3428', I: '#3a5a8a', A: '#1e1a24', a: '#0e0a12', Q: '#f0c040', N: '#0e0a12', n: '#3a3048', R: '#1e1a24', r: '#0e0a12', G: '#c8a040', F: '#1a1418', f: '#3a3040' } },
+  'plaisirs-fonte-apache': { head: 'court', acc: ['casquette'], top: 'mariniere', bottom: 'pantalon',
+    pal: { ...TAN, H: '#1a1410', h: '#0a0806', L: '#3a2a20', I: '#4a3a2a', T: '#f4f0e8', A: '#1e2a5a', a: '#c42a3a', Q: '#3a4a8a', G: '#c42a3a', R: '#2a2a34', r: '#14141c', F: '#1a1418', f: '#3a3040', D: '#c42a3a' } },
+  // 6 — LE NÉON : le torse nu, le col et le nœud de la revue ; le crooner en satin.
+  'plaisirs-neon-chippendale': { head: 'court', acc: [], top: 'col', bottom: 'pantalon', cuff: 5,
+    pal: { H: '#f0d070', h: '#b89a40', L: '#fff4b0', I: '#3a8ac8', N: '#0e0a12', n: '#3a3048', R: '#141018', r: '#08060c', a: '#08060c', G: '#f0c040', F: '#0e0a12', f: '#3a3048', D: '#ff4a9a' } },
+  'plaisirs-neon-crooner': { head: 'boucle', acc: [], top: 'chemise', bottom: 'pantalon', sleeve: 'T', sleeveLen: 4,
+    pal: { ...BRUN, H: '#1a1210', h: '#0a0806', L: '#3a2a20', I: '#6a4a2a', T: '#d82a5a', t: '#9a1a40', a: '#08060c', R: '#141018', r: '#08060c', G: '#f0c040', F: '#0e0a12', f: '#3a3048' } },
+  // 0-1 — LE FEU : le pagne de fourrure, le collier d'os, la planche et ses bols.
+  'plaisirs-feu-pagne': { head: 'long', acc: ['os'], top: 'nu', bottom: 'pagne',
+    pal: { B: '#a8643a', G: '#5a361c', ...TAN, H: '#5a3418', h: '#2e1a0c', L: '#8a5a30', I: '#5a7a3a', R: '#9a5a30', r: '#5a361c', F: '#6a4a2a', f: '#3a2a18', W: '#f4ecd8', Y: '#8a5a30', y: '#5a361c', C: '#c87a4a', c: '#8a5a30', D: '#6a2a1a' } },
+  'plaisirs-feu-colosse': { head: 'court', acc: ['barbe', 'os'], top: 'fourrure', bottom: 'pagne',
+    pal: { B: '#a8643a', G: '#5a361c', ...BRUN, H: '#1a1008', h: '#0a0604', L: '#3a2414', I: '#6a4a2a', R: '#8a8478', r: '#5a564c', F: '#5a564c', f: '#3a3830', W: '#f4ecd8', Y: '#8a5a30', y: '#5a361c', C: '#c87a4a', c: '#8a5a30', D: '#6a2a1a' } },
+  // 2-3 — LA PIERRE, LA COURONNE : le tavernier en chemise lacée ouverte, l'écuyer en
+  // pourpoint de cuir sur la peau ; la chope d'étain.
+  'plaisirs-moyen-tavernier': { head: 'long', acc: [], top: 'chemise', bottom: 'braies', sleeve: 'T', sleeveLen: 5,
+    pal: { H: '#6a3a1a', h: '#3a1e0c', L: '#9a6a3a', I: '#3a6a8a', T: '#f8f2e4', t: '#c8bca4', a: '#5a3a20', R: '#5a3a24', r: '#3a2414', G: '#c8a040', F: '#3a2414', f: '#5a3a24', Y: '#8a5a30', y: '#5a361c', C: '#b8b8c0', c: '#8a8a94', D: '#e0a030' } },
+  'plaisirs-moyen-ecuyer': { head: 'court', acc: ['barbe'], top: 'pourpoint', bottom: 'braies',
+    pal: { ...TAN, H: '#2a1a10', h: '#140c08', L: '#4a3020', I: '#4a7a3a', A: '#7a4a24', a: '#4a2a12', Q: '#e8d8b0', R: '#2e5a3a', r: '#1a3a24', G: '#c8a040', F: '#3a2414', f: '#5a3a24', Y: '#8a5a30', y: '#5a361c', C: '#b8b8c0', c: '#8a8a94', D: '#9a2a3a' } },
+  // 4 — LE MARBRE : l'échanson, la toge sur l'épaule, le laurier, la coupe de vin.
+  'plaisirs-antique-echanson': { head: 'boucle', acc: ['laurier'], top: 'toge', bottom: 'toge',
+    pal: { ...OLIVE, H: '#2a1a10', h: '#140c08', L: '#4a3020', I: '#3a6a5a', T: '#f4eee2', t: '#c8bfae', G: '#f0c040', F: '#a0602a', f: '#6a3a18', Y: '#f0c040', y: '#9a7020', C: '#f0c040', c: '#c8902a', D: '#7a1a3a', B: '#c87a4a' } },
+  // L'athlète : le pagne de lin, le bandeau d'or, un brassard d'or au bras.
+  'plaisirs-antique-athlete': { head: 'boucle', acc: ['bandeau'], top: 'nu', bottom: 'pagne', cuff: 1, cuffColor: 'G',
+    pal: { ...BRUN, H: '#1a1008', h: '#0a0604', L: '#3a2414', I: '#5a4a2a', R: '#f4eee2', r: '#c8bfae', G: '#f0c040', F: '#a0602a', f: '#6a3a18', Y: '#f0c040', y: '#9a7020', C: '#f0c040', c: '#c8902a', D: '#7a1a3a', B: '#c87a4a' } },
+};
+// 7-9 — LES ÂGES DE LUMIÈRE : le servant en veste ouverte à liseré lumineux, l'ange au
+// harnais de lumière ; le plateau de lumière.
+for (const [k, c] of COSMIC) {
+  const base = { H: c.hair[0], h: c.hair[1], L: c.hair[2], I: c.iris, A: c.dark, a: '#08060c', Q: c.glow, R: c.dark, r: '#08060c', G: c.glow, F: c.dark, f: c.glow2, Y: c.glow2, y: c.dark, C: '#ffffff', c: c.glow, D: c.glow };
+  ROSTER_M[`plaisirs-${k}-servant`] = { head: 'court', acc: [], top: 'veste', bottom: 'pantalon', sleeve: 'A', sleeveLen: 6, cuff: 6, cuffColor: 'Q',
+    pal: { ...(k === 'cristal' ? BRUN : k === 'jade' ? TAN : {}), ...base } };
+  ROSTER_M[`plaisirs-${k}-ange`] = { head: 'long', acc: [], top: 'harnais', bottom: 'pantalon',
+    pal: { ...(k === 'astral' ? BRUN : k === 'cristal' ? {} : OLIVE), ...base, R: c.glow2, r: c.dark } };
+}
+
 // ── Aperçu ───────────────────────────────────────────────────────────────────
 function preview(out, rowsOfFrames, k = 10) {
   const W = Math.max(...rowsOfFrames.map((r) => r.length)) * (SIZE * k + 6), H = rowsOfFrames.length * (SIZE * k + 6);
@@ -575,7 +891,7 @@ function saveRepos(n, save) {
   return r;
 }
 // La source Aseprite : les images d'une bande temporaire, rangées en étiquettes.
-async function asepriteSources(sheets) {
+async function asepriteSources(sheets, calque = 'fille') {
   if (!fs.existsSync(ASEPRITE)) { console.log('Aseprite absent : sources non écrites'); return; }
   const { execFileSync } = await import('node:child_process');
   fs.mkdirSync('art/plaisirs', { recursive: true });
@@ -589,7 +905,7 @@ async function asepriteSources(sheets) {
       `local sheet = Image{ fromFile = [[${tmp}]] }`,
       `local n = ${all.length}`,
       `local spr = Sprite(${SIZE}, ${SIZE}, ColorMode.RGB)`,
-      `spr.layers[1].name = 'fille'`,
+      `spr.layers[1].name = '${calque}'`,
       `for i = 2, n do spr:newEmptyFrame() end`,
       `for i = 1, n do local img = Image(${SIZE}, ${SIZE}, ColorMode.RGB); img:drawImage(sheet, Point(-(i - 1) * ${SIZE}, 0)); spr:newCel(spr.layers[1], spr.frames[i], img, Point(0, 0)); spr.frames[i].duration = 0.16 end`,
       `for _, t in ipairs({${tags.join(',')}}) do local tag = spr:newTag(t[2], t[3]); tag.name = t[1] end`,
@@ -645,4 +961,42 @@ if (PREV) {
   const k = +((process.argv.find((a) => a.startsWith('--k=')) || '').slice(4)) || 5;
   preview(PREV.slice(10), rows, k);
   console.log('aperçu', PREV.slice(10), rows.length);
+}
+
+// --gigolos [--only=fonte] : les bandes des gigolos ({nom}-{direction}.png, et
+// {nom}-plateau-{direction}.png pour le service), sud-ouest et nord-ouest en miroir,
+// puis leurs sources art/plaisirs/<nom>.aseprite. Les demi-bandes ensuite :
+//   node scripts/bakeHalfBands.mjs inhabitants <nom> --div=2
+if (process.argv.includes('--gigolos')) {
+  const only = (process.argv.find((a) => a.startsWith('--only=')) || '').slice(7) || null;
+  const written = [], sheets = {};
+  const save = (file, frames) => { fs.writeFileSync(path.join(OUT, file), PNG.sync.write(strip(frames))); written.push(file); };
+  for (const n of Object.keys(ROSTER_M)) {
+    if (only && !n.includes(only)) continue;
+    const se = WALK_M.map((g) => frameM(n, 'se', g)), ne = WALK_M.map((g) => frameM(n, 'ne', g));
+    const tse = WALK_M.map((g) => frameM(n, 'se', { ...g, tray: true })), tne = WALK_M.map((g) => frameM(n, 'ne', { ...g, tray: true }));
+    save(`${n}-southeast.png`, se); save(`${n}-southwest.png`, se.map(mirror));
+    save(`${n}-northeast.png`, ne); save(`${n}-northwest.png`, ne.map(mirror));
+    save(`${n}-plateau-southeast.png`, tse); save(`${n}-plateau-southwest.png`, tse.map(mirror));
+    save(`${n}-plateau-northeast.png`, tne); save(`${n}-plateau-northwest.png`, tne.map(mirror));
+    sheets[n] = [['marche-se', se], ['marche-ne', ne], ['plateau-se', tse], ['plateau-ne', tne]];
+  }
+  console.log('bandes des gigolos', written.length);
+  await asepriteSources(sheets, 'gigolo');
+}
+// --preview-gigolos=out.png : chaque gigolo, trois images de marche, le dos, trois
+// images au plateau.
+const PREV_M = process.argv.find((a) => a.startsWith('--preview-gigolos='));
+if (PREV_M) {
+  const only = (process.argv.find((a) => a.startsWith('--only=')) || '').slice(7);
+  const rows = [];
+  for (const n of Object.keys(ROSTER_M)) {
+    if (only && !n.includes(only)) continue;
+    rows.push([
+      ...WALK_M.slice(0, 3).map((g) => frameM(n, 'se', g)), frameM(n, 'ne', WALK_M[0]),
+      ...WALK_M.slice(0, 3).map((g) => frameM(n, 'se', { ...g, tray: true })), frameM(n, 'ne', { ...WALK_M[0], tray: true }),
+    ]);
+  }
+  preview(PREV_M.slice(18), rows, +((process.argv.find((a) => a.startsWith('--k=')) || '').slice(4)) || 6);
+  console.log('aperçu gigolos', PREV_M.slice(18), rows.length);
 }
