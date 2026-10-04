@@ -532,8 +532,12 @@ export function collectIsoItems(bake, now) {
       if (!dvVis(v.x + lo.x, v.y + lo.y, v.x + lo.x, v.y + lo.y)) continue;
       // Contact au sol MESURÉ sur l'image servie, à la taille dessinée (isoUnits).
       const h = vehSortLift(v, T);
+      // La CAISSE s'étend le long de l'axe de marche (même demi-longueur que la
+      // colonne, vehSortWide) : « devant un mur » se juge sur toute la caisse (cf.
+      // isoUnitDepthEx). Le porteur de panier est un passant : un point.
       { const gwx = v.x + lo.x + h, gwy = v.y + lo.y + h;
-        const dx = isoUnitDepthEx(gwx, gwy, vehSortWide(v, T)); const it = pushItem(); it.d = dx.d; it.ghost = dx.hidden; it.gwx = gwx; it.gwy = gwy; it.kind = 'veh'; it.v = v; }
+        const w = vehSortWide(v, T), e = v.type === 'basket' ? 0 : w, alongX = v.dir === 0 || v.dir === 1;
+        const dx = isoUnitDepthEx(gwx, gwy, w, alongX ? e : 0, alongX ? 0 : e); const it = pushItem(); it.d = dx.d; it.ghost = dx.hidden; it.gwx = gwx; it.gwy = gwy; it.kind = 'veh'; it.v = v; }
     }
   }
   // ÉMEUTE : émeutiers dans le TRI PEINTRE (clé pieds + offsets de file, comme
