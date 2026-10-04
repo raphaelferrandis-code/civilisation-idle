@@ -231,6 +231,28 @@ PLAN-ROUTES) et « une maison ne bouge jamais » (keepInPlace).
   jamais une rangée dos à dos. Au passage, fumée, fumée de crise et chevron
   « nouveau » prennent la même ancre que le sprite (ils sortaient à côté de la
   cheminée des maisons poussées vers la rue). Molette `__rowSetback(false|{margin})`.
+- 2026-10-04 (nuit — Raph : « c'est mieux, mais ça ne respire pas beaucoup maintenant.
+  Tous les îlots sont complets, les trottoirs fins, les voitures roulent à moitié sur
+  les trottoirs » + capture d'un fiacre peint sur un toit) :
+  - TRI : un véhicule était jugé « devant » un mur sur son seul point de tri — passé
+    le bord est d'une maison, un fiacre de la rue de DERRIÈRE la rangée se peignait
+    sur son toit (7 véhicules sur 80 à un instant, âge 5). `isoUnitDepthEx` reçoit
+    l'étendue de la caisse le long de l'axe de marche (`e8e3012`).
+  - L'AIR DES ÎLOTS (`ILOT_AIR`, ilotLayout) : chaque îlot de maisons laisse des lots
+    de bord en jardin — deux « respirations » par îlot (dose « forte » choisie par
+    Raph sur planche ; une de plus pour un îlot long), motif tiré par îlot parmi un
+    angle, un angle en L, deux lots au milieu d'un côté, deux angles opposés. Jamais
+    un lot tenu. La ville ouvre d'autant plus d'îlots (Marbre : 134 → 184 pour les
+    mêmes 780 maisons) ; l'estimation du rayon compte ~1,5 lot de moins par motif.
+    Pas d'arbre dans ces jardins : règle « pas d'arbre contre une maison ».
+  - TROTTOIRS : recul des rangées porté à 0,2 tuile de sol devant la bande des passants.
+  - PARTIE EN COURS : fiche d'îlots versionnée (`cityCore.ilot.v`, `ILOT_MEMORY_V` = 2) ;
+    une fiche v1 replace UNE fois ses maisons (slots `dec_*` du cycle) — îlots, rues,
+    halles, ateliers, merveilles ne bougent pas (décision de Raph).
+  - ⚠ Le test « rien ne bouge » a révélé une fragilité du FLEUVE : la grille grandit avec
+    les achats (N 164 → 170), le fleuve et ses îles se recalculent, et une rue de quai
+    devenue berge est abandonnée. Tolérée dans le test (cases devenues berge), à
+    traiter côté fleuve.
 - ⚠ Fragilité connue, hors îlots : quand le niveau des champs change leur découpage
   (`cmTerroirParcels`), la parcelle 0 qui s'épaissit mord sa propre rangée de moulins
   (distance 1, plus les sentiers qui les desservent) et le terroir entier se refonde

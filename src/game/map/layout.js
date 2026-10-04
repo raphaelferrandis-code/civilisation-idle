@@ -264,6 +264,10 @@ const ilotTownBody = (id, band) => ILOT_TUNE.annexBody && !!ANNEX_BODIES[band | 
 // scène (≈ 2 cases de large) trône sur un parvis vide — refusé en v1 (« 25 parvis
 // vides »), revu le 2026-10-04 sur les Ministères au dernier palier.
 const ILOT_HALL_MAX = 3;
+// Version de la fiche d'îlots (cityCore.ilot.v) : 1 = îlots pleins, 2 = îlots qui
+// respirent (lots-jardins, cf. ilotLayout ILOT_AIR) — une fiche v1 se replace une
+// fois (plus bas, « LA RESPIRATION DES ÎLOTS »).
+export const ILOT_MEMORY_V = 2;
 if (typeof window !== "undefined") {
   window.__ilots = (on) => {
     if (on != null) ILOT_MODE.on = on !== false;
@@ -2817,7 +2821,18 @@ function computeCityLayout(s) {
     s.cityRoads = null;
     delete s.cityCore.wonders; delete s.cityCore.quarters; delete s.cityCore.central;
     delete s.cityCore.districts; delete s.cityCore.highway;
-    s.cityCore.ilot = { v: 1, blocks: [], plazas: {}, halls: {}, annexes: {} };
+    s.cityCore.ilot = { v: ILOT_MEMORY_V, blocks: [], plazas: {}, halls: {}, annexes: {} };
+  }
+  // ── LA RESPIRATION DES ÎLOTS : un second passage, léger (Raph 2026-10-04) ──
+  // « Ça ne respire pas, tous les îlots sont complets » → des lots de bord restent en
+  // jardin (ilotLayout.js, ILOT_AIR). Une ville déjà bâtie tient tous ses lots, et un
+  // lot tenu n'est jamais pris pour jardin : sur décision de Raph, ses MAISONS (slots
+  // décoratifs `dec_*` du cycle) se replacent une fois. Îlots, rues, halles, ateliers,
+  // merveilles : rien d'autre ne bouge.
+  if (ilotMode && s.cityCore && s.cityCore.ilot && (s.cityCore.ilot.v | 0) < ILOT_MEMORY_V) {
+    const store = cmCityMapSlotsFor(s), pre = `${s.cycles || 0}:dec_`;
+    for (const k of Object.keys(store)) if (k.startsWith(pre)) delete store[k];
+    s.cityCore.ilot.v = ILOT_MEMORY_V;
   }
 
   // Quartiers et places : ils demandent le lit PEINT (corridorAt), c'est pour
@@ -3836,7 +3851,7 @@ function computeCityLayout(s) {
       demand: ilotDemand,
       memory: s.cityCore && s.cityCore.ilot,
     });
-    if (s.cityCore) s.cityCore.ilot = { v: 1, ...ilot.memory };
+    if (s.cityCore) s.cityCore.ilot = { v: ILOT_MEMORY_V, ...ilot.memory };
     for (const [k, m] of ilot.streets) {
       const e = roadMeta.get(k);
       if (e) { e.h = e.h || m.h; e.v = e.v || m.v; if (rankAbove(m.rank, e.rank)) e.rank = m.rank; }
@@ -5069,13 +5084,17 @@ function computeCityLayout(s) {
   // crée des slots `dec_*`) — sinon, ajoutés après la purge, ils fuiteraient.
 
   const bias = personality.buildingBias || {};
+  // L'AIR DES ÎLOTS (ilotLayout.js) : les lots laissés en jardin ne portent rien —
+  // pas même le pan d'un grand logis 2×2 ancré sur le lot voisin.
+  const ilotAir = ilot && ilot.air && ilot.air.length ? new Set(ilot.air.map((q) => q.gx + "," + q.gy)) : null;
   // Cellule libre pour un décoratif 1×1 : dans la grille, non occupée, constructible
   // (footprintFits = pas route/eau/berge/réservé), et bordant une rue si requis.
   const decCellFree = (gx, gy, spanX = 1, spanY = spanX, owner = null) => {
     placingOwner = owner;
     if (gx < 0 || gy < 0 || gx + spanX > N || gy + spanY > N) return false;
     for (let ax = 0; ax < spanX; ax += 1) for (let ay = 0; ay < spanY; ay += 1) {
-      if (usedKeys.has((gx + ax) + "," + (gy + ay))) return false;
+      const k = (gx + ax) + "," + (gy + ay);
+      if (usedKeys.has(k) || (ilotAir && ilotAir.has(k))) return false;
     }
     if (!footprintFits(gx, gy, spanX, false, false, spanY)) return false;
     // UNE MAISON QUI REPREND SA PROPRE PLACE (mémoire des rues : la cellule lui
@@ -5668,6 +5687,7 @@ function computeCityLayout(s) {
     // cf. ilotBigHomeLots) sont des jardins, pas des dalles nues : comme les cours, ils
     // sortent du sol de ville plus bas, sauf ceux qu'un bâtiment occupe.
     for (const l of ilot.lots) townGreen.add(l.gx + "," + l.gy);
+    for (const q of ilot.air) townGreen.add(q.gx + "," + q.gy);   // l'air des îlots
   } else for (let gy = 0; gy < N; gy += 1) for (let gx = 0; gx < N; gx += 1) {
     const k = gx + "," + gy;
     if (organicLimit(gx, gy, 1.5) && !riverSet.has(k)) urbanSet.add(k);
@@ -5763,7 +5783,7 @@ function computeCityLayout(s) {
     campHearth: hearthCell,
     gridN: N, cx, cy, tiles, urbanSet,
     roads: roadGraph.roads, roadSet: roadGraph.roadSet, roadMap: roadGraph.roadMap, roadMeta,
-    districts, trees, critters, maxD2, counts: c, roadCover: netCover, roadWorksInfo, median, roadMedian, terrePlein, river, water, engineTileMap, wonderSlots, wonderGround, wonderTiers, wonderPaveR, townGreen: (townOn || ilot) ? townGreen : null,
+    districts, trees, critters, maxD2, counts: c, roadCover: netCover, roadWorksInfo, median, roadMedian, terrePlein, river, water, engineTileMap, wonderSlots, wonderGround, wonderTiers, wonderPaveR, townGreen: (townOn || ilot) ? townGreen : null, ilotAir: ilot ? ilot.air : null,
     // Les deux ports du XIXe (docs/PLAN-PORTS.md) : le bassin du Vieux-Port
     // { gx, gy, w, h } et le terre-plein de commerce { x0, len, side, depth, edge }.
     ports: (oldBasin || tradePort) ? { old: oldBasin, trade: tradePort } : null,

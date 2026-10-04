@@ -1567,7 +1567,10 @@ function normalizeCityIlot(raw) {
       if (Number.isFinite(gx) && Number.isFinite(gy) && Math.abs(gx) <= 400 && Math.abs(gy) <= 400) annexes[k] = [Math.round(gx), Math.round(gy)];
     }
   }
-  return { v: 1, blocks, plazas, halls, annexes };
+  // `v` : version de la fiche (layout.js ILOT_MEMORY_V) — la perdre au chargement
+  // replacerait les maisons à chaque rechargement.
+  const v = Number.isInteger(raw.v) && raw.v >= 1 && raw.v <= 99 ? raw.v : 1;
+  return { v, blocks, plazas, halls, annexes };
 }
 
 // Les deux ports figés à leur fondation (docs/PLAN-PORTS.md, map/portSites.js) :

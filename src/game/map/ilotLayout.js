@@ -26,11 +26,20 @@ const PLAZA_KINDS = ["marche", "jardin", "parvis"];
 // 12 (v1 : 6) : au Néon, une maison-moteur sur 129 restait sans lot ; les lots en trop
 // sont des jardins (layout.js).
 const LOT_MARGIN = 12;
+// L'air des îlots (lots de bord laissés en jardin, cf. planIlots) — molette de
+// comparaison : __ilotAir(false) puis recalcul de la ville.
+// `motifs` : respirations par îlot (un îlot long en a une de plus).
+export const ILOT_AIR = { on: true, motifs: 2 };   // dose « forte », choisie par Raph (2026-10-04)
+if (typeof window !== "undefined") window.__ilotAir = (on) => { if (on && typeof on === "object") Object.assign(ILOT_AIR, { on: true }, on); else ILOT_AIR.on = on !== false; return { ...ILOT_AIR }; };
 // Cases de cardo sur la rive d'en face, au débouché du pont.
 const BRIDGE_LANDING = 5;
 // Lots de maisons par îlot plein (4×4 : 12 lots de bord) — pour l'ESTIMATION du
-// rayon seulement ; le compte réel se fait îlot par îlot.
+// rayon seulement ; le compte réel se fait îlot par îlot. Un îlot qui RESPIRE en loge
+// moins (~1,5 lot de jardin par motif, mesuré : 134 → 184 îlots pour les mêmes 780
+// maisons à deux motifs) : sous-estimé, le rayon grandissait d'une ère à l'autre, la
+// grille avec lui, et le fleuve qui s'étire avec la grille noyait des rues de berge.
 export const ILOT_LOTS_PER_BLOCK = 11;
+const lotsPerBlock = () => ILOT_LOTS_PER_BLOCK - (ILOT_AIR.on ? 1.5 * (ILOT_AIR.motifs | 0) : 0);
 
 const hash = (str) => {
   let h = 2166136261 >>> 0;
@@ -77,7 +86,7 @@ export function ilotMemoryCells({ core, bx, memory, pitch = ILOT_DEFAULTS.pitch 
  * ce qui, ailleurs, se pose « au bord de la ville » (merveilles, champs).
  */
 export function ilotReachFor({ lots, halls, pitch = ILOT_DEFAULTS.pitch }) {
-  const blocks = Math.ceil(lots / ILOT_LOTS_PER_BLOCK) + halls + 1;
+  const blocks = Math.ceil(lots / lotsPerBlock()) + halls + 1;
   const withPlazas = blocks * (1 + 1 / ILOT_PLAZA_EVERY);
   return Math.max(6, Math.sqrt((withPlazas * pitch * pitch) / Math.PI) * 1.1);
 }
@@ -176,7 +185,7 @@ export function planIlots(o) {
     const b = bk && byKey.get(bk);
     if (b && !role.has(bk)) { role.set(bk, { kind: "hall", key: h.key, size: h.size || 1 }); hallBlock.set(h.key, b); }
   }
-  const est = Math.ceil(o.demand.lots / ILOT_LOTS_PER_BLOCK) + o.demand.halls.length + 2;
+  const est = Math.ceil(o.demand.lots / lotsPerBlock()) + o.demand.halls.length + 2;
   const startOf = (zone) => zone === "center" ? 1 : zone === "mid" ? Math.round(est * 0.3) : Math.round(est * 0.55);
   for (const h of o.demand.halls) {
     if (hallBlock.has(h.key)) continue;
@@ -191,11 +200,56 @@ export function planIlots(o) {
     memHalls[h.key] = bkey(b);
   }
 
+  // ── L'AIR DES ÎLOTS ─────────────────────────────────────────────────────
+  // Raph 2026-10-04 : « ça ne respire pas beaucoup maintenant, tous les îlots sont
+  // complets ». Un îlot de maisons laisse quelques lots de bord en JARDIN — un angle,
+  // un angle en L, deux lots au milieu d'un côté, ou deux angles opposés (motif tiré
+  // par îlot, stable). Les rangées s'y interrompent (bouts de rangée à découvert), les
+  // carrefours s'ouvrent. La ville ouvre d'autant plus d'îlots pour loger les mêmes
+  // maisons (capOf les décompte). Jamais un lot déjà TENU par un bâtiment : une
+  // partie en cours ne voit rien bouger chez elle.
+  const airOf = new Map();                              // "i:j" → Set("x,y")
+  const airSet = (b) => {
+    const k = bkey(b);
+    if (airOf.has(k)) return airOf.get(k);
+    const out = new Set();
+    airOf.set(k, out);
+    if (!ILOT_AIR.on || role.has(k) || b.lots.length < 8) return out;
+    const isLot = new Map(b.lots.map((l) => [l.gx + "," + l.gy, l]));
+    const free = (x, y) => { const l = isLot.get(x + "," + y); return l && !(o.isHeld && o.isHeld(x, y)); };
+    const corners = b.lots.filter((l) => l.faces.length >= 2 || ((l.gx === b.x0 || l.gx === b.x1) && (l.gy === b.y0 || l.gy === b.y1)));
+    const add = (x, y) => { if (free(x, y)) out.add(x + "," + y); };
+    const motif = (h) => {
+      const m = h % 4;
+      if (m === 0 || m === 1 || m === 3) {
+        if (!corners.length) return;
+        const c = corners[(h >>> 3) % corners.length];
+        add(c.gx, c.gy);
+        if (m === 1) {                                  // angle en L : ses deux voisins de bord
+          const sx = c.gx === b.x0 ? 1 : -1, sy = c.gy === b.y0 ? 1 : -1;
+          add(c.gx + sx, c.gy); add(c.gx, c.gy + sy);
+        } else if (m === 3) {                           // l'angle opposé
+          const ox = c.gx === b.x0 ? b.x1 : b.x0, oy = c.gy === b.y0 ? b.y1 : b.y0;
+          add(ox, oy);
+        }
+      } else {                                          // deux lots au milieu d'un côté
+        const side = (h >>> 3) % 4, mx = Math.floor((b.x0 + b.x1) / 2), my = Math.floor((b.y0 + b.y1) / 2);
+        if (side === 0) { add(mx, b.y0); add(mx + 1, b.y0); }
+        else if (side === 1) { add(mx, b.y1); add(mx + 1, b.y1); }
+        else if (side === 2) { add(b.x0, my); add(b.x0, my + 1); }
+        else { add(b.x1, my); add(b.x1, my + 1); }
+      }
+    };
+    const n = (ILOT_AIR.motifs | 0) + (b.lots.length > 14 ? 1 : 0);   // îlot long : une de plus
+    for (let r = 0; r < n; r += 1) motif(hash("air" + (r ? r + 1 : "") + ":" + k));
+    return out;
+  };
+
   // ── Combien d'îlots ouvrir ───────────────────────────────────────────────
   // Les mémorisés d'abord, puis l'ordre, jusqu'à loger la demande ET atteindre le
   // forum et chaque halle. Une place de quartier naît tous les ILOT_PLAZA_EVERY
   // îlots OUVERTS (compte stable : l'ouverture est mémorisée).
-  const capOf = (b) => { const r = role.get(bkey(b)); return !r ? b.lots.length : r.kind === "hall" ? Math.max(0, b.lots.length - 2 * r.size) : 0; };
+  const capOf = (b) => { const r = role.get(bkey(b)); return !r ? b.lots.length - airSet(b).size : r.kind === "hall" ? Math.max(0, b.lots.length - 2 * r.size) : 0; };
   let need = o.demand.lots + LOT_MARGIN;
   for (const b of opened) need -= capOf(b);
   let maxRole = -1;
@@ -240,7 +294,7 @@ export function planIlots(o) {
     hallAt.set(r.key, at);
   }
   const lotAt = new Map();
-  for (const b of houseBlocks) for (const l of b.lots) lotAt.set(l.gx + "," + l.gy, { l, b });
+  for (const b of houseBlocks) for (const l of b.lots) if (!airSet(b).has(l.gx + "," + l.gy)) lotAt.set(l.gx + "," + l.gy, { l, b });
   const courtOf = new Set();
   for (const b of houseBlocks) for (const c of b.court) courtOf.add(c.gx + "," + c.gy);
   const typesIn = new Map();                            // "i:j" → Set(id)
@@ -295,11 +349,12 @@ export function planIlots(o) {
   // `long` : îlot allongé (deux pas de grille, le long d'un axe) — ses côtés sont
   // des rangées mitoyennes (layout.js). `lotFace` couvre AUSSI les lots des ateliers.
   const isLong = (b) => Math.max(b.x1 - b.x0, b.y1 - b.y0) + 1 > pitch - 1;
-  const lots = [], lotFace = new Map();
+  const lots = [], lotFace = new Map(), air = [];
   for (const b of houseBlocks) for (const l of b.lots) {
     const e = { gx: l.gx, gy: l.gy, faces: l.faces, block: bkey(b), long: isLong(b) };
     lotFace.set(l.gx + "," + l.gy, e);
-    if (!lotTaken.has(l.gx + "," + l.gy)) lots.push(e);
+    if (airSet(b).has(l.gx + "," + l.gy)) air.push({ gx: l.gx, gy: l.gy });
+    else if (!lotTaken.has(l.gx + "," + l.gy)) lots.push(e);
   }
   const courts = [];
   for (const b of houseBlocks) for (const c of b.court) if (!lotTaken.has(c.gx + "," + c.gy)) courts.push(c);
@@ -344,5 +399,5 @@ export function planIlots(o) {
   for (const b of blocks) { const r = role.get(bkey(b)); if (r && r.kind === "plaza") memPlazas[bkey(b)] = r.plazaKind; }
   const memOut = { blocks: blocks.map(bkey), plazas: memPlazas, halls: memHalls, annexes: memAnnex };
   for (const k of Object.keys(memOut.halls)) if (!openedSet.has(memOut.halls[k])) delete memOut.halls[k];
-  return { grid, order, blocks, opened: openedSet, streets, plazas, halls, hallBlock, hallAt, annexAt, lots, lotFace, courts, memory: memOut, seed };
+  return { grid, order, blocks, opened: openedSet, streets, plazas, halls, hallBlock, hallAt, annexAt, lots, lotFace, courts, air, memory: memOut, seed };
 }
