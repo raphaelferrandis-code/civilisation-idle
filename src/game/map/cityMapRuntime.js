@@ -54,6 +54,9 @@ import { drawIsoWorld } from './iso/isoRenderer.js';
 // monument dont il lit l'encre : c'est ce sprite qu'il interroge pour savoir si le
 // clic tombe sur la maison. Le peintre n'avait aucune raison de le porter.
 import { plaisirsHitTest } from './iso/isoPlaisirs.js';
+// Les faits divers (docs/PLAN-FAITS-DIVERS.md) : leurs scènes passent par la petite
+// vie ; leur clic passe AVANT celui de la carte (bindFaitsDiversInput).
+import { bindFaitsDiversInput } from './faitsDivers/index.js';
 // `waterShoreTune` est parti dans isoPalette.js le 2026-08-23 : c'est un RÉGLAGE de
 // teinte, pas du peintre. La molette `__waterShore` plus bas l'écrit par Object.assign
 // — mutation d'objet, donc légale sur une liaison importée.
@@ -742,6 +745,9 @@ function bindCityMapInput(canvas, mapRoot, callbacks = {}) {
   const clearHover = callbacks.clearHover || function () {};
   const controller = new AbortController();
   const { signal } = controller;
+  // FAITS DIVERS : un clic sur l'un de leurs personnages ouvre sa réplique, avant
+  // tout le reste (un passant qui le frôle ne doit pas voler le clic).
+  bindFaitsDiversInput(canvas, mapRoot, signal);
 
   canvas.addEventListener("wheel", (e) => {
     e.preventDefault();

@@ -1,0 +1,89 @@
+/* ============================================================================
+   FAITS DIVERS — la réplique du personnage cliqué sur la carte (FaitDiversCard.jsx).
+   ----------------------------------------------------------------------------
+   Même plaque que la fiche d'habitant (citizen-sheet) et même place, en bas à
+   gauche du monde : la caméra amène la scène au centre, la plaque ne la couvre
+   jamais. L'une remplace l'autre. Qui parle, ce qu'il dit — rien d'autre.
+   ⛔ Aucune phrase d'explication (règle de DA) : la plume dit « inscrit » par
+   son infobulle.
+   ============================================================================ */
+
+.fait-card {
+  position: absolute;
+  left: var(--hud-gap, 1rem);
+  bottom: calc(var(--regul-bar-h, 3.2rem) + 2 * var(--hud-gap, 1rem));
+  z-index: 25;
+  width: 21rem;
+  max-width: calc(100% - 2 * var(--hud-gap, 1rem));
+  padding: 0.75rem 0.95rem 0.9rem;
+  background: rgba(12, 15, 24, 0.95);
+  box-shadow:
+    inset 0 0 0 1px rgba(0, 0, 0, 0.6),
+    inset 0 0 0 2px rgba(196, 204, 221, 0.06),
+    0 6px 18px rgba(0, 0, 0, 0.45);
+  color: #f6e7bf;
+  pointer-events: auto;
+  /* Une entrée en crans, pas une courbe : un objet pixel n'accélère pas. */
+  animation: fait-card-in 160ms steps(4, end);
+}
+@keyframes fait-card-in {
+  from { opacity: 0; transform: translateY(6px); }
+  to { opacity: 1; transform: none; }
+}
+/* Régulation dépliée : la plaque remonte au-dessus, comme la fiche d'habitant. */
+:root:not([data-pointer="coarse"]) .app[data-active-view="city"] .city-left-col:has(> .city-controls-panel.is-open) .fait-card {
+  bottom: calc(var(--regul-open-h, 10.5rem) + 2 * var(--hud-gap, 1rem));
+}
+
+.fait-card .fc-head {
+  display: flex;
+  align-items: center;
+  gap: 0.55rem;
+}
+.fait-card .fc-who {
+  flex: 1 1 auto;
+  min-width: 0;
+  font-family: var(--font-title);
+  font-size: 1.3rem;
+  font-weight: 400;
+  line-height: 1.05;
+  color: #fff1bd;
+  overflow-wrap: anywhere;
+}
+/* La plume : posée en crans quand le chapitre vient d'être inscrit. */
+.fait-card .fc-ink {
+  flex: 0 0 auto;
+  display: grid;
+  place-items: center;
+  width: 1.5rem;
+  height: 1.5rem;
+  color: #e8b54a;
+  animation: fait-card-ink 900ms steps(6, end) both;
+}
+@keyframes fait-card-ink {
+  0% { opacity: 0; transform: translate(-6px, -6px) rotate(-30deg); }
+  60% { opacity: 1; transform: translate(0, 0) rotate(8deg); }
+  100% { opacity: 1; transform: none; }
+}
+.fait-card .fc-close {
+  flex: 0 0 auto;
+}
+
+.fait-card .fc-line {
+  margin: 0.55rem 0 0;
+  font-size: 0.95rem;
+  line-height: 1.45;
+  color: #f6e7bf;
+}
+/* Didascalie : « (une bulle) », « (Il mime une boîte.) ». */
+.fait-card .fc-line.is-stage {
+  color: #d7c69a;
+  opacity: 0.9;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .fait-card,
+  .fait-card .fc-ink {
+    animation: none;
+  }
+}

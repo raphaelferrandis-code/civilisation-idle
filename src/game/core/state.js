@@ -14,6 +14,7 @@ import { epitaphLegacyById } from '../data/epitaphs.js';
 import { newCitySeed } from '../map/procedural/seedManager.js';
 import { generateCityName } from '../map/procedural/cityName.js';
 import { normalizeRoadMemory } from '../map/roadMemory.js';
+import { defaultFaitsDivers, normalizeFaitsDivers } from './faitsDiversState.js';
 
 // La clé vit dans saveKey.js (cloudSave.js doit la lire AVANT l'évaluation de
 // ce module — cf. l'en-tête de cloudSave.js) ; ré-exportée ici pour les clients.
@@ -701,6 +702,10 @@ export const defaultState = () => ({
   // GR_PERSISTENT_FIELDS). Objet plein dès le defaultState : la Chronique le lit
   // directement. Nourri par les recorders de chronicleStats.js.
   chronicleStats: defaultChronicleStats(),
+  // Les faits divers de la carte (docs/PLAN-FAITS-DIVERS.md) : les chapitres vus,
+  // le fil de Nancy et William. ÉTERNEL (cf. GR_PERSISTENT_FIELDS) ; forme et
+  // normalisation dans faitsDiversState.js, seul enregistreur : faitsDivers.js.
+  faitsDivers: defaultFaitsDivers(),
   buildings: Object.fromEntries(buildings.map((b) => [b.id, 0])),
   upgrades: {},
   // Nom procédural tiré à la création de partie (et régénéré à chaque cycle
@@ -1941,6 +1946,7 @@ export function hydrateState(parsed = {}) {
     lifetimePurchases: finiteInteger(source.lifetimePurchases, 0, 0),
     playTimeSec: finiteNumber(source.playTimeSec, 0, 0),
     chronicleStats: normalizeChronicleStats(source.chronicleStats),
+    faitsDivers: normalizeFaitsDivers(source.faitsDivers),
     buildings: normalizeNumberMap(source.buildings, buildingIds, base.buildings, true),
     upgrades: normalizeBooleanMap(source.upgrades, upgradeIds),
     chronicleEntries: normalizeChronicleEntries(source.chronicleEntries),
@@ -2305,7 +2311,11 @@ export const GR_PERSISTENT_FIELDS = [
   // vécu par le joueur, pas une ressource de partie. L'effacer au Grand Reset
   // punirait exactement le geste que la clepsydre existe pour servir — garder
   // son absence sous le coude pour la verser sur la cité neuve.
-  "storedSeconds"
+  "storedSeconds",
+  // Les faits divers de la carte : ce que le joueur a vu de la ville ne s'oublie
+  // pas, c'est ce qui fait la continuité d'un cycle à l'autre (une histoire
+  // commencée avant un Grand Reset se poursuit après).
+  "faitsDivers"
 ];
 
 // Copie un champ persistant vers le state frais. Les Decimal éventuels

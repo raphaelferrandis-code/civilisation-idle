@@ -25,6 +25,7 @@ import { getMythById } from '../../game/data/myths.js';
 import { GRAND_RESET_MILESTONES } from '../../game/core/mechanics/grandResetMilestones.js';
 import PixelIcon from '../ui/PixelIcon.jsx';
 import CycleAnnals from '../ui/CycleAnnals.jsx';
+import FaitsDiversChronique from '../ui/FaitsDiversChronique.jsx';
 import Place, { PlaceKey } from '../ui/Place.jsx';
 import { tipProps } from '../ui/HelpBubble.jsx';
 
@@ -759,6 +760,8 @@ export default function ChronicleView() {
             })}
           </ol>
         </div>
+        {/* Les faits divers de la carte : absents tant que rien n'a été vu. */}
+        <FaitsDiversChronique />
         <TempleRegistry />
       </div>
     </Place>
