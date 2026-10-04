@@ -10,7 +10,8 @@ import {
   blackjackLastOutcome,
   handValue
 } from '../../game/core/actions.js';
-import { doubleBlackjack, splitBlackjack, basicAction } from '../../game/core/actions/blackjack.js';
+import { doubleBlackjack, splitBlackjack, basicAction, blackjackSabot } from '../../game/core/actions/blackjack.js';
+import { videurBarre, videurBarreMin, videurOeil } from '../../game/core/actions/videur.js';
 import { hasTempleArtifact } from '../../game/core/actions/templeArtifacts.js';
 import { tableLimits } from '../../game/core/actions/maisonTable.js';
 import { fmt } from '../../game/core/utils.js';
@@ -19,7 +20,7 @@ import { tipProps } from './HelpBubble.jsx';
 import { cardSrc, cardLabel, CARD_BACK_SRC, CARD_DECK_SRC } from './cardSprites.js';
 import { usePlaisirsBand, cardFaceFor, cardBackFor } from './plaisirsMaterial.js';
 import StageHelp from './StageHelp.jsx';
-import PlaisirsTable from '../views/plaisirs/PlaisirsTable.jsx';
+import PlaisirsTable, { PancarteFermee } from '../views/plaisirs/PlaisirsTable.jsx';
 import TableMise from '../views/plaisirs/TableMise.jsx';
 import { initialStake, rememberStake, fmtMise } from '../views/plaisirs/miseMemory.js';
 import Monte from './Monte.jsx';
@@ -85,6 +86,9 @@ export default function BlackjackStage({ table, onClose }) {
   const [outcome, setOutcome] = useState(null);
   useGameState((s) => s.instability); // or, cagnotte, mises vivants (1 Hz)
   const cycles = useGameState((s) => s.cycles);
+  // LE SABOT ET LE VIDEUR (lot 4 de docs/PLAN-NUIT-DES-PLAISIRS.md).
+  useGameState((s) => s.bjBarreJusqua || 0);
+  useGameState((s) => (s.bjSoupcon || 0) + (s.bjAverti ? 100 : 0));
 
   // (Ré)ouverture : reprendre une main en cours (état module), sinon repartir au pari.
   useEffect(() => {
@@ -170,6 +174,33 @@ export default function BlackjackStage({ table, onClose }) {
     return tr({ fr: `Perdu : −${fmt(outcome.stakeFaveur || stake)} faveur`, en: `Lost: −${fmt(outcome.stakeFaveur || stake)} favor` });
   };
 
+  // Le sabot (ce qui reste avant la carte de coupe — pas le compte : c'est au joueur de
+  // compter), l'œil du chef de salle, et la porte du videur.
+  const sabot = blackjackSabot();
+  const barre = videurBarre();
+  const sabotHud = (
+    <div className="bj-sabot-hud">
+      <span
+        className="bj-sabot"
+        {...tipProps(tr({ fr: 'Le sabot', en: 'The shoe' }), tr({ fr: 'Six jeux battus ensemble : les cartes sorties ne reviennent qu’au prochain battage. La jauge : ce qui reste avant la carte de coupe.', en: 'Six decks shuffled together: cards dealt only come back at the next shuffle. The gauge: what is left before the cut card.' }))}
+      >
+        <i style={{ width: `${Math.round(sabot.reste * 100)}%` }} />
+      </span>
+      {sabot.neuf && <span className="bj-sabot-neuf" {...tipProps(null, tr({ fr: 'Sabot neuf', en: 'Fresh shoe' }))}>✦</span>}
+      {videurOeil() && (
+        <span className="bj-oeil" {...tipProps(tr({ fr: 'Le chef de salle', en: 'The pit boss' }), tr({ fr: 'Il a l’œil sur toi : tes mises suivent un peu trop bien le sabot.', en: 'He has his eye on you: your bets follow the shoe a little too well.' }))}>👁</span>
+      )}
+    </div>
+  );
+  const pancarteVideur = (L) => barre && (
+    <PancarteFermee
+      y={Math.round((L.top + L.bottom) / 2)}
+      texte={tr({ fr: 'VIDEUR', en: 'BOUNCER' })}
+      titre={tr({ fr: 'Le videur', en: 'The bouncer' })}
+      info={tr({ fr: `Il t'a raccompagné : à la Maison, on n'aime pas les compteurs de cartes. La table te rouvre dans ${videurBarreMin()} min.`, en: `He showed you out: the House does not like card counters. The table reopens to you in ${videurBarreMin()} min.` })}
+    />
+  );
+
   // Les pastilles des dernières mains (posées sur le mur, en haut à gauche de la table).
   const historyChips = history.length > 0 && (
     <div className="bj-history" aria-label={tr({ fr: 'Dernières mains', en: 'Last hands' })}>
@@ -201,6 +232,12 @@ export default function BlackjackStage({ table, onClose }) {
               en: 'This is the House’s most lenient table: played perfectly, it returns nearly 99%.'
             })}
           </p>
+          <p>
+            {tr({
+              fr: 'Le sabot tient six jeux, battus quand sort la carte de coupe : les cartes jouées ne reviennent pas avant. Un sabot riche en 10 et en As sourit au joueur — les malins comptent. Le chef de salle aussi : qui mise bien plus gros quand le sabot est riche se fait raccompagner par le videur.',
+              en: 'The shoe holds six decks, shuffled when the cut card comes out: cards played do not come back before. A shoe rich in 10s and Aces favours the player — clever ones count. So does the pit boss: whoever bets much bigger when the shoe is rich gets shown out by the bouncer.'
+            })}
+          </p>
         </StageHelp>
         <button type="button" className="stage-close" onClick={onClose} aria-label={tr({ fr: 'Quitter la table', en: 'Leave the table' })}>✕</button>
       </div>
@@ -214,7 +251,9 @@ export default function BlackjackStage({ table, onClose }) {
             <>
               <div className="ptable-hud">
                 {historyChips}
+                {sabotHud}
               </div>
+              {pancarteVideur(L)}
               <TableMise
                 game="cartes"
                 x={L.spots[0]}
@@ -225,6 +264,7 @@ export default function BlackjackStage({ table, onClose }) {
                 onStake={setStake}
                 faveur={faveur}
                 playLabel={tr({ fr: 'Distribuer', en: 'Deal' })}
+                playDisabled={barre}
                 onPlay={() => onDeal()}
               />
             </>
@@ -236,10 +276,10 @@ export default function BlackjackStage({ table, onClose }) {
         <PlaisirsTable game="cartes" className="ptable--play" tablePx={400} marks={false}>
           {(L) => (
             <>
-              <div className="ptable-hud">{historyChips}</div>
+              <div className="ptable-hud">{historyChips}{sabotHud}</div>
               <div className="bj-table">
-                {/* Le sabot, posé à droite sur le tapis. Pur décor : le sabot réel vit
-                    dans le moteur, il ne diminue pas. */}
+                {/* Le sabot, posé à droite sur le tapis (le vrai vit dans le moteur ; ce
+                    qu'il en reste se lit sur la jauge, au mur). */}
                 <img className="bj-deck" src={CARD_DECK_SRC} alt="" aria-hidden="true" draggable="false" style={{ top: L.top + 6, right: '8%' }} />
                 {/* L'oracle (la croupière) : ses cartes devant elle, au fond du tapis. */}
                 <div className="bj-side" style={{ top: L.top + 4 }}>

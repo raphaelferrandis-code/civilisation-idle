@@ -27,13 +27,16 @@ import {
   BLACKJACK_MULT,
   BLACKJACK_RTP_REF,
   BLACKJACK_DEALER_STAND,
-  BLACKJACK_HISTORY_LEN
+  BLACKJACK_HISTORY_LEN,
+  BLACKJACK_SABOT_JEUX,
+  BLACKJACK_SABOT_PENETRATION
 } from '../balance.js';
 import { feedPot, payRound } from './templePot.js';
 import { recordWager } from './maisonRang.js';
 import { clampStake } from './maisonTable.js';
 import { pushOutcomeFloat } from '../outcomeFloat.js';
 import { recordBlackjack } from '../chronicleStats.js';
+import { videurBarre, observerMise } from './videur.js';
 
 // Les 4 « couleurs » = emblèmes antiques (mêmes icônes que le scratch, cf.
 // ScratchSym.jsx). Le rang porte la valeur ; la couleur est purement
@@ -95,6 +98,52 @@ function buildDeck() {
     [deck[i], deck[j]] = [deck[j], deck[i]];
   }
   return deck;
+}
+
+// LE SABOT (2026-10-04, lot 4 de docs/PLAN-NUIT-DES-PLAISIRS.md) : BLACKJACK_SABOT_JEUX
+// jeux battus ensemble ; la carte de coupe laisse le dernier quart dans le sabot. Les
+// cartes sorties ne reviennent qu'au battage suivant : le sabot a une MÉMOIRE, et le
+// joueur attentif peut compter (Hi-Lo : +1 pour 2 à 6, −1 pour les 10, figures et As).
+// Le videur regarde les mises (videur.js). Les mains des automatisations n'y touchent
+// pas (un paquet neuf chacune). Mémoire de module : un rechargement bat un sabot neuf.
+let sabot = null; // { cartes, total, coupe, compte, neuf }
+const BAS = new Set(["2", "3", "4", "5", "6"]), HAUTS = new Set(["10", "J", "Q", "K", "A"]);
+export const hiLo = (c) => (!c ? 0 : BAS.has(c.rank) ? 1 : HAUTS.has(c.rank) ? -1 : 0);
+function nouveauSabot() {
+  const cartes = [];
+  for (let d = 0; d < BLACKJACK_SABOT_JEUX; d += 1) {
+    for (const suit of BLACKJACK_SUITS) for (const rank of RANKS) cartes.push({ rank, suit });
+  }
+  for (let i = cartes.length - 1; i > 0; i -= 1) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [cartes[i], cartes[j]] = [cartes[j], cartes[i]];
+  }
+  return { cartes, total: cartes.length, coupe: Math.round(cartes.length * (1 - BLACKJACK_SABOT_PENETRATION)), compte: 0, neuf: true };
+}
+// Une carte : du paquet injecté (tests), sinon du sabot (compté au passage).
+function tirer(src) {
+  if (src && src.deck) return src.deck.shift();
+  if (!sabot || !sabot.cartes.length) sabot = nouveauSabot();
+  const c = sabot.cartes.shift();
+  sabot.compte += hiLo(c);
+  return c;
+}
+// Le VRAI compte : le compte courant par jeu restant dans le sabot. Le moteur le sait,
+// la table ne le montre pas (c'est au joueur de compter).
+export function vraiCompte() {
+  if (!sabot || !sabot.cartes.length) return 0;
+  return sabot.compte / (sabot.cartes.length / 52);
+}
+// Ce que la table montre du sabot : la part qui reste avant la carte de coupe, et s'il
+// vient d'être battu.
+export function blackjackSabot() {
+  if (!sabot) return { reste: 1, neuf: true };
+  const plein = sabot.total - sabot.coupe, avant = Math.max(0, sabot.cartes.length - sabot.coupe);
+  return { reste: plein > 0 ? avant / plein : 0, neuf: sabot.neuf };
+}
+// Bat un sabot neuf (le videur après un compteur, les tests).
+export function battreSabot() {
+  sabot = nouveauSabot();
 }
 
 // Une main est VIVANTE si elle existe, n'est pas résolue ET appartient au cycle
@@ -277,29 +326,43 @@ function advanceOrResolve() {
     return;
   }
   if (hand.hands.some((h) => handValue(h.cards) <= 21)) {
-    while (handValue(hand.dealer) < BLACKJACK_DEALER_STAND) hand.dealer.push(hand.deck.shift());
+    while (handValue(hand.dealer) < BLACKJACK_DEALER_STAND) hand.dealer.push(tirer(hand));
   }
   resolve();
 }
 
-// Donne une main. `options.deck` (tests) : sabot injecté (tiré du DÉBUT) au lieu
-// du sabot battu. Résout tout de suite un naturel (joueur et/ou croupier).
+// Donne une main. `options.deck` (tests) : paquet injecté (tiré du DÉBUT) au lieu du
+// sabot. Résout tout de suite un naturel (joueur et/ou croupier). Refusée tant que le
+// videur a fermé la table au joueur — et le videur peut la refuser ici même (la mise
+// n'est pas prise).
 export function dealBlackjack(stake, options = {}) {
   const opts = (typeof options === "object" && options !== null) ? options : {};
   if (handLive()) return null;                  // une main VIVANTE à la fois (une main de cycle mort n'en est pas une)
   if (gamePaused || collapseInProgress) return null;
   if (state.crisisLimitAnnounced) return null;  // la crise terminale a ses propres autels
   if (!blackjackUnlocked()) return null;
+  const injecte = Array.isArray(opts.deck);
+  if (!injecte && videurBarre()) return null;
   const stakeFaveur = clampStake(stake);
   if (stakeFaveur <= 0) return null;
   if ((state.faveur || 0) < stakeFaveur) return null;
+  if (!injecte) {
+    // Le sabot se bat neuf à la carte de coupe ; le videur regarde la mise.
+    if (!sabot || sabot.cartes.length <= sabot.coupe) sabot = nouveauSabot();
+    else sabot.neuf = false;
+    if (observerMise(stakeFaveur, vraiCompte()) === 'porte') {
+      sabot = nouveauSabot();
+      render();
+      return null;
+    }
+  }
   state.faveur = Math.max(0, (state.faveur || 0) - stakeFaveur);
 
-  const deck = Array.isArray(opts.deck) ? opts.deck.slice() : buildDeck();
-  const player = [deck.shift(), deck.shift()];
-  const dealer = [deck.shift(), deck.shift()];
+  const src = { deck: injecte ? opts.deck.slice() : null };
+  const player = [tirer(src), tirer(src)];
+  const dealer = [tirer(src), tirer(src)];
   hand = {
-    deck,
+    deck: src.deck,
     dealer,
     hands: [{ cards: player, stake: stakeFaveur, doubled: false }],
     active: 0,
@@ -316,7 +379,7 @@ export function dealBlackjack(stake, options = {}) {
 export function hitBlackjack() {
   if (!handLive() || hand.phase !== "player") return null; // main morte (cycle) → refusée
   const act = activeHand();
-  act.cards.push(hand.deck.shift());
+  act.cards.push(tirer(hand));
   if (handValue(act.cards) > 21) advanceOrResolve(); // crevé : main suivante ou résolution
   else render();
   return blackjackHand();
@@ -339,7 +402,7 @@ export function doubleBlackjack() {
   state.faveur = Math.max(0, (state.faveur || 0) - act.stake);
   act.stake *= 2;
   act.doubled = true;
-  act.cards.push(hand.deck.shift());
+  act.cards.push(tirer(hand));
   advanceOrResolve(); // une carte, on passe (crevé ou non — la résolution tranche)
   return blackjackHand();
 }
@@ -358,8 +421,8 @@ export function splitBlackjack() {
   state.faveur = Math.max(0, (state.faveur || 0) - act.stake);
   const [c1, c2] = act.cards;
   hand.hands = [
-    { cards: [c1, hand.deck.shift()], stake: act.stake, doubled: false },
-    { cards: [c2, hand.deck.shift()], stake: act.stake, doubled: false }
+    { cards: [c1, tirer(hand)], stake: act.stake, doubled: false },
+    { cards: [c2, tirer(hand)], stake: act.stake, doubled: false }
   ];
   hand.active = 0;
   render();
@@ -416,7 +479,8 @@ export function purgeBlackjackHand() {
   lastOutcome = null;
 }
 
-// Réservé aux tests : alias de purgeBlackjackHand.
+// Réservé aux tests : purge la main, et le sabot.
 export function __resetBlackjackForTests() {
   purgeBlackjackHand();
+  sabot = null;
 }

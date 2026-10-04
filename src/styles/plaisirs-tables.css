@@ -533,3 +533,29 @@
 @media (prefers-reduced-motion: reduce) {
   .ptable-baiser { animation-duration: 1ms; animation-delay: 1200ms; opacity: 1; transform: translate(-50%, 0); }
 }
+
+/* LE SABOT ET LE VIDEUR (lot 4 de docs/PLAN-NUIT-DES-PLAISIRS.md) : la jauge du sabot
+   (ce qui reste avant la carte de coupe), le sabot neuf, l'œil du chef de salle. */
+.bj-sabot-hud { display: flex; align-items: center; gap: 0.35rem; }
+.bj-sabot {
+  display: inline-block;
+  width: 64px;
+  height: 8px;
+  padding: 1px;
+  background: rgba(12, 8, 10, 0.82);
+  border: 1px solid color-mix(in srgb, var(--gold), transparent 45%);
+}
+.bj-sabot > i { display: block; height: 100%; background: linear-gradient(90deg, #c8902a, #ffd76a); }
+.bj-sabot-neuf { color: var(--gold-bright); font-size: 0.8rem; text-shadow: 0 0 6px #ffd76a; }
+.bj-oeil {
+  font-size: 1rem;
+  filter: drop-shadow(0 0 4px rgba(255, 80, 80, 0.8));
+  animation: bj-oeil 1.4s ease-in-out infinite alternate;
+}
+@keyframes bj-oeil {
+  from { opacity: 0.65; }
+  to { opacity: 1; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .bj-oeil { animation: none; }
+}

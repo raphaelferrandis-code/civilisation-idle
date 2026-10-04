@@ -620,6 +620,14 @@ export const defaultState = () => ({
   spectacleFin: 0,
   // La course qui attend ses paris (actions/courses.js) : six partants { couloir, nom, p }.
   courseField: null,
+  // Le videur du vingt-et-un (actions/videur.js) : le soupçon, les dernières mises,
+  // l'heure (ms) jusqu'à laquelle la table est fermée au joueur.
+  bjSoupcon: 0,
+  bjMises: [],
+  bjHaut: null,
+  bjBas: null,
+  bjAverti: false,
+  bjBarreJusqua: 0,
   // La roulette du salon (lot 3) : les dernières cases tombées (0-36).
   rouletteHistory: [],
   // Boutique de Faveur — augment ÉTERNEL : survit aux effondrements ET au Grand
@@ -1940,6 +1948,12 @@ export function hydrateState(parsed = {}) {
       && source.courseField.every((x) => x && Number.isInteger(x.couloir) && typeof x.nom === "string" && Number(x.p) > 0 && Number(x.p) < 1)
       ? source.courseField.map((x) => ({ couloir: x.couloir, nom: x.nom, p: Number(x.p) }))
       : null,
+    bjSoupcon: finiteNumber(source.bjSoupcon, 0, 0, 100),
+    bjMises: Array.isArray(source.bjMises) ? source.bjMises.map(Number).filter((x) => Number.isFinite(x) && x > 0 && x < 1e300).slice(-12) : [],
+    bjHaut: source.bjHaut && Number(source.bjHaut.n) > 0 && Number.isFinite(Number(source.bjHaut.m)) ? { m: Number(source.bjHaut.m), n: Math.floor(Number(source.bjHaut.n)) } : null,
+    bjBas: source.bjBas && Number(source.bjBas.n) > 0 && Number.isFinite(Number(source.bjBas.m)) ? { m: Number(source.bjBas.m), n: Math.floor(Number(source.bjBas.n)) } : null,
+    bjAverti: source.bjAverti === true,
+    bjBarreJusqua: finiteNumber(source.bjBarreJusqua, 0, 0, 1e15),
     nuitDebut: finiteNumber(source.nuitDebut, 0, 0, 1e15),
     nuitProchaine: finiteNumber(source.nuitProchaine, 0, 0, 1e15),
     nuitFlambeur: finiteInteger(source.nuitFlambeur, 0, 0, 99),

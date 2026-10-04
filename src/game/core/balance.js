@@ -477,6 +477,26 @@ export const BLACKJACK_RTP_REF = 0.995;
 export const BLACKJACK_RTP_AUTO = 0.983;
 export const BLACKJACK_DEALER_STAND = 17;     // le croupier reste à 17+ (soft 17 compris)
 export const BLACKJACK_MULT = { blackjack: 2.2, win: 2, push: 1, lose: 0 }; // × la mise (Faveur)
+// LE SABOT ET LE VIDEUR (2026-10-04, lot 4 de docs/PLAN-NUIT-DES-PLAISIRS.md) : six jeux
+// battus ensemble, la carte de coupe aux trois quarts — les cartes sorties ne reviennent
+// qu'au battage suivant, le joueur attentif peut compter. Le videur rapporte chaque
+// mise à la mise habituelle (médiane des VIDEUR_MEMOIRE dernières) et tient deux
+// moyennes glissantes (lissage VIDEUR_LISSAGE) : sur les sabots RICHES (vrai compte ≥
+// VIDEUR_COMPTE) et sur les PAUVRES (≤ 0). Le soupçon est leur rapport, dès
+// VIDEUR_ECHANTILLON donnes de chaque côté : le chef de salle a l'œil à VIDEUR_OEIL, le
+// videur raccompagne à VIDEUR_PORTE (la table fermée VIDEUR_BANNI_MIN minutes). Réglé
+// pour qu'un joueur qui varie ses mises au hasard ne soit jamais inquiété, et qu'un
+// compteur qui mise huit fois plus sur les sabots riches soit raccompagné en un ou deux
+// sabots ; un compteur discret (écart ×2) passe — et gagne peu.
+export const BLACKJACK_SABOT_JEUX = 6;
+export const BLACKJACK_SABOT_PENETRATION = 0.75;
+export const VIDEUR_MEMOIRE = 12;
+export const VIDEUR_COMPTE = 2;
+export const VIDEUR_LISSAGE = 0.2;
+export const VIDEUR_ECHANTILLON = 6;
+export const VIDEUR_OEIL = 3;
+export const VIDEUR_PORTE = 4;
+export const VIDEUR_BANNI_MIN = 30;
 
 // ── La machine à sous (2026-10-03, demande de Raph : « avec des bonus type free spin
 // et mini jeux, qui déclenche une roue » ; v2 le même soir : « 5 rouleaux, joker et Hold

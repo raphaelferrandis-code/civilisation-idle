@@ -6,7 +6,8 @@ import { tr } from '../../../game/core/i18n.js';
 import { tipProps } from '../../ui/HelpBubble.jsx';
 import AutoDials, { RateBadge } from '../../ui/TempleAutoDials.jsx';
 import OffrandesBloc from './OffrandesBloc.jsx';
-import { PLAISIRS_SPOTS, spotIsOpen, spotIsVisit, spotRankLock, spotNightLock, spotVerbe } from './anchors.js';
+import { PLAISIRS_SPOTS, spotIsOpen, spotIsVisit, spotRankLock, spotNightLock, spotVideurLock, spotVerbe } from './anchors.js';
+import { videurBarreMin } from '../../../game/core/actions/videur.js';
 import { RANK_LABELS } from '../../../game/core/actions/maisonRang.js';
 import { MAISON_RANKS } from '../../../game/core/balance.js';
 
@@ -71,6 +72,7 @@ function Cadran({ level }) {
 export default function PlaisirsMenu({ navRef, bake, band, survol, selection, plein, onHover, onPick, onBack, onRoue }) {
   useGameState((s) => JSON.stringify(s.templeAuto || {})); // flammes et cadrans en direct
   useGameState((s) => s.maisonRank || 0); // les lieux que le titre ouvre (lot 3)
+  useGameState((s) => s.bjBarreJusqua || 0); // le videur (lot 4 de la Nuit des Plaisirs)
   // Une automatisation au moins : la colonne des flammes est réservée sur TOUTES
   // les lignes, sinon les noms d'un même étage partent de deux bords différents.
   const autos = Object.values(AUTO_OF).some((id) => state.templeAuto?.[id]?.unlocked);
@@ -97,8 +99,10 @@ export default function PlaisirsMenu({ navRef, bake, band, survol, selection, pl
               const verrouRang = spotRankLock(spot);
               // … ou la Nuit du Grand Jeu (le grand flambeur).
               const nuit = spotNightLock(spot);
-              const titre = verrouRang != null ? tr(RANK_LABELS[MAISON_RANKS[verrouRang].id]) : nuit ? tr({ fr: 'Nuit', en: 'Night' }) : null;
-              const ouvert = (visite && verrouRang == null) || spotIsOpen(spot);
+              // … ou le videur (le vingt-et-un, fermé au compteur de cartes).
+              const videur = spotVideurLock(spot);
+              const titre = verrouRang != null ? tr(RANK_LABELS[MAISON_RANKS[verrouRang].id]) : nuit ? tr({ fr: 'Nuit', en: 'Night' }) : videur ? tr({ fr: 'Videur', en: 'Bouncer' }) : null;
+              const ouvert = ((visite && verrouRang == null) || spotIsOpen(spot)) && !videur;
               const choisi = selection === spot.id || plein === spot.id;
               const autoId = AUTO_OF[spot.kind];
               const auto = autoId ? state.templeAuto?.[autoId] : null;
@@ -109,7 +113,9 @@ export default function PlaisirsMenu({ navRef, bake, band, survol, selection, pl
                   className={`pm-lieu${choisi ? ' is-sel' : ''}${survol === spot.id ? ' is-hover' : ''}${visite ? ' is-visit' : ''}`}
                   {...(titre ? tipProps(spot.label, nuit
                     ? tr({ fr: "S'ouvre pendant la Nuit du Grand Jeu, et à toute heure pour un Prince de la Maison.", en: 'Opens during the Night of High Play, and at any hour for a Prince of the House.' })
-                    : tr({ fr: `S'ouvre au titre de ${titre}.`, en: `Opens at the title ${titre}.` })) : {})}
+                    : videur
+                      ? tr({ fr: `Le videur t'a raccompagné : la table te rouvre dans ${videurBarreMin()} min.`, en: `The bouncer showed you out: the table reopens to you in ${videurBarreMin()} min.` })
+                      : tr({ fr: `S'ouvre au titre de ${titre}.`, en: `Opens at the title ${titre}.` })) : {})}
                 >
                   {choisi && <span className="pm-lanterne" aria-hidden="true" />}
                   <button

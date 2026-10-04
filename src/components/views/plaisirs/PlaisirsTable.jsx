@@ -13,14 +13,16 @@ import '../../../styles/plaisirs-tables.css';
 // La crise terminale FERME les tables de la Maison (les actions des jeux refusent toutes
 // de jouer). Le dire : une pancarte « FERMÉ » pendue sur la table, plutôt que des boutons
 // qui ne répondent pas (2026-10-04, Raph : « je clique il ne se passe rien »).
-export function PancarteFermee({ x = '50%', y }) {
+// `texte`, `titre`, `info` : une autre pancarte (le VIDEUR du vingt-et-un, lot 4 de
+// docs/PLAN-NUIT-DES-PLAISIRS.md).
+export function PancarteFermee({ x = '50%', y, texte, titre, info }) {
   return (
     <div
       className="ptable-closed"
       style={{ left: x, top: y }}
-      {...tipProps(tr({ fr: 'Table fermée', en: 'Table closed' }), tr({ fr: 'La crise terminale ferme les tables de la Maison.', en: 'The terminal crisis closes the House tables.' }))}
+      {...tipProps(titre || tr({ fr: 'Table fermée', en: 'Table closed' }), info || tr({ fr: 'La crise terminale ferme les tables de la Maison.', en: 'The terminal crisis closes the House tables.' }))}
     >
-      {tr({ fr: 'FERMÉ', en: 'CLOSED' })}
+      {texte || tr({ fr: 'FERMÉ', en: 'CLOSED' })}
     </div>
   );
 }

@@ -14,7 +14,7 @@ Quatre lots, dans l'ordre.
 | 1 | La Nuit du Grand Jeu, le spectacle, le duel des grands flambeurs, les courses | ✅ fait |
 | 2 | La salle hors du temps : toujours la nuit, la cagnotte au mur, les gagnants qu'on voit, la fête | ✅ fait |
 | 3 | La luxure poussée au maximum (suggestive) | ✅ fait |
-| 4 | Compter les cartes au vingt-et-un (le sabot, le videur) | à faire |
+| 4 | Compter les cartes au vingt-et-un (le sabot, le videur) | ✅ fait |
 
 ---
 
@@ -153,11 +153,27 @@ Le banc joue désormais huit jeux, la Nuit et le spectacle. Sur la graine 7 :
   demandent de NOUVELLES bandes de sprites pour les filles — dessinées à la main par Raph
   (.aseprite) : à lui de dire s'il les veut, et dessinées par qui.
 
-## Lot 4 — compter les cartes (à faire)
+## Lot 4 — compter les cartes ✅
 
-- Un sabot persistant au vingt-et-un, le compte Hi-Lo possible pour le joueur attentif,
-  et un **videur** qui raccompagne celui dont les mises suivent trop bien le compte.
-- Recalibrer le banc (le compteur discipliné peut-il battre la Maison ?).
+- **Le sabot** (`actions/blackjack.js`) : six jeux battus ensemble, la carte de coupe aux
+  trois quarts (`BLACKJACK_SABOT_*`). Les cartes sorties ne reviennent qu'au battage :
+  le joueur attentif peut compter (Hi-Lo). Le moteur connaît le vrai compte
+  (`vraiCompte`), la table ne montre que la jauge du sabot (ce qui reste avant la coupe)
+  et l'étoile du sabot neuf. Les automatisations jouent à part (un paquet neuf par main).
+- **Le videur** (`actions/videur.js`) : la Maison rapporte chaque mise à la mise
+  habituelle (médiane des 12 dernières) et tient deux moyennes glissantes, sur les
+  sabots riches (vrai compte ≥ +2) et pauvres (≤ 0) ; le soupçon est leur rapport. Au
+  rapport 3, l'œil du chef de salle s'allume ; au rapport 4, un AVERTISSEMENT (l'œil
+  reste), et si le joueur remise gros sur un sabot riche, le videur le raccompagne :
+  table fermée 30 min (pancarte VIDEUR, cadenas « Videur » au menu), sabot rebattu, une
+  ligne à la Chronique. Le soupçon et la porte sont dans la sauvegarde.
+- Calibrage (tests, tirages déterministes) : un joueur qui mise ×5 au hasard une main
+  sur sept n'est jamais inquiété (1 500 mains) ; un compteur discret (×2) passe ; un
+  compteur à ×8 est raccompagné en moins de 600 mains, après l'avertissement.
+- **Ce que rapporte le comptage** (300 000 mains par profil, stratégie de base, mises
+  hautes seulement avant la carte de coupe) : ≈ 98,4 % à mise fixe, ≈ 99 % avec un écart
+  ×8 sur un vrai compte ≥ +2. Le comptage allège la note mais ne bat PAS la Maison (le
+  naturel paie 6 contre 5) : aucun risque pour l'économie, le videur est du jeu.
 
 ---
 

@@ -8,6 +8,7 @@ import { rouletteUnlocked, rouletteVipUnlocked } from "../../../game/core/action
 import { coursesUnlocked } from "../../../game/core/actions/courses.js";
 import { duelOuvert } from "../../../game/core/actions/duel.js";
 import { maisonRank } from "../../../game/core/actions/maisonTable.js";
+import { videurBarre } from "../../../game/core/actions/videur.js";
 import { BOUDOIR_UNLOCK_RANK, ROULETTE_UNLOCK_RANK, COURSES_UNLOCK_RANK } from "../../../game/core/balance.js";
 import { regulationActionUnlocked } from "../../../game/core/mechanics/crisis-cost.js";
 import { REGULATION_ACTIONS } from "../../../game/data/regulationActions.js";
@@ -158,6 +159,12 @@ export function spotOuvertSalle(spot) {
   if (spot.kind === "roulette") return maisonRank() >= ROULETTE_UNLOCK_RANK;
   if (spot.kind === "rouletteVip") return maisonRank() >= BOUDOIR_UNLOCK_RANK;
   return spotIsOpen(spot);
+}
+
+// La table que le VIDEUR a fermée au joueur (le vingt-et-un, lot 4) : les
+// automatisations y jouent toujours, la coupe ne change pas.
+export function spotVideurLock(spot) {
+  return !!spot && spot.kind === "blackjack" && videurBarre();
 }
 
 // Un lieu qu'on regarde ET dont on a le titre : on peut s'y rendre.
