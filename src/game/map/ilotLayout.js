@@ -23,7 +23,9 @@ import { gridOf, blockOrder, blockStreets, ILOT_DEFAULTS } from "./procedural/bl
 export const ILOT_PLAZA_EVERY = 16;
 const PLAZA_KINDS = ["marche", "jardin", "parvis"];
 // Lots de marge : la ville ouvre un peu d'avance (achats à venir, grands logis).
-const LOT_MARGIN = 6;
+// 12 (v1 : 6) : au Néon, une maison-moteur sur 129 restait sans lot ; les lots en trop
+// sont des jardins (layout.js).
+const LOT_MARGIN = 12;
 // Cases de cardo sur la rive d'en face, au débouché du pont.
 const BRIDGE_LANDING = 5;
 // Lots de maisons par îlot plein (4×4 : 12 lots de bord) — pour l'ESTIMATION du

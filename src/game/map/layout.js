@@ -235,13 +235,13 @@ const ENGINE_HOME_LOOKAHEAD = 44;
 // exactement, au lieu d'estimer une part (vécu : 24 maisons-moteur sans lot dans une
 // cité « rurale » où toutes les villas trouvaient leur place, la part de liste les
 // sous-comptait). Aux bandes cosmiques le tirage dépend de la case : moyenne de liste.
-// 1,8 lot par 2×2 et 0,8 par 1×2 : mesuré au Néon (516 grands ensembles, 289 tours
-// sur 1 100 logis : 83 maisons-moteur sans lot à 1,3 / 0,7). L'excédent, quand des
+// 2,0 lots par 2×2 et 0,9 par 1×2 : mesuré au Néon (516 grands ensembles, 289 tours
+// sur 1 100 logis : 83 maisons-moteur sans lot à 1,3 / 0,7, encore une à 1,8 / 0,8). L'excédent, quand des
 // tirages 2×2 se replient sur une case, reste en jardins (lots libres, cf. urbanSet).
 function ilotBigHomeLots(band, bias, seed, nHouse, nHome) {
   const row = VARIANTS_HOUSE[Math.max(0, Math.min(VARIANTS_HOUSE.length - 1, band | 0))];
   const list = (bias && row[bias]) || row.base;
-  const extraOf = list.map((v) => { const [x, y] = houseFootprint(v, band); const a = x * y; return a >= 4 ? 1.8 * (a - 1) / 3 : a === 2 ? 0.8 : 0; });
+  const extraOf = list.map((v) => { const [x, y] = houseFootprint(v, band); const a = x * y; return a >= 4 ? 2.0 * (a - 1) / 3 : a === 2 ? 0.9 : 0; });
   if (!extraOf.some(Boolean)) return 0;
   if ((band | 0) >= 7) return Math.round((nHouse + nHome) * extraOf.reduce((u, e) => u + e, 0) / list.length);
   let extra = 0;

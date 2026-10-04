@@ -70,7 +70,10 @@ const SANS_TEINTE = new Set([
   "row-terrace-fl", "row-terrace-fr", "row-terrace-bl", "row-terrace-br",
   // Bourg : la maison artisane tournée et la rangée à colombages.
   "crafthouse-fr", "crafthouse-bl", "crafthouse-br",
-  "row-colombage-fl", "row-colombage-fr", "row-colombage-bl", "row-colombage-br"
+  "row-colombage-fl", "row-colombage-fr", "row-colombage-bl", "row-colombage-br",
+  // Néon : la boutique néon (corps des ateliers, modèle de rangée), dessinée dans ses
+  // couleurs (verre bleu, néon rose) — rien à permuter.
+  "neonshop", "neonshop-fr", "row-neonshop-fl", "row-neonshop-fr"
 ]);
 
 // Sprites lus une fois, réutilisés par les tests qui mesurent sur l'art réel.

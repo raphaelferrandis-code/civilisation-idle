@@ -8,7 +8,7 @@
 // Bandes où la ville se bâtit par îlots. Le campement et le hameau (0, 1) gardent
 // leur placement, validé par Raph : la ville s'y réorganise une fois en îlots à
 // l'entrée du village (bande 2), puis grandit d'îlot en îlot jusqu'à la fin.
-export const ILOT_BANDS = [2, 3, 4, 5, 7, 8, 9];
+export const ILOT_BANDS = [2, 3, 4, 5, 6, 7, 8, 9];
 
 // LES BOUTIQUES DE LA RUE (Raph 2026-10-04 : « avoir plein de fois le même bâtiment
 // qui a l'air d'un grand bâtiment rend mal ») : une annexe de bâtiment-moteur prend
@@ -22,7 +22,7 @@ export const ANNEX_BODIES = {
   // Fonte (XIXe) : l'immeuble haussmannien a sa boutique au rez ; la brique ouvrière.
   5: ["haussmann", "haussmann", "block", "terrace"],
   // Néon : la boutique moderne (béton, verre, enseigne), l'immeuble.
-  6: ["block", "terrace"],
+  6: ["neonshop", "neonshop", "block"],
   // Âges cosmiques : les petites maisons à skin d'âge (dôme, capsules, tour-jardin) —
   // le gratte-ciel d'une case reste au cœur, il ne fait pas une boutique.
   7: ["domehome", "podstack", "gardentower", "domehome"],
@@ -60,6 +60,10 @@ export const ORIENT = {
   // brique (block, tenement) a des fenêtres sur ses deux faces : elle n'a pas de dos.
   5: {
     haussmann: { E: "haussmann-fr" },
+  },
+  // Néon : la boutique néon (objet neuf), tournée à l'est ; ses dos sont aveugles.
+  6: {
+    neonshop: { E: "neonshop-fr" },
   },
 };
 
@@ -101,6 +105,14 @@ export const ROWS = {
     selfEnd: ["haussmann", "terrace"],
     models: { haussmann: ["fl", "fr"], terrace: ["fl", "fr", "bl", "br"] },
   },
+};
+ROWS[6] = {
+  // Néon : la rue commerçante — boutiques néon en façade, dos et bouts en brique (la
+  // rangée de la Fonte, que la bande 6 tire encore ; les dos néon sont des murs aveugles).
+  of: { neonshop: "neonshop", block: "neonshop", terrace: "terrace" },
+  end: "terrace",
+  selfEnd: ["neonshop", "terrace"],
+  models: { neonshop: ["fl", "fr"], terrace: ["fl", "fr", "bl", "br"] },
 };
 export const ROW_VIEW = { S: "fl", E: "fr", N: "bl", W: "br" };
 

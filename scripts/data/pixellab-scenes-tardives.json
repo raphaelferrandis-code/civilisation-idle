@@ -633,6 +633,10 @@
     "b3": {
       "maisonArtisane": "449928b7-6ecc-4db0-b85b-d2ece7b72b42 (existant, 68 px, SW = crafthouse.png) → crafthouse-fr/bl/br sans conversion",
       "rangeeColombage": "2d04e859-d25e-4865-8cfc-22817b4d8ba5 (Pro Flash 128, style = crafthouse.png) → row-colombage-fl/fr/bl/br (72)"
+    },
+    "b6": {
+      "boutiqueNeon": "b3de4d2b-2530-4645-b534-07f196683b91 (Pro Flash 128, style = v1) → neonshop/-fr (52), row-neonshop-fl/fr (68) ; gris remappés sur megablock.png",
+      "ecarte": "913d753d-2f4c-4de8-92f3-077119764bf2 (v1 : trottoir et réverbères au pied)"
     }
   }
 }
