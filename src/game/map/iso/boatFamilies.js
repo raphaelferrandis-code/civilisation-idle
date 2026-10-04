@@ -127,7 +127,10 @@ export function makeRowboat(o, M) {
   const L = o.L || 24, B = o.B || 9;
   return {
     id: o.id, role: o.role || 'fisher', len: L, beam: B, speed: o.speed || [0.7, 0.95],
-    anim: { frames: 6, period: 2.2 },
+    // Vide à quai (bassins, pontons), rien ne bouge : les rames rangées ignorent k.
+    // Une seule image au lieu de six (revue du 04/10) — PAS `still`, qui figerait
+    // aussi le rameur d'une barque habitée à quai sur le fleuve.
+    anim: { frames: 6, period: 2.2, stillEmpty: ['dock'] },
     bounds: [-L / 2 - 4, L / 2 + 4, -16, 16, -1, o.lateen ? 26 : 12],
     ink: '#1d1611',
     variant(seed) {

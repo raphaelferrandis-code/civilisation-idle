@@ -94,9 +94,10 @@ export function boatHasLights(spec) {
 }
 
 // Pose d'animation courante : indice de pose et phase (rad) transmise au kit.
-function animPose(M, state, now, salt) {
+function animPose(M, state, now, salt, empty = false) {
   const A = M.anim;
   if (!A || (A.still && A.still.includes(state))) return { f: 0, k: 1.2 };
+  if (empty && A.stillEmpty && A.stillEmpty.includes(state)) return { f: 0, k: 1.2 };
   const t = (now || 0) / 1000 / A.period + (salt % 97) / 97;
   const f = Math.floor((t - Math.floor(t)) * A.frames) % A.frames;
   return { f, k: (f / A.frames) * Math.PI * 2 };
@@ -199,7 +200,7 @@ export function drawBoat(ctx, spec, x, y, theta, z, now, opts = {}) {
   const M = spec && BOAT_MODELS[spec.id];
   if (!M) return null;
   const state = kitState(spec, opts.state);
-  const pose = animPose(M, state, now, spec.seed);
+  const pose = animPose(M, state, now, spec.seed, !!opts.empty);
   const dir = dirIndex(theta);
   const memo = opts.memo || null;
   let e = getBake(spec, dir, state, pose, !memo || !memo._kitBake, now, !!opts.empty);
@@ -289,5 +290,16 @@ export function drawMooredKit(ctx, { role, heading, x, y, z = 0, now = 0, bob = 
   if (p.x < -s * 3 || p.x > CM.cw + s * 3 || p.y < -s * 3 || p.y > CM.ch + s * 3) return true;
   const dy = bob ? Math.sin((now || 0) / 1500 + x * 1.7 + y) * s * 0.012 : 0;
   // Amarré : VIDE (pas de pêcheur assis dans sa barque au port) et voiles ferlées.
-  return !!drawBoat(ctx, spec, p.x, snapDev(p.y + dy), worldHeadingOfScreen(heading), zoom, now, { state: 'dock', empty: true });
+  // Un memo PAR AMARRE : sans lui, chaque cuisson était forcée (hors budget) ; partagé,
+  // deux barques se prêteraient leur image quand le budget de la frame est épuisé.
+  const mk = role + '|' + spec.id + '|' + spec.seed + '|' + Math.round(x * 10) + '|' + Math.round(y * 10);
+  let memo = _mooredMemo.get(mk);
+  if (!memo) {
+    if (_mooredMemo.size >= MOORED_MEMO_MAX) _mooredMemo.clear();
+    memo = {};
+    _mooredMemo.set(mk, memo);
+  }
+  return !!drawBoat(ctx, spec, p.x, snapDev(p.y + dy), worldHeadingOfScreen(heading), zoom, now, { state: 'dock', empty: true, memo });
 }
+const _mooredMemo = new Map();
+const MOORED_MEMO_MAX = 512;

@@ -532,8 +532,12 @@ export function updateRiverFleet(ships, ctl, budget, dt, env = {}) {
     const want = budget[kind] || 0;
     let have = 0;
     for (const sh of ships) if (sh.kind === kind) have += 1;
-    if (kind === 'service' && have > want) {
-      const extra = ships.filter((o) => o.kind === 'service' && !o.leave).sort((a, b) => b.svc - a.svc).slice(0, have - want);
+    // `have` compte aussi les partants (o.leave) : sans les retirer, le bateau
+    // restant recevait son congé à la frame suivante, tant que le premier n'était
+    // pas sorti (bande 6 → 7 : police ET pompiers partaient, fleuve vide).
+    const going = kind === 'service' ? ships.filter((o) => o.kind === 'service' && o.leave).length : 0;
+    if (kind === 'service' && have - going > want) {
+      const extra = ships.filter((o) => o.kind === 'service' && !o.leave).sort((a, b) => b.svc - a.svc).slice(0, have - going - want);
       for (const o of extra) {
         o.leave = true;
         if (o.mode === 'work') { o.state = 'cruise'; o.stateT = 0; o.win = env.win ? [env.win[0] - 0.02, env.win[1] + 0.02] : null; }
