@@ -201,6 +201,14 @@ ajoutés par-dessus. Maintenant (`plaisirs/salleLumiere.js`, cuite une fois par 
   les ÉTOILES au-dessus du toit, les halos resserrés qui vacillent.
 - Les âges de lumière (7-9) éclairent moins fort et gardent une pénombre plus froide,
   leur lueur est réduite de moitié (sinon tout blanchit).
+- **La scène en pleine lumière** (Raph, même soir : « la scène doit être mieux
+  illuminée » — celle du Fonte restait dans la pénombre, sans lampe devant sa toile) :
+  la RAMPE éclaire la troupe d'en bas et la HERSE lave toute la cage de scène, à pleine
+  intensité à tous les âges ; par image, la lueur chaude de la rampe monte des planches,
+  les poursuites sont plus larges et plus franches, avec leur halo sur les danseuses.
+  Ces effets se DOSENT sur la clarté de la scène peinte (`lum.scene.effets`) : pleins
+  sur une scène sombre (le Fonte), légers sur une scène déjà vive (les ampoules du
+  néon), sinon la troupe délave.
 
 ---
 
