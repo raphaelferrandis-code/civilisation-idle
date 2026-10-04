@@ -2754,6 +2754,31 @@ function computeCityLayout(s) {
       }
     }
   }
+  // ── LES RUES DE QUAI TIENNENT LEUR CASE (Raph 2026-10-04 : « corrige les rues du
+  // fleuve ») ──────────────────────────────────────────────────────────────────
+  // Le lit se recalcule à chaque calcul, abscisses en fraction de la grille : quand la
+  // grille grandit avec les achats (N 164 → 170), il s'étire — d'un centième de case au
+  // cœur, mais une case de quai posée sur le seuil eau/berge (4,49 contre 4,50)
+  // basculait en BERGE. Or une rue sur la berge n'est marchable qu'au pied d'un pont :
+  // l'élagage de connexité la retirait (cmBuildRoadGraph, `walkable`), le plan d'îlots
+  // aussi (isWet). Une case que porte déjà une rue MÉMORISÉE reste donc de la terre
+  // ferme : la berge cède une case, la rue reste. Sauf au PIED D'UN PONT — une case
+  // de rive qui touche un tablier (case d'eau portant elle-même une rue) : c'est la
+  // berge qui fait d'elle une culée. Une rue de quai, elle, touche l'eau nue. Le dessin
+  // du fleuve ne change pas (le ruban suit les échantillons, pas les Sets).
+  // (Décodée ici plutôt qu'avec le réseau, plus bas : elle sert aux deux.)
+  const roadMem = memOn ? decodeRoadMemory(s.cityRoads, mapSeed, cx, cy) : null;
+  if (roadMem) {
+    const deck = (k) => riverSet.has(k) && roadMem.has(k);
+    for (const k of roadMem.keys()) {
+      if (!bankSet.has(k)) continue;
+      const ci = k.indexOf(","), gx = +k.slice(0, ci), gy = +k.slice(ci + 1);
+      if (deck((gx + 1) + "," + gy) || deck((gx - 1) + "," + gy)
+        || deck(gx + "," + (gy + 1)) || deck(gx + "," + (gy - 1))) continue;
+      bankSet.delete(k);
+      nearSet.add(k);
+    }
+  }
   for (let gx = 0; gx < N; gx += 1) {
     let by = cy + N, bhw = 1.5, bd = Infinity;
     for (const sp of riverSamples) { const dd = Math.abs(sp.x - (gx + 0.5)); if (dd < bd) { bd = dd; by = sp.y; bhw = sp.hw; } }
@@ -2844,7 +2869,7 @@ function computeCityLayout(s) {
   // Décodée ici, AVANT le tracé : les places mémorisées doivent entrer dans le
   // squelette que generateRoadsGraph pose, et les cellules tenues décident où
   // une place neuve a le droit de s'ouvrir.
-  const roadMem = memOn ? decodeRoadMemory(s.cityRoads, mapSeed, cx, cy) : null;
+  // `roadMem` (la mémoire du réseau) est décodée plus haut, avec le lit du fleuve.
   const heldBy = memOn ? new Map() : null;
   // Cases rendues par les ateliers qui quittent le cœur pour être semés (cf.
   // cmRequestZone) : autant de maisons de la lisière viendront les reprendre,

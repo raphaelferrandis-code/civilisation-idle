@@ -250,9 +250,21 @@ PLAN-ROUTES) et « une maison ne bouge jamais » (keepInPlace).
     une fiche v1 replace UNE fois ses maisons (slots `dec_*` du cycle) — îlots, rues,
     halles, ateliers, merveilles ne bougent pas (décision de Raph).
   - ⚠ Le test « rien ne bouge » a révélé une fragilité du FLEUVE : la grille grandit avec
-    les achats (N 164 → 170), le fleuve et ses îles se recalculent, et une rue de quai
-    devenue berge est abandonnée. Tolérée dans le test (cases devenues berge), à
-    traiter côté fleuve.
+    les achats (N 164 → 170), le fleuve se recalculait, et une rue de quai devenue
+    berge était abandonnée. CORRIGÉ le même soir (Raph : « vas-y pour corriger les rues
+    du fleuve »). Cause : les points de passage du fleuve ne gardent que leur décalage
+    vertical, leur abscisse est une fraction de la grille (±1,8 N) — le lit s'étire.
+    Mesuré : un centième de case au cœur, mais la case de quai était pile sur le seuil
+    (4,49 contre 4,50) ; devenue berge, sa rue n'était plus marchable (une berge ne
+    l'est qu'au pied d'un pont) et l'élagage de connexité la retirait.
+    ⛔ Écarté : FIGER le fleuve en cases. Figé au campement (grille de ~20 cases), il
+    serait très sinueux en fin de partie (écarts de 8 cases tous les 14, contre un
+    tracé presque droit aujourd'hui, qui garde la même courbure à l'écran à toutes les
+    époques) ; figé plus tard, c'est la scène d'arrivée qui changerait.
+    Retenu : une case que porte déjà une rue MÉMORISÉE reste terre ferme quand le lit
+    voudrait en faire une berge — sauf au pied d'un pont (case qui touche un tablier).
+    Le dessin du fleuve ne change pas. riverQuays.test.js (ères 17, 21, 27) ; le test
+    « rien ne bouge » est redevenu strict.
 - ⚠ Fragilité connue, hors îlots : quand le niveau des champs change leur découpage
   (`cmTerroirParcels`), la parcelle 0 qui s'épaissit mord sa propre rangée de moulins
   (distance 1, plus les sentiers qui les desservent) et le terroir entier se refonde
