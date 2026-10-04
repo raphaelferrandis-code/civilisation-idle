@@ -72,9 +72,14 @@ export function jouerDuel(mise, options = {}) {
     recordDuel({ wagered: m, won: gain, gagne });
     // Un gros duel s'écrit dans la Chronique (dix heures de recettes et plus).
     if (m >= 10 * recettesPerHour()) {
+      const Nom = fl.nom.fr.charAt(0).toUpperCase() + fl.nom.fr.slice(1);
       chronicle(gagne
-        ? `Tu fais plier ${fl.nom.fr} au duel des grands flambeurs : +${fmt(gain)} faveur.`
-        : `${fl.nom.fr.charAt(0).toUpperCase() + fl.nom.fr.slice(1)} te plume au duel des grands flambeurs : ${fmt(m)} faveur envolés.`);
+        ? (fl.femme
+          ? `${Nom} perd le duel des grands flambeurs, et te glisse en partant son mouchoir parfumé : +${fmt(gain)} faveur.`
+          : `Tu fais plier ${fl.nom.fr} au duel des grands flambeurs ; il quitte la Maison seul : +${fmt(gain)} faveur.`)
+        : (fl.femme
+          ? `${Nom} te plume au duel des grands flambeurs et monte au boudoir avec ta mise : ${fmt(m)} faveur envolés.`
+          : `${Nom} te plume au duel des grands flambeurs et repart une fille à chaque bras : ${fmt(m)} faveur envolés.`));
     }
     if (!silent && !isNotifyPaused()) {
       pushOutcomeFloat({ label: gagne ? `🎲 Duel gagné : +${fmt(gain)} faveur` : `🎲 Duel perdu`, kind: gagne ? "gain" : "cost" });

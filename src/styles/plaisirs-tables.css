@@ -512,3 +512,24 @@
    seul à la ligne. Le séparateur devient le saut de ligne. */
 .ptable-rack.is-stack { row-gap: 0.25rem; }
 .ptable-rack.is-stack .ptable-rack-sep { flex: 0 0 100%; width: 100%; height: 0; margin: 0; border: 0; }
+
+/* LE BAISER DE LA CROUPIÈRE (lot 3 de docs/PLAN-NUIT-DES-PLAISIRS.md) : à chaque beau
+   gain, une bouche rouge s'envole de ses lèvres et s'efface. */
+.ptable-baiser {
+  position: absolute;
+  z-index: 4;
+  font-size: 1.5rem;
+  line-height: 1;
+  pointer-events: none;
+  filter: drop-shadow(0 0 6px rgba(255, 80, 120, 0.8));
+  animation: ptable-baiser 1900ms ease-out both;
+}
+@keyframes ptable-baiser {
+  0% { opacity: 0; transform: translate(-50%, 0) scale(0.3) rotate(-10deg); }
+  18% { opacity: 1; transform: translate(-50%, -6px) scale(1.25) rotate(6deg); }
+  60% { opacity: 1; transform: translate(-20%, -34px) scale(1) rotate(-4deg); }
+  100% { opacity: 0; transform: translate(10%, -60px) scale(0.85) rotate(8deg); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .ptable-baiser { animation-duration: 1ms; animation-delay: 1200ms; opacity: 1; transform: translate(-50%, 0); }
+}

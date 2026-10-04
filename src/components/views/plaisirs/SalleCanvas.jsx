@@ -214,8 +214,9 @@ export default function SalleCanvas({ bake, band, lit, padLeft = 0, focus = null
           if (y < -r || y > H + r || x < -r || x > W + r) continue;
           const a = (fete ? 0.42 : 0.3) * nf * (0.88 + 0.12 * Math.sin(now / 240 + p.x));
           const grd = g.createRadialGradient(x, y, 0, x, y, r);
-          // Halo de la couleur de sa lampe (rose au boudoir), ambre par défaut.
-          const rgb = p.c ? [1, 3, 5].map((i) => parseInt(p.c.slice(i, i + 2), 16)).join(',') : '255,190,110';
+          // Halo de la couleur de sa lampe (rose au boudoir), ambre par défaut — rose
+          // partout pendant la fête : la Maison passe à la lumière rouge.
+          const rgb = p.c ? [1, 3, 5].map((i) => parseInt(p.c.slice(i, i + 2), 16)).join(',') : fete ? '255,140,150' : '255,190,110';
           grd.addColorStop(0, `rgba(${rgb},${a.toFixed(3)})`);
           grd.addColorStop(1, `rgba(${rgb},0)`);
           g.fillStyle = grd;

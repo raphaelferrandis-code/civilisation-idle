@@ -13,7 +13,7 @@ Quatre lots, dans l'ordre.
 |---|---|---|
 | 1 | La Nuit du Grand Jeu, le spectacle, le duel des grands flambeurs, les courses | ✅ fait |
 | 2 | La salle hors du temps : toujours la nuit, la cagnotte au mur, les gagnants qu'on voit, la fête | ✅ fait |
-| 3 | La luxure poussée au maximum (suggestive) | à faire |
+| 3 | La luxure poussée au maximum (suggestive) | ✅ fait |
 | 4 | Compter les cartes au vingt-et-un (le sabot, le videur) | à faire |
 
 ---
@@ -128,14 +128,30 @@ Le banc joue désormais huit jeux, la Nuit et le spectacle. Sur la graine 7 :
 - Pas de salle plus pleine pendant la fête : il faudrait recuire la coupe (voir le piège
   de la cuisson au lot 1).
 
-## Lot 3 — la luxure, poussée au maximum, suggestive (à faire)
+## Lot 3 — la luxure, poussée au maximum, suggestive ✅
 
-- Les ombres du boudoir : des poses plus audacieuses, des couples plus fréquents.
-- La scène : french cancan / burlesque (bandes de danse des filles).
-- Des courtisanes alanguies au boudoir, au salon privé, aux tables.
-- La croupière réagit aux gains (un clin d'œil, un baiser envoyé).
-- Les mots : sous-entendus dans la Chronique et les annonces, lumière rouge.
+- **Les ombres du boudoir** (`shadowFrames`, plaisirsCoupeHD.js) : au solo, après la
+  jambe qui monte, un NUMÉRO BURLESQUE — le pied sur un tabouret, elle roule son bas (deux
+  images, penchée), le fait tourner au bout du bras, puis se cambre, bras levés, le
+  chignon défait. À deux, après le baiser et le renversé : il passe derrière elle (les
+  mains à ses hanches, elle se laisse aller contre lui, un bras à sa nuque), puis elle
+  enroule une jambe autour de lui. Le couple reste plus longtemps derrière la tenture
+  (22 s au lieu de 14). `woman()` gagne la jambe arrière libre, les cheveux défaits et
+  trois bras ('haut', 'bas', 'gant').
+- **Le baiser de la croupière** : à chaque beau gain (×3 la mise et plus,
+  `grandsGains.onGainReaction`, plusieurs abonnés), une bouche rouge s'envole de ses
+  lèvres (PlaisirsTable).
+- **La lumière rouge** : pendant la fête (Nuit, spectacle), les halos de la salle virent
+  au rose.
+- **Les mots** : de nouveaux gagnants dans la salle (la veuve joyeuse, l'évêque en civil,
+  la comtesse sans son mari, le notaire masqué, le prince incognito, la maîtresse du
+  gouverneur) ; la Nuit s'ouvre sur « ce qui se passe à la Maison reste à la Maison » ;
+  les gros duels s'écrivent à la Chronique (le mouchoir parfumé, « une fille à chaque
+  bras »).
 - ⛔ Pas de nudité, pas d'acte explicite.
+- Pas fait, et pourquoi : le french cancan sur la scène et des courtisanes alanguies
+  demandent de NOUVELLES bandes de sprites pour les filles — dessinées à la main par Raph
+  (.aseprite) : à lui de dire s'il les veut, et dessinées par qui.
 
 ## Lot 4 — compter les cartes (à faire)
 

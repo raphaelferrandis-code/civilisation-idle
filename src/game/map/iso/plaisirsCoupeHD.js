@@ -703,9 +703,12 @@ function frameOf(hip, f, lean) {
 }
 // ELLE. `leg` : [genou, pied] de la jambe avant, relatifs à la hanche (avant, bas) ;
 // `pop` : le pied arrière levé (le baiser) ; `arm` : 'tete' (main derrière la tête),
-// ou un point [x, y] où poser la main (la nuque de l'homme).
-function woman(m, bx, f, lean, leg, pop, arm) {
-  const hip = [bx, -11.5], P = frameOf(hip, f, lean);
+// 'haut' (les deux bras levés), 'bas' (les mains glissent le long de la jambe avant),
+// 'gant' (un bras levé, le bas qui pend de la main), ou un point [x, y] où poser la
+// main (la nuque de l'homme). `o.legB` : la jambe arrière [genou, pied] comme `leg`
+// (sinon : d'appui, ou levée au baiser) ; `o.cheveux` : 'libres' (le chignon défait).
+function woman(m, bx, f, lean, leg, pop, arm, o = {}) {
+  const hy = -11.5, hip = [bx, hy], P = frameOf(hip, f, lean);
   // Des courbes EXAGÉRÉES : à 30 px, une silhouette réaliste se lit comme un bâton.
   sDisc(m, P(0.4, -0.6), 4.3, 3.3);                           // les hanches
   sDisc(m, P(0.6, -2.7), 2.8, 2.6);                           // la croupe
@@ -715,14 +718,27 @@ function woman(m, bx, f, lean, leg, pop, arm) {
   sCap(m, P(10.4, 0.3), P(12.2, 0.6), 0.9);                   // le cou
   sDisc(m, P(14.2, 0.7), 2.3, 2.6);                           // la tête
   sDisc(m, P(14, 3), 0.6, 0.6);                               // le nez
-  sCap(m, P(15.4, -1.6), P(9.8, -2.9), 1.7, 1.1);             // la chevelure dans le dos
-  sDisc(m, P(16.3, -1.2), 1.6, 1.5);                          // le chignon
-  sCap(m, P(16.8, -0.2), P(18.6, 1.2), 0.5);                  // la plume
-  // La jambe d'appui (ou levée derrière, au baiser).
-  const kb = pop ? [bx - f * 2.2, -5.6] : [bx - f * 1.4, -5.6], ab = pop ? [bx - f * 6, -7.6] : [bx - f * 1.6, -1];
+  if (o.cheveux === 'libres') {
+    // Le chignon défait : la chevelure tombe jusqu'aux reins.
+    sCap(m, P(15.6, -1.4), P(11.4, -2.6), 1.9, 1.7);
+    sCap(m, P(11.4, -2.6), P(6.4, -3.4), 1.7, 1.0);
+  } else {
+    sCap(m, P(15.4, -1.6), P(9.8, -2.9), 1.7, 1.1);           // la chevelure dans le dos
+    sDisc(m, P(16.3, -1.2), 1.6, 1.5);                        // le chignon
+    sCap(m, P(16.8, -0.2), P(18.6, 1.2), 0.5);                // la plume
+  }
+  // La jambe d'appui (ou levée derrière, au baiser ; ou posée à la demande).
+  let kb, ab, tb;
+  if (o.legB) {
+    kb = [bx + f * o.legB[0][0], hy + o.legB[0][1]]; ab = [bx + f * o.legB[1][0], hy + o.legB[1][1]];
+    tb = o.legB[1][1] > 10 ? [ab[0] + f * 2.3, 0] : [ab[0] + (ab[0] - kb[0]) * 0.35, ab[1] + (ab[1] - kb[1]) * 0.35];
+  } else {
+    kb = pop ? [bx - f * 2.2, -5.6] : [bx - f * 1.4, -5.6]; ab = pop ? [bx - f * 6, -7.6] : [bx - f * 1.6, -1];
+    tb = pop ? [ab[0] - f * 1.6, ab[1] - 1.4] : [ab[0] + f * 2.3, 0];
+  }
   sCap(m, [bx - f * 1.2, -10.5], kb, 2.6, 1.4);
   sCap(m, kb, ab, 1.3, 0.8);
-  sCap(m, ab, pop ? [ab[0] - f * 1.6, ab[1] - 1.4] : [ab[0] + f * 2.3, 0], 0.7);
+  sCap(m, ab, tb, 0.7);
   // La jambe avant.
   const k = [bx + f * leg[0][0], hip[1] + leg[0][1]], a = [bx + f * leg[1][0], hip[1] + leg[1][1]];
   sCap(m, [bx + f * 1.0, -10.5], k, 2.6, 1.4);
@@ -737,10 +753,35 @@ function woman(m, bx, f, lean, leg, pop, arm) {
     const sf = P(9.4, 0.8), hand = [(hip[0] + k[0]) / 2 + f * 0.6, (hip[1] + k[1]) / 2 - 0.6];
     sCap(m, sf, [(sf[0] + hand[0]) / 2 + f * 1.6, (sf[1] + hand[1]) / 2], 0.9, 0.8);
     sCap(m, [(sf[0] + hand[0]) / 2 + f * 1.6, (sf[1] + hand[1]) / 2], hand, 0.8, 0.7);
+  } else if (arm === 'haut') {
+    // Les deux bras levés au-dessus de la tête, les mains jointes.
+    const mains = P(19.6, 0.4);
+    for (const [s0, e0] of [[sh, P(15.6, -4.6)], [P(9.4, 0.8), P(15.8, 5.0)]]) { sCap(m, s0, e0, 1.0, 0.8); sCap(m, e0, mains, 0.8, 0.6); }
+  } else if (arm === 'bas') {
+    // Penchée sur la jambe avant : les deux mains y glissent (le bas qu'on roule).
+    const main1 = [(k[0] + a[0]) / 2, (k[1] + a[1]) / 2], main2 = [a[0] - f * 0.4, a[1] - 0.6];
+    for (const [s0, hd] of [[sh, main1], [P(9.4, 0.8), main2]]) {
+      const el = [(s0[0] + hd[0]) / 2 + f * 0.8, (s0[1] + hd[1]) / 2 + 0.4];
+      sCap(m, s0, el, 1.0, 0.8); sCap(m, el, hd, 0.8, 0.6);
+    }
+  } else if (arm === 'gant') {
+    // Un bras levé haut devant elle, le bas qui pend de la main ; l'autre main à la hanche.
+    const el = P(12.8, 4.2), hd = P(15.6, 6.4);
+    sCap(m, sh, el, 1.0, 0.8); sCap(m, el, hd, 0.8, 0.6);
+    const b1 = [hd[0] + f * 1.6, hd[1] + 2.6], b2 = [hd[0] + f * 0.6, hd[1] + 5.4], b3 = [hd[0] + f * 1.8, hd[1] + 7.6];
+    sCap(m, hd, b1, 0.5); sCap(m, b1, b2, 0.5, 0.45); sCap(m, b2, b3, 0.45, 0.6);
+    const sf = P(9.4, 0.8), hp = P(1.6, 3.4);
+    sCap(m, sf, [(sf[0] + hp[0]) / 2 + f * 2.2, (sf[1] + hp[1]) / 2], 0.9, 0.8);
+    sCap(m, [(sf[0] + hp[0]) / 2 + f * 2.2, (sf[1] + hp[1]) / 2], hp, 0.8, 0.7);
   } else if (arm) {
     const el = [(sh[0] + arm[0]) / 2, Math.min(sh[1], arm[1]) - 1.5];
     sCap(m, sh, el, 0.9, 0.8); sCap(m, el, arm, 0.8, 0.7);
   }
+}
+// Le TABOURET où elle pose le pied (le bas qu'on roule) : assise et deux pieds.
+function tabouret(m, x, top) {
+  sCap(m, [x - 2.6, top], [x + 2.6, top], 0.8);
+  for (const d of [-2, 2]) sCap(m, [x + d, top], [x + d * 1.3, 0], 0.5);
 }
 // LUI : plus grand, épaules larges, haut-de-forme ; ses mains à la taille de sa belle.
 function man(m, bx, f, lean, hand, hat = 'top') {
@@ -786,10 +827,44 @@ export function shadowFrames(hat = 'top') {
     return m;
   };
   const couple = [pose(-6, 6, 0, 0, false, 0), pose(-4.6, 4.6, 0.05, -0.12, false, 0), pose(-4, 3.8, 0.14, -0.24, true, 0), pose(-3.8, 3.6, 0.42, -0.36, false, 1)];
+  // LE NUMÉRO BURLESQUE (Raph, 2026-10-04 : « la luxure, pousse l'idée au max » —
+  // toujours en ombre chinoise, rien d'explicite) : le pied sur le tabouret, elle roule
+  // son bas (penchée, les mains glissent du genou à la cheville), le fait tourner au
+  // bout du bras, puis se cambre, bras levés, le chignon défait.
+  const surTabouret = [[4.6, 0.6], [5.0, 6.6]];
+  const numero = [
+    (m) => { tabouret(m, -1 + 5.6, -5); woman(m, -1, 1, -0.32, surTabouret, false, 'bas'); },
+    (m) => { tabouret(m, -1 + 5.6, -5); woman(m, -1, 1, -0.5, surTabouret, false, 'bas'); },
+    (m) => woman(m, -1, 1, 0.06, TEASE[1], false, 'gant'),
+    (m) => woman(m, -1, 1, 0.3, TEASE[0], false, 'haut', { cheveux: 'libres' }),
+  ].map((draw) => { const m = silMask(); draw(m); return m; });
+  solo.push(...numero);
+  // À DEUX, la suite : il passe DERRIÈRE elle, les mains à ses hanches, elle se laisse
+  // aller contre lui, un bras à sa nuque ; puis, face à face, elle enroule une jambe
+  // autour de lui.
+  const derriere = (() => {
+    const m = silMask(), bw = 3.2, bm = -3.6, lw = 0.14, lm = -0.16;
+    const nuque = frameOf([bm, -13.5], 1, lm)(12.8, 0.6);
+    woman(m, bw, 1, lw, TEASE[1], false, nuque, { cheveux: 'libres' });
+    man(m, bm, 1, lm, frameOf([bw, -11.5], 1, lw)(0.8, 2.2), hat);
+    return m;
+  })();
+  const enlace = (haut) => {
+    const m = silMask(), bw = -3.4, bm = 3.4, lw = 0.2, lm = -0.18;
+    const neck = frameOf([bm, -13.5], -1, lm)(12.6, 0.4);
+    const jambe = haut ? [[6.0, -1.6], [12.2, 1.4]] : [[4.6, 1.8], [8.6, 5.8]];
+    woman(m, bw, 1, lw, jambe, false, [neck[0] - 0.6, neck[1] + 0.4], { cheveux: 'libres' });
+    man(m, bm, -1, lm, [bw + jambe[0][0] * 0.8, -11.5 + jambe[0][1] + 0.6], hat);
+    return m;
+  };
+  couple.push(derriere, enlace(false), enlace(true));
   const out = {
     w: SIL.w, h: SIL.h, solo, couple,
-    soloSeq: [0, 0, 1, 2, 3, 4, 4, 4, 3, 2, 1, 0], soloMs: 230,
-    coupleSeq: [0, 1, 1, 2, 2, 2, 3, 3, 3, 2, 1, 0], coupleMs: 380,
+    // Seule : la jambe qui monte (0-4), puis le bas roulé (5-6), tourné (7), la cambrure (8).
+    soloSeq: [0, 0, 1, 2, 3, 4, 4, 4, 3, 2, 1, 0, 5, 5, 6, 6, 6, 5, 5, 7, 7, 7, 7, 8, 8, 8, 8, 8, 0], soloMs: 230,
+    // À deux : l'approche, le baiser, le renversé (0-3), puis derrière elle (4), la jambe
+    // enroulée (5-6).
+    coupleSeq: [0, 1, 1, 2, 2, 2, 3, 3, 3, 2, 1, 4, 4, 4, 4, 1, 5, 6, 6, 6, 6, 5, 1, 0], coupleMs: 380,
   };
   _shadows.set(hat, out);
   return out;
@@ -1398,7 +1473,7 @@ function courtship(ctx, levels, core) {
     const P3 = [[B.x + 4, y0], [B.x - 4, y0]];
     seg(3, ...P0, face, cy0);
     seg(Math.abs(B.x - home) / v, ...P0, { dir: toR(home, B.x), walk: true }, cy0);
-    seg(12, ...P3, { dir: 0, hide: true }, cy0);
+    seg(20, ...P3, { dir: 0, hide: true }, cy0);
     seg(Math.abs(B.x - home) / v, ...P3, { dir: toR(B.x, home), walk: true }, cy0);
   } else {
     const P1 = [[cc + 5, cy0], [cc - 5, cy0]], P2 = [[cc + 5, cyB], [cc - 5, cyB]], P3 = [[B.x + 4, yB], [B.x - 4, yB]];
@@ -1409,7 +1484,7 @@ function courtship(ctx, levels, core) {
     seg(rt, ...P1, { dir: 0, hide: !lift }, cy0);
     seg(1, ...P2, { dir: 0 }, cyB);
     seg(Math.abs(B.x - cc) / v, ...P2, { dir: toR(cc, B.x), walk: true }, cyB);
-    seg(14, ...P3, { dir: 0, hide: true }, cyB);
+    seg(22, ...P3, { dir: 0, hide: true }, cyB);
     seg(Math.abs(B.x - cc) / v, ...P3, { dir: toR(B.x, cc), walk: true }, cyB);
     seg(1, ...P2, { dir: 0 }, cyB);
     seg(rt, ...P2, { dir: 0, hide: !lift }, cyB);

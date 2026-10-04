@@ -28,7 +28,11 @@ const QUI = [
   { fr: 'Un pêcheur', en: 'A fisherman' }, { fr: 'Une veuve', en: 'A widow' },
   { fr: 'Un scribe', en: 'A scribe' }, { fr: 'Un forgeron', en: 'A blacksmith' },
   { fr: 'Une prêtresse', en: 'A priestess' }, { fr: 'Un capitaine', en: 'A captain' },
-  { fr: 'Une tisserande', en: 'A weaver' }, { fr: 'Un vieux joueur', en: 'An old gambler' }
+  { fr: 'Une tisserande', en: 'A weaver' }, { fr: 'Un vieux joueur', en: 'An old gambler' },
+  // Ceux qu'on ne s'attendait pas à croiser ici (la luxure, lot 3).
+  { fr: 'Une veuve joyeuse', en: 'A merry widow' }, { fr: 'Un évêque en civil', en: 'A bishop in plain clothes' },
+  { fr: 'Une comtesse sans son mari', en: 'A countess without her husband' }, { fr: 'Un notaire masqué', en: 'A masked notary' },
+  { fr: 'Un prince incognito', en: 'A prince incognito' }, { fr: 'La maîtresse du gouverneur', en: "The governor's mistress" }
 ];
 // `spot` : la salle du jeu dans la coupe (anchors.js) — les courses n'en ont pas.
 const JEUX = [

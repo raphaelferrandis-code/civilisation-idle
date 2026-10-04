@@ -119,7 +119,7 @@ export function ouvrirNuit(now = Date.now()) {
   state.spectacleDebut = now;
   state.spectacleFin = fin;
   const fl = flambeurDeLaNuit();
-  chronicle(`La Maison des Plaisirs ouvre la Nuit du Grand Jeu : toutes ses portes, la troupe sur scène, ${fl.nom.fr} au salon privé${verse > 0 ? `, et ${fmt(verse)} faveur versés à la cagnotte` : ''}.`);
+  chronicle(`La Maison des Plaisirs ouvre la Nuit du Grand Jeu : toutes ses portes, la troupe sur scène, ${fl.nom.fr} au salon privé${verse > 0 ? `, ${fmt(verse)} faveur versés à la cagnotte` : ''} — et ce qui se passe à la Maison reste à la Maison.`);
   if (!isNotifyPaused()) pushOutcomeFloat({ label: '🎭 La Nuit du Grand Jeu', kind: 'gain' });
   const info = { debut: now, fin, verse, flambeur: fl };
   for (const fn of ecouteurs) { try { fn(info); } catch { /* l'affichage est un plus */ } }

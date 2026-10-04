@@ -35,6 +35,17 @@ const OU = {
   courses: "aux courses"
 };
 
+// LES RÉACTIONS (2026-10-04, la luxure du lot 3 de docs/PLAN-NUIT-DES-PLAISIRS.md) :
+// chaque beau gain (×3 la mise et plus) fait réagir la table — la croupière envoie un
+// baiser. Plusieurs abonnés, et indépendant de l'effet des grands gains (`show`).
+export const REACTION_MULT = 3;
+const reactions = new Set();
+export function onGainReaction(fn) {
+  if (typeof fn !== "function") return () => {};
+  reactions.add(fn);
+  return () => reactions.delete(fn);
+}
+
 let listener = null;
 // Un seul abonné : l'effet de la scène des jeux. Rend de quoi se désabonner.
 export function onGrandGain(fn) {
@@ -50,6 +61,7 @@ export function celebrerGain({ gain, stake, game, show = true } = {}) {
   const g = Number(gain), s = Number(stake);
   if (!(g > 0) || !(s > 0)) return null;
   const mult = g / s;
+  if (mult >= REACTION_MULT) for (const fn of reactions) { try { fn({ gain: g, stake: s, mult, game }); } catch { /* un plus */ } }
   const palier = palierOf(mult);
   if (!palier) return null;
   if (palier.id === "legende") {

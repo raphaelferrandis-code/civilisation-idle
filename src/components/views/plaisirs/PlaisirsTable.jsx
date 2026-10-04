@@ -7,6 +7,7 @@ import { usePlaisirsBand } from '../../ui/plaisirsMaterial.js';
 import { tipProps } from '../../ui/HelpBubble.jsx';
 import { tr } from '../../../game/core/i18n.js';
 import { tablesFermees } from './fermeture.js';
+import { onGainReaction } from '../../../game/core/grandsGains.js';
 import '../../../styles/plaisirs-tables.css';
 
 // La crise terminale FERME les tables de la Maison (les actions des jeux refusent toutes
@@ -94,6 +95,10 @@ export default function PlaisirsTable({ game, dealer = 'g', variant = 0, tablePx
   const band = usePlaisirsBand();
   const ref = useRef(null), cvRef = useRef(null);
   const [box, setBox] = useState(null);
+  // LE BAISER DE LA CROUPIÈRE (lot 3, « la luxure ») : à chaque beau gain (×3 et plus),
+  // elle t'envoie un baiser — une bouche rouge qui s'envole de ses lèvres.
+  const [baiser, setBaiser] = useState(0);
+  useEffect(() => (dealer === 'g' ? onGainReaction(() => setBaiser((n) => n + 1)) : undefined), [dealer]);
   useLayoutEffect(() => {
     const el = ref.current;
     if (!el) return undefined;
@@ -173,6 +178,9 @@ export default function PlaisirsTable({ game, dealer = 'g', variant = 0, tablePx
       {bake && <canvas ref={cvRef} className="ptable-art" width={bake.W} height={bake.H} style={{ width: bake.W * k, height: bake.H * k }} aria-hidden="true" />}
       <div className="ptable-layer">{typeof children === 'function' ? (L ? children(L) : null) : children}</div>
       {fermee && L && <PancarteFermee y={Math.round((L.top + L.bottom) / 2)} />}
+      {baiser > 0 && L && dealer === 'g' && (
+        <span key={baiser} className="ptable-baiser" style={{ left: Math.round(L.dealerX + L.k * 8), top: Math.round(L.wall * 0.5) }} aria-hidden="true">💋</span>
+      )}
     </div>
   );
 }
