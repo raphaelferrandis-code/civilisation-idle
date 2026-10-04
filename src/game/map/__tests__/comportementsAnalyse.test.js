@@ -1,7 +1,8 @@
-import { describe, it, expect } from "vitest";
+import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 
 import { CM, ROAD_E, ROAD_N, ROAD_S, ROAD_W } from "../layout.js";
 import { updateCitizens, cityMapWalkRoadKey } from "../agents.js";
+import { citizenTraits } from "../citizenDay.js";
 
 // docs/PLAN-COMPORTEMENTS.md §7 — PASSE D'ANALYSE du 2026-10-04 : ce que la vérification
 // des constats de l'audit, en jeu, a encore trouvé après les six lots.
@@ -9,6 +10,11 @@ import { updateCitizens, cityMapWalkRoadKey } from "../agents.js";
 //    route vers une place 36 s après la tombée de la nuit, 40 traversant le fleuve).
 
 const TILE = 20, DT = 0.05;
+// Les passants tirent au hasard (Math.random) : GRAINE FIXE, sinon le compte des
+// couche-tard oscille d'un tirage à l'autre (il dépassait le seuil environ une fois sur cinq).
+let seed = 1;
+beforeEach(() => { seed = 1; vi.spyOn(Math, "random").mockImplementation(() => { seed = (seed * 16807) % 2147483647; return (seed - 1) / 2147483646; }); });
+afterEach(() => { vi.restoreAllMocks(); });
 const MASK = ROAD_E | ROAD_W | ROAD_S | ROAD_N;
 
 describe("passe d'analyse — le soir, on rentre", () => {
@@ -42,7 +48,11 @@ describe("passe d'analyse — le soir, on rentre", () => {
     const early = plazaAt(3);
     const late = plazaAt(50);
     expect(early).toBeGreaterThan(30);                             // pas tous d'un coup
-    expect(late).toBeLessThan(12);                                 // ~ les couche-tard qui gardent leur sortie
+    // Ne restent dehors que des COUCHE-TARD (un sur quatre) : ceux qui gardent leur sortie
+    // et ceux qui en reprennent une — jamais un passant ordinaire.
+    const owls = ps.filter((p) => citizenTraits(p).owl);
+    expect(late).toBeLessThanOrEqual(owls.length);
+    expect(ps.filter((p) => !p.lead && p.goalKind === "plaza" && !citizenTraits(p).owl)).toHaveLength(0);
     expect(ps.filter((p) => p.goalKind === "home").length).toBeGreaterThan(30);
   });
 });

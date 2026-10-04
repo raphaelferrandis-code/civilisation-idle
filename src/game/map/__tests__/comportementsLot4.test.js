@@ -1,4 +1,4 @@
-import { describe, it, expect, vi, afterEach } from "vitest";
+import { describe, it, expect, vi, afterEach, beforeEach } from "vitest";
 
 import { state } from "../../core/state.js";
 import { CM, ROAD_E, ROAD_N, ROAD_S, ROAD_W } from "../layout.js";
@@ -51,6 +51,10 @@ function cit(gx, gy, extra = {}) {
   };
 }
 
+// Les passants tirent au hasard (Math.random) : GRAINE FIXE, sinon ces comptes oscillent
+// d'un tirage à l'autre (la fuite / le regard échouait environ une fois sur cinq).
+let seed = 1;
+beforeEach(() => { seed = 1; vi.spyOn(Math, "random").mockImplementation(() => { seed = (seed * 16807) % 2147483647; return (seed - 1) / 2147483646; }); });
 afterEach(() => { vi.restoreAllMocks(); CM.rainF = 0; CM.season = 1; CM.riotDraw = null; CM.riotWindow = false; });
 
 describe("lot 4 — l'emploi du temps suit le temps qu'il fait", () => {

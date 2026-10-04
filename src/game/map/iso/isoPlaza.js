@@ -1207,6 +1207,27 @@ function composeOne(L, era, box) {
       sd: 'plz' + sd, box, cx: cxc, cy: cyc, n, mode: R.people.mode,
       inPlaza: (gx, gy) => cellSet.has(gx + ',' + gy), free: walkFree, stand,
       stalls, exits: plazaExits(L, cells, cellSet),
+      // OÙ L'ON S'ASSOIT (§8 de PLAN-COMPORTEMENTS) : SUR l'assise des bancs qui regardent le
+      // sud ou l'est (côtés nord et ouest) — on y voit les gens de FACE, les seules vues
+      // assises dessinées — et que rien ne masque (un massif devant un duo). Un rien devant
+      // le centre du banc (0,03 case) : assez pour passer DEVANT lui au tri, pas assez pour
+      // qu'on le voie debout à côté (0,1 le posait au bord, mesuré en jeu le 05/10).
+      seats: (() => {
+        const others = props.filter((p) => p.prop !== 'bench' && p.prop !== 'garland' && !p.front)
+          .map((p) => propFootprint(p.wx / T, p.wy / T, p.prop, p.hT));
+        // … et qu'on aborde sans traverser la base d'un objet (un lampadaire, un bac devant).
+        const nb = plazaBases(props.filter((p) => p.prop !== 'bench'), lamps, T);
+        const out = [];
+        for (const b of props) {
+          if (b.prop !== 'bench' || (b.variant !== 's' && b.variant !== 'e')) continue;
+          const fx = b.variant === 'e' ? 1 : 0, fy = 1 - fx;
+          const x = b.wx / T + fx * 0.03, y = b.wy / T + fy * 0.03;
+          if (others.some((o) => footClash(propFootprint(x, y, 'person', personHT()), o, 0.85))) continue;
+          if (nb.some((q) => Math.abs(x - q.cx) < q.ex + 0.15 && Math.abs(y - q.cy) < q.ey + 0.15)) continue;
+          out.push({ x, y, dir: fx ? 0 : 2 });
+        }
+        return out;
+      })(),
       centre: centrePris && R.centre ? { x: cxc, y: cyc, prop: String(R.centre.prop).split('-')[0] } : null,
       // UN VISAGE PAR VENUE : celui qui revient sur la place après l'avoir quittée
       // est quelqu'un d'autre. `charType` et `figSeed` fondent son identité de fiche
@@ -1718,7 +1739,7 @@ function drawPlazaPerson(ctx, rec, now) {
   const prevA = ctx.globalAlpha;
   if (a < 1) ctx.globalAlpha = prevA * a;
   drawNamedAgentIso(ctx, p.x, p.y, z, rec.name, rec.scale || 1, rec.dir, !!rec.walking, now,
-    rec.phase || 0, 1, rec.walking ? rec.walkDist : null, true);
+    rec.phase || 0, 1, rec.walking ? rec.walkDist : null, true, rec.pose || null);
   ctx.globalAlpha = prevA;
 }
 

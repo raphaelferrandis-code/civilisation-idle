@@ -28,8 +28,7 @@ import { drawSunShadow, sunShadowNightK } from './isoSunShadow.js';
 import {
   drawEraAgent, drawEraAgentIso, drawNamedAgent, drawNamedAgentIso, drawVehicleHeadlights,
   vehicleLaneOffset, ensureVeh, vehReady, VEH_SIZES, VEH_PULL, VEH_PUSH,
-  ensureVehDiag, vehDiagReady, eraVehSpec, riotEraKey, AGENT_SCALE, VEH_SCALE,
-} from '../agents.js';
+  ensureVehDiag, vehDiagReady, eraVehSpec, riotEraKey, AGENT_SCALE, VEH_SCALE, citizenPose } from '../agents.js';
 
 // ── Véhicule en iso (Phase 1.5) : corps sprite 4-dirs + attelage/pousseur ────
 // Réutilise les briques legacy (ensureVeh, VEH_PULL/PUSH, bandes de marche) mais
@@ -699,7 +698,7 @@ export function drawIsoCitizenItem(ctx, p, now, z) {
   if (fa < 1) ctx.globalAlpha = prevA * fa;
   // Vue DIAGONALE (Phase 4) si la bande existe, sinon bande cardinale.
   // p.walkDist = odomètre → animation par DISTANCE (anti-patinage).
-  if (!drawEraAgentIso(ctx, sp.x, sp.y, z, p.dir, walking, now, p.phase || 0, p.charType || 0, 1, p.walkDist != null ? p.walkDist : null, p.skinVariant || 0)) {
+  if (!drawEraAgentIso(ctx, sp.x, sp.y, z, p.dir, walking, now, p.phase || 0, p.charType || 0, 1, p.walkDist != null ? p.walkDist : null, p.skinVariant || 0, citizenPose(p))) {
     drawEraAgent(ctx, sp.x, sp.y, z, p.dir, walking, now, p.phase || 0, p.charType || 0);
   }
   carryLight(ctx, p, sp, z, now, fa);

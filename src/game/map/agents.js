@@ -395,14 +395,44 @@ function loadWithRetry(src, onOk, onFail) {
 const IDLE_NAMES = new Set([...AGENT_SETS.flatMap((set) => [...set.men, ...set.women, set.child]).map((s) => s.name), ...BASKET_CARRIERS]);
 const IDLE_ANIM = { on: true, ms: 280 };
 if (typeof window !== 'undefined') window.__idleAnim = (on) => { if (on != null) IDLE_ANIM.on = !!on; return IDLE_ANIM.on; };
+// L'attente sur UNE seule vue (sud-est) : les filles de la Maison des Plaisirs à la porte
+// et au balcon (iso/isoPlaisirs.js, dir 0), animées à partir de leur propre image
+// (PixelLab animate_image) — elles étaient les dernières figées de la ville.
+const IDLE_ONE = new Set(["plaisirs-feu-flamme","plaisirs-feu-sauvage","plaisirs-moyen-gigue","plaisirs-moyen-dame","plaisirs-antique-bacchante","plaisirs-antique-danseuse","plaisirs-fonte-cancan","plaisirs-fonte-chanteuse","plaisirs-neon-revue","plaisirs-neon-or","plaisirs-jade-lumiere","plaisirs-jade-eclat","plaisirs-astral-lumiere","plaisirs-astral-eclat","plaisirs-cristal-lumiere","plaisirs-cristal-eclat"]);
+const idleOk = (c, dd) => { const ii = c.idle[dd]; return !!(ii && ii.complete && ii.naturalWidth > 0); };
+// LES POSES — S'ASSEOIR sur un banc, SALUER (docs/PLAN-COMPORTEMENTS.md §8) : bandes
+// {name}-{sit|wave}-{dir}.png, tirées de l'image d'attente du personnage (PixelLab v3,
+// scripts/fetchAgentIdle.mjs --as), sur les faces SUD seulement — de dos on ne voit ni
+// l'un ni l'autre : une pose demandée de dos retombe sur l'attente. La bande d'assis
+// finit ASSIS (u = 1 tient sa dernière image) ; le salut se joue une fois (u de 0 à 1).
+// Chargées à la première demande.
+const POSE_NAMES = new Set(AGENT_SETS.flatMap((set) => [...set.men, ...set.women, set.child]).map((s) => s.name));
+const POSE_DIRS = new Set(['southeast', 'southwest']);
+// Les poses qui n'existent pas (jamais demandées : le .exe compte chaque fichier absent) —
+// la mage au bâton de l'âge de cristal et la paysanne au panier ne s'assoient pas (plusieurs
+// essais ratés) : sur un banc, elles restent debout devant.
+const POSE_NONE = new Set(['crystalman:sit', 'villagerwoman3:sit']);
+function poseStrip(c, name, kind, dd) {
+  if (!POSE_NAMES.has(name) || !POSE_DIRS.has(dd) || POSE_NONE.has(name + ':' + kind) || typeof Image === 'undefined') return null;
+  const key = kind + ':' + dd;
+  let s = c.pose[key];
+  if (!s) {
+    const base = '/pixelart/agents/' + agentDir(name) + '/' + name + '-' + kind + '-' + dd;
+    s = c.pose[key] = { img: new Image(), half: new Image() };
+    s.img.src = base + '.png';
+    s.half.src = base + '-half.png';
+  }
+  return s.img.complete && s.img.naturalWidth > 0 ? s : null;
+}
 
 const agentDiagChars = {};
 function ensureAgentDiag(name) {
   let c = agentDiagChars[name];
   if (c) return c;
-  c = { img: {}, imgHalf: {}, ready: 0, failed: 0, idle: {}, idleHalf: {}, idleReady: 0 };
+  c = { img: {}, imgHalf: {}, ready: 0, failed: 0, idle: {}, idleHalf: {}, idleReady: 0, pose: {} };
   agentDiagChars[name] = c;
-  if (typeof Image !== 'undefined' && IDLE_NAMES.has(name)) for (const d of ISO_DIAG) {
+  const idleDirs = IDLE_NAMES.has(name) ? ISO_DIAG : IDLE_ONE.has(name) ? [ISO_DIAG[0]] : [];
+  if (typeof Image !== 'undefined') for (const d of idleDirs) {
     // Bande d'ATTENTE : un seul essai, comme la demi-bande ; absente → image 0.
     const base = '/pixelart/agents/' + agentDir(name) + '/' + name + '-idle-' + d;
     const im = new Image();
@@ -477,7 +507,8 @@ function agentFootF(c, img) {
 const halfBands = { on: true };
 if (typeof window !== 'undefined') window.__agentHalf = (on) => { halfBands.on = on !== false; return halfBands.on; };
 
-function drawNamedAgentIso(ctx, sx, groundY, z, name, scale, dir, walking, now, phase, scaleMul = 1, distPx = null, groundFeet = false) {
+// `pose` (§8) : { kind: 'sit' | 'wave', u: 0-1 } — l'avancement dans la bande de pose.
+function drawNamedAgentIso(ctx, sx, groundY, z, name, scale, dir, walking, now, phase, scaleMul = 1, distPx = null, groundFeet = false, pose = null) {
   const c = ensureAgentDiag(name);
   if (c.ready < ISO_DIAG.length) return false;
   const d = (dir >= 0 && dir < 4) ? dir : 2;
@@ -494,15 +525,25 @@ function drawNamedAgentIso(ctx, sx, groundY, z, name, scale, dir, walking, now, 
     fh = half.naturalHeight;
   }
   // ARRÊTÉ : la bande d'attente si elle est là (lot 3), à la même bascule demi-taille.
-  if (!walking && IDLE_ANIM.on && c.idleReady >= ISO_DIAG.length) {
+  const idling = !walking && IDLE_ANIM.on && idleOk(c, ISO_DIAG[d]);
+  if (idling) {
     const fhFull = c.idle[ISO_DIAG[d]].naturalHeight || fh;
     const ih = halfBands.on ? c.idleHalf[ISO_DIAG[d]] : null;
     if (ih && ih.complete && ih.naturalWidth > 0 && drawH <= fhFull * 0.7) { img = ih; fh = ih.naturalHeight; }
     else { img = c.idle[ISO_DIAG[d]]; fh = fhFull; }
   }
+  // UNE POSE (s'asseoir, saluer) : sa bande si elle existe pour cette vue (même bascule).
+  const ps = pose && !walking ? poseStrip(c, name, pose.kind, ISO_DIAG[d]) : null;
+  if (ps) {
+    const fhFull = ps.img.naturalHeight || fh;
+    if (halfBands.on && ps.half.complete && ps.half.naturalWidth > 0 && drawH <= fhFull * 0.7) { img = ps.half; fh = ps.half.naturalHeight; }
+    else { img = ps.img; fh = fhFull; }
+  }
   const nf = Math.max(1, Math.round((img.naturalWidth || fh) / fh));
   let frame = 0;
-  if (!walking && IDLE_ANIM.on && c.idleReady >= ISO_DIAG.length) {
+  if (ps) {
+    frame = Math.min(nf - 1, Math.max(0, Math.floor((pose.u || 0) * nf)));
+  } else if (idling) {
     // Respiration lente, désynchronisée par la phase du personnage.
     frame = Math.floor((now || 0) / IDLE_ANIM.ms + (phase || 0) * 7.3) % nf;
   } else if (walking) {
@@ -541,14 +582,27 @@ const AGENT_SCALE_OF = new Map(AGENT_SETS.flatMap((set) => [...set.men, ...set.w
 function agentIdleFrameIso(name, dir, z, scale, now, phase) {
   if (!IDLE_ANIM.on || !IDLE_NAMES.has(name)) return null;
   const c = ensureAgentDiag(name);
-  if (c.idleReady < ISO_DIAG.length) return null;
   const dd = ISO_DIAG[(dir >= 0 && dir < 4) ? dir : 2];
+  if (!idleOk(c, dd)) return null;
   let img = c.idle[dd], fh = img.naturalHeight || AGENT_FH;
   const drawH = Math.max(1, snapDev(CM.TILE * z * (scale || AGENT_SCALE_OF.get(name) || AGENT_FALLBACK.scale) * AGENT_SCALE));
   const half = halfBands.on ? c.idleHalf[dd] : null;
   if (half && half.complete && half.naturalWidth > 0 && drawH <= fh * 0.7) { img = half; fh = half.naturalHeight; }
   const nf = Math.max(1, Math.round((img.naturalWidth || fh) / fh));
   return { img, fh, sx: (Math.floor((now || 0) / IDLE_ANIM.ms + (phase || 0) * 7.3) % nf) * fh };
+}
+// La frame d'une POSE (§8 : 'sit' | 'wave', u de 0 à 1) pour qui dessine à sa main —
+// l'équipage qui salue d'un bateau à l'autre. Même choix de bande pleine / demi.
+function agentPoseFrameIso(name, dir, z, scale, kind, u) {
+  const c = ensureAgentDiag(name);
+  const dd = ISO_DIAG[(dir >= 0 && dir < 4) ? dir : 2];
+  const ps = poseStrip(c, name, kind, dd);
+  if (!ps) return null;
+  let img = ps.img, fh = img.naturalHeight || AGENT_FH;
+  const drawH = Math.max(1, snapDev(CM.TILE * z * (scale || AGENT_SCALE_OF.get(name) || AGENT_FALLBACK.scale) * AGENT_SCALE));
+  if (halfBands.on && ps.half.complete && ps.half.naturalWidth > 0 && drawH <= fh * 0.7) { img = ps.half; fh = ps.half.naturalHeight; }
+  const nf = Math.max(1, Math.round((img.naturalWidth || fh) / fh));
+  return { img, fh, sx: Math.min(nf - 1, Math.max(0, Math.floor((u || 0) * nf))) * fh };
 }
 function agentFrameIso(name, dir, z, scale = null) {
   const c = ensureAgentDiag(name);
@@ -575,11 +629,11 @@ function agentFrameIso(name, dir, z, scale = null) {
 // prête. Cas vécu : trois métiers ajoutés au code AVANT que leurs PNG existent — le jeu
 // ouvert les a demandés, 404 × 4 (loadWithRetry), réputés absents jusqu'au F5, et un
 // passant sur trois marchait de face.
-function drawEraAgentIso(ctx, sx, groundY, z, dir, walking, now, phase, charType, scaleMul = 1, distPx = null, variant = 0) {
+function drawEraAgentIso(ctx, sx, groundY, z, dir, walking, now, phase, charType, scaleMul = 1, distPx = null, variant = 0, pose = null) {
   const band = (CM.layout && CM.layout.counts && CM.layout.counts.eraBand) || 0;
   const set = agentSetForBand(band);
   const spec = agentSpecFor(set, charType, variant) || AGENT_FALLBACK;
-  if (drawNamedAgentIso(ctx, sx, groundY, z, spec.name, spec.scale, dir, walking, now, phase, scaleMul, distPx)) return true;
+  if (drawNamedAgentIso(ctx, sx, groundY, z, spec.name, spec.scale, dir, walking, now, phase, scaleMul, distPx, false, pose)) return true;
   const list = charType === 2 ? [set.child] : (charType === 1 ? set.women : set.men);
   for (const s of list) {
     if (s !== spec && drawNamedAgentIso(ctx, sx, groundY, z, s.name, s.scale, dir, walking, now, phase, scaleMul, distPx)) return true;
@@ -1559,6 +1613,7 @@ function citizenGreetings() {
           a.dir = dirToward(b._gx - a._gx, b._gy - a._gy);
           b.dir = dirToward(a._gx - b._gx, a._gy - b._gy);
           a._chatWith = b; b._chatWith = a;
+          a._chat0 = b._chat0 = d;                  // l'instant du salut (citizenPose)
           a._greetAt = b._greetAt = t + 60;
         }
       }
@@ -1573,6 +1628,13 @@ const DUSK_RETHINK = new Set(['plaza', 'wonder', 'wander', 'cross', 'errand', 'w
 // Molette : __avoid({ on, reach, half, step, back }).
 export const AVOID = { on: true, reach: 0.6, half: 0.24, step: 0.22, back: 0.3 };
 if (typeof window !== 'undefined') window.__avoid = (o) => { if (o) Object.assign(AVOID, o); return { ...AVOID }; };
+// LA POSE d'un passant (§8 de PLAN-COMPORTEMENTS) : deux passants qui se croisent et
+// s'arrêtent causer commencent par se SALUER (la première seconde de la causette).
+function citizenPose(p) {
+  if (!(p.chatT > 0) || !p._chat0 || !p._chatWith) return null;
+  const t = p._chat0 - p.chatT;
+  return t >= 0 && t < 1.3 ? { kind: 'wave', u: t / 1.3 } : null;
+}
 function updateCitizens(dt) {
   if (!CM.walkRoadList.length) return;
 
@@ -2291,6 +2353,6 @@ function drawVehicleHeadlights(ctx, v) {
 // ⚠ Retirés le 2026-08-23 (étape 6) avec le rendu top-down : `drawCitizens`,
 // `drawGroundAgents`, `drawShips`, `drawVehicles`, `frontByPainter`.
 export { agentSetForBand, agentSpecFor, agentFrameIso, chooseRoadVehicleType, getVehicleDensity, updateVehicles, vehicleGapFactors, VEH_GAP, updateCitizens, CM_DIRS, cityMapWalkRoadKey, roadStepAllowed, drawCitizenThoughts, vehicleLaneOffset, drawEraAgent, drawEraAgentIso, drawNamedAgent, drawNamedAgentIso, drawVehicleHeadlights, thoughtBubbleAnchor, riotEraKey, ensureVeh, vehReady, VEH_SIZES, VEH_PULL, VEH_PUSH, ensureBoat, boatReady, BOAT_SIZES, BOAT_LIFT, ensureDrone, drawDroneRotors, ensureVehDiag, vehDiagReady, vehSkinFor, eraVehSpec, ISO_DIAG, ISO_AGENT_NAMES, BASKET_CARRIERS, agentDir, AGENT_SCALE, VEH_SCALE,
-  citizenSpawnCell, citizenAtDoorstep, citizenWorkNear, IDLE_NAMES, agentIdleFrameIso };
+  citizenSpawnCell, citizenAtDoorstep, citizenWorkNear, IDLE_NAMES, IDLE_ONE, POSE_NAMES, POSE_NONE, agentIdleFrameIso, agentPoseFrameIso, citizenPose };
 // AGENT_SCALE / VEH_SCALE sont exportés en LIAISON VIVE (ESM) : le rendu iso les relit
 // à chaque frame, donc __villagerScale / __vehScale agissent aussi sur la vue iso.

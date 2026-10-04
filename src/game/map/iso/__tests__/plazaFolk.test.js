@@ -94,14 +94,23 @@ describe("les flâneurs de la place (plazaFolk)", () => {
         // En marche : hors de la BASE au sol (on passe devant une fontaine, pas dedans).
         const bases = plazaBases(comp.props, comp.lamps, T());
         const pH = personHT();
+        // S'ASSEOIR (§8 de PLAN-COMPORTEMENTS) : on s'arrête SUR un banc, et les derniers pas
+        // pour y arriver entrent dans sa base — seuls ceux-là, et seulement contre un banc.
+        const seats = [...comp.folk.posts[0].seat, ...comp.folk.posts[1].seat];
+        const nearSeat = (p) => seats.some((q) => Math.hypot(p.x - q.x, p.y - q.y) < 0.4);
+        const benchObst = comp.props.filter((p) => p.prop !== "garland" && !p.front && p.prop !== "bench")
+          .map((p) => propFootprint(p.wx / T(), p.wy / T(), p.prop, p.hT));
+        const benchBases = plazaBases(comp.props.filter((p) => p.prop !== "bench"), comp.lamps, T());
         for (let s = 0; s <= 600; s += 0.25) {
           for (const p of at(comp, s)) {
             if (p.alpha < 1) continue;                        // sur la rue, en fondu
+            const seated = p.act === "seat", toSeat = nearSeat(p);
             if (p.walking) {
-              expect(bases.some((b) => Math.abs(p.x - b.cx) < b.ex && Math.abs(p.y - b.cy) < b.ey)).toBe(false);
+              const B = toSeat ? benchBases : bases;
+              expect(B.some((b) => Math.abs(p.x - b.cx) < b.ex && Math.abs(p.y - b.cy) < b.ey)).toBe(false);
             } else {
               const f = propFootprint(p.x, p.y, "person", pH);
-              expect(obst.some((o) => footClash(f, o, 0.85))).toBe(false);
+              expect((seated ? benchObst : obst).some((o) => footClash(f, o, 0.85))).toBe(false);
             }
           }
         }

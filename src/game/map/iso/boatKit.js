@@ -26,7 +26,7 @@ import { HOVER } from './boatKitsCosmic.js';
 import { drawHoverGlow } from './boatFx.js';
 import { drawSunShadow } from './isoSunShadow.js';
 import { snapDev } from '../blitSnap.js';
-import { agentFrameIso, agentIdleFrameIso } from '../agents.js';
+import { agentFrameIso, agentIdleFrameIso, agentPoseFrameIso } from '../agents.js';
 import { crewSpec, crewDir, isFerryPassenger } from './boatCrew.js';
 
 export const BOATKIT = { on: true, budget: 3 };
@@ -171,7 +171,10 @@ function drawCrew(ctx, e, M, bx, by, k, z, band, po = null) {
     if (!F) continue;
     // Il respire (lot 3 de PLAN-COMPORTEMENTS) : la bande d'attente, déphasée par marin.
     const I = agentIdleFrameIso(sp.name, crewDir(cr.phi), z, sp.scale, typeof performance !== 'undefined' ? performance.now() : 0, ((cr.id >>> 0) % 97) / 97);
-    const S = I || { img: F.img, sx: 0, fh: F.fh };
+    // Le salut d'un bateau à l'autre (pose 'wave', §8) : la main levée, en boucle.
+    const Wv = cr.pose === 'wave' ? agentPoseFrameIso(sp.name, crewDir(cr.phi), z, sp.scale, 'wave',
+      (((typeof performance !== 'undefined' ? performance.now() : 0) / 1400) + ((cr.id >>> 0) % 97) / 97) % 1) : null;
+    const S = Wv || I || { img: F.img, sx: 0, fh: F.fh };
     const ex0 = bx + (cr.x0 - e.ox) * k, ey0 = by + (cr.y0 - e.oy) * k;
     const mx = Math.floor(ex0 * d) / d, my = Math.floor(ey0 * d) / d;
     const W = Math.ceil((cr.w * k + ex0 - mx) * d), H = Math.ceil((cr.h * k + ey0 - my) * d);
