@@ -185,3 +185,35 @@
     meuble de place sur 193 relevés (contrôle sans points de passage : 0,4 %).
   - Reporté au lot 3 (dessin) : les porteuses de panier — `basket-woman` n'a jamais
     été dessinée, poser `v.woman` ne ferait rien apparaître.
+- 2026-10-04 — **LOT 2 FAIT** :
+  - **chemin** : A* sur le réseau piéton (`src/game/map/citizenRoute.js`, mêmes règles
+    que le pas : masques, parvis, anneau du feu ; mémoïsé par ville), suivi case par
+    case, repli glouton seulement sans chemin ; fini le re-tirage de 5 % par case ;
+    îlots du réseau numérotés (`walkComponent`) — on ne vise jamais un but sans
+    chemin ; ⚠ vécu : le parvis d'une merveille posée sur un ÎLOT du fleuve n'était
+    pas numéroté (hors walkRoadList) → 270 passants marchaient vers un but
+    impossible ; corrigé en numérotant CM.walkRoadSet ;
+  - **porte la plus proche EN MARCHANT** pour le partant et le sans-logis
+    (`walkNearest`), plus à vol d'oiseau ;
+  - **journée** (`src/game/map/citizenDay.js`, horloge CM.dayP) : travail le matin,
+    place à midi, courses et travail l'après-midi, retour le soir ; un quart de
+    couche-tard la nuit ; travail tiré à moins de 18 cases de la maison
+    (`citizenWorkNear`) ;
+  - **entrer par la porte** (`p._enter`) : travail 16-42 s, courses 5-13 s, maison
+    6-20 s le jour, jusqu'à l'aube le soir (sorties étalées sur l'aube) ; immobile
+    pendant le fondu ; un passant né la nuit sur son seuil y est déjà rentré ; le
+    « tiers dormeur » qui s'effaçait à n'importe quelle porte disparaît ; cible de
+    foule ×1,25 (une partie de la foule est dedans) ;
+  - **arrêts en route** : lèche-vitrine devant un atelier (6 %, 1,8-4,4 s, tourné vers
+    la façade) ; deux passants qui se CROISENT se saluent et causent (30 % par
+    rencontre, 3-6,5 s, face à face ; rangés par position DESSINÉE — par case visée,
+    deux passants qui se croisent échangent leurs cases pile au croisement) ;
+  - **trottoir tenu** : on garde son côté le long d'une rue ; au carrefour, le
+    trottoir du côté d'où l'on vient ;
+  - **allures** : pas lent (15 % des adultes), rentrer d'un bon pas le soir, un peu
+    pressé le matin, flânerie du soir plus lente ; démarrage progressif (0,5 s) ;
+  - fiche (citizenFocus.js, chantier de la session « PNJ cliquables ») : « Fait ses
+    courses », « Regarde une vitrine », « Entre au travail », « Se promène à la nuit
+    tombée », « Avec » pendant une causette de rencontre ;
+  - banc `__tests__/comportementsLot2.test.js` (10) ; 1 000 passants : 0,6 ms par
+    frame (p95 1 ms) ; en jeu 0 passant sans chemin.

@@ -7,6 +7,8 @@ import { VEH_SKINS } from './vehicleSkins.js';
 import { pxProbe, recPx } from './pixelGrid.js';
 import { snapDev } from './blitSnap.js';
 import { drawSunShadow } from './iso/isoSunShadow.js';
+import { walkPath, walkNearest, walkComponent } from './citizenRoute.js';
+import { dayPhase, citizenTraits, homeTime, dawnFor, pickAgenda, dwellFor, paceFor } from './citizenDay.js';
 
 /* ---- legacy citymap rendering\agents.js ---- */
 
@@ -852,6 +854,67 @@ function crossBankGoal(gx, gy) {
   return { gx: r.gx, gy: r.gy };
 }
 
+// ── LE RÉSEAU PIÉTON VU PAR LE CALCUL DE CHEMIN (PLAN-COMPORTEMENTS, lot 2) ─────
+// Voisins marchables d'une case, pour citizenRoute.js : les MÊMES règles que le pas
+// (masques de chaussée, parvis, anneau du feu de camp), diagonales sur l'esplanade
+// d'une merveille seulement — comme le pas glouton qu'elles remplacent.
+const DIAG4 = [[1, 1], [1, -1], [-1, 1], [-1, -1]];
+function walkNeighbors(gx, gy, push) {
+  for (let i = 0; i < 4; i += 1) {
+    const nx = gx + CM_DIRS[i][0], ny = gy + CM_DIRS[i][1];
+    if (CM.walkRoadSet.has(cityMapWalkRoadKey(nx, ny)) && roadStepAllowed(gx, gy, i)) push(nx, ny, 1);
+  }
+  const W = CM.wonderWalkSet;
+  if (W && W.has(cityMapWalkRoadKey(gx, gy))) {
+    for (const [dx, dy] of DIAG4) {
+      if (W.has(cityMapWalkRoadKey(gx + dx, gy + dy)) && W.has(cityMapWalkRoadKey(gx + dx, gy))
+        && W.has(cityMapWalkRoadKey(gx, gy + dy))) push(gx + dx, gy + dy, 1.414);
+    }
+  }
+}
+// Le but est-il sur le même ÎLOT du réseau que le passant ? (0 = inconnu : on tente.)
+function sameIsland(p, c) {
+  if (!c) return false;
+  const cells = CM.walkRoadSet || CM.walkRoadList;
+  const a = walkComponent(p.gx, p.gy, cells, walkNeighbors, CM.layoutRecomputeAt);
+  const b = walkComponent(c.gx, c.gy, cells, walkNeighbors, CM.layoutRecomputeAt);
+  return !a || !b || a === b;
+}
+// Direction (0-3) de la façade que borde une case de rue, -1 s'il n'y en a pas : le
+// premier voisin qui n'est pas de la voirie. Sert à se tourner vers la porte, la vitrine.
+function facingBuilding(gx, gy) {
+  const rs = CM.roadSet;
+  if (!rs) return -1;
+  for (let i = 0; i < 4; i += 1) {
+    if (!rs.has((gx + CM_DIRS[i][0]) + ',' + (gy + CM_DIRS[i][1]))) return i;
+  }
+  return -1;
+}
+// Les seuils d'ATELIERS et de commerces (bâtiments-moteur) : vitrines, courses.
+function shopDoorSet() {
+  if (!CM._shopDoorSet || CM._shopDoorFor !== CM.workRoadCells) {
+    CM._shopDoorFor = CM.workRoadCells;
+    CM._shopDoorSet = new Set((CM.workRoadCells || []).map((c) => cityMapWalkRoadKey(c.gx, c.gy)));
+  }
+  return CM._shopDoorSet;
+}
+// Un TRAVAIL PROCHE de la maison (lot 2) : le lieu de travail était tiré n'importe
+// où dans la ville. Parmi les seuils d'atelier à moins de 18 cases (Manhattan), un
+// tirage par la graine ; à défaut, le plus proche. Appelé au spawn (cityMapRuntime).
+function citizenWorkNear(home, seed) {
+  const list = CM.workRoadCells;
+  if (!list || !list.length) return null;
+  if (!home) return list[(seed >>> 8) % list.length];
+  const near = [];
+  let best = null, bd = Infinity;
+  for (const c of list) {
+    const d = Math.abs(c.gx - home.gx) + Math.abs(c.gy - home.gy);
+    if (d <= 18) near.push(c);
+    if (d < bd) { bd = d; best = c; }
+  }
+  return near.length ? near[(seed >>> 8) % near.length] : best;
+}
+
 // ── Naître devant chez soi, s'effacer devant une porte ───────────────────────
 // « Les habitants popent au hasard et disparaissent au milieu de la rue » (Raph
 // 2026-07-29). Les deux bouts de vie d'un piéton se raccrochent donc aux SEUILS,
@@ -923,8 +986,38 @@ function citizenChooseNext(p) {
   const reachable = (c) => !!c && CM.walkRoadSet.has(cityMapWalkRoadKey(c.gx, c.gy));
   // But devenu inatteignable (cellule rasée par un recalcul : domicile/atelier supprimé,
   // route émondée) : on le lâche et on en reprend un autre juste après → mouvement continu.
-  if (p.goal && !reachable(p.goal)) p.goal = null;
+  if (p.goal && !reachable(p.goal)) { p.goal = null; p._path = null; }
   const arrived = p.goal && p.goal.gx === p.gx && p.goal.gy === p.gy;
+  const dp = dayPhase(CM.dayP, CM.nightF);
+  const tr = p._tr || (p._tr = citizenTraits(p));
+  // LÈCHE-VITRINE (lot 2) : en passant devant un atelier, on s'arrête parfois un
+  // instant, tourné vers lui — de jour, sans but social, pas en partance, une fois par
+  // demi-minute au plus. (Les seules haltes étaient la place et le parvis.)
+  if (!arrived && p.goal && !p.leaving && !p.social && !homeTime(dp) && !(p._nf > 0)
+    && (CM.citT || 0) >= (p._browseAt || 0) && shopDoorSet().has(cityMapWalkRoadKey(p.gx, p.gy))
+    && Math.random() < 0.06) {
+    const fd = facingBuilding(p.gx, p.gy);
+    if (fd >= 0) {
+      p.pauseT = 1.8 + Math.random() * 2.6;
+      p._browse = true;
+      p._browseAt = (CM.citT || 0) + 30;
+      p.dir = fd;
+      return;
+    }
+  }
+  // ENTRER (lot 2) : au travail, chez soi, dans une boutique, on entre par la porte au
+  // lieu de repartir aussitôt. Le fondu de porte et l'attente à l'intérieur sont dans
+  // updateCitizens (`p._enter`) ; le soir, rentré chez soi, on y reste jusqu'à l'aube.
+  if (arrived && !p.social && !p.leaving && !p.lead && citizenAtDoorstep(p)) {
+    const dw = dwellFor(p.goalKind, dp, tr, Math.random());
+    if (dw) {
+      p.goal = null; p._path = null;
+      p._enter = dw.dawn ? { dawn: true } : { until: (CM.citT || 0) + dw.t };
+      const fd = facingBuilding(p.gx, p.gy);
+      if (fd >= 0) p.dir = fd;
+      return;
+    }
+  }
   if (arrived && p.social) {
     // SEULE halte : la flânerie sur une PLACE ou un PARVIS de merveille (badauds,
     // marché, contemplation). Partout ailleurs les habitants ne s'arrêtent JAMAIS.
@@ -939,7 +1032,7 @@ function citizenChooseNext(p) {
     p.goal = null;
     return;
   }
-  if (arrived) p.goal = null; // hors place : on repart immédiatement, sans halte ni pas parasite
+  if (arrived) { p.goal = null; p._path = null; } // but de passage atteint : on enchaîne
   // EN PARTANCE (la ville dépasse sa cible de foule) : cap immédiat sur le seuil le
   // plus proche, choisi UNE fois (repris s'il a été rasé par un recalcul). Traité
   // AVANT le tirage des envies du jour, et sans son re-tirage aléatoire : un partant
@@ -949,52 +1042,83 @@ function citizenChooseNext(p) {
       // Cap sur SON logement s'il est à portée — c'est chez soi qu'on rentre, sous
       // l'averse comme au départ. Trop loin (ou rasé) : le seuil le plus proche, on
       // ne traverse pas la ville entière sous la pluie pour son propre toit.
-      const home = reachable(p.home) ? p.home : null;
+      const home = reachable(p.home) && sameIsland(p, p.home) ? p.home : null;
       const dHome = home ? Math.abs(home.gx - p.gx) + Math.abs(home.gy - p.gy) : Infinity;
-      p.leaveCell = dHome <= SHELTER_HOME_MAX ? home : nearestDoorstep(p);
+      if (dHome <= SHELTER_HOME_MAX) p.leaveCell = home;
+      else {
+        // Le seuil le plus proche EN MARCHANT (lot 2) — à vol d'oiseau, il pouvait être
+        // de l'autre côté du fleuve ou au fond d'une impasse.
+        const set = CM.buildingEdgeSet;
+        const hit = set && set.size ? walkNearest(p.gx, p.gy, (k) => set.has(k), walkNeighbors, 80) : null;
+        p.leaveCell = hit ? { gx: Math.floor(hit.key / 10000), gy: hit.key % 10000 } : nearestDoorstep(p);
+      }
     }
-    if (reachable(p.leaveCell)) { p.goal = p.leaveCell; p.social = false; }
+    if (reachable(p.leaveCell)) { p.goal = p.leaveCell; p.social = false; p.goalKind = 'leave'; }
   }
-  if (!p.goal || (!p.leaving && Math.random() < 0.05)) {
-    const nf = CM.nightF || 0;
-    const day = nf < 0.45;
-    // Envie de rentrer : nulle en plein jour, croissante à la tombée du soir (0 quand
-    // nightF ≤ 0.40, 1 dès nightF ≥ 0.70) → le soir, la foule reflue vers les quartiers
-    // résidentiels ; le jour, elle gagne ateliers et places.
-    const homeBias = Math.max(0, Math.min(1, (nf - 0.4) / 0.3));
+  // LE BUT DU JOUR (lot 2, citizenDay.js) : ce qu'on a envie de faire À CETTE HEURE —
+  // travailler, faire ses courses, la place, la merveille, l'autre rive, flâner ;
+  // rentrer le soir. Tiré UNE fois, à l'arrivée du précédent : le re-tirage de 5 % par
+  // case faisait de chaque trajet une marche au hasard. Jamais un but d'un autre îlot
+  // du réseau (il n'y a pas de chemin pour y aller).
+  // `goalKind` : la NATURE du but, lue par la fiche d'habitant (citizenFocus.js)
+  // pour dire ce qu'il fait. Elle survit à l'arrivée : pendant la halte d'une
+  // place ou d'un parvis, elle dit encore où il s'est arrêté.
+  if (!p.goal) {
     const plazaCells = CM.plazaRoadCells;
     const wonderCells = CM.wonderGatherCells;
     p.gatherDir = null; // ne survit qu'au but « merveille » repiqué ci-dessous
-    const cross = Math.random() < 0.18 ? crossBankGoal(p.gx, p.gy) : null;
-    if (cross) {
-      p.goal = cross;
-      p.social = false;
-    } else if (reachable(p.home) && Math.random() < homeBias) {
-      // Rentrer au domicile (cellule-route bordant un logement, encore présente).
-      p.goal = p.home;
-      p.social = false;
-    } else if (day && wonderCells && wonderCells.length
-      && Math.random() < 0.04 + 0.55 * (CM.wonderPull || 0)) {
-      // Pèlerinage vers une MERVEILLE : filet continu de curieux (0.04) qui devient
-      // une VAGUE pendant les fenêtres d'attroupement (wonderPull, cf. updateCitizens) —
-      // la foule se forme en anneau autour du monument puis se disperse.
-      const r = wonderCells[Math.floor(Math.random() * wonderCells.length)];
-      p.goal = { gx: r.gx, gy: r.gy };
-      p.social = true;
-      p.gatherDir = r.face;
-    } else if (reachable(p.work) && day && Math.random() < 0.5) {
-      // Gagner son lieu de travail (bordure d'un bâtiment-moteur).
-      p.goal = p.work;
-      p.social = false;
-    } else if (day && plazaCells && plazaCells.length && Math.random() < 0.35) {
-      // Flânerie diurne vers une place publique (marché, parvis, jardin).
-      const r = plazaCells[Math.floor(Math.random() * plazaCells.length)];
-      p.goal = { gx: r.gx, gy: r.gy };
-      p.social = true;
-    } else {
-      const r = CM.walkRoadList[Math.floor(Math.random() * CM.walkRoadList.length)];
-      p.goal = { gx: r.gx, gy: r.gy };
-      p.social = false;
+    const set = (g, kind, social) => { p.goal = { gx: g.gx, gy: g.gy }; p.goalKind = kind; p.social = !!social; };
+    const pickIn = (list, ok) => {
+      for (let i = 0; list && list.length && i < 12; i += 1) {
+        const r = list[Math.floor(Math.random() * list.length)];
+        if ((!ok || ok(r)) && sameIsland(p, r)) return r;
+      }
+      return null;
+    };
+    const kind = pickAgenda(dp, tr, Math.random(), CM.wonderPull || 0);
+    if (kind === 'home' && reachable(p.home) && sameIsland(p, p.home)) set(p.home, 'home');
+    else if (kind === 'home') {
+      // Sans maison à portée (logis rasé, autre rive) : la porte la plus proche EN
+      // MARCHANT, où il passera la nuit.
+      const es = CM.buildingEdgeSet;
+      const hit = es && es.size ? walkNearest(p.gx, p.gy, (k) => es.has(k), walkNeighbors, 60) : null;
+      if (hit) set({ gx: Math.floor(hit.key / 10000), gy: hit.key % 10000 }, 'home');
+    }
+    else if (kind === 'work' && reachable(p.work) && sameIsland(p, p.work)) set(p.work, 'work');
+    else if (kind === 'errand') {
+      // Les courses : un AUTRE atelier, pas trop loin de là où l'on est.
+      const near = (c) => Math.abs(c.gx - p.gx) + Math.abs(c.gy - p.gy) <= 16 && c !== p.work;
+      const r = pickIn(CM.workRoadCells, near);
+      if (r) set(r, 'errand');
+    } else if (kind === 'plaza') {
+      const r = pickIn(plazaCells);
+      if (r) set(r, 'plaza', true);
+    } else if (kind === 'wonder') {
+      // Pèlerinage vers une MERVEILLE : filet continu de curieux qui devient une VAGUE
+      // pendant les fenêtres d'attroupement (wonderPull, cf. updateCitizens).
+      const r = pickIn(wonderCells);
+      if (r) { set(r, 'wonder', true); p.gatherDir = r.face; }
+    } else if (kind === 'cross') {
+      const c = crossBankGoal(p.gx, p.gy);
+      if (c && sameIsland(p, c)) set(c, 'cross');
+    } else if (kind === 'night') {
+      // Le couche-tard : une place, ou quelques rues plus loin.
+      const r = Math.random() < 0.5 ? pickIn(plazaCells)
+        : pickIn(CM.walkRoadList, (c) => Math.abs(c.gx - p.gx) + Math.abs(c.gy - p.gy) <= 14);
+      if (r) set(r, 'night', false);
+    }
+    // Envie impossible (merveille posée sur un îlot, pas d'atelier près d'ici…) : la
+    // place, puis le travail, avant la flânerie au hasard — sinon une vague
+    // d'attroupement vers une merveille hors d'atteinte versait toute la ville en
+    // errance.
+    if (!p.goal && kind !== 'home') {
+      const r = pickIn(plazaCells);
+      if (r && !homeTime(dp)) set(r, 'plaza', true);
+      else if (reachable(p.work) && sameIsland(p, p.work) && !homeTime(dp)) set(p.work, 'work');
+    }
+    if (!p.goal) {
+      const r = pickIn(CM.walkRoadList) || CM.walkRoadList[Math.floor(Math.random() * CM.walkRoadList.length)];
+      set(r, 'wander');
     }
   }
   // Sécurité anti-piétinement : ne JAMAIS viser sa propre cellule (ex. domicile atteint la
@@ -1004,6 +1128,7 @@ function citizenChooseNext(p) {
     const r = CM.walkRoadList[Math.floor(Math.random() * CM.walkRoadList.length)];
     p.goal = { gx: r.gx, gy: r.gy };
     p.social = false;
+    p.goalKind = 'wander';
   }
   const rev = p.dir >= 0 ? (p.dir ^ 1) : -1;
   // MODE ESPLANADE (parvis de merveille, et SEULEMENT là) : la marche se libère de
@@ -1028,8 +1153,24 @@ function citizenChooseNext(p) {
     }
   }
   if (!opts.length) { p.pauseT = 0.5 + Math.random() * 1.5; p.goal = null; return; } // cellule isolée : halte (pas de marche sur place)
+  // LE PAS (lot 2) : on suit SON CHEMIN (A*, citizenRoute.js), calculé une fois par
+  // but et gardé tant que la ville ne change pas ; repli sur le pas glouton d'avant
+  // s'il n'y a pas de chemin (ou plus : une case du chemin a disparu).
+  const gk = cityMapWalkRoadKey(p.goal.gx, p.goal.gy);
+  if (p._pathGoal !== gk || !p._path || p._pathI >= p._path.length) {
+    p._path = walkPath(p.gx, p.gy, p.goal.gx, p.goal.gy, walkNeighbors, CM.layoutRecomputeAt);
+    p._pathI = 0;
+    p._pathGoal = gk;
+  }
+  let onPath = null;
+  if (p._path && p._pathI < p._path.length) {
+    const nk = p._path[p._pathI];
+    onPath = opts.find((o) => cityMapWalkRoadKey(o.nx, o.ny) === nk) || null;
+    if (onPath) p._pathI += 1;
+    else p._path = null;
+  }
   const forward = opts.filter((o) => o.i !== rev);
-  const pool = forward.length ? forward : opts;
+  const pool = onPath ? [onPath] : forward.length ? forward : opts;
   // Cap tenu (adapté aux sprites pixel à 4 directions) : on vise le but en distance de
   // Manhattan et on garde sa direction dans les couloirs. Fini le gros bruit aléatoire
   // qui faisait pivoter le sprite à chaque cellule (« zigzag »). Invariant : bonus de
@@ -1048,6 +1189,7 @@ function citizenChooseNext(p) {
   }
   p.gx = best.nx;
   p.gy = best.ny;
+  p._prevDir = p.dir;
   if (best.i >= 0) {
     p.dir = best.i;
   } else {
@@ -1165,9 +1307,23 @@ function citizenChooseNext(p) {
     p.tox = (off ? off[0] : p.pedJ * 0.1) * CM.TILE;
     p.toy = (off ? off[1] : jy * 0.1) * CM.TILE;
   } else {
-    // Rue simple : trottoir sur le bord DROIT du sens de marche.
-    p.tox = p.dir === 2 ? -pedEdge : p.dir === 3 ? pedEdge : 0;
-    p.toy = p.dir === 0 ? pedEdge : p.dir === 1 ? -pedEdge : 0;
+    // Rue simple : le TROTTOIR TENU (lot 2). Le côté dépendait du sens de marche — à
+    // chaque virage le passant changeait de trottoir en travers de la chaussée. On garde
+    // désormais son trottoir tout le long d'une rue ; au carrefour, on prend sur la rue
+    // nouvelle le trottoir du côté d'où l'on vient (on traverse au passage, pas en biais
+    // au milieu de la rue). `_side` : +1 = sud/est de l'axe, -1 = nord/ouest.
+    const alongX = p.dir === 0 || p.dir === 1;
+    const axis = alongX ? 1 : 2;
+    if (p._sideAxis !== axis) {
+      const pd = p._prevDir;
+      if (p._side == null || pd == null || pd < 0) {
+        p._side = ((((p.phase || 0) * 7.31) % 1) + 1) % 1 < 0.5 ? -1 : 1;
+      } else if (alongX) p._side = pd === 2 ? -1 : pd === 3 ? 1 : p._side;
+      else p._side = pd === 0 ? -1 : pd === 1 ? 1 : p._side;
+      p._sideAxis = axis;
+    }
+    p.tox = alongX ? 0 : (p._side * pedEdge) || 0;   // || 0 : jamais -0 (trottoir nul)
+    p.toy = alongX ? (p._side * pedEdge) || 0 : 0;
   }
 }
 
@@ -1286,6 +1442,49 @@ function companionChat(p) {
   if (f && f.lead === p) p.dir = dirToward(f.x - p.x, f.y - p.y);
 }
 
+// SALUER UNE CONNAISSANCE (lot 2) : deux passants qui se CROISENT (pas qui se suivent)
+// à portée de main s'arrêtent parfois pour causer, face à face, puis reprennent leur
+// route. Un seul tirage par rencontre (30 %), et pas deux causettes à moins d'une
+// minute d'intervalle. Rangés par case de leur position DESSINÉE (pas par la case
+// qu'ils visent : deux passants qui se croisent échangent leurs cases visées pile au
+// moment de se croiser), et comparés aux 8 cases voisines : coût linéaire.
+function citizenGreetings() {
+  const T = CM.TILE, t = CM.citT || 0;
+  const cells = new Map(), who = [];
+  for (const p of CM.citizens) {
+    if (p._nightHidden || p.lead || p.leaving || p.social || p._enter || p._vanish !== undefined) continue;
+    if ((p.pauseT || 0) > 0 || t < (p._greetAt || 0)) continue;
+    const px = p.x + (p.lox || 0), py = p.y + (p.loy || 0);
+    const k = Math.floor(px / T) * 10000 + Math.floor(py / T);
+    p._gk = k; p._gx = px; p._gy = py;
+    const l = cells.get(k);
+    if (l) l.push(p); else cells.set(k, [p]);
+    who.push(p);
+  }
+  for (const a of who) {
+    if (t < (a._greetAt || 0)) continue;
+    for (let dx = -1; dx <= 1; dx += 1) {
+      for (let dy = -1; dy <= 1; dy += 1) {
+        const l = cells.get(a._gk + dx * 10000 + dy);
+        if (!l) continue;
+        for (const b of l) {
+          if (b === a || t < (b._greetAt || 0) || a.dir === b.dir) continue;
+          if (Math.hypot(a._gx - b._gx, a._gy - b._gy) > T * 0.55) continue;
+          a._greetAt = b._greetAt = t + 25;
+          if (Math.random() >= 0.3) continue;
+          const d = 3 + Math.random() * 3.5;
+          a.pauseT = b.pauseT = d;
+          a.chatT = b.chatT = d;
+          a.dir = dirToward(b._gx - a._gx, b._gy - a._gy);
+          b.dir = dirToward(a._gx - b._gx, a._gy - b._gy);
+          a._chatWith = b; b._chatWith = a;
+          a._greetAt = b._greetAt = t + 60;
+        }
+      }
+    }
+  }
+}
+
 function updateCitizens(dt) {
   if (!CM.walkRoadList.length) return;
 
@@ -1343,6 +1542,10 @@ function updateCitizens(dt) {
 
   let anyDead = false;   // un partant a fini son fondu → compaction en fin de boucle
   citTick += 1;
+  // Horloge des passants (secondes de jeu, lot 2) : les attentes à l'intérieur et les
+  // rencontres s'y mesurent ; et l'heure du jour, pour l'emploi du temps.
+  CM.citT = (CM.citT || 0) + dt;
+  const dpNow = dayPhase(CM.dayP, CM.nightF);
   for (const p of CM.citizens) {
     p._tick = citTick;
     if (p.thoughtTimer === undefined) p.thoughtTimer = 0;
@@ -1389,8 +1592,17 @@ function updateCitizens(dt) {
     // Une fois amorcé il est piloté par dt et non par nightF : amorcé tard dans la
     // nuit, le vieux fondu en nightF durait zéro seconde et faisait POP l'habitant —
     // exactement ce qu'il était censé éviter.
-    const nightF = CM.nightF || 0;
-    const sleeper = nightF > 0.55 && (((p.phase * 100) | 0) % 3) === 0;
+    // NAÎTRE LA NUIT (lot 2) : un passant qui apparaît à l'heure où l'on est rentré chez
+    // soi y est DÉJÀ — il sortira à l'aube (les couche-tard, eux, sortent).
+    if (p._born === undefined) {
+      p._born = true;
+      const tr0 = p._tr || (p._tr = citizenTraits(p));
+      // Seulement un passant qui VIENT d'apparaître (fondu à 0) sur un seuil : celui qui
+      // était déjà dans la rue (rechargement du module) ne disparaît pas sur place.
+      if (homeTime(dpNow) && !tr0.owl && !p.lead && !p.leaving && p.fade === 0 && citizenAtDoorstep(p)) {
+        p._enter = { dawn: true }; p._vanish = 0;
+      }
+    }
     // COMPAGNON : il vit au rythme de son meneur (docs/PLAN-COMPORTEMENTS.md, lot 1).
     // Il était LÂCHÉ dès que le meneur partait ou se couchait : il rentrait seul par
     // une autre porte, dormait seul, et à l'aube rattrapait son meneur EN LIGNE DROITE
@@ -1411,9 +1623,21 @@ function updateCitizens(dt) {
         if (p.leaveT > 40 && !p._leaveRetry) { p._leaveRetry = true; p.leaveCell = nearestDoorstep(p); p.goal = null; }
         if (p.leaveT > 80) p._vanish = 1;
       }
-      if ((sleeper || p.leaving) && p._vanish === undefined && citizenAtShelter(p)) p._vanish = 1;
+      // On s'efface sur un seuil pour ENTRER (`_enter` : travail, courses, maison —
+      // lot 2) ou pour PARTIR (la foule baisse). Le « tiers dormeur » qui s'effaçait
+      // devant n'importe quelle porte à la nuit tombée n'existe plus : le soir, chacun
+      // rentre CHEZ SOI (emploi du temps, citizenDay.js).
+      if ((p._enter || p.leaving) && p._vanish === undefined && citizenAtShelter(p)) p._vanish = 1;
       if (p._vanish !== undefined) {
-        const back = !sleeper && !p.leaving;   // le jour se lève : il ressort par sa porte
+        // À l'intérieur : on ressort quand on a fini (travail, courses, passage chez
+        // soi) ou, rentré pour la nuit, quand l'aube est venue POUR SOI (les sorties
+        // s'étalent sur l'aube).
+        if (p._enter && p._vanish <= 0) {
+          const done = p._enter.dawn ? dawnFor(dpNow, (p._tr || (p._tr = citizenTraits(p))).stagger)
+            : (CM.citT || 0) >= p._enter.until;
+          if (done) p._enter = null;
+        }
+        const back = !p._enter && !p.leaving;   // il ressort par sa porte
         p._vanish = back ? Math.min(1, p._vanish + dt * 2.2) : Math.max(0, p._vanish - dt * 2.2);
         if (back && p._vanish >= 1) p._vanish = undefined;
       }
@@ -1427,6 +1651,9 @@ function updateCitizens(dt) {
       if (p.leaving) { p._dead = true; anyDead = true; }
       continue;
     }
+    // Il ENTRE (ou part) : immobile devant la porte le temps du fondu — sans quoi le
+    // pas suivant le relançait dans la rue en train de s'effacer (lot 2).
+    if (p._vanish !== undefined && (p._enter || p.leaving)) continue;
 
     // Compagnon (lot D) : accroché à son meneur, il ne cherche pas son chemin.
     if (p._grp === undefined) companionAssign(p);
@@ -1446,8 +1673,11 @@ function updateCitizens(dt) {
     if (p.pauseT > 0 && !abri) {
       p.pauseT -= dt;
       if (p.chatT > 0) p.chatT = Math.max(0, p.chatT - dt);
+      p._ramp = 0;
     } else {
       p.chatT = 0;
+      p._browse = false;
+      p._chatWith = null;
       const dx = p.tx - p.x, dy = p.ty - p.y, dist = Math.hypot(dx, dy);
       if (dist < 2.4) {
         // Un meneur accompagné s'arrête parfois pour bavarder (jamais en partance,
@@ -1461,7 +1691,12 @@ function updateCitizens(dt) {
         const isoK = (typeof window !== 'undefined' && window.__isoWalkSpeed != null) ? window.__isoWalkSpeed : 0.72;
         // Course sous l'averse : l'animation étant cadencée par la DISTANCE parcourue
         // (walkDist ci-dessous), les jambes accélèrent d'elles-mêmes, sans bande dédiée.
-        const sp = p.speed * dt * isoK * PED_SPEED.k * (abri ? RUN_K : 1);
+        // ALLURE (lot 2) : un pas qui dépend du passant et du moment (citizenDay.js —
+        // le pas lent, rentrer d'un bon pas le soir…), et un DÉMARRAGE progressif après
+        // un arrêt (une demi-seconde) au lieu de repartir d'un bond à pleine vitesse.
+        p._ramp = Math.min(1, (p._ramp == null ? 1 : p._ramp) + dt / 0.5);
+        const pace = paceFor(p, p._tr || (p._tr = citizenTraits(p)), dpNow, p.goalKind) * (0.35 + 0.65 * p._ramp);
+        const sp = p.speed * dt * isoK * PED_SPEED.k * (abri ? RUN_K : pace);
         p.x += dx / dist * sp;
         p.y += dy / dist * sp;
         // Odomètre de marche : pilote l'animation PAR DISTANCE (les pieds suivent
@@ -1487,6 +1722,7 @@ function updateCitizens(dt) {
       p.loy += (toy - p.loy) * k;
     }
   }
+  citizenGreetings();
   // Compaction : les partants rentrés quittent la liste. Filtre alloué SEULEMENT
   // quand il y a eu un départ (une allocation par frame sur 450 habitants serait un
   // gaspillage pur), et jamais pendant l'itération ci-dessus.
@@ -1867,6 +2103,6 @@ function drawVehicleHeadlights(ctx, v) {
 // ⚠ Retirés le 2026-08-23 (étape 6) avec le rendu top-down : `drawCitizens`,
 // `drawGroundAgents`, `drawShips`, `drawVehicles`, `frontByPainter`.
 export { agentSetForBand, agentSpecFor, agentFrameIso, chooseRoadVehicleType, getVehicleDensity, updateVehicles, vehicleGapFactors, VEH_GAP, updateCitizens, CM_DIRS, cityMapWalkRoadKey, roadStepAllowed, drawCitizenThoughts, vehicleLaneOffset, drawEraAgent, drawEraAgentIso, drawNamedAgent, drawNamedAgentIso, drawVehicleHeadlights, thoughtBubbleAnchor, riotEraKey, ensureVeh, vehReady, VEH_SIZES, VEH_PULL, VEH_PUSH, ensureBoat, boatReady, BOAT_SIZES, BOAT_LIFT, ensureDrone, drawDroneRotors, ensureVehDiag, vehDiagReady, vehSkinFor, eraVehSpec, ISO_DIAG, ISO_AGENT_NAMES, BASKET_CARRIERS, agentDir, AGENT_SCALE, VEH_SCALE,
-  citizenSpawnCell, citizenAtDoorstep };
+  citizenSpawnCell, citizenAtDoorstep, citizenWorkNear };
 // AGENT_SCALE / VEH_SCALE sont exportés en LIAISON VIVE (ESM) : le rendu iso les relit
 // à chaque frame, donc __villagerScale / __vehScale agissent aussi sur la vue iso.

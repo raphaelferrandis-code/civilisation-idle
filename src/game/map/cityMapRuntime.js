@@ -108,7 +108,7 @@ import { tissuMetrics, tissuReport } from './tissuMetrics.js';
 // maintenant ; c'est le plan qui avait tort les deux fois.
 import { maskHit } from './iso/isoMask.js';
 import { cityMapCalmRioterAt, quayWallTune, quayWallTiles, ensureQuayGate } from './quaysAndRiot.js';
-import { getVehicleDensity, chooseRoadVehicleType, vehSkinFor, thoughtBubbleAnchor, citizenSpawnCell } from './agents.js';
+import { getVehicleDensity, chooseRoadVehicleType, vehSkinFor, thoughtBubbleAnchor, citizenSpawnCell, citizenWorkNear } from './agents.js';
 import { makeFleetCtl, riverFleetBudget, updateRiverFleet } from './riverFleet.js';
 
 
@@ -174,6 +174,8 @@ if (typeof window !== "undefined") {
   window.__campCrowd = (o) => { if (o) Object.assign(CAMP_CROWD, o); cmRecomputeCitizenTarget(); return { ...CAMP_CROWD, target: CM.citizenTarget }; };
 }
 
+// Part de la foule À L'INTÉRIEUR (lot 2 de PLAN-COMPORTEMENTS), cf. cmCitizenTargetFor.
+const CROWD_INSIDE_K = 1.25;
 // Cible de foule pour un layout donné et un multiplicateur de densité. Extrait
 // pour être RÉ-APPLICABLE à chaud (changement de préréglage) sans le recompute
 // O(N²) du plan — la formule DOIT rester alignée sur cityMapEnsureLayout.
@@ -196,7 +198,10 @@ function cmCitizenTargetFor(L, crowdMul) {
     base = Math.max(base, Math.min((L.counts.houses || 0) * CAMP_CROWD.perHouse, CAMP_CROWD.cap));
     cap = Math.max(cap, Math.round(CAMP_CROWD.cap * crowdMul));
   }
-  return Math.round(cmClamp(base * densityMul * crowdMul, 2, cap));
+  // ×1,25 : depuis le lot 2 de PLAN-COMPORTEMENTS, une partie de la foule est À
+  // L'INTÉRIEUR (au travail, aux courses, chez soi) — elle compte dans la cible sans
+  // être dans la rue. La majoration garde au jour une rue aussi garnie qu'avant.
+  return Math.round(cmClamp(base * densityMul * crowdMul * CROWD_INSIDE_K, 2, cap * CROWD_INSIDE_K));
 }
 
 // Multiplicateur de densité effectif : la molette dev window.__citizenMul
@@ -1884,7 +1889,9 @@ function spawnOneCitizen(L) {
   // soir le ramène (homeBias, citizenChooseNext). Null tant que la ville n'a aucun
   // logement bordé de route — le spawn s'est alors rabattu sur la voirie.
   const home = homeCells && homeCells.length ? r : null;
-  const work = workCells && workCells.length ? workCells[(seed >> 8) % workCells.length] : null;
+  // Un travail PROCHE de chez soi (docs/PLAN-COMPORTEMENTS.md, lot 2) : il était tiré
+  // n'importe où dans la ville.
+  const work = workCells && workCells.length ? citizenWorkNear(r, seed >>> 0) : null;
   CM.citizens.push({
     gx: r.gx, gy: r.gy,
     x: (r.gx + 0.5) * CM.TILE, y: (r.gy + 0.5) * CM.TILE,
