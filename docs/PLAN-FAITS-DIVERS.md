@@ -397,3 +397,14 @@ le 30/10).
   - Croisements : au mariage, le musicien (s'il a été rencontré) joue — et sa mélodie
     joue au clic — ; Diogène regarde depuis son tonneau ; chez la secte (dès le Marbre),
     une chèvre sacrée si Blanquette a été rencontrée.
+  - Commité `4bcb32c4`, puis `05554276` (une seule histoire inconnue à la fois). Le tout
+    POUSSÉ le 04/10 sur le « pousse tout » de Raph.
+- **Retour de Raph (04/10, soir) : « on ne comprend pas trop le design du tonneau ».**
+  Vus « par l'ouverture », jarre, tonneau et capsule se lisaient comme une cible.
+  Références de Raph : un tonneau DEBOUT (douelles, cercles de fer à reflet, ouverture
+  en haut) et Diogène dont la tête et les épaules dépassent, les mains sur le bord.
+  Refaits debout (11 × 13), en deux images : le FOND (bord du haut, intérieur sombre)
+  avant lui, le CORPS (lèvre de devant, panse) après ; il se découpe au bord haut de la
+  lèvre (`LOGIS_LIFT` 9 pixels d'art, `LOGIS_SINK` 0,45), ses mains sur l'ouverture
+  sombre. Et un dessin d'habitant d'ascète par âge (`DIOGENE_BY_BAND` : le moine au
+  Moyen Âge, la toge à Rome — plus le légionnaire —, l'astronome à l'âge stellaire…).

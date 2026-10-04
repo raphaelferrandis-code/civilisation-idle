@@ -20,6 +20,7 @@ import { dirOf, figure, pushFig, pushProp } from './fdKit.js';
 import { fdLoversInscrire, fdState, fdProgress } from '../../core/faitsDivers.js';
 import { FD_STORIES } from '../../data/faitsDivers.js';
 import { drawInstrument, drawNotes, INSTR_STAGE_OF_BAND } from './fdMusicien.js';
+import { LOGIS_LIFT, LOGIS_SINK, drawLogisHands, diogeneVariant } from './fdCynique.js';
 import { jouerMelodieScene } from '../../audio/melodieScene.js';
 import { AMOUREUX, AMOUREUX_NAMES, AMOUREUX_PISTES, accordePiste } from '../../data/faitsDiversAmoureux.js';
 
@@ -159,8 +160,8 @@ function buildWedding(app) {
     cameos.push(m);
   }
   if (cm.cynique && fdProgress(FD_STORIES.cynique).n > 0) {
-    const d = figure(app, 21, x - sx * 1.7 + fx * 0.2, y - sy * 1.7 + fy * 0.2, { ct: 0, dir: 2, sit: true, cast: 0, variant: 6, who: 'cameo' });
-    d.say = cm.cynique; d.lift = 2; d.logis = true;
+    const d = figure(app, 21, x - sx * 1.7 + fx * 0.2, y - sy * 1.7 + fy * 0.2, { ct: 0, dir: 2, sit: true, cast: 0, variant: diogeneVariant(app.band), who: 'cameo' });
+    d.say = cm.cynique; d.lift = LOGIS_LIFT; d.sink = LOGIS_SINK; d.logis = true;
     cameos.push(d);
   }
   app.figs = [n, w, ...gfigs, ...cameos];
@@ -169,7 +170,7 @@ function buildWedding(app) {
     for (const c of cameos) {
       if (c.logis) {
         pushProp(out, 'tonneau', c.wx / CM.TILE, c.wy / CM.TILE, alpha, { unit: true, eps: -0.01 });
-        pushProp(out, 'tonneau', c.wx / CM.TILE, c.wy / CM.TILE, alpha, { unit: true, eps: 0.01, frame: () => 1 });
+        pushProp(out, 'tonneau', c.wx / CM.TILE, c.wy / CM.TILE, alpha, { unit: true, eps: 0.01, frame: () => 1, after: (ctx, box) => drawLogisHands(ctx, box, alpha) });
       }
       pushFig(out, c, app.band, alpha, c.music ? (ctx, r, nowD) => {
         drawInstrument(ctx, r, INSTR_STAGE_OF_BAND[Math.max(0, Math.min(9, app.band))], alpha, c.dir === 1 || c.dir === 2 ? -1 : 1);

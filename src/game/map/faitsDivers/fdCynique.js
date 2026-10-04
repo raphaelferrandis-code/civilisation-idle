@@ -16,7 +16,26 @@ import { fdHash, plazaEdgeSpots, roadRunSpots, doorstepForType, hearthSpot, lisi
 import { fdFocus } from './fdPick.js';
 import { T, dirOf, BACK_TO_EYE, figure, pushFig, pushProp, openStory, unitD } from './fdKit.js';
 
-const DIOGENE_VARIANT = 6;
+// Son dessin d'habitant, âge par âge : le plus proche d'un ascète (agents.js, l'ordre des
+// listes `men`) — le second chasseur au Feu et au Bois, le MOINE au Moyen Âge, le citoyen
+// en toge à Rome (pas le légionnaire : retour de Raph sur le tonneau), l'homme en sweat
+// au Néon, l'astronome à l'âge stellaire, le moine blanc au Démiurge.
+const DIOGENE_BY_BAND = [1, 1, 2, 2, 0, 0, 1, 0, 0, 2];
+export const diogeneVariant = (band) => DIOGENE_BY_BAND[Math.max(0, Math.min(9, band | 0))];
+// Dans son logis (debout, fdArt) : il se découpe au bord haut de la lèvre de devant,
+// 9 pixels d'art au-dessus du pied, et il en reste 45 % dedans — la tête et les épaules
+// dépassent, comme sur les gravures. Ses mains se posent sur le bord.
+export const LOGIS_LIFT = 9, LOGIS_SINK = 0.45;
+const SKIN = [222, 168, 124];
+export function drawLogisHands(ctx, box, alpha) {
+  if (!box) return;
+  const k = vieK();
+  // Posées sur le bord, de part et d'autre de son buste, sur l'ouverture SOMBRE (sur le
+  // bois clair, elles se perdaient).
+  const cx = (box.x0 + box.x1) / 2, y = box.y0 + 3.5 * k;
+  fdPixel(ctx, cx - 2 * k, y, SKIN, alpha);
+  fdPixel(ctx, cx + 2 * k, y, SKIN, alpha);
+}
 const FACE = [[1, 0], [-1, 0], [0, 1], [0, -1]];
 // Son logis, selon l'âge — la ligne de fiche qui le résume mieux qu'un long discours.
 const LOGIS = [
@@ -56,8 +75,8 @@ export function buildCynique(app) {
   const x = s.x, y = s.y;
   const sit = st === 0 || st === 3 || st === 7 || st === 8 || st === 9;
   const logis = st === 0 ? 'jarre' : st === 3 || st === 9 ? 'tonneau' : st === 8 ? 'capsuleLogis' : null;
-  const D = figure(app, 0, x, y, { ct: 0, variant: DIOGENE_VARIANT, dir: logis ? 2 : (s.face != null ? s.face : 2), sit, cast: 0 });
-  if (logis) D.lift = 2;
+  const D = figure(app, 0, x, y, { ct: 0, variant: diogeneVariant(app.band), dir: logis ? 2 : (s.face != null ? s.face : 2), sit, cast: 0 });
+  if (logis) { D.lift = LOGIS_LIFT; D.sink = LOGIS_SINK; }
   const figs = [D];
   let other = null;
   if (st === 1) {
@@ -66,7 +85,7 @@ export function buildCynique(app) {
     D.dir = dirOf(sx, sy);
   } else if (st === 4) {
     // Le savant de l'Académie, face à lui.
-    other = figure(app, 1, x + sx * 0.42, y + sy * 0.42, { ct: 0, dir: dirOf(-sx, -sy), cast: 1, variant: (DIOGENE_VARIANT + 3) % 12 });
+    other = figure(app, 1, x + sx * 0.42, y + sy * 0.42, { ct: 0, dir: dirOf(-sx, -sy), cast: 1, variant: (diogeneVariant(app.band) + 1) % 4 });
     D.dir = dirOf(sx, sy);
   } else if (st === 2) {
     D.dir = dirOf(sx, sy);                      // vers la statue
@@ -98,10 +117,10 @@ export function buildCynique(app) {
       return;
     }
     // ── les décors derrière lui : jarre, tonneau, capsule.
-    // Son logis : le fond AVANT lui, la lèvre APRÈS (il est assis dedans).
+    // Son logis : le fond AVANT lui, le corps APRÈS (il est assis dedans).
     if (logis) {
       pushProp(out, logis, x, y, alpha, { unit: true, eps: -0.01 });
-      pushProp(out, logis, x, y, alpha, { unit: true, eps: 0.01, frame: () => 1 });
+      pushProp(out, logis, x, y, alpha, { unit: true, eps: 0.01, frame: () => 1, after: (ctx, box) => drawLogisHands(ctx, box, alpha) });
     }
     if (st === 2) pushProp(out, 'statue', x + sx * 0.36 - fx * 0.08, y + sy * 0.36 - fy * 0.08, alpha);
     if (st === 1) pushProp(out, 'ecuelle', x + fx * 0.14 + sx * 0.12, y + fy * 0.14 + sy * 0.12, alpha);

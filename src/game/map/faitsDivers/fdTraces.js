@@ -115,12 +115,13 @@ const TRACES = {
     build: (app) => simple(app, [
       { name: 'tonneau', click: true },
       {
-        dx: 0.02, dy: 0.02, eps: 0.01, click: true,
+        eps: 0.01, click: true,
         draw(ctx, wx, wy, now, alpha) {
+          // Le chien dedans : sa tête dépasse du bord, puis le corps du tonneau devant lui.
           const p = worldToScreen(wx, wy);
-          const box = vieBlit(ctx, vieSprite('dogSit', 0, false), p.x, p.y - 2 * vieK(), vieK(), alpha);
-          fdBlit(ctx, 'tonneau', 1, wx, wy, alpha);
-          return box ? { x0: p.x - 4 * vieK(), x1: p.x + 4 * vieK(), y0: p.y - 8 * vieK(), y1: p.y } : null;
+          const k = vieK();
+          vieBlit(ctx, vieSprite('dogSit', 0, false), p.x, p.y - 8.5 * k, k, alpha);
+          return fdBlit(ctx, 'tonneau', 1, wx, wy, alpha);
         },
       },
     ]),
