@@ -294,7 +294,16 @@ export function pushIsoWonderItems(items, w, wi) {
   const o = originScreen(m), z = CM.cam.zoom, bx = m.bk.box;
   if (!bx) return;
   const sx0 = o.x + bx.x * z, sy0 = o.y + bx.y * z, sw = bx.w * z, sh = bx.h * z;
-  if (sx0 > CM.cw + sh * 0.6 || sx0 + sw + sh * 0.6 < 0 || sy0 > CM.ch || sy0 + sh < 0) return;
+  // Le LIEU (décor, objets, jardin) déborde du monument jusqu'à son anneau, devant son
+  // pied compris ; l'ÎLOT de l'Aiguille bien plus encore (±7 tuiles). Ne couper que si
+  // tout est hors écran — sinon l'îlot et le décor disparaissaient au bord en défilant,
+  // et CM.wonderIsle retombait (les buissons remplaçaient le quai).
+  const padP = (cmWonderExtent(m.w.id, m.tier).halfW + 1) * CM.TILE * z, padX = Math.max(sh * 0.6, padP);
+  if (sx0 > CM.cw + padX || sx0 + sw + padX < 0 || sy0 > CM.ch || sy0 + sh + padP < 0) {
+    const isl0 = isleFor(m), B0 = isl0 && isl0.R;
+    const q0 = B0 && worldToScreen(m.cx + B0.oy + B0.ox / 2, m.cy + B0.oy - B0.ox / 2);
+    if (!q0 || q0.x > CM.cw || q0.x + B0.w * z < 0 || q0.y > CM.ch || q0.y + B0.h * z < 0) return;
+  }
   // L'ÎLOT de l'Aiguille : sa base d'un bloc, sous tout ce qui se tient dessus (même
   // l'ombre de l'Aiguille), puis tours, arbres et feux à leur pied ; les bateaux qui
   // passent DEVANT l'île sont redessinés après elle (la flotte est peinte avant la
@@ -439,6 +448,7 @@ export function drawIsoWonderSeg(ctx, it, now) {
       const prevA = ctx.globalAlpha;
       ctx.globalAlpha = hb.a == null ? 1 : hb.a;
       ctx.drawImage(hb.img, hb.bx, hb.by, hb.dw, hb.dw);
+      if (hb.crew) hb.crew(ctx);          // ses marins avec (boatKit.drawCrew), comme au pont
       ctx.globalAlpha = prevA;
     }
   } else if (it.part === 'core' && e >= 0.98) {
