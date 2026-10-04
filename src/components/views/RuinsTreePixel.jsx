@@ -137,6 +137,13 @@ function RuinsUsureSync({ targetRef }) {
   return null;
 }
 
+const sameIds = (a, b) => {
+  if (a === b) return true;
+  if (!a || !b || a.size !== b.size) return false;
+  for (const k of a) if (!b.has(k)) return false;
+  return true;
+};
+
 export default function RuinsTreePixel() {
   "use no memo"; // opt-out React Compiler : hooks manuels (Sets/refs)
   const ruins = useGameState((s) => s.ruins);
@@ -212,8 +219,13 @@ export default function RuinsTreePixel() {
     const loop = (now) => {
       raf = requestAnimationFrame(loop);
       if (document.hidden || now - last < 66) return;
+      const st = sapStRef.current;
+      // Mouvement réduit : rien ne bouge entre deux changements (achat, survol,
+      // focus) — on ne repeint que sur demande, pas 15 fois par seconde.
+      if (st.still && !st.dirty && st.anim.size === 0) return;
       last = now;
-      paintSap(out, scene, sapStRef.current, now);
+      st.dirty = false;
+      paintSap(out, scene, st, now);
       ctx.putImageData(out, 0, 0);
     };
     raf = requestAnimationFrame(loop);
@@ -515,7 +527,11 @@ export default function RuinsTreePixel() {
     .map((vm) => ({ x: vm.sx, y: vm.sy, branch: vm.branch, kind: vm.status === "available" ? "avail" : "lit" }));
   useEffect(() => {
     const st = sapStRef.current;
-    st.lit = lit;
+    // `lit` est un Set neuf à chaque rendu ; ne le remplacer que s'il a changé :
+    // les réserves de particules (sapRenderer, fx.poolsFor) se recalculent sur son
+    // identité — et la vue se re-rend à chaque achat de bâtiment.
+    if (!sameIds(st.lit, lit)) st.lit = lit;
+    st.dirty = true;
     st.pending = pending;
     st.focus = focus;
     st.marks = marks;
