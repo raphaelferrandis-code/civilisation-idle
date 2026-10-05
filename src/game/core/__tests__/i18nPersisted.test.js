@@ -179,8 +179,8 @@ describe("I18N-7 — libellés des règles du Script et des automates", () => {
       autoScriptRules: [{ id: "rule_rupture", enabled: true, threshold: 50 }]
     }));
     state.instability = 0.6;
-    // collapse() sort tout de suite : on ne juge que la ligne écrite avant.
-    setCollapseInProgress(true);
+    // La ligne ne s'écrit plus que si la chute part VRAIMENT (BUG-74) : on la
+    // laisse partir, sa séquence reste suspendue sur les minuteurs simulés.
     checkAutoScriptRules();
     expect(lastLine()).toBe("Script: “Collapse when Rupture reaches 50%”, collapse triggered.");
   });
@@ -192,7 +192,6 @@ describe("I18N-7 — libellés des règles du Script et des automates", () => {
       autoScriptRules: [{ id: "rule_time", enabled: true, threshold: 10 }]
     }));
     state.cycleStartedAt = Date.now() - 11 * 60_000;
-    setCollapseInProgress(true);
     checkAutoScriptRules();
     expect(lastLine()).toBe("Script : « Effondrer après 10 min », effondrement déclenché.");
   });

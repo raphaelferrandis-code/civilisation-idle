@@ -69,12 +69,17 @@ function braiseMultiplier() {
   return 1 + bonus * (1 + ruinEffectSum("braiseAmp"));
 }
 
+// Sans « Ruines en réserve » (somme nulle), le facteur vaut 1 : au-delà du float,
+// toNum(ruins) vaut Infinity et Infinity × 0 donnait NaN, qui contaminait
+// globalMultiplier() (mis en cache de frame). Identique bit à bit sinon.
 export function unspentRuinsPowerMultiplier() {
-  return 1 + toNum(state.ruins) * ruinEffectSum("unspentRuinsPower");
+  const sum = ruinEffectSum("unspentRuinsPower");
+  return sum !== 0 ? 1 + toNum(state.ruins) * sum : 1;
 }
 
 export function unspentRuinsPowerMultiplierDec() {
-  return D(state.ruins).mul(ruinEffectSum("unspentRuinsPower")).add(1);
+  const sum = ruinEffectSum("unspentRuinsPower");
+  return sum !== 0 ? D(state.ruins).mul(sum).add(1) : new Decimal(1);
 }
 
 function grandResetMultiplier() {

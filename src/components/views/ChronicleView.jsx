@@ -131,8 +131,8 @@ function MultiplierAnatomy() {
       <div className="chronicle-bilan-head" {...tipProps(
         tr({ fr: "Anatomie du multiplicateur", en: "Anatomy of the multiplier" }),
         tr({
-          fr: "Le détail du multiplicateur GLOBAL. D'autres bonus agissent en dehors de lui, par ressource, et ne figurent pas ici.",
-          en: "The breakdown of the GLOBAL multiplier. Other bonuses act outside it, per resource, and are not listed here."
+          fr: "Le détail du multiplicateur GLOBAL. Les Reliques, la Bénédiction, les politiques, les malus de crise et des bonus par ressource agissent en dehors de lui, et ne figurent pas ici.",
+          en: "The breakdown of the GLOBAL multiplier. Relics, the Blessing, policies, crisis penalties and per-resource bonuses act outside it, and are not listed here."
         })
       )}>
         <h3>{tr({ fr: "Anatomie du multiplicateur", en: "Anatomy of the multiplier" })}</h3>
@@ -195,11 +195,15 @@ const COMPTES_RESSOURCES = [
 // Débit à unité adaptative, le même geste que la barre du haut (B4) : sans
 // lui, tous les petits contributeurs s'écrivent « 0.0/s » et le classement
 // devient illisible pile là où il sert.
+// Au-delà du float, les Comptes rendent des Decimal (fmtShort sait les écrire).
 function fmtDebit(v) {
-  if (!Number.isFinite(v)) return "—";
+  if (!(v instanceof Decimal) && !Number.isFinite(v)) return "—";
   const mis = rateScale(v);
   return `${fmtShort(mis.value)}${mis.unit}`;
 }
+
+// « > 0 » sans coercer un Decimal (piège de num.js en dev).
+const positif = (v) => (v instanceof Decimal ? v.gt(0) : v > 0);
 
 function CompteRow({ label, value, share, count, muted = false }) {
   return (
@@ -222,12 +226,15 @@ function CityAccounts() {
   const [res, setRes] = useState("food");
   // Signature quantifiée : le panneau ne se redessine que quand le débit de la
   // ressource regardée bouge assez pour se voir.
+  // Au-delà du float, la signature suit la mantisse (sinon « Infinity » figé :
+  // le panneau ne se redessinait plus).
   useGameState(() => {
-    const v = toNum(rates()[res]);
-    return Number.isFinite(v) ? Math.round(v * 1000) : String(v);
+    const debit = rates()[res];
+    const v = toNum(debit);
+    return Number.isFinite(v) ? Math.round(v * 1000) : D(debit).toExponential(3);
   });
 
-  const { rows, socle, additif, total, degrade } = productionBreakdown(res);
+  const { rows, socle, additif, additifShare, total, degrade } = productionBreakdown(res);
   const nomRes = tr(COMPTES_RESSOURCES.find((r) => r.key === res).label);
 
   return (
@@ -271,7 +278,7 @@ function CityAccounts() {
           ))}
           {/* Le socle n'est pas un bâtiment : il est grisé pour qu'on ne le
               cherche pas dans la boutique. */}
-          {socle.value > 0 && (
+          {positif(socle.value) && (
             <CompteRow
               label={tr({ fr: "Socle de la cité", en: "City baseline" })}
               value={socle.value}
@@ -279,11 +286,11 @@ function CityAccounts() {
               muted
             />
           )}
-          {additif > 0 && (
+          {positif(additif) && (
             <CompteRow
               label={tr({ fr: "Théocratie", en: "Theocracy" })}
               value={additif}
-              share={total > 0 ? additif / total : 0}
+              share={additifShare}
               muted
             />
           )}
@@ -362,7 +369,10 @@ function CivilizationReview() {
           // L'ancienne prose énumérait des sources sans un chiffre (« ruines,
           // ères, merveilles, routes… »). Le détail chiffré vit maintenant dans
           // l'Anatomie, juste en dessous : cette bulle n'a plus qu'à y renvoyer.
-          hint={tr({ fr: "Multiplicateur global appliqué à toute la production. Son détail facteur par facteur est dans l'Anatomie, plus bas.", en: "Global multiplier applied to all production. Its factor by factor breakdown is in the Anatomy, below." })}
+          // Elle disait « appliqué à toute la production » : faux, les Reliques,
+          // la Bénédiction, les politiques et les malus de crise agissent hors de
+          // ce produit (crisisProductionMultiplier ; audit du 05/10, BUG-81).
+          hint={tr({ fr: "Multiplicateur global de la production. Les Reliques, la Bénédiction, les politiques et les malus de crise s'appliquent en plus, hors de ce chiffre. Son détail facteur par facteur est dans l'Anatomie, plus bas.", en: "Global production multiplier. Relics, the Blessing, policies and crisis penalties apply on top of it, outside this figure. Its factor by factor breakdown is in the Anatomy, below." })}
         />
         <StatTile
           label={tr({ fr: "Crises stabilisées", en: "Crises stabilized" })}

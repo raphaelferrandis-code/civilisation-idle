@@ -197,7 +197,10 @@ export const BABEL_CAT_LABELS     = {
 // effondrement, reconstruire la cité à PHENIX_REBIRTH_POP_MULT × la population de
 // redémarrage (le reliquat post-effondrement) en moins de PHENIX_REBIRTH_WINDOW_MS.
 // Réussir PHENIX_RENAISSANCE_TARGET renaissances de suite. Rater une fenêtre brise
-// la chaîne (retour à 0). Auto-échelonné (cible relative au reliquat) et borné.
+// la chaîne (retour à 0). Cible RELATIVE au départ du cycle, et bornée — mais à
+// l'activation, ce départ vaut le plancher de 10 habitants sans Reliquaire des
+// pics : la 1re cible est alors 600, pas « à l'échelle » de la partie (audit
+// 2026-10-05, BUG-79 ; cf. BUG-41).
 export const PHENIX_RENAISSANCE_TARGET = 3;          // 3 renaissances réussies consécutives
 export const PHENIX_REBIRTH_WINDOW_MS  = 3 * 60_000; // fenêtre de reconstruction (3 min)
 export const PHENIX_REBIRTH_POP_MULT   = 60;         // reconstruire à 60× le reliquat post-effondrement

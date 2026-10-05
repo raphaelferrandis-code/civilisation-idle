@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import { useGameState } from '../../hooks/useGameState.js';
-import { state } from '../../game/core/state.js';
+import { state, saveSoon } from '../../game/core/state.js';
 import {
   dealBlackjack,
   hitBlackjack,
@@ -130,6 +130,9 @@ export default function BlackjackStage({ table, onClose }) {
     if (amount <= 0 || (state.faveur || 0) < amount) return;
     const h = dealBlackjack(amount);
     if (!h) return;
+    // Mise débitée : écrite sous 300 ms, pas à l'autosave des 10 s — tuer le
+    // processus sur une main crevée ne la rembourse plus (SAV-15).
+    saveSoon(300);
     rememberStake('cartes', h.stakeFaveur);
     setStake(h.stakeFaveur);
     setOutcome(null);
@@ -147,8 +150,9 @@ export default function BlackjackStage({ table, onClose }) {
     setTimeout(() => { hittingRef.current = false; }, 150);
   };
   const onStand = () => { const h = standBlackjack(); if (h) finish(h); };
-  const onDouble = () => { const h = doubleBlackjack(); if (h) finish(h); };
-  const onSplit = () => { const h = splitBlackjack(); if (h) finish(h); };
+  // Doubler et séparer débitent une seconde mise : même écriture rapide (SAV-15).
+  const onDouble = () => { const h = doubleBlackjack(); if (h) { saveSoon(300); finish(h); } };
+  const onSplit = () => { const h = splitBlackjack(); if (h) { saveSoon(300); finish(h); } };
   const onNewHand = () => { setHand(null); setOutcome(null); setPhase('bet'); };
 
   // Le conseil de la Mesure gravée : ce que la stratégie de base ferait avec

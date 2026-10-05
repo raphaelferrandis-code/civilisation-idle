@@ -385,8 +385,11 @@ function BuildingShop({ open: openProp, onToggle }) {
         {visibleBuildings.map((b) => {
           // Voirie : encart tableau de bord dédié (jauges + bouton-verbe), une
           // architecture À PART des rangées — il lit l'état des chantiers
-          // lui-même, aucun des props calculés ici ne le concerne.
-          if (b.id === "roads") return <RoadworksPanel key={b.id} building={b} />;
+          // lui-même ; seul le verrou de Babel lui vient d'ici, comme aux
+          // rangées (le moteur refuse l'achat, le bouton ne doit pas l'offrir).
+          if (b.id === "roads") {
+            return <RoadworksPanel key={b.id} building={b} babelBlocked={Boolean(babelActive && babelCat && b.category !== babelCat)} />;
+          }
           const prices = costById[b.id];
           const count = stateBuildings[b.id] || 0;
           // Facteur unitaire = le MÊME que getBuildingSums (jalons × Rives

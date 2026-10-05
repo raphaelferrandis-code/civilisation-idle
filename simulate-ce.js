@@ -119,12 +119,11 @@ const { registerWorldEffects } = await import("./src/game/data/worldEffects.js")
 const { addProductionPenalty } = mech;
 registerWorldEffects({ addProductionPenalty, chronicle, clamp01, state });
 
-// Merveilles en headless : normalement erigees par le runtime de la carte
-// (cmCheckWonders), absent ici -> sans ca state.wonders reste vide et le jalon GR2
-// (3 merveilles) est INATTEIGNABLE en simulation. On importe la vraie fonction
-// (metriques reelles du jeu) ; repli no-op si layout.js casse en headless.
-let cmCheckWonders = () => {};
-try { ({ cmCheckWonders } = await import("./src/game/map/layout.js")); } catch { /* headless : pas de merveilles simulees */ }
+// Merveilles : depuis l'audit du 2026-10-05 (BUG-12), le COEUR grave les rangs
+// (tick + seuil de completeCollapse, core/actions/wonders.js) ; la carte n'en
+// joue plus que l'animation. Plus besoin d'importer layout.js : on appelle la
+// meme fonction que le jeu, juste avant la capture du sommet de l'epoch.
+const { checkWonders } = await import("./src/game/core/actions/wonders.js");
 
 // ---------------------------------------------------------------------------
 // 2. CLI
@@ -473,10 +472,9 @@ function buyHeritage() {
 function doCollapse(reason = "auto") {
   const gain = ruinGain();
   if (D(gain).lte(0)) return false;
-  // Ériger les merveilles au PIC du cycle (avant que completeCollapse ne remette
-  // population/pics à zéro) : nourrit state.wonders selon les vraies métriques du
-  // jeu -> rend le jalon GR2 (3 merveilles) atteignable en headless.
-  cmCheckWonders(Date.now());
+  // Graver les merveilles au PIC du cycle AVANT la capture du sommet ci-dessous
+  // (completeCollapse le refait lui-même, mais après cette capture).
+  checkWonders();
   // Capture le SOMMET de l'epoch (avant le reset de completeCollapse) pour la
   // chronologie canonique par Grand Reset : snapshot cohérent au pic du cycle.
   const peakPop = num(state.cyclePeaks && state.cyclePeaks.population != null ? state.cyclePeaks.population : state.population);
@@ -1613,7 +1611,7 @@ md += `\n## Pointeurs formules (source de verite)
 ## Lecture du nouveau cadrage (Grand Reset sur 11 jalons)
 Le Grand Reset ne se paie plus en legitimite (dynasties supprimees) : il se **decouvre** en atteignant 11 jalons marquants,
 chacun engageant un pan du jeu (\`GRAND_RESET_MILESTONES\`). Le bot JOUE reellement ces systemes :
-- **GR II — La Premiere Merveille** : les merveilles sont erigees au pic du cycle (\`cmCheckWonders\`, sinon inaccessible en headless).
+- **GR II — La Premiere Merveille** : les merveilles sont gravees au pic du cycle par le coeur (\`checkWonders\`, tick + chute).
 - **GR VII — Le Jackpot d'Icare** : le bot lance des vols au Vol d'Icare jusqu'a decrocher un jackpot (>=x10 cagnotte pleine).
 - **GR III / VI / VIII / XI** : gates par les Mythes (1 / 5 / 8 / 14 Mythes honores) — le vrai mur de la progression.
 

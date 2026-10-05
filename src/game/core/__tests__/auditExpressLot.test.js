@@ -39,14 +39,24 @@ describe("M21 — les horodatages FUTURS survivent au reload (plus de clamp à �
     expect(hydrateState({ atlasShoulderCdEnd: 1 }).atlasShoulderCdTicks).toBe(0);
   });
 
+  // Survivre au reload, oui ; mais borné à « maintenant + la durée maximale » :
+  // une horloge système en avance puis corrigée (audit 2026-10-05, SAV-12) ne
+  // doit plus bloquer un cooldown le temps de l'écart.
   it("ragnarokArkNextAt : le cooldown de l'Arche n'est plus rasé (fini la triche par F5)", () => {
-    expect(hydrateState({ ragnarokArkNextAt: FAR_FUTURE }).ragnarokArkNextAt).toBe(FAR_FUTURE);
+    const pending = Date.now() + 60_000; // l'Arche rouvre dans une minute
+    expect(hydrateState({ ragnarokArkNextAt: pending }).ragnarokArkNextAt).toBe(pending);
+    expect(hydrateState({ ragnarokArkNextAt: FAR_FUTURE }).ragnarokArkNextAt).toBeLessThanOrEqual(Date.now() + 100_000);
   });
 
   it("atridesRenegotiate* : l'effet PAYÉ en cours et son cooldown survivent", () => {
-    const s = hydrateState({ atridesRenegotiateActiveUntil: FAR_FUTURE, atridesRenegotiateCooldownEnd: FAR_FUTURE });
-    expect(s.atridesRenegotiateActiveUntil).toBe(FAR_FUTURE);
-    expect(s.atridesRenegotiateCooldownEnd).toBe(FAR_FUTURE);
+    const active = Date.now() + 20_000;
+    const cooldown = Date.now() + 100_000;
+    const s = hydrateState({ atridesRenegotiateActiveUntil: active, atridesRenegotiateCooldownEnd: cooldown });
+    expect(s.atridesRenegotiateActiveUntil).toBe(active);
+    expect(s.atridesRenegotiateCooldownEnd).toBe(cooldown);
+    const far = hydrateState({ atridesRenegotiateActiveUntil: FAR_FUTURE, atridesRenegotiateCooldownEnd: FAR_FUTURE });
+    expect(far.atridesRenegotiateActiveUntil).toBeLessThanOrEqual(Date.now() + 30_000);
+    expect(far.atridesRenegotiateCooldownEnd).toBeLessThanOrEqual(Date.now() + 120_000);
   });
 });
 

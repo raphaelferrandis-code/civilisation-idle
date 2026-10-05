@@ -111,13 +111,17 @@ describe("applyOfflineProgress — prod + Usure couplées, capées", () => {
     expect(at10h).toBeCloseTo(at2h, 6);
   });
 
-  it("ne touche à rien si la crise terminale est déjà ouverte", () => {
+  it("crise terminale déjà ouverte (hors farm) : rien n'est crédité, l'absence va dans la clepsydre (BUG-9)", () => {
     state.crisisLimitAnnounced = true;
+    state.lastTick = FIXED_NOW - 3600 * 1000;
     const popBefore = toNum(state.population);
     const wearBefore = state.timeWear;
     applyOfflineProgress(3600);
     expect(toNum(state.population)).toBe(popBefore);
     expect(state.timeWear).toBe(wearBefore);
+    // L'absence n'est plus jetée : elle attend d'être versée, et l'ancre est recalée.
+    expect(state.storedSeconds).toBe(3600);
+    expect(state.lastTick).toBe(FIXED_NOW);
   });
 });
 

@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { registerIdleReport } from '../../game/core/idleReport.js';
+import { registerIdleReport, dismissIdleReport } from '../../game/core/idleReport.js';
 import { fmtSecs } from '../../game/core/utils.js';
 import { tr } from '../../game/core/i18n.js';
 
@@ -58,7 +58,7 @@ export default function IdleReportPanel() {
             <button
               type="button"
               className="idle-report-close"
-              onClick={() => setReport(null)}
+              onClick={() => { dismissIdleReport(report); setReport(null); }}
               aria-label={tr({ fr: "Fermer le rapport", en: "Close the report" })}
             >
               ×
@@ -103,6 +103,19 @@ export default function IdleReportPanel() {
           {report.rank && (
             <p className={`idle-report-farm ${visible(1)}`}>
               🎖 {tr({ fr: 'Maison des Plaisirs', en: 'House of Pleasures' })} · <strong>{report.rank}</strong>
+            </p>
+          )}
+
+          {/* Les pactes honorés ou brisés pendant l'absence : leurs lignes du
+              journal partaient avec celui de la simulation (BUG-31). */}
+          {report.myths?.crowned?.length > 0 && (
+            <p className={`idle-report-farm ${visible(1)}`}>
+              ⭐ {tr({ fr: 'Pacte honoré', en: 'Pact honored' })} · <strong>{report.myths.crowned.join(', ')}</strong>
+            </p>
+          )}
+          {report.myths?.broken && (
+            <p className={`idle-report-farm ${visible(1)}`}>
+              {tr({ fr: 'Pacte brisé', en: 'Pact broken' })} · <strong>{report.myths.broken}</strong>
             </p>
           )}
 

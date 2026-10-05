@@ -7,20 +7,18 @@
 // hydrateState, et une place dans la sauvegarde — trois obligations pour une
 // donnée qui vit dix secondes.
 let showIdleReport = null;
-// File d'attente de UN : le rapport est publié par startGameLoop AVANT que la
-// vue Cité — seul point de montage du panneau — ne soit forcément montée
-// (activeView est persistée : revenir d'absence sur l'onglet Régulation jetait
-// le rapport, la seule explication du solde qui a bougé). Le dernier rapport
-// non consommé attend l'enregistrement du prochain handler.
+// Le rapport EN COURS, gardé ici jusqu'à ce que le joueur le ferme. Il est publié
+// par startGameLoop AVANT que la vue Cité — seul point de montage du panneau — ne
+// soit forcément montée (activeView est persistée : revenir d'absence sur l'onglet
+// Régulation jetait le rapport, la seule explication du solde qui a bougé). Et une
+// fois remis, la vue Cité peut encore se démonter avant sa fermeture (changement
+// d'onglet) : son panneau le retrouve au remontage au lieu de le perdre (audit
+// 2026-10-05, BUG-31).
 let pendingReport = null;
 
 export function registerIdleReport(handler) {
   showIdleReport = typeof handler === "function" ? handler : null;
-  if (showIdleReport && pendingReport) {
-    const report = pendingReport;
-    pendingReport = null;
-    showIdleReport(report);
-  }
+  if (showIdleReport && pendingReport) showIdleReport(pendingReport);
   return () => {
     if (showIdleReport === handler) showIdleReport = null;
   };
@@ -34,11 +32,21 @@ export function registerIdleReport(handler) {
 //   farm         true si la vraie boucle a été rejouée (effondrements possibles)
 //   collapses    nombre de chutes rejouées
 //   ruinsGained  chaîne Decimal
+//   myths        { crowned: [noms], broken: nom|null } pactes honorés / brisés
 //   deltas       [{ key, label, amount }] variations de ressources, déjà filtrées
 //   idle         [{ label }] ce qui n'a PAS tourné, pour que l'écart avec
 //                l'attente ne soit pas lu comme un bug
 export function publishIdleReport(report) {
   if (!report) return;
+  // Remis D'ABORD : un panneau qui lève ne laisse pas un rapport fantôme rejoué à
+  // chaque remontage.
   if (showIdleReport) showIdleReport(report);
-  else pendingReport = report;
+  pendingReport = report;
+}
+
+// Le joueur a fermé le rapport : il ne revient plus au remontage de la vue Cité.
+// Un rapport plus récent, publié entre-temps, n'est pas effacé par la fermeture
+// d'un ancien.
+export function dismissIdleReport(report) {
+  if (!report || pendingReport === report) pendingReport = null;
 }

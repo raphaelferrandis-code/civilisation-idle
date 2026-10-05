@@ -171,6 +171,60 @@ describe("productionBreakdown — cas dégradés", () => {
     expect(() => productionBreakdown("faveur")).toThrow(/ressource inconnue/);
   });
 
+  // Audit du 05/10, BUG-37 : au-delà du float, total = Infinity mettait tout en
+  // « dégradé » (« Aucune production ») alors que les parts restent calculables.
+  it("débit au-delà du float : pas de « dégradé », mêmes parts qu'en float", () => {
+    const enFloat = productionBreakdown("food");
+    // La Nourriture ne prend que la racine du multiplicateur global : 1e1000
+    // Ruines la portent à ~2e312/s.
+    state.ruins = new Decimal("1e1000");
+    invalidateRenderCache("all");
+    expect(Number.isFinite(toNum(rates().food)), "le débit doit déborder").toBe(false);
+    const b = productionBreakdown("food");
+    expect(b.degrade).toBe(false);
+    // Les parts ne dépendent que des bases : identiques à celles du float.
+    const partFloat = Object.fromEntries(enFloat.rows.map((r) => [r.key, r.share]));
+    for (const r of b.rows) expect(proche(r.share, partFloat[r.key], 1e-9), r.key).toBe(true);
+    expect(proche(b.socle.share, enFloat.socle.share, 1e-9)).toBe(true);
+    // La somme (en Decimal) retombe sur le débit affiché.
+    const somme = b.rows.reduce((acc, r) => acc.add(r.value), new Decimal(0)).add(b.socle.value).add(b.additif);
+    expect(b.total instanceof Decimal).toBe(true);
+    expect(somme.div(b.total).sub(1).abs().lt(1e-9)).toBe(true);
+    for (let i = 1; i < b.rows.length; i++) expect(b.rows[i - 1].value.gte(b.rows[i].value)).toBe(true);
+  });
+
+  it("bases au-delà du float (synergie, population) : les parts somment à 1", () => {
+    state.population = new Decimal("1e330");
+    state.food = new Decimal("1e330");
+    state.gold = new Decimal("1e330");
+    state.knowledge = new Decimal("1e330");
+    state.infrastructure = new Decimal("1e330");
+    state.buildings.foragers = 12000; // 1,025^12000 × 2^480 ≈ 1e273 : fini
+    invalidateRenderCache("all");
+    // Socle de Nourriture = 0,012 × 1e330 habitants : il déborde, et porte tout.
+    const avecSocle = productionBreakdown("food");
+    expect(avecSocle.degrade).toBe(false);
+    expect(avecSocle.socle.share).toBeGreaterThan(0.99);
+
+    state.population = new Decimal(50_000);
+    state.buildings.foragers = 20000; // 1,025^20000 × 2^800 ≈ 1e455 : la synergie déborde
+    invalidateRenderCache("all");
+    for (const res of BREAKDOWN_RESOURCES) {
+      const { rows, socle, degrade, total, additif, additifShare } = productionBreakdown(res);
+      if (degrade) continue;
+      const parts = rows.reduce((acc, r) => acc + r.share, 0) + socle.share;
+      expect(proche(parts, 1, 1e-9), `${res} : parts=${parts}`).toBe(true);
+      expect(Number.isFinite(additifShare)).toBe(true);
+      const somme = rows.reduce((acc, r) => acc.add(r.value), new Decimal(0)).add(socle.value).add(additif);
+      expect(somme.div(total).sub(1).abs().lt(1e-9), res).toBe(true);
+    }
+    // Les Cueilleurs portent toute la Nourriture (leur synergie écrase le socle).
+    const food = productionBreakdown("food");
+    expect(food.degrade).toBe(false);
+    expect(food.rows[0].key).toBe("foragers");
+    expect(food.rows[0].share).toBeGreaterThan(0.99);
+  });
+
   it("aucune ligne ne porte de valeur non finie, même très haut", () => {
     state.ruins = new Decimal("1e40");
     state.infrastructure = new Decimal("1e30");

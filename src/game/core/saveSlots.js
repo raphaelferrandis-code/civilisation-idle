@@ -171,8 +171,8 @@ export function loadBackup(key) {
     const { state: loaded, dropped } = hydrateSalvaging(parsed);
     loaded.saveEpoch = newSaveEpoch(); // remplace la partie, comme un emplacement (SAV-4)
     if (dropped.length) {
-      // Bornée à 48 comme log() : normalizeHistory garde les 48 PREMIÈRES lignes au
-      // rechargement, une 49e — celle-ci, la seule qui dit ce qui manque — sautait.
+      // Bornée à 48 comme log() et normalizeHistory (qui garde les 48 plus
+      // récentes) : celle-ci, la seule qui dit ce qui manque, reste la dernière.
       loaded.history = [
         ...(loaded.history || []),
         tr({

@@ -40,9 +40,17 @@ export function regulationContext() {
   };
 }
 
+// Paliers de CYCLE des deux actions de base de la Dissidence (hors registre).
+// SEULE source (audit 2026-10-05, BUG-71) : runCrisisAction l'impose, l'Intendance
+// (steward.js) et le Conseil (regulModel.js) la lisent — le palier vivait en
+// double dans ces deux-là, et le moteur ne le vérifiait pas.
+const BASE_ACTION_MIN_CYCLES = { archiveCrisis: 2, ancestorCrisis: 3 };
+
 export function regulationActionUnlocked(id, ctx = regulationContext()) {
+  const minCycles = BASE_ACTION_MIN_CYCLES[id];
+  if (minCycles != null) return (ctx.cycles || 0) >= minCycles;
   const a = REGULATION_ACTIONS_BY_ID[id];
-  if (!a) return true; // actions de base (hors registre) : toujours disponibles
+  if (!a) return true; // autres actions de base (hors registre) : toujours disponibles
   return !a.unlock || a.unlock(ctx);
 }
 

@@ -99,7 +99,6 @@ export function regulationFoyers() {
   const pressure = pressureBreakdown();
   const costs = crisisCosts();
   const reform = state.foyerReform || {};
-  const cycles = state.cycles || 0;
   const ctx = regulationContext();
   const act = (id, label) => ({ label, ...describeAction(id, costs[id]) });
   const ref = (foyer) => ({ label: tr(FOYER_REFORM[foyer].label), ...describeReform(foyer, costs[REFORM_ID[foyer]], reform[foyer]) });
@@ -121,8 +120,10 @@ export function regulationFoyers() {
     foyer('inequality', [act('festivals', tr({ fr: 'Jeux civiques', en: 'Civic Games' })), ref('inequality'), ...regFor('inequality')]),
     foyer('complexity', [act('census', tr({ fr: 'Recenser', en: 'Census' })), act('reforms', tr({ fr: 'Réformes', en: 'Reforms' })), ref('complexity'), ...regFor('complexity')]),
     foyer('dissent', [
-      cycles >= 3 && act('ancestorCrisis', tr({ fr: 'Culte des ancêtres', en: 'Ancestor Cult' })),
-      cycles >= 2 && act('archiveCrisis', tr({ fr: 'Catastrophes', en: 'Catastrophes' })),
+      // Paliers de cycle : la source moteur unique (crisis-cost.js), celle
+      // qu'impose runCrisisAction — plus de seuils recopiés ici.
+      regulationActionUnlocked('ancestorCrisis', ctx) && act('ancestorCrisis', tr({ fr: 'Culte des ancêtres', en: 'Ancestor Cult' })),
+      regulationActionUnlocked('archiveCrisis', ctx) && act('archiveCrisis', tr({ fr: 'Catastrophes', en: 'Catastrophes' })),
       ref('dissent'),
       ...regFor('dissent')
     ].filter(Boolean))

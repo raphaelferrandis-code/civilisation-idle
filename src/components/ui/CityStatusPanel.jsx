@@ -244,7 +244,7 @@ export default function CityStatusPanel({ variant = 'full' }) {
           <span className="csp-stat-label">{tr({ fr: 'Cycles', en: 'Cycles' })}</span>
           <strong><RollingNumber value={cycles} /></strong>
         </div>
-        <div className="csp-stat" {...tipProps(tr({ fr: 'Multi.', en: 'Multi.' }), tr({ fr: "Multiplicateur global de production", en: "Global production multiplier" }))}>
+        <div className="csp-stat" {...tipProps(tr({ fr: 'Multi.', en: 'Multi.' }), tr({ fr: "Multiplicateur global de production, hors Reliques, Bénédiction et politiques", en: "Global production multiplier, excluding Relics, Blessing and policies" }))}>
           <PixelIcon name="glyphs/mult" className="csp-stat-icon" />
           <span className="csp-stat-label">{tr({ fr: 'Multi.', en: 'Multi.' })}</span>
           <strong>x<RollingNumber value={globalMult} /></strong>

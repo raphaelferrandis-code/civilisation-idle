@@ -18,9 +18,9 @@ import {
   cityVitals,
   pressureBreakdown,
   currentEraIndex,
-  epitaphLegacyAmp,
-  has
+  epitaphLegacyAmp
 } from './mechanics.js';
+import { collapseHarvest } from './mechanics/collapseHarvest.js';
 
 import { completeCollapse, promptActiveRuinsForNewCycle, chronicle, cycleYear } from './actions.js';
 import { requestChoiceDialog } from './choiceDialog.js';
@@ -34,7 +34,6 @@ import {
   epitaphLegacyChips,
   epitaphRuinMultiplier
 } from '../data/epitaphs.js';
-import { cycleVowRuinMult } from '../data/vows.js';
 import { fmt } from './utils.js';
 import { D } from './num.js';
 import { tr } from './i18n.js';
@@ -109,6 +108,8 @@ export function generateEpitaph() {
 // (donc après le point de non-retour) : si un reload la persiste, c'est que la chute
 // a bien eu lieu. Avant, collapse()/checkAutoCollapse l'écrivaient AVANT le deuil →
 // ligne trompeuse et dupliquée après un reload pendant le deuil (crisis.js:510).
+// `gain` est la moisson CRÉDITÉE (creditedGain), plus le ruinGain brut : la
+// ligne annonçait un chiffre différent de celui versé (audit du 05/10, BUG-33).
 function logCollapseLine(reason, gain) {
   if (reason === "auto_collapse") {
     chronicle(tr({
@@ -125,6 +126,12 @@ function logCollapseLine(reason, gain) {
     fr: `Le crépuscule s'abat sur la cité (effondrement ${label.fr}). Nos palais s'écroulent, laissant derrière eux un linceul de ${fmt(gain)} ruines.`,
     en: `Twilight falls upon the city (${label.en} collapse). Our palaces crumble, leaving behind a shroud of ${fmt(gain)} ruins.`
   }));
+}
+
+// Moisson réellement créditée par le dernier completeCollapse (rite, legs, vœu
+// ET bonus Apocalypse de l'Olympe), qu'il range dans state.prevCycle.
+function creditedGain() {
+  return D(state.prevCycle?.ruinGain ?? 0);
 }
 
 // Monte la Cité (state.chute, transitoire comme le deuil) et lui fait jouer la chute.
@@ -178,9 +185,6 @@ export async function runCollapseSequence(gain, reason) {
   setMourning(true);
   if (!played) await new Promise((resolve) => setTimeout(resolve, 2000));
 
-  const riteBonus = has("rituel_effondrement") ? 1.25 : 1;
-  const gainBase = D(gain).mul(riteBonus).round();
-
   // EFFONDREMENT SILENCIEUX (arbitrages 2026-07-13) : le choix du legs se fait
   // sur la page Effondrement (Testament) — la stèle ne s'ouvre QUE s'il n'y a
   // rien de gravé, seul cas où le choix reste à faire. L'Édit (auto) grave le
@@ -216,7 +220,7 @@ export async function runCollapseSequence(gain, reason) {
     const fallYear = cycleYear();
     const fallPeak = crediblePopulation(state.cyclePeaks?.population || state.population);
     // Vœu du cycle (D2) : lu AVANT completeCollapse, qui remet le vœu à zéro.
-    completeCollapse(gainBase.mul(epitaphRuinMultiplier(chosenLegacy, cause)).mul(cycleVowRuinMult(state)).round(), fallenDynasty, epitaph, reason);
+    completeCollapse(collapseHarvest(gain, chosenLegacy, cause), fallenDynasty, epitaph, reason);
     // Ceinture de sécurité : AUJOURD'HUI cette garde est toujours vraie ici — le
     // rattrapage hors ligne (qui pause les notifications) appelle completeCollapse
     // directement, jamais runCollapseSequence. On la garde au cas où un futur
@@ -235,7 +239,7 @@ export async function runCollapseSequence(gain, reason) {
         at: Date.now()
       };
     }
-    logCollapseLine(reason, gain);
+    logCollapseLine(reason, creditedGain());
     setCollapseInProgress(false);
     if (reason !== "auto_collapse") await promptActiveRuinsForNewCycle();
     setMourning(false);
@@ -253,7 +257,7 @@ export async function runCollapseSequence(gain, reason) {
   const lastWillId = state.nextEpitaphLegacy?.id || null;
   const options = EPITAPH_LEGACIES.map((legacy) => {
     const mult = epitaphRuinMultiplier(legacy, cause);
-    const ruinGain = gainBase.mul(mult).mul(cycleVowRuinMult(state)).round();
+    const ruinGain = collapseHarvest(gain, legacy, cause);
     const deltaPct = Math.round((mult - 1) * 100);
     const favored = legacy.favoredCause === cause;
     // Renfort d'affinité matérialisé aussi côté ruines (Pillage : +25% → +35%).
@@ -316,10 +320,10 @@ export async function runCollapseSequence(gain, reason) {
   };
   // choice.ruinGain (calculé plus haut, vœu compris) est toujours défini ; le
   // repli garde le facteur de vœu par cohérence si un jour il tombait.
-  const finalGain = choice.ruinGain ?? gainBase.mul(epitaphRuinMultiplier(chosenLegacy, cause)).mul(cycleVowRuinMult(state)).round();
+  const finalGain = choice.ruinGain ?? collapseHarvest(gain, chosenLegacy, cause);
 
   completeCollapse(finalGain, fallenDynasty, epitaph, reason);
-  logCollapseLine(reason, gain);
+  logCollapseLine(reason, creditedGain());
   setCollapseInProgress(false);
   await promptActiveRuinsForNewCycle();
   setMourning(false);

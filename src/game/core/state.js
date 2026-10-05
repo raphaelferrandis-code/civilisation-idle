@@ -8,6 +8,8 @@ import { clamp01 } from './utils.js';
 import { Decimal, D, parseDecimalString } from './num.js';
 import { tr } from './i18n.js';
 import { COLLAPSE_PREP_MAX, POLICY_MAX_ACTIVE, REGUL_LEDGER_MAX, GAMBLE_HISTORY_LEN, STEWARD_MAX_CLAUSES, STEWARD_THRESHOLDS, ICARUS_HISTORY_COLOMBIER, FLIGHTS_MAX_COLOMBIER, SCRATCH_HISTORY_LEN, BLACKJACK_HISTORY_LEN, SLOTS_HISTORY_LEN, ROULETTE_HISTORY_LEN, STYLET_MAX_LEVEL, AUTO_COLLAPSE_MIN_SECONDS, AUTO_ICARUS_TARGET_MIN, AUTO_ICARUS_TARGET_MAX, AUTO_TEMPLE_FAVEUR_FLOOR_DEFAULT, AUTO_STAKE_STEPS, CAISSE_INITIAL, TEMPLE_ARTIFACT_IDS, BOON_INTERVAL_MAX_SEC, CLEPSYDRE_HARD_MAX_SECONDS, MAX_BATCH_AMOUNT, grandResetProductionMult, grandResetRuinGainMult } from './balance.js';
+// Durées maximales des échéances FUTURES bornées à l'hydratation (SAV-12).
+import { VIDEUR_BANNI_MIN, NUIT_DUREE_MIN, NUIT_INTERVAL_H, NUIT_PREMIERE_H, SPECTACLE_DUREE_MIN } from './balance.js';
 import { resetAnnals } from './annals.js';
 import { normalizeUiReveal } from './uiReveal.js';
 import { normalizeOlympusState, defaultOlympusState } from '../data/olympus.js';
@@ -124,11 +126,13 @@ export const AUTOMATE_FIELD_BOUNDS = { reservePct: [0, 90], perTick: [1, 10] };
 // l'auto-achat était en tout ou rien et sabotait les autres branches, donc on le
 // laissait éteint — l'inverse de ce qu'une automatisation payée doit faire.
 // `perTick` : nombre d'achats par tick.
+// `lastAt` : dernier tir de la règle de crise, pour son cooldown (comme les
+// consignes de l'Intendance) — horodatage, pas un réglage : hors des bornes.
 export const defaultAutomateRules = () => [
   { id: "auto_buy_city", type: "buy_cheapest", category: "city", enabled: false, reservePct: 0, perTick: 1 },
   { id: "auto_buy_knowledge", type: "buy_cheapest", category: "knowledge", enabled: false, reservePct: 0, perTick: 1 },
   { id: "auto_buy_infra", type: "buy_cheapest", category: "infra", enabled: false, reservePct: 0, perTick: 1 },
-  { id: "auto_rationing", type: "crisis_action", actionId: "rationing", unit: "%", threshold: 60, enabled: false }
+  { id: "auto_rationing", type: "crisis_action", actionId: "rationing", unit: "%", threshold: 60, enabled: false, lastAt: 0 }
 ];
 
 // Réglages du moteur d'automatisation du Temple (Phase 2, 2026-07-15) : des
@@ -688,6 +692,11 @@ export const defaultState = () => ({
   // Inégalités. null = non initialisé. Reset au cycle.
   goldReserveEase: null,
   crisisThresholds: {},
+  // Palier (« _25 »/« _50 »/« _75 ») dont la crise narrative attend le choix du
+  // joueur, modale ouverte (crisis.js). Une save prise à ce moment-là le rend au
+  // détecteur au rechargement (hydrateState) : la crise est reproposée au lieu
+  // d'être sautée sans effet (audit 2026-10-05, BUG-22). null hors modale.
+  pendingCrisisSlot: null,
   crisisProduction: {
     global: 1,
     population: 1,
@@ -1185,12 +1194,16 @@ export function normalizeStringArray(raw, limit = 32, maxLength = 80) {
     .slice(-limit);
 }
 
+// Le journal se lit PLUS ANCIEN D'ABORD (log() ajoute en fin, le Journal de
+// l'Effondrement montre les 5 dernières) : on garde les 48 plus RÉCENTES. Garder
+// les 48 premières jetait au rechargement la ligne la plus neuve d'un journal
+// trop long (audit 2026-10-05, SAV-13).
 export function normalizeHistory(raw, fallback) {
   if (!Array.isArray(raw)) return fallback;
   const history = raw
     .filter((value) => typeof value === "string" && value.trim())
     .map((value) => value.slice(0, 500))
-    .slice(0, 48);
+    .slice(-48);
   return history.length ? history : fallback;
 }
 
@@ -1287,14 +1300,25 @@ export function normalizeRoadNext(raw) {
   };
 }
 
-export function normalizeCrisisThresholds(raw) {
+// `pendingSlot` : palier dont la modale de crise était ouverte à la sauvegarde
+// (pendingCrisisSlot). Il n'est PAS recopié : son verrou ne protégeait qu'une
+// modale disparue avec la page, la crise sera reproposée (BUG-22).
+export function normalizeCrisisThresholds(raw, pendingSlot = null) {
   if (!isPlainObject(raw)) return {};
   const allowed = new Set(CRISIS_EVENTS.map((event) => event.id));
   const out = {};
   for (const [key, value] of Object.entries(raw)) {
-    if (allowed.has(key) && value) out[key] = true;
+    if (allowed.has(key) && value && key !== pendingSlot) out[key] = true;
   }
   return out;
+}
+
+// Palier de crise en attente dans une save (pendingCrisisSlot), s'il est connu ;
+// null sinon. ⚠ TDZ : tourne pendant `export let state = load()` — déclaration
+// de fonction, aucune constante de module (CRISIS_EVENTS est importé).
+function pendingCrisisSlotOf(source) {
+  const slot = source && source.pendingCrisisSlot;
+  return typeof slot === "string" && CRISIS_EVENTS.some((event) => event.id === slot) ? slot : null;
 }
 
 export function normalizeCrisisProduction(raw, fallback) {
@@ -1429,6 +1453,9 @@ export function normalizeRuleList(raw, defaults, thresholdMin = 1, thresholdMax 
         normalized[field] = finiteNumber(source[field], fallback[field], min, max);
       }
     }
+    // Horodatage du cooldown d'une règle de crise : recopié comme celui des
+    // consignes de l'Intendance, sinon un F5 rouvrait la rafale (BUG-29).
+    if ("lastAt" in fallback) normalized.lastAt = finiteTimestamp(source.lastAt, 0);
     return normalized;
   });
 }
@@ -1801,6 +1828,22 @@ export function normalizeCadmosTriggeredMilestones(raw) {
   return out;
 }
 
+// Save prise modale de Cadmos ouverte (BUG-5) : on ne garde que les paliers qui
+// ont reçu leur nom. Le palier en attente — déclenché mais absent de la
+// Chronique — est rendu au gestionnaire, qui le reproposera. Déduit de la save,
+// sans champ de plus : répare aussi les saves déjà bloquées avant le correctif.
+// ⚠ TDZ : tourne pendant `export let state = load()` — déclaration de fonction,
+// aucune constante de module.
+function releasePendingCadmosMilestones(source) {
+  const named = new Set(normalizeCadmosChronicle(source.cadmosChronicle)
+    .map((entry) => `${entry.milestoneType}:${entry.threshold}`));
+  const out = {};
+  for (const key of Object.keys(normalizeCadmosTriggeredMilestones(source.cadmosTriggeredMilestones))) {
+    if (named.has(key)) out[key] = true;
+  }
+  return out;
+}
+
 export function normalizeEpitaphLegacy(raw) {
   if (!isPlainObject(raw)) return null;
   const id = typeof raw.id === "string" ? raw.id.slice(0, 64) : "";
@@ -1985,7 +2028,9 @@ export function hydrateState(parsed = {}) {
     atlasShoulderCdTicks: source.atlasShoulderCdTicks != null
       ? finiteInteger(source.atlasShoulderCdTicks, 0, 0, 15)
       : finiteInteger(Math.ceil((Number(source.atlasShoulderCdEnd) - Date.now()) / 1000), 0, 0, 15),
-    sisypheMult: finiteNumber(source.sisypheMult, 1, 1),
+    // Plafond Number.MAX_VALUE, pas MAX_SAFE_INTEGER : ×1,004 par achat passe 9e15
+    // en fin de partie, et un rechargement effaçait la Pente (audit 2026-10-05, SAV-10).
+    sisypheMult: finiteNumber(source.sisypheMult, 1, 1, Number.MAX_VALUE),
     sisypheHeritage: Boolean(source.sisypheHeritage),
     sisypheCran: finiteInteger(source.sisypheCran, 0, 0),
     sisypheMontees: finiteInteger(source.sisypheMontees, 0, 0),
@@ -2017,8 +2062,12 @@ export function hydrateState(parsed = {}) {
         }
       : null,
     // Prochaine offrande (horodatage FUTUR) : finiteNumber — finiteTimestamp la
-    // rendrait re-disponible au reload (triche de l'Arche par F5).
-    ragnarokArkNextAt: finiteNumber(source.ragnarokArkNextAt, 0, 0),
+    // rendrait re-disponible au reload (triche de l'Arche par F5). Bornée en HAUT
+    // à now + le délai de l'Arche (SAV-12) : une horloge système en avance, puis
+    // corrigée, ne bloque plus l'Arche le temps de l'écart. 100_000 =
+    // RAGNAROK_ARK_COOLDOWN_MS de data/myths.js, écrit en dur (pas d'import ici :
+    // TDZ) — clockShift.test.js vérifie qu'il ne diverge pas.
+    ragnarokArkNextAt: finiteNumber(source.ragnarokArkNextAt, 0, 0, Date.now() + 100_000),
     ragnarokWolfBites: finiteInteger(source.ragnarokWolfBites, 0, 0),
     phoenixNextForceAt: source.phoenixNextForceAt ? finiteNumber(source.phoenixNextForceAt, 0, 0) : null,
     hephHeritage: Boolean(source.hephHeritage),
@@ -2035,14 +2084,19 @@ export function hydrateState(parsed = {}) {
     mythStartInfra: decimalField(source.mythStartInfra, 0),
     mythStartPop: decimalField(source.mythStartPop, 0),
     icareHeritage: Boolean(source.icareHeritage),
-    atridesDebt: finiteNumber(source.atridesDebt, base.atridesDebt, 0),
+    // Le tick laisse monter la dette jusqu'à Number.MAX_VALUE : la plafonner à
+    // MAX_SAFE_INTEGER ramenait 1e100 à 9e15 au rechargement (audit 2026-10-05, SAV-10).
+    atridesDebt: finiteNumber(source.atridesDebt, base.atridesDebt, 0, Number.MAX_VALUE),
     atridesDrainDisabled: Boolean(source.atridesDrainDisabled),
     atridesDebtGrowthMultiplier: finiteNumber(source.atridesDebtGrowthMultiplier, base.atridesDebtGrowthMultiplier, 0),
     // Effet PAYÉ en cours (horodatage FUTUR) : finiteNumber, pas finiteTimestamp
     // qui le ferait expirer sur-le-champ au reload (perte sèche pour le joueur).
-    atridesRenegotiateActiveUntil: finiteNumber(source.atridesRenegotiateActiveUntil, base.atridesRenegotiateActiveUntil, 0),
+    // Bornes hautes = now + leur durée (SAV-12, horloge corrigée après coup) :
+    // 30_000 et 120_000 = ATRIDES_RENEGOTIATE_DURATION_MS et _COOLDOWN_MS de
+    // data/myths.js, écrits en dur (TDZ) — tenus par clockShift.test.js.
+    atridesRenegotiateActiveUntil: finiteNumber(source.atridesRenegotiateActiveUntil, base.atridesRenegotiateActiveUntil, 0, Date.now() + 30_000),
     // Fin de cooldown (FUTUR) : finiteNumber — finiteTimestamp la raserait au reload.
-    atridesRenegotiateCooldownEnd: finiteNumber(source.atridesRenegotiateCooldownEnd, base.atridesRenegotiateCooldownEnd, 0),
+    atridesRenegotiateCooldownEnd: finiteNumber(source.atridesRenegotiateCooldownEnd, base.atridesRenegotiateCooldownEnd, 0, Date.now() + 120_000),
     atridesHeritage: Boolean(source.atridesHeritage),
     atridesPactActive: Boolean(source.atridesPactActive),
     atridesNextRunPenaltyActive: Boolean(source.atridesNextRunPenaltyActive),
@@ -2056,8 +2110,15 @@ export function hydrateState(parsed = {}) {
     cadmosLastRunChronicle: normalizeCadmosChronicle(source.cadmosLastRunChronicle),
     cadmosPermanentEpitaphs: normalizeCadmosChronicle(source.cadmosPermanentEpitaphs),
     cadmosCycleBonuses: normalizeCadmosCycleBonuses(source.cadmosCycleBonuses, base.cadmosCycleBonuses),
-    cadmosTriggeredMilestones: normalizeCadmosTriggeredMilestones(source.cadmosTriggeredMilestones),
-    cadmosPromptPending: Boolean(source.cadmosPromptPending),
+    // Une modale « Nommer l'Âge » ne survit pas au rechargement et rien ne la
+    // rouvrait : le drapeau rechargé à true faisait sortir CHAQUE tick avant les
+    // crises, les automates et la crise terminale, jusqu'à la chute (audit
+    // 2026-10-05, BUG-5). On le baisse et on rend le palier en attente au
+    // gestionnaire de mythTicks, qui le repropose au premier tick en ligne.
+    cadmosTriggeredMilestones: source.cadmosPromptPending
+      ? releasePendingCadmosMilestones(source)
+      : normalizeCadmosTriggeredMilestones(source.cadmosTriggeredMilestones),
+    cadmosPromptPending: false,
     cadmosLastChosenOrientation: ["food", "gold", "stability"].includes(source.cadmosLastChosenOrientation) ? source.cadmosLastChosenOrientation : null,
     cadmosRecentWords: normalizeStringArray(source.cadmosRecentWords, 16, 50),
     anteeHeritage: Boolean(source.anteeHeritage),
@@ -2134,7 +2195,9 @@ export function hydrateState(parsed = {}) {
       ? source.rouletteHistory.filter((v) => Number.isInteger(v) && v >= 0 && v <= 36).slice(-ROULETTE_HISTORY_LEN)
       : [],
     slotsFreeSpins: normalizeSlotsFreeSpins(source.slotsFreeSpins),
-    roueAt: finiteNumber(source.roueAt, 0, 0, 1e15),
+    // « Dernier tour » : un horodatage PASSÉ, donc finiteTimestamp (SAV-12) — une
+    // horloge en avance puis corrigée ne bloque plus la roue le temps de l'écart.
+    roueAt: finiteTimestamp(source.roueAt, 0),
     courseField: Array.isArray(source.courseField) && source.courseField.length === 6
       && source.courseField.every((x) => x && Number.isInteger(x.couloir) && typeof x.nom === "string" && Number(x.p) > 0 && Number(x.p) < 1)
       ? source.courseField.map((x) => ({ couloir: x.couloir, nom: x.nom, p: Number(x.p) }))
@@ -2144,13 +2207,18 @@ export function hydrateState(parsed = {}) {
     bjHaut: source.bjHaut && Number(source.bjHaut.n) > 0 && Number.isFinite(Number(source.bjHaut.m)) ? { m: Number(source.bjHaut.m), n: Math.floor(Number(source.bjHaut.n)) } : null,
     bjBas: source.bjBas && Number(source.bjBas.n) > 0 && Number.isFinite(Number(source.bjBas.m)) ? { m: Number(source.bjBas.m), n: Math.floor(Number(source.bjBas.n)) } : null,
     bjAverti: source.bjAverti === true,
-    bjBarreJusqua: finiteNumber(source.bjBarreJusqua, 0, 0, 1e15),
-    nuitDebut: finiteNumber(source.nuitDebut, 0, 0, 1e15),
-    nuitProchaine: finiteNumber(source.nuitProchaine, 0, 0, 1e15),
+    // Horloge système en avance puis corrigée (SAV-12) : les débuts (PASSÉS) passent
+    // par finiteTimestamp, les échéances FUTURES sont bornées à now + leur plus
+    // longue durée possible (balance.js) — avant, 1e15 (an 33 658) : le videur et
+    // la Nuit restaient bloqués le temps de l'écart.
+    bjBarreJusqua: finiteNumber(source.bjBarreJusqua, 0, 0, Date.now() + VIDEUR_BANNI_MIN * 60_000),
+    nuitDebut: finiteTimestamp(source.nuitDebut, 0),
+    nuitProchaine: finiteNumber(source.nuitProchaine, 0, 0,
+      Date.now() + Math.max(NUIT_PREMIERE_H * 3_600_000, NUIT_DUREE_MIN * 60_000 + NUIT_INTERVAL_H * 3_600_000)),
     nuitFlambeur: finiteInteger(source.nuitFlambeur, 0, 0, 99),
     nuitCompte: finiteInteger(source.nuitCompte, 0, 0),
-    spectacleDebut: finiteNumber(source.spectacleDebut, 0, 0, 1e15),
-    spectacleFin: finiteNumber(source.spectacleFin, 0, 0, 1e15),
+    spectacleDebut: finiteTimestamp(source.spectacleDebut, 0),
+    spectacleFin: finiteNumber(source.spectacleFin, 0, 0, Date.now() + Math.max(NUIT_DUREE_MIN, SPECTACLE_DUREE_MIN) * 60_000),
     // MIGRATIONS : entier (N plumes) → file d'ids → file de MONTANTS (lot 1). Les
     // ids inconnus et les montants invalides tombent, puis la file est tronquée.
     icarusFreeFlights: migrateFreeFlights(source.icarusFreeFlights),
@@ -2163,14 +2231,24 @@ export function hydrateState(parsed = {}) {
     blessingMult: finiteNumber(source.blessingMult, 1, 1, 10),
     scarcityRawEase: source.scarcityRawEase == null ? null : finiteNumber(source.scarcityRawEase, 0, 0, 1),
     goldReserveEase: source.goldReserveEase == null ? null : finiteNumber(source.goldReserveEase, 0, 0, 1e9),
-    crisisThresholds: normalizeCrisisThresholds(source.crisisThresholds),
+    // Save prise modale de crise ouverte (BUG-22) : le verrou du palier est levé
+    // et la crise reproposée au premier tick, au lieu d'être sautée sans effet
+    // — un « Atlas prend le coup » gratuit à chaque F5. Une modale ne survit
+    // jamais au rechargement : le champ repart toujours à null.
+    crisisThresholds: normalizeCrisisThresholds(source.crisisThresholds, pendingCrisisSlotOf(source)),
+    pendingCrisisSlot: null,
     crisisProduction: normalizeCrisisProduction(source.crisisProduction, base.crisisProduction),
     collapsePreparation: finiteNumber(source.collapsePreparation, base.collapsePreparation, 0, COLLAPSE_PREP_MAX),
     terminalPreparations: normalizeTerminalPreparations(source.terminalPreparations, base.terminalPreparations),
     crisisExtensions: finiteInteger(source.crisisExtensions, base.crisisExtensions, 0, 99),
     crisisLimitAnnounced: Boolean(source.crisisLimitAnnounced),
     crisisOpenedAt: source.crisisOpenedAt ? finiteTimestamp(source.crisisOpenedAt, null) : null,
-    recentCrisisIds: normalizeStringArray(source.recentCrisisIds, 8, 80),
+    // La crise en attente avait été inscrite parmi les récentes juste avant sa
+    // modale (crisis.js) : on l'en retire, sinon le tirage l'écartait et un F5
+    // changeait la crise proposée.
+    recentCrisisIds: pendingCrisisSlotOf(source)
+      ? normalizeStringArray(source.recentCrisisIds, 8, 80).slice(0, -1)
+      : normalizeStringArray(source.recentCrisisIds, 8, 80),
     crisisDoctrine: normalizeCrisisDoctrine(source.crisisDoctrine, base.crisisDoctrine),
     grandResetCount: finiteInteger(source.grandResetCount, base.grandResetCount),
     // Sceaux réclamés (ordre-libre). Migration : un save linéaire sans grClaimed a
@@ -2261,13 +2339,14 @@ export function hydrateState(parsed = {}) {
       stateOut.ruins = D(stateOut.ruins).add(refund);
       for (const id of dogmaIds) delete stateOut.upgrades[id];
       stateOut.ruinsSeenNodes = [];
+      // Bornée à 48 comme log() (SAV-13) : une 49e ligne débordait le journal.
       stateOut.history = [
         ...(stateOut.history || []),
         tr({
           fr: `L'Arbre des Ruines a été refondu : les anciens savoirs vous sont remboursés (+${refund} ruines). L'arbre attend d'être rallumé.`,
           en: `The Ruins Tree has been reworked: your old knowledge is refunded (+${refund} ruins). The tree awaits rekindling.`
         })
-      ];
+      ].slice(-48);
     }
   }
   return stateOut;
@@ -2371,8 +2450,8 @@ export function load() {
       // « illisible » dans le message : les tests de chargement réel (chuteRelicsLoad,
       // cityIlotLoad…) guettent ce mot — un champ amputé reste une régression.
       console.error(`Sauvegarde en partie illisible : champs remis à neuf (${dropped.join(", ")}). Copie complète gardée.`);
-      // Bornée à 48 comme log() : une 49e ligne sautait au rechargement suivant
-      // (normalizeHistory garde les 48 premières).
+      // Bornée à 48 comme log() et normalizeHistory (qui garde les 48 plus
+      // récentes) : le journal reste à la même taille au rechargement suivant.
       loaded.history = [
         ...(loaded.history || []),
         tr({
@@ -2594,6 +2673,7 @@ export function resetTemporaryRunState(s) {
   // d'Inégalités parasite. On laisse l'EMA reporter la valeur (basse) du cycle
   // précédent et converger doucement vers la nouvelle économie.
   s.crisisThresholds = {};
+  s.pendingCrisisSlot = null;
   s.crisisProduction = freshDefaults.crisisProduction;
   s.collapsePreparation = 0;
   s.terminalPreparations = { used: {}, riteTier: -1 };
@@ -2612,6 +2692,18 @@ export function resetTemporaryRunState(s) {
   s.cityArchetype = null;
   s.cityCore = null;
   s.cityRoads = null;
+  // Voirie de la cité tombée : file, réserve prépayée, rampe de durée de l'ère
+  // et prochain chantier proposé. Sans ce reset, le savoir perdu de toute façon
+  // se convertissait juste avant la chute en chantiers posés gratuitement dans
+  // la cité neuve (audit 2026-10-05, BUG-23). Couverture et élargissements sont
+  // ceux de l'ancien tracé : la carte les réécrit à son premier calcul, mais une
+  // chute hors ligne les aurait appliqués à toute l'absence.
+  s.roadWorks = { active: null, queue: [] };
+  s.roadWorksBank = 0;
+  s.roadWorksEra = { era: 0, count: 0 };
+  s.roadNext = null;
+  s.roadCoverage = 0;
+  s.roadWidened = 0;
   s.atlasSkipUsed = false;
   s.atlasFardeau = 0;
   s.atlasEpaules = 0;

@@ -38,6 +38,7 @@ import {
   regulationPolicyUnlocked,
   regulFatigueEffectMult,
   ruinNodeCost,
+  checkNodeAvailability,
   boostedPrep,
   epitaphLegacyAmp
 } from '../mechanics.js';
@@ -69,6 +70,7 @@ import {
   registerOlympusCrisisResolved
 } from './olympus.js';
 import { log, chronicle, cycleYear, resetCyclePeaks, regulLedgerPush, raiseRegulFatigue } from './utils.js';
+import { checkWonders } from './wonders.js';
 
 // Foyer qui pèse le plus sur la cible de Rupture en ce moment.
 const CRISIS_FOYERS = ["scarcity", "inequality", "complexity", "dissent"];
@@ -118,7 +120,9 @@ export function checkCrisisThresholds() {
   // posture ≠ "ask"), on résout l'event sans dialogue ni pause. Sinon, dialogue.
   const stance = crisisAutoStance(slot.id);
   if (stance) { autoResolveCrisisEvent(event, stance); return; }
-  openCrisisEvent(event);
+  // Le palier part avec la modale : une save prise pendant le choix saura le
+  // rendre au détecteur (pendingCrisisSlot, BUG-22).
+  openCrisisEvent(event, slot.id);
 }
 
 // Posture configurée pour un palier (slot.id "_25"/"_50"/"_75"), ou null si le
@@ -252,7 +256,9 @@ export function autoResolveCrisisEvent(event, stance) {
   }));
 }
 
-export async function openCrisisEvent(event) {
+// `slotId` : palier qui a ouvert la crise (checkCrisisThresholds), posé dans
+// state.pendingCrisisSlot le temps de la modale SEULEMENT (BUG-22).
+export async function openCrisisEvent(event, slotId = null) {
   setGamePaused(true);
   render();
   if (isMythEffectActive("mythe_d_hephaistos") && D(state.population).lt(HEPH_POP_CRISIS_THRESHOLD)) {
@@ -298,7 +304,14 @@ export async function openCrisisEvent(event) {
 
   // Pas de pied explicatif (aucune phrase d'explication à l'écran) : « jusqu'à
   // la chute » est l'infobulle des pastilles qui durent (world.js).
+  // Recharger pendant la modale effaçait la crise : son palier était verrouillé
+  // et sauvé sans qu'aucun choix ne soit appliqué. Le palier en attente part
+  // dans la save, et hydrateState le rend au détecteur (BUG-22). Effacé dès la
+  // réponse, AVANT tout effet : une save prise pendant apply() ne doit pas
+  // reproposer une crise déjà tranchée.
+  state.pendingCrisisSlot = slotId;
   const choice = await openChoiceDialog({ ...event, options });
+  state.pendingCrisisSlot = null;
 
   if (choice && choice.atlasSkip) {
     atlasTakeHit(event);
@@ -348,9 +361,15 @@ export function triggerCollapseChoices(shouldRender = true) {
           fr: "La fin d'une ère approche : la rupture structurelle a vaincu nos dernières défenses. Le destin de notre cité se joue désormais dans la tourmente des crises.",
           en: "The end of an era draws near: structural rupture has overcome our last defenses. Our city's fate now plays out in the turmoil of crises."
         }));
-    openView("prestige");
-    save();
-    if (shouldRender) render();
+    // Pas pendant la simulation hors-ligne (BUG-31) : chaque chute rejouée
+    // ouvrait l'onglet Effondrement (le joueur y revenait, et le rapport de reprise
+    // partait avec la vue Cité démontée) et écrivait une sauvegarde antidatée. La
+    // sauvegarde finale d'applyOfflineProgress suffit.
+    if (!isOfflineSim()) {
+      openView("prestige");
+      save();
+      if (shouldRender) render();
+    }
   }
 }
 
@@ -436,6 +455,9 @@ export function setTestamentLegacy(id) {
 }
 
 export function completeCollapse(gain, fallenDynasty, epitaph, reason) {
+  // Merveilles (BUG-12) : graver les rangs du cycle qui tombe AVANT que ses pics
+  // ne soient remis à zéro plus bas — chute manuelle, Édit ou farm hors ligne.
+  checkWonders();
   if (state.crisisLimitAnnounced && (state.crisisExtensions || 0) <= 0) {
     registerOlympusCrisisIgnored();
   }
@@ -668,16 +690,23 @@ export function completeCollapse(gain, fallenDynasty, epitaph, reason) {
   
   if (has("conservateurs_ruines")) {
     // Jamais de dogme : ce sont des CHOIX exclusifs (paires conflictsWith) que
-    // l'auto-achat ne doit pas trancher à la place du joueur.
+    // l'auto-achat ne doit pas trancher à la place du joueur. Et seulement ce
+    // que l'arbre OUVRE (checkNodeAvailability : palier de cycle, palier de
+    // branche, nœud jumeau, Ruines suffisantes) : le filtre maison achetait des
+    // nœuds deux cycles et plus avant leur ouverture (audit 2026-10-05, BUG-27).
     const cheapest = upgrades
-      .filter((u) => u.group === "ruins" && !dogmaIds.has(u.id) && !has(u.id)
-        && Number.isFinite(u.cost?.ruins) && u.cost.ruins > 0 && D(state.ruins).gte(ruinNodeCost(u)))
+      .filter((u) => u.group === "ruins" && !dogmaIds.has(u.id)
+        && Number.isFinite(u.cost?.ruins) && u.cost.ruins > 0 && checkNodeAvailability(u.id) === "available")
       .sort((a, b) => ruinNodeCost(a) - ruinNodeCost(b))[0];
     if (cheapest) {
+      // Mêmes effets que buyUpgrade (coût effectif, compteur d'achats, caches),
+      // sans passer par le verbe joueur : la chute est encore en cours ici.
       state.ruins = D(state.ruins).sub(ruinNodeCost(cheapest));
       state.upgrades[cheapest.id] = true;
+      state.lifetimePurchases = (state.lifetimePurchases || 0) + 1;
       renderCache.cachedRuinEffects = null;
       renderCache.cachedRuinEffectsSignature = "";
+      invalidateRenderCache("upgrades");
       chronicle(tr({
         fr: `Nos archivistes, fouillant les vestiges des anciens âges, ont exhumé un secret perdu : ${tr(cheapest.name)}.`,
         en: `Our archivists, searching the remains of ancient ages, have unearthed a lost secret: ${tr(cheapest.name)}.`
@@ -716,16 +745,23 @@ export function completeCollapse(gain, fallenDynasty, epitaph, reason) {
 // deuil, faussant la mesure d'un effondrement bien plus tard.
 let collapseTriggeredAt = null;
 
+// Rend true si la chute est réellement lancée, false si elle est refusée : le
+// Script du Phénix n'écrit « effondrement déclenché » qu'à ce prix — avant, la
+// ligne s'écrivait à chaque tick d'une cité trop jeune et vidait le journal
+// (audit 2026-10-05, BUG-74).
 export function collapse(reason) {
-  if (collapseInProgress) return;
-  if (reason !== "forced" && reason !== "auto_script" && !crisisOpen()) return;
+  if (collapseInProgress) return false;
+  // Atlas coupe l'effondrement MANUEL (« on ne repose pas le monde ») : le moteur
+  // le refuse lui-même, plus seulement le bouton de PrestigeView (BUG-71).
+  if (reason === "manual" && isMythEffectActive("mythe_d_atlas")) return false;
+  if (reason !== "forced" && reason !== "auto_script" && !crisisOpen()) return false;
   // auto_script (Script du Phénix) et forced (Phénix) peuvent tirer SOUS 100 % de
   // Rupture : sans `projected`, ruinGain() rendrait 0 hors crise (prestige.js) et
   // la cité tomberait pour « un linceul de 0 ruine ». Comme checkAutoCollapse, on
   // refuse en plus l'effondrement auto_script à gain nul.
   const projected = reason === "auto_script" || reason === "forced";
   const gain = ruinGain(projected);
-  if (reason === "auto_script" && D(gain).floor().lte(0)) return;
+  if (reason === "auto_script" && D(gain).floor().lte(0)) return false;
   setCollapseInProgress(true);
   setGamePaused(true);
   // La fenêtre du Phénix se juge ICI, pas après le deuil et la stèle (M8).
@@ -736,6 +772,7 @@ export function collapse(reason) {
   // dupliquée à la vraie chute (crisis.js:510 de l'audit).
   
   runCollapseSequence(gain, reason).catch((err) => console.error("Séquence d'effondrement interrompue :", err));
+  return true;
 }
 
 // Étape 2 : quelle barre (foyer de pressureBreakdown) chaque action calme.
@@ -855,6 +892,9 @@ export function runCrisisAction(id, options = {}) {
     return;
   }
 
+  // Paliers de cycle des actions de base (Catastrophes, Culte des ancêtres) :
+  // imposés ici, à la même source que l'Intendance et le Conseil (BUG-71).
+  if (!regulationActionUnlocked(id)) return;
   const cost = costs[id];
   if (!cost || !canPayCost(cost)) return;
   payCost(cost);
@@ -928,7 +968,9 @@ export function runCrisisAction(id, options = {}) {
 // coût est le malus de production CONTINU tant qu'elle est active (récupérable à
 // l'extinction). Borné par POLICY_MAX_ACTIVE (budget de stabilité).
 export function togglePolicy(id) {
-  if (collapseInProgress) return;
+  // Gel moteur (BUG-71, RETRI-2026-07-27 #15) : ni sous un dialogue, ni pendant
+  // la chute, ni en crise terminale — la cité figée ne change plus de loi.
+  if (gamePaused || collapseInProgress || state.crisisLimitAnnounced) return;
   if (!POLICY_BY_ID[id]) return;
   const list = state.activePolicies || (state.activePolicies = []);
   const idx = list.indexOf(id);

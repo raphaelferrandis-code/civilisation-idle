@@ -35,7 +35,7 @@
 
 import { state } from '../../state.js';
 import { buildings } from '../../../data/buildings.js';
-import { D, toNum } from '../../num.js';
+import { Decimal, D, toNum } from '../../num.js';
 import { has } from '../shared.js';
 import {
   getBuildingSums,
@@ -44,7 +44,7 @@ import {
   riverEngineFactor
 } from './buildingOutput.js';
 import { rates } from './rates.js';
-import { babelExponentialMult, babelCommonTongueMult, hephInfraMult } from './mythEffects.js';
+import { babelExponentialMult, babelExponentialMultDec, babelCommonTongueMult, hephInfraMult } from './mythEffects.js';
 import { isMythEffectActive } from '../../../data/myths.js';
 
 // Clé de ressource affichée → champ de bâtiment. `population` s'appelle `pop`
@@ -71,6 +71,15 @@ function socleBase(resource) {
   return 0;
 }
 
+// Miroir Decimal du socle : au-delà de ~1,8e308 habitants, toNum rend Infinity.
+function socleBaseDec(resource) {
+  const pop = D(state.population);
+  if (resource === "population") return new Decimal(0.04);
+  if (resource === "food") return pop.mul(0.012);
+  if (resource === "gold") return pop.sub(25).max(0).mul(0.0015);
+  return new Decimal(0);
+}
+
 // Facteurs communs à la base d'un bâtiment, exactement ceux que getBuildingSums
 // puis la boucle par catégorie de rates() appliquent : synergie de jalon, rives
 // fécondes, Babel sur la SEULE catégorie déclarée, Langue commune, et le bonus
@@ -84,6 +93,44 @@ function facteursDeBase(b, count, champ, ctx) {
   const catMult = (ctx.babelActive && cat === state.babelCategory ? ctx.babelMult : 1) * babelCommonTongueMult(cat);
   const hephBonus = (ctx.hephInfra > 1 && cat === "infra" && champ === "infra") ? ctx.hephInfra : 1;
   return synergie * catMult * hephBonus;
+}
+
+// Miroir Decimal de facteursDeBase, MÊMES facteurs, pour le chemin au-delà du
+// float : vers 12 000 Cueilleurs, toNum(synergie) vaut Infinity et toutes les
+// parts s'éteignaient. Ne sert que quand une base ou un débit déborde.
+function facteursDeBaseDec(b, count, champ, ctx) {
+  const cat = b.category || "other";
+  const babel = (ctx.babelActive && cat === state.babelCategory) ? babelExponentialMultDec() : new Decimal(1);
+  const hephBonus = (ctx.hephInfra > 1 && cat === "infra" && champ === "infra") ? ctx.hephInfra : 1;
+  return buildingOutputMultiplierDec(b, count)
+    .mul(riverEngineFactor(b))
+    .mul(babel)
+    .mul(babelCommonTongueMult(cat) * hephBonus);
+}
+
+// Base d'un bâtiment en Decimal (parUnite × count × facteurs).
+function baseDec(b, count, champ, ctx) {
+  return facteursDeBaseDec(b, count, champ, ctx).mul((b[champ] || 0) * count);
+}
+
+// Terme additif de la théocratie sur le Savoir, en Decimal (l'Or peut déborder).
+function additifDec(resource) {
+  return (resource === "knowledge" && has("trait_theocracy")) ? D(state.gold).mul(0.01) : new Decimal(0);
+}
+
+// Échelle d'une ressource AU-DELÀ DU FLOAT (B6) : base totale et débit gardés en
+// Decimal. Les PARTS n'ont jamais eu besoin du débit en float : le rapport
+// ajout/débit vaut delta × (débit − additif) / (baseTotale × débit).
+function echelleHorsFloat(resource, ctx, debit) {
+  const champ = CHAMP_PAR_RESSOURCE[resource];
+  let baseTotale = socleBaseDec(resource);
+  for (const b of buildings) {
+    const count = state.buildings[b.id] || 0;
+    if (count <= 0 || !(b[champ] || 0)) continue;
+    baseTotale = baseTotale.add(baseDec(b, count, champ, ctx));
+  }
+  const rate = D(debit);
+  return { horsFloat: true, rate, baseTotale, aRepartir: rate.sub(additifDec(resource)) };
 }
 
 function contexteDeBase() {
@@ -104,6 +151,8 @@ function contexteDeBase() {
  * mise à l'échelle que productionBreakdown, extraite pour être calculée UNE
  * fois par rendu de la boutique au lieu d'une fois par rangée — sinon chaque
  * rangée relancerait une passe sur les trente bâtiments.
+ * Au-delà du float, une ressource rend plutôt `{ horsFloat, rate, baseTotale,
+ * aRepartir }` en Decimal (cf. echelleHorsFloat).
  */
 export function productionScales() {
   const ctx = contexteDeBase();
@@ -125,6 +174,12 @@ export function productionScales() {
     const rate = toNum(r[res]);
     const additif = (res === "knowledge" && has("trait_theocracy")) ? toNum(D(state.gold).mul(0.01)) : 0;
     const base = totaux[res];
+    // Débit ou base au-delà du float : k valait 0 et la ressource disparaissait
+    // du conseil d'achat. On garde alors l'échelle en Decimal.
+    if (!Number.isFinite(rate) || !Number.isFinite(base)) {
+      scales[res] = echelleHorsFloat(res, ctx, r[res]);
+      continue;
+    }
     scales[res] = {
       rate,
       k: base > 0 && Number.isFinite(rate) ? (rate - additif) / base : 0
@@ -154,6 +209,17 @@ export function buildingRelativeGain(b, count, amount, prepared) {
     const champ = CHAMP_PAR_RESSOURCE[res];
     const parUnite = b[champ] || 0;
     if (parUnite === 0) continue;
+    if (scales[res].horsFloat) {
+      // Au-delà du float : même rapport, en Decimal. `add` est alors un
+      // Decimal (dans l'unité du débit) ; `pct`, un rapport, reste un number.
+      const s = scales[res];
+      const avantDec = count > 0 ? baseDec(b, count, champ, ctx) : new Decimal(0);
+      const deltaDec = baseDec(b, apres, champ, ctx).sub(avantDec);
+      if (!deltaDec.gt(0) || !s.baseTotale.gt(0) || !s.aRepartir.gt(0)) continue;
+      const ajoutDec = s.aRepartir.mul(deltaDec).div(s.baseTotale);
+      out.push({ resource: res, add: ajoutDec, pct: s.rate.gt(0) ? ajoutDec.div(s.rate).toNumber() : null });
+      continue;
+    }
     const baseAvant = count > 0 ? parUnite * count * facteursDeBase(b, count, champ, ctx) : 0;
     const baseApres = parUnite * apres * facteursDeBase(b, apres, champ, ctx);
     const delta = baseApres - baseAvant;
@@ -169,9 +235,10 @@ export function buildingRelativeGain(b, count, amount, prepared) {
 /**
  * Contributions à une ressource, classées de la plus grosse à la plus petite.
  *
- * Rend { rows, total, socle, additif, degrade } où chaque ligne porte
- * { key, label, value, share } et où `value` est déjà dans l'unité du débit
- * affiché (par seconde), donc directement sommable.
+ * Rend { rows, total, socle, additif, additifShare, degrade } où chaque ligne
+ * porte { key, label, value, share } et où `value` est déjà dans l'unité du
+ * débit affiché (par seconde), donc directement sommable. Au-delà du float,
+ * `value`, `total` et `additif` sont des Decimal (cf. productionBreakdownHorsFloat).
  */
 export function productionBreakdown(resource) {
   const champ = CHAMP_PAR_RESSOURCE[resource];
@@ -197,6 +264,12 @@ export function productionBreakdown(resource) {
   // Le débit réellement affiché, source de vérité du total.
   const r = rates();
   const total = toNum(r[resource]);
+  // Au-delà du float (débit > ~1,8e308, ou une base qui déborde), tout passait
+  // en « dégradé » et l'écran disait « Aucune production » : on bascule sur
+  // le même calcul en Decimal.
+  if (!Number.isFinite(total) || !Number.isFinite(baseTotale)) {
+    return productionBreakdownHorsFloat(resource, champ, ctx, r[resource]);
+  }
   // Théocratie : seul terme AJOUTÉ après le multiplicateur, donc jamais mis à
   // l'échelle avec les autres.
   const additif = (resource === "knowledge" && has("trait_theocracy"))
@@ -233,5 +306,52 @@ export function productionBreakdown(resource) {
     value: degrade || partSocle <= 0 ? 0 : (partSocle / baseTotale) * aRepartir
   };
 
-  return { rows, socle, additif, total, degrade, baseTotale };
+  // Part de la théocratie dans le débit (ligne à part de l'écran).
+  const additifShare = total > 0 ? additif / total : 0;
+  return { rows, socle, additif, additifShare, total, degrade, baseTotale };
+}
+
+// Les Comptes AU-DELÀ DU FLOAT : mêmes règles que productionBreakdown, en
+// Decimal. Les parts (rapports) restent des number ; `value`, `base`, `total`,
+// `additif` et `baseTotale` sont des Decimal (l'écran les passe à fmt). Les
+// bases sont sommées en Decimal : en number, la synergie de jalon déborde
+// vers 12 000 Cueilleurs et le socle au-delà de ~1,8e308 habitants.
+function productionBreakdownHorsFloat(resource, champ, ctx, debit) {
+  const bases = [];
+  const partSocle = socleBaseDec(resource);
+  let baseTotale = partSocle;
+  for (const b of buildings) {
+    const count = state.buildings[b.id] || 0;
+    if (count <= 0 || !(b[champ] || 0)) continue;
+    const base = baseDec(b, count, champ, ctx);
+    if (!base.gt(0)) continue;
+    bases.push({ key: b.id, label: b.name, count, base, category: b.category || "other" });
+    baseTotale = baseTotale.add(base);
+  }
+  const total = D(debit);
+  const additif = additifDec(resource);
+  const aRepartir = total.sub(additif);
+  // Réservé à un débit nul (Énée, crise) : un débit immense n'est pas dégradé.
+  const degrade = !baseTotale.gt(0) || !aRepartir.gt(0);
+  const zero = new Decimal(0);
+  const part = (base) => (degrade || !base.gt(0)) ? 0 : base.div(baseTotale).toNumber();
+  const valeur = (base) => (degrade || !base.gt(0)) ? zero : aRepartir.mul(base).div(baseTotale);
+
+  const rows = bases
+    .map((e) => ({
+      key: e.key,
+      label: e.label,
+      count: e.count,
+      base: e.base,
+      category: e.category,
+      share: part(e.base),
+      value: valeur(e.base)
+    }))
+    // Même ordre que par valeur (valeur = part × aRepartir, aRepartir > 0),
+    // sans comparer des Decimal.
+    .sort((a, b) => b.share - a.share);
+
+  const socle = { base: partSocle, share: part(partSocle), value: valeur(partSocle) };
+  const additifShare = total.gt(0) ? additif.div(total).toNumber() : 0;
+  return { rows, socle, additif, additifShare, total, degrade, baseTotale };
 }

@@ -3,7 +3,7 @@ import { useGameState } from '../../hooks/useGameState.js';
 import { jouerDuel, duelOuvert, duelMiseMin } from '../../game/core/actions/duel.js';
 import { FLAMBEURS, flambeurDeLaNuit, nuitResteMin } from '../../game/core/actions/nuitGrandJeu.js';
 import { DUEL_RTP, DUEL_MANCHES } from '../../game/core/balance.js';
-import { state, save } from '../../game/core/state.js';
+import { state, save, saveSoon } from '../../game/core/state.js';
 import { tr } from '../../game/core/i18n.js';
 import { fmtCote } from '../../game/core/utils.js';
 import { celebrerGain } from '../../game/core/grandsGains.js';
@@ -113,6 +113,9 @@ export default function DuelStage({ onClose }) {
     if (amount < min || faveur < amount) return;
     const r = jouerDuel(amount, { defer: true });
     if (!r) return;
+    // Mise débitée : écrite sous 300 ms, pas à l'autosave des 10 s — tuer le
+    // processus sur une manche perdue ne la rembourse plus (SAV-15).
+    saveSoon(300);
     rememberStake('duel', r.mise);
     setStake(r.mise);
     pendingRef.current = r.apply;

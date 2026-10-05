@@ -9,7 +9,8 @@ import {
   render,
   save,
   setGamePaused,
-  resetTemporaryRunState
+  resetTemporaryRunState,
+  isOfflineSim
 } from '../state.js';
 
 import {
@@ -103,7 +104,9 @@ export function checkMythLiveCompletion() {
   if (!myth.onCollapse()) return;
   crownMyth(myth);
   state.activeMythId = null;
-  save();
+  // Hors ligne, pas de sauvegarde antidatée (BUG-31) : celle d'applyOfflineProgress
+  // suffit, et le sacre est annoncé au retour (main.js, chronicleAwayMyths).
+  if (!isOfflineSim()) save();
 }
 
 export function checkMythOnCollapse() {
@@ -219,10 +222,12 @@ export async function chooseActiveRuins({ required = false, title = tr({ fr: "Ru
     state.instability = clamp01((state.instability || 0) + ACTIVE_RUIN_RUPTURE_START);
   }
   // « Pacte signé d'office » : le joueur reçoit le doublement sans l'avoir demandé,
-  // et donc la moitié pendant la crise. C'est le même appel que le bouton — le
-  // fardeau n'est pas une taxe, c'est son propre pouvoir qui part sans lui.
+  // et donc la moitié pendant la crise. C'est le même sceau que le bouton — le
+  // fardeau n'est pas une taxe, c'est son propre pouvoir qui part sans lui. Pas le
+  // verbe activateAtridesPact : ses gardes (jeu en pause ici, Mythe d'Antée en
+  // cours) le rendaient muet (BUG-25).
   if (state.activeRuinIds.includes("atrides")) {
-    activateAtridesPact();
+    sealAtridesPact();
   }
   invalidateRenderCache("all");
   save();
@@ -311,6 +316,7 @@ function buildCadmosAgeOption(orientation, index, milestone) {
 export async function promptCadmosAgeName(milestone) {
   if (!isMythEffectActive("mythe_de_cadmos") || state.cadmosPromptPending || collapseInProgress) return;
   state.cadmosPromptPending = true;
+  const cycleAtOpen = state.cycles;
   render();
 
   const options = shuffleCadmosOrientations().map((orientation, index) => buildCadmosAgeOption(orientation, index, milestone));
@@ -329,6 +335,18 @@ export async function promptCadmosAgeName(milestone) {
     preventClose: true,
     options
   });
+
+  // Réponse périmée (audit 2026-10-05, BUG-5) : la modale ne met pas le jeu en
+  // pause, un Édit « temps »/« usure » peut effondrer la cité pendant qu'elle est
+  // ouverte — la réponse tardive s'inscrivait alors dans la Chronique du cycle
+  // suivant. Cycle changé, Mythe terminé ou drapeau remis à zéro (effondrement,
+  // partie chargée) : on ne grave rien. Même cycle, on lève quand même le drapeau,
+  // qui bloquerait sinon chaque tick.
+  if (state.cycles !== cycleAtOpen || !isMythEffectActive("mythe_de_cadmos") || !state.cadmosPromptPending) {
+    if (state.cycles === cycleAtOpen) state.cadmosPromptPending = false;
+    render();
+    return;
+  }
 
   const chosen = choice.cadmosAge || options[0].cadmosAge;
   state.cadmosChronicle = [...(state.cadmosChronicle || []), chosen];
@@ -710,7 +728,8 @@ export async function negotiateOrDeal() {
 // la contrepartie — le Comptoir dépanne, il n'enrichit pas). Lots ancrés sur la
 // production courante : utilisables à toutes les échelles.
 export function comptoirBuy(resourceKey) {
-  if (!state.orHeritage || collapseInProgress || state.crisisLimitAnnounced) return;
+  // gamePaused aussi (BUG-71) : pas d'échange sous un dialogue ni pendant le deuil.
+  if (!state.orHeritage || gamePaused || collapseInProgress || state.crisisLimitAnnounced) return;
   const res = OR_DEAL_RESOURCES.find((x) => x.key === resourceKey);
   if (!res) return;
   const r = ratesFn();
@@ -729,7 +748,7 @@ export function comptoirBuy(resourceKey) {
 }
 
 export function comptoirSellFood() {
-  if (!state.orHeritage || collapseInProgress || state.crisisLimitAnnounced) return;
+  if (!state.orHeritage || gamePaused || collapseInProgress || state.crisisLimitAnnounced) return;
   const r = ratesFn();
   const lot = D(r.food).max(0).mul(COMPTOIR_LOT_SECONDS).max(25).round();
   if (D(state.food).lt(lot)) {
@@ -825,18 +844,27 @@ export function transmettreAtrides() {
   render();
 }
 
-export function activateAtridesPact() {
-  if (!state.atridesHeritage || state.activeMythId || gamePaused || collapseInProgress) return;
+// Le sceau lui-même, sans les gardes du VERBE joueur (pause, Mythe en cours,
+// fenêtre de 2 min). La Ruine active « Pacte signé d'office » le pose pendant la
+// pause du choix des Ruines actives, Antée compris : par le bouton gardé, il ne
+// s'appliquait jamais et le fardeau était gratuit (audit 2026-10-05, BUG-25).
+function sealAtridesPact() {
   if (state.atridesPactActive) return;
-  const elapsed = Date.now() - (state.cycleStartedAt || Date.now());
-  if (elapsed >= 120_000) return; // Uniquement pendant les 2 premières minutes
-
   state.atridesPactActive = true;
   log(tr({
     fr: "Pacte des Atrides scellé : production doublée pendant les 2 premières minutes, au prix d'un malus de production de 50% pendant la crise.",
     en: "Atreides Pact sealed: production doubled for the first 2 minutes, at the cost of a 50% production penalty during the crisis."
   }));
   invalidateRenderCache("all");
+}
+
+export function activateAtridesPact() {
+  if (!state.atridesHeritage || state.activeMythId || gamePaused || collapseInProgress) return;
+  if (state.atridesPactActive) return;
+  const elapsed = Date.now() - (state.cycleStartedAt || Date.now());
+  if (elapsed >= 120_000) return; // Uniquement pendant les 2 premières minutes
+
+  sealAtridesPact();
   save();
   render();
 }

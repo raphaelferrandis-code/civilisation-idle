@@ -1,6 +1,6 @@
 "use strict";
 
-import { state } from "../state.js";
+import { state, isOfflineSim } from "../state.js";
 import { chronicle, log } from "./utils.js";
 import { fmt } from "../utils.js";
 import { tr } from "../i18n.js";
@@ -27,6 +27,42 @@ function olympus() {
 // et le profil se révèle plus vite. ×1 sans le nœud.
 function cultAmpMult() {
   return 1 + ruinEffectSum("cultAmp");
+}
+
+// Bureaucratie Sacrée : chaque acte de régulation verse son savoir sur-le-champ,
+// mais la Chronique n'en écrit qu'UNE ligne par minute au plus, qui cumule les
+// versements. Une ligne par appel noyait le Journal (48 lignes) : l'Intendance
+// signe un édit toutes les 20 s par consigne, et chaque édit a déjà sa propre
+// dépêche (audit 2026-10-05, BUG-26). Cumul en mémoire seulement : un
+// rechargement perd au pire une ligne, jamais le savoir, déjà versé.
+const BUREAUCRACY_CHRONICLE_MS = 60_000;
+let bureaucracyPending = { gain: 0, crises: 0 };
+let bureaucracyChronicledAt = -Infinity;
+
+// `force` : la chute écrit le reliquat du cycle qui tombe, sans attendre la minute.
+function flushBureaucracyChronicle(force = false) {
+  // Hors ligne, le Journal de la simulation est jeté (simulateAwayCrises) : le
+  // cumul d'avant l'absence attend le retour au lieu d'y disparaître.
+  if (bureaucracyPending.crises <= 0 || isOfflineSim()) return;
+  // Import d'une autre sauvegarde entre-temps : ce cumul n'est pas le sien.
+  if (state.olympus?.unlockedProfile !== "bureaucracy") { bureaucracyPending = { gain: 0, crises: 0 }; return; }
+  const now = Date.now();
+  // Horloge reculée (now < dernière ligne) : on écrit plutôt que de se taire
+  // jusqu'à ce qu'elle rattrape l'ancienne échéance.
+  if (!force && now >= bureaucracyChronicledAt && now - bureaucracyChronicledAt < BUREAUCRACY_CHRONICLE_MS) return;
+  const { gain, crises } = bureaucracyPending;
+  bureaucracyPending = { gain: 0, crises: 0 };
+  bureaucracyChronicledAt = now;
+  // Entiers bruts, comme avant le cumul (fmt écrirait « 2.0 crises »).
+  chronicle(crises > 1
+    ? tr({
+        fr: `Les parchemins de la Bureaucratie Sacrée enregistrent la résolution de ${crises} crises : +${gain} savoirs sont versés à nos archives.`,
+        en: `The scrolls of the Sacred Bureaucracy record the resolution of ${crises} crises: +${gain} knowledge is added to our archives.`
+      })
+    : tr({
+        fr: `Les parchemins de la Bureaucratie Sacrée enregistrent la résolution de la crise : +${gain} savoirs sont versés à nos archives.`,
+        en: `The scrolls of the Sacred Bureaucracy record the crisis's resolution: +${gain} knowledge is added to our archives.`
+      }));
 }
 
 export function registerOlympusInteraction() {
@@ -56,6 +92,10 @@ export function tickOlympus(dt) {
   if ((state.instability || 0) >= OLYMPUS_HIGH_RUPTURE) {
     o.highRuptureSeconds = (o.highRuptureSeconds || 0) + dt;
   }
+
+  // Le dernier cumul de la Bureaucratie s'écrit une fois sa minute passée, même
+  // si aucun autre acte ne vient le pousser.
+  flushBureaucracyChronicle();
 }
 
 export function registerOlympusCrisisResolved() {
@@ -64,10 +104,11 @@ export function registerOlympusCrisisResolved() {
   if (o.unlockedProfile === "bureaucracy") {
     const gain = Math.round(OLYMPUS_BUREAUCRACY_KNOWLEDGE * cultAmpMult());
     state.knowledge = D(state.knowledge).add(gain);
-    chronicle(tr({
-      fr: `Les parchemins de la Bureaucratie Sacrée enregistrent la résolution de la crise : +${gain} savoirs sont versés à nos archives.`,
-      en: `The scrolls of the Sacred Bureaucracy record the crisis's resolution: +${gain} knowledge is added to our archives.`
-    }));
+    // Hors ligne, rien à cumuler pour un Journal jeté : le savoir est versé quand même.
+    if (isOfflineSim()) return;
+    bureaucracyPending.gain += gain;
+    bureaucracyPending.crises += 1;
+    flushBureaucracyChronicle();
   }
 }
 
@@ -78,6 +119,8 @@ export function registerOlympusCrisisIgnored() {
 
 export function registerOlympusCollapse(reason) {
   const o = olympus();
+  // Le cumul en attente de la Bureaucratie appartient au cycle qui tombe.
+  flushBureaucracyChronicle(true);
   o.totalCollapses = (o.totalCollapses || 0) + 1;
   o.collapseRuptureSum = (o.collapseRuptureSum || 0) + Math.max(0, Math.min(1, state.instability || 0));
   if (reason === "manual") o.manualCollapses = (o.manualCollapses || 0) + 1;

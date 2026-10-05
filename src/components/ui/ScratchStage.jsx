@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState, useCallback } from 'react';
 import { useGameState } from '../../hooks/useGameState.js';
-import { state, save } from '../../game/core/state.js';
+import { state, save, saveSoon } from '../../game/core/state.js';
 import {
   playScratch,
   scratchPayout,
@@ -277,6 +277,11 @@ export default function ScratchStage({ table, onClose }) {
   const faveur = state.faveur || 0;
 
   const startTicket = (res) => {
+    // La mise vient d'être débitée (Faveur ou cella) : écrite sous 300 ms et non à
+    // l'autosave des 10 s — tuer le processus après avoir gratté un perdant ne la
+    // rembourse plus (audit 2026-10-05, SAV-15). Le délai fusionne les achats
+    // rapprochés en une seule sérialisation.
+    saveSoon(300);
     // Défense en profondeur : un ticket encore en attente d'application ne doit
     // pas être écrasé sans avoir crédité (apply est idempotent — cf. reveal).
     if (pendingRef.current) { pendingRef.current(); pendingRef.current = null; }

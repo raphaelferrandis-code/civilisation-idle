@@ -141,7 +141,16 @@ export function ruinGain(projected = false, extraPrep = 0) {
   ) * 6;
   const ageDepth = 0.55 + normalizedEraIndex * 0.22;
   const populationDepth = Math.max(0.35, Math.pow(Math.max(10, peakPopulation) / RUIN_POP_DEPTH_REF, RUIN_POP_DEPTH_EXP));
-  const civicDepth = 0.75 + Math.log10(toNum(peaks.knowledge || 0) + toNum(peaks.infrastructure || 0) * 4 + 10) * 0.14;
+  // Au-delà du float (pic de Savoir > ~1,8e308, ou d'Infra > ~4,5e307), la somme
+  // vaut Infinity : civicDepth devenait infini, et la branche Decimal plus bas
+  // multipliait par Infinity — que break_infinity rend 0 — d'où une moisson
+  // retombée au plancher. On garde le float (bit à bit) tant qu'il est fini, et
+  // on prend le log en Decimal sinon (Decimal.log10() rend un number fini).
+  const civicSum = toNum(peaks.knowledge || 0) + toNum(peaks.infrastructure || 0) * 4 + 10;
+  const civicLog = Number.isFinite(civicSum)
+    ? Math.log10(civicSum)
+    : D(peaks.knowledge || 0).add(D(peaks.infrastructure || 0).mul(4)).add(10).log10();
+  const civicDepth = 0.75 + civicLog * 0.14;
   const preparation = 1 + Math.min(COLLAPSE_PREP_MAX, (state.collapsePreparation || 0) + extraPrep);
   const atridesRuinMod = (isMythEffectActive("mythe_atrides") && state.atridesDrainDisabled) ? 1.5 : 1;
   const elapsed = (cycleClockNow() - state.cycleStartedAt) / 1000;

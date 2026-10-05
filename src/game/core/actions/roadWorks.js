@@ -17,9 +17,10 @@
 //     K chantiers de façon déterministe (connect + élargissements) — le compteur
 //     reste la seule vérité, les saves restent compatibles.
 
-import { state, invalidateRenderCache, render } from '../state.js';
+import { state, invalidateRenderCache, render, buildingById, gamePaused, collapseInProgress } from '../state.js';
 import { D } from '../num.js';
 import { currentEraIndex } from '../mechanics/shared.js';
+import { buildingDiscount } from '../mechanics/cost.js';
 import {
   ROAD_WORK_QUEUE_MAX,
   ROAD_TILE_COST_BASE,
@@ -80,15 +81,19 @@ export function roadTilePrice() {
 // Coût du prochain chantier : tuiles × prix de la tuile de l'ère, rang visé en
 // facteur pour les élargissements. Decimal de bout en bout (les ères tardives
 // dépassent le float). Réseau achevé : prix PLAT d'un chantier moyen — l'achat
-// part en RÉSERVE ; null seulement quand la réserve est pleine.
+// part en RÉSERVE ; null seulement quand la réserve est pleine. Les remises de
+// construction de la rangée Routes (buildingDiscount : Grand cadastre −25 %,
+// Nomadisme, Enracinement, Réseau de routes, remises d'Infrastructure) valent
+// pour les deux prix ; boutique et achat lisent tous deux ce prix-ci.
 export function roadWorkCost() {
   const n = roadNextInfo();
+  const discount = buildingDiscount(buildingById.roads);
   if (n.kind === 'done') {
     if (roadWorksBank() >= ROAD_WORKS_BANK_MAX) return null;
-    return roadTilePrice().mul(ROAD_NEXT_FALLBACK_TILES);
+    return roadTilePrice().mul(ROAD_NEXT_FALLBACK_TILES).mul(discount);
   }
   const mult = n.kind === 'widen' ? (ROAD_WIDEN_COST_MULT[n.toRank] || ROAD_WIDEN_COST_MULT.avenue) : 1;
-  return roadTilePrice().mul(Math.max(1, n.tiles) * mult);
+  return roadTilePrice().mul(Math.max(1, n.tiles) * mult).mul(discount);
 }
 
 // Chantiers de l'ÈRE COURANTE (rampe) : compteur remis à zéro quand l'ère
@@ -116,6 +121,11 @@ export function roadWorkDuration(tiles, index, eraIndex = null) {
 }
 
 export function buyRoadWorkCore() {
+  // Gel moteur (audit 2026-10-05, BUG-71) : pendant le deuil d'un Édit, la cité
+  // est figée — et depuis BUG-23 la file comme la réserve repartent à zéro avec
+  // la chute, un chantier payé là serait du Savoir jeté. Même garde que
+  // buyBuildingCore, pour les appels directs.
+  if (gamePaused || collapseInProgress || state.crisisLimitAnnounced) return false;
   const rw = roadWorksState();
   const n = roadNextInfo();
   // Réseau achevé : l'achat se STOCKE (chantier prépayé, lancé tout seul par le
@@ -163,8 +173,8 @@ export function buyRoadWork() {
 }
 
 // Avancée des chantiers sur l'horloge virtuelle (appelé par tick, hors-ligne
-// compris : un grand dt traverse la file, le reliquat passe au chantier
-// suivant). Complétion → buildings.roads += 1 : le recompute de carte suit tout
+// compris, et par le crédit linéaire d'une absence — main.js, BUG-72 : un grand
+// dt traverse la file, le reliquat passe au chantier suivant). Complétion → buildings.roads += 1 : le recompute de carte suit tout
 // seul (roadCount fait partie de sa signature de layout).
 export function tickRoadWorks(dt) {
   const rw = state.roadWorks;

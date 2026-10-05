@@ -52,7 +52,7 @@ export function blessingMultiplier() {
   return (state.blessingUntil || 0) > Date.now() ? (state.blessingMult || 1) : 1;
 }
 
-// Descripteurs pour l'UI : { id, kind, cost, canAfford, active?, endsAt? }.
+// Descripteurs pour l'UI : { id, kind, cost, canAfford, active?, endsAt?, maxed? }.
 export function faveurShopItems() {
   const faveur = state.faveur || 0;
   const cost = blessingCost();
@@ -61,7 +61,11 @@ export function faveurShopItems() {
       id: "blessing", kind: "blessing", cost,
       canAfford: faveur >= cost,
       active: (state.blessingUntil || 0) > Date.now(),
-      endsAt: state.blessingUntil || 0
+      endsAt: state.blessingUntil || 0,
+      // Le Char du Soleil rend la Bénédiction permanente : l'acheter encore ne
+      // rapporterait rien (blessingMultiplier plafonne à BLESSING_MULT). L'étal
+      // l'affiche « Complet » (BUG-68).
+      maxed: hasTempleArtifact("char")
     }
   ];
 }
@@ -82,6 +86,9 @@ export function buyFaveurItem(id) {
       en: `A sharper stylus to scrape the varnish: scratching gets easier (stylus, level ${state.styletLevel}).`
     }));
   } else if (id === "blessing") {
+    // Avec le Char, 30 min de recettes pour rien — et une Bénédiction « en
+    // cours » qui bloquait en plus la clepsydre (clepsydreRefusal) : refusé.
+    if (hasTempleArtifact("char")) return false;
     const cost = blessingCost();
     if (faveur < cost) return false;
     state.faveur = faveur - cost;

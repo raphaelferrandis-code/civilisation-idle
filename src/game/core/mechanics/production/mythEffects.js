@@ -104,9 +104,11 @@ export function activeEpitaphLegacy() {
   if (!legacy) return null;
   const startedAt = active.startedAt || state.cycleStartedAt || Date.now();
   const elapsed = Date.now() - startedAt;
-  // elapsed < 0 : sous l'horloge virtuelle d'un versement de clepsydre, un legs
-  // gravé « dans le futur » du référentiel n'est pas actif — sans ce garde, son
-  // multiplicateur s'étalait sur tout le temps versé.
+  // elapsed < 0 : un legs gravé « dans le futur » n'est pas actif. Filet seulement :
+  // le versement de clepsydre rebase désormais startedAt avec le reste de l'état
+  // (main.js, rebaseWorldClock — audit 2026-10-05, BUG-8), le legs y reste donc actif
+  // comme pendant une absence ; seule une horloge système déréglée peut encore
+  // produire un âge négatif.
   if (elapsed < 0) return null;
   return { ...active, definition: legacy, elapsed };
 }

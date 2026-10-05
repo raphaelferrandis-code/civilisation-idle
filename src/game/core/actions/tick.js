@@ -106,10 +106,68 @@ import {
 import { icareClimb, checkMythLiveCompletion } from './myths.js';
 import { collapse } from './crisis.js';
 import { tickRoadWorks } from './roadWorks.js';
+import { checkWonders } from './wonders.js';
 
 // Dernier déclenchement automatique de protocoles_urgence (cooldown anti-verrou :
 // l'automation seule ne doit pas pouvoir maintenir la jauge sous le seuil de crise).
 let lastAutoCrisisAt = 0;
+// Rebasage de l'horloge (offlineCredit.js, shiftStateTimestamps — audit
+// 2026-10-05, BUG-8 et SAV-12) : cette horloge de MODULE suit le même décalage
+// que les horodatages de l'état. Sans elle, un versement de clepsydre gardait
+// protocoles_urgence bloqué jusqu'à ce que l'horloge virtuelle la rattrape.
+export function shiftAutoCrisisClock(deltaMs) {
+  if (lastAutoCrisisAt > 0 && Number.isFinite(deltaMs)) lastAutoCrisisAt += deltaMs;
+}
+
+// Ce qui S'ESTOMPE avec le temps qui passe. Partagé avec le crédit linéaire
+// hors-ligne (main.js, audit 2026-10-05, BUG-72) : une seule formule, sinon
+// l'absence et le jeu divergent — le joueur revenait de 2 h avec la fatigue du
+// départ (actions jusqu'à ×2) et un apaisement des foyers intact.
+export function decayRegulationRelief(dt) {
+  // Étape 2 : déclin du relief temporaire des foyers (demi-vie FOYER_RELIEF_HALF_LIFE_S)
+  // — l'apaisement obtenu en cliquant s'estompe, il faut ré-intervenir.
+  const fr = state.foyerRelief;
+  if (fr) {
+    const keep = Math.pow(0.5, dt / FOYER_RELIEF_HALF_LIFE_S);
+    fr.scarcity *= keep;
+    fr.inequality *= keep;
+    fr.complexity *= keep;
+    fr.dissent *= keep;
+  }
+
+  // Fatigue de régulation : redescend avec le temps (demi-vie FATIGUE_HALF_LIFE_S)
+  // → espacer ses interventions restaure l'efficacité et baisse les coûts.
+  if (state.regulFatigue > 0) {
+    state.regulFatigue *= Math.pow(0.5, dt / FATIGUE_HALF_LIFE_S);
+    if (state.regulFatigue < 1e-4) state.regulFatigue = 0;
+  }
+}
+
+// « L'Hiver Fimbul » : la FIN à 24 minutes est-elle échue ? Lue aussi par la
+// simulation hors-ligne (main.js), qui l'effondre par son propre chemin.
+export function ragnarokEndDue() {
+  return isMythEffectActive(RAGNAROK_ID) && ragnarokAge() >= RAGNAROK_DURATION_MS;
+}
+
+// La FIN, effondrement forcé — même chemin que le bûcher du Phénix. Si l'Arche
+// n'est pas prête, le pacte se brise (checkMythOnCollapse le constatera) ; si
+// elle l'est, le Mythe s'est déjà sacré en direct et rien ne tire plus (le pacte
+// est levé). UNE fonction pour les deux appels du tick (crise terminale et bloc
+// principal) : le second avait la garde hors-ligne, le premier non (audit
+// 2026-10-05, BUG-28). ⚠ JAMAIS pendant la simulation hors-ligne : collapse()
+// lance un deuil ASYNC qui pose gamePaused — la sim cassait, créditait le
+// reliquat à une cité condamnée, et la stèle rasait tout ~2 s après le retour.
+// Hors ligne, la Fin passe par le chemin synchrone de simulateAwayCrises.
+// Rend true si la chute est lancée.
+function forceRagnarokEndIfDue() {
+  if (collapseInProgress || isOfflineSim() || !ragnarokEndDue()) return false;
+  log(tr({
+    fr: "La Fin est là. Le ciel se déchire, et le monde des dieux s'éteint.",
+    en: "The End has come. The sky tears open, and the world of the gods goes dark."
+  }));
+  collapse("forced");
+  return true;
+}
 
 // LE JEU QUI SE DÉVOILE : les faits que uiReveal.js, module pur, ne peut pas
 // calculer seul. N'est appelé que pendant la toute première partie, et plus du
@@ -176,14 +234,8 @@ export function tick(dt) {
     // « L'Hiver Fimbul » : la FIN est inéluctable — même la crise terminale,
     // dont le gel fige tout le reste, ne la retient pas. Sans ce passage, le Feu
     // ouvrait la crise vers ~21 min et le cycle pourrissait, gelé (harnais :
-    // âge 6 h). Miroir du bloc principal plus bas dans le tick.
-    if (isMythEffectActive(RAGNAROK_ID) && !collapseInProgress && ragnarokAge() >= RAGNAROK_DURATION_MS) {
-      log(tr({
-        fr: "La Fin est là. Le ciel se déchire, et le monde des dieux s'éteint.",
-        en: "The End has come. The sky tears open, and the world of the gods goes dark."
-      }));
-      collapse("forced");
-    }
+    // âge 6 h). Même fonction, même garde hors-ligne que le bloc principal.
+    forceRagnarokEndIfDue();
     return;
   }
 
@@ -294,23 +346,7 @@ export function tick(dt) {
   // interne (~1 Hz) borne de toute façon les rafales.
   if (!isNotifyPaused()) pushAnnalsSample(state.instability);
 
-  // Étape 2 : déclin du relief temporaire des foyers (demi-vie FOYER_RELIEF_HALF_LIFE_S)
-  // — l'apaisement obtenu en cliquant s'estompe, il faut ré-intervenir.
-  const fr = state.foyerRelief;
-  if (fr) {
-    const keep = Math.pow(0.5, dt / FOYER_RELIEF_HALF_LIFE_S);
-    fr.scarcity *= keep;
-    fr.inequality *= keep;
-    fr.complexity *= keep;
-    fr.dissent *= keep;
-  }
-
-  // Fatigue de régulation : redescend avec le temps (demi-vie FATIGUE_HALF_LIFE_S)
-  // → espacer ses interventions restaure l'efficacité et baisse les coûts.
-  if (state.regulFatigue > 0) {
-    state.regulFatigue *= Math.pow(0.5, dt / FATIGUE_HALF_LIFE_S);
-    if (state.regulFatigue < 1e-4) state.regulFatigue = 0;
-  }
+  decayRegulationRelief(dt);
 
   // Lissage du foyer Subsistance (EMA) : amortit les pics de déficit de nourriture
   // → la barre ne clignote plus, mais un manque DURABLE finit par compter.
@@ -360,6 +396,12 @@ export function tick(dt) {
       }
     }
   }
+
+  // MERVEILLES (BUG-12) : les rangs se gravent ICI, sur les pics à jour juste
+  // au-dessus, et non plus dans la boucle de la carte — sinon rien n'était
+  // crédité hors de la vue Cité, fenêtre réduite, ni pendant l'absence. Avant le
+  // jalon de GR : la 3e merveille révèle le sceau II dans le même tick.
+  checkWonders();
 
   // Découverte de jalon de Grand Reset : dès que le jalon du PROCHAIN GR est
   // atteint, on le grave (persistant) et — en direct seulement — on le révèle.
@@ -467,20 +509,8 @@ export function tick(dt) {
     }
   }
 
-  // « L'Hiver Fimbul » : la FIN à 24 minutes — effondrement forcé, même chemin
-  // que le bûcher du Phénix (même garde hors-ligne). Si l'Arche n'est pas prête,
-  // le pacte se brise (checkMythOnCollapse le constatera) ; si elle l'est, le
-  // Mythe s'est déjà sacré en direct et ce bloc ne tourne plus (le pacte est levé).
-  if (isMythEffectActive(RAGNAROK_ID) && !collapseInProgress && !isOfflineSim()) {
-    if (ragnarokAge() >= RAGNAROK_DURATION_MS) {
-      log(tr({
-        fr: "La Fin est là. Le ciel se déchire, et le monde des dieux s'éteint.",
-        en: "The End has come. The sky tears open, and the world of the gods goes dark."
-      }));
-      collapse("forced");
-      return;
-    }
-  }
+  // « L'Hiver Fimbul » : la FIN à 24 minutes (forceRagnarokEndIfDue, en tête du module).
+  if (forceRagnarokEndIfDue()) return;
 
   // B1/B2 — Récompenses régulières. Les deux ne se traitent PAS pareil :
   //   - la fête de jalon est une CÉLÉBRATION, elle n'a aucun sens rejouée en

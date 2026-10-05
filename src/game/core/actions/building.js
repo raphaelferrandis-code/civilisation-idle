@@ -53,7 +53,7 @@ import { hasActiveRuin, ACTIVE_RUIN_SISYPHE_CREEP } from '../../data/activeRuins
 import { chronicleBuilding, chronicle, log } from './utils.js';
 import { resetAnnals } from '../annals.js';
 import { resetCameraCenter } from '../../map/cityMapBridge.js';
-import { recordGrPerformed } from '../chronicleStats.js';
+import { recordGrPerformed, recordShopSpend } from '../chronicleStats.js';
 import { purgeIcarusFlight } from './icarus.js';
 import { purgeBlackjackHand } from './blackjack.js';
 import { buyRoadWorkCore } from './roadWorks.js';
@@ -77,14 +77,25 @@ export function buyBuilding(id) {
 //   - amount : quantité forcée ; par défaut lit state.buyAmount (x1..x100/Max).
 //   - silent : coupe le retour visuel par-achat (float doré de palier + chronique),
 //     agrégé en un seul récapitulatif par l'appelant lors d'un achat de masse.
-export function buyBuildingCore(id, { amount: amountOverride = null, silent = false } = {}) {
+//   - auto : achat d'un automate d'Héphaïstos. Ne change AUCUNE règle (il lâche
+//     le rocher comme une main, M5) : seul le journal dit qui l'a lâché.
+export function buyBuildingCore(id, { amount: amountOverride = null, silent = false, auto = false } = {}) {
+  // GEL MOTEUR (audit 2026-10-05, BUG-71) : dialogue en pause, deuil et chute
+  // (gamePaused / collapseInProgress), crise terminale. Seule l'interface le
+  // tenait : pendant le deuil d'un Édit on achetait avec des ressources vouées
+  // à la perte (que Racine-mère gardait), et un raccourci passait sous une
+  // modale de crise. Couvre aussi la voirie, redirigée plus bas.
+  if (gamePaused || collapseInProgress || state.crisisLimitAnnounced) return false;
   const building = buildingById[id];
   if (!building) return false;
+  // Verrou de Babel AVANT la redirection de la voirie : placé après, il laissait
+  // poser des chantiers (et toucher le bonus réseau) sous une langue qui
+  // interdit l'Infrastructure (audit 2026-10-05, BUG-24).
+  if (isMythEffectActive("mythe_de_babel") && state.babelCategory && building.category !== state.babelCategory) return false;
   // Les routes ne s'achètent plus au compteur : tout chemin d'achat (clavier,
   // automation, boutique) débouche sur le CHANTIER de voirie — un seul par clic,
   // au coût du chantier, mis en file. Cf. actions/roadWorks.js.
   if (id === "roads") return buyRoadWorkCore();
-  if (isMythEffectActive("mythe_de_babel") && state.babelCategory && building.category !== state.babelCategory) return false;
   // state.buyAmount est la source de vérité : la variable module exportée par
   // state.js n'est pas resynchronisée par setState (Grand Reset, import de save).
   // 'max' et 'step' sont des SENTINELLES résolues par bâtiment : les faire passer
@@ -119,10 +130,18 @@ export function buyBuildingCore(id, { amount: amountOverride = null, silent = fa
     if ((state.sisypheCran || 0) > 0) {
       state.sisypheCran = 0;
       state.sisypheUsages = { food: 0, knowledge: 0, infrastructure: 0 };
-      log(tr({
-        fr: "Sisyphe : les mains quittent le rocher — il dévale jusqu'au pied de la pente.",
-        en: "Sisyphus: his hands slip from the boulder — it rolls back to the foot of the slope."
-      }));
+      // Un automate qui bâtit lâche le rocher au tick suivant la poussée : sans
+      // le dire, le joueur le voyait redévaler sans cause, essai après essai
+      // (audit 2026-10-05, BUG-77).
+      log(auto
+        ? tr({
+            fr: "Sisyphe : un automate a bâti — le rocher dévale jusqu'au pied de la pente.",
+            en: "Sisyphus: an automaton built — the boulder rolls back to the foot of the slope."
+          })
+        : tr({
+            fr: "Sisyphe : les mains quittent le rocher — il dévale jusqu'au pied de la pente.",
+            en: "Sisyphus: his hands slip from the boulder — it rolls back to the foot of the slope."
+          }));
     }
   } else if (hasActiveRuin(state, "sisyphe")) {
     // Ruine active « Pente du rocher » : la malédiction cumulative de l'ANCIEN
@@ -176,7 +195,10 @@ const BUY_ALL_CATEGORY_LABELS = {
 // retrouve donc écarté de l'achat de masse (mais reste achetable à la main).
 export const BUY_ALL_CURRENCIES = new Set(["food", "gold", "knowledge", "infrastructure"]);
 // Garde-fou dur contre toute boucle pathologique (coût ~nul via discounts extrêmes).
-// Jamais atteint en pratique : les coûts explosent géométriquement (scale^count).
+// ATTEINT en fin de partie (audit 2026-10-05, BUG-79) : les coûts explosent
+// géométriquement (scale^count), mais une chute à ressources ~1e60 et plus laisse
+// une pression sur E acheter 10 000 bâtiments d'un trait (0,4 s en test, 1,5 à
+// 2,1 s mesurés en jeu), et il en reste d'abordables — la pression suivante les prend.
 const BUY_ALL_MAX_ITERS = 10000;
 
 // Exportée pour BuildingShop.jsx (délai avant achat, B5), qui a besoin EXACTEMENT
@@ -209,7 +231,9 @@ export function buyableInMass(building) {
 //   - category : quand fourni ("city" | "knowledge" | "infra"), restreint l'achat
 //     de masse à ce SEUL onglet (raccourcis M / S / I) ; null = les trois (touche E).
 export function buyAllAffordable(category = null) {
-  if (crisisOpen()) return 0;
+  // Même gel moteur que buyBuildingCore (BUG-71) : sans lui, le glouton tournait
+  // à vide et les chantiers de voirie, eux, passaient.
+  if (gamePaused || collapseInProgress || state.crisisLimitAnnounced || crisisOpen()) return 0;
   const babelLock = isMythEffectActive("mythe_de_babel") ? state.babelCategory : null;
 
   let bought = 0;
@@ -276,6 +300,8 @@ export function buyAllAffordable(category = null) {
 }
 
 export async function exhumeVestige() {
+  // Gel moteur (BUG-71) : une seconde modale ne s'ouvre pas sur une pause en cours.
+  if (gamePaused || collapseInProgress) return;
   if (!canExhume()) return;
   const candidates = archaeologyCandidates();
   if (!candidates.length) return;
@@ -452,12 +478,19 @@ export async function performGrandReset(gr) {
 }
 
 export function buyUpgrade(id) {
+  if (gamePaused || collapseInProgress || state.crisisLimitAnnounced) return false; // gel moteur (BUG-71)
   const upgrade = upgradeById[id];
   if (!upgrade) return false;
   if (!canBuyUpgrade(upgrade)) return false;
   // Nœuds de ruines : coût EFFECTIF (remise « Grammaire des ruines »).
   if (upgrade.group === "ruins") payCost({ ruins: ruinNodeCost(upgrade) });
-  else payCost(upgrade.cost);
+  else {
+    payCost(upgrade.cost);
+    // Héritages payés en FAVEUR (« comme tout à la Boutique », HeritageView) :
+    // comptés au registre de la Chronique comme les autres achats de la
+    // Boutique — c'en étaient les plus gros, et ils manquaient (BUG-69).
+    if (upgrade.cost && upgrade.cost.faveur) recordShopSpend(upgrade.cost.faveur);
+  }
   state.upgrades[id] = true;
   state.lifetimePurchases = (state.lifetimePurchases || 0) + 1;
   renderCache.cachedRuinEffects = null;

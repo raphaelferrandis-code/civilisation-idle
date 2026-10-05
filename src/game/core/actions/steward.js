@@ -57,11 +57,9 @@ export const BASE_ACTION_LABELS = {
 const BASE_SOOTHE_IDS = ["rationing", "festivals", "census", "reforms", "archiveCrisis", "ancestorCrisis"];
 
 export function stewardActionAllowed(id, ctx = regulationContext()) {
-  if (BASE_SOOTHE_IDS.includes(id)) {
-    if (id === "archiveCrisis") return (state.cycles || 0) >= 2;
-    if (id === "ancestorCrisis") return (state.cycles || 0) >= 3;
-    return true;
-  }
+  // Paliers de cycle (Catastrophes, Culte des ancêtres) : lus à la source moteur
+  // unique, celle qu'impose runCrisisAction (BUG-71).
+  if (BASE_SOOTHE_IDS.includes(id)) return regulationActionUnlocked(id, ctx);
   const a = REGULATION_ACTIONS_BY_ID[id];
   return Boolean(a && a.kind === "soothe" && regulationActionUnlocked(id, ctx));
 }
@@ -99,13 +97,28 @@ export function setStewardClause(slot, patch = {}) {
   render();
 }
 
+// Garde-fous d'une délégation d'apaisement, PARTAGÉS par l'Intendance et par
+// l'automate « Rationner si la Rupture atteint » d'Héphaïstos : sans eux,
+// l'automate tirait à chaque tick tant que la Rupture restait au-dessus du
+// seuil (audit 2026-10-05, BUG-29). Un `lastAt` dans le futur ne bloque pas :
+// l'horloge virtuelle d'un versement de clepsydre repart en arrière, et un
+// cooldown « négatif » gèlerait la consigne pendant tout le versement.
+export function stewardFatigued() {
+  return (state.regulFatigue || 0) > STEWARD_FATIGUE_GATE;
+}
+
+export function stewardCoolingDown(lastAt, now = Date.now()) {
+  const since = now - (lastAt || 0);
+  return since >= 0 && since < STEWARD_COOLDOWN_MS;
+}
+
 // Évaluation au tick (1 Hz). Une seule intervention par tick : l'intendance
 // n'est pas une mitrailleuse, et le cooldown par consigne espace le reste.
 export function tickSteward() {
   const clauses = state.stewardClauses;
   if (!Array.isArray(clauses) || !clauses.length) return;
   if (state.crisisLimitAnnounced || crisisOpen()) return; // la crise terminale a ses propres leviers
-  if ((state.regulFatigue || 0) > STEWARD_FATIGUE_GATE) return; // l'administration souffle
+  if (stewardFatigued()) return; // l'administration souffle
   const ctx = regulationContext();
   const slots = stewardSlotCount(ctx);
   const now = Date.now();
@@ -114,7 +127,7 @@ export function tickSteward() {
     const c = clauses[i];
     if (!c || !c.enabled || !c.actionId) continue;
     if (state.instability < (c.threshold || 0.65)) continue;
-    if (now - (c.lastAt || 0) < STEWARD_COOLDOWN_MS) continue;
+    if (stewardCoolingDown(c.lastAt, now)) continue;
     if (!stewardActionAllowed(c.actionId, ctx)) continue;
     const cost = costs[c.actionId];
     if (!cost || !canPayCost(cost)) continue;

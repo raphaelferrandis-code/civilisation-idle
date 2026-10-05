@@ -13,6 +13,7 @@
 import { describe, it, expect, beforeAll, beforeEach, afterAll, vi } from "vitest";
 
 import { state, setState, defaultState, hydrateState, invalidateRenderCache } from "../state.js";
+import { Decimal } from "../num.js";
 import {
   productionScales,
   buildingRelativeGain,
@@ -142,14 +143,42 @@ describe("buildingRelativeGain — cas dégradés", () => {
     }
   });
 
-  it("un débit affiché non fini ne fabrique pas de gain", () => {
-    // Fin de partie : rates() déborde. On préfère ne rien annoncer plutôt que
-    // d'écrire un pourcentage inventé.
+  it("synergies et débit au-delà du float : le gain reste annoncé, et juste", () => {
+    // Fin de partie : bases (1,025^100000) et rates() débordent le float. Avant
+    // l'audit du 05/10 (BUG-37), k valait 0 et la rangée n'annonçait plus rien.
+    // Le pourcentage n'est pas inventé : sans additif, il vaut delta / base
+    // totale, et le socle est négligeable ici — un Cueilleur de plus apporte
+    // ≈ ×1,025 sur la ligne qui porte tout, soit ≈ +2,5 %.
     setState(defaultState());
     state.buildings.foragers = 100000;
     invalidateRenderCache("all");
-    for (const g of buildingRelativeGain(parId("foragers"), 100000, 1, productionScales())) {
-      expect(Number.isFinite(g.add)).toBe(true);
+    const prep = productionScales();
+    expect(prep.scales.food.horsFloat).toBe(true);
+    const gains = buildingRelativeGain(parId("foragers"), 100000, 1, prep);
+    const food = gains.find((g) => g.resource === "food");
+    expect(food, "la Nourriture doit rester annoncée").toBeTruthy();
+    expect(Number.isFinite(food.pct)).toBe(true);
+    expect(Math.abs(food.pct - 0.025)).toBeLessThan(0.001);
+    for (const g of gains) {
+      expect(g.add instanceof Decimal && Number.isFinite(g.add.mantissa), `add=${g.add}`).toBe(true);
+      expect(g.pct === null || Number.isFinite(g.pct)).toBe(true);
     }
+  });
+
+  it("débit seul au-delà du float : même pourcentage qu'en float (la queue est commune)", () => {
+    // Le pourcentage ne dépend pas de la queue multiplicative de rates() : des
+    // Ruines au-delà du float (débit > 1,8e308, bases inchangées) ne doivent
+    // donc pas le changer.
+    state.buildings.foragers = 40;
+    invalidateRenderCache("all");
+    const enFloat = buildingRelativeGain(parId("foragers"), 40, 1, productionScales()).find((g) => g.resource === "food");
+
+    state.ruins = new Decimal("1e1000"); // Nourriture ≈ 2e312/s (racine du multiplicateur)
+    invalidateRenderCache("all");
+    const prep = productionScales();
+    expect(prep.scales.food.horsFloat, "le débit de Nourriture doit déborder").toBe(true);
+    const auDela = buildingRelativeGain(parId("foragers"), 40, 1, prep).find((g) => g.resource === "food");
+    expect(auDela).toBeTruthy();
+    expect(Math.abs(auDela.pct / enFloat.pct - 1)).toBeLessThan(1e-9);
   });
 });

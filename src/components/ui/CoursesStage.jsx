@@ -4,7 +4,7 @@ import { lancerCourse, coursePartants, coursesUnlocked, coteAffichee, parisPropr
 import { nuitResteMin } from '../../game/core/actions/nuitGrandJeu.js';
 import { tableLimits, chipRack, chipIndexOf } from '../../game/core/actions/maisonTable.js';
 import { COURSES_RTP } from '../../game/core/balance.js';
-import { state, save } from '../../game/core/state.js';
+import { state, save, saveSoon } from '../../game/core/state.js';
 import { tr } from '../../game/core/i18n.js';
 import { fmtCote } from '../../game/core/utils.js';
 import { celebrerGain } from '../../game/core/grandsGains.js';
@@ -208,6 +208,9 @@ export default function CoursesStage({ onClose }) {
     if (phase !== 'bet' || total < min || total > cap) return;
     const r = lancerCourse(paris, { defer: true });
     if (!r) return;
+    // Paris débités : écrits sous 300 ms, pas à l'autosave des 10 s — tuer le
+    // processus en voyant son cheval décrocher ne les rembourse plus (SAV-15).
+    saveSoon(300);
     rememberBets('courses', r.paris);
     pendingRef.current = r.apply;
     const plan = planCourse(r.ordre);

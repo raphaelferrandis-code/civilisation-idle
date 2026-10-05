@@ -41,7 +41,10 @@ export function reseauRoutesCostMult(cycles) {
   return Math.max(0.40, Math.pow(0.95, cycles || 0));
 }
 
-function buildingDiscount(building) {
+// Exportée pour le chantier de voirie (roadWorkCost) : les Routes ne passent pas
+// par buildingBatchCost, et sans elle Grand cadastre, Nomadisme, Enracinement et
+// Réseau de routes ne touchaient pas la voirie, contre leur texte (BUG-34).
+export function buildingDiscount(building) {
   let discount = 1;
   // -5% par effondrement traversé (cycles), plafonné à -60% : les anciennes routes
   // se souviennent des chemins d'avant la chute (ex-remise « par dynastie »).
@@ -66,6 +69,11 @@ function scaledCost(base, scale, count, discount) {
   return D(scale).pow(count).mul(base).mul(discount);
 }
 
+// Prix UNITAIRE à un compte donné. Plus aucun chemin de jeu ne le lit : la
+// boutique, l'achat et (depuis l'audit du 2026-10-05, BUG-6) l'automate
+// d'Héphaïstos lisent tous buildingBatchCost, la seule vérité du prix — qui
+// porte aussi les fardeaux des Ruines actives absents d'ici. Reste pour les
+// tests de parité ; ne pas s'en resservir pour décider d'un achat.
 export function buildingCostAt(building, count) {
   const discount = buildingDiscount(building);
   const scale = buildingEffectiveScale(building);
@@ -76,9 +84,8 @@ export function buildingCostAt(building, count) {
       costs[currency] = costs[currency] ? costs[currency].add(extra) : extra;
     }
   }
-  // « Confusion des langues » est appliquée ICI en plus de buildingBatchCost, parce
-  // que c'est cette fonction qui donne le prix AFFICHÉ : un fardeau que le joueur
-  // ne voit qu'au moment de payer n'est pas un choix, c'est un piège.
+  // « Confusion des langues » appliquée ici comme dans buildingBatchCost : un
+  // fardeau que le joueur ne voit qu'au moment de payer est un piège.
   if (hasActiveRuin(state, "babel") && building.category === dominantBuildingCategory()) {
     for (const currency of Object.keys(costs)) costs[currency] = costs[currency].mul(ACTIVE_RUIN_BABEL_COST_MULT);
   }
@@ -134,8 +141,11 @@ export function buildingBatchCost(building, amount = state.buyAmount) {
   // Somme fermée de la série géométrique : coûts du palier count à count+batchSize-1.
   // Chemin float tant que le résultat est fini (identique sous 2^53), Decimal au-delà.
   const geomSum = (B, s, n, k) => {
-    const flt = s === 1 ? B * k : B * Math.pow(s, n) * (Math.pow(s, k) - 1) / (s - 1);
-    if (Number.isFinite(flt)) return new Decimal(flt * discount);
+    // Finitude testée APRÈS la remise : sous Enracinement (×1,15), un flt fini
+    // entre ~1,56e308 et 1,8e308 débordait une fois remisé → coût Infinity,
+    // impayable (comme scaledCost, qui remise avant de tester).
+    const flt = (s === 1 ? B * k : B * Math.pow(s, n) * (Math.pow(s, k) - 1) / (s - 1)) * discount;
+    if (Number.isFinite(flt)) return new Decimal(flt);
     return s === 1
       ? D(B).mul(k).mul(discount)
       : D(s).pow(n).mul(B).mul(D(s).pow(k).sub(1)).div(s - 1).mul(discount);

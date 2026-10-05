@@ -9,7 +9,7 @@ import {
 } from '../../game/core/actions.js';
 import { AUGURY_DOUBLE_P, AUGURY_DOUBLE_MAX_CRANS } from '../../game/core/balance.js';
 import { hasTempleArtifact } from '../../game/core/actions/templeArtifacts.js';
-import { state, save } from '../../game/core/state.js';
+import { state, save, saveSoon } from '../../game/core/state.js';
 import { tableLimits } from '../../game/core/actions/maisonTable.js';
 import { REGULATION_ACTIONS_BY_ID } from '../../game/data/regulationActions.js';
 import { tr } from '../../game/core/i18n.js';
@@ -164,6 +164,9 @@ export default function AuguryStage({ table, onClose }) {
     if (!riteId || amount <= 0 || faveur < amount) return;
     const res = castAugury(table.id, riteId, { defer: true, stake: amount });
     if (!res) return;
+    // Mise débitée : écrite sous 300 ms, pas à l'autosave des 10 s — tuer le
+    // processus sur un jet perdant ne la rembourse plus (SAV-15).
+    saveSoon(300);
     rememberStake('osselets', res.stake);
     setStake(res.stake);
     pendingRef.current = res.apply;
@@ -186,6 +189,7 @@ export default function AuguryStage({ table, onClose }) {
     const wager = doubleCran === 0 ? outcome.faveurGain : (doubleOutcome?.wager || outcome.faveurGain) * 2;
     const res = doubleAugury(table.id, wager, { defer: true });
     if (!res) return;
+    saveSoon(300); // le gain remis en jeu est débité : même écriture rapide (SAV-15)
     pendingRef.current = res.apply;
     setDoubleCran(doubleCran + 1);
     setDoubleOutcome(res);

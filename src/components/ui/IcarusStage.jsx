@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import { useGameState } from '../../hooks/useGameState.js';
-import { state } from '../../game/core/state.js';
+import { state, saveSoon } from '../../game/core/state.js';
 import {
   launchIcarus,
   cashOutIcarus,
@@ -170,6 +170,9 @@ export default function IcarusStage({ table, onClose }) {
     if (!free && (amount <= 0 || faveur < amount)) return;
     const res = free ? launchIcarus(null, { free: true }) : launchIcarus(amount);
     if (!res) return;
+    // Mise (ou vol offert) débitée : écrite sous 300 ms, pas à l'autosave des 10 s
+    // — tuer le processus sur un vol brûlé ne la rembourse plus (SAV-15).
+    saveSoon(300);
     if (!free) { rememberStake('icare', amount); setStake(amount); }
     setStakeFaveur(icarusFlightInfo()?.stakeFaveur ?? amount);
     setOutcome(null);

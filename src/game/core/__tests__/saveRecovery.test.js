@@ -146,9 +146,10 @@ describe("load() en échec total : partie neuve de repli, rien ne s'écrase", ()
   }, 60000);
 
   it("copie relue en partie : la ligne du Journal survit au rechargement, même Journal plein", async () => {
-    // Le Journal est borné à 48 lignes et normalizeHistory garde les 48 PREMIÈRES :
-    // une 49e ligne ajoutée sans borne disparaissait au rechargement (SAV-8) — le
-    // joueur ne savait jamais quels champs avaient été remis à neuf.
+    // Le Journal est borné à 48 lignes : une 49e ligne ajoutée sans borne
+    // disparaissait au rechargement (SAV-8, quand normalizeHistory gardait les 48
+    // PREMIÈRES ; il garde les 48 plus récentes depuis SAV-13) — le joueur ne
+    // savait jamais quels champs avaient été remis à neuf.
     vi.doMock("../faitsDiversState.js", async (orig) => {
       const real = await orig();
       return { ...real, normalizeFaitsDivers: (v) => { if (v && v.bidon) throw new ReferenceError("TDZ simulée"); return real.normalizeFaitsDivers(v); } };

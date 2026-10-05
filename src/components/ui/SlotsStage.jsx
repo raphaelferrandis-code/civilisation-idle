@@ -1,6 +1,6 @@
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { useGameState } from '../../hooks/useGameState.js';
-import { state, save } from '../../game/core/state.js';
+import { state, save, saveSoon } from '../../game/core/state.js';
 import { icarusPotFaveur } from '../../game/core/actions.js';
 import { spinSlots, slotsFreeSpins, slotsJackpots, slotsRtpRef, SLOTS_CELLS } from '../../game/core/actions/slots.js';
 import { SLOTS_REELS, SLOTS_WHEEL, SLOTS_PAY, SLOTS_LINES, SLOTS_FREE_SPINS, SLOTS_FREE_MULT, SLOTS_CHESTS, SLOTS_HW, SLOTS_GRAND_FLOOR } from '../../game/core/balance.js';
@@ -268,6 +268,9 @@ export default function SlotsStage({ table, onClose }) {
     if (pending.current.spin) { pending.current.spin.apply(); pending.current.spin = null; }
     const res = spinSlots(amount, { defer: true });
     if (!res) { phaseRef.current = 'show'; refuser(); return; }
+    // Mise (ou tour gratuit) débitée : écrite sous 300 ms, pas à l'autosave des
+    // 10 s — tuer le processus sur un tour perdant ne la rembourse plus (SAV-15).
+    saveSoon(300);
     if (!res.free) rememberStake('machines', res.stakeFaveur);
     // Le levier tiré à la main part d'où la main l'a laissé.
     const p0 = tire ? anim.current.pull : 0;

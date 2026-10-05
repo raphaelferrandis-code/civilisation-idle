@@ -14,16 +14,18 @@ describe("decideTickCredit — régime de crédit d'un tick", () => {
     expect(decideTickCredit(3600, true)).toEqual({ mode: "skip", seconds: 0 });
   });
 
-  it("jeu normal (petit écart, visible) → live borné à 1 s", () => {
+  it("jeu normal (petit écart, visible) → live avec l'écart RÉEL jusqu'au seuil (BUG-73)", () => {
     expect(decideTickCredit(1, false)).toEqual({ mode: "live", seconds: 1 });
     expect(decideTickCredit(0.5, false)).toEqual({ mode: "live", seconds: 0.5 });
-    expect(decideTickCredit(8, false)).toEqual({ mode: "live", seconds: 1 }); // clamp
+    // Intervalle retardé (frame longue, GC, la sim elle-même) : plus rien n'est perdu.
+    expect(decideTickCredit(1.062, false)).toEqual({ mode: "live", seconds: 1.062 });
+    expect(decideTickCredit(8, false)).toEqual({ mode: "live", seconds: 8 });
   });
 
   it("écart mural anormal ET visible (veille / gel) → offline avec l'écart réel", () => {
     expect(decideTickCredit(3600, false)).toEqual({ mode: "offline", seconds: 3600 });
     expect(decideTickCredit(10.5, false)).toEqual({ mode: "offline", seconds: 10.5 });
-    expect(decideTickCredit(10, false)).toEqual({ mode: "live", seconds: 1 }); // pile au seuil = live
+    expect(decideTickCredit(10, false)).toEqual({ mode: "live", seconds: 10 }); // pile au seuil = live, sans perte
   });
 });
 

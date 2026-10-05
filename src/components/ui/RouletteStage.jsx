@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState, useSyncExternalStore } from 'react';
 import { useGameState } from '../../hooks/useGameState.js';
-import { state, save } from '../../game/core/state.js';
+import { state, save, saveSoon } from '../../game/core/state.js';
 import { spinRoulette, couleurOf, betsTotal, cleanBets, rouletteLimits } from '../../game/core/actions/roulette.js';
 import { chipRack, chipIndexOf } from '../../game/core/actions/maisonTable.js';
 import { celebrerGain } from '../../game/core/grandsGains.js';
@@ -165,6 +165,9 @@ export default function RouletteStage({ onClose, table, vip: vipProp = false }) 
     if (t < min || t > Math.min(max, state.faveur || 0)) return;
     const res = spinRoulette(paris, { defer: true, vip });
     if (!res) return;
+    // Mises débitées : écrites sous 300 ms, pas à l'autosave des 10 s — tuer le
+    // processus après avoir vu la case ne les rembourse plus (SAV-15).
+    saveSoon(300);
     rememberBets(memo, res.bets);
     pendingRef.current = res.apply;
     setBets(res.bets);

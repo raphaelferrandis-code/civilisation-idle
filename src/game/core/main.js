@@ -56,19 +56,23 @@ import {
   resumeAfterCrisisOutcome
 } from './actions.js';
 
+import { shiftAutoCrisisClock, decayRegulationRelief, ragnarokEndDue } from './actions/tick.js';
+import { tickRoadWorks } from './actions/roadWorks.js';
 import { runCollapseSequence, generateEpitaph, collapseCause } from './events.js';
 import { resumeActiveRuinsChoiceIfPending } from './actions/myths.js';
 import { dynastyNames } from '../data/buildings.js';
-import { epitaphLegacyById, epitaphRuinMultiplier } from '../data/epitaphs.js';
-import { cycleVowRuinMult, cycleVowChoosable } from '../data/vows.js';
-import { BRAISIERS_DURATION_MS, ENEE_HERITAGE_DURATION_MS, isMythEffectActive } from '../data/myths.js';
+import { epitaphLegacyById } from '../data/epitaphs.js';
+import { cycleVowChoosable } from '../data/vows.js';
+import { collapseHarvest } from './mechanics/collapseHarvest.js';
+import { BRAISIERS_DURATION_MS, ENEE_HERITAGE_DURATION_MS, HEPH_POP_DECAY_START_MIN, RAGNAROK_ID, RAGNAROK_WINTER_AT_MS, isMythEffectActive, getMythById } from '../data/myths.js';
 import { D } from './num.js';
-import { decideTickCredit } from './offlineCredit.js';
+import { decideTickCredit, shiftStateTimestamps } from './offlineCredit.js';
 
 import {
   encodeSaveText,
   decodeSaveText,
   fmt,
+  fmtSecs,
   labelFor,
   clamp,
   clamp01,
@@ -207,13 +211,13 @@ export function clepsydreCapSeconds() {
 // par tick) rebâtit correctement ; borné par OFFLINE_MAX_COLLAPSES + le cap d'idle.
 const OFFLINE_STEP_SECONDS = 10;
 
-// Crédite `seconds` de production au TAUX COURANT sur les 5 ressources. Fonction
-// de MODULE et non plus une closure de simulateAwayCrises : la clepsydre (C7)
-// crédite le même temps par le même chemin, et deux arithmétiques parallèles
-// finiraient par diverger. Decimal de bout en bout, jamais de coercition.
-function creditSpan(seconds) {
+// Crédite `seconds` de production aux taux `r` (un relevé de rates(), le taux
+// COURANT par défaut) sur les 5 ressources. Fonction de MODULE et non plus une
+// closure de simulateAwayCrises : la clepsydre (C7) crédite le même temps par le
+// même chemin, et deux arithmétiques parallèles finiraient par diverger. Decimal
+// de bout en bout, jamais de coercition.
+function creditSpan(seconds, r = rates()) {
   if (seconds <= 0) return;
-  const r = rates();
   state.population = D(state.population).add(D(r.population).mul(seconds));
   state.food = D(state.food).add(D(r.food).mul(seconds));
   state.gold = D(state.gold).add(D(r.gold).mul(seconds));
@@ -229,9 +233,24 @@ function creditSpan(seconds) {
 // cité ne se rebâtit pas seule et on retombe sur le crédit linéaire (return null).
 // Effets de bord neutralisés : notifications React suspendues, crises narratives
 // 25/50/75 supprimées (évite les dialogues async), spam de Chronique jeté.
-function simulateAwayCrises(elapsedSeconds, opts = {}) {
+// Éligibilité au farm, partagée avec applyOfflineProgress (crise terminale, BUG-9).
+function farmEligible() {
   const ac = state.crisisDoctrine && state.crisisDoctrine.autoCollapse;
-  if (!state.hephHeritage || !has("edit_effondrement") || !ac || !ac.enabled) return null;
+  return Boolean(state.hephHeritage && has("edit_effondrement") && ac && ac.enabled);
+}
+
+// Atlas (« on ne repose pas le monde ») : tant que l'essai vit — ni sacré, ni
+// écrasé —, les seuils « usure » et « temps » de l'Édit ne tirent pas (BUG-79).
+// PARTAGÉ par checkAutoCollapse et le farm hors ligne : retenu en ligne seulement,
+// fermer le jeu quelques secondes faisait tirer le seuil au premier pas du farm,
+// Fardeau encore sous 100, et sacrait l'essai sans le tenir.
+function atlasHoldsEdict() {
+  return isMythEffectActive("mythe_d_atlas") && !state.atlasCrushed;
+}
+
+function simulateAwayCrises(elapsedSeconds) {
+  if (!farmEligible()) return null;
+  const ac = state.crisisDoctrine.autoCollapse;
 
   const realDateNow = Date.now;
   const savedHistory = state.history;
@@ -242,26 +261,12 @@ function simulateAwayCrises(elapsedSeconds, opts = {}) {
   const ruinsBefore = D(state.ruins);
   let virtual = realDateNow.call(Date) - elapsedSeconds * 1000;
   let collapses = 0;
+  let frozenSec = 0; // reliquat d'une cité restée gelée en crise terminale (plus bas)
   const markThresholds = () => { state.crisisThresholds = { _25: true, _50: true, _75: true }; };
 
-  // VERSEMENT DE CLEPSYDRE (C7 × C12) : contrairement à une absence, les jalons
-  // temporels du Temple (templeAuto[jeu].lastAt) et des aubaines (nextBoonAt)
-  // viennent d'être écrits en temps RÉEL — le jeu tournait à l'instant. Sous
-  // l'horloge virtuelle qui part de now − spend, ils seraient tous « dans le
-  // futur » : zéro partie de temple, zéro aubaine, alors que le contrat
-  // d'advanceWorldBy est « verser une heure vaut une heure d'absence ». On les
-  // décale du versement entier : « joué il y a X » reste « joué il y a X » dans
-  // le référentiel virtuel. JAMAIS sur le chemin absence, où les jalons datent
-  // d'avant le départ et sont déjà corrects.
-  if (opts.fromStore) {
-    const shiftMs = elapsedSeconds * 1000;
-    if (state.templeAuto && typeof state.templeAuto === "object") {
-      for (const auto of Object.values(state.templeAuto)) {
-        if (auto && typeof auto === "object" && Number.isFinite(auto.lastAt)) auto.lastAt -= shiftMs;
-      }
-    }
-    if (Number.isFinite(state.nextBoonAt)) state.nextBoonAt -= shiftMs;
-  }
+  // (Versement de clepsydre : les horodatages ont déjà été rebasés de −spend par
+  // advanceWorldBy — rebaseWorldClock —, l'horloge virtuelle part donc bien de
+  // l'instant où l'état « a été quitté ».)
 
   // Capstone « Phénix calendaire » : le plafond d'effondrements saute (il ne
   // reste qu'une borne de sécurité perf).
@@ -285,9 +290,22 @@ function simulateAwayCrises(elapsedSeconds, opts = {}) {
       if (gamePaused) { setGamePaused(false); break; } // sécurité : aucun dialogue ne doit s'ouvrir
 
       const cycleAge = (virtual - (state.cycleStartedAt || virtual)) / 1000;
-      const fire = ac.trigger === "usure" ? (state.timeWear || 0) >= (ac.usureThreshold ?? 0.9)
+      // Même retenue d'Atlas qu'en ligne (atlasHoldsEdict) : personne n'épaule
+      // hors ligne, le ciel finit par écraser l'essai, et l'Édit reprend alors.
+      const triggered = atlasHoldsEdict() ? false
+        : ac.trigger === "usure" ? (state.timeWear || 0) >= (ac.usureThreshold ?? 0.9)
         : ac.trigger === "temps" ? cycleAge >= (ac.timeSeconds ?? 600)
-        : state.crisisLimitAnnounced; // rupture100 : tick() a posé le drapeau terminal
+        : false;
+      // La crise terminale (tick() a posé le drapeau) est une FIN DE CYCLE pour
+      // TOUS les déclencheurs, pas seulement rupture100 : elle gèle le tick, donc
+      // l'Usure — le déclencheur « usure » n'y aurait plus jamais tiré, et toute
+      // l'absence restante passait sans production ni chute (BUG-10).
+      // « L'Hiver Fimbul » échu (BUG-28) : en ligne, le tick effondre de force à
+      // 24 min ; sous la sim il s'en garde (deuil async), la Fin tombe donc ICI,
+      // par le chemin synchrone — sinon le cycle survivait à la Fin pendant
+      // l'absence, et le pacte ne se brisait qu'à la chute suivante de l'Édit.
+      const endDue = ragnarokEndDue();
+      const fire = triggered || state.crisisLimitAnnounced || endDue;
       if (!fire) continue;
 
       // Chaque effondrement hors-ligne grave le testament s'il existe, sinon
@@ -296,40 +314,43 @@ function simulateAwayCrises(elapsedSeconds, opts = {}) {
       // puis multiplicateur du legs, affinité recalculée sur la cause de CETTE chute).
       const cause = collapseCause();
       const legacy = epitaphLegacyById(state.testamentLegacyId) || epitaphLegacyById(state.nextEpitaphLegacy?.id);
-      const riteBonus = has("rituel_effondrement") ? 1.25 : 1;
-      const gainBase = ruinGain(true).floor().max(0).mul(riteBonus).round();
-      // Vœu du cycle (D2), reconduit hors ligne : lu avant que completeCollapse
-      // ne le remette à zéro (et n'en reconduise un pour le cycle suivant).
-      const gain = gainBase.mul(epitaphRuinMultiplier(legacy, cause)).mul(cycleVowRuinMult(state)).round();
+      // Rite × legs × vœu : collapseHarvest, même source que la stèle et l'Édit
+      // (BUG-33). Le vœu du cycle (D2), reconduit hors ligne, y est lu avant que
+      // completeCollapse ne le remette à zéro (et n'en reconduise un).
+      const gain = collapseHarvest(ruinGain(true), legacy, cause);
       if (D(gain).gt(0)) {
         if (legacy) state.nextEpitaphLegacy = { id: legacy.id, cause, chosenCycle: state.cycles || 0, startedAt: Date.now() };
-        completeCollapse(gain, dynastyNames[state.cycles % dynastyNames.length], generateEpitaph(), "auto_collapse");
+        completeCollapse(gain, dynastyNames[state.cycles % dynastyNames.length], generateEpitaph(), endDue ? "forced" : "auto_collapse");
         collapses += 1;
         markThresholds(); // completeCollapse a remis crisisThresholds à {}
-      } else if (ac.trigger === "rupture100" && state.crisisLimitAnnounced) {
+      } else if (state.crisisLimitAnnounced) {
         break; // crise terminale mais gain nul (cité trop jeune) : on évite de boucler à vide
       }
     }
     // Temps restant après le plafond d'effondrements : crédit linéaire (pas de gâchis).
-    if (remaining > 0) {
-      // Les Braisiers de Prométhée ne valent que BRAISIERS_DURATION_MS après le
-      // début du cycle (rates.js). Un crédit calculé à TAUX CONSTANT étalerait leur
-      // ×2 Nourriture sur tout le reliquat — des heures au lieu de deux minutes. On
-      // scinde donc à la sortie de la fenêtre, en avançant l'horloge virtuelle entre
-      // les deux segments pour que rates() cesse de les voir.
-      const braisiersLeftSec = state.prometheeBraisiers
-        ? Math.max(0, (BRAISIERS_DURATION_MS - (virtual - (state.cycleStartedAt || virtual))) / 1000)
-        : 0;
-      const boosted = Math.min(remaining, braisiersLeftSec);
-      creditSpan(boosted);
-      virtual += boosted * 1000;
-      creditSpan(remaining - boosted);
+    // Même chemin que l'absence sans farm (creditSpanSegmented) : scindé aux bornes
+    // des fenêtres ACTIVES (Braisiers de Prométhée, Cendres fertiles…) d'un cycle
+    // souvent tout neuf, chaque taux relevé avant le moindre crédit. Le reliquat
+    // court de l'instant virtuel courant jusqu'à maintenant.
+    // Sauf pour une cité restée GELÉE en crise terminale (gain nul, la sortie
+    // `break` ci-dessus) : l'Édit ne peut pas l'effondrer, et en ligne rien n'y
+    // tourne — ni production, ni voirie, ni fatigue. Ce reliquat était crédité au
+    // taux plein à une cité figée (deux heures de production, depuis que BUG-9 et
+    // BUG-10 mènent aussi ici une absence partie en crise terminale). Il n'est
+    // pas jeté pour autant : advanceWorldBy le verse dans la clepsydre, comme
+    // l'absence d'une cité déjà gelée au départ (stashFrozenAbsence).
+    if (remaining > 0 && state.crisisLimitAnnounced) {
+      frozenSec = remaining;
+    } else if (remaining > 0) {
+      creditSpanSegmented(remaining, virtual + remaining * 1000);
+      // Voirie et fatigue suivent le même reliquat (BUG-72).
+      advanceIdleClocks(remaining);
     }
   } finally {
     Date.now = realDateNow;
-    setNotifyPaused(false);
-    setOfflineSim(false);
-    setGamePaused(false);
+    // L'état est rendu AVANT les notifications (setNotifyPaused, setGamePaused) :
+    // le premier rendu réveillé ne doit voir ni le journal de la simulation ni ses
+    // paliers pré-latchés (BUG-31).
     state.history = savedHistory; // on jette le spam de Chronique hors-ligne
     // On rend ses crises au cycle EN LIGNE. Sans ça, markThresholds() survivait à
     // la simulation et applyOfflineProgress le persistait par save() : plus aucune
@@ -339,8 +360,11 @@ function simulateAwayCrises(elapsedSeconds, opts = {}) {
     // exactement ce que laissait completeCollapse.
     state.crisisThresholds = collapses > 0 ? {} : savedThresholds;
     invalidateRenderCache("all");
+    setNotifyPaused(false);
+    setOfflineSim(false);
+    setGamePaused(false);
   }
-  return { collapses, ruinsGained: D(state.ruins).sub(ruinsBefore).max(0) };
+  return { collapses, ruinsGained: D(state.ruins).sub(ruinsBefore).max(0), frozenSec };
 }
 
 // Progression hors-ligne (cf. §B). Deux régimes :
@@ -367,6 +391,42 @@ function awayRankLabel(before) {
 function chronicleAwayRank(before) {
   const label = awayRankLabel(before);
   if (label) chronicle(tr({ fr: `Pendant ton absence, la Maison des Plaisirs t'a élevé au rang de ${label}.`, en: `While you were away, the House of Pleasures raised you to the rank of ${label}.` }));
+}
+
+// Même trappe pour les MYTHES (BUG-31) : sur le chemin farm, la vraie boucle sacre
+// un Mythe en direct, ou l'Édit effondre avant qu'il soit honoré — et « Pacte
+// honoré » / « Pacte brisé » partaient avec le journal de la simulation. Noms des
+// pactes honorés, et celui qui s'est brisé (le Mythe actif au départ, levé sans
+// avoir été accompli : seule une chute le lève hors ligne).
+function awayMythLabels(before) {
+  const done = state.mythsCompleted || {};
+  const crowned = Object.keys(done)
+    .filter((id) => done[id] && !before.mythsCompleted?.[id])
+    .map((id) => getMythById(id))
+    .filter(Boolean)
+    .map((myth) => tr(myth.name));
+  const was = before.activeMythId;
+  const brokenMyth = was && state.activeMythId !== was && !done[was] ? getMythById(was) : null;
+  return { crowned, broken: brokenMyth ? tr(brokenMyth.name) : null };
+}
+function chronicleAwayMyths(before) {
+  const { crowned, broken } = awayMythLabels(before);
+  for (const name of crowned) {
+    chronicle(tr({ fr: `Pendant ton absence, le pacte « ${name} » a été honoré.`, en: `While you were away, the pact “${name}” was honored.` }));
+  }
+  if (broken) {
+    chronicle(tr({ fr: `Pendant ton absence, la cité est tombée avant d'honorer le pacte « ${broken} » : il est brisé.`, en: `While you were away, the city fell before honoring the pact “${broken}”: it is broken.` }));
+  }
+}
+
+// Instantané pris AVANT d'avancer le monde, lu par le rapport et les annonces.
+function awaySnapshot() {
+  const before = {};
+  for (const key of REPORT_RESOURCES) before[key] = D(state[key]);
+  before.maisonRank = maisonRank();
+  before.mythsCompleted = { ...(state.mythsCompleted || {}) };
+  before.activeMythId = state.activeMythId || null;
+  return before;
 }
 
 // Assemble le rapport à partir de l'instantané pris avant la simulation. Les
@@ -412,6 +472,7 @@ function buildIdleReport({ narrative, heading, before, farm, elapsedSeconds, ela
     ruinsGained: farm && farm.collapses > 0 ? fmt(farm.ruinsGained) : null,
     wearDelta: Math.round(((state.timeWear || 0) - wearBefore) * 100),
     rank: awayRankLabel(before),
+    myths: awayMythLabels(before),
     deltas,
     idle
   };
@@ -431,34 +492,83 @@ function buildIdleReport({ narrative, heading, before, farm, elapsedSeconds, ela
 // fenêtres sont des fonctions en ESCALIER de Date.now : chaque segment est
 // évalué sous son instant d'ouverture, ce qui suffit à les faire (dé)tomber
 // juste — même recette d'horloge virtuelle que la sim, sans rejouer de ticks.
-function creditSpanSegmented(seconds) {
-  const realDateNow = Date.now;
-  const end = realDateNow.call(Date);
+// `end` : fin du crédit (maintenant, ou l'instant visé par la sim pour son reliquat).
+// ⚠ TOUS les taux sont relevés AVANT le premier crédit (BUG-7). Créditer segment
+// par segment faisait relire rates() au segment suivant sur des stocks déjà
+// gonflés — la Nourriture de base suit la population — : une coupe à 30 s du
+// départ suffisait à payer les deux heures restantes ×2,3. Et une coupe ne se
+// pose que si la fenêtre qu'elle ferme est ACTIVE : sans effet, elle ne fait que
+// multiplier les relevés.
+function creditSpanSegmented(seconds, end = Date.now()) {
+  const clockBefore = Date.now;
   const start = end - seconds * 1000;
   const cs = state.cycleStartedAt || 0;
-  const cuts = [
-    state.blessingUntil || 0,
-    cs + BRAISIERS_DURATION_MS,
-    cs + 120_000, // Atrides / pacte
-    cs + REGROWTH_RUSH_MS,
-    cs + ENEE_HERITAGE_DURATION_MS
-  ].filter((t) => t > start && t < end).sort((a, b) => a - b);
+  const windows = [];
+  if ((state.blessingUntil || 0) > start) windows.push(state.blessingUntil);
+  if (state.prometheeBraisiers) windows.push(cs + BRAISIERS_DURATION_MS);
+  if (isMythEffectActive("mythe_atrides") || state.atridesPactActive) windows.push(cs + 120_000); // Atrides / pacte
+  if (ruinEffectSum("regrowthRush") > 0) windows.push(cs + REGROWTH_RUSH_MS);
+  if (state.eneeHeritage) windows.push(cs + ENEE_HERITAGE_DURATION_MS);
+  // Mêmes escaliers de Date.now, côté Mythes, absents de la liste : le Rayonnement
+  // d'Héphaïstos s'éteint APRÈS 3 min (hephPopProdMult ×0, test strict `>` : d'où
+  // la milliseconde) — un départ avant 3 min payait deux heures de Rayonnement
+  // plein au Mythe du déclin. Et l'Hiver Fimbul gèle la production de moitié dès
+  // 8 min (ragnarokWinterMult).
+  if (isMythEffectActive("mythe_d_hephaistos")) windows.push(cs + HEPH_POP_DECAY_START_MIN * 60_000 + 1);
+  if (state.activeMythId === RAGNAROK_ID) windows.push(cs + RAGNAROK_WINTER_AT_MS);
+  const cuts = windows.filter((t) => t > start && t < end).sort((a, b) => a - b);
   const points = [start, ...cuts, end];
+  const spans = [];
   try {
     for (let i = 0; i < points.length - 1; i++) {
       Date.now = () => points[i];
       invalidateRenderCache("all"); // rates() est cachée par frame
-      creditSpan((points[i + 1] - points[i]) / 1000);
+      const r = rates();
+      spans.push({
+        seconds: (points[i + 1] - points[i]) / 1000,
+        r: { population: r.population, food: r.food, gold: r.gold, knowledge: r.knowledge, infrastructure: r.infrastructure }
+      });
     }
   } finally {
-    Date.now = realDateNow;
+    Date.now = clockBefore;
     invalidateRenderCache("all");
   }
+  for (const span of spans) creditSpan(span.seconds, span.r);
+}
+
+// L'HORLOGE DU MONDE décalée d'un bloc (offlineCredit.js, shiftStateTimestamps) :
+// les horodatages de l'état ET l'horloge de module du tick (protocoles_urgence).
+// Versement de clepsydre (−spend) et horloge système reculée (SAV-12).
+function rebaseWorldClock(deltaMs) {
+  shiftStateTimestamps(state, deltaMs);
+  shiftAutoCrisisClock(deltaMs);
+}
+
+// Ce que le crédit LINÉAIRE ne faisait pas, et que le tick fait (BUG-72) : les
+// chantiers de voirie avancent sur le temps crédité (un grand dt traverse la
+// file), la fatigue de régulation et l'apaisement des foyers s'estompent. Les
+// MÊMES fonctions que le tick, appelées APRÈS le crédit et l'Usure : une route
+// posée pendant l'absence ne rejoue pas le taux déjà payé. Sans ça, cinq
+// chantiers en file et deux heures d'absence ne posaient aucune route.
+function advanceIdleClocks(seconds) {
+  if (!(seconds > 0)) return;
+  const roadsBefore = state.buildings.roads || 0;
+  tickRoadWorks(seconds);
+  decayRegulationRelief(seconds);
+  if ((state.buildings.roads || 0) !== roadsBefore) invalidateRenderCache("buildings");
 }
 
 function advanceWorldBy(seconds, opts = {}) {
   const wearBefore = state.timeWear || 0;
-  const farm = simulateAwayCrises(seconds, opts); // null si non éligible → chemin linéaire
+  // VERSEMENT DE CLEPSYDRE (BUG-8) : l'état vient d'être écrit en temps RÉEL, mais
+  // le temps versé se rejoue de now − spend à now. On ramène tout le référentiel
+  // (âge du cycle, legs, Intendance, temple, aubaines, Nuit…) à l'instant où une
+  // absence de même durée l'aurait trouvé — sinon le cycle aurait un âge NÉGATIF
+  // pendant presque tout le versement (déclencheur « temps » muet, moisson à
+  // patience minimale, legs coupé). Avant la sim ET avant le crédit linéaire. JAMAIS
+  // sur le chemin absence, où les horodatages datent déjà d'avant le départ.
+  if (opts.fromStore) rebaseWorldClock(-seconds * 1000);
+  const farm = simulateAwayCrises(seconds); // null si non éligible → chemin linéaire
   if (!farm) {
     // Production au taux courant (bâtiments constants hors-ligne → rates() stable),
     // scindée aux bornes des fenêtres de bonus actives au départ.
@@ -468,8 +578,17 @@ function advanceWorldBy(seconds, opts = {}) {
     // Usure, MÊME durée que la prod (couplage : on ne vieillit jamais plus que ce
     // qu'on a produit). Plus de facteur ×0.35.
     state.timeWear = clamp(wearBefore + timeWearRate() * seconds, 0, 1);
+    advanceIdleClocks(seconds);
   }
-  return { farm, wearBefore };
+  // Reliquat d'une cité restée gelée en crise terminale pendant la sim : ni
+  // crédité ni jeté, il part dans la clepsydre (sous sa contenance). Versement
+  // compris : le temps qui n'a pas pu être joué y retourne. `credited` = le temps
+  // réellement joué, pour le rapport.
+  const frozenSec = farm ? farm.frozenSec : 0;
+  const clepsydreBefore = state.storedSeconds || 0;
+  if (frozenSec > 0) state.storedSeconds = Math.min(clepsydreCapSeconds(), clepsydreBefore + frozenSec);
+  const frozenStored = Math.max(0, (state.storedSeconds || 0) - clepsydreBefore);
+  return { farm, wearBefore, credited: seconds - frozenSec, frozenStored };
 }
 
 // Raisons de REFUS d'un versement, dans l'ordre où on les teste. La vue les
@@ -523,10 +642,8 @@ export function spendStoredTime(seconds = Infinity) {
   // dépensé — une clepsydre qui se remplit toute seule.
   state.storedSeconds = Math.max(0, (state.storedSeconds || 0) - spend);
 
-  const before = {};
-  for (const key of REPORT_RESOURCES) before[key] = D(state[key]);
-  before.maisonRank = maisonRank();
-  const { farm, wearBefore } = advanceWorldBy(spend, { fromStore: true });
+  const before = awaySnapshot();
+  const { farm, wearBefore, credited, frozenStored } = advanceWorldBy(spend, { fromStore: true });
 
   // Même récit que la reprise d'absence : c'est le même temps, joué au même
   // taux. Seul l'en-tête du rapport dit que c'est la clepsydre qui l'a rendu.
@@ -540,16 +657,17 @@ export function spendStoredTime(seconds = Infinity) {
   });
   chronicle(narrative);
   chronicleAwayRank(before);
+  chronicleAwayMyths(before);
   publishIdleReport(buildIdleReport({
     narrative,
     heading: tr({ fr: "La clepsydre s'est vidée", en: "The clepsydra has emptied" }),
-    before, farm, elapsedSeconds: spend, elapsed: spend, wearBefore
+    before, farm, elapsedSeconds: spend, elapsed: credited, wearBefore, storedSec: frozenStored
   }));
   // lastTick n'est PAS touché : aucun temps réel ne s'est écoulé, et le recaler
   // ferait perdre l'absence en cours de comptage par la boucle de tick.
   save();
   render();
-  return { ok: true, spent: spend, collapses: farm ? farm.collapses : 0 };
+  return { ok: true, spent: credited, collapses: farm ? farm.collapses : 0 };
 }
 
 // Le joueur prête son vœu du cycle (D2) parmi les trois proposés. Rendu immédiat
@@ -568,21 +686,48 @@ export function chooseCycleVow(id) {
   return true;
 }
 
+// Absence d'une cité GELÉE (BUG-9) : dialogue bloquant, ou crise terminale hors
+// farm. En ligne non plus rien n'y tourne, donc on ne crédite rien — et surtout on
+// ne rejoue rien derrière une modale (la sim forçait setGamePaused(false) sous
+// elle). Mais l'absence ne se jette plus : elle va TOUTE dans la clepsydre (sous
+// sa contenance), à verser une fois la cité relancée. Avant, elle était perdue
+// sans un mot, puis le premier tick recalait l'ancre. Même plancher que le crédit.
+function stashFrozenAbsence(elapsedSeconds) {
+  const away = Math.max(0, elapsedSeconds);
+  if (away <= 10) return;
+  const clepsydreBefore = state.storedSeconds || 0;
+  state.storedSeconds = Math.min(clepsydreCapSeconds(), clepsydreBefore + away);
+  const stored = state.storedSeconds - clepsydreBefore;
+  if (stored >= REPORT_MIN_SEC) {
+    chronicle(tr({
+      fr: `Pendant ton absence, la cité est restée figée : ${fmtSecs(stored)} versées dans la clepsydre.`,
+      en: `While you were away, the city stood still: ${fmtSecs(stored)} poured into the clepsydra.`
+    }));
+  }
+  state.lastTick = Date.now();
+  save();
+}
+
 export function applyOfflineProgress(elapsedSeconds = (Date.now() - state.lastTick) / 1000) {
-  // Crise terminale déjà ouverte / effondrement en cours / dialogue bloquant
-  // (gamePaused) : on ne touche à rien. Sans le garde gamePaused, un retour
-  // d'onglet pendant une crise narrative (openCrisisEvent) faisait tourner la
-  // sim, qui forçait setGamePaused(false) derrière la modale encore ouverte.
-  if (gamePaused || collapseInProgress || state.crisisLimitAnnounced) return;
+  // Effondrement en cours : la séquence (deuil, chute sur la carte, stèle) tient
+  // la cité et la reconstruit — on ne touche à rien.
+  if (collapseInProgress) return;
+  // Dialogue bloquant (gamePaused) ou crise terminale HORS farm : cité gelée, le
+  // temps part dans la clepsydre (stashFrozenAbsence). En FARM, la crise terminale
+  // n'est qu'une fin de cycle : la simulation laisse l'Édit effondrer dès le
+  // premier pas, quel que soit son déclencheur (BUG-9, BUG-10) — avant, toute la
+  // nuit du farm était jetée si l'on quittait pendant la grâce terminale.
+  if (gamePaused || (state.crisisLimitAnnounced && !farmEligible())) {
+    stashFrozenAbsence(elapsedSeconds);
+    return;
+  }
   const elapsed = Math.min(idleCapSeconds(), Math.max(0, elapsedSeconds));
   if (elapsed <= 10) return;
 
   // LE DÉBORDEMENT NE SE JETTE PLUS (C7) : ce qui dépasse le plafond va dans la
   // clepsydre, où il attend que le joueur le verse. Banqué AVANT la simulation :
   // celle-ci peut effondrer la cité et rendre `elapsed` incomparable après coup.
-  const before = {};
-  for (const key of REPORT_RESOURCES) before[key] = D(state[key]);
-  before.maisonRank = maisonRank();
+  const before = awaySnapshot();
   const clepsydreBefore = state.storedSeconds || 0;
   const overflow = Math.max(0, elapsedSeconds - elapsed);
   if (overflow > 0) {
@@ -590,7 +735,7 @@ export function applyOfflineProgress(elapsedSeconds = (Date.now() - state.lastTi
   }
   const storedSec = Math.max(0, (state.storedSeconds || 0) - clepsydreBefore);
 
-  const { farm, wearBefore } = advanceWorldBy(elapsed);
+  const { farm, wearBefore, credited, frozenStored } = advanceWorldBy(elapsed);
 
   // Habillage narratif de la reprise. La MÊME phrase sert de ligne de Chronique
   // et de titre au rapport : la dupliquer en deux textes distincts donnerait
@@ -605,10 +750,11 @@ export function applyOfflineProgress(elapsedSeconds = (Date.now() - state.lastTi
   });
   chronicle(narrative);
   chronicleAwayRank(before);
+  chronicleAwayMyths(before);
   // Pas de rapport pour un aller-retour d'onglet : on n'annonce une récolte que
   // s'il y a eu une vraie absence.
   if (elapsedSeconds >= REPORT_MIN_SEC) {
-    publishIdleReport(buildIdleReport({ narrative, before, farm, elapsedSeconds, elapsed, wearBefore, storedSec }));
+    publishIdleReport(buildIdleReport({ narrative, before, farm, elapsedSeconds, elapsed: credited, wearBefore, storedSec: storedSec + frozenStored }));
   }
   // Crédité jusqu'à MAINTENANT : on recale l'ancre du hors-ligne. save() et le
   // tick ne posent plus lastTick ailleurs → sans ceci, le prochain calcul
@@ -638,26 +784,39 @@ export function applyOfflineProgressSafely(elapsedSeconds) {
 // cf. CE-spec-idle-crises.md §A.4). Trigger au choix : "rupture100" (crise
 // terminale + grâce), "usure" (seuil d'Usure), "temps" (durée de cycle). Les deux
 // derniers peuvent effondrer une cité NON terminale — d'où ruinGain(projected).
+// La crise terminale reste, pour TOUS, une fin de cycle (grâce puis chute).
 export function checkAutoCollapse() {
   if (collapseInProgress || gamePaused) return;
   const ac = state.crisisDoctrine?.autoCollapse;
   if (!ac || !ac.enabled || !has("edit_effondrement")) return;
 
-  let shouldCollapse = false;
+  // Chaque branche qui n'effondre pas sort ; au-delà, la chute est décidée.
   let projected = false; // gain "comme si on s'effondrait maintenant" hors crise terminale
-  if (ac.trigger === "rupture100") {
-    // Comportement historique : on attend la crise terminale, puis un délai de grâce.
-    if (!state.crisisLimitAnnounced) { state.crisisOpenedAt = state.crisisOpenedAt || null; return; }
+  const cycleSec = (Date.now() - (state.cycleStartedAt || Date.now())) / 1000;
+  // Atlas (« on ne repose pas le monde ») : tant que l'essai vit — ni sacré, ni
+  // écrasé —, les seuils « usure » et « temps » ne tirent pas. Ce serait une chute
+  // manuelle programmée d'avance, que le Mythe refuse (audit 2026-10-05, BUG-79).
+  // La crise terminale, elle, tranche encore après sa grâce : le tick y gèle le
+  // Fardeau et ÉPAULER, l'essai ne peut plus avancer, et l'Édit est alors la SEULE
+  // sortie (collapse() refuse la chute manuelle sous Atlas). Même règle pour le
+  // farm hors ligne (atlasHoldsEdict, simulateAwayCrises).
+  const atlasHolds = atlasHoldsEdict();
+  if (!atlasHolds && ac.trigger === "usure" && (state.timeWear || 0) >= (ac.usureThreshold ?? 0.9)) {
+    projected = !crisisOpen();
+  } else if (!atlasHolds && ac.trigger === "temps" && cycleSec >= (ac.timeSeconds ?? 600)) {
+    projected = !crisisOpen();
+  } else if (state.crisisLimitAnnounced) {
+    // Crise terminale : on attend un délai de grâce, puis on effondre — le
+    // comportement historique de rupture100, étendu aux deux autres déclencheurs
+    // (BUG-10). La crise terminale gèle le tick, donc l'Usure : sur « usure », un
+    // cycle arrivé à 100 % de Rupture avant le seuil restait gelé pour toujours,
+    // l'Édit payé ne tirait plus jamais.
     if (!state.crisisOpenedAt) { state.crisisOpenedAt = Date.now(); return; }
     if (Date.now() - state.crisisOpenedAt < autoCollapseDelay()) return;
-    shouldCollapse = true;
-  } else if (ac.trigger === "usure") {
-    if ((state.timeWear || 0) >= (ac.usureThreshold ?? 0.9)) { shouldCollapse = true; projected = !crisisOpen(); }
-  } else if (ac.trigger === "temps") {
-    const elapsed = (Date.now() - (state.cycleStartedAt || Date.now())) / 1000;
-    if (elapsed >= (ac.timeSeconds ?? 600)) { shouldCollapse = true; projected = !crisisOpen(); }
+  } else {
+    if (ac.trigger === "rupture100") state.crisisOpenedAt = state.crisisOpenedAt || null;
+    return;
   }
-  if (!shouldCollapse) return;
 
   // Option "prepare" : si la crise terminale est ouverte ET résoluble (Rupture, pas
   // Usure), on tente Rationner puis Réformes avant d'effondrer. Une action baisse
@@ -973,11 +1132,23 @@ export function startGameLoop() {
     const nowWall = Date.now();
     const decision = decideTickCredit((nowWall - lastWall) / 1000, isTabHidden());
     renderCache.tickNow = nowWall; // horloge lue par les composants (pas de Date.now() en rendu)
+    if (decision.mode === "rewind") {
+      // Horloge système RECULÉE (SAV-12) : rien à créditer. L'ancre et toutes les
+      // minuteries suivent le recul — sans ça, elles restaient figées « dans le
+      // futur » pendant tout l'écart, et la remise à l'heure était créditée comme
+      // une absence. Une simple AVANCE d'horloge reste, elle, une absence (veille).
+      const shiftMs = nowWall - lastWall;
+      rebaseWorldClock(shiftMs);
+      state.lastTick = (state.lastTick || lastWall) + shiftMs;
+      lastWall = nowWall;
+      notify();
+      return;
+    }
     if (decision.mode === "skip") return; // caché : lastWall reste figé, le retour créditera
     lastWall = nowWall;
     if (decision.mode === "offline") {
       // Veille système / gel d'onglet VISIBLE : aucun visibilitychange n'est émis,
-      // et clamper à 1 s jetterait des heures. On route l'écart réel vers la
+      // et le tick 'live' (borné au seuil) jetterait des heures. On route l'écart réel vers la
       // progression hors-ligne (elle recale state.lastTick elle-même).
       applyOfflineProgressSafely(decision.seconds);
       checkAutoCollapse();
@@ -1014,9 +1185,11 @@ export function startGameLoop() {
   const handleVisibilityChange = () => {
     if (document.hidden) {
       save();
-    } else if (!collapseInProgress && !state.crisisLimitAnnounced) {
+    } else if (!collapseInProgress) {
       // Retour d'onglet : lastTick est resté figé au masquage (ticks cachés sautés
       // + save() ne le rafraîchit plus) → l'écart mesure vraiment toute l'absence.
+      // Crise terminale comprise : applyOfflineProgress décide (farm ou clepsydre,
+      // BUG-9) — elle ne doit plus manger l'absence en silence.
       // applyOfflineProgress crédite ET recale lastTick ; on recale aussi lastWall
       // pour que le prochain tick reparte d'un écart nul (pas de re-crédit).
       const elapsed = (Date.now() - state.lastTick) / 1000;

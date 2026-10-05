@@ -146,12 +146,11 @@ const { addProductionPenalty } = mech;
 const { clamp01 } = await import("./src/game/core/utils.js");
 registerWorldEffects({ addProductionPenalty, chronicle, clamp01, state });
 
-// Merveilles en headless : elles sont normalement erigees par le runtime de la
-// carte (cmCheckWonders, absent ici) -> sans ca state.wonders reste vide et le
-// jalon GR2 (3 merveilles) est INATTEIGNABLE en simulation. On importe la vraie
-// fonction (metriques reelles du jeu) ; repli no-op si layout.js casse en headless.
-let cmCheckWonders = () => {};
-try { ({ cmCheckWonders } = await import("./src/game/map/layout.js")); } catch { /* headless : pas de merveilles simulees */ }
+// Merveilles : depuis l'audit du 2026-10-05 (BUG-12), le COEUR grave les rangs
+// (tick + seuil de completeCollapse, core/actions/wonders.js) ; la carte n'en
+// joue plus que l'animation. Plus besoin d'importer layout.js : on appelle la
+// meme fonction que le jeu, juste avant la capture du sommet de l'epoch.
+const { checkWonders } = await import("./src/game/core/actions/wonders.js");
 
 // ---------------------------------------------------------------------------
 // 2. CLI
@@ -482,9 +481,9 @@ function prepareCollapse(tier) {
 function doCollapse(reason = "auto") {
   const gain = ruinGain();
   if (D(gain).lte(0)) return false;
-  // Ériger les merveilles au PIC du cycle (avant que completeCollapse ne remette
-  // population/pics à zéro) : nourrit state.wonders selon les vraies métriques.
-  cmCheckWonders(Date.now());
+  // Graver les merveilles au PIC du cycle AVANT la capture du sommet ci-dessous
+  // (completeCollapse le refait lui-même, mais après cette capture).
+  checkWonders();
   // Capture le SOMMET de l'epoch (avant le reset de completeCollapse) pour la
   // chronologie canonique : snapshot COMPLET et cohérent au pic du cycle (pop, ère,
   // multiplicateur, ruines, mythes, merveilles), en gardant le cycle le plus haut.

@@ -22,9 +22,10 @@ import { buildingIconSrc } from '../../game/data/buildingIcons.js';
  *   3. LE bouton-verbe : l'icône et le verbe disent la phase (raccorder /
  *      élargir / doubler en autoroute / mettre en réserve), tuiles et prix.
  * Le texte long vit dans les infobulles. Aucune logique de jeu ici : tout
- * passe par buyBuilding("roads") → buyRoadWorkCore.
+ * passe par buyBuilding("roads") → buyRoadWorkCore. `babelBlocked` : la langue
+ * de Babel interdit l'Infrastructure — le moteur refuse, le bouton s'éteint.
  */
-export default function RoadworksPanel({ building: b }) {
+export default function RoadworksPanel({ building: b, babelBlocked = false }) {
   const [floats, setFloats] = useState([]);
   const [shaking, setShaking] = useState(false);
   const timersRef = useRef([]);
@@ -40,7 +41,7 @@ export default function RoadworksPanel({ building: b }) {
 
   const done = next.kind === "done";
   const full = !done && queued >= ROAD_WORK_QUEUE_MAX;
-  const buyable = !full && !!cost && D(state.knowledge).gte(cost);
+  const buyable = !babelBlocked && !full && !!cost && D(state.knowledge).gte(cost);
 
   const spawnFloat = (text) => {
     const id = floatIdRef.current += 1;

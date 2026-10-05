@@ -14,7 +14,7 @@
 // LE SPECTACLE : hors de la Nuit, la troupe se paie SPECTACLE_COUT_H heures de recettes
 // pour SPECTACLE_DUREE_MIN minutes de salle pleine, puis se repose.
 
-import { state, save, render, isNotifyPaused } from '../state.js';
+import { state, save, render, isNotifyPaused, isOfflineSim } from '../state.js';
 import {
   NUIT_INTERVAL_H, NUIT_PREMIERE_H, NUIT_DUREE_MIN, NUIT_POT_H, NUIT_REPUTATION_MULT,
   SPECTACLE_COUT_H, SPECTACLE_DUREE_MIN, SPECTACLE_REPOS_MIN
@@ -127,6 +127,10 @@ export function ouvrirNuit(now = Date.now()) {
   }));
   if (!isNotifyPaused()) pushOutcomeFloat({ label: tr({ fr: '🎭 La Nuit du Grand Jeu', en: '🎭 The Night of High Play' }), kind: 'gain' });
   const info = { debut: now, fin, verse, flambeur: fl };
+  // Une Nuit ouverte PENDANT la simulation hors-ligne (le temple y tourne) ne
+  // prévient pas l'interface sous horloge virtuelle et n'écrit pas de sauvegarde
+  // antidatée : la sauvegarde finale d'applyOfflineProgress suffit (BUG-31).
+  if (isOfflineSim()) return info;
   for (const fn of ecouteurs) { try { fn(info); } catch { /* l'affichage est un plus */ } }
   save();
   render();

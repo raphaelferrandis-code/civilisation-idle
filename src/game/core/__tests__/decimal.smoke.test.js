@@ -7,9 +7,12 @@
 
 import { describe, it, expect, beforeAll, beforeEach, afterAll, vi } from "vitest";
 
-import { state, setState, hydrateState, invalidateRenderCache, CURRENT_SAVE_VERSION } from "../state.js";
+import { state, setState, hydrateState, invalidateRenderCache, bumpFrame, CURRENT_SAVE_VERSION } from "../state.js";
 import { Decimal, D } from "../num.js";
-import { rates, buildingBatchCost, maxBuyAmount, ruinMultiplierDec, currentEraIndex } from "../mechanics.js";
+import {
+  rates, buildingBatchCost, buildingCostAt, maxBuyAmount, ruinMultiplierDec, currentEraIndex, ruinGain,
+  unspentRuinsPowerMultiplier, unspentRuinsPowerMultiplierDec, globalMultiplier
+} from "../mechanics.js";
 import { tick } from "../actions/tick.js";
 import { canPayCost, payCost, fmt } from "../utils.js";
 import { buildings } from "../../data/buildings.js";
@@ -102,6 +105,86 @@ describe("migration Decimal — fumée", () => {
       expect(isSaneDecimal(state[key]), `${key} après tick`).toBe(true);
     }
     expect(currentEraIndex()).toBeGreaterThan(0);
+  });
+
+  // Audit du 05/10, BUG-11 : au-delà de ~1,8e308 de Savoir au pic, civicDepth
+  // devenait Infinity et Decimal.mul(Infinity) rend 0 → moisson au plancher.
+  it("moisson au-delà du float : un pic de Savoir > 1,8e308 ne la fait pas retomber au plancher", () => {
+    state.cyclePeaks.population = new Decimal("1e200");
+    state.cyclePeaks.infrastructure = new Decimal("1e10");
+    state.cyclePeaks.knowledge = new Decimal("1e300");
+    const sousLeFloat = ruinGain(true);
+    state.cyclePeaks.knowledge = new Decimal("1e330");
+    const auDela = ruinGain(true);
+    expect(isSaneDecimal(auDela)).toBe(true);
+    // Plus de Savoir au pic → au moins autant de Ruines (et pas 55).
+    expect(auDela.gte(sousLeFloat)).toBe(true);
+    expect(auDela.gt("1e80")).toBe(true);
+
+    // Le cas du test de fumée historique, cette fois avec le Savoir au-delà.
+    state.cyclePeaks.population = new Decimal("1e320");
+    expect(ruinGain(true).gt("1e100")).toBe(true);
+
+    // Pop, Savoir et Infra tous au-delà du float (≈ 1e180 attendu, pas ~105).
+    state.cyclePeaks.population = new Decimal("1e400");
+    state.cyclePeaks.knowledge = new Decimal("1e400");
+    state.cyclePeaks.infrastructure = new Decimal("1e400");
+    expect(ruinGain(true).gt("1e150")).toBe(true);
+  });
+
+  // BUG-11, suite : un pic d'Infra seul au-delà de ~4,5e307 (×4 dans la somme).
+  it("moisson : un pic d'Infra à 1e308 (somme civique au-delà du float) reste continu", () => {
+    state.cyclePeaks.population = new Decimal("1e200");
+    state.cyclePeaks.knowledge = new Decimal("1e300");
+    state.cyclePeaks.infrastructure = new Decimal("1e307");
+    const avant = ruinGain(true);
+    state.cyclePeaks.infrastructure = new Decimal("1e308");
+    const apres = ruinGain(true);
+    expect(apres.gte(avant)).toBe(true);
+    expect(apres.lt(avant.mul(2))).toBe(true);
+  });
+
+  // BUG-36 : sous Enracinement (×1,15), un coût unitaire fini AVANT remise mais
+  // > 1,8e308 APRÈS débordait en Infinity : bâtiment bloqué à ce compte précis.
+  it("coûts sous Enracinement : pas de compte impayable dans la fenêtre 1,56e308-1,8e308", () => {
+    state.upgrades.trait_enracinement = true;
+    state.food = new Decimal("1e320");
+    state.gold = new Decimal("1e320");
+    state.knowledge = new Decimal("1e320");
+    state.infrastructure = new Decimal("1e320");
+    invalidateRenderCache("all");
+    const b = buildingById("foragers");
+    // Compte n tel que base × scale^n ∈ ]1,8e308 / 1,15 ; 1,8e308[.
+    const n = Math.ceil(Math.log(1.7976e308 / 1.15 / b.base) / Math.log(b.scale));
+    expect(b.base * Math.pow(b.scale, n)).toBeLessThan(1.7976e308);
+    state.buildings.foragers = n;
+    invalidateRenderCache("all");
+    const lot = buildingBatchCost(b, 1);
+    expect(isSaneDecimal(lot.food), `coût x1 à ${n} : ${lot.food.toString()}`).toBe(true);
+    expect(lot.food.exponent).toBe(308);
+    // Le prix payé égale le prix affiché (buildingCostAt remise avant de tester).
+    const affiche = buildingCostAt(b, n).food;
+    expect(lot.food.div(affiche).sub(1).abs().lt(1e-9)).toBe(true);
+    expect(canPayCost(lot)).toBe(true);
+    expect(maxBuyAmount(b)).toBeGreaterThan(1);
+  });
+
+  // BUG-82 : sans « Ruines en réserve », Infinity × 0 = NaN au-delà du float.
+  it("ruines au-delà du float sans « Ruines en réserve » : facteur 1, jamais NaN", () => {
+    state.ruins = new Decimal("1e400");
+    delete state.upgrades.foundation_ghosts;
+    invalidateRenderCache("all");
+    bumpFrame();
+    expect(unspentRuinsPowerMultiplier()).toBe(1);
+    expect(unspentRuinsPowerMultiplierDec().eq(1)).toBe(true);
+    expect(Number.isNaN(globalMultiplier())).toBe(false);
+
+    // Avec le nœud, le facteur suit toujours le stock (débordement voulu → Decimal).
+    state.upgrades.foundation_ghosts = true;
+    invalidateRenderCache("all");
+    bumpFrame();
+    expect(unspentRuinsPowerMultiplier()).toBe(Infinity);
+    expect(unspentRuinsPowerMultiplierDec().gt("1e395")).toBe(true);
   });
 
   it("migration v1 → v2 : un vieux save pré-Decimal (numbers) charge sans perte", () => {
