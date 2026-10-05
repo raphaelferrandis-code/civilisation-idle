@@ -25,17 +25,36 @@ retenue ; la variante « la nuit » non plus.
 Un clic sur la carte (ou Échap, Espace, Entrée) mène la chute directement au noir,
 et le lever directement à l'aube.
 
+Du déclenchement à la fin du lever (`collapseUnderway`, state.js), la partie ne se
+remplace pas : import et chargement d'emplacement sont refusés et leurs boutons grisés
+(la séquence reprend après ses `await` sur l'état alors en place : la partie chargée
+tomberait avec le gain de l'ancienne). Aucune vue ne s'ouvre non plus (onglets,
+touches 1-8), et tant que la carte joue la chute (`state.chute`), les autres vues ne
+se montent pas à côté de la Cité et Échap n'ouvre pas les Options (App.jsx) : la carte
+ne peint pas sous un dialog ouvert, la chute resterait figée jusqu'à son filet.
+
 ## La règle qui change : la même vallée
 
 `completeCollapse` (crisis.js) garde la graine, le fleuve (`riverWP`) et la fiche du
 cœur (`cityCore` : cœur, pont, `maxN`) ; les rues, les places, les îlots et les slots
-repartent de zéro ; la cité reçoit un nouveau nom. Sans fiche de cœur pour la graine
-(vieille sauvegarde), nouvelle vallée comme avant, sans ruines.
+repartent de zéro ; la cité reçoit un nouveau nom. En jeu, la fiche de cœur est
+toujours là : le relevé du vestige (`captureCurrentVestige`, juste avant) recalcule la
+ville, ce qui pose la fiche pour la graine courante — **toute sauvegarde, même
+ancienne, passe dans la vallée à sa première chute**. La « nouvelle vallée, sans
+ruines » ne sert que sans carte branchée (tests du cœur, cf. `chuteValleeCarte.test.js`).
 
 Les ruines (`state.cityRelics`) sont relevées par la carte au noir et prises par
 `completeCollapse` après la stèle (invariant §1.3 d'events.js : rien n'est écrit
-avant). Une chute non regardée (hors ligne, onglet caché) ne relève rien : les ruines
-d'avant restent.
+avant). Une chute hors ligne, ou quand la Cité n'est pas montée, ne relève rien : les
+ruines d'avant restent. (Onglet caché sur la Cité : la vague ne se joue pas, mais la
+carte montée relève quand même.) Un pacte de Mythe (`resetCivilization`) garde la
+graine et le fleuve, pas la fiche du cœur : il repart sans les ruines, qui ne
+longeraient plus le fleuve redessiné sur une grille neuve.
+
+⚠ TDZ : `normalizeCityRelics` tourne pendant `export let state = load()` ; son plafond
+`RELIC_CAP` est déclaré au-dessus de cette ligne (la première version, déclarée plus
+bas, perdait la sauvegarde au lancement qui suivait la première chute). Elle borne
+aussi emprises et cadres : une ruine de 1e6 cases figerait la carte à chaque lancement.
 
 ## Où c'est
 
@@ -100,4 +119,7 @@ ruines de la carte affichée).
 ## Tests
 
 `chuteState.test.js` (la vague), `chuteVallee.test.js` (même vallée, ruines dans la
-sauvegarde), `ruinArt.test.js` (manifeste ↔ images ↔ sprites).
+sauvegarde), `chuteValleeCarte.test.js` (même vallée, relevé du vestige branché),
+`chuteRelicsLoad.test.js` (vrai démarrage avec des ruines : la TDZ),
+`chuteImportGuard.test.js` (ni import ni emplacement pendant la chute),
+`ruinArt.test.js` (manifeste ↔ images ↔ sprites).

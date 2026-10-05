@@ -13,8 +13,9 @@
 //     elle s'applique alors à la ruine comme à la maison debout ;
 //   - îlots de ≤ 3 px retirés (poussière d'encre parasite) ;
 //   - recadrage sur l'encre ; on note où tombe le coin (0,0) de l'original dans la ruine.
-// L'index `public/pixelart/ruins/offsets.json` est la source de vérité, le module JS
-// en est la copie importable (aucun fetch au runtime).
+// L'index `scripts/data/ruin-offsets.json` est la source de vérité, le module JS
+// en est la copie importable (aucun fetch au runtime). L'index vit hors de public/ :
+// le jeu ne le lit jamais, il n'a rien à faire dans dist ni dans le .exe.
 import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -22,7 +23,7 @@ import { PNG } from 'pngjs';
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const OUT = path.join(ROOT, 'public/pixelart/ruins');
-const INDEX = path.join(OUT, 'offsets.json');
+const INDEX = path.join(ROOT, 'scripts/data/ruin-offsets.json');
 
 function snapAndClean(orig, ruin) {
   const pal = new Map();
@@ -89,16 +90,23 @@ for (const j of jobs) {
 const sortObj = (o) => Object.fromEntries(Object.keys(o).sort().map((k) => [k, o[k]]));
 index.houses = sortObj(index.houses);
 index.props = sortObj(index.props);
-fs.writeFileSync(INDEX, JSON.stringify(index, null, 1) + '\n');
+// Une entrée par ligne (« "clé": [ox, oy] ») : l'index et le module se lisent et se
+// comparent clé par clé — JSON.stringify(…, 1) en prenait quatre par entrée.
+const perLine = (o) => {
+  const keys = Object.keys(o);
+  return keys.length ? '{\n' + keys.map((k) => ' ' + JSON.stringify(k) + ': ' + JSON.stringify(o[k])).join(',\n') + '\n}' : '{}';
+};
+fs.mkdirSync(path.dirname(INDEX), { recursive: true });
+fs.writeFileSync(INDEX, '{\n"houses": ' + perLine(index.houses) + ',\n"props": ' + perLine(index.props) + '\n}\n');
 
-const js = `// GÉNÉRÉ par scripts/buildRuins.mjs depuis public/pixelart/ruins/offsets.json — ne pas éditer.
+const js = `// GÉNÉRÉ par scripts/buildRuins.mjs depuis scripts/data/ruin-offsets.json — ne pas éditer.
 // Les RUINES DESSINÉES de la Chute (docs/PLAN-CHUTE.md) : pour chaque sprite qui en a
 // une, [ox, oy] = où tombe le coin (0,0) du sprite d'origine dans l'image de la ruine.
 // Images : /pixelart/ruins/houses/<clé>.png (habitations), /pixelart/ruins/props/<clé>.png
 // (bâtiments des scènes moteur, clé de prop après substitution « -grand »).
 // Un sprite absent d'ici tombe quand même : il est ARASÉ (iso/isoChute.js, repli).
-export const RUIN_HOUSES = ${JSON.stringify(index.houses, null, 1)};
-export const RUIN_PROPS = ${JSON.stringify(index.props, null, 1)};
+export const RUIN_HOUSES = ${perLine(index.houses)};
+export const RUIN_PROPS = ${perLine(index.props)};
 `;
 fs.writeFileSync(path.join(ROOT, 'src/game/map/ruinArt.js'), js);
 console.log('ruinArt.js :', Object.keys(index.houses).length, 'habitations,', Object.keys(index.props).length, 'props');

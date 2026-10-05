@@ -4,6 +4,7 @@ import {
   state,
   renderCache,
   collapseInProgress,
+  collapseUnderway,
   gamePaused,
   save,
   invalidateRenderCache,
@@ -98,6 +99,10 @@ export async function exportSave() {
 }
 
 export function importSave(text) {
+  // Pas pendant une chute (collapseUnderway, state.js) : la séquence finirait sur la
+  // partie importée. Refus muet côté Journal — rien ne s'écrit dans l'état avant la
+  // stèle (invariant §1.3 d'events.js) ; l'interface grise ses boutons.
+  if (collapseUnderway()) return false;
   try {
     const raw = decodeSaveText(text.trim());
     const parsed = JSON.parse(raw);

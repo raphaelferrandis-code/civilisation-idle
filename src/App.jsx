@@ -10,7 +10,7 @@ import MoreSheet from './components/ui/MoreSheet.jsx';
 import { startGameLoop, initAudio, exportSave } from './game/core/main.js';
 import { useGameState } from './hooks/useGameState.js';
 import { usePointerCoarse } from './hooks/usePointerCoarse.js';
-import { state, renderCache, openView, save, getLastSaveError } from './game/core/state.js';
+import { state, renderCache, openView, save, getLastSaveError, collapseUnderway } from './game/core/state.js';
 import { uiRevealed, uiRevealFresh } from './game/core/uiReveal.js';
 import { placeUnlocked } from './game/core/places.js';
 import { pushOutcomeFloat } from './game/core/outcomeFloat.js';
@@ -86,6 +86,9 @@ export default function App() {
   // La chute se joue sur la carte (docs/PLAN-CHUTE.md) : la Cité est montée quel que
   // soit l'onglet, et son interface se retire le temps de la séquence.
   const chute = useGameState(s => s.chute);
+  // Toute la chute, du déclenchement au lever (collapseUnderway) : aucune vue ne
+  // s'ouvre, rien ne s'importe ni ne se charge par-dessus la séquence.
+  const chuteEnCours = useGameState(() => collapseUnderway());
   // Niveau de crise continu (0→1), au pas de 5% pour limiter les re-renders.
   // Pilote la vignette progressive et la teinte de la carte via --crisis-level.
   // Arrondi INFÉRIEUR : les paliers tombent pile sur ceux de la jauge (vignette à
@@ -101,7 +104,7 @@ export default function App() {
   // Vues débloquées + verrou de crise, relus par le gestionnaire clavier. Il est
   // enregistré une seule fois (deps []) : sans ce relais il capturerait les
   // valeurs du premier rendu et les touches 1-8 viseraient des onglets périmés.
-  const navRef = useRef({ tabs: [], crisisLocked: false });
+  const navRef = useRef({ tabs: [], crisisLocked: false, chuteEnCours: false });
   const mainRef = useRef(null);
   // Le tout premier rendu n'est pas un CHANGEMENT de vue : y déplacer le focus
   // le volerait au chargement, alors que le joueur n'a rien demandé.
@@ -186,6 +189,10 @@ export default function App() {
     const BUY_BY_ID = { buy_all: null, buy_city: "city", buy_knowledge: "knowledge", buy_infra: "infra" };
     const handleKeyDown = (event) => {
       if (event.key === "Escape") {
+        // Pendant la chute jouée sur la carte, Échap la SAUTE (iso/isoChute.js) :
+        // ouvrir les Options figerait la carte (elle ne peint pas sous un dialog
+        // ouvert) et la séquence attendrait son filet de fin.
+        if (state.chute) return;
         const hasOpenDialog = Boolean(document.querySelector("dialog[open]"));
         if (hasOpenDialog) return;
         event.preventDefault();
@@ -203,12 +210,12 @@ export default function App() {
 
       // Touches 1 à 8 : les vues DÉBLOQUÉES, dans l'ordre de la barre latérale.
       // Même verrou de crise terminale que les onglets, sinon le raccourci
-      // contournerait ce que la barre latérale interdit.
+      // contournerait ce que la barre latérale interdit — et rien pendant la chute.
       const digit = resolveViewDigit(event);
       if (digit >= 0) {
-        const { tabs: navTabs, crisisLocked: locked } = navRef.current;
+        const { tabs: navTabs, crisisLocked: locked, chuteEnCours: enChute } = navRef.current;
         const target = navTabs.filter((t) => t.unlocked)[digit];
-        if (target && (!locked || target.id === "prestige")) {
+        if (target && !enChute && (!locked || target.id === "prestige")) {
           event.preventDefault();
           openView(target.id);
         }
@@ -345,7 +352,7 @@ export default function App() {
   // Le ref se met à jour APRÈS le rendu : l'écrire pendant serait un accès à un
   // ref en phase de rendu, que la règle react-hooks/refs interdit.
   useEffect(() => {
-    navRef.current = { tabs, crisisLocked };
+    navRef.current = { tabs, crisisLocked, chuteEnCours };
   });
 
   const handleExport = async () => {
@@ -420,7 +427,7 @@ export default function App() {
               key={tab.id}
               className={`tab ${activeView === tab.id ? 'active' : ''} ${crisisLocked && tab.id !== 'prestige' ? 'tab-locked' : ''} ${freshTab[tab.id] ? 'is-fresh' : ''}`}
               disabled={crisisLocked && tab.id !== 'prestige'}
-              onClick={() => !crisisLocked || tab.id === 'prestige' ? openView(tab.id) : undefined}
+              onClick={() => !chuteEnCours && (!crisisLocked || tab.id === 'prestige') ? openView(tab.id) : undefined}
               // Préchargement au survol ET au focus (E7) : au clavier on ne
               // survole jamais, et c'est justement là que l'attente se remarque.
               onMouseEnter={() => preloadView(tab.id)}
@@ -498,7 +505,7 @@ export default function App() {
             tabs={ongletsRanges}
             badges={badges}
             activeView={activeView}
-            onPick={(id) => { openView(id); setMoreSheet(false); }}
+            onPick={(id) => { if (!chuteEnCours) openView(id); setMoreSheet(false); }}
             onPreload={preloadView}
             onOptions={() => { setMoreSheet(false); reopenDialog(setIsOptionsOpen); }}
             onStatus={() => { setMoreSheet(false); setStatusSheet((v) => !v); }}
@@ -529,7 +536,7 @@ export default function App() {
           <button className="btn-tiny" data-qa="export" onClick={handleExport} {...tipProps(null, "Exporter")}>
             <PixelIcon name="nav/export" className="qa-icon" /><span className="qa-label">Export</span>
           </button>
-          <button className="btn-tiny" data-qa="import" onClick={() => reopenDialog(setIsImportOpen)} {...tipProps(null, "Importer")}>
+          <button className="btn-tiny" data-qa="import" disabled={chuteEnCours} onClick={() => reopenDialog(setIsImportOpen)} {...tipProps(null, "Importer")}>
             <PixelIcon name="nav/import" className="qa-icon" /><span className="qa-label">Import</span>
           </button>
           </>)}
@@ -573,20 +580,22 @@ export default function App() {
         <Suspense fallback={null}>
           {(activeView === 'city' || chute) && <CityView />}
 
-          {activeView === 'regulation' && <RegulationView />}
-          {activeView === 'plaisirs' && <PlaisirsView />}
+          {/* Pendant la chute, la Cité SEULE : une vue ouverte par un autre chemin
+              (toast, clic sur la carte) attend la fin de la séquence pour se monter. */}
+          {activeView === 'regulation' && !chute && <RegulationView />}
+          {activeView === 'plaisirs' && !chute && <PlaisirsView />}
 
           {activeView === 'prestige' && !chute && <PrestigeView />}
 
-          {activeView === 'ruinsView' && <RuinsView />}
+          {activeView === 'ruinsView' && !chute && <RuinsView />}
 
-          {activeView === 'tech' && <HeritageView />}
+          {activeView === 'tech' && !chute && <HeritageView />}
 
-          {activeView === 'mythView' && <MythsView />}
+          {activeView === 'mythView' && !chute && <MythsView />}
 
-          {activeView === 'comptoir' && <ComptoirView />}
+          {activeView === 'comptoir' && !chute && <ComptoirView />}
 
-          {activeView === 'history' && <ChronicleView />}
+          {activeView === 'history' && !chute && <ChronicleView />}
         </Suspense>
         {contemplation && activeView === 'city' && (
           <ContemplationBar onExit={() => setContemplation(false)} />

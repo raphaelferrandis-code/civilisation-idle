@@ -6,7 +6,7 @@
 // Clés DÉRIVÉES de SAVE_KEY et jamais la clé principale : un emplacement ne doit
 // pas pouvoir écraser la partie en cours par accident.
 import { SAVE_KEY } from './saveKey.js';
-import { state, hydrateState, setState, invalidateRenderCache, render, save } from './state.js';
+import { state, hydrateState, setState, invalidateRenderCache, render, save, collapseUnderway } from './state.js';
 import { cloudMirrorSave } from './cloudSave.js';
 
 export const SLOT_COUNT = 3;
@@ -83,7 +83,10 @@ export function writeSlot(i) {
 // Charge un emplacement. Passe par hydrateState + setState, EXACTEMENT le chemin
 // d'importSave : contourner l'hydratation perdrait les Decimal et sauterait la
 // migration de schéma, donc une vieille sauvegarde reviendrait à moitié valide.
+// Refusé pendant une chute (collapseUnderway) : la séquence reprendrait après ses
+// `await` sur la partie chargée, qui tomberait avec le gain de l'ancienne.
 export function loadSlot(i) {
+  if (collapseUnderway()) return false;
   try {
     const raw = localStorage.getItem(slotKey(i));
     if (!raw) return false;

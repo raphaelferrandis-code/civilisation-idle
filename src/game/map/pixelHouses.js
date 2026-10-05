@@ -529,26 +529,43 @@ export function pixelHouseSprite(t, x, y, w, h) {
 // ruine dessinée tombe quand même : il est ARASÉ, coupé à quelques pixels de son pied.
 const ruinArt = new Map();        // clé -> { img, ready, ox, oy } | null (pas de ruine dessinée)
 const ruinCanvases = new Map();   // recette -> canvas (teinte, rangée, neige, arasement)
+// Images de ruine demandées et pas encore arrivées : le relevé du noir les attend
+// (iso/isoChute.js), sinon leurs ruines manqueraient à vie au cycle suivant.
+let ruinLoading = 0;
+export const houseRuinsLoading = () => ruinLoading;
+// Une ruine dessinée qui ne se charge pas (fichier absent ou renommé) bascule sur le
+// repli ARASÉ, comme un sprite sans ruine dessinée : la maison ne disparaît pas.
 function ensureRuin(key) {
   if (ruinArt.has(key)) return ruinArt.get(key);
   const off = RUIN_HOUSES[key];
   if (!off || typeof Image === "undefined") { ruinArt.set(key, null); return null; }
   const r = { img: new Image(), ready: false, ox: off[0], oy: off[1] };
-  r.img.onload = () => { r.ready = true; };
+  ruinLoading += 1;
+  r.img.onload = () => { ruinLoading -= 1; r.ready = true; };
+  r.img.onerror = () => { ruinLoading -= 1; ruinArt.set(key, null); };
   r.img.src = "/pixelart/ruins/houses/" + key + ".png";
   ruinArt.set(key, r);
   return r;
 }
-addSnowResetHook(() => { ruinCanvases.clear(); });
+// Génération des toiles de ruine : change quand elles sont jetées (molettes de la
+// neige) — une toile retenue ailleurs (iso/isoChute.js, ruines du cycle précédent)
+// se sait alors périmée.
+let ruinGen = 0;
+addSnowResetHook(() => { ruinCanvases.clear(); ruinGen += 1; });
+// Signature de ce qui fait changer la toile d'une ruine retenue : la génération et
+// la neige (même condition que ruinCanvasFor et que propArt des scènes moteur).
+export const relicArtSig = () => ruinGen * 2 + (CM.season === WINTER && snowRoofTune.on ? 1 : 0);
 
 // Toile de ruine d'une recette : la ruine dessinée (ou, à défaut, l'original arasé),
 // teinte et rangée reportées, neige si c'est l'hiver, arasée si demandé.
 function ruinCanvasFor(key, tint, model, vi, razed) {
   const winter = CM.season === WINTER && snowRoofTune.on;
-  const rk = key + ":" + (tint | 0) + ":" + (model || "") + ":" + (vi | 0) + (razed ? ":r" : "") + (winter ? ":w" : "");
+  const r = ensureRuin(key);
+  // Sans ruine dessinée, l'original est arasé dans tous les cas : « arasée » n'y
+  // change rien, une seule toile pour les deux.
+  const rk = key + ":" + (tint | 0) + ":" + (model || "") + ":" + (vi | 0) + (razed && r ? ":r" : "") + (winter ? ":w" : "");
   const hit = ruinCanvases.get(rk);
   if (hit) return hit;
-  const r = ensureRuin(key);
   let src, ox, oy;
   if (r) {
     if (!r.ready) return null;

@@ -39,7 +39,6 @@ export const CHUTE = {
   fall: new WeakMap(),   // tuile → instant de sa chute (ms)
 };
 
-export const chuteActive = () => CHUTE.act !== null;
 export function chuteMs(now = (typeof performance !== 'undefined' ? performance.now() : 0)) {
   return CHUTE.scrub != null ? CHUTE.scrub : now - CHUTE.t0;
 }
@@ -82,6 +81,11 @@ const SHAKE = [[1, 0], [-1, 0], [1, 1], [-1, 1], [0, 2], [0, 3]];
 // État d'une tuile à l'instant : null (debout, rien à faire), { ph:'shake', ox, oy,
 // dust } (secouée, décalage en px de SPRITE), { ph:'ruin', dust } (ruine). `dust` =
 // image du nuage (0..DUST_FRAMES-1) ou -1.
+// ⚠ L'objet rendu est RÉUTILISÉ d'un appel à l'autre (un par phase) : appelé pour
+// chaque tuile visible à chaque frame, il en allouait autant. À lire tout de suite,
+// jamais à garder.
+const SHAKE_ST = { ph: 'shake', ox: 0, oy: 0, dust: -1 };
+const RUIN_ST = { ph: 'ruin', dust: -1 };
 export function chuteTileState(t) {
   if (CHUTE.act !== 'fall') return null;
   const ms = chuteMs(), tf = chuteFallAt(t), T = CHUTE_TUNE;
@@ -90,9 +94,11 @@ export function chuteTileState(t) {
   const dust = df >= 0 && df < DUST_FRAMES ? df : -1;
   if (ms < tf) {
     const o = SHAKE[Math.min(SHAKE.length - 1, Math.floor((ms - (tf - T.shakeMs)) / 70))];
-    return { ph: 'shake', ox: o[0], oy: o[1], dust };
+    SHAKE_ST.ox = o[0]; SHAKE_ST.oy = o[1]; SHAKE_ST.dust = dust;
+    return SHAKE_ST;
   }
-  return { ph: 'ruin', dust };
+  RUIN_ST.dust = dust;
+  return RUIN_ST;
 }
 
 // Réverbères, braseros et fenêtres éteints : la chute a commencé.

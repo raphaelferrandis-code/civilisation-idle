@@ -26,6 +26,14 @@ describe("ruines dessinées", () => {
     }
   });
 
+  it("le module est la copie exacte de l'index du script, qui ne part pas dans le build", () => {
+    const index = JSON.parse(fs.readFileSync(path.resolve(__dirname, "../../../../scripts/data/ruin-offsets.json"), "utf8"));
+    expect(RUIN_HOUSES).toEqual(index.houses);
+    expect(RUIN_PROPS).toEqual(index.props);
+    // public/ est copié tel quel dans dist et dans le .exe : le jeu ne lit pas l'index.
+    expect(fs.existsSync(path.join(PUB, "ruins/offsets.json"))).toBe(false);
+  });
+
   it("aucune image orpheline dans public/pixelart/ruins", () => {
     for (const [dir, map] of [["houses", RUIN_HOUSES], ["props", RUIN_PROPS]]) {
       const d = path.join(PUB, "ruins", dir);

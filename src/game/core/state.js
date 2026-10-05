@@ -716,9 +716,11 @@ export const defaultState = () => ({
   // map/roadMemory.js) : la ville part de ses rues d'hier au lieu de les redessiner.
   cityRoads: null,
   // LES RUINES DE LA CITÉ TOMBÉE (docs/PLAN-CHUTE.md) : relevées à la chute, rejouées
-  // au cycle suivant dans la même vallée. Format : iso/isoChute.js (recordRelics).
+  // au cycle suivant dans la même vallée. Relevé : iso/isoChute.js (recordRelics) ;
+  // format (v2) : normalizeCityRelics, plus bas.
   cityRelics: null,
-  // Seed de génération procédurale de la ville (nouvelle à chaque cycle).
+  // Seed de génération procédurale de la ville. Gardée d'un cycle à l'autre : la
+  // cité suivante naît dans la même vallée (docs/PLAN-CHUTE.md) ; neuve au Grand Reset.
   mapSeed: null,
   // Compteurs "à vie" pour les jalons de merveilles (survivent aux cycles).
   lifetimePurchases: 0,
@@ -820,6 +822,13 @@ export const defaultState = () => ({
 // partie neuve ». Même raison que OLD_RUIN_NODE_COSTS en tête de fichier.
 export const buildingById = Object.fromEntries(buildings.map((building) => [building.id, building]));
 export const upgradeById = Object.fromEntries(upgrades.map((upgrade) => [upgrade.id, upgrade]));
+
+// Plafond des ruines relevées à la chute (map/iso/isoChute.js, recordRelics, qui en
+// garde au plus autant). DÉCLARÉ AVANT `state = load()` pour la même raison :
+// normalizeCityRelics le lit pendant hydrateState. Plus bas, la première version
+// (RELIC_MAX) tombait en TDZ dès qu'une sauvegarde portait des ruines — partie neuve
+// au lancement qui suivait la PREMIÈRE chute (cf. chuteRelicsLoad.test.js).
+export const RELIC_CAP = 2200;
 
 // ⚠ MIGRATIONS DOIT RESTER AU-DESSUS DE `load()` (juste en dessous). C'est un
 // `const` : il n'est initialisé qu'à la ligne où il est écrit. Déclaré plus bas
@@ -1493,23 +1502,86 @@ export function normalizeVestiges(raw) {
 
 // Cœur et pont figés (lot L1 de docs/PLAN-ROUTES.md). Bornes larges : la grille
 // plafonne à 360, un décalage au-delà ne peut venir que d'une save abîmée.
-// Ruines de la cité tombée (map/iso/isoChute.js, recordRelics) :
-// { v: 1, seed, n, keys: [clé d'image], items: [[dx, dy, sx, sy, k, x, y, w, h, monument]] }.
-// Une forme abîmée ne casse rien : pas de ruines, voilà tout.
-const RELIC_MAX = 4000;
+// Ruines de la cité tombée (map/iso/isoChute.js, recordRelics), format v2 :
+// { v: 2, seed, keys: [clé d'image], forms: [[k, sx, sy, x, y, w, h]], items: [dx, dy, f, dx, dy, f, …] }.
+// Une FORME est une ruine dessinée : clé d'image, emprise, cadre écran au zoom 1
+// relatif au coin nord de la case. Les maisons d'un même modèle, de même emprise et
+// tournées du même côté vers la rue ont la même : un item ne garde que sa case
+// (relative au centre de grille) et le numéro de sa forme, en triplets à plat. Le
+// cadre est en CENTIÈMES de pixel, entiers — la précision du v1, au bit près (x / 100
+// rend le nombre que le v1 arrondissait au centième). L'ORDRE des items est celui du
+// relevé : à profondeur égale (même diagonale, pièces d'une même scène), le tri du
+// peintre est stable, c'est lui qui fait l'ordre de dessin. Une ruine de scène
+// moteur (clé « p|… ») est un monument : jamais arasée.
+// (Le v1 — { v: 1, seed, n, keys, items: [[dx, dy, sx, sy, k, x, y, w, h, monument]] },
+// cadre en flottants — pesait ~108 Ko au plafond, resérialisés à chaque autosave :
+// il est converti au chargement. Audit du 05/10, CHUTE-14.)
+// Une forme abîmée ne casse rien : pas de ruines, voilà tout. Les BORNES comptent
+// autant que la forme : la carte parcourt sx × sy cases par ruine (relicsFor), une
+// emprise de 1e6 la figerait à chaque lancement. Case relative au centre de grille
+// (±400, comme le cœur), emprise de 1 à 16 cases, cadre écran au zoom 1 (les plus
+// grandes scènes font quelques centaines de pixels).
+// ⚠⚠ TDZ : tourne PENDANT `export let state = load()` — RELIC_CAP est déclaré
+// au-dessus de cette ligne-là ; ne rien lire d'autre qui soit déclaré plus bas.
 export function normalizeCityRelics(raw) {
-  if (!isPlainObject(raw) || raw.v !== 1 || !Array.isArray(raw.keys) || !Array.isArray(raw.items)) return null;
-  if (raw.keys.length > RELIC_MAX || !raw.keys.every((k) => typeof k === "string" && k.length <= 160)) return null;
-  const items = [];
-  for (const it of raw.items.slice(0, RELIC_MAX)) {
-    if (!Array.isArray(it) || it.length !== 10) continue;
-    const v = it.map(Number);
-    if (!v.every(Number.isFinite) || v[4] < 0 || v[4] >= raw.keys.length || v[2] < 1 || v[3] < 1) continue;
-    items.push(v);
+  if (!isPlainObject(raw) || !Array.isArray(raw.keys) || !Array.isArray(raw.items)) return null;
+  // Le relevé v1 nommait les clés AVANT de tronquer au plafond : il peut en rester plus que d'items.
+  if (raw.keys.length > RELIC_CAP * 2 || !raw.keys.every((k) => typeof k === "string" && k.length <= 160)) return null;
+  // Une ruine dépliée : [dx, dy, sx, sy, clé, x, y, w, h], cadre en centièmes de pixel.
+  const entries = [];
+  if (raw.v === 1) {
+    for (const it of raw.items.slice(0, RELIC_CAP)) {
+      if (!Array.isArray(it) || it.length !== 10) continue;
+      const v = it.map(Number);
+      if (!v.every(Number.isFinite)) continue;
+      entries.push([v[0], v[1], v[2], v[3], raw.keys[v[4]],
+        Math.round(v[5] * 100), Math.round(v[6] * 100), Math.round(v[7] * 100), Math.round(v[8] * 100)]);
+    }
+  } else if (raw.v === 2) {
+    if (!Array.isArray(raw.forms) || raw.forms.length > RELIC_CAP) return null;
+    const forms = raw.forms.map((f) => {
+      if (!Array.isArray(f) || f.length !== 7) return null;
+      const v = f.map(Number);
+      return v.every(Number.isFinite) ? v : null;
+    });
+    const end = Math.min(raw.items.length, RELIC_CAP * 3);
+    for (let i = 0; i + 2 < end; i += 3) {
+      const fi = raw.items[i + 2];
+      const f = Number.isInteger(fi) ? forms[fi] : null;
+      if (!f) continue;
+      entries.push([Number(raw.items[i]), Number(raw.items[i + 1]), f[1], f[2], raw.keys[f[0]], f[3], f[4], f[5], f[6]]);
+    }
+  } else {
+    return null;
   }
-  if (!items.length) return null;
-  const seed = Number(raw.seed), n = Number(raw.n);
-  return { v: 1, seed: Number.isFinite(seed) ? seed >>> 0 : 0, n: Number.isFinite(n) ? Math.max(0, Math.floor(n)) : 0, keys: raw.keys.slice(), items };
+  const kept = entries.filter(relicEntryOk);
+  if (!kept.length) return null;
+  const seed = Number(raw.seed);
+  return packCityRelics(Number.isFinite(seed) ? seed >>> 0 : 0, kept);
+}
+// Bornes d'une ruine dépliée (cf. normalizeCityRelics) ; cadre en centièmes de pixel.
+function relicEntryOk(e) {
+  const [dx, dy, sx, sy, k, x, y, w, h] = e;
+  if (typeof k !== "string" || ![dx, dy, sx, sy, x, y, w, h].every(Number.isFinite)) return false;
+  if (Math.abs(dx) > 400 || Math.abs(dy) > 400 || sx < 1 || sx > 16 || sy < 1 || sy > 16) return false;
+  return Math.abs(x) <= 409600 && Math.abs(y) <= 409600 && w >= 0 && w <= 409600 && h >= 0 && h <= 409600;
+}
+// Range des ruines dépliées ([dx, dy, sx, sy, clé, x, y, w, h], cadre en centièmes de
+// pixel entiers) au format v2, DANS L'ORDRE reçu : clés et formes numérotées à leur
+// première apparition, seules celles qui servent sont gardées. Partagé par le relevé
+// de la carte (recordRelics) et la conversion du v1 : une sauvegarde rechargée se
+// range à l'identique.
+export function packCityRelics(seed, entries) {
+  const keys = [], keyIdx = new Map(), forms = [], formIdx = new Map(), items = [];
+  for (const [dx, dy, sx, sy, k, x, y, w, h] of entries) {
+    let ki = keyIdx.get(k);
+    if (ki === undefined) { ki = keys.length; keys.push(k); keyIdx.set(k, ki); }
+    const fk = ki + "," + sx + "," + sy + "," + x + "," + y + "," + w + "," + h;
+    let fi = formIdx.get(fk);
+    if (fi === undefined) { fi = forms.length; forms.push([ki, sx, sy, x, y, w, h]); formIdx.set(fk, fi); }
+    items.push(dx, dy, fi);
+  }
+  return { v: 2, seed, keys, forms, items };
 }
 
 export function normalizeCityCore(raw) {
@@ -2207,6 +2279,14 @@ export function setCollapseInProgress(val) {
   collapseInProgress = val;
   notify();
 }
+// Une chute en cours : du déclenchement à la stèle (collapseInProgress), puis tant
+// que la carte la joue (state.chute : vague, nuit, lever). Ni partie remplacée
+// (import, emplacement) — runCollapseSequence reprend après ses `await` sur l'état
+// alors en place et effondrerait la partie chargée avec le gain de l'ancienne —, ni
+// vue ouverte par-dessus la cinématique (App.jsx).
+export function collapseUnderway() {
+  return collapseInProgress || !!state.chute;
+}
 // Saisie en cours : on stocke la valeur telle quelle (pas de trim, sinon
 // impossible de taper une espace) et on bascule en mode « renommé à la main ».
 export function setCityName(name) {
@@ -2216,12 +2296,14 @@ export function setCityName(name) {
 }
 // Validation (perte de focus) : un nom vidé repasse en mode procédural et
 // reçoit un nom frais — il sera donc à nouveau régénéré à chaque civilisation.
+// Tiré d'une seed neuve, pas de mapSeed : la graine survit aux cycles (même vallée,
+// docs/PLAN-CHUTE.md), le nom de secours serait le même à chaque civilisation.
 export function commitCityName() {
   const trimmed = state.cityName.trim();
   if (trimmed) {
     state.cityName = trimmed.slice(0, 42);
   } else {
-    state.cityName = generateCityName(state.mapSeed || newCitySeed());
+    state.cityName = generateCityName(newCitySeed());
     state.cityNameCustom = false;
   }
   notify();

@@ -36,7 +36,7 @@ import {
   setAutomateThreshold,
   setAutomateField
 } from '../../game/core/actions.js';
-import { state, invalidateRenderCache, render, save, AUTOMATE_FIELD_BOUNDS } from '../../game/core/state.js';
+import { state, invalidateRenderCache, render, save, AUTOMATE_FIELD_BOUNDS, collapseUnderway } from '../../game/core/state.js';
 import { AUTO_COLLAPSE_MIN_SECONDS } from '../../game/core/balance.js';
 import { markPendingWipe } from '../../game/core/saveKey.js';
 import { SLOT_COUNT, readSlotMeta, slotIsEmpty, writeSlot, loadSlot, saveToFile } from '../../game/core/saveSlots.js';
@@ -70,6 +70,9 @@ export default function OptionsDialog({ isOpen, onClose, onSave, onExport, onImp
 
   const phoenixHeritage = useGameState(s => s.phoenixHeritage);
   const hephHeritage = useGameState(s => s.hephHeritage);
+  // Pendant une chute, ni import ni chargement d'emplacement (collapseUnderway) :
+  // la partie chargée tomberait à la fin de la séquence, avec le gain de l'ancienne.
+  const chuteEnCours = useGameState(() => collapseUnderway());
   // Rules lists. optionRevision force les controles mutables a se recalculer.
   void optionRevision;
   const notifEnabled = getNotifEnabled();
@@ -309,6 +312,9 @@ export default function OptionsDialog({ isOpen, onClose, onSave, onExport, onImp
     if (loadSlot(i)) {
       pushOutcomeFloat({ label: tr({ fr: "Partie chargée", en: "Game loaded" }), kind: "gain" });
       onClose();
+    } else if (collapseUnderway()) {
+      // La chute a pu partir pendant la confirmation : l'emplacement n'est pas en cause.
+      pushOutcomeFloat({ label: tr({ fr: "La cité tombe : chargement impossible", en: "The city is falling: cannot load" }), kind: "cost" });
     } else {
       pushOutcomeFloat({ label: tr({ fr: "Emplacement illisible", en: "Slot unreadable" }), kind: "cost" });
     }
@@ -1008,7 +1014,7 @@ export default function OptionsDialog({ isOpen, onClose, onSave, onExport, onImp
                     <button type="button" onClick={onExport}>{tr({ fr: "Exporter", en: "Export" })}</button>
                   )}
                   {onImport && (
-                    <button type="button" onClick={onImport}>{tr({ fr: "Importer", en: "Import" })}</button>
+                    <button type="button" disabled={chuteEnCours} onClick={onImport}>{tr({ fr: "Importer", en: "Import" })}</button>
                   )}
                 </div>
               </div>
@@ -1049,7 +1055,7 @@ export default function OptionsDialog({ isOpen, onClose, onSave, onExport, onImp
                     <button type="button" onClick={() => handleSlotWrite(i)}>
                       {tr({ fr: "Enregistrer", en: "Save" })}
                     </button>
-                    <button type="button" disabled={!meta} onClick={() => handleSlotLoad(i)}>
+                    <button type="button" disabled={!meta || chuteEnCours} onClick={() => handleSlotLoad(i)}>
                       {tr({ fr: "Charger", en: "Load" })}
                     </button>
                   </div>

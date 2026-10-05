@@ -20,10 +20,11 @@
 // la chute ne lit l'état que pour dessiner, les ruines relevées attendent dans ce
 // module que completeCollapse les prenne (takeCityRelics, via cityMapBridge).
 import { CM, cmEngineHomeHidden } from '../layout.js';
-import { state } from '../../core/state.js';
-import { pixelHouseReady, pixelHouseRuin, houseRelicCanvas } from '../pixelHouses.js';
-import { propRelicCanvas } from '../cityEngineSprites.js';
+import { state, packCityRelics, RELIC_CAP } from '../../core/state.js';
+import { pixelHouseReady, pixelHouseRuin, houseRelicCanvas, houseRuinsLoading, relicArtSig } from '../pixelHouses.js';
+import { propRelicCanvas, propRuinsLoading } from '../cityEngineSprites.js';
 import { setChuteHandlers } from '../cityMapBridge.js';
+import { clearCitizenFocus } from '../citizenFocus.js';
 import { isoFrontOffset } from './isoGroundDetail.js';
 import { isoEngineSceneBox, isoEngineScenesFlag } from './isoEngineScene.js';
 import { drawEngineRuin } from './isoChuteScene.js';
@@ -46,6 +47,12 @@ export function chuteGone(t) {
 let fallResolve = null;
 let fallTimer = 0;
 let playerZoom = 1.25;
+// Ce que la vague retire des rues, pour le rendre si la séquence casse (abort) :
+// la carte de la chute, la cible de passants d'avant, la flotte et ses charrettes
+// mises de côté. Oublié au lever (la carte du cycle neuf repeuple ses rues).
+let streets = null;
+// Le noir tient au plus ce temps pour attendre les images de ruine en route (endFall).
+const RUIN_WAIT_MS = 2500;
 
 function coreOf(L) {
   return (L.plan && L.plan.core) ? { x: L.plan.core.x, y: L.plan.core.y } : { x: L.cx, y: L.cy };
@@ -70,9 +77,22 @@ function waveRadius(L, core) {
   return maxD;
 }
 
+const SKIP_KEYS = new Set(['Escape', ' ', 'Enter']);
 function onSkip(e) {
   if (!CHUTE.act) return;
-  if (e.type === 'keydown' && !['Escape', ' ', 'Enter'].includes(e.key)) return;
+  if (e.type === 'keydown' && !SKIP_KEYS.has(e.key)) return;
+  // Le clic n'est à la chute que posé sur la carte (un bouton de la barre latérale
+  // garde le sien).
+  if (e.type === 'click' && e.target !== CM.canvas) return;
+  // Une fenêtre ouverte (la stèle, le choix des Ruines actives) a le clavier.
+  if (typeof document !== 'undefined' && document.querySelector('dialog[open]')) return;
+  // Le geste est à la chute, à elle seule : ni les Options (Échap, App.jsx — un
+  // dialog ouvert fige la carte, la chute attendait alors son filet), ni le bouton
+  // qui a le focus (Entrée, Espace), ni la carte (un clic y désigne un passant ou
+  // ouvre l'onglet d'un monument) ne le reçoivent aussi.
+  e.preventDefault();
+  e.stopImmediatePropagation();
+  if (e.type === 'click') return;   // le clic qui suit le pointerdown : déjà servi
   const T = CHUTE_TUNE;
   if (CHUTE.act === 'fall') {
     // directement au début du fondu au noir
@@ -87,6 +107,10 @@ function listenSkip(on) {
   if (typeof window === 'undefined') return;
   const f = on ? 'addEventListener' : 'removeEventListener';
   window[f]('keydown', onSkip, true);
+  // Le clic, sur WINDOW en capture : ceux de la carte (fiche d'habitant, onglet d'un
+  // monument — cityMapRuntime ; fait divers — fdPick) sont posés en capture sur son
+  // conteneur, qui passe AVANT le canevas — un écouteur du canevas arrivait après eux.
+  window[f]('click', onSkip, true);
   if (CM.canvas) CM.canvas[f]('pointerdown', onSkip, true);
 }
 
@@ -95,12 +119,17 @@ function listenSkip(on) {
 function startFall() {
   const L = CM.layout;
   if (!L || !CM.canvas || !CM.cam || (typeof document !== 'undefined' && document.hidden)) return null;
+  // Le passant ou la charrette qu'on suivait (fiche d'habitant, citizenFocus.js)
+  // part avec sa ville : sa fiche se ferme, et la caméra qui le suivait — elle
+  // éteignait tout recentrage à chaque frame — laisse la vague partir du cœur.
+  clearCitizenFocus();
   const core = coreOf(L);
   CHUTE.core = core;
   CHUTE.maxD = waveRadius(L, core);
   CHUTE.fall = new WeakMap();
   CHUTE.fade = 0; CHUTE.pulled = false; CHUTE.done = false; CHUTE.scrub = null;
   CHUTE.fromLayout = L;
+  streets = { L, target: CM.citizenTarget, list: CM.vehicles, parked: [] };
   playerZoom = CM.cam.zoom;
   // Un relevé à blanc : il demande toutes les ruines de la cité au réseau, qui
   // arrivent ainsi avant que leurs bâtiments ne tombent (sinon un bâtiment pourrait
@@ -125,6 +154,20 @@ function endFall() {
   clearTimeout(fallTimer);
   CHUTE.fade = 1;
   CHUTE.done = true;
+  // Le noir est atteint, la poussière à l'écran retombée depuis longtemps : ses
+  // toiles partent (elles pesaient jusqu'au lever, ou à la chute suivante).
+  clearDustCache();
+  if (fallResolve) waitRuins(now0());
+}
+// Le relevé du noir (capture, dès la promesse tenue) ne voit que les ruines dont
+// l'image est arrivée. Après un saut immédiat, celles que le relevé à blanc vient de
+// demander peuvent être encore en route : elles manqueraient à vie aux ruines du
+// cycle suivant. Le noir tient donc le temps qu'elles arrivent (borné, RUIN_WAIT_MS).
+function waitRuins(t0) {
+  if ((houseRuinsLoading() > 0 || propRuinsLoading() > 0) && now0() - t0 < RUIN_WAIT_MS) {
+    fallTimer = setTimeout(() => waitRuins(t0), 100);
+    return;
+  }
   const r = fallResolve;
   fallResolve = null;
   if (r) r(true);
@@ -139,7 +182,18 @@ function emptyStreets(ms) {
   const inR = (wx, wy) => Math.hypot(wx / T - CHUTE.core.x, wy / T - CHUTE.core.y) < R;
   const cit = CM.citizens || [];
   for (let i = cit.length - 1; i >= 0; i -= 1) if (inR(cit[i].x, cit[i].y)) cit.splice(i, 1);
-  for (const v of CM.vehicles || []) if (v.x > -1e5 && inR(v.x, v.y)) { v.x = -1e6; v.y = -1e6; v.pauseT = 1e9; }
+  // Les charrettes QUITTENT la flotte (mises de côté pour abort) : téléportées hors
+  // carte, elles y comptaient encore — la fiche d'habitant les croyait là, et la
+  // caméra qui en suivait une partait au coin de la carte.
+  const veh = CM.vehicles;
+  if (veh) {
+    for (let i = veh.length - 1; i >= 0; i -= 1) {
+      if (!inR(veh[i].x, veh[i].y)) continue;
+      const v = veh[i];
+      veh.splice(i, 1);
+      if (streets && streets.list === veh) streets.parked.push(v);
+    }
+  }
   const rio = CM.rioters;
   if (rio && rio.length) {
     for (let i = rio.length - 1; i >= 0; i -= 1) if (inR(rio[i].x, rio[i].y)) rio.splice(i, 1);
@@ -147,6 +201,17 @@ function emptyStreets(ms) {
     const base = CM.riotWindow === true && inst > 0.5 ? Math.floor((inst - 0.5) / 0.5 * 36) + 8 : 0;
     CM.riotCalmed = Math.max(0, base - rio.length);
   }
+}
+// Séquence interrompue (abort) : les rues de la cité qui ne tombe plus lui sont
+// rendues — la foule revient à sa cible (la boucle la repeuple peu à peu), les
+// charrettes reprennent leur route. Seulement sur la carte de la chute : une carte
+// refaite entre-temps a déjà repeuplé les siennes.
+function restoreStreets() {
+  const s = streets;
+  streets = null;
+  if (!s || CM.layout !== s.L) return;
+  if (CM.citizenTarget === 0) CM.citizenTarget = s.target;
+  if (CM.vehicles === s.list) for (const v of s.parked) CM.vehicles.push(v);
 }
 
 // ── 3. LE LEVER ─────────────────────────────────────────────────────────────────
@@ -162,6 +227,7 @@ function riseEnded() {
 function startRise(onDone) {
   riseDone = onDone || null;
   riseTimer = setTimeout(() => { if (CHUTE.act === 'rise') { CHUTE.act = null; CHUTE.fade = 0; listenSkip(false); } riseEnded(); }, 15000);
+  streets = null;
   if (typeof document === 'undefined') return;
   CHUTE.act = 'rise';
   CHUTE.fall = new WeakMap();
@@ -172,7 +238,8 @@ function startRise(onDone) {
   listenSkip(true);
   clearDustCache();
 }
-function riseFrame() {
+// clockN : la nuit de l'horloge murale à cette frame (cf. chuteFrame).
+function riseFrame(clockN) {
   const L = CM.layout;
   if (CHUTE.t0 === Infinity) {
     // La carte du cycle neuf est-elle construite ? (ou filet de 4 s)
@@ -194,7 +261,10 @@ function riseFrame() {
   const a = ms - T.riseBlackMs;
   CHUTE.fade = 1 - smooth(a / T.riseFadeMs);
   const b = a - T.riseFadeMs - T.riseNightMs;
-  CM.nightF = 1 - smooth(b / T.riseDawnMs); CM.dayRising = false;
+  // L'aube rend la lumière à L'HEURE DE L'HORLOGE : la nuit du campement fond vers
+  // elle (le plein jour la plupart du temps), et la boucle reprend la main sans saut
+  // — rendre 0 faisait retomber d'un coup la nuit de l'horloge, une chute sur trois.
+  CM.nightF = 1 + (clockN - 1) * smooth(b / T.riseDawnMs); CM.dayRising = false;
   if (b > T.riseDawnMs) {
     CHUTE.act = null; CHUTE.fade = 0; CHUTE.done = true;
     riseEnded();
@@ -206,10 +276,14 @@ function riseFrame() {
 // Appelée en tête de drawIsoWorld : la lumière, la foule, la caméra de la chute.
 export function chuteFrame() {
   if (!CHUTE.act) return;
-  if (CHUTE.act === 'rise') { riseFrame(); return; }
+  // La nuit de l'horloge murale, que la boucle vient de poser (cityMapRuntime, juste
+  // avant drawIsoWorld) : la chute part d'elle, le lever y revient — pas de plein
+  // jour soudain quand la cité tombe de nuit, ni de nuit soudaine après l'aube.
+  const clockN = Math.max(0, Math.min(1, CM.nightF || 0));
+  if (CHUTE.act === 'rise') { riseFrame(clockN); return; }
   const T = CHUTE_TUNE, ms = chuteMs(), end = chuteWaveEnd();
   const tn = ms - end - T.nightAt;
-  let n = T.duskNight * smooth(ms / T.duskInMs);
+  let n = clockN + (T.duskNight - clockN) * smooth(ms / T.duskInMs);
   if (tn > 0) n = T.duskNight + (1 - T.duskNight) * smooth(tn / T.nightMs);
   const tf = tn - T.nightMs - T.fadeAt;
   CHUTE.fade = tf > 0 ? smooth(tf / T.fadeMs) : 0;
@@ -239,8 +313,9 @@ export function paintChuteFade(ctx) {
 // cadre ÉCRAN au zoom 1, relatif au coin nord de sa cellule. On le calcule sans rien
 // peindre (géométrie des peintres, scènes moteur dessinées dans le vide), à un zoom
 // élevé pour que l'arrondi des peintres ne coûte rien. Coordonnées de cellule
-// relatives au CENTRE de la grille, comme les rues et les slots du jeu.
-const RELIC_CAP = 2200;
+// relatives au CENTRE de la grille, comme les rues et les slots du jeu. Rangées au
+// format v2 de la sauvegarde (core/state.js, packCityRelics) : cadre en centièmes de
+// pixel entiers, formes partagées, ordre du relevé gardé. Plafond : RELIC_CAP (state.js).
 let pendingRelics = null;
 
 function relicKeyOfHouse(r) {
@@ -254,13 +329,13 @@ export function recordRelics(L = CM.layout) {
   CM.cam.zoom = Z;
   const z = Z, hh = T * z * ISO_Y;
   const N = L.gridN | 0, cx = Math.floor(N / 2), cy = cx;
-  const keys = [], keyIdx = new Map();
-  const kid = (k) => { let i = keyIdx.get(k); if (i === undefined) { i = keys.length; keys.push(k); keyIdx.set(k, i); } return i; };
+  // Ruines dépliées : [dx, dy, sx, sy, clé, x, y, w, h], cadre au zoom 1 en centièmes
+  // de pixel (l'arrondi au centième du premier format, gardé en entiers).
   const items = [];
-  const r2 = (v) => Math.round(v * 100) / 100;
-  const push = (t, sx, sy, k, x, y, w, h, mon) => {
+  const c100 = (v) => Math.round(v * 100);
+  const push = (t, sx, sy, k, x, y, w, h) => {
     const ref = worldToScreen(t.gx * T, t.gy * T);
-    items.push([t.gx - cx, t.gy - cy, sx, sy, kid(k), r2((x - ref.x) / z), r2((y - ref.y) / z), r2(w / z), r2(h / z), mon ? 1 : 0]);
+    items.push([t.gx - cx, t.gy - cy, sx, sy, k, c100((x - ref.x) / z), c100((y - ref.y) / z), c100(w / z), c100(h / z)]);
   };
   const river = L.river && L.river.present ? L.river : null;
   try {
@@ -276,7 +351,7 @@ export function recordRelics(L = CM.layout) {
         if (!pixelHouseReady(t)) continue;
         const wpx = (sx + sy) * T * z * ISO_X * 0.78;
         const r = pixelHouseRuin(t, anchor.x - wpx / 2, anchor.y - wpx - hh * 0.5, wpx, wpx);
-        if (r) push(t, sx, sy, relicKeyOfHouse(r), r.x, r.y, r.w, r.h, false);
+        if (r) push(t, sx, sy, relicKeyOfHouse(r), r.x, r.y, r.w, r.h);
         continue;
       }
       if (t.type !== 'engine' || !isoEngineScenesFlag.on || id === 'water_mills') continue;
@@ -291,7 +366,8 @@ export function recordRelics(L = CM.layout) {
       const { bx, by, bw } = isoEngineSceneBox(t, anchor, sx, sy, T, z, hh);
       const rec = [];
       drawEngineRuin(null, t, bx, by, bw, 0, rec);
-      for (const b of rec) push(t, sx, sy, 'p|' + b.p, b.x, b.y, b.w, b.h, true);
+      // Les pièces d'une scène moteur : des monuments (clé « p| »), jamais arasés.
+      for (const b of rec) push(t, sx, sy, 'p|' + b.p, b.x, b.y, b.w, b.h);
     }
   } finally {
     CM.cam.x = cam.x; CM.cam.y = cam.y; CM.cam.zoom = cam.zoom;
@@ -299,21 +375,24 @@ export function recordRelics(L = CM.layout) {
   // Au-delà du plafond, on garde les monuments et les ruines les plus proches du cœur.
   if (items.length > RELIC_CAP) {
     const core = coreOf(L);
-    const d2 = (it) => (it[0] + cx - core.x) ** 2 + (it[1] + cy - core.y) ** 2 - (it[9] ? 1e9 : 0);
+    const d2 = (it) => (it[0] + cx - core.x) ** 2 + (it[1] + cy - core.y) ** 2 - (it[4].startsWith('p|') ? 1e9 : 0);
     items.sort((a, b) => d2(a) - d2(b));
     items.length = RELIC_CAP;
   }
-  return { v: 1, seed: (L.mapSeed >>> 0) || 0, n: N, keys, items };
+  // Clés et formes numérotées APRÈS le plafond : seules celles qui servent partent.
+  return packCityRelics((L.mapSeed >>> 0) || 0, items);
 }
 
 // ── LES RUINES DU CYCLE PRÉCÉDENT, SUR LA CARTE ─────────────────────────────────
 // Rejouées comme des items du peintre, triés à leur profondeur, partout où la
-// nouvelle cité n'a encore rien posé (bâti, rues, eau, berges, foyer du camp).
+// nouvelle cité n'a encore rien posé (bâti, rues, eau, berges, foyer du camp,
+// parvis et pelouses, grands ensembles).
 // Une maison sur deux (TUNE.relicKeep) n'est plus qu'un pan de mur : arasée.
 let relicCache = { relics: null, L: null, live: null, cells: null };
 function relicsFor(L) {
+  // Format v2 (core/state.js, normalizeCityRelics : un v1 chargé y est converti).
   const R = state.cityRelics;
-  if (!R || !Array.isArray(R.items) || !R.items.length || (R.seed >>> 0) !== ((L.mapSeed >>> 0) || 0)) return null;
+  if (!R || R.v !== 2 || !Array.isArray(R.items) || !R.items.length || !Array.isArray(R.forms) || (R.seed >>> 0) !== ((L.mapSeed >>> 0) || 0)) return null;
   if (relicCache.relics === R && relicCache.L === L) return relicCache;
   const occ = new Set();
   for (const t of L.tiles) {
@@ -324,26 +403,49 @@ function relicsFor(L) {
   if (L.river && L.river.cells) for (const k of L.river.cells) occ.add(k);
   if (L.river && L.river.banks) for (const k of L.river.banks) occ.add(k);
   if (L.campHearth) for (let a = -3; a <= 3; a += 1) for (let b = -3; b <= 3; b += 1) occ.add((L.campHearth.gx + a) + ',' + (L.campHearth.gy + b));
+  // Le sol que la cité neuve a pris sans y poser de tuile (layout.js) : l'emprise
+  // des merveilles érigées — parvis pavé (wonderGround) et pelouse autour
+  // (townGreen) —, les pelouses de l'échangeur et les jardins des îlots
+  // (townGreen), l'emprise des grands ensembles civiques (districts). Une merveille
+  // ré-érigée se repose près du cœur, là où les ruines de l'ancien centre sont les
+  // plus denses : sans ça, ses pans de murs tombaient sur son parvis.
+  if (L.wonderGround) for (const k of L.wonderGround) occ.add(k);
+  if (L.townGreen) for (const k of L.townGreen) occ.add(k);
+  if (L.districts) {
+    for (const d of L.districts) {
+      const s = d.size || 1;
+      for (let a = 0; a < s; a += 1) for (let b = 0; b < s; b += 1) occ.add((d.gx + a) + ',' + (d.gy + b));
+    }
+  }
   const N = L.gridN | 0, cx = Math.floor(N / 2), cy = cx;
   const live = [], cells = new Set();
-  for (const it of R.items) {
-    const gx = it[0] + cx, gy = it[1] + cy, sx = it[2], sy = it[3];
+  // Items en triplets à plat [dx, dy, forme], dans l'ordre du relevé (= ordre de
+  // dessin à profondeur égale) ; forme [k, sx, sy, x, y, w, h], cadre en centièmes.
+  const I = R.items;
+  for (let i = 0; i + 2 < I.length; i += 3) {
+    const f = R.forms[I[i + 2]];
+    if (!f) continue;
+    const gx = I[i] + cx, gy = I[i + 1] + cy, sx = f[1], sy = f[2];
     let blocked = false;
     for (let a = 0; a < sx && !blocked; a += 1) for (let b = 0; b < sy && !blocked; b += 1) if (occ.has((gx + a) + ',' + (gy + b))) blocked = true;
     if (blocked) continue;
-    const k = R.keys[it[4]];
+    const k = R.keys[f[0]];
     if (!k) continue;
-    const razed = !it[9] && (chuteHash('relique:' + gx + ':' + gy) % 100) >= CHUTE_TUNE.relicKeep;
-    live.push({ gx, gy, sx, sy, k, razed, x: it[5], y: it[6], w: it[7], h: it[8], d: depthOf((gx + sx) * CM.TILE, (gy + sy) * CM.TILE) });
+    // La recette est découpée ICI, une fois, et non à chaque frame (relicImage) ;
+    // la toile, elle, est retenue au premier dessin (paintRelic : img, sig).
+    const p = k.split('|');
+    // Une pièce de scène moteur (« p| ») est un monument : jamais arasée.
+    const razed = p[0] !== 'p' && (chuteHash('relique:' + gx + ':' + gy) % 100) >= CHUTE_TUNE.relicKeep;
+    live.push({ gx, gy, sx, sy, k, razed, x: f[3] / 100, y: f[4] / 100, w: f[5] / 100, h: f[6] / 100, d: depthOf((gx + sx) * CM.TILE, (gy + sy) * CM.TILE),
+      kind: p[0], pk: p[1] || '', tint: +p[2] || 0, model: p[3] || null, vi: +p[4] || 0, img: null, sig: -1 });
     for (let a = 0; a < sx; a += 1) for (let b = 0; b < sy; b += 1) cells.add((gx + a) + ',' + (gy + b));
   }
   relicCache = { relics: R, L, live, cells };
   return relicCache;
 }
 function relicImage(r) {
-  const p = r.k.split('|');
-  if (p[0] === 'h') return houseRelicCanvas(p[1], +p[2] || 0, p[3] || null, +p[4] || 0, r.razed);
-  if (p[0] === 'p') return propRelicCanvas(p[1]);
+  if (r.kind === 'h') return houseRelicCanvas(r.pk, r.tint, r.model, r.vi, r.razed);
+  if (r.kind === 'p') return propRelicCanvas(r.pk);
   return null;
 }
 
@@ -363,6 +465,7 @@ function itemPos(it, T) {
     default: return null;
   }
 }
+const relicItems = [];   // items des ruines, réutilisés d'une frame à l'autre
 export function chuteCollect(items, L) {
   if (!L) return;
   const T = CM.TILE;
@@ -392,16 +495,31 @@ export function chuteCollect(items, L) {
     items[w++] = it;
   }
   items.length = w;
+  // Sous le noir opaque du lever (paintChuteFade), aucune ruine ne se voit.
+  if (CHUTE.fade >= 1) return;
   const z = CM.cam.zoom;
+  let n = 0;
   for (const r of rc.live) {
     const ref = worldToScreen(r.gx * T, r.gy * T);
     const x = ref.x + r.x * z, y = ref.y + r.y * z;
     if (x > CM.cw || y > CM.ch || x + r.w * z < 0 || y + r.h * z < 0) continue;
-    items.push({ d: r.d, kind: 'relic', r, x, y });
+    // Items RÉUTILISÉS d'une frame à l'autre, comme ceux du pool du peintre
+    // (isoRenderer.js) : plusieurs centaines de ruines visibles en début de cycle,
+    // autant de littéraux jetés par frame sinon.
+    let ri = relicItems[n];
+    if (!ri) ri = relicItems[n] = { d: 0, kind: 'relic', r: null, x: 0, y: 0 };
+    n += 1;
+    ri.d = r.d; ri.r = r; ri.x = x; ri.y = y;
+    items.push(ri);
   }
 }
 export function paintRelic(ctx, it) {
-  const img = relicImage(it.r);
+  const r = it.r;
+  // La toile d'une ruine ne change qu'avec la neige (ou une molette qui jette les
+  // toiles) : retenue au premier dessin, plus résolue à chaque frame.
+  const sig = relicArtSig();
+  if (!r.img || r.sig !== sig) { r.img = relicImage(r); r.sig = sig; }
+  const img = r.img;
   if (!img) return;
   const z = CM.cam.zoom;
   const prev = ctx.imageSmoothingEnabled;
@@ -420,15 +538,31 @@ setChuteHandlers({
   capture: () => {
     const L = CM.layout;
     const ok = L && CM.canvas && CM.canvas.isConnected && (L.mapSeed >>> 0) === ((state.mapSeed >>> 0) || 0);
-    pendingRelics = ok ? recordRelics(L) : null;
+    // Un relevé qui lève ne casse pas la séquence : la cité tombe sans ruines. (Sans
+    // ce filet, la chute échouait avant completeCollapse — et avec l'Édit, elle se
+    // relançait au tick suivant et rejouait la vague, en boucle.)
+    try { pendingRelics = ok ? recordRelics(L) : null; } catch { pendingRelics = null; }
     return !!pendingRelics;
   },
   // crisis.js, completeCollapse : prend les ruines relevées (une seule fois).
   take: () => { const r = pendingRelics; pendingRelics = null; return r; },
   // events.js, cycle neuf fondé : le lever (noir → feu du campement → aube).
   rise: (onDone) => { if (CHUTE.act === 'fall' || CHUTE.done) startRise(onDone); else if (onDone) onDone(); },
-  // Fin forcée (erreur, cité rechargée) : la carte rend la main.
-  abort: () => { CHUTE.act = null; CHUTE.fade = 0; listenSkip(false); endFall(); },
+  // Fin forcée (erreur, cité rechargée) : la carte rend la main — SANS noir. (Passer
+  // par endFall posait fade = 1, que plus aucune frame ne remettait à 0 : la carte
+  // restait noire jusqu'au rechargement, que la chute ait été jouée ou non.)
+  abort: () => {
+    clearTimeout(fallTimer);
+    const r = fallResolve;
+    fallResolve = null;
+    CHUTE.act = null; CHUTE.fade = 0; CHUTE.done = false; CHUTE.scrub = null;
+    pendingRelics = null;     // une chute hors ligne ne doit pas les prendre (takeCityRelics)
+    listenSkip(false);
+    clearDustCache();
+    restoreStreets();
+    riseEnded();
+    if (r) r(false);
+  },
 });
 
 if (typeof window !== 'undefined' && import.meta.env && import.meta.env.DEV) {

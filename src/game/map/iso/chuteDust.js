@@ -11,7 +11,10 @@
 //
 // Le canvas est dans l'unité de pixel du SPRITE : posé à la même échelle que le
 // bâtiment, il a son grain. Cache BORNÉ : tailles rabattues par pas de 8 px, six
-// tirages, une palette par âge — et vidé à la fin de la chute.
+// tirages, une palette par âge — et vidé dès le noir atteint (isoChute.js, endFall).
+// Chaque image est rangée RECADRÉE sur son encre : l'image pleine est surtout du
+// vide (un nuage qui enfle ou se défait n'en couvre qu'une part), et une mégapole
+// qui tombe en gardait des centaines de Mo (mesure de l'audit du 05/10 : −75 %).
 import { DUST_FRAMES } from './chuteState.js';
 
 const cache = new Map();
@@ -30,7 +33,7 @@ const DUST_BASE = [
   [186, 160, 140], [178, 178, 180], [196, 204, 200], [206, 198, 176], [198, 190, 206],
 ];
 const palettes = new Map();
-export function dustPaletteFor(band) {
+function dustPaletteFor(band) {
   const b = Math.max(0, Math.min(DUST_BASE.length - 1, band | 0));
   let p = palettes.get(b);
   if (p) return p;
@@ -46,16 +49,34 @@ export function dustPaletteFor(band) {
 }
 
 // w, h : emprise d'encre du bâtiment (px sprite). seed : tirage par bâtiment.
-// f : image 0..DUST_FRAMES-1. Renvoie { c, ax, ay } — canvas et ancre (pied du
-// bâtiment, au centre) dans le canvas — ou null hors navigateur.
+// f : image 0..DUST_FRAMES-1. Renvoie { c, ax, ay, W, H, x0, y0 } — ou null hors
+// navigateur. (W, H) = l'image PLEINE, (ax, ay) = l'ancre (pied du bâtiment, au
+// centre) dans l'image pleine ; `c` = sa part encrée, dont le coin tombe en (x0, y0)
+// de l'image pleine — null quand aucune volute n'est visible à cette image.
 export function dustFrame(w0, h0, seed, band, f) {
   if (typeof document === 'undefined') return null;
   const w = Math.max(16, Math.round(w0 / 8) * 8), h = Math.max(16, Math.round(h0 / 8) * 8);
   const s = (seed >>> 0) % SEEDS;
-  const pal = dustPaletteFor(band);
   const key = w + 'x' + h + ':' + s + ':' + band + ':' + f;
   const hit = cache.get(key);
   if (hit) return hit;
+  const { id, W, H, ax, ay } = dustRaster(w, h, s, band, f);
+  const ink = inkBox(id, W, H);
+  let c = null;
+  if (ink) {
+    c = document.createElement('canvas');
+    c.width = ink.w; c.height = ink.h;
+    c.getContext('2d').putImageData(new ImageData(cropRgba(id, W, ink), ink.w, ink.h), 0, 0);
+  }
+  const out = { c, ax, ay, W, H, x0: ink ? ink.x0 : 0, y0: ink ? ink.y0 : 0 };
+  cache.set(key, out);
+  return out;
+}
+
+// Le nuage d'une image, en pixels RGBA dans l'image pleine (W×H), sans canvas.
+// w, h : emprise rabattue ; s : tirage (0..SEEDS-1).
+export function dustRaster(w, h, s, band, f) {
+  const pal = dustPaletteFor(band);
   const R = rng(0x9e3779b9 ^ (s * 7919 + 1));
   const n = 7 + Math.floor(R() * 4);
   const puffs = [];
@@ -109,11 +130,32 @@ export function dustFrame(w0, h0, seed, band, f) {
       const o = (y * W + x) * 4; id[o] = pal.line[0]; id[o + 1] = pal.line[1]; id[o + 2] = pal.line[2];
     }
   }
-  const c = document.createElement('canvas');
-  c.width = W; c.height = H;
-  c.getContext('2d').putImageData(new ImageData(id, W, H), 0, 0);
-  const out = { c, ax, ay };
-  cache.set(key, out);
+  return { id, W, H, ax, ay };
+}
+
+// Boîte de l'encre (alpha non nul) d'une image RGBA W×H : { x0, y0, w, h }, ou null.
+export function inkBox(id, W, H) {
+  let x0 = W, y0 = H, x1 = -1, y1 = -1;
+  for (let y = 0; y < H; y += 1) {
+    const row = y * W;
+    for (let x = 0; x < W; x += 1) {
+      if (!id[(row + x) * 4 + 3]) continue;
+      if (x < x0) x0 = x;
+      if (x > x1) x1 = x;
+      if (y < y0) y0 = y;
+      y1 = y;
+    }
+  }
+  return x1 < 0 ? null : { x0, y0, w: x1 - x0 + 1, h: y1 - y0 + 1 };
+}
+
+// Copie de la boîte `b` d'une image RGBA de largeur W.
+export function cropRgba(id, W, b) {
+  const out = new Uint8ClampedArray(b.w * b.h * 4);
+  for (let y = 0; y < b.h; y += 1) {
+    const src = ((b.y0 + y) * W + b.x0) * 4;
+    out.set(id.subarray(src, src + b.w * 4), y * b.w * 4);
+  }
   return out;
 }
 

@@ -679,30 +679,45 @@ export const snapRectForTest = (l, t, w, h, sw, sh, a) => snapRect(l, t, w, h, s
 // faute de ruine dessinée, par son sprite ARASÉ. Les gens, les bêtes, les feux et
 // les détails peints de la scène partent avec le contexte muet. `rec` (si posé)
 // reçoit chaque ruine dessinée : c'est la recette des ruines du cycle suivant.
-export const ENGINE_RUIN = { on: false, ctx: null, rec: null };
+// `miss` passe à true quand une ruine n'a pas pu être dessinée (image en route) :
+// le dessin de la scène n'était pas complet (iso/isoChuteScene.js ne le rejoue pas).
+export const ENGINE_RUIN = { on: false, ctx: null, rec: null, miss: false };
 const ruinPropImg = {};
 const ruinPropCanvas = {};
+const ruinPropFailed = {};
+// Images de ruine demandées et pas encore arrivées : le relevé du noir les attend
+// (iso/isoChute.js), sinon leurs ruines manqueraient à vie au cycle suivant.
+let ruinPropLoading = 0;
+export const propRuinsLoading = () => ruinPropLoading;
 // Image de ruine d'un prop : { src, ox, oy } ([ox, oy] = coin de l'original dans la
-// ruine), null tant qu'elle charge.
+// ruine), null tant qu'elle charge. Une ruine dessinée qui ne se charge pas (fichier
+// absent ou renommé) bascule sur le repli ARASÉ, comme un prop sans ruine dessinée —
+// le bâtiment ne disparaît pas de la scène.
 function ruinPropArt(p, im) {
   const off = RUIN_PROPS[p];
-  if (off) {
+  if (off && !ruinPropFailed[p]) {
     let r = ruinPropImg[p];
-    if (!r) { r = ruinPropImg[p] = new Image(); r.src = '/pixelart/ruins/props/' + p + '.png'; }
+    if (!r) {
+      r = ruinPropImg[p] = new Image();
+      ruinPropLoading += 1;
+      r.onload = () => { ruinPropLoading -= 1; };
+      r.onerror = () => { ruinPropLoading -= 1; ruinPropFailed[p] = true; };
+      r.src = '/pixelart/ruins/props/' + p + '.png';
+    }
     if (!(r.complete && r.naturalWidth > 0)) return null;
     return { src: propArt('ruine:' + p, r), ox: off[0], oy: off[1], razed: false };
   }
   let c = ruinPropCanvas[p];
   if (c === undefined) {
-    c = null;
-    if (typeof document !== 'undefined' && im && im.naturalWidth > 0) {
-      c = document.createElement('canvas');
-      c.width = im.naturalWidth; c.height = im.naturalHeight;
-      const x = c.getContext('2d', { willReadFrequently: true });
-      x.drawImage(im, 0, 0);
-      // (une tour haute garde un fût cassé plutôt qu'un socle plat)
-      try { x.putImageData(razeImageData(x.getImageData(0, 0, c.width, c.height), c.height > c.width * 1.5 ? 0.42 : 0.26), 0, 0); } catch { c = null; }
-    }
+    // Le sprite d'origine pas encore chargé : on réessaiera (ne pas retenir ce null,
+    // la ruine manquerait pour toute la session).
+    if (!(typeof document !== 'undefined' && im && im.naturalWidth > 0)) return null;
+    c = document.createElement('canvas');
+    c.width = im.naturalWidth; c.height = im.naturalHeight;
+    const x = c.getContext('2d', { willReadFrequently: true });
+    x.drawImage(im, 0, 0);
+    // (une tour haute garde un fût cassé plutôt qu'un socle plat)
+    try { x.putImageData(razeImageData(x.getImageData(0, 0, c.width, c.height), c.height > c.width * 1.5 ? 0.42 : 0.26), 0, 0); } catch { c = null; }
     ruinPropCanvas[p] = c;
   }
   return c ? { src: c, ox: 0, oy: 0, razed: true } : null;
@@ -710,7 +725,7 @@ function ruinPropArt(p, im) {
 // Dessine la ruine de `p` à la place de son sprite debout posé en (left, top, w, h).
 function blitRuin(p, im, left, top, drawW, drawH) {
   const r = ruinPropArt(p, im);
-  if (!r) return;
+  if (!r || !(im.naturalWidth > 0)) { ENGINE_RUIN.miss = true; return; }
   const kx = drawW / im.naturalWidth, ky = drawH / im.naturalHeight;
   const w = (r.src.naturalWidth || r.src.width) * kx, h = (r.src.naturalHeight || r.src.height) * ky;
   const x = left - r.ox * kx, y = top - r.oy * ky;
@@ -718,7 +733,7 @@ function blitRuin(p, im, left, top, drawW, drawH) {
   const prev = ctx.imageSmoothingEnabled; ctx.imageSmoothingEnabled = false;
   ctx.drawImage(r.src, Math.round(x), Math.round(y), Math.round(w), Math.round(h));
   ctx.imageSmoothingEnabled = prev;
-  if (ENGINE_RUIN.rec) ENGINE_RUIN.rec.push({ p, razed: r.razed, x, y, w, h, kx, ky, im });
+  if (ENGINE_RUIN.rec) ENGINE_RUIN.rec.push({ p, razed: r.razed, x, y, w, h, kx, ky, im, src: r.src });
 }
 // Toile de ruine d'un prop, pour redessiner une ruine du cycle précédent.
 export function propRelicCanvas(p) {
@@ -726,8 +741,6 @@ export function propRelicCanvas(p) {
   const r = ruinPropArt(p, im && im.naturalWidth > 0 ? im : null);
   return r ? r.src : null;
 }
-// Sonde de DEV : les props réellement dessinés (inventaire des ruines à produire).
-export const PROP_SEEN = { on: false, set: new Set() };
 
 // Blit centré sur (cx,cy) en fraction de tuile, taille wFrac×hFrac de (sw,sh).
 function blitProp(ctx, ox, oy, sw, sh, p, cx, cy, wFrac, hFrac) {
@@ -738,7 +751,6 @@ function blitProp(ctx, ox, oy, sw, sh, p, cx, cy, wFrac, hFrac) {
     p = pal.cle;
   }
   const im = propImg[p]; if (!im) return;
-  if (PROP_SEEN.on) PROP_SEEN.set.add(p);
   const drawW0 = sw * wFrac, drawH0 = sh * hFrac;
   recBlitDens(p, drawH0, im.naturalHeight);
   const [left, top, drawW, drawH] = snapRect(
@@ -845,7 +857,6 @@ function blitCosmicTower(ctx, ox, oy, sw, sh, key, now, band, cp, baseOverride) 
   const drawH = sh * H, drawW = drawH * (im.naturalWidth / im.naturalHeight);
   recBlitDens(key, drawH, im.naturalHeight);
   const cx = ox + sw * 0.5, baseY = oy + sh * BASE; // base PLANTÉE (pas de lévitation → pas d'effet flottant)
-  if (PROP_SEEN.on) PROP_SEEN.set.add(key);
   if (ENGINE_RUIN.on) { blitRuin(key, im, cx - drawW / 2, baseY - drawH, drawW, drawH); return true; }
   drawSunShadow(ctx, im, cx - drawW / 2, baseY - drawH, drawW, drawH, 0, 0, 0, 0, 'column');
   const prev = ctx.imageSmoothingEnabled; ctx.imageSmoothingEnabled = false;

@@ -7,7 +7,10 @@ import { defineConfig, globalIgnores } from 'eslint/config'
 export default defineConfig([
   // `.claude/worktrees` = copies de travail jetables de l'agent (gitignorées) ;
   // sans cette exclusion ESLint les relint et gonfle le compte d'erreurs ×3.
-  globalIgnores(['dist', 'scratch', 'scratchpad', '.claude', 'simulate-game.js', 'simulate-ce.js', 'sim-idle-*.js', 'bench-myths.js', 'bench-rupture.js', 'bench-temple.js']),
+  // `.preview-shots` (scripts de captures, gitignoré — mais ESLint 10 ne lit pas
+  // .gitignore) et `maquettes` (prototypes hors jeu, avec leurs caches Vite) : sans
+  // eux, `npm run lint` échoue en local.
+  globalIgnores(['dist', 'scratch', 'scratchpad', '.claude', '.preview-shots', 'maquettes', 'simulate-game.js', 'simulate-ce.js', 'sim-idle-*.js', 'bench-myths.js', 'bench-rupture.js', 'bench-temple.js']),
   {
     files: ['**/*.{js,jsx}'],
     extends: [

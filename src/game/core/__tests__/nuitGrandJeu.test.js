@@ -18,6 +18,7 @@ import {
   NUIT_INTERVAL_H, NUIT_PREMIERE_H, NUIT_DUREE_MIN, NUIT_POT_H, SPECTACLE_DUREE_MIN, SPECTACLE_REPOS_MIN,
   SPECTACLE_AFFLUENCE, DUEL_RTP, COURSES_RTP, COURSES_PROFILS, COURSES_PARTANTS
 } from "../balance.js";
+import { seededRng } from "../utils.js";
 import { MID_GAME_FIXTURE, FIXED_NOW } from "./fixtures.js";
 
 const H = 3600 * 1000, MIN = 60 * 1000;
@@ -213,6 +214,13 @@ describe("Les courses", () => {
   });
 
   it("la mise totale respecte la table ; Monte-Carlo : 95 % sur la durée", () => {
+    // Les courses tirent au sort (Math.random) : le banc tire avec une GRAINE, sinon il
+    // tombait au hasard (σ du RTP sur 30 000 courses ≈ 0,014 : 22 tirages sur 600 hors
+    // des bornes). Graine 230 : la médiane de 600 graines (0,9522) ; les bornes ±0,03
+    // tiennent pour 578 graines sur 600 — un changement de courses.js qui décale les
+    // tirages ne doit pas les faire tomber, un RTP faussé de quelques points si.
+    // (Restauré par le vi.restoreAllMocks de l'afterEach.)
+    vi.spyOn(Math, "random").mockImplementation(seededRng(230));
     state.maisonRank = 2;
     const { max } = tableLimits();
     expect(lancerCourse({ 0: max + 1 }, { silent: true, render: false })).toBeNull();

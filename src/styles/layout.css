@@ -16,13 +16,22 @@
 }
 
 /* LA CHUTE SUR LA CARTE (docs/PLAN-CHUTE.md) : le temps de la séquence, la carte a
-   toute la scène — panneaux, échoppe et outils de la Cité se retirent. */
+   toute la scène — panneaux, échoppe et outils de la Cité se retirent. Aussi ce qui
+   se pose SUR la carte hors de ces conteneurs : la Régulation (dépliée d'office en
+   crise) et sa poignée au doigt, la fiche d'habitant, le fait divers, le chip de
+   bulle, le rapport de reprise. */
 .app.chute .city-stage-hud,
 .app.chute .city-shop-dock,
 .app.chute .shop-fab,
 .app.chute .buy-all-fab,
+.app.chute .regul-fab,
 .app.chute .map-tools,
-.app.chute .city-aux {
+.app.chute .city-aux,
+.app.chute .city-controls-panel,
+.app.chute .citizen-sheet,
+.app.chute .fait-card,
+.app.chute .map-bubble-alert,
+.app.chute .idle-report {
   visibility: hidden;
 }
 

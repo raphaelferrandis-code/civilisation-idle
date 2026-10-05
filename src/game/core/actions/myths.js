@@ -722,6 +722,11 @@ export function resetCivilization() {
   state.buildings = { ...defaultState().buildings };
 
   resetTemporaryRunState(state);
+  // Les ruines de la cité tombée (docs/PLAN-CHUTE.md) sont rangées par rapport au
+  // centre d'une grille que le pacte ne garde pas : resetTemporaryRunState efface la
+  // fiche du cœur (et sa taille de grille), le fleuve se redessine sur une grille
+  // neuve et les ruines ne le longeraient plus. Le pacte repart donc sans elles.
+  state.cityRelics = null;
 
   // Overwrite any properties that have custom starting values on reset:
   state.hephPopPeak = state.population;

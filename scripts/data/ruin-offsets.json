@@ -1,10 +1,5 @@
-// GÉNÉRÉ par scripts/buildRuins.mjs depuis scripts/data/ruin-offsets.json — ne pas éditer.
-// Les RUINES DESSINÉES de la Chute (docs/PLAN-CHUTE.md) : pour chaque sprite qui en a
-// une, [ox, oy] = où tombe le coin (0,0) du sprite d'origine dans l'image de la ruine.
-// Images : /pixelart/ruins/houses/<clé>.png (habitations), /pixelart/ruins/props/<clé>.png
-// (bâtiments des scènes moteur, clé de prop après substitution « -grand »).
-// Un sprite absent d'ici tombe quand même : il est ARASÉ (iso/isoChute.js, repli).
-export const RUIN_HOUSES = {
+{
+"houses": {
  "arcologyhome": [-12,-10],
  "arcologyhome-cosmic-7": [-2,-2],
  "arcologyhome-cosmic-8": [-2,-2],
@@ -80,8 +75,8 @@ export const RUIN_HOUSES = {
  "towerhouse": [0,-1],
  "townhouse": [-12,-2],
  "villa": [0,-10]
-};
-export const RUIN_PROPS = {
+},
+"props": {
  "academies-athenaeum": [-8,-7],
  "academies-institute": [-5,0],
  "academies-modern": [-10,-9],
@@ -217,4 +212,5 @@ export const RUIN_PROPS = {
  "works-depot": [-5,-17],
  "works-industrial": [-1,-1],
  "works-yard": [-11,-3]
-};
+}
+}

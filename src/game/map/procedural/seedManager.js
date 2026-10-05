@@ -1,9 +1,11 @@
 /* ============================================================================
  * seedManager.js — ProceduralSeedManager
  *   Source unique d'aléatoire déterministe pour la génération de la ville.
- *   Chaque partie (et chaque cycle après effondrement) reçoit une seed propre,
- *   persistée dans state.mapSeed : deux civilisations ne partagent jamais le
- *   même plan, mais une même sauvegarde reste stable d'un rechargement à l'autre.
+ *   Chaque partie reçoit une seed propre, persistée dans state.mapSeed : une même
+ *   sauvegarde reste stable d'un rechargement à l'autre. La seed SURVIT à
+ *   l'effondrement : la cité suivante naît dans la même vallée, au milieu des
+ *   ruines (docs/PLAN-CHUTE.md, crisis.js completeCollapse). Une seed neuve ne
+ *   vient qu'avec un état neuf (nouvelle partie, Grand Reset).
  * ============================================================================ */
 
 // FNV-1a 32 bits — même famille de hash que cmHash (layout.js), gardé local

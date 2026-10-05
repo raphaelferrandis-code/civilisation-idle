@@ -35,8 +35,6 @@ export function setChuteHandlers(h) { chuteHandlers = h && typeof h === "object"
 // Joue la chute : promesse tenue au noir, null si la carte ne peut pas la jouer
 // maintenant (pas encore construite), undefined si aucune carte n'est branchée.
 export function playCityFall() { return chuteHandlers ? chuteHandlers.fall() : undefined; }
-// La carte est-elle branchée (module de la chute chargé) ?
-export function cityFallReady() { return !!chuteHandlers; }
 // Au noir : relève les ruines de la cité qui tombe (rien n'est écrit dans l'état).
 export function captureCityRelics() { return chuteHandlers ? chuteHandlers.capture() : false; }
 // completeCollapse : prend les ruines relevées (une fois), ou null.
