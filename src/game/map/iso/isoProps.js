@@ -10,6 +10,7 @@ import { isoArt } from './isoArt.js';
 import { drawSunShadow } from './isoSunShadow.js';
 import { lightCtx, lightCutImage } from '../lightLayer.js';
 import { streetKitLampArt } from './streetKits.js';
+import { flameFlicker } from '../flameGlow.js';
 
 // ── Art des objets posés (statues, braseros) ─────────────────────────────────
 // L'art des places de l'ère, tel quel : même main que la ville. Boîte d'encre
@@ -54,6 +55,20 @@ export const PROP_LIGHT = {
 export function propArt(pr) {
   const a = isoArt(PROP_ART[pr.prop] || ('plaza/' + pr.prop + '-' + pr.era));
   return a.ready && a.img ? a.img : null;
+}
+// Le BRASERO brûle : la bande des places (plaza/anim/brazier-<ère>, scripts/
+// plazaBrazierAnim.mjs), N images au canvas exact du statique — même géométrie de
+// blit, seule la source change. Liste explicite des ères livrées : réclamer une
+// bande absente coûte un ERR_FILE_NOT_FOUND au .exe (cf. ANIM_PROPS, isoPlaza).
+const BRAZIER_ANIM_ERAS = new Set(['antique', 'medieval', 'cosmic']);
+const BRAZIER_ANIM_MS = 110;
+function brazierStrip(pr) {
+  if (pr.prop !== 'brazier' || pr.tint || !BRAZIER_ANIM_ERAS.has(pr.era) || !((CM.ambianceK ?? 1) > 0)) return null;
+  const a = isoArt('plaza/anim/brazier-' + pr.era);
+  if (!a.ready || !a.img) return null;
+  const w = a.img.naturalWidth | 0, h = a.img.naturalHeight | 0;
+  const n = h > 0 ? Math.round(w / h) : 1;
+  return n > 1 ? { img: a.img, n, fw: w / n, fh: h } : null;
 }
 // Statue DORÉE (pylônes de la fonte) : le marbre des places, recouvert d'or — une
 // fois par image, en cache.
@@ -115,7 +130,8 @@ export function drawFlame(ctx, x, y, z, now, k = 1, phase = 0) {
       ctx.fillRect(x0 + i * s, y0 + j * s, s, s);
     }
   }
-  glowAt(x, y - 2 * s, Math.max(6, CM.TILE * z * 0.5 * k), '255,170,90', 0.6);
+  // La lueur VACILLE avec la flamme (même scintillement que tous les feux, flameGlow.js).
+  glowAt(x, y - 2 * s, Math.max(6, CM.TILE * z * 0.5 * k), '255,170,90', 0.6 * flameFlicker(now, phase * 2.1));
 }
 
 export function hexToRgbStr(h) {
@@ -125,7 +141,8 @@ export function hexToRgbStr(h) {
 
 // Objet d'ART (statue, brasero, réverbère) posé au point écran p (pied de l'encre
 // sur son support) : ombre du soleil, blit, découpe des halos, lueur de nuit.
-export function drawSpriteProp(ctx, pr, p, z) {
+// `now` (ms) fait brûler les braseros ; sans lui, le statique.
+export function drawSpriteProp(ctx, pr, p, z, now) {
   // RÉVERBÈRE : celui de la rue de la même ère, dessiné par le code au grain de la
   // ville (iso/streetKits.js, 2026-10-03) — un pixel d'art par pixel d'écran, la
   // lumière sur ses têtes dessinées. Les PNG d'avant restent le repli.
@@ -145,10 +162,21 @@ export function drawSpriteProp(ctx, pr, p, z) {
   // Pied de l'encre (centre bas) posé sur son support.
   const dx = Math.round(p.x - (bb.x + bb.w / 2) * s), dy = Math.round(p.y - (bb.y + bb.h) * s + s * 0.5);
   drawSunShadow(ctx, img, dx, dy, dw, dh, 0, 0, 0, 0, 'column', false);
-  ctx.drawImage(img, dx, dy, dw, dh);
+  const an = now != null ? brazierStrip(pr) : null;
+  if (an) {
+    // Chaque brasero a SA phase, tirée de sa place dans le kit (l/t d'un pont,
+    // x/y d'une merveille) : une rangée qui vacille à l'unisson fait machine.
+    const off = Math.floor((pr.l ?? pr.x ?? 0) * 0.37 + (pr.t ?? pr.y ?? 0) * 0.61);
+    const f = (((Math.floor(now / BRAZIER_ANIM_MS) + off) % an.n) + an.n) % an.n;
+    ctx.drawImage(an.img, f * an.fw, 0, an.fw, an.fh, dx, dy, dw, dh);
+  } else {
+    ctx.drawImage(img, dx, dy, dw, dh);
+  }
   lightCutImage(img, dx, dy, dw, dh);
   const L = PROP_LIGHT[pr.prop];
-  if (L) glowAt(dx + (bb.x + bb.w * L.fx) * s, dy + (bb.y + bb.h * L.fy) * s, Math.max(6, CM.TILE * z * L.r), L.col, 0.55);
+  // Un brasero qui brûle (bande animée) fait vaciller sa lueur avec lui.
+  const fl = an ? flameFlicker(now, (pr.l ?? pr.x ?? 0) * 0.41 + (pr.t ?? pr.y ?? 0) * 0.23) : 1;
+  if (L) glowAt(dx + (bb.x + bb.w * L.fx) * s, dy + (bb.y + bb.h * L.fy) * s, Math.max(6, CM.TILE * z * L.r), L.col, 0.55 * fl);
 }
 
 // Réverbère de kit posé au point écran p (son pied) : ombre du soleil, blit au
