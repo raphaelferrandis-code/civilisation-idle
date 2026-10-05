@@ -36,6 +36,7 @@ import {
   AUTO_TEMPLE_FAVEUR_FLOOR_MAX, AUTO_TEMPLE_FAVEUR_FLOOR_DEFAULT,
   BLACKJACK_RTP_AUTO, BLACKJACK_RTP_REF, OFFLINE_MAX_TEMPLE_PLAYS_PER_GAME, FAVEUR_ECHELLE, MAISON_RANKS } from "../balance.js";
 import { MID_GAME_FIXTURE, FIXED_NOW } from "./fixtures.js";
+import { payRoundAt } from "../../../test/core.js";
 
 // ×FAVEUR_ECHELLE : l'échelle de la Faveur (2026-10-04) — une bourse de test qui couvre
 // encore la limite des tables.
@@ -44,8 +45,8 @@ const STEPS = Object.keys(AUTO_STAKE_STEPS); // min, quart, moitie, max
 const JEUX = ["osselets", "icarus", "gratteux", "vingtetun"];
 
 // payRound sous un Math.random FIGÉ à r : la partie entière, +1 si r tombe sous la
-// fraction (en vrai E[payRound(x)] = x ; ici, un seul tirage connu).
-const payAt = (x, r) => Math.floor(x) + (r < x - Math.floor(x) ? 1 : 0);
+// fraction (en vrai E[payRound(x)] = x ; ici, un seul tirage connu) — payRoundAt.
+const payAt = payRoundAt;
 
 // Les tirages pilotés (Math.random figé) :
 //  - 0,08 : le TRIPLE du rite ancestral (après Vénus 7,1 %, avant 19 %), et aussi

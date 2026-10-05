@@ -18,9 +18,9 @@ import { blackjackUnlocked } from '../../core/actions/blackjack.js';
 import { icarusUnlocked } from '../../core/actions/icarus.js';
 import { regulationActionUnlocked } from '../../core/mechanics/crisis-cost.js';
 import { REGULATION_ACTIONS } from '../../data/regulationActions.js';
+import { opaqueCount as opaque } from '../../../test/pixels.js';
 
 const gamble = REGULATION_ACTIONS.find((a) => a.kind === 'gamble');
-const opaque = (R) => { let n = 0; for (let i = 3; i < R.data.length; i += 4) if (R.data[i]) n += 1; return n; };
 // Hauteur d'encre (px) : du haut du raster jusqu'au niveau de l'eau.
 const inkHeight = (R) => {
   for (let j = 0; j < R.h; j += 1) for (let i = 0; i < R.w; i += 1) if (R.data[(j * R.w + i) * 4 + 3]) return -(R.oy + j);

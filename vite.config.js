@@ -136,5 +136,10 @@ export default defineConfig({
   // dev. Les gardes de carte qui génèrent plusieurs villes complètes (campLife,
   // sol urbain, placement…) y dépassaient les 5 s par défaut — deux runs rouges
   // (1259afa, 34fa75e : « Test timed out in 5000ms ») alors que tout passait ici.
-  test: { exclude: [...configDefaults.exclude, '**/.claude/**'], testTimeout: 30000 },
+  // C'est le SEUL délai : pas de délai propre par test, ni plus bas (il couperait
+  // la marge de la CI), ni plus haut (un test bloqué retiendrait la CI des
+  // minutes) — audit 2026-10-05, TEST-14.
+  // `setupFiles` : un localStorage en mémoire, vidé avant chaque test (TEST-2) —
+  // sans lui, chaque save() des tests passait par son chemin d'échec.
+  test: { exclude: [...configDefaults.exclude, '**/.claude/**'], testTimeout: 30000, setupFiles: ['src/test/setup.js'] },
 })

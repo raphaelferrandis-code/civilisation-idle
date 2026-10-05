@@ -18,12 +18,19 @@
 // demande (Habitants dans la topbar, sceaux du Testament, une carte de mythe) : l'arbre,
 // lui, ne passe PAS par ce composant et dimensionne ses emblèmes en POURCENTAGE
 // (.rt-emblem, 72 % — ruinsTree.css), donc il lui faut le maître pleine résolution.
-const FAMILIES_WITH_VARIANTS = new Set(['res', 'glyphs', 'prep', 'foyers', 'seals', 'myths', 'nav', 'ruins']);
-const SIZES_BY_FAMILY = { ruins: [24, 32], myths: [16, 32], nav: [24] };
+// Ces trois tables sont EXPORTÉES pour pixelIconSizes.test.js, qui les recopiait (audit
+// 2026-10-05, TEST-12) : même précédent que resolveIconSrc ci-dessous pour la règle
+// react-refresh (le Fast Refresh dev n'en pâtit pas).
+// eslint-disable-next-line react-refresh/only-export-components
+export const FAMILIES_WITH_VARIANTS = new Set(['res', 'glyphs', 'prep', 'foyers', 'seals', 'myths', 'nav', 'ruins']);
+// eslint-disable-next-line react-refresh/only-export-components
+export const SIZES_BY_FAMILY = { ruins: [24, 32], myths: [16, 32], nav: [24] };
 
 // Classe portée par l'<img> -> taille CSS appliquée. À tenir synchronisée avec les règles
-// correspondantes des feuilles de style ; un écart ici se voit tout de suite en jeu.
-const SIZE_BY_CLASS = {
+// correspondantes des feuilles de style ; un écart ici se voit tout de suite en jeu
+// (et pixelIconSizes.test.js confronte chaque entrée à la feuille de style).
+// eslint-disable-next-line react-refresh/only-export-components
+export const SIZE_BY_CLASS = {
   'csp-stat-icon': 16,   // components.css
   'myth-card-icon': 32,  // components.css
   'tab-icon': 24,        // layout.css

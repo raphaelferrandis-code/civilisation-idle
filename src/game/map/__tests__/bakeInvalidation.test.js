@@ -1,7 +1,6 @@
 import { describe, it, expect } from "vitest";
-import { readFileSync, readdirSync, statSync } from "node:fs";
-import { dirname, join } from "node:path";
-import { fileURLToPath } from "node:url";
+import { readFileSync } from "node:fs";
+import { MAP_DIR, jsFiles, codeLines } from "../../../test/source.js";
 
 // « Des fois le jeu ne charge pas les textures avant que je bouge la caméra ou que
 // je scroll » (retour Raph 2026-07-16). Cause : les canvases offscreen étaient
@@ -26,7 +25,6 @@ import { fileURLToPath } from "node:url";
 // désormais que TOUTE cette famille reste partie — une ligne qui y reviendrait
 // serait du code mort qui se croit vivant.
 
-const MAP_DIR = join(dirname(fileURLToPath(import.meta.url)), "..");
 const DEAD = new RegExp(
   "\\b(?:staticCamKey|tileCamKey|groundCamKey" +
   "|_staticBake|_tileBake|_groundBake|_bakeMargin|tileDirtyUntil" +
@@ -35,21 +33,8 @@ const DEAD = new RegExp(
   "|\\bCM\\.(?:sctx|tctx)\\b"
 );
 
-function jsFiles(dir) {
-  const out = [];
-  for (const name of readdirSync(dir)) {
-    const full = join(dir, name);
-    if (statSync(full).isDirectory()) {
-      if (name !== "__tests__") out.push(...jsFiles(full));
-    } else if (name.endsWith(".js")) out.push(full);
-  }
-  return out;
-}
-
-// Une ligne de commentaire qui raconte cette histoire est légitime (journaux de
-// cityMapRuntime, solTrace) : on ne traque que le CODE.
-const codeLines = (src) =>
-  src.split(/\r?\n/).filter((l) => !/^\s*(\/\/|\*|\/\*)/.test(l));
+// codeLines : une ligne de commentaire qui raconte cette histoire est légitime
+// (journaux de cityMapRuntime, solTrace) : on ne traque que le CODE.
 
 describe("la cuisson avec marge et ses états sont bien partis", () => {
   it("aucun fichier de src/game/map n'y touche encore", () => {

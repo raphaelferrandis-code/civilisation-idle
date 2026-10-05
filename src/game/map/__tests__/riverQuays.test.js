@@ -4,23 +4,10 @@
 // (une rue sur la berge n'est marchable qu'au pied d'un pont). Une case portée par une
 // rue mémorisée reste désormais terre ferme — sauf au pied d'un pont.
 import { describe, it, expect, beforeEach } from "vitest";
-import { computeCityLayout, ILOT_MODE } from "../layout.js";
+import { ILOT_MODE } from "../layout.js";
 import { state } from "../../core/state.js";
-import { D } from "../../core/num.js";
-import { eras } from "../../data/world.js";
 import { ROAD_MEMORY } from "../roadMemory.js";
-
-const KEYS = Object.keys(state.buildings).filter((k) => k !== "roads");
-function grow(i, level = 30) {
-  const pop = D(eras[i].at);
-  Object.assign(state, {
-    cycles: 1, mapSeed: 0x2b1c07, population: pop,
-    knowledge: pop.mul(0.05), infrastructure: pop.mul(0.1), instability: 0, timeWear: 0,
-  });
-  KEYS.forEach((k) => { state.buildings[k] = level; });
-  state.buildings.roads = 20;
-  return computeCityLayout(state);
-}
+import { growCity as grow } from "../../../test/city.js";
 const rel = (L) => new Set(L.roads.map((r) => (r.gx - L.cx) + "," + (r.gy - L.cy)));
 const bridges = (L) => L.roads.filter((r) => r.roadSurface === "bridge").length;
 
@@ -45,6 +32,6 @@ describe("rues de quai et fleuve qui s'étire", () => {
       expect(auBord, "rues de quai perdues").toBe(0);
       // Les pieds de pont restent des culées : les ponts ne disparaissent pas.
       expect(bridges(L2)).toBeGreaterThanOrEqual(bridges(L1));
-    }, 180000);
+    });
   }
 });

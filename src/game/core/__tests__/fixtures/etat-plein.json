@@ -1,0 +1,1446 @@
+{
+ "now": 1800054000000,
+ "state": {
+  "saveVersion": 7,
+  "population": "1.1044067762724779e+91",
+  "food": "2.60228614336317e+123",
+  "gold": "4.93198123498383e+122",
+  "knowledge": "1.2863624937011031e+74",
+  "infrastructure": "5.35423225925947e+73",
+  "ruins": "3.01722307159026e+37",
+  "cycles": 5,
+  "icarusJackpots": 1,
+  "grRevealed": {
+   "2": true,
+   "3": true,
+   "4": true,
+   "6": true,
+   "7": true,
+   "8": true,
+   "10": true
+  },
+  "grClaimed": {
+   "2": true,
+   "3": true,
+   "4": true,
+   "6": true,
+   "7": true,
+   "8": true,
+   "10": true
+  },
+  "revealedBuildings": {
+   "foragers": true,
+   "granaries_city": true,
+   "caravans": true,
+   "storytellers": true,
+   "roads": true,
+   "markets": true,
+   "scribes": true,
+   "aqueducts": true,
+   "guilds": true,
+   "watch": true,
+   "sewers": true,
+   "schools": true,
+   "bureaucracy": true,
+   "irrigated_fields": true,
+   "academies": true,
+   "river_ports": true,
+   "courthouses": true,
+   "ancestral_cult": true,
+   "water_mills": true,
+   "observatories": true,
+   "public_works": true,
+   "mint_houses": true,
+   "libraries": true,
+   "ministries": true,
+   "imperial_exchanges": true,
+   "archive_grids": true,
+   "universities": true
+  },
+  "onboarding": {
+   "built": true,
+   "pressureSeen": true,
+   "collapsed": true,
+   "reveal": {
+    "gold": 1800000042000,
+    "knowledge": 1800000390000,
+    "infrastructure": 1800000082000,
+    "gauge": 1800000008000,
+    "tension": 1800000222000,
+    "meta": 1800000118000,
+    "plaisirs": 1800000332000,
+    "shopKnowledge": 1800000294000,
+    "shopInfra": 1800000464000,
+    "buyAmounts": 1800000062000
+   }
+  },
+  "activeMythId": "mythe_du_ragnarok",
+  "mythsCompleted": {
+   "mythe_du_chaos": true,
+   "mythe_de_promethee": true,
+   "mythe_d_enee": true,
+   "mythe_de_cadmos": true,
+   "mythe_d_hephaistos": true,
+   "mythe_de_sisyphe": true,
+   "mythe_de_babel": true,
+   "mythe_age_or": true,
+   "mythe_d_atlas": true,
+   "mythe_d_icare": true,
+   "mythe_du_phenix": true,
+   "mythe_d_antee": true,
+   "mythe_atrides": true
+  },
+  "mythActsAnnounced": {
+   "act2": true,
+   "act3": true,
+   "ragnarok": true
+  },
+  "chaosHeritage": true,
+  "chaosReached": true,
+  "prometheeFailed": true,
+  "prometheePopReached": true,
+  "prometheeBraisiers": true,
+  "atlasHeritage": true,
+  "atlasSkipUsed": true,
+  "atlasFardeau": 30,
+  "atlasEpaules": 12,
+  "atlasCrushed": true,
+  "atlasShoulderCdTicks": 7,
+  "sisypheMult": 222602668820747620,
+  "sisypheHeritage": true,
+  "sisypheCran": 3,
+  "sisypheMontees": 2,
+  "sisypheUsages": {
+   "food": 2,
+   "knowledge": 1,
+   "infrastructure": 3
+  },
+  "babelHeritage": true,
+  "babelCategory": "city",
+  "babelCommonTongue": "city",
+  "babelAutoTongue": "knowledge",
+  "orHeritage": true,
+  "orDealsClosed": 8,
+  "orUsureImbalance": true,
+  "phoenixHeritage": true,
+  "phoenixCycleCount": 3,
+  "phoenixTotalRuins": "3.34022044278464e+38",
+  "phoenixRenaissances": 3,
+  "phoenixRebirthTargetPop": "5.072633977390218e+58",
+  "phoenixNextForceAt": 1800053000000,
+  "ragnarokArkOfferings": 8,
+  "ragnarokArkCost": {
+   "food": "4.819298774252946e+137",
+   "gold": "5.47694269463689e+138",
+   "knowledge": "5.567859596385117e+85",
+   "infrastructure": "6.641001255780725e+104"
+  },
+  "ragnarokArkNextAt": 1800017459000,
+  "ragnarokWolfBites": 58,
+  "hephHeritage": true,
+  "hephPopPeak": "1.1044067762724779e+91",
+  "hephGoalReached": true,
+  "autoScriptRules": [
+   {
+    "id": "rule_rupture",
+    "type": "rupture",
+    "unit": "%",
+    "threshold": 80,
+    "enabled": false
+   },
+   {
+    "id": "rule_usure",
+    "type": "usure",
+    "unit": "%",
+    "threshold": 80,
+    "enabled": false
+   },
+   {
+    "id": "rule_time",
+    "type": "time",
+    "unit": "min",
+    "threshold": 10,
+    "enabled": false
+   }
+  ],
+  "automateRules": [
+   {
+    "id": "auto_buy_city",
+    "type": "buy_cheapest",
+    "category": "city",
+    "enabled": true,
+    "reservePct": 0,
+    "perTick": 1
+   },
+   {
+    "id": "auto_buy_knowledge",
+    "type": "buy_cheapest",
+    "category": "knowledge",
+    "enabled": true,
+    "reservePct": 0,
+    "perTick": 1
+   },
+   {
+    "id": "auto_buy_infra",
+    "type": "buy_cheapest",
+    "category": "infra",
+    "enabled": true,
+    "reservePct": 0,
+    "perTick": 1
+   },
+   {
+    "id": "auto_rationing",
+    "type": "crisis_action",
+    "actionId": "rationing",
+    "unit": "%",
+    "threshold": 60,
+    "enabled": false,
+    "lastAt": 0
+   }
+  ],
+  "templeAuto": {
+   "tronc": {
+    "unlocked": false,
+    "on": false
+   },
+   "osselets": {
+    "unlocked": false,
+    "on": false,
+    "tempo": "mesure",
+    "stakeStep": "min",
+    "faveurFloor": 30000,
+    "lastAt": 0,
+    "rite": "classique"
+   },
+   "icarus": {
+    "unlocked": false,
+    "on": false,
+    "tempo": "mesure",
+    "stakeStep": "min",
+    "faveurFloor": 30000,
+    "lastAt": 0,
+    "target": 2
+   },
+   "gratteux": {
+    "unlocked": false,
+    "on": false,
+    "tempo": "mesure",
+    "stakeStep": "min",
+    "faveurFloor": 30000,
+    "lastAt": 0
+   },
+   "vingtetun": {
+    "unlocked": false,
+    "on": false,
+    "tempo": "mesure",
+    "stakeStep": "min",
+    "faveurFloor": 30000,
+    "lastAt": 0
+   }
+  },
+  "templeArtifacts": {
+   "noye": true,
+   "plumes": true,
+   "char": true
+  },
+  "icareAltitude": 5,
+  "icareAutoBurnLatched": true,
+  "atridesReached": true,
+  "mythStartGold": "3.89345336539956e+106",
+  "mythStartInfra": "12345",
+  "mythStartPop": "10",
+  "icareHeritage": true,
+  "instability": 0.012,
+  "timeWear": 0.0000421743,
+  "roadCoverage": 0.42,
+  "roadWorks": {
+   "active": {
+    "kind": "link",
+    "tiles": 10,
+    "targetId": null,
+    "toRank": null,
+    "total": 123.52941176470588,
+    "left": 21.862618595825523
+   },
+   "queue": [
+    {
+     "kind": "link",
+     "tiles": 10,
+     "targetId": null,
+     "toRank": null,
+     "total": 130.4470588235294,
+     "left": 130.4470588235294
+    },
+    {
+     "kind": "link",
+     "tiles": 10,
+     "targetId": null,
+     "toRank": null,
+     "total": 137.36470588235292,
+     "left": 137.36470588235292
+    }
+   ]
+  },
+  "roadNext": {
+   "kind": "widen",
+   "tiles": 12,
+   "count": 3,
+   "targetId": "markets",
+   "toRank": "avenue"
+  },
+  "roadWidened": 3,
+  "roadWorksEra": {
+   "era": 19,
+   "count": 1
+  },
+  "roadWorksBank": 120,
+  "roadDoors": {
+   "onRoad": 3,
+   "total": 5
+  },
+  "stagnationSec": 2,
+  "popMilestoneExp": 91,
+  "nextBoonAt": 1800016786614.153,
+  "storedSeconds": 3600,
+  "crisisActions": {
+   "rationing": 17,
+   "festivals": 0,
+   "census": 0,
+   "reforms": 0
+  },
+  "foyerRelief": {
+   "scarcity": 0.17863686050508842,
+   "inequality": 0,
+   "complexity": 0,
+   "dissent": 0
+  },
+  "foyerReform": {
+   "scarcity": 0.5,
+   "inequality": 0.25,
+   "complexity": 0,
+   "dissent": 0.75
+  },
+  "foyerShift": {
+   "scarcity": -0.13,
+   "inequality": 0,
+   "complexity": 0,
+   "dissent": -0.06
+  },
+  "declaredFallCause": "famine",
+  "activePolicies": [
+   "paxDivina",
+   "martialLaw"
+  ],
+  "regulFatigue": 0.0978265243076086,
+  "regulLedger": [
+   {
+    "t": 1800002511500,
+    "id": "rationing",
+    "kind": "soothe",
+    "foyer": "scarcity",
+    "tier": null,
+    "delta": 0.18,
+    "by": null
+   },
+   {
+    "t": 1800002599500,
+    "id": "rationing",
+    "kind": "soothe",
+    "foyer": "scarcity",
+    "tier": null,
+    "delta": 0.17957472647781114,
+    "by": null
+   },
+   {
+    "t": 1800002661500,
+    "id": "rationing",
+    "kind": "soothe",
+    "foyer": "scarcity",
+    "tier": null,
+    "delta": 0.17880351913956968,
+    "by": null
+   },
+   {
+    "t": 1800002729500,
+    "id": "rationing",
+    "kind": "soothe",
+    "foyer": "scarcity",
+    "tier": null,
+    "delta": 0.178994125277022,
+    "by": null
+   },
+   {
+    "t": 1800002803500,
+    "id": "rationing",
+    "kind": "soothe",
+    "foyer": "scarcity",
+    "tier": null,
+    "delta": 0.17921266654096535,
+    "by": null
+   },
+   {
+    "t": 1800002883500,
+    "id": "rationing",
+    "kind": "soothe",
+    "foyer": "scarcity",
+    "tier": null,
+    "delta": 0.1793851304454894,
+    "by": null
+   },
+   {
+    "t": 1800002965500,
+    "id": "rationing",
+    "kind": "soothe",
+    "foyer": "scarcity",
+    "tier": null,
+    "delta": 0.17943804180176914,
+    "by": null
+   },
+   {
+    "t": 1800003061500,
+    "id": "rationing",
+    "kind": "soothe",
+    "foyer": "scarcity",
+    "tier": null,
+    "delta": 0.17967354208922134,
+    "by": null
+   },
+   {
+    "t": 1800003161500,
+    "id": "rationing",
+    "kind": "soothe",
+    "foyer": "scarcity",
+    "tier": null,
+    "delta": 0.1797251532083959,
+    "by": null
+   },
+   {
+    "t": 1800003259500,
+    "id": "rationing",
+    "kind": "soothe",
+    "foyer": "scarcity",
+    "tier": null,
+    "delta": 0.17970433427480648,
+    "by": null
+   },
+   {
+    "t": 1800003363500,
+    "id": "rationing",
+    "kind": "soothe",
+    "foyer": "scarcity",
+    "tier": null,
+    "delta": 0.17976495049135774,
+    "by": null
+   },
+   {
+    "t": 1800003423500,
+    "id": "rationing",
+    "kind": "soothe",
+    "foyer": "scarcity",
+    "tier": null,
+    "delta": 0.17872660180674482,
+    "by": null
+   },
+   {
+    "t": 1800003483500,
+    "id": "rationing",
+    "kind": "soothe",
+    "foyer": "scarcity",
+    "tier": null,
+    "delta": 0.1786235845696033,
+    "by": null
+   },
+   {
+    "t": 1800003543500,
+    "id": "rationing",
+    "kind": "soothe",
+    "foyer": "scarcity",
+    "tier": null,
+    "delta": 0.17861336396519023,
+    "by": null
+   },
+   {
+    "t": 1800003653500,
+    "id": "rationing",
+    "kind": "soothe",
+    "foyer": "scarcity",
+    "tier": null,
+    "delta": 0.17979765824039692,
+    "by": null
+   },
+   {
+    "t": 1800003713500,
+    "id": "rationing",
+    "kind": "soothe",
+    "foyer": "scarcity",
+    "tier": null,
+    "delta": 0.17872984682644685,
+    "by": null
+   },
+   {
+    "t": 1800003773500,
+    "id": "rationing",
+    "kind": "soothe",
+    "foyer": "scarcity",
+    "tier": null,
+    "delta": 0.17862390651633384,
+    "by": null
+   }
+  ],
+  "gambleHistory": {
+   "osselets": [
+    1,
+    0,
+    1
+   ]
+  },
+  "stewardClauses": [
+   {
+    "threshold": 0.8,
+    "actionId": "rationing",
+    "enabled": true,
+    "lastAt": 1800040000000
+   }
+  ],
+  "faveur": 10636338128889564,
+  "trunkFaveur": 1113409779589999.1,
+  "trunkAt": 1800016643000,
+  "icarusPotFaveur": 141468536700846940,
+  "icarusHistory": [
+   2.5,
+   1.1
+  ],
+  "scratchHistory": [
+   "coin",
+   "rien"
+  ],
+  "blackjackHistory": [
+   "win",
+   "loss"
+  ],
+  "blackjackStreak": 2,
+  "slotsHistory": [
+   "cerises",
+   "rien"
+  ],
+  "slotsFreeSpins": {
+   "left": 4,
+   "stakeFaveur": 1500,
+   "won": 300,
+   "total": 8
+  },
+  "roueAt": 1800050000000,
+  "nuitDebut": 1800016643000,
+  "nuitProchaine": 1800028643000,
+  "nuitFlambeur": 1,
+  "nuitCompte": 2,
+  "spectacleDebut": 1800016643000,
+  "spectacleFin": 1800017843000,
+  "courseField": [
+   {
+    "couloir": 1,
+    "nom": "Aquilon",
+    "p": 0.3
+   },
+   {
+    "couloir": 2,
+    "nom": "Borée",
+    "p": 0.2
+   },
+   {
+    "couloir": 3,
+    "nom": "Zéphyr",
+    "p": 0.15
+   },
+   {
+    "couloir": 4,
+    "nom": "Notos",
+    "p": 0.15
+   },
+   {
+    "couloir": 5,
+    "nom": "Euros",
+    "p": 0.1
+   },
+   {
+    "couloir": 6,
+    "nom": "Lips",
+    "p": 0.1
+   }
+  ],
+  "bjSoupcon": 0.3,
+  "bjMises": [
+   10,
+   20
+  ],
+  "bjHaut": {
+   "m": 2.5,
+   "n": 3
+  },
+  "bjBas": {
+   "m": 0.5,
+   "n": 2
+  },
+  "bjAverti": true,
+  "bjBarreJusqua": 1800055000000,
+  "rouletteHistory": [
+   17,
+   0
+  ],
+  "styletLevel": 2,
+  "maisonRefund": 50,
+  "maisonGiftRefund": 25,
+  "maisonReputation": 0.0015211788250425577,
+  "maisonRank": 2,
+  "blessingUntil": 1800055000000,
+  "blessingMult": 1.5,
+  "icarusFreeFlights": [
+   1800052000000
+  ],
+  "scarcityRawEase": 0,
+  "goldReserveEase": 76.61586952105004,
+  "crisisThresholds": {
+   "_25": true,
+   "_50": true,
+   "_75": true
+  },
+  "pendingCrisisSlot": null,
+  "crisisProduction": {
+   "global": 1,
+   "population": 1,
+   "food": 0.14675919895706588,
+   "gold": 0.748,
+   "knowledge": 1,
+   "infrastructure": 1
+  },
+  "collapsePreparation": 0.4,
+  "terminalPreparations": {
+   "used": {
+    "prepareArchives": true,
+    "holdOrder": true
+   },
+   "riteTier": 1
+  },
+  "crisisExtensions": 2,
+  "crisisLimitAnnounced": true,
+  "crisisOpenedAt": 1800053500000,
+  "recentCrisisIds": [
+   "militia_demand",
+   "debt_spiral",
+   "rapid_expansion",
+   "knowledge_schism",
+   "plague_scare",
+   "youth_unrest",
+   "infrastructure_debt",
+   "elite_flight"
+  ],
+  "crisisDoctrine": {
+   "p25": "stabiliser",
+   "p50": "stabiliser",
+   "p75": "stabiliser",
+   "autoCollapse": {
+    "enabled": true,
+    "trigger": "rupture100",
+    "usureThreshold": 0.9,
+    "timeSeconds": 600,
+    "prepare": false
+   }
+  },
+  "grandResetCount": 7,
+  "archaeologyUses": 2,
+  "cycleCrisesResolved": 3,
+  "cycleCrisesProfited": 3,
+  "lastCollapsedBuildings": {
+   "foragers": 1427,
+   "granaries_city": 1345,
+   "caravans": 1272,
+   "scribes": 34,
+   "storytellers": 48,
+   "schools": 21,
+   "aqueducts": 378,
+   "roads": 0,
+   "watch": 360,
+   "markets": 1254,
+   "guilds": 1188,
+   "irrigated_fields": 1128,
+   "river_ports": 1081,
+   "water_mills": 1031,
+   "mint_houses": 984,
+   "imperial_exchanges": 0,
+   "academies": 9,
+   "observatories": 0,
+   "libraries": 0,
+   "bureaucracy": 310,
+   "sewers": 326,
+   "courthouses": 292,
+   "public_works": 280,
+   "ministries": 267,
+   "archive_grids": 0,
+   "ruin_architects": 0,
+   "ancestral_cult": 7,
+   "universities": 0,
+   "printing_houses": 0,
+   "think_tanks": 0
+  },
+  "vestiges": [
+   {
+    "cityName": "Kaelys",
+    "year": 5,
+    "eraIndex": 32,
+    "eraBand": 6,
+    "mapSeed": 558515756,
+    "cycleIndex": 2,
+    "footprint": {
+     "gridN": 210,
+     "cx": 102,
+     "cy": 113,
+     "radius": 79
+    }
+   },
+   {
+    "cityName": "Kaelanth",
+    "year": 7,
+    "eraIndex": 62,
+    "eraBand": 7,
+    "mapSeed": 1796996158,
+    "cycleIndex": 3,
+    "footprint": {
+     "gridN": 244,
+     "cx": 109,
+     "cy": 123,
+     "radius": 80
+    }
+   },
+   {
+    "cityName": "Lysesse",
+    "year": 8,
+    "eraIndex": 88,
+    "eraBand": 7,
+    "mapSeed": 1024671506,
+    "cycleIndex": 4,
+    "footprint": {
+     "gridN": 248,
+     "cx": 140,
+     "cy": 117,
+     "radius": 82
+    }
+   }
+  ],
+  "wonders": [
+   "era_singularity",
+   "pop1m",
+   "era_empire",
+   "dynasty1",
+   "era_kingdom",
+   "era_mega"
+  ],
+  "wonderTiers": {
+   "era_singularity": 4,
+   "pop1m": 5,
+   "era_empire": 2,
+   "dynasty1": 1,
+   "era_kingdom": 5,
+   "era_mega": 1
+  },
+  "cityMapSlots": {
+   "5:markets:0": {
+    "dx": 3,
+    "dy": -2,
+    "zone": "commerce",
+    "id": "markets"
+   },
+   "5:dec_jardin:1": {
+    "dx": -4,
+    "dy": 1,
+    "zone": "",
+    "id": ""
+   }
+  },
+  "riverWP": [
+   {
+    "dy": -3
+   },
+   {
+    "dy": -1
+   },
+   {
+    "dy": 0
+   },
+   {
+    "dy": 2
+   },
+   {
+    "dy": 4
+   },
+   {
+    "dy": 5
+   }
+  ],
+  "cityArchetype": "fluvial",
+  "cityPersonality": "religieuse",
+  "cityCore": {
+   "seed": 123,
+   "dx": 1,
+   "dy": -2,
+   "bx": 0,
+   "wonders": {
+    "pyramides": [
+     6,
+     -4
+    ]
+   },
+   "quarters": {
+    "q:1": {
+     "dx": 4,
+     "dy": 2,
+     "kind": "habitat",
+     "site": 1
+    }
+   },
+   "districts": {
+    "1": [
+     4,
+     2
+    ]
+   },
+   "maxN": 120,
+   "central": [
+    0,
+    0
+   ],
+   "ilot": {
+    "v": 1,
+    "blocks": [
+     "0:0",
+     "-1:0",
+     "0:-1"
+    ],
+    "plazas": {
+     "-1:0": "centrale"
+    },
+    "halls": {
+     "1:guilds:0": "0:-1"
+    },
+    "annexes": {
+     "1:guilds:3": [
+      4,
+      -7
+     ]
+    }
+   }
+  },
+  "cityRoads": {
+   "seed": 77,
+   "cells": [
+    0,
+    0,
+    1,
+    1,
+    0,
+    2
+   ],
+   "works": 2,
+   "widened": 1,
+   "plazas": [
+    {
+     "dx": 0,
+     "dy": 0,
+     "size": 4,
+     "kind": "centrale"
+    }
+   ]
+  },
+  "cityRelics": {
+   "v": 2,
+   "seed": 9,
+   "keys": [
+    "maison_pierre"
+   ],
+   "forms": [
+    [
+     0,
+     1,
+     1,
+     0,
+     -1200,
+     3200,
+     2400
+    ]
+   ],
+   "items": [
+    2,
+    -3,
+    0,
+    5,
+    1,
+    0
+   ]
+  },
+  "mapSeed": 1477152171,
+  "lifetimePurchases": 47459,
+  "playTimeSec": 1808,
+  "chronicleStats": {
+   "lifetimePlaySec": 16638,
+   "games": {
+    "osselets": {
+     "plays": 0,
+     "wagered": 0,
+     "won": 0,
+     "biggest": 0,
+     "venus": 0,
+     "dog": 0
+    },
+    "icarus": {
+     "plays": 5,
+     "wagered": 9048,
+     "won": 19748,
+     "biggest": 19748,
+     "bestMult": 12.12,
+     "jackpots": 1,
+     "biggestJackpot": 5,
+     "crashes": 4
+    },
+    "scratch": {
+     "plays": 0,
+     "wagered": 0,
+     "won": 0,
+     "biggest": 0,
+     "venus": 0,
+     "soleil": 0
+    },
+    "blackjack": {
+     "plays": 0,
+     "wagered": 0,
+     "won": 0,
+     "biggest": 0,
+     "naturals": 0,
+     "bestStreak": 0
+    },
+    "slots": {
+     "plays": 0,
+     "wagered": 0,
+     "won": 0,
+     "biggest": 0,
+     "freeSpins": 0,
+     "wheels": 0,
+     "holdWins": 0,
+     "jackpots": 0,
+     "biggestJackpot": 0
+    },
+    "roulette": {
+     "plays": 0,
+     "wagered": 0,
+     "won": 0,
+     "biggest": 0,
+     "zeros": 0
+    },
+    "duel": {
+     "plays": 0,
+     "wagered": 0,
+     "won": 0,
+     "biggest": 0,
+     "gagnes": 0
+    },
+    "courses": {
+     "plays": 0,
+     "wagered": 0,
+     "won": 0,
+     "biggest": 0,
+     "outsiders": 0
+    }
+   },
+   "faveurEarned": 10636338134247820,
+   "faveurSpentShop": 0,
+   "offeringsCollected": 10636338134228072,
+   "roueSpins": 0,
+   "roueBest": 0,
+   "biggestPotRaked": 5,
+   "biggestRuinGain": "3.0172230715882016e+37",
+   "longestCycleSec": 1666,
+   "mostCrisesInCycle": 3,
+   "fastestEraGainSec": 2,
+   "grTimings": {
+    "2": {
+     "discovered": 5592,
+     "performed": 5596
+    },
+    "3": {
+     "discovered": 3786,
+     "performed": 3790
+    },
+    "4": {
+     "discovered": 9700,
+     "performed": 13470
+    },
+    "6": {
+     "discovered": 9138,
+     "performed": 9144
+    },
+    "7": {
+     "discovered": 1242,
+     "performed": 1244
+    },
+    "8": {
+     "discovered": 13468,
+     "performed": 13470
+    },
+    "10": {
+     "discovered": 14310,
+     "performed": 14830
+    }
+   },
+   "mythTimings": {
+    "mythe_du_chaos": {
+     "at": 3784,
+     "runSec": 2530,
+     "order": 1,
+     "act": 1
+    },
+    "mythe_de_promethee": {
+     "at": 4522,
+     "runSec": 722,
+     "order": 2,
+     "act": 1
+    },
+    "mythe_d_enee": {
+     "at": 6688,
+     "runSec": 1082,
+     "order": 3,
+     "act": 1
+    },
+    "mythe_de_cadmos": {
+     "at": 7280,
+     "runSec": 8,
+     "order": 4,
+     "act": 1
+    },
+    "mythe_d_hephaistos": {
+     "at": 9136,
+     "runSec": 1854,
+     "order": 5,
+     "act": 1
+    },
+    "mythe_de_sisyphe": {
+     "at": 9184,
+     "runSec": 30,
+     "order": 6,
+     "act": 2
+    },
+    "mythe_de_babel": {
+     "at": 9608,
+     "runSec": 18,
+     "order": 7,
+     "act": 2
+    },
+    "mythe_age_or": {
+     "at": 13466,
+     "runSec": 3856,
+     "order": 8,
+     "act": 2
+    },
+    "mythe_d_atlas": {
+     "at": 13670,
+     "runSec": 191,
+     "order": 9,
+     "act": 3
+    },
+    "mythe_d_icare": {
+     "at": 13938,
+     "runSec": 2,
+     "order": 10,
+     "act": 3
+    },
+    "mythe_du_phenix": {
+     "at": 14270,
+     "runSec": 106,
+     "order": 11,
+     "act": 3
+    },
+    "mythe_d_antee": {
+     "at": 15534,
+     "runSec": 2,
+     "order": 12,
+     "act": 3
+    },
+    "mythe_atrides": {
+     "at": 16638,
+     "runSec": 2,
+     "order": 13,
+     "act": 3
+    }
+   }
+  },
+  "saveEpoch": {
+   "id": "abc123",
+   "at": 1800000000000
+  },
+  "faitsDivers": {
+   "seen": {
+    "boulanger": {
+     "ch1": {
+      "band": 2,
+      "at": 5400
+     }
+    }
+   },
+   "curios": {
+    "chat_toit": {
+     "band": 1,
+     "at": 3600,
+     "n": 3
+    }
+   },
+   "firstAt": 1200,
+   "lastNewAt": 5400,
+   "lovers": {
+    "step": 2,
+    "at": 4800,
+    "first": "fountain",
+    "firstPlace": "door:4,-2",
+    "next": "markets",
+    "piste": 1,
+    "place": "door:7,1",
+    "firstFound": "nancy",
+    "cycle": 3
+   },
+   "rev": 4
+  },
+  "buildings": {
+   "foragers": 95,
+   "granaries_city": 75,
+   "caravans": 58,
+   "scribes": 0,
+   "storytellers": 1,
+   "schools": 0,
+   "aqueducts": 31,
+   "roads": 0,
+   "watch": 22,
+   "markets": 39,
+   "guilds": 25,
+   "irrigated_fields": 10,
+   "river_ports": 7,
+   "water_mills": 0,
+   "mint_houses": 0,
+   "imperial_exchanges": 0,
+   "academies": 0,
+   "observatories": 0,
+   "libraries": 0,
+   "bureaucracy": 16,
+   "sewers": 19,
+   "courthouses": 4,
+   "public_works": 0,
+   "ministries": 0,
+   "archive_grids": 0,
+   "ruin_architects": 0,
+   "ancestral_cult": 0,
+   "universities": 0,
+   "printing_houses": 0,
+   "think_tanks": 0
+  },
+  "upgrades": {
+   "granaries": true,
+   "veilleurs_nuit_1": true,
+   "skill_archaeology": true,
+   "reliquaire_pics": true,
+   "necropole_vivante": true,
+   "veilleurs_nuit_4": true,
+   "chambres_scellees": true,
+   "rives_fecondes": true,
+   "fallen_roads": true,
+   "foundation_ghosts": true,
+   "grand_cadastre": true,
+   "caravanes_aubaine": true,
+   "fetes_jalon": true,
+   "conseil_de_crise": true,
+   "rites_feu_court": true,
+   "edit_effondrement": true,
+   "ruin_liturgy": true,
+   "moisson_de_crise": true,
+   "cendres_fertiles": true,
+   "preparations_funebres": true,
+   "oral_tradition": true,
+   "grammaire_des_ruines": true,
+   "autel_du_culte": true,
+   "encre_indelebile": true,
+   "trait_enracinement": true,
+   "dogma_communal_granaries": true,
+   "dogma_merchant_law": true,
+   "dogma_eternal_return": true,
+   "dogma_free_academies": true,
+   "reforme_administrative": true,
+   "protocoles_urgence": true,
+   "reseau_routes": true,
+   "codex_mythique": true,
+   "conservateurs_ruines": true,
+   "rituel_effondrement": true
+  },
+  "cityName": "Ravelira",
+  "cityNameCustom": true,
+  "history": [
+   "An 1.0, Civilisation stellaire · XI: Les mécanismes automatiques ont discrètement érigé : cueilleurs.",
+   "An 1.0, Civilisation stellaire · XI: Les mécanismes automatiques ont discrètement érigé : conteurs.",
+   "An 1.0, Civilisation stellaire · XI: Nos dirigeants ont décrété une nouvelle avancée pour la cité : Chambres scellées.",
+   "An 1.0, Civilisation stellaire · XI: Nos dirigeants ont décrété une nouvelle avancée pour la cité : Cendres fertiles.",
+   "An 1.0, Civilisation stellaire · XI: Nos dirigeants ont décrété une nouvelle avancée pour la cité : Fêtes de jalon.",
+   "An 1.0, Civilisation stellaire · XI: Nos dirigeants ont décrété une nouvelle avancée pour la cité : Préparations funèbres.",
+   "An 1.0, Civilisation stellaire · XI: Nos dirigeants ont décrété une nouvelle avancée pour la cité : Communes vivrières.",
+   "Pacte active: Le Mythe des Atrides. Une dette maudite pèse sur la cité. La dette croît chaque seconde (+1% de la production par minute) et draine 10% de chaque ressource produite. Heureusement, vous commencez avec un trésor initial et un bonus global x3 de production pendant les 2 premières minutes.",
+   "Dette renégociée ! Le taux de croissance de la dette est réduit de 70% pendant 30 secondes.",
+   "An 1.0, Civilisation stellaire · IX: Les premiers cueilleurs offrent leurs services et se joignent à notre destinée (+1.0).",
+   "An 1.0, Civilisation stellaire · IX: Les premiers entrepôts s'élèvent dans nos quartiers (+1.0).",
+   "An 1.0, Civilisation stellaire · IX: La cité fête le jalon des Cueilleurs : les célébrations rapportent +4.33e122.",
+   "An 1.0, Civilisation stellaire · IX: Notre corporation de cueilleurs s'agrandit pour atteindre 25 membres (+1.0).",
+   "An 1.0, Civilisation stellaire · IX: Les premiers caravanes s'élèvent dans nos quartiers (+1.0).",
+   "An 1.0, Civilisation stellaire · IX: La cité fête le jalon des Entrepôts : les célébrations rapportent +4.33e122.",
+   "An 1.0, Civilisation stellaire · IX: Le nombre de entrepôts construits atteint désormais 25 édifices (+1.0).",
+   "An 1.0, Civilisation stellaire · IX: Les premiers service des eaux s'élèvent dans nos quartiers (+1.0).",
+   "An 1.0, Civilisation stellaire · IX: La cité fête le jalon des Cueilleurs : les célébrations rapportent +4.33e122.",
+   "An 1.0, Civilisation stellaire · IX: Notre corporation de cueilleurs s'agrandit pour atteindre 50 membres (+1.0).",
+   "An 1.0, Civilisation stellaire · IX: Les premiers marchés s'élèvent dans nos quartiers (+1.0).",
+   "An 1.0, Civilisation stellaire · IX: Une milice s'organise sous nos remparts pour assurer la sécurité commune (+1.0).",
+   "An 1.0, Civilisation stellaire · IX: La cité fête le jalon des Caravanes : les célébrations rapportent +6.88e121.",
+   "An 1.0, Civilisation stellaire · IX: Le nombre de caravanes construits atteint désormais 25 édifices (+1.0).",
+   "An 1.0, Civilisation stellaire · IX: Les premiers égouts s'élèvent dans nos quartiers (+1.0).",
+   "An 1.0, Civilisation stellaire · IX: Une bureaucratie naissante commence à enregistrer nos lois et décrets (+1.0).",
+   "An 1.0, Civilisation stellaire · IX: Les premiers guildes s'élèvent dans nos quartiers (+1.0).",
+   "An 1.0, Civilisation stellaire · IX: La cité fête le jalon des Entrepôts : les célébrations rapportent +4.33e122.",
+   "An 1.0, Civilisation stellaire · IX: Le nombre de entrepôts construits atteint désormais 50 édifices (+1.0).",
+   "An 1.0, Civilisation stellaire · IX: La cité fête le jalon des Cueilleurs : les célébrations rapportent +4.33e122.",
+   "An 1.0, Civilisation stellaire · IX: Notre corporation de cueilleurs s'agrandit pour atteindre 75 membres (+1.0).",
+   "An 1.0, Civilisation stellaire · IX: La cité fête le jalon des Marchés : les célébrations rapportent +1.19e122.",
+   "An 1.0, Civilisation stellaire · IX: Le nombre de marchés construits atteint désormais 25 édifices (+1.0).",
+   "An 1.0, Civilisation stellaire · IX: La cité fête le jalon des Service des eaux : les célébrations rapportent +3.35e67.",
+   "An 1.0, Civilisation stellaire · IX: Le nombre de service des eaux construits atteint désormais 25 édifices (+1.0).",
+   "An 1.0, Civilisation stellaire · IX: Les premiers champs s'élèvent dans nos quartiers (+1.0).",
+   "An 1.0, Civilisation stellaire · IX: La cité fête le jalon des Caravanes : les célébrations rapportent +1.39e122.",
+   "An 1.0, Civilisation stellaire · IX: Le nombre de caravanes construits atteint désormais 50 édifices (+1.0).",
+   "An 1.0, Civilisation stellaire · IX: Les premiers ports s'élèvent dans nos quartiers (+1.0).",
+   "An 1.0, Civilisation stellaire · IX: Les premiers tribunaux s'élèvent dans nos quartiers (+1.0).",
+   "An 1.0, Civilisation stellaire · IX: La cité fête le jalon des Guildes : les célébrations rapportent +1.64e122.",
+   "An 1.0, Civilisation stellaire · IX: Le nombre de guildes construits atteint désormais 25 édifices (+1.0).",
+   "An 1.0, Civilisation stellaire · IX: La cité fête le jalon des Entrepôts : les célébrations rapportent +4.33e122.",
+   "An 1.0, Civilisation stellaire · IX: Le nombre de entrepôts construits atteint désormais 75 édifices (+1.0).",
+   "Atrides : +4.93e122 de Tresor net gagne ce cycle malgre la dette maudite. La malediction est conjuree.",
+   "Pacte honore: \"Le Mythe des Atrides\". Heritage accorde: Débloque le bouton 'Pacte des Atrides' en début de cycle normal (runs normales) pour doubler la production pendant 2 minutes en échange de -50% pendant la crise.",
+   "Ragnarok : le pacte ultime se brise. La fin de toutes choses vous attend.",
+   "An 1.0, Civilisation stellaire · IX: Les mécanismes automatiques ont discrètement érigé : ports.",
+   "An 1.0, Civilisation stellaire · IX: Les mécanismes automatiques ont discrètement érigé : conteurs."
+  ],
+  "bestEraIndex": 99,
+  "prevCycle": {
+   "cycleSec": 420,
+   "ruinGain": "3.0172230715882016e+37",
+   "peakPop": "2.18513962690588e+79",
+   "peakEra": 88,
+   "cause": "auto_collapse"
+  },
+  "lastCycleReport": {
+   "year": 12,
+   "dynasty": "X",
+   "cause": "famine",
+   "peakPop": "1000",
+   "cycleSec": 600,
+   "ruinGain": "50",
+   "prevCycleSec": null,
+   "prevRuinGain": null,
+   "at": 1800050000000
+  },
+  "cycleVow": {
+   "offered": [
+    {
+     "id": "sans_politique",
+     "target": 0,
+     "base": 0
+    },
+    {
+     "id": "fermete",
+     "target": 3,
+     "base": 0
+    },
+    {
+     "id": "veille",
+     "target": 60,
+     "base": 0
+    }
+   ],
+   "chosen": null,
+   "done": false,
+   "broken": false
+  },
+  "cyclePeaks": {
+   "population": "1.1044067762724779e+91",
+   "food": "2.60228614336317e+123",
+   "gold": "4.93198123498383e+122",
+   "knowledge": "1.2863624937011031e+74",
+   "infrastructure": "5.35423225925947e+73",
+   "eraIndex": 97
+  },
+  "cycleStartedAt": 1800016645000,
+  "lastTick": 1800016647000,
+  "activeEpitaphLegacy": {
+   "id": "plunder",
+   "cause": "avarice",
+   "chosenCycle": 5,
+   "startedAt": 1800014917500
+  },
+  "nextEpitaphLegacy": {
+   "id": "plunder",
+   "cause": "avarice",
+   "chosenCycle": 5,
+   "startedAt": 1800014917500
+  },
+  "testamentLegacyId": "granaries",
+  "buyAmount": 10,
+  "activeView": "prestige",
+  "mourning": true,
+  "chute": true,
+  "ruinsSeenNodes": [
+   "granaries"
+  ],
+  "atridesDebt": 2.2547060002024017e+118,
+  "atridesDrainDisabled": true,
+  "atridesDebtGrowthMultiplier": 0.3,
+  "atridesRenegotiateActiveUntil": 1800016675000,
+  "atridesRenegotiateCooldownEnd": 1800016765000,
+  "atridesHeritage": true,
+  "atridesPactActive": true,
+  "atridesNextRunPenaltyActive": true,
+  "eneeHeritage": true,
+  "eneeCollapseCount": 5,
+  "eneeMigrations": 3,
+  "eneeDegraded": true,
+  "eneeTerritoryStartedAt": 1800006690500,
+  "cadmosHeritage": true,
+  "cadmosChronicle": [
+   {
+    "id": "cadmos_1800007278500_0",
+    "name": "L'Âge des Granges",
+    "word": "Granges",
+    "orientation": "food",
+    "orientationLabel": "Nourriture",
+    "milestoneType": "population",
+    "threshold": 25,
+    "cycle": 1,
+    "chosenAt": 1800007278500
+   },
+   {
+    "id": "cadmos_1800007280500_0",
+    "name": "L'Âge des Serments",
+    "word": "Serments",
+    "orientation": "stability",
+    "orientationLabel": "Stabilité",
+    "milestoneType": "population",
+    "threshold": 60,
+    "cycle": 1,
+    "chosenAt": 1800007280500
+   },
+   {
+    "id": "cadmos_1800007282500_0",
+    "name": "L'Âge des Semences",
+    "word": "Semences",
+    "orientation": "food",
+    "orientationLabel": "Nourriture",
+    "milestoneType": "population",
+    "threshold": 140,
+    "cycle": 1,
+    "chosenAt": 1800007282500
+   }
+  ],
+  "cadmosLastRunChronicle": [
+   {
+    "id": "cadmos_1800007278500_0",
+    "name": "L'Âge des Granges",
+    "word": "Granges",
+    "orientation": "food",
+    "orientationLabel": "Nourriture",
+    "milestoneType": "population",
+    "threshold": 25,
+    "cycle": 1,
+    "chosenAt": 1800007278500
+   }
+  ],
+  "cadmosPermanentEpitaphs": [
+   {
+    "id": "cadmos_1800007280500_0",
+    "name": "L'Âge des Serments",
+    "word": "Serments",
+    "orientation": "stability",
+    "orientationLabel": "Stabilité",
+    "milestoneType": "population",
+    "threshold": 60,
+    "cycle": 1,
+    "chosenAt": 1800007280500,
+    "engravedAt": 1800008000000
+   }
+  ],
+  "cadmosCycleBonuses": {
+   "food": 2,
+   "gold": 0,
+   "stability": 1
+  },
+  "cadmosTriggeredMilestones": {
+   "population:25": true,
+   "population:60": true,
+   "population:140": true
+  },
+  "cadmosPromptPending": false,
+  "cadmosLastChosenOrientation": "food",
+  "cadmosRecentWords": [
+   "Semences",
+   "Serments",
+   "Granges"
+  ],
+  "anteeHeritage": true,
+  "activeRuinIds": [
+   "enee",
+   "promethee",
+   "age_or",
+   "hephaistos",
+   "sisyphe",
+   "babel",
+   "icare",
+   "phenix",
+   "atrides"
+  ],
+  "pendingActiveRuinsChoice": true,
+  "ragnarokHeritage": true,
+  "finalChronicleTitle": "Sous le regard du Ragnarok",
+  "chronicleEntries": [
+   {
+    "id": "p7_pop_100b_cover",
+    "articleId": "p7_pop_100b_cover",
+    "title": "LA CIVILISATION COUVRE PRESQUE TOUT",
+    "text": "« Les villes se touchent, les campagnes deviennent des interlignes, les océans des couloirs. Les cartes ne représentent plus le monde : elles le compressent. »",
+    "age": "Civilisation stellaire · IX",
+    "date": "An 1",
+    "category": "Démographie",
+    "isNew": true,
+    "isRerun": false,
+    "publishedAt": 1800016647000
+   }
+  ],
+  "chronicleCooldown": 180,
+  "olympus": {
+   "totalPlayedSeconds": 16098,
+   "manualCollapses": 9,
+   "totalCollapses": 12,
+   "collapseRuptureSum": 12,
+   "crisesResolved": 109,
+   "crisesIgnored": 6,
+   "idleSessions": 1,
+   "idleSeconds": 15920,
+   "highRuptureSeconds": 3630,
+   "profileProgress": {
+    "apocalypse": 5.23,
+    "bureaucracy": 0,
+    "sleep": 2.5,
+    "abyss": 0
+   },
+   "unlockedProfile": null,
+   "lastDominantProfile": "apocalypse",
+   "lastInteractionAt": 1800000000000,
+   "idleStartedAt": 1800000180000,
+   "idleCredited": true
+  }
+ }
+}

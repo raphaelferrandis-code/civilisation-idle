@@ -4,573 +4,578 @@
   "caravan-prop-sacks": {
    "wFrac": null,
    "hFrac": 0.24,
-   "site": "cityEngineSprites.js:597"
+   "site": "cityEngineSprites.js:1119"
   },
   "forager-hortus-classical": {
    "wFrac": 0.86,
    "hFrac": 0.76,
-   "site": "cityEngineSprites.js:811"
+   "site": "cityEngineSprites.js:1431"
   },
   "granary-horreum-classical": {
    "wFrac": 0.86,
    "hFrac": 0.76,
-   "site": "cityEngineSprites.js:811"
+   "site": "cityEngineSprites.js:1431"
   },
   "guild-collegium": {
    "wFrac": 0.86,
    "hFrac": 0.76,
-   "site": "cityEngineSprites.js:811"
+   "site": "cityEngineSprites.js:1431"
   },
   "mint-moneta": {
    "wFrac": 0.86,
    "hFrac": 0.76,
-   "site": "cityEngineSprites.js:811"
+   "site": "cityEngineSprites.js:1431"
   },
   "bank-basilica-roman": {
    "wFrac": 0.86,
    "hFrac": 0.76,
-   "site": "cityEngineSprites.js:811"
+   "site": "cityEngineSprites.js:1431"
   },
   "forager-prop-tree": {
    "wFrac": 0.74,
    "hFrac": 0.78,
-   "site": "cityEngineSprites.js:891"
-  },
-  "forager-prop-basket": {
-   "wFrac": 0.34,
-   "hFrac": 0.32,
-   "site": "cityEngineSprites.js:997"
+   "site": "cityEngineSprites.js:1520"
   },
   "forager-orchard-tree": {
    "wFrac": 0.78,
    "hFrac": 0.78,
-   "site": "cityEngineSprites.js:1025"
+   "site": "cityEngineSprites.js:1663"
   },
   "forager-orchard-crates": {
    "wFrac": 0.34,
    "hFrac": 0.34,
-   "site": "cityEngineSprites.js:1037"
+   "site": "cityEngineSprites.js:1675"
   },
   "forager-greenhouse": {
    "wFrac": 0.9,
    "hFrac": 0.675,
-   "site": "cityEngineSprites.js:1143"
+   "site": "cityEngineSprites.js:1781"
   },
   "forager-handcart": {
    "wFrac": 0.36,
    "hFrac": 0.32,
-   "site": "cityEngineSprites.js:1154"
+   "site": "cityEngineSprites.js:1792"
   },
   "granary-hall": {
    "wFrac": 0.82,
    "hFrac": 0.7,
-   "site": "cityEngineSprites.js:1389"
+   "site": "cityEngineSprites.js:2027"
   },
   "granary-jars": {
    "wFrac": 0.3,
    "hFrac": 0.24,
-   "site": "cityEngineSprites.js:1393"
+   "site": "cityEngineSprites.js:2031"
   },
   "granary-warehouse": {
    "wFrac": 0.82,
    "hFrac": 0.7,
-   "site": "cityEngineSprites.js:1507"
+   "site": "cityEngineSprites.js:2144"
   },
   "granary-crates": {
    "wFrac": 0.3,
    "hFrac": 0.27,
-   "site": "cityEngineSprites.js:1518"
+   "site": "cityEngineSprites.js:2148"
   },
   "market-macellum": {
    "wFrac": 0.88,
    "hFrac": 0.76,
-   "site": "cityEngineSprites.js:2178"
+   "site": "cityEngineSprites.js:2808"
   },
   "market-prop-stall": {
    "wFrac": 0.92,
    "hFrac": 0.69,
-   "site": "cityEngineSprites.js:2273"
+   "site": "cityEngineSprites.js:2903"
   },
   "market-hall-tent": {
    "wFrac": 0.86,
    "hFrac": 0.74,
-   "site": "cityEngineSprites.js:2384"
+   "site": "cityEngineSprites.js:3015"
   },
   "market-hall-glass": {
    "wFrac": 0.86,
    "hFrac": 0.74,
-   "site": "cityEngineSprites.js:2474"
+   "site": "cityEngineSprites.js:3105"
   },
   "market-plaza-neon": {
    "wFrac": 0.86,
    "hFrac": 0.74,
-   "site": "cityEngineSprites.js:2555"
+   "site": "cityEngineSprites.js:3186"
   },
   "guild-prop-lodge": {
    "wFrac": 0.86,
    "hFrac": 0.86,
-   "site": "cityEngineSprites.js:2707"
+   "site": "cityEngineSprites.js:3338"
   },
   "guild-house": {
    "wFrac": 0.86,
    "hFrac": 0.86,
-   "site": "cityEngineSprites.js:2813"
+   "site": "cityEngineSprites.js:3444"
   },
   "guild-chamber": {
    "wFrac": 0.86,
    "hFrac": 0.86,
-   "site": "cityEngineSprites.js:2929"
+   "site": "cityEngineSprites.js:3560"
   },
   "guild-consortium": {
    "wFrac": 0.86,
    "hFrac": 0.86,
-   "site": "cityEngineSprites.js:2988"
+   "site": "cityEngineSprites.js:3619"
   },
   "mint-prop-forge": {
    "wFrac": 0.88,
    "hFrac": 0.73,
-   "site": "cityEngineSprites.js:3701"
+   "site": "cityEngineSprites.js:4338"
   },
   "mint-prop-house": {
    "wFrac": 0.86,
    "hFrac": 0.86,
-   "site": "cityEngineSprites.js:3781"
+   "site": "cityEngineSprites.js:4418"
   },
   "mint-house-steam": {
    "wFrac": 0.86,
    "hFrac": 0.86,
-   "site": "cityEngineSprites.js:3871"
+   "site": "cityEngineSprites.js:4507"
   },
   "mint-house-digital": {
    "wFrac": 0.86,
    "hFrac": 0.86,
-   "site": "cityEngineSprites.js:3956"
+   "site": "cityEngineSprites.js:4587"
   },
   "exchange-prop-stall": {
    "wFrac": 0.88,
    "hFrac": 0.73,
-   "site": "cityEngineSprites.js:4083"
+   "site": "cityEngineSprites.js:4714"
   },
   "bank-house-renaissance": {
    "wFrac": 0.86,
    "hFrac": 0.86,
-   "site": "cityEngineSprites.js:4163"
+   "site": "cityEngineSprites.js:4794"
   },
   "bank-house-neoclassical": {
    "wFrac": 0.86,
    "hFrac": 0.86,
-   "site": "cityEngineSprites.js:4257"
+   "site": "cityEngineSprites.js:4882"
   },
   "bank-house-glass": {
    "wFrac": 0.86,
    "hFrac": 0.86,
-   "site": "cityEngineSprites.js:4362"
+   "site": "cityEngineSprites.js:4981"
   },
   "storyteller-odeon": {
    "wFrac": 0.86,
    "hFrac": 0.76,
-   "site": "engineSprites.js:155"
+   "site": "engineSprites.js:182"
   },
   "scribes-tabularium": {
    "wFrac": 0.86,
    "hFrac": 0.76,
-   "site": "engineSprites.js:155"
+   "site": "engineSprites.js:182"
   },
   "schools-ludus": {
    "wFrac": 0.86,
    "hFrac": 0.76,
-   "site": "engineSprites.js:155"
+   "site": "engineSprites.js:182"
   },
   "academies-athenaeum": {
    "wFrac": 0.86,
    "hFrac": 0.76,
-   "site": "engineSprites.js:155"
+   "site": "engineSprites.js:182"
   },
   "cult-vesta": {
    "wFrac": 0.86,
    "hFrac": 0.76,
-   "site": "engineSprites.js:155"
+   "site": "engineSprites.js:182"
   },
   "observatories-horologium": {
    "wFrac": 0.86,
    "hFrac": 0.76,
-   "site": "engineSprites.js:155"
+   "site": "engineSprites.js:182"
   },
   "libraries-classical": {
    "wFrac": 0.86,
    "hFrac": 0.76,
-   "site": "engineSprites.js:155"
+   "site": "engineSprites.js:182"
   },
   "universities-classical": {
    "wFrac": 0.86,
    "hFrac": 0.76,
-   "site": "engineSprites.js:155"
+   "site": "engineSprites.js:182"
   },
   "printing-scriptorium": {
    "wFrac": 0.86,
    "hFrac": 0.76,
-   "site": "engineSprites.js:155"
+   "site": "engineSprites.js:182"
   },
   "think-stoa-roman": {
    "wFrac": 0.86,
    "hFrac": 0.76,
-   "site": "engineSprites.js:155"
+   "site": "engineSprites.js:182"
   },
   "watch-classical": {
    "wFrac": 0.86,
    "hFrac": 0.76,
-   "site": "engineSprites.js:155"
+   "site": "engineSprites.js:182"
   },
   "bureau-tabularium": {
    "wFrac": 0.86,
    "hFrac": 0.76,
-   "site": "engineSprites.js:155"
+   "site": "engineSprites.js:182"
   },
   "courthouses-basilica": {
    "wFrac": 0.86,
    "hFrac": 0.76,
-   "site": "engineSprites.js:155"
+   "site": "engineSprites.js:182"
   },
   "works-classical": {
    "wFrac": 0.86,
    "hFrac": 0.76,
-   "site": "engineSprites.js:155"
+   "site": "engineSprites.js:182"
   },
   "ministries-curia": {
    "wFrac": 0.86,
    "hFrac": 0.76,
-   "site": "engineSprites.js:155"
+   "site": "engineSprites.js:182"
   },
   "archive-tabularium": {
    "wFrac": 0.86,
    "hFrac": 0.76,
-   "site": "engineSprites.js:155"
+   "site": "engineSprites.js:182"
   },
   "ruins-restoration-roman": {
    "wFrac": 0.86,
    "hFrac": 0.76,
-   "site": "engineSprites.js:155"
+   "site": "engineSprites.js:182"
   },
   "sewers-classical": {
    "wFrac": 0.86,
    "hFrac": 0.76,
-   "site": "engineSprites.js:155"
+   "site": "engineSprites.js:182"
   },
   "storyteller-hall": {
    "wFrac": 0.92,
    "hFrac": 0.72,
-   "site": "engineSprites.js:169"
+   "site": "engineSprites.js:196"
   },
   "storyteller-theater": {
    "wFrac": 0.92,
    "hFrac": 0.72,
-   "site": "engineSprites.js:169"
+   "site": "engineSprites.js:196"
   },
   "storyteller-media": {
    "wFrac": 0.92,
    "hFrac": 0.72,
-   "site": "engineSprites.js:169"
+   "site": "engineSprites.js:196"
   },
   "storyteller-prop-hut": {
    "wFrac": 0.68,
    "hFrac": 0.623,
-   "site": "engineSprites.js:209"
+   "site": "engineSprites.js:233"
   },
   "scribes-scriptorium": {
    "wFrac": 0.9,
    "hFrac": 0.74,
-   "site": "engineSprites.js:300"
+   "site": "engineSprites.js:324"
   },
   "scribes-archive": {
    "wFrac": 0.9,
    "hFrac": 0.74,
-   "site": "engineSprites.js:300"
+   "site": "engineSprites.js:324"
   },
   "scribes-data": {
    "wFrac": 0.9,
    "hFrac": 0.74,
-   "site": "engineSprites.js:300"
+   "site": "engineSprites.js:324"
   },
   "scribes-prop-hall": {
    "wFrac": 0.88,
    "hFrac": 0.73,
-   "site": "engineSprites.js:320"
+   "site": "engineSprites.js:341"
   },
   "schools-schoolhouse": {
    "wFrac": 0.9,
    "hFrac": 0.74,
-   "site": "engineSprites.js:368"
+   "site": "engineSprites.js:389"
   },
   "schools-victorian": {
    "wFrac": 0.9,
    "hFrac": 0.74,
-   "site": "engineSprites.js:368"
+   "site": "engineSprites.js:389"
   },
   "schools-campus": {
    "wFrac": 0.9,
    "hFrac": 0.74,
-   "site": "engineSprites.js:368"
+   "site": "engineSprites.js:389"
   },
   "schools-prop-yard": {
    "wFrac": 0.88,
    "hFrac": 0.73,
-   "site": "engineSprites.js:387"
+   "site": "engineSprites.js:405"
   },
   "academies-renaissance": {
    "wFrac": 0.9,
    "hFrac": 0.74,
-   "site": "engineSprites.js:429"
+   "site": "engineSprites.js:447"
   },
   "academies-institute": {
    "wFrac": 0.9,
    "hFrac": 0.74,
-   "site": "engineSprites.js:429"
+   "site": "engineSprites.js:447"
   },
   "academies-modern": {
    "wFrac": 0.9,
    "hFrac": 0.74,
-   "site": "engineSprites.js:429"
+   "site": "engineSprites.js:447"
   },
   "academies-prop-yard": {
    "wFrac": 0.88,
    "hFrac": 0.73,
-   "site": "engineSprites.js:449"
+   "site": "engineSprites.js:464"
   },
   "cult-shrine": {
    "wFrac": 0.9,
    "hFrac": 0.74,
-   "site": "engineSprites.js:490"
+   "site": "engineSprites.js:505"
   },
   "cult-mausoleum": {
    "wFrac": 0.9,
    "hFrac": 0.74,
-   "site": "engineSprites.js:490"
+   "site": "engineSprites.js:505"
   },
   "cult-memorial": {
    "wFrac": 0.9,
    "hFrac": 0.74,
-   "site": "engineSprites.js:490"
+   "site": "engineSprites.js:505"
   },
   "ancestralcult-back": {
    "wFrac": 0.88,
    "hFrac": 0.73,
-   "site": "engineSprites.js:516"
+   "site": "engineSprites.js:528"
   },
   "ancestralcult-prop": {
    "wFrac": 0.88,
    "hFrac": 0.73,
-   "site": "engineSprites.js:521"
+   "site": "engineSprites.js:533"
   },
   "observatories-tower": {
    "wFrac": 0.9,
    "hFrac": 0.74,
-   "site": "engineSprites.js:572"
+   "site": "engineSprites.js:584"
   },
   "observatories-dome": {
    "wFrac": 0.9,
    "hFrac": 0.74,
-   "site": "engineSprites.js:572"
+   "site": "engineSprites.js:584"
   },
   "observatories-array": {
    "wFrac": 0.9,
    "hFrac": 0.74,
-   "site": "engineSprites.js:572"
+   "site": "engineSprites.js:584"
   },
   "observatories-prop-dial": {
    "wFrac": 0.88,
    "hFrac": 0.73,
-   "site": "engineSprites.js:592"
+   "site": "engineSprites.js:601"
   },
   "libraries-monastic": {
    "wFrac": 0.9,
    "hFrac": 0.74,
-   "site": "engineSprites.js:638"
+   "site": "engineSprites.js:647"
   },
   "libraries-grand": {
    "wFrac": 0.9,
    "hFrac": 0.74,
-   "site": "engineSprites.js:638"
+   "site": "engineSprites.js:647"
   },
   "libraries-modern": {
    "wFrac": 0.9,
    "hFrac": 0.74,
-   "site": "engineSprites.js:638"
+   "site": "engineSprites.js:647"
   },
   "libraries-prop-archive": {
    "wFrac": 0.88,
    "hFrac": 0.8,
-   "site": "engineSprites.js:660"
+   "site": "engineSprites.js:666"
   },
   "universities-gothic": {
    "wFrac": 0.9,
    "hFrac": 0.74,
-   "site": "engineSprites.js:699"
+   "site": "engineSprites.js:705"
   },
   "universities-collegiate": {
    "wFrac": 0.9,
    "hFrac": 0.74,
-   "site": "engineSprites.js:699"
+   "site": "engineSprites.js:705"
   },
   "universities-modern": {
    "wFrac": 0.9,
    "hFrac": 0.74,
-   "site": "engineSprites.js:699"
+   "site": "engineSprites.js:705"
   },
   "universities-prop-hall": {
    "wFrac": 0.88,
    "hFrac": 0.8,
-   "site": "engineSprites.js:721"
+   "site": "engineSprites.js:724"
   },
   "printing-press-shop": {
    "wFrac": 0.9,
    "hFrac": 0.74,
-   "site": "engineSprites.js:916"
+   "site": "engineSprites.js:919"
   },
   "printing-factory": {
    "wFrac": 0.9,
    "hFrac": 0.74,
-   "site": "engineSprites.js:916"
+   "site": "engineSprites.js:919"
   },
   "printing-media": {
    "wFrac": 0.9,
    "hFrac": 0.74,
-   "site": "engineSprites.js:916"
+   "site": "engineSprites.js:919"
   },
   "printing-prop-workshop": {
    "wFrac": 0.88,
    "hFrac": 0.8,
-   "site": "engineSprites.js:937"
+   "site": "engineSprites.js:939"
   },
   "think-chancellery": {
    "wFrac": 0.9,
    "hFrac": 0.74,
-   "site": "engineSprites.js:990"
+   "site": "engineSprites.js:992"
   },
   "think-institute": {
    "wFrac": 0.9,
    "hFrac": 0.74,
-   "site": "engineSprites.js:990"
+   "site": "engineSprites.js:992"
   },
   "think-modern": {
    "wFrac": 0.9,
    "hFrac": 0.74,
-   "site": "engineSprites.js:990"
+   "site": "engineSprites.js:992"
   },
   "think-prop-council": {
    "wFrac": 0.88,
    "hFrac": 0.8,
-   "site": "engineSprites.js:1012"
+   "site": "engineSprites.js:1011"
   },
   "aqueduct-modern": {
    "wFrac": null,
    "hFrac": 1.5,
-   "site": "engineSprites.js:1083"
+   "site": "engineSprites.js:1082"
   },
   "aqueduct-iron": {
    "wFrac": null,
    "hFrac": 1.5,
-   "site": "engineSprites.js:1083"
+   "site": "engineSprites.js:1082"
   },
   "watch-stone": {
    "wFrac": 0.78,
    "hFrac": 0.94,
-   "site": "engineSprites.js:1174"
+   "site": "engineSprites.js:1173"
   },
   "watch-industrial": {
    "wFrac": 0.78,
    "hFrac": 0.94,
-   "site": "engineSprites.js:1174"
+   "site": "engineSprites.js:1173"
   },
   "watch-modern": {
    "wFrac": 0.78,
    "hFrac": 0.94,
-   "site": "engineSprites.js:1174"
+   "site": "engineSprites.js:1173"
   },
   "watch-back": {
    "wFrac": 0.78,
    "hFrac": 0.94,
-   "site": "engineSprites.js:1195"
+   "site": "engineSprites.js:1191"
   },
   "watch-prop": {
    "wFrac": 0.78,
    "hFrac": 0.94,
-   "site": "engineSprites.js:1200"
+   "site": "engineSprites.js:1196"
   },
   "sewers-prop": {
    "wFrac": 0.92,
    "hFrac": 0.77,
-   "site": "engineSprites.js:1286"
+   "site": "engineSprites.js:1282"
   }
  },
  "dynamiques": [
   {
    "keyExpr": "p",
-   "site": "cityEngineSprites.js:376",
+   "site": "cityEngineSprites.js:767",
    "hFrac": "hFrac"
   },
   {
    "keyExpr": "p",
-   "site": "cityEngineSprites.js:423",
+   "site": "cityEngineSprites.js:915",
    "hFrac": "hFrac"
   },
   {
+   "keyExpr": "p",
+   "site": "cityEngineSprites.js:951",
+   "hFrac": "drawH / sh"
+  },
+  {
+   "keyExpr": "GUILD_CRAFTS_B4[craft - 1]",
+   "site": "cityEngineSprites.js:1395",
+   "hFrac": "OFFICINA_F"
+  },
+  {
    "keyExpr": "'forager-hydro-rack'",
-   "site": "cityEngineSprites.js:1226",
+   "site": "cityEngineSprites.js:1864",
    "hFrac": "prkH"
   },
   {
    "keyExpr": "'granary-prop-silo'",
-   "site": "cityEngineSprites.js:1357",
+   "site": "cityEngineSprites.js:1995",
    "hFrac": "hFrac"
   },
   {
    "keyExpr": "'granary-hub'",
-   "site": "cityEngineSprites.js:1619",
+   "site": "cityEngineSprites.js:2249",
    "hFrac": "hbH"
   },
   {
    "keyExpr": "'caravan-wagon'",
-   "site": "cityEngineSprites.js:1823",
+   "site": "cityEngineSprites.js:2453",
    "hFrac": "VEH_W * 64 / 112"
   },
   {
    "keyExpr": "'caravan-truck'",
-   "site": "cityEngineSprites.js:1916",
+   "site": "cityEngineSprites.js:2546",
    "hFrac": "VH"
   },
   {
    "keyExpr": "'caravan-pod'",
-   "site": "cityEngineSprites.js:2016",
+   "site": "cityEngineSprites.js:2646",
    "hFrac": "VH"
   },
   {
    "keyExpr": "DOCK",
-   "site": "cityEngineSprites.js:3203",
+   "site": "cityEngineSprites.js:3840",
    "hFrac": "0.9 + sizeMul * 0.24"
   },
   {
    "keyExpr": "DOCK",
-   "site": "cityEngineSprites.js:3264",
+   "site": "cityEngineSprites.js:3901",
    "hFrac": "gw"
   },
   {
    "keyExpr": "PORT_HOUSE",
-   "site": "cityEngineSprites.js:3269",
+   "site": "cityEngineSprites.js:3906",
    "hFrac": "bhF"
   },
   {
    "keyExpr": "HOUSE",
-   "site": "cityEngineSprites.js:3610",
+   "site": "cityEngineSprites.js:4247",
    "hFrac": "twH"
   },
   {
    "keyExpr": "key",
-   "site": "engineSprites.js:114",
+   "site": "engineSprites.js:134",
    "hFrac": "hf"
   },
   {
    "keyExpr": "'aqueduct-' + mod",
-   "site": "engineSprites.js:1105",
+   "site": "engineSprites.js:1104",
    "hFrac": "1.5",
    "note": "cle irresolue"
   }

@@ -83,7 +83,7 @@ describe('SAV-2 — la fermeture garde la garde d’écriture', () => {
     fire('beforeunload');
     fire('pagehide');
     expect(writes).toEqual([]);
-  }, 60000);
+  });
 
   it('flush saute le délai de 30 s mais écrit une partie au moins aussi avancée', async () => {
     const { cs, store, writes } = await bootCloud({ initial: { status: 'ok', text: mk(1000) }, local: mk(1000) });
@@ -124,7 +124,7 @@ describe('SAV-1 — nuage avec BOM', () => {
     expect(errors.filter((e) => e.includes('illisible'))).toEqual([]);
     expect(st.state.cycles).toBe(42);
     expect(st.state.cityName).toBe('Ourouk');
-  }, 60000);
+  });
 
   it('load() retire aussi le BOM d’une save LOCALE', async () => {
     const store = new Map([[SAVE_KEY, '\uFEFF' + mk(500, { cycles: 7 })]]);
@@ -136,7 +136,7 @@ describe('SAV-1 — nuage avec BOM', () => {
     vi.resetModules();
     const st = await import('../state.js');
     expect(st.state.cycles).toBe(7);
-  }, 60000);
+  });
 
   it('save locale illisible (hydrateState lève sur une save nuage valide) : plus AUCUNE écriture nuage, même forcée', async () => {
     // Régression simulée d'un normaliseur qui lève pour TOUTE save : load() ne peut
@@ -167,7 +167,7 @@ describe('SAV-1 — nuage avec BOM', () => {
     // Une copie de secours est gardée.
     expect(lifeOf(store.get(SAVE_KEY + '-corrupt-backup'))).toBe(144000);
     vi.doUnmock('../faitsDiversState.js');
-  }, 60000);
+  });
 });
 
 // SAV-4 : la garde comparait à une référence FIGÉE au lancement, sans jamais relire
@@ -289,7 +289,7 @@ describe('SAV-4 — relire avant d’écrire, époque de la partie', () => {
     st.save();
     cs.cloudMirrorSave({ flush: true });
     expect(lifeOf(writes.at(-1))).toBe(216031);
-  }, 60000);
+  });
 
   it('« Recommencer depuis le premier feu » : la partie neuve naît d’une époque fraîche et s’écrit même si le fichier a résisté', async () => {
     // Effacement du fichier raté (verrou Drive) : il porte encore l'ancienne partie.
@@ -309,7 +309,7 @@ describe('SAV-4 — relire avant d’écrire, époque de la partie', () => {
     cs.cloudMirrorSave({ flush: true });
     expect(writes.length).toBeGreaterThan(0);
     expect(JSON.parse(writes.at(-1)).saveEpoch.id).toBe(st.state.saveEpoch.id);
-  }, 60000);
+  });
 });
 
 // SAV-5 : après une écriture FORCÉE d'une partie moins avancée (emplacement,
@@ -336,7 +336,7 @@ describe('SAV-5 — miroir après un emplacement, refus de la garde visible', ()
     st.save();
     cs.cloudMirrorSave({ flush: true });
     expect(lifeOf(writes.at(-1))).toBe(640);
-  }, 60000);
+  });
 
   it('nuage relu plus avancé en cours de session : refus exposé (`behind`), levé dès que la partie le rattrape', async () => {
     let cloudNow = { status: 'error', text: null };

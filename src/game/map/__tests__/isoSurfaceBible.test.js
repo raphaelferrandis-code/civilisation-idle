@@ -31,9 +31,9 @@ import { ISO_TILE_VARIANTS } from "../iso/isoGroundTiles.js";
 import { roadTone } from "../iso/isoRoad.js";
 import { PLAZA_ERA_TONE, PLAZA_GROUND } from "../iso/isoPalette.js";
 import { plazaEraForBand } from "../iso/isoPlaza.js";
+import { lumOf as lum } from "../../../test/pixels.js";
 
 const DIR = new URL("../../../../public/pixelart/iso/", import.meta.url);
-const lum = (c) => 0.2126 * c[0] + 0.7152 * c[1] + 0.0722 * c[2];
 
 const variantNames = (key) => {
   const n = ISO_TILE_VARIANTS[key] || 0;

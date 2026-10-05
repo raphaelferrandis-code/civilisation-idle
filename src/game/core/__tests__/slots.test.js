@@ -7,11 +7,12 @@
 
 import { describe, it, expect, beforeEach, afterEach, vi } from "vitest";
 import { state, setState, hydrateState, invalidateRenderCache } from "../state.js";
-import { spinSlots, slotsOdds, slotsRtpRef, slotsWindow, slotsEvaluate, slotsFreeSpins, slotsUnlocked, slotsJackpots, SLOTS_CFG, SLOTS_CELLS } from "../actions/slots.js";
+import { spinSlots, slotsOdds, slotsRtpRef, slotsFreeSpins, slotsUnlocked, slotsJackpots, SLOTS_CFG, SLOTS_CELLS } from "../actions/slots.js";
 import { lineWin, hwOutlook, slotsOddsOf } from "../actions/slotsMath.js";
 import { tableLimits } from "../actions/maisonTable.js";
 import { ICARUS_RTP, TEMPLE_POT_RECYCLE, SLOTS_REELS, SLOTS_FREE_SPINS, SLOTS_FREE_MULT, SLOTS_WHEEL, SLOTS_UNLOCK_ERA, SLOTS_PAY, SLOTS_HW, SLOTS_WILD, SLOTS_GRAND_FLOOR, FAVEUR_ECHELLE } from "../balance.js";
 import { MID_GAME_FIXTURE, FIXED_NOW } from "./fixtures.js";
+import { stopsWhere, spinWith } from "../../../test/slots.js";
 
 // ×FAVEUR_ECHELLE : l'échelle de la Faveur (2026-10-04) — une bourse de test qui couvre
 // encore la limite des tables.
@@ -39,27 +40,9 @@ afterEach(() => {
   vi.restoreAllMocks();
 });
 
-// Des arrêts qui donnent une fenêtre voulue (recherche dans un sous-ensemble : 29⁵ est
-// trop grand pour tout parcourir, on balaie les trois premiers rouleaux et on teste
-// quelques arrêts des deux derniers).
-function stopsWhere(pred) {
-  const L = SLOTS_REELS.map((r) => r.length);
-  for (let a = 0; a < L[0]; a += 1) for (let b = 0; b < L[1]; b += 1) for (let c = 0; c < L[2]; c += 1) {
-    for (let d = 0; d < L[3]; d += 3) for (let e = 0; e < L[4]; e += 3) {
-      const st = [a, b, c, d, e];
-      if (pred(slotsEvaluate(slotsWindow(st)), st)) return st;
-    }
-  }
-  return null;
-}
-const rnd = (stops) => stops.map((s, r) => (s + 0.5) / SLOTS_REELS[r].length);
-function spinWith(stops, stake = JETON, tail = [], opts = {}, rest = 0.999) {
-  const seq = [...rnd(stops), ...tail];
-  vi.spyOn(Math, "random").mockImplementation(() => (seq.length ? seq.shift() : rest));
-  const res = spinSlots(stake, opts);
-  Math.random.mockRestore();
-  return res;
-}
+// stopsWhere(pred, known) : des arrêts qui donnent une fenêtre voulue (`known` =
+// arrêts déjà trouvés, revérifiés avant toute recherche) ; spinWith : un tour à ces
+// arrêts. Partagés avec slotsSeriesBonus (src/test/slots.js).
 
 describe("Machine à sous — la machine", () => {
   it("ouvre à la Fonte, pas avant", () => {
@@ -189,7 +172,7 @@ describe("Machine à sous — un tour", () => {
     spinWith(three, LINGOT);
     // La série porte un MONTANT (plus d'id de mise).
     expect(slotsFreeSpins()).toEqual({ left: SLOTS_FREE_SPINS[3], stakeFaveur: LINGOT, won: 0, total: SLOTS_FREE_SPINS[3] });
-    const win = stopsWhere((ev) => ev.lines.length === 1 && ev.lines[0].count === 3 && ev.lines[0].symbol === "bar" && !ev.freeSpins && !ev.wheel && !ev.holdWin);
+    const win = stopsWhere((ev) => ev.lines.length === 1 && ev.lines[0].count === 3 && ev.lines[0].symbol === "bar" && !ev.freeSpins && !ev.wheel && !ev.holdWin, [18, 13, 3, 0, 0]);
     const before = state.faveur;
     const res = spinWith(win, JETON); // le tour gratuit passe AVANT la mise demandée
     expect(res.free).toBe(true);
@@ -198,8 +181,12 @@ describe("Machine à sous — un tour", () => {
     expect(state.faveur).toBe(before + res.faveurGain); // rien n'est débité
     expect(slotsFreeSpins().won).toBe(res.faveurGain);
     state.slotsFreeSpins = null;
-    const four = stopsWhere((ev) => ev.stars === 4 && !ev.wheel && !ev.holdWin);
-    if (four) { spinWith(four, JETON); expect(slotsFreeSpins().left).toBe(SLOTS_FREE_SPINS[4]); }
+    // Exigée, pas « si elle existe » (audit 2026-10-05, TEST-13) : un changement de
+    // rouleaux qui la ferait disparaître rendait cette moitié du test vide, en vert.
+    const four = stopsWhere((ev) => ev.stars === 4 && !ev.wheel && !ev.holdWin, [0, 14, 15, 18, 3]);
+    expect(four, "aucune fenêtre à quatre étoiles sans bonus").toBeTruthy();
+    spinWith(four, JETON);
+    expect(slotsFreeSpins().left).toBe(SLOTS_FREE_SPINS[4]);
   });
 
   it("trois roues : la roue est tirée d'avance, encaissée à sa révélation", () => {

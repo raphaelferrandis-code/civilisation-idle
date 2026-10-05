@@ -16,8 +16,8 @@ import {
 import { tick } from "../actions/tick.js";
 import { canPayCost, payCost, fmt } from "../utils.js";
 import { buildings } from "../../data/buildings.js";
-import { CRISIS_EVENTS } from "../../data/world.js";
 import { MID_GAME_FIXTURE, FIXED_NOW } from "./fixtures.js";
+import { neutralizeCrises } from "../../../test/core.js";
 
 const buildingById = (id) => buildings.find((x) => x.id === id);
 const isSaneDecimal = (value) =>
@@ -35,7 +35,7 @@ beforeEach(() => {
   setState(hydrateState(MID_GAME_FIXTURE));
   // Neutralise les événements de crise : ils ouvrent un dialogue UI
   // (openChoiceDialog) qui n'existe pas en environnement de test.
-  state.crisisThresholds = Object.fromEntries(CRISIS_EVENTS.map((e) => [e.id, true]));
+  neutralizeCrises();
   invalidateRenderCache("all");
 });
 

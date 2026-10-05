@@ -34,6 +34,7 @@ import { toNum, D } from "../num.js";
 import { activateMyth } from "../actions/myths.js";
 import { MYTHS, RAGNAROK_ID } from "../../data/myths.js";
 import { MID_GAME_FIXTURE, FIXED_NOW } from "./fixtures.js";
+import { farmState } from "../../../test/core.js";
 
 describe("§2.1 — Braisiers de Prométhée : migration des saves existantes", () => {
   // La suppression de la ligne fautive ne suffit PAS : tout joueur capable
@@ -914,18 +915,7 @@ describe("§2.3 — Moisson de crise : la pince ne doit pas amputer le gradient"
 });
 
 describe("§2.3 bis — le latch des paliers de crise ne doit pas fuir hors-ligne", () => {
-  const farmState = (overrides = {}) => hydrateState({
-    population: 100000, food: 400000, gold: 200000, knowledge: 30000, infrastructure: 3000,
-    ruins: 5000, cycles: 10, instability: 0.3, timeWear: 0.1,
-    bestEraIndex: 6, cyclePeaks: { population: 120000, knowledge: 35000, infrastructure: 3500, eraIndex: 6 },
-    cycleStartedAt: FIXED_NOW - 2 * 3600 * 1000, lastTick: FIXED_NOW - 2 * 3600 * 1000,
-    buildings: { foragers: 30, granaries_city: 20, caravans: 12, markets: 8, irrigated_fields: 6 },
-    upgrades: { conseil_de_crise: true, edit_effondrement: true },
-    hephHeritage: true,
-    crisisDoctrine: { p25: "stabiliser", p50: "stabiliser", p75: "stabiliser", autoCollapse: { enabled: true, trigger: "temps", timeSeconds: 180, usureThreshold: 0.9, prepare: false } },
-    ...overrides
-  });
-
+  // farmState : la fixture de farm hors-ligne partagée (src/test/core.js).
   beforeEach(() => {
     vi.useFakeTimers();
     vi.setSystemTime(FIXED_NOW);

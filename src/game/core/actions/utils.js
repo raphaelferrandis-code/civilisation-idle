@@ -7,10 +7,11 @@ import { fmt } from '../utils.js';
 import { tr } from '../i18n.js';
 import { REGUL_LEDGER_MAX, FATIGUE_PER_ACTION } from '../balance.js';
 import { pushAnnalsMark } from '../annals.js';
+import { log } from '../log.js';
 
-export function log(message) {
-  state.history = [...(state.history || []), message].slice(-48);
-}
+// `log` vit dans la feuille core/log.js (hors du cycle des actions) ; réexporté ici
+// pour le baril actions.js et les modules qui le prennent dans ./utils.js.
+export { log };
 
 // Registre des édits (onglet Régulation) : chaque acte de régulation y dépose
 // une entrée FACTUELLE — id d'action, foyer, effet réellement appliqué — que

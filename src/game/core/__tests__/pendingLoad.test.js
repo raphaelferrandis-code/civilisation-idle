@@ -105,7 +105,7 @@ describe("SAV-8 — l'emplacement se charge par un rechargement (navigateur)", (
     expect(store.has(PENDING_LOAD_KEY)).toBe(false);
     expect(JSON.parse(store.get(SAVE_KEY)).faveur).toBe(1_000_000);
     expect(g.st.state.saveEpoch?.id).toBeTruthy(); // l'emplacement REMPLACE la partie (SAV-4)
-  }, 60000);
+  });
 
   it("aucune absence créditée : l'emplacement écrit il y a 2 h repart à l'heure du chargement", async () => {
     const store = new Map([[SAVE_KEY, saveText()]]);
@@ -120,7 +120,7 @@ describe("SAV-8 — l'emplacement se charge par un rechargement (navigateur)", (
     const food = g.st.state.food.toString();
     g.main.applyOfflineProgressSafely();
     expect(g.st.state.food.toString()).toBe(food);
-  }, 60000);
+  });
 
   it("import : la partie importée arrive au démarrage, avec sa ligne de Journal ; l'ancienne est gardée de côté", async () => {
     const store = new Map([[SAVE_KEY, saveText({ cityName: "Ici", cycles: 4 })]]);
@@ -134,7 +134,7 @@ describe("SAV-8 — l'emplacement se charge par un rechargement (navigateur)", (
     expect(g.st.state.cityName).toBe("Ailleurs");
     expect(g.st.state.cycles).toBe(99);
     expect(g.st.state.history.at(-1)).toMatch(/importée reprend son cycle/);
-  }, 60000);
+  });
 
   it("stockage plein : refus dit, pas de rechargement, la partie en cours ne bouge pas", async () => {
     const store = new Map([[SAVE_KEY, saveText({ cityName: "Ici" })]]);
@@ -147,7 +147,7 @@ describe("SAV-8 — l'emplacement se charge par un rechargement (navigateur)", (
     expect(g.reload).not.toHaveBeenCalled();
     expect(g.st.state.cityName).toBe("Ici");
     expect(store.has(PENDING_LOAD_KEY)).toBe(false);
-  }, 60000);
+  });
 });
 
 describe("SAV-8 — le démarrage valide la clé en attente", () => {
@@ -161,7 +161,7 @@ describe("SAV-8 — le démarrage valide la clé en attente", () => {
     const g = await boot(store);
     expect(g.st.state.cityName).toBe("Ici");
     expect(store.has(PENDING_LOAD_KEY)).toBe(false);
-  }, 60000);
+  });
 
   it("invalide (pas une save, version plus récente, JSON cassé) : ignorée et consommée", async () => {
     for (const bad of [pending(42), pending({ saveVersion: 99, cityName: "Futur" }), "{tronqué"]) {
@@ -170,7 +170,7 @@ describe("SAV-8 — le démarrage valide la clé en attente", () => {
       expect(g.st.state.cityName).toBe("Ici");
       expect(store.has(PENDING_LOAD_KEY)).toBe(false);
     }
-  }, 60000);
+  });
 
   it("effacement ET chargement en attente : l'effacement (confirmé deux fois) l'emporte", async () => {
     const store = new Map([
@@ -182,7 +182,7 @@ describe("SAV-8 — le démarrage valide la clé en attente", () => {
     expect(g.st.state.cycles).toBe(0);
     expect(store.has(PENDING_LOAD_KEY)).toBe(false);
     expect(store.has(WIPE_KEY)).toBe(false);
-  }, 60000);
+  });
 });
 
 describe("SAV-8 — dans le .exe : le nuage reçoit la partie choisie, pas l'ancienne", () => {
@@ -211,7 +211,7 @@ describe("SAV-8 — dans le .exe : le nuage reçoit la partie choisie, pas l'anc
     g.st.save();
     g.cs.cloudMirrorSave({ flush: true });
     expect(lifeOf(cloud.writes.at(-1))).toBe(640);
-  }, 60000);
+  });
 
   it("nuage illisible au redémarrage : la partie choisie se joue, le nuage n'est pas touché", async () => {
     const cloud = fakeDrive(saveText({ cityName: "Ici" }));
@@ -225,5 +225,5 @@ describe("SAV-8 — dans le .exe : le nuage reçoit la partie choisie, pas l'anc
     expect(g.st.state.cityName).toBe("Emplacement");
     expect(g.cs.cloudSaveStatus()).toBe("unreadable");
     expect(cloud.writes).toEqual([]);
-  }, 60000);
+  });
 });

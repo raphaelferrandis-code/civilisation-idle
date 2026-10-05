@@ -40,7 +40,9 @@ export const GRAIN_FIX = { tenement: 1.1, tower: 1.1, townhouse: 1.1 };
 // que `public/pixelart/agents/buildings/<clé>.png` existe ; le rendu s'en sert
 // pour savoir quoi charger (pas de 404 à l'aveugle) et l'audit pour mesurer.
 // La valeur = le spanSum pour lequel le sprite est CALIBRÉ (6 = empreinte 3).
-// `node scripts/spriteScaleAudit.mjs manifeste` régénère ces lignes.
+// Tenu À LA MAIN : poser un palier = déposer le PNG + ajouter sa ligne ici
+// (PLAN-EGALISATION-GRAIN, vague 1). Aucun script ne régénère ces lignes ;
+// spriteScale.test.js vérifie que chaque clé a son PNG.
 export const PALIER_SPANSUM = {
   'granary-warehouse-grand': 6, 'granary-hall-grand': 6, 'granary-hub-grand': 6,
   'granary-horreum-classical-grand': 6,
@@ -191,13 +193,15 @@ if (typeof window !== 'undefined' && import.meta.env.DEV) {
   };
 }
 
-// ── Constantes de RÉFÉRENCE (sites vifs PAS ENCORE branchés — G1) ───────────
-// Recopies déclaratives des densités éparpillées, consommées par l'audit G0.
-// Un test de garde (spriteScale.test.js) vérifie par lecture du SOURCE que
-// chaque site vif porte toujours cette valeur : si l'un bouge sans l'autre, le
-// test casse. Le lot G1 remplace ces recopies par de vrais imports.
+// ── Constantes de RÉFÉRENCE des densités (G1 : les sites vifs les IMPORTENT) ─
+// Ce module en est la SEULE source : les sites vifs les importent (audit
+// 2026-10-05, TEST-11), l'audit G0 et les scripts (grainBoard, spriteScaleAudit)
+// aussi. Avant, c'étaient des recopies que spriteScale.test.js comparait au
+// TEXTE de chaque site — garde qui cassait sur un reformatage et ne voyait pas un
+// second site recopié (la boîte-lot de isoChute). ⚠ Ce module n'importe rien :
+// layout.js l'importe, un import en retour ferait un cycle.
 export const TILE_REF = 32;         // CM.TILE (layout.js)
-export const HOUSE_LOT_WF = 0.78;   // isoRenderer.js « wpx = (spanX+spanY)·T·z·ISO_X·0.78 »
-export const ENGINE_UNIT_F = 0.72;  // isoRenderer.js « unit = T·z·ISO_X·0.72 » (boîte des scènes moteur)
-export const WONDER_PPT = 34;       // layout.js « WONDER_PPT = 34 » (emprise des merveilles)
-export const COSMIC_TOWER_H = 1.72; // cityEngineSprites.js « __cosmicTowerH) || 1.72 » (tours cosmiques moteur, drawH = H × boîte)
+export const HOUSE_LOT_WF = 0.78;   // boîte-lot des habitations : wpx = (spanX+spanY)·T·z·ISO_X·HOUSE_LOT_WF (isoLivePaint, isoChute)
+export const ENGINE_UNIT_F = 0.72;  // boîte des scènes moteur : unit = T·z·ISO_X·ENGINE_UNIT_F (isoEngineScene)
+export const WONDER_PPT = 34;       // pixels de sprite par tuile de l'emprise des merveilles (layout.js)
+export const COSMIC_TOWER_H = 1.72; // tours cosmiques moteur, drawH = H × boîte (cityEngineSprites, blitCosmicTower)

@@ -9,25 +9,13 @@
 // emprise dans river.cells par construction, waterSide:"S", slot zone:"river").
 import { describe, it, expect } from 'vitest';
 import { computeCityLayout } from '../layout.js';
-import { defaultState } from '../../core/state.js';
-import { D } from '../../core/num.js';
-
-function city(perType) {
-  const s = defaultState();
-  s.cycles = 1;
-  s.mapSeed = 0x51a7c0de;
-  s.population = D('1e18');
-  s.infrastructure = D('1e12');
-  s.knowledge = D('1e12');
-  for (const k of Object.keys(s.buildings)) s.buildings[k] = perType;
-  return s;
-}
+import { cityState as city } from '../../../test/city.js';
 
 const millTiles = (L) => L.tiles.filter((t) => t.buildingId === 'water_mills');
 
-// Layouts denses complets à froid : frôlent le testTimeout vitest par défaut
-// (5 s) sous contention de suite. Gardes d'invariant, pas de perf : marge.
-const SLOW = 20000;
+// Layouts denses complets à froid : ils frôlaient le délai par défaut de vitest
+// (5 s) sous contention de suite. Gardes d'invariant, pas de perf : le délai global
+// de vite.config.js (relevé pour la CI) suffit (audit 2026-10-05, TEST-14).
 
 describe('moulins à vent — des moteurs terrestres comme les autres', () => {
   it('aucune cellule d\'emprise sur l\'eau ni la berge, pas de bord mouillé', () => {
@@ -48,7 +36,7 @@ describe('moulins à vent — des moteurs terrestres comme les autres', () => {
         }
       }
     }
-  }, SLOW);
+  });
 
   it('un vieux slot riverain est ignoré et réécrit au format terrestre', () => {
     // Les saves d'avant la refonte gardent un slot de moulin RELATIF AU FLEUVE
@@ -70,5 +58,5 @@ describe('moulins à vent — des moteurs terrestres comme les autres', () => {
     const slot = s.cityMapSlots['1:water_mills:0'];
     expect(slot, 'slot de halle non réécrit').toBeTruthy();
     expect(slot.zone).not.toBe('river');
-  }, SLOW);
+  });
 });

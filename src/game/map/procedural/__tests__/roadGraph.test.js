@@ -1,52 +1,14 @@
 import { describe, it, expect } from "vitest";
 
 import { generateRoadsGraph, trimDemandlessRoads } from "../roadGraph.js";
+import { makeRoadInputs } from "../../../../test/roads.js";
 
 const ARCHETYPES = ["scattered", "crossroads", "linear", "radial", "districts", "capital", "megalopolis"];
 
-// organicLimit synthétique : un disque de rayon R autour du cœur. Suffit pour
-// éprouver le builder en isolation (connexité, déterminisme, monotonie, étendue).
-function diskLimit(core, R) {
-  return (x, y, m = 0) => Math.hypot(x - core.x, y - core.y) <= R + m;
-}
-
-// Construit un jeu d'entrées déterministe pour un archétype et une bande d'ère.
-// Les ancres sont CUMULATIVES (band 0..eraBand) comme dans cityPlan.buildAnchors,
-// pour pouvoir tester la croissance monotone.
-function makeInputs(archetype, eraBand, { R = 22, withRiver = false } = {}) {
-  const N = 64;
-  const core = { x: 32, y: 26 };
-  const anchors = [];
-  for (let band = 0; band <= eraBand; band += 1) {
-    const n = band === 0 ? 1 : band <= 2 ? 2 : 3;
-    for (let i = 0; i < n; i += 1) {
-      const ang = (anchors.length * 1.7) % (Math.PI * 2);
-      const dist = R * (0.4 + 0.12 * (anchors.length % 4));
-      anchors.push({
-        label: `${band}-${i}`, band,
-        gx: Math.round(core.x + Math.cos(ang) * dist),
-        gy: Math.round(core.y + Math.sin(ang) * dist),
-        r: 3.5, strength: 1
-      });
-    }
-  }
-  const riverSet = new Set();
-  if (withRiver) {
-    // Bande d'eau horizontale au sud du cœur, dans la portée du disque.
-    for (let x = 0; x < N; x += 1) for (let y = 40; y <= 42; y += 1) riverSet.add(x + "," + y);
-  }
-  return {
-    plan: { archetype, core, reachBase: R, anchors, plazas: [], chaos: 0, order: 1 },
-    seed: 0xC0FFEE,
-    counts: { eraBand, infraRings: Math.min(4, eraBand), urbanTier: eraBand * 2 },
-    ageCfg: { roadRanks: { main: eraBand >= 1, avenue: eraBand >= 2, secondary: true, path: true } },
-    N,
-    riverSet,
-    bankSet: new Set(),
-    riverBridgeX: core.x + 4,
-    organicLimit: diskLimit(core, R)
-  };
-}
+// Un jeu d'entrées déterministe pour un archétype et une bande d'ère, à la géométrie
+// de référence (sans grain) : ancres CUMULATIVES comme dans cityPlan.buildAnchors,
+// pour pouvoir tester la croissance monotone (harnais partagé, src/test/roads.js).
+const makeInputs = (archetype, eraBand, opts) => makeRoadInputs(archetype, eraBand, null, opts);
 
 // Composantes orthogonalement connexes d'un ensemble de clés "gx,gy".
 function components(roadKey) {

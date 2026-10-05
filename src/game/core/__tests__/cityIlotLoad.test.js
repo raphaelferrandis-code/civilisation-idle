@@ -31,5 +31,5 @@ describe("chargement d'une sauvegarde à îlots", () => {
       v: 1, blocks: ["0:0", "-1:0", "0:-1"], plazas: { "-1:0": "centrale" },
       halls: { "1:guilds:0": "0:-1" }, annexes: { "1:guilds:3": [4, -7] },
     });
-  }, 60000);
+  });
 });

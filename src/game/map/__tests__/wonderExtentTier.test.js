@@ -17,8 +17,10 @@ import {
 } from '../layout.js';
 import { wonderKitForBand } from '../iso/wonderKits.js';
 import * as WB from '../iso/wonderBake.js';
+// La constante de layout.js elle-même, pas une recopie à synchroniser (audit
+// 2026-10-05, TEST-12).
+import { WONDER_PPT } from '../spriteScale.js';
 
-const WONDER_PPT = 34;          // doit rester synchronisé avec layout.js
 const T = 32;
 const DRY = CM_WONDERS.map((w) => w.id).filter((id) => id !== 'era_mega');
 const RECIPE = {

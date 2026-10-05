@@ -21,9 +21,9 @@ import { epitaphLegacyEffect } from "../mechanics/production/mythEffects.js";
 import { completeCollapse } from "../actions/crisis.js";
 import { epitaphLegacyById, epitaphLegacyChips } from "../../data/epitaphs.js";
 import { D } from "../num.js";
-import { CRISIS_EVENTS } from "../../data/world.js";
 import { toNum } from "../num.js";
 import { MID_GAME_FIXTURE, FIXED_NOW } from "./fixtures.js";
+import { neutralizeCrises, farmState } from "../../../test/core.js";
 
 beforeEach(() => {
   vi.useFakeTimers();
@@ -39,12 +39,9 @@ afterEach(() => {
 });
 
 describe("legs d'épitaphe — tout le cycle", () => {
-  // Neutralise les crises narratives (dialogues async) pendant les ticks du test.
-  const markAllThresholds = () =>
-    (state.crisisThresholds = Object.fromEntries(CRISIS_EVENTS.map((e) => [e.id, true])));
-
   it("un legs gravé il y a 3 h agit encore, et le tick ne le consomme jamais", () => {
-    markAllThresholds();
+    // Neutralise les crises narratives (dialogues async) pendant le tick du test.
+    neutralizeCrises();
     state.activeEpitaphLegacy = { id: "granaries", cause: "famine", chosenCycle: 3, startedAt: FIXED_NOW - 3 * 3600 * 1000 };
     expect(activeEpitaphLegacy()?.definition.id).toBe("granaries");
     tick(1);
@@ -105,22 +102,10 @@ describe("epitaphLegacyChips — renfort d'affinité matérialisé", () => {
 });
 
 describe("farm hors-ligne — la dernière volonté est re-gravée à l'identique", () => {
-  // Même fixture de farm que crisisDoctrine.test.js : cycle déjà vieux de 2 h et
+  // La fixture de farm partagée (FARM_FIXTURE) : cycle déjà vieux de 2 h et
   // déclencheur "temps" à 180 s → l'effondrement part au premier pas de 10 s, sur
   // un état PRÉ-effondrement identique d'un run à l'autre. 60 s d'absence = un
   // seul effondrement, donc le gain isole exactement le multiplicateur du legs.
-  const farmState = (overrides = {}) => hydrateState({
-    population: 100000, food: 400000, gold: 200000, knowledge: 30000, infrastructure: 3000,
-    ruins: 5000, cycles: 10, instability: 0.3, timeWear: 0.1,
-    bestEraIndex: 6, cyclePeaks: { population: 120000, knowledge: 35000, infrastructure: 3500, eraIndex: 6 },
-    cycleStartedAt: FIXED_NOW - 2 * 3600 * 1000, lastTick: FIXED_NOW - 2 * 3600 * 1000,
-    buildings: { foragers: 30, granaries_city: 20, caravans: 12, markets: 8, irrigated_fields: 6 },
-    upgrades: { conseil_de_crise: true, edit_effondrement: true },
-    hephHeritage: true,
-    crisisDoctrine: { p25: "stabiliser", p50: "stabiliser", p75: "stabiliser", autoCollapse: { enabled: true, trigger: "temps", timeSeconds: 180, usureThreshold: 0.9, prepare: false } },
-    ...overrides
-  });
-
   const offlineRuinsGained = (overrides) => {
     setState(farmState(overrides));
     invalidateRenderCache("all");

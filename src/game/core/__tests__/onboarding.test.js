@@ -9,7 +9,7 @@
 
 import { describe, it, expect, beforeEach } from "vitest";
 
-import { state, setState, defaultState, hydrateState, GR_PERSISTENT_FIELDS } from "../state.js";
+import { state, setState, defaultState, GR_PERSISTENT_FIELDS } from "../state.js";
 import {
   ONBOARDING_STEPS,
   ONBOARDING_PRESSURE_THRESHOLD,
@@ -18,8 +18,7 @@ import {
   refreshOnboarding,
   isFirstGame
 } from "../onboarding.js";
-
-const roundTrip = (s) => hydrateState(JSON.parse(JSON.stringify(s)));
+import { roundTrip } from "../../../test/core.js";
 
 beforeEach(() => { setState(defaultState()); });
 

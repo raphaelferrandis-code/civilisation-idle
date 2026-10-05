@@ -10,8 +10,13 @@ import * as WB from '../iso/wonderBake.js';
 import { wonderKitForBand } from '../iso/wonderKits.js';
 import { placePlan, gardenPlan, bakePlaceGround, bakeDecor } from '../iso/wonderPlace.js';
 import { cmWonderSpriteDims, CM_WONDERS } from '../layout.js';
+import { WONDER_PPT as PPT } from '../spriteScale.js';
+import { opaqueCount as opaque } from '../../../test/pixels.js';
 
-const T = 32, PPT = 34;
+// PPT : pixels de sprite par tuile de l'emprise des merveilles — LA constante
+// qu'emploie layout.js, tenue par spriteScale.js (audit 2026-10-05, TEST-12 : le
+// test recopiait 34).
+const T = 32;
 const RECIPE = {
   dynasty1: 'bakeMausoleum', pop1m: 'bakeColumn', era_kingdom: 'bakePalace',
   era_empire: 'bakeCathedral', era_mega: 'bakeNeedle', era_singularity: 'bakeEye',
@@ -26,7 +31,6 @@ const bake = (id, t, band, winter = false) => {
   const { B, H } = dims(id, t);
   return WB[RECIPE[id]](wonderKitForBand(band, winter), t, B, H);
 };
-const opaque = (R) => { let n = 0; for (let i = 3; i < R.data.length; i += 4) if (R.data[i]) n += 1; return n; };
 // Pixels encore marqués pour la nuit (vitre 254, lumière 253) : nightOf les remet à 255.
 const marks = (R) => { let n = 0; for (let i = 3; i < R.data.length; i += 4) if (R.data[i] === 253 || R.data[i] === 254) n += 1; return n; };
 const hash = (R) => { let h = 2166136261; for (let i = 0; i < R.data.length; i += 1) h = Math.imul(h ^ R.data[i], 16777619); return h >>> 0; };

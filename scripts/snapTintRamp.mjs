@@ -20,10 +20,13 @@
 // recopie, sinon l'outil pourrait « réparer » vers des couleurs périmées.
 import fs from 'fs';
 import path from 'path';
+import { fileURLToPath } from 'url';
 import { PNG } from 'pngjs';
 import { HOUSE_TINTS, HOUSE_FAMILY, COULEURS_PROTEGEES } from '../src/game/map/housePalette.js';
 
-const ROOT = path.resolve(path.dirname(new URL(import.meta.url).pathname.replace(/^\/([A-Za-z]:)/, '$1')), '..');
+// fileURLToPath, PAS url.pathname : les espaces du chemin y restent en %20 →
+// répertoire fantôme « Civilisation%20idle » et ENOENT (audit 2026-10-05, SCRIPT-3).
+const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const DIR = path.join(ROOT, 'public', 'pixelart', 'houses');
 
 const args = process.argv.slice(2);

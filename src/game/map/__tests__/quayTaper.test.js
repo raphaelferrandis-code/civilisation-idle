@@ -1,7 +1,13 @@
-import { describe, expect, it } from 'vitest';
-import fs from 'node:fs';
-import path from 'node:path';
+import { describe, expect, it, vi } from 'vitest';
 import { quayTaperProfile } from '../iso/isoQuay.js';
+
+// Ce qu'isoRiver pousse au quai (cf. « clapotis des quais » plus bas) : le vrai
+// setQuayWave, observé au passage.
+const pushed = vi.hoisted(() => ({ fn: null }));
+vi.mock('../iso/isoQuay.js', async (importOriginal) => {
+  const mod = await importOriginal();
+  return { ...mod, setQuayWave: (fn) => { pushed.fn = fn; return mod.setQuayWave(fn); } };
+});
 
 // LA FIN DU QUAI SUR UNE GRÈVE (2026-10-02, retour Raph : la pointe du quai sur la
 // plage du port « ne rend pas bien et fait buguer le reflet »). Le profil
@@ -49,12 +55,14 @@ describe('profil d\'effilement du quai', () => {
 // LE CLAPOTIS AU PIED DU MUR (2026-10-03) bat sur l'onde du fleuve, que isoRiver lui
 // POUSSE (setQuayWave) : isoRiver importe déjà isoQuay (quayTaperProfile), et l'import
 // inverse ferait un cycle de modules — une zone morte à l'import, piège déjà payé deux
-// fois sur ce chantier (cf. isoRiverLife).
+// fois sur ce chantier (cf. isoRiverLife). L'interdiction de cet import est une règle
+// ESLint (no-restricted-imports sur isoQuay.js, eslint.config.js) depuis l'audit
+// 2026-10-05 (TEST-11) : le test lisait le texte des deux sources, au guillemet près.
 describe('clapotis des quais', () => {
-  it("reçoit l'onde du fleuve sans importer isoRiver (pas de cycle)", () => {
-    const src = fs.readFileSync(path.join(process.cwd(), 'src/game/map/iso/isoQuay.js'), 'utf8');
-    expect(src).not.toMatch(/from ['"]\.\/isoRiver\.js['"]/);
-    const riv = fs.readFileSync(path.join(process.cwd(), 'src/game/map/iso/isoRiver.js'), 'utf8');
-    expect(riv).toMatch(/setQuayWave\(/);
+  it("isoRiver pousse son onde au quai dès son chargement", async () => {
+    await import('../iso/isoRiver.js');
+    expect(typeof pushed.fn, "isoRiver n'a pas branché l'onde du quai").toBe('function');
+    // Hors fleuve (aucun layout), l'onde se tait au lieu de lever.
+    expect(pushed.fn(0, 1)).toBeNull();
   });
 });

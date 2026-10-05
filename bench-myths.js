@@ -16,7 +16,8 @@
 import fs from "fs";
 
 // --- Stubs DOM (avant imports jeu) -----------------------------------------
-global.window = {};
+// addEventListener : cloudSave.js s'abonne à `pagehide` dès l'import (SCRIPT-1).
+global.window = { addEventListener() {}, removeEventListener() {} };
 global.localStorage = { getItem() { return null; }, setItem() {} };
 Object.defineProperty(global, "navigator", { value: { clipboard: { writeText() {} } }, writable: true, configurable: true });
 const stubEl = () => ({ className: "", dataset: {}, innerHTML: "", textContent: "", disabled: false, value: "", checked: false, style: {}, classList: { add() {}, remove() {}, toggle() {}, contains() { return false; } }, addEventListener() {}, setAttribute() {}, showModal() {}, remove() {}, click() {}, appendChild() {}, querySelector() { return stubEl(); }, querySelectorAll() { return []; } });

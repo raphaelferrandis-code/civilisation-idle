@@ -9,12 +9,11 @@
 
 import { describe, it, expect, beforeEach } from "vitest";
 
-import { state, setState, defaultState, hydrateState, GR_PERSISTENT_FIELDS } from "../state.js";
+import { state, setState, defaultState, GR_PERSISTENT_FIELDS } from "../state.js";
 import { Decimal } from "../num.js";
 import { refreshBuildingReveal, isUnlocked } from "../mechanics.js";
 import { buildings } from "../../data/buildings.js";
-
-const roundTrip = (s) => hydrateState(JSON.parse(JSON.stringify(s)));
+import { roundTrip } from "../../../test/core.js";
 
 beforeEach(() => { setState(defaultState()); });
 

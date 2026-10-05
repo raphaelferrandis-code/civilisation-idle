@@ -1,7 +1,9 @@
 "use strict";
 
 import { state } from '../core/state.js';
-import { log } from '../core/actions.js';
+// `log` depuis la FEUILLE core/log.js, jamais depuis le baril actions.js : ce lien
+// fermait le cycle mechanics → myths → actions → templeAutomation (STRUCT-1).
+import { log } from '../core/log.js';
 import { D } from '../core/num.js';
 import { tr, localizeData } from '../core/i18n.js';
 import { buildings } from './buildings.js';

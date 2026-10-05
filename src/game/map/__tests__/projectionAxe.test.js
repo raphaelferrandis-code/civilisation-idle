@@ -8,30 +8,80 @@
 //
 // Depuis la refonte du pont (2026-10-01, docs/PLAN-PONTS.md) le tablier est PLAT, au ras
 // de la route : plus aucun traverseur n'est soulevé.
-import { describe, it, expect } from 'vitest';
+//
+// ⚠ Gardes de RÉSULTAT depuis l'audit 2026-10-05 (TEST-11) : elles lisaient la signature
+// et la formule dans le TEXTE de projection.js, au caractère près — un reformatage les
+// cassait sans que rien ne change. Le terrain est simulé (un relief connu par case) :
+// on vérifie ce que la projection REND, avec et sans altitude.
+import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import fs from 'node:fs';
 import path from 'node:path';
+import { CM } from '../layout.js';
+import { worldToScreen, ISO_X, ISO_Y } from '../iso/projection.js';
+
+// Le relief simulé : nul tant que `relief.on` est faux (TERRAIN.amp = 0 en jeu).
+const relief = { on: false };
+const fakeZ = (wx, wy) => (relief.on ? ((wx * 3 + wy * 5) % 11) + 1 : 0);
+vi.mock('../iso/isoTerrain.js', async (importOriginal) => ({
+  ...(await importOriginal()),
+  terrainZ: (wx, wy) => fakeZ(wx, wy),
+}));
 
 const SRC = (f) => fs.readFileSync(path.join(__dirname, '..', f), 'utf8');
+const PTS = [[0, 0], [64, 32], [-96, 160], [17, 5]];
+
+let saved;
+beforeEach(() => {
+  saved = { cam: CM.cam, cw: CM.cw, ch: CM.ch };
+  Object.assign(CM, { cam: { x: 40, y: -24, zoom: 2 }, cw: 800, ch: 600 });
+});
+afterEach(() => {
+  Object.assign(CM, saved);
+  relief.on = false;
+});
 
 describe('projection — le troisième axe', () => {
   it('est un NO-OP quand personne ne passe d altitude', () => {
     // Les appels qui ignorent le 3e argument rendent exactement ce qu'ils rendaient
-    // avant l'axe.
-    const src = SRC('iso/projection.js');
-    expect(src).toMatch(/export function worldToScreen\(wx, wy, wz = 0\)/);
-    // Depuis la v2 du relief (2026-08-24), LE TERRAIN passe par l'axe DANS la
-    // formule : terrainZ rend 0 à TERRAIN.amp = 0 — le no-op reste garanti par
-    // la molette, plus par l'absence de terrain.
-    expect(src).toMatch(/- \(wz \+ terrainZ\(wx, wy\)\) \* z/);
+    // avant l'axe : le losange plan.
+    const z = CM.cam.zoom;
+    for (const [wx, wy] of PTS) {
+      const dx = wx - CM.cam.x, dy = wy - CM.cam.y;
+      expect(worldToScreen(wx, wy)).toEqual({ x: (dx - dy) * ISO_X * z + CM.cw / 2, y: (dx + dy) * ISO_Y * z + CM.ch / 2 });
+      expect(worldToScreen(wx, wy, 0)).toEqual(worldToScreen(wx, wy));
+    }
+  });
+
+  it('une altitude ne fait que MONTER le point, de wz × zoom', () => {
+    const z = CM.cam.zoom;
+    for (const [wx, wy] of PTS) {
+      const sol = worldToScreen(wx, wy), haut = worldToScreen(wx, wy, 7);
+      expect(haut.x).toBe(sol.x);
+      expect(haut.y).toBeCloseTo(sol.y - 7 * z, 9);
+    }
+  });
+
+  it('le TERRAIN passe par le même axe, ajouté à l altitude demandée', () => {
+    // Depuis la v2 du relief (2026-08-24) le terrain entre DANS la formule : terrainZ
+    // rend 0 à TERRAIN.amp = 0 — le no-op reste garanti par la molette.
+    const z = CM.cam.zoom;
+    const plat = PTS.map(([wx, wy]) => worldToScreen(wx, wy, 3));
+    relief.on = true;
+    PTS.forEach(([wx, wy], i) => {
+      const p = worldToScreen(wx, wy, 3);
+      expect(p.x).toBe(plat[i].x);
+      expect(p.y).toBeCloseTo(plat[i].y - fakeZ(wx, wy) * z, 9);
+    });
   });
 });
 
+// Un symbole RETIRÉ qui ne doit pas revenir : aucun test de résultat ne voit une
+// retouche qui n'existe plus. Lu dans le source, mais sans dépendre de sa mise en forme.
 describe('pont — tablier plat, plus de lift', () => {
   it('aucun peintre ne soulève les traverseurs, ni par l axe ni après coup', () => {
     for (const f of ['iso/isoUnits.js', 'agents.js', 'iso/isoBridge.js']) {
       expect(SRC(f)).not.toMatch(/bridgeLift/);
-      expect(SRC(f)).not.toMatch(/\.y -= bridge/);
+      expect(SRC(f)).not.toMatch(/\.y\s*-=\s*bridge/);
     }
   });
 });

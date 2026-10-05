@@ -14,6 +14,9 @@
 import { describe, it, expect } from "vitest";
 import fs from "node:fs";
 import { PNG } from "pngjs";
+// Luminance Rec.709, celle de tous les tests (scripts/snowTrees.mjs mesure en
+// Rec.601) : l'assombrissement des arbres d'hiver vaut au moins 13,7 % dans les deux.
+import { lum } from "../../../test/pixels.js";
 
 const DIR = new URL("../../../../public/pixelart/iso/", import.meta.url);
 // La famille d'arbres (docs/PLAN-VEGETATION.md, lot 1) est lue dans son manifeste,
@@ -25,7 +28,6 @@ const NAMES = [...new Set([
   "bush-1", "bush-2", "bush-3", "bush-4", "bush-5", "bush-6",
 ])];
 const read = (name) => PNG.sync.read(fs.readFileSync(new URL(name + ".png", DIR)));
-const lum = (r, g, b) => 0.299 * r + 0.587 * g + 0.114 * b;
 
 // Rampe de neige du SOL d'hiver (fetchGroundTiles, tons dominants de
 // iso-grass-winter-*). Deux matières enneigées qui ne partagent pas leur blanc

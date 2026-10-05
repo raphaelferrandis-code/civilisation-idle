@@ -7,8 +7,7 @@
 // mais alignés en rangées au bord des champs.
 import { describe, it, expect } from 'vitest';
 import { computeCityLayout, cmTerroirParcels } from '../layout.js';
-import { defaultState } from '../../core/state.js';
-import { D } from '../../core/num.js';
+import { cityState as city } from '../../../test/city.js';
 import { bakeMillTower, bakeMillSails, bakeMillBarn, bakeMillGround, millKind, MILL_FRAMES } from '../iso/millBake.js';
 import { bakeFieldParcel } from '../iso/fieldBake.js';
 import { wonderKitForBand } from '../iso/wonderKits.js';
@@ -45,17 +44,6 @@ describe('terroir — un moulin et un champ par ère', () => {
   });
 });
 
-function city(perType) {
-  const s = defaultState();
-  s.cycles = 1;
-  s.mapSeed = 0x51a7c0de;
-  s.population = D('1e18');
-  s.infrastructure = D('1e12');
-  s.knowledge = D('1e12');
-  for (const k of Object.keys(s.buildings)) s.buildings[k] = perType;
-  return s;
-}
-const SLOW = 20000;
 const fieldsOf = (L) => L.tiles.filter((t) => t.buildingId === 'irrigated_fields');
 const millsOf = (L) => L.tiles.filter((t) => t.buildingId === 'water_mills');
 function cellsOf(tiles) {
@@ -107,7 +95,7 @@ describe('terroir — sur la carte', () => {
     // Dans l'herbe : aucune cellule de parcelle n'est du sol de ville.
     const paved = [...cells].filter((k) => L.urbanSet.has(k));
     expect(paved).toEqual([]);
-  }, SLOW);
+  });
 
   it('tous les moulins au bord du terroir, jamais jointifs', () => {
     const L = computeCityLayout(city(60));
@@ -136,7 +124,7 @@ describe('terroir — sur la carte', () => {
         expect(d, `moulins jointifs @${at[i].gx},${at[i].gy} / @${at[j].gx},${at[j].gy}`).toBeGreaterThanOrEqual(2);
       }
     }
-  }, SLOW);
+  });
 
   it('un ancien slot de moulin « semé dans le faubourg » n\'est pas repris', () => {
     const s = city(60);
@@ -148,12 +136,12 @@ describe('terroir — sur la carte', () => {
     expect(m3, 'moulin nº 3 absent').toBeTruthy();
     expect(m3.rural).toBe(true);
     expect(s.cityMapSlots['1:water_mills:3'].zone).toBe('terroir');
-  }, SLOW);
+  });
 
   it('le terroir est stable d\'un calcul à l\'autre (slots repris)', () => {
     const s = city(60);
     const a = fieldsOf(computeCityLayout(s)).map((t) => [t.gx, t.gy, t.spanX, t.spanY].join(':')).sort();
     const b = fieldsOf(computeCityLayout(s)).map((t) => [t.gx, t.gy, t.spanX, t.spanY].join(':')).sort();
     expect(b).toEqual(a);
-  }, SLOW);
+  });
 });

@@ -40,8 +40,8 @@ function ecartMin(points) {
   return d;
 }
 
-// Layouts denses complets à froid : frôlent le testTimeout vitest par défaut.
-const SLOW = 20000;
+// Layouts denses complets à froid : le délai global de vite.config.js (relevé
+// pour la CI) leur suffit, sans délai propre (audit 2026-10-05, TEST-14).
 
 describe('points d\'eau — semés dans la ville, jamais au bord de l\'eau', () => {
   it('deux points d\'eau ne se touchent jamais, même en diagonale', () => {
@@ -54,7 +54,7 @@ describe('points d\'eau — semés dans la ville, jamais au bord de l\'eau', () 
     // c'est « jamais collés » qu'on verrouille, pas la valeur réglée. Régler
     // l'écart de 5 à 4 ne doit pas rougir ; un retour à des puits jointifs, si.
     expect(ecartMin(pts), 'des points d\'eau collés').toBeGreaterThan(2);
-  }, SLOW);
+  });
 
   it('la mesure d\'écartement sait rougir', () => {
     // CONTRÔLE NÉGATIF. Sans lui, la garde ci-dessus ne prouve rien : une mesure
@@ -80,7 +80,7 @@ describe('points d\'eau — semés dans la ville, jamais au bord de l\'eau', () 
       expect(L.river.banks.has(k), `point d'eau @${k} : sur la berge`).toBe(false);
       expect(t.waterEnd, `point d'eau @${k} : garde une prise d'eau`).toBeUndefined();
     }
-  }, SLOW);
+  });
 
   it('chacun tient sur UNE cellule, quel que soit l\'investissement', () => {
     // La conduite s'étirait sur 3 à 10 cellules avec le niveau. Le compteur ne
@@ -93,5 +93,5 @@ describe('points d\'eau — semés dans la ville, jamais au bord de l\'eau', () 
         expect(t.spanY || t.size || 1, `${n} achats : emprise en Y`).toBe(1);
       }
     }
-  }, SLOW);
+  });
 });

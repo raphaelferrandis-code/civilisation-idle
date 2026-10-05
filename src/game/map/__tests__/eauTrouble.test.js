@@ -11,6 +11,7 @@ import fs from "node:fs";
 import path from "node:path";
 import { PNG } from "pngjs";
 import { WATER_SHEETS } from "../iso/isoRiver.js";
+import { lumOf } from "../../../test/pixels.js";
 
 const read = (src) => PNG.sync.read(fs.readFileSync(path.join(process.cwd(), "public", src)));
 const rgb = (p, i) => `${p.data[i * 4]},${p.data[i * 4 + 1]},${p.data[i * 4 + 2]}`;
@@ -64,7 +65,7 @@ describe("l'eau trouble de la cité en ruine", () => {
   });
 
   it("`pale` est l'éclat de SA bande (la teinte la plus claire)", () => {
-    const lum = (s) => { const [r, g, b] = s.split(",").map(Number); return 0.2126 * r + 0.7152 * g + 0.0722 * b; };
+    const lum = (s) => lumOf(s.split(",").map(Number));
     const teintes = new Set();
     for (let i = 0; i < trouble.width * trouble.height; i += 1) teintes.add(rgb(trouble, i));
     const plusClaire = [...teintes].sort((a, b) => lum(b) - lum(a))[0];

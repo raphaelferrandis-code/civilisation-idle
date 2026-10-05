@@ -2,6 +2,7 @@ import { describe, it, expect } from "vitest";
 
 import { cmBuildRoadGraph } from "../layout.js";
 import { generateRoadsGraph } from "../procedural/roadGraph.js";
+import { makeRoadInputs } from "../../../test/roads.js";
 
 // « Routes solitaires » (retour Raph 2026-07-16) : le réseau était connexe par
 // CELLULES (stitchComponents) mais pas toujours par AXES MUTUELS (shouldConnect
@@ -13,40 +14,9 @@ import { generateRoadsGraph } from "../procedural/roadGraph.js";
 
 const ARCHETYPES = ["scattered", "crossroads", "linear", "radial", "districts", "capital", "megalopolis"];
 
-function diskLimit(core, R) {
-  return (x, y, m = 0) => Math.hypot(x - core.x, y - core.y) <= R + m;
-}
-
-// Harnais jumeau de roadGraph.test.js, avec un GRAIN par seed (les ancres
+// Harnais partagé avec roadGraph.test.js, avec un GRAIN par seed (les ancres
 // tournent) pour balayer des géométries variées.
-function makeInputs(archetype, eraBand, seed, { R = 22, withRiver = false } = {}) {
-  const N = 64;
-  const core = { x: 32, y: 26 };
-  const anchors = [];
-  for (let band = 0; band <= eraBand; band += 1) {
-    const n = band === 0 ? 1 : band <= 2 ? 2 : 3;
-    for (let i = 0; i < n; i += 1) {
-      const ang = (anchors.length * 1.7 + seed * 0.61) % (Math.PI * 2);
-      const dist = R * (0.4 + 0.12 * (anchors.length % 4));
-      anchors.push({
-        label: `${band}-${i}`, band,
-        gx: Math.round(core.x + Math.cos(ang) * dist),
-        gy: Math.round(core.y + Math.sin(ang) * dist),
-        r: 3.5, strength: 1,
-      });
-    }
-  }
-  const riverSet = new Set();
-  if (withRiver) for (let x = 0; x < N; x += 1) for (let y = 40; y <= 42; y += 1) riverSet.add(x + "," + y);
-  return {
-    plan: { archetype, core, reachBase: R, anchors, plazas: [], chaos: 0, order: 1 },
-    seed,
-    counts: { eraBand, infraRings: Math.min(4, eraBand), urbanTier: eraBand * 2 },
-    ageCfg: { roadRanks: { main: eraBand >= 1, avenue: eraBand >= 2, secondary: true, path: true } },
-    N, riverSet, bankSet: new Set(), riverBridgeX: core.x + 4,
-    organicLimit: diskLimit(core, R),
-  };
-}
+const makeInputs = makeRoadInputs;
 
 // Composantes du graphe FINAL par arcs de MASQUES (la connexité que voit le
 // joueur : bras des rubans + pas des agents).
@@ -74,9 +44,9 @@ function maskComponents(roadMap) {
   return comps.sort((a, b) => b.length - a.length);
 }
 
-// 105 générations complètes : frôle le testTimeout vitest par défaut (5 s) sous
-// contention de suite. Garde d'invariant, pas de performance : marge explicite.
-const SLOW = 20000;
+// 105 générations complètes : le délai par défaut de vitest (5 s) était frôlé sous
+// contention de suite. Garde d'invariant, pas de performance : le délai global de
+// vite.config.js (relevé pour la CI) suffit (audit 2026-10-05, TEST-14).
 
 describe("cmBuildRoadGraph — réparation des coutures de masques", () => {
   it("le graphe final = UNE composante par masques (terre), toutes recettes", () => {
@@ -95,7 +65,7 @@ describe("cmBuildRoadGraph — réparation des coutures de masques", () => {
         }
       }
     }
-  }, SLOW);
+  });
 
   it("avec fleuve : une seule composante par masques après validation des ponts", () => {
     for (const A of ARCHETYPES) {
@@ -116,7 +86,7 @@ describe("cmBuildRoadGraph — réparation des coutures de masques", () => {
         expect(comps.length, `${A}/s${seed}: fragments par masques (fleuve)`).toBe(1);
       }
     }
-  }, SLOW);
+  });
 
   it("les tampons de réparation restent hors de l'eau (sémantique de pont droit)", () => {
     for (let seed = 1; seed <= 5; seed += 1) {
@@ -139,5 +109,5 @@ describe("cmBuildRoadGraph — réparation des coutures de masques", () => {
         }
       }
     }
-  }, SLOW);
+  });
 });

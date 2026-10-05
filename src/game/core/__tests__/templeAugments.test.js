@@ -42,26 +42,15 @@ import {
   TEMPLE_POT_RECYCLE, BLACKJACK_RTP_REF, FAVEUR_ECHELLE, MAISON_RANKS } from "../balance.js";
 import { MID_GAME_FIXTURE, FIXED_NOW } from "./fixtures.js";
 import { recettesPerHour } from "../actions/maisonTable.js";
+// payRoundAt : prévoir un gain sous Math.random piloté ; withRandom : piloter
+// Math.random (aux osselets : l'issue, le carré de six si Vénus, les os, puis
+// l'arrondi du gain).
+import { payRoundAt, withRandom } from "../../../test/core.js";
 
 // ×FAVEUR_ECHELLE : l'échelle de la Faveur (2026-10-04) — une bourse de test qui couvre
 // encore la limite des tables.
 const FAVEUR_START = 5000 * FAVEUR_ECHELLE;
 const C = (rank, suit = "olive") => ({ rank, suit });
-
-// payRound(x) = floor(x), +1 si le tirage u tombe sous la partie fractionnaire.
-const payRoundAt = (x, u) => Math.floor(x) + (u < x - Math.floor(x) ? 1 : 0);
-
-// Pilote Math.random : les valeurs de `seq` dans l'ordre, puis `rest` pour le reste
-// (aux osselets : l'issue, le carré de six si Vénus, les os, puis l'arrondi du gain).
-function withRandom(seq, rest, fn) {
-  const queue = [...seq];
-  const spy = vi.spyOn(Math, "random").mockImplementation(() => (queue.length ? queue.shift() : rest));
-  try {
-    return fn();
-  } finally {
-    spy.mockRestore();
-  }
-}
 
 beforeEach(() => {
   vi.useFakeTimers();

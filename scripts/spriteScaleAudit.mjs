@@ -13,10 +13,13 @@
 // Lecture seule sur les PNG ; n'ecrit que dans scripts/data/.
 import fs from 'fs';
 import path from 'path';
+import { fileURLToPath } from 'url';
 import { PNG } from 'pngjs';
 import { houseScaleK, HOUSE_LOT_WF, ENGINE_UNIT_F, TILE_REF, COSMIC_TOWER_H, PALIER_SPANSUM, palierHFrac } from '../src/game/map/spriteScale.js';
 
-const ROOT = path.resolve(path.dirname(new URL(import.meta.url).pathname.replace(/^\/([A-Za-z]:)/, '$1')), '..');
+// fileURLToPath, PAS url.pathname : les espaces du chemin y restent en %20 →
+// répertoire fantôme « Civilisation%20idle » et ENOENT (audit 2026-10-05, SCRIPT-3).
+const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const DATA = path.join(ROOT, 'scripts', 'data');
 const HOUSES = path.join(ROOT, 'public', 'pixelart', 'houses');
 const PROPS = path.join(ROOT, 'public', 'pixelart', 'agents', 'buildings');

@@ -1101,8 +1101,11 @@ export function normalizeCityMapSlots(raw) {
     // rechargement (F5, import, nuage) — la mémoire de placement ne tenait qu'en session.
     const parcels = normalizeSlotParcels(slot.parcels);
     if (parcels) out[key].parcels = parcels;
+    // Borne 16 et non 8 : épinglé au Vieux-Port, le port prend le bassin entier —
+    // basinD + quai nord + une rangée de fleuve = 10 (layout.js). Borné à 8, ce sy-là
+    // sautait à chaque rechargement (audit du 05/10, vu par la save de fin de partie).
     const sy = Number(slot.sy);
-    if (Number.isInteger(sy) && sy >= 1 && sy <= 8) out[key].sy = sy;
+    if (Number.isInteger(sy) && sy >= 1 && sy <= 16) out[key].sy = sy;
   }
   return out;
 }

@@ -29,13 +29,16 @@ describe("variantes des rangées", () => {
       for (const rules of ROW_VARIANTS[m]) {
         const d = Buffer.from(p.data);
         recolorData(d, rules);
-        let changed = 0, opaque = 0;
+        // Les écarts d'alpha se COMPTENT, un seul expect à la fin : un par pixel
+        // coûtait 150 000 appels (audit 2026-10-05, TEST-8).
+        let changed = 0, opaque = 0, alpha = 0, first = -1;
         for (let i = 0; i < d.length; i += 4) {
-          expect(d[i + 3]).toBe(p.data[i + 3]);                       // alpha intact
+          if (d[i + 3] !== p.data[i + 3]) { alpha += 1; if (first < 0) first = i >> 2; }
           if (p.data[i + 3] < 8) continue;
           opaque += 1;
           if (d[i] !== p.data[i] || d[i + 1] !== p.data[i + 1] || d[i + 2] !== p.data[i + 2]) changed += 1;
         }
+        expect(alpha, `${m} : alpha touché (premier pixel ${first})`).toBe(0);   // alpha intact
         expect(changed, `${m} : la variante change quelque chose`).toBeGreaterThan(0);
         expect(changed / opaque, `${m} : la variante ne repeint pas tout`).toBeLessThan(0.7);
       }

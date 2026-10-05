@@ -48,4 +48,17 @@ export default defineConfig([
     files: ['**/__tests__/**/*.{js,jsx}', '**/*.test.{js,jsx}'],
     languageOptions: { globals: { ...globals.browser, ...globals.node } },
   },
+  {
+    // isoRiver importe isoQuay (quayTaperProfile) et lui POUSSE l'onde du fleuve
+    // (setQuayWave) : l'import inverse ferait un cycle de modules — une zone morte à
+    // l'import, piège déjà payé deux fois sur ce chantier (cf. isoRiverLife). Règle de
+    // lint plutôt que lecture du source dans un test (audit 2026-10-05, TEST-11).
+    files: ['src/game/map/iso/isoQuay.js'],
+    rules: {
+      'no-restricted-imports': ['error', { patterns: [{
+        regex: '(^|/)isoRiver(\\.js)?$',
+        message: "isoQuay ne doit pas importer isoRiver (cycle) : c'est isoRiver qui lui pousse l'onde (setQuayWave).",
+      }] }],
+    },
+  },
 ])

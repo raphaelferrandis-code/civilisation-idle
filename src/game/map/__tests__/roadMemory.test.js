@@ -76,7 +76,7 @@ describe("mémoire du réseau — une ville qui se souvient", () => {
     expect(lostRoads, "rues disparues").toBe(0);
     // Mesuré 0 à 6 par étape (ateliers qui grossissent) contre 80 à 250 avant.
     expect(moved, "maisons déplacées").toBeLessThanOrEqual(8);
-  }, 120000);
+  });
 
   it("stable dès le 2e calcul : rien ne bouge, rien ne disparaît", () => {
     grow(6);
@@ -84,7 +84,7 @@ describe("mémoire du réseau — une ville qui se souvient", () => {
     const b = computeCityLayout(state);
     expect([...roadSet(b)].sort()).toEqual([...roadSet(a)].sort());
     expect(b.tiles.map((t) => t.key).sort()).toEqual(a.tiles.map((t) => t.key).sort());
-  }, 60000);
+  });
 
   it("un chantier de voirie payé ne sert qu'une fois", () => {
     grow(8);
@@ -96,7 +96,7 @@ describe("mémoire du réseau — une ville qui se souvient", () => {
     expect(state.cityRoads.works).toBe(used0);
     expect(again.roadCover.engineConnected).toBe(before.roadCover.engineConnected);
     expect(again.roadWorksInfo.widened).toBe(before.roadWorksInfo.widened);
-  }, 60000);
+  });
 
   it("une nouvelle ville (autre graine) repart de zéro", () => {
     grow(6);
@@ -104,7 +104,7 @@ describe("mémoire du réseau — une ville qui se souvient", () => {
     const mem = state.cityRoads;
     expect(decodeRoadMemory(mem, 0x51a7c0de, 0, 0)).toBeTruthy();
     expect(decodeRoadMemory(mem, 0x1234, 0, 0)).toBeNull();
-  }, 60000);
+  });
 
   it("les cités aussi : de la cité à l'âge cosmique, aucune rue ne disparaît", () => {
     // Lot L5 (« fais toutes les ères ») : le plan de chaque ère ne pousse que sur
@@ -141,7 +141,7 @@ describe("mémoire du réseau — une ville qui se souvient", () => {
     // une case de pelouse de chaque côté de l'artère, docs/PLAN-ETAGES.md) ; mesuré
     // pas à pas, plus rien ne bouge après (1 puis 0). Le reste en déplace une poignée.
     expect(moved, "maisons déplacées").toBeLessThanOrEqual(130);
-  }, 300000);
+  });
 
   it("un seul pont, et l'artère le prolonge sur les deux rives", () => {
     const L = grow(26);
@@ -157,7 +157,7 @@ describe("mémoire du réseau — une ville qui se souvient", () => {
     }
     expect(north).toBeGreaterThan(3);
     expect(south).toBeGreaterThan(3);
-  }, 120000);
+  });
 });
 
 describe("mémoire du réseau — format", () => {

@@ -8,19 +8,13 @@
 //    par l'inspecteur de Node, la seule façon de voir ce qu'une fermeture retient).
 import { describe, it, expect, beforeAll } from "vitest";
 import { Session } from "node:inspector";
-import { computeCityLayout } from "../layout.js";
 import { state } from "../../core/state.js";
-import { D } from "../../core/num.js";
-import { eras } from "../../data/world.js";
+import { growCity } from "../../../test/city.js";
 
-const KEYS = Object.keys(state.buildings).filter((k) => k !== "roads");
+// Une ville neuve (aucune mémoire de rues ni de cœur) à l'ère `i`.
 function grow(i, level = 30) {
-  const pop = D(eras[i].at);
-  Object.assign(state, { cycles: 1, mapSeed: 0x2b1c07, population: pop, knowledge: pop.mul(0.05), infrastructure: pop.mul(0.1), instability: 0, timeWear: 0 });
-  KEYS.forEach((k) => { state.buildings[k] = level; });
-  state.buildings.roads = 20;
   state.cityRoads = null; state.cityCore = null; state.cityMapSlots = {}; state.cityArchetype = null; state.riverWP = null;
-  return computeCityLayout(state);
+  return growCity(i, level);
 }
 // Toutes les fonctions atteignables depuis L, avec leur chemin.
 function functionsOf(L) {

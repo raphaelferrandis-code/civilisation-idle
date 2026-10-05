@@ -24,6 +24,7 @@ import { describe, it, expect } from "vitest";
 import fs from "node:fs";
 import { PNG } from "pngjs";
 import { isoFaceKeeps, isoVariantKey, ISO_TILE_VARIANTS } from "../iso/isoGroundTiles.js";
+import { lumOf } from "../../../test/pixels.js";
 
 const DIR = new URL("../../../../public/pixelart/iso/", import.meta.url);
 const FW = 64, FH = 32;          // losange d'une cellule à zoom 1 (TILE=32, cf. projection.js)
@@ -39,7 +40,6 @@ const meanRGB = (p) => {
   }
   return { mean: s.map((v) => v / n), n };
 };
-const lum = (m) => 0.299 * m[0] + 0.587 * m[1] + 0.114 * m[2];
 
 const KEYS = Object.keys(ISO_TILE_VARIANTS);
 
@@ -108,18 +108,21 @@ describe("tuiles de sol livrées", () => {
 
     it(`${key} : ses variantes sont bien UNE matière (pas un lot mal groupé)`, () => {
       const Ls = [];
-      for (let v = 1; v <= n; v += 1) Ls.push(lum(meanRGB(read(`${key}-${v}.png`)).mean));
+      for (let v = 1; v <= n; v += 1) Ls.push(lumOf(meanRGB(read(`${key}-${v}.png`)).mean));
       // Les variantes restent BRUTES — Raph veut leurs écarts clair/sombre, c'est
       // le patchwork (l'égalisation qui les gommait a été retirée, 2026-07-28).
       // Ce qui reste interdit, c'est le lot PixelLab mal groupé (rangé par colonne
       // et lu par rangée) : quatre MATIÈRES différentes sous une même clé. Mesuré
       // 1 à 50 d'écart de luminance pour de vraies variantes, 149 à 194 pour un
       // groupement faux — le seuil 60 est la même garde que fetchGroundTiles.
-      // L'herbe d'HIVER est l'exception assumée (65,9 mesuré) : sa couverture de
+      // L'herbe d'HIVER est l'exception assumée (65,3 mesuré) : sa couverture de
       // neige varie PAR CHOIX d'une variante à l'autre (congères au niveau des
       // tuiles), quartet choisi à l'œil — même dérogation que `spreadMax` côté
       // script, et même valeur : 75, pas les 110 d'avant, qui laissaient passer
       // n'importe quel groupement une fois le quartet ramené à la rangée 2.
+      // Luminance Rec.709, celle de tous les tests (src/test/pixels.js) ; le script
+      // mesure en Rec.601 — sur les tuiles livrées, l'écart entre les deux ne dépasse
+      // pas 0,6 point (65,9 en Rec.601 pour l'herbe d'hiver) : mêmes seuils.
       const max = key === 'iso-grass-winter' ? 75 : 60;
       expect(Math.max(...Ls) - Math.min(...Ls)).toBeLessThan(max);
     });

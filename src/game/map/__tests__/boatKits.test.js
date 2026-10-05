@@ -1,12 +1,11 @@
 // Les kits de bateaux (docs/PLAN-BATEAUX.md) : chaque époque a sa flotte complète,
-// chaque modèle se cuit sans erreur, sans être ROGNÉ par son cadre, et les coques du
-// Démiurge flottent vraiment au-dessus de l'eau.
+// chaque modèle se cuit sans erreur, sans être ROGNÉ par son cadre (boatKitsBake.js,
+// en trois tiers), et les coques du Démiurge flottent vraiment au-dessus de l'eau.
 import { describe, it, expect } from "vitest";
 import { BOAT_MODELS, BAND_FLEET, fleetRoles } from "../iso/boatKits.js";
 import { bakeBoat, dirTheta, inFrame } from "../iso/boatBake.js";
 import { HOVER } from "../iso/boatKitsCosmic.js";
-
-const opaque = (R) => { let n = 0; for (let i = 3; i < R.data.length; i += 4) if (R.data[i]) n += 1; return n; };
+import { describeBoatBakes } from "./boatKitsBake.js";
 
 describe("la flotte de chaque époque", () => {
   it("toutes les bandes 0 à 9 ont marchands, pêcheur, passeur et embarcadère", () => {
@@ -41,27 +40,8 @@ describe("la flotte de chaque époque", () => {
   });
 });
 
-describe("chaque modèle se cuit proprement", () => {
-  const ids = Object.keys(BOAT_MODELS);
-  it.each(ids)("%s : visible, et jamais rogné par son cadre", (id) => {
-    const M = BOAT_MODELS[id];
-    for (const k of [0, 9, 17, 26]) {
-      for (const state of ["cruise", "dock", "anchor", "salute"]) {
-        const ctx = { variant: M.variant(5), state, k: 1.2 };
-        const b = bakeBoat(M, dirTheta(k), ctx);
-        expect(b.img.w).toBeGreaterThan(4);
-        expect(b.img.h).toBeGreaterThan(3);
-        // Même cuisson dans un cadre élargi de 24 px : s'il y a PLUS de pixels, le
-        // cadre du modèle rognait une pièce (mât, voile, rame…).
-        if (state === "cruise" || state === "dock") {
-          const [a0, a1, c0, c1, h0, h1] = M.bounds;
-          const big = bakeBoat({ ...M, bounds: [a0 - 24, a1 + 24, c0 - 24, c1 + 24, h0, h1 + 24] }, dirTheta(k), ctx);
-          expect(opaque(big.img), id + " cap " + k + " " + state).toBe(opaque(b.img));
-        }
-      }
-    }
-  });
-});
+// Premier tiers des modèles ; les deux autres : boatKitsBake2/3.test.js.
+describeBoatBakes(1);
 
 describe("le Démiurge lévite", () => {
   // La même coque, ramenée sur l'eau (repère abaissé de HOVER) : son plus bas pixel

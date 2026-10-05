@@ -12,13 +12,10 @@ import { completeCollapse } from "../actions/crisis.js";
 import { checkWonders } from "../actions/wonders.js";
 import { checkWonderTiers, wonderTierOf } from "../mechanics/wonders.js";
 import { applyOfflineProgress } from "../main.js";
-import { CRISIS_EVENTS } from "../../data/world.js";
 import { D } from "../num.js";
 import { MID_GAME_FIXTURE, FIXED_NOW } from "./fixtures.js";
-
 // Pas de crise narrative (25/50/75 %) : aucun dialogue ne doit s'ouvrir.
-const markAllThresholds = () =>
-  (state.crisisThresholds = Object.fromEntries(CRISIS_EVENTS.map((e) => [e.id, true])));
+import { neutralizeCrises } from "../../../test/core.js";
 
 beforeEach(() => {
   vi.useFakeTimers();
@@ -37,7 +34,7 @@ afterEach(() => {
 
 describe("merveilles gravées par le cœur, sans carte (BUG-12)", () => {
   it("le tick grave une merveille franchie et la chronique l'annonce", () => {
-    markAllThresholds();
+    neutralizeCrises();
     state.population = D(2e6);
     tick(1);
     expect(state.wonders).toContain("pop1m");

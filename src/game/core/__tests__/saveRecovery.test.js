@@ -94,7 +94,7 @@ describe("load() : repli champ par champ", () => {
     expect(store.get(KEY + "-corrupt-backup")).toBe(raw); // copie complète gardée
     expect(st.state.history.at(-1)).toMatch(/faitsDivers/);
     expect(errors.some((e) => e.includes("illisible"))).toBe(true); // les tests de chargement le voient
-  }, 60000);
+  });
 });
 
 describe("load() en échec total : partie neuve de repli, rien ne s'écrase", () => {
@@ -112,7 +112,7 @@ describe("load() en échec total : partie neuve de repli, rien ne s'écrase", ()
     expect(keys.isLocalSaveUnreadable()).toBe(false);
     expect(JSON.parse(store.get(KEY)).cycles).toBe(defaultState().cycles);
     expect(store.get(KEY + "-corrupt-backup")).toBe(truncated); // la copie survit au choix
-  }, 60000);
+  });
 
   it("deux copies DIFFÉRENTES gardées, jamais de doublon", async () => {
     const a = '{"cycles": 1, "tronque';
@@ -126,7 +126,7 @@ describe("load() en échec total : partie neuve de repli, rien ne s'écrase", ()
     expect(r.store.get(KEY + "-corrupt-backup-2")).toBe(a);
     const { listSaveBackups } = await import("../saveBackups.js");
     expect(listSaveBackups().map((x) => x.kind)).toEqual(["unreadable", "unreadable"]);
-  }, 60000);
+  });
 
   it("une copie de secours se recharge (et lève la suspension)", async () => {
     const good = JSON.stringify({ ...JSON.parse(JSON.stringify(hydrateState(MID_GAME_FIXTURE))), cycles: 33 });
@@ -143,7 +143,7 @@ describe("load() en échec total : partie neuve de repli, rien ne s'écrase", ()
     expect(slots.loadBackup(KEY + "-corrupt-backup").ok).toBe(false); // illisible : refusé, rien ne bouge
     expect(slots.loadBackup("autre-cle").ok).toBe(false);
     expect(st.state.cycles).toBe(33);
-  }, 60000);
+  });
 
   it("copie relue en partie : la ligne du Journal survit au rechargement, même Journal plein", async () => {
     // Le Journal est borné à 48 lignes : une 49e ligne ajoutée sans borne
@@ -165,7 +165,7 @@ describe("load() en échec total : partie neuve de repli, rien ne s'écrase", ()
     expect(st.state.cycles).toBe(34);
     expect(st.state.history.length).toBe(48);
     expect(st.state.history.at(-1)).toMatch(/faitsDivers/);
-  }, 60000);
+  });
 });
 
 describe("importSave : JSON brut et BOM acceptés", () => {
@@ -186,5 +186,5 @@ describe("importSave : JSON brut et BOM acceptés", () => {
     expect(main.importSave("pas une sauvegarde")).toBe(false);
     g = await reboot(g);
     expect(g.st.state.cycles).toBe(22);
-  }, 60000);
+  });
 });

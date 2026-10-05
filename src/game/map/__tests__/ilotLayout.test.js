@@ -2,25 +2,13 @@
 // sur une ville de la bande 4 (pilote). Même méthode que roadMemory.test.js : on
 // fait grandir l'état GLOBAL (l'ère se lit sur `state`).
 import { describe, it, expect, beforeEach } from "vitest";
-import { computeCityLayout, ILOT_MODE, ILOT_MEMORY_V } from "../layout.js";
+import { ILOT_MODE, ILOT_MEMORY_V, ENGINE_HOME_LOOKAHEAD } from "../layout.js";
 import { state, normalizeCityCore } from "../../core/state.js";
-import { D } from "../../core/num.js";
-import { eras } from "../../data/world.js";
 import { ROAD_MEMORY, decodeRoadMemory } from "../roadMemory.js";
 import { ANNEX_BODIES } from "../ilotArt.js";
 import { gridOf, ILOT_DEFAULTS } from "../procedural/blockCity.js";
+import { growCity as grow } from "../../../test/city.js";
 
-const KEYS = Object.keys(state.buildings).filter((k) => k !== "roads");
-function grow(i, level = 30) {
-  const pop = D(eras[i].at);
-  Object.assign(state, {
-    cycles: 1, mapSeed: 0x2b1c07, population: pop,
-    knowledge: pop.mul(0.05), infrastructure: pop.mul(0.1), instability: 0, timeWear: 0,
-  });
-  KEYS.forEach((k) => { state.buildings[k] = level; });
-  state.buildings.roads = 20;
-  return computeCityLayout(state);
-}
 const BUILT = new Set(["house", "enginehome", "engine"]);
 const foot = (t) => { const out = []; const sx = t.spanX || t.size || 1, sy = t.spanY || t.size || 1; for (let a = 0; a < sx; a += 1) for (let b = 0; b < sy; b += 1) out.push((t.gx + a) + "," + (t.gy + b)); return out; };
 // Rues MÉMORISÉES tombées dans l'intérieur d'un îlot ouvert (hors places, hors 2e voie
@@ -52,6 +40,16 @@ beforeEach(() => {
 });
 
 describe("ville par îlots (bande 4)", () => {
+  // Les comptes de maisons-moteur ci-dessous lisent la constante au lieu de recopier
+  // 44 (audit 2026-10-05, TEST-12). Le 44 codé en dur était aussi, sans le dire, le
+  // fil-piège de la décision de Raph : ne JAMAIS réduire ENGINE_HOME_LOOKAHEAD. Le
+  // plan ne se recalcule qu'aux ères et aux paliers de moteurs : ce sont ces
+  // maisons-moteur posées d'avance qui tiennent « 1 achat = 1 bâtiment » entre deux
+  // recalculs. Ce plancher est désormais gardé en clair.
+  it("ENGINE_HOME_LOOKAHEAD n'est jamais réduit sous 44 (décision de Raph)", () => {
+    expect(ENGINE_HOME_LOOKAHEAD).toBeGreaterThanOrEqual(44);
+  });
+
   it("chaque bâtiment de ville borde une rue et se tient sur le sol de ville", () => {
     const L = grow(21);
     expect(L.counts.eraBand).toBe(4);
@@ -75,7 +73,7 @@ describe("ville par îlots (bande 4)", () => {
     expect(n).toBeGreaterThan(200);
     expect(onGrass, "bâtiments dans l'herbe").toBe(0);
     expect(noStreet, "bâtiments sans rue").toBe(0);
-  }, 120000);
+  });
 
   it("la ville est DENSE : le sol de ville hors rues est bâti aux trois quarts au moins", () => {
     const L = grow(21);
@@ -84,7 +82,7 @@ describe("ville par îlots (bande 4)", () => {
     let ground = 0, full = 0;
     for (const k of L.urbanSet) { if (L.roadSet.has(k)) continue; ground += 1; if (built.has(k)) full += 1; }
     expect(full / ground).toBeGreaterThan(0.75);
-  }, 120000);
+  });
 
   it("rien ne bouge d'un calcul à l'autre, ni d'un achat à l'autre", () => {
     grow(21);
@@ -112,7 +110,7 @@ describe("ville par îlots (bande 4)", () => {
     let lost = 0;
     for (const k of roads1) if (!roads2.has(k)) lost += 1;
     expect(lost, "rues disparues").toBe(0);
-  }, 180000);
+  });
 
   // LE MÉLANGE (Raph 2026-10-04 : « il faut un mélange mitoyen et ce qu'on a déjà »,
   // « plein de fois le même bâtiment qui a l'air d'un grand bâtiment rend mal »).
@@ -156,7 +154,7 @@ describe("ville par îlots (bande 4)", () => {
       expect(t.size, t.buildingId).toBe(1);
       expect(t.body, t.buildingId).toBeTruthy();
     }
-  }, 120000);
+  });
 
   // LES AUTRES ÂGES (Raph 2026-10-04 : « fais-les toutes ») : chaque bande de ILOT_BANDS
   // se bâtit par îlots, loge TOUTES ses maisons-moteur (la demande compte les grands
@@ -167,12 +165,12 @@ describe("ville par îlots (bande 4)", () => {
       expect(L.counts.eraBand).toBe(band);
       expect(state.cityCore.ilot).toBeTruthy();
       const placed = L.tiles.filter((t) => t.type === "enginehome").length;
-      expect(placed).toBe((L.counts.engineHomes | 0) + 44);
+      expect(placed).toBe((L.counts.engineHomes | 0) + ENGINE_HOME_LOOKAHEAD);
       const bodies = new Set(ANNEX_BODIES[band]);
       const annexes = L.tiles.filter((t) => t.body);
       expect(annexes.length).toBeGreaterThan(20);
       for (const t of annexes) expect(bodies.has(t.body), t.body).toBe(true);
-    }, 120000);
+    });
   }
 
   // LES ÎLOTS RESPIRENT (Raph 2026-10-04 : « ça ne respire pas beaucoup, tous les îlots
@@ -187,8 +185,8 @@ describe("ville par îlots (bande 4)", () => {
     for (const t of L.tiles) for (const k of foot(t)) if (air.has(k)) surJardin += 1;
     expect(surJardin, "bâtiments sur un lot-jardin").toBe(0);
     for (const k of air) expect(L.urbanSet.has(k), "un jardin est de l'herbe").toBe(false);
-    expect(L.tiles.filter((t) => t.type === "enginehome").length).toBe((L.counts.engineHomes | 0) + 44);
-  }, 120000);
+    expect(L.tiles.filter((t) => t.type === "enginehome").length).toBe((L.counts.engineHomes | 0) + ENGINE_HOME_LOOKAHEAD);
+  });
 
   it("une fiche d'îlots v1 (îlots pleins) se replace UNE fois : les maisons seulement", () => {
     grow(21);
@@ -204,7 +202,7 @@ describe("ville par îlots (bande 4)", () => {
     const slots = JSON.stringify(state.cityMapSlots);
     grow(21);
     expect(JSON.stringify(state.cityMapSlots), "puis plus rien ne bouge").toBe(slots);
-  }, 180000);
+  });
 
   // LA RÉORGANISATION EFFACE LE HAMEAU (audit 2026-10-05, BUG-13) : la mémoire des rues,
   // décodée avant la réorganisation, réinjectait les sentiers du hameau dans le tracé —
@@ -215,8 +213,8 @@ describe("ville par îlots (bande 4)", () => {
     const L = grow(10, 12);
     expect(L.counts.eraBand).toBe(2);
     expect(memRoadsInIlots(L), "rues mémorisées dans les îlots").toBe(0);
-    expect(L.tiles.filter((t) => t.type === "enginehome").length).toBe((L.counts.engineHomes | 0) + 44);
-  }, 120000);
+    expect(L.tiles.filter((t) => t.type === "enginehome").length).toBe((L.counts.engineHomes | 0) + ENGINE_HOME_LOOKAHEAD);
+  });
 
   it("une fiche v2 qui a gardé les sentiers du hameau se répare UNE fois : rues effacées, aucun bâtiment ne bouge", () => {
     grow(8, 10);
@@ -230,11 +228,11 @@ describe("ville par îlots (bande 4)", () => {
     expect(state.cityCore.ilot.v).toBe(ILOT_MEMORY_V);
     expect(memRoadsInIlots(L), "rues mémorisées dans les îlots").toBe(0);
     expect(JSON.stringify(state.cityMapSlots), "bâtiments déplacés").toBe(slots0);
-    expect(L.tiles.filter((t) => t.type === "enginehome").length).toBe((L.counts.engineHomes | 0) + 44);
+    expect(L.tiles.filter((t) => t.type === "enginehome").length).toBe((L.counts.engineHomes | 0) + ENGINE_HOME_LOOKAHEAD);
     const roads = JSON.stringify(state.cityRoads.cells);
     grow(10, 12);
     expect(JSON.stringify(state.cityRoads.cells), "puis les rues ne bougent plus").toBe(roads);
-  }, 120000);
+  });
 
   it("une fiche v2 saine passe en v3 sans que rien ne bouge, rues comprises", () => {
     grow(8, 10);
@@ -246,7 +244,7 @@ describe("ville par îlots (bande 4)", () => {
     expect(state.cityCore.ilot.v).toBe(ILOT_MEMORY_V);
     expect(JSON.stringify(state.cityRoads.cells), "rues retracées").toBe(roads0);
     expect(JSON.stringify(state.cityMapSlots), "bâtiments déplacés").toBe(slots0);
-  }, 120000);
+  });
 
   it("la fiche d'îlots survit au rechargement : la réorganisation n'a lieu qu'une fois", () => {
     grow(21);
@@ -257,5 +255,5 @@ describe("ville par îlots (bande 4)", () => {
     expect(back.ilot.plazas).toEqual(state.cityCore.ilot.plazas);
     expect(back.ilot.halls).toEqual(state.cityCore.ilot.halls);
     expect(back.ilot.annexes).toEqual(state.cityCore.ilot.annexes);
-  }, 120000);
+  });
 });

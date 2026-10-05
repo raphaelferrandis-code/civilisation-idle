@@ -6,10 +6,10 @@ import { PNG } from "pngjs";
 import { FLOWER_COLONY, GRASS_DETAIL, GRASS_TILE_UNDER, flowerColonyK } from "../iso/isoGroundDetail.js";
 import { LAWN, MEADOW, meadowAt, meadowPixel, townLawnAt } from "../iso/isoMeadow.js";
 import { CM } from "../layout.js";
+import { lum } from "../../../test/pixels.js";
 
 const DIR = new URL("../../../../public/pixelart/iso/", import.meta.url);
 const read = (name) => PNG.sync.read(fs.readFileSync(new URL(name + ".png", DIR)));
-const lum = (r, g, b) => 0.2126 * r + 0.7152 * g + 0.0722 * b;
 function meanLum(p, mask) {
   let s = 0, n = 0;
   for (let i = 0; i < p.width * p.height; i += 1) {

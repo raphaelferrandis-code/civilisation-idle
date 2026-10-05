@@ -83,13 +83,16 @@ describe("§8 — les filles de la Maison des Plaisirs respirent à la porte", (
       expect(half.height).toBe(Math.floor(fh / 2));
       const pw = palette(walk);
       for (const c of palette(idle)) expect(pw.has(c)).toBe(true);
-      // Raccord exact : la première image d'attente EST l'image 0 de la marche.
+      // Raccord exact : la première image d'attente EST l'image 0 de la marche. Les
+      // écarts se comptent, un seul expect (un par pixel coûtait cher, TEST-8).
+      let ecarts = 0, first = "";
       for (let y = 0; y < fh; y += 1) {
         for (let x = 0; x < fh; x += 1) {
           const a = (y * walk.width + x) * 4, b = (y * idle.width + x) * 4;
-          expect(idle.data[b + 3] > 128).toBe(walk.data[a + 3] > 128);
+          if ((idle.data[b + 3] > 128) !== (walk.data[a + 3] > 128)) { ecarts += 1; if (!first) first = x + "," + y; }
         }
       }
+      expect(ecarts, `premier écart en ${first}`).toBe(0);
     });
   }
 });

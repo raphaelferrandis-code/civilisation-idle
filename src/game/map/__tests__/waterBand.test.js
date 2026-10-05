@@ -9,6 +9,7 @@ import { describe, it, expect } from "vitest";
 // traduit `CM.season === WINTER` (seasonMode.js : WINTER = 3). La table de décision
 // n'a pas à connaître le codage des saisons pour être testable.
 import { waterBandKey, stepWaterBand, waterTilesTune, WATER_SHEETS } from "../iso/isoRiver.js";
+import { lumOf } from "../../../test/pixels.js";
 
 describe("coloris du fleuve selon l'état", () => {
   it("azur au beau fixe", () => {
@@ -57,7 +58,7 @@ describe("accord de chaque coloris", () => {
   // tous leur teinte dans cette table. Un coloris ajouté sans son accord retombe
   // silencieusement sur l'ardoise : rien ne planterait, le fleuve serait juste
   // azur avec une lisière grise. D'où ces gardes sur la table elle-même.
-  const lum = (s) => { const c = s.split(',').map(Number); return 0.2126 * c[0] + 0.7152 * c[1] + 0.0722 * c[2]; };
+  const lum = (s) => lumOf(s.split(',').map(Number));
 
   it("chaque clé du sélecteur a une entrée complète", () => {
     const cles = new Set([

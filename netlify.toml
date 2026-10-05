@@ -17,11 +17,14 @@
   publish = "dist"
 
 [build.environment]
-  # Épinglé sur la version qui construit la maison (Node 22.14 en local). Sans
-  # ça on hérite du défaut de Netlify, qui bouge sans prévenir : Vite 8 exige
-  # Node 20+, et un build qui casse six mois plus tard sans qu'on ait rien
-  # touché coûte une soirée à diagnostiquer.
-  NODE_VERSION = "22"
+  # Épinglé sur la version qui construit la maison : Node 24, comme le poste de
+  # dev et la CI (.github/workflows/ci.yml), au-dessus du plancher d'Electron 42
+  # (>= 22.12, `engines` de package.json — audit 2026-10-05, TEST-15). Sans ça on
+  # hérite du défaut de Netlify, qui bouge sans prévenir, et un build qui casse
+  # six mois plus tard sans qu'on ait rien touché coûte une soirée à diagnostiquer.
+  NODE_VERSION = "24"
+  # (Pas d'ELECTRON_SKIP_BINARY_DOWNLOAD : Electron 42 ne télécharge plus son
+  # binaire à l'installation, cf. .github/workflows/ci.yml.)
 
 # EN-TÊTES DE CACHE (audit 2026-10-05, WEB-1) : PAS ICI, dans public/_headers.
 # Ce fichier-là part DANS dist/ — il vaut donc aussi pour le zip déposé à la

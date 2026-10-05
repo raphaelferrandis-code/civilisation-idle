@@ -11,9 +11,9 @@ import { describe, it, expect, beforeAll, afterAll, beforeEach, vi } from "vites
 import { state, setState, hydrateState, invalidateRenderCache } from "../state.js";
 import { tick } from "../actions/tick.js";
 import { D } from "../num.js";
-import { CRISIS_EVENTS } from "../../data/world.js";
 import { INSTABILITY_MAX_RISE_PER_SEC } from "../balance.js";
 import { MID_GAME_FIXTURE, FIXED_NOW } from "./fixtures.js";
+import { neutralizeCrises } from "../../../test/core.js";
 
 beforeAll(() => {
   vi.spyOn(Date, "now").mockReturnValue(FIXED_NOW);
@@ -24,7 +24,7 @@ afterAll(() => {
 beforeEach(() => {
   setState(hydrateState(MID_GAME_FIXTURE));
   // Neutralise les événements de crise (ouvriraient un dialogue UI absent en test).
-  state.crisisThresholds = Object.fromEntries(CRISIS_EVENTS.map((e) => [e.id, true]));
+  neutralizeCrises();
   invalidateRenderCache("all");
 });
 
@@ -64,7 +64,7 @@ describe("tick() — invariants de bornes", () => {
   it("un frein de montée ralentit la jauge même quand elle monte au plafond", () => {
     const riseFrom0 = (policies) => {
       setState(hydrateState(MID_GAME_FIXTURE));
-      state.crisisThresholds = Object.fromEntries(CRISIS_EVENTS.map((e) => [e.id, true]));
+      neutralizeCrises();
       state.instability = 0;
       state.activePolicies = policies;
       invalidateRenderCache("all");

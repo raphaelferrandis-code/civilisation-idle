@@ -9,9 +9,12 @@
 // Lecture seule sur les PNG du repo.
 import fs from 'fs';
 import path from 'path';
+import { fileURLToPath } from 'url';
 import { PNG } from 'pngjs';
 
-const ROOT = path.resolve(path.dirname(new URL(import.meta.url).pathname.replace(/^\/([A-Za-z]:)/, '$1')), '..');
+// fileURLToPath, PAS url.pathname : les espaces du chemin y restent en %20 →
+// répertoire fantôme « Civilisation%20idle » et ENOENT (audit 2026-10-05, SCRIPT-3).
+const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const DATA = path.join(ROOT, 'scripts', 'data');
 
 function loadSprite(inv, key) {

@@ -5,20 +5,11 @@ import { isoPlazaCompositions } from "../isoPlaza.js";
 import { folkAt, FOLK } from "../plazaFolk.js";
 import { depthOf } from "../projection.js";
 import { noteSceneFigure, focusPick, citizenSheet, clearCitizenFocus } from "../../citizenFocus.js";
+import { plazaWithStreets as plazaLayout } from "../../../../test/plaza.js";
 
 // LA FICHE D'UN FLÂNEUR DE PLACE (plazaFolk.js × citizenFocus.js). Séparé de
 // plazaFolk.test.js : la fiche d'habitant cliquable vit dans son propre chantier, ce
 // test part avec elle.
-
-function plazaLayout(n, kind, band = 3, gx0 = 10, gy0 = 10) {
-  const roadMap = new Map();
-  for (let iy = 0; iy < n; iy += 1) {
-    for (let ix = 0; ix < n; ix += 1) roadMap.set((gx0 + ix) + "," + (gy0 + iy), { gx: gx0 + ix, gy: gy0 + iy, rank: "plaza" });
-  }
-  const road = (gx, gy) => roadMap.set(gx + "," + gy, { gx, gy, rank: "street" });
-  for (let i = -1; i <= n; i += 1) { road(gx0 + i, gy0 - 1); road(gx0 + i, gy0 + n); road(gx0 - 1, gy0 + i); road(gx0 + n, gy0 + i); }
-  return { roadMap, plan: { plazas: [{ gx: gx0 + n / 2, gy: gy0 + n / 2, kind }] }, counts: { eraBand: band } };
-}
 
 it("la fiche d'un flâneur de place dit ce qu'il fait, et avec qui il cause", () => {
   Object.assign(FOLK, { on: true, slot: 30, speed: 0.27, leaveP: 0.1, viaP: 0.4, density: 1 });

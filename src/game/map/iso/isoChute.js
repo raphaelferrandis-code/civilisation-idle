@@ -33,6 +33,7 @@ import {
   CHUTE, CHUTE_TUNE, chuteMs, chuteTileState, chuteFallenRadius, chuteWaveEnd, chuteHash,
 } from './chuteState.js';
 import { worldToScreen, depthOf, snapZoom, ISO_X, ISO_Y } from './projection.js';
+import { HOUSE_LOT_WF } from '../spriteScale.js';
 
 const smooth = (x) => (x <= 0 ? 0 : x >= 1 ? 1 : x * x * (3 - 2 * x));
 const now0 = () => (typeof performance !== 'undefined' ? performance.now() : Date.now());
@@ -364,7 +365,7 @@ export function recordRelics(L = CM.layout) {
       const anchor = worldToScreen((t.gx + sx + (fOff ? fOff.ox : 0)) * T, (t.gy + sy + (fOff ? fOff.oy : 0)) * T);
       if (isHouse) {
         if (!pixelHouseReady(t)) continue;
-        const wpx = (sx + sy) * T * z * ISO_X * 0.78;
+        const wpx = (sx + sy) * T * z * ISO_X * HOUSE_LOT_WF;
         const r = pixelHouseRuin(t, anchor.x - wpx / 2, anchor.y - wpx - hh * 0.5, wpx, wpx);
         if (r) push(t, sx, sy, relicKeyOfHouse(r), r.x, r.y, r.w, r.h);
         continue;

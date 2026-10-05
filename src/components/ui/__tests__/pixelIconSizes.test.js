@@ -11,18 +11,58 @@
 import { describe, it, expect } from 'vitest';
 import fs from 'node:fs';
 import path from 'node:path';
-import { resolveIconSrc } from '../PixelIcon.jsx';
+import { resolveIconSrc, FAMILIES_WITH_VARIANTS, SIZES_BY_FAMILY, SIZE_BY_CLASS } from '../PixelIcon.jsx';
 
 const PUB = path.resolve(__dirname, '../../../../public/pixelart/ui');
 const SRC = path.resolve(__dirname, '../../../styles');
 const onDisk = (url) => fs.existsSync(path.join(PUB, url.replace('/pixelart/ui/', '')));
 const dimsOf = (p) => { const b = fs.readFileSync(p); return { w: b.readUInt32BE(16), h: b.readUInt32BE(20) }; };
 
-// Tailles déclinées par famille (miroir de SIZES_BY_FAMILY dans PixelIcon.jsx ;
-// les familles absentes sont déclinées dans les quatre tailles de l'échelle).
-const PAR_FAMILLE = { ruins: [24, 32], myths: [16, 32], nav: [24] };
+// Tailles déclinées par famille : les TABLES de PixelIcon.jsx elles-mêmes, plus des
+// recopies (audit 2026-10-05, TEST-12). Les familles absentes de SIZES_BY_FAMILY sont
+// déclinées dans les quatre tailles de l'échelle.
+const PAR_FAMILLE = SIZES_BY_FAMILY;
 const ECHELLE = [16, 24, 32, 48];
-const FAMILLES = ['res', 'glyphs', 'prep', 'foyers', 'seals', 'myths', 'nav', 'ruins'];
+const FAMILLES = [...FAMILIES_WITH_VARIANTS];
+
+// La largeur CSS DE BASE d'une classe d'icône : la première règle hors @media (le
+// défaut, pas une variante d'écran) dont un sélecteur VISE la classe — son dernier
+// composé la porte, `.px-icon` accolé ou non, sélecteurs groupés compris — et qui
+// déclare `width` en px. Lecture par règles et déclarations, et non par une regex sur
+// la mise en forme (audit 2026-10-05, TEST-11) : l'ordre des déclarations, les retours
+// à la ligne ou un sélecteur groupé ne la trompent plus.
+function cssRules(css) {
+  const out = [];
+  const src = css.replace(/\/\*[\s\S]*?\*\//g, '');
+  const walk = (s, inAt) => {
+    let i = 0;
+    while (i < s.length) {
+      const open = s.indexOf('{', i);
+      if (open < 0) break;
+      const head = s.slice(i, open).trim();
+      let depth = 1, j = open + 1;
+      while (j < s.length && depth) { if (s[j] === '{') depth += 1; else if (s[j] === '}') depth -= 1; j += 1; }
+      const body = s.slice(open + 1, j - 1);
+      if (head.startsWith('@')) walk(body, true);
+      else out.push({ selectors: head.split(',').map((x) => x.trim()), body, inAt });
+      i = j;
+    }
+  };
+  walk(src, false);
+  return out;
+}
+function baseWidthOf(rules, cls) {
+  const vise = new RegExp(`\\.${cls}(?![\\w-])`);
+  for (const r of rules) {
+    if (r.inAt) continue;
+    if (!r.selectors.some((sel) => vise.test(sel.split(/[\s>+~]+/).pop()))) continue;
+    for (const decl of r.body.split(';')) {
+      const m = /^\s*width\s*:\s*(\d+)px\s*$/.exec(decl);
+      if (m) return Number(m[1]);
+    }
+  }
+  return null;
+}
 
 describe('variantes natives des icônes d\'UI', () => {
   it('chaque maître possède les variantes déclinées pour sa famille', () => {
@@ -95,19 +135,14 @@ describe('variantes natives des icônes d\'UI', () => {
   it('SIZE_BY_CLASS ne dérive pas des tailles déclarées dans le CSS', () => {
     // On relit les feuilles de style : si quelqu'un passe .myth-card-icon de 32 à 40,
     // le test tombe ici plutôt qu'en jeu, où ça se voit à peine mais gâche l'icône.
-    const css = ['components.css', 'layout.css', 'views-crises.css', 'views-city.css', 'touch-shell.css']
-      .map((f) => fs.readFileSync(path.join(SRC, f), 'utf8')).join('\n');
-    const tailleDe = (cls) => {
-      const m = new RegExp(`\\.${cls}(?:\\.px-icon)?\\s*\\{[^}]*?width:\\s*(\\d+)px`, 's').exec(css);
-      return m && Number(m[1]);
-    };
-    for (const [cls, attendu] of Object.entries({
-      'csp-stat-icon': 16, 'myth-card-icon': 32, 'harvest-glyph': 24,
-      'edict-seal': 32, 'edict-emblem': 48, 'policy-seal': 24,
-      'more-item-icon': 24, 'crisis-foyer-icon': 16,
-    })) {
-      expect(`${cls}=${tailleDe(cls)}`).toBe(`${cls}=${attendu}`);
-    }
+    // CHAQUE entrée de la table est confrontée (plus une liste recopiée à côté).
+    const rules = cssRules(['components.css', 'layout.css', 'views-crises.css', 'views-city.css', 'touch-shell.css']
+      .map((f) => fs.readFileSync(path.join(SRC, f), 'utf8')).join('\n'));
+    const ecarts = Object.entries(SIZE_BY_CLASS)
+      .map(([cls, px]) => [cls, px, baseWidthOf(rules, cls)])
+      .filter(([, px, css]) => css !== px)
+      .map(([cls, px, css]) => `${cls} : ${px} dans PixelIcon, ${css} dans le CSS`);
+    expect(ecarts).toEqual([]);
   });
 
   it('toutes les tailles servies appartiennent à l\'échelle 16/24/32/48', () => {

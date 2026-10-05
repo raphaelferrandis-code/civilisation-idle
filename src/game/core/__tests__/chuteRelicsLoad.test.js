@@ -42,5 +42,5 @@ describe("chargement d'une sauvegarde avec des ruines", () => {
     expect(fresh.state.cityRelics).toEqual(relics);
     expect(fresh.state.mapSeed).toBe(4242);
     expect(String(fresh.state.population)).toBe("123456");
-  }, 60000);
+  });
 });

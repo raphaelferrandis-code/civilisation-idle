@@ -43,7 +43,16 @@ Le process principal Electron est `main.cjs`. Il sert les fichiers via le protoc
 ## Tests & CI
 
 - `npm test` exécute la suite Vitest (golden économique, parité Decimal, hydratation
-  save, Grand Reset, chronique, procédural…).
+  save, Grand Reset, chronique, procédural…). Un localStorage en mémoire, vidé avant
+  chaque test, y est posé par `src/test/setup.js`.
+- `npm run test:parcours` ajoute le harnais de parcours (`src/game/core/__tests__/parcours/`) :
+  un joueur scripté joue une partie complète sous horloge virtuelle, du premier feu
+  au titre final (NaN, aller-retour de sauvegarde, rechargements, hors-ligne,
+  blocages), puis les Mythes de l'Acte III depuis une save figée, en doctrine de
+  crise automatique et en « ask ». Une dizaine de secondes ; hors de `npm test`
+  (seule sa version courte, `parcoursCourt.test.js`, y tourne). Réglages par
+  variables d'environnement (en tête de `parcours.test.js`) ; `PC_OUT=<dossier>`
+  y garde journaux et saves des jalons.
 - L'intégration continue (`.github/workflows/ci.yml`) rejoue lint + tests + build à
   chaque push et pull request.
 

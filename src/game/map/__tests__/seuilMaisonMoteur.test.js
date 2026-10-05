@@ -10,9 +10,9 @@
 // (3) aucun module de src/game/map ne la réécrit à la main — c'est une copie
 // divergente, pas une règle absente, qui avait laissé passer ces traits.
 import { describe, it, expect, afterEach } from 'vitest';
-import { readFileSync, readdirSync, statSync } from 'node:fs';
-import { dirname, join, basename } from 'node:path';
-import { fileURLToPath } from 'node:url';
+import { readFileSync } from 'node:fs';
+import { basename } from 'node:path';
+import { MAP_DIR, jsFiles } from '../../../test/source.js';
 import { CM, cmEngineHomeHidden } from '../layout.js';
 import { drawIsoGroundRoads } from '../iso/isoGroundRoads.js';
 
@@ -73,17 +73,7 @@ describe('allées de seuil — pas de porte pour une maison cachée', () => {
 });
 
 // ── La règle n'existe qu'à un endroit ────────────────────────────────────────
-const MAP_DIR = join(dirname(fileURLToPath(import.meta.url)), '..');
 const INLINE_RULE = /revealIdx\s*\|\|\s*0\)\s*>=/;
-function jsFiles(dir) {
-  const out = [];
-  for (const name of readdirSync(dir)) {
-    const full = join(dir, name);
-    if (statSync(full).isDirectory()) { if (name !== '__tests__') out.push(...jsFiles(full)); }
-    else if (name.endsWith('.js')) out.push(full);
-  }
-  return out;
-}
 
 describe('la règle de visibilité n est écrite qu une fois', () => {
   it('aucun module de src/game/map ne la recopie hors de layout.js', () => {

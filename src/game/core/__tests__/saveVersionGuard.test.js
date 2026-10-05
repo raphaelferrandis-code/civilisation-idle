@@ -67,7 +67,7 @@ describe("SAV-6 — save d'une version plus récente du jeu", () => {
     expect(store.get(`${KEY}-v99-backup`)).toBe(future);
     // Ce build ne la recharge pas (il la rétrograderait) : il le dit.
     expect(slots.loadBackup(`${KEY}-v99-backup`)).toEqual({ ok: false, newer: true });
-  }, 30000);
+  });
 
   it("l'import et l'emplacement la refusent, sans toucher à la partie en cours", async () => {
     const { st, store } = await boot({});
@@ -84,7 +84,7 @@ describe("SAV-6 — save d'une version plus récente du jeu", () => {
     expect(slots.getLastSlotRefusal()).toBe("newer");
     expect(st.state.cycles).toBe(9);
     expect(store.get(KEY)).toBe(before);
-  }, 30000);
+  });
 });
 
 describe("SAV-7 — importSave n'accepte que la forme d'une save de ce jeu", () => {
@@ -104,7 +104,7 @@ describe("SAV-7 — importSave n'accepte que la forme d'une save de ce jeu", () 
     expect(String(st.state.ruins)).toBe("5000");
     expect(store.get(KEY)).toBe(before);
     expect(store.has(`${KEY}-before-import`)).toBe(false);
-  }, 30000);
+  });
 
   it("un vrai import garde la partie remplacée (Options › Autres), même stockage plein pour la copie", async () => {
     const { st, store } = await boot({});
@@ -130,5 +130,5 @@ describe("SAV-7 — importSave n'accepte que la forme d'une save de ce jeu", () 
     };
     expect(main.importSave(encodeSaveText(other))).toBe(true);
     expect(pendingCycles()).toBe(4);
-  }, 30000);
+  });
 });

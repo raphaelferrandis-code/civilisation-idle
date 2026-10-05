@@ -10,12 +10,12 @@
 import { describe, it, expect, beforeEach, vi } from "vitest";
 
 import {
-  setState, defaultState, hydrateState,
+  setState, defaultState,
   defaultAutomateRules, normalizeRuleList, AUTOMATE_FIELD_BOUNDS,
 } from "../state.js";
 import { setAutomateField, setAutomateThreshold, getAutomateRules } from "../actions.js";
+import { roundTrip } from "../../../test/core.js";
 
-const roundTrip = (s) => hydrateState(JSON.parse(JSON.stringify(s)));
 const ruleById = (rules, id) => rules.find((r) => r.id === id);
 // `state.automateRules` naît à null et se remplit paresseusement au premier
 // accès (getAutomateRules) : un test qui lit le champ brut tombe sur null.

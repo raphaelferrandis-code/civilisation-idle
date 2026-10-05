@@ -1,7 +1,8 @@
 import fs from "fs";
 
 global.fakeClock = { now: Date.now() };
-global.window = {};
+// addEventListener : cloudSave.js s'abonne à `pagehide` dès l'import (SCRIPT-1).
+global.window = { addEventListener() {}, removeEventListener() {} };
 global.localStorage = {
   getItem() { return null; },
   setItem() {}

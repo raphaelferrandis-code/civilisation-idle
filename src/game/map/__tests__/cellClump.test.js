@@ -120,6 +120,8 @@ describe("S5 — bruit de bloc et regroupement", () => {
   // → On n'interroge plus UN fichier nommé, on interroge l'INVARIANT : la formule
   //   n'existe qu'à un seul endroit du dépôt, et son consommateur passe par le
   //   symbole partagé. Ça reste vrai quel que soit le fichier qui la consomme demain.
+  // (Audit 2026-10-05, TEST-11 : les deux motifs tolèrent espaces et retours à la
+  // ligne — un reformatage ne doit ni casser la garde ni lui cacher une recopie.)
   it("la formule du bruit de cellule n'existe qu'UNE fois dans le dépôt", async () => {
     const fs = await import("node:fs");
     const path = await import("node:path");
@@ -130,13 +132,13 @@ describe("S5 — bruit de bloc et regroupement", () => {
         const p = path.join(dir, e.name);
         if (e.isDirectory()) marcher(p);
         else if (/\.jsx?$/.test(e.name)
-          && /n1 \* 0\.6 \+ n2 \* 0\.4/.test(fs.readFileSync(p, "utf8"))) porteurs.push(p);
+          && /\bn1\s*\*\s*0\.6\s*\+\s*n2\s*\*\s*0\.4\b/.test(fs.readFileSync(p, "utf8"))) porteurs.push(p);
       }
     };
     marcher(SRC);
     expect(porteurs.map((p) => path.basename(p))).toEqual(["layout.js"]);
     // …et le consommateur l'atteint par le symbole partagé, pas par une recopie.
     expect(fs.readFileSync(path.join(SRC, "game", "map", "iso", "isoWildForest.js"), "utf8"))
-      .toMatch(/import \{[^}]*\bcmCellNoise\b[^}]*\} from ["']\.\.\/layout\.js["']/);
+      .toMatch(/import\s*\{[^}]*\bcmCellNoise\b[^}]*\}\s*from\s*["']\.\.\/layout(\.js)?["']/);
   });
 });

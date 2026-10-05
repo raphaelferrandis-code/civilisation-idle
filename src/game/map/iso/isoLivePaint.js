@@ -64,6 +64,7 @@ import { drawSunShadow, muteSunShadow } from './isoSunShadow.js';
 import { GHOST_TUNE, drawIsoCitizenItem, drawIsoRioter, drawIsoVehicle } from './isoUnits.js';
 import { GL_RUN_MIN } from './isoWildForest.js';
 import { ISO_X, worldToScreen } from './projection.js';
+import { HOUSE_LOT_WF } from '../spriteScale.js';
 import { WINTER } from '../seasonMode.js';
 import { chuteTileState } from './chuteState.js';
 import { paintHouseFall } from './isoChuteScene.js';
@@ -289,7 +290,7 @@ export function paintIsoItems(bake, items, now) {
           }
         }
       }
-      const wpx = (spanX + spanY) * T * z * ISO_X * 0.78;  // largeur allouée au sprite (~78 % du losange)
+      const wpx = (spanX + spanY) * T * z * ISO_X * HOUSE_LOT_WF;  // largeur allouée au sprite (~78 % du losange)
       // ⛔ L'ART DÉDIÉ DES MONUMENTS A ÉTÉ RETIRÉ (Raph, 2026-08-24 : « les
       // bâtiments créés sont de face »). Les dix PNG generés l'étaient bien en
       // `low top-down`, mais le MODÈLE a rendu des façades quasi frontales —
@@ -522,7 +523,7 @@ export function paintIsoItems(bake, items, now) {
       const t = it.t;
       const spanX = t.spanX || t.size || 1, spanY = t.spanY || t.size || 1;
       const anchor = tileAnchor(t, spanX, spanY);
-      const wpx = (spanX + spanY) * T * z * ISO_X * 0.78;
+      const wpx = (spanX + spanY) * T * z * ISO_X * HOUSE_LOT_WF;
       // MÊME appel de géométrie que le dessin du sprite : la source de la fumée
       // se recale donc automatiquement sur tout changement de cadrage du sprite.
       drawIsoSmoke(pixelHouseBox(t, anchor.x - wpx / 2, anchor.y - wpx - hh * 0.5, wpx, wpx), t._smokeS, now, smokeK);
@@ -531,13 +532,13 @@ export function paintIsoItems(bake, items, now) {
       const t = it.t;
       const spanX = t.spanX || t.size || 1, spanY = t.spanY || t.size || 1;
       const anchor = tileAnchor(t, spanX, spanY);
-      const wpx = (spanX + spanY) * T * z * ISO_X * 0.78;
+      const wpx = (spanX + spanY) * T * z * ISO_X * HOUSE_LOT_WF;
       drawIsoCrisisSmoke(pixelHouseBox(t, anchor.x - wpx / 2, anchor.y - wpx - hh * 0.5, wpx, wpx), t._crisisS, now);
     } else if (it.kind === 'revealpin') {
       const t = it.t;
       const spanX = t.spanX || t.size || 1, spanY = t.spanY || t.size || 1;
       const anchor = tileAnchor(t, spanX, spanY);
-      const wpx = (spanX + spanY) * T * z * ISO_X * 0.78;
+      const wpx = (spanX + spanY) * T * z * ISO_X * HOUSE_LOT_WF;
       // MÊME géométrie que le sprite (cf. fumée) → le chevron suit tout recadrage.
       drawIsoRevealPin(pixelHouseBox(t, anchor.x - wpx / 2, anchor.y - wpx - hh * 0.5, wpx, wpx), t._revealPinAt, now);
     } else if (it.kind === 'wonderSeg') {

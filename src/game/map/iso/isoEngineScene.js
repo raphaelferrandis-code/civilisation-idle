@@ -21,7 +21,7 @@ import { CM, cmHash, cmEngineAtelierFoot } from '../layout.js';
 import { maskFromImageData } from "./isoMask.js";
 import { fp } from '../framePerf.js';
 import { worldToScreen, ISO_X } from './projection.js';
-import { grainTune } from '../spriteScale.js';
+import { grainTune, ENGINE_UNIT_F } from '../spriteScale.js';
 import { drawEngineSprite } from '../engineSprites.js';
 import { engineCraft, getPropVersion } from '../cityEngineSprites.js';
 import { drawCachedEngineScene } from '../engineSceneCache.js';
@@ -64,6 +64,9 @@ const HALL_SCENE_CAP_MAX_BAND = 2;
 export const isoEngineScenesFlag = { on: true };
 if (typeof window !== 'undefined') window.__isoEngineScenes = (on) => { isoEngineScenesFlag.on = on !== false; return isoEngineScenesFlag.on; };
 const _isoSceneQuarantine = new Set();   // buildingIds dont la scène a jeté (repli socle)
+// Taille de la quarantaine, lue par les tests (audit du 05/10, TEST-5) : une scène
+// qui lève est avalée ici en silence, seul ce compte la trahit hors du jeu.
+export const isoSceneQuarantineSize = () => _isoSceneQuarantine.size;
 
 // ── SILHOUETTE DORÉE DU MOTEUR SURVOLÉ ──────────────────────────────────────
 // Les habitations ont leur liseré depuis A3 (drawPixelHouseOutline) : elles ont
@@ -358,7 +361,7 @@ export function isoEngineSceneBox(t, anchor, spanX, spanY, T, z, hh) {
   // n'est pas un atelier soufflé. Un atelier, lui, remplit son lot → f = 1 → cette
   // branche ne change rien pour lui.
   const spanSum = spanX + spanY;
-  const unit = T * z * ISO_X * 0.72;
+  const unit = T * z * ISO_X * ENGINE_UNIT_F;
   const HALL_SCENE_MAX = (typeof window !== 'undefined' && window.__hallSceneMax) || HALL_SCENE_MAX_DEFAULT;
   const sceneBand = CM.layout?.counts?.eraBand ?? 0;
   const capSum = sceneBand <= HALL_SCENE_CAP_MAX_BAND

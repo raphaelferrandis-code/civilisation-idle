@@ -4,24 +4,12 @@
 // cache (`CM._isoGroundBake`), retiré au lot 4 — une écriture qui réapparaîtrait
 // serait du code mort qui se croit vivant.
 import { describe, it, expect, afterEach } from 'vitest';
-import { readFileSync, readdirSync, statSync } from 'node:fs';
-import { dirname, join, basename } from 'node:path';
-import { fileURLToPath } from 'node:url';
+import { readFileSync } from 'node:fs';
+import { join, basename } from 'node:path';
 import { solInvalidate, setSolPyramideInvalidator } from '../iso/solInvalidate.js';
+import { MAP_DIR, jsFiles, codeLines } from '../../../test/source.js';
 
-const MAP_DIR = join(dirname(fileURLToPath(import.meta.url)), '..');
 const DEAD_STATE = /_isoGroundBake|_groundZoomCache|paintIsoGroundCached|__groundZoomCacheStats/;
-
-function jsFiles(dir) {
-  const out = [];
-  for (const name of readdirSync(dir)) {
-    const full = join(dir, name);
-    if (statSync(full).isDirectory()) { if (name !== '__tests__') out.push(...jsFiles(full)); }
-    else if (name.endsWith('.js')) out.push(full);
-  }
-  return out;
-}
-const codeLines = (src) => src.split(/\r?\n/).filter((l) => !/^\s*(\/\/|\*|\/\*)/.test(l));
 
 afterEach(() => { setSolPyramideInvalidator(null); });
 

@@ -26,7 +26,9 @@ import fs from "fs";
 // ---------------------------------------------------------------------------
 // 0. Stubs d'environnement (doivent exister AVANT les import() du jeu)
 // ---------------------------------------------------------------------------
-global.window = {};
+// addEventListener : cloudSave.js s'abonne à `pagehide` dès l'import (sans lui,
+// TypeError au chargement — audit 2026-10-05, SCRIPT-1).
+global.window = { addEventListener() {}, removeEventListener() {} };
 global.localStorage = { getItem() { return null; }, setItem() {} };
 Object.defineProperty(global, "navigator", {
   value: { clipboard: { writeText() {} } }, writable: true, configurable: true
@@ -108,7 +110,7 @@ const actions = await import("./src/game/core/actions.js");
 const {
   buyUpgrade, completeCollapse, tick, performGrandReset,
   activateMyth, migrerEnee, chronicle, runCrisisAction, runTerminalCrisisAction,
-  launchIcarus, cashOutIcarus, icarusStakes, icarusUnlocked
+  launchIcarus, cashOutIcarus, icarusUnlocked, tableLimits, collectTrunk
 } = actions;
 const { generateEpitaph } = await import("./src/game/core/events.js");
 
@@ -866,6 +868,12 @@ async function driveMyths(rec) {
 // on avance VT jusqu'a un multiplicateur >= 10 (le point de crash cache reste
 // tire par Math.random), puis on encaisse : cashout >= 10x avec cagnotte pleine =
 // JACKPOT ; sinon le vol brule et ALIMENTE la cagnotte (necessaire au jackpot).
+// Mise en FAVEUR depuis 90ba098b (plus d'icarusStakes ni de mise en or) : la Faveur
+// vient de la caisse des offrandes, relevee comme le ferait le joueur. La part de
+// cagnotte raflee suit mise / limite de la salle commune (potRakeShare) : on mise
+// toute la Faveur jusqu'a cette limite, sinon la rafle s'arrondit a 0 (pas de
+// jackpot). PAS resolveIcarusHeadless : le jackpot (jalon GR VII) y est reserve au
+// jeu interactif, la boucle ne l'aurait jamais decroche.
 // ---------------------------------------------------------------------------
 function playIcarusForJackpot(rec) {
   if (!icarusUnlocked()) return;                        // Icare exige bestEra >= 3
@@ -876,11 +884,11 @@ function playIcarusForJackpot(rec) {
     attempts++;
     if (VT >= BUDGET_SECONDS || timedOut()) return;
     if (stateModule.gamePaused || crisisOpen()) return; // Icare bloque en crise
-    const stakes = icarusStakes();
-    const stake = stakes.find((s) => s.id === "plume") || stakes[0];
-    if (!stake) return;
-    if (D(state.gold).lt(stake.gold)) { setClock(); tick(TICK); VT += TICK; continue; } // produire l'or de la mise
-    if (!launchIcarus(stake.id)) { setClock(); tick(TICK); VT += TICK; continue; }
+    const { min, base } = tableLimits();
+    if ((state.faveur || 0) < base) collectTrunk({ silent: true, render: false });
+    const stake = Math.min(base, Math.floor(state.faveur || 0));
+    if (stake < min) { setClock(); tick(TICK); VT += TICK; continue; } // la caisse se remplit
+    if (!launchIcarus(stake)) { setClock(); tick(TICK); VT += TICK; continue; }
     VT += dtForTarget; setClock();                      // avance jusqu'a la cible
     cashOutIcarus();                                     // resout : crash (remplit la cagnotte) OU cashout (jackpot si >=10x)
     if (rec && (attempts & 31) === 0) rec.checkPassiveMilestones();
@@ -901,10 +909,24 @@ async function runOptimized({ withMyths = true, profile = PROFILES.balanced } = 
   let collapseFails = 0;
   // Grimpe TOUS les jalons deja atteints d'affilee (croissance economique pouvant
   // en debloquer plusieurs dans le meme cycle). Renvoie le prochain GR restant.
+  // Garde anti-boucle (audit 2026-10-05, SCRIPT-2) : un reset refuse (sceau non
+  // reclamable, performGrandReset appele sans numero...) laissait grandResetCount
+  // fige et la boucle tournait a l'infini en microtaches — ni --maxreal ni le
+  // watchdog ne pouvaient tirer. On sort si le compteur n'a pas bouge, et on cede
+  // la main a la boucle d'evenements a chaque tour (heartbeat, watchdog).
   const climbReadyGRs = async () => {
     let n = (state.grandResetCount || 0) + 1;
     const cap = state.ragnarokHeritage ? 11 : 10;
-    while (n <= cap && grandResetMilestoneMet(n)) { await performGrandResetTracked(rec, n); n = (state.grandResetCount || 0) + 1; }
+    while (n <= cap && grandResetMilestoneMet(n)) {
+      const before = state.grandResetCount || 0;
+      await performGrandResetTracked(rec, n);
+      await flush();
+      if ((state.grandResetCount || 0) === before) {
+        if (argv.debug) console.error(`  [STOP] GR ${n} refuse (condition remplie mais sceau non reclame) cyc=${state.cycles}`);
+        break;
+      }
+      n = (state.grandResetCount || 0) + 1;
+    }
     return n;
   };
 
@@ -992,7 +1014,13 @@ async function performGrandResetTracked(rec, nextGR) {
     cycles: state.cycles
   };
   rec.grPeak[nextGR] = { vt: VT, ...peak };
-  await performGrandReset();
+  // Sceaux en ORDRE LIBRE : performGrandReset prend le numero du sceau, et ne
+  // reclame qu'un sceau latche (grRevealed — le tick le fait via
+  // refreshGrandResetReveal ; on le garantit, la condition est remplie). Sans
+  // numero, il rendait la main sans rien faire (SCRIPT-2), comme sim-10-profils.js.
+  state.grRevealed = state.grRevealed || {};
+  state.grRevealed[nextGR] = true;
+  await performGrandReset(nextGR);
   epochPeak = null; // nouvel epoch de GR
   rec.checkPassiveMilestones();
 }
@@ -1604,7 +1632,7 @@ md += `\n## Pointeurs formules (source de verite)
 - Production / taux : \`src/game/core/mechanics.js\` -> \`rates()\`, \`globalMultiplier()\`, \`buildingOutputMultiplier()\`.
 - Multiplicateur de Ruines : \`ruinMultiplier()\` (1 + ruins^0.62 x 0.09, cf. \`balance.js\`).
 - Gain de Ruines a l'effondrement : \`ruinGain()\` (patience/profondeur/sediment).
-- Grand Reset : gate sur jalons marquants (\`mechanics.js -> grandResetMilestoneMet(nextGR)\`, \`GRAND_RESET_MILESTONES\`) ; execution \`actions/building.js -> performGrandReset()\` (x2 prod/reset, 11e = x4 ruines si Ragnarok).
+- Grand Reset : gate sur jalons marquants (\`mechanics.js -> grandResetMilestoneMet(nextGR)\`, \`GRAND_RESET_MILESTONES\`) ; execution \`actions/building.js -> performGrandReset(gr)\` (x2 prod/reset, 11e = x4 ruines si Ragnarok).
 - Dogmes (paliers 10/20/30) : \`data/upgrades.js -> PRESTIGE_DOGMAS\` + \`ownedRuinBranchPurchaseCount()\`.
 - Mythes (actes, conditions, heritages) : \`data/myths.js -> MYTHS\`, deblocage \`isMythUnlocked()\`.
 

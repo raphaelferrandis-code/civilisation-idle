@@ -18,19 +18,7 @@
 import { describe, it, expect, afterEach } from 'vitest';
 import { computeCityLayout } from '../layout.js';
 import { ROAD_MEMORY } from '../roadMemory.js';
-import { defaultState } from '../../core/state.js';
-import { D } from '../../core/num.js';
-
-function city(perType) {
-  const s = defaultState();
-  s.cycles = 1;
-  s.mapSeed = 0x51a7c0de;
-  s.population = D('1e18');
-  s.infrastructure = D('1e12');
-  s.knowledge = D('1e12');
-  for (const k of Object.keys(s.buildings)) s.buildings[k] = perType;
-  return s;
-}
+import { cityState as city } from '../../../test/city.js';
 
 // Tuiles dont une cellule d'emprise n'est PAS du sol de ville. Les cellules de
 // fleuve sont exclues : le ponton d'un port et la roue d'un moulin mordent l'eau
@@ -56,17 +44,17 @@ function homeless(L) {
 
 afterEach(() => { delete globalThis.__engineHomesK; ROAD_MEMORY.on = true; });
 
-// Deux layouts denses complets à froid frôlent le testTimeout vitest par défaut
-// (5 s) quand la suite entière sature les cœurs → échec en timeout SEULEMENT en
-// suite complète. Garde d'INVARIANT, pas de performance : marge explicite.
-const SLOW = 20000;
+// Deux layouts denses complets à froid frôlaient le délai par défaut de vitest
+// (5 s) quand la suite entière sature les cœurs. Garde d'INVARIANT, pas de
+// performance : le délai global de vite.config.js (relevé pour la CI) suffit
+// (audit 2026-10-05, TEST-14).
 
 describe('sol urbain — aucun bâtiment planté dans l\'herbe', () => {
   it('couvre chaque emprise à la génération normale', () => {
     const L = computeCityLayout(city(60));
     expect(L.tiles.length).toBeGreaterThan(100);
     expect(homeless(L)).toEqual([]);
-  }, SLOW);
+  });
 
   it('couvre encore quand le rayon urbain SE RÉTRÉCIT sous des positions figées', () => {
     // ⚠ Scénario joué SANS la mémoire des rues : avec elle, les rues de la ville
@@ -93,7 +81,7 @@ describe('sol urbain — aucun bâtiment planté dans l\'herbe', () => {
       .toBeGreaterThan(0);
 
     expect(homeless(reduit)).toEqual([]);
-  }, SLOW);
+  });
 
   it('couvre encore, mémoire des rues allumée, quand le rayon se rétrécit', () => {
     const s = city(60);
@@ -104,7 +92,7 @@ describe('sol urbain — aucun bâtiment planté dans l\'herbe', () => {
     expect(Object.keys(s.cityMapSlots).length).toBeGreaterThan(0);
     expect(s.cityRoads, 'mémoire des rues jamais écrite : scénario vide').toBeTruthy();
     expect(homeless(reduit)).toEqual([]);
-  }, SLOW);
+  });
 
   it('le sol s\'arrête tout de même : il ne recouvre pas la carte', () => {
     // Garde-fou opposé — si l'emprise + pourtour pavait tout, la campagne, la
@@ -112,5 +100,5 @@ describe('sol urbain — aucun bâtiment planté dans l\'herbe', () => {
     const L = computeCityLayout(city(60));
     const N = L.gridN;
     expect(L.urbanSet.size).toBeLessThan(N * N * 0.85);
-  }, SLOW);
+  });
 });

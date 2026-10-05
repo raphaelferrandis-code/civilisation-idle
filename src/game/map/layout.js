@@ -29,6 +29,10 @@ import {
   CM_MAP_BUILDINGS,
   CM_KNOWLEDGE_IDS, CM_INFRA_IDS, CM_SLOT_PRIORITIES
 } from './cityBuildings.js';
+// Taille de tuile et pixels par tuile des merveilles : UNE source, le module d'échelle
+// du grain (sans import, donc sans cycle) — les tests lisaient la copie de layout.js
+// dans son TEXTE (audit 2026-10-05, TEST-11/TEST-12).
+import { TILE_REF, WONDER_PPT } from './spriteScale.js';
 
 /* ---- legacy citymap core\layout.js ---- */
 
@@ -50,7 +54,7 @@ const CM_SLOTTED_DECOR = true;
 
 // ── Objet état du canvas (partagé avec citymap.js) ──────────────────────────
 const CM = {
-  TILE: 32,
+  TILE: TILE_REF,
   canvas: null, ctx: null, mini: null, mctx: null,
   cam: { x: 0, y: 0, zoom: 1 },
   cw: 0, ch: 0, dpr: 1,
@@ -229,8 +233,9 @@ const ILOT_OUTSIDE = new Set(["irrigated_fields", "water_mills", "river_ports"])
 const ILOT_OUTSIDE_RE = /:(irrigated_fields|water_mills|river_ports):/;
 // Maisons-moteur posées d'AVANCE au-delà de celles déjà révélées (cf. placeDecor
 // « enginehome ») — remonté au niveau du module : le plan d'îlots en tient compte
-// dans sa demande de lots. ⛔ Ne pas le réduire (cf. mémoire du projet).
-const ENGINE_HOME_LOOKAHEAD = 44;
+// dans sa demande de lots. ⛔ Ne pas le réduire (cf. mémoire du projet) — exporté pour
+// ilotLayout.test.js, qui garde ce plancher (audit 2026-10-05, TEST-12).
+export const ENGINE_HOME_LOOKAHEAD = 44;
 // Lots de bord en plus pour les GRANDS LOGIS (villa, manoir, grand ensemble 2×2, tour
 // 1×2) : un 2×2 posé dans un îlot prend 2 à 3 lots de bord (un angle, ou deux lots et
 // la cour), un 1×2 un ou deux. Le tirage des variantes est DÉTERMINISTE par numéro de
@@ -469,8 +474,8 @@ const WONDER_CLEAR_R = 5; // rayon libre (tuiles) — repli pour merveille sans 
 // dans le socle (nw / 2·PPT tuiles) et la hauteur (nh / PPT tuiles) que cette table
 // donne à chaque rang : les anciens sprites « de face » qui l'ont mesurée sont
 // retirés, la table reste le contrat de l'emprise (wonderExtentTier.test vérifie
-// que chaque monument cuit y tient).
-const WONDER_PPT = 34;
+// que chaque monument cuit y tient). WONDER_PPT (34 px par tuile) vient de
+// spriteScale.js (cf. les imports).
 // Dimensions de CHAQUE RANG (héritées des sprites retirés).
 //
 // ⚠ L'emprise se dérivait des dims du rang V pour TOUS les rangs (retour Raph

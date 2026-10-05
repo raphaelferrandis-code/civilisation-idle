@@ -6,9 +6,11 @@
 
 import { describe, it, expect, beforeAll, afterAll, vi } from "vitest";
 
-import { defaultState, hydrateState, normalizeEpitaphLegacy } from "../state.js";
+import { defaultState, normalizeEpitaphLegacy } from "../state.js";
 import { EPITAPH_LEGACIES } from "../../data/epitaphs.js";
 import { FIXED_NOW } from "./fixtures.js";
+// Simule un cycle save → JSON.parse → hydrateState, comme un F5 du joueur.
+import { roundTrip } from "../../../test/core.js";
 
 beforeAll(() => {
   vi.spyOn(Date, "now").mockReturnValue(FIXED_NOW);
@@ -17,9 +19,6 @@ beforeAll(() => {
 afterAll(() => {
   vi.restoreAllMocks();
 });
-
-// Simule un cycle save → JSON.parse → hydrateState, comme un F5 du joueur.
-const roundTrip = (state) => hydrateState(JSON.parse(JSON.stringify(state)));
 
 describe("hydrateState — round-trip de sauvegarde", () => {
   it("conserve exactement les clés du state d'origine", () => {

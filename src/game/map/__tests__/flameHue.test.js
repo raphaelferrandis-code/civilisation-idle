@@ -129,9 +129,10 @@ describe('sprites de feu — la rampe est bien posée dessus', () => {
     });
   }
 
-  // Timeout explicite : 80 PNG décodés par pngjs, c'est la garde la plus chère du
-  // dépôt. Sous la charge de la suite complète elle dépassait les 5 s par défaut
-  // et tombait « au hasard » — un faux rouge qui apprend à ignorer le rouge.
+  // 80 PNG décodés par pngjs : sous la charge de la suite complète, elle dépassait
+  // les 5 s par défaut de vitest et tombait « au hasard » — un faux rouge qui
+  // apprend à ignorer le rouge. Le délai global de vite.config.js (relevé pour la
+  // CI) lui suffit, sans délai propre (audit 2026-10-05, TEST-14).
   it('les 80 bandes de torche d\'émeutier brûlent toutes', () => {
     // Le lot le plus exposé à un remap de masse : 5 ères × 2 genres × 8
     // directions. Une seule torche oubliée = un émeutier au flambeau blanc au
@@ -148,7 +149,7 @@ describe('sprites de feu — la rampe est bien posée dessus', () => {
     expect(files.length).toBe(84);
     const cold = files.filter((f) => rampPixels(path.join('agents/events', f)) < 20);
     expect(cold, `torches sans rampe de feu : ${cold.join(', ')}`).toEqual([]);
-  }, 30000);
+  });
 });
 
 describe('lueurs du code — accordées à la rampe', () => {

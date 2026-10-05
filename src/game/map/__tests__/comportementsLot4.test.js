@@ -9,6 +9,7 @@ import { updateCrisis } from "../quaysAndRiot.js";
 import { isoPlazaCompositions } from "../iso/isoPlaza.js";
 import { folkAt, FOLK } from "../iso/plazaFolk.js";
 import { depthOf } from "../iso/projection.js";
+import { plazaWithStreets } from "../../../test/plaza.js";
 
 // docs/PLAN-COMPORTEMENTS.md, LOT 4 — « la ville réagit ». Constats de l'audit du
 // 2026-10-04 que ces gardes ferment :
@@ -233,20 +234,11 @@ describe("lot 4 — face à l'émeute", () => {
 });
 
 describe("lot 4 — la place se vide sous l'averse et la nuit", () => {
-  function plazaLayout(n, kind, band = 3, gx0 = 10, gy0 = 10) {
-    const roadMap = new Map();
-    for (let iy = 0; iy < n; iy += 1) {
-      for (let ix = 0; ix < n; ix += 1) roadMap.set((gx0 + ix) + "," + (gy0 + iy), { gx: gx0 + ix, gy: gy0 + iy, rank: "plaza" });
-    }
-    const road = (gx, gy) => roadMap.set(gx + "," + gy, { gx, gy, rank: "street" });
-    for (let i = -1; i <= n; i += 1) { road(gx0 + i, gy0 - 1); road(gx0 + i, gy0 + n); road(gx0 - 1, gy0 + i); road(gx0 + n, gy0 + i); }
-    return { roadMap, plan: { plazas: [{ gx: gx0 + n / 2, gy: gy0 + n / 2, kind }] }, counts: { eraBand: band } };
-  }
   let stamp = 5000;
   const compose = () => {
     CM.TILE = TILE;
     CM.layoutRecomputeAt = (stamp += 1);
-    return isoPlazaCompositions(plazaLayout(5, "marche"), 3)[0];
+    return isoPlazaCompositions(plazaWithStreets(5, "marche"), 3)[0];
   };
   const present = (comp, env) => {
     let n = 0, k = 0;

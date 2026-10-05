@@ -26,6 +26,7 @@ import fs from "node:fs";
 import path from "node:path";
 import { PNG } from "pngjs";
 import { WATER_SHEETS } from "../iso/isoRiver.js";
+import { lumOf } from "../../../test/pixels.js";
 
 const T = 16, FRAMES = 8;
 const WATER = [74, 98, 109];                 // isoPalette.js — teinte du corps d'eau
@@ -168,12 +169,11 @@ describe("bandes d'eau calmes du fleuve", () => {
     // C'est tout le sens du liseré : « l'eau est moins profonde au bord ». Le seul
     // moyen de le vérifier, c'est de confronter la table de teintes au PNG qu'elle
     // accompagne — une valeur recopiée du mauvais coloris passerait sinon inaperçue.
-    const lum = (c) => 0.2126 * c[0] + 0.7152 * c[1] + 0.0722 * c[2];
     for (const b of BANDES) {
       const eau = moyenne(b.png);
       const acc = WATER_SHEETS[b.cle];
       const liseré = acc.shore[2].split(',').map(Number);
-      expect(lum(liseré), `${b.cle} : liseré ${acc.shore[2]} contre eau ${eau.join(',')}`).toBeGreaterThan(lum(eau) + 30);
+      expect(lumOf(liseré), `${b.cle} : liseré ${acc.shore[2]} contre eau ${eau.join(',')}`).toBeGreaterThan(lumOf(eau) + 30);
       // Même famille : le canal DOMINANT de l'eau doit rester dominant dans le
       // liseré (sinon on éclaircit vers une autre couleur — un liseré vert sur de
       // l'eau bleue, exactement ce qu'on vient de corriger).

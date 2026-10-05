@@ -203,6 +203,32 @@ describe("protocole app:// (ELEC-5) et CSP (ELEC-4)", () => {
     expect(resolveAppRequest(dist, "app://localhost/%E0%A4%A")).toEqual({ status: 400 });
   });
 
+  // Audit du 05/10 (TEST-4) : la garde anti-traversée sous toutes ses formes — `..`
+  // en clair (l'URL le résout avant nous), encodé, avec l'antislash de Windows
+  // (%5c : séparateur pour path.resolve sous Windows, simple caractère ailleurs),
+  // et un dossier VOISIN dont le nom commence comme dist/ (« dist-voisin »).
+  it("traversée : .. en clair, encodé, par antislash ou vers un voisin au même préfixe : jamais hors de dist/", () => {
+    const base = tempDir();
+    const dist = path.join(base, "dist");
+    fs.mkdirSync(path.join(dist, "assets"), { recursive: true });
+    fs.mkdirSync(path.join(base, "dist-voisin"), { recursive: true });
+    fs.writeFileSync(path.join(base, "secret.txt"), "hors de dist");
+    fs.writeFileSync(path.join(base, "dist-voisin", "x.txt"), "hors de dist");
+    for (const url of [
+      "app://localhost/../secret.txt",
+      "app://localhost/assets/../../secret.txt",
+      "app://localhost/assets/..%2f..%2fsecret.txt",
+      "app://localhost/%2E%2E/secret.txt",
+      "app://localhost/%2e%2e%5csecret.txt",
+      "app://localhost/assets%5c..%5c..%5csecret.txt",
+      "app://localhost/%2e%2e%2fdist-voisin%2fx.txt",
+    ]) {
+      const r = resolveAppRequest(dist, url);
+      expect(r.status, url).toBe(404);
+      expect(r.filePath, url).toBeUndefined();
+    }
+  });
+
   it("plages d'octets (musique) : début, fin, suffixe ; hors fichier = 416 ; absente ou multiple = fichier entier", () => {
     expect(parseByteRange("bytes=0-99", 4000)).toEqual({ start: 0, end: 99 });
     expect(parseByteRange("bytes=100-", 4000)).toEqual({ start: 100, end: 3999 });

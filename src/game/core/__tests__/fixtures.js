@@ -40,3 +40,21 @@ export const MID_GAME_FIXTURE = {
     sewers: 1
   }
 };
+
+// Profil de FARM HORS-LIGNE (simulateAwayCrises v2) : auto-achat (hephHeritage),
+// doctrine de crise réglée et effondrement automatique au « temps » à 180 s, sur un
+// cycle déjà vieux de 2 h — l'effondrement part donc au premier pas de 10 s, sur un
+// état PRÉ-effondrement identique d'un run à l'autre. Une seule copie (audit
+// 2026-10-05, TEST-9) : crisisDoctrine, epitaphLegacy et mythRepairs la recopiaient.
+// Brut, comme MID_GAME_FIXTURE : passer par farmState() (src/test/core.js), qui en
+// hydrate une copie fraîche.
+export const FARM_FIXTURE = {
+  population: 100000, food: 400000, gold: 200000, knowledge: 30000, infrastructure: 3000,
+  ruins: 5000, cycles: 10, instability: 0.3, timeWear: 0.1,
+  bestEraIndex: 6, cyclePeaks: { population: 120000, knowledge: 35000, infrastructure: 3500, eraIndex: 6 },
+  cycleStartedAt: FIXED_NOW - 2 * 3600 * 1000, lastTick: FIXED_NOW - 2 * 3600 * 1000,
+  buildings: { foragers: 30, granaries_city: 20, caravans: 12, markets: 8, irrigated_fields: 6 },
+  upgrades: { conseil_de_crise: true, edit_effondrement: true },
+  hephHeritage: true,
+  crisisDoctrine: { p25: "stabiliser", p50: "stabiliser", p75: "stabiliser", autoCollapse: { enabled: true, trigger: "temps", timeSeconds: 180, usureThreshold: 0.9, prepare: false } }
+};

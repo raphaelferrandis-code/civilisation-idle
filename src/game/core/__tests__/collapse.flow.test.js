@@ -10,14 +10,10 @@ import { state, setState, hydrateState, invalidateRenderCache } from "../state.j
 import { registerChoiceDialog } from "../choiceDialog.js";
 import { runCollapseSequence } from "../events.js";
 import { tick } from "../actions/tick.js";
-import { CRISIS_EVENTS } from "../../data/world.js";
 import { D } from "../num.js";
 import { MID_GAME_FIXTURE, FIXED_NOW } from "./fixtures.js";
-
-// Neutralise les crises NARRATIVES (25/50/75 %) pour isoler le déclencheur terminal :
-// tous les seuils déjà marqués → checkCrisisThresholds ne tire rien (ni dialogue).
-const markAllThresholds = () =>
-  (state.crisisThresholds = Object.fromEntries(CRISIS_EVENTS.map((e) => [e.id, true])));
+// Neutralise les crises NARRATIVES (25/50/75 %) pour isoler le déclencheur terminal.
+import { neutralizeCrises } from "../../../test/core.js";
 
 beforeEach(() => {
   vi.useFakeTimers();
@@ -33,7 +29,7 @@ afterEach(() => {
 
 describe("tick → effondrement terminal (G-25)", () => {
   it("déclenche triggerCollapseChoices quand crisisOpen (Usure = 1)", () => {
-    markAllThresholds();
+    neutralizeCrises();
     state.timeWear = 1; // crisisOpen() = true ; l'Usure est un cliquet (ne redescend pas dans le tick)
     expect(state.crisisLimitAnnounced).toBeFalsy();
     tick(1);
@@ -41,7 +37,7 @@ describe("tick → effondrement terminal (G-25)", () => {
   });
 
   it("ne déclenche PAS sous le seuil (Rupture/Usure < 1)", () => {
-    markAllThresholds();
+    neutralizeCrises();
     state.timeWear = 0;
     state.instability = 0.3;
     tick(1);

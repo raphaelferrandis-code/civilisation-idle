@@ -4,7 +4,7 @@
 import { describe, it, expect } from "vitest";
 import { BOAT_MODELS, BAND_FLEET } from "../iso/boatKits.js";
 import { bakeBoat, dirTheta } from "../iso/boatBake.js";
-import { BOAT_CAST, crewName, crewSpec, crewDir } from "../iso/boatCrew.js";
+import { BOAT_CAST, crewSpec, crewDir } from "../iso/boatCrew.js";
 import { ISO_AGENT_NAMES } from "../agents.js";
 import fs from "node:fs";
 import path from "node:path";
@@ -31,7 +31,7 @@ describe("l'équipage des bateaux", () => {
         const ctx = { variant: M.variant(3), state: "cruise", k: 1.2 };
         const full = bakeBoat(M, dirTheta(5), ctx);
         expect(full.crew.length, id).toBeGreaterThan(0);
-        for (const cr of full.crew) expect(ISO_AGENT_NAMES).toContain(crewName(b, M, cr));
+        for (const cr of full.crew) expect(ISO_AGENT_NAMES).toContain(crewSpec(b, M, cr).name);
         expect(bakeBoat(M, dirTheta(5), { ...ctx, empty: true }).crew.length, id + " amarré").toBe(0);
       }
     }
@@ -74,14 +74,16 @@ describe("l'équipage des bateaux", () => {
       const name = crewSpec(b, M, host[0]).name;
       expect(fs.existsSync(path.join(process.cwd(), "public/pixelart/agents/inhabitants", name + "-southeast.png")), name).toBe(true);
       expect(go.crew.length, "bande " + b).toBeGreaterThanOrEqual(3);
-      for (const cr of go.crew) if (cr.role !== "hostess") expect(ISO_AGENT_NAMES).toContain(crewName(b, M, cr));
+      for (const cr of go.crew) if (cr.role !== "hostess") expect(ISO_AGENT_NAMES).toContain(crewSpec(b, M, cr).name);
       expect(bakeBoat(M, dirTheta(5), { ...ctx, state: "unload" }).crew.length, "bande " + b).toBe(1);
       expect(bakeBoat(M, dirTheta(5), { ...ctx, state: "return" }).crew.length).toBeLessThanOrEqual(2);
     }
   });
+  // Par crewSpec, ce que lit la cuisson (boatKit.js) : crewName n'a plus d'appelant
+  // hors des tests (audit 2026-10-05, TEST-10).
   it("le bac distingue le passeur de ses passagers", () => {
     const M = { role: "ferry" };
-    expect(BOAT_CAST[4].crew).toContain(crewName(4, M, { pose: "pole", id: 1 }));
-    expect(BOAT_CAST[4].pass).toContain(crewName(4, M, { pose: "stand", id: 1 }));
+    expect(BOAT_CAST[4].crew).toContain(crewSpec(4, M, { pose: "pole", id: 1 }).name);
+    expect(BOAT_CAST[4].pass).toContain(crewSpec(4, M, { pose: "stand", id: 1 }).name);
   });
 });

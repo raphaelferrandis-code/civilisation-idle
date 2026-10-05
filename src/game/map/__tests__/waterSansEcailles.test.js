@@ -13,6 +13,7 @@ import fs from "node:fs";
 import path from "node:path";
 import { PNG } from "pngjs";
 import { WATER_SHEETS } from "../iso/isoRiver.js";
+import { lumOf as lum } from "../../../test/pixels.js";
 
 const FRAMES = 8;
 const read = (src) => PNG.sync.read(fs.readFileSync(path.join(process.cwd(), "public", src)));
@@ -98,7 +99,6 @@ const moyenne = (p) => {
   for (let i = 0; i < p.data.length; i += 4) { sum[0] += p.data[i]; sum[1] += p.data[i + 1]; sum[2] += p.data[i + 2]; }
   return sum.map((v) => v / n);
 };
-const lum = (c) => 0.2126 * c[0] + 0.7152 * c[1] + 0.0722 * c[2];
 
 describe("la nappe sans écailles", () => {
   for (const c of COLORIS) {

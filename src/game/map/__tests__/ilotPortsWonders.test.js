@@ -11,18 +11,8 @@ import { D } from "../../core/num.js";
 import { eras } from "../../data/world.js";
 import { ROAD_MEMORY } from "../roadMemory.js";
 import { tradeCells } from "../portSites.js";
+import { growCity as grow } from "../../../test/city.js";
 
-const KEYS = Object.keys(state.buildings).filter((k) => k !== "roads");
-function grow(i, level = 30) {
-  const pop = D(eras[i].at);
-  Object.assign(state, {
-    cycles: 1, mapSeed: 0x2b1c07, population: pop,
-    knowledge: pop.mul(0.05), infrastructure: pop.mul(0.1), instability: 0, timeWear: 0,
-  });
-  KEYS.forEach((k) => { state.buildings[k] = level; });
-  state.buildings.roads = 20;
-  return computeCityLayout(state);
-}
 const BUILT = new Set(["house", "enginehome", "engine"]);
 const foot = (t) => { const out = []; const sx = t.spanX || t.size || 1, sy = t.spanY || t.size || 1; for (let a = 0; a < sx; a += 1) for (let b = 0; b < sy; b += 1) out.push((t.gx + a) + "," + (t.gy + b)); return out; };
 const RURAL = /:(irrigated_fields|water_mills|river_ports):/;
@@ -57,7 +47,7 @@ describe("ville par îlots — port de commerce et merveilles", () => {
       if (L.roadSet.has(x + "," + y)) served = true;
     }
     expect(served, "rue d'accès").toBe(true);
-  }, 180000);
+  });
 
   // LE PORT NE SAUTE PLUS (audit 2026-10-05, BUG-14) : la revérification du terre-plein
   // lisait tout le pourtour des îlots ouverts (ilotMemoryCells), même là où aucune rue
@@ -91,7 +81,7 @@ describe("ville par îlots — port de commerce et merveilles", () => {
         expect([...cells].filter((k) => L.roadSet.has(k)), `rues sur le port (${at})`).toEqual([]);
       }
     }
-  }, 180000);
+  });
 
   it("une merveille neuve contourne les îlots déjà ouverts : aucune maison ne déménage", () => {
     grow(21);
@@ -107,5 +97,5 @@ describe("ville par îlots — port de commerce et merveilles", () => {
       if (!now || now.dx !== v.dx || now.dy !== v.dy) moved += 1;
     }
     expect(moved, "maisons et halles délogées par la merveille").toBe(0);
-  }, 180000);
+  });
 });

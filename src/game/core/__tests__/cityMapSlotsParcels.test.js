@@ -15,6 +15,14 @@ describe("mémoire de placement : parcelles et hauteur de port", () => {
     expect(back["1:river_ports:0"].sy).toBe(4);
   });
 
+  // Audit du 05/10 : épinglé au Vieux-Port, le port mémorise la hauteur du bassin
+  // entier (basinD 7 + quai nord 2 + une rangée de fleuve = 10). La borne à 8 la
+  // jetait à chaque rechargement.
+  it("garde la hauteur du port épinglé au Vieux-Port (sy = 10)", () => {
+    const back = normalizeCityMapSlots({ "5:river_ports:0": { dx: -18, dy: 93, sy: 10, zone: "river", id: "river_ports" } });
+    expect(back["5:river_ports:0"].sy).toBe(10);
+  });
+
   it("écarte des parcelles abîmées, sans perdre le slot", () => {
     const back = normalizeCityMapSlots({
       "1:irrigated_fields:0": { dx: 1, dy: 2, zone: "", id: "", parcels: [[1, 2, 0, 3]] },

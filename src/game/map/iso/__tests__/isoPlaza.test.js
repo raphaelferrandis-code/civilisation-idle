@@ -8,6 +8,9 @@ import {
   isoPlazaKitOn, isoPlazaSceneOn, isoPlazaSceneCoversGround, plazaAnchor, grateFit,
   PLAZA_TUNE, RECIPES, KIND_KITS, HOUSE_HT, TALL_PROPS, personHT, ANIM_PROPS, ANIM_ERAS,
 } from "../isoPlaza.js";
+// Place carrée de `n` cellules, coin en (gx0, gy0), au format roadMap du layout
+// (+ cellules `plaza` isolées ailleurs).
+import { plazaSquare } from "../../../../test/plaza.js";
 
 // ── CE QUE CES TESTS PROTÈGENT ──────────────────────────────────────────────
 // Le bug d'origine : la place était UNE image étirée sur son emprise, donc un
@@ -39,21 +42,6 @@ const bordMates = (comp) => comp.props.filter(
 );
 const coeurMates = (comp) => comp.props.filter((p) => p.field);
 
-// Place carrée de `n` cellules, coin en (gx0, gy0), au format roadMap du layout.
-function plazaLayout(n, gx0 = 10, gy0 = 10, extra = []) {
-  const roadMap = new Map();
-  for (let iy = 0; iy < n; iy += 1) {
-    for (let ix = 0; ix < n; ix += 1) {
-      const gx = gx0 + ix, gy = gy0 + iy;
-      roadMap.set(gx + "," + gy, { gx, gy, rank: "plaza" });
-    }
-  }
-  // Cellules 'plaza' ISOLÉES ailleurs sur la carte : elles existent en vrai et
-  // gonflaient la bbox à la ville entière avant le flood-fill.
-  for (const [gx, gy] of extra) roadMap.set(gx + "," + gy, { gx, gy, rank: "plaza" });
-  return { roadMap };
-}
-
 // Remet la molette à son état d'usine : un test qui laisse `only` ou `density`
 // armé empoisonne tous les suivants (piège vu sur les molettes de la carte).
 const TUNE0 = { ...PLAZA_TUNE, hT: {} };
@@ -83,7 +71,7 @@ afterEach(() => { resetTune(); });
 function freshLayout(...args) {
   recomputeAt += 1;
   CM.layoutRecomputeAt = recomputeAt;
-  return plazaLayout(...args);
+  return plazaSquare(...args);
 }
 
 // Colle plusieurs places carrées dans un même layout.
@@ -768,9 +756,13 @@ describe("BANDES D'EAU ANIMÉE", () => {
     const b = fs.readFileSync(f);
     return { w: b.readUInt32BE(16), h: b.readUInt32BE(20) };
   };
+  // Le dossier est EXIGÉ (audit 2026-10-05, TEST-13) : la garde « pas encore
+  // d'animation » datait d'avant les bandes ; restée en place, un dossier renommé
+  // aurait rendu ces quatre tests vides, en vert.
+  const exigeBandes = () => expect(fs.existsSync(ANIM), `${ANIM} absent : les bandes animées ont déménagé ?`).toBe(true);
 
   it("chaque bande est un multiple EXACT du canvas de son sprite statique", () => {
-    if (!fs.existsSync(ANIM)) return;                 // pas encore d'animation
+    exigeBandes();
     const bandes = fs.readdirSync(ANIM).filter((f) => f.endsWith(".png"));
     expect(bandes.length, "au moins une bande").toBeGreaterThan(0);
     for (const f of bandes) {
@@ -793,7 +785,7 @@ describe("BANDES D'EAU ANIMÉE", () => {
     // (repli SPA), donc rien ne casse — mais le .exe le compte en
     // ERR_FILE_NOT_FOUND. Livrer une bande sans la déclarer, à l'inverse, laisse
     // de l'art mort sur le disque que personne ne dessinera jamais.
-    if (!fs.existsSync(ANIM)) return;
+    exigeBandes();
     const bandes = fs.readdirSync(ANIM).filter((f) => f.endsWith(".png"));
     const propDe = (f) => f.replace(/-[^-]+\.png$/, "");
     const props = new Set(bandes.map(propDe));
@@ -839,7 +831,7 @@ describe("BANDES D'EAU ANIMÉE", () => {
     // la couleur ne dit plus rien. Il le faut : sur la fontaine cosmique les
     // cascades sont peintes dans la palette du MARBRE (crème 216,205,180, blanc
     // 251,250,244), aucun seuil de teinte ne peut les séparer de la pierre.
-    if (!fs.existsSync(ANIM)) return;
+    exigeBandes();
     const { PNG } = await import("pngjs");
     const BLEU = 40;
     const ZONE = path.join(ANIM, "zone");
@@ -878,7 +870,7 @@ describe("BANDES D'EAU ANIMÉE", () => {
     // image sur N — sur une fontaine, ce hoquet se voit tout de suite. Le
     // symptôme est invisible aux dimensions : la bande reste un multiple exact,
     // seul le CONTENU trahit. D'où une comparaison pixel à pixel.
-    if (!fs.existsSync(ANIM)) return;
+    exigeBandes();
     const { PNG } = await import("pngjs");
     for (const f of fs.readdirSync(ANIM).filter((x) => x.endsWith(".png"))) {
       const st = PNG.sync.read(fs.readFileSync(path.join(STAT, f)));

@@ -17,6 +17,7 @@ import { registerChoiceDialog } from "../choiceDialog.js";
 import { tick } from "../actions/tick.js";
 import { promptCadmosAgeName, chooseActiveRuins, activateAtridesPact } from "../actions/myths.js";
 import { ACTIVE_RUIN_DEFINITIONS, ANTEE_MIN_ACTIVE_RUINS } from "../../data/activeRuins.js";
+import { roundTrip } from "../../../test/core.js";
 
 // chooseActiveRuins laisse le jeu en pause (ses appelants le relancent).
 afterEach(() => {
@@ -147,8 +148,6 @@ describe("BUG-25 — la Ruine active « Pacte signé d'office » scelle bien le 
 });
 
 describe("SAV-10 — dette des Atrides et Pente du rocher au-delà de 9e15", () => {
-  const roundTrip = (raw) => hydrateState(JSON.parse(JSON.stringify(raw)));
-
   it("un aller-retour JSON → hydrateState garde 1e100 de dette et une Pente à 1e17", () => {
     const out = roundTrip({ atridesDebt: 1e100, sisypheMult: 1e17 });
     expect(out.atridesDebt).toBe(1e100);

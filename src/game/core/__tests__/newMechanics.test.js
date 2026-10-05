@@ -11,9 +11,9 @@ import { state, setState, hydrateState, invalidateRenderCache } from "../state.j
 import { Decimal, D } from "../num.js";
 import { pressureBreakdown, timeWearRate } from "../mechanics.js";
 import { tick } from "../actions/tick.js";
-import { CRISIS_EVENTS } from "../../data/world.js";
 import { BOONS } from "../../data/boons.js";
 import { MID_GAME_FIXTURE, FIXED_NOW } from "./fixtures.js";
+import { neutralizeCrises } from "../../../test/core.js";
 import {
   DEMESURE_SOFT_CAP,
   STAGNATION_USURE_RAMP_SEC,
@@ -35,7 +35,7 @@ beforeEach(() => {
   setState(hydrateState(MID_GAME_FIXTURE));
   // Neutralise les paliers de crise : ils ouvrent un dialogue UI (openChoiceDialog)
   // absent en environnement de test.
-  state.crisisThresholds = Object.fromEntries(CRISIS_EVENTS.map((e) => [e.id, true]));
+  neutralizeCrises();
   invalidateRenderCache("all");
 });
 

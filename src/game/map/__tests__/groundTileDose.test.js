@@ -12,23 +12,26 @@
 // régénérées avec un grain calme, c'est le second `it` qui tombera, et il faudra
 // rouvrir la dose au lieu de la traîner.
 //
-// ⚠ Troisième garde, structurelle : doser ne laisse aucun trou UNIQUEMENT parce que
-// l'aplat de ton est peint sous la tuile (`texAlpha === 0` pour `urban`). Ce 0 est
-// vérifié par lecture du SOURCE, comme le fait déjà spriteScale.test.js pour les
-// densités — une garde qui recopierait la règle ne verrait pas sa disparition.
-import { describe, it, expect } from "vitest";
+// ⚠ Troisième garde : doser ne laisse aucun trou UNIQUEMENT parce que l'aplat de ton
+// est peint SOUS la tuile de la cellule urbaine. Elle se vérifie sur ce que la boucle
+// de cuisson PEINT (sweepIsoGroundCells, contexte enregistreur) : elle lisait jadis
+// une formule dans le texte de isoGroundCells.js, au caractère près (audit 2026-10-05,
+// TEST-11) — un reformatage la cassait, un autre chemin de peinture lui échappait.
+import { describe, it, expect, beforeEach, afterEach } from "vitest";
 import fs from "node:fs";
 import { PNG } from "pngjs";
-import { URBAN_TILE_A } from "../iso/isoGroundDetail.js";
-import { ISO_TILE_VARIANTS } from "../iso/isoGroundTiles.js";
+import { URBAN_TILE_A, URBAN_DETAIL } from "../iso/isoGroundDetail.js";
+import { ISO_TILE_VARIANTS, isoTileCache } from "../iso/isoGroundTiles.js";
+import { sweepIsoGroundCells } from "../iso/isoGroundCells.js";
+import { rgb } from "../iso/isoPalette.js";
+import { CM } from "../layout.js";
+import { lum } from "../../../test/pixels.js";
 
 const ISO = new URL("../../../../public/pixelart/iso/", import.meta.url);
-const SRC = new URL("../iso/isoGroundCells.js", import.meta.url);
 
 // Grain d'une matière = moyenne des |ΔL| entre pixels ADJACENTS (H et V), sur les
 // pixels opaques, moyennée sur ses variantes. C'est la texture que l'œil lit, pas
 // l'écart-type global (une tuile peut être très contrastée et parfaitement lisse).
-const lum = (r, g, b) => 0.2126 * r + 0.7152 * g + 0.0722 * b;
 function grain(key) {
   const n = ISO_TILE_VARIANTS[key] || 0;
   const names = n > 1 ? Array.from({ length: n }, (_, i) => `${key}-${i + 1}.png`) : [`${key}.png`];
@@ -91,25 +94,74 @@ describe("S2 — dose de la tuile de sol par matière", () => {
     }
   });
 
-  // Garde STRUCTURELLE, par lecture du source : c'est ce 0 qui fait que la dose ne
-  // laisse pas voir le fond du canvas. Il vit dans une variable locale de la boucle
-  // de cuisson, donc aucun import ne peut l'observer — la lecture de source est la
-  // seule garde possible, et c'est l'idiome déjà retenu ailleurs (spriteScale).
-  // ⚠ LA BOUCLE DE CUISSON A DÉMÉNAGÉ le 2026-08-23 : isoRenderer → isoGroundCells.js.
-  // Cette garde ne porte AUCUN nom d'export — elle cherche une FORMULE dans du texte —,
-  // donc aucun balayage de symboles ne peut la voir partir avec le code. C'est le
-  // deuxième cas de ce genre dans ce découpage (cf. P31 du plan) ; si la boucle
-  // redéménage, c'est ce chemin-là qu'il faut suivre.
-  it("l'aplat de ton est bien peint SOUS la tuile urbaine (texAlpha 0)", () => {
-    const src = fs.readFileSync(SRC, "utf8");
-    expect(src).toMatch(/texAlpha\s*=\s*kind === 'urban'\s*\?\s*0/);
-    // …et la branche de repli se déclenche bien quand texAlpha < 1. (Préfixe
-    // `!lisRuns &&` : une cellule de BORD de la lisière arrondie est peinte par
-    // `paintKindIn`, qui pose lui aussi l'aplat de ton AVANT la tuile — vérifié
-    // juste en dessous.)
-    expect(src).toMatch(/if \((?:!lisRuns && )?kind !== 'grass' && \(!tileReady \|\| texAlpha < 1\)\)/);
-    const lis = src.slice(src.indexOf('const paintKindIn'), src.indexOf('for (let gy = b.gy0'));
-    expect(lis.indexOf('ctx.fillRect(')).toBeGreaterThan(-1);
-    expect(lis.indexOf('ctx.fillRect(')).toBeLessThan(lis.indexOf('blitIsoTileKey('));
+  // GARDE DE RÉSULTAT : c'est l'aplat de ton posé SOUS la tuile dosée qui fait que la
+  // dose ne laisse pas voir le fond du canvas. On fait peindre UNE cellule urbaine à
+  // la boucle de cuisson, toutes tuiles prêtes, et on relit ce qu'elle a peint.
+  describe("l'aplat de ton est peint SOUS la tuile urbaine", () => {
+    const URB = [150, 140, 120];                       // ton du sol de ville (aplat)
+    const MAT = { tile: "test-sol-matiere", type: "cobble", tone: [90, 90, 90] };
+    const GENERIC = "test-sol-urbain";                 // tuile GÉNÉRIQUE du kind urbain
+    const face = (tag) => ({ tag, width: 64, height: 32 });
+    const ready = (tag) => ({ img: face(tag), ready: true, bbox: { x0: 0, y0: 0, w: 64, h: 32 }, face: face(tag), flat: true, over: 0 });
+    // Contexte ENREGISTREUR : les remplissages (avec leur couleur) et les blits (avec
+    // leur source), dans l'ordre où la boucle les pose.
+    const recorder = () => {
+      const ops = [];
+      const ctx = {
+        fillStyle: "#000", strokeStyle: "#000", lineWidth: 1, globalAlpha: 1, imageSmoothingEnabled: true,
+        fill() { ops.push({ op: "fill", style: this.fillStyle }); },
+        fillRect() { ops.push({ op: "fill", style: this.fillStyle }); },
+        drawImage(src) { ops.push({ op: "draw", tag: src && src.tag, alpha: this.globalAlpha }); },
+      };
+      for (const m of ["save", "restore", "beginPath", "moveTo", "lineTo", "closePath", "stroke", "rect", "clip", "translate", "scale"]) ctx[m] = () => {};
+      return { ctx, ops };
+    };
+    const sweep = (ctx, lisiere = null) => sweepIsoGroundCells(
+      { ctx, T: 32, hw: 32, hh: 16, LOD: false, HARD: false, b: { gx0: 0, gx1: 0, gy0: 0, gy1: 0 },
+        cullOn: false, cullPadX: 0, cullPadY: 0, L: { roadSet: new Set() }, roadMap: null, riverCells: null,
+        urb: URB, mat: MAT, plazaEra: "antique", wg: null, PR: null },
+      { kindAt: () => "urban", grassAt: () => false, keyOfKind: () => GENERIC, lisiere },
+      { fringes: [], roads: [], wonderCells: [], grassCells: [], grassMask: [], grassMaskR: [],
+        veilPush() {}, veilPushRects() {},
+        faceL: [], faceD: [], faceLU: [], faceDU: [], faceFoot: [], faceBand: [], faceJoint: [], faceLipG: [], faceLipS: [] },
+    );
+    let saved;
+    beforeEach(() => {
+      saved = { cam: CM.cam, cw: CM.cw, ch: CM.ch, season: CM.season, detail: { ...URBAN_DETAIL } };
+      Object.assign(CM, { cam: { x: 0, y: 0, zoom: 1 }, cw: 200, ch: 200, season: 0 });
+      Object.assign(URBAN_DETAIL, { on: true, tiles: true, noiseAmp: 0, tileJit: 0 });
+      // Les DEUX tuiles prêtes : si la générique ne se peint pas, c'est la règle
+      // (alpha 0 pour l'urbain), pas un PNG absent.
+      isoTileCache.set(GENERIC, ready("generique"));
+      isoTileCache.set(MAT.tile, ready("matiere"));
+    });
+    afterEach(() => {
+      Object.assign(CM, { cam: saved.cam, cw: saved.cw, ch: saved.ch, season: saved.season });
+      Object.assign(URBAN_DETAIL, saved.detail);
+      isoTileCache.delete(GENERIC);
+      isoTileCache.delete(MAT.tile);
+    });
+
+    it("cellule pleine : l'aplat d'abord, puis la tuile de la matière, dosée ; jamais la tuile générique", () => {
+      const { ctx, ops } = recorder();
+      sweep(ctx);
+      const aplat = ops.findIndex((o) => o.op === "fill" && o.style === rgb(URB, 1));
+      const tuile = ops.findIndex((o) => o.op === "draw" && o.tag === "matiere");
+      expect(aplat, "aucun aplat du ton de ville").toBeGreaterThanOrEqual(0);
+      expect(tuile, "la tuile de la matière n'est pas peinte").toBeGreaterThan(aplat);
+      expect(ops[tuile].alpha).toBeCloseTo(URBAN_TILE_A.cobble, 9);
+      expect(ops.some((o) => o.tag === "generique"), "la tuile générique est peinte sur l'urbain").toBe(false);
+    });
+
+    it("cellule de BORD (lisière arrondie) : même ordre, dans ses rectangles", () => {
+      const { ctx, ops } = recorder();
+      const lisiere = { runs: () => ({ byKind: new Map([["urban", [-20, 0, 20, 20]]]), blades: [] }) };
+      sweep(ctx, lisiere);
+      const aplat = ops.findIndex((o) => o.op === "fill" && o.style === rgb(URB, 1));
+      const tuile = ops.findIndex((o) => o.op === "draw" && o.tag === "matiere");
+      expect(aplat, "aucun aplat du ton de ville").toBeGreaterThanOrEqual(0);
+      expect(tuile, "la tuile de la matière n'est pas peinte").toBeGreaterThan(aplat);
+      expect(ops.some((o) => o.tag === "generique"), "la tuile générique est peinte sur l'urbain").toBe(false);
+    });
   });
 });

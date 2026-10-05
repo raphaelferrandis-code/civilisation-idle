@@ -78,17 +78,22 @@ describe("fenêtres relevées des bâtiments-moteur", () => {
       expect(dark.has(key), key).toBe(true);
       const p = PNG.sync.read(fs.readFileSync(new URL(`${key}.png`, BUILDINGS)));
       const owner = new Map();
+      // Les fautes se relèvent, un seul expect à la fin : trois par pixel de vitre
+      // coûtaient cher (audit 2026-10-05, TEST-8).
+      const fautes = [];
       wins.forEach((r, i) => {
         expect(r.length % 4).toBe(0);
         for (let k = 0; k < r.length; k += 4) {
           for (let y = r[k + 1]; y < r[k + 1] + r[k + 3]; y += 1) for (let x = r[k]; x < r[k] + r[k + 2]; x += 1) {
-            expect(x >= 0 && y >= 0 && x < p.width && y < p.height, `${key} ${x},${y}`).toBe(true);
-            expect(p.data[(y * p.width + x) * 4 + 3], `${key} ${x},${y}`).toBeGreaterThan(200);
-            expect(owner.has(y * p.width + x), `${key} ${x},${y}`).toBe(false);
-            owner.set(y * p.width + x, i);
+            const at = y * p.width + x;
+            if (!(x >= 0 && y >= 0 && x < p.width && y < p.height)) fautes.push(`${x},${y} hors du dessin`);
+            else if (!(p.data[at * 4 + 3] > 200)) fautes.push(`${x},${y} hors de l'encre`);
+            if (owner.has(at)) fautes.push(`${x},${y} partagé`);
+            owner.set(at, i);
           }
         }
       });
+      expect(fautes.length, `${key} : ${fautes.slice(0, 5).join(" ; ")}`).toBe(0);
     });
   }
 });

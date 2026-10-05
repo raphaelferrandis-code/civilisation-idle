@@ -4,6 +4,7 @@ import { CM } from "../../layout.js";
 import { isoPlazaCompositions, propFootprint, footClash, personHT, plazaBases } from "../isoPlaza.js";
 import { folkAt, FOLK } from "../plazaFolk.js";
 import { depthOf } from "../projection.js";
+import { plazaWithStreets } from "../../../../test/plaza.js";
 
 // ── CE QUE CES TESTS PROTÈGENT ──────────────────────────────────────────────
 // Raph, 2026-10-04 : les passants des places se tenaient en CERCLE, figés, devant
@@ -12,15 +13,7 @@ import { depthOf } from "../projection.js";
 // ne se pose sur un autre ni dans le mobilier, et que la place se renouvelle.
 
 // Place carrée de `n` cellules entourée de rues, avec un plan qui lui donne sa sorte.
-function plazaLayout(n, kind, band = 3, gx0 = 10, gy0 = 10) {
-  const roadMap = new Map();
-  for (let iy = 0; iy < n; iy += 1) {
-    for (let ix = 0; ix < n; ix += 1) roadMap.set((gx0 + ix) + "," + (gy0 + iy), { gx: gx0 + ix, gy: gy0 + iy, rank: "plaza" });
-  }
-  const road = (gx, gy) => roadMap.set(gx + "," + gy, { gx, gy, rank: "street" });
-  for (let i = -1; i <= n; i += 1) { road(gx0 + i, gy0 - 1); road(gx0 + i, gy0 + n); road(gx0 - 1, gy0 + i); road(gx0 + n, gy0 + i); }
-  return { roadMap, plan: { plazas: [{ gx: gx0 + n / 2, gy: gy0 + n / 2, kind }] }, counts: { eraBand: band } };
-}
+const plazaLayout = plazaWithStreets;
 
 let stamp = 1000;
 function compose(n, kind, band) {

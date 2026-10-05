@@ -15,8 +15,9 @@ import { autoResolveCrisisEvent } from "../actions/crisis.js";
 import { CRISIS_POOL } from "../../data/world.js";
 import { toNum } from "../num.js";
 import { pressureBreakdown } from "../mechanics.js";
-import { AUTO_COLLAPSE_MIN_SECONDS } from "../balance.js";
+import { AUTO_COLLAPSE_MIN_SECONDS, OFFLINE_MAX_COLLAPSES } from "../balance.js";
 import { MID_GAME_FIXTURE, FIXED_NOW } from "./fixtures.js";
+import { farmState } from "../../../test/core.js";
 
 beforeEach(() => {
   vi.useFakeTimers();
@@ -150,18 +151,6 @@ describe("autoResolveCrisisEvent — selon la posture, sans pause", () => {
 });
 
 describe("simulateAwayCrises — farm hors-ligne (v2)", () => {
-  const farmState = (overrides = {}) => hydrateState({
-    population: 100000, food: 400000, gold: 200000, knowledge: 30000, infrastructure: 3000,
-    ruins: 5000, cycles: 10, instability: 0.3, timeWear: 0.1,
-    bestEraIndex: 6, cyclePeaks: { population: 120000, knowledge: 35000, infrastructure: 3500, eraIndex: 6 },
-    cycleStartedAt: FIXED_NOW - 2 * 3600 * 1000, lastTick: FIXED_NOW - 2 * 3600 * 1000,
-    buildings: { foragers: 30, granaries_city: 20, caravans: 12, markets: 8, irrigated_fields: 6 },
-    upgrades: { conseil_de_crise: true, edit_effondrement: true },
-    hephHeritage: true,
-    crisisDoctrine: { p25: "stabiliser", p50: "stabiliser", p75: "stabiliser", autoCollapse: { enabled: true, trigger: "temps", timeSeconds: 180, usureThreshold: 0.9, prepare: false } },
-    ...overrides
-  });
-
   it("enchaîne des effondrements, banque des ruines, plafonné à OFFLINE_MAX_COLLAPSES, sans fuite de pause", () => {
     // 8 h d'absence (Veilleurs de nuit I), cycle commencé au départ : minuteur
     // relevé à 10 min (plancher) → ~48 chutes possibles, le plafond doit mordre.
@@ -174,7 +163,7 @@ describe("simulateAwayCrises — farm hors-ligne (v2)", () => {
     applyOfflineProgress(8 * 3600);
     const collapses = state.cycles - cyclesBefore;
     expect(collapses).toBeGreaterThan(0);
-    expect(collapses).toBe(20); // OFFLINE_MAX_COLLAPSES
+    expect(collapses).toBe(OFFLINE_MAX_COLLAPSES);
     expect(toNum(state.ruins)).toBeGreaterThan(ruinsBefore);
     expect(stateModule.gamePaused).toBe(false);
     expect(state.crisisLimitAnnounced).toBe(false);

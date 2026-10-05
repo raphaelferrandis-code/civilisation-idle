@@ -53,7 +53,8 @@ import fs from "fs";
 // 0. Stubs d'environnement (doivent exister AVANT les import() du jeu)
 //    Repris a l'identique de simulate-ce.js : le moteur attend un DOM minimal.
 // ---------------------------------------------------------------------------
-global.window = {};
+// addEventListener : cloudSave.js s'abonne a `pagehide` des l'import (SCRIPT-1).
+global.window = { addEventListener() {}, removeEventListener() {} };
 global.localStorage = { getItem() { return null; }, setItem() {} };
 Object.defineProperty(global, "navigator", {
   value: { clipboard: { writeText() {} } }, writable: true, configurable: true
@@ -135,7 +136,7 @@ const actions = await import("./src/game/core/actions.js");
 const {
   buyUpgrade, completeCollapse, tick, performGrandReset,
   activateMyth, migrerEnee, chronicle, runCrisisAction, runTerminalCrisisAction,
-  launchIcarus, cashOutIcarus, icarusStakes, icarusUnlocked
+  launchIcarus, cashOutIcarus, icarusUnlocked, tableLimits, collectTrunk
 } = actions;
 const { generateEpitaph } = await import("./src/game/core/events.js");
 
@@ -891,6 +892,12 @@ async function playCycle(rec, prof) {
 // -> cashout >= 10x = JACKPOT (si la cagnotte du temple est pleine) ; sinon le
 // vol brule et ALIMENTE la cagnotte (necessaire au jackpot). On spamme donc des
 // vols : quelques pertes remplissent la cagnotte, un gain >= 10x la rafle.
+// Mise en FAVEUR depuis 90ba098b (plus d'icarusStakes ni de mise en or) : la Faveur
+// vient de la caisse des offrandes, relevee comme le ferait le joueur. La part de
+// cagnotte raflee suit mise / limite de la salle commune (potRakeShare) : on mise
+// toute la Faveur jusqu'a cette limite, sinon la rafle s'arrondit a 0 (pas de
+// jackpot). PAS resolveIcarusHeadless : le jackpot (jalon GR VII) y est reserve au
+// jeu interactif, la boucle ne l'aurait jamais decroche (SCRIPT-2).
 // ---------------------------------------------------------------------------
 function playIcarusForJackpot(rec) {
   if (!icarusUnlocked()) return;                        // Icare exige bestEra >= 3
@@ -901,11 +908,11 @@ function playIcarusForJackpot(rec) {
     attempts++;
     if (VT >= BUDGET_SECONDS || timedOut()) return;
     if (stateModule.gamePaused || crisisOpen()) return; // Icare bloque en crise
-    const stakes = icarusStakes();
-    const stake = stakes.find((s) => s.id === "plume") || stakes[0];
-    if (!stake) return;
-    if (D(state.gold).lt(stake.gold)) { setClock(); tick(TICK); VT += TICK; continue; } // produire l'or de la mise
-    if (!launchIcarus(stake.id)) { setClock(); tick(TICK); VT += TICK; continue; }
+    const { min, base } = tableLimits();
+    if ((state.faveur || 0) < base) collectTrunk({ silent: true, render: false });
+    const stake = Math.min(base, Math.floor(state.faveur || 0));
+    if (stake < min) { setClock(); tick(TICK); VT += TICK; continue; } // la caisse se remplit
+    if (!launchIcarus(stake)) { setClock(); tick(TICK); VT += TICK; continue; }
     VT += dtForTarget; setClock();                      // avance jusqu'a la cible
     cashOutIcarus();                                     // resout : crash (remplit la cagnotte) OU cashout (jackpot si >=10x)
     if ((attempts & 31) === 0) rec.check();

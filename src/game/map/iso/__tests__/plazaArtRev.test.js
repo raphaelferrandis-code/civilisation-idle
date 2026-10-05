@@ -8,6 +8,7 @@
 import { describe, it, expect, beforeAll, afterAll } from "vitest";
 import { CM } from "../../layout.js";
 import { setSolPyramideInvalidator } from "../solInvalidate.js";
+import { plazaSquare } from "../../../../test/plaza.js";
 
 const loads = new Map();   // src → déclencheur de onload
 class FakeImage {
@@ -25,13 +26,7 @@ beforeAll(async () => {
 });
 afterAll(() => { globalThis.Image = prevImage; setSolPyramideInvalidator(null); });
 
-function plazaLayout(n, gx0 = 10, gy0 = 10) {
-  const roadMap = new Map();
-  for (let iy = 0; iy < n; iy += 1) {
-    for (let ix = 0; ix < n; ix += 1) roadMap.set((gx0 + ix) + "," + (gy0 + iy), { gx: gx0 + ix, gy: gy0 + iy, rank: "plaza" });
-  }
-  return { roadMap };
-}
+const plazaLayout = plazaSquare;
 
 describe("registre d'art des places", () => {
   it("un banc décodé ne recompose rien et ne touche pas au sol ; un arbre recale les places", () => {

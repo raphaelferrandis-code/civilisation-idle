@@ -50,7 +50,7 @@ describe("profil de la ville figé pour le cycle", () => {
     for (const [k, v] of a) { if (!b.has(k)) continue; if (b.get(k) === v) same += 1; else changed += 1; }
     expect(same).toBeGreaterThan(100);
     expect(changed, "maisons qui changent de dessin").toBe(0);
-  }, 60000);
+  });
 
   it("la surcouche de crise reste dynamique", () => {
     const seed = flippingSeed();

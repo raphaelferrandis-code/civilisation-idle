@@ -3,23 +3,22 @@
 //
 // 1) houseScaleK est LA formule (importée par pixelHouseGeom) : on la teste sur
 //    des cas où la garde MORD — un clamp attendu qui ne clampe pas doit casser.
-// 2) Les constantes de RÉFÉRENCE (recopies déclaratives des densités encore
-//    éparpillées) sont verrouillées sur leurs SITES VIFS par lecture du source :
-//    si isoRenderer/renderBuildings/layout changent une densité sans mettre à
-//    jour spriteScale.js (ou l'inverse), ce test casse — c'est son seul rôle,
-//    il disparaîtra au lot G1 quand les sites importeront le module.
+// 2) Les constantes de RÉFÉRENCE (TILE_REF, HOUSE_LOT_WF, ENGINE_UNIT_F,
+//    WONDER_PPT, COSMIC_TOWER_H) ne sont plus des recopies : les sites vifs les
+//    importent (lot G1, fait par l'audit 2026-10-05, TEST-11). Les gardes qui
+//    comparaient chaque site à son TEXTE (« wpx = (spanX + spanY) * T * z * ISO_X
+//    * 0.78 »…) sont donc parties : elles cassaient sur un reformatage et ne
+//    voyaient pas une seconde recopie (la boîte-lot de isoChute n'était pas gardée).
 import { describe, it, expect } from 'vitest';
 import fs from 'node:fs';
 import path from 'node:path';
 import { PNG } from 'pngjs';
 import {
   HOUSE_UNIT, houseFitTune, houseScaleK, grainTune, GRAIN_FIX,
-  TILE_REF, HOUSE_LOT_WF, ENGINE_UNIT_F, WONDER_PPT, COSMIC_TOWER_H,
+  TILE_REF, HOUSE_LOT_WF, ENGINE_UNIT_F,
   PALIER_SPANSUM, palierHFrac,
 } from '../spriteScale.js';
 import { ANIM_BANDS } from '../cityEngineSprites.js';
-
-const SRC = (f) => fs.readFileSync(path.join(__dirname, '..', f), 'utf8');
 
 describe('houseScaleK — la formule unique', () => {
   it('densité constante hors clamp, et INDÉPENDANTE de la forme du lot (G1)', () => {
@@ -74,35 +73,6 @@ describe('houseScaleK — la formule unique', () => {
       .toBeCloseTo((w11 / HOUSE_UNIT) * GRAIN_FIX.tower, 10);
     // hut 1×1, encre 35 px → PAS clampé, pas de fix.
     expect(houseScaleK(1, w11, 35, 1, 'hut')).toBeCloseTo(w11 / HOUSE_UNIT, 10);
-  });
-});
-
-describe('constantes de référence — verrouillées sur les sites vifs', () => {
-  // ⚠ TROISIÈME DÉMÉNAGEMENT d'une garde de ce fichier (2026-08-23) : la boîte-lot
-  // suit désormais isoLivePaint.js, comme ENGINE_UNIT_F suit isoEngineScene.js. Ces
-  // gardes cherchent une FORMULE dans du TEXTE — elles ne portent aucun nom d'export,
-  // donc aucun balayage de symboles ne peut les voir partir avec le code. Si le site
-  // vif redéménage, c'est ce chemin-là qu'il faut suivre.
-  it('HOUSE_LOT_WF suit isoLivePaint (boîte-lot des habitations)', () => {
-    expect(SRC('iso/isoLivePaint.js')).toContain(
-      `wpx = (spanX + spanY) * T * z * ISO_X * ${HOUSE_LOT_WF}`);
-  });
-  // ⚠ LA BOÎTE DES SCÈNES MOTEUR A DÉMÉNAGÉ le 2026-08-23 : isoRenderer →
-  // isoEngineScene.js. Cette garde lit du TEXTE de source, pas un symbole — aucun
-  // balayage de noms d'export ne peut la voir partir. Ce sont les tests qui l'ont
-  // rattrapée. Si le site vif redéménage, c'est ce chemin-là qu'il faut suivre.
-  it('ENGINE_UNIT_F suit isoEngineScene (boîte des scènes moteur)', () => {
-    expect(SRC('iso/isoEngineScene.js')).toContain(
-      `unit = T * z * ISO_X * ${ENGINE_UNIT_F}`);
-  });
-  it('WONDER_PPT suit layout (emprise des merveilles)', () => {
-    expect(SRC('layout.js')).toContain(`const WONDER_PPT = ${WONDER_PPT};`);
-  });
-  it('TILE_REF suit layout (CM.TILE)', () => {
-    expect(SRC('layout.js')).toMatch(new RegExp(`TILE:\\s*${TILE_REF}[,\\s]`));
-  });
-  it('COSMIC_TOWER_H suit cityEngineSprites (tours cosmiques moteur)', () => {
-    expect(SRC('cityEngineSprites.js')).toContain(`__cosmicTowerH) || ${COSMIC_TOWER_H}`);
   });
 });
 

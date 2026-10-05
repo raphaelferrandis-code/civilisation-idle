@@ -41,5 +41,5 @@ describe("la même vallée, carte branchée", () => {
     expect(state.mapSeed).toBe(12345);
     expect(state.cityCore && state.cityCore.seed).toBe(12345);
     expect(state.vestiges.length).toBeGreaterThan(0);
-  }, 30000);
+  });
 });

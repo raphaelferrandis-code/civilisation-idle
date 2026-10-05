@@ -314,14 +314,19 @@ describe("le passeur", () => {
   // Retour Raph (2026-10-03) : « pas logique que le passeur soit à côté du pont ».
   // Le site était choisi AVANT le calcul des passes de pont : il lisait celles du
   // layout précédent — aucune au chargement.
+  // ⚠ Garde d'ORDRE lue dans le source, faute de mieux : ce calcul vit au milieu de
+  // cityMapEnsureLayoutInner (non exporté, ~750 lignes, appelé par la seule boucle de
+  // frame) — un test de résultat demanderait d'en sortir la publication des passes du
+  // fleuve (audit 2026-10-05, TEST-11 : laissé au ménage, lot 10). Les motifs tolèrent
+  // au moins espaces et retours à la ligne.
   it("son site se choisit APRÈS les ponts, les obstacles et l'île (runtime)", () => {
     const src = fs.readFileSync(path.join(process.cwd(), "src/game/map/cityMapRuntime.js"), "utf8");
-    const at = src.indexOf("CM.ferrySite = ferrySite(");
+    const at = src.search(/CM\.ferrySite\s*=\s*ferrySite\s*\(/);
     expect(at).toBeGreaterThan(0);
-    for (const before of ["CM.riverGates.push(", "CM.riverObstacles.push(", "CM.riverIslandT = bi"]) {
-      const k = src.indexOf(before);
-      expect(k).toBeGreaterThan(0);
-      expect(k).toBeLessThan(at);
+    for (const before of [/CM\.riverGates\.push\s*\(/, /CM\.riverObstacles\.push\s*\(/, /CM\.riverIslandT\s*=\s*bi\b/]) {
+      const k = src.search(before);
+      expect(k, String(before)).toBeGreaterThan(0);
+      expect(k, String(before)).toBeLessThan(at);
     }
   });
 
@@ -409,6 +414,9 @@ describe("les bateaux de service", () => {
       moved = Math.max(moved, Math.abs(d.t - t0));
       expect(d.state).toBe("anchor");
     });
+    // Exigée (audit 2026-10-05, TEST-13) : sans drague, `moved` restait à 0 et le test
+    // passait sans rien avoir vérifié.
+    expect(t0, "la drague n'est jamais sortie").not.toBeNull();
     expect(moved).toBe(0);
   });
   it("les pompiers s'arrêtent pour arroser, puis repartent", () => {

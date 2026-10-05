@@ -30,6 +30,10 @@ import {
   TEMPLE_POT_RECYCLE, ICARUS_RTP, FAVEUR_ECHELLE
 } from "../balance.js";
 import { MID_GAME_FIXTURE, FIXED_NOW } from "./fixtures.js";
+// payRoundAt : prévoir un gain sous Math.random piloté ; withRandom : piloter
+// Math.random (l'issue, puis — Vénus seulement — le carré de six, puis les os
+// cosmétiques, puis l'arrondi payRound d'un gain).
+import { payRoundAt, withRandom } from "../../../test/core.js";
 
 beforeEach(() => {
   vi.useFakeTimers();
@@ -53,23 +57,6 @@ afterEach(() => {
 // La mise de référence des tests : bien dans les limites de la table (la fixture
 // est à l'ère record 5, limite haute 95).
 const STAKE = 10;
-
-// payRound(x) = floor(x), +1 si le tirage u tombe sous la partie fractionnaire
-// (E[payRound(x)] = x). Sert à prévoir un gain quand on pilote Math.random.
-const payRoundAt = (x, u) => Math.floor(x) + (u < x - Math.floor(x) ? 1 : 0);
-
-// Pilote Math.random : les valeurs de `seq` dans l'ordre, puis `rest` pour tout le
-// reste. Ordre des tirages d'un jet : l'issue, puis (Vénus seulement) le carré de
-// six, puis les os (cosmétiques), puis l'arrondi payRound d'un gain.
-function withRandom(seq, rest, fn) {
-  const queue = [...seq];
-  const spy = vi.spyOn(Math, "random").mockImplementation(() => (queue.length ? queue.shift() : rest));
-  try {
-    return fn();
-  } finally {
-    spy.mockRestore();
-  }
-}
 
 // Force l'issue du prochain jet au rite ancestral, à la mise STAKE. Zones du rite
 // ancestral (p = 0,475, spread 1) : r < 0,07125 → Vénus, < 0,19 → Triple,

@@ -6,6 +6,9 @@
   "author": "Raphael Ferrandis",
   "type": "module",
   "main": "main.cjs",
+  "engines": {
+    "node": ">=22.12"
+  },
   "scripts": {
     "dev": "vite",
     "build": "vite build",
@@ -13,6 +16,7 @@
     "preview": "vite preview",
     "test": "vitest run",
     "test:watch": "vitest",
+    "test:parcours": "vitest run src/game/core/__tests__/parcours --testTimeout=0",
     "electron": "electron .",
     "dist-win": "vite build && electron-builder --win",
     "dist-steam": "vite build && electron-builder --win dir",

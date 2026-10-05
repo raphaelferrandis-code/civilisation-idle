@@ -3,23 +3,10 @@
 // lui (+2,5 cases de demi-largeur, axe poussé de 1,4) : une place dont l'évasement
 // mettrait sous l'eau une rue déjà mémorisée est sautée.
 import { describe, it, expect, beforeEach } from "vitest";
-import { computeCityLayout, ILOT_MODE } from "../layout.js";
+import { ILOT_MODE } from "../layout.js";
 import { state } from "../../core/state.js";
-import { D } from "../../core/num.js";
-import { eras } from "../../data/world.js";
 import { ROAD_MEMORY } from "../roadMemory.js";
-
-const KEYS = Object.keys(state.buildings).filter((k) => k !== "roads");
-function grow(i, level = 30) {
-  const pop = D(eras[i].at);
-  Object.assign(state, {
-    cycles: 1, mapSeed: 0x2b1c07, population: pop,
-    knowledge: pop.mul(0.05), infrastructure: pop.mul(0.1), instability: 0, timeWear: 0,
-  });
-  KEYS.forEach((k) => { state.buildings[k] = level; });
-  state.buildings.roads = 20;
-  return computeCityLayout(state);
-}
+import { growCity as grow } from "../../../test/city.js";
 
 beforeEach(() => {
   ROAD_MEMORY.on = true; ILOT_MODE.on = true;
@@ -46,12 +33,12 @@ describe("le lieu des Plaisirs et les rues", () => {
     const p2 = L2.river.plaisirs;
     expect(Math.hypot(p2.x - p.x, p2.y - p.y), "le lieu a pris une autre place").toBeGreaterThan(1);
     expect(L2.river.isWater(cell[0], cell[1]), "la rue n'est plus sous l'eau").toBe(false);
-  }, 180000);
+  });
 
   it("sans rue sur son chemin, le lieu garde sa place d'un calcul à l'autre", () => {
     grow(21);
     const L1 = grow(21);
     const L2 = grow(21);
     expect([L2.river.plaisirs.x, L2.river.plaisirs.y]).toEqual([L1.river.plaisirs.x, L1.river.plaisirs.y]);
-  }, 180000);
+  });
 });

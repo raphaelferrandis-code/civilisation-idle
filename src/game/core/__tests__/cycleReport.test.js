@@ -7,10 +7,9 @@
 
 import { describe, it, expect } from "vitest";
 
-import { defaultState, hydrateState, normalizePrevCycle } from "../state.js";
+import { defaultState, normalizePrevCycle } from "../state.js";
 import { COLLAPSE_CAUSES, FAVORED_CAUSE_LABELS, COLLAPSE_CAUSE_LABELS } from "../../data/epitaphs.js";
-
-const roundTrip = (s) => hydrateState(JSON.parse(JSON.stringify(s)));
+import { roundTrip } from "../../../test/core.js";
 
 describe("prevCycle — le bilan du cycle précédent traverse la sauvegarde", () => {
   it("est nul sur une partie neuve", () => {

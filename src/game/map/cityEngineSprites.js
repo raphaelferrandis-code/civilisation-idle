@@ -11,7 +11,7 @@ import { AGENT_SCALE, agentSetForBand, agentSpecFor, drawNamedAgentIso } from '.
 import { CM } from './layout.js';
 import { queueFlameGlow } from './flameGlow.js';
 import { lightCut, lightCutImage } from './lightLayer.js';
-import { recDens, grainProbe, palierK, PALIER_SPANSUM, palierHFrac } from './spriteScale.js';
+import { recDens, grainProbe, palierK, PALIER_SPANSUM, palierHFrac, COSMIC_TOWER_H } from './spriteScale.js';
 import { pxProbe, recPx } from './pixelGrid.js';
 import { snapDev } from './blitSnap.js';
 import { drawSunShadow } from './iso/isoSunShadow.js';
@@ -873,7 +873,7 @@ function drawLiveFrame(ctx, fl, left, top, drawW, drawH, now) {
 // Réglable en live : window.__cosmicTowerH (hauteur ×boîte) / __cosmicTowerBase (ligne de sol).
 function blitCosmicTower(ctx, ox, oy, sw, sh, key, now, band, cp, baseOverride) {
   const im = propIm(key); if (!im || !(im.naturalWidth > 0)) return false;
-  const H = (typeof window !== 'undefined' && window.__cosmicTowerH) || 1.72;
+  const H = (typeof window !== 'undefined' && window.__cosmicTowerH) || COSMIC_TOWER_H;
   const BASE = baseOverride != null ? baseOverride : ((typeof window !== 'undefined' && window.__cosmicTowerBase) || 0.95);
   const drawH = sh * H, drawW = drawH * (im.naturalWidth / im.naturalHeight);
   recBlitDens(key, drawH, im.naturalHeight);

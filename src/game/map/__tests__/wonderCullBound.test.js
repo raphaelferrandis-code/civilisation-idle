@@ -7,6 +7,8 @@ import * as WB from "../iso/wonderBake.js";
 import { isleModel, bakeIsleBase } from "../iso/wonderIsle.js";
 import { WINTER } from "../seasonMode.js";
 import { wonderCullBound, pushIsoWonderItems } from "../iso/isoWonder.js";
+// La constante de layout.js, pas une recopie (audit 2026-10-05, TEST-12).
+import { WONDER_PPT as PPT } from "../spriteScale.js";
 
 // Audit 2026-10-05, PERF-9 — au passage d'une bande ou au premier hiver, les six
 // monuments, l'îlot et les lieux cuisaient dans la même image, même hors champ.
@@ -16,7 +18,7 @@ import { wonderCullBound, pushIsoWonderItems } from "../iso/isoWonder.js";
 //  · la passe vivante ne cuit pas une merveille hors champ, et étale les cuissons
 //    d'une bascule (budget par image) en gardant l'ancienne variante affichée.
 
-const T = 32, PPT = 34;
+const T = 32;
 const RECIPE = {
   dynasty1: "bakeMausoleum", pop1m: "bakeColumn", era_kingdom: "bakePalace",
   era_empire: "bakeCathedral", era_mega: "bakeNeedle", era_singularity: "bakeEye",

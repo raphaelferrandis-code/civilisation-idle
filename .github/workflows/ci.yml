@@ -3,7 +3,11 @@ name: CI
 # Portes de qualité automatiques (Phase 0 de l'audit 2026-07) : lint + tests +
 # build à chaque push sur main et à chaque pull request. Transforme les 247
 # tests et le lint en filet permanent — jusqu'ici ils n'étaient qu'un `npm`
-# manuel. Node 20 = LTS aligné sur Vite 8 / Vitest 4.
+# manuel.
+# Node 24 (audit 2026-10-05, TEST-15) : la même version que le poste de dev et que
+# Netlify (netlify.toml), et au-dessus du plancher d'Electron 42 (>= 22.12, champ
+# `engines` de package.json). Node 20 était en fin de vie depuis le 30/04/2026 et
+# `npm ci` y signalait EBADENGINE.
 on:
   push:
     branches: [main]
@@ -16,8 +20,12 @@ jobs:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
         with:
-          node-version: 20
+          node-version: 24
           cache: npm
+      # Pas d'ELECTRON_SKIP_BINARY_DOWNLOAD : Electron 42 n'a plus de script
+      # d'installation, `npm ci` ne télécharge pas son binaire (il ne vient qu'au
+      # premier `require('electron')` réel, que lint, tests et build ne font jamais :
+      # electronMain.test.js lui substitue un faux module). La variable n'est plus lue.
       - run: npm ci
       - run: npm run lint
       - run: npm test
