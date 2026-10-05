@@ -21,7 +21,8 @@ import { bridgeBlocks } from './isoBridge.js';
 import { BOAT_MODELS, fleetFor } from './boatKits.js';
 import { BOATKIT } from './boatKit.js';
 import { worldToScreen } from './projection.js';
-import { agentSetForBand, agentSpecFor, drawNamedAgentIso } from '../agents.js';
+import { agentSetForBand, agentSpecFor, drawNamedAgentIso, AGENT_SCALE } from '../agents.js';
+import { focusMark, drawFocusRingAt, noteSceneFigure, sceneRingWidth } from '../citizenFocus.js';
 import { snapDev } from '../blitSnap.js';
 
 // Projection d'un point monde (tuiles) sur le ruban : t, voie transversale, tangente.
@@ -162,6 +163,20 @@ export function dockPorters(berth, elapsed, seed = 0, dwell = Infinity) {
   return out;
 }
 
+// LES MÊMES PORTEURS À CHAQUE ESCALE (fiche d'habitant, citizenFocus.js) : un
+// objet par bateau et par rang, gardé d'une frame et d'une escale à l'autre —
+// l'équipage d'un bateau revient décharger quand il revient. dockPorters, lui,
+// rend des positions neuves à chaque frame ; on les recopie ici.
+const _porters = new Map();
+function porterOf(q) {
+  const key = q.seed + ':' + q.k;
+  let pp = _porters.get(key);
+  if (!pp) { pp = { charType: q.charType | 0, figSeed: ((q.seed | 0) * 7919 + q.k * 104729) >>> 0 }; _porters.set(key, pp); }
+  pp.dir = q.dir; pp.walking = q.walking; pp.carry = q.carry; pp.walkDist = q.walking ? q.dist : null;
+  pp.phase = q.k * 0.5; pp.workKey = q.berthId;
+  return pp;
+}
+
 // Un porteur, à sa profondeur (item 'porter' du peintre).
 export function drawDockPorter(ctx, q, band, now) {
   const spec = agentSpecFor(agentSetForBand(band), q.charType | 0, (q.seed + q.k) % 3);
@@ -170,7 +185,11 @@ export function drawDockPorter(ctx, q, band, now) {
   if (q.alpha != null && q.alpha < 1) { if (q.alpha <= 0.02) return; ctx.globalAlpha = pa0 * q.alpha; }
   const T = CM.TILE, z = CM.cam.zoom;
   const p = worldToScreen(q.x * T, q.y * T, q.z * T);
-  drawNamedAgentIso(ctx, p.x, p.y, z, spec.name, spec.scale, q.dir, q.walking, now, q.k * 0.5, 1, q.walking ? q.dist : null, true);
+  const pp = porterOf(q);
+  const mark = focusMark(pp);
+  if (mark) drawFocusRingAt(ctx, p.x, p.y, sceneRingWidth(T * z * spec.scale * AGENT_SCALE), mark === 2);
+  const d = drawNamedAgentIso(ctx, p.x, p.y, z, spec.name, spec.scale, q.dir, q.walking, now, q.k * 0.5, 1, q.walking ? q.dist : null, true);
+  if (d) noteSceneFigure(pp, 'port', spec.name, p.x, p.y, d);
   if (q.carry) drawPorterLoad(ctx, q.load || 'amphora', p, q.dir, z);
   ctx.globalAlpha = pa0;
 }

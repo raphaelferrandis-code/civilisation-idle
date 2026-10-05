@@ -319,8 +319,9 @@ const CODICARIA = {
 const SCAPHA = {
   id: 'scapha',
   role: 'fisher',
-  // En route il rame (6 poses), posé il relève le filet (6 poses, plus lentes).
-  anim: { frames: 6, period: 2.2 },
+  // En route il rame, posé il relève le filet : 8 poses par coup (6 faisaient moins
+  // de 3 images/s — ça saccadait, Raph 2026-10-04).
+  anim: { frames: 8, period: 2.2 },
   len: 24, beam: 9,
   speed: [0.7, 0.95],
   bounds: [-16, 16, -16, 16, -1, 12],

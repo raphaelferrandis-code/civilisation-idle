@@ -23,7 +23,7 @@ import { bakeBoat, dirIndex, dirTheta, h32 } from './boatBake.js';
 import { BOAT_MODELS, fleetFor } from './boatKits.js';
 import { noteReflectionImage } from './isoReflect.js';
 import { HOVER } from './boatKitsCosmic.js';
-import { drawHoverGlow } from './boatFx.js';
+import { drawHoverGlow, drawSmoke } from './boatFx.js';
 import { drawSunShadow } from './isoSunShadow.js';
 import { snapDev } from '../blitSnap.js';
 import { agentFrameIso, agentIdleFrameIso, agentPoseFrameIso } from '../agents.js';
@@ -324,7 +324,11 @@ export function drawMooredKit(ctx, { role, heading, x, y, z = 0, now = 0, bob = 
     memo = {};
     _mooredMemo.set(mk, memo);
   }
-  return !!drawBoat(ctx, spec, p.x, snapDev(p.y + dy), worldHeadingOfScreen(heading), zoom, now, { state: 'dock', empty: true, memo });
+  const r = drawBoat(ctx, spec, p.x, snapDev(p.y + dy), worldHeadingOfScreen(heading), zoom, now, { state: 'dock', empty: true, memo });
+  // Un vapeur à quai garde ses feux allumés : sa cheminée fume, droit (la flotte
+  // le fait déjà pour les siens, isoPort.drawKitShip ; ceux des ports ne fumaient pas).
+  if (r && r.anchors && r.anchors.smoke) drawSmoke(ctx, r.anchors.smoke, now, zoom, spec.seed | 0, heading, false);
+  return !!r;
 }
 const _mooredMemo = new Map();
 const MOORED_MEMO_MAX = 512;

@@ -335,3 +335,16 @@ façon Le Havre (b5-6+, navires amarrés fixes) et port de plaisance façon Vieu
   (`edgePontoon` : `gx, gy`, résolu dans l'écran zoom 1 ; enfoncé, il y sort ~22 px le long
   du quai plus loin que sa racine), via `wantQuayStairs({ gapOnly, x, y })` — le sample du
   fleuve le plus proche était à une tuile près.
+
+- 2026-10-04 (session de l'îlot de l'Aiguille) : Raph — « le bateau du milieu a un problème
+  d'animation de son marin » (la barque du pêcheur qui tourne autour de l'îlot). La phase k du
+  coup de rame arrivait jusqu'à `boatParts.person` et y était JETÉE : les rames balayaient
+  l'eau autour d'un rameur figé. `person(…, pose, k)` penche maintenant la place du marin le
+  long de son regard avec son outil (`LEAN` : rame — il suit les poignées, ±1,1 px ; perche —
+  avec la main, comme `poler` ; filet/amarre — il tire en arrière ; pagaie), le masque de la
+  coque suit (calculé à la place penchée). La scapha et la barque cousue passent de 6 à 8 poses
+  par coup (moins de 3 images/s, ça saccadait). Planche `.preview-shots/rameur-*.png`.
+  Même jour, « fais les remous sur le ponton et sur tous les pontons » : les embarcadères
+  (pontons flottants du bac et de la navette, embarcadères sur pieux) NOTENT leurs remous au
+  dessin (`boatScenes.landingRipples` → `iso/waterRipples.js`), peints à l'image suivante
+  dans la passe des remous, sous les quais et les coques (cf. PLAN-MERVEILLES §7, 2026-10-04).
