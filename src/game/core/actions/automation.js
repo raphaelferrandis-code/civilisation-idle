@@ -223,7 +223,6 @@ function noteAutoBuys(count, lastName) {
 }
 
 export function checkAutomateRules() {
-  let didBuy = false;
   let builtThisTick = 0;
   let lastBuiltName = "";
   for (const rule of getAutomateRules()) {
@@ -246,16 +245,23 @@ export function checkAutomateRules() {
         const candidates = [];
         for (const b of buildings) {
           if (b.category !== rule.category || !buyableInMass(b)) continue;
-          candidates.push({ b, prices: buildingBatchCost(b, 1) });
-        }
-        candidates.sort((x, y) => D(x.prices[x.b.currency]).cmp(y.prices[y.b.currency]));
-        let built = null;
-        for (const { b, prices } of candidates) {
+          const prices = buildingBatchCost(b, 1);
           // RÉSERVE : ce que l'automate ne touche pas. Sans elle, l'auto-achat
           // vidait la caisse et sabotait les autres branches, donc on le laissait
           // éteint. Testée sur TOUTES les devises du lot, coût principal et
           // extraCost compris, sinon la réserve fuit par la porte de derrière.
           if (reserve > 0 && !leavesReserve(prices, reserve)) continue;
+          // Hors de prix : buyBuildingCore le refuserait sur ce MÊME prix, après
+          // l'avoir recalculé. Écarté AVANT le tri : la plupart des ticks rien
+          // n'est abordable, et trier puis re-chiffrer chaque candidat pesait la
+          // moitié du rattrapage hors ligne (audit 2026-10-05, PERF-17). Le tri
+          // est stable : l'ordre des restants ne change pas.
+          if (!canPayCost(prices)) continue;
+          candidates.push({ b, prices });
+        }
+        candidates.sort((x, y) => D(x.prices[x.b.currency]).cmp(y.prices[y.b.currency]));
+        let built = null;
+        for (const { b } of candidates) {
           // buyBuildingCore paie, incrémente ET applique les contraintes de Mythe
           // (Babel/Sisyphe/Prométhée) + lifetimePurchases — que l'ancien payCost
           // direct contournait. silent : l'automate garde sa propre chronique.
@@ -279,10 +285,7 @@ export function checkAutomateRules() {
           roadWork = buyBuildingCore(roads.id, { amount: 1, silent: true });
         }
       }
-      if (bought > 0 || roadWork) {
-        invalidateRenderCache("buildings");
-        didBuy = true;
-      }
+      if (bought > 0 || roadWork) invalidateRenderCache("buildings");
       builtThisTick += bought;
     }
     if (rule.type === "crisis_action") {
@@ -307,5 +310,7 @@ export function checkAutomateRules() {
     }
   }
   noteAutoBuys(builtThisTick, lastBuiltName);
-  if (didBuy) render();
+  // Pas de render() : checkAutomateRules ne tourne que dans le tick, et la boucle
+  // notifie juste après — un second passage re-évaluait tous les sélecteurs pour
+  // rien (audit 2026-10-05, PERF-69).
 }

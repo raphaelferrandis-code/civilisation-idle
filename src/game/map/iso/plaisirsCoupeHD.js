@@ -18,8 +18,10 @@
 // contact au sol, flaques de lumière TRAMÉES sous chaque lampe — pas un aplat.
 //
 // Contrat avec la vue (SalleCanvas) :
-// { R, F, N, ids, spots, figures, levels, lights, W, H, waterY, roofTop, band,
+// { R, F, N, ids, idNames, spots, figures, levels, lights, W, H, waterY, roofTop, band,
 //   motions, lift, waterHex, skyHex } + `hd` (les mesures propres à cette toise).
+// `ids` : un octet par pixel, l'index du lieu dans `idNames` (0 : aucun) ; `figures` :
+// toutes, jeux ouverts — la vue les filtre (figuresOuvertes).
 // Pilote : le FONTE (bande 5), validé ; puis les dix âges (styleHD).
 import { makeRaster } from './isoPixelPaint.js';
 import { plaisirsPlan, plaisirsProgramme } from './plaisirsPlan.js';
@@ -1185,35 +1187,34 @@ function telescopeHD(O, R, S, x, y) {
 // Meuble un lieu (x au centre, y = fond du parquet, w sa largeur, x0r/x1r les bords
 // du mur du fond, y0 le haut du mur) et y pose ses habitants : DERRIÈRE la table
 // (`back`), sur les côtés, et DEVANT (`front` : peints après l'avant-plan).
-function furnish(ctx, id, x, y, w, x0r, x1r, y0, open, seed) {
+function furnish(ctx, id, x, y, w, x0r, x1r, y0, seed) {
   // Chaque âge meuble ses salles à son époque (plaisirsEraRooms.js) ; le Fonte, ici.
-  if (furnishEra(ctx, id, x, y, w, x0r, x1r, y0, open, seed)) return;
+  if (furnishEra(ctx, id, x, y, w, x0r, x1r, y0, seed)) return;
   const { O, F, N, R, S, pal, fig } = ctx;
-  const on = id === 'scene' || id === 'salon' ? true : !!open[id];
+  // Les figures d'un JEU (croupier, joueurs) : posées par `crew`, montrées jeu ouvert.
+  const crew = ctx.crew(id);
   const v = (k) => seed * 3 + k;
   switch (id) {
     case 'des': {
       const two = w >= 190, at = two ? [x - Math.round(w / 4), x + Math.round(w / 4)] : [x];
       at.forEach((tx, t) => {
         diceTable(F, R, S, tx, y);
-        if (!on) return;
-        fig(tx - 6, y + BK, 0, 'm', 1 + t, { back: true, role: 'croupier' });
-        fig(tx + 14, y + BK, 2, t & 1, v(t + 1), { back: true });
-        if (w >= 130) fig(tx - 30, y + SD, 0, 1 - (t & 1), v(t + 2));
-        fig(tx + 33, y + SD, 2, 'g', v(t + 3), { role: 'hotesse' });
-        fig(tx - 12, y + FR, 3, 1, v(t + 4), { front: true });
-        fig(tx + 9, y + FR, 1, 0, v(t + 5), { front: true });
+        crew(tx - 6, y + BK, 0, 'm', 1 + t, { back: true, role: 'croupier' });
+        crew(tx + 14, y + BK, 2, t & 1, v(t + 1), { back: true });
+        if (w >= 130) crew(tx - 30, y + SD, 0, 1 - (t & 1), v(t + 2));
+        crew(tx + 33, y + SD, 2, 'g', v(t + 3), { role: 'hotesse' });
+        crew(tx - 12, y + FR, 3, 1, v(t + 4), { front: true });
+        crew(tx + 9, y + FR, 1, 0, v(t + 5), { front: true });
       });
       break;
     }
     case 'cartes': {
       cardTable(F, R, S, x, y);
-      if (!on) break;
-      fig(x, y + BK, 0, 'g', v(0), { back: true, role: 'croupière' });
-      fig(x - 22, y + FR, 3, 0, v(1), { front: true });
-      fig(x + 2, y + FR, 3, 1, v(2), { front: true });
-      fig(x + 24, y + FR, 1, 0, v(3), { front: true });
-      if (w >= 150) fig(x - 48, y + SD, 0, 1, v(4));
+      crew(x, y + BK, 0, 'g', v(0), { back: true, role: 'croupière' });
+      crew(x - 22, y + FR, 3, 0, v(1), { front: true });
+      crew(x + 2, y + FR, 3, 1, v(2), { front: true });
+      crew(x + 24, y + FR, 1, 0, v(3), { front: true });
+      if (w >= 150) crew(x - 48, y + SD, 0, 1, v(4));
       break;
     }
     case 'tickets': {
@@ -1221,22 +1222,18 @@ function furnish(ctx, id, x, y, w, x0r, x1r, y0, open, seed) {
       lotteryKiosk(O, S, pal, kx, y);
       counter(F, R, S, kx, y, 40, true);
       if (w >= 140) lotteryDrum(O, R, S, x + Math.round(w / 2) - 22, y);
-      if (on) {
-        fig(kx, y + BK, 0, 1, v(0), { back: true, role: 'guichetier' });
-        fig(kx - 8, y + FR, 1, 0, v(1), { front: true });
-        fig(kx + 10, y + FR, 1, 'g', v(2), { front: true });
-        if (w >= 150) fig(x + Math.round(w / 2) - 44, y + SD, 2, 0, v(3));
-      }
+      crew(kx, y + BK, 0, 1, v(0), { back: true, role: 'guichetier' });
+      crew(kx - 8, y + FR, 1, 0, v(1), { front: true });
+      crew(kx + 10, y + FR, 1, 'g', v(2), { front: true });
+      if (w >= 150) crew(x + Math.round(w / 2) - 44, y + SD, 2, 0, v(3));
       break;
     }
     case 'boutique': {
       shelves(O, R, S, pal, x, y, Math.min(60, w - 30));
       counter(F, R, S, x, y, Math.min(46, w - 40));
       if (S.register) O.spr(x + 8, y + FOOT - 17 - 9, REGISTER, pal);
-      if (on) {
-        fig(x - 8, y + BK, 0, 'g', v(0), { back: true, role: 'marchande' });
-        fig(x - 16, y + FR, 3, 1, v(1), { front: true });
-      }
+      crew(x - 8, y + BK, 0, 'g', v(0), { back: true, role: 'marchande' });
+      crew(x - 16, y + FR, 3, 1, v(1), { front: true });
       break;
     }
     case 'scene': {
@@ -1260,7 +1257,7 @@ function furnish(ctx, id, x, y, w, x0r, x1r, y0, open, seed) {
     }
     case 'boudoir': boudoir(ctx, x, y, w, x0r, x1r, y0, seed); break;
     // La salle des MACHINES à sous (2026-10-03) : la rangée de fonte et de laiton.
-    case 'machines': slotRow(ctx, { x, y, w, on, v }, 'fonte'); break;
+    case 'machines': slotRow(ctx, { x, y, w, crew, v }, 'fonte'); break;
     default: break;
   }
 }
@@ -1311,7 +1308,7 @@ const innerOf = (b0, b1) => b1 - b0 - 2 * sideOf(b0, b1);
 
 // Les LIEUX à gauche de la cage, le HALL à droite ; entre deux boîtes un poteau percé
 // d'une porte. Chaque boîte a son mur, ses lampes, son ornement, son mobilier.
-function level(ctx, lv, rooms, open, i, core) {
+function level(ctx, lv, rooms, i, core) {
   const { P, N, S, pal, ids, spots, fig } = ctx;
   const { cx, w, yT } = lv;
   const x0 = Math.round(cx - w / 2), x1 = Math.round(cx + w / 2);
@@ -1359,7 +1356,7 @@ function level(ctx, lv, rooms, open, i, core) {
     if (id) {
       const before = ctx.snapshot();
       ctx.level = i;
-      furnish(ctx, id, mx, B.yF, bw, B.ax, B.bx, B.yC, open, i * 5 + r);
+      furnish(ctx, id, mx, B.yF, bw, B.ax, B.bx, B.yC, i * 5 + r);
       ctx.claim(before, id);
       for (let y = yT; y < yB; y += 1) for (let x = b0; x < b1; x += 1) if (!ids.get(x, y)) ids.set(x, y, id);
       spots[id] = { x: mx, y: Math.round((B.yC + B.yF) / 2), r: Math.round(Math.min(bw, HD.WALLH) / 2), box: { x0: b0, y0: yT, x1: b1, y1: yB }, level: i };
@@ -2397,7 +2394,7 @@ function topRatio(S) { return topShape(S) === 'dome' ? 0.74 : S.top === 'spire' 
 // La demi-largeur du toit de pagode à la hauteur t (0 au pied, 1 au faîte) : un profil
 // creux (raide en haut, évasé en bas) et des coyaux relevés au bord.
 const pagodaHalf = (rr, t) => rr * Math.pow(Math.max(0, 1 - t), 1.45) * (1 + 0.12 * Math.max(0, 1 - t / 0.1));
-function topRoom(ctx, cx, yBase, wTop, open) {
+function topRoom(ctx, cx, yBase, wTop) {
   const { P, N, S, ids, spots, fig } = ctx;
   const dome = topShape(S) === 'dome';
   const r = Math.min(150, Math.round(wTop * 0.4)), ry = Math.round(r * topRatio(S)), T = 6;
@@ -2448,7 +2445,7 @@ function topRoom(ctx, cx, yBase, wTop, open) {
   if (S.craft === 'balloon') balloonCraft(ctx, cx, by);
   else if (S.craft === 'glider') gliderCraft(ctx, cx, by);
   else wingsCraft(ctx, cx, by, S.craft === 'lightwings');
-  if (open.icare) fig(cx + 22, by + 2, 2, 0, 2, { role: 'aviateur' });
+  ctx.crew('icare')(cx + 22, by + 2, 2, 0, 2, { role: 'aviateur' });
   fig(cx - 34, by + 3, 0, 'g', 7, { role: 'hotesse' });
   ctx.claim(before, 'icare');
   for (let y = yF - ry; y < yBase; y += 1) for (let x = cx - r; x <= cx + r; x += 1) if (!ids.get(x, y)) ids.set(x, y, 'icare');
@@ -2782,8 +2779,13 @@ function skylineFor(P, S, W, waterY) {
 }
 
 // ── LA COUPE ─────────────────────────────────────────────────────────────────
-// `K` : le kit de l'âge (seule sa bande sert ici) ; `open` : les lieux ouverts.
-export function bakeCoupeHD(K, open = {}) {
+// `K` : le kit de l'âge (seule sa bande sert ici).
+// Cuite une fois par âge, TOUT OUVERT (audit du 2026-10-05, PERF-30) : un jeu fermé ne
+// change rien à la coupe, seulement ses figures (le croupier, les joueurs). Celles-là
+// portent son `gate` et la vue ne les montre que s'il est ouvert (figuresOuvertes).
+// Avant, chaque jeu acquis recuisait toute la coupe (60-100 ms) dans une nouvelle
+// entrée de cache.
+export function bakeCoupeHD(K) {
   const b = K.band | 0;
   const S = styleHD(b);
   const pal = palOf(S);
@@ -2800,23 +2802,55 @@ export function bakeCoupeHD(K, open = {}) {
   // Ce que les MURS allument la nuit (corniche de néon, étoiles…), à part : un meuble posé
   // devant l'éteint (2026-10-03 : les fils lumineux du mur passaient sur la scène).
   const WNr = makeRaster(0, 0, W, H);
-  const idb = new Array(W * H).fill(null);
-  const ids = { get: (x, y) => (x >= 0 && y >= 0 && x < W && y < H ? idb[y * W + x] : null), set: (x, y, v) => { if (x >= 0 && y >= 0 && x < W && y < H) idb[y * W + x] = v; } };
+  // Le LIEU de chaque pixel (le clic tombe au pixel, la lumière reste dans sa salle) : un
+  // octet par pixel, l'index de son nom dans `idNames` (0 : aucun lieu). Avant, un
+  // tableau de W×H chaînes, huit fois plus lourd, gardé avec la cuisson (MEM-5).
+  const idNames = [null], codes = new Map(), idb = new Uint8Array(W * H);
+  const codeOf = (v) => {
+    let c = codes.get(v);
+    if (c === undefined) { c = idNames.length; idNames.push(v); codes.set(v, c); }
+    return c;
+  };
+  const ids = { get: (x, y) => (x >= 0 && y >= 0 && x < W && y < H ? idNames[idb[y * W + x]] : null), set: (x, y, v) => { if (x >= 0 && y >= 0 && x < W && y < H) idb[y * W + x] = codeOf(v); } };
   const figures = [], spots = {};
   const cx = Math.round(W / 2);
   // Les lampes posées dans n'importe quelle couche marquent leur halo de nuit.
   const lights = [];
   for (const L2 of [P, F, O, N]) L2.marks = lights;
   const fig = (x, y, dir, type, variant, extra = {}) => figures.push({ x, y, dir, type, variant, ...extra });
+  // Ce que les meubles d'une salle POSENT (couches F et O) lui appartient. Pendant
+  // qu'elle se meuble, chaque pixel touché note son encre d'avant ; la salle prend ceux
+  // dont l'encre a changé. Avant (PERF-30) : une copie des deux couches entières puis
+  // un balayage du cadre, pour CHAQUE salle (17 à 37 Mo jetés par cuisson).
+  let noted = null, gen = 0;
+  const seen = new Uint16Array(W * H);
+  for (const Q of [F, O]) {
+    const put = Q.put;
+    Q.put = (x, y, c, a) => {
+      if (noted) {
+        const px = x | 0, py = y | 0;
+        if (px >= 0 && py >= 0 && px < W && py < H) {
+          const k = py * W + px;
+          if (seen[k] !== gen) { seen[k] = gen; noted.push(k, Fr.data[k * 4 + 3], Or.data[k * 4 + 3]); }
+        }
+      }
+      put(x, y, c, a);
+    };
+  }
   const ctx = {
     P, F, O, N, R: P, S, pal, ids, spots, plan, fig, WN: painter(WNr),
-    snapshot: () => ({ f: Fr.data.slice(), o: Or.data.slice() }),
+    snapshot: () => { gen += 1; noted = []; return noted; },
     claim: (before, id) => {
-      for (let k = 0; k < W * H; k += 1) {
-        const q = k * 4;
-        if (Fr.data[q + 3] !== before.f[q + 3] || Or.data[q + 3] !== before.o[q + 3]) idb[k] = id;
+      const c = codeOf(id);
+      for (let i = 0; i < before.length; i += 3) {
+        const k = before[i];
+        if (Fr.data[k * 4 + 3] !== before[i + 1] || Or.data[k * 4 + 3] !== before[i + 2]) idb[k] = c;
       }
+      noted = null;
     },
+    // Qui pose les figures d'un lieu : la scène et le salon sont toujours animés ; un
+    // jeu, seulement ouvert — ses figures portent son `gate` (figuresOuvertes).
+    crew: (id) => (id === 'scene' || id === 'salon' ? fig : (x, y, dir, type, variant, extra = {}) => fig(x, y, dir, type, variant, { ...extra, gate: id })),
   };
   paintSky(P, S, W, waterY);
   skylineFor(P, S, W, waterY);
@@ -2851,13 +2885,13 @@ export function bakeCoupeHD(K, open = {}) {
     balcony(P, N, S, x0 - over, x0, yT - HD.STRUCT, -1);
     balcony(P, N, S, x1, x1 + over, yT - HD.STRUCT, 1);
     levels.push({ i, cx, w, yT, y0: yT + HD.CEIL, y1: yT + HD.CEIL + HD.WALLH, rooms: prog[i] });
-    level(ctx, { cx, w, yT }, prog[i], open, i, core);
+    level(ctx, { cx, w, yT }, prog[i], i, core);
     yT -= LH;
   }
   circulation(ctx, core, levels);
   const motions = courtship(ctx, levels, core);
   // La VERRIÈRE au-dessus du dernier étage : une salle, vue de l'intérieur.
-  const apex = topRoom(ctx, cx, levels[L - 1].yT - HD.STRUCT, wTop, open);
+  const apex = topRoom(ctx, cx, levels[L - 1].yT - HD.STRUCT, wTop);
   // La nuit des murs, là où rien ne la cache.
   for (let k = 0; k < W * H; k += 1) {
     const q = k * 4;
@@ -2889,13 +2923,19 @@ export function bakeCoupeHD(K, open = {}) {
   }
   const cab = cabinFor(S);
   return {
-    R: Rr, F: Fr, N: Nr, ids: idb, fond, spots, figures, levels, lights, W, H, waterY,
+    R: Rr, F: Fr, N: Nr, ids: idb, idNames, fond, spots, figures, levels, lights, W, H, waterY,
     roofTop: apex - 6, band: b, motions, lift: ctx.lift || null,
     show: ctx.show ? { x: ctx.show.x, y: ctx.show.y, ...shadowFrames(S.hat || 'none') } : null,
     waterHex: S.water[S.water.length - 1], skyHex: S.sky[0],
     // Les mesures de cette toise, pour la vue : 1 px de coupe = 1 px de sprite.
     hd: { spritePx: 1, haloR: 30, wheel: 36, floorH: LH, margin: 60, cabin: cab },
   };
+}
+
+// Les figures que la vue MONTRE : celles d'un jeu fermé (`gate`) restent en coulisse.
+// Même ordre que la cuisson (c'est l'ordre de peinture).
+export function figuresOuvertes(figures, open) {
+  return figures.filter((f) => !f.gate || !!(open && open[f.gate]));
 }
 
 // Le style d'un âge, ses matières et ses luminaires, pour la TABLE DE JEU en gros plan

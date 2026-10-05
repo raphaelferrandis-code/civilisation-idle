@@ -177,15 +177,29 @@ export function dockPorters(berth, elapsed, seed = 0, dwell = Infinity) {
   return out;
 }
 
-// LES MÊMES PORTEURS À CHAQUE ESCALE (fiche d'habitant, citizenFocus.js) : un
-// objet par bateau et par rang, gardé d'une frame et d'une escale à l'autre —
-// l'équipage d'un bateau revient décharger quand il revient. dockPorters, lui,
-// rend des positions neuves à chaque frame ; on les recopie ici.
+// LES MÊMES PORTEURS TOUTE L'ESCALE (fiche d'habitant, citizenFocus.js) : un objet
+// par bateau et par rang, gardé d'une frame à l'autre — on peut le désigner et le
+// suivre. dockPorters, lui, rend des positions neuves à chaque frame ; on les recopie
+// ici. Ils PARTENT AVEC LEUR BATEAU (audit du 05/10, MEM-9) : un bateau ne revient
+// jamais (chaque naissance prend un id neuf, `seed` = son id), et la Map gagnait deux
+// entrées par escale, sans fin — passé PORTERS_SWEEP entrées, celles des bateaux qui
+// ne sont plus sur le fleuve sont retirées.
 const _porters = new Map();
-function porterOf(q) {
+const PORTERS_SWEEP = 64;
+function sweepPorters() {
+  const alive = new Set();
+  for (const sh of CM.ships || []) alive.add(sh.id);
+  for (const [key, pp] of _porters) if (!alive.has(pp.shipId)) _porters.delete(key);
+}
+export const portersSize = () => _porters.size;
+export function porterOf(q) {
   const key = q.seed + ':' + q.k;
   let pp = _porters.get(key);
-  if (!pp) { pp = { charType: q.charType | 0, figSeed: ((q.seed | 0) * 7919 + q.k * 104729) >>> 0 }; _porters.set(key, pp); }
+  if (!pp) {
+    if (_porters.size >= PORTERS_SWEEP) sweepPorters();
+    pp = { charType: q.charType | 0, figSeed: ((q.seed | 0) * 7919 + q.k * 104729) >>> 0, shipId: q.seed };
+    _porters.set(key, pp);
+  }
   pp.dir = q.dir; pp.walking = q.walking; pp.carry = q.carry; pp.walkDist = q.walking ? q.dist : null;
   pp.phase = q.k * 0.5; pp.workKey = q.berthId;
   return pp;

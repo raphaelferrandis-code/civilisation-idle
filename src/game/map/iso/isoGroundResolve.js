@@ -175,6 +175,11 @@ export function makeGroundBake(ISO_GROUND_LOD) {
   // et un point hors de l'ellipse compte pour 0 : toute cellule que le bord
   // TRAVERSE entre dans l'anneau. L'anneau est alors FERMÉ par construction —
   // aucune cellule frontière ne peut être sautée — et d'épaisseur régulière.
+  // Diagnostic opt-in (globalThis.__beachStats), lu UNE fois par bake : une propriété
+  // absente de l'objet global coûte ~35 ns à chercher (audit du 05/10, DEV-4), soit
+  // ~0,7 ms par recuisson complète quand le drapeau était relu à chaque cellule.
+  const beachStats = globalThis.__beachStats
+    ? (globalThis.__beachStatsLast || (globalThis.__beachStatsLast = {})) : null;
   const kindAt = (gx, gy) => {
     const key = gx + ',' + gy;
     const hit = kinds.get(key);
@@ -255,12 +260,9 @@ export function makeGroundBake(ISO_GROUND_LOD) {
     // La cour de terre devient PELOUSE aux ères modernes et cosmiques (COUR.lawnFrom).
     // Après la lisière, pour que la divagation, qui rend de la terre, suive aussi.
     if (k === 'dirt' && COUR.lawnFrom != null && band >= COUR.lawnFrom && !courK.camp) k = 'grass';
-    // Diagnostic opt-in (globalThis.__beachStats = true) : combien de cellules de
-    // chaque matière le bake a classées. Éteint, coût nul (un test de drapeau).
-    if (globalThis.__beachStats) {
-      const s = globalThis.__beachStatsLast || (globalThis.__beachStatsLast = {});
-      s[k] = (s[k] || 0) + 1;
-    }
+    // Diagnostic opt-in (`beachStats`, plus haut) : combien de cellules de chaque
+    // matière le bake a classées.
+    if (beachStats) beachStats[k] = (beachStats[k] || 0) + 1;
     kinds.set(key, k);
     return k;
   };
@@ -331,7 +333,8 @@ export function makeGroundBake(ISO_GROUND_LOD) {
   const lisiere = (LISIERE.on && !HARD)
     // Les pelouses de ville sont aussi hors champ (LAWN.crisp) : leur bord reste franc,
     // des deux côtés — la cellule de pavé voisine ne s'arrondit pas non plus.
-    ? makeLisiere(kindAt, (gx, gy) => !!(riverCells && riverCells.has(gx + ',' + gy)) || isLawn(gx, gy))
+    // Le repère (grille + graine) : la grille qui grandit périme tout le cache (MEM-7).
+    ? makeLisiere(kindAt, (gx, gy) => !!(riverCells && riverCells.has(gx + ',' + gy)) || isLawn(gx, gy), undefined, L.gridN + ':' + L.mapSeed)
     : null;
   return {
     bake: { ctx, T, z, hw, hh, LOD, HARD, b, L, band, mat, urb, road, roadMap, riverCells, plazaEra, wg, PR },

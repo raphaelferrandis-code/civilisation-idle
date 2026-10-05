@@ -15,6 +15,7 @@ import {
   normalizeTipContent,
   openDelayFor,
   placeTip,
+  sameTipContent,
   tipStillAlive
 } from "../helpBubbleCore.js";
 
@@ -184,5 +185,23 @@ describe("tipStillAlive — la bulle orpheline", () => {
 
   it("une cible attachée est vivante", () => {
     expect(tipStillAlive({ isConnected: true })).toBe(true);
+  });
+});
+
+// PERF-60/61 (audit du 2026-10-05) : le contenu vivant d'une bulle est relu toutes les
+// 250 ms ; un contenu identique ne doit plus recréer l'état de la bulle.
+describe("sameTipContent — relire sans recréer", () => {
+  it("un texte ou des lignes identiques sont le même contenu", () => {
+    expect(sameTipContent(normalizeTipContent("+3,2 /s"), normalizeTipContent("+3,2 /s"))).toBe(true);
+    const rows = () => normalizeTipContent([{ label: "Récolte", value: "+12" }, false, { label: "Coût", value: "-3" }]);
+    expect(sameTipContent(rows(), rows())).toBe(true);
+  });
+
+  it("une valeur qui bouge, une ligne de plus ou une autre forme changent le contenu", () => {
+    expect(sameTipContent(normalizeTipContent("+3,2 /s"), normalizeTipContent("+3,3 /s"))).toBe(false);
+    expect(sameTipContent(normalizeTipContent([{ label: "A", value: "1" }]), normalizeTipContent([{ label: "A", value: "2" }]))).toBe(false);
+    expect(sameTipContent(normalizeTipContent([{ label: "A", value: "1" }]), normalizeTipContent([{ label: "A", value: "1" }, { label: "B", value: "2" }]))).toBe(false);
+    expect(sameTipContent(normalizeTipContent("A"), normalizeTipContent([{ label: "A", value: "" }]))).toBe(false);
+    expect(sameTipContent(null, normalizeTipContent("A"))).toBe(false);
   });
 });

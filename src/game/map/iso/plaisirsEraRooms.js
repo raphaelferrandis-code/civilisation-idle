@@ -284,9 +284,9 @@ export function fireBowl(ctx, x, y) {
 // AUX BOUTS, l'hôtesse à côté, et au plus un joueur de dos au COIN de la table quand la
 // salle est large. Jamais au milieu devant : à 27 px, un joueur cache une table de 13.
 // Le croupier est un GIGOLO de la Maison (une table sur deux, l'autre des deux).
+// Elle ne se montre que jeu ouvert (`crew`, plaisirsEraFurnish.js).
 export function tableCrew(ctx, r, tx, half, t = 0, girlCroupier = false) {
-  const { fig } = ctx, { x, y, w, on, v } = r;
-  if (!on) return;
+  const { x, y, w, crew: fig, v } = r;
   const inRoom = (px) => Math.abs(px - x) <= w / 2 - 12;
   fig(tx - 5, y + BK, 0, girlCroupier ? 'g' : 'm', girlCroupier ? v(t) : 1 + Math.round(t / 5), { back: true, role: girlCroupier ? 'croupière' : 'croupier' });
   fig(tx + Math.round(half * 0.55), y + BK, 2, 1, v(t + 1), { back: true });
@@ -597,7 +597,7 @@ const FEU = {
     tableCrew(ctx, r, x, 20, 0, true);
   },
   tickets(ctx, r) {
-    const { fig, P, N } = ctx, { x, y, w, y0, on, v } = r;
+    const { P, N } = ctx, { x, y, w, y0, crew: fig, v } = r;
     const kx = x - (w >= 150 ? 18 : 6);
     // Au mur, la peau des comptes : des rangées de bâtons à l'ocre.
     piece(P, kx - 16, y0 + 8, 32, 22, (Q) => {
@@ -615,20 +615,16 @@ const FEU = {
     });
     lotJar(ctx, kx, y);
     void N;
-    if (on) {
-      fig(kx - 3, y + BK, 0, 0, v(0), { back: true, role: 'guichetier' });
-      fig(kx - 20, y + SD, 0, 0, v(1));
-      fig(kx + 34, y + SD, 2, 'g', v(2));
-      if (w >= 150) fig(kx - 22, y + FR, 1, 1, v(3), { front: true });
-    }
+    fig(kx - 3, y + BK, 0, 0, v(0), { back: true, role: 'guichetier' });
+    fig(kx - 20, y + SD, 0, 0, v(1));
+    fig(kx + 34, y + SD, 2, 'g', v(2));
+    if (w >= 150) fig(kx - 22, y + FR, 1, 1, v(3), { front: true });
   },
   boutique(ctx, r) {
-    const { fig } = ctx, { x, y, w, on, v } = r;
+    const { x, y, w, crew: fig, v } = r;
     barterRack(ctx, x, y, Math.min(64, w - 26));
-    if (on) {
-      fig(x - 10, y + BK, 0, 'g', v(0), { back: true, role: 'marchande' });
-      fig(x - 18, y + FR, 3, 1, v(1), { front: true });
-    }
+    fig(x - 10, y + BK, 0, 'g', v(0), { back: true, role: 'marchande' });
+    fig(x - 18, y + FR, 3, 1, v(1), { front: true });
   },
   scene(ctx, r) {
     const { fig, O } = ctx, { x, y, x0r, x1r, y0, v } = r;

@@ -67,7 +67,9 @@ export default function ScratchCanvas({ nonce, radius = 22, threshold = 60, onRe
     const cv = ref.current;
     const s = sample.current;
     if (!cv || !s || done.current) return;
-    const sx = s.getContext('2d');
+    // Relu à chaque image du grattage : le contexte le sait (audit 2026-10-05, PERF-60 ;
+    // sans l'option, Chrome la garde accélérée, avertit, et la rapatrie à chaque relecture).
+    const sx = s.getContext('2d', { willReadFrequently: true });
     sx.clearRect(0, 0, 80, 80);
     sx.drawImage(cv, 0, 0, 80, 80);
     const d = sx.getImageData(0, 0, 80, 80).data;

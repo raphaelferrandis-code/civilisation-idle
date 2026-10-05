@@ -33,7 +33,7 @@ import { fp } from '../framePerf.js';
 import { glBegin, glFlush, glGetCanvas, glInit, glQuad } from '../glPainter.js';
 import { CM, cmHash, treeBandMul, treeCanvasT } from '../layout.js';
 import {
-  LIGHT_LAYER, beginLightLayer, endLightLayer, lightCtx, lightCut, lightCutImage,
+  LIGHT_LAYER, beginLightLayer, endLightLayer, lightCtx, lightCut, lightCutImage, lightCutLive,
 } from '../lightLayer.js';
 import {
   drawPixelHouse, drawPixelHouseOutline, drawPixelHouseSunShadow, pixelHouseBox, pixelHouseReady,
@@ -48,7 +48,7 @@ import { drawIsoEngineScene, isoEngineScenesFlag } from './isoEngineScene.js';
 import { drawIsoField, drawIsoFieldPixel } from './isoField.js';
 import { drawIsoMill } from './isoMill.js';
 import { drawTerroirTeam } from './terroirLife.js';
-import { isoFrontOffset, seasonTree } from './isoGroundDetail.js';
+import { isoFlatFootprint, isoFrontOffset, isoWetFootprint, seasonTree } from './isoGroundDetail.js';
 import { ISO_TREE_VARIANTS, TREE_DEAD_VARIANT, TREE_SPRITES, cityTreeVariant, drawIsoGroundedArt, treeAliveVariant, treeSpriteK } from './isoGroundProps.js';
 import { maskHit } from './isoMask.js';
 import { HOVER_GOLD, rgb } from './isoPalette.js';
@@ -251,8 +251,7 @@ export function paintIsoItems(bake, items, now) {
   // PAS le poussé de front : la masse reste centrée sur son esplanade — et la
   // collecte a trié sans offset, l'ancre doit suivre le même contrat.
   const tileAnchor = (t, spanX, spanY) => {
-    const fOff = (t.__district || /field|farm|crop|orchard/i.test(t.buildingId || t.variant || ''))
-      ? null : isoFrontOffset(t, L.roadMap);
+    const fOff = (t.__district || isoFlatFootprint(t)) ? null : isoFrontOffset(t, L.roadMap);
     return worldToScreen((t.gx + spanX + (fOff ? fOff.ox : 0)) * T, (t.gy + spanY + (fOff ? fOff.oy : 0)) * T);
   };
   for (const it of items) {
@@ -278,16 +277,11 @@ export function paintIsoItems(bake, items, now) {
       // en scène riveraine). (Les aqueducs étaient ici aussi, pour la même raison
       // — leur prise d'eau se posait EXPRÈS au bord. Les points d'eau qui les
       //  remplacent ne touchent plus l'eau et n'ont plus rien à y faire.)
-      const idFlat = t.buildingId || t.variant || '';
-      const isFlatFootprint = /field|farm|crop|orchard/i.test(idFlat);
+      const isFlatFootprint = isoFlatFootprint(t);
       if (t.type === 'engine' && !isFlatFootprint) {
         const rc = (L.river && L.river.present && L.river.cells) || null;
         if (rc) {
-          let wet = false;
-          for (let ax = 0; ax < spanX && !wet; ax += 1) for (let ay = 0; ay < spanY && !wet; ay += 1) {
-            if (rc.has((t.gx + ax) + ',' + (t.gy + ay)) || (L.river.banks && L.river.banks.has((t.gx + ax) + ',' + (t.gy + ay)))) wet = true;
-          }
-          if (wet) {
+          if (isoWetFootprint(t, L.river, rc, spanX, spanY)) {   // mémorisé sur la tuile
             if (t.buildingId === 'river_ports' && isoEngineScenesFlag.on && !chuteGone(t)) {
               drawIsoRiverside(ctx, t, spanX, spanY, T, z, now, band, eraIdx);
             }
@@ -348,12 +342,11 @@ export function paintIsoItems(bake, items, now) {
         // sur la grille. Symptôme signalé par Raph, capture à l'appui.
         if (houseBoxes && houseBoxes.length < HOUSE_BOX_CAP) houseBoxes.push({ b: engineBox, t });
       } else {
-        const id2 = t.buildingId || t.variant || '';
         const n = worldToScreen(t.gx * T, t.gy * T);
         const e = { x: n.x + spanX * hw, y: n.y + spanX * hh };
         const s = { x: n.x + (spanX - spanY) * hw, y: n.y + (spanX + spanY) * hh };
         const w = { x: n.x - spanY * hw, y: n.y + spanY * hh };
-        if (/field|farm|crop|orchard/i.test(id2)) {
+        if (isFlatFootprint) {
           // CHAMPS : patchwork de parcelles cultivées façon TheoTown (cf. drawIsoField) —
           // la scène legacy (peinture carrée du sol) ne se pose pas sur le losange.
           if (profParts) fp('vif-peinture');
@@ -459,8 +452,17 @@ export function paintIsoItems(bake, items, now) {
           ctx.imageSmoothingEnabled = prevTS;
         }
         // L'occultation du calque de lumière vit dans un AUTRE canvas : elle
-        // reste identique quel que soit le pipeline du sprite.
-        lightCutImage(tImg, tdx, tdy, hpx, hpx);
+        // reste identique quel que soit le pipeline du sprite. Au vent, elle suit
+        // les bandes LÀ OÙ elles sont posées (audit du 05/10, PERF-73) : la
+        // silhouette de repos laissait une frange de halo traverser la couronne.
+        if (!sway) lightCutImage(tImg, tdx, tdy, hpx, hpx);
+        else if (lightCutLive()) {
+          let reach = 0;
+          for (const b of sway) reach = Math.max(reach, Math.abs(b[2]) * tu);
+          lightCut(tdx - reach, tdy, tdx + hpx + reach, tdy + hpx, (lc) => {
+            for (const [y0, y1, o] of sway) lc.drawImage(tImg, 0, y0, tsw, y1 - y0, tdx + o * tu, bandY(y0), hpx, bandY(y1) - bandY(y0));
+          });
+        }
       } else {
         drawTreeIso(ctx, p.x, p.y, T * z * (tr.r || 0.7) * 1.3 * treeBandMul(tr.fixed));
       }

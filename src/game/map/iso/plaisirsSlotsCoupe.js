@@ -68,11 +68,11 @@ function machine(ctx, look, x, yb, k) {
 
 // La rangée, et ses joueurs aux bouts (devant, ils cachaient les rouleaux).
 export function slotRow(ctx, r, look) {
-  const { fig } = ctx, { x, y, w, on, v } = r;
+  // Les joueurs ne se montrent que jeu ouvert (`crew`, plaisirsEraFurnish.js).
+  const { x, y, w, crew: fig, v } = r;
   const yb = y + FOOT - 1;
   const n = Math.max(2, Math.min(5, Math.floor((w - 34) / 20))), x0 = x - Math.round(((n - 1) * 20) / 2);
   for (let k = 0; k < n; k += 1) machine(ctx, look, x0 + k * 20, yb, k);
-  if (!on) return;
   fig(x0 - 17, y + SD, 0, 0, v(0), { role: 'joueur' });
   fig(x0 + (n - 1) * 20 + 17, y + SD, 2, 'g', v(1));
   if (w >= 150) fig(x0 + 10, y + FR, 3, 1, v(2), { front: true });

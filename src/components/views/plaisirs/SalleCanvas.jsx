@@ -380,14 +380,14 @@ export default function SalleCanvas({ bake, band, lit, padLeft = 0, focus = null
     return () => { alive = false; cancelAnimationFrame(raf); };
   }, [bake, band]);
 
-  // Pixel du cadre sous la souris → lieu.
+  // Pixel du cadre sous la souris → lieu (`ids` : l'index du nom dans `idNames`).
   const pick = (e) => {
     const cv = ref.current, L = layoutRef.current;
     if (!cv || !bake || !L) return null;
     const r = cv.getBoundingClientRect();
     const i = Math.floor(((e.clientX - r.left) * L.dpr - L.ox) / L.Z), j = Math.floor(((e.clientY - r.top) * L.dpr - L.oy) / L.Z);
     if (i < 0 || j < 0 || i >= bake.W || j >= bake.H) return null;
-    return bake.ids[j * bake.W + i] || null;
+    return bake.idNames[bake.ids[j * bake.W + i]] || null;
   };
   // La molette fait monter et descendre les étages (un tiers d'étage par cran).
   const onWheel = (e) => {

@@ -16,6 +16,15 @@ import { solInvalidate } from './solInvalidate.js';
 // consommateur depuis la refonte éolienne du moulin (retrait en phase art).
 // Tant qu'un PNG manque, chaque consommateur garde son repli (skew / profil).
 const isoArtCache = new Map();
+// Les SEULS arts que lit le sol (audit du 2026-10-05, PERF-27) : la dalle d'une place
+// en mode scène (isoGroundResolve), les touffes d'herbe (isoGroundDetail), le gazon et
+// les parterres des terre-pleins (drawIsoMedians, isoStreet). Le décodage de tout autre
+// PNG (bateau, pont, clôture, arbre, merveille…) invalidait pourtant le sol entier :
+// ~100 à 150 tuiles recuites par fenêtre de 250 ms, au chargement d'une grande ville
+// et à chaque type de sprite nouveau. Garde : isoArtGround.test.js relève les
+// isoArt(…) des passes du sol — un art ajouté au sol sans passer ici le fait échouer.
+export const isoArtFeedsGround = (name) => name.startsWith('plaza-') || name.startsWith('deco/tuft-')
+  || name.startsWith('median-lawn') || name.startsWith('flowerbed-');
 export function isoArt(name) {
   let e = isoArtCache.get(name);
   if (e) return e;
@@ -27,8 +36,9 @@ export function isoArt(name) {
       e.img = im; e.ready = true;
       // Le BAKE du sol dépend de l'art décodé (dalle de place remplacée, bande
       // gazon des terre-pleins sautée) → invalidation DOUCE, recuisson coalescée
-      // par drawIsoWorld (cf. isoTile : plus une recuisson par sprite décodé).
-      solInvalidate('soft');
+      // par drawIsoWorld (cf. isoTile : plus une recuisson par sprite décodé) —
+      // pour les seuls arts qu'il lit (isoArtFeedsGround).
+      if (isoArtFeedsGround(name)) solInvalidate('soft');
     };
     // `name` peut porter un cache-buster (`clef?v=2`) : la query passe APRÈS le
     // `.png` dans l'URL. Sert quand un PNG est RÉÉCRIT sur disque (aqueduc : des

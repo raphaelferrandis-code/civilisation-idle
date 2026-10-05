@@ -10,8 +10,9 @@ import { ACTIVE_RUIN_FOOD_ENGINE_COST_MULT, ACTIVE_RUIN_BABEL_COST_MULT, hasActi
 
 // Catégorie sur laquelle la cité s'appuie le plus (par nombre de bâtiments).
 // Sert au fardeau « Confusion des langues » : il frappe ce qui a été réellement
-// construit, et se déplace si le joueur se réoriente.
-function dominantBuildingCategory() {
+// construit, et se déplace si le joueur se réoriente. Exportée pour « Tout
+// acheter » (buyAllAffordable), qui re-balaie quand elle bascule.
+export function dominantBuildingCategory() {
   const parCategorie = {};
   for (const b of buildings) {
     const n = state.buildings[b.id] || 0;

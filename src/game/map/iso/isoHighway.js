@@ -183,7 +183,11 @@ function along(r, s) {
   const u = Math.max(0, Math.min(1, (s - r.cum[j - 1]) / seg));
   return { x: a.x + (b.x - a.x) * u, y: a.y + (b.y - a.y) * u, z: a.z + (b.z - a.z) * u, ux: (b.x - a.x) / seg, uy: (b.y - a.y) / seg, i: j - 1 };
 }
+// Les voitures du tablier, par id (ri·1000 + li·100 + i) : bornées par le plan et
+// réutilisées ; vidées quand le plan change (audit du 05/10, MEM-9 — les entrées d'un
+// plan quitté restaient). Cf. highwayActors.
 const _veh = [];
+let _vehFor = null;
 function carActors(r, ri, now, band, T, out, vis) {
   const total = r.cum[r.cum.length - 1];
   if (total <= 0) return;
@@ -251,6 +255,7 @@ export function highwayActors(now, out, decay = 0) {
     return p.x > -mg && p.x < CM.cw + mg && p.y > -mg && p.y < CM.ch + mg * 2;
   };
   const ribs = highwayRibbons(L.highway, T);
+  if (_vehFor !== ribs) { _vehFor = ribs; _veh.length = 0; }
   ribs.forEach((r, ri) => {
     for (let i = 0; i < r.pts.length - 1; i += 1) {
       const a = r.pts[i], b = r.pts[i + 1];
@@ -270,27 +275,41 @@ export function highwayActors(now, out, decay = 0) {
       hwyStats.segs += 1;
       const g = r.geo[i];
       const skL = r.skipL[i], skR = r.skipR[i];
-      const kGeo = r1(b.x - a.x) + ',' + r1(b.y - a.y) + ',' + r1(a.z) + ',' + r1(b.z - a.z) + '|' + r.w + '|' + (r.main ? 1 : 0) + (skL ? 'l' : '') + (skR ? 'r' : '');
+      // Les CLÉS DE FORME du tronçon et son ombre, gardées sur le plan (audit du 05/10,
+      // PERF-54) : elles ne changent qu'avec lui (et la bande, et les molettes d'ombre et
+      // d'épaisseur) ; rebâties à chaque frame, elles se rehachaient aussi à chaque
+      // lecture du cache. Mêmes textes de clé que la version calculée sur place.
+      const kc = r.kc || (r.kc = []);
+      let K = kc[i];
+      if (!K || K.band !== band) {
+        const kGeo = r1(b.x - a.x) + ',' + r1(b.y - a.y) + ',' + r1(a.z) + ',' + r1(b.z - a.z) + '|' + r.w + '|' + (r.main ? 1 : 0) + (skL ? 'l' : '') + (skR ? 'r' : '');
+        K = kc[i] = { band, sh: 'sh|' + kGeo, bk: 'bk|' + band + '|' + (i % 2) + '|' + kGeo, fr: 'fr|' + band + '|' + kGeo, sk: null, o: null, q: null, sd: 0, th: null, pi: '', la: '' };
+      }
       const dFront = r.dF[i];
       // ombre au sol, décalée vers le bas-droite (soleil haut-gauche)
       if (HWY.shadow > 0) {
         const sk = HWY.shadow;
-        const o = { x: a.x + a.z * sk, y: a.y, z: 0 };
-        const q = [g.AL, g.BL, g.BR, g.AR].map((p) => [p[0] + p[2] * sk - o.x, p[1] - o.y, 0]);
-        const sd = Math.min(...q.map((p) => depthOf(p[0] + o.x, p[1] + o.y)));
-        out.push({ wx: o.x, wy: o.y, d: sd - 0.05 * T, draw(ctx) {
-          const bk = baked('sh|' + kGeo, () => [{ poly: q, col: '#141828' }]);
+        if (K.sk !== sk) {
+          const o = { x: a.x + a.z * sk, y: a.y, z: 0 };
+          K.q = [g.AL, g.BL, g.BR, g.AR].map((p) => [p[0] + p[2] * sk - o.x, p[1] - o.y, 0]);
+          K.sd = Math.min(...K.q.map((p) => depthOf(p[0] + o.x, p[1] + o.y)));
+          K.o = o; K.sk = sk;
+        }
+        const o = K.o, q = K.q, kSh = K.sh;
+        out.push({ wx: o.x, wy: o.y, d: K.sd - 0.05 * T, draw(ctx) {
+          const bk = baked(kSh, () => [{ poly: q, col: '#141828' }]);
           const p = worldToScreen(o.x, o.y, 0);
           blitBaked(ctx, bk, p.x, p.y, d, 0.16 * (1 - 0.75 * (CM.nightF || 0)));
         } });
       }
+      const kBk = K.bk, kFr = K.fr;
       out.push({ wx: mx, wy: my, d: dFront - 0.002 * T, draw(ctx) {
-        const bk = baked('bk|' + band + '|' + (i % 2) + '|' + kGeo, () => backShapes(M, r, a, b, g, i, T, skL, skR));
+        const bk = baked(kBk, () => backShapes(M, r, a, b, g, i, T, skL, skR));
         const p = worldToScreen(a.x, a.y, a.z);
         blitBaked(ctx, bk, p.x, p.y, d);
       } });
       out.push({ wx: mx, wy: my, d: dFront, draw(ctx) {
-        const bk = baked('fr|' + band + '|' + kGeo, () => frontShapes(M, g, a, T, skL, skR, !r.main));
+        const bk = baked(kFr, () => frontShapes(M, g, a, T, skL, skR, !r.main));
         const p = worldToScreen(a.x, a.y, a.z);
         blitBaked(ctx, bk, p.x, p.y, d);
         // la nuit, les ères cosmiques allument la rive du tablier
@@ -304,19 +323,22 @@ export function highwayActors(now, out, decay = 0) {
       const every = r.main ? 6 : 4;
       const top = a.z - HWY.th * T;
       if (i % every === 0 && top > 0.35 * T) {
+        if (K.th !== HWY.th) { K.th = HWY.th; K.pi = 'pi|' + band + '|' + r1(top) + '|' + (r.main ? 1 : 0) + '|' + (Math.abs(g.nx) > Math.abs(g.ny) ? 1 : 0); }
+        const kPi = K.pi;
         // ⚠ AVANT le dessus du tablier : le chevêtre est SOUS la chaussée ; trié à
         // l'aplomb de l'axe, il se peignait par-dessus elle.
         out.push({ wx: a.x, wy: a.y, d: dFront - 0.3 * T, draw(ctx) {
-          const bk = baked('pi|' + band + '|' + r1(top) + '|' + (r.main ? 1 : 0) + '|' + (Math.abs(g.nx) > Math.abs(g.ny) ? 1 : 0), () => pierShapes(M, r, g, top, T));
+          const bk = baked(kPi, () => pierShapes(M, r, g, top, T));
           const p = worldToScreen(a.x, a.y, top);
           blitBaked(ctx, bk, p.x, p.y, d);
         } });
       }
       // lampadaires sur l'axe du tablier principal, toutes les 2 cellules
       if (HWY.lamps > 0 && r.main && i % 4 === 2 && a.z > 0.5 * T) {
+        const kLa = K.la || (K.la = 'la|' + band);
         out.push({ wx: a.x, wy: a.y, d: dFront + 0.01 * T, draw(ctx) {
           const p = worldToScreen(a.x, a.y, a.z);
-          blitBaked(ctx, baked('la|' + band, () => lampShapes(M, T)), p.x, p.y, d);
+          blitBaked(ctx, baked(kLa, () => lampShapes(M, T)), p.x, p.y, d);
           if (night > 0.05) {
             const ph = worldToScreen(a.x, a.y, a.z + 0.64 * T);
             glowAt(ph.x, ph.y, 13 * z / 0.625, M.lamp, 0.5 * night);

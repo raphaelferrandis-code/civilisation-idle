@@ -53,10 +53,10 @@ const LYS = ['..g..', '.ggg.', 'g.g.g', 'ggggg', '..g..', '.g.g.'];
 function motif(Q, rows, x, y, c) { rows.forEach((row, j) => [...row].forEach((ch, i) => { if (ch === 'g') Q.put(x + i, y + j, c); })); }
 
 // L'équipe d'un comptoir (guichet, boutique) : le marchand derrière, un client de dos au
-// coin, un autre sur le côté.
+// coin, un autre sur le côté. Elle ne se montre que jeu ouvert (`crew`,
+// plaisirsEraFurnish.js).
 function counterCrew(ctx, r, cx, half, girl = false) {
-  const { fig } = ctx, { x, y, w, on, v } = r;
-  if (!on) return;
+  const { x, y, w, crew: fig, v } = r;
   fig(cx - 3, y + BK, 0, girl ? 'g' : 0, v(0), { back: true, role: girl ? 'marchande' : 'guichetier' });
   if (Math.abs(cx + half + 10 - x) < w / 2 - 10) fig(cx + half + 10, y + SD, 2, 1, v(1));
   if (w >= 140) fig(cx - half + 2, y + FR, 1, 'g', v(2), { front: true });

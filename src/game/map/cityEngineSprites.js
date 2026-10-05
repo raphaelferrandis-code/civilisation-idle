@@ -500,11 +500,14 @@ function drawShopperShuttle(ctx, ox, oy, sw, sh, now, xA, xB, fy, T, phase, hFra
 // l'overlay procédural ne sert plus qu'en repli. Clés = nom de fichier dans
 // /pixelart/agents/ (cueilleur : -prop-tree/-basket ; entrepôt : granary-prop-silo/-sacks).
 const propImg = {};
-let propInit = false;
-const PROP_KEYS = ['forager-prop-tree', 'forager-prop-basket', 'forager-orchard-tree', 'forager-orchard-crates', 'forager-greenhouse', 'forager-handcart', 'forager-hydro-rack', 'forager-cosmic-7', 'forager-cosmic-8', 'forager-cosmic-9', 'granary-prop-silo', 'granary-hall', 'granary-jars', 'granary-warehouse', 'granary-crates', 'granary-hub', 'granary-cosmic-7', 'granary-cosmic-8', 'granary-cosmic-9', 'caravan-prop-sacks', 'caravan-wagon', 'caravan-truck', 'caravan-pod', 'caravan-cosmic-7', 'caravan-cosmic-8', 'caravan-cosmic-9', 'market-prop-stall', 'market-hall-tent', 'market-macellum', 'market-hall-glass', 'market-plaza-neon', 'market-cosmic-7', 'market-cosmic-8', 'market-cosmic-9', 'guild-prop-lodge', 'guild-house', 'guild-chamber', 'guild-consortium', 'guild-cosmic-7', 'guild-cosmic-8', 'guild-cosmic-9', 'field-prop-crop-green', 'field-prop-crop-gold', 'field-prop-fallow', 'field-crop-neon', 'port-prop-house', 'port-house-medieval', 'port-house-industrial', 'port-house-modern', 'port-prop-pontoon', 'port-dock-stone', 'port-dock-modern', 'mill-prop-house', 'mill-prop-wheel', 'mill-house-stone', 'mill-house-industrial', 'mill-house-modern', 'mill-wheel-metal', 'mill-turbine', 'mint-prop-house', 'mint-prop-forge', 'mint-house-steam', 'mint-house-digital', 'mint-cosmic-7', 'mint-cosmic-8', 'mint-cosmic-9', 'exchange-prop-stall', 'bank-house-renaissance', 'bank-house-neoclassical', 'bank-house-glass', 'bank-cosmic-7', 'bank-cosmic-8', 'bank-cosmic-9', 'storyteller-prop-hut', 'storyteller-hall', 'storyteller-theater', 'storyteller-media', 'scribes-prop-hall', 'scribes-scriptorium', 'scribes-archive', 'scribes-data', 'schools-prop-yard', 'schools-schoolhouse', 'schools-victorian', 'schools-campus', 'academies-prop-yard', 'academies-renaissance', 'academies-institute', 'academies-modern', 'ancestralcult-back', 'ancestralcult-prop', 'cult-shrine', 'cult-mausoleum', 'cult-memorial', 'observatories-prop-dial', 'observatories-tower', 'observatories-dome', 'observatories-array', 'libraries-prop-archive', 'libraries-monastic', 'libraries-grand', 'libraries-modern', 'universities-prop-hall', 'universities-gothic', 'universities-collegiate', 'universities-modern', 'printing-prop-workshop', 'printing-press-shop', 'printing-factory', 'printing-media', 'think-prop-council', 'think-chancellery', 'think-institute', 'think-modern', 'aqueduct-outlet', 'aqueduct-seg', 'aqueduct-intake', 'aqueduct-roman-outlet', 'aqueduct-roman-seg', 'aqueduct-roman-intake', 'aqueduct-iron-outlet', 'aqueduct-iron-seg', 'aqueduct-iron-intake', 'aqueduct-modern-outlet', 'aqueduct-modern-seg', 'aqueduct-modern-intake', 'watch-back', 'watch-prop', 'watch-stone', 'watch-industrial', 'watch-modern', 'ministries-council', 'courthouses-lodge', 'bureau-hut', 'works-camp', 'archive-hut', 'ruins-camp', 'ministries-palace', 'ministries-capitol', 'ministries-tower', 'courthouses-tribunal', 'courthouses-neoclassical', 'courthouses-modern', 'bureau-chancery', 'bureau-office', 'bureau-tower', 'works-yard', 'works-industrial', 'works-depot', 'archive-vault', 'archive-records', 'archive-grid', 'sewers-prop', 'sewers-medieval', 'sewers-works', 'sewers-plant', 'ruins-lodge', 'ruins-institute', 'ruins-lab', 'cosmic-dome-7', 'cosmic-dome-8', 'cosmic-dome-9', 'cosmic-spire-7', 'cosmic-spire-8', 'cosmic-spire-9', 'cosmic-hall-7', 'cosmic-hall-8', 'cosmic-hall-9', 'cosmic-temple-7', 'cosmic-temple-8', 'cosmic-temple-9', 'cosmic-arch-7', 'cosmic-arch-8', 'cosmic-arch-9', 'cosmic-frame-7', 'cosmic-frame-8', 'cosmic-frame-9', 'port-cosmic-7', 'port-cosmic-8', 'port-cosmic-9', 'mill-cosmic-7', 'mill-cosmic-8', 'mill-cosmic-9',
+// Audit du 05/10 (ASSET-5) : 27 clés retirées, jamais dessinées par un chemin atteignable
+// — les modules d'aqueduc (les aqueducs sont posés en puits, isoLiveCollect), les
+// parcelles des champs irrigués (isoEngineScene les refuse) et les moulins (isoMill
+// les cuit) — avec leurs PNG. Leurs branches de repli restent (code mort, à trancher).
+const PROP_KEYS = ['forager-prop-tree', 'forager-prop-basket', 'forager-orchard-tree', 'forager-orchard-crates', 'forager-greenhouse', 'forager-handcart', 'forager-hydro-rack', 'forager-cosmic-7', 'forager-cosmic-8', 'forager-cosmic-9', 'granary-prop-silo', 'granary-hall', 'granary-jars', 'granary-warehouse', 'granary-crates', 'granary-hub', 'granary-cosmic-7', 'granary-cosmic-8', 'granary-cosmic-9', 'caravan-prop-sacks', 'caravan-wagon', 'caravan-truck', 'caravan-pod', 'caravan-cosmic-7', 'caravan-cosmic-8', 'caravan-cosmic-9', 'market-prop-stall', 'market-hall-tent', 'market-macellum', 'market-hall-glass', 'market-plaza-neon', 'market-cosmic-7', 'market-cosmic-8', 'market-cosmic-9', 'guild-prop-lodge', 'guild-house', 'guild-chamber', 'guild-consortium', 'guild-cosmic-7', 'guild-cosmic-8', 'guild-cosmic-9', 'port-prop-house', 'port-house-medieval', 'port-house-industrial', 'port-house-modern', 'port-prop-pontoon', 'port-dock-stone', 'port-dock-modern', 'mint-prop-house', 'mint-prop-forge', 'mint-house-steam', 'mint-house-digital', 'mint-cosmic-7', 'mint-cosmic-8', 'mint-cosmic-9', 'exchange-prop-stall', 'bank-house-renaissance', 'bank-house-neoclassical', 'bank-house-glass', 'bank-cosmic-7', 'bank-cosmic-8', 'bank-cosmic-9', 'storyteller-prop-hut', 'storyteller-hall', 'storyteller-theater', 'storyteller-media', 'scribes-prop-hall', 'scribes-scriptorium', 'scribes-archive', 'scribes-data', 'schools-prop-yard', 'schools-schoolhouse', 'schools-victorian', 'schools-campus', 'academies-prop-yard', 'academies-renaissance', 'academies-institute', 'academies-modern', 'ancestralcult-back', 'ancestralcult-prop', 'cult-shrine', 'cult-mausoleum', 'cult-memorial', 'observatories-prop-dial', 'observatories-tower', 'observatories-dome', 'observatories-array', 'libraries-prop-archive', 'libraries-monastic', 'libraries-grand', 'libraries-modern', 'universities-prop-hall', 'universities-gothic', 'universities-collegiate', 'universities-modern', 'printing-prop-workshop', 'printing-press-shop', 'printing-factory', 'printing-media', 'think-prop-council', 'think-chancellery', 'think-institute', 'think-modern', 'watch-back', 'watch-prop', 'watch-stone', 'watch-industrial', 'watch-modern', 'ministries-council', 'courthouses-lodge', 'bureau-hut', 'works-camp', 'archive-hut', 'ruins-camp', 'ministries-palace', 'ministries-capitol', 'ministries-tower', 'courthouses-tribunal', 'courthouses-neoclassical', 'courthouses-modern', 'bureau-chancery', 'bureau-office', 'bureau-tower', 'works-yard', 'works-industrial', 'works-depot', 'archive-vault', 'archive-records', 'archive-grid', 'sewers-prop', 'sewers-medieval', 'sewers-works', 'sewers-plant', 'ruins-lodge', 'ruins-institute', 'ruins-lab', 'cosmic-dome-7', 'cosmic-dome-8', 'cosmic-dome-9', 'cosmic-spire-7', 'cosmic-spire-8', 'cosmic-spire-9', 'cosmic-hall-7', 'cosmic-hall-8', 'cosmic-hall-9', 'cosmic-temple-7', 'cosmic-temple-8', 'cosmic-temple-9', 'cosmic-arch-7', 'cosmic-arch-8', 'cosmic-arch-9', 'cosmic-frame-7', 'cosmic-frame-8', 'cosmic-frame-9', 'port-cosmic-7', 'port-cosmic-8', 'port-cosmic-9',
   // ── band 4 (Marbre) ROMAIN — 1 sprite classique par bâtiment-moteur (2026-07-12) ──
   'forager-hortus-classical', 'granary-horreum-classical', 'guild-collegium', 'mint-moneta', 'bank-basilica-roman',
-  'port-house-classical', 'mill-house-roman', 'storyteller-odeon', 'scribes-tabularium', 'schools-ludus', 'academies-athenaeum', 'cult-vesta',
+  'port-house-classical', 'storyteller-odeon', 'scribes-tabularium', 'schools-ludus', 'academies-athenaeum', 'cult-vesta',
   'observatories-horologium', 'libraries-classical', 'universities-classical', 'printing-scriptorium', 'think-stoa-roman', 'watch-classical',
   'bureau-tabularium', 'courthouses-basilica', 'works-classical', 'ministries-curia', 'archive-tabularium', 'ruins-restoration-roman', 'sewers-classical',
   // Les ateliers des guildes (bande 4) — cf. GUILD_CRAFTS_B4.
@@ -515,20 +518,37 @@ const PROP_KEYS = ['forager-prop-tree', 'forager-prop-basket', 'forager-orchard-
 let propVersion = 0;
 export const getPropVersion = () => propVersion;
 
-function ensureProps() {
-  if (propInit || typeof Image === 'undefined') return;
-  propInit = true;
-  for (const k of PROP_KEYS) {
-    const im = new Image();
-    im.onload = () => { propVersion += 1; };
+// Chargement À LA DEMANDE, clé par clé, comme palierAsset (audit du 05/10, ASSET-5) :
+// le premier dessin d'une scène lançait d'un bloc les 211 décors de TOUTES les ères
+// (silhouettes cosmiques dès la bande 0), et chaque décodage de la rafale changeait la
+// version des props. Une partie ne voit qu'une bande à la fois. Seules les clés de la
+// liste sont demandées (pas de 404 à l'aveugle) ; une clé d'un palier ou d'une scène
+// cosmique, chargée par palierAsset, est servie telle quelle. Rend l'Image (même pas
+// encore décodée, comme avant), ou null. TOUT lecteur de propImg passe par ici : un
+// prop jamais demandé ne se chargerait plus jamais.
+// ⚠ Le relevé des ruines de LA CHUTE (iso/isoChute.js) dessine TOUTE la cité, scènes
+// jamais vues comprises : leurs décors partent à ce moment-là. Le noir attend donc
+// ceux qui sont en route (propsLoading) et refait son relevé à blanc quand il en
+// arrive — sans quoi leurs ruines manqueraient à vie au cycle suivant.
+const PROP_SET = new Set(PROP_KEYS);
+let propLoading = 0;
+export const propsLoading = () => propLoading;
+function propIm(k) {
+  let im = propImg[k];
+  if (!im && PROP_SET.has(k) && typeof Image !== 'undefined') {
+    im = new Image();
+    propLoading += 1;
+    im.onload = () => { propLoading -= 1; propVersion += 1; };
+    im.onerror = () => { propLoading -= 1; };
     im.src = '/pixelart/agents/buildings/' + k + '.png';
     propImg[k] = im;
   }
+  return im || null;
 }
-const propReady = (k) => { ensureProps(); const im = propImg[k]; return !!(im && im.complete && im.naturalWidth > 0); };
+const propReady = (k) => { const im = propIm(k); return !!(im && im.complete && im.naturalWidth > 0); };
 // Image BRUTE d'un prop (chantier iso : dessin sous transform canvas — roue de
 // moulin projetée dans le plan du mur — impossible via blitProp/blitPropRot).
-const propImage = (k) => { ensureProps(); return propImg[k] || null; };
+const propImage = (k) => propIm(k);
 
 // SOURCE DE DESSIN d'un prop : sa version enneigée en hiver, son image sinon.
 //
@@ -738,7 +758,7 @@ function blitRuin(p, im, left, top, drawW, drawH) {
 }
 // Toile de ruine d'un prop, pour redessiner une ruine du cycle précédent.
 export function propRelicCanvas(p) {
-  const im = propImg[p] || palierAsset(p);
+  const im = propIm(p) || palierAsset(p);
   const r = ruinPropArt(p, im && im.naturalWidth > 0 ? im : null);
   return r ? r.src : null;
 }
@@ -751,7 +771,7 @@ function blitProp(ctx, ox, oy, sw, sh, p, cx, cy, wFrac, hFrac) {
     wFrac = hFrac * (pal.im.naturalWidth / pal.im.naturalHeight);
     p = pal.cle;
   }
-  const im = propImg[p]; if (!im) return;
+  const im = propIm(p); if (!im) return;
   const drawW0 = sw * wFrac, drawH0 = sh * hFrac;
   recBlitDens(p, drawH0, im.naturalHeight);
   const [left, top, drawW, drawH] = snapRect(
@@ -852,7 +872,7 @@ function drawLiveFrame(ctx, fl, left, top, drawW, drawH, now) {
 // bâtiments). Aspect natif préservé (pas d'écrasement). Halo additif qui respire, teinte de bande.
 // Réglable en live : window.__cosmicTowerH (hauteur ×boîte) / __cosmicTowerBase (ligne de sol).
 function blitCosmicTower(ctx, ox, oy, sw, sh, key, now, band, cp, baseOverride) {
-  const im = propImg[key]; if (!im || !(im.naturalWidth > 0)) return false;
+  const im = propIm(key); if (!im || !(im.naturalWidth > 0)) return false;
   const H = (typeof window !== 'undefined' && window.__cosmicTowerH) || 1.72;
   const BASE = baseOverride != null ? baseOverride : ((typeof window !== 'undefined' && window.__cosmicTowerBase) || 0.95);
   const drawH = sh * H, drawW = drawH * (im.naturalWidth / im.naturalHeight);
@@ -872,13 +892,18 @@ function blitCosmicTower(ctx, ox, oy, sw, sh, key, now, band, cp, baseOverride) 
   const pearl = isPearl(key);
   if (pearl) drawSceneEmissive(im, cx - drawW / 2, baseY - drawH, drawW, drawH, band);
   if (cp && cp.glow) {
-    ctx.save(); ctx.globalCompositeOperation = 'lighter';
     // Nacre : le halo ne vit que la nuit (ENGINE_HALO). Les anciennes tours le gardent plein.
     const nk = pearl ? ENGINE_HALO.day + ENGINE_HALO.cosmic * Math.max(0, Math.min(1, ((CM.nightF || 0) - 0.22) / 0.65)) : 1;
     const a = (0.16 + 0.10 * Math.sin(now / 720 + band)) * nk, gy = baseY - drawH * 0.30;
-    const g = ctx.createRadialGradient(cx, gy, 0, cx, gy, sw * 0.5);
-    g.addColorStop(0, `rgba(${cp.glow},${a.toFixed(2)})`); g.addColorStop(1, `rgba(${cp.glow},0)`);
-    ctx.fillStyle = g; ctx.beginPath(); ctx.arc(cx, gy, sw * 0.5, 0, Math.PI * 2); ctx.fill(); ctx.restore();
+    // Invisible (la nacre en plein jour : nk = 0), rien à remplir (audit du 05/10,
+    // PERF-20) : un disque de rayon sw/2 se composait pour rien à chaque frame (~65 µs
+    // la tour en rendu logiciel). Sous 0,005 l'alpha s'écrit « 0.00 » : le même rien.
+    if (a > 0.004) {
+      ctx.save(); ctx.globalCompositeOperation = 'lighter';
+      const g = ctx.createRadialGradient(cx, gy, 0, cx, gy, sw * 0.5);
+      g.addColorStop(0, `rgba(${cp.glow},${a.toFixed(2)})`); g.addColorStop(1, `rgba(${cp.glow},0)`);
+      ctx.fillStyle = g; ctx.beginPath(); ctx.arc(cx, gy, sw * 0.5, 0, Math.PI * 2); ctx.fill(); ctx.restore();
+    }
   }
   return true;
 }
@@ -888,7 +913,7 @@ function blitCosmicTower(ctx, ox, oy, sw, sh, key, now, band, cp, baseOverride) 
 // transparente sous les roues/pieds : centrés sur cy, ils LÉVITAIENT au-dessus de leur
 // halte. fy = ligne de sol en fraction de boîte.
 function blitPropGrounded(ctx, ox, oy, sw, sh, p, cx, fy, wFrac, hFrac) {
-  const im = propImg[p]; if (!im || !(im.naturalWidth > 0)) return false;
+  const im = propIm(p); if (!im || !(im.naturalWidth > 0)) return false;
   const bb = propBBox(p), footF = bb ? bb.y0f + bb.hf : 1;
   const drawW0 = sw * wFrac, drawH0 = sh * hFrac;
   recBlitDens(p, drawH0, im.naturalHeight);
@@ -918,7 +943,7 @@ function blitPropGrounded(ctx, ox, oy, sw, sh, p, cx, fy, wFrac, hFrac) {
 // Les deux termes sont donc des hauteurs d'ENCRE : un hMul de 0,5 se relit
 // « la moitié du bonhomme », sans avoir à défalquer les marges des PNG.
 function blitPropHuman(ctx, ox, oy, sw, sh, p, cx, fy, hMul) {
-  const im = propImg[p]; if (!im || !(im.naturalWidth > 0)) return false;
+  const im = propIm(p); if (!im || !(im.naturalWidth > 0)) return false;
   const bb = propBBox(p);
   const inkHF = bb && bb.hf > 0 ? bb.hf : 1;         // part d'encre dans le PNG
   const drawH = sceneHumanInkH() * hMul / inkHF;     // hauteur du PNG ENTIER
@@ -950,7 +975,7 @@ const VEH_W = 0.86, VEH_MAN = 0.34;
 const propPivotCache = {};
 function propPivot(p) {
   if (propPivotCache[p]) return propPivotCache[p];
-  const im = propImg[p];
+  const im = propIm(p);
   if (!im || !(im.naturalWidth > 0) || typeof document === 'undefined') return { x: 0.5, y: 0.5 };
   try {
     const w = im.naturalWidth, h = im.naturalHeight;
@@ -973,7 +998,7 @@ function propPivot(p) {
 const propBBoxCache = {};
 function propBBox(p) {
   if (propBBoxCache[p]) return propBBoxCache[p];
-  const im = propImg[p];
+  const im = propIm(p);
   if (!im || !(im.naturalWidth > 0) || typeof document === 'undefined') return null;
   try {
     const w = im.naturalWidth, h = im.naturalHeight;
@@ -997,7 +1022,7 @@ function propBBox(p) {
 // placé en (cx,cy). Pour les pièces mécaniques qui tournent en continu (roue de moulin) :
 // on fait tourner UN sprite statique via ctx.rotate plutôt qu'une bande d'images.
 function blitPropRot(ctx, ox, oy, sw, sh, p, cx, cy, wFrac, hFrac, angle) {
-  const im = propImg[p]; if (!im) return false;
+  const im = propIm(p); if (!im) return false;
   const drawW = sw * wFrac, drawH = sh * hFrac;
   const piv = propPivot(p);
   const prev = ctx.imageSmoothingEnabled; ctx.imageSmoothingEnabled = false;
@@ -1119,11 +1144,9 @@ const ANIM_BANDS = {
   // rectangle sans que le site d'appel ait à s'en occuper. Pas préchargée
   // (cf. ensureAnim) : qui n'a jamais 25 cultes avant l'ère 10 ne la charge pas.
   'ancestralcult-fire-grand': { fw: 192, fh: 160, frames: 7, ms: 130 },
-  // Eau de l'aqueduc : un module = une tuile ; même horloge (ms) partout → le flux
-  // se raccorde entre tuiles adjacentes (la frame est globale, pas par tuile).
-  'aqueduct-water-outlet': { fw: 48, fh: 72, frames: 7, ms: 140 },
-  'aqueduct-water-seg': { fw: 48, fh: 72, frames: 7, ms: 140 },
-  'aqueduct-water-intake': { fw: 48, fh: 72, frames: 7, ms: 140 },
+  // L'eau des aqueducs (`aqueduct-water-*`) retirée le 05/10 (audit ASSET-5) : les
+  // aqueducs sont posés en puits (isoLiveCollect) : leurs trois bandes, préchargées
+  // à chaque session, n'étaient jamais dessinées.
   'watch-fire': { fw: 80, fh: 96, frames: 7, ms: 130 },
   // ⛔ Les ÉGOUTS n'ont PLUS de bande animée, et n'en veulent pas. Ils ont porté
   // un filet d'eau croupie (`sewers-water`) puis un caniveau à ciel ouvert
@@ -1138,7 +1161,7 @@ const ANIM_BANDS = {
 // sur les 7 frames) est donc la flamme elle-même, et rien d'autre — ni le mur
 // ocre, ni les étincelles froides. `sig` = rayon quadratique moyen de ce nuage
 // (fraction de la LARGEUR de frame) : la lueur suit la taille réelle du foyer.
-// Une bande absente de cette table n'éclaire pas (eau d'aqueduc, égouts).
+// Une bande absente de cette table n'éclaire pas.
 // Valeurs revérifiées par src/game/map/__tests__/flameGlow.test.js, qui relit
 // les PNG : régénérer un sprite en déplaçant son feu casse la garde.
 // Les teintes suivent la rampe rouge feu (public/pixelart/fire-ramp.json) : elles
@@ -1349,7 +1372,7 @@ export function propChimneySmoke(ctx, ox, oy, sw, sh, p, cx, cy, wFrac, hFrac, n
     p = pal.cle;
   }
   const pt = CHIMNEY_TOPS[p];
-  if (!pt || !propImg[p]) return;
+  if (!pt || !propIm(p)) return;
   const w = sw * wFrac, h = sh * hFrac;
   drawSmoke(ctx, { x: ox + sw * cx - w / 2 + w * pt[0], y: oy + sh * cy - h / 2 + h * pt[1] }, now, CM.cam.zoom, curSeed % 997, 0, false);
 }
@@ -3712,7 +3735,7 @@ function drawCityEngineSprite(context) {
       const GREEN = 'field-prop-crop-green', GOLD = 'field-prop-crop-gold', FALLOW = 'field-prop-fallow', NEON = 'field-crop-neon';
       const neonOn = stage === 3 && propReady(NEON);   // stade 3 = hydroponie néon
       const blitTile = (key, cx, cy, w, h, rot) => {
-        const im = propImg[key]; if (!im) return;
+        const im = propIm(key); if (!im) return;
         const dW = sw * w, dH = sh * h, X = ox + sw * cx, Y = oy + sh * cy;
         const prev = ctx.imageSmoothingEnabled; ctx.imageSmoothingEnabled = false;
         if (rot) { ctx.save(); ctx.translate(X, Y); ctx.rotate(rot); ctx.drawImage(im, -dH / 2, -dW / 2, dH, dW); ctx.restore(); } // dims permutées → l'empreinte écran reste dW×dH
@@ -4213,7 +4236,7 @@ function drawCityEngineSprite(context) {
       // haute et étroite écrasait la tour en largeur, vu à la capture). Quand le
       // plafond de hauteur mord, la LARGEUR suit — le mât moderne (24×127) reste
       // un mât, il n'est pas étiré à la largeur des tours.
-      const hIm = propImg[HOUSE];
+      const hIm = propIm(HOUSE);
       const asp = (hIm && hIm.naturalWidth > 0) ? hIm.naturalHeight / hIm.naturalWidth : 1;
       let twW = stage === 0 ? 0.54 : 0.58;
       let twH = twW * asp * (sw / Math.max(1, sh));

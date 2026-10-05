@@ -2,7 +2,7 @@ import { useState, useRef } from 'react';
 import { useGameState } from '../../hooks/useGameState.js';
 import { markChronicleEntryRead, renderCache } from '../../game/core/state.js';
 import { currentEraIndex, crisisOpen } from '../../game/core/mechanics.js';
-import { CHRONICLE_VISIBLE_MS } from '../../game/core/chronicleEvaluator.js';
+import { CHRONICLE_VISIBLE_MS, chronicleEntryContent } from '../../game/core/chronicleEvaluator.js';
 import { getNotifEnabled } from '../../game/core/main.js';
 import { getJournalTheme } from './journalThemes.js';
 import { tr } from '../../game/core/i18n.js';
@@ -55,6 +55,9 @@ export default function ChronicleTicker() {
   // bandeau en flux qui devait rester monté pour ne pas sauter la mise en page).
   if (!visible || !notifOn) return null;
 
+  // Texte relu dans l'article source (la save ne garde que articleId, SAV-16).
+  const { title, text, author } = chronicleEntryContent(latest);
+
   const toggle = () => {
     if (!expanded) markChronicleEntryRead(latest.id);
     setExpanded((v) => !v);
@@ -87,11 +90,11 @@ export default function ChronicleTicker() {
       {/* Pas d'aria-live ici : monté déjà rempli, il n'était jamais annoncé.
           L'annonce passe par ChronicleAnnounce, ci-dessous. */}
       <span className="ticker-line" key={latest.id}>
-        <strong className="ticker-title">{latest.title}</strong>
+        <strong className="ticker-title">{title}</strong>
         {expanded && (
           <span className="ticker-text">
-            {" · "}{latest.text}
-            {latest.author && <span className="ticker-author"> · {latest.author}</span>}
+            {" · "}{text}
+            {author && <span className="ticker-author"> · {author}</span>}
           </span>
         )}
       </span>
@@ -113,9 +116,10 @@ export function ChronicleAnnounce() {
   const notifOn = useGameState(() => getNotifEnabled());
   const latest = entries[0];
   const visible = Boolean(latest && notifOn && tickNow - (latest.publishedAt || 0) < CHRONICLE_VISIBLE_MS);
+  const title = visible ? chronicleEntryContent(latest).title : '';
   return (
     <div className="sr-only" role="status" aria-live="polite">
-      {visible ? tr({ fr: `Chronique : ${latest.title}`, en: `Chronicle: ${latest.title}` }) : ''}
+      {visible ? tr({ fr: `Chronique : ${title}`, en: `Chronicle: ${title}` }) : ''}
     </div>
   );
 }

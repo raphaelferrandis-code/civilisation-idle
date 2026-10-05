@@ -172,8 +172,22 @@ export function cookTile(z, tx, ty, opts = {}) {
   const G = opts.gutter != null ? opts.gutter : gutterCss(z, CM.TILE);
   const shift = opts.shift || 0;
   const side = S + 2 * G;
-  const canvas = opts.canvas || mkCanvas(Math.round(side * dpr), Math.round(side * dpr));
-  const ctx = canvas.getContext('2d');
+  const W = Math.round(side * dpr);
+  // `opts.canvas` : la toile de l'entrée que cette cuisson remplace (audit du 05/10,
+  // PERF-53) — une toile neuve de ~300 Ko par recuisson, l'ancienne laissée au
+  // ramasse-miettes : 0,35 ms d'allocation de texture par tuile en GPU, et des dizaines
+  // de Mo en suspens après une recuisson d'écran (saison, décodage). Reprise seulement
+  // à la même taille et si son contexte sait se REMETTRE À ZÉRO (reset : état par
+  // défaut et pixels effacés, comme une toile neuve — vérifié octet pour octet dans
+  // Chrome, en logiciel et en GPU, après un usage qui laisse un état sale).
+  let canvas = opts.canvas && opts.canvas.width === W && opts.canvas.height === W ? opts.canvas : null;
+  let ctx = null;
+  if (canvas) {
+    ctx = canvas.getContext('2d');
+    if (ctx && typeof ctx.reset === 'function') ctx.reset();
+    else canvas = null;
+  }
+  if (!canvas) { canvas = mkCanvas(W, W); ctx = canvas.getContext('2d'); }
   const saved = { x: CM.cam.x, y: CM.cam.y, zoom: CM.cam.zoom, cw: CM.cw, ch: CM.ch, ctx: CM.ctx };
   const cam = camForTile(tx, ty, S, z, shift);
   const o = tileOrigin(tx, ty, S, shift);

@@ -22,7 +22,7 @@
 import { CM, cmEngineHomeHidden } from '../layout.js';
 import { state, packCityRelics, RELIC_CAP } from '../../core/state.js';
 import { pixelHouseReady, pixelHouseRuin, houseRelicCanvas, houseRuinsLoading, relicArtSig } from '../pixelHouses.js';
-import { propRelicCanvas, propRuinsLoading } from '../cityEngineSprites.js';
+import { propRelicCanvas, propRuinsLoading, propsLoading, getPropVersion } from '../cityEngineSprites.js';
 import { setChuteHandlers } from '../cityMapBridge.js';
 import { clearCitizenFocus } from '../citizenFocus.js';
 import { isoFrontOffset } from './isoGroundDetail.js';
@@ -53,6 +53,8 @@ let playerZoom = 1.25;
 let streets = null;
 // Le noir tient au plus ce temps pour attendre les images de ruine en route (endFall).
 const RUIN_WAIT_MS = 2500;
+// Version des décors de scène au dernier relevé à blanc (cf. waitRuins).
+let probedPropVer = -1;
 
 function coreOf(L) {
   return (L.plan && L.plan.core) ? { x: L.plan.core.x, y: L.plan.core.y } : { x: L.cx, y: L.cy };
@@ -135,6 +137,7 @@ function startFall() {
   // arrivent ainsi avant que leurs bâtiments ne tombent (sinon un bâtiment pourrait
   // disparaître sous sa poussière le temps que sa ruine charge).
   try { recordRelics(L); } catch { /* le relevé du noir réessaiera */ }
+  probedPropVer = getPropVersion();
   // Le cœur au centre : la vague part de lui.
   CM.camGoal = { x: (core.x + 0.5) * CM.TILE, y: (core.y + 0.5) * CM.TILE };
   CM.panVel = null;
@@ -163,8 +166,20 @@ function endFall() {
 // l'image est arrivée. Après un saut immédiat, celles que le relevé à blanc vient de
 // demander peuvent être encore en route : elles manqueraient à vie aux ruines du
 // cycle suivant. Le noir tient donc le temps qu'elles arrivent (borné, RUIN_WAIT_MS).
+// Les décors des scènes se chargent à la demande (audit du 05/10, ASSET-5) : une scène
+// jamais vue de la partie n'a demandé les siens qu'au relevé à blanc, et tant que son
+// décor de tête manquait elle s'y est dessinée en repli — ses autres pièces et leurs
+// ruines n'ont pas été demandées. Un décor arrivé depuis le dernier relevé à blanc
+// (version des props changée) le fait refaire, et le noir attend aussi les décors en
+// route. Aucun décor arrivé depuis le relevé à blanc : rien de plus qu'avant.
 function waitRuins(t0) {
-  if ((houseRuinsLoading() > 0 || propRuinsLoading() > 0) && now0() - t0 < RUIN_WAIT_MS) {
+  const L = CM.layout;
+  const v = getPropVersion();
+  if (v !== probedPropVer && L && now0() - t0 < RUIN_WAIT_MS) {
+    probedPropVer = v;
+    try { recordRelics(L); } catch { /* le relevé du noir réessaiera */ }
+  }
+  if ((houseRuinsLoading() > 0 || propRuinsLoading() > 0 || propsLoading() > 0) && now0() - t0 < RUIN_WAIT_MS) {
     fallTimer = setTimeout(() => waitRuins(t0), 100);
     return;
   }

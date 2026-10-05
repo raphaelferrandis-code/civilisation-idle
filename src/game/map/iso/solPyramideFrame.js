@@ -254,9 +254,19 @@ function estimateMs(z) {
 }
 
 function cook(z, tx, ty, now) {
-  const t = cookTile(z, tx, ty);
   const key = posKey(z, tx, ty);
   const old = cache.get(key);
+  // La toile de l'entrée remplacée resert (PERF-53, cf. cookTile) : elle n'est plus lue
+  // une fois l'entrée remplacée — la cuisson est synchrone, sous la même clé, et ce
+  // qu'elle a déjà posé dans l'image en cours en reste une copie. Une cuisson qui
+  // échoue l'a déjà effacée : l'entrée part avec elle (la tuile redevient manquante).
+  let t;
+  try {
+    t = cookTile(z, tx, ty, { canvas: old && old.dpr === cacheDpr ? old.canvas : undefined });
+  } catch (err) {
+    if (old && cache.get(key) === old) { cache.delete(key); bytes -= old.bytes; }
+    throw err;
+  }
   if (old) bytes -= old.bytes;
   const e = { key, z, tx, ty, S: t.S, G: t.G, canvas: t.canvas, bytes: t.canvas.width * t.canvas.height * 4,
     sig: sigCur, suf: sufCur, tsig: curL ? tileSig(curL, z, tx, ty, t.S) : 0, chk: sigCur, chkOk: true, epoch, dpr: cacheDpr, last: now };
@@ -328,7 +338,11 @@ function drawPart(ctx, e, ax, ay, bx, by, sE, org, dpr) {
 // entière laissait 5-14 trous par frame pendant un dézoom). Les niveaux les
 // plus ÉLOIGNÉS en échelle se dessinent d'abord, le plus proche en dernier :
 // ce qui reste à l'écran est toujours la meilleure version disponible.
-function drawFallback(ctx, z, tx, ty, S, zoom, org, dpr, levels) {
+// ⚠ Chaque tuile posée ici est rafraîchie dans le LRU (`last`), comme à la
+// composition : sinon le repli gardait son vieil horodatage et l'éviction de fin
+// de frame le jetait EN PREMIER au profit des tuiles qu'on venait de cuire —
+// des trous la frame suivante, pendant un glissement de zoom (audit PERF-28).
+function drawFallback(ctx, z, tx, ty, S, zoom, org, dpr, levels, nowMs) {
   const o = tileOrigin(tx, ty, S);
   let any = false;
   for (let i = levels.length - 1; i >= 0; i -= 1) {
@@ -340,6 +354,7 @@ function drawFallback(ctx, z, tx, ty, S, zoom, org, dpr, levels) {
       const e = cache.get(posKey(zz, t.tx, t.ty));
       if (!e) continue;
       drawPart(ctx, e, ax, ay, bx, by, sE, org, dpr);
+      e.last = nowMs;
       any = true;
     }
   }
@@ -524,7 +539,7 @@ export function paintGroundPyramid(ctx, L, nowMs) {
       if (fresh(e)) hits += 1; else replis += 1;
     } else {
       if (!levels) levels = cachedLevelsNear(z);
-      if (drawFallback(ctx, z, t.tx, t.ty, S, zoom, org, dpr, levels)) replis += 1; else trous += 1;
+      if (drawFallback(ctx, z, t.tx, t.ty, S, zoom, org, dpr, levels, nowMs)) replis += 1; else trous += 1;
     }
   }
   ctx.imageSmoothingEnabled = prevSm;
@@ -560,7 +575,13 @@ export function paintGroundPyramid(ctx, L, nowMs) {
     }
   }
 
-  // 4) Mémoire.
+  // 4) Mémoire. Au plafond, le PLANCHER est gardé comme le visible : c'est lui
+  //    qui bouche le dézoom réflexe, et le LRU le jetait dès qu'on ne le voyait
+  //    plus (audit PERF-28 ; quelques dizaines de petites tuiles au plus).
+  if (bytes > PYR.memMo * 1048576) {
+    const zf = floorLevel(), Sf = tileSideCss(dpr, zf);
+    for (const t of mapTilesAtLevel(L, zf, Sf)) keep.add(posKey(zf, t.tx, t.ty));
+  }
   evict(keep);
 
   solPyramideStats.hits += hits; solPyramideStats.replis += replis; solPyramideStats.trous = (solPyramideStats.trous || 0) + trous;
@@ -573,6 +594,34 @@ export function paintGroundPyramid(ctx, L, nowMs) {
   { let memeSig = 0, rejugees = 0, aJuger = 0; for (const e of cache.values()) { if (e.sig === sigCur) memeSig += 1; else if (e.chk === sigCur) rejugees += 1; else aJuger += 1; }
     solPyramideStats.dernier.sig = sigCur.slice(0, 24); solPyramideStats.dernier.memeSig = memeSig; solPyramideStats.dernier.rejugees = rejugees; solPyramideStats.dernier.aJuger = aJuger;
     solPyramideStats.dernier.suf = sufCur; solPyramideStats.dernier.epoch = epoch; }
+  return true;
+}
+
+// Le sol de la frame qui vient couvrira-t-il TOUT l'écran de tuiles opaques ? Lu par
+// le fond (isoWildBackdrop) AVANT paintGroundPyramid, pour sauter son aplat plein
+// écran quand rien ne peut le laisser voir (audit du 05/10, PERF-64). Vrai seulement :
+//   - au repos d'un cran (s = 1) : tuiles 1:1, posées à des décalages entiers depuis
+//     l'origine arrondie (cf. screenOrigin), S·dpr entier — pas un pixel entre deux ;
+//     étirées (glissement), leurs bords tombent entre les pixels ;
+//   - au même dpr que le cache (sinon la frame le vide) ;
+//   - si chaque tuile visible est DANS le plan et a déjà son entrée à ce niveau : une
+//     entrée, fraîche ou périmée, est posée entière, et sa toile est opaque (la
+//     cuisson commence par un aplat plein, cf. drawIsoGround). Une tuile manquante
+//     passerait par le repli, partiel par construction — l'aplat reste alors.
+// Seul écart possible : une recuisson qui ÉCHOUE dans cette frame retire son entrée
+// (cf. cook) ; la frame suivante revoit le trou et repose l'aplat.
+export function groundCoversScreen(L) {
+  if (!L) return false;
+  const dpr = CM.dpr || 1;
+  if (dpr !== cacheDpr || !cache.size) return false;
+  const zoom = CM.cam.zoom, z = levelZoom(zoom);
+  if (zoom !== z) return false;
+  const S = tileSideCss(dpr, z), cw = CM.cw, ch = CM.ch;
+  const c = camSpace(CM.cam.x, CM.cam.y, zoom);
+  const mb = mapBBoxAtLevel(L, z);
+  for (const t of tilesInRect(c.x - cw / 2, c.y - ch / 2, c.x + cw / 2, c.y + ch / 2, S)) {
+    if (!inMap(mb, t.tx, t.ty, S) || !cache.has(posKey(z, t.tx, t.ty))) return false;
+  }
   return true;
 }
 

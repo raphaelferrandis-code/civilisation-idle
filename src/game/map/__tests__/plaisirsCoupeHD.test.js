@@ -6,13 +6,14 @@
 // pixels (le clic tombe au pixel), les habitants sont dans le bâtiment et à la toise,
 // la coupe est opaque, et le manège de l'hôtesse a sa cabine quand l'âge en a une.
 import { describe, it, expect } from 'vitest';
-import { bakeCoupeHD } from '../iso/plaisirsCoupeHD.js';
+import { bakeCoupeHD, figuresOuvertes } from '../iso/plaisirsCoupeHD.js';
 import { plaisirsProgramme } from '../iso/plaisirsPlan.js';
 import { wonderKitForBand } from '../iso/wonderKits.js';
 
-const ALL = { des: true, tickets: true, cartes: true, icare: true, boutique: true, scene: true };
 const LIEUX = ['des', 'cartes', 'tickets', 'boutique', 'scene'];
-const BAKES = Array.from({ length: 10 }, (_, b) => bakeCoupeHD(wonderKitForBand(b), ALL));
+// Une cuisson par âge, tout ouvert : les jeux fermés ne changent que les figures
+// montrées (figuresOuvertes, audit du 2026-10-05 PERF-30).
+const BAKES = Array.from({ length: 10 }, (_, b) => bakeCoupeHD(wonderKitForBand(b)));
 
 describe('la coupe des Plaisirs', () => {
   it('chaque âge range chaque lieu une seule fois, et grandit avec les âges', () => {
@@ -42,7 +43,8 @@ describe('la coupe des Plaisirs', () => {
       for (const id of plaisirsProgramme(b).flat().concat('icare')) {
         expect(out.spots[id], `bande ${b} : ${id}`).toBeTruthy();
         let n = 0;
-        for (let k = 0; k < out.ids.length; k += 1) if (out.ids[k] === id) n += 1;
+        const c = out.idNames.indexOf(id);
+        for (let k = 0; k < out.ids.length; k += 1) if (out.ids[k] === c) n += 1;
         expect(n, `bande ${b} : ${id} cliquable`).toBeGreaterThan(200);
         // Le menu volant (PlaisirsMenu.jsx, « tableau d'étages ») range les lieux par
         // `level` : l'étage du plan, Icare au toit (99).
@@ -79,5 +81,48 @@ describe('la coupe des Plaisirs', () => {
     });
     // Le Fonte et le Néon montent en ascenseur, les âges cosmiques sur le disque de lumière.
     for (const b of [5, 6, 7, 8, 9]) expect(BAKES[b].lift, `bande ${b}`).toBeTruthy();
+  });
+
+  // MEM-5 : le lieu de chaque pixel tient en un octet (l'index de son nom), plus en une
+  // chaîne par case d'un tableau de W×H.
+  it('range le lieu de chaque pixel en un octet, nommé par idNames', () => {
+    BAKES.forEach((out, b) => {
+      expect(out.ids, `bande ${b}`).toBeInstanceOf(Uint8Array);
+      expect(out.ids.length).toBe(out.W * out.H);
+      expect(out.idNames[0]).toBe(null);
+      expect(new Set(out.idNames).size, `bande ${b} : un nom par lieu`).toBe(out.idNames.length);
+      for (const id of Object.keys(out.spots)) expect(out.idNames, `bande ${b} : ${id}`).toContain(id);
+      let max = 0;
+      for (let k = 0; k < out.ids.length; k += 1) if (out.ids[k] > max) max = out.ids[k];
+      expect(max).toBe(out.idNames.length - 1);
+    });
+  });
+
+  // PERF-30 : la coupe se cuit une fois par âge, tout ouvert ; un jeu fermé ne montre
+  // pas ses figures (croupier, joueurs), qui portent son `gate` et se tiennent dans sa salle.
+  it("les figures d'un jeu fermé restent en coulisse, celles d'un jeu ouvert dans sa salle", () => {
+    const JEUX = new Set(['des', 'cartes', 'tickets', 'boutique', 'machines', 'icare']);
+    BAKES.forEach((out, b) => {
+      const gated = out.figures.filter((f) => f.gate);
+      expect(gated.length, `bande ${b} : des figures de jeu`).toBeGreaterThan(0);
+      for (const f of gated) {
+        expect(JEUX.has(f.gate), `bande ${b} : ${f.gate}`).toBe(true);
+        const box = out.spots[f.gate].box;
+        expect(f.x, `bande ${b} : ${f.gate} x`).toBeGreaterThanOrEqual(box.x0);
+        expect(f.x, `bande ${b} : ${f.gate} x`).toBeLessThan(box.x1);
+        expect(f.y, `bande ${b} : ${f.gate} y`).toBeGreaterThanOrEqual(box.y0);
+        expect(f.y, `bande ${b} : ${f.gate} y`).toBeLessThanOrEqual(box.y1 + 8);
+      }
+      // Rien d'ouvert : la scène, le salon, le boudoir, les halls et les passants.
+      const rien = figuresOuvertes(out.figures, { scene: true });
+      expect(rien.some((f) => f.gate), `bande ${b}`).toBe(false);
+      expect(rien.length).toBe(out.figures.length - gated.length);
+      // Tout ouvert : toutes, dans l'ordre de la cuisson (l'ordre de peinture).
+      const tout = Object.fromEntries([...JEUX].map((id) => [id, true]));
+      expect(figuresOuvertes(out.figures, tout)).toEqual(out.figures);
+      // Un seul jeu : ses figures s'ajoutent, à leur place dans l'ordre.
+      const des = figuresOuvertes(out.figures, { des: true });
+      expect(des).toEqual(out.figures.filter((f) => !f.gate || f.gate === 'des'));
+    });
   });
 });

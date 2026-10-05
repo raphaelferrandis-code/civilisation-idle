@@ -7,6 +7,13 @@ import ViewErrorBoundary from './components/ui/ViewErrorBoundary.jsx';
 import OutcomeFloatLayer from './components/ui/OutcomeFloatLayer.jsx';
 import { HelpBubbleLayer, tipProps } from './components/ui/HelpBubble.jsx';
 import ContemplationBar from './components/ui/ContemplationBar.jsx';
+// Le PLAN de la carte (layout.js), chargé dès le démarrage pour son effet : il
+// branche le relevé des vestiges auprès du cœur (cityMapBridge), dont chaque
+// chute a besoin — même si la vue Cité ne s'est jamais montée (Édit sur un autre
+// onglet, rattrapage hors ligne au lancement). Il arrivait jusqu'ici par
+// ContemplationBar, avec tout le moteur de rendu (sprites, peintre, ~1 Mo) ;
+// celui-là suit désormais le chunk paresseux de CityView (audit 2026-10-05, PERF-67).
+import './game/map/layout.js';
 import MoreSheet from './components/ui/MoreSheet.jsx';
 import { startGameLoop, initAudio, exportSave } from './game/core/main.js';
 import { useGameState } from './hooks/useGameState.js';
@@ -264,7 +271,12 @@ export default function App() {
           // Et une fois par appui : la répétition de la touche tenue la
           // faisait clignoter à ~30 Hz (BUG-104).
           if (!event.repeat && state.activeView === "city") setContemplation((on) => !on);
-        } else if (hit.id in BUY_BY_ID) buyAllAffordable(BUY_BY_ID[hit.id]);
+        } else if (hit.id in BUY_BY_ID) {
+          // Un achat de masse par appui, lui aussi : touche tenue, la répétition
+          // enchaînait les « Tout acheter » (jusqu'à 10 000 achats chacun) et
+          // figeait l'interface (audit 2026-10-05, PERF-16).
+          if (!event.repeat) buyAllAffordable(BUY_BY_ID[hit.id]);
+        }
         // PAS de `return` : la séquence secrète « debug » contient un « e », qui
         // est aussi un raccourci d'achat. Elle doit continuer d'accumuler.
         // NB : les touches CAMÉRA (flèches, +/-, recentrage) sont gérées dans le

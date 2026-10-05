@@ -1,4 +1,5 @@
 import { CM, initCityMap } from './cityMapRuntime.js';
+import { releaseLightLayer } from './lightLayer.js';
 
 export function startCityMapRuntime(canvas, options = {}) {
   resetCityMapRuntime();
@@ -19,4 +20,6 @@ export function resetCityMapRuntime() {
     cancelAnimationFrame(CM.raf);
     CM.raf = null;
   }
+  // Le calque de lumière plein écran (12 à 30 Mo) ne survit pas à la carte (MEM-8).
+  releaseLightLayer();
 }

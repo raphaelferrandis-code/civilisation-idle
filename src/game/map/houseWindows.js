@@ -58,8 +58,19 @@ export function drawHouseWindows(t, g) {
   if (!wins) return;
   // ⚠ cmHash est SIGNÉ : sans `>>> 0`, une phase négative allumait trois fenêtres sur
   // cinq au lieu de deux.
-  const phase = (cmHash(`windows:${t.gx}:${t.gy}`) >>> 0) % 5;
-  const mask = maskFor(g.key, wins, g.ox ?? g.bb.x0, g.oy ?? g.bb.y0, g.bb.w, g.bb.h, phase);
+  // Audit du 05/10 (PERF-21) : la phase (un hachage) et la clé du masque (une chaîne)
+  // se refaisaient pour chaque maison à chaque frame de nuit. Gardées sur la tuile ; le
+  // masque n'est recherché que si le dessin ou son cadre changent.
+  const ox = g.ox ?? g.bb.x0, oy = g.oy ?? g.bb.y0, w = g.bb.w, h = g.bb.h;
+  let m = t._winM;
+  if (!m || m.gx !== t.gx || m.gy !== t.gy) {
+    m = t._winM = { gx: t.gx, gy: t.gy, phase: (cmHash(`windows:${t.gx}:${t.gy}`) >>> 0) % 5, key: null, ox: 0, oy: 0, w: 0, h: 0, mask: null };
+  }
+  if (m.key !== g.key || m.ox !== ox || m.oy !== oy || m.w !== w || m.h !== h) {
+    m.mask = maskFor(g.key, wins, ox, oy, w, h, m.phase);
+    m.key = g.key; m.ox = ox; m.oy = oy; m.w = w; m.h = h;
+  }
+  const mask = m.mask;
   if (!mask) return;
   // Emprise serrée sur les vitres allumées (molette tight: false = la maison entière,
   // comme avant) ; le blit, lui, ne change pas.

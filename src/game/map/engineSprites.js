@@ -111,6 +111,18 @@ const haloA = (base, k, n) => {
   const night = Math.max(0, Math.min(1, ((n || 0) - 0.22) / 0.65));
   return ENGINE_HALO.day * base + ENGINE_HALO.night * night * (base + k);
 };
+// Le halo additif d'une scène, centré en (x, y), de rayon r, teinte `rgb` (« r,g,b »),
+// d'alpha a — RIEN quand il est invisible (audit du 05/10, PERF-20). De jour
+// ENGINE_HALO.day = 0 : les douze copies de ce bloc créaient quand même un dégradé, ses
+// deux arrêts et un save/restore par scène et par frame avant de ne pas remplir (~2 µs
+// la scène en rendu logiciel, mesuré). Visible : les mêmes appels, dans le même ordre.
+function sceneHalo(ctx, x, y, r, rgb, a) {
+  if (!(a > 0.004)) return;
+  ctx.save(); ctx.globalCompositeOperation = "lighter";
+  const gg = ctx.createRadialGradient(x, y, 0, x, y, r);
+  gg.addColorStop(0, `rgba(${rgb},${a.toFixed(2)})`); gg.addColorStop(1, `rgba(${rgb},0)`);
+  ctx.fillStyle = gg; ctx.beginPath(); ctx.arc(x, y, r, 0, Math.PI * 2); ctx.fill(); ctx.restore();
+}
 function drawStagePix(ctx, ox, oy, sw, sh, key, now, glowRGB, opt, pass = 'all') {
   opt = opt || {};
   const dBack = pass === 'all' || pass === 'back';
@@ -123,11 +135,8 @@ function drawStagePix(ctx, ox, oy, sw, sh, key, now, glowRGB, opt, pass = 'all')
   }
   const gnF = (CM && CM.nightF) ? CM.nightF : 0;
   if (dAnim) { // lueur additive qui respire (lit `now`)
-  ctx.save(); ctx.globalCompositeOperation = "lighter";
   const a = haloA(warm, 0.34, gnF) * (0.84 + 0.16 * Math.sin(now / 300 + ph));
-  const gg = ctx.createRadialGradient(ox + sw * 0.5, oy + sh * gcy, 0, ox + sw * 0.5, oy + sh * gcy, sw * 0.33);
-  gg.addColorStop(0, `rgba(${glowRGB},${a.toFixed(2)})`); gg.addColorStop(1, `rgba(${glowRGB},0)`);
-  ctx.fillStyle = gg; ctx.beginPath(); ctx.arc(ox + sw * 0.5, oy + sh * gcy, sw * 0.33, 0, Math.PI * 2); if (a > 0.004) ctx.fill(); ctx.restore();
+  sceneHalo(ctx, ox + sw * 0.5, oy + sh * gcy, sw * 0.33, glowRGB, a);
   }
 }
 function drawEngineSpriteCore(t, x, y, w, h, now, pass = 'all') {
@@ -189,12 +198,9 @@ function drawEngineSpriteCore(t, x, y, w, h, now, pass = 'all') {
         // Lueur (foyer/lampes chaudes aux stades 1-2 ; néon cyan au stade 3), pulse douce.
         const gnF = (CM && CM.nightF) ? CM.nightF : 0;
         if (dAnim) {
-          ctx.save(); ctx.globalCompositeOperation = "lighter";
           const col = stStage === 3 ? "90,220,235" : "255,175,70";
           const a = (stStage === 3 ? haloA(0.14, 0.4, gnF) : haloA(0.16, 0.34, gnF)) * (0.85 + 0.15 * Math.sin(now / 300));
-          const gg = ctx.createRadialGradient(ox + sw * 0.5, oy + sh * 0.5, 0, ox + sw * 0.5, oy + sh * 0.5, sw * 0.34);
-          gg.addColorStop(0, `rgba(${col},${a.toFixed(2)})`); gg.addColorStop(1, `rgba(${col},0)`);
-          ctx.fillStyle = gg; ctx.beginPath(); ctx.arc(ox + sw * 0.5, oy + sh * 0.5, sw * 0.34, 0, Math.PI * 2); if (a > 0.004) ctx.fill(); ctx.restore();
+          sceneHalo(ctx, ox + sw * 0.5, oy + sh * 0.5, sw * 0.34, col, a);
         }
         // Pas de perso réutilisé aux stades 1-3 (retiré à la demande : position mauvaise) —
         // les décors se lisent seuls (veillée = foyer+livre+bancs ; S2 = bâtiment fermé ; S3 = média).
@@ -320,12 +326,9 @@ function drawEngineSpriteCore(t, x, y, w, h, now, pass = 'all') {
         // Lueur (fenêtres chaudes bougies/lampes S1-2 ; racks serveurs cyan S3), pulse douce.
         const gnF = (CM && CM.nightF) ? CM.nightF : 0;
         if (dAnim) {
-          ctx.save(); ctx.globalCompositeOperation = "lighter";
           const col = scStage === 3 ? "80,210,235" : "255,180,80";
           const a = (scStage === 3 ? haloA(0.13, 0.4, gnF) : haloA(0.12, 0.34, gnF)) * (0.85 + 0.15 * Math.sin(now / 320 + 1.1));
-          const gg = ctx.createRadialGradient(ox + sw * 0.5, oy + sh * 0.52, 0, ox + sw * 0.5, oy + sh * 0.52, sw * 0.33);
-          gg.addColorStop(0, `rgba(${col},${a.toFixed(2)})`); gg.addColorStop(1, `rgba(${col},0)`);
-          ctx.fillStyle = gg; ctx.beginPath(); ctx.arc(ox + sw * 0.5, oy + sh * 0.52, sw * 0.33, 0, Math.PI * 2); if (a > 0.004) ctx.fill(); ctx.restore();
+          sceneHalo(ctx, ox + sw * 0.5, oy + sh * 0.52, sw * 0.33, col, a);
         }
         return;
       }
@@ -388,12 +391,9 @@ function drawEngineSpriteCore(t, x, y, w, h, now, pass = 'all') {
         // Lueur (fenêtres chaudes S1-2 ; écrans/LED cyan S3), pulse douce.
         const gnF = (CM && CM.nightF) ? CM.nightF : 0;
         if (dAnim) {
-          ctx.save(); ctx.globalCompositeOperation = "lighter";
           const col = schStage === 3 ? "120,220,235" : "255,182,84";
           const a = (schStage === 3 ? haloA(0.12, 0.38, gnF) : haloA(0.12, 0.34, gnF)) * (0.85 + 0.15 * Math.sin(now / 300 + 0.6));
-          const gg = ctx.createRadialGradient(ox + sw * 0.5, oy + sh * 0.52, 0, ox + sw * 0.5, oy + sh * 0.52, sw * 0.33);
-          gg.addColorStop(0, `rgba(${col},${a.toFixed(2)})`); gg.addColorStop(1, `rgba(${col},0)`);
-          ctx.fillStyle = gg; ctx.beginPath(); ctx.arc(ox + sw * 0.5, oy + sh * 0.52, sw * 0.33, 0, Math.PI * 2); if (a > 0.004) ctx.fill(); ctx.restore();
+          sceneHalo(ctx, ox + sw * 0.5, oy + sh * 0.52, sw * 0.33, col, a);
         }
         return;
       }
@@ -449,12 +449,9 @@ function drawEngineSpriteCore(t, x, y, w, h, now, pass = 'all') {
         // Lueur (fenêtres chaudes marbre S1-2 ; dôme cyan-or S3), pulse douce.
         const gnF = (CM && CM.nightF) ? CM.nightF : 0;
         if (dAnim) {
-          ctx.save(); ctx.globalCompositeOperation = "lighter";
           const col = acStage === 3 ? "150,220,235" : "255,196,110";
           const a = (acStage === 3 ? haloA(0.12, 0.38, gnF) : haloA(0.11, 0.33, gnF)) * (0.85 + 0.15 * Math.sin(now / 310 + 2.2));
-          const gg = ctx.createRadialGradient(ox + sw * 0.5, oy + sh * 0.5, 0, ox + sw * 0.5, oy + sh * 0.5, sw * 0.33);
-          gg.addColorStop(0, `rgba(${col},${a.toFixed(2)})`); gg.addColorStop(1, `rgba(${col},0)`);
-          ctx.fillStyle = gg; ctx.beginPath(); ctx.arc(ox + sw * 0.5, oy + sh * 0.5, sw * 0.33, 0, Math.PI * 2); if (a > 0.004) ctx.fill(); ctx.restore();
+          sceneHalo(ctx, ox + sw * 0.5, oy + sh * 0.5, sw * 0.33, col, a);
         }
         return;
       }
@@ -510,12 +507,9 @@ function drawEngineSpriteCore(t, x, y, w, h, now, pass = 'all') {
         // Lueur de FLAMME (chaude S1-2 ; chaud-violet S3), scintillement un peu plus vif (rituel).
         const gnF = (CM && CM.nightF) ? CM.nightF : 0;
         if (dAnim) {
-          ctx.save(); ctx.globalCompositeOperation = "lighter";
           const col = ancStage === 3 ? "185,150,255" : "255,150,45";
           const a = (ancStage === 3 ? haloA(0.12, 0.36, gnF) : haloA(0.14, 0.36, gnF)) * (0.8 + 0.2 * Math.sin(now / 190 + 0.7));
-          const gg = ctx.createRadialGradient(ox + sw * 0.5, oy + sh * 0.54, 0, ox + sw * 0.5, oy + sh * 0.54, sw * 0.32);
-          gg.addColorStop(0, `rgba(${col},${a.toFixed(2)})`); gg.addColorStop(1, `rgba(${col},0)`);
-          ctx.fillStyle = gg; ctx.beginPath(); ctx.arc(ox + sw * 0.5, oy + sh * 0.54, sw * 0.32, 0, Math.PI * 2); if (a > 0.004) ctx.fill(); ctx.restore();
+          sceneHalo(ctx, ox + sw * 0.5, oy + sh * 0.54, sw * 0.32, col, a);
         }
         return;
       }
@@ -592,12 +586,9 @@ function drawEngineSpriteCore(t, x, y, w, h, now, pass = 'all') {
         // Lueur (fenêtres chaudes S1-2 ; instruments cyan S3), pulse douce.
         const gnF = (CM && CM.nightF) ? CM.nightF : 0;
         if (dAnim) {
-          ctx.save(); ctx.globalCompositeOperation = "lighter";
           const col = obStage === 3 ? "90,215,235" : "255,190,95";
           const a = (obStage === 3 ? haloA(0.13, 0.4, gnF) : haloA(0.1, 0.32, gnF)) * (0.85 + 0.15 * Math.sin(now / 330 + 3.0));
-          const gg = ctx.createRadialGradient(ox + sw * 0.5, oy + sh * 0.46, 0, ox + sw * 0.5, oy + sh * 0.46, sw * 0.33);
-          gg.addColorStop(0, `rgba(${col},${a.toFixed(2)})`); gg.addColorStop(1, `rgba(${col},0)`);
-          ctx.fillStyle = gg; ctx.beginPath(); ctx.arc(ox + sw * 0.5, oy + sh * 0.46, sw * 0.33, 0, Math.PI * 2); if (a > 0.004) ctx.fill(); ctx.restore();
+          sceneHalo(ctx, ox + sw * 0.5, oy + sh * 0.46, sw * 0.33, col, a);
         }
         return;
       }
@@ -658,12 +649,9 @@ function drawEngineSpriteCore(t, x, y, w, h, now, pass = 'all') {
         // Lueur (fenêtres chaudes/rayonnages S1-2 ; chaud+cyan S3), pulse douce.
         const gnF = (CM && CM.nightF) ? CM.nightF : 0;
         if (dAnim) {
-          ctx.save(); ctx.globalCompositeOperation = "lighter";
           const col = liStage === 3 ? "180,205,180" : "255,186,90";
           const a = (liStage === 3 ? haloA(0.11, 0.33, gnF) : haloA(0.12, 0.34, gnF)) * (0.85 + 0.15 * Math.sin(now / 340 + 1.7));
-          const gg = ctx.createRadialGradient(ox + sw * 0.5, oy + sh * 0.5, 0, ox + sw * 0.5, oy + sh * 0.5, sw * 0.33);
-          gg.addColorStop(0, `rgba(${col},${a.toFixed(2)})`); gg.addColorStop(1, `rgba(${col},0)`);
-          ctx.fillStyle = gg; ctx.beginPath(); ctx.arc(ox + sw * 0.5, oy + sh * 0.5, sw * 0.33, 0, Math.PI * 2); if (a > 0.004) ctx.fill(); ctx.restore();
+          sceneHalo(ctx, ox + sw * 0.5, oy + sh * 0.5, sw * 0.33, col, a);
         }
         return;
       }
@@ -719,12 +707,9 @@ function drawEngineSpriteCore(t, x, y, w, h, now, pass = 'all') {
         // Lueur (fenêtres chaudes/vitraux S1-2 ; verre bleu S3), pulse douce.
         const gnF = (CM && CM.nightF) ? CM.nightF : 0;
         if (dAnim) {
-          ctx.save(); ctx.globalCompositeOperation = "lighter";
           const col = unStage === 3 ? "120,180,235" : "255,186,90";
           const a = (unStage === 3 ? haloA(0.12, 0.36, gnF) : haloA(0.12, 0.34, gnF)) * (0.85 + 0.15 * Math.sin(now / 350 + 0.9));
-          const gg = ctx.createRadialGradient(ox + sw * 0.5, oy + sh * 0.5, 0, ox + sw * 0.5, oy + sh * 0.5, sw * 0.33);
-          gg.addColorStop(0, `rgba(${col},${a.toFixed(2)})`); gg.addColorStop(1, `rgba(${col},0)`);
-          ctx.fillStyle = gg; ctx.beginPath(); ctx.arc(ox + sw * 0.5, oy + sh * 0.5, sw * 0.33, 0, Math.PI * 2); if (a > 0.004) ctx.fill(); ctx.restore();
+          sceneHalo(ctx, ox + sw * 0.5, oy + sh * 0.5, sw * 0.33, col, a);
         }
         return;
       }
@@ -936,12 +921,9 @@ function drawEngineSpriteCore(t, x, y, w, h, now, pass = 'all') {
         // Lueur (fenêtres chaudes S1-2 ; écrans cyan S3), pulse douce.
         const gnF = (CM && CM.nightF) ? CM.nightF : 0;
         if (dAnim) {
-          ctx.save(); ctx.globalCompositeOperation = "lighter";
           const col = prStage === 3 ? "110,205,235" : "255,180,80";
           const a = (prStage === 3 ? haloA(0.13, 0.38, gnF) : haloA(0.12, 0.34, gnF)) * (0.85 + 0.15 * Math.sin(now / 300 + 2.5));
-          const gg = ctx.createRadialGradient(ox + sw * 0.5, oy + sh * 0.5, 0, ox + sw * 0.5, oy + sh * 0.5, sw * 0.33);
-          gg.addColorStop(0, `rgba(${col},${a.toFixed(2)})`); gg.addColorStop(1, `rgba(${col},0)`);
-          ctx.fillStyle = gg; ctx.beginPath(); ctx.arc(ox + sw * 0.5, oy + sh * 0.5, sw * 0.33, 0, Math.PI * 2); if (a > 0.004) ctx.fill(); ctx.restore();
+          sceneHalo(ctx, ox + sw * 0.5, oy + sh * 0.5, sw * 0.33, col, a);
           // L'imprimerie industrielle a une cheminée : elle fume.
           if (prStage === 2) propChimneySmoke(ctx, ox, oy, sw, sh, prb, 0.5, 0.52, 0.9, 0.74, now);
         }
@@ -1012,12 +994,9 @@ function drawEngineSpriteCore(t, x, y, w, h, now, pass = 'all') {
         // Lueur (fenêtres chaudes S1-2 ; globe/données cyan S3), pulse douce.
         const gnF = (CM && CM.nightF) ? CM.nightF : 0;
         if (dAnim) {
-          ctx.save(); ctx.globalCompositeOperation = "lighter";
           const col = thStage === 3 ? "95,210,235" : "255,184,88";
           const a = (thStage === 3 ? haloA(0.13, 0.4, gnF) : haloA(0.11, 0.33, gnF)) * (0.85 + 0.15 * Math.sin(now / 320 + 1.4));
-          const gg = ctx.createRadialGradient(ox + sw * 0.5, oy + sh * 0.48, 0, ox + sw * 0.5, oy + sh * 0.48, sw * 0.33);
-          gg.addColorStop(0, `rgba(${col},${a.toFixed(2)})`); gg.addColorStop(1, `rgba(${col},0)`);
-          ctx.fillStyle = gg; ctx.beginPath(); ctx.arc(ox + sw * 0.5, oy + sh * 0.48, sw * 0.33, 0, Math.PI * 2); if (a > 0.004) ctx.fill(); ctx.restore();
+          sceneHalo(ctx, ox + sw * 0.5, oy + sh * 0.48, sw * 0.33, col, a);
         }
         return;
       }
@@ -1196,12 +1175,9 @@ function drawEngineSpriteCore(t, x, y, w, h, now, pass = 'all') {
         // Lueur au SOMMET de la tour (brasier/lanterne chauds S1-2 ; balises cyan S3).
         const gnF = (CM && CM.nightF) ? CM.nightF : 0;
         if (dAnim) {
-          ctx.save(); ctx.globalCompositeOperation = "lighter";
           const col = waStage === 3 ? "100,215,235" : "255,170,70";
           const a = (waStage === 3 ? haloA(0.13, 0.4, gnF) : haloA(0.16, 0.36, gnF)) * (0.82 + 0.18 * Math.sin(now / 240 + 1.9));
-          const gg = ctx.createRadialGradient(ox + sw * 0.5, oy + sh * 0.2, 0, ox + sw * 0.5, oy + sh * 0.2, sw * 0.26);
-          gg.addColorStop(0, `rgba(${col},${a.toFixed(2)})`); gg.addColorStop(1, `rgba(${col},0)`);
-          ctx.fillStyle = gg; ctx.beginPath(); ctx.arc(ox + sw * 0.5, oy + sh * 0.2, sw * 0.26, 0, Math.PI * 2); if (a > 0.004) ctx.fill(); ctx.restore();
+          sceneHalo(ctx, ox + sw * 0.5, oy + sh * 0.2, sw * 0.26, col, a);
         }
         return;
       }

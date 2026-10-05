@@ -16,7 +16,9 @@
 // lumière garde ses couleurs, le reste plonge dans la nuit. Les RAIS des cônes, eux, se
 // posent en ajout (une poussière lumineuse dans l'air).
 //
-// Pur calcul de pixels ; les toiles se fabriquent ici (dans le navigateur seulement).
+// Pur calcul de pixels (lumiereCalc : il tourne aussi dans le Worker de la cuisson,
+// salleBake.worker.js) ; les toiles se fabriquent à part (lumiereToiles, dans le
+// navigateur seulement).
 
 const BAYER = [0, 8, 2, 10, 12, 4, 14, 6, 3, 11, 1, 9, 15, 7, 13, 5];
 const bayer = (x, y) => BAYER[(y & 3) * 4 + (x & 3)] / 16;
@@ -46,10 +48,13 @@ const LUMIERE_SCENE = '#ffe2b0';
 // Le plancher d'une salle (la ligne où posent les pieds), depuis sa boîte.
 const solDe = (box) => box.y1 - 7;
 
-export function bakeLumiere(bake) {
-  if (typeof document === 'undefined' || !bake) return null;
+// Les lieux de la cuisson (plaisirsCoupeHD.js) : un octet par pixel, l'index du nom
+// dans `idNames` (0 : aucun lieu).
+export function lumiereCalc(bake) {
+  if (!bake) return null;
   const { W, H } = bake;
-  const ids = bake.ids || [];
+  const ids = bake.ids || new Uint8Array(W * H), noms = bake.idNames || [null];
+  const code = (id) => noms.indexOf(id);
   // Le dehors (ciel, horizon, eau) : la lumière n'y tombe pas.
   const fond = bake.fond || new Uint8Array(W * H);
   const I0 = LAMPES(bake.band | 0), dedansAmb = (bake.band | 0) >= 7 ? DEDANS_LUMIERE : DEDANS;
@@ -59,7 +64,7 @@ export function bakeLumiere(bake) {
   // Les étages : l'intérieur de chaque niveau (sa largeur, sa hauteur sans la charpente).
   const etages = (bake.levels || []).map((lv) => ({ x0: Math.round(lv.cx - lv.w / 2), x1: Math.round(lv.cx + lv.w / 2), y0: lv.yT, y1: lv.yT + LH - 9 }));
   const etageDe = (x, y) => etages.findIndex((e) => x >= e.x0 && x < e.x1 && y >= e.y0 && y < e.y1);
-  const dedans = (k, x, y) => !fond[k] && (ids[k] != null || etageDe(x, y) >= 0);
+  const dedans = (k, x, y) => !fond[k] && (ids[k] !== 0 || etageDe(x, y) >= 0);
   for (let y = 0; y < H; y += 1) {
     for (let x = 0; x < W; x += 1) {
       const k = y * W + x, a = dedans(k, x, y) ? dedansAmb : DEHORS;
@@ -83,19 +88,19 @@ export function bakeLumiere(bake) {
   };
   // Le lieu d'un point : sa salle (id), sinon son étage (le hall, les couloirs).
   const memeLieu = (x, y) => {
-    const id = ids[Math.round(y) * W + Math.round(x)];
-    if (id != null) return (k) => ids[k] === id;
+    const c = ids[Math.round(y) * W + Math.round(x)];
+    if (c) return (k) => ids[k] === c;
     const e = etageDe(x, y);
     if (e < 0) return null;                                   // la verrière, le dehors : libre
     const E = etages[e];
-    return (k, px, py) => ids[k] == null && px >= E.x0 && px < E.x1 && py >= E.y0 && py < E.y1;
+    return (k, px, py) => ids[k] === 0 && px >= E.x0 && px < E.x1 && py >= E.y0 && py < E.y1;
   };
   // Les LAMPES : le halo autour de la flamme, la flaque sous elle. Hors des étages (la
   // verrière, le toit), une lumière douce et courte, sans flaque : plus forte, elle
   // délavait le verre, qui doit rester la nuit.
   for (const p of bake.lights || []) {
     const col = rgb(p.c), ok = memeLieu(p.x, p.y);
-    const id = ids[Math.round(p.y) * W + Math.round(p.x)];
+    const id = noms[ids[Math.round(p.y) * W + Math.round(p.x)]];
     const libre = id == null && etageDe(p.x, p.y) < 0;
     if (libre) { ajoute(p.x, p.y, 26, 22, col, 0.5, null); continue; }
     ajoute(p.x, p.y, 38, 30, col, 0.95, ok);
@@ -109,7 +114,7 @@ export function bakeLumiere(bake) {
   let scene = null;
   const sc = bake.spots && bake.spots.scene;
   if (sc) {
-    const b = sc.box, ok = (k) => ids[k] === 'scene', sol = solDe(b), large = b.x1 - b.x0, col = rgb(LUMIERE_SCENE);
+    const cs = code('scene'), b = sc.box, ok = (k) => ids[k] === cs, sol = solDe(b), large = b.x1 - b.x0, col = rgb(LUMIERE_SCENE);
     // (Pleine intensité à tous les âges : la baisse des âges de lumière vaut pour leurs
     // lampes, pas pour la troupe.)
     ajoute(sc.x, sol, large * 0.62, 46, col, 1.15 / I0, ok);
@@ -134,7 +139,7 @@ export function bakeLumiere(bake) {
   const lt = rgb(LUMIERE_TABLE);
   for (const [id, s] of Object.entries(bake.spots || {})) {
     if (!TABLES.has(id)) continue;
-    const box = s.box, haut = box.y0 + 10, sol = solDe(box), ok = (k) => ids[k] === id;
+    const ct = code(id), box = s.box, haut = box.y0 + 10, sol = solDe(box), ok = (k) => ids[k] === ct;
     const demi = (y) => 5 + ((y - haut) / Math.max(1, sol - haut)) * 34;
     for (let y = haut; y <= sol; y += 1) {
       const hw = demi(y);
@@ -150,10 +155,7 @@ export function bakeLumiere(bake) {
     cones.push({ x: s.x, haut, sol, demiHaut: 5, demiBas: 39 });
   }
   // La carte, tramée en sept crans.
-  const cv = document.createElement('canvas');
-  cv.width = W; cv.height = H;
-  const g = cv.getContext('2d');
-  const img = g.createImageData(W, H), d = img.data;
+  const carte = new Uint8ClampedArray(W * H * 4), d = carte;
   for (let y = 0; y < H; y += 1) {
     for (let x = 0; x < W; x += 1) {
       const k = y * W + x, b = bayer(x, y);
@@ -164,12 +166,8 @@ export function bakeLumiere(bake) {
       d[k * 4 + 3] = 255;
     }
   }
-  g.putImageData(img, 0, 0);
   // Les RAIS des cônes : une poussière de lumière dans l'air, tramée elle aussi.
-  const rais = document.createElement('canvas');
-  rais.width = W; rais.height = H;
-  const gr = rais.getContext('2d');
-  const ri = gr.createImageData(W, H), rd = ri.data;
+  const rais = new Uint8ClampedArray(W * H * 4), rd = rais;
   for (const c of cones) {
     for (let y = c.haut; y <= c.sol; y += 1) {
       const t = (y - c.haut) / Math.max(1, c.sol - c.haut), hw = c.demiHaut + (c.demiBas - c.demiHaut) * t;
@@ -184,8 +182,19 @@ export function bakeLumiere(bake) {
       }
     }
   }
-  gr.putImageData(ri, 0, 0);
-  return { cv, rais, dehors: DEHORS, cones, scene, lueur: (bake.band | 0) >= 7 ? 0.5 : 1 };
+  return { W, H, carte, rais, dehors: DEHORS, cones, scene, lueur: (bake.band | 0) >= 7 ? 0.5 : 1 };
+}
+
+// Les toiles de la lumière (navigateur) : la carte en multiply, les rais en ajout.
+export function lumiereToiles(L) {
+  if (typeof document === 'undefined' || !L) return null;
+  const toile = (data) => {
+    const cv = document.createElement('canvas');
+    cv.width = L.W; cv.height = L.H;
+    cv.getContext('2d').putImageData(new ImageData(data, L.W, L.H), 0, 0);
+    return cv;
+  };
+  return { cv: toile(L.carte), rais: toile(L.rais), dehors: L.dehors, cones: L.cones, scene: L.scene, lueur: L.lueur };
 }
 
 // La couleur de la nuit dehors, pour les bandes hors de la coupe (CSS rgb()).

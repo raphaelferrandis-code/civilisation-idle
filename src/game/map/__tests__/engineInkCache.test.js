@@ -54,8 +54,9 @@ afterAll(() => {
 });
 
 // Une ère neuve par test : le cache est vidé au changement d'ère, chaque test part
-// d'un cache vide sans rien exporter de privé.
-let era = 40;
+// d'un cache vide sans rien exporter de privé. Sous l'ère 34 : au-delà, l'ère ne
+// compte plus dans la clé (MEM-6, ci-dessous).
+let era = 10;
 beforeEach(() => { era += 1; CM.layout = { counts: { eraBand: 5, eraIndex: era } }; h.ver = 1; });
 
 const T = 16, Z = 1, HH = 8;
@@ -105,5 +106,32 @@ describe("boîte d'encre des scènes moteur (BUG-59)", () => {
     // Frame suivante : les deux restantes rattrapent.
     const f2 = tiles.map((t) => inkW(t, 3033));
     for (const w of f2) expect(w).toBeCloseTo(48 / REF, 5);
+  });
+});
+
+// Audit 2026-10-05, MEM-6 — la clé portait l'ère EXACTE : chaque ère transcendante
+// vidait le cache et refaisait toutes les mesures, pour des scènes qui ne dépendent
+// plus que de leur bande au-delà de l'ère 34. On compte les dessins de mesure.
+describe("ères transcendantes : la boîte d'encre n'est plus remesurée à chaque ère (MEM-6)", () => {
+  it("de l'ère 35 à l'ère 120, une seule mesure par scène et par bande", () => {
+    h.boxFor = () => [20, 10, 75, 95];
+    const t = tile("banks", 2, 70);
+    // Une mesure = un dessin de la scène dans le canvas de mesure.
+    let inked = 0;
+    const spy = vi.mocked(engineSprites.drawEngineSprite).getMockImplementation();
+    vi.mocked(engineSprites.drawEngineSprite).mockImplementation((tt, ...rest) => { if (CM.ctx === inkCtx) inked += 1; return spy(tt, ...rest); });
+    try {
+      for (let ei = 35; ei <= 120; ei += 1) {
+        CM.layout = { counts: { eraBand: ei < 60 ? 7 : 8, eraIndex: ei } };
+        expect(inkW(t, 4000 + ei * 16)).toBeCloseTo(56 / REF, 5);
+      }
+      expect(inked).toBe(2);                       // bande 7, puis bande 8
+      // Sous l'ère 34, l'ère compte toujours : une ère neuve, une mesure neuve.
+      CM.layout = { counts: { eraBand: 5, eraIndex: 20 } }; inkW(t, 9000);
+      CM.layout = { counts: { eraBand: 5, eraIndex: 21 } }; inkW(t, 9016);
+      expect(inked).toBe(4);
+    } finally {
+      vi.mocked(engineSprites.drawEngineSprite).mockImplementation(spy);
+    }
   });
 });

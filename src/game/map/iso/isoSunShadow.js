@@ -180,9 +180,23 @@ export function sunShadowPixels(alpha, w, h, pivot, kx, ky) {
   // Un sol propre à chaque colonne SOURCE décalait les ombres de colonnes voisines et
   // laissait des stries (essayé, vu sur le bœuf et le chariot antique).
   const atMax = at ? at.length - 1 : 0;
+  // Les pixels déjà projetés : une GRILLE indexée par un entier, et non plus un Set de
+  // chaînes "x,y" (audit du 05/10, PERF-22 : 8 à 36 ms pour un sprite de 400×340, payés
+  // dans la frame où il apparaît). Mêmes pixels, dans le même ordre. Bornes : un pixel
+  // monte d'au plus hm (le sol le plus haut) et part de kx·hm, ky·hm ; en 'slope', le
+  // sol recourbé le déplace en plus de at[tx] − g. Deux pixels de marge de chaque côté :
+  // la passe de bouchage lit les voisins sans jamais sortir de la grille.
+  let hm = h, gLo = Infinity, gHi = -Infinity, aLo = Infinity, aHi = -Infinity;
+  for (let x = 0; x < w; x += 1) if (bottom[x] >= 0) { const g = ground[x]; if (g > hm) hm = g; if (g < gLo) gLo = g; if (g > gHi) gHi = g; }
+  if (at) for (let x = 0; x <= atMax; x += 1) { if (at[x] < aLo) aLo = at[x]; if (at[x] > aHi) aHi = at[x]; }
+  const dn = at && gLo <= gHi ? Math.max(0, Math.ceil(aHi - gLo)) : 0;
+  const up = at && gLo <= gHi ? Math.max(0, Math.ceil(gHi - aLo)) : 0;
+  const GX = Math.ceil(Math.max(0, -kx) * hm) + 2, GY = Math.ceil(Math.max(0, -ky) * hm) + up + 2;
+  const GW = GX + w + Math.ceil(Math.max(0, kx) * hm) + 3;
+  const GH = GY + h + Math.ceil(Math.max(0, ky) * hm) + dn + 3;
+  const seen = new Uint8Array(GW * GH);
   const out = [];
   let x0 = Infinity, y0 = Infinity, x1 = -Infinity, y1 = -Infinity;
-  const seen = new Set();
   for (let x = 0; x < w; x += 1) {
     if (bottom[x] < 0) continue;
     const g = ground[x];
@@ -192,9 +206,9 @@ export function sunShadowPixels(alpha, w, h, pivot, kx, ky) {
       if (hgt <= 0) continue;
       const tx = x + Math.round(kx * hgt);
       const ty = y + Math.round(ky * hgt + (at ? at[Math.max(0, Math.min(atMax, tx))] - g : 0));
-      const k = tx + ',' + ty;
-      if (seen.has(k)) continue;
-      seen.add(k);
+      const k = (ty + GY) * GW + tx + GX;
+      if (seen[k]) continue;
+      seen[k] = 1;
       out.push(tx, ty);
       if (tx < x0) x0 = tx; if (tx > x1) x1 = tx;
       if (ty < y0) y0 = ty; if (ty > y1) y1 = ty;
@@ -206,10 +220,9 @@ export function sunShadowPixels(alpha, w, h, pivot, kx, ky) {
   // chaque pixel vide dont les deux voisins horizontaux OU verticaux sont pleins.
   const fill = [];
   for (let y = y0; y <= y1; y += 1) {
-    for (let x = x0; x <= x1; x += 1) {
-      if (seen.has(x + ',' + y)) continue;
-      if ((seen.has((x - 1) + ',' + y) && seen.has((x + 1) + ',' + y))
-        || (seen.has(x + ',' + (y - 1)) && seen.has(x + ',' + (y + 1)))) fill.push(x, y);
+    for (let x = x0, k = (y + GY) * GW + x0 + GX; x <= x1; x += 1, k += 1) {
+      if (seen[k]) continue;
+      if ((seen[k - 1] && seen[k + 1]) || (seen[k - GW] && seen[k + GW])) fill.push(x, y);
     }
   }
   for (let i = 0; i < fill.length; i += 2) out.push(fill[i], fill[i + 1]);
@@ -230,18 +243,84 @@ export function sunShadowPixels(alpha, w, h, pivot, kx, ky) {
   return { ox: kx0, oy: ky0, w: kx1 - kx0 + 1, h: ky1 - ky0 + 1, px };
 }
 
-// Cache par image source, puis par (rectangle source, pivot). WeakMap : un canvas
-// de teinte ou de saison qui meurt emporte son ombre.
+// LE CACHE IMBRIQUÉ image → pivot → rectangle source, partagé avec les reflets
+// (iso/isoReflect.js). La clé en chaîne "sx:sy:sw:sh:pivot", bâtie à chaque appel
+// pour chaque sprite (ombre ET reflet), jetait des milliers de chaînes par frame
+// (audit du 05/10, PERF-46 : ~0,7 ms pour 3 000 appels, 0,08 ms ainsi). Le rectangle
+// devient UN nombre quand ses quatre bornes sont des entiers de [0, 8192[ (4 × 13 bits
+// < 2^53, sans collision) ; une chaîne sinon (jamais vu, gardé par sûreté).
+export function maskSlot(cache, img, pivot) {
+  let m = cache.get(img);
+  if (!m) { m = new Map(); cache.set(img, m); }
+  let p = m.get(pivot);
+  if (!p) { p = new Map(); m.set(pivot, p); }
+  return p;
+}
+export function rectKey(sx, sy, sw, sh) {
+  return ((sx | 0) === sx && (sy | 0) === sy && (sw | 0) === sw && (sh | 0) === sh
+    && sx >= 0 && sy >= 0 && sw >= 0 && sh >= 0 && sx < 8192 && sy < 8192 && sw < 8192 && sh < 8192)
+    ? ((sx * 8192 + sy) * 8192 + sw) * 8192 + sh
+    : sx + ':' + sy + ':' + sw + ':' + sh;
+}
+
+// BUDGET DE CUISSON PAR IMAGE (audit du 05/10, PERF-22). Un masque se cuit à la
+// première apparition de son sprite : au démarrage, à une nouvelle ère ou saison, des
+// centaines tombaient dans la MÊME image (10 à 40 ms pour un seul gros sprite). Une
+// fois le budget de l'image dépensé, le sprite neuf est peint sans son ombre et rien
+// n'est mis en cache : elle arrive une image plus tard (un écart de cuisson, jamais
+// au repos). Il se compte en pixels SOURCE (un sprite de 400×340 vaut ~70 images
+// d'habitant) et le premier masque de l'image passe toujours. Même horloge que
+// iso/bakeBudget.js (l'identité de CM._wonderBoxes, neuve à chaque image) ; illimité
+// en capture (un cliché est complet), hors du peintre, et en cuisson de scène
+// (captureSunShadows : la scène cuite resterait sans ombre).
+// ⚠ « Hors du peintre » = toute toile qui n'est pas CELLE DE LA CARTE (CM.ctx), et pas
+// seulement « CM._wonderBoxes nul » : la salle et les tables des Plaisirs posent l'ombre
+// de leurs habitants (drawNamedAgentIso) carte DÉMONTÉE — CityView n'est pas monté sur
+// cette vue —, où CM._wonderBoxes garde le tableau de la dernière image de la carte.
+// L'horloge ne repartait donc plus : passé 160 000 px, plus aucun masque neuf, et des
+// images d'animation sans ombre jusqu'au retour sur la carte.
+export const SHADOW_BAKE_BUDGET = { px: 160000 };
+let _bakeStamp = null, _bakeSpent = 0;
+function bakeAllowed() {
+  if (CM.capture || !CM._wonderBoxes) return true;
+  if (CM._wonderBoxes !== _bakeStamp) { _bakeStamp = CM._wonderBoxes; _bakeSpent = 0; }
+  return _bakeSpent < SHADOW_BAKE_BUDGET.px;
+}
+
+// Le masque posé d'une seule pose d'image (PERF-22 : un fillRect par pixel, jusqu'à
+// 18 000 par masque) ; mêmes octets qu'avant pour une teinte opaque en #rrggbb (celle
+// du jeu), comme l'ombre des Plaisirs (PERF-13) — toute autre teinte posée à la
+// molette `__sunShadow` retombe sur le pixel à pixel.
+function paintMask(cx, r) {
+  const hex = /^#([0-9a-f]{6})$/i.exec(SUN_SHADOW.col);
+  if (hex) {
+    const v = parseInt(hex[1], 16), im = cx.createImageData(r.w, r.h), d = im.data;
+    const cr = v >> 16, cg = (v >> 8) & 255, cb = v & 255;
+    for (let i = 0; i < r.px.length; i += 2) {
+      const o = (r.px[i + 1] * r.w + r.px[i]) * 4;
+      d[o] = cr; d[o + 1] = cg; d[o + 2] = cb; d[o + 3] = 255;
+    }
+    cx.putImageData(im, 0, 0);
+  } else {
+    cx.fillStyle = SUN_SHADOW.col;
+    for (let i = 0; i < r.px.length; i += 2) cx.fillRect(r.px[i], r.px[i + 1], 1, 1);
+  }
+}
+
+// Cache par image source, puis par (pivot, rectangle source). WeakMap : un canvas
+// de teinte ou de saison qui meurt emporte son ombre. `budget` : la cuisson compte
+// sur le budget de la frame (cf. plus haut).
 let _masks = new WeakMap();
-function shadowMask(img, sx, sy, sw, sh, pivot) {
-  let m = _masks.get(img);
-  if (!m) { m = new Map(); _masks.set(img, m); }
-  const k = sx + ':' + sy + ':' + sw + ':' + sh + ':' + pivot;
+function shadowMask(img, sx, sy, sw, sh, pivot, budget) {
+  const m = maskSlot(_masks, img, pivot);
+  const k = rectKey(sx, sy, sw, sh);
   let e = m.get(k);
   if (e !== undefined) return e;
+  if (budget && !bakeAllowed()) return null;   // budget épuisé : à l'image suivante
   e = null;
   try {
     if (typeof document !== 'undefined' && sw > 0 && sh > 0) {
+      if (budget) _bakeSpent += sw * sh;
       const src = document.createElement('canvas');
       src.width = sw; src.height = sh;
       const sc = src.getContext('2d', { willReadFrequently: true });
@@ -253,13 +332,12 @@ function shadowMask(img, sx, sy, sw, sh, pivot) {
       if (r) {
         const cv = document.createElement('canvas');
         cv.width = r.w; cv.height = r.h;
-        const cx = cv.getContext('2d');
-        cx.fillStyle = SUN_SHADOW.col;
-        for (let i = 0; i < r.px.length; i += 2) cx.fillRect(r.px[i], r.px[i + 1], 1, 1);
+        paintMask(cv.getContext('2d'), r);
         e = { canvas: cv, ox: r.ox, oy: r.oy };
       } else e = { canvas: null };
     }
-  } catch { e = null; }                    // image pas décodée : on réessaiera
+    // (image pas décodée : sw = 0, rien n'est mis en cache, on réessaiera)
+  } catch { e = { canvas: null, failed: true }; }   // image cassée ou canvas refusé : sans ombre, sans réessayer à chaque frame
   if (e) m.set(k, e);
   return e;
 }
@@ -293,7 +371,7 @@ export function drawSunShadow(ctx, img, dx, dy, dw, dh, sx = 0, sy = 0, sw = 0, 
   if (a <= 0) return;
   if (!sw) sw = img.naturalWidth || img.width || 0;
   if (!sh) sh = img.naturalHeight || img.height || 0;
-  const m = shadowMask(img, sx, sy, sw, sh, pivot);
+  const m = shadowMask(img, sx, sy, sw, sh, pivot, !_sink && ctx === CM.ctx);
   if (!m || !m.canvas) return;
   const kx = dw / sw, ky = dh / sh;
   const x = dx + m.ox * kx, y = dy + m.oy * ky, w = m.canvas.width * kx, h = m.canvas.height * ky;

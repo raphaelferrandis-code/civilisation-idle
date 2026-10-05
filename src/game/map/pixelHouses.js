@@ -10,7 +10,7 @@
 // sprite qui arrive, une molette qui tourne, se voient dès la frame suivante.
 import { CM, cmHash } from './layout.js';
 import { maskFromImageData } from "./iso/isoMask.js";
-import { pickHouseTint, applyHouseTint, HOUSE_TINTS } from './housePalette.js';
+import { pickHouseTint, applyHouseTint, HOUSE_TINTS, HOUSE_FAMILY } from './housePalette.js';
 import { snowImageData, snowRoofTune, addSnowResetHook, skipKey as snowSkipKey } from './snowRoof.js';
 import { WINTER } from './seasonMode.js';
 import { lightCutImage } from './lightLayer.js';
@@ -92,15 +92,22 @@ const COSMIC_VARIANTS = new Set(["tower", "megablock", "arcologyhome", "gardento
 export { houseFitTune };
 
 const cache = new Map();     // spriteKey -> { img, ready, bbox }
-const variants = new Map();  // "spriteKey:tint" -> canvas teinté, RECADRÉ sur la bbox
+const variants = new Map();  // "spriteKey:rvN[:w]" -> variante de rangée, RECADRÉE sur la bbox (teintes : `tinted`)
 
 // Clé de sprite effective. Aux ères cosmiques (eraBand ≥ 7) les variantes tardives
 // prennent leur skin de bande « <variant>-cosmic-<band> » (fichiers dédiés) ; partout
 // ailleurs le sprite de base « <variant> ». La bande vient de la même source que le
 // repli procédural (CM.layout.counts.eraBand).
+// Les clés cosmiques sont construites UNE fois (audit du 05/10, PERF-21 : une chaîne
+// neuve par maison, deux à trois fois par frame) ; la même chaîne revient à chaque appel.
+const _cosmicKeys = new Map();   // variante -> [clé des bandes 7, 8, 9]
 function spriteKeyFor(variant) {
   const band = (CM.layout?.counts?.eraBand | 0);
-  if (band >= 7 && COSMIC_VARIANTS.has(variant)) return variant + "-cosmic-" + Math.min(9, band);
+  if (band >= 7 && COSMIC_VARIANTS.has(variant)) {
+    let ks = _cosmicKeys.get(variant);
+    if (!ks) _cosmicKeys.set(variant, ks = [7, 8, 9].map((b) => variant + "-cosmic-" + b));
+    return ks[Math.min(9, band) - 7];
+  }
   return variant;
 }
 
@@ -146,7 +153,16 @@ function rowKeyOf(t) {
   const ownEnd = R.selfEnd && R.selfEnd.includes(d);
   if ((t.rowEnd && !ownEnd) || !R.models[d] || !R.models[d].includes(view)) d = R.end;
   if (!R.models[d] || !R.models[d].includes(view)) return null;
-  return "row-" + d + "-" + view;
+  return rowKeyStr(d, view);
+}
+// « row-<modèle>-<vue> », construite une fois par couple (même raison que spriteKeyFor).
+const _rowKeys = new Map();      // modèle -> vue -> clé
+function rowKeyStr(d, view) {
+  let m = _rowKeys.get(d);
+  if (!m) _rowKeys.set(d, m = new Map());
+  let k = m.get(view);
+  if (!k) m.set(view, k = "row-" + d + "-" + view);
+  return k;
 }
 // Repères d'une unité mitoyenne, en px du PNG : le coin AVANT de son pied (le point
 // d'encre le plus bas) et l'EMPRISE AU SOL de ses deux murs — la ligne de base suivie
@@ -202,11 +218,21 @@ function houseKeyOf(t) {
 //
 // Les skins COSMIQUES sont exclus : leur couleur de bande (émeraude 7, or 8, violet 9)
 // est un signal de progression assorti aux tours-moteur, la permuter mentirait au joueur.
+//
+// Audit du 05/10 (PERF-21) : le hachage se refaisait deux à trois fois par maison et par
+// frame, même pour une variante sans famille (une seule teinte). La famille est lue
+// d'abord, et le hachage, qui ne dépend que de (gx, gy), est gardé sur la tuile.
 function houseTintOf(t, key) {
   if (!houseVarTune.on) return 0;
   if (key.indexOf("-cosmic-") >= 0) return 0;
   if (key.startsWith("row-")) return 0;     // rangées : déjà dans la palette de leur maison
-  return pickHouseTint(cmHash("hvar:" + t.gx + ":" + t.gy) >>> 0, bodyOf(t));
+  const body = bodyOf(t);
+  if (!(HOUSE_FAMILY[body] | 0)) return 0;  // = pickHouseTint d'une variante sans famille
+  if (t._hvar === undefined || t._hvarX !== t.gx || t._hvarY !== t.gy) {
+    t._hvar = cmHash("hvar:" + t.gx + ":" + t.gy) >>> 0;
+    t._hvarX = t.gx; t._hvarY = t.gy;
+  }
+  return pickHouseTint(t._hvar, body);
 }
 
 // B — Canvas d'une teinte, RECADRÉ sur la bbox de contenu et mis en cache. Renvoie null
@@ -222,11 +248,17 @@ function houseTintOf(t, key) {
 // qui laisse les 20 aspects intacts en hiver.
 // Les skins COSMIQUES n'en prennent pas (snowRoof.skipKey, « une calotte blanche les
 // éteint ») : la même règle que les tours-moteur voisines (audit 05/10, BUG-96).
+// Rangées par sprite, sans chaîne de clé (audit du 05/10, PERF-21 : `clé:teinte:w`
+// se reconstruisait deux à trois fois par maison et par frame) : `tinted.get(key)` est
+// un tableau indexé par teinte × 2 + hiver.
+const tinted = new Map();
 function variantCanvas(key, tint, winterNow) {
   const winter = winterNow && !snowSkipKey(key);
   if (!tint && !winter) return null;
-  const vk = key + ":" + tint + (winter ? ":w" : "");
-  const hit = variants.get(vk);
+  let byKey = tinted.get(key);
+  if (!byKey) tinted.set(key, byKey = []);
+  const slot = tint * 2 + (winter ? 1 : 0);
+  const hit = byKey[slot];
   if (hit) return hit;
   const e = cache.get(key);
   // Source pas encore mesurée : ne RIEN mettre en cache, le sprite arrivera plus tard.
@@ -247,13 +279,13 @@ function variantCanvas(key, tint, winterNow) {
   }
   if (winter) snowImageData(out, bb.w, bb.h);
   cx.putImageData(out, 0, 0);
-  variants.set(vk, c);
+  byKey[slot] = c;
   return c;
 }
 
 // Les canvas cuits portent le réglage de neige qui avait cours au moment de la cuisson :
 // un tour de molette doit les jeter, sans quoi l'A/B compare deux fois la même image.
-addSnowResetHook(() => { variants.clear(); });
+addSnowResetHook(() => { variants.clear(); tinted.clear(); });
 
 function ensure(key) {
   let e = cache.get(key);

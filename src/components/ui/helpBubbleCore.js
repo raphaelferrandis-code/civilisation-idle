@@ -94,6 +94,20 @@ export function normalizeTipContent(value) {
 }
 
 /**
+ * Deux contenus normalisés disent-ils la même chose ? Le contenu VIVANT d'une bulle
+ * (une fonction) est relu toutes les 250 ms : sans cette comparaison, chaque relecture
+ * recréait l'état de la bulle — un rendu et un intervalle réarmé pour rien, tant que
+ * la souris reste sur une carte de la Topbar (audit 2026-10-05, PERF-60/61).
+ */
+export function sameTipContent(a, b) {
+  if (a === b) return true;
+  if (!a || !b || a.kind !== b.kind) return false;
+  if (a.kind === "text") return a.text === b.text;
+  if (a.rows.length !== b.rows.length) return false;
+  return a.rows.every((row, i) => row.label === b.rows[i].label && row.value === b.rows[i].value);
+}
+
+/**
  * Délai d'ouverture à appliquer maintenant. Voir REOPEN_GRACE_MS.
  * `lastHideAt` vaut 0 tant qu'aucune bulle n'a été fermée dans la session.
  */

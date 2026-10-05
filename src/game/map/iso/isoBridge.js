@@ -55,7 +55,8 @@ import { drawVieFlag, vieBlit, vieSprite, vieRing, viePixel, vieK, vieZoomFade, 
 // Objets posés (statues, braseros, réverbères, flammes, lueurs) : partagés avec
 // les merveilles (iso/isoProps.js).
 import { PROP_LIGHT, glowAt, drawFlame, drawSpriteProp, hexToRgbStr } from './isoProps.js';
-import { lightCutImage } from '../lightLayer.js';
+import { LIGHT_LAYER, lightCut, lightCutImage, litBox } from '../lightLayer.js';
+import { colRows, sliceRows, rowCropExact, colCropExact } from './rowCrop.js';
 // ⚠ PAS d'import d'isoRiver : il configure la vie du fleuve AU CHARGEMENT et la
 // chaîne isoRiverLife → … → isoBridge → isoRiver bouclait (CFG lu avant sa
 // déclaration, riverLife.test cassé). Le contour de l'eau est retracé ici à partir
@@ -398,7 +399,7 @@ function bridgeGeoSig(spans, rv) {
   return s;
 }
 
-let _models = { key: '', list: null, at: null, spans: null };
+let _models = { key: '', list: null, at: null, spans: null, tune: '', tv: null };
 // Modèles des travées de la frame (cache par GÉOMÉTRIE + ère + molettes de gabarit).
 // ⚠ JAMAIS par l'horodatage du layout (audit 2026-10-05, BUG-66) : le layout se
 // recalcule toutes les 1,5 s en pleine croissance (structSig suit eraFrac au
@@ -411,22 +412,32 @@ export function bridgeGeoms() {
   const L = CM.layout;
   if (!L || !CM.bridgeSpans || !CM.bridgeSpans.length || !bridgeTune.on) return null;
   const band = (L.counts && L.counts.eraBand) | 0, ei = (L.counts && L.counts.eraIndex) | 0;
-  const tune = band + ':' + ei + ':' + bridgeTune.pedMargin + ':' + bridgeTune.passMargin + ':'
-    + bridgeTune.landing + ':' + (quayWallTune.heightK || 1) + ':' + CM.TILE;
-  if (_models.list && _models.at === CM.layoutRecomputeAt && _models.spans === CM.bridgeSpans && _models.tune === tune) {
+  const hk = quayWallTune.heightK || 1;
+  // Chemin rapide SANS chaîne (audit 2026-10-05, PERF-25) : appelée pour chaque arbre à
+  // l'écran (bridgeBlocks), chaque passant (bridgeWalkBand), les oiseaux, le port — la
+  // clé de sept morceaux se reconcaténait à chaque appel. On compare les sept valeurs.
+  const tv = _models.tv;
+  if (_models.list && _models.at === CM.layoutRecomputeAt && _models.spans === CM.bridgeSpans && tv
+    && tv[0] === band && tv[1] === ei && tv[2] === bridgeTune.pedMargin && tv[3] === bridgeTune.passMargin
+    && tv[4] === bridgeTune.landing && tv[5] === hk && tv[6] === CM.TILE) {
     return _models.list;
   }
+  const tvNow = [band, ei, bridgeTune.pedMargin, bridgeTune.passMargin, bridgeTune.landing, hk, CM.TILE];
+  const tune = tvNow.join(':');
   const key = tune + '|' + bridgeGeoSig(CM.bridgeSpans, L.river);
   if (_models.key === key && _models.list) {
     // Même pont : on garde modèles, habitués et cuissons ; seules les travées du
     // nouveau layout (mêmes valeurs, objets neufs) sont rebranchées.
     _models.list.forEach((m, i) => { m.sp = CM.bridgeSpans[i]; });
-    _models.at = CM.layoutRecomputeAt; _models.spans = CM.bridgeSpans; _models.tune = tune;
+    _models.at = CM.layoutRecomputeAt; _models.spans = CM.bridgeSpans; _models.tune = tune; _models.tv = tvNow;
     return _models.list;
   }
   const list = CM.bridgeSpans.map((sp) => buildModel(sp, L, band, ei));
   list.forEach((m, i) => { m.key = key + ':' + i; m.si = i; });
-  _models = { key, list, at: CM.layoutRecomputeAt, spans: CM.bridgeSpans, tune };
+  _models = { key, list, at: CM.layoutRecomputeAt, spans: CM.bridgeSpans, tune, tv: tvNow };
+  // Moins de travées qu'avant (une ville rebâtie plus petite) : les cuissons des
+  // travées disparues partent (audit du 05/10, MEM-9 — ~2 Mo de rasters chacune).
+  for (const si of _bakes.keys()) if (si >= list.length) _bakes.delete(si);
   return list;
 }
 
@@ -509,6 +520,7 @@ function occupied(R) {
 }
 
 const _bakes = new Map();
+const _rowsB = [0, 0];       // plage de rangées de la tranche en cours (sans allocation)
 function bakeFor(m) {
   if (typeof document === 'undefined') return null;
   const rs = roadSampler(m.K.deck && m.K.deck.tile);
@@ -520,6 +532,9 @@ function bakeFor(m) {
     key, B,
     deck: rasterCanvas(B.deck), back: rasterCanvas(B.back), front: rasterCanvas(B.front), refl: rasterCanvas(B.refl),
     occBack: occupied(B.back), occFront: occupied(B.front),
+    // Rangées occupées par colonne (rowCrop.js) : le cadre commun aux calques est
+    // vide à ~90 % (audit du 05/10, PERF-35).
+    rowsDeck: colRows(B.deck), rowsBack: colRows(B.back), rowsFront: colRows(B.front),
     gates: B.gates.map((G) => ({ G, cv: rasterCanvas(G.R) })),
     mons: B.monuments.map((Mn) => ({ Mn, cv: rasterCanvas(Mn.R) })),
   };
@@ -666,19 +681,42 @@ export function drawIsoBridgeSeg(ctx, it, now) {
   const prevSm = ctx.imageSmoothingEnabled;
   ctx.imageSmoothingEnabled = false;
   const y0 = Math.round(o.y), y1 = Math.round(o.y + B.h * z);
+  // Audit du 05/10 (PERF-35) : les calques partagent un cadre vide à ~90 % et se
+  // posaient en entier (le tablier) ou sur toute sa hauteur (les tranches). Ils ne
+  // posent plus que leurs rangées occupées — et le tablier ses bandes de colonnes
+  // non vides — quand c'est PROUVÉ identique au pixel (échelle device entière, cf.
+  // rowCrop.js) ; sinon comme avant. La découpe de lumière serre son emprise
+  // partout (lightLayer.litBox). Le REFLET garde sa pose : isoReflect retourne
+  // chaque colonne autour de son pied, mesuré sur le rectangle qu'on lui donne.
+  const dpr = CM.dpr || 1;
   if (it.part === 'deck') {
     const x0 = Math.round(o.x), x1 = Math.round(o.x + B.w * z);
-    ctx.drawImage(bk.deck, 0, 0, B.w, B.h, x0, y0, x1 - x0, y1 - y0);
+    if (x1 > x0 && y1 > y0 && rowCropExact(ctx, y0, y1, B.h, dpr) && colCropExact(ctx, x0, x1, B.w, dpr)) {
+      const kx = (x1 - x0) / B.w, ky = (y1 - y0) / B.h, S = bridgeTune.slice, rr = _rowsB;
+      for (let c0 = 0; c0 < B.w; c0 += S) {
+        const c1 = Math.min(B.w, c0 + S);
+        if (!sliceRows(bk.rowsDeck, Math.max(0, c0 - 1), Math.min(B.w, c1 + 1), rr)) continue;
+        ctx.drawImage(bk.deck, c0, rr[0], c1 - c0, rr[1] - rr[0], x0 + c0 * kx, y0 + rr[0] * ky, (c1 - c0) * kx, (rr[1] - rr[0]) * ky);
+      }
+    } else ctx.drawImage(bk.deck, 0, 0, B.w, B.h, x0, y0, x1 - x0, y1 - y0);
     drawDeckShade(ctx, m);
   } else if (it.part === 'back' || it.part === 'front') {
     const x0 = Math.round(o.x + it.c0 * z), x1 = Math.round(o.x + it.c1 * z);
     if (x1 > x0) {
-      const cv = it.part === 'back' ? bk.back : bk.front;
-      if (it.part === 'front') {
-        noteReflection(ctx, bk.refl, x0, y0, x1 - x0, y1 - y0, it.c0, 0, it.c1 - it.c0, B.h, 'column', 'water');
+      const front = it.part === 'front', cv = front ? bk.front : bk.back, cw = it.c1 - it.c0, k = (y1 - y0) / B.h;
+      if (front) {
+        noteReflection(ctx, bk.refl, x0, y0, x1 - x0, y1 - y0, it.c0, 0, cw, B.h, 'column', 'water');
       }
-      ctx.drawImage(cv, it.c0, 0, it.c1 - it.c0, B.h, x0, y0, x1 - x0, y1 - y0);
-      lightCutImage(cv, x0, y0, x1 - x0, y1 - y0, it.c0, 0, it.c1 - it.c0, B.h);
+      const rr = _rowsB;
+      if (y1 > y0 && sliceRows(front ? bk.rowsFront : bk.rowsBack, Math.max(0, it.c0 - 1), Math.min(B.w, it.c1 + 1), rr)) {
+        const pose = (g) => {
+          if (rowCropExact(g, y0, y1, B.h, dpr)) g.drawImage(cv, it.c0, rr[0], cw, rr[1] - rr[0], x0, y0 + rr[0] * k, x1 - x0, (rr[1] - rr[0]) * k);
+          else g.drawImage(cv, it.c0, 0, cw, B.h, x0, y0, x1 - x0, y1 - y0);
+        };
+        pose(ctx);
+        const b = LIGHT_LAYER.tight !== false ? litBox(x0, y0, (x1 - x0) / cw, k, 0, rr[0], cw, rr[1]) : { x0, y0, x1, y1 };
+        lightCut(b.x0, b.y0, b.x1, b.y1, pose);
+      }
     }
   } else if (it.part === 'gate') {
     const gk = bk.gates[it.gi];
@@ -932,49 +970,85 @@ function drawProp(ctx, m, pr, z, now) {
 // ── PASSE A : l'eau sous et à côté du pont (avant les bateaux) ────────────────
 // Clippé à l'eau VISIBLE : le ruban, et le ruban descendu de la hauteur du mur de
 // quai (sous la rive nord l'eau commence au pied du mur, pas à la margelle).
+// Audit du 05/10 (PERF-37) : à chaque frame, les berges se recalculaient (deux
+// objets par sample), le ruban se reprojetait deux fois par travée et se découpait
+// deux fois — un masque du fleuve ENTIER, le plus cher en rendu logiciel (~2 ms
+// par travée mesurés) —, même pont hors champ. Les berges sont gardées par fleuve
+// (elles ne dépendent que des samples), le ruban projeté une fois par frame, et
+// une travée dont les remplissages tombent hors de l'écran ne trace ni ne découpe
+// rien. Mêmes points, même chemin, mêmes remplissages : même image.
+// (Gardées par tableau de samples ET par recalcul du layout : un fleuve retouché sur
+// place se retrace au recalcul suivant — toutes les 1,5 s au pire, un calcul de rien.)
+let _edgesOf = null, _edgesKey = '', _edges = null;
+let _ribX = new Float64Array(0), _ribY = new Float64Array(0);
 export function drawIsoBridgeUnder() {
   const ms = bridgeGeoms(); if (!ms) return;
   const L = CM.layout, rv = L && L.river;
   if (!rv || !rv.present || !rv.samples || rv.samples.length < 2) return;
   const ctx = CM.ctx, z = CM.cam.zoom, T = CM.TILE;
   const sun = sunShadowAlpha();
-  const edges = riverEdgesWorld(rv.samples, T);
+  const ek = rv.samples.length + ':' + T + ':' + CM.layoutRecomputeAt;
+  if (_edgesOf !== rv.samples || _edgesKey !== ek) { _edges = riverEdgesWorld(rv.samples, T); _edgesOf = rv.samples; _edgesKey = ek; }
+  const edges = _edges, nL = edges.left.length, nR = edges.right.length;
+  let projected = false;
+  const project = () => {
+    if (_ribX.length < nL + nR) { _ribX = new Float64Array(nL + nR); _ribY = new Float64Array(nL + nR); }
+    for (let i = 0; i < nL; i += 1) { const s = worldToScreen(edges.left[i].x, edges.left[i].y); _ribX[i] = s.x; _ribY[i] = s.y; }
+    for (let i = 0; i < nR; i += 1) { const s = worldToScreen(edges.right[i].x, edges.right[i].y); _ribX[nL + i] = s.x; _ribY[nL + i] = s.y; }
+    projected = true;
+  };
   const ribbon = (dy) => {
     ctx.beginPath();
-    edges.left.forEach((p, i) => { const s = worldToScreen(p.x, p.y); if (i) ctx.lineTo(s.x, s.y + dy); else ctx.moveTo(s.x, s.y + dy); });
-    for (let i = edges.right.length - 1; i >= 0; i -= 1) { const s = worldToScreen(edges.right[i].x, edges.right[i].y); ctx.lineTo(s.x, s.y + dy); }
+    for (let i = 0; i < nL; i += 1) { if (i) ctx.lineTo(_ribX[i], _ribY[i] + dy); else ctx.moveTo(_ribX[i], _ribY[i] + dy); }
+    for (let i = nR - 1; i >= 0; i -= 1) ctx.lineTo(_ribX[nL + i], _ribY[nL + i] + dy);
     ctx.closePath();
   };
+  const cw = CM.cw || 0, ch = CM.ch || 0, cull = cw > 0 && ch > 0;
   for (const m of ms) {
     if (!(m.fB > m.fA)) continue;
+    const corners = (l0, l1, t0, t1) => [P(m, l0, t0, -m.hq), P(m, l1, t0, -m.hq), P(m, l1, t1, -m.hq), P(m, l0, t1, -m.hq)];
+    // Sous le tablier : la pénombre qu'on voit à travers les arches.
+    const qUnder = corners(m.fA - T, m.fB + T, m.tUp, m.tDn);
+    // L'ombre du soleil côté aval : le tablier et la face (hauteur du mur), puis le
+    // parapet, ajouré, à demi-dose. Aucun jour sous les arches : le rayon qui y
+    // passerait bute sur le dessous du tablier, large de deux cases.
+    let qSun = null, qPar = null;
+    const Q = m.K.parapet;
+    if (sun > 0 && m.vertical) {
+      const k = 0.894 * SUN_SHADOW.len;
+      qSun = corners(m.fA, m.fB, m.tDn, m.tDn + k * m.hq);
+      if (Q && Q.h) qPar = corners(m.fA, m.fB, m.tDn + k * m.hq, m.tDn + k * (m.hq + Q.h));
+    }
+    if (cull) {
+      let x0 = Infinity, y0 = Infinity, x1 = -Infinity, y1 = -Infinity;
+      for (const q of [qUnder, qSun, qPar]) {
+        if (!q) continue;
+        for (const p of q) { if (p.x < x0) x0 = p.x; if (p.x > x1) x1 = p.x; if (p.y < y0) y0 = p.y; if (p.y > y1) y1 = p.y; }
+      }
+      if (x1 < -2 || y1 < -2 || x0 > cw + 2 || y0 > ch + 2) continue;
+    }
+    if (!projected) project();
     ctx.save();
     ribbon(0);
     ctx.clip();
     ribbon(m.hq * z);
     ctx.clip();
-    const quad = (l0, l1, t0, t1) => {
-      const q = [P(m, l0, t0, -m.hq), P(m, l1, t0, -m.hq), P(m, l1, t1, -m.hq), P(m, l0, t1, -m.hq)];
+    const fillQ = (q) => {
       ctx.beginPath();
       ctx.moveTo(q[0].x, q[0].y); for (let i = 1; i < 4; i += 1) ctx.lineTo(q[i].x, q[i].y);
       ctx.closePath(); ctx.fill();
     };
     ctx.globalCompositeOperation = 'multiply';
-    // Sous le tablier : la pénombre qu'on voit à travers les arches.
     ctx.globalAlpha = bridgeTune.underA;
     ctx.fillStyle = bridgeTune.under;
-    quad(m.fA - T, m.fB + T, m.tUp, m.tDn);
-    // L'ombre du soleil côté aval : le tablier et la face (hauteur du mur), puis le
-    // parapet, ajouré, à demi-dose. Aucun jour sous les arches : le rayon qui y
-    // passerait bute sur le dessous du tablier, large de deux cases.
-    if (sun > 0 && m.vertical) {
-      const k = 0.894 * SUN_SHADOW.len;
+    fillQ(qUnder);
+    if (qSun) {
       ctx.fillStyle = SUN_SHADOW.col;
       ctx.globalAlpha = sun;
-      quad(m.fA, m.fB, m.tDn, m.tDn + k * m.hq);
-      const Q = m.K.parapet;
-      if (Q && Q.h) {
+      fillQ(qSun);
+      if (qPar) {
         ctx.globalAlpha = sun * (Q.type === 'wall' ? 1 : 0.5);
-        quad(m.fA, m.fB, m.tDn + k * m.hq, m.tDn + k * (m.hq + Q.h));
+        fillQ(qPar);
       }
     }
     ctx.restore();

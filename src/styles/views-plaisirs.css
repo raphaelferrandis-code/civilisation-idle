@@ -656,12 +656,22 @@
    ⚠ `--panel-2` et non `--panel` : c'est le jeton des surfaces DE LECTURE (0,90
    à 0,97 selon l'ère, contre 0,82), et ce panneau est devenu la surface de
    lecture principale du hub. Il suit l'ère, donc le tapis se teinte avec elle.
-   ⚠ Le flou est posé sur la scène ELLE-MÊME, jamais sur un de ses ancêtres : un
-   ancêtre filtré redeviendrait bloc conteneur et casserait le `position: fixed`
-   dont dépend l'affichage plein écran au doigt (cf. la media query plus bas). */
+
+   ⚠ LE FLOU EST RETIRÉ (audit du 2026-10-05, PERF-62). Depuis que la partie se
+   joue sur la table de l'âge (règle suivante, toujours active : PlaisirsView pose
+   `data-age`), le sol est un feutre OPAQUE cerné d'un rebord opaque : plus rien ne
+   traverse, le flou ne floutait plus que l'invisible. Il coûtait pourtant, mesuré
+   en rendu logiciel (roue de la Maison ouverte) : ~220 ms de CPU par seconde, la
+   salle derrière se repeignant 12 fois par seconde. Et comme tout filtre, il
+   faisait du panneau le BLOC CONTENEUR de ses descendants `fixed` : le feuillet
+   « ? » des scènes (StageHelp, placé en coordonnées de la fenêtre) tombait
+   décalé de la position du panneau, hors de son cadre, donc rogné — invisible
+   sur la roue et pendant le vol d'Icare. Les tables peintes (plaisirs-tables.css)
+   l'avaient déjà coupé. ⚠ Pas de filtre non plus sur un ANCÊTRE : il casserait en
+   prime le `position: fixed` de l'affichage plein écran au doigt (media query plus
+   haut). Garde : styles/__tests__/plaisirsPanneauSansFlou.test.js. */
 .plaisirs-stage .regulation-stage:not(.is-empty) {
   background-color: var(--panel-2);
-  backdrop-filter: blur(4px);
 }
 
 /* ⭐ LA PARTIE SE JOUE SUR LA TABLE DE L'ÂGE (refonte du 2026-10-02, phase 3 —

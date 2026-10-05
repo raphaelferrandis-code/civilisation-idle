@@ -22,6 +22,7 @@ import {
   maxBuyAmount,
   stepBuyAmount,
   buildingBatchCost,
+  dominantBuildingCategory,
   canExhume,
   archaeologyCandidates,
   archaeologyCost,
@@ -221,9 +222,9 @@ export function buyableInMass(building) {
 
 // Achète, du PLUS CHER au moins cher, tout ce qui est abordable dans les onglets
 // Moteurs / Savoir / Infrastructure — sans jamais toucher aux Ruines. Glouton par
-// pas de 1 AVEC re-balayage à chaque tour : l'ordre « plus cher d'abord » peut
-// changer après chaque achat (les coûts croissent avec le compteur), donc on
-// re-sélectionne à chaque pas. Les bâtiments verrouillés par leur ère
+// pas de 1 : le plus cher payable, unité après unité tant qu'il le reste, puis
+// re-balayage pour le suivant (les coûts croissent avec le compteur et la
+// caisse baisse). Les bâtiments verrouillés par leur ère
 // (unlockCycles) ou pas encore révélés par l'économie (apparition via
 // cyclePeaks, cf. isUnlocked) restent hors de portée. Un seul render() à la
 // fin. Refuse en pleine crise (crisisOpen). Respecte le verrou de catégorie de
@@ -235,13 +236,13 @@ export function buyAllAffordable(category = null) {
   // à vide et les chantiers de voirie, eux, passaient.
   if (gamePaused || collapseInProgress || state.crisisLimitAnnounced || crisisOpen()) return 0;
   const babelLock = isMythEffectActive("mythe_de_babel") ? state.babelCategory : null;
+  const babelRuin = hasActiveRuin(state, "babel");
 
   let bought = 0;
   while (bought < BUY_ALL_MAX_ITERS) {
     // Re-balayage de TOUS les bâtiments à chaque tour : buyableInMass relit
-    // isUnlocked, donc un bâtiment débloqué par l'achat précédent entre aussitôt
-    // dans la sélection (cascade). On retient l'unité la PLUS chère réellement
-    // payable (toutes devises via canPayCost).
+    // isUnlocked. On retient l'unité la PLUS chère réellement payable (toutes
+    // devises via canPayCost).
     let best = null;
     let bestKey = null;
     for (const b of buildings) {
@@ -257,8 +258,23 @@ export function buyAllAffordable(category = null) {
       }
     }
     if (!best) break;                                   // plus rien d'abordable
+    const dominant = babelRuin ? dominantBuildingCategory() : null;
     if (!buyBuildingCore(best.id, { amount: 1, silent: true })) break;
     bought += 1;
+    // Le PLUS CHER LE RESTE tant qu'il est payable : son achat ne fait que monter
+    // son propre prix (scale > 1) et ne baisse celui d'aucun autre — la Pente du
+    // rocher les multiplie tous d'autant. Re-balayer après chaque unité
+    // rechoisissait donc le même bâtiment : on enchaîne ses unités, une à une et
+    // au même prix qu'avant (aucun lot en forme fermée), jusqu'au premier refus,
+    // puis on re-balaie. Même suite d'achats au bit près, sans les B chiffrages
+    // par unité : 0,3 à 0,9 s de gel par appui sur E en fin de partie (audit
+    // 2026-10-05, PERF-16). Une exception : sous la Confusion des langues, la
+    // bascule de la catégorie dominante ALLÈGE l'ancienne, dont un bâtiment plus
+    // cher peut redevenir payable — on re-balaie dès qu'elle bascule. Un achat ne
+    // révèle aucun bâtiment (les pics de cycle ne bougent qu'au tick).
+    while (bought < BUY_ALL_MAX_ITERS
+      && (!babelRuin || dominantBuildingCategory() === dominant)
+      && buyBuildingCore(best.id, { amount: 1, silent: true })) bought += 1;
   }
 
   // VOIRIE (Raph 2026-07-29 : « branche le raccourci Tout acheter ») : les

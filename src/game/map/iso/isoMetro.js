@@ -637,7 +637,13 @@ export function metroActors(now, out, decay = 0) {
     const mx = (a.x + b.x) / 2, my = (a.y + b.y) / 2;
     if (!vis(mx, my, a.z) && !vis(mx, my, 0)) continue;
     const g = p.geo[i];
-    const kGeo = r1(b.x - a.x) + ',' + r1(b.y - a.y) + ',' + r1(a.z) + ',' + r1(b.z - a.z);
+    // Les CLÉS DE FORME du tronçon (et son ombre), gardées sur le plan (audit du 05/10,
+    // PERF-54) : elles ne changent qu'avec lui, la bande et la molette d'ombre ; rebâties
+    // à chaque frame, elles se rehachaient aussi à chaque lecture du cache. Mêmes textes.
+    const kc = p.kc || (p.kc = []);
+    let K = kc[i];
+    if (!K || K.band !== band) K = kc[i] = { band, kGeo: r1(b.x - a.x) + ',' + r1(b.y - a.y) + ',' + r1(a.z) + ',' + r1(b.z - a.z), sk: null, o: null, q: null, sd: 0, sh: '', bk: '', ft: '', gb: '', gf: '', lines: null };
+    const kGeo = K.kGeo;
     if (p.gnd[i]) {
       // ── trémie et rampe maçonnée : la maçonnerie reste debout dans la ruine
       const end = i < p.G ? 0 : 1;
@@ -646,18 +652,22 @@ export function metroActors(now, out, decay = 0) {
       metroStats.segs += 1;
       // Ce que les murs côté caméra cachent du fond : sous le bord du mur (et, au
       // bout est, sous le bord du parapet qui ferme la tranchée).
-      const ns = nearSide(g);
-      const lines = [[sidePt(a, g, GEO.pitIn, ns, 0), sidePt(b, g, GEO.pitIn, ns, 0)]];
-      if (end === 1) lines.push([[p.mouth1, a.y - T, 0], [p.mouth1, a.y + T, 0]]);
-      // (au bout est, la ligne du parapet de bout est propre à chaque tronçon)
-      const kE = kGeo + '|' + (first ? 1 : 0) + '|' + end + (end === 1 ? '|' + i : '');
+      if (!K.gb) {
+        const ns = nearSide(g);
+        K.lines = [[sidePt(a, g, GEO.pitIn, ns, 0), sidePt(b, g, GEO.pitIn, ns, 0)]];
+        if (end === 1) K.lines.push([[p.mouth1, a.y - T, 0], [p.mouth1, a.y + T, 0]]);
+        // (au bout est, la ligne du parapet de bout est propre à chaque tronçon)
+        const kE = kGeo + '|' + (first ? 1 : 0) + '|' + end + (end === 1 ? '|' + i : '');
+        K.gb = 'gb|' + band + '|' + kE; K.gf = 'gf|' + band + '|' + kE + '|' + (abut ? 1 : 0);
+      }
+      const lines = K.lines, kGb = K.gb, kGf = K.gf;
       out.push({ wx: mx, wy: my, d: p.dB[i] - 0.05 * T, draw(ctx) {
-        const bk = baked('gb|' + band + '|' + kE, () => groundBack(M, a, b, g, T, stepW, first ? end : -1), { a, lines });
+        const bk = baked(kGb, () => groundBack(M, a, b, g, T, stepW, first ? end : -1), { a, lines });
         const s0 = worldToScreen(a.x, a.y, a.z);
         blitBaked(ctx, bk, s0.x, s0.y, d);
       } });
       out.push({ wx: mx, wy: my, d: p.dF[i] + 0.02 * T, draw(ctx) {
-        const bk = baked('gf|' + band + '|' + kE + '|' + (abut ? 1 : 0), () => groundFront(M, a, b, g, T, first ? end : -1, abut));
+        const bk = baked(kGf, () => groundFront(M, a, b, g, T, first ? end : -1, abut));
         const s0 = worldToScreen(a.x, a.y, a.z);
         blitBaked(ctx, bk, s0.x, s0.y, d);
       } });
@@ -669,22 +679,32 @@ export function metroActors(now, out, decay = 0) {
     const dFront = p.dF[i], st = p.inStation[i] === 1;
     if (MET.shadow > 0) {
       const sk = MET.shadow;
-      const o = { x: a.x + a.z * sk, y: a.y, z: 0 };
-      const gs = segGeo(a, b, p.w * T);
-      const q = [gs.AL, gs.BL, gs.BR, gs.AR].map((c) => [c[0] + c[2] * sk - o.x, c[1] - o.y, 0]);
-      out.push({ wx: o.x, wy: o.y, d: Math.min(...q.map((c) => depthOf(c[0] + o.x, c[1] + o.y))) - 0.05 * T, draw(ctx) {
-        const bk = baked('sh|' + (mono ? 1 : 0) + '|' + kGeo, () => [{ poly: q, col: '#141828' }]);
+      if (K.sk !== sk) {
+        const o = { x: a.x + a.z * sk, y: a.y, z: 0 };
+        const gs = segGeo(a, b, p.w * T);
+        K.q = [gs.AL, gs.BL, gs.BR, gs.AR].map((c) => [c[0] + c[2] * sk - o.x, c[1] - o.y, 0]);
+        K.sd = Math.min(...K.q.map((c) => depthOf(c[0] + o.x, c[1] + o.y)));
+        K.o = o; K.sk = sk; K.sh = 'sh|' + (mono ? 1 : 0) + '|' + kGeo;
+      }
+      const o = K.o, q = K.q, kSh = K.sh;
+      out.push({ wx: o.x, wy: o.y, d: K.sd - 0.05 * T, draw(ctx) {
+        const bk = baked(kSh, () => [{ poly: q, col: '#141828' }]);
         const s0 = worldToScreen(o.x, o.y, 0);
         blitBaked(ctx, bk, s0.x, s0.y, d, (mono ? 0.11 : 0.15) * (1 - 0.75 * (CM.nightF || 0)));
       } });
     }
+    if (!K.bk) {
+      K.bk = 'bk|' + band + '|' + kGeo + '|' + (st ? 1 : 0);
+      K.ft = 'fr|' + band + '|' + kGeo + '|' + (st ? 1 : 0) + '|' + (i % 3 === 0 ? 1 : 0);
+    }
+    const kBk = K.bk, kFr = K.ft;
     out.push({ wx: mx, wy: my, d: dFront - 0.002 * T, draw(ctx) {
-      const bk = baked('bk|' + band + '|' + kGeo + '|' + (st ? 1 : 0), () => deckBack(M, a, b, g, T, stepW, st));
+      const bk = baked(kBk, () => deckBack(M, a, b, g, T, stepW, st));
       const s0 = worldToScreen(a.x, a.y, a.z);
       blitBaked(ctx, bk, s0.x, s0.y, d);
     } });
     out.push({ wx: mx, wy: my, d: dFront, draw(ctx) {
-      const bk = baked('fr|' + band + '|' + kGeo + '|' + (st ? 1 : 0) + '|' + (i % 3 === 0 ? 1 : 0), () => deckFront(M, a, b, g, T, stepW, st, i));
+      const bk = baked(kFr, () => deckFront(M, a, b, g, T, stepW, st, i));
       const s0 = worldToScreen(a.x, a.y, a.z);
       blitBaked(ctx, bk, s0.x, s0.y, d);
       if (M.edgeGlow && (CM.nightF || 0) * (1 - decay) > 0.05) {

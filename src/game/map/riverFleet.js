@@ -837,6 +837,7 @@ function navLaneGoal(sh, room) {
   return sh.dir * k * room;
 }
 
+const SALUTED_SWEEP = 32;   // saluts retenus par bateau avant d'oublier les partis (MEM-9)
 function navSteer(ships, env, step, nav) {
   const sm = env.samples;
   const L = nav.L;
@@ -941,12 +942,21 @@ function navSteer(ships, env, step, nav) {
   for (const A of live) {
     if (A.salute > 0) A.salute = Math.max(0, A.salute - step);
   }
+  let ids = null;
   for (const A of live) {
     for (const B of live) {
       if (B.id <= A.id || B.dir === A.dir || isStopped(A) || isStopped(B)) continue;
       if (Math.abs(B.t - A.t) * L > 1.4 || Math.abs(A.lat - B.lat) > 2.6) continue;
       A._saluted = A._saluted || {};
       if (A._saluted[B.id]) continue;
+      // Ceux qui ne meurent pas (bac, navette, drague) croisent des milliers de bateaux
+      // en une longue partie : passé SALUTED_SWEEP saluts, ils oublient ceux qui ont
+      // quitté le fleuve (audit du 05/10, MEM-9) — un id ne revient jamais.
+      if ((A._salN = (A._salN || 0) + 1) > SALUTED_SWEEP) {
+        if (!ids) ids = new Set(ships.map((s) => s.id));
+        for (const k in A._saluted) if (!ids.has(+k)) delete A._saluted[k];
+        A._salN = Object.keys(A._saluted).length + 1;
+      }
       A._saluted[B.id] = 1;
       A.salute = 2.4; B.salute = 2.4;
     }

@@ -6,7 +6,7 @@
 import { CM } from '../layout.js';
 import { worldToScreen } from './projection.js';
 import { riverRibbonPath, WATER_FILL } from './isoRiver.js';
-import { takeNotedRipples, drawRipples } from './waterRipples.js';
+import { takeNotedRipples, drawRipples, ripplesShown } from './waterRipples.js';
 
 export function drawIsoRipples(ctx, now) {
   const noted = takeNotedRipples();
@@ -19,6 +19,12 @@ export function drawIsoRipples(ctx, now) {
     for (const list of noted.values()) {
       for (const e of list) {
         if ((e.clip === 'river') !== river) continue;
+        const o = worldToScreen(e.wx || 0, e.wy || 0, e.h || 0);   // (wx, wy) : origine du champ, s'il est local
+        // Rien à poser (hors champ, zoom trop large) : pas de découpe au ruban pour
+        // lui (audit du 05/10, PERF-56). Les ouvrages notent leurs remous à chaque
+        // image, port hors champ compris : le tracé du ruban et son clip étaient payés
+        // à chaque image dès qu'un port existait, pour ne rien peindre.
+        if (!ripplesShown(e.F, o.x, o.y, z, 0.7, view)) continue;
         if (river && !clipped) {
           if (!sm || sm.length < 2) break;
           ctx.save();
@@ -26,7 +32,6 @@ export function drawIsoRipples(ctx, now) {
           ctx.clip(WATER_FILL);
           clipped = true;
         }
-        const o = worldToScreen(e.wx || 0, e.wy || 0, e.h || 0);   // (wx, wy) : origine du champ, s'il est local
         drawRipples(ctx, e.F, o.x, o.y, z, now, 0.7, view);
       }
     }

@@ -449,23 +449,34 @@ export function paintReels(R, scene, reels, pos, band, blur = []) {
   // vitesse est une moyenne des positions traversées (une traînée fondue, plus des
   // symboles recopiés) ; les rouleaux DESCENDENT, comme sur une vraie machine (la vue
   // décroît `pos`) : la traînée est donc au-dessus du symbole.
+  // Audit du 05/10 (PERF-31) : le symbole se résolvait DANS la boucle la plus intérieure
+  // (rouleau × rangée × colonne × échantillon de flou : 34 000 symbolRaster par image,
+  // 3 à 11 ms à 60 i/s pendant un tirage). Les rasters se résolvent une fois par appel,
+  // et la case lue (v, cell, sy) une fois par rangée et par échantillon — elle ne dépend
+  // pas de la colonne. Mêmes calculs, dans le même ordre : mêmes octets.
   const { win, reelX } = scene, C = SLOT_CELL, H = win.h, mid = H / 2;
   const L = rgb(scene.look === 'cosmic' ? '#f8fbff' : '#fbf6e8'), D = rgb('#5a5048');
+  const icons = reels.map((reel) => reel.map((id) => symbolRaster(id, band)));
+  const rowIc = new Array(7), rowK = new Int32Array(7);
   for (let r = 0; r < reelX.length; r += 1) {
-    const reel = reels[r], n = reel.length, x0 = reelX[r], nb = Math.max(1, Math.min(7, (blur[r] || 0) + 1));
+    const reel = reels[r], icr = icons[r], n = reel.length, x0 = reelX[r], nb = Math.max(1, Math.min(7, (blur[r] || 0) + 1));
     for (let j = 0; j < H; j += 1) {
       const shade = Math.abs(j - mid) / mid;
       const bt = Math.max(0, shade - 0.35) * 0.9, st = 1 - Math.max(0, shade - 0.45) * 0.8;
       const br = L[0] + (D[0] - L[0]) * bt, bg = L[1] + (D[1] - L[1]) * bt, bb = L[2] + (D[2] - L[2]) * bt;
+      // La rangée du symbole vue par chaque échantillon (−1 : entre deux cases).
+      for (let b = 0; b < nb; b += 1) {
+        const v = pos[r] + (j + b - mid) / C, cell = Math.floor(v + 0.5), sy = Math.floor((v + 0.5 - cell) * C) - 1;
+        if (sy >= 0 && sy < SLOT_ICON) { rowIc[b] = icr[((cell % n) + n) % n].data; rowK[b] = sy * SLOT_ICON * 4; } else rowK[b] = -1;
+      }
       for (let i = 0; i < C; i += 1) {
         let ar = 0, ag = 0, ab = 0;
-        const sx = i - 1;
+        const sx = i - 1, inX = sx >= 0 && sx < SLOT_ICON;
         for (let b = 0; b < nb; b += 1) {
-          const v = pos[r] + (j + b - mid) / C, cell = Math.floor(v + 0.5), sy = Math.floor((v + 0.5 - cell) * C) - 1;
           let pr = br, pg = bg, pb = bb;
-          if (sx >= 0 && sx < SLOT_ICON && sy >= 0 && sy < SLOT_ICON) {
-            const ic = symbolRaster(reel[((cell % n) + n) % n], band), k = (sy * SLOT_ICON + sx) * 4;
-            if (ic.data[k + 3]) { pr = ic.data[k] * st; pg = ic.data[k + 1] * st; pb = ic.data[k + 2] * st; }
+          if (inX && rowK[b] >= 0) {
+            const d = rowIc[b], k = rowK[b] + sx * 4;
+            if (d[k + 3]) { pr = d[k] * st; pg = d[k + 1] * st; pb = d[k + 2] * st; }
           }
           ar += pr; ag += pg; ab += pb;
         }

@@ -40,7 +40,7 @@ import { WINTER } from '../seasonMode.js';
 import { SEASON_GRASS } from './isoGroundDetail.js';
 import { GRASS, rgb } from './isoPalette.js';
 import { vieHalo, vieK, vieTreeSway } from './isoVie.js';
-import { lightCutImage } from '../lightLayer.js';
+import { lightCut, lightCutImage, lightCutLive } from '../lightLayer.js';
 import { drawSunShadow } from './isoSunShadow.js';
 // Le mobilier de rue PAR ÈRE, dessiné par le code (2026-10-02) : réverbère et
 // terre-plein. Une ère sans kit garde le mobilier d'avant (PNG, parterres).
@@ -497,7 +497,19 @@ function drawKitSprite(ctx, art, o, now, sways) {
     }
   }
   ctx.imageSmoothingEnabled = prev;
-  lightCutImage(art.img, dx, dy, dw, dh);
+  if (!sway) lightCutImage(art.img, dx, dy, dw, dh);
+  else if (lightCutLive()) {
+    // La découpe suit les bandes LÀ OÙ elles sont posées (audit du 05/10, PERF-73) :
+    // la silhouette de repos laissait une frange de halo traverser le feuillage.
+    const k = dh / art.h;
+    let reach = 0;
+    for (const b of sway) reach = Math.max(reach, Math.abs(b[2]) * k);
+    lightCut(dx - reach, dy, dx + dw + reach, dy + dh, (lc) => {
+      for (const [y0, y1, off] of sway) {
+        if (y1 > y0) lc.drawImage(art.img, 0, y0, art.w, y1 - y0, dx + off * k, dy + y0 * k, dw, (y1 - y0) * k);
+      }
+    });
+  }
 }
 // BUISSONS DE L'ÎLE de la merveille (et tout buisson sauvage) : la même main que
 // le terre-plein de la Pierre — un pixel d'art par pixel d'écran, ombre solaire,

@@ -179,3 +179,19 @@ describe("démontage : l'état d'entrée ne survit pas (BUG-91)", () => {
     expect(CM._cursorBase).toBe(null);
   });
 });
+
+describe("frames synchrones : aucune chaîne rAF de plus (PERF-58)", () => {
+  beforeAll(() => { mount(); tick(); tick(); });
+
+  it("forceFrame et captureFrame peignent sans replanifier, la boucle garde UN rappel par vsync", () => {
+    expect(rafQueue.length).toBe(1);
+    h.draws.length = 0;
+    for (let k = 0; k < 5; k += 1) CM.captureFrame({ live: true, now: clock + 40 });
+    CM.forceFrame();
+    expect(h.draws.length).toBeGreaterThanOrEqual(5);
+    // Avant : un rappel de plus par appel, chacun se ré-armant à chaque vsync.
+    expect(rafQueue.length).toBe(1);
+    tick(); tick();
+    expect(rafQueue.length).toBe(1);
+  });
+});

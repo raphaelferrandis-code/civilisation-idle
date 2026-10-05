@@ -247,13 +247,18 @@ describe('blitAnim — la lueur suit le feu, et rien que le feu', () => {
     expect(ctx.spots[0][1]).toBeCloseTo(core.fy * 100, 6);
   });
 
-  it('l\'eau qui coule ne brille pas', () => {
-    for (const key of ['aqueduct-water-seg', 'aqueduct-water-outlet', 'aqueduct-water-intake']) {
+  // Seul un foyer MESURÉ éclaire. L'eau des aqueducs, qui gardait cette règle, est
+  // partie avec ses bandes (audit du 05/10, ASSET-5) : on retire le foyer d'une bande
+  // de feu le temps du test — dessinée, elle ne doit plus rien annoncer.
+  it('une bande sans foyer mesuré n\'éclaire pas', () => {
+    const core = ANIM_FIRE_CORES['watch-fire'];
+    delete ANIM_FIRE_CORES['watch-fire'];
+    try {
       const ctx = makeCtx();
-      blitAnim(ctx, 0, 0, 100, 100, key, 0, 0.5, 0.5, 1, 1);
-      expect(pendingFlameGlows(), `${key} ne devrait pas éclairer`).toBe(0);
+      blitAnim(ctx, 0, 0, 100, 100, 'watch-fire', 0, 0.5, 0.5, 1, 1);
+      expect(pendingFlameGlows(), 'watch-fire sans foyer ne devrait pas éclairer').toBe(0);
       paintFlameGlows(ctx);
-      expect(ctx.lit, `${key} ne devrait pas éclairer`).toBe(0);
-    }
+      expect(ctx.lit, 'watch-fire sans foyer ne devrait pas éclairer').toBe(0);
+    } finally { ANIM_FIRE_CORES['watch-fire'] = core; }
   });
 });

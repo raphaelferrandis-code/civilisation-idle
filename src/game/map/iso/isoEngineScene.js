@@ -106,8 +106,8 @@ let _engInkCanvas = null;
 let _engInkEra = '';
 // ⚠ LE CHARGEMENT DES PNG (BUG-59) : un prop pas encore décodé ne laisse PAS
 // « rien d'encré », il laisse le REPLI procédural, qui a une vraie encre (une
-// université en bande ≤ 3 remplit toute sa boîte). Or ensureProps ne lance le
-// chargement qu'au premier dessin : la première frame d'une sauvegarde mesurait
+// université en bande ≤ 3 remplit toute sa boîte). Or un prop n'est chargé qu'à
+// son premier dessin (propIm) : la première frame d'une sauvegarde mesurait
 // tous les moteurs visibles sur leur repli, et figeait cette boîte pour l'ère —
 // le défaut « la guilde vole le survol des Tribunaux » revenait. Chaque mesure
 // note donc la VERSION DES PROPS (getPropVersion, bumpée à chaque décodage) ;
@@ -131,9 +131,17 @@ function engineInkKey(t, era) {
   t._inkKey = (t.buildingId || t.variant || '?') + (craft ? '~' + craft : '') + ':' + (t.tier || 0) + ':' + sx + 'x' + sy + ':' + era;
   return t._inkKey;
 }
+// L'ÈRE DE LA CLÉ, plafonnée à 34 (audit 2026-10-05, MEM-6) : au-delà, une scène ne
+// dépend plus que de sa bande — tous les seuils d'ère du dessin sont ≤ 30 (stades
+// engineStage et pixelBuildings à 10/25/30, variantes à 5/10/11, bateaux du port). Sans
+// plafond, chaque ère transcendante vidait le cache et refaisait ~56 mesures à 96 px
+// (getImageData compris) pour des boîtes identiques. Seul écart : le repli
+// paramétrique du port (props de quai pas encore décodés, bateau tous les 2 âges),
+// re-mesuré de toute façon au décodage (getPropVersion).
+const ENG_INK_ERA_MAX = 34;
 function engineInkFrac(t, now) {
   if (typeof document === 'undefined') return null;
-  const era = (CM.layout?.counts?.eraBand ?? 0) + ':' + (CM.layout?.counts?.eraIndex ?? 0);
+  const era = (CM.layout?.counts?.eraBand ?? 0) + ':' + Math.min(CM.layout?.counts?.eraIndex ?? 0, ENG_INK_ERA_MAX);
   if (era !== _engInkEra) { _engInkEra = era; _engInkCache.clear(); }
   const key = engineInkKey(t, era);
   const ver = getPropVersion();
@@ -262,27 +270,41 @@ function drawIsoEngineOutline(t, bx, by, bw, now, color) {
 // Recette identique dans les trois cas : quatre copies décalées d'un pixel,
 // remplies à plat en source-in, posées AVANT le sprite qui les recouvre et n'en
 // laisse dépasser que le contour.
-let _sprOutlineCanvas = null;
+// Audit du 05/10 (PERF-32) : le liseré se refaisait à CHAQUE frame du survol, à la
+// taille écran du lieu (jusqu'à 1 373 × 2 205 px au zoom 3,2 : un effacement, quatre
+// poses agrandies, un remplissage), et son canevas, jamais rétréci, gardait ~12 Mo
+// pour toute la session. Il est gardé tant que ni l'image (une cuisson), ni sa taille
+// (le zoom), ni la teinte ne changent — la frame ne fait plus que le poser — et rendu
+// dès que le survol cesse (dropSpriteOutline).
+let _sprOutline = null;          // { cv, img, w, h, color } : le liseré du survol en cours
+export function dropSpriteOutline() {
+  if (!_sprOutline) return;
+  _sprOutline.cv.width = 0; _sprOutline.cv.height = 0;
+  _sprOutline = null;
+}
 export function drawSpriteOutline(img, dx, dy, dw, dh, color) {
   if (typeof document === 'undefined') return;
   const p = 1;
   const w = Math.max(1, Math.ceil(dw)), h = Math.max(1, Math.ceil(dh));
   const cw = w + p * 2, ch = h + p * 2;
-  if (!_sprOutlineCanvas) _sprOutlineCanvas = document.createElement('canvas');
-  const oc = _sprOutlineCanvas;
-  // Le canevas est réutilisé et ne rétrécit jamais : on efface TOUT et on ne
-  // reblitte ensuite que la zone utile.
-  if (oc.width < cw || oc.height < ch) { oc.width = cw; oc.height = ch; }
-  const octx = oc.getContext('2d');
-  octx.clearRect(0, 0, oc.width, oc.height);
-  octx.imageSmoothingEnabled = false;
-  for (const [ox, oy] of [[0, p], [p * 2, p], [p, 0], [p, p * 2]]) {
-    octx.drawImage(img, ox, oy, w, h);
+  if (!_sprOutline) _sprOutline = { cv: document.createElement('canvas'), img: null, w: 0, h: 0, color: null };
+  const so = _sprOutline, oc = so.cv;
+  if (so.img !== img || so.w !== w || so.h !== h || so.color !== color) {
+    // Le canevas ne rétrécit pas pendant le survol (un zoom qui glisse le
+    // redimensionnerait à chaque frame) : on n'efface et ne reblitte que la zone utile.
+    const octx = oc.getContext('2d');
+    if (oc.width < cw || oc.height < ch) { oc.width = cw; oc.height = ch; }
+    else octx.clearRect(0, 0, cw, ch);
+    octx.imageSmoothingEnabled = false;
+    for (const [ox, oy] of [[0, p], [p * 2, p], [p, 0], [p, p * 2]]) {
+      octx.drawImage(img, ox, oy, w, h);
+    }
+    octx.globalCompositeOperation = 'source-in';
+    octx.fillStyle = color;
+    octx.fillRect(0, 0, cw, ch);
+    octx.globalCompositeOperation = 'source-over';
+    so.img = img; so.w = w; so.h = h; so.color = color;
   }
-  octx.globalCompositeOperation = 'source-in';
-  octx.fillStyle = color;
-  octx.fillRect(0, 0, cw, ch);
-  octx.globalCompositeOperation = 'source-over';
   const ctx = CM.ctx;
   const prev = ctx.imageSmoothingEnabled;
   ctx.imageSmoothingEnabled = false;

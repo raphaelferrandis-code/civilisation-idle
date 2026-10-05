@@ -2,7 +2,6 @@
 
 import { chronicleArticles } from '../data/chronicleArticles.js';
 import { eras } from '../data/world.js';
-import { save } from './state.js';
 import { mapStage, currentEraIndex } from './mechanics.js';
 import { cycleYear } from './actions/utils.js';
 import { D } from './num.js';
@@ -73,6 +72,19 @@ const CATEGORY_PRIORITIES = {
   paix: 5,
   bonus_libre: 6
 };
+
+// Titre, texte et auteur d'une dépêche, RELUS dans l'article source à
+// l'affichage : la save n'en garde plus que l'identité (articleId). Chaque
+// dépêche recopiait ~400 o de texte, jusqu'à ~95 Ko de save sur 250 dépêches
+// alors que seule la dernière s'affiche — et ce texte restait figé dans la
+// langue de sa parution (audit 2026-10-05, SAV-16). Repli sur les champs texte
+// que porte encore la dépêche (save d'avant ce changement, article retiré).
+const ARTICLE_BY_ID = new Map(chronicleArticles.map((art) => [art.id, art]));
+export function chronicleEntryContent(entry) {
+  const art = entry ? ARTICLE_BY_ID.get(entry.articleId || entry.id) : null;
+  if (art) return { title: art.title, text: art.text, author: art.author || null };
+  return { title: entry?.title || "", text: entry?.text || "", author: entry?.author || null };
+}
 
 export function evaluateCondition(type, state) {
   const stage = mapStage();
@@ -195,12 +207,11 @@ export function checkAndTriggerChronicleEntries(state, dt) {
   const year = cycleYear();
   const era = eras[currentEraIndex()]?.name || tr({ fr: "Campement", en: "Camp" });
 
+  // Ni titre, ni texte, ni auteur : chronicleEntryContent les relit dans
+  // l'article (SAV-16).
   const newEntry = {
     id: isRerun ? `${chosenArticle.id}~r${Date.now()}` : chosenArticle.id,
     articleId: chosenArticle.id,
-    title: chosenArticle.title,
-    text: chosenArticle.text,
-    author: chosenArticle.author,
     age: era,
     date: tr({ fr: `An ${year}`, en: `Year ${year}` }),
     category: CATEGORY_LABELS[chosenArticle.conditionType] || tr({ fr: "Chronique", en: "Chronicle" }),
@@ -211,6 +222,7 @@ export function checkAndTriggerChronicleEntries(state, dt) {
 
   state.chronicleEntries = [newEntry, ...(state.chronicleEntries || [])].slice(0, 250);
   state.chronicleCooldown = CHRONICLE_COOLDOWN_SEC;
-
-  save();
+  // Pas de save() par dépêche : l'autosave (10 s) et la save de sortie la
+  // portent, une sérialisation complète de plus ne servait à rien (audit
+  // 2026-10-05, PERF-69).
 }

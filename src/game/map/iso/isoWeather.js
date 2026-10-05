@@ -202,9 +202,11 @@ function rainStamp(dx, dy, w, rgb) {
 // large d'une goutte traverse l'écran à chaque tour — une ligne d'horizon qui
 // descend, impossible à ne plus voir une fois repérée.
 //
-// ⚠ COÛT MÉMOIRE : quatre canvas plein écran (~27 Mo sur une grande fenêtre).
-// Ils sont LIBÉRÉS dès que l'averse s'arrête — la pluie ne tombe que 12 % du
-// cycle, rien ne justifie de les garder au sec.
+// ⚠ COÛT MÉMOIRE : quatre canvas plein écran, 4 × (W + 2·marge) × H × dpr² × 4 octets
+// — 56 Mo en 2560 × 1340 à dpr 1, 135 Mo en 4K à dpr 2 (audit du 2026-10-05,
+// PERF-23 : ce commentaire en annonçait ~27). Ils sont
+// LIBÉRÉS dès que l'averse s'arrête ou tourne à la neige — la pluie ne tombe que
+// 12 % du cycle, rien ne justifie de les garder au sec.
 const RAIN_LANES = 4;
 const LANE_SPEED = [1, 1.26, 1.52, 1.78];   // même éventail qu'au temps du (1 + sd2 × 0,78) par goutte
 let rainVeil = null;
@@ -213,9 +215,12 @@ let rainVeil = null;
 // la sienne, et la même H plus haut — c'est ce doublon qui fait que la nappe se
 // raccorde à elle-même quand elle reboucle. Pur et exporté : la couture est
 // invisible sur une image fixe, elle ne se trahit qu'en mouvement, et trop tard.
-export function rainVeilDraws(n, lw, lh, ox = 0) {
+// La goutte i ne dépend que de i (et de la nappe) : les n premières sont un PRÉFIXE
+// des n + k suivantes. `from` ne rend que les gouttes [from, n) — l'ajout à une
+// nappe déjà semée (cf. rainVeilFor).
+export function rainVeilDraws(n, lw, lh, ox = 0, from = 0) {
   const out = [];
-  for (let i = 0; i < n; i += 1) {
+  for (let i = from; i < n; i += 1) {
     const sd = _rnd(i, 1), sd2 = _rnd(i, 2);
     const lane = i % RAIN_LANES;
     const x = Math.round(_frac(sd2 + sd * 0.37) * lw) - ox;
@@ -236,12 +241,27 @@ function rainVeilFor(n, dx, dy, th, W, H) {
   const kn = n < 24 ? n : Math.round(n / 8) * 8;
   const marge = Math.abs(kdx) + th + 8;
   const lw = W + marge * 2, lh = Math.max(1, H);
-  const key = [kn, kdx, kdy, th, lw, lh, dpr].join(',');
+  const geo = [kdx, kdy, th, lw, lh, dpr].join(',');
+  const key = kn + ',' + geo;
   if (rainVeil && rainVeil.key === key) return rainVeil;
   const st = rainStamp(kdx, kdy, th, RAIN_COL);
   if (!st) return null;
+  // La nappe est plus large que l'écran (les gouttes de bord doivent être
+  // ENTIÈRES) : on sème donc au prorata, sans quoi la marge diluerait l'averse.
+  const np = Math.round(kn * (lw / Math.max(1, W)));
+  // L'AVERSE QUI MONTE NE REFORGE PLUS (audit du 2026-10-05, PERF-23) : pendant les
+  // ~86 s de la rampe, chaque cran de 8 gouttes effaçait les quatre nappes et les
+  // ressemait en entier (~120 reforges par averse sur ~400). Les gouttes étant un
+  // préfixe (rainVeilDraws), on n'ajoute que les nouvelles, dans le même ordre :
+  // mêmes pixels qu'une forge complète. La descente et les rafales (la forme de la
+  // goutte change) reforgent comme avant.
+  if (rainVeil && rainVeil.geo === geo && np > rainVeil.np && rainVeil.cv.length === RAIN_LANES) {
+    sowRainVeil(rainVeil, rainVeilDraws(np, rainVeil.lw, rainVeil.lh, st.ox, rainVeil.np), st);
+    rainVeil.key = key; rainVeil.np = np;
+    return rainVeil;
+  }
   const V = rainVeil && rainVeil.cv.length === RAIN_LANES ? rainVeil
-    : { key: '', marge: 0, lw: 0, lh: 0, cv: [], cx: [] };
+    : { key: '', geo: '', np: 0, marge: 0, lw: 0, lh: 0, cv: [], cx: [] };
   const pw = Math.max(1, Math.round(lw * dpr)), ph = Math.max(1, Math.round(lh * dpr));
   // Taille LOGIQUE exacte de la nappe (pw × ph device) : c'est elle qui sert de
   // période au bouclage et de taille de pose. À dpr 1 : lw × lh, à l'identique.
@@ -259,18 +279,19 @@ function rainVeilFor(n, dx, dy, th, W, H) {
     c2.clearRect(0, 0, vw, vh);
     c2.imageSmoothingEnabled = false;
   }
-  // La nappe est plus large que l'écran (les gouttes de bord doivent être
-  // ENTIÈRES) : on sème donc au prorata, sans quoi la marge diluerait l'averse.
-  const plan = rainVeilDraws(Math.round(kn * (lw / Math.max(1, W))), vw, vh, st.ox);
+  sowRainVeil(V, rainVeilDraws(np, vw, vh, st.ox), st);
+  V.key = key; V.geo = geo; V.np = np; V.marge = marge; V.lw = vw; V.lh = vh;
+  rainVeil = V;
+  return V;
+}
+// Sème les gouttes `plan` dans les nappes de V (repère et lissage déjà posés).
+function sowRainVeil(V, plan, st) {
   // L'étampe sur la grille DEVICE, à une taille entière en px device (cf. snapDev).
   const sw = snapDev(st.cv.width), sh = snapDev(st.cv.height);
   for (let i = 0; i < plan.length; i += 1) {
     const d = plan[i];
     V.cx[d.lane].drawImage(st.cv, snapDev(d.x), snapDev(d.y), sw, sh);
   }
-  V.key = key; V.marge = marge; V.lw = vw; V.lh = vh;
-  rainVeil = V;
-  return V;
 }
 
 // Un rideau = les quatre nappes posées à leur avancement propre. `tour` fait
@@ -314,7 +335,9 @@ export function drawIsoRain(now) {
   // pèsent des dizaines de mégaoctets, et le ciel est dégagé 88 % du cycle.
   if (kind === 'none') { rainPhaseAt = -1; rainVeil = null; splashes.length = 0; return; }
   const g = Math.max(0, Math.min(1, (CM.gustF || 0) * RAIN_TUNE.gust));
-  if (kind === 'snow') { drawIsoSnowfall(now, r, g); return; }
+  // La saison qui bascule en pleine averse : la neige prend le relais, les nappes de
+  // pluie (des dizaines de Mo) sont rendues aussi (PERF-23).
+  if (kind === 'snow') { rainVeil = null; drawIsoSnowfall(now, r, g); return; }
   const ctx = CM.ctx, W = CM.cw, H = CM.ch;
   // Assombrissement : même geste que NIGHT_VEIL, un aplat ardoise. La bouffée
   // charge le ciel d'un cran au passage, puis le rend.

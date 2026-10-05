@@ -33,22 +33,33 @@ if (typeof window !== 'undefined') {
 }
 // Ancres de végétation visibles (base monde + rayon + graine), plafonnées. Mémoïsé
 // par (layout, bornes) : ne se reconstruit qu'au changement de cadrage/plan.
-function isoVegAnchors(L, b) {
+// Exportée pour sa garde (ambientAnchors.test.js).
+export function isoVegAnchors(L, b) {
   const cache = CM._vegAnchors;
   const sig = (CM.layoutRecomputeAt || 0) + ':' + (L.gridN | 0) + ':' + (L.mapSeed || 0)
     + ':' + b.gx0 + ':' + b.gy0 + ':' + b.gx1 + ':' + b.gy1;
   if (cache && cache.sig === sig) return cache.list;
-  const T = CM.TILE, list = [];
+  const T = CM.TILE, list = [], CAP = 260;          // CAP : garde-fou perf
   // `k` : taille du dessin de CET arbre (famille d'arbres, treeSpriteK) — la canopée
   // d'un jeune arbre est aux 2/3 de celle d'un adulte, ses feuilles aussi.
+  // Bornes testées AVANT de calculer `k` (audit du 05/10, PERF-47) : passé en
+  // argument, il était évalué pour TOUS les arbres de la ville (deux hachages par
+  // arbre jamais peint), à chaque cellule franchie pendant un pan, pour 260 ancres.
+  const inView = (gx, gy) => !(gx < b.gx0 || gx > b.gx1 || gy < b.gy0 || gy > b.gy1);
   const push = (gx, gy, jx, jy, r, k) => {
-    if (gx < b.gx0 || gx > b.gx1 || gy < b.gy0 || gy > b.gy1) return;
-    if (list.length >= 260) return;                 // garde-fou perf
     list.push({ wx: (gx + 0.5 + jx) * T, wy: (gy + 0.9 + jy) * T, r: r || 0.7, k: k || 1, s: (cmHash('veg:' + gx + ':' + gy) >>> 0) });
   };
   const eraBand = (L.counts && L.counts.eraBand) | 0;
-  for (const tr of (L.trees || [])) push(tr.gx, tr.gy, 0, 0, tr.r, treeSpriteK(treeVariantOf(tr, eraBand)));
-  for (const wt of isoVegForestSample(L, b)) push(wt.gx, wt.gy, wt.jx || 0, wt.jy || 0, wt.r, treeSpriteK(treeVariantOf(wt)));
+  for (const tr of (L.trees || [])) {
+    if (list.length >= CAP) break;
+    if (inView(tr.gx, tr.gy)) push(tr.gx, tr.gy, 0, 0, tr.r, treeSpriteK(treeVariantOf(tr, eraBand)));
+  }
+  if (list.length < CAP) {
+    for (const wt of isoVegForestSample(L, b)) {
+      if (list.length >= CAP) break;
+      if (inView(wt.gx, wt.gy)) push(wt.gx, wt.gy, wt.jx || 0, wt.jy || 0, wt.r, treeSpriteK(treeVariantOf(wt)));
+    }
+  }
   CM._vegAnchors = { sig, list };
   return list;
 }

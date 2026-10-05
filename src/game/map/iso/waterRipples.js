@@ -225,10 +225,15 @@ export function takeNotedRipples() {
 // = point ÉCRAN du monde (0, 0) au ras de l'eau ; z = zoom. Rien sous le zoom où la
 // petite vie s'efface (minZ).
 const _cv = new WeakMap();
-export function drawRipples(ctx, F, sx, sy, z, now, minZ = 0.7, view = null) {
-  if (!F || z < minZ || typeof document === 'undefined') return;
+// drawRipples posera-t-il quelque chose ? Le même test que sa sortie anticipée, pour
+// que la passe ne découpe au ruban que s'il reste un champ à poser (PERF-56).
+export function ripplesShown(F, sx, sy, z, minZ = 0.7, view = null) {
+  if (!F || z < minZ || typeof document === 'undefined') return false;
   // Hors de l'écran : ni repeint ni posé.
-  if (view && (sx + (F.ox + F.w) * z < 0 || sx + F.ox * z > view.w || sy + (F.oy + F.h) * z < 0 || sy + F.oy * z > view.h)) return;
+  return !(view && (sx + (F.ox + F.w) * z < 0 || sx + F.ox * z > view.w || sy + (F.oy + F.h) * z < 0 || sy + F.oy * z > view.h));
+}
+export function drawRipples(ctx, F, sx, sy, z, now, minZ = 0.7, view = null) {
+  if (!ripplesShown(F, sx, sy, z, minZ, view)) return;
   let e = _cv.get(F);
   if (!e) {
     const cv = document.createElement('canvas');

@@ -14,6 +14,7 @@ import { worldToScreen } from './projection.js';
 import { bakeFieldParcel } from './fieldBake.js';
 import { wonderKitForBand } from './wonderKits.js';
 import { lightCtx } from '../lightLayer.js';
+import { bakeBudgetOk, bakeTimed } from './bakeBudget.js';
 
 // ── LE TERROIR AU PIXEL (docs/PLAN-TERROIR.md, T2) ───────────────────────────
 // Chaque parcelle du terroir est CUITE par fieldBake.js (lanières, rangs d'un
@@ -59,21 +60,45 @@ function fieldCanvas(R) {
   cv.getContext('2d').putImageData(new ImageData(R.data, R.w, R.h), 0, 0);
   return cv;
 }
+// Les haies d'une parcelle et sa CLÉ, gardées sur la tuile pour son plan (audit du
+// 05/10, PERF-49) : hedgesOf et JSON.stringify tournaient à chaque frame et pour
+// chaque parcelle, alors qu'ils ne dépendent que du plan (fieldCellsOf, mémoïsé sur
+// lui ; un plan neuf vient toujours avec son horodatage de recalcul), de la tuile et
+// de la taille de case. Le plan lui-même n'est pas retenu par la tuile.
+function parcelOf(t, sx, sy, L) {
+  const T = CM.TILE, at = CM.layoutRecomputeAt;
+  const m = t._fieldP;
+  if (m && m.at === at && m.T === T && m.sx === sx && m.sy === sy && m.gx === t.gx && m.gy === t.gy) return m;
+  const hedges = hedgesOf(t, sx, sy, L);
+  t._fieldP = { at, T, sx, sy, gx: t.gx, gy: t.gy, hedges, key: t.gx + ',' + t.gy + ':' + sx + 'x' + sy + ':' + JSON.stringify(hedges) };
+  return t._fieldP;
+}
+// UNE ENTRÉE PAR PARCELLE (audit du 05/10, PERF-50) : la bande et la saison ne sont
+// plus dans la clé mais dans l'entrée. Au changement de saison (ou de bande), la
+// parcelle recuit EN PLACE — les saisons passées ne s'empilaient plus jamais, la
+// limite de 48 n'étant pas atteinte avec un seul terroir — et, au-delà du budget de
+// cuisson de l'image (bakeBudget.js), garde son image d'avant une image ou deux au
+// lieu de tout recuire dans la même (10 à 30 ms par terroir). Une parcelle jamais
+// montrée cuit tout de suite, comme avant. Du raster cuit, on ne garde que la boîte :
+// ses pixels sont dans le canvas.
+function bakeParcel(t, spanX, spanY, b, season, hedges) {
+  const seed = (Math.imul(t.gx + 7, 73856093) ^ Math.imul(t.gy + 3, 19349663)) >>> 0;
+  const { R, N, pivots } = bakeFieldParcel(spanX, spanY, { band: b, K: wonderKitForBand(b, season === 3), season, seed, hedges });
+  return { b, season, R: { ox: R.ox, oy: R.oy, w: R.w, h: R.h }, cv: fieldCanvas(R), N: N ? fieldCanvas(N) : null, pivots };
+}
 export function drawIsoFieldPixel(ctx, t, spanX, spanY, band, now = 0) {
   if (!fieldTune.on || typeof document === 'undefined') return false;
   const L = CM.layout;
   if (!L) return false;
   const b = Math.max(0, Math.min(9, fieldTune.band != null ? fieldTune.band | 0 : band | 0));
   const season = CM.season | 0;
-  const hedges = hedgesOf(t, spanX, spanY, L);
-  const key = t.gx + ',' + t.gy + ':' + spanX + 'x' + spanY + ':' + b + ':' + season + ':' + JSON.stringify(hedges);
-  let e = _fieldBakes.get(key);
-  if (!e) {
-    const seed = (Math.imul(t.gx + 7, 73856093) ^ Math.imul(t.gy + 3, 19349663)) >>> 0;
-    const { R, N, pivots } = bakeFieldParcel(spanX, spanY, { band: b, K: wonderKitForBand(b, season === 3), season, seed, hedges });
-    e = { R, cv: fieldCanvas(R), N: N ? fieldCanvas(N) : null, pivots };
-    if (_fieldBakes.size > 48) _fieldBakes.delete(_fieldBakes.keys().next().value);
-    _fieldBakes.set(key, e);
+  const P = parcelOf(t, spanX, spanY, L);
+  let e = _fieldBakes.get(P.key);
+  if (!e || ((e.b !== b || e.season !== season) && bakeBudgetOk())) {
+    const ne = bakeTimed(() => bakeParcel(t, spanX, spanY, b, season, P.hedges));
+    if (!e && _fieldBakes.size > 48) _fieldBakes.delete(_fieldBakes.keys().next().value);
+    _fieldBakes.set(P.key, ne);
+    e = ne;
   }
   const T = CM.TILE, z = CM.cam.zoom, o = worldToScreen(t.gx * T, t.gy * T), R = e.R;
   const dx = Math.round(o.x + R.ox * z), dy = Math.round(o.y + R.oy * z);

@@ -7,8 +7,8 @@
 // Ne pas remettre ce commentaire magique sans raison écrite.
 import { state, collapseInProgress, setCollapseInProgress, renderCache, openView, buildingById } from '../core/state.js';
 import { tr } from '../core/i18n.js';
-import { toNum, D } from '../core/num.js';
-import { pressureBreakdown, cityVitals } from '../core/mechanics.js';
+import { D } from '../core/num.js';
+import { pressureBreakdown, cityVitals, currentEraIndex } from '../core/mechanics.js';
 import {
   CM,
   CM_MAP_BUILDINGS,
@@ -1187,12 +1187,10 @@ function bindCityMapInput(canvas, mapRoot, callbacks = {}) {
 }
 
 
-// Cache engineSig et cityCounts entre frames — ne recalculer que si les bâtiments changent.
+// Cache engineSig entre frames — ne recalculer que si les bâtiments changent.
 let _cachedEngineSigBuildVer = -1;
 let _cachedEngineSig = "";
 let _cachedEngineGroupSig = "";
-let _cachedCityCounts = null;
-let _cachedCityCountsPopKey = "";
 
 // RECOMPUTE DIFFÉRÉ PENDANT LES GESTES DE CAMÉRA. Sur la machine de jeu, un
 // recompute complet coûte 200-300 ms ; or sur une partie vivante il se
@@ -1269,15 +1267,17 @@ function cityMapEnsureLayoutInner(now, deps = {}) {
     _cachedEngineSig = CM_MAP_BUILDINGS.map((meta) => `${meta.id}:${Math.floor((state.buildings && state.buildings[meta.id]) || 0)}`).join("|");
     _cachedEngineGroupSig = cmEngineGroupSig(state);   // structure des blocs (paliers), pas les comptes bruts
     _cachedEngineSigBuildVer = renderCache._buildingsVersion;
-    _cachedCityCounts = null; // invalider aussi cityCounts
   }
-  // cityCounts : ne recalculer que si population/infra/knowledge/cycles ont changé significativement
-  const _popKey = Math.floor(toNum(state.population) / 500) + '|' + Math.floor(toNum(state.infrastructure) / 200) + '|' + Math.floor(toNum(state.knowledge) / 200) + '|' + (state.cycles || 0);
-  if (!_cachedCityCounts || _popKey !== _cachedCityCountsPopKey) {
-    _cachedCityCounts = cityCounts(state);
-    _cachedCityCountsPopKey = _popKey;
-  }
-  const cc = _cachedCityCounts;
+  // L'ÈRE — la seule chose que les signatures du plan lisaient dans cityCounts —
+  // lue à chaque frame sur le Decimal (currentEraIndex, ce que rendait cc.eraIndex).
+  // Le cache de cityCounts qu'elle remplace (audit du 2026-10-05, PERF-59) avait
+  // pour clé floor(pop/500)|floor(infra/200)|floor(savoir/200)|cycles : changée à
+  // chaque tick passé ~5e6 habitants (cityCounts recalculé à chaque frame, 2 à
+  // 11 µs : le cache ne servait à rien), immobile sous 500 habitants (le passage au
+  // Grand Feu, à 249, attendait un achat) et FIGÉE au-delà de 1e308 (toNum =
+  // Infinity) : les ères transcendantes n'étaient plus vues avant un achat.
+  // currentEraIndex : 0,5 à 2 µs jusqu'à l'ère 34, ~14 µs à l'ère 297.
+  const eraIndex = currentEraIndex();
   const engineSig = _cachedEngineSig;
   const engineGroupSig = _cachedEngineGroupSig;
 
@@ -1301,14 +1301,14 @@ function cityMapEnsureLayoutInner(now, deps = {}) {
   const roadCount = Math.floor((state.buildings && state.buildings.roads) || 0);
   // (Plus d'eraFrac dans les signatures : eraFrac = eraIndex/34, constant dans une
   // ère — il doublait l'ère sans jamais rien signaler de plus.)
-  const sig = cc.eraIndex + '|' + (state.cycles || 0) + '|' + crisisBand + '|' + wonderSig + '|' + roadCount + '|' + engineSig;
+  const sig = eraIndex + '|' + (state.cycles || 0) + '|' + crisisBand + '|' + wonderSig + '|' + roadCount + '|' + engineSig;
   if (sig === CM.layoutSig && CM.layout) return;
   // « 1 achat = 1 bâtiment » SANS le gel de ~240 ms : quand SEULS les comptes changent
   // (structure des blocs identique — cf. cmEngineGroupSig, stable entre paliers), on NE
   // recalcule PAS le layout (placement + connexion routière). On rafraîchit juste t.level
   // sur les tuiles moteur → la NAPPE (drawEngineSprawl) grandit d'UNE maison par achat,
   // gratuitement. Débrayable : window.__stableSkip = false.
-  const structSig = cc.eraIndex + '|' + (state.cycles || 0) + '|' + crisisBand + '|' + wonderSig + '|' + roadCount + '|' + engineGroupSig;
+  const structSig = eraIndex + '|' + (state.cycles || 0) + '|' + crisisBand + '|' + wonderSig + '|' + roadCount + '|' + engineGroupSig;
   const skipStable = typeof window === 'undefined' || window.__stableSkip !== false;
   const refreshLevels = () => {
     const b = state.buildings || {};
@@ -1326,7 +1326,7 @@ function cityMapEnsureLayoutInner(now, deps = {}) {
   // crise en mode îlots (elle n'y replante que des arbres) idem, paliers de bâtiment
   // ≤ 1/LAYOUT_GROUP_MIN_MS. Le plan final est le même, il arrive au plus tard au
   // recalcul suivant.
-  const coreSig = cc.eraIndex + '|' + (state.cycles || 0) + '|' + wonderSig;
+  const coreSig = eraIndex + '|' + (state.cycles || 0) + '|' + wonderSig;
   const th = layoutRecomputeWait(
     CM.layout ? { core: CM.layoutCoreSig, group: CM.layoutGroupSig, crisis: CM.layoutCrisisBand, ilot: !!CM.layout.ilotAir } : null,
     { core: coreSig, group: engineGroupSig, crisis: crisisBand }, now - CM.layoutRecomputeAt);
@@ -2306,8 +2306,22 @@ function initCityMap(canvas, options = {}) {
     try { frame(performance.now()); } finally { syncPaint = 0; }
   }
   CM.repaintNow = repaintNow;
+  // ── LA BOUCLE : seul le rAF se ré-arme (audit du 2026-10-05, PERF-58) ───────
+  // frameBody se replanifiait lui-même, si bien que chaque appel synchrone
+  // (forceFrame, captureFrame — donc chaque « Garder une image » de la
+  // contemplation) lançait une SECONDE chaîne rAF, perpétuelle : un rappel de
+  // plus par vsync jusqu'au démontage, et resetCityMapRuntime n'annulait que la
+  // dernière (CM.raf ne garde qu'un id). Les appelants synchrones passent par
+  // frame(), qui dessine sans replanifier.
+  function loop(now) {
+    // Carte démontée : ne PAS se replanifier (la boucle meurt proprement ;
+    // initCityMap relance une boucle neuve au prochain montage).
+    if (!CM.ctx || !CM.canvas) return;
+    CM.raf = requestAnimationFrame(loop);   // AVANT de travailler : une exception ne tue pas la boucle
+    frame(now);
+  }
   // ── FILET D'EXCEPTION DE LA BOUCLE (audit du 2026-10-05, BUG-32) ────────────
-  // `frameBody` ré-arme son rAF AVANT de travailler : sans filet, une exception
+  // `loop` ré-arme son rAF AVANT de travailler : sans filet, une exception
   // dans une passe se rejouait à chaque image (console inondée, carte figée sur
   // une image partielle) et, tombée entre un save() et son restore(), laissait la
   // pile du contexte grossir d'une frame à l'autre. Ici : un message toutes les
@@ -2325,10 +2339,9 @@ function initCityMap(canvas, options = {}) {
     }
   }
   function frameBody(now) {
-    // Carte démontée : ne PAS se replanifier (la boucle meurt proprement ;
-    // initCityMap relance une boucle neuve au prochain montage).
+    // Carte démontée (forceFrame/captureFrame tardifs) : rien à peindre. Le
+    // rAF, lui, se replanifie dans loop() seulement.
     if (!CM.ctx || !CM.canvas) return;
-    if (!syncPaint) CM.raf = requestAnimationFrame(frame);   // repeinte synchrone : la boucle court déjà
     // ⚠ TOLÉRANCE D'UNE DEMI-VSYNC (8 ms) — sans elle, le cap N fps sur un écran
     // à N Hz BOITE. Les timestamps rAF arrivent à ~16,67 ms ± un bruit d'horloge :
     // dès qu'un delta mesure 16,6 < cmFrameMs, la frame est sautée et la suivante
@@ -2942,7 +2955,7 @@ function initCityMap(canvas, options = {}) {
     // Banc du lot 1 de PLAN-SOL-PYRAMIDE : sol en tuiles vs sol plein, couture mesurée.
     window.__solPyramideAB = (o) => solPyramideAB(o);
   }
-  CM.raf = requestAnimationFrame(frame);
+  CM.raf = requestAnimationFrame(loop);
 }
 
 

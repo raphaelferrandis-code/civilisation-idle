@@ -73,7 +73,10 @@ export function pushOutcome(stack, outcome, now) {
 // libérées avec la file, du plus prioritaire au moins prioritaire.
 export function tickOutcomes(stack, now) {
   const survivors = stack.visible.filter((f) => f.expiresAt > now);
-  if (survivors.length === stack.visible.length && !stack.queue.length) return stack;
+  // Rien d'expiré, et rien à promouvoir (file vide, ou pile pleine) : la MÊME pile.
+  // Une pile pleine avec de l'attente rendait un nouvel objet à chaque tick (8 fois
+  // par seconde : un rendu et une mesure de mise en page pour rien — PERF-60).
+  if (survivors.length === stack.visible.length && (!stack.queue.length || survivors.length >= MAX_VISIBLE)) return stack;
   // Une simple expiration n'annonce rien : seule une NOUVELLE entrée à l'écran
   // vaut d'être lue.
   if (!stack.queue.length) return { ...stack, visible: survivors, announce: "" };

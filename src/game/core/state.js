@@ -1864,16 +1864,25 @@ export function normalizeEpitaphLegacy(raw) {
 export function normalizeChronicleEntries(raw) {
   if (!Array.isArray(raw)) return [];
   return raw
-    .filter(isPlainObject)
-    .map(entry => {
+    .filter(entry => isPlainObject(entry) && typeof entry.id === "string" && entry.id)
+    .slice(0, 250)
+    .map((entry, index) => {
+      // Titre, texte, auteur : relus dans l'article à l'affichage
+      // (chronicleEntryContent, audit 2026-10-05, SAV-16). Ceux des saves
+      // d'avant ne se gardent que sur la DERNIÈRE dépêche, la seule affichée —
+      // repli si son article a disparu ; les autres ne servaient qu'à grossir
+      // la save. Absents, les champs ne sont pas posés du tout.
+      const text = index === 0 ? {
+        ...(typeof entry.title === "string" && { title: entry.title.slice(0, 200) }),
+        ...(typeof entry.text === "string" && { text: entry.text.slice(0, 4000) }),
+        ...(typeof entry.author === "string" && { author: entry.author.slice(0, 100) })
+      } : null;
       return {
-        id: typeof entry.id === "string" ? entry.id.slice(0, 128) : "",
+        id: entry.id.slice(0, 128),
         // Id de l'article source (entry.id est suffixé pour les rediffusions) ;
         // les saves d'avant ce champ retombent sur entry.id.
-        articleId: typeof entry.articleId === "string" ? entry.articleId.slice(0, 128) : (typeof entry.id === "string" ? entry.id.slice(0, 128) : ""),
-        title: typeof entry.title === "string" ? entry.title.slice(0, 200) : "",
-        text: typeof entry.text === "string" ? entry.text.slice(0, 4000) : "",
-        author: typeof entry.author === "string" ? entry.author.slice(0, 100) : null,
+        articleId: typeof entry.articleId === "string" ? entry.articleId.slice(0, 128) : entry.id.slice(0, 128),
+        ...text,
         age: typeof entry.age === "string" ? entry.age.slice(0, 80) : "",
         date: typeof entry.date === "string" ? entry.date.slice(0, 80) : "",
         category: typeof entry.category === "string" ? entry.category.slice(0, 80) : "",
@@ -1883,9 +1892,7 @@ export function normalizeChronicleEntries(raw) {
         // ancienne (save d'avant ce champ), donc bandeau masqué.
         publishedAt: finiteTimestamp(entry.publishedAt, 0)
       };
-    })
-    .filter(e => e.id)
-    .slice(0, 250);
+    });
 }
 
 // (MIGRATIONS est déclaré PLUS HAUT, juste avant `state = load()` — voir le

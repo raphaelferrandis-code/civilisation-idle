@@ -420,6 +420,10 @@ export function isoBuildingFront(t, roadMap) {
 // commence à `0,5 − demi-largeur` de son centre. Un poussé fixe qui va bien
 // contre une rue (demi-largeur 0,25) plante le bâtiment DANS un boulevard
 // (0,36). La borne se calcule, elle ne se règle pas à l'œil.
+// L'objet rendu est GARDÉ sur la tuile avec la façade et le poussé qui l'ont fait
+// (audit du 05/10, PERF-46 : la collecte et l'ancrage le redemandent pour chaque
+// tuile à chaque frame, un objet neuf à chaque fois). Lecture seule pour
+// l'appelant, comme le recul des rangées (_rowBack).
 export function isoFrontOffset(t, roadMap, cfg = FRONT) {
   if (t.terrace) return isoRowSetback(t, roadMap);   // rangée mitoyenne : elle RECULE (plus bas)
   if (!cfg.on || !cfg.push) return null;
@@ -428,7 +432,36 @@ export function isoFrontOffset(t, roadMap, cfg = FRONT) {
   const room = 0.5 - isoRoadHalfW(f.rank) - cfg.gap;
   const push = Math.max(0, Math.min(cfg.push, room));
   if (push <= 0) return null;
-  return { ox: f.dx * push, oy: f.dy * push };
+  const fo = t._fo;
+  if (fo && fo.f === f && fo.push === push) return fo.v;
+  const v = { ox: f.dx * push, oy: f.dy * push };
+  t._fo = { f, push, v };
+  return v;
+}
+// EMPREINTE À PLAT (champ, ferme, verger) : posée au sol, ni façade ni socle — la
+// collecte la trie à son coin nord, l'ancrage ne la pousse pas vers la rue, le
+// peintre la dessine en parcelles. Mémorisé sur la tuile (PERF-46 : la même regex
+// trois à quatre fois par tuile et par frame) ; la clé garde l'identifiant testé.
+const FLAT_FOOTPRINT = /field|farm|crop|orchard/i;
+export function isoFlatFootprint(t) {
+  const id = t.buildingId || t.variant || '';
+  if (t._flatId !== id) { t._flatId = id; t._flat = FLAT_FOOTPRINT.test(id); }
+  return t._flat;
+}
+// EMPRISE MOUILLÉE : une case de l'emprise sur l'eau (`rc`, les cellules du fleuve) ou
+// sur sa berge — le peintre ne pose pas de moteur « en bloc » au-dessus de l'eau.
+// Mémorisé sur la tuile (PERF-63 : deux clés chaîne et deux Set.has par case de chaque
+// moteur, à chaque frame — ~0,2 ms sur une grande ville entière à l'écran) ; la clé
+// garde les deux ensembles testés (neufs à chaque plan) et l'emprise.
+export function isoWetFootprint(t, river, rc, spanX, spanY) {
+  const banks = river.banks || null, m = t._wet;
+  if (m && m.rc === rc && m.banks === banks && m.gx === t.gx && m.gy === t.gy && m.sx === spanX && m.sy === spanY) return m.v;
+  let wet = false;
+  for (let ax = 0; ax < spanX && !wet; ax += 1) for (let ay = 0; ay < spanY && !wet; ay += 1) {
+    if (rc.has((t.gx + ax) + ',' + (t.gy + ay)) || (banks && banks.has((t.gx + ax) + ',' + (t.gy + ay)))) wet = true;
+  }
+  t._wet = { rc, banks, gx: t.gx, gy: t.gy, sx: spanX, sy: spanY, v: wet };
+  return wet;
 }
 if (typeof window !== 'undefined') {
   // Molette front de rue : __front(false) recentre les bâtiments comme avant ;

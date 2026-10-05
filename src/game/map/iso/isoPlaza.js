@@ -58,7 +58,6 @@
 // ============================================================================
 
 import { CM, cmHash, treeCanvasT } from '../layout.js';
-import { solInvalidate } from './solInvalidate.js';
 import { AGENT_SCALE, agentSetForBand, agentSpecFor, drawNamedAgentIso } from '../agents.js';
 import { focusMark, drawFocusRingAt, noteSceneFigure, sceneRingWidth } from '../citizenFocus.js';
 import { buildFolk, folkAt, folkRev } from './plazaFolk.js';
@@ -67,7 +66,7 @@ import { worldToScreen, depthOf } from './projection.js';
 import { lightCutImage, lightCtx } from '../lightLayer.js';
 import { queueFlameGlow, FLAME_COL } from '../flameGlow.js';
 import { drawSunShadow } from './isoSunShadow.js';
-import { stallVideProp } from './isoFamine.js';
+import { stallVideProp, STALLS_VIDES } from './isoFamine.js';
 import { streetKitLampArt } from './streetKits.js';
 
 // ── ÉCHELLE DE RÉFÉRENCE ────────────────────────────────────────────────────
@@ -1441,15 +1440,20 @@ function buildLamps(box, w, h, R, T) {
 
 // ── REGISTRE D'ART ──────────────────────────────────────────────────────────
 // Chargement paresseux, chaîne de repli : sprite ISO → kit top-down legacy →
-// gabarit plat. Le décodage d'un sprite invalide DOUCEMENT le bake du sol (même
-// geste que isoArt) : sans ça le sol garderait son état d'avant le décodage.
+// gabarit plat. Le décodage d'un sprite N'INVALIDE PAS le sol (audit du 05/10,
+// PERF-26) : aucun PNG de ce registre n'y est cuit — le mobilier est un item vivant,
+// et le sol ne lit que plazaLawnAtCell et, en mode scène, isoArt('plaza-<ère>').
 const artCache = new Map();
 // RÉVISION D'ART. ⚠ Le recentrage des arbres sur leur pied dépend d'une mesure
 // qui n'existe qu'APRÈS décodage du PNG. Faire porter la clé de composition par
 // le seul nombre de pieds mesurés ne suffisait pas : rien ne garantissait qu'on
 // re-mesure une fois l'image prête, la composition restait figée sur sa version
-// non corrigée jusqu'au prochain recalcul de layout. On incrémente donc à CHAQUE
-// décodage, et la clé le porte — la place se recale à la frame suivante.
+// non corrigée jusqu'au prochain recalcul de layout. On incrémente donc au décodage
+// d'un ARBRE, et la clé le porte — la place se recale à la frame suivante. Seulement
+// d'un arbre : la composition ne lit aucune autre image (treeFootMetrics est sa
+// seule dépendance), et chaque décodage de banc, d'étal ou de bande animée la
+// refaisait pour TOUTES les places, flâneurs compris (5 à 19 ms, ~50 fois par ère).
+const TREE_ART = '/pixelart/iso/tree-';
 let _artRev = 0;
 function art(src) {
   let e = artCache.get(src);
@@ -1460,8 +1464,7 @@ function art(src) {
     const im = new Image();
     im.onload = () => {
       e.img = im; e.ready = true;
-      _artRev += 1;                       // → recompose : cf. la clé plus bas
-      solInvalidate('soft');
+      if (src.startsWith(TREE_ART)) _artRev += 1;   // → recompose : cf. la clé plus bas
     };
     im.onerror = () => { e.failed = true; };
     im.src = src;
@@ -1502,17 +1505,59 @@ export const isoPlazaSceneCoversGround = (band) => isoPlazaSceneOn(band);
 // Pousse un item par prop : chacun trie à SA profondeur, donc un passant au sud
 // d'un banc passe devant et celui du nord derrière. C'est exactement ce que la
 // scène unique ne savait pas faire (un seul item pour toute la place).
-export function isoPlazaItems(L, band, pushItem, visible, now = 0) {
+// `visibleBox(wx0, wy0, wx1, wy1)` (facultatif) : le même test que `visible`, sur une
+// boîte — une place entièrement hors champ est sautée d'un bloc (cf. pushOne).
+export function isoPlazaItems(L, band, pushItem, visible, now = 0, visibleBox = null) {
   let n = 0;
-  for (const comp of isoPlazaCompositions(L, band)) n += pushOne(comp, pushItem, visible, now);
+  for (const comp of isoPlazaCompositions(L, band)) n += pushOne(comp, pushItem, visible, now, visibleBox);
   return n;
 }
-function pushOne(comp, pushItem, visible, now) {
+// Boîte MONDE (px) de tout ce que la place peut pousser : ses cellules, le pied de
+// chaque prop, et les sorties où ses flâneurs s'effacent sur la rue (plazaExits, à
+// 0,95 case du bord) — un flâneur ne quitte jamais l'enveloppe de ses nœuds de marche
+// (cellules de la place) et de ces sorties. Une fois par composition.
+function plazaExtent(comp, T) {
+  if (comp._ext && comp._ext.T === T) return comp._ext;
+  const b = comp.box;
+  let x0 = b.gx0 * T, y0 = b.gy0 * T, x1 = (b.gx1 + 1) * T, y1 = (b.gy1 + 1) * T;
+  for (const r of comp.props) {
+    if (r.wx < x0) x0 = r.wx; if (r.wx > x1) x1 = r.wx;
+    if (r.wy < y0) y0 = r.wy; if (r.wy > y1) y1 = r.wy;
+  }
+  for (const e of (comp.folk && comp.folk.exits) || []) {
+    for (const [ex, ey] of [[e.ax * T, e.ay * T], [e.ox * T, e.oy * T]]) {
+      if (ex < x0) x0 = ex; if (ex > x1) x1 = ex;
+      if (ey < y0) y0 = ey; if (ey > y1) y1 = ey;
+    }
+  }
+  comp._ext = { T, x0, y0, x1, y1 };
+  return comp._ext;
+}
+// Le flâneur désigné (fiche ouverte) est-il de cette place ? Elle reste alors calculée
+// même hors champ, caméra lâchée : sa fiche suit ce qu'il fait.
+function holdsFocus(comp) {
+  const f = CM.focus;
+  if (!f || f.kind !== 'figure' || !comp.folk) return false;
+  for (const r of comp.folk.recs.values()) if (r === f.p) return true;
+  return false;
+}
+function pushOne(comp, pushItem, visible, now, visibleBox) {
   let n = 0;
   if (PLAZA_TUNE.grid || PLAZA_TUNE.ruler) {
     const it = pushItem();
     it.d = depthOf(comp.box.gx0 * CM.TILE, comp.box.gy0 * CM.TILE) - 1;
     it.kind = 'plazaGrid'; it.art = comp;
+  }
+  // PLACE HORS CHAMP (audit du 05/10, PERF-48) : ni ses props ni ses flâneurs ne
+  // passeraient le test `visible` — on ne calcule donc pas leurs positions (folkAt, ~0,2 ms
+  // par frame en mégapole, payé même sans aucune place à l'écran). folkAt est une
+  // fonction de l'heure : sauter des frames ne change rien à ce qu'on voit au retour.
+  // Le registre des figures (noteFig) perd ces flâneurs hors champ, comme il perd déjà
+  // les passants des rues hors champ (isoLiveCollect) ; une volée de pigeons visible
+  // les voit toujours (la marge d'une case couvre son rayon de dérangement).
+  if (visibleBox && !holdsFocus(comp)) {
+    const e = plazaExtent(comp, CM.TILE);
+    if (!visibleBox(e.x0, e.y0, e.x1, e.y1)) return n;
   }
   for (const rec of comp.props) {
     if (PLAZA_TUNE.only && rec.prop !== PLAZA_TUNE.only) continue;
@@ -1608,7 +1653,7 @@ function inkBox(img) {
 const treeFootCache = new Map();
 function treeFootMetrics(v) {
   if (treeFootCache.has(v)) return treeFootCache.get(v);
-  const e = art('/pixelart/iso/tree-' + v + '.png');
+  const e = art(TREE_ART + v + '.png');
   if (!e.ready) return null;                    // pas décodé : on réessaiera
   const im = e.img, w = im.naturalWidth | 0, h = im.naturalHeight | 0;
   let m = null;
@@ -1679,6 +1724,20 @@ export function plazaAnchor(bb, iw, ih, px, py, hPx, pivot = null) {
 }
 
 // ── DESSIN D'UN PROP ────────────────────────────────────────────────────────
+// Ce que le dessin d'un prop relisait à chaque frame en fabriquant deux à quatre
+// chaînes (audit du 05/10, PERF-49) — chemin du PNG, pivot, « étal qui a un art vide »
+// —, gardé sur le rec pour son ère (places et mobilier de trottoir : ~1 000 objets en
+// mégapole). L'image n'est retenue qu'une fois TROUVÉE : une image décodée le reste et
+// le registre ne remplace jamais une entrée, propImage rendrait donc la même ; tant
+// qu'elle manque (décodage en cours, variante en attente de verdict), on la redemande.
+function recArt(rec, era) {
+  if (rec._artEra !== era) {
+    rec._artEra = era; rec._artIm = null;
+    rec._artVide = STALLS_VIDES.has(rec.prop + '-' + era);
+    rec._artPiv = PROP_PIVOT[rec.prop + '-' + era] || null;
+  }
+  if (!rec._artIm) rec._artIm = propImage(rec.prop, era, rec.variant);
+}
 // Ombre DOUCE au pied et rien d'autre — le socle carré a été rejeté (il marque
 // le conflit au lieu de le régler) — et calée sur la LARGEUR D'ENCRE, pas sur
 // celle du canvas, sinon elle déborde de l'objet.
@@ -1690,8 +1749,9 @@ export function drawIsoPlazaProp(ctx, rec, era, now) {
   let hPx = rec.hT * T * z * PLAZA_TUNE.propScale;
   if (hPx < 1.5) return;                        // sous le pixel : rien à montrer
   // FAMINE (isoFamine.js) : un étal de nourriture passe à son art VIDE, en place.
-  const vide = stallVideProp(rec, era, now);
-  const im = (vide && propImage(vide, era, rec.variant)) || propImage(rec.prop, era, rec.variant);
+  recArt(rec, era);
+  const vide = rec._artVide ? stallVideProp(rec, era, now) : null;
+  const im = (vide && propImage(vide, era, rec.variant)) || rec._artIm;
   if (!im) {
     if (PLAZA_TUNE.placeholders && !NO_PLACEHOLDER.has(rec.prop)) drawPlaceholder(ctx, p, hPx, rec);
     return;
@@ -1711,7 +1771,7 @@ export function drawIsoPlazaProp(ctx, rec, era, now) {
       hPx = g2.hPx; px += g2.ox; py += g2.oy;
     }
   }
-  const g = plazaAnchor(bb, im.naturalWidth, im.naturalHeight, px, py, hPx, PROP_PIVOT[rec.prop + '-' + era] || null);
+  const g = plazaAnchor(bb, im.naturalWidth, im.naturalHeight, px, py, hPx, rec._artPiv);
   // L'OMBRE DU SOLEIL (2026-09-30, une seule lumière pour toute la carte,
   // iso/isoSunShadow.js) remplace l'ellipse douce du pied, et le refus de l'ellipse
   // sous les points d'eau (Raph, 2026-08-05) tombe avec elle : ce n'est plus une
@@ -1956,7 +2016,8 @@ export function drawIsoPlazaGrid(ctx, comp) {
 // dériverait de celle qui sert au dessin.
 // `plazaPropImage` : pour la garde des requêtes (plazaPropRequests.test.js).
 // `brazierGlow` : pour la garde de la lueur des braseros (plazaBrazierGlow.test.js).
-export { PLAZA_TUNE, RECIPES, KIND_KITS, HOUSE_HT, houseF, TALL_PROPS, personHT, ADULT_SCALE, inkBox, plazaBases, propImage as plazaPropImage, brazierGlow };
+// `plazaRecArt` : pour la garde de l'image gardée sur le rec (plazaRecArt.test.js).
+export { PLAZA_TUNE, RECIPES, KIND_KITS, HOUSE_HT, houseF, TALL_PROPS, personHT, ADULT_SCALE, inkBox, plazaBases, propImage as plazaPropImage, brazierGlow, recArt as plazaRecArt };
 
 // ── LA FONTAINE DE LA SCÈNE DE PLACE, rapatriée d'isoRenderer le 2026-08-23
 // (Q10). Elle décrivait déjà une scène de CE module ; la laisser dans le peintre

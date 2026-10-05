@@ -7,6 +7,7 @@ import {
   normalizeTipContent,
   openDelayFor,
   placeTip,
+  sameTipContent,
   tipStillAlive
 } from './helpBubbleCore.js';
 
@@ -178,27 +179,31 @@ export function HelpBubbleLayer() {
   }, []);
 
   // Contrôle de survie de la cible, et rafraîchissement du contenu vivant.
-  // Ne tourne QUE pendant qu'une bulle est ouverte : coût nul au repos.
+  // Ne tourne QUE pendant qu'une bulle est ouverte : coût nul au repos. Armé à
+  // l'OUVERTURE (sa cible, sa source) et pas à chaque nouvel état de la bulle :
+  // un contenu vivant qui change ne réarme plus l'intervalle, et un contenu
+  // relu IDENTIQUE ne recrée plus l'état (audit 2026-10-05, PERF-60/61).
+  const tipEl = tip ? tip.el : null, tipSource = tip ? tip.source : null;
   useEffect(() => {
-    if (!tip) return undefined;
+    if (!tipEl) return undefined;
     const id = setInterval(() => {
       // La cible peut aussi rester montée mais avoir PERDU ses écouteurs : le
       // motif « ternaire coupé » ({...tipProps(null, cond ? tip : null)}) les
       // retire tous quand l'état bascule sous la souris — onMouseLeave compris,
       // et un bouton devenu disabled n'émet plus rien non plus. On ferme donc
       // aussi dès que la cible n'est plus ni survolée ni focalisée.
-      if (!tipStillAlive(tip.el) || !tip.el.matches(':hover, :focus-within')) {
+      if (!tipStillAlive(tipEl) || !tipEl.matches(':hover, :focus-within')) {
         tipVisible = false;
         setTip(null);
         return;
       }
-      if (typeof tip.source !== 'function') return;
-      const next = resolveContent(tip.source);
+      if (typeof tipSource !== 'function') return;
+      const next = resolveContent(tipSource);
       if (!next) return;
-      setTip((cur) => (cur && cur.el === tip.el ? { ...cur, content: next } : cur));
+      setTip((cur) => (cur && cur.el === tipEl && !sameTipContent(cur.content, next) ? { ...cur, content: next } : cur));
     }, ALIVE_POLL_MS);
     return () => clearInterval(id);
-  }, [tip]);
+  }, [tipEl, tipSource]);
 
   if (!tip) return null;
 

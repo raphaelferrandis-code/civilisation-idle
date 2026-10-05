@@ -88,7 +88,7 @@ const NEON = {
     tableCrew(ctx, r, x, 23, 0, true);
   },
   tickets(ctx, r) {
-    const { P, N, fig } = ctx, { x, y, y0, w, on, v } = r, kx = x - (w >= 150 ? 14 : 0);
+    const { P, N } = ctx, { x, y, y0, w, crew: fig, v } = r, kx = x - (w >= 150 ? 14 : 0);
     // LE COMPTOIR DES TICKETS À GRATTER. L'enseigne au néon, le PRÉSENTOIR éclairé des
     // cartes (laque sombre, liseré rose, la zone argentée à gratter : la carte même
     // qu'on gratte à cet âge), le comptoir vitré. (Une rangée de bandits manchots
@@ -121,7 +121,6 @@ const NEON = {
         Q.put(x0 + 19, yt - 1, GOLD[1]); Q.put(x0 + 20, yt - 1, GOLD[2]);
       },
     });
-    if (!on) return;
     fig(kx - 3, y + BK, 0, 'g', v(0), { back: true, role: 'marchande' });
     fig(kx + 34, y + SD, 2, 1, v(1));
     if (w >= 150) fig(kx - 34, y + SD, 0, 0, v(2), { role: 'joueur' });
@@ -142,11 +141,9 @@ const NEON = {
     });
     for (let j = 0; j < 6; j += 1) for (let i = -3; i <= 3; i += 1) if (['.##.##.', '#######', '#######', '.#####.', '..###..', '...#...'][j][i + 3] === '#') { P.put(x + sw / 2 + 8 + i, y0 + 12 + j, PINK[2]); N.put(x + sw / 2 + 8 + i, y0 + 12 + j, PINK[1]); }
     counterEra(ctx, x, y, Math.min(48, w - 40), { top: [CHROME[1], CHROME[3]], face: [CHROME[2], CHROME[3], CHROME[4]], style: 'glass' });
-    const { fig } = ctx;
-    if (r.on) {
-      fig(x - 3, y + BK, 0, 'g', r.v(0), { back: true, role: 'marchande' });
-      fig(x + 34, y + SD, 2, 1, r.v(1));
-    }
+    const fig = r.crew;
+    fig(x - 3, y + BK, 0, 'g', r.v(0), { back: true, role: 'marchande' });
+    fig(x + 34, y + SD, 2, 1, r.v(1));
   },
   scene(ctx, r) {
     stageEra(ctx, r, {
@@ -316,12 +313,10 @@ const COSMIC = {
         for (const dx of [8, 30]) { Q.hline(x0 + dx, yt - 1, 6, T.paper[1]); Q.hline(x0 + dx, yt - 2, 6, '#ffffff'); Q.put(x0 + dx + 5, yt - 1, T.ink); }
       },
     });
-    const { fig } = ctx;
-    if (r.on) {
-      fig(kx - 3, y + BK, 0, 0, r.v(0), { back: true, role: 'guichetier' });
-      fig(kx + 34, y + SD, 2, 'g', r.v(1));
-      if (w >= 150) fig(kx - 34, y + SD, 0, 1, r.v(2));
-    }
+    const fig = r.crew;
+    fig(kx - 3, y + BK, 0, 0, r.v(0), { back: true, role: 'guichetier' });
+    fig(kx + 34, y + SD, 2, 'g', r.v(1));
+    if (w >= 150) fig(kx - 34, y + SD, 0, 1, r.v(2));
   },
   machines(ctx, r) { slotRow(ctx, r, 'cosmic'); },
   boutique(ctx, r) {
@@ -339,11 +334,9 @@ const COSMIC = {
     }
     O.mark(x, y - 30, S.glow);
     counterEra(ctx, x, y, Math.min(46, w - 40), { top: [M.glass[0], S.glow], face: [M.body[0], M.body[1], M.body[2]], style: 'light' });
-    const { fig } = ctx;
-    if (r.on) {
-      fig(x - 3, y + BK, 0, 'g', r.v(0), { back: true, role: 'marchande' });
-      fig(x + 32, y + SD, 2, 1, r.v(1));
-    }
+    const fig = r.crew;
+    fig(x - 3, y + BK, 0, 'g', r.v(0), { back: true, role: 'marchande' });
+    fig(x + 32, y + SD, 2, 1, r.v(1));
   },
   scene(ctx, r) {
     const { S } = ctx, M = cosmicMat(S);

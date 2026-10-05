@@ -12,6 +12,12 @@
 // BUG-60, LA PORTE DE FRAÎCHEUR. Elle ne comptait que des tailles d'ensembles :
 // un bâtiment posé sans route nouvelle gardait les mêmes tailles, et sa tuile
 // restait fraîche — ni allée de seuil, ni cour. Elle doit se recuire, elle seule.
+//
+// PERF-28, LE REPLI ÉVINCÉ EN PREMIER. Le LRU (plafond en Mo) trie par `last`,
+// que seule la composition au niveau courant rafraîchissait : les tuiles d'un
+// autre niveau qui servaient de repli pendant un glissement de zoom gardaient
+// leur vieil horodatage et partaient les premières — trous la frame suivante.
+// Et le PLANCHER, pré-cuit au repos pour le dézoom réflexe, n'était pas protégé.
 import { describe, it, expect, afterEach, vi } from 'vitest';
 import { readFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
@@ -26,18 +32,21 @@ vi.mock('../iso/solPyramide.js', async (importOriginal) => {
     // auquel il a été cuit, à la géométrie exacte de la vraie (S·dpr + gouttière).
     cookTile: (z, tx, ty) => {
       const dpr = cm.dpr || 1, S = m.tileSideCss(dpr, z), G = 8, side = Math.round((S + 2 * G) * dpr);
-      return { canvas: { width: side, height: side, dpr }, G, S, ms: 0.1, tx, ty, z };
+      return { canvas: { width: side, height: side, dpr, z }, G, S, ms: 0.1, tx, ty, z };
     },
   };
 });
 
 const { CM } = await import('../layout.js');
-const { paintGroundPyramid, solPyramideReset } = await import('../iso/solPyramideFrame.js');
+const { paintGroundPyramid, solPyramideReset, PYR } = await import('../iso/solPyramideFrame.js');
+const { tileSideCss, levelZoom, ZOOM_MIN } = await import('../iso/solPyramide.js');
 
 const saved = { cam: { ...CM.cam }, cw: CM.cw, ch: CM.ch, dpr: CM.dpr, capture: CM.capture, zoomGoal: CM.zoomGoal, layout: CM.layout };
+const savedPyr = { ...PYR };
 afterEach(() => {
   Object.assign(CM.cam, saved.cam);
   CM.cw = saved.cw; CM.ch = saved.ch; CM.dpr = saved.dpr; CM.capture = saved.capture; CM.zoomGoal = saved.zoomGoal; CM.layout = saved.layout;
+  Object.assign(PYR, savedPyr);
   solPyramideReset();
 });
 
@@ -113,6 +122,65 @@ describe('sol en pyramide — un bâtiment posé sans route nouvelle recuit sa t
     frame(plan(true), 1, 3000);                  // une emprise de plus, mêmes tailles
     expect(stats.dernier.cuites).toBeGreaterThan(0);
     expect(stats.dernier.cuites).toBeLessThan(vis);
+  });
+});
+
+describe('sol en pyramide — le LRU garde ce qui sert de repli, et le plancher (PERF-28)', () => {
+  // Ce que la frame a posé, niveau par niveau (le faux canvas porte son niveau).
+  function frameZ(L, now) {
+    const zs = [];
+    paintGroundPyramid({ imageSmoothingEnabled: true, drawImage(cv) { zs.push(cv.z); } }, L, now);
+    return zs;
+  }
+  const octets = (z) => { const S = tileSideCss(1, z), side = Math.round(S + 16); return side * side * 4; };
+  const A = { x: 30 * CM.TILE, y: 30 * CM.TILE }, B = { x: 56 * CM.TILE, y: 4 * CM.TILE };
+  // Les budgets en ms de la frame suivent l'horloge RÉELLE : levés ici, pour que seul
+  // le plafond de tuiles d'un geste (un compte) borne la cuisson — la CI est 2-3×
+  // plus lente que ce poste.
+  const sansChrono = () => Object.assign(PYR, { budgetMs: 1e9, gestureBudgetMs: 1e9, holeCapMs: 1e9 });
+
+  it('pendant un glissement de zoom, les tuiles du repli survivent à l éviction', () => {
+    const L = planVide(), stats = globalThis.__solPyramideStats;
+    CM.layout = null; CM.zoomGoal = null; CM.dpr = 1; CM.cw = 1200; CM.ch = 700;
+    sansChrono();
+    // Le niveau 1 cuit autour de A, puis autour de B (plus récent, loin de A).
+    CM.capture = true;
+    CM.cam.x = A.x; CM.cam.y = A.y; CM.cam.zoom = 1;
+    frameZ(L, 10000);
+    const nA = stats.dernier.cuites;
+    CM.cam.x = B.x; CM.cam.y = B.y;
+    frameZ(L, 11000);
+    expect(stats.dernier.cuites).toBe(stats.dernier.vis);      // aucune tuile commune avec A
+    // Zoom 2 sur A, hors capture : un geste, 6 tuiles du niveau 2 au plus, le reste
+    // servi par le niveau 1 de A. Plafond : de quoi garder A + les 6 neuves, pas B.
+    CM.capture = false;
+    PYR.memMo = (nA * octets(1) + PYR.gestureMaxTiles * octets(2) + octets(1) / 2) / 1048576;
+    CM.cam.x = A.x; CM.cam.y = A.y; CM.cam.zoom = 2;
+    frameZ(L, 12000);
+    expect(stats.dernier.cuites).toBe(PYR.gestureMaxTiles);
+    expect(stats.dernier.trous).toBe(0);
+    // La frame suivante : le repli est toujours là — aucune tuile du plancher
+    // cuite en urgence pour boucher un trou laissé par l'éviction.
+    const zs = frameZ(L, 12100);
+    expect(stats.dernier.trous).toBe(0);
+    expect(zs.filter((z) => z !== 1 && z !== 2)).toEqual([]);
+    expect(zs.filter((z) => z === 1).length).toBeGreaterThan(0);
+  });
+
+  it('le plancher pré-cuit au repos n est jamais évincé : le dézoom réflexe le trouve entier', () => {
+    const L = planVide(), stats = globalThis.__solPyramideStats;
+    CM.layout = null; CM.zoomGoal = null; CM.dpr = 1; CM.cw = 1200; CM.ch = 700; CM.capture = false;
+    sansChrono();
+    PYR.memMo = 0.0001;                                         // plafond minuscule : tout ce qui n'est pas gardé part
+    CM.cam.x = A.x + 7; CM.cam.y = A.y; CM.cam.zoom = 1;
+    frameZ(L, 20000);
+    frameZ(L, 21000);                                           // au repos : le plancher se cuit
+    // Dézoom d'un coup jusqu'au plancher : tout est déjà cuit et frais.
+    CM.cam.zoom = levelZoom(Math.max(CM.zoomFloor || 0.35, ZOOM_MIN));
+    frameZ(L, 21100);
+    expect(stats.dernier.vis).toBeGreaterThan(0);
+    expect(stats.dernier.cuites).toBe(0);
+    expect(stats.dernier.hits).toBe(stats.dernier.vis);
   });
 });
 

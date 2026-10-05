@@ -72,8 +72,17 @@ function bw(t, out) {
 // cellule ET les matières de ses 3×3 voisines, donc un plan qui change ailleurs ne
 // le périme pas, et une cellule dont le voisinage change reçoit une clé neuve.
 // Vidé quand les réglages bougent (molette) ou quand il dépasse sa taille.
+// MÉMOIRE (audit 2026-10-05, MEM-7) : 2,5 Ko par entrée mesurés (un tableau JS de
+// ~160 nombres et deux Int8Array), ~49 Mo au plafond. Premières lignes et runs
+// (valeurs ≤ 64) tiennent désormais dans UN Int8Array : ~0,5 Ko par entrée. Et la clé
+// porte (gx, gy) ABSOLUS : quand la grille grandit, la ville se translate et TOUTES
+// les clés se périment — le cache est alors vidé (`world`, cf. makeLisiere), au lieu
+// de s'emplir de clés mortes jusqu'au plafond.
 const texCache = new Map();
 const TEX_CACHE_MAX = 20000;
+const TOP = 128;                  // en tête du tableau d'une entrée : 64 matières, 64 lignes
+let texWorld = null;
+const runScratch = [];
 
 // TABLE DES TEXELS du losange (64×32, centre dedans) — constante, construite une
 // fois pour toutes : position (i, j), poids B-spline des 9 voisines, et accès à la
@@ -123,7 +132,10 @@ function texTable() {
 //   · quand le champ seul décide (écart entre les deux premières matières > amp),
 //     le bruit n'est même pas lu ; et le cas courant — deux matières, pas d'eau —
 //     a sa voie directe (une somme au lieu d'un tri).
-export function makeLisiere(kindAt, neutral, cfg = LISIERE) {
+// `world` : le repère des coordonnées de cellule (taille de grille + graine, cf.
+// isoGroundResolve) ; quand il change, les entrées du cache de texels sont mortes.
+export function makeLisiere(kindAt, neutral, cfg = LISIERE, world = null) {
+  if (world != null && world !== texWorld) { texWorld = world; texCache.clear(); }
   const cells = new Map();                     // 'gx,gy' → état de la cellule (cette cuisson)
   const score = new Float64Array(9), wu = new Float64Array(3), wv = new Float64Array(3);
   let cur = null, curX = NaN, curY = NaN;
@@ -307,13 +319,17 @@ export function makeLisiere(kindAt, neutral, cfg = LISIERE) {
     const hit = texCache.get(sig);
     if (hit) return hit;
     const T = texTable();
-    const rr = [];                                  // (indice, j, i0, i1) à plat
-    const topK = new Int8Array(64).fill(-2), topJ = new Int8Array(64);
+    const rr = runScratch;                          // (indice, j, i0, i1) à plat
+    rr.length = 0;
+    // UN seul tableau typé : la première ligne de chaque colonne (matière en [i],
+    // ligne en [64 + i]), puis les runs à partir de [TOP] (valeurs ≤ 64).
+    const top = new Int8Array(TOP);
+    top.fill(-2, 0, 64);
     let runK = -1, runJ = -1, runI = 0, lastI = 0;
     for (let t = 0; t < T.n; t += 1) {
       const i = T.I[t], j = T.J[t];
       const k = winW(st, T.W, t * 9, T.NO[t], T.NFX[t], T.NFY[t]);
-      if (topK[i] === -2 && j < 16) { topK[i] = k; topJ[i] = j; }
+      if (top[i] === -2 && j < 16) { top[i] = k; top[64 + i] = j; }
       if (j !== runJ || k !== runK) {
         if (runK >= 0) rr.push(runK, runJ, runI, lastI + 1);
         runK = k; runJ = j; runI = i;
@@ -321,7 +337,10 @@ export function makeLisiere(kindAt, neutral, cfg = LISIERE) {
       lastI = i;
     }
     if (runK >= 0) rr.push(runK, runJ, runI, lastI + 1);
-    const res = { kinds: st.kinds.slice(), rr, topK, topJ };
+    const buf = new Int8Array(TOP + rr.length);
+    buf.set(top);
+    buf.set(rr, TOP);
+    const res = { kinds: st.kinds.slice(), buf };
     if (texCache.size > TEX_CACHE_MAX) texCache.clear();
     texCache.set(sig, res);
     return res;
@@ -340,8 +359,8 @@ export function makeLisiere(kindAt, neutral, cfg = LISIERE) {
     // texels peuvent tomber sur le même pixel (rectangle vide, sauté).
     const ex = (i) => X0 + Math.ceil(i * s2 - 0.5), ey = (j) => Y0 + Math.ceil(j * s2 - 0.5);
     const out = new Map();
-    const rr = tr.rr;
-    for (let q = 0; q < rr.length; q += 4) {
+    const rr = tr.buf;
+    for (let q = TOP; q < rr.length; q += 4) {
       const x0 = ex(rr[q + 2]), x1 = ex(rr[q + 3]), y0 = ey(rr[q + 1]), y1 = ey(rr[q + 1] + 1);
       if (x1 <= x0 || y1 <= y0) continue;
       const kk = tr.kinds[rr[q]];
@@ -354,9 +373,9 @@ export function makeLisiere(kindAt, neutral, cfg = LISIERE) {
     if (s2 >= 1 && out.has('grass')) {
       const bh = Math.ceil(BLADE_TEXELS * s2);
       for (let i = 0; i < 64; i += 1) {
-        const k = tr.topK[i];
+        const k = tr.buf[i];
         if (k < 0 || tr.kinds[k] !== 'grass') continue;
-        const yTop = ey(tr.topJ[i]);
+        const yTop = ey(tr.buf[64 + i]);
         blades.push(ex(i), yTop - bh, ex(i + 1), yTop);
       }
     }
@@ -364,6 +383,8 @@ export function makeLisiere(kindAt, neutral, cfg = LISIERE) {
   };
   return { isEdge, runs, kindAtPoint };
 }
+// Entrées du cache de texels (tests de mémoire, outils).
+export const lisiereCacheSize = () => texCache.size;
 
 if (typeof window !== 'undefined') {
   // Molette : __lisiere(true|false) ; ({ amp, f1, f2, fine }) règle le bord.

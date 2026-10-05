@@ -53,6 +53,10 @@ function bakeFor(band, game, W, H, tableH, marks, nSpots) {
     };
     b.cvBack = toCv(b.back);
     b.cvFront = toCv(b.front);
+    // Peints dans leurs toiles, les rasters bruts ne servent plus (la couche de nuit
+    // `N` n'est pas lue ici) : le cache ne garde que les toiles (audit du 2026-10-05,
+    // PERF-62 : trois rasters par entrée, treize entrées).
+    b.back = b.front = b.N = null;
     if (cache.size > 12) cache.delete(cache.keys().next().value);
     cache.set(key, b);
   }

@@ -199,6 +199,8 @@ function pushButterflies(now, out) {
 // rue, ni bâti, ni arbre, ni place, ni eau) collée au mur d'une maison. Une cour sur
 // ~45 maisons. La corde longe le mur ; trois ou quatre pièces de linge y pendent.
 const LINEN = [[236, 232, 220], [180, 196, 212], [214, 170, 96], [196, 92, 72], [226, 222, 204]];
+// Le pli ombré de chaque pièce (18 crans plus sombre), calculé une fois et non par pixel.
+const LINEN_SHADE = LINEN.map((c) => c.map((v) => v - 18));
 let _lines = null, _lineKey = '';
 function lineSpots() {
   const L = CM.layout, band = bandOf();
@@ -264,14 +266,14 @@ function pushLaundry(now, out) {
         for (let i = 0; i < n; i += 1) {
           const u = (i + 0.7) / (n + 0.4);
           const x = A.x + (B.x - A.x) * u, y = A.y + (B.y - A.y) * u - H + Math.sin(Math.PI * u) * 1.2 * k;
-          const col = LINEN[(s.g + i * 3) % LINEN.length];
+          const col = LINEN[(s.g + i * 3) % LINEN.length], shade = LINEN_SHADE[(s.g + i * 3) % LINEN.length];
           const hgt = 2 + ((s.g >>> (i + 2)) % 3);
           // Le vent soulève le bas de la pièce d'un pixel, par à-coups.
           const flap = Math.abs(wind) > 0.15 && Math.sin(t * (5 + i) + i * 1.7) > 0 ? Math.sign(wind) : 0;
           for (let r = 0; r < hgt; r += 1) {
             const sh = r === hgt - 1 ? flap : 0;
             viePixel(ctx, x + sh * k, y + (r + 1) * k, k, col, fz);
-            viePixel(ctx, x + (1 + sh) * k, y + (r + 1) * k, k, col.map((v) => v - 18), fz);
+            viePixel(ctx, x + (1 + sh) * k, y + (r + 1) * k, k, shade, fz);
           }
         }
         vieCount('linge');

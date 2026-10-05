@@ -1,4 +1,3 @@
-import { CM } from '../../game/map/cityMapRuntime.js';
 import { state } from '../../game/core/state.js';
 import { tr } from '../../game/core/i18n.js';
 
@@ -11,7 +10,13 @@ export default function ContemplationBar({ onExit }) {
   // nuit et la santé ne suffisait pas : l'averse et l'émeute disparaissaient du
   // cliché (audit 2026-10-05, BUG-89). `now` est nécessaire sans quoi la capture
   // fige le temps à 0 et vide la scène de ses animations.
-  const handleShot = () => {
+  // Moteur de carte chargé AU CLIC, jamais importé ici : cette barre vit dans
+  // App, donc dans le chunk d'entrée, et son import statique y tirait toute la
+  // carte (~1 Mo) — le découpage paresseux de la vue Cité n'en était plus un
+  // (audit 2026-10-05, PERF-67). La barre ne s'affiche que sur la Cité, carte
+  // montée : le module est déjà en cache, l'import se résout aussitôt.
+  const handleShot = async () => {
+    const { CM } = await import('../../game/map/cityMapRuntime.js');
     if (typeof CM.captureFrame !== 'function') return;
     const url = CM.captureFrame({ live: true, night: CM.nightF, health: CM.healthF, now: performance.now() });
     if (!url) return;

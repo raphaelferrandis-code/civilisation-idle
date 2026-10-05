@@ -62,7 +62,9 @@ import { LISIERE } from './isoLisiere.js';
 // PARTAGÉ avec le bake des quais (§4.1 de REPRISE-TRACE-VECTORIEL).
 
 export function drawIsoGroundRoads(bake, resolve, roads) {
-  const { ctx, T, z, hw, LOD, HARD, L, band, road, roadMap, urb, PR } = bake;
+  // `b` : bornes de grille de la cuisson (visibleCellBounds, un sur-ensemble de
+  // l'écran) — absentes d'un appel de test, rien n'est alors écarté.
+  const { ctx, T, z, hw, LOD, HARD, L, band, road, roadMap, urb, PR, b } = bake;
   const { kindAt } = resolve;
   // Rubans de chaussée par-dessus le fond : pavé central + un bras vers chaque
   // connexion (rectangles MONDE projetés → parallélogrammes écran continus).
@@ -667,8 +669,21 @@ export function drawIsoGroundRoads(bake, resolve, roads) {
     sctx.fillStyle = shCol;
     sctx.beginPath();
     let alN = 0;
+    // HORS DE LA TUILE, PAS TRACÉE (audit du 2026-10-05, PERF-52) : la boucle passe
+    // par TOUTES les habitations de la ville, et chaque tuile projetait et remplissait
+    // leurs ~1 100 allées pour en garder ~150 (ville d'ère 24, tuile de 272 px : JS
+    // 0,49 → 0,17 ms ; remplissage, banc en rendu logiciel, 0,97 → 0,36 ms). Une
+    // allée ne porte qu'à une case de sa façade : hors des bornes de la cuisson
+    // élargies de 3 cases, elle ne touche aucun pixel de la tuile. Elle COMPTE
+    // pourtant dans son paquet : les fills tombent aux mêmes allées qu'avant, et
+    // deux allées qui se croisent dans un virage restent unies (ou non) comme
+    // avant — le rendu est le même au pixel.
+    const ax0 = b ? (b.gx0 - 3) * T : -Infinity, ax1 = b ? (b.gx1 + 4) * T : Infinity;
+    const ay0 = b ? (b.gy0 - 3) * T : -Infinity, ay1 = b ? (b.gy1 + 4) * T : Infinity;
     const allee = (x0, y0, x1, y1) => {
-      pathWorldQuad(sctx, x0, y0, x1, y1);
+      if (Math.max(x0, x1) >= ax0 && Math.min(x0, x1) <= ax1 && Math.max(y0, y1) >= ay0 && Math.min(y0, y1) <= ay1) {
+        pathWorldQuad(sctx, x0, y0, x1, y1);
+      }
       alN += 1;
       if (alN >= 256) { sctx.fill(); sctx.beginPath(); alN = 0; }
     };

@@ -21,7 +21,7 @@ import { fdLoversInscrire, fdState, fdProgress } from '../../core/faitsDivers.js
 import { FD_STORIES } from '../../data/faitsDivers.js';
 import { drawInstrument, drawNotes, INSTR_STAGE_OF_BAND } from './fdMusicien.js';
 import { LOGIS_LIFT, LOGIS_SINK, drawLogisHands, diogeneVariant } from './fdCynique.js';
-import { jouerMelodieScene } from '../../audio/melodieScene.js';
+import { jouerMelodieScene, prechaufferMelodie } from '../../audio/melodieScene.js';
 import { AMOUREUX, AMOUREUX_NAMES, AMOUREUX_PISTES, accordePiste } from '../../data/faitsDiversAmoureux.js';
 
 const LOVER_VARIANT = { nancy: 3, william: 5 };
@@ -158,6 +158,8 @@ function buildWedding(app) {
     const m = figure(app, 20, x + sx * 1.45 - fx * 0.1, y + sy * 1.45 - fy * 0.1, { ct: 0, dir: dirOf(-sx, -sy), cast: 0, variant: 5, who: 'cameo' });
     m.say = cm.musicien; m.music = true;
     cameos.push(m);
+    // Sa mélodie, prête avant le clic (hors du fil principal, audit du 2026-10-05).
+    try { prechaufferMelodie(app.band); } catch { /* sans son */ }
   }
   if (cm.cynique && fdProgress(FD_STORIES.cynique).n > 0) {
     const d = figure(app, 21, x - sx * 1.7 + fx * 0.2, y - sy * 1.7 + fy * 0.2, { ct: 0, dir: 2, sit: true, cast: 0, variant: diogeneVariant(app.band), who: 'cameo' });

@@ -55,7 +55,13 @@ export function drawVieClouds(now) {
     // Largeur d'un nuage de wT tuiles, en cases (fixe) puis à l'écran (selon le zoom).
     const Wa = Math.round(wT * CELLS_PER_TILE), Ha = Math.round(Wa * 0.5);
     const Wpx = Wa * cell, Hpx = Ha * cell;
-    if (p.x < -Wpx || p.x > CM.cw + Wpx || p.y < -Hpx || p.y > CM.ch + Hpx) continue;
+    // Le masque est ancré en son CENTRE (cloudShadowMask : ox = W/2, oy = H/2) : il
+    // déborde du point de pose d'une DEMI-étendue (audit du 2026-10-05, PERF-24 —
+    // l'étendue entière faisait cuire des nuages hors champ, que vieBlitAt écartait
+    // ensuite). Une case et un pixel de marge pour les arrondis : jamais plus serré
+    // que le test exact de vieBlitAt.
+    const hx = Wpx / 2 + cell + 1, hy = Hpx / 2 + cell + 1;
+    if (p.x < -hx || p.x > CM.cw + hx || p.y < -hy || p.y > CM.ch + hy) continue;
     const img = vieGenerated('cloud:' + (s % 997) + ':' + Wa, () => cloudShadowMask(s % 997, Wa, Ha));
     if (vieBlitAt(ctx, img, p.x, p.y, cell, force, true)) vieCount('nuages');
   }

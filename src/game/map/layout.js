@@ -2449,6 +2449,13 @@ function cityGridDims(s, c, mapSeed) {
   return { N, total, enginePressure };
 }
 
+// Lecture d'un tableau de colonnes (gx arrondi, borné à la grille). Fabrique HORS de
+// computeCityLayout (audit 2026-10-05, MEM-4) : sous V8, les fermetures d'une même
+// fonction partagent UN contexte, celui de toutes ses variables capturées — riverYAt,
+// publiée sur L.river, y retenait cells, claimed, le plan des îlots… (~21 Mo par
+// layout, ~50 Mo de plus pendant un recalcul). Ici, elle ne garde que son tableau.
+const colLookup = (arr, N) => (gx) => arr[Math.max(0, Math.min(N - 1, Math.round(gx)))];
+
 // ── Génération de la disposition (pure) ─────────────────────────────────────
 function computeCityLayout(s) {
   lpBegin();
@@ -2523,10 +2530,11 @@ function computeCityLayout(s) {
    * ---------------------------------------------------------------------- */
   const riverSet = new Set(), bankSet = new Set(), nearSet = new Set();
   const riverYByCol = new Array(N), riverHwByCol = new Array(N);
-  const riverYAt = (gx) => riverYByCol[Math.max(0, Math.min(N - 1, Math.round(gx)))];
+  // ⚠ Par colLookup, jamais par une flèche locale : riverYAt est publiée (MEM-4).
+  const riverYAt = colLookup(riverYByCol, N);
   // Demi-largeur visible du ruban au droit d'une colonne (pour caler un riverain
   // sur le bord d'eau RÉELLEMENT peint, pas sur le riverSet euclidien plus large).
-  const riverHwAt = (gx) => riverHwByCol[Math.max(0, Math.min(N - 1, Math.round(gx)))];
+  const riverHwAt = colLookup(riverHwByCol, N);
 
   // SERRAGE DE L'EMPRISE (lot densité, docs/PLAN-RENDU-VILLE.md). Retour Raph
   // 2026-08-06 sur capture : « les grandes surfaces de sol gris ». Mesuré à la bande 3,

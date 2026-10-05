@@ -117,7 +117,11 @@ export default defineConfig({
   // livrer avec chaque copie). Les polices (OFL) et Font Awesome, qu'il ne voit
   // pas, ont leurs textes dans public/licenses/. L'onglet Crédits les affiche ;
   // l'.exe les pose aussi à côté du programme (package.json, build.extraFiles).
-  build: { license: { fileName: 'licenses/THIRD-PARTY-LICENSES.md' } },
+  // SEUIL D'AVERTISSEMENT DE TAILLE (audit 2026-10-05, PERF-67) : le moteur de
+  // carte (chunk cityMapRuntime, ~1,1 Mo) ne se charge qu'avec la vue Cité — il
+  // ne pèse plus sur le démarrage depuis que ContemplationBar ne l'importe plus.
+  // Le seuil le laisse passer, et crie de nouveau si un chunk grossit au-delà.
+  build: { license: { fileName: 'licenses/THIRD-PARTY-LICENSES.md' }, chunkSizeWarningLimit: 1200 },
   // Le serveur de dev ne surveille PAS les dossiers de travail des sessions :
   // `.preview-shots/` reçoit des captures en continu (harnais /__shot, planches),
   // et sous Windows un PNG encore verrouillé par son écrivain fait planter le

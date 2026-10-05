@@ -139,11 +139,9 @@ describe('la profondeur de chaque pixel', () => {
     expect(sk2.walk.ex).toEqual([at[0] + 5, at[1] + 6, 64, 20]);
     expect(sk2.walk.gap).toEqual([8, 82]);
     expect(sk2.walk.r).toBeCloseTo(64 / Math.SQRT2);
-    // Sur un pixel du code, la profondeur du code ; ailleurs, −∞ ou celle portée d'en dessous.
-    for (let k = 0; k < R.w * R.h; k += 1) {
-      if (!sk.R.data[k * 4 + 3]) continue;
-      if (R.data[k * 4 + 3]) expect(sk.D[k]).toBe(out.D[k]);
-    }
+    // Pas de profondeur sur un habillage (audit du 05/10, MEM-3) : rien ne la lisait — la
+    // fille du balcon passe derrière sa balustrade, les autres ne sont découpées par rien.
+    expect(sk.D).toBe(null);
   });
 });
 

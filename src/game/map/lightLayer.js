@@ -195,6 +195,19 @@ export function beginLightLayer(enabled) {
 
 export function endLightLayer() { armed = false; }
 
+// Carte DÉMONTÉE (resetCityMapRuntime ; audit du 05/10, MEM-8) : le calque est un
+// plein écran de cw × ch × dpr² — 12 Mo à dpr 1 sur ~2 400 × 1 300, 28 Mo à 1,5 —,
+// effacé et repeint à chaque frame : rien à y garder pendant que le joueur est sur
+// un autre onglet. Largeur nulle = mémoire rendue tout de suite, sans attendre le
+// ramasse-miettes. ensureBuf et ensureCov réallouent à la demande, grilles vides
+// comme le canvas neuf (il n'y reste aucune lumière à effacer).
+export function releaseLightLayer() {
+  if (buf) { buf.width = 0; buf.height = 0; }
+  buf = null; bctx = null;
+  cov = null; held = null; fin = null;
+  armed = false; usable = false; suspended = false; painted = false; needClear = false;
+}
+
 // Passe hors écran (silhouette dorée du survol, mesure d'encre d'une scène) :
 // elle redessine la scène dans un canvas AUXILIAIRE, avec ses propres
 // coordonnées. Une découpe y serait faite au mauvais endroit — et une lumière
@@ -265,13 +278,19 @@ export function lightCut(x0, y0, x1, y1, fn) {
 
 // Cas courant : la silhouette EST le sprite qu'on vient de blitter. Les quatre
 // derniers arguments (rectangle source) sont facultatifs, comme pour drawImage.
+// Le garde de lightCut, AVANT de fabriquer la fermeture (audit du 05/10, PERF-46) :
+// de jour, ou sans lumière déposée, chaque arbre, buisson ou moulin en allouait une.
 export function lightCutImage(img, dx, dy, dw, dh, sx, sy, sw, sh) {
-  if (!img || !(dw > 0) || !(dh > 0)) return false;
+  if (!armed || suspended || !painted || !img || !(dw > 0) || !(dh > 0)) return false;
   return lightCut(dx, dy, dx + dw, dy + dh, (lc) => {
     if (sw == null) lc.drawImage(img, dx, dy, dw, dh);
     else lc.drawImage(img, sx, sy, sw, sh, dx, dy, dw, dh);
   });
 }
+
+// Le même garde, pour l'appelant qui doit fabriquer sa propre silhouette (plusieurs
+// blits : le vent dans les arbres, cf. isoLivePaint) — sans fermeture de jour.
+export const lightCutLive = () => armed && !suspended && painted;
 
 // ── Rendu du calque ─────────────────────────────────────────────────────────
 // À appeler dans la passe de nuit, APRÈS le voile. Renvoie true si le calque a

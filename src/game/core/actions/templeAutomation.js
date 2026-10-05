@@ -111,7 +111,6 @@ export function tickTempleAutomation() {
   const auto = state.templeAuto;
   if (!auto) return;
   const now = Date.now();
-  let played = false;
 
   // ── CAISSE — auto-relève quand elle frôle le plafond (AVANT les jeux : la
   // relève peut financer la partie du même tick). Pas de cooldown : la condition
@@ -120,7 +119,7 @@ export function tickTempleAutomation() {
   if (t && t.on && t.unlocked) {
     const cap = trunkCap();
     if (trunkValue(now) >= cap - Math.max(1, cap * 0.02)) {
-      if (collectTrunk({ render: false }) > 0) played = true;
+      collectTrunk({ render: false });
     }
   }
 
@@ -137,7 +136,7 @@ export function tickTempleAutomation() {
       const res = castAugury(AUGURY_TABLE_ID, riteId, { stake, render: false, silent: true });
       // Cooldown consommé SEULEMENT si le jet a eu lieu (castAugury renvoie null
       // si verrouillé/impayable — ne pas brûler le cooldown sur un no-op).
-      if (res) { o.lastAt = now; played = true; countOfflinePlay("osselets"); }
+      if (res) { o.lastAt = now; countOfflinePlay("osselets"); }
     }
   }
 
@@ -151,7 +150,7 @@ export function tickTempleAutomation() {
     if (free || (state.faveur || 0) - stake >= floorOf(i)) {
       const target = Math.min(AUTO_ICARUS_TARGET_MAX, Math.max(AUTO_ICARUS_TARGET_MIN, i.target || 2));
       const res = resolveIcarusHeadless(stake, target, { free });
-      if (res) { i.lastAt = now; played = true; countOfflinePlay("icarus"); }
+      if (res) { i.lastAt = now; countOfflinePlay("icarus"); }
     }
   }
 
@@ -163,7 +162,7 @@ export function tickTempleAutomation() {
     const stake = autoStakeOf(g);
     if ((state.faveur || 0) - stake >= floorOf(g)) {
       const res = playScratch(stake, { render: false, silent: true });
-      if (res) { g.lastAt = now; played = true; countOfflinePlay("gratteux"); }
+      if (res) { g.lastAt = now; countOfflinePlay("gratteux"); }
     }
   }
 
@@ -175,13 +174,13 @@ export function tickTempleAutomation() {
     const stake = autoStakeOf(v);
     if ((state.faveur || 0) - stake >= floorOf(v)) {
       const res = resolveBlackjackHeadless(stake, { floor: floorOf(v) });
-      if (res) { v.lastAt = now; played = true; countOfflinePlay("vingtetun"); }
+      if (res) { v.lastAt = now; countOfflinePlay("vingtetun"); }
     }
   }
 
-  // Hors ligne, un render par tick figerait le boot : la simulation re-rend une
-  // seule fois à la fin, c'est tout l'objet de notifyPaused.
-  if (played && !isNotifyPaused()) render();
+  // Pas de render() ici : la boucle de jeu notifie juste après le tick, et un
+  // second passage re-évaluait tous les sélecteurs pour rien (audit 2026-10-05,
+  // PERF-69). Hors ligne, la simulation re-rend une seule fois à la fin.
 }
 
 // Le remboursement des achats supprimés au lot 1 (migration 4 → 5 de state.js) est

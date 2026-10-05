@@ -53,9 +53,18 @@ function detect() {
   }
 }
 
+// Le DERNIER verdict (null : pas encore rendu). isCoarsePointer() le lit : appelé à
+// chaque rendu de la Cité (1 Hz), de la boutique et des encarts, il relançait
+// detect() — URLSearchParams, localStorage, un ou deux matchMedia, et une écriture
+// de localStorage à CHAQUE appel tant que `?touch=1` restait dans l'URL (audit
+// 2026-10-05, PERF-60). applyPointerMode le remet à jour, au démarrage et à chaque
+// changement de régime (watchPointerMode).
+let verdict = null;
+
 export function applyPointerMode() {
   if (typeof document === "undefined") return "fine";
-  const mode = detect() ? "coarse" : "fine";
+  verdict = detect();
+  const mode = verdict ? "coarse" : "fine";
   document.documentElement.dataset.pointer = mode;
   return mode;
 }
@@ -66,14 +75,16 @@ export function applyPointerMode() {
  * mais de disposition (au bureau la boutique est un meuble permanent, au doigt
  * c'est une feuille qui recouvre la ville).
  *
- * ⚠ On relit `detect()` plutôt que `dataset.pointer` : l'attribut est posé par
- * `watchPointerMode()` au démarrage, et un composant qui se monte avant lui
- * lirait une chaîne vide — c'est-à-dire « bureau » — sur un téléphone. Un défaut
- * qui dépend de l'ordre de montage est un défaut qui se trompera un jour.
+ * ⚠ On lit le VERDICT de `detect()` plutôt que `dataset.pointer` : l'attribut est
+ * posé par `watchPointerMode()` au démarrage, et un composant qui se monte avant
+ * lui lirait une chaîne vide — c'est-à-dire « bureau » — sur un téléphone. Un
+ * défaut qui dépend de l'ordre de montage est un défaut qui se trompera un jour :
+ * sans verdict encore rendu, on détecte ici.
  */
 export function isCoarsePointer() {
   if (typeof window === "undefined") return false;
-  return detect();
+  if (verdict === null) verdict = detect();
+  return verdict;
 }
 
 /**

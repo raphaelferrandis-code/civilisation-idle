@@ -1,7 +1,8 @@
 // LA PETITE BIBLIOTHÈQUE DE SON DU JEU — tout est JOUÉ PAR LE CODE (le jeu n'a pas de
 // banque de sons) : chaque instrument AJOUTE sa note dans un Float32Array, à `t`
 // secondes. Sortie de melodieScene.js le 2026-10-03 pour servir aussi la machine à sous
-// (slotsSound.js). Pur, sauf `audioCtx` / `jouerTampon` (la lecture, navigateur seul).
+// (slotsSound.js). Pur, sauf `audioCtx` / `enTampon` / `jouerTampon` (la lecture,
+// navigateur seul).
 
 const NOTES = { C: 0, D: 2, E: 4, F: 5, G: 7, A: 9, B: 11 };
 export function hz(nom, oct = 0) {
@@ -227,26 +228,73 @@ export function normaliser(buf, sr, crete = 0.8, fondu = 0.03) {
 }
 
 // ── La lecture (navigateur) : UN contexte audio pour tout le jeu.
-let _ctx = null;
+// Il DORT quand rien ne joue (audit du 2026-10-05, MEM-10) : un contexte « running »
+// rend du silence sur le fil audio des heures durant, une fois la machine ou une
+// mélodie entendue. Suspendu après REPOS_MS sans aucun son ; le son suivant le réveille
+// (audioCtx). `_endormi` : suspend() demandé — l'état ne passe à « suspended » qu'à la
+// résolution, un son lancé entre les deux doit quand même relancer le contexte.
+export const REPOS_MS = 30000;
+let _ctx = null, _actifs = 0, _repos = null, _endormi = false;
+function endormir() {
+  clearTimeout(_repos);
+  _repos = setTimeout(() => {
+    _repos = null;
+    if (_actifs || !_ctx || _ctx.state !== 'running') return;
+    _endormi = true;
+    _ctx.suspend().catch(() => {});
+  }, REPOS_MS);
+}
 export function audioCtx() {
   if (typeof window === 'undefined') return null;
   const AC = window.AudioContext || window.webkitAudioContext;
   if (!AC) return null;
   if (!_ctx) _ctx = new AC();
-  if (_ctx.state === 'suspended') _ctx.resume().catch(() => {});
+  if (_endormi || _ctx.state === 'suspended') { _endormi = false; _ctx.resume().catch(() => {}); }
+  if (!_actifs) endormir();             // réveillé pour rien : il se rendort
   return _ctx;
 }
-// Joue un tampon (Float32Array à `sr`) au volume `vol`. Rend { stop, gain } ou null.
+// Un son qui part : le contexte reste éveillé jusqu'à sa fin. À la fin, ses nœuds sont
+// débranchés (ils ne pendent plus au graphe) et, plus rien ne jouant, le repos s'arme.
+function suivre(s, g) {
+  _actifs += 1;
+  clearTimeout(_repos);
+  _repos = null;
+  s.onended = () => {
+    try { s.disconnect(); g.disconnect(); } catch { /* déjà débranchés */ }
+    _actifs = Math.max(0, _actifs - 1);
+    if (!_actifs) endormir();
+  };
+}
+// Un tampon prêt pour la lecture : l'AudioBuffer se crée UNE fois — il ne dépend
+// d'aucun contexte — au lieu d'un createBuffer + copie à chaque son (MEM-10). Les
+// caches de sons gardent CE tampon, plus le Float32Array. Hors navigateur (tests),
+// le Float32Array tel quel.
+export function enTampon(data, sr) {
+  if (!data || !data.length || typeof AudioBuffer === 'undefined') return data;
+  try {
+    const buf = new AudioBuffer({ numberOfChannels: 1, length: data.length, sampleRate: sr });
+    buf.copyToChannel(data, 0);
+    return buf;
+  } catch {
+    return data;
+  }
+}
+// Joue un tampon (AudioBuffer d'`enTampon`, ou Float32Array à `sr`) au volume `vol`.
+// Rend { stop, gain } ou null.
 export function jouerTampon(data, sr, vol = 1, { loop = false } = {}) {
   const ctx = audioCtx();
   if (!ctx || !data || !data.length) return null;
-  const buf = ctx.createBuffer(1, data.length, sr);
-  buf.copyToChannel(data, 0);
+  let buf = data;
+  if (typeof data.getChannelData !== 'function') {
+    buf = ctx.createBuffer(1, data.length, sr);
+    buf.copyToChannel(data, 0);
+  }
   const s = ctx.createBufferSource(), g = ctx.createGain();
   s.buffer = buf;
   s.loop = loop;
   g.gain.value = vol;
   s.connect(g).connect(ctx.destination);
+  suivre(s, g);
   s.start();
   return { stop: () => { try { s.stop(); } catch { /* déjà finie */ } }, gain: g, ctx };
 }

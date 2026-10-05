@@ -41,6 +41,8 @@ import { isoArt } from './isoArt.js';
 import { seasonTree } from './isoGroundDetail.js';
 import { bakeBudgetOk, bakeTimed } from './bakeBudget.js';
 import { TERRAIN } from './isoTerrain.js';
+// Hauteur du mur de quai : le reflet d'une pièce de décor descend de deux fois elle.
+import { quayWallTune } from '../quaysAndRiot.js';
 
 // Une recette par merveille (wonderBake.js).
 const RECIPES = {
@@ -86,7 +88,94 @@ function inkOf(R) {
   }
   return { col, box: x1 < 0 ? null : { x: x0, y: y0, w: x1 - x0 + 1, h: y1 - y0 + 1 } };
 }
+// Le CADRE seul d'un raster (audit 2026-10-05, MEM-2) : une fois le canvas posé et
+// l'encre mesurée, le dessin ne relit que l'origine et la taille. Garder `data` à
+// côté du canvas doublait chaque entrée (le sol d'un lieu de rang V : 2,8 Mo de plus).
+const frameOnly = (R) => ({ ox: R.ox, oy: R.oy, w: R.w, h: R.h });
+// ── Blit rogné à l'ENCRE (audit 2026-10-05, PERF-34) ──────────────────────────
+// Les rasters des lieux ont un cadre fixe (61 × 79 px pour un muret de 6 % d'encre,
+// 1035 × 600 pour la base de l'îlot) : le blit plein faisait parcourir et mélanger
+// au moteur Canvas des pixels transparents (2 à 3 fois le temps de blit du décor,
+// mesuré en rendu logiciel). On ne pose plus que l'encre, AU PIXEL PRÈS : la
+// destination reste sur des pixels ENTIERS (l'encre + un pixel de marge), c'est la
+// SOURCE qui devient fractionnaire — la transformation du blit plein, inchangée.
+// Mesuré au pixel le 2026-10-05 (GPU et logiciel, zooms 0,25 à 4, dpr 1, 2, 1,25 et
+// 1,5) : identique quand le rectangle source a des côtés IMPAIRS et que le dpr est
+// ENTIER — aucun centre de pixel ne tombe alors pile entre deux texels. Sinon de
+// telles égalités existent, et le GPU les tranche autrement selon le quad (une
+// colonne décalée d'un texel, cf. litBox dans lightLayer.js) : blit plein, comme avant.
+// `dx, dy, dw, dh` entiers (px logiques). Rend [sx, sy, sw, sh, dx, dy, dw, dh] pour
+// drawImage (un tableau réutilisé, à consommer tout de suite) ou null (blit plein).
+const _ink = [0, 0, 0, 0, 0, 0, 0, 0];
+export function inkBlit(box, sx0, sy0, sw0, sh0, dx, dy, dw, dh) {
+  if (!box || !(sw0 & 1) || !(sh0 & 1) || !(dw > 0) || !(dh > 0) || !Number.isInteger(CM.dpr || 1)) return null;
+  const kx = dw / sw0, ky = dh / sh0;
+  const bx0 = Math.max(box.x, sx0) - sx0, by0 = Math.max(box.y, sy0) - sy0;
+  const bx1 = Math.min(box.x + box.w, sx0 + sw0) - sx0, by1 = Math.min(box.y + box.h, sy0 + sh0) - sy0;
+  if (bx1 <= bx0 || by1 <= by0) return null;
+  const X0 = Math.max(dx, Math.floor(dx + bx0 * kx) - 1), X1 = Math.min(dx + dw, Math.ceil(dx + bx1 * kx) + 1);
+  const Y0 = Math.max(dy, Math.floor(dy + by0 * ky) - 1), Y1 = Math.min(dy + dh, Math.ceil(dy + by1 * ky) + 1);
+  _ink[0] = sx0 + (X0 - dx) / kx; _ink[1] = sy0 + (Y0 - dy) / ky; _ink[2] = (X1 - X0) / kx; _ink[3] = (Y1 - Y0) / ky;
+  _ink[4] = X0; _ink[5] = Y0; _ink[6] = X1 - X0; _ink[7] = Y1 - Y0;
+  return _ink;
+}
+// Pose d'un raster, rognée à l'encre quand c'est identique au pixel (inkBlit), et sa
+// découpe dans le calque de lumière, sur le même rectangle. `whole` : le blit plein
+// d'avant prenait l'image entière (forme à 5 arguments), on le garde tel quel.
+function blitInk(ctx, cv, box, sx, sy, sw, sh, dx, dy, dw, dh, whole = false) {
+  const b = inkBlit(box, sx, sy, sw, sh, dx, dy, dw, dh);
+  if (b) {
+    ctx.drawImage(cv, b[0], b[1], b[2], b[3], b[4], b[5], b[6], b[7]);
+    lightCutImage(cv, b[4], b[5], b[6], b[7], b[0], b[1], b[2], b[3]);
+  } else if (whole) {
+    ctx.drawImage(cv, dx, dy, dw, dh);
+    lightCutImage(cv, dx, dy, dw, dh);
+  } else {
+    ctx.drawImage(cv, sx, sy, sw, sh, dx, dy, dw, dh);
+    lightCutImage(cv, dx, dy, dw, dh, sx, sy, sw, sh);
+  }
+}
 const _bakes = new Map();
+// ── Mémoire des cuissons (audit 2026-10-05, MEM-2) ───────────────────────────
+// Les clés changent avec la bande, l'hiver, le rang, l'île et les portes des rues :
+// la FIFO de 25/9/25 gardait jusqu'au plafond des variantes que plus rien ne posait
+// (56 Mo mesurés avec les Plaisirs). Chaque entrée est DATÉE à la lecture ; avant une
+// insertion part ce qui n'a pas servi depuis CACHE_IDLE_MS, puis, au-delà du plafond,
+// la moins récemment servie. Jamais ce que la carte MONTRE (_shown, _placeShown,
+// _placeGround, _isleShown) : une merveille hors champ garde sa variante, sans
+// recuisson au retour.
+// ⚠ Rien n'est vidé quand CM.layout change d'identité : la ville se recalcule
+// souvent, chaque recalcul recuirait tout.
+const CACHE_IDLE_MS = 10000;
+const CACHE_CAP = { bakes: 12, isles: 3, places: 12 };   // 6 merveilles × été/hiver
+// L'heure d'une image, lue une fois par image : drawIsoWorld pose un tableau NEUF
+// dans CM._wonderBoxes en tête de chacune (même horloge que bakeBudget.js).
+let _clockStamp = null, _clockNow = 0;
+function cacheNow() {
+  const s = CM._wonderBoxes;
+  if (s !== _clockStamp || !s) { _clockStamp = s; _clockNow = performance.now(); }
+  return _clockNow;
+}
+function cacheTrim(map, cap, keep) {
+  const old = cacheNow() - CACHE_IDLE_MS;
+  for (const [k, e] of map) if (e.used < old && !keep.has(e)) map.delete(k);
+  while (map.size > cap) {
+    let lru = null, at = Infinity;
+    for (const [k, e] of map) if (!keep.has(e) && e.used < at) { at = e.used; lru = k; }
+    if (lru == null) return;
+    map.delete(lru);
+  }
+}
+// Pose `e` sous `key` après la purge (plafond compté avec elle).
+function cachePut(map, key, e, cap, keep) {
+  cacheTrim(map, cap - 1, keep);
+  e.used = cacheNow();
+  map.set(key, e);
+}
+// Tailles des caches (tests de mémoire, outils).
+export function wonderCacheStats() {
+  return { bakes: _bakes.size, isles: _isles.size, places: _places.size, grounds: _grounds.size };
+}
 // L'hiver se cuit à part : la neige tient sur les dessus et les toits au soleil.
 const winterNow = () => CM.season === WINTER;
 const bakeKey = (id, tier, band, B, Hmax, opts) => id + ':' + tier + ':' + band + ':' + B.toFixed(2) + ':' + Hmax.toFixed(1) + (winterNow() ? ':w' : '') + (opts.lift ? ':L' + opts.lift : '');
@@ -95,10 +184,10 @@ function bakeFor(id, tier, band, B, Hmax, opts = {}) {
   const wtr = winterNow();
   const key = bakeKey(id, tier, band, B, Hmax, opts);
   let e = _bakes.get(key);
-  if (e) return e;
+  if (e) { e.used = cacheNow(); return e; }
   const out = RECIPES[id](wonderKitForBand(band, wtr), tier, B, Hmax, opts);
   const ink = inkOf(out.R);
-  e = { key, R: out.R, cv: rasterCanvas(out.R), cvN: out.N ? rasterCanvas(out.N) : null, occ: ink.col, box: ink.box, props: out.props || [],
+  e = { key, R: frameOnly(out.R), cv: rasterCanvas(out.R), cvN: out.N ? rasterCanvas(out.N) : null, occ: ink.col, box: ink.box, props: out.props || [],
     core: out.core || null, coreK: wonderKitForBand(band, wtr), frames: new Map() };
   // Le cœur animé (Œil) compte dans la boîte de survol.
   if (e.core && e.box) {
@@ -108,9 +197,8 @@ function bakeFor(id, tier, band, B, Hmax, opts = {}) {
     e.box = { x: x0, y: y0, w: x1 - x0, h: y1 - y0 };
   }
   // Peu de clés vivent à la fois (une par merveille) ; un aperçu qui balaie rangs
-  // et ères en crée d'autres : on borne.
-  if (_bakes.size > 24) _bakes.delete(_bakes.keys().next().value);
-  _bakes.set(key, e);
+  // et ères en crée d'autres : on borne (cf. cacheTrim).
+  cachePut(_bakes, key, e, CACHE_CAP.bakes, new Set(_shown.values()));
   return e;
 }
 
@@ -120,7 +208,7 @@ function coreFrame(e, f) {
   let fr = e.frames.get(f);
   if (!fr) {
     const out = bakeEyeCore(e.coreK, e.core, f, CORE_F);
-    fr = { R: out.R, cv: rasterCanvas(out.R), cvN: out.N ? rasterCanvas(out.N) : null };
+    fr = { R: frameOnly(out.R), cv: rasterCanvas(out.R), cvN: out.N ? rasterCanvas(out.N) : null };
     e.frames.set(f, fr);
   }
   return fr;
@@ -165,6 +253,11 @@ function modelOf(w, wi) {
 const _shown = new Map();         // id → dernière cuisson du monument posée
 const _isleShown = { e: null, shape: '' };
 const _placeShown = new Map();    // id → dernier lieu posé
+// id → dernier lieu peint par le SOL (drawWonderPlaces). Lui aussi est à l'écran, même
+// quand le monument est hors champ (une fournée de dézoom couvre des dizaines de
+// cases) : purgé, il se recuisait au retour de la merveille (30 à 250 ms le sol d'un
+// lieu de rang V). Distinct de _placeShown, qui décide du repli de la passe vivante.
+const _placeGround = new Map();
 function bakeLive(m) {
   const opts = m.isle ? { lift: m.isle.top } : {};
   if (!_bakes.has(bakeKey(m.w.id, m.tier, m.band, m.B, m.Hmax, opts))) {
@@ -277,13 +370,13 @@ function isleFor(m) {
   const wtr = winterNow(), il = m.il;
   const key = isleKey(m);
   let e = _isles.get(key);
-  if (e) return e;
+  if (e) { e.used = cacheNow(); return e; }
   const K = wonderKitForBand(m.band, wtr);
   const base = bakeIsleBase(K, m.tier, il);
   const plan = islePlan(K, m.tier, il);
   const kinds = new Map();
   e = {
-    key, M: base.M, R: base.R, cv: rasterCanvas(base.R), cvR: rasterCanvas(base.Rr), box: inkOf(base.R).box, props: plan.props,
+    key, M: base.M, R: frameOnly(base.R), cv: rasterCanvas(base.R), cvR: rasterCanvas(base.Rr), box: inkOf(base.R).box, props: plan.props,
     // Les filets lumineux du quai (âges cosmiques), allumés la nuit comme le monument.
     cvN: base.N ? rasterCanvas(base.N) : null,
     // L'écume au pied des rochers : un canvas repeint par paintFoam tous les FOAM_STEP.
@@ -291,7 +384,7 @@ function isleFor(m) {
     talls: plan.talls.map((q) => {
       if (!kinds.has(q.kind)) {
         const t = bakeIsleTall(q.kind, K, m.tier);
-        kinds.set(q.kind, { R: t.R, cv: rasterCanvas(t.R), cvN: t.N ? rasterCanvas(t.N) : null, props: t.props });
+        kinds.set(q.kind, { R: frameOnly(t.R), cv: rasterCanvas(t.R), cvN: t.N ? rasterCanvas(t.N) : null, props: t.props, box: inkOf(t.R).box });
       }
       return { ...q, ...kinds.get(q.kind) };
     }),
@@ -303,8 +396,8 @@ function isleFor(m) {
   // Bord AVANT de l'île sur une verticale d'écran X (local) : pour savoir si un
   // bateau passe devant (on le redessine) ou derrière (l'île le cache déjà).
   e.frontAt = isleFrontAt(M);
-  if (_isles.size > 8) _isles.delete(_isles.keys().next().value);
-  _isles.set(key, e);
+  // Une île neuve (effondrement) change la clé : l'ancienne part avec l'âge.
+  cachePut(_isles, key, e, CACHE_CAP.isles, new Set([_isleShown.e]));
   return e;
 }
 
@@ -347,37 +440,51 @@ function placeSpec(m) {
   };
   const garden0 = ext > P;
   const gates = roadGatesAt(garden0 ? ext : P);
-  const key = m.w.id + ':' + m.tier + ':' + m.band + ':' + P + ':' + ext + (wtr ? ':w' : '') + ':' + JSON.stringify(gates);
-  return { P, half, wtr, ext, garden0, gates, key };
+  // Le SOL (dallage, jardin) ne dépend pas des portes : seuls les murs et leurs
+  // piliers s'y percent (audit 2026-10-05, MEM-2). Une rue qui vient toucher
+  // l'enceinte refait le décor, plus les 2 à 5 Mo du sol.
+  const soil = m.w.id + ':' + m.tier + ':' + m.band + ':' + P + ':' + ext + (wtr ? ':w' : '');
+  const key = soil + ':' + JSON.stringify(gates);
+  return { P, half, wtr, ext, garden0, gates, key, soil };
 }
+// Les sols cuits, partagés par les lieux d'une même clé de sol (cf. placeSpec).
+const _grounds = new Map();
 const placeKeyOf = (m) => (m.w.id === 'era_mega' ? null : placeSpec(m).key);
 function placeFor(m) {
   if (m.w.id === 'era_mega' || typeof document === 'undefined') return null;
-  const { P, half, wtr, ext, garden0, gates, key } = placeSpec(m);
+  const { P, half, wtr, ext, garden0, gates, key, soil } = placeSpec(m);
   let e = _places.get(key);
-  if (e) return e;
+  if (e) { e.used = cacheNow(); return e; }
   const K = wonderKitForBand(m.band, wtr);
   // L'enceinte borde le jardin quand il y en a un, le lieu sinon.
   const plan = placePlan(m.w.id, m.tier, K, m.B, half, { enclose: !garden0, roadGates: gates });
-  const G = bakePlaceGround(plan, half);
-  let garden = null, decor = plan.decor, props = plan.props;
-  if (garden0) {
-    const ho = (ext + 0.5) * CM.TILE, gp = gardenPlan(K, half, ho, gates), GG = bakePlaceGround(gp, ho);
-    garden = { ext, G: GG, cv: rasterCanvas(GG) };
+  const ho = (ext + 0.5) * CM.TILE, gp = garden0 ? gardenPlan(K, half, ho, gates) : null;
+  let gr = _grounds.get(soil);
+  if (!gr) {
+    const G = bakePlaceGround(plan, half);
+    gr = { G: frameOnly(G), cv: rasterCanvas(G), garden: null };
+    if (gp) { const GG = bakePlaceGround(gp, ho); gr.garden = { ext, G: frameOnly(GG), cv: rasterCanvas(GG) }; }
+  }
+  let decor = plan.decor, props = plan.props;
+  if (gp) {
     decor = decor.concat(gp.decor);
     props = props.concat(gp.props);
   }
   const kinds = new Map();
   e = {
-    key, P, half, G, cv: rasterCanvas(G), props, garden,
+    key, soil, P, half, G: gr.G, cv: gr.cv, props, garden: gr.garden,
     decor: decor.map((d) => {
       const k = d.kind + ':' + (d.s || 0);
-      if (!kinds.has(k)) { const { R, N } = bakeDecor(d.kind, K, d.s); kinds.set(k, { R, cv: rasterCanvas(R), cvN: N ? rasterCanvas(N) : null }); }
+      if (!kinds.has(k)) { const { R, N } = bakeDecor(d.kind, K, d.s); kinds.set(k, { R: frameOnly(R), cv: rasterCanvas(R), cvN: N ? rasterCanvas(N) : null, box: inkOf(R).box }); }
       return { ...d, ...kinds.get(k) };
     }),
   };
-  if (_places.size > 24) _places.delete(_places.keys().next().value);
-  _places.set(key, e);
+  cachePut(_places, key, e, CACHE_CAP.places, new Set([..._placeShown.values(), ..._placeGround.values()]));
+  // Un sol qu'aucun lieu gardé ne porte plus part avec eux.
+  const live = new Set();
+  for (const p of _places.values()) live.add(p.soil);
+  for (const k of _grounds.keys()) if (!live.has(k)) _grounds.delete(k);
+  _grounds.set(soil, gr);
   return e;
 }
 // Peint les lieux d'une fournée du sol (isoWonderGround) : chaque cellule du parvis
@@ -405,6 +512,7 @@ function drawWonderPlaces(ctx, cells, hw, hh) {
     if (!touches) continue;
     const pl = bakeTimed(() => placeFor(m));
     if (!pl) continue;
+    _placeGround.set(m.w.id, pl);
     // Le lieu (cellules à ≤ P de l'emplacement), puis le jardin (au-delà).
     const layer = (G, cv, inRing) => {
       let n = 0;
@@ -455,6 +563,17 @@ function riseOf(w, now) {
   return p * p * (3 - 2 * p);
 }
 
+// Boîte ÉCRAN (px entiers) d'une pièce de décor du lieu : la même au tri (cull) et au
+// dessin. Un objet réutilisé, à consommer tout de suite.
+const _dbox = { x: 0, y: 0, w: 0, h: 0 };
+function decorBox(m, dc, z) {
+  const R2 = dc.R, q = worldToScreen(m.cx + dc.x + R2.oy + R2.ox / 2, m.cy + dc.y + R2.oy - R2.ox / 2);
+  _dbox.x = Math.round(q.x); _dbox.y = Math.round(q.y);
+  _dbox.w = Math.round(q.x + R2.w * z) - _dbox.x; _dbox.h = Math.round(q.y + R2.h * z) - _dbox.y;
+  return _dbox;
+}
+const _itemPools = [];
+
 // ── Tri peintre ──────────────────────────────────────────────────────────────
 export function pushIsoWonderItems(items, w, wi) {
   const m = geomOf(w, wi);
@@ -484,16 +603,30 @@ export function pushIsoWonderItems(items, w, wi) {
   // passe vivante, l'île la recouvrirait).
   const isl = isleLive(m);
   m.isl = isl;
+  // Items RÉUTILISÉS d'une frame à l'autre (audit 2026-10-05, PERF-33) : ~200 littéraux
+  // par merveille et par frame (1 159 pour les six au rang V) partaient au ramasse-
+  // miettes — la raison même du pool de la collecte (cf. isoRenderer). Un pool par
+  // merveille : chacune n'est poussée qu'une fois par frame. Forme unique.
+  const pool = _itemPools[wi] || (_itemPools[wi] = []);
+  let pn = 0;
+  const seg = (d, part) => {
+    let it = pool[pn];
+    if (!it) it = pool[pn] = { d: 0, kind: 'wonderSeg', w: null, wi: 0, m: null, part: '', ti: 0, pi: 0, di: 0, c0: 0, c1: 0, sh: null };
+    pn += 1;
+    it.d = d; it.w = w; it.wi = wi; it.m = m; it.part = part; it.sh = null;
+    items.push(it);
+    return it;
+  };
   if (isl) {
     CM.wonderIsle = true;
-    items.push({ d: m.cx + m.cy + isl.backD, kind: 'wonderSeg', w, wi, m, part: 'isle' });
+    seg(m.cx + m.cy + isl.backD, 'isle');
     for (let ti = 0; ti < isl.talls.length; ti += 1) {
       const q = isl.talls[ti];
-      items.push({ d: m.cx + m.cy + q.x + q.y, kind: 'wonderSeg', w, wi, m, part: 'itall', ti });
+      seg(m.cx + m.cy + q.x + q.y, 'itall').ti = ti;
     }
     for (let pi = 0; pi < isl.props.length; pi += 1) {
       const pr = isl.props[pi];
-      items.push({ d: m.cx + m.cy + pr.x + pr.y + 0.2, kind: 'wonderSeg', w, wi, m, part: 'iprop', pi });
+      seg(m.cx + m.cy + pr.x + pr.y + 0.2, 'iprop').pi = pi;
     }
     for (const sh of (CM.ships || [])) {
       const hb = sh._hull;
@@ -502,11 +635,11 @@ export function pushIsoWonderItems(items, w, wi) {
       if (Math.abs(x) > isl.M.RX + 80 || Math.abs(y) > isl.M.RX + 80) continue;
       const f = isl.frontAt(x - y);
       if (f === -Infinity || x + y <= f) continue;
-      items.push({ d: hb.wx + hb.wy, kind: 'wonderSeg', w, wi, m, part: 'iship', sh });
+      seg(hb.wx + hb.wy, 'iship').sh = sh;
     }
   }
   // Ombre et reflet : une fois, sous tout le monument.
-  items.push({ d: m.cx + m.cy - 2 * m.half - 1, kind: 'wonderSeg', w, wi, m, part: 'shadow' });
+  seg(m.cx + m.cy - 2 * m.half - 1, 'shadow');
   for (let c0 = 0; c0 < R.w; c0 += S) {
     const c1 = Math.min(R.w, c0 + S);
     let any = false;
@@ -514,29 +647,43 @@ export function pushIsoWonderItems(items, w, wi) {
     if (!any) continue;
     const Xa = R.ox + c0, Xb = R.ox + c1;
     const minAbs = Xa <= 0 && Xb >= 0 ? 0 : Math.min(Math.abs(Xa), Math.abs(Xb));
-    items.push({ d: frontDepth(m, minAbs), kind: 'wonderSeg', w, wi, m, part: 'slice', c0, c1 });
+    const it = seg(frontDepth(m, minAbs), 'slice');
+    it.c0 = c0; it.c1 = c1;
   }
   // Le cœur animé de l'Œil : après la tranche centrale (rien du monument devant lui).
-  if (m.bk.core) items.push({ d: frontDepth(m, 0) + 0.3, kind: 'wonderSeg', w, wi, m, part: 'core' });
+  if (m.bk.core) seg(frontDepth(m, 0) + 0.3, 'core');
   // Le lieu : décor en relief et objets posés, chacun à son pied.
   const pl = placeLive(m);
   m.pl = pl;
   if (pl) {
+    // CULL PIÈCE PAR PIÈCE (audit 2026-10-05, PERF-33) : dès qu'un bout du lieu était
+    // à l'écran, ses ~170 pièces partaient au peintre (ombre, blit, découpe chacune).
+    // Une pièce n'y entre plus que si quelque chose d'elle peut tomber dans l'écran :
+    // son raster, son ombre (vers la droite et le bas, moins de sa hauteur) et son
+    // reflet (sous son pied, de sa hauteur plus deux hauteurs de mur de quai) ; rien
+    // ne part vers la gauche ni vers le haut. Marge de 2 px + l'ondulation du reflet.
+    const pad = 4 * z + 2, below = 2 * CM.TILE * z * Math.max(1, quayWallTune.heightK || 1);
     for (let di = 0; di < pl.decor.length; di += 1) {
-      const dc = pl.decor[di];
-      items.push({ d: m.cx + m.cy + dc.x + dc.y, kind: 'wonderSeg', w, wi, m, part: 'decor', di });
+      const dc = pl.decor[di], b = decorBox(m, dc, z);
+      if (b.x > CM.cw + pad || b.y > CM.ch + pad || b.x + b.w + b.h + pad < 0 || b.y + 2 * b.h + below + pad < 0) continue;
+      seg(m.cx + m.cy + dc.x + dc.y, 'decor').di = di;
     }
     for (let pi = 0; pi < pl.props.length; pi += 1) {
       const pr = pl.props[pi];
-      items.push({ d: m.cx + m.cy + pr.x + pr.y + 0.2, kind: 'wonderSeg', w, wi, m, part: 'pprop', pi });
+      seg(m.cx + m.cy + pr.x + pr.y + 0.2, 'pprop').pi = pi;
     }
   }
   // Objets : juste après la tranche qui les porte.
   for (let pi = 0; pi < m.bk.props.length; pi += 1) {
     const pr = m.bk.props[pi];
     const X = pr.rx != null ? R.ox + pr.rx : pr.x - pr.y;
-    items.push({ d: frontDepth(m, X) + 0.5, kind: 'wonderSeg', w, wi, m, part: 'prop', pi });
+    seg(frontDepth(m, X) + 0.5, 'prop').pi = pi;
   }
+  // La QUEUE du pool (items d'une frame plus chargée : vue plus large, bateaux) lâche
+  // son modèle : il porte les cuissons de SA frame (monument, lieu, îlot), qu'une
+  // bascule d'ère ou de saison périme — les caches les évincent (MEM-2), la queue les
+  // aurait gardées vivantes. Vidée jusqu'au premier item déjà vide.
+  for (let i = pn; i < pool.length && pool[i].m; i += 1) { pool[i].m = null; pool[i].sh = null; }
 }
 
 export function drawIsoWonderSeg(ctx, it, now) {
@@ -592,10 +739,15 @@ export function drawIsoWonderSeg(ctx, it, now) {
       const bcut = Math.floor(B2.h * (1 - e));
       const dx = Math.round(q.x), dy = Math.round(q.y + bcut * z), dw = Math.round(q.x + B2.w * z) - dx, dh = Math.round(q.y + B2.h * z) - dy;
       if (dh > 0) {
-        // Le quai se reflète dans le fleuve, comme le pont et les quais.
-        if (e >= 0.98) noteReflection(ctx, isl.cvR, dx, dy, dw, dh, 0, bcut, B2.w, B2.h - bcut, 'column', 'water');
-        ctx.drawImage(isl.cv, 0, bcut, B2.w, B2.h - bcut, dx, dy, dw, dh);
-        lightCutImage(isl.cv, dx, dy, dw, dh, 0, bcut, B2.w, B2.h - bcut);
+        // Le quai se reflète dans le fleuve, comme le pont et les quais — une fois
+        // l'île toute sortie de l'eau (bcut 0). Pendant les derniers crans de
+        // l'érection (e ≥ 0,98, bcut 12 → 1), chaque cran était une découpe neuve :
+        // un miroir du raster entier recalculé (getImageData + reflectPixels, 3 à
+        // 9 ms) et gardé en cache sur cvR tant que l'île vit, pour une image
+        // (audit du 2026-10-05, PERF-55).
+        if (bcut === 0) noteReflection(ctx, isl.cvR, dx, dy, dw, dh, 0, 0, B2.w, B2.h, 'column', 'water');
+        // Rognée à l'encre (PERF-34) : l'île n'occupe que 15 à 25 % de son cadre.
+        blitInk(ctx, isl.cv, isl.box, 0, bcut, B2.w, B2.h - bcut, dx, dy, dw, dh);
         // LA NUIT : les filets lumineux du quai, déposés APRÈS la découpe (comme les
         // tranches du monument : sinon elle les effacerait elle-même).
         const nf = CM.nightF || 0;
@@ -624,8 +776,7 @@ export function drawIsoWonderSeg(ctx, it, now) {
       const R2 = q.R, s = worldToScreen(m.cx + q.x + R2.oy + R2.ox / 2, m.cy + q.y + R2.oy - R2.ox / 2, q.h);
       const dx = Math.round(s.x), dy = Math.round(s.y), dw = Math.round(s.x + R2.w * z) - dx, dh = Math.round(s.y + R2.h * z) - dy;
       drawSunShadow(ctx, q.cv, dx, dy, dw, dh, 0, 0, R2.w, R2.h, 'column', false);
-      ctx.drawImage(q.cv, dx, dy, dw, dh);
-      lightCutImage(q.cv, dx, dy, dw, dh);
+      blitInk(ctx, q.cv, q.box, 0, 0, R2.w, R2.h, dx, dy, dw, dh, true);
       const nf = CM.nightF || 0;
       if (q.cvN && nf > 0.03) {
         const lc = lightCtx(dx, dy, dx + dw, dy + dh);
@@ -660,11 +811,11 @@ export function drawIsoWonderSeg(ctx, it, now) {
   } else if (it.part === 'decor') {
     const pl = m.pl || placeFor(m), dc = pl && pl.decor[it.di];
     if (dc) {
-      const R2 = dc.R, q = worldToScreen(m.cx + dc.x + R2.oy + R2.ox / 2, m.cy + dc.y + R2.oy - R2.ox / 2);
-      const dx = Math.round(q.x), dy = Math.round(q.y), dw = Math.round(q.x + R2.w * z) - dx, dh = Math.round(q.y + R2.h * z) - dy;
+      const R2 = dc.R, b = decorBox(m, dc, z);
+      const dx = b.x, dy = b.y, dw = b.w, dh = b.h;
+      // L'ombre (et le reflet) sur le cadre PLEIN : mêmes masques, même seuil minH.
       drawSunShadow(ctx, dc.cv, dx, dy, dw, dh, 0, 0, R2.w, R2.h, 'column', true);
-      ctx.drawImage(dc.cv, dx, dy, dw, dh);
-      lightCutImage(dc.cv, dx, dy, dw, dh);
+      blitInk(ctx, dc.cv, dc.box, 0, 0, R2.w, R2.h, dx, dy, dw, dh, true);
       // LA NUIT : bandeau et piliers de l'enceinte de verre, lanterne de fonte.
       const nf = CM.nightF || 0;
       if (dc.cvN && nf > 0.03) {

@@ -43,7 +43,7 @@
 //   speed  = vitesse de l'ondulation ; wall = reflet du mur de quai.
 import { CM } from '../layout.js';
 import { worldToScreen } from './projection.js';
-import { pivotGround, setSunShadowReflectHook } from './isoSunShadow.js';
+import { maskSlot, pivotGround, rectKey, setSunShadowReflectHook } from './isoSunShadow.js';
 
 // Dosage choisi sur planche (2026-09-30, bande 4, zoom 2) entre quatre essais : à
 // 0,5 / 0,35 le reflet virait au gris et on ne reconnaissait plus l'ocre des
@@ -157,13 +157,13 @@ export function waterColumns(edges, cw, step = 8) {
 }
 
 // ── LES MIROIRS CUITS, en cache ──────────────────────────────────────────────
-// Par image source puis (rectangle, pivot). WeakMap : un canvas de teinte, de
+// Par image source puis (pivot, rectangle) — le cache imbriqué de l'ombre, sans clé
+// en chaîne (isoSunShadow.maskSlot, PERF-46). WeakMap : un canvas de teinte, de
 // saison ou de scène qui meurt emporte son reflet.
 const _cache = new WeakMap();
 function reflectCanvas(img, sx, sy, sw, sh, pivot) {
-  let m = _cache.get(img);
-  if (!m) { m = new Map(); _cache.set(img, m); }
-  const k = sx + ':' + sy + ':' + sw + ':' + sh + ':' + pivot;
+  const m = maskSlot(_cache, img, pivot);
+  const k = rectKey(sx, sy, sw, sh);
   let e = m.get(k);
   if (e !== undefined) return e;
   e = null;
@@ -385,14 +385,30 @@ function compositeLayer(ctx, now, clipPath, tintRGB, strength = 1) {
   ctx.restore();
 }
 
+// Rend la mémoire du calque (un canvas de 0 × 0 ne tient plus de pixels) ; la
+// première frame qui reflète de nouveau le réalloue à la taille de l'écran.
+function releaseLayer() {
+  _layer.width = 0; _layer.height = 0;
+  _sx0 = null; _sx1 = null; _s0 = Infinity; _s1 = -Infinity;
+  _ref = null; _cols = null; _wall = null; _wallCol = null;
+}
+
 function beginBuild(ctx, edges, drop, wall, k = 1) {
   _build = false;
   if (typeof document === 'undefined') return;
   const cv = ctx.canvas;
   if (!cv || !edges || !edges.left || edges.left.length < 2) return;
+  // Reflets coupés : ni allouer ni redimensionner le calque plein écran pour rien —
+  // 13,7 Mo à 2560×1340, ×4 à dpr 2, sur les machines mêmes qu'on veut soulager (audit
+  // MEM-12). Coupure durable (palier « perf », effondrement, molette) : il est RENDU ;
+  // passagère (LOD, zoom lointain) : gardé tel quel, juste vidé de ce qu'il porte.
+  if (!(k > 0)) {
+    if (!_layer || !_sx0) return;
+    if (CM.fxOn === false || CM.collapseAt || !REFLECT.on) { releaseLayer(); return; }
+  }
   if (!_layer) { _layer = document.createElement('canvas'); _lctx = _layer.getContext('2d'); }
   const nS = Math.ceil(cv.height / STRIP);
-  if (_layer.width !== cv.width || _layer.height !== cv.height || !_sx0 || _sx0.length !== nS) {
+  if (k > 0 && (_layer.width !== cv.width || _layer.height !== cv.height || !_sx0 || _sx0.length !== nS)) {
     _layer.width = cv.width; _layer.height = cv.height;   // redimensionner vide le calque
     _sx0 = new Float32Array(nS); _sx1 = new Float32Array(nS);
     _sx0.fill(Infinity); _sx1.fill(-Infinity); _s0 = Infinity; _s1 = -Infinity;

@@ -9,7 +9,7 @@
 // pâles, en demi-cercle — et la mélodie est celle du premier soir.
 import { vieK } from '../iso/isoVie.js';
 import { queueFlameGlow, FLAME_COL } from '../flameGlow.js';
-import { jouerMelodieScene } from '../../audio/melodieScene.js';
+import { jouerMelodieScene, prechaufferMelodie } from '../../audio/melodieScene.js';
 import { fdBlitScreen, fdPixel } from './fdDraw.js';
 import { fdHash, plazaEdgeSpots, hearthSpot, lisiereSpots } from './fdSpots.js';
 import { dirOf, figure, pushFig, pushProp, openStory } from './fdKit.js';
@@ -88,6 +88,9 @@ export function buildMusicien(app) {
     try { jouerMelodieScene(st === 7 ? 0 : app.band); } catch { /* pas de son : tant pis */ }
     return res;
   };
+  // Prête AVANT le clic (rendue hors du fil principal) : sinon le clic la rendait d'un
+  // bloc, 30 à 55 ms à l'ouverture du récit (audit du 2026-10-05, PERF-41).
+  try { prechaufferMelodie(st === 7 ? 0 : app.band); } catch { /* pas de son : tant pis */ }
   return app;
 }
 

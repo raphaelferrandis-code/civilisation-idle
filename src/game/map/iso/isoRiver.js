@@ -363,6 +363,7 @@ setQuayWave((i, side) => {
 // drawIsoRiver — tout ce qui suit dans la frame lit la même onde.
 function beginWaveFrame(now, z) {
   const G = waveTune;
+  ribbonTok += 1;          // les rubans mémorisés de la frame d'avant sont périmés
   waveT = (now || 0) / 1000;
   // Fleuve MORT pendant l'effondrement : ni tuile, ni grain, ni poisson, ni
   // liseré — donc pas de ressac non plus. (L'USURE, elle, ne coupe plus rien
@@ -476,10 +477,37 @@ const edgeAt = (u, w, f) => (f >= 1 ? w : f > 0 ? u + f * (w - u) : u);
 // `mode` : 'wave' (le bord de l'eau du moment, défaut) ou 'wet' (la LAISSE,
 // jusqu'où l'eau est montée récemment). Même vocabulaire que buildEdges et
 // islandOutline — c'est ce qui permet de CLIPPER sur la laisse.
+//
+// ── MÉMORISÉ POUR LA FRAME (audit du 05/10, PERF-42) ─────────────────────────
+// Ces appels du ruban (corps, nappe, voile, sillage, bas-fond, galets, poissons,
+// reflets, vie de surface, remous…) le reprojetaient chacun sur toute sa longueur :
+// ~11 fois les deux rives et les contours d'îles par frame, ~25 000 objets jetés.
+// Mêmes arguments, mêmes points : on les garde le temps de la frame. Clé = le jeton
+// de la frame d'onde (beginWaveFrame), l'instant et l'amplitude, la caméra, la vue,
+// la tuile et la fraction du bord : une passe qui bascule la caméra (cuisson hors
+// écran) ne lit jamais le ruban de l'écran. Les tableaux rendus sont PARTAGÉS :
+// lecture seule.
+let ribbonTok = 0;
+const ribbonByPts = new WeakMap();      // pts → { [mode]: rives de la frame }
+const islandByIl = new WeakMap();       // île → { [mode]: contour de la frame }
+function ribbonFresh(e, T, f) {
+  const cam = CM.cam;
+  return !!e && e.tok === ribbonTok && e.t === waveT && e.amp === waveAmp && e.f === f && e.T === T
+    && e.cx === cam.x && e.cy === cam.y && e.cz === cam.zoom && e.cw === CM.cw && e.ch === CM.ch;
+}
+function ribbonStamp(e, T, f) {
+  const cam = CM.cam;
+  e.tok = ribbonTok; e.t = waveT; e.amp = waveAmp; e.f = f; e.T = T;
+  e.cx = cam.x; e.cy = cam.y; e.cz = cam.zoom; e.cw = CM.cw; e.ch = CM.ch;
+  return e;
+}
 function riverRibbonScreen(pts, T, mode = 'wave') {
+  const f = wetFracOf(mode);
+  let memo = ribbonByPts.get(pts);
+  if (!memo) { memo = {}; ribbonByPts.set(pts, memo); }
+  if (ribbonFresh(memo[mode], T, f)) return memo[mode];
   const left = [], right = [];
   const wv = waveHalfWidths(pts);
-  const f = wetFracOf(mode);
   for (let i = 0; i < pts.length; i += 1) {
     const p = pts[i];
     const o = pts[Math.max(0, i - 1)], q = pts[Math.min(pts.length - 1, i + 1)];
@@ -491,7 +519,8 @@ function riverRibbonScreen(pts, T, mode = 'wave') {
     left.push(worldToScreen((p.x + nx * hl) * T, (p.y + ny * hl) * T));
     right.push(worldToScreen((p.x - nx * hr) * T, (p.y - ny * hr) * T));
   }
-  return { left, right };
+  memo[mode] = ribbonStamp({ left, right }, T, f);
+  return memo[mode];
 }
 
 /* ── LE FLEUVE NE FINIT PAS À L'ÉCRAN ─────────────────────────────────────────
@@ -653,14 +682,20 @@ function fillExtraWater(ctx, T) {
 //   'wet'  — la LAISSE, jusqu'où l'eau est montée récemment (frange humide)
 //   'base' — le lit peint, fixe (le sable du rivage, qui ne bouge pas)
 // Elles se confondent toutes les trois quand l'onde est éteinte.
+// Mémorisé pour la frame comme le ruban (PERF-42) : chaque tracé du ruban, chaque jeu
+// de rives et le rivage le redemandaient. Lecture seule.
 function islandOutline(il, T, N = 30, mode = 'wave') {
+  const f = wetFracOf(mode);
+  let memo = islandByIl.get(il);
+  if (!memo) { memo = {}; islandByIl.set(il, memo); }
+  const hit = memo[mode];
+  if (hit && hit.N === N && ribbonFresh(hit, T, f)) return hit.path;
   const out = [];
   // Le ressac fait aussi le tour des îles, en RONGEANT leur contour et jamais en
   // l'élargissant : une île est un TROU dans le ruban, donc « l'eau avance » s'y
   // dit « le trou rétrécit ». Même règle que les berges, même sûreté — l'herbe
   // bakée de l'île se fait recouvrir, jamais découvrir.
   const on = mode !== 'base' && waveAmp > 0;
-  const f = wetFracOf(mode);
   const rMid = (il.rx + il.ry) / 2, perim = 2 * Math.PI * rMid;
   // Phase propre à chaque île (sa position) : sans elle, les deux îles des bras du
   // fleuve battraient à l'unisson, ce qui se remarque tout de suite.
@@ -680,6 +715,7 @@ function islandOutline(il, T, N = 30, mode = 'wave') {
     // Repère de l'île : `al` le long du courant, `cr` en travers.
     out.push(worldToScreen((il.x + al * il.tx - cr * il.ty) * T, (il.y + al * il.ty + cr * il.tx) * T));
   }
+  memo[mode] = ribbonStamp({ path: out, N }, T, f);
   return out;
 }
 const riverIslands = () => {
@@ -1834,15 +1870,14 @@ function drawSwashFoam(ctx, pts, T, runsPlus, runsMinus, withIslands) {
   [1, -1].forEach((sgn, si) => {
     const runs = si ? runsMinus : runsPlus;
     if (!runs || !runs.length) return;
-    const hwA = si ? wv.minus : wv.plus, rise = si ? wv.riseMinus : wv.risePlus;
-    // Bord, direction du large et écume, projetés une fois par sample du tronçon.
+    const rise = si ? wv.riseMinus : wv.risePlus;
+    // Bord, direction du large et écume, une fois par sample du tronçon. Le bord de
+    // l'eau du moment est celui du ruban de la frame (PERF-42) : mêmes points.
+    const edge = si ? riverRibbonScreen(pts, T).right : riverRibbonScreen(pts, T).left;
     const E = new Array(len0), D = new Array(len0), F = new Float64Array(len0);
     const need = (i) => {
       if (E[i]) return;
-      const p = pts[i], o = pts[Math.max(0, i - 1)], q = pts[Math.min(len0 - 1, i + 1)];
-      const tl = Math.hypot(q.x - o.x, q.y - o.y) || 1;
-      const nx = -(q.y - o.y) / tl, ny = (q.x - o.x) / tl, hw = hwA[i];
-      const e = worldToScreen((p.x + sgn * nx * hw) * T, (p.y + sgn * ny * hw) * T);
+      const p = pts[i], e = edge[i];
       const c = worldToScreen(p.x * T, p.y * T);
       E[i] = e; D[i] = unit(c.x - e.x, c.y - e.y); F[i] = swashFoam(rise[i]);
     };
@@ -2057,21 +2092,31 @@ export function drawIsoRiver(now) {
       // coïncident aujourd'hui : NE PAS EN CONCLURE que la séparation est morte.
       // C'est elle qui garantit qu'un futur retrait du bleu ne remmènera pas le
       // sable avec lui. Elle ne se voit que le jour où le drapeau retombe.
+      // (PERF-42) Le bord de l'eau du moment EST le ruban de la frame, déjà projeté
+      // pour son clip : mêmes points au bit près (même normale, même demi-largeur).
+      // Les autres bords ne projettent que les samples de LEURS TRONÇONS — les seuls
+      // que lisent les traits et les paliers du sable mouillé ; aux ères à quais, ils
+      // ne couvrent que les coupures du port et les bouts.
       const buildEdges = (mode, withIslands = islandsOn) => {
         const out = [];
+        const rib = mode === 'wave' ? riverRibbonScreen(pts, T) : null;
         [1, -1].forEach((sgn, si) => {
           const runs = si ? runsMinus : runsPlus;
           if (!runs.length) return;
-          const path = [];
-          for (let i = 0; i < len0; i += 1) {
-            const p = pts[i], n = nAt(i);
-            // ⚠ `si = 0` ↔ `sgn = +1` ↔ rive `plus` : même convention de signe que
-            // riverRibbonScreen (left = +n). L'inverser décollerait le liseré du
-            // bord de l'eau d'un côté sur deux, et seulement quand l'onde est haute.
-            const hw = (mode === 'base' || !wv) ? p.hw
-              : si ? edgeAt(wv.minus[i], wv.wetMinus[i], wetFracOf(mode))
-                : edgeAt(wv.plus[i], wv.wetPlus[i], wetFracOf(mode));
-            path.push(worldToScreen((p.x + sgn * n.nx * hw) * T, (p.y + sgn * n.ny * hw) * T));
+          if (rib) { out.push({ path: si ? rib.right : rib.left, runs }); return; }
+          const path = new Array(len0);
+          for (const [a, b] of runs) {
+            for (let i = a; i <= b; i += 1) {
+              if (path[i]) continue;
+              const p = pts[i], n = nAt(i);
+              // ⚠ `si = 0` ↔ `sgn = +1` ↔ rive `plus` : même convention de signe que
+              // riverRibbonScreen (left = +n). L'inverser décollerait le liseré du
+              // bord de l'eau d'un côté sur deux, et seulement quand l'onde est haute.
+              const hw = (mode === 'base' || !wv) ? p.hw
+                : si ? edgeAt(wv.minus[i], wv.wetMinus[i], wetFracOf(mode))
+                  : edgeAt(wv.plus[i], wv.wetPlus[i], wetFracOf(mode));
+              path[i] = worldToScreen((p.x + sgn * n.nx * hw) * T, (p.y + sgn * n.ny * hw) * T);
+            }
           }
           out.push({ path, runs });
         });
@@ -2238,7 +2283,7 @@ export function drawIsoRiver(now) {
         // mesuré +1 ms par frame en rendu logiciel sur une ville de bande 9.
         if (wv && waveTune.wetFill) {
           const A = waveTune.wetA;
-          const edgesU = buildEdges('wave', true);
+          const edgesU = islandsOn ? edges : buildEdges('wave', true);   // `edges` les porte déjà
           ['wet', 'wet2', 'wet1'].forEach((mode, j) => {
             if (!(A[j] > 0)) return;
             const edgesJ = buildEdges(mode, true);

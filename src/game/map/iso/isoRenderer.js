@@ -28,7 +28,7 @@ import { updateCrisis } from '../quaysAndRiot.js';
 import { drawIsoAmbient, SMOKE_TUNE, smokeSeason } from './isoAmbient.js';
 import { drawIsoBridgeUnder, drawIsoBridgeNight } from './isoBridge.js';
 import { drawIsoShipNight } from './isoFleet.js';
-import { paintGroundPyramid } from './solPyramideFrame.js';
+import { groundCoversScreen, paintGroundPyramid } from './solPyramideFrame.js';
 // ⚠ L'état de SAISON vit là-bas, AVEC SON ÉCRIVAIN : ici on ne fait que le rafraîchir.
 // C'est `refreshSeasonPalette()` qui le réécrit, chez elle, une fois par frame ; le
 // fond d'herbe (isoWildBackdrop) lit SEASON_WILD pour son repli en aplat.
@@ -221,8 +221,10 @@ function drawIsoWorldInner(dt, now, steps) {
   // Fond hors du plan : la VRAIE herbe en motif (isoWildBackdrop), puis le sol
   // cuit par-dessus. L'aplat d'avant faisait lire le bord du rectangle cuit
   // comme « l'herbe qui ne charge pas » (Raph, 2026-09-29).
+  // Le sol couvrira-t-il tout l'écran (repos, toutes ses tuiles en cache) ? Alors le
+  // fond serait repeint en entier : il ne se pose pas (PERF-64).
   const ctx = CM.ctx;
-  paintWildBackdrop(ctx, performance.now());
+  paintWildBackdrop(ctx, performance.now(), groundCoversScreen(L));
   // Le sol en tuiles (PLAN-SOL-PYRAMIDE, défaut depuis le lot 4).
   paintGroundPyramid(ctx, L, performance.now());
   fp('sol');

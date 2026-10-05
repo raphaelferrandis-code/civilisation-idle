@@ -7,7 +7,7 @@ import { VEH_SKINS } from './vehicleSkins.js';
 import { pxProbe, recPx } from './pixelGrid.js';
 import { snapDev } from './blitSnap.js';
 import { drawSunShadow } from './iso/isoSunShadow.js';
-import { walkPath, walkNearest, walkComponent } from './citizenRoute.js';
+import { walkPath, walkNearest, walkComponent, nearestCell } from './citizenRoute.js';
 import { dayPhase, citizenTraits, homeTime, dawnFor, pickAgenda, dwellFor, paceFor } from './citizenDay.js';
 import { figAhead } from './figures.js';
 
@@ -1858,6 +1858,11 @@ function updateCitizens(dt) {
     if (!CM._riotC) CM.riotEpoch = (CM.riotEpoch || 0) + 1;
     CM._riotC = { gx: rd.cx / CM.TILE - 0.5, gy: rd.cy / CM.TILE - 0.5 };
   } else CM._riotC = null;
+  // Molettes de marche (__isoWalkSpeed, __pedTurn) lues UNE fois par frame (audit du
+  // 05/10, PERF-44) : une propriété absente de `window` est lente à chercher, et elles
+  // l'étaient deux fois par passant et par frame (~0,1 ms à 1 000 passants).
+  const isoK = (typeof window !== 'undefined' && window.__isoWalkSpeed != null) ? window.__isoWalkSpeed : 0.72;
+  const pedTurn = (typeof window !== 'undefined' && window.__pedTurn != null) ? window.__pedTurn : 0.9;
   for (const p of CM.citizens) {
     p._tick = citTick;
     if (p.thoughtTimer === undefined) p.thoughtTimer = 0;
@@ -1881,11 +1886,9 @@ function updateCitizens(dt) {
       // aléatoire) : au recalcul du plan (achat, émondage), un habitant dont la
       // cellule a disparu glisse sur la route voisine au lieu de sauter à l'autre
       // bout de la ville → bien moins de clignotement.
-      let r = CM.walkRoadList[0], bestD = Infinity;
-      for (const c of CM.walkRoadList) {
-        const d = (c.gx - p.gx) * (c.gx - p.gx) + (c.gy - p.gy) * (c.gy - p.gy);
-        if (d < bestD) { bestD = d; r = c; }
-      }
+      // Recherche locale par seaux (nearestCell, PERF-43) : même case que le
+      // balayage de toute la liste, sans le payer pour chaque passant déplacé.
+      const r = nearestCell(CM.walkRoadList, p.gx, p.gy) || CM.walkRoadList[0];
       p.gx = r.gx;
       p.gy = r.gy;
       p.x = (r.gx + 0.5) * CM.TILE;
@@ -2064,8 +2067,7 @@ function updateCitizens(dt) {
       } else {
         // Iso : la projection étale l'écran (losange 2:1) → la même vitesse MONDE
         // paraît plus rapide. Facteur de calme dédié (retour Raph « ils glissent »),
-        // molette window.__isoWalkSpeed (défaut 0.72). Sans effet en legacy.
-        const isoK = (typeof window !== 'undefined' && window.__isoWalkSpeed != null) ? window.__isoWalkSpeed : 0.72;
+        // molette window.__isoWalkSpeed (défaut 0.72, lue en tête de boucle : isoK).
         // Course sous l'averse : l'animation étant cadencée par la DISTANCE parcourue
         // (walkDist ci-dessous), les jambes accélèrent d'elles-mêmes, sans bande dédiée.
         // ALLURE (lot 2) : un pas qui dépend du passant et du moment (citizenDay.js —
@@ -2108,7 +2110,7 @@ function updateCitizens(dt) {
     const tox = (p.tox || 0) + dgx, toy = (p.toy || 0) + dgy;
     if (p.lox === undefined) { p.lox = tox; p.loy = toy; }
     else if (moved > 0) {
-      const Lt = CM.TILE * ((typeof window !== 'undefined' && window.__pedTurn != null) ? window.__pedTurn : 0.9);
+      const Lt = CM.TILE * pedTurn;
       const k = moved < Lt ? moved / Lt : 1;
       p.lox += (tox - p.lox) * k;
       p.loy += (toy - p.loy) * k;
@@ -2416,13 +2418,10 @@ function vehicleGapFactors(snaps) {
 function vehicleOffRoad(v) {
   return !CM.walkRoadSet.has(cityMapWalkRoadKey(v.gx, v.gy)) || vehicleRoadRank(v.gx, v.gy) === "plaza";
 }
+const vehicleRemapSkip = (c) => c.rank === "plaza" || !!(CM.wonderWalkSet && CM.wonderWalkSet.has(cityMapWalkRoadKey(c.gx, c.gy)));
 function vehicleRemap(v) {
-  let r = null, bestD = Infinity;
-  for (const c of CM.walkRoadList) {
-    if (c.rank === "plaza" || (CM.wonderWalkSet && CM.wonderWalkSet.has(cityMapWalkRoadKey(c.gx, c.gy)))) continue;
-    const d = (c.gx - v.gx) * (c.gx - v.gx) + (c.gy - v.gy) * (c.gy - v.gy);
-    if (d < bestD) { bestD = d; r = c; }
-  }
+  // Même recherche locale que les passants (nearestCell, PERF-43).
+  const r = nearestCell(CM.walkRoadList, v.gx, v.gy, vehicleRemapSkip);
   if (!r) return;
   v.gx = r.gx; v.gy = r.gy;
   v.x = v.tx = (r.gx + 0.5) * CM.TILE;
@@ -2476,6 +2475,11 @@ function updateVehicles(dt) {
 // être occultés comme la carrosserie — au lieu du tapis lumineux tardif qui brillait par-dessus
 // bâtiments + nuit (même bug de z-order que carrosserie↔piéton). Nuit uniquement, ère motorisée,
 // véhicule en mouvement. Additif ; alpha BOOSTÉ car dessiné AVANT le voile de nuit (~×0.5).
+// Le dégradé du faisceau et la couleur des phares sont PARTAGÉS par tous les véhicules
+// (audit du 05/10, PERF-44) : ils ne dépendent que du zoom et de la nuit, et le dégradé
+// se pose dans le repère local de chaque véhicule. Un dégradé et deux chaînes neufs par
+// véhicule coûtaient ~1/4 du dessin des phares en rendu logiciel. Même image.
+const _beam = { ctx: null, r: 0, a: -1, g: null, lampA: -1, lamp: '' };
 function drawVehicleHeadlights(ctx, v) {
   const n = CM.nightF || 0;
   if (n <= 0.3) return;                                   // phares de nuit seulement
@@ -2506,7 +2510,9 @@ function drawVehicleHeadlights(ctx, v) {
   const prev = ctx.globalCompositeOperation;
   ctx.globalCompositeOperation = "lighter";
   // Deux phares ronds à l'AVANT.
-  ctx.fillStyle = `rgba(255,244,210,${Math.min(1, a * 0.75 * boost).toFixed(2)})`;
+  const lampA = Math.min(1, a * 0.75 * boost);
+  if (_beam.lampA !== lampA) { _beam.lampA = lampA; _beam.lamp = `rgba(255,244,210,${lampA.toFixed(2)})`; }
+  ctx.fillStyle = _beam.lamp;
   ctx.beginPath();
   ctx.arc(sx + hx * off + px * hl, sy + hy * off + py * hl, hl * 0.55, 0, Math.PI * 2);
   ctx.arc(sx + hx * off - px * hl, sy + hy * off - py * hl, hl * 0.55, 0, Math.PI * 2);
@@ -2516,10 +2522,14 @@ function drawVehicleHeadlights(ctx, v) {
   ctx.translate(sx + hx * off * 2.6, sy + hy * off * 2.6);
   ctx.rotate(Math.atan2(hy, hx));
   const bw = hl * 3.4, bh = hl * 1.8;
-  const g = ctx.createRadialGradient(0, 0, 0, 0, 0, Math.max(1, bw));
-  g.addColorStop(0, `rgba(255,238,180,${Math.min(1, a * 0.4 * boost).toFixed(2)})`);
-  g.addColorStop(1, "rgba(255,238,180,0)");
-  ctx.fillStyle = g;
+  const br = Math.max(1, bw), ba = Math.min(1, a * 0.4 * boost);
+  if (!_beam.g || _beam.ctx !== ctx || _beam.r !== br || _beam.a !== ba) {
+    const g = ctx.createRadialGradient(0, 0, 0, 0, 0, br);
+    g.addColorStop(0, `rgba(255,238,180,${ba.toFixed(2)})`);
+    g.addColorStop(1, "rgba(255,238,180,0)");
+    _beam.ctx = ctx; _beam.r = br; _beam.a = ba; _beam.g = g;
+  }
+  ctx.fillStyle = _beam.g;
   ctx.beginPath(); ctx.ellipse(0, 0, bw, bh, 0, 0, Math.PI * 2); ctx.fill();
   ctx.restore();
   ctx.globalCompositeOperation = prev;

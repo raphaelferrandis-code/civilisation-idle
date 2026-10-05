@@ -128,6 +128,25 @@ describe("vieillissement", () => {
     expect(s.visible[0].expiresAt).toBe(promu + LIFE_MS);
   });
 
+  // PERF-60 (audit du 2026-10-05) : pile pleine et file non vide, sans expiration —
+  // le tick rendait un NOUVEL objet à chaque appel (8 fois par seconde : un rendu et
+  // une mesure de mise en page pour rien).
+  it("pile pleine qui attend : le tick sans expiration rend la même pile", () => {
+    let s = emptyStack();
+    for (let i = 0; i < MAX_VISIBLE + 3; i += 1) s = push(s, { label: `E${i}`, kind: "info" }, T0);
+    let nouveaux = 0;
+    for (let k = 1; k <= 19; k += 1) {
+      const t = tickOutcomes(s, T0 + k * 120);
+      if (t !== s) nouveaux += 1;
+      s = t;
+    }
+    expect(nouveaux).toBe(0);
+    expect(s.queue).toHaveLength(3);
+    // L'expiration, elle, promeut toujours la file.
+    s = tickOutcomes(s, T0 + LIFE_MS + 1);
+    expect(s.visible.map((f) => f.label)).toEqual(["E4", "E5", "E6"]);
+  });
+
   it("la pile finit vide, sans fuite de file", () => {
     let s = emptyStack();
     for (let i = 0; i < 30; i += 1) s = push(s, { label: `E${i}`, kind: "info" }, T0);

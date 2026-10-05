@@ -195,19 +195,32 @@ export function vehSortWide(v, T) {
 // passants debout sur les chariots). Molette : __vehOrder(false) pour comparer.
 export const VEH_ORDER = { on: true };
 if (typeof window !== 'undefined') window.__vehOrder = (on) => { VEH_ORDER.on = on !== false; return VEH_ORDER.on; };
+// Audit du 05/10 (PERF-19) : chaque véhicule reparcourait TOUS les items du peintre
+// (~7 000 en mégapole) pour n'y garder que les passants et les émeutiers — ~1 ms par
+// frame. Une seule passe les met de côté (tableaux du module, réutilisés), dans le même
+// ordre : mêmes calculs, même résultat.
+const _vs = [], _units = [];
 export function orderUnitsAroundVehicles(items, T) {
   if (!VEH_ORDER.on) return;
-  let vs = null;
-  for (const it of items) if (it.kind === 'veh' && it.v && it.v.type !== 'basket') (vs || (vs = [])).push(it);
-  if (!vs) return;
+  const vs = _vs, units = _units;
+  vs.length = 0; units.length = 0;
+  for (const it of items) {
+    const k = it.kind;
+    if (k === 'cit' || k === 'riot') units.push(it);
+    else if (k === 'veh' && it.v && it.v.type !== 'basket') vs.push(it);
+  }
+  if (vs.length && units.length) orderUnits(vs, units, T);
+  // Pas de références gardées d'une frame à l'autre (les items sont recyclés par le pool).
+  vs.length = 0; units.length = 0;
+}
+function orderUnits(vs, units, T) {
   const eps = T * 0.001, hp = T * 0.8;          // hauteur d'un passant, en unités de profondeur
   for (const iv of vs) {
     const v = iv.v, lh = vehSortWide(v, T);
     if (!(lh > 0)) continue;
     const hv = 3 * lh;                          // hauteur du véhicule au-dessus de son sol
     const cx = iv.gwx, cy = iv.gwy, sc = cx - cy, alongX = v.dir === 0 || v.dir === 1;
-    for (const it of items) {
-      if (it.kind !== 'cit' && it.kind !== 'riot') continue;
+    for (const it of units) {
       const s = it.gwx - it.gwy;
       if (s < sc - lh || s > sc + lh) continue;
       const dp = it.gwx + it.gwy;
@@ -348,8 +361,10 @@ function drawIsoVehicleInner(ctx, v, now, z) {
     drawSunShadow(ctx, img, bx, by, dw, dh, fr * fh, 0, fh, fh, 'slope');
     ctx.drawImage(img, fr * fh, 0, fh, fh, bx, by, dw, dh);
     // Sonde du tri (globalThis.__sortAudit, cf. isoRenderer) : la boîte réellement
-    // dessinée, pour l'audit « un passant debout sur un chariot ».
-    if (globalThis.__sortAudit && CM._vehBoxes) CM._vehBoxes.push({ v, img, sx: fr * fh, fh, bx, by, dw, dh });
+    // dessinée, pour l'audit « un passant debout sur un chariot ». `CM._vehBoxes` n'existe
+    // que sonde allumée (posé en tête de frame) : le drapeau n'est plus relu par véhicule
+    // (une propriété absente de l'objet global, ~35 ns ; audit du 05/10, DEV-4).
+    if (CM._vehBoxes) CM._vehBoxes.push({ v, img, sx: fr * fh, fh, bx, by, dw, dh });
   };
   // Attelage : bête(s) de trait DEVANT dans le sens de marche (monde → projeté).
   const pull = era && era.team ? null : VEH_PULL[v.type];

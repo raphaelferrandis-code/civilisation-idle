@@ -109,7 +109,18 @@ if (typeof window !== 'undefined') window.__plaisirsSkins = SKINS;
 // La fiche d'un habillage (les tests vérifient les chemins des filles).
 export function plaisirsSkinSpec(band) { return SKINS[band | 0] || null; }
 
+// Les images décodées, par âge. Audit du 05/10 (MEM-11) : elles restaient là pour toute
+// la session, chaque âge visité (6 Mo pour les dix, dont 3,3 Mo pour la seule bande
+// vivante de la Fonte), alors que la cuisson de l'âge se garde à part (isoPlaisirs,
+// `_bakes`). On ne garde que l'âge affiché et le suivant (préchargé) : un âge revisité
+// (au cycle suivant) se recharge, et le lieu garde l'âge d'avant le temps du chargement.
 const _img = new Map();
+let _imgBand = null;
+function keepSkinsAround(band) {
+  if (band === _imgBand) return;
+  _imgBand = band;
+  for (const b of [..._img.keys()]) if (b !== band && b !== band + 1) _img.delete(b);
+}
 function loadImageData(src, done, fail) {
   const im = new Image();
   im.onload = () => {
@@ -139,7 +150,7 @@ function skinEntry(band) {
   if (!d || typeof Image === 'undefined' || typeof document === 'undefined') return null;
   let e = _img.get(band | 0);
   if (!e) {
-    e = { d, img: null, back: null, live: null, wait: d.live ? 3 : 1 };
+    e = { d, img: null, back: null, live: null, wait: d.live ? 3 : 1, full: null };
     _img.set(band | 0, e);
     const arrived = () => { e.wait -= 1; };
     loadImageData(d.src, (img) => { e.img = img; arrived(); }, arrived);
@@ -155,10 +166,19 @@ function skinEntry(band) {
 // (PERF-13) : il ne paraît qu'une fois TOUTES ses images arrivées — rendu à moitié
 // (l'image sans ses couches vivantes, ou le rendu du code le temps du chargement),
 // il coûtait une cuisson de 50 à 140 ms de plus, jetée la frame suivante.
+// C'est l'âge AFFICHÉ (isoPlaisirs.bakeFor) : les images des autres âges, hors le
+// suivant, sont rendues (cf. keepSkinsAround). L'objet rendu est gardé dans l'entrée
+// (audit du 05/10, PERF-51 : un objet neuf à chaque frame) — et refait dès qu'un champ
+// de la fiche change : la molette `__plaisirsSkins[b].balcony = { … }` puis
+// `__plaisirsBakes()` doit recuire avec la NOUVELLE fiche, pas avec sa copie gardée.
 export function plaisirsSkin(band) {
+  keepSkinsAround(band | 0);
   const e = skinEntry(band);
   if (!e || e.wait > 0 || !e.img) return null;
-  return e.back && e.live ? { ...e.d, img: e.img, back: e.back, liveImg: e.live } : { ...e.d, img: e.img };
+  let f = e.full;
+  if (f) for (const k in e.d) if (f[k] !== e.d[k]) { f = null; break; }
+  if (!f) f = e.full = e.back && e.live ? { ...e.d, img: e.img, back: e.back, liveImg: e.live } : { ...e.d, img: e.img };
+  return f;
 }
 // L'habillage de cet âge est-il encore en route ? (la cuisson l'attend, cf. isoPlaisirs).
 export function plaisirsSkinLoading(band) {
@@ -235,7 +255,7 @@ export function skinNightPixels(img, skin = {}) {
 }
 
 // Pose l'habillage sur la sortie d'une recette ({ R, H, D, … }) : rend { R, H, D, N, mirror }
-// dans le même cadre que R.
+// dans le même cadre que R (D : null, cf. plus bas).
 export function applyPlaisirsSkin(out, skin) {
   const R = out.R, H = out.H, img = skin.img, [ax, ay] = skin.at;
   const R2 = { ox: R.ox, oy: R.oy, w: R.w, h: R.h, data: new Uint8ClampedArray(R.data.length) };
@@ -268,17 +288,17 @@ export function applyPlaisirsSkin(out, skin) {
   // PixelLab déborde un peu), celle du pixel du code le plus proche SOUS lui dans sa
   // colonne, plus l'écart (porté verticalement, comme heightsOf) ; rien dessous : au
   // ras de l'eau.
-  // La PROFONDEUR (qui passe devant les filles de la maison) suit la même règle : un
-  // pixel porté verticalement garde celle du pixel sous lui ; rien dessous : −∞.
-  const H2 = new Float32Array(R.w * R.h), D = out.D, D2 = new Float32Array(R.w * R.h).fill(-Infinity);
+  // PAS DE PROFONDEUR (audit du 05/10, MEM-3) : sur un habillage, rien ne la lit — la
+  // fille du balcon passe derrière SA balustrade (`rail`), les autres ne sont découpées
+  // par rien (cf. isoPlaisirs.girlOccluders). Elle pesait un Float32 du cadre par cuisson.
+  const H2 = new Float32Array(R.w * R.h);
   for (let i = 0; i < R.w; i += 1) {
-    let lastH = 0, lastJ = -1, lastD = -Infinity;
+    let lastH = 0, lastJ = -1;
     for (let j = R.h - 1; j >= 0; j -= 1) {
       const k = j * R.w + i, code = R.data[k * 4 + 3] > 0;
-      if (code) { lastH = H[k]; lastJ = j; if (D) lastD = D[k]; }
+      if (code) { lastH = H[k]; lastJ = j; }
       if (!R2.data[k * 4 + 3]) continue;
       H2[k] = code ? H[k] : lastJ < 0 ? 0 : lastH + (lastJ - j);
-      D2[k] = lastD;
     }
   }
   // LA NUIT (skinNightPixels), reportée dans le cadre de R.
@@ -310,5 +330,5 @@ export function applyPlaisirsSkin(out, skin) {
   const wk = skin.walk;
   const walk = !wk ? null : !wk.e ? wk
     : { ...wk, ex: [ax + wk.e[0], ay + wk.e[1], wk.e[2], wk.e[3]], r: wk.e[2] / Math.SQRT2 };
-  return { R: R2, H: H2, D: D2, N, mirror: plaisirsMirror(R2, H2), balcony, rail, door, walk, live };
+  return { R: R2, H: H2, D: null, N, mirror: plaisirsMirror(R2, H2), balcony, rail, door, walk, live };
 }

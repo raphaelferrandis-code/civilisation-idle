@@ -199,7 +199,8 @@ describe("STEAM-3 — rien de node_modules dans l'.exe", () => {
 
 describe("STEAM-5 — notices de licence livrées", () => {
   it("Vite regroupe les licences des bibliothèques intégrées dans dist/licenses", () => {
-    expect(read("vite.config.js")).toMatch(/build: \{ license: \{ fileName: 'licenses\/THIRD-PARTY-LICENSES\.md' \} \}/);
+    // (d'autres réglages de build peuvent suivre : chunkSizeWarningLimit, PERF-67)
+    expect(read("vite.config.js")).toMatch(/build: \{ license: \{ fileName: 'licenses\/THIRD-PARTY-LICENSES\.md' \}[ ,]/);
     expect(LICENSE_FILES).toContain("licenses/THIRD-PARTY-LICENSES.md");
   });
 

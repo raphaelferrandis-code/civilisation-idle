@@ -21,7 +21,7 @@
  *   1. LE CERNE — une ellipse posée à plat DANS LE PLAN ISO, allongée par le
  *      courant. Déposée dans la couche de lumière au tri peintre, à la
  *      profondeur du monument : la tour découpe ensuite sa propre silhouette
- *      dedans (lightCutImage), donc la lumière passe derrière elle, jamais
+ *      dedans (lightCut), donc la lumière passe derrière elle, jamais
  *      dessus. C'est la figure INVERSE de celle de l'Œil : la sienne est une
  *      sphère en l'air, celle-ci est couchée sur l'eau — elle marque un
  *      territoire, pas un halo.
@@ -43,7 +43,7 @@
 import { CM } from '../layout.js';
 import { state } from '../../core/state.js';
 import { worldToScreen, screenToWorld } from './projection.js';
-import { lightCtx, lightCutImage } from '../lightLayer.js';
+import { LIGHT_LAYER, lightCtx, lightCut, litBox } from '../lightLayer.js';
 import { queueFlameGlow } from '../flameGlow.js';
 import { WINTER } from '../seasonMode.js';
 import { wonderKitForBand } from './wonderKits.js';
@@ -52,11 +52,12 @@ import { SUN_SHADOW, sunShear, drawSunShadowPlane } from './isoSunShadow.js';
 import { noteReflectionImage } from './isoReflect.js';
 import { drawFlame, glowAt, hexToRgbStr } from './isoProps.js';
 import { drawVieFlag } from './isoVie.js';
-import { drawSpriteOutline } from './isoEngineScene.js';
+import { drawSpriteOutline, dropSpriteOutline } from './isoEngineScene.js';
 import { HOVER_GOLD } from './isoPalette.js';
 import { plaisirsCast } from './plaisirsCast.js';
 import { plaisirsSkin, plaisirsSkinLoading, preloadPlaisirsSkin, applyPlaisirsSkin } from './plaisirsSkin.js';
 import { rippleField, noteRipples } from './waterRipples.js';
+import { colRows, sliceRows, rowCropExact } from './rowCrop.js';
 import { drawNamedAgentIso, AGENT_SCALE } from '../agents.js';
 import { focusMark, drawFocusRingAt, noteSceneFigure, sceneRingWidth, keepFigureAlive } from '../citizenFocus.js';
 
@@ -435,6 +436,8 @@ function rasterCanvas(R) {
   cv.getContext('2d').putImageData(new ImageData(R.data, R.w, R.h), 0, 0);
   return cv;
 }
+// Plages de rangées occupées de la tranche en cours (cf. rowCrop.js), sans allocation.
+const _rowsR = [0, 0], _rowsL = [0, 0], _rowsN = [0, 0];
 const _bakes = new Map();
 // La dernière cuisson rendue : l'âge d'avant, gardé à l'écran le temps que l'habillage
 // du nouvel âge arrive.
@@ -449,7 +452,11 @@ function bakeFor(band, g, winter) {
   if (!skin && plaisirsSkinLoading(band)) return _lastBake;
   const key = plaisirsBakeKey(band, g, winter, !!skin);
   let e = _bakes.get(key);
-  if (e) return (_lastBake = e);
+  if (e) {
+    // Le moins récemment servi part le premier (cf. le plafond plus bas).
+    if (e !== _lastBake) { _bakes.delete(key); _bakes.set(key, e); }
+    return (_lastBake = e);
+  }
   let out = bakePlaisirs(wonderKitForBand(band, winter), g);
   // Ses lumières et fanions posés par la recette tomberaient à côté de sa matière.
   if (skin) out = { ...out, ...applyPlaisirsSkin(out, skin), props: [] };
@@ -500,7 +507,15 @@ function bakeFor(band, g, winter) {
     rail: out.rail || null, skinned: !!skin,
     // Ce qui vit dans l'habillage (plaisirsSkin.js, `live`) : N images côte à côte.
     live: out.live ? { cv: rasterCanvas({ w: out.live.w, h: out.live.h, data: out.live.data }), n: out.live.n, ms: out.live.ms } : null,
+    // Rangées occupées par colonne : la matière, la nuit, et le vivant (ses N images).
+    rowsR: colRows(R), rowsN: out.N ? colRows(out.N) : null, rowsLive: out.live ? colRows(out.live) : null,
     ripples: plaisirsRipples(R, out.H) };
+  // Audit du 05/10 (MEM-3) : le cache gardait jusqu'à 13 cuissons de 2,6 à 15 Mo, de
+  // tous les âges traversés. Ne restent que l'âge cuit et le précédent (celui qu'on
+  // montre le temps que l'habillage du nouvel âge arrive, cf. `_lastBake`) ; un âge
+  // revisité, au cycle suivant, se recuit. Le plafond reste en garde-fou (les variantes
+  // d'un même âge : jeux ouverts, hiver du rendu du code).
+  for (const [k, b] of _bakes) if (b.band !== band && b.band !== band - 1) _bakes.delete(k);
   if (_bakes.size > 12) _bakes.delete(_bakes.keys().next().value);
   _bakes.set(key, e);
   return (_lastBake = e);
@@ -586,8 +601,17 @@ export function pushIsoPlaisirsItems(items, pl, now = null) {
   CM._plaisirsBox = { dx: o.x + bx.x * z, dy: o.y + bx.y * z, dw: bx.w * z, dh: bx.h * z };
   // Le cerne, les foyers, l'ombre et le reflet : une fois, sous tout le lieu.
   items.push({ d: m.cx + m.cy - 2 * m.bk.foot - 1, kind: 'plaisirs', m, part: 'base' });
+  // HORS ÉCRAN, une tranche ne peint rien (audit du 05/10, PERF-51 : le lieu est posé
+  // hors de la ville, donc souvent hors champ, et chaque tranche payait ses poses, sa
+  // découpe et sa nuit). Elle ne pose que dans son rectangle [sx0, sx1[ × [y0, y1[ (cf.
+  // drawIsoPlaisirsSeg) : celles qui tombent hors de l'écran ne sont pas empilées. La
+  // base (cerne, foyers, ombre, reflet, remous), les décors et les filles, si — la
+  // caméra qui suit l'une d'elles l'attend au tournant.
+  const scrW = CM.cw, scrH = CM.ch, cull = scrW > 0 && scrH > 0;
+  const rowsOff = cull && (Math.round(o.y + R.h * z) <= 0 || Math.round(o.y) >= scrH);
   for (let c0 = 0; c0 < R.w; c0 += S) {
     const c1 = Math.min(R.w, c0 + S);
+    if (cull && (rowsOff || Math.round(o.x + c1 * z) <= 0 || Math.round(o.x + c0 * z) >= scrW)) continue;
     let any = false;
     for (let i = c0; i < c1; i += 1) if (m.bk.occ[i]) { any = true; break; }
     if (!any) continue;
@@ -757,9 +781,13 @@ function strollers(cast, st, now) {
 // elle la recouvrent. Rend la part cachée de son corps (0 à 1).
 const GIRL_EPS = 3;          // le pont sous ses pieds, à la rangée près, ne la coupe pas
 let _occ = null;
+// Les pixels repeints, dans UNE ImageData qui ne fait que grandir (audit du 05/10,
+// PERF-51 : une neuve par fille et par frame) ; seule sa part [0, uw[ × [0, vh[ sert.
+let _occImg = null;
 function girlOccluders(ctx, m, q, p, d, o) {
   const D = m.bk.D, R = m.bk.R;
-  if (!D || typeof ImageData === 'undefined') return 0;
+  // Un habillage n'a pas de profondeur (plaisirsSkin.js) : seule sa balustrade découpe.
+  if ((!D && !m.bk.rail) || typeof ImageData === 'undefined') return 0;
   const z = CM.cam.zoom, S = plaisirsTune.slice;
   // Sa boîte, allongée vers le bas-droite : son ombre au soleil (isoSunShadow) part
   // de ses pieds, et ce qui est devant elle la recouvre aussi.
@@ -776,7 +804,12 @@ function girlOccluders(ctx, m, q, p, d, o) {
   // les gardent devant la maison (plaisirsSkin.js, `walk`).
   const L = q.k === 3 ? m.bk.rail : null;
   if (m.bk.skinned && !L) return 0;
-  const dg = q.x + q.y + GIRL_EPS, uw = u1 - u0, vh = v1 - v0, img = new ImageData(uw, vh);
+  const dg = q.x + q.y + GIRL_EPS, uw = u1 - u0, vh = v1 - v0;
+  if (!_occImg || _occImg.width < uw || _occImg.height < vh) {
+    _occImg = new ImageData(Math.max(uw, _occImg ? _occImg.width : 0), Math.max(vh, _occImg ? _occImg.height : 0));
+  }
+  const img = _occImg, iw = img.width;
+  for (let v = 0; v < vh; v += 1) img.data.fill(0, v * iw * 4, (v * iw + uw) * 4);
   const railY = L ? (u) => L[1] + (L[3] - L[1]) * (u + 0.5 - L[0]) / ((L[2] - L[0]) || 1) : null;
   // Son corps : la boîte du clic (citizenFocus.noteSceneFigure), dans le raster.
   const fx0 = (p.x - d.drawW * 0.28 - o.x) / z, fx1 = (p.x + d.drawW * 0.28 - o.x) / z;
@@ -789,7 +822,7 @@ function girlOccluders(ctx, m, q, p, d, o) {
       if (!R.data[k * 4 + 3] || !(L ? v >= railY(u) : D[k] > dg)) continue;
       if (body) nHid += 1;
       any = true;
-      const t = ((v - v0) * uw + (u - u0)) * 4;
+      const t = ((v - v0) * iw + (u - u0)) * 4;
       img.data[t] = R.data[k * 4]; img.data[t + 1] = R.data[k * 4 + 1]; img.data[t + 2] = R.data[k * 4 + 2]; img.data[t + 3] = 255;
     }
   }
@@ -799,7 +832,7 @@ function girlOccluders(ctx, m, q, p, d, o) {
   if (cv.width !== R.w || cv.height !== R.h) { cv.width = R.w; cv.height = R.h; _occ.r = null; }
   const g = cv.getContext('2d');
   if (_occ.r) g.clearRect(_occ.r[0], _occ.r[1], _occ.r[2], _occ.r[3]);
-  g.putImageData(img, u0, v0);
+  g.putImageData(img, u0, v0, 0, 0, uw, vh);
   _occ.r = [u0, v0, uw, vh];
   ctx.save();
   ctx.beginPath();
@@ -839,26 +872,51 @@ export function drawIsoPlaisirsSeg(ctx, it, now) {
     if (m.bk.sh) drawSunShadowPlane(ctx, m.bk.sh.cv, ...layer(m.bk.sh));
     if (m.bk.mir) noteReflectionImage(ctx, m.bk.mir.cv, ...layer(m.bk.mir));
     // Liseré de survol : le lieu est CLIQUABLE, il doit dire qu'on le touche.
+    // Gardé d'une frame à l'autre tant que rien ne change, rendu dès que le survol cesse.
     if (CM.hover && CM.hover.plaisirs) drawSpriteOutline(cv, x0, y0, x1 - x0, y1 - y0, HOVER_GOLD);
+    else dropSpriteOutline();
   } else if (it.part === 'slice') {
     const sx0 = Math.round(o.x + it.c0 * z), sx1 = Math.round(o.x + it.c1 * z);
     if (sx1 > sx0 && y1 > y0) {
-      ctx.drawImage(cv, it.c0, 0, it.c1 - it.c0, R.h, sx0, y0, sx1 - sx0, y1 - y0);
+      const bk = m.bk, c0 = it.c0, cw = it.c1 - c0, sw = sx1 - sx0, k = (y1 - y0) / R.h;
+      // Audit du 05/10 (PERF-29) : chaque tranche se posait sur TOUTE la hauteur du
+      // cadre, vide aux trois quarts. Elle ne pose plus que ses rangées occupées
+      // (prises une colonne plus large de chaque côté) quand c'est PROUVÉ identique
+      // au pixel — échelle device entière, cf. rowCrop.js ; sinon pleine hauteur,
+      // comme avant. Partout, sans rien changer à l'image : une couche VIDE sur la
+      // tranche (le vivant, la nuit) n'est pas posée, et les emprises déclarées à
+      // la couche de lumière se serrent sur les rangées (lightLayer.litBox).
+      const dpr = CM.dpr || 1, tight = LIGHT_LAYER.tight !== false;
+      const ca = Math.max(0, c0 - 1), cb = Math.min(R.w, it.c1 + 1), rr = _rowsR;
+      const hasR = sliceRows(bk.rowsR, ca, cb, rr);
+      const pose = (g, crop, img, sx, rows) => {
+        if (crop && rows) g.drawImage(img, sx, rows[0], cw, rows[1] - rows[0], sx0, y0 + rows[0] * k, sw, (rows[1] - rows[0]) * k);
+        else g.drawImage(img, sx, 0, cw, R.h, sx0, y0, sw, y1 - y0);
+      };
+      const crop = rowCropExact(ctx, y0, y1, R.h, dpr);
+      pose(ctx, crop, cv, c0, hasR ? rr : null);
       // Ce qui vit dans l'habillage (torches, ballon captif) : la même tranche de
       // l'image du moment. Cran d'ambiance « aucune » : la première, figée.
-      const lv = m.bk.live;
+      const lv = bk.live;
       if (lv) {
         const f = (CM.ambianceK ?? 1) > 0 ? Math.floor((now || 0) / lv.ms) % lv.n : 0;
-        ctx.drawImage(lv.cv, f * R.w + it.c0, 0, it.c1 - it.c0, R.h, sx0, y0, sx1 - sx0, y1 - y0);
+        const lr = _rowsL, fx = f * R.w;
+        if (sliceRows(bk.rowsLive, fx + ca, fx + cb, lr)) pose(ctx, crop, lv.cv, fx + c0, lr);
       }
-      lightCutImage(cv, sx0, y0, sx1 - sx0, y1 - y0, it.c0, 0, it.c1 - it.c0, R.h);
-      // LA NUIT : baies, fentes de rideaux, lampions — après la découpe.
-      const nf = CM.nightF || 0;
-      if (m.bk.cvN && nf > 0.03) {
-        const lc = lightCtx(sx0, y0, sx1, y1);
+      if (hasR) {
+        const b = tight ? litBox(sx0, y0, sw / cw, k, 0, rr[0], cw, rr[1]) : { x0: sx0, y0, x1: sx1, y1 };
+        lightCut(b.x0, b.y0, b.x1, b.y1, (lc) => pose(lc, rowCropExact(lc, y0, y1, R.h, dpr), cv, c0, rr));
+      }
+      // LA NUIT : baies, fentes de rideaux, lampions — après la découpe. Posée telle
+      // quelle (le calque de lumière la lisse : une pose rognée changerait ses bords) ;
+      // son emprise, elle, se serre sur ses rangées, à une rangée près (le lissage).
+      const nf = CM.nightF || 0, nr = _rowsN;
+      if (bk.cvN && nf > 0.03 && sliceRows(bk.rowsN, ca, cb, nr)) {
+        const b = tight ? litBox(sx0, y0, sw / cw, k, 0, nr[0] - 1, cw, nr[1] + 1) : { x0: sx0, y0, x1: sx1, y1 };
+        const lc = lightCtx(b.x0, b.y0, b.x1, b.y1);
         if (lc) {
           lc.globalAlpha = Math.min(1, nf * 1.15);
-          lc.drawImage(m.bk.cvN, it.c0, 0, it.c1 - it.c0, R.h, sx0, y0, sx1 - sx0, y1 - y0);
+          lc.drawImage(bk.cvN, c0, 0, cw, R.h, sx0, y0, sw, y1 - y0);
           lc.globalAlpha = 1;
         }
       }

@@ -144,7 +144,14 @@ function planScreenBox(L) {
 // plusieurs millisecondes. Restreint au complément de la boîte du plan, il ne
 // coûte RIEN au zoom de jeu en ville (la boîte couvre l'écran) et ne se paie qu'en
 // regardant le bord du monde.
-export function paintWildBackdrop(ctx, nowMs) {
+// `covered` (audit du 05/10, PERF-64) = le sol de la frame couvrira tout l'écran de
+// tuiles opaques, au pixel (groundCoversScreen, solPyramideFrame.js) : l'aplat — et
+// le motif — seraient entièrement repeints. C'est le cas courant au repos en ville ;
+// l'aplat plein écran y coûtait 0,3 à 0,5 ms par frame en rendu logiciel (mesuré sur
+// 2 560 × 1 340) pour rien. Il reste posé dès qu'une tuile manque (premières frames,
+// repli, glissement de zoom) : c'est lui qui bouche le trou.
+export function paintWildBackdrop(ctx, nowMs, covered = false) {
+  if (covered) return;
   ctx.fillStyle = rgb(SEASON_WILD, 0.9);
   ctx.fillRect(0, 0, CM.cw, CM.ch);
   if (globalThis.__wildBackdrop === false) return;

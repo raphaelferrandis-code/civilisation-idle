@@ -21,11 +21,11 @@ import { pixelHouseReady } from '../pixelHouses.js';
 import { WINTER } from '../seasonMode.js';
 import { REVEAL_PIN_MS, SMOKE_TUNE, crisisSmokeShare } from './isoAmbient.js';
 import { isoArt } from './isoArt.js';
-import { bridgeBlocks, pushIsoBridgeItems } from './isoBridge.js';
+import { bridgeBlocks, bridgeGeoms, pushIsoBridgeItems } from './isoBridge.js';
 import { pushIsoWonderItems } from './isoWonder.js';
 import { isoEngineScenesFlag } from './isoEngineScene.js';
 import { fenceStrip, isoFencesFor } from './isoFence.js';
-import { isoFrontOffset } from './isoGroundDetail.js';
+import { isoFlatFootprint, isoFrontOffset } from './isoGroundDetail.js';
 import { ISLAND_DECO, ISO_BUSH_VARIANTS, WATER_POINT_P, waterPointEra } from './isoGroundProps.js';
 import { plaisirsReady, pushIsoPlaisirsItems } from './isoPlaisirs.js';
 import {
@@ -52,6 +52,8 @@ import { chuteCollect } from './isoChute.js';
 // persistants au module : capacité conservée d'une frame à l'autre.
 const ISO_ITEM_POOL = [];
 const ISO_ITEM_VIEW = [];
+// Jeton du verdict d'exclusion des arbres (places, terre-pleins, ponts), cf. plus bas.
+let _blkTok = { pb: null, sg: null, bm: null };
 
 export function collectIsoItems(bake, now) {
   // Registre des figures (figures.js) : la frame qui s'achève devient la référence.
@@ -126,7 +128,7 @@ export function collectIsoItems(bake, now) {
     // coin sud : ainsi tout objet qui les chevauche (arbre/bâtiment/véhicule/piéton,
     // dont le pied a forcément une profondeur ≥ ce coin nord) se trie APRÈS → au-dessus.
     // Un socle (bâtiment volumétrique) garde son ancre au coin SUD (tri par les pieds).
-    const flat = /field|farm|crop|orchard/i.test(idf);
+    const flat = isoFlatFootprint(t);   // même identifiant que `idf`, mémorisé sur la tuile
     // FRONT DE RUE : le poussé décale l'ancre du sprite, donc il DOIT décaler sa
     // clé de tri du même geste — sinon un bâtiment avancé de 0,14 tuile vers la
     // rue se dessine devant son voisin mais se trie derrière lui. Une parcelle à
@@ -181,11 +183,20 @@ export function collectIsoItems(bake, now) {
   // profondeur — sur la parcelle, donc toujours devant elle (triée au coin nord).
   const nT0 = items.length;
   pushTerroirTeams(items, L, band, now);
-  // Lot 6 : les laboureurs et les moissonneurs dans le registre des figures.
+  // Lot 6 : les laboureurs et les moissonneurs dans le registre des figures — TOUS,
+  // ceux qu'un passant évite hors champ compris. Mais seuls ceux du champ de vue vont
+  // au peintre (audit du 05/10, PERF-45) : drawDraftIso et drawNamedAgentIso ne
+  // cullent pas, et ombre, reflet et blit se payaient hors écran (3 par champ l'été).
+  let nT = nT0;
   for (let i = nT0; i < items.length; i += 1) {
-    const q = items[i].team;
-    if (q) noteFig(q.x * T, q.y * T, FIG.SCENE | (q.walking !== false ? FIG.MOVING : 0));
+    const it = items[i], q = it.team;
+    if (q) {
+      noteFig(q.x * T, q.y * T, FIG.SCENE | (q.walking !== false ? FIG.MOVING : 0));
+      if (!dvVis(q.x * T, q.y * T, q.x * T, q.y * T)) continue;
+    }
+    items[nT++] = it;
   }
+  items.length = nT;
   // BATEAUX À QUAI (docs/PLAN-BATEAUX.md, lot 4) : un marchand amarré au ponton —
   // ou qui s'y range — est trié avec lui (pose calculée par drawIsoShips, plus tôt
   // dans la frame). Même contact visuel que le bateau-décor qu'il remplace.
@@ -246,11 +257,20 @@ export function collectIsoItems(bake, now) {
   };
   // Emprise des PONTS (étendue « jusqu'au sec ») : aucun arbre/rocher dessus —
   // un rocher du décor mordait la culée au débouché (vu par Raph à la capture).
+  // Le VERDICT (places, terre-pleins, ponts) ne dépend que du plan et des ponts : il
+  // est mémorisé sur l'arbre (audit 2026-10-05, PERF-25 — recalculé pour chaque arbre
+  // à chaque frame, 0,4 à 1,5 ms en vue large). Le jeton change avec l'un des trois.
+  const bms = bridgeGeoms();
+  if (_blkTok.pb !== pbT || _blkTok.sg !== segsT || _blkTok.bm !== bms) _blkTok = { pb: pbT, sg: segsT, bm: bms };
+  const blkTok = _blkTok;
+  const treeExcluded = (tr, wx, wy) => {
+    if (tr._blkTok !== blkTok) { tr._blk = treeBlocked(tr.gx, tr.gy) || bridgeBlocks(wx, wy, T * 0.45); tr._blkTok = blkTok; }
+    return tr._blk;
+  };
   for (const tr of (L.trees || [])) {
     if (tr.gx < b.gx0 || tr.gx > b.gx1 || tr.gy < b.gy0 || tr.gy > b.gy1) continue;
     if (!dvVis(tr.gx * T, tr.gy * T, (tr.gx + 1) * T, (tr.gy + 1) * T)) continue;
-    if (treeBlocked(tr.gx, tr.gy)) continue;
-    if (bridgeBlocks((tr.gx + 0.5) * T, (tr.gy + 0.5) * T, T * 0.45)) continue;
+    if (treeExcluded(tr, (tr.gx + 0.5) * T, (tr.gy + 0.5) * T)) continue;
     { const it = pushItem(); it.d = depthOf((tr.gx + 0.5) * T, (tr.gy + 0.9) * T); it.kind = 'tree'; it.tr = tr; }
   }
   // Bétail et animaux de rue : un item PAR BÊTE, à sa profondeur — un troupeau
@@ -264,6 +284,11 @@ export function collectIsoItems(bake, now) {
   // sur la place, mouettes sur le parapet. Un item par acteur, à sa profondeur,
   // comme le bétail : sinon une maison de la rive d'en face se peint sous lui.
   for (const a of vieActors(now)) {
+    // Hors du champ de vue (même marge que les passants, au pied de l'acteur) : pas
+    // d'item (audit du 05/10, PERF-45 — le linge, ~55 fillRect par corde, se peignait
+    // hors écran). Les fournisseurs ont déjà tenu leur registre (noteFig) ; le dessin
+    // seul est sauté. Un acteur sans pied (wx indéfini) reste peint.
+    if (!dvVis(a.wx, a.wy, a.wx, a.wy)) continue;
     // `d` imposé : ce qui se pose SUR un bâtiment (drapeau, pigeon de toit) passe juste
     // après lui, à sa clé + ε, et non à la profondeur de son propre pied.
     const it = pushItem(); it.d = a.d != null ? a.d : depthOf(a.wx, a.wy); it.kind = 'vie'; it.v = a;
@@ -293,8 +318,7 @@ export function collectIsoItems(bake, now) {
       if (rk === undefined) rk = wt._rk = (cmHash('wk:' + wt.gx + ':' + wt.gy) % 1000) / 1000;
       if (rk >= wildKeep) continue;
     }
-    if (treeBlocked(wt.gx, wt.gy)) continue;
-    if (bridgeBlocks((wt.gx + 0.5 + wt.jx) * T, (wt.gy + 0.5 + wt.jy) * T, T * 0.45)) continue;
+    if (treeExcluded(wt, (wt.gx + 0.5 + wt.jx) * T, (wt.gy + 0.5 + wt.jy) * T)) continue;
     { const it = pushItem(); it.d = depthOf((wt.gx + 0.5 + wt.jx) * T, (wt.gy + 0.9 + wt.jy) * T); it.kind = 'tree'; it.tr = wt; }
   }
   // PLACE. Deux modes, arbitrés par __plaza({mode}) :
@@ -311,7 +335,10 @@ export function collectIsoItems(bake, now) {
         // Culling par une boîte d'UNE cellule autour du pied : un prop monte
         // au-dessus de son point d'ancrage, un test sur le point seul le ferait
         // disparaître au ras du bord haut de l'écran.
-        isoPlazaItems(L, band, pushItem, (wx, wy) => dvVis(wx - T, wy - T, wx + T, wy + T), now);
+        // La même boîte autour de l'enveloppe d'une place : hors champ, elle est
+        // sautée d'un bloc, flâneurs compris (PERF-48).
+        isoPlazaItems(L, band, pushItem, (wx, wy) => dvVis(wx - T, wy - T, wx + T, wy + T), now,
+          (wx0, wy0, wx1, wy1) => dvVis(wx0 - T, wy0 - T, wx1 + T, wy1 + T));
       } else if (isoPlazaSceneOn(band)) {
         const pArt = isoArt('plaza-' + pKey);
         if (pArt.ready) {
@@ -358,11 +385,16 @@ export function collectIsoItems(bake, now) {
       if (!dvVis(rec.wx - T, rec.wy - T, rec.wx + T * 2, rec.wy + T * 2)) continue;
       // La bande est cuite à la demande : tant que le PNG n'est pas décodé, on ne
       // pousse rien (et on ne met rien en cache) — le panneau apparaîtra au décodage.
-      const strip = fenceStrip(rec.side, fEra, rec.per);
-      if (!strip) continue;
+      // Gardée sur l'enregistrement pour son ère (PERF-46 : une clé en chaîne par
+      // panneau et par frame) ; le cache des bandes ne se vide jamais.
+      let strip = rec._stripEra === fEra ? rec._strip : null;
+      if (!strip) {
+        strip = fenceStrip(rec.side, fEra, rec.per);
+        if (!strip) continue;
+        rec._strip = strip; rec._stripEra = fEra;
+      }
       const it = pushItem();
       it.d = rec.d; it.kind = 'fence'; it.art = strip; it.wx = rec.wx; it.wy = rec.wy;
-      it.hT = rec.hT;
       nF += 1;
     }
     CM._fencesDrawn = nF;

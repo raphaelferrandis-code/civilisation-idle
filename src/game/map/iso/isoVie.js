@@ -148,14 +148,26 @@ export function ringSprite(r, rgb = [214, 232, 240]) {
 // et changent avec l'heure, on borne donc leur nombre.
 // Un cache PAR FAMILLE (préfixe de la clé avant « : ») : les halos, nombreux, ne
 // doivent pas vider celui des nuages, qui coûtent plusieurs millisecondes à refaire.
+// ÉVICTION LRU (audit du 2026-10-05, PERF-24) : le cache était VIDÉ d'un bloc au-delà
+// de son plafond — la frame suivante recuisait d'un coup tous les nuages à l'écran
+// (~30 masques, ~35 ms), et en 4K au zoom 0,6 (60 nuages visibles pour 48 places) il
+// se vidait à CHAQUE frame. On évince la plus ancienne entrée, une lecture rajeunit
+// la sienne. Le plafond des nuages couvre ce qu'un écran 4K en montre (≤ 96 masques
+// de 234 × 117 au plus : ~10 Mo au pire).
+const GEN_CAP = { cloud: 96 };
 const _genCaches = new Map();
+export const vieGeneratedSize = (fam) => (_genCaches.get(fam) || { size: 0 }).size;
 export function vieGenerated(key, make) {
   const fam = key.slice(0, key.indexOf(':'));
   let _genCache = _genCaches.get(fam);
   if (!_genCache) _genCaches.set(fam, (_genCache = new Map()));
   let e = _genCache.get(key);
-  if (e !== undefined) return e;
-  if (_genCache.size > (fam === 'cloud' ? 48 : 240)) _genCache.clear();
+  if (e !== undefined) {
+    _genCache.delete(key); _genCache.set(key, e);   // rajeunie : la dernière évincée
+    return e;
+  }
+  const cap = GEN_CAP[fam] || 240;
+  while (_genCache.size >= cap) _genCache.delete(_genCache.keys().next().value);
   const sp = make();
   const cv = sp ? toCanvas(sp) : null;
   e = cv ? { cv, w: sp.w, h: sp.h, ox: sp.ox || 0, oy: sp.oy || 0 } : null;
@@ -199,12 +211,33 @@ export function vieBlitAt(ctx, img, x, y, k, alpha = 1, smooth = false) {
   ctx.globalAlpha = pa; ctx.imageSmoothingEnabled = ps;
   return true;
 }
+// Chaîne `rgba(r,g,b,a)` d'un pixel d'art, EN CACHE (audit du 05/10, PERF-44) : un
+// drapeau ou une corde à linge, c'est 40 à 70 fillRect, et bâtir puis faire relire au
+// canvas une chaîne neuve par pixel coûtait autant que les fillRect eux-mêmes. Rangée
+// par alpha EXACT (la chaîne garde son toFixed(3)), puis par couleur ; une composante
+// hors octet entier (jamais vu) repasse par le gabarit. Borné : les fondus font varier
+// l'alpha d'une frame à l'autre.
+const _rgbaByA = new Map();
+export function vieRgba(rgb, alpha) {
+  const r = rgb[0], g = rgb[1], b = rgb[2];
+  if ((r & 255) !== r || (g & 255) !== g || (b & 255) !== b) return `rgba(${r},${g},${b},${alpha.toFixed(3)})`;
+  let m = _rgbaByA.get(alpha);
+  if (!m) {
+    if (_rgbaByA.size >= 64) _rgbaByA.clear();
+    m = new Map(); m.a = alpha.toFixed(3);
+    _rgbaByA.set(alpha, m);
+  }
+  const key = (r << 16) | (g << 8) | b;
+  let s = m.get(key);
+  if (s === undefined) { s = `rgba(${r},${g},${b},${m.a})`; m.set(key, s); }
+  return s;
+}
 // Un pixel d'art isolé (goutte, éclat) au point (x, y).
 export function viePixel(ctx, x, y, k, rgb, alpha = 1) {
   if (alpha <= 0.01) return;
   const d = CM.dpr || 1, K = Math.round(k * d);
   const X = Math.round(x * d - K / 2), Y = Math.round(y * d - K / 2);
-  ctx.fillStyle = `rgba(${rgb[0]},${rgb[1]},${rgb[2]},${alpha.toFixed(3)})`;
+  ctx.fillStyle = vieRgba(rgb, alpha);
   ctx.fillRect(X / d, Y / d, K / d, K / d);
 }
 
@@ -352,7 +385,7 @@ export function drawVieFlag(ctx, x, y, o = {}) {
   const X = Math.round(x * d) / d, Y = Math.round(y * d) / d;
   if (X < -60 || X > (CM.cw || 0) + 60 || Y < -60 || Y > (CM.ch || 0) + 120) return false;
   const px = (i, j, rgb) => {
-    ctx.fillStyle = `rgba(${rgb[0]},${rgb[1]},${rgb[2]},${alpha.toFixed(3)})`;
+    ctx.fillStyle = vieRgba(rgb, alpha);
     ctx.fillRect(X + i * K, Y - (j + 1) * K, K, K);
   };
   const pole = rgbOf(o.pole || '#4a3a2a');

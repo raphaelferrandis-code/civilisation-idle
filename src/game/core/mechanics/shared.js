@@ -69,15 +69,35 @@ export function totalBuildingCount() {
   return Object.values(state.buildings).reduce((sum, count) => sum + count, 0);
 }
 
+// Clé du cache de ruinEffects : la liste des ids possédés, dans l'ordre où
+// state.upgrades les énumère. La revalider est un parcours SANS allocation
+// (~0,1 µs) ; la chaîne `keys().filter().sort().join()` reconstruite à chaque
+// appel coûtait ~3 µs, et ruinEffectSum tombe des dizaines de fois par calcul de
+// coût (buildingDiscount) — un quart du rattrapage hors ligne avec auto-achat
+// (audit 2026-10-05, PERF-17). Toujours exacte, sans compteur à tenir à chaque
+// écriture (achat, Grand Reset, import, tests qui mutent en place) : tout ajout,
+// retrait ou passage à faux change la séquence. Un id retiré puis remis change
+// l'ordre : recalcul de trop, jamais de cache périmé. Une clé non tableau (""
+// posé par les invalidations) ne valide jamais.
+function ownedUpgradesMatch(owned) {
+  if (!Array.isArray(owned)) return false;
+  const ups = state.upgrades;
+  let i = 0;
+  for (const id in ups) {
+    if (!ups[id]) continue;
+    if (owned[i] !== id) return false;
+    i += 1;
+  }
+  return i === owned.length;
+}
+
 function ruinEffects() {
   if (isMythEffectActive("mythe_du_chaos")) return { sums: {}, ownedCount: 0, spentRuins: 0 };
 
-  const signature = Object.keys(state.upgrades)
-    .filter((id) => state.upgrades[id])
-    .sort()
-    .join("|");
+  if (renderCache.cachedRuinEffects && ownedUpgradesMatch(renderCache.cachedRuinEffectsSignature)) return renderCache.cachedRuinEffects;
 
-  if (renderCache.cachedRuinEffects && renderCache.cachedRuinEffectsSignature === signature) return renderCache.cachedRuinEffects;
+  const owned = [];
+  for (const id in state.upgrades) if (state.upgrades[id]) owned.push(id);
 
   const sums = {};
   let ownedCount = 0;
@@ -89,7 +109,7 @@ function ruinEffects() {
     if (upgrade.effectType) sums[upgrade.effectType] = (sums[upgrade.effectType] || 0) + upgrade.amount;
   }
 
-  renderCache.cachedRuinEffectsSignature = signature;
+  renderCache.cachedRuinEffectsSignature = owned;
   renderCache.cachedRuinEffects = { sums, ownedCount, spentRuins };
   return renderCache.cachedRuinEffects;
 }

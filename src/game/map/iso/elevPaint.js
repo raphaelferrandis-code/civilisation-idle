@@ -142,10 +142,22 @@ export function blitBaked(ctx, bk, x, y, dpr, alpha = 1) {
 //     l'échelle ; une forme jamais cuite l'est au zoom CIBLE, hors du cache exact (sa
 //     recuisson à la pose garde le repos identique au pixel).
 // Le cache ne garde que les DEUX derniers zooms de repos.
+//
+// LA POSE SUIVANTE AU REPOS (audit du 05/10, PERF-54) : une forme reposée au même zoom
+// et au même dpr que sa dernière pose rend la même image, mais repassait par deux
+// concaténations de clé, quatre opérations de Map et un Set — l'essentiel du coût de
+// pose de l'autoroute et du métro (~1 µs la forme, 600 tronçons visibles : ~0,8 ms par
+// frame). `fast` retient la pose de repos de chaque forme. Il est vidé à chaque purge
+// (cache ou dernières poses) et à chaque nouveau zoom de repos : il ne tient jamais une
+// image que le cache aurait lâchée, et rend donc celle que le cache aurait rendue. Ses
+// lectures ne rajeunissent pas l'entrée : au débordement, une forme peinte depuis la
+// dernière purge peut partir avec la moitié la plus ancienne — elle est recuite à
+// l'identique à sa prochaine pose.
 export function makeBakeCache(max = 240) {
   const m = new Map();
   const last = new Map();          // forme|dpr → dernière cuisson
   const byZoom = new Map();        // zoom de repos → ses clés exactes
+  const fast = new Map();          // forme → { z, d, v } : sa dernière pose de repos
   let zNow = null, zPrev = null;
   const get = (key, make) => {
     let v = m.get(key);
@@ -153,6 +165,7 @@ export function makeBakeCache(max = 240) {
       if (m.size >= max) {
         let n = m.size >> 1;
         for (const k of m.keys()) { if (n-- <= 0) break; m.delete(k); }
+        fast.clear();
       }
       v = make();
     } else m.delete(key);
@@ -164,6 +177,7 @@ export function makeBakeCache(max = 240) {
     if (last.size >= max) {
       let n = last.size >> 1;
       for (const k of last.keys()) { if (n-- <= 0) break; last.delete(k); }
+      fast.clear();
     }
     last.set(lk, v);
   };
@@ -171,6 +185,7 @@ export function makeBakeCache(max = 240) {
   const settle = (z) => {
     if (z === zNow) return;
     zPrev = zNow; zNow = z;
+    fast.clear();
     for (const [zz, keys] of byZoom) {
       if (zz === zNow || zz === zPrev) continue;
       for (const k of keys) m.delete(k);
@@ -181,24 +196,28 @@ export function makeBakeCache(max = 240) {
   return {
     get,
     getZ(key, d, make) {
-      const z = CM.cam.zoom, goal = CM.zoomGoal, lk = key + '|' + d;
+      const z = CM.cam.zoom, goal = CM.zoomGoal;
       if (CM.capture || goal == null || Math.abs(goal - z) <= 1e-6) {
         settle(z);
+        const f = fast.get(key);
+        if (f !== undefined && f.z === z && f.d === d) return f.v;
         const k = key + '|' + z + '|' + d;
         const v = get(k, () => make(z));
         let keys = byZoom.get(z);
         if (!keys) { keys = new Set(); byZoom.set(z, keys); }
         keys.add(k);
-        remember(lk, v);
+        remember(key + '|' + d, v);
+        fast.set(key, { z, d, v });
         return v;
       }
+      const lk = key + '|' + d;
       const prev = last.get(lk);
       if (prev !== undefined) return prev;
       const v = make(goal);
       remember(lk, v);
       return v;
     },
-    clear() { m.clear(); last.clear(); byZoom.clear(); zNow = zPrev = null; },
+    clear() { m.clear(); last.clear(); byZoom.clear(); fast.clear(); zNow = zPrev = null; },
     get size() { return m.size; },
   };
 }

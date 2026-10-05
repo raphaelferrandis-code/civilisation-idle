@@ -165,7 +165,7 @@ export function drawIsoGround() {
     if (PR) PR.fringe = performance.now() - tFr;
   }
   drawIsoGroundRoads(
-    { ctx, T, z, hw, LOD, HARD, L, band, road, roadMap, urb, PR },
+    { ctx, T, z, hw, LOD, HARD, L, band, road, roadMap, urb, PR, b },
     { kindAt },
     roads,
   );

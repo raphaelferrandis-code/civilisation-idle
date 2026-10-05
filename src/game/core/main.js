@@ -1183,8 +1183,15 @@ export function startGameLoop() {
     notify(); // Notifie React du changement d'etat a chaque tick
   }, 1000);
 
-  // Auto-save toutes les 10 secondes
+  // Auto-save toutes les 10 secondes. Onglet caché, les ticks sont sautés et
+  // l'état ne bouge plus : on ne resérialise toute la partie (miroirs fichier et
+  // nuage compris) que si un tick a crédité depuis la dernière écriture — lastWall
+  // n'avance qu'à un crédit (audit 2026-10-05, PERF-69). Le masquage sauve déjà
+  // (handleVisibilityChange, plus bas).
+  let savedWall = -1;
   const saveInterval = setInterval(() => {
+    if (isTabHidden() && lastWall === savedWall) return;
+    savedWall = lastWall;
     save();
   }, 10000);
 
@@ -1198,6 +1205,7 @@ export function startGameLoop() {
   // (le tick est throttlé par le navigateur en arrière-plan, d'où la perte de temps).
   const handleVisibilityChange = () => {
     if (document.hidden) {
+      savedWall = lastWall;
       save();
     } else if (!collapseInProgress) {
       // Retour d'onglet : lastTick est resté figé au masquage (ticks cachés sautés

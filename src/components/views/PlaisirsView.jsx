@@ -19,7 +19,7 @@ import SceneJukebox from './plaisirs/SceneJukebox.jsx';
 import AnnoncesSalle from './plaisirs/AnnoncesSalle.jsx';
 import NuitBandeau from './plaisirs/NuitBandeau.jsx';
 import CagnotteSalle from './plaisirs/CagnotteSalle.jsx';
-import { jouerMelodieScene } from '../../game/audio/melodieScene.js';
+import { jouerMelodieScene, prechaufferMelodie } from '../../game/audio/melodieScene.js';
 
 // L'échoppe s'ouvre DANS la salle, en plein cadre. Chargée paresseusement comme
 // dans App.jsx : elle reste aussi son propre onglet (Raph veut les deux accès),
@@ -94,6 +94,9 @@ export default function PlaisirsView() {
   const open = { scene: true };
   PLAISIRS_SPOTS.forEach((sp, i) => { if (sp.kind || sp.view) open[sp.id] = salle[i] === '1'; });
   const bake = useSalleBake(band, open);
+  // La mélodie de la scène, prête avant le clic (rendue hors du fil principal : au
+  // premier clic, 10 à 70 ms d'un bloc — audit du 2026-10-05, PERF-41).
+  useEffect(() => { prechaufferMelodie(band); }, [band]);
   // Où la salle est posée dans le cadre (facteur, origine) : rapporté par le canevas.
   const [mise, setMise] = useState(null);
   // La largeur masquée par le menu volant, pour que la salle se centre à côté.
