@@ -1454,7 +1454,7 @@ let _artRev = 0;
 function art(src) {
   let e = artCache.get(src);
   if (e) return e;
-  e = { img: null, ready: false };
+  e = { img: null, ready: false, failed: false };
   artCache.set(src, e);
   if (typeof Image !== 'undefined') {
     const im = new Image();
@@ -1463,19 +1463,31 @@ function art(src) {
       _artRev += 1;                       // → recompose : cf. la clé plus bas
       solInvalidate('soft');
     };
+    im.onerror = () => { e.failed = true; };
     im.src = src;
   }
   return e;
 }
+// Les props qui ONT une face (fichiers `<prop>-<n|s|e|w>-<ère>.png`, et pas de nom nu) :
+// le banc, le bac, les caisses, la clôture et les étals. Les autres (corbeille, fontaine,
+// statue…) n'existent que sous leur nom nu, même posés avec une face par les rues
+// (isoStreetProps). ⚠ Liste fermée, gardée par plazaPropRequests.test.js contre le disque : le
+// .exe compte chaque demande d'un fichier absent (audit du 05/10, ASSET-2 et ASSET-6).
+const FACED_PROPS = new Set(['bench', 'planter', 'crates', 'fence']);
+const propHasFaces = (prop) => FACED_PROPS.has(prop) || prop.startsWith('stall-');
 // Image d'un prop pour cette ère et cette variante, ou null. `variant` (n/s/e/w)
-// est tenté d'abord puis abandonné : un banc non directionnel vaut mieux que pas
-// de banc.
+// est tenté d'abord, sur un prop qui a des faces ; le nom nu n'est demandé qu'APRÈS
+// l'échec de la variante — un banc non directionnel vaut mieux que pas de banc, mais
+// demander les deux d'un coup coûtait un 404 par prop orienté.
 function propImage(prop, era, variant) {
-  const tries = [];
-  if (variant) tries.push('/pixelart/iso/plaza/' + prop + '-' + variant + '-' + era + '.png');
-  tries.push('/pixelart/iso/plaza/' + prop + '-' + era + '.png');
-  for (const src of tries) { const e = art(src); if (e.ready) return e.img; }
-  return null;
+  const base = '/pixelart/iso/plaza/' + prop;
+  if (variant && propHasFaces(prop)) {
+    const ev = art(base + '-' + variant + '-' + era + '.png');
+    if (ev.ready) return ev.img;
+    if (!ev.failed) return null;          // pas encore décodée : on attend son verdict
+  }
+  const e = art(base + '-' + era + '.png');
+  return e.ready ? e.img : null;
 }
 
 // ── ARBITRAGE DU MODE ───────────────────────────────────────────────────────
@@ -1939,7 +1951,8 @@ export function drawIsoPlazaGrid(ctx, comp) {
 // `inkBox` est exporté pour les CLÔTURES (lot L9) : la composition d'une bande a
 // besoin de la boîte d'encre du panneau, et une seconde implémentation de la mesure
 // dériverait de celle qui sert au dessin.
-export { PLAZA_TUNE, RECIPES, KIND_KITS, HOUSE_HT, houseF, TALL_PROPS, personHT, ADULT_SCALE, inkBox, plazaBases };
+// `plazaPropImage` : pour la garde des requêtes (plazaPropRequests.test.js).
+export { PLAZA_TUNE, RECIPES, KIND_KITS, HOUSE_HT, houseF, TALL_PROPS, personHT, ADULT_SCALE, inkBox, plazaBases, propImage as plazaPropImage };
 
 // ── LA FONTAINE DE LA SCÈNE DE PLACE, rapatriée d'isoRenderer le 2026-08-23
 // (Q10). Elle décrivait déjà une scène de CE module ; la laisser dans le peintre

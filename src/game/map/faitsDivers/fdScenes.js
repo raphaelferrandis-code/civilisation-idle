@@ -15,8 +15,12 @@ import { MUSICIEN_SCENE } from './fdMusicien.js';
 import { loversSceneFor } from './fdLovers.js';
 import { FD_GAGS } from './fdGags.js';
 import { FD_TRACES } from './fdTraces.js';
+import { FD_STORIES } from '../../data/faitsDivers.js';
 
-export const FD_BUILDERS = {
+// Une histoire éteinte (`off`, cf. data/faitsDivers.js) n'a plus de scène : ni
+// nouveau chapitre, ni reprise d'ambiance, ni résidente (fdDirector ne parcourt
+// que ce registre).
+export const FD_BUILDERS = Object.fromEntries(Object.entries({
   secte: SECTE_SCENE,
   cynique: CYNIQUE_SCENE,
   tortue: TORTUE_SCENE,
@@ -25,7 +29,7 @@ export const FD_BUILDERS = {
   borne: BORNE_SCENE,
   monstre: MONSTRE_SCENE,
   musicien: MUSICIEN_SCENE,
-};
+}).filter(([id]) => !(FD_STORIES[id] && FD_STORIES[id].off)));
 
 // Le constructeur d'un candidat (core/faitsDivers.fdCandidates), ou null.
 export function buildersFor(cand) {

@@ -93,6 +93,12 @@ et le clic inscrit le chapitre de l'âge en cours.
 
 ### 3.3 La Chèvre des toits
 
+> ⛔ **Éteinte le 2026-10-05** (`off` dans `src/game/data/faitsDivers.js`) : le sprite de chèvre
+> venait du pack LaserKiwi, retiré du jeu faute de licence (audit STEAM-1, `CREDITS.md`). Plus
+> de scène, de trace ni de chèvre sacrée chez la Secte ; ce qu'un joueur en a lu reste dans sa
+> Chronique. La rallumer = une chèvre maison dans `critters.js`, puis retirer `off`. La vache
+> des curiosités (§3.11) est désormais dessinée par le bœuf maison des attelages.
+
 Elle est toujours là où une chèvre ne peut pas être. Le sprite de chèvre existe déjà
 (`critters.js`). Les toits de maisons viennent de la recherche des pigeons (`roofHouses`,
 `isoVieOiseaux.js`), qui a déjà résolu « se poser sur un toit sans flotter ».

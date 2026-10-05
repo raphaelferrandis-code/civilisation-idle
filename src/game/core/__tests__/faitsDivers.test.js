@@ -137,6 +137,25 @@ describe("faitsDivers — l'enregistreur", () => {
   });
 });
 
+// La Chèvre des toits est éteinte depuis le 2026-10-05 (`off`) : son sprite venait
+// du pack LaserKiwi, retiré faute de licence (audit STEAM-1).
+describe("faitsDivers — une histoire éteinte", () => {
+  it("n'est plus jamais proposée, ni nouvelle ni en cours", () => {
+    expect(FD_STORIES.chevre.off).toBe(true);
+    live(10 * 3600);
+    const ids = (life) => fdCandidates({ band: 9, nightF: 0, life }).filter((c) => c.kind === "story").map((c) => c.story.id);
+    expect(ids(10 * 3600)).not.toContain("chevre");
+    fdInscrire("chevre", "enclos", 1);                  // une sauvegarde qui l'avait commencée
+    expect(ids(20 * 3600)).not.toContain("chevre");
+  });
+  it("ce qui en a été lu reste dans la Chronique", () => {
+    live(30 * MIN);
+    expect(fdInscrire("chevre", "enclos", 1)).toBe(true);
+    expect(fdChronicle().stories.map((s) => s.id)).toEqual(["chevre"]);
+    expect(fdDiscovered()).toBe(1);
+  });
+});
+
 describe("faitsDivers — la Chronique ne dit rien de ce qui reste", () => {
   it("vide tant que rien n'est vu", () => {
     expect(fdChronicle()).toEqual({ stories: [], curios: [] });

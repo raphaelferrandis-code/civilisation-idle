@@ -113,6 +113,8 @@ export function fdCandidates(ctx) {
   if (life < FD_TUNE.firstMin * K) return out;
   const newOk = fd.lastNewAt == null || life - fd.lastNewAt >= FD_TUNE.newGapMin * K;
   for (const story of FD_STORY_LIST) {
+    // Histoire éteinte (`off`, cf. data/faitsDivers.js) : plus jamais proposée.
+    if (story.off) continue;
     const pr = fdProgress(story);
     if (pr.done) continue;
     const ch = story.chapters[pr.n];

@@ -1,3 +1,5 @@
+// OUTIL DE DEV : App.jsx ne charge cette fenêtre qu'en dev (import.meta.env.DEV),
+// elle et ses outils de triche (debugTools.js) sont absents du build livré.
 import { useDialogModal } from '../../hooks/useDialogModal.js';
 import {
   addDebugRuins,
@@ -5,7 +7,7 @@ import {
   addDebugResources,
   addDebugFaveur,
   debugBuyEarlyRuins
-} from '../../game/core/main.js';
+} from '../../game/core/debugTools.js';
 import { state, notify, openView } from '../../game/core/state.js';
 import { log } from '../../game/core/actions.js';
 import { D } from '../../game/core/num.js';

@@ -14,7 +14,7 @@ import { pickHouseTint, applyHouseTint, HOUSE_TINTS } from './housePalette.js';
 import { snowImageData, snowRoofTune, addSnowResetHook } from './snowRoof.js';
 import { WINTER } from './seasonMode.js';
 import { lightCutImage } from './lightLayer.js';
-import { HOUSE_UNIT, HOUSE_LOT_WF, houseFitTune, houseScaleK, grainTune, GRAIN_FIX, recDens } from './spriteScale.js';
+import { HOUSE_UNIT, HOUSE_LOT_WF, houseFitTune, houseScaleK, grainTune, GRAIN_FIX, recDens, grainProbe } from './spriteScale.js';
 import { pxProbe, recPx } from './pixelGrid.js';
 // ISO_Y : la marche d'un rang vers le nord (cf. houseSpriteReachTilesIso). Sens
 // d'import sûr — projection ne connaît que layout/isoTerrain, jamais les sprites.
@@ -286,9 +286,14 @@ export function pixelHouseImages() {
 // (band 7+) — y compris une ouverture directe de save late-game ou un saut d'ère
 // (prestige/hors-ligne) — soit propre d'emblée, sans dépendre d'un recompute préalable à
 // la bonne bande.
+// ⚠ Les gratte-ciel du cœur n'ont PAS de PNG de base (seulement leurs skins d'ère, cf.
+// AVAILABLE) : préchargés sous leur nom nu, c'étaient deux requêtes en échec à chaque
+// lancement (audit du 05/10, ASSET-2). Ils restent dans AVAILABLE, qui est aussi la
+// garde de rendu (pixelHouseReady) ; leurs skins cosmiques passent par la boucle du bas.
+const NO_BASE_PNG = new Set(["skytower", "skytower2"]);
 export function preloadHouseSprites(band) {
   if (!pixelHousesFlag.on || typeof Image === "undefined") return;
-  for (const v of AVAILABLE) ensure(v);
+  for (const v of AVAILABLE) if (!NO_BASE_PNG.has(v)) ensure(v);
   for (const k of ilotArtKeys(band | 0)) ensure(k);
   if ((band | 0) >= 5) {
     for (const v of COSMIC_VARIANTS) for (const b of [7, 8, 9]) ensure(v + "-cosmic-" + b);
@@ -391,7 +396,7 @@ function rowGeom(t, x, y, w, h, key, e) {
   // de X (vues fl, bl) : le mur de gauche ; le long de Y (fr, br) : celui de droite.
   const alongX = key.endsWith("-fl") || key.endsWith("-bl");
   const k = Tz / (alongX ? m.left : m.right);
-  recDens(key, k / ((CM.cam && CM.cam.zoom) || 1));
+  if (grainProbe.on) recDens(key, k / ((CM.cam && CM.cam.zoom) || 1));
   const dw = Math.max(1, Math.round(bb.w * k)), dh = Math.max(1, Math.round(bb.h * k));
   const dx = Math.round(sx - (m.fx - bb.x0) * k), dy = Math.round(sy - (m.fy - bb.y0) * k);
   // LES RANGÉES ALTERNENT (rowVariants.js) : même dessin, matière différente d'une
@@ -444,7 +449,7 @@ function pixelHouseGeom(t, x, y, w, h) {
   // profondeur pour l'unité honnête (correction 1×2, G1).
   const spanY = t.spanY || span;
   const k = houseScaleK(span, w, bb.w, spanY, key);
-  recDens(key, k / ((CM.cam && CM.cam.zoom) || 1));
+  if (grainProbe.on) recDens(key, k / ((CM.cam && CM.cam.zoom) || 1));
   const dw = Math.max(1, Math.round(bb.w * k));
   const dh = Math.max(1, Math.round(bb.h * k));
   // Sonde G0 (pixelGrid.js) : même mesure que recDens juste au-dessus, mais dans

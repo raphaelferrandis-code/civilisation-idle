@@ -7,6 +7,11 @@
 // Démiurge, elle rentre, et ils ne referment pas la barrière.
 // Sur un toit : posée sur la LIGNE D'ENCRE du toit de la maison (comme les pigeons,
 // iso/isoVieOiseaux), triée juste après elle ; un Seguin en bas, qui lève la tête.
+//
+// ⛔ ÉTEINTE depuis le 2026-10-05 (`off` dans data/faitsDivers.js) : la chèvre était
+// le sprite du pack LaserKiwi, retiré faute de licence (critters.js). fdScenes ne
+// l'inscrit plus ; le module reste parce que l'échelle des gags (fdGags) se pose sur
+// les mêmes toits (roofSpots), et pour la rallumer le jour d'une chèvre maison.
 import { CM } from '../layout.js';
 import { worldToScreen, depthOf } from '../iso/projection.js';
 import { vieK, drawnBoxOf, inkTopAt } from '../iso/isoVie.js';

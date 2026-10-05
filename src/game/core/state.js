@@ -20,7 +20,11 @@ import { defaultFaitsDivers, normalizeFaitsDivers } from './faitsDiversState.js'
 // ce module — cf. l'en-tête de cloudSave.js) ; ré-exportée ici pour les clients.
 import { SAVE_KEY, CURRENT_SAVE_VERSION, stripBom, markLocalSaveUnreadable, isLocalSaveUnreadable, newSaveEpoch, consumeFreshEpochRequest, isFutureSave, saveVersionOf } from './saveKey.js';
 import { cloudMirrorSave } from './cloudSave.js';
+// Save en fichier du .exe (Steam Cloud) : importée ICI aussi pour qu'elle soit
+// évaluée — donc arbitrée contre le localStorage — AVANT `state = load()`.
+import { fileMirrorSave } from './fileSave.js';
 import { archiveUnreadableSave, archiveFutureSave } from './saveBackups.js';
+import { isSaveSuspendedForOtherTab } from './saveLock.js';
 export { SAVE_KEY };
 
 // Version du SCHÉMA de sauvegarde, stockée DANS le payload (state.saveVersion) —
@@ -2195,7 +2199,9 @@ export function hydrateState(parsed = {}) {
     buyAmount: source.buyAmount === "max" || source.buyAmount === "step"
       ? source.buyAmount
       : finiteInteger(source.buyAmount, 1, 1, MAX_BATCH_AMOUNT),
-    activeView: ["city", "regulation", "prestige", "ruinsView", "tech", "mythView", "comptoir", "history"].includes(source.activeView)
+    // Les vues d'App (VIEW_LOADERS) : 'plaisirs' manquait, un rechargement sur la
+    // Maison des Plaisirs ramenait à la Cité (audit 2026-10-05, SAV-14).
+    activeView: ["city", "regulation", "prestige", "ruinsView", "tech", "mythView", "comptoir", "history", "plaisirs"].includes(source.activeView)
       ? source.activeView
       : "city",
     ruinsSeenNodes: Array.isArray(source.ruinsSeenNodes)
@@ -2374,6 +2380,12 @@ export const getLastSaveAt = () => lastSaveAt;
 export const getLastSaveError = () => lastSaveError;
 
 export function save() {
+  // La partie se joue dans un autre onglet (ou cet onglet vient de la lui
+  // céder) : écrire effacerait sa progression avec notre copie (SAV-9, saveLock.js).
+  if (isSaveSuspendedForOtherTab()) {
+    lastSaveError = "partie ouverte dans un autre onglet, écriture suspendue";
+    return;
+  }
   // Save précédente illisible (load) : la clé principale la GARDE tant que le
   // joueur n'a pas tranché (Réessayer / Garder cette partie, ou un chargement) —
   // l'autosave de la partie neuve de repli l'écrasait en 2 s. L'échec est dit,
@@ -2382,12 +2394,14 @@ export function save() {
     lastSaveError = "sauvegarde précédente illisible, écriture suspendue";
     return;
   }
+  let text = null;
   try {
     // lastTick n'est PLUS posé ici : il vit désormais dans la boucle de tick
     // (temps réellement crédité, cf. offlineCredit.js). Sinon l'auto-save throttlé
     // d'un onglet caché le rafraîchissait en continu et le retour ne créditait
     // jamais l'absence (M16). L'écriture reste, seule l'estampille bouge.
-    localStorage.setItem(SAVE_KEY, JSON.stringify(state));
+    text = JSON.stringify(state);
+    localStorage.setItem(SAVE_KEY, text);
     lastSaveAt = Date.now();
     lastSaveError = "";
   } catch (e) {
@@ -2396,6 +2410,7 @@ export function save() {
     lastSaveError = e?.message || String(e);
     console.warn("Sauvegarde impossible:", lastSaveError);
   }
+  fileMirrorSave(text); // save en FICHIER du .exe (Steam Cloud, STEAM-4) — no-op en navigateur
   cloudMirrorSave(); // miroir Google Drive du .exe (throttlé) — no-op en navigateur
 }
 

@@ -160,11 +160,24 @@ export function houseScaleK(spanX, w, inkW, spanY = spanX, key = '') {
 // alimentées par les chemins de rendu (blitProp, blitCosmicTower,
 // pixelHouseGeom). __grainAudit() les croise avec les annotations G0 pour
 // donner la vérité runtime — celle qui calibrera les paliers de halles (G2).
+// Coût ÉTEINTE : rien. Elle tournait à CHAQUE blit de maison et de décor, en prod
+// aussi (un toFixed et une clé chaîne, jusqu'à ~9 000 par frame en mégapole ; audit
+// du 05/10, DEV-2) : les sites d'appel testent maintenant `grainProbe.on` avant
+// d'appeler — même idiome que `pxProbe` (pixelGrid.js). Éteinte au chargement, armée
+// par __grainAudit(), qui n'existe qu'en dev (avec le JSON d'annotations, 54 Ko, qui
+// ne part donc plus dans le build). Le test de `window` passe d'abord : ce module est
+// aussi importé sous Node par les scripts, où `import.meta.env` n'existe pas.
+export const grainProbe = { on: false };
 export const grainDens = {};
 export const recDens = (key, dens) => { if (Number.isFinite(dens)) grainDens[key] = +dens.toFixed(3); };
-if (typeof window !== 'undefined') {
+if (typeof window !== 'undefined' && import.meta.env.DEV) {
   window.__grainDens = grainDens;
   window.__grainAudit = async () => {
+    if (!grainProbe.on) {
+      grainProbe.on = true;
+      console.info('Sonde du grain armée : laisser la carte peindre quelques frames, puis relancer __grainAudit().');
+      return [];
+    }
     const ann = (await import('../../../scripts/data/sprite-annotations.json')).default;
     const rows = [];
     for (const a of ann.entries) {

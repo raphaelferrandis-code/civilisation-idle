@@ -16,11 +16,29 @@ npm run preview    # prévisualise le build
 
 ```bash
 npm run electron   # lance l'app Electron sur le build courant (dist/)
-npm run dist-win   # build + packaging Windows (electron-builder)
+npm run dist-win   # build + installeur Windows NSIS (electron-builder)
+npm run dist-steam # build + DOSSIER win-unpacked, celui que SteamPipe téléverse
 ```
 
 Le process principal Electron est `main.cjs`. Il sert les fichiers via le protocole
 `app://` (indispensable au chargement des sprites pixel-art), pas `file://`.
+
+- **La partie** vit dans `%APPDATA%\civilisation-effondrement` (dossier figé par
+  `main.cjs` : ne jamais changer `name` dans package.json ni l'hôte `app://localhost`) :
+  le localStorage de Chromium, plus une copie en fichier, `saves\save.json` (écriture
+  atomique, précédente en `.bak`) — c'est elle que Steam Auto-Cloud synchronise
+  (racine WinAppDataRoaming, sous-dossier `civilisation-effondrement/saves`, motif
+  `save.json`). Fenêtre : `window.json` ; journal : `logs\civilisation.log`.
+- ⚠ `npm run electron` utilise ce MÊME dossier que l'.exe installé : la vraie partie.
+  Pour essayer sans y toucher : `CE_USER_DATA=<dossier temporaire>`.
+- `.exe` empaqueté : ni menu, ni DevTools, ni zoom de page. `CIV_DEVTOOLS=1` (ou
+  `--devtools`) rouvre les DevTools pour mesurer.
+- Sécurité : page dans le bac à sable (`sandbox: true`), Content-Security-Policy
+  posée par le protocole `app://` (`APP_CSP`, `desktopFiles.cjs`), aucune permission
+  du navigateur sauf l'écriture du presse-papiers. Tout accès disque (save en
+  fichier, fichier nuage Google Drive, export) passe par le process principal.
+- Lancé par Steam (`SteamAppId` / `SteamGameId` présents) : drapeaux de l'overlay
+  (`in-process-gpu`, `disable-direct-composition`) ; `--no-steam-overlay` les retire.
 
 ## Tests & CI
 

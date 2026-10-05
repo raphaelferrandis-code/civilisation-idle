@@ -102,12 +102,29 @@ function agentDir(name) {
   if (name.startsWith('rioter-')) return 'events';
   return 'inhabitants';   // gens par ère + porteurs (basket-*)
 }
+// ⚠ LISTE EXPLICITE des noms qui ONT leurs 4 bandes cardinales (east/west/south/north) :
+// les VIEILLES bandes de face d'avant la mise à plat d'août, figées depuis — seuls ces
+// replis en ont. Les dessins à métiers et les ères redessinées (romains, modernes,
+// cosmiques, manifestants modernes) n'en ont pas : demandées quand même, c'était 4
+// requêtes en échec par nom, 196 à chaque lancement (audit du 05/10, ASSET-2) — le .exe
+// compte chaque fichier absent (même leçon qu'IDLE_ONE et POSE_NONE plus bas). Un nom
+// hors liste n'est jamais prêt : drawNamedAgent rend false, l'appelant passe à son repli
+// (drawEraAgent → le villageois), exactement ce que faisait le 404.
+const CARDINAL_NAMES = new Set([
+  'villager', 'villager2', 'villagerwoman', 'villagerwoman2', 'villagerchild',
+  'caveman', 'caveman2', 'cavewoman', 'cavewoman2', 'cavechild',
+  'industrialman', 'industrialman2', 'industrialwoman', 'industrialwoman2', 'industrialchild',
+  'basket-man', 'basket-woman', 'ox', 'horse',
+  // Émeutiers : toutes les ères sauf 'mod-' (manifestants modernes, diagonales seules).
+  ...['', 'stone-', 'anti-', 'ind-', 'fut-'].flatMap((era) =>
+    ['man-fork', 'man-torch', 'woman-fork', 'woman-torch'].map((g) => 'rioter-' + era + g)),
+]);
 function ensureAgentChar(name) {
   let c = agentChars[name];
   if (c) return c;
   c = { img: {}, ready: 0 };
   agentChars[name] = c;
-  if (typeof Image !== 'undefined') for (const d of VILLAGER_DIRS) {
+  if (typeof Image !== 'undefined' && CARDINAL_NAMES.has(name)) for (const d of VILLAGER_DIRS) {
     const im = new Image();
     im.onload = () => { c.ready += 1; };
     im.src = '/pixelart/agents/' + agentDir(name) + '/' + name + '-' + d + '.png';
@@ -306,9 +323,11 @@ const ISO_AGENT_NAMES = [...new Set([
   ...BASKET_CARRIERS,
 ])];
 
+// Seul le repli ultime garde ses bandes de FACE préchargées. Les 64 dessins d'ère les
+// préchargeaient toutes (196 fichiers absents, ~8,6 Mo décodés pour un repli que la
+// diagonale remplace) : ce sont leurs DIAGONALES qui se préchargent maintenant, celles
+// de la bande d'ère courante et de la suivante (preloadAgentDiags, plus bas).
 ensureAgentChar('villager');
-for (const set of AGENT_SETS)
-  for (const s of [...set.men, ...set.women, set.child]) ensureAgentChar(s.name);
 if (typeof window !== 'undefined') window.__villagerScale = (h) => { AGENT_SCALE = +h || 1; };
 
 // ── Helper PARTAGÉ : dessine un personnage PIXEL NOMMÉ (bande de marche 4 dirs,
@@ -629,8 +648,19 @@ function agentFrameIso(name, dir, z, scale = null) {
 // prête. Cas vécu : trois métiers ajoutés au code AVANT que leurs PNG existent — le jeu
 // ouvert les a demandés, 404 × 4 (loadWithRetry), réputés absents jusqu'au F5, et un
 // passant sur trois marchait de face.
+// PRÉCHARGEMENT des diagonales (audit du 05/10, ASSET-2) : au premier dessin d'une bande
+// d'ère, TOUS ses dessins et ceux de la bande suivante sont demandés d'un coup — le
+// passage d'ère trouve ses passants prêts au lieu de les montrer une frame en repli.
+// ensureAgentDiag est idempotent : un nom déjà demandé ne recharge rien.
+let diagPreloadBand = -1;
+function preloadAgentDiags(band) {
+  diagPreloadBand = band;
+  for (const set of new Set([agentSetForBand(band), agentSetForBand(band + 1)]))
+    for (const s of [...set.men, ...set.women, set.child]) ensureAgentDiag(s.name);
+}
 function drawEraAgentIso(ctx, sx, groundY, z, dir, walking, now, phase, charType, scaleMul = 1, distPx = null, variant = 0, pose = null) {
   const band = (CM.layout && CM.layout.counts && CM.layout.counts.eraBand) || 0;
+  if (band !== diagPreloadBand) preloadAgentDiags(band);
   const set = agentSetForBand(band);
   const spec = agentSpecFor(set, charType, variant) || AGENT_FALLBACK;
   if (drawNamedAgentIso(ctx, sx, groundY, z, spec.name, spec.scale, dir, walking, now, phase, scaleMul, distPx, false, pose)) return true;
@@ -2461,6 +2491,6 @@ function drawVehicleHeadlights(ctx, v) {
 // ⚠ Retirés le 2026-08-23 (étape 6) avec le rendu top-down : `drawCitizens`,
 // `drawGroundAgents`, `drawShips`, `drawVehicles`, `frontByPainter`.
 export { agentSetForBand, agentSpecFor, agentFrameIso, chooseRoadVehicleType, getVehicleDensity, updateVehicles, vehicleGapFactors, VEH_GAP, updateCitizens, CM_DIRS, cityMapWalkRoadKey, roadStepAllowed, drawCitizenThoughts, vehicleLaneOffset, drawEraAgent, drawEraAgentIso, drawNamedAgent, drawNamedAgentIso, drawVehicleHeadlights, thoughtBubbleAnchor, riotEraKey, ensureVeh, vehReady, VEH_SIZES, VEH_PULL, VEH_PUSH, ensureBoat, boatReady, BOAT_SIZES, BOAT_LIFT, ensureDrone, drawDroneRotors, ensureVehDiag, vehDiagReady, vehSkinFor, eraVehSpec, ISO_DIAG, ISO_AGENT_NAMES, BASKET_CARRIERS, agentDir, AGENT_SCALE, VEH_SCALE,
-  citizenSpawnCell, citizenAtDoorstep, citizenWorkNear, IDLE_NAMES, IDLE_ONE, POSE_NAMES, POSE_NONE, agentIdleFrameIso, agentPoseFrameIso, citizenPose, citizenScreenBox, citizenPortraitFrame, namedPortraitFrame, imgInkBox, citizenSheltering };
+  citizenSpawnCell, citizenAtDoorstep, citizenWorkNear, IDLE_NAMES, IDLE_ONE, POSE_NAMES, POSE_NONE, CARDINAL_NAMES, agentIdleFrameIso, agentPoseFrameIso, citizenPose, citizenScreenBox, citizenPortraitFrame, namedPortraitFrame, imgInkBox, citizenSheltering };
 // AGENT_SCALE / VEH_SCALE sont exportés en LIAISON VIVE (ESM) : le rendu iso les relit
 // à chaque frame, donc __villagerScale / __vehScale agissent aussi sur la vue iso.

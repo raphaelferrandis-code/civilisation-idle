@@ -79,14 +79,16 @@ export function parseSave(raw) {
 
 // Horloge à vie d'une save PARSÉE (parseSave) ; -1 si illisible (donc « inconnue »,
 // jamais « zéro » : un 0 passerait pour une partie neuve légitime).
-function lifeOf(s) {
+// lifeOf, epochOf, compareEpochs : exportées pour la save en fichier (fileSave.js),
+// qui juge avec les mêmes règles.
+export function lifeOf(s) {
   return s ? (Number(s?.chronicleStats?.lifetimePlaySec) || 0) : -1;
 }
 
 // Époque d'une save parsée (state.saveEpoch, cf. saveKey.js) : { id, at }. Une
 // save sans époque — d'avant, ou jamais remplacée — a l'époque vide, la plus
 // ancienne de toutes.
-function epochOf(s) {
+export function epochOf(s) {
   const e = s && s.saveEpoch;
   return (e && typeof e === 'object' && typeof e.id === 'string' && e.id)
     ? { id: e.id, at: Number(e.at) || 0 }
@@ -95,7 +97,7 @@ function epochOf(s) {
 
 // > 0 si l'époque `a` est PLUS RÉCENTE que `b` (autre partie, posée par un geste
 // postérieur), < 0 si plus ancienne, 0 si c'est la même partie.
-function compareEpochs(a, b) {
+export function compareEpochs(a, b) {
   if (a.id === b.id) return 0;
   return Math.sign(a.at - b.at);
 }
@@ -373,6 +375,7 @@ function applyPendingWipe() {
 // par un miroir FORCÉ, comme le faisait l'import à chaud — sans lui, « la plus
 // avancée gagne » ressusciterait la partie abandonnée au lancement suivant. Jamais
 // par-dessus un nuage illisible ou d'une version plus récente (fail-closed).
+// Rend true si la partie choisie est bien devenue la save locale.
 function applyPendingLoad(text) {
   try {
     localStorage.setItem(SAVE_KEY, text);
@@ -381,21 +384,29 @@ function applyPendingLoad(text) {
     // en place reste, avec l'arbitrage ordinaire.
     console.warn("Chargement en attente impossible à mettre en place : la partie en place est gardée.");
     reconcileCloudAtBoot();
-    return;
+    return false;
   }
   const c = cc();
-  if (!c || !c.dir) { cloudStatus = 'off'; return; }
+  if (!c || !c.dir) { cloudStatus = 'off'; return true; }
   learnInitialCloud(c);
   if (cloudStatus === 'ok') cloudMirrorSave({ force: true });
+  return true;
 }
+
+// Ce que le démarrage a fait de la save : 'wipe' (effacement confirmé), 'load'
+// (partie choisie mise en place) ou 'normal' (arbitrage). La save en FICHIER
+// (fileSave.js, évaluée juste après ce module) suit le même geste : effacée avec
+// le reste, écrite de force avec la partie choisie, arbitrée sinon.
+let bootAction = 'normal';
+export function bootSaveAction() { return bootAction; }
 
 if (typeof window !== 'undefined') {
   // Les deux clés sont TOUJOURS consommées (aucune ne survit à un démarrage) ;
   // l'effacement, confirmé deux fois, l'emporte sur un chargement.
   const wipe = consumePendingWipe();
   const pendingLoad = consumePendingLoad();
-  if (wipe) applyPendingWipe();
-  else if (pendingLoad) applyPendingLoad(pendingLoad);
+  if (wipe) { bootAction = 'wipe'; applyPendingWipe(); }
+  else if (pendingLoad) bootAction = applyPendingLoad(pendingLoad) ? 'load' : 'normal';
   else reconcileCloudAtBoot();
   // Fermeture de la fenêtre : pousser la dernière save si un miroir est en
   // attente de throttle. Écriture SYNCHRONE côté préload → fiable à la sortie.

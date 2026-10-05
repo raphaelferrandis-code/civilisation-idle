@@ -9,7 +9,7 @@ import { CM } from '../layout.js';
 import { worldToScreen, depthOf } from '../iso/projection.js';
 import { vieK, drawnBoxOf, inkTopAt } from '../iso/isoVie.js';
 import { isoFrontOffset } from '../iso/isoGroundDetail.js';
-import { drawCritterIso } from '../critters.js';
+import { drawDraftIso } from '../iso/isoUnits.js';
 import { AGENT_SCALE } from '../agents.js';
 import { WINTER } from '../seasonMode.js';
 import { fdBlitScreen, fdPixel, fdFigure, fdNoteThing } from './fdDraw.js';
@@ -229,6 +229,11 @@ function buildCerfvolant(app) {
 }
 
 // ── LA VACHE ─────────────────────────────────────────────────────────────────
+// Dessinée par le BŒUF MAISON (bandes veh-ox-<diagonale>, PixelLab, celui des
+// attelages et des champs : drawDraftIso, frame 0 = à l'arrêt) depuis que la vache
+// du pack LaserKiwi est partie, faute de licence (2026-10-05, cf. critters.js).
+// drawDraftIso suit la convention de cap des agents (0 +x, 1 −x, 2 +y, 3 −y) : elle
+// se tient donc vraiment EN TRAVERS de la rue.
 function buildVache(app) {
   const s = app.spot;
   const { ax, ay } = runAxis(s);
@@ -247,9 +252,12 @@ function buildVache(app) {
         const z = CM.cam ? CM.cam.zoom : 1;
         const pa = ctx.globalAlpha;
         if (alpha < 1) ctx.globalAlpha = pa * alpha;
-        const m = drawCritterIso(ctx, p.x, p.y, CM.TILE * z, { kind: 'cow', dir: dirOf(ay, -ax) }, AGENT_SCALE, CM.dpr);
+        const ok = drawDraftIso(ctx, p.x, p.y, z, 'ox', { dir: dirOf(ay, -ax), rollDist: 0 });
         ctx.globalAlpha = pa;
-        if (m) fdNoteThing(cow, { x0: p.x - m.box * 0.5, x1: p.x + m.box * 0.5, y0: p.y - m.box * 0.8, y1: p.y + m.box * 0.1 });
+        // Boîte de clic = l'encre mesurée de la bande (de 0,12 à 0,87 de la frame en
+        // largeur, de 0,10 à 0,91 en hauteur, frame posée à 0,82 au-dessus des pieds).
+        const h = CM.TILE * z * 0.975 * AGENT_SCALE;
+        if (ok) fdNoteThing(cow, { x0: p.x - h * 0.38, x1: p.x + h * 0.38, y0: p.y - h * 0.72, y1: p.y + h * 0.1 });
       },
     });
   };

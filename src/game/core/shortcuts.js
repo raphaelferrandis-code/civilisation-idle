@@ -164,6 +164,19 @@ export function resolveCameraKey(event) {
   }
 }
 
+// Séquence secrète « debug » (menu de triche, App.jsx — en dev SEULEMENT) :
+// accumule les cinq dernières lettres tapées, sous la même garde que les
+// raccourcis. Sans elle, les frappes d'un champ de saisie remontaient jusqu'au
+// document : nommer sa cité « Debugville » ouvrait le menu (audit du
+// 2026-10-05, DEV-1). Rend la séquence suivante, et `hit` quand le mot est complet.
+export function feedDebugSequence(seq, event) {
+  if (shortcutsBlocked(event)) return { seq, hit: false };
+  const key = String(event.key || "");
+  if (key.length !== 1) return { seq, hit: false };
+  const next = `${seq}${key.toLowerCase()}`.slice(-5);
+  return next === "debug" ? { seq: "", hit: true } : { seq: next, hit: false };
+}
+
 // Index de vue pour les touches 1 à 8, ou -1. Les chiffres restent hors table :
 // leur cible dépend des onglets DÉBLOQUÉS, que seul App.jsx connaît.
 export function resolveViewDigit(event) {

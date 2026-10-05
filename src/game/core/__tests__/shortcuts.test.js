@@ -11,7 +11,7 @@ import { describe, it, expect, beforeEach } from "vitest";
 import {
   SHORTCUT_DEFS, shortcutKey, shortcutRejection,
   setShortcutKey, setShortcutOff, resetShortcutKey,
-  resolveShortcut, resolveViewDigit, resolveCameraKey,
+  resolveShortcut, resolveViewDigit, resolveCameraKey, feedDebugSequence,
 } from "../shortcuts.js";
 
 const def = (id) => SHORTCUT_DEFS.find((d) => d.id === id);
@@ -150,5 +150,36 @@ describe("touches de vue", () => {
 
   it("ignore les combinaisons avec modificateur", () => {
     expect(resolveViewDigit(ev("1", { ctrlKey: true }))).toBe(-1);
+  });
+});
+
+// Séquence secrète du menu de triche (dev seulement, audit 2026-10-05 DEV-1).
+describe("séquence « debug »", () => {
+  const taper = (mot, seq = "") => {
+    let hit = false;
+    for (const k of mot) ({ seq, hit } = feedDebugSequence(seq, ev(k)));
+    return { seq, hit };
+  };
+
+  it("complète le mot hors saisie, puis repart de zéro", () => {
+    expect(taper("xxdebug")).toEqual({ seq: "", hit: true });
+    expect(taper("DEBUG").hit).toBe(true);     // insensible à la casse
+    expect(taper("debu")).toEqual({ seq: "debu", hit: false });
+  });
+
+  it("ignore les touches spéciales et les combinaisons avec modificateur", () => {
+    expect(feedDebugSequence("debu", ev("Shift"))).toEqual({ seq: "debu", hit: false });
+    expect(feedDebugSequence("debu", ev("g", { ctrlKey: true }))).toEqual({ seq: "debu", hit: false });
+  });
+
+  it("RIEN pendant une saisie : nommer sa cité « Debugville » n'ouvre plus le menu", () => {
+    const avant = globalThis.document;
+    globalThis.document = { activeElement: { tagName: "INPUT" }, querySelector: () => null };
+    try {
+      expect(taper("Debugville")).toEqual({ seq: "", hit: false });
+    } finally {
+      if (avant === undefined) delete globalThis.document;
+      else globalThis.document = avant;
+    }
   });
 });

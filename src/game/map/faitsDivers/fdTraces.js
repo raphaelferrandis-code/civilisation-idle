@@ -175,4 +175,8 @@ const TRACES = {
   },
 };
 
-export const FD_TRACES = TRACES;
+// Une histoire éteinte (`off`, cf. data/faitsDivers.js) ne laisse pas de trace : la
+// chèvre de l'enclos n'a plus de sprite, et un enclos vide qui dit « Blanquette
+// dedans » mentirait.
+export const FD_TRACES = Object.fromEntries(Object.entries(TRACES)
+  .filter(([id]) => !(FD_STORIES[id] && FD_STORIES[id].off)));

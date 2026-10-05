@@ -1,119 +1,70 @@
 // Pont « sauvegarde nuage » du .exe : la partie voyage entre les postes via un
 // fichier déposé dans Google Drive (« Google Drive pour ordinateur », le client
 // PC de Google One) — aucun serveur, aucun compte à créer : c'est Drive qui
-// fait le transport. Préload NON sandboxé (sandbox:false dans main.cjs) : il a
-// accès à fs. La version navigateur (dev, web) ne passe jamais ici →
+// fait le transport. La version navigateur (dev, web) ne passe jamais ici →
 // window.civCloud n'existe pas et le jeu reste 100 % localStorage.
 //
 // L'arbitrage « quelle save gagne » ne vit PAS ici : il est dans
 // src/game/core/cloudSave.js (la plus avancée gagne, horloge à vie).
-const { contextBridge } = require("electron");
-const fs = require("fs");
-const path = require("path");
-const os = require("os");
-
-// « Google Drive pour ordinateur » n'expose AUCUNE variable d'environnement
-// (contrairement à %OneDrive%) : on cherche ses deux visages, dans les deux
-// langues — d'abord le lecteur virtuel monté (mode « streaming », le défaut :
-// G:\Mon Drive / G:\My Drive, lettre variable), puis les dossiers miroir dans
-// le profil utilisateur (mode « mirroring » et anciennes installations).
-function detectGoogleDriveRoot() {
-  const names = ["Mon Drive", "My Drive"];
-  for (let c = 68; c <= 90; c += 1) { // lettres D: à Z: (jamais A/B/C)
-    for (const name of names) {
-      const p = String.fromCharCode(c) + ":\\" + name;
-      try { if (fs.existsSync(p)) return p; } catch { /* lecteur capricieux */ }
-    }
-  }
-  const home = os.homedir();
-  for (const name of ["Google Drive", "Mon Drive", "My Drive"]) {
-    const p = path.join(home, name);
-    try { if (fs.existsSync(p)) return p; } catch { /* — */ }
-  }
-  return null;
-}
-
-const driveRoot = detectGoogleDriveRoot();
-const cloudDir = driveRoot ? path.join(driveRoot, "Civilisation Idle") : null;
-const cloudFile = cloudDir ? path.join(cloudDir, "civilisation-idle-save.json") : null;
-
-// Lecture SYNCHRONE : le jeu arbitre nuage vs local AVANT de charger la partie
-// — un aller-retour asynchrone arriverait trop tard.
 //
-// ⚠ Le statut est AUSSI IMPORTANT que le contenu : « pas de fichier » (premier
-// lancement, on peut écrire sans risque) et « fichier présent mais illisible »
-// (Drive hors ligne, placeholder « en ligne seulement » non hydraté, EPERM,
-// verrou de synchro) doivent être DISTINGUÉS. Les confondre en un `null`
-// laissait le jeu croire le nuage vide et l'écraser avec une partie neuve.
-function readCloud() {
-  if (!cloudFile) return { status: "off", text: null };
-  let exists;
-  try {
-    exists = fs.existsSync(cloudFile);
-  } catch {
-    return { status: "error", text: null }; // même l'existence est indécidable
-  }
-  if (!exists) return { status: "none", text: null };
-  try {
-    const text = fs.readFileSync(cloudFile, "utf8");
-    // Un placeholder Drive non hydraté peut se lire VIDE sans lever d'erreur :
-    // on le traite comme illisible, JAMAIS comme « pas de partie ».
-    if (!text) return { status: "error", text: null };
-    return { status: "ok", text };
-  } catch {
-    return { status: "error", text: null };
-  }
-}
+// Préload SANDBOXÉ (sandbox: true dans main.cjs, audit 2026-10-05, ELEC-4) : ni
+// fs, ni path, ni os — seulement contextBridge et ipcRenderer. Tout ce qui touche
+// au disque (fichier nuage, save en fichier, export) est fait par le process
+// principal (main.cjs, desktopFiles.cjs). Trois ponts :
+//   window.civCloud  — le fichier nuage Google Drive, et l'export vers un fichier ;
+//   window.civSave   — la save canonique en FICHIER (userData/saves/save.json,
+//                      Steam Cloud ; src/game/core/fileSave.js, STEAM-4) ;
+//   window.civWindow — le plein écran (interrupteur des Options, ELEC-2).
+const { contextBridge, ipcRenderer } = require("electron");
 
-function writeCloud(text) {
-  if (!cloudFile || typeof text !== "string" || !text) return false;
+// Dossier nuage et fichier lu AU LANCEMENT, en SYNCHRONE : le jeu arbitre nuage
+// vs local AVANT de charger la partie — un aller-retour asynchrone arriverait
+// trop tard. Google Drive est cherché par le process principal, en asynchrone,
+// dès le lancement (desktopFiles.cjs, ELEC-3) : la réponse est le plus souvent
+// déjà là. { status: 'off'|'none'|'ok'|'error', text } — cf. createCloudStore.
+function askCloud() {
   try {
-    fs.mkdirSync(cloudDir, { recursive: true });
-    // Écriture atomique (temp + rename) : Drive ne doit jamais synchroniser
-    // un fichier à moitié écrit.
-    const tmp = cloudFile + ".tmp";
-    fs.writeFileSync(tmp, text, "utf8");
-    fs.renameSync(tmp, cloudFile);
-    return true;
-  } catch {
-    return false; // disque plein, verrou Drive… : le jeu continue en local
-  }
+    const res = ipcRenderer.sendSync("cloud:init");
+    if (res && typeof res.dir === "string" && res.dir) return res;
+  } catch { /* canal indisponible : pas de nuage pour cette session */ }
+  return { dir: null, initial: { status: "off", text: null } };
 }
-
-function clearCloud() {
-  if (!cloudFile) return false;
-  try {
-    fs.rmSync(cloudFile, { force: true });
-    return true;
-  } catch {
-    return false;
-  }
-}
-
-// Export vers un FICHIER choisi par le joueur (C9). Sans dialogue natif, le .exe
-// n'aurait que le repli navigateur (Blob + lien), qui atterrit sans rien demander
-// dans le dossier de téléchargements — pour une sauvegarde qu'on archive, on veut
-// choisir où elle va. Écrit dans les Documents à défaut de dialogue disponible.
-function saveAsFile(text, filename) {
-  if (typeof text !== "string" || !text) return { ok: false };
-  const safe = String(filename || "civilisation.txt").replace(/[^\w.-]+/g, "-").slice(0, 80);
-  try {
-    // `dialog` n'existe que dans le process principal : en preload on ne l'a pas
-    // toujours. On tente, et à défaut on écrit dans Documents, en le disant.
-    const target = path.join(os.homedir(), "Documents", safe);
-    fs.mkdirSync(path.dirname(target), { recursive: true });
-    fs.writeFileSync(target, text, "utf8");
-    return { ok: true, path: target };
-  } catch {
-    return { ok: false };
-  }
-}
+const cloud = askCloud();
 
 contextBridge.exposeInMainWorld("civCloud", {
-  dir: cloudDir,          // null = pas de Google Drive détecté sur ce poste
-  initial: readCloud(),   // { status: 'off'|'none'|'ok'|'error', text } AU LANCEMENT
-  read: () => readCloud(),// re-lecture (Drive revenu en ligne en cours de partie)
-  write: (text) => writeCloud(text),
-  clear: () => clearCloud(),
-  saveAs: (text, filename) => saveAsFile(text, filename),
+  dir: cloud.dir,                                      // null = pas de Google Drive détecté sur ce poste
+  initial: cloud.initial,                              // { status, text } AU LANCEMENT
+  read: () => ipcRenderer.sendSync("cloud:read"),      // re-lecture (Drive revenu en ligne en cours de partie)
+  write: (text) => ipcRenderer.sendSync("cloud:write", typeof text === "string" ? text : "") === true,
+  clear: () => ipcRenderer.sendSync("cloud:clear") === true,
+  // Export vers un FICHIER choisi par le joueur (C9, SAV-14) : dialogue
+  // d'enregistrement natif, .txt ou .json. Promesse de { ok, path } ou
+  // { ok: false, canceled? }.
+  saveAs: (text, filename) => ipcRenderer.invoke("file:save-as", typeof text === "string" ? text : "", String(filename || "")),
+});
+
+// Save canonique en FICHIER (STEAM-4). Lecture et effacement SYNCHRONES : le jeu
+// arbitre fichier vs localStorage AVANT de charger la partie (state = load()).
+// Écriture asynchrone à chaque sauvegarde (le rendu n'attend pas le disque),
+// synchrone à la fermeture (la dernière save doit être sur le disque quand la
+// page disparaît). Le texte passe tel quel : main.cjs l'écrit atomiquement.
+contextBridge.exposeInMainWorld("civSave", {
+  read: () => ipcRenderer.sendSync("save:read"),        // { status: 'none'|'ok'|'error', text }
+  write: (text) => { ipcRenderer.send("save:write", String(text)); },
+  writeSync: (text) => ipcRenderer.sendSync("save:write-sync", String(text)) === true,
+  clear: () => ipcRenderer.sendSync("save:clear") === true,
+});
+
+// Plein écran de la fenêtre (ELEC-2) : l'interrupteur des Options, tenu à jour
+// quand F11 ou Alt+Entrée le basculent (main.cjs, before-input-event).
+contextBridge.exposeInMainWorld("civWindow", {
+  isFullScreen: () => ipcRenderer.sendSync("window:get-fullscreen") === true,
+  setFullScreen: (on) => { ipcRenderer.send("window:set-fullscreen", Boolean(on)); },
+  // Rend la fonction de désabonnement.
+  onFullScreenChange: (callback) => {
+    if (typeof callback !== "function") return () => {};
+    const listener = (_event, on) => callback(Boolean(on));
+    ipcRenderer.on("window:fullscreen", listener);
+    return () => ipcRenderer.removeListener("window:fullscreen", listener);
+  },
 });

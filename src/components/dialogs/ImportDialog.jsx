@@ -1,16 +1,22 @@
-import { useState } from 'react';
+import { useRef, useState } from 'react';
 import { useDialogModal } from '../../hooks/useDialogModal.js';
 import { importSave, getLastImportRefusal } from '../../game/core/main.js';
 import { pushOutcomeFloat } from '../../game/core/outcomeFloat.js';
 import { tr } from '../../game/core/i18n.js';
 
+// Garde-fou du fichier choisi : une sauvegarde pèse quelques centaines de ko.
+const IMPORT_FILE_MAX_BYTES = 64 * 1024 * 1024;
+
 // Deux usages du même dialogue :
-//   - import (défaut) : on colle un code de sauvegarde ;
+//   - import (défaut) : on colle un code de sauvegarde, ou on choisit le FICHIER
+//     sorti par « Exporter en fichier » (audit 2026-10-05, SAV-14 — restaurer
+//     obligeait à copier-coller ~450 ko de texte) ;
 //   - LECTURE SEULE (readOnlyText) : repli d'export quand le presse-papiers a
 //     échoué. Le texte est affiché, sélectionnable et copiable, là où le
 //     `prompt()` natif qu'il remplace volait le focus et tronquait la chaîne.
 export default function ImportDialog({ isOpen, onClose, readOnlyText = null }) {
   const dialogRef = useDialogModal(isOpen, onClose);
+  const fileRef = useRef(null);
   const [text, setText] = useState("");
   const readOnly = readOnlyText !== null;
 
@@ -18,10 +24,30 @@ export default function ImportDialog({ isOpen, onClose, readOnlyText = null }) {
     e.preventDefault();
     if (readOnly) { handleClose(); return; }
     if (!text.trim()) return;
+    runImport(text);
+  };
 
+  // Le fichier choisi est importé tel quel, par le même chemin que le texte collé
+  // (code de l'export ou JSON brut d'une copie de secours, cf. importSave).
+  const handleFile = async (e) => {
+    const file = e.target.files?.[0];
+    e.target.value = ""; // le même fichier, choisi de nouveau, redéclenche l'import
+    if (!file) return;
+    let content = "";
+    try {
+      if (file.size <= IMPORT_FILE_MAX_BYTES) content = await file.text();
+    } catch { /* illisible : annoncé juste dessous */ }
+    if (!content.trim()) {
+      pushOutcomeFloat({ label: tr({ fr: "Fichier illisible", en: "Unreadable file" }), kind: "cost" });
+      return;
+    }
+    runImport(content);
+  };
+
+  const runImport = (content) => {
     // Plus d'alert() : le retour passe par la couche de toasts, déjà branchée
     // sur une région aria-live et traduite, contrairement aux fenêtres système.
-    if (importSave(text)) {
+    if (importSave(content)) {
       pushOutcomeFloat({ label: tr({ fr: "Sauvegarde importée", en: "Save imported" }), kind: "gain" });
       handleClose();
     } else if (getLastImportRefusal() === "newer") {
@@ -90,9 +116,19 @@ export default function ImportDialog({ isOpen, onClose, readOnlyText = null }) {
           <button type="button" className="btn-close" onClick={handleClose}>{tr({ fr: "Fermer", en: "Close" })}</button>
           {readOnly ? (
             <button type="button" className="confirm-btn" onClick={handleCopy}>{tr({ fr: "Copier", en: "Copy" })}</button>
-          ) : (
+          ) : (<>
+            <input
+              ref={fileRef}
+              type="file"
+              accept=".txt,.json,text/plain,application/json"
+              hidden
+              onChange={handleFile}
+            />
+            <button type="button" onClick={() => fileRef.current?.click()}>
+              {tr({ fr: "Importer un fichier", en: "Import a file" })}
+            </button>
             <button type="submit" className="confirm-btn">{tr({ fr: "Importer", en: "Import" })}</button>
-          )}
+          </>)}
         </menu>
       </form>
     </dialog>

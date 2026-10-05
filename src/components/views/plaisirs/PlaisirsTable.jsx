@@ -121,7 +121,9 @@ export default function PlaisirsTable({ game, dealer = 'g', variant = 0, tablePx
   // le souffle, un clignement, un regard) joue en boucle, et la toile ne se redessine
   // qu'au changement d'image (160 ms). Tant que la bande charge, si elle manque, ou si
   // le joueur demande moins d'animations : la pose fixe, ré-essayée tant qu'une image
-  // charge.
+  // charge. ⚠ Seule la première fille de chaque troupe a sa bande (`spec.repos`,
+  // plaisirsCast.js) : la courtisane du duel (DuelStage, deuxième ou troisième fille)
+  // garde sa pose fixe sans demander une bande absente.
   useEffect(() => {
     const cv = cvRef.current;
     if (!cv || !bake) return undefined;
@@ -130,7 +132,7 @@ export default function PlaisirsTable({ game, dealer = 'g', variant = 0, tablePx
       ? (plaisirsCast(band) || { girls: [] }).girls[variant % 3] || null
       : agentSpecFor(agentSetForBand(band), dealer, variant);
     const HDK = 32 / (CM.TILE * 0.71 * AGENT_SCALE);
-    const repos = spec && dealer === 'g' ? spec.name + '-repos' : null;
+    const repos = spec && dealer === 'g' ? spec.repos || null : null;
     const calme = typeof window !== 'undefined' && typeof window.matchMedia === 'function'
       && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
     const draw = (now) => {

@@ -13,6 +13,7 @@ import { HELP_CHAPTERS } from "../../data/helpChapters.js";
 import { PLACE_UNLOCKS, placeUnlocked } from "../places.js";
 import { SHORTCUT_DEFS } from "../shortcuts.js";
 import { resolveIconSrc } from "../../../components/ui/PixelIcon.jsx";
+import { PLAISIRS_SPOTS } from "../../../components/views/plaisirs/anchors.js";
 
 const bilingual = (v) => v && typeof v.fr === "string" && v.fr.trim() && typeof v.en === "string" && v.en.trim();
 
@@ -60,6 +61,25 @@ describe("chapitres de l'Aide", () => {
     const absent = icons.flatMap((name) => [24, 48].map((px) => resolveIconSrc(name, "", px)))
       .filter((src) => !existsSync(resolve(pub, "." + src)));
     expect(absent).toEqual([]);
+  });
+
+  // Audit du 05/10 (STEAM-6) : la machine à sous manquait à « Les tables », alors que
+  // le questionnaire Steam déclare tous les jeux d'argent simulés. Chaque jeu de la
+  // Maison (un lieu du menu qui a un `kind`) doit avoir son entrée ; un jeu nouveau
+  // fait échouer ce test tant qu'il n'a pas la sienne.
+  it("chaque jeu de la Maison des Plaisirs a son entrée dans l'Aide", () => {
+    const TITLE_OF = {
+      augury: "Les osselets", scratch: "Les tickets à gratter", blackjack: "Le vingt-et-un",
+      icarus: "Le vol d'Icare", roulette: "La roulette", rouletteVip: "La roulette",
+      courses: "Les courses", duel: "Le duel des grands flambeurs", slots: "La machine à sous",
+    };
+    const titles = new Set(HELP_CHAPTERS.flatMap((c) => c.secs.flatMap((s) => s.items.map((it) => it.t.fr))));
+    const games = PLAISIRS_SPOTS.filter((s) => s.kind);
+    expect(games.length).toBeGreaterThanOrEqual(9);
+    for (const s of games) {
+      expect(TITLE_OF[s.kind], `jeu « ${s.kind} » sans titre d'Aide connu`).toBeTruthy();
+      expect(titles.has(TITLE_OF[s.kind]), `${s.kind} : « ${TITLE_OF[s.kind]} » absent de l'Aide`).toBe(true);
+    }
   });
 
   it("une partie neuve n'ouvre que les chapitres sans lieu à découvrir", () => {

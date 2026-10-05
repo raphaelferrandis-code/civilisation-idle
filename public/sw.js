@@ -7,7 +7,8 @@
 // (http://192.168.x.x:5173) n'y a PAS droit. Jouer hors ligne suppose donc
 // d'héberger le dossier `dist/` sur une URL https — n'importe quel hébergeur
 // statique gratuit fait l'affaire. Cf. main.jsx, qui n'appelle l'enregistrement
-// que dans ces conditions.
+// qu'en https — et plus sur localhost (`npm run preview`), où il figeait les
+// sprites de Raph d'un build à l'autre (WEB-1).
 //
 // STRATÉGIE, et le compromis qu'elle assume :
 //   · à l'installation on met en cache la COQUILLE seulement (page, scripts,
@@ -22,8 +23,15 @@
 // ⚠ LE NUMÉRO SE BOUSSE QUAND LA STRATÉGIE CHANGE. `activate` supprime tout
 // cache dont le nom diffère : c'est le seul moyen de purger d'un coup ce qu'un
 // ancien service worker avait figé chez un joueur. v2 = passage du « cache
-// d'abord » au « réseau d'abord » pour les navigations (cf. plus bas).
-const CACHE = 'civ-effondrement-v2';
+// d'abord » au « réseau d'abord » pour les navigations (cf. plus bas). v3 = nom
+// DATÉ À CHAQUE BUILD (audit 2026-10-05, WEB-1) : le repère en fin de nom est
+// remplacé par l'empreinte du contenu de dist/ (plugin `dist-finish` de
+// vite.config.js, scripts/build/stampServiceWorker.mjs). Un déploiement qui
+// change un script, un style ou UN SPRITE change donc sw.js : le navigateur
+// installe le nouveau service worker, et `activate` purge l'ancien cache.
+// Avant, le nom fixe gardait chez le joueur les sprites de sa première visite,
+// à vie, et chaque déploiement visité ajoutait ses scripts au même cache.
+const CACHE = 'civ-effondrement-v3-__BUILD_ID__';
 
 // La coquille : ce qui doit être là AVANT tout, sinon la page ne démarre pas.
 // Les noms des scripts portent une empreinte qui change à chaque build — on ne
@@ -65,9 +73,11 @@ self.addEventListener('fetch', (e) => {
   // l'appareil qui a déjà ouvert le jeu une fois ne voit RIEN changer.
   // Réseau d'abord / cache en secours : en ligne on prend la dernière version,
   // hors ligne le jeu reste jouable sur la dernière page vue.
-  // ⚠ Les RESSOURCES gardent le « cache d'abord » : leur nom porte une empreinte
-  // (assets/index-BSLJ9UEz.js), un contenu qui change change d'URL. Les sprites,
-  // eux, sont stables et n'ont aucune raison d'être redemandés.
+  // ⚠ Les RESSOURCES gardent le « cache d'abord » : les scripts portent une
+  // empreinte (assets/index-BSLJ9UEz.js), un contenu qui change change d'URL.
+  // Les sprites (/pixelart/…), eux, sont REDESSINÉS SUR PLACE sous le même nom
+  // (des centaines depuis septembre) : c'est le nom de cache daté à chaque build
+  // (plus haut) qui les renouvelle, en vidant tout au déploiement suivant.
   if (req.mode === 'navigate') {
     e.respondWith(
       fetch(req)

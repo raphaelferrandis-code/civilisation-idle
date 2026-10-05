@@ -9,7 +9,7 @@ import { setCaptureVestigeHandler } from './cityMapBridge.js';
 import { ensureMapSeed, mixSeed, hashString } from './procedural/seedManager.js';
 import { ageConfigFor } from './procedural/ageVisualConfig.js';
 import { eraBandOf } from '../data/eraThemes.js';
-import { CRITTER_HERD, CRITTER_PETS } from './critters.js';
+import { CRITTER_HERD, CRITTER_PETS, CRITTERS_ON } from './critters.js';
 import { computeCityPersonality } from './procedural/cityPersonality.js';
 import { generateCityPlan } from './procedural/cityPlan.js';
 import { generateRoadsGraph, trimDemandlessRoads, dissolveToSkeleton, pruneUnservedRoads } from './procedural/roadGraph.js';
@@ -5545,8 +5545,13 @@ function computeCityLayout(s) {
   //
   // Rien de tout ça une fois la ville passée en régime cosmique (bandes 7+) :
   // on n'élève pas de chèvres dans une mégastructure stellaire.
+  //
+  // ⛔ ÉTEINT tant que CRITTERS_ON est faux (sprites retirés le 2026-10-05, licence :
+  // cf. critters.js). Rien n'est posé : des bêtes invisibles bloqueraient encore
+  // leurs cellules (faits divers, chiens et chats de la petite vie). Le placement
+  // ne tire que des hachages par cellule, il ne déplace donc rien d'autre du plan.
   const critters = [];
-  if (c.eraBand <= 6) {
+  if (CRITTERS_ON && c.eraBand <= 6) {
     const taken = new Set();
     const free = (gx, gy) => {
       const k = gx + "," + gy;

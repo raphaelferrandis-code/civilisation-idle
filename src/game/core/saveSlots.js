@@ -12,17 +12,43 @@ import { readSaveBackup } from './saveBackups.js';
 
 export const SLOT_COUNT = 3;
 const slotKey = (i) => `${SAVE_KEY}-slot${i}`;
-// Métadonnées à côté du payload : les lire ne doit PAS coûter le parse d'une
-// sauvegarde de 270 ko juste pour afficher une date dans les Options.
+// UNE SEULE CLÉ par emplacement (audit 2026-10-05, SAV-14) : une ligne d'en-tête
+// (SLOT_HEADER + métadonnées JSON), un saut de ligne, puis la partie. L'emplacement
+// s'écrivait en deux clés, la partie PUIS sa méta : un arrêt entre les deux
+// laissait la date et la cité de l'ancien instantané sur la nouvelle partie. Lire
+// la méta ne coûte toujours pas le parse d'une sauvegarde de 270 ko — seulement
+// la première ligne (JSON.stringify n'écrit jamais de saut de ligne brut).
+const SLOT_HEADER = "#civ-slot ";
+// Ancien format (avant SAV-14), encore relu : la partie seule dans slotKey, sa
+// méta à côté.
 const metaKey = (i) => `${SAVE_KEY}-slot${i}-meta`;
 
-// { at, cycles, era } ou null si l'emplacement est vide.
+// Contenu d'un emplacement : { meta, payload } (meta null si absente ou abîmée),
+// ou null si l'emplacement est vide. Les deux formats.
+function readSlotRecord(i) {
+  const raw = localStorage.getItem(slotKey(i));
+  if (!raw) return null;
+  let metaText;
+  let payload = raw;
+  if (raw.startsWith(SLOT_HEADER)) {
+    const cut = raw.indexOf("\n");
+    metaText = cut < 0 ? null : raw.slice(SLOT_HEADER.length, cut);
+    payload = cut < 0 ? "" : raw.slice(cut + 1);
+  } else {
+    metaText = localStorage.getItem(metaKey(i));
+  }
+  let meta = null;
+  try {
+    const parsed = metaText ? JSON.parse(metaText) : null;
+    meta = parsed && typeof parsed === "object" ? parsed : null;
+  } catch { /* méta abîmée : l'emplacement reste chargeable */ }
+  return { meta, payload };
+}
+
+// { at, cycles, city } ou null si l'emplacement est vide.
 export function readSlotMeta(i) {
   try {
-    const raw = localStorage.getItem(metaKey(i));
-    if (!raw) return null;
-    const meta = JSON.parse(raw);
-    return meta && typeof meta === "object" ? meta : null;
+    return readSlotRecord(i)?.meta || null;
   } catch {
     return null;
   }
@@ -43,42 +69,23 @@ export function slotIsEmpty(i) {
 // copies d'un état de 270 ko ne tiennent pas partout, et l'échec doit être DIT
 // plutôt que d'être avalé comme le fait save().
 export function writeSlot(i) {
-  const payload = JSON.stringify(state);
-  // Lus AVANT d'écrire : setItem est atomique par clé, donc un échec de quota
-  // laisse l'ancienne valeur en place — l'instantané précédent doit SURVIVRE à
-  // un « Écraser » qui échoue, pas être supprimé avec le brouillon.
-  let prevPayload = null;
-  let prevMeta = null;
+  const meta = JSON.stringify({
+    at: Date.now(),
+    cycles: state.cycles || 0,
+    // Le nom de la cité situe l'emplacement mieux qu'une date seule.
+    city: String(state.cityName || "").slice(0, 42),
+  });
   try {
-    prevPayload = localStorage.getItem(slotKey(i));
-    prevMeta = localStorage.getItem(metaKey(i));
-  } catch { /* stockage indisponible : l'écriture ci-dessous échouera pareil */ }
-  try {
-    localStorage.setItem(slotKey(i), payload);
-    localStorage.setItem(metaKey(i), JSON.stringify({
-      at: Date.now(),
-      cycles: state.cycles || 0,
-      // Le nom de la cité situe l'emplacement mieux qu'une date seule.
-      city: String(state.cityName || "").slice(0, 42),
-    }));
-    return { ok: true };
+    // UN setItem, atomique : méta et partie arrivent ensemble ou pas du tout. Un
+    // échec de quota laisse l'instantané précédent intact — il doit SURVIVRE à un
+    // « Écraser » qui échoue.
+    localStorage.setItem(slotKey(i), SLOT_HEADER + meta + "\n" + JSON.stringify(state));
   } catch (e) {
-    // Quota dépassé. Le seul vrai risque est la paire désynchronisée (payload
-    // neuf écrit, méta refusée) : on RESTAURE l'ancien couple. L'ancien payload
-    // tenait déjà dans le stockage, sa ré-écriture ne peut pas déborder plus
-    // que celle qui vient d'échouer.
-    try {
-      if (prevPayload != null) {
-        localStorage.setItem(slotKey(i), prevPayload);
-        if (prevMeta != null) localStorage.setItem(metaKey(i), prevMeta);
-        else localStorage.removeItem(metaKey(i));
-      } else {
-        localStorage.removeItem(slotKey(i));
-        localStorage.removeItem(metaKey(i));
-      }
-    } catch { /* même le retour arrière déborde : on laisse l'existant tel quel */ }
     return { ok: false, full: true, message: e?.message || String(e) };
   }
+  // La méta de l'ancien format ne sert plus (elle mentirait sur la partie neuve).
+  try { localStorage.removeItem(metaKey(i)); } catch { /* rien à retirer */ }
+  return { ok: true };
 }
 
 // REMPLACER LA PARTIE, PAR UN RECHARGEMENT (audit 2026-10-05, SAV-8) — import
@@ -127,9 +134,9 @@ export function loadSlot(i) {
   lastSlotRefusal = "";
   if (collapseUnderway()) return false;
   try {
-    const raw = localStorage.getItem(slotKey(i));
-    if (!raw) return false;
-    const parsed = JSON.parse(stripBom(raw));
+    const record = readSlotRecord(i);
+    if (!record) return false;
+    const parsed = JSON.parse(stripBom(record.payload));
     // Emplacement écrit par une version PLUS RÉCENTE du jeu (branche bêta) : le
     // charger le rétrograderait, puis l'écrirait de force dans le nuage (SAV-6).
     if (isFutureSave(parsed)) { lastSlotRefusal = "newer"; return false; }
@@ -195,14 +202,18 @@ export function clearSlot(i) {
 }
 
 // Écrit la partie en cours dans un FICHIER. Dans le .exe on passe par le pont
-// Electron (dialogue d'enregistrement natif) ; au navigateur, par un Blob et un
-// lien de téléchargement. Renvoie { ok, path? } ou { ok: false }.
+// Electron : dialogue d'enregistrement natif ouvert sur les Documents, tenu par le
+// process principal (main.cjs, audit 2026-10-05 SAV-14 — avant, ~/Documents en dur
+// et sans rien demander) ; au navigateur, par un Blob et un lien de téléchargement.
+// Renvoie { ok, path? } ou { ok: false, canceled? } — canceled : le joueur a fermé
+// le dialogue, ce n'est pas un échec à annoncer.
 export async function saveToFile(encoded, filename) {
   const bridge = typeof window !== "undefined" ? window.civCloud : null;
   if (bridge && typeof bridge.saveAs === "function") {
     try {
       const res = await bridge.saveAs(encoded, filename);
-      return res && res.ok ? res : { ok: false };
+      if (res && res.ok) return res;
+      return res && res.canceled ? { ok: false, canceled: true } : { ok: false };
     } catch {
       return { ok: false };
     }

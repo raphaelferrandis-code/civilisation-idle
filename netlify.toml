@@ -22,3 +22,7 @@
   # Node 20+, et un build qui casse six mois plus tard sans qu'on ait rien
   # touché coûte une soirée à diagnostiquer.
   NODE_VERSION = "22"
+
+# EN-TÊTES DE CACHE (audit 2026-10-05, WEB-1) : PAS ICI, dans public/_headers.
+# Ce fichier-là part DANS dist/ — il vaut donc aussi pour le zip déposé à la
+# main (Netlify Drop, scripts/zipDist.mjs), que ce netlify.toml ne suit pas.

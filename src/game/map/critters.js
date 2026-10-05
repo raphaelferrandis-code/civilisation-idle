@@ -1,7 +1,7 @@
 // ── BÉTAIL ET ANIMAUX DE RUE ────────────────────────────────────────────────
 // Des bêtes POSÉES, pas des agents : elles n'ont ni cap, ni odomètre, ni cycle de
-// marche. Le pack d'origine (LaserKiwi, cf. scripts/importPackAnimals.mjs) ne
-// livre que des rotations fixes, et c'est très bien pour ce qu'on en fait — une
+// marche. Le pack d'origine (LaserKiwi, retiré : voir plus bas) ne livrait que
+// des rotations fixes, et c'est très bien pour ce qu'on en fait — une
 // vache broute, un chien dort au seuil. Leur seule variété est l'ORIENTATION,
 // tirée par cellule sur les quatre diagonales.
 //
@@ -15,11 +15,22 @@
 // les bêtes) ET par le rendu iso (qui les dessine) ; importer agents.js pour y
 // prendre AGENT_SCALE fermerait le cycle layout → critters → agents → layout.
 // L'échelle arrive donc en argument, depuis l'appelant qui l'a déjà sous la main.
+//
+// ⛔ SPRITES RETIRÉS LE 2026-10-05 (audit STEAM-1, décision de Raph) : le pack
+// LaserKiwi n'a jamais publié de licence, et on ne vend pas un asset sans licence.
+// Les 20 critter-*.png et scripts/importPackAnimals.mjs sont partis ; tant que
+// CRITTERS_ON est faux, layout.js ne pose plus aucune bête, ensureCritter ne
+// demande aucun fichier (pas de 404) et drawCritterIso rend false — ses appelants
+// (faits divers compris) s'en accommodent déjà. Le module reste : c'est le
+// contrat de placement et de blit, prêt pour des bêtes MAISON. Les remettre =
+// livrer les 4 diagonales de chaque bête de CRITTER_SIZES, puis passer à true
+// (packSprites.test.js vérifie les deux sens).
+export const CRITTERS_ON = false;
 
 // Hauteur de rendu en TUILES, avant AGENT_SCALE — même unité que les `scale`
-// d'habitants et de bêtes de trait (le bœuf du jeu vaut 0,975). ⚠ Ces valeurs
-// doivent rester en phase avec la table HERD de scripts/importPackAnimals.mjs :
-// c'est elle qui décide de la taille de CUISSON, celle-ci de la taille de BOÎTE.
+// d'habitants et de bêtes de trait (le bœuf du jeu vaut 0,975). Elle décidait
+// aussi de la taille de CUISSON du pack retiré : des bêtes maison devront être
+// cuites à cette taille de BOÎTE.
 export const CRITTER_SIZES = { cow: 0.95, sheep: 0.66, goat: 0.64, dog: 0.55, cat: 0.42 };
 export const CRITTER_DIAG = ['southeast', 'southwest', 'northwest', 'northeast'];
 // Tirages de layout.js, déclarés ICI pour qu'une garde puisse vérifier que tout
@@ -38,7 +49,7 @@ export function ensureCritter(kind) {
   if (c) return c;
   c = { img: {}, ready: 0, failed: 0 };
   cache[kind] = c;
-  if (typeof Image !== 'undefined') for (const d of CRITTER_DIAG) {
+  if (CRITTERS_ON && typeof Image !== 'undefined') for (const d of CRITTER_DIAG) {
     const im = new Image();
     im.onload = () => { c.ready += 1; };
     im.onerror = () => { c.failed += 1; };

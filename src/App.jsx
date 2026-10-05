@@ -15,7 +15,7 @@ import { state, renderCache, openView, save, getLastSaveError, collapseUnderway 
 import { uiRevealed, uiRevealFresh } from './game/core/uiReveal.js';
 import { placeUnlocked } from './game/core/places.js';
 import { pushOutcomeFloat } from './game/core/outcomeFloat.js';
-import { resolveShortcut, resolveViewDigit } from './game/core/shortcuts.js';
+import { resolveShortcut, resolveViewDigit, feedDebugSequence } from './game/core/shortcuts.js';
 import { tabBadgeSignature, parseTabBadges } from './game/core/mechanics/tabBadges.js';
 import { buyAllAffordable } from './game/core/actions.js';
 import { registerChoiceDialog } from './game/core/choiceDialog.js';
@@ -79,7 +79,9 @@ const ChronicleView = lazy(VIEW_LOADERS.history);
 const ComptoirView = lazy(VIEW_LOADERS.comptoir);
 const OptionsDialog = lazy(() => import('./components/dialogs/OptionsDialog.jsx'));
 const ImportDialog = lazy(() => import('./components/dialogs/ImportDialog.jsx'));
-const DebugDialog = lazy(() => import('./components/dialogs/DebugDialog.jsx'));
+// Menu de triche : en dev SEULEMENT. En production, `null` — Vite ne garde ni
+// le morceau de la fenêtre ni ses outils (debugTools.js), audit 2026-10-05 DEV-1.
+const DebugDialog = import.meta.env.DEV ? lazy(() => import('./components/dialogs/DebugDialog.jsx')) : null;
 
 export default function App() {
   const activeView = useGameState(s => s.activeView);
@@ -201,7 +203,7 @@ export default function App() {
     initAudio();
     const cleanup = startGameLoop();
 
-    // Detect "debug" typed on keyboard
+    // Séquence « debug » tapée au clavier → menu de triche (dev seulement).
     let debugSequence = "";
     // Catégorie d'achat de masse par identifiant de raccourci. La TOUCHE, elle,
     // vit dans la table (shortcuts.js) et peut être changée par le joueur.
@@ -253,11 +255,12 @@ export default function App() {
         // molette et du drag, et seulement quand la carte est montée.
       }
 
-      if (event.ctrlKey || event.metaKey || event.altKey || event.key.length !== 1) return;
-      debugSequence = `${debugSequence}${event.key.toLowerCase()}`.slice(-5);
-      if (debugSequence === "debug") {
-        debugSequence = "";
-        setIsDebugOpen(true);
+      // En dev SEULEMENT, et jamais pendant une saisie (garde des raccourcis,
+      // feedDebugSequence) : en production, cette branche disparaît du bundle.
+      if (import.meta.env.DEV) {
+        const fed = feedDebugSequence(debugSequence, event);
+        debugSequence = fed.seq;
+        if (fed.hit) setIsDebugOpen(true);
       }
     };
     document.addEventListener("keydown", handleKeyDown);
@@ -661,7 +664,7 @@ export default function App() {
         {exportFallback !== null && (
           <ImportDialog isOpen readOnlyText={exportFallback} onClose={() => setExportFallback(null)} />
         )}
-        {isDebugOpen && <DebugDialog isOpen={isDebugOpen} onClose={() => setIsDebugOpen(false)} />}
+        {DebugDialog && isDebugOpen && <DebugDialog isOpen={isDebugOpen} onClose={() => setIsDebugOpen(false)} />}
       </Suspense>
       </ViewErrorBoundary>
       <ChoiceDialog

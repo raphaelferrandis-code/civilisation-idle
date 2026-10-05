@@ -6,12 +6,16 @@
 // dessine pas. C'est exactement le genre de panne muette que rien ne signale.
 //
 // D'où ces gardes d'EXISTENCE, ancrées sur les tables que le jeu utilise vraiment.
-import { existsSync, readFileSync } from 'node:fs';
+//
+// Le bétail LaserKiwi a été RETIRÉ le 2026-10-05 (aucune licence publiée, audit
+// STEAM-1) : sa garde vérifie désormais l'autre sens — rien de ce pack ne doit
+// revenir dans public/ tant que critters.js reste éteint.
+import { existsSync, readFileSync, readdirSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import path from 'node:path';
 import { describe, it, expect } from 'vitest';
 import { VEH_SKINS } from '../vehicleSkins.js';
-import { CRITTER_SIZES, CRITTER_DIAG, CRITTER_HERD, CRITTER_PETS } from '../critters.js';
+import { CRITTER_SIZES, CRITTER_DIAG, CRITTER_HERD, CRITTER_PETS, CRITTERS_ON, ensureCritter, drawCritterIso } from '../critters.js';
 import { AGE_CONFIG } from '../procedural/ageVisualConfig.js';
 import { vehSkinFor } from '../agents.js';
 
@@ -94,7 +98,37 @@ describe('flotte moderne — sprites du pack de véhicules', () => {
 });
 
 describe('bétail et animaux de rue', () => {
-  it('chaque bête dessinable a ses 4 diagonales', () => {
+  // ⛔ Licence (audit STEAM-1) : éteint, AUCUN sprite du pack LaserKiwi ne doit
+  // revenir dans ce qui part chez les joueurs, ni son script d'import.
+  it('éteint : pas un fichier du pack LaserKiwi livré, pas de script d\'import', () => {
+    if (CRITTERS_ON) return;
+    const left = readdirSync(path.join(PIX, 'animals')).filter((f) => f.startsWith('critter-'));
+    expect(left).toEqual([]);
+    expect(existsSync(path.resolve(PIX, '../../../scripts/importPackAnimals.mjs'))).toBe(false);
+    // Et le plan ne pose plus de bêtes invisibles (elles bloqueraient leurs cellules).
+    const layoutSrc = readFileSync(path.resolve(PIX, '../../../src/game/map/layout.js'), 'utf8');
+    expect(layoutSrc).toMatch(/if \(CRITTERS_ON && c\.eraBand <= 6\)/);
+  });
+
+  // Éteint, le module ne doit même pas DEMANDER les fichiers (une rafale de 404 à
+  // chaque partie), et le blit rend false : ses appelants savent déjà s'en passer.
+  it('éteint : aucune image demandée, drawCritterIso ne dessine rien', () => {
+    if (CRITTERS_ON) return;
+    const prev = globalThis.Image;
+    let made = 0;
+    globalThis.Image = class { constructor() { made += 1; } };
+    try {
+      for (const kind of Object.keys(CRITTER_SIZES)) ensureCritter(kind);
+      const ctx = { drawImage() { throw new Error('dessiné'); }, imageSmoothingEnabled: true };
+      expect(drawCritterIso(ctx, 10, 10, 32, { kind: 'cow', dir: 0 }, 1, 1)).toBe(false);
+    } finally {
+      globalThis.Image = prev;
+    }
+    expect(made).toBe(0);
+  });
+
+  it('chaque bête dessinable a ses 4 diagonales (si le bétail est rallumé)', () => {
+    if (!CRITTERS_ON) return;
     const missing = [];
     for (const kind of Object.keys(CRITTER_SIZES)) {
       for (const dir of CRITTER_DIAG) if (!existsSync(critBand(kind, dir))) missing.push(`${kind}-${dir}`);
@@ -105,10 +139,10 @@ describe('bétail et animaux de rue', () => {
   // Le plan tire dans CRITTER_HERD/CRITTER_PETS ; le rendu cherche la taille dans
   // CRITTER_SIZES et le fichier d'après le nom. Une bête tirée mais absente de la
   // table serait posée sur la carte et jamais dessinée — sans une ligne de log.
-  it('tout ce que le plan peut poser a une taille et un sprite', () => {
+  it('tout ce que le plan peut poser a une taille (et un sprite, si rallumé)', () => {
     for (const kind of [...CRITTER_HERD, ...CRITTER_PETS]) {
       expect(CRITTER_SIZES[kind], `${kind} sans taille`).toBeGreaterThan(0);
-      expect(existsSync(critBand(kind, 'southeast')), `${kind} sans sprite`).toBe(true);
+      if (CRITTERS_ON) expect(existsSync(critBand(kind, 'southeast')), `${kind} sans sprite`).toBe(true);
     }
   });
 

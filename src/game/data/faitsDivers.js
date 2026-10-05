@@ -254,8 +254,16 @@ const TORTUE = {
 // Humour absurde, et un clin d’œil : la chèvre de M. Seguin (Daudet) s’appelait
 // Blanquette, et voulait la montagne. Celle-ci s’échappe d’âge en âge, toujours
 // plus haut, chez des Seguin qui n’en reviennent pas — et un jour, elle rentre.
+//
+// ⛔ ÉTEINTE LE 2026-10-05 (`off`) : Blanquette était le sprite de chèvre du pack
+// LaserKiwi, retiré faute de licence (audit STEAM-1, cf. map/critters.js), et le jeu
+// n’a pas de chèvre à lui. `off` : plus jamais proposée (fdCandidates), ni sa scène,
+// ni sa trace, ni la chèvre sacrée de la Secte ; ce qu’un joueur en a déjà lu reste
+// dans sa Chronique (et compte dans fdDiscovered). La rallumer = une chèvre maison
+// dans critters.js, puis retirer `off`.
 const CHEVRE = {
   id: 'chevre',
+  off: true,
   title: { fr: 'La Chèvre des toits', en: 'The Rooftop Goat' },
   place: 'toit',
   chapters: [

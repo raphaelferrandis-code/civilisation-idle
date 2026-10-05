@@ -11,7 +11,7 @@ import { AGENT_SCALE, agentSetForBand, agentSpecFor, drawNamedAgentIso } from '.
 import { CM } from './layout.js';
 import { queueFlameGlow } from './flameGlow.js';
 import { lightCut, lightCutImage } from './lightLayer.js';
-import { recDens, palierK, PALIER_SPANSUM, palierHFrac } from './spriteScale.js';
+import { recDens, grainProbe, palierK, PALIER_SPANSUM, palierHFrac } from './spriteScale.js';
 import { pxProbe, recPx } from './pixelGrid.js';
 import { snapDev } from './blitSnap.js';
 import { drawSunShadow } from './iso/isoSunShadow.js';
@@ -158,8 +158,9 @@ function palierImg(p) {
 
 // Sonde du grain : densité blitée (px écran par px source) normalisée à zoom 1,
 // pour __grainAudit — la vérité runtime qui calibrera les paliers de halles.
+// Éteinte hors audit (grainProbe, spriteScale.js) : appelée à chaque blitProp.
 const recBlitDens = (key, drawH, nat) => {
-  if (nat > 0) recDens(key, drawH / nat / ((CM.cam && CM.cam.zoom) || 1));
+  if (grainProbe.on && nat > 0) recDens(key, drawH / nat / ((CM.cam && CM.cam.zoom) || 1));
   // Sonde G0 (pixelGrid.js) : la même mesure versée au relevé COMMUN du plan de
   // la grille — une seule ligne pour toutes les scènes moteur, dont l'écart
   // interne (densité « variable ∝ empreinte ») ressort en min/max.

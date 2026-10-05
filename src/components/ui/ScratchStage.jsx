@@ -334,8 +334,9 @@ export default function ScratchStage({ table, onClose }) {
     <div
       className={`scratch-ticket scratch-ticket--${tier}${revealed ? ' is-revealed' : ''}`}
       // La face du ticket, peinte à la matière de l'âge (plaisirsMaterial.js) : les
-      // planches `ui/scratch/ticket-*.png` n'ont jamais existé.
-      style={{ '--ticket-art': `url("${ticketFace(band, tier)}")`, '--ticket-dark': '0%', '--tgrid-pad': TICKET_GRID.pad, '--tgrid-gap': TICKET_GRID.gap }}
+      // planches `ui/scratch/ticket-*.png` n'ont jamais existé. Plus de calque
+      // sombre sous la face (l'ancien --ticket-dark, toujours posé à 0 %, a disparu).
+      style={{ '--ticket-art': `url("${ticketFace(band, tier)}")`, '--tgrid-pad': TICKET_GRID.pad, '--tgrid-gap': TICKET_GRID.gap }}
     >
       <div className="scratch-grid" aria-hidden={phase === 'scratch' && !revealed ? 'true' : undefined}>
         {(outcome.grid || []).map((sym, i) => (

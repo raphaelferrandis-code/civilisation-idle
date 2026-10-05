@@ -3,9 +3,16 @@
 // se déplacent en tenue révélatrice. On est sur la maison des plaisirs, il faut que
 // ça se voie. »)
 //
-// Danseuses, hôtesses, courtisanes, en tenue de scène de leur époque — suggestif,
-// jamais de nudité. Chaque âge a les siennes ; un âge pas encore dessiné retombe sur
-// les femmes de son jeu d'habitants.
+// Danseuses, hôtesses, courtisanes, en tenue de scène de leur époque — tenues
+// révélatrices (ventre nu, robes fendues, justaucorps et résilles), poitrine
+// exagérée qui rebondit, et sous le haut « bandeau » (Feu, bacchante et danseuse
+// antiques) le DESSOUS DES SEINS visible ; thème de maison close assumé (courtisanes
+// alanguies, couples enlacés derrière les vitres du boudoir, gigolos torse nu). PAS
+// de nudité explicite : mamelons et sexe ne sont jamais dessinés. ⚠ C'est ce qu'il
+// faut déclarer à Steam (« nudité partielle / contenu sexuel suggestif ») — brouillon
+// du questionnaire dans docs/STEAM-PUBLICATION.md (audit STEAM-6) ; tout ajout plus
+// osé se reporte là-bas. Chaque âge a les siennes ; un âge pas encore dessiné retombe
+// sur les femmes de son jeu d'habitants.
 //
 // DESSINÉES À LA MAIN (scripts/plaisirsGirls.mjs, sources art/plaisirs/*.aseprite) :
 // après deux passes PixelLab, Raph — « les yeux ne sont pas beaux, la courtisane est
@@ -29,8 +36,13 @@ const S = 0.71;
 // aussi, moins, plus dans le service ») — dessinés dans le même gréement que les filles
 // (scripts/plaisirsGirls.mjs --gigolos). Le premier sert, le second tient le bar ou la
 // table des dés ; chacun a sa marche au plateau (`plateau`).
+// `repos` : la bande de REPOS de la croupière (le souffle, un clignement, un regard —
+// PlaisirsTable), dessinée pour la PREMIÈRE fille de chaque troupe seulement. Les deux
+// autres n'en ont pas : demandée quand même pour la courtisane du duel aux dés, c'était
+// une centaine de requêtes en échec en 11 minutes (loadWithRetry ; audit du 05/10,
+// ASSET-6). Gardé contre le disque par plaisirsCast.test.js.
 const troupe = (k, girls, dancer, gigolos) => ({
-  girls: girls.map((g) => ({ name: `plaisirs-${k}-${g}`, scale: S })),
+  girls: girls.map((g, i) => ({ name: `plaisirs-${k}-${g}`, scale: S, ...(i === 0 ? { repos: `plaisirs-${k}-${g}-repos` } : null) })),
   dancers: [{ name: `plaisirs-${k}-${dancer}`, scale: S, danse: `plaisirs-${k}-${dancer}-danse`, danseScale: S }],
   alanguie: `plaisirs-${k}-alanguie`,
   gigolos: gigolos.map((g) => ({ name: `plaisirs-${k}-${g}`, scale: S, plateau: `plaisirs-${k}-${g}-plateau` })),

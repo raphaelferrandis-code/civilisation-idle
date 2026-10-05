@@ -38,7 +38,9 @@ prod.
 
 ### Mesurer dans le vrai jeu (Electron)
 
-Ouvrir la console (Ctrl+Shift+I) et coller :
+Ouvrir la console (Ctrl+Shift+I) et coller. Dans l'.exe empaqueté, les DevTools
+sont coupés (audit 2026-10-05, ELEC-1) : le lancer avec `CIV_DEVTOOLS=1` ou
+`--devtools` pour les rouvrir (Ctrl+Shift+I ou F12).
 
 ```js
 globalThis.__isoFrameProfile = true;

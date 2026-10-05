@@ -32,7 +32,6 @@ import {
   rates,
   crisisOpen,
   currentEraIndex,
-  isUnlocked,
   addProductionPenalty
 } from './mechanics.js';
 
@@ -163,49 +162,9 @@ export function importSave(text) {
   }
 }
 
-export function addDebugRuins(amount) {
-  state.ruins = D(state.ruins).add(amount);
-  state.cycles = Math.max(state.cycles, 1);
-  log(`Debug: +${fmt(amount)} ruines ajoutees.`);
-  render();
-}
-
-export function addDebugCycles(amount) {
-  state.cycles += amount;
-  log(`Debug: ${fmt(amount)} cycles ajoutes.`);
-  render();
-}
-
-export function addDebugResources() {
-  state.population = D(state.population).max(1000000);
-  state.food = D(state.food).max(10000000000);
-  state.gold = D(state.gold).max(10000000000);
-  state.knowledge = D(state.knowledge).max(1000000000);
-  state.infrastructure = D(state.infrastructure).max(1000000);
-  log("Debug: ressources late game injectees.");
-  render();
-}
-
-export function addDebugFaveur(amount) {
-  state.faveur = (state.faveur || 0) + amount;
-  log(`Debug: +${fmt(amount)} faveur ajoutee.`);
-  render();
-}
-
-export function debugBuyEarlyRuins() {
-  const affordable = upgrades
-    .filter((upgrade) => upgrade.group === "ruins" && upgrade.cost.ruins <= 10000)
-    .sort((a, b) => a.cost.ruins - b.cost.ruins);
-
-  for (const upgrade of affordable) {
-    const costRuins = upgrade.cost.ruins || 0;
-    if (has(upgrade.id) || D(state.ruins).lt(costRuins) || !isUnlocked(upgrade)) continue;
-    state.ruins = D(state.ruins).sub(costRuins);
-    state.upgrades[upgrade.id] = true;
-  }
-  log("Debug: achats de ruines de debut appliques quand possible.");
-  render();
-}
+// Les outils de triche du menu « Mode debug » (addDebug*, debugBuyEarlyRuins)
+// vivent dans debugTools.js, importé par le seul DebugDialog : ici, ils
+// partaient dans le build de production (audit du 2026-10-05, DEV-1).
 
 // Cap d'absence créditée (production + Usure), en secondes : 2 h gratuites pour
 // tous + paliers « Veilleurs de nuit » possédés (cf. CE-spec-idle-crises.md §B.3).

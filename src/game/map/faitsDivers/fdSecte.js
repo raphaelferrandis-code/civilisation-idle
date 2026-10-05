@@ -43,7 +43,8 @@ export function buildSecte(app) {
   const fire = fireCast >= 0 ? thing(app, N, x, y, fireCast) : null;
   if (fire) figs.push(fire);
   // La chèvre sacrée (si Blanquette a été rencontrée) : assise parmi les fidèles.
-  const goat = st >= 2 && app.story.cameo && fdProgress(FD_STORIES.chevre).n > 0 ? thing(app, N + 1, x + R * 0.75, y - R * 0.55, 0) : null;
+  // Plus jamais tant que la Chèvre est éteinte (`off`, sprite retiré : critters.js).
+  const goat = st >= 2 && app.story.cameo && !FD_STORIES.chevre.off && fdProgress(FD_STORIES.chevre).n > 0 ? thing(app, N + 1, x + R * 0.75, y - R * 0.55, 0) : null;
   if (goat) { goat.say = app.story.cameo; figs.push(goat); }
   // Les pierres levées (âges de la Pierre et du Démiurge) : huit, en couronne.
   const stones = st === 1 || st === 6 ? ringPoints(8, st === 1 ? 1.42 : 1.2, 0.2).map((p, i) => ({ x: x + p.dx, y: y + p.dy, v: i % 2 })) : [];

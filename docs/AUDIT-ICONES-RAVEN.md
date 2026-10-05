@@ -9,6 +9,13 @@ plus la page de la collection lue dans un vrai navigateur.
 > **Rien n'a été téléchargé.** Les archives étaient déjà sur le disque ; elles ont été lues
 > sans extraction complète, et seules quelques planches ont été sorties dans le bac à sable.
 
+> ⛔ **Planches retirées le 2026-10-05** (audit STEAM-2) : les images de
+> `docs/concepts/icones-raven/` montraient les icônes du pack telles quelles, et la licence
+> Raven interdit de les redistribuer (le dépôt n'est pas un jeu). Seule
+> `jeu-icones-actuelles.png`, qui montre les icônes du jeu, est restée ; les autres liens
+> d'image ci-dessous sont donc morts, le texte de l'audit fait foi. Règle désormais écrite
+> dans `CREDITS.md` : aucun asset tiers brut dans `docs/`.
+
 ---
 
 ## 0. Réponse courte
@@ -385,8 +392,9 @@ Trois scripts jetables, dans `scratch/` (ignoré par git). Ils se relancent tels
 | `scratch/raven-sizes2.mjs` | idem, étendu au 5600+ Ultimate et à Pets |
 | `scratch/raven-sizes3.mjs` | le cas du 24 px (facteur 1,5), les 4 règles d'arrondi |
 
-Les planches de comparaison sont dans [`docs/concepts/icones-raven/`](concepts/icones-raven/),
-toutes composées **sur le fond réel du jeu** (`#0E1320`) et agrandies au plus proche voisin.
+Les planches de comparaison étaient dans [`docs/concepts/icones-raven/`](concepts/icones-raven/),
+toutes composées **sur le fond réel du jeu** (`#0E1320`) et agrandies au plus proche voisin
+(retirées le 2026-10-05 sauf `jeu-icones-actuelles.png` : voir l'avertissement en tête).
 
 **Un piège rencontré, à ne pas redécouvrir** : Node résout `node_modules` depuis
 l'emplacement du **script**, pas depuis le répertoire courant. Un script de mesure posé dans

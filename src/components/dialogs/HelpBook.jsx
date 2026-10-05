@@ -5,6 +5,10 @@ import { HELP_CHAPTERS } from '../../game/data/helpChapters.js';
 import { placeUnlocked } from '../../game/core/places.js';
 import { SHORTCUT_DEFS, shortcutKey, shortcutLabel } from '../../game/core/shortcuts.js';
 import PixelIcon from '../ui/PixelIcon.jsx';
+// Version du jeu (package.json, seul le champ `version` part dans le bundle) :
+// en pied de la table des chapitres, pour qu'un joueur dise quelle build il
+// fait tourner quand il signale un bug (audit 2026-10-05, STEAM-8).
+import { version as APP_VERSION } from '../../../package.json';
 
 /**
  * L'AIDE — onglet des Options, et SEUL accès (arbitrage Raph 2026-10-03 : pas de
@@ -88,6 +92,7 @@ export default function HelpBook() {
             <span className="help-ch-t">{tr({ fr: 'Chapitre à découvrir', en: 'Chapter to discover' })}</span>
           </button>
         )))}
+        <span className="help-version">v{APP_VERSION}</span>
       </nav>
 
       <article className="help-page" ref={pageRef} tabIndex={0} aria-labelledby="help-title">

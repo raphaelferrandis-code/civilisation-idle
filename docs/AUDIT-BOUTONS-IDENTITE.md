@@ -397,6 +397,12 @@ Générées chez PixelLab, `create_ui_asset` 688×384, seed 11, mêmes élément
 (`button ×3`, `icon_button`, `tab`, `health_bar`). Dans
 [`docs/concepts/ui-boutons/`](concepts/ui-boutons/).
 
+> ⛔ Le 2026-10-05 (audit STEAM-2), les planches qui montraient le pack Crusenho tel quel
+> (`uibook-5-styles.png`, `uibook-zoom-boutons.png`, `wizard-candidats.png`, et
+> `uibook-pieces-sur-fond-jeu.png` du pack gratuit, § 8 bis) ont été retirées
+> de ce dossier : la licence interdit de redistribuer le pack, même hors d'un jeu. Règle
+> désormais écrite dans `CREDITS.md` : aucun asset tiers brut dans `docs/`.
+
 | | Direction | Ce que ça donne | Verdict |
 |---|---|---|---|
 | **A** | `dirA-bronze-grave.png` | Champ bleu ardoise + cadre bronze à **coins coupés visibles**. Palette à deux doigts de `#0E1320` / `#C9A968`. | **La plus sûre.** Lisible à toute taille, la plus proche de la palette actuelle, et la seule qui porte déjà le crantage. |
@@ -470,8 +476,8 @@ resserre. Bonne nouvelle indépendamment du reste.
 **3. La palette est l'inverse de la tienne.** 36 couleurs distinctes, dominées par
 crème `#FFD7A8` (30 408 px) et brique `#B75B5F` (31 797 px). **Zéro bleu.** Le jeu est
 bleu nuit `#0E1320` + or patiné `#C9A968`. Posées sur ton fond
-(`docs/concepts/ui-boutons/uibook-pieces-sur-fond-jeu.png`), les pièces crème sont des
-dalles éblouissantes.
+(`docs/concepts/ui-boutons/uibook-pieces-sur-fond-jeu.png`, retirée le 2026-10-05 : elle
+montrait les pièces du pack telles quelles), les pièces crème sont des dalles éblouissantes.
 
 **4. Il n'y a pas de hiérarchie dedans.** Trois frames (normal, non sélectionné,
 sélectionné) et un bouton carré animé. Rien pour bâtir 7 rôles.

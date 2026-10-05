@@ -1,0 +1,15 @@
+# EN-TÊTES DE CACHE NETLIFY (audit 2026-10-05, WEB-1). Copié tel quel dans
+# dist/ : vaut pour le déploiement par Git ET pour le zip déposé à la main
+# (Netlify Drop). Les autres hébergeurs l'ignorent.
+#   · /assets/* — tous les noms portent l'empreinte de leur contenu (Vite) : un
+#     fichier qui change change d'URL, l'ancien peut rester en cache un an ;
+#   · /sw.js — toujours revalidé : c'est son changement d'octets (nom de cache
+#     daté à chaque build, cf. public/sw.js) qui déclenche la mise à jour et la
+#     purge des sprites chez le joueur.
+# Le reste (index.html, /pixelart/…) garde le défaut de Netlify (revalidé).
+
+/assets/*
+  Cache-Control: public, max-age=31536000, immutable
+
+/sw.js
+  Cache-Control: no-cache

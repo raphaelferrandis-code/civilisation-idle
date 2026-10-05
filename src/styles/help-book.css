@@ -76,6 +76,16 @@
 .help-ch.active .help-ch-n {
   color: var(--gold-bright);
 }
+/* Version du jeu, discrète, en pied de la table (STEAM-8). */
+.help-version {
+  flex: none;
+  margin-top: auto;
+  padding: 0.8rem 0.65rem 0;
+  font: 400 0.65rem/1 var(--font-number);
+  color: var(--text-mid);
+  opacity: 0.7;
+  user-select: text;
+}
 .help-ch-t {
   min-width: 0;
 }

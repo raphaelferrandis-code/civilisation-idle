@@ -50,6 +50,8 @@ import {
 } from '../../game/core/shortcuts.js';
 import { tipProps } from '../ui/HelpBubble.jsx';
 import HelpBook from './HelpBook.jsx';
+import SoftwareLicenses from './SoftwareLicenses.jsx';
+import FullscreenOption from './FullscreenOption.jsx';
 import DraftNumberInput from '../ui/DraftNumberInput.jsx';
 
 // Libellé d'un réglage. Son explication passe en INFOBULLE : règle de DA du
@@ -105,21 +107,24 @@ export default function OptionsDialog({ isOpen, onClose, onSave, onExport, onImp
   // la partie ET le fichier nuage. Mais elle passe par ChoiceDialog et non par le
   // confirm() natif, qui volait le focus, ignorait la langue du jeu et ne gérait
   // pas le double Échap de Chromium. Deux étapes, la seconde nommant ce qui part.
+  // Ce qui RESTE est dit aussi (audit 2026-10-05, SAV-14) : les trois emplacements
+  // et les copies de secours survivent au reset — « Rien n'est récupérable » était
+  // faux.
   const handleWipe = async () => {
     const first = await askWipe({
       label: { fr: "Réinitialisation", en: "Reset" },
       title: tr({ fr: "Recommencer depuis le tout premier feu ?", en: "Start over from the very first fire?" }),
       body: tr({
-        fr: "Toute la partie est effacée : cycles, Ruines, Mythes, Grands Resets. Rien n'est récupérable.",
-        en: "The whole game is erased: cycles, Ruins, Myths, Great Resets. Nothing can be recovered."
+        fr: "Toute la partie est effacée : cycles, Ruines, Mythes, Grands Resets. Seuls tes emplacements de sauvegarde et tes copies de secours sont gardés.",
+        en: "The whole game is erased: cycles, Ruins, Myths, Great Resets. Only your save slots and backup copies are kept."
       }),
       options: [
         { label: tr({ fr: "Annuler", en: "Cancel" }), value: "no" },
         { label: tr({ fr: "Continuer", en: "Continue" }), value: "yes" }
       ]
     }, tr({
-      fr: "Recommencer depuis le tout premier feu ? Toute la partie est effacée : cycles, Ruines, Mythes, Grands Resets. Rien n'est récupérable.",
-      en: "Start over from the very first fire? The whole game is erased: cycles, Ruins, Myths, Great Resets. Nothing can be recovered."
+      fr: "Recommencer depuis le tout premier feu ? Toute la partie est effacée : cycles, Ruines, Mythes, Grands Resets. Seuls tes emplacements de sauvegarde et tes copies de secours sont gardés.",
+      en: "Start over from the very first fire? The whole game is erased: cycles, Ruins, Myths, Great Resets. Only your save slots and backup copies are kept."
     }));
     if (first !== "yes") return;
     const second = await askWipe({
@@ -332,8 +337,9 @@ export default function OptionsDialog({ isOpen, onClose, onSave, onExport, onImp
     // minute écrasaient le même fichier en silence.
     const stamp = new Date().toISOString().slice(0, 19).replace(/[:T]/g, "-");
     const res = await saveToFile(encodeSaveText(JSON.stringify(state)), `civilisation-${stamp}.txt`);
-    // Dans le .exe, l'écriture part dans Documents sans dialogue : le float dit
-    // OÙ (res.path) — sinon le joueur cherche son fichier sans indice.
+    // Dialogue fermé (.exe) : rien à annoncer. Sinon le float rappelle OÙ le
+    // fichier est parti (res.path, le chemin choisi dans le dialogue natif).
+    if (res.canceled) return;
     pushOutcomeFloat(res.ok
       ? {
           label: res.path
@@ -385,6 +391,7 @@ export default function OptionsDialog({ isOpen, onClose, onSave, onExport, onImp
     if (!raw) return;
     const stamp = new Date().toISOString().slice(0, 19).replace(/[:T]/g, "-");
     const res = await saveToFile(raw, `civilisation-copie-${stamp}.json`);
+    if (res.canceled) return; // dialogue fermé (.exe)
     pushOutcomeFloat(res.ok
       ? {
           label: res.path
@@ -667,6 +674,9 @@ export default function OptionsDialog({ isOpen, onClose, onSave, onExport, onImp
                   </button>
                 </div>
               </div>
+
+              {/* .exe seulement (ELEC-2) : rien ne s'affiche ailleurs. */}
+              <FullscreenOption />
 
               <div className="options-row">
                 <div>
@@ -1272,7 +1282,7 @@ export default function OptionsDialog({ isOpen, onClose, onSave, onExport, onImp
           {activeGroup === 'other' && (
             <div className="options-row options-row-danger">
               <div>
-                <OptionLabel label={tr({ fr: "Réinitialiser la partie", en: "Reset the game" })} hint={tr({ fr: "Efface toute la progression - irréversible", en: "Erases all progress - irreversible" })} />
+                <OptionLabel label={tr({ fr: "Réinitialiser la partie", en: "Reset the game" })} hint={tr({ fr: "Efface toute la progression, sauf les emplacements de sauvegarde et les copies de secours", en: "Erases all progress, except save slots and backup copies" })} />
               </div>
               <button
                 type="button"
@@ -1284,14 +1294,17 @@ export default function OptionsDialog({ isOpen, onClose, onSave, onExport, onImp
             </div>
           )}
 
-          {/* CREDITS PANEL — assets tiers embarqués dans le jeu. La licence du
-              pack de cartes demande explicitement un crédit : cet onglet est ce
-              qui rend le jeu conforme, ne pas le retirer sans retirer l'asset. */}
+          {/* CREDITS PANEL — assets tiers embarqués dans le jeu, une ligne par pack
+              livré (le tableau de CREDITS.md fait foi et dit lesquels EXIGENT ce
+              crédit : MinZinn, Crusenho, Abstraction, Font Awesome, cartes) : cet
+              onglet est ce qui rend le jeu conforme, ne pas retirer une ligne sans
+              retirer l'asset. Toute ligne se tient en FR ET en EN. */}
           {activeGroup === 'credits' && (
             <>
               {/* ⚠ La musique et les icônes exigent ce crédit, ce n'est pas une
                   politesse. Abstraction demande le titre de la piste, son nom et
-                  un lien ; Font Awesome Free est en CC BY 4.0. Ne pas retirer. */}
+                  un lien ; Font Awesome Free : icônes CC BY 4.0, police SIL OFL
+                  1.1, CSS MIT (LICENSE.txt du paquet). Ne pas retirer. */}
               <div className="options-row">
                 <div>
                   <span>{tr({ fr: "Musique", en: "Music" })}</span>
@@ -1312,8 +1325,8 @@ export default function OptionsDialog({ isOpen, onClose, onSave, onExport, onImp
                   <span>{tr({ fr: "Chrome de l'interface", en: "Interface chrome" })}</span>
                   <small>
                     {tr({
-                      fr: "« Complete UI Book Styles Pack » par Crusenho Agus Hennihuno (crusenho.itch.io). Boutons, onglets, cartes et jauges viennent de ce pack, recolorés aux couleurs du jeu.",
-                      en: "“Complete UI Book Styles Pack” by Crusenho Agus Hennihuno (crusenho.itch.io). Buttons, tabs, cards and gauges come from this pack, recoloured to the game's palette."
+                      fr: "« Complete UI Book Styles Pack » par Crusenho Agus Hennihuno (crusenho.itch.io/complete-ui-book-styles-pack). Boutons, onglets, cartes et jauges viennent de ce pack, modifiés : recolorés aux couleurs du jeu.",
+                      en: "“Complete UI Book Styles Pack” by Crusenho Agus Hennihuno (crusenho.itch.io/complete-ui-book-styles-pack). Buttons, tabs, cards and gauges come from this pack, modified: recoloured to the game's palette."
                     })}
                   </small>
                 </div>
@@ -1323,8 +1336,8 @@ export default function OptionsDialog({ isOpen, onClose, onSave, onExport, onImp
                   <span>{tr({ fr: "Icônes de l'interface", en: "Interface icons" })}</span>
                   <small>
                     {tr({
-                      fr: "« Font Awesome Free » par Fonticons. Icônes sous licence Creative Commons Attribution 4.0. fontawesome.com",
-                      en: "“Font Awesome Free” by Fonticons. Icons under the Creative Commons Attribution 4.0 license. fontawesome.com"
+                      fr: "« Font Awesome Free » 6.7.2 par Fonticons, Inc. (fontawesome.com). Icônes sous licence Creative Commons Attribution 4.0, fichiers de police sous SIL Open Font License 1.1, code sous licence MIT.",
+                      en: "“Font Awesome Free” 6.7.2 by Fonticons, Inc. (fontawesome.com). Icons under the Creative Commons Attribution 4.0 license, font files under the SIL Open Font License 1.1, code under the MIT license."
                     })}
                   </small>
                 </div>
@@ -1334,8 +1347,8 @@ export default function OptionsDialog({ isOpen, onClose, onSave, onExport, onImp
                   <span>{tr({ fr: "Polices", en: "Typefaces" })}</span>
                   <small>
                     {tr({
-                      fr: "Jersey 15, Pixelify Sans, Silkscreen et Inter, les quatre polices du jeu, sous licence SIL Open Font 1.1.",
-                      en: "Jersey 15, Pixelify Sans, Silkscreen and Inter, the game's four typefaces, under the SIL Open Font License 1.1."
+                      fr: "Jersey 15 (Sarah Cadigan-Fried), Pixelify Sans (Stefie Justprince), Silkscreen (Jason Kottke) et Inter (Rasmus Andersson), les quatre polices du jeu, sous licence SIL Open Font 1.1.",
+                      en: "Jersey 15 (Sarah Cadigan-Fried), Pixelify Sans (Stefie Justprince), Silkscreen (Jason Kottke) and Inter (Rasmus Andersson), the game's four typefaces, under the SIL Open Font License 1.1."
                     })}
                   </small>
                 </div>
@@ -1362,6 +1375,45 @@ export default function OptionsDialog({ isOpen, onClose, onSave, onExport, onImp
                   </small>
                 </div>
               </div>
+              {/* ⚠ CC BY 4.0 : le crédit, le lien vers la licence ET la mention des
+                  modifications sont OBLIGATOIRES partout où le jeu est diffusé
+                  (audit STEAM-1). Ne pas retirer sans retirer les veh-* du pack
+                  (vehicleSkins.js, scripts/importPackVehicles.mjs). */}
+              <div className="options-row">
+                <div>
+                  <span>{tr({ fr: "Véhicules modernes", en: "Modern vehicles" })}</span>
+                  <small>
+                    {tr({
+                      fr: "« Pixel Vehicles » par MinZinn (minzinn.itch.io/pixelvehicles), sous licence Creative Commons Attribution 4.0 (creativecommons.org/licenses/by/4.0). Voitures, bus, camions et véhicules de service des derniers âges, modifiés : recadrés, réduits, désaturés et ramenés à la palette du jeu.",
+                      en: "“Pixel Vehicles” by MinZinn (minzinn.itch.io/pixelvehicles), under the Creative Commons Attribution 4.0 license (creativecommons.org/licenses/by/4.0). Cars, buses, trucks and service vehicles of the later ages, modified: cropped, scaled down, desaturated and reduced to the game palette."
+                    })}
+                  </small>
+                </div>
+              </div>
+              <div className="options-row">
+                <div>
+                  <span>{tr({ fr: "Herbes et buissons", en: "Grass tufts and bushes" })}</span>
+                  <small>
+                    {tr({
+                      fr: "« Pixel Art Top Down - Basic » par Cainos (cainos.itch.io). Les touffes d'herbe et les buissons de la carte viennent de ce pack, recolorés à la palette du jeu.",
+                      en: "“Pixel Art Top Down - Basic” by Cainos (cainos.itch.io). The map's grass tufts and bushes come from this pack, recolored to the game palette."
+                    })}
+                  </small>
+                </div>
+              </div>
+              <div className="options-row">
+                <div>
+                  <span>{tr({ fr: "Cadre doré", en: "Golden frame" })}</span>
+                  <small>
+                    {tr({
+                      fr: "« Fantasy UI Borders » par Kenney (kenney.nl), domaine public (CC0), teinté or.",
+                      en: "“Fantasy UI Borders” by Kenney (kenney.nl), public domain (CC0), tinted gold."
+                    })}
+                  </small>
+                </div>
+              </div>
+              {/* Notices MIT / OFL des bibliothèques et polices (STEAM-5). */}
+              <SoftwareLicenses />
             </>
           )}
 

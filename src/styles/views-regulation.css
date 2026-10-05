@@ -771,13 +771,12 @@
 .scratch-legend-item b { color: var(--gold-bright); font-weight: 700; margin-right: 0.2rem; }
 
 /* Le ticket : la grille de symboles, la feuille grattable PAR-DESSUS. */
-/* Ticket = panneau PixelLab, UN PAR MISE (public/pixelart/ui/scratch/
-   ticket-<mise>.png), du plus humble au plus luxueux : Obole = papyrus nu,
-   Drachme = parchemin + méandre doré, Talent = lapis + laurier d'or. Les zones
-   entre alvéoles sont TRANSPARENTES dans l'art → un calque sombre limité à
-   l'intérieur du cadre (--ticket-dark) les fonce sans déborder des bords
-   irréguliers (coins transparents). La géométrie de la grille est calée PAR
-   TICKET sur les alvéoles peintes (mesures pngjs sur les PNG 512). */
+/* La face (--ticket-art) est PEINTE à la matière de l'âge et au métal de la mise
+   (ticketFace, plaisirsMaterial.js) et posée en ligne par ScratchStage.jsx, avec
+   la géométrie de la grille (--tgrid-pad / --tgrid-gap = TICKET_GRID). Les
+   planches `ui/scratch/ticket-*.png` et leurs calages par mise n'ont jamais
+   existé : leurs url() mortes ne produisaient que trois avertissements à chaque
+   build (audit du 2026-10-05, ASSET-9). */
 .scratch-ticket {
   position: relative;
   width: 100%;
@@ -786,33 +785,11 @@
   aspect-ratio: 1 / 1;
   border-radius: 0;
   overflow: hidden;
-  --ticket-art: url("/pixelart/ui/scratch/ticket-drachme.png");
-  --ticket-dark: 78%;
-  background:
-    var(--ticket-art) center / 100% 100% no-repeat,
-    linear-gradient(rgba(10, 14, 22, 0.85), rgba(10, 14, 22, 0.85)) center / var(--ticket-dark) var(--ticket-dark) no-repeat;
+  background: var(--ticket-art, none) center / 100% 100% no-repeat;
 }
 
-/* Obole — carte papyrus opaque (pas de calque sombre), alvéoles ardoise
-   mesurées à x/y [69..442] : pas 130,5, cases ~112 px. */
-.scratch-ticket--obole {
-  --ticket-art: url("/pixelart/ui/scratch/ticket-obole.png");
-  --ticket-dark: 0%;
-  --tgrid-pad: 13.6%;
-  --tgrid-gap: 3.5%;
-}
-
-/* Talent — tablette lapis : cases PLUS LARGES que hautes (99,5×108 px,
-   cadres mesurés x [96,206,315..415] / y [90,204,318..426]) → padding et
-   gaps asymétriques (gap = ligne colonne). */
-.scratch-ticket--talent {
-  --ticket-art: url("/pixelart/ui/scratch/ticket-talent.png");
-  --tgrid-pad: 17.6% 18.9% 16.8% 18.75%;
-  --tgrid-gap: 1.2% 2.15%;
-}
-
-/* Grille calée sur les alvéoles PEINTES du ticket (drachme mesuré : alvéoles
-   de ~114 px trim compris, pas de ~128,5, première à ~69 px sur 512). */
+/* Grille calée sur les alvéoles PEINTES de la face (TICKET_GRID : marge 10 px,
+   écart 3 px sur 80) ; les replis ne servent que si le style en ligne manque. */
 .scratch-grid {
   position: absolute;
   inset: 0;
@@ -821,8 +798,8 @@
      JAMAIS étirer une rangée hors des alvéoles peintes. */
   grid-template-columns: repeat(3, minmax(0, 1fr));
   grid-template-rows: repeat(3, minmax(0, 1fr));
-  gap: var(--tgrid-gap, 2.8%);
-  padding: var(--tgrid-pad, 13.6%);
+  gap: var(--tgrid-gap, 3.75%);
+  padding: var(--tgrid-pad, 12.5%);
 }
 
 .scratch-cell {
