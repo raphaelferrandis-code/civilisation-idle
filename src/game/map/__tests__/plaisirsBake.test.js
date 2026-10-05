@@ -9,7 +9,8 @@
 //     temps (« progressif avec le temps », la demande de Raph).
 import { describe, it, expect } from 'vitest';
 import { bakePlaisirs, plaisirsGames, plaisirsRecipeBand } from '../iso/plaisirsBake.js';
-import { applyPlaisirsSkin } from '../iso/plaisirsSkin.js';
+import { applyPlaisirsSkin, plaisirsSkinSpec } from '../iso/plaisirsSkin.js';
+import { strollArcs, strollWalker } from '../iso/isoPlaisirs.js';
 import { wonderKitForBand } from '../iso/wonderKits.js';
 import { PLAISIRS_OPEN_ERA } from '../layout.js';
 import { scratchUnlocked } from '../../core/actions/scratch.js';
@@ -142,6 +143,59 @@ describe('la profondeur de chaque pixel', () => {
     for (let k = 0; k < R.w * R.h; k += 1) {
       if (!sk.R.data[k * 4 + 3]) continue;
       if (R.data[k * 4 + 3]) expect(sk.D[k]).toBe(out.D[k]);
+    }
+  });
+});
+
+// Sur un habillage, rien ne découpe les promeneuses (la profondeur du code ne suit pas le
+// dessin) : leur tour ne doit JAMAIS passer derrière la maison — le bord des galeries ne
+// les cachait pas (Raph, 2026-10-04) — ni dans un secteur pris (escalier, kiosque, feu).
+describe('le tour des promeneuses sur les habillages', () => {
+  it('reste devant la maison et hors des secteurs pris', () => {
+    for (let b = 0; b <= 9; b += 1) {
+      const walk = plaisirsSkinSpec(b) && plaisirsSkinSpec(b).walk;
+      expect(walk && walk.gap, `bande ${b} : pas de tour calé`).toBeTruthy();
+      const arcs = strollArcs(walk), gaps = Array.isArray(walk.gap[0]) ? walk.gap : [walk.gap];
+      expect(arcs.length, `bande ${b} : aucun arc ouvert`).toBeGreaterThan(0);
+      for (const [a0, L] of arcs) {
+        for (let u = 0; u <= L + 1e-9; u += 0.01) {
+          const d = ((((a0 + u) * 180) / Math.PI) % 360 + 360) % 360;
+          // Le cœur de l'arrière, où la maison cache toujours (un habillage peut ouvrir ses
+          // côtés tant qu'elles restent À CÔTÉ de la tour : la Pierre).
+          expect(d < 150 || d > 270, `bande ${b} : ${d.toFixed(1)}° derrière la maison`).toBe(true);
+          for (const [g0, g1] of gaps) expect(((d - g0) % 360 + 360) % 360 > g1 - g0, `bande ${b} : ${d.toFixed(1)}° dans [${g0}, ${g1}]`).toBe(true);
+        }
+      }
+    }
+  });
+  // Audit des comportements (2026-10-04) : sur une ellipse, l'angle à vitesse constante
+  // faisait varier le pas au sol ; et deux promeneuses du même chemin se traversaient.
+  it('marche à vitesse constante au sol, et les deux du même chemin ne se traversent pas', () => {
+    const img = { width: 1, height: 1, data: new Uint8ClampedArray(4) };
+    for (let b = 0; b <= 9; b += 1) {
+      const sk = plaisirsSkinSpec(b), out = bakePlaisirs(wonderKitForBand(b), ALL);
+      const st = { ...out.stroll, ...applyPlaisirsSkin(out, { ...sk, img }).walk };
+      const prev = [null, null];
+      let minGap = Infinity, maxGap = 0;
+      for (let t = 0; t <= 120000; t += 40) {
+        const W = [strollWalker(st, 0, t), strollWalker(st, 1, t)];
+        for (let k = 0; k < 2; k += 1) {
+          const w = W[k], q = prev[k];
+          // Hors des demi-tours (le pas revient sur lui-même) : 7 px/s au sol.
+          if (q && q.vx * w.vx + q.vy * w.vy > 0) {
+            const v = Math.hypot(w.x - q.x, w.y - q.y) / 0.04;
+            expect(Math.abs(v - 7), `bande ${b}, fille ${k}, t = ${t} : ${v.toFixed(2)} px/s`).toBeLessThan(0.7);
+          }
+          prev[k] = w;
+        }
+        if (strollArcs(st).length === 1) {
+          const g = Math.hypot(W[0].x - W[1].x, W[0].y - W[1].y);
+          minGap = Math.min(minGap, g); maxGap = Math.max(maxGap, g);
+        }
+      }
+      if (minGap < Infinity) expect(minGap, `bande ${b} : elles se traversent`).toBeGreaterThan(2.4);
+      // … et ne marchent pas collées (un simple décalage, sur un arc court, les y gardait).
+      if (maxGap > 0) expect(maxGap, `bande ${b} : elles restent collées`).toBeGreaterThan(15);
     }
   });
 });
