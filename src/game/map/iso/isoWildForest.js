@@ -17,6 +17,7 @@ import { riverEndRays, nearRiverEndRay } from './riverEnds.js';
 import { campGroundOn, courOf } from './isoTissu.js';
 import { treeVariantsOf } from './isoGroundProps.js';
 import { vegHash, vegNoise } from './vegNoise.js';
+import { solInvalidate } from './solInvalidate.js';
 
 // Marge des demi-droites qui prolongent le fleuve (riverEnds.js) : les MÊMES
 // rayons que les cellules d'eau et de berge du layout — centre de cellule à
@@ -170,6 +171,10 @@ if (typeof window !== 'undefined') {
     else if (o && typeof o === 'object') Object.assign(FOREST, o);
     else FOREST.on = true;
     CM._isoWildForest = null; CM._treeCells = null; CM._vegAnchors = null;
+    // Le SOUS-BOIS et l'extinction des fleurs, cuits dans le sol, suivent la densité
+    // de la forêt (holeScale, contrast — cf. isoForestFloor) : recuire, sinon le sol
+    // gardait l'ancienne forêt sous la nouvelle (audit du 2026-10-05, BUG-100).
+    solInvalidate('all');
     return { ...FOREST };
   };
 }

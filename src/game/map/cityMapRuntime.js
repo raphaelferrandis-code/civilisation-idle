@@ -68,7 +68,7 @@ import { bindFaitsDiversInput } from './faitsDivers/index.js';
 import { waterShoreTune } from './iso/isoPalette.js';
 import { riverIslandObstacles, riverDodge, tradeStage, tradeSizeMul } from './iso/isoFleet.js';
 import { boatSpecFor, boatFootprint } from './iso/boatKit.js';
-import { fleetBerths, projectOnRibbon } from './iso/boatBerths.js';
+import { fleetBerths, fleetPortMarks, projectOnRibbon } from './iso/boatBerths.js';
 import { BOATKIT } from './iso/boatKit.js';
 import { fleetFor, fleetRoles, BOAT_MODELS } from './iso/boatKits.js';
 import { ferrySite, navWindow, ribbonLength, quayHiddenDepth, FERRY_TIP, shuttleSite, ribbonAt } from './riverFleet.js';
@@ -158,6 +158,7 @@ function cityMapResizeCanvas(canvas) {
   const dpr = Math.min(window.devicePixelRatio || 1, cmRenderDprCap);
   const w = canvas.clientWidth || (canvas.parentElement && canvas.parentElement.clientWidth) || 600;
   const h = canvas.clientHeight || 320;
+  const dprChanged = CM.dpr !== dpr;
   CM.dpr = dpr;
   CM.cw = w;
   CM.ch = h;
@@ -170,10 +171,19 @@ function cityMapResizeCanvas(canvas) {
   // dernier client, le quai cuit plein écran, est parti avec c8b042c. Ce qui
   // cuit encore — le sol en pyramide, les quais — tient ses propres tuiles
   // ancrées au monde, sans rapport avec la taille de l'écran.
-  if (canvas.width === nw && canvas.height === nh) return;
+  // ⚠ Même taille en px device ne veut pas dire même dpr (audit du 2026-10-05,
+  // BUG-21) : au zoom du navigateur, la largeur CSS et le dpr varient en sens
+  // inverse et le canvas garde souvent ses dimensions. La transformation, elle,
+  // doit suivre le dpr — sinon toute la carte se peint à l'ancienne échelle.
+  if (canvas.width === nw && canvas.height === nh) {
+    if (dprChanged) CM.ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    return false;
+  }
   canvas.width = nw;
   canvas.height = nh;
   CM.ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+  // Vrai = le canvas a été RÉALLOUÉ, donc vidé : l'appelant le repeint (BUG-90).
+  return true;
 }
 
 // Foule du campement (bande 0) : marcheurs par tente, plafond, et cadence
@@ -264,11 +274,15 @@ function cmRetireExcessCitizens(want) {
 // ré-alloue le canvas si le dpr a changé, fait recuire le sol et ré-applique la
 // densité. La boucle rAF (en pause tant que le dialogue d'options couvre la
 // carte) repeindra proprement au prochain frame / à la fermeture du dialogue.
+// ⚠ Sauf un canvas RÉALLOUÉ (dpr changé) : il est vide, et le fond translucide du
+// dialogue laissait voir une carte vide jusqu'à sa fermeture (BUG-90). Celui-là
+// est repeint tout de suite, vue inactive comprise (cf. repaintNow).
 export function applyCityMapQuality() {
   cmApplyQualitySettings();
-  if (CM.canvas) cityMapResizeCanvas(CM.canvas);
+  const realloc = CM.canvas ? cityMapResizeCanvas(CM.canvas) : false;
   solInvalidate('all');
   cmRecomputeCitizenTarget();
+  if (realloc && CM.repaintNow) CM.repaintNow(true);
 }
 
 // Monde↔écran : délégué à la projection unique (iso/projection.js).
@@ -1166,7 +1180,10 @@ function bindCityMapInput(canvas, mapRoot, callbacks = {}) {
     window.addEventListener(type, markInput, { capture: true, passive: true, signal });
   }
 
-  return () => controller.abort();
+  // L'AbortController retire les écouteurs, pas la minuterie de l'appui long :
+  // démontée en plein appui, la carte voyait encore showHover tomber 500 ms plus
+  // tard (audit 2026-10-05, BUG-91).
+  return () => { controller.abort(); cancelPress(); };
 }
 
 
@@ -1713,54 +1730,8 @@ function cityMapEnsureLayoutInner(now, deps = {}) {
   // Trafic evolutif : paniers -> charrettes -> chars/convois -> voitures -> drones.
   const trafficBase = getVehicleDensity(L.counts.eraIndex, "main") * Math.max(1, L.counts.eraIndex) * 2.45 + L.counts.houses / 38 + lateCrowd * lateCrowd * 1.05;
   const wantVeh = cmClamp(trafficBase, 0, L.counts.eraIndex >= 18 ? 80 : L.counts.eraIndex >= 14 ? 55 : L.counts.eraIndex >= 8 ? 35 : 15);
-  const trafficSig = `${L.counts.eraIndex}:${wantVeh}:${L.roads.length}:${L.roads.map((r) => r.rank).join("").length}`;
-  if (CM.vehicles.length !== wantVeh || CM.vehicleSig !== trafficSig || !CM.walkRoadList.length) {
-    CM.vehicleSig = trafficSig;
-    CM.vehicles = [];
-    const ranked = CM.walkRoadList.filter((r) => getVehicleDensity(L.counts.eraIndex, r.rank || "secondary") > 0.08);
-    const weighted = [];
-    for (const r of (ranked.length ? ranked : CM.walkRoadList)) {
-      if (r.rank === "plaza") continue; // les esplanades sont piétonnes
-      const weight = r.rank === "main" ? 11 : r.rank === "avenue" ? 7 : r.rank === "secondary" ? 3 : 0;
-      for (let w = 0; w < Math.max(1, weight); w += 1) weighted.push(r);
-    }
-    const pool = weighted.length ? weighted : CM.walkRoadList;
-    for (let n = 0; n < wantVeh && pool.length; n += 1) {
-      const r = pool[(n * 53) % pool.length];
-      let vehicleType = chooseRoadVehicleType(L.counts.eraIndex, r.rank || "secondary", n);
-      // Pas de tram sur les voies (véhicule rail) → retombe sur une voiture.
-      if (vehicleType === "tram") vehicleType = "car";
-      CM.vehicles.push({
-        gx: r.gx, gy: r.gy, x: (r.gx + 0.5) * CM.TILE, y: (r.gy + 0.5) * CM.TILE,
-        tx: (r.gx + 0.5) * CM.TILE, ty: (r.gy + 0.5) * CM.TILE,
-        fade: 0, // la flotte est reconstruite à chaque recalcul du plan : fondu d'apparition
-        dir: n % 2 ? 0 : 2, goal: null, pauseT: 0,
-        // Plus de stationnement : les véhicules démarrent et restent en mouvement.
-        parkT: 0,
-        parkSide: n % 2 ? 1 : -1,
-        // Une porteuse sur deux (docs/PLAN-COMPORTEMENTS.md, lot 3) : dessinée en
-        // août (basket-woman-flat) mais jamais posée — `v.woman` n'était jamais vrai.
-        woman: vehicleType === "basket" && ((n * 2654435761) >>> 0) % 2 === 1,
-        type: vehicleType,
-        // Graine de la fiche d'habitant (citizenFocus.js) : conducteur, chargement.
-        // Elle marque aussi « véhicule de la flotte » — seuls ceux-là sont cliquables.
-        seed: cmHash(`${state.cycles || 0}:veh:${n}:${r.gx},${r.gy}`) >>> 0,
-        // Modèle et teinte de CETTE voiture-là (flotte moderne). Sans ça une
-        // avenue aligne vingt fois la même carrosserie ; c'est le seul endroit
-        // où le tirage a lieu, le rendu ne fait que lire v.skin. La BANDE compte :
-        // sous la bande 6 le pack ne sort pas et le skin revient vide.
-        skin: vehSkinFor(vehicleType, n, L.counts.eraBand),
-        speed: vehicleType === "drone" ? 58 + (n % 5) * 7 : vehicleType === "car" || vehicleType === "tram" || vehicleType === "taxi" || vehicleType === "police" ? 34 + (n % 6) * 4 : vehicleType === "ambulance" ? 40 + (n % 4) * 4 : vehicleType === "bus" || vehicleType === "truck" ? 24 + (n % 4) * 3 : vehicleType === "van" ? 30 + (n % 5) * 3 : vehicleType === "basket" ? 11 + (n % 3) * 2 : vehicleType === "chariot" ? 24 + (n % 4) * 3 : vehicleType === "caravan" ? 16 + (n % 4) * 2 : 14 + (n % 4) * 2,
-        col: vehicleType === "car" || vehicleType === "tram" ? ["#9b4d38", "#c0a85d", "#6f8490", "#a8a092", "#5f6f7c", "#8f6544"][n % 6] : ["#8f6534", "#b08a4a", "#7b5b35", "#c0a46a", "#6f5636", "#9a7440"][n % 6]
-      });
-    }
-    // Le véhicule SUIVI (fiche d'habitant) survit à la reconstruction de la flotte
-    // tant que sa route existe : il prend la place du premier venu.
-    const fv = CM.focus && CM.focus.kind === "vehicle" ? CM.focus.p : null;
-    if (fv && CM.walkRoadSet.has(fv.gx * 10000 + fv.gy)) {
-      if (CM.vehicles.length) CM.vehicles[0] = fv; else CM.vehicles.push(fv);
-    }
-  }
+  // La flotte est TENUE, plus rebâtie d'un bloc (cmSyncRoadFleet, BUG-56).
+  cmSyncRoadFleet(L, wantVeh, { getVehicleDensity, chooseRoadVehicleType, vehSkinFor });
 
   // Trafic fluvial : l'EFFECTIF VOULU par métier (marchand / plaisancier /
   // pêcheur) — la vie de chaque bateau est pilotée par riverFleet.js, appelé une
@@ -1805,6 +1776,9 @@ function cityMapEnsureLayoutInner(now, deps = {}) {
     // POSTES D'ACCOSTAGE (docs/PLAN-BATEAUX.md, lot 4) : le marchand vient se ranger
     // au ponton. Vides là où l'ère n'a pas encore son kit de bateaux.
     CM.shipBerths = fleetBerths(L);
+    // Les ports que le bac et la navette fuient : les postes, plus la capitainerie et le
+    // terminal (sans poste depuis BUG-17, ils restent des ports — cf. fleetPortMarks).
+    CM.shipPortMarks = fleetPortMarks(L);
     CM.riverGates = [];
     if (hasRiver && L.river.samples && L.roadMap) {
       const sm = L.river.samples, len = sm.length;
@@ -1905,7 +1879,7 @@ function cityMapEnsureLayoutInner(now, deps = {}) {
       const win = navWindow(sm, { x0: 0, y0: 0, x1: L.gridN || 0, y1: L.gridN || 0 });
       const avoid = [
         ...CM.riverGates.map((g) => g.t),
-        ...CM.shipBerths.map((b) => b.t),
+        ...CM.shipPortMarks,
         ...CM.riverObstacles.map((o) => o.t),
       ];
       if (CM.riverIslandT != null) avoid.push(CM.riverIslandT);
@@ -1980,7 +1954,7 @@ function cityMapEnsureLayoutInner(now, deps = {}) {
       const win = navWindow(sm, { x0: 0, y0: 0, x1: L.gridN || 0, y1: L.gridN || 0 });
       const avoid = [
         ...CM.riverGates.map((g) => g.t),
-        ...CM.shipBerths.map((b) => b.t),
+        ...CM.shipPortMarks,
         ...CM.riverObstacles.filter((o) => o.id !== 'plaisirs').map((o) => o.t),
       ];
       if (CM.ferrySite) avoid.push(CM.ferrySite.t);
@@ -2036,8 +2010,113 @@ function cityMapEnsureLayoutInner(now, deps = {}) {
   }
 }
 
-function spawnOneCitizen(L) {
-  const n = CM.citizens.length;
+// ── FLOTTE DES RUES : TENUE, plus rebâtie d'un bloc (BUG-56, audit du 2026-10-05) ──
+// Elle était reconstruite à neuf dès que l'effectif voulu ou le nombre de cases de
+// route bougeait (un achat, la croissance — jusqu'à toutes les 1,5 s) : chaque
+// véhicule à l'écran sautait d'un coup à sa case de départ, sans le fondu promis
+// (`fade` n'était lu nulle part). À l'inverse, sans changement de signature, un
+// véhicule dont la case avait disparu restait figé sur place. Désormais, comme les
+// passants (cmRetireExcessCitizens) : ceux qui roulent GARDENT leur place —
+// updateVehicles (agents.js) remet sur la route la plus proche celui dont la case a
+// disparu —, on n'ajoute ou ne retire que l'écart avec l'effectif voulu, et le type
+// (avec son skin, son allure, sa teinte) n'est re-tiré qu'au changement d'âge (la
+// bande, qui porte les poids et les skins) ou à la ruine. Les nouveaux venus entrent
+// en fondu (drawIsoVehicle).
+// Chaque véhicule porte son NUMÉRO (`serial`, compteur monotone) : il fonde sa case
+// d'apparition, sa graine et ses tirages. Une flotte vide repart de 0 — la première
+// flotte d'un plan est celle d'avant, au véhicule près.
+export function cmSyncRoadFleet(L, wantVeh, deps = {}) {
+  const getVehicleDensity = deps.getVehicleDensity || function () { return 0; };
+  const chooseRoadVehicleType = deps.chooseRoadVehicleType || function () { return "wagon"; };
+  const vehSkinFor = deps.vehSkinFor || function () { return ""; };
+  if (!CM.walkRoadList.length) { CM.vehicles = []; return; }
+  const era = L.counts.eraIndex;
+  // Le type, son skin, son allure et sa teinte : tirés au numéro `n`, au rang de la rue.
+  const retype = (v, n, rank) => {
+    let vehicleType = chooseRoadVehicleType(era, rank, n);
+    // Pas de tram sur les voies (véhicule rail) → retombe sur une voiture.
+    if (vehicleType === "tram") vehicleType = "car";
+    v.type = vehicleType;
+    // Une porteuse sur deux (docs/PLAN-COMPORTEMENTS.md, lot 3) : dessinée en
+    // août (basket-woman-flat) mais jamais posée — `v.woman` n'était jamais vrai.
+    v.woman = vehicleType === "basket" && ((n * 2654435761) >>> 0) % 2 === 1;
+    // Modèle et teinte de CETTE voiture-là (flotte moderne). Sans ça une
+    // avenue aligne vingt fois la même carrosserie ; c'est le seul endroit
+    // où le tirage a lieu, le rendu ne fait que lire v.skin. La BANDE compte :
+    // sous la bande 6 le pack ne sort pas et le skin revient vide.
+    v.skin = vehSkinFor(vehicleType, n, L.counts.eraBand);
+    v.speed = vehicleType === "drone" ? 58 + (n % 5) * 7 : vehicleType === "car" || vehicleType === "tram" || vehicleType === "taxi" || vehicleType === "police" ? 34 + (n % 6) * 4 : vehicleType === "ambulance" ? 40 + (n % 4) * 4 : vehicleType === "bus" || vehicleType === "truck" ? 24 + (n % 4) * 3 : vehicleType === "van" ? 30 + (n % 5) * 3 : vehicleType === "basket" ? 11 + (n % 3) * 2 : vehicleType === "chariot" ? 24 + (n % 4) * 3 : vehicleType === "caravan" ? 16 + (n % 4) * 2 : 14 + (n % 4) * 2;
+    v.col = vehicleType === "car" || vehicleType === "tram" ? ["#9b4d38", "#c0a85d", "#6f8490", "#a8a092", "#5f6f7c", "#8f6544"][n % 6] : ["#8f6534", "#b08a4a", "#7b5b35", "#c0a46a", "#6f5636", "#9a7440"][n % 6];
+  };
+  const list = CM.vehicles;
+  if (!list.length) CM.vehicleSerial = 0;
+  // Nouvel âge, ou ville en ruine (chooseRoadVehicleType rend alors la charrette
+  // brisée — même critère que lui) : chacun garde sa place et son conducteur (seed),
+  // il change de monture. Pas à chaque ère : dans un même âge le tirage ne change pas,
+  // seul le rang de la rue où il roule changerait — une voiture deviendrait charrette
+  // sous les yeux du joueur.
+  const ruined = (state.timeWear || 0) > 0.88 || (state.instability || 0) >= 1;
+  const typeKey = `${L.counts.eraBand | 0}:${ruined ? 1 : 0}`;
+  if (CM.vehicleTypeKey !== typeKey) {
+    CM.vehicleTypeKey = typeKey;
+    for (const v of list) {
+      if (v.serial == null) continue;   // pas un véhicule de la flotte (molette de dev)
+      const road = L.roadMap && L.roadMap.get(v.gx + "," + v.gy);
+      retype(v, v.serial, (road && road.rank) || "secondary");
+    }
+  }
+  // Trop de monde : les derniers venus s'en vont. Celui qu'on SUIT (fiche d'habitant)
+  // reste, passé en tête — même s'il ne doit plus en rester aucun.
+  if (list.length > wantVeh) {
+    const fv = CM.focus && CM.focus.kind === "vehicle" ? CM.focus.p : null;
+    const fi = fv ? list.indexOf(fv) : -1;
+    if (fi >= wantVeh) { list.splice(fi, 1); list.unshift(fv); }
+    list.length = Math.max(wantVeh, fi >= 0 ? 1 : 0);
+  }
+  if (list.length >= wantVeh) return;
+  // Pas assez : les nouveaux venus sur les grands axes d'abord (case tirée au numéro).
+  const ranked = CM.walkRoadList.filter((r) => getVehicleDensity(era, r.rank || "secondary") > 0.08);
+  const weighted = [];
+  for (const r of (ranked.length ? ranked : CM.walkRoadList)) {
+    if (r.rank === "plaza") continue; // les esplanades sont piétonnes
+    const weight = r.rank === "main" ? 11 : r.rank === "avenue" ? 7 : r.rank === "secondary" ? 3 : 0;
+    for (let w = 0; w < Math.max(1, weight); w += 1) weighted.push(r);
+  }
+  const pool = weighted.length ? weighted : CM.walkRoadList;
+  while (list.length < wantVeh) {
+    const n = CM.vehicleSerial || 0;
+    CM.vehicleSerial = n + 1;
+    const r = pool[(n * 53) % pool.length];
+    const v = {
+      gx: r.gx, gy: r.gy, x: (r.gx + 0.5) * CM.TILE, y: (r.gy + 0.5) * CM.TILE,
+      tx: (r.gx + 0.5) * CM.TILE, ty: (r.gy + 0.5) * CM.TILE,
+      fade: 0, // fondu d'apparition (updateVehicles le fait monter, drawIsoVehicle l'applique)
+      dir: n % 2 ? 0 : 2, goal: null, pauseT: 0,
+      // Plus de stationnement : les véhicules démarrent et restent en mouvement.
+      parkT: 0,
+      parkSide: n % 2 ? 1 : -1,
+      serial: n,
+      // Graine de la fiche d'habitant (citizenFocus.js) : conducteur, chargement.
+      // Elle marque aussi « véhicule de la flotte » — seuls ceux-là sont cliquables.
+      seed: cmHash(`${state.cycles || 0}:veh:${n}:${r.gx},${r.gy}`) >>> 0,
+    };
+    retype(v, n, r.rank || "secondary");
+    list.push(v);
+  }
+}
+
+// ⚠ Exportée pour les tests (flotteEtNumeros.test.js) : rien d'autre ne l'appelle
+// hors de la boucle de frame.
+export function spawnOneCitizen(L) {
+  // NUMÉRO D'APPARITION MONOTONE (BUG-58, audit du 2026-10-05). C'était la longueur de
+  // la liste : un passant qui s'en va en milieu de liste (le compagnon dont le meneur
+  // rentre, la compaction d'updateCitizens) libérait un numéro encore porté par un
+  // vivant plus loin — le suivant naissait son CLONE (même seuil, même nom, même tenue,
+  // même âge). Le compteur ne repart de 0 que sur une liste vide : plus aucun vivant
+  // avec qui entrer en collision, et la distribution reste celle d'avant.
+  if (!CM.citizens.length) CM.citizenSerial = 0;
+  const n = CM.citizenSerial || 0;
+  CM.citizenSerial = n + 1;
   // Cellule d'APPARITION : le seuil d'un logement (citizenSpawnCell, agents.js) — plus
   // de piéton qui se matérialise au milieu de la chaussée. Tirage à part du seed
   // d'apparence, qui garde sa formule d'origine (cellule comprise) et donc sa
@@ -2110,6 +2189,21 @@ function spawnOneCitizen(L) {
   });
 }
 
+// SOUS-PAS DE SIMULATION (BUG-67, audit du 2026-10-05). Le pas reste plafonné à
+// 1/30 s (au-delà, un passant ou un véhicule enjamberait sa case cible), mais une
+// frame lente — rendu logiciel, ~16 images/s sans GPU — le joue en PLUSIEURS pas au
+// lieu d'un seul : passants, véhicules et bateaux avançaient à la moitié du temps
+// réel, et leurs horaires (rentrer au crépuscule) dérivaient du ciel, qui suit
+// l'horloge murale. Au plus 3 pas (0,1 s) : au-delà (onglet revenu, gel), le
+// ralenti est accepté. Tolérance de 10 % sur le pas unique : à 30 images/s, le bruit
+// de l'horloge rAF (33,4 ms) ne double pas la simulation pour rien — il perd ce
+// qu'il perdait avant, au plus 3 ms.
+export function simStepsFor(sec) {
+  const t = Math.max(0, Math.min(0.1, sec || 0));
+  const steps = Math.max(1, Math.ceil(t * 30 - 0.1));
+  return { steps, dt: Math.min(1 / 30, t / steps) };
+}
+
 function initCityMap(canvas, options = {}) {
   if (CM.inited) return;
   if (!canvas || typeof canvas.getContext !== "function") return;
@@ -2138,9 +2232,15 @@ function initCityMap(canvas, options = {}) {
   // donc pas de repli procédural visible à l'achat. Band de la save = couvre une ouverture
   // directe en ère cosmique. Le recompute rappelle preloadHouseSprites avec la band courante.
   preloadHouseSprites(((cityCounts(state) || {}).eraBand) || 0);
-  const resizeObserver = typeof ResizeObserver === "function" ? new ResizeObserver(resize) : null;
+  // RÉALLOUER LE CANVAS LE VIDE (audit 2026-10-05, BUG-90) : les rappels resize et
+  // ResizeObserver tournent HORS de la chaîne rAF, et la frame suivante pouvait être
+  // sautée par le throttle — la carte clignotait pendant un redimensionnement de
+  // fenêtre, un flash vide à la maximisation. On la repeint dans la même image.
+  // forceFrame et captureFrame gardent `resize` nu : ils peignent juste après.
+  const onResize = () => { if (resize()) repaintNow(false); };
+  const resizeObserver = typeof ResizeObserver === "function" ? new ResizeObserver(onResize) : null;
   if (resizeObserver) resizeObserver.observe(canvas);
-  window.addEventListener("resize", resize);
+  window.addEventListener("resize", onResize);
   const cleanupInput = bindCityMapInput(canvas, mapRoot, {
     showHover: (sx, sy, opts) => cityMapShowTooltip(cityMapHitTest(sx, sy), sx, sy, opts),
     clearHover: () => cityMapShowTooltip(null),
@@ -2149,8 +2249,18 @@ function initCityMap(canvas, options = {}) {
   CM.cleanup = () => {
     cleanupInput();
     resizeObserver?.disconnect();
-    window.removeEventListener("resize", resize);
+    window.removeEventListener("resize", onResize);
     cityMapShowTooltip(null);
+    CM.repaintNow = null;
+    // ÉTAT D'ENTRÉE remis à zéro (BUG-91) : seul `mouseleave` vidait le pointeur et
+    // le passant survolé, et il ne vient pas quand on change d'onglet AU CLAVIER la
+    // souris posée sur la carte. Au retour, un clic sans bouger retombait sur
+    // `CM.hoverPick` (cf. le clic de bindCityMapInput) et ouvrait la fiche du
+    // passant survolé avant le départ ; citizenHoverTick repartait d'un pointeur
+    // périmé.
+    CM._mouse = null;
+    CM.hoverPick = null;
+    CM._cursorBase = null;
   };
   const cityMapRuntimeDeps = { getVehicleDensity, chooseRoadVehicleType, vehSkinFor };
 
@@ -2182,6 +2292,20 @@ function initCityMap(canvas, options = {}) {
     return smooth01((1 - p) / (1 - NIGHT_END));
   }
   let lastCitizenSpawn = 0;
+  // ── REPEINTE SYNCHRONE (audit du 2026-10-05, BUG-90) ────────────────────────
+  // Une frame peinte TOUT DE SUITE, hors de la chaîne rAF : après une réallocation
+  // du canvas (qui l'a vidé). Elle passe le throttle et ne ré-arme PAS la boucle —
+  // sinon chaque redimensionnement ajouterait une chaîne rAF de plus. `always` la
+  // peint même vue inactive : le dialogue d'Options couvre la carte (boucle en
+  // pause) avec un fond translucide, et un changement de Qualité qui change le dpr
+  // la laissait vide derrière lui jusqu'à sa fermeture.
+  let syncPaint = 0;                 // 0 = frame de la boucle, 1 = synchrone, 2 = synchrone même inactive
+  function repaintNow(always) {
+    if (!CM.ctx || !CM.canvas) return;
+    syncPaint = always ? 2 : 1;
+    try { frame(performance.now()); } finally { syncPaint = 0; }
+  }
+  CM.repaintNow = repaintNow;
   // ── FILET D'EXCEPTION DE LA BOUCLE (audit du 2026-10-05, BUG-32) ────────────
   // `frameBody` ré-arme son rAF AVANT de travailler : sans filet, une exception
   // dans une passe se rejouait à chaque image (console inondée, carte figée sur
@@ -2204,7 +2328,7 @@ function initCityMap(canvas, options = {}) {
     // Carte démontée : ne PAS se replanifier (la boucle meurt proprement ;
     // initCityMap relance une boucle neuve au prochain montage).
     if (!CM.ctx || !CM.canvas) return;
-    CM.raf = requestAnimationFrame(frame);
+    if (!syncPaint) CM.raf = requestAnimationFrame(frame);   // repeinte synchrone : la boucle court déjà
     // ⚠ TOLÉRANCE D'UNE DEMI-VSYNC (8 ms) — sans elle, le cap N fps sur un écran
     // à N Hz BOITE. Les timestamps rAF arrivent à ~16,67 ms ± un bruit d'horloge :
     // dès qu'un delta mesure 16,6 < cmFrameMs, la frame est sautée et la suivante
@@ -2217,11 +2341,17 @@ function initCityMap(canvas, options = {}) {
     // (30 réguliers, inchangé). La capture, elle, court-circuite le throttle.
     // Économie d'énergie (energySaver.js, PERF-5) : le cap est RELEVÉ sans focus
     // ou joueur absent, jamais abaissé ; même tolérance (12 i/s = 5 vsyncs à 60 Hz).
-    if (now - last < mapFrameMs(cmFrameMs, now, !!CHUTE.act) - 8 && !CM.capture) return;
-    const dt = Math.min(1 / 30, (now - last) / 1000); last = now;
+    // La repeinte synchrone (canvas réalloué, donc vide) le court-circuite aussi.
+    if (now - last < mapFrameMs(cmFrameMs, now, !!CHUTE.act) - 8 && !CM.capture && !syncPaint) return;
+    const dt = Math.min(1 / 30, (now - last) / 1000);
+    // La simulation (passants, véhicules, émeute, bateaux) en sous-pas de ≤ 1/30 s
+    // (simStepsFor, BUG-67) ; la capture garde son pas unique, déterministe.
+    const sim = CM.capture ? { steps: 1, dt } : simStepsFor((now - last) / 1000);
+    last = now;
     // Capture déterministe : rendre MÊME si la vue est « inactive » (modal de crise,
     // autre onglet) — sinon la capture renvoie un canvas périmé (gotcha harnais).
-    const active = isActive() || !!CM.capture;
+    // Même chose pour la repeinte forcée d'un changement de Qualité (syncPaint 2).
+    const active = isActive() || !!CM.capture || syncPaint === 2;
     if (active && CM.canvas && CM.cw > 0) {
       // Relevé de frame (cf. framePerf.js). Ouvert ICI et non dans le renderer :
       // le préambule ci-dessous coûtait 93 ms contre 32 ms pour tout le dessin.
@@ -2266,16 +2396,22 @@ function initCityMap(canvas, options = {}) {
       // désactiverait les émeutes (bug trouvé en revue 2026-07-20).
       fp('foule-spawn');
       const dayP = (Date.now() / DAY_CYCLE_MS) % 1;
+      // Capture DÉTERMINISTE (harnais __cityShot) ou capture LIVE (« Garder une
+      // image » de la contemplation, audit 2026-10-05 BUG-89) : la seconde promet
+      // la scène À L'HEURE QU'IL EST — météo, ambiance, heure (brume) et émeute
+      // comprises. Tout ce qui fige un cliché se garde donc par `detCapture`, et
+      // seul ce qui force le RENDU (throttle, vue inactive, budgets) par CM.capture.
+      const detCapture = !!CM.capture && !CM.capture.live;
       // En capture, la fenêtre est COUPÉE : un cliché est déterministe, l'heure
       // murale ne doit pas décider si une foule d'émeute y figure (captureFrame
       // isole aussi CM.rioters — la frame forcée purge la sim, cf. updateCrisis).
-      CM.riotWindow = !CM.capture && dayP >= RIOT_START && dayP < RIOT_END;
+      CM.riotWindow = !detCapture && dayP >= RIOT_START && dayP < RIOT_END;
       // Grâce de la première partie : lue UNE fois par frame, partagée par le jour
       // et le ciel. Elle ne touche que l'AFFICHAGE en mode « auto » : un choix
       // explicite du joueur (Options : Nuit, Averse) gagne toujours, et la
       // fenêtre d'émeutes ci-dessus reste sur l'horloge murale (gameplay).
-      const firstGrace = !CM.capture && firstGameGraceActive(state);
-      if (CM.capture) {
+      const firstGrace = !detCapture && firstGameGraceActive(state);
+      if (detCapture) {
         // Capture déterministe : plein jour (ou nuit forcée).
         CM.nightF = CM.capture.night; CM.dayRising = false;
         CM.dayP = null;
@@ -2297,7 +2433,7 @@ function initCityMap(canvas, options = {}) {
       }
       // Indice de santé de la cité (0 = agonie, 1 = prospérité) : la taille
       // pilote l'échelle, la santé pilote l'ambiance (palette, lumières).
-      if (CM.capture) { CM.healthF = CM.capture.health; } else {
+      if (detCapture) { CM.healthF = CM.capture.health; } else {
         let healthT;
         try {
           const pr = pressureBreakdown();
@@ -2325,7 +2461,8 @@ function initCityMap(canvas, options = {}) {
       // Distinct de la Qualité, qui elle touche la résolution et la densité.
       // En capture, ambiance PLEINE : un cliché ne doit pas dépendre d'une
       // préférence de confort (même raison que la fenêtre d'émeute ci-dessus).
-      CM.ambianceK = CM.capture ? 1 : ambianceK();
+      // Sauf le cliché LIVE : il montre la carte telle que le joueur l'a réglée.
+      CM.ambianceK = detCapture ? 1 : ambianceK();
       // SAISON : un ENTIER, jamais de valeur continue (cf. seasonMode.js). Elle
       // entre dans la clé du bake du sol, donc chaque cran coûte une recuisson :
       // c'est la raison du cycle très lent, et de l'absence de fondu.
@@ -2335,13 +2472,14 @@ function initCityMap(canvas, options = {}) {
       CM.season = currentSeason();
       // MÉTÉO : une seule source par frame, lue par toutes les couches (pluie,
       // assombrissement, densité de foule). En capture, temps dégagé : un cliché
-      // est déterministe, l'horloge murale ne décide pas s'il y pleut.
+      // est déterministe, l'horloge murale ne décide pas s'il y pleut (le cliché
+      // LIVE, lui, garde l'averse qui tombe).
       {
         const CLEAR = { rainF: 0, windX: 0, gustF: 0 };
-        const real = CM.capture ? CLEAR : weatherState();
+        const real = detCapture ? CLEAR : weatherState();
         // Grâce de la première partie : ciel tenu dégagé, relâché seulement quand
         // le ciel réel l'est déjà (jamais d'averse qui tombe d'un bloc).
-        const w = (!CM.capture && weatherMode === 'auto' && cmGraceSky(firstGrace, real.rainF === 0)) ? CLEAR : real;
+        const w = (!detCapture && weatherMode === 'auto' && cmGraceSky(firstGrace, real.rainF === 0)) ? CLEAR : real;
         CM.rainF = w.rainF;
         CM.windX = w.windX;
         // RAFALE en cours (0..1) : densité, vitesse et inclinaison de l'averse,
@@ -2351,8 +2489,11 @@ function initCityMap(canvas, options = {}) {
         // Sous l'averse, les rues se vident. On ne recale la foule que par
         // PALIERS (cmRecomputeCitizenTarget tronque la liste des piétons, donc
         // l'appeler à chaque frame hacherait la foule).
+        // ⚠ JAMAIS en capture (BUG-89) : le ciel dégagé forcé du cliché basculait
+        // le palier, la foule était recalée (les passants qui rentraient s'abriter
+        // faisaient demi-tour), puis la frame suivante la recalait en sens inverse.
         const step = CM.rainF > 0.6 ? 2 : CM.rainF > 0.15 ? 1 : 0;
-        if (step !== CM._weatherStep) {
+        if (!CM.capture && step !== CM._weatherStep) {
           CM._weatherStep = step;
           CM.weatherCrowdK = step === 2 ? 0.35 : step === 1 ? 0.7 : 1;
           cmRecomputeCitizenTarget();
@@ -2420,8 +2561,8 @@ function initCityMap(canvas, options = {}) {
       // legacy, et le seuil d'ère du vapeur n'était pas le même des deux côtés).
       if (!CM.fleetCtl) CM.fleetCtl = makeFleetCtl();
       const _noLife = !!(CM.capture && CM.capture.citizens === 'none');
-      updateRiverFleet(CM.ships, CM.fleetCtl,
-        _noLife ? { trade: 0, yacht: 0, fisher: 0 } : (CM.shipBudget || { trade: 0, yacht: 0, fisher: 0 }), dt, {
+      const _fleetBudget = _noLife ? { trade: 0, yacht: 0, fisher: 0 } : (CM.shipBudget || { trade: 0, yacht: 0, fisher: 0 });
+      const _fleetEnv = {
           docks: CM.shipDocks || [],
           avoidT: CM.shipAvoidT || [],
           // L'île, si elle existe : c'est elle qui donne au pêcheur son circuit.
@@ -2448,7 +2589,8 @@ function initCityMap(canvas, options = {}) {
           serviceMode: fleetServiceMode,
           // Fenêtre de navigation : la carte (le ruban la déborde de 200 tuiles).
           bounds: CM.layout ? { x0: 0, y0: 0, x1: CM.layout.gridN || 0, y1: CM.layout.gridN || 0 } : null,
-        });
+        };
+      for (let s = 0; s < sim.steps; s += 1) updateRiverFleet(CM.ships, CM.fleetCtl, _fleetBudget, sim.dt, _fleetEnv);
       fp('flotte');
       // LA CARTE N'A PLUS QU'UN CHEMIN DE RENDU. drawIsoWorld peint la frame
       // entière, simulation des agents incluse (iso/isoRenderer.js). Le pipeline
@@ -2463,7 +2605,7 @@ function initCityMap(canvas, options = {}) {
       // Sortir ici est sûr : `frame` a ré-armé son rAF bien plus haut, comme le
       // font déjà les deux replis d'entrée de la fonction.
       if (!CM.layout) { fpEnd(); return; }
-      drawIsoWorld(dt, now);
+      drawIsoWorld(sim.dt, now, sim.steps);
       fpEnd();
     }
   }
@@ -2478,23 +2620,28 @@ function initCityMap(canvas, options = {}) {
   // force le plein jour (pas de voile nuit qui fausse les pixels) et une santé fixe,
   // fige le temps d'animation. N'altère PAS le rendu normal (tout est gardé par le
   // flag CM.capture, nul en fonctionnement). Renvoie un dataURL (PNG par défaut).
+  // `opts.live` (« Garder une image » de la contemplation, BUG-89) : la scène À
+  // L'HEURE QU'IL EST — ni ciel dégagé forcé, ni ambiance pleine, ni brume coupée,
+  // ni émeute mise de côté (cf. `detCapture` dans la frame). Seul le rendu est forcé.
   CM.captureFrame = (opts = {}) => {
     if (!CM.canvas) return null;
+    const live = !!opts.live;
     const saved = { night: CM.nightF, health: CM.healthF, last };
     // Émeutes : riotWindow=false en capture (déterminisme) fait PURGER la sim
     // par updateCrisis — on lui donne un tableau jetable et on remet la vraie
     // foule (et ses compteurs d'apaisement) après le cliché, sinon capturer
-    // pendant une émeute la dissiperait pour de bon.
-    const savedRiot = {
+    // pendant une émeute la dissiperait pour de bon. En capture live la fenêtre
+    // reste ouverte : la vraie foule est sur le cliché, rien à mettre de côté.
+    const savedRiot = live ? null : {
       rioters: CM.rioters, goal: CM.riotGoal, goalAt: CM.riotGoalAt,
       calmed: CM.riotCalmed, calmDecayT: CM.riotCalmDecayT, draw: CM.riotDraw,
     };
-    CM.rioters = [];
+    if (!live) CM.rioters = [];
     // `citizens` est mémorisé sur CM.capture : vider les pools ne suffisait pas,
     // la frame les regarnissait aussitôt (l'ancien code reconstruisait la flotte
     // dès que son effectif ne collait plus). Le budget doit être coupé À LA
     // SOURCE pour qu'un cliché « sans vie » ait vraiment un fleuve vide.
-    CM.capture = { night: opts.night ?? 0, health: opts.health ?? 1, citizens: opts.citizens };
+    CM.capture = { night: opts.night ?? 0, health: opts.health ?? 1, citizens: opts.citizens, live };
     if (opts.citizens === 'none') { CM.citizens.length = 0; CM.vehicles.length = 0; CM.ships.length = 0; }
     last = -1e9; // by-passe le throttle pour forcer un vrai rendu
     resize();
@@ -2512,8 +2659,10 @@ function initCityMap(canvas, options = {}) {
     }
     const url = opts.jpeg ? out.toDataURL('image/jpeg', opts.quality || 0.82) : out.toDataURL('image/png');
     CM.nightF = saved.night; CM.healthF = saved.health; last = saved.last;
-    CM.rioters = savedRiot.rioters; CM.riotGoal = savedRiot.goal; CM.riotGoalAt = savedRiot.goalAt;
-    CM.riotCalmed = savedRiot.calmed; CM.riotCalmDecayT = savedRiot.calmDecayT; CM.riotDraw = savedRiot.draw;
+    if (savedRiot) {
+      CM.rioters = savedRiot.rioters; CM.riotGoal = savedRiot.goal; CM.riotGoalAt = savedRiot.goalAt;
+      CM.riotCalmed = savedRiot.calmed; CM.riotCalmDecayT = savedRiot.calmDecayT; CM.riotDraw = savedRiot.draw;
+    }
     return url;
   };
   // Hook dev : capture puis POST au middleware Vite -> écrit .preview-shots/<name>.png.

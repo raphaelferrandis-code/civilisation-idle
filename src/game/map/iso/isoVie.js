@@ -235,9 +235,11 @@ export function vieHalo(ctx, x, y, r, col, alpha, squash = 1) {
 // ── LA BRUME DU MOMENT ──────────────────────────────────────────────────────
 // Densité 0..1. `VIE.brume` la force (captures, planches) ; sinon l'heure du cycle
 // publiée par le runtime (CM.dayP, null quand le joueur a figé le ciel).
+// Coupée en capture DÉTERMINISTE ; la capture live (« Garder une image ») garde
+// la brume de l'heure (audit 2026-10-05, BUG-89).
 export function vieMistF(mistOfDay) {
   if (VIE.brume != null) return Math.max(0, Math.min(1, +VIE.brume)) * VIE.brumeK;
-  if (CM.capture || CM.dayP == null) return 0;
+  if ((CM.capture && !CM.capture.live) || CM.dayP == null) return 0;
   const seasonK = CM.season === 1 ? 0.85 : CM.season === 2 ? 1.15 : 1;
   return Math.min(1, mistOfDay(CM.dayP) * seasonK) * VIE.brumeK;
 }

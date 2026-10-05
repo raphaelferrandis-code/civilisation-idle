@@ -35,7 +35,7 @@ describe("relevé léger du vestige", () => {
     Object.assign(state, { cycles: 1, mapSeed: 0x51a7c0de, population: pop, knowledge: pop.mul(0.05), infrastructure: pop.mul(0.1), instability: 0, timeWear: 0, vestiges: [] });
     KEYS.forEach((k) => { state.buildings[k] = 4; });
     state.buildings.roads = 20;
-    state.cityRoads = null; state.cityCore = null; state.cityMapSlots = {}; state.cityArchetype = null; state.riverWP = null;
+    state.cityRoads = null; state.cityCore = null; state.cityMapSlots = {}; state.cityArchetype = null; state.cityPersonality = null; state.riverWP = null;
     computeCityLayout(state);                 // la carte a posé la fiche de cœur et le fleuve
     KEYS.forEach((k) => { state.buildings[k] = 10; });   // la ville a grandi depuis : la grille aussi
   });

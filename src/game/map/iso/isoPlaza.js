@@ -1766,9 +1766,12 @@ export function drawIsoPlazaProp(ctx, rec, era, now) {
 // au cœur du feu, à 18 % sous le haut de l'encre — le point chaud des braseros
 // des ponts (PROP_LIGHT, isoProps.js). Quatre sur un parvis : poids 0,6, elles
 // s'additionnent. L'orbe cosmique n'est pas un feu, il éclaire or pâle.
+// ⚠ L'encre d'ICI (inkBox ci-dessus) rend { x0, y0, w, h } — pas le { x, y } de
+// celle d'isoProps d'où ces lignes viennent : `bb.x` y valait undefined, la lueur
+// tombait en NaN et aucun brasero de parvis n'éclairait (audit 05/10, BUG-61).
 function brazierGlow(rec, era, bb, im, g, now) {
-  const x = g.dx + ((bb.x + bb.w * 0.5) / im.naturalWidth) * g.dw;
-  const y = g.dy + ((bb.y + bb.h * 0.18) / im.naturalHeight) * g.dh;
+  const x = g.dx + ((bb.x0 + bb.w * 0.5) / im.naturalWidth) * g.dw;
+  const y = g.dy + ((bb.y0 + bb.h * 0.18) / im.naturalHeight) * g.dh;
   queueFlameGlow(x, y, Math.max(6, CM.TILE * CM.cam.zoom * 0.55), era === 'cosmic' ? '255,214,140' : FLAME_COL,
     now, rec.wx * 0.011 + rec.wy * 0.017, 0.6);
 }
@@ -1952,7 +1955,8 @@ export function drawIsoPlazaGrid(ctx, comp) {
 // besoin de la boîte d'encre du panneau, et une seconde implémentation de la mesure
 // dériverait de celle qui sert au dessin.
 // `plazaPropImage` : pour la garde des requêtes (plazaPropRequests.test.js).
-export { PLAZA_TUNE, RECIPES, KIND_KITS, HOUSE_HT, houseF, TALL_PROPS, personHT, ADULT_SCALE, inkBox, plazaBases, propImage as plazaPropImage };
+// `brazierGlow` : pour la garde de la lueur des braseros (plazaBrazierGlow.test.js).
+export { PLAZA_TUNE, RECIPES, KIND_KITS, HOUSE_HT, houseF, TALL_PROPS, personHT, ADULT_SCALE, inkBox, plazaBases, propImage as plazaPropImage, brazierGlow };
 
 // ── LA FONTAINE DE LA SCÈNE DE PLACE, rapatriée d'isoRenderer le 2026-08-23
 // (Q10). Elle décrivait déjà une scène de CE module ; la laisser dans le peintre

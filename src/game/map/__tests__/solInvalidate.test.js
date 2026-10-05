@@ -53,3 +53,23 @@ describe('l ancien cache du sol est bien parti (lot 4)', () => {
     expect(DEAD_STATE.test('  paintGroundPyramid(ctx, L, now);')).toBe(false);
   });
 });
+
+// LES MOLETTES QUI CHANGENT LE SOL CUIT (audit du 2026-10-05, BUG-100). Les
+// molettes ne vivent que sous `window` (absent sous Node) : on lit leur CORPS.
+describe('les molettes qui touchent au sol cuit le font recuire', () => {
+  const corps = (file, nom) => {
+    const src = readFileSync(join(MAP_DIR, file), 'utf8');
+    const i = src.indexOf('window.' + nom + ' = ');
+    expect(i, file + ' : ' + nom).toBeGreaterThan(-1);
+    return src.slice(i, src.indexOf('\n  };', i));
+  };
+  it('__forest (densité de la forêt → sous-bois et fleurs cuits) invalide tout le sol', () => {
+    expect(corps('iso/isoWildForest.js', '__forest')).toMatch(/solInvalidate\('all'\)/);
+  });
+  it('__cour oublie aussi ce qui a lu l ancien champ : pelouse de ville et fleurs du camp', () => {
+    const c = corps('iso/isoTissu.js', '__cour');
+    for (const memo of ['_courField', '_townLawn', '_campFlowerK']) expect(c, memo).toMatch(new RegExp('CM\\.layout\\.' + memo + ' = '));
+    expect(c).toMatch(/solInvalidate\('all'\)/);
+  });
+  // (La neige de grève, elle, passe par le suffixe : cf. solPyramideSig.test.js.)
+});

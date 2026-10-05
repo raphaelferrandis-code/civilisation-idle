@@ -459,11 +459,16 @@ function drawRiotWeapon(ctx, hx, hy, u, weapon, now, phase, pulse) {
 // l'émeute, foule qui décroît, clic d'apaisement : le passant reprend sa journée là
 // où l'émeutier s'est arrêté. Sans passant à portée, l'émeutier d'appoint s'EFFACE en
 // fondu au lieu de disparaître.
+// Jamais le passant DÉSIGNÉ (fiche d'habitant, BUG-86, audit du 2026-10-05) : masqué
+// le temps de l'émeute, il laissait la caméra sur un trottoir vide et la fiche disait
+// qu'il dormait, quand il défilait une torche à la main quelques rues plus loin.
 function riotRecruit(anchor) {
   if (!anchor || !Array.isArray(CM.citizens)) return null;
+  const followed = CM.focus ? CM.focus.p : null;
   let best = null, bd = 11;
   for (const c of CM.citizens) {
     if (c._riot || c._nightHidden || c.leaving || c.lead || c._enter || c.charType === 2 || c._vanish !== undefined) continue;
+    if (c === followed) continue;
     if (c.fade != null && c.fade < 1) continue;
     // La distance d'abord : elle écarte presque tout le monde pour une soustraction.
     const d = Math.abs(c.gx - anchor.gx) + Math.abs(c.gy - anchor.gy);

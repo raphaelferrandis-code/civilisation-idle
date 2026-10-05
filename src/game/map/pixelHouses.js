@@ -11,7 +11,7 @@
 import { CM, cmHash } from './layout.js';
 import { maskFromImageData } from "./iso/isoMask.js";
 import { pickHouseTint, applyHouseTint, HOUSE_TINTS } from './housePalette.js';
-import { snowImageData, snowRoofTune, addSnowResetHook } from './snowRoof.js';
+import { snowImageData, snowRoofTune, addSnowResetHook, skipKey as snowSkipKey } from './snowRoof.js';
 import { WINTER } from './seasonMode.js';
 import { lightCutImage } from './lightLayer.js';
 import { HOUSE_UNIT, HOUSE_LOT_WF, houseFitTune, houseScaleK, grainTune, GRAIN_FIX, recDens, grainProbe } from './spriteScale.js';
@@ -220,7 +220,10 @@ function houseTintOf(t, key) {
 // neige n'a AUCUNE raison de se teinter : elle est la même sur toutes les matières. La
 // passe de neige, elle, est additive (elle ne repeint que ses propres pixels), c'est ce
 // qui laisse les 20 aspects intacts en hiver.
-function variantCanvas(key, tint, winter) {
+// Les skins COSMIQUES n'en prennent pas (snowRoof.skipKey, « une calotte blanche les
+// éteint ») : la même règle que les tours-moteur voisines (audit 05/10, BUG-96).
+function variantCanvas(key, tint, winterNow) {
+  const winter = winterNow && !snowSkipKey(key);
   if (!tint && !winter) return null;
   const vk = key + ":" + tint + (winter ? ":w" : "");
   const hit = variants.get(vk);

@@ -378,18 +378,55 @@ function buildModel(sp, L, band, ei) {
   };
 }
 
-let _models = { key: '', list: null };
-// Modèles des travées de la frame (cache par layout + ère + molettes de gabarit).
+// Signature de la GÉOMÉTRIE que buildModel lit : l'emprise, le sens et le rang de
+// route de chaque travée, et le fleuve (ses samples). Rien d'autre du layout.
+function bridgeGeoSig(spans, rv) {
+  let s = '';
+  for (const sp of spans) {
+    s += sp.gx0 + ',' + sp.gy0 + ',' + sp.gx1 + ',' + sp.gy1 + (sp.vertical ? 'v' : 'h')
+      + ((sp.cells && sp.cells[0] && sp.cells[0].rank) || 'main') + ';';
+  }
+  if (rv && rv.present && rv.samples) {
+    let h = 2166136261;
+    for (const p of rv.samples) {
+      h = Math.imul(h ^ Math.round(p.x * 1000), 16777619);
+      h = Math.imul(h ^ Math.round(p.y * 1000), 16777619);
+      h = Math.imul(h ^ Math.round((p.hw || 0) * 1000), 16777619);
+    }
+    s += rv.samples.length + '#' + (h >>> 0);
+  }
+  return s;
+}
+
+let _models = { key: '', list: null, at: null, spans: null };
+// Modèles des travées de la frame (cache par GÉOMÉTRIE + ère + molettes de gabarit).
+// ⚠ JAMAIS par l'horodatage du layout (audit 2026-10-05, BUG-66) : le layout se
+// recalcule toutes les 1,5 s en pleine croissance (structSig suit eraFrac au
+// centième), et chaque fois le pont refaisait ses modèles — donc ses HABITUÉS,
+// objets neufs : la fiche d'un accoudé suivi (désigné par identité d'objet,
+// citizenFocus) passait à « a quitté la rue » au recalcul suivant — et recuisait
+// tout (6 à 12 ms, quatre putImageData de ~2 Mo). L'horodatage ne sert plus que de
+// chemin rapide : la signature n'est recalculée qu'une fois par recalcul.
 export function bridgeGeoms() {
   const L = CM.layout;
   if (!L || !CM.bridgeSpans || !CM.bridgeSpans.length || !bridgeTune.on) return null;
   const band = (L.counts && L.counts.eraBand) | 0, ei = (L.counts && L.counts.eraIndex) | 0;
-  const key = CM.layoutRecomputeAt + ':' + band + ':' + ei + ':' + bridgeTune.pedMargin + ':'
-    + bridgeTune.passMargin + ':' + bridgeTune.landing + ':' + (quayWallTune.heightK || 1);
-  if (_models.key === key && _models.list) return _models.list;
+  const tune = band + ':' + ei + ':' + bridgeTune.pedMargin + ':' + bridgeTune.passMargin + ':'
+    + bridgeTune.landing + ':' + (quayWallTune.heightK || 1) + ':' + CM.TILE;
+  if (_models.list && _models.at === CM.layoutRecomputeAt && _models.spans === CM.bridgeSpans && _models.tune === tune) {
+    return _models.list;
+  }
+  const key = tune + '|' + bridgeGeoSig(CM.bridgeSpans, L.river);
+  if (_models.key === key && _models.list) {
+    // Même pont : on garde modèles, habitués et cuissons ; seules les travées du
+    // nouveau layout (mêmes valeurs, objets neufs) sont rebranchées.
+    _models.list.forEach((m, i) => { m.sp = CM.bridgeSpans[i]; });
+    _models.at = CM.layoutRecomputeAt; _models.spans = CM.bridgeSpans; _models.tune = tune;
+    return _models.list;
+  }
   const list = CM.bridgeSpans.map((sp) => buildModel(sp, L, band, ei));
   list.forEach((m, i) => { m.key = key + ':' + i; m.si = i; });
-  _models = { key, list };
+  _models = { key, list, at: CM.layoutRecomputeAt, spans: CM.bridgeSpans, tune };
   return list;
 }
 

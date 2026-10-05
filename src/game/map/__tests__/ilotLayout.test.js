@@ -6,8 +6,9 @@ import { computeCityLayout, ILOT_MODE, ILOT_MEMORY_V } from "../layout.js";
 import { state, normalizeCityCore } from "../../core/state.js";
 import { D } from "../../core/num.js";
 import { eras } from "../../data/world.js";
-import { ROAD_MEMORY } from "../roadMemory.js";
+import { ROAD_MEMORY, decodeRoadMemory } from "../roadMemory.js";
 import { ANNEX_BODIES } from "../ilotArt.js";
+import { gridOf, ILOT_DEFAULTS } from "../procedural/blockCity.js";
 
 const KEYS = Object.keys(state.buildings).filter((k) => k !== "roads");
 function grow(i, level = 30) {
@@ -22,10 +23,32 @@ function grow(i, level = 30) {
 }
 const BUILT = new Set(["house", "enginehome", "engine"]);
 const foot = (t) => { const out = []; const sx = t.spanX || t.size || 1, sy = t.spanY || t.size || 1; for (let a = 0; a < sx; a += 1) for (let b = 0; b < sy; b += 1) out.push((t.gx + a) + "," + (t.gy + b)); return out; };
+// Rues MÉMORISÉES tombées dans l'intérieur d'un îlot ouvert (hors places, hors 2e voie
+// du cardo) — même grille que ilotLayout.js (îlots longs le long des axes).
+const odd = (n) => ((n % 2) + 2) % 2 === 1;
+const ilotMerge = (i, j) => {
+  const onDecu = j === -1 || j === 0, onCardo = i === -1 || i === 0;
+  if (onDecu && !onCardo && odd(i)) return "x";
+  if (onCardo && !onDecu && odd(j)) return "y";
+  return null;
+};
+function memRoadsInIlots(L) {
+  const mem = state.cityCore.ilot, bx = Math.round(L.river.bridge.x);
+  const grid = gridOf({ ox: bx, oy: Math.round(L.plan.core.y), pitch: ILOT_DEFAULTS.pitch, merge: ilotMerge });
+  const roads = decodeRoadMemory(state.cityRoads, state.mapSeed, L.cx, L.cy) || new Map();
+  let n = 0;
+  for (const k of mem.blocks) {
+    if (mem.plazas && mem.plazas[k]) continue;
+    const [i, j] = k.split(":").map(Number);
+    const it = grid.interior(i, j);
+    for (let y = it.y0; y <= it.y1; y += 1) for (let x = it.x0; x <= it.x1; x += 1) if (x !== bx + 1 && roads.has(x + "," + y)) n += 1;
+  }
+  return n;
+}
 
 beforeEach(() => {
   ROAD_MEMORY.on = true; ILOT_MODE.on = true;
-  state.cityRoads = null; state.cityCore = null; state.cityMapSlots = {}; state.cityArchetype = null; state.riverWP = null;
+  state.cityRoads = null; state.cityCore = null; state.cityMapSlots = {}; state.cityArchetype = null; state.cityPersonality = null; state.riverWP = null;
 });
 
 describe("ville par îlots (bande 4)", () => {
@@ -182,6 +205,48 @@ describe("ville par îlots (bande 4)", () => {
     grow(21);
     expect(JSON.stringify(state.cityMapSlots), "puis plus rien ne bouge").toBe(slots);
   }, 180000);
+
+  // LA RÉORGANISATION EFFACE LE HAMEAU (audit 2026-10-05, BUG-13) : la mémoire des rues,
+  // décodée avant la réorganisation, réinjectait les sentiers du hameau dans le tracé —
+  // 302 cases de rue en plein îlot, 49 maisons-moteur posées sur 101 en bande 2.
+  it("passage en îlots (bande 1 → 2) : aucune rue du hameau dans les îlots, maisons-moteur toutes logées", () => {
+    grow(8, 10);
+    expect(state.cityCore.ilot, "le hameau n'est pas encore en îlots").toBeFalsy();
+    const L = grow(10, 12);
+    expect(L.counts.eraBand).toBe(2);
+    expect(memRoadsInIlots(L), "rues mémorisées dans les îlots").toBe(0);
+    expect(L.tiles.filter((t) => t.type === "enginehome").length).toBe((L.counts.engineHomes | 0) + 44);
+  }, 120000);
+
+  it("une fiche v2 qui a gardé les sentiers du hameau se répare UNE fois : rues effacées, aucun bâtiment ne bouge", () => {
+    grow(8, 10);
+    const hameau = state.cityRoads.cells.slice();
+    grow(10, 12);
+    const slots0 = JSON.stringify(state.cityMapSlots);
+    // Une partie passée en îlots avec le défaut : sentiers du hameau en mémoire, fiche v2.
+    state.cityRoads.cells = state.cityRoads.cells.concat(hameau);
+    state.cityCore.ilot.v = 2;
+    const L = grow(10, 12);
+    expect(state.cityCore.ilot.v).toBe(ILOT_MEMORY_V);
+    expect(memRoadsInIlots(L), "rues mémorisées dans les îlots").toBe(0);
+    expect(JSON.stringify(state.cityMapSlots), "bâtiments déplacés").toBe(slots0);
+    expect(L.tiles.filter((t) => t.type === "enginehome").length).toBe((L.counts.engineHomes | 0) + 44);
+    const roads = JSON.stringify(state.cityRoads.cells);
+    grow(10, 12);
+    expect(JSON.stringify(state.cityRoads.cells), "puis les rues ne bougent plus").toBe(roads);
+  }, 120000);
+
+  it("une fiche v2 saine passe en v3 sans que rien ne bouge, rues comprises", () => {
+    grow(8, 10);
+    grow(10, 12);
+    grow(10, 12);
+    const roads0 = JSON.stringify(state.cityRoads.cells), slots0 = JSON.stringify(state.cityMapSlots);
+    state.cityCore.ilot.v = 2;
+    grow(10, 12);
+    expect(state.cityCore.ilot.v).toBe(ILOT_MEMORY_V);
+    expect(JSON.stringify(state.cityRoads.cells), "rues retracées").toBe(roads0);
+    expect(JSON.stringify(state.cityMapSlots), "bâtiments déplacés").toBe(slots0);
+  }, 120000);
 
   it("la fiche d'îlots survit au rechargement : la réorganisation n'a lieu qu'une fois", () => {
     grow(21);

@@ -363,7 +363,11 @@ const POUSSEUR = {
     drawHull(S, HB, V);
     asPart(S, 6, () => {
       if (V.load === 'boxes') {
-        for (let a = -20; a < 22; a += 6.6) for (const r of [-1, 1]) container(S, a, a + 6.2, r * 3.4 - 2.9, r * 3.4 + 2.9, 1.2, 4.2, BOXES[(V.seed + Math.round(a) + r * 3 + 40) % BOXES.length]);
+        // Couleur HACHÉE par boîte, comme le porte-conteneurs (audit du 2026-10-05,
+        // BUG-97) : la somme linéaire graine + abscisse + rangée avançait de 6-7 par baie
+        // et rangeait les boîtes par paires et en dégradé (6 6 5 5 4 4 4).
+        let bay = 0;
+        for (let a = -20; a < 22; a += 6.6, bay += 1) for (const r of [-1, 1]) container(S, a, a + 6.2, r * 3.4 - 2.9, r * 3.4 + 2.9, 1.2, 4.2, BOXES[h32(V.seed, bay * 11 + (r + 1) * 5, 43) % BOXES.length]);
       } else {
         const ramp = V.load === 'coal' ? COAL : NEON.sand;
         surf(S, (u, s) => [-22 + u * 44, s * 5.8, 1.2 + 3.4 * Math.pow(Math.sin(Math.PI * u), 0.4) * (1 - s * s)], 0, 1, -1, 1, (u, s, nw) => rampRGB(ramp, nw));

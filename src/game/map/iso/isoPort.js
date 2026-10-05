@@ -33,7 +33,7 @@ import { pxProbe, recPx } from '../pixelGrid.js';
 import { snapDev } from '../blitSnap.js';
 import { drawSunShadow, sunShadowNightK } from './isoSunShadow.js';
 import { noteReflection } from './isoReflect.js';
-import { PIER, drawPortPier, pierHouseFoot, pierMoorings } from './isoPier.js';
+import { PIER, drawPortPier, pierHouseFoot, pierMoorings, isPierPortTile } from './isoPier.js';
 import { drawOldPort, drawPortOffice } from './isoOldPort.js';
 import { drawTradePort } from './isoTradePort.js';
 import { boatSpecFor, boatSizeMul, boatHasLights, drawBoat, BOATKIT } from './boatKit.js';
@@ -397,7 +397,7 @@ function portDockGeom(t, spanX, T, band, ei, rv) {
 // mouillage par défaut posait le bateau sur la travée). Coincé des deux côtés →
 // null : pas de bateau plutôt qu'un bateau sur le tablier.
 export function portMooring(t, spanX, T, band, ei, rv) {
-  if (t.oldPort || t.tradePort || t.portOffice) return null;   // bassin et terminal amarrent leurs propres navires
+  if (!isPierPortTile(t)) return null;   // bassin, terminal et capitainerie amarrent leurs propres navires
   const G = portDockGeom(t, spanX, T, band, ei, rv);
   if (!G || !BOAT_SIZES[G.vstage]) return null;
   const effSize = (BOAT_SIZES[G.vstage] || 0.7) * G.sizeMul;

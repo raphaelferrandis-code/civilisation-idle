@@ -368,9 +368,22 @@ function bakePier(F, plan, M, T, band, sm) {
   });
 }
 
+// Le port qui a SON ponton au pixel : la tuile moteur du port fluvial, ni le bassin du
+// Vieux-Port, ni le terminal de commerce, ni la capitainerie — ceux-là amarrent leurs
+// propres navires (docs/PLAN-PORTS.md). UN prédicat pour tous : le peintre (portTiles),
+// les postes de la flotte (boatBerths) et le bateau de décor (isoPort.portMooring).
+// ⚠ Audit du 2026-10-05 (BUG-17) : fleetBerths n'écartait que le Vieux-Port ; aux
+// bandes 5-9, la capitainerie et le terminal (mouillés : ils bordent l'eau) recevaient
+// un ponton FANTÔME — cuit, jamais peint — où les marchands accostaient en plein fleuve
+// et où les porteurs marchaient sur l'eau.
+export function isPierPortTile(t) {
+  return !!t && t.buildingId === 'river_ports' && t.type === 'engine' && !t.oldPort && !t.tradePort && !t.portOffice;
+}
+
 // ── LE CACHE, PAR PORT ──────────────────────────────────────────────────────
 const _cache = new Map();
 function geomFor(t, spanX, spanY, band, ei) {
+  if (!isPierPortTile(t)) return null;   // pas de ponton fantôme, quel que soit l'appelant
   const L = CM.layout, rv = L && L.river;
   if (!rv || !rv.present || !rv.samples || rv.samples.length < 2) return null;
   const stage = stageOf(ei);
@@ -408,7 +421,7 @@ function portTiles(L) {
   const rc = L.river && L.river.present && L.river.cells;
   if (!rc) return out;
   for (const t of (L.tiles || [])) {
-    if (t.buildingId !== 'river_ports' || t.type !== 'engine' || t.oldPort || t.tradePort || t.portOffice) continue;   // ni le Vieux-Port, ni le commerce
+    if (!isPierPortTile(t)) continue;   // ni le Vieux-Port, ni le commerce, ni la capitainerie
     const sx = t.spanX || t.size || 1, sy = t.spanY || t.size || 1;
     let w = false;
     for (let ax = 0; ax < sx && !w; ax += 1) for (let ay = 0; ay < sy && !w; ay += 1) {
@@ -499,7 +512,19 @@ export function pierMoorings(t, spanX, spanY, band, ei, effSize) {
   if (!PIER.on) return null;
   const g = geomFor(t, spanX, spanY, band, ei);
   if (!g) return null;
-  const F = g.F, plan = g.plan;
+  return mooringsOf(g.F, g.plan, effSize);
+}
+// Les mêmes candidats pour un ponton qui n'existe PAS (capitainerie, terminal) : la
+// géométrie seule (pierFrame + pierPlan), ni cuisson ni tri isPierPortTile. Ne sert
+// qu'à REPÉRER le port sur le ruban (boatBerths.fleetPortMarks) — jamais d'escale.
+export function pierSiteMoorings(t, spanX, spanY, band, ei, effSize) {
+  if (!PIER.on) return null;
+  const L = CM.layout, rv = L && L.river;
+  if (!rv || !rv.present || !rv.samples || rv.samples.length < 2) return null;
+  const F = pierFrame(t, spanX, spanY, rv);
+  return F ? mooringsOf(F, pierPlan(stageOf(ei), F.hw, band), effSize) : null;
+}
+function mooringsOf(F, plan, effSize) {
   const P = (a, c) => ({ x: F.root.x + F.dir.x * a + F.across.x * c, y: F.root.y + F.dir.y * a + F.across.y * c });
   const out = [];
   if (plan.head) {

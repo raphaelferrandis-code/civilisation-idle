@@ -28,13 +28,18 @@ export function drawIsoDrones(now) {
     if (!dchr) dchr = ensureDrone();
     const p = worldToScreen(v.x, v.y);
     if (p.x < -s || p.y < -s * 2 || p.x > CM.cw + s || p.y > CM.ch + s) continue;
+    // Fondu d'apparition, comme les véhicules au sol (BUG-56, cf. drawIsoVehicle).
+    const fa = v.fade == null ? 1 : v.fade;
+    if (fa <= 0.02) continue;
+    const pa = ctx.globalAlpha;
+    if (fa < 1) ctx.globalAlpha = pa * fa;
     const t2 = now || 0;
     const hover = Math.sin(t2 / 380 + v.x * 0.04) * s * 0.04;
     const dScale = (CM.droneSize || 0.58) * VEH_SCALE;   // le drone est un véhicule : même échelle
     // Ombre AU SOL (à la position projetée), drone en altitude au-dessus.
     ctx.fillStyle = 'rgba(0,0,0,0.12)';
     ctx.beginPath(); ctx.ellipse(p.x, p.y, s * dScale * 0.2, s * dScale * 0.07, 0, 0, Math.PI * 2); ctx.fill();
-    if (!(dchr && dchr.ready && dchr.img)) continue;
+    if (!(dchr && dchr.ready && dchr.img)) { ctx.globalAlpha = pa; continue; }
     const q = worldToScreen(v.tx, v.ty);
     let hx = q.x - p.x, hy = q.y - p.y;
     const hd = Math.hypot(hx, hy);
@@ -48,5 +53,6 @@ export function drawIsoDrones(now) {
     drawDroneRotors(ctx, dsz, t2, v.x * 0.1);
     ctx.restore();
     ctx.imageSmoothingEnabled = prevSm;
+    ctx.globalAlpha = pa;
   }
 }

@@ -49,16 +49,21 @@ afterEach(() => {
 describe("PERF-6 — l'émeute ne relit plus l'ère case par case", () => {
   it("déclenchement et re-choix du but restent bon marché avec les six merveilles", () => {
     city(34, CM_WONDERS.map((w) => w.id));
-    let t0 = performance.now();
+    // On compte les comparaisons Decimal plutôt que les millisecondes : un seuil
+    // de temps dépend de la machine (la CI, 2 à 3 fois plus lente, a fait tomber
+    // « repick < 15 ms » à 19,8 ms), un compte d'opérations non. Le défaut d'origine
+    // relisait l'ère (une boucle de gte sur les seuils d'ère) pour chaque merveille,
+    // chaque passant et chaque case : des centaines de milliers de comparaisons.
+    // Aujourd'hui : ~200 par appel (quelques lectures d'ère par frame).
+    const gte = vi.spyOn(Decimal.prototype, "gte");
     updateCrisis(1 / 30, 1000);
-    const first = performance.now() - t0;
+    const first = gte.mock.calls.length;
     expect(CM.rioters.length).toBe(40);
-    t0 = performance.now();
+    gte.mockClear();
     updateCrisis(1 / 30, 7000);                        // > 5 s : nouveau but
-    const repick = performance.now() - t0;
-    // Avant : ~900-1 200 ms et ~25-30 ms sur ce banc (poste de dev). Marge CI large.
-    expect(first).toBeLessThan(150);
-    expect(repick).toBeLessThan(15);
+    const repick = gte.mock.calls.length;
+    expect(first).toBeLessThan(5000);
+    expect(repick).toBeLessThan(5000);
   });
 
   it("la foule reste hors du dégagement des merveilles ACTIVES, et seulement de celles-là", () => {

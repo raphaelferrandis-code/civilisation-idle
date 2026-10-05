@@ -16,7 +16,7 @@
 // on prend le premier que l'emprise d'un pont ne bloque pas.
 
 import { CM } from '../layout.js';
-import { pierMoorings, pierPlan, PIER } from './isoPier.js';
+import { pierMoorings, pierSiteMoorings, pierPlan, PIER, isPierPortTile } from './isoPier.js';
 import { bridgeBlocks } from './isoBridge.js';
 import { BOAT_MODELS, fleetFor } from './boatKits.js';
 import { BOATKIT } from './boatKit.js';
@@ -44,7 +44,16 @@ export function projectOnRibbon(sm, x, y) {
   return { t: (best.i + best.f) / Math.max(1, n - 1), lat: (x - best.qx) * -uy + (y - best.qy) * ux, tx: ux, ty: uy };
 }
 
-export function fleetBerths(L) {
+export function fleetBerths(L) { return berthsOf(L, false); }
+// LES REPÈRES DES PORTS sur le ruban (positions t), que le bac et la navette fuient
+// (cityMapRuntime : `avoid` de ferrySite / shuttleSite) : les postes de la flotte, plus
+// celui qu'AURAIENT la capitainerie et le terminal (même géométrie, rien de cuit).
+// ⚠ BUG-17 (audit du 2026-10-05) : ces deux postes fantômes ont quitté la flotte, mais
+// ils tenaient le bac et la navette à distance des deux ports du XIXe — sans eux, l'un
+// et l'autre changeaient de site dans les villes existantes (bandes 5-9), jusqu'au pied
+// du terminal.
+export function fleetPortMarks(L) { return berthsOf(L, true).map((b) => b.t); }
+function berthsOf(L, marks) {
   const out = [];
   const rv = L && L.river;
   if (!rv || !rv.present || !rv.samples || rv.samples.length < 2 || !rv.cells) return out;
@@ -56,7 +65,12 @@ export function fleetBerths(L) {
   // Le poste est coté pour le plus long marchand de l'époque.
   const big = Math.max(...fl.trade.map((id) => BOAT_MODELS[id].len / 32));
   for (const t of L.tiles || []) {
+    // Seuls les ports à ponton (isPierPortTile, le même tri que le peintre) : la
+    // capitainerie et le terminal bordent l'eau mais n'ont pas de ponton (BUG-17) —
+    // ils ne comptent que pour les repères (fleetPortMarks).
     if (t.buildingId !== 'river_ports' || t.type !== 'engine' || t.oldPort) continue;
+    const pier = isPierPortTile(t);
+    if (!pier && !marks) continue;
     const sx = t.spanX || t.size || 1, sy = t.spanY || t.size || 1;
     let wet = false;
     for (let ax = 0; ax < sx && !wet; ax += 1) for (let ay = 0; ay < sy && !wet; ay += 1) {
@@ -64,7 +78,7 @@ export function fleetBerths(L) {
       if (rv.cells.has(k) || (rv.banks && rv.banks.has(k))) wet = true;
     }
     if (!wet) continue;
-    const pm = pierMoorings(t, sx, sy, band, ei, big);
+    const pm = pier ? pierMoorings(t, sx, sy, band, ei, big) : pierSiteMoorings(t, sx, sy, band, ei, big);
     if (!pm) continue;
     for (const cand of pm.cands) {
       if (bridgeBlocks(cand.x * T, cand.y * T, (big * 0.55 + 0.3) * T)) continue;

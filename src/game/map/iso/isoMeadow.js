@@ -48,8 +48,25 @@ export function meadowAt(L) {
     if (dist) { const d = dist.at(gx, gy); if (d <= W) s -= 1.3 * (1 - d / (W + 1)); }
     return s < -1 ? -1 : s > 1 ? 1 : s;
   };
-  L._meadowAt = { sig, at };
+  L._meadowAt = { sig, at, dist };
   return at;
+}
+
+// Signature de tuile (solPyramideFrame.tileSig) : l'herbe grasse suit la distance
+// au fleuve jusqu'à MEADOW.water cellules — bien au-delà des deux cellules de marge
+// de la tuile. Quand la grille s'étend et que le fleuve dérive d'une case, la tuile
+// voisine restait fraîche : une couture de deux niveaux de vert entre elle et la
+// recuite (audit du 2026-10-05, BUG-100). Même geste que forestFloorSig.
+export function meadowSig(L, mix, gx0, gx1, gy0, gy1) {
+  if (!MEADOW.on || !L) return;
+  meadowAt(L);
+  const dist = L._meadowAt && L._meadowAt.dist;
+  if (!dist) return;
+  const W = MEADOW.water;
+  for (let gy = gy0; gy <= gy1; gy += 1) for (let gx = gx0; gx <= gx1; gx += 1) {
+    const d = dist.at(gx, gy);
+    if (d <= W) { mix(gx * 31 + gy * 977); mix(d); }
+  }
 }
 
 // ── LA PELOUSE DE VILLE (lot 5, 2026-10-04) ──────────────────────────────────

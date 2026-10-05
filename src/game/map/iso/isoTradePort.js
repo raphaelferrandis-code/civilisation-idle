@@ -117,7 +117,9 @@ function tradePlan(tp, level, band, T, sm) {
   // RACCORDS avec le quai du fleuve, qui reprend au premier sample hors de la coupure :
   // sans eux, un coin de berge restait entre les deux maçonneries. Ils suivent la berge
   // eux aussi : au point de reprise, les deux bords se rejoignent.
-  const join = quayJoin(sm, x0 - 0.5, x1 + 0.5);
+  // De SA rive seulement (N → masque minus, S → plus) : en face du bassin, celle du
+  // Vieux-Port lui répondait.
+  const join = quayJoin(sm, x0 - 0.5, x1 + 0.5, -dir);
   if (join) {
     // Chevauchement de 0,1 tuile sur le premier segment du quai du fleuve : bord à bord,
     // un trait d'eau d'un pixel restait entre les deux murs.

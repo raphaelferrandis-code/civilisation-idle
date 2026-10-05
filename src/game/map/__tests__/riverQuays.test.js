@@ -26,7 +26,7 @@ const bridges = (L) => L.roads.filter((r) => r.roadSurface === "bridge").length;
 
 beforeEach(() => {
   ROAD_MEMORY.on = true; ILOT_MODE.on = true;
-  state.cityRoads = null; state.cityCore = null; state.cityMapSlots = {}; state.cityArchetype = null; state.riverWP = null;
+  state.cityRoads = null; state.cityCore = null; state.cityMapSlots = {}; state.cityArchetype = null; state.cityPersonality = null; state.riverWP = null;
 });
 
 describe("rues de quai et fleuve qui s'étire", () => {

@@ -23,6 +23,7 @@ export let weatherMode = (() => {
 
 export function setWeatherMode(mode) {
   weatherMode = WEATHER_MODES.includes(mode) ? mode : "auto";
+  rainCycle = null;            // une averse forcée neuve tire son vent (cf. weatherState)
   try {
     localStorage.setItem(WEATHER_KEY, weatherMode);
   } catch { /* stockage indisponible : le réglage vaut pour la session */ }
@@ -95,14 +96,22 @@ export function gustAt(t) {
   return Math.max(gustPulse(k, t), gustPulse(k - 1, t));
 }
 
+// AVERSE FORCÉE (mode 'rain') : une seule averse qui ne finit jamais, donc UN seul
+// vent — celui du cycle où elle a commencé (premier appel après le réglage ou le
+// chargement de la page). Tiré du cycle de l'instant, il sautait toutes les 24 min en
+// pleine pluie (audit 05/10, BUG-92). En passant d'« auto » à « averse », c'est le
+// vent du moment : l'inclinaison ne bouge pas non plus au changement de réglage.
+let rainCycle = null;
+
 // État météo courant. `nowMs` injectable pour les tests (défaut : horloge murale,
 // donc la position dans le cycle survit aux rechargements, comme le jour/nuit).
 export function weatherState(nowMs) {
   const t = nowMs === undefined ? Date.now() : nowMs;
   const cycle = Math.floor(t / WEATHER_CYCLE_MS);
   if (weatherMode === "clear") return { rainF: 0, windX: 0, gustF: 0 };
+  if (weatherMode === "rain" && rainCycle === null) rainCycle = cycle;
   const rainF = weatherMode === "rain" ? 1 : rainAt((t / WEATHER_CYCLE_MS) % 1);
   // La rafale est une MODULATION de l'averse : pas d'averse, pas de bourrasque,
   // et les premières gouttes ne claquent pas (elle monte avec l'intensité).
-  return { rainF, windX: windAt(cycle), gustF: rainF > 0 ? gustAt(t) * rainF : 0 };
+  return { rainF, windX: windAt(weatherMode === "rain" ? rainCycle : cycle), gustF: rainF > 0 ? gustAt(t) * rainF : 0 };
 }

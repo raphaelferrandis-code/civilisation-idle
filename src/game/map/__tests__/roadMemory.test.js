@@ -35,7 +35,7 @@ const decorSlots = () => Object.fromEntries(Object.entries(state.cityMapSlots)
 
 beforeEach(() => {
   ROAD_MEMORY.on = true;
-  state.cityRoads = null; state.cityCore = null; state.cityMapSlots = {}; state.cityArchetype = null; state.riverWP = null;
+  state.cityRoads = null; state.cityCore = null; state.cityMapSlots = {}; state.cityArchetype = null; state.cityPersonality = null; state.riverWP = null;
 });
 
 describe("mémoire du réseau — une ville qui se souvient", () => {

@@ -23,7 +23,7 @@ function grow(i, level = 30) {
 
 beforeEach(() => {
   ROAD_MEMORY.on = true; ILOT_MODE.on = true;
-  state.cityRoads = null; state.cityCore = null; state.cityMapSlots = {}; state.cityArchetype = null; state.riverWP = null;
+  state.cityRoads = null; state.cityCore = null; state.cityMapSlots = {}; state.cityArchetype = null; state.cityPersonality = null; state.riverWP = null;
 });
 
 describe("le lieu des Plaisirs et les rues", () => {

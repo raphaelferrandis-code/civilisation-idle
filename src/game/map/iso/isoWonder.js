@@ -240,6 +240,36 @@ function foamCanvas(F) {
   const g = cv.getContext('2d'), img = g.createImageData(F.w, F.h);
   return { F, cv, g, img, u32: new Uint32Array(img.data.buffer), tick: -1, ox: F.ox, oy: F.oy, w: F.w, h: F.h };
 }
+// Bord AVANT de l'île à la colonne d'écran X (local) : le plus grand x + y de son
+// contour (l'ellipse de l'île un peu élargie, ×1,08 ; ×1,1) sur les colonnes X ± `win`,
+// −Infinity hors de l'île.
+// ⚠ Audit du 2026-10-05 (BUG-93) : on l'échantillonnait en 96 points, ~24 px entre deux
+// au milieu de l'île pour une fenêtre de 12 : sur ~5 % des colonnes, aucun point
+// (−Infinity : le bateau qui passait devant n'était pas redessiné, la base de l'île
+// mangeait sa coque) ; ailleurs, souvent le bord ARRIÈRE. Résolu sur l'ellipse même, en
+// O(1) : image linéaire du cercle unité, X = p·cos a + q·sin a, D = r·cos a + s·sin a ;
+// son bord haut D(X) est concave, son maximum sur la fenêtre est au sommet s'il y
+// tombe, sinon au bout de la fenêtre le plus proche du sommet.
+export function isleFrontAt(M, win = 6) {
+  const ru = M.RX * 1.08, rv = M.RY * 1.1;
+  const p = ru * (M.tx - M.ty), q = -rv * (M.tx + M.ty);
+  const r = ru * (M.tx + M.ty), s = rv * (M.tx - M.ty);
+  const Rx = Math.hypot(p, q) || 1e-9, phi = Math.atan2(q, p);
+  const top = Math.hypot(r, s), psi = Math.atan2(s, r);
+  const Xtop = p * Math.cos(psi) + q * Math.sin(psi);
+  // Le bord haut du contour à la colonne X (|X| ≤ Rx) : le plus avancé des deux points.
+  const up = (X) => {
+    const da = Math.acos(Math.max(-1, Math.min(1, X / Rx)));
+    const a1 = phi + da, a2 = phi - da;
+    return Math.max(r * Math.cos(a1) + s * Math.sin(a1), r * Math.cos(a2) + s * Math.sin(a2));
+  };
+  return (X) => {
+    const lo = Math.max(-Rx, X - win), hi = Math.min(Rx, X + win);
+    if (lo > hi) return -Infinity;
+    return Xtop < lo ? up(lo) : Xtop > hi ? up(hi) : top;
+  };
+}
+
 const _isles = new Map();
 const isleKey = (m) => m.tier + ':' + m.band + ':' + (winterNow() ? 'w' : '') + ':' + isleShape(m.il);
 function isleFor(m) {
@@ -254,6 +284,8 @@ function isleFor(m) {
   const kinds = new Map();
   e = {
     key, M: base.M, R: base.R, cv: rasterCanvas(base.R), cvR: rasterCanvas(base.Rr), box: inkOf(base.R).box, props: plan.props,
+    // Les filets lumineux du quai (âges cosmiques), allumés la nuit comme le monument.
+    cvN: base.N ? rasterCanvas(base.N) : null,
     // L'écume au pied des rochers : un canvas repeint par paintFoam tous les FOAM_STEP.
     foam: base.foam ? foamCanvas(base.foam) : null, ripples: base.ripples,
     talls: plan.talls.map((q) => {
@@ -270,16 +302,7 @@ function isleFor(m) {
   e.backD = -Math.hypot(M.RX * (M.tx + M.ty), M.RY * (M.tx - M.ty)) - 20;
   // Bord AVANT de l'île sur une verticale d'écran X (local) : pour savoir si un
   // bateau passe devant (on le redessine) ou derrière (l'île le cache déjà).
-  e.frontAt = (X) => {
-    let best = -Infinity;
-    for (let k = 0; k < 96; k += 1) {
-      const a = (k / 96) * 2 * Math.PI;
-      const u = M.RX * 1.08 * Math.cos(a), v = M.RY * 1.1 * Math.sin(a);
-      const x = u * M.tx - v * M.ty, y = u * M.ty + v * M.tx;
-      if (Math.abs(x - y - X) < 6 && x + y > best) best = x + y;
-    }
-    return best;
-  };
+  e.frontAt = isleFrontAt(M);
   if (_isles.size > 8) _isles.delete(_isles.keys().next().value);
   _isles.set(key, e);
   return e;
@@ -349,7 +372,7 @@ function placeFor(m) {
     key, P, half, G, cv: rasterCanvas(G), props, garden,
     decor: decor.map((d) => {
       const k = d.kind + ':' + (d.s || 0);
-      if (!kinds.has(k)) { const R = bakeDecor(d.kind, K, d.s); kinds.set(k, { R, cv: rasterCanvas(R) }); }
+      if (!kinds.has(k)) { const { R, N } = bakeDecor(d.kind, K, d.s); kinds.set(k, { R, cv: rasterCanvas(R), cvN: N ? rasterCanvas(N) : null }); }
       return { ...d, ...kinds.get(k) };
     }),
   };
@@ -573,6 +596,13 @@ export function drawIsoWonderSeg(ctx, it, now) {
         if (e >= 0.98) noteReflection(ctx, isl.cvR, dx, dy, dw, dh, 0, bcut, B2.w, B2.h - bcut, 'column', 'water');
         ctx.drawImage(isl.cv, 0, bcut, B2.w, B2.h - bcut, dx, dy, dw, dh);
         lightCutImage(isl.cv, dx, dy, dw, dh, 0, bcut, B2.w, B2.h - bcut);
+        // LA NUIT : les filets lumineux du quai, déposés APRÈS la découpe (comme les
+        // tranches du monument : sinon elle les effacerait elle-même).
+        const nf = CM.nightF || 0;
+        if (isl.cvN && nf > 0.03) {
+          const lc = lightCtx(dx, dy, dx + dw, dy + dh);
+          if (lc) { const sm = lc.imageSmoothingEnabled; lc.imageSmoothingEnabled = false; lc.globalAlpha = Math.min(1, nf * 1.15); lc.drawImage(isl.cvN, 0, bcut, B2.w, B2.h - bcut, dx, dy, dw, dh); lc.globalAlpha = 1; lc.imageSmoothingEnabled = sm; }
+        }
         // L'ÉCUME bat le pied des rochers (wonderIsle.bakeFoam) : l'image du moment,
         // calée sur la base, sous tout ce qui se tient sur l'île.
         if (e >= 0.98 && isl.foam && !CM.lodActive) {
@@ -635,6 +665,12 @@ export function drawIsoWonderSeg(ctx, it, now) {
       drawSunShadow(ctx, dc.cv, dx, dy, dw, dh, 0, 0, R2.w, R2.h, 'column', true);
       ctx.drawImage(dc.cv, dx, dy, dw, dh);
       lightCutImage(dc.cv, dx, dy, dw, dh);
+      // LA NUIT : bandeau et piliers de l'enceinte de verre, lanterne de fonte.
+      const nf = CM.nightF || 0;
+      if (dc.cvN && nf > 0.03) {
+        const lc = lightCtx(dx, dy, dx + dw, dy + dh);
+        if (lc) { const sm = lc.imageSmoothingEnabled; lc.imageSmoothingEnabled = false; lc.globalAlpha = Math.min(1, nf * 1.15); lc.drawImage(dc.cvN, dx, dy, dw, dh); lc.globalAlpha = 1; lc.imageSmoothingEnabled = sm; }
+      }
     }
   } else if ((it.part === 'prop' || it.part === 'pprop') && e >= 0.98) {
     const pl = it.part === 'pprop' ? m.pl || placeFor(m) : null;

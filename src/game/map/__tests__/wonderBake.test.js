@@ -27,6 +27,8 @@ const bake = (id, t, band, winter = false) => {
   return WB[RECIPE[id]](wonderKitForBand(band, winter), t, B, H);
 };
 const opaque = (R) => { let n = 0; for (let i = 3; i < R.data.length; i += 4) if (R.data[i]) n += 1; return n; };
+// Pixels encore marqués pour la nuit (vitre 254, lumière 253) : nightOf les remet à 255.
+const marks = (R) => { let n = 0; for (let i = 3; i < R.data.length; i += 4) if (R.data[i] === 253 || R.data[i] === 254) n += 1; return n; };
 const hash = (R) => { let h = 2166136261; for (let i = 0; i < R.data.length; i += 1) h = Math.imul(h ^ R.data[i], 16777619); return h >>> 0; };
 
 describe('les six recettes', () => {
@@ -109,7 +111,7 @@ describe('le lieu de chaque merveille', () => {
         const half = (Math.ceil(B / T / 2 + 1.5) + 0.5) * T;
         const plan = placePlan(id, t, K, B, half);
         expect(opaque(bakePlaceGround(plan, half)), `${id} rang ${t}`).toBeGreaterThan(1000);
-        for (const d of plan.decor) expect(opaque(bakeDecor(d.kind, K, d.s)), `${id} : ${d.kind}`).toBeGreaterThan(5);
+        for (const d of plan.decor) expect(opaque(bakeDecor(d.kind, K, d.s).R), `${id} : ${d.kind}`).toBeGreaterThan(5);
         for (const p of plan.props) expect(PROPS.has(p.prop), `${id} : ${p.prop}`).toBe(true);
       }
     }
@@ -122,6 +124,26 @@ describe('le lieu de chaque merveille', () => {
     expect(g.col(100, -100)).toBeNull();
     expect(g.col(180, 0)).toBeTruthy();
     expect(g.decor.length).toBeGreaterThan(4);
+  });
+
+  // Audit 05/10, BUG-64 : bakeDecor finissait sur pixelFinish sans nightOf — le
+  // bandeau et les piliers de l'enceinte de verre (âges cosmiques) et la lanterne
+  // de fonte (bande 5) restaient éteints la nuit, leurs pixels à l'alpha 253.
+  it('le décor du lieu ne garde aucun marqueur de nuit, et ses lumières s allument', () => {
+    for (const band of BANDS.concat(7)) {
+      const K = wonderKitForBand(band);
+      for (const [kind, s] of [['wallX', 16], ['wallY', 16], ['pier'], ['post'], ['blocks'], ['obelisk'], ['fountain', 10]]) {
+        const out = bakeDecor(kind, K, s);
+        expect(marks(out.R), `bande ${band} : ${kind}, alpha 253/254 restants`).toBe(0);
+      }
+    }
+    for (const band of [7, 9]) {
+      const K = wonderKitForBand(band);
+      expect(bakeDecor('wallX', K, 16).N, `bande ${band} : bandeau de l enceinte de verre`).toBeTruthy();
+      expect(bakeDecor('pier', K).N, `bande ${band} : pilier de verre`).toBeTruthy();
+    }
+    expect(bakeDecor('pier', wonderKitForBand(5)).N, 'bande 5 : lanterne de fonte').toBeTruthy();
+    expect(bakeDecor('cypress', wonderKitForBand(4)).N, 'un cyprès n a rien à allumer').toBeNull();
   });
 });
 
@@ -136,13 +158,31 @@ describe("l'îlot de l'Aiguille", () => {
         const base = bakeIsleBase(K, t, il);
         expect(opaque(base.R), `rang ${t} bande ${band}`).toBeGreaterThan(5000);
         expect(opaque(base.Rr), 'le reflet ne garde que le mur et les rochers').toBeLessThan(opaque(base.R));
+        expect(marks(base.R), `rang ${t} bande ${band} : base, alpha 253/254 restants`).toBe(0);
+        expect(marks(base.Rr), `rang ${t} bande ${band} : reflet, alpha 253/254 restants`).toBe(0);
         const plan = islePlan(K, t, il);
-        for (const q of plan.talls) expect(opaque(bakeIsleTall(q.kind, K, t).R), q.kind).toBeGreaterThan(20);
+        for (const q of plan.talls) {
+          const tall = bakeIsleTall(q.kind, K, t);
+          expect(opaque(tall.R), q.kind).toBeGreaterThan(20);
+          expect(marks(tall.R), `${q.kind} : alpha 253/254 restants`).toBe(0);
+        }
         for (const p of plan.props) expect(PROPS.has(p.prop), p.prop).toBe(true);
       }
       const top = isleModel(t, il).top;
       expect(top, `rang ${t}`).toBeGreaterThan(prevTop);
       prevTop = top;
+    }
+  });
+
+  // Audit 05/10, BUG-64 : la base finissait sur pixelFinish sans nightOf — les
+  // filets lumineux du quai (murs 'tech') restaient éteints la nuit, alors que les
+  // mêmes filets s'allumaient sur l'Aiguille voisine.
+  it('aux âges cosmiques, les filets lumineux du quai s allument la nuit', async () => {
+    const { bakeIsleBase } = await import('../iso/wonderIsle.js');
+    for (const band of [7, 9]) {
+      const base = bakeIsleBase(wonderKitForBand(band), 4, il);
+      expect(base.N, `bande ${band} : calque de nuit de l îlot`).toBeTruthy();
+      expect(opaque(base.N), `bande ${band}`).toBeGreaterThan(100);
     }
   });
 

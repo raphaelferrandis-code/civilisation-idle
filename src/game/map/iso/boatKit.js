@@ -168,7 +168,10 @@ let _crewCv = null;
 // `po` (le bac, lot 5 de PLAN-COMPORTEMENTS) : { names, hide } — ses places de voyageur
 // reçoivent ceux qui attendaient au ponton (names[j], place de trop = vide), ou restent
 // vides le temps qu'ils montent (hide).
-function drawCrew(ctx, e, M, bx, by, k, z, band, po = null) {
+// `now` : l'horloge de la FRAME, celle du reste de la flotte (audit du 2026-10-05,
+// BUG-101 : sur performance.now(), respiration et salut échappaient aux captures à
+// horloge figée et décrochaient de la scène quand l'horloge du jeu ralentit).
+function drawCrew(ctx, e, M, bx, by, k, z, band, now, po = null) {
   if (!e.crew || !e.crew.length || !e.mcv) return;
   let pj = 0;
   const d = CM.dpr || 1;
@@ -186,10 +189,10 @@ function drawCrew(ctx, e, M, bx, by, k, z, band, po = null) {
     const F = agentFrameIso(sp.name, crewDir(cr.phi), z, sp.scale);
     if (!F) continue;
     // Il respire (lot 3 de PLAN-COMPORTEMENTS) : la bande d'attente, déphasée par marin.
-    const I = agentIdleFrameIso(sp.name, crewDir(cr.phi), z, sp.scale, typeof performance !== 'undefined' ? performance.now() : 0, ((cr.id >>> 0) % 97) / 97);
+    const I = agentIdleFrameIso(sp.name, crewDir(cr.phi), z, sp.scale, now || 0, ((cr.id >>> 0) % 97) / 97);
     // Le salut d'un bateau à l'autre (pose 'wave', §8) : la main levée, en boucle.
     const Wv = cr.pose === 'wave' ? agentPoseFrameIso(sp.name, crewDir(cr.phi), z, sp.scale, 'wave',
-      (((typeof performance !== 'undefined' ? performance.now() : 0) / 1400) + ((cr.id >>> 0) % 97) / 97) % 1) : null;
+      (((now || 0) / 1400) + ((cr.id >>> 0) % 97) / 97) % 1) : null;
     const S = Wv || I || { img: F.img, sx: 0, fh: F.fh };
     const ex0 = bx + (cr.x0 - e.ox) * k, ey0 = by + (cr.y0 - e.oy) * k;
     const mx = Math.floor(ex0 * d) / d, my = Math.floor(ey0 * d) / d;
@@ -212,12 +215,20 @@ function drawCrew(ctx, e, M, bx, by, k, z, band, po = null) {
 
 // États de la flotte → états du kit (le kit ne connaît que ce qui change le
 // dessin : voile serrée à quai, filet relevé au mouillage).
-function kitState(spec, state) {
+// ⚠ Le mouillage se décide par le MÉTIER du modèle, pas par son id (audit du
+// 2026-10-05, BUG-65) : seule la scapha recevait 'anchor', les pêcheurs des neuf autres
+// bandes ramaient sur place pendant leur pêche — pirogue, barques, bateau à moteur et
+// barques de nacre ont pourtant leur pose (sagaie, filet relevé, ligne). Drague et
+// pompiers (métier 'service') restent en 'cruise'.
+export function kitState(spec, state) {
   if (state === 'dock' || state === 'board') return 'dock';
   if (state === 'salute') return 'salute';
   // La navette des Plaisirs : au retour, presque vide ; à la Maison, ses passagers sont montés.
   if (state === 'return' || state === 'unload') return state;
-  if (state === 'anchor' || state === 'fish') return spec.id === 'scapha' ? 'anchor' : 'cruise';
+  if (state === 'anchor' || state === 'fish') {
+    const M = spec && BOAT_MODELS[spec.id];
+    return M && M.role === 'fisher' ? 'anchor' : 'cruise';
+  }
   return 'cruise';
 }
 
@@ -260,7 +271,7 @@ export function drawBoat(ctx, spec, x, y, theta, z, now, opts = {}) {
   // celle de la ville (un bateau de l'ère d'avant qui finit sa route s'est rhabillé).
   const band = opts.band != null ? opts.band : ((CM.layout && CM.layout.counts && CM.layout.counts.eraBand) | 0);
   const po = (opts.passNames || opts.hidePass) ? { names: opts.passNames || null, hide: !!opts.hidePass } : null;
-  const crew = e.crew && e.crew.length ? (c2) => drawCrew(c2, e, M, bx, by, dw / side, z, band, po) : null;
+  const crew = e.crew && e.crew.length ? (c2) => drawCrew(c2, e, M, bx, by, dw / side, z, band, now, po) : null;
   if (crew) crew(ctx);
   ctx.imageSmoothingEnabled = prevSm;
   const anchors = {};

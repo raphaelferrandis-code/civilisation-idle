@@ -145,3 +145,36 @@ describe("la passe suit la plus grosse coque de l'ère", () => {
     }
   });
 });
+
+// Audit 2026-10-05, BUG-66 : le modèle était indexé sur l'HORODATAGE du layout, qui
+// se recalcule toutes les 1,5 s en pleine croissance. Chaque recalcul refaisait les
+// habitués (objets neufs) : la fiche d'un accoudé suivi, désigné par identité
+// d'objet, se perdait — et le pont recuisait pour rien.
+describe("le modèle suit la géométrie du pont, pas l'horodatage du layout", () => {
+  it("un recalcul qui ne change ni les travées ni le fleuve garde les mêmes habitués", () => {
+    setup(4, 22);
+    const m0 = bridgeGeoms()[0];
+    expect(m0.idlers.length).toBeGreaterThan(0);
+    // Nouveau layout : objets neufs (travées, cellules, samples), mêmes valeurs.
+    setup(4, 22);
+    const m1 = bridgeGeoms()[0];
+    expect(m1).toBe(m0);
+    expect(m1.idlers[0]).toBe(m0.idlers[0]);
+    expect(m1.key).toBe(m0.key);                    // la cuisson (clé m.key) est gardée
+    expect(m1.sp).toBe(CM.bridgeSpans[0]);          // rebranché sur la travée du layout courant
+  });
+
+  it("une travée qui change, ou une autre ère, refait le modèle", () => {
+    setup(4, 22);
+    const m0 = bridgeGeoms()[0];
+    setup(4, 22);
+    CM.bridgeSpans[0].gy1 = 13;
+    expect(bridgeGeoms()[0]).not.toBe(m0);
+    setup(4, 23);
+    const m2 = bridgeGeoms()[0];
+    expect(m2).not.toBe(m0);
+    setup(4, 23);
+    CM.layout.river.samples[3].hw = 3.5;           // le fleuve bouge : la face aussi
+    expect(bridgeGeoms()[0]).not.toBe(m2);
+  });
+});

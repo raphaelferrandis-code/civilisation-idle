@@ -25,6 +25,13 @@ import { worldToScreen, screenToWorld, visibleCellBounds, ISO_X } from './projec
 import { WINTER } from '../seasonMode.js';
 import { WILD_PAD, WILD_BLOCK, isoWildForest } from './isoWildForest.js';
 import { _frac, _rnd } from './isoMath.js';
+// ⚠ LA GRILLE DEVICE (audit du 2026-10-05, BUG-98). Flocons, éclats et gouttes
+// étaient posés à l'entier CSS : à dpr 1,25 ou 1,5 (Windows à 125/150 %) un
+// entier CSS tombe sur un quart ou une moitié de pixel device — flocons aux bords
+// flous, pixels d'éclats et de gouttes de largeurs inégales, nappe de pluie
+// rééchantillonnée à chaque image. Positions et tailles passent par snapDev,
+// comme tout ce qui bouge (blitSnap.js). À dpr 1, snapDev EST Math.round.
+import { snapDev } from '../blitSnap.js';
 
 // ── LISERÉ DE NEIGE (hiver seulement) ────────────────────────────────────────
 // ── NEIGE D'HIVER : DANS LES TUILES, plus dans le bake procédural ─────────────
@@ -236,6 +243,9 @@ function rainVeilFor(n, dx, dy, th, W, H) {
   const V = rainVeil && rainVeil.cv.length === RAIN_LANES ? rainVeil
     : { key: '', marge: 0, lw: 0, lh: 0, cv: [], cx: [] };
   const pw = Math.max(1, Math.round(lw * dpr)), ph = Math.max(1, Math.round(lh * dpr));
+  // Taille LOGIQUE exacte de la nappe (pw × ph device) : c'est elle qui sert de
+  // période au bouclage et de taille de pose. À dpr 1 : lw × lh, à l'identique.
+  const vw = pw / dpr, vh = ph / dpr;
   for (let l = 0; l < RAIN_LANES; l += 1) {
     let cv = V.cv[l];
     if (!cv) { cv = V.cv[l] = document.createElement('canvas'); V.cx[l] = cv.getContext('2d'); }
@@ -243,17 +253,22 @@ function rainVeilFor(n, dx, dy, th, W, H) {
     const c2 = V.cx[l];
     if (!c2) return null;
     c2.setTransform(dpr, 0, 0, dpr, 0, 0);   // même repère que CM.ctx : on peint en pixels LOGIQUES
-    c2.clearRect(0, 0, lw, lh);
+    // Effacer la nappe ENTIÈRE (vw × vh = pw × ph device) : lw × lh s'arrête à un quart
+    // de pixel device du bord quand lw·dpr est arrondi vers le haut, et la dernière
+    // rangée gardait les gouttes de la forge précédente. À dpr 1 : lw × lh.
+    c2.clearRect(0, 0, vw, vh);
     c2.imageSmoothingEnabled = false;
   }
   // La nappe est plus large que l'écran (les gouttes de bord doivent être
   // ENTIÈRES) : on sème donc au prorata, sans quoi la marge diluerait l'averse.
-  const plan = rainVeilDraws(Math.round(kn * (lw / Math.max(1, W))), lw, lh, st.ox);
+  const plan = rainVeilDraws(Math.round(kn * (lw / Math.max(1, W))), vw, vh, st.ox);
+  // L'étampe sur la grille DEVICE, à une taille entière en px device (cf. snapDev).
+  const sw = snapDev(st.cv.width), sh = snapDev(st.cv.height);
   for (let i = 0; i < plan.length; i += 1) {
     const d = plan[i];
-    V.cx[d.lane].drawImage(st.cv, d.x, d.y);
+    V.cx[d.lane].drawImage(st.cv, snapDev(d.x), snapDev(d.y), sw, sh);
   }
-  V.key = key; V.marge = marge; V.lw = lw; V.lh = lh;
+  V.key = key; V.marge = marge; V.lw = vw; V.lh = vh;
   rainVeil = V;
   return V;
 }
@@ -266,11 +281,12 @@ function rainVeilFor(n, dx, dy, th, W, H) {
 function drawRainVeil(ctx, V, phase, tour, alpha) {
   if (!(alpha > 0.002)) return;
   ctx.globalAlpha = Math.min(1, alpha);
+  const x0 = snapDev(-V.marge);
   for (let l = 0; l < RAIN_LANES; l += 1) {
     const cv = V.cv[(l + tour) % RAIN_LANES];
-    const s = Math.round(_frac(phase * LANE_SPEED[l]) * V.lh);   // à l'ENTIER : la nappe reste sur la grille
-    ctx.drawImage(cv, -V.marge, s, V.lw, V.lh);
-    ctx.drawImage(cv, -V.marge, s - V.lh, V.lw, V.lh);
+    const s = snapDev(_frac(phase * LANE_SPEED[l]) * V.lh);   // à l'ENTIER DEVICE : la nappe reste sur la grille
+    ctx.drawImage(cv, x0, s, V.lw, V.lh);
+    ctx.drawImage(cv, x0, s - V.lh, V.lw, V.lh);
   }
 }
 
@@ -666,7 +682,9 @@ function drawIsoSplashes(now, r, g) {
     if (!st) break;
     const p = worldToScreen(s.wx, s.wy);
     ctx.globalAlpha = Math.min(1, 0.6 * r * ph.k * SPLASH_TUNE.alpha);
-    ctx.drawImage(st.cv, Math.round(p.x) - st.ox, Math.round(p.y) - st.oy);
+    // Coin ET taille sur la grille device (cf. snapDev en tête) : à dpr 1, c'est
+    // l'arrondi d'avant (ox, oy sont entiers) et la taille naturelle.
+    ctx.drawImage(st.cv, snapDev(p.x - st.ox), snapDev(p.y - st.oy), snapDev(st.cv.width), snapDev(st.cv.height));
   }
   ctx.globalAlpha = prevA;
   ctx.imageSmoothingEnabled = prevAA;
@@ -757,10 +775,13 @@ function drawIsoSnowfall(now, r, g = 0) {
   // pour toute la couche, et une seule évaluation par flocon.
   const near = [];
   ctx.fillStyle = `rgba(${SNOW_SHADE[0]},${SNOW_SHADE[1]},${SNOW_SHADE[2]},${(0.44 * r * gk * SNOWFALL_TUNE.alpha).toFixed(3)})`;
+  // Coin et côté sur la grille DEVICE (cf. snapDev en tête) : un carré plein, net
+  // à dpr 1,25 comme à 1. À dpr 1 : Math.round(x), Math.round(y), f.size.
   for (let i = 0; i < n; i += 1) {
     const f = isoSnowFlake(i, t, W, H, wind, unit);
-    if (f.near) { near.push(Math.round(f.x), Math.round(f.y), f.size); continue; }
-    ctx.fillRect(Math.round(f.x), Math.round(f.y), f.size, f.size);
+    const fx = snapDev(f.x), fy = snapDev(f.y), fk = snapDev(f.size);
+    if (f.near) { near.push(fx, fy, fk); continue; }
+    ctx.fillRect(fx, fy, fk, fk);
   }
   ctx.fillStyle = `rgba(${SNOW_TOP[0]},${SNOW_TOP[1]},${SNOW_TOP[2]},${(Math.min(1, 0.72 * r * gk) * SNOWFALL_TUNE.alpha).toFixed(3)})`;
   for (let j = 0; j < near.length; j += 3) ctx.fillRect(near[j], near[j + 1], near[j + 2], near[j + 2]);

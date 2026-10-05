@@ -28,7 +28,7 @@ import { BEACH } from './isoGroundTiles.js';
 import { terrainKey, terrainMaxPx } from './isoTerrain.js';
 import { rgb } from './isoPalette.js';
 import { drawIsoMedians } from './isoStreet.js';
-import { drawWonderGroundAll, wonderToneFor } from './isoWonderGround.js';
+import { drawWonderGroundAll, wonderToneFor, WONDER_GROUND, wonderGroundSet } from './isoWonderGround.js';
 import { drawGrassVeils, forestFlowerK } from './isoForestFloor.js';
 import { WINTER } from '../seasonMode.js';
 
@@ -193,23 +193,69 @@ export function drawIsoGround() {
 // la molette __beach — sans ces crans, basculer `full` ou couper la plage
 // laissait les galets gelés dans le bake (piège rencontré trois fois).
 // LE TERRAIN est dans le sol bakÉ : niveaux et contremarches dépendent du champ.
+// La NEIGE DE GRÈVE (`__beach.snow`) aussi : elle change le ton et la tuile d'hiver
+// des cellules de grève (beachTone, isoWinterTile) — absente du suffixe, la bascule
+// laissait le sable gelé dans les tuiles cuites (audit du 2026-10-05, BUG-100).
 export function groundKeySuffix(L) {
   return ':' + ((L.counts && L.counts.eraBand) | 0)
     + ':s' + (CM.season | 0)
-    + ':bch' + (BEACH.on ? BEACH.mat + BEACH.islandW + '_' + BEACH.depth + '_' + BEACH.ramp : 'off')
+    + ':bch' + (BEACH.on ? BEACH.mat + BEACH.islandW + '_' + BEACH.depth + '_' + BEACH.ramp + (BEACH.snow ? '_n' : '') : 'off')
     + ':qg' + ((CM.quayGate && CM.quayGate.key) || '-')
     + terrainKey()
     + (CM.previewWonder ? ':pv' + CM.previewWonder.id : '');
 }
 
+// L'EMPREINTE DE CONTENU DU PLAN — la porte de fraîcheur des tuiles du sol
+// (solPyramideFrame, fresh) : même empreinte, aucune tuile n'est re-jugée.
+// ⚠ Jusqu'à l'audit du 2026-10-05 (BUG-60), elle ne comptait que des TAILLES
+// d'ensembles. Un achat qui pose un bâtiment sans route nouvelle — chaque premier
+// achat d'un début de partie — gardait les mêmes tailles : les tuiles où il
+// apparaissait restaient fraîches, sans allée de seuil ni cour, jusqu'au recompute
+// suivant qui changeait une taille (mesuré à l'ère 4 : +1 « scribes », 53 → 54
+// emprises, signature identique, 5 tuiles périmées servies).
+// C'est maintenant une empreinte du CONTENU — tout ce que tileSig lit du plan :
+// emprises (position, taille, type, bâtiment, rang de révélation), routes (clé,
+// masque, rang, matière, surface), urbain, pelouses de ville, parvis, fleuve
+// (cellules, tracé, îles) et foyer du camp. ⚠ Un champ du plan que tileSig lit et
+// qui manque ici, aucune tuile ne verra son changement. Indépendante de l'ordre
+// d'insertion (somme et xor des hachages par élément) : deux plans de même contenu
+// bâtis dans un autre ordre gardent leurs tuiles. O(cellules), une fois par plan.
 let gzcSigL = null, gzcSig = '';
 export function groundContentSig(L) {
   if (L === gzcSigL) return gzcSig;
   gzcSigL = L;
-  const n = (x) => (x ? ((x.size != null ? x.size : x.length) | 0) : 0);
-  gzcSig = (L.gridN | 0) + '.' + (L.mapSeed | 0)
-    + '.' + n(L.roadSet) + '.' + n(L.urbanSet) + '.' + n(L.roadMap)
-    + '.' + n(L.meadow) + '.' + n(L.wonderGround)
-    + '.' + (L.river && L.river.present ? n(L.river.cells) : 0);
+  let h = 0, sa = 0, sx = 0;
+  const begin = (tag) => { h = Math.imul(2166136261 ^ tag, 16777619) >>> 0; };
+  const mix = (v) => { h = Math.imul(h ^ (v | 0), 16777619) >>> 0; };
+  const mixStr = (s) => { if (s) for (let i = 0; i < s.length; i += 1) mix(s.charCodeAt(i)); };
+  const end = () => {
+    h ^= h >>> 15; h = Math.imul(h, 0x2c1b3c6d) >>> 0; h ^= h >>> 12;
+    sa = (sa + h) >>> 0; sx = (sx ^ Math.imul(h, 0x297a2d39)) >>> 0;
+  };
+  const keys = (tag, set) => { if (set) for (const k of set) { begin(tag); mixStr(k); end(); } };
+  const q = (v) => Math.round((v || 0) * 64);
+  for (const t of (L.tiles || [])) {
+    begin(1); mix(t.gx); mix(t.gy); mix(t.spanX || t.size || 1); mix(t.spanY || t.size || 1);
+    mixStr(t.type); mixStr(t.buildingId); mix(t.revealIdx || 0); end();
+  }
+  keys(2, L.roadSet);
+  if (L.roadMap) for (const [k, c] of L.roadMap) {
+    begin(3); mixStr(k);
+    if (c) { mix(c.mask); mixStr(c.rank); mix(c.pave == null ? -1 : c.pave); mixStr(c.roadSurface); }
+    end();
+  }
+  keys(4, L.urbanSet);
+  keys(5, L.townGreen);
+  keys(6, WONDER_GROUND.on ? wonderGroundSet(L) : L.wonderGround);
+  const R = L.river && L.river.present ? L.river : null;
+  if (R) {
+    keys(7, R.cells);
+    (R.samples || []).forEach((s, i) => { begin(8); mix(i); mix(q(s.x)); mix(q(s.y)); mix(q(s.hw)); end(); });
+    for (const il of (R.islands || [])) {
+      begin(9); mix(q(il.x)); mix(q(il.y)); mix(q(il.rx)); mix(q(il.ry)); mix(q(il.tx)); mix(q(il.ty)); end();
+    }
+  }
+  if (L.campHearth) { begin(10); mix(L.campHearth.gx); mix(L.campHearth.gy); end(); }
+  gzcSig = (L.gridN | 0) + '.' + (L.mapSeed | 0) + '.' + sa.toString(36) + '.' + sx.toString(36);
   return gzcSig;
 }

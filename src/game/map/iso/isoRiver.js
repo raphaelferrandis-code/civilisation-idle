@@ -1376,6 +1376,9 @@ function drawIsoWaterTiles(ctx, pts, T, z, now, wb) {
   // Phase : intégrée en jeu (cf. ⚠⚠ PHASE ACCUMULÉE), analytique en capture.
   // `captureFrame` force rainF à 0 → la vitesse y est CONSTANTE, donc le produit
   // temps × vitesse ne saute pas et reste déterministe, ce qu'exige une capture.
+  // La capture LIVE (« Garder une image », BUG-89) garde l'averse : teinte et
+  // coloris suivent la pluie, mais la phase reste à la cadence de beau temps — une
+  // image fixe n'a pas de mouvement à raccorder.
   const spatial = WATER_TILE_MAX * G.worldPx;      // période spatiale, CONSTANTE (cf. WATER_TILE_MAX)
   let phaseFrame, phaseDrift;
   if (CM.capture) {

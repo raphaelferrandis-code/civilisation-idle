@@ -17,6 +17,7 @@ import { epitaphLegacyById } from '../data/epitaphs.js';
 import { newCitySeed } from '../map/procedural/seedManager.js';
 import { generateCityName } from '../map/procedural/cityName.js';
 import { normalizeRoadMemory } from '../map/roadMemory.js';
+import { PERSONALITIES } from '../map/procedural/cityPersonality.js';
 import { defaultFaitsDivers, normalizeFaitsDivers } from './faitsDiversState.js';
 
 // La clé vit dans saveKey.js (cloudSave.js doit la lire AVANT l'évaluation de
@@ -744,6 +745,10 @@ export const defaultState = () => ({
   // Archétype de plan figé pour la partie : la ville garde son type de rues
   // d'origine (seuls les faubourgs s'ajoutent). Reset au nouveau cycle.
   cityArchetype: null,
+  // Profil de personnalité de la ville (map/procedural/cityPersonality.js), figé au
+  // premier calcul de la carte du cycle — un achat ne le fait plus basculer. Reset au
+  // nouveau cycle.
+  cityPersonality: null,
   // Cœur de ville et colonne du pont FIGÉS (docs/PLAN-ROUTES.md, lot L1), dans
   // le repère des slots ; `seed` = mapSeed de la ville qui les a fixés.
   cityCore: null,
@@ -2267,6 +2272,7 @@ export function hydrateState(parsed = {}) {
     cityMapSlots: normalizeCityMapSlots(source.cityMapSlots),
     riverWP: normalizeRiverWaypoints(source.riverWP),
     cityArchetype: typeof source.cityArchetype === "string" && /^[a-z]+$/.test(source.cityArchetype) ? source.cityArchetype : null,
+    cityPersonality: typeof source.cityPersonality === "string" && Object.prototype.hasOwnProperty.call(PERSONALITIES, source.cityPersonality) ? source.cityPersonality : null,
     cityCore: normalizeCityCore(source.cityCore),
     cityRoads: normalizeRoadMemory(source.cityRoads),
     cityRelics: normalizeCityRelics(source.cityRelics),
@@ -2690,6 +2696,7 @@ export function resetTemporaryRunState(s) {
   s.cycleVow = null;
   s.cityMapSlots = {};
   s.cityArchetype = null;
+  s.cityPersonality = null;
   s.cityCore = null;
   s.cityRoads = null;
   // Voirie de la cité tombée : file, réserve prépayée, rampe de durée de l'ère

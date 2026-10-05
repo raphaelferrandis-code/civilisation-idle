@@ -149,6 +149,14 @@ export function planIlots(o) {
   // n'avance que jusqu'aux îlots que ce plan lit — `order.at(r)`, `blockByKey(k)` —
   // au lieu de calculer les lots des ~3 500 îlots de la fenêtre. Mêmes îlots, mêmes
   // rangs : chaque lecture rend ce que rendait la liste complète.
+  // ⚠ PLAFOND SILENCIEUX (audit 2026-10-05, BUG-88) : 2 000 îlots au plus. C'est LUI qui
+  // bute le premier, pas la grille (NCAP, layout.js) : mesuré (graine 0x51a7c0de, ère
+  // 136), toutes les maisons-moteur logées jusqu'à 4e5 achats par type (1 974 îlots
+  // ouverts dès 2e5), 12 491 sur 16 845 à 1e6. Au-delà, « 1 achat = 1 bâtiment » cesse
+  // sans signal — la carte ne révèle que ce qu'elle a posé (engineHomePlaced,
+  // cityMapRuntime), donc aucune maison fantôme. Le relever (6 000 : ~4 030 îlots, tout
+  // logé à 1e6) alourdit le calcul à ces tailles (boucle d'ouverture quadratique ;
+  // ~1,4 s → ~2,5 s mesurés, au bruit près) : profiler d'abord.
   const order = blockOrderLazy({ N, core, grid, usable, streetOk, seed, extraCost, maxBlocks: 2000 });
 
   // ── LA MÉMOIRE DES ÎLOTS ─────────────────────────────────────────────────

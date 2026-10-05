@@ -560,7 +560,12 @@ export function applyRoofSnow(src, dst, w, h, tune) {
 // appliquée à une couronne descend dans les trouées du feuillage et rend des
 // guirlandes de glaçons (vu sur planche). Les deux règles ne s'échangent pas :
 // il faudra passer ces sprites par snowTrees, pas par ici.
-const skipKey = (key) => (snowRoofTune.skipCosmic !== false
+//
+// Exportée pour les HABITATIONS (pixelHouses.variantCanvas) : elles enneigent un
+// buffer déjà en main (snowImageData, qui ne voit pas de clé) et leurs skins
+// cosmiques prenaient la calotte que les tours-moteur voisines n'ont pas (audit
+// 05/10, BUG-96).
+export const skipKey = (key) => (snowRoofTune.skipCosmic !== false
   && (key.indexOf("-cosmic-") >= 0 || key.indexOf("cosmic-") === 0))
   || /-tree$/.test(key);
 

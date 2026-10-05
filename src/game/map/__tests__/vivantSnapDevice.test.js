@@ -15,6 +15,8 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { CM } from '../layout.js';
 import { snapDev } from '../blitSnap.js';
+import { drawIsoRain } from '../iso/isoWeather.js';
+import { SUMMER, WINTER } from '../seasonMode.js';
 
 const MAP = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const src = (f) => fs.readFileSync(path.join(MAP, f), 'utf8');
@@ -89,5 +91,87 @@ describe('les familles vivantes passent par le rabattement device', () => {
   it('véhicules et bêtes de trait (isoUnits.js) — le même arrondi, importé', () => {
     expect(src('iso/isoUnits.js')).toMatch(/import \{ snapDev as snapU \} from '\.\.\/blitSnap\.js'/);
     expect(src('iso/isoUnits.js')).not.toMatch(/const snapU =/);
+  });
+  // Audit du 2026-10-05, BUG-98 : la clôture était posée à l'entier CSS
+  // (Math.round(x0)…) quand arbres et réverbères, à côté, se calent sur le device.
+  it('clôtures (isoLivePaint.js) — la bande se pose sur la grille device', () => {
+    const b = blitsDe('iso/isoLivePaint.js', (l) => l.includes('st.canvas'));
+    expect(b.length).toBe(1);
+    expect(b[0].bloc).toMatch(/fsn = \(v\) => Math\.round\(v \* fdp\) \/ fdp/);
+    expect(b[0].bloc).toMatch(/drawImage\(st\.canvas, fsn\(x0\), fsn\(y0\), fsn\(st\.cw \* s\), fsn\(st\.ch \* s\)\)/);
+    expect(b[0].bloc).not.toMatch(/Math\.round\(x0\)/);
+  });
+});
+
+// LA MÉTÉO À DPR 1,5 (audit du 2026-10-05, BUG-98) — rejouée pour de vrai, pas
+// lue dans les sources : flocons, éclats au sol, étampes de la nappe de pluie et
+// pose de la nappe étaient à l'entier CSS, donc sur un demi-pixel device à
+// dpr 1,5 (Windows à 150 %) — flocons flous, pixels inégaux, nappe rééchantillonnée
+// à chaque image. Pas de canvas sous Node : un faux document et de faux contextes
+// qui notent chaque fillRect / drawImage.
+describe('météo — flocons, éclats et gouttes sur la grille device', () => {
+  const KEYS = ['ctx', 'cw', 'ch', 'rainF', 'season', 'gustF', 'ambianceK', 'walkRoadSet', 'buildingInfo', 'layout', 'lodActive', 'windX', 'layoutRecomputeAt'];
+  let saved, savedCam, savedDoc;
+  const fauxCtx = (log) => ({
+    globalAlpha: 1, imageSmoothingEnabled: true, fillStyle: '',
+    setTransform() {}, putImageData() {},
+    clearRect: (...a) => effaces.push(a),
+    createImageData: (w, h) => ({ data: new Uint8ClampedArray(w * h * 4) }),
+    fillRect: (...a) => log.push(a),
+    drawImage: (cv, ...a) => log.push(a),
+  });
+  let principal, nappes, effaces;
+  function monter(dpr, season) {
+    saved = Object.fromEntries(KEYS.map((k) => [k, CM[k]]));
+    savedCam = { ...CM.cam }; savedDoc = globalThis.document;
+    principal = []; nappes = []; effaces = [];
+    globalThis.document = {
+      createElement: () => { const c = { width: 0, height: 0 }; const g = fauxCtx(nappes); c.getContext = () => g; return c; },
+    };
+    // Une voirie qui couvre tout l'écran : chaque tirage d'éclat touche du pavé.
+    const road = new Set();
+    for (let gx = -40; gx <= 40; gx += 1) for (let gy = -40; gy <= 40; gy += 1) road.add(gx * 10000 + gy);
+    Object.assign(CM, {
+      ctx: fauxCtx(principal), cw: 601, ch: 403, dpr, rainF: 1, season, gustF: 0, ambianceK: 1,
+      walkRoadSet: road, buildingInfo: null, layout: null, lodActive: false, windX: 0.4, layoutRecomputeAt: 1,
+    });
+    Object.assign(CM.cam, { x: 0, y: 0, zoom: 1 });
+  }
+  afterEach(() => {
+    if (!saved) return;
+    for (const k of KEYS) CM[k] = saved[k];
+    Object.assign(CM.cam, savedCam);
+    if (savedDoc === undefined) delete globalThis.document; else globalThis.document = savedDoc;
+    saved = null;
+  });
+  const horsGrille = (log, dpr) => log.filter((a) => a.some((v) => typeof v === 'number' && !surGrille(v, dpr)));
+
+  it('neige à dpr 1,5 : chaque flocon (coin et côté) tombe sur la grille device', () => {
+    monter(1.5, WINTER);
+    drawIsoRain(4321);
+    const flocons = principal.slice(1);              // [0] = le voile plein écran (0, 0, cw, ch)
+    expect(flocons.length).toBeGreaterThan(50);
+    expect(horsGrille(flocons, 1.5)).toEqual([]);
+  });
+  it('neige à dpr 1 : l arrondi d avant, des entiers', () => {
+    monter(1, WINTER);
+    drawIsoRain(4321);
+    const flocons = principal.slice(1);
+    expect(flocons.length).toBeGreaterThan(50);
+    expect(flocons.every((a) => a.every((v) => Number.isInteger(v)))).toBe(true);
+  });
+  it('pluie à dpr 1,5 : éclats, étampes dans la nappe et pose de la nappe sur la grille device', () => {
+    monter(1.5, SUMMER);
+    drawIsoRain(4321);
+    const poses = principal.filter((a) => a.length === 4);   // drawImage(cv, x, y, w, h) ; fillRect du voile exclu ci-dessous
+    const voile = principal.filter((a) => a[0] === 0 && a[1] === 0 && a[2] === CM.cw);
+    expect(poses.length - voile.length).toBeGreaterThan(8);  // 8 poses de nappe + au moins un éclat
+    expect(horsGrille(poses.filter((a) => !voile.includes(a)), 1.5)).toEqual([]);
+    expect(nappes.length).toBeGreaterThan(20);
+    expect(horsGrille(nappes, 1.5)).toEqual([]);
+    // Chaque nappe s'efface en ENTIER, jusqu'à son dernier pixel device (pas à un
+    // quart de pixel du bord, qui laissait une rangée de gouttes de la forge d'avant).
+    expect(effaces.length).toBeGreaterThan(0);
+    expect(horsGrille(effaces, 1.5)).toEqual([]);
   });
 });

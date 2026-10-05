@@ -39,6 +39,7 @@ function chooseRoadVehicleType(eraIndex, rank, seed) {
   const personality = CM.layout && CM.layout.personality;
   if (ageCfg && Array.isArray(ageCfg.vehicles) && ageCfg.vehicles.length) {
     const bias = (personality && personality.vehicleBias) || {};
+    const band = (CM.layout.counts && CM.layout.counts.eraBand) | 0;
     let total = 0;
     const weighted = ageCfg.vehicles.map((v) => {
       const w = Math.max(0, v.weight * (bias[v.type] || 1));
@@ -50,11 +51,17 @@ function chooseRoadVehicleType(eraIndex, rank, seed) {
       for (const v of weighted) {
         roll -= v.w;
         if (roll <= 0) {
-          // Véhicules à MOTEUR réservés aux grands axes (sinon retombe sur un
-          // wagon). La règle valait déjà pour la voiture et le tram ; le bus et
-          // le camion, plus longs qu'une berline, n'ont rien à faire dans une
-          // venelle — ils y déborderaient de la chaussée.
-          if (MOTOR_TYPES.has(v.type) && rank !== "main" && rank !== "avenue") return "wagon";
+          // Véhicules à MOTEUR réservés aux grands axes. La règle valait déjà pour
+          // la voiture et le tram ; le bus et le camion, plus longs qu'une berline,
+          // n'ont rien à faire dans une venelle — ils y déborderaient de la chaussée.
+          // Le REPLI suit la bande (BUG-57, audit du 2026-10-05) : le wagon, pensé
+          // pour les ères anciennes, mettait un char à bœufs dans la mégalopole (un
+          // véhicule sur cinq en bande 6) et sous les drones des cités cosmiques. En
+          // bande 6, la rue étroite prend une voiture ; aux bandes 7-8, un drone.
+          if (MOTOR_TYPES.has(v.type) && rank !== "main" && rank !== "avenue") return band >= 7 ? "drone" : band >= 6 ? "car" : "wagon";
+          // Le tram ne roule pas sur les voies (cmSyncRoadFleet en fait une voiture) :
+          // aux bandes 7-8, c'était une berline du pack sous les drones.
+          if (v.type === "tram" && band >= 7) return "drone";
           return v.type;
         }
       }
@@ -995,17 +1002,19 @@ function drawDroneRotors(ctx, dsz, t, phase) {
     ctx.save();
     ctx.translate(h[0] * dsz, h[1] * dsz);
     // Souffle : disque sombre translucide (aire balayée = flou de rotation).
-    ctx.globalAlpha = 0.14;
+    // Opacités RELATIVES à celle de l'appelant : le drone qui entre en fondu
+    // (drawIsoDrones, BUG-56) ne montre pas ses hélices pleines avant sa coque.
+    ctx.globalAlpha = prevA * 0.14;
     ctx.fillStyle = '#0b0e14';
     ctx.beginPath(); ctx.arc(0, 0, r, 0, Math.PI * 2); ctx.fill();
     // Trace fugace des bouts de pale (anneau clair très léger).
-    ctx.globalAlpha = 0.10;
+    ctx.globalAlpha = prevA * 0.10;
     ctx.strokeStyle = '#cfd9e6';
     ctx.lineWidth = Math.max(0.5, r * 0.13);
     ctx.beginPath(); ctx.arc(0, 0, r * 0.9, 0, Math.PI * 2); ctx.stroke();
     // 3 pales en éventail, tournantes (semi-transparentes → effet flou).
     ctx.rotate(spin * h[2] + i * 0.8 + phase);
-    ctx.globalAlpha = 0.42;
+    ctx.globalAlpha = prevA * 0.42;
     ctx.fillStyle = '#aeb9c8';
     for (let b = 0; b < 3; b += 1) {
       ctx.rotate((Math.PI * 2) / 3);
@@ -1018,7 +1027,7 @@ function drawDroneRotors(ctx, dsz, t, phase) {
       ctx.fill();
     }
     // Moyeu : petit disque sombre + éclat discret (l'axe qui tourne).
-    ctx.globalAlpha = 0.92;
+    ctx.globalAlpha = prevA * 0.92;
     ctx.fillStyle = '#23272f';
     ctx.beginPath(); ctx.arc(0, 0, Math.max(0.5, r * 0.15), 0, Math.PI * 2); ctx.fill();
     ctx.fillStyle = 'rgba(214,228,247,0.6)';
@@ -2398,8 +2407,38 @@ function vehicleGapFactors(snaps) {
   return k;
 }
 
+// SA CASE A DISPARU (BUG-56, audit du 2026-10-05) au recalcul du plan (achat,
+// émondage), ou elle est devenue esplanade : le véhicule n'y avait plus aucune issue
+// et restait figé — ceux qui le suivaient finissaient par lui passer au travers
+// (VEH_GAP.patience). La flotte n'étant plus rebâtie à chaque recalcul
+// (cmSyncRoadFleet), il est remis sur la route SURVIVANTE la plus proche, en fondu,
+// comme un passant (updateCitizens) — ni esplanade ni parvis, où il n'entre pas.
+function vehicleOffRoad(v) {
+  return !CM.walkRoadSet.has(cityMapWalkRoadKey(v.gx, v.gy)) || vehicleRoadRank(v.gx, v.gy) === "plaza";
+}
+function vehicleRemap(v) {
+  let r = null, bestD = Infinity;
+  for (const c of CM.walkRoadList) {
+    if (c.rank === "plaza" || (CM.wonderWalkSet && CM.wonderWalkSet.has(cityMapWalkRoadKey(c.gx, c.gy)))) continue;
+    const d = (c.gx - v.gx) * (c.gx - v.gx) + (c.gy - v.gy) * (c.gy - v.gy);
+    if (d < bestD) { bestD = d; r = c; }
+  }
+  if (!r) return;
+  v.gx = r.gx; v.gy = r.gy;
+  v.x = v.tx = (r.gx + 0.5) * CM.TILE;
+  v.y = v.ty = (r.gy + 0.5) * CM.TILE;
+  v.goal = null;
+  v._lox = undefined; v._loy = undefined;   // sa file repart de la nouvelle rue
+  v.fade = 0;
+}
+
 function updateVehicles(dt) {
   for (const v of CM.vehicles) {
+    if (CM.walkRoadList.length && vehicleOffRoad(v)) vehicleRemap(v);
+    // Fondu d'apparition (nouveau venu de cmSyncRoadFleet, ou remis sur la route) :
+    // ~0,5 s, appliqué par drawIsoVehicle. Absent = pleinement là.
+    if (v.fade == null) v.fade = 1;
+    else if (v.fade < 1) v.fade = Math.min(1, v.fade + dt * 2);
     // Tenue de ligne : l'offset de file est LISSÉ (unités tuile) vers sa cible —
     // sans lissage, un changement de cap téléportait la carrosserie d'une file à
     // l'autre. Même recette que le lox/loy des piétons, constante un peu plus douce.

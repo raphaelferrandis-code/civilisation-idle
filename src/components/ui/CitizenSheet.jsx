@@ -7,6 +7,7 @@ import {
   resumeFocusCamera,
   releaseFocusCamera,
   focusPortrait,
+  portraitImgReady,
 } from '../../game/map/citizenFocus.js';
 import { tr } from '../../game/core/i18n.js';
 import '../../styles/citizen-sheet.css';
@@ -26,7 +27,7 @@ const PORTRAIT_H = 84, PORTRAIT_W = 120;
 function drawPortrait(cv, now) {
   if (!cv) return;
   const fr = focusPortrait(now);
-  if (!fr || !fr.img.complete || !fr.img.naturalWidth) return;
+  if (!fr || !portraitImgReady(fr.img)) return;   // une image décodée, ou la coque cuite du bac (canvas)
   const { img, sx, fh, ink } = fr;
   const cx0 = Math.floor(ink.l * fh), cx1 = Math.ceil(ink.r * fh);
   const cy0 = Math.floor(ink.t * fh), cy1 = Math.ceil(ink.b * fh);

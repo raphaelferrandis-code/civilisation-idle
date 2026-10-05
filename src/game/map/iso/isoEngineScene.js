@@ -23,7 +23,7 @@ import { fp } from '../framePerf.js';
 import { worldToScreen, ISO_X } from './projection.js';
 import { grainTune } from '../spriteScale.js';
 import { drawEngineSprite } from '../engineSprites.js';
-import { engineCraft } from '../cityEngineSprites.js';
+import { engineCraft, getPropVersion } from '../cityEngineSprites.js';
 import { drawCachedEngineScene } from '../engineSceneCache.js';
 import { engineAnimNow } from '../engineAnim.js';
 import { suspendFlameGlow } from '../flameGlow.js';
@@ -90,7 +90,13 @@ const _isoSceneQuarantine = new Set();   // buildingIds dont la scène a jeté (
 //
 // On mesure donc l'encre une fois par espèce de bâtiment, à taille de
 // référence, et on met le résultat en cache. Le rendu d'une scène dépend de
-// l'identifiant, du palier d'achat et de l'ère : la clé les porte tous.
+// l'identifiant, du palier d'achat, de l'EMPREINTE et de l'ère : la clé les
+// porte tous.
+// ⚠ L'EMPREINTE (audit 2026-10-05, BUG-59) : banques nationales et ministères ont
+// une halle d'empreinte 3 (sprite « -grand », substitué sur l'empreinte, cf.
+// palierImg) et des ateliers d'empreinte 2, au MÊME palier d'achat — sans elle,
+// tous partageaient la mesure du premier dessiné. Même piège que celui réparé
+// dans sceneKey (engineSceneCache).
 const ENG_INK_REF = 96;                 // côté de la mesure, assez fin sans coûter
 const _engInkCache = new Map();
 let _engInkCanvas = null;
@@ -98,14 +104,46 @@ let _engInkCanvas = null;
 // passée ne servent plus jamais (audit 2026-10-05, PERF-9 : le cache n'était jamais
 // purgé, une entrée par espèce et par ère, cycle après cycle). Vidé au changement.
 let _engInkEra = '';
+// ⚠ LE CHARGEMENT DES PNG (BUG-59) : un prop pas encore décodé ne laisse PAS
+// « rien d'encré », il laisse le REPLI procédural, qui a une vraie encre (une
+// université en bande ≤ 3 remplit toute sa boîte). Or ensureProps ne lance le
+// chargement qu'au premier dessin : la première frame d'une sauvegarde mesurait
+// tous les moteurs visibles sur leur repli, et figeait cette boîte pour l'ère —
+// le défaut « la guilde vole le survol des Tribunaux » revenait. Chaque mesure
+// note donc la VERSION DES PROPS (getPropVersion, bumpée à chaque décodage) ;
+// une mesure prise sous une version plus ancienne est refaite. La version n'est
+// PAS dans la clé : l'entrée est remplacée, la Map ne grossit pas à chaque
+// décodage paresseux.
+// Les re-mesures sont bornées par frame (une frame d'ouverture voit défiler des
+// dizaines de décodages) : au-delà, l'ancienne mesure sert encore cette frame-là
+// — une boîte de la veille vaut mieux que le carré brut. Une espèce JAMAIS
+// mesurée, elle, l'est toujours tout de suite (comportement d'avant).
+const ENG_INK_REFRESH_PER_FRAME = 8;
+let _engInkFrame = null;
+let _engInkRefreshes = 0;
+// Clé mémoïsée sur la TUILE (objet layout recréé à chaque recalcul, comme
+// sceneKey) : plus de concaténations par moteur et par frame.
+function engineInkKey(t, era) {
+  if (t._inkEp === era) return t._inkKey;
+  const craft = engineCraft(t);   // un atelier des guildes = un dessin par métier
+  const sx = t.spanX || t.size || 1, sy = t.spanY || t.size || 1;
+  t._inkEp = era;
+  t._inkKey = (t.buildingId || t.variant || '?') + (craft ? '~' + craft : '') + ':' + (t.tier || 0) + ':' + sx + 'x' + sy + ':' + era;
+  return t._inkKey;
+}
 function engineInkFrac(t, now) {
   if (typeof document === 'undefined') return null;
-  const craft = engineCraft(t);   // un atelier des guildes = un dessin par métier
   const era = (CM.layout?.counts?.eraBand ?? 0) + ':' + (CM.layout?.counts?.eraIndex ?? 0);
   if (era !== _engInkEra) { _engInkEra = era; _engInkCache.clear(); }
-  const key = (t.buildingId || t.variant || '?') + (craft ? '~' + craft : '') + ':' + (t.tier || 0) + ':' + era;
+  const key = engineInkKey(t, era);
+  const ver = getPropVersion();
   const cached = _engInkCache.get(key);
-  if (cached) return cached;
+  if (cached) {
+    if (cached.ver === ver) return cached;
+    if (now !== _engInkFrame) { _engInkFrame = now; _engInkRefreshes = 0; }
+    if (_engInkRefreshes >= ENG_INK_REFRESH_PER_FRAME) return cached;
+    _engInkRefreshes += 1;
+  }
   if (!_engInkCanvas) {
     _engInkCanvas = document.createElement('canvas');
     _engInkCanvas.width = ENG_INK_REF; _engInkCanvas.height = ENG_INK_REF;
@@ -121,7 +159,7 @@ function engineInkFrac(t, now) {
   suspendLightLayer(true);
   // Ni l'ombre du soleil : elle gonflerait l'encre mesurée (cf. muteSunShadow).
   try { muteSunShadow(() => drawEngineSprite(t, 0, 0, ENG_INK_REF, ENG_INK_REF, now)); }
-  catch { CM.ctx = prevCtx; suspendFlameGlow(false); suspendLightLayer(false); return null; }
+  catch { CM.ctx = prevCtx; suspendFlameGlow(false); suspendLightLayer(false); return cached || null; }
   suspendFlameGlow(false);
   suspendLightLayer(false);
   CM.ctx = prevCtx;
@@ -137,20 +175,25 @@ function engineInkFrac(t, now) {
       if (y > y1) y1 = y;
     }
   }
-  // Rien d'encré : props pas encore chargés, ou scène en repli. On ne met RIEN
-  // en cache — sinon la première frame, celle où les PNG manquent encore,
-  // figerait une emprise fausse pour toute la session.
-  if (x1 < x0 || y1 < y0) return null;
+  // Rien d'encré (scène qui ne dessine rien du tout) : on ne met RIEN en cache.
+  // Une ancienne mesure, s'il y en a une, est gardée et marquée à jour — sinon
+  // elle serait re-mesurée à chaque frame pour rien.
+  if (x1 < x0 || y1 < y0) {
+    if (cached) cached.ver = ver;
+    return cached || null;
+  }
   // MASQUE D'OCCULTATION (Q11) : tiré du MÊME tampon `d` que l'encre ci-dessus,
-  // donc gratuit, et mémoïsé sur la même clé (id, tier, bande, ère) — partagé par
-  // toutes les instances de la scène. Il dit à la passe fantôme si un point d'écran
-  // tombe sur de la matière ou dans un coin vide de la boîte. Cf. iso/isoMask.js.
+  // donc gratuit, et mémoïsé sur la même clé (id, tier, empreinte, bande, ère) —
+  // partagé par toutes les instances de la scène. Il dit à la passe fantôme si un
+  // point d'écran tombe sur de la matière ou dans un coin vide de la boîte. Cf.
+  // iso/isoMask.js.
   const frac = {
     mask: maskFromImageData(d, ENG_INK_REF, ENG_INK_REF, x0, y0, x1 - x0 + 1, y1 - y0 + 1),
     x0: x0 / ENG_INK_REF,
     y0: y0 / ENG_INK_REF,
     w: (x1 - x0 + 1) / ENG_INK_REF,
-    h: (y1 - y0 + 1) / ENG_INK_REF
+    h: (y1 - y0 + 1) / ENG_INK_REF,
+    ver
   };
   _engInkCache.set(key, frac);
   return frac;
@@ -364,9 +407,10 @@ function drawIsoEngineSceneBody(ctx, t, id, bx, by, bw, now, aNow) {
     // quelle, ce vide volait le survol aux voisins — souris sur la guilde,
     // Tribunaux qui s'allument. Repli sur la boîte entière tant que l'encre
     // n'est pas mesurable (props en cours de chargement).
-    // `now` brut et non `aNow` : cette mesure est MÉMOÏSÉE par (id, tier, ère) et
-    // partagée par toutes les instances — lui donner un temps par instance ne
-    // changerait que l'image sur laquelle tombe la toute première mesure.
+    // `now` brut et non `aNow` : cette mesure est MÉMOÏSÉE par (id, tier,
+    // empreinte, ère) et partagée par toutes les instances — lui donner un temps
+    // par instance ne changerait que l'image sur laquelle tombe la toute première
+    // mesure. Il sert aussi de repère de FRAME au budget des re-mesures.
     const ink = engineInkFrac(t, now);
     fp('vif-moteurs');
     return ink

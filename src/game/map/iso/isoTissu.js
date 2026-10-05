@@ -302,7 +302,11 @@ if (typeof window !== 'undefined') {
     if (arg === false) COUR.on = false;
     else if (arg && typeof arg === 'object') { COUR.on = true; Object.assign(COUR, arg); }
     else COUR.on = true;
-    if (CM.layout) CM.layout._courField = null;
+    // Avec le champ, ce qui l'a lu et mémoïsé sur le plan : la pelouse de ville
+    // (isoMeadow.townLawnAt) et les fleurs du camp (campFlowerK) gardaient
+    // l'ancienne Map, et le sol recuit restait à l'ancien réglage (audit du
+    // 2026-10-05, BUG-100).
+    if (CM.layout) CM.layout._courField = CM.layout._townLawn = CM.layout._campFlowerK = null;
     solInvalidate('all');
     return { ...COUR };
   };

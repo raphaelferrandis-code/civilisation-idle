@@ -1,6 +1,6 @@
 import { describe, it, expect } from "vitest";
 
-import { rainAt, windAt, gustAt, weatherState } from "../weatherMode.js";
+import { rainAt, windAt, gustAt, weatherState, setWeatherMode } from "../weatherMode.js";
 
 // MÉTÉO (A2). La règle de design tient dans la courbe : le temps dégagé est
 // l'état normal, l'averse est un événement COURT. Un jeu qu'on laisse tourner
@@ -130,5 +130,44 @@ describe("gustAt — l'averse arrive par paquets", () => {
       expect(w.gustF).toBeLessThanOrEqual(w.rainF);
     }
     expect(weatherState(0).gustF).toBe(0);                 // début de cycle : temps dégagé
+  });
+});
+
+// AVERSE FORCÉE (audit 05/10, BUG-92) : le vent était tiré du cycle de l'instant,
+// alors que la pluie, elle, ne s'arrête jamais — l'inclinaison sautait d'un coup
+// toutes les 24 min en pleine averse.
+describe("mode « averse » — une seule averse, un seul vent", () => {
+  const CYCLE = 1440000;
+  const T0 = 1785339000000;                                // horloge murale, comme en jeu
+
+  it("le vent ne saute pas au passage d'un cycle", () => {
+    try {
+      setWeatherMode("rain");
+      const w0 = weatherState(T0).windX;
+      // Deux heures de pluie, frontières de cycle comprises (de part et d'autre).
+      for (let t = T0; t <= T0 + 5 * CYCLE; t += CYCLE / 8) {
+        const w = weatherState(t);
+        expect(w.rainF).toBe(1);
+        expect(w.windX, `t + ${(t - T0) / 60000} min`).toBe(w0);
+      }
+      // TÉMOIN : le vent des cycles, lui, change bien d'une frontière à l'autre.
+      const c0 = Math.floor(T0 / CYCLE);
+      expect(windAt(c0 + 1)).not.toBe(windAt(c0));
+    } finally { setWeatherMode("auto"); }
+  });
+
+  it("passer d'« auto » à « averse » garde le vent du moment ; une nouvelle averse en tire un neuf", () => {
+    try {
+      setWeatherMode("auto");
+      const t = T0 + 3 * CYCLE + 1000;
+      const wAuto = weatherState(t).windX;
+      setWeatherMode("rain");
+      expect(weatherState(t).windX).toBe(wAuto);
+      // Reprise plus tard : nouvelle averse, vent de SON cycle.
+      setWeatherMode("auto");
+      setWeatherMode("rain");
+      const t2 = t + 7 * CYCLE;
+      expect(weatherState(t2).windX).toBe(windAt(Math.floor(t2 / CYCLE)));
+    } finally { setWeatherMode("auto"); }
   });
 });

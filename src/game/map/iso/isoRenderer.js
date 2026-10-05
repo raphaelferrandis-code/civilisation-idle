@@ -163,7 +163,9 @@ function drawIsoLive(now) {
 // Le renderer JALONNE la frame (fp) mais n'en est pas propriétaire : le relevé
 // est ouvert et clos par cityMapRuntime.frame(), qui englobe aussi le préambule.
 // Cf. framePerf.js pour le pourquoi.
-export function drawIsoWorld(dt, now) {
+// `dt` = UN pas de simulation (≤ 1/30 s), joué `steps` fois (sous-pas d'une frame
+// lente, cf. simStepsFor dans cityMapRuntime — BUG-67).
+export function drawIsoWorld(dt, now, steps = 1) {
   // LA CHUTE (iso/isoChute.js) : la lumière, la foule et la caméra de la séquence.
   chuteFrame();
   const L = CM.layout;
@@ -188,13 +190,13 @@ export function drawIsoWorld(dt, now) {
     CM.cam.y = (v - u) / 2;
   }
   try {
-    return drawIsoWorldInner(dt, now);
+    return drawIsoWorldInner(dt, now, steps);
   } finally {
     CM.cam.x = camRX; CM.cam.y = camRY;
   }
 }
 
-function drawIsoWorldInner(dt, now) {
+function drawIsoWorldInner(dt, now, steps) {
   const L = CM.layout;
   // Boîtes écran des habitations réellement dessinées, collectées par la passe
   // vivante (drawIsoLive) et consommées par le SURVOL : hit-test à la silhouette
@@ -209,10 +211,12 @@ function drawIsoWorldInner(dt, now) {
   // Boîtes des véhicules dessinés, pour la sonde du tri seulement (coût nul éteinte).
   CM._vehBoxes = globalThis.__sortAudit ? [] : null;
   refreshSeasonPalette();
-  // Sim : mêmes mises à jour que le pipeline legacy (les agents vivent).
-  updateCitizens(dt);
-  updateVehicles(dt);
-  updateCrisis(dt, now);   // émeute : même sim que le legacy ; rendu via le peintre (drawIsoLive)
+  // Sim : mêmes mises à jour que le pipeline legacy (les agents vivent), en sous-pas.
+  for (let s = 0; s < steps; s += 1) {
+    updateCitizens(dt);
+    updateVehicles(dt);
+    updateCrisis(dt, now);   // émeute : même sim que le legacy ; rendu via le peintre (drawIsoLive)
+  }
   fp('sim-agents');
   // Fond hors du plan : la VRAIE herbe en motif (isoWildBackdrop), puis le sol
   // cuit par-dessus. L'aplat d'avant faisait lire le bord du rectangle cuit

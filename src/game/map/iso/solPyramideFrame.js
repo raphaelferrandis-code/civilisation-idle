@@ -38,8 +38,10 @@ import { groundContentSig, groundKeySuffix } from './isoGroundBake.js';
 import { setSolPyramideInvalidator } from './solInvalidate.js';
 import { builtCells, courOf } from './isoTissu.js';
 import { WONDER_GROUND, wonderGroundSet } from './isoWonderGround.js';
-import { beachPortCells } from './isoBeachCells.js';
+import { beachPortCells, beachZone } from './isoBeachCells.js';
+import { BEACH } from './isoGroundTiles.js';
 import { forestFloorSig } from './isoForestFloor.js';
+import { meadowSig } from './isoMeadow.js';
 import { ISO_X, ISO_Y } from './projection.js';
 import {
   solPyramideStats, levelZoom, tileSideCss, camSpace, tileSpace, tileOrigin, cookTile, ZOOM_MIN, ZOOM_MAX, softCoalescer,
@@ -47,10 +49,11 @@ import {
 
 export const PYR = { budgetMs: 8, gestureBudgetMs: 12, gestureMaxTiles: 6, holeCapMs: 80, memMo: 96, ring: 1, gestureMs: 400 };
 
-const cache = new Map();      // 'z:tx,ty' → { key, z, tx, ty, S, G, canvas, bytes, base, epoch, last }
+const cache = new Map();      // 'z:tx,ty' → { key, z, tx, ty, S, G, canvas, bytes, base, epoch, dpr, last }
 let bytes = 0;
 let epoch = 0;                // bascule à chaque invalidation 'all'/'soft' : les entrées d'avant sont périmées
-let sigCur = '';              // identité de CONTENU du plan (groundContentSig) — change à chaque recompute
+let cacheDpr = 0;             // dpr auquel le cache a été cuit (le côté S et le raster des tuiles en dépendent)
+let sigCur = '';              // empreinte de CONTENU du plan (groundContentSig) — change quand une cellule change
 let sufCur = '';              // tout le reste (ère, saison, plage, quai, relief, fleuve) — change rarement
 let curL = null;              // le plan courant, pour signer les tuiles
 let revealSeen = 0;           // compteur de révélation des maisons-moteur vu à la dernière frame
@@ -63,7 +66,7 @@ const posKey = (z, tx, ty) => z.toFixed(3) + ':' + tx + ',' + ty;
 // Le recompute du plan change la signature globale du sol (sigCur) : avant le
 // lot 3, toutes les tuiles devenaient périmées d'un coup — la mort du cache
 // de l'ancien système, en tuiles. Ici chaque tuile porte la SIGNATURE DE SES
-// CELLULES (tileSig : routes et leur masque, urbain, prairie, parvis, fleuve,
+// CELLULES (tileSig : routes et leur masque, urbain, pelouses, parvis, fleuve,
 // bâti, cour — exactement les entrées de kindAt et des passes, avec deux
 // cellules de marge pour les franges et les faces). Au recompute, une tuile
 // dont la signature n'a pas bougé reste FRAÎCHE : seules celles où le monde a
@@ -138,7 +141,11 @@ export function revealTouched(L, r0, r1, entries) {
 
 export function tileSig(L, z, tx, ty, S) {
   const { gx0, gx1, gy0, gy1 } = tileCellBox(z, tx, ty, S);
-  const roadSet = L.roadSet, roadMap = L.roadMap, urban = L.urbanSet, meadow = L.meadow && L.meadow.has ? L.meadow : null;
+  // Les pelouses de ville (L.townGreen, cf. isoMeadow.townLawnAt) : voile clair,
+  // massifs de fleurs, bord franc — cuits dans le sol. Hors de urbanSet, un jardin
+  // qui apparaît ne changeait aucun autre bit de sa cellule. (Le bit 4 signait
+  // jusqu'ici `L.meadow`, un champ que le plan ne produit plus.)
+  const roadSet = L.roadSet, roadMap = L.roadMap, urban = L.urbanSet, green = L.townGreen && L.townGreen.has ? L.townGreen : null;
   const wg = WONDER_GROUND.on ? wonderGroundSet(L) : null;
   const river = (L.river && L.river.present && L.river.cells) || null;
   const built = builtCells(L), cour = courOf(L), ports = beachPortCells(L), homes = engineHomeCells(L);
@@ -147,6 +154,12 @@ export function tileSig(L, z, tx, ty, S) {
   // peut pas servir (elle périmait toutes les tuiles à chaque recompute).
   const banks = CM.quayBankCells && CM.quayBankCells.has ? CM.quayBankCells : null;
   const gaps = (CM.quayGate && CM.quayGate.gapPts) || null;
+  // La GRÈVE (isoBeachCells.beachZone) : une bande mesurée le long du fleuve, dont la
+  // rampe court sur ±3 samples de 1,5 tuile — sa cause sort de la marge de deux
+  // cellules, les brèches ci-dessus ne la couvrent pas. On signe son RÉSULTAT par
+  // cellule ; ses exclusions (route, bâti hors port) sont signées à côté (audit du
+  // 2026-10-05, BUG-100).
+  const beach = BEACH.on ? beachZone(L) : null;
   const RANK = { plaza: 1, main: 2, path: 3 }, SURF = { bridge: 1 };
   let h = 2166136261;
   const mix = (v) => { h = Math.imul(h ^ (v | 0), 16777619) >>> 0; };
@@ -163,12 +176,13 @@ export function tileSig(L, z, tx, ty, S) {
         if (c && c.pave != null) code |= ((c.pave & 15) + 1) << 27;
       }
       if (urban && urban.has(key)) code |= 2;
-      if (meadow && meadow.has(key)) code |= 4;
+      if (green && green.has(key)) code |= 4;
       if (wg && wg.has(key)) code |= 8;
       if (river && river.has(key)) code |= 16;
       if (built.has(key)) code |= 32;
       if (ports && ports.has(key)) code |= 64;
       if (banks && banks.has(key)) code |= 128;
+      if (beach && beach.has(key)) code |= 1 << 21;
       const ck = cour && cour.get ? cour.get(key) : null;
       if (ck) code |= (ck === 'urban' ? 1 : ck === 'dirt' ? 2 : 3) << 24;
       const eh = homes.get(key);
@@ -190,13 +204,16 @@ export function tileSig(L, z, tx, ty, S) {
   // Le SOUS-BOIS (isoForestFloor) suit la distance à la vie, qui dépend de routes et
   // d'emprises jusqu'à 5 cellules hors de la tuile : elle se signe ici.
   forestFloorSig(L, mix, gx0, gx1, gy0, gy1);
+  // Les PRÉS (isoMeadow) suivent la distance au fleuve, jusqu'à MEADOW.water cellules.
+  meadowSig(L, mix, gx0, gx1, gy0, gy1);
   return h;
 }
 
-// Une entrée est fraîche si : même époque d'invalidation, même suffixe, et
-// même plan — ou, le plan ayant changé, même signature de ses cellules.
+// Une entrée est fraîche si : même époque d'invalidation, même suffixe, même
+// dpr de cuisson, et même plan — ou, le plan ayant changé, même signature de
+// ses cellules.
 const fresh = (e) => {
-  if (!e || e.epoch !== epoch || e.suf !== sufCur) return false;
+  if (!e || e.epoch !== epoch || e.suf !== sufCur || e.dpr !== cacheDpr) return false;
   if (e.sig === sigCur) return true;
   if (e.chk !== sigCur) {
     e.chk = sigCur;
@@ -242,7 +259,7 @@ function cook(z, tx, ty, now) {
   const old = cache.get(key);
   if (old) bytes -= old.bytes;
   const e = { key, z, tx, ty, S: t.S, G: t.G, canvas: t.canvas, bytes: t.canvas.width * t.canvas.height * 4,
-    sig: sigCur, suf: sufCur, tsig: curL ? tileSig(curL, z, tx, ty, t.S) : 0, chk: sigCur, chkOk: true, epoch, last: now };
+    sig: sigCur, suf: sufCur, tsig: curL ? tileSig(curL, z, tx, ty, t.S) : 0, chk: sigCur, chkOk: true, epoch, dpr: cacheDpr, last: now };
   cache.set(key, e); bytes += e.bytes;
   const prev = costMs.get(z);
   costMs.set(z, prev == null ? t.ms : prev * 0.7 + t.ms * 0.3);
@@ -398,6 +415,20 @@ export function paintGroundPyramid(ctx, L, nowMs) {
   sufCur = groundKeySuffix(L).replace(/:qg[^:]*:([fu])/, ':qg$1') + ':' + riverSig(L);
 
   const dpr = CM.dpr || 1, cw = CM.cw, ch = CM.ch;
+  // ⚠ LE DPR CHANGE EN COURS DE JEU (audit du 2026-10-05, BUG-21) : zoom du
+  // navigateur, Ctrl±, fenêtre glissée vers un écran à 125/150 %. Le côté des
+  // tuiles en dépend (256 px device : 256 px CSS à dpr 1, 208 à 1,25, 168 à 1,5),
+  // leur raster aussi — or la clé (niveau, tx, ty) et la fraîcheur l'ignoraient.
+  // Calculé sur une grande ville (dpr 1 → 1,25) : 97 tuiles visibles sur 117 ne
+  // recouvraient plus rien, 20 étaient à la mauvaise échelle, toutes jugées
+  // fraîches, donc jamais recuites — le sol disparaissait jusqu'à la saison
+  // suivante. Un cache cuit à un autre dpr ne sert à rien, même en repli (ses
+  // sources sont à une autre échelle) : on le vide, et la règle des trous recuit
+  // l'écran tout de suite, plancher d'abord.
+  if (dpr !== cacheDpr) {
+    if (cache.size) solPyramideReset();
+    cacheDpr = dpr;
+  }
   const zoom = CM.cam.zoom, z = levelZoom(zoom), s = zoom / z, S = tileSideCss(dpr, z);
   if (CM.cam.x !== lastCamX || CM.cam.y !== lastCamY || zoom !== lastZoom) {
     lastCamX = CM.cam.x; lastCamY = CM.cam.y; lastZoom = zoom; lastMoveAt = nowMs;

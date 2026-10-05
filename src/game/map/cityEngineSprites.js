@@ -1170,7 +1170,10 @@ function ensureAnim() {
   for (const k of Object.keys(ANIM_BANDS)) {
     if (PALIER_SPANSUM[k]) continue;   // un grand ne descend que si son palier s'arme (palierAsset)
     const im = new Image();
-    im.onload = () => { animReadyN[k] = 1; };
+    // La version des props bouge aussi pour une bande : animReady choisit entre
+    // deux DESSINS (foyer animé ou prop de repli), et les mesures qui en
+    // dépendent (encre des moteurs, scènes cuites) doivent le savoir.
+    im.onload = () => { animReadyN[k] = 1; propVersion += 1; };
     im.src = '/pixelart/agents/buildings/' + k + '.png';
     animImg[k] = im;
   }

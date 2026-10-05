@@ -29,7 +29,7 @@ const RURAL = /:(irrigated_fields|water_mills|river_ports):/;
 
 beforeEach(() => {
   ROAD_MEMORY.on = true; ILOT_MODE.on = true;
-  state.cityRoads = null; state.cityCore = null; state.cityMapSlots = {}; state.cityArchetype = null; state.riverWP = null;
+  state.cityRoads = null; state.cityCore = null; state.cityMapSlots = {}; state.cityArchetype = null; state.cityPersonality = null; state.riverWP = null;
   state.wonders = [];
 });
 
@@ -57,6 +57,40 @@ describe("ville par îlots — port de commerce et merveilles", () => {
       if (L.roadSet.has(x + "," + y)) served = true;
     }
     expect(served, "rue d'accès").toBe(true);
+  }, 180000);
+
+  // LE PORT NE SAUTE PLUS (audit 2026-10-05, BUG-14) : la revérification du terre-plein
+  // lisait tout le pourtour des îlots ouverts (ilotMemoryCells), même là où aucune rue
+  // ne se pose — un îlot ouvert contre lui faisait refonder le port au calcul suivant
+  // (10 déplacements sur 54 recalculs mesurés, jusqu'à 28 cases). Les deux graines et
+  // l'achat retenus déplaçaient le port avant le correctif.
+  it("le port de commerce, fondé une fois, ne bouge plus quand la ville grandit", () => {
+    const ALL = Object.keys(state.buildings);
+    const run = (era, lvl, seed) => {
+      const pop = D(eras[era].at).mul(3);
+      Object.assign(state, { cycles: 1, mapSeed: seed, population: pop, knowledge: pop.mul(0.05), infrastructure: pop.mul(0.1), instability: 0, timeWear: 0 });
+      for (const k of ALL) state.buildings[k] = k === "roads" ? 20 : lvl;
+      return computeCityLayout(state);
+    };
+    for (const seed of [0x2b1c07, 777]) {
+      state.cityRoads = null; state.cityCore = null; state.cityMapSlots = {}; state.cityArchetype = null; state.cityPersonality = null; state.riverWP = null;
+      let dx = null;
+      for (const [era, lvl] of [[32, 160], [32, 200]]) {
+        const L = run(era, lvl, seed);
+        const at = `graine ${seed.toString(16)}, ère ${era}, niveau ${lvl}`;
+        const tr = state.cityCore.ports && state.cityCore.ports.trade;
+        expect(tr, at).toBeTruthy();
+        if (dx === null) dx = tr.dx;
+        expect(tr.dx, `port déplacé (${at})`).toBe(dx);
+        // …et resté libre : ni bâtiment ni rue sur le terre-plein. (Une assertion par
+        // liste, pas par case : des milliers d'`expect` coûtaient ~0,7 s au test.)
+        const port = L.tiles.find((t) => t.key === "engine:river_ports:trade");
+        const cells = new Set(tradeCells(port.tradePort).map(([x, y]) => x + "," + y));
+        const onPort = L.tiles.filter((t) => t !== port && BUILT.has(t.type) && foot(t).some((k) => cells.has(k))).map((t) => t.key || t.type);
+        expect(onPort, `bâtiments sur le port (${at})`).toEqual([]);
+        expect([...cells].filter((k) => L.roadSet.has(k)), `rues sur le port (${at})`).toEqual([]);
+      }
+    }
   }, 180000);
 
   it("une merveille neuve contourne les îlots déjà ouverts : aucune maison ne déménage", () => {

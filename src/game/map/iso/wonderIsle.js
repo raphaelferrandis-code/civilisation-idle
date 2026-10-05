@@ -248,6 +248,10 @@ export function bakeIsleBase(K, tier, il) {
     if (((R.data[k] << 16) | (R.data[k + 1] << 8) | R.data[k + 2]) !== own.c[p]) own.id[p] = 0;
   }
   pixelFinish(R, X.ink);
+  // LA NUIT : les filets lumineux du quai (murs 'tech' des âges cosmiques)
+  // s'allument comme ceux du monument voisin — et nightOf remet l'alpha des
+  // marqueurs (253/254) à 255 (audit 05/10, BUG-64).
+  const N = nightOf(R, X);
   const foam = bakeFoam(R, M, rocks, own);
   // LES REMOUS (waterRipples) au pied des pieux du ponton (rang I) ou autour du quai
   // bas d'accostage (rangs II+, le même rectangle que son prisme) : seulement sur l'eau
@@ -267,7 +271,10 @@ export function bakeIsleBase(K, tier, il) {
   const L0 = M.levels[0];
   if (tier >= 2) prism(Rr, ellipse(M, L0.su, L0.sv, 56), 0, L0.h1, corniced(L0.h1, X.stoneF(201)), null);
   drawRocks(rocks.filter((q) => q.vis), Rr, null);
-  return { R, M, Rr, foam, ripples };
+  // Le reflet ne s'allume pas (le calque de lumière ne se mire pas), mais ses
+  // marqueurs de nuit ne restent pas dans l'image : nightOf remet leur alpha à 255.
+  nightOf(Rr, X);
+  return { R, M, Rr, N, foam, ripples };
 }
 
 // LES ROCHERS DU POURTOUR, à pas réguliers LE LONG du rivage (à angle égal, ils

@@ -587,8 +587,12 @@ export function paintIsoItems(bake, items, now) {
       const y0 = p.y - st.panelH * s;
       const prevFS = ctx.imageSmoothingEnabled;
       ctx.imageSmoothingEnabled = false;
-      ctx.drawImage(st.canvas, Math.round(x0), Math.round(y0),
-        Math.round(st.cw * s), Math.round(st.ch * s));
+      // Sur la grille DEVICE, comme les arbres et les réverbères (audit du
+      // 2026-10-05, BUG-98) : l'entier CSS tombe sur un quart ou une moitié de
+      // pixel device à dpr 1,25 / 1,5, et la clôture tremblait contre le sol au
+      // pan. À dpr 1, c'est l'arrondi d'avant.
+      const fdp = CM.dpr || 1, fsn = (v) => Math.round(v * fdp) / fdp;
+      ctx.drawImage(st.canvas, fsn(x0), fsn(y0), fsn(st.cw * s), fsn(st.ch * s));
       ctx.imageSmoothingEnabled = prevFS;
     } else if (it.kind === 'bush') {
       // Buisson de terre-plein : feuillu réutilisé petit, pied sur la couture.

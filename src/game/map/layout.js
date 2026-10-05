@@ -67,7 +67,9 @@ const CM = {
   hover: null,
   dynastyIdx: 0,
   vehicles: [],
-  vehicleSig: "",
+  vehicleTypeKey: "",   // âge (bande) + ruine des types tirés (cmSyncRoadFleet)
+  vehicleSerial: 0,     // numéro du prochain véhicule de la flotte
+  citizenSerial: 0,     // numéro du prochain passant (spawnOneCitizen, BUG-58)
   ships: [],
   nightF: 0,
   healthF: 0.6,
@@ -267,8 +269,13 @@ const ilotTownBody = (id, band) => ILOT_TUNE.annexBody && !!ANNEX_BODIES[band | 
 const ILOT_HALL_MAX = 3;
 // Version de la fiche d'îlots (cityCore.ilot.v) : 1 = îlots pleins, 2 = îlots qui
 // respirent (lots-jardins, cf. ilotLayout ILOT_AIR) — une fiche v1 se replace une
-// fois (plus bas, « LA RESPIRATION DES ÎLOTS »).
-export const ILOT_MEMORY_V = 2;
+// fois (plus bas, « LA RESPIRATION DES ÎLOTS ») ; 3 = rues du hameau effacées pour de
+// bon à la réorganisation (audit 2026-10-05, BUG-13) — une fiche v2 qui les a gardées
+// efface une fois ses rues mémorisées (ses maisons, elles, ne bougent pas).
+export const ILOT_MEMORY_V = 3;
+// Version à partir de laquelle la mémoire des rues d'une ville par îlots est sûre
+// (plus de sentiers du hameau à y chercher).
+const ILOT_ROADS_V = 3;
 if (typeof window !== "undefined") {
   window.__ilots = (on) => {
     if (on != null) ILOT_MODE.on = on !== false;
@@ -2427,6 +2434,11 @@ function cityGridDims(s, c, mapSeed) {
   // y*N+x en Int32). Débloqué 300 → 360 pour laisser la ville s'étaler avec les achats
   // (terme engineHomes). Le recompute est ~O(N²) : profiler avant de monter plus haut
   // (~2 s à N≈260, ~6 s à N≈420). Molette : window.__nCapOverride.
+  // ⚠ PLAFOND SILENCIEUX (audit 2026-10-05, BUG-88) : N atteint 360 vers 1e5 achats par
+  // type ; en ville par îlots, c'est ensuite le plafond de 2 000 îlots de planIlots qui
+  // bute (ilotLayout.js) — au-delà d'environ 4e5 achats par type, des maisons-moteur
+  // achetées ne sont plus posées (12 491 sur 16 845 à 1e6). La carte ne révèle que ce
+  // qu'elle a posé (engineHomePlaced) : aucune maison fantôme, mais aucun signal non plus.
   const NCAP = Math.floor((typeof globalThis !== "undefined" && globalThis.__nCapOverride) || 360);
   while (N * N * packFactor < total + enginePressure * 1.35 + 10 + c.megaDistricts * 18 && N < NCAP) N += 2;
   // LA GRILLE NE RÉTRÉCIT JAMAIS (mémoire des rues) : rues, slots et sites sont
@@ -2444,6 +2456,10 @@ function computeCityLayout(s) {
   // ── Couche procédurale : seed de partie, personnalité, config d'âge ──────
   const mapSeed = ensureMapSeed(s);
   const personality = computeCityPersonality(mapSeed, s);
+  // Fige le profil au premier calcul du cycle, comme l'archétype (plus bas) : un achat
+  // ne fait plus basculer toute la ville d'un profil à l'autre (audit 2026-10-05,
+  // BUG-15). Une partie en cours fige le sien tel qu'il est à l'ouverture.
+  if (s.cityPersonality !== personality.id) s.cityPersonality = personality.id;
   const ageCfg = ageConfigFor(c.eraBand);
   const { N, total, enginePressure } = cityGridDims(s, c, mapSeed);
   const cx = Math.floor(N / 2), cy = Math.floor(N / 2);
@@ -2696,7 +2712,22 @@ function computeCityLayout(s) {
   // La MÉMOIRE DU RÉSEAU, décodée ici — avant le lieu des Plaisirs et le lit : le lieu
   // l'interroge pour ne noyer aucune rue, le lit pour garder ses rues de quai (plus bas),
   // le tracé pour repartir du réseau d'hier (plus bas encore).
-  const roadMem = memOn ? decodeRoadMemory(s.cityRoads, mapSeed, cx, cy) : null;
+  // ⚠ PAS quand la réorganisation en îlots est en attente (plus bas, « LA RÉORGANISATION
+  // UNIQUE ») : elle efface les rues du hameau, mais une mémoire déjà décodée les
+  // réinjectait dans le tracé et dans memKeep, à vie — 302 cases de rue dans les îlots,
+  // 40 maisons-moteur posées sur 101 pendant toute la bande 2 (audit 2026-10-05, BUG-13).
+  // Même condition que la réorganisation : fiche absente (ou d'une autre graine).
+  const reorgPending = ilotMode && !(coreFix && coreFix.ilot);
+  const memDecoded = memOn && !reorgPending ? decodeRoadMemory(s.cityRoads, mapSeed, cx, cy) : null;
+  // Une fiche d'avant la v3 (cf. ILOT_ROADS_V) a pu garder ces sentiers. Ils se
+  // reconnaissent à leur bande de NAISSANCE : une ville par îlots n'a aucune rue née
+  // avant la première bande d'îlots, la réorganisation efface tout ce qui précède
+  // (mesuré : 0 case sur 5 graines × bandes 2 à 8, ~630 au hameau de la bande 1). Seule
+  // une mémoire qui en porte est oubliée (et effacée plus bas) : une ville saine ne voit
+  // rien bouger.
+  const hamletRoads = !!memDecoded && ilotMode && (coreFix.ilot.v | 0) < ILOT_ROADS_V
+    && [...memDecoded.values()].some((mc) => mc.born < ILOT_BANDS[0]);
+  const roadMem = hamletRoads ? null : memDecoded;
   let plaisirsSpot = null;
   {
     const last = riverSamples.length - 1;
@@ -2905,9 +2936,18 @@ function computeCityLayout(s) {
   // lot tenu n'est jamais pris pour jardin : sur décision de Raph, ses MAISONS (slots
   // décoratifs `dec_*` du cycle) se replacent une fois. Îlots, rues, halles, ateliers,
   // merveilles : rien d'autre ne bouge.
+  // v3 (audit 2026-10-05, BUG-13) : une fiche v2 a pu garder dans sa mémoire les rues
+  // du hameau, en plein îlot (réorganisation faite entre le 04/10 et ce correctif) —
+  // reconnues plus haut (`hamletRoads`), ses rues mémorisées s'effacent une fois : les
+  // rues d'îlots se reposent depuis `ilot.blocks`, le reste se retrace. Une mémoire
+  // saine reste telle quelle, et les maisons ne bougent pas (deux migrations
+  // distinctes : passer en v3 ne doit pas rejouer la v2).
   if (ilotMode && s.cityCore && s.cityCore.ilot && (s.cityCore.ilot.v | 0) < ILOT_MEMORY_V) {
-    const store = cmCityMapSlotsFor(s), pre = `${s.cycles || 0}:dec_`;
-    for (const k of Object.keys(store)) if (k.startsWith(pre)) delete store[k];
+    if ((s.cityCore.ilot.v | 0) < 2) {
+      const store = cmCityMapSlotsFor(s), pre = `${s.cycles || 0}:dec_`;
+      for (const k of Object.keys(store)) if (k.startsWith(pre)) delete store[k];
+    }
+    if ((s.cityCore.ilot.v | 0) < ILOT_ROADS_V && hamletRoads) s.cityRoads = null;
     s.cityCore.ilot.v = ILOT_MEMORY_V;
   }
 
@@ -3133,18 +3173,27 @@ function computeCityLayout(s) {
   // Le terre-plein du port de commerce : relu dans cityCore.ports.trade, sinon fondé
   // (cf. LE PORT DE COMMERCE, plus bas). `blocked(k)` : cases en plus à éviter (sites
   // de place ; îlots ouverts). `recheck` (îlots) : un terre-plein fondé AVANT la
-  // réorganisation peut se trouver sous les îlots — on le refonde alors ailleurs.
+  // réorganisation peut se trouver sous un bâtiment — on le refonde alors ailleurs.
   const foundTradePort = (blocked, arteryX, recheck) => {
     const plR = plaisirsSpot ? (plaisirsSpot.clear || 0) + PORT_SITES.tradeGap : 0;
-    const free = (x, y) => {
+    // Ce qu'aucun terre-plein ne recouvre, mémorisé ou neuf : bâtiment posé, merveille
+    // figée, quai du bassin, domaine des Plaisirs.
+    const clear = (x, y) => {
       const k = x + "," + y;
-      if (heldBy.has(k) || frozenWonderCells.has(k) || blocked(k)) return false;
+      if (heldBy.has(k) || frozenWonderCells.has(k)) return false;
       if (oldBasinQuay && oldBasinQuay.has(k)) return false;
       return !(plaisirsSpot && Math.hypot(x + 0.5 - plaisirsSpot.x, y + 0.5 - plaisirsSpot.y) <= plR);
     };
+    // Un terre-plein NEUF évite en plus `blocked`.
+    const free = (x, y) => clear(x, y) && !blocked(x + "," + y);
     const ft = (s.cityCore.ports || {}).trade;
     let tp = ft ? { x0: cx + ft.dx, len: ft.len, side: ft.side, depth: ft.depth, edge: ft.edge.map((v) => cy + v) } : null;
-    if (tp && recheck && !tradeCells(tp).every(([x, y]) => free(x, y))) tp = null;
+    // ⚠ La revérification ne lit PAS `blocked` (audit 2026-10-05, BUG-14) : les îlots
+    // ouverts de la mémoire (ilotMemoryCells) comptent tout leur pourtour, même là où
+    // planIlots ne pose aucune rue — le terre-plein, réservé (tradeHeld), le tient hors
+    // des îlots. Un îlot ouvert contre lui faisait refonder le port au calcul suivant :
+    // 10 déplacements sur 54 recalculs (6 graines, bandes 5 → 7), jusqu'à 28 cases.
+    if (tp && recheck && !tradeCells(tp).every(([x, y]) => clear(x, y))) tp = null;
     if (!tp) {
       tp = tradePortSiteFor({
         N, isWater: (x, y) => riverSet.has(x + "," + y), riverYAt, riverHwAt,

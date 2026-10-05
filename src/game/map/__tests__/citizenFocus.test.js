@@ -4,7 +4,7 @@ import { CM } from "../layout.js";
 import {
   focusCitizen, focusPick, releaseFocusCamera, resumeFocusCamera, clearCitizenFocus,
   focusCameraTarget, citizenSheet, onCitizenFocus, noteFigure, noteSceneFigure, citizenHoverTick,
-  keepFigureAlive, FOCUS_TUNE,
+  keepFigureAlive, FOCUS_TUNE, focusPortrait, portraitImgReady,
 } from "../citizenFocus.js";
 import {
   cmPasserbyName, CM_GIVEN_M, CM_GIVEN_F, CM_TRADES_F, CM_HOUSES,
@@ -294,6 +294,25 @@ describe("citizenSheet — la fiche", () => {
     expect(s.activity.fr).toBe("Traverse le fleuve");
     CM.ships = [];
     expect(citizenSheet().lost).toBe(true);
+  });
+
+  // BUG-87 (audit du 2026-10-05) : la coque du kit est un CANVAS cuit, sans
+  // `complete` ni `naturalWidth` — la fiche du bac gardait sa niche vide.
+  it("le bac : son portrait est sa coque cuite, un canvas prêt à peindre", () => {
+    const hull = { width: 64, height: 64, getContext: () => null };
+    const sh = { kind: "ferry", id: 9, trip: 1, state: "cross", _hull: { img: hull, bx: 0, by: 0, dw: 32, wx: 10, wy: 10 } };
+    CM.ships = [sh];
+    focusPick({ kind: "boat", p: sh });
+    const fr = focusPortrait(0);
+    expect(fr.img).toBe(hull);
+    expect(fr.fh).toBe(64);
+    expect(portraitImgReady(fr.img)).toBe(true);
+    // Les images, elles, attendent d'être décodées ; un canvas vide ne peint rien.
+    expect(portraitImgReady({ complete: false, naturalWidth: 0 })).toBe(false);
+    expect(portraitImgReady({ complete: true, naturalWidth: 68 })).toBe(true);
+    expect(portraitImgReady({ width: 0, height: 0, getContext: () => null })).toBe(false);
+    expect(portraitImgReady(null)).toBe(false);
+    CM.ships = [];
   });
 
   it("porteur, passant de place, laboureur : activité de leur scène, travail lu sur leur bâtiment", () => {

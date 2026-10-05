@@ -21,7 +21,7 @@ function city(e, l) {
   const pop = D(eras[e].at).mul(3);
   Object.assign(state, { cycles: 1, mapSeed: 0x51a7c0de, population: pop, knowledge: pop.mul(0.05), infrastructure: pop.mul(0.1), instability: 0, timeWear: 0 });
   KEYS.forEach((k) => { state.buildings[k] = k === "roads" ? 30 : l; });
-  state.cityRoads = null; state.cityCore = null; state.cityMapSlots = {}; state.cityArchetype = null; state.riverWP = null;
+  state.cityRoads = null; state.cityCore = null; state.cityMapSlots = {}; state.cityArchetype = null; state.cityPersonality = null; state.riverWP = null;
   return computeCityLayout(state);
 }
 

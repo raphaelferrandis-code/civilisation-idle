@@ -33,9 +33,9 @@
 // que lit la fiche. La caméra reste dans cmCameraGlide (cityMapRuntime.js).
 //
 // ⚠ Rien de tout ça n'est sauvegardé. Celui qu'on suit est protégé du reflux de
-// foule (passant en tête de liste) et de la reconstruction de la flotte
-// (véhicule repris dans la nouvelle) ; pour le reste, la fiche dit qu'il a quitté
-// la rue et la caméra s'arrête.
+// foule (passant en tête de liste), de l'excédent de la flotte (véhicule gardé en
+// tête, cmSyncRoadFleet) et de l'émeute (jamais recruté, riotRecruit) ; pour le
+// reste, la fiche dit qu'il a quitté la rue et la caméra s'arrête.
 // ============================================================================
 import { CM } from './layout.js';
 import {
@@ -806,6 +806,16 @@ export function citizenSheet() {
     following: !!f.cam,
     lost,
   };
+}
+
+// L'image du portrait est-elle prête à peindre ? Une image décodée, ou un CANVAS
+// cuit : la coque d'un bateau du kit (boatKit.js) en est un, sans `complete` ni
+// `naturalWidth` — la fiche du bac gardait sa niche vide pendant tout le suivi
+// (BUG-87, audit du 2026-10-05).
+export function portraitImgReady(img) {
+  if (!img) return false;
+  if (typeof img.getContext === 'function') return img.width > 0 && img.height > 0;
+  return !!img.complete && img.naturalWidth > 0;
 }
 
 // L'image du portrait : la frame que joue en ce moment ce qui est désigné.

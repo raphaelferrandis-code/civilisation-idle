@@ -593,6 +593,7 @@ export function completeCollapse(gain, fallenDynasty, epitaph, reason) {
   // ...et un nouveau nom de cité, sauf si le joueur l'a renommé à la main.
   if (!state.cityNameCustom) state.cityName = generateCityName(newCitySeed());
   state.cityArchetype = null;
+  state.cityPersonality = null;
   state.cityCore = null;
   state.cityRoads = null;
   state.population = keptPop.max(10);

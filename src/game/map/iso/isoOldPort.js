@@ -29,6 +29,7 @@ import { setRiverExtraWater } from './isoRiver.js';
 import { propReady } from '../cityEngineSprites.js';
 import { blitPropAnchored } from './isoPortProps.js';
 import { rippleField, noteRipples } from './waterRipples.js';
+import { chuteTileState } from './chuteState.js';
 
 export const OLDPORT = { on: true, shadow: true, reflect: true, ink: true };
 if (typeof window !== 'undefined') {
@@ -76,7 +77,8 @@ function oldPortPlan(b, band, T, sm) {
   // vrai bord d'eau) à celle de l'anneau (yEw/yEe). D'une seule dalle à plat, posée au
   // bord sous son milieu, il finissait 0,14 tuile en retrait du quai là où la berge
   // penche : un trait d'eau d'un pixel restait entre les deux murs.
-  const join = quayJoin(sm, gx - 1, gx + w + 1);
+  // Rive N (masque minus) : un terminal de commerce en face ne doit pas répondre à sa place.
+  const join = quayJoin(sm, gx - 1, gx + w + 1, -1);
   if (join) {
     for (const [xa, xb, ya, yb] of [[join.xL, gx - 1, join.yL, yEw], [gx + w + 1, join.xR, yEe, join.yR]]) {
       if (!(xb - xa > 0.05)) continue;
@@ -399,13 +401,26 @@ function oldPortTiles(L) {
   return list;
 }
 
+// LA CHUTE (docs/PLAN-CHUTE.md) : quand la vague atteint le port, il disparaît sans
+// ruine dessinée, comme les autres ports (isoLivePaint saute alors sa scène, forts et
+// phare compris) — son bassin, ses quais et ses bateaux partent avec lui.
+const fallen = (t) => { const st = chuteTileState(t); return !!st && st.ph === 'ruin'; };
+
 // L'EAU du bassin, publiée au fleuve qui la peint avec la sienne (cf. setRiverExtraWater).
+// ⚠ Pas de garde d'EFFONDREMENT (audit du 2026-10-05, BUG-95) : le fleuve garde son
+// corps d'eau pendant l'effondrement (eau nue : isoRiver y saute texture et grain) ; le
+// bassin, lui, s'en retirait et devenait un rectangle d'herbe (le sol cuit sous l'eau)
+// au pied des forts et de la capitainerie encore debout.
 setRiverExtraWater((clip) => {
   const L = CM.layout;
-  if (!OLDPORT.on || !L || CM.collapseAt) return null;
+  if (!OLDPORT.on || !L) return null;
   const band = (L.counts && L.counts.eraBand) | 0;
   const out = [];
-  for (const t of oldPortTiles(L)) { const g = oldPortGeom(t, band); if (g) out.push(clip ? g.plan.clipPoly : g.plan.poly); }
+  for (const t of oldPortTiles(L)) {
+    if (fallen(t)) continue;
+    const g = oldPortGeom(t, band);
+    if (g) out.push(clip ? g.plan.clipPoly : g.plan.poly);
+  }
   return out;
 });
 
@@ -431,19 +446,24 @@ function oldPortRipples(g) {
 export function paintOldPortUnder(ctx, now) {
   if (!OLDPORT.on) return;
   const L = CM.layout;
-  if (!L || CM.collapseAt) return;
+  if (!L) return;
+  // EFFONDREMENT (BUG-95) : le bassin garde ses quais, ses murs et ses bateaux, comme
+  // le terminal de commerce garde son terre-plein ; seuls s'éteignent ombres, reflets et
+  // remous — ce que l'eau nue du fleuve perd aussi (paintTradePortUnder, paintPierUnder).
+  const fx = !CM.collapseAt;
   const band = (L.counts && L.counts.eraBand) | 0;
   for (const t of oldPortTiles(L)) {
+    if (fallen(t)) continue;
     const g = oldPortGeom(t, band);
     if (!g) continue;
     paintBakeUnder(ctx, g.low, { shadow: false, reflect: false });
     // Les remous des pontons et des paliers du bassin (iso/waterRipples.js), peints à
     // l'image suivante sous ses dalles, ses murs et ses bateaux.
-    noteRipples('oldport:' + (L.mapSeed | 0) + ':' + t.oldPort.gx + ',' + t.oldPort.gy + ',' + t.oldPort.w + ':' + band, () => oldPortRipples(g));
+    if (fx) noteRipples('oldport:' + (L.mapSeed | 0) + ':' + t.oldPort.gx + ',' + t.oldPort.gy + ',' + t.oldPort.w + ':' + band, () => oldPortRipples(g));
     if (g.low) blitLayer(ctx, g.low.body);
     for (const bt of g.plan.boats) drawMooredHull(ctx, { role: bt.role, heading: bt.heading, x: bt.x, y: bt.y, z: bt.z, now, band });
     drawMooringLines(ctx, g.plan.boats);
-    paintBakeUnder(ctx, g.high, { shadow: OLDPORT.shadow, reflect: OLDPORT.reflect });
+    if (fx) paintBakeUnder(ctx, g.high, { shadow: OLDPORT.shadow, reflect: OLDPORT.reflect });
   }
 }
 

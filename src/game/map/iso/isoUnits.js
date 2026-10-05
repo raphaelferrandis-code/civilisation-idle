@@ -218,7 +218,18 @@ export function orderUnitsAroundVehicles(items, T) {
   }
 }
 
+// Fondu d'apparition (BUG-56, audit du 2026-10-05) : le nouveau venu de la flotte
+// (cmSyncRoadFleet), ou celui qu'updateVehicles remet sur la route — `v.fade` monte
+// de 0 à 1 en ~0,5 s. Il était posé, jamais lu. Absent = 1 (autoroute, molettes).
 export function drawIsoVehicle(ctx, v, now, z) {
+  const fa = v.fade == null ? 1 : v.fade;
+  if (fa <= 0.02) return;
+  if (fa >= 1) { drawIsoVehicleInner(ctx, v, now, z); return; }
+  const pa = ctx.globalAlpha;
+  ctx.globalAlpha = pa * fa;
+  try { drawIsoVehicleInner(ctx, v, now, z); } finally { ctx.globalAlpha = pa; }
+}
+function drawIsoVehicleInner(ctx, v, now, z) {
   const T = CM.TILE, s = T * z;
   const lo = vehicleLaneOffset(v, T);              // offset en px MONDE (s = TILE)
   const wx = v.x + lo.x, wy = v.y + lo.y;

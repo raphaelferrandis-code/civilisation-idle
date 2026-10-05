@@ -23,7 +23,7 @@
 //
 // Pur : aucun DOM, aucun CM.
 import { put, rgbOf, h32, frameOf, ramp } from './isoPixelPaint.js';
-import { mats, box, revolve, cyl, taper, pick, obelisk, menhirs, line, pixelFinish } from './wonderBake.js';
+import { mats, box, revolve, cyl, taper, pick, obelisk, menhirs, line, pixelFinish, nightOf } from './wonderBake.js';
 
 const V = true;
 const fm = (a, n) => ((a % n) + n) % n;
@@ -368,7 +368,9 @@ function pierModule(R, X, K, small) {
   }
 }
 
-// DÉCOR en relief : un petit raster par pièce, origine au pied.
+// DÉCOR en relief : un petit raster par pièce, origine au pied. Rend { R, N } : N
+// est son calque de nuit (bandeau et piliers de l'enceinte de verre, lanterne de
+// fonte, filets des murs 'tech'), ou null s'il n'y a rien à allumer.
 export function bakeDecor(kind, K, s = 10) {
   const X = mats(K);
   const big = kind === 'wallX' || kind === 'wallY';
@@ -408,7 +410,9 @@ export function bakeDecor(kind, K, s = 10) {
     pierModule(R, X, K, kind === 'post');
   }
   pixelFinish(R, X.ink, { grain: !big });
-  return R;
+  // Les sources marquées (X.light, murs 'tech') s'allument la nuit comme celles du
+  // monument ; nightOf remet aussi l'alpha des marqueurs à 255 (audit 05/10, BUG-64).
+  return { R, N: nightOf(R, X) };
 }
 
 // JARDIN de l'anneau réservé (hors structure de ville, l'emprise entière de la

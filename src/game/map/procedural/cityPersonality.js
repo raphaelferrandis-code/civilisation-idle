@@ -2,8 +2,9 @@
  * cityPersonality.js — Profils de personnalité de ville
  *   Donne à chaque civilisation une identité : deux villes du même âge ne se
  *   ressemblent pas, parce qu'elles n'accordent pas la même importance aux
- *   mêmes choses. Le profil de base est tiré de la seed (stable sur toute la
- *   partie), puis légèrement infléchi par ce que le joueur construit ; les
+ *   mêmes choses. Le profil de base est tiré de la seed, légèrement infléchi par
+ *   ce que le joueur a construit au moment du tirage, puis FIGÉ pour le cycle
+ *   (state.cityPersonality, posé par layout.js comme cityArchetype) ; les
  *   états de crise/effondrement s'appliquent en surcouche dynamique.
  *
  *   Champs d'un profil :
@@ -95,6 +96,7 @@ const OVERLAYS = {
 
 // Le profil de base est seedé, mais le jeu du joueur le module : une partie où
 // l'on construit surtout des bibliothèques tire plus souvent "savante", etc.
+// (Lus au moment du tirage seulement : le profil est ensuite figé pour le cycle.)
 function personalityWeights(s) {
   const b = (s && s.buildings) || {};
   const get = (id) => b[id] || 0;
@@ -136,8 +138,16 @@ export function cityCrisisBand(s) {
   return band;
 }
 
+// LE PROFIL NE BASCULE PLUS EN COURS DE CYCLE (audit 2026-10-05, BUG-15) : les poids
+// suivent les achats, et le tirage — fixe — changeait de profil sur un achat quelconque
+// (111 cycles sur 200 mesurés) : 610 maisons sur 692 changeaient de dessin d'un coup,
+// le libellé « cité … » aussi. Le profil tiré au premier calcul du cycle est donc figé
+// dans `state.cityPersonality` (layout.js), remis à null à l'effondrement ; on le relit
+// ici, pour la carte comme pour le libellé de la Cité.
 export function computeCityPersonality(seed, s) {
-  const baseId = seededWeightedPick(seed, "personality", personalityWeights(s));
+  const frozen = s && typeof s.cityPersonality === "string" && Object.prototype.hasOwnProperty.call(PERSONALITIES, s.cityPersonality)
+    ? s.cityPersonality : null;
+  const baseId = frozen || seededWeightedPick(seed, "personality", personalityWeights(s));
   const base = PERSONALITIES[baseId] || PERSONALITIES.marchande;
   const band = cityCrisisBand(s);
   const overlay = band === 2 ? OVERLAYS.effondrement : band === 1 ? OVERLAYS.crise : null;

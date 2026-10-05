@@ -188,17 +188,23 @@ export function portLampList(L, band) {
 // côté, les deux maçonneries se touchent) : la recherche la traversait jusqu'au quai
 // suivant, et le terre-plein du commerce fermait l'entrée du bassin, quand le bassin ne
 // glissait pas une dalle de douze tuiles sous le commerce.
-export function quayJoin(sm, x0, x1) {
+// `side` : la rive du port APPELANT, au signe des masques (+1 = dockPlus, la rive S d'un
+// fleuve ouest → est ; −1 = dockMinus, la rive N). ⚠ Audit du 2026-10-05 (BUG-94) : sans
+// lui, la boucle rendait le raccord de la PREMIÈRE rive coupée dans [x0, x1] — un
+// terminal de commerce en face du bassin (rive S) effaçait les raccords du Vieux-Port, ou
+// les calait sur la rive d'en face, en travers du fleuve. Omis : les deux rives, comme avant.
+export function quayJoin(sm, x0, x1, side = 0) {
   ensureQuayGate();
   const g = CM.quayGate;
   if (!g || !g.dockPlus) return null;
   // Le bord d'eau d'un sample, comme isoQuay le trace : centre + rive × normale × hw.
-  const bank = (k, side) => {
+  const bank = (k, s) => {
     const a = sm[Math.max(0, k - 1)], b = sm[Math.min(sm.length - 1, k + 1)];
     const tx = b.x - a.x, ty = b.y - a.y, tl = Math.hypot(tx, ty) || 1;
-    return { x: sm[k].x - side * (ty / tl) * sm[k].hw, y: sm[k].y + side * (tx / tl) * sm[k].hw };
+    return { x: sm[k].x - s * (ty / tl) * sm[k].hw, y: sm[k].y + s * (tx / tl) * sm[k].hw };
   };
-  for (const [side, draw, dock] of [[1, g.drawPlus, g.dockPlus], [-1, g.drawMinus, g.dockMinus]]) {
+  for (const [s, draw, dock] of [[1, g.drawPlus, g.dockPlus], [-1, g.drawMinus, g.dockMinus]]) {
+    if (side && s !== side) continue;                    // la rive d'en face : pas la nôtre
     let iMin = -1, iMax = -1;
     for (let i = 0; i < sm.length; i += 1) {
       if (!dock[i] || sm[i].x < x0 - 0.6 || sm[i].x > x1 + 0.6) continue;
@@ -215,7 +221,7 @@ export function quayJoin(sm, x0, x1) {
     let xL = x0, xR = x1, yL = null, yR = null;
     for (const k of [l, r]) {
       if (dock[k] || !draw[k]) continue;                 // le port voisin, ou le bout du fleuve
-      const e = bank(k, side);
+      const e = bank(k, s);
       if (e.x < (x0 + x1) / 2) { if (e.x - 0.1 < xL) { xL = e.x - 0.1; yL = e.y; } } else if (e.x + 0.1 > xR) { xR = e.x + 0.1; yR = e.y; }
     }
     return { xL, xR, yL, yR };
