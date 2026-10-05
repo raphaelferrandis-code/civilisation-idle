@@ -341,7 +341,7 @@ export function paintIsoItems(bake, items, now) {
           // CHAMPS : patchwork de parcelles cultivées façon TheoTown (cf. drawIsoField) —
           // la scène legacy (peinture carrée du sol) ne se pose pas sur le losange.
           if (profParts) fp('vif-peinture');
-          if (!drawIsoFieldPixel(ctx, t, spanX, spanY, band)) drawIsoField(ctx, t, spanX, spanY, band, eraIdx);
+          if (!drawIsoFieldPixel(ctx, t, spanX, spanY, band, now)) drawIsoField(ctx, t, spanX, spanY, band, eraIdx);
           if (profParts) fp('vif-champs');
           continue;
         }

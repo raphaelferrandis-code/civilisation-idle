@@ -37,8 +37,11 @@ import { isoTileBBox } from './isoGroundTiles.js';
 //
 // Ère : même échelle que les places, PLUS un cran primitif — les places
 // n'existent qu'à partir du band 2, mais les aqueducs s'achètent dès le début.
+// ⚠ Même correction que plazaEraForBand le 2026-09-30, restée oubliée ici
+// jusqu'au 2026-10-04 : le bassin romain va à l'âge du MARBRE (band 4), le puits
+// de bois aux bands 2-3 (Pierre taillée, Couronne).
 export const waterPointEra = (band) => (band >= 7 ? 'cosmic' : band >= 6 ? 'modern'
-  : band >= 5 ? 'industrial' : band >= 4 ? 'medieval' : band >= 2 ? 'antique' : 'primitive');
+  : band >= 5 ? 'industrial' : band >= 4 ? 'antique' : band >= 2 ? 'medieval' : 'primitive');
 // Hauteur en `p` = MULTIPLES DE LA HAUTEUR D'UN HABITANT, exactement comme le
 // mobilier des places — et surtout PAS en tuiles. C'est la règle du kit : ancré
 // sur autre chose, un prop ne suit plus quand l'échelle des habitants bouge, et

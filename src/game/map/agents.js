@@ -641,6 +641,112 @@ function drawEraAgentIso(ctx, sx, groundY, z, dir, walking, now, phase, charType
   return false;
 }
 
+// ── L'HABITANT DÉSIGNÉ (fiche d'habitant, citizenFocus.js) ───────────────────
+// Le clic vise ce qu'on VOIT, pas un disque au sol : ces fonctions refont le
+// calcul de drawIsoCitizenItem → drawEraAgentIso → drawNamedAgentIso (même
+// dessin tiré, même repli dans l'ère, même taille, même ancrage des pieds).
+function citizenSpec(p) {
+  const band = (CM.layout && CM.layout.counts && CM.layout.counts.eraBand) || 0;
+  const set = agentSetForBand(band);
+  const ct = p.charType || 0;
+  const spec = agentSpecFor(set, ct, p.skinVariant || 0) || AGENT_FALLBACK;
+  if (ensureAgentDiag(spec.name).ready >= ISO_DIAG.length) return spec;
+  const list = ct === 2 ? [set.child] : (ct === 1 ? set.women : set.men);
+  for (const s of list) if (s && ensureAgentDiag(s.name).ready >= ISO_DIAG.length) return s;
+  return null;
+}
+// Boîte d'ENCRE d'une bande (union de ses frames, bras qui balancent compris), en
+// fractions du cadre. Mesurée une fois par image, à la demande, comme agentFootF —
+// habitants, porteurs et véhicules (citizenFocus.js vise aussi les véhicules).
+// Repli = la médiane relevée sur les 432 bandes d'habitants (2026-10-03).
+const INK_FALLBACK = { l: 0.22, r: 0.78, t: 0.03, b: 0.91 };
+const inkCache = new WeakMap();
+function imgInkBox(img) {
+  // Image décodée ou canvas cuit (la coque d'un bateau du kit est un canvas).
+  if (!img || !(img.naturalWidth || img.width)) return INK_FALLBACK;
+  const hit = inkCache.get(img);
+  if (hit) return hit;
+  let box = INK_FALLBACK;
+  try {
+    const w = img.naturalWidth || img.width, h = img.naturalHeight || img.height;
+    let cv;
+    if (typeof OffscreenCanvas !== 'undefined') cv = new OffscreenCanvas(w, h);
+    else { cv = document.createElement('canvas'); }
+    cv.width = w; cv.height = h;
+    const g = cv.getContext('2d', { willReadFrequently: true });
+    g.drawImage(img, 0, 0);
+    const data = g.getImageData(0, 0, w, h).data;
+    const nf = Math.max(1, Math.round(w / h));
+    let x0 = h, x1 = -1, y0 = h, y1 = -1;
+    for (let y = 0; y < h; y += 1) {
+      for (let x = 0; x < w; x += 1) {
+        if (data[(y * w + x) * 4 + 3] <= 16) continue;
+        const fx = x - Math.min(nf - 1, Math.floor(x / h)) * h;   // colonne DANS sa frame
+        if (fx < x0) x0 = fx;
+        if (fx > x1) x1 = fx;
+        if (y < y0) y0 = y;
+        if (y > y1) y1 = y;
+      }
+    }
+    if (x1 >= 0) box = { l: x0 / h, r: (x1 + 1) / h, t: y0 / h, b: (y1 + 1) / h };
+  } catch { /* lecture impossible (image non décodée) : la médiane */ }
+  inkCache.set(img, box);
+  return box;
+}
+// Où est dessiné CET habitant, en px écran : sa silhouette (x0..x1, y0..y1), ses
+// pieds, et `px` = la taille à l'écran d'un pixel de la planche réellement servie
+// (bascule -half comprise) — l'anneau de désignation se dessine à ce grain-là.
+// null tant qu'aucune bande diagonale de son ère n'est prête.
+function citizenScreenBox(p) {
+  const spec = citizenSpec(p);
+  if (!spec) return null;
+  const c = ensureAgentDiag(spec.name);
+  const d = (p.dir >= 0 && p.dir < 4) ? p.dir : 2;
+  const img = c.img[ISO_DIAG[d]];
+  const sp = projWorldToScreen(p.x + (p.lox || 0), p.y + (p.loy || 0));
+  const drawH = Math.max(1, snapDev(CM.TILE * CM.cam.zoom * spec.scale * AGENT_SCALE));
+  let fh = img.naturalHeight || AGENT_FH;
+  const half = halfBands.on ? c.imgHalf[ISO_DIAG[d]] : null;
+  if (half && half.complete && half.naturalWidth > 0 && drawH <= fh * 0.7) fh = half.naturalHeight;
+  const left = snapDev(sp.x - drawH / 2), top = snapDev(sp.y - AGENT_FEET * drawH);
+  const ink = imgInkBox(img);
+  return {
+    x0: left + ink.l * drawH, x1: left + ink.r * drawH,
+    y0: top + ink.t * drawH, y1: top + ink.b * drawH,
+    footX: sp.x, footY: sp.y, drawH, px: drawH / fh,
+  };
+}
+// Le PORTRAIT de la fiche : la planche PLEINE (jamais la -half), la frame qu'il
+// joue en ce moment (même cadence par distance que sur la carte), et la boîte
+// d'encre pour cadrer. Il fait toujours face : un passant qui monte vers le nord
+// est montré de trois quarts face, du côté où il va.
+const PORTRAIT_DIR = [0, 2, 2, 0];   // SE, NO→SO, SO, NE→SE
+function citizenPortraitFrame(p, now) {
+  const spec = citizenSpec(p);
+  if (!spec) return null;
+  return namedPortraitFrame(spec.name, p.dir, (p.pauseT || 0) <= 0 && !p._nightHidden, p.walkDist, p.phase, now);
+}
+// Même portrait pour n'importe quel personnage NOMMÉ (le porteur de panier est un
+// « véhicule » côté moteur, mais il se dessine en piéton).
+function namedPortraitFrame(name, dir, walking, walkDist, phase, now) {
+  const c = ensureAgentDiag(name);
+  if (c.ready < ISO_DIAG.length) return null;
+  const d = PORTRAIT_DIR[(dir >= 0 && dir < 4) ? dir : 2];
+  const img = c.img[ISO_DIAG[d]];
+  const fh = img.naturalHeight || AGENT_FH;
+  const nf = Math.max(1, Math.round((img.naturalWidth || fh) / fh));
+  let frame = 0;
+  if (walking) {
+    if (walkDist != null) {
+      const stride = (typeof window !== 'undefined' && window.__strideLen != null) ? window.__strideLen : 2.75 * AGENT_SCALE;
+      frame = Math.floor(walkDist / Math.max(0.5, stride) + (phase || 0) * nf) % nf;
+    } else {
+      frame = Math.floor((now || 0) / 160 + (phase || 0) * 6) % nf;
+    }
+  }
+  return { img, sx: frame * fh, fh, ink: imgInkBox(img) };
+}
+
 // ── Vues DIAGONALES des véhicules (chantier iso) ─────────────────────────────
 // veh-{type}-{southeast|northwest|southwest|northeast}.png (1 frame, rotations
 // d'objets 8-directions PixelLab). Même contrat que les habitants : en iso la
@@ -2144,7 +2250,9 @@ function vehicleChooseNext(v) {
   const arrived = v.goal && v.goal.gx === v.gx && v.goal.gy === v.gy;
   if (!v.goal || arrived || Math.random() < 0.03) {
     const cross = Math.random() < 0.22 ? crossBankGoal(v.gx, v.gy) : null;
-    if (cross && vehicleRoadRank(cross.gx, cross.gy) !== "plaza") {
+    // `crossing` : la fiche du véhicule dit qu'il passe sur l'autre rive.
+    v.crossing = !!(cross && vehicleRoadRank(cross.gx, cross.gy) !== "plaza");
+    if (v.crossing) {
       v.goal = cross;
     } else {
       for (let tries = 0; tries < 8; tries += 1) {
@@ -2353,6 +2461,6 @@ function drawVehicleHeadlights(ctx, v) {
 // ⚠ Retirés le 2026-08-23 (étape 6) avec le rendu top-down : `drawCitizens`,
 // `drawGroundAgents`, `drawShips`, `drawVehicles`, `frontByPainter`.
 export { agentSetForBand, agentSpecFor, agentFrameIso, chooseRoadVehicleType, getVehicleDensity, updateVehicles, vehicleGapFactors, VEH_GAP, updateCitizens, CM_DIRS, cityMapWalkRoadKey, roadStepAllowed, drawCitizenThoughts, vehicleLaneOffset, drawEraAgent, drawEraAgentIso, drawNamedAgent, drawNamedAgentIso, drawVehicleHeadlights, thoughtBubbleAnchor, riotEraKey, ensureVeh, vehReady, VEH_SIZES, VEH_PULL, VEH_PUSH, ensureBoat, boatReady, BOAT_SIZES, BOAT_LIFT, ensureDrone, drawDroneRotors, ensureVehDiag, vehDiagReady, vehSkinFor, eraVehSpec, ISO_DIAG, ISO_AGENT_NAMES, BASKET_CARRIERS, agentDir, AGENT_SCALE, VEH_SCALE,
-  citizenSpawnCell, citizenAtDoorstep, citizenWorkNear, IDLE_NAMES, IDLE_ONE, POSE_NAMES, POSE_NONE, agentIdleFrameIso, agentPoseFrameIso, citizenPose };
+  citizenSpawnCell, citizenAtDoorstep, citizenWorkNear, IDLE_NAMES, IDLE_ONE, POSE_NAMES, POSE_NONE, agentIdleFrameIso, agentPoseFrameIso, citizenPose, citizenScreenBox, citizenPortraitFrame, namedPortraitFrame, imgInkBox, citizenSheltering };
 // AGENT_SCALE / VEH_SCALE sont exportés en LIAISON VIVE (ESM) : le rendu iso les relit
 // à chaque frame, donc __villagerScale / __vehScale agissent aussi sur la vue iso.

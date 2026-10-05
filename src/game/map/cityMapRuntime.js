@@ -111,6 +111,8 @@ import { maskHit } from './iso/isoMask.js';
 import { cityMapCalmRioterAt, quayWallTune, quayWallTiles, ensureQuayGate } from './quaysAndRiot.js';
 import { getVehicleDensity, chooseRoadVehicleType, vehSkinFor, thoughtBubbleAnchor, citizenSpawnCell, citizenWorkNear } from './agents.js';
 import { makeFleetCtl, riverFleetBudget, updateRiverFleet } from './riverFleet.js';
+import { pickAtScreen, describePick, citizenHoverTick, focusPick, releaseFocusCamera, focusCameraTarget, FOCUS_TUNE } from './citizenFocus.js';
+import { cmPasserbyName } from './cityNaming.js';
 
 
 // ── Qualité de rendu (préréglage joueur, cf. qualityMode.js) ─────────────────
@@ -429,10 +431,16 @@ function cmClampCamera() {
 function cmCameraGlide(dt) {
   if (!CM.cam || CM.capture) return;
   if (CM.zoomGoal == null) CM.zoomGoal = CM.cam.zoom;
+  // Habitant SUIVI (fiche d'habitant, citizenFocus.js) : point monde à rejoindre
+  // cette frame, ou null. Pendant le suivi, le zoom s'ancre sur LUI, pas sur le
+  // curseur — sinon la molette l'écarte du centre et le suivi le ramène, en
+  // tirant la caméra dans les deux sens à chaque cran.
+  const follow = focusCameraTarget();
   // 1) Zoom qui glisse. Le point sous l'ancre (curseur au wheel, centre au clavier)
   //    est REPROJETÉ à chaque frame d'interpolation, sinon il dérive pendant le vol.
   if (Math.abs(CM.cam.zoom - CM.zoomGoal) > 1e-3) {
-    const a = CM.zoomAnchor || { mx: CM.cw / 2, my: CM.ch / 2 };
+    const fs = follow && worldToScreen(follow.x, follow.y);
+    const a = fs ? { mx: fs.x, my: fs.y } : (CM.zoomAnchor || { mx: CM.cw / 2, my: CM.ch / 2 });
     const before = screenToWorld(a.mx, a.my);
     CM.cam.zoom += (CM.zoomGoal - CM.cam.zoom) * camApproach(dt, CAM_FEEL.zoomRate);
     const after = screenToWorld(a.mx, a.my);
@@ -441,8 +449,18 @@ function cmCameraGlide(dt) {
   } else {
     CM.cam.zoom = CM.zoomGoal;   // pose franche → cam immobile → recuisson du sol
   }
-  // 2) Recentrage en vol amorti (touche C). Prioritaire, et il éteint l'inertie.
-  if (CM.camGoal) {
+  // 2) Suivi d'habitant : la cible bouge à chaque frame, la caméra la rattrape
+  //    avec son propre amortissement (FOCUS_TUNE.rate, plus doux que le
+  //    recentrage : on accompagne un marcheur, on ne vole pas vers lui).
+  //    Prioritaire sur tout, il éteint recentrage et inertie.
+  if (follow) {
+    const k = camApproach(dt, FOCUS_TUNE.rate);
+    CM.cam.x += (follow.x - CM.cam.x) * k;
+    CM.cam.y += (follow.y - CM.cam.y) * k;
+    CM.camGoal = null;
+    CM.panVel = null;
+  } else if (CM.camGoal) {
+    // Recentrage en vol amorti (touche C). Prioritaire, et il éteint l'inertie.
     const k = camApproach(dt, CAM_FEEL.camRate);
     CM.cam.x += (CM.camGoal.x - CM.cam.x) * k;
     CM.cam.y += (CM.camGoal.y - CM.cam.y) * k;
@@ -474,6 +492,7 @@ function cmApplyHeldCamKeys(dt) {
   if (h.has('ArrowUp')) sdy -= 1;
   if (h.has('ArrowDown')) sdy += 1;
   if (!sdx && !sdy) return;
+  releaseFocusCamera();                      // les flèches reprennent la caméra au suivi
   const dir = screenDeltaToPan(sdx, sdy);   // direction écran → monde (diagonale iso respectée)
   const len = Math.hypot(dir.x, dir.y) || 1;
   const spd = CAM_FEEL.panKey;
@@ -489,6 +508,7 @@ function cmRecenter() {
   if (!CM.cam || !CM.layout) return;
   const t = cityMapCameraTarget(CM.layout);
   if (!t) return;
+  releaseFocusCamera();
   CM.camGoal = { x: t.x, y: t.y };
   CM.zoomGoal = t.zoom;
   CM.zoomAnchor = { mx: CM.cw / 2, my: CM.ch / 2 };
@@ -580,6 +600,10 @@ function cityMapDescribeTile(t) {
     : `${label} ${cmDeName(cmCitizenName(seed, band))}`;
   return { title };
 }
+// La fiche d'habitant (citizenFocus.js) nomme son logis et son atelier comme
+// l'infobulle les nomme : même fonction, publiée sur CM pour éviter l'import
+// circulaire (ce fichier importe déjà citizenFocus).
+CM.describeTile = cityMapDescribeTile;
 
 function cityMapHitTest(sx, sy) {
   if (!CM.layout) return null;
@@ -598,16 +622,25 @@ function cityMapHitTest(sx, sy) {
       }
     }
   }
-  for (const p of CM.citizens) {
-    const sp = cityMapScreenFromWorld(p.x, p.y);
-    const dist = Math.hypot(sp.x - sx, sp.y - sy);
-    if (dist < citizenRadius && dist < bestDist) {
-      bestCitizen = p;
-      bestDist = dist;
+  // Passant, promeneur du quai, véhicule : sa SILHOUETTE dessinée (citizenFocus.js),
+  // la même que vise le clic qui ouvre sa fiche (`pick`). L'ancien disque autour du
+  // point monde (sans le décalage de trottoir) ratait la tête dès qu'on zoomait ;
+  // il ne sert plus qu'au LOD, où les passants ne sont pas dessinés.
+  if (!CM.lodActive) {
+    const pk = pickAtScreen(sx, sy);
+    if (pk) return { ...describePick(pk), pick: pk };
+  } else {
+    for (const p of CM.citizens) {
+      const sp = cityMapScreenFromWorld(p.x, p.y);
+      const dist = Math.hypot(sp.x - sx, sp.y - sy);
+      if (dist < citizenRadius && dist < bestDist) {
+        bestCitizen = p;
+        bestDist = dist;
+      }
     }
   }
   if (bestCitizen) {
-    return { title: bestCitizen.name, body: bestCitizen.role, kind: "Habitant" };
+    return { title: bestCitizen.name, body: bestCitizen.role, kind: "Habitant", pick: { kind: "citizen", p: bestCitizen } };
   }
   // LA MAISON DES PLAISIRS, avant les merveilles et les bâtiments : elle est
   // seule au milieu du fleuve, rien ne la dispute, et elle monte très haut
@@ -796,6 +829,9 @@ function bindCityMapInput(canvas, mapRoot, callbacks = {}) {
     }
     const rect = canvas.getBoundingClientRect();
     const mx = e.clientX - rect.left, my = e.clientY - rect.top;
+    // Pointeur publié pour le SURVOL VIVANT des passants (citizenHoverTick) :
+    // eux marchent, la souris peut rester immobile.
+    CM._mouse = { x: mx, y: my };
     showHover(mx, my);
     // CURSEUR : `pointer` exactement là où un clic FAIT quelque chose, `grab`
     // partout ailleurs. La carte est une seule grande surface : sans ça, rien
@@ -809,17 +845,24 @@ function bindCityMapInput(canvas, mapRoot, callbacks = {}) {
     // coûte rien de plus : son rayon (7·zoom) est INCLUS dans celui du clic
     // (10·zoom), donc « l'infobulle dit Émeute » implique « le clic apaise ».
     //
-    // La bulle de pensée, elle, demande son propre test : son rayon de clic est
-    // PLUS LARGE que celui du survol, et tous les habitants n'en portent pas
-    // une — la reconnaître à `kind === "Habitant"` allumerait le curseur sur
-    // des passants qui n'ouvrent rien. Le test est pur et il ne tourne que si
-    // les deux drapeaux gratuits ont échoué.
+    // Depuis la fiche d'habitant (2026-10-03), TOUT passant s'ouvre au clic :
+    // `kind === "Habitant"` suffit. La bulle de pensée garde son propre test —
+    // son rayon de clic est PLUS LARGE que la silhouette (on la vise au-dessus
+    // de la tête). Il ne tourne que si les drapeaux gratuits ont échoué.
     const h = CM.hover;
-    const clickable = !!(h && (h.plaisirs || h.kind === "Émeute"))
+    // `_cursorBase` = la main SANS compter les passants : citizenHoverTick la
+    // reprend quand un passant entre ou sort de sous la souris immobile.
+    const clickableOther = !!(h && (h.plaisirs || h.kind === "Émeute"))
       || (!!callbacks.onCitizenThoughtClicked && !!cityMapHitTestCitizenWithThought(mx, my));
-    canvas.style.cursor = clickable ? "pointer" : "grab";
+    CM._cursorBase = clickableOther ? "pointer" : "grab";
+    CM.hoverPick = h && h.pick ? h.pick : null;
+    canvas.style.cursor = clickableOther || CM.hoverPick ? "pointer" : "grab";
   }, { signal });
-  canvas.addEventListener("mouseleave", clearHover, { signal });
+  canvas.addEventListener("mouseleave", () => {
+    CM._mouse = null;
+    CM.hoverPick = null;
+    clearHover();
+  }, { signal });
 
   canvas.addEventListener("mousedown", (e) => {
     CM.drag = { x: e.clientX, y: e.clientY, camx: CM.cam.x, camy: CM.cam.y, moved: 0 };
@@ -830,6 +873,9 @@ function bindCityMapInput(canvas, mapRoot, callbacks = {}) {
     const dx = e.clientX - CM.drag.x;
     const dy = e.clientY - CM.drag.y;
     CM.drag.moved += Math.abs(dx) + Math.abs(dy);
+    // Le joueur reprend la caméra : le suivi d'habitant s'arrête (la fiche reste).
+    // Même seuil que le clic : en deçà de 6 px, c'était un clic, pas un pan.
+    if (CM.drag.moved > 6) releaseFocusCamera();
     // Delta écran → delta caméra via la projection (iso : la carte suit la souris
     // le long des diagonales, comme attendu).
     const pd = screenDeltaToPan(dx, dy);
@@ -939,6 +985,7 @@ function bindCityMapInput(canvas, mapRoot, callbacks = {}) {
     const dy = e.clientY - CM.drag.y;
     CM.drag.moved += Math.abs(dx) + Math.abs(dy);
     if (CM.drag.moved > 10) cancelPress();   // ça glisse : ce n'est plus un appui long
+    if (CM.drag.moved > 6) releaseFocusCamera();
     const pd = screenDeltaToPan(dx, dy);
     CM.cam.x = CM.drag.camx - pd.x;
     CM.cam.y = CM.drag.camy - pd.y;
@@ -998,6 +1045,33 @@ function bindCityMapInput(canvas, mapRoot, callbacks = {}) {
       e.preventDefault();
       return;
     }
+    const hitCitizen = cityMapHitTestCitizenWithThought(mx, my);
+    if (hitCitizen && callbacks.onCitizenThoughtClicked) {
+      e.stopImmediatePropagation();
+      e.preventDefault();
+      const type = hitCitizen.thoughtType;
+      hitCitizen.thoughtType = null;
+      hitCitizen.thoughtTimer = 0;
+      CM.globalBubbleCooldown = Math.random() * 90 + 90; // 1.5 - 3 minutes before next bubble
+      callbacks.onCitizenThoughtClicked(hitCitizen, type);
+      return;
+    }
+    // FICHE D'HABITANT : un clic sur un passant le désigne — sa fiche s'ouvre et
+    // la caméra le suit (citizenFocus.js). Même test que l'infobulle : ce qui
+    // affiche « Habitant » au survol est exactement ce qui s'ouvre au clic.
+    // Et ce que l'anneau de SURVOL montre est ce qui s'ouvre : s'il est allumé
+    // (passant arrivé sous la souris immobile), il l'emporte sur un bâtiment.
+    // ⚠ AVANT la Maison des Plaisirs, comme dans l'infobulle (cityMapHitTest) :
+    // la fille du balcon est peinte PAR-DESSUS la façade — viser elle ouvrait
+    // l'onglet du monument au lieu de sa fiche.
+    const hit = cityMapHitTest(mx, my);
+    const target = (hit && hit.pick) || CM.hoverPick;
+    if (target) {
+      e.stopImmediatePropagation();
+      e.preventDefault();
+      focusPick(target);
+      return;
+    }
     // LA MAISON DES PLAISIRS : cliquer le monument ouvre son onglet. La carte
     // n'est que le POINT D'ENTRÉE — on y va, ça se joue dans le panneau.
     //
@@ -1012,17 +1086,6 @@ function bindCityMapInput(canvas, mapRoot, callbacks = {}) {
       e.stopImmediatePropagation();
       e.preventDefault();
       openView('plaisirs');
-      return;
-    }
-    const hitCitizen = cityMapHitTestCitizenWithThought(mx, my);
-    if (hitCitizen && callbacks.onCitizenThoughtClicked) {
-      e.stopImmediatePropagation();
-      e.preventDefault();
-      const type = hitCitizen.thoughtType;
-      hitCitizen.thoughtType = null;
-      hitCitizen.thoughtTimer = 0;
-      CM.globalBubbleCooldown = Math.random() * 90 + 90; // 1.5 - 3 minutes before next bubble
-      callbacks.onCitizenThoughtClicked(hitCitizen, type);
     }
   }, { capture: true, signal });
 
@@ -1165,8 +1228,13 @@ function cityMapEnsureLayout(now, deps = {}) {
   // constantes plus haut). Jamais pendant une capture (déterminisme du harnais).
   if (typeof window === 'undefined' || window.__layoutDefer !== false) {
     const cam = CM.cam;
+    // Caméra qui SUIT un habitant (fiche d'habitant) : elle glisse à chaque frame
+    // sans que le joueur fasse un geste. Ce n'est pas un geste à protéger — le
+    // compter comme tel repousserait chaque achat jusqu'au plafond de 10 s.
+    const following = !!(CM.focus && CM.focus.cam) && !CM.drag && cam.zoom === CM.zoomGoal;
     if (cam.x !== _lyCamX || cam.y !== _lyCamY || cam.zoom !== _lyCamZ) {
-      _lyCamX = cam.x; _lyCamY = cam.y; _lyCamZ = cam.zoom; _lyCamMoveAt = now;
+      _lyCamX = cam.x; _lyCamY = cam.y; _lyCamZ = cam.zoom;
+      if (!following) _lyCamMoveAt = now;
     }
     if (CM.layout && !CM.capture && now - _lyCamMoveAt < LAYOUT_GESTURE_STILL_MS) {
       if (!_lyDeferredAt) _lyDeferredAt = now;
@@ -1375,7 +1443,9 @@ function cityMapEnsureLayout(now, deps = {}) {
         for (let ay = -1; ay <= sy; ay += 1) {
           if (ax >= 0 && ax < sx && ay >= 0 && ay < sy) continue; // intérieur du bâti
           const gx = t.gx + ax, gy = t.gy + ay;
-          if (CM.walkRoadSet.has(gx * 10000 + gy)) out.push({ gx, gy });
+          // `t` : le bâtiment que borde la cellule — la fiche d'habitant nomme
+          // ainsi son logis et son atelier (citizenFocus.js).
+          if (CM.walkRoadSet.has(gx * 10000 + gy)) out.push({ gx, gy, t });
         }
       }
     };
@@ -1575,6 +1645,9 @@ function cityMapEnsureLayout(now, deps = {}) {
         // août (basket-woman-flat) mais jamais posée — `v.woman` n'était jamais vrai.
         woman: vehicleType === "basket" && ((n * 2654435761) >>> 0) % 2 === 1,
         type: vehicleType,
+        // Graine de la fiche d'habitant (citizenFocus.js) : conducteur, chargement.
+        // Elle marque aussi « véhicule de la flotte » — seuls ceux-là sont cliquables.
+        seed: cmHash(`${state.cycles || 0}:veh:${n}:${r.gx},${r.gy}`) >>> 0,
         // Modèle et teinte de CETTE voiture-là (flotte moderne). Sans ça une
         // avenue aligne vingt fois la même carrosserie ; c'est le seul endroit
         // où le tirage a lieu, le rendu ne fait que lire v.skin. La BANDE compte :
@@ -1583,6 +1656,12 @@ function cityMapEnsureLayout(now, deps = {}) {
         speed: vehicleType === "drone" ? 58 + (n % 5) * 7 : vehicleType === "car" || vehicleType === "tram" || vehicleType === "taxi" || vehicleType === "police" ? 34 + (n % 6) * 4 : vehicleType === "ambulance" ? 40 + (n % 4) * 4 : vehicleType === "bus" || vehicleType === "truck" ? 24 + (n % 4) * 3 : vehicleType === "van" ? 30 + (n % 5) * 3 : vehicleType === "basket" ? 11 + (n % 3) * 2 : vehicleType === "chariot" ? 24 + (n % 4) * 3 : vehicleType === "caravan" ? 16 + (n % 4) * 2 : 14 + (n % 4) * 2,
         col: vehicleType === "car" || vehicleType === "tram" ? ["#9b4d38", "#c0a85d", "#6f8490", "#a8a092", "#5f6f7c", "#8f6544"][n % 6] : ["#8f6534", "#b08a4a", "#7b5b35", "#c0a46a", "#6f5636", "#9a7440"][n % 6]
       });
+    }
+    // Le véhicule SUIVI (fiche d'habitant) survit à la reconstruction de la flotte
+    // tant que sa route existe : il prend la place du premier venu.
+    const fv = CM.focus && CM.focus.kind === "vehicle" ? CM.focus.p : null;
+    if (fv && CM.walkRoadSet.has(fv.gx * 10000 + fv.gy)) {
+      if (CM.vehicles.length) CM.vehicles[0] = fv; else CM.vehicles.push(fv);
     }
   }
 
@@ -1892,6 +1971,7 @@ function spawnOneCitizen(L) {
   // moduler la vitesse des enfants et garder l'identité stable dès la 1re frame.
   const cr = (seed >> 6) % 100;
   const charType = cr < 42 ? 0 : cr < 84 ? 1 : 2;
+  const fem = charType === 1 || (charType === 2 && ((seed >>> 17) & 1) === 1);
   // Variante de dessin (métier, diversité). Fixée au spawn ; agentSpecFor la ramène au
   // nombre de dessins de l'ère (variant % liste) → 12, multiple de 1, 2, 3, 4 et 6 :
   // chaque dessin d'une liste sort aussi souvent que les autres (PLAN-VIVANT, 8/ère).
@@ -1923,7 +2003,12 @@ function spawnOneCitizen(L) {
     col: OUTFITS[seed % OUTFITS.length],
     skin: SKINS[(seed >> 3) % SKINS.length],
     hat,
-    name: cmCitizenName(seed, L.counts.eraBand),
+    // Fiche d'habitant (citizenFocus.js) : le seed fonde son âge et son caractère,
+    // et le nom s'accorde au portrait — un homme ne s'appelle plus « Sibylle ».
+    // L'enfant (dessin unique) tire son genre au seed.
+    seed,
+    fem,
+    name: cmPasserbyName(seed, L.counts.eraBand, fem, charType === 2),
     role: cmPick(roleList, Math.floor(seed / 13))
   });
 }
@@ -2030,6 +2115,7 @@ function initCityMap(canvas, options = {}) {
       cmApplyHeldCamKeys(dt);
       cmCameraGlide(dt);
       cmClampCamera();
+      citizenHoverTick(now);   // passant sous la souris, caméra posée pour cette frame
       cmCheckWonders(now);
       fp('camera-merveilles');
 
