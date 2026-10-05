@@ -279,4 +279,21 @@ Méthode habituelle : planche avant/après sur de vraies captures, validation de
   - Les essences de ville ne poussent jamais en forêt (`TREE_LIVING` = chêne, bouleau,
     sapin, pin). Tests dans `vegetationFamily.test.js` (proportions par bande à 5 %).
   - PixelLab : 634 générations restantes au début du lot (les autres sessions
-    consomment aussi), 554 après.
+    consomment aussi), 519 au matin.
+  - Commit local `205b06f0`.
+- **Vérification finale** (nuit du 4 au 5) :
+  - Copie propre au commit `205b06f0` : `npm run lint` vert, `npm run build` vert, tests
+    3 093/3 094. Le seul rouge, `comportementsAnalyse.test.js` (habitants, autre
+    chantier), est ALÉATOIRE : il échoue aussi 1 fois sur 6 au commit d'avant le lot 1
+    (`7bc9ced8`, mesuré).
+  - Avant/après à graine fixe (777), bandes 0-2-4-6-8 + automne/hiver, serveur de capture
+    monté sur un worktree détaché (avant `7bc9ced8`, après `a8cf8201`) :
+    planche https://claude.ai/artifact/XUQNPgaWj1ikL6AXqggNvW (version 2).
+  - Vu sur la planche : au dézoom de la bande 8, l'herbe grasse (30,64,38 à 0,2) faisait
+    une grande ombre → `a8cf8201` (58,104,46 à 0,16). Les autres taches sombres des grands
+    prés sont les OMBRES DE NUAGES de la petite vie (`__vie({ on: false })` les efface) :
+    la forêt les cachait, le pré dégagé les montre. Question posée à Raph.
+  - Même ville antique : arbres visibles 5 551 → 5 520 (dézoom 0,25), 31 501 → 29 743
+    (dézoom maximal) ; image p50 73 → 59 ms et 114-199 → 109-161 ms (bruit fort).
+- **Reste ouvert** : la réponse de Raph sur la planche (ombres de nuages, part des cyprès
+  et pins parasols dans la ville antique). Rien de poussé.
