@@ -487,8 +487,16 @@ export function drawIsoPortBoat(ctx, moor, now, z, T) {
 // Largeur de dessin (tuiles) de la maison du port posée sur la grève, par sprite.
 const PORT_HOUSE_W = {
   'port-prop-house': 1.45,        // cabane de pêcheurs sur pilotis
-  'port-house-medieval': 1.3,     // entrepôt à pignon, porte de chargement et poulie
-  'port-house-classical': 2.0,    // horreum à arcades
+  'port-house-medieval': 2.0,     // maison de pêcheurs basse sous un grand toit (2026-10-03)
+  'port-house-classical': 2.0,    // horreum à arcades (vue de coin, 2026-10-03)
+};
+// Où tombe la POINTE AVANT du sprite (coin sud-est de l'emprise, son pixel le plus bas),
+// en fraction de la largeur du contenu depuis la gauche : la face gauche (sud) en
+// occupe cette part, la droite (est) le reste. Mesuré sur les PNG (le bas du contenu).
+const PORT_HOUSE_R = {
+  'port-prop-house': 0.5,
+  'port-house-medieval': 0.48,   // filets et séchoir sur la face gauche, porte à bateaux au pignon
+  'port-house-classical': 0.68,   // horreum redessiné en vue de coin : la longue façade à arcades à gauche
 };
 
 export function drawIsoRiverside(ctx, t, spanX, spanY, T, z, now, band, ei) {
@@ -526,7 +534,6 @@ export function drawIsoRiverside(ctx, t, spanX, spanY, T, z, now, band, ei) {
   // sprite et l'ancienne pose, ci-dessous.
   const pier = PIER.on ? drawPortPier(ctx, t, spanX, spanY, band, ei) : null;
   if (pier) {
-    const foot = pierHouseFoot(pier);
     // Largeur de la maison PAR SPRITE (docs/PLAN-PORTS.md, lot P1) : les bâtiments
     // redessinés n'ont plus de socle, et leurs silhouettes diffèrent — l'entrepôt
     // médiéval est une tour à pignon (deux fois plus haute que large), l'horreum une
@@ -534,8 +541,15 @@ export function drawIsoRiverside(ctx, t, spanX, spanY, T, z, now, band, ei) {
     // écrasait la grève. Repli sur la formule pour les sprites hors table (cosmiques).
     const bWp = PORT_HOUSE_W[HOUSE]
       || (stage === 0 ? Math.min(1.6, spanX * 0.8) : Math.min(spanX * 1.05, 1.25 + sizeMul * 0.42));
+    // L'emprise au sol se déduit du dessin : un bâtiment de w × d tuiles fait (w + d)
+    // tuiles de large à l'écran, partagées à la pointe avant. Sa face vers l'eau est
+    // centrée sur l'axe du ponton (pierHouseFoot) ; blitPropAnchored pose le MILIEU du
+    // contenu, la pointe en est décalée de (r − ½) de la largeur.
+    const r = PORT_HOUSE_R[HOUSE] != null ? PORT_HOUSE_R[HOUSE] : 0.5;
+    const span = bWp * cpx / (T * z);
+    const foot = pierHouseFoot(pier, span * r, span * (1 - r));
     const fp = worldToScreen(foot.x * T, foot.y * T);
-    blitPropAnchored(ctx, HOUSE, fp.x, fp.y, bWp * cpx);
+    blitPropAnchored(ctx, HOUSE, fp.x - (r - 0.5) * bWp * cpx, fp.y, bWp * cpx);
     return;
   }
   // PONTON perpendiculaire à la TANGENTE LOCALE du ruban (retour Raph : « les
