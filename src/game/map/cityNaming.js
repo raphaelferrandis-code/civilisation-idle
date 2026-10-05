@@ -25,6 +25,42 @@ export const CM_HOUSES = [
   "des Ponts", "Aldenne", "Virelane", "Montargis", "de Sorel", "Carrac",
   "des Archives", "Vauquelin", "de Roanne", "Esterlin"
 ];
+// Les mêmes prénoms, épithètes et métiers, RANGÉS PAR GENRE, pour les passants
+// (fiche d'habitant, 2026-10-03) : la fiche montre leur portrait, et un homme ne
+// peut plus s'appeler « Sibylle la Patiente ». Les maisons gardent les listes
+// mêlées ci-dessus (le nom de l'occupant d'une hutte n'a pas de portrait).
+export const CM_GIVEN_M = [
+  "Aldric", "Garin", "Renaud", "Tassin", "Doran", "Albin", "Corin", "Estor",
+  "Bertran", "Gauvin", "Merin", "Aldis", "Tovan", "Nehm", "Orun", "Khael"
+];
+export const CM_GIVEN_F = [
+  "Sibylle", "Mahaut", "Ysoria", "Oda", "Maelis", "Nessa", "Aveline", "Linnea",
+  "Edith", "Soraya", "Talia", "Bruna", "Eda", "Sira", "Ilya", "Solen"
+];
+export const CM_EPITHETS_M = ["le Veilleur", "l'Ancien", "le Taciturne", "le Boiteux", "le Cadet", "le Guetteur"];
+export const CM_EPITHETS_F = ["la Patiente", "la Vive", "la Rousse", "la Sage", "l'Aïeule", "la Nomade"];
+export const CM_TRADES_M = [
+  "du Moulin", "des Granges", "le Forgeron", "du Puits", "des Halles", "le Tisserand",
+  "du Four", "des Tanneurs", "le Charpentier", "du Marché", "des Vignes", "le Tonnelier"
+];
+export const CM_TRADES_F = [
+  "du Moulin", "des Granges", "la Potière", "du Puits", "des Halles", "la Meunière",
+  "du Four", "des Tanneurs", "la Brodeuse", "du Marché", "des Vignes", "la Verrière"
+];
+// Nom d'un PASSANT accordé à son genre. Même grammaire par âge que cmCitizenName
+// (layout.js) : épithète au temps des camps, métier ou lieu-dit au temps des
+// villages, nom de maison ensuite. Un enfant ne porte ni épithète ni métier
+// (« Oda la Potière » à huit ans) : son prénom, et le lieu-dit de sa famille.
+const CM_TRADES_FAMILY = CM_TRADES_M.filter((t) => t.startsWith("d"));
+export function cmPasserbyName(seed, band, fem, child) {
+  const pick = (list, s) => list[s % list.length];
+  const given = pick(fem ? CM_GIVEN_F : CM_GIVEN_M, seed);
+  if (band <= 1) {
+    return !child && seed % 3 === 0 ? `${given} ${pick(fem ? CM_EPITHETS_F : CM_EPITHETS_M, Math.floor(seed / 5))}` : given;
+  }
+  if (band <= 3) return `${given} ${pick(child ? CM_TRADES_FAMILY : fem ? CM_TRADES_F : CM_TRADES_M, Math.floor(seed / 7))}`;
+  return `${given} ${pick(CM_HOUSES, Math.floor(seed / 7))}`;
+}
 export const CM_ROLES = [
   ["veille le feu", "cherche du bois", "rentre au camp"],
   ["porte un panier", "revient des champs", "parle au puits"],
