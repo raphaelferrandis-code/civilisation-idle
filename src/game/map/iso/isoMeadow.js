@@ -15,6 +15,7 @@ import { CM, cmLifeDistance } from '../layout.js';
 import { AUTUMN, WINTER } from '../seasonMode.js';
 import { vegNoise } from './vegNoise.js';
 import { solInvalidate } from './solInvalidate.js';
+import { COUR } from './isoTissu.js';
 
 export const MEADOW = {
   on: true, scale: 13, water: 6,
@@ -60,9 +61,15 @@ export function meadowAt(L) {
 // fleurs seulement en MASSIF au cœur du jardin (cellules dont les 8 voisines sont de la
 // pelouse). ⛔ La couture avec le pavé n'est PAS décorée (7 refus) : c'est la matière
 // qui change, pas son bord.
-// Molette : __lawn(false) | ({ alpha, col }) ; la part de fleurs du massif est LAWN_FLOWER_P
-// (isoGroundDetail).
-export const LAWN = { on: true, alpha: 0.16, col: [178, 204, 120] };
+// `crisp` (Raph, 2026-10-05 : « délimite davantage en ville les zones d'herbe, pour plus
+// de cohérence ») : le bord d'une pelouse avec le pavé et la terre de cour est FRANC —
+// ni lisière arrondie, ni langues de frange, ni divagation (FRONTIER) qui retournait des
+// cellules de pavé en herbe à son contact. Une pelouse de ville est un parterre tracé, pas
+// une prairie qui déborde. Rien n'est ajouté sur la couture (7 refus) : on cesse de la
+// brouiller (isoGroundResolve).
+// Molette : __lawn(false) | ({ alpha, col, crisp }) ; la part de fleurs du massif est
+// LAWN_FLOWER_P (isoGroundDetail).
+export const LAWN = { on: true, alpha: 0.16, col: [178, 204, 120], crisp: true };
 if (typeof window !== 'undefined') {
   window.__lawn = (o) => {
     if (o === false) LAWN.on = false;
@@ -74,13 +81,21 @@ if (typeof window !== 'undefined') {
 }
 // Pelouse de ville en (gx, gy) : 0 herbe sauvage, 1 pelouse, 2 cœur de pelouse.
 // `cour` : courField du layout (isoTissu.courOf), passé par l'appelant (pas d'import ici).
+// Une VILLE seulement (bande 2 et plus) : au camp et au village, l'herbe est un pré —
+// et le champ du camp (`cour.camp`) n'a pas de friche, ses 'grass' sont la prairie.
+// Aux ères où la cour de terre devient pelouse (COUR.lawnFrom, isoTissu), elle en est.
 export function townLawnAt(L, cour) {
   if (!LAWN.on || !L) return null;
   if (L._townLawn) return L._townLawn;
+  const band = (L.counts && L.counts.eraBand) | 0;
+  if (band < 2 || (cour && cour.camp)) { L._townLawn = () => 0; return L._townLawn; }
   const green = L.townGreen || null;
+  const dirtLawn = COUR.lawnFrom != null && band >= COUR.lawnFrom;
   const is = (gx, gy) => {
     const k = gx + ',' + gy;
-    return !!((green && green.has(k)) || (cour && cour.get && cour.get(k) === 'grass'));
+    if (green && green.has(k)) return true;
+    const c = cour && cour.get ? cour.get(k) : null;
+    return c === 'grass' || (dirtLawn && c === 'dirt');
   };
   if (!(green && green.size) && !(cour && cour.size)) { L._townLawn = () => 0; return L._townLawn; }
   const at = (gx, gy) => {

@@ -104,8 +104,17 @@ describe("la pelouse de ville (lot 5)", () => {
   const green = new Set();
   for (let y = 10; y < 15; y += 1) for (let x = 10; x < 15; x += 1) green.add(x + "," + y);
   const cour = new Map([["30,30", "grass"], ["31,30", "urban"]]);
-  const L = { gridN: 60, townGreen: green, river: null };
+  const L = { gridN: 60, townGreen: green, river: null, counts: { eraBand: 2 } };
   const lawn = townLawnAt(L, cour);
+
+  it("pas de pelouse au camp ni au village : leur herbe est un pré", () => {
+    for (const band of [0, 1]) {
+      const l = townLawnAt({ gridN: 60, townGreen: green, river: null, counts: { eraBand: band } }, cour);
+      expect(l(12, 12)).toBe(0);
+    }
+    const camp = new Map([["30,30", "grass"]]); camp.camp = true;
+    expect(townLawnAt({ gridN: 60, townGreen: null, river: null, counts: { eraBand: 2 } }, camp)(30, 30)).toBe(0);
+  });
 
   it("jardins et friche sont de la pelouse ; le cœur du jardin est reconnu", () => {
     expect(lawn(12, 12)).toBe(2);          // ses 8 voisines sont du jardin

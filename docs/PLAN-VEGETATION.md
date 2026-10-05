@@ -297,3 +297,18 @@ Méthode habituelle : planche avant/après sur de vraies captures, validation de
     (dézoom maximal) ; image p50 73 → 59 ms et 114-199 → 109-161 ms (bruit fort).
 - **Reste ouvert** : la réponse de Raph sur la planche (ombres de nuages, part des cyprès
   et pins parasols dans la ville antique). Rien de poussé.
+- 2026-10-05 matin, Raph (captures : le vieux chêne au tronc plissé, le chêne tordu, une
+  rue médiévale) : « refais ces arbres, délimite davantage en ville les zones d'herbe pour
+  plus de cohérence ».
+  - Chênes refaits : `tree-chene-v1`, `-v2`, `-v3` (vieux, 128 px) et `-a3` (96 px). Les
+    anciens avaient des troncs noueux et verdâtres (racines en rideau, « visage ») et des
+    couronnes en grappes cerclées de noir. Nouveaux : tronc brun droit, couronne en grosses
+    masses arrondies, images de style = tree-1, tree-2 et le tilleul (4 appels, 80
+    générations). Pose et hiver par les scripts habituels.
+  - Pelouses de ville délimitées (`LAWN.crisp`, `__lawn({ crisp: false })` pour l'A/B) :
+    bord FRANC avec le pavé et la terre de cour — pelouse hors du champ de la lisière
+    arrondie (les deux côtés de la couture), pas de langues de frange vers elle, et
+    FRONTIER ne retourne plus le pavé qui la borde (une voisine de jardin compte comme de
+    la ville). Rien n'est AJOUTÉ sur la couture (7 refus). Pelouse = bande ≥ 2 seulement
+    (camp et village gardent leur pré) ; aux ères où la cour de terre devient gazon
+    (`COUR.lawnFrom`), elle en est.
