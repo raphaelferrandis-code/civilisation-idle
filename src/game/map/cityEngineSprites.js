@@ -15,6 +15,7 @@ import { recDens, palierK, PALIER_SPANSUM, palierHFrac } from './spriteScale.js'
 import { pxProbe, recPx } from './pixelGrid.js';
 import { snapDev } from './blitSnap.js';
 import { drawSunShadow } from './iso/isoSunShadow.js';
+import { drawSmoke } from './iso/boatFx.js';
 import { drawSceneEmissive } from './sceneEmissive.js';
 import { drawSceneWindows } from './sceneWindows.js';
 
@@ -73,6 +74,10 @@ export function setEngineSpan(gw, gh) { curSpanSum = (gw | 0) + (gh | 0); }
 // entrée du rendu de scène.
 let curSeed = 0;
 export function setEngineSeed(seed) { curSeed = seed >>> 0; }
+// Horloge de la scène en cours (ms), lue par blitProp pour ce qui VIT dans les
+// scènes peintes (LIVE_LAYERS) : blitProp n'a pas de `now` et sert cent appelants.
+let curNow = 0;
+export function setEngineNow(now) { curNow = +now || 0; }
 // Chargement PARESSEUX d'un sprite de palier — un grand ne descend du réseau que
 // si son palier s'arme (les bandes, elles, seraient sinon préchargées par
 // ensureAnim pour tout le monde). Renvoie l'Image prête, ou null tant qu'elle
@@ -682,13 +687,89 @@ function blitProp(ctx, ox, oy, sw, sh, p, cx, cy, wFrac, hFrac) {
   // sous un bâtiment n'en projette aucune de visible, le bâtiment oui.
   drawSunShadow(ctx, im, left, top, drawW, drawH, 0, 0, 0, 0, 'column');
   const prev = ctx.imageSmoothingEnabled; ctx.imageSmoothingEnabled = false;
-  ctx.drawImage(propArt(p, im), left, top, drawW, drawH);
+  const fl = liveLayer(p);
+  ctx.drawImage(fl && fl.back ? propArt(p + '-back', fl.back) : propArt(p, im), left, top, drawW, drawH);
+  if (fl) drawLiveFrame(ctx, fl, left, top, drawW, drawH, curNow);
   ctx.imageSmoothingEnabled = prev;
   // Un bâtiment de scène masque les halos déposés DERRIÈRE lui (cf. lightLayer.js).
   lightCutImage(im, left, top, drawW, drawH);
   // La nuit, ses fenêtres s'allument — verre nommé (bande 6) ou fenêtres sombres
   // (médiéval, romain, XIXe), cf. sceneWindows.js.
   drawSceneWindows(ctx, im, p, left, top, drawW, drawH, curSeed);
+}
+
+// ── CE QUI VIT DANS LES SCÈNES PEINTES (2026-10-04) ─────────────────────────
+// Audit « tout ce qui doit bouger bouge-t-il ? » : des feux et des mécanismes
+// étaient PEINTS dans des images fixes — le fil de la flamme éternelle du culte des
+// ancêtres dès l'âge du Marbre, les braises de la tour de guet de pierre, les
+// lanternes des tours cosmiques ; la roue de la grue romaine des grands travaux, les
+// charges des grues cosmiques, les drones, les anneaux et les cristaux en orbite des
+// tours de la fin. Seul un halo respirait, et seulement la nuit.
+// scripts/sceneLive.mjs cuit, par image, une bande `<clé>-live` (au canvas de
+// l'image, N images, rien que ce qui bouge) et, quand une pièce a été gommée pour
+// être redessinée ou déplacée, le fond `<clé>-back`. blitProp et blitCosmicTower
+// posent le fond puis l'image du moment, au MÊME cadre ; tant que les couches ne
+// sont pas chargées, l'image d'origine sert de repli. Chargement paresseux, liste
+// EXPLICITE des fichiers livrés (garde : sceneLive.test.js). Chaque instance a sa
+// phase (graine du lot : deux grues voisines ne hissent pas en cadence). Cran
+// d'ambiance « aucune » : la première image, figée.
+// ⚠ Tenue en double avec TARGETS du script (n, ms, fond) : la garde confronte les fichiers.
+export const LIVE_LAYERS = {
+  // Feux
+  'cult-vesta': { n: 8, ms: 120, back: true },
+  'cult-mausoleum': { n: 8, ms: 120, back: true },
+  'cult-memorial': { n: 8, ms: 120, back: true },
+  'cult-memorial-grand': { n: 8, ms: 120, back: true },
+  'cosmic-ancestral_cult-7': { n: 12, ms: 120, back: false },
+  'cosmic-ancestral_cult-8': { n: 12, ms: 120, back: false },
+  'watch-stone': { n: 8, ms: 120, back: false },
+  'cosmic-watch-7': { n: 12, ms: 120, back: false },
+  'cosmic-watch-8': { n: 24, ms: 120, back: false },
+  // Mécanismes
+  'works-classical': { n: 16, ms: 140, back: false },
+  'works-classical-grand': { n: 16, ms: 140, back: false },
+  'cosmic-public_works-7': { n: 16, ms: 160, back: true },
+  'cosmic-public_works-8': { n: 16, ms: 160, back: true },
+  'cosmic-public_works-9': { n: 16, ms: 160, back: true },
+  'mint-cosmic-8': { n: 24, ms: 120, back: false },
+  'granary-cosmic-8': { n: 24, ms: 120, back: false },
+  'cosmic-observatories-8': { n: 24, ms: 120, back: false },
+  'mint-cosmic-9': { n: 24, ms: 120, back: true },
+  'cosmic-watch-9': { n: 24, ms: 120, back: true },
+  'cosmic-observatories-9': { n: 24, ms: 120, back: false },
+  // Fumée de l'hôtel des monnaies (stade 1, Moneta du Marbre) : le panache peint
+  // devient des bouffées qui montent, dérivent et se défont.
+  'mint-prop-house': { n: 20, ms: 150, back: true },
+  'mint-prop-house-grand': { n: 20, ms: 150, back: true },
+  'mint-moneta': { n: 20, ms: 150, back: true },
+  'mint-moneta-grand': { n: 20, ms: 150, back: true },
+};
+const liveImg = {};
+function liveAsset(name) {
+  let im = liveImg[name];
+  if (!im) {
+    if (typeof Image === 'undefined') return null;
+    im = new Image();
+    im.onload = () => { propVersion += 1; };
+    im.src = '/pixelart/agents/buildings/' + name + '.png';
+    liveImg[name] = im;
+    return null;
+  }
+  return (im.complete && im.naturalWidth > 0) ? im : null;
+}
+// Les couches vivantes d'une image, si elles sont TOUTES prêtes ; sinon null (repli).
+function liveLayer(key) {
+  const L = LIVE_LAYERS[key];
+  if (!L) return null;
+  const strip = liveAsset(key + '-live');
+  const back = L.back ? liveAsset(key + '-back') : null;
+  if (!strip || (L.back && !back)) return null;
+  return { strip, back, n: L.n, ms: L.ms };
+}
+function drawLiveFrame(ctx, fl, left, top, drawW, drawH, now) {
+  const fw = fl.strip.naturalWidth / fl.n, fh = fl.strip.naturalHeight;
+  const f = (CM.ambianceK ?? 1) > 0 ? (Math.floor((now || 0) / fl.ms) + (curSeed % fl.n)) % fl.n : 0;
+  ctx.drawImage(fl.strip, f * fw, 0, fw, fh, left, top, drawW, drawH);
 }
 
 // TOUR COSMIQUE (âge 35+) — sprite PixelLab HAUT (128×224) blité en GRAND, base ANCRÉE au sol
@@ -707,7 +788,9 @@ function blitCosmicTower(ctx, ox, oy, sw, sh, key, now, band, cp, baseOverride) 
   // Neige exclue par défaut sur les tours cosmiques (cf. skipKey dans snowRoof.js) :
   // le passage par propArt existe pour que __snowRoofTune({skipCosmic:false}) veuille
   // dire quelque chose, pas parce qu'on les enneige.
-  ctx.drawImage(propArt(key, im), cx - drawW / 2, baseY - drawH, drawW, drawH);
+  const fl = liveLayer(key);
+  ctx.drawImage(fl && fl.back ? propArt(key + '-back', fl.back) : propArt(key, im), cx - drawW / 2, baseY - drawH, drawW, drawH);
+  if (fl) drawLiveFrame(ctx, fl, cx - drawW / 2, baseY - drawH, drawW, drawH, now);
   ctx.imageSmoothingEnabled = prev;
   lightCutImage(im, cx - drawW / 2, baseY - drawH, drawW, drawH);
   const pearl = isPearl(key);
@@ -1155,13 +1238,41 @@ export function engineCraft(t) {
 // Fumée qui monte d'un point du sprite (fractions de boîte) : trois bouffées en boucle,
 // le même geste que la fumée du faîte de la maison de guilde.
 function guildSmoke(ctx, ox, oy, sw, sh, fx, fy, now, a = 0.26) {
+  smokePuffs(ctx, ox + sw * fx, oy + sh * fy, sw, sh, now, a);
+}
+// Les bouffées elles-mêmes, depuis un point écran (x, y) ; sw/sh = la boîte de la
+// scène, qui règle leur taille et leur montée.
+function smokePuffs(ctx, x, y, sw, sh, now, a = 0.26) {
   for (let i = 0; i < 3; i++) {
     const t = ((now / 2600) + i / 3) % 1;
     ctx.fillStyle = `rgba(208,198,188,${(a * (1 - t)).toFixed(2)})`;
     ctx.beginPath();
-    ctx.arc(ox + sw * (fx + 0.05 * t + 0.01 * Math.sin(now / 300 + i)), oy + sh * (fy - 0.2 * t), sw * (0.016 + 0.035 * t), 0, Math.PI * 2);
+    ctx.arc(x + sw * (0.05 * t + 0.01 * Math.sin(now / 300 + i)), y - sh * 0.2 * t, sw * (0.016 + 0.035 * t), 0, Math.PI * 2);
     ctx.fill();
   }
+}
+// FUMÉE DE CHEMINÉE d'un prop de scène (2026-10-04 : la cheminée de l'imprimerie
+// industrielle ne fumait pas). Le sommet de la souche est relevé sur le PNG, en
+// fraction de l'IMAGE, donc il suit le jumeau « -grand » que blitProp substitue
+// sur les grandes emprises — même cadre que blitProp, sans le calage au pixel
+// (sans effet sur une bouffée). Mêmes arguments que blitProp, plus `now`. La
+// fumée d'USINE des vapeurs (boatFx.drawSmoke : pavés sombres qui pâlissent en
+// montant) — les bouffées claires des ateliers disparaissaient sur le pavé gris.
+const CHIMNEY_TOPS = {
+  'printing-factory': [0.554, 0.125],
+  'printing-factory-grand': [0.682, 0.056],
+};
+export function propChimneySmoke(ctx, ox, oy, sw, sh, p, cx, cy, wFrac, hFrac, now) {
+  const pal = palierImg(p);
+  if (pal) {
+    hFrac = palierHFrac(pal.cle) * palierK(PALIER_SPANSUM[pal.cle], curSpanSum);
+    wFrac = hFrac * (pal.im.naturalWidth / pal.im.naturalHeight);
+    p = pal.cle;
+  }
+  const pt = CHIMNEY_TOPS[p];
+  if (!pt || !propImg[p]) return;
+  const w = sw * wFrac, h = sh * hFrac;
+  drawSmoke(ctx, { x: ox + sw * cx - w / 2 + w * pt[0], y: oy + sh * cy - h / 2 + h * pt[1] }, now, CM.cam.zoom, curSeed % 997, 0, false);
 }
 // L'atelier : le dessin, puis ce qui vit — la forge rougeoie et fume, le four du potier
 // fume ; la teinturerie, elle, ne bouge pas (ses étoffes sont dans le dessin).
@@ -1203,6 +1314,7 @@ function drawCityEngineSprite(context) {
   // identiques à avant. Dans le doute un appel est classé ANIMÉ (dessiné en direct).
   setEngineSpan(gw, gh);              // lu par palierImg (substitution de palier)
   setEngineSeed(seed);                // lu par blitProp (bureaux allumés la nuit)
+  setEngineNow(now);                  // lu par blitProp (scènes vivantes, LIVE_LAYERS)
   const dBack = pass === 'all' || pass === 'back';
   const dAnim = pass === 'all' || pass === 'anim';
   const dFront = pass === 'all' || pass === 'front';
@@ -1213,7 +1325,17 @@ function drawCityEngineSprite(context) {
   const RB4 = { foragers: 'forager-hortus-classical', granaries_city: 'granary-horreum-classical', guilds: 'guild-collegium', mint_houses: 'mint-moneta', imperial_exchanges: 'bank-basilica-roman' };
   // (le palier de halle est posé par blitProp lui-même, cf. palierImg)
   if (band === 4 && craft > 0 && propReady(GUILD_CRAFTS_B4[craft - 1])) { drawGuildOfficina(ctx, ox, oy, sw, sh, craft, now, dBack, dAnim); return true; }
-  if (band === 4 && RB4[id] && propReady(RB4[id])) { if (dBack) blitProp(ctx, ox, oy, sw, sh, RB4[id], 0.5, 0.46, 0.86, 0.76); return true; }
+  if (band === 4 && RB4[id] && propReady(RB4[id])) {
+    if (dBack) blitProp(ctx, ox, oy, sw, sh, RB4[id], 0.5, 0.46, 0.86, 0.76);
+    // Le paysan du verger reste au travail à l'âge du Marbre (2026-10-04 : la ferme
+    // romaine était vide pendant cinq ères, entre deux âges où il fait la navette) :
+    // des cageots à la porte, devant la maison. Pas sur le « -grand » (une villa
+    // sans cour de terre, que blitProp substitue sur les grandes emprises).
+    if (dAnim && id === 'foragers' && farmerReady() && !palierImg(RB4[id])) {
+      drawFarmerShuttle(ctx, ox, oy, sw, sh, now, 0.3, 0.5, 0.76, 6400, 0, 0.5);
+    }
+    return true;
+  }
   if (id === "foragers") {
     if (band >= 7) {
       // STADE COSMIQUE (ères 35+) : jardin bioluminescent (Noosphère) → serre
@@ -1910,22 +2032,14 @@ function drawCityEngineSprite(context) {
       // ── STADE 2 · ENTREPÔT INDUSTRIEL — brique, charpente fer, palan à poulie ──
       // Mise à l'échelle : un palan hisse des caisses vers la porte de chargement.
       // Brique sombre & métal (Âge du Marbre/Fonte) ; réverbère à gaz la nuit.
-      // Pixel-art (entrepôt + caisses + halo chaud fenêtres la nuit) ; repli procédural dessous.
+      // Pixel-art (entrepôt + caisses ; ses fenêtres s'allument la nuit, cf. sceneWindows.js) ; repli procédural dessous.
       if (propReady('granary-warehouse')) {
-        if (!dBack) return true; // scène ENTIÈREMENT statique (halo en nF seul, aucun `now`)
-        const nFw = parseFloat(litWarm.slice(litWarm.lastIndexOf(",") + 1)) || 0;
+        if (!dBack) return true; // scène ENTIÈREMENT statique (aucun `now`)
         softGround(ctx, ox, oy, sw, sh, 0.82, 0.54, 0.28, "22,20,18", 0.6); // sol (désactivé par défaut)
         // Entrepôt (centre-droit, 112×96) ; ombre + prop.
         const whx = 0.56, why = 0.46;
         /* ombre de contact retirée */
         blitProp(ctx, ox, oy, sw, sh, 'granary-warehouse', whx, why, 0.82, 0.7);
-        // Halo chaud des fenêtres la nuit (le prop porte les fenêtres bakées).
-        if (nFw > 0.02) {
-          ctx.save(); ctx.globalCompositeOperation = "lighter";
-          ctx.fillStyle = `rgba(255,196,112,${(nFw * 0.32).toFixed(2)})`;
-          ctx.beginPath(); ctx.ellipse(ox + sw * whx, oy + sh * (why + 0.04), sw * 0.26, sh * 0.2, 0, 0, Math.PI * 2); ctx.fill();
-          ctx.restore();
-        }
         // Caisses palettisées (gauche-devant) ; ombre + prop.
         const gcx = 0.2, gcy = 0.75;
         ctx.fillStyle = "rgba(0,0,0,0.24)"; ctx.beginPath(); ctx.ellipse(ox + sw * gcx, oy + sh * (gcy + 0.055), sw * 0.14, sh * 0.035, 0, 0, Math.PI * 2); ctx.fill();
@@ -4286,15 +4400,9 @@ function drawCityEngineSprite(context) {
       // d'inertie bat la monnaie en cadence, la vapeur fume, les pièces défilent.
       // Pixel-art (manufacture PixelLab + fumée + fenêtres chaudes la nuit) ; repli procédural dessous.
       if (propReady('mint-house-steam')) {
-        const nFw = parseFloat(litWarm.slice(litWarm.lastIndexOf(",") + 1)) || 0;
         if (dBack) {
         softGround(ctx, ox, oy, sw, sh, 0.86, 0.46, 0.22, "28,22,14", 0.5); // sol (désactivé par défaut)
         blitProp(ctx, ox, oy, sw, sh, 'mint-house-steam', 0.5, 0.5, 0.86, 0.86);
-        if (nFw > 0.02) { // halo chaud des verrières la nuit (nF seul → statique)
-          ctx.save(); ctx.globalCompositeOperation = "lighter";
-          ctx.fillStyle = `rgba(255,200,120,${(nFw * 0.28).toFixed(2)})`;
-          ctx.beginPath(); ctx.ellipse(ox + sw * 0.5, oy + sh * 0.52, sw * 0.3, sh * 0.22, 0, 0, Math.PI * 2); ctx.fill(); ctx.restore();
-        }
         }
         // Fumée de la cheminée (le prop porte la cheminée bakée ; bouffées qui montent). ANIMÉE.
         if (dAnim) for (let s = 0; s < 3; s++) { const t = ((now / 1500) + s * 0.33) % 1; ctx.fillStyle = `rgba(110,102,94,${(0.3 * (1 - t)).toFixed(2)})`; ctx.beginPath(); ctx.arc(ox + sw * (0.2 + 0.03 * Math.sin(now / 400 + s)), oy + sh * (0.2 - t * 0.2), sw * (0.02 + t * 0.04), 0, Math.PI * 2); ctx.fill(); }
@@ -4577,17 +4685,11 @@ function drawCityEngineSprite(context) {
       // ── STADE 1 · BANCO RENAISSANCE — palais marchand, banc drapé, grand livre ──
       // « Banco » : le banc drapé de vert où le changeur florentin tient ses
       // comptes. Loggia à arcades, registre et plume, coffre cerclé de fer.
-      // Pixel-art (palazzo Renaissance + lueur d'entrée la nuit) ; repli procédural dessous.
+      // Pixel-art (palazzo Renaissance ; ses fenêtres s'allument la nuit, cf. sceneWindows.js) ; repli procédural dessous.
       if (propReady('bank-house-renaissance')) {
-        if (!dBack) return true; // scène ENTIÈREMENT statique (lueur en nF seul, aucun `now`)
+        if (!dBack) return true; // scène ENTIÈREMENT statique (aucun `now`)
         softGround(ctx, ox, oy, sw, sh, 0.87, 0.46, 0.24, "30,22,12", 0.45); // sol (désactivé par défaut)
         blitProp(ctx, ox, oy, sw, sh, 'bank-house-renaissance', 0.5, 0.5, 0.86, 0.86);
-        const nFw = parseFloat(litWarm.slice(litWarm.lastIndexOf(",") + 1)) || 0;
-        if (nFw > 0.02) { // lueur chaude des fenêtres/loggia la nuit
-          ctx.save(); ctx.globalCompositeOperation = "lighter";
-          ctx.fillStyle = `rgba(255,205,130,${(nFw * 0.3).toFixed(2)})`;
-          ctx.beginPath(); ctx.ellipse(ox + sw * 0.5, oy + sh * 0.56, sw * 0.28, sh * 0.2, 0, 0, Math.PI * 2); ctx.fill(); ctx.restore();
-        }
         return true;
       }
       // Repères du banc + du grand livre, partagés entre passes
@@ -4671,17 +4773,11 @@ function drawCityEngineSprite(context) {
     // Composition classique : deux ailes de pierre percées de fenêtres encadrées,
     // un portique central à colonnes creusé d'ombre, grande porte de bronze.
     // Lumière au haut-gauche → faces gauches claires, faces droites ombrées.
-    // Pixel-art (banque néoclassique + lueur d'entrée la nuit) ; repli procédural dessous.
+    // Pixel-art (banque néoclassique ; ses fenêtres s'allument la nuit, cf. sceneWindows.js) ; repli procédural dessous.
     if (propReady('bank-house-neoclassical')) {
-      if (!dBack) return true; // scène ENTIÈREMENT statique (lueur en nF seul, aucun `now`)
+      if (!dBack) return true; // scène ENTIÈREMENT statique (aucun `now`)
       softGround(ctx, ox, oy, sw, sh, 0.87, 0.46, 0.24, "30,28,22", 0.42); // sol (désactivé par défaut)
       blitProp(ctx, ox, oy, sw, sh, 'bank-house-neoclassical', 0.5, 0.5, 0.86, 0.86);
-      const nFw = parseFloat(litWarm.slice(litWarm.lastIndexOf(",") + 1)) || 0;
-      if (nFw > 0.02) { // lueur chaude de l'entrée/portique la nuit
-        ctx.save(); ctx.globalCompositeOperation = "lighter";
-        ctx.fillStyle = `rgba(255,210,140,${(nFw * 0.28).toFixed(2)})`;
-        ctx.beginPath(); ctx.ellipse(ox + sw * 0.5, oy + sh * 0.6, sw * 0.26, sh * 0.18, 0, 0, Math.PI * 2); ctx.fill(); ctx.restore();
-      }
       return true;
     }
     if (!dBack) return true; // repli procédural ENTIÈREMENT statique (aucun `now`)

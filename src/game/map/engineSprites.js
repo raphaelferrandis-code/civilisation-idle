@@ -1,5 +1,5 @@
 /* eslint-disable */
-import { drawCityEngineSprite, engineStage, cosmicBase, softGround, propReady, blitProp, blitCosmicTower, animReady, blitAnim, setEngineSpan, setEngineSeed, cosmicSceneKey, ENGINE_HALO, engineCraft } from './cityEngineSprites.js';
+import { drawCityEngineSprite, engineStage, cosmicBase, softGround, propReady, blitProp, blitCosmicTower, animReady, blitAnim, setEngineSpan, setEngineSeed, cosmicSceneKey, ENGINE_HALO, engineCraft, propChimneySmoke, setEngineNow } from './cityEngineSprites.js';
 import { CM } from './layout.js';
 import { drawPixelBuilding } from './pixelBuildings.js';
 
@@ -155,6 +155,8 @@ function drawEngineSpriteCore(t, x, y, w, h, now, pass = 'all') {
   setEngineSpan(t.spanX || t.size || 1, t.spanY || t.size || 1);
   // Graine de l'instance (même hachage que la retombée sur drawCityEngineSprite).
   setEngineSeed((Math.imul(t.gx | 0, 73856093) ^ Math.imul(t.gy | 0, 19349663)) >>> 0);
+  // Horloge des scènes vivantes (LIVE_LAYERS), lue par blitProp.
+  setEngineNow(now);
   const px = (rx, ry, rw, rh, col) => { ctx.fillStyle = col; ctx.fillRect(ox + sw * rx, oy + sh * ry, sw * rw, sh * rh); };
   const strokeRect = (rx, ry, rw, rh, col) => { ctx.strokeStyle = col; ctx.lineWidth = Math.max(1, sw * 0.025); ctx.strokeRect(ox + sw * rx, oy + sh * ry, sw * rw, sh * rh); };
   // Ombre de contact au sol RETIRÉE (demande Raph 2026-07-06 : plus d'ellipses noires sous les bâtiments).
@@ -940,6 +942,8 @@ function drawEngineSpriteCore(t, x, y, w, h, now, pass = 'all') {
           const gg = ctx.createRadialGradient(ox + sw * 0.5, oy + sh * 0.5, 0, ox + sw * 0.5, oy + sh * 0.5, sw * 0.33);
           gg.addColorStop(0, `rgba(${col},${a.toFixed(2)})`); gg.addColorStop(1, `rgba(${col},0)`);
           ctx.fillStyle = gg; ctx.beginPath(); ctx.arc(ox + sw * 0.5, oy + sh * 0.5, sw * 0.33, 0, Math.PI * 2); if (a > 0.004) ctx.fill(); ctx.restore();
+          // L'imprimerie industrielle a une cheminée : elle fume.
+          if (prStage === 2) propChimneySmoke(ctx, ox, oy, sw, sh, prb, 0.5, 0.52, 0.9, 0.74, now);
         }
         return;
       }

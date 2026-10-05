@@ -282,18 +282,18 @@ export function bakeFieldParcel(w, h, opts = {}) {
       }
     }
   }
-  // 3. Pivots d'arrosage (néon) : la rampe de métal, du centre au bord, posée sur
-  //    ses tours à roues.
+  // 3. Pivots d'arrosage (néon) : la tour du centre est cuite ; la RAMPE de métal,
+  //    du centre au bord, posée sur ses tours à roues, ne l'est plus (2026-10-04 :
+  //    elle restait cuite à un angle fixe) — elle part dans `pivots` et isoField la
+  //    fait tourner en direct, au-dessus du raster (drawFieldPivots).
+  const pivots = [];
   if (S.pivot) {
     for (const ci of circles) {
       const a = (h32(seed, ci.k, 31) % 628) / 100;
-      const c0 = at(ci.c, Wd / 2), c1 = at(ci.c + Math.cos(a) * (ci.r - 1), Wd / 2 + Math.sin(a) * (ci.r - 1));
+      const c0 = at(ci.c, Wd / 2);
       revolve(R, c0[0], c0[1], 0, 5, cyl(1.2), () => rgbOf('#9aa3ad'));
-      line(R, [c0[0], c0[1], 4], [c1[0], c1[1], 3], '#c8d0d8', 1);
-      for (let t = 0.33; t < 1; t += 0.33) {
-        const p = [c0[0] + (c1[0] - c0[0]) * t, c0[1] + (c1[1] - c0[1]) * t];
-        line(R, [p[0], p[1], 0], [p[0], p[1], 3.5], '#7d8690', 1);
-      }
+      // Angle dans le repère de la parcelle : (cos, sin) le long de (along, across).
+      pivots.push({ x: c0[0], y: c0[1], r: ci.r - 1, a, alongX });
     }
   }
   // 4. Clôtures, du fond vers l'avant (nord, ouest, puis est, sud).
@@ -313,7 +313,7 @@ export function bakeFieldParcel(w, h, opts = {}) {
     }
     if (!any) N = null;
   }
-  return { R, N };
+  return { R, N, pivots };
 }
 
 // ── Les clôtures ─────────────────────────────────────────────────────────────

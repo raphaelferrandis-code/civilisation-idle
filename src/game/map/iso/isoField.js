@@ -59,7 +59,7 @@ function fieldCanvas(R) {
   cv.getContext('2d').putImageData(new ImageData(R.data, R.w, R.h), 0, 0);
   return cv;
 }
-export function drawIsoFieldPixel(ctx, t, spanX, spanY, band) {
+export function drawIsoFieldPixel(ctx, t, spanX, spanY, band, now = 0) {
   if (!fieldTune.on || typeof document === 'undefined') return false;
   const L = CM.layout;
   if (!L) return false;
@@ -70,8 +70,8 @@ export function drawIsoFieldPixel(ctx, t, spanX, spanY, band) {
   let e = _fieldBakes.get(key);
   if (!e) {
     const seed = (Math.imul(t.gx + 7, 73856093) ^ Math.imul(t.gy + 3, 19349663)) >>> 0;
-    const { R, N } = bakeFieldParcel(spanX, spanY, { band: b, K: wonderKitForBand(b, season === 3), season, seed, hedges });
-    e = { R, cv: fieldCanvas(R), N: N ? fieldCanvas(N) : null };
+    const { R, N, pivots } = bakeFieldParcel(spanX, spanY, { band: b, K: wonderKitForBand(b, season === 3), season, seed, hedges });
+    e = { R, cv: fieldCanvas(R), N: N ? fieldCanvas(N) : null, pivots };
     if (_fieldBakes.size > 48) _fieldBakes.delete(_fieldBakes.keys().next().value);
     _fieldBakes.set(key, e);
   }
@@ -82,6 +82,7 @@ export function drawIsoFieldPixel(ctx, t, spanX, spanY, band) {
   ctx.imageSmoothingEnabled = false;
   ctx.drawImage(e.cv, dx, dy, dw, dh);
   ctx.imageSmoothingEnabled = prev;
+  if (e.pivots && e.pivots.length) drawFieldPivots(ctx, e.pivots, o, z, now);
   // La nuit (âges cosmiques) : les rangs de plantes de lumière et les piquets luisent.
   const nf = CM.nightF || 0;
   if (e.N && nf > 0.03) {
@@ -96,6 +97,34 @@ export function drawIsoFieldPixel(ctx, t, spanX, spanY, band) {
     }
   }
   return true;
+}
+// LES RAMPES DES PIVOTS (néon) : elles tournent autour de leur tour, un tour en
+// ~45 s, chacune partie de son angle cuit. Même repère que le raster de la
+// parcelle (x, y en px monde depuis le coin de la tuile ; un point (x, y, h) tombe
+// à o + ((x − y)·z, ((x + y)/2 − h)·z)) : la rampe se pose pile sur ses ornières.
+// Cran d'ambiance « aucune » : l'angle cuit, immobile.
+const PIVOT = { period: 45000, rail: '#c8d0d8', leg: '#7d8690' };
+function drawFieldPivots(ctx, pivots, o, z, now) {
+  const live = (CM.ambianceK ?? 1) > 0;
+  const S = (x, y, h) => [Math.round(o.x + (x - y) * z), Math.round(o.y + ((x + y) / 2 - h) * z)];
+  const lw = Math.max(1, Math.round(z));
+  ctx.save();
+  ctx.lineWidth = lw;
+  for (const pv of pivots) {
+    const a = pv.a + (live ? (now / PIVOT.period) * Math.PI * 2 : 0);
+    const da = Math.cos(a) * pv.r, db = Math.sin(a) * pv.r;
+    const ex = pv.x + (pv.alongX ? da : db), ey = pv.y + (pv.alongX ? db : da);
+    const p0 = S(pv.x, pv.y, 4), p1 = S(ex, ey, 3);
+    ctx.strokeStyle = PIVOT.rail;
+    ctx.beginPath(); ctx.moveTo(p0[0] + 0.5, p0[1] + 0.5); ctx.lineTo(p1[0] + 0.5, p1[1] + 0.5); ctx.stroke();
+    ctx.strokeStyle = PIVOT.leg;
+    for (let t = 0.33; t < 1; t += 0.33) {
+      const x = pv.x + (ex - pv.x) * t, y = pv.y + (ey - pv.y) * t;
+      const b0 = S(x, y, 0), b1 = S(x, y, 3.5);
+      ctx.beginPath(); ctx.moveTo(b0[0] + 0.5, b0[1]); ctx.lineTo(b1[0] + 0.5, b1[1]); ctx.stroke();
+    }
+  }
+  ctx.restore();
 }
 if (typeof window !== 'undefined') {
   window.__fieldTune = (o) => { if (o) Object.assign(fieldTune, o); _fieldBakes.clear(); return { ...fieldTune }; };
