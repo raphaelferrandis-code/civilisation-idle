@@ -15,6 +15,17 @@
   filter: grayscale(1) brightness(0.2);
 }
 
+/* LA CHUTE SUR LA CARTE (docs/PLAN-CHUTE.md) : le temps de la séquence, la carte a
+   toute la scène — panneaux, échoppe et outils de la Cité se retirent. */
+.app.chute .city-stage-hud,
+.app.chute .city-shop-dock,
+.app.chute .shop-fab,
+.app.chute .buy-all-fab,
+.app.chute .map-tools,
+.app.chute .city-aux {
+  visibility: hidden;
+}
+
 /* ── Crise progressive (Audit UI Phase 5) ──
    Vignette STATIQUE dont l'intensité suit --crisis-level (0→1) : elle naît
    AU palier 50 de la jauge (0,1), pleine vers 95 %. Le pulse animé est réservé
@@ -48,6 +59,12 @@
   .app.crisis-extreme::after {
     animation: none;
   }
+}
+
+/* Pendant la chute jouée sur la carte, la crise est dénouée : plus de vignette. */
+.app.chute::after {
+  opacity: 0;
+  animation: none;
 }
 
 /* ---------- SIDEBAR ---------- */

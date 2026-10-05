@@ -50,6 +50,7 @@ import { paintPierUnder } from './isoPier.js';
 import { drawIsoDrones } from './isoSky.js';
 import { drawIsoNight } from './isoStreet.js';
 import { drawIsoRain } from './isoWeather.js';
+import { chuteFrame, paintChuteFade } from './isoChute.js';
 import { drawTerrainShade } from './isoTerrain.js';
 import {
   worldToScreen, visibleCellBounds, visibleDiamondBounds, ISO_X, ISO_Y,
@@ -161,6 +162,8 @@ function drawIsoLive(now) {
 // est ouvert et clos par cityMapRuntime.frame(), qui englobe aussi le préambule.
 // Cf. framePerf.js pour le pourquoi.
 export function drawIsoWorld(dt, now) {
+  // LA CHUTE (iso/isoChute.js) : la lumière, la foule et la caméra de la séquence.
+  chuteFrame();
   const L = CM.layout;
   if (!L) return false;
   // ── CAMÉRA DE RENDU QUANTIFIÉE AU PIXEL DEVICE ────────────────────────────
@@ -263,5 +266,6 @@ function drawIsoWorldInner(dt, now) {
   // legacy — la fonction est PARTAGÉE (projection worldToScreen dans agents.js).
   if (!CM.lodActive) drawCitizenThoughts(now);
   fp('bulles');
+  paintChuteFade(CM.ctx);   // la Chute : fondu au noir des passages de temps, par-dessus tout
   return true;
 }

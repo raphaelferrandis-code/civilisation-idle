@@ -715,6 +715,9 @@ export const defaultState = () => ({
   // Réseau de rues MÉMORISÉ (docs/PLAN-ROUTES.md, lot L2, format dans
   // map/roadMemory.js) : la ville part de ses rues d'hier au lieu de les redessiner.
   cityRoads: null,
+  // LES RUINES DE LA CITÉ TOMBÉE (docs/PLAN-CHUTE.md) : relevées à la chute, rejouées
+  // au cycle suivant dans la même vallée. Format : iso/isoChute.js (recordRelics).
+  cityRelics: null,
   // Seed de génération procédurale de la ville (nouvelle à chaque cycle).
   mapSeed: null,
   // Compteurs "à vie" pour les jalons de merveilles (survivent aux cycles).
@@ -773,6 +776,9 @@ export const defaultState = () => ({
   buyAmount: 1,
   activeView: "city",
   mourning: false,
+  // La chute se joue sur la carte (events.js) : la Cité est montée, quel que soit
+  // l'onglet. Transitoire, comme le deuil.
+  chute: false,
   // UI seulement : ids de nœuds de ruines déjà « vus » (animation de croissance
   // jouée une seule fois). Hors GR_PERSISTENT_FIELDS → l'arbre re-pousse au GR.
   ruinsSeenNodes: [],
@@ -1487,6 +1493,25 @@ export function normalizeVestiges(raw) {
 
 // Cœur et pont figés (lot L1 de docs/PLAN-ROUTES.md). Bornes larges : la grille
 // plafonne à 360, un décalage au-delà ne peut venir que d'une save abîmée.
+// Ruines de la cité tombée (map/iso/isoChute.js, recordRelics) :
+// { v: 1, seed, n, keys: [clé d'image], items: [[dx, dy, sx, sy, k, x, y, w, h, monument]] }.
+// Une forme abîmée ne casse rien : pas de ruines, voilà tout.
+const RELIC_MAX = 4000;
+export function normalizeCityRelics(raw) {
+  if (!isPlainObject(raw) || raw.v !== 1 || !Array.isArray(raw.keys) || !Array.isArray(raw.items)) return null;
+  if (raw.keys.length > RELIC_MAX || !raw.keys.every((k) => typeof k === "string" && k.length <= 160)) return null;
+  const items = [];
+  for (const it of raw.items.slice(0, RELIC_MAX)) {
+    if (!Array.isArray(it) || it.length !== 10) continue;
+    const v = it.map(Number);
+    if (!v.every(Number.isFinite) || v[4] < 0 || v[4] >= raw.keys.length || v[2] < 1 || v[3] < 1) continue;
+    items.push(v);
+  }
+  if (!items.length) return null;
+  const seed = Number(raw.seed), n = Number(raw.n);
+  return { v: 1, seed: Number.isFinite(seed) ? seed >>> 0 : 0, n: Number.isFinite(n) ? Math.max(0, Math.floor(n)) : 0, keys: raw.keys.slice(), items };
+}
+
 export function normalizeCityCore(raw) {
   if (!isPlainObject(raw)) return null;
   const seed = Number(raw.seed), dx = Number(raw.dx), dy = Number(raw.dy), bx = Number(raw.bx);
@@ -1882,6 +1907,7 @@ export function hydrateState(parsed = {}) {
     // Le deuil est le voile transitoire de la séquence d'effondrement
     // (runCollapseSequence) ; la séquence ne reprend pas après un
     mourning: false,
+    chute: false,
     activeEpitaphLegacy: normalizeEpitaphLegacy(source.activeEpitaphLegacy),
     nextEpitaphLegacy: normalizeEpitaphLegacy(source.nextEpitaphLegacy),
     testamentLegacyId: typeof source.testamentLegacyId === "string" && epitaphLegacyById(source.testamentLegacyId)
@@ -2003,6 +2029,7 @@ export function hydrateState(parsed = {}) {
     cityArchetype: typeof source.cityArchetype === "string" && /^[a-z]+$/.test(source.cityArchetype) ? source.cityArchetype : null,
     cityCore: normalizeCityCore(source.cityCore),
     cityRoads: normalizeRoadMemory(source.cityRoads),
+    cityRelics: normalizeCityRelics(source.cityRelics),
     mapSeed: Number.isFinite(source.mapSeed) && source.mapSeed > 0 ? Math.floor(source.mapSeed) >>> 0 : null,
     lifetimePurchases: finiteInteger(source.lifetimePurchases, 0, 0),
     playTimeSec: finiteNumber(source.playTimeSec, 0, 0),
@@ -2201,6 +2228,11 @@ export function commitCityName() {
 }
 export function setMourning(val) {
   state.mourning = Boolean(val);
+  notify();
+}
+// La chute se joue sur la carte (events.js, runCollapseSequence).
+export function setChuteCinematic(val) {
+  state.chute = Boolean(val);
   notify();
 }
 export function setState(newState) {

@@ -17,6 +17,8 @@ import { snapDev } from './blitSnap.js';
 import { drawSunShadow } from './iso/isoSunShadow.js';
 import { drawSceneEmissive } from './sceneEmissive.js';
 import { drawSceneWindows } from './sceneWindows.js';
+import { RUIN_PROPS } from './ruinArt.js';
+import { razeImageData } from './ruinRaze.js';
 
 // HALOS DES BÂTIMENTS-MOTEUR (2026-10-01, Raph : « l'allumage de nuit est à fignoler »,
 // « les nouveaux bâtiments sont un peu flous »). Chaque scène portait une lueur additive
@@ -664,6 +666,64 @@ function snapRect(left, top, drawW, drawH, srcW, srcH, ancre) {
 // pas le corps) : snapRect reste privee, personne ne peut l'appeler par erreur.
 export const snapRectForTest = (l, t, w, h, sw, sh, a) => snapRect(l, t, w, h, sw, sh, a);
 
+// ── LA CHUTE : les scènes en RUINE (iso/isoChute.js, docs/PLAN-CHUTE.md) ─────
+// Pendant qu'une scène est en ruine, iso/isoChute.js la dessine dans un contexte
+// MUET (rien n'en sort) et allume ENGINE_RUIN : chaque BÂTIMENT qu'elle blitte
+// (blitProp, tour cosmique) est alors remplacé, sur le contexte réel, par sa RUINE
+// dessinée (/pixelart/ruins/props/<clé>.png, clé après substitution « -grand ») ou,
+// faute de ruine dessinée, par son sprite ARASÉ. Les gens, les bêtes, les feux et
+// les détails peints de la scène partent avec le contexte muet. `rec` (si posé)
+// reçoit chaque ruine dessinée : c'est la recette des ruines du cycle suivant.
+export const ENGINE_RUIN = { on: false, ctx: null, rec: null };
+const ruinPropImg = {};
+const ruinPropCanvas = {};
+// Image de ruine d'un prop : { src, ox, oy } ([ox, oy] = coin de l'original dans la
+// ruine), null tant qu'elle charge.
+function ruinPropArt(p, im) {
+  const off = RUIN_PROPS[p];
+  if (off) {
+    let r = ruinPropImg[p];
+    if (!r) { r = ruinPropImg[p] = new Image(); r.src = '/pixelart/ruins/props/' + p + '.png'; }
+    if (!(r.complete && r.naturalWidth > 0)) return null;
+    return { src: propArt('ruine:' + p, r), ox: off[0], oy: off[1], razed: false };
+  }
+  let c = ruinPropCanvas[p];
+  if (c === undefined) {
+    c = null;
+    if (typeof document !== 'undefined' && im && im.naturalWidth > 0) {
+      c = document.createElement('canvas');
+      c.width = im.naturalWidth; c.height = im.naturalHeight;
+      const x = c.getContext('2d', { willReadFrequently: true });
+      x.drawImage(im, 0, 0);
+      // (une tour haute garde un fût cassé plutôt qu'un socle plat)
+      try { x.putImageData(razeImageData(x.getImageData(0, 0, c.width, c.height), c.height > c.width * 1.5 ? 0.42 : 0.26), 0, 0); } catch { c = null; }
+    }
+    ruinPropCanvas[p] = c;
+  }
+  return c ? { src: c, ox: 0, oy: 0, razed: true } : null;
+}
+// Dessine la ruine de `p` à la place de son sprite debout posé en (left, top, w, h).
+function blitRuin(p, im, left, top, drawW, drawH) {
+  const r = ruinPropArt(p, im);
+  if (!r) return;
+  const kx = drawW / im.naturalWidth, ky = drawH / im.naturalHeight;
+  const w = (r.src.naturalWidth || r.src.width) * kx, h = (r.src.naturalHeight || r.src.height) * ky;
+  const x = left - r.ox * kx, y = top - r.oy * ky;
+  const ctx = ENGINE_RUIN.ctx;
+  const prev = ctx.imageSmoothingEnabled; ctx.imageSmoothingEnabled = false;
+  ctx.drawImage(r.src, Math.round(x), Math.round(y), Math.round(w), Math.round(h));
+  ctx.imageSmoothingEnabled = prev;
+  if (ENGINE_RUIN.rec) ENGINE_RUIN.rec.push({ p, razed: r.razed, x, y, w, h, kx, ky, im });
+}
+// Toile de ruine d'un prop, pour redessiner une ruine du cycle précédent.
+export function propRelicCanvas(p) {
+  const im = propImg[p] || palierAsset(p);
+  const r = ruinPropArt(p, im && im.naturalWidth > 0 ? im : null);
+  return r ? r.src : null;
+}
+// Sonde de DEV : les props réellement dessinés (inventaire des ruines à produire).
+export const PROP_SEEN = { on: false, set: new Set() };
+
 // Blit centré sur (cx,cy) en fraction de tuile, taille wFrac×hFrac de (sw,sh).
 function blitProp(ctx, ox, oy, sw, sh, p, cx, cy, wFrac, hFrac) {
   const pal = palierImg(p);
@@ -673,11 +733,13 @@ function blitProp(ctx, ox, oy, sw, sh, p, cx, cy, wFrac, hFrac) {
     p = pal.cle;
   }
   const im = propImg[p]; if (!im) return;
+  if (PROP_SEEN.on) PROP_SEEN.set.add(p);
   const drawW0 = sw * wFrac, drawH0 = sh * hFrac;
   recBlitDens(p, drawH0, im.naturalHeight);
   const [left, top, drawW, drawH] = snapRect(
     ox + sw * cx - drawW0 / 2, oy + sh * cy - drawH0 / 2, drawW0, drawH0,
     im.naturalWidth, im.naturalHeight);
+  if (ENGINE_RUIN.on) { blitRuin(p, im, left, top, drawW, drawH); return; }
   // L'ombre du soleil (iso/isoSunShadow.js), pivot par colonne : le socle dessiné
   // sous un bâtiment n'en projette aucune de visible, le bâtiment oui.
   drawSunShadow(ctx, im, left, top, drawW, drawH, 0, 0, 0, 0, 'column');
@@ -702,6 +764,8 @@ function blitCosmicTower(ctx, ox, oy, sw, sh, key, now, band, cp, baseOverride) 
   const drawH = sh * H, drawW = drawH * (im.naturalWidth / im.naturalHeight);
   recBlitDens(key, drawH, im.naturalHeight);
   const cx = ox + sw * 0.5, baseY = oy + sh * BASE; // base PLANTÉE (pas de lévitation → pas d'effet flottant)
+  if (PROP_SEEN.on) PROP_SEEN.set.add(key);
+  if (ENGINE_RUIN.on) { blitRuin(key, im, cx - drawW / 2, baseY - drawH, drawW, drawH); return true; }
   drawSunShadow(ctx, im, cx - drawW / 2, baseY - drawH, drawW, drawH, 0, 0, 0, 0, 'column');
   const prev = ctx.imageSmoothingEnabled; ctx.imageSmoothingEnabled = false;
   // Neige exclue par défaut sur les tours cosmiques (cf. skipKey dans snowRoof.js) :

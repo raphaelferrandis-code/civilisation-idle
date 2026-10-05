@@ -1,0 +1,6 @@
+[
+  {"size": [2560, 1340]},
+  {"nav": "http://localhost:62090/"},
+  {"wait": 3000},
+  {"eval": "(async()=>{ for(let i=0;i<120&&!(window.__chute&&window.__CM&&window.__CM.layout);i++) await new Promise(r=>setTimeout(r,250)); const h=document.documentElement; h.classList.add('chute-clean','chute-noregie'); const C=window.__chute; await C.setEra('1e27'); await new Promise(r=>setTimeout(r,3000)); await C.rawShot('q0-fonte-debout', null); C.TUNE.chain=false; await C.actChute(); const out=[]; for (const ms of [2100, 3900, 7400]) { const r = await C.rawShot('q2-fonte-'+ms, ms); out.push(r.bytes||r.err); } await C.stop(); await C.actReste(); for (const ms of [3600, 11000]) { const r = await C.rawShot('q4-fonte-reste-'+ms, ms); out.push(r.bytes||r.err); } return { out, band: window.__CM.layout.counts.eraBand }; })()"}
+]

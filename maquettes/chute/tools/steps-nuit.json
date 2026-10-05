@@ -1,0 +1,8 @@
+[
+  {"size": [2560, 1340]},
+  {"nav": "http://localhost:62090/"},
+  {"wait": 3000},
+  {"eval": "(async()=>{ for(let i=0;i<120&&!(window.__chute&&window.__CM&&window.__CM.layout);i++) await new Promise(r=>setTimeout(r,250)); document.documentElement.classList.add('chute-clean'); await window.__chute.restoreCity(); window.__chute.placeCam(1.25); await new Promise(r=>setTimeout(r,2500)); window.__chute.actFige(); await new Promise(r=>setTimeout(r,3000)); return {frozen: window.__chute.D.frozen}; })()"},
+  {"shot": "s0-figee"},
+  {"eval": "(async()=>{ const C = window.__chute; C.actNuit(); const t0 = performance.now(); const log = []; let i = 0; while (performance.now() - t0 < 26000) { const ms = Math.round(performance.now() - t0); const r = await C.rawShot('nuit-' + String(i).padStart(2,'0')); log.push(i + ':' + ms + ':' + C.D.act + ':' + (C.D.fade||0).toFixed(2) + ':' + window.__CM.nightF.toFixed(2)); i++; await new Promise(r=>setTimeout(r,450)); } return log; })()"}
+]

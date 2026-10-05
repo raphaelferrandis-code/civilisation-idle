@@ -1,0 +1,7 @@
+.vite-cache/
+.vite-cache-jeu/
+# Rendus et sources d art lourds de la maquette : gardés hors du dépôt
+shots/
+planche/film/
+planche/img/
+art/

@@ -83,6 +83,9 @@ const DebugDialog = lazy(() => import('./components/dialogs/DebugDialog.jsx'));
 export default function App() {
   const activeView = useGameState(s => s.activeView);
   const mourning = useGameState(s => s.mourning);
+  // La chute se joue sur la carte (docs/PLAN-CHUTE.md) : la Cité est montée quel que
+  // soit l'onglet, et son interface se retire le temps de la séquence.
+  const chute = useGameState(s => s.chute);
   // Niveau de crise continu (0→1), au pas de 5% pour limiter les re-renders.
   // Pilote la vignette progressive et la teinte de la carte via --crisis-level.
   // Arrondi INFÉRIEUR : les paliers tombent pile sur ceux de la jauge (vignette à
@@ -361,8 +364,8 @@ export default function App() {
 
   return (
     <div
-      className={`app ${mourning ? 'mourning' : ''} ${isCrisisExtreme ? 'crisis-extreme' : ''}`}
-      data-active-view={activeView}
+      className={`app ${mourning ? 'mourning' : ''} ${isCrisisExtreme ? 'crisis-extreme' : ''} ${chute ? 'chute' : ''}`}
+      data-active-view={chute ? 'city' : activeView}
       data-contemplation={contemplation && activeView === 'city' ? 'on' : undefined}
       // Feuille d'ÉTAT (P5, tactile) : la barre basse n'a pas la place d'afficher
       // l'encart Âge/Usure/Vœu/Clepsydre, mais l'Usure est l'échéance de toute la
@@ -568,12 +571,12 @@ export default function App() {
 
         {/* Vue Active */}
         <Suspense fallback={null}>
-          {activeView === 'city' && <CityView />}
+          {(activeView === 'city' || chute) && <CityView />}
 
           {activeView === 'regulation' && <RegulationView />}
           {activeView === 'plaisirs' && <PlaisirsView />}
 
-          {activeView === 'prestige' && <PrestigeView />}
+          {activeView === 'prestige' && !chute && <PrestigeView />}
 
           {activeView === 'ruinsView' && <RuinsView />}
 

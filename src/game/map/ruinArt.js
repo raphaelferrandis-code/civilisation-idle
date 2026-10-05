@@ -1,0 +1,850 @@
+// GÉNÉRÉ par scripts/buildRuins.mjs depuis public/pixelart/ruins/offsets.json — ne pas éditer.
+// Les RUINES DESSINÉES de la Chute (docs/PLAN-CHUTE.md) : pour chaque sprite qui en a
+// une, [ox, oy] = où tombe le coin (0,0) du sprite d'origine dans l'image de la ruine.
+// Images : /pixelart/ruins/houses/<clé>.png (habitations), /pixelart/ruins/props/<clé>.png
+// (bâtiments des scènes moteur, clé de prop après substitution « -grand »).
+// Un sprite absent d'ici tombe quand même : il est ARASÉ (iso/isoChute.js, repli).
+export const RUIN_HOUSES = {
+ "arcologyhome": [
+  -12,
+  -10
+ ],
+ "arcologyhome-cosmic-7": [
+  -2,
+  -2
+ ],
+ "arcologyhome-cosmic-8": [
+  -2,
+  -2
+ ],
+ "arcologyhome-cosmic-9": [
+  -2,
+  -18
+ ],
+ "block": [
+  -12,
+  0
+ ],
+ "courtyard": [
+  -8,
+  -5
+ ],
+ "crafthouse": [
+  -11,
+  -6
+ ],
+ "crafthouse-bl": [
+  -7,
+  -4
+ ],
+ "crafthouse-br": [
+  -6,
+  -5
+ ],
+ "crafthouse-fr": [
+  -3,
+  -6
+ ],
+ "domehome-cosmic-7": [
+  -2,
+  0
+ ],
+ "domehome-cosmic-8": [
+  0,
+  -1
+ ],
+ "domehome-cosmic-9": [
+  -5,
+  -6
+ ],
+ "domus": [
+  -6,
+  -14
+ ],
+ "domus-bl": [
+  -10,
+  -1
+ ],
+ "domus-br": [
+  -8,
+  -15
+ ],
+ "domus-fr": [
+  -9,
+  0
+ ],
+ "gardentower-cosmic-7": [
+  -10,
+  -3
+ ],
+ "gardentower-cosmic-8": [
+  -16,
+  -1
+ ],
+ "gardentower-cosmic-9": [
+  -7,
+  -3
+ ],
+ "haussmann": [
+  -14,
+  0
+ ],
+ "haussmann-fr": [
+  -4,
+  0
+ ],
+ "hut": [
+  1,
+  -5
+ ],
+ "insula": [
+  -9,
+  -2
+ ],
+ "insula2": [
+  -9,
+  -3
+ ],
+ "insula2-bl": [
+  -18,
+  -6
+ ],
+ "insula2-br": [
+  -9,
+  -4
+ ],
+ "insula2-fr": [
+  -8,
+  -4
+ ],
+ "longhouse": [
+  -13,
+  3
+ ],
+ "manor": [
+  -6,
+  -4
+ ],
+ "megablock": [
+  -12,
+  1
+ ],
+ "megablock-cosmic-7": [
+  -2,
+  -2
+ ],
+ "megablock-cosmic-8": [
+  -2,
+  -2
+ ],
+ "megablock-cosmic-9": [
+  -2,
+  -4
+ ],
+ "neonshop": [
+  -4,
+  9
+ ],
+ "neonshop-fr": [
+  -4,
+  8
+ ],
+ "podstack-cosmic-7": [
+  -20,
+  -5
+ ],
+ "podstack-cosmic-8": [
+  -15,
+  -2
+ ],
+ "podstack-cosmic-9": [
+  -17,
+  -7
+ ],
+ "row-colombage-bl": [
+  -1,
+  -3
+ ],
+ "row-colombage-br": [
+  -8,
+  -3
+ ],
+ "row-colombage-fl": [
+  -3,
+  -1
+ ],
+ "row-colombage-fr": [
+  -6,
+  -3
+ ],
+ "row-domus-fl": [
+  -14,
+  -5
+ ],
+ "row-domus-fr": [
+  -14,
+  -17
+ ],
+ "row-haussmann-fl": [
+  -15,
+  0
+ ],
+ "row-haussmann-fr": [
+  -11,
+  0
+ ],
+ "row-insula-bl": [
+  3,
+  4
+ ],
+ "row-insula-br": [
+  2,
+  4
+ ],
+ "row-insula-fl": [
+  -9,
+  5
+ ],
+ "row-insula-fr": [
+  1,
+  4
+ ],
+ "row-neonshop-fl": [
+  -4,
+  5
+ ],
+ "row-neonshop-fr": [
+  -4,
+  5
+ ],
+ "row-popina-fl": [
+  -20,
+  -13
+ ],
+ "row-popina-fr": [
+  -22,
+  -14
+ ],
+ "row-taberna-fl": [
+  -10,
+  -17
+ ],
+ "row-taberna-fr": [
+  -10,
+  -14
+ ],
+ "row-terrace-bl": [
+  -9,
+  -11
+ ],
+ "row-terrace-br": [
+  -21,
+  -11
+ ],
+ "row-terrace-fl": [
+  -7,
+  -8
+ ],
+ "row-terrace-fr": [
+  -7,
+  -6
+ ],
+ "stonehouse": [
+  -8,
+  -6
+ ],
+ "taberna": [
+  -4,
+  -2
+ ],
+ "taberna-bl": [
+  -5,
+  -5
+ ],
+ "taberna-br": [
+  -4,
+  -4
+ ],
+ "tenement": [
+  0,
+  0
+ ],
+ "tent": [
+  -6,
+  -1
+ ],
+ "terrace": [
+  -8,
+  0
+ ],
+ "tower": [
+  -28,
+  -3
+ ],
+ "tower-cosmic-7": [
+  -2,
+  -2
+ ],
+ "tower-cosmic-8": [
+  -2,
+  -2
+ ],
+ "tower-cosmic-9": [
+  -2,
+  -2
+ ],
+ "towerhouse": [
+  0,
+  -1
+ ],
+ "townhouse": [
+  -12,
+  -2
+ ],
+ "villa": [
+  0,
+  -10
+ ]
+};
+export const RUIN_PROPS = {
+ "academies-athenaeum": [
+  -8,
+  -7
+ ],
+ "academies-institute": [
+  -5,
+  0
+ ],
+ "academies-modern": [
+  -10,
+  -9
+ ],
+ "academies-renaissance": [
+  -17,
+  -14
+ ],
+ "archive-grid": [
+  -11,
+  -5
+ ],
+ "archive-records": [
+  -19,
+  -4
+ ],
+ "archive-records-grand": [
+  -3,
+  -6
+ ],
+ "archive-tabularium": [
+  -16,
+  -3
+ ],
+ "archive-vault": [
+  -31,
+  -7
+ ],
+ "archive-vault-grand": [
+  -43,
+  -6
+ ],
+ "bank-basilica-roman": [
+  -7,
+  -3
+ ],
+ "bank-house-glass": [
+  -24,
+  -4
+ ],
+ "bank-house-neoclassical": [
+  -2,
+  -5
+ ],
+ "bank-house-renaissance": [
+  -20,
+  -4
+ ],
+ "bureau-chancery": [
+  -24,
+  -3
+ ],
+ "bureau-office": [
+  -9,
+  0
+ ],
+ "bureau-tabularium": [
+  -13,
+  -4
+ ],
+ "bureau-tower": [
+  -34,
+  -8
+ ],
+ "caravan-prop-sacks": [
+  -12,
+  -7
+ ],
+ "caravan-truck": [
+  -9,
+  -6
+ ],
+ "caravan-wagon": [
+  -11,
+  -13
+ ],
+ "courthouses-basilica": [
+  -4,
+  -5
+ ],
+ "courthouses-basilica-grand": [
+  -5,
+  -14
+ ],
+ "courthouses-modern": [
+  -17,
+  -4
+ ],
+ "courthouses-neoclassical": [
+  -9,
+  -5
+ ],
+ "courthouses-neoclassical-grand": [
+  -4,
+  -13
+ ],
+ "courthouses-tribunal": [
+  -26,
+  -8
+ ],
+ "cult-mausoleum": [
+  -6,
+  -7
+ ],
+ "cult-mausoleum-grand": [
+  -2,
+  -13
+ ],
+ "cult-memorial": [
+  -16,
+  -3
+ ],
+ "cult-shrine": [
+  -22,
+  -8
+ ],
+ "cult-vesta": [
+  -24,
+  -15
+ ],
+ "forager-greenhouse": [
+  -10,
+  -9
+ ],
+ "forager-greenhouse-grand": [
+  -3,
+  0
+ ],
+ "forager-handcart": [
+  -2,
+  -10
+ ],
+ "forager-hortus-classical": [
+  -2,
+  -7
+ ],
+ "forager-hortus-classical-grand": [
+  -13,
+  -8
+ ],
+ "forager-hydro-rack": [
+  -8,
+  -4
+ ],
+ "forager-orchard-crates": [
+  -7,
+  -6
+ ],
+ "forager-orchard-tree": [
+  -16,
+  -10
+ ],
+ "granary-crates": [
+  -6,
+  -10
+ ],
+ "granary-hall": [
+  -8,
+  -6
+ ],
+ "granary-horreum-classical": [
+  -6,
+  -7
+ ],
+ "granary-horreum-classical-grand": [
+  -9,
+  -22
+ ],
+ "granary-hub": [
+  -15,
+  -3
+ ],
+ "granary-jars": [
+  -5,
+  -4
+ ],
+ "granary-warehouse": [
+  -11,
+  0
+ ],
+ "guild-chamber": [
+  -7,
+  -3
+ ],
+ "guild-chamber-grand": [
+  -10,
+  -10
+ ],
+ "guild-collegium": [
+  -9,
+  -14
+ ],
+ "guild-collegium-grand": [
+  -12,
+  -18
+ ],
+ "guild-consortium": [
+  -7,
+  -3
+ ],
+ "guild-house": [
+  -15,
+  -4
+ ],
+ "guild-officina-dyer": [
+  -2,
+  -12
+ ],
+ "guild-officina-forge": [
+  -4,
+  -6
+ ],
+ "guild-officina-potter": [
+  -4,
+  -11
+ ],
+ "libraries-classical": [
+  -13,
+  -7
+ ],
+ "libraries-classical-grand": [
+  -4,
+  -1
+ ],
+ "libraries-grand": [
+  -7,
+  0
+ ],
+ "libraries-grand-grand": [
+  -8,
+  -5
+ ],
+ "libraries-modern": [
+  -8,
+  -10
+ ],
+ "libraries-monastic": [
+  -23,
+  -4
+ ],
+ "market-hall-glass": [
+  -2,
+  -3
+ ],
+ "market-hall-glass-grand": [
+  -11,
+  -8
+ ],
+ "market-hall-tent": [
+  -19,
+  -6
+ ],
+ "market-macellum": [
+  -3,
+  -5
+ ],
+ "market-macellum-grand": [
+  -9,
+  -19
+ ],
+ "market-plaza-neon": [
+  -4,
+  -13
+ ],
+ "ministries-capitol": [
+  -17,
+  -11
+ ],
+ "ministries-capitol-grand": [
+  -7,
+  -21
+ ],
+ "ministries-curia": [
+  -17,
+  -8
+ ],
+ "ministries-curia-grand": [
+  -17,
+  -12
+ ],
+ "ministries-palace": [
+  -20,
+  -7
+ ],
+ "ministries-tower": [
+  -21,
+  -4
+ ],
+ "mint-house-digital": [
+  -8,
+  -4
+ ],
+ "mint-house-steam": [
+  -5,
+  -8
+ ],
+ "mint-house-steam-grand": [
+  -12,
+  -7
+ ],
+ "mint-moneta": [
+  -12,
+  -4
+ ],
+ "mint-moneta-grand": [
+  -3,
+  -14
+ ],
+ "mint-prop-house": [
+  -11,
+  -11
+ ],
+ "observatories-array": [
+  -17,
+  -9
+ ],
+ "observatories-dome": [
+  -1,
+  0
+ ],
+ "observatories-horologium": [
+  -16,
+  -15
+ ],
+ "observatories-horologium-grand": [
+  -27,
+  0
+ ],
+ "observatories-tower": [
+  -37,
+  -13
+ ],
+ "observatories-tower-grand": [
+  -53,
+  -9
+ ],
+ "printing-factory": [
+  -2,
+  -3
+ ],
+ "printing-factory-grand": [
+  0,
+  -22
+ ],
+ "printing-media": [
+  -28,
+  -4
+ ],
+ "printing-press-shop": [
+  -21,
+  -6
+ ],
+ "printing-press-shop-grand": [
+  -24,
+  -6
+ ],
+ "printing-scriptorium": [
+  -16,
+  -5
+ ],
+ "printing-scriptorium-grand": [
+  -4,
+  0
+ ],
+ "ruins-institute": [
+  -9,
+  0
+ ],
+ "ruins-lab": [
+  -11,
+  -5
+ ],
+ "ruins-lodge": [
+  -28,
+  -5
+ ],
+ "ruins-lodge-grand": [
+  -37,
+  -6
+ ],
+ "ruins-restoration-roman": [
+  -6,
+  -3
+ ],
+ "schools-campus": [
+  -9,
+  -10
+ ],
+ "schools-ludus": [
+  -11,
+  -2
+ ],
+ "schools-schoolhouse": [
+  -19,
+  -5
+ ],
+ "schools-schoolhouse-grand": [
+  -20,
+  -6
+ ],
+ "schools-victorian": [
+  -5,
+  -2
+ ],
+ "schools-victorian-grand": [
+  -10,
+  -21
+ ],
+ "scribes-archive": [
+  -7,
+  0
+ ],
+ "scribes-data": [
+  -30,
+  -3
+ ],
+ "scribes-scriptorium": [
+  -18,
+  -4
+ ],
+ "scribes-tabularium": [
+  -17,
+  -2
+ ],
+ "sewers-classical": [
+  -5,
+  -2
+ ],
+ "sewers-medieval": [
+  -3,
+  -3
+ ],
+ "sewers-plant": [
+  -16,
+  -3
+ ],
+ "sewers-works": [
+  -7,
+  -9
+ ],
+ "storyteller-hall": [
+  -21,
+  -4
+ ],
+ "storyteller-media": [
+  -13,
+  -4
+ ],
+ "storyteller-odeon": [
+  -2,
+  -7
+ ],
+ "storyteller-theater": [
+  -9,
+  -4
+ ],
+ "think-chancellery": [
+  -21,
+  -3
+ ],
+ "think-institute": [
+  -5,
+  -1
+ ],
+ "think-modern": [
+  -21,
+  -4
+ ],
+ "think-stoa-roman": [
+  -6,
+  -20
+ ],
+ "think-stoa-roman-grand": [
+  -3,
+  -19
+ ],
+ "universities-classical": [
+  -4,
+  -6
+ ],
+ "universities-classical-grand": [
+  -12,
+  -22
+ ],
+ "universities-collegiate": [
+  -6,
+  -3
+ ],
+ "universities-collegiate-grand": [
+  0,
+  -7
+ ],
+ "universities-gothic": [
+  -9,
+  -4
+ ],
+ "universities-modern": [
+  -9,
+  -6
+ ],
+ "watch-classical": [
+  -22,
+  -20
+ ],
+ "watch-industrial": [
+  -3,
+  -6
+ ],
+ "watch-modern": [
+  -20,
+  -17
+ ],
+ "watch-stone": [
+  -6,
+  -11
+ ],
+ "works-classical": [
+  -15,
+  -4
+ ],
+ "works-depot": [
+  -5,
+  -17
+ ],
+ "works-industrial": [
+  -1,
+  -1
+ ],
+ "works-yard": [
+  -11,
+  -3
+ ]
+};

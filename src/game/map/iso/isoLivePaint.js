@@ -65,6 +65,9 @@ import { GHOST_TUNE, drawIsoCitizenItem, drawIsoRioter, drawIsoVehicle } from '.
 import { GL_RUN_MIN } from './isoWildForest.js';
 import { ISO_X, worldToScreen } from './projection.js';
 import { WINTER } from '../seasonMode.js';
+import { chuteTileState } from './chuteState.js';
+import { paintHouseFall } from './isoChuteScene.js';
+import { paintRelic, chuteGone } from './isoChute.js';
 
 // ── Drawables triés au peintre (profondeur = wx + wy) ────────────────────────
 function drawTreeIso(ctx, sx, sy, h) {
@@ -255,6 +258,8 @@ export function paintIsoItems(bake, items, now) {
     // Un item NON basculé doit être peint APRÈS le lot en cours : on compose
     // d'abord, sinon la série GL passerait par-dessus lui.
     if (glPending && !it._gl) glCompose();
+    // Les RUINES du cycle précédent (iso/isoChute.js), triées à leur profondeur.
+    if (it.kind === 'relic') { paintRelic(ctx, it); continue; }
     if (it.kind === 'tile') {
       const t = it.t;
       const spanX = t.spanX || t.size || 1, spanY = t.spanY || t.size || 1;
@@ -282,7 +287,7 @@ export function paintIsoItems(bake, items, now) {
             if (rc.has((t.gx + ax) + ',' + (t.gy + ay)) || (L.river.banks && L.river.banks.has((t.gx + ax) + ',' + (t.gy + ay)))) wet = true;
           }
           if (wet) {
-            if (t.buildingId === 'river_ports' && isoEngineScenesFlag.on) {
+            if (t.buildingId === 'river_ports' && isoEngineScenesFlag.on && !chuteGone(t)) {
               drawIsoRiverside(ctx, t, spanX, spanY, T, z, now, band, eraIdx);
             }
             continue;
@@ -307,6 +312,15 @@ export function paintIsoItems(bake, items, now) {
         // SURVOL : le liseré se dessine AVANT le sprite (blob élargi puis sprite
         // par-dessus), sinon il mange la silhouette au lieu de la cerner.
         // L'ombre du soleil (isoSunShadow.js), sous le liseré de survol et le sprite.
+        // LA CHUTE (docs/PLAN-CHUTE.md) : secouée ou en ruine, la maison passe par
+        // iso/isoChuteScene.js — ni ombre portée, ni liseré de survol, ni fenêtres.
+        const chute = chuteTileState(t);
+        if (chute) {
+          const box = paintHouseFall(ctx, t, hx, hy, wpx, hpx, chute);
+          if (box && houseBoxes && houseBoxes.length < HOUSE_BOX_CAP) houseBoxes.push({ b: box, t });
+          if (profParts) fp('vif-maisons');
+          continue;
+        }
         drawPixelHouseSunShadow(t, hx, hy, wpx, hpx);
         if (CM.hover && CM.hover.tile === t) drawPixelHouseOutline(t, hx, hy, wpx, hpx, HOVER_GOLD);
         const box = drawPixelHouse(t, hx, hy, wpx, hpx);
@@ -317,6 +331,8 @@ export function paintIsoItems(bake, items, now) {
         // parcourt à l'envers pour toucher d'abord ce qui est devant.
         if (box && houseBoxes && houseBoxes.length < HOUSE_BOX_CAP) houseBoxes.push({ b: box, t });
         if (profParts) fp('vif-maisons');
+      } else if (t.type === 'engine' && t.buildingId === 'water_mills' && chuteGone(t)) {
+        // LA CHUTE : le moulin est tombé avec la cité (pas de ruine dessinée : il disparaît).
       } else if (t.type === 'engine' && t.buildingId === 'water_mills' && (engineBox = drawIsoMill(ctx, t, now))) {
         // MOULIN À VENT cuit par le code (docs/PLAN-TERROIR.md) : tour + pose
         // d'ailes en perspective. Boîte publiée au survol, comme les scènes.

@@ -5,6 +5,7 @@ import {
   setGamePaused,
   setCollapseInProgress,
   setMourning,
+  setChuteCinematic,
   openView,
   render,
   save,
@@ -37,6 +38,7 @@ import { cycleVowRuinMult } from '../data/vows.js';
 import { fmt } from './utils.js';
 import { D } from './num.js';
 import { tr } from './i18n.js';
+import { playCityFall, captureCityRelics, playCityRise, abortCityFall } from '../map/cityMapBridge.js';
 
 export function openChoiceDialog({ title, body, options, mourning = false, variant = "", preventClose = false, footnote = "", inscription = "" }) {
   return requestChoiceDialog({ title, body, options, mourning, variant, preventClose, footnote, inscription });
@@ -110,6 +112,24 @@ function logCollapseLine(reason, gain) {
   chronicle(`Le crépuscule s'abat sur la cité (effondrement ${label}). Nos palais s'écroulent, laissant derrière eux un linceul de ${fmt(gain)} ruines.`);
 }
 
+// Monte la Cité (state.chute, transitoire comme le deuil) et lui fait jouer la chute.
+// Tenue quand la carte a atteint le noir ; false si aucune carte ne peut la jouer —
+// hors navigateur, ou si la carte ne s'est pas construite à temps.
+async function playFallOnMap() {
+  if (typeof window === "undefined") return false;
+  setChuteCinematic(true);
+  // La Cité se monte (elle était peut-être démontée, onglet Chute) et construit sa
+  // carte : une mégapole y met une à deux secondes sur un poste sans GPU.
+  let fall = playCityFall();
+  for (let i = 0; !fall && i < 50; i += 1) {
+    await new Promise((resolve) => setTimeout(resolve, 100));
+    fall = playCityFall();
+  }
+  if (!fall) { setChuteCinematic(false); return false; }
+  await fall;
+  return true;
+}
+
 // INVARIANT DE SAUVEGARDE (revue 0.4 §1.3) — NE PAS CASSER : aucune mutation d'état
 // survivant à un rechargement ne doit avoir lieu AVANT la résolution du dialogue
 // d'épitaphe (`await openChoiceDialog`). La seule mutation autorisée avant est
@@ -120,7 +140,10 @@ function logCollapseLine(reason, gain) {
 // arrivent APRÈS l'await. Défendu par collapse.persistence.test.js : déplacer une
 // écriture d'état avant le dialogue fera échouer ce test.
 export async function runCollapseSequence(gain, reason) {
-  setMourning(true);
+  // LA CHUTE SUR LA CARTE (docs/PLAN-CHUTE.md, map/iso/isoChute.js) : la cité tombe
+  // sous les yeux du joueur — la vague de ruines, la nuit, le noir — avant la stèle.
+  // Sans carte pour la jouer (tests, onglet caché), le deuil de deux secondes d'avant.
+  let played = false;
   // Filet anti-gel (M14) : si QUOI QUE CE SOIT lève ci-dessous (completeCollapse,
   // promesse de dialogue orpheline après un remount du slot choiceResolver,
   // exception dans captureCurrentVestige…), le `finally` relâche toujours les
@@ -131,7 +154,14 @@ export async function runCollapseSequence(gain, reason) {
   const fallenDynasty = dynastyNames[dynastyIndex];
   const epitaph = generateEpitaph();
   const cause = collapseCause();
-  await new Promise((resolve) => setTimeout(resolve, 2000));
+  // L'Édit (chute automatique) ne fait jamais sauter de vue : il ne joue la chute
+  // que si le joueur regarde déjà la cité.
+  if (reason !== "auto_collapse" || state.activeView === "city") played = await playFallOnMap();
+  // Au noir : la carte relève les ruines de la cité qui tombe. Rien n'est écrit dans
+  // l'état ici — completeCollapse les prendra, après la stèle (invariant §1.3).
+  captureCityRelics();
+  setMourning(true);
+  if (!played) await new Promise((resolve) => setTimeout(resolve, 2000));
 
   const riteBonus = has("rituel_effondrement") ? 1.25 : 1;
   const gainBase = D(gain).mul(riteBonus).round();
@@ -197,6 +227,8 @@ export async function runCollapseSequence(gain, reason) {
     setGamePaused(false);
     save();
     if (reason !== "auto_collapse") openView("city");
+    // Le cycle neuf est fondé : le lever sur la carte (noir → feu du campement → aube).
+    if (played) playCityRise(() => setChuteCinematic(false));
     render();
     return;
   }
@@ -279,8 +311,15 @@ export async function runCollapseSequence(gain, reason) {
   setGamePaused(false);
   save();
   openView("city");
+  if (played) playCityRise(() => setChuteCinematic(false));
   render();
+  } catch (err) {
+    // La séquence a cassé : la carte rend la main (pas de noir laissé sur la cité).
+    abortCityFall();
+    if (state.chute) setChuteCinematic(false);
+    throw err;
   } finally {
+    if (state.chute && !played) setChuteCinematic(false);
     setCollapseInProgress(false);
     setMourning(false);
     setGamePaused(false);

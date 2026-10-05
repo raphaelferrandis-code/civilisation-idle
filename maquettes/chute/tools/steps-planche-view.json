@@ -1,0 +1,7 @@
+[
+  {"size": [1440, 900]},
+  {"nav": "http://localhost:62090/maquettes/chute/planche/index.html"},
+  {"wait": 2500},
+  {"eval": "(async()=>{ document.querySelectorAll('img[loading=lazy]').forEach(i=>i.loading='eager'); await new Promise(r=>setTimeout(r,2500)); return [document.documentElement.scrollHeight, document.documentElement.scrollWidth]; })()"},
+  {"shot": "planche-view", "full": true}
+]

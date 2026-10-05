@@ -51,7 +51,7 @@ import { upgrades, dogmaIds } from '../../data/upgrades.js';
 import { eras, codexSavoirBonus, CRISIS_EVENTS, CRISIS_POOL, crisisOptionShifts } from '../../data/world.js';
 import { epitaphLegacyById, legacyFoyerShift } from '../../data/epitaphs.js';
 import { rollCycleVow, breakCycleVow, vowById } from '../../data/vows.js';
-import { captureCurrentVestige, resetCameraCenter } from '../../map/cityMapBridge.js';
+import { captureCurrentVestige, resetCameraCenter, takeCityRelics } from '../../map/cityMapBridge.js';
 import { newCitySeed } from '../../map/procedural/seedManager.js';
 import { generateCityName } from '../../map/procedural/cityName.js';
 import { clamp01, canPayCost, payCost, fmt } from '../utils.js';
@@ -505,11 +505,25 @@ export function completeCollapse(gain, fallenDynasty, epitaph, reason) {
   
   state.ruins = D(state.ruins).add(gain);
   state.cycles += 1;
-  // Nouvelle civilisation : nouveau plan procédural (seed + rivière régénérés).
-  state.mapSeed = newCitySeed();
+  // LA MÊME VALLÉE (docs/PLAN-CHUTE.md) : la cité suivante naît au milieu des ruines
+  // de celle qui tombe — même graine (relief, forêt), même fleuve, même cœur, même
+  // pont, même grille (les ruines sont rangées par rapport à son centre). Les rues,
+  // les places et les slots repartent de zéro ; la cité reçoit un nouveau nom.
+  // Sans fiche de cœur (vieille sauvegarde), nouvelle vallée comme avant.
+  const core = state.cityCore;
+  const valley = core && (core.seed >>> 0) === (state.mapSeed >>> 0)
+    ? { seed: core.seed >>> 0, dx: core.dx, dy: core.dy, bx: core.bx, ...(Number.isFinite(core.maxN) ? { maxN: core.maxN } : {}) }
+    : null;
+  // Les ruines relevées par la carte pendant la chute (iso/isoChute.js) ; rien si la
+  // cité est tombée sans être regardée (hors ligne) — les ruines d'avant restent alors.
+  const relics = takeCityRelics();
+  if (!valley) {
+    state.mapSeed = newCitySeed();
+    state.riverWP = null;
+    state.cityRelics = null;
+  }
   // ...et un nouveau nom de cité, sauf si le joueur l'a renommé à la main.
-  if (!state.cityNameCustom) state.cityName = generateCityName(state.mapSeed);
-  state.riverWP = null;
+  if (!state.cityNameCustom) state.cityName = generateCityName(newCitySeed());
   state.cityArchetype = null;
   state.cityCore = null;
   state.cityRoads = null;
@@ -561,6 +575,12 @@ export function completeCollapse(gain, fallenDynasty, epitaph, reason) {
   const keptReforms = has("encre_indelebile") && state.foyerReform ? { ...state.foyerReform } : null;
 
   resetTemporaryRunState(state);
+  // La vallée gardée (cf. plus haut) : resetTemporaryRunState vient d'effacer la fiche
+  // du cœur ; on la repose, sans les rues ni les places du cycle tombé.
+  if (valley) {
+    state.cityCore = valley;
+    if (relics) state.cityRelics = relics;
+  }
 
   if (keptReforms) state.foyerReform = keptReforms;
 

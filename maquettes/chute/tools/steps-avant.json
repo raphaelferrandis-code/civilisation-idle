@@ -1,0 +1,7 @@
+[
+  {"size": [2560, 1340]},
+  {"nav": "http://localhost:62090/"},
+  {"wait": 3000},
+  {"eval": "(async()=>{ for(let i=0;i<120&&!(window.__chute&&window.__CM&&window.__CM.layout);i++) await new Promise(r=>setTimeout(r,250)); await window.__chute.restoreCity(); window.__chute.placeCam(1.25); await new Promise(r=>setTimeout(r,2000)); const S = await import('/src/game/core/state.js'); const s = S.state; s.instability = 1; s.crisisLimitAnnounced = true; s.crisisOpenedAt = Date.now(); S.openView('prestige'); S.render(); await new Promise(r=>setTimeout(r,9000)); return {view: s.activeView}; })()"},
+  {"shot": "avant-chute"}
+]

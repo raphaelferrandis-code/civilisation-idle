@@ -1,0 +1,13 @@
+[
+  {"size": [2560, 1340]},
+  {"nav": "http://localhost:62090/"},
+  {"wait": 3000},
+  {"eval": "(async()=>{ for(let i=0;i<120&&!(window.__chute&&window.__CM&&window.__CM.layout);i++) await new Promise(r=>setTimeout(r,250)); const h=document.documentElement; h.classList.add('chute-clean','chute-noregie'); await window.__chute.restoreCity(); window.__chute.placeCam(1.25); await new Promise(r=>setTimeout(r,2500)); return 'ok'; })()"},
+  {"shot": "p0-vivante"},
+  {"eval": "(async()=>{ const C=window.__chute; await C.actFige(); await new Promise(r=>setTimeout(r,3200)); return C.D.frozen; })()"},
+  {"shot": "p1-figee"},
+  {"eval": "(async()=>{ const C=window.__chute; C.TUNE.chain=false; await C.actChute(); const out=[]; for (const ms of [1300, 2100, 2900, 3900, 5200, 7400]) { const r = await C.rawShot('p2-vague-'+ms, ms); out.push(r.bytes||r.err); } return out; })()"},
+  {"eval": "(async()=>{ const C=window.__chute; await C.stop(); await C.restoreCity(); C.placeCam(1.25); await C.actFige(); await new Promise(r=>setTimeout(r,2500)); await C.actNuit(); const out=[]; for (const ms of [1200, 2600, 4000, 9200, 12500]) { const r = await C.rawShot('p3-nuit-'+ms, ms); out.push(r.bytes||r.err); } return out; })()"},
+  {"eval": "(async()=>{ const C=window.__chute; await C.stop(); await C.actReste(); const out=[]; for (const ms of [2600, 3600, 5600, 11000]) { const r = await C.rawShot('p4-reste-'+ms, ms); out.push(r.bytes||r.err); } C.D.t0 = performance.now() - 20000; await new Promise(r=>setTimeout(r,1500)); return out; })()"},
+  {"shot": "p4-reste-page"}
+]

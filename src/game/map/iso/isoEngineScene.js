@@ -30,6 +30,8 @@ import { suspendFlameGlow } from '../flameGlow.js';
 import { suspendLightLayer } from '../lightLayer.js';
 import { muteSunShadow } from './isoSunShadow.js';
 import { HOVER_GOLD } from './isoPalette.js';
+import { chuteTileState } from './chuteState.js';
+import { paintEngineFall } from './isoChuteScene.js';
 
 // ── SCÈNES MOTEUR legacy posées sur le losange (Phase 3-lite) ────────────────
 // Expérience validée à la capture : les scènes de cityEngineSprites (props
@@ -252,6 +254,30 @@ export function drawIsoEngineScene(ctx, t, anchor, spanX, spanY, T, z, hh, now) 
   // (scène + mesure d'encre) s'impute au poste dédié 'vif-moteurs'. C'est la
   // mesure qui décide du chantier « scènes cuites » (étape 0 du plan).
   fp('vif-peinture');
+  const { bx, by, bw } = isoEngineSceneBox(t, anchor, spanX, spanY, T, z, hh);
+  // ── HORLOGE PROPRE À L'INSTANCE ───────────────────────────────────────────
+  // Sans elle, tous les ateliers d'un type jouent la MÊME image au même instant
+  // (le `now` de la frame est global) : le quartier bat à l'unisson. Le décalage
+  // se pose ici, une fois, et TOUTE la scène en hérite — les ~120 blocs animés
+  // des deux fichiers de scènes n'ont rien à savoir. Coût : une multiplication
+  // et une addition par scène (graine mémoïsée sur la tuile). cf. engineAnim.js.
+  const aNow = engineAnimNow(t, now);
+  // LA CHUTE (docs/PLAN-CHUTE.md) : une scène secouée ou en ruine passe par
+  // iso/isoChuteScene.js — sa ruine dessinée, sa poussière, ni cache ni lueur.
+  const chute = chuteTileState(t);
+  if (chute) {
+    const box = paintEngineFall(ctx, t, bx, by, bw, aNow, chute);
+    fp('vif-moteurs');
+    return box;
+  }
+  return drawIsoEngineSceneBody(ctx, t, id, bx, by, bw, now, aNow);
+}
+
+// La BOÎTE d'une scène moteur (carré de côté bw, coin haut-gauche bx, by) posée sur
+// son losange. Sortie de drawIsoEngineScene pour être partagée avec la Chute, qui
+// relève où tombe chaque ruine (iso/isoChute.js) — même calcul, au pixel près.
+export function isoEngineSceneBox(t, anchor, spanX, spanY, T, z, hh) {
+  const id = t.buildingId || t.variant || '?';
   // ── Échelle de la scène : BORNÉE, jamais l'emprise brute ────────────────────
   // La halle occupe un grand lot, mais sa scène ne doit pas être celle d'un
   // atelier AGRANDIE : c'est exactement ce qui peignait un panier de fruits plus
@@ -303,13 +329,10 @@ export function drawIsoEngineScene(ctx, t, anchor, spanX, spanY, T, z, hh, now) 
     bx += bw * (1 - k) / 2 + ((((sd >> 5) % 5) - 2) * bw * 0.012);
     bw *= k;
   }
-  // ── HORLOGE PROPRE À L'INSTANCE ───────────────────────────────────────────
-  // Sans elle, tous les ateliers d'un type jouent la MÊME image au même instant
-  // (le `now` de la frame est global) : le quartier bat à l'unisson. Le décalage
-  // se pose ici, une fois, et TOUTE la scène en hérite — les ~120 blocs animés
-  // des deux fichiers de scènes n'ont rien à savoir. Coût : une multiplication
-  // et une addition par scène (graine mémoïsée sur la tuile). cf. engineAnim.js.
-  const aNow = engineAnimNow(t, now);
+  return { bx, by, bw };
+}
+
+function drawIsoEngineSceneBody(ctx, t, id, bx, by, bw, now, aNow) {
   try {
     // SURVOL : la silhouette se pose AVANT la scène, sinon elle la mange au
     // lieu de la cerner (même geste que les habitations). Elle lit `aNow` comme

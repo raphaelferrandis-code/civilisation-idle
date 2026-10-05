@@ -44,6 +44,7 @@ import { drawSunShadow } from './isoSunShadow.js';
 // Le mobilier de rue PAR ÈRE, dessiné par le code (2026-10-02) : réverbère et
 // terre-plein. Une ère sans kit garde le mobilier d'avant (PNG, parterres).
 import { streetKitFor, streetKitGlow, streetKitLampArt, streetKitPlantArt, wildShrubArt } from './streetKits.js';
+import { chuteLightsOut } from './chuteState.js';
 
 // ── NUIT : voile bleu puis halos des lampadaires ────────────────────────────
 // Lit CM.nightF (cycle jour/nuit du runtime, forcé par les captures). Lumières
@@ -765,7 +766,7 @@ export function drawIsoNight(now) {
 // passe de nuit pour servir aux deux chemins — dépôt dans le calque (nominal)
 // et dessin direct (repli).
 export function isoLampLightFrame(L) {
-  if (!LAMP_LIGHT.on || CM.lodActive || !L || !L.roadMap) return null;
+  if (!LAMP_LIGHT.on || CM.lodActive || !L || !L.roadMap || chuteLightsOut()) return null;
   const band = (L.counts && L.counts.eraBand) | 0;
   // Métriques du sprite pour placer les sources sur la tête (mêmes calculs que le
   // peintre). Un réverbère de kit porte sa propre lumière (sources en fraction

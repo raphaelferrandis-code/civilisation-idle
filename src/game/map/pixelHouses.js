@@ -26,6 +26,8 @@ import { drawHouseWindows } from './houseWindows.js';
 import { drawSceneEmissive, EMISSIVE_HOUSE } from './sceneEmissive.js';
 import { ORIENT, ROWS, ROW_VIEW, ilotArtKeys } from './ilotArt.js';
 import { ROW_VARIANTS, rowVariantIndex, recolorData } from './rowVariants.js';
+import { RUIN_HOUSES } from './ruinArt.js';
+import { razeImageData } from './ruinRaze.js';
 
 export const pixelHousesFlag = { on: true };
 
@@ -398,8 +400,8 @@ function rowGeom(t, x, y, w, h, key, e) {
   const vi = rowVariantIndex(model, t.rowSide | 0, alongX ? t.gx : t.gy);
   const winter = CM.season === WINTER && snowRoofTune.on;
   const vc = vi ? rowVariantCanvas(key, model, vi, winter) : variantCanvas(key, 0, winter);
-  if (vc) return { img: vc, bb: { x0: 0, y0: 0, w: bb.w, h: bb.h, mask: bb.mask }, dx, dy, dw, dh, key, ox: bb.x0, oy: bb.y0 };
-  return { img: e.img, bb, dx, dy, dw, dh, key, ox: bb.x0, oy: bb.y0 };
+  if (vc) return { img: vc, bb: { x0: 0, y0: 0, w: bb.w, h: bb.h, mask: bb.mask }, dx, dy, dw, dh, key, ox: bb.x0, oy: bb.y0, tint: 0, model, vi };
+  return { img: e.img, bb, dx, dy, dw, dh, key, ox: bb.x0, oy: bb.y0, tint: 0, model, vi };
 }
 
 // Toile d'une variante de rangée, recadrée sur la boîte d'encre et mise en cache (même
@@ -466,9 +468,10 @@ function pixelHouseGeom(t, x, y, w, h) {
   // teinte ni la neige ne déplacent un pixel, elles repeignent DANS la silhouette).
   // `ox`, `oy` : coin de la boîte d'encre dans le PNG de base, que la variante recadrée
   // perd — les fenêtres relevées à la main (houseWindowsData.js) sont dans ce repère.
-  const vc = variantCanvas(key, houseTintOf(t, key), CM.season === WINTER && snowRoofTune.on);
-  if (vc) return { img: vc, bb: { x0: 0, y0: 0, w: bb.w, h: bb.h, mask: bb.mask }, dx, dy, dw, dh, key, ox: bb.x0, oy: bb.y0 };
-  return { img: e.img, bb, dx, dy, dw, dh, key, ox: bb.x0, oy: bb.y0 };
+  const tint = houseTintOf(t, key);
+  const vc = variantCanvas(key, tint, CM.season === WINTER && snowRoofTune.on);
+  if (vc) return { img: vc, bb: { x0: 0, y0: 0, w: bb.w, h: bb.h, mask: bb.mask }, dx, dy, dw, dh, key, ox: bb.x0, oy: bb.y0, tint, model: null, vi: 0 };
+  return { img: e.img, bb, dx, dy, dw, dh, key, ox: bb.x0, oy: bb.y0, tint, model: null, vi: 0 };
 }
 
 // Dessine le sprite. RENVOIE la boîte écran RÉELLEMENT dessinée {dx, dy, dw, dh},
@@ -508,6 +511,100 @@ export function drawPixelHouse(t, x, y, w, h) {
 export function pixelHouseBox(t, x, y, w, h) {
   const g = pixelHouseGeom(t, x, y, w, h);
   return g ? { dx: g.dx, dy: g.dy, dw: g.dw, dh: g.dh } : null;
+}
+
+// Géométrie complète du sprite tel qu'il serait dessiné (image, boîte source,
+// rectangle écran, teinte). Pour la Chute : la secousse redessine CE sprite décalé.
+export function pixelHouseSprite(t, x, y, w, h) {
+  return pixelHouseGeom(t, x, y, w, h);
+}
+
+// ── LA CHUTE : la RUINE de chaque habitation (iso/isoChute.js, docs/PLAN-CHUTE.md) ──
+// Une ruine est le sprite d'origine édité par PixelLab (même angle, même cadre,
+// cf. scripts/buildRuins.mjs), rangée sous /pixelart/ruins/houses/. Elle se pose
+// EXACTEMENT où le jeu pose la maison debout — même tuile, même échelle — et prend la
+// MÊME TEINTE : la teinte par tuile (housePalette) et l'alternance des rangées
+// (rowVariants) sont des remplacements de couleurs exacts, et la ruine a été ramenée
+// sur la palette de l'original, donc elle se recolore à l'identique. Un sprite sans
+// ruine dessinée tombe quand même : il est ARASÉ, coupé à quelques pixels de son pied.
+const ruinArt = new Map();        // clé -> { img, ready, ox, oy } | null (pas de ruine dessinée)
+const ruinCanvases = new Map();   // recette -> canvas (teinte, rangée, neige, arasement)
+function ensureRuin(key) {
+  if (ruinArt.has(key)) return ruinArt.get(key);
+  const off = RUIN_HOUSES[key];
+  if (!off || typeof Image === "undefined") { ruinArt.set(key, null); return null; }
+  const r = { img: new Image(), ready: false, ox: off[0], oy: off[1] };
+  r.img.onload = () => { r.ready = true; };
+  r.img.src = "/pixelart/ruins/houses/" + key + ".png";
+  ruinArt.set(key, r);
+  return r;
+}
+addSnowResetHook(() => { ruinCanvases.clear(); });
+
+// Toile de ruine d'une recette : la ruine dessinée (ou, à défaut, l'original arasé),
+// teinte et rangée reportées, neige si c'est l'hiver, arasée si demandé.
+function ruinCanvasFor(key, tint, model, vi, razed) {
+  const winter = CM.season === WINTER && snowRoofTune.on;
+  const rk = key + ":" + (tint | 0) + ":" + (model || "") + ":" + (vi | 0) + (razed ? ":r" : "") + (winter ? ":w" : "");
+  const hit = ruinCanvases.get(rk);
+  if (hit) return hit;
+  const r = ensureRuin(key);
+  let src, ox, oy;
+  if (r) {
+    if (!r.ready) return null;
+    src = r.img; ox = r.ox; oy = r.oy;
+  } else {
+    const e = ensure(key);
+    if (!e.ready) return null;
+    src = e.img; ox = 0; oy = 0;               // repli : l'original, arasé
+  }
+  const w = src.naturalWidth, h = src.naturalHeight;
+  if (typeof document === "undefined" || !w || !h) return null;
+  const c = document.createElement("canvas");
+  c.width = w; c.height = h;
+  const cx = c.getContext("2d", { willReadFrequently: true });
+  cx.imageSmoothingEnabled = false;
+  cx.drawImage(src, 0, 0);
+  let img;
+  try { img = cx.getImageData(0, 0, w, h); } catch { return null; }
+  if (model && vi) {
+    const rules = ROW_VARIANTS[model] && ROW_VARIANTS[model][vi - 1];
+    if (rules) recolorData(img.data, rules);
+  } else if (tint) {
+    const out = cx.createImageData(w, h);
+    applyHouseTint(img.data, out.data, w, h, tint);
+    img = out;
+  }
+  // Un sprite haut et mince (tour) arasé garde un fût cassé plutôt qu'un socle plat.
+  if (!r || razed) razeImageData(img, r ? 0.18 : (h > w * 2 ? 0.42 : 0.26));
+  if (winter) snowImageData(img, w, h);
+  cx.putImageData(img, 0, 0);
+  const out = { c, ox, oy };
+  ruinCanvases.set(rk, out);
+  return out;
+}
+
+// La ruine d'une habitation, cadrée comme le jeu cadre la maison debout. Renvoie
+// { img, x, y, w, h, key, tint, model, vi } — rectangle ÉCRAN de l'image de ruine
+// (non arrondi) et la recette qui permet de la redessiner (les ruines du cycle
+// suivant) — ou null tant que les images ne sont pas prêtes.
+export function pixelHouseRuin(t, x, y, w, h) {
+  const g = pixelHouseGeom(t, x, y, w, h);
+  if (!g) return null;
+  const rc = ruinCanvasFor(g.key, g.tint, g.model, g.vi, false);
+  if (!rc) return null;
+  const kx = g.dw / g.bb.w, ky = g.dh / g.bb.h;
+  return {
+    img: rc.c, key: g.key, tint: g.tint | 0, model: g.model || null, vi: g.vi | 0,
+    x: g.dx - (rc.ox + g.ox) * kx, y: g.dy - (rc.oy + g.oy) * ky,
+    w: rc.c.width * kx, h: rc.c.height * ky,
+  };
+}
+
+// Toile d'une ruine du cycle précédent (recette gardée dans la sauvegarde).
+export function houseRelicCanvas(key, tint, model, vi, razed) {
+  const rc = ruinCanvasFor(key, tint, model, vi, razed);
+  return rc ? rc.c : null;
 }
 
 // Canvas de travail du liseré, réutilisé d'une frame à l'autre : une seule

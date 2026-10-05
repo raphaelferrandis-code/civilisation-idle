@@ -1,0 +1,288 @@
+<title>La Chute sur la carte</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Atkinson+Hyperlegible:ital,wght@0,400;0,700;1,400&family=Pixelify+Sans:wght@500;700&family=Silkscreen&display=swap">
+<style>
+/* Mise en page : une colonne de « bobine » — chaque direction est un plan de film
+   (titre, images datées en ms, puis le prix à payer pour la brancher).
+   Un seul monde visuel, la nuit dorée du jeu : thème sombre assumé. */
+:root {
+  --bg: #12101b;
+  --panel: #1c1830;
+  --line: #3a3150;
+  --ink: #ece3d0;
+  --muted: #a99fbb;
+  --gold: #cf9c50;
+  --ember: #ff9d5c;
+  --sea: #6fb7c9;
+  --font-display: 'Pixelify Sans', 'Trebuchet MS', system-ui, sans-serif;
+  --font-body: 'Atkinson Hyperlegible', 'Segoe UI', system-ui, sans-serif;
+  --font-num: 'Silkscreen', 'Courier New', monospace;
+  color-scheme: dark;
+}
+* { box-sizing: border-box; }
+html { background: var(--bg); }
+body { background: var(--bg); color: var(--ink); font: 1rem/1.6 var(--font-body); margin: 0; }
+.wrap { max-width: 1320px; margin: 0 auto; padding-inline: 20px; padding-block: 40px 80px; display: grid; gap: 64px; }
+h1, h2, h3 { font-family: var(--font-display); font-weight: 700; text-wrap: balance; margin: 0; }
+h1 { font-size: clamp(2.2rem, 5vw, 3.6rem); line-height: 1.05; color: var(--ember); text-shadow: 3px 3px 0 #2a0f18; }
+h2 { font-size: 1.75rem; line-height: 1.15; }
+h3 { font-size: 1.1rem; color: var(--gold); }
+p { margin: 0; max-width: 68ch; }
+.muted { color: var(--muted); }
+.eyebrow { font-family: var(--font-num); font-size: .78rem; letter-spacing: .08em; color: var(--gold); text-transform: uppercase; }
+header { display: grid; gap: 16px; }
+.lede { font-size: 1.12rem; }
+.howto { display: grid; gap: 8px; padding: 16px 18px; background: var(--panel); border-radius: 10px; max-width: 900px; }
+.howto code, td code, p code { font-family: var(--font-num); font-size: .8em; color: var(--sea); }
+.keys { display: flex; flex-wrap: wrap; gap: 6px; }
+.key { font-family: var(--font-display); font-size: .82rem; padding: 3px 9px; border-radius: 5px; background: #2a2238; border: 1px solid #4a3e5c; }
+section { display: grid; gap: 20px; }
+.sec-head { display: grid; grid-template-columns: auto 1fr; gap: 6px 18px; align-items: baseline; }
+.act { font-family: var(--font-num); font-size: 1.6rem; color: var(--ember); line-height: 1; }
+.sec-head p { grid-column: 2; }
+figure { margin: 0; display: grid; gap: 8px; min-width: 0; }
+figure img { width: 100%; height: auto; display: block; border-radius: 6px; cursor: zoom-in; background: #000; }
+figcaption { font-size: .9rem; color: var(--muted); }
+figcaption b { font-family: var(--font-num); font-weight: 400; color: var(--ink); font-size: .8rem; margin-right: 6px; }
+.px img { image-rendering: pixelated; }
+.tag { font-family: var(--font-num); font-size: .7rem; color: var(--bg); background: var(--gold); padding: 1px 6px; border-radius: 3px; margin-left: 6px; }
+.grid2 { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px; }
+.grid3 { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 14px; }
+.strip { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 10px; }
+.cost { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 14px; }
+.cost div { background: var(--panel); border-radius: 8px; padding: 14px 16px; display: grid; gap: 6px; align-content: start; min-width: 0; }
+.cost h4 { margin: 0; font-family: var(--font-num); font-weight: 400; font-size: .75rem; letter-spacing: .06em; color: var(--gold); text-transform: uppercase; }
+.cost p { font-size: .93rem; }
+/* le film */
+.film { display: grid; gap: 12px; background: var(--panel); padding: 14px; border-radius: 12px; }
+.film-tabs { display: flex; flex-wrap: wrap; gap: 8px; }
+.film-tabs button, .film-ctl button { font: 600 .9rem var(--font-display); color: var(--ink); background: #2a2238; border: 1px solid #4a3e5c; border-radius: 6px; padding: 6px 12px; cursor: pointer; }
+.film-tabs button[aria-pressed="true"] { background: #5a3a22; border-color: var(--gold); color: #ffd08a; }
+.film-tabs button:focus-visible, .film-ctl button:focus-visible, .film-ctl input:focus-visible { outline: 2px solid var(--gold); outline-offset: 2px; }
+.screen { position: relative; aspect-ratio: 16 / 9; max-width: 100%; background: #000; border-radius: 8px; overflow: hidden; }
+.screen img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; image-rendering: pixelated; }
+.film-ctl { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
+.film-ctl input[type=range] { flex: 1; min-width: 160px; accent-color: var(--gold); }
+.clock { font-family: var(--font-num); font-size: .85rem; color: var(--ember); min-width: 13ch; font-variant-numeric: tabular-nums; }
+.beat { font-family: var(--font-display); color: var(--ink); font-size: .95rem; }
+table { border-collapse: collapse; width: 100%; font-size: .93rem; }
+.tablewrap { overflow-x: auto; }
+th, td { text-align: left; vertical-align: top; padding: 10px 12px; border-bottom: 1px solid var(--line); }
+th { font-family: var(--font-num); font-weight: 400; font-size: .72rem; letter-spacing: .06em; color: var(--gold); text-transform: uppercase; }
+.reco { background: linear-gradient(180deg, #2b2753, #181534); border: 2px solid var(--gold); border-radius: 12px; padding: 22px 24px; display: grid; gap: 12px; }
+.reco h2 { color: var(--ember); }
+.reco ol { margin: 0; padding-left: 1.3em; display: grid; gap: 8px; max-width: 80ch; }
+.lb { position: fixed; inset: 0; background: rgba(6,5,10,.94); display: grid; place-items: center; overflow: auto; z-index: 10; cursor: zoom-out; padding: 20px; }
+.lb img { max-width: none; image-rendering: pixelated; }
+@media (max-width: 900px) {
+  .grid3, .cost { grid-template-columns: 1fr; }
+  .strip { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+@media (max-width: 620px) {
+  .grid2, .strip { grid-template-columns: 1fr; }
+  .sec-head { grid-template-columns: 1fr; }
+  .sec-head p { grid-column: 1; }
+}
+@media (prefers-reduced-motion: reduce) { * { scroll-behavior: auto; } }
+</style>
+
+<div class="wrap">
+  <header>
+    <div class="eyebrow">Maquette · effondrement · 4 octobre 2026</div>
+    <h1>La Chute sur la carte</h1>
+    <p class="lede">Trois temps joués sur la vraie carte du jeu, avec une ruine dessinée pour chaque bâtiment (PixelLab, même angle et même palette que le sprite d’origine). Captures à 2560 × 1340, cité de l’âge du Marbre ; l’âge de la Fonte sert de preuve que la recette tient sur un autre style.</p>
+    <div class="howto">
+      <p><b>Rejouer la maquette :</b> lancer le serveur <code>maquette-chute</code> (port 62090). C’est le jeu lui-même, avec une barre de régie en bas de l’écran. Le code du jeu n’est pas modifié : les crochets sont ajoutés en mémoire par le serveur de la maquette.</p>
+      <div class="keys"><span class="key">Cité</span><span class="key">Marbre</span><span class="key">Fonte</span><span class="key">I · Figée</span><span class="key">II · La vague</span><span class="key">II · La nuit</span><span class="key">III · Ce qui reste</span><span class="key">↺</span><span class="key">■</span><span class="key">II→III</span><span class="key">Poussière</span><span class="key">▢</span></div>
+      <p class="muted">« I · Figée » pose le panneau de la Chute sur la cité : maintenir « Effondrer la Cité » lance la chute choisie. « II→III » enchaîne la chute sur le cycle suivant. « Poussière » montre la vague avec ou sans nuages. « ▢ » masque l’interface du jeu.</p>
+    </div>
+  </header>
+
+  <section aria-labelledby="t-film">
+    <div class="sec-head"><span class="act">▶</span><h2 id="t-film">Le film</h2>
+      <p class="muted">Les deux chutes, enchaînées sur le cycle suivant. Une image toutes les 0,2 à 0,5 s de l’animation, au pixel près (recadrage 1280 × 720 du centre, échelle 1:1).</p></div>
+    <div class="film">
+      <div class="film-tabs" role="group" aria-label="Choix du film">
+        <button type="button" id="tab-vague" aria-pressed="true">La vague → le cycle suivant</button>
+        <button type="button" id="tab-nuit" aria-pressed="false">La nuit → le cycle suivant</button>
+      </div>
+      <div class="screen"><img id="film-img" src="film/fv-000.jpg" alt="Image du film de la chute"></div>
+      <div class="film-ctl">
+        <button type="button" id="film-play">Lire</button>
+        <input type="range" id="film-pos" min="0" max="0" value="0" aria-label="Position dans le film">
+        <span class="clock" id="film-clock">t = 0,0 s</span>
+        <span class="beat" id="film-beat">La cité vivante</span>
+      </div>
+    </div>
+  </section>
+
+  <section aria-labelledby="t-avant">
+    <div class="sec-head"><span class="act">0</span><h2 id="t-avant">Aujourd’hui</h2>
+      <p class="muted">À 100 % de Rupture, l’onglet Chute prend tout l’écran : on ne voit plus la cité. À la chute, 2 s de grisé, la stèle, puis la cité suivante apparaît d’un bloc, ailleurs.</p></div>
+    <figure><img src="img/avant-chute.jpg" alt="La page Chute actuelle du jeu" loading="lazy"><figcaption><b>JEU</b>Page Chute actuelle, même partie (aperçu réduit de moitié).</figcaption></figure>
+  </section>
+
+  <section aria-labelledby="t-1">
+    <div class="sec-head"><span class="act">I</span><h2 id="t-1">La cité figée</h2>
+      <p>À 100 %, la carte reste là. L’émeute gronde, la lumière tourne au crépuscule, puis plus rien ne bouge : passants, charrettes, eau, flammes. Le panneau de la Chute se pose sur la cité au lieu de la remplacer ; le maintien du bouton lance la chute sur la carte elle-même.</p></div>
+    <div class="grid2">
+      <figure><img src="img/figee.jpg" alt="La cité figée sous le panneau de la Chute" loading="lazy"><figcaption><b>2560 × 1340</b>Plein écran (aperçu réduit de moitié). Interface du jeu masquée, sauf la barre du haut.</figcaption></figure>
+      <figure class="px"><img src="img/figee-1x1.jpg" alt="Détail du panneau de la Chute posé sur la carte" loading="lazy"><figcaption><b>1:1</b>Le panneau : RUPTURE, la jauge pleine, les trois rites (noms en infobulle), la moisson de Ruines, le bouton à maintenir.</figcaption></figure>
+    </div>
+  </section>
+
+  <section aria-labelledby="t-2">
+    <div class="sec-head"><span class="act">II</span><h2 id="t-2">La vague</h2>
+      <p>Du cœur vers les faubourgs, chaque bâtiment tremble 0,4 s puis cède. Un nuage de poussière dessiné au pixel couvre la bascule (volutes à bords francs, ombre en bas à droite, aucune particule), et il reste la ruine dessinée. Devant la vague, les rues se vident : passants, émeutiers, étals, guirlandes, braseros, réverbères. Recul de caméra, puis la nuit tombe sur les ruines.</p></div>
+    <div class="strip">
+      <figure><img src="img/vague-1300.jpg" alt="La vague à 1,3 s" loading="lazy"><figcaption><b>1,3 s</b>Le cœur cède.</figcaption></figure>
+      <figure><img src="img/vague-2100.jpg" alt="La vague à 2,1 s" loading="lazy"><figcaption><b>2,1 s</b>La poussière roule.</figcaption></figure>
+      <figure><img src="img/vague-2900.jpg" alt="La vague à 2,9 s" loading="lazy"><figcaption><b>2,9 s</b>Les quartiers tombent.</figcaption></figure>
+      <figure><img src="img/vague-3900.jpg" alt="La vague à 3,9 s" loading="lazy"><figcaption><b>3,9 s</b>Les ruines apparaissent.</figcaption></figure>
+      <figure><img src="img/vague-7400.jpg" alt="La vague à 7,4 s" loading="lazy"><figcaption><b>7,4 s</b>La cité en ruines.</figcaption></figure>
+    </div>
+    <div class="grid2">
+      <figure class="px"><img src="img/vague-2100-1x1.jpg" alt="Détail de la poussière" loading="lazy"><figcaption><b>1:1</b>La poussière au pixel : elle cache l’instant où le sprite debout devient sa ruine.</figcaption></figure>
+      <figure class="px"><img src="img/vague-3900-1x1.jpg" alt="Détail des ruines" loading="lazy"><figcaption><b>1:1</b>Les ruines : toits effondrés, murs cassés en escalier, gravats au pied, fenêtres vides. La teinte de chaque maison est reportée sur sa ruine.</figcaption></figure>
+    </div>
+  </section>
+
+  <section aria-labelledby="t-2b">
+    <div class="sec-head"><span class="act">II·b</span><h2 id="t-2b">La nuit (variante sobre)</h2>
+      <p>Aucune animation de destruction. La nuit tombe sur la cité vivante, les fenêtres s’éteignent une à une, les rues se vident. Fondu au noir : à l’aube, il ne reste que des ruines.</p></div>
+    <div class="strip">
+      <figure><img src="img/nuit-1200.jpg" alt="La nuit à 1,2 s" loading="lazy"><figcaption><b>1,2 s</b>Le soir tombe.</figcaption></figure>
+      <figure><img src="img/nuit-2600.jpg" alt="La nuit à 2,6 s" loading="lazy"><figcaption><b>2,6 s</b>Les lumières s’éteignent.</figcaption></figure>
+      <figure><img src="img/nuit-4000.jpg" alt="La nuit à 4,0 s" loading="lazy"><figcaption><b>4,0 s</b>Plus personne.</figcaption></figure>
+      <figure><img src="img/nuit-9200.jpg" alt="La nuit à 9,2 s" loading="lazy"><figcaption><b>9,2 s</b>Après le noir : ruines.</figcaption></figure>
+      <figure><img src="img/nuit-12500.jpg" alt="La nuit à 12,5 s" loading="lazy"><figcaption><b>12,5 s</b>L’aube sur les ruines.</figcaption></figure>
+    </div>
+  </section>
+
+  <section aria-labelledby="t-3">
+    <div class="sec-head"><span class="act">III</span><h2 id="t-3">Ce qui reste</h2>
+      <p>Le cycle suivant s’installe dans la même vallée, au milieu des ruines : les monuments restent debout, une maison sur deux n’est plus qu’un pan de mur au ras du sol, la forêt a poussé dans les anciennes rues. Le campement a déblayé sa place ; chaque nouvelle construction effacera la ruine de sa case. Enchaîné à la chute : fondu au noir, le seul feu du campement dans la nuit, puis l’aube.</p></div>
+    <div class="grid2">
+      <figure><img src="img/reste-3600.jpg" alt="Le campement la nuit au milieu des ruines" loading="lazy"><figcaption><b>3,6 s</b>Après le noir : le feu du campement.</figcaption></figure>
+      <figure><img src="img/reste-11000.jpg" alt="Le campement au jour au milieu des ruines" loading="lazy"><figcaption><b>11 s</b>Le jour : la cité suivante naît dans les ruines.</figcaption></figure>
+      <figure class="px"><img src="img/reste-3600-1x1.jpg" alt="Détail nocturne du campement" loading="lazy"><figcaption><b>1:1</b>La nuit, seul le feu et les torches du pont.</figcaption></figure>
+      <figure class="px"><img src="img/reste-11000-1x1.jpg" alt="Détail diurne des ruines dans la forêt" loading="lazy"><figcaption><b>1:1</b>Ruines entières, pans arasés, arbres dans les rues.</figcaption></figure>
+    </div>
+  </section>
+
+  <section aria-labelledby="t-art">
+    <div class="sec-head"><span class="act">✎</span><h2 id="t-art">Les ruines dessinées</h2>
+      <p>Chaque ruine est le sprite du jeu édité par PixelLab (« même bâtiment, en ruine »), à sa taille réelle, sans aucune réduction ; les couleurs proches de l’original sont ramenées sur sa palette. Les monuments passent par quatre dans une seule image, ce qui divise le coût par quatre.</p></div>
+    <div class="grid2">
+      <figure class="px"><img src="img/maisons-marbre.png" alt="Maisons du Marbre et leurs ruines" loading="lazy"><figcaption><b>MARBRE</b>Maisons : original, puis ruine.</figcaption></figure>
+      <figure class="px"><img src="img/maisons-fonte.png" alt="Maisons de la Fonte et leurs ruines" loading="lazy"><figcaption><b>FONTE</b>Maisons : original, puis ruine.</figcaption></figure>
+      <figure class="px"><img src="img/monuments-marbre.png" alt="Monuments du Marbre et leurs ruines" loading="lazy"><figcaption><b>MARBRE</b>Monuments : à gauche l’original, à droite la ruine.</figcaption></figure>
+      <figure class="px"><img src="img/monuments-fonte.png" alt="Monuments de la Fonte et leurs ruines" loading="lazy"><figcaption><b>FONTE</b>Verrière brisée, halle de fer à nu.</figcaption></figure>
+    </div>
+    <div class="grid3">
+      <figure><img src="img/fonte-debout.jpg" alt="Une cité de la Fonte debout" loading="lazy"><figcaption><b>FONTE</b>La cité debout.</figcaption></figure>
+      <figure><img src="img/fonte-3900.jpg" alt="La vague sur une cité de la Fonte" loading="lazy"><figcaption><b>3,9 s</b>La vague.</figcaption></figure>
+      <figure><img src="img/fonte-reste.jpg" alt="Le cycle suivant dans les ruines de la Fonte" loading="lazy"><figcaption><b>III</b>Le cycle suivant.</figcaption></figure>
+    </div>
+  </section>
+
+  <section aria-labelledby="t-cout">
+    <div class="sec-head"><span class="act">€</span><h2 id="t-cout">Ce que coûterait le branchement</h2>
+      <p class="muted">Mesuré sur la maquette. Le Chrome de Raph rend sans GPU : chaque image dessinée se paie au processeur.</p></div>
+    <div class="tablewrap"><table>
+      <thead><tr><th>Direction</th><th>Fichiers du jeu</th><th>Art</th><th>Perf (sans GPU)</th><th>Risques</th></tr></thead>
+      <tbody>
+        <tr><td><b>I · Figée</b></td><td><code>crisis.js</code> (ne plus ouvrir l’onglet), mode figé dans <code>cityMapRuntime.js</code>, <code>PrestigeView.jsx</code> à réagencer en panneau latéral.</td><td>Aucun.</td><td>Nulle : une carte figée coûte moins qu’une carte vivante.</td><td>Ranger paliers, testament et journal dans un panneau étroit, sans phrases.</td></tr>
+        <tr><td><b>II · La vague</b></td><td>Un module <code>iso/isoChute.js</code> (horloge, états, poussière) ; deux crochets (<code>drawPixelHouse</code>, <code>drawIsoEngineScene</code>) ; un filtre dans <code>isoLiveCollect.js</code> ; <code>events.js</code> (la séquence remplace les 2 s de grisé).</td><td>Une ruine par sprite et par âge : 11 à 25 maisons + ~25 monuments, 7 à 8 tâches PixelLab, 205 à 245 générations par âge. Marbre et Fonte faits (450 générations). Reste 8 âges (≈ 1 800), plus merveilles, Plaisirs, moulins, ports. Solde PixelLab ce soir : 1 665 jusqu’au 30/10, partagé avec les autres chantiers.</td><td>Une ruine = un dessin, comme le bâtiment. La poussière ajoute 100 à 200 dessins pendant ~6 s, peu devant les ~6 700 d’une frame de mégapole. À cuire d’avance par âge (la maquette les fabrique à la volée).</td><td>La poussière est le seul « effet » : bouton Poussière pour juger avec et sans. Neige d’hiver sur les ruines à prévoir.</td></tr>
+        <tr><td><b>II·b · La nuit</b></td><td>Les mêmes, sans poussière ni secousse.</td><td>Le même.</td><td>Encore moins.</td><td>Moins spectaculaire : la bascule se fait dans le noir.</td></tr>
+        <tr><td><b>III · Ce qui reste</b></td><td><code>completeCollapse</code> garde graine, fleuve et cœur ; les vestiges deviennent la liste des ruines (case + sprite, ~1 000 entrées ≈ 20 Ko de sauvegarde) ; collecte et peintre iso ; la forêt évite les ruines.</td><td>Le même que II (les ruines sont réutilisées) ; option : une passe « envahie de lierre ».</td><td>600 à 1 200 dessins de plus, sur un campement qui en a très peu.</td><td>Choix de jeu : chaque cycle garde sa vallée (le nom peut changer). La nécropole « à l’ouest » devient inutile.</td></tr>
+      </tbody>
+    </table></div>
+  </section>
+
+  <section class="reco" aria-labelledby="t-reco">
+    <h2 id="t-reco">Recommandation</h2>
+    <ol>
+      <li><b>La vague, enchaînée sur « Ce qui reste ».</b> C’est la chute qu’on voit, bâtiment par bâtiment, et la trace qu’elle laisse au cycle suivant. Si la poussière te paraît encore trop chargée, garder la vague sans poussière, ou la nuit : le reste ne change pas.</li>
+      <li><b>« Ce qui reste » vaut le changement de règle</b> (même vallée d’un cycle à l’autre) : c’est l’image la plus forte de la maquette, et la fresque de la page Chute dit déjà la même chose.</li>
+      <li><b>La cité figée en dernier</b> : simple côté carte, mais elle oblige à refaire la page Chute en panneau.</li>
+      <li><b>Ordre de travail</b> : l’art des ruines âge par âge (le Marbre et la Fonte sont faits), la chute (contenue, visuelle seulement), puis le cycle dans les ruines.</li>
+    </ol>
+  </section>
+
+  <p class="muted">Pas dans la maquette : le son, le téléphone, l’hiver, un bouton pour passer la séquence, les ruines des merveilles, de la Maison des Plaisirs, des moulins et des ports (ils disparaissent sous la vague). L’eau turquoise est celle du jeu actuel en crise (la version « eau trouble » d’une autre session n’est pas encore enregistrée).</p>
+</div>
+
+<script>
+(() => {
+  // Films : [préfixe, [[ms d'animation, temps fort]...]]
+  const pad = (n) => String(n).padStart(3, '0');
+  const seq = (pre, from, list) => list.map((ms, i) => ({ src: `film/${pre}-${pad(from + i)}.jpg`, ms }));
+  const range = (a, b, s) => { const o = []; for (let v = a; v <= b + 1e-6; v += s) o.push(v); return o; };
+  const V = [
+    { src: 'film/fv-000.jpg', ms: -3000, beat: 'La cité vivante' },
+    { src: 'film/fv-001.jpg', ms: -1000, beat: 'I · La cité figée' },
+    ...seq('fv', 2, range(0, 8000, 200)).map((f) => ({ ...f, beat: f.ms < 700 ? 'Le maintien du bouton' : 'II · La vague' })),
+    ...seq('fv', 43, range(8500, 12500, 500)).map((f) => ({ ...f, beat: 'La nuit tombe sur les ruines' })),
+  ];
+  const R = (off) => seq('fr', 0, range(600, 9000, 300)).map((f) => ({ ...f, ms: f.ms + off, beat: f.ms < 1500 ? 'Le noir' : f.ms < 4300 ? 'III · Le feu du campement' : 'III · L’aube sur les ruines' }));
+  const N = [
+    { src: 'film/fv-001.jpg', ms: -1000, beat: 'I · La cité figée' },
+    ...seq('fn', 0, range(0, 5100, 300)).map((f) => ({ ...f, beat: f.ms < 4300 ? 'II·b · Les lumières s’éteignent' : 'Fondu au noir' })),
+    ...seq('fn', 18, range(5700, 12200, 500)).map((f) => ({ ...f, beat: 'L’aube sur les ruines' })),
+  ];
+  const FILMS = { vague: [...V, ...R(13000)], nuit: [...N, ...R(13000)] };
+  const img = document.getElementById('film-img'), pos = document.getElementById('film-pos');
+  const clock = document.getElementById('film-clock'), beat = document.getElementById('film-beat');
+  const play = document.getElementById('film-play');
+  let film = FILMS.vague, i = 0, timer = 0;
+  const cache = new Map();
+  const preload = (f) => { for (const x of f) if (!cache.has(x.src)) { const im = new Image(); im.src = x.src; cache.set(x.src, im); } };
+  const show = (k) => {
+    i = Math.max(0, Math.min(film.length - 1, k));
+    const f = film[i];
+    img.src = f.src; pos.value = String(i);
+    clock.textContent = 't = ' + (Math.max(0, f.ms) / 1000).toFixed(1).replace('.', ',') + ' s';
+    beat.textContent = f.beat || '';
+  };
+  const stop = () => { clearTimeout(timer); timer = 0; play.textContent = 'Lire'; };
+  const step = () => {
+    if (i >= film.length - 1) { stop(); return; }
+    const dt = Math.min(1200, Math.max(120, film[i + 1].ms - film[i].ms));
+    show(i + 1);
+    timer = setTimeout(step, dt);
+  };
+  play.addEventListener('click', () => {
+    if (timer) { stop(); return; }
+    preload(film);
+    if (i >= film.length - 1) show(0);
+    play.textContent = 'Pause';
+    timer = setTimeout(step, 400);
+  });
+  pos.addEventListener('input', () => { stop(); show(+pos.value); });
+  const pick = (name) => {
+    stop(); film = FILMS[name]; pos.max = String(film.length - 1);
+    document.getElementById('tab-vague').setAttribute('aria-pressed', String(name === 'vague'));
+    document.getElementById('tab-nuit').setAttribute('aria-pressed', String(name === 'nuit'));
+    show(0);
+  };
+  document.getElementById('tab-vague').addEventListener('click', () => pick('vague'));
+  document.getElementById('tab-nuit').addEventListener('click', () => pick('nuit'));
+  pick('vague');
+
+  // Clic sur une image : affichage à la taille réelle (1:1).
+  document.addEventListener('click', (e) => {
+    const t = e.target;
+    if (t.closest('.lb')) { t.closest('.lb').remove(); return; }
+    if (t.tagName !== 'IMG' || !t.closest('figure')) return;
+    const lb = document.createElement('div');
+    lb.className = 'lb';
+    const big = new Image();
+    big.src = t.currentSrc || t.src; big.alt = t.alt;
+    lb.appendChild(big);
+    document.body.appendChild(lb);
+  });
+  document.addEventListener('keydown', (e) => { if (e.key === 'Escape') document.querySelectorAll('.lb').forEach((n) => n.remove()); });
+})();
+</script>

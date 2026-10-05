@@ -1,0 +1,5 @@
+[
+  {"nav": "http://localhost:62090/maquettes/chute/planche/film/fv-012.jpg"},
+  {"wait": 800},
+  {"eval": "(async()=>{ const im = new Image(); im.src = location.href; await im.decode(); const c = document.createElement('canvas'); c.width = im.width; c.height = im.height; c.getContext('2d').drawImage(im,0,0); const out = {}; for (const q of [0.7, 0.8, 0.9, 1]) { const b = await new Promise(r => c.toBlob(r, 'image/webp', q)); out['webp'+q] = b.size; } const j = await new Promise(r => c.toBlob(r, 'image/jpeg', 0.8)); out.jpg08 = j.size; return out; })()"}
+]

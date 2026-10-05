@@ -46,6 +46,7 @@ import { vieActors } from './isoVie.js';
 import { elevatedActors } from './isoElevated.js';
 import { pushTerroirTeams } from './terroirLife.js';
 import { figuresBeginFrame, noteFig, FIG } from '../figures.js';
+import { chuteCollect } from './isoChute.js';
 
 // Pool et vue des items du peintre (cf. commentaire dans drawIsoLive) —
 // persistants au module : capacité conservée d'une frame à l'autre.
@@ -568,5 +569,8 @@ export function collectIsoItems(bake, now) {
   // Passants et émeutiers qui recoupent un véhicule : rangés selon le sol du véhicule
   // à leur colonne (une seule clé ne vaut pas sur toute sa longueur, cf. isoUnits).
   orderUnitsAroundVehicles(items, T);
+  // LA CHUTE (iso/isoChute.js) : la ville se vide sous la vague ; les ruines du cycle
+  // précédent entrent dans le tri, et la forêt neuve ne pousse pas dedans.
+  chuteCollect(items, L);
   return items;
 }

@@ -1579,6 +1579,12 @@
   opacity: clamp(0, (var(--crisis-level, 0) - 0.7) * 4, 1);
   transition: opacity 1.5s ease;
 }
+/* La chute jouée sur la carte (docs/PLAN-CHUTE.md) : la crise est dénouée, la lumière
+   est celle de la séquence (crépuscule, nuit, noir) — plus de lueur rouge. */
+.app.chute .city-map-container::after {
+  opacity: 0;
+  transition: none;
+}
 
 /* Graduations de seuil sur la jauge de rupture (25/50/75/90%) */
 .sg-tick {

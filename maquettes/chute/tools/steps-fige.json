@@ -1,0 +1,9 @@
+[
+  {"size": [2560, 1340]},
+  {"nav": "http://localhost:62090/"},
+  {"wait": 4000},
+  {"eval": "(async()=>{ for(let i=0;i<120&&!(window.__chute&&window.__CM&&window.__CM.layout);i++) await new Promise(r=>setTimeout(r,250)); (await import('/src/game/map/seasonMode.js')).setSeasonMode('summer'); await window.__chute.restoreCity(); window.__chute.placeCam(1.25); await new Promise(r=>setTimeout(r,2500)); return {band: window.__CM.layout.counts.eraBand}; })()"},
+  {"shot": "a0-vivante"},
+  {"eval": "(async()=>{ window.__chute.actFige(); await new Promise(r=>setTimeout(r,3500)); return {frozen: window.__chute.D.frozen, riot: window.__CM.rioters.length}; })()"},
+  {"shot": "a1-figee"}
+]
