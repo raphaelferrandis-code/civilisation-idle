@@ -19,7 +19,7 @@
 // Les objets ANIMÉS ou tirés d'une planche (flammes, statues) sont posés au dessin
 // par iso/isoProps.js, la même main que ceux du pont.
 import { state } from '../../core/state.js';
-import { CM, CM_WONDERS, cmWonderActiveIds, cmWonderSlot, cmWonderBaseTiles, cmWonderHeightTiles, cmWonderExtent } from '../layout.js';
+import { CM, CM_WONDERS, cmHash, cmWonderActiveIds, cmWonderSlot, cmWonderBaseTiles, cmWonderHeightTiles, cmWonderExtent, treeCanvasT } from '../layout.js';
 import { worldToScreen } from './projection.js';
 import { wonderKitForBand } from './wonderKits.js';
 import { WINTER } from '../seasonMode.js';
@@ -30,9 +30,15 @@ import { drawFlame, drawSpriteProp, glowAt, hexToRgbStr } from './isoProps.js';
 // Les bannières claquent dans le même vent que celles de la ville (session « petite vie »).
 import { drawVieFlag } from './isoVie.js';
 import { placePlan, gardenPlan, bakePlaceGround, bakeDecor } from './wonderPlace.js';
-import { isleModel, bakeIsleBase, islePlan, bakeIsleTall } from './wonderIsle.js';
+import { isleModel, bakeIsleBase, islePlan, bakeIsleTall, paintFoam, FOAM_STEP } from './wonderIsle.js';
+import { drawRipples } from './waterRipples.js';
 import { noteReflection } from './isoReflect.js';
 import { setWonderPlacePainter, wonderGroundSet } from './isoWonderGround.js';
+// L'herbe du jeu sous les pelouses des lieux (le raster du lieu y est transparent).
+import { blitIsoTileKey, ISO_TILE_KEYS } from './isoGroundTiles.js';
+// Les arbres de l'îlot sont ceux de la ville (sprites, teinte de saison).
+import { isoArt } from './isoArt.js';
+import { seasonTree } from './isoGroundDetail.js';
 
 // Une recette par merveille (wonderBake.js).
 const RECIPES = {
@@ -138,6 +144,13 @@ function modelOf(w, wi) {
 }
 
 // ── L'îlot de l'Aiguille (wonderIsle.js) ─────────────────────────────────────
+// Le canvas de l'écume et son tampon : repeint au plus une fois par FOAM_STEP.
+function foamCanvas(F) {
+  const cv = document.createElement('canvas');
+  cv.width = F.w; cv.height = F.h;
+  const g = cv.getContext('2d'), img = g.createImageData(F.w, F.h);
+  return { F, cv, g, img, u32: new Uint32Array(img.data.buffer), tick: -1, ox: F.ox, oy: F.oy, w: F.w, h: F.h };
+}
 const _isles = new Map();
 function isleFor(m) {
   if (!m.il || typeof document === 'undefined') return null;
@@ -151,6 +164,8 @@ function isleFor(m) {
   const kinds = new Map();
   e = {
     key, M: base.M, R: base.R, cv: rasterCanvas(base.R), cvR: rasterCanvas(base.Rr), box: inkOf(base.R).box, props: plan.props,
+    // L'écume au pied des rochers : un canvas repeint par paintFoam tous les FOAM_STEP.
+    foam: base.foam ? foamCanvas(base.foam) : null, ripples: base.ripples,
     talls: plan.talls.map((q) => {
       if (!kinds.has(q.kind)) {
         const t = bakeIsleTall(q.kind, K, m.tier);
@@ -203,21 +218,39 @@ function placeFor(m) {
   const L = CM.layout, wg = L && wonderGroundSet(L);
   const ring = (dx, dy) => wg && wg.has((m.slot.gx + dx) + ',' + (m.slot.gy + dy));
   const ext = ring(P + 1, 0) || ring(0, P + 1) || ring(-P - 1, 0) ? cmWonderExtent(m.w.id, m.tier).halfW : 0;
-  const key = m.w.id + ':' + m.tier + ':' + m.band + ':' + P + ':' + ext + (wtr ? ':w' : '');
+  // PORTES DES RUES : là où une rue touche l'enceinte (la rangée de cases juste
+  // dehors), on perce une porte — l'enceinte ne ferme jamais un accès.
+  const roadGatesAt = (R0) => {
+    const g = { N: [], S: [], E: [], W: [] };
+    if (!L || !L.roadSet) return g;
+    const T = CM.TILE, sx = m.slot.gx, sy = m.slot.gy;
+    for (let d = -R0; d <= R0; d += 1) {
+      if (L.roadSet.has((sx + d) + ',' + (sy - R0 - 1))) g.N.push(d * T);
+      if (L.roadSet.has((sx + d) + ',' + (sy + R0 + 1))) g.S.push(d * T);
+      if (L.roadSet.has((sx - R0 - 1) + ',' + (sy + d))) g.W.push(d * T);
+      if (L.roadSet.has((sx + R0 + 1) + ',' + (sy + d))) g.E.push(d * T);
+    }
+    return g;
+  };
+  const garden0 = ext > P;
+  const gates = roadGatesAt(garden0 ? ext : P);
+  const key = m.w.id + ':' + m.tier + ':' + m.band + ':' + P + ':' + ext + (wtr ? ':w' : '') + ':' + JSON.stringify(gates);
   let e = _places.get(key);
   if (e) return e;
   const K = wonderKitForBand(m.band, wtr);
-  const plan = placePlan(m.w.id, m.tier, K, m.B, half);
+  // L'enceinte borde le jardin quand il y en a un, le lieu sinon.
+  const plan = placePlan(m.w.id, m.tier, K, m.B, half, { enclose: !garden0, roadGates: gates });
   const G = bakePlaceGround(plan, half);
-  let garden = null, decor = plan.decor;
-  if (ext > P) {
-    const ho = (ext + 0.5) * CM.TILE, gp = gardenPlan(K, half, ho), GG = bakePlaceGround(gp, ho);
+  let garden = null, decor = plan.decor, props = plan.props;
+  if (garden0) {
+    const ho = (ext + 0.5) * CM.TILE, gp = gardenPlan(K, half, ho, gates), GG = bakePlaceGround(gp, ho);
     garden = { ext, G: GG, cv: rasterCanvas(GG) };
     decor = decor.concat(gp.decor);
+    props = props.concat(gp.props);
   }
   const kinds = new Map();
   e = {
-    key, P, half, G, cv: rasterCanvas(G), props: plan.props, garden,
+    key, P, half, G, cv: rasterCanvas(G), props, garden,
     decor: decor.map((d) => {
       const k = d.kind + ':' + (d.s || 0);
       if (!kinds.has(k)) { const R = bakeDecor(d.kind, K, d.s); kinds.set(k, { R, cv: rasterCanvas(R) }); }
@@ -257,6 +290,14 @@ function drawWonderPlaces(ctx, cells, hw, hh) {
       }
       if (n) {
         ctx.clip();
+        // L'herbe du jeu d'abord : elle reste visible là où le lieu est transparent
+        // (pelouses, parterres, jardin), avec ses variantes et ses miroirs.
+        for (let i = 0; i < cells.length; i += 4) {
+          const d = Math.max(Math.abs(cells[i] - m.slot.gx), Math.abs(cells[i + 1] - m.slot.gy));
+          if (!inRing(d)) continue;
+          const h = cmHash(cells[i] + ',' + cells[i + 1]);
+          blitIsoTileKey(ctx, ISO_TILE_KEYS.grass, cells[i + 2], cells[i + 3], hw, ((h >>> 3) & 1) === 1, h);
+        }
         const o = toBake(m.cx + G.oy + G.ox / 2, m.cy + G.oy - G.ox / 2);
         ctx.imageSmoothingEnabled = false;
         ctx.drawImage(cv, o.x, o.y, G.w * kx, G.h * ky);
@@ -402,9 +443,12 @@ export function drawIsoWonderSeg(ctx, it, now) {
       if (m.bk.cvN && nf > 0.03) {
         const lc = lightCtx(x0, y0, x1, y1);
         if (lc) {
+          const sm = lc.imageSmoothingEnabled;
+          lc.imageSmoothingEnabled = false;
           lc.globalAlpha = Math.min(1, nf * 1.15);
           lc.drawImage(m.bk.cvN, it.c0, cut, it.c1 - it.c0, R.h - cut, x0, y0, x1 - x0, y1 - y0);
           lc.globalAlpha = 1;
+          lc.imageSmoothingEnabled = sm;
         }
       }
     }
@@ -419,13 +463,24 @@ export function drawIsoWonderSeg(ctx, it, now) {
         if (e >= 0.98) noteReflection(ctx, isl.cvR, dx, dy, dw, dh, 0, bcut, B2.w, B2.h - bcut, 'column', 'water');
         ctx.drawImage(isl.cv, 0, bcut, B2.w, B2.h - bcut, dx, dy, dw, dh);
         lightCutImage(isl.cv, dx, dy, dw, dh, 0, bcut, B2.w, B2.h - bcut);
+        // L'ÉCUME bat le pied des rochers (wonderIsle.bakeFoam) : l'image du moment,
+        // calée sur la base, sous tout ce qui se tient sur l'île.
+        if (e >= 0.98 && isl.foam && !CM.lodActive) {
+          const F = isl.foam, tk = Math.floor((now || 0) / FOAM_STEP);
+          if (tk !== F.tick) { F.tick = tk; paintFoam(F.F, tk * FOAM_STEP, F.u32); F.g.putImageData(F.img, 0, 0); }
+          const fx = Math.round(q.x + (F.ox - B2.ox) * z), fy = Math.round(q.y + (F.oy - B2.oy) * z);
+          ctx.drawImage(F.cv, fx, fy, Math.round(q.x + (F.ox - B2.ox + F.w) * z) - fx, Math.round(q.y + (F.oy - B2.oy + F.h) * z) - fy);
+          // Les remous au pied du ponton (waterRipples), repère du centre de l'île.
+          if (isl.ripples) { const c = worldToScreen(m.cx, m.cy); drawRipples(ctx, isl.ripples, c.x, c.y, z, now); }
+        }
       }
       const bx = isl.box;
       if (bx && CM._wonderBoxes) CM._wonderBoxes.push({ dx: q.x + bx.x * z, dy: q.y + Math.max(bx.y, bcut) * z, dw: bx.w * z, dh: (bx.y + bx.h - Math.max(bx.y, bcut)) * z, wi: it.wi });
     }
   } else if (it.part === 'itall' && e >= 0.6) {
     const isl = m.isl || isleFor(m), q = isl && isl.talls[it.ti];
-    if (q) {
+    if (q && q.kind === 'tree' && drawIsleTree(ctx, m, q, it.ti, z)) { /* l'arbre de la ville */ }
+    else if (q) {
       const R2 = q.R, s = worldToScreen(m.cx + q.x + R2.oy + R2.ox / 2, m.cy + q.y + R2.oy - R2.ox / 2, q.h);
       const dx = Math.round(s.x), dy = Math.round(s.y), dw = Math.round(s.x + R2.w * z) - dx, dh = Math.round(s.y + R2.h * z) - dy;
       drawSunShadow(ctx, q.cv, dx, dy, dw, dh, 0, 0, R2.w, R2.h, 'column', false);
@@ -434,7 +489,7 @@ export function drawIsoWonderSeg(ctx, it, now) {
       const nf = CM.nightF || 0;
       if (q.cvN && nf > 0.03) {
         const lc = lightCtx(dx, dy, dx + dw, dy + dh);
-        if (lc) { lc.globalAlpha = Math.min(1, nf * 1.15); lc.drawImage(q.cvN, dx, dy, dw, dh); lc.globalAlpha = 1; }
+        if (lc) { const sm = lc.imageSmoothingEnabled; lc.imageSmoothingEnabled = false; lc.globalAlpha = Math.min(1, nf * 1.15); lc.drawImage(q.cvN, dx, dy, dw, dh); lc.globalAlpha = 1; lc.imageSmoothingEnabled = sm; }
       }
       // Ce qu'elle porte (drapeau, feu, lanterne) : à son sommet, juste après elle.
       for (const pr of q.props) drawWonderProp(ctx, m, { ...pr, x: q.x + pr.x, y: q.y + pr.y, h: q.h + pr.h }, z, now, it.ti * 13 + 5);
@@ -460,7 +515,7 @@ export function drawIsoWonderSeg(ctx, it, now) {
     const nf = CM.nightF || 0;
     if (fr.cvN && nf > 0.03) {
       const lc = lightCtx(dx, dy, dx + dw, dy + dh);
-      if (lc) { lc.globalAlpha = Math.min(1, nf * 1.15); lc.drawImage(fr.cvN, dx, dy, dw, dh); lc.globalAlpha = 1; }
+      if (lc) { const sm = lc.imageSmoothingEnabled; lc.imageSmoothingEnabled = false; lc.globalAlpha = Math.min(1, nf * 1.15); lc.drawImage(fr.cvN, dx, dy, dw, dh); lc.globalAlpha = 1; lc.imageSmoothingEnabled = sm; }
     }
   } else if (it.part === 'decor') {
     const pl = m.pl || placeFor(m), dc = pl && pl.decor[it.di];
@@ -484,6 +539,22 @@ export function drawIsoWonderSeg(ctx, it, now) {
 
 // Un objet posé (flamme, statue, drapeau, lueur, jet d'eau, balise, halo, faisceau)
 // au point monde (m.cx + x, m.cy + y, h) — ou au point écran `at` déjà calculé.
+// Les arbres de l'îlot (rang I) sont ceux de la ville : même sprite, même teinte de
+// saison, même taille, même ombre. Cuits à part, ils se lisaient comme des œufs verts
+// (Raph, 2026-10-04). Faux tant que le sprite n'est pas décodé : l'arbre cuit sert.
+const ISLE_TREES = [1, 2, 3, 1];
+function drawIsleTree(ctx, m, q, ti, z) {
+  const name = 'tree-' + ISLE_TREES[ti % ISLE_TREES.length], a = isoArt(name);
+  const img = a.ready ? (seasonTree(a, name) || a.img) : null;
+  if (!img) return false;
+  const hpx = CM.TILE * z * treeCanvasT(0.62), s = worldToScreen(m.cx + q.x, m.cy + q.y, q.h);
+  const dx = Math.round(s.x - hpx / 2), dy = Math.round(s.y - hpx * 0.92), dw = Math.round(s.x + hpx / 2) - dx, dh = Math.round(s.y + hpx * 0.08) - dy;
+  drawSunShadow(ctx, img, dx, dy, dw, dh, 0, 0, 0, 0, 0.92, false);
+  ctx.drawImage(img, dx, dy, dw, dh);
+  lightCutImage(img, dx, dy, dw, dh);
+  return true;
+}
+
 function drawWonderProp(ctx, m, pr, z, now, seed, at = null) {
   const p = at || worldToScreen(m.cx + pr.x, m.cy + pr.y, pr.h);
   const K = wonderKitForBand(m.band);
@@ -492,7 +563,8 @@ function drawWonderProp(ctx, m, pr, z, now, seed, at = null) {
   } else if (pr.prop === 'flag') {
     drawVieFlag(ctx, p.x, p.y, { k: z, now, poleH: pr.poleH || 10, w: pr.fw || 6, h: pr.fh || 4, cols: K.pal.banner, swallow: true, seed: seed * 7 + m.wi });
   } else if (pr.prop === 'glow') {
-    glowAt(p.x, p.y, Math.max(6, CM.TILE * z * (pr.big ? 1.1 : 0.6)), hexToRgbStr(K.pal.glow), 0.85);
+    if (pr.sweep) drawLighthouse(p.x, p.y, z, now, hexToRgbStr(K.pal.glow), m.wi);
+    else glowAt(p.x, p.y, Math.max(6, CM.TILE * z * (pr.big ? 1.1 : 0.6)), hexToRgbStr(K.pal.glow), 0.85);
   } else if (pr.prop === 'jet') {
     drawJet(ctx, p.x, p.y, z, now, seed);
   } else if (pr.prop === 'beacon') {
@@ -516,8 +588,10 @@ function drawWonderProp(ctx, m, pr, z, now, seed, at = null) {
     glowAt(p.x, p.y + bob, r * 1.6, hexToRgbStr(K.pal.glow), 0.6);
   } else if (pr.prop === 'beam') {
     drawBeam(p.x, p.y, z, hexToRgbStr(K.pal.glow));
+  } else if (pr.prop === 'hoist') {
+    drawHoist(ctx, m, pr, z, now, seed);
   } else {
-    drawSpriteProp(ctx, { era: pr.prop === 'statue' ? K.statueEra : K.propEra, ...pr }, p, z);
+    drawSpriteProp(ctx, { era: pr.prop === 'statue' ? K.statueEra : K.propEra, ...pr }, p, z, now);
   }
 }
 
@@ -532,6 +606,77 @@ function drawJet(ctx, x, y, z, now, seed) {
     const [dx, dy] = JET[k];
     ctx.fillStyle = k < 3 ? '#eef8ff' : '#bfe0f0';
     ctx.fillRect(Math.round(x + dx * s), Math.round(y + (dy + (k > 4 ? f * 0.5 : 0)) * s), s, s);
+  }
+}
+
+// LA CHARGE D'UNE GRUE de chantier (wonderBake.hoist) : une pierre au bout de son
+// câble, qui monte et redescend (un tour en ~7 s, jusqu'au tiers du câble) et se
+// balance d'un pixel. Une boîte iso de 5 × 5 × 4 (dessus, face éclairée à gauche,
+// face à l'ombre à droite : la lumière vient du haut-gauche), posée en direct.
+const HOIST = { period: 7000, rise: 0.35, sway: 2600 };
+function drawHoist(ctx, m, pr, z, now, seed) {
+  const live = (CM.ambianceK ?? 1) > 0;
+  const t = live ? (now || 0) : 0;
+  const lift = (pr.h - pr.hk) * HOIST.rise * (0.5 - 0.5 * Math.cos((t / HOIST.period + seed * 0.13) * Math.PI * 2));
+  const sw = live ? 0.9 * Math.sin((t / HOIST.sway + seed * 0.29) * Math.PI * 2) : 0;
+  const top = pr.hk + lift, bot = top - 4;
+  const P = (dx, dy, h) => {
+    const q = worldToScreen(m.cx + pr.x + dx + sw, m.cy + pr.y + dy - sw, h);
+    return [Math.round(q.x), Math.round(q.y)];
+  };
+  const a = P(0, 0, pr.h - 0.5), b = P(0, 0, top);
+  ctx.save();
+  ctx.strokeStyle = pr.rope || '#2a2420';
+  ctx.lineWidth = Math.max(1, Math.round(z * 0.8));
+  ctx.beginPath(); ctx.moveTo(a[0] + 0.5, a[1]); ctx.lineTo(b[0] + 0.5, b[1]); ctx.stroke();
+  const poly = (pts, col) => {
+    ctx.fillStyle = col;
+    ctx.beginPath(); ctx.moveTo(pts[0][0], pts[0][1]);
+    for (let i = 1; i < pts.length; i += 1) ctx.lineTo(pts[i][0], pts[i][1]);
+    ctx.closePath(); ctx.fill();
+  };
+  const r = 2.5;
+  // Faces visibles en iso : +y (gauche, éclairée), +x (droite, à l'ombre), dessus.
+  poly([P(-r, r, top), P(r, r, top), P(r, r, bot), P(-r, r, bot)], pr.cols[1]);
+  poly([P(r, -r, top), P(r, r, top), P(r, r, bot), P(r, -r, bot)], pr.cols[2]);
+  poly([P(-r, -r, top), P(r, -r, top), P(r, r, top), P(-r, r, top)], pr.cols[0]);
+  ctx.restore();
+}
+
+// LA LUMIÈRE TOURNANTE d'un phare (lanterne de l'Aiguille, tour de feu de l'îlot) :
+// audit du 2026-10-04, elle était une lueur fixe. Deux faisceaux opposés tournent
+// dans le calque de nuit (un tour en ~9 s), aplatis par la projection iso ; la
+// lanterne ÉCLATE quand un faisceau passe face à nous (vers le bas de l'écran). Le
+// jour, une lueur de veille ; cran d'ambiance « aucune » : la lueur fixe d'avant.
+const LIGHTHOUSE = { period: 9000, len: 6, spread: 0.16 };
+function drawLighthouse(x, y, z, now, col, seed) {
+  const nf = CM.nightF || 0;
+  const live = (CM.ambianceK ?? 1) > 0;
+  const th = live ? ((now || 0) / LIGHTHOUSE.period + seed * 0.37) * Math.PI * 2 : Math.PI / 2;
+  // Face à nous = faisceau vers +y écran (sin θ = 1) ; l'éclat est bref et franc.
+  const face = Math.pow(Math.max(0, Math.sin(th), Math.sin(th + Math.PI)), 12);
+  const R = Math.max(6, CM.TILE * z * 1.1);
+  glowAt(x, y, R * (1 + 0.6 * face), col, Math.min(1, 0.55 + 0.45 * face));
+  if (nf <= 0.03 || !live) return;
+  const L = CM.TILE * z * LIGHTHOUSE.len;
+  const lc = lightCtx(x - L, y - L * 0.5, x + L, y + L * 0.5);
+  if (!lc) return;
+  for (const a of [th, th + Math.PI]) {
+    const dx = Math.cos(a), dy = Math.sin(a) * 0.5;          // aplati par l'iso
+    const nx = -dy, ny = dx;                                  // normale écran
+    const k = Math.hypot(dx, dy) || 1;
+    const ex = x + dx * L, ey = y + dy * L, w = L * LIGHTHOUSE.spread * k;
+    const g = lc.createLinearGradient(x, y, ex, ey);
+    g.addColorStop(0, `rgba(${col},${(0.45 * nf).toFixed(3)})`);
+    g.addColorStop(1, `rgba(${col},0)`);
+    lc.fillStyle = g;
+    lc.beginPath();
+    lc.moveTo(x + nx * 1.5 * z, y + ny * 1.5 * z);
+    lc.lineTo(ex + nx * w / k, ey + ny * w / k);
+    lc.lineTo(ex - nx * w / k, ey - ny * w / k);
+    lc.lineTo(x - nx * 1.5 * z, y - ny * 1.5 * z);
+    lc.closePath();
+    lc.fill();
   }
 }
 

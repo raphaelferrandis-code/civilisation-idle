@@ -21,7 +21,9 @@ const cle = (e) => e.gx + "," + e.gy + ":" + e.side;
 // livré n'active pas (les quais, abandonnés le 2026-08-06) : on la rallume alors
 // localement. Le défaut livré, lui, est verrouillé par le premier `it`.
 const DEFAUT = { ...FENCE };
-beforeEach(() => { Object.assign(FENCE, DEFAUT); });
+// La MÉCANIQUE des parvis reste testée, merveilles allumées : seul le défaut livré
+// les a retirées (elles ont leur propre enceinte, iso/wonderPlace.js).
+beforeEach(() => { Object.assign(FENCE, DEFAUT, { wonders: true }); });
 afterEach(() => { Object.assign(FENCE, DEFAUT); });
 
 describe("pose des clôtures", () => {
@@ -31,8 +33,10 @@ describe("pose des clôtures", () => {
   // routes. » Ce test est là pour qu'un retour en arrière soit un GESTE, pas un
   // glissement — le fleuve est un ruban libre, la clôture se pose sur des arêtes de
   // cellules, et l'écart entre les deux se voit.
-  it("le défaut LIVRÉ : places et merveilles, jamais les quais, avec des portes", () => {
-    expect(DEFAUT.wonders).toBe(true);
+  // Merveilles retirées le 2026-10-03 : elles ont leur propre enceinte de l'ère
+  // (iso/wonderPlace.js), au dessin et au sens justes, percée aux entrées.
+  it("le défaut LIVRÉ : les places, jamais les quais ni les merveilles, avec des portes", () => {
+    expect(DEFAUT.wonders).toBe(false);
     expect(DEFAUT.plazas).toBe(true);
     expect(DEFAUT.quays).toBe(false);
     expect(DEFAUT.gateOnRoad).toBe(true);

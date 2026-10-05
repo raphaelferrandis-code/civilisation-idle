@@ -56,7 +56,9 @@ const GLASS = [
   ['#f0eaff', '#c8b4ff', '#8e70e0', '#55409a'],
 ];
 // Gazon des tertres et des parterres (une rampe, la lumière choisit le cran).
-const TURF = ['#a6bf70', '#8ca85e', '#71904b', '#5b7741', '#475e34'];
+// Les verts MÊMES de la tuile d'herbe du jeu (iso-grass, mesurés) : un tertre se lit
+// comme un morceau du pré, pas comme un gazon de golf posé dessus.
+const TURF = ['#4c7c41', '#3a6a36', '#2e5e2f', '#214e23', '#19451b'];
 // Fenêtres : vitre sombre, côté soleil puis côté ombre.
 const WIN = ['#3c4556', '#2b3240'];
 // MATIÈRE DES MURS par ère — ce qui fait qu'on reconnaît l'âge d'un monument au

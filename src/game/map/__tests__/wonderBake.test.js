@@ -17,7 +17,7 @@ const RECIPE = {
   era_empire: 'bakeCathedral', era_mega: 'bakeNeedle', era_singularity: 'bakeEye',
 };
 const BANDS = [0, 3, 5, 6, 9];
-const PROPS = new Set(['flame', 'statue', 'flag', 'glow', 'beam', 'beacon', 'halo', 'brazier', 'gaslamp', 'ledlamp', 'jet']);
+const PROPS = new Set(['flame', 'statue', 'flag', 'glow', 'beam', 'beacon', 'halo', 'brazier', 'gaslamp', 'ledlamp', 'jet', 'hoist']);
 const dims = (id, t) => {
   const d = cmWonderSpriteDims(id, t);
   return { B: (d.nw / (2 * PPT)) * T, H: (d.nh / PPT) * T };
@@ -151,5 +151,39 @@ describe("l'îlot de l'Aiguille", () => {
     const flat = bake('era_mega', 5, 4), lifted = WB.bakeNeedle(wonderKitForBand(4), 5, B, H, { lift: 78 });
     // Même cadre, monté de la hauteur de l'esplanade.
     expect(lifted.R.oy).toBe(flat.R.oy - 78);
+  });
+});
+
+// UNE VITRE S'ALLUME EN ENTIER (Raph 2026-10-03, « la lumière ne remplit pas les
+// fenêtres en entier ») : le premier jet tirait au sort par pavé de 4 × 8 px, et une
+// fenêtre à cheval sur deux pavés s'allumait à moitié.
+describe('la nuit, fenêtre par fenêtre', () => {
+  it('chaque vitre est allumée ou éteinte d un bloc, où qu elle tombe', () => {
+    const X = WB.mats(wonderKitForBand(4));
+    let lit = 0, dark = 0;
+    for (let oy = 0; oy < 8; oy += 1) {
+      for (let ox = 0; ox < 4; ox += 1) {
+        const w = 40, h = 40, R = { ox: 0, oy: 0, w, h, data: new Uint8ClampedArray(w * h * 4) };
+        // Deux vitres de 3 × 6 décalées de (ox, oy) — elles chevauchent les anciens pavés.
+        const wins = [[5 + ox, 7 + oy], [21 + ox, 19 + oy]];
+        for (const [x0, y0] of wins) {
+          for (let y = y0; y < y0 + 6; y += 1) for (let x = x0; x < x0 + 3; x += 1) {
+            const k = (y * w + x) * 4; R.data[k] = 40; R.data[k + 1] = 50; R.data[k + 2] = 60; R.data[k + 3] = 254;
+          }
+        }
+        const N = WB.nightOf(R, X);
+        for (const [x0, y0] of wins) {
+          let on = 0;
+          for (let y = y0; y < y0 + 6; y += 1) for (let x = x0; x < x0 + 3; x += 1) if (N && N.data[(y * w + x) * 4 + 3]) on += 1;
+          expect([0, 18], `vitre en (${x0}, ${y0}) : ${on} px allumés sur 18`).toContain(on);
+          if (on) lit += 1; else dark += 1;
+          // Le marqueur est rendu à l'image de jour.
+          expect(R.data[(y0 * w + x0) * 4 + 3]).toBe(255);
+        }
+      }
+    }
+    // Et le tirage garde des vitres noires et des vitres allumées.
+    expect(lit).toBeGreaterThan(0);
+    expect(dark).toBeGreaterThan(0);
   });
 });
