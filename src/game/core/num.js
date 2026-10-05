@@ -42,6 +42,19 @@ function plainDecimal(value) {
     && typeof value.mantissa === "number" && typeof value.exponent === "number";
 }
 
+// Chaîne sérialisée → Decimal, ou null si elle n'en est pas un. `new Decimal`
+// LÈVE sur une chaîne non numérique (« abc », « ») : dans une save, une seule
+// de ces chaînes jetait TOUTE la partie à l'hydratation (fuzz de l'audit
+// 2026-10-05, SAV-3). Refuse aussi « Infinity » et tout exposant au plafond de
+// break_infinity (9e15) : un infini relu figerait les calculs qui en dépendent.
+export function parseDecimalString(value) {
+  let parsed;
+  try { parsed = new Decimal(value); } catch { return null; }
+  if (!Number.isFinite(parsed.mantissa) || !Number.isFinite(parsed.exponent)) return null;
+  if (parsed.exponent >= 9e15) return null;
+  return parsed;
+}
+
 // Convertit toute valeur (Decimal, number, string sérialisée, Decimal déshydraté)
 // en Decimal, sans réallocation si c'en est déjà un. Valeur invalide → 0.
 export function D(value) {
@@ -50,8 +63,7 @@ export function D(value) {
     return Number.isFinite(value) ? new Decimal(value) : new Decimal(0);
   }
   if (typeof value === "string" && value) {
-    const parsed = new Decimal(value);
-    return Number.isFinite(parsed.mantissa) ? parsed : new Decimal(0);
+    return parseDecimalString(value) || new Decimal(0);
   }
   if (plainDecimal(value)) {
     return Number.isFinite(value.mantissa)

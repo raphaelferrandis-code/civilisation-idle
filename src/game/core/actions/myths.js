@@ -30,7 +30,7 @@ import {
   ATLAS_SHOULDER_TARGET,
   ATLAS_COUNT_THRESHOLD,
   ATLAS_SHOULDER_RELIEF,
-  ATLAS_SHOULDER_CD_MS,
+  ATLAS_SHOULDER_CD_TICKS,
   SISYPHE_CRANS,
   SISYPHE_MONTEES_TARGET,
   SISYPHE_STEP_BASE,
@@ -122,6 +122,20 @@ export async function chooseActiveRuins({ required = false, title = "Ruines acti
     state.pendingActiveRuinsChoice = false;
     return [];
   }
+  // Filet (BUG-1) : sous Antée, moins d'Héritages que le seuil, c'est une fenêtre
+  // obligatoire (preventClose) dont « Valider » ne s'allumerait jamais — jeu figé.
+  // activateMyth refuse déjà ce pacte ; reste la reprise au démarrage d'un choix
+  // interrompu : on abandonne le pacte en le disant, au lieu d'ouvrir la fenêtre.
+  if (required && choices.length < ANTEE_MIN_ACTIVE_RUINS) {
+    state.activeRuinIds = [];
+    state.pendingActiveRuinsChoice = false;
+    const myth = state.activeMythId ? getMythById(state.activeMythId) : null;
+    if (myth && myth.requiresActiveRuinsChoice) state.activeMythId = null;
+    log(`Pacte d'Antée abandonné : il faut au moins ${ANTEE_MIN_ACTIVE_RUINS} Héritages à porter, la cité n'en a que ${choices.length}.`);
+    save();
+    render();
+    return [];
+  }
 
   setGamePaused(true);
   // Reprenable (M15) : on marque le choix EN ATTENTE et on le PERSISTE avant
@@ -133,6 +147,7 @@ export async function chooseActiveRuins({ required = false, title = "Ruines acti
   save();
   render();
   const choice = await openChoiceDialog({
+    label: { fr: "Ruines actives", en: "Active Ruins" },
     title,
     // Le seuil est annoncé : sans lui, une sélection sous la barre est un échec
     // garanti que rien ne signale au joueur avant l'effondrement.
@@ -312,6 +327,14 @@ export async function activateMyth(mythId) {
   if (gamePaused || collapseInProgress) return;
   const myth = getMythById(mythId);
   if (!myth || !isMythUnlocked(myth) || isMythCompleted(myth.id)) return;
+  // Filet (BUG-1) : Antée exige ANTEE_MIN_ACTIVE_RUINS Héritages portés. Avec
+  // moins, sa fenêtre obligatoire ne pourrait jamais être validée : on refuse le
+  // pacte AVANT le reset (rien n'est perdu), en le disant.
+  if (myth.requiresActiveRuinsChoice && unlockedActiveRuinDefinitions(state).length < ANTEE_MIN_ACTIVE_RUINS) {
+    log(`Antée refuse le pacte : il faut au moins ${ANTEE_MIN_ACTIVE_RUINS} Héritages à porter, la cité n'en a que ${unlockedActiveRuinDefinitions(state).length}.`);
+    render();
+    return;
+  }
 
   state.activeMythId = mythId;
   // « L'Hiver Fimbul » : la prod de la cité d'AVANT le reset — la puissance
@@ -357,8 +380,11 @@ export function atlasEpauler() {
   if (!isMythEffectActive("mythe_d_atlas")) return;
   if (gamePaused || collapseInProgress || state.crisisLimitAnnounced) return;
   if (state.atlasCrushed) return;
-  if (Date.now() < (state.atlasShoulderCdEnd || 0)) return;
-  state.atlasShoulderCdEnd = Date.now() + ATLAS_SHOULDER_CD_MS;
+  // Récupération en ticks de JEU, décomptée par le handler du Mythe (mythTicks.js)
+  // au même pas que la montée du Fardeau : le bouton se rallume au 15e tick, pile
+  // quand le Fardeau a regagné les 45 points retirés (BUG-2).
+  if ((state.atlasShoulderCdTicks || 0) > 0) return;
+  state.atlasShoulderCdTicks = ATLAS_SHOULDER_CD_TICKS;
 
   // Une épaulée ne COMPTE qu'en zone rouge : épauler un ciel léger soulage mais
   // gaspille la récupération. C'est ce qui fait du clic une décision (chevaucher
@@ -535,6 +561,7 @@ export async function negotiateOrDeal() {
   for (;;) {
     const mood = tr(OR_MOOD_LINES[Math.min(OR_MOOD_LINES.length - 1, haggles)]);
     const choice = await openChoiceDialog({
+      label: { fr: "Caravane", en: "Caravan" },
       title: tr({ fr: "Une caravane au portail", en: "A caravan at the gate" }),
       body: `${note}${tr({
         fr: `Le marchand propose ${fmt(lot)} ${tr(res.label)} contre ${fmt(price)} Or. ${mood}`,

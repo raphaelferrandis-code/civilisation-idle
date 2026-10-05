@@ -12,18 +12,21 @@ import {
 } from "../state.js";
 import { importSave } from "../main.js";
 import { loadSlot } from "../saveSlots.js";
-import { SAVE_KEY } from "../saveKey.js";
+import { SAVE_KEY, PENDING_LOAD_KEY } from "../saveKey.js";
 import { encodeSaveText } from "../utils.js";
 import { MID_GAME_FIXTURE, FIXED_NOW } from "./fixtures.js";
 
 const other = () => JSON.stringify({ ...MID_GAME_FIXTURE, cityName: "Ailleurs", cycles: 99 });
+let store;
+// La partie chargée attend le rechargement qui la met en place (SAV-8).
+const pendingCity = () => (store.has(PENDING_LOAD_KEY) ? JSON.parse(store.get(PENDING_LOAD_KEY)).save.cityName : null);
 
 beforeEach(() => {
   vi.useFakeTimers();
   vi.setSystemTime(FIXED_NOW);
   setState(hydrateState({ ...MID_GAME_FIXTURE, cityName: "Ici" }));
   invalidateRenderCache("all");
-  const store = new Map([[`${SAVE_KEY}-slot0`, other()]]);
+  store = new Map([[`${SAVE_KEY}-slot0`, other()]]);
   globalThis.localStorage = {
     getItem: (k) => (store.has(k) ? store.get(k) : null),
     setItem: (k, v) => { store.set(k, String(v)); },
@@ -45,6 +48,7 @@ describe("import et emplacement pendant la chute", () => {
     expect(importSave(encodeSaveText(other()))).toBe(false);
     expect(loadSlot(0)).toBe(false);
     expect(state.cityName).toBe("Ici");
+    expect(pendingCity()).toBe(null);        // rien n'attend le rechargement non plus
     expect(collapseInProgress).toBe(true);   // importSave ne relâche plus le verrou
   });
 
@@ -59,9 +63,9 @@ describe("import et emplacement pendant la chute", () => {
   it("hors chute, rien ne change : l'emplacement se charge, l'import passe", () => {
     expect(collapseUnderway()).toBe(false);
     expect(loadSlot(0)).toBe(true);
-    expect(state.cityName).toBe("Ailleurs");
-    setState(hydrateState({ ...MID_GAME_FIXTURE, cityName: "Ici" }));
+    expect(pendingCity()).toBe("Ailleurs");
+    store.delete(PENDING_LOAD_KEY);
     expect(importSave(encodeSaveText(other()))).toBe(true);
-    expect(state.cityName).toBe("Ailleurs");
+    expect(pendingCity()).toBe("Ailleurs");
   });
 });

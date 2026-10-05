@@ -36,6 +36,125 @@ protocol.registerSchemesAsPrivileged([
   },
 ]);
 
+// JOURNAL D'ERREURS (audit 2026-10-05, BUG-18) : userData/logs/civilisation.log.
+// Sans lui, un plantage du moteur de rendu laissait une fenêtre blanche sans
+// aucune trace pour le support. Bascule en .old au-delà de 1 Mo ; une même
+// ligne répétée en rafale (erreur rejouée à chaque image) n'est écrite qu'une
+// fois, avec son compte.
+const LOG_MAX_BYTES = 1024 * 1024;
+let logFile = null;
+let lastLogLine = "";
+let lastLogRepeats = 0;
+function journal(line) {
+  try {
+    if (line === lastLogLine) {
+      lastLogRepeats += 1;
+      return;
+    }
+    if (!logFile) {
+      const dir = path.join(app.getPath("userData"), "logs");
+      fs.mkdirSync(dir, { recursive: true });
+      logFile = path.join(dir, "civilisation.log");
+    }
+    try {
+      if (fs.statSync(logFile).size > LOG_MAX_BYTES) fs.renameSync(logFile, logFile + ".old");
+    } catch { /* pas encore de journal */ }
+    const repeats = lastLogRepeats ? `  (ligne précédente répétée ${lastLogRepeats} fois)\n` : "";
+    lastLogLine = line;
+    lastLogRepeats = 0;
+    fs.appendFileSync(logFile, `${repeats}[${new Date().toISOString()}] ${line}\n`, "utf8");
+  } catch { /* disque plein, droits : le jeu continue sans journal */ }
+}
+
+// Garde-fous du moteur de rendu (BUG-18). Rien n'y ferme la fenêtre d'office :
+// la partie vit dans le localStorage, l'autosave la garde à 10 s près.
+function watchRenderer(win) {
+  const contents = win.webContents;
+  // Erreurs de la page (console.error, exceptions non rattrapées, frontières
+  // d'erreur React) : recopiées dans le journal. Electron 42 passe le détail dans
+  // l'évènement lui-même (les arguments positionnels sont dépréciés).
+  contents.on("console-message", (event) => {
+    if (event?.level !== "error") return;
+    const source = event.sourceId ? ` (${event.sourceId}:${event.lineNumber})` : "";
+    journal(`[page] ${String(event.message).slice(0, 2000)}${source}`);
+  });
+  contents.on("preload-error", (_event, preloadPath, error) => {
+    journal(`[préload] ${preloadPath} : ${error?.stack || error}`);
+  });
+  contents.on("did-fail-load", (_event, code, description, url, isMainFrame) => {
+    if (isMainFrame) journal(`[chargement] ${url} : ${description} (${code})`);
+  });
+
+  // Langue des questions ci-dessous : celle du jeu (réglage « civ-opt-lang »,
+  // français par défaut comme i18n.js), relevée à chaque chargement de page — au
+  // moment de demander, la page figée ou disparue ne peut plus répondre.
+  let lang = "fr";
+  const say = (fr, en) => (lang === "en" ? en : fr);
+  contents.on("did-finish-load", () => {
+    if (typeof contents.executeJavaScript !== "function") return;
+    contents.executeJavaScript('localStorage.getItem("civ-opt-lang")')
+      .then((value) => { lang = value === "en" ? "en" : "fr"; })
+      .catch(() => { /* page déjà repartie : on garde la langue connue */ });
+  });
+
+  // Moteur de rendu disparu (plantage, mémoire, tué par le système) : on le note
+  // et on RECHARGE — la partie repart de la dernière sauvegarde au lieu d'une
+  // fenêtre blanche définitive. Trois chutes en une minute : on cesse de boucler
+  // et on demande.
+  const goneAt = [];
+  contents.on("render-process-gone", (_event, details) => {
+    journal(`[rendu] moteur de rendu disparu : ${details?.reason} (code ${details?.exitCode})`);
+    if (details?.reason === "clean-exit" || win.isDestroyed()) return;
+    const now = Date.now();
+    while (goneAt.length && now - goneAt[0] > 60000) goneAt.shift();
+    goneAt.push(now);
+    if (goneAt.length < 3) {
+      contents.reload();
+      return;
+    }
+    dialog.showMessageBox(win, {
+      type: "error",
+      title: "Civilisation Idle",
+      message: say("Le jeu s'est arrêté plusieurs fois de suite.", "The game stopped several times in a row."),
+      detail: logFile ? say(`Journal : ${logFile}`, `Log: ${logFile}`) : undefined,
+      buttons: [say("Recharger", "Reload"), say("Fermer", "Close")],
+      defaultId: 0,
+      cancelId: 0,
+      noLink: true,
+    }).then(({ response }) => {
+      if (win.isDestroyed()) return;
+      if (response === 1) win.close();
+      else { goneAt.length = 0; contents.reload(); }
+    }).catch(() => {});
+  });
+
+  // Page figée : on DEMANDE au lieu de tuer — le rendu reprend souvent seul, et
+  // la question se referme alors d'elle-même ('responsive').
+  let unresponsiveAsk = null;
+  win.on("unresponsive", () => {
+    journal("[rendu] la page ne répond plus");
+    if (unresponsiveAsk || win.isDestroyed()) return;
+    unresponsiveAsk = new AbortController();
+    dialog.showMessageBox(win, {
+      type: "warning",
+      title: "Civilisation Idle",
+      message: say("Le jeu ne répond plus.", "The game is not responding."),
+      buttons: [say("Attendre", "Wait"), say("Recharger", "Reload")],
+      defaultId: 0,
+      cancelId: 0,
+      noLink: true,
+      signal: unresponsiveAsk.signal,
+    }).then(({ response }) => {
+      unresponsiveAsk = null;
+      if (response === 1 && !win.isDestroyed()) contents.reload();
+    }).catch(() => { unresponsiveAsk = null; });
+  });
+  win.on("responsive", () => {
+    journal("[rendu] la page répond de nouveau");
+    unresponsiveAsk?.abort();
+  });
+}
+
 function createWindow() {
   const win = new BrowserWindow({
     width: 1600,
@@ -51,6 +170,7 @@ function createWindow() {
     },
   });
 
+  watchRenderer(win);
   win.loadURL("app://localhost/");
 
   // Durcissement (audit G-42) : le jeu est mono-page et local → on refuse toute
@@ -102,6 +222,12 @@ app.whenReady().then(() => {
   app.on("activate", () => {
     if (BrowserWindow.getAllWindows().length === 0) createWindow();
   });
+});
+
+// Processus annexes (GPU, réseau, utilitaires) : un GPU qui tombe fait clignoter
+// ou figer la carte sans rien dire — au moins une ligne au journal (BUG-18).
+app.on("child-process-gone", (_event, details) => {
+  journal(`[processus] ${details?.type} disparu : ${details?.reason} (code ${details?.exitCode})`);
 });
 
 app.on("window-all-closed", () => {

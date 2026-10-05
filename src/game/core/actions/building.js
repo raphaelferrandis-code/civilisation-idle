@@ -282,6 +282,7 @@ export async function exhumeVestige() {
   render();
 
   const choice = await openChoiceDialog({
+    label: { fr: "Archéologie", en: "Archaeology" },
     title: "Vestige archéologique",
     body: `Coût : ${fmt(cost)} connaissance.\nQuel bâtiment vos archéologues ont-ils mis au jour ?`,
     options: [
@@ -351,6 +352,7 @@ export async function performGrandReset(gr) {
     ? `Tu réclames le sceau ${names[0]}.`
     : `Tu réclames ${seals.length} sceaux d'un coup : ${names.join(", ")}.`;
   const choice = await openChoiceDialog({
+    label: { fr: "Grand Reset", en: "Grand Reset" },
     title: `Grand Reset — ${seals.length === 1 ? tr(grandResetMilestone(seals[0]).name) : `${seals.length} sceaux`}`,
     body: `${sealText} Tout sera effacé : bâtiments, ruines, upgrades, cycles. En échange : ${resetRewardText}. Actuellement : x${fmt(grandResetProductionMult(state.grandResetCount))} production. Après : x${fmt(grandResetProductionMult(nextCount))} production.`,
     // preventClose : un Grand Reset est irréversible (efface tout). Échap ne

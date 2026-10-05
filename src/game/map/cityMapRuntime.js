@@ -91,6 +91,9 @@ function fleetHullSize(sh) {
   return { len, beam: len * 0.3 };
 }
 import { fpBegin, fp, fpEnd } from './framePerf.js';
+// Filet d'exception de la boucle et du plan (audit du 2026-10-05, BUG-32).
+import { reportMapError, recoverMapFrame, LAYOUT_RETRY_MS } from './frameGuard.js';
+import { endLightLayer } from './lightLayer.js';
 import { solTrace, solRec, keyDiff } from './solTrace.js';
 import { solInvalidate } from './iso/solInvalidate.js';
 import { solPyramideAB } from './iso/solPyramide.js';
@@ -1164,7 +1167,29 @@ let _lyCamX = NaN, _lyCamY = NaN, _lyCamZ = NaN;
 let _lyCamMoveAt = -1e9;
 let _lyDeferredAt = 0;
 
-function cityMapEnsureLayout(now, deps = {}) {
+// ── GARDE D'ÉCHEC DU PLAN (audit du 2026-10-05, BUG-32) ──────────────────────
+// La signature est posée AVANT computeCityLayout, et toutes les sorties
+// anticipées exigent un CM.layout : si le TOUT PREMIER calcul levait, chaque
+// frame le relançait — 130 à 560 ms par essai, toute l'interface tombait à
+// quelques images par seconde. Sur exception : un message (limité, avec la pile),
+// LAYOUT_RETRY_MS d'attente avant de retenter, et les signatures remises à null.
+// Le plan affiché (l'ancien, ou aucun) ne correspond alors plus à rien : l'essai
+// suivant est un recalcul COMPLET, jamais le raccourci « mêmes blocs », qui
+// rafraîchirait un plan périmé comme s'il était le bon. Entre-temps la frame
+// continue : l'ancienne ville reste vivante, ou la carte reste vide.
+function cityMapEnsureLayout(now, deps) {
+  if (now - (CM.layoutFailAt ?? -Infinity) < LAYOUT_RETRY_MS) return;
+  try {
+    cityMapEnsureLayoutInner(now, deps);
+    CM.layoutFailAt = null;
+  } catch (e) {
+    CM.layoutFailAt = now;
+    CM.layoutSig = null; CM.layoutStructSig = null; CM.layoutCoreSig = null;
+    reportMapError('plan de la ville', e);
+  }
+}
+
+function cityMapEnsureLayoutInner(now, deps = {}) {
   const getVehicleDensity = deps.getVehicleDensity || function () { return 0; };
   const chooseRoadVehicleType = deps.chooseRoadVehicleType || function () { return "wagon"; };
   const vehSkinFor = deps.vehSkinFor || function () { return ""; };
@@ -2083,7 +2108,25 @@ function initCityMap(canvas, options = {}) {
     return smooth01((1 - p) / (1 - NIGHT_END));
   }
   let lastCitizenSpawn = 0;
+  // ── FILET D'EXCEPTION DE LA BOUCLE (audit du 2026-10-05, BUG-32) ────────────
+  // `frameBody` ré-arme son rAF AVANT de travailler : sans filet, une exception
+  // dans une passe se rejouait à chaque image (console inondée, carte figée sur
+  // une image partielle) et, tombée entre un save() et son restore(), laissait la
+  // pile du contexte grossir d'une frame à l'autre. Ici : un message toutes les
+  // 5 s au plus, avec la pile ; le contexte rendu à son état de base (cf.
+  // frameGuard.js) ; la couche de lumière désarmée ; le relevé ouvert par fpBegin
+  // refermé. La boucle continue, la frame suivante repart d'un contexte propre.
+  // TOUS les appelants passent par ici : le rAF, forceFrame et captureFrame.
   function frame(now) {
+    try {
+      frameBody(now);
+    } catch (e) {
+      recoverMapFrame(e, CM.ctx, CM.dpr || 1);
+      endLightLayer();
+      fpEnd();
+    }
+  }
+  function frameBody(now) {
     // Carte démontée : ne PAS se replanifier (la boucle meurt proprement ;
     // initCityMap relance une boucle neuve au prochain montage).
     if (!CM.ctx || !CM.canvas) return;

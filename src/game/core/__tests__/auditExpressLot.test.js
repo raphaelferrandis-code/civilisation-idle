@@ -29,8 +29,14 @@ describe("M20 — grRevealed ne révèle jamais de sceau jamais atteint (ordre-l
 describe("M21 — les horodatages FUTURS survivent au reload (plus de clamp à « maintenant »)", () => {
   const FAR_FUTURE = 9000000000000; // ~an 2255, bien après Date.now() et sous MAX_SAFE_INTEGER
 
-  it("atlasShoulderCdEnd : le cooldown d'ÉPAULER n'est plus rasé (fini le spam par reload)", () => {
-    expect(hydrateState({ atlasShoulderCdEnd: FAR_FUTURE }).atlasShoulderCdEnd).toBe(FAR_FUTURE);
+  it("atlasShoulderCdTicks : le cooldown d'ÉPAULER n'est plus rasé (fini le spam par reload)", () => {
+    // Compté en ticks de jeu depuis l'audit 2026-10-05 (BUG-2) : gardé, borné à 15.
+    expect(hydrateState({ atlasShoulderCdTicks: 9 }).atlasShoulderCdTicks).toBe(9);
+    expect(hydrateState({ atlasShoulderCdTicks: 400 }).atlasShoulderCdTicks).toBe(15);
+    expect(hydrateState({ atlasShoulderCdTicks: -3 }).atlasShoulderCdTicks).toBe(0);
+    // Une save d'avant portait l'échéance MURALE : convertie, bornée.
+    expect(hydrateState({ atlasShoulderCdEnd: FAR_FUTURE }).atlasShoulderCdTicks).toBe(15);
+    expect(hydrateState({ atlasShoulderCdEnd: 1 }).atlasShoulderCdTicks).toBe(0);
   });
 
   it("ragnarokArkNextAt : le cooldown de l'Arche n'est plus rasé (fini la triche par F5)", () => {

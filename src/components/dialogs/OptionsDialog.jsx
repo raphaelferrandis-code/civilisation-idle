@@ -38,8 +38,9 @@ import {
 } from '../../game/core/actions.js';
 import { state, invalidateRenderCache, render, save, AUTOMATE_FIELD_BOUNDS, collapseUnderway } from '../../game/core/state.js';
 import { AUTO_COLLAPSE_MIN_SECONDS } from '../../game/core/balance.js';
-import { markPendingWipe } from '../../game/core/saveKey.js';
-import { SLOT_COUNT, readSlotMeta, slotIsEmpty, writeSlot, loadSlot, saveToFile } from '../../game/core/saveSlots.js';
+import { markPendingWipe, isLocalSaveUnreadable, localSaveSuspendReason, CURRENT_SAVE_VERSION } from '../../game/core/saveKey.js';
+import { SLOT_COUNT, readSlotMeta, slotIsEmpty, writeSlot, loadSlot, loadBackup, keepFallbackGame, saveToFile, getLastSlotRefusal } from '../../game/core/saveSlots.js';
+import { listSaveBackups, readSaveBackup } from '../../game/core/saveBackups.js';
 import { pushOutcomeFloat } from '../../game/core/outcomeFloat.js';
 import { cloudWipe, cloudSaveDir, cloudSaveStatus, cloudSyncInfo } from '../../game/core/cloudSave.js';
 import { requestChoiceDialog } from '../../game/core/choiceDialog.js';
@@ -315,6 +316,12 @@ export default function OptionsDialog({ isOpen, onClose, onSave, onExport, onImp
     } else if (collapseUnderway()) {
       // La chute a pu partir pendant la confirmation : l'emplacement n'est pas en cause.
       pushOutcomeFloat({ label: tr({ fr: "La cité tombe : chargement impossible", en: "The city is falling: cannot load" }), kind: "cost" });
+    } else if (getLastSlotRefusal() === "newer") {
+      // Écrit par une version plus récente du jeu (SAV-6) : il se rechargera après la mise à jour.
+      pushOutcomeFloat({ label: tr({ fr: "Emplacement d'une version plus récente du jeu", en: "Slot from a newer version of the game" }), kind: "cost" });
+    } else if (getLastSlotRefusal() === "storage") {
+      // Plus de place pour poser la partie avant le rechargement (SAV-8).
+      pushOutcomeFloat({ label: tr({ fr: "Stockage plein : chargement impossible", en: "Storage full: cannot load" }), kind: "cost" });
     } else {
       pushOutcomeFloat({ label: tr({ fr: "Emplacement illisible", en: "Slot unreadable" }), kind: "cost" });
     }
@@ -335,6 +342,79 @@ export default function OptionsDialog({ isOpen, onClose, onSave, onExport, onImp
           kind: "gain"
         }
       : { label: tr({ fr: "Écriture du fichier impossible", en: "Could not write the file" }), kind: "cost" });
+  };
+
+  // COPIES DE SECOURS (audit 2026-10-05, SAV-3) : la save illisible archivée au
+  // démarrage et la save locale évincée par le nuage existaient, mais rien ne
+  // savait les relire. Charger passe par le chemin des emplacements (avec le
+  // repli champ par champ) ; Exporter sort le JSON BRUT — une copie tronquée ne
+  // survivrait pas à un ré-encodage, et l'import accepte désormais le JSON.
+  const handleBackupLoad = async (backup) => {
+    const choix = await requestChoiceDialog({
+      label: { fr: "Copie de secours", en: "Backup copy" },
+      title: tr({ fr: "Charger cette copie ?", en: "Load this copy?" }),
+      body: tr({ fr: "La partie en cours sera remplacée. Enregistre-la d'abord dans un emplacement si tu veux la garder.", en: "The current game will be replaced. Save it to a slot first if you want to keep it." }),
+      options: [
+        { label: tr({ fr: "Annuler", en: "Cancel" }), value: "no" },
+        { label: tr({ fr: "Charger", en: "Load" }), value: "yes" }
+      ]
+    });
+    if (choix?.value !== "yes") return;
+    const res = loadBackup(backup.key);
+    if (res.ok) {
+      pushOutcomeFloat({
+        label: res.dropped.length
+          ? tr({ fr: "Copie chargée, en partie", en: "Copy partly loaded" })
+          : tr({ fr: "Partie chargée", en: "Game loaded" }),
+        kind: "gain"
+      });
+      onClose();
+    } else if (collapseUnderway()) {
+      pushOutcomeFloat({ label: tr({ fr: "La cité tombe : chargement impossible", en: "The city is falling: cannot load" }), kind: "cost" });
+    } else if (res.newer) {
+      pushOutcomeFloat({ label: tr({ fr: "Copie d'une version plus récente du jeu", en: "Copy from a newer version of the game" }), kind: "cost" });
+    } else if (res.storage) {
+      pushOutcomeFloat({ label: tr({ fr: "Stockage plein : chargement impossible", en: "Storage full: cannot load" }), kind: "cost" });
+    } else {
+      pushOutcomeFloat({ label: tr({ fr: "Copie illisible", en: "Copy unreadable" }), kind: "cost" });
+    }
+  };
+
+  const handleBackupExport = async (backup) => {
+    const raw = readSaveBackup(backup.key);
+    if (!raw) return;
+    const stamp = new Date().toISOString().slice(0, 19).replace(/[:T]/g, "-");
+    const res = await saveToFile(raw, `civilisation-copie-${stamp}.json`);
+    pushOutcomeFloat(res.ok
+      ? {
+          label: res.path
+            ? tr({ fr: `Copie écrite : ${res.path}`, en: `Copy written: ${res.path}` })
+            : tr({ fr: "Copie écrite", en: "Copy written" }),
+          kind: "gain"
+        }
+      : { label: tr({ fr: "Écriture du fichier impossible", en: "Could not write the file" }), kind: "cost" });
+  };
+
+  // Save du démarrage illisible : rien ne s'écrit tant que le joueur n'a pas
+  // tranché (saveKey.js). Réessayer relance le jeu, qui relit la clé intacte ;
+  // Garder cette partie enregistre la partie neuve de repli à sa place.
+  const handleKeepFallback = async () => {
+    const choix = await requestChoiceDialog({
+      label: { fr: "Sauvegarde", en: "Save" },
+      title: tr({ fr: "Garder cette partie ?", en: "Keep this game?" }),
+      // Save d'une version plus récente (SAV-6) : c'est la MÊME partie, mais ce
+      // que cette version ignore sera perdu — l'originale reste en copie.
+      body: localSaveSuspendReason() === "newer"
+        ? tr({ fr: "La partie sera enregistrée pour cette version du jeu : ce qui n'existe que dans la version plus récente sera perdu. L'originale reste dans les copies de secours.", en: "The game will be saved for this version: anything that only exists in the newer version will be lost. The original stays in the backup copies." })
+        : tr({ fr: "La partie neuve sera enregistrée à la place de l'ancienne, qui reste dans les copies de secours.", en: "The new game will be saved in place of the old one, which stays in the backup copies." }),
+      options: [
+        { label: tr({ fr: "Annuler", en: "Cancel" }), value: "no" },
+        { label: tr({ fr: "Garder", en: "Keep" }), value: "yes" }
+      ]
+    });
+    if (choix?.value !== "yes") return;
+    keepFallbackGame();
+    setOptionRevision((revision) => revision + 1);
   };
 
   // Capture de touche. Le message de refus dit POURQUOI : « déjà prise par Tout
@@ -400,10 +480,29 @@ export default function OptionsDialog({ isOpen, onClose, onSave, onExport, onImp
   // infobulle. L'ordre des tests est celui de la priorité (le pire d'abord).
   const cloudDir = cloudSaveDir();
   const cloudStatus = cloudDir ? cloudSaveStatus() : null;
+  const saveSuspended = isLocalSaveUnreadable();
+  // Suspendue parce que la save vient d'une version PLUS RÉCENTE du jeu (SAV-6),
+  // et non parce qu'elle est illisible : la partie est là, il faut mettre à jour.
+  const saveFromNewer = saveSuspended && localSaveSuspendReason() === "newer";
   const [cloudTone, cloudLabel, cloudText] = !cloudDir
     ? ['off', tr({ fr: "Inactive", en: "Inactive" }), tr({
         fr: "« Google Drive pour ordinateur » n'est pas détecté sur ce poste (fonction réservée à la version installée du jeu).",
         en: "“Google Drive for desktop” was not detected on this device (feature only available in the installed build)."
+      })]
+    : saveFromNewer
+    ? ['warn', tr({ fr: "Protégée", en: "Protected" }), tr({
+        fr: `La partie de ce poste vient d'une version plus récente du jeu : rien n'est envoyé vers ${cloudDir}, pour ne pas y mettre une copie rétrogradée. Mets le jeu à jour, puis relance.`,
+        en: `This device's save comes from a newer version of the game: nothing is uploaded to ${cloudDir}, so no downgraded copy ends up there. Update the game, then restart.`
+      })]
+    : saveSuspended
+    ? ['warn', tr({ fr: "Protégée", en: "Protected" }), tr({
+        fr: `La partie locale n'a pas pu être relue au lancement : rien n'est envoyé vers ${cloudDir}, pour ne pas remplacer la copie du nuage par la partie neuve de repli.`,
+        en: `The local save could not be read at launch: nothing is uploaded to ${cloudDir}, so the cloud copy is not replaced by the fallback new game.`
+      })]
+    : cloudStatus === 'conflict'
+    ? ['warn', tr({ fr: "En pause", en: "Paused" }), tr({
+        fr: `La partie dans ${cloudDir} a été modifiée par un autre poste pendant cette session. Pour ne pas écraser sa progression, plus rien n'est envoyé d'ici. Ferme le jeu sur l'un des deux postes, puis relance-le : la partie la plus avancée sera reprise.`,
+        en: `The save in ${cloudDir} was changed by another device during this session. To avoid overwriting its progress, nothing more is uploaded from here. Close the game on one of the two devices, then restart it: the most advanced game will be picked up.`
       })]
     : cloudStatus === 'unreadable'
     ? ['warn', tr({ fr: "En pause", en: "Paused" }), tr({
@@ -414,6 +513,13 @@ export default function OptionsDialog({ isOpen, onClose, onSave, onExport, onImp
     ? ['warn', tr({ fr: "En pause", en: "Paused" }), tr({
         fr: `La partie dans ${cloudDir} vient d'une version PLUS RÉCENTE du jeu. Pour ne pas la rétrograder, rien n'est envoyé depuis ce poste. Mets le jeu à jour ici, puis relance.`,
         en: `The save in ${cloudDir} comes from a NEWER version of the game. To avoid downgrading it, nothing is uploaded from this device. Update the game here, then restart.`
+      })]
+    // Garde d'écriture : le nuage porte une partie plus avancée — « Active »
+    // mentait, rien n'était plus répliqué (audit 2026-10-05, SAV-5).
+    : cloudSyncInfo().behind
+    ? ['warn', tr({ fr: "En pause", en: "Paused" }), tr({
+        fr: `La partie dans ${cloudDir} est plus avancée que celle-ci : rien n'est envoyé d'ici, pour ne pas la remplacer. Relance le jeu pour la reprendre — celle-ci restera dans les copies de secours.`,
+        en: `The save in ${cloudDir} is further along than this one: nothing is uploaded from here, so it is not replaced. Restart the game to pick it up — this one will stay in the backup copies.`
       })]
     : cloudSyncInfo().ok === false
     ? ['bad', tr({ fr: "Erreur", en: "Error" }), tr({
@@ -1056,6 +1162,90 @@ export default function OptionsDialog({ isOpen, onClose, onSave, onExport, onImp
                       {tr({ fr: "Enregistrer", en: "Save" })}
                     </button>
                     <button type="button" disabled={!meta || chuteEnCours} onClick={() => handleSlotLoad(i)}>
+                      {tr({ fr: "Charger", en: "Load" })}
+                    </button>
+                  </div>
+                </div>
+              );
+            })}
+
+            {/* Save du démarrage illisible (SAV-3) : rien ne s'écrit tant que le
+                joueur n'a pas tranché. Le pourquoi passe en infobulle. */}
+            {saveSuspended && (
+              <div className="options-row save-slot">
+                <div>
+                  {saveFromNewer ? (
+                    <OptionLabel
+                      label={tr({ fr: "Sauvegarde d'une version plus récente", en: "Save from a newer version" })}
+                      hint={tr({
+                        fr: "Ta partie a été enregistrée par une version plus récente du jeu (branche bêta, mise à jour) : elle se joue ici sans ce que cette version ignore, et rien ne s'écrit pour ne pas l'abîmer — l'originale est gardée en copie de secours. Mets le jeu à jour puis Réessayer ; Garder l'enregistre pour cette version.",
+                        en: "Your game was saved by a newer version of the game (beta branch, update): it plays here without what this version does not know, and nothing is written so it is not damaged — the original is kept as a backup copy. Update the game then Retry; Keep saves it for this version."
+                      })}
+                    />
+                  ) : (
+                    <OptionLabel
+                      label={tr({ fr: "Sauvegarde illisible", en: "Unreadable save" })}
+                      hint={tr({
+                        fr: "La partie enregistrée n'a pas pu être relue : tu joues une partie neuve de repli, et rien ne s'écrit pour ne pas écraser l'ancienne, gardée en copie de secours. Réessayer relance le jeu et la relit ; Garder enregistre la partie neuve à sa place.",
+                        en: "The saved game could not be read: you are playing a fallback new game, and nothing is written so the old one, kept as a backup copy, is not overwritten. Retry restarts the game and reads it again; Keep saves the new game in its place."
+                      })}
+                    />
+                  )}
+                </div>
+                <div className="save-slot-actions">
+                  <button type="button" onClick={() => window.location.reload()}>
+                    {tr({ fr: "Réessayer", en: "Retry" })}
+                  </button>
+                  <button type="button" onClick={handleKeepFallback}>
+                    {tr({ fr: "Garder", en: "Keep" })}
+                  </button>
+                </div>
+              </div>
+            )}
+
+            {/* Copies de secours (SAV-3) : save illisible archivée, save locale
+                évincée par le nuage. Absentes = aucune ligne. */}
+            {listSaveBackups().map((backup) => {
+              const when = backup.at
+                ? new Date(backup.at).toLocaleString(getLang() === 'en' ? 'en-GB' : 'fr-FR')
+                : tr({ fr: "date inconnue", en: "unknown date" });
+              const sum = backup.summary;
+              // Copie d'une version plus récente que ce build (SAV-6) : elle
+              // s'exporte, mais ne se charge qu'après la mise à jour.
+              const tooNew = backup.kind === 'version' && backup.version > CURRENT_SAVE_VERSION;
+              return (
+                <div key={backup.key} className="options-row save-slot">
+                  <div>
+                    <OptionLabel
+                      label={backup.kind === 'pre-cloud'
+                        ? tr({ fr: "Copie d'avant le nuage", en: "Pre-cloud copy" })
+                        : backup.kind === 'before-import'
+                        ? tr({ fr: "Copie d'avant l'import", en: "Pre-import copy" })
+                        : backup.kind === 'version'
+                        ? tr({ fr: `Copie de la version ${backup.version}`, en: `Version ${backup.version} copy` })
+                        : tr({ fr: "Copie de secours", en: "Backup copy" })}
+                      hint={backup.kind === 'pre-cloud'
+                        ? tr({ fr: "La partie de ce poste, mise de côté au lancement parce que celle du nuage était plus avancée.", en: "This device's game, set aside at launch because the cloud one was more advanced." })
+                        : backup.kind === 'before-import'
+                        ? tr({ fr: "La partie remplacée par le dernier import, gardée telle quelle.", en: "The game replaced by the last import, kept as is." })
+                        : backup.kind === 'version'
+                        ? tr({ fr: "Ta partie telle que l'a enregistrée une version plus récente du jeu, avant d'être jouée ici. Elle se charge une fois le jeu à jour ; Exporter la sort en fichier.", en: "Your game as a newer version of the game saved it, before it was played here. It loads once the game is up to date; Export writes it to a file." })
+                        : tr({ fr: "Une sauvegarde qui n'a pas pu être relue en entier, gardée telle quelle. Charger reprend tout ce qui se relit ; Exporter la sort en fichier.", en: "A save that could not be fully read, kept as is. Load restores everything readable; Export writes it to a file." })}
+                    />
+                    <small>
+                      {sum
+                        ? tr({
+                            fr: `${sum.city || "Cité"} · ${sum.cycles} cycle${sum.cycles > 1 ? 's' : ''} · ${when}`,
+                            en: `${sum.city || "City"} · ${sum.cycles} cycle${sum.cycles > 1 ? 's' : ''} · ${when}`
+                          })
+                        : when}
+                    </small>
+                  </div>
+                  <div className="save-slot-actions">
+                    <button type="button" onClick={() => handleBackupExport(backup)}>
+                      {tr({ fr: "Exporter", en: "Export" })}
+                    </button>
+                    <button type="button" disabled={chuteEnCours || tooNew} onClick={() => handleBackupLoad(backup)}>
                       {tr({ fr: "Charger", en: "Load" })}
                     </button>
                   </div>

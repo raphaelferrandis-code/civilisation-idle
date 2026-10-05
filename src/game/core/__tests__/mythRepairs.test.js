@@ -23,7 +23,7 @@ import { registerChoiceDialog } from "../choiceDialog.js";
 import { tick } from "../actions/tick.js";
 import { icareClimb, icareDescend, atlasEpauler, sisyphePousser, babelDeclareTongue, babelToggleAutoTongue, ragnarokOffrir, ragnarokOfferingCost } from "../actions/myths.js";
 import { openCrisisEvent, autoResolveCrisisEvent } from "../actions/crisis.js";
-import { ICARE_CLIMB_RUPTURE, ICARE_CLIMB_PROD_MULT, ATLAS_SHOULDER_CD_MS, ATLAS_COUNT_THRESHOLD, SISYPHE_CRANS, SISYPHE_MONTEES_TARGET, SISYPHE_STEP_BASE, BABEL_TOWER_TARGET, BABEL_COMMON_TONGUE_MULT, RAGNAROK_ARK_TARGET, RAGNAROK_ARK_COOLDOWN_MS, RAGNAROK_WINTER_AT_MS, RAGNAROK_WINTER_PROD_MULT, RAGNAROK_WOLF_AT_MS, RAGNAROK_FIRE_AT_MS } from "../../data/myths.js";
+import { ICARE_CLIMB_RUPTURE, ICARE_CLIMB_PROD_MULT, ATLAS_SHOULDER_CD_TICKS, ATLAS_COUNT_THRESHOLD, SISYPHE_CRANS, SISYPHE_MONTEES_TARGET, SISYPHE_STEP_BASE, BABEL_TOWER_TARGET, BABEL_COMMON_TONGUE_MULT, RAGNAROK_ARK_TARGET, RAGNAROK_ARK_COOLDOWN_MS, RAGNAROK_WINTER_AT_MS, RAGNAROK_WINTER_PROD_MULT, RAGNAROK_WOLF_AT_MS, RAGNAROK_FIRE_AT_MS } from "../../data/myths.js";
 import { buyBuilding } from "../actions/building.js";
 import { buildingCostAt, ruinGain } from "../mechanics.js";
 import { buildings } from "../../data/buildings.js";
@@ -421,7 +421,15 @@ describe("Atlas — le poids du ciel", () => {
     atlasEpauler();                       // encore en cooldown : inerte
     expect(state.atlasEpaules).toBe(1);
     expect(state.atlasFardeau).toBe(apres1);
-    vi.setSystemTime(FIXED_NOW + ATLAS_SHOULDER_CD_MS + 1);
+    // La récupération se compte en ticks de JEU (BUG-2) : l'heure murale n'y fait rien…
+    vi.setSystemTime(FIXED_NOW + 60_000);
+    atlasEpauler();
+    expect(state.atlasEpaules).toBe(1);
+    // … le handler du Mythe la décompte, un cran par tick.
+    for (let i = 0; i < ATLAS_SHOULDER_CD_TICKS - 1; i += 1) MYTH_TICK_HANDLERS.mythe_d_atlas(state, 1);
+    atlasEpauler();                       // 14 ticks : encore inerte
+    expect(state.atlasEpaules).toBe(1);
+    MYTH_TICK_HANDLERS.mythe_d_atlas(state, 1);
     state.atlasFardeau = 85;              // re-dans la zone rouge
     atlasEpauler();                       // cooldown écoulé : compte
     expect(state.atlasEpaules).toBe(2);
@@ -436,7 +444,7 @@ describe("Atlas — le poids du ciel", () => {
     atlasEpauler();
     expect(state.atlasEpaules).toBe(0);                             // ne compte pas
     expect(state.atlasFardeau).toBeLessThan(ATLAS_COUNT_THRESHOLD - 20); // mais soulage
-    expect(state.atlasShoulderCdEnd).toBeGreaterThan(FIXED_NOW);    // et coûte la récup
+    expect(state.atlasShoulderCdTicks).toBe(ATLAS_SHOULDER_CD_TICKS); // et coûte la récup
   });
 
   it("écrasé si le Fardeau atteint 100 % : échec, et onCollapse refuse", () => {
@@ -459,7 +467,7 @@ describe("Atlas — le poids du ciel", () => {
     // le dialogue de crise. Le verbe ÉPAULER redevient un verbe de Mythe.
     atlasState({ activeMythId: null, atlasHeritage: true, atlasFardeau: 0 });
     atlasEpauler();
-    expect(state.atlasShoulderCdEnd || 0).toBe(0); // pas même la récup consommée
+    expect(state.atlasShoulderCdTicks || 0).toBe(0); // pas même la récup consommée
   });
 
   it("héritage : « Atlas prend le coup » fait passer la crise sans AUCUN effet", async () => {

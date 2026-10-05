@@ -117,6 +117,12 @@ export const MYTH_TICK_HANDLERS = {
     // redescendre (actions/myths.js) ; ici on ne fait que le laisser peser. À 100 %,
     // le ciel écrase la cité — échec du Mythe (comme la Rupture fatale de Prométhée).
     if (state.atlasCrushed) return;
+    // Récupération d'ÉPAULER : décomptée ICI, au pas du Fardeau (un tick en ligne
+    // = un cran ; un pas hors-ligne de N s = N crans), et donc gelée avec lui en
+    // pause. Comptée en heure murale, elle se rallumait un tick trop tard (BUG-2).
+    if (state.atlasShoulderCdTicks > 0) {
+      state.atlasShoulderCdTicks = Math.max(0, state.atlasShoulderCdTicks - Math.max(1, Math.round(dt)));
+    }
     state.atlasFardeau = Math.min(100, (state.atlasFardeau || 0) + ATLAS_FARDEAU_RISE * dt);
     if (state.atlasFardeau >= 100) {
       state.atlasCrushed = true;

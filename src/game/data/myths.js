@@ -122,7 +122,13 @@ export const ATLAS_COUNT_THRESHOLD     = 70;      // Une épaulée ne compte qu'
 // est l'attention soutenue (une seconde d'inattention et le Fardeau grimpe).
 export const ATLAS_FARDEAU_RISE        = 3;       // Montée du Fardeau par seconde (0→100 en ~33 s si laissé seul)
 export const ATLAS_SHOULDER_RELIEF     = 45;      // Points de Fardeau retirés par ÉPAULER
-export const ATLAS_SHOULDER_CD_MS      = 15_000;  // Récupération entre deux ÉPAULER (15 s)
+// Récupération entre deux ÉPAULER, comptée en TICKS DE JEU (1 tick = 1 s), là où
+// monte le Fardeau — plus en heure murale. L'échéance murale (Date.now() + 15 s)
+// tombait quelques ms APRÈS le 15e tick, et le bouton, rafraîchi au tick, ne se
+// rallumait qu'au 16e : +48 de Fardeau pour −45, cité écrasée à la 10e épaulée
+// quel que soit le réflexe du joueur (audit 2026-10-05, BUG-2). ⚠ Hydratation
+// (state.js) : borne écrite en dur à 15 — pas d'import possible là-bas (TDZ).
+export const ATLAS_SHOULDER_CD_TICKS   = 15;
 // Héritage (l'Épaule) : « Atlas prend le coup » — un choix supplémentaire dans les
 // gestions de crise, qui fait passer la crise SANS EFFET, une fois par cycle
 // (state.atlasSkipUsed). La décision n'est pas d'appuyer, mais de choisir LAQUELLE :
@@ -592,7 +598,7 @@ export const MYTHS = [
       state.atlasFardeau = 0;
       state.atlasEpaules = 0;
       state.atlasCrushed = false;
-      state.atlasShoulderCdEnd = 0;
+      state.atlasShoulderCdTicks = 0;
     },
 
     onCollapse() {

@@ -6,6 +6,7 @@ import { eras } from '../../game/data/world.js';
 import { getEraTheme } from '../../game/data/eraThemes.js';
 import { pct, clamp01, fmtSecs } from '../../game/core/utils.js';
 import { state, getLastSaveAt, getLastSaveError } from '../../game/core/state.js';
+import { isLocalSaveUnreadable, localSaveSuspendReason } from '../../game/core/saveKey.js';
 import { idleCapSeconds, nextIdleCapPalier, clepsydreCapSeconds, clepsydreRefusal, spendStoredTime, chooseCycleVow } from '../../game/core/main.js';
 import { cycleVowStatus, vowById, cycleVowChoosable, VOW_CHOICE_WINDOW_YEARS } from '../../game/data/vows.js';
 import { VOW_FAIL_MULT } from '../../game/core/balance.js';
@@ -429,7 +430,16 @@ export default function CityStatusPanel({ variant = 'full' }) {
 
       {/* Un ÉCHEC de sauvegarde reste affiché tant qu'il est vrai : il ne peut
           pas passer par les toasts, qui s'effacent au bout de 2,4 s. */}
-      {saveError ? (
+      {/* Save du démarrage illisible (saveKey.js, SAV-3) : l'écriture est
+          SUSPENDUE, la décision se prend dans les Options. */}
+      {saveError && isLocalSaveUnreadable() ? (
+        <div className="csp-save is-error" {...tipProps(null, localSaveSuspendReason() === "newer"
+          // Save d'une version plus récente du jeu (SAV-6) : même pastille, autre raison.
+          ? tr({ fr: "Ta sauvegarde vient d'une version plus récente du jeu : une copie est gardée, et rien ne s'écrit pour ne pas l'abîmer. Mets le jeu à jour, ou choisis dans les Options (onglet Autres) de garder cette partie pour cette version.", en: "Your save comes from a newer version of the game: a copy is kept, and nothing is written so it is not damaged. Update the game, or choose in the Options (Other tab) to keep this game for this version." })
+          : tr({ fr: "La sauvegarde n'a pas pu être relue : une copie est gardée, et rien ne s'écrit tant que tu n'as pas choisi dans les Options (onglet Autres) de réessayer ou de garder cette partie neuve.", en: "The save could not be read: a copy is kept, and nothing is written until you choose in the Options (Other tab) to retry or to keep this new game." }))}>
+          {tr({ fr: "Sauvegarde suspendue", en: "Saving paused" })}
+        </div>
+      ) : saveError ? (
         <div className="csp-save is-error" {...tipProps(null, tr({ fr: `Sauvegarde impossible : ${saveError}. La partie continue en mémoire, mais elle ne survivra pas à la fermeture.`, en: `Cannot save: ${saveError}. The game continues in memory, but it will not survive closing.` }))}>
           {tr({ fr: "Sauvegarde impossible", en: "Cannot save" })}
         </div>

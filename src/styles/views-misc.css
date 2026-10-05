@@ -407,3 +407,25 @@
   .idle-report-farm,
   .idle-report-lines li { opacity: 1; transform: none; transition: none; }
 }
+
+/* ============================================================================
+   REPLI D'ERREUR (audit 2026-10-05, BUG-18) — une vue qui plante
+   (ViewErrorBoundary) et l'écran de plantage en DOM brut (crashGuard.js).
+   ============================================================================ */
+.view-error {
+  max-width: 34rem;
+  margin: 2rem auto;
+}
+
+.view-error-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+}
+
+.app-crash {
+  display: grid;
+  justify-items: start;
+  gap: 1rem;
+  margin-top: 20vh;
+}

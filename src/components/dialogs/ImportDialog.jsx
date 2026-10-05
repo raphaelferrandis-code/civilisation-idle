@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { useDialogModal } from '../../hooks/useDialogModal.js';
-import { importSave } from '../../game/core/main.js';
+import { importSave, getLastImportRefusal } from '../../game/core/main.js';
 import { pushOutcomeFloat } from '../../game/core/outcomeFloat.js';
 import { tr } from '../../game/core/i18n.js';
 
@@ -24,6 +24,13 @@ export default function ImportDialog({ isOpen, onClose, readOnlyText = null }) {
     if (importSave(text)) {
       pushOutcomeFloat({ label: tr({ fr: "Sauvegarde importée", en: "Save imported" }), kind: "gain" });
       handleClose();
+    } else if (getLastImportRefusal() === "newer") {
+      // Code valide, mais d'une version plus récente du jeu (SAV-6) : il faut
+      // mettre le jeu à jour, pas chercher un autre code.
+      pushOutcomeFloat({ label: tr({ fr: "Sauvegarde d'une version plus récente du jeu", en: "Save from a newer version of the game" }), kind: "cost" });
+    } else if (getLastImportRefusal() === "storage") {
+      // Code valide, mais plus de place pour poser la partie avant le rechargement (SAV-8).
+      pushOutcomeFloat({ label: tr({ fr: "Stockage plein : import impossible", en: "Storage full: cannot import" }), kind: "cost" });
     } else {
       pushOutcomeFloat({ label: tr({ fr: "Code de sauvegarde invalide", en: "Invalid save code" }), kind: "cost" });
     }

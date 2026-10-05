@@ -40,8 +40,17 @@ import { D } from './num.js';
 import { tr } from './i18n.js';
 import { playCityFall, captureCityRelics, playCityRise, abortCityFall } from '../map/cityMapBridge.js';
 
-export function openChoiceDialog({ title, body, options, mourning = false, variant = "", preventClose = false, footnote = "", inscription = "" }) {
-  return requestChoiceDialog({ title, body, options, mourning, variant, preventClose, footnote, inscription });
+// Transmet le dialogue ENTIER, défauts compris. L'ancienne version recopiait huit
+// champs nommés et jetait les autres : `multiSelectOptions` et `defaultSelectedIds`
+// (Ruines actives) ne sont jamais arrivés à ChoiceDialog — fenêtre d'Antée sans
+// une case à cocher, « Valider » grisé à vie, fin du jeu verrouillée — et `label`
+// non plus, d'où l'en-tête « Crise active » sur le Grand Reset ou la caravane
+// (audit 2026-10-05, BUG-1).
+export function openChoiceDialog(dialog) {
+  return requestChoiceDialog({
+    mourning: false, variant: "", preventClose: false, footnote: "", inscription: "",
+    ...dialog
+  });
 }
 
 // De quoi la cité est morte. Les quatre valeurs rendues ici sont recensées dans

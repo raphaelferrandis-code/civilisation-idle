@@ -113,7 +113,7 @@ export default function CityView() {
     eneeMigrations, eneeDegraded, eneeTerritoryStartedAt, eneeHeritage, eneeCollapseCount,
     activeEpitaphLegacy,
     prometheePopReached, prometheeFailed,
-    atlasHeritage, atlasSkipUsed, atlasFardeau, atlasEpaules, atlasCrushed, atlasShoulderCdEnd,
+    atlasHeritage, atlasSkipUsed, atlasFardeau, atlasEpaules, atlasCrushed, atlasShoulderCdTicks,
     instability,
     tickNow
   } = useCityViewState();
@@ -346,7 +346,9 @@ export default function CityView() {
   // avec l'héritage (l'Épaule), le même bouton monte la Légitimité en cycle normal.
   const isAtlas = isMythEffectActive("mythe_d_atlas");
   const showEpaule = isAtlas || Boolean(atlasHeritage);
-  const atlasCdLeft = Math.max(0, Math.ceil(((atlasShoulderCdEnd || 0) - now) / 1000));
+  // Récupération lue en ticks de JEU (1 tick = 1 s), décomptée au pas du Fardeau :
+  // le bouton se rallume au tick même où elle tombe à 0 (BUG-2, data/myths.js).
+  const atlasCdLeft = Math.max(0, atlasShoulderCdTicks || 0);
 
   const isAtrides = isMythEffectActive("mythe_atrides");
   const totalProd = Math.max(0, toNum(r.food.add(r.gold).add(r.knowledge).add(r.infrastructure)));

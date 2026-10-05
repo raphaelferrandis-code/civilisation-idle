@@ -5,7 +5,7 @@ import { upgrades, dogmaIds } from '../data/upgrades.js';
 import { eras, CRISIS_EVENTS } from '../data/world.js';
 import { eraBandOf } from '../data/eraThemes.js';
 import { clamp01 } from './utils.js';
-import { Decimal, D } from './num.js';
+import { Decimal, D, parseDecimalString } from './num.js';
 import { COLLAPSE_PREP_MAX, POLICY_MAX_ACTIVE, REGUL_LEDGER_MAX, GAMBLE_HISTORY_LEN, STEWARD_MAX_CLAUSES, STEWARD_THRESHOLDS, ICARUS_HISTORY_COLOMBIER, FLIGHTS_MAX_COLOMBIER, SCRATCH_HISTORY_LEN, BLACKJACK_HISTORY_LEN, SLOTS_HISTORY_LEN, ROULETTE_HISTORY_LEN, STYLET_MAX_LEVEL, AUTO_COLLAPSE_MIN_SECONDS, AUTO_ICARUS_TARGET_MIN, AUTO_ICARUS_TARGET_MAX, AUTO_TEMPLE_FAVEUR_FLOOR_DEFAULT, AUTO_STAKE_STEPS, CAISSE_INITIAL, TEMPLE_ARTIFACT_IDS, BOON_INTERVAL_MAX_SEC, CLEPSYDRE_HARD_MAX_SECONDS, MAX_BATCH_AMOUNT, grandResetProductionMult, grandResetRuinGainMult } from './balance.js';
 import { resetAnnals } from './annals.js';
 import { normalizeUiReveal } from './uiReveal.js';
@@ -18,8 +18,9 @@ import { defaultFaitsDivers, normalizeFaitsDivers } from './faitsDiversState.js'
 
 // La clé vit dans saveKey.js (cloudSave.js doit la lire AVANT l'évaluation de
 // ce module — cf. l'en-tête de cloudSave.js) ; ré-exportée ici pour les clients.
-import { SAVE_KEY, CURRENT_SAVE_VERSION } from './saveKey.js';
+import { SAVE_KEY, CURRENT_SAVE_VERSION, stripBom, markLocalSaveUnreadable, isLocalSaveUnreadable, newSaveEpoch, consumeFreshEpochRequest, isFutureSave, saveVersionOf } from './saveKey.js';
 import { cloudMirrorSave } from './cloudSave.js';
+import { archiveUnreadableSave, archiveFutureSave } from './saveBackups.js';
 export { SAVE_KEY };
 
 // Version du SCHÉMA de sauvegarde, stockée DANS le payload (state.saveVersion) —
@@ -38,6 +39,10 @@ export { SAVE_KEY };
 // et retirés ; les vols offerts deviennent des montants.
 // v6 : lot 2 (le rang de la Maison) — les artefacts et automatisations devenus des
 // CADEAUX DE RANG sont gardés, et la Faveur qu'ils ont coûtée est rendue.
+// v7 : l'échelle de la Faveur — tout ce qui se compte en Faveur passe ×1 000.
+// ⚠ À chaque bump : ajouter un champ TÉMOIN de la nouvelle version dans
+// inferSaveVersion (plus bas, près de migrate) — c'est lui qui empêche de rejouer
+// les migrations sur une save dont saveVersion est abîmée (SAV-11).
 export { CURRENT_SAVE_VERSION }; // défini dans saveKey.js (lisible par cloudSave.js sans importer state.js)
 
 // Champs de premier niveau migrés en Decimal (sérialisés en string dans le save).
@@ -411,11 +416,12 @@ export const defaultState = () => ({
   // gestion de crise, 1×/cycle — voir crisis.js). Remis à false à chaque cycle.
   atlasSkipUsed: false,
   // « Le poids du ciel » (Atlas) : jauge du Fardeau, épaulées comptées, drapeau
-  // d'écrasement (échec), fin du cooldown d'ÉPAULER. Tout per-cycle.
+  // d'écrasement (échec), récupération d'ÉPAULER restante EN TICKS DE JEU (plus
+  // une échéance murale, BUG-2). Tout per-cycle.
   atlasFardeau: 0,
   atlasEpaules: 0,
   atlasCrushed: false,
-  atlasShoulderCdEnd: 0,
+  atlasShoulderCdTicks: 0,
   sisypheMult: 1,
   sisypheHeritage: false,
   // « La Montée » (Sisyphe) : cran courant du rocher (0 = au pied), sommets déjà
@@ -730,6 +736,12 @@ export const defaultState = () => ({
   // GR_PERSISTENT_FIELDS). Objet plein dès le defaultState : la Chronique le lit
   // directement. Nourri par les recorders de chronicleStats.js.
   chronicleStats: defaultChronicleStats(),
+  // Époque de la partie { id, at } : posée par les gestes qui la REMPLACENT
+  // (import, emplacement, copie de secours, effacement), lue par l'arbitrage du
+  // nuage avant l'horloge à vie (saveKey.js, newSaveEpoch ; SAV-4). null = partie
+  // jamais remplacée. ÉTERNELLE (cf. GR_PERSISTENT_FIELDS) : un Grand Reset est un
+  // pas de la même partie, pas une autre partie.
+  saveEpoch: null,
   // Les faits divers de la carte (docs/PLAN-FAITS-DIVERS.md) : les chapitres vus,
   // le fil de Nancy et William. ÉTERNEL (cf. GR_PERSISTENT_FIELDS) ; forme et
   // normalisation dans faitsDiversState.js, seul enregistreur : faitsDivers.js.
@@ -1080,11 +1092,13 @@ export function isPlainObject(value) {
 // Équivalent de finiteNumber pour les champs migrés en Decimal : accepte un
 // Decimal, un number ou une string sérialisée ("1.5e+30"), borne à >= 0, et
 // surtout NE clampe PAS à 2^53 (c'était le plafond caché du chargement).
+// Une chaîne non numérique ou infinie retombe au défaut (parseDecimalString) :
+// `new Decimal("abc")` LEVAIT, et jetait la partie entière (SAV-3).
 export function decimalField(value, fallback) {
   const candidate =
     value instanceof Decimal ? value
       : typeof value === "number" && Number.isFinite(value) ? new Decimal(value)
-      : typeof value === "string" && value ? new Decimal(value)
+      : typeof value === "string" && value ? parseDecimalString(value)
       // Decimal déshydraté en objet plat {mantissa, exponent} (save édité/importé
       // à la main) : D() sait le reconstruire — comme toNum/D le défendent déjà —
       // au lieu de le remettre silencieusement au défaut.
@@ -1092,7 +1106,8 @@ export function decimalField(value, fallback) {
           && typeof value.mantissa === "number" && typeof value.exponent === "number")
         ? D(value)
       : null;
-  if (!candidate || !Number.isFinite(candidate.mantissa) || !Number.isFinite(candidate.exponent)) {
+  if (!candidate || !Number.isFinite(candidate.mantissa) || !Number.isFinite(candidate.exponent)
+    || candidate.exponent >= 9e15) {
     return D(fallback);
   }
   return candidate.lt(0) ? new Decimal(0) : candidate;
@@ -1800,14 +1815,46 @@ export function normalizeChronicleEntries(raw) {
 // (MIGRATIONS est déclaré PLUS HAUT, juste avant `state = load()` — voir le
 // commentaire là-bas : ici, il serait initialisé trop tard.)
 
+// Version déduite du CONTENU (audit 2026-10-05, SAV-11) : le plus récent « champ
+// témoin » présent. Un témoin est un champ né avec une version et que hydrateState
+// écrit dans TOUTE save depuis : une save qui le porte a donc déjà passé les
+// migrations jusque-là, quoi que dise saveVersion. ⚠ À chaque bump de
+// CURRENT_SAVE_VERSION, ajouter un témoin de la nouvelle version (en tête).
+// Déclaration de fonction (hoistée), table dans le corps : tourne pendant load().
+function inferSaveVersion(save) {
+  const witnesses = [
+    [7, "roueAt"], // la roue de la Maison, livrée avec l'échelle ×1 000 de la Faveur
+    [6, "maisonRank"], // le rang de la Maison
+    [6, "maisonReputation"],
+  ];
+  for (const [version, key] of witnesses) if (key in save) return version;
+  return 0;
+}
+
+// Version de DÉPART des migrations. saveVersion n'est plus crue sur parole (SAV-11) :
+// absente ou abîmée (null, « abc », 7.0001, {}), elle valait 0 et les migrations
+// 5 et 6 — qui ne sont pas idempotentes — rejouaient sur une save déjà migrée :
+// Faveur ×1 000, cadeaux de rang rendus deux fois. Négative, la boucle comptait
+// jusqu'à 0 (−1e9 : 5 minutes de page figée, −1e12 : jamais) à chaque lancement.
+// Le témoin sert de PLANCHER : on ne repart jamais sous ce que la save porte déjà.
+// La convention « absente = v0 » reste vraie pour les vraies vieilles saves, qui
+// ne peuvent porter aucun témoin. Exportée pour les tests.
+export function resolveSaveVersion(save) {
+  const declared = saveVersionOf(save); // entier ou NaN (saveKey.js)
+  const start = declared >= 0 ? Math.min(declared, CURRENT_SAVE_VERSION) : 0;
+  return Math.max(start, inferSaveVersion(save));
+}
+
 // Amène un objet de sauvegarde brut (fraîchement parsé) jusqu'à
 // CURRENT_SAVE_VERSION en appliquant les migrations dans l'ordre.
 // Travaille sur une copie superficielle pour ne pas muter l'entrée.
 export function migrate(raw) {
   const save = isPlainObject(raw) ? { ...raw } : {};
-  let version = Number.isInteger(save.saveVersion) ? save.saveVersion : 0;
+  let version = resolveSaveVersion(save);
   // Save plus récent que ce build (downgrade) : on ne tente rien d'autre que
   // de le ramener au schéma courant ; hydrateState ignorera les champs inconnus.
+  // C'est une PERTE si on la réécrit : load() suspend alors l'écriture, et
+  // l'import comme les emplacements la refusent (isFutureSave, SAV-6).
   while (version < CURRENT_SAVE_VERSION) {
     const step = MIGRATIONS[version];
     if (step) step(save);
@@ -1815,6 +1862,17 @@ export function migrate(raw) {
   }
   save.saveVersion = CURRENT_SAVE_VERSION;
   return save;
+}
+
+// Époque de la partie (saveKey.js, newSaveEpoch) : { id, at } ou null. Une époque
+// abîmée retombe à null — la plus ancienne, qui ne gagne jamais un arbitrage par
+// erreur. Déclaration de fonction (hoistée) : hydrateState tourne pendant load().
+function normalizeSaveEpoch(raw) {
+  if (!isPlainObject(raw)) return null;
+  const id = typeof raw.id === "string" ? raw.id.slice(0, 64) : "";
+  const at = Number(raw.at);
+  if (!id || !Number.isFinite(at) || at < 0) return null;
+  return { id, at };
 }
 
 // Normalise un set de sceaux de Grand Reset { [gr]: true } (clés 1..11).
@@ -1892,9 +1950,13 @@ export function hydrateState(parsed = {}) {
     atlasFardeau: finiteNumber(source.atlasFardeau, 0, 0, 100),
     atlasEpaules: finiteInteger(source.atlasEpaules, 0, 0),
     atlasCrushed: Boolean(source.atlasCrushed),
-    // Fin de cooldown (horodatage FUTUR) : finiteNumber, pas finiteTimestamp —
-    // ce dernier plafonne à « maintenant » et ré-armerait ÉPAULER à chaque reload.
-    atlasShoulderCdEnd: finiteNumber(source.atlasShoulderCdEnd, 0, 0),
+    // Récupération d'ÉPAULER en ticks de jeu, entier de 0 à 15 (= ATLAS_SHOULDER_CD_TICKS
+    // de data/myths.js, écrit en dur : pas d'import ici, TDZ). Gardée au reload — sinon
+    // F5 ré-armerait le bouton. Une save d'avant (BUG-2) portait l'échéance MURALE
+    // atlasShoulderCdEnd : convertie en ticks restants.
+    atlasShoulderCdTicks: source.atlasShoulderCdTicks != null
+      ? finiteInteger(source.atlasShoulderCdTicks, 0, 0, 15)
+      : finiteInteger(Math.ceil((Number(source.atlasShoulderCdEnd) - Date.now()) / 1000), 0, 0, 15),
     sisypheMult: finiteNumber(source.sisypheMult, 1, 1),
     sisypheHeritage: Boolean(source.sisypheHeritage),
     sisypheCran: finiteInteger(source.sisypheCran, 0, 0),
@@ -2106,6 +2168,7 @@ export function hydrateState(parsed = {}) {
     lifetimePurchases: finiteInteger(source.lifetimePurchases, 0, 0),
     playTimeSec: finiteNumber(source.playTimeSec, 0, 0),
     chronicleStats: normalizeChronicleStats(source.chronicleStats),
+    saveEpoch: normalizeSaveEpoch(source.saveEpoch),
     faitsDivers: normalizeFaitsDivers(source.faitsDivers),
     buildings: normalizeNumberMap(source.buildings, buildingIds, base.buildings, true),
     upgrades: normalizeBooleanMap(source.upgrades, upgradeIds),
@@ -2177,21 +2240,123 @@ export function hydrateState(parsed = {}) {
   return stateOut;
 }
 
+// Hydrate un objet de sauvegarde. Si hydrateState lève, REPLI CHAMP PAR CHAMP
+// (audit 2026-10-05, SAV-3) : l'hydratation reconstruit ~100 champs d'un seul
+// bloc, et une seule exception — une régression de normaliseur livrée par une
+// mise à jour, le piège TDZ déjà vécu deux fois — jetait TOUTE la partie. On
+// garde alors tous les champs qui passent et on remet à neuf ceux qui font lever.
+// Rend { state, dropped } (dropped = clés remises à neuf) ; relance l'erreur
+// d'origine si même une save vide ne s'hydrate pas (rien à sauver).
+// ⚠⚠ TDZ : tourne PENDANT `export let state = load()` — aucune constante de
+// module ici, tout est dans les corps (déclarations de fonction = hoistées).
+export function hydrateSalvaging(parsed) {
+  try {
+    return { state: hydrateState(parsed), dropped: [] };
+  } catch (error) {
+    const salvaged = salvageHydrate(parsed);
+    if (salvaged) return salvaged;
+    throw error;
+  }
+}
+
+function salvageHydrate(parsed) {
+  if (!isPlainObject(parsed)) return null;
+  // Copie PROFONDE à chaque essai : un normaliseur qui muterait son entrée
+  // fausserait les essais suivants (et le résultat final).
+  let text;
+  try { text = JSON.stringify(parsed); } catch { return null; }
+  // Version jugée sur la save ENTIÈRE (resolveSaveVersion, SAV-11) : un essai qui
+  // n'emporte pas les champs témoins la déduirait plus basse et rejouerait des
+  // migrations déjà faites sur les champs qu'il garde.
+  const version = resolveSaveVersion(parsed);
+  const pick = (keys) => {
+    const src = JSON.parse(text);
+    const trial = { saveVersion: version };
+    for (const key of keys) trial[key] = src[key];
+    return trial;
+  };
+  const passes = (keys) => {
+    try { hydrateState(pick(keys)); return true; } catch { return false; }
+  };
+  if (!passes([])) return null; // même sans aucun champ : le défaut est dans le code
+  // Par paquets, puis clé par clé dans un paquet qui lève : une poignée
+  // d'hydratations au lieu d'une par champ (≈200) pour le cas courant d'un seul
+  // champ fautif. Les clés gardées s'ACCUMULENT : deux champs qui ne lèvent
+  // qu'ensemble sont aussi départagés.
+  const CHUNK = 16;
+  const keys = Object.keys(parsed).filter((key) => key !== "saveVersion");
+  const kept = [];
+  const dropped = [];
+  for (let i = 0; i < keys.length; i += CHUNK) {
+    const chunk = keys.slice(i, i + CHUNK);
+    if (passes([...kept, ...chunk])) { kept.push(...chunk); continue; }
+    for (const key of chunk) {
+      if (passes([...kept, key])) kept.push(key);
+      else dropped.push(key);
+    }
+  }
+  if (!dropped.length) return null; // l'échec ne tient à aucun champ : pas de repli honnête
+  return { state: hydrateState(pick(kept)), dropped };
+}
+
 export function load() {
-  let raw = null;
+  let raw;
   try {
     raw = localStorage.getItem(SAVE_KEY);
-    if (!raw) return defaultState();
-    return hydrateState(JSON.parse(raw));
+  } catch {
+    return defaultState(); // stockage indisponible : il n'y a rien à protéger
+  }
+  if (!raw) {
+    const fresh = defaultState();
+    // Partie neuve née d'un « Recommencer depuis le tout premier feu » (effacé au
+    // démarrage par cloudSave.js) : époque fraîche, pour que les autres postes
+    // adoptent le reset au lieu de remettre l'ancienne partie dans le nuage (SAV-4).
+    if (consumeFreshEpochRequest()) fresh.saveEpoch = newSaveEpoch();
+    return fresh;
+  }
+  try {
+    // stripBom : une save recopiée d'un fichier (nuage, éditeur) peut en porter
+    // un, et JSON.parse le refuse (SAV-1).
+    const parsed = JSON.parse(stripBom(raw));
+    if (isFutureSave(parsed)) {
+      // Save d'une version PLUS RÉCENTE du jeu (branche bêta Steam, ancien build
+      // en cache) : elle se joue rétrogradée — migrate() la ré-estampille et
+      // hydrateState jette ce qu'il ne connaît pas. Avant, l'autosave des 2 s
+      // écrasait la save d'origine, puis le nuage (SAV-6). Copie gardée telle
+      // quelle, et rien ne s'écrit avant le choix du joueur dans les Options
+      // (Réessayer après la mise à jour, ou Garder cette partie).
+      archiveFutureSave(raw, parsed.saveVersion);
+      markLocalSaveUnreadable("newer");
+      console.warn(`Sauvegarde d'une version plus récente du jeu (v${parsed.saveVersion}, ce build lit la v${CURRENT_SAVE_VERSION}) : écriture suspendue, copie gardée.`);
+    }
+    const { state: loaded, dropped } = hydrateSalvaging(parsed);
+    if (dropped.length) {
+      // Partie relue, mais amputée de quelques champs : on joue la partie du
+      // joueur (pas une partie neuve), et la save complète part en copie de
+      // secours — les champs perdus restent récupérables (Options › Autres).
+      archiveUnreadableSave(raw);
+      // « illisible » dans le message : les tests de chargement réel (chuteRelicsLoad,
+      // cityIlotLoad…) guettent ce mot — un champ amputé reste une régression.
+      console.error(`Sauvegarde en partie illisible : champs remis à neuf (${dropped.join(", ")}). Copie complète gardée.`);
+      // Bornée à 48 comme log() : une 49e ligne sautait au rechargement suivant
+      // (normalizeHistory garde les 48 premières).
+      loaded.history = [
+        ...(loaded.history || []),
+        `La sauvegarde n'a pas pu être relue en entier : ${dropped.join(", ")} remis à neuf. Une copie complète est gardée (Options, onglet Autres).`
+      ].slice(-48);
+    }
+    return loaded;
   } catch (e) {
-    // Save illisible (JSON tronqué par un quota, régression d'un normalizer sur
-    // une save par ailleurs valide…) : on repart neuf, mais on ARCHIVE d'abord le
-    // payload brut. Sans ça, l'auto-save des 2 s (main.js) l'écraserait, détruisant
-    // sans trace une save potentiellement réparable à la main.
-    try {
-      if (raw) localStorage.setItem(SAVE_KEY + "-corrupt-backup", raw);
-    } catch { /* stockage plein : on ne peut pas archiver, tant pis */ }
-    console.error(`Sauvegarde illisible : repli sur une partie neuve. Payload brut archivé sous « ${SAVE_KEY}-corrupt-backup ».`, e);
+    // Save illisible (JSON tronqué par un quota, régression qu'aucun repli champ
+    // par champ ne contourne…) : on joue une partie neuve DE REPLI, mais on
+    // ARCHIVE d'abord le payload brut (deux copies différentes gardées), et rien
+    // ne s'écrira — ni la clé principale, que « Réessayer » relira, ni le nuage —
+    // tant que le joueur n'a pas tranché dans les Options (saveKey.js). Avant,
+    // l'autosave des 2 s écrasait la clé, un deuxième échec la copie de secours,
+    // et la fermeture envoyait la partie neuve dans le nuage (SAV-1, SAV-3).
+    archiveUnreadableSave(raw);
+    markLocalSaveUnreadable();
+    console.error("Sauvegarde illisible : partie neuve de repli, rien ne s'écrit avant un choix dans les Options. Payload brut gardé en copie de secours.", e);
     return defaultState();
   }
 }
@@ -2209,6 +2374,14 @@ export const getLastSaveAt = () => lastSaveAt;
 export const getLastSaveError = () => lastSaveError;
 
 export function save() {
+  // Save précédente illisible (load) : la clé principale la GARDE tant que le
+  // joueur n'a pas tranché (Réessayer / Garder cette partie, ou un chargement) —
+  // l'autosave de la partie neuve de repli l'écrasait en 2 s. L'échec est dit,
+  // comme un stockage plein : la pastille de l'encart d'état reste affichée.
+  if (isLocalSaveUnreadable()) {
+    lastSaveError = "sauvegarde précédente illisible, écriture suspendue";
+    return;
+  }
   try {
     // lastTick n'est PLUS posé ici : il vit désormais dans la boucle de tick
     // (temps réellement crédité, cf. offlineCredit.js). Sinon l'auto-save throttlé
@@ -2398,7 +2571,7 @@ export function resetTemporaryRunState(s) {
   s.atlasFardeau = 0;
   s.atlasEpaules = 0;
   s.atlasCrushed = false;
-  s.atlasShoulderCdEnd = 0;
+  s.atlasShoulderCdTicks = 0;
   s.babelCategory     = null;
   // « La Langue commune » : si le réglage Auto est armé, la langue du nouveau
   // cycle repart déclarée d'elle-même — sinon, à re-déclarer à la main.
@@ -2494,7 +2667,11 @@ export const GR_PERSISTENT_FIELDS = [
   // Les faits divers de la carte : ce que le joueur a vu de la ville ne s'oublie
   // pas, c'est ce qui fait la continuité d'un cycle à l'autre (une histoire
   // commencée avant un Grand Reset se poursuit après).
-  "faitsDivers"
+  "faitsDivers",
+  // L'époque de la partie (SAV-4) : un Grand Reset est un pas de la MÊME partie.
+  // Effacée, elle redeviendrait « la plus ancienne » et l'arbitrage du nuage
+  // refuserait toute écriture face à une copie d'époque plus récente.
+  "saveEpoch"
 ];
 
 // Copie un champ persistant vers le state frais. Les Decimal éventuels

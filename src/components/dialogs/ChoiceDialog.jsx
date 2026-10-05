@@ -15,6 +15,12 @@ export default function ChoiceDialog({ dialog, onChoose }) {
       if (dialog.preventClose) event.preventDefault();
     };
     const handleClose = () => {
+      // « close » PÉRIMÉ (audit 2026-10-05, BUG-3) : l'évènement part en différé.
+      // Celui que le nettoyage d'une fenêtre précédente a mis en file arrivait sur
+      // la suivante, déjà rouverte — et validait sa première option sans un clic
+      // (« Choisir les Ruines actives » refermée en 7 ms, sélection effacée).
+      // Une fenêtre encore ouverte n'a pas été fermée : rien à faire.
+      if (node.open) return;
       if (dialog.preventClose) {
         // Chromium >= 120 (spec CloseWatcher) : deux Echap sans activation
         // utilisateur entre les deux forcent la fermeture du <dialog> sans

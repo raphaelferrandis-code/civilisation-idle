@@ -13,11 +13,13 @@ import {
   setCollapseInProgress,
   setNotifyPaused,
   setOfflineSim,
-  setState,
   notify,
   hydrateState
 } from './state.js';
 import { cloudMirrorSave } from './cloudSave.js';
+import { stripBom, newSaveEpoch, isFutureSave, looksLikeSave } from './saveKey.js';
+import { BEFORE_IMPORT_KEY } from './saveBackups.js';
+import { replaceGameByReload } from './saveSlots.js';
 import { MUSIQUES, musiqueParId } from '../audio/musiques.js';
 
 import {
@@ -98,27 +100,63 @@ export async function exportSave() {
   }
 }
 
+// Pourquoi le dernier import a été refusé ("" = accepté, ou rien tenté) :
+// 'newer' (save d'une version plus récente du jeu) se dit autrement qu'un code
+// invalide — le joueur doit mettre le jeu à jour, pas chercher un autre code.
+let lastImportRefusal = "";
+export const getLastImportRefusal = () => lastImportRefusal;
+
 export function importSave(text) {
-  // Pas pendant une chute (collapseUnderway, state.js) : la séquence finirait sur la
-  // partie importée. Refus muet côté Journal — rien ne s'écrit dans l'état avant la
-  // stèle (invariant §1.3 d'events.js) ; l'interface grise ses boutons.
-  if (collapseUnderway()) return false;
+  lastImportRefusal = "";
+  // Pas pendant une chute (collapseUnderway, state.js) : on la laisse aller à la
+  // stèle — le rechargement qui met la partie importée en place la couperait net.
+  // Refus muet côté Journal — rien ne s'écrit dans l'état avant la stèle
+  // (invariant §1.3 d'events.js) ; l'interface grise ses boutons.
+  if (collapseUnderway()) { lastImportRefusal = "chute"; return false; }
   try {
-    const raw = decodeSaveText(text.trim());
+    // Deux formes acceptées : le code de l'export (base64) et le JSON BRUT — une
+    // copie de secours, le fichier nuage ou une save relevée à la main dans le
+    // localStorage, qu'on refusait (SAV-3). BOM retiré dans les deux cas : un
+    // fichier passé par un éditeur en porte un, et JSON.parse le refuse (SAV-1).
+    const trimmed = stripBom(String(text).trim());
+    const raw = trimmed.startsWith("{") ? trimmed : stripBom(decodeSaveText(trimmed));
     const parsed = JSON.parse(raw);
-    setState(hydrateState(parsed));
-    setGamePaused(false);
-    setCollapseInProgress(false);
-    invalidateRenderCache("all");
-    save();
-    // Import VOLONTAIRE : il fait autorité, même si la partie importée est moins
-    // avancée — on pousse tout de suite le nuage, sinon l'arbitrage « la plus
-    // avancée gagne » ressusciterait l'ancienne partie au prochain lancement.
-    cloudMirrorSave({ force: true });
-    log("Une civilisation importee reprend son cycle.");
-    render();
+    // FORME D'ABORD (SAV-7) : n'importe quel JSON en base64 passait — 42, [],
+    // null, le code d'un autre jeu — et devenait une partie NEUVE, écrite partout.
+    if (!looksLikeSave(parsed)) throw new Error("pas une sauvegarde de ce jeu");
+    // Version PLUS RÉCENTE que ce build (SAV-6) : l'importer la rétrograderait
+    // (champs inconnus jetés), puis l'écrirait de force dans le nuage. Refusée.
+    if (isFutureSave(parsed)) {
+      lastImportRefusal = "newer";
+      log("Import refusé : cette sauvegarde vient d'une version plus récente du jeu. Mets le jeu à jour pour la charger.");
+      render();
+      return false;
+    }
+    const imported = hydrateState(parsed);
+    // Époque fraîche (saveKey.js, SAV-4) : l'import REMPLACE la partie, les autres
+    // postes l'adopteront au lancement au lieu de remettre l'ancienne dans Drive.
+    imported.saveEpoch = newSaveEpoch();
+    // La ligne du Journal voyage avec la partie importée : c'est elle qu'on verra.
+    imported.history = [...(imported.history || []), "Une civilisation importee reprend son cycle."].slice(-48);
+    // Mise en place PAR UN RECHARGEMENT (saveSlots.js, SAV-8) : sur place, la main
+    // de vingt-et-un, le vol d'Icare et les séquences en vol de la partie quittée
+    // se réglaient dans la partie importée. Le démarrage pousse aussi le nuage :
+    // un import VOLONTAIRE fait autorité, même moins avancé.
+    const ok = replaceGameByReload(imported, {
+      // La partie remplacée est gardée de côté (Options › Autres, saveBackups.js),
+      // dans un essai À PART et APRÈS la partie en attente : un stockage plein ne
+      // doit pas empêcher l'import — la copie est un filet, pas un préalable (SAV-7).
+      beforeReload: () => localStorage.setItem(BEFORE_IMPORT_KEY, JSON.stringify(state))
+    });
+    if (!ok) {
+      lastImportRefusal = "storage";
+      log("Import impossible : le stockage est plein.");
+      render();
+      return false;
+    }
     return true;
   } catch {
+    lastImportRefusal = "invalid";
     log("Import impossible: le texte ne ressemble pas a une sauvegarde valide.");
     render();
     return false;
@@ -617,6 +655,23 @@ export function applyOfflineProgress(elapsedSeconds = (Date.now() - state.lastTi
   save();
 }
 
+// Rattrapage hors-ligne GARDÉ (audit 2026-10-05, BUG-30) — démarrage, tick
+// « offline » (veille système) et retour d'onglet. La simulation rejoue des
+// milliers de ticks de toute la logique sous une horloge virtuelle, dans des états
+// rares : le jour où elle lève, l'exception remontait dans l'effet d'App qui lance
+// la boucle — écran blanc, intervalles jamais posés, et chaque relance rejouait la
+// même absence. On journalise et on recale l'ancre : cette absence est perdue,
+// mais la partie, la boucle et l'autosave tournent. Les `finally` de la sim ont
+// déjà rendu l'horloge, les notifications et la pause. Exportée pour les tests.
+export function applyOfflineProgressSafely(elapsedSeconds) {
+  try {
+    applyOfflineProgress(elapsedSeconds);
+  } catch (err) {
+    console.error("Rattrapage hors-ligne interrompu, absence non créditée :", err);
+    state.lastTick = Date.now();
+  }
+}
+
 // Effondrement automatique configurable (Édit d'effondrement / Doctrine de crise,
 // cf. CE-spec-idle-crises.md §A.4). Trigger au choix : "rupture100" (crise
 // terminale + grâce), "usure" (seuil d'Usure), "temps" (durée de cycle). Les deux
@@ -920,8 +975,23 @@ export function initAudio() {
 
 // ──────────────── Démarrage de la boucle de jeu ─────────────────────────────
 
+// Sortie (F5, fermeture de la fenêtre) : dernière save, puis on VIDE le miroir
+// nuage. Ce handler (posé dans l'effet App) tourne APRÈS le flush que
+// cloudSave.js pose à l'import, lequel lisait donc le localStorage AVANT cette
+// save() finale — le nuage ratait les dernières secondes (cloudSave.js:88 de
+// l'audit). En re-mirrorant ici, la dernière save gagne.
+// ⚠ flush, JAMAIS force : force passe outre la garde d'écriture, et un nuage
+// redevenu lisible en cours de session (plus avancé que la partie jouée) était
+// écrasé à chaque fermeture (audit 2026-10-05, SAV-2). force = import/emplacement.
+// Exportée pour les tests.
+export function saveOnExit() {
+  save();
+  cloudMirrorSave({ flush: true });
+}
+
 export function startGameLoop() {
-  applyOfflineProgress();
+  // Gardé (BUG-30) : une exception ici ne doit pas empêcher de poser la boucle.
+  applyOfflineProgressSafely();
   // Un choix de Ruines actives interrompu par un reload (F5 / onglet fermé pendant
   // la modale) est rouvert ici — sinon le cycle tournait sans Ruines actives et
   // sans recours, rendant Antée inaccomplissable (M15).
@@ -947,7 +1017,7 @@ export function startGameLoop() {
       // Veille système / gel d'onglet VISIBLE : aucun visibilitychange n'est émis,
       // et clamper à 1 s jetterait des heures. On route l'écart réel vers la
       // progression hors-ligne (elle recale state.lastTick elle-même).
-      applyOfflineProgress(decision.seconds);
+      applyOfflineProgressSafely(decision.seconds);
       checkAutoCollapse();
       notify();
       return;
@@ -989,19 +1059,15 @@ export function startGameLoop() {
       // pour que le prochain tick reparte d'un écart nul (pas de re-crédit).
       const elapsed = (Date.now() - state.lastTick) / 1000;
       if (elapsed > 60) {
-        applyOfflineProgress(elapsed);
+        applyOfflineProgressSafely(elapsed);
         lastWall = Date.now();
       }
     }
   };
   document.addEventListener("visibilitychange", handleVisibilityChange);
 
-  // Sauvegarder avant F5 / fermeture de l'onglet. On FORCE le miroir nuage juste
-  // après save() : ce handler (posé dans l'effet App) tourne APRÈS le flush que
-  // cloudSave.js pose à l'import, lequel lisait donc le localStorage AVANT cette
-  // save() finale — le nuage ratait les dernières secondes (cloudSave.js:88 de
-  // l'audit). En re-mirrorant ici, la dernière save gagne.
-  const handleBeforeUnload = () => { save(); cloudMirrorSave({ force: true }); };
+  // Sauvegarder avant F5 / fermeture de l'onglet (saveOnExit, plus haut).
+  const handleBeforeUnload = () => saveOnExit();
   window.addEventListener("beforeunload", handleBeforeUnload);
 
   return () => {

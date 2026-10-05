@@ -3,6 +3,7 @@ import Topbar from './components/ui/Topbar.jsx';
 import CityStatusPanel from './components/ui/CityStatusPanel.jsx';
 import PixelIcon from './components/ui/PixelIcon.jsx';
 import ChoiceDialog from './components/dialogs/ChoiceDialog.jsx';
+import ViewErrorBoundary from './components/ui/ViewErrorBoundary.jsx';
 import OutcomeFloatLayer from './components/ui/OutcomeFloatLayer.jsx';
 import { HelpBubbleLayer, tipProps } from './components/ui/HelpBubble.jsx';
 import ContemplationBar from './components/ui/ContemplationBar.jsx';
@@ -126,6 +127,11 @@ export default function App() {
   const [exportFallback, setExportFallback] = useState(null);
   const [isDebugOpen, setIsDebugOpen] = useState(false);
   const [choiceDialog, setChoiceDialog] = useState(null);
+  // Une clé par DEMANDE de choix (BUG-3) : chaque fenêtre monte un <dialog> neuf.
+  // Sans elle, React passait directement de la fenêtre A à la B sur le MÊME
+  // élément, et l'évènement « close » mis en file par la fermeture de A validait
+  // B aussitôt (stèle → « Choisir les Ruines actives » refermée à vide).
+  const [choiceKey, setChoiceKey] = useState(0);
   // Les jeux du temple (augures / Icare) ne sont PLUS des modales : ils vivent
   // dans la scène en bas de la page Régulation (RegulationStage).
 
@@ -168,6 +174,19 @@ export default function App() {
       mainRef.current?.focus();
     }
   }, [activeView]);
+
+  // ⚠ ORDRE VERROUILLÉ : l'interface de choix s'enregistre AVANT l'effet qui lance
+  // startGameLoop, juste en dessous — React exécute les effets dans l'ordre où ils
+  // sont déclarés. Le démarrage rouvre un choix de Ruines actives interrompu
+  // (resumeActiveRuinsChoiceIfPending) : déclaré après, ce choix partait sans
+  // interface, validé vide d'office — pacte d'Antée perdu en silence à chaque
+  // rechargement (audit 2026-10-05, BUG-4). choiceDialog.js garde aussi en file
+  // une demande arrivée trop tôt (expectChoiceDialog, main.jsx), en second filet.
+  useEffect(() => registerChoiceDialog((dialog) => new Promise((resolve) => {
+    choiceResolverRef.current = resolve;
+    setChoiceKey((key) => key + 1);
+    setChoiceDialog(dialog);
+  })), []);
 
   useEffect(() => {
     // Préférences d'interface (E4) : les attributs sont posés sur <html> AVANT
@@ -248,11 +267,6 @@ export default function App() {
       document.removeEventListener("keydown", handleKeyDown);
     };
   }, []);
-
-  useEffect(() => registerChoiceDialog((dialog) => new Promise((resolve) => {
-    choiceResolverRef.current = resolve;
-    setChoiceDialog(dialog);
-  })), []);
 
   // Quels lieux sont ouverts : places.js, source partagée avec les chapitres de
   // l'Aide (Options) — l'Aide ne doit pas ouvrir un chapitre que le rail cache.
@@ -363,10 +377,24 @@ export default function App() {
       setExportFallback(result.text || "");
     }
   };
+  // Une fenêtre (Options, Import, Debug) a planté : on les referme toutes — la
+  // frontière se réarme avec — et on le dit. Le joueur peut la rouvrir.
+  const closeDialogsAfterError = useCallback(() => {
+    setIsOptionsOpen(false);
+    setIsImportOpen(false);
+    setExportFallback(null);
+    setIsDebugOpen(false);
+    pushOutcomeFloat({ label: tr({ fr: "Cette fenêtre a rencontré un problème", en: "This window ran into a problem" }), kind: "cost" });
+  }, []);
+
+  // La fenêtre se retire AVANT de rendre la réponse (BUG-3) : la suite du code qui
+  // attend ce choix peut en ouvrir une autre aussitôt, elle ne doit pas hériter
+  // de celle-ci.
   const handleChoice = useCallback((choice) => {
-    choiceResolverRef.current?.(choice);
+    const resolve = choiceResolverRef.current;
     choiceResolverRef.current = null;
     setChoiceDialog(null);
+    resolve?.(choice);
   }, []);
 
   return (
@@ -576,7 +604,11 @@ export default function App() {
         {/* Topbar reelle */}
         <Topbar />
 
-        {/* Vue Active */}
+        {/* Vue Active — sous une frontière d'erreur (BUG-18) : une vue qui plante
+            affiche un repli au lieu d'emporter App, la boucle de jeu et l'autosave.
+            Elle se réarme au changement d'onglet ; pendant la chute la Cité reste
+            la vue montée, d'où la clé « city ». */}
+        <ViewErrorBoundary resetKey={chute ? 'city' : activeView} onHome={() => openView('city')}>
         <Suspense fallback={null}>
           {(activeView === 'city' || chute) && <CityView />}
 
@@ -597,12 +629,18 @@ export default function App() {
 
           {activeView === 'history' && !chute && <ChronicleView />}
         </Suspense>
+        </ViewErrorBoundary>
         {contemplation && activeView === 'city' && (
           <ContemplationBar onExit={() => setContemplation(false)} />
         )}
       </main>
 
-      {/* Modals Option / Import / Debug */}
+      {/* Modals Option / Import / Debug — même frontière, repli MUET : une fenêtre
+          qui plante est refermée et le dit par un toast (BUG-18). */}
+      <ViewErrorBoundary
+        resetKey={`${isOptionsOpen}|${isImportOpen}|${exportFallback !== null}|${isDebugOpen}`}
+        onError={closeDialogsAfterError}
+      >
       <Suspense fallback={null}>
         {/* Les trois gestes de sauvegarde sont PASSÉS aux Options : sur
             téléphone la barre basse ne garde que l'icône Options, et c'est là
@@ -625,7 +663,9 @@ export default function App() {
         )}
         {isDebugOpen && <DebugDialog isOpen={isDebugOpen} onClose={() => setIsDebugOpen(false)} />}
       </Suspense>
+      </ViewErrorBoundary>
       <ChoiceDialog
+        key={choiceKey}
         dialog={choiceDialog}
         onChoose={handleChoice}
       />

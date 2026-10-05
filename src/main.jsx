@@ -7,6 +7,14 @@ import { createRoot } from 'react-dom/client'
 import './index.css'
 import App from './App.jsx'
 import { watchPointerMode } from './game/core/pointerMode.js'
+import { expectChoiceDialog } from './game/core/choiceDialog.js'
+import { save } from './game/core/state.js'
+import { isChunkLoadError, reloadOnceForChunkError, showCrashScreen } from './game/core/crashGuard.js'
+
+// L'interface de choix arrive avec App : une demande faite avant son
+// branchement (reprise du choix de Ruines actives au démarrage) l'attend au lieu
+// d'être validée vide d'office (audit 2026-10-05, BUG-4).
+expectChoiceDialog()
 
 // AVANT le premier rendu : `data-pointer` doit être posé sur <html> quand le CSS
 // s'applique, sinon la coquille tactile arrive une frame trop tard et l'écran
@@ -38,7 +46,24 @@ if (import.meta.env.PROD && 'serviceWorker' in navigator) {
   }
 }
 
-createRoot(document.getElementById('root')).render(
+// FILETS D'ERREUR (audit 2026-10-05, BUG-18). Les vues et les dialogues ont leur
+// frontière (ViewErrorBoundary, dans App). Ce qui leur échappe démonte la racine :
+// on sauve la partie, puis on remplace la page blanche par un écran de
+// rechargement. Les deux journaux passent par console.error, que l'.exe recopie
+// dans userData/logs (main.cjs).
+const rootElement = document.getElementById('root')
+createRoot(rootElement, {
+  onUncaughtError(error, errorInfo) {
+    console.error('Erreur d\'interface non rattrapée :', error, errorInfo?.componentStack || '')
+    try { save() } catch { /* save() tient son propre journal d'échec */ }
+    if (isChunkLoadError(error) && reloadOnceForChunkError()) return
+    // Différé : React finit de vider la racine avant qu'on y écrive.
+    setTimeout(() => showCrashScreen(rootElement), 0)
+  },
+  onCaughtError(error, errorInfo) {
+    console.error('Erreur d\'interface rattrapée :', error, errorInfo?.componentStack || '')
+  },
+}).render(
   <StrictMode>
     <App />
   </StrictMode>,

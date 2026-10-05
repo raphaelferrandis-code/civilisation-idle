@@ -69,7 +69,7 @@ export function useCityViewState() {
     atlasFardeau:                  s.atlasFardeau,
     atlasEpaules:                  s.atlasEpaules,
     atlasCrushed:                  s.atlasCrushed,
-    atlasShoulderCdEnd:            s.atlasShoulderCdEnd,
+    atlasShoulderCdTicks:          s.atlasShoulderCdTicks,
     ragnarokArkOfferings:          s.ragnarokArkOfferings,
     ragnarokArkNextAt:             s.ragnarokArkNextAt,
     buildingsSig:                  renderCache._buildingsVersion,
