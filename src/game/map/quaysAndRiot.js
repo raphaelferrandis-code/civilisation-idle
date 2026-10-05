@@ -23,7 +23,7 @@
 // Le lint MORD donc de nouveau ici : c'est la porte que P24 constatait absente,
 // et elle est rendue. Ne pas remettre ce commentaire magique sans raison écrite.
 import { state } from '../core/state.js';
-import { CM, CM_WONDERS, cmWonderSlot, cmWonderActive, WONDER_CLEAR_R } from './layout.js';
+import { CM, CM_WONDERS, cmWonderSlot, cmWonderActiveIds, WONDER_CLEAR_R } from './layout.js';
 import { CM_DIRS, cityMapWalkRoadKey, roadStepAllowed } from './agents.js';
 import { worldToScreen as isoWorldToScreen } from './iso/projection.js';
 
@@ -354,20 +354,49 @@ function lightenHex(hex, t) {
 
 const RIOT_WONDER_CLEAR_R = WONDER_CLEAR_R + 2;
 
-function cityMapRiotBlocked(gx, gy) {
-  if (!CM.layout || !Array.isArray(state.wonders) || !state.wonders.length) return false;
+// ⚠ PERF (audit 2026-10-05, PERF-6) : le test de dégagement appelait, pour CHAQUE
+// merveille, cmWonderActive → currentEraIndex (une boucle Decimal sur toutes les
+// ères), et il était lui-même appelé pour chaque passant au recrutement et pour
+// chaque case de route au choix du but — 1,2 à 1,5 s de gel au déclenchement d'une
+// émeute en fin de partie, puis 30 à 50 ms toutes les 5 s. Les emplacements des
+// merveilles actives sont désormais relevés UNE fois par frame d'émeute
+// (riotZonesRefresh, en tête de la branche active d'updateCrisis), et la liste des
+// routes sûres une fois par (liste de routes, emplacements). Même test, mêmes
+// cases, même ordre : le tirage au sort ne change pas.
+let _riotSlots = [];
+let _riotSafe = { list: null, len: -1, layout: null, sig: null, roads: [] };
+function riotZonesRefresh() {
+  _riotSlots = [];
+  if (!CM.layout || !Array.isArray(state.wonders) || !state.wonders.length) return;
+  const act = cmWonderActiveIds(state);
   for (let wi = 0; wi < CM_WONDERS.length; wi += 1) {
-    const w = CM_WONDERS[wi];
-    if (!cmWonderActive(w, state)) continue;
-    const slot = cmWonderSlot(wi, CM.layout.gridN, CM.layout.cx, CM.layout.cy);
+    if (act.has(CM_WONDERS[wi].id)) _riotSlots.push(cmWonderSlot(wi, CM.layout.gridN, CM.layout.cx, CM.layout.cy));
+  }
+}
+
+function cityMapRiotBlocked(gx, gy) {
+  for (let i = 0; i < _riotSlots.length; i += 1) {
+    const slot = _riotSlots[i];
     if (Math.hypot(gx - slot.gx, gy - slot.gy) <= RIOT_WONDER_CLEAR_R) return true;
   }
   return false;
 }
 
+// Routes où l'émeute a le droit d'aller : refiltrées seulement quand la liste des
+// routes (relayout) ou les emplacements des merveilles actives changent.
+function riotSafeRoads() {
+  const list = CM.walkRoadList;
+  const sig = _riotSlots.map((s) => s.gx + ',' + s.gy).join(';');
+  const c = _riotSafe;
+  if (c.list !== list || c.len !== list.length || c.layout !== CM.layout || c.sig !== sig) {
+    _riotSafe = { list, len: list.length, layout: CM.layout, sig, roads: list.filter((r) => !cityMapRiotBlocked(r.gx, r.gy)) };
+  }
+  return _riotSafe.roads;
+}
+
 function cityMapPickRiotRoadNear(origin, radius) {
   if (!CM.walkRoadList.length) return null;
-  const safeRoads = CM.walkRoadList.filter((r) => !cityMapRiotBlocked(r.gx, r.gy));
+  const safeRoads = riotSafeRoads();
   if (!safeRoads.length) return null;
   if (!origin) return safeRoads[Math.floor(Math.random() * safeRoads.length)];
 
@@ -436,9 +465,11 @@ function riotRecruit(anchor) {
   for (const c of CM.citizens) {
     if (c._riot || c._nightHidden || c.leaving || c.lead || c._enter || c.charType === 2 || c._vanish !== undefined) continue;
     if (c.fade != null && c.fade < 1) continue;
-    if (cityMapRiotBlocked(c.gx, c.gy) || !CM.walkRoadSet.has(cityMapWalkRoadKey(c.gx, c.gy))) continue;
+    // La distance d'abord : elle écarte presque tout le monde pour une soustraction.
     const d = Math.abs(c.gx - anchor.gx) + Math.abs(c.gy - anchor.gy);
-    if (d < bd) { bd = d; best = c; }
+    if (d >= bd) continue;
+    if (cityMapRiotBlocked(c.gx, c.gy) || !CM.walkRoadSet.has(cityMapWalkRoadKey(c.gx, c.gy))) continue;
+    bd = d; best = c;
   }
   return best;
 }
@@ -526,6 +557,8 @@ function updateCrisis(dt, now) {
     if (baseWant === 0) { CM.riotCalmed = 0; CM.riotCalmDecayT = 0; }
     CM.riotDraw = null;
   } else {
+    // Les merveilles actives de CETTE frame (une seule lecture de l'ère, cf. PERF-6).
+    riotZonesRefresh();
     const isRoad = (x, y) => CM.walkRoadSet.has(cityMapWalkRoadKey(x, y)) && !cityMapRiotBlocked(x, y);
     const groupCenter = cityMapRiotGroupCenter(CM.rioters);
     if (!CM.riotGoal || !isRoad(CM.riotGoal.gx, CM.riotGoal.gy) || (now - (CM.riotGoalAt || 0)) > 5000) {

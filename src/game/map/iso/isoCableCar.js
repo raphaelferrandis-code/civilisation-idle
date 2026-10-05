@@ -16,7 +16,7 @@ import { vieK } from './isoVie.js';
 import { METRO, bankRowAt } from '../procedural/metroPlan.js';
 import { metroPlanFor, LINE_SHIFT, STATION } from './isoMetro.js';
 import { isleSideOf, floatIsleSite, ISLE } from './isoFloatIsle.js';
-import { boxShapes, bakeShapes, blitBaked, makeBakeCache, elevGlow } from './elevPaint.js';
+import { boxShapes, bakeShapes, blitBaked, makeBakeCache, artKdAt, elevGlow } from './elevPaint.js';
 
 export const CABLE = { on: true, band: 5, top: 3.6, sag: 0.55, cabins: 3, speed: 0.9 };
 
@@ -63,9 +63,11 @@ export function cableSite(L, metro) {
 export function cableZ(u, top = CABLE.top, sag = CABLE.sag) { return top - 4 * sag * u * (1 - u); }
 
 const _bakes = makeBakeCache(40);
+// Au zoom de REPOS (elevPaint.getZ) : pendant un glissement de zoom, la dernière
+// cuisson de la forme, posée à l'échelle, au lieu d'une recuisson par frame.
 function baked(key, make) {
-  const z = CM.cam.zoom, d = CM.dpr || 1, kd = Math.max(1, Math.round(vieK() * d));
-  return _bakes.get(key + '|' + z + '|' + d, () => bakeShapes(make(), z, d, kd));
+  const d = CM.dpr || 1;
+  return _bakes.getZ(key, d, (z) => bakeShapes(make(), z, d, artKdAt(z, d)));
 }
 function towerShapes(M, T, base, top, mono) {
   const s = [];

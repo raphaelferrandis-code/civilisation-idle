@@ -47,7 +47,7 @@ import { lightCtx, lightCutImage } from '../lightLayer.js';
 import { queueFlameGlow } from '../flameGlow.js';
 import { WINTER } from '../seasonMode.js';
 import { wonderKitForBand } from './wonderKits.js';
-import { bakePlaisirs, plaisirsRecipeBand, plaisirsGames, plaisirsShadow } from './plaisirsBake.js';
+import { bakePlaisirs, plaisirsGames, plaisirsShadow } from './plaisirsBake.js';
 import { SUN_SHADOW, sunShear, drawSunShadowPlane } from './isoSunShadow.js';
 import { noteReflectionImage } from './isoReflect.js';
 import { drawFlame, glowAt, hexToRgbStr } from './isoProps.js';
@@ -55,7 +55,7 @@ import { drawVieFlag } from './isoVie.js';
 import { drawSpriteOutline } from './isoEngineScene.js';
 import { HOVER_GOLD } from './isoPalette.js';
 import { plaisirsCast } from './plaisirsCast.js';
-import { plaisirsSkin, applyPlaisirsSkin } from './plaisirsSkin.js';
+import { plaisirsSkin, plaisirsSkinLoading, preloadPlaisirsSkin, applyPlaisirsSkin } from './plaisirsSkin.js';
 import { rippleField, noteRipples } from './waterRipples.js';
 import { drawNamedAgentIso, AGENT_SCALE } from '../agents.js';
 import { focusMark, drawFocusRingAt, noteSceneFigure, sceneRingWidth, keepFigureAlive } from '../citizenFocus.js';
@@ -413,7 +413,17 @@ export function drawPlaisirsSky(now) {
 // par jeux ouverts (iso/plaisirsBake.js), même main que les merveilles. Ce module
 // la pose sur l'eau, la trie avec la ville, l'éclaire et la rend cliquable.
 
-const gamesKey = (g) => (g.osselets ? 'o' : '') + (g.tickets ? 't' : '') + (g.cartes ? 'c' : '') + (g.icare ? 'i' : '') + (g.boutique ? 'b' : '');
+// La clé de cuisson. Sur un HABILLAGE (`skinned`), l'hiver et la boutique ne changent
+// rien à l'octet près — R, H, D, N, reflet, corniches, tour des filles (audit du 05/10,
+// PERF-13 ; plaisirsBakeKey.test.js) : la neige ne touche que les couleurs du code, que
+// l'habillage écrase, et le pavillon de la boutique tombe sous sa matière. Ils sortaient
+// pourtant de la clé : une cuisson de plus à chaque hiver et au premier effondrement.
+// Les autres jeux y restent : ils déplacent des hauteurs (98 px à l'âge du feu), donc un
+// peu d'ombre et de reflet.
+export function plaisirsBakeKey(band, g, winter, skinned) {
+  const games = (g.osselets ? 'o' : '') + (g.tickets ? 't' : '') + (g.cartes ? 'c' : '') + (g.icare ? 'i' : '') + (g.boutique && !skinned ? 'b' : '');
+  return band + ':' + games + (winter && !skinned ? ':w' : '') + (skinned ? ':skin' : '');
+}
 
 // Molette : `__plaisirsTune.band = n` force l'âge (null : celui de la ville) ;
 // `occlude = false` coupe la découpe des filles par ce qui est devant elles (A/B).
@@ -426,14 +436,20 @@ function rasterCanvas(R) {
   return cv;
 }
 const _bakes = new Map();
+// La dernière cuisson rendue : l'âge d'avant, gardé à l'écran le temps que l'habillage
+// du nouvel âge arrive.
+let _lastBake = null;
 function bakeFor(band, g, winter) {
   if (typeof document === 'undefined') return null;
-  // L'HABILLAGE PixelLab de l'âge (plaisirsSkin.js) remplace la matière du code dès
-  // qu'il est chargé (la clé change : une seule recuisson).
+  // L'HABILLAGE PixelLab de l'âge (plaisirsSkin.js) remplace la matière du code. Audit
+  // du 05/10 (PERF-13) : le rendu du code n'est plus cuit le temps qu'il arrive (une
+  // cuisson de 50 à 140 ms, jetée une frame plus tard) — l'âge d'avant reste affiché,
+  // ou rien la toute première fois.
   const skin = plaisirsSkin(band);
-  const key = plaisirsRecipeBand(band) + ':' + band + ':' + gamesKey(g) + (winter ? ':w' : '') + (skin ? ':skin' : '') + (skin && skin.liveImg ? ':live' : '');
+  if (!skin && plaisirsSkinLoading(band)) return _lastBake;
+  const key = plaisirsBakeKey(band, g, winter, !!skin);
   let e = _bakes.get(key);
-  if (e) return e;
+  if (e) return (_lastBake = e);
   let out = bakePlaisirs(wonderKitForBand(band, winter), g);
   // Ses lumières et fanions posés par la recette tomberaient à côté de sa matière.
   if (skin) out = { ...out, ...applyPlaisirsSkin(out, skin), props: [] };
@@ -457,10 +473,23 @@ function bakeFor(band, g, winter) {
     shCv = document.createElement('canvas');
     shCv.width = S.w; shCv.height = S.h;
     const sc = shCv.getContext('2d');
-    sc.fillStyle = SUN_SHADOW.col;
-    for (let j = 0; j < S.h; j += 1) for (let i = 0; i < S.w; i += 1) if (S.mask[j * S.w + i]) sc.fillRect(i, j, 1, 1);
+    // Une seule pose d'image (audit du 05/10, PERF-13 : 7 700 à 27 000 fillRect d'un
+    // pixel) ; mêmes octets qu'avant pour une teinte opaque en #rrggbb (celle du jeu) —
+    // toute autre teinte posée à la molette `__sunShadow` retombe sur le pixel à pixel.
+    const hex = /^#([0-9a-f]{6})$/i.exec(SUN_SHADOW.col);
+    if (hex) {
+      const v = parseInt(hex[1], 16), img = sc.createImageData(S.w, S.h), px = img.data;
+      for (let k = 0; k < S.mask.length; k += 1) {
+        if (!S.mask[k]) continue;
+        px[k * 4] = v >> 16; px[k * 4 + 1] = (v >> 8) & 255; px[k * 4 + 2] = v & 255; px[k * 4 + 3] = 255;
+      }
+      sc.putImageData(img, 0, 0);
+    } else {
+      sc.fillStyle = SUN_SHADOW.col;
+      for (let j = 0; j < S.h; j += 1) for (let i = 0; i < S.w; i += 1) if (S.mask[j * S.w + i]) sc.fillRect(i, j, 1, 1);
+    }
   }
-  e = { key, R, D: out.D || null, cv: rasterCanvas(R), cvN: out.N ? rasterCanvas(out.N) : null, occ,
+  e = { key, band, R, D: out.D || null, cv: rasterCanvas(R), cvN: out.N ? rasterCanvas(out.N) : null, occ,
     mir: M ? { ox: M.ox, oy: M.oy, w: M.w, h: M.h, cv: rasterCanvas(M) } : null,
     sh: S ? { ox: S.ox, oy: S.oy, w: S.w, h: S.h, cv: shCv } : null,
     box: x1 < 0 ? null : { x: x0, y: y0, w: x1 - x0 + 1, h: y1 - y0 + 1 },
@@ -474,7 +503,7 @@ function bakeFor(band, g, winter) {
     ripples: plaisirsRipples(R, out.H) };
   if (_bakes.size > 12) _bakes.delete(_bakes.keys().next().value);
   _bakes.set(key, e);
-  return e;
+  return (_lastBake = e);
 }
 
 // LES REMOUS AU PIED DU LIEU (iso/waterRipples.js ; Raph, 2026-10-04 : « fais aussi le
@@ -516,11 +545,15 @@ function modelOf(pl) {
   const L = CM.layout;
   if (!L || !pl) return null;
   const band = plaisirsTune.band != null ? plaisirsTune.band | 0 : (L.counts && L.counts.eraBand) | 0;
+  // L'habillage de l'âge SUIVANT se charge pendant qu'on regarde celui-ci : au
+  // changement d'âge, il est là, et le lieu ne cuit qu'une fois.
+  if (band < 9) preloadPlaisirsSkin(band + 1);
   const g = plaisirsGames(state, L.counts && L.counts.eraIndex);
   const bk = bakeFor(band, g, CM.season === WINTER);
   if (!bk) return null;
   const T = CM.TILE;
-  return { pl, band, g, bk, cx: pl.x * T, cy: pl.y * T };
+  // `bk.band` : l'âge réellement cuit (l'âge d'avant, le temps du chargement).
+  return { pl, band: bk.band, g, bk, cx: pl.x * T, cy: pl.y * T };
 }
 // Le lieu est-il prêt à peindre ? (la collecte n'empile rien sinon).
 export function plaisirsReady() { return typeof document !== 'undefined'; }

@@ -114,6 +114,21 @@ export function blockLots(grid, i, j, { usable, streetOk, core }) {
  * @returns {Array<object>} îlots { i, j, rank, cells, lots, court, ring, x0..y1, cost }
  */
 export function blockOrder(o) {
+  return blockOrderLazy(o).all();
+}
+
+/**
+ * Le même ordre, PARESSEUX (PERF-7 de l'audit du 2026-10-05). Les lots de TOUS les
+ * îlots de la fenêtre (~3 500 en fin de partie) étaient calculés à chaque plan, pour
+ * n'en ouvrir que quelques centaines : un quart du coût de planIlots. Le coût d'un
+ * îlot est GÉOMÉTRIQUE (son intérieur, pas ses lots) : on trie les candidats une
+ * fois, et lots + pourtour ne se calculent que quand la boucle gloutonne atteint
+ * l'îlot. Mêmes îlots, même ordre : le tri sur (coût, j, i) est total, donc écarter
+ * un îlot inutilisable au passage rend la suite qu'on aurait eue en l'écartant avant.
+ * `at(r)` rend l'îlot de rang r (en avançant juste ce qu'il faut, undefined au-delà
+ * de la fin), `all()` la suite entière, `produced` ce qui est déjà ouvert.
+ */
+export function blockOrderLazy(o) {
   const { N, core, grid, usable, streetOk } = o;
   const P = grid.pitch;
   const minCells = o.minCells ?? ILOT_DEFAULTS.minCells;
@@ -123,24 +138,31 @@ export function blockOrder(o) {
   const net = new Set();
   for (const s of o.seed || []) net.add(key(s.x, s.y));
   const c0 = grid.blockIndexOf(Math.floor(core.x), Math.floor(core.y));
-  // Candidats : tous les îlots de la fenêtre, avec leurs lots — calculés une fois.
-  const cand = new Map();
+  const inner = (x, y) => x >= 1 && y >= 1 && x < N - 1 && y < N - 1 && usable(x, y);
+  // Candidats : tous les îlots de la fenêtre, coût seul (lots calculés au besoin).
+  const left = [];
   for (let j = c0.j - reach; j <= c0.j + reach; j += 1) {
     for (let i = c0.i - reach; i <= c0.i + reach; i += 1) {
       if (grid.absorbed && grid.absorbed(i, j)) continue;   // moitié d'un îlot long
       const it = grid.interior(i, j);
       if (it.x1 < 1 || it.y1 < 1 || it.x0 > N - 2 || it.y0 > N - 2) continue;
-      const b = blockLots(grid, i, j, { usable: (x, y) => x >= 1 && y >= 1 && x < N - 1 && y < N - 1 && usable(x, y), streetOk, core });
-      if (b.cells.length < minCells || !b.lots.length) continue;
-      const ring = blockRing(grid, i, j).filter((r) => r.x >= 0 && r.y >= 0 && r.x < N && r.y < N && streetOk(r.x, r.y));
-      const cxB = (b.x0 + b.x1 + 1) / 2, cyB = (b.y0 + b.y1 + 1) / 2;
+      const cxB = (it.x0 + it.x1 + 1) / 2, cyB = (it.y0 + it.y1 + 1) / 2;
       let cost = Math.hypot(cxB - core.x, cyB - core.y) / P;
       // Le long des axes : un îlot qui borde le cardo ou le decumanus passe devant.
       if (i === 0 || i === -1 || j === 0 || j === -1) cost -= axisBonus;
       if (o.extraCost) cost += o.extraCost(i, j, { x: cxB, y: cyB });
-      cand.set(i + ":" + j, { i, j, ...b, ring, cost });
+      left.push({ i, j, cost, b: null });
     }
   }
+  left.sort((a, b) => a.cost - b.cost || a.j - b.j || a.i - b.i);
+  // Lots et pourtour d'un candidat ; null s'il ne s'ouvrira jamais (rogné, sans lot).
+  const prepare = (c) => {
+    const { i, j, cost } = c;
+    const b = blockLots(grid, i, j, { usable: inner, streetOk, core });
+    if (b.cells.length < minCells || !b.lots.length) return null;
+    const ring = blockRing(grid, i, j).filter((r) => r.x >= 0 && r.y >= 0 && r.x < N && r.y < N && streetOk(r.x, r.y));
+    return { i, j, ...b, ring, cost };
+  };
   const touches = (b) => {
     for (const r of b.ring) {
       if (net.has(key(r.x, r.y))) return true;
@@ -149,21 +171,35 @@ export function blockOrder(o) {
     return false;
   };
   const out = [];
-  // Ouverture gloutonne : à chaque pas, le moins cher des îlots RACCORDABLES.
+  let done = false;
+  // Un pas d'ouverture gloutonne : le moins cher des îlots RACCORDABLES.
   // (n ≲ quelques centaines d'îlots : la boucle quadratique reste sous la ms.)
-  const left = [...cand.values()].sort((a, b) => a.cost - b.cost || a.j - b.j || a.i - b.i);
-  while (left.length && out.length < maxBlocks) {
-    let k = -1;
+  const step = () => {
+    if (done) return false;
+    if (out.length >= maxBlocks) { done = true; return false; }
     for (let n = 0; n < left.length; n += 1) {
-      if (net.size === 0 || touches(left[n])) { k = n; break; }
+      const c = left[n];
+      if (!c.b) {
+        c.b = prepare(c);
+        if (!c.b) { left.splice(n, 1); n -= 1; continue; }
+      }
+      if (net.size === 0 || touches(c.b)) {
+        left.splice(n, 1);
+        const b = c.b;
+        b.rank = out.length;
+        out.push(b);
+        for (const r of b.ring) net.add(key(r.x, r.y));
+        return true;
+      }
     }
-    if (k < 0) break;                                  // plus rien de raccordable
-    const b = left.splice(k, 1)[0];
-    b.rank = out.length;
-    out.push(b);
-    for (const r of b.ring) net.add(key(r.x, r.y));
-  }
-  return out;
+    done = true;                                       // plus rien de raccordable
+    return false;
+  };
+  return {
+    at(r) { while (out.length <= r && step()); return out[r]; },
+    all() { while (step()); return out; },
+    produced: out,
+  };
 }
 
 /**

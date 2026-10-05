@@ -21,9 +21,10 @@
 // ⚠ Ce module est le PENDANT d'isoRoad : là-bas la chaussée elle-même (largeurs,
 // tons, trottoir), ici ce qui se dresse le long et la lumière qui tombe dessus.
 import { CM, cmHash, ROAD_E, ROAD_N, ROAD_S, ROAD_W } from '../layout.js';
-import { worldToScreen, visibleCellBounds } from './projection.js';
+import { worldToScreen, visibleCellBounds, visibleDiamondBounds } from './projection.js';
+import { terrainMaxPx } from './isoTerrain.js';
 import { paintFlameGlows } from '../flameGlow.js';
-import { paintLightLayer } from '../lightLayer.js';
+import { LIGHT_LAYER, paintLightLayer } from '../lightLayer.js';
 import { quayWallTiles, quayWallTune } from '../quaysAndRiot.js';
 import { quayLampList, stairFootY } from './isoQuay.js';
 import { portLampList } from './portBerths.js';
@@ -805,7 +806,38 @@ export const lampLit = (lp, K) => K.stride <= 1 || ((cmHash('lmpcap:' + lp.gx + 
 // sol et cœurs réunis. Elle décide quels sprites paieront une découpe — la
 // majorer coûte quelques découpes de plus, la minorer laisserait de la lumière
 // traverser un mur.
+// SERRÉE sur ce que paintLampGlow pose vraiment (audit du 2026-10-05, PERF-2) : le
+// jour, les CŒURS SEULS (n ≤ 0,03 : ni nappe ni flaque) — l'emprise de nuit, deux
+// tuiles de large, faisait payer découpes, effacement et blit à tout le voisinage
+// d'une flamme de quelques pixels ; la nuit, cœurs + nappe de tête + flaque. Chaque
+// pièce est prise à son rayon maximal (scintillement 1), plus le débord du halo au
+// pixel (paliers arrondis au pixel d'art, ≤ 1,75 pixel d'art) et l'ondulation d'une
+// flamme (±0,05 wpx en x, ±0,03 en y) : rien n'en sort. Molette tight: false =
+// l'ancienne emprise généreuse.
 export function lampGlowBox(p, K) {
+  if (LIGHT_LAYER.tight !== false && K.lig.em) {
+    const { lig, m, hpx, wpx, unit } = K;
+    const boxL = p.x - wpx * m.footXf, boxT = p.y - hpx * m.footYf;
+    const pad = 2 * vieK() + 2;
+    let x0 = Infinity, y0 = Infinity, x1 = -Infinity, y1 = -Infinity;
+    const add = (cx, cy, rx, ry) => {
+      if (cx - rx < x0) x0 = cx - rx;
+      if (cx + rx > x1) x1 = cx + rx;
+      if (cy - ry < y0) y0 = cy - ry;
+      if (cy + ry > y1) y1 = cy + ry;
+    };
+    for (const e of lig.em) {
+      const r = unit * e.r * 1.15 + pad + wpx * 0.06;
+      add(boxL + e.fx * wpx, boxT + e.fy * hpx, r, r);
+    }
+    if (K.n > 0.03) {
+      const rh = Math.max(4, unit * 0.78) * 1.1 + pad;              // nappe de tête
+      add(boxL + lig.hx * wpx, boxT + lig.hy * hpx, rh, rh);
+      const rp = Math.max(4, unit * 0.8);                           // flaque (ellipse 0,8 × 0,4)
+      add(p.x, p.y, rp * 0.8 + pad, rp * 0.4 + pad);
+    }
+    if (x0 <= x1) return { x0, y0, x1, y1 };
+  }
   const R = K.unit * 1.05;
   return { x0: p.x - K.wpx - R, y0: p.y - K.hpx * K.m.footYf - R, x1: p.x + K.wpx + R, y1: p.y + R * 0.6 };
 }
@@ -865,14 +897,19 @@ export function drawIsoMedians(ctx, tp, T, z) {
     // parterres cuits — les plantations sont des objets du peintre (medianPlan).
     const L = CM.layout;
     const kit = L && streetKitFor((L.counts && L.counts.eraBand) | 0);
-    if (kit && kit.median) { drawKitMedians(ctx, tp, T, z, L, kit, wtp, ext); return; }
+    // La zone cuite (une tuile de sol, cf. medianView) : seuls les segments qui
+    // la touchent se dessinent.
+    const view = medianView(T, z);
+    if (kit && kit.median) { drawKitMedians(ctx, tp, T, z, L, kit, wtp, ext, view); return; }
     // Trace la capsule en MONDE (bouts = demi-cercles échantillonnés) : projetée
     // par worldToScreen, elle s'écrase naturellement en rondelle iso au sol.
     const capsulePath = (ax, ay, bx, by, w) => medianCapsulePath(ctx, ax, ay, bx, by, w);
+    let lawnPat;                                 // motif du gazon : un par appel (PERF-12)
     for (const seg of tp) {
       let ax, ay, bx, by;
       if (seg.axis === 'h') { ax = seg.x0 * T - ext; ay = (seg.y + 1) * T; bx = (seg.x1 + 1) * T + ext; by = ay; }
       else { ax = (seg.x + 1) * T; ay = seg.y0 * T - ext; bx = ax; by = (seg.y1 + 1) * T + ext; }
+      if (!medianSegSpan(view, seg, ax, ay, bx, by, wtp)) continue;
       // Ombre portée : même capsule décalée bas-droite écran, SOUS le gazon.
       ctx.save();
       ctx.translate(z * 1.4, z * 1.0);
@@ -901,13 +938,10 @@ export function drawIsoMedians(ctx, tp, T, z) {
       const lawnArt = isoArt(winterTP ? 'median-lawn-winter' : 'median-lawn');
       let lawnTex = false;
       if (lawnArt.ready) {
-        const pat = ctx.createPattern(lawnArt.img, 'repeat');
-        if (pat) {
-          const s = (T * z) / (lawnArt.img.naturalWidth || 64);
-          const o = worldToScreen(0, 0);
-          if (pat.setTransform) pat.setTransform(new DOMMatrix([s, 0, 0, s * 0.5, o.x, o.y]));
+        if (lawnPat === undefined) lawnPat = medianLawnPattern(ctx, lawnArt, T, z);
+        if (lawnPat) {
           capsulePath(ax, ay, bx, by, wtp);
-          ctx.fillStyle = pat;
+          ctx.fillStyle = lawnPat;
           ctx.fill();
           lawnTex = true;
         }
@@ -1023,6 +1057,52 @@ function medianCapsulePath(ctx, ax, ay, bx, by, w) {
   ctx.closePath();
 }
 
+// ── LA ZONE CUITE (PERF-12, audit du 05/10) ─────────────────────────────────
+// Le sol se cuit par TUILES (solPyramide.cookTile pose CM.cam/cw/ch sur la tuile)
+// et chaque tuile repassait TOUS les segments de la ville : à la Fonte, 3,7 ms et
+// ~6 800 gravillons par tuile, dont un sur mille tombait dans le canvas — 250 ms
+// de plus par recuisson d'écran. Dans le repère u = wx − wy, v = wx + wy, la zone
+// est un RECTANGLE (visibleDiamondBounds) et la couture d'un segment une droite :
+// sa traversée se lit en deux intersections d'intervalles, sans projeter un point.
+// Marge : deux tuiles monde au zoom (capsule, ombre portée, liseré, bac de fleurs)
+// + deux fois le plafond du relief (le signe de terrainZ n'est pas supposé). Une
+// marge trop large coûte un segment dessiné pour rien ; trop serrée, elle
+// trouerait le terre-plein au bord de la tuile — le banc d'empreinte
+// (medianCull.test.js) vérifie que tout ce qui touche le canvas reste identique.
+// A/B : globalThis.__medianCull = false rejoue le dessin complet.
+function medianView(T, z) {
+  if (globalThis.__medianCull === false) return null;
+  const m = (2 * T + 2 * terrainMaxPx()) * z + 8;
+  return visibleDiamondBounds(m, m);
+}
+// Intervalle [w0, w1] de la coordonnée d'AXE (wx d'un segment 'h', wy d'un 'v')
+// où la couture c traverse la zone ; w0 > w1 = elle la manque.
+function medianSpan(V, horiz, c) {
+  if (!V) return [-Infinity, Infinity];
+  return horiz
+    ? [Math.max(V.u0 + c, V.v0 - c), Math.min(V.u1 + c, V.v1 - c)]
+    : [Math.max(c - V.u1, V.v0 - c), Math.min(c - V.u0, V.v1 - c)];
+}
+// Le segment (capsule de A à B, demi-largeur w) touche-t-il la zone ? Rend
+// l'intervalle visible le long de l'axe, ou null.
+function medianSegSpan(V, seg, ax, ay, bx, by, w) {
+  const horiz = seg.axis === 'h';
+  const span = medianSpan(V, horiz, horiz ? ay : ax);
+  return span[0] <= (horiz ? bx : by) + w && span[1] >= (horiz ? ax : ay) - w ? span : null;
+}
+// Le GAZON PixelLab en motif écrasé 2:1, ancré au monde (origine =
+// worldToScreen(0,0)) : une répétition couvre une tuile. Un seul par appel —
+// l'image, l'échelle et l'ancre ne dépendent pas du segment.
+function medianLawnPattern(ctx, art, T, z) {
+  const pat = ctx.createPattern(art.img, 'repeat');
+  if (pat) {
+    const s = (T * z) / (art.img.naturalWidth || 64);
+    const o = worldToScreen(0, 0);
+    if (pat.setTransform) pat.setTransform(new DOMMatrix([s, 0, 0, s * 0.5, o.x, o.y]));
+  }
+  return pat;
+}
+
 // Ton moyen de la texture `median-lawn` (mesuré à l'écran le 2026-10-02) : le
 // multiply qui la ramène au ton du kit se calcule contre lui.
 const LAWN_TEX_TONE = [121, 148, 82];
@@ -1034,7 +1114,7 @@ const LAWN_TEX_TONE = [121, 148, 82];
 // bordure de la matière de l'ère ou liseré lumineux (ères cosmiques), ombre de
 // bordure — ne se pose que dans les tranches que la ville borde ; ailleurs,
 // l'herbe nue.
-function drawKitMedians(ctx, tp, T, z, L, kit, wtp, ext) {
+function drawKitMedians(ctx, tp, T, z, L, kit, wtp, ext, view) {
   const M = kit.median;
   const band = (L.counts && L.counts.eraBand) | 0;
   const winter = CM.season === WINTER;
@@ -1043,11 +1123,15 @@ function drawKitMedians(ctx, tp, T, z, L, kit, wtp, ext) {
   const lawnArt = isoArt(winter ? 'median-lawn-winter' : 'median-lawn');
   const curb = M.curbGlow ? streetKitGlow(band) : M.curb;
   const pu = Math.max(1, Math.round(z));                 // un pixel d'art
+  let pat;                                               // motif du gazon : un par appel
   for (const seg of tp) {
     const horiz = seg.axis === 'h';
     let ax, ay, bx, by;
     if (horiz) { ax = seg.x0 * T - ext; ay = (seg.y + 1) * T; bx = (seg.x1 + 1) * T + ext; by = ay; }
     else { ax = (seg.x + 1) * T; ay = seg.y0 * T - ext; bx = ax; by = (seg.y1 + 1) * T + ext; }
+    // Hors de la zone cuite : rien à dessiner (cf. medianView).
+    const span = medianSegSpan(view, seg, ax, ay, bx, by, wtp);
+    if (!span) continue;
     const { runs, n } = medianUrbanRuns(L, seg);
     const s0 = horiz ? seg.x0 : seg.y0, c = horiz ? (seg.y + 1) * T : (seg.x + 1) * T;
     // Quadrilatère monde [u0, u1] le long de l'axe × [−v, +v] en travers, projeté.
@@ -1077,11 +1161,8 @@ function drawKitMedians(ctx, tp, T, z, L, kit, wtp, ext) {
     medianCapsulePath(ctx, ax, ay, bx, by, wtp);
     ctx.fillStyle = winter ? 'rgb(224,232,236)' : rgb(tone, 1);
     ctx.fill();
-    const pat = lawnArt.ready ? ctx.createPattern(lawnArt.img, 'repeat') : null;
+    if (pat === undefined) pat = lawnArt.ready ? medianLawnPattern(ctx, lawnArt, T, z) : null;
     if (pat) {
-      const sc = (T * z) / (lawnArt.img.naturalWidth || 64);
-      const o = worldToScreen(0, 0);
-      if (pat.setTransform) pat.setTransform(new DOMMatrix([sc, 0, 0, sc * 0.5, o.x, o.y]));
       ctx.fillStyle = pat;
       ctx.fill();
       if (!winter) {
@@ -1107,6 +1188,10 @@ function drawKitMedians(ctx, tp, T, z, L, kit, wtp, ext) {
       const gl = rgb(g.map((v) => Math.min(255, v + 18)), 1), gd = rgb(g.map((v) => v * 0.8), 1);
       const len = (horiz ? bx - ax : by - ay), u0 = horiz ? ax : ay;
       for (let t = 0; t <= len; t += T * 0.05) {
+        // Seulement là où la couture traverse la zone (span, marge comprise) ; le
+        // pas de t reste celui d'avant — la graine des gravillons en dépend.
+        if (u0 + t < span[0]) continue;
+        if (u0 + t > span[1]) break;
         for (let k = -4; k <= 4; k += 1) {
           const h = cmHash('tpg:' + segKey + ':' + Math.round(t * 10) + ':' + k);
           if ((h & 255) > (winter ? 40 : 120)) continue;

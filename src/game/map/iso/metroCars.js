@@ -28,6 +28,7 @@ import { CM } from '../layout.js';
 import { worldToScreen } from './projection.js';
 import { bakeBoat, surf, rampRGB, rgbOf, noReflect, asPart, dirIndex, dirTheta, projectLocal } from './boatBake.js';
 import { snapDev } from '../blitSnap.js';
+import { vehicleBakeOpen, vehicleBakeTimed } from './vehicleBakeBudget.js';
 
 // Gabarits (px monde ; 1 tuile = 32).
 export const CAR = {
@@ -300,11 +301,11 @@ function closeCut(S, K, c0, c1, h0, h1) {
 
 // ── Cache des cuissons ───────────────────────────────────────────────────────
 // Clé : bande | rôle | 1re classe | cap (32) | pente (1/20) | coupe (px) | nuit.
-// Budget par frame comme la flotte : au-delà, une voiture garde sa dernière image.
-export const METRO_CARS = { budget: 4 };
+// Budget par frame PARTAGÉ avec la flotte, en millisecondes (vehicleBakeBudget.js ;
+// audit du 05/10, PERF-14) : au-delà, une voiture garde sa dernière image — et sa
+// première attend la frame suivante.
 const CACHE_MAX = 700;
 const _cache = new Map();
-let _frame = -1, _spent = 0;
 function toCanvas(R) {
   if (typeof document === 'undefined') return null;
   const cv = document.createElement('canvas');
@@ -318,16 +319,16 @@ export function bakeMetroCar(spec, now = 0, force = false) {
     + (spec.cut ? spec.cut[0] + ':' + spec.cut[1] : '-') + '|' + (spec.night ? 1 : 0);
   let e = _cache.get(key);
   if (e) { _cache.delete(key); _cache.set(key, e); return e; }
-  if (now !== _frame) { _frame = now; _spent = 0; }
-  if (!force && _spent >= METRO_CARS.budget) return null;
-  _spent += 1;
-  const ctx = { band: spec.band, role: spec.role, first: spec.first, tp: spec.pq / 20, cut: spec.cut, night: spec.night };
-  const M = makeModel(ctx);
-  const theta = dirTheta(spec.dir);
-  const b = bakeBoat(M, theta, ctx);
-  const G = liveryFor(spec.band).kind === 'mono' ? CAR.mono : CAR.iron;
-  e = { cv: toCanvas(b.img), w: b.img.w, h: b.img.h, ox: b.img.ox, oy: b.img.oy,
-    off: G.Lh * Math.abs(ctx.tp) + G.hOff + 0.5, anchors: b.anchors };
+  if (!vehicleBakeOpen(now) && !force) return null;
+  e = vehicleBakeTimed(() => {
+    const ctx = { band: spec.band, role: spec.role, first: spec.first, tp: spec.pq / 20, cut: spec.cut, night: spec.night };
+    const M = makeModel(ctx);
+    const theta = dirTheta(spec.dir);
+    const b = bakeBoat(M, theta, ctx);
+    const G = liveryFor(spec.band).kind === 'mono' ? CAR.mono : CAR.iron;
+    return { cv: toCanvas(b.img), w: b.img.w, h: b.img.h, ox: b.img.ox, oy: b.img.oy,
+      off: G.Lh * Math.abs(ctx.tp) + G.hOff + 0.5, anchors: b.anchors };
+  });
   _cache.set(key, e);
   if (_cache.size > CACHE_MAX) _cache.delete(_cache.keys().next().value);
   return e;
@@ -336,9 +337,10 @@ export function metroCarsClear() { _cache.clear(); }
 
 // Pose une voiture : (wx, wy, wz) = milieu de la voiture au niveau du rail (px monde),
 // theta = cap monde. Rend { bx, by, dw, dh, img, lamps: [{x, y, tail}] } ou null.
-// `memo` (objet stable par voiture) garde la dernière image quand le budget est épuisé.
+// `memo` (objet stable par voiture) garde la dernière image quand le budget est épuisé ;
+// sans `memo`, la cuisson est forcée.
 export function drawMetroCar(ctx, spec, wx, wy, wz, now, memo = null) {
-  let e = bakeMetroCar(spec, now, !memo || !memo._bk);
+  let e = bakeMetroCar(spec, now, !memo);
   if (!e && memo) e = memo._bk;
   if (!e || !e.cv) return null;
   if (memo) memo._bk = e;

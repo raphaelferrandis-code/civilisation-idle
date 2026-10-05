@@ -223,6 +223,9 @@ const REMORQUEUR = {
 const DRAGUE = {
   id: 'drague', role: 'service', service: 'work', len: 46, beam: 17, speed: [0.5, 0.6],
   anim: { frames: 6, period: 2.4 },
+  // Rien dans son dessin ne lit la graine, et personne à bord : une cuisson pour toutes
+  // (boatKit.getBake ; boatPerf.test.js le vérifie).
+  seedless: true,
   bounds: [-28, 34, -16, 16, -6, 34], ink: '#1d1611',
   variant(seed) { return { hull: RUST, hullIn: ['#975631', '#784225', '#58301a', '#3b2011', '#241309'], rail: IRON, deck: ['#8f8a7c', '#77736a', '#5f5b53', '#48453e', '#33312d'], smoothDeck: true, seed }; },
   anchors() { return { smoke: [-12, 0, 4.5 + 16], stern: [-22, 0, 7] }; },

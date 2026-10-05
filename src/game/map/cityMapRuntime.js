@@ -38,6 +38,8 @@ import { setCityMapEngineTileMap, setResetCameraCenterHandler } from './cityMapB
 import { resolveShortcut, resolveCameraKey } from '../core/shortcuts.js';
 import { dayNightMode } from './dayNightMode.js';
 import { qualitySettings } from './qualityMode.js';
+import { mapFrameMs, noteMapInput, noteMapCamera } from './energySaver.js';
+import { CHUTE } from './iso/chuteState.js';
 import { mountFpsProbe } from './fpsProbe.js';
 import { ambianceK } from './ambianceMode.js';
 import { weatherState, weatherMode } from './weatherMode.js';
@@ -1154,6 +1156,16 @@ function bindCityMapInput(canvas, mapRoot, callbacks = {}) {
   // sinon une touche « restée enfoncée » ferait dériver la caméra sans fin.
   window.addEventListener("blur", () => heldKeys.clear(), { signal });
 
+  // ÉCONOMIE D'ÉNERGIE (energySaver.js, PERF-5) : toute entrée du joueur, n'importe
+  // où dans la fenêtre — survol de la boutique compris —, rend le cap normal à la
+  // frame suivante. Capture + passif : aucun écouteur ne peut l'avaler, aucun
+  // geste n'est retardé. La carte qui monte part « regardée ».
+  const markInput = () => noteMapInput(performance.now());
+  markInput();
+  for (const type of ["pointermove", "pointerdown", "keydown", "wheel", "focus"]) {
+    window.addEventListener(type, markInput, { capture: true, passive: true, signal });
+  }
+
   return () => controller.abort();
 }
 
@@ -1168,8 +1180,7 @@ let _cachedCityCountsPopKey = "";
 // RECOMPUTE DIFFÉRÉ PENDANT LES GESTES DE CAMÉRA. Sur la machine de jeu, un
 // recompute complet coûte 200-300 ms ; or sur une partie vivante il se
 // déclenche EN PLEIN dézoom/pan (achats des automates → palier de bloc ou
-// route, et la progression d'ère fait bouger eraFrac en continu — le throttle
-// de 1500 ms autorisait donc un gel toutes les 1,5 s pendant le geste,
+// route — le throttle de 1500 ms autorisait donc un gel toutes les 1,5 s pendant le geste,
 // mesuré p90 49,7 ms / max 214-306 ms chez Raph). Tant que la caméra bouge
 // (< LAYOUT_GESTURE_STILL_MS d'immobilité), tout recompute attend l'accalmie
 // — le bâtiment neuf apparaît une demi-seconde plus tard, à l'arrêt, au lieu
@@ -1185,6 +1196,25 @@ const LAYOUT_GESTURE_STILL_MS = 280;
 // explorations réelles marquent une pause avant 10 s ; au-delà on assume le
 // gel plutôt qu'une carte mensongère.
 const LAYOUT_DEFER_MAX_MS = 10000;
+// PALIERS DE BÂTIMENT GROUPÉS (PERF-18 de l'audit du 2026-10-05). Un palier
+// (engineGroupSig) passait le throttle comme une ère : entre 12 et ~232 exemplaires,
+// un palier tombe tous les ~6 achats d'un type, et une rafale d'automates enchaînait
+// les recalculs de 200-300 ms. Ils attendent désormais LAYOUT_GROUP_MIN_MS depuis le
+// recalcul précédent (un achat isolé reste immédiat) ; en attendant, les niveaux des
+// tuiles moteur suivent chaque achat, comme entre deux paliers. Ère, cycle et
+// merveille restent immédiats.
+const LAYOUT_GROUP_MIN_MS = 2500;
+let _lyLevelsSig = null;
+// La décision du throttle, pure (layoutThrottle.test.js). `prev` : signatures du plan
+// affiché { core, group, crisis, ilot } (null sans plan) ; `next` : celles de l'état.
+// La bande de crise ne compte comme « cœur » que hors îlots : en mode îlots elle ne
+// fait que replanter des arbres, elle attend son tour comme une route.
+export function layoutRecomputeWait(prev, next, sinceMs) {
+  if (!prev) return { wait: false, core: true, group: true };
+  const core = next.core !== prev.core || (!prev.ilot && next.crisis !== prev.crisis);
+  const group = next.group !== prev.group;
+  return { wait: !core && sinceMs < (group ? LAYOUT_GROUP_MIN_MS : 1500), core, group };
+}
 let _lyCamX = NaN, _lyCamY = NaN, _lyCamZ = NaN;
 let _lyCamMoveAt = -1e9;
 let _lyDeferredAt = 0;
@@ -1207,6 +1237,7 @@ function cityMapEnsureLayout(now, deps) {
   } catch (e) {
     CM.layoutFailAt = now;
     CM.layoutSig = null; CM.layoutStructSig = null; CM.layoutCoreSig = null;
+    CM.layoutGroupSig = null; CM.layoutCrisisBand = null;
     reportMapError('plan de la ville', e);
   }
 }
@@ -1251,26 +1282,42 @@ function cityMapEnsureLayoutInner(now, deps = {}) {
   // achat change la signature → recompute. Dans `sig` seulement (pas `coreSig`) → mis à
   // jour sur le chemin throttlé (≤1/1500ms), sûr même si une automation en achète en rafale.
   const roadCount = Math.floor((state.buildings && state.buildings.roads) || 0);
-  const sig = cc.eraIndex + '|' + cc.eraFrac.toFixed(2) + '|' + (state.cycles || 0) + '|' + crisisBand + '|' + wonderSig + '|' + roadCount + '|' + engineSig;
+  // (Plus d'eraFrac dans les signatures : eraFrac = eraIndex/34, constant dans une
+  // ère — il doublait l'ère sans jamais rien signaler de plus.)
+  const sig = cc.eraIndex + '|' + (state.cycles || 0) + '|' + crisisBand + '|' + wonderSig + '|' + roadCount + '|' + engineSig;
   if (sig === CM.layoutSig && CM.layout) return;
   // « 1 achat = 1 bâtiment » SANS le gel de ~240 ms : quand SEULS les comptes changent
   // (structure des blocs identique — cf. cmEngineGroupSig, stable entre paliers), on NE
   // recalcule PAS le layout (placement + connexion routière). On rafraîchit juste t.level
   // sur les tuiles moteur → la NAPPE (drawEngineSprawl) grandit d'UNE maison par achat,
   // gratuitement. Débrayable : window.__stableSkip = false.
-  const structSig = cc.eraIndex + '|' + cc.eraFrac.toFixed(2) + '|' + (state.cycles || 0) + '|' + crisisBand + '|' + wonderSig + '|' + roadCount + '|' + engineGroupSig;
+  const structSig = cc.eraIndex + '|' + (state.cycles || 0) + '|' + crisisBand + '|' + wonderSig + '|' + roadCount + '|' + engineGroupSig;
   const skipStable = typeof window === 'undefined' || window.__stableSkip !== false;
-  if (skipStable && CM.layout && structSig === CM.layoutStructSig) {
+  const refreshLevels = () => {
     const b = state.buildings || {};
     for (const tt of CM.layout.tiles) if (tt.type === 'engine' && tt.buildingId) tt.level = Math.floor(b[tt.buildingId] || 0);
+    _lyLevelsSig = engineSig;
+  };
+  if (skipStable && CM.layout && structSig === CM.layoutStructSig) {
+    refreshLevels();
     CM.layoutSig = sig;
     return;
   }
   // Changement STRUCTUREL (nouveau bloc / ère / merveille / route / prestige) → recompute
-  // complet. Throttle : les changements de eraFrac SEULS sont limités à 1 recompute/1500ms.
-  const coreSig = cc.eraIndex + '|' + (state.cycles || 0) + '|' + crisisBand + '|' + wonderSig + '|' + engineGroupSig;
-  const coreChanged = coreSig !== CM.layoutCoreSig;
-  if (CM.layout && !coreChanged && (now - CM.layoutRecomputeAt) < 1500) return;
+  // complet. IMMÉDIAT pour l'ère, le cycle, une merveille — et la bande de crise hors
+  // îlots, où son chaos rebat le plan. Groupés (PERF-18) : routes ≤ 1/1500 ms, bande de
+  // crise en mode îlots (elle n'y replante que des arbres) idem, paliers de bâtiment
+  // ≤ 1/LAYOUT_GROUP_MIN_MS. Le plan final est le même, il arrive au plus tard au
+  // recalcul suivant.
+  const coreSig = cc.eraIndex + '|' + (state.cycles || 0) + '|' + wonderSig;
+  const th = layoutRecomputeWait(
+    CM.layout ? { core: CM.layoutCoreSig, group: CM.layoutGroupSig, crisis: CM.layoutCrisisBand, ilot: !!CM.layout.ilotAir } : null,
+    { core: coreSig, group: engineGroupSig, crisis: crisisBand }, now - CM.layoutRecomputeAt);
+  const coreChanged = th.core;
+  if (th.wait) {
+    if (th.group && skipStable && engineSig !== _lyLevelsSig) refreshLevels();   // la nappe suit chaque achat
+    return;
+  }
   // Geste de caméra en cours → recompute différé à l'accalmie (cf. bloc de
   // constantes plus haut). Jamais pendant une capture (déterminisme du harnais).
   if (typeof window === 'undefined' || window.__layoutDefer !== false) {
@@ -1290,14 +1337,17 @@ function cityMapEnsureLayoutInner(now, deps = {}) {
     _lyDeferredAt = 0;
   }
   // Trace (solTrace.js) : QUEL segment de la signature a déclenché ce recompute
-  // — segments de `sig` : 0 ère, 1 eraFrac (2 déc.), 2 cycles, 3 crise,
-  // 4 merveilles, 5 routes, 6 moteurs — et combien il a coûté, phase par phase
+  // — segments de `sig` : 0 ère, 1 cycles, 2 crise, 3 merveilles, 4 routes,
+  // 5 moteurs — et combien il a coûté, phase par phase
   // (`__layoutProfile`). Mesuré chez Raph : 312-563 ms d'un coup, en plein geste.
   const trSig = solTrace.on ? { prev: CM.layoutSig, core: coreChanged, t0: performance.now() } : null;
   CM.layoutSig = sig;
   CM.layoutStructSig = structSig;
   CM.layoutCoreSig = coreSig;
+  CM.layoutGroupSig = engineGroupSig;
+  CM.layoutCrisisBand = crisisBand;
   CM.layoutRecomputeAt = now;
+  _lyLevelsSig = null;   // plan neuf : la nappe en attente repart de ses niveaux à lui
   const L = computeCityLayout(state);
   if (trSig) {
     const lp = globalThis.__layoutProfileLast;
@@ -2105,7 +2155,9 @@ function initCityMap(canvas, options = {}) {
   const cityMapRuntimeDeps = { getVehicleDensity, chooseRoadVehicleType, vehSkinFor };
 
   // Cap de frame : cmFrameMs (variable de module) — piloté par le préréglage
-  // Qualité (30 fps par défaut/allégé, 60 fps en palier haut). Lu à chaque frame.
+  // Qualité (30 fps par défaut/allégé, 60 fps en palier haut). Lu à chaque frame,
+  // relevé par l'économie d'énergie (fenêtre sans focus, joueur absent :
+  // energySaver.js) sauf pendant la chute.
   let last = performance.now();
   // ── Cycle jour/nuit ── phase ancrée sur l'horloge murale (Date.now) : la
   // position dans le cycle survit à l'actualisation et aux reloads dev, au lieu
@@ -2163,7 +2215,9 @@ function initCityMap(canvas, options = {}) {
     // de la falaise de l'eau l'a exposé. Avec la tolérance : cap 60 → chaque
     // vsync passe (60 réguliers) ; cap 30 → 16,7 ms reste refusé, 33,3 accepté
     // (30 réguliers, inchangé). La capture, elle, court-circuite le throttle.
-    if (now - last < cmFrameMs - 8 && !CM.capture) return;
+    // Économie d'énergie (energySaver.js, PERF-5) : le cap est RELEVÉ sans focus
+    // ou joueur absent, jamais abaissé ; même tolérance (12 i/s = 5 vsyncs à 60 Hz).
+    if (now - last < mapFrameMs(cmFrameMs, now, !!CHUTE.act) - 8 && !CM.capture) return;
     const dt = Math.min(1 / 30, (now - last) / 1000); last = now;
     // Capture déterministe : rendre MÊME si la vue est « inactive » (modal de crise,
     // autre onglet) — sinon la capture renvoie un canvas périmé (gotcha harnais).
@@ -2180,6 +2234,7 @@ function initCityMap(canvas, options = {}) {
       cmApplyHeldCamKeys(dt);
       cmCameraGlide(dt);
       cmClampCamera();
+      noteMapCamera(CM.cam, now);   // « caméra posée » de l'économie d'énergie
       citizenHoverTick(now);   // passant sous la souris, caméra posée pour cette frame
       cmCheckWonders(now);
       fp('camera-merveilles');
@@ -2415,7 +2470,10 @@ function initCityMap(canvas, options = {}) {
   // Premiere mise en page immediate puis boucle.
   if (CM.cw === 0) resize();
   // Hook de diagnostic : force une frame (utile quand rAF est gele en arriere-plan).
-  CM.forceFrame = () => { if (!CM.ctx || !CM.canvas) return false; resize(); frame(performance.now()); return true; };
+  // Une frame forcée vaut une entrée (energySaver.js) : la pane cachée n'a pas le
+  // focus, l'économie d'énergie y refusait toute frame à moins de 75 ms de la
+  // précédente — les boucles de harnais (+33 ms par appel) en perdaient deux sur trois.
+  CM.forceFrame = () => { if (!CM.ctx || !CM.canvas) return false; resize(); noteMapInput(performance.now()); frame(performance.now()); return true; };
   // Capture DÉTERMINISTE d'une frame (vérif visuelle) : court-circuite le throttle,
   // force le plein jour (pas de voile nuit qui fausse les pixels) et une santé fixe,
   // fige le temps d'animation. N'altère PAS le rendu normal (tout est gardé par le

@@ -10,12 +10,15 @@
 // C'est aussi l'API promise à la session « port » (son indirection
 // `drawMooredHull`) : `drawBoat` et `boatFootprint`.
 //
-// BUDGET DE CUISSON : une cuisson coûte ~10 ms. Une flotte qui vire peut en
-// demander plusieurs dans la même frame ; au-delà du budget, un bateau garde sa
-// dernière image (un cap de retard pendant une frame ne se voit pas, un hoquet
-// de 50 ms si).
+// BUDGET DE CUISSON : une cuisson coûte 10 à 38 ms. Une flotte qui vire peut en
+// demander plusieurs dans la même frame ; au-delà du budget EN TEMPS, partagé avec le
+// métro (vehicleBakeBudget.js), un bateau garde sa dernière image (un cap de retard
+// pendant une frame ne se voit pas, un hoquet de 50 ms si). Sa PREMIÈRE image passe
+// aussi par le budget (audit du 05/10, PERF-14) : un bateau qui naît n'apparaît
+// qu'une fois cuit, un bateau à quai garde celui de l'ère d'avant le temps de sa
+// recuisson.
 //
-// Molette : __boatKit({ on, budget }) — on:false rend les sprites PixelLab.
+// Molette : __boatKit({ on, budgetMs }) — on:false rend les sprites PixelLab.
 
 import { CM } from '../layout.js';
 import { worldToScreen } from './projection.js';
@@ -28,15 +31,22 @@ import { drawSunShadow } from './isoSunShadow.js';
 import { snapDev } from '../blitSnap.js';
 import { agentFrameIso, agentIdleFrameIso, agentPoseFrameIso } from '../agents.js';
 import { crewSpec, crewDir, isFerryPassenger } from './boatCrew.js';
+import { VEHICLE_BAKE, vehicleBakeOpen, vehicleBakeTimed } from './vehicleBakeBudget.js';
 
-export const BOATKIT = { on: true, budget: 3 };
+export const BOATKIT = { on: true };
 if (typeof window !== 'undefined') {
-  window.__boatKit = (o) => { if (o) Object.assign(BOATKIT, o); return { ...BOATKIT, cached: _cache.size }; };
+  window.__boatKit = (o) => {
+    if (o) {
+      const { budgetMs, ...rest } = o;
+      Object.assign(BOATKIT, rest);
+      if (budgetMs != null) VEHICLE_BAKE.ms = budgetMs;
+    }
+    return { ...BOATKIT, budgetMs: VEHICLE_BAKE.ms, cached: _cache.size };
+  };
 }
 
 const CACHE_MAX = 900;
 const _cache = new Map();
-let _frame = -1, _spent = 0;
 
 // Raster RGBA → canvas CARRÉ (côté = la plus grande dimension), image calée en
 // haut à gauche. Carré parce que le pont redessine la coque d'un bateau sorti de
@@ -103,26 +113,32 @@ function animPose(M, state, now, salt, empty = false) {
   return { f, k: (f / A.frames) * Math.PI * 2 };
 }
 
-// Cuisson en cache. `force` passe outre le budget (première image d'un bateau).
-function getBake(spec, dir, state, pose, force, now, empty = false) {
-  const key = spec.id + '|' + spec.seed + '|' + dir + '|' + state + '|' + pose.f + (empty ? '|v' : '');
+// Cuisson en cache. `force` passe outre le budget (un appelant sans mémoire : les
+// embarcadères, immobiles, une cuisson pour la partie) ; `noBake` : le cache seul.
+// Un modèle `seedless` (son dessin ne lit pas la graine, et il n'a pas d'équipage :
+// drague, sentinelles, plaisance cosmique) partage ses cuissons entre tous les
+// bateaux — la graine dans la clé en faisait une par amarre, au pixel près identiques.
+function getBake(spec, dir, state, pose, force, now, empty = false, noBake = false) {
+  const M = BOAT_MODELS[spec.id];
+  const key = spec.id + '|' + (M.seedless ? 0 : spec.seed) + '|' + dir + '|' + state + '|' + pose.f + (empty ? '|v' : '');
   let e = _cache.get(key);
   if (e) {
     _cache.delete(key); _cache.set(key, e);      // LRU : remis en queue
     return e;
   }
-  // Le budget se compte PAR FRAME : `now` est le même pour tous les bateaux d'une frame.
-  if (now !== _frame) { _frame = now; _spent = 0; }
-  if (!force && _spent >= BOATKIT.budget) return null;
-  _spent += 1;
-  const M = BOAT_MODELS[spec.id];
-  const b = bakeBoat(M, dirTheta(dir), { variant: M.variant(spec.seed), state, k: pose.k, empty });
-  e = {
-    cv: toCanvas(b.img), w: b.img.w, h: b.img.h, ox: b.img.ox, oy: b.img.oy,
-    rcv: toCanvas(b.refl), rw: b.refl.w, rh: b.refl.h, rox: b.refl.ox, roy: b.refl.oy,
-    anchors: b.anchors,
-    crew: b.crew, mcv: crewMaskCanvas(b.crew),
-  };
+  if (noBake) return null;
+  // Le budget se compte PAR FRAME (`now` : le même pour tous les véhicules d'une frame),
+  // en millisecondes ; une cuisson forcée y est portée aussi.
+  if (!vehicleBakeOpen(now) && !force) return null;
+  e = vehicleBakeTimed(() => {
+    const b = bakeBoat(M, dirTheta(dir), { variant: M.variant(spec.seed), state, k: pose.k, empty });
+    return {
+      cv: toCanvas(b.img), w: b.img.w, h: b.img.h, ox: b.img.ox, oy: b.img.oy,
+      rcv: toCanvas(b.refl), rw: b.refl.w, rh: b.refl.h, rox: b.refl.ox, roy: b.refl.oy,
+      anchors: b.anchors,
+      crew: b.crew, mcv: crewMaskCanvas(b.crew),
+    };
+  });
   _cache.set(key, e);
   if (_cache.size > CACHE_MAX) _cache.delete(_cache.keys().next().value);
   return e;
@@ -209,7 +225,8 @@ function kitState(spec, state) {
  * Pose un bateau du kit. (x, y) = point de flottaison à l'écran (origine du
  * repère bateau), theta = cap MONDE (rad), z = zoom. `memo` (le bateau de la
  * flotte, ou n'importe quel objet stable) garde la dernière image quand le budget
- * de cuisson de la frame est épuisé.
+ * de cuisson de la frame est épuisé — et, sans image encore, rien n'est posé (null)
+ * jusqu'à la cuisson. Sans `memo`, la cuisson est forcée.
  * Rend { img, bx, by, dw, dh, anchors (écran) } ou null.
  */
 export function drawBoat(ctx, spec, x, y, theta, z, now, opts = {}) {
@@ -219,7 +236,8 @@ export function drawBoat(ctx, spec, x, y, theta, z, now, opts = {}) {
   const pose = animPose(M, state, now, spec.seed, !!opts.empty);
   const dir = dirIndex(theta);
   const memo = opts.memo || null;
-  let e = getBake(spec, dir, state, pose, !memo || !memo._kitBake, now, !!opts.empty);
+  // Un bateau encore invisible (fondu d'entrée à 0) ne dépense pas le budget.
+  let e = getBake(spec, dir, state, pose, !memo, now, !!opts.empty, !!memo && !(ctx.globalAlpha > 0));
   if (!e && memo) e = memo._kitBake;
   if (!e || !e.cv) return null;
   if (memo) memo._kitBake = e;
@@ -317,7 +335,10 @@ export function drawMooredKit(ctx, { role, heading, x, y, z = 0, now = 0, bob = 
   // Amarré : VIDE (pas de pêcheur assis dans sa barque au port) et voiles ferlées.
   // Un memo PAR AMARRE : sans lui, chaque cuisson était forcée (hors budget) ; partagé,
   // deux barques se prêteraient leur image quand le budget de la frame est épuisé.
-  const mk = role + '|' + spec.id + '|' + spec.seed + '|' + Math.round(x * 10) + '|' + Math.round(y * 10);
+  // Sans le modèle dans sa clé (audit du 05/10, PERF-14) : au changement d'ère, l'amarre
+  // garde le bateau de l'ère d'avant le temps de cuire le sien — toutes les amarres
+  // cuisaient de force dans la même frame (plusieurs centaines de ms).
+  const mk = role + '|' + spec.seed + '|' + Math.round(x * 10) + '|' + Math.round(y * 10);
   let memo = _mooredMemo.get(mk);
   if (!memo) {
     if (_mooredMemo.size >= MOORED_MEMO_MAX) _mooredMemo.clear();
@@ -328,7 +349,9 @@ export function drawMooredKit(ctx, { role, heading, x, y, z = 0, now = 0, bob = 
   // Un vapeur à quai garde ses feux allumés : sa cheminée fume, droit (la flotte
   // le fait déjà pour les siens, isoPort.drawKitShip ; ceux des ports ne fumaient pas).
   if (r && r.anchors && r.anchors.smoke) drawSmoke(ctx, r.anchors.smoke, now, zoom, spec.seed | 0, heading, false);
-  return !!r;
+  // L'ère a son modèle : true même si sa première image attend le budget (rien de posé
+  // cette frame) — false ferait poser le sprite de repli de l'appelant.
+  return true;
 }
 const _mooredMemo = new Map();
 const MOORED_MEMO_MAX = 512;

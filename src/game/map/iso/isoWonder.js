@@ -39,6 +39,8 @@ import { blitIsoTileKey, ISO_TILE_KEYS } from './isoGroundTiles.js';
 // Les arbres de l'îlot sont ceux de la ville (sprites, teinte de saison).
 import { isoArt } from './isoArt.js';
 import { seasonTree } from './isoGroundDetail.js';
+import { bakeBudgetOk, bakeTimed } from './bakeBudget.js';
+import { TERRAIN } from './isoTerrain.js';
 
 // Une recette par merveille (wonderBake.js).
 const RECIPES = {
@@ -87,10 +89,11 @@ function inkOf(R) {
 const _bakes = new Map();
 // L'hiver se cuit à part : la neige tient sur les dessus et les toits au soleil.
 const winterNow = () => CM.season === WINTER;
+const bakeKey = (id, tier, band, B, Hmax, opts) => id + ':' + tier + ':' + band + ':' + B.toFixed(2) + ':' + Hmax.toFixed(1) + (winterNow() ? ':w' : '') + (opts.lift ? ':L' + opts.lift : '');
 function bakeFor(id, tier, band, B, Hmax, opts = {}) {
   if (typeof document === 'undefined') return null;
   const wtr = winterNow();
-  const key = id + ':' + tier + ':' + band + ':' + B.toFixed(2) + ':' + Hmax.toFixed(1) + (wtr ? ':w' : '') + (opts.lift ? ':L' + opts.lift : '');
+  const key = bakeKey(id, tier, band, B, Hmax, opts);
   let e = _bakes.get(key);
   if (e) return e;
   const out = RECIPES[id](wonderKitForBand(band, wtr), tier, B, Hmax, opts);
@@ -124,7 +127,9 @@ function coreFrame(e, f) {
 }
 
 // ── Modèle d'une merveille posée ─────────────────────────────────────────────
-function modelOf(w, wi) {
+// La GÉOMÉTRIE seule (rang, bande, emplacement, socle, hauteur, îlot) : de quoi
+// poser le lieu au sol et décider du cull, SANS cuire le monument (PERF-9).
+function geomOf(w, wi) {
   const L = CM.layout;
   if (!L) return null;
   const T = CM.TILE;
@@ -137,10 +142,94 @@ function modelOf(w, wi) {
   // — pas forcément sur le slot lui-même.
   const il = w.id === 'era_mega' && L.river && L.river.islands && L.river.islands[0];
   const isle = il ? isleModel(tier, il) : null;
-  const bk = bakeFor(w.id, tier, band, B, Hmax, isle ? { lift: isle.top } : {});
-  if (!bk) return null;
   const cx = il ? il.x * T : (slot.gx + 0.5) * T, cy = il ? il.y * T : (slot.gy + 0.5) * T;
-  return { w, wi, tier, band, B, half: B / 2, slot, cx, cy, bk, il, isle };
+  return { w, wi, tier, band, B, Hmax, half: B / 2, slot, cx, cy, il, isle };
+}
+// Le modèle complet : la géométrie et la cuisson du monument (variante exacte).
+function modelOf(w, wi) {
+  const m = geomOf(w, wi);
+  if (!m) return null;
+  m.bk = bakeFor(w.id, m.tier, m.band, m.B, m.Hmax, m.isle ? { lift: m.isle.top } : {});
+  return m.bk ? m : null;
+}
+
+// ── Cuissons à budget (audit 2026-10-05, PERF-9) ─────────────────────────────
+// Au passage d'une bande ou au premier hiver, les six monuments, l'îlot de
+// l'Aiguille et les lieux cuisaient dans la MÊME image, même hors champ (0,2 à 0,4 s
+// mesurés en mégapole). Dans la passe vivante, une variante neuve ne cuit plus que
+// dans le budget de l'image (iso/bakeBudget.js) ; au-delà, la merveille garde la
+// variante qu'elle montrait (bande, saison ou rang d'avant) une image de plus. Une
+// merveille jamais montrée cuit tout de suite. Au repos : le même rendu, au pixel.
+// ⚠ Le SOL (drawWonderPlaces) cuit toujours la variante exacte : il est mis en cache
+// par ses propres fournées, une ancienne variante y resterait figée.
+const _shown = new Map();         // id → dernière cuisson du monument posée
+const _isleShown = { e: null, shape: '' };
+const _placeShown = new Map();    // id → dernier lieu posé
+function bakeLive(m) {
+  const opts = m.isle ? { lift: m.isle.top } : {};
+  if (!_bakes.has(bakeKey(m.w.id, m.tier, m.band, m.B, m.Hmax, opts))) {
+    const old = _shown.get(m.w.id);
+    if (old && !bakeBudgetOk()) return old;
+  }
+  const e = bakeTimed(() => bakeFor(m.w.id, m.tier, m.band, m.B, m.Hmax, opts));
+  if (e) _shown.set(m.w.id, e);
+  return e;
+}
+// L'îlot d'avant ne sert de repli que s'il a la MÊME forme (seuls la bande, la
+// saison ou le rang ont changé) : il est posé au centre de l'île, qui peut bouger.
+const isleShape = (il) => il.rx + ':' + il.ry + ':' + il.tx.toFixed(3) + ':' + il.ty.toFixed(3);
+function isleLive(m) {
+  if (!m.il) return null;
+  const shape = isleShape(m.il);
+  if (!_isles.has(isleKey(m)) && _isleShown.e && _isleShown.shape === shape && !bakeBudgetOk()) return _isleShown.e;
+  const e = bakeTimed(() => isleFor(m));
+  if (e) { _isleShown.e = e; _isleShown.shape = shape; }
+  return e;
+}
+function placeLive(m) {
+  if (m.w.id === 'era_mega') return null;
+  const old = _placeShown.get(m.w.id);
+  if (old && !bakeBudgetOk()) {
+    // Variante déjà cuite (par le sol, souvent) : elle sert ; sinon l'ancienne attend.
+    const e = _places.get(placeKeyOf(m));
+    if (e) _placeShown.set(m.w.id, e);
+    return e || old;
+  }
+  const e = bakeTimed(() => placeFor(m));
+  if (e) _placeShown.set(m.w.id, e);
+  return e;
+}
+
+// ── Cull SANS cuisson ────────────────────────────────────────────────────────
+// Une merveille hors champ ne cuit pas. La boîte est un MAJORANT de celle du cull
+// exact de pushIsoWonderItems (boîte d'encre du raster + marges du lieu), tirée du
+// socle B, de la hauteur Hmax, de l'îlot et de l'emprise r — rapports mesurés sur
+// toutes les recettes, rangs, bandes et saisons (gardés par wonderCullBound.test) :
+//   · encre en X dans ±2r, son bord avant à moins de r (contrat de l'emprise) ;
+//   · son sommet à moins de 0,91 × (Hmax + B/2 + îlot) au-dessus du centre → 1,5 × ;
+//   · raster de l'îlot : ±1,17 × 2R en X, 1,1 × (R + 100) au-dessus, 1,2 × R devant
+//     (R = le grand rayon de l'île) → 3R, 1,5 × (R + 100), 2R.
+// Majorant faux = merveille qui disparaît au bord de l'écran : les marges sont larges.
+export function wonderCullBound(m) {
+  const T = CM.TILE, ext = cmWonderExtent(m.w.id, m.tier).halfW;
+  const r = (ext + 0.5) * T, padP = (ext + 1) * T;
+  const top = 1.5 * (m.Hmax + m.B / 2 + (m.isle ? m.isle.top : 0)) + T;
+  const padX = Math.max(0.6 * (top + r), padP);
+  const box = { x0: -2 * r - padX, x1: 2 * r + padX, y0: -top, y1: r + padP };
+  let isle = null;
+  if (m.il) {
+    const R = Math.max(m.il.rx, m.il.ry) * T;
+    isle = { x0: -3 * R, x1: 3 * R, y0: -1.5 * (R + 100) - T, y1: 2 * R };
+  }
+  return { box, isle };
+}
+function offscreenBound(m) {
+  // Relief allumé : la projection n'est plus affine, le majorant ne vaut plus — le
+  // cull exact (après cuisson) reste seul juge, comme avant.
+  if (TERRAIN.amp) return false;
+  const z = CM.cam.zoom, c = worldToScreen(m.cx, m.cy), b = wonderCullBound(m);
+  const off = (q) => c.x + q.x0 * z > CM.cw || c.x + q.x1 * z < 0 || c.y + q.y0 * z > CM.ch || c.y + q.y1 * z < 0;
+  return off(b.box) && (!b.isle || off(b.isle));
 }
 
 // ── L'îlot de l'Aiguille (wonderIsle.js) ─────────────────────────────────────
@@ -152,10 +241,11 @@ function foamCanvas(F) {
   return { F, cv, g, img, u32: new Uint32Array(img.data.buffer), tick: -1, ox: F.ox, oy: F.oy, w: F.w, h: F.h };
 }
 const _isles = new Map();
+const isleKey = (m) => m.tier + ':' + m.band + ':' + (winterNow() ? 'w' : '') + ':' + isleShape(m.il);
 function isleFor(m) {
   if (!m.il || typeof document === 'undefined') return null;
   const wtr = winterNow(), il = m.il;
-  const key = m.tier + ':' + m.band + ':' + (wtr ? 'w' : '') + ':' + il.rx + ':' + il.ry + ':' + il.tx.toFixed(3) + ':' + il.ty.toFixed(3);
+  const key = isleKey(m);
   let e = _isles.get(key);
   if (e) return e;
   const K = wonderKitForBand(m.band, wtr);
@@ -208,8 +298,8 @@ function placeCells(m) {
   return pr != null ? pr : Math.ceil(m.B / CM.TILE / 2 + 1.5);
 }
 const _places = new Map();
-function placeFor(m) {
-  if (m.w.id === 'era_mega' || typeof document === 'undefined') return null;
+// Ce qui décide du lieu (taille, jardin, portes, saison) et sa clé de cuisson.
+function placeSpec(m) {
   const P = placeCells(m), half = (P + 0.5) * CM.TILE;
   const wtr = winterNow();
   // Là où le sol a pavé TOUTE l'emprise (hors structure de ville, et l'aperçu
@@ -235,6 +325,12 @@ function placeFor(m) {
   const garden0 = ext > P;
   const gates = roadGatesAt(garden0 ? ext : P);
   const key = m.w.id + ':' + m.tier + ':' + m.band + ':' + P + ':' + ext + (wtr ? ':w' : '') + ':' + JSON.stringify(gates);
+  return { P, half, wtr, ext, garden0, gates, key };
+}
+const placeKeyOf = (m) => (m.w.id === 'era_mega' ? null : placeSpec(m).key);
+function placeFor(m) {
+  if (m.w.id === 'era_mega' || typeof document === 'undefined') return null;
+  const { P, half, wtr, ext, garden0, gates, key } = placeSpec(m);
   let e = _places.get(key);
   if (e) return e;
   const K = wonderKitForBand(m.band, wtr);
@@ -273,8 +369,18 @@ function drawWonderPlaces(ctx, cells, hw, hh) {
   for (let wi = 0; wi < CM_WONDERS.length; wi += 1) {
     const w = CM_WONDERS[wi];
     if (!wonderHasRecipe(w.id) || !(active.has(w.id) || (pv && pv.id === w.id))) continue;
-    const m = modelOf(w, wi);
-    const pl = m && placeFor(m);
+    // La géométrie suffit au lieu : le monument n'a rien à cuire ici (PERF-9). Et une
+    // fournée qui ne touche ni le lieu ni son jardin (rayon ≤ max(P, emprise)) n'a
+    // rien à en peindre : on ne le cuit pas pour elle.
+    const m = geomOf(w, wi);
+    if (!m || m.w.id === 'era_mega') continue;
+    const reach = Math.max(placeCells(m), cmWonderExtent(m.w.id, m.tier).halfW);
+    let touches = false;
+    for (let i = 0; i < cells.length && !touches; i += 4) {
+      touches = Math.max(Math.abs(cells[i] - m.slot.gx), Math.abs(cells[i + 1] - m.slot.gy)) <= reach;
+    }
+    if (!touches) continue;
+    const pl = bakeTimed(() => placeFor(m));
     if (!pl) continue;
     // Le lieu (cellules à ≤ P de l'emplacement), puis le jardin (au-delà).
     const layer = (G, cv, inRing) => {
@@ -328,8 +434,12 @@ function riseOf(w, now) {
 
 // ── Tri peintre ──────────────────────────────────────────────────────────────
 export function pushIsoWonderItems(items, w, wi) {
-  const m = modelOf(w, wi);
+  const m = geomOf(w, wi);
   if (!m) return;
+  // Hors champ à coup sûr (majorant, cf. wonderCullBound) : rien à cuire ni à poser.
+  if (offscreenBound(m)) return;
+  m.bk = bakeLive(m);
+  if (!m.bk) return;
   const R = m.bk.R, S = wonderTune.slice;
   // Cull : la boîte d'encre à l'écran, avec une marge pour l'ombre portée.
   const o = originScreen(m), z = CM.cam.zoom, bx = m.bk.box;
@@ -341,7 +451,7 @@ export function pushIsoWonderItems(items, w, wi) {
   // et CM.wonderIsle retombait (les buissons remplaçaient le quai).
   const padP = (cmWonderExtent(m.w.id, m.tier).halfW + 1) * CM.TILE * z, padX = Math.max(sh * 0.6, padP);
   if (sx0 > CM.cw + padX || sx0 + sw + padX < 0 || sy0 > CM.ch || sy0 + sh + padP < 0) {
-    const isl0 = isleFor(m), B0 = isl0 && isl0.R;
+    const isl0 = isleLive(m), B0 = isl0 && isl0.R;
     const q0 = B0 && worldToScreen(m.cx + B0.oy + B0.ox / 2, m.cy + B0.oy - B0.ox / 2);
     if (!q0 || q0.x > CM.cw || q0.x + B0.w * z < 0 || q0.y > CM.ch || q0.y + B0.h * z < 0) return;
   }
@@ -349,7 +459,7 @@ export function pushIsoWonderItems(items, w, wi) {
   // l'ombre de l'Aiguille), puis tours, arbres et feux à leur pied ; les bateaux qui
   // passent DEVANT l'île sont redessinés après elle (la flotte est peinte avant la
   // passe vivante, l'île la recouvrirait).
-  const isl = isleFor(m);
+  const isl = isleLive(m);
   m.isl = isl;
   if (isl) {
     CM.wonderIsle = true;
@@ -386,7 +496,7 @@ export function pushIsoWonderItems(items, w, wi) {
   // Le cœur animé de l'Œil : après la tranche centrale (rien du monument devant lui).
   if (m.bk.core) items.push({ d: frontDepth(m, 0) + 0.3, kind: 'wonderSeg', w, wi, m, part: 'core' });
   // Le lieu : décor en relief et objets posés, chacun à son pied.
-  const pl = placeFor(m);
+  const pl = placeLive(m);
   m.pl = pl;
   if (pl) {
     for (let di = 0; di < pl.decor.length; di += 1) {

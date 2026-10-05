@@ -11,9 +11,10 @@
 // par frame. ⚠ Remplir les polygones à chaque frame coûtait ~100 fillRect par
 // véhicule — 15 000 par frame dans un ciel de la bande 9, rédhibitoire en rendu
 // logiciel (cf. la fiche « Chrome de Raph : GPU désactivé »).
+import { CM } from '../layout.js';
 import { ISO_X, ISO_Y } from './projection.js';
 import { lightCtx } from '../lightLayer.js';
-import { vieHalo } from './isoVie.js';
+import { vieHalo, VIE_GRAIN } from './isoVie.js';
 
 // Remplit un polygone CONVEXE (points en px DEVICE) sur une grille de pas `kd`.
 // Une rangée d'art est peinte si son centre est dans le polygone ; ses bords sont
@@ -65,9 +66,13 @@ export function boxShapes(x0, y0, x1, y1, z0, z1, cT, cL, cR, out) {
   return s;
 }
 
+// Le pixel d'art (px device) au zoom z : celui de vieK(), mais au zoom de la CUISSON —
+// une cuisson faite au zoom cible pendant un glissement n'a pas le grain du zoom courant.
+export function artKdAt(z, dpr) { return Math.max(1, Math.round(VIE_GRAIN * z * dpr)); }
+
 // Cuit une liste de formes à l'échelle (z, dpr) avec un pixel d'art de `kd` px device.
-// Rend { cv, ox, oy, w, h } : (ox, oy) = position, dans l'image, de l'ORIGINE de
-// l'objet (px device). null hors DOM (tests).
+// Rend { cv, ox, oy, w, h, z } : (ox, oy) = position, dans l'image, de l'ORIGINE de
+// l'objet (px device) ; z = le zoom de la cuisson. null hors DOM (tests).
 export function bakeShapes(shapes, z, dpr, kd) {
   if (typeof document === 'undefined') return null;
   const P = [];
@@ -95,18 +100,26 @@ export function bakeShapes(shapes, z, dpr, kd) {
       g.fillRect(Math.round(pts[0][0] / kd - 0.5) * kd, Math.round(pts[0][1] / kd - 0.5) * kd, kd, kd);
     }
   });
-  return { cv, ox: -Ox, oy: -Oy, w, h };
+  return { cv, ox: -Ox, oy: -Oy, w, h, z };
 }
 
 // Pose une image cuite avec son ORIGINE au point écran (x, y) (px CSS). Position
-// rabattue sur la grille device, comme vieBlit.
+// rabattue sur la grille device, comme vieBlit. Une image cuite à un autre zoom que
+// celui de la caméra (pendant un glissement de zoom, cf. getZ) est posée à l'échelle
+// z / zCuit ; au repos, l'échelle vaut 1 et la pose est celle d'origine.
 export function blitBaked(ctx, bk, x, y, dpr, alpha = 1) {
   if (!bk || alpha <= 0.01) return false;
-  const X = Math.round(x * dpr) - bk.ox, Y = Math.round(y * dpr) - bk.oy;
+  const zc = CM.cam.zoom, s = bk.z != null && bk.z !== zc ? zc / bk.z : 1;
   const pa = ctx.globalAlpha, ps = ctx.imageSmoothingEnabled;
   if (alpha < 1) ctx.globalAlpha = pa * alpha;
   ctx.imageSmoothingEnabled = false;
-  ctx.drawImage(bk.cv, X / dpr, Y / dpr, bk.w / dpr, bk.h / dpr);
+  if (s === 1) {
+    const X = Math.round(x * dpr) - bk.ox, Y = Math.round(y * dpr) - bk.oy;
+    ctx.drawImage(bk.cv, X / dpr, Y / dpr, bk.w / dpr, bk.h / dpr);
+  } else {
+    const X = Math.round(x * dpr - bk.ox * s), Y = Math.round(y * dpr - bk.oy * s);
+    ctx.drawImage(bk.cv, X / dpr, Y / dpr, bk.w * s / dpr, bk.h * s / dpr);
+  }
   ctx.globalAlpha = pa; ctx.imageSmoothingEnabled = ps;
   return true;
 }
@@ -117,22 +130,75 @@ export function blitBaked(ctx, bk, x, y, dpr, alpha = 1) {
 // rendu logiciel). Ici : grand plafond, et au débordement on retire la MOITIÉ LA PLUS
 // ANCIENNE (une Map garde l'ordre d'insertion ; un accès réinsère) — le jeu de travail
 // d'un zoom reste chaud, ceux des zooms quittés partent.
+//
+// getZ(forme, dpr, make(zCuit)) — LE ZOOM DE REPOS (audit du 05/10, PERF-15). La clé
+// portait le zoom BRUT, or il glisse vers sa cible (7 à 19 valeurs par cran de molette) :
+// tout ce qui était visible se recuisait à chaque frame du glissement (métro : 41 à 51
+// canvas par frame, autoroute 109 à 139, ciel habité 22 à 36 ms en rendu logiciel), et
+// le cache gardait des milliers d'images de zooms périmés. Comme le sol
+// (solPyramideFrame) :
+//   · caméra POSÉE : la cuisson au zoom exact, comme avant — l'image est la même ;
+//   · pendant un GLISSEMENT : la dernière cuisson de la même forme, que blitBaked pose à
+//     l'échelle ; une forme jamais cuite l'est au zoom CIBLE, hors du cache exact (sa
+//     recuisson à la pose garde le repos identique au pixel).
+// Le cache ne garde que les DEUX derniers zooms de repos.
 export function makeBakeCache(max = 240) {
   const m = new Map();
+  const last = new Map();          // forme|dpr → dernière cuisson
+  const byZoom = new Map();        // zoom de repos → ses clés exactes
+  let zNow = null, zPrev = null;
+  const get = (key, make) => {
+    let v = m.get(key);
+    if (v === undefined) {
+      if (m.size >= max) {
+        let n = m.size >> 1;
+        for (const k of m.keys()) { if (n-- <= 0) break; m.delete(k); }
+      }
+      v = make();
+    } else m.delete(key);
+    m.set(key, v);
+    return v;
+  };
+  const remember = (lk, v) => {
+    last.delete(lk);
+    if (last.size >= max) {
+      let n = last.size >> 1;
+      for (const k of last.keys()) { if (n-- <= 0) break; last.delete(k); }
+    }
+    last.set(lk, v);
+  };
+  // Un nouveau zoom de repos : on oublie ceux d'avant l'avant-dernier.
+  const settle = (z) => {
+    if (z === zNow) return;
+    zPrev = zNow; zNow = z;
+    for (const [zz, keys] of byZoom) {
+      if (zz === zNow || zz === zPrev) continue;
+      for (const k of keys) m.delete(k);
+      byZoom.delete(zz);
+    }
+    for (const [k, v] of last) if (v && v.z != null && v.z !== zNow && v.z !== zPrev) last.delete(k);
+  };
   return {
-    get(key, make) {
-      let v = m.get(key);
-      if (v === undefined) {
-        if (m.size >= max) {
-          let n = m.size >> 1;
-          for (const k of m.keys()) { if (n-- <= 0) break; m.delete(k); }
-        }
-        v = make();
-      } else m.delete(key);
-      m.set(key, v);
+    get,
+    getZ(key, d, make) {
+      const z = CM.cam.zoom, goal = CM.zoomGoal, lk = key + '|' + d;
+      if (CM.capture || goal == null || Math.abs(goal - z) <= 1e-6) {
+        settle(z);
+        const k = key + '|' + z + '|' + d;
+        const v = get(k, () => make(z));
+        let keys = byZoom.get(z);
+        if (!keys) { keys = new Set(); byZoom.set(z, keys); }
+        keys.add(k);
+        remember(lk, v);
+        return v;
+      }
+      const prev = last.get(lk);
+      if (prev !== undefined) return prev;
+      const v = make(goal);
+      remember(lk, v);
       return v;
     },
-    clear() { m.clear(); },
+    clear() { m.clear(); last.clear(); byZoom.clear(); zNow = zPrev = null; },
     get size() { return m.size; },
   };
 }

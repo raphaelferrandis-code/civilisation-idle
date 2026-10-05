@@ -17,12 +17,11 @@
 // Molette : __highway({ on, cars, lamps, shadow }).
 import { CM } from '../layout.js';
 import { worldToScreen, depthOf } from './projection.js';
-import { vieK } from './isoVie.js';
 import { drawIsoVehicle } from './isoUnits.js';
 import { muteSunShadow } from './isoSunShadow.js';
 import { vehSkinFor } from '../agents.js';
 import { bankRibbon, loopRibbons, HIGHWAY } from '../procedural/highwayPlan.js';
-import { boxShapes, bakeShapes, blitBaked, makeBakeCache, elevGlow as glowAt, segGeo, shadeFace as shade, relTo as rel, vquad } from './elevPaint.js';
+import { boxShapes, bakeShapes, blitBaked, makeBakeCache, artKdAt, elevGlow as glowAt, segGeo, shadeFace as shade, relTo as rel, vquad } from './elevPaint.js';
 
 export const HWY = { on: true, cars: 1, lamps: 1, shadow: 0.55, th: 0.26, ph: 0.1 };
 
@@ -161,9 +160,11 @@ function lampShapes(M, T) {
 }
 
 const _bakes = makeBakeCache(1600);
+// Au zoom de REPOS (elevPaint.getZ) : pendant un glissement de zoom, la dernière
+// cuisson de la forme, posée à l'échelle — plus 109 à 139 canvas recuits par frame.
 function baked(key, make) {
-  const z = CM.cam.zoom, d = CM.dpr || 1, kd = Math.max(1, Math.round(vieK() * d));
-  return _bakes.get(key + '|' + z + '|' + d, () => bakeShapes(make(), z, d, kd));
+  const d = CM.dpr || 1;
+  return _bakes.getZ(key, d, (z) => bakeShapes(make(), z, d, artKdAt(z, d)));
 }
 const r1 = (v) => Math.round(v * 10) / 10;
 

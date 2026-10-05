@@ -240,6 +240,8 @@ function makeServiceC(band) {
   return {
     id: 'sentinelle-' + band, role: 'service', service: 'patrol', beacon: true, hover, glow: N.glow, len: 20, beam: 9, speed: [1.1, 1.4],
     bounds: [-13, 13, -10, 10, -1, 12 + (hover ? HOVER : 0)], ink: '#1d1611',
+    // Ni graine lue ni équipage : une cuisson pour toutes (boatKit.getBake).
+    seedless: true,
     variant(seed) { return { seed }; },
     anchors() { return { beacon: [3, 0, (hover ? HOVER : 0) + 7.4] }; },
     build(S) {
@@ -263,6 +265,7 @@ function makeSkiffC(band) {
   return {
     id: 'esquif-' + band, role: 'pleasure', hover, glow: N.glow, len: 18, beam: 8, speed: [1, 1.2],
     bounds: [-12, 12, -8, 8, -1, 10 + (hover ? HOVER : 0)], ink: '#1d1611',
+    seedless: true,
     variant(seed) { return { hull: N.shell, hullIn: N.shellIn, rail: N.shell, floor: N.shellIn, glowRail: N.glow, seed }; },
     anchors() { return {}; },
     build(S) {
@@ -281,6 +284,7 @@ function makeSailC(band) {
   return {
     id: 'voile-' + band, role: 'pleasure', hover, glow: N.glow, len: 24, beam: 8.5, speed: [1, 1.2],
     bounds: [-15, 15, -12, 12, -1, 26 + (hover ? HOVER : 0)], ink: '#1d1611',
+    seedless: true,
     variant(seed) { return { hull: N.shell, hullIn: N.shellIn, rail: N.shell, deck: N.shellIn, smoothDeck: true, glowRail: N.glow, seed }; },
     anchors() { return {}; },
     build(S, ctx) {

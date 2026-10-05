@@ -83,6 +83,13 @@ function detectAutoTier() {
   }
 }
 
+// Palier que « Auto » retient sur cet appareil ('high' | 'balanced' | 'perf'),
+// affiché dans les Options (« Auto (Élevée) ») : le joueur ne savait pas quel
+// palier tournait chez lui (audit du 2026-10-05, PERF-4).
+export function autoQualityTier() {
+  return detectAutoTier();
+}
+
 // Résout le préréglage courant (dont 'auto') en réglages concrets pour le runtime.
 export function qualitySettings() {
   const tier = qualityMode === "auto" ? detectAutoTier() : qualityMode;

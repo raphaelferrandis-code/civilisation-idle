@@ -34,7 +34,7 @@ import { CM } from '../layout.js';
 import { worldToScreen, depthOf } from './projection.js';
 import { vieK, registerVieMask } from './isoVie.js';
 import { planMetro, METRO, metroUAt } from '../procedural/metroPlan.js';
-import { boxShapes, bakeShapes, blitBaked, makeBakeCache, elevGlow, segGeo, relTo, vquad, isoLocal } from './elevPaint.js';
+import { boxShapes, bakeShapes, blitBaked, makeBakeCache, artKdAt, elevGlow, segGeo, relTo, vquad, isoLocal } from './elevPaint.js';
 import { drawMetroCar, CAR, CAR_PITCH, dirIndex, quantPitch } from './metroCars.js';
 
 export const MET = { on: true, trains: 1, shadow: 0.55, stops: 1 };
@@ -518,9 +518,12 @@ function stationSide(M, a, b, g, T, side, mono) {
 // ── CUISSONS ─────────────────────────────────────────────────────────────────
 const _bakes = makeBakeCache(1400);
 const artK = () => { const d = CM.dpr || 1; return Math.max(1, Math.round(vieK() * d)); };
+// Au zoom de REPOS (elevPaint.getZ) : pendant un glissement de zoom, la dernière
+// cuisson de la forme, posée à l'échelle — plus 41 à 51 canvas recuits par frame.
 function baked(key, make, erase = null) {
-  const z = CM.cam.zoom, d = CM.dpr || 1, kd = artK();
-  return _bakes.get(key + '|' + z + '|' + d, () => {
+  const d = CM.dpr || 1;
+  return _bakes.getZ(key, d, (z) => {
+    const kd = artKdAt(z, d);
     const bk = bakeShapes(make(), z, d, kd);
     if (bk && erase) eraseBelowLines(bk.cv.getContext('2d'), erase.a, erase.lines, z, d, kd, bk.ox, bk.oy);
     return bk;

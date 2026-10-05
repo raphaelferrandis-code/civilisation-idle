@@ -11,7 +11,7 @@
 // Le feuillage (vert jaune), la nacre (sans saturation) et les ombres (trop sombres)
 // restent éteints : seuls le verre et les bandes lumineuses s'allument.
 import { CM } from './layout.js';
-import { lightCtx } from './lightLayer.js';
+import { LIGHT_LAYER, lightCtx, litBox } from './lightLayer.js';
 
 // Fenêtre de teinte par bande, en degrés, et planchers de saturation / valeur.
 export const EMISSIVE_BANDS = {
@@ -53,7 +53,12 @@ export function emissivePixels(data, width, height, band) {
   return out;
 }
 
-const masks = new WeakMap();   // img → Map(band → canvas|null)
+const masks = new WeakMap();   // img → Map(band → { cv, u0, v0, u1, v1 } | null)
+// Audit du 2026-10-05 (PERF-2) : le masque vivait dans le canevas de LECTURE
+// (willReadFrequently, gardé en mémoire CPU) — c'est lui qui était blitté chaque nuit
+// dans le calque. Il est désormais posé dans un SECOND canevas, ordinaire : mêmes
+// octets (alpha 0 ou 255, aucune prémultiplication à arrondir). (u0, v0)-(u1, v1) =
+// boîte des pixels allumés dans l'image, cf. lightLayer.litBox.
 function maskFor(img, band) {
   let m = masks.get(img);
   if (!m) { m = new Map(); masks.set(img, m); }
@@ -69,7 +74,7 @@ function maskFor(img, band) {
   const on = emissivePixels(src.data, w, h, band);
   const out = x.createImageData(w, h);
   const g = EMISSIVE_BANDS[band].glow, k = EMISSIVE.mix;
-  let n = 0;
+  let n = 0, u0 = w, v0 = h, u1 = 0, v1 = 0;
   for (let i = 0; i < w * h; i += 1) {
     if (!on[i]) continue;
     n += 1;
@@ -78,10 +83,17 @@ function maskFor(img, band) {
     out.data[i * 4 + 1] = Math.round(src.data[i * 4 + 1] + (g[1] - src.data[i * 4 + 1]) * k);
     out.data[i * 4 + 2] = Math.round(src.data[i * 4 + 2] + (g[2] - src.data[i * 4 + 2]) * k);
     out.data[i * 4 + 3] = 255;
+    const px = i % w, py = (i / w) | 0;
+    if (px < u0) u0 = px; if (px + 1 > u1) u1 = px + 1;
+    if (py < v0) v0 = py; if (py + 1 > v1) v1 = py + 1;
   }
-  x.clearRect(0, 0, w, h);
-  x.putImageData(out, 0, 0);
-  const res = n ? c : null;
+  let res = null;
+  if (n) {
+    const cv = document.createElement('canvas');
+    cv.width = w; cv.height = h;
+    cv.getContext('2d').putImageData(out, 0, 0);
+    res = { cv, u0, v0, u1, v1 };
+  }
   m.set(band, res);
   return res;
 }
@@ -95,13 +107,24 @@ export function drawSceneEmissive(img, dx, dy, dw, dh, band, sx, sy, sw, sh, kMu
   if (!night || CM.lodActive) return;
   const mask = maskFor(img, band);
   if (!mask) return;
-  const lc = lightCtx(dx, dy, dx + dw, dy + dh);
+  // Emprise serrée sur les pixels allumés (la part qui tombe dans le rectangle source) ;
+  // molette tight: false = le sprite entier, comme avant. Le blit ne change pas.
+  let b = { x0: dx, y0: dy, x1: dx + dw, y1: dy + dh };
+  if (LIGHT_LAYER.tight !== false) {
+    const ox = sw == null ? 0 : sx, oy = sw == null ? 0 : sy;
+    const kx = sw == null ? dw / mask.cv.width : dw / sw, ky = sw == null ? dh / mask.cv.height : dh / sh;
+    const u0 = Math.max(mask.u0, ox), v0 = Math.max(mask.v0, oy);
+    const u1 = Math.min(mask.u1, sw == null ? mask.cv.width : sx + sw), v1 = Math.min(mask.v1, sw == null ? mask.cv.height : sy + sh);
+    if (!(u1 > u0 && v1 > v0)) return;           // aucun pixel allumé dans la source
+    b = litBox(dx, dy, kx, ky, u0 - ox, v0 - oy, u1 - ox, v1 - oy);
+  }
+  const lc = lightCtx(b.x0, b.y0, b.x1, b.y1);
   if (!lc) return;
   lc.save();
   lc.globalAlpha = night * EMISSIVE.k * kMul;
   lc.imageSmoothingEnabled = false;
-  if (sw == null) lc.drawImage(mask, dx, dy, dw, dh);
-  else lc.drawImage(mask, sx, sy, sw, sh, dx, dy, dw, dh);
+  if (sw == null) lc.drawImage(mask.cv, dx, dy, dw, dh);
+  else lc.drawImage(mask.cv, sx, sy, sw, sh, dx, dy, dw, dh);
   lc.restore();
 }
 if (typeof window !== 'undefined') {

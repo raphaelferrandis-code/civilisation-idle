@@ -94,11 +94,16 @@ const _isoSceneQuarantine = new Set();   // buildingIds dont la scène a jeté (
 const ENG_INK_REF = 96;                 // côté de la mesure, assez fin sans coûter
 const _engInkCache = new Map();
 let _engInkCanvas = null;
+// L'ère des entrées en cache : elles portent l'ère dans leur clé, celles d'une ère
+// passée ne servent plus jamais (audit 2026-10-05, PERF-9 : le cache n'était jamais
+// purgé, une entrée par espèce et par ère, cycle après cycle). Vidé au changement.
+let _engInkEra = '';
 function engineInkFrac(t, now) {
   if (typeof document === 'undefined') return null;
   const craft = engineCraft(t);   // un atelier des guildes = un dessin par métier
-  const key = (t.buildingId || t.variant || '?') + (craft ? '~' + craft : '') + ':' + (t.tier || 0)
-    + ':' + (CM.layout?.counts?.eraBand ?? 0) + ':' + (CM.layout?.counts?.eraIndex ?? 0);
+  const era = (CM.layout?.counts?.eraBand ?? 0) + ':' + (CM.layout?.counts?.eraIndex ?? 0);
+  if (era !== _engInkEra) { _engInkEra = era; _engInkCache.clear(); }
+  const key = (t.buildingId || t.variant || '?') + (craft ? '~' + craft : '') + ':' + (t.tier || 0) + ':' + era;
   const cached = _engInkCache.get(key);
   if (cached) return cached;
   if (!_engInkCanvas) {

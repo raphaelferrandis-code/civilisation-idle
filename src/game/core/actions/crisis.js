@@ -551,8 +551,9 @@ export function completeCollapse(gain, fallenDynasty, epitaph, reason) {
   // pont, même grille (les ruines sont rangées par rapport à son centre). Les rues,
   // les places et les slots repartent de zéro ; la cité reçoit un nouveau nom.
   // En jeu, la fiche de cœur est TOUJOURS là : captureCurrentVestige (juste au-dessus)
-  // recalcule la ville, ce qui pose la fiche pour la graine courante — toute
-  // sauvegarde, même ancienne, passe donc dans la vallée à sa première chute. La
+  // recalcule la ville quand la fiche de la graine courante manque, ce qui la pose —
+  // toute sauvegarde, même ancienne, passe donc dans la vallée à sa première chute
+  // (fiche présente : relevé léger, sans recalcul, cf. layout.js captureVestige). La
   // « nouvelle vallée » ci-dessous ne sert que sans carte branchée (tests du cœur).
   const core = state.cityCore;
   const valley = core && (core.seed >>> 0) === (state.mapSeed >>> 0)

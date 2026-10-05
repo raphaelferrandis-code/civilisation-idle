@@ -15,7 +15,8 @@
 // dans l'eau restent exacts. La nuit se lit sur ses propres vitres (les teintes
 // bleues et violettes du verre, que rien d'autre ne porte sur le lieu).
 //
-// Un âge sans habillage garde le rendu du code.
+// Un âge sans habillage garde le rendu du code. Un âge habillé ne cuit JAMAIS le rendu du
+// code : le temps du chargement, le lieu garde l'âge d'avant (cf. isoPlaisirs.bakeFor).
 import { plaisirsMirror } from './plaisirsBake.js';
 
 // `src` : le sprite détouré (public/) ; `at` : son coin haut-gauche dans le REPÈRE DU
@@ -101,45 +102,71 @@ const SKINS = {
 // `live` (2026-10-04, audit « tout ce qui doit bouger bouge-t-il ? ») : ce qui VIT dans
 // l'habillage — les torches et le feu de camp de l'âge du feu, le ballon captif de la
 // Fonte. scripts/sceneLive.mjs cuit, au canvas de l'image, `<nom>-back.png` (l'image
-// sans ce qui bouge) et `<nom>-live.png` (N images, rien que ce qui bouge) ; tant
-// qu'elles ne sont pas chargées, l'image d'origine sert (flammes peintes, immobiles).
+// sans ce qui bouge) et `<nom>-live.png` (N images, rien que ce qui bouge) ; si elles
+// manquent, l'image d'origine sert (flammes peintes, immobiles).
 // Molette : `__plaisirsSkins[b].balcony = { … }` (ou `.walk`) puis `__plaisirsBakes()`.
 if (typeof window !== 'undefined') window.__plaisirsSkins = SKINS;
 // La fiche d'un habillage (les tests vérifient les chemins des filles).
 export function plaisirsSkinSpec(band) { return SKINS[band | 0] || null; }
 
 const _img = new Map();
-function loadImageData(src, done) {
+function loadImageData(src, done, fail) {
   const im = new Image();
   im.onload = () => {
-    const cv = document.createElement('canvas');
-    cv.width = im.naturalWidth; cv.height = im.naturalHeight;
-    const g = cv.getContext('2d');
-    g.drawImage(im, 0, 0);
-    done(g.getImageData(0, 0, cv.width, cv.height));
+    // Une image chargée mais illisible (toile « souillée », mémoire) compte comme
+    // introuvable : sinon l'habillage resterait « en route » pour toujours, et le lieu,
+    // qui l'attend (isoPlaisirs.bakeFor), ne paraîtrait plus du tout.
+    let data;
+    try {
+      const cv = document.createElement('canvas');
+      cv.width = im.naturalWidth; cv.height = im.naturalHeight;
+      const g = cv.getContext('2d');
+      g.drawImage(im, 0, 0);
+      data = g.getImageData(0, 0, cv.width, cv.height);
+    } catch { fail(); return; }
+    done(data);
   };
+  im.onerror = fail;
   im.src = src;
 }
-// L'habillage prêt pour cet âge ({ src, at, img: ImageData }), ou null (pas
-// d'habillage, ou pas encore chargé : le chargement part au premier appel). Ses
-// couches vivantes (`back`, `liveImg`) s'y ajoutent quand elles sont chargées
-// TOUTES LES DEUX — la clé de cuisson de isoPlaisirs le sait (`:live`).
-export function plaisirsSkin(band) {
+// L'entrée de chargement d'un âge (le chargement part au premier appel), ou null
+// (pas d'habillage, ou pas de DOM). `wait` : les images encore en route — l'image,
+// et pour un âge `live` son fond et ses images vivantes. Une image qui ne se charge
+// pas compte comme arrivée : sans l'image, l'âge garde le rendu du code ; sans ses
+// couches vivantes, l'image d'origine sert (flammes peintes, immobiles).
+function skinEntry(band) {
   const d = SKINS[band | 0];
   if (!d || typeof Image === 'undefined' || typeof document === 'undefined') return null;
   let e = _img.get(band | 0);
   if (!e) {
-    e = { ready: false, img: null, back: null, live: null };
+    e = { d, img: null, back: null, live: null, wait: d.live ? 3 : 1 };
     _img.set(band | 0, e);
-    loadImageData(d.src, (img) => { e.img = img; e.ready = true; });
+    const arrived = () => { e.wait -= 1; };
+    loadImageData(d.src, (img) => { e.img = img; arrived(); }, arrived);
     if (d.live) {
-      loadImageData(d.src.replace(/\.png$/, '-back.png'), (img) => { e.back = img; });
-      loadImageData(d.src.replace(/\.png$/, '-live.png'), (img) => { e.live = img; });
+      loadImageData(d.src.replace(/\.png$/, '-back.png'), (img) => { e.back = img; arrived(); }, arrived);
+      loadImageData(d.src.replace(/\.png$/, '-live.png'), (img) => { e.live = img; arrived(); }, arrived);
     }
   }
-  if (!e.ready) return null;
-  return e.back && e.live ? { ...d, img: e.img, back: e.back, liveImg: e.live } : { ...d, img: e.img };
+  return e;
 }
+// L'habillage COMPLET de cet âge ({ src, at, img: ImageData, back?, liveImg? }), ou
+// null (pas d'habillage, pas encore chargé, ou image introuvable). Audit du 05/10
+// (PERF-13) : il ne paraît qu'une fois TOUTES ses images arrivées — rendu à moitié
+// (l'image sans ses couches vivantes, ou le rendu du code le temps du chargement),
+// il coûtait une cuisson de 50 à 140 ms de plus, jetée la frame suivante.
+export function plaisirsSkin(band) {
+  const e = skinEntry(band);
+  if (!e || e.wait > 0 || !e.img) return null;
+  return e.back && e.live ? { ...e.d, img: e.img, back: e.back, liveImg: e.live } : { ...e.d, img: e.img };
+}
+// L'habillage de cet âge est-il encore en route ? (la cuisson l'attend, cf. isoPlaisirs).
+export function plaisirsSkinLoading(band) {
+  const e = skinEntry(band);
+  return !!e && e.wait > 0;
+}
+// Lance le chargement sans rien attendre (l'âge suivant, tant que le lieu est à l'écran).
+export function preloadPlaisirsSkin(band) { skinEntry(band); }
 
 // Teinte (0-360), saturation, valeur d'un pixel.
 function hsv(r, g, b) {

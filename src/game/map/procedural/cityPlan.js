@@ -226,6 +226,12 @@ export function generateCityPlan({ seed, counts, personality, ageCfg, N, cx, cy,
       const ecc = 1 + Math.cos(2 * (angle - stretchAngle)) * stretch;
       return reachBase * Math.max(0.4, (1 + lobes) * ecc);
     },
+    // Borne haute de reachFor sur TOUS les angles (|lobes| ≤ lobeAmp, ecc ≤ 1 +
+    // stretch) : les tests d'emprise s'en servent pour écarter une cellule lointaine
+    // sans trigonométrie (layout.js, organicLimit).
+    reachMax(reachBase) {
+      return reachBase * Math.max(0.4, (1 + lobeAmp) * (1 + stretch));
+    },
     finalize({ reachBase }) {
       this.anchors = buildAnchors({ seed, counts, personality, archetype, core, reachBase, N, riverYAt });
       this.plazas = buildPlazas({ seed, counts, ageCfg, personality, core, anchors: this.anchors, corridorAt });

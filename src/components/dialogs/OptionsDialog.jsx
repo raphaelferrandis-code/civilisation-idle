@@ -20,7 +20,9 @@ import {
 } from '../../game/core/main.js';
 import { numberFormatMode, setNumberFormatMode, encodeSaveText } from '../../game/core/utils.js';
 import { dayNightMode, setDayNightMode } from '../../game/map/dayNightMode.js';
-import { qualityMode, setQualityMode } from '../../game/map/qualityMode.js';
+import { qualityMode, setQualityMode, autoQualityTier } from '../../game/map/qualityMode.js';
+import { energySaver, setEnergySaver } from '../../game/map/energySaver.js';
+import { probeRenderer } from '../../game/map/rendererProbe.js';
 import { ambianceMode, setAmbianceMode } from '../../game/map/ambianceMode.js';
 import { weatherMode, setWeatherMode } from '../../game/map/weatherMode.js';
 import { seasonMode, setSeasonMode } from '../../game/map/seasonMode.js';
@@ -59,6 +61,32 @@ import DraftNumberInput from '../ui/DraftNumberInput.jsx';
 // jeu vont dans l'Aide, et ce que fait un réglage se lit au survol.
 function OptionLabel({ label, hint }) {
   return <span {...tipProps(label, hint)}>{label}</span>;
+}
+
+// Palier retenu par « Auto » et moteur de rendu détecté (audit du 2026-10-05,
+// PERF-4) : rien ne disait au joueur qu'« Auto » tournait en Élevée sur un rendu
+// logiciel. Le palier se lit sur le bouton (« Auto (Élevée) »), le moteur dans
+// l'infobulle. La sonde WebGL (une fois par session) ne part qu'au rendu de
+// l'onglet Affichage.
+const QUALITY_TIER_LABEL = {
+  high: { fr: "Élevée", en: "High" },
+  balanced: { fr: "Équilibrée", en: "Balanced" },
+  perf: { fr: "Performance", en: "Performance" },
+};
+
+function qualityAutoLabel() {
+  const t = QUALITY_TIER_LABEL[autoQualityTier()];
+  return t ? tr({ fr: `Auto (${t.fr})`, en: `Auto (${t.en})` }) : tr({ fr: "Auto", en: "Auto" });
+}
+
+function qualityHint() {
+  const base = tr({ fr: "Préréglage de performance de la carte (résolution, densité d'habitants, fluidité). « Auto » s'adapte à votre appareil ; baissez d'un cran si la carte saccade au zoom ou au déplacement.", en: "Map performance preset (resolution, citizen density, smoothness). “Auto” adapts to your device; lower a notch if the map stutters when zooming or panning." });
+  const r = probeRenderer();
+  if (!r.webgl) return base + tr({ fr: " Moteur de rendu : WebGL indisponible.", en: " Renderer: WebGL unavailable." });
+  if (!r.name) return base;
+  return base + (r.software
+    ? tr({ fr: ` Moteur de rendu : ${r.name} — rendu logiciel, la carte est peinte par le processeur.`, en: ` Renderer: ${r.name} — software rendering, the map is drawn by the CPU.` })
+    : tr({ fr: ` Moteur de rendu : ${r.name}.`, en: ` Renderer: ${r.name}.` }));
 }
 
 export default function OptionsDialog({ isOpen, onClose, onSave, onExport, onImport }) {
@@ -174,6 +202,13 @@ export default function OptionsDialog({ isOpen, onClose, onSave, onExport, onImp
     // Rebranche les leviers (résolution / densité / fps) et invalide les bakes :
     // la carte reprendra avec les nouveaux réglages à la fermeture du dialogue.
     applyCityMapQuality();
+    setOptionRevision((revision) => revision + 1);
+  };
+
+  // Économie d'énergie (energySaver.js, PERF-5) : la boucle relit l'interrupteur
+  // à chaque frame, rien à rebrancher.
+  const handleEnergySaverToggle = () => {
+    setEnergySaver(!energySaver);
     setOptionRevision((revision) => revision + 1);
   };
 
@@ -754,7 +789,7 @@ export default function OptionsDialog({ isOpen, onClose, onSave, onExport, onImp
 
               <div className="options-row">
                 <div>
-                  <OptionLabel label={tr({ fr: "Qualité graphique", en: "Graphics quality" })} hint={tr({ fr: "Préréglage de performance de la carte (résolution, densité d'habitants, fluidité). « Auto » s'adapte à votre appareil ; baissez d'un cran si la carte saccade au zoom ou au déplacement.", en: "Map performance preset (resolution, citizen density, smoothness). “Auto” adapts to your device; lower a notch if the map stutters when zooming or panning." })} />
+                  <OptionLabel label={tr({ fr: "Qualité graphique", en: "Graphics quality" })} hint={qualityHint()} />
                 </div>
                 <div className="number-format-control">
                   <button
@@ -762,7 +797,7 @@ export default function OptionsDialog({ isOpen, onClose, onSave, onExport, onImp
                     type="button"
                     onClick={() => handleQualityChange('auto')}
                   >
-                    {tr({ fr: "Auto", en: "Auto" })}
+                    {qualityAutoLabel()}
                   </button>
                   <button
                     className={`format-option ${qualityMode === 'high' ? 'active' : ''}`}
@@ -786,6 +821,22 @@ export default function OptionsDialog({ isOpen, onClose, onSave, onExport, onImp
                     {tr({ fr: "Performance", en: "Performance" })}
                   </button>
                 </div>
+              </div>
+
+              {/* ÉCONOMIE D'ÉNERGIE (PERF-5, energySaver.js) : activée par défaut. */}
+              <div className="options-row">
+                <div>
+                  <OptionLabel label={tr({ fr: "Économie d'énergie", en: "Energy saver" })} hint={tr({ fr: "La carte ralentit quand la fenêtre n'a pas le focus (12 images/s) ou après 3 minutes sans activité (20 images/s). Le moindre geste lui rend sa fluidité ; la partie, elle, avance toujours au même rythme.", en: "The map slows down when the window is not focused (12 frames/s) or after 3 minutes without activity (20 frames/s). Any input restores full smoothness; the game itself always runs at the same pace." })} />
+                </div>
+                <button
+                  type="button"
+                  className={`toggle-btn ${energySaver ? 'on' : 'off'}`}
+                  aria-label={tr({ fr: energySaver ? 'Activé' : 'Désactivé', en: energySaver ? 'On' : 'Off' })}
+                  aria-pressed={Boolean(energySaver)}
+                  onClick={handleEnergySaverToggle}
+                >
+
+                </button>
               </div>
 
               <div className="options-row">

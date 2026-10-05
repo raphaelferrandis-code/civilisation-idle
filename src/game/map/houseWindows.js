@@ -14,15 +14,18 @@
 // prenait l'ardoise d'un toit, l'ombre d'une colonne ou le creux d'un colombage pour une
 // vitre. Les bâtiments-moteur sont relevés à la main eux aussi (sceneWindowsData.js).
 import { CM, cmHash } from './layout.js';
-import { lightCtx } from './lightLayer.js';
+import { LIGHT_LAYER, lightCtx, litBox } from './lightLayer.js';
 import { HOUSE_WINDOWS } from './houseWindowsData.js';
 
-const masks = new Map();   // "clé:ox:oy:w:h:phase" → canevas | null
+const masks = new Map();   // "clé:ox:oy:w:h:phase" → { cv, u0, v0, u1, v1 } | null
 
 // Fenêtres allumées d'une maison pour une phase : rectangle par rectangle, dans le repère
 // de la source dessinée (`ox`, `oy` = coin de la boîte d'encre dans le PNG de base — la
 // variante teintée est recadrée sur cette boîte, cf. pixelHouses.pixelHouseGeom). Ne
 // dépend ni de la teinte ni de la neige : le masque est partagé par toutes.
+// (u0, v0)-(u1, v1) = boîte des vitres allumées dans le masque (audit du 2026-10-05,
+// PERF-2) : le masque a la taille de la maison entière, et son emprise faisait payer une
+// découpe à tout ce qui passait devant le TOIT. Cf. lightLayer.litBox.
 function maskFor(key, wins, ox, oy, w, h, phase) {
   const id = `${key}:${ox}:${oy}:${w}:${h}:${phase}`;
   if (masks.has(id)) return masks.get(id);
@@ -30,13 +33,19 @@ function maskFor(key, wins, ox, oy, w, h, phase) {
   canvas.width = w; canvas.height = h;
   const ctx = canvas.getContext('2d');
   ctx.fillStyle = 'rgba(244, 168, 72, 0.824)';   // 210/255, la lumière de toujours
-  let count = 0;
+  let count = 0, u0 = w, v0 = h, u1 = 0, v1 = 0;
   wins.forEach((rects, index) => {
     if ((index * 7 + phase * 3) % 5 > 1) return;
     count += 1;
-    for (let i = 0; i < rects.length; i += 4) ctx.fillRect(rects[i] - ox, rects[i + 1] - oy, rects[i + 2], rects[i + 3]);
+    for (let i = 0; i < rects.length; i += 4) {
+      const rx = rects[i] - ox, ry = rects[i + 1] - oy;
+      ctx.fillRect(rx, ry, rects[i + 2], rects[i + 3]);
+      // Bornée au canevas, qui rogne les vitres de la même façon.
+      u0 = Math.min(u0, Math.max(0, rx)); v0 = Math.min(v0, Math.max(0, ry));
+      u1 = Math.max(u1, Math.min(w, rx + rects[i + 2])); v1 = Math.max(v1, Math.min(h, ry + rects[i + 3]));
+    }
   });
-  const result = count ? canvas : null;
+  const result = count ? { cv: canvas, u0, v0, u1: Math.max(u0, u1), v1: Math.max(v0, v1) } : null;
   masks.set(id, result);
   return result;
 }
@@ -52,11 +61,16 @@ export function drawHouseWindows(t, g) {
   const phase = (cmHash(`windows:${t.gx}:${t.gy}`) >>> 0) % 5;
   const mask = maskFor(g.key, wins, g.ox ?? g.bb.x0, g.oy ?? g.bb.y0, g.bb.w, g.bb.h, phase);
   if (!mask) return;
-  const ctx = lightCtx(g.dx, g.dy, g.dx + g.dw, g.dy + g.dh);
+  // Emprise serrée sur les vitres allumées (molette tight: false = la maison entière,
+  // comme avant) ; le blit, lui, ne change pas.
+  const b = LIGHT_LAYER.tight !== false
+    ? litBox(g.dx, g.dy, g.dw / g.bb.w, g.dh / g.bb.h, mask.u0, mask.v0, mask.u1, mask.v1)
+    : { x0: g.dx, y0: g.dy, x1: g.dx + g.dw, y1: g.dy + g.dh };
+  const ctx = lightCtx(b.x0, b.y0, b.x1, b.y1);
   if (!ctx) return;
   ctx.save();
   ctx.globalAlpha = night * 0.72 * CM.ctx.globalAlpha;
   ctx.imageSmoothingEnabled = false;
-  ctx.drawImage(mask, g.dx, g.dy, g.dw, g.dh);
+  ctx.drawImage(mask.cv, g.dx, g.dy, g.dw, g.dh);
   ctx.restore();
 }

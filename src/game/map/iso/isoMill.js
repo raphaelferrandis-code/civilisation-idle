@@ -20,6 +20,7 @@ import {
 import { drawSunShadow } from './isoSunShadow.js';
 import { lightCtx, lightCutImage } from '../lightLayer.js';
 import { HOVER_GOLD } from './isoPalette.js';
+import { bakeBudgetOk, bakeTimed } from './bakeBudget.js';
 
 export const millTune = { on: true, band: null, period: 1700 };   // ms par quart de tour
 
@@ -40,35 +41,47 @@ function goldOf(cv) {
   c.fillRect(0, 0, g.width, g.height);
   return g;
 }
-const layer = (R) => ({ R, cv: rasterCanvas(R) });
+// La silhouette d'un calque, faite au PREMIER survol (audit 2026-10-05, PERF-9 : les
+// treize copies dorées se cuisaient d'avance avec chaque bande).
+const goldFor = (s) => s.gold || (s.gold = goldOf(s.cv));
+// Le calque garde son canvas et la seule GÉOMÉTRIE du raster (place, ombre) : les
+// pixels bruts doublaient la mémoire de chaque cuisson.
+const layer = (R) => ({ R: { ox: R.ox, oy: R.oy, w: R.w, h: R.h }, cv: rasterCanvas(R) });
 
 // ── Cuisson (une par bande × hiver) ─────────────────────────────────────────
+// ⚠ PERF (audit 2026-10-05, PERF-9) : le cache gardait toutes les bandes de la
+// session (~1 Mo chacune) ; seule la bande COURANTE est gardée (été et hiver). Et la
+// cuisson d'une bande neuve (10-22 ms) passe par le budget de l'image : au-delà, les
+// moulins gardent une image ou deux la cuisson qu'ils montraient (cf. bakeBudget.js).
 const _bakes = new Map();
+let _shown = null;                // dernière cuisson posée (repli pendant une recuisson)
 function bakesFor(band, winter) {
   const key = band + (winter ? ':w' : '');
   let e = _bakes.get(key);
   if (e) return e;
-  const K = wonderKitForBand(band, winter);
-  const tw = bakeMillTower(K, band);
-  e = {
-    K, band,
-    ground: layer(bakeMillGround(band, 3)),
-    tower: { ...layer(tw.R), N: tw.N ? rasterCanvas(tw.N) : null },
-    sails: [],
-    barns: new Map(),
-  };
-  e.tower.gold = goldOf(e.tower.cv);
-  for (let f = 0; f < MILL_FRAMES; f += 1) {
-    const R = bakeMillSails(K, f, band);
-    // Le calque de nuit AVANT le canvas : nightOf rend leur alpha aux pixels marqués.
-    const N = band >= 7 ? millSailsNight(R, K) : null;
-    const s = layer(R);
-    s.N = N ? rasterCanvas(N) : null;
-    s.gold = goldOf(s.cv);
-    e.sails.push(s);
-  }
-  _bakes.set(key, e);
-  return e;
+  if (_shown && !bakeBudgetOk()) return _shown;
+  return bakeTimed(() => {
+    for (const k of [..._bakes.keys()]) if (_bakes.get(k).band !== band) _bakes.delete(k);
+    const K = wonderKitForBand(band, winter);
+    const tw = bakeMillTower(K, band);
+    e = {
+      K, band,
+      ground: layer(bakeMillGround(band, 3)),
+      tower: { ...layer(tw.R), N: tw.N ? rasterCanvas(tw.N) : null },
+      sails: [],
+      barns: new Map(),
+    };
+    for (let f = 0; f < MILL_FRAMES; f += 1) {
+      const R = bakeMillSails(K, f, band);
+      // Le calque de nuit AVANT le canvas : nightOf rend leur alpha aux pixels marqués.
+      const N = band >= 7 ? millSailsNight(R, K) : null;
+      const s = layer(R);
+      s.N = N ? rasterCanvas(N) : null;
+      e.sails.push(s);
+    }
+    _bakes.set(key, e);
+    return e;
+  });
 }
 function barnFor(e, size) {
   let b = e.barns.get(size);
@@ -102,6 +115,7 @@ export function drawIsoMill(ctx, t, now) {
   const L = CM.layout;
   const band = Math.max(0, Math.min(9, millTune.band != null ? millTune.band | 0 : ((L && L.counts && L.counts.eraBand) | 0)));
   const e = bakesFor(band, CM.season === WINTER);
+  _shown = e;
   const T = CM.TILE, z = CM.cam.zoom, sz = t.size || 1;
   const cxW = (t.gx + sz / 2) * T, cyW = (t.gy + sz / 2) * T;
   const prevSm = ctx.imageSmoothingEnabled;
@@ -135,8 +149,8 @@ export function drawIsoMill(ctx, t, now) {
   if (CM.hover && CM.hover.tile === t) {
     const k = Math.max(1, Math.round(z));
     for (const [ox, oy] of [[-k, 0], [k, 0], [0, -k], [0, k]]) {
-      ctx.drawImage(tw.gold, p.dx + ox, p.dy + oy, p.dw, p.dh);
-      ctx.drawImage(sl.gold, ps.dx + ox, ps.dy + oy, ps.dw, ps.dh);
+      ctx.drawImage(goldFor(tw), p.dx + ox, p.dy + oy, p.dw, p.dh);
+      ctx.drawImage(goldFor(sl), ps.dx + ox, ps.dy + oy, ps.dw, ps.dh);
     }
   }
   drawSunShadow(ctx, tw.cv, p.dx, p.dy, p.dw, p.dh, 0, 0, tw.R.w, tw.R.h, 'column', false);
@@ -154,5 +168,5 @@ export function drawIsoMill(ctx, t, now) {
 }
 
 if (typeof window !== 'undefined') {
-  window.__millTune = (o) => { if (o) Object.assign(millTune, o); _bakes.clear(); return { ...millTune }; };
+  window.__millTune = (o) => { if (o) Object.assign(millTune, o); _bakes.clear(); _shown = null; return { ...millTune }; };
 }

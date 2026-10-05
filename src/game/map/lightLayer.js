@@ -36,7 +36,13 @@ import { CM } from './layout.js';
 // bâtiment ne peut visiblement l'avaler, alors que la découpe, elle, se paie
 // sur chaque sprite de la ville — mesuré à +15 ms sur le dézoom d'une mégapole,
 // une image déjà lourde. On rend alors la main au dessin direct.
-export const LIGHT_LAYER = { on: true, cell: 64, minUnit: 12 };
+// fine = côté (px) de la grille FINE de l'échappatoire des découpes (0 = coupée) ;
+// tight = emprises SERRÉES déclarées par les dépôts (ce que peint vraiment un mât,
+// cœurs seuls le jour ; texels allumés des masques de fenêtres et d'émissifs, cf.
+// litBox). Audit du 2026-10-05 (PERF-2) : image identique au pixel (vérifiée en jeu,
+// rendu logiciel et GPU) ; `__lightOcclusion({ fine: 0, tight: false })` rejoue
+// l'ancien chemin (A/B de la mesure).
+export const LIGHT_LAYER = { on: true, cell: 64, minUnit: 12, fine: 16, tight: true };
 if (typeof window !== 'undefined') {
   window.__lightOcclusion = (o) => { if (o) Object.assign(LIGHT_LAYER, o); return { ...LIGHT_LAYER }; };
 }
@@ -47,7 +53,7 @@ let usable = false;         // le calque a été armé pour CETTE frame (sinon :
 let suspended = false;      // passe hors écran (silhouette de survol, mesure d'encre)
 let painted = false;        // au moins une lumière déposée depuis le début de frame
 let needClear = false;      // effacement PARESSEUX : une frame sans lampe ne coûte rien
-let glows = 0, cuts = 0;    // diagnostic (window.__lightStats)
+let glows = 0, cuts = 0, spared = 0;    // diagnostic (window.__lightStats)
 
 // Grilles grossières de COUVERTURE : « y a-t-il de la lumière dans ce coin
 // d'écran ? ». Elles servent trois fois, et c'est ce qui rend la couche
@@ -62,6 +68,16 @@ let glows = 0, cuts = 0;    // diagnostic (window.__lightStats)
 // calque garde alors sa vieille lumière (elle n'est pas blitée, donc invisible)
 // et il faudra bien l'effacer avant d'en déposer une nouvelle au même endroit.
 let cov = null, held = null, cgw = 0, cgh = 0, cell = 64;
+// GRILLE FINE (audit du 2026-10-05, PERF-2) : la même question que `cov`, posée à
+// 16 px au lieu de 64, et SEULEMENT par l'échappatoire des découpes. Le blit et
+// l'effacement restent sur les cases de 64 (en plages : une trentaine d'appels ; à
+// 16 px, ce seraient des centaines). Une case de 64 marquée par une lampe faisait
+// payer une découpe à tout sprite qui l'effleurait, à 60 px de toute lumière.
+// Chaque emprise y est ÉLARGIE de `fpad` : un halo au pixel (vieHalo, arrondi au
+// pixel d'art) déborde d'environ 1,5 pixel d'art de l'emprise que déclare son
+// appelant. Découper là où il n'y a aucune lumière ne change aucun pixel — en
+// sauter une, si : la marge est prise large.
+let fin = null, fgw = 0, fgh = 0, fcell = 0, fpad = 0;
 
 function ensureBuf() {
   if (typeof document === 'undefined') return null;
@@ -88,9 +104,44 @@ function ensureCov() {
     // canvas est réalloué juste à côté (donc vide), il n'y a rien à effacer.
     cov = new Uint8Array(gw * gh); held = new Uint8Array(gw * gh);
     cgw = gw; cgh = gh; cell = c;
-    return;
-  }
-  cov.fill(0);
+  } else cov.fill(0);
+  ensureFine();
+}
+
+function ensureFine() {
+  const c = LIGHT_LAYER.fine | 0;
+  if (c <= 0) { fcell = 0; return; }
+  const fc = Math.max(4, c);
+  const gw = Math.max(1, Math.ceil((CM.cw || 1) / fc));
+  const gh = Math.max(1, Math.ceil((CM.ch || 1) / fc));
+  if (!fin || fgw !== gw || fgh !== gh || fcell !== fc) {
+    fin = new Uint8Array(gw * gh); fgw = gw; fgh = gh; fcell = fc;
+  } else fin.fill(0);
+  // Débord d'un halo au pixel ≈ 1,5 pixel d'art (≈ 1,7 × zoom) : 4 + 4 × zoom le
+  // couvre deux fois, du dézoom (pixel d'art plancher d'un pixel) au zoom maximal.
+  const z = (CM.cam && CM.cam.zoom) || 1;
+  fpad = 4 + 4 * z;
+}
+
+const fineRange = (x0, y0, x1, y1) => ({
+  i0: Math.max(0, Math.floor((x0 - fpad) / fcell)), i1: Math.min(fgw - 1, Math.floor((x1 + fpad) / fcell)),
+  j0: Math.max(0, Math.floor((y0 - fpad) / fcell)), j1: Math.min(fgh - 1, Math.floor((y1 + fpad) / fcell)),
+});
+
+function markFine(x0, y0, x1, y1) {
+  if (!fcell) return;
+  const r = fineRange(x0, y0, x1, y1);
+  for (let j = r.j0; j <= r.j1; j += 1) for (let i = r.i0; i <= r.i1; i += 1) fin[j * fgw + i] = 1;
+}
+
+// Sans grille fine (molette fine: 0), la réponse est toujours « peut-être » : la
+// découpe ne dépend plus que des cases de 64, comme avant.
+function hasFine(x0, y0, x1, y1) {
+  if (!fcell) return true;
+  const i0 = Math.max(0, Math.floor(x0 / fcell)), i1 = Math.min(fgw - 1, Math.floor(x1 / fcell));
+  const j0 = Math.max(0, Math.floor(y0 / fcell)), j1 = Math.min(fgh - 1, Math.floor(y1 / fcell));
+  for (let j = j0; j <= j1; j += 1) for (let i = i0; i <= i1; i += 1) if (fin[j * fgw + i]) return true;
+  return false;
 }
 
 // Parcourt les cases marquées d'une grille en PLAGES horizontales (une case
@@ -133,7 +184,7 @@ function hasCov(x0, y0, x1, y1) {
 // d'une frame précédente et la passe de nuit se croirait déjà servie.
 export function beginLightLayer(enabled) {
   armed = false; usable = false; suspended = false; painted = false;
-  glows = 0; cuts = 0;
+  glows = 0; cuts = 0; spared = 0;
   if (enabled === false || !LIGHT_LAYER.on) return false;
   if (!ensureBuf()) return false;
   ensureCov();
@@ -167,10 +218,29 @@ export function lightCtx(x0, y0, x1, y1) {
     needClear = false;
   }
   markCov(x0, y0, x1, y1);
+  markFine(x0, y0, x1, y1);
   painted = true; glows += 1;
   bctx.globalCompositeOperation = 'lighter';
   bctx.globalAlpha = 1;
   return bctx;
+}
+
+// ── Masque dont seule une partie s'allume (fenêtres, émissifs) ──────────────
+// Le masque a la taille du sprite, mais seuls quelques texels portent de la
+// lumière : seule l'EMPRISE déclarée à lightCtx se resserre sur les texels
+// allumés [u0, u1[ × [v0, v1[ (repère de la source, échelle kx, ky depuis
+// (dx, dy)), calée sur la grille device avec un pixel de marge. LE BLIT, LUI, NE
+// CHANGE PAS — même image, même rectangle, aucun clip. Deux essais mesurés au
+// pixel le 2026-10-05 l'ont exigé : un masque ROGNÉ posé par une transformation
+// pourtant équivalente décalait d'un texel des colonnes entières de vitres (les
+// arrondis tombent autrement), et un CLIP sur l'emprise faisait de même sur GPU
+// (Skia y recoupe le quad et recalcule ses coordonnées de texture).
+export function litBox(dx, dy, kx, ky, u0, v0, u1, v1) {
+  const d = CM.dpr || 1;
+  return {
+    x0: (Math.floor((dx + u0 * kx) * d) - 1) / d, y0: (Math.floor((dy + v0 * ky) * d) - 1) / d,
+    x1: (Math.ceil((dx + u1 * kx) * d) + 1) / d, y1: (Math.ceil((dy + v1 * ky) * d) + 1) / d,
+  };
 }
 
 // ── Découpe : ce qui passe DEVANT efface la lumière déposée avant lui ───────
@@ -179,6 +249,7 @@ export function lightCtx(x0, y0, x1, y1) {
 export function lightCut(x0, y0, x1, y1, fn) {
   if (!armed || suspended || !painted) return false;
   if (!hasCov(x0, y0, x1, y1)) return false;
+  if (!hasFine(x0, y0, x1, y1)) { spared += 1; return false; }
   bctx.save();
   bctx.globalCompositeOperation = 'destination-out';
   bctx.globalAlpha = 1;
@@ -230,6 +301,7 @@ export function paintLightLayer(ctx) {
 }
 
 // Diagnostic (window.__lightStats()) : nombre de lumières déposées et de
-// silhouettes découpées à la dernière passe vivante.
-export const lightLayerStats = () => ({ armed, usable, glows, cuts });
+// silhouettes découpées à la dernière passe vivante ; `spared` = découpes que
+// les cases de 64 auraient fait payer et que la grille fine a épargnées.
+export const lightLayerStats = () => ({ armed, usable, glows, cuts, spared });
 if (typeof window !== 'undefined') window.__lightStats = lightLayerStats;

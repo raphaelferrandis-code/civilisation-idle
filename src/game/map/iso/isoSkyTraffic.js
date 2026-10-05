@@ -28,7 +28,7 @@ import { lightCtx } from '../lightLayer.js';
 import { vieK } from './isoVie.js';
 import { drawEraAgentIso } from '../agents.js';
 import { muteSunShadow } from './isoSunShadow.js';
-import { boxShapes, bakeShapes, blitBaked, makeBakeCache, elevGlow as glowAt } from './elevPaint.js';
+import { boxShapes, bakeShapes, blitBaked, makeBakeCache, artKdAt, elevGlow as glowAt } from './elevPaint.js';
 import { floatIsleSpan } from './isoFloatIsle.js';
 
 export const SKY = { on: true, density: 1, shadow: 0.35, trails: 1, beacons: 1, jets: 1, gates: 1, minZoom: 0.42 };
@@ -244,9 +244,12 @@ function trailShapes(band, axis, dir, kind, T) {
   }
   return s;
 }
+// Au zoom de REPOS (elevPaint.getZ) : pendant un glissement de zoom, la dernière
+// cuisson de la forme, posée à l'échelle — plus 40 à 60 canvas recuits par frame
+// (22 à 36 ms mesurés en rendu logiciel aux bandes 7-9).
 function baked(key, make) {
-  const z = CM.cam.zoom, d = CM.dpr || 1, kd = Math.max(1, Math.round(vieK() * d));
-  return _bakes.get(key + '|' + z + '|' + d, () => bakeShapes(make(), z, d, kd));
+  const d = CM.dpr || 1;
+  return _bakes.getZ(key, d, (z) => bakeShapes(make(), z, d, artKdAt(z, d)));
 }
 
 // ── LES ACTEURS ──────────────────────────────────────────────────────────────

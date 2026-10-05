@@ -70,7 +70,7 @@ export function setQuayWave(fn) { _quayWave = typeof fn === 'function' ? fn : nu
 if (typeof window !== 'undefined') {
   window.__quayArt = (o) => {
     if (o && typeof o === 'object') Object.assign(QUAY_ART, o);
-    _key = '';                                      // force une recuisson
+    _inKey = ''; _tileKey = '';                     // force une recuisson
     return { ...QUAY_ART };
   };
   // Vérification : où sont les escaliers (monde, tuiles) — le milieu de chaque volée.
@@ -273,16 +273,77 @@ function placeStairs(L, runs, wh) {
 // Les tronçons (runs) du masque effectif du quai (CM.quayGate.drawPlus/drawMinus),
 // leurs points en espace d'art, la hauteur du mur par sample, et les boîtes des
 // segments pour savoir quelles tuiles en contiennent.
-let _key = '', _geo = null;
-const _tiles = new Map();
-function cacheKey(L, band) {
+//
+// ⚠ PERF (audit 2026-10-05, PERF-10) : DEUX clés, plus une seule. Celle d'avant
+// portait l'horodatage du layout ET la couleur du bas-fond du coloris d'eau (beau,
+// pluie, hiver, usure) : chaque recalcul de la ville — même quand le quai ne bouge
+// pas d'un pixel — et chaque changement de temps jetait TOUTES les tuiles, recuites à
+// 24 par image sans repli : quai troué quelques images. (L'audit lui prêtait les
+// 210-240 ms de la passe « quais » au passage d'ère ; le profil du vrai jeu y trouve
+// ~10-15 ms pour le quai lui-même, le reste étant la cuisson des PORTS, peints dans la
+// même passe — isoTradePort, isoPier.) Désormais :
+//   · `_inKey` (entrées : layout, bande, masque, réglages, volées demandées) refait la
+//     géométrie, puis sa SIGNATURE (geoSig : tout ce que bakeTile lit) décide ;
+//   · `_tileKey` (signature + couleurs + réglages de dessin) : les tuiles ne sont
+//     jetées que si l'une d'elles change. Elles le sont alors en DOUCEUR quand le quai
+//     est resté EN PLACE (mêmes bords d'eau : coloris, bande, une volée de plus) :
+//     l'ancienne cuisson (`_stale`) tient l'écran pendant que la nouvelle se fait, au
+//     plus QUAY_REBAKE_MS par image. Quand le fleuve s'est DÉPLACÉ (la grille grandit
+//     et recentre la ville), un repli se poserait à côté de l'eau : on garde alors la
+//     recuisson d'avant (24 tuiles par image). Une fois recuite, une tuile est
+//     identique au pixel à ce que donnait l'ancien chemin (même bakeTile, mêmes
+//     entrées).
+let _inKey = '', _tileKey = '', _geo = null;
+let _tiles = new Map(), _stale = null, _tilesPos = null;
+function inputKey(L, band) {
   const g = CM.quayGate;
   return (CM.layoutRecomputeAt || 0) + ':' + band + ':' + (g ? g.key : '-')
-    + ':' + (CM.waterShore ? CM.waterShore.quay.join('|') : '-')
-    + ':' + (quayWallTune.on ? 1 : 0) + quayWallTune.heightK + '_' + quayWallTune.light
-    + ':' + (QUAY_ART.bollards ? 1 : 0) + (QUAY_ART.grain ? 1 : 0)
-    + (QUAY_ART.parapet ? 1 : 0) + (QUAY_ART.stairs ? 1 : 0) + (QUAY_ART.endRamp ? 1 : 0)
+    + ':' + (quayWallTune.on ? 1 : 0) + quayWallTune.heightK
+    + ':' + (QUAY_ART.stairs ? 1 : 0) + (QUAY_ART.endRamp ? 1 : 0)
     + ':' + wantKey();
+}
+function tileKey() {
+  return _geo.sig + ':' + (CM.waterShore ? CM.waterShore.quay.join('|') : '-')
+    + ':' + quayWallTune.light
+    + ':' + (QUAY_ART.bollards ? 1 : 0) + (QUAY_ART.grain ? 1 : 0)
+    + (QUAY_ART.parapet ? 1 : 0) + (QUAY_ART.stairs ? 1 : 0);
+}
+// Empreintes de la géométrie, au bit près (FNV-1a ×2 sur les flottants) :
+//   · `sig` : tout ce que bakeTile lit (tronçons, segments, volées, ouvertures du
+//     garde-corps, bande et hauteur du mur) — une ville recalculée dont le quai n'a pas
+//     bougé garde ses tuiles ;
+//   · `pos` : les seuls bords d'eau (où est le quai) — décide si l'ancienne cuisson
+//     peut tenir l'écran pendant la recuisson.
+const _f64 = new Float64Array(1), _u32 = new Uint32Array(_f64.buffer);
+function hasher() {
+  let h1 = 0x811c9dc5, h2 = 0x9e3779b9;
+  const num = (v) => {
+    _f64[0] = v;
+    for (let j = 0; j < 2; j += 1) {
+      const w = _u32[j];
+      h1 = Math.imul(h1 ^ w, 0x01000193);
+      h2 = Math.imul(h2 ^ w, 0x5bd1e995); h2 ^= h2 >>> 15;
+    }
+  };
+  const pts = (arr) => { num(arr.length); for (const p of arr) { num(p.x); num(p.y); } };
+  const vec = (arr) => { num(arr.length); for (let i = 0; i < arr.length; i += 1) num(arr[i]); };
+  return { num, pts, vec, out: () => (h1 >>> 0).toString(36) + '.' + (h2 >>> 0).toString(36) };
+}
+function geoSig(geo) {
+  const H = hasher(), P = hasher();
+  H.num(geo.band); H.num(geo.W); H.num(geo.wh); H.num(geo.runs.length); P.num(geo.runs.length);
+  for (const r of geo.runs) {
+    H.num(r.side); H.num(r.a); H.num(r.b); H.num(r.ri);
+    H.pts(r.edge); H.pts(r.land); H.pts(r.face); H.vec(r.wallH); H.vec(r.tap); H.vec(r.bridge);
+    P.num(r.side); P.num(r.a); P.num(r.b); P.pts(r.edge);
+  }
+  H.num(geo.segs.length);
+  for (const s of geo.segs) { H.num(s.run.ri); H.num(s.k); H.num(s.x0); H.num(s.y0); H.num(s.x1); H.num(s.y1); }
+  H.num(geo.stairs.length);
+  for (const s of geo.stairs) { H.num(s.run.ri); H.num(s.k0); H.num(s.len); H.num(s.dir); H.num(s.fx); H.num(s.fy); }
+  H.num(geo.gaps.length);
+  for (const g of geo.gaps) { H.num(g.x); H.num(g.y); H.num(g.r); }
+  return { sig: H.out(), pos: P.out() };
 }
 // La géométrie de la ville, construite au besoin — par la pose des tuiles, ou par le
 // runtime qui veut le pied d'une volée demandée avant la première image.
@@ -292,8 +353,29 @@ export function ensureQuayGeo(L) {
   if (band <= 1) return null;                          // campement : pas de quai
   ensureQuayGate();
   if (!CM.quayGate) return null;
-  const key = cacheKey(L, band);
-  if (key !== _key) { _key = key; _tiles.clear(); _geo = buildGeo(L, band); }
+  const key = inputKey(L, band);
+  if (key !== _inKey) {
+    _inKey = key;
+    // La NOUVELLE géométrie est toujours adoptée (les volées demandées, les promeneurs
+    // et le clapotis lisent ses objets) ; à signature égale, les tuiles cuites sur
+    // l'ancienne lui sont identiques au pixel et restent en place.
+    _geo = buildGeo(L, band);
+    Object.assign(_geo, geoSig(_geo));
+  }
+  const tk = tileKey();
+  if (tk !== _tileKey) {
+    _tileKey = tk;
+    // L'ancienne cuisson devient le repli (cf. paintQuays) si le quai n'a pas bougé de
+    // place. Une recuisson encore en cours y verse ses tuiles neuves : le repli garde,
+    // case par case, la plus récente.
+    if (_tilesPos !== _geo.pos) _stale = null;
+    else if (_tiles.size) {
+      if (_stale) for (const [k, t] of _tiles) _stale.set(k, t);
+      else _stale = _tiles;
+    }
+    _tiles = new Map();
+    _tilesPos = _geo.pos;
+  }
   return _geo;
 }
 // Le PIED d'une volée demandée (`id`), en MONDE (tuiles) : le BOUT du palier d'en bas,
@@ -720,6 +802,15 @@ export function quayLanePoint(run, u, f) {
 
 // ── LA POSE, À CHAQUE IMAGE ─────────────────────────────────────────────────
 const BAKE_PER_FRAME = 24;
+// Recuisson d'une tuile dont l'ancienne cuisson tient l'écran (cf. ensureQuayGeo) :
+// au plus ~6 ms par image (au moins une tuile), le reste aux images suivantes.
+const QUAY_REBAKE_MS = 6;
+const QUAY_TILE_CAP = 900;
+// Pose de la tuile cuite `t` (case tx, ty du niveau de taille SM).
+function blitTile(ctx, t, tx, ty, SM, sx, sy) {
+  const X = sx(tx * SM), Y = sy(ty * SM), X1 = sx((tx + 1) * SM), Y1 = sy((ty + 1) * SM);
+  ctx.drawImage(t.cv, X, Y, X1 - X, Y1 - Y);
+}
 // Niveau de détail : une tuile de niveau m couvre S·2^m px d'art (toujours S×S pixels),
 // pour qu'un pixel de tuile reste entre ~0,7 et 1,4 px d'écran : en dézoom total
 // (0,25) on pose ~100 tuiles, pas 1 500 — et le cache ne s'affole pas.
@@ -745,19 +836,32 @@ export function paintQuays(ctx) {
   // lignes d'un pixel sautent une image sur deux pendant le zoom).
   ctx.imageSmoothingEnabled = z * (1 << m) < 0.999;
   let baked = 0;
+  const t0 = performance.now();
   for (let ty = ty0; ty <= ty1; ty += 1) {
     for (let tx = tx0; tx <= tx1; tx += 1) {
       const k = m + ':' + tx + ',' + ty;
       let t = _tiles.get(k);
       if (!t) {
-        if (baked >= BAKE_PER_FRAME) continue;      // la suite à la prochaine image
+        // L'ancienne cuisson de cette case (couleurs ou géométrie d'avant) : elle tient
+        // l'écran tant que la nouvelle n'est pas faite — plus de quai troué. Une ancienne
+        // case VIDE ne tient rien à l'écran (le quai qui s'y étend y laisserait un trou) :
+        // la nouvelle s'y cuit comme hors repli, dans la limite des 24 par image.
+        const old = _stale && _stale.get(k);
+        if (baked >= BAKE_PER_FRAME || (old && !old.empty && performance.now() - t0 >= QUAY_REBAKE_MS)) {
+          if (old && !old.empty) blitTile(ctx, old, tx, ty, SM, sx, sy);
+          continue;                                 // la suite à la prochaine image
+        }
         t = bakeTile(tx, ty, m); baked += 1;
         _tiles.set(k, t);
-        if (_tiles.size > 900) { let n = 200; for (const kk of _tiles.keys()) { _tiles.delete(kk); if (--n <= 0) break; } }
+        if (old) { _stale.delete(k); if (!_stale.size) _stale = null; }
+        // Plafond commun aux deux cuissons : le repli part d'abord.
+        if (_tiles.size + (_stale ? _stale.size : 0) > QUAY_TILE_CAP) {
+          if (_stale) _stale = null;
+          else { let n = 200; for (const kk of _tiles.keys()) { _tiles.delete(kk); if (--n <= 0) break; } }
+        }
       }
       if (t.empty) continue;
-      const X = sx(tx * SM), Y = sy(ty * SM), X1 = sx((tx + 1) * SM), Y1 = sy((ty + 1) * SM);
-      ctx.drawImage(t.cv, X, Y, X1 - X, Y1 - Y);
+      blitTile(ctx, t, tx, ty, SM, sx, sy);
     }
   }
   ctx.imageSmoothingEnabled = prevS;
@@ -788,10 +892,10 @@ export function repaintQuayRect(ctx, x0, y0, x1, y1) {
   ctx.imageSmoothingEnabled = z * (1 << m) < 0.999;
   for (let ty = ty0; ty <= ty1; ty += 1) {
     for (let tx = tx0; tx <= tx1; tx += 1) {
-      const t = _tiles.get(m + ':' + tx + ',' + ty);
+      const k = m + ':' + tx + ',' + ty;
+      const t = _tiles.get(k) || (_stale && _stale.get(k));    // même repli que paintQuays
       if (!t || t.empty) continue;
-      const X = sx(tx * SM), Y = sy(ty * SM), X1 = sx((tx + 1) * SM), Y1 = sy((ty + 1) * SM);
-      ctx.drawImage(t.cv, X, Y, X1 - X, Y1 - Y);
+      blitTile(ctx, t, tx, ty, SM, sx, sy);
     }
   }
   ctx.restore();

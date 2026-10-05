@@ -15,8 +15,7 @@
 // Molette : __floatIsle({ on, shuttles }).
 import { CM } from '../layout.js';
 import { worldToScreen, depthOf } from './projection.js';
-import { vieK } from './isoVie.js';
-import { boxShapes, bakeShapes, blitBaked, makeBakeCache, elevGlow } from './elevPaint.js';
+import { boxShapes, bakeShapes, blitBaked, makeBakeCache, artKdAt, elevGlow } from './elevPaint.js';
 
 // ⚠ En iso, une chute verticale se cache derrière le DESSUS tant qu'elle ne dépasse pas
 // la demi-hauteur écran de l'emprise (~R·√2/2 tuiles) : le dessous doit être profond
@@ -165,14 +164,20 @@ function isleShapes(T, seed) {
   return { shapes: s, ol };
 }
 
+// Au zoom de REPOS (elevPaint.getZ) : pendant un glissement de zoom, la dernière
+// cuisson, posée à l'échelle — l'îlot, son ombre et la navette recuisaient à chaque frame.
 const _bakes = makeBakeCache(24);
 function bakedIsle(seed, T) {
-  const z = CM.cam.zoom, d = CM.dpr || 1, kd = Math.max(1, Math.round(vieK() * d));
-  return _bakes.get('isle|' + seed + '|' + z + '|' + d, () => bakeShapes(isleShapes(T, seed).shapes, z, d, kd));
+  const d = CM.dpr || 1;
+  return _bakes.getZ('isle|' + seed, d, (z) => bakeShapes(isleShapes(T, seed).shapes, z, d, artKdAt(z, d)));
 }
 function bakedShadow(seed, T) {
-  const z = CM.cam.zoom, d = CM.dpr || 1, kd = Math.max(1, Math.round(vieK() * d));
-  return _bakes.get('ish|' + seed + '|' + z + '|' + d, () => bakeShapes([{ poly: outline(ISLE.R, seed).map(([x, y]) => [x * T, y * T, 0]), col: '#141430' }], z, d, kd));
+  const d = CM.dpr || 1;
+  return _bakes.getZ('ish|' + seed, d, (z) => bakeShapes([{ poly: outline(ISLE.R, seed).map(([x, y]) => [x * T, y * T, 0]), col: '#141430' }], z, d, artKdAt(z, d)));
+}
+function bakedShuttle(T) {
+  const d = CM.dpr || 1;
+  return _bakes.getZ('shu', d, (z) => bakeShapes(shuttleShapes(T), z, d, artKdAt(z, d)));
 }
 function shuttleShapes(T) {
   return [
@@ -239,7 +244,7 @@ export function floatIsleActors(now, out, decay = 0) {
       const sz = (ISLE.Z - 0.6 + k * 0.5) * T;
       out.push({ wx: sx, wy: sy, d: depthOf(sx, sy) + 0.1 * T, draw(ctx) {
         const q = worldToScreen(sx, sy, sz);
-        blitBaked(ctx, _bakes.get('shu|' + z + '|' + d, () => bakeShapes(shuttleShapes(T), z, d, Math.max(1, Math.round(vieK() * d)))), q.x, q.y, d);
+        blitBaked(ctx, bakedShuttle(T), q.x, q.y, d);
         if (n > 0.05) elevGlow(q.x, q.y + 2, 4 * z / 0.625, '255,90,200', 0.6 * n);
       } });
     }

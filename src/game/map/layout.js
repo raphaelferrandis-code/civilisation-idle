@@ -1,5 +1,5 @@
 /* eslint-disable */
-import { state } from '../core/state.js';
+import { state, isOfflineSim } from '../core/state.js';
 import { eras } from '../data/world.js';
 import { seededRng, fmtShort } from '../core/utils.js';
 import { toNum } from '../core/num.js';
@@ -1426,15 +1426,19 @@ function cmBuildRoadGraph(roads, roadSet, roadMeta, river, cx, cy, bridgeLaneW =
   // par tour, itéré jusqu'à convergence — RELIER plutôt que supprimer, comme la
   // couture amont. Posé AVANT la validation des ponts : un pont dont seul le
   // tampon de rive manquait est repêché au lieu d'être supprimé.
-  const repairMaskSeams = () => {
+  // Rend le graphe du dernier tour : un tour qui ne tamponne rien laisse roadMeta et
+  // activeSet tels quels, son graphe EST celui qu'on reconstruirait (PERF-7 de l'audit
+  // du 2026-10-05 : deux buildGraph de ~7 600 rues économisés à chaque plan).
+  const repairMaskSeams = (g0) => {
     const DIRS4 = [[ROAD_N, 0, -1], [ROAD_E, 1, 0], [ROAD_S, 0, 1], [ROAD_W, -1, 0]];
     const stamp = (k, axis) => {
       const m = roadMeta.get(k) || { h: false, v: false, rank: "path" };
       if (axis === "h") m.h = true; else m.v = true;
       roadMeta.set(k, m);
     };
+    let g = g0;
     for (let guard = 0; guard < 16; guard += 1) {
-      const g = buildGraph(activeSet);
+      if (guard > 0) g = buildGraph(activeSet);
       // Composantes par MASQUES (les arcs mutuels, déjà matérialisés dans mask).
       const compOf = new Map();
       let nComp = 0;
@@ -1454,7 +1458,7 @@ function cmBuildRoadGraph(roads, roadSet, roadMeta, river, cx, cy, bridgeLaneW =
           }
         }
       }
-      if (nComp <= 1) return;
+      if (nComp <= 1) return g;
       const sizes = new Array(nComp).fill(0);
       for (const id of compOf.values()) sizes[id] += 1;
       let mainId = 0;
@@ -1481,11 +1485,11 @@ function cmBuildRoadGraph(roads, roadSet, roadMeta, river, cx, cy, bridgeLaneW =
           break;
         }
       }
-      if (!stamped) return;   // restent des enclaves sans contact terrestre : à l'élagage
+      if (!stamped) return g;   // restent des enclaves sans contact terrestre : à l'élagage
     }
+    return null;              // 16e tour tamponné : le graphe est à refaire
   };
-  repairMaskSeams();
-  graph = buildGraph(activeSet);
+  graph = repairMaskSeams(graph) || buildGraph(activeSet);
 
   const bridgeKeys = graph.roads.filter((r) => r.roadSurface === "bridge").map((r) => key(r.gx, r.gy));
   const seen = new Set(), invalid = new Set();
@@ -1973,6 +1977,9 @@ function connectBuildingsToNetwork(o) {
   // La boucle de desserte, en fonction : elle tourne une 2e fois sans les
   // obstacles DOUX (cf. plus bas).
   const runPass = () => {
+  // Tout est déjà desservi : le champ ne serait lu par personne (planCost ne vise que
+  // les tuiles non desservies, ici et dans l'estimation de la vague) — PERF-7.
+  if (!pending.some((t) => !served(t))) return;
   if (useIncr) computeField();
   while (guard-- > 0 && pending.length > 0) {
     if (!useIncr) computeField();
@@ -2125,7 +2132,13 @@ function computeRoadUsage({ roadKey, tiles, coreX, coreY }) {
       if (roadKey.has(nk) && !parent.has(nk)) { parent.set(nk, cur); q.push(nk); }
     }
   }
+  // Comptes par PORTE, puis remontés en ordre BFS inverse (un enfant avant son
+  // parent) : O(R), au lieu d'une remontée de l'arbre par bâtiment, O(T × profondeur)
+  // — PERF-7 de l'audit du 2026-10-05. Mêmes comptes, et même ordre d'insertion dans
+  // `use` : celui où les remontées successives rencontraient chaque cellule (une
+  // remontée s'arrête à la première cellule déjà vue — ses ancêtres le sont aussi).
   let served = 0;
+  const atDoor = new Map(), firstSeen = [], seen = new Set();
   for (const t of tiles) {
     const sx = t.spanX || t.size || 1, sy = t.spanY || t.size || 1;
     let door = null;
@@ -2137,9 +2150,18 @@ function computeRoadUsage({ roadKey, tiles, coreX, coreY }) {
     }
     if (!door) continue;
     served += 1;
-    for (let cur = door, guard = roadKey.size + 2; cur && guard-- > 0; cur = parent.get(cur))
-      use.set(cur, (use.get(cur) || 0) + 1);
+    atDoor.set(door, (atDoor.get(door) || 0) + 1);
+    for (let cur = door; cur && !seen.has(cur); cur = parent.get(cur)) { seen.add(cur); firstSeen.push(cur); }
   }
+  const sub = new Map();
+  for (let i = q.length - 1; i >= 0; i -= 1) {
+    const k = q[i], n = (sub.get(k) || 0) + (atDoor.get(k) || 0);
+    if (!n) continue;
+    sub.set(k, n);
+    const p = parent.get(k);
+    if (p) sub.set(p, (sub.get(p) || 0) + n);
+  }
+  for (const k of firstSeen) use.set(k, sub.get(k));
   return { use, served };
 }
 
@@ -2361,7 +2383,6 @@ function computeMedianSegments(roadMap) {
 //   { axis:"h", y,  x0, x1 } = couture horizontale entre les rangées y et y+1.
 function computeTerrePleinSegments(roadMap, N) {
   const MIN_RUN = 3;
-  const get = (x, y) => roadMap.get(x + "," + y);
   const lane = (c) => !!c && c.roadSurface !== "bridge" && c.rank !== "plaza";
   // La PAIRE doit être un boulevard VOULU : seul le rang "main" est tracé en
   // double (runLineWide) — le refuge central est SON mobilier. Sans ce filtre,
@@ -2370,12 +2391,23 @@ function computeTerrePleinSegments(roadMap, N) {
   // sortir de leur maison ?? », Raph 2026-08-03). L'exclusion latérale, elle,
   // reste sur TOUTE route : une 3e voie de n'importe quel rang élargit le couloir.
   const boulevard = (c) => lane(c) && c.rank === "main";
+  // Classe de chaque case lue par les deux balayages (x, y ∈ [−1, N+1]), posée une
+  // fois depuis roadMap : 1 = voie, 2 = boulevard. Les balayages N² lisaient une clé
+  // texte par case et par sens (PERF-7 de l'audit du 2026-10-05) ; mêmes tests.
+  const W = N + 3, cls = new Uint8Array(W * W);
+  for (const [k, c] of roadMap) {
+    const ci = k.indexOf(","), x = +k.slice(0, ci), y = +k.slice(ci + 1);
+    if (x < -1 || y < -1 || x > N + 1 || y > N + 1) continue;
+    cls[(y + 1) * W + x + 1] = boulevard(c) ? 2 : lane(c) ? 1 : 0;
+  }
+  const isBlvd = (x, y) => cls[(y + 1) * W + x + 1] === 2;
+  const isLane = (x, y) => cls[(y + 1) * W + x + 1] !== 0;
   const segments = [];
   // Coutures VERTICALES : colonnes x|x+1 en voies, rien en x-1 ni x+2.
   for (let x = 0; x < N - 1; x += 1) {
     let y0 = -1;
     for (let y = 0; y <= N; y += 1) {
-      const ok = y < N && boulevard(get(x, y)) && boulevard(get(x + 1, y)) && !lane(get(x - 1, y)) && !lane(get(x + 2, y));
+      const ok = y < N && isBlvd(x, y) && isBlvd(x + 1, y) && !isLane(x - 1, y) && !isLane(x + 2, y);
       if (ok && y0 < 0) y0 = y;
       else if (!ok && y0 >= 0) { if (y - y0 >= MIN_RUN) segments.push({ axis: "v", x, y0, y1: y - 1 }); y0 = -1; }
     }
@@ -2384,7 +2416,7 @@ function computeTerrePleinSegments(roadMap, N) {
   for (let y = 0; y < N - 1; y += 1) {
     let x0 = -1;
     for (let x = 0; x <= N; x += 1) {
-      const ok = x < N && boulevard(get(x, y)) && boulevard(get(x, y + 1)) && !lane(get(x, y - 1)) && !lane(get(x, y + 2));
+      const ok = x < N && isBlvd(x, y) && isBlvd(x, y + 1) && !isLane(x, y - 1) && !isLane(x, y + 2);
       if (ok && x0 < 0) x0 = x;
       else if (!ok && x0 >= 0) { if (x - x0 >= MIN_RUN) segments.push({ axis: "h", y, x0, x1: x - 1 }); x0 = -1; }
     }
@@ -2440,14 +2472,10 @@ const lpEnd = () => {
   _lpOut = null;
 };
 
-// ── Génération de la disposition (pure) ─────────────────────────────────────
-function computeCityLayout(s) {
-  lpBegin();
-  const c = cityCounts(s);
-  // ── Couche procédurale : seed de partie, personnalité, config d'âge ──────
-  const mapSeed = ensureMapSeed(s);
-  const personality = computeCityPersonality(mapSeed, s);
-  const ageCfg = ageConfigFor(c.eraBand);
+// ── Dimension de la grille (pure, sans tracé) ───────────────────────────────
+// Sortie de computeCityLayout pour que le relevé du vestige (captureVestige) en
+// lise la MÊME grille sans retracer toute la ville : une seule formule, deux lecteurs.
+function cityGridDims(s, c, mapSeed) {
   const total = c.houses + (c.engineHomes || 0);   // maisons pop + maisons-moteur (pour dimensionner N)
   // `meta.id` est désormais PASSÉ à cmEngineInstances : sans lui, les 4 singletons
   // (aqueduc, champs, port, moulin) retombaient sur le découpage générique et
@@ -2483,6 +2511,18 @@ function computeCityLayout(s) {
   // étalement qui décroît avec les ères) couperait la ville à ses bords.
   if (roadMemoryActive(c.eraBand) && s.cityCore && (s.cityCore.seed >>> 0) === (mapSeed >>> 0)
     && Number.isFinite(s.cityCore.maxN) && s.cityCore.maxN > N) N = Math.min(NCAP, s.cityCore.maxN | 0);
+  return { N, total, enginePressure };
+}
+
+// ── Génération de la disposition (pure) ─────────────────────────────────────
+function computeCityLayout(s) {
+  lpBegin();
+  const c = cityCounts(s);
+  // ── Couche procédurale : seed de partie, personnalité, config d'âge ──────
+  const mapSeed = ensureMapSeed(s);
+  const personality = computeCityPersonality(mapSeed, s);
+  const ageCfg = ageConfigFor(c.eraBand);
+  const { N, total, enginePressure } = cityGridDims(s, c, mapSeed);
   const cx = Math.floor(N / 2), cy = Math.floor(N / 2);
   lp("dimension");
 
@@ -3109,15 +3149,28 @@ function computeCityLayout(s) {
   // de route + chaque tentative de district. Boucle simple et hash entier
   // (pas de concaténation de chaînes ni de closure de reduce).
   const riverPullFactor = c.eraBand >= 2 ? 0.55 : 0.2;
+  // SORTIE ANTICIPÉE (PERF-7 de l'audit du 2026-10-05 : la boucle des cellules
+  // passait ~45 % de son temps ici, surtout pour des cellules loin hors la ville).
+  // Chaque terme du seuil a une borne haute — contour ≤ plan.reachMax, fleuve ≤
+  // 5,5 × facteur, quartier ≤ max(r × force), frange hachée < 0,9 : une cellule plus
+  // loin que leur somme est dehors, quoi que disent atan2, riverYAt et les ancres.
+  // Bornes sommées dans l'ordre du seuil et majorées d'un epsilon → même réponse au
+  // bit près. Une ancre dont le carré ne contient pas la cellule tire ≤ 0 (force > 0)
+  // et ne peut pas battre quarterPull (≥ 0) : on la saute.
+  let olQuarterMax = 0;
+  for (const q of quarterAnchors) olQuarterMax = Math.max(olQuarterMax, q.r * q.strength);
+  const olFar = plan.reachMax(cityReachBase) * (1 + 1e-9) + 5.5 * riverPullFactor + olQuarterMax + 0.9 + 1e-6;
   const organicLimit = (gx, gy, margin = 0) => {
     const px = gx + 0.5, py = gy + 0.5;
     const dx = px - plan.core.x, dy = py - plan.core.y;
     const dist = Math.hypot(dx, dy);
+    if (dist > olFar + margin) return false;
     const angle = Math.atan2(dy, dx);
     const riverPull = Math.max(0, 5.5 - Math.abs(py - riverYAt(gx))) * riverPullFactor;
     let quarterPull = 0;
     for (let qi = 0; qi < quarterAnchors.length; qi += 1) {
       const q = quarterAnchors[qi];
+      if (Math.abs(px - q.gx) >= q.r || Math.abs(py - q.gy) >= q.r) continue;
       const pull = (q.r - Math.hypot(px - q.gx, py - q.gy)) * q.strength;
       if (pull > quarterPull) quarterPull = pull;
     }
@@ -4212,11 +4265,13 @@ function computeCityLayout(s) {
   }, 0);
   for (let gx = 0; gx < N; gx += 1) {
     for (let gy = 0; gy < N; gy += 1) {
+      // L'emprise d'abord (tests purs, l'ordre ne change rien) : hors la ville, sa
+      // sortie anticipée évite la clé texte et les six lectures de Set.
+      if (!organicLimit(gx, gy, 0.8)) continue;
       const key = gx + "," + gy;
       if (roadKey.has(key) || riverSet.has(key) || bankSet.has(key) || reserved.has(key)) continue;
       if (plaisirsClear.has(key)) continue;                 // domaine des Plaisirs
       if (hearthClear.has(key)) continue;                   // foyer du campement
-      if (!organicLimit(gx, gy, 0.8)) continue;
       const dx = gx - cx, dy = gy - cy;
       const score = organicScore({ gx, gy });
       const noise = (cmHash("green:" + (gx - fx0) + ":" + (gy - fy0) + ":" + mapSeed) % 100) / 100;
@@ -5760,8 +5815,17 @@ function computeCityLayout(s) {
   const roadMedian = (() => {
     const rset = roadGraph.roadSet, out = new Set(), bf = new Set();
     for (const t of tiles) { const bx = t.spanX || t.size || 1, by = t.spanY || t.size || 1; for (let ax = 0; ax < bx; ax += 1) for (let ay = 0; ay < by; ay += 1) bf.add((t.gx + ax) + "," + (t.gy + ay)); }
-    const R = (x, y) => rset.has(x + "," + y);
-    const paved = (x, y) => rset.has(x + "," + y) || out.has(x + "," + y);
+    // Routes (1) et combles (2) en grille sur x, y ∈ [−1, N] : le balayage N² ne
+    // fabrique plus de clé texte que pour les cases candidates (PERF-7 de l'audit du
+    // 2026-10-05) ; hors de la grille, on relit les Sets. Mêmes tests, même ordre.
+    const W = N + 2, rG = new Uint8Array(W * W);
+    const inG = (x, y) => x >= -1 && y >= -1 && x <= N && y <= N;
+    for (const k of rset) {
+      const ci = k.indexOf(","), x = +k.slice(0, ci), y = +k.slice(ci + 1);
+      if (inG(x, y)) rG[(y + 1) * W + x + 1] = 1;
+    }
+    const R = (x, y) => (inG(x, y) ? rG[(y + 1) * W + x + 1] === 1 : rset.has(x + "," + y));
+    const paved = (x, y) => (inG(x, y) ? rG[(y + 1) * W + x + 1] !== 0 : rset.has(x + "," + y) || out.has(x + "," + y));
     // Plafond de FUSION : un bloc route+comble ne dépasse jamais MAX_FUSED cellules de
     // large → fini les grands aplats gris de routes serrées soudées. Passe greedy
     // déterministe (gy puis gx croissants) : on comble un gap seulement si le run
@@ -5771,15 +5835,17 @@ function computeCityLayout(s) {
     const MAX_FUSED = 3;
     const runLen = (x, y, dx, dy) => { let n = 0, cx = x + dx, cy = y + dy; while (paved(cx, cy)) { n += 1; cx += dx; cy += dy; } return n; };
     for (let gy = 0; gy < N; gy += 1) for (let gx = 0; gx < N; gx += 1) {
-      const k = gx + "," + gy;
-      if (rset.has(k) || bf.has(k) || riverSet.has(k)) continue;
       const hor = R(gx - 1, gy) && R(gx + 1, gy);
       const ver = R(gx, gy - 1) && R(gx, gy + 1);
       if (!hor && !ver) continue;
-      if (hor && ver) { out.add(k); continue; }        // trou de carrefour : complète le nœud
+      const gi = (gy + 1) * W + gx + 1;
+      if (rG[gi] === 1) continue;                       // la case est une route
+      const k = gx + "," + gy;
+      if (bf.has(k) || riverSet.has(k)) continue;
+      if (hor && ver) { out.add(k); rG[gi] = 2; continue; }   // trou de carrefour : complète le nœud
       const w = hor ? (1 + runLen(gx, gy, -1, 0) + runLen(gx, gy, 1, 0))
                     : (1 + runLen(gx, gy, 0, -1) + runLen(gx, gy, 0, 1));
-      if (w <= MAX_FUSED) out.add(k);
+      if (w <= MAX_FUSED) { out.add(k); rG[gi] = 2; }
     }
     return out;
   })();
@@ -5807,8 +5873,9 @@ function computeCityLayout(s) {
     for (const l of ilot.lots) townGreen.add(l.gx + "," + l.gy);
     for (const q of ilot.air) townGreen.add(q.gx + "," + q.gy);   // l'air des îlots
   } else for (let gy = 0; gy < N; gy += 1) for (let gx = 0; gx < N; gx += 1) {
+    if (!organicLimit(gx, gy, 1.5)) continue;   // avant la clé texte (sortie anticipée)
     const k = gx + "," + gy;
-    if (organicLimit(gx, gy, 1.5) && !riverSet.has(k)) urbanSet.add(k);
+    if (!riverSet.has(k)) urbanSet.add(k);
   }
   for (const k of occupiedFoot) if (!riverSet.has(k)) urbanSet.add(k);
   // ── Un bâtiment se tient TOUJOURS sur du sol de ville ──────────────────────
@@ -5917,25 +5984,65 @@ function computeCityLayout(s) {
 // Capture un « record de cité morte » compact au moment de l'effondrement. `meta`
 // (figée dans crisis.js AVANT le reset : nom/année/ère de la civ qui tombe) est
 // fusionnée avec un footprint dérivé du layout — pas de milliers de cellules.
+//
+// ⚡ RELEVÉ LÉGER (PERF-8 de l'audit du 2026-10-05). Retracer toute la ville coûtait
+// 150-250 ms par chute en fin de partie : 28 à 32 s de gel au lancement après une
+// nuit hors ligne avec le Phénix calendaire (~170 chutes simulées), ~200 ms à chaque
+// chute en ligne. Or le footprint ne demande que la grille et le cœur, et le seul
+// effet DURABLE du recalcul sur l'état est la grille qui ne rétrécit jamais
+// (cityCore.maxN) : rues, slots, archétype, fiche d'îlots sont effacés par
+// completeCollapse dans la foulée. Quand la fiche de cœur de cette graine et le
+// fleuve sont déjà posés, on lit donc la grille par cityGridDims et on pousse maxN
+// à l'identique, sans tracé. Sinon (sauvegarde sans fiche, fiche d'une autre graine,
+// fleuve absent) : le recalcul complet, qui POSE la fiche — c'est elle qui garde la
+// cité suivante dans la même vallée (crisis.js) ; les chutes suivantes, elles,
+// repassent par le relevé léger. Molette (A/B) : `__vestigeFull = true` force le
+// recalcul complet.
+function lightVestigeFrame(s) {
+  if (typeof globalThis !== "undefined" && globalThis.__vestigeFull) return null;
+  const mapSeed = ensureMapSeed(s);
+  const fix = s.cityCore;
+  if (!fix || fix.seed !== (mapSeed >>> 0) || !Array.isArray(s.riverWP) || s.riverWP.length !== 6) return null;
+  const c = cityCounts(s);
+  const { N } = cityGridDims(s, c, mapSeed);
+  if (roadMemoryActive(c.eraBand)) fix.maxN = Math.max(fix.maxN | 0, N);   // = computeCityLayout
+  const cx = Math.floor(N / 2), cy = Math.floor(N / 2);
+  // Rayon : celui de la ville affichée quand c'est elle qui tombe (en jeu, même
+  // graine). Hors ligne, CM.layout est la ville d'AVANT l'absence (même vallée, donc
+  // même graine) : on l'estime sur la grille — le bâti le plus lointain tient à ~N/2
+  // au campement, ~N/4 en fin de partie (relevé du campement à l'ère 136 : écart
+  // ≤ 20 % au rayon tracé ; la nécropole le borne de toute façon, cf. necropolis.js).
+  const live = !isOfflineSim() && CM.layout && CM.layout.mapSeed === mapSeed ? CM.layout : null;
+  const radius = live && live.maxD2 > 0 ? Math.round(Math.sqrt(live.maxD2)) : Math.round(N * (0.5 - 0.25 * c.eraFrac));
+  return { gridN: N, core: { x: cx + (Number(fix.dx) || 0), y: cy + (Number(fix.dy) || 0) }, radius: Math.max(1, radius), eraIndex: c.eraIndex, mapSeed };
+}
 function captureVestige(meta) {
   if (typeof state === "undefined" || !state) return;
   try {
-    const L = computeCityLayout(state);
-    if (!L.tiles.length) return;
+    let fr = lightVestigeFrame(state);
+    if (!fr) {
+      const L = computeCityLayout(state);
+      if (!L.tiles.length) return;
+      fr = {
+        gridN: L.gridN,
+        core: (L.plan && L.plan.core) ? L.plan.core : { x: L.cx, y: L.cy },
+        radius: Math.max(1, Math.round(Math.sqrt(L.maxD2 || 0)) || Math.floor(L.gridN / 4)),
+        eraIndex: L.counts ? L.counts.eraIndex : 0,
+        mapSeed: L.mapSeed
+      };
+    }
     if (!Array.isArray(state.vestiges)) state.vestiges = [];
     const m = meta || {};
-    const core = (L.plan && L.plan.core) ? L.plan.core : { x: L.cx, y: L.cy };
-    const radius = Math.max(1, Math.round(Math.sqrt(L.maxD2 || 0)) || Math.floor(L.gridN / 4));
-    const eraIndex = Number.isFinite(m.eraIndex) ? m.eraIndex : (L.counts ? L.counts.eraIndex : 0);
+    const eraIndex = Number.isFinite(m.eraIndex) ? m.eraIndex : fr.eraIndex;
     const eraBand = eraBandOf(eraIndex); // cohérent avec l'eraIndex stocké
     state.vestiges.push({
       cityName: String(m.cityName || ""),
       year: Math.max(1, Math.floor(Number(m.year) || 1)),
       eraIndex, // l'ère par son index seul : un nom serait figé dans une langue (I18N-6)
       eraBand,
-      mapSeed: Number(L.mapSeed != null ? L.mapSeed : state.mapSeed) || 0,
+      mapSeed: Number(fr.mapSeed != null ? fr.mapSeed : state.mapSeed) || 0,
       cycleIndex: Number.isFinite(m.cycleIndex) ? m.cycleIndex : (state.cycles || 0),
-      footprint: { gridN: L.gridN, cx: Math.round(core.x), cy: Math.round(core.y), radius }
+      footprint: { gridN: fr.gridN, cx: Math.round(fr.core.x), cy: Math.round(fr.core.y), radius: fr.radius }
     });
     while (state.vestiges.length > 3) state.vestiges.shift();
   } catch (e) { /* sans effet */ }

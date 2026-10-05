@@ -30,7 +30,7 @@
 // d'épuration, l'école et l'hôtel des monnaies (fermés la nuit), l'observatoire (il lui
 // faut le noir).
 import { CM } from './layout.js';
-import { lightCtx } from './lightLayer.js';
+import { LIGHT_LAYER, lightCtx, litBox } from './lightLayer.js';
 import { SCENE_WINDOWS_DATA } from './sceneWindowsData.js';
 
 // Couleurs de verre par clé de sprite (hex sans #, séparées par une espace).
@@ -158,7 +158,10 @@ function inkRows(data, w, h) {
   return [y0, y1];
 }
 
-const masks = new WeakMap();   // img → Map(réglage → { light, dark } | null)
+const masks = new WeakMap();   // img → Map(réglage → { light, dark, u0, v0, u1, v1 } | null)
+// (u0, v0)-(u1, v1) = boîte des carreaux posés (audit du 2026-10-05, PERF-2) : les deux
+// masques ont la taille de l'image entière, blittée chaque nuit (lumière dans le calque,
+// assombrissement sur la scène) — cf. lightLayer.litBox.
 function masksFor(img, key, mode, phase) {
   let m = masks.get(img);
   if (!m) { m = new Map(); masks.set(img, m); }
@@ -202,8 +205,16 @@ function masksFor(img, key, mode, phase) {
     n += 1;
   });
   if (!n) { m.set(id, null); return null; }
+  // Boîte des pixels posés, lumière OU assombrissement (un carreau vide la laisse vide).
+  let u0 = w, v0 = h, u1 = 0, v1 = 0;
+  for (let p = 0; p < w * h; p += 1) {
+    if (!light.data[p * 4 + 3] && !dark.data[p * 4 + 3]) continue;
+    const px = p % w, py = (p / w) | 0;
+    if (px < u0) u0 = px; if (px + 1 > u1) u1 = px + 1;
+    if (py < v0) v0 = py; if (py + 1 > v1) v1 = py + 1;
+  }
   const mk = (img2) => { const cv = document.createElement('canvas'); cv.width = w; cv.height = h; cv.getContext('2d').putImageData(img2, 0, 0); return cv; };
-  const res = { light: mk(light), dark: mode === 'glass' ? mk(dark) : null };
+  const res = { light: mk(light), dark: mode === 'glass' ? mk(dark) : null, u0, v0, u1: Math.max(u0, u1), v1: Math.max(v0, v1) };
   m.set(id, res);
   return res;
 }
@@ -220,7 +231,12 @@ export function drawSceneWindows(ctx, img, key, dx, dy, dw, dh, seed = 0) {
   if (!night || CM.lodActive) return;
   const m = masksFor(img, key, mode, (seed >>> 0) % 5);
   if (!m) return;
-  const lc = lightCtx(dx, dy, dx + dw, dy + dh);
+  // Emprise serrée sur les carreaux posés (molette tight: false = la scène entière,
+  // comme avant) ; les blits, eux, ne changent pas.
+  const b = LIGHT_LAYER.tight !== false
+    ? litBox(dx, dy, dw / m.light.width, dh / m.light.height, m.u0, m.v0, m.u1, m.v1)
+    : { x0: dx, y0: dy, x1: dx + dw, y1: dy + dh };
+  const lc = lightCtx(b.x0, b.y0, b.x1, b.y1);
   if (!lc) return;
   const fade = ctx ? ctx.globalAlpha : 1;
   if (m.dark && ctx) {

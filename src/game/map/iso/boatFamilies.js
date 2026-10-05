@@ -85,7 +85,9 @@ export function makeDugout(o, M) {
   const L = o.L || 30, B = o.B || 6.4;
   return {
     id: o.id, role: o.role || 'trade', len: L, beam: B, speed: o.speed || [0.8, 1.1],
-    anim: { frames: 4, period: 1.6 },
+    // À quai, les pagaies sont rentrées et les deux hommes assis : la phase n'y sert à
+    // rien, une image au lieu de quatre (audit du 05/10, PERF-14).
+    anim: { frames: 4, period: 1.6, still: ['dock'] },
     bounds: [-L / 2 - 4, L / 2 + 4, -10, 10, -1, 14],
     ink: '#1d1611',
     variant(seed) { return { seed, cargo: pick(o.cargo || ['hides'], seed, 4) }; },
@@ -130,7 +132,10 @@ export function makeRowboat(o, M) {
     // Vide à quai (bassins, pontons), rien ne bouge : les rames rangées ignorent k.
     // Une seule image au lieu de six (revue du 04/10) — PAS `still`, qui figerait
     // aussi le rameur d'une barque habitée à quai sur le fleuve.
-    anim: { frames: 6, period: 2.2, stillEmpty: ['dock'] },
+    // La barque à voile LATINE, elle, ne rame jamais : hors de la pêche, ni sa voile ni
+    // son barreur ni son passager ne lisent la phase — six poses identiques par cap,
+    // une seule désormais (audit du 05/10, PERF-14).
+    anim: { frames: 6, period: 2.2, stillEmpty: ['dock'], ...(o.lateen ? { still: ['cruise', 'dock', 'salute', 'return', 'unload'] } : {}) },
     bounds: [-L / 2 - 4, L / 2 + 4, -16, 16, -1, o.lateen ? 26 : 12],
     ink: '#1d1611',
     variant(seed) {

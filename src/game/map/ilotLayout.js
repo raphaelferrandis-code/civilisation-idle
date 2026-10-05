@@ -16,7 +16,7 @@
  * Aucun accès au monde : tout arrive par paramètres, tout repart en données.
  * La MÉMOIRE (`memory`) est un petit objet JSON rangé dans state.cityCore.ilot.
  * ========================================================================== */
-import { gridOf, blockOrder, blockStreets, ILOT_DEFAULTS } from "./procedural/blockCity.js";
+import { gridOf, blockOrderLazy, blockStreets, ILOT_DEFAULTS } from "./procedural/blockCity.js";
 
 // Une place de quartier tous les PLAZA_EVERY îlots (au rang PLAZA_EVERY/2 du
 // cycle) : un square, un marché, un parvis — le Marbre a ses forums de quartier.
@@ -145,7 +145,11 @@ export function planIlots(o) {
   // La rive d'en face coûte la traversée : on y bâtit quand le cœur est servi.
   const riverMid = cross ? (cross.near + cross.far + 1) / 2 : null;
   const extraCost = (i, j, c) => (riverMid !== null && Math.sign(c.y - riverMid) !== Math.sign((core.y + 0.5) - riverMid) ? 1.5 : 0);
-  const order = blockOrder({ N, core, grid, usable, streetOk, seed, extraCost, maxBlocks: 2000 });
+  // L'ordre est PARESSEUX (PERF-7 de l'audit du 2026-10-05, cf. blockOrderLazy) : on
+  // n'avance que jusqu'aux îlots que ce plan lit — `order.at(r)`, `blockByKey(k)` —
+  // au lieu de calculer les lots des ~3 500 îlots de la fenêtre. Mêmes îlots, mêmes
+  // rangs : chaque lecture rend ce que rendait la liste complète.
+  const order = blockOrderLazy({ N, core, grid, usable, streetOk, seed, extraCost, maxBlocks: 2000 });
 
   // ── LA MÉMOIRE DES ÎLOTS ─────────────────────────────────────────────────
   // L'ordre d'ouverture dépend de la géométrie, et la géométrie bouge un peu : le
@@ -153,11 +157,19 @@ export function planIlots(o) {
   // l'autre, des îlots neufs ouverts ailleurs, champs et moulins chassés sur l'autre
   // rive). Ce qui est OUVERT, lui, ne doit plus bouger : la mémoire garde la LISTE
   // des îlots ouverts et le rôle de chacun (forum, places), pas seulement leur nombre.
-  const byKey = new Map(order.map((b) => [bkey(b), b]));
+  const byKey = new Map();
+  let keyed = 0;
+  const blockByKey = (k) => {
+    for (;;) {
+      for (; keyed < order.produced.length; keyed += 1) byKey.set(bkey(order.produced[keyed]), order.produced[keyed]);
+      if (byKey.has(k) || !order.at(keyed)) return byKey.get(k);
+    }
+  };
+  const findOrder = (pred) => { for (let r = 0, b; (b = order.at(r)); r += 1) if (pred(b)) return b; return undefined; };
   const role = new Map();                              // "i:j" → { kind, key?, plazaKind?, size? }
   const opened = [], openedSet = new Set();
   const openB = (b) => { opened.push(b); openedSet.add(bkey(b)); };
-  for (const k of mem.blocks || []) { const b = byKey.get(k); if (b && !openedSet.has(k)) openB(b); }
+  for (const k of mem.blocks || []) { const b = blockByKey(k); if (b && !openedSet.has(k)) openB(b); }
   for (const [k, kind] of Object.entries(mem.plazas || {})) if (openedSet.has(k)) role.set(k, { kind: "plaza", plazaKind: kind });
   const full4 = (b) => b.cells.length === (pitch - 1) * (pitch - 1);
   const heldIn = (b) => o.isHeld && b.cells.some((c) => o.isHeld(c.x, c.y));
@@ -169,7 +181,9 @@ export function planIlots(o) {
   // Le FORUM : le premier îlot complet au croisement du cardo et du decumanus.
   if (![...role.values()].some((r) => r.plazaKind === "centrale")) {
     const ok = (b) => full4(b) && !heldIn(b) && !deferred(b);
-    const forum = order.slice(0, 8).find((b) => ok(b) && (b.i === -1 || b.i === 0) && (b.j === -1 || b.j === 0)) || order.find(ok);
+    let forum;                                       // parmi les 8 premiers, au croisement…
+    for (let r = 0, b; r < 8 && (b = order.at(r)); r += 1) if (ok(b) && (b.i === -1 || b.i === 0) && (b.j === -1 || b.j === 0)) { forum = b; break; }
+    if (!forum) forum = findOrder(ok);               // …sinon le premier îlot complet
     if (forum) role.set(bkey(forum), { kind: "plaza", plazaKind: "centrale" });
   }
   // Halles : celles de la mémoire gardent leur îlot ; les nouvelles prennent le
@@ -182,7 +196,7 @@ export function planIlots(o) {
   const memHalls = { ...(mem.halls || {}) };
   for (const h of o.demand.halls) {
     const bk = memHalls[h.key];
-    const b = bk && byKey.get(bk);
+    const b = bk && blockByKey(bk);
     if (b && !role.has(bk)) { role.set(bk, { kind: "hall", key: h.key, size: h.size || 1 }); hallBlock.set(h.key, b); }
   }
   const est = Math.ceil(o.demand.lots / lotsPerBlock()) + o.demand.halls.length + 2;
@@ -190,8 +204,9 @@ export function planIlots(o) {
   for (const h of o.demand.halls) {
     if (hallBlock.has(h.key)) continue;
     let b = null;
-    for (let r = Math.min(order.length - 1, startOf(h.zone)); r < order.length && !b; r += 1) {
-      const q = order[r];
+    // Départ : le rang de sa zone, ou le dernier îlot si l'ordre est plus court.
+    const r0 = order.at(startOf(h.zone)) ? startOf(h.zone) : order.produced.length - 1;
+    for (let r = r0, q; !b && (q = order.at(r)); r += 1) {
       if (!role.has(bkey(q)) && q.cells.length >= 9 && !heldIn(q) && !deferred(q)) b = q;
     }
     if (!b) continue;
@@ -253,8 +268,12 @@ export function planIlots(o) {
   let need = o.demand.lots + LOT_MARGIN;
   for (const b of opened) need -= capOf(b);
   let maxRole = -1;
-  for (const [k, r] of role) if ((r.kind === "hall" || r.plazaKind === "centrale") && !openedSet.has(k) && byKey.has(k)) maxRole = Math.max(maxRole, byKey.get(k).rank);
-  for (const b of order) {
+  for (const [k, r] of role) {
+    if (!(r.kind === "hall" || r.plazaKind === "centrale") || openedSet.has(k)) continue;
+    const rb = blockByKey(k);
+    if (rb) maxRole = Math.max(maxRole, rb.rank);
+  }
+  for (let r = 0, b; (b = order.at(r)); r += 1) {
     const k = bkey(b);
     if (openedSet.has(k)) continue;
     if (need <= 0 && b.rank > maxRole) break;
@@ -399,5 +418,6 @@ export function planIlots(o) {
   for (const b of blocks) { const r = role.get(bkey(b)); if (r && r.kind === "plaza") memPlazas[bkey(b)] = r.plazaKind; }
   const memOut = { blocks: blocks.map(bkey), plazas: memPlazas, halls: memHalls, annexes: memAnnex };
   for (const k of Object.keys(memOut.halls)) if (!openedSet.has(memOut.halls[k])) delete memOut.halls[k];
-  return { grid, order, blocks, opened: openedSet, streets, plazas, halls, hallBlock, hallAt, annexAt, lots, lotFace, courts, air, memory: memOut, seed };
+  // `order` : la suite complète, calculée seulement si quelqu'un la lit.
+  return { grid, get order() { return order.all(); }, blocks, opened: openedSet, streets, plazas, halls, hallBlock, hallAt, annexAt, lots, lotFace, courts, air, memory: memOut, seed };
 }
