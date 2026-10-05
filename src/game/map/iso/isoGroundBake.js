@@ -18,7 +18,8 @@
 // lit la caméra, la taille de viewport et la cible dans `CM` — c'est ce qui
 // permet à la pyramide de le pointer sur une tuile (cf. cookTile).
 import { CM } from '../layout.js';
-import { DIRT_TONE, CAMP_GROUND, campFlowerK } from './isoTissu.js';
+import { DIRT_TONE, CAMP_GROUND, campFlowerK, courOf } from './isoTissu.js';
+import { townLawnAt } from './isoMeadow.js';
 import { sweepIsoGroundCells } from './isoGroundCells.js';
 import { SEASON_GRASS, drawGrassDetailAll, drawGrassFringeAll } from './isoGroundDetail.js';
 import { makeGroundBake } from './isoGroundResolve.js';
@@ -28,6 +29,7 @@ import { terrainKey, terrainMaxPx } from './isoTerrain.js';
 import { rgb } from './isoPalette.js';
 import { drawIsoMedians } from './isoStreet.js';
 import { drawWonderGroundAll, wonderToneFor } from './isoWonderGround.js';
+import { drawGrassVeils, forestFlowerK } from './isoForestFloor.js';
 import { WINTER } from '../seasonMode.js';
 
 // ── SOL : l'ordre des passes ─────────────────────────────────────────────────
@@ -41,7 +43,7 @@ export function drawIsoGround() {
   const { bake, resolve, out } = makeGroundBake(ISO_GROUND_LOD);
   const { ctx, T, z, hw, hh, LOD, HARD, b, L, band, mat, urb, road, roadMap, riverCells, plazaEra, wg, PR } = bake;
   const { kindAt, grassAt, keyOfKind, lisiere } = resolve;
-  const { fringes, roads, wonderCells, grassCells, veilPush, veilPushRects, flushVeils } = out;
+  const { fringes, roads, wonderCells, grassCells, grassMask, grassMaskR, veilPush, veilPushRects, flushVeils } = out;
   ctx.save();
   ctx.lineJoin = 'round';
   // FOND D'HERBE UNIQUE : l'herbe (l'écrasante majorité des cellules — toute la
@@ -81,7 +83,7 @@ export function drawIsoGround() {
     { ctx, T, hw, hh, LOD, HARD, b, cullOn, cullPadX, cullPadY,
       L, roadMap, riverCells, urb, mat, plazaEra, wg, PR },
     { kindAt, grassAt, keyOfKind, lisiere },
-    { fringes, roads, wonderCells, grassCells, veilPush, veilPushRects,
+    { fringes, roads, wonderCells, grassCells, grassMask, grassMaskR, veilPush, veilPushRects,
       faceL, faceD, faceLU, faceDU, faceFoot, faceBand, faceJoint, faceLipG, faceLipS },
   );
   if (PR) PR.cells = performance.now() - tLoop;
@@ -147,9 +149,13 @@ export function drawIsoGround() {
   // cellule → « tous les voiles puis toutes les fleurs » == l'entrelacé par cellule.
   const tV = PR && performance.now();
   flushVeils();
+  // PRÉS puis SOUS-BOIS (isoMeadow, isoForestFloor) : deux voiles lissés, dans
+  // l'herbe seule — avant les fleurs, qui s'éteignent sous les couronnes.
+  if (!LOD) drawGrassVeils(ctx, b, L, T, hw, hh, grassMask, grassMaskR);
   // Camp : l'herbe piétinée au ras de la terre battue ne fleurit pas (campFlowerK).
   const campFK = campFlowerK(L);
-  drawGrassDetailAll(ctx, grassCells, hw, hh, lisiere, campFK);
+  // Pelouse de ville (isoMeadow, lot 5) : ni touffes, fleurs en massif au cœur.
+  drawGrassDetailAll(ctx, grassCells, hw, hh, lisiere, forestFlowerK(L, campFK), townLawnAt(L, courOf(L)));
   if (PR) PR.grass += performance.now() - tV;
   // FRANGE D'HERBE : après le fond (les langues mordent sur des cellules déjà
   // peintes), AVANT les rubans de chaussée (la route recouvre ce qui la borde).

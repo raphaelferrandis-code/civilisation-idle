@@ -204,3 +204,47 @@ La taille du port de commerce suit le nombre de « Ports » achetés (portiques,
     non commités de portBerths.js / isoTradePort.js. Porte-conteneurs : un modèle « de
     quai » plus long (~2,9 tuiles) dessiné à sa taille plutôt qu'un agrandissement (qui
     casserait la grille de pixels).
+- 2026-10-03 (Raph, deux captures : « les bâtiments de port ne sont pas bien alignés avec
+  le ponton à certaines ères, et ceux que tu as refaits, il manque le côté pixel art ») :
+  - **Alignement, trois causes.** (1) La pointe avant de la maison était posée SUR l'axe
+    du ponton : il arrivait au coin, la porte à côté → `pierHouseFoot(g, w, d)` centre la
+    face tournée vers l'eau sur l'axe, au bout du tablier, l'emprise w × d se déduisant du
+    dessin (`PORT_HOUSE_R` = part de la face gauche, mesurée sur le PNG). (2) L'horreum de
+    la bande 4 était dessiné presque DE FACE (bas de façade en pente 1/8 au lieu de 1/2) →
+    régénéré (objet 8 directions d1ffb933, style de la taberna, rotation SUD-EST : la longue
+    façade à arcades à gauche, éclairée), `image_to_pixelart` fidèle 95 px, 20 teintes.
+    (3) `blitProp` substituait la version « -grand » selon l'empreinte du DERNIER
+    bâtiment-moteur peint (valeur résiduelle de `setEngineSpan`) : la maison changeait de
+    cadre selon ce qui précédait → `blitPropAnchored` pose toujours le sprite calibré.
+  - **Pixel art des boîtes** (`isoBoxBake`, option `ink`) : contour sélectif foncé tiré
+    vers le violet (devant le vide ou une boîte plus lointaine), arête haute éclairée,
+    joints entre boîtes jointives, pied assombri sur le sol ; `faceLit` : l'ombre bleuit au
+    lieu de griser. Terminal et docks redessinés au pixel (briques 6 × 2, pavés en
+    quinconce, conteneurs nervurés, croisillons des portiques, taches d'huile en damier) ;
+    entrepôts en TRAVÉES À PIGNON tournés vers le quai (toits en marches d'un pixel,
+    `grp` = un seul objet pour l'encre). Fort et phare du Vieux-Port encrés aussi.
+    Molettes `__trade({ ink })`, `__oldPort({ ink })`. Cuisson ~0,3 s, inchangée.
+  - Planches : `.preview-shots/planche-port-alignement.png` (avant / après, bandes 0-4),
+    `planche-port-pixelart-avant-apres.png`. NON COMMITÉ.
+- 2026-10-03, second retour (« revoit la jonction quai/port » ; « les bâtiments ne vont
+  pas, ou alors il faut qu'ils soient un peu sur le côté, pas au bout du ponton ») :
+  - **Maison du port SUR LE CÔTÉ** du ponton (`pierHouseFoot`) : côté +x / +y (le ponton
+    ne passe jamais devant), à `PIER.houseGap` 0,14 du tablier, reculée de `PIER.house`
+    0,85 sur le sable (0,3 : le pied dans l'écume).
+  - **Jonction quai / port de commerce, deux causes.** (1) Le bord du terre-plein était
+    une droite au point le plus AVANCÉ de la berge (+0,12) : à l'autre bout le port
+    débordait de 0,4 tuile → il SUIT la berge peinte (`yAt(x)`, table au 1/8 de tuile ;
+    terre-plein et mur par bandes d'un quart de tuile ; tout le reste posé en `u` depuis
+    ce bord), raccords prolongés de 0,1 sur le quai du fleuve. (2) Le mur du quai du
+    fleuve s'effilait à zéro au bout de son tronçon, même contre un port → isoQuay :
+    bout CARRÉ quand le bout touche `dockPlus` / `dockMinus` (session des quais prévenue).
+    Vaut aussi pour l'embouchure du Vieux-Port.
+  - **Port médiéval (bandes 2-3) redessiné** (Raph : « celui-là est très moche pour un
+    bâtiment de pêche/port » — la maison-tour à colombages) : MAISON DE PÊCHEURS basse
+    sous un grand toit de tuiles, filets et séchoir à poissons sur la face gauche (côté
+    eau), porte à bateaux au pignon, rames et tonneaux. Objet 8 directions 0c1608e2
+    (style : l'atelier à colombages a63180bc de la session des bâtiments), rotation
+    sud-est, `image_to_pixelart` fidèle 88 px (72 px brouillait les filets), pose 2,0
+    tuiles (densité ~1:1). Variante écartée : entrepôt à poulie f383ac90 (trop proche de
+    l'ancien). Ancien sprite : git HEAD. ⚠ `port-house-medieval-grand` (palier) n'est
+    plus utilisé par la grève et reste l'ancien dessin.

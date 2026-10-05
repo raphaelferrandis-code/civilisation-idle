@@ -60,10 +60,12 @@
 import { CM, cmHash, treeCanvasT } from '../layout.js';
 import { solInvalidate } from './solInvalidate.js';
 import { AGENT_SCALE, agentSetForBand, agentSpecFor, drawNamedAgentIso } from '../agents.js';
+import { focusMark, drawFocusRingAt, noteSceneFigure, sceneRingWidth } from '../citizenFocus.js';
 import { buildFolk, folkAt, folkRev } from './plazaFolk.js';
 import { noteFig, FIG } from '../figures.js';
 import { worldToScreen, depthOf } from './projection.js';
 import { lightCutImage, lightCtx } from '../lightLayer.js';
+import { queueFlameGlow, FLAME_COL } from '../flameGlow.js';
 import { drawSunShadow } from './isoSunShadow.js';
 import { stallVideProp } from './isoFamine.js';
 import { streetKitLampArt } from './streetKits.js';
@@ -518,9 +520,13 @@ const KIND_KITS = {
   },
   modern: {
     // LA PLACE CIVIQUE : le bassin carré à jets et sa sphère d'acier. Bassin PLAT et
-    // large : à p 5 (hauteur d'encre), il aurait couvert la moitié de la place — p 3,4.
+    // large : à p 5 (hauteur d'encre), il aurait couvert la moitié de la place.
+    // RÉGÉNÉRÉ le 2026-10-04 (Raph : « pas dans l'angle qu'il faut », puis « elle dénote
+    // beaucoup trop ») : vrai losange iso 2:1, re-pixelisé à 56 px (encre 51 × 27),
+    // margelle au gris du pavé, eau des autres fontaines ; p 1,8 le pose un peu sous
+    // son grain natif, comme les maisons. `aspect` : bien plus large que haut.
     centrale: {
-      centre: { prop: 'fountain-forum', p: 3.4 }, centreForce: true,
+      centre: { prop: 'fountain-forum', p: 1.8, aspect: 1.9 }, centreForce: true,
       benchPerSide: 2, treeWant: 3, side: [{ prop: 'planter', p: 0.55 }],
       field: [{ prop: 'flowerbed', p: 1.0 }],
       people: { mode: 'centre', n: 8 }, garland: true,
@@ -603,9 +609,21 @@ export const FENCED_KINDS = new Set(['jardin']);
 // aussi : arrivée avec les places par sorte SANS bande, elle restait de pierre
 // au centre de la place (Raph, 2026-10-03 : « les fontaines des places ne sont
 // plus animées »).
-export const ANIM_PROPS = new Set(['fountain', 'fountain-forum']);
+// Les BRASEROS du parvis aussi (Raph, 2026-10-04 : « les braseros des places ne
+// sont pas animés ») : bandes cuites par scripts/plazaBrazierAnim.mjs, une par
+// ère où le brasero existe (antique, médiéval, cosmique).
+// Les PUITS et points d'eau aussi (audit du 2026-10-04) : l'eau du bassin frissonne,
+// le filet coule, la pompe goutte (scripts/sceneLive.mjs, sortie « place »). SEULEMENT
+// aux ères où l'eau se voit (ANIM_ERAS) : le puits profond (médiéval, primitif) reste
+// immobile — et une bande absente réclamée compterait en erreur dans le .exe.
+export const ANIM_PROPS = new Set(['fountain', 'fountain-forum', 'brazier', 'well']);
+export const ANIM_ERAS = { well: new Set(['antique', 'industrial', 'modern', 'cosmic']) };
+// Durée d'une image (ms) quand ce n'est pas celle de l'eau (PLAZA_TUNE.animMs) :
+// un feu vacille plus vite qu'une fontaine ne coule ; un filet d'eau tombe.
+const ANIM_MS = { brazier: 110, well: 140 };
 function propAnim(prop, era) {
   if (!ANIM_PROPS.has(prop)) return null;
+  if (ANIM_ERAS[prop] && !ANIM_ERAS[prop].has(era)) return null;
   const e = art('/pixelart/iso/plaza/anim/' + prop + '-' + era + '.png');
   if (!e.ready) return null;
   const w = e.img.naturalWidth | 0, h = e.img.naturalHeight | 0;
@@ -941,10 +959,12 @@ function composeOne(L, era, box) {
     centrePris = putTree(cxc, cyc, 9, false);
   } else if (R.centre) {
     const hc = hOf(R.centre.prop, R.centre);
-    reserve(cxc, cyc, R.centre.prop, hc);
+    // `aspect` de la recette (pièce maîtresse plus large que sa famille) : l'empreinte
+    // réservée prend SA largeur — propFootprint lit l'aspect de la famille.
+    reserve(cxc, cyc, R.centre.prop, R.centre.aspect ? hc * R.centre.aspect / aspectOf(R.centre.prop) : hc);
     props.push({
       prop: R.centre.prop, variant: null, wx: cxc * T, wy: cyc * T, hT: hc,
-      d: depthOf(cxc * T, cyc * T),
+      d: depthOf(cxc * T, cyc * T), aspect: R.centre.aspect || null,
     });
     centrePris = true;
   }
@@ -1097,7 +1117,7 @@ function composeOne(L, era, box) {
     // le test « la fontaine qui grandit ne mange pas le mobilier »). Un
     // emplacement à (cxc + d, cyc − d) est à sx = 2d de l'axe du centre, d'où la
     // DEMI-somme des demi-largeurs.
-    const cHW = (R.centre ? hOf(R.centre.prop, R.centre) * aspectOf('fountain') : treeHT * aspectOf('tree')) * 0.5;
+    const cHW = (R.centre ? hOf(R.centre.prop, R.centre) * (R.centre.aspect || aspectOf('fountain')) : treeHT * aspectOf('tree')) * 0.5;
     const tHW = treeHT * aspectOf('tree') * 0.5;
     const td = Math.max(
       PLAZA_TUNE.treeSpread * Math.min(w, h) / 2,
@@ -1207,6 +1227,27 @@ function composeOne(L, era, box) {
       sd: 'plz' + sd, box, cx: cxc, cy: cyc, n, mode: R.people.mode,
       inPlaza: (gx, gy) => cellSet.has(gx + ',' + gy), free: walkFree, stand,
       stalls, exits: plazaExits(L, cells, cellSet),
+      // OÙ L'ON S'ASSOIT (§8 de PLAN-COMPORTEMENTS) : SUR l'assise des bancs qui regardent le
+      // sud ou l'est (côtés nord et ouest) — on y voit les gens de FACE, les seules vues
+      // assises dessinées — et que rien ne masque (un massif devant un duo). Un rien devant
+      // le centre du banc (0,03 case) : assez pour passer DEVANT lui au tri, pas assez pour
+      // qu'on le voie debout à côté (0,1 le posait au bord, mesuré en jeu le 05/10).
+      seats: (() => {
+        const others = props.filter((p) => p.prop !== 'bench' && p.prop !== 'garland' && !p.front)
+          .map((p) => propFootprint(p.wx / T, p.wy / T, p.prop, p.hT));
+        // … et qu'on aborde sans traverser la base d'un objet (un lampadaire, un bac devant).
+        const nb = plazaBases(props.filter((p) => p.prop !== 'bench'), lamps, T);
+        const out = [];
+        for (const b of props) {
+          if (b.prop !== 'bench' || (b.variant !== 's' && b.variant !== 'e')) continue;
+          const fx = b.variant === 'e' ? 1 : 0, fy = 1 - fx;
+          const x = b.wx / T + fx * 0.03, y = b.wy / T + fy * 0.03;
+          if (others.some((o) => footClash(propFootprint(x, y, 'person', personHT()), o, 0.85))) continue;
+          if (nb.some((q) => Math.abs(x - q.cx) < q.ex + 0.15 && Math.abs(y - q.cy) < q.ey + 0.15)) continue;
+          out.push({ x, y, dir: fx ? 0 : 2 });
+        }
+        return out;
+      })(),
       centre: centrePris && R.centre ? { x: cxc, y: cyc, prop: String(R.centre.prop).split('-')[0] } : null,
       // UN VISAGE PAR VENUE : celui qui revient sur la place après l'avoir quittée
       // est quelqu'un d'autre. `charType` et `figSeed` fondent son identité de fiche
@@ -1273,7 +1314,7 @@ function plazaBases(props, lamps, T) {
     const fam = String(p.prop).split('-')[0];
     const ax = p.wx / T, ay = p.wy / T;
     if (fam === 'tree') { out.push({ cx: ax, cy: ay, ex: 0.16, ey: 0.16 }); continue; }
-    const W = (p.hT || 0) * aspectOf(p.prop);
+    const W = (p.hT || 0) * (p.aspect || aspectOf(p.prop));
     let ex = W / 4, ey = W / 4;
     const r = BASE_DEPTH[fam];
     if (r != null && p.variant) {
@@ -1610,11 +1651,15 @@ export function grateFit(ratio, hPx, foot, canvasPx, margin) {
 // horizontal s'aligne sur px. Le canvas entier suit à la même échelle, son vide
 // transparent débordant librement — c'est lui qui faisait « voler » les props
 // quand on posait le bas du CANVAS sur le sol.
-export function plazaAnchor(bb, iw, ih, px, py, hPx) {
+// `pivot` = [fx, fy] : le point de l'encre (fractions de sa boîte) qui se pose sur
+// le point de la place — par défaut le pied (centre bas). Un bassin PLAT vu en iso
+// ne repose pas sur sa pointe basse mais sur le MILIEU de son losange (cf. PROP_PIVOT).
+export function plazaAnchor(bb, iw, ih, px, py, hPx, pivot = null) {
   const k = hPx / (bb.h || 1);
+  const fx = pivot ? pivot[0] : 0.5, fy = pivot ? pivot[1] : 1;
   return {
-    dx: px - (bb.x0 + bb.w / 2) * k,
-    dy: py - (bb.y0 + bb.h) * k,
+    dx: px - (bb.x0 + bb.w * fx) * k,
+    dy: py - (bb.y0 + bb.h * fy) * k,
     dw: (iw || 1) * k,
     dh: (ih || 1) * k,
     inkW: bb.w * k,
@@ -1627,7 +1672,7 @@ export function plazaAnchor(bb, iw, ih, px, py, hPx) {
 // celle du canvas, sinon elle déborde de l'objet.
 export function drawIsoPlazaProp(ctx, rec, era, now) {
   if (rec.prop === 'person') { drawPlazaPerson(ctx, rec, now); return; }
-  if (rec.prop === 'garland') { drawPlazaGarland(ctx, rec); return; }
+  if (rec.prop === 'garland') { drawPlazaGarland(ctx, rec, now); return; }
   const T = CM.TILE, z = CM.cam.zoom;
   const p = worldToScreen(rec.wx, rec.wy);
   let hPx = rec.hT * T * z * PLAZA_TUNE.propScale;
@@ -1654,7 +1699,7 @@ export function drawIsoPlazaProp(ctx, rec, era, now) {
       hPx = g2.hPx; px += g2.ox; py += g2.oy;
     }
   }
-  const g = plazaAnchor(bb, im.naturalWidth, im.naturalHeight, px, py, hPx);
+  const g = plazaAnchor(bb, im.naturalWidth, im.naturalHeight, px, py, hPx, PROP_PIVOT[rec.prop + '-' + era] || null);
   // L'OMBRE DU SOLEIL (2026-09-30, une seule lumière pour toute la carte,
   // iso/isoSunShadow.js) remplace l'ellipse douce du pied, et le refus de l'ellipse
   // sous les points d'eau (Raph, 2026-08-05) tombe avec elle : ce n'est plus une
@@ -1674,10 +1719,15 @@ export function drawIsoPlazaProp(ctx, rec, era, now) {
   const prev = ctx.imageSmoothingEnabled;
   ctx.imageSmoothingEnabled = false;
   if (an) {
-    const f = Math.floor((now || 0) / PLAZA_TUNE.animMs) % an.n;
+    // Un feu a SA phase (tirée de sa place) : quatre braseros qui vacillent au
+    // même instant font machine. L'eau des fontaines, elle, reste à l'unisson.
+    const ms = ANIM_MS[rec.prop] || PLAZA_TUNE.animMs;
+    const off = ANIM_MS[rec.prop] ? Math.floor(rec.wx * 0.131 + rec.wy * 0.293) : 0;
+    const f = (((Math.floor((now || 0) / ms) + off) % an.n) + an.n) % an.n;
     ctx.drawImage(an.img, f * an.fw, 0, an.fw, an.fh, g.dx, g.dy, g.dw, g.dh);
     lightCutImage(im, g.dx, g.dy, g.dw, g.dh);
     ctx.imageSmoothingEnabled = prev;
+    if (rec.prop === 'brazier') brazierGlow(rec, era, bb, im, g, now);
     return;
   }
   if (rec.front) {
@@ -1697,6 +1747,18 @@ export function drawIsoPlazaProp(ctx, rec, era, now) {
     lightCutImage(im, g.dx, g.dy, g.dw, g.dh);  // le halo derrière ne traverse pas
   }
   ctx.imageSmoothingEnabled = prev;
+  if (rec.prop === 'brazier') brazierGlow(rec, era, bb, im, g, now);
+}
+
+// LUEUR DU BRASERO (flameGlow.js : « chaque flamme doit émettre une lueur ») :
+// au cœur du feu, à 18 % sous le haut de l'encre — le point chaud des braseros
+// des ponts (PROP_LIGHT, isoProps.js). Quatre sur un parvis : poids 0,6, elles
+// s'additionnent. L'orbe cosmique n'est pas un feu, il éclaire or pâle.
+function brazierGlow(rec, era, bb, im, g, now) {
+  const x = g.dx + ((bb.x + bb.w * 0.5) / im.naturalWidth) * g.dw;
+  const y = g.dy + ((bb.y + bb.h * 0.18) / im.naturalHeight) * g.dh;
+  queueFlameGlow(x, y, Math.max(6, CM.TILE * CM.cam.zoom * 0.55), era === 'cosmic' ? '255,214,140' : FLAME_COL,
+    now, rec.wx * 0.011 + rec.wy * 0.017, 0.6);
 }
 
 // Gabarit plat : un prop sans aucun art existe quand même à l'écran, à SA
@@ -1704,6 +1766,11 @@ export function drawIsoPlazaProp(ctx, rec, era, now) {
 // rement terne et cerné — personne ne doit le confondre avec un rendu fini.
 // Posés À PLAT (bassin, massif, puits) : pivot 'plate' de l'ombre du soleil.
 const PLATE_PROPS = new Set(['fountain', 'fountain-forum', 'flowerbed', 'well']);
+// LE POINT D'APPUI des bassins plats dont le losange se lit (2026-10-04, Raph : la
+// fontaine moderne « n'est pas centrée sur la place ») : posée par sa pointe basse,
+// elle remontait d'une demi-profondeur. [fx, fy] = le milieu du losange AU SOL
+// (milieu du dessus + hauteur des flancs), mesuré sur l'image, en fractions d'encre.
+const PROP_PIVOT = { 'fountain-forum-modern': [0.49, 0.61] };
 
 // ── UN FLÂNEUR DE LA PLACE ──────────────────────────────────────────────────
 // Le dessinateur des habitants lui-même (agents.js) : même bande, même échelle,
@@ -1711,15 +1778,20 @@ const PLATE_PROPS = new Set(['fountain', 'fountain-forum', 'flowerbed', 'well'])
 // En marche, le pas suit la DISTANCE parcourue (les pieds ne patinent pas) ;
 // arrêté, première image (pieds joints), tourné vers ce qu'il regarde. Il
 // s'efface en quittant la place par une rue et apparaît en y arrivant (`alpha`).
+// Cliquable (fiche d'habitant, citizenFocus.js) : il se signale avec la boîte
+// peinte ; désigné ou survolé, l'anneau se pose sous lui.
 function drawPlazaPerson(ctx, rec, now) {
   const p = worldToScreen(rec.wx, rec.wy), z = CM.cam.zoom;
   const a = rec.alpha == null ? 1 : rec.alpha;
   if (a <= 0.02) return;
   const prevA = ctx.globalAlpha;
   if (a < 1) ctx.globalAlpha = prevA * a;
-  drawNamedAgentIso(ctx, p.x, p.y, z, rec.name, rec.scale || 1, rec.dir, !!rec.walking, now,
-    rec.phase || 0, 1, rec.walking ? rec.walkDist : null, true);
+  const mark = focusMark(rec);
+  if (mark) drawFocusRingAt(ctx, p.x, p.y, sceneRingWidth(CM.TILE * z * (rec.scale || 1) * AGENT_SCALE), mark === 2);
+  const d = drawNamedAgentIso(ctx, p.x, p.y, z, rec.name, rec.scale || 1, rec.dir, !!rec.walking, now,
+    rec.phase || 0, 1, rec.walking ? rec.walkDist : null, true, rec.pose || null);
   ctx.globalAlpha = prevA;
+  if (d && rec.figSeed != null) noteSceneFigure(rec, 'place', rec.name, p.x, p.y, d);
 }
 
 // ── LES FANIONS ─────────────────────────────────────────────────────────────
@@ -1735,7 +1807,7 @@ function drawPlazaPerson(ctx, rec, now) {
 // pas des fanions (px d'art), stallTie = hauteur du nœud en part de la hauteur de
 // l'étal (le haut des poteaux d'auvent).
 export const GARLAND = { on: true, hT: 1.25, sag: 0.14, step: 9, stallTie: 0.85, cols: ['#c8402f', '#e2b441', '#3d6fb0', '#efe6d2'] };
-function drawPlazaGarland(ctx, rec) {
+function drawPlazaGarland(ctx, rec, now = 0) {
   const z = CM.cam.zoom;
   if (!GARLAND.on || z < 0.6) return;
   const T = CM.TILE;
@@ -1770,13 +1842,22 @@ function drawPlazaGarland(ctx, rec) {
   ctx.stroke();
   const m = Math.max(2, Math.floor(len / (GARLAND.step * px)));
   const night = Math.max(0, Math.min(1, (CM.nightF || 0) * 1.4));
+  // LE VENT (2026-10-04 : les fanions étaient les seuls drapeaux immobiles de la
+  // carte) : même vent et mêmes rafales que drawVieFlag (isoVie.js). La pointe
+  // penche sous le vent et bat, chaque fanion décalé du voisin. Cran d'ambiance
+  // « aucune » : immobiles, comme le reste.
+  const live = (CM.ambianceK ?? 1) > 0;
+  const wind = CM.windX || 0, dir = wind < -0.02 ? -1 : 1;
+  const s = Math.max(0.3, Math.min(1, Math.abs(wind) * 1.4 + (CM.gustF || 0) * 0.5));
+  const t = (now || 0) / 1000, ph = (rec.seed | 0) * 0.37;
   for (let k = 1; k < m; k += 1) {
     const [x, y] = at(k / m);
+    const sway = live ? (dir * s * 0.9 + Math.sin(t * (4 + 4 * s) + k * 1.3 + ph) * (0.4 + 0.6 * s)) * px : 0;
     ctx.fillStyle = GARLAND.cols[(k + (rec.seed | 0)) % GARLAND.cols.length];
     ctx.beginPath();
     ctx.moveTo(x - 1.5 * px, y);
     ctx.lineTo(x + 1.5 * px, y);
-    ctx.lineTo(x, y + 3.2 * px);
+    ctx.lineTo(x + sway, y + 3.2 * px - Math.abs(sway) * 0.25);
     ctx.closePath();
     ctx.fill();
     if (night > 0.05) {

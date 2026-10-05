@@ -25,21 +25,26 @@ const S = 0.71;
 // `alanguie` : la COURTISANE ALANGUIE de l'âge (2026-10-04, Raph : « la luxure, pousse
 // au max » puis « dessine sur PixelLab ») — allongée sur le meuble de son époque, un
 // sprite à part (48 × 32, scripts/plaisirsAlanguies.mjs), posé dans les antichambres.
-const troupe = (k, girls, dancer) => ({
+// `gigolos` : les GIGOLOS de l'âge (2026-10-04, Raph : « il faut un peu de gigolos
+// aussi, moins, plus dans le service ») — dessinés dans le même gréement que les filles
+// (scripts/plaisirsGirls.mjs --gigolos). Le premier sert, le second tient le bar ou la
+// table des dés ; chacun a sa marche au plateau (`plateau`).
+const troupe = (k, girls, dancer, gigolos) => ({
   girls: girls.map((g) => ({ name: `plaisirs-${k}-${g}`, scale: S })),
   dancers: [{ name: `plaisirs-${k}-${dancer}`, scale: S, danse: `plaisirs-${k}-${dancer}-danse`, danseScale: S }],
   alanguie: `plaisirs-${k}-alanguie`,
+  gigolos: gigolos.map((g) => ({ name: `plaisirs-${k}-${g}`, scale: S, plateau: `plaisirs-${k}-${g}-plateau` })),
 });
-const FEU = troupe('feu', ['chasseresse', 'sauvage', 'flamme'], 'flamme');            // fourrures et os
-const MOYEN = troupe('moyen', ['courtisane', 'dame', 'gigue'], 'gigue');              // chemises et corselets
+const FEU = troupe('feu', ['chasseresse', 'sauvage', 'flamme'], 'flamme', ['pagne', 'colosse']);          // fourrures et os
+const MOYEN = troupe('moyen', ['courtisane', 'dame', 'gigue'], 'gigue', ['tavernier', 'ecuyer']);         // chemises et corselets
 const CAST = {
   0: FEU, 1: FEU, 2: MOYEN, 3: MOYEN,
-  4: troupe('antique', ['hetaire', 'danseuse', 'bacchante'], 'bacchante'),           // voiles, or, laurier
-  5: troupe('fonte', ['courtisane', 'chanteuse', 'cancan'], 'cancan'),               // la maison close Belle Époque
-  6: troupe('neon', ['cocktail', 'or', 'revue'], 'revue'),                           // la revue : plumes, paillettes
-  7: troupe('jade', ['voile', 'eclat', 'lumiere'], 'lumiere'),                       // la cité de jade
-  8: troupe('astral', ['voile', 'eclat', 'lumiere'], 'lumiere'),                     // nacre et or
-  9: troupe('cristal', ['voile', 'eclat', 'lumiere'], 'lumiere'),                    // cristal
+  4: troupe('antique', ['hetaire', 'danseuse', 'bacchante'], 'bacchante', ['echanson', 'athlete']),      // voiles, or, laurier
+  5: troupe('fonte', ['courtisane', 'chanteuse', 'cancan'], 'cancan', ['garcon', 'apache']),              // la maison close Belle Époque
+  6: troupe('neon', ['cocktail', 'or', 'revue'], 'revue', ['chippendale', 'crooner']),                   // la revue : plumes, paillettes
+  7: troupe('jade', ['voile', 'eclat', 'lumiere'], 'lumiere', ['servant', 'ange']),                      // la cité de jade
+  8: troupe('astral', ['voile', 'eclat', 'lumiere'], 'lumiere', ['servant', 'ange']),                    // nacre et or
+  9: troupe('cristal', ['voile', 'eclat', 'lumiere'], 'lumiere', ['servant', 'ange']),                   // cristal
 };
 export function plaisirsCast(band) {
   return CAST[Math.max(0, Math.min(9, band | 0))] || null;

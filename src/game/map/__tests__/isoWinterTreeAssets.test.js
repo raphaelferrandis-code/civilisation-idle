@@ -16,10 +16,14 @@ import fs from "node:fs";
 import { PNG } from "pngjs";
 
 const DIR = new URL("../../../../public/pixelart/iso/", import.meta.url);
-const NAMES = [
-  "tree-1", "tree-2", "tree-3", "tree-4",
+// La famille d'arbres (docs/PLAN-VEGETATION.md, lot 1) est lue dans son manifeste,
+// comme le fait scripts/snowTrees.mjs : un arbre ajouté est testé sans retoucher ici.
+const FAMILY = JSON.parse(fs.readFileSync(new URL("../../../../scripts/data/vegetation-trees.json", import.meta.url), "utf8"))
+  .trees.map((t) => t.name);
+const NAMES = [...new Set([
+  ...FAMILY, "tree-4",
   "bush-1", "bush-2", "bush-3", "bush-4", "bush-5", "bush-6",
-];
+])];
 const read = (name) => PNG.sync.read(fs.readFileSync(new URL(name + ".png", DIR)));
 const lum = (r, g, b) => 0.299 * r + 0.587 * g + 0.114 * b;
 

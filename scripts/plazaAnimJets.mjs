@@ -1,6 +1,11 @@
 // ============================================================================
 // plazaAnimJets.mjs — anime PAR LE CODE les jets d'eau d'une fontaine de place.
 //
+//   ⚠ 2026-10-04 : la grande fontaine moderne a été RÉGÉNÉRÉE (vrai losange iso,
+//   Raph : « pas dans l'angle qu'il faut ») ; sa bande vient désormais de
+//   scripts/sceneLive.mjs (cible `fountain-forum-modern`). La RAMPE ci-dessous est
+//   celle de l'ancienne image : ne pas relancer ce script sur la nouvelle.
+//
 //   Pour la grande fontaine moderne (couronne de jets verticaux autour d'une
 //   sphère d'acier), PixelLab a échoué deux fois de la même façon : les jets
 //   s'éteignent à mi-boucle puis rejaillissent d'un coup. Sur une place, ça se

@@ -654,26 +654,13 @@
 }
 
 
-/* ---- PLUS DE SPLASH-ART DANS LES RANGÉES D'ACHAT (demande Raph) ----
-   Sur le bureau le splash-art EST la carte : il porte l'identité du bâtiment.
-   Sur un téléphone il tient sous un texte serré dans une feuille de 46dvh, où
-   il ne décore plus rien — il brouille. Le voile de lisibilité qui l'accompagne
-   part avec lui, sinon il assombrit une rangée devenue nue.
-   ⚠ Bénéfice caché : un pseudo-élément en `display: none` ne déclenche PAS le
-   téléchargement de son image de fond. Ce ne sont donc pas seulement des pixels
-   en moins à l'écran, ce sont ~150 splashs que le téléphone ne charge jamais. */
-:root[data-pointer="coarse"] .pr-has-splash::before,
-:root[data-pointer="coarse"] .pr-has-splash::after {
-  display: none;
-}
-
-/* La rangée reprend le fond des cartes SANS splash, sinon elle serait
-   transparente sur la feuille de verre et illisible. */
-:root[data-pointer="coarse"] .city-shop-dock .purchase-row.pr-has-splash {
-  background: color-mix(in srgb, var(--surface-panel), transparent 10%);
-}
-
-:root[data-pointer="coarse"] .city-shop-dock .purchase-row.pr-has-splash.is-affordable {
+/* ---- PAS DE VIGNETTE DANS LES RANGÉES D'ACHAT (demande Raph) ----
+   Les rangées n'ont plus d'illustration au doigt (c'était le splash-art, qui
+   brouillait un texte serré dans une feuille de 46dvh). L'icône de vignette
+   n'est posée que par la boutique du bureau (cite.css) ; ici, la rangée à
+   vignette reste la carte sans cadre de purchase.css (.pr-has-thumb), et se
+   teinte d'or quand elle est achetable, comme les cartes encadrées. */
+:root[data-pointer="coarse"] .city-shop-dock .purchase-row.pr-has-thumb.is-affordable {
   background: color-mix(in srgb, var(--surface-panel), var(--gold) 9%);
 }
 

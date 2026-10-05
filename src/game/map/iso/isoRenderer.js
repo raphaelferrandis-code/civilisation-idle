@@ -21,6 +21,7 @@
 // `isoArt`, `isoPalette`) ; rien ne remonte ici.
 import { endReflectionBuild } from './isoReflect.js';
 import { updateCitizens, updateVehicles, drawCitizenThoughts } from '../agents.js';
+import { drawCitizenFocusOverlay } from '../citizenFocus.js';
 import { fp } from '../framePerf.js';
 import { CM } from '../layout.js';
 import { updateCrisis } from '../quaysAndRiot.js';
@@ -39,6 +40,7 @@ import { drawPlaisirsSky } from './isoPlaisirs.js';
 import { drawIsoShips } from './isoPort.js';
 import { drawIsoRiver } from './isoRiver.js';
 import { drawIsoRiverLife } from './isoRiverLife.js';
+import { drawIsoRipples } from './waterRipplesPass.js';
 import { drawVieAir, vieResetStats } from './isoVie.js';
 import './isoVieOiseaux.js';   // s'enregistre auprès d'isoVie (pigeons, mouettes)
 import './isoVieTerre.js';     // … (chiens, chats, papillons, linge)
@@ -233,6 +235,9 @@ function drawIsoWorldInner(dt, now) {
   // bouées et nasses, saut de poisson. Ici et pas plus tard : sur l'eau, sous
   // les coques — la pluie crible le fleuve, pas les bateaux.
   drawIsoRiverLife(now);
+  // REMOUS au pied des pontons et des pieux (iso/waterRipples.js) : sur l'eau, sous
+  // les quais, les ouvrages et les coques, qui les recouvrent là où il le faut.
+  drawIsoRipples(ctx, now);
   fp('fleuve');
   // QUAIS (iso/isoQuay.js, 2026-10-01) : cuits une fois en tuiles ancrées au monde,
   // au pixel, recopiés seulement là où il y a du quai ; le liseré néon (ères 6+)
@@ -265,6 +270,9 @@ function drawIsoWorldInner(dt, now) {
   // Bulles de pensée (cartouches pixel cliquables) : tout en haut, comme le
   // legacy — la fonction est PARTAGÉE (projection worldToScreen dans agents.js).
   if (!CM.lodActive) drawCitizenThoughts(now);
+  // Chevron de l'habitant désigné (fiche d'habitant) : MÊME au LOD, c'est lui
+  // qui dit où est le passant quand on a dézoomé au point de ne plus le voir.
+  drawCitizenFocusOverlay(CM.ctx, now);
   fp('bulles');
   paintChuteFade(CM.ctx);   // la Chute : fondu au noir des passages de temps, par-dessus tout
   return true;

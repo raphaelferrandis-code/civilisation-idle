@@ -186,12 +186,12 @@
    rangée → le bouton déborde de 65px et chevauche le bâtiment suivant (visible
    seulement une fois plusieurs bâtiments empilés). */
 .city-shop-dock .shop-list { gap: 1rem; grid-auto-rows: max-content; }
-/* Cadre ornemental + fond-boîte : cartes SANS splash-art (repli). Les cartes
-   achetables (avec splash) n'ont plus de cadre — leur splash-art fait la carte
-   et se fond en haut/bas (cf. purchase.css). La rangée VERROUILLÉE (teaser du
-   prochain bâtiment) est aussi exclue : sans cadre, elle se dissout dans la
-   liste au lieu de « doubler » visuellement les cartes du dessus (cf. .pr-locked). */
-.city-shop-dock .purchase-row:not(.pr-has-splash):not(.pr-locked) {
+/* Cadre ornemental + fond-boîte : cartes SANS vignette (repli, bâtiment sans
+   icône). Les rangées à vignette n'ont pas de cadre (cf. purchase.css). La
+   rangée VERROUILLÉE (teaser du prochain bâtiment) est aussi exclue : sans
+   cadre, elle se dissout dans la liste au lieu de « doubler » visuellement les
+   cartes du dessus (cf. .pr-locked). */
+.city-shop-dock .purchase-row:not(.pr-has-thumb):not(.pr-locked) {
   border: 8px solid transparent;
   border-image: url(../assets/ui/topbar-frame.png) 12 stretch;
   border-radius: 0;
@@ -207,20 +207,20 @@
   padding: 0.7rem 0.8rem 0.8rem;
 }
 
-.city-shop-dock .purchase-row.is-affordable:not(.pr-has-splash) {
+.city-shop-dock .purchase-row.is-affordable:not(.pr-has-thumb) {
   background: color-mix(in srgb, var(--surface-panel), var(--gold) 9%);
 }
-.city-shop-dock .purchase-row.is-affordable:not(.pr-has-splash):hover {
+.city-shop-dock .purchase-row.is-affordable:not(.pr-has-thumb):hover {
   background: color-mix(in srgb, var(--surface-panel), var(--gold) 15%);
 }
-.city-shop-dock .purchase-row.is-locked-cost:not(.pr-has-splash) {
+.city-shop-dock .purchase-row.is-locked-cost:not(.pr-has-thumb) {
   background: color-mix(in srgb, var(--surface-panel), transparent 22%);
 }
 .city-shop-dock .purchase-row[data-tier="5"] {
   box-shadow: none;
 }
 /* L'icône est désormais un petit glyphe inline dans le nom (cf. purchase.css) ;
-   plus de pastille ronde — le splash-art porte l'identité de la carte. */
+   plus de pastille ronde — l'icône de la vignette porte l'identité de la carte. */
 /* Bouton d'achat : coins francs → arrondi généreux */
 .city-shop-dock .btn-purchase {
   border-radius: 0;

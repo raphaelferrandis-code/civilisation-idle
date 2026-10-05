@@ -85,7 +85,7 @@ const RADEAU_VOILE = makeRaft({ id: 'radeau-voile', role: 'trade', L: 40, B: 16,
 // relevés en volute ; deux rameurs, des jarres et des paniers.
 const BARQUE_COUSUE = {
   id: 'barque-cousue', role: 'trade', len: 38, beam: 10, speed: [0.8, 1.05],
-  anim: { frames: 6, period: 2.2, still: ['dock'] },
+  anim: { frames: 8, period: 2.2, still: ['dock'] },
   bounds: [-24, 24, -18, 18, -1, 16], ink: '#1d1611',
   variant(seed) { return { hull: BOIS.hull, hullIn: BOIS.hullIn, rail: BOIS.rail, floor: BOIS.hullIn, seed, cargo: pick(['baskets', 'amphorae', 'hides'], seed, 4) }; },
   anchors() { return { stern: [-18, 0, 6] }; },

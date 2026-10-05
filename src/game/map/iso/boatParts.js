@@ -135,7 +135,20 @@ export function drawHull(S, H, V) {
 // face = angle dans le plan du bateau (0 = regarde la proue). P = crewPal (le tirage
 // du dessin). Un bateau amarré est vide : crewSlot n'y pose personne.
 const SINK = { row: 3, sit: 3, paddle: 3, haul: 0.8 };
-export function person(S, a, c, h, face, P, pose = 'stand') {
+// LE GESTE (Raph, 2026-10-04 : « le bateau du milieu a un problème d'animation de son
+// marin ») : la phase k du coup de rame arrivait jusqu'ici et y était jetée — les rames
+// balayaient l'eau autour d'un rameur figé. Qui rame, hale, pagaie ou pousse se penche
+// désormais avec son outil, le long de son regard (L > 0 : vers l'avant de son regard).
+//   row    : face à la poupe, il suit les poignées (± 2,4 · sin(0,5·cos k) le long du
+//            bateau) — penché vers la poupe à l'attaque, renversé vers la proue au dégagé ;
+//   pole   : avec la main sur la perche (poler : lean = 0,35 · sin k) ;
+//   haul   : il tire le filet ou l'amarre, en arrière ; paddle : il plonge en avant.
+const LEAN = { row: (k) => -1.1 * Math.cos(k), pole: (k) => 0.35 * Math.sin(k), haul: (k) => -0.7 * Math.sin(k), paddle: (k) => 0.6 * Math.sin(k) };
+export function person(S, a, c, h, face, P, pose = 'stand', k = null) {
+  if (k != null && LEAN[pose]) {
+    const L = LEAN[pose](k);
+    a += Math.cos(face) * L; c += Math.sin(face) * L;
+  }
   crewSlot(S, a, c, h, face, { pose, sink: SINK[pose] || 0, id: P ? P.id : 0 });
 }
 

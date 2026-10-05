@@ -39,6 +39,7 @@ import { setSolPyramideInvalidator } from './solInvalidate.js';
 import { builtCells, courOf } from './isoTissu.js';
 import { WONDER_GROUND, wonderGroundSet } from './isoWonderGround.js';
 import { beachPortCells } from './isoBeachCells.js';
+import { forestFloorSig } from './isoForestFloor.js';
 import { ISO_X, ISO_Y } from './projection.js';
 import {
   solPyramideStats, levelZoom, tileSideCss, camSpace, tileSpace, tileOrigin, cookTile, ZOOM_MIN, ZOOM_MAX, softCoalescer,
@@ -186,6 +187,9 @@ export function tileSig(L, z, tx, ty, S) {
       mix(Math.round((il.tx || 0) * 1024)); mix(Math.round((il.ty || 0) * 1024));
     }
   }
+  // Le SOUS-BOIS (isoForestFloor) suit la distance à la vie, qui dépend de routes et
+  // d'emprises jusqu'à 5 cellules hors de la tuile : elle se signe ici.
+  forestFloorSig(L, mix, gx0, gx1, gy0, gy1);
   return h;
 }
 

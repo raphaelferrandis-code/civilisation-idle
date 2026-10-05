@@ -6,7 +6,7 @@
 // réponse (une grille 9×9 avec une rue toutes les deux cellules a 65 cellules de
 // voirie sur 81, ça se compte sur les doigts), jamais repris de la sortie du
 // code — sinon le test comparerait le calcul à lui-même.
-import { describe, it, expect } from "vitest";
+import { describe, it, expect, beforeEach, afterEach } from "vitest";
 import { tissuMetrics, tissuReport } from "../tissuMetrics.js";
 // Importé pour le contrôle négatif du compteur de clôtures : on éteint le VRAI module
 // et on exige que le compte tombe à zéro.
@@ -177,9 +177,13 @@ describe("mesure du tissu urbain", () => {
   // Relevé en jeu au branchement du compteur : 60 arêtes à la bande 3, 372 à la
   // bande 7 (30 028 cellules de ville) — le plafond de 4 000 est large.
   describe("compteur de clôtures", () => {
-    // Un parvis de merveille au milieu du sol de ville — c'est le cas RÉELLEMENT
-    // livré depuis l'arbitrage de Raph du 2026-08-06 (places et merveilles, plus les
-    // quais). Le compteur doit donc se mesurer là-dessus.
+    // Un parvis de merveille au milieu du sol de ville. Depuis le 2026-10-03 les
+    // merveilles ont LEUR enceinte (iso/wonderPlace.js) et le défaut livré coupe la
+    // clôture générique de parvis (FENCE.wonders) ; la mécanique du compteur reste
+    // mesurée ici, l'option rallumée le temps du bloc.
+    let wondersAvant;
+    beforeEach(() => { wondersAvant = FENCE.wonders; FENCE.wonders = true; });
+    afterEach(() => { FENCE.wonders = wondersAvant; });
     const parvis = (N) => {
       const L = grid(N, () => false);
       const w = new Set();

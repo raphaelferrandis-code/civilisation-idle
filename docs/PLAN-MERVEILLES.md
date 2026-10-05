@@ -116,6 +116,121 @@ circulaire à anneaux incrustés (Œil). Foule, lumières la nuit, drapeaux.
   la session des bateaux — sans ces lignes, pont et îlot ne redessinent simplement pas
   les bateaux (aucune casse).
 
+- 2026-10-03 : Raph, sur capture du Mausolée rang I — « du rendu un peu cheap, on n'a pas
+  assez le côté pixel art maintenant que c'est en code » ; « les barrières ne sont pas
+  bonnes (design et sens) et elles ferment l'entrée » ; « valable pour toutes ». Fait :
+  - **Finition pixel-art** (`pixelFinish`, wonderBake.js) sur toute image cuite
+    (monuments, cœur de l'Œil, décor, îlot, enceinte) : contour sélectif (la couleur du
+    bord assombrie, plus à droite qu'en haut, au lieu d'un trait d'encre uniforme),
+    reflet de bord haut/gauche et ombre de bord droit, grain en grappes, ombres vers le
+    bleu et lumières vers l'ocre. N'altère pas l'alpha (marqueurs de nuit intacts).
+  - **Matières** : pierre de taille biseautée bloc par bloc (arête au soleil, joint
+    d'ombre, éclats) ; toits en TUILES (rangs, joints décalés, lèvre claire) ; dessus en
+    grandes dalles ; tramage en damier aux transitions de lumière des volumes courbes ;
+    gazon des tertres aux verts de la tuile d'herbe du jeu, en touffes.
+  - **Le lieu** : dalles nuancées à arête au soleil, mousse rare dans les joints anciens ;
+    les pelouses, parterres et le jardin sont l'HERBE DU JEU (tuile iso-grass posée sous
+    le lieu, le raster y est transparent) semée de fleurs, bordées de pierre ; buis
+    taillés à dessus clair.
+  - **Enceinte de la merveille** (wonderPlace.js `enclosure`) à la place de la clôture
+    générique des parvis (`FENCE.wonders = false`, fenceEdges.js — mécanique gardée et
+    testée l'option allumée) : pierres sèches (b0-1), muret (b2-3), balustrade (b4),
+    grille de fonte à pointes dorées (b5), garde-corps de tubes (b6), verre et filet de
+    lumière (b7+). Modules courts triés à leur pied, piliers de porte (flamme ou
+    lueur), bornes d'angle ; PORTES au milieu de chaque côté (largeur de l'allée) et
+    partout où une rue touche l'enceinte. Elle borde le jardin quand il y en a un,
+    sinon le lieu.
+  - Tests : fenceEdges et tissuMetrics adaptés (défaut livré sans merveilles).
+    Planches `.preview-shots/merveilles/finition-pixel.png`, `enceintes-par-ere.png`.
+
+- 2026-10-03 (suite) : Raph — Colonne : « retirer la fontaine et le mât à droite, ne garder
+  que les deux de devant » ; Palais : « il n'y a pas d'entrée dans le bâtiment ? ».
+  - Colonne : une seule colonnette/torchère hors de la face sud retirée (celle de l'est
+    traversait l'exèdre) ; fontaines du lieu réduites aux deux du côté sud.
+  - Palais : `portal()` (wonderBake.js) — baie en plein cintre, encadrement de marbre,
+    deux vantaux (bois, verre dès le néon), imposte vitrée qui s'allume la nuit.
+    Avant-corps approfondi, portail posé sur la terrasse du grand escalier (IV+, sinon
+    la terrasse le mangeait), deux colonnes et un linteau ; perron au rang III ; portes
+    au pied des pavillons (IV+) ou des ailes (III) ; grille de la cour OUVERTE au milieu
+    (vantaux rabattus) ; allée dégagée entre les parterres.
+    Planche `.preview-shots/merveilles/entrees.png`.
+
+- 2026-10-03 (suite) : Raph — « le système de lumière ne remplit pas les fenêtres en
+  entier ». Cause : `nightOf` tirait « allumée / éteinte » par pavé de 4 × 8 px, une
+  vitre à cheval sur deux pavés s'allumait à moitié. Désormais par TACHE connexe de
+  pixels marqués (une vitre = un tirage), rangée du haut un peu plus chaude, appui un
+  peu plus sombre ; dépôt dans le calque de lumière sans lissage. Test « chaque vitre
+  d'un bloc, où qu'elle tombe » (wonderBake.test.js). Planche
+  `.preview-shots/merveilles/fenetres-nuit.png`.
+
+- 2026-10-03 (suite) : « tu l'as fait pour tous les bâtiments ? » — étendu hors merveilles :
+  la Maison des Plaisirs (`plaisirsBake.nightLayer`, même défaut, délègue à `nightOf` ;
+  sa session garde le changement) ; maisons et bâtiments-moteur (`houseWindows.windowPixels`,
+  aussi lu par `sceneWindows.js`) : le seuil ne prenait que le cœur sombre d'une vitre
+  (un « L » d'un pixel) → `fillPane` complète chaque tache dans son rectangle (+1 px si la
+  ligne voisine est sombre aux deux tiers), pixels plus sombres que le mi-chemin cœur/mur,
+  jamais au-delà (balcon, bandeau non allumés). Le verre nommé (bande 6) et la teinte
+  cosmique (sceneEmissive) allumaient déjà tout le verre. Test houseWindows. Planche
+  `.preview-shots/merveilles/fenetres-maisons-avant-apres.png`.
+
+- 2026-10-03 (suite) : Raph — « attention tu allumes des portes et des étals plutôt que des
+  fenêtres ». Le complément de vitre partait parfois du trait sombre d'une porte et la
+  remplissait. `houseWindows.windowPixels` : toute tache dont le bas arrive à 8 px ou moins
+  du pied de la façade (dernier pixel opaque de la colonne) reste éteinte — portes (≤ 3 px
+  avec le seuil), boutiques sous arcade (insula), vides de portique (villa), devantures
+  (4-8 px) : seuls les étages s'allument ; `SHOP_GAP.taberna = 12` pour l'étal posé sur
+  son comptoir. Une vitre complétée qui sort des mesures d'une vitre revient à sa tache
+  d'origine. Tests houseWindows (portes, étals, rez-de-chaussée). Planche
+  `.preview-shots/merveilles/fenetres-sans-portes.png`.
+
+- 2026-10-04 : Raph, sur capture de l'îlot de l'Aiguille au rang I — « tu me la fais bien
+  en pixel art l'île ? et tu peux faire en sorte qu'il y ait de l'écume sur les rochers
+  autour ? ». Le gazon était tiré de l'angle autour du centre (veines de bois en éventail),
+  les gradins de roche faisaient des arcs beiges, les rochers étaient des œufs lisses.
+  - **Rang I** (wonderIsle.js `naturalBody`, `isleGround`) : le corps de l'île est un
+    RELIEF lancé au rayon — plage qui monte de l'eau, prairie bosselée, colline dont le
+    sommet plat (M.top) porte le rocher de l'Aiguille — éclairé par sa pente, tramage
+    étroit. Gazon aux verts de la tuile d'herbe, en BRINS verticaux ; fleurs rares ; plage
+    au sable des berges, liseré mouillé, galets ; sentier en lacets (Catmull-Rom) du
+    ponton de bois au rocher, trace dans le sable ; blocs à demi enterrés dans la prairie.
+    Arbres = sprites de la ville (`drawIsleTree`, isoWonder.js ; l'arbre cuit en repli).
+    Le feu sur un gros rocher au large de la pointe aval (`M.lampRock`).
+  - **Rochers, tous rangs** : `boulder` (wonderBake.js) — granite taillé (rayon bosselé,
+    facettes en pans et étages, bande mouillée, mousse en taches, neige), répartis à pas
+    réguliers le long du rivage (gros, moyens, galets), dégagés du débarcadère. Le rocher
+    du rang I de l'Aiguille est le même (sommet coupé en plateau pour la tour).
+  - **Écume** (`bakeFoam` + `paintFoam`) : seulement sur l'eau (pixel vide de la base) et
+    sur le bas de la roche encore visible (`own`). Collerette qui gonfle et rejaillit,
+    puis dentelle qui se détache ; fond permanent, plus fort en amont.
+    Retour de Raph le même jour — « l'écume arrive sur les cailloux au même moment et on
+    dirait que ça lag » : la première version cuisait 10 images pour toute la houle
+    (3 images/s, tous les rochers basculant ensemble). Désormais on ne cuit que les pixels
+    candidats ; `paintFoam(F, t)` les allume pour l'instant t, chaque rocher avec SA
+    période (3,4 s ± 18 %) et SA phase ; isoWonder repeint un seul canvas tous les
+    FOAM_STEP = 80 ms (~0,15 ms de calcul).
+  - Même jour, « fais les remous sur le ponton et sur tous les pontons » : **`iso/waterRipples.js`**
+    — au contact d'un ouvrage et de l'eau, un liseré qui clapote (deux rangs, déchiré), des
+    rides qui partent du contact et s'élargissent en s'effaçant (deux par houle de 2,6 s), un
+    sillage vers l'aval derrière chaque pieu. Même principe que l'écume : `rippleField`
+    (pixels candidats, une fois) + `paintRipples(F, t)` + un canvas repeint tous les 80 ms.
+    Le ponton de l'îlot a désormais une rangée de pieux de chaque côté (ses remous, sur l'eau
+    que la base laisse voir) ; aux rangs II+, le quai bas d'accostage. Les AUTRES ouvrages
+    notent leurs remous en se peignant (`noteRipples`) et la passe des remous
+    (`waterRipplesPass.drawIsoRipples`, isoRenderer, juste après l'eau et AVANT quais, ports,
+    bateaux et passe vivante) les peint à l'image suivante — tout ce qui vient ensuite les
+    recouvre où il faut : appontement du port (pieux et môle, `isoPier.pierRipples`, sur l'eau
+    du ruban seulement), embarcadères du bac et de la navette (`boatScenes.landingRipples` :
+    tour du tablier flottant, enfoncé à l'altitude de l'eau ; pieds des pieux), Vieux-Port
+    (ponton du fond, pannes, paliers au ras de l'eau, `isoOldPort.oldPortRipples`, à
+    l'altitude du bassin, sans découpe au ruban). Puis « fais aussi le débarcadère des
+    Plaisirs » : son habillage PixelLab n'a pas la géométrie du code, on la MESURE sur l'image
+    cuite — chaque pixel porte sa hauteur au-dessus de l'eau ; le bas de la silhouette au ras
+    de l'eau (H < 1,5 : marches qui plongent, ponton, pieux) devient une rangée de petits pieux
+    (`isoPlaisirs.plaisirsRipples`, champ dans le repère du lieu, `wx/wy` dans le registre).
+    Planches `.preview-shots/remous-*.png`.
+  - Cuisson ~150-220 ms une fois (contre ~100). Planches `.preview-shots/ilot-pixel-ete-e.png`,
+    `ilot-zoom3-amont.png`, `ilot-zoom3-aval.png`, `ilot-hiver.png`, `ilot-rang2.png`.
+
 ## 8. Comment c'est construit (notice)
 
 - **Repère** : x est, y sud, origine au centre de la case du slot ; socle carré de côté

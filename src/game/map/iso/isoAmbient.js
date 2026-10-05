@@ -15,6 +15,7 @@
 import { CM, cmHash, treeCanvasT } from '../layout.js';
 import { worldToScreen, visibleCellBounds } from './projection.js';
 import { isoWildForest } from './isoWildForest.js';
+import { treeSpriteK, treeVariantOf } from './isoGroundProps.js';
 import { _frac, _rnd } from './isoMath.js';
 import { addGlow } from './isoStreet.js';
 import { vieK, vieSprite, vieBlit, vieBlitAt, vieCount, vieGenerated } from './isoVie.js';
@@ -38,13 +39,16 @@ function isoVegAnchors(L, b) {
     + ':' + b.gx0 + ':' + b.gy0 + ':' + b.gx1 + ':' + b.gy1;
   if (cache && cache.sig === sig) return cache.list;
   const T = CM.TILE, list = [];
-  const push = (gx, gy, jx, jy, r) => {
+  // `k` : taille du dessin de CET arbre (famille d'arbres, treeSpriteK) — la canopée
+  // d'un jeune arbre est aux 2/3 de celle d'un adulte, ses feuilles aussi.
+  const push = (gx, gy, jx, jy, r, k) => {
     if (gx < b.gx0 || gx > b.gx1 || gy < b.gy0 || gy > b.gy1) return;
     if (list.length >= 260) return;                 // garde-fou perf
-    list.push({ wx: (gx + 0.5 + jx) * T, wy: (gy + 0.9 + jy) * T, r: r || 0.7, s: (cmHash('veg:' + gx + ':' + gy) >>> 0) });
+    list.push({ wx: (gx + 0.5 + jx) * T, wy: (gy + 0.9 + jy) * T, r: r || 0.7, k: k || 1, s: (cmHash('veg:' + gx + ':' + gy) >>> 0) });
   };
-  for (const tr of (L.trees || [])) push(tr.gx, tr.gy, 0, 0, tr.r);
-  for (const wt of isoVegForestSample(L, b)) push(wt.gx, wt.gy, wt.jx || 0, wt.jy || 0, wt.r);
+  const eraBand = (L.counts && L.counts.eraBand) | 0;
+  for (const tr of (L.trees || [])) push(tr.gx, tr.gy, 0, 0, tr.r, treeSpriteK(treeVariantOf(tr, eraBand)));
+  for (const wt of isoVegForestSample(L, b)) push(wt.gx, wt.gy, wt.jx || 0, wt.jy || 0, wt.r, treeSpriteK(treeVariantOf(wt)));
   CM._vegAnchors = { sig, list };
   return list;
 }
@@ -93,7 +97,7 @@ export function drawIsoAmbient(now) {
         if ((a.s % 12) >= seasonKeep) continue;
         if (!thin(a)) continue;
         const p = worldToScreen(a.wx, a.wy);
-        const th = T * z * treeCanvasT(a.r);             // hauteur du sprite d'arbre (suit l'ère)
+        const th = T * z * treeCanvasT(a.r) * a.k;       // hauteur du sprite d'arbre (suit l'ère)
         const topY = p.y - th * 0.78, canW = th * 0.42, fall = th * 1.25;   // tombe JUSQU'AU SOL
         for (let i = 0; i < 2; i += 1) {
           const sd = _rnd(a.s, i), sd2 = _rnd(a.s, i + 9);
@@ -123,7 +127,7 @@ export function drawIsoAmbient(now) {
     for (const a of anchors) {
       if (!thin(a)) continue;
       const p = worldToScreen(a.wx, a.wy);
-      const th = T * z * treeCanvasT(a.r);
+      const th = T * z * treeCanvasT(a.r) * a.k;
       if (cosmic) {
         if ((a.s % 3) !== 0) continue;                   // ~1/3 des ancres
         for (let i = 0; i < 2; i += 1) {

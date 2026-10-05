@@ -62,7 +62,8 @@ import { lightCutImage } from '../lightLayer.js';
 // des mêmes samples (riverEdgesWorld).
 // ⚠ Import CIRCULAIRE (agents.js lit bridgeWalkBand) : sans danger, on n'appelle
 // ces fonctions qu'au dessin, jamais au chargement du module.
-import { agentSetForBand, agentSpecFor, drawNamedAgentIso } from '../agents.js';
+import { agentSetForBand, agentSpecFor, drawNamedAgentIso, drawNamedAgent, AGENT_SCALE } from '../agents.js';
+import { focusMark, drawFocusRingAt, noteSceneFigure, sceneRingWidth } from '../citizenFocus.js';
 
 // Réglages live : window.__bridgeTune (le pont n'est pas baké dans le sol, un
 // changement se voit à la frame suivante ; ce qui touche la géométrie invalide
@@ -688,12 +689,27 @@ export function drawIsoBridgeSeg(ctx, it, now) {
     const q = m.idlers[it.ii];
     const spec = agentSpecFor(agentSetForBand(m.band), q.charType, q.variant);
     const st = idlerNow(q, now);
+    q._shown = null;
     if (spec && st && st.alpha > 0.02) {
       const p = P(m, st.l, q.t);
       const pa0 = ctx.globalAlpha;
       if (st.alpha < 1) ctx.globalAlpha = pa0 * st.alpha;
-      drawNamedAgentIso(ctx, p.x, p.y, z, spec.name, spec.scale, st.dir, st.walking, now, q.ph || 0, 1, st.walking ? st.dist : null, true);
+      // Fiche d'habitant (citizenFocus.js) : désigné ou survolé, l'anneau sous lui.
+      const mark = focusMark(q);
+      if (mark) drawFocusRingAt(ctx, p.x, p.y, sceneRingWidth(CM.TILE * z * spec.scale * AGENT_SCALE), mark === 2);
+      // Repli sur la bande de FACE quand la diagonale ne se charge pas (serveur de
+      // dev tombé, image en cours de génération), comme les passants (isoUnits).
+      // Sans lui l'accoudé DISPARAISSAIT — et la canne du pêcheur restait seule
+      // au-dessus de l'eau (retour Raph 2026-10-03 : « elle pêche toute seule ? »).
+      const d = drawNamedAgentIso(ctx, p.x, p.y, z, spec.name, spec.scale, st.dir, st.walking, now, q.ph || 0, 1, st.walking ? st.dist : null, true);
       ctx.globalAlpha = pa0;
+      if (d || drawNamedAgent(ctx, p.x, p.y, z, spec.name, spec.scale, q.dir, false, now, 0)) q._shown = now;
+      // Cliquable : il se signale avec la boîte peinte (graine = sa travée et sa place).
+      if (d) {
+        if (q.figSeed == null) q.figSeed = Math.round(q.l * 131 + q.t * 7) + m.sp.gx0 * 7919 + m.sp.gy0 * 104729;
+        if (q.charType == null) q.charType = 0;
+        noteSceneFigure(q, 'pont', spec.name, p.x, p.y, d);
+      }
     }
   } else if (it.part === 'rod') {
     drawRod(ctx, m, m.idlers[it.ii], z, now);
@@ -737,6 +753,9 @@ function fishLine(ctx, a, b, alpha) {
 }
 
 function drawRod(ctx, m, q, z, now) {
+  // Pas de pêcheur à l'image, pas de canne : son item est trié AVANT celui-ci,
+  // dans la même frame (même `now`), et note s'il a pu être posé.
+  if (q._shown !== now) return;
   const t = now || 0, k = vieK(), fz = vieZoomFade();
   const seed = Math.floor(q.l * 37) % FISHING.P;
   const tc = (t + seed) % FISHING.P, cycle = Math.floor((t + seed) / FISHING.P);
@@ -871,7 +890,7 @@ function drawProp(ctx, m, pr, z, now) {
     glowAt(p.x, p.y, Math.max(6, CM.TILE * z * 0.55), m.K.pal.led ? hexToRgbStr(m.K.pal.led) : '255,220,160', 0.8);
     return;
   }
-  drawSpriteProp(ctx, pr, p, z);
+  drawSpriteProp(ctx, pr, p, z, now);
 }
 // ── PASSE A : l'eau sous et à côté du pont (avant les bateaux) ────────────────
 // Clippé à l'eau VISIBLE : le ruban, et le ruban descendu de la hauteur du mur de

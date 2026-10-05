@@ -7,6 +7,7 @@ import BuildingShop from '../ui/BuildingShop.jsx';
 import ChronicleTicker from '../ui/ChronicleTicker.jsx';
 import CrisisActionBar, { RegulSummary, RegulQuick } from '../ui/CrisisActionBar.jsx';
 import MapTools from '../ui/MapTools.jsx';
+import CitizenSheet from '../ui/CitizenSheet.jsx';
 import FaitDiversCard from '../ui/FaitDiversCard.jsx';
 import CycleReportBanner from '../ui/CycleReportBanner.jsx';
 import CityStatusPanel from '../ui/CityStatusPanel.jsx';
@@ -602,6 +603,10 @@ export default function CityView() {
             <CityMapCanvas onCitizenThoughtClicked={handleCitizenThought} />
           </div>
           </div>{/* /city-map-container */}
+
+          {/* FICHE D'HABITANT : le passant cliqué sur la carte, que la caméra
+              suit (citizenFocus.js). Rien tant qu'aucun n'est désigné. */}
+          <CitizenSheet />
 
           {/* FAITS DIVERS : la réplique du personnage d'une scène cliquée sur la
               carte (map/faitsDivers). Rien tant qu'aucune n'est ouverte. */}

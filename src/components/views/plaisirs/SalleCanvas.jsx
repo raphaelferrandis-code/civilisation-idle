@@ -98,6 +98,11 @@ export default function SalleCanvas({ bake, band, lit, padLeft = 0, focus = null
         const list = cast && (type === 'd' ? cast.dancers : cast.girls);
         return list && list.length ? list[variant % list.length] : agentSpecFor(set, 1, variant);
       }
+      // Les GIGOLOS (« m ») ; sans les siens, un âge prend les hommes de son jeu d'habitants.
+      if (type === 'm') {
+        const list = cast && cast.gigolos;
+        return list && list.length ? list[variant % list.length] : agentSpecFor(set, 0, variant);
+      }
       return agentSpecFor(set, type, variant);
     };
     const mo = bake.motions;
@@ -213,7 +218,9 @@ export default function SalleCanvas({ bake, band, lit, padLeft = 0, focus = null
             dir = there ? 0 : 2;
             walking = true;
           }
-          drawNamedAgentIso(g, ox + (Math.round(x) + 0.5) * Z, oy + (f.y + 0.5) * Z, Z, spec.name, spec.scale * HDK, dir, walking, now, (f.x * 0.13) % 1);
+          // Le SERVEUR passe avec son plateau (sa bande « -plateau »).
+          const nom = f.tray && spec.plateau ? spec.plateau : spec.name;
+          drawNamedAgentIso(g, ox + (Math.round(x) + 0.5) * Z, oy + (f.y + 0.5) * Z, Z, nom, spec.scale * HDK, dir, walking, now, (f.x * 0.13) % 1);
         }
       };
       // La cabine de l'ascenseur, à la hauteur où la porte le manège (au rez sinon).
@@ -281,26 +288,41 @@ export default function SalleCanvas({ bake, band, lit, padLeft = 0, focus = null
         }
         g.globalAlpha = 1;
         // Les POURSUITES de la scène : deux faisceaux des cintres vers la troupe, qui
-        // balayent lentement ; roses et dorés pendant la fête.
+        // balayent lentement ; roses et dorés pendant la fête. Raph (2026-10-04) : « la
+        // scène doit être mieux illuminée » → des faisceaux plus larges et plus francs,
+        // leur halo sur les danseuses, et la LUEUR DE LA RAMPE qui monte des planches.
         const sc = bake.spots.scene;
         if (sc) {
           const b = sc.box, top = oy + (b.y0 + 9) * Z, solY = oy + (b.y1 - 9) * Z, cxs = ox + sc.x * Z;
+          const x0s = ox + (b.x0 + 10) * Z, x1s = ox + (b.x1 - 10) * Z;
+          // Pleins sur une scène sombre, légers sur une scène déjà vive (salleLumiere).
+          const fx = lum.scene ? lum.scene.effets : 1;
+          const rampe = g.createLinearGradient(0, solY, 0, solY - 30 * Z);
+          rampe.addColorStop(0, `rgba(255,214,150,${((fete ? 0.3 : 0.24) * fx).toFixed(3)})`);
+          rampe.addColorStop(1, 'rgba(255,214,150,0)');
+          g.fillStyle = rampe;
+          g.fillRect(x0s, solY - 30 * Z, x1s - x0s, 30 * Z);
           for (const [src, k] of [[ox + (b.x0 + 8) * Z, 0], [ox + (b.x1 - 8) * Z, 1]]) {
-            const cible = cxs + Math.sin(now / 1700 + k * 2.1) * 22 * Z, w2 = 13 * Z;
+            const cible = cxs + Math.sin(now / 1700 + k * 2.1) * 22 * Z, w2 = 16 * Z;
             const grd = g.createLinearGradient(0, top, 0, solY);
             const tint = fete ? (k ? '255,150,200' : '255,215,120') : '255,236,200';
-            grd.addColorStop(0, `rgba(${tint},0.30)`);
-            grd.addColorStop(1, `rgba(${tint},0.08)`);
+            grd.addColorStop(0, `rgba(${tint},${(0.3 + 0.12 * fx).toFixed(3)})`);
+            grd.addColorStop(1, `rgba(${tint},${(0.08 + 0.07 * fx).toFixed(3)})`);
             g.fillStyle = grd;
             g.beginPath();
             g.moveTo(src - 2 * Z, top); g.lineTo(src + 2 * Z, top);
             g.lineTo(cible + w2, solY); g.lineTo(cible - w2, solY);
             g.closePath();
             g.fill();
-            // La tache de la poursuite sur les planches.
-            g.fillStyle = `rgba(${tint},0.22)`;
+            // Le halo de la poursuite sur la troupe, puis sa tache sur les planches.
+            const halo = g.createRadialGradient(cible, solY - 15 * Z, 0, cible, solY - 15 * Z, 21 * Z);
+            halo.addColorStop(0, `rgba(${tint},${(0.3 * fx).toFixed(3)})`);
+            halo.addColorStop(1, `rgba(${tint},0)`);
+            g.fillStyle = halo;
+            g.fillRect(cible - 21 * Z, solY - 36 * Z, 42 * Z, 42 * Z);
+            g.fillStyle = `rgba(${tint},${(0.22 + 0.18 * fx).toFixed(3)})`;
             g.beginPath();
-            g.ellipse(cible, solY, w2, 3 * Z, 0, 0, Math.PI * 2);
+            g.ellipse(cible, solY, w2, 3.5 * Z, 0, 0, Math.PI * 2);
             g.fill();
           }
         }

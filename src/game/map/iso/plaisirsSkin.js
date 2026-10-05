@@ -40,47 +40,57 @@ import { plaisirsMirror } from './plaisirsBake.js';
 // ponts, étroits devant et larges sur les côtés) ; `gap` un secteur pris (degrés : 0 à
 // droite, 90 à gauche, devant entre les deux) où elles font demi-tour — escaliers,
 // marches, kiosque, lanternes. Retour de Raph (2026-10-04) : « elles passent au travers
-// des marches ». `door` : l'hôtesse de la porte, sur le seuil (pas sur les marches).
+// des marches ». `door` : l'hôtesse de la porte, sur le seuil (pas sur les marches ni
+// sous l'auvent : à la Fonte, sa tête passait devant la toile).
+// ⚠ Sur un habillage, les filles ne sont découpées par RIEN (hors la balustrade du
+// balcon) : la profondeur du code ne suit pas le dessin. Leur tour ne passe donc JAMAIS
+// derrière la maison (`BACK`, la moitié arrière du tour) : elles font demi-tour sur les
+// côtés — derrière, le bord des galeries ne les cachait pas (Raph, 2026-10-04).
+const BACK = [135, 315];
 
 // Le Jade et ses deux recolorations : le balcon d'angle doré en haut de l'escalier de
 // gauche, le tour sur l'anneau bas (demi-tour à l'escalier de l'eau), la porte sur la
 // terrasse devant la pagode.
 const JADE = {
   balcony: { foot: [66, 195], h: 85, rail: [55, 196, 78, 199] },
-  walk: { gap: [30, 60] }, door: { foot: [120, 255], h: 37 },
+  walk: { gap: [[30, 60], BACK] }, door: { foot: [120, 255], h: 37 },
 };
 const SKINS = {
   // Le feu de camp est sur leur tour : demi-tour de part et d'autre.
-  0: { src: '/pixelart/places/plaisirs-feu.png', at: [-75, -63], glass: null, windows: [[95, 66, 8]], walk: { gap: [6, 38] } },
+  0: { src: '/pixelart/places/plaisirs-feu.png', at: [-75, -63], glass: null, windows: [[95, 66, 8]], walk: { gap: [[6, 38], BACK] },
+    live: { n: 8, ms: 120 } },
   1: { src: '/pixelart/places/plaisirs-bois.png', at: [-93, -115], glass: null,
     windows: [[110, 72], [109, 114], [82, 74], [78, 110]],
     balcony: { foot: [88, 89], h: 39, rail: [80, 85, 100, 86] },
-    walk: { e: [96, 110, 64, 21], h: 10, gap: [85, 125] } },
+    walk: { e: [96, 110, 64, 21], h: 10, gap: [[85, 125], BACK] } },
   2: { src: '/pixelart/places/plaisirs-pierre.png', at: [-102, -133], glass: null,
     windows: [[77, 80], [102, 82], [125, 80], [71, 122], [132, 122], [55, 135], [151, 135]],
     // Le kiosque (resté de l'ancien rendu du code) tient le ponton côté ouest, les deux
-    // lanternes et l'escalier le devant : elles vont de la lanterne de droite au kiosque.
+    // lanternes et l'escalier le devant : elles vont et viennent sur le flanc droit, avant
+    // la lanterne (dont le pilier leur passerait devant), et jusqu'à l'arrière-droite tant
+    // qu'elles restent À CÔTÉ de la tour (l'ellipse aplatie y donne peu de chemin).
     balcony: { foot: [80, 94], h: 54, rail: [70, 90, 100, 91] },
-    walk: { e: [102, 122, 64, 20], h: 8, gap: [-8, 175] }, door: { foot: [102, 139], h: 8 } },
+    walk: { e: [102, 122, 64, 20], h: 8, gap: [[-15, 175], [135, 285]] }, door: { foot: [102, 139], h: 8 } },
   3: { src: '/pixelart/places/plaisirs-couronne.png', at: [-110, -185], glass: null,
     windows: [[87, 85], [110, 86], [132, 85], [85, 142], [110, 142], [136, 142]],
     balcony: { foot: [108, 125], h: 70, rail: [96, 122, 120, 122] },
-    walk: { r: 46, h: 10, gap: [20, 75] }, door: { foot: [112, 194], h: 10 } },
+    walk: { r: 46, h: 10, gap: [[20, 75], BACK] }, door: { foot: [112, 194], h: 10 } },
   4: { src: '/pixelart/places/plaisirs-marbre.png', at: [-127, -188], glass: [195, 260, 0.18, 0.22, 0.72],
     // Le socle est bordé de marches et le portique en tient tout le devant : elles font
     // les cent pas sur le socle, d'un trépied de bronze à l'autre par l'arrière.
     balcony: { foot: [98, 157], h: 57, rail: [90, 153, 110, 157] },
-    walk: { r: 58, h: 10, gap: [8, 82] }, door: { foot: [126, 205], h: 10 } },
+    walk: { r: 58, h: 10, gap: [[8, 82], BACK] }, door: { foot: [126, 205], h: 10 } },
   5: { src: '/pixelart/places/plaisirs-fonte.png', at: [-110, -189],
     balcony: { foot: [88, 169], h: 38, rail: [76, 166, 100, 166] },
-    walk: { r: 58, gap: [5, 85] }, door: { foot: [110, 201], h: 11 } },
+    walk: { r: 58, gap: [[5, 85], BACK] }, door: { foot: [110, 208], h: 11 },
+    live: { n: 16, ms: 200 } },
   // `glass` : [teinte min, max, saturation min, valeur min, max] des VITRES qui s'allument
   // la nuit (défaut : le bleu-violet) ; null : pas de vitre (la tente, la maison de bois).
   6: { src: '/pixelart/places/plaisirs-neon.png', at: [-124, -270], glass: [165, 200, 0.3, 0.3, 1],
     signs: [[153, 56, 160, 210], [153, 230, 173, 262]],
     // Pas de balustrade : le toit-terrasse du socle, son rebord bas devant elle.
     balcony: { foot: [84, 208], h: 53, rail: [70, 205, 130, 235] },
-    walk: { r: 57 }, door: { foot: [104, 283], h: 12 } },
+    walk: { r: 57, gap: [BACK] }, door: { foot: [104, 283], h: 12 } },
   // Les trois âges cosmiques partagent la pagode du Jade (même plan) : l'Astral et le
   // Cristal en sont des RECOLORATIONS (le vert-turquoise vers l'or, vers le violet) —
   // PixelLab gardait les toits turquoise de l'image de départ.
@@ -88,31 +98,47 @@ const SKINS = {
   8: { src: '/pixelart/places/plaisirs-astral.png', at: [-122, -273], glass: [30, 55, 0.4, 0.08, 0.42], ...JADE },
   9: { src: '/pixelart/places/plaisirs-cristal.png', at: [-122, -273], glass: [255, 290, 0.3, 0.08, 0.42], ...JADE },
 };
+// `live` (2026-10-04, audit « tout ce qui doit bouger bouge-t-il ? ») : ce qui VIT dans
+// l'habillage — les torches et le feu de camp de l'âge du feu, le ballon captif de la
+// Fonte. scripts/sceneLive.mjs cuit, au canvas de l'image, `<nom>-back.png` (l'image
+// sans ce qui bouge) et `<nom>-live.png` (N images, rien que ce qui bouge) ; tant
+// qu'elles ne sont pas chargées, l'image d'origine sert (flammes peintes, immobiles).
 // Molette : `__plaisirsSkins[b].balcony = { … }` (ou `.walk`) puis `__plaisirsBakes()`.
 if (typeof window !== 'undefined') window.__plaisirsSkins = SKINS;
+// La fiche d'un habillage (les tests vérifient les chemins des filles).
+export function plaisirsSkinSpec(band) { return SKINS[band | 0] || null; }
 
 const _img = new Map();
+function loadImageData(src, done) {
+  const im = new Image();
+  im.onload = () => {
+    const cv = document.createElement('canvas');
+    cv.width = im.naturalWidth; cv.height = im.naturalHeight;
+    const g = cv.getContext('2d');
+    g.drawImage(im, 0, 0);
+    done(g.getImageData(0, 0, cv.width, cv.height));
+  };
+  im.src = src;
+}
 // L'habillage prêt pour cet âge ({ src, at, img: ImageData }), ou null (pas
-// d'habillage, ou pas encore chargé : le chargement part au premier appel).
+// d'habillage, ou pas encore chargé : le chargement part au premier appel). Ses
+// couches vivantes (`back`, `liveImg`) s'y ajoutent quand elles sont chargées
+// TOUTES LES DEUX — la clé de cuisson de isoPlaisirs le sait (`:live`).
 export function plaisirsSkin(band) {
   const d = SKINS[band | 0];
   if (!d || typeof Image === 'undefined' || typeof document === 'undefined') return null;
   let e = _img.get(band | 0);
   if (!e) {
-    e = { ready: false, img: null };
+    e = { ready: false, img: null, back: null, live: null };
     _img.set(band | 0, e);
-    const im = new Image();
-    im.onload = () => {
-      const cv = document.createElement('canvas');
-      cv.width = im.naturalWidth; cv.height = im.naturalHeight;
-      const g = cv.getContext('2d');
-      g.drawImage(im, 0, 0);
-      e.img = g.getImageData(0, 0, cv.width, cv.height);
-      e.ready = true;
-    };
-    im.src = d.src;
+    loadImageData(d.src, (img) => { e.img = img; e.ready = true; });
+    if (d.live) {
+      loadImageData(d.src.replace(/\.png$/, '-back.png'), (img) => { e.back = img; });
+      loadImageData(d.src.replace(/\.png$/, '-live.png'), (img) => { e.live = img; });
+    }
   }
-  return e.ready ? { ...d, img: e.img } : null;
+  if (!e.ready) return null;
+  return e.back && e.live ? { ...d, img: e.img, back: e.back, liveImg: e.live } : { ...d, img: e.img };
 }
 
 // Teinte (0-360), saturation, valeur d'un pixel.
@@ -186,13 +212,30 @@ export function skinNightPixels(img, skin = {}) {
 export function applyPlaisirsSkin(out, skin) {
   const R = out.R, H = out.H, img = skin.img, [ax, ay] = skin.at;
   const R2 = { ox: R.ox, oy: R.oy, w: R.w, h: R.h, data: new Uint8ClampedArray(R.data.length) };
+  // Avec ses couches vivantes, la matière est le FOND (l'image sans ce qui bouge).
+  const base = skin.back || img;
   for (let j = 0; j < img.height; j += 1) for (let i = 0; i < img.width; i += 1) {
     const s = (j * img.width + i) * 4;
-    if (img.data[s + 3] < 128) continue;
+    if (base.data[s + 3] < 128) continue;
     const x = ax - R.ox + i, y = ay - R.oy + j;
     if (x < 0 || y < 0 || x >= R.w || y >= R.h) continue;
     const k = (y * R.w + x) * 4;
-    R2.data[k] = img.data[s]; R2.data[k + 1] = img.data[s + 1]; R2.data[k + 2] = img.data[s + 2]; R2.data[k + 3] = 255;
+    R2.data[k] = base.data[s]; R2.data[k + 1] = base.data[s + 1]; R2.data[k + 2] = base.data[s + 2]; R2.data[k + 3] = 255;
+  }
+  // CE QUI VIT, reporté dans le cadre de R : N images côte à côte (largeur N·R.w).
+  let live = null;
+  if (skin.liveImg && skin.live) {
+    const n = skin.live.n, L = skin.liveImg, fw = L.width / n;
+    const data = new Uint8ClampedArray(R.w * n * R.h * 4);
+    for (let f = 0; f < n; f += 1) for (let j = 0; j < L.height; j += 1) for (let i = 0; i < fw; i += 1) {
+      const s = (j * L.width + f * fw + i) * 4;
+      if (L.data[s + 3] < 128) continue;
+      const x = ax - R.ox + i, y = ay - R.oy + j;
+      if (x < 0 || y < 0 || x >= R.w || y >= R.h) continue;
+      const k = (y * R.w * n + f * R.w + x) * 4;
+      data[k] = L.data[s]; data[k + 1] = L.data[s + 1]; data[k + 2] = L.data[s + 2]; data[k + 3] = 255;
+    }
+    live = { w: R.w * n, h: R.h, data, n, ms: skin.live.ms };
   }
   // Les HAUTEURS : celle du pixel du code au même endroit ; ailleurs (la silhouette
   // PixelLab déborde un peu), celle du pixel du code le plus proche SOUS lui dans sa
@@ -240,5 +283,5 @@ export function applyPlaisirsSkin(out, skin) {
   const wk = skin.walk;
   const walk = !wk ? null : !wk.e ? wk
     : { ...wk, ex: [ax + wk.e[0], ay + wk.e[1], wk.e[2], wk.e[3]], r: wk.e[2] / Math.SQRT2 };
-  return { R: R2, H: H2, D: D2, N, mirror: plaisirsMirror(R2, H2), balcony, rail, door, walk };
+  return { R: R2, H: H2, D: D2, N, mirror: plaisirsMirror(R2, H2), balcony, rail, door, walk, live };
 }

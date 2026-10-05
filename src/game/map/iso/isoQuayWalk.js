@@ -28,6 +28,7 @@ import { worldToScreen } from './projection.js';
 import { isoUnitDepthEx, drawIsoCitizenItem } from './isoUnits.js';
 import { registerVieActors } from './isoVie.js';
 import { quayWalkSpans, quayLanePoint } from './isoQuay.js';
+import { metroCutSpans } from './isoMetro.js';
 import { noteFig, FIG } from '../figures.js';
 
 // Molette : __quayWalk({ on, density, speed }).
@@ -72,12 +73,16 @@ function walkers(spans) {
         move: 12 + 16 * h01(sd + 'm'),                   // s de marche entre deux arrêts
         stop: 3 + 4 * h01(sd + 's'),                     // s d'arrêt face à l'eau
         night: h01(sd + 'n'),                            // qui rentre quand la nuit tombe
+        // `scene` : personnage de scène, cliquable (fiche d'habitant, citizenFocus.js).
         p: { x: 0, y: 0, lox: 0, loy: 0, dir: 0, pauseT: 0, phase: h01(sd + 'p'),
-          charType: h01(sd + 'g') < 0.5 ? 0 : 1, walkDist: 0, skinVariant: fmix(cmHash(sd + 'k') >>> 0) % 12 },
+          charType: h01(sd + 'g') < 0.5 ? 0 : 1, walkDist: 0, skinVariant: fmix(cmHash(sd + 'k') >>> 0) % 12, scene: 'quai' },
         // Le compagnon : même pas, même arrêt, à côté (côté terre), un autre dessin.
         mate: h01(sd + 'c') < PAIR ? { x: 0, y: 0, lox: 0, loy: 0, dir: 0, pauseT: 0, phase: h01(sd + 'q'),
-          charType: h01(sd + 'h') < 0.35 ? 2 : (h01(sd + 'g') < 0.5 ? 1 : 0), walkDist: 0, skinVariant: fmix(cmHash(sd + 'j') >>> 0) % 12 } : null,
+          charType: h01(sd + 'h') < 0.35 ? 2 : (h01(sd + 'g') < 0.5 ? 1 : 0), walkDist: 0, skinVariant: fmix(cmHash(sd + 'j') >>> 0) % 12, scene: 'quai' } : null,
       });
+      // Les deux flâneurs se connaissent : chacun nomme l'autre sur sa fiche.
+      const w = _walkers[_walkers.length - 1];
+      if (w.mate) { w.p.mate = w.mate; w.mate.mate = w.p; }
     }
   }
   return _walkers;
@@ -88,7 +93,8 @@ registerVieActors((now, out) => {
   if (!QUAY_WALK.on || !L || CM.lodActive || CM.collapseAt) return;
   const band = (L.counts && L.counts.eraBand) | 0;
   if (band < 2) return;                                  // pas de quai au campement
-  const spans = quayWalkSpans();
+  // Les bouts du métro (trémie, rampe) coupent la promenade : demi-tour au parapet.
+  const spans = metroCutSpans(quayWalkSpans(), quayLanePoint);
   if (!spans.length) return;
   const T = CM.TILE, t = (now || 0) / 1000, night = CM.nightF || 0;
   const z = CM.cam.zoom;

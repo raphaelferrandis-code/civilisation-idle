@@ -25,7 +25,6 @@ import { visibleCellBounds, ISO_X, ISO_Y } from './projection.js';
 import { terrainMaxPx } from './isoTerrain.js';
 import { ensureQuayGate } from '../quaysAndRiot.js';
 import { isoArt } from './isoArt.js';
-import { diamondPath } from './isoQuad.js';
 import { COUR, builtCells, courOf } from './isoTissu.js';
 import { ROAD_DETAIL, roadTone } from './isoRoad.js';
 import { BEACH, ISO_TILE_KEYS, plazaEraTileKey } from './isoGroundTiles.js';
@@ -35,6 +34,7 @@ import { FRONTIER, frontierFlip, urbanMatFor, urbanToneFor } from './isoGroundDe
 import { WINTER } from '../seasonMode.js';
 import { plazaEraForBand, isoPlazaSceneCoversGround, plazaLawnAtCell } from './isoPlaza.js';
 import { LISIERE, makeLisiere } from './isoLisiere.js';
+import { LAWN, townLawnAt } from './isoMeadow.js';
 
 export function makeGroundBake(ISO_GROUND_LOD) {
   const L = CM.layout, ctx = CM.ctx, T = CM.TILE, z = CM.cam.zoom;
@@ -102,7 +102,17 @@ export function makeGroundBake(ISO_GROUND_LOD) {
   const urbanLogical = (gx, gy) => !!(L.urbanSet && L.urbanSet.has(gx + ',' + gy));
   const built = builtCells(L);
   const courK = courOf(L);      // quartier / cour / friche par cellule (cf. COUR)
-  const frontierFlips = (gx, gy, isUrban) => frontierFlip(gx, gy, isUrban, urbanLogical, built);
+  // PELOUSES DE VILLE DÉLIMITÉES (LAWN.crisp, cf. isoMeadow) : une pelouse (jardins,
+  // cours et air des îlots — L.townGreen — et friche de quartier) n'est pas une LISIÈRE
+  // ville↔campagne. Ses cellules sont hors de urbanSet, donc le pavé qui la borde passait
+  // pour un bord de ville et FRONTIER le retournait en herbe au hasard : la pelouse
+  // débordait en taches sur la chaussée. Pour une cellule de VILLE, une voisine de
+  // pelouse compte donc comme de la ville ; une cellule d'herbe sauvage, elle, voit
+  // toujours la pelouse comme de l'herbe (sa divagation au bord de la ville ne change pas).
+  const lawnAt = (LAWN.on && LAWN.crisp) ? townLawnAt(L, courK) : null;
+  const isLawn = (gx, gy) => !!(lawnAt && lawnAt(gx, gy));
+  const urbanOrGreen = (gx, gy) => urbanLogical(gx, gy) || !!(L.townGreen && L.townGreen.has(gx + ',' + gy));
+  const frontierFlips = (gx, gy, isUrban) => frontierFlip(gx, gy, isUrban, (lawnAt && isUrban) ? urbanOrGreen : urbanLogical, built);
   // ── PLAGE DES BERGES DU FLEUVE (Raph, 2026-07-30 : « il faut générer une
   // plage ») ──────────────────────────────────────────────────────────────────
   // Elle va là où la maçonnerie du quai s'arrête : l'emprise du port (que
@@ -257,7 +267,8 @@ export function makeGroundBake(ISO_GROUND_LOD) {
   // Voisin d'herbe « frangeable » : de l'herbe FERME — pas une cellule d'eau
   // (peinte herbe mais recouverte en live par le ruban du fleuve : une frange
   // là-dessous ressortirait sur les quais).
-  const grassAt = (gx, gy) => kindAt(gx, gy) === 'grass' && !(riverCells && riverCells.has(gx + ',' + gy));
+  // Pas de frange vers une pelouse de ville (LAWN.crisp) : ses langues brouillaient le bord.
+  const grassAt = (gx, gy) => kindAt(gx, gy) === 'grass' && !(riverCells && riverCells.has(gx + ',' + gy)) && !isLawn(gx, gy);
   // VOILES D'HERBE REMISÉS PAR PALIER D'ALPHA. Les deux voiles (prés clair/foncé,
   // ombre sauvage) faisaient un fill de losange PAR cellule d'herbe : jusqu'à 2 ×
   // ~9 000 fills = 57 % de la recuisson (mesuré). On accumule les losanges par
@@ -268,6 +279,9 @@ export function makeGroundBake(ISO_GROUND_LOD) {
   const VEIL_COL = [[24, 38, 16], [214, 226, 150], [26, 36, 18]];
   const veil = [new Map(), new Map(), new Map()];
   const grassCells = [];               // (gx, gy, px, py) à plat — fleurs différées
+  // Géométrie de l'herbe (losanges, rectangles de lisière) : le gabarit des voiles
+  // lissés (prés, sous-bois — isoForestFloor.drawGrassVeils).
+  const grassMask = [], grassMaskR = [];
   const veilPush = (fam, a, px, py) => {
     const q = Math.min(255, Math.max(1, Math.round(a * 255)));
     const m = veil[fam];
@@ -293,7 +307,11 @@ export function makeGroundBake(ISO_GROUND_LOD) {
         let n = 0;
         ctx.beginPath();
         for (let i = 0; i < arr.length; i += 2) {
-          diamondPath(ctx, arr[i], arr[i + 1], hw, hh);
+          // ⚠ Pas diamondPath (isoQuad) : il ouvre un NOUVEAU chemin à chaque losange,
+          // et seul le dernier de chaque paquet était rempli — d'où des prés
+          // invisibles pendant des mois (trouvé le 2026-10-04, PLAN-VEGETATION lot 4).
+          const x = arr[i], y = arr[i + 1];
+          ctx.moveTo(x, y); ctx.lineTo(x + hw, y + hh); ctx.lineTo(x, y + 2 * hh); ctx.lineTo(x - hw, y + hh); ctx.closePath();
           n += 1;
           if (n >= 256) { ctx.fill(); ctx.beginPath(); n = 0; }   // bbox locale (cf. joints)
         }
@@ -311,11 +329,13 @@ export function makeGroundBake(ISO_GROUND_LOD) {
   // des cellules de bord. L'eau est HORS CHAMP — son sol est recouvert par le
   // fleuve, et la laisser voter ferait mordre son herbe dans la grève.
   const lisiere = (LISIERE.on && !HARD)
-    ? makeLisiere(kindAt, (gx, gy) => !!(riverCells && riverCells.has(gx + ',' + gy)))
+    // Les pelouses de ville sont aussi hors champ (LAWN.crisp) : leur bord reste franc,
+    // des deux côtés — la cellule de pavé voisine ne s'arrondit pas non plus.
+    ? makeLisiere(kindAt, (gx, gy) => !!(riverCells && riverCells.has(gx + ',' + gy)) || isLawn(gx, gy))
     : null;
   return {
     bake: { ctx, T, z, hw, hh, LOD, HARD, b, L, band, mat, urb, road, roadMap, riverCells, plazaEra, wg, PR },
     resolve: { kindAt, grassAt, keyOfKind, lisiere },
-    out: { fringes, roads, wonderCells, grassCells, veilPush, veilPushRects, flushVeils },
+    out: { fringes, roads, wonderCells, grassCells, grassMask, grassMaskR, veilPush, veilPushRects, flushVeils },
   };
 }

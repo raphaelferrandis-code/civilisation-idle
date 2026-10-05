@@ -43,7 +43,11 @@ const SIDES = [['n', 0, -1], ['s', 0, 1], ['e', 1, 0], ['w', -1, 0]];
 // un enclos — c'est la porte qui fait la différence.
 export const FENCE = {
   on: true,
-  wonders: true,     // parvis des merveilles — un périmètre, quelques dizaines de panneaux
+  // ⛔ Parvis des merveilles : COUPÉ le 2026-10-03 — chaque merveille a désormais SON
+  // enceinte (muret, balustrade, grille selon l'ère, iso/wonderPlace.js), percée de
+  // portes au milieu de chaque côté et aux rues. Celle-ci, au dessin et au sens
+  // faux, fermait l'allée d'entrée (Raph sur capture).
+  wonders: false,
   plazas: true,      // places — même geste, l'esplanade devient un square
   quays: false,      // ⛔ berge : abandonné, cf. la note ci-dessus
   gateOnRoad: true,  // laisse une OUVERTURE partout où une route aborde l'enceinte

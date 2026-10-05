@@ -130,9 +130,8 @@
     font-size: 0.72rem;
   }
 
-  /* RANGÉES À VIGNETTE (maquette .buy) : l'illustration devient une vignette de
-     3.7 × 3.3 rem à gauche — elle était le fond de toute la carte —, le nom et
-     la production au milieu, le bouton à droite, la piste du palier dessous.
+  /* RANGÉES À VIGNETTE (maquette .buy) : l'icône du bâtiment à gauche, le nom
+     et la production au milieu, le bouton à droite, la piste du palier dessous.
      Le compteur possédé se pose sur la vignette. Même DOM (PurchaseRow) : le
      pied de carte s'efface (`display: contents`) pour que ses enfants prennent
      place dans la grille. */
@@ -140,7 +139,7 @@
     display: grid;
     /* Le gain du lot (« +0.7 % ») au bout de la ligne de production, comme
        dans la maquette : une ligne de moins par rangée. */
-    grid-template-columns: 3.7rem minmax(0, 1fr) auto auto;
+    grid-template-columns: 4rem minmax(0, 1fr) auto auto;
     grid-template-areas:
       "thumb name  name buy"
       "thumb prod  gain buy"
@@ -160,6 +159,10 @@
   :root:not([data-pointer="coarse"]) .app[data-active-view="city"] .city-shop-dock .purchase-row:hover {
     background: rgba(255, 255, 255, 0.055);
   }
+  /* La vignette : l'icône 32 × 32 du bâtiment (buildingIcons.js) en ×2 EXACT,
+     4rem = 64 px sur la racine fixe de 16 px, au plus proche voisin. Pas de
+     filet autour : l'icône est détourée, sa silhouette fait la case (comme les
+     icônes de monstres de Monster Hunter). */
   :root:not([data-pointer="coarse"]) .app[data-active-view="city"] .city-shop-dock .purchase-row::before {
     content: "";
     grid-area: thumb;
@@ -167,20 +170,46 @@
     inset: auto;
     z-index: 0;
     align-self: center;
-    width: 3.7rem;
-    height: 3.3rem;
+    width: 4rem;
+    height: 4rem;
     opacity: 1;
-    background: var(--pr-splash, rgba(255, 255, 255, 0.05)) center / cover no-repeat;
+    background: var(--pr-icon, rgba(255, 255, 255, 0.05)) center / 100% 100% no-repeat;
     -webkit-mask-image: none;
     mask-image: none;
-    box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.08);
     image-rendering: pixelated;
   }
   :root:not([data-pointer="coarse"]) .app[data-active-view="city"] .city-shop-dock .purchase-row::after {
     display: none;
   }
+  /* Teaser du prochain bâtiment : la rangée reste pleine (texte lisible), c'est
+     l'icône qui s'assombrit (état « à venir »). */
+  :root:not([data-pointer="coarse"]) .app[data-active-view="city"] .city-shop-dock .purchase-row.pr-locked.pr-has-thumb {
+    opacity: 1;
+  }
   :root:not([data-pointer="coarse"]) .app[data-active-view="city"] .city-shop-dock .purchase-row.pr-locked::before {
     filter: grayscale(0.7) brightness(0.45);
+  }
+  /* L'encart des Routes (RoadworksPanel) prend la même vignette : l'icône à
+     gauche sur toute sa hauteur, ses trois étages (titre, chantier, bouton) à
+     droite, la vignette alignée sur celles des rangées du dessous. */
+  :root:not([data-pointer="coarse"]) .app[data-active-view="city"] .city-shop-dock .roadworks-panel.rw-has-thumb {
+    display: grid;
+    grid-template-columns: 4rem minmax(0, 1fr);
+    column-gap: 0.7rem;
+    align-items: center;
+    padding-left: 0.45rem;
+  }
+  :root:not([data-pointer="coarse"]) .app[data-active-view="city"] .city-shop-dock .roadworks-panel.rw-has-thumb::before {
+    content: "";
+    grid-column: 1;
+    grid-row: 1 / span 3;
+    width: 4rem;
+    height: 4rem;
+    background: var(--pr-icon) center / 100% 100% no-repeat;
+    image-rendering: pixelated;
+  }
+  :root:not([data-pointer="coarse"]) .app[data-active-view="city"] .city-shop-dock .roadworks-panel.rw-has-thumb > * {
+    grid-column: 2;
   }
   :root:not([data-pointer="coarse"]) .app[data-active-view="city"] .city-shop-dock .pr-name-row { grid-area: name; }
   :root:not([data-pointer="coarse"]) .app[data-active-view="city"] .city-shop-dock .pr-name {
@@ -215,7 +244,7 @@
   :root:not([data-pointer="coarse"]) .app[data-active-view="city"] .city-shop-dock .pr-state-pip {
     top: 0.35rem;
     right: auto;
-    left: calc(0.45rem + 3.7rem - 12px);
+    left: calc(0.45rem + 4rem - 12px);
   }
   :root:not([data-pointer="coarse"]) .app[data-active-view="city"] .city-shop-dock .pr-count {
     position: absolute;

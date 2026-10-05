@@ -15,13 +15,16 @@
 import { CM } from '../layout.js';
 import { worldToScreen } from './projection.js';
 import { isoUnitDepth } from './isoUnits.js';
-import { agentSetForBand, agentSpecFor, drawNamedAgentIso } from '../agents.js';
+import { agentSetForBand, agentSpecFor, drawNamedAgentIso, AGENT_SCALE } from '../agents.js';
+import { focusMark, drawFocusRingAt, noteSceneFigure, sceneRingWidth } from '../citizenFocus.js';
 import { ribbonAt, ferryReach, FERRY_TIP, FERRY_WALK, ferryBoardEl } from '../riverFleet.js';
 import { drawBoat } from './boatKit.js';
 import { fleetFor, BOAT_MODELS } from './boatKits.js';
 import { pontoonAt } from './boatLandings.js';
 import { repaintQuayRect } from './isoQuay.js';
 import { h32 } from './boatBake.js';
+import { FLOAT_W } from './boatFamilies.js';
+import { rippleField, noteRipples } from './waterRipples.js';
 
 
 // Un embarcadère : origine au bord d'eau, cap vers le large.
@@ -45,6 +48,39 @@ function landingFor(base, site, side) {
     BOAT_MODELS[id] = M0.withReach(ext);
   }
   return { id, ext };
+}
+
+// LES VOYAGEURS EXISTENT LE TEMPS DE LEUR TRAVERSÉE (fiche d'habitant,
+// citizenFocus.js) : un objet par voyageur et par `trip`, gardé d'une frame à
+// l'autre — sinon on ne pourrait ni le désigner ni le suivre à bord. Ils portent
+// leur bac et leur traversée : citizenFocus en déduit qu'ils sont montés à bord
+// (trip + 1), puis qu'ils ont débarqué (trip + 2). Gardés : la traversée en cours
+// ET les deux d'avant — ceux qui MONTENT (trip − 1) et ceux qui DESCENDENT
+// (trip − 2, ferryWalkers) sont les mêmes personnes que celles qui attendaient
+// (mêmes tirages que partySpecs) : on les retrouve, on ne les recrée pas.
+let _party = { ferry: null, trips: new Map() };
+function traveller(ferry, k, trip = ferry.trip | 0) {
+  if (_party.ferry !== ferry) _party = { ferry, trips: new Map() };
+  let list = _party.trips.get(trip);
+  if (!list) {
+    list = [];
+    _party.trips.set(trip, list);
+    for (const t of _party.trips.keys()) if (t < (ferry.trip | 0) - 3) _party.trips.delete(t);
+  }
+  return list[k] || (list[k] = {
+    charType: h32(trip, 73, k) % 2, variant: h32(trip, 74, k) % 3,
+    figSeed: h32(trip, 75, k), ferryShip: ferry, trip, dir: 0,
+  });
+}
+// Ceux qui attendent la NAVETTE DES PLAISIRS : le temps de leur attente (ils
+// partent avec elle, la cuisson les assoit à bord).
+let _shuttleParty = { shuttle: null, trip: -1, list: [] };
+function shuttleTraveller(shuttle, trip, k) {
+  if (_shuttleParty.shuttle !== shuttle || _shuttleParty.trip !== trip) _shuttleParty = { shuttle, trip, list: [] };
+  return _shuttleParty.list[k] || (_shuttleParty.list[k] = {
+    charType: h32(trip, 83, k) % 2, variant: h32(trip, 84, k) % 3,
+    figSeed: h32(trip, 85, k), sceneTag: 'navette', dir: 0,
+  });
 }
 
 // LES PONTONS FLOTTANTS (iso/boatLandings.js) : celui de l'embarcadère de l'ère, à sa
@@ -84,6 +120,7 @@ function waitingOnPontoon(P, n, seed, band, mk) {
     const c = ((h32(seed, 82, k) % 3) - 1) * 1.6;
     const p = pontoonAt(P, Math.min(P.len - 3, a), c);
     const it = { d: Math.max(isoUnitDepth(p.x * T, p.y * T), pd) + 0.01 + k * 1e-3, kind: 'fleetScene', what: 'traveller', x: p.x, y: p.y, z: 2.3 - (P.sink || 0), dir, band, ...mk(k) };
+    if (it.q) it.q.dir = dir;
     out.push(it);
   }
   return out;
@@ -160,18 +197,20 @@ function ferryWalkers(ferry, site, sm, band, pont, el) {
     return { u, end: t0 + dur, x: A.x + (B.x - A.x) * u, y: A.y + (B.y - A.y) * u, z: A.z + (B.z - A.z) * u,
       walking: el > t0 && u < 1, dist: u * len * T, dir: dirOf(B.x - A.x, B.y - A.y) };
   };
-  const push = (sp, w, k, alpha, salt) => {
+  // `q` : la personne (fiche d'habitant) — celle qui attendait, retrouvée par sa traversée.
+  const push = (sp, w, k, alpha, salt, q) => {
     const own = isoUnitDepth(w.x * T, w.y * T);
     const d = onDeck(w.x, w.y) ? Math.max(own, hullD) + 0.012 : Math.max(own, landD) + 0.01;
+    if (q) { q.dir = w.dir; q.walking = w.walking; q.walkDist = w.dist; }
     out.push({ d: d + k * 1e-4, kind: 'fleetScene', what: 'traveller', x: w.x, y: w.y, z: w.z, dir: w.dir, band,
-      name: sp.name, scale: sp.scale, walking: w.walking, dist: w.dist, phase: (h32(trip, salt, k) % 97) / 97, alpha });
+      name: sp.name, scale: sp.scale, walking: w.walking, dist: w.dist, phase: (h32(trip, salt, k) % 97) / 97, alpha, q });
   };
   // Ceux qui ARRIVENT (à bord pendant la traversée) : ils descendent, s'en vont.
   const offN = partySize(ferry, trip - 2), off = partySpecs(band, trip - 2, offN);
   off.forEach((sp, k) => {
     const w = walk(deck(k), root, W.off0 + k * W.gap);
     if (w.u >= 1) return;
-    push(sp, w, k, w.u > 0.7 ? (1 - w.u) / 0.3 : 1, 77);
+    push(sp, w, k, w.u > 0.7 ? (1 - w.u) / 0.3 : 1, 77, traveller(ferry, k, trip - 2));
   });
   // Ceux qui MONTENT (ils attendaient ici) : après les arrivants, chacun à sa place.
   const on0 = W.off0 + Math.max(0, offN - 1) * W.gap + W.pause;
@@ -180,7 +219,7 @@ function ferryWalkers(ferry, site, sm, band, pont, el) {
   const last = ws.reduce((m, w) => Math.max(m, w.end), 0);
   // Le pont montre ses voyageurs quand le dernier est arrivé (jamais après la fin de l'escale).
   ferry._revealAt = Math.min(last + 0.2, Math.max(1, (ferry.boardD || W.reveal) - 0.4));
-  if (el < ferry._revealAt) on.forEach((sp, k) => push(sp, ws[k], k, 1, 78));
+  if (el < ferry._revealAt) on.forEach((sp, k) => push(sp, ws[k], k, 1, 78, traveller(ferry, k, trip - 1)));
   return out;
 }
 
@@ -222,9 +261,16 @@ export function fleetSceneItems(now, band) {
     // Pas plus que de places de voyageur sur le pont : ce sont EUX qu'on y verra (lot 5).
     const n = partySize(ferry, ferry.trip | 0);
     const w0 = out.length;
+    // Combien montent à chaque traversée : la fiche du bac dit combien il en porte.
+    if (!ferry._parties) ferry._parties = {};
+    ferry._parties[ferry.trip | 0] = n;
+    delete ferry._parties[(ferry.trip | 0) - 3];
     const pw = pont(waitSide);
     if (pw) {
-      out.push(...waitingOnPontoon(pw.P, n, ferry.trip | 0, band, (k) => ({ charType: h32(ferry.trip | 0, 73, k) % 2, variant: h32(ferry.trip | 0, 74, k) % 3 })));
+      out.push(...waitingOnPontoon(pw.P, n, ferry.trip | 0, band, (k) => {
+        const q = traveller(ferry, k);
+        return { charType: q.charType, variant: q.variant, q };
+      }));
     } else {
       const P = landingPose(site, waitSide, sm);
       for (let k = 0; k < n; k += 1) {
@@ -232,9 +278,11 @@ export function fleetSceneItems(now, band) {
         const x = P.x + P.dx * a + P.ax * c, y = P.y + P.dy * a + P.ay * c;
         // Ils regardent l'eau (le bac qui vient).
         const dir = Math.abs(P.dx) > Math.abs(P.dy) ? (P.dx > 0 ? 0 : 1) : (P.dy > 0 ? 2 : 3);
+        const q = traveller(ferry, k);
+        q.dir = dir;
         out.push({
           d: isoUnitDepth(x * T, y * T) + 0.004, kind: 'fleetScene', what: 'traveller',
-          x, y, z: 4.2, dir, band, charType: h32(ferry.trip | 0, 73, k) % 2, variant: h32(ferry.trip | 0, 74, k) % 3,
+          x, y, z: 4.2, dir, band, charType: q.charType, variant: q.variant, q,
         });
       }
     }
@@ -258,7 +306,11 @@ export function fleetSceneItems(now, band) {
     const away = !(shuttle.state === 'dock' && shuttle.at === 'city');
     const trip = (shuttle.trip | 0) + 1;                 // les passagers du prochain départ
     const n = 1 + (h32(trip, 81, 5) % 3);
-    const mk = (k) => ({ charType: h32(trip, 83, k) % 2, variant: h32(trip, 84, k) % 3 });
+    // Chacun a son objet (fiche d'habitant) : cliquable le temps de son attente.
+    const mk = (k) => {
+      const q = shuttleTraveller(shuttle, trip, k);
+      return { charType: q.charType, variant: q.variant, q };
+    };
     if (pid) {
       out.push(pontoonItem(C.pontoon, pid));
       if (C.pontoon.sink) out.push(quayFrontItem(C.pontoon));
@@ -300,10 +352,44 @@ function clipWaterSide(ctx, P) {
   ctx.clip();
 }
 
+// LES REMOUS d'un embarcadère (iso/waterRipples.js ; Raph, 2026-10-04 : « fais les
+// remous sur le ponton et sur tous les pontons »), dans le repère du kit (a le long
+// du cap, c à sa gauche — boatBake.projectLocal) :
+//   · ponton FLOTTANT (modèle « !pontonN ») : le liseré fait le tour de son tablier
+//     (a de 0 à N, c ± FLOAT_W/2) — contre le mur et sur le palier, le quai
+//     peint après le recouvre ; enfoncé (rive au mur caché), à l'altitude de l'eau ;
+//   · embarcadère SUR PIEUX : rides et sillage au pied de chaque pieu au-dessus de
+//     l'eau (a > 0) ; allongé jusqu'au pied d'un mur (« @ext »), un pieu descend
+//     jusqu'à l'eau au bas du mur, comme son dessin (boatFamilies.makeLanding).
+function landingRipples(it) {
+  const P = it.P, id = String(it.landing || ''), T = CM.TILE;
+  const X0 = P.x * T, Y0 = P.y * T, fx = Math.cos(P.th), fy = Math.sin(P.th);
+  const at = (a, c) => [X0 + a * fx - c * fy, Y0 + a * fy + c * fx];
+  const seed = Math.round(X0 * 0.37 + Y0 * 0.61);
+  const fl = id.match(/!ponton(\d+)/);
+  if (fl) {
+    // Le bord du TABLIER (il déborde des flotteurs de 0,8 px) : le liseré tombe juste
+    // dessous, là où l'œil le voit.
+    const len = +fl[1], hw = FLOAT_W / 2;
+    const F = rippleField({ decks: [[at(0, -hw), at(len, -hw), at(len, hw), at(0, hw)]], seed });
+    return [{ F, h: -(P.sink || 0), clip: 'river' }];
+  }
+  const ext = +((id.match(/@(\d+)/) || [0, 0])[1]), tip = 10 + ext, k45 = Math.max(0.3, fx + fy), out = [];
+  const flow = [P.ax || 0, P.ay || 0];
+  const piles = [5];
+  for (let a = 13; a <= tip - 3; a += 8) piles.push(a);
+  for (const a of piles) {
+    const h = ext ? Math.max(-38, -0.5 - (tip - a) / k45) : 0;
+    out.push({ F: rippleField({ posts: [at(a, -6.2), at(a, 6.2)].map((p) => [...p, 0.6]), flow, seed: seed + a }), h, clip: 'river' });
+  }
+  return out;
+}
+
 export function drawFleetScene(ctx, it, now) {
   const T = CM.TILE, z = CM.cam.zoom;
   if (it.what === 'landing') {
     const P = it.P;
+    noteRipples('landing:' + it.landing + ':' + P.x.toFixed(2) + ',' + P.y.toFixed(2) + ':' + P.th.toFixed(3) + ':' + (P.sink || 0), () => landingRipples(it));
     // Ponton ENFONCÉ (rive au mur caché) : posé au niveau de l'eau, il passe sous le bord
     // du quai — on ne le peint que du côté de l'eau de la ligne du bord.
     if (P.sink) { ctx.save(); clipWaterSide(ctx, P); }
@@ -340,8 +426,13 @@ export function drawFleetScene(ctx, it, now) {
     const pa0 = ctx.globalAlpha;
     if (it.alpha != null) { if (it.alpha <= 0.02) return; ctx.globalAlpha = pa0 * it.alpha; }
     const p = worldToScreen(it.x * T, it.y * T, it.z);
-    drawNamedAgentIso(ctx, p.x, p.y, z, spec.name, spec.scale, it.dir, !!it.walking, now, it.phase || 0, 1, it.walking ? it.dist : null, true);
+    // Fiche d'habitant : désigné ou survolé, l'anneau sur les planches ; et il se
+    // signale avec la boîte peinte pour être cliquable.
+    const mark = it.q ? focusMark(it.q) : 0;
+    if (mark) drawFocusRingAt(ctx, p.x, p.y, sceneRingWidth(T * z * spec.scale * AGENT_SCALE), mark === 2);
+    const d = drawNamedAgentIso(ctx, p.x, p.y, z, spec.name, spec.scale, it.dir, !!it.walking, now, it.phase || 0, 1, it.walking ? it.dist : null, true);
     ctx.globalAlpha = pa0;
+    if (d && it.q) noteSceneFigure(it.q, it.q.sceneTag || 'bac', spec.name, p.x, p.y, d);
     return;
   }
 }

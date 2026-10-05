@@ -49,7 +49,7 @@ import { drawIsoField, drawIsoFieldPixel } from './isoField.js';
 import { drawIsoMill } from './isoMill.js';
 import { drawTerroirTeam } from './terroirLife.js';
 import { isoFrontOffset, seasonTree } from './isoGroundDetail.js';
-import { ISO_TREE_VARIANTS, TREE_DEAD_VARIANT, drawIsoGroundedArt, treeAliveVariant, treeBaseVariant } from './isoGroundProps.js';
+import { ISO_TREE_VARIANTS, TREE_DEAD_VARIANT, TREE_SPRITES, cityTreeVariant, drawIsoGroundedArt, treeAliveVariant, treeSpriteK } from './isoGroundProps.js';
 import { maskHit } from './isoMask.js';
 import { HOVER_GOLD, rgb } from './isoPalette.js';
 import { drawIsoPlaisirsSeg } from './isoPlaisirs.js';
@@ -166,15 +166,16 @@ export function paintIsoItems(bake, items, now) {
   // frame — et l'essentiel n'était pas le blit mais ce qui l'entoure, refait
   // pour CHACUN des 4 648 arbres : un hash de chaîne pour la variante, une
   // recherche de sprite par concaténation, une résolution de teinte
-  // saisonnière. Or tout cela ne dépend que de la VARIANTE (4 en tout) : on le
-  // résout une fois par frame, et chaque arbre n'a plus qu'à lire son entrée.
+  // saisonnière. Or tout cela ne dépend que de la VARIANTE (une trentaine, cf.
+  // TREE_SPRITES) : on le résout une fois par frame, et chaque arbre n'a plus
+  // qu'à lire son entrée.
   const treeMemo = typeof window === 'undefined' || window.__treeMemo !== false;
   // Le sapin mort n'a sa place qu'en hiver et dans les ruines (TREE_DEAD_VARIANT).
   const deadTreeOk = (CM.season | 0) === WINTER || !!CM.frameRuined;
   const treeImgs = [];
   for (let tv = 1; tv <= ISO_TREE_VARIANTS; tv += 1) {
-    const a = isoArt('tree-' + tv);
-    treeImgs[tv] = a.ready ? (seasonTree(a, 'tree-' + tv) || a.img) : null;
+    const nm = TREE_SPRITES[tv].name, a = isoArt(nm);
+    treeImgs[tv] = a.ready ? (seasonTree(a, nm) || a.img) : null;
   }
   const glWanted = (typeof window !== 'undefined' && window.__glPainter === true) && items.length >= GL_RUN_MIN * 2;
   const glOn = glWanted && glInit();
@@ -356,7 +357,7 @@ export function paintIsoItems(bake, items, now) {
           // CHAMPS : patchwork de parcelles cultivées façon TheoTown (cf. drawIsoField) —
           // la scène legacy (peinture carrée du sol) ne se pose pas sur le losange.
           if (profParts) fp('vif-peinture');
-          if (!drawIsoFieldPixel(ctx, t, spanX, spanY, band)) drawIsoField(ctx, t, spanX, spanY, band, eraIdx);
+          if (!drawIsoFieldPixel(ctx, t, spanX, spanY, band, now)) drawIsoField(ctx, t, spanX, spanY, band, eraIdx);
           if (profParts) fp('vif-champs');
           continue;
         }
@@ -399,18 +400,21 @@ export function paintIsoItems(bake, items, now) {
       // les objets d'arbre sont persistants (layout, et cache par blocs pour la
       // forêt sauvage) — le hash de chaîne ne se paie donc qu'une fois par arbre
       // et par vie de cache, au lieu d'une fois par arbre et par frame.
+      // `tr.v` : essence et âge décidés à la plantation (forêt sauvage, cf.
+      // isoWildForest) ; sinon un arbre de VILLE, de l'essence de son ère (lot 6).
       let tv = tr._tv;
-      if (tv === undefined || !treeMemo) tv = tr._tv = treeBaseVariant(tr.gx, tr.gy);
+      if (tv === undefined || !treeMemo) tv = tr._tv = tr.v || cityTreeVariant(tr.gx, tr.gy, band);
       // Hors hiver et hors ruines, la cellule du sapin mort reçoit une essence
       // vivante — tirée à part, et mémoïsée comme la variante.
       if (tv === TREE_DEAD_VARIANT && !deadTreeOk) {
         if (tr._ta === undefined || !treeMemo) tr._ta = treeAliveVariant(tr.gx, tr.gy);
         tv = tr._ta;
-      }
+      } else if (tr.dead && deadTreeOk) tv = TREE_DEAD_VARIANT;   // conifère de la forêt (isoWildForest)
       // __treeMemo = false : rejoue la résolution par arbre (A/B de la mesure).
-      const tImg0 = treeMemo ? treeImgs[tv] : (() => { const a = isoArt('tree-' + tv); return a.ready ? (seasonTree(a, 'tree-' + tv) || a.img) : null; })();
+      const tImg0 = treeMemo ? treeImgs[tv] : (() => { const nm = TREE_SPRITES[tv].name, a = isoArt(nm); return a.ready ? (seasonTree(a, nm) || a.img) : null; })();
       if (tImg0) {
-        const hpx = T * z * treeCanvasT(tr.r, tr.fixed);
+        // Canevas de l'essence (64 jeune, 96 adulte, 104-128 grand) au grain commun.
+        const hpx = T * z * treeCanvasT(tr.r, tr.fixed) * treeSpriteK(tv);
         // Feuillage TEINTÉ par la saison : la teinte est cuite une fois par
         // (variante, saison) dans un canvas hors écran, et l'image résolue nous
         // vient de treeImgs (une fois par frame, cf. plus haut).

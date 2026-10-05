@@ -9,12 +9,13 @@ import { ROAD_WORK_QUEUE_MAX, ROAD_WORKS_BANK_MAX } from '../../game/core/balanc
 import { RES_ICONS } from './resourceIcons.js';
 import { roadNetworkInfo } from './roadNetwork.js';
 import { tipProps } from './HelpBubble.jsx';
+import { buildingIconSrc } from '../../game/data/buildingIcons.js';
 
 /**
  * Encart Voirie — tableau de bord de chantier (carte blanche Raph 2026-07-29 :
  * « comprendre comment ça marche sans tout écrire, juste les jauges et le
  * bouton d'achat »). Architecture À PART des PurchaseRow (les pseudo-éléments
- * de .purchase-row appartiennent au splash-art) : trois étages, zéro phrase —
+ * de .purchase-row appartiennent à la vignette) : trois étages, zéro phrase —
  *   1. en-tête : nom + jauge réseau → « 82% · +8.2% » ;
  *   2. la vie du chantier : barre du chantier actif + file en pastilles,
  *      remplacée par les pips de réserve quand le réseau est achevé ;
@@ -81,10 +82,13 @@ export default function RoadworksPanel({ building: b }) {
           : tr({ fr: "Raccorder le prochain bâtiment", en: "Link the next building" });
 
   const activePct = active ? Math.round(100 * Math.max(0, Math.min(1, 1 - active.left / active.total))) : 0;
+  // Même vignette que les rangées d'achat (posée par cite.css au bureau).
+  const icon = buildingIconSrc(b.id);
 
   return (
     <article
-      className={`roadworks-panel${buyable ? " is-affordable" : ""}${shaking ? " rw-shake" : ""}`}
+      className={`roadworks-panel${icon ? " rw-has-thumb" : ""}${buyable ? " is-affordable" : ""}${shaking ? " rw-shake" : ""}`}
+      style={icon ? { "--pr-icon": `url(${icon})` } : undefined}
       onPointerDown={() => { if (!buyable) doShake(); }}
     >
       <div className="rw-head">

@@ -37,6 +37,11 @@ const LAMPES = (band) => (band >= 7 ? 0.62 : 1);
 // Les salles où l'on JOUE : leur table a son cône de lumière.
 const TABLES = new Set(['des', 'cartes', 'salon', 'machines', 'tickets', 'icare', 'boutique']);
 const LUMIERE_TABLE = '#ffe6b0';
+// LA SCÈNE (Raph, 2026-10-04 : « la scène doit être mieux illuminée ») : pas de lustre
+// devant la toile, mais la RAMPE qui éclaire la troupe d'en bas et la HERSE qui lave
+// toute la cage de scène — les planches et les danseuses en pleine lumière, le fond de
+// scène dans un demi-jour chaud.
+const LUMIERE_SCENE = '#ffe2b0';
 
 // Le plancher d'une salle (la ligne où posent les pieds), depuis sa boîte.
 const solDe = (box) => box.y1 - 7;
@@ -98,6 +103,31 @@ export function bakeLumiere(bake) {
     const sol = box ? solDe(box) : p.y + 40;
     ajoute(p.x, sol, 52, 16, col, 0.55, ok);
   }
+  // La CLARTÉ de la scène peinte (sa luminance moyenne) dose les effets de la vue : une
+  // scène sombre (le fond de nuit du Fonte) prend les poursuites et leur halo en plein,
+  // une scène déjà vive (les ampoules du néon) les prend légers, sinon la troupe délave.
+  let scene = null;
+  const sc = bake.spots && bake.spots.scene;
+  if (sc) {
+    const b = sc.box, ok = (k) => ids[k] === 'scene', sol = solDe(b), large = b.x1 - b.x0, col = rgb(LUMIERE_SCENE);
+    // (Pleine intensité à tous les âges : la baisse des âges de lumière vaut pour leurs
+    // lampes, pas pour la troupe.)
+    ajoute(sc.x, sol, large * 0.62, 46, col, 1.15 / I0, ok);
+    ajoute(sc.x, (b.y0 + sol) / 2, large * 0.72, (sol - b.y0) * 0.95, col, 0.6 / I0, ok);
+    const R = bake.R && bake.R.data;
+    let somme = 0, n = 0;
+    if (R) {
+      for (let y = b.y0 + 10; y < sol; y += 1) {
+        for (let x = b.x0 + 10; x < b.x1 - 10; x += 1) {
+          const q = (y * W + x) * 4;
+          somme += (0.299 * R[q] + 0.587 * R[q + 1] + 0.114 * R[q + 2]) / 255;
+          n += 1;
+        }
+      }
+    }
+    const clarte = n ? somme / n : 0.3;
+    scene = { clarte, effets: Math.max(0.25, Math.min(1, (0.5 - clarte) / 0.18)) };
+  }
   // Les CÔNES des tables : du plafond au tapis, plus large en bas ; le tapis lui-même
   // brille. Les rais (la lumière vue dans l'air) se cuisent à part.
   const cones = [];
@@ -155,7 +185,7 @@ export function bakeLumiere(bake) {
     }
   }
   gr.putImageData(ri, 0, 0);
-  return { cv, rais, dehors: DEHORS, cones, lueur: (bake.band | 0) >= 7 ? 0.5 : 1 };
+  return { cv, rais, dehors: DEHORS, cones, scene, lueur: (bake.band | 0) >= 7 ? 0.5 : 1 };
 }
 
 // La couleur de la nuit dehors, pour les bandes hors de la coupe (CSS rgb()).

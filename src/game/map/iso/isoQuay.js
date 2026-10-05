@@ -40,6 +40,7 @@
 import { CM, cmHash } from '../layout.js';
 import { ISO_X, ISO_Y, depthOf, worldToScreen } from './projection.js';
 import { quayStyleFor, quayWallTune, quayWallColors, ensureQuayGate } from '../quaysAndRiot.js';
+import { metroGroundAt } from './isoMetro.js';
 
 // Molette : __quayArt({ bollards, grain, parapet, stairs, endRamp }) ; __quayArt() rend l'état.
 // `endRamp` (2026-10-02) : le quai qui finit sur une GRÈVE garde toute sa largeur et
@@ -353,6 +354,13 @@ function buildGeo(L, band) {
         wbel[k - a] = P(k, -0.3).y > P(k, 0.3).y ? 1 : 0;      // l'eau est DEVANT : on voit le mur
       }
       // Hauteur du mur par sample : effilée aux bouts de chaque sous-tronçon « eau devant ».
+      // SAUF le bout qui touche un PORT (masques dockPlus / dockMinus : bassin du Vieux-Port,
+      // terre-plein de commerce) : leur maçonnerie reprend à pleine hauteur, le mur finit
+      // CARRÉ contre elle. ⚠ Retour Raph (2026-10-03) : « revoit la jonction quai/port » —
+      // le mur du fleuve descendait à zéro juste avant le quai du port, une marche de 0,6
+      // tuile au raccord.
+      const dock = side > 0 ? g.dockPlus : g.dockMinus;
+      const sqA = !!(dock && a > 0 && dock[a - 1]), sqB = !!(dock && b < n0 - 1 && dock[b + 1]);
       const wallH = new Float32Array(N);
       if (quayWallTune.on) {
         let q = 0;
@@ -360,7 +368,8 @@ function buildGeo(L, band) {
           if (!wbel[q]) { q += 1; continue; }
           let r = q; while (r + 1 < N && wbel[r + 1]) r += 1;
           for (let k = q; k <= r; k += 1) {
-            const dA = k - q, dB = r - k, t = Math.max(0, Math.min(1, Math.min(dA, dB) / TAPER));
+            const dA = q === 0 && sqA ? 1e9 : k - q, dB = r === N - 1 && sqB ? 1e9 : r - k;
+            const t = Math.max(0, Math.min(1, Math.min(dA, dB) / TAPER));
             wallH[k] = wh * (r > q ? t * t * (3 - 2 * t) : 0) * tt(a + k);
           }
           q = r + 1;
@@ -528,25 +537,36 @@ function bakeTile(tx, ty, m) {
   // contremarche, sombre : les marches se lisent en rayures), puis la FACE avant,
   // jusqu'à l'eau, avec son pied mouillé. Palier au ras de l'eau en bas de volée.
   // ⚠ Un giron d'un pixel sur le plan du mur se lisait comme un triangle pâle et plat.
+  // ⚠ Retour Raph (2026-10-04) : « de la transparence au milieu des marches ». Trois
+  // trous : la CONTREMARCHE (la face verticale, de la marche du dessus à celle du
+  // dessous) n'était pas peinte — on voyait le mur derrière, puis l'eau quand la volée
+  // passe sous le pied du mur ; les deux dernières marches (plus bas que le palier)
+  // étaient sautées — un trou d'eau entre la volée et le palier ; la bande d'un giron
+  // à un point par pixel laissait des trous aux rives en pente (on les voit au palier,
+  // là où le mur ne les cache plus) → deux points par pixel.
   if (QUAY_ART.stairs) {
-    const tr = lighten(cop, 0.06), ris = mix(wTop, [0, 0, 0], 0.32);
+    const tr = lighten(cop, 0.06), ris = mix(wTop, [0, 0, 0], 0.32), risF = mix(ris, wTop, 0.5);
     const face = lighten(mix(wTop, cop, 0.3), 0.04), faceD = mix(face, [0, 0, 0], 0.12);
     const landC = mix(tr, face, 0.45);
     for (const stp of geo.stairs) {
       if (stp.x1 < X0 || stp.x0 > X0 + SM || stp.y1 < Y0 || stp.y0 > Y0 + SM) continue;
-      const nT = Math.max(1, Math.round(Math.max(Math.abs(stp.fx), Math.abs(stp.fy)) * Q));
+      const nT = Math.max(1, Math.round(Math.max(Math.abs(stp.fx), Math.abs(stp.fy)) * 2 * Q));
       const band = (x, y, col, a) => { for (let t = 0; t <= nT; t += 1) px(x + stp.fx * t / nT, y + stp.fy * t / nT, col, a); };
-      let prevStep = null;
+      let prevStep = null, prevD = null;
       for (let s = 0; s <= stp.len + LAND; s += 0.5 * u) {
         const p = walkEdge(stp.run, stp.k0, stp.dir * s);
         if (!p) continue;
-        const bottom = s > stp.len;
-        const d = bottom ? p.h - 2 : stairDepth(s, p.h);
-        if (d >= p.h - 1) { prevStep = null; continue; }
+        // Le palier d'en bas commence là où la volée touche l'eau.
+        const d0 = s > stp.len ? p.h : stairDepth(s, p.h);
+        const bottom = d0 >= p.h - 2;
+        const d = bottom ? p.h - 2 : d0;
         // Rang de la marche : sa première colonne (dans le sens du parcours) = contremarche.
         const step = bottom ? -1 : Math.round(d / RISE);
         const riser = fine && !bottom && prevStep != null && step !== prevStep;
         prevStep = step;
+        // La contremarche : du nez de la marche du dessus jusqu'au giron de celle-ci.
+        if (prevD != null) for (let yy = prevD + 0.5 * u; yy < d; yy += 0.5 * u) band(p.x, p.y + yy, risF, 1);
+        prevD = d;
         band(p.x, p.y + d, bottom ? landC : riser ? ris : tr, 1);
         // Face avant : du nez de marche à l'eau, puis le contact et le liseré.
         const fx = p.x + stp.fx, fy = p.y + stp.fy;
@@ -906,6 +926,8 @@ export function quayLampList(L, band) {
       // En VILLE (pas « un bâtiment voisin » : la promenade a la rue, pas des
       // façades, à côté d'elle — il n'en restait que 3 sur une ville de bande 3).
       if (!(L.urbanSet && L.urbanSet.has(gx + ',' + gy)) || bridgeNear(gx, gy)) continue;
+      // Pas dans la trémie ni sur la rampe du métro (isoMetro) : le mât se tenait dans le vide.
+      if (metroGroundAt(wx, wy, 0.3 * T)) continue;
       const pIn = art((s.x + side * n.nx * (s.hw - 0.3)) * T, (s.y + side * n.ny * (s.hw - 0.3)) * T);
       const pOut = art((s.x + side * n.nx * (s.hw + 0.3)) * T, (s.y + side * n.ny * (s.hw + 0.3)) * T);
       const ex = (s.x + side * n.nx * s.hw) * T, ey = (s.y + side * n.ny * s.hw) * T;

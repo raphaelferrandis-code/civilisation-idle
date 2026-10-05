@@ -42,7 +42,7 @@ export function sweepIsoGroundCells(bake, resolve, out) {
     L, roadMap, riverCells, urb, mat, plazaEra, wg, PR,
   } = bake;
   const { kindAt, grassAt, keyOfKind, lisiere } = resolve;
-  const { fringes, roads, wonderCells, grassCells, veilPush, veilPushRects,
+  const { fringes, roads, wonderCells, grassCells, grassMask, grassMaskR, veilPush, veilPushRects,
     faceL, faceD, faceLU, faceDU, faceFoot, faceBand, faceJoint, faceLipG, faceLipS } = out;
   // LISIÈRE ARRONDIE (cf. isoLisiere) : repeint, DANS les rectangles
   // donnés, la matière `k2` telle que la cellule l'aurait peinte si elle en était
@@ -205,6 +205,9 @@ export function sweepIsoGroundCells(bake, resolve, out) {
           if (!lisRuns) veilPush(fam, a, p.x, p.y);
           else if (lisGrass) veilPushRects(fam, a, lisGrass);
         };
+        // Gabarit des voiles lissés (prés, sous-bois) : la même géométrie.
+        if (!lisRuns) grassMask.push(p.x, p.y);
+        else if (lisGrass) for (let i = 0; i < lisGrass.length; i += 1) grassMaskR.push(lisGrass[i]);
         // PRÉS (meadow) : plaques lentes foncé/clair par bruit LISSÉ — aucune
         // couture (ni maillage par cellule ni bord de bloc). Foncé = herbe
         // grasse, clair = herbe sèche. __grassDetail({ meadow: 0 }) pour couper.

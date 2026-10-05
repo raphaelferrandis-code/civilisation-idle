@@ -176,11 +176,29 @@ export function portLampList(L, band) {
 
 // Où le quai du fleuve reprend, de part et d'autre d'une coupure de port (rive où le
 // masque marque la coupure comme « port », cf. quaysAndRiot.dockPlus/dockMinus).
+// ⚠ Retour Raph (2026-10-04) : « une partie du quai n'apparaît pas aux alentours du
+// port » — un trou d'eau entre le bout du quai et la tour du Vieux-Port. Le quai du
+// fleuve (isoQuay) finit au BORD D'EAU de son dernier sample (centre + rive × normale
+// × hw), pas à l'abscisse du centre : là où le fleuve passe en biais, les deux
+// s'écartent de |nx|·hw (0,7 tuile mesurée), et le raccord, parti du centre, laissait
+// ce trou d'un côté du port (de l'autre, il chevauchait). Le raccord mord de 0,1 tuile
+// sur le dernier segment du quai : bord à bord, un trait d'eau d'un pixel restait.
+// ⚠ DEUX PORTS CÔTE À CÔTE (Vieux-Port et commerce) : leurs coupures se suivent sans
+// sample de quai entre elles. On s'arrête à la coupure du VOISIN (pas de raccord de ce
+// côté, les deux maçonneries se touchent) : la recherche la traversait jusqu'au quai
+// suivant, et le terre-plein du commerce fermait l'entrée du bassin, quand le bassin ne
+// glissait pas une dalle de douze tuiles sous le commerce.
 export function quayJoin(sm, x0, x1) {
   ensureQuayGate();
   const g = CM.quayGate;
   if (!g || !g.dockPlus) return null;
-  for (const [draw, dock] of [[g.drawPlus, g.dockPlus], [g.drawMinus, g.dockMinus]]) {
+  // Le bord d'eau d'un sample, comme isoQuay le trace : centre + rive × normale × hw.
+  const bank = (k, side) => {
+    const a = sm[Math.max(0, k - 1)], b = sm[Math.min(sm.length - 1, k + 1)];
+    const tx = b.x - a.x, ty = b.y - a.y, tl = Math.hypot(tx, ty) || 1;
+    return { x: sm[k].x - side * (ty / tl) * sm[k].hw, y: sm[k].y + side * (tx / tl) * sm[k].hw };
+  };
+  for (const [side, draw, dock] of [[1, g.drawPlus, g.dockPlus], [-1, g.drawMinus, g.dockMinus]]) {
     let iMin = -1, iMax = -1;
     for (let i = 0; i < sm.length; i += 1) {
       if (!dock[i] || sm[i].x < x0 - 0.6 || sm[i].x > x1 + 0.6) continue;
@@ -189,9 +207,18 @@ export function quayJoin(sm, x0, x1) {
     }
     if (iMin < 0) continue;
     let l = iMin - 1, r = iMax + 1;
-    while (l > 0 && !draw[l]) l -= 1;
-    while (r < sm.length - 1 && !draw[r]) r += 1;
-    return { xL: Math.min(x0, sm[l].x - 0.02), xR: Math.max(x1, sm[r].x + 0.02) };
+    while (l > 0 && !draw[l] && !dock[l]) l -= 1;
+    while (r < sm.length - 1 && !draw[r] && !dock[r]) r += 1;
+    // Les bouts du quai (au bord d'eau), rangés de part et d'autre du milieu du port ;
+    // `yL`/`yR` : l'ordonnée de ce bord d'eau, pour qu'un raccord parte À SA HAUTEUR
+    // (null : pas de quai de ce côté).
+    let xL = x0, xR = x1, yL = null, yR = null;
+    for (const k of [l, r]) {
+      if (dock[k] || !draw[k]) continue;                 // le port voisin, ou le bout du fleuve
+      const e = bank(k, side);
+      if (e.x < (x0 + x1) / 2) { if (e.x - 0.1 < xL) { xL = e.x - 0.1; yL = e.y; } } else if (e.x + 0.1 > xR) { xR = e.x + 0.1; yR = e.y; }
+    }
+    return { xL, xR, yL, yR };
   }
   return null;
 }

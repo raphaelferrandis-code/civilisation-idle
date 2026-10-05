@@ -71,6 +71,22 @@ const FIRE_SPRITES = [
   ['agents/buildings/storyteller-prop-fire.png', 150],
   ['agents/buildings/mint-prop-forge.png', 7],
   ['agents/buildings/cult-vesta.png', 12],
+  // Braseros des places (et des ponts, des merveilles) : la flamme est posée PAR
+  // DU CODE, scripts/plazaBrazierAnim.mjs. Celle de l'antique a passé des mois en
+  // #b06a48 / #f2c2a3 — le même feu couleur chair. Mesurés 54 / 77 (statiques) et
+  // 411 / 618 (bandes) → planchers à la moitié.
+  ['iso/plaza/brazier-antique.png', 27],
+  ['iso/plaza/brazier-medieval.png', 38],
+  ['iso/plaza/anim/brazier-antique.png', 200],
+  ['iso/plaza/anim/brazier-medieval.png', 300],
+  // Feux PEINTS des bâtiments-moteur rendus vivants (scripts/sceneLive.mjs) :
+  // flammes redessinées sur la rampe, braises de la tour de pierre avivées par
+  // elle. Mesurés 282 / 110 / 107 / 423 / 274 → planchers à la moitié.
+  ['agents/buildings/cult-vesta-live.png', 140],
+  ['agents/buildings/cult-mausoleum-live.png', 55],
+  ['agents/buildings/cult-memorial-live.png', 50],
+  ['agents/buildings/cult-memorial-grand-live.png', 210],
+  ['agents/buildings/watch-stone-live.png', 135],
 ];
 
 const rampSet = new Set(RAMP.steps.map((s) => s.hex.toLowerCase()));

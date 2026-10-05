@@ -6,7 +6,7 @@ import { CM } from "../../layout.js";
 import {
   isoPlazaBox, isoPlazaBoxes, isoPlazaCells, isoPlazaComposition, isoPlazaCompositions, plazaEraForBand,
   isoPlazaKitOn, isoPlazaSceneOn, isoPlazaSceneCoversGround, plazaAnchor, grateFit,
-  PLAZA_TUNE, RECIPES, KIND_KITS, HOUSE_HT, TALL_PROPS, personHT, ANIM_PROPS,
+  PLAZA_TUNE, RECIPES, KIND_KITS, HOUSE_HT, TALL_PROPS, personHT, ANIM_PROPS, ANIM_ERAS,
 } from "../isoPlaza.js";
 
 // ── CE QUE CES TESTS PROTÈGENT ──────────────────────────────────────────────
@@ -802,7 +802,15 @@ describe("BANDES D'EAU ANIMÉE", () => {
       // Le prop EXACT, pas un préfixe : « fountain- » attrape aussi les bandes
       // de « fountain-forum- », la grande fontaine des places.
       const eres = bandes.filter((f) => propDe(f) === p).map((f) => f.slice(p.length + 1, -4));
-      expect(eres.sort(), `${p} : une bande par ère`).toEqual(Object.keys(RECIPES).sort());
+      // Une bande par ère où le prop EXISTE (sprite statique livré) : la fontaine
+      // a ses cinq ères, le brasero trois (les parvis industriel et moderne n'en
+      // portent pas, cf. KIND_KITS).
+      // Et, quand le prop restreint ses ères animées (ANIM_ERAS : le puits profond
+      // ne bouge pas), celles-là seulement.
+      const attendues = Object.keys(RECIPES).filter((e) => fs.existsSync(path.join(STAT, `${p}-${e}.png`))
+        && (!ANIM_ERAS[p] || ANIM_ERAS[p].has(e)));
+      expect(attendues.length, `${p} : aucun sprite statique`).toBeGreaterThan(0);
+      expect(eres.sort(), `${p} : une bande par ère`).toEqual(attendues.sort());
     }
   });
 

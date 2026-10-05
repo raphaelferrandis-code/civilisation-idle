@@ -36,6 +36,13 @@ export const hexRgb = (h) => {
 // Lumière haut-gauche : dessus plein, flanc sud (tourné vers la gauche de l'écran)
 // mi-clair, flanc est (vers la droite) dans l'ombre.
 export const FACE_LIGHT = [0.64, 0.8, 1];
+// Ombrage PIXEL ART : une face à l'ombre ne fait pas que foncer, elle glisse vers le
+// bleu-violet ; une face au soleil (k > 1) vers l'ocre clair — comme les sprites de la
+// carte, jamais un simple gris multiplié (le « rendu 3D » vu par Raph le 2026-10-03).
+export function faceLit(col, k) {
+  if (k >= 1) return k === 1 ? col : mix(col, [255, 246, 222], Math.min(0.6, (k - 1) * 0.9));
+  return mix(mul(col, k), [34, 42, 96], (1 - k) * 0.42);
+}
 
 function mkCanvas(w, h) {
   if (typeof OffscreenCanvas !== 'undefined') return new OffscreenCanvas(w, h);
@@ -69,7 +76,7 @@ export function castRay(boxes, ax, ay, mirror) {
 // `isWater(wx, wy)` dit si le sol sous un pixel est de l'eau (reflets, clapot) ;
 // `foam(bx)` si une boîte fait un clapot clair à son pied. Rend { AX0, AY0, W, H,
 // body, shadow, refl } (canevas) ou null.
-export function bakeBoxes(boxes, { shade, isWater, shadow = true, reflect = true, foam = null, pad = 6 }) {
+export function bakeBoxes(boxes, { shade, isWater, shadow = true, reflect = true, foam = null, pad = 6, ink = null }) {
   if (!boxes.length) return null;
   let AX0 = Infinity, AX1 = -Infinity, AY0 = Infinity, AY1 = -Infinity;
   for (const b of boxes) {
@@ -84,6 +91,10 @@ export function bakeBoxes(boxes, { shade, isWater, shadow = true, reflect = true
   const W = AX1 - AX0, H = AY1 - AY0;
   if (!(W > 0 && H > 0) || W * H > 4e6) return null;
   const body = new Uint8ClampedArray(W * H * 4);
+  // Ce que touche chaque pixel du corps (boîte, face, profondeur) : la passe d'encre
+  // (`ink`, plus bas) en tire contours et arêtes.
+  const hb = ink ? new Int32Array(W * H).fill(-1) : null, hf = ink ? new Int8Array(W * H) : null, hs = ink ? new Float32Array(W * H) : null;
+  if (ink) boxes.forEach((b, k) => { b._k = k; });
   const shad = new Uint8ClampedArray(W * H * 4);
   const refl = new Uint8ClampedArray(W * H * 4);
   const shCol = hexRgb(SUN_SHADOW.col) || [142, 150, 173];
@@ -132,7 +143,10 @@ export function bakeBoxes(boxes, { shade, isWater, shadow = true, reflect = true
       if (hit) {
         const wx = hit.s + ax / 2, wy = hit.s - ax / 2, zz = hit.s - ay;
         const col = shade(hit, wx, wy, zz, false);
-        if (col) { body[i] = col[0]; body[i + 1] = col[1]; body[i + 2] = col[2]; body[i + 3] = col.length > 3 ? col[3] : 255; }
+        if (col) {
+          body[i] = col[0]; body[i + 1] = col[1]; body[i + 2] = col[2]; body[i + 3] = col.length > 3 ? col[3] : 255;
+          if (hb) { const q = i >> 2; hb[q] = hit.bx._k; hf[q] = hit.face; hs[q] = hit.s; }
+        }
         continue;
       }
       // Rien de bâti devant : le SOL (z = 0) sous ce pixel.
@@ -164,6 +178,7 @@ export function bakeBoxes(boxes, { shade, isWater, shadow = true, reflect = true
       }
     }
   }
+  if (hb) inkPass(body, W, H, boxes, hb, hf, hs, ink);
   // Chaque calque est ROGNÉ à son contenu : le rendu logiciel paie la SURFACE de chaque
   // drawImage, et la boîte commune (ponton + reflet + ombre) est surtout vide.
   const put = (data) => {
@@ -185,6 +200,63 @@ export function bakeBoxes(boxes, { shade, isWater, shadow = true, reflect = true
     return { cv, AX0: AX0 + x0, AY0: AY0 + y0, W: w, H: h };
   };
   return { AX0, AY0, W, H, body: put(body), shadow: put(shad), refl: put(refl) };
+}
+
+// ── L'ENCRE : ce qui fait d'une cuisson un dessin de pixel art ─────────────────
+// Sur le seul corps (les reflets ondulent, les ombres sont des aplats) :
+//   · CONTOUR : un pixel au bord de sa boîte, devant le vide ou devant une boîte plus
+//     LOINTAINE, prend l'encre — sa teinte, très foncée, tirée vers le violet (le
+//     contour sélectif des sprites, pas un noir collé) ;
+//   · ARÊTES : le dessus d'une boîte s'éclaire d'un pixel au-dessus de sa face avant, et
+//     l'arête verticale entre ses deux flancs d'un trait clair (le volume « taillé ») ;
+//   · JOINTS : deux boîtes qui se touchent à même profondeur se séparent d'un pixel
+//     plus sombre (conteneurs d'une pile, marches) ;
+//   · PIED : le sol juste sous un objet s'assombrit (le contact, que l'ombre portée ne
+//     dessine pas du côté du soleil).
+// `ink.skip(b)` : boîtes sans encre et qui n'en découpent pas (filins d'un pixel) ;
+// `ink.ground(b)` : le sol (terre-plein, quai) — pas de contour, mais le pied.
+function inkPass(body, W, H, boxes, hb, hf, hs, ink) {
+  const skip = ink.skip || (() => false), ground = ink.ground || (() => false);
+  const EPS = 2;
+  const src = body.slice();
+  const ND = [[-1, 0], [1, 0], [0, -1], [0, 1]];
+  for (let py = 0; py < H; py += 1) {
+    for (let px = 0; px < W; px += 1) {
+      const q = py * W + px, bi = hb[q];
+      if (bi < 0) continue;
+      const b = boxes[bi];
+      if (skip(b)) continue;
+      const gb = ground(b), s = hs[q], f = hf[q];
+      let edge = false, seam = false, foot = false, rim = 0;
+      for (const [dx, dy] of ND) {
+        const x2 = px + dx, y2 = py + dy;
+        const j = (x2 < 0 || y2 < 0 || x2 >= W || y2 >= H) ? -1 : y2 * W + x2;
+        const nb = j < 0 ? -1 : hb[j];
+        if (nb < 0) { if (!gb && !(j >= 0 && src[j * 4 + 3])) edge = true; continue; }
+        const B2 = boxes[nb];
+        // Même boîte, ou même OBJET fait de plusieurs boîtes (`grp` : les marches d'un toit).
+        if (nb === bi || (b.grp != null && B2.grp === b.grp)) {
+          if (nb !== bi) continue;
+          if (f === 2 && dy === 1 && hf[j] !== 2) rim = Math.max(rim, 0.34);          // arête haute
+          else if (f === 1 && dx === 1 && hf[j] === 0) rim = Math.max(rim, 0.16);     // arête verticale
+          continue;
+        }
+        if (skip(B2)) continue;
+        const g2 = ground(B2);
+        if (gb) { if (!g2 && dy === -1) foot = true; continue; }
+        if (hs[j] < s - EPS) edge = true;
+        else if (!g2 && Math.abs(hs[j] - s) <= EPS) seam = true;
+      }
+      if (!(edge || seam || foot || rim)) continue;
+      const k = q * 4;
+      let c = [src[k], src[k + 1], src[k + 2]];
+      if (edge) c = mix(mul(c, 0.42), [24, 18, 44], 0.32);
+      else if (foot) c = mix(mul(c, 0.7), [34, 42, 96], 0.12);
+      else if (seam) c = mul(c, 0.8);
+      else c = mix(c, [255, 248, 228], rim);
+      body[k] = c[0]; body[k + 1] = c[1]; body[k + 2] = c[2];
+    }
+  }
 }
 
 // Pose d'un calque cuit (rogné) à l'écran. Rend la boîte écran, ou null.

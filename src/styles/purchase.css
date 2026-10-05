@@ -40,10 +40,10 @@
    masqué en CSS mais PAS RENDU du tout (cf. PurchaseRow).
 
    ⚠ ÉLÉMENT DÉDIÉ, PAS UN PSEUDO. La fiche demandait un ::before « sans nouvel
-   élément JSX » : les DEUX pseudos de .purchase-row sont pris par le splash-art
+   élément JSX » : les pseudos de .purchase-row étaient pris par le splash-art
    (::before = le filigrane, ::after = le dégradé de lisibilité posé en inset:0
-   et z-index:-1). Mesuré en jeu, s'y greffer effaçait ce dégradé sur les dix
-   cartes et envoyait le pip derrière le contenu, au mauvais coin. Un span de
+   et z-index:-1) ; ::before porte aujourd'hui la vignette de l'icône. Mesuré en
+   jeu, s'y greffer envoyait le pip derrière le contenu, au mauvais coin. Un span de
    8 px en position absolue ne dérange aucune grille : la contrainte de la
    fiche visait ce risque-là, pas l'élément lui-même.
 
@@ -104,52 +104,18 @@
   margin-top: auto;
 }
 
-/* La carte achetable = SON splash-art, SANS cadre : ni bordure ni fond-boîte.
-   Le splash se fond en HAUT et en BAS (mask) pour se dissoudre dans la liste.
-   Taille d'origine conservée (min-height du .purchase-row, pas de ratio imposé). */
-.pr-has-splash {
+/* Rangée À VIGNETTE (le bâtiment a son icône). L'icône n'a de case que dans la
+   boutique de la Cité au bureau (cite.css), où elle se pose à gauche en ×2.
+   Ailleurs (fenêtre étroite, doigt) la rangée n'en montre pas : une icône de
+   32 px étirée en fond de carte ne serait qu'une bouillie de gros pixels. La
+   rangée reste alors une carte SANS cadre, sur le fond des panneaux. */
+.pr-has-thumb {
   border: none;
-  background: transparent;
+  background: color-mix(in srgb, var(--surface-panel), transparent 10%);
 }
-
-/* Le splash-art EST le fond de carte, COLLÉ À GAUCHE et allant NET jusqu'au bord
-   droit du cadre (pas de fondu à droite : le dégradé mélangeait mal avec le fond).
-   Fondu seulement en HAUT et en BAS pour dissoudre la carte dans la liste. */
-.pr-has-splash::before {
-  content: "";
-  position: absolute;
-  inset: 0;
-  z-index: -1;
-  border-radius: 0;
-  background: var(--pr-splash) left center / cover no-repeat;
-  opacity: 0.72;
-  image-rendering: pixelated;
-  -webkit-mask-image: linear-gradient(to bottom, transparent 0, #000 16%, #000 84%, transparent 100%);
-  mask-image: linear-gradient(to bottom, transparent 0, #000 16%, #000 84%, transparent 100%);
-}
-
-/* Voile sombre à GAUCHE (sous le texte) → transparent vers le centre/la droite :
-   garde le texte lisible tout en laissant le splash respirer. Même fondu haut/bas. */
-.pr-has-splash::after {
-  content: "";
-  position: absolute;
-  inset: 0;
-  z-index: -1;
-  border-radius: 0;
-  background: linear-gradient(
-    90deg,
-    var(--bg-card) 0%,
-    color-mix(in srgb, var(--bg-card), transparent 26%) 40%,
-    transparent 72%
-  );
-  -webkit-mask-image: linear-gradient(to bottom, transparent 0, #000 16%, #000 84%, transparent 100%);
-  mask-image: linear-gradient(to bottom, transparent 0, #000 16%, #000 84%, transparent 100%);
-}
-
-/* Ombre de texte en renfort (par-dessus le splash côté centre). */
-.pr-has-splash .pr-name,
-.pr-has-splash .pr-prod-item {
-  text-shadow: 0 1px 3px rgba(0, 0, 0, 0.85);
+.pr-has-thumb::before,
+.pr-has-thumb::after {
+  content: none;
 }
 
 /* ----- État : achetable (signal au niveau de la ligne) ----- */
@@ -158,7 +124,7 @@
   border-left-color: var(--gold);
 }
 
-.purchase-row.is-affordable:not(.pr-has-splash):hover {
+.purchase-row.is-affordable:not(.pr-has-thumb):hover {
   background: var(--bg-card-2);
   border-color: color-mix(in srgb, var(--gold), transparent 30%);
 }
@@ -182,27 +148,6 @@
   font-style: italic;
 }
 
-/* Teaser « bientôt » AVEC splash : le splash-art du prochain bâtiment s'affiche
-   ASSOMBRI (état à venir). On retire le fondu global de la carte (sinon le
-   splash s'efface au lieu de s'assombrir) — l'obscurcissement vient du splash
-   lui-même (brightness < 1) et d'un voile renforcé ; le nom (italique) et le
-   bouton restent lisibles par-dessus. */
-.purchase-row.pr-locked.pr-has-splash {
-  opacity: 1;
-}
-.purchase-row.pr-locked.pr-has-splash::before {
-  opacity: 0.65;
-  filter: brightness(0.42) saturate(0.85);
-}
-.purchase-row.pr-locked.pr-has-splash::after {
-  background: linear-gradient(
-    90deg,
-    color-mix(in srgb, var(--bg-card), transparent 6%) 0%,
-    color-mix(in srgb, var(--bg-card), transparent 30%) 55%,
-    color-mix(in srgb, var(--bg-card), transparent 55%) 100%
-  );
-}
-
 .pr-locked-hint {
   margin: 0.15rem 0 0;
   font-size: 0.78rem;
@@ -210,7 +155,7 @@
 }
 
 /* ----- Icône de bâtiment (ressource dominante) : petit glyphe inline dans le
-   nom, plus la grosse pastille encadrée. Le splash-art porte l'identité visuelle. */
+   nom, plus la grosse pastille encadrée. L'icône de la vignette porte l'identité visuelle. */
 .pr-icon {
   flex: 0 0 auto;
   display: inline-flex;
@@ -356,9 +301,9 @@
   background: color-mix(in srgb, var(--gold), transparent 85%);
 }
 
-/* Sur une carte à splash, le compteur ×N est posé sur l'image → fond SOMBRE et
-   opaque pour bien détacher le nombre (prime sur le fond doré de l'état achetable). */
-.purchase-row.pr-has-splash .pr-count {
+/* Sur une rangée à vignette, le compteur ×N est posé sur l'icône → fond SOMBRE
+   et opaque pour bien détacher le nombre (prime sur le fond doré de l'état achetable). */
+.purchase-row.pr-has-thumb .pr-count {
   background: rgba(0, 0, 0, 0.6);
   border: 1px solid rgba(0, 0, 0, 0.35);
   color: var(--gold-bright);
@@ -378,12 +323,6 @@
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
-}
-
-/* Sur une carte a splash, le texte est pose sur l'image : on le detache. */
-.purchase-row.pr-has-splash .pr-eta {
-  color: color-mix(in srgb, var(--gold-ivory), transparent 25%);
-  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.85);
 }
 
 
@@ -655,7 +594,7 @@
 
 /* ── ENCART VOIRIE : tableau de bord de chantier ────────────────────────────
    Architecture À PART des .purchase-row (leurs pseudo-éléments appartiennent
-   au splash-art) : trois étages — jauge réseau → bonus, vie du chantier
+   à la vignette) : trois étages — jauge réseau → bonus, vie du chantier
    (barre + file en pastilles, pips de réserve à réseau achevé), bouton-verbe.
    Chrome pixel : coins crantés par clip-path, liseré or quand c'est payable. */
 .roadworks-panel {

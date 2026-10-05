@@ -22,7 +22,7 @@
 //
 // Pur : aucun DOM, aucun CM. Testable en Node.
 import {
-  put, rgbOf, h32, projLT, frameOf, paintBox, paintLine, fillPoly, ramp, shadeOf, ashlar, outline,
+  put, rgbOf, h32, projLT, frameOf, paintBox, paintLine, fillPoly, ramp, shadeOf, ashlar,
 } from './isoPixelPaint.js';
 
 const V = true;   // repère vertical : wx = t = x, wy = l = y
@@ -46,8 +46,8 @@ export function band5(I) { return I >= 0.7 ? 0 : I >= 0.42 ? 1 : I >= 0.26 ? 2 :
 export const palIdx = (I, n) => Math.round((band5(I) * (n - 1)) / 4);
 export const pick = (pal, I) => rgbOf(pal[palIdx(I, pal.length)]);
 // Cran → rampe de pierre du kit (dessus litBase−1 … ombre shadeBase).
-export function stoneIdx(K, I) {
-  return [K.litBase - 1, K.litBase, K.litBase + 1, K.shadeBase - 1, K.shadeBase][band5(I)];
+export function stoneIdx(K, I, par) {
+  return [K.litBase - 1, K.litBase, K.litBase + 1, K.shadeBase - 1, K.shadeBase][band5(par == null ? I : I + (par ? 0.035 : -0.035))];
 }
 
 // ── Formes ───────────────────────────────────────────────────────────────────
@@ -191,6 +191,115 @@ export const taper = (h0, h1, r0, r1) => (h) => r0 + ((r1 - r0) * (h - h0)) / (h
 export const domeProf = (h0, r, H) => (h) => r * Math.sqrt(Math.max(0, 1 - ((h - h0) / H) ** 2));
 export const ballProf = (hc, r) => (h) => Math.sqrt(Math.max(0, r * r - (h - hc) * (h - hc)));
 
+// ROCHER NATUREL (îlot de l'Aiguille, 2026-10-04). Raph, sur le rang I : « tu me la
+// fais bien en pixel art l'île ? ». Les rochers étaient des œufs lisses (révolution)
+// teints de la pierre de l'ÈRE : beiges en marbre, et tous pareils. Ici un bloc de
+// granite TAILLÉ : rayon bosselé selon l'angle (s1, s2), allongé (el) et tourné
+// (rot), normale quantifiée en `nf` pans et trois étages (dessus, épaule, flanc) —
+// des facettes franches, comme un rocher dessiné. La roche ne change pas avec l'ère.
+//   q : { x, y, h0, r, H, rot, el, s1, s2, nf, cut, wet, moss, id }
+//   cut : coupe le sommet (1 = arrondi jusqu'au bout ; 0,7 = plateau, pour porter).
+//   own : { id, h, c } par pixel du raster — QUI a peint en dernier, à quelle hauteur
+//         au-dessus de son pied, quelle couleur (l'écume de l'îlot s'en sert).
+export const ROCK = ['#dcd7c9', '#b9b4a6', '#959186', '#74726a', '#585751', '#3f403c'];
+const MOSS = ['#93a85c', '#728c47', '#566f38'];
+// Bruit de valeur lissé (0..1) à l'échelle `s` px, ancré au monde : des taches qui
+// se tiennent (mousse, plaques), pas un tirage par pixel qui ferait du sel.
+export function vnoise(x, y, s, salt) {
+  const fx = x / s, fy = y / s, ix = Math.floor(fx), iy = Math.floor(fy);
+  const u = fx - ix, v = fy - iy, a = u * u * (3 - 2 * u), b = v * v * (3 - 2 * v);
+  const n = (p, q) => (h32(p, q, salt) % 1000) / 1000;
+  return (n(ix, iy) * (1 - a) + n(ix + 1, iy) * a) * (1 - b) + (n(ix, iy + 1) * (1 - a) + n(ix + 1, iy + 1) * a) * b;
+}
+const ROCK_PROF = (() => {
+  const t = new Float32Array(66);
+  for (let k = 0; k <= 65; k += 1) t[k] = Math.pow(Math.max(0, 1 - Math.pow(Math.min(1, k / 64), 2.2)), 0.42);
+  return t;
+})();
+// Le contour du rocher à son pied : (dx, dy) → distance réduite d, rayon rb à cet
+// angle et angle a (repère du rocher). Partagé par le rocher et par son écume.
+// Les bosses (3 et 5 lobes) se calculent sur le cosinus et le sinus de l'angle, sans
+// trigonométrie : c'est la fonction la plus appelée de la cuisson de l'îlot.
+export function rockShape(q) {
+  const c0 = Math.cos(q.rot || 0), s0 = Math.sin(q.rot || 0);
+  const sx = 1 + (q.el || 0), sy = 1 - (q.el || 0) * 0.4, s1 = q.s1 || 0, s2 = q.s2 || 0;
+  const k3c = 0.13 * Math.sin(s1), k3s = 0.13 * Math.cos(s1), k5c = 0.07 * Math.sin(s2), k5s = 0.07 * Math.cos(s2);
+  const o = { d: 0, rb: 0, a: 0 };
+  return (dx, dy, wantA = false) => {
+    const lx = (dx * c0 + dy * s0) / sx, ly = (-dx * s0 + dy * c0) / sy, d = Math.sqrt(lx * lx + ly * ly);
+    const c = d > 1e-9 ? lx / d : 1, s = d > 1e-9 ? ly / d : 0, c2 = c * c, s2q = s * s;
+    // sin(3a + s1) = sin3a·cos s1 + cos3a·sin s1 ; idem à 5 lobes.
+    const b3 = s * (3 - 4 * s2q) * k3s + c * (4 * c2 - 3) * k3c;
+    const b5 = s * (16 * s2q * s2q - 20 * s2q + 5) * k5s + c * (16 * c2 * c2 - 20 * c2 + 5) * k5c;
+    o.d = d; o.rb = q.r * (1 + b3 + b5); o.a = wantA ? Math.atan2(ly, lx) : 0;
+    return o;
+  };
+}
+export function boulder(R, q, K, own = null) {
+  const h0 = q.h0 || 0, H = q.H, cut = q.cut || 1, shape = rockShape(q);
+  const F = (dx, dy, h) => {
+    const t = (h - h0) / H;
+    if (t < 0 || t > 1) return 9;
+    const f = t * cut * 64, k = Math.min(63, f | 0), p = ROCK_PROF[k] + (ROCK_PROF[k + 1] - ROCK_PROF[k]) * (f - k);
+    const o = shape(dx, dy), rb = o.rb * p;
+    return rb > 0.05 ? o.d / rb : 9;
+  };
+  const rM = q.r * (1 + (q.el || 0)) * 1.25 + 1;
+  const cX = q.x - q.y, cY = (q.x + q.y) / 2;
+  const i0 = Math.max(0, Math.floor(cX - 2 * rM - R.ox)), i1 = Math.min(R.w - 1, Math.ceil(cX + 2 * rM - R.ox));
+  const j0 = Math.max(0, Math.floor(cY - h0 - H - rM - R.oy)), j1 = Math.min(R.h - 1, Math.ceil(cY - h0 + rM - R.oy));
+  const st = (2 * Math.PI) / (q.nf || 6), rot = q.rot || 0, P = K.pal;
+  for (let j = j0; j <= j1; j += 1) {
+    for (let i = i0; i <= i1; i += 1) {
+      const Xp = R.ox + i + 0.5, Yp = R.oy + j + 0.5;
+      // Rayon de vue paramétré par l'altitude : (A + h, B + h, h), autour du rocher.
+      const A = Yp + Xp / 2 - q.x, B = Yp - Xp / 2 - q.y;
+      // Tranche d'altitudes où il passe à moins de rM de l'axe.
+      const b = A + B, disc = b * b - 2 * (A * A + B * B - rM * rM);
+      if (disc < 0) continue;
+      const hHi = Math.min(h0 + H, (-b + Math.sqrt(disc)) / 2), hLo = Math.max(h0, (-b - Math.sqrt(disc)) / 2);
+      if (hHi < hLo) continue;
+      let h = hHi, hit = F(A + h, B + h, h) <= 1;
+      if (!hit) for (h = hHi - 0.35; h >= hLo; h -= 0.35) if (F(A + h, B + h, h) <= 1) { hit = true; break; }
+      if (!hit) continue;
+      if (h < hHi) {
+        let lo = h, hi = Math.min(hHi, h + 0.35);
+        for (let k = 0; k < 5; k += 1) { const m = (lo + hi) / 2; if (F(A + m, B + m, m) <= 1) lo = m; else hi = m; }
+        h = lo;
+      }
+      const x = A + h, y = B + h, e = 0.4;
+      const nx = F(x + e, y, h) - F(x - e, y, h), ny = F(x, y + e, h) - F(x, y - e, h);
+      const nh = F(x, y, h + e) - F(x, y, Math.max(h0, h - e));
+      // Facettes : le pan (azimut) et l'étage (élévation) de la normale (F croît
+      // vers l'extérieur : son gradient EST la normale sortante).
+      const el = Math.atan2(nh, Math.hypot(nx, ny));
+      const az = Math.round((Math.atan2(ny, nx) - rot) / st) * st + rot;
+      const eq = el > 1.0 ? Math.PI / 2 : el > 0.5 ? 0.82 : el > 0.12 ? 0.32 : -0.1;
+      const I = lum(Math.cos(eq) * Math.cos(az), Math.cos(eq) * Math.sin(az), Math.sin(eq));
+      let k = band5(I + ((i + j) & 1 ? 0.03 : -0.03));
+      if (h32(i, j, 41) % 19 === 0) k = Math.min(4, k + 1);
+      const hr = h - h0, top = eq > 0.5, sd = (q.id || 0) * 7;
+      // Un dessus PLAT (sommet coupé) : des plaques claires et sombres, une fissure
+      // qui court entre elles — un aplat uni s'y lisait comme une table.
+      if (eq > 1.5 && cut < 1) {
+        const c = vnoise(x, y, 4, sd + 1);
+        k = c > 0.56 ? 0 : 1;
+        if (Math.abs(vnoise(x, y, 6, sd + 2) - 0.5) < 0.035) k = 2;
+      }
+      let col;
+      if (q.wet && hr < 1.2) col = rgbOf(P.wet[hr < 0.6 || k >= 3 ? 1 : 0]);
+      else if (K.snow && top) col = rgbOf(k <= 1 ? '#f2f5f9' : '#dfe6ee');
+      else if (q.moss && top && vnoise(x, y, 3.5, sd + 3) > 0.6) col = rgbOf(MOSS[Math.min(2, k)]);
+      else col = rgbOf(ROCK[Math.min(5, k + (q.wet && hr < 2.2 ? 1 : 0))]);
+      put(R, i, j, col);
+      if (own) {
+        const p = j * R.w + i;
+        own.id[p] = (q.id || 0) + 1; own.h[p] = hr; own.c[p] = (col[0] << 16) | (col[1] << 8) | col[2];
+      }
+    }
+  }
+}
+
 // ANNEAU 3D (tore mince) de rayon `rad`, épaisseur `th`, dans le plan (U, W)
 // centré en c. `part` : 'back' (moitié arrière), 'front' ou 'all' — pour glisser
 // une sphère ou un fût entre les deux moitiés. col(I, p) → couleur.
@@ -276,9 +385,18 @@ function ashlarI(P, K, u, hv, base, seed) {
   if (inRow === course - 1) return ramp(P, base + joint);
   const len = (K.block || 11) + (h32(row, seed, 7) % (K.rough ? 7 : 5)) - (K.rough ? 3 : 0);
   const uu = Math.floor(u) + (h32(row, seed, 3) % len) + 4096;
-  if (uu % len === 0) return ramp(P, base + joint);
-  const v = h32(row, Math.floor(uu / len), seed) % (K.rough ? 5 : 9);
-  return ramp(P, base + (v === 0 ? 1 : 0) - (inRow === 0 && base <= K.litBase ? 1 : 0));
+  const inCol = uu % len, col = Math.floor(uu / len);
+  if (inCol === 0) return ramp(P, base + joint);
+  // Nuance du bloc (un sur six plus sombre, un sur neuf plus clair) et biseau : la
+  // rangée haute et la colonne gauche du bloc prennent la lumière, la colonne
+  // droite s'enfonce — c'est ce qui fait lire une PIERRE et non une texture.
+  const v = h32(row, col, seed) % 18;
+  let k = base + (v < 3 ? 1 : v === 17 ? -1 : 0);
+  if (inRow === 0 || inCol === 1) k -= 1;
+  else if (inCol === len - 1 && inRow > 0) k += 1;
+  // Éclats : une grappe de deux pixels sombres, rare.
+  if (h32(Math.floor(u), hv, seed + 11) % 53 === 0) k += 2;
+  return ramp(P, k);
 }
 // ── Marqueurs de nuit ────────────────────────────────────────────────────────
 // Une vitre est peinte avec un alpha de 254, une source de lumière (lanterne,
@@ -286,6 +404,10 @@ function ashlarI(P, K, u, hv, base, seed) {
 // retrouver pour cuire le calque de nuit, puis remet l'alpha à 255.
 const A_WIN = 254, A_LIGHT = 253;
 const mark = (c, a) => [c[0], c[1], c[2], a];
+// TRAMAGE : près d'un seuil de lumière, un pixel sur deux bascule dans le cran
+// voisin — la transition se fait en damier, comme à la main, au lieu d'une ligne
+// nette qui trahit le calcul. `par` = parité du pixel (0/1).
+export const dith = (I, par) => I + (par ? 0.035 : -0.035);
 // Raccourcis lus par toutes les recettes, construits une fois par kit.
 export function mats(K) {
   const P = K.pal;
@@ -340,7 +462,15 @@ export function mats(K) {
     marbleF: (f, u, hv, lit) => rgbOf(M5[lit ? 1 : 3]),
     metalF: (f, u, hv, lit) => c(P.metal, lit ? 0 : 2),
     woodF: (f, u, hv, lit) => c(P.wood, lit ? 1 : 3),
-    top: (k = 1) => () => (K.snow ? SNOW[0] : ramp(P, k)),
+    // DESSUS : de grandes dalles (joints un cran plus sombres, une dalle sur six
+    // nuancée) — un aplat lisse trahissait le calcul.
+    top: (k = 1) => (x, y) => {
+      if (K.snow) return SNOW[0];
+      if (x == null) return ramp(P, k);
+      const fx = fm(x + 4096, 9), fy = fm(y + 4096, 9);
+      if (fx < 1 || fy < 1) return ramp(P, k + 1);
+      return ramp(P, k + (h32(Math.floor((x + 4096) / 9), Math.floor((y + 4096) / 9), 29) % 6 === 0 ? 1 : 0));
+    },
     // Corniche claire en haut, liseré d'ombre dessous.
     banded: (seed, h1) => (f, u, hv, lit) => (hv >= h1 - 1 ? ramp(P, shadeOf(K, lit) - 2)
       : hv === h1 - 2 ? ramp(P, shadeOf(K, lit) + 2) : wallAt(u, hv, shadeOf(K, lit), seed)),
@@ -348,18 +478,43 @@ export function mats(K) {
     // ce qui regarde le ciel (cran 0).
     stoneL: (I, h, a, rho, cap) => {
       if (snowy(I)) return SNOW[0];
-      if (!cap && a != null && rho > 2) return wallAt(a * rho, Math.floor(h), stoneIdx(K, I), 0);
+      if (!cap && a != null && rho > 2) return wallAt(a * rho, Math.floor(h), stoneIdx(K, I, ((Math.floor(h) + Math.floor(a * rho)) & 1)), 0);
       return ramp(P, stoneIdx(K, I) + (h != null && band5(I) > 0 && fm(h, K.course || 4) < 1 ? 1 : 0));
     },
     smooth: (I) => (snowy(I) ? SNOW[0] : ramp(P, stoneIdx(K, I))),
     stoneF: (seed) => (I, x, y, h) => (snowy(I) ? SNOW[0] : wallAt(x - y, Math.floor(h), stoneIdx(K, I), seed)),
     roughL: (I, h, a) => (snowy(I) ? SNOW[1] : ramp(P, Math.min(7, stoneIdx(K, I) + 2 + (h32(Math.round(a * 9), Math.round(h / 3), 5) % 4 === 0 ? 1 : 0)))),
     metalL: (I) => (snowy(I) ? SNOW[1] : pick(P.metal, I)),
-    roofL: (I) => (snowy(I) ? SNOW[0] : pick(P.roof, I)),
-    marbleL: (I) => (snowy(I) ? SNOW[0] : rgbOf(M5[band5(I)])),
+    // TOITS EN TUILES : des rangs (une ligne d'ombre tous les 3 px), des joints
+    // décalés d'un rang à l'autre, et la lèvre de chaque tuile prise par la lumière.
+    // Facette : (I, x, y, h) ; révolution : (I, h, ang, rho, cap).
+    roofL: (I, ...r) => {
+      if (snowy(I)) return SNOW[0];
+      const rev = r.length >= 4;
+      const h = rev ? r[0] : r[2], u = rev ? r[1] * r[2] : r[0] - r[1];
+      if (h == null || !Number.isFinite(h)) return pick(P.roof, I);
+      const row = Math.floor((h + 999) / 3), inRow = (h + 999) - row * 3;
+      const k = palIdx(dith(I, (Math.floor(h) + Math.floor(u)) & 1), P.roof.length);
+      if (inRow < 1) return rgbOf(P.roof[Math.min(P.roof.length - 1, k + 1)]);
+      if (fm(u + (row & 1) * 2.5, 5) < 1) return rgbOf(P.roof[Math.min(P.roof.length - 1, k + 1)]);
+      if (inRow > 2 - 0.01 - 1 && inRow < 2) return rgbOf(P.roof[Math.max(0, k - 1)]);
+      return rgbOf(P.roof[k]);
+    },
+    marbleL: (I, h, a, rho) => (snowy(I) ? SNOW[0] : rgbOf(M5[band5(h != null && a != null && rho ? dith(I, (Math.floor(h) + Math.floor(a * rho)) & 1) : I)])),
     woodL: (I) => (snowy(I) ? SNOW[1] : pick(P.wood, I)),
     glassL: (I) => pick(P.glassRamp, I),
-    turfL: (I, h, a) => (K.snow ? SNOW[band5(I) === 0 ? 0 : 1] : c(P.turf, palIdx(I, 5) + (h32(Math.round((a || 0) * 30), Math.round((h || 0) * 1.3), 5) % 9 === 0 ? 1 : 0))),
+    // GAZON (tertres, terrasses) : les verts de l'herbe du jeu, en brins — de petits
+    // traits sombres de 2 px et des pointes claires, tramés aux transitions.
+    turfL: (I, h, a, rho) => {
+      if (K.snow) return SNOW[band5(I) === 0 ? 0 : 1];
+      const u = Math.floor((a || 0) * (rho || 10)), v = Math.floor(h || 0);
+      let k = palIdx(dith(I, (u + v) & 1), 5);
+      // Touffes : des traits sombres de 2 px (une sur cinq environ) et des pointes
+      // claires, plus serrés que du simple bruit — on lit des brins.
+      const n = h32(u, v >> 1, 5) % 13;
+      if (n < 2) k += 1; else if (n === 2) k = Math.max(0, k - 1);
+      return c(P.turf, k);
+    },
   };
   return X;
 }
@@ -482,9 +637,7 @@ export function crane(R, X, kind, x, y, h0, H, tx, ty) {
     const jl = Math.min(L * 0.95, H * 0.75), tip = [x + dx * jl, y + dy * jl, h0 + H + jl * 0.3];
     line(R, [x, y, h0 + H * 0.8], tip, W[0], 2);
     line(R, [x, y, h0 + H + 1], tip, W[3]);
-    const hk = h0 + H * 0.5;
-    line(R, tip, [tip[0], tip[1], hk], rope);
-    box(R, tip[0] - 2.5, tip[0] + 2.5, tip[1] - 2.5, tip[1] + 2.5, hk - 4, hk, X.plain(0), X.top(1));
+    return hoist(X, tip, h0 + H * 0.5, rope);
   } else if (kind === 'vapeur') {
     box(R, x - 7, x - 1, y + 1, y + 6, h0, h0 + 7, (f, u, hv, lit) => rgbOf(M[lit ? 1 : 2]), () => rgbOf(M[0]));
     revolve(R, x - 5, y + 3, h0 + 7, h0 + 15, cyl(1), (I) => pick(['#4a4440', '#2e2a28'], I));
@@ -493,9 +646,7 @@ export function crane(R, X, kind, x, y, h0, H, tx, ty) {
     const jl = Math.min(L * 0.95, H * 0.8), tip = [x + dx * jl, y + dy * jl, h0 + H + jl * 0.25];
     line(R, [x, y, h0 + H * 0.75], tip, M[1], 2);
     line(R, [x, y, h0 + H + 2], tip, M[2]);
-    const hk = h0 + H * 0.45;
-    line(R, tip, [tip[0], tip[1], hk], rope);
-    box(R, tip[0] - 2.5, tip[0] + 2.5, tip[1] - 2.5, tip[1] + 2.5, hk - 4, hk, X.plain(0), X.top(1));
+    return hoist(X, tip, h0 + H * 0.45, rope);
   } else {
     const yel = kind === 'lumiere' ? X.P.glow : '#e0b33a', yd = kind === 'lumiere' ? M[1] : '#9a7420';
     for (const o of [-2, 2]) line(R, [x + o, y - o, h0], [x + o, y - o, h0 + H], yd);
@@ -507,10 +658,21 @@ export function crane(R, X, kind, x, y, h0, H, tx, ty) {
     line(R, [x, y, h0 + H + 7], back, yd);
     box(R, back[0] - 3, back[0] + 3, back[1] - 3, back[1] + 3, h0 + H - 5, h0 + H, (f, u, hv, lit) => rgbOf(M[lit ? 1 : 2]), () => rgbOf(M[0]));
     box(R, x - 2.5, x + 2.5, y - 2.5, y + 2.5, h0 + H - 6, h0 + H - 1, (f, u, hv, lit) => rgbOf(lit ? yel : yd), () => rgbOf(yel));
-    const hk = h0 + H * 0.55, t2 = [x + dx * jl * 0.7, y + dy * jl * 0.7, h0 + H];
-    line(R, t2, [t2[0], t2[1], hk], rope);
-    box(R, t2[0] - 2.5, t2[0] + 2.5, t2[1] - 2.5, t2[1] + 2.5, hk - 4, hk, X.plain(0), X.top(1));
+    return hoist(X, [x + dx * jl * 0.7, y + dy * jl * 0.7, h0 + H], h0 + H * 0.55, rope);
   }
+}
+// LA CHARGE de la grue (2026-10-04) : le câble et la pierre ne sont plus cuits dans
+// le raster — la grue de la cathédrale inachevée était figée, sa pierre pendue en
+// l'air pour toujours. crane() renvoie un objet posé `hoist` (point d'attache sous la
+// flèche, hauteur de la pierre, teintes de ses faces) que isoWonder dessine EN DIRECT :
+// la pierre monte, redescend et se balance un peu au bout de son câble.
+function hoist(X, tip, hk, rope) {
+  const hex = (c) => '#' + c.slice(0, 3).map((v) => (v | 0).toString(16).padStart(2, '0')).join('');
+  const face = X.plain(0);
+  return {
+    prop: 'hoist', x: tip[0], y: tip[1], h: tip[2], hk, rope,
+    cols: [hex(X.top(1)()), hex(face(0, 0, 0, true)), hex(face(0, 0, 0, false))],
+  };
 }
 
 // Teinte des statues d'apparat : le métal de l'ère (rien aux âges de pierre).
@@ -526,19 +688,52 @@ function rasterFor(B, H, extra = 0) {
 // CALQUE DE NUIT : les vitres marquées s'allument (pas toutes : une sur trois reste
 // noire, tirée par fenêtre et non par pixel), les sources de lumière gardent leur
 // couleur. Rend le raster N (même cadre que R) ou null s'il n'y a rien à allumer.
+// ⚠ LE TIRAGE SE FAIT PAR FENÊTRE, jamais par pavé de pixels. Premier jet : un
+// tirage par pavé de 4 × 8 px — une fenêtre à cheval sur deux pavés s'allumait à
+// moitié (Raph 2026-10-03, « la lumière ne remplit pas les fenêtres en entier »).
+// Chaque vitre est maintenant une TACHE connexe de pixels marqués, allumée ou
+// éteinte d'un bloc ; dans une vitre allumée, la rangée du haut est un peu plus
+// chaude (la lampe est au plafond) et la dernière un peu plus sombre (l'appui).
 export function nightOf(R, X) {
-  const N = { ox: R.ox, oy: R.oy, w: R.w, h: R.h, data: new Uint8ClampedArray(R.data.length) };
+  const { w, h, data } = R;
+  const N = { ox: R.ox, oy: R.oy, w, h, data: new Uint8ClampedArray(data.length) };
   const night = rgbOf(X.P.night);
+  const warm = [Math.min(255, night[0] + 18), Math.min(255, night[1] + 14), Math.min(255, night[2] + 6)];
+  const seen = new Uint8Array(w * h);
   let any = false;
-  for (let j = 0; j < R.h; j += 1) {
-    for (let i = 0; i < R.w; i += 1) {
-      const k = (j * R.w + i) * 4, a = R.data[k + 3];
-      if (a !== A_WIN && a !== A_LIGHT) continue;
-      R.data[k + 3] = 255;
-      if (a === A_WIN && h32(i >> 2, j >> 3, 77) % 3 === 0) continue;
-      const c = a === A_WIN ? night : [R.data[k], R.data[k + 1], R.data[k + 2]];
-      N.data[k] = c[0]; N.data[k + 1] = c[1]; N.data[k + 2] = c[2]; N.data[k + 3] = a === A_WIN ? 235 : 255;
-      any = true;
+  const stack = [];
+  for (let j = 0; j < h; j += 1) {
+    for (let i = 0; i < w; i += 1) {
+      const p0 = j * w + i, a0 = data[p0 * 4 + 3];
+      if (seen[p0] || (a0 !== A_WIN && a0 !== A_LIGHT)) continue;
+      // La tache connexe (4-voisins) des pixels de même marque.
+      const cells = [];
+      stack.length = 0; stack.push(p0); seen[p0] = 1;
+      let jMin = j, jMax = j;
+      while (stack.length) {
+        const p = stack.pop();
+        cells.push(p);
+        const pi = p % w, pj = (p - pi) / w;
+        if (pj < jMin) jMin = pj; if (pj > jMax) jMax = pj;
+        for (const q of [pi > 0 ? p - 1 : -1, pi < w - 1 ? p + 1 : -1, pj > 0 ? p - w : -1, pj < h - 1 ? p + w : -1]) {
+          if (q < 0 || seen[q] || data[q * 4 + 3] !== a0) continue;
+          seen[q] = 1; stack.push(q);
+        }
+      }
+      // Une vitre sur trois reste noire — tirée sur la tache entière.
+      const lit = a0 === A_LIGHT || h32(cells[0] % w, (cells[0] / w) | 0, 77) % 3 !== 0;
+      for (const p of cells) {
+        const k = p * 4, pj = (p / w) | 0;
+        data[k + 3] = 255;
+        if (!lit) continue;
+        let c;
+        if (a0 === A_LIGHT) c = [data[k], data[k + 1], data[k + 2]];
+        else c = jMax > jMin && pj === jMin ? warm : night;
+        const fade = a0 === A_WIN && jMax - jMin >= 3 && pj === jMax ? 0.8 : 1;
+        N.data[k] = c[0] * fade; N.data[k + 1] = c[1] * fade; N.data[k + 2] = c[2] * fade;
+        N.data[k + 3] = a0 === A_WIN ? 240 : 255;
+        any = true;
+      }
     }
   }
   return any ? N : null;
@@ -617,7 +812,7 @@ export function pixelFinish(R, inkHex, o = {}) {
 }
 
 function finish(R, X, props, B, H, o = {}) {
-  outline(R, X.ink);
+  pixelFinish(R, X.ink);
   const N = nightOf(R, X);
   // Ce que porte l'ère au sommet : balise d'aviation rouge dès le néon, halo de
   // lumière qui flotte au-dessus aux âges cosmiques.
@@ -769,7 +964,10 @@ export function bakeColumn(K, tier, B, Hmax) {
     }
   };
   const tc = big ? s0 + 3 : cs;
-  if (tier >= 3) { minor(tc, -tc); minor(-tc, tc); }
+  // Deux seulement, qui encadrent la face sud (celle de l'escalier) : celle de
+  // l'est traversait le bout de l'exèdre (Raph 2026-10-03, « ne garder que les
+  // deux de devant »).
+  if (tier >= 3) minor(-tc, tc);
   const ped = (f, u, hv, lit) => {
     const top = h + pH;
     if (hv >= top - 3) return ramp(X.P, shadeOf(K, lit) - (hv === top - 1 ? 2 : 1));
@@ -817,6 +1015,29 @@ function exedra(R, X, rad, props) {
   arcBand(R, 0, 0, rad - 5, rad + 6, a0, a1, 4 + colH, 4 + colH + 5, (I) => pick(X.P.marble, I));
   for (const a of [a0, a1]) props.push({ prop: 'statue', x: rad * Math.cos(a), y: rad * Math.sin(a), h: 4 });
 }
+
+// PORTAIL : une porte en plein cintre dans un encadrement de marbre, deux vantaux
+// (bois aux âges anciens, verre aux âges modernes) et une imposte vitrée qui
+// s'allume la nuit. Rend des trous pour `pierce` (la porte d'abord, le cadre
+// ensuite : premier trou qui répond gagne). um = milieu, w = largeur de la baie.
+export function portal(X, f, um, w, h0, h) {
+  const K = X.K, r = w / 2, top = h0 + h, fan = top - r;
+  const glassDoor = K.band >= 6;
+  const leaf = (u, hv, lit) => {
+    if (hv >= fan) return X.win(u, hv, lit);                         // imposte
+    if (Math.abs(u + 0.5 - um) < 0.6) return X.dark;                 // jointure des vantaux
+    if (glassDoor) return X.glass(lit ? 1 : 2);
+    const k = (Math.floor(hv - h0) % 5 === 4) ? 3 : lit ? 1 : 2;     // panneaux
+    return X.wood(k);
+  };
+  const frame = (u, hv, lit) => X.marble(lit ? 0 : 1);
+  return [
+    { f, u0: um - r, u1: um + r, h0, h1: top, arch: 'round', col: leaf },
+    { f, u0: um - r - 1.6, u1: um + r + 1.6, h0, h1: top + 1.6, arch: 'round', col: frame },
+  ];
+}
+// Fenêtres d'une rangée qui ne mordent pas sur un portail (sur la même face).
+const clearOf = (holes, door) => (door ? holes.filter((o) => o.f !== door.f || o.u1 <= door.u0 || o.u0 >= door.u1 || o.h0 >= door.h1) : holes);
 
 // ══ LE PALAIS DE LA COURONNE (ère atteinte) ══════════════════════════════════
 //   I   donjon crénelé à bannière, petite enceinte
@@ -877,19 +1098,24 @@ export function bakePalace(K, tier, B, Hmax) {
   // ── Palais (III-V) ──
   const Hm = (tier >= 4 ? 0.3 : 0.34) * u, Hw = Hm * 0.86;
   const m0 = -0.44 * u, m1 = -0.14 * u, xw = 0.44 * u, xi = 0.27 * u, yS = 0.38 * u;
-  const fac = (x0, x1, y0, y1, h1, rows, seed) => {
-    const holes = [];
+  // `door` : un portail percé dans la face (cf. portal) ; les fenêtres qui le
+  // chevauchent s'effacent.
+  const fac = (x0, x1, y0, y1, h1, rows, seed, door = null) => {
+    let holes = [];
     const fh = (h1 - 4) / rows;
     for (let r = 0; r < rows; r += 1) {
       const wb = 3 + r * fh + fh * 0.22, wt = wb + fh * 0.55;
       holes.push(...windowRow('S', x0 + 1, x1 - 1, 7, 3, wb, wt, X.win), ...windowRow('E', y0 + 1, y1 - 1, 7, 3, wb, wt, X.win));
     }
+    if (door) holes = [...door.holes, ...clearOf(holes, { f: door.holes[1].f, u0: door.holes[1].u0 - 1, u1: door.holes[1].u1 + 1, h1: door.holes[1].h1 + 1 })];
     return corniced(X, pierce(X.stone(seed), holes), 0, h1);
   };
-  const block = (x0, x1, y0, y1, h1, rows, seed, roofH) => {
-    box(R, x0, x1, y0, y1, 0, h1, fac(x0, x1, y0, y1, h1, rows, seed), X.top(2));
+  const block = (x0, x1, y0, y1, h1, rows, seed, roofH, door = null) => {
+    box(R, x0, x1, y0, y1, 0, h1, fac(x0, x1, y0, y1, h1, rows, seed, door), X.top(2));
     if (roofH) hip(R, x0 - 1, x1 + 1, y0 - 1, y1 + 1, h1, roofH, X.roofL);
   };
+  // Une porte au pied d'une façade sud (ailes, pavillons) : on entre partout.
+  const sideDoor = (um, h) => ({ holes: portal(X, 'S', um, 6, 0, h) });
   const gold = (I) => pick(X.P.metal, I);
   const domeC = tier >= 5 ? gold : (I) => pick(X.P.roof, I);
   // Tours du fond (V) : derrière le corps de logis, leur haut le domine.
@@ -920,30 +1146,41 @@ export function bakePalace(K, tier, B, Hmax) {
   revolve(R, 0, dy, dTop, dTop + dH, domeProf(dTop, dr + 1, dH), (I, h, a) => (fm(a * 12 / Math.PI, 2) < 0.18 ? pick(X.P.metal, I - 0.2) : domeC(I)));
   revolve(R, 0, dy, dTop + dH - 1, dTop + dH + 7, cyl(2.4), X.marbleL);
   revolve(R, 0, dy, dTop + dH + 7, dTop + dH + 13, taper(dTop + dH + 7, dTop + dH + 13, 2.6, 0), gold);
-  // Avant-corps central à fronton.
-  const ac = 0.1 * u;
-  box(R, -ac, ac, m1 - 2, m1 + 3, 0, Hm + 4, corniced(X, pierce(X.stone(85), [{ f: 'S', u0: -4, u1: 4, h0: 0, h1: 14, arch: 'round', col: X.dark }]), 0, Hm + 4), X.top(2));
-  gable(R, -ac - 1, ac + 1, m1 - 3, m1 + 4, Hm + 4, 8, X.roofL, X.marbleL);
+  // AVANT-CORPS central à fronton, et LE PORTAIL : la grande porte du palais,
+  // face à la grille de la cour. Au rang IV+, elle s'ouvre sur la terrasse du
+  // grand escalier (sa base monte d'autant, sinon la terrasse la mange) et deux
+  // colonnes l'encadrent.
+  const ac = 0.1 * u, terrH = tier >= 4 ? 8 : 0, acF = m1 + 6;
+  const doorW = Math.max(10, Math.round(ac * 0.9)), doorH = Math.max(18, Math.round((Hm - terrH) * 0.62));
+  box(R, -ac, ac, m1 - 2, acF, 0, Hm + 4,
+    corniced(X, pierce(X.stone(85), portal(X, 'S', 0, doorW, terrH, doorH)), 0, Hm + 4), X.top(2));
+  gable(R, -ac - 1, ac + 1, m1 - 3, acF + 1, Hm + 4, 8, X.roofL, X.marbleL);
   if (tier >= 4) {
-    box(R, -0.2 * u, 0.2 * u, m1, m1 + 0.1 * u, 0, 8, X.banded(87, 8), X.top(1));
-    stairs(R, X, -0.1 * u, 0.1 * u, m1 + 0.1 * u + 8, 8, 0, 8);
+    box(R, -0.2 * u, 0.2 * u, acF, acF + 0.1 * u, 0, terrH, X.banded(87, terrH), X.top(1));
+    stairs(R, X, -0.1 * u, 0.1 * u, acF + 0.1 * u + 8, 8, 0, terrH);
+    for (const cx of [-doorW / 2 - 4.5, doorW / 2 + 4.5]) column(R, X, cx, acF + 4, 1.8, terrH, terrH + doorH + 4);
+    box(R, -doorW / 2 - 7, doorW / 2 + 7, acF + 1.5, acF + 6.5, terrH + doorH + 4, terrH + doorH + 7, X.marbleF, () => X.marble(0));
+  } else {
+    // Rang III : un perron de trois marches devant la porte.
+    stairs(R, X, -doorW / 2 - 3, doorW / 2 + 3, acF + 6, 6, 0, 3);
   }
   // Ailes et cour.
   const wingRoof = 0.06 * u;
-  block(-xw, -xi, m1, yS, Hw, tier >= 4 ? 3 : 2, 89, wingRoof);
+  block(-xw, -xi, m1, yS, Hw, tier >= 4 ? 3 : 2, 89, wingRoof, tier < 4 ? sideDoor(-(xw + xi) / 2, 11) : null);
   if (tier >= 5) {
     revolve(R, -(xw + xi) / 2, (m1 + yS) / 2, Hw + wingRoof * 0.6, Hw + wingRoof * 0.6 + 0.05 * u, domeProf(Hw + wingRoof * 0.6, 0.05 * u, 0.05 * u), gold);
   }
   // Parterres (IV+) ou pavé de cour et bassin.
-  const cy0 = m1 + (tier >= 4 ? 0.1 * u + 10 : 4), cy1 = yS - 4;
+  const cy0 = acF + (tier >= 4 ? 0.1 * u + 10 : 8), cy1 = yS - 4;
   if (tier >= 4) {
-    for (const [x0, x1] of [[-xi + 4, -4], [4, xi - 4]]) {
+    // Les parterres laissent au milieu une allée large, du grand escalier à la grille.
+    for (const [x0, x1] of [[-xi + 4, -8], [8, xi - 4]]) {
       box(R, x0, x1, cy0, cy1, 0, 2, X.plain(1), (x, y) => (Math.abs(x - (x0 + x1) / 2) < 1.2 || Math.abs(y - (cy0 + cy1) / 2) < 1.2 ? X.lite
         : K.snow ? X.lite : X.turf(fm(Math.floor(x / 3) + Math.floor(y / 3), 2) ? 1 : 2)));
     }
   }
-  revolve(R, 0, (cy0 + cy1) / 2, 0, 3, cyl(tier >= 4 ? 5 : 6), (I, h, a, rho, cap) => (cap ? (rho < 4 ? X.glass(1) : X.lite) : X.stoneL(I, h)));
-  block(xi, xw, m1, yS, Hw, tier >= 4 ? 3 : 2, 91, wingRoof);
+  revolve(R, 0, (cy0 + cy1) / 2, 0, 3, cyl(tier >= 4 ? 4.5 : 6), (I, h, a, rho, cap) => (cap ? (rho < 3.4 ? X.glass(1) : X.lite) : X.stoneL(I, h)));
+  block(xi, xw, m1, yS, Hw, tier >= 4 ? 3 : 2, 91, wingRoof, tier < 4 ? sideDoor((xw + xi) / 2, 11) : null);
   if (tier >= 5) {
     revolve(R, (xw + xi) / 2, (m1 + yS) / 2, Hw + wingRoof * 0.6, Hw + wingRoof * 0.6 + 0.05 * u, domeProf(Hw + wingRoof * 0.6, 0.05 * u, 0.05 * u), gold);
   }
@@ -951,15 +1188,22 @@ export function bakePalace(K, tier, B, Hmax) {
   if (tier >= 4) {
     for (const sx of [-1, 1]) {
       const x0 = sx < 0 ? -xw - 3 : xi - 3, x1 = sx < 0 ? -xi + 3 : xw + 3, y0 = yS - 0.16 * u, y1 = yS + 3, ph = Hw + 8;
-      box(R, x0, x1, y0, y1, 0, ph, fac(x0, x1, y0, y1, ph, 3, 93 + sx), X.top(2));
+      box(R, x0, x1, y0, y1, 0, ph, fac(x0, x1, y0, y1, ph, 3, 93 + sx, sideDoor((x0 + x1) / 2, 12)), X.top(2));
       frustum(R, x0 - 1, x1 + 1, y0 - 1, y1 + 1, ph, ph + 10, 4, (I) => (tier >= 5 ? gold(I) : X.roofL(I)), (I) => X.roofL(I));
       flag((x0 + x1) / 2, (y0 + y1) / 2, ph + 10, 10);
     }
   }
-  // Grille de la cour d'honneur.
-  box(R, -xi, xi, yS - 2, yS, 0, 5, (f, uu, hv, lit) => (hv >= 3 || fm(uu, 3) < 1 ? X.metal(lit ? 1 : 2) : null), null);
-  for (const gx of [-6, 6]) box(R, gx - 2, gx + 2, yS - 3, yS + 1, 0, 12, X.plain(0), X.top(1));
-  props.push({ prop: 'statue', x: -6, y: yS - 1, h: 12, small: true }, { prop: 'statue', x: 6, y: yS - 1, h: 12, small: true });
+  // GRILLE de la cour d'honneur, OUVERTE au milieu : deux piliers à statue, et les
+  // vantaux de fer rabattus contre eux.
+  const gw = 9;
+  box(R, -xi, xi, yS - 2, yS, 0, 5, (f, uu, hv, lit) => (Math.abs(uu) < gw ? null : hv >= 3 || fm(uu, 3) < 1 ? X.metal(lit ? 1 : 2) : null), null);
+  for (const gx of [-gw - 2, gw + 2]) box(R, gx - 2, gx + 2, yS - 3, yS + 1, 0, 12, X.plain(0), X.top(1));
+  for (const sx of [-1, 1]) {
+    const a = [sx * gw, yS - 1, 0];
+    for (const h of [1, 3.5, 6]) line(R, [a[0], a[1], h], [sx * (gw - 1.5), yS - 6, h], X.P.metal[1]);
+    line(R, [sx * (gw - 1.5), yS - 6, 0], [sx * (gw - 1.5), yS - 6, 7], X.P.metal[2]);
+  }
+  props.push({ prop: 'statue', x: -gw - 2, y: yS - 1, h: 12, small: true }, { prop: 'statue', x: gw + 2, y: yS - 1, h: 12, small: true });
   flag(-ac, m1, Hm + 12 + 2, 10); flag(ac, m1, Hm + 12 + 2, 10);
   return finish(R, X, props, B, Hmax);
 }
@@ -998,7 +1242,7 @@ export function bakeCathedral(K, tier, B, Hmax) {
     for (const [bx, by] of [[-0.18 * u, 0.02 * u], [0.16 * u, 0.12 * u], [-0.04 * u, 0.3 * u], [0.06 * u, 0.33 * u]]) {
       box(R, bx - 3, bx + 3, by - 2.5, by + 2.5, 0, 4, X.plain(0), X.top(1));
     }
-    crane(R, X, K.crane, 0.24 * u, -0.06 * u, 0, 0.62 * u, 0, yT0);
+    props.push(crane(R, X, K.crane, 0.24 * u, -0.06 * u, 0, 0.62 * u, 0, yT0));
     return finish(R, X, props, B, Hmax);
   }
   // Transept.
@@ -1101,11 +1345,11 @@ export function bakeCathedral(K, tier, B, Hmax) {
   if (tier === 3) {
     scaffold(R, X, 'S', yTw + 2, tW.x0, tW.x1, tW.h - 0.15 * u, tW.h + 6, 8);
     scaffold(R, X, 'E', tE.x1 + 2, yF, yTw, 0, tE.h + 6, 8);
-    crane(R, X, K.crane, 0.38 * u, 0.36 * u, 0, 0.62 * u, -0.2 * u, 0.36 * u);
+    props.push(crane(R, X, K.crane, 0.38 * u, 0.36 * u, 0, 0.62 * u, -0.2 * u, 0.36 * u));
   } else if (tier === 2) {
-    crane(R, X, K.crane, 0.36 * u, 0.06 * u, 0, 0.66 * u, 0, 0.06 * u);
+    props.push(crane(R, X, K.crane, 0.36 * u, 0.06 * u, 0, 0.66 * u, 0, 0.06 * u));
   } else if (tier >= 5) {
-    crane(R, X, K.crane === 'roue' ? 'roue' : 'tour', 0.42 * u, 0.3 * u, 0, tFull + 0.3 * u, 0.2 * u, 0.36 * u);
+    props.push(crane(R, X, K.crane === 'roue' ? 'roue' : 'tour', 0.42 * u, 0.3 * u, 0, tFull + 0.3 * u, 0.2 * u, 0.36 * u));
   }
   return finish(R, X, props, B, Hmax);
 }
@@ -1125,8 +1369,10 @@ export function bakeNeedle(K, tier, B, Hmax, opts = {}) {
     revolve(R, 0, 0, 0, 5, cyl(rr * 0.62), X.stoneL);
     revolve(R, 0, 0, 5, rockH, cyl(rr * 0.48), (I, h, a, rho, cap) => (cap ? X.lite : h >= rockH - 1 ? X.lite : X.stoneL(I, h, a, rho)));
   } else {
+    // Le rocher du rang I : le même granite taillé que ceux de l'îlot, sommet coupé
+    // en plateau pour porter les pieds de la tour (à ±10, ±10).
     const r0 = lift ? rr * 0.7 : rr;
-    revolve(R, 0, 0, 0, rockH, (h) => r0 * (1 - 0.5 * Math.pow(h / rockH, 1.5)), (I, h, a) => (h < 2 && !lift ? rgbOf(X.P.wet[0]) : X.roughL(I, h, a)));
+    boulder(R, { x: 0, y: 0, h0: 0, r: r0, H: rockH, rot: 0.55, el: 0.1, s1: 1.3, s2: 4.1, nf: 7, cut: 0.7, wet: !lift, moss: !!lift, id: 900 }, K);
   }
   const done = () => {
     const out = finish(R, X, props, Bf, Hmax);
@@ -1144,7 +1390,8 @@ export function bakeNeedle(K, tier, B, Hmax, opts = {}) {
     revolve(R, 0, 0, h, h + H, cyl(r), (I, hh, a) => (fm(a * 6 / Math.PI, 1) < 0.2 ? pick(X.P.metal, I - 0.2) : X.light(X.glass(hh > h + H * 0.5 ? 1 : 0))));
     revolve(R, 0, 0, h + H, h + H + r * 0.8, domeProf(h + H, r + 0.8, r * 0.8), X.metalL);
     revolve(R, 0, 0, h + H + r * 0.8 - 1, h + H + r * 0.8 + 6, taper(h + H + r * 0.8 - 1, h + H + r * 0.8 + 6, 1.3, 0), X.metalL);
-    props.push({ prop: 'glow', x: 0, y: 0, h: h + H * 0.5, big: true });
+    // `sweep` : c'est un PHARE — sa lumière tourne (isoWonder, drawLighthouse).
+    props.push({ prop: 'glow', x: 0, y: 0, h: h + H * 0.5, big: true, sweep: true });
   };
   if (tier === 1) {
     const top = 72, W = X.P.wood;
@@ -1252,7 +1499,7 @@ export function bakeEyeCore(K, core, f, F) {
   for (const [rad, U, W, t] of rings) ring3d(R, c, rad, t, U, W, metalRing, 'back');
   revolve(R, 0, 0, core.hc - core.r, core.hc + core.r, ballProf(core.hc, core.r), irisCol(X, core.hc, core.r));
   for (const [rad, U, W, t] of rings) ring3d(R, c, rad, t, U, W, metalRing, 'front');
-  outline(R, X.ink);
+  pixelFinish(R, X.ink);
   return { R, N: nightOf(R, X) };
 }
 export function bakeEye(K, tier, B, Hmax) {

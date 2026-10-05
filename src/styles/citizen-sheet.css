@@ -1,0 +1,162 @@
+/* ============================================================================
+   FICHE D'HABITANT — le passant cliqué sur la carte (CitizenSheet.jsx).
+   ----------------------------------------------------------------------------
+   Même plaque que l'identité et la boutique (cite.css) : opaque, angle vif, pas
+   de verre sous le texte. Posée en bas à gauche du monde, au-dessus de la
+   poignée de Régulation : la caméra garde le passant au CENTRE de l'écran, la
+   fiche ne doit jamais le couvrir.
+   Portrait = son propre sprite, agrandi d'un facteur ENTIER (CitizenSheet.jsx).
+   ⛔ Libellés + valeurs, aucune phrase (règle de DA de la refonte).
+   ============================================================================ */
+
+.citizen-sheet {
+  position: absolute;
+  left: var(--hud-gap, 1rem);
+  bottom: calc(var(--regul-bar-h, 3.2rem) + 2 * var(--hud-gap, 1rem));
+  z-index: 25;
+  width: 19rem;
+  max-width: calc(100% - 2 * var(--hud-gap, 1rem));
+  padding: 0.8rem 0.95rem 0.9rem;
+  background: rgba(12, 15, 24, 0.95);
+  box-shadow:
+    inset 0 0 0 1px rgba(0, 0, 0, 0.6),
+    inset 0 0 0 2px rgba(196, 204, 221, 0.06),
+    0 6px 18px rgba(0, 0, 0, 0.45);
+  color: #f6e7bf;
+  pointer-events: auto;
+  /* Une entrée en crans, pas une courbe : un objet pixel n'accélère pas. */
+  animation: citizen-sheet-in 160ms steps(4, end);
+}
+@keyframes citizen-sheet-in {
+  from { opacity: 0; transform: translateY(6px); }
+  to { opacity: 1; transform: none; }
+}
+/* Régulation dépliée : la fiche remonte au-dessus, comme la boutique. */
+:root:not([data-pointer="coarse"]) .app[data-active-view="city"] .city-left-col:has(> .city-controls-panel.is-open) .citizen-sheet {
+  bottom: calc(var(--regul-open-h, 10.5rem) + 2 * var(--hud-gap, 1rem));
+}
+
+.citizen-sheet .cs-head {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  align-items: end;
+  gap: 0.85rem;
+}
+
+/* La niche du portrait : un creux sombre, le sol éclairé d'or en bas. */
+.citizen-sheet .cs-portrait {
+  display: grid;
+  place-items: end center;
+  min-width: 4.6rem;
+  min-height: 5.8rem;
+  padding: 0.3rem 0.45rem 0.25rem;
+  background:
+    radial-gradient(ellipse 60% 18% at 50% 96%, rgba(201, 169, 104, 0.2), transparent 70%),
+    rgba(0, 0, 0, 0.4);
+  box-shadow: inset 0 0 0 1px rgba(201, 169, 104, 0.22);
+}
+.citizen-sheet .cs-portrait canvas {
+  display: block;
+  image-rendering: pixelated;
+}
+
+.citizen-sheet .cs-id {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+  min-width: 0;
+  padding-bottom: 0.25rem;
+}
+.citizen-sheet .cs-name {
+  font-family: var(--font-title);
+  font-size: 1.4rem;
+  font-weight: 400;
+  line-height: 1.02;
+  color: #fff1bd;
+  overflow-wrap: anywhere;
+}
+.citizen-sheet .cs-sub {
+  font-size: 0.8rem;
+  color: #d7c69a;
+}
+.citizen-sheet .cs-num {
+  font-family: var(--font-number);
+  font-size: 0.7rem;
+}
+
+.citizen-sheet .cs-close {
+  align-self: start;
+  margin: -0.35rem -0.45rem 0 0;
+  padding: 0.3rem 0.45rem 0.4rem;
+  font-size: 0.95rem;
+  color: #d7c69a;
+}
+.citizen-sheet .cs-close:hover {
+  color: #fff1bd;
+}
+
+.citizen-sheet .cs-rows {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  gap: 0.35rem 0.85rem;
+  margin: 0.75rem 0 0;
+  padding: 0.65rem 0 0;
+  border-top: 1px solid rgba(201, 169, 104, 0.16);
+}
+.citizen-sheet .cs-row {
+  display: contents;
+}
+.citizen-sheet .cs-row dt {
+  align-self: baseline;
+  color: var(--gold);
+  font-size: 0.66rem;
+  font-weight: 800;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+.citizen-sheet .cs-row dd {
+  align-self: baseline;
+  margin: 0;
+  font-size: 0.84rem;
+  line-height: 1.25;
+  color: #f0e2bc;
+}
+
+/* Suivre : OR quand il appelle le clic (caméra lâchée), CUIR éclairé quand le
+   suivi tourne — l'état retenu n'est jamais en or (chrome-wizard.css). */
+.citizen-sheet .cs-follow {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  width: 100%;
+  margin-top: 0.8rem;
+  padding: 0.42rem 0.6rem 0.58rem;
+  font-size: 0.8rem;
+}
+.citizen-sheet .cs-follow.btn-primary {
+  color: #2A1D06;
+}
+.app .citizen-sheet .cs-follow.is-on::before {
+  filter: brightness(1.32);
+}
+
+/* Il a quitté la rue (liste vidée) : le portrait s'éteint. */
+.citizen-sheet.is-lost .cs-portrait canvas {
+  filter: grayscale(1) brightness(0.6);
+}
+
+/* Contemplation : la fiche se retire avec le reste de l'interface — la caméra,
+   elle, continue de suivre (un plan-séquence sur un passant). */
+.app[data-contemplation="on"] .citizen-sheet {
+  display: none !important;
+}
+
+/* Au doigt : pleine largeur, posée au-dessus des boutons flottants. */
+:root[data-pointer="coarse"] .citizen-sheet {
+  left: 0.5rem;
+  right: 0.5rem;
+  bottom: calc(env(safe-area-inset-bottom, 0px) + 5.5rem);
+  width: auto;
+  max-width: none;
+}

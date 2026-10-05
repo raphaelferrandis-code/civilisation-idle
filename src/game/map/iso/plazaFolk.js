@@ -65,10 +65,13 @@ const FORCE_AWAY = 40;   // chacun rentre au moins une fois tous les 40 créneau
 // Ce que fait celui qui ne cause pas. `chat` = part de ceux qui LANCENT une causette
 // (chacun en entraîne un ou deux autres : ~40 % de la place finit par causer).
 // `stroll` : faire un TOUR de place sans s'arrêter de tout le créneau.
+// `seat` (§8) : s'asseoir sur un banc — quand la place en a de face (cf. buildFolk).
 const MIX = {
-  stalls: { chat: 0.24, stall: 0.5, look: 0.08, pause: 0.2, stroll: 0.22 },
-  centre: { chat: 0.3, stall: 0, look: 0.4, pause: 0.35, stroll: 0.25 },
+  stalls: { chat: 0.24, stall: 0.5, look: 0.08, pause: 0.2, seat: 0.16, stroll: 0.22 },
+  centre: { chat: 0.3, stall: 0, look: 0.4, pause: 0.35, seat: 0.24, stroll: 0.25 },
 };
+// Le temps de s'asseoir (et de se relever), et celui du salut qui ouvre une causette (s).
+const SIT_S = 0.9, WAVE_S = 1.3;
 
 // ⚠ BRASSÉ (fmix) : cmHash de graines voisines sort des valeurs voisines.
 const fmix = (h) => { h ^= h >>> 16; h = Math.imul(h, 0x85ebca6b); h ^= h >>> 13; h = Math.imul(h, 0xc2b2ae35); h ^= h >>> 16; return h >>> 0; };
@@ -234,7 +237,7 @@ export function buildFolk(o) {
   const stand = o.stand || o.free;
   const standOk = (x, y) => o.inPlaza(Math.floor(x), Math.floor(y)) && o.free(x, y) && stand(x, y)
     && nearest(g, x, y, null, 1) >= 0;
-  const posts = [{ stall: [], look: [], pause: [] }, { stall: [], look: [], pause: [] }];
+  const posts = [{ stall: [], look: [], pause: [], seat: [] }, { stall: [], look: [], pause: [], seat: [] }];
   const all = [[], []];
   const near = (list, x, y, d) => list.some((p) => dist(p.x, p.y, x, y) < d);
   const parityFor = (x, y) => {
@@ -292,6 +295,14 @@ export function buildFolk(o) {
   }
   cand.sort((a, b) => a[2] - b[2]);
   for (const [x, y, r] of cand) put('pause', { x, y, dir: Math.floor(r * 1e4) % 4 });
+  // 3b. LES BANCS (§8 de PLAN-COMPORTEMENTS) : on s'y ASSOIT — une place par banc, posée
+  //     par la place (isoPlaza : bancs de FACE seulement, rien devant qui cache l'assis).
+  for (const b of o.seats || []) {
+    const par = (b.x - o.cx > 0) !== (b.y - o.cy > 0) ? 1 : 0;
+    const q = { x: b.x, y: b.y, dir: b.dir, kind: 'seat' };
+    posts[par].seat.push(q);
+    all[par].push(q);
+  }
   // 4. Les causettes : deux ou trois postes de même parité, assez proches pour se
   //    parler (et pas l'un dans l'autre), tournés l'un vers l'autre — devant un étal
   //    aussi (deux clients qui se reconnaissent) : sur un marché de 4×4, le cœur
@@ -418,9 +429,10 @@ function assign(F, k) {
   for (const i of order) {
     if (res[i]) continue;
     if (away[i]) { res[i] = { act: 'away' }; continue; }
-    const r = h01(F.sd + ':fw:' + k + ':' + i) * (mix.stall + mix.look + mix.pause + mix.stroll);
+    const seat = F.posts[par].seat.length ? mix.seat : 0;
+    const r = h01(F.sd + ':fw:' + k + ':' + i) * (mix.stall + mix.look + mix.pause + seat + mix.stroll);
     const first = r < mix.stall ? 'stall' : r < mix.stall + mix.look ? 'look'
-      : r < mix.stall + mix.look + mix.pause ? 'pause' : 'stroll';
+      : r < mix.stall + mix.look + mix.pause ? 'pause' : r < mix.stall + mix.look + mix.pause + seat ? 'seat' : 'stroll';
     for (const kind of first === 'stroll' ? [] : first === 'pause' ? ['pause'] : [first, 'pause']) {
       const list = F.posts[par][kind];
       const s0 = Math.floor(h01(F.sd + ':fy:' + k + ':' + i + kind) * list.length);
@@ -556,10 +568,15 @@ export function folkAt(F, nowMs, T, depthOf, env = null) {
     const L = leg(F, i, k, S);
     if (!L) continue;
     const d = u * L.speed;
-    let x, y, dir, walking = false, alpha = 1, act;
+    let x, y, dir, walking = false, alpha = 1, act, pose = null;
     if (d >= L.len) {
       if (L.toExit) continue;                                  // parti par la rue
       x = L.B.x; y = L.B.y; dir = L.B.dir; act = L.B.act;
+      // ASSIS sur un banc (§8) : il s'assoit en arrivant, se relève avant de repartir
+      // (le créneau suivant le remet en marche) ; une CAUSETTE commence par un salut.
+      const ta = u - L.len / L.speed;
+      if (act === 'seat') pose = { kind: 'sit', u: Math.max(0, Math.min(1, Math.min(ta, S - u) / SIT_S)) };
+      else if (act === 'chat' && ta < WAVE_S) pose = { kind: 'wave', u: Math.max(0, ta / WAVE_S) };
       // Un tour trop court (petite place) : il attend la fin du créneau là où il est.
       if (act === 'stroll') { act = 'pause'; dir = L.endDir; }
       // REGARDS (docs/PLAN-COMPORTEMENTS.md, lot 3) : qui fait une halte jette un coup
@@ -593,7 +610,7 @@ export function folkAt(F, nowMs, T, depthOf, env = null) {
     rec.wx = x * T; rec.wy = y * T; rec.x = rec.wx; rec.y = rec.wy;
     rec.d = depthOf(rec.wx, rec.wy);
     rec.dir = dir; rec.walking = walking; rec.walkDist = walking ? d * T : 0; rec.alpha = alpha;
-    rec.act = act; rec.stall = act === 'stall'; rec.lookAt = F.lookAt; rec.mate = null;
+    rec.act = act; rec.stall = act === 'stall'; rec.lookAt = F.lookAt; rec.mate = null; rec.pose = pose;
     rec._grp = !walking && act === 'chat' ? L.B.grp : null;
     rec._f = F.frame;
     byI.set(i, rec);

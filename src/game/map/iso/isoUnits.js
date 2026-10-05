@@ -28,8 +28,8 @@ import { drawSunShadow, sunShadowNightK } from './isoSunShadow.js';
 import {
   drawEraAgent, drawEraAgentIso, drawNamedAgent, drawNamedAgentIso, drawVehicleHeadlights,
   vehicleLaneOffset, ensureVeh, vehReady, VEH_SIZES, VEH_PULL, VEH_PUSH,
-  ensureVehDiag, vehDiagReady, eraVehSpec, riotEraKey, AGENT_SCALE, VEH_SCALE,
-} from '../agents.js';
+  ensureVehDiag, vehDiagReady, eraVehSpec, riotEraKey, AGENT_SCALE, VEH_SCALE, imgInkBox, citizenPose } from '../agents.js';
+import { drawCitizenFocusRing, drawFocusRingAt, focusMark, noteFigure, noteVehicle } from '../citizenFocus.js';
 
 // ── Véhicule en iso (Phase 1.5) : corps sprite 4-dirs + attelage/pousseur ────
 // Réutilise les briques legacy (ensureVeh, VEH_PULL/PUSH, bandes de marche) mais
@@ -230,13 +230,20 @@ export function drawIsoVehicle(ctx, v, now, z) {
     // animation par DISTANCE via l'odomètre v.rollDist), sinon repli cardinal.
     const nm = v.woman ? 'basket-woman' : 'basket-man';
     const walking = (v.pauseT || 0) <= 0;
+    // Fiche d'habitant : le porteur désigné ou survolé a son anneau, comme un passant.
+    const bmark = v.seed != null ? focusMark(v) : 0;
+    if (bmark) drawFocusRingAt(ctx, p.x, p.y, s * 1.24 * AGENT_SCALE * 1.19, bmark === 2);
     // 1.24 = compensation des bandes FLAT (ratio perso/canvas 0.50 vs 0.73 avant,
     // cf. tables AGENT_* d'agents.js) — diagonales ET cardinales régénérées 2026-08-03.
     // Phase de pas tirée de la GRAINE du porteur, pas de sa position : v.x·0,02 glissait
     // en marchant (foulée plus rapide vers l'est, plus lente vers l'ouest).
     const bph = ((v.seed >>> 0) % 997) / 997;
-    if (!drawNamedAgentIso(ctx, p.x, p.y, z, nm, 1.24, v.dir, walking, now, bph, 1, v.rollDist != null ? v.rollDist : null)) {
+    const bd = drawNamedAgentIso(ctx, p.x, p.y, z, nm, 1.24, v.dir, walking, now, bph, 1, v.rollDist != null ? v.rollDist : null);
+    if (!bd) {
       drawNamedAgent(ctx, p.x, p.y, z, nm, 1.24, v.dir, walking, now, bph);
+    } else if (v.seed != null) {
+      // Silhouette : la médiane d'encre des bandes de piétons (agents.js).
+      noteVehicle(v, { x0: p.x - bd.drawW * 0.28, x1: p.x + bd.drawW * 0.28, y0: bd.top + bd.drawH * 0.03, y1: bd.top + bd.drawH * 0.91 }, null);
     }
     return;
   }
@@ -284,6 +291,7 @@ export function drawIsoVehicle(ctx, v, now, z) {
   const size = era ? era.size : VEH_SIZES[v.type];
   const dh = Math.max(1, snapU(s * size * VEH_SCALE)), dw = dh;
   let fh = img.naturalHeight || img.height || 64;
+  const fullImg = img, fullFh = fh;   // planche PLEINE, pour le portrait de la fiche
   // Bande -half pré-cuite (mêmes règles que les habitants : servie tant que la boîte
   // tient dans 70 % de la planche pleine — le petit zoom ne réduit plus ×0,3).
   // (Un véhicule d'époque est toujours servi par son skin : étiquettes justes.)
@@ -301,6 +309,18 @@ export function drawIsoVehicle(ctx, v, now, z) {
   const fr = nf <= 1 ? 0
     : usedDiag ? Math.floor((v.rollDist || 0) / (T * vehStride())) % nf
       : Math.floor((now || 0) / 130 + v.x * 0.1) % nf;
+  // FICHE D'HABITANT (citizenFocus.js) : un véhicule de la flotte (`v.seed`, posé
+  // à l'apparition — pas ceux de l'autoroute) publie sa silhouette à l'écran
+  // (encre de sa frame) pour être cliquable ; désigné ou survolé, il pose son
+  // anneau au sol AVANT tout le reste de sa petite scène (bêtes, pousseur).
+  if (v.seed != null) {
+    const ink = imgInkBox(img);
+    const ox = snapU(p.x - dw / 2), oy = snapU(p.y - dh / 2);
+    const vb = { x0: ox + ink.l * dw, y0: oy + ink.t * dh, x1: ox + ink.r * dw, y1: oy + ink.b * dh };
+    noteVehicle(v, vb, { img: fullImg, sx: fr * fullFh, fh: fullFh });
+    const vmark = focusMark(v);
+    if (vmark) drawFocusRingAt(ctx, (vb.x0 + vb.x1) / 2, vb.y1 - (vb.y1 - vb.y0) * 0.22, (vb.x1 - vb.x0) * 1.15, vmark === 2);
+  }
   const prev = ctx.imageSmoothingEnabled;
   ctx.imageSmoothingEnabled = false;
   const drawBody = () => {
@@ -697,9 +717,15 @@ export function drawIsoCitizenItem(ctx, p, now, z) {
   if (fa <= 0.02) return;
   const prevA = ctx.globalAlpha;
   if (fa < 1) ctx.globalAlpha = prevA * fa;
+  // Fiche d'habitant (citizenFocus.js) : un personnage de SCÈNE (promeneur du
+  // quai…) se signale pour être cliquable ; désigné ou survolé, l'anneau au sol
+  // se pose SOUS ses pieds.
+  if (p.scene) noteFigure(p);
+  const mark = focusMark(p);
+  if (mark) drawCitizenFocusRing(ctx, p, sp.x, sp.y, mark === 2);
   // Vue DIAGONALE (Phase 4) si la bande existe, sinon bande cardinale.
   // p.walkDist = odomètre → animation par DISTANCE (anti-patinage).
-  if (!drawEraAgentIso(ctx, sp.x, sp.y, z, p.dir, walking, now, p.phase || 0, p.charType || 0, 1, p.walkDist != null ? p.walkDist : null, p.skinVariant || 0)) {
+  if (!drawEraAgentIso(ctx, sp.x, sp.y, z, p.dir, walking, now, p.phase || 0, p.charType || 0, 1, p.walkDist != null ? p.walkDist : null, p.skinVariant || 0, citizenPose(p))) {
     drawEraAgent(ctx, sp.x, sp.y, z, p.dir, walking, now, p.phase || 0, p.charType || 0);
   }
   carryLight(ctx, p, sp, z, now, fa);

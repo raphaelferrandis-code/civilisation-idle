@@ -1,5 +1,5 @@
 // snowTrees.mjs — VERSION D'HIVER des sprites de végétation iso.
-//   public/pixelart/iso/{tree-1..4,bush-1..6}.png → …-winter.png
+//   public/pixelart/iso/{famille d'arbres, tree-4, bush-1..6}.png → …-winter.png
 //   Lancer :  node scripts/snowTrees.mjs            (--dry pour ne rien écrire)
 //
 // POURQUOI DÉRIVER AU LIEU DE GÉNÉRER
@@ -25,10 +25,13 @@ import fs from 'node:fs';
 import { PNG } from 'pngjs';
 
 const DIR = 'public/pixelart/iso';
-const SPRITES = [
-  'tree-1', 'tree-2', 'tree-3', 'tree-4',
+// La FAMILLE D'ARBRES (docs/PLAN-VEGETATION.md, lot 1) est lue dans son manifeste :
+// tout arbre posé par installVegetation.mjs reçoit son hiver ici.
+const FAMILY = JSON.parse(fs.readFileSync('scripts/data/vegetation-trees.json', 'utf8')).trees.map((t) => t.name);
+const SPRITES = [...new Set([
+  ...FAMILY, 'tree-4',
   'bush-1', 'bush-2', 'bush-3', 'bush-4', 'bush-5', 'bush-6',
-];
+])];
 
 // Rampe de neige — tons DOMINANTS mesurés sur iso-grass-winter-1..4 (1772 / 428 /
 // 217 pixels). Ne pas « améliorer » ces valeurs à l'œil : c'est leur identité
@@ -85,9 +88,13 @@ const lum = (r, g, b) => 0.299 * r + 0.587 * g + 0.114 * b;
 // Le TRONC ne joue pas dans le quantile : il est brun, donc clair par endroits,
 // et il aspirerait la neige au milieu du fût. Il en reçoit quand même par le
 // contour (une branche morte enneigée, c'est juste).
-const isBark = (r, g, b) => r > g && g >= b && r - b > 24;
+// L'écorce BLANCHE du bouleau (famille d'arbres, 2026-10-04) en est aussi : claire et
+// grise, elle prenait toute la neige et la posait au milieu du tronc. Règle réservée
+// aux bouleaux : sur les autres, quelques reflets blancs y passeraient (tree-4).
+const isBark = (r, g, b, white) => (r > g && g >= b && r - b > 24)
+  || (white && Math.max(r, g, b) - Math.min(r, g, b) < 22 && lum(r, g, b) > 165);
 
-function winterize(p) {
+function winterize(p, whiteBark = false) {
   const { width: w, height: h } = p;
   const op = new Uint8Array(w * h);
   const L = new Float32Array(w * h);
@@ -112,7 +119,7 @@ function winterize(p) {
   for (let y = 0; y < h; y += 1) for (let x = 0; x < w; x += 1) {
     const i = y * w + x, o = i * 4;
     if (!op[i]) continue;
-    if (isBark(p.data[o], p.data[o + 1], p.data[o + 2]) && !crest[i]) continue;
+    if (isBark(p.data[o], p.data[o + 1], p.data[o + 2], whiteBark) && !crest[i]) continue;
     score[i] = L[i] - BIAS_Y * ((y - y0) / hf) - BIAS_X * ((x - x0) / wf)
       + (crest[i] ? CREST_BONUS : 0);
   }
@@ -183,8 +190,8 @@ for (const name of SPRITES) {
   const src = `${DIR}/${name}.png`;
   if (!fs.existsSync(src)) { console.warn(`${name} — absent, ignoré`); continue; }
   const p = PNG.sync.read(fs.readFileSync(src));
-  const { out, covered, ink } = winterize(p);
+  const { out, covered, ink } = winterize(p, name.startsWith('tree-bouleau'));
   if (!dry) fs.writeFileSync(`${DIR}/${name}-winter.png`, PNG.sync.write(out));
-  console.log(`${name.padEnd(9)} ${p.width}×${p.height} — neige sur ${(100 * covered / ink).toFixed(1)} %`
+  console.log(`${name.padEnd(16)} ${p.width}×${p.height} — neige sur ${(100 * covered / ink).toFixed(1)} %`
     + ` de l'encre (${covered} px)${dry ? '  [dry]' : ''}`);
 }

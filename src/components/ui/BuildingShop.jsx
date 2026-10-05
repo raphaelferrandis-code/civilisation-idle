@@ -11,12 +11,11 @@ import {
   buildingUnitFactor,
   buildingMilestoneInfo,
   babelExponentialMult,
-  milestoneStepSize,
-  currentEraIndex
+  milestoneStepSize
 } from '../../game/core/mechanics.js';
 import { buildings, buildingDisplayOrder } from '../../game/data/buildings.js';
 import { isMythEffectActive } from '../../game/data/myths.js';
-import { splashSrcFor } from '../../game/data/pixelSplash.js';
+import { buildingIconSrc } from '../../game/data/buildingIcons.js';
 import { renderCache, state } from '../../game/core/state.js';
 import { uiRevealed, uiRevealFresh } from '../../game/core/uiReveal.js';
 import { buyableInMass } from '../../game/core/actions/building.js';
@@ -464,14 +463,14 @@ function BuildingShop({ open: openProp, onToggle }) {
             ? tr({ fr: `Débloqué avec : cycle ${nextLocked.unlockCycles}`, en: `Unlocked with: cycle ${nextLocked.unlockCycles}` })
             : null;
           const soon = tr({ fr: "Bientôt disponible", en: "Available soon" });
-          // Splash-art du prochain bâtiment, montré ASSOMBRI derrière le teaser
-          // (état « à venir »). null si aucun splash pour ce bâtiment → carte nue.
-          const splash = splashSrcFor(nextLocked.id, currentEraIndex());
+          // Icône du prochain bâtiment, montrée ASSOMBRIE dans la vignette du
+          // teaser (état « à venir »). null s'il n'en a pas → rangée nue.
+          const icon = buildingIconSrc(nextLocked.id);
 
           return (
             <article
-              className={`purchase-row pr-locked${splash ? " pr-has-splash" : ""}`}
-              style={splash ? { "--pr-splash": `url(${splash})` } : undefined}
+              className={`purchase-row pr-locked${icon ? " pr-has-thumb" : ""}`}
+              style={icon ? { "--pr-icon": `url(${icon})` } : undefined}
             >
               <div className="pr-name-row">
                 {/* `.pr-icon` est un fente à `font-size: 1rem`, donc 16 px fixes :

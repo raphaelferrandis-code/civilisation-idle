@@ -4,6 +4,17 @@
 // `breathing-idle`, 4 images, les 4 vues DIAGONALES de l'iso).
 //
 //   node scripts/fetchAgentIdle.mjs <name> <charId> [--match=idle] [--pick=<prise>]
+//        [--as=idle] [--dirs=south-east,south-west,…] [--to-lowest]
+//
+// `--as` nomme la bande ({name}-{as}-{dir}.png) : « idle » (l'attente, gabarit
+// breathing-idle), « sit » (s'asseoir sur un banc), « wave » (le salut) — ces deux-là
+// sont des animations v3 décrites en texte, souvent sur deux vues seulement (`--dirs`,
+// les faces sud-est et sud-ouest : de dos, on ne voit ni l'un ni l'autre). Le canevas
+// v3 GRANDIT avec la silhouette : chaque image est recadrée au format de la marche,
+// pieds de l'image de référence (la première) posés sur ceux de la marche.
+// `--to-lowest` (s'asseoir) : la v3 se RELÈVE souvent dans ses dernières images ; on
+// coupe la bande à l'image la plus RAMASSÉE (hauteur d'encre minimale : la tête descend,
+// ou les jambes se replient) — la descente se joue, puis le jeu tient la dernière image.
 //
 // Écrit, à côté des bandes de marche (public/pixelart/agents/inhabitants) :
 //   {name}-idle-{southeast|southwest|northeast|northwest}.png       (pleine)
@@ -30,8 +41,10 @@ const pos = args.filter((a) => !a.startsWith('--'));
 const NAME = pos[0], CHAR_ID = pos[1];
 const MATCH = new RegExp(flag('match', 'idle'), 'i');
 const PICK = flag('pick', null);
+const TO_LOWEST = args.includes('--to-lowest');
 const OUT = flag('out', 'public/pixelart/agents/inhabitants');
-const DIRS = ['south-east', 'south-west', 'north-east', 'north-west'];
+const AS = flag('as', 'idle');
+const DIRS = flag('dirs', 'south-east,south-west,north-east,north-west').split(',');
 if (!NAME || !CHAR_ID) { console.error('usage: node scripts/fetchAgentIdle.mjs <name> <charId> [--match=idle] [--pick=<prise>]'); process.exit(1); }
 
 const RX = /animations\/([^/]+)\/(south-east|south-west|north-east|north-west)(?:-([0-9a-f]{8}))?\/frame_(\d+)\.png$/i;
@@ -91,13 +104,15 @@ function stripShadow(img) {
 
 const buf = await download();
 const byDir = Object.fromEntries(DIRS.map((d) => [d, []]));
+const ALL4 = new Set(['south-east', 'south-west', 'north-east', 'north-west']);
 const folders = new Set();
 for (const e of new AdmZip(buf).getEntries()) {
   const m = e.entryName.match(RX);
   if (!m) continue;
   folders.add(m[1]);
   if (!MATCH.test(m[1])) continue;
-  byDir[m[2].toLowerCase()].push({ take: m[3] || '', f: +m[4], data: e.getData() });
+  const dk = m[2].toLowerCase();
+  if (byDir[dk] && ALL4.has(dk)) byDir[dk].push({ take: m[3] || '', f: +m[4], data: e.getData() });
 }
 console.log('animations du zip :', [...folders].join(', '));
 for (const d of DIRS) {
@@ -114,9 +129,46 @@ for (const d of DIRS) {
   if (!fs.existsSync(walk)) throw new Error('bande de marche absente : ' + walk);
   const walkImg = PNG.sync.read(fs.readFileSync(walk));
   const pal = paletteOf(walkImg);
-  const frames = byDir[d].sort((a, b) => a.f - b.f).map((e) => PNG.sync.read(e.data));
+  let frames = byDir[d].sort((a, b) => a.f - b.f).map((e) => PNG.sync.read(e.data));
+  if (TO_LOWEST) {
+    const inkH = (img) => {
+      let top = -1, bot = -1;
+      for (let y = 0; y < img.height; y += 1) for (let x = 0; x < img.width; x += 1) if (img.data[at(img, x, y) + 3] > 128) { if (top < 0) top = y; bot = y; }
+      return bot - top;
+    };
+    let low = 0;
+    frames.forEach((img, k) => { if (inkH(img) < inkH(frames[low])) low = k; });
+    frames = frames.slice(0, low + 1);
+  }
+  // Au format de la marche (frames carrées de la hauteur de sa bande) : la première image
+  // (la référence, debout) est calée pieds sur pieds et centre sur centre avec l'image 0
+  // de la marche, et toutes les autres suivent le même décalage.
+  const WH = walkImg.height;
+  if (frames[0].height !== WH || frames[0].width !== WH) {
+    const box = (img, w) => {
+      let bot = -1, l = Infinity, r = -1;
+      for (let y = 0; y < img.height; y += 1) {
+        for (let x = 0; x < w; x += 1) if (img.data[at(img, x, y) + 3] > 128) { bot = y; l = Math.min(l, x); r = Math.max(r, x); }
+      }
+      return { bot, cx: (l + r + 1) / 2 };
+    };
+    const a = box(frames[0], frames[0].width), b = box(walkImg, WH);
+    const dx = Math.round(b.cx - a.cx), dy = b.bot - a.bot;
+    frames = frames.map((img) => {
+      const o = new PNG({ width: WH, height: WH });
+      for (let y = 0; y < img.height; y += 1) {
+        for (let x = 0; x < img.width; x += 1) {
+          const tx = x + dx, ty = y + dy;
+          if (tx < 0 || ty < 0 || tx >= WH || ty >= WH) continue;
+          const si = at(img, x, y), di = at(o, tx, ty);
+          for (let c = 0; c < 4; c += 1) o.data[di + c] = img.data[si + c];
+        }
+      }
+      return o;
+    });
+    console.log(`  ${d} : canevas recadré au format de la marche (${WH}), décalage ${dx},${dy}`);
+  }
   const fh = frames[0].height, fw = frames[0].width, n = frames.length;
-  if (fh !== walkImg.height) console.warn(`  ⚠ ${d} : frame ${fw}×${fh} ≠ marche ${walkImg.height} — vérifier la taille`);
   const strip = new PNG({ width: fw * n, height: fh });
   let shadow = 0, snapped = 0;
   frames.forEach((img, k) => {
@@ -129,7 +181,7 @@ for (const d of DIRS) {
     }
     PNG.bitblt(img, strip, 0, 0, fw, fh, k * fw, 0);
   });
-  const full = path.join(OUT, `${NAME}-idle-${tag}.png`);
+  const full = path.join(OUT, `${NAME}-${AS}-${tag}.png`);
   fs.writeFileSync(full, PNG.sync.write(strip));
   // Demi-bande : moyenne 2×2 pondérée par l'alpha, palette d'origine, alpha binaire.
   const w = Math.floor(strip.width / 2), h = Math.floor(strip.height / 2);
@@ -148,5 +200,5 @@ for (const d of DIRS) {
     }
   }
   fs.writeFileSync(full.replace('.png', '-half.png'), PNG.sync.write(half));
-  console.log(`attente ${NAME}-idle-${tag}.png ${strip.width}×${fh} (${n} images) · ombre retirée ${shadow} px · rabattus ${snapped} px`);
+  console.log(`${AS} ${NAME}-${AS}-${tag}.png ${strip.width}×${fh} (${n} images) · ombre retirée ${shadow} px · rabattus ${snapped} px`);
 }

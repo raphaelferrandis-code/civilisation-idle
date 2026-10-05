@@ -1,6 +1,7 @@
-import { describe, it, expect, vi, afterEach } from "vitest";
+import { describe, it, expect, vi, afterEach, beforeEach } from "vitest";
 
 import { state } from "../../core/state.js";
+import { seededRng } from "../../core/utils.js";
 import { CM, ROAD_E, ROAD_N, ROAD_S, ROAD_W } from "../layout.js";
 import { updateCitizens, cityMapWalkRoadKey } from "../agents.js";
 import { pickAgenda, paceFor, citizenTraits } from "../citizenDay.js";
@@ -51,6 +52,11 @@ function cit(gx, gy, extra = {}) {
   };
 }
 
+// Les passants tirent au hasard (Math.random) : le banc tire avec une GRAINE. Graine 34 :
+// la médiane de 1 500 graines pour la fuite et le regard (22 et 10 sur 40) ; les seuils
+// (> 8, > 3) tiennent pour 1 496 graines sur 1 500 — un changement d'agents.js qui décale
+// les tirages ne doit pas les faire tomber.
+beforeEach(() => { vi.spyOn(Math, "random").mockImplementation(seededRng(34)); });
 afterEach(() => { vi.restoreAllMocks(); CM.rainF = 0; CM.season = 1; CM.riotDraw = null; CM.riotWindow = false; });
 
 describe("lot 4 — l'emploi du temps suit le temps qu'il fait", () => {

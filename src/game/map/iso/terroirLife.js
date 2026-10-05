@@ -15,8 +15,20 @@
 import { CM } from '../layout.js';
 import { worldToScreen } from './projection.js';
 import { isoUnitDepth, drawDraftIso } from './isoUnits.js';
-import { agentSetForBand, agentSpecFor, drawNamedAgentIso } from '../agents.js';
+import { agentSetForBand, agentSpecFor, drawNamedAgentIso, AGENT_SCALE } from '../agents.js';
 import { WINTER, SUMMER } from '../seasonMode.js';
+import { focusMark, drawFocusRingAt, noteSceneFigure, sceneRingWidth } from '../citizenFocus.js';
+
+// LE LABOUREUR A UN NOM (fiche d'habitant, citizenFocus.js) : un objet par
+// parcelle, gardé d'une frame à l'autre — c'est toujours le même qui laboure
+// ce champ-là.
+const _ploughmen = new Map();
+function ploughmanOf(q) {
+  let pp = _ploughmen.get(q.seed);
+  if (!pp) { pp = { charType: 0, figSeed: q.seed, walking: true }; _ploughmen.set(q.seed, pp); }
+  pp.dir = q.dir; pp.walkDist = q.roll; pp.phase = (q.seed % 7) * 0.13; pp.workKey = q.tile;
+  return pp;
+}
 
 export const terroirLifeTune = { on: true, speed: 0.3 };   // cases par seconde
 
@@ -154,7 +166,11 @@ export function drawTerroirTeam(ctx, it, now) {
     }],
     [pf.y, () => {
       if (!spec) return;
-      drawNamedAgentIso(ctx, pf.x, pf.y, z, spec.name, spec.scale, q.dir, q.walking !== false, now, (q.seed % 7) * 0.13, 1, q.roll, true);
+      // Cliquable : désigné ou survolé, l'anneau sous lui ; la boîte peinte le signale.
+      const pp = ploughmanOf(q), mark = focusMark(pp);
+      if (mark) drawFocusRingAt(ctx, pf.x, pf.y, sceneRingWidth(T * z * spec.scale * AGENT_SCALE), mark === 2);
+      const d = drawNamedAgentIso(ctx, pf.x, pf.y, z, spec.name, spec.scale, q.dir, q.walking !== false, now, (q.seed % 7) * 0.13, 1, q.roll, true);
+      if (d) noteSceneFigure(pp, 'champ', spec.name, pf.x, pf.y, d);
     }],
   ];
   parts.sort((a, b) => a[0] - b[0]);

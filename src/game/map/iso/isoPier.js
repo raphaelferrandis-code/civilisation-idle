@@ -42,6 +42,7 @@ import { castRay, bakeBoxes, blitLayer, paintBakeUnder, h01, mul, mix, hexRgb, F
 import { paintTradePortUnder } from './isoTradePort.js';
 import { paintOldPortUnder } from './isoOldPort.js';
 import { registerPortProvider } from './portBerths.js';
+import { rippleField, noteRipples } from './waterRipples.js';
 
 // Le lancer de rayon est parti dans iso/isoBoxBake.js (partagé avec le Vieux-Port et
 // le terminal) ; ré-exporté ici pour les tests qui le lisaient d'ici.
@@ -51,7 +52,7 @@ export { castRay };
 //         fleuve (bornée) — au-delà de ~0,6 il entre dans la voie des bateaux ;
 // house : recul de la maison du port sur la plage, en tuiles (0 = au ras de l'eau,
 //         comme avant : elle posait son socle de pierre dans le fleuve).
-export const PIER = { on: true, reach: 0.58, house: 0.7, crane: true, shadow: true, reflect: true, foam: true };
+export const PIER = { on: true, reach: 0.58, house: 0.85, houseGap: 0.14, crane: true, shadow: true, reflect: true, foam: true };
 if (typeof window !== 'undefined') {
   window.__pier = (o) => {
     if (o === false) PIER.on = false;
@@ -433,8 +434,31 @@ export function paintPierUnder(ctx, now = 0) {
   const band = (L.counts && L.counts.eraBand) | 0, ei = (L.counts && L.counts.eraIndex) | 0;
   for (const t of portTiles(L)) {
     const g = geomFor(t, t.spanX || t.size || 1, t.spanY || t.size || 1, band, ei);
-    if (g) paintBakeUnder(ctx, g.bake, { shadow: PIER.shadow, reflect: PIER.reflect });
+    if (!g) continue;
+    paintBakeUnder(ctx, g.bake, { shadow: PIER.shadow, reflect: PIER.reflect });
+    noteRipples('pier:' + (L.mapSeed | 0) + ':' + t.gx + ',' + t.gy + ':' + g.stage + ':' + band, () => pierRipples(g, L.river.samples));
   }
+}
+
+// LES REMOUS du ponton (iso/waterRipples.js ; Raph, 2026-10-04 : « sur tous les
+// pontons ») : au pied de ce qui touche l'eau — les mêmes boîtes que l'écume cuite
+// (pieux et poteaux posés à z = 0, le môle de pierre en entier), sur l'eau du ruban
+// seulement (la racine du ponton est sur la grève). Sillage vers l'aval.
+function pierRipples(g, sm) {
+  const T = CM.TILE, posts = [], decks = [];
+  for (const b of g.plan.boxes) {
+    if (b.z0 > 0.01 / T || !(b.part === 'pile' || b.part === 'post' || b.part === 'mole')) continue;
+    const w = worldBox(g.F, b, T);
+    if (b.part === 'mole') decks.push([[w.X0, w.Y0], [w.X1, w.Y0], [w.X1, w.Y1], [w.X0, w.Y1]]);
+    else posts.push([(w.X0 + w.X1) / 2, (w.Y0 + w.Y1) / 2, Math.max(w.X1 - w.X0, w.Y1 - w.Y0) / 2]);
+  }
+  const a = sm[g.F.si], b = sm[Math.min(sm.length - 1, g.F.si + 1)];
+  const fl = Math.hypot(b.x - a.x, b.y - a.y) || 1;
+  const F = rippleField({
+    posts, decks, flow: [(b.x - a.x) / fl, (b.y - a.y) / fl], seed: g.F.si * 13 + 5,
+    keep: (x, y) => waterAt(sm, x, y, T, g.F.si),
+  });
+  return [{ F, h: 0, clip: 'river' }];
 }
 
 // Le ponton lui-même, dans le tri du peintre (scène riveraine du port). Rend le point
@@ -448,11 +472,23 @@ export function drawPortPier(ctx, t, spanX, spanY, band, ei) {
   return g;
 }
 
-// Le point d'ancrage MONDE (tuiles) de la maison du port : sur la plage, à `house`
-// tuiles en arrière de la racine du ponton.
-export function pierHouseFoot(g) {
-  const F = g.F, back = PIER.house;
-  return { x: F.root.x - F.dir.x * back, y: F.root.y - F.dir.y * back };
+// Le point d'ancrage MONDE (tuiles) de la maison du port : la POINTE AVANT de son
+// emprise (coin sud-est, le bas du sprite) pour une maison de w × d tuiles (w le long
+// du monde x, d le long de y). Elle se tient SUR LE CÔTÉ de la racine du ponton, en
+// retrait de PIER.house sur le sable, sa face tournée vers l'eau parallèle à la rive ;
+// le tablier monte la grève le long de son pignon. Côté +x / +y (vers l'œil) : le
+// ponton ne passe jamais devant elle.
+// ⚠ Retours Raph du 2026-10-03 : d'abord « les bâtiments du port ne sont pas bien
+// alignés avec le ponton » (la pointe avant était SUR l'axe : le ponton arrivait au
+// coin), puis, la face centrée au bout du tablier : « il faut qu'ils soient un peu sur
+// le côté, pas au bout du ponton ».
+export function pierHouseFoot(g, w = 0, d = 0) {
+  const F = g.F;
+  const along = F.dir.x ? w : d, across = F.dir.x ? d : w;
+  const side = g.plan.w / 2 + PIER.houseGap + across / 2;
+  const back = PIER.house + along / 2;
+  const cx = F.root.x - F.dir.x * back + F.across.x * side, cy = F.root.y - F.dir.y * back + F.across.y * side;
+  return { x: cx + w / 2, y: cy + d / 2 };
 }
 
 // Mouillage du bateau de l'ère : bord à bord le long de la TÊTE, côté large (le bateau

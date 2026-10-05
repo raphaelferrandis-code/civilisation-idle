@@ -23,10 +23,10 @@ import { bakeBoat, dirIndex, dirTheta, h32 } from './boatBake.js';
 import { BOAT_MODELS, fleetFor } from './boatKits.js';
 import { noteReflectionImage } from './isoReflect.js';
 import { HOVER } from './boatKitsCosmic.js';
-import { drawHoverGlow } from './boatFx.js';
+import { drawHoverGlow, drawSmoke } from './boatFx.js';
 import { drawSunShadow } from './isoSunShadow.js';
 import { snapDev } from '../blitSnap.js';
-import { agentFrameIso, agentIdleFrameIso } from '../agents.js';
+import { agentFrameIso, agentIdleFrameIso, agentPoseFrameIso } from '../agents.js';
 import { crewSpec, crewDir, isFerryPassenger } from './boatCrew.js';
 
 export const BOATKIT = { on: true, budget: 3 };
@@ -171,7 +171,10 @@ function drawCrew(ctx, e, M, bx, by, k, z, band, po = null) {
     if (!F) continue;
     // Il respire (lot 3 de PLAN-COMPORTEMENTS) : la bande d'attente, déphasée par marin.
     const I = agentIdleFrameIso(sp.name, crewDir(cr.phi), z, sp.scale, typeof performance !== 'undefined' ? performance.now() : 0, ((cr.id >>> 0) % 97) / 97);
-    const S = I || { img: F.img, sx: 0, fh: F.fh };
+    // Le salut d'un bateau à l'autre (pose 'wave', §8) : la main levée, en boucle.
+    const Wv = cr.pose === 'wave' ? agentPoseFrameIso(sp.name, crewDir(cr.phi), z, sp.scale, 'wave',
+      (((typeof performance !== 'undefined' ? performance.now() : 0) / 1400) + ((cr.id >>> 0) % 97) / 97) % 1) : null;
+    const S = Wv || I || { img: F.img, sx: 0, fh: F.fh };
     const ex0 = bx + (cr.x0 - e.ox) * k, ey0 = by + (cr.y0 - e.oy) * k;
     const mx = Math.floor(ex0 * d) / d, my = Math.floor(ey0 * d) / d;
     const W = Math.ceil((cr.w * k + ex0 - mx) * d), H = Math.ceil((cr.h * k + ey0 - my) * d);
@@ -321,7 +324,11 @@ export function drawMooredKit(ctx, { role, heading, x, y, z = 0, now = 0, bob = 
     memo = {};
     _mooredMemo.set(mk, memo);
   }
-  return !!drawBoat(ctx, spec, p.x, snapDev(p.y + dy), worldHeadingOfScreen(heading), zoom, now, { state: 'dock', empty: true, memo });
+  const r = drawBoat(ctx, spec, p.x, snapDev(p.y + dy), worldHeadingOfScreen(heading), zoom, now, { state: 'dock', empty: true, memo });
+  // Un vapeur à quai garde ses feux allumés : sa cheminée fume, droit (la flotte
+  // le fait déjà pour les siens, isoPort.drawKitShip ; ceux des ports ne fumaient pas).
+  if (r && r.anchors && r.anchors.smoke) drawSmoke(ctx, r.anchors.smoke, now, zoom, spec.seed | 0, heading, false);
+  return !!r;
 }
 const _mooredMemo = new Map();
 const MOORED_MEMO_MAX = 512;

@@ -353,10 +353,9 @@ le reste dit pourquoi.
    chien, compagnons (lot 1) ; porteuses posées (lot 3).
 
 ### 7.2 Tous les autres
-1. **Des statues** ◐ — 66 habitants + 2 porteurs de panier respirent à l'arrêt (lot 3),
-   et l'équipage des bateaux aussi. Restent figées : les filles de la Maison des
-   Plaisirs à la porte et au balcon (leurs dessins ne sont pas ceux des habitants), et
-   le geste « salut » d'un matelot (pas de dessin de salut).
+1. **Des statues** ✅ — 66 habitants + 2 porteurs de panier respirent à l'arrêt (lot 3),
+   et l'équipage des bateaux aussi. Les filles de la Maison des Plaisirs à la porte et
+   au balcon respirent depuis le §8, et le matelot salue vraiment (§8).
 2. **Apparitions / disparitions à vue** ✅ — bac (on monte, on descend), porteurs (de la
    rive à la rive), quais (fondu), chiens (lot 1), émeutiers (lot 4), accoudés des ponts
    (arrivent et repartent), laboureur (rentre au crépuscule).
@@ -375,10 +374,64 @@ le reste dit pourquoi.
    marche : personne ne les traverse).
 
 ### 7.3 Ce qui reste, et à qui
-- **S'asseoir** (bancs, marches, terrasses) et le **salut** : du dessin (PixelLab), à
-  chiffrer — pas lancé.
+- **S'asseoir** et le **salut** : faits au §8 (bancs des places, causettes, équipage).
+  Restent sans assise : les marches et les terrasses (pas de banc à viser), et deux
+  habitants (POSE_NONE, ci-dessous).
 - **Filles de la Maison des Plaisirs** : leurs promeneuses sont faites mais dans la copie
-  de la session « Passage des filles » ; leur respiration à la porte / au balcon passe
-  par leurs propres habillages.
+  de la session « Passage des filles » ; leur respiration à la porte / au balcon est
+  faite au §8.
 - **Attendants de la navette cliquables** : faits par la session « PNJ cliquables »,
   non commités chez elle.
+
+## 8. Les poses : s'asseoir, saluer, et les filles qui respirent (2026-10-05)
+
+Demande de Raph (« fais ça ») sur les deux manques du §7 : s'asseoir et saluer, et les
+filles de la Maison figées à la porte et au balcon.
+
+**Les dessins (PixelLab, ~320 générations).**
+- **Assis et salut** pour les 64 habitants des ères, faces SUD seulement (sud-est,
+  sud-ouest) : de dos on ne voit ni l'un ni l'autre, une pose demandée de dos retombe
+  sur l'attente. Animation v3 décrite en texte, partant de NOTRE image d'attente
+  (`custom_start_frame`) — partir de la rotation du personnage donnait une silhouette
+  plus massive (18 px de large au lieu de 15) et un banc dessiné. Bandes
+  `{nom}-{sit|wave}-{vue}.png` (+ demi-bandes), récupérées par
+  `scripts/fetchAgentIdle.mjs --as=sit|wave --dirs=… [--to-lowest]`.
+- **L'assis se coupe à l'image la plus RAMASSÉE** (hauteur d'encre minimale) : la v3 se
+  relève souvent à la fin ; le jeu tient la dernière image tant qu'on est assis.
+- **Ratés** (~30 % des assis : la v3 se penche au lieu de s'asseoir, ou un objet tenu
+  l'en empêche) : une reprise avec une autre consigne, sinon le MIROIR de l'autre vue
+  (24 bandes — même personnage vu en symétrique, la palette ne change pas). Deux
+  habitants restent sans assise après plusieurs essais — la mage au bâton (cristal) et
+  la paysanne au panier (village) : `POSE_NONE`, jamais demandés (le .exe compte chaque
+  fichier absent), ils restent debout devant le banc.
+- **Les 16 filles** de porte et de balcon : `animate_image` sur leur image de face,
+  4 images (« respire, ondule des hanches »), image 0 = l'image de la marche (raccord
+  exact), plus grande tache seule (une bouffée détachée près du visage), couleurs
+  rabattues sur la palette de la marche → `plaisirs-{fille}-idle-southeast.png`.
+- ⚠ **Recopie des images de départ** : envoyées en base64 dans l'appel, elles se
+  corrompaient parfois (PNG refusé). En PNG À PALETTE (~500 caractères au lieu de
+  1 500), plus aucune erreur — et l'image de référence renvoyée par PixelLab est
+  vérifiée identique à celle envoyée (sauf les miroirs, attendus).
+
+**Le câblage.**
+- `agents.js` : `poseStrip` (chargement à la première demande, faces sud), `pose`
+  ({ kind, u }) au bout de `drawNamedAgentIso` / `drawEraAgentIso` ; `agentPoseFrameIso`
+  pour qui dessine à sa main ; `IDLE_ONE` = l'attente sur la seule vue sud-est (les
+  filles) ; `idleOk` par vue (au lieu de « les 4 vues chargées »).
+- **Places** (`plazaFolk.js`, `isoPlaza.js`) : un poste `seat` par banc de face (ceux
+  qui regardent le sud ou l'est), rejeté s'il est masqué (empreinte d'un massif) ou si
+  l'on doit traverser la base d'un objet pour l'atteindre. Le siège est à 0,03 case
+  devant le centre du banc : à 0,1, mesuré en jeu, on le voyait DEBOUT À CÔTÉ. On
+  s'assoit en 0,9 s en arrivant, on se relève avant de repartir ; une causette commence
+  par un salut d'1,3 s.
+- **Passants qui se croisent** (`updateCitizens`, `isoUnits.js`) : la causette commence
+  par un salut (`citizenPose`).
+- **Équipage** (`boatKit.js`) : le matelot qui salue lève vraiment la main (bande en
+  boucle).
+
+**Vérifié en jeu** (vite-capture) : une passante assise sur un banc de la place du
+jardin, un passant qui lève la main en croisant quelqu'un, les filles de porte et de
+balcon qui changent d'image (différences d'image mesurées). Gardes :
+`__tests__/comportementsLot8.test.js` (bandes sur le disque, au format et dans la
+palette de la marche, assis plus bas que debout ; filles : image 0 = marche ; salut
+d'1,3 s ; on finit assis sur une place à bancs).

@@ -683,6 +683,25 @@ Icare a sa plateforme d'envol au sommet (perchoir, ballon, mât selon l'âge).
     `door` : l'hôtesse sur le seuil, sans découpe (la profondeur du code voyait le mur
     d'une tour que l'habillage dessine plus petite). Les filles sont triées ENTRE ELLES
     par profondeur. Tracé de contrôle : le chemin dessiné sur l'image de l'habillage.
+  - Puis (Fonte, de nuit) : « la fille passe devant la toile censée être au-dessus d'elle ;
+    les filles passent encore au-dessus du mur sur les côtés ; sur le devant, des planches
+    passent au premier plan mais pas toutes ». Même cause aux trois : sur un habillage, la
+    profondeur vient du plan du CODE, que le dessin ne suit pas (planches repeintes là où
+    le code a un poteau, bord de galerie que le code n'a pas). → Sur un habillage, plus
+    AUCUNE découpe par la profondeur (hors la balustrade calée du balcon) ; le tour ne
+    passe JAMAIS derrière la maison (`BACK` = la moitié arrière, secteur pris de tous les
+    habillages) : chaque promeneuse fait les cent pas sur son arc, demi-tour sur les
+    côtés. L'hôtesse de la Fonte descend sur le seuil, la tête sous les festons. Test :
+    aucun arc derrière la maison ni dans un secteur pris (`plaisirsSkinSpec`, `strollArcs`).
+  - Puis l'audit des comportements (lot 5 de PLAN-COMPORTEMENTS) : (1) sur une ellipse,
+    l'angle à vitesse constante faisait varier le pas au sol → `strollWalker` avance en
+    LONGUEUR AU SOL (table angle → longueur par tour), 7 px/s partout ; (2) les pas
+    suivaient l'horloge → la distance marchée passe en `distPx` (les pieds ne glissent
+    plus) ; (3) deux promeneuses du même chemin se traversaient → un couloir chacune
+    (±1,5 px au sol, le long de la normale) et, sur un arc partagé, un départ EN MIROIR
+    (elles se croisent au milieu ; à la Pierre, l'ancien décalage les gardait collées).
+    La Pierre ouvre son flanc droit jusqu'à l'arrière-droite tant qu'elles restent à côté
+    de la tour (`[135, 285]`). Tests : 7 px/s au sol, écart ≥ 2,4 px, jamais collées.
 
 ---
 
