@@ -1,6 +1,6 @@
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { useGameState } from '../../hooks/useGameState.js';
-import { state, save, saveSoon } from '../../game/core/state.js';
+import { state, save, saveSoon, renderCache } from '../../game/core/state.js';
 import { icarusPotFaveur } from '../../game/core/actions.js';
 import { spinSlots, slotsFreeSpins, slotsJackpots, slotsRtpRef, SLOTS_CELLS } from '../../game/core/actions/slots.js';
 import { SLOTS_REELS, SLOTS_WHEEL, SLOTS_PAY, SLOTS_LINES, SLOTS_FREE_SPINS, SLOTS_FREE_MULT, SLOTS_CHESTS, SLOTS_HW, SLOTS_GRAND_FLOOR } from '../../game/core/balance.js';
@@ -103,7 +103,9 @@ function CountUp({ value, dur = 900 }) {
 
 export default function SlotsStage({ table, onClose }) {
   const band = usePlaisirsBand();
-  useGameState((s) => s.instability);                 // solde, cagnotte, tours vivants (1 Hz)
+  // Horloge 1 Hz : le tick, pas l'instabilité (figée en crise terminale ou une
+  // fois convergée — BUG-114). Solde, cagnotte, tours vivants.
+  useGameState(() => renderCache.tickNow);
   // LA MISE LIBRE (lot 1 des gains « vrai casino ») : des jetons, toutes lignes comprises.
   const [stake, setStake] = useState(() => initialStake('machines', state.faveur || 0));
   const { max: tableMax } = tableLimits();

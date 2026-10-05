@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import { useGameState } from '../../hooks/useGameState.js';
-import { save } from '../../game/core/state.js';
+import { save, renderCache } from '../../game/core/state.js';
 import { spinRoue, roueReady, roueValues, roueWaitMinutes } from '../../game/core/actions/roueMaison.js';
 import { ROUE_SEGMENTS_H } from '../../game/core/balance.js';
 import { tr } from '../../game/core/i18n.js';
@@ -28,7 +28,9 @@ const SCALE = 2;
 export default function RoueStage({ onClose }) {
   useGameState((s) => s.roueAt || 0);
   useGameState((s) => s.bestEraIndex || 0);
-  useGameState((s) => s.instability); // l'attente du prochain tour (1 Hz)
+  // Horloge 1 Hz : le tick, pas l'instabilité (figée en crise terminale ou une
+  // fois convergée — BUG-114). L'attente du prochain tour.
+  useGameState(() => renderCache.tickNow);
   const band = usePlaisirsBand();
   const look = slotsLook(band);
   const [canvas, setCanvas] = useState(null);
@@ -129,12 +131,14 @@ export default function RoueStage({ onClose }) {
         <div className={`roue-gain${phase === 'done' ? ' is-shown' : ''}`} aria-live="polite">
           {phase === 'done' && result ? <>+<Monte value={result.gain} dur={1300} /> <FaveurIcon /></> : null}
         </div>
+        {/* Le tour suivant se rejoue depuis la roue posée : la phase ne revient jamais
+            à 'idle', et une roue laissée ouverte restait grisée l'heure passée. */}
         <button
           type="button"
           className="scratch-buy roue-go"
-          disabled={phase !== 'idle' || !ready}
+          disabled={phase === 'spin' || !ready}
           onClick={onSpin}
-          {...(!ready && phase === 'idle' && attente > 0 ? tipProps(tr({ fr: 'La roue', en: 'The wheel' }), tr({ fr: `Prochain tour dans ${attente} min.`, en: `Next spin in ${attente} min.` })) : {})}
+          {...(!ready && phase !== 'spin' && attente > 0 ? tipProps(tr({ fr: 'La roue', en: 'The wheel' }), tr({ fr: `Prochain tour dans ${attente} min.`, en: `Next spin in ${attente} min.` })) : {})}
         >
           {tr({ fr: 'Tourner', en: 'Spin' })}
         </button>

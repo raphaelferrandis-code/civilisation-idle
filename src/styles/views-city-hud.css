@@ -47,7 +47,12 @@
   position: relative;
   height: 100vh;
   padding: 0;
-  overflow: hidden;
+  /* `clip` et non `hidden` : un conteneur `hidden` reste DÉFILABLE par le code.
+     Mesuré (audit du 05/10, BUG-19) : la tabulation vers un bouton du popover
+     Mythes sorti de l'écran faisait défiler <main> de 114 px, et la barre de
+     ressources disparaissait jusqu'au rechargement. Même découpe, plus de
+     défilement possible. */
+  overflow: clip;
 }
 
 /* La vue remplit la scène et sert de contexte de positionnement au HUD. */
@@ -328,7 +333,20 @@
 
 .hud-pop {
   width: clamp(18rem, 24vw, 24rem);
-  max-height: calc(100vh - 16rem);
+  /* Bornée à la fenêtre RÉELLE : le popover commence sous l'encart identité,
+     dont CityView publie le bord bas en coordonnées de la fenêtre
+     (--aux-top-vp), et s'arrête à une gouttière du bas de l'écran. L'ancien
+     `100vh - 16rem` ignorait ce haut variable (283 à 423 px mesurés) : en
+     1280×800 le popover allait jusqu'à 914 px et MIGRER (Énée) sortait de
+     l'écran (audit du 05/10, BUG-19). Le 16rem reste le repli d'avant mesure.
+     ⚠ PAS de réserve pour la poignée de Régulation : le popover passe AU-DESSUS
+     d'elle (même z-index, plus loin dans le DOM), et la réserver ferait défiler
+     en 1920×1080 un popover qui y tenait entier — un correctif de petit écran
+     ne change rien aux grands.
+     Au doigt, la barre basse (--touch-nav-total, touch-shell.css) couvre le bas
+     de la carte : le popover s'arrête au-dessus d'elle, comme tout le HUD. Au
+     bureau la variable n'existe pas, le repli vaut 0. */
+  max-height: calc(100vh - var(--aux-top-vp, 16rem) - var(--hud-gap, 1rem) - var(--touch-nav-total, 0px));
   overflow-y: auto;
   pointer-events: auto;
 }
@@ -348,6 +366,14 @@
   display: flex;
   flex-direction: column;
   gap: 0.7rem;
+}
+/* Le popover DÉFILE, ses panneaux ne s'écrasent pas. `.myth-panel` porte un
+   `overflow: hidden`, qui ramène sa hauteur minimale automatique à 0 : dans
+   cette colonne flex il rétrécissait jusqu'à rogner ses propres boutons (dette
+   des Atrides écrasée à 78 px pour 605 de contenu en 1280×800), et le popover
+   n'avait alors plus rien à faire défiler (audit du 05/10, BUG-19). */
+.hud-pop--myths > * {
+  flex-shrink: 0;
 }
 /* Chronique dans le popover : à plat (l'encart .panel fournit le cadre) */
 .app[data-active-view="city"] .hud-pop .chronicle-ticker {

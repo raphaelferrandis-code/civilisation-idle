@@ -56,6 +56,47 @@ function cycleClockNow() {
     : Date.now();
 }
 
+// Âge du cycle en secondes, sur l'horloge de la moisson (figée en crise
+// terminale). Exporté pour l'encart d'état, qui comptait sur tickNow et
+// Date.now() : ses carrés de sédiment avançaient alors que le gain était gelé
+// (audit du 05/10, BUG-51).
+export function cycleAgeSec() {
+  return (cycleClockNow() - state.cycleStartedAt) / 1000;
+}
+
+// PALIERS DE SÉDIMENT : source UNIQUE, lue par ruinGain ET par l'encart d'état
+// (CityStatusPanel), qui en gardait une copie à la main — fausse dès « Limon
+// des âges » (BUG-51). `mult` multiplie la moisson passé `secs` d'âge de cycle ;
+// l'encart en affiche le bonus, (mult − 1) en pour cent.
+const SEDIMENT_TIERS = Object.freeze([
+  { secs: 3600, mult: 1.02 },
+  { secs: 28800, mult: 1.15 },
+  { secs: 86400, mult: 1.45 },
+  { secs: 259200, mult: 2.35 },
+  { secs: 604800, mult: 5.0 }
+]);
+// « Limon des âges » (sedimentBoost) : les paliers d'absence longue démarrent
+// deux fois plus tôt et le bonus culmine à ×7 (au lieu de ×5).
+const SEDIMENT_TIERS_BOOST = Object.freeze([
+  { secs: 1800, mult: 1.05 },
+  { secs: 14400, mult: 1.25 },
+  { secs: 43200, mult: 1.8 },
+  { secs: 129600, mult: 3.2 },
+  { secs: 302400, mult: 7.0 }
+]);
+
+export function sedimentTiers() {
+  return ruinEffectSum("sedimentBoost") > 0 ? SEDIMENT_TIERS_BOOST : SEDIMENT_TIERS;
+}
+
+// Indice du dernier palier franchi à `elapsed` secondes (-1 : aucun).
+export function sedimentTierIndex(elapsed, tiers = sedimentTiers()) {
+  for (let i = tiers.length - 1; i >= 0; i--) {
+    if (elapsed >= tiers[i].secs) return i;
+  }
+  return -1;
+}
+
 // Courbe de patience du gain de ruines : récompense les cycles longs (partagée
 // entre ruinGain et l'autel de la Chute — ne pas laisser diverger).
 function patienceAt(age) {
@@ -153,12 +194,10 @@ export function ruinGain(projected = false, extraPrep = 0) {
   const civicDepth = 0.75 + civicLog * 0.14;
   const preparation = 1 + Math.min(COLLAPSE_PREP_MAX, (state.collapsePreparation || 0) + extraPrep);
   const atridesRuinMod = (isMythEffectActive("mythe_atrides") && state.atridesDrainDisabled) ? 1.5 : 1;
-  const elapsed = (cycleClockNow() - state.cycleStartedAt) / 1000;
-  // « Limon des âges » (sedimentBoost) : les paliers d'absence longue démarrent
-  // deux fois plus tôt et le bonus culmine à ×7 (au lieu de ×5).
-  const sedimentMod = ruinEffectSum("sedimentBoost") > 0
-    ? (elapsed >= 302400 ? 7.0 : elapsed >= 129600 ? 3.2 : elapsed >= 43200 ? 1.8 : elapsed >= 14400 ? 1.25 : elapsed >= 1800 ? 1.05 : 1.0)
-    : (elapsed >= 604800 ? 5.0 : elapsed >= 259200 ? 2.35 : elapsed >= 86400 ? 1.45 : elapsed >= 28800 ? 1.15 : elapsed >= 3600 ? 1.02 : 1.0);
+  // Paliers de sédiment (table partagée avec l'encart d'état, cf. sedimentTiers).
+  const sediment = sedimentTiers();
+  const sedimentIdx = sedimentTierIndex(cycleAgeSec(), sediment);
+  const sedimentMod = sedimentIdx >= 0 ? sediment[sedimentIdx].mult : 1.0;
   // « Rites du feu court » : les cycles bouclés en moins de 15 min rapportent plus
   // (synergie Culte Apocalyptique / farm rapide).
   const shortCycleMod = (age <= RUIN_SHORT_CYCLE_SEC) ? 1 + ruinEffectSum("shortCycleRuinBonus") : 1;

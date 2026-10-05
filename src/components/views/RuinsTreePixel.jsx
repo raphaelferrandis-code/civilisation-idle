@@ -18,6 +18,7 @@ import {
 } from "../../game/data/upgrades.js";
 import { fmt } from "../../game/core/utils.js";
 import { tr } from "../../game/core/i18n.js";
+import { uiMotionStill } from "../../game/map/ambianceMode.js";
 import { computePixelTreeLayout } from "./ruinsTree/pixelLayout.js";
 import { TREE_ART, PIXEL_LAYOUT } from "./ruinsTree/anchors.js";
 import { SAP_PATHS } from "./ruinsTree/sapPaths.js";
@@ -59,12 +60,6 @@ const REGISTRY_ORDER = ["knowledge", "prosperity", "cycle_crise", "resilience"];
 
 function tierOpen(branch, tier) {
   return ownedInBranchBelowTier(branch, tier) >= (UNLOCK[branch]?.[tier] ?? 0);
-}
-
-function prefersReducedMotion() {
-  return typeof window !== "undefined" &&
-    typeof window.matchMedia === "function" &&
-    window.matchMedia("(prefers-reduced-motion: reduce)").matches;
 }
 
 // La scène (image, lumières éteintes, faisceaux) se prépare UNE fois par session.
@@ -176,7 +171,9 @@ export default function RuinsTreePixel() {
   const timersRef = useRef(new Set());
   const dragRef = useRef({ active: false, moved: false });
   // État lu par la boucle de peinture de la sève (jamais pendant le rendu React).
-  const sapStRef = useRef({ lit: new Set(), pending: new Set(), anim: new Map(), focus: null, colors: SAP_COLORS, still: prefersReducedMotion() });
+  // `still` : mouvement réduit du système OU cran « Mouvement : Aucune » des
+  // Options (uiMotionStill) — ce dernier ne figeait pas la sève (PERF-39).
+  const sapStRef = useRef({ lit: new Set(), pending: new Set(), anim: new Map(), focus: null, colors: SAP_COLORS, still: uiMotionStill() });
 
   useEffect(() => {
     const timers = timersRef.current;
@@ -220,6 +217,10 @@ export default function RuinsTreePixel() {
       raf = requestAnimationFrame(loop);
       if (document.hidden || now - last < 66) return;
       const st = sapStRef.current;
+      // Le réglage peut changer vue ouverte (Options, réglage du système) : on
+      // le relit ici, et une bascule repeint une fois dans le nouvel état.
+      const still = uiMotionStill();
+      if (still !== st.still) { st.still = still; st.dirty = true; }
       // Mouvement réduit : rien ne bouge entre deux changements (achat, survol,
       // focus) — on ne repeint que sur demande, pas 15 fois par seconde.
       if (st.still && !st.dirty && st.anim.size === 0) return;

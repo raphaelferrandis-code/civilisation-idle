@@ -559,13 +559,13 @@
     height: 20px;
   }
 
+  /* Le débord de la topbar suit le padding réduit de <main> TOUT SEUL : il lit
+     --main-pad (components.css). La surcharge `.topbar { margin: -0.75rem … }`
+     qui vivait ici était MORTE — ce fichier est importé avant components.css,
+     dont le -1rem gagnait (audit du 05/10, BUG-116). */
   main {
-    padding: 0.75rem;
-  }
-
-  /* Le débord de la topbar suit le padding réduit de <main>. */
-  .topbar {
-    margin: -0.75rem -0.75rem 0.75rem;
+    --main-pad: 0.75rem;
+    padding: var(--main-pad);
   }
 
   .view {

@@ -1,10 +1,24 @@
-import { describe, it, expect, beforeEach } from "vitest";
+import { describe, it, expect, beforeEach, vi } from "vitest";
 import { renderToString } from "react-dom/server";
+
+// useGameState s'appuie sur useSyncExternalStore sans instantané serveur : pour
+// le rendu SSR du test, il lit l'état courant. Les sélecteurs sont gardés pour
+// vérifier que l'encart s'abonne bien à ce qu'il affiche (BUG-48).
+const selecteurs = [];
+vi.mock("../../../hooks/useGameState.js", async () => {
+  const { state } = await import("../../../game/core/state.js");
+  return {
+    useGameState: (selector) => { selecteurs.push(selector); return selector(state); },
+    shallowEqual: Object.is
+  };
+});
 
 import RoadworksPanel from "../RoadworksPanel.jsx";
 import { roadNetworkInfo } from "../roadNetwork.js";
 import { state, setState, defaultState, buildingById } from "../../../game/core/state.js";
 import { D } from "../../../game/core/num.js";
+import { roadWorkAffordable, roadWorkCost } from "../../../game/core/actions/roadWorks.js";
+import { ROAD_WORK_QUEUE_MAX, ROAD_WORKS_BANK_MAX } from "../../../game/core/balance.js";
 
 // Rendu SSR de l'encart Voirie : les TROIS phases produisent la bonne
 // structure (bouton-verbe, jauges, pastilles) sans navigateur. Garde née d'une
@@ -76,5 +90,58 @@ describe("encart Voirie — rendu des trois phases", () => {
     expect((html.match(/rw-pip is-filled/g) || []).length).toBe(7);
     expect(html).toContain("100%");
     expect(html).not.toContain("rw-dot");
+  });
+});
+
+describe("encart Voirie — abonnement et prix réel (BUG-48)", () => {
+  // Le sélecteur-signature de l'encart : celui qui rend une chaîne « a|b|… ».
+  const signature = () => {
+    selecteurs.length = 0;
+    render();
+    const sel = selecteurs.find((f) => typeof f(state) === "string" && f(state).includes("|"));
+    expect(sel).toBeTypeOf("function");
+    return sel;
+  };
+
+  it("la signature bouge avec la barre du chantier et avec l'abordabilité", () => {
+    state.roadNext = { kind: "link", tiles: 4, count: 1, targetId: null, toRank: null };
+    state.roadWorks = {
+      active: { kind: "link", tiles: 4, targetId: null, toRank: null, total: 10, left: 5 },
+      queue: []
+    };
+    const sel = signature();
+    const avant = sel(state);
+    state.roadWorks.active.left = 3.2;
+    expect(sel(state)).not.toBe(avant);
+
+    // Le Savoir franchit le prix : la signature change, le bouton s'allume.
+    const cout = roadWorkCost();
+    state.knowledge = cout.mul(0.5);
+    const pauvre = sel(state);
+    expect(render()).toMatch(/<button class="rw-buy" disabled/);
+    state.knowledge = cout.mul(2);
+    expect(sel(state)).not.toBe(pauvre);
+    expect(render()).not.toMatch(/<button class="rw-buy" disabled/);
+  });
+
+  it("roadWorkAffordable applique les refus de l'achat (file pleine, réserve pleine, Savoir)", () => {
+    state.roadNext = { kind: "link", tiles: 4, count: 1, targetId: null, toRank: null };
+    state.roadWorks = { active: null, queue: [] };
+    state.knowledge = roadWorkCost().mul(2);
+    expect(roadWorkAffordable()).toBe(true);
+    state.knowledge = roadWorkCost().mul(0.5);
+    expect(roadWorkAffordable()).toBe(false);
+
+    state.knowledge = D("1e300");
+    const chantier = { kind: "link", tiles: 4, targetId: null, toRank: null, total: 10, left: 10 };
+    state.roadWorks = { active: chantier, queue: Array.from({ length: ROAD_WORK_QUEUE_MAX - 1 }, () => ({ ...chantier })) };
+    expect(roadWorkAffordable()).toBe(false);
+
+    // Réseau achevé : l'achat part en réserve, refusé seulement quand elle est pleine.
+    state.roadNext = { kind: "done", tiles: 0, count: 0, targetId: null, toRank: null };
+    state.roadWorksBank = 0;
+    expect(roadWorkAffordable()).toBe(true);
+    state.roadWorksBank = ROAD_WORKS_BANK_MAX;
+    expect(roadWorkAffordable()).toBe(false);
   });
 });

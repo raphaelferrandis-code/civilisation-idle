@@ -1,10 +1,16 @@
 import { useEffect, useRef, useState } from 'react';
 import { tr } from '../../game/core/i18n.js';
+import { pressedDigit } from '../../game/core/shortcuts.js';
 import { tipProps } from '../ui/HelpBubble.jsx';
 
 export default function ChoiceDialog({ dialog, onChoose }) {
   const dialogRef = useRef(null);
   const [selectedIds, setSelectedIds] = useState([]);
+  // Élément qui avait le focus avant l'ouverture, rendu à la fermeture — même
+  // geste que useDialogModal (E8), dont cette coquille ne profite pas. Sans lui,
+  // après un choix de crise ou d'épitaphe, le focus retombait sur <body> et il
+  // fallait retraverser toute la barre latérale (audit 2026-10-05, BUG-107).
+  const focusAvantRef = useRef(null);
 
   useEffect(() => {
     const node = dialogRef.current;
@@ -40,9 +46,13 @@ export default function ChoiceDialog({ dialog, onChoose }) {
     };
     // Raccourcis d'épitaphe : les touches 1–N gravent directement (réservé au
     // deuil — les autres dialogues gardent leurs interactions propres).
+    // pressedDigit : en AZERTY sans Maj, la touche du 1 rend « & » (BUG-50).
+    // Il lit aussi la touche physique : sans la garde des modificateurs, AltGr+é
+    // (« ~ ») graverait la deuxième épitaphe.
     const handleDigit = (event) => {
       if (!dialog.mourning) return;
-      const index = Number(event.key) - 1;
+      if (event.ctrlKey || event.metaKey || event.altKey) return;
+      const index = pressedDigit(event) - 1;
       if (!Number.isInteger(index) || index < 0 || index >= (dialog.options?.length || 0)) return;
       event.preventDefault();
       onChoose({ ...dialog.options[index], selectedIds: [] });
@@ -51,13 +61,30 @@ export default function ChoiceDialog({ dialog, onChoose }) {
     node.addEventListener("cancel", handleCancel);
     node.addEventListener("close", handleClose);
     node.addEventListener("keydown", handleDigit);
-    if (!node.open) node.showModal();
+    if (!node.open) {
+      // Capturé AVANT showModal : après, le focus est déjà dans le dialogue.
+      focusAvantRef.current = document.activeElement;
+      node.showModal();
+    }
 
     return () => {
       node.removeEventListener("cancel", handleCancel);
       node.removeEventListener("close", handleClose);
       node.removeEventListener("keydown", handleDigit);
+      // Fermer AVANT de rendre le focus : tant qu'une modale est ouverte, le
+      // navigateur ignore un focus() posé en dehors d'elle.
       if (node.open) node.close();
+      const cible = focusAvantRef.current;
+      focusAvantRef.current = null;
+      // `isConnected` : la cible a pu être démontée entre-temps (changement de
+      // vue, chute) ; la focaliser renverrait le focus au <body>.
+      if (cible && cible !== document.body && cible.isConnected && typeof cible.focus === "function") {
+        try {
+          cible.focus({ preventScroll: true });
+        } catch {
+          cible.focus();
+        }
+      }
     };
   }, [dialog, onChoose]);
 

@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { useGameState } from '../../hooks/useGameState.js';
+import { useDialogModal } from '../../hooks/useDialogModal.js';
 import {
   MYTHS,
   RAGNAROK_ID,
@@ -15,7 +16,8 @@ import Place, { PlaceKey } from '../ui/Place.jsx';
 import PixelIcon from '../ui/PixelIcon.jsx';
 import { tipProps } from '../ui/HelpBubble.jsx';
 import { tr } from '../../game/core/i18n.js';
-import { state } from '../../game/core/state.js';
+import { state, gamePaused, collapseInProgress } from '../../game/core/state.js';
+import { pushOutcomeFloat } from '../../game/core/outcomeFloat.js';
 import {
   OLYMPUS_COMPLETION_SCORE,
   OLYMPUS_PROFILES,
@@ -131,37 +133,78 @@ const FALLBACK_OLYMPUS = defaultOlympusState(0);
 // mensonge, et l'ancien floor entier semblait figé après un effondrement.
 const consecration = (p) => (Math.floor((p || 0) * 10) / 10).toFixed(1);
 
+// Signature de ce que le panneau de l'Olympe AFFICHE. tickOlympus modifie
+// state.olympus EN PLACE à chaque tick : un abonnement à l'objet (même référence)
+// ne voyait rien passer, et scores, consécration et « Ce que la cité a vu »
+// restaient aux valeurs du montage (audit 2026-10-05, BUG-109). La chaîne ne
+// change que quand une valeur affichée change.
+function olympusSignature(o) {
+  if (!o) return '';
+  const dominant = dominantOlympusProfile(o);
+  const m = olympusMetrics(o);
+  const progress = o.profileProgress || {};
+  return [
+    o.unlockedProfile, dominant.profile.id,
+    ...Object.keys(OLYMPUS_PROFILES).map((id) => `${dominant.scores[id] || 0}:${consecration(progress[id])}`),
+    m.collapseFrequency.toFixed(2),
+    Math.round(m.crisisResolutionRatio * 100),
+    Math.round(m.idleRatio * 100),
+    Math.round(m.averageCollapseRupture * 100)
+  ].join('|');
+}
+
+const pactRefused = () => pushOutcomeFloat({
+  label: tr({ fr: "Pacte impossible pour l'instant", en: 'The pact cannot be sealed right now' }),
+  kind: 'cost'
+});
+
 export default function MythsView() {
   const activeMythId = useGameState(s => s.activeMythId);
-  const gamePaused = useGameState(s => s.gamePaused);
-  const olympusState = useGameState(s => s.olympus);
+  // gamePaused et collapseInProgress sont des variables du module state.js, pas
+  // des champs de state : `s.gamePaused` valait toujours undefined et la garde
+  // ne servait jamais (BUG-108). La liaison importée est vivante, et leurs
+  // setters notifient.
+  const pactBlocked = useGameState(() => gamePaused || collapseInProgress);
+  useGameState(s => olympusSignature(s.olympus));
 
   const [modalMyth, setModalMyth] = useState(null);
   const [selectedBabelCat, setSelectedBabelCat] = useState("city");
+  // Coquille commune des modales : showModal, Échap qui ferme, focus rendu au
+  // bouton du Mythe à la fermeture (BUG-107).
+  const closePact = () => setModalMyth(null);
+  const pactDialogRef = useDialogModal(Boolean(modalMyth), closePact);
+  // Un clic sur le fond (::backdrop) a pour cible la <dialog> elle-même : seules
+  // les coordonnées disent s'il est tombé à côté du cadre (cf. OptionsDialog).
+  const handlePactBackdropClick = (event) => {
+    if (event.target !== event.currentTarget) return;
+    const r = event.currentTarget.getBoundingClientRect();
+    if (event.clientX < r.left || event.clientX > r.right || event.clientY < r.top || event.clientY > r.bottom) closePact();
+  };
 
   const activeMyth = activeMythId ? getMythById(activeMythId) : null;
   const ragnarokCompleted = isMythCompleted(RAGNAROK_ID);
-  const olympus = olympusState || FALLBACK_OLYMPUS;
+  const olympus = state.olympus || FALLBACK_OLYMPUS;
   const olympusDominant = dominantOlympusProfile(olympus);
   const olympusUnlocked = unlockedOlympusProfile(olympus);
   const olympusMetricValues = olympusMetrics(olympus);
   const olympusProgress = olympus.profileProgress || FALLBACK_OLYMPUS.profileProgress;
 
   const handleOpenModal = (myth) => {
-    if (gamePaused) return;
     if (!isMythUnlocked(myth) || isMythCompleted(myth.id)) return;
+    if (pactBlocked) { pactRefused(); return; }
     setModalMyth(myth);
     setSelectedBabelCat("city");
   };
 
+  // La catégorie de Babel passe en paramètre : activateMyth ne l'applique qu'une
+  // fois ses gardes passées (pause, deuil d'un effondrement automatique…). Un
+  // refus se dit, au lieu de refermer la fenêtre sans rien faire.
   const handleConfirmPact = async () => {
     if (!modalMyth) return;
     const mythId = modalMyth.id;
-    if (modalMyth.id === "mythe_de_babel") {
-      state.babelCategory = selectedBabelCat;
-    }
+    const babelCategory = mythId === "mythe_de_babel" ? selectedBabelCat : undefined;
     setModalMyth(null);
-    await activateMyth(mythId);
+    if (!(await activateMyth(mythId, { babelCategory }))) pactRefused();
   };
 
   const completedCount = MYTHS.filter((m) => isMythCompleted(m.id)).length;
@@ -286,82 +329,89 @@ export default function MythsView() {
         </div>
       </section>
 
-      {/* Confirmation Modal */}
-      {modalMyth && (
-        <div className="modal-backdrop" onClick={() => setModalMyth(null)}>
-          <div className="modal-content" onClick={e => e.stopPropagation()}>
-            <dialog open className="event-dialog myth-modal" style={{ display: 'block', position: 'static' }}>
-              <span className="label">
-                {ACT_META[modalMyth.act] ? tr(ACT_META[modalMyth.act].num) : modalMyth.act} - {ACT_META[modalMyth.act] ? tr(ACT_META[modalMyth.act].name) : ""}
-              </span>
-              <h2>{tr(modalMyth.name)}</h2>
+      {/* Confirmation du pacte : une VRAIE modale (showModal par useDialogModal),
+          comme les autres fenêtres du jeu. C'était un <dialog open> statique
+          dans un faux fond sans style : Échap n'y faisait rien (le gestionnaire
+          d'App s'efface devant tout dialog[open]), et le focus restait dans la
+          page derrière (audit 2026-10-05, BUG-107).
+          ⚠ La <dialog> reste MONTÉE, seul son contenu suit modalMyth : le hook
+          vit dans MythsView, qui survit à chaque fermeture. Démontée avec son
+          contenu, elle aurait laissé useDialogModal attendre l'évènement « close »
+          de son propre nettoyage — reçu par la fenêtre SUIVANTE, dont la
+          fermeture par Échap aurait alors été ignorée (bouton mort). */}
+      <dialog ref={pactDialogRef} className="event-dialog myth-modal" onClick={handlePactBackdropClick}>
+        {modalMyth && (
+          <>
+            <span className="label">
+              {ACT_META[modalMyth.act] ? tr(ACT_META[modalMyth.act].num) : modalMyth.act} - {ACT_META[modalMyth.act] ? tr(ACT_META[modalMyth.act].name) : ""}
+            </span>
+            <h2>{tr(modalMyth.name)}</h2>
 
-              <div className="myth-modal-body">
-                <div className="myth-modal-row">
-                  <span className="myth-modal-label">{tr({ fr: 'Règle imposée', en: 'Imposed rule' })}</span>
-                  <span>{tr(modalMyth.description)}</span>
-                </div>
-                <div className="myth-modal-row">
-                  <span className="myth-modal-label">{tr({ fr: 'Objectif', en: 'Objective' })}</span>
-                  <span>{tr(modalMyth.objectif)}</span>
-                </div>
-                <div className="myth-modal-row myth-modal-heritage">
-                  <span className="myth-modal-label">{tr({ fr: 'Héritage promis', en: 'Promised heritage' })}</span>
-                  <span>{tr(modalMyth.heritageDescription)}</span>
-                </div>
-
-                {/* Custom Options for Babel */}
-                {modalMyth.id === "mythe_de_babel" && (
-                  <div className="myth-modal-row">
-                    <span className="myth-modal-label">{tr({ fr: 'Type de bâtiment', en: 'Building type' })}</span>
-                    <div className="babel-category-choice" style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem', marginTop: '0.5rem' }}>
-                      {[
-                        { value: "city", label: { fr: "Cité", en: "City" }, desc: { fr: "Nourriture, Commerce, Rayonnement", en: "Food, Trade, Radiance" } },
-                        { value: "knowledge", label: { fr: "Savoir", en: "Knowledge" }, desc: { fr: "Connaissance, Académies, Archives", en: "Knowledge, Academies, Archives" } },
-                        { value: "infra", label: { fr: "Infrastructure", en: "Infrastructure" }, desc: { fr: "Eau, Routes, Bâtisseurs", en: "Water, Roads, Builders" } }
-                      ].map(c => (
-                        <label key={c.value} className="babel-cat-option" style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', cursor: 'pointer' }}>
-                          <input
-                            type="radio"
-                            name="babelCategory"
-                            value={c.value}
-                            checked={selectedBabelCat === c.value}
-                            onChange={() => setSelectedBabelCat(c.value)}
-                          />
-                          <div>
-                            <span className="babel-cat-name" style={{ fontWeight: 'bold' }}>{tr(c.label)}</span>
-                            <span className="babel-cat-desc" style={{ display: 'block', fontSize: '0.8rem', color: 'var(--text-dim)' }}>{tr(c.desc)}</span>
-                          </div>
-                        </label>
-                      ))}
-                    </div>
-                  </div>
-                )}
+            <div className="myth-modal-body">
+              <div className="myth-modal-row">
+                <span className="myth-modal-label">{tr({ fr: 'Règle imposée', en: 'Imposed rule' })}</span>
+                <span>{tr(modalMyth.description)}</span>
+              </div>
+              <div className="myth-modal-row">
+                <span className="myth-modal-label">{tr({ fr: 'Objectif', en: 'Objective' })}</span>
+                <span>{tr(modalMyth.objectif)}</span>
+              </div>
+              <div className="myth-modal-row myth-modal-heritage">
+                <span className="myth-modal-label">{tr({ fr: 'Héritage promis', en: 'Promised heritage' })}</span>
+                <span>{tr(modalMyth.heritageDescription)}</span>
               </div>
 
-              <p className="myth-modal-warning" style={{ color: 'var(--red)', marginTop: '1rem', fontSize: '0.9rem' }}>
-                {activeMythId && activeMythId !== modalMyth.id
-                  ? tr({
-                      fr: `Le pacte "${activeMyth?.name ? tr(activeMyth.name) : 'en cours'}" est déjà actif ce cycle et sera abandonné. Le cycle sera réinitialisé.`,
-                      en: `The pact "${activeMyth?.name ? tr(activeMyth.name) : 'in progress'}" is already active this cycle and will be abandoned. The cycle will be reset.`
-                    })
-                  : activeMythId === modalMyth.id
-                  ? tr({ fr: `Ce pacte est déjà actif. Confirmer va réinitialiser entièrement le cycle en cours.`, en: `This pact is already active. Confirming will fully reset the current cycle.` })
-                  : tr({ fr: `Le cycle en cours sera entièrement réinitialisé (ressources, bâtiments, jauges).`, en: `The current cycle will be fully reset (resources, buildings, gauges).` })}
-              </p>
+              {/* Custom Options for Babel */}
+              {modalMyth.id === "mythe_de_babel" && (
+                <div className="myth-modal-row">
+                  <span className="myth-modal-label">{tr({ fr: 'Type de bâtiment', en: 'Building type' })}</span>
+                  <div className="babel-category-choice" style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem', marginTop: '0.5rem' }}>
+                    {[
+                      { value: "city", label: { fr: "Cité", en: "City" }, desc: { fr: "Nourriture, Commerce, Rayonnement", en: "Food, Trade, Radiance" } },
+                      { value: "knowledge", label: { fr: "Savoir", en: "Knowledge" }, desc: { fr: "Connaissance, Académies, Archives", en: "Knowledge, Academies, Archives" } },
+                      { value: "infra", label: { fr: "Infrastructure", en: "Infrastructure" }, desc: { fr: "Eau, Routes, Bâtisseurs", en: "Water, Roads, Builders" } }
+                    ].map(c => (
+                      <label key={c.value} className="babel-cat-option" style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', cursor: 'pointer' }}>
+                        <input
+                          type="radio"
+                          name="babelCategory"
+                          value={c.value}
+                          checked={selectedBabelCat === c.value}
+                          onChange={() => setSelectedBabelCat(c.value)}
+                        />
+                        <div>
+                          <span className="babel-cat-name" style={{ fontWeight: 'bold' }}>{tr(c.label)}</span>
+                          <span className="babel-cat-desc" style={{ display: 'block', fontSize: '0.8rem', color: 'var(--text-dim)' }}>{tr(c.desc)}</span>
+                        </div>
+                      </label>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </div>
 
-              <menu className="choice-menu" style={{ display: 'flex', gap: '1rem', justifyContent: 'flex-end', marginTop: '1.5rem' }}>
-                <button className="myth-confirm-btn" onClick={handleConfirmPact}>
-                  {tr({ fr: 'Sceller ce pacte', en: 'Seal this pact' })}
-                </button>
-                <button type="button" className="btn-close" onClick={() => setModalMyth(null)}>
-                  {tr({ fr: 'Annuler', en: 'Cancel' })}
-                </button>
-              </menu>
-            </dialog>
-          </div>
-        </div>
-      )}
+            <p className="myth-modal-warning" style={{ color: 'var(--red)', marginTop: '1rem', fontSize: '0.9rem' }}>
+              {activeMythId && activeMythId !== modalMyth.id
+                ? tr({
+                    fr: `Le pacte "${activeMyth?.name ? tr(activeMyth.name) : 'en cours'}" est déjà actif ce cycle et sera abandonné. Le cycle sera réinitialisé.`,
+                    en: `The pact "${activeMyth?.name ? tr(activeMyth.name) : 'in progress'}" is already active this cycle and will be abandoned. The cycle will be reset.`
+                  })
+                : activeMythId === modalMyth.id
+                ? tr({ fr: `Ce pacte est déjà actif. Confirmer va réinitialiser entièrement le cycle en cours.`, en: `This pact is already active. Confirming will fully reset the current cycle.` })
+                : tr({ fr: `Le cycle en cours sera entièrement réinitialisé (ressources, bâtiments, jauges).`, en: `The current cycle will be fully reset (resources, buildings, gauges).` })}
+            </p>
+
+            <menu className="choice-menu" style={{ display: 'flex', gap: '1rem', justifyContent: 'flex-end', marginTop: '1.5rem' }}>
+              <button className="myth-confirm-btn" onClick={handleConfirmPact}>
+                {tr({ fr: 'Sceller ce pacte', en: 'Seal this pact' })}
+              </button>
+              <button type="button" className="btn-close" onClick={closePact}>
+                {tr({ fr: 'Annuler', en: 'Cancel' })}
+              </button>
+            </menu>
+          </>
+        )}
+      </dialog>
     </Place>
   );
 }

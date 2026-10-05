@@ -74,6 +74,23 @@ const QUALITY_TIER_LABEL = {
   perf: { fr: "Performance", en: "Performance" },
 };
 
+// ONGLETS AU CLAVIER (motif ARIA « tabs », BUG-118) : les flèches gauche et
+// droite passent à l'onglet voisin et l'ouvrent, Début et Fin aux extrémités ;
+// seul l'onglet ouvert est dans l'ordre de tabulation (tabIndex mobile, posé sur
+// chaque onglet). Les onglets masqués par le CSS — Raccourcis au doigt — n'ont
+// pas de boîte : on les saute.
+const TAB_STEP = { ArrowRight: 1, ArrowLeft: -1 };
+function onOptionTabsKeyDown(e) {
+  if (!(e.key in TAB_STEP) && e.key !== 'Home' && e.key !== 'End') return;
+  const tabs = [...e.currentTarget.querySelectorAll('[role="tab"]')].filter((t) => t.getClientRects().length > 0);
+  const i = tabs.indexOf(e.target);
+  if (i < 0) return;
+  e.preventDefault();
+  const next = e.key === 'Home' ? 0 : e.key === 'End' ? tabs.length - 1 : (i + TAB_STEP[e.key] + tabs.length) % tabs.length;
+  tabs[next].focus();
+  tabs[next].click();
+}
+
 function qualityAutoLabel() {
   const t = QUALITY_TIER_LABEL[autoQualityTier()];
   return t ? tr({ fr: `Auto (${t.fr})`, en: `Auto (${t.en})` }) : tr({ fr: "Auto", en: "Auto" });
@@ -465,7 +482,8 @@ export default function OptionsDialog({ isOpen, onClose, onSave, onExport, onImp
     event.preventDefault();
     event.stopPropagation();
     if (event.key === "Escape") { setCapturingId(null); setKeyError(null); return; }
-    const refus = shortcutRejection(def, event.key);
+    // `code` : la touche physique (en AZERTY, « é » est la touche du 2, BUG-50).
+    const refus = shortcutRejection(def, event.key, event.code);
     if (refus) {
       setKeyError(
         refus.reason === "taken"
@@ -478,7 +496,7 @@ export default function OptionsDialog({ isOpen, onClose, onSave, onExport, onImp
       );
       return;
     }
-    setShortcutKey(def.id, event.key);
+    setShortcutKey(def.id, event.key, event.code);
     setCapturingId(null);
     setKeyError(null);
     setOptionRevision((revision) => revision + 1);
@@ -589,13 +607,14 @@ export default function OptionsDialog({ isOpen, onClose, onSave, onExport, onImp
         {/* ARIA d'onglets : role="tablist"/"tab" + aria-selected — sans eux le
             lecteur d'écran annonce cinq boutons sans dire lequel est actif ni
             qu'ils forment un groupe d'onglets. */}
-        <div className="options-tabs" role="tablist" aria-label={tr({ fr: "Categories d'options", en: "Option categories" })}>
+        <div className="options-tabs" role="tablist" aria-label={tr({ fr: "Categories d'options", en: "Option categories" })} onKeyDown={onOptionTabsKeyDown}>
           <button
             className={`options-tab ${activeGroup === 'aide' ? 'active' : ''}`}
             data-group="aide"
             type="button"
             role="tab"
             aria-selected={activeGroup === 'aide'}
+            tabIndex={activeGroup === 'aide' ? 0 : -1}
             onClick={() => setActiveGroup('aide')}
           >
             {tr({ fr: "Aide", en: "Help" })}
@@ -605,6 +624,7 @@ export default function OptionsDialog({ isOpen, onClose, onSave, onExport, onImp
             type="button"
             role="tab"
             aria-selected={activeGroup === 'display'}
+            tabIndex={activeGroup === 'display' ? 0 : -1}
             onClick={() => setActiveGroup('display')}
           >
             {tr({ fr: "Affichage", en: "Display" })}
@@ -614,6 +634,7 @@ export default function OptionsDialog({ isOpen, onClose, onSave, onExport, onImp
             type="button"
             role="tab"
             aria-selected={activeGroup === 'sound'}
+            tabIndex={activeGroup === 'sound' ? 0 : -1}
             onClick={() => setActiveGroup('sound')}
           >
             {tr({ fr: "Son", en: "Sound" })}
@@ -628,6 +649,7 @@ export default function OptionsDialog({ isOpen, onClose, onSave, onExport, onImp
             type="button"
             role="tab"
             aria-selected={activeGroup === 'shortcuts'}
+            tabIndex={activeGroup === 'shortcuts' ? 0 : -1}
             onClick={() => setActiveGroup('shortcuts')}
           >
             {tr({ fr: "Raccourcis", en: "Shortcuts" })}
@@ -637,6 +659,7 @@ export default function OptionsDialog({ isOpen, onClose, onSave, onExport, onImp
             type="button"
             role="tab"
             aria-selected={activeGroup === 'other'}
+            tabIndex={activeGroup === 'other' ? 0 : -1}
             onClick={() => setActiveGroup('other')}
           >
             {tr({ fr: "Sauvegarde", en: "Saves" })}
@@ -646,6 +669,7 @@ export default function OptionsDialog({ isOpen, onClose, onSave, onExport, onImp
             type="button"
             role="tab"
             aria-selected={activeGroup === 'credits'}
+            tabIndex={activeGroup === 'credits' ? 0 : -1}
             onClick={() => setActiveGroup('credits')}
           >
             {tr({ fr: "Crédits", en: "Credits" })}
@@ -657,6 +681,7 @@ export default function OptionsDialog({ isOpen, onClose, onSave, onExport, onImp
               type="button"
               role="tab"
               aria-selected={activeGroup === 'script'}
+              tabIndex={activeGroup === 'script' ? 0 : -1}
               onClick={() => setActiveGroup('script')}
             >
               {tr({ fr: "Automatisation", en: "Automation" })}
@@ -669,6 +694,7 @@ export default function OptionsDialog({ isOpen, onClose, onSave, onExport, onImp
               type="button"
               role="tab"
               aria-selected={activeGroup === 'automates'}
+              tabIndex={activeGroup === 'automates' ? 0 : -1}
               onClick={() => setActiveGroup('automates')}
             >
               {tr({ fr: "Automates", en: "Automatons" })}
@@ -1513,13 +1539,15 @@ export default function OptionsDialog({ isOpen, onClose, onSave, onExport, onImp
                       <span className="auto-script-label">{tr(RULE_LABELS[r.id] || r.id)}</span>
                       {hasThreshold && (
                         <div className="auto-script-threshold">
-                          <input
-                            type="number"
+                          {/* Validés en sortant du champ, comme l'onglet
+                              Automatisation : contrôlés à chaque frappe, ces
+                              champs ne pouvaient pas être vidés (BUG-113). */}
+                          <DraftNumberInput
                             className="auto-script-input"
                             value={r.threshold}
                             min="1"
                             max="99"
-                            onChange={(e) => handleAutomateThreshold(r.id, e.target.value)}
+                            onCommit={(raw) => handleAutomateThreshold(r.id, raw)}
                           />
                           <span className="auto-script-unit">{r.unit}</span>
                         </div>
@@ -1531,13 +1559,12 @@ export default function OptionsDialog({ isOpen, onClose, onSave, onExport, onImp
                             en: "Share of the resource the automaton never touches. At 0 it empties the coffers, which starves the other branches."
                           }))}>
                             <span className="auto-script-unit">{tr({ fr: "réserve", en: "reserve" })}</span>
-                            <input
-                              type="number"
+                            <DraftNumberInput
                               className="auto-script-input"
                               value={r.reservePct}
                               min={AUTOMATE_FIELD_BOUNDS.reservePct[0]}
                               max={AUTOMATE_FIELD_BOUNDS.reservePct[1]}
-                              onChange={(e) => handleAutomateField(r.id, 'reservePct', e.target.value)}
+                              onCommit={(raw) => handleAutomateField(r.id, 'reservePct', raw)}
                             />
                             <span className="auto-script-unit">%</span>
                           </label>
@@ -1546,13 +1573,12 @@ export default function OptionsDialog({ isOpen, onClose, onSave, onExport, onImp
                             en: "Purchases per second. Deliberately low: it also weighs on offline catch-up."
                           }))}>
                             <span className="auto-script-unit">{tr({ fr: "débit", en: "rate" })}</span>
-                            <input
-                              type="number"
+                            <DraftNumberInput
                               className="auto-script-input"
                               value={r.perTick}
                               min={AUTOMATE_FIELD_BOUNDS.perTick[0]}
                               max={AUTOMATE_FIELD_BOUNDS.perTick[1]}
-                              onChange={(e) => handleAutomateField(r.id, 'perTick', e.target.value)}
+                              onCommit={(raw) => handleAutomateField(r.id, 'perTick', raw)}
                             />
                             <span className="auto-script-unit">{tr({ fr: "/s", en: "/s" })}</span>
                           </label>

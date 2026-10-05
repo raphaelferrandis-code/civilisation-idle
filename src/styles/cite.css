@@ -94,6 +94,18 @@
   :root:not([data-pointer="coarse"]) .city-status-panel.is-identity .csp-save {
     grid-column: 1 / -1;
   }
+  /* Un chiffre ne se coupe pas : en 1280 en anglais, « WEAR 15.0 % » passait à
+     la ligne au milieu de la valeur (audit du 05/10, BUG-117). Si la ligne ne
+     tient pas, ce sont les crans de sédiment qui descendent dessous — rien ne
+     bouge tant qu'elle tient. */
+  :root:not([data-pointer="coarse"]) .city-status-panel.is-identity .csp-value:not(.csp-value--era) {
+    white-space: nowrap;
+  }
+  /* Seulement la ligne des crans : sur celle de l'Âge, le nom d'âge (de la
+     prose, qui se coupe très bien) descendrait tout entier sous « ÂGE ». */
+  :root:not([data-pointer="coarse"]) .city-status-panel.is-identity .csp-block-head:has(> .csp-laps) {
+    flex-wrap: wrap;
+  }
   /* Verser la clepsydre : un petit bouton sous sa jauge, plus une barre pleine
      largeur. */
   :root:not([data-pointer="coarse"]) .city-status-panel.is-identity .csp-clepsydre .csp-clepsydre-pour {

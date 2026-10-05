@@ -24,7 +24,9 @@ const DEFAULT_DURATION = 1100;
  */
 export default function RollingNumber({ value, format = fmt, duration = DEFAULT_DURATION, pulse = false }) {
   const target = toNum(value);
-  const display = useCountUp(target, duration);
+  // Clé de rendu = le TEXTE affiché : on ne re-rend que quand un caractère
+  // change, pas à chaque image de l'interpolation (PERF-39).
+  const display = useCountUp(target, duration, format);
   // Pulsation : re-monter le span .roll-pulse à chaque HAUSSE pour rejouer le
   // micro-bump CSS. `pulseKey` (compteur) + `prevTarget` (dernière cible vue)
   // sont ajustés PENDANT le render (pattern React « dériver l'état d'une prop »)

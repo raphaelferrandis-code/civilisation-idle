@@ -50,6 +50,26 @@ export function placeTip(rect, viewportW, viewportH) {
 }
 
 /**
+ * Second temps de placeTip, une fois la bulle MESURÉE (audit 2026-10-05,
+ * BUG-105). La zone de bascule de 150 px suppose une bulle courte : une bulle
+ * de cinq lignes (Voirie, sceaux) posée juste au-dessus de la zone sortait par
+ * le bas. On change alors de côté, si l'autre côté a la place, ou à défaut
+ * plus de place. Fonction PURE, comme placeTip : rend `place` inchangé quand
+ * la bulle tient (même objet), ce qui arrête la boucle mesure → rendu.
+ */
+export function fitTipToHeight(place, rect, bubbleH, viewportH) {
+  const roomBelow = viewportH - BUBBLE_MARGIN - (rect.bottom + BUBBLE_GAP);
+  const roomAbove = rect.top - BUBBLE_GAP - BUBBLE_MARGIN;
+  if (!place.flip && bubbleH > roomBelow && (roomAbove >= bubbleH || roomAbove > roomBelow)) {
+    return { ...place, top: Math.max(BUBBLE_MARGIN, rect.top - BUBBLE_GAP), flip: true };
+  }
+  if (place.flip && bubbleH > roomAbove && (roomBelow >= bubbleH || roomBelow > roomAbove)) {
+    return { ...place, top: rect.bottom + BUBBLE_GAP, flip: false };
+  }
+  return place;
+}
+
+/**
  * Normalise le contenu accepté par tipProps. Trois formes, une seule sortie :
  *   - une chaîne            → { kind: "text" }
  *   - un tableau de lignes  → { kind: "rows" }, chaque ligne { label, value }

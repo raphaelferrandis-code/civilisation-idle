@@ -13,10 +13,15 @@ import { eraBandOf } from "./eraThemes.js";
 import { tr } from "../core/i18n.js";
 
 // Tournure de durée selon le temps réel d'absence (avant plafonnement du cap).
-function durationPhrase(seconds) {
+// Paliers sous l'heure (audit 2026-10-05, BUG-52) : « Quelques heures à peine »
+// tombait dès 61 s — une fenêtre .exe masquée deux minutes suffisait à écrire
+// dans la Chronique et au rapport que la cité était restée seule des heures.
+export function durationPhrase(seconds) {
   const h = seconds / 3600;
-  if (h < 1) return tr({ fr: "Quelques heures à peine", en: "Barely a few hours" });
-  if (h < 6) return tr({ fr: "Une demi-journée", en: "Half a day" });
+  if (seconds < 600) return tr({ fr: "Quelques minutes", en: "A few minutes" });
+  if (h < 1) return tr({ fr: "Moins d'une heure", en: "Under an hour" });
+  if (h < 6) return tr({ fr: "Quelques heures à peine", en: "Barely a few hours" });
+  if (h < 12) return tr({ fr: "Une demi-journée", en: "Half a day" });
   if (h < 24) return tr({ fr: "Près d'un jour", en: "Nearly a day" });
   if (h < 72) return tr({ fr: "Plusieurs jours", en: "Several days" });
   if (h < 24 * 14) return tr({ fr: "Des semaines entières", en: "Whole weeks" });

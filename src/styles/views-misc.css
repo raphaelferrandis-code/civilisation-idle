@@ -137,15 +137,35 @@
   padding: 0.75rem 0.9rem;
 }
 
-/* ---- Bannières d'héritage (Énée/Atrides) : toasts centrés en haut ---- */
-.app[data-active-view="city"] .enee-boost-banner,
-.app[data-active-view="city"] .atrides-pact-banner {
+/* ---- Bannières d'héritage (Énée/Atrides) : toasts centrés en haut ----
+   Le CONTENEUR est posé (CityView, .cycle-banners) et les empile : chaque
+   bannière portait cette position, les deux tombaient au même pixel et leurs
+   textes se superposaient (audit du 05/10, BUG-44). Une bannière seule garde
+   exactement la place d'avant. Le conteneur laisse passer les clics de la carte
+   entre et sous les bannières ; elles seules les prennent. */
+.app[data-active-view="city"] .cycle-banners {
   position: absolute;
   top: 6rem;
   left: 50%;
   transform: translateX(-50%);
   width: min(42rem, 56%);
   z-index: 26;
+  display: flex;
+  flex-direction: column;
+  gap: 0.6rem;
+  pointer-events: none;
+}
+.app[data-active-view="city"] .cycle-banners > * {
+  margin: 0;
+  pointer-events: auto;
+}
+/* Au bureau, la colonne centrale s'arrête AVANT l'identité et la boutique : en
+   1280×800 la bannière des Atrides passait sous les deux (« Temps restant » et
+   la fin du texte masqués). Bornée à l'espace libre symétrique — sans effet en
+   1920 et 2560, où 42rem y tiennent. Plancher de 20rem pour les fenêtres sous
+   1280 px, où l'espace libre devient trop étroit pour un texte. */
+:root:not([data-pointer="coarse"]) .app[data-active-view="city"] .cycle-banners {
+  width: min(42rem, 56%, max(20rem, 100% - 2 * (max(var(--hud-id-w), var(--shop-w)) + 2 * var(--hud-gap))));
 }
 
 /* ============================================================================

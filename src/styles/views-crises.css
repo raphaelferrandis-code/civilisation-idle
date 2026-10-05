@@ -309,6 +309,36 @@
   box-shadow: inset 0 0 70px rgba(0, 0, 0, 0.32);
 }
 
+/* La page de crise tient dans la fenêtre, comme la Veille qu'elle remplace (un
+   lieu, places.css) : <main> en colonne bornée, la section défile SEULE sous la
+   barre de ressources. En page libre, le panneau d'issue faisait défiler tout le
+   document — 796 px pour 720 en 1280×720, le journal sous la ligne de flottaison
+   (audit du 05/10, BUG-116). Sans effet quand tout tient (1584×861 et plus). */
+.app main:has(#prestige.crisis-backdrop) {
+  display: flex;
+  flex-direction: column;
+  height: 100vh;
+  max-height: 100vh;
+  overflow: hidden;
+}
+.app #prestige.view.active.crisis-backdrop {
+  /* Base 0 et non `auto` : c'est la section qui prend le reste, la barre garde
+     sa hauteur. En `auto`, son contenu (plus haut que la fenêtre) faisait
+     RÉTRÉCIR aussi la barre jusqu'à sa min-height — 3 à 4 px de moins en
+     1280×720 et 1366×768, la plaque débordait et la section mordait sur son
+     cadre or. Identique dès que tout tient. */
+  flex: 1 1 0;
+  min-height: 0;
+  /* Les rangées gardent la hauteur de leur contenu, ni plus ni moins : étirées
+     sur la hauteur désormais FIXE de la section, elles descendraient le panneau
+     en grand écran ; écrasées (le panneau est en `overflow: hidden`, son minimum
+     automatique vaut 0), elles rogneraient le journal sans rien à faire défiler. */
+  grid-auto-rows: max-content;
+  align-content: start;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+}
+
 .cycle-outcome-panel.crisis-focus-active {
   position: relative;
   overflow: hidden;
@@ -938,7 +968,13 @@
    (Conseil / Édit / Testament), libellés courts, explications en tooltip. ── */
 .doctrine-grid {
   display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
+  /* Trois colonnes quand chacune tient sa ligne la plus longue (« Rupture 25 % »
+     + Demander / Stabiliser / Profiter ≈ 336 px en français), sinon elles
+     s'EMPILENT. En `repeat(3, minmax(0, 1fr))` les colonnes descendaient sous ce
+     contenu et les boutons du Conseil débordaient sur l'Édit, cachant
+     « Automatique » — de 37 px en 1920 à 145 px en 1280 (audit du 05/10,
+     BUG-42). En 2560 les trois colonnes tiennent : même grille qu'avant. */
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 21.5rem), 1fr));
   gap: 0.6rem 2.4rem;
   align-items: start;
   margin-top: 0.9rem;
@@ -975,6 +1011,9 @@
 
 .doctrine-line {
   display: flex;
+  /* Filet de sécurité : si la colonne reste plus étroite que la ligne, le
+     sélecteur passe SOUS son libellé au lieu de déborder sur la colonne voisine. */
+  flex-wrap: wrap;
   align-items: center;
   justify-content: space-between;
   gap: 0.75rem;

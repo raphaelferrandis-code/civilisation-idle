@@ -17,7 +17,7 @@ import GrandGain from './GrandGain.jsx';
  * Régulation. UN SEUL jeu actif à la fois : le pont unique (templeGames.js)
  * livre le jeu ouvert { kind, openedAt, …req } ; ouvrir un jeu remplace le
  * précédent. Vide : un simple filigrane. Échap referme (sauf si un vrai
- * dialogue est ouvert).
+ * dialogue est ouvert), sans ouvrir les Options.
  *
  * Ajouter un jeu du temple = UNE entrée dans STAGES + son verbe open<Jeu>()
  * (délégant à openTempleGame). Rien d'autre à toucher ici.
@@ -52,15 +52,24 @@ export default function RegulationStage() {
 
   useEffect(() => registerTempleStage((g) => setGame(g)), []);
 
+  // Échap referme la table AVANT d'ouvrir les Options (App.jsx écoute aussi Échap, sur
+  // document) : écouteur en CAPTURE sur window, donc servi le premier, et seulement
+  // quand une table est ouverte — comme CitizenSheet (BUG-49 : la table se fermait ET
+  // les Options s'ouvraient). Le feuillet « ? » ouvert se referme seul au premier
+  // Échap (son propre écouteur, sur window aussi), la table au second.
   useEffect(() => {
+    if (!game) return undefined;
     const onKey = (e) => {
       if (e.key !== 'Escape') return;
       if (document.querySelector('dialog[open]')) return; // les vrais dialogues d'abord
+      e.preventDefault();
+      if (document.querySelector('.stage-help-pop')) { e.stopPropagation(); return; }
+      e.stopImmediatePropagation();
       closeTempleStage();
     };
-    window.addEventListener('keydown', onKey);
-    return () => window.removeEventListener('keydown', onKey);
-  }, []);
+    window.addEventListener('keydown', onKey, true);
+    return () => window.removeEventListener('keydown', onKey, true);
+  }, [game]);
 
   const Stage = game && STAGES[game.kind];
   const empty = !Stage;

@@ -9,9 +9,9 @@
 import { describe, it, expect, beforeEach } from "vitest";
 
 import {
-  SHORTCUT_DEFS, shortcutKey, shortcutRejection,
+  SHORTCUT_DEFS, shortcutKey, shortcutRejection, shortcutPrefs,
   setShortcutKey, setShortcutOff, resetShortcutKey,
-  resolveShortcut, resolveViewDigit, resolveCameraKey, feedDebugSequence,
+  resolveShortcut, resolveViewDigit, resolveCameraKey, feedDebugSequence, pressedDigit,
 } from "../shortcuts.js";
 
 const def = (id) => SHORTCUT_DEFS.find((d) => d.id === id);
@@ -109,6 +109,31 @@ describe("réattribution — les garde-fous", () => {
     resetShortcutKey("buy_all");
     expect(shortcutKey(def("buy_all"))).toBe("e");
   });
+
+  // BUG-103 (audit 2026-10-05) : « Tout acheter » posé sur « - » achetait à
+  // chaque dézoom, au clavier comme au bouton de la carte qui rejoue la touche.
+  it("refuse les touches de zoom + = - _", () => {
+    for (const k of ["+", "=", "-", "_"]) {
+      expect(shortcutRejection(def("buy_all"), k).reason).toBe("forbidden");
+      expect(setShortcutKey("buy_all", k)).toBe(false);
+    }
+    expect(resolveShortcut(ev("-"))).toBeNull();
+  });
+
+  it("une touche de zoom enregistrée avant le refus retombe sur la touche par défaut", () => {
+    shortcutPrefs.buy_all = { key: "-" };
+    expect(shortcutKey(def("buy_all"))).toBe("e");
+    expect(resolveShortcut(ev("-"))).toBeNull();
+    expect(resolveShortcut(ev("e"))?.id).toBe("buy_all");
+  });
+
+  // BUG-50 : en AZERTY, la touche du 2 rend « é ». Attribuée à un raccourci,
+  // elle ferait aussi changer de vue.
+  it("refuse une touche de la rangée des chiffres, même quand elle ne rend pas un chiffre", () => {
+    expect(shortcutRejection(def("buy_all"), "é", "Digit2").reason).toBe("digit");
+    expect(setShortcutKey("buy_all", "é", "Digit2")).toBe(false);
+    expect(shortcutKey(def("buy_all"))).toBe("e");
+  });
 });
 
 describe("touches caméra (A9)", () => {
@@ -135,6 +160,22 @@ describe("touches caméra (A9)", () => {
     expect(resolveCameraKey(ev("c"))).toBeNull();
     expect(resolveShortcut(ev("c"))?.id).toBe("recenter_map");
   });
+
+  // BUG-50 : en AZERTY, le 6 rend « - » et le 8 « _ » — changer d'onglet
+  // dézoomait la carte.
+  it("un +/- tapé sur la rangée des chiffres ne zoome pas : il appartient aux vues", () => {
+    expect(resolveCameraKey(ev("-", { code: "Digit6" }))).toBeNull();
+    expect(resolveCameraKey(ev("_", { code: "Digit8" }))).toBeNull();
+    expect(resolveCameraKey(ev("+", { code: "Digit1" }))).toBeNull();   // QWERTZ tchèque
+  });
+
+  it("le pavé numérique, la touche « - » QWERTY et le bouton de la carte (sans code) zooment", () => {
+    expect(resolveCameraKey(ev("-", { code: "NumpadSubtract" }))).toEqual({ zoom: -1 });
+    expect(resolveCameraKey(ev("+", { code: "NumpadAdd" }))).toEqual({ zoom: 1 });
+    expect(resolveCameraKey(ev("-", { code: "Minus" }))).toEqual({ zoom: -1 });
+    expect(resolveCameraKey(ev("=", { code: "Equal" }))).toEqual({ zoom: 1 });
+    expect(resolveCameraKey(ev("-"))).toEqual({ zoom: -1 });
+  });
 });
 
 describe("touches de vue", () => {
@@ -150,6 +191,21 @@ describe("touches de vue", () => {
 
   it("ignore les combinaisons avec modificateur", () => {
     expect(resolveViewDigit(ev("1", { ctrlKey: true }))).toBe(-1);
+  });
+
+  // BUG-50 : le jeu est français. Sans Maj, la rangée AZERTY rend
+  // « & é " ' ( - è _ » : les touches 1 à 8 promises par l'Aide ne marchaient pas.
+  it("AZERTY sans Maj : la touche physique suffit", () => {
+    const azerty = ["&", "é", "\"", "'", "(", "-", "è", "_"];
+    azerty.forEach((k, i) => expect(resolveViewDigit(ev(k, { code: `Digit${i + 1}` }))).toBe(i));
+    expect(resolveViewDigit(ev("à", { code: "Digit0" }))).toBe(-1);
+    expect(resolveViewDigit(ev("ç", { code: "Digit9" }))).toBe(-1);
+  });
+
+  it("pavé numérique : le chiffre compte, pas une flèche du pavé verrouillé", () => {
+    expect(resolveViewDigit(ev("3", { code: "Numpad3" }))).toBe(2);
+    expect(resolveViewDigit(ev("ArrowDown", { code: "Numpad2" }))).toBe(-1);
+    expect(pressedDigit(ev("End", { code: "Numpad1" }))).toBe(-1);
   });
 });
 

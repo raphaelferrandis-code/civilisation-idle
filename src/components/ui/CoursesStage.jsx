@@ -129,6 +129,7 @@ export default function CoursesStage({ onClose }) {
   const [photo, setPhoto] = useState(false);
   const pendingRef = useRef(null);
   const rafRef = useRef(0);
+  const timerRef = useRef(0);
   const planRef = useRef(null);
   const wrapRef = useRef(null);
   const [canvas, setCanvas] = useState(null);
@@ -170,7 +171,7 @@ export default function CoursesStage({ onClose }) {
       window.removeEventListener('beforeunload', flushOnExit);
     };
   }, []);
-  useEffect(() => () => { flushPending(); cancelAnimationFrame(rafRef.current); }, []);
+  useEffect(() => () => { flushPending(); cancelAnimationFrame(rafRef.current); clearTimeout(timerRef.current); }, []);
 
   const prevCyclesRef = useRef(cycles);
   useEffect(() => {
@@ -221,20 +222,25 @@ export default function CoursesStage({ onClose }) {
     const fin = Math.max(...r.partants.map((x) => plan[x.couloir].fin));
     const t0 = performance.now();
     let photoVue = false;
+    // Le rAF ne fait que DESSINER la course.
     const step = () => {
       const ms = performance.now() - t0;
       if (canvas && W) dessiner(canvas.getContext('2d'), W, band, r.partants, plan, ms, ms >= fin ? r.gagnant : null);
       if (plan.photo && !photoVue && ms >= plan[r.gagnant].fin) { photoVue = true; setPhoto(true); }
-      if (ms < fin + FIN_EXTRA_MS) {
-        rafRef.current = requestAnimationFrame(step);
-        return;
-      }
-      flushPending();
-      setPhase('result');
-      if (r.gain > 0) celebrerGain({ gain: r.gain, stake: r.total, game: 'courses' });
+      if (ms < fin + FIN_EXTRA_MS) rafRef.current = requestAnimationFrame(step);
     };
     cancelAnimationFrame(rafRef.current);
     rafRef.current = requestAnimationFrame(step);
+    // L'arrivée tient à l'horloge, pas à l'animation, comme la roulette et la roue
+    // (une fenêtre masquée gèle le rAF : la course et son gain restaient en suspens).
+    clearTimeout(timerRef.current);
+    timerRef.current = setTimeout(() => {
+      cancelAnimationFrame(rafRef.current);
+      if (plan.photo) setPhoto(true);
+      flushPending();
+      setPhase('result');
+      if (r.gain > 0) celebrerGain({ gain: r.gain, stake: r.total, game: 'courses' });
+    }, fin + FIN_EXTRA_MS);
   };
 
   // La course suivante : le nouveau champ, les mises gardées sur les mêmes couloirs.

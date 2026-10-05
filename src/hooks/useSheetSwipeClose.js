@@ -50,6 +50,15 @@ export function useSheetSwipeClose({ enabled = false, onClose } = {}) {
   // Tout l'état du geste vit dans un ref : il change à chaque frame et ne doit
   // déclencher aucun rendu.
   const geste = useRef(null);
+  // onClose gardé dans un ref (même motif que useDialogModal) : les appelants
+  // passent une lambda neuve à chaque rendu. En dépendance de l'effet, le
+  // moindre rendu du parent PENDANT le geste (pastille, palier de crise)
+  // retirait les écouteurs et oubliait le geste, la feuille restant translatée
+  // à mi-course (audit 2026-10-05, BUG-112). Rafraîchi dans un effet, lu
+  // seulement au pointerup.
+  const onCloseRef = useRef(onClose);
+  useEffect(() => { onCloseRef.current = onClose; });
+  const hasClose = Boolean(onClose);
 
   const poser = useCallback((dy) => {
     const el = sheetRef.current;
@@ -68,14 +77,14 @@ export function useSheetSwipeClose({ enabled = false, onClose } = {}) {
   }, []);
 
   const onPointerDown = useCallback((e) => {
-    if (!enabled || !onClose) return;
+    if (!enabled || !hasClose) return;
     // Bouton droit / molette : ce n'est pas un geste de feuille.
     if (e.button != null && e.button !== 0) return;
     geste.current = { id: e.pointerId, x0: e.clientX, y0: e.clientY, t0: e.timeStamp, arme: false, abandon: false };
-  }, [enabled, onClose]);
+  }, [enabled, hasClose]);
 
   useEffect(() => {
-    if (!enabled || !onClose) return undefined;
+    if (!enabled || !hasClose) return undefined;
 
     const move = (e) => {
       const g = geste.current;
@@ -102,7 +111,7 @@ export function useSheetSwipeClose({ enabled = false, onClose } = {}) {
       const dt = Math.max(1, e.timeStamp - g.t0);
       const ferme = dy > SEUIL_PX || (dy > SEUIL_JET_PX && dy / dt > SEUIL_VITESSE);
       rendre(!ferme);
-      if (ferme) onClose();
+      if (ferme) onCloseRef.current?.();
     };
 
     const perdu = (e) => {
@@ -123,9 +132,12 @@ export function useSheetSwipeClose({ enabled = false, onClose } = {}) {
       window.removeEventListener('pointermove', move);
       window.removeEventListener('pointerup', up);
       window.removeEventListener('pointercancel', perdu);
+      // Un geste armé a posé une transformation inline : l'oublier sans la
+      // retirer laissait la feuille coincée à mi-course.
+      if (geste.current?.arme) rendre(true);
       geste.current = null;
     };
-  }, [enabled, onClose, poser, rendre]);
+  }, [enabled, hasClose, poser, rendre]);
 
   // Une feuille qu'on ferme au bouton alors qu'un glissement traînait garderait
   // sa transformation pour sa prochaine ouverture : on nettoie au démontage du
@@ -142,6 +154,6 @@ export function useSheetSwipeClose({ enabled = false, onClose } = {}) {
   // l'appel, avant le JSX, et la règle est satisfaite sans exception à écrire.
   return [
     sheetRef,
-    enabled && onClose ? { onPointerDown, style: { touchAction: 'none' } } : {},
+    enabled && hasClose ? { onPointerDown, style: { touchAction: 'none' } } : {},
   ];
 }

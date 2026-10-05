@@ -41,7 +41,12 @@
    les changements d'ère, ni les alertes d'émeute (M22 de l'audit) — et le toast
    cliquable restait un bouton invisible posé sur la carte. Sans animation, la
    règle de base est visible (opacity 1) et c'est REACT qui retire le nœud à la
-   fin de sa vie : affichage statique puis disparition, le bon comportement. */
+   fin de sa vie : affichage statique puis disparition, le bon comportement.
+   ⚠ TOUTE NOUVELLE ANIMATION DE CE GENRE écrit son exception DANS LES DEUX
+   MODES — le @media ET le jumeau `:root[data-motion="none"]` — avec la pose
+   statique qui lui convient, à côté de sa règle (grands gains, annonces de la
+   salle, gros lot, baiser, +coûts de l'arbre et des Routes : oubliés tous les
+   neuf, BUG-54 du 2026-10-05). Garde : src/styles/__tests__/motionFadeout.test.js. */
 @media (prefers-reduced-motion: reduce) {
   .outcome-float,
   .pr-float,
@@ -267,7 +272,14 @@ h1 {
 
 main {
   min-width: 0;
-  padding: 1rem;
+  /* Le padding de <main> est une VARIABLE : la barre de ressources le déborde
+     exactement (components.css) pour toucher les bords de la fenêtre. Deux
+     valeurs écrites à la main divergeaient — sous 1500 px, main passait à
+     0.75rem mais la barre gardait son -1rem (la surcharge de layout.css, importée
+     AVANT components.css, perdait) : 4 px du cadre or rognés de chaque côté et
+     une barre de défilement horizontale (audit du 05/10, BUG-116). */
+  --main-pad: 1rem;
+  padding: var(--main-pad);
 }
 
 @keyframes message-bump {
@@ -796,13 +808,11 @@ body::before {
   order: 4;
 }
 
-.city-left-col .atrides-debt-panel {
-  order: 5;
-}
-
-.city-left-col .enee-panel {
-  order: 6;
-}
+/* (Plus d'`order` pour .atrides-debt-panel / .enee-panel : ces panneaux d'action
+   vivent désormais dans le popover Mythes du dock, qui est une colonne flex. Les
+   restes de l'ancienne colonne les y envoyaient EN DERNIER, sous les cartes de
+   statut — MIGRER et Rembourser finissaient hors de l'écran, audit du 05/10,
+   BUG-19. L'ordre du JSX fait foi : actions d'abord.) */
 
 .city-left-col .active-myths-panel {
   order: 7;

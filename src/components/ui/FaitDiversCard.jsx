@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { onFaitFocus, fdOpened, fdClose } from '../../game/map/faitsDivers/fdPick.js';
 import { tr } from '../../game/core/i18n.js';
+import { tipProps } from './HelpBubble.jsx';
 import '../../styles/faits-divers.css';
 
 // LA RÉPLIQUE D'UN FAIT DIVERS — ce que dit le personnage qu'on vient de cliquer sur
@@ -28,20 +29,29 @@ export default function FaitDiversCard() {
     return () => window.removeEventListener('keydown', onKey, true);
   }, [sheet]);
 
-  if (!sheet) return null;
-  const who = tr(sheet.who);
-  const line = tr(sheet.line);
+  const who = sheet ? tr(sheet.who) : '';
+  const line = sheet ? tr(sheet.line) : '';
   // Une didascalie « (une bulle) » ne se met pas entre guillemets.
   const stage = line.startsWith('(');
+  // L'annonce vocale vit dans une région sr-only PÉRENNE (motif IdleReportPanel,
+  // BUG-118) : la plaque, insérée déjà remplie, n'était jamais lue — les
+  // lecteurs d'écran n'annoncent que les MUTATIONS d'une région déjà montée.
+  // Même place dans l'arbre avec ou sans plaque, sinon React la remonterait.
   return (
-    <aside className="fait-card" aria-label={who} aria-live="polite">
+    <>
+    <div className="sr-only" role="status" aria-live="polite">{sheet ? `${who} — ${line}` : ''}</div>
+    {sheet && (
+    <aside className="fait-card" aria-label={who}>
       <div className="fc-head">
         <strong className="fc-who">{who}</strong>
         {sheet.isNew && (
           <span
             className="fc-ink"
-            title={tr({ fr: 'Inscrit dans la Chronique', en: 'Recorded in the Chronicle' })}
+            // Infobulle maison au lieu du `title` natif (BUG-118) ; role="img" :
+            // un aria-label sur un <span> nu n'est pas lu.
+            role="img"
             aria-label={tr({ fr: 'Inscrit dans la Chronique', en: 'Recorded in the Chronicle' })}
+            {...tipProps(null, tr({ fr: 'Inscrit dans la Chronique', en: 'Recorded in the Chronicle' }))}
           >
             <i className="fa-solid fa-feather-pointed" aria-hidden="true"></i>
           </span>
@@ -60,5 +70,7 @@ export default function FaitDiversCard() {
         {stage ? line : `${tr({ fr: '« ', en: '“' })}${line}${tr({ fr: ' »', en: '”' })}`}
       </p>
     </aside>
+    )}
+    </>
   );
 }

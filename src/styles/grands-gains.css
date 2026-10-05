@@ -59,3 +59,7 @@
 @media (prefers-reduced-motion: reduce) {
   .grand-gain { animation: none; transform: translate(-50%, -50%); }
 }
+/* Le cran « Mouvement : Aucune » des Options écrase la durée comme le réglage du
+   système (base.css) : sans ce jumeau, le bandeau sautait à sa dernière image,
+   invisible (BUG-54). Sans animation, c'est React qui le retire à la fin. */
+:root[data-motion="none"] .grand-gain { animation: none; transform: translate(-50%, -50%); }

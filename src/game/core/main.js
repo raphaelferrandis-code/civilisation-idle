@@ -748,7 +748,11 @@ export function applyOfflineProgress(elapsedSeconds = (Date.now() - state.lastTi
     collapses: farm ? farm.collapses : 0,
     ruinsGained: farm && farm.collapses > 0 ? fmt(farm.ruinsGained) : null
   });
-  chronicle(narrative);
+  // Même seuil que le rapport (BUG-52) : un aller-retour d'onglet de 15 s, ou un
+  // gel d'onglet visible, n'a pas à écrire un récit d'absence dans la Chronique.
+  // Le titre gagné, les pactes et une chute du farm, eux, sont de vrais
+  // événements : toujours dits.
+  if (elapsedSeconds >= REPORT_MIN_SEC || (farm && farm.collapses > 0)) chronicle(narrative);
   chronicleAwayRank(before);
   chronicleAwayMyths(before);
   // Pas de rapport pour un aller-retour d'onglet : on n'annonce une récolte que
@@ -862,6 +866,8 @@ let optMusicTrack = null;
 const musicGain = { fondu: 1, efface: 1 };
 const musicRamps = { fondu: null, efface: null };
 let musicDuckTimer = null;
+// Échéance de l'effacement : la PLUS TARDIVE des demandes en cours (0 = aucune).
+let musicDuckUntil = 0;
 
 function applyMusicVolume() {
   if (bgAudio) bgAudio.volume = clamp(optMusicVolume * musicGain.fondu * musicGain.efface, 0, 1);
@@ -1011,10 +1017,18 @@ export function setSfxVolume(vol) {
 }
 
 // La musique s'efface sous la mélodie de la scène, puis revient (audio/melodieScene.js).
+// Un appel court qui suit un appel long ne raccourcit plus l'effacement : la
+// roue des Plaisirs (~1,4 s) pendant la mélodie de la scène (~6 s) faisait
+// remonter la musique par-dessus la mélodie encore en cours (audit 2026-10-05,
+// BUG-84). La remontée part à l'échéance la plus tardive.
 export function duckMusic(ms) {
   rampMusic("efface", 0.2, 250);
+  musicDuckUntil = Math.max(musicDuckUntil, Date.now() + Math.max(0, ms));
   clearTimeout(musicDuckTimer);
-  musicDuckTimer = setTimeout(() => rampMusic("efface", 1, 1200), Math.max(0, ms));
+  musicDuckTimer = setTimeout(() => {
+    musicDuckUntil = 0;
+    rampMusic("efface", 1, 1200);
+  }, Math.max(0, musicDuckUntil - Date.now()));
 }
 
 export function setMusicVolume(vol) {

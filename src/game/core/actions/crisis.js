@@ -429,10 +429,16 @@ export function runTerminalCrisisAction(type, tier = 0) {
   state.crisisExtensions = (state.crisisExtensions || 0) + 1;
   registerOlympusCrisisResolved();
 
-  const tp = state.terminalPreparations || (state.terminalPreparations = { used: {}, riteTier: -1 });
-  if (!tp.used) tp.used = {};
-  tp.used[type] = true;
-  tp.riteTier = Math.max(tp.riteTier ?? -1, tier); // vœu « Le grand rite » : le plus haut palier accompli
+  // Nouvel objet, pas une mutation en place : la Veille (PrestigeView) s'abonne à
+  // state.terminalPreparations, et le shallow-compare ne voit pas un champ modifié
+  // dans la même référence — « Rite accompli » ne s'affichait que parce que la
+  // ligne de chronique remplace aussi state.history (audit 2026-10-05, BUG-109).
+  const tp = state.terminalPreparations || { used: {}, riteTier: -1 };
+  state.terminalPreparations = {
+    ...tp,
+    used: { ...(tp.used || {}), [type]: true },
+    riteTier: Math.max(tp.riteTier ?? -1, tier) // vœu « Le grand rite » : le plus haut palier accompli
+  };
   // « Choisir sa chute » : le rite déclare la cause de la chute.
   state.declaredFallCause = TERMINAL_EDICT_CAUSE[type] || null;
   // « Préparations funèbres » : l'effet de préparation (boost du gain de ruines)

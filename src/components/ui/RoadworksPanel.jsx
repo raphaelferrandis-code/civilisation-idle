@@ -1,10 +1,10 @@
 import { useRef, useState, useEffect } from 'react';
+import { useGameState } from '../../hooks/useGameState.js';
 import { buyBuilding } from '../../game/core/actions.js';
-import { state, buildingById } from '../../game/core/state.js';
+import { buildingById } from '../../game/core/state.js';
 import { fmtShort, labelFor } from '../../game/core/utils.js';
 import { tr } from '../../game/core/i18n.js';
-import { D } from '../../game/core/num.js';
-import { roadWorkCost, roadNextInfo, roadWorksCount, roadWorksState, roadWorksBank } from '../../game/core/actions/roadWorks.js';
+import { roadWorkCost, roadNextInfo, roadWorksCount, roadWorksState, roadWorksBank, roadWorkAffordable } from '../../game/core/actions/roadWorks.js';
 import { ROAD_WORK_QUEUE_MAX, ROAD_WORKS_BANK_MAX } from '../../game/core/balance.js';
 import { RES_ICONS } from './resourceIcons.js';
 import { roadNetworkInfo } from './roadNetwork.js';
@@ -32,6 +32,25 @@ export default function RoadworksPanel({ building: b, babelBlocked = false }) {
   const floatIdRef = useRef(0);
   useEffect(() => () => { timersRef.current.forEach(clearTimeout); }, []);
 
+  // ABONNEMENT-SIGNATURE (audit du 05/10, BUG-48). L'encart lit l'état
+  // directement, mais il n'était rendu que quand la boutique se re-rendait —
+  // et elle est memo() sans props, elle ne passe pas à chaque tick : barre,
+  // file, verbe et prix restaient figés 5 à 60 s, et le bouton grisé alors que
+  // le Savoir suffisait. Une chaîne bâtie sur les mêmes helpers (tous bon
+  // marché) : le rendu ne part que quand ce qui s'affiche change.
+  useGameState(() => {
+    const a = roadWorksState().active;
+    const n = roadNextInfo();
+    const c = roadWorkCost();
+    const nt = roadNetworkInfo();
+    return [
+      a ? `${Math.ceil(a.left)}/${a.total}/${a.kind}` : -1, roadWorksCount(), roadWorksBank(),
+      n.kind, n.tiles, n.toRank, n.targetId, n.count,
+      c ? c.toExponential(3) : "", roadWorkAffordable() ? 1 : 0,
+      nt.pct, nt.rank, nt.doors ? `${nt.doors.onRoad}/${nt.doors.total}` : ""
+    ].join("|");
+  });
+
   const next = roadNextInfo();
   const cost = roadWorkCost();
   const queued = roadWorksCount();
@@ -41,7 +60,8 @@ export default function RoadworksPanel({ building: b, babelBlocked = false }) {
 
   const done = next.kind === "done";
   const full = !done && queued >= ROAD_WORK_QUEUE_MAX;
-  const buyable = !babelBlocked && !full && !!cost && D(state.knowledge).gte(cost);
+  // Même règle que l'abordabilité de la boutique (badge de l'onglet).
+  const buyable = !babelBlocked && roadWorkAffordable();
 
   const spawnFloat = (text) => {
     const id = floatIdRef.current += 1;

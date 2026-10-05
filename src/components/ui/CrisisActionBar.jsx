@@ -333,7 +333,7 @@ export default function CrisisActionBar() {
           {foyers.map((f) => (
             <details key={f.key} className={`crisis-foyer crisis-foyer--${f.tone}${isSoothed(f.key) ? ' is-soothed' : ''}${isReformed(f.key) ? ' is-reformed' : ''}`}>
               <summary className="crisis-foyer-head" {...tipProps(f.label, tr({ fr: "Pression que ce foyer ajoute à la Rupture (100 % = seuil de crise). Les 4 foyers s'additionnent dans la jauge globale.", en: 'Pressure this hotspot adds to the Rupture (100% = crisis threshold). The 4 hotspots add up in the overall gauge.' }))}>
-                <img className="crisis-foyer-icon" src={`/pixelart/ui/foyers/${f.key}.png`} alt="" aria-hidden="true" />
+                <PixelIcon name={`foyers/${f.key}`} className="crisis-foyer-icon" size={16} />
                 <span className="crisis-foyer-name">{f.label}</span>
                 {isReformed(f.key) && <span className="crisis-foyer-reformed" {...tipProps(null, tr({ fr: 'Foyer réformé. Le recul acquis ne décline pas.', en: 'Hotspot reformed. The reduction does not decay.' }))}>{tr({ fr: 'réformé', en: 'reformed' })}</span>}
                 {isSoothed(f.key) && <span className="crisis-foyer-soothed" {...tipProps(null, tr({ fr: "Foyer apaisé. L'effet décline avec le temps.", en: 'Hotspot soothed. The effect decays over time.' }))}>{tr({ fr: 'apaisé', en: 'soothed' })}</span>}

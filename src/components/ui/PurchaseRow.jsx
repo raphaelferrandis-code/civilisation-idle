@@ -270,6 +270,13 @@ function PurchaseRow({
   );
 }
 
+// Facteur unitaire : un number, ou un Decimal au-delà du float (BUG-45). Le
+// Decimal est recréé à chaque rendu du parent : comparé par référence, il
+// casserait la mémoïsation de toutes les rangées, d'où la comparaison par valeur.
+function sameMult(a, b) {
+  return a === b || (typeof a?.eq === "function" && typeof b?.eq === "function" && a.eq(b));
+}
+
 /**
  * Le parent (BuildingShop) se re-rend à chaque tick (instances Decimal des
  * ressources). On bloque ici le re-render des rangées dont l'affichage n'a pas
@@ -278,10 +285,6 @@ function PurchaseRow({
  * objets. `globalMult` n'est passé que pour ce comparateur (proxy de production).
  */
 function arePropsEqual(prev, next) {
-  // Voirie : la rangée affiche des valeurs HORS props (file de chantiers,
-  // avancement, prochain chantier écrits dans state par le tick et la carte) —
-  // elle doit se re-rendre à chaque passe du parent (une seule rangée, coût nul).
-  if (next.building && next.building.id === "roads") return false;
   return (
     prev.building === next.building &&
     prev.count === next.count &&
@@ -296,7 +299,7 @@ function arePropsEqual(prev, next) {
     // Facteur unitaire (jalons × Rives fécondes × Babel) : il bouge SANS que
     // count change (nœud de ruines, achats ailleurs dans la catégorie élue de
     // Babel) — l'oublier figerait la production affichée des autres rangées.
-    prev.outputMult === next.outputMult &&
+    sameMult(prev.outputMult, next.outputMult) &&
     prev.lackingKey === next.lackingKey &&  // highlight is-lacking par devise
     // Délai avant achat (B5) : une CHAÎNE déjà formatée, donc comparable comme
     // une primitive. L'oublier ici figerait le compte à rebours sur sa première

@@ -109,6 +109,15 @@
   outline: none;
 }
 
+/* …mais le champ garde l'anneau or commun (buttons.css) : son repère de
+   remplacement, la bordure du wrapper ci-dessus, n'existe plus dans le HUD
+   (`border-bottom: none`, .city-stage-hud) — au clavier, on ne voyait plus où
+   l'on tapait le nom (BUG-118). */
+.city-title-wrapper .city-name-input:focus-visible {
+  outline: 2px solid var(--gold-bright);
+  outline-offset: 2px;
+}
+
 /* ── Régulation des tensions : barre compacte permanente (en-tête de la Cité) ── */
 .crisis-regul {
   border-top: 1px solid rgba(255, 255, 255, 0.07);
@@ -173,9 +182,12 @@
 
 .crisis-foyer-head:hover .crisis-foyer-name { color: var(--gold-ivory); }
 
+/* 16 px et non 18 : aucune variante @18 n'existe, donc le maître 64 px était
+   rééchantillonné et bavait (BUG-106). La variante @16 (PixelIcon size={16}),
+   comme .regul-summary-icon. */
 .crisis-foyer-icon {
-  width: 18px;
-  height: 18px;
+  width: 16px;
+  height: 16px;
   flex: 0 0 auto;
   object-fit: contain;
   image-rendering: pixelated;

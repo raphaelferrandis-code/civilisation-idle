@@ -39,6 +39,18 @@
   --pm-w: 16rem;
 }
 
+/* LA HAUTEUR OFFERTE AU CADRE (PlaisirsView.jsx) : la fenêtre moins ce qui est
+   réellement au-dessus et au-dessous — la barre de ressources (son gabarit
+   --city-topbar-h), sa marge basse (0.75rem, components.css) et le padding bas
+   de <main> (--main-pad). Les 96 px d'avant ignoraient tout ça : la page
+   défilait de 23 à 42 px, barres de défilement comprises, de 1280 à 2560 px
+   (audit du 05/10, BUG-116). Le dernier 0.5rem absorbe ce que la barre prend
+   au-delà de son gabarit (1 à 3 px mesurés : c'est une hauteur MINIMALE).
+   Au doigt la coquille tactile a sa propre barre basse : repli d'origine. */
+:root:not([data-pointer="coarse"]) #plaisirs {
+  --plaisirs-frame-h: calc(100vh - var(--city-topbar-h) - 0.75rem - var(--main-pad, 1rem) - 0.5rem);
+}
+
 /* LE MENU VOLANT — aux codes du jeu, plus aux miens.
  *
  * Il était habillé en styles EN LIGNE, avec des couleurs inventées : c'est
@@ -458,11 +470,18 @@
   border-image: url("/pixelart/ui/chrome/wizard/button.png") 3 3 6 3 fill stretch;
   filter: brightness(1.18);
 }
+/* Un nom trop long pour la ligne passe sur DEUX lignes au lieu d'être coupé :
+   « Le grand flambeur », « La roulette » perdaient leur fin à toutes les tailles
+   en anglais (audit du 05/10, BUG-117). Deux lignes de 0.78rem tiennent dans les
+   2.15rem de la ligne ; un nom qui tient reste sur une seule, comme avant. */
 .pm-nom {
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  line-clamp: 2;
   min-width: 0;
   overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
+  overflow-wrap: anywhere;
   font-size: 0.78rem;
   font-weight: 700;
   letter-spacing: 0.06em;
@@ -471,7 +490,7 @@
 .pm-verbe {
   flex: none;
   margin-left: auto;
-  font-size: 0.68rem;
+  font-size: 0.6875rem; /* plancher de 11 px (variables.css) — 0.68 avant, BUG-119 */
   font-weight: 600;
   color: var(--muted);
 }
@@ -564,7 +583,7 @@
   min-width: 0;
   min-height: 1.75rem;
   padding: 0 0.35rem;
-  font-size: 0.68rem;
+  font-size: 0.6875rem; /* plancher de 11 px — 0.68 avant, BUG-119 */
 }
 .pm-dials .doctrine-input-wrap { align-self: flex-start; }
 .pm-dials .temple-auto-slider,

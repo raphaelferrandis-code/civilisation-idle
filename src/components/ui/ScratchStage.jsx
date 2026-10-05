@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState, useCallback } from 'react';
 import { useGameState } from '../../hooks/useGameState.js';
-import { state, save, saveSoon } from '../../game/core/state.js';
+import { state, save, saveSoon, renderCache } from '../../game/core/state.js';
 import {
   playScratch,
   scratchPayout,
@@ -183,7 +183,9 @@ export default function ScratchStage({ table, onClose }) {
   const [ticketNonce, setTicketNonce] = useState(0);
   const pendingRef = useRef(null); // apply() différé du ticket en cours
   const outcomeRef = useRef(null); // le résultat brut (apply le peuple sur place)
-  useGameState((s) => s.instability); // or, cagnotte, mises vivants (1 Hz)
+  // Horloge 1 Hz : le tick, pas l'instabilité (figée en crise terminale ou une
+  // fois convergée — BUG-114). Or, cagnotte, mises vivants.
+  useGameState(() => renderCache.tickNow);
   const cycles = useGameState((s) => s.cycles);
 
   // Nouvelle ouverture de la scène : flush un éventuel ticket en suspens et

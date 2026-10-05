@@ -662,5 +662,12 @@
   pointer-events: none;
 }
 @keyframes rwFloat { from { opacity: 1; transform: translateY(0); } to { opacity: 0; transform: translateY(-12px); } }
+/* Mouvement réduit (système ou cran « Aucune » des Options) : la durée écrasée
+   par base.css faisait sauter le +coût à sa dernière image, invisible (BUG-54).
+   Sans animation, il reste posé et React le retire après 900 ms. */
+@media (prefers-reduced-motion: reduce) {
+  .rw-float { animation: none; }
+}
+:root[data-motion="none"] .rw-float { animation: none; }
 .rw-shake { animation: rwShake 0.35s; }
 @keyframes rwShake { 0%, 100% { transform: translateX(0); } 25% { transform: translateX(-3px); } 75% { transform: translateX(3px); } }

@@ -145,7 +145,7 @@
   min-width: 1.4rem;
   padding: 0 0.2rem;
   font-family: var(--font-number);
-  font-size: 0.68rem;
+  font-size: 0.6875rem; /* plancher de 11 px (variables.css) — 0.68 avant, BUG-119 */
   text-align: center;
   color: #fff6e0;
   border: 1px solid rgba(0, 0, 0, 0.6);
@@ -185,7 +185,7 @@
 .plaisirs-stage .rl-dessous .ptable-rack-btn {
   min-height: 2rem;
   padding: 0.1rem 0.35rem;
-  font-size: 0.66rem;
+  font-size: 0.6875rem; /* plancher de 11 px — 0.66 avant, BUG-119 */
   white-space: nowrap;
 }
 .rl-tapis.is-debout .rl-dehors.is-rouge .rl-label,

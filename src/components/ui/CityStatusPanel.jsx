@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef } from 'react';
 import { createPortal } from 'react-dom';
 import { useCityViewState } from '../../hooks/useCityViewState.js';
-import { globalMultiplier, globalMultiplierDec, currentEraIndex, nextEraProgress } from '../../game/core/mechanics.js';
+import { globalMultiplier, globalMultiplierDec, currentEraIndex, nextEraProgress, sedimentTiers, sedimentTierIndex, cycleAgeSec } from '../../game/core/mechanics.js';
 import { eras } from '../../game/data/world.js';
 import { getEraTheme } from '../../game/data/eraThemes.js';
 import { pct, clamp01, fmtSecs, fmtClock } from '../../game/core/utils.js';
@@ -25,13 +25,11 @@ import { uiRevealed } from '../../game/core/uiReveal.js';
  * Toujours visible, quel que soit l'onglet actif.
  */
 
-const SEDIMENT_PALIERS = [
-  { secs: 3600,   bonus: 2   },
-  { secs: 28800,  bonus: 15  },
-  { secs: 86400,  bonus: 45  },
-  { secs: 259200, bonus: 135 },
-  { secs: 604800, bonus: 400 },
-];
+// Paliers de sédiment : la table du MOTEUR (sedimentTiers, prestige.js), et non
+// plus une copie à la main — elle ignorait « Limon des âges » (audit du 05/10,
+// BUG-51). Âge lu sur l'horloge de la moisson (cycleAgeSec), figée en crise
+// terminale comme le gain lui-même.
+const sedimentBonusPct = (palier) => Math.round((palier.mult - 1) * 100);
 
 // Durée du cycle en j/h/m/s : on n'affiche que les unités utiles, en zéro-paddant
 // les unités inférieures dès qu'une unité supérieure est présente (style horloge),
@@ -42,13 +40,17 @@ const fmtCycleTime = (totalSecs) => fmtClock(totalSecs, { seconds: 'always' });
 // descend seconde par seconde, une chaîne se figerait à l'ouverture et mentirait
 // dès la seconde suivante. Hors du composant parce que la bulle la rappelle
 // toutes les 250 ms, jamais pendant un rendu : `tickNow` serait celui du rendu
-// qui a ouvert la bulle, donc gelé.
-function sedimentTipText(nextPalier, cycleStartedAt) {
+// qui a ouvert la bulle, donc gelé. Le prochain palier se relit ici aussi : un
+// palier franchi bulle ouverte ne doit pas rester annoncé « dans 0 s ».
+function sedimentTipText() {
+  const paliers = sedimentTiers();
+  const age = cycleAgeSec();
+  const nextPalier = paliers[sedimentTierIndex(age, paliers) + 1];
   if (!nextPalier) return tr({ fr: 'Bonus sédiment maximum atteint', en: 'Maximum sediment bonus reached' });
-  const restant = Math.max(0, Math.ceil(nextPalier.secs - (Date.now() - cycleStartedAt) / 1000));
+  const restant = Math.max(0, Math.ceil(nextPalier.secs - age));
   return tr({
-    fr: `Prochain palier sédiment : +${nextPalier.bonus}% dans ${fmtSecs(restant)}`,
-    en: `Next sediment tier: +${nextPalier.bonus}% in ${fmtSecs(restant)}`
+    fr: `Prochain palier sédiment : +${sedimentBonusPct(nextPalier)}% dans ${fmtSecs(restant)}`,
+    en: `Next sediment tier: +${sedimentBonusPct(nextPalier)}% in ${fmtSecs(restant)}`
   });
 }
 
@@ -76,12 +78,9 @@ export default function CityStatusPanel({ variant = 'full' }) {
   const cycleSeconds = Math.floor((tickNow - (cycleStartedAt || tickNow)) / 1000);
   const cycleTimeLabel = fmtCycleTime(cycleSeconds);
 
-  const cycleElapsed = (tickNow - cycleStartedAt) / 1000;
-  let sedimentIdx = -1;
-  for (let i = SEDIMENT_PALIERS.length - 1; i >= 0; i--) {
-    if (cycleElapsed >= SEDIMENT_PALIERS[i].secs) { sedimentIdx = i; break; }
-  }
-  const nextPalier = sedimentIdx < SEDIMENT_PALIERS.length - 1 ? SEDIMENT_PALIERS[sedimentIdx + 1] : null;
+  // Le composant se re-rend à 1 Hz (tickNow) : l'horloge de la moisson suit.
+  const sedimentPaliers = sedimentTiers();
+  const sedimentIdx = sedimentTierIndex(cycleAgeSec(), sedimentPaliers);
 
   // RÉSERVE D'ABSENCE : le plafond d'idle, en clair. Volontairement STATIQUE et
   // non une jauge de remplissage : `state.lastTick` est réécrit à chaque tick,
@@ -198,9 +197,13 @@ export default function CityStatusPanel({ variant = 'full' }) {
     <div className={`city-status-panel${identity ? ' is-identity' : ''}`} aria-label={tr({ fr: "État de la civilisation", en: "Civilization status" })}>
       <div
         className="csp-block"
-        {...tipProps(tr({ fr: 'Âge', en: 'Age' }), tr({
+        {...tipProps(tr({ fr: 'Âge', en: 'Age' }), eraTheme.epochNumeral ? tr({
           fr: `Progression vers l'âge suivant. ${eraTheme.epochLabel}, ère ${eraTheme.epochNumeral}/V.`,
           en: `Progress toward the next age. ${eraTheme.epochLabel}, era ${eraTheme.epochNumeral}/V.`
+        }) : tr({
+          // Époques cosmiques (BUG-102) : 54, 44 ou 166 ères, pas cinq.
+          fr: `Progression vers l'âge suivant. ${eraTheme.epochLabel}, ère ${eraTheme.epochStep} sur ${eraTheme.epochSize}.`,
+          en: `Progress toward the next age. ${eraTheme.epochLabel}, era ${eraTheme.epochStep} of ${eraTheme.epochSize}.`
         }))}
       >
         <div className="csp-block-head">
@@ -215,14 +218,14 @@ export default function CityStatusPanel({ variant = 'full' }) {
       {revealTension && (
       <div
         className="csp-block"
-        {...tipProps(tr({ fr: 'Usure', en: 'Wear' }), () => sedimentTipText(nextPalier, cycleStartedAt))}
+        {...tipProps(tr({ fr: 'Usure', en: 'Wear' }), sedimentTipText)}
       >
         <div className="csp-block-head">
           <span className="csp-label">{tr({ fr: 'Usure', en: 'Wear' })}</span>
           <strong className={`csp-value ${timeWear >= 0.8 ? 'danger-pulse' : ''}`}>{pct(timeWear)}</strong>
           {sedimentIdx >= 0 && (
             <span className="csp-laps" aria-hidden="true">
-              {SEDIMENT_PALIERS.map((_, i) => (
+              {sedimentPaliers.map((_, i) => (
                 <span key={i} className={i <= sedimentIdx ? 'csp-lap-done' : 'csp-lap-empty'}>■</span>
               ))}
             </span>
@@ -332,7 +335,7 @@ export default function CityStatusPanel({ variant = 'full' }) {
                         onClick={() => { chooseCycleVow(o.id); setVowPickerFor(null); }}
                       >
                         <span className="csp-vow-option-goal">{tr(def.describe(o.target))}</span>
-                        <strong className="csp-vow-option-mult" title={tr({ fr: `Tenu : +${pctBonus} % · rompu ou manqué : −${pctFail} %`, en: `Kept: +${pctBonus}% · broken or missed: −${pctFail}%` })}>
+                        <strong className="csp-vow-option-mult" {...tipProps(null, tr({ fr: `Tenu : +${pctBonus} % · rompu ou manqué : −${pctFail} %`, en: `Kept: +${pctBonus}% · broken or missed: −${pctFail}%` }))}>
                           +{pctBonus}% <span className="csp-vow-option-risk">/ −{pctFail}%</span>
                         </strong>
                       </button>

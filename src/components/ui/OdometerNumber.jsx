@@ -1,8 +1,8 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { fmtShortLive, COMPACT_UNITS, SCIENTIFIC_FROM } from '../../game/core/utils.js';
 import { toNum } from '../../game/core/num.js';
 import { useCountUp } from '../../hooks/useCountUp.js';
-import { idealDecimals, reconcilePrecision, lastDigitRolls, nextRollMode, SETTLE_MS, COOLDOWN_MS } from './odoPrecision.js';
+import { idealDecimals, reconcilePrecision, lastDigitRolls, nextRollMode, rollPixel, SETTLE_MS, COOLDOWN_MS } from './odoPrecision.js';
 
 // Même constante que RollingNumber : l'anim d'un tick déborde sur le suivant
 // pour que le défilement ne s'arrête jamais entre deux ticks (voir là-bas).
@@ -119,9 +119,27 @@ function useRollMode(rate, div, dec) {
   return next;
 }
 
+// Clé de ce que le cadran PEINT pour la valeur n : forme et chiffres (suffixe +
+// ⌊D⌋, le même calcul que le rendu ci-dessous), plus, en roulis, le pixel du
+// dernier chiffre (rollPixel). useCountUp ne re-rend qu'à son changement
+// (audit du 2026-10-05, PERF-39) : en crans, quelques rendus par seconde au
+// lieu de 60 ; en roulis, un par pixel parcouru.
+function frameKey(n, { decimals, rolls, emPx }) {
+  const parts = dialParts(n);
+  if (!parts) return `=${fmtShortLive(n)}`;
+  const D = parts.mantissa * Math.pow(10, decimals);
+  const Dint = Math.floor(D);
+  return rolls ? `${parts.suffix}|${Dint}|${rollPixel(D, emPx)}` : `${parts.suffix}|${Dint}`;
+}
+
 export default function OdometerNumber({ value, rate = 0, duration = DEFAULT_DURATION }) {
   const target = toNum(value);
-  const display = useCountUp(target, duration);
+  // Ce dont la clé dépend et que seul le rendu connaît (précision, régime,
+  // taille réelle de la police) : recopié après chaque rendu, lu par la
+  // boucle d'interpolation — jamais pendant le rendu.
+  const keyCtxRef = useRef({ decimals: 0, rolls: true, emPx: 0 });
+  const odoRef = useRef(null);
+  const display = useCountUp(target, duration, (n) => frameKey(n, keyCtxRef.current));
 
   const parts = dialParts(display);
   const mantissa = parts ? parts.mantissa : 0;
@@ -131,6 +149,31 @@ export default function OdometerNumber({ value, rate = 0, duration = DEFAULT_DUR
   const churn = Math.abs(toNum(rate)) || 0;
   const decimals = useReadablePrecision(churn, parts ? parts.div : 1, intLen);
   const rolls = useRollMode(churn, parts ? parts.div : 1, decimals);
+
+  // Forme du cadran (nb de chiffres + suffixe) : `key` du span, voir `shape`.
+  const formKey = parts ? `${intLen + decimals}|${parts.suffix}` : '';
+
+  useLayoutEffect(() => {
+    const ctx = keyCtxRef.current;
+    ctx.decimals = decimals;
+    ctx.rolls = rolls;
+  });
+
+  // La police du cadran est calée sur sa cellule (100cqw / --odo-w,
+  // components.css) : on la LIT plutôt que de la calculer, et seulement quand
+  // elle change — la boîte du cadran change alors de taille, ce que
+  // ResizeObserver signale (premier branchement compris), après la mise en
+  // page. Un getComputedStyle à chaque rendu forçait un recalcul de style par
+  // cadran et par image. Le span est re-monté à chaque forme : on s'y rebranche.
+  useEffect(() => {
+    const el = odoRef.current;
+    const ctx = keyCtxRef.current;
+    ctx.emPx = 0;
+    if (!el || typeof ResizeObserver === 'undefined') return undefined;
+    const ro = new ResizeObserver(() => { ctx.emPx = parseFloat(getComputedStyle(el).fontSize) || 0; });
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, [formKey]);
 
   if (!parts) {
     // Repli plat : à l'arrêt on reformate la valeur d'origine (Decimal exact).
@@ -162,7 +205,7 @@ export default function OdometerNumber({ value, rate = 0, duration = DEFAULT_DUR
   // Jalon : signature de forme du cadran (nb de chiffres + suffixe). Utilisée
   // comme `key` du wrapper : quand elle change, React re-monte le span →
   // l'anim .roll-pulse se rejoue une fois (sans compteur lu en ref au render).
-  const shape = `${count}|${suffix}`;
+  const shape = formKey; // = `${count}|${suffix}`
 
   // Largeur du cadran en em, publiée en --odo-w (nombre) : la topbar s'en
   // sert pour dimensionner la police au conteneur (font-size = 100cqw /
@@ -234,7 +277,7 @@ export default function OdometerNumber({ value, rate = 0, duration = DEFAULT_DUR
           lisent « 4 5 0 1 2 3… », du charabia. La valeur lisible vit dans le
           frère .sr-only (position: absolute, cf. components.css) — hors flux,
           donc sans effet sur la mesure de largeur --odo-w du cadran. */}
-      <span className="odo roll-pulse" key={shape} style={{ '--odo-w': wEm.toFixed(3) }} aria-hidden="true">
+      <span className="odo roll-pulse" key={shape} ref={odoRef} style={{ '--odo-w': wEm.toFixed(3) }} aria-hidden="true">
         {slots}
         {suffix && <span className="odo-sep odo-suffix">{suffix}</span>}
       </span>

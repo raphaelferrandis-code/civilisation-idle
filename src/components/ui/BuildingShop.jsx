@@ -9,8 +9,10 @@ import {
   isUnlocked,
   buildingBatchCost,
   buildingUnitFactor,
+  buildingUnitFactorDec,
   buildingMilestoneInfo,
   babelExponentialMult,
+  babelExponentialMultDec,
   milestoneStepSize
 } from '../../game/core/mechanics.js';
 import { buildings, buildingDisplayOrder } from '../../game/data/buildings.js';
@@ -19,6 +21,7 @@ import { buildingIconSrc } from '../../game/data/buildingIcons.js';
 import { renderCache, state } from '../../game/core/state.js';
 import { uiRevealed, uiRevealFresh } from '../../game/core/uiReveal.js';
 import { buyableInMass } from '../../game/core/actions/building.js';
+import { roadWorkAffordable } from '../../game/core/actions/roadWorks.js';
 import { purchaseEta, ETA_SECONDS, ETA_NO_INCOME, ETA_UNREACHABLE } from '../../game/core/mechanics/purchaseEta.js';
 import { fmtEta, quantizeEta, labelFor } from '../../game/core/utils.js';
 import { productionScales, buildingRelativeGain } from '../../game/core/mechanics/production/productionBreakdown.js';
@@ -66,19 +69,27 @@ import { tipProps } from './HelpBubble.jsx';
    Babel), composé dans la rangée depuis les mêmes helpers que le moteur.
    `globalMult`/`sqrtGlobalMult` peuvent être des Decimal (au-delà du float,
    cf. l'abonnement plus bas) : le produit reste alors en Decimal —
-   rateScale/signedShort savent déjà l'afficher, « inf » n'apprend rien. */
+   rateScale/signedShort savent déjà l'afficher, « inf » n'apprend rien.
+   `outputMult` aussi (BUG-45, vers 13 500 Moteurs) : un seul Decimal dans le
+   produit le fait passer tout entier en Decimal, et un produit de deux floats
+   finis qui déborde y repasse aussi. ⚠ Jamais `Decimal.mul(Infinity)` : il
+   rend 0, et c'est ce qui vidait la liste en « effet indirect ». */
 function buildingProductionSegments(building, outputCount, globalMult, sqrtGlobalMult, outputMult) {
-  const estDec = globalMult instanceof Decimal;
-  const seg = (base, mult) => estDec
-    ? mult.mul(base * outputCount).mul(outputMult)
-    : base * outputCount * mult * outputMult;
+  const estDec = globalMult instanceof Decimal || outputMult instanceof Decimal;
+  const seg = (base, mult) => {
+    if (!estDec) {
+      const v = base * outputCount * mult * outputMult;
+      if (Number.isFinite(v)) return v;
+    }
+    return D((base || 0) * outputCount).mul(mult).mul(outputMult);
+  };
   return [
     ["population", seg(building.pop, globalMult)],
     ["food", seg(building.food, sqrtGlobalMult)],
     ["gold", seg(building.gold, sqrtGlobalMult)],
     ["knowledge", seg(building.knowledge, globalMult)],
     ["infrastructure", seg(building.infra, globalMult)]
-  ].filter(([, value]) => (estDec ? value.abs().toNumber() : Math.abs(value)) > 0.0001);
+  ].filter(([, value]) => (value instanceof Decimal ? value.abs().toNumber() : Math.abs(value)) > 0.0001);
 }
 
 const TABS = [
@@ -140,7 +151,10 @@ function BuildingShop({ open: openProp, onToggle }) {
   const milestoneStep = useMemo(() => milestoneStepSize(), [upgradesVersion]);
   const costById = useMemo(() => {
     const costs = {};
-    for (const b of buildings) costs[b.id] = buildingBatchCost(b);
+    // Voirie exclue (BUG-48) : buildingBatchCost lui applique la formule
+    // générique (base × scale^n), un prix fictif que personne ne voit — son vrai
+    // prix est celui du chantier, jugé plus bas par roadWorkAffordable.
+    for (const b of buildings) if (b.id !== "roads") costs[b.id] = buildingBatchCost(b);
     return costs;
     // Deps = clés d'invalidation, pas des valeurs capturées : buildingBatchCost
     // lit l'état (compteurs, buyAmount, discount) en interne, invisible pour la
@@ -157,6 +171,10 @@ function BuildingShop({ open: openProp, onToggle }) {
   const affordability = useGameState((s) => {
     const sig = {};
     for (const b of buildings) {
+      // Voirie : le prix du chantier bouge avec la carte (state.roadNext), pas
+      // aux achats — il se juge donc ici, à chaque passe, avec les mêmes refus
+      // que l'achat (file pleine, réserve pleine). Badge de l'onglet honnête.
+      if (b.id === "roads") { sig[b.id] = roadWorkAffordable() ? "" : "knowledge"; continue; }
       const cost = costById[b.id];
       sig[b.id] = Object.keys(cost).filter((cur) => !D(s[cur]).gte(cost[cur])).join(",");
     }
@@ -259,8 +277,10 @@ function BuildingShop({ open: openProp, onToggle }) {
 
   // Premier bâtiment achetable, calculé avant le rendu (pas de mutation
   // pendant le .map() : incompatible avec la mémoïsation du React Compiler).
+  // Sans la Voirie (BUG-48) : son encart ne pulse pas, le premier achetable
+  // tombait sur lui et AUCUNE rangée ne pulsait.
   const firstAffordableId = visibleBuildings.find((b) =>
-    affordability[b.id] === "" && !(babelActive && babelCat && b.category !== babelCat)
+    b.id !== "roads" && affordability[b.id] === "" && !(babelActive && babelCat && b.category !== babelCat)
   )?.id;
 
   // ── DÉLAI AVANT ACHAT (B5) ────────────────────────────────────────────────
@@ -287,6 +307,7 @@ function BuildingShop({ open: openProp, onToggle }) {
     if (crisisFrozen) return "";
     const parts = [];
     for (const b of visibleBuildings) {
+      if (b.id === "roads") continue;                 // encart à part, sans délai (et sans prix dans costById)
       if (affordability[b.id] === "") continue;       // payable : rien à annoncer
       if (!buyableInMass(b)) continue;                // coûte des Ruines : elles tombent, elles ne coulent pas
       const res = purchaseEta(costById[b.id]);
@@ -395,8 +416,13 @@ function BuildingShop({ open: openProp, onToggle }) {
           // Facteur unitaire = le MÊME que getBuildingSums (jalons × Rives
           // fécondes), × Babel sur la catégorie élue comme dans rates() — pas
           // de formule recopiée, seulement recomposée depuis les helpers moteur.
-          const outputMult = buildingUnitFactor(b, count)
-            * (babelActive && b.category === babelCat ? babelExpMult : 1);
+          // Au-delà du float (BUG-45), le moteur bascule sur le miroir Decimal
+          // (getBuildingSums, overflow) : la rangée suit la même bascule, sinon
+          // elle n'affichait plus que « effet indirect ».
+          const babelElue = babelActive && b.category === babelCat;
+          const outputMultF = buildingUnitFactor(b, count) * (babelElue ? babelExpMult : 1);
+          const outputMult = Number.isFinite(outputMultF) ? outputMultF
+            : buildingUnitFactorDec(b, count).mul(babelElue ? babelExponentialMultDec() : 1);
           const outputCount = Math.max(1, count);
           const milestoneInfo = buildingMilestoneInfo(b, count);
           const babelBlocked = babelActive && babelCat && b.category !== babelCat;

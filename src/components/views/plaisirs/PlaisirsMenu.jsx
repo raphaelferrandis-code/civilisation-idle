@@ -1,5 +1,5 @@
 import { useGameState } from '../../../hooks/useGameState.js';
-import { state } from '../../../game/core/state.js';
+import { state, renderCache } from '../../../game/core/state.js';
 import { setTempleAuto } from '../../../game/core/actions.js';
 import { plaisirsProgramme } from '../../../game/map/iso/plaisirsPlan.js';
 import { tr } from '../../../game/core/i18n.js';
@@ -73,6 +73,11 @@ export default function PlaisirsMenu({ navRef, bake, band, survol, selection, pl
   useGameState((s) => JSON.stringify(s.templeAuto || {})); // flammes et cadrans en direct
   useGameState((s) => s.maisonRank || 0); // les lieux que le titre ouvre (lot 3)
   useGameState((s) => s.bjBarreJusqua || 0); // le videur (lot 4 de la Nuit des Plaisirs)
+  // … et le temps qui passe sur son bannissement (BUG-114) : rien ne change dans
+  // l'état quand il expire, la table restait grisée « rouvre dans N min ». Les
+  // minutes restantes, lues sur l'horloge du tick, changent à chaque minute et à
+  // l'expiration.
+  useGameState(() => videurBarreMin(renderCache.tickNow));
   // Une automatisation au moins : la colonne des flammes est réservée sur TOUTES
   // les lignes, sinon les noms d'un même étage partent de deux bords différents.
   const autos = Object.values(AUTO_OF).some((id) => state.templeAuto?.[id]?.unlocked);

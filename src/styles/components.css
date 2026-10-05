@@ -46,9 +46,12 @@
   display: flex;
   flex-direction: column;
   gap: 0.5rem;
-  /* Collée en haut : déborde le padding de <main> (1rem) pour toucher les
-     bords de la fenêtre — la plaque devient le rebord supérieur de la page. */
-  margin: -1rem -1rem 0.75rem;
+  /* Collée en haut : déborde le padding de <main> pour toucher les bords de la
+     fenêtre — la plaque devient le rebord supérieur de la page. Le débord LIT
+     ce padding (--main-pad, base.css / layout.css) au lieu d'en recopier la
+     valeur : sous 1500 px, le -1rem écrit ici dépassait les 0.75rem de main
+     (audit du 05/10, BUG-116). */
+  margin: calc(-1 * var(--main-pad, 1rem)) calc(-1 * var(--main-pad, 1rem)) 0.75rem;
   /* Même gabarit que la vue Cité (--city-topbar-h + --odo-cap partagés,
      cf. views-city-hud.css) : la barre garde la même hauteur et la même
      taille de chiffres dans toutes les vues. min-height (pas height) : en
@@ -170,6 +173,12 @@
 .topbar .resource-rate-row {
   grid-area: debit;
   justify-self: end;
+  /* Jamais plus large que la case : calé à droite, un débit trop long
+     débordait par la GAUCHE et perdait ses premiers chiffres (« ?e2241 /s · cap
+     … » en 1280×800, Infrastructure avec le cap nomade, audit du 05/10,
+     BUG-20). Borné, c'est la FIN qui se rogne — le cap, que l'infobulle de la
+     case donne en entier. Sans effet tant que le débit tient. */
+  max-width: 100%;
 }
 
 /* Le nom passe DEVANT le débit dans la hiérarchie : à 0.78rem les deux

@@ -43,7 +43,12 @@ export function buildingOutputMultiplierDec(building, count) {
 export function buildingMilestoneInfo(building, count) {
   const milestone = Math.floor(count / milestoneStepSize());
   if (milestone <= 0) return null;
-  const bonus = building.category === "city" ? Math.pow(2, milestone) : Math.pow(1.5, milestone);
+  const base = building.category === "city" ? 2 : 1.5;
+  // Au-delà du float (2^1024 dès 25 600 Moteurs) Math.pow rend Infinity et le
+  // badge affichait « ×inf » : on bascule alors en Decimal, que fmt et fmtShort
+  // savent écrire. Sous le plafond, le number d'origine, à l'identique.
+  const flottant = Math.pow(base, milestone);
+  const bonus = Number.isFinite(flottant) ? flottant : Decimal.pow(base, milestone);
   return {
     milestone,
     bonus,
@@ -67,6 +72,13 @@ export function riverEngineFactor(building) {
 // mentait sur les ports/moulins.
 export function buildingUnitFactor(building, count) {
   return buildingOutputMultiplier(building, count) * riverEngineFactor(building);
+}
+
+// Miroir Decimal du facteur unitaire, pour l'aperçu de la boutique au-delà du
+// float (BUG-45) : vers 13 500 Moteurs, buildingUnitFactor vaut Infinity, et
+// `Decimal.mul(Infinity)` rend 0 — la rangée tombait en « effet indirect ».
+export function buildingUnitFactorDec(building, count) {
+  return buildingOutputMultiplierDec(building, count).mul(riverEngineFactor(building));
 }
 
 export function getBuildingSums() {

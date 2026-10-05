@@ -2,7 +2,7 @@ import { describe, it, expect } from "vitest";
 
 import {
   MAX_SLOTS, SETTLE_MS, COOLDOWN_MS, ROLL_MAX_FLIPS, ROLL_HYSTERESIS,
-  staticDecimals, flipsPerSecond, idealDecimals, reconcilePrecision, lastDigitRolls, nextRollMode
+  staticDecimals, flipsPerSecond, idealDecimals, reconcilePrecision, lastDigitRolls, nextRollMode, rollPixel
 } from "../odoPrecision.js";
 
 // Promesse du cadran « précision lisible » (retour Raph : les chiffres qui
@@ -233,5 +233,35 @@ describe("odoPrecision — roulis continu ou crans", () => {
     // …et on n'en change qu'une fois la marge franchie.
     expect(nextRollMode(true, ROLL_MAX_FLIPS * (1 + ROLL_HYSTERESIS) * 1.01, div, dec)).toBe(false);
     expect(nextRollMode(false, ROLL_MAX_FLIPS * (1 - ROLL_HYSTERESIS) * 0.99, div, dec)).toBe(true);
+  });
+});
+
+// Clé de rendu du roulis (PERF-39) : le cadran ne se re-rend que quand le pixel
+// du dernier chiffre change. Elle doit donner EXACTEMENT le pixel que le CSS
+// peint — `translateY(round(<décalage à 4 décimales>em, 1px))`, round() du CSS
+// = au plus proche, égalité vers +∞ — sinon une image visible serait sautée.
+describe("rollPixel — le pixel que peint le roulis", () => {
+  const cssPixel = (D, emPx) => {
+    const em = Number((-(D - Math.floor(D))).toFixed(4));
+    const x = em * emPx;
+    const lo = Math.floor(x);
+    return x - lo >= 0.5 ? lo + 1 : lo; // round(x, 1px) du CSS
+  };
+
+  it("même pixel que le CSS, à toutes les tailles de cadran (20 à 30 px)", () => {
+    for (const emPx of [20, 24, 28, 30]) {
+      for (let D = 1234; D < 1236; D += 0.0037) {
+        expect(rollPixel(D, emPx) + 0).toBe(cssPixel(D, emPx) + 0);
+      }
+    }
+  });
+
+  it("au repos sur un cran entier : décalage nul", () => {
+    expect(rollPixel(561, 24) + 0).toBe(0);
+  });
+
+  it("taille inconnue (pas de DOM) : le décalage brut, qui change à chaque image", () => {
+    expect(rollPixel(10.25, 0)).toBe(-0.25);
+    expect(rollPixel(10.26, 0)).not.toBe(rollPixel(10.25, 0));
   });
 });

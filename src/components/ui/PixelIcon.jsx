@@ -32,6 +32,8 @@ const SIZE_BY_CLASS = {
   'edict-seal': 32,      // views-crises.css
   'edict-emblem': 48,    // views-crises.css
   'policy-seal': 24,     // views-city.css — l'état désactivé passe size={16} explicitement
+  'more-item-icon': 24,  // touch-shell.css (feuille « Plus » du régime tactile)
+  'crisis-foyer-icon': 16, // views-city.css
 };
 
 const DEFAULT_SIZE = 16;

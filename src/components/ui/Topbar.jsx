@@ -30,6 +30,16 @@ function exactLabel(value) {
   return fmtInt(n);
 }
 
+// AU CLAVIER (BUG-118), la case et sa valeur sont deux arrêts de tabulation :
+// l'une ouvre les humeurs, l'autre la valeur exacte — réservées au survol
+// jusque-là. Mais le onFocus de React BOUILLONNE : le focus de la valeur
+// remontait jusqu'à la case, dont la bulle recouvrait aussitôt la sienne. La
+// case n'ouvre donc la sienne que pour son PROPRE focus.
+function ownFocusTip(props) {
+  if (!props.onFocus) return props;
+  return { ...props, onFocus: (e) => { if (e.target === e.currentTarget) props.onFocus(e); } };
+}
+
 function mood(value, labels) {
   if (value >= 0.95) return labels[3];
   if (value >= 0.45) return labels[2];
@@ -187,7 +197,8 @@ export default function Topbar() {
             key={c.key}
             className={`resource-card-unified ${c.cls} ${uiRevealFresh(state, c.key, now) ? 'is-fresh' : ''}`}
             id={`${c.key}Resource`}
-            {...tipProps(tr(c.name), tooltips[c.key])}
+            tabIndex={0}
+            {...ownFocusTip(tipProps(tr(c.name), tooltips[c.key]))}
           >
             <div className="resource-title-wrapper">
               {/* size explicite : la taille vient de `.topbar .resource-icon .px-icon`,
@@ -204,7 +215,7 @@ export default function Topbar() {
                 réévaluation (les clés de carte sont celles de l'état), sinon le
                 nombre se figerait à l'ouverture de la bulle alors que le
                 cadran, lui, continue de tourner juste à côté. */}
-            <span className="resource-value" id={c.valueId} {...tipProps(tr(c.name), () => exactLabel(state[c.key]))}>
+            <span className="resource-value" id={c.valueId} tabIndex={0} {...tipProps(tr(c.name), () => exactLabel(state[c.key]))}>
               {/* Odomètre : chiffres qui roulent verticalement, pulse
                   uniquement aux jalons (changement de suffixe K→M→B).
                   `rate` = le VRAI débit : il fixe la précision affichée pour
@@ -247,7 +258,7 @@ export default function Topbar() {
             (rien dans la simulation ne le relit) qui vivait jusqu'ici caché
             dans une infobulle — il occupe l'espace récupéré avec la seule
             information à échelle humaine de la barre. */}
-        <div className="resource-card-unified topbar-people" {...tipProps(tr({ fr: "Habitants", en: "Inhabitants" }), [
+        <div className="resource-card-unified topbar-people" tabIndex={0} {...tipProps(tr({ fr: "Habitants", en: "Inhabitants" }), [
           { label: tr({
             fr: "Habitants estimés de la cité, dérivés du Rayonnement.",
             en: "Estimated inhabitants, derived from Radiance."

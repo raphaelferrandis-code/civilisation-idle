@@ -16,10 +16,18 @@ const SHORTCUTS_KEY = "civ-opt-shortcuts";
 // dialogues : la laisser réattribuer permettrait de rendre les Options
 // inaccessibles depuis les Options. Les touches de saisie et de navigation
 // n'ont rien à faire ici non plus.
+// + = - _ sont les touches de ZOOM (resolveCameraKey) : attribuées à un achat,
+// chaque dézoom achetait aussi — au clavier comme au bouton « Zoom arrière »,
+// qui rejoue la touche (audit 2026-10-05, BUG-103).
 const FORBIDDEN_KEYS = new Set([
   "escape", "tab", "enter", " ", "shift", "control", "alt", "meta",
   "arrowup", "arrowdown", "arrowleft", "arrowright", "backspace", "delete",
+  "+", "=", "-", "_",
 ]);
+
+// Rangée des chiffres 1 à 8, reconnue à la touche PHYSIQUE (`code`) : en AZERTY,
+// sans Maj, elle rend « & é " ' ( - è _ » et non des chiffres (BUG-50).
+const VIEW_DIGIT_CODE = /^Digit([1-8])$/;
 
 // `key` = valeur par défaut, `id` = clé de personnalisation et de traduction.
 // `digits` marque les raccourcis de vue 1..8, générés à part (leur cible dépend
@@ -71,7 +79,13 @@ function persist() {
   if (purge) persist();
 }
 
-export const shortcutKey = (def) => (shortcutPrefs[def.id]?.key || def.key);
+// Une touche enregistrée AVANT d'être refusée (un « - » posé avant BUG-103) ne
+// vaut plus : on retombe sur la touche par défaut, sinon le dézoom continuerait
+// d'acheter chez ce joueur-là.
+export const shortcutKey = (def) => {
+  const key = shortcutPrefs[def.id]?.key;
+  return key && !FORBIDDEN_KEYS.has(key) ? key : def.key;
+};
 export const shortcutOff = (def) => Boolean(shortcutPrefs[def.id]?.off);
 
 // Libellé affichable d'une touche : « E », « Échap », « ² ».
@@ -80,7 +94,9 @@ export const shortcutLabel = (key) => (key ? key.toUpperCase() : "—");
 // Pourquoi cette touche est refusée, ou null si elle est acceptable. Renvoyer la
 // RAISON et pas un simple booléen : « déjà prise par Tout acheter » se corrige,
 // « invalide » laisse le joueur deviner.
-export function shortcutRejection(def, rawKey) {
+// `code` (facultatif) est la touche physique de l'évènement capturé : en AZERTY,
+// « é » est la touche du 2, qui ouvre la vue 2 (resolveViewDigit).
+export function shortcutRejection(def, rawKey, code = "") {
   const key = String(rawKey || "").toLowerCase();
   if (!key || key.length !== 1) {
     if (FORBIDDEN_KEYS.has(key)) return { reason: "forbidden", key };
@@ -88,17 +104,17 @@ export function shortcutRejection(def, rawKey) {
   }
   if (FORBIDDEN_KEYS.has(key)) return { reason: "forbidden", key };
   // Les chiffres sont réservés aux vues 1 à 8.
-  if (key >= "0" && key <= "9") return { reason: "digit", key };
+  if ((key >= "0" && key <= "9") || VIEW_DIGIT_CODE.test(code || "")) return { reason: "digit", key };
   const taken = SHORTCUT_DEFS.find((d) => d.id !== def.id && shortcutKey(d) === key);
   if (taken) return { reason: "taken", key, by: taken };
   return null;
 }
 
-export function setShortcutKey(id, rawKey) {
+export function setShortcutKey(id, rawKey, code = "") {
   const def = SHORTCUT_DEFS.find((d) => d.id === id);
   if (!def) return false;
   const key = String(rawKey || "").toLowerCase();
-  if (shortcutRejection(def, key)) return false;
+  if (shortcutRejection(def, key, code)) return false;
   shortcutPrefs = { ...shortcutPrefs, [id]: { ...shortcutPrefs[id], key } };
   persist();
   return true;
@@ -151,15 +167,21 @@ export function resolveShortcut(event) {
 // Renvoie une action normalisée { pan: [sdx, sdy] } | { zoom: ±1 }, ou null.
 // Même garde que le reste (`shortcutsBlocked`) : rien pendant une saisie ou un
 // dialogue ouvert.
+// ⚠ Un +/- tapé sur la RANGÉE DES CHIFFRES appartient aux vues : en AZERTY, le 6
+// rend « - » et le 8 « _ », et changer d'onglet dézoomait la carte (BUG-50).
+// Le zoom arrière clavier passe alors par le pavé numérique ; la molette et le
+// bouton restent. Les évènements rejoués par MapTools n'ont pas de `code` : le
+// bouton zoome toujours.
 export function resolveCameraKey(event) {
   if (shortcutsBlocked(event)) return null;
+  const surChiffre = VIEW_DIGIT_CODE.test(event.code || "");
   switch (event.key) {
     case "ArrowLeft": return { pan: [-1, 0] };
     case "ArrowRight": return { pan: [1, 0] };
     case "ArrowUp": return { pan: [0, -1] };
     case "ArrowDown": return { pan: [0, 1] };
-    case "+": case "=": return { zoom: 1 };
-    case "-": case "_": return { zoom: -1 };
+    case "+": case "=": return surChiffre ? null : { zoom: 1 };
+    case "-": case "_": return surChiffre ? null : { zoom: -1 };
     default: return null;
   }
 }
@@ -177,11 +199,22 @@ export function feedDebugSequence(seq, event) {
   return next === "debug" ? { seq: "", hit: true } : { seq: next, hit: false };
 }
 
+// Chiffre tapé (0 à 9), quelle que soit la disposition du clavier, ou -1.
+// `key` d'abord : pavé numérique, QWERTY, Maj+chiffre en AZERTY. Sinon la
+// touche physique : en AZERTY sans Maj, le « 1 » rend « & » mais son `code`
+// reste Digit1 (BUG-50). Le `code` Numpad, lui, n'est volontairement pas lu :
+// Verr. Num éteint, le pavé rend des flèches, qui doivent rester des flèches.
+export function pressedDigit(event) {
+  const key = String(event.key || "");
+  if (key.length === 1 && key >= "0" && key <= "9") return Number(key);
+  const m = /^Digit(\d)$/.exec(event.code || "");
+  return m ? Number(m[1]) : -1;
+}
+
 // Index de vue pour les touches 1 à 8, ou -1. Les chiffres restent hors table :
 // leur cible dépend des onglets DÉBLOQUÉS, que seul App.jsx connaît.
 export function resolveViewDigit(event) {
   if (shortcutsBlocked(event)) return -1;
-  const key = String(event.key || "");
-  if (key.length !== 1 || key < "1" || key > "8") return -1;
-  return Number(key) - 1;
+  const digit = pressedDigit(event);
+  return digit >= 1 && digit <= 8 ? digit - 1 : -1;
 }

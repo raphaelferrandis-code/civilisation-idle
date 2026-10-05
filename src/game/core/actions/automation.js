@@ -123,8 +123,9 @@ export function setAutomateField(id, field, raw) {
   if (!rule || !(field in rule)) return;
   const val = parseFloat(raw);
   if (!isNaN(val)) rule[field] = clamp(Math.round(val), bounds[0], bounds[1]);
-  // saveSoon : branché sur l'onChange des champs réserve/débit — même motif que
-  // setTempleAuto, une save() pleine par frappe est un gaspillage (audit A.8).
+  // saveSoon : même motif que setTempleAuto, une save() pleine par réglage est un
+  // gaspillage (audit A.8). Les champs réserve/débit des Options ne l'appellent
+  // plus qu'à la validation (DraftNumberInput, BUG-113), mais le filet reste.
   saveSoon();
   render();
 }
@@ -134,7 +135,9 @@ export function setAutomateThreshold(id, raw) {
   if (!rule) return;
   const val = parseFloat(raw);
   if (!isNaN(val)) rule.threshold = Math.max(1, Math.min(99, val));
-  save();
+  // saveSoon, comme setAutomateField (audit A.8) : une save() pleine (~270 Ko)
+  // par réglage n'a pas lieu d'être (audit 2026-10-05, BUG-113).
+  saveSoon();
   render();
 }
 

@@ -160,7 +160,7 @@
   color: var(--gold-bright);
 }
 .ptable-plaque .ptable-info {
-  font-size: 0.66rem;
+  font-size: 0.6875rem; /* plancher de 11 px (variables.css) — 0.66 avant, BUG-119 */
   color: var(--muted);
   white-space: normal;
   text-align: center;
@@ -254,7 +254,7 @@
   .ptable-stake { width: 7.5rem; }
   .ptable-emblem { width: 48px; height: 48px; }
   .ptable-stake::before { top: 44px; }
-  .ptable-plaque strong { font-size: 0.68rem; }
+  .ptable-plaque strong { font-size: 0.6875rem; } /* plancher de 11 px — 0.68 avant, BUG-119 */
   .ptable .bj-side-head { min-width: 2.6rem; }
 }
 
@@ -451,7 +451,7 @@
 .ptable-chip:disabled { opacity: 0.38; cursor: default; }
 .ptable-chip span {
   font-family: var(--font-number);
-  font-size: 0.66rem;
+  font-size: 0.6875rem; /* plancher de 11 px — 0.66 avant, BUG-119 */
   color: var(--text);
   line-height: 1;
 }
@@ -475,7 +475,7 @@
 @media (max-width: 760px) {
   .ptable-rack { gap: 0.1rem 0.2rem; padding: 0.15rem 0.25rem; }
   .ptable-chip span { font-size: 0.58rem; }
-  .plaisirs-stage .ptable .ptable-rack-btn { padding: 0.1rem 0.35rem; font-size: 0.66rem; }
+  .plaisirs-stage .ptable .ptable-rack-btn { padding: 0.1rem 0.35rem; font-size: 0.6875rem; } /* 0.66 avant, BUG-119 */
 }
 /* La table de mise porte maintenant le râtelier sous le plateau. */
 .ptable--mise { height: 344px; }
@@ -492,7 +492,7 @@
 }
 .ptable-mise-sum small {
   font-family: var(--font-number);
-  font-size: 0.66rem;
+  font-size: 0.6875rem; /* plancher de 11 px — 0.66 avant, BUG-119 */
   color: var(--muted);
 }
 
@@ -530,9 +530,17 @@
   60% { opacity: 1; transform: translate(-20%, -34px) scale(1) rotate(-4deg); }
   100% { opacity: 0; transform: translate(10%, -60px) scale(0.85) rotate(8deg); }
 }
+/* Mouvement réduit : le baiser reste posé 1,2 s puis s'éteint. ⚠ Le nœud n'est
+   JAMAIS retiré par React (il reste monté jusqu'au baiser suivant) : un simple
+   `animation: none` le laisserait affiché pour toujours. C'est donc le DÉLAI qui
+   porte l'affichage, en remplissage `forwards` seulement — avec le `both` de la
+   règle de base, la keyframe 0 % (opacity 0) s'appliquait pendant tout le délai
+   et le baiser n'apparaissait jamais (BUG-54). La durée, elle, est écrasée par
+   base.css dans les deux modes. */
 @media (prefers-reduced-motion: reduce) {
-  .ptable-baiser { animation-duration: 1ms; animation-delay: 1200ms; opacity: 1; transform: translate(-50%, 0); }
+  .ptable-baiser { animation-duration: 1ms; animation-delay: 1200ms; animation-fill-mode: forwards; opacity: 1; transform: translate(-50%, 0); }
 }
+:root[data-motion="none"] .ptable-baiser { animation-duration: 1ms; animation-delay: 1200ms; animation-fill-mode: forwards; opacity: 1; transform: translate(-50%, 0); }
 
 /* LE SABOT ET LE VIDEUR (lot 4 de docs/PLAN-NUIT-DES-PLAISIRS.md) : la jauge du sabot
    (ce qui reste avant la carte de coupe), le sabot neuf, l'œil du chef de salle. */

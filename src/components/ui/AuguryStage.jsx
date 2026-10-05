@@ -9,7 +9,7 @@ import {
 } from '../../game/core/actions.js';
 import { AUGURY_DOUBLE_P, AUGURY_DOUBLE_MAX_CRANS } from '../../game/core/balance.js';
 import { hasTempleArtifact } from '../../game/core/actions/templeArtifacts.js';
-import { state, save, saveSoon } from '../../game/core/state.js';
+import { state, save, saveSoon, renderCache } from '../../game/core/state.js';
 import { tableLimits } from '../../game/core/actions/maisonTable.js';
 import { REGULATION_ACTIONS_BY_ID } from '../../game/data/regulationActions.js';
 import { tr } from '../../game/core/i18n.js';
@@ -74,7 +74,9 @@ export default function AuguryStage({ table, onClose }) {
   const [doubleCran, setDoubleCran] = useState(0);
   const [bones, setBones] = useState(null);
   const [landed, setLanded] = useState(0);
-  useGameState((s) => s.instability); // odds/rabais vivants (1 Hz)
+  // Horloge 1 Hz : le tick, pas l'instabilité (figée en crise terminale ou une
+  // fois convergée — BUG-114). Odds/rabais vivants.
+  useGameState(() => renderCache.tickNow);
   // ⭐ Le matériel de l'ÂGE (plaisirsMaterial.js) : les os de Raph aux âges anciens,
   // puis des dés vus de dessus (ivoire, casino, lumière de l'ère).
   const band = usePlaisirsBand();
@@ -388,13 +390,13 @@ export default function AuguryStage({ table, onClose }) {
                     )}
                     {/* Laisser courir : le gain du jet sur un nouveau jet. */}
                     {rideAmount > 0 && (
-                      <button type="button" className="ptable-ride" disabled={faveur < rideAmount} onClick={() => { setDoubleOutcome(null); onCast(rideAmount); }}>
+                      <button type="button" className="ptable-ride" disabled={faveur < rideAmount} onClick={() => onCast(rideAmount)}>
                         {tr({ fr: `Laisser courir (${fmtMise(rideAmount)})`, en: `Let it ride (${fmtMise(rideAmount)})` })}
                       </button>
                     )}
                     {/* Rejeu DIRECT : même rite, même mise. Quand le quitte ou double est
                         offert, il reste le bouton VEDETTE. */}
-                    <button type="button" disabled={faveur < stake} onClick={() => { setDoubleOutcome(null); onCast(); }}>
+                    <button type="button" disabled={faveur < stake} onClick={() => onCast()}>
                       {tr({ fr: `Même mise (${fmtMise(stake)})`, en: `Same bet (${fmtMise(stake)})` })}
                     </button>
                     <button type="button" onClick={() => { setPhase('stake'); setOutcome(null); setDoubleOutcome(null); }}>
@@ -417,7 +419,9 @@ export default function AuguryStage({ table, onClose }) {
                         {tr({ fr: `Quitte ou double (${Math.round(AUGURY_DOUBLE_P * 100)} %)`, en: `Double or nothing (${Math.round(AUGURY_DOUBLE_P * 100)}%)` })}
                       </button>
                     )}
-                    <button type="button" disabled={faveur < stake} onClick={() => { setDoubleOutcome(null); setDoubleCran(0); onCast(); }}>
+                    {/* Le quitte ou double n'est effacé qu'après un jet DONNÉ (onCast) : un jet
+                        refusé (crise, pause) ne fait plus ressurgir le menu du jet d'origine. */}
+                    <button type="button" disabled={faveur < stake} onClick={() => onCast()}>
                       {tr({ fr: `Même mise (${fmtMise(stake)})`, en: `Same bet (${fmtMise(stake)})` })}
                     </button>
                     <button type="button" onClick={() => { setPhase('stake'); setOutcome(null); setDoubleOutcome(null); setDoubleCran(0); }}>

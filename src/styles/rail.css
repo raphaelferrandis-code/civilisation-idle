@@ -52,7 +52,12 @@
     justify-content: center;
     align-items: center;
     gap: 0.25rem;
-    min-height: 0;
+    /* `auto` et non 0 : à 0, les rangées de la grille se tassaient sous leur
+       contenu quand la hauteur manquait (9 lieux sous ~894 px de haut) — l'icône
+       tenait, le libellé était rogné de moitié puis disparaissait. Au plancher
+       de leur contenu, elles débordent et c'est .tabs qui défile, comme promis
+       ci-dessus (audit 2026-10-05, BUG-43). Rien ne change quand tout tient. */
+    min-height: auto;
     padding: 0.45rem 0 0.45rem;
     text-align: center;
     clip-path: none;

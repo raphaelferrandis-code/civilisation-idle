@@ -281,4 +281,9 @@
 @media (prefers-reduced-motion: reduce) {
   .slots-dim, .slots-wheel, .slots-wheel-result, .slots-wheel .slots-chests .slots-chest, .slots-hold-title,
   .slots-win, .slots-bigwin { animation: none; }
+  /* Centré sur la machine comme tout au long de sa keyframe. */
+  .slots-bigwin { transform: translateX(-50%); }
 }
+/* Jumeau pour le cran « Mouvement : Aucune » (base.css) : sinon le bandeau du gros
+   lot saute à sa dernière image, invisible (BUG-54). */
+:root[data-motion="none"] .slots-bigwin { animation: none; transform: translateX(-50%); }

@@ -221,18 +221,32 @@ function isSoftHand(cards) {
   return aces > 0;
 }
 
-// LA STRATÉGIE DE BASE (S17, sans refente) — fonction PURE : 'hit' | 'stand' |
-// 'double'. Mesures du lot 1 (naturel à 6 contre 5, 2 M de mains) : 96,7 % sans
+// LA STRATÉGIE DE BASE (S17) — fonction PURE : 'hit' | 'stand' | 'double' |
+// 'split'. Mesures du lot 1 (naturel à 6 contre 5, 2 M de mains) : 96,7 % sans
 // le double, 98,3 % avec, 98,9 % avec la refente en plus (le jeu parfait, que
 // BLACKJACK_RTP_REF majore). Le chemin avec le double est celui de l'auto : son
 // RTP vit dans BLACKJACK_RTP_AUTO.
 // Trois consommateurs : le conseil de la Mesure gravée (artefact, UI),
 // l'automatisation (qui double quand il le faut, ne refend jamais), et le bench.
-// `allowDouble` n'est proposé que sur les 2 premières cartes.
+// `allowDouble` n'est proposé que sur les 2 premières cartes. `allowSplit` ne
+// sert qu'au conseil (audit du 05/10, BUG-83 : la refente est une règle de base
+// depuis le lot 1, et la Mesure conseillait de tirer sur A-A ou 8-8) : il ne
+// vaut que sur deux cartes de même rang de refente. L'auto et le bench
+// continuent sans lui.
 export function basicAction(player, dealerUp, opts = {}) {
   const allowDouble = Boolean(opts.allowDouble) && player.length === 2;
   const v = handValue(player);
   const u = upValue(dealerUp);
+  if (opts.allowSplit && player.length === 2 && splitRank(player[0]) === splitRank(player[1])) {
+    // Table des paires S17, double permis après refente (DAS). 10-10 et 5-5 ne
+    // se refendent jamais : ils retombent sur les mains dures plus bas.
+    const r = splitRank(player[0]);
+    if (r === "A" || r === "8") return "split";
+    if ((r === "2" || r === "3" || r === "7") && u >= 2 && u <= 7) return "split";
+    if (r === "6" && u >= 2 && u <= 6) return "split";
+    if (r === "9" && ((u >= 2 && u <= 6) || u === 8 || u === 9)) return "split";
+    if (r === "4" && (u === 5 || u === 6)) return "split";
+  }
   if (isSoftHand(player)) {
     if (allowDouble) {
       if ((v === 13 || v === 14) && u >= 5 && u <= 6) return "double"; // A2-A3

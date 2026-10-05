@@ -444,8 +444,10 @@ function CivilizationReview() {
   );
 }
 
-// Les 4 jeux du temple, avec leur emblème (les emojis des floats en jeu) et
-// leurs temps forts propres. `hl` reçoit l'objet de stats du jeu.
+// Les jeux du temple et de la Maison, avec leur emblème (les emojis des floats en
+// jeu) et leurs temps forts propres. `hl` reçoit l'objet de stats du jeu. Un jeu
+// enregistré au registre (defaultChronicleStats().games) sans carte ici n'était
+// jamais affiché : un test le garde (audit 2026-10-05, BUG-110).
 const GAME_DEFS = [
   {
     key: "osselets", emoji: "🎲", name: { fr: "Osselets", en: "Knucklebones" },
@@ -493,6 +495,19 @@ const GAME_DEFS = [
     hl: (g) => [
       tr({ fr: `${fmtCount(g.zeros)} zéros`, en: `${fmtCount(g.zeros)} zeros` })
     ]
+  },
+  // Le grand flambeur et les courses (la Nuit du Grand Jeu, 2026-10-04).
+  {
+    key: "duel", emoji: "🎲", name: { fr: "Grand flambeur", en: "High roller" },
+    hl: (g) => [
+      tr({ fr: `${fmtCount(g.gagnes)} duels gagnés`, en: `${fmtCount(g.gagnes)} duels won` })
+    ]
+  },
+  {
+    key: "courses", emoji: "🏇", name: { fr: "Courses", en: "Races" },
+    hl: (g) => [
+      tr({ fr: `${fmtCount(g.outsiders)} outsiders`, en: `${fmtCount(g.outsiders)} long shots` })
+    ]
   }
 ];
 
@@ -536,7 +551,7 @@ function TempleRegistry() {
 
   const games = cs.games;
   const totalPlays = GAME_DEFS.reduce((n, d) => n + (games[d.key]?.plays || 0), 0);
-  const hasFaveur = (cs.faveurEarned || 0) > 0 || (cs.offeringsCollected || 0) > 0 || (cs.faveurSpentShop || 0) > 0;
+  const hasFaveur = (cs.faveurEarned || 0) > 0 || (cs.offeringsCollected || 0) > 0 || (cs.faveurSpentShop || 0) > 0 || (cs.roueSpins || 0) > 0;
   const hasRecords = (cs.longestCycleSec || 0) > 0 || (cs.mostCrisesInCycle || 0) > 0 || cs.biggestRuinGain !== "0" || (cs.fastestEraGainSec || 0) > 0;
 
   // Frise des Grands Resets : un rang par GR découvert OU accompli.
@@ -604,6 +619,10 @@ function TempleRegistry() {
             value={fmt(cs.biggestPotRaked || 0)}
             hint={tr({ fr: "La plus grosse rafle de la cagnotte du temple, décrochée d'un jackpot d'Icare (×10+).", en: "The largest sweep of the temple pot, from an Icarus jackpot (×10+)." })}
           />
+          {(cs.roueSpins || 0) > 0 && <>
+            <StatTile label={tr({ fr: "Tours de la roue de la Maison", en: "House wheel spins" })} value={fmtCount(cs.roueSpins)} />
+            <StatTile label={tr({ fr: "Plus beau tour de roue", en: "Best wheel spin" })} value={fmt(cs.roueBest || 0)} />
+          </>}
         </StatSection>
       )}
 

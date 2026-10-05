@@ -36,6 +36,9 @@
 @media (prefers-reduced-motion: reduce) {
   .salle-annonce { animation: none; transform: translateX(-50%); }
 }
+/* Jumeau pour le cran « Mouvement : Aucune » (base.css) : sinon l'annonce saute à
+   sa dernière image, invisible (BUG-54). */
+:root[data-motion="none"] .salle-annonce { animation: none; transform: translateX(-50%); }
 
 /* LES GAGNANTS QU'ON VOIT (lot 2, docs/PLAN-NUIT-DES-PLAISIRS.md) : une gerbe de pièces
    jaillit de la table du jeu annoncé, et le gain monte au-dessus. Les pièces sont des
@@ -85,3 +88,6 @@
   .salle-piece { display: none; }
   .salle-pluie-gain { animation: none; transform: translateX(-50%); }
 }
+/* Jumeaux pour le cran « Mouvement : Aucune » (BUG-54). */
+:root[data-motion="none"] .salle-piece { display: none; }
+:root[data-motion="none"] .salle-pluie-gain { animation: none; transform: translateX(-50%); }

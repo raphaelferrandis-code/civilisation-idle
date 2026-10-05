@@ -2,7 +2,7 @@ import { useGameState } from '../../../hooks/useGameState.js';
 import { trunkValue, trunkCap, collectTrunk, icarusPotFaveur, recettesPerHour } from '../../../game/core/actions.js';
 import { freeFlightCount } from '../../../game/core/actions/templeFlights.js';
 import { hasTempleArtifact } from '../../../game/core/actions/templeArtifacts.js';
-import { state } from '../../../game/core/state.js';
+import { state, renderCache } from '../../../game/core/state.js';
 import { roueReady, roueUnlocked, roueWaitMinutes } from '../../../game/core/actions/roueMaison.js';
 import { openTempleGame } from '../../../game/core/templeGames.js';
 import {
@@ -30,7 +30,9 @@ import '../../../styles/plaisirs-nuit.css';
  */
 export default function OffrandesBloc({ onRoue }) {
   const faveur = useGameState((s) => s.faveur || 0);
-  useGameState((s) => s.instability); // cagnotte, vols, tronc (1 Hz)
+  // Horloge 1 Hz : le tick, pas l'instabilité (figée en crise terminale ou une
+  // fois convergée — BUG-114). Cagnotte, vols, tronc.
+  useGameState(() => renderCache.tickNow);
   // trunkValue() se recalcule à chaque rendu : la valeur DÉRIVE du temps écoulé,
   // s'abonner à un champ d'état ne la rafraîchirait pas.
   const trunk = trunkValue();

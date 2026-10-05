@@ -1,8 +1,9 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import {
   ALIVE_POLL_MS,
   BUBBLE_WIDTH,
+  fitTipToHeight,
   normalizeTipContent,
   openDelayFor,
   placeTip,
@@ -31,7 +32,7 @@ import {
  *    le TOP LAYER du navigateur : une bulle posée dans body serait peinte
  *    DESSOUS quel que soit son z-index. On porte donc la bulle dans la modale
  *    elle-même quand la cible y est. `:modal` distingue showModal() d'un
- *    <dialog open> ordinaire (MythsView en pose un, en position statique).
+ *    <dialog open> ordinaire, peint dans la page comme n'importe quel bloc.
  *
  * 3. ELLE SURVEILLE SA CIBLE. Voir tipStillAlive : la couche ne se démontant
  *    plus au changement de vue, une bulle orpheline resterait à l'écran.
@@ -67,7 +68,10 @@ function resolveContent(source) {
 }
 
 function showTipAt(el, name, source) {
-  if (!showFn || !el) return;
+  // Cible démontée pendant le délai d'ouverture (pastille de gain, dépêche qui
+  // expire) : son rect est nul et la bulle se posait en haut à gauche jusqu'au
+  // contrôle de survie suivant (audit 2026-10-05, BUG-105).
+  if (!showFn || !tipStillAlive(el)) return;
   const content = resolveContent(source);
   if (!content) return;
   const { left, top, flip } = placeTip(el.getBoundingClientRect(), window.innerWidth, window.innerHeight);
@@ -138,6 +142,19 @@ export function tipProps(name, text) {
 
 export function HelpBubbleLayer() {
   const [tip, setTip] = useState(null);
+  const bubbleRef = useRef(null);
+
+  // Hauteur RÉELLE de la bulle, mesurée avant peinture (même motif que
+  // StageHelp) : placeTip ne la connaît pas, et une bulle longue posée juste
+  // au-dessus de la zone de bascule sortait par le bas (BUG-105). Relancé à
+  // chaque changement de bulle, contenu vivant compris ; fitTipToHeight rend
+  // la même position quand la bulle tient, et rien ne se re-rend.
+  useLayoutEffect(() => {
+    const node = bubbleRef.current;
+    if (!tip || !node || !tipStillAlive(tip.el)) return;
+    const next = fitTipToHeight(tip, tip.el.getBoundingClientRect(), node.offsetHeight, window.innerHeight);
+    if (next !== tip) setTip((cur) => (cur === tip ? next : cur));
+  }, [tip]);
 
   useEffect(() => {
     showFn = setTip;
@@ -187,6 +204,7 @@ export function HelpBubbleLayer() {
 
   const bubble = (
     <div
+      ref={bubbleRef}
       id={TIP_ID}
       className={`regul-tip${tip.flip ? ' regul-tip--flip' : ''}`}
       style={{ left: `${tip.left}px`, top: `${tip.top}px`, maxWidth: `${BUBBLE_WIDTH}px` }}

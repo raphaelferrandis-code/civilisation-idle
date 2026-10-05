@@ -206,14 +206,14 @@ export const ARTIFACT_LINEAGES = [
       },
       {
         // Info PURE : le conseil affiche basicAction. Le naïf joue à 93 %, la
-        // mesure (avec le double) à 98,3 % : cet artefact vend ~5 pts de RTP en pure
-        // information, sans toucher une constante — c'est de l'habileté, pas de la
-        // chance achetée.
+        // mesure (double et refente) à 98,9 % : cet artefact vend ~6 pts de RTP en
+        // pure information, sans toucher une constante — c'est de l'habileté, pas
+        // de la chance achetée.
         id: "mesure", kind: "artifact", cost: ARTIFACT_MESURE_COST,
         label: { fr: "La mesure gravée", en: "The graven measure" },
         desc: {
-          fr: "Le fronton conseille chaque main : tirer, rester ou doubler, comme la mesure l'exige.",
-          en: "The pediment advises every hand: hit, stand or double, as the measure demands."
+          fr: "Le fronton conseille chaque main : tirer, rester, doubler ou refendre, comme la mesure l'exige.",
+          en: "The pediment advises every hand: hit, stand, double or split, as the measure demands."
         }
       },
       {

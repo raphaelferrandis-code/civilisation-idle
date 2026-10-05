@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import { useGameState } from '../../hooks/useGameState.js';
-import { state, saveSoon } from '../../game/core/state.js';
+import { state, saveSoon, renderCache } from '../../game/core/state.js';
 import {
   launchIcarus,
   cashOutIcarus,
@@ -78,7 +78,9 @@ export default function IcarusStage({ table, onClose }) {
   const [stakeFaveur, setStakeFaveur] = useState(null); // pour l'aperçu vivant du gain de Faveur
   const [m, setM] = useState(1);
   const [outcome, setOutcome] = useState(null);
-  useGameState((s) => s.instability); // cagnotte, vols offerts (1 Hz)
+  // Horloge 1 Hz : le tick, pas l'instabilité (figée en crise terminale ou une
+  // fois convergée — BUG-114). Cagnotte, vols offerts.
+  useGameState(() => renderCache.tickNow);
   const faveur = useGameState((s) => s.faveur || 0); // mises payables en direct
   const cycles = useGameState((s) => s.cycles);
 

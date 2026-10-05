@@ -1511,6 +1511,9 @@
 @media (prefers-reduced-motion: reduce) {
   .icarus-sun, .icarus-bird, .icarus-sky.is-crashed, .icarus-feathers i { animation: none !important; }
 }
+/* Les plumes pour le cran « Mouvement : Aucune » (base.css), comme le réglage du
+   système : posées, au lieu de sauter à leur dernière image, invisibles (BUG-54). */
+:root[data-motion="none"] .icarus-feathers i { animation: none !important; }
 
 .icarus-stakes {
   display: grid;

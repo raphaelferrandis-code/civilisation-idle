@@ -172,6 +172,23 @@ function rgbHex([r, g, b]) {
 
 const ROMANS = ["I", "II", "III", "IV", "V"];
 
+// Bornes de chaque époque (première ère, nombre d'ères), calculées une fois sur
+// eraBandOf : les époques 0-6 comptent cinq ères, mais les époques cosmiques en
+// comptent 54, 44 et 166 — `i % 5` y annonçait « ère V/V » au tout début de
+// l'Âge stellaire (audit du 05/10, BUG-102).
+let bandRanges = null;
+function bandRange(band) {
+  if (!bandRanges) {
+    bandRanges = new Map();
+    for (let k = 0; k < eras.length; k++) {
+      const b = eraBandOf(k);
+      const r = bandRanges.get(b);
+      if (r) r.size += 1; else bandRanges.set(b, { start: k, size: 1 });
+    }
+  }
+  return bandRanges.get(band) || { start: 0, size: 1 };
+}
+
 // Cache : 35 thèmes immuables, calculés une fois.
 const themeCache = new Map();
 
@@ -196,12 +213,18 @@ export function getEraTheme(eraIndex) {
   const sat = epoch.sat;
 
   const accent = hslToRgb(hue, sat, lum);
+  const range = bandRange(band);
   const theme = {
     eraIndex: i,
     band,
     epochId: epoch.id,
     epochLabel: epoch.label,
-    epochNumeral: ROMANS[stepInEpoch],
+    // Position RÉELLE dans l'époque (1 = première ère) et taille de l'époque.
+    epochStep: i - range.start + 1,
+    epochSize: range.size,
+    // Chiffre romain sur V : seulement pour les époques de cinq ères (0-6) ;
+    // null au-delà, où l'appelant écrit la position en clair (BUG-102).
+    epochNumeral: band <= 6 ? ROMANS[stepInEpoch] : null,
     // Famille chrome : remplace --gold/--gold-bright/--gold-dim/--gold-deep.
     accent: rgbHex(accent),
     accentBright: rgbHex(hslToRgb(hue, sat, Math.min(82, lum + 12))),

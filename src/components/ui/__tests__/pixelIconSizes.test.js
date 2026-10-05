@@ -71,6 +71,9 @@ describe('variantes natives des icônes d\'UI', () => {
       ['nav/save', 'qa-icon', undefined],
       ['ruins/node-oral_tradition', '', 24],
       ['ruins/node-rites_feu_court', 'myth-card-icon', undefined],
+      // BUG-106 (audit du 2026-10-05) : servis en maître 64 px faute de taille connue.
+      ['nav/cite', 'more-item-icon', undefined],
+      ['foyers/scarcity', 'crisis-foyer-icon', 16],
     ];
     const absents = cas
       .map(([n, c, s]) => [n, c, s, resolveIconSrc(n, c, s)])
@@ -92,7 +95,7 @@ describe('variantes natives des icônes d\'UI', () => {
   it('SIZE_BY_CLASS ne dérive pas des tailles déclarées dans le CSS', () => {
     // On relit les feuilles de style : si quelqu'un passe .myth-card-icon de 32 à 40,
     // le test tombe ici plutôt qu'en jeu, où ça se voit à peine mais gâche l'icône.
-    const css = ['components.css', 'layout.css', 'views-crises.css', 'views-city.css']
+    const css = ['components.css', 'layout.css', 'views-crises.css', 'views-city.css', 'touch-shell.css']
       .map((f) => fs.readFileSync(path.join(SRC, f), 'utf8')).join('\n');
     const tailleDe = (cls) => {
       const m = new RegExp(`\\.${cls}(?:\\.px-icon)?\\s*\\{[^}]*?width:\\s*(\\d+)px`, 's').exec(css);
@@ -101,6 +104,7 @@ describe('variantes natives des icônes d\'UI', () => {
     for (const [cls, attendu] of Object.entries({
       'csp-stat-icon': 16, 'myth-card-icon': 32, 'harvest-glyph': 24,
       'edict-seal': 32, 'edict-emblem': 48, 'policy-seal': 24,
+      'more-item-icon': 24, 'crisis-foyer-icon': 16,
     })) {
       expect(`${cls}=${tailleDe(cls)}`).toBe(`${cls}=${attendu}`);
     }
@@ -115,5 +119,12 @@ describe('variantes natives des icônes d\'UI', () => {
       }
     }
     expect(hors).toEqual([]);
+  });
+});
+
+describe('icônes servies à leur taille (BUG-106)', () => {
+  it('la feuille « Plus » et les foyers de crise ne retombent plus sur le maître', () => {
+    expect(resolveIconSrc('nav/options', 'more-item-icon')).toBe('/pixelart/ui/nav/options@24.png');
+    expect(resolveIconSrc('foyers/dissent', 'crisis-foyer-icon')).toBe('/pixelart/ui/foyers/dissent@16.png');
   });
 });

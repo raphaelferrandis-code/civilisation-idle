@@ -389,13 +389,17 @@ export function engraveCadmosEpitaph(entryId) {
   render();
 }
 
-export async function activateMyth(mythId) {
+// Rend true si le pacte est scellé, false s'il est refusé (la vue le dit par un
+// toast). `babelCategory` (Babel seulement) n'est appliquée qu'une fois toutes les
+// gardes passées : la vue l'écrivait AVANT, même quand le pacte était refusé
+// (audit 2026-10-05, BUG-108).
+export async function activateMyth(mythId, { babelCategory } = {}) {
   // collapseInProgress inclus : un effondrement AUTO (checkAutoCollapse) n'ouvre
   // pas de modale, son deuil de 2 s laisse l'UI cliquable — sans ce garde, sceller
   // un pacte pendant le deuil rasait la cité deux fois et détruisait le Mythe (M10).
-  if (gamePaused || collapseInProgress) return;
+  if (gamePaused || collapseInProgress) return false;
   const myth = getMythById(mythId);
-  if (!myth || !isMythUnlocked(myth) || isMythCompleted(myth.id)) return;
+  if (!myth || !isMythUnlocked(myth) || isMythCompleted(myth.id)) return false;
   // Filet (BUG-1) : Antée exige ANTEE_MIN_ACTIVE_RUINS Héritages portés. Avec
   // moins, sa fenêtre obligatoire ne pourrait jamais être validée : on refuse le
   // pacte AVANT le reset (rien n'est perdu), en le disant.
@@ -405,9 +409,12 @@ export async function activateMyth(mythId) {
       en: `Antaeus refuses the pact: it takes at least ${ANTEE_MIN_ACTIVE_RUINS} Heritages to carry, and the city has only ${unlockedActiveRuinDefinitions(state).length}.`
     }));
     render();
-    return;
+    return false;
   }
 
+  if (mythId === "mythe_de_babel" && ["city", "knowledge", "infra"].includes(babelCategory)) {
+    state.babelCategory = babelCategory;
+  }
   state.activeMythId = mythId;
   // « L'Hiver Fimbul » : la prod de la cité d'AVANT le reset — la puissance
   // réelle du joueur au moment de signer le pacte — sert d'ancre au prix des
@@ -444,6 +451,7 @@ export async function activateMyth(mythId) {
   invalidateRenderCache("all");
   save();
   render();
+  return true;
 }
 
 // ── « Le poids du ciel » — le verbe d'Atlas ──────────────────────────────────

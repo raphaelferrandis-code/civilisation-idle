@@ -253,15 +253,17 @@
   color: var(--accent-gold);
 }
 
+/* Nom et mention passent à la LIGNE quand la rangée manque de place, au lieu
+   d'une ellipse : « La Colonne du Million » et « débloqué avant le suivi ·
+   accompli avant le suivi » étaient coupés jusqu'en 1920, sans infobulle pour
+   les rattraper (audit du 05/10, BUG-117). Rien ne bouge tant qu'ils tiennent. */
 .chronicle-reg-name {
   flex: 1 1 auto;
   min-width: 0;
   font-size: 0.8rem;
   font-weight: 600;
   color: var(--text-strong, #fff);
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
+  overflow-wrap: anywhere;
 }
 
 .chronicle-reg-name em {
@@ -276,11 +278,10 @@
 
 .chronicle-reg-meta {
   flex: 0 1 auto;
+  min-width: 0;
   font-size: 0.7rem;
   color: var(--muted);
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
+  overflow-wrap: anywhere;
 }
 
 /* ============================================================================

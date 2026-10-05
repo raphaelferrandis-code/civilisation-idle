@@ -2,6 +2,7 @@ import { useGameState } from '../../hooks/useGameState.js';
 import { useCollapsiblePanel } from '../../hooks/useCollapsiblePanel.js';
 import { onboardingSignature, ONBOARDING_STEPS } from '../../game/core/onboarding.js';
 import { tr } from '../../game/core/i18n.js';
+import { tipProps } from './HelpBubble.jsx';
 
 /**
  * PREMIERS PAS (E1) — trois intentions, cochées toutes seules.
@@ -44,9 +45,11 @@ export default function FirstStepsPanel() {
         className="first-steps-head"
         aria-expanded={open}
         onClick={toggle}
-        title={open
+        // L'infobulle maison, pas le `title` natif de l'OS (BUG-118) : même
+        // motif que la poignée de la boutique (BuildingShop).
+        {...tipProps(null, open
           ? tr({ fr: "Réduire les premiers pas", en: "Collapse first steps" })
-          : tr({ fr: "Déplier les premiers pas", en: "Expand first steps" })}
+          : tr({ fr: "Déplier les premiers pas", en: "Expand first steps" }))}
       >
         <span className="first-steps-kicker">{tr({ fr: "Premiers pas", en: "First steps" })}</span>
         <span className="first-steps-count">{index + 1}/{ONBOARDING_STEPS.length}</span>

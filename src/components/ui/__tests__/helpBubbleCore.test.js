@@ -11,6 +11,7 @@ import {
   BUBBLE_WIDTH,
   OPEN_DELAY_MS,
   REOPEN_GRACE_MS,
+  fitTipToHeight,
   normalizeTipContent,
   openDelayFor,
   placeTip,
@@ -56,6 +57,53 @@ describe("placeTip — la bulle reste à l'écran", () => {
   it("une cible en haut d'un écran court ne colle jamais au-dessus du bord", () => {
     const p = placeTip(rect(10, 2, 100, 4), 1920, 200);
     expect(p.top).toBeGreaterThanOrEqual(BUBBLE_MARGIN);
+  });
+});
+
+// BUG-105 (audit 2026-10-05) : placeTip ignore la hauteur de la bulle. Une
+// bulle de cinq lignes posée juste au-dessus de la zone de bascule sortait par
+// le bas ; la couche la mesure et rappelle fitTipToHeight.
+describe("fitTipToHeight — la bulle mesurée reste à l'écran", () => {
+  it("une bulle qui tient ne bouge pas (même objet : la boucle mesure → rendu s'arrête)", () => {
+    const r = rect(200, 300);
+    const p = placeTip(r, 1920, 1080);
+    expect(fitTipToHeight(p, r, 120, 1080)).toBe(p);
+  });
+
+  it("une bulle longue qui sortirait par le bas passe AU-DESSUS", () => {
+    // Cible à 880-900 sur 1080 : au-dessus de la zone de bascule (930), donc
+    // posée dessous par placeTip, où il ne reste que 162 px.
+    const r = rect(200, 880);
+    const p = placeTip(r, 1920, 1080);
+    expect(p.flip).toBe(false);
+    expect(fitTipToHeight(p, r, 160, 1080)).toBe(p);
+    const fit = fitTipToHeight(p, r, 200, 1080);
+    expect(fit.flip).toBe(true);
+    expect(fit.top).toBe(870);
+    expect(fit.left).toBe(p.left);
+    // Et c'est stable : remesurée, elle reste au-dessus.
+    expect(fitTipToHeight(fit, r, 200, 1080)).toBe(fit);
+  });
+
+  it("basculée par la zone, une bulle trop haute pour le dessus redescend si le dessous a la place", () => {
+    // Fenêtre courte (290 px), cible à 130-150 : placeTip bascule au-dessus.
+    // Place : 112 px au-dessus, 122 px dessous.
+    const r = rect(200, 130);
+    const p = placeTip(r, 1920, 290);
+    expect(p.flip).toBe(true);
+    expect(fitTipToHeight(p, r, 100, 290)).toBe(p);   // tient au-dessus : rien ne change
+    const fit = fitTipToHeight(p, r, 120, 290);       // ne tient que dessous
+    expect(fit.flip).toBe(false);
+    expect(fit.top).toBe(160);
+    expect(fitTipToHeight(fit, r, 120, 290)).toBe(fit);
+  });
+
+  it("aucun côté ne suffit : on garde le côté le plus grand, sans osciller", () => {
+    const r = rect(200, 300);
+    const p = placeTip(r, 1920, 600);      // dessous : 600-8-330 = 262 ; dessus : 300-18 = 282
+    const fit = fitTipToHeight(p, r, 400, 600);
+    expect(fit.flip).toBe(true);
+    expect(fitTipToHeight(fit, r, 400, 600)).toBe(fit);
   });
 });
 

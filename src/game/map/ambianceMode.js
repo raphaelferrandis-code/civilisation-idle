@@ -65,3 +65,22 @@ export function applyMotionAttribute() {
     document.documentElement.setAttribute("data-motion", motionMode());
   } catch { /* pas de DOM (tests, worker) : rien à poser */ }
 }
+
+// L'INTERFACE doit-elle rester immobile ? Le cran « Aucune » OU la demande du
+// système (prefers-reduced-motion) : le même couple que base.css coupe en CSS,
+// pour ce qui s'anime en JS et que base.css ne peut pas atteindre (cadrans de la
+// barre du haut, sève de l'arbre des Ruines — audit du 2026-10-05, PERF-39).
+// La MediaQueryList est créée une fois : `.matches` reste à jour tout seul.
+let reducedMotionQuery = null;
+export function uiMotionStill() {
+  if (motionMode() === "none") return true;
+  try {
+    if (!reducedMotionQuery) {
+      if (typeof window === "undefined" || typeof window.matchMedia !== "function") return false;
+      reducedMotionQuery = window.matchMedia("(prefers-reduced-motion: reduce)");
+    }
+    return reducedMotionQuery.matches;
+  } catch {
+    return false;
+  }
+}

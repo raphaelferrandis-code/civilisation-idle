@@ -52,6 +52,7 @@ export {
   buildingOutputMultiplier,
   buildingOutputMultiplierDec,
   buildingUnitFactor,
+  buildingUnitFactorDec,
   buildingMilestoneInfo
 } from './production/buildingOutput.js';
 

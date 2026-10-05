@@ -134,3 +134,17 @@ export function reconcilePrecision(state, { rate, div, intLen, now }) {
   }
   return { dec: ideal, div, since: 0, changedAt: now };
 }
+
+// LE PIXEL DU ROULIS (clé de rendu du cadran, audit du 2026-10-05, PERF-39).
+// `D` = la suite de chiffres en flottant continu (OdometerNumber). Le dernier
+// chiffre est décalé de -(D - ⌊D⌋) em, écrit à 4 décimales dans le style, et le
+// CSS le cale au pixel : `translateY(round(<décalage>em, 1px))`. round() du CSS
+// arrondit au plus proche, égalité vers +∞ — exactement Math.round. Tant que ce
+// pixel et les chiffres restent les mêmes, l'écran ne change pas : inutile de
+// re-rendre. `emPx` = la taille de police réelle du cadran ; inconnue (0, pas de
+// DOM), on rend le décalage en em brut — pas d'économie, mais jamais d'image
+// sautée.
+export function rollPixel(D, emPx) {
+  const offsetEm = Number((-(D - Math.floor(D))).toFixed(4));
+  return emPx > 0 ? Math.round(offsetEm * emPx) : offsetEm;
+}

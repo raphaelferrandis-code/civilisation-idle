@@ -6,7 +6,7 @@ import { comptoirBuy, comptoirSellFood } from '../../game/core/actions.js';
 import { COMPTOIR_LOT_SECONDS, COMPTOIR_BUY_MARKUP, COMPTOIR_SELL_RATE } from '../../game/core/balance.js';
 import { fmt } from '../../game/core/utils.js';
 import { tr } from '../../game/core/i18n.js';
-import { D, toNum } from '../../game/core/num.js';
+import { D } from '../../game/core/num.js';
 
 /**
  * « Le Comptoir » — l'onglet Marchandage, héritage du Mythe de l'Âge d'Or.
@@ -97,7 +97,10 @@ export default function ComptoirView() {
             get={{ icon: res.icon, amount: lotOf(res.key) }}
             give={{ icon: 'res/gold', amount: buyPrice }}
             gold
-            disabled={toNum(gold) < toNum(buyPrice)}
+            // Comparé en Decimal (BUG-111) : au-delà de 1,8e308, toNum rend
+            // Infinity des deux côtés et `Infinity < Infinity` laissait le bouton
+            // actif — puis comptoirBuy refusait.
+            disabled={D(gold).lt(buyPrice)}
             action={() => comptoirBuy(res.key)}
             actionLabel={tr({ fr: "Acheter", en: "Buy" })}
           />
@@ -107,7 +110,7 @@ export default function ComptoirView() {
           title={tr({ fr: 'Surplus de nourriture', en: 'Food surplus' })}
           get={{ icon: 'res/gold', amount: sellGain }}
           give={{ icon: 'res/food', amount: sellLot }}
-          disabled={toNum(food) < toNum(sellLot)}
+          disabled={D(food).lt(sellLot)}
           action={comptoirSellFood}
           actionLabel={tr({ fr: "Vendre", en: "Sell" })}
         />

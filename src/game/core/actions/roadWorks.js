@@ -96,6 +96,17 @@ export function roadWorkCost() {
   return roadTilePrice().mul(Math.max(1, n.tiles) * mult).mul(discount);
 }
 
+// Le prochain chantier est-il payable MAINTENANT ? Mêmes refus que
+// buyRoadWorkCore (file pleine, réserve pleine, Savoir insuffisant). Lu par
+// l'encart Voirie ET par l'abordabilité de la boutique (badge de l'onglet), qui
+// jugeait la Voirie sur le prix générique de buildingBatchCost — un prix
+// qu'aucun joueur ne voit (audit du 05/10, BUG-48).
+export function roadWorkAffordable() {
+  if (roadNextInfo().kind !== 'done' && roadWorksCount() >= ROAD_WORK_QUEUE_MAX) return false;
+  const cost = roadWorkCost();
+  return !!cost && D(state.knowledge).gte(cost);
+}
+
 // Chantiers de l'ÈRE COURANTE (rampe) : compteur remis à zéro quand l'ère
 // change — la remontée éclair post-Effondrement traverse les ères sans traîner
 // la rampe du cycle entier ; c'est en campant sur son ère de pointe qu'elle mord.

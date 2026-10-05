@@ -212,14 +212,18 @@ export default function PlaisirsView() {
           // est vital ici, puisque les points chauds sont placés en POURCENTAGE
           // du cadre. Déformer l'image les décalerait tous.
           width: '100%',
-          maxHeight: 'calc(100vh - 96px)',
+          // La hauteur OFFERTE vient de la feuille (--plaisirs-frame-h,
+          // views-plaisirs.css), qui la déduit de la barre et du padding réels.
+          // Les 96 px écrits ici en dur valaient 105 à 121 px à l'écran : la page
+          // défilait de 23 à 42 px à toutes les tailles (audit du 05/10, BUG-116).
+          maxHeight: 'var(--plaisirs-frame-h, calc(100vh - 96px))',
           margin: '0 auto',
           // En plein cadre, le ratio de l'illustration ne s'applique plus : une
           // page à trois armoires n'a aucune raison de tenir dans un 16:9.
           // La coupe est plus haute que large et DÉFILE d'étage en étage : le cadre
           // prend toute la hauteur offerte, dans un 5:4 sur écran étroit.
           aspectRatio: plein ? undefined : '5 / 4',
-          minHeight: plein ? 'calc(100vh - 96px)' : undefined,
+          minHeight: plein ? 'var(--plaisirs-frame-h, calc(100vh - 96px))' : undefined,
           // Le fond du cadre : l'eau du fleuve, le temps que la salle se peigne
           // (et les bandes d'appoint quand le facteur entier ne remplit pas tout).
           background: '#3f6a86',

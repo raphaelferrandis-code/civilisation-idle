@@ -4,7 +4,7 @@ import { useGameState } from '../../hooks/useGameState.js';
 import { useCollapsiblePanel } from '../../hooks/useCollapsiblePanel.js';
 import CityMapCanvas from '../map/CityMapCanvas.jsx';
 import BuildingShop from '../ui/BuildingShop.jsx';
-import ChronicleTicker from '../ui/ChronicleTicker.jsx';
+import ChronicleTicker, { ChronicleAnnounce } from '../ui/ChronicleTicker.jsx';
 import CrisisActionBar, { RegulSummary, RegulQuick } from '../ui/CrisisActionBar.jsx';
 import MapTools from '../ui/MapTools.jsx';
 import CitizenSheet from '../ui/CitizenSheet.jsx';
@@ -142,8 +142,14 @@ export default function CityView() {
     const aux = cityAuxRef.current;
     const parent = aux?.offsetParent;
     if (!hud || !aux || !parent) return;
-    const top = hud.getBoundingClientRect().bottom - parent.getBoundingClientRect().top;
+    const hudBottom = hud.getBoundingClientRect().bottom;
+    const top = hudBottom - parent.getBoundingClientRect().top;
     aux.style.top = `${Math.round(top + 12)}px`;
+    // Le même bord, mais en coordonnées de la FENÊTRE : c'est lui qui borne la
+    // hauteur des popovers (`.hud-pop`, views-city-hud.css). Le `top` ci-dessus
+    // est relatif au parent, qui ne commence pas en haut de l'écran sous 1500 px
+    // (audit du 05/10, BUG-19 : MIGRER hors de l'écran en 1280×800).
+    aux.style.setProperty('--aux-top-vp', `${Math.round(hudBottom + 12)}px`);
   });
   // Régulation : sur petit écran elle part REPLIÉE (elle vaut jusqu'à ~40 % de la
   // hauteur utile en 1000×700, et c'est la carte qui payait). Sa poignée garde
@@ -426,6 +432,12 @@ export default function CityView() {
   return (
     <section className="view active" id="city">
       <div className="city-left-col">
+        {/* Bannières de début de cycle : UN conteneur posé une fois, qui les
+            EMPILE. Chacune portait sa propre position absolue, la même : avec
+            les deux héritages, les textes se superposaient pendant la fenêtre
+            de décision du Pacte (audit du 05/10, BUG-44). */}
+        {((eneeHeritage && cycleSeconds < 30) || (atridesHeritage && !activeMythId && cycleSeconds < 120)) && (
+        <div className="cycle-banners">
         {eneeHeritage && cycleSeconds < 30 && (
           <div className="enee-boost-banner">
             <strong>⚖ {tr({ fr: "Bénédiction d'Énée", en: "Aeneas's Blessing" })}</strong>
@@ -453,6 +465,8 @@ export default function CityView() {
               </button>
             )}
           </div>
+        )}
+        </div>
         )}
 
         {/* La Cité en héros : carte plein cadre, identité + jauge de stabilité
@@ -613,6 +627,10 @@ export default function CityView() {
           {/* FAITS DIVERS : la réplique du personnage d'une scène cliquée sur la
               carte (map/faitsDivers). Rien tant qu'aucune n'est ouverte. */}
           <FaitDiversCard />
+
+          {/* Annonce vocale de la dépêche : région sr-only montée avec la Cité,
+              le bandeau ne l'étant que dock ouvert (BUG-118). */}
+          <ChronicleAnnounce />
 
           {/* Boutique dockée : le menu de construction posé sur le bord droit du monde */}
           <aside className="city-shop-dock" aria-label={tr({ fr: "Construction", en: "Construction" })}>

@@ -109,7 +109,7 @@
 .citizen-sheet .cs-row dt {
   align-self: baseline;
   color: var(--gold);
-  font-size: 0.66rem;
+  font-size: 0.6875rem; /* plancher de 11 px (variables.css) — 0.66 avant, BUG-119 */
   font-weight: 800;
   letter-spacing: 0.04em;
   text-transform: uppercase;

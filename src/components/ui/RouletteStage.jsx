@@ -107,6 +107,7 @@ export default function RouletteStage({ onClose, table, vip: vipProp = false }) 
   const [result, setResult] = useState(null);
   const pendingRef = useRef(null);
   const timerRef = useRef(0);
+  const rafRef = useRef(0);
   // La toile de la roue, en ÉTAT : la table la monte après avoir mesuré sa place, et
   // la roue au repos doit se peindre à ce moment-là.
   const [canvas, setCanvas] = useState(null);
@@ -115,9 +116,11 @@ export default function RouletteStage({ onClose, table, vip: vipProp = false }) 
   const total = betsTotal(bets);
   const cap = Math.max(0, Math.min(max, Math.floor(faveur)));
 
-  // Fermer la table pendant que la bille roule : le tour est encaissé quand même.
+  // Fermer la table pendant que la bille roule : le tour est encaissé quand même, et
+  // l'animation s'arrête (elle peignait sinon jusqu'au bout sur une toile détachée).
   useEffect(() => () => {
     clearTimeout(timerRef.current);
+    cancelAnimationFrame(rafRef.current);
     if (pendingRef.current) { pendingRef.current(); pendingRef.current = null; }
   }, []);
 
@@ -176,20 +179,21 @@ export default function RouletteStage({ onClose, table, vip: vipProp = false }) 
     const cv = canvas;
     if (etroit && cv && cv.scrollIntoView) cv.scrollIntoView({ behavior: 'smooth', block: 'center' });
     const wheel0 = poseRef.current.wheel % (Math.PI * 2);
-    let raf = 0, t0 = null;
+    let t0 = null;
     const frame = (now) => {
       if (t0 === null) t0 = now;
       const u = Math.min(1, (now - t0) / SPIN_MS);
       const pose = spinPose(u, res.n, wheel0);
       poseRef.current = pose;
       if (cv) drawWheel(cv.getContext('2d'), pose.wheel, pose.ball, pose.ballR);
-      if (u < 1) raf = requestAnimationFrame(frame);
+      if (u < 1) rafRef.current = requestAnimationFrame(frame);
     };
-    raf = requestAnimationFrame(frame);
+    cancelAnimationFrame(rafRef.current);
+    rafRef.current = requestAnimationFrame(frame);
     // La révélation tient à l'horloge, pas à l'animation (une fenêtre masquée gèle le rAF).
     clearTimeout(timerRef.current);
     timerRef.current = setTimeout(() => {
-      cancelAnimationFrame(raf);
+      cancelAnimationFrame(rafRef.current);
       poseRef.current = spinPose(1, res.n, wheel0);
       if (pendingRef.current) { pendingRef.current(); pendingRef.current = null; }
       setResult({ ...res });

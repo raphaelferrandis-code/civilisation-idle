@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import { useGameState } from '../../hooks/useGameState.js';
-import { state, saveSoon } from '../../game/core/state.js';
+import { state, saveSoon, renderCache } from '../../game/core/state.js';
 import {
   dealBlackjack,
   hitBlackjack,
@@ -22,6 +22,7 @@ import StageHelp from './StageHelp.jsx';
 import PlaisirsTable, { PancarteFermee } from '../views/plaisirs/PlaisirsTable.jsx';
 import TableMise from '../views/plaisirs/TableMise.jsx';
 import { initialStake, rememberStake, fmtMise } from '../views/plaisirs/miseMemory.js';
+import { createClickLock } from '../views/plaisirs/clickLock.js';
 import Monte from './Monte.jsx';
 
 /**
@@ -59,7 +60,8 @@ function oracleLine(result, streak) {
 const MEASURE_LABEL = {
   hit: { fr: 'la mesure tirerait', en: 'the measure would hit' },
   stand: { fr: 'la mesure resterait', en: 'the measure would stand' },
-  double: { fr: 'la mesure doublerait', en: 'the measure would double' }
+  double: { fr: 'la mesure doublerait', en: 'the measure would double' },
+  split: { fr: 'la mesure refendrait', en: 'the measure would split' }
 };
 
 /* Carte à jouer : un seul sprite du pack Bit Digitalis (32×48 natif, rendu au
@@ -83,7 +85,9 @@ export default function BlackjackStage({ table, onClose }) {
   const [stake, setStake] = useState(() => initialStake('cartes', state.faveur || 0));
   const [hand, setHand] = useState(null);
   const [outcome, setOutcome] = useState(null);
-  useGameState((s) => s.instability); // or, cagnotte, mises vivants (1 Hz)
+  // Horloge 1 Hz : le tick, pas l'instabilité (figée en crise terminale ou une
+  // fois convergée — BUG-114). Or, cagnotte, mises vivants.
+  useGameState(() => renderCache.tickNow);
   const cycles = useGameState((s) => s.cycles);
   // LE SABOT ET LE VIDEUR (lot 4 de docs/PLAN-NUIT-DES-PLAISIRS.md).
   useGameState((s) => s.bjBarreJusqua || 0);
@@ -124,12 +128,21 @@ export default function BlackjackStage({ table, onClose }) {
     if (h.resolved) { setOutcome(blackjackLastOutcome()); setPhase('done'); }
   };
 
+  // Garde anti double-clic (BUG-46) : la main se résout DANS le clic, et le menu de
+  // la phase suivante (même conteneur, même place) est déjà sous le curseur au 2e
+  // clic — « Même mise » sous « Tirer », « Doubler » de la main refendue suivante.
+  // Un seul verrou pour toutes les actions de la table, reposé à chaque menu neuf.
+  const [lock] = useState(() => createClickLock());
+  useEffect(() => { lock.arm(); }, [lock, phase, hand?.active]);
+
   // La donne, à la mise posée (`amount`, la pile par défaut) : Distribuer, « Même
   // mise » et « Laisser courir » passent par ici.
-  const onDeal = (amount = stake) => {
+  const onDeal = (amount = stake) => lock.act(() => {
     if (amount <= 0 || (state.faveur || 0) < amount) return;
     const h = dealBlackjack(amount);
-    if (!h) return;
+    // Donne refusée (BUG-47) : le verdict et le menu de la main restent (pause, crise…) ;
+    // le videur, lui, renvoie au pari, où sa pancarte le dit et grise « Distribuer ».
+    if (!h) { if (videurBarre()) { setHand(null); setOutcome(null); setPhase('bet'); } return; }
     // Mise débitée : écrite sous 300 ms, pas à l'autosave des 10 s — tuer le
     // processus sur une main crevée ne la rembourse plus (SAV-15).
     saveSoon(300);
@@ -138,29 +151,21 @@ export default function BlackjackStage({ table, onClose }) {
     setOutcome(null);
     setPhase('player');
     finish(h); // un naturel se résout d'emblée → passe direct au résultat
-  };
-  // Garde anti double-clic : « Tirer » est synchrone et le bouton reste monté
-  // tant qu'on ne crève pas → un double-clic tirerait 2 cartes d'un coup.
-  const hittingRef = useRef(false);
-  const onHit = () => {
-    if (hittingRef.current) return;
-    hittingRef.current = true;
-    const h = hitBlackjack();
-    if (h) finish(h);
-    setTimeout(() => { hittingRef.current = false; }, 150);
-  };
-  const onStand = () => { const h = standBlackjack(); if (h) finish(h); };
+  });
+  const onHit = () => lock.act(() => { const h = hitBlackjack(); if (h) finish(h); });
+  const onStand = () => lock.act(() => { const h = standBlackjack(); if (h) finish(h); });
   // Doubler et séparer débitent une seconde mise : même écriture rapide (SAV-15).
-  const onDouble = () => { const h = doubleBlackjack(); if (h) { saveSoon(300); finish(h); } };
-  const onSplit = () => { const h = splitBlackjack(); if (h) { saveSoon(300); finish(h); } };
-  const onNewHand = () => { setHand(null); setOutcome(null); setPhase('bet'); };
+  const onDouble = () => lock.act(() => { const h = doubleBlackjack(); if (h) { saveSoon(300); finish(h); } });
+  const onSplit = () => lock.act(() => { const h = splitBlackjack(); if (h) { saveSoon(300); finish(h); } });
+  const onNewHand = () => lock.act(() => { setHand(null); setOutcome(null); setPhase('bet'); });
 
   // Le conseil de la Mesure gravée : ce que la stratégie de base ferait avec
   // cette main contre la carte visible de l'oracle. Pure information, calculée
   // sur les mêmes fonctions que l'auto et le bench.
   const hasMeasure = hasTempleArtifact('mesure');
   const advice = hasMeasure && phase === 'player' && hand
-    ? basicAction(hand.player, hand.dealer[0], { allowDouble: hand.canDouble })
+    // Refente conseillée seulement quand elle est offerte (BUG-83).
+    ? basicAction(hand.player, hand.dealer[0], { allowDouble: hand.canDouble, allowSplit: hand.canSplit })
     : null;
   const hasVoice = hasTempleArtifact('voix');
 
@@ -391,7 +396,7 @@ export default function BlackjackStage({ table, onClose }) {
                         type="button"
                         className="scratch-buy ptable-ride"
                         disabled={(state.faveur || 0) < Math.min(tableMax, outcome.faveurGain)}
-                        onClick={() => { setOutcome(null); onDeal(Math.min(tableMax, outcome.faveurGain)); }}
+                        onClick={() => onDeal(Math.min(tableMax, outcome.faveurGain))}
                       >
                         {tr({ fr: `Laisser courir (${fmtMise(Math.min(tableMax, outcome.faveurGain))})`, en: `Let it ride (${fmtMise(Math.min(tableMax, outcome.faveurGain))})` })}
                       </button>
@@ -400,12 +405,14 @@ export default function BlackjackStage({ table, onClose }) {
                       type="button"
                       className="scratch-buy"
                       disabled={(state.faveur || 0) < stake}
-                      onClick={() => { setOutcome(null); onDeal(); }}
+                      onClick={() => onDeal()}
                     >
                       {tr({ fr: `Même mise (${fmtMise(stake)})`, en: `Same bet (${fmtMise(stake)})` })}
                     </button>
                     <button type="button" onClick={onNewHand}>{tr({ fr: 'Changer de mise', en: 'Change stake' })}</button>
-                    <button type="button" className="btn-close" onClick={onClose}>{tr({ fr: 'Quitter la table', en: 'Leave the table' })}</button>
+                    {/* Verrouillé aussi : un double-clic sur « Doubler » (main perdue) tombait
+                        ici et refermait la table sur un verdict jamais lu. */}
+                    <button type="button" className="btn-close" onClick={() => lock.act(onClose)}>{tr({ fr: 'Quitter la table', en: 'Leave the table' })}</button>
                   </menu>
                 )}
               </div>

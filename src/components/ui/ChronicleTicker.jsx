@@ -3,6 +3,7 @@ import { useGameState } from '../../hooks/useGameState.js';
 import { markChronicleEntryRead, renderCache } from '../../game/core/state.js';
 import { currentEraIndex, crisisOpen } from '../../game/core/mechanics.js';
 import { CHRONICLE_VISIBLE_MS } from '../../game/core/chronicleEvaluator.js';
+import { getNotifEnabled } from '../../game/core/main.js';
 import { getJournalTheme } from './journalThemes.js';
 import { tr } from '../../game/core/i18n.js';
 import { tipProps } from './HelpBubble.jsx';
@@ -19,6 +20,10 @@ export default function ChronicleTicker() {
   const isCrisis = useGameState(() => crisisOpen());
   // Horloge du tick (1 Hz) : pas de Date.now() ni de timer local en rendu.
   const tickNow = useGameState(() => renderCache.tickNow);
+  // Options › « Notifications du fil » : le bandeau est l'héritier du fil des
+  // habitants que ce réglage masquait ; personne ne le lisait plus depuis
+  // (audit 2026-10-05, BUG-55). setNotifEnabled notifie : le bandeau suit.
+  const notifOn = useGameState(() => getNotifEnabled());
 
   const theme = getJournalTheme(eraIndex);
   const latest = entries[0];
@@ -48,7 +53,7 @@ export default function ChronicleTicker() {
   // après publication). Hors fenêtre, il se démonte entièrement — en overlay
   // absolu, sa disparition ne décale plus rien (contrairement à l'ancien
   // bandeau en flux qui devait rester monté pour ne pas sauter la mise en page).
-  if (!visible) return null;
+  if (!visible || !notifOn) return null;
 
   const toggle = () => {
     if (!expanded) markChronicleEntryRead(latest.id);
@@ -79,7 +84,9 @@ export default function ChronicleTicker() {
         {theme.masthead}
         {latest.isNew && <span className="ticker-new-dot" aria-hidden="true"></span>}
       </span>
-      <span className="ticker-line" key={latest.id} aria-live="polite">
+      {/* Pas d'aria-live ici : monté déjà rempli, il n'était jamais annoncé.
+          L'annonce passe par ChronicleAnnounce, ci-dessous. */}
+      <span className="ticker-line" key={latest.id}>
         <strong className="ticker-title">{latest.title}</strong>
         {expanded && (
           <span className="ticker-text">
@@ -89,6 +96,26 @@ export default function ChronicleTicker() {
         )}
       </span>
       {expanded && <span className="ticker-date">{latest.date}</span>}
+    </div>
+  );
+}
+
+/**
+ * Annonce vocale de la dépêche (BUG-118). Le bandeau n'est monté que dock
+ * ouvert, et déjà rempli : or les lecteurs d'écran n'annoncent que les
+ * MUTATIONS d'une région aria-live DÉJÀ présente (motif IdleReportPanel). Cette
+ * région sr-only reste montée avec la Cité ; le titre de la dépêche y est écrit
+ * pendant sa fenêtre d'affichage, aux mêmes conditions que le bandeau.
+ */
+export function ChronicleAnnounce() {
+  const entries = useGameState(s => s.chronicleEntries || []);
+  const tickNow = useGameState(() => renderCache.tickNow);
+  const notifOn = useGameState(() => getNotifEnabled());
+  const latest = entries[0];
+  const visible = Boolean(latest && notifOn && tickNow - (latest.publishedAt || 0) < CHRONICLE_VISIBLE_MS);
+  return (
+    <div className="sr-only" role="status" aria-live="polite">
+      {visible ? tr({ fr: `Chronique : ${latest.title}`, en: `Chronicle: ${latest.title}` }) : ''}
     </div>
   );
 }

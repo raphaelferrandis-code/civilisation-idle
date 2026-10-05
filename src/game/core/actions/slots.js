@@ -222,9 +222,17 @@ function drawHoldWin(stakeFaveur, coinCells, session = null) {
         en: `Hold & Win: all fifteen cells of the slot machine! The GRAND pays out ${fmt(hw.grandFaveur)} favor.`
       }));
     } else if (hw.majeurs) {
-      chronicle(tr({
-        fr: `Hold & Win : le MAJEUR tombe à la machine à sous (+${fmt(Math.round(stakeFaveur * 100))} faveur).`,
-        en: `Hold & Win: the MAJOR lands at the slot machine (+${fmt(Math.round(stakeFaveur * 100))} favor).`
+      // La valeur du MAJEUR se lit dans la table des pièces (elle était écrite ici à
+      // ×100), et chaque MAJEUR tombé compte (BUG-85). Math.round, pas payRound : une
+      // annonce ne tire pas d'aléa (il décalerait les tirages suivants).
+      const mj = SLOTS_HW.values.find((c) => c.jp === 'majeur');
+      const montant = fmt(Math.round(stakeFaveur * (mj ? mj.v : 0) * hw.majeurs));
+      chronicle(hw.majeurs > 1 ? tr({
+        fr: `Hold & Win : ${hw.majeurs} MAJEURS tombent à la machine à sous (+${montant} faveur).`,
+        en: `Hold & Win: ${hw.majeurs} MAJORS land at the slot machine (+${montant} favor).`
+      }) : tr({
+        fr: `Hold & Win : le MAJEUR tombe à la machine à sous (+${montant} faveur).`,
+        en: `Hold & Win: the MAJOR lands at the slot machine (+${montant} favor).`
       }));
     }
     const won = hw.faveurGain + hw.grandFaveur;

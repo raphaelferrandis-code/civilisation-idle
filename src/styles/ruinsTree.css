@@ -452,4 +452,9 @@
   .rtp-stage .rt-bought .rt-glyph,
   .rtp-float { animation: none; }
   .rtp-stage .rt-node { transition: none; }
+  /* Le coût reste posé sur le médaillon, là où sa keyframe le faisait partir. */
+  .rtp-float { transform: translate(-50%, -100%); }
 }
+/* Jumeau pour le cran « Mouvement : Aucune » (base.css) : sinon le coût saute à sa
+   dernière image, invisible (BUG-54). React le retire après 950 ms. */
+:root[data-motion="none"] .rtp-float { animation: none; transform: translate(-50%, -100%); }

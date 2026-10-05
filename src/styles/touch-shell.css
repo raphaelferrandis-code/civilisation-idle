@@ -223,6 +223,9 @@
 
 /* ---- Les vues occupent tout, sans passer sous la barre ---- */
 :root[data-pointer="coarse"] main {
+  /* --main-pad : le débord de la barre de ressources le lit (components.css).
+     Sans lui, elle débordait du 0.75rem du bureau sur ce 0.6rem (BUG-116). */
+  --main-pad: 0.6rem;
   padding: 0.6rem 0.6rem calc(0.6rem + var(--touch-nav-total));
 }
 

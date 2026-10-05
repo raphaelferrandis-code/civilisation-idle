@@ -119,10 +119,18 @@ export default function App() {
   // Purement présentationnel — le rendu et la simulation continuent à l'identique,
   // c'est ce qui rend ce mode bon marché.
   const [contemplation, setContemplation] = useState(false);
+  // Relue par le gestionnaire clavier (enregistré une fois) : Échap décide
+  // HORS de l'updater de setContemplation, que React peut rejouer — ouvrir les
+  // Options depuis l'updater était un effet de bord (audit 2026-10-05, BUG-104).
+  const contemplationRef = useRef(false);
+  useEffect(() => { contemplationRef.current = contemplation; }, [contemplation]);
   // Feuille d'état, régime tactile uniquement (cf. data-status-sheet plus bas).
   const [statusSheet, setStatusSheet] = useState(false);
   // Feuille « Plus » de la barre basse (tactile). Cf. PRIMAIRES_TACTILE.
   const [moreSheet, setMoreSheet] = useState(false);
+  // Identité stable : useSheetSwipeClose garde aussi onClose dans un ref, mais
+  // une lambda neuve à chaque rendu n'a aucune raison d'être (BUG-112).
+  const closeMoreSheet = useCallback(() => setMoreSheet(false), []);
   const coarse = usePointerCoarse();
   const [isImportOpen, setIsImportOpen] = useState(false);
   // Texte d'export à copier à la main quand le presse-papiers a échoué. null =
@@ -222,11 +230,14 @@ export default function App() {
         // depuis un écran sans interface serait le pire des enchaînements.
         // Cette touche n'est PAS réattribuable (cf. FORBIDDEN_KEYS) : elle est
         // le seul chemin de secours vers les Options.
-        setContemplation((on) => {
-          if (on) return false;
-          setIsOptionsOpen(true);
-          return false;
-        });
+        // La contemplation ne se voit que sur la Cité : laissée armée sur un
+        // autre onglet, elle n'efface rien, et Échap ouvre les Options du
+        // premier coup au lieu de quitter un mode invisible.
+        if (contemplationRef.current) {
+          setContemplation(false);
+          if (state.activeView === "city") return;
+        }
+        setIsOptionsOpen(true);
         return;
       }
 
@@ -247,8 +258,13 @@ export default function App() {
       const hit = resolveShortcut(event);
       if (hit) {
         event.preventDefault();
-        if (hit.id === "contemplation") setContemplation((on) => !on);
-        else if (hit.id in BUY_BY_ID) buyAllAffordable(BUY_BY_ID[hit.id]);
+        if (hit.id === "contemplation") {
+          // Seulement sur la Cité, la seule vue où elle se voit : armée
+          // ailleurs, on retrouvait en revenant toute l'interface effacée.
+          // Et une fois par appui : la répétition de la touche tenue la
+          // faisait clignoter à ~30 Hz (BUG-104).
+          if (!event.repeat && state.activeView === "city") setContemplation((on) => !on);
+        } else if (hit.id in BUY_BY_ID) buyAllAffordable(BUY_BY_ID[hit.id]);
         // PAS de `return` : la séquence secrète « debug » contient un « e », qui
         // est aussi un raccourci d'achat. Elle doit continuer d'accumuler.
         // NB : les touches CAMÉRA (flèches, +/-, recentrage) sont gérées dans le
@@ -533,7 +549,7 @@ export default function App() {
         {coarse && (
           <MoreSheet
             open={moreSheet}
-            onClose={() => setMoreSheet(false)}
+            onClose={closeMoreSheet}
             tabs={ongletsRanges}
             badges={badges}
             activeView={activeView}

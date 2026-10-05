@@ -298,3 +298,29 @@ describe("Vingt-et-un — hydratation défensive", () => {
     expect(s.blackjackHistory).toEqual(["win", "lose", "blackjack"]);
   });
 });
+
+// BUG-83 (audit du 05/10) : la Mesure gravée ne conseillait jamais la refente,
+// devenue une règle de base — « tirer » sur A-A (souple 12) et sur 8-8 contre 10.
+describe("Vingt-et-un — la Mesure conseille la refente (allowSplit)", () => {
+  it("A-A et 8-8 se refendent toujours, la table des paires S17/DAS ailleurs", () => {
+    const pair = (r) => [C(r), C(r, "laurier")];
+    expect(basicAction(pair("A"), C("10"), { allowSplit: true })).toBe("split");
+    expect(basicAction(pair("8"), C("K"), { allowSplit: true })).toBe("split");
+    expect(basicAction(pair("7"), C("7"), { allowSplit: true })).toBe("split");
+    expect(basicAction(pair("7"), C("8"), { allowSplit: true })).toBe("hit");
+    expect(basicAction(pair("9"), C("7"), { allowSplit: true })).toBe("stand"); // 18 contre 7 : on reste
+    expect(basicAction(pair("9"), C("9"), { allowSplit: true })).toBe("split");
+    expect(basicAction(pair("4"), C("5"), { allowSplit: true })).toBe("split");
+    expect(basicAction(pair("6"), C("7"), { allowSplit: true })).toBe("hit");
+    // 10-10 (figures comprises) et 5-5 ne se refendent jamais.
+    expect(basicAction([C("K"), C("10")], C("6"), { allowSplit: true })).toBe("stand");
+    expect(basicAction(pair("5"), C("6"), { allowSplit: true, allowDouble: true })).toBe("double");
+  });
+
+  it("sans l'option (auto, bench) ou sur une main non refendable, rien ne change", () => {
+    expect(basicAction([C("A"), C("A", "laurier")], C("10"))).toBe("hit");
+    expect(basicAction([C("8"), C("8", "laurier")], C("10"))).toBe("hit");
+    // Trois cartes : jamais de refente (8-8 + 3 = dur 19, on reste).
+    expect(basicAction([C("8"), C("8", "laurier"), C("3")], C("10"), { allowSplit: true })).toBe("stand");
+  });
+});

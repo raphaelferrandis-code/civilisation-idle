@@ -7,13 +7,13 @@
 // vrai problème est symétrique et silencieux : sans recopie explicite, les
 // valeurs RÉGLÉES PAR LE JOUEUR repartent au défaut à chaque rechargement.
 
-import { describe, it, expect, beforeEach } from "vitest";
+import { describe, it, expect, beforeEach, vi } from "vitest";
 
 import {
   setState, defaultState, hydrateState,
   defaultAutomateRules, normalizeRuleList, AUTOMATE_FIELD_BOUNDS,
 } from "../state.js";
-import { setAutomateField, getAutomateRules } from "../actions.js";
+import { setAutomateField, setAutomateThreshold, getAutomateRules } from "../actions.js";
 
 const roundTrip = (s) => hydrateState(JSON.parse(JSON.stringify(s)));
 const ruleById = (rules, id) => rules.find((r) => r.id === id);
@@ -97,5 +97,35 @@ describe("setAutomateField", () => {
     setAutomateField("auto_buy_city", "reservePct", 30);
     setAutomateField("auto_buy_city", "reservePct", "");
     expect(ruleById(rules(), "auto_buy_city").reservePct).toBe(30);
+  });
+});
+
+// BUG-113 (audit 2026-10-05) : le seuil du Rationnement faisait une save()
+// pleine (~270 Ko sérialisés) à CHAQUE frappe dans le champ des Options.
+describe("setAutomateThreshold", () => {
+  it("borne le seuil, ignore une saisie vide, et n'écrit la save qu'en différé", () => {
+    const avant = globalThis.localStorage;
+    const ecritures = [];
+    globalThis.localStorage = {
+      getItem: () => null,
+      setItem: (k) => { ecritures.push(k); },
+      removeItem: () => {},
+    };
+    vi.useFakeTimers();
+    try {
+      setAutomateThreshold("auto_rationing", "45");
+      expect(ruleById(rules(), "auto_rationing").threshold).toBe(45);
+      setAutomateThreshold("auto_rationing", "");
+      expect(ruleById(rules(), "auto_rationing").threshold).toBe(45);
+      setAutomateThreshold("auto_rationing", "250");
+      expect(ruleById(rules(), "auto_rationing").threshold).toBe(99);
+      expect(ecritures).toEqual([]);            // rien d'écrit pendant la frappe
+      vi.advanceTimersByTime(2000);
+      expect(ecritures.length).toBe(1);         // une seule écriture, regroupée
+    } finally {
+      vi.useRealTimers();
+      if (avant === undefined) delete globalThis.localStorage;
+      else globalThis.localStorage = avant;
+    }
   });
 });

@@ -21,13 +21,17 @@ export default function BuyToolbar() {
     { label: '×100', value: 100 },
   ];
 
+  // `aria-pressed` : le mode actif n'était dit que par la classe .active, donc
+  // invisible au lecteur d'écran (BUG-118). role="group" donne un sens à
+  // l'aria-label du bandeau, qu'un <div> nu ne porte pas.
   return (
-    <div className="buy-toolbar" id="buyToolbar" aria-label={tr({ fr: "Mode d'achat", en: "Buy mode" })}>
+    <div className="buy-toolbar" id="buyToolbar" role="group" aria-label={tr({ fr: "Mode d'achat", en: "Buy mode" })}>
       <div className="buy-modes">
         {modes.map(mode => (
           <button
             key={mode.value}
             className={`buy-mode ${buyAmount === mode.value ? 'active' : ''}`}
+            aria-pressed={buyAmount === mode.value}
             onClick={() => handleSetAmount(mode.value)}
           >
             {mode.label}
@@ -37,6 +41,7 @@ export default function BuyToolbar() {
             prochain jalon), d'où une sentinelle et non un entier. */}
         <button
           className={`buy-mode buy-mode-step ${buyAmount === 'step' ? 'active' : ''}`}
+          aria-pressed={buyAmount === 'step'}
           onClick={() => handleSetAmount('step')}
           {...tipProps(tr({ fr: "Palier", en: "Milestone" }), tr({
             fr: "Achète exactement de quoi franchir le prochain palier de ce bâtiment, ni plus ni moins.",
@@ -48,6 +53,7 @@ export default function BuyToolbar() {
         {hasMaxUpgrade && (
           <button
             className={`buy-mode buy-mode-max ${buyAmount === 'max' ? 'active' : ''}`}
+            aria-pressed={buyAmount === 'max'}
             onClick={() => handleSetAmount('max')}
           >
             {tr({ fr: "Max", en: "Max" })}
