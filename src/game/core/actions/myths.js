@@ -52,7 +52,10 @@ import {
   ATRIDES_RENEGOTIATE_MULT,
   CADMOS_CYCLE_BONUS_PCT,
   CADMOS_MAX_PERMANENT_EPITAPHS,
-  CADMOS_ORIENTATIONS
+  CADMOS_ORIENTATIONS,
+  cadmosWordIndex,
+  cadmosAgeNameText,
+  cadmosAgeName
 } from '../../data/myths.js';
 import { clamp01, fmt, canPayCost, payCost } from '../utils.js';
 import { tr } from '../i18n.js';
@@ -78,7 +81,10 @@ function crownMyth(myth) {
     Math.max(0, (Date.now() - (state.cycleStartedAt || Date.now())) / 1000)
   );
   if (typeof myth.applyHeritage === "function") myth.applyHeritage();
-  log(`Pacte honore: "${tr(myth.name)}". Heritage accorde: ${tr(myth.heritageDescription)}`);
+  log(tr({
+    fr: `Pacte honoré : « ${tr(myth.name)} ». Héritage accordé : ${tr(myth.heritageDescription)}`,
+    en: `Pact honored: “${tr(myth.name)}”. Heritage granted: ${tr(myth.heritageDescription)}`
+  }));
   pushOutcomeFloat({ label: `⭐ ${tr({ fr: "Pacte honoré", en: "Pact honored" })} — ${tr(myth.name)}`, kind: "gain" });
   checkActUnlocks();
 }
@@ -111,11 +117,14 @@ export function checkMythOnCollapse() {
   } else if (!success && !isMythCompleted(myth.id)) {
     // Déjà sacré en vivant = pas un pacte brisé : ce log ne concerne que les
     // Mythes dont l'objectif n'a jamais été atteint sur le cycle.
-    log(`Pacte brise: "${tr(myth.name)}" n'a pas ete honore ce cycle.`);
+    log(tr({
+      fr: `Pacte brisé : « ${tr(myth.name)} » n'a pas été honoré ce cycle.`,
+      en: `Pact broken: “${tr(myth.name)}” was not honored this cycle.`
+    }));
   }
 }
 
-export async function chooseActiveRuins({ required = false, title = "Ruines actives" } = {}) {
+export async function chooseActiveRuins({ required = false, title = tr({ fr: "Ruines actives", en: "Active Ruins" }) } = {}) {
   const choices = unlockedActiveRuinDefinitions(state);
   if (!choices.length) {
     state.activeRuinIds = [];
@@ -131,7 +140,10 @@ export async function chooseActiveRuins({ required = false, title = "Ruines acti
     state.pendingActiveRuinsChoice = false;
     const myth = state.activeMythId ? getMythById(state.activeMythId) : null;
     if (myth && myth.requiresActiveRuinsChoice) state.activeMythId = null;
-    log(`Pacte d'Antée abandonné : il faut au moins ${ANTEE_MIN_ACTIVE_RUINS} Héritages à porter, la cité n'en a que ${choices.length}.`);
+    log(tr({
+      fr: `Pacte d'Antée abandonné : il faut au moins ${ANTEE_MIN_ACTIVE_RUINS} Héritages à porter, la cité n'en a que ${choices.length}.`,
+      en: `Pact of Antaeus abandoned: it takes at least ${ANTEE_MIN_ACTIVE_RUINS} Heritages to carry, and the city has only ${choices.length}.`
+    }));
     save();
     render();
     return [];
@@ -152,34 +164,54 @@ export async function chooseActiveRuins({ required = false, title = "Ruines acti
     // Le seuil est annoncé : sans lui, une sélection sous la barre est un échec
     // garanti que rien ne signale au joueur avant l'effondrement.
     body: required
-      ? `Antée demande de porter vos Héritages comme des ruines vivantes. Sélectionnez les Héritages à activer avec leur malus pour ce cycle.\nIl en faut au moins ${ANTEE_MIN_ACTIVE_RUINS} portés simultanément pour que le Mythe puisse être accompli.`
-      : "Vous pouvez volontairement activer certains Héritages comme Ruines actives pour augmenter les Ruines gagnées à l'effondrement.",
+      ? tr({
+          fr: `Antée demande de porter vos Héritages comme des ruines vivantes. Sélectionnez les Héritages à activer avec leur malus pour ce cycle.\nIl en faut au moins ${ANTEE_MIN_ACTIVE_RUINS} portés simultanément pour que le Mythe puisse être accompli.`,
+          en: `Antaeus asks you to carry your Heritages as living ruins. Select the Heritages to activate, with their penalties, for this cycle.\nAt least ${ANTEE_MIN_ACTIVE_RUINS} must be carried at once for the Myth to be fulfilled.`
+        })
+      : tr({
+          fr: "Vous pouvez volontairement activer certains Héritages comme Ruines actives pour augmenter les Ruines gagnées à l'effondrement.",
+          en: "You may choose to activate some Heritages as Active Ruins to increase the Ruins gained at collapse."
+        }),
     variant: "active-ruins",
     preventClose: required,
     multiSelectOptions: choices.map((definition) => ({
       id: definition.id,
       label: `${definition.title} (${definition.source})`,
-      bonus: `Bonus: ${definition.bonus}`,
-      malus: `Malus: ${definition.malus}`
+      bonus: tr({ fr: `Bonus : ${definition.bonus}`, en: `Bonus: ${definition.bonus}` }),
+      malus: tr({ fr: `Malus : ${definition.malus}`, en: `Penalty: ${definition.malus}` })
     })),
     defaultSelectedIds: state.activeRuinIds || [],
     options: [
       {
-        label: "Valider",
-        detail: required ? `Sceller ces Ruines actives pour le cycle (${ANTEE_MIN_ACTIVE_RUINS} minimum).` : "Appliquer cette selection.",
+        label: tr({ fr: "Valider", en: "Confirm" }),
+        detail: required
+          ? tr({
+              fr: `Sceller ces Ruines actives pour le cycle (${ANTEE_MIN_ACTIVE_RUINS} minimum).`,
+              en: `Seal these Active Ruins for the cycle (${ANTEE_MIN_ACTIVE_RUINS} minimum).`
+            })
+          : tr({ fr: "Appliquer cette sélection.", en: "Apply this selection." }),
         // Sous Antée, valider moins que le seuil est un échec garanti : on rend
         // le bouton inerte tant que la sélection n'y est pas.
         ...(required ? { minSelected: ANTEE_MIN_ACTIVE_RUINS } : {})
       },
       // « Aucune Ruine active » n'est proposé QUE hors Antée : sous le Mythe, c'est
-      // un bouton perdant d'avance (0 fardeau < seuil).
+      // un bouton perdant d'avance (0 fardeau < seuil). Marqué `none` : ChoiceDialog
+      // renvoie `{ ...option, selectedIds }` avec les cases cochées, qui écrasent
+      // le `selectedIds: []` de l'option — seule la marque dit « aucune ».
       ...(required ? [] : [
-        { label: "Aucune Ruine active", detail: "Cycle normal, sans multiplicateur de Ruines.", selectedIds: [] }
+        {
+          label: tr({ fr: "Aucune Ruine active", en: "No Active Ruins" }),
+          detail: tr({ fr: "Cycle normal, sans multiplicateur de Ruines.", en: "Normal cycle, with no Ruins multiplier." }),
+          selectedIds: [],
+          none: true
+        }
       ])
     ]
   });
 
-  const selectedIds = choice.label === "Aucune Ruine active" ? [] : (choice.selectedIds || []);
+  // La décision se lit sur la marque `none`, jamais sur le libellé affiché
+  // (traduit, il ne vaudrait plus « Aucune Ruine active » — audit 2026-10-05, I18N-3).
+  const selectedIds = choice?.none ? [] : (choice?.selectedIds || []);
   const allowedIds = new Set(choices.map((definition) => definition.id));
   state.activeRuinIds = selectedIds.filter((id, index, array) => allowedIds.has(id) && array.indexOf(id) === index);
   state.pendingActiveRuinsChoice = false;
@@ -202,7 +234,7 @@ export async function promptActiveRuinsForNewCycle() {
   if (!state.anteeHeritage || state.activeMythId || collapseInProgress) return;
   await chooseActiveRuins({
     required: false,
-    title: "Choisir les Ruines actives"
+    title: tr({ fr: "Choisir les Ruines actives", en: "Choose Active Ruins" })
   });
   setGamePaused(false);
   save();
@@ -219,7 +251,9 @@ export async function resumeActiveRuinsChoiceIfPending() {
   const required = Boolean(myth && myth.requiresActiveRuinsChoice);
   await chooseActiveRuins({
     required,
-    title: required ? "Antée - Ruines actives" : "Choisir les Ruines actives"
+    title: required
+      ? tr({ fr: "Antée - Ruines actives", en: "Antaeus - Active Ruins" })
+      : tr({ fr: "Choisir les Ruines actives", en: "Choose Active Ruins" })
   });
   setGamePaused(false);
   save();
@@ -239,30 +273,31 @@ function shuffleCadmosOrientations() {
 function buildCadmosAgeOption(orientation, index, milestone) {
   const definition = CADMOS_ORIENTATIONS[orientation];
   const label = tr(definition.label);
-  const article = tr(definition.article);
-  // Mots résolus dans la langue courante : ils servent à la fois de clé interne
-  // (dédup, cadmosRecentWords) et d'affichage — cohérents car la langue est figée
-  // pour la session.
-  const words = definition.words.map((w) => tr(w));
+  // Clés internes indépendantes de la langue (I18N-6) : un mot est son INDEX dans
+  // l'orientation ; cadmosRecentWords garde sa forme française (les sauvegardes
+  // jouées en anglais y ont la forme anglaise : les deux sont reconnues) ; un Âge
+  // déjà nommé est le couple orientation + index. Seul l'affichage passe par tr().
+  const words = definition.words;
   const recentWords = new Set(state.cadmosRecentWords || []);
-  const chosenNames = new Set((state.cadmosChronicle || []).map((entry) => entry.name));
-  const candidates = words.filter((word) => !recentWords.has(word));
-  const pool = candidates.length ? candidates : words;
-  let word = pool[Math.floor(Math.random() * pool.length)] || words[0];
-  let name = tr({ fr: `L'Âge ${article} ${word}`, en: `The Age of ${word}` });
+  const chosenKeys = new Set((state.cadmosChronicle || []).map((entry) => `${entry.orientation}:${cadmosWordIndex(entry)}`));
+  const indices = words.map((_, i) => i);
+  const candidates = indices.filter((i) => !recentWords.has(words[i].fr) && !recentWords.has(words[i].en));
+  const pool = candidates.length ? candidates : indices;
+  let wordIndex = pool[Math.floor(Math.random() * pool.length)] ?? 0;
   let guard = 0;
-  while (chosenNames.has(name) && guard < words.length) {
-    word = words[(words.indexOf(word) + 1 + guard) % words.length];
-    name = tr({ fr: `L'Âge ${article} ${word}`, en: `The Age of ${word}` });
+  while (chosenKeys.has(`${orientation}:${wordIndex}`) && guard < words.length) {
+    wordIndex = (wordIndex + 1 + guard) % words.length;
     guard += 1;
   }
+  const name = tr(cadmosAgeNameText(orientation, wordIndex));
   return {
     label: name,
     detail: `${label} - ${tr(definition.bonus)}`,
     cadmosAge: {
       id: `cadmos_${Date.now()}_${index}`,
       name,
-      word,
+      word: words[wordIndex].fr,
+      wordIndex,
       orientation,
       orientationLabel: label,
       milestoneType: milestone.type,
@@ -280,8 +315,16 @@ export async function promptCadmosAgeName(milestone) {
 
   const options = shuffleCadmosOrientations().map((orientation, index) => buildCadmosAgeOption(orientation, index, milestone));
   const choice = await openChoiceDialog({
-    title: "Nommer l'Age",
-    body: `${milestone.type === "population" ? "Le Rayonnement" : "L'infrastructure"} atteint un nouveau palier (${fmt(milestone.threshold)}). Cadmos exige un nom pour que la cite sache ce qu'elle devient.`,
+    title: tr({ fr: "Nommer l'Âge", en: "Name the Age" }),
+    body: milestone.type === "population"
+      ? tr({
+          fr: `Le Rayonnement atteint un nouveau palier (${fmt(milestone.threshold)}). Cadmos exige un nom pour que la cité sache ce qu'elle devient.`,
+          en: `Radiance reaches a new milestone (${fmt(milestone.threshold)}). Cadmus demands a name, so the city knows what it is becoming.`
+        })
+      : tr({
+          fr: `L'infrastructure atteint un nouveau palier (${fmt(milestone.threshold)}). Cadmos exige un nom pour que la cité sache ce qu'elle devient.`,
+          en: `Infrastructure reaches a new milestone (${fmt(milestone.threshold)}). Cadmus demands a name, so the city knows what it is becoming.`
+        }),
     variant: "cadmos",
     preventClose: true,
     options
@@ -299,7 +342,10 @@ export async function promptCadmosAgeName(milestone) {
   state.cadmosRecentWords = [chosen.word, ...(state.cadmosRecentWords || []).filter((word) => word !== chosen.word)].slice(0, 6);
   state.cadmosPromptPending = false;
   invalidateRenderCache("all");
-  log(`Cadmos : ${chosen.name} est inscrit dans la Chronique. Bonus ${chosen.orientationLabel} +${Math.round(CADMOS_CYCLE_BONUS_PCT * 100)}% pour ce cycle.`);
+  log(tr({
+    fr: `Cadmos : ${chosen.name} est inscrit dans la Chronique. Bonus ${chosen.orientationLabel} +${Math.round(CADMOS_CYCLE_BONUS_PCT * 100)}% pour ce cycle.`,
+    en: `Cadmus: ${chosen.name} is inscribed in the Chronicle. ${chosen.orientationLabel} bonus +${Math.round(CADMOS_CYCLE_BONUS_PCT * 100)}% for this cycle.`
+  }));
   save();
   render();
 }
@@ -314,7 +360,12 @@ export function engraveCadmosEpitaph(entryId) {
   if (current.length >= CADMOS_MAX_PERMANENT_EPITAPHS) return;
 
   state.cadmosPermanentEpitaphs = [...current, { ...entry, engravedAt: Date.now() }];
-  log(`Epitaphe gravee : ${entry.name}. Son orientation devient un Nom de Pouvoir permanent.`);
+  // Nom recomposé dans la langue du moment : l'Âge a pu être nommé dans l'autre.
+  const ageName = cadmosAgeName(entry);
+  log(tr({
+    fr: `Épitaphe gravée : ${ageName}. Son orientation devient un Nom de Pouvoir permanent.`,
+    en: `Epitaph engraved: ${ageName}. Its orientation becomes a permanent Name of Power.`
+  }));
   invalidateRenderCache("all");
   save();
   render();
@@ -331,7 +382,10 @@ export async function activateMyth(mythId) {
   // moins, sa fenêtre obligatoire ne pourrait jamais être validée : on refuse le
   // pacte AVANT le reset (rien n'est perdu), en le disant.
   if (myth.requiresActiveRuinsChoice && unlockedActiveRuinDefinitions(state).length < ANTEE_MIN_ACTIVE_RUINS) {
-    log(`Antée refuse le pacte : il faut au moins ${ANTEE_MIN_ACTIVE_RUINS} Héritages à porter, la cité n'en a que ${unlockedActiveRuinDefinitions(state).length}.`);
+    log(tr({
+      fr: `Antée refuse le pacte : il faut au moins ${ANTEE_MIN_ACTIVE_RUINS} Héritages à porter, la cité n'en a que ${unlockedActiveRuinDefinitions(state).length}.`,
+      en: `Antaeus refuses the pact: it takes at least ${ANTEE_MIN_ACTIVE_RUINS} Heritages to carry, and the city has only ${unlockedActiveRuinDefinitions(state).length}.`
+    }));
     render();
     return;
   }
@@ -361,11 +415,14 @@ export async function activateMyth(mythId) {
   if (myth.requiresActiveRuinsChoice) {
     await chooseActiveRuins({
       required: true,
-      title: "Antée - Ruines actives"
+      title: tr({ fr: "Antée - Ruines actives", en: "Antaeus - Active Ruins" })
     });
   }
   setGamePaused(false);
-  log(`Pacte active: ${tr(myth.name)}. ${tr(myth.description)}`);
+  log(tr({
+    fr: `Pacte activé : ${tr(myth.name)}. ${tr(myth.description)}`,
+    en: `Pact activated: ${tr(myth.name)}. ${tr(myth.description)}`
+  }));
   invalidateRenderCache("all");
   save();
   render();
@@ -393,9 +450,15 @@ export function atlasEpauler() {
   state.atlasFardeau = Math.max(0, (state.atlasFardeau || 0) - ATLAS_SHOULDER_RELIEF);
   if (compte) {
     state.atlasEpaules = (state.atlasEpaules || 0) + 1;
-    log(`Atlas : épaulée ${state.atlasEpaules}/${ATLAS_SHOULDER_TARGET}. Le ciel recule, un instant.`);
+    log(tr({
+      fr: `Atlas : épaulée ${state.atlasEpaules}/${ATLAS_SHOULDER_TARGET}. Le ciel recule, un instant.`,
+      en: `Atlas: shoulder ${state.atlasEpaules}/${ATLAS_SHOULDER_TARGET}. The sky draws back, for a moment.`
+    }));
   } else {
-    log("Atlas : le ciel était léger — le geste soulage, mais ne compte pas.");
+    log(tr({
+      fr: "Atlas : le ciel était léger — le geste soulage, mais ne compte pas.",
+      en: "Atlas: the sky was light — the effort brings relief, but does not count."
+    }));
   }
   invalidateRenderCache("all");
   checkMythLiveCompletion();
@@ -429,12 +492,21 @@ export function sisyphePousser(res) {
     state.sisypheCran = 0;
     state.sisypheUsages = { food: 0, knowledge: 0, infrastructure: 0 };
     if (state.sisypheMontees >= SISYPHE_MONTEES_TARGET) {
-      log("Sisyphe : le rocher tient au sommet. Cette fois, il ne retombe pas.");
+      log(tr({
+        fr: "Sisyphe : le rocher tient au sommet. Cette fois, il ne retombe pas.",
+        en: "Sisyphus: the boulder holds at the summit. This time, it does not fall."
+      }));
     } else {
-      log("Sisyphe : le sommet… et le rocher redévale la pente. Toujours. Remonte-le.");
+      log(tr({
+        fr: "Sisyphe : le sommet… et le rocher redévale la pente. Toujours. Remonte-le.",
+        en: "Sisyphus: the summit… and the boulder rolls back down. Always. Push it up again."
+      }));
     }
   } else {
-    log(`Sisyphe : cran ${state.sisypheCran}/${SISYPHE_CRANS}. Le rocher tient — ne bâtis pas.`);
+    log(tr({
+      fr: `Sisyphe : cran ${state.sisypheCran}/${SISYPHE_CRANS}. Le rocher tient — ne bâtis pas.`,
+      en: `Sisyphus: notch ${state.sisypheCran}/${SISYPHE_CRANS}. The boulder holds — do not build.`
+    }));
   }
   invalidateRenderCache("all");
   checkMythLiveCompletion();
@@ -453,7 +525,10 @@ export function babelDeclareTongue(cat) {
   if (state.babelCommonTongue) return;            // une déclaration par cycle
   if (!BABEL_CAT_LABELS[cat]) return;
   state.babelCommonTongue = cat;
-  log(`La Langue commune : le cycle parle « ${tr(BABEL_CAT_LABELS[cat])} » — production +${Math.round((BABEL_COMMON_TONGUE_MULT - 1) * 100)} % jusqu'à l'effondrement.`);
+  log(tr({
+    fr: `La Langue commune : le cycle parle « ${tr(BABEL_CAT_LABELS[cat])} » — production +${Math.round((BABEL_COMMON_TONGUE_MULT - 1) * 100)} % jusqu'à l'effondrement.`,
+    en: `The Common Tongue: this cycle speaks “${tr(BABEL_CAT_LABELS[cat])}” — production +${Math.round((BABEL_COMMON_TONGUE_MULT - 1) * 100)}% until the collapse.`
+  }));
   invalidateRenderCache("all");
   save();
   render();
@@ -469,11 +544,17 @@ export function babelToggleAutoTongue() {
   if (!state.babelHeritage) return;
   if (state.babelAutoTongue) {
     state.babelAutoTongue = null;
-    log("La Langue commune : réglage automatique levé — chaque cycle choisira sa langue.");
+    log(tr({
+      fr: "La Langue commune : réglage automatique levé — chaque cycle choisira sa langue.",
+      en: "The Common Tongue: automatic setting lifted — each cycle will choose its own tongue."
+    }));
   } else {
     if (!state.babelCommonTongue) return; // rien à retenir : déclarer d'abord une langue
     state.babelAutoTongue = state.babelCommonTongue;
-    log(`La Langue commune : « ${tr(BABEL_CAT_LABELS[state.babelAutoTongue])} » sera déclarée d'elle-même à chaque cycle.`);
+    log(tr({
+      fr: `La Langue commune : « ${tr(BABEL_CAT_LABELS[state.babelAutoTongue])} » sera déclarée d'elle-même à chaque cycle.`,
+      en: `The Common Tongue: “${tr(BABEL_CAT_LABELS[state.babelAutoTongue])}” will be declared automatically every cycle.`
+    }));
   }
   invalidateRenderCache("all");
   save();
@@ -511,9 +592,15 @@ export function ragnarokOffrir() {
   state.ragnarokArkNextAt = Date.now() + RAGNAROK_ARK_COOLDOWN_MS;
   state.ragnarokArkOfferings = (state.ragnarokArkOfferings || 0) + 1;
   if (state.ragnarokArkOfferings >= RAGNAROK_ARK_TARGET) {
-    log("L'Arche est prête. La Fin regarde la cité — et passe son chemin.");
+    log(tr({
+      fr: "L'Arche est prête. La Fin regarde la cité — et passe son chemin.",
+      en: "The Ark is ready. The End looks upon the city — and passes it by."
+    }));
   } else {
-    log(`Ragnarok : offrande ${state.ragnarokArkOfferings}/${RAGNAROK_ARK_TARGET} versée à l'Arche.`);
+    log(tr({
+      fr: `Ragnarok : offrande ${state.ragnarokArkOfferings}/${RAGNAROK_ARK_TARGET} versée à l'Arche.`,
+      en: `Ragnarok: offering ${state.ragnarokArkOfferings}/${RAGNAROK_ARK_TARGET} given to the Ark.`
+    }));
   }
   invalidateRenderCache("all");
   checkMythLiveCompletion();
@@ -565,17 +652,19 @@ export async function negotiateOrDeal() {
       title: tr({ fr: "Une caravane au portail", en: "A caravan at the gate" }),
       body: `${note}${tr({
         fr: `Le marchand propose ${fmt(lot)} ${tr(res.label)} contre ${fmt(price)} Or. ${mood}`,
-        en: `The merchant offers ${fmt(lot)} ${tr(res.label)} for ${fmt(price)} Gold. ${mood}`
+        en: `The merchant offers ${fmt(lot)} ${tr(res.label)} for ${fmt(price)} Treasury. ${mood}`
       })}`,
       preventClose: true,
+      // La décision se lit sur la marque `deal`, jamais sur le libellé affiché
+      // (audit 2026-10-05, I18N-3).
       options: [
-        { label: tr({ fr: "Accepter", en: "Accept" }), detail: tr({ fr: `Payer ${fmt(price)} Or.`, en: `Pay ${fmt(price)} Gold.` }) },
-        { label: tr({ fr: "Marchander", en: "Haggle" }), detail: tr({ fr: "Le prix baisse… s'il reste.", en: "The price drops… if he stays." }) },
-        { label: tr({ fr: "Refuser", en: "Refuse" }), detail: tr({ fr: "La caravane repart, sans rancune.", en: "The caravan moves on, no hard feelings." }) }
+        { label: tr({ fr: "Accepter", en: "Accept" }), detail: tr({ fr: `Payer ${fmt(price)} Or.`, en: `Pay ${fmt(price)} Treasury.` }), deal: "accept" },
+        { label: tr({ fr: "Marchander", en: "Haggle" }), detail: tr({ fr: "Le prix baisse… s'il reste.", en: "The price drops… if he stays." }), deal: "haggle" },
+        { label: tr({ fr: "Refuser", en: "Refuse" }), detail: tr({ fr: "La caravane repart, sans rancune.", en: "The caravan moves on, no hard feelings." }), deal: "refuse" }
       ]
     });
 
-    if (choice.label === tr({ fr: "Marchander", en: "Haggle" })) {
+    if (choice?.deal === "haggle") {
       haggles += 1;
       if (haggles > patience) {
         chronicle(tr({
@@ -589,7 +678,7 @@ export async function negotiateOrDeal() {
       continue;
     }
 
-    if (choice.label === tr({ fr: "Accepter", en: "Accept" })) {
+    if (choice?.deal === "accept") {
       if (!canPayCost({ gold: price })) {
         note = tr({ fr: "Ton Trésor n'y suffit pas. ", en: "Your Treasury cannot cover it. " });
         continue;
@@ -600,7 +689,7 @@ export async function negotiateOrDeal() {
       pushOutcomeFloat({ label: `🤝 +${fmt(lot)} ${tr(res.label)}`, kind: "gain" });
       chronicle(tr({
         fr: `Marché conclu (${state.orDealsClosed}/${OR_DEALS_TARGET}) : ${fmt(lot)} ${tr(res.label)} contre ${fmt(price)} Or.`,
-        en: `Deal closed (${state.orDealsClosed}/${OR_DEALS_TARGET}): ${fmt(lot)} ${tr(res.label)} for ${fmt(price)} Gold.`
+        en: `Deal closed (${state.orDealsClosed}/${OR_DEALS_TARGET}): ${fmt(lot)} ${tr(res.label)} for ${fmt(price)} Treasury.`
       }));
       break;
     }
@@ -650,7 +739,7 @@ export function comptoirSellFood() {
   const gain = D(r.gold).max(0).mul(COMPTOIR_LOT_SECONDS).mul(COMPTOIR_SELL_RATE).max(10).round();
   state.food = D(state.food).sub(lot);
   state.gold = D(state.gold).add(gain);
-  pushOutcomeFloat({ label: `🤝 +${fmt(gain)} ${tr({ fr: "Or", en: "Gold" })}`, kind: "gain" });
+  pushOutcomeFloat({ label: `🤝 +${fmt(gain)} ${tr({ fr: "Or", en: "Treasury" })}`, kind: "gain" });
   invalidateRenderCache("all");
   save();
   render();
@@ -665,7 +754,10 @@ export function icareClimb() {
   if (gamePaused || collapseInProgress || state.crisisLimitAnnounced) return;
   state.icareAltitude = (state.icareAltitude || 0) + 1;
   state.instability = clamp01((state.instability || 0) + ICARE_CLIMB_RUPTURE);
-  log(`Icare : altitude ${state.icareAltitude}. L'air brûle un peu plus.`);
+  log(tr({
+    fr: `Icare : altitude ${state.icareAltitude}. L'air brûle un peu plus.`,
+    en: `Icarus: altitude ${state.icareAltitude}. The air burns a little hotter.`
+  }));
   invalidateRenderCache("all");
   save();
   render();
@@ -677,7 +769,10 @@ export function icareDescend() {
   if ((state.icareAltitude || 0) <= 0) return;
   if (gamePaused || collapseInProgress) return;
   state.icareAltitude = state.icareAltitude - 1;
-  log(`Icare : redescente — altitude ${state.icareAltitude}.`);
+  log(tr({
+    fr: `Icare : redescente — altitude ${state.icareAltitude}.`,
+    en: `Icarus: descending — altitude ${state.icareAltitude}.`
+  }));
   invalidateRenderCache("all");
   save();
   render();
@@ -690,7 +785,10 @@ export function rembourserAtridesDebt() {
 
   state.gold = D(state.gold).sub(cost);
   state.atridesDebt = 0;
-  log(`Dette remboursée ! Vous avez payé ${fmt(cost)} Trésor pour éteindre votre dette.`);
+  log(tr({
+    fr: `Dette remboursée ! Vous avez payé ${fmt(cost)} Trésor pour éteindre votre dette.`,
+    en: `Debt repaid! You paid ${fmt(cost)} Treasury to clear your debt.`
+  }));
   invalidateRenderCache("all");
   save();
   render();
@@ -704,7 +802,10 @@ export function renegocierAtridesDebt() {
   state.atridesRenegotiateActiveUntil = now + ATRIDES_RENEGOTIATE_DURATION_MS;
   state.atridesRenegotiateCooldownEnd = now + ATRIDES_RENEGOTIATE_COOLDOWN_MS;
   state.atridesDebtGrowthMultiplier = ATRIDES_RENEGOTIATE_MULT;
-  log(`Dette renégociée ! Le taux de croissance de la dette est réduit de ${Math.round((1 - ATRIDES_RENEGOTIATE_MULT) * 100)}% pendant ${ATRIDES_RENEGOTIATE_DURATION_MS / 1000} secondes.`);
+  log(tr({
+    fr: `Dette renégociée ! Le taux de croissance de la dette est réduit de ${Math.round((1 - ATRIDES_RENEGOTIATE_MULT) * 100)}% pendant ${ATRIDES_RENEGOTIATE_DURATION_MS / 1000} secondes.`,
+    en: `Debt renegotiated! The debt's growth rate is cut by ${Math.round((1 - ATRIDES_RENEGOTIATE_MULT) * 100)}% for ${ATRIDES_RENEGOTIATE_DURATION_MS / 1000} seconds.`
+  }));
   invalidateRenderCache("all");
   save();
   render();
@@ -715,7 +816,10 @@ export function transmettreAtrides() {
   if (state.atridesDrainDisabled) return;
 
   state.atridesDrainDisabled = true;
-  log("Transmission activée ! Le drain de 10% sur les ressources est levé. Les Ruines gagnées à l'effondrement de ce cycle seront multipliées par 1.5, mais un malus de production de 20% s'appliquera au cycle suivant.");
+  log(tr({
+    fr: "Transmission activée ! Le drain de 10% sur les ressources est levé. Les Ruines gagnées à l'effondrement de ce cycle seront multipliées par 1.5, mais un malus de production de 20% s'appliquera au cycle suivant.",
+    en: "Transmission activated! The 10% drain on resources is lifted. Ruins gained at this cycle's collapse will be multiplied by 1.5, but a 20% production penalty will apply next cycle."
+  }));
   invalidateRenderCache("all");
   save();
   render();
@@ -728,7 +832,10 @@ export function activateAtridesPact() {
   if (elapsed >= 120_000) return; // Uniquement pendant les 2 premières minutes
 
   state.atridesPactActive = true;
-  log("Pacte des Atrides scellé : production doublée pendant les 2 premières minutes, au prix d'un malus de production de 50% pendant la crise.");
+  log(tr({
+    fr: "Pacte des Atrides scellé : production doublée pendant les 2 premières minutes, au prix d'un malus de production de 50% pendant la crise.",
+    en: "Atreides Pact sealed: production doubled for the first 2 minutes, at the cost of a 50% production penalty during the crisis."
+  }));
   invalidateRenderCache("all");
   save();
   render();
@@ -778,7 +885,10 @@ export function migrerEnee() {
   state.eneeDegraded = false;
   state.eneeTerritoryStartedAt = Date.now();
 
-  log(`Migration de la cité effectuée (Total : ${state.eneeMigrations}). Les anciens bâtiments sont abandonnés, un nouveau territoire est colonisé.`);
+  log(tr({
+    fr: `Migration de la cité effectuée (Total : ${state.eneeMigrations}). Les anciens bâtiments sont abandonnés, un nouveau territoire est colonisé.`,
+    en: `City migration complete (Total: ${state.eneeMigrations}). The old buildings are abandoned, and a new territory is settled.`
+  }));
   invalidateRenderCache("all");
   save();
   render();

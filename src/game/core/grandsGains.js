@@ -9,7 +9,8 @@
 // automatisations ne fêtent rien : le spectacle est pour la main.
 
 import { chronicle } from './actions/utils.js';
-import { fmt } from './utils.js';
+import { fmt, numLocale } from './utils.js';
+import { tr } from './i18n.js';
 
 export const PALIERS = [
   { x: 250, id: "legende", label: { fr: "COUP DE LÉGENDE", en: "LEGENDARY WIN" } },
@@ -24,16 +25,18 @@ export function palierOf(mult) {
   return Number.isFinite(m) ? PALIERS.find((p) => m >= p.x) || null : null;
 }
 
+// Où le coup est tombé, dans les deux langues (audit du 05/10, I18N-5).
 const OU = {
-  osselets: "aux osselets",
-  icare: "au Vol d'Icare",
-  tickets: "aux tickets",
-  vingtetun: "au vingt-et-un",
-  machine: "à la machine à sous",
-  roulette: "à la roulette",
-  duel: "au duel des grands flambeurs",
-  courses: "aux courses"
+  osselets: { fr: "aux osselets", en: "at knucklebones" },
+  icare: { fr: "au Vol d'Icare", en: "at Icarus's flight" },
+  tickets: { fr: "aux tickets", en: "at the scratch tickets" },
+  vingtetun: { fr: "au vingt-et-un", en: "at twenty-one" },
+  machine: { fr: "à la machine à sous", en: "at the slot machine" },
+  roulette: { fr: "à la roulette", en: "at roulette" },
+  duel: { fr: "au duel des grands flambeurs", en: "at the high rollers' duel" },
+  courses: { fr: "aux courses", en: "at the races" }
 };
+const OU_MAISON = { fr: "à la Maison des Plaisirs", en: "at the House of Pleasures" };
 
 // LES RÉACTIONS (2026-10-04, la luxure du lot 3 de docs/PLAN-NUIT-DES-PLAISIRS.md) :
 // chaque beau gain (×3 la mise et plus) fait réagir la table — la croupière envoie un
@@ -65,7 +68,12 @@ export function celebrerGain({ gain, stake, game, show = true } = {}) {
   const palier = palierOf(mult);
   if (!palier) return null;
   if (palier.id === "legende") {
-    chronicle(`Coup de légende ${OU[game] || "à la Maison des Plaisirs"} : ×${Math.floor(mult).toLocaleString("fr-FR")} la mise, ${fmt(g)} faveur.`);
+    const ou = OU[game] || OU_MAISON;
+    const x = Math.floor(mult).toLocaleString(numLocale());
+    chronicle(tr({
+      fr: `Coup de légende ${ou.fr} : ×${x} la mise, ${fmt(g)} faveur.`,
+      en: `Legendary win ${ou.en}: ×${x} the stake, ${fmt(g)} favor.`
+    }));
   }
   if (show && listener) listener({ palier, gain: g, stake: s, mult, game });
   return palier;

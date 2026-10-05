@@ -9,6 +9,7 @@ import { SAVE_KEY, stripBom, clearLocalSaveUnreadable, newSaveEpoch, isFutureSav
 import { state, hydrateState, hydrateSalvaging, render, save, collapseUnderway } from './state.js';
 import { suspendCloudMirrorForReload } from './cloudSave.js';
 import { readSaveBackup } from './saveBackups.js';
+import { tr } from './i18n.js';
 
 export const SLOT_COUNT = 3;
 const slotKey = (i) => `${SAVE_KEY}-slot${i}`;
@@ -174,7 +175,10 @@ export function loadBackup(key) {
       // rechargement, une 49e — celle-ci, la seule qui dit ce qui manque — sautait.
       loaded.history = [
         ...(loaded.history || []),
-        `La copie n'a pas pu être relue en entier : ${dropped.join(", ")} remis à neuf. La copie complète reste dans les Options, onglet Autres.`
+        tr({
+          fr: `La copie n'a pas pu être relue en entier : ${dropped.join(", ")} remis à neuf. La copie complète reste dans les Options, onglet Autres.`,
+          en: `The copy could not be read in full: ${dropped.join(", ")} reset. The complete copy remains in Options, Other tab.`
+        })
       ].slice(-48);
     }
     if (!replaceGameByReload(loaded)) return { ok: false, storage: true };

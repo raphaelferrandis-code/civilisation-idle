@@ -133,7 +133,8 @@ function fromGame(event) {
   return typeof url === "string" && url.startsWith("app://");
 }
 
-// Langue du jeu (réglage « civ-opt-lang », français par défaut comme i18n.js),
+// Langue du jeu (réglage « civ-opt-lang », que i18n.js écrit dès le premier
+// lancement — langue du système pour un joueur neuf ; français à défaut),
 // relevée à chaque chargement de page (watchRenderer) : celle des fenêtres du
 // système que le jeu ouvre (dialogue d'export, questions du moteur de rendu).
 let pageLang = "fr";
@@ -259,7 +260,7 @@ function watchRenderer(win) {
   });
 
   // Langue des questions ci-dessous : celle du jeu (réglage « civ-opt-lang »,
-  // français par défaut comme i18n.js), relevée à chaque chargement de page — au
+  // écrit par i18n.js ; français à défaut), relevée à chaque chargement de page — au
   // moment de demander, la page figée ou disparue ne peut plus répondre.
   let lang = "fr";
   const say = (fr, en) => (lang === "en" ? en : fr);

@@ -20,6 +20,7 @@
 import { state, render, gamePaused, collapseInProgress } from '../state.js';
 import { regulationContext } from '../mechanics.js';
 import { fmt } from '../utils.js';
+import { tr } from '../i18n.js';
 import {
   ICARUS_RTP,
   SCRATCH_PRIZES,
@@ -195,10 +196,18 @@ export function playScratch(stake, options = {}) {
         // Trois Vénus → vol d'Icare offert à la mise du ticket, comme le Coup de
         // Vénus aux osselets.
         result.freeFlight = grantFreeFlight(stakeFaveur);
-        if (result.freeFlight) chronicle(`Trois Vénus sous le vernis : la Maison offre un vol d'Icare.`);
+        if (result.freeFlight) {
+          chronicle(tr({
+            fr: `Trois Vénus sous le vernis : la Maison offre un vol d'Icare.`,
+            en: `Three Venuses under the varnish: the House offers a flight of Icarus.`
+          }));
+        }
       }
       if (prize.symbol === "soleil") {
-        chronicle(`Trois Soleils sous le vernis : le gros lot ! La Maison paie ${fmt(result.faveurGain)} faveur.`);
+        chronicle(tr({
+          fr: `Trois Soleils sous le vernis : le gros lot ! La Maison paie ${fmt(result.faveurGain)} faveur.`,
+          en: `Three Suns under the varnish: the jackpot! The House pays ${fmt(result.faveurGain)} favor.`
+        }));
       }
     }
     // La cagnotte est nourrie sur l'EDGE du ticket, à CHAQUE tirage (gagné comme
@@ -214,8 +223,10 @@ export function playScratch(stake, options = {}) {
 
     if (!silent) {
       const floatLabel = win
-        ? (result.freeFlight ? `🎟️ +${fmt(result.faveurGain)} faveur · vol offert` : `🎟️ +${fmt(result.faveurGain)} faveur`)
-        : "🎟️ vernis nu";
+        ? (result.freeFlight
+          ? tr({ fr: `🎟️ +${fmt(result.faveurGain)} faveur · vol offert`, en: `🎟️ +${fmt(result.faveurGain)} favor · free flight` })
+          : tr({ fr: `🎟️ +${fmt(result.faveurGain)} faveur`, en: `🎟️ +${fmt(result.faveurGain)} favor` }))
+        : tr({ fr: "🎟️ vernis nu", en: "🎟️ bare varnish" });
       pushOutcomeFloat({ label: floatLabel, kind: win ? "gain" : "cost" });
     }
     if (doRender) render();

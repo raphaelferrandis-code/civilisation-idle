@@ -6,6 +6,7 @@ import { eras, CRISIS_EVENTS } from '../data/world.js';
 import { eraBandOf } from '../data/eraThemes.js';
 import { clamp01 } from './utils.js';
 import { Decimal, D, parseDecimalString } from './num.js';
+import { tr } from './i18n.js';
 import { COLLAPSE_PREP_MAX, POLICY_MAX_ACTIVE, REGUL_LEDGER_MAX, GAMBLE_HISTORY_LEN, STEWARD_MAX_CLAUSES, STEWARD_THRESHOLDS, ICARUS_HISTORY_COLOMBIER, FLIGHTS_MAX_COLOMBIER, SCRATCH_HISTORY_LEN, BLACKJACK_HISTORY_LEN, SLOTS_HISTORY_LEN, ROULETTE_HISTORY_LEN, STYLET_MAX_LEVEL, AUTO_COLLAPSE_MIN_SECONDS, AUTO_ICARUS_TARGET_MIN, AUTO_ICARUS_TARGET_MAX, AUTO_TEMPLE_FAVEUR_FLOOR_DEFAULT, AUTO_STAKE_STEPS, CAISSE_INITIAL, TEMPLE_ARTIFACT_IDS, BOON_INTERVAL_MAX_SEC, CLEPSYDRE_HARD_MAX_SECONDS, MAX_BATCH_AMOUNT, grandResetProductionMult, grandResetRuinGainMult } from './balance.js';
 import { resetAnnals } from './annals.js';
 import { normalizeUiReveal } from './uiReveal.js';
@@ -93,10 +94,25 @@ export function withAutoCollapseFloor(rules) {
   return rules;
 }
 
+// Libellés des règles du Script (Phénix) et des automates (Héphaïstos), PAR ID
+// (I18N-7). Hors des défauts : jamais sauvegardés ni relus, ils suivent la langue
+// du moment — normalizeRuleList repart des défauts, donc le `label` français
+// d'une vieille sauvegarde tombe tout seul. Le seuil et l'unité s'affichent à
+// la suite (Options) ou entrent dans la phrase du journal (automation.js).
+export const RULE_LABELS = {
+  rule_rupture: { fr: "Effondrer si la Rupture atteint", en: "Collapse when Rupture reaches" },
+  rule_usure: { fr: "Effondrer si l'Usure atteint", en: "Collapse when Wear reaches" },
+  rule_time: { fr: "Effondrer après", en: "Collapse after" },
+  auto_buy_city: { fr: "Acheter un bâtiment (Cité) si abordable", en: "Buy a building (City) when affordable" },
+  auto_buy_knowledge: { fr: "Acheter un bâtiment (Savoir) si abordable", en: "Buy a building (Knowledge) when affordable" },
+  auto_buy_infra: { fr: "Acheter un bâtiment (Infrastructure) si abordable", en: "Buy a building (Infrastructure) when affordable" },
+  auto_rationing: { fr: "Rationner si la Rupture atteint", en: "Ration when Rupture reaches" }
+};
+
 export const defaultAutoScriptRules = () => [
-  { id: "rule_rupture", type: "rupture", label: "Effondrer si Rupture atteint", unit: "%", threshold: 80, enabled: false },
-  { id: "rule_usure", type: "usure", label: "Effondrer si Usure atteint", unit: "%", threshold: 80, enabled: false },
-  { id: "rule_time", type: "time", label: "Effondrer apres", unit: "min", threshold: 10, enabled: false }
+  { id: "rule_rupture", type: "rupture", unit: "%", threshold: 80, enabled: false },
+  { id: "rule_usure", type: "usure", unit: "%", threshold: 80, enabled: false },
+  { id: "rule_time", type: "time", unit: "min", threshold: 10, enabled: false }
 ];
 
 // Bornes des champs numériques des automates, PAR CHAMP. Le débit reste bas
@@ -109,10 +125,10 @@ export const AUTOMATE_FIELD_BOUNDS = { reservePct: [0, 90], perTick: [1, 10] };
 // laissait éteint — l'inverse de ce qu'une automatisation payée doit faire.
 // `perTick` : nombre d'achats par tick.
 export const defaultAutomateRules = () => [
-  { id: "auto_buy_city", type: "buy_cheapest", category: "city", label: "Acheter bati. (Cite) si abordable", enabled: false, reservePct: 0, perTick: 1 },
-  { id: "auto_buy_knowledge", type: "buy_cheapest", category: "knowledge", label: "Acheter bati. (Savoir) si abordable", enabled: false, reservePct: 0, perTick: 1 },
-  { id: "auto_buy_infra", type: "buy_cheapest", category: "infra", label: "Acheter bati. (Infra) si abordable", enabled: false, reservePct: 0, perTick: 1 },
-  { id: "auto_rationing", type: "crisis_action", actionId: "rationing", label: "Rationnement si Rupture >=", unit: "%", threshold: 60, enabled: false }
+  { id: "auto_buy_city", type: "buy_cheapest", category: "city", enabled: false, reservePct: 0, perTick: 1 },
+  { id: "auto_buy_knowledge", type: "buy_cheapest", category: "knowledge", enabled: false, reservePct: 0, perTick: 1 },
+  { id: "auto_buy_infra", type: "buy_cheapest", category: "infra", enabled: false, reservePct: 0, perTick: 1 },
+  { id: "auto_rationing", type: "crisis_action", actionId: "rationing", unit: "%", threshold: 60, enabled: false }
 ];
 
 // Réglages du moteur d'automatisation du Temple (Phase 2, 2026-07-15) : des
@@ -757,7 +773,7 @@ export const defaultState = () => ({
   cityName: generateCityName(newCitySeed()),
   // true dès que le joueur saisit un nom : il survit alors aux effondrements.
   cityNameCustom: false,
-  history: ["An 0: une premiere communaute allume ses feux."],
+  history: [tr({ fr: "An 0 : une première communauté allume ses feux.", en: "Year 0: a first community lights its fires." })],
   bestEraIndex: 0,
   // Bilan du cycle précédent (cf. normalizePrevCycle) : sert à chiffrer l'écart
   // dans le bandeau de fin de cycle. null tant qu'aucune civilisation n'est tombée.
@@ -1506,10 +1522,11 @@ export function normalizeVestiges(raw) {
       };
     }
     const eraIndex = finiteInteger(vestige.eraIndex, 0, 0, maxEra);
+    // Plus de `eraName` (I18N-6) : écrit dans la langue du moment et jamais lu,
+    // il est jeté ici — eraIndex suffit à retrouver l'ère, dans toute langue.
     return {
       cityName: typeof vestige.cityName === "string" ? vestige.cityName.slice(0, 64) : "",
       year: finiteInteger(vestige.year, 0, 0, 1e9),
-      eraName: typeof vestige.eraName === "string" ? vestige.eraName.slice(0, 64) : "",
       eraIndex,
       eraBand: finiteInteger(vestige.eraBand, eraBandOf(eraIndex), 0, 9),
       mapSeed: Number.isFinite(Number(vestige.mapSeed)) ? Number(vestige.mapSeed) : 0,
@@ -1737,6 +1754,10 @@ export function normalizeCadmosChronicle(raw) {
       const cycle = finiteInteger(entry.cycle, 0, 0);
       const chosenAt = finiteTimestamp(entry.chosenAt, Date.now());
       const engravedAt = entry.engravedAt ? finiteTimestamp(entry.engravedAt, Date.now()) : undefined;
+      // Index du mot dans son orientation : la clé STABLE qui recompose le nom
+      // dans la langue du moment (I18N-6). Absent des entrées d'avant : le mot
+      // est alors retrouvé par sa forme (cadmosWordIndex, data/myths.js).
+      const wordIndex = entry.wordIndex == null ? -1 : finiteInteger(entry.wordIndex, -1, -1, 63);
 
       const out = {
         id,
@@ -1749,6 +1770,9 @@ export function normalizeCadmosChronicle(raw) {
         cycle,
         chosenAt
       };
+      if (wordIndex >= 0) {
+        out.wordIndex = wordIndex;
+      }
       if (engravedAt !== undefined) {
         out.engravedAt = engravedAt;
       }
@@ -2239,7 +2263,10 @@ export function hydrateState(parsed = {}) {
       stateOut.ruinsSeenNodes = [];
       stateOut.history = [
         ...(stateOut.history || []),
-        `L'Arbre des Ruines a été refondu : les anciens savoirs vous sont remboursés (+${refund} ruines). L'arbre attend d'être rallumé.`
+        tr({
+          fr: `L'Arbre des Ruines a été refondu : les anciens savoirs vous sont remboursés (+${refund} ruines). L'arbre attend d'être rallumé.`,
+          en: `The Ruins Tree has been reworked: your old knowledge is refunded (+${refund} ruins). The tree awaits rekindling.`
+        })
       ];
     }
   }
@@ -2348,7 +2375,10 @@ export function load() {
       // (normalizeHistory garde les 48 premières).
       loaded.history = [
         ...(loaded.history || []),
-        `La sauvegarde n'a pas pu être relue en entier : ${dropped.join(", ")} remis à neuf. Une copie complète est gardée (Options, onglet Autres).`
+        tr({
+          fr: `La sauvegarde n'a pas pu être relue en entier : ${dropped.join(", ")} remis à neuf. Une copie complète est gardée (Options, onglet Autres).`,
+          en: `The save could not be read in full: ${dropped.join(", ")} reset. A complete copy is kept (Options, Other tab).`
+        })
       ].slice(-48);
     }
     return loaded;
@@ -2383,7 +2413,7 @@ export function save() {
   // La partie se joue dans un autre onglet (ou cet onglet vient de la lui
   // céder) : écrire effacerait sa progression avec notre copie (SAV-9, saveLock.js).
   if (isSaveSuspendedForOtherTab()) {
-    lastSaveError = "partie ouverte dans un autre onglet, écriture suspendue";
+    lastSaveError = tr({ fr: "partie ouverte dans un autre onglet, écriture suspendue", en: "game open in another tab, saving suspended" });
     return;
   }
   // Save précédente illisible (load) : la clé principale la GARDE tant que le
@@ -2391,7 +2421,7 @@ export function save() {
   // l'autosave de la partie neuve de repli l'écrasait en 2 s. L'échec est dit,
   // comme un stockage plein : la pastille de l'encart d'état reste affichée.
   if (isLocalSaveUnreadable()) {
-    lastSaveError = "sauvegarde précédente illisible, écriture suspendue";
+    lastSaveError = tr({ fr: "sauvegarde précédente illisible, écriture suspendue", en: "previous save unreadable, saving suspended" });
     return;
   }
   let text = null;
@@ -2720,9 +2750,12 @@ export function buildGrandResetState(nextCount, gr = nextCount) {
   // nextCount. Il s'AJOUTE aux deux courbes au lieu de les remplacer dans le récit
   // (l'ancien texte en ou-exclusif mentait dans les deux sens).
   const seals = Array.isArray(gr) ? gr : [gr];
-  const ragnarok = seals.includes(11) ? ", plus x4 Ruines du Ragnarok" : "";
+  const ragnarok = seals.includes(11);
   const prodStr = prodTxt < 10 ? prodTxt.toFixed(1) : prodTxt.toFixed(0);
-  fresh.history = [`Grand Reset x${nextCount} : tout a été effacé. Bonus permanent : x${prodStr} production et x${ruinTxt.toFixed(0)} Ruines gagnées${ragnarok}. Les pactes mythiques demeurent.`];
+  fresh.history = [tr({
+    fr: `Grand Reset x${nextCount} : tout a été effacé. Bonus permanent : x${prodStr} production et x${ruinTxt.toFixed(0)} Ruines gagnées${ragnarok ? ", plus x4 Ruines du Ragnarok" : ""}. Les pactes mythiques demeurent.`,
+    en: `Grand Reset x${nextCount}: everything has been erased. Permanent bonus: x${prodStr} production and x${ruinTxt.toFixed(0)} Ruins gained${ragnarok ? ", plus Ragnarok's x4 Ruins" : ""}. The mythic pacts remain.`
+  })];
   return fresh;
 }
 

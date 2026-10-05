@@ -5,6 +5,7 @@ import { seededRng, fmtShort } from '../core/utils.js';
 import { toNum } from '../core/num.js';
 import { currentEraIndex } from '../core/mechanics.js';
 import { chronicle } from '../core/actions.js';
+import { tr } from '../core/i18n.js';
 import { setCaptureVestigeHandler } from './cityMapBridge.js';
 import { ensureMapSeed, mixSeed, hashString } from './procedural/seedManager.js';
 import { ageConfigFor } from './procedural/ageVisualConfig.js';
@@ -23,7 +24,7 @@ import { planIlots, ilotReachFor, ilotMemoryCells } from './ilotLayout.js';
 import { ILOT_BANDS, ANNEX_BODIES, annexOwnArt, ROWS } from './ilotArt.js';
 import { createWaterModel } from './procedural/waterModel.js';
 import { planHighway, vergeCells } from './procedural/highwayPlan.js';
-import { CM_GIVEN, CM_EPITHETS, CM_TRADES, CM_HOUSES, CM_ROLES, CM_STREET_OF, CM_RESIDENCES } from './cityNaming.js';
+import { CM_GIVEN, CM_EPITHETS, CM_TRADES, CM_HOUSES, CM_ROLES, CM_STREET_OF, CM_RESIDENCES, cmOfEn } from './cityNaming.js';
 import {
   CM_MAP_BUILDINGS,
   CM_KNOWLEDGE_IDS, CM_INFRA_IDS, CM_SLOT_PRIORITIES
@@ -429,49 +430,61 @@ function cmWaterAffine(affinity) {
 // (population ×10, dynastie suivante, ère plus avancée...) fait grandir le
 // monument et l'orne de nouveaux attributs. `metric` extrait la valeur de
 // progression, `tiers` liste les 5 seuils, `tierLabel` nomme le jalon.
+// `name`, `unlockedBy` et ce que rend `tierLabel` sont des unités { fr, en } :
+// tout lecteur passe par tr() (infobulle de la carte, chronique).
 const CM_WONDERS = [
-  { id: "dynasty1",       name: "Le Grand Mausolée",          icon: "mausoleum", slot: { angle: -2.42, ring: 1.0 }, reEra: 2,
-    unlockedBy: "Premier effondrement traversé.",
+  { id: "dynasty1",       name: { fr: "Le Grand Mausolée", en: "The Great Mausoleum" }, icon: "mausoleum", slot: { angle: -2.42, ring: 1.0 }, reEra: 2,
+    unlockedBy: { fr: "Premier effondrement traversé.", en: "First collapse survived." },
     // Métrique = effondrements traversés (cycles) : un tombeau qui grandit avec
     // chaque cité tombée. Seule merveille indexée sur les cycles (unique).
     // Tiers recalés (calibrage 2026-07) sur les époques mesurées en sim
     // (100-600 cycles) : rang V = vraie fin de méta, plus un trivial à 100.
     metric: (s) => s.cycles || 0, tiers: [1, 15, 50, 150, 400],
-    tierLabel: (v) => `${v} effondrement${v > 1 ? "s" : ""} traversé${v > 1 ? "s" : ""}` },
-  { id: "pop1m",          name: "La Colonne du Million",      icon: "column",    slot: { angle: 1.15, ring: 0.62 }, reEra: 6,
-    unlockedBy: "Rayonnement d'au moins 1 000 000.",
+    tierLabel: (v) => ({
+      fr: `${v} effondrement${v > 1 ? "s" : ""} traversé${v > 1 ? "s" : ""}`,
+      en: `${v} collapse${v > 1 ? "s" : ""} survived` }) },
+  { id: "pop1m",          name: { fr: "La Colonne du Million", en: "The Column of the Million" }, icon: "column", slot: { angle: 1.15, ring: 0.62 }, reEra: 6,
+    unlockedBy: { fr: "Rayonnement d'au moins 1 000 000.", en: "Radiance of at least 1,000,000." },
     metric: (s) => toNum(s.population) || 0, tiers: [1e6, 1e13, 1e20, 1e27, 1e34],
-    tierLabel: (v) => `${fmtShort(v)} de Rayonnement` },
-  { id: "era_kingdom",    name: "Le Palais de la Couronne",   icon: "crown",     slot: { angle: -1.25, ring: 1.18 }, reEra: 9,
-    unlockedBy: "Âge du royaume atteint.",
+    tierLabel: (v) => ({ fr: `${fmtShort(v)} de Rayonnement`, en: `${fmtShort(v)} Radiance` }) },
+  { id: "era_kingdom",    name: { fr: "Le Palais de la Couronne", en: "The Palace of the Crown" }, icon: "crown", slot: { angle: -1.25, ring: 1.18 }, reEra: 9,
+    unlockedBy: { fr: "Âge du royaume atteint.", en: "Kingdom age reached." },
     // Rééchelonné 2026-07-03 : « Royaume » = ère 19 depuis la refonte des ères
     // (les anciens seuils [9..25] faisaient naître la couronne au Bourg agricole).
     // Chaque rang tombe sur une ère iconique : Royaume, Royaume conquérant,
     // Empire, Métropole, Machination (fin de course juste avant la Singularité).
     metric: (s) => cmEraIndexFor(s), tiers: [19, 22, 25, 29, 33],
-    tierLabel: (v) => `ère « ${eras[v] ? eras[v].name : v} »` },
-  { id: "era_empire",     name: "La Cathédrale Inachevée",    icon: "arch",      slot: { angle: 0.02, ring: 0.82 }, reEra: 13,
-    unlockedBy: "500 achats accomplis (bâtiments et décrets).",
+    // (Le nom d'ère est déjà dans la langue du joueur : localizeData sur `eras`.)
+    tierLabel: (v) => {
+      const era = eras[v] ? eras[v].name : v;
+      return { fr: `ère « ${era} »`, en: `${era} era` };
+    } },
+  { id: "era_empire",     name: { fr: "La Cathédrale Inachevée", en: "The Unfinished Cathedral" }, icon: "arch", slot: { angle: 0.02, ring: 0.82 }, reEra: 13,
+    unlockedBy: { fr: "500 achats accomplis (bâtiments et décrets).", en: "500 purchases made (buildings and decrees)." },
     // Rééchelonné 2026-07-03 (×10 par rang) : un achat ×100 compte 100
     // (lifetimePurchases += amount) et Héphaïstos auto-achète en fin de méta —
     // les anciens seuils [500..20000] tombaient avant GR1. Le rang V (5 M)
     // récompense l'automatisation de la construction sur la durée.
     metric: (s) => s.lifetimePurchases || 0, tiers: [500, 5000, 50000, 500000, 5000000],
-    tierLabel: (v) => `${v.toLocaleString("fr-FR")} achats accomplis` },
-  { id: "era_mega",       name: "L'Aiguille Céleste",         icon: "needle",    slot: { angle: 2.3, ring: 0.55 }, reEra: 17,
-    unlockedBy: "30 minutes passées à veiller sur la cité.",
+    tierLabel: (v) => ({ fr: `${v.toLocaleString("fr-FR")} achats accomplis`, en: `${v.toLocaleString("en-US")} purchases made` }) },
+  { id: "era_mega",       name: { fr: "L'Aiguille Céleste", en: "The Celestial Needle" }, icon: "needle", slot: { angle: 2.3, ring: 0.55 }, reEra: 17,
+    unlockedBy: { fr: "30 minutes passées à veiller sur la cité.", en: "30 minutes spent watching over the city." },
     // Rééchelonné 2026-07-03 : playTimeSec = temps ACTIF à vie (pas d'offline).
     // Rang IV ≈ la course GR1 accomplie (~44 h sim), rang V = une semaine
     // entière de veille — aligné sur les rangs V « fin de méta » des autres.
     metric: (s) => s.playTimeSec || 0, tiers: [1800, 10800, 43200, 172800, 604800],
-    tierLabel: (v) => v >= 3600 ? `${Math.round(v / 3600)} heures de veille` : `${Math.round(v / 60)} minutes de veille` },
-  { id: "era_singularity",name: "L'Œil de la Singularité",    icon: "eye",       slot: { angle: -0.6, ring: 0.42 }, reEra: 21,
-    unlockedBy: "Premier mythe accompli.",
+    tierLabel: (v) => v >= 3600
+      ? { fr: `${Math.round(v / 3600)} heures de veille`, en: `${Math.round(v / 3600)} hours of vigil` }
+      : { fr: `${Math.round(v / 60)} minutes de veille`, en: `${Math.round(v / 60)} minutes of vigil` } },
+  { id: "era_singularity",name: { fr: "L'Œil de la Singularité", en: "The Eye of the Singularity" }, icon: "eye", slot: { angle: -0.6, ring: 0.42 }, reEra: 21,
+    unlockedBy: { fr: "Premier mythe accompli.", en: "First myth completed." },
     // Rééchelonné 2026-07-03 : 14 mythes au total (le 14e = Ragnarök, terminal).
     // mythsCompleted survit aux Grand Resets (à vie). Rang V = TOUS les mythes
     // accomplis (Ragnarök compris) : la merveille finale culmine à la fin de tout.
     metric: (s) => Object.values(s.mythsCompleted || {}).filter(Boolean).length, tiers: [1, 4, 7, 10, 14],
-    tierLabel: (v) => `${v} mythe${v > 1 ? "s" : ""} accompli${v > 1 ? "s" : ""}` }
+    tierLabel: (v) => ({
+      fr: `${v} mythe${v > 1 ? "s" : ""} accompli${v > 1 ? "s" : ""}`,
+      en: `${v} myth${v > 1 ? "s" : ""} completed` }) }
 ];
 const WONDER_TIER_NAMES = ["", "I", "II", "III", "IV", "V"];
 // Palier courant d'une merveille (0 = pas encore érigée, 1..5 sinon).
@@ -1121,6 +1134,32 @@ function cmRoadLineRankW(L, vertical, coord) {
   return memo.get((vertical ? "v" : "h") + coord) || 1;
 }
 
+// Les MOTS des noms de places et de voies, dans les deux langues (audit I18N-4) :
+// le mot générique suit la langue, le complément (« des Tanneurs ») reste un nom
+// propre français — en anglais sans son article, et derrière : « Tanneurs
+// Street » (cmOfEn). Mêmes listes, même ordre qu'avant : le tirage (cmPick) ne
+// bouge pas, les noms français non plus.
+const CM_PLAZA_WORDS = {
+  marche: [{ fr: "Place du Marché", en: "Market Square" }, { fr: "Halles", en: "Market Hall" }],
+  parvis: [{ fr: "Parvis", en: "Forecourt" }, { fr: "Place du Temple", en: "Temple Square" }],
+  jardin: [{ fr: "Jardin Public", en: "Public Garden" }, { fr: "Square", en: "Green" }],
+  grande: [{ fr: "Grande Place", en: "Grand Square" }, { fr: "Place", en: "Square" }, { fr: "Esplanade", en: "Esplanade" }],
+  commune: [{ fr: "Place", en: "Square" }, { fr: "Place Commune", en: "Common" }]
+};
+const CM_W_AVENUE = { fr: "Avenue", en: "Avenue" }, CM_W_BOULEVARD = { fr: "Boulevard", en: "Boulevard" };
+const CM_W_GRANDE_VOIE = { fr: "Grande Voie", en: "Great Road" }, CM_W_RUE = { fr: "Rue", en: "Street" };
+const CM_W_RUELLE = { fr: "Ruelle", en: "Alley" }, CM_W_VENELLE = { fr: "Venelle", en: "Lane" };
+const CM_STREET_WORDS = {
+  w4: { city: [CM_W_AVENUE, CM_W_BOULEVARD], town: [{ fr: "Grand-Rue", en: "High Street" }, CM_W_GRANDE_VOIE] },
+  w3: { city: [CM_W_BOULEVARD, { fr: "Cours", en: "Promenade" }], town: [{ fr: "Route", en: "Road" }, CM_W_GRANDE_VOIE] },
+  w2: { city: [CM_W_RUE], town: [CM_W_RUE, CM_W_RUELLE] },
+  w1: { city: [{ fr: "Passage", en: "Passage" }, CM_W_VENELLE], town: [{ fr: "Sente", en: "Path" }, CM_W_VENELLE, CM_W_RUELLE] }
+};
+// Nom entier, écrit dans chaque langue (jamais un gabarit partagé).
+function cmPlaceName(word, of) {
+  return tr({ fr: `${word.fr} ${of}`, en: `${cmOfEn(of)} ${word.en}` });
+}
+
 function cmRoadName(gx, gy) {
   const L = CM.layout;
   const cx = L ? L.cx : 0, cy = L ? L.cy : 0;
@@ -1138,11 +1177,11 @@ function cmRoadName(gx, gy) {
         if (d < best) { best = d; pKey = p.gx + ":" + p.gy; pKind = p.kind || "centrale"; }
       }
     }
-    const kindList = pKind === "marche" ? ["Place du Marché", "Halles"]
-      : pKind === "parvis" ? ["Parvis", "Place du Temple"]
-      : pKind === "jardin" ? ["Jardin Public", "Square"]
-      : band >= 4 ? ["Grande Place", "Place", "Esplanade"] : ["Place", "Place Commune"];
-    return `${cmPick(kindList, cmHash("pk" + pKey))} ${cmPick(CM_STREET_OF, cmHash("pof" + pKey))}`;
+    const kindList = pKind === "marche" ? CM_PLAZA_WORDS.marche
+      : pKind === "parvis" ? CM_PLAZA_WORDS.parvis
+      : pKind === "jardin" ? CM_PLAZA_WORDS.jardin
+      : band >= 4 ? CM_PLAZA_WORDS.grande : CM_PLAZA_WORDS.commune;
+    return cmPlaceName(cmPick(kindList, cmHash("pk" + pKey)), cmPick(CM_STREET_OF, cmHash("pof" + pKey)));
   }
   // Une rue = UNE ligne (sa rangée ou sa colonne, choisie par la connectivité
   // réelle — cmRoadCellVertical) : l'ancienne heuristique par position basculait
@@ -1161,12 +1200,9 @@ function cmRoadName(gx, gy) {
   // au sort sur un chemin de terre. Deux registres d'époque : bourg (bandes
   // 0-3) et ville moderne (4+).
   const w = major ? 4 : cmRoadLineRankW(L, vertical, vertical ? gx : gy);
-  const kindList =
-    w >= 4 ? (band >= 4 ? ["Avenue", "Boulevard"] : ["Grand-Rue", "Grande Voie"])
-    : w === 3 ? (band >= 4 ? ["Boulevard", "Cours"] : ["Route", "Grande Voie"])
-    : w === 2 ? (band >= 4 ? ["Rue"] : ["Rue", "Ruelle"])
-    : (band >= 4 ? ["Passage", "Venelle"] : ["Sente", "Venelle", "Ruelle"]);
-  return `${cmPick(kindList, cmHash("k" + lineId))} ${of}`;
+  const words = w >= 4 ? CM_STREET_WORDS.w4 : w === 3 ? CM_STREET_WORDS.w3 : w === 2 ? CM_STREET_WORDS.w2 : CM_STREET_WORDS.w1;
+  const kindList = band >= 4 ? words.city : words.town;
+  return cmPlaceName(cmPick(kindList, cmHash("k" + lineId)), of);
 }
 
 // ── Merveilles : slots et vérification ──────────────────────────────────────
@@ -1285,11 +1321,18 @@ function cmCheckWonders(now) {
     if (!state.wonders.includes(w.id)) {
       state.wonders.push(w.id);
       CM.born["wonder:" + w.id] = now;
-      if (typeof chronicle === "function") chronicle(`Merveille érigée : ${w.name}. La cité grave son ascension dans la pierre.`);
+      if (typeof chronicle === "function") chronicle(tr({
+        fr: `Merveille érigée : ${w.name.fr}. La cité grave son ascension dans la pierre.`,
+        en: `Wonder erected: ${w.name.en}. The city carves its rise into stone.`
+      }));
     } else {
       // Montée de rang : animation de reconstruction + chronique.
       CM.born["wonder:" + w.id] = now;
-      if (typeof chronicle === "function") chronicle(`${w.name} s'élève au rang ${WONDER_TIER_NAMES[tier]} : ${w.tierLabel(w.tiers[tier - 1])}. Les bâtisseurs surpassent leurs ancêtres.`);
+      const jalon = w.tierLabel(w.tiers[tier - 1]);
+      if (typeof chronicle === "function") chronicle(tr({
+        fr: `${w.name.fr} s'élève au rang ${WONDER_TIER_NAMES[tier]} : ${jalon.fr}. Les bâtisseurs surpassent leurs ancêtres.`,
+        en: `${w.name.en} rises to rank ${WONDER_TIER_NAMES[tier]}: ${jalon.en}. The builders surpass their ancestors.`
+      }));
     }
   }
 }
@@ -4691,7 +4734,7 @@ function computeCityLayout(s) {
         }
         const dx = p.gx + p.w / 2 - cx, dy = p.gy + p.h / 2 - cy;
         tiles.push({ gx: p.gx, gy: p.gy, type: "engine", variant: "irrigated_fields", buildingId: "irrigated_fields",
-          buildingName: req.meta.name, level: req.level, groupLevel: req.groupLevel,
+          level: req.level, groupLevel: req.groupLevel,
           groupIndex: 1, groupTotal: 1, tier: req.tier, size: Math.max(p.w, p.h), spanX: p.w, spanY: p.h,
           parcel: i, parcels: parcels.length, rural: true, terroirX: tcx0, terroirY: tcy0,
           key: `engine:irrigated_fields:${i}:${req.slotKey}:${req.tier}`, d2: dx * dx + dy * dy });
@@ -4747,7 +4790,7 @@ function computeCityLayout(s) {
         if (arr) arr.push(c2); else sameTypeCells.set(req.meta.id, [c2]);
         const dx = at.gx + sz / 2 - cx, dy = at.gy + sz / 2 - cy;
         tiles.push({ gx: at.gx, gy: at.gy, type: "engine", variant: req.meta.id, buildingId: req.meta.id,
-          buildingName: req.meta.name, level: req.level, groupLevel: req.groupLevel,
+          level: req.level, groupLevel: req.groupLevel,
           groupIndex: req.groupIndex, groupTotal: req.groupTotal, tier: req.tier, size: sz, rural: true,
           key: `engine:${req.meta.id}:${req.groupIndex - 1}:${req.slotKey}:${req.tier}`, d2: dx * dx + dy * dy });
         slotStore[req.slotKey] = { dx: at.gx - cx, dy: at.gy - cy, zone: "terroir", id: req.meta.id };
@@ -4775,7 +4818,7 @@ function computeCityLayout(s) {
         }
         const dxo = gx + sx / 2 - cx, dyo = gy + sy / 2 - cy;
         tiles.push({ gx, gy, type: "engine", variant: req.meta.id, buildingId: req.meta.id,
-          buildingName: req.meta.name, level: req.level, groupLevel: req.groupLevel,
+          level: req.level, groupLevel: req.groupLevel,
           groupIndex: 1, groupTotal: 1, tier: req.tier, size: Math.max(sx, sy), spanX: sx, spanY: sy, waterSide: "S",
           oldPort: { gx: oldBasin.gx, gy: oldBasin.gy, w: oldBasin.w, h: oldBasin.h },
           key: `engine:${req.meta.id}:0:${req.slotKey}:${req.tier}`, d2: dxo * dxo + dyo * dyo });
@@ -4784,7 +4827,7 @@ function computeCityLayout(s) {
         // passée devant les maisons qui la bordent à l'est).
         const ox = oldBasin.gx + Math.floor(oldBasin.w / 2) - 1, oy = oldBasin.gy - BASIN_NORTH_QUAY;
         tiles.push({ gx: ox, gy: oy, type: "engine", variant: req.meta.id, buildingId: req.meta.id,
-          buildingName: req.meta.name, level: req.level, groupLevel: req.groupLevel,
+          level: req.level, groupLevel: req.groupLevel,
           groupIndex: 1, groupTotal: 1, tier: req.tier, size: 2, spanX: 2, spanY: BASIN_NORTH_QUAY, waterSide: "S",
           portOffice: { gx: oldBasin.gx, gy: oldBasin.gy, w: oldBasin.w, h: oldBasin.h },
           key: `engine:${req.meta.id}:office:${req.slotKey}:${req.tier}`, d2: dxo * dxo + dyo * dyo });
@@ -4853,7 +4896,7 @@ function computeCityLayout(s) {
       }
       const dx = placed.gx + spanX / 2 - cx, dy = placed.gy + spanY / 2 - cy;
       tiles.push({ gx: placed.gx, gy: placed.gy, type: "engine", variant: req.meta.id, buildingId: req.meta.id,
-        buildingName: req.meta.name, level: req.level, groupLevel: req.groupLevel,
+        level: req.level, groupLevel: req.groupLevel,
         groupIndex: 1, groupTotal: 1, tier: req.tier, size: Math.max(spanX, spanY), spanX, spanY, waterSide: "S",
         key: `engine:${req.meta.id}:0:${req.slotKey}:${req.tier}`, d2: dx * dx + dy * dy });
       // dy = rangée sud (centre du fleuve), sy = profondeur, pour rester plaqué.
@@ -4902,7 +4945,7 @@ function computeCityLayout(s) {
       }
       const bdx = bplaced.gx + bsize / 2 - cx, bdy = bplaced.gy + bsize / 2 - cy;
       tiles.push({ gx: bplaced.gx, gy: bplaced.gy, type: "engine", variant: req.meta.id, buildingId: req.meta.id,
-        buildingName: req.meta.name, level: req.level, groupLevel: req.groupLevel,
+        level: req.level, groupLevel: req.groupLevel,
         groupIndex: req.groupIndex, groupTotal: req.groupTotal, tier: req.tier, size: bsize, waterSide: bside,
         key: `engine:${req.meta.id}:${req.groupIndex - 1}:${req.slotKey}:${req.tier}`, d2: bdx * bdx + bdy * bdy });
       slotStore[req.slotKey] = { dx: bplaced.gx - cx, dy: bplaced.gy - cy, zone: req.zone, id: req.meta.id };
@@ -5093,7 +5136,7 @@ function computeCityLayout(s) {
     }
     const dx = placed.gx + size / 2 - cx, dy = placed.gy + size / 2 - cy;
     tiles.push({ gx: placed.gx, gy: placed.gy, type: "engine", variant: req.meta.id, buildingId: req.meta.id,
-      buildingName: req.meta.name, level: req.level, groupLevel: req.groupLevel,
+      level: req.level, groupLevel: req.groupLevel,
       groupIndex: req.groupIndex, groupTotal: req.groupTotal, tier: req.tier, size,
       key: `engine:${req.meta.id}:${req.groupIndex - 1}:${req.slotKey}:${req.tier}`, d2: dx * dx + dy * dy });
     slotStore[req.slotKey] = { dx: placed.gx - cx, dy: placed.gy - cy, zone: req.zone, id: req.meta.id };
@@ -5117,7 +5160,7 @@ function computeCityLayout(s) {
       }
       const dx = gx + size / 2 - cx, dy = gy + size / 2 - cy;
       tiles.push({ gx, gy, type: "engine", variant: req.meta.id, buildingId: req.meta.id,
-        buildingName: req.meta.name, level: req.level, groupLevel: req.groupLevel,
+        level: req.level, groupLevel: req.groupLevel,
         groupIndex: req.groupIndex, groupTotal: req.groupTotal, tier: req.tier, size,
         key: `engine:${req.meta.id}:${req.groupIndex - 1}:${req.slotKey}:${req.tier}`, d2: dx * dx + dy * dy });
       slotStore[req.slotKey] = { dx: gx - cx, dy: gy - cy, zone: "ilot", id: req.meta.id };
@@ -5847,7 +5890,7 @@ function computeCityLayout(s) {
     }
     const sx = tradePort.len, sy = y1 - y0 + 1;
     tiles.push({ gx: tradePort.x0, gy: y0, type: "engine", variant: "river_ports", buildingId: "river_ports",
-      buildingName: "Port de commerce", level: portLevel, groupLevel: portLevel, groupIndex: 2, groupTotal: 2,
+      buildingName: { fr: "Port de commerce", en: "Trade Port" }, level: portLevel, groupLevel: portLevel, groupIndex: 2, groupTotal: 2,
       tier: cmEngineTier(portLevel), size: Math.max(sx, sy), spanX: sx, spanY: sy, waterSide: tradePort.side === "N" ? "S" : "N",
       tradePort, key: "engine:river_ports:trade", d2: 0 });
   }
@@ -5888,8 +5931,7 @@ function captureVestige(meta) {
     state.vestiges.push({
       cityName: String(m.cityName || ""),
       year: Math.max(1, Math.floor(Number(m.year) || 1)),
-      eraName: String(m.eraName || ""),
-      eraIndex,
+      eraIndex, // l'ère par son index seul : un nom serait figé dans une langue (I18N-6)
       eraBand,
       mapSeed: Number(L.mapSeed != null ? L.mapSeed : state.mapSeed) || 0,
       cycleIndex: Number.isFinite(m.cycleIndex) ? m.cycleIndex : (state.cycles || 0),

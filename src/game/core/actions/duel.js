@@ -19,6 +19,7 @@ import { recordDuel } from '../chronicleStats.js';
 import { pushOutcomeFloat } from '../outcomeFloat.js';
 import { chronicle } from './utils.js';
 import { fmt } from '../utils.js';
+import { tr } from '../i18n.js';
 
 export const FACES = [1, 2, 3, 4, 5, 6];
 
@@ -72,17 +73,37 @@ export function jouerDuel(mise, options = {}) {
     recordDuel({ wagered: m, won: gain, gagne });
     // Un gros duel s'écrit dans la Chronique (dix heures de recettes et plus).
     if (m >= 10 * recettesPerHour()) {
-      const Nom = fl.nom.fr.charAt(0).toUpperCase() + fl.nom.fr.slice(1);
+      // Le nom du flambeur dans chaque langue (I18N-9 : `.fr` était forcé).
+      const nomFr = fl.nom.fr;
+      const nomEn = fl.nom.en || fl.nom.fr;
+      const majuscule = (s) => s.charAt(0).toUpperCase() + s.slice(1);
       chronicle(gagne
         ? (fl.femme
-          ? `${Nom} perd le duel des grands flambeurs, et te glisse en partant son mouchoir parfumé : +${fmt(gain)} faveur.`
-          : `Tu fais plier ${fl.nom.fr} au duel des grands flambeurs ; il quitte la Maison seul : +${fmt(gain)} faveur.`)
+          ? tr({
+              fr: `${majuscule(nomFr)} perd le duel des grands flambeurs, et te glisse en partant son mouchoir parfumé : +${fmt(gain)} faveur.`,
+              en: `${majuscule(nomEn)} loses the high rollers' duel, and slips you her perfumed handkerchief on the way out: +${fmt(gain)} favor.`
+            })
+          : tr({
+              fr: `Tu fais plier ${nomFr} au duel des grands flambeurs ; il quitte la Maison seul : +${fmt(gain)} faveur.`,
+              en: `You break ${nomEn} in the high rollers' duel; he leaves the House alone: +${fmt(gain)} favor.`
+            }))
         : (fl.femme
-          ? `${Nom} te plume au duel des grands flambeurs et monte au boudoir avec ta mise : ${fmt(m)} faveur envolés.`
-          : `${Nom} te plume au duel des grands flambeurs et repart une fille à chaque bras : ${fmt(m)} faveur envolés.`));
+          ? tr({
+              fr: `${majuscule(nomFr)} te plume au duel des grands flambeurs et monte au boudoir avec ta mise : ${fmt(m)} faveur envolés.`,
+              en: `${majuscule(nomEn)} fleeces you in the high rollers' duel and goes up to the boudoir with your stake: ${fmt(m)} favor gone.`
+            })
+          : tr({
+              fr: `${majuscule(nomFr)} te plume au duel des grands flambeurs et repart une fille à chaque bras : ${fmt(m)} faveur envolés.`,
+              en: `${majuscule(nomEn)} fleeces you in the high rollers' duel and leaves with a girl on each arm: ${fmt(m)} favor gone.`
+            })));
     }
     if (!silent && !isNotifyPaused()) {
-      pushOutcomeFloat({ label: gagne ? `🎲 Duel gagné : +${fmt(gain)} faveur` : `🎲 Duel perdu`, kind: gagne ? "gain" : "cost" });
+      pushOutcomeFloat({
+        label: gagne
+          ? tr({ fr: `🎲 Duel gagné : +${fmt(gain)} faveur`, en: `🎲 Duel won: +${fmt(gain)} favor` })
+          : tr({ fr: "🎲 Duel perdu", en: "🎲 Duel lost" }),
+        kind: gagne ? "gain" : "cost"
+      });
     }
     if (doRender) render();
     return result;

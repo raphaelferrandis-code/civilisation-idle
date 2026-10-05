@@ -133,7 +133,7 @@ describe("SAV-8 — l'emplacement se charge par un rechargement (navigateur)", (
     g = await boot(store);
     expect(g.st.state.cityName).toBe("Ailleurs");
     expect(g.st.state.cycles).toBe(99);
-    expect(g.st.state.history.at(-1)).toMatch(/importee reprend son cycle/);
+    expect(g.st.state.history.at(-1)).toMatch(/importée reprend son cycle/);
   }, 60000);
 
   it("stockage plein : refus dit, pas de rechargement, la partie en cours ne bouge pas", async () => {

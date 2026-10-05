@@ -72,7 +72,10 @@ export const MYTH_TICK_HANDLERS = {
     // renvoie la valeur BRUTE → seuil plat = difficulté constante.
     if (!state.chaosReached && D(ruinGain(true)).gte(CHAOS_RAW_RUIN_TARGET)) {
       state.chaosReached = true;
-      log(`Chaos : ${CHAOS_RAW_RUIN_TARGET} Ruines brutes en vue, sans le moindre bonus. Le monde se construit du néant.`);
+      log(tr({
+        fr: `Chaos : ${CHAOS_RAW_RUIN_TARGET} Ruines brutes en vue, sans le moindre bonus. Le monde se construit du néant.`,
+        en: `Chaos: ${CHAOS_RAW_RUIN_TARGET} raw Ruins in sight, without the slightest bonus. The world is built from nothing.`
+      }));
     }
   },
 
@@ -85,7 +88,10 @@ export const MYTH_TICK_HANDLERS = {
       const need = D(rates().gold).max(0).mul(ATRIDES_GAIN_SECONDS);
       if (netGained.gte(need) && netGained.gt(0)) {
         state.atridesReached = true;
-        log(`Atrides : +${fmt(netGained)} de Tresor net gagne ce cycle malgre la dette maudite. La malediction est conjuree.`);
+        log(tr({
+          fr: `Atrides : +${fmt(netGained)} de Trésor net gagné ce cycle malgré la dette maudite. La malédiction est conjurée.`,
+          en: `Atreides: +${fmt(netGained)} net Treasury earned this cycle despite the cursed debt. The curse is lifted.`
+        }));
       }
     }
   },
@@ -94,11 +100,17 @@ export const MYTH_TICK_HANDLERS = {
     // La course du feu : atteindre la cible ABSOLUE avant la Rupture fatale.
     if (!state.prometheePopReached && D(state.population).gte(PROMETHEE_POP_TARGET)) {
       state.prometheePopReached = true;
-      log(`Promethee : le Rayonnement atteint ${PROMETHEE_POP_TARGET} sous le feu ! L'epopee est accomplie.`);
+      log(tr({
+        fr: `Prométhée : le Rayonnement atteint ${PROMETHEE_POP_TARGET} sous le feu ! L'épopée est accomplie.`,
+        en: `Prometheus: Radiance reaches ${PROMETHEE_POP_TARGET} under the fire! The epic is fulfilled.`
+      }));
     }
     if (!state.prometheePopReached && !state.prometheeFailed && state.instability >= PROMETHEE_FATAL_RUPTURE) {
       state.prometheeFailed = true;
-      log(`Promethee echoue : la Rupture a consume la cite avant que le Rayonnement n'atteigne sa gloire.`);
+      log(tr({
+        fr: `Prométhée échoue : la Rupture a consumé la cité avant que le Rayonnement n'atteigne sa gloire.`,
+        en: `Prometheus fails: the Rupture consumed the city before Radiance could reach its glory.`
+      }));
     }
   },
 
@@ -126,7 +138,10 @@ export const MYTH_TICK_HANDLERS = {
     state.atlasFardeau = Math.min(100, (state.atlasFardeau || 0) + ATLAS_FARDEAU_RISE * dt);
     if (state.atlasFardeau >= 100) {
       state.atlasCrushed = true;
-      log("Atlas : le ciel a eu raison de nos épaules. La cité ploie et se brise.");
+      log(tr({
+        fr: "Atlas : le ciel a eu raison de nos épaules. La cité ploie et se brise.",
+        en: "Atlas: the sky has overcome our shoulders. The city buckles and breaks."
+      }));
     }
   },
 
@@ -156,7 +171,10 @@ export const MYTH_TICK_HANDLERS = {
         state.buildings[grosId] = grosN - pris;
         devore = true;
         const nom = buildingById[grosId] ? tr(buildingById[grosId].name) : grosId;
-        log(`Le Loup dévore ${pris} × ${nom}. Le monde rétrécit.`);
+        log(tr({
+          fr: `Le Loup dévore ${pris} × ${nom}. Le monde rétrécit.`,
+          en: `The Wolf devours ${pris} × ${nom}. The world shrinks.`
+        }));
       }
       if (devore) invalidateRenderCache("buildings");
     }
@@ -182,7 +200,10 @@ export const MYTH_TICK_HANDLERS = {
       const infraTarget = D(state.hephPopPeak || 1).max(1).mul(HEPH_INFRA_PER_PEAK);
       if (D(state.infrastructure).gte(infraTarget) && hephDecline >= HEPH_POP_DECLINE_PCT) {
         state.hephGoalReached = true;
-        log(`Hephaistos : les machines ont supplante les hommes. Infrastructure ${fmt(infraTarget)} atteinte (${HEPH_INFRA_PER_PEAK}x le pic de Rayonnement), Rayonnement en declin de ${Math.round(hephDecline * 100)}% depuis son pic.`);
+        log(tr({
+          fr: `Héphaïstos : les machines ont supplanté les hommes. Infrastructure ${fmt(infraTarget)} atteinte (${HEPH_INFRA_PER_PEAK}x le pic de Rayonnement), Rayonnement en déclin de ${Math.round(hephDecline * 100)}% depuis son pic.`,
+          en: `Hephaestus: the machines have supplanted mankind. Infrastructure ${fmt(infraTarget)} reached (${HEPH_INFRA_PER_PEAK}x the Radiance peak), Radiance down ${Math.round(hephDecline * 100)}% from its peak.`
+        }));
       }
     }
   },
@@ -192,7 +213,7 @@ export const MYTH_TICK_HANDLERS = {
       const elapsed = Date.now() - state.eneeTerritoryStartedAt;
       if (elapsed >= ENEE_TERRITORY_INTERVAL_MS) {
         state.eneeDegraded = true;
-        log("Le territoire se dégrade : migrer.");
+        log(tr({ fr: "Le territoire se dégrade : migrer.", en: "The territory is degrading: migrate." }));
         invalidateRenderCache("all");
       }
     }

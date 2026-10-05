@@ -45,6 +45,7 @@ import {
 import { snapZoom, screenToWorld } from './iso/projection.js';
 import { snapDev } from './blitSnap.js';
 import { cmPasserbyName } from './cityNaming.js';
+import { tr } from '../core/i18n.js';
 
 // zoom = cran visé à la désignation quand on regarde de plus loin (un passant
 // y fait ~30 px de haut) ; rate = amortissement du suivi (cf. CAM_FEEL).
@@ -438,6 +439,9 @@ function mix(seed, k) {
   return (x ^ (x >>> 16)) >>> 0;
 }
 const cap = (s) => (s ? s.charAt(0).toUpperCase() + s.slice(1) : s);
+// Minuscule à la PREMIÈRE lettre seulement : un toLowerCase() entier écrasait
+// les noms propres de la phrase (« la navette des plaisirs »).
+const lowerFirst = (s) => (s ? s.charAt(0).toLowerCase() + s.slice(1) : s);
 const pickOf = (list, seed) => list[seed % list.length];
 
 // Personnage de scène : une graine tirée de son dessin (phase, variante), puis le
@@ -688,25 +692,40 @@ function activityOf(p, lost) {
   if (k === 'cross') return { fr: "Passe sur l'autre rive", en: 'Crossing the river' };
   if (k === 'errand') return { fr: 'Fait ses courses', en: 'Running errands' };
   if (k === 'night') return { fr: 'Se promène à la nuit tombée', en: 'Out for an evening stroll' };
-  return { fr: cap(p.role) || 'Flâne', en: 'Strolling' };
+  // Le rôle tiré à l'apparition (ageVisualConfig) est une unité { fr, en } ; une
+  // simple chaîne (ancien format) n'a pas d'anglais.
+  const r = p.role;
+  const ro = r && typeof r === 'object';
+  return { fr: cap(ro ? r.fr : r) || 'Flâne', en: cap(ro ? r.en : null) || 'Strolling' };
 }
 
-// Ce que dit l'infobulle de la carte au survol (français, comme les autres).
+// Ce que dit l'infobulle de la carte au survol, dans la langue du joueur (les
+// libellés { fr, en } de la fiche, résolus par tr()). `kindId` est la catégorie
+// STABLE : la logique le lit, jamais le libellé affiché (`kind`).
+const INHABITANT = { fr: 'Habitant', en: 'Inhabitant' };
 export function describePick(pk) {
   const { kind, p } = pk;
   if (kind === 'boat') {
     boatIdentity(p);
-    return { title: 'Bac', body: 'Passeur : ' + p.driver, kind: 'Bateau' };
+    return {
+      title: tr({ fr: 'Bac', en: 'Ferry' }),
+      body: tr({ fr: `Passeur : ${p.driver}`, en: `Ferryman: ${p.driver}` }),
+      kind: tr({ fr: 'Bateau', en: 'Boat' }), kindId: 'boat',
+    };
   }
   if (kind === 'vehicle') {
     vehicleIdentity(p);
-    const label = vehicleLabel(p).fr;
+    const label = tr(vehicleLabel(p));
     return p.type === 'basket'
-      ? { title: p.driver, body: label, kind: 'Habitant' }
-      : { title: label, body: p.driver, kind: 'Véhicule' };
+      ? { title: p.driver, body: label, kind: tr(INHABITANT), kindId: 'citizen' }
+      : { title: label, body: p.driver, kind: tr({ fr: 'Véhicule', en: 'Vehicle' }), kindId: 'vehicle' };
   }
   const id = idOf(p, kind);
-  return { title: id.name, body: kind === 'figure' ? activityOf(p, false).fr.toLowerCase() : p.role, kind: 'Habitant' };
+  return {
+    title: id.name,
+    body: kind === 'figure' ? lowerFirst(tr(activityOf(p, false))) : tr(p.role),
+    kind: tr(INHABITANT), kindId: 'citizen',
+  };
 }
 
 // Relevé complet de ce qui est désigné, ou null. `lost` = il n'est plus dans la

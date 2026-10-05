@@ -119,7 +119,10 @@ export function buyBuildingCore(id, { amount: amountOverride = null, silent = fa
     if ((state.sisypheCran || 0) > 0) {
       state.sisypheCran = 0;
       state.sisypheUsages = { food: 0, knowledge: 0, infrastructure: 0 };
-      log("Sisyphe : les mains quittent le rocher — il dévale jusqu'au pied de la pente.");
+      log(tr({
+        fr: "Sisyphe : les mains quittent le rocher — il dévale jusqu'au pied de la pente.",
+        en: "Sisyphus: his hands slip from the boulder — it rolls back to the foot of the slope."
+      }));
     }
   } else if (hasActiveRuin(state, "sisyphe")) {
     // Ruine active « Pente du rocher » : la malédiction cumulative de l'ANCIEN
@@ -150,7 +153,7 @@ function fireMilestoneBoon(building) {
   const gain = D(rates()[res]).max(0).mul(MILESTONE_BOON_SECONDS).floor();
   if (gain.lte(0)) return;
   state[res] = D(state[res]).add(gain);
-  pushOutcomeFloat({ label: `🎉 Fête de jalon : +${fmt(gain)}`, kind: "gain" });
+  pushOutcomeFloat({ label: tr({ fr: `🎉 Fête de jalon : +${fmt(gain)}`, en: `🎉 Milestone feast: +${fmt(gain)}` }), kind: "gain" });
   chronicle(tr({
     fr: `La cité fête le jalon des ${tr(building.name)} : les célébrations rapportent +${fmt(gain)}.`,
     en: `The city celebrates the ${tr(building.name)} milestone: the festivities yield +${fmt(gain)}.`
@@ -283,12 +286,16 @@ export async function exhumeVestige() {
 
   const choice = await openChoiceDialog({
     label: { fr: "Archéologie", en: "Archaeology" },
-    title: "Vestige archéologique",
-    body: `Coût : ${fmt(cost)} connaissance.\nQuel bâtiment vos archéologues ont-ils mis au jour ?`,
+    title: tr({ fr: "Vestige archéologique", en: "Archaeological Vestige" }),
+    body: tr({
+      fr: `Coût : ${fmt(cost)} connaissance.\nQuel bâtiment vos archéologues ont-ils mis au jour ?`,
+      en: `Cost: ${fmt(cost)} knowledge.\nWhich building have your archaeologists unearthed?`
+    }),
     options: [
       // options[0] = défaut sûr : Échap (ou un clic) renonce au lieu de payer et
       // d'exhumer le premier candidat (coût savoir ≥ 25000, ∝ population).
-      { label: "Renoncer", detail: "Ne rien exhumer" },
+      // La décision se lit sur `buildingId` (absent ici), jamais sur le libellé.
+      { label: tr({ fr: "Renoncer", en: "Give up" }), detail: tr({ fr: "Ne rien exhumer", en: "Unearth nothing" }), cancel: true },
       ...candidates.map((b) => ({
         label: tr(b.name),
         detail: tr(b.desc),
@@ -299,7 +306,7 @@ export async function exhumeVestige() {
 
   setGamePaused(false);
 
-  if (!choice?.buildingId) { render(); return; }
+  if (!choice?.buildingId || choice.cancel) { render(); return; }
   if (!canExhume()) { render(); return; }
 
   const target = buildingById[choice.buildingId];
@@ -311,7 +318,10 @@ export async function exhumeVestige() {
   state.archaeologyUses = (state.archaeologyUses || 0) + 1;
   enforceInfrastructureCap();
   invalidateRenderCache("buildings");
-  chronicle(`Nos archéologues ont exhumé les ruines de : ${tr(target.name)}. Ses fondations antiques ont été restaurées.`);
+  chronicle(tr({
+    fr: `Nos archéologues ont exhumé les ruines de : ${tr(target.name)}. Ses fondations antiques ont été restaurées.`,
+    en: `Our archaeologists have unearthed the ruins of: ${tr(target.name)}. Its ancient foundations have been restored.`
+  }));
   render();
 }
 
@@ -331,43 +341,78 @@ export async function performGrandReset(gr) {
     const milestone = grandResetMilestone(first);
     if (!milestone) return;
     if (isGrandResetMilestoneClaimed(first)) {
-      log(`Le sceau « ${tr(milestone.name)} » est déjà réclamé.`);
+      log(tr({
+        fr: `Le sceau « ${tr(milestone.name)} » est déjà réclamé.`,
+        en: `The “${tr(milestone.name)}” seal has already been claimed.`
+      }));
     } else if (first === 11 && !state.ragnarokHeritage) {
-      log(`Le sceau du Ragnarök exige d'avoir honoré le pacte final avant d'être réclamé.`);
+      log(tr({
+        fr: `Le sceau du Ragnarök exige d'avoir honoré le pacte final avant d'être réclamé.`,
+        en: `The Ragnarök seal can only be claimed once the final pact has been honored.`
+      }));
     } else {
-      log(`Le sceau « ${tr(milestone.name)} » n'est pas encore débloqué. Fais grandir ta civilisation pour l'atteindre.`);
+      log(tr({
+        fr: `Le sceau « ${tr(milestone.name)} » n'est pas encore débloqué. Fais grandir ta civilisation pour l'atteindre.`,
+        en: `The “${tr(milestone.name)}” seal is not unlocked yet. Grow your civilization to reach it.`
+      }));
     }
     render();
     return;
   }
-  const names = seals.map((n) => `« ${tr(grandResetMilestone(n).name)} »`);
+  const names = seals.map((n) => tr(grandResetMilestone(n).name));
   const nextCount = (state.grandResetCount || 0) + seals.length;
   const isRagnarok = seals.includes(11);
+  const prodNext = fmt(grandResetProductionMult(nextCount));
+  const prodNow = fmt(grandResetProductionMult(state.grandResetCount));
+  const ruinsNext = fmt(grandResetRuinGainMult(nextCount));
   setGamePaused(true);
   // Production et moisson de Ruines ont des bases DISTINCTES : le dialogue
   // annonce les deux séparément, sinon il ment sur l'une des deux. Le x4 du
   // Ragnarök s'AJOUTE aux deux (il ne les remplace pas).
-  const resetRewardText = `un bonus permanent x${fmt(grandResetProductionMult(nextCount))} sur toute la production, et x${fmt(grandResetRuinGainMult(nextCount))} sur les Ruines gagnées${isRagnarok ? ", plus le x4 Ruines du Ragnarok" : ""}`;
+  const resetRewardText = tr({
+    fr: `un bonus permanent x${prodNext} sur toute la production, et x${ruinsNext} sur les Ruines gagnées${isRagnarok ? ", plus le x4 Ruines du Ragnarok" : ""}`,
+    en: `a permanent x${prodNext} bonus to all production, and x${ruinsNext} on Ruins gained${isRagnarok ? ", plus Ragnarok's x4 Ruins" : ""}`
+  });
   const sealText = seals.length === 1
-    ? `Tu réclames le sceau ${names[0]}.`
-    : `Tu réclames ${seals.length} sceaux d'un coup : ${names.join(", ")}.`;
+    ? tr({ fr: `Tu réclames le sceau « ${names[0]} ».`, en: `You claim the “${names[0]}” seal.` })
+    : tr({
+        fr: `Tu réclames ${seals.length} sceaux d'un coup : ${names.map((name) => `« ${name} »`).join(", ")}.`,
+        en: `You claim ${seals.length} seals at once: ${names.map((name) => `“${name}”`).join(", ")}.`
+      });
   const choice = await openChoiceDialog({
     label: { fr: "Grand Reset", en: "Grand Reset" },
-    title: `Grand Reset — ${seals.length === 1 ? tr(grandResetMilestone(seals[0]).name) : `${seals.length} sceaux`}`,
-    body: `${sealText} Tout sera effacé : bâtiments, ruines, upgrades, cycles. En échange : ${resetRewardText}. Actuellement : x${fmt(grandResetProductionMult(state.grandResetCount))} production. Après : x${fmt(grandResetProductionMult(nextCount))} production.`,
+    title: seals.length === 1
+      ? `Grand Reset — ${names[0]}`
+      : tr({ fr: `Grand Reset — ${seals.length} sceaux`, en: `Grand Reset — ${seals.length} seals` }),
+    body: tr({
+      fr: `${sealText} Tout sera effacé : bâtiments, ruines, upgrades, cycles. En échange : ${resetRewardText}. Actuellement : x${prodNow} production. Après : x${prodNext} production.`,
+      en: `${sealText} Everything will be erased: buildings, ruins, upgrades, cycles. In exchange: ${resetRewardText}. Currently: x${prodNow} production. After: x${prodNext} production.`
+    }),
     // preventClose : un Grand Reset est irréversible (efface tout). Échap ne
     // doit pas pouvoir déclencher options[0], qui est l'action destructrice — le
     // joueur choisit explicitement. Sûr depuis le fix B2 (ChoiceDialog).
     preventClose: true,
+    // La décision se lit sur les MARQUES `claim` / `cancel`, jamais sur le
+    // libellé affiché : comparer « Annuler » faisait passer « Cancel » (version
+    // anglaise) dans la branche « réclamer » — un Grand Reset irréversible au
+    // lieu d'une annulation (audit 2026-10-05, I18N-3).
     options: [
       {
-        label: seals.length === 1 ? "Réclamer le sceau" : `Réclamer les ${seals.length} sceaux`,
-        detail: `+x${fmt(grandResetProductionMult(nextCount))} production permanente${isRagnarok ? " & x4 Ruines" : ""}`
+        label: seals.length === 1
+          ? tr({ fr: "Réclamer le sceau", en: "Claim the seal" })
+          : tr({ fr: `Réclamer les ${seals.length} sceaux`, en: `Claim the ${seals.length} seals` }),
+        detail: tr({
+          fr: `+x${prodNext} production permanente${isRagnarok ? " & x4 Ruines" : ""}`,
+          en: `+x${prodNext} permanent production${isRagnarok ? " & x4 Ruins" : ""}`
+        }),
+        claim: true
       },
-      { label: "Annuler", detail: "Ne rien faire" }
+      { label: tr({ fr: "Annuler", en: "Cancel" }), detail: tr({ fr: "Ne rien faire", en: "Do nothing" }), cancel: true }
     ]
   });
-  if (choice.label === "Annuler") { setGamePaused(false); return; }
+  // Seule l'option marquée `claim` lance le reset : toute autre réponse (Annuler,
+  // réponse vide) annule — l'erreur sûre pour un geste irréversible.
+  if (!choice?.claim || choice.cancel) { setGamePaused(false); return; }
 
   setMourning(true);
   await new Promise((resolve) => setTimeout(resolve, 1300));
@@ -418,7 +463,10 @@ export function buyUpgrade(id) {
   renderCache.cachedRuinEffects = null;
   renderCache.cachedRuinEffectsSignature = "";
   invalidateRenderCache("all");
-  chronicle(`Nos dirigeants ont décrété une nouvelle avancée pour la cité : ${upgrade.name}.`);
+  chronicle(tr({
+    fr: `Nos dirigeants ont décrété une nouvelle avancée pour la cité : ${tr(upgrade.name)}.`,
+    en: `Our leaders have decreed a new advance for the city: ${tr(upgrade.name)}.`
+  }));
   render();
   return true;
 }
@@ -434,18 +482,27 @@ export function rewardCitizenThought(thoughtType, citizen) {
   if (thoughtType === "lightning") {
     const gain = gainOf(r.gold, 5);
     state.gold = D(state.gold).add(gain);
-    rewardText = `+${fmt(gain)} Or`;
-    log(`Aubaine : ${citizen.name} verse sa bonne fortune au trésor (+${fmt(gain)} Or).`);
+    rewardText = tr({ fr: `+${fmt(gain)} Or`, en: `+${fmt(gain)} Treasury` });
+    log(tr({
+      fr: `Aubaine : ${citizen.name} verse sa bonne fortune au trésor (+${fmt(gain)} Or).`,
+      en: `Windfall: ${citizen.name} pours their good fortune into the treasury (+${fmt(gain)} Treasury).`
+    }));
   } else if (thoughtType === "scroll") {
     const gain = gainOf(r.knowledge, 15);
     state.knowledge = D(state.knowledge).add(gain);
-    rewardText = `+${fmt(gain)} Savoir`;
-    log(`Trouvaille : ${citizen.name} dépose un parchemin aux archives (+${fmt(gain)} Savoir).`);
+    rewardText = tr({ fr: `+${fmt(gain)} Savoir`, en: `+${fmt(gain)} Knowledge` });
+    log(tr({
+      fr: `Trouvaille : ${citizen.name} dépose un parchemin aux archives (+${fmt(gain)} Savoir).`,
+      en: `Discovery: ${citizen.name} leaves a scroll in the archives (+${fmt(gain)} Knowledge).`
+    }));
   } else {
     const gain = gainOf(r.food, 10);
     state.food = D(state.food).add(gain);
-    rewardText = `+${fmt(gain)} Nourriture`;
-    log(`Offrande : ${citizen.name} partage sa récolte avec la cité (+${fmt(gain)} Nourriture).`);
+    rewardText = tr({ fr: `+${fmt(gain)} Nourriture`, en: `+${fmt(gain)} Food` });
+    log(tr({
+      fr: `Offrande : ${citizen.name} partage sa récolte avec la cité (+${fmt(gain)} Nourriture).`,
+      en: `Offering: ${citizen.name} shares their harvest with the city (+${fmt(gain)} Food).`
+    }));
   }
   save();
   render();

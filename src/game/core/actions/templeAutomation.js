@@ -35,6 +35,7 @@ import { tickNuit } from './nuitGrandJeu.js';
 import { ARTIFACT_LINEAGES, ARTIFACT_NODES } from '../../data/artifacts.js';
 import { RANK_LABELS } from './maisonRang.js';
 import { chronicle } from './utils.js';
+import { tr } from '../i18n.js';
 import { recordShopSpend } from '../chronicleStats.js';
 import { pushOutcomeFloat } from '../outcomeFloat.js';
 import {
@@ -193,14 +194,26 @@ function announceMaisonRefund() {
   if (refund <= 0 && gifts <= 0) return;
   if (refund > 0) {
     state.maisonRefund = 0;
-    chronicle(`La Maison des Plaisirs change ses règles : les chances ne s'achètent plus. Elle rend ${Math.round(refund).toLocaleString("fr-FR")} faveur dépensée en dés pipés, ailes cirées, planches et coffres.`);
+    chronicle(tr({
+      fr: `La Maison des Plaisirs change ses règles : les chances ne s'achètent plus. Elle rend ${Math.round(refund).toLocaleString("fr-FR")} faveur dépensée en dés pipés, ailes cirées, planches et coffres.`,
+      en: `The House of Pleasures changes its rules: luck can no longer be bought. It refunds ${Math.round(refund).toLocaleString("en-US")} favor spent on loaded dice, waxed wings, boards and chests.`
+    }));
   }
   // Lot 2 (migration 5 → 6) : les cadeaux de rang qu'on avait achetés restent à soi.
   if (gifts > 0) {
     state.maisonGiftRefund = 0;
-    chronicle(`La Maison des Plaisirs récompense désormais ses habitués : ce qu'elle offre à ses titres ne se vend plus. Tu gardes ce que tu avais acheté, et elle te rend ${Math.round(gifts).toLocaleString("fr-FR")} faveur.`);
+    chronicle(tr({
+      fr: `La Maison des Plaisirs récompense désormais ses habitués : ce qu'elle offre à ses titres ne se vend plus. Tu gardes ce que tu avais acheté, et elle te rend ${Math.round(gifts).toLocaleString("fr-FR")} faveur.`,
+      en: `The House of Pleasures now rewards its regulars: what it gives its titles is no longer for sale. You keep what you had bought, and it refunds you ${Math.round(gifts).toLocaleString("en-US")} favor.`
+    }));
   }
-  pushOutcomeFloat({ label: `🏺 +${Math.round(refund + gifts).toLocaleString("fr-FR")} faveur rendue`, kind: "gain" });
+  pushOutcomeFloat({
+    label: tr({
+      fr: `🏺 +${Math.round(refund + gifts).toLocaleString("fr-FR")} faveur rendue`,
+      en: `🏺 +${Math.round(refund + gifts).toLocaleString("en-US")} favor refunded`
+    }),
+    kind: "gain"
+  });
   saveSoon();
 }
 
@@ -284,11 +297,26 @@ function autoGamePlayable(game) {
 }
 
 const AUTO_LABELS = {
-  osselets: { verbe: "l'auto-lancé des osselets", court: "Osselets auto" },
-  tronc: { verbe: "l'auto-relève de la caisse", court: "Caisse auto" },
-  icarus: { verbe: "l'autopush d'Icare", court: "Icare auto" },
-  gratteux: { verbe: "l'auto-gratteux", court: "Gratteux auto" },
-  vingtetun: { verbe: "l'auto-vingt-et-un", court: "Vingt-et-un auto" }
+  osselets: {
+    verbe: { fr: "l'auto-lancé des osselets", en: "the knucklebones auto-cast" },
+    court: { fr: "Osselets auto", en: "Auto knucklebones" }
+  },
+  tronc: {
+    verbe: { fr: "l'auto-relève de la caisse", en: "the till auto-collect" },
+    court: { fr: "Caisse auto", en: "Auto till" }
+  },
+  icarus: {
+    verbe: { fr: "l'autopush d'Icare", en: "Icarus's autopush" },
+    court: { fr: "Icare auto", en: "Auto Icarus" }
+  },
+  gratteux: {
+    verbe: { fr: "l'auto-gratteux", en: "the auto-scratch" },
+    court: { fr: "Gratteux auto", en: "Auto-scratch" }
+  },
+  vingtetun: {
+    verbe: { fr: "l'auto-vingt-et-un", en: "the auto twenty-one" },
+    court: { fr: "Vingt-et-un auto", en: "Auto twenty-one" }
+  }
 };
 
 // Lot 2 : les automatisations des QUATRE JEUX sont des cadeaux de rang (maisonRang.js),
@@ -311,8 +339,16 @@ export function unlockTempleAuto(game) {
   g.unlocked = true;
   g.on = true;
   const label = AUTO_LABELS[game];
-  chronicle(`La Maison prend vie : ${label.verbe} tourne désormais tout seul${game === "tronc" ? "" : ", aux cadrans que tu règles"}.`);
-  pushOutcomeFloat({ label: `⚙️ ${label.court}`, kind: "gain" });
+  chronicle(game === "tronc"
+    ? tr({
+        fr: `La Maison prend vie : ${label.verbe.fr} tourne désormais tout seul.`,
+        en: `The House comes alive: ${label.verbe.en} now runs on its own.`
+      })
+    : tr({
+        fr: `La Maison prend vie : ${label.verbe.fr} tourne désormais tout seul, aux cadrans que tu règles.`,
+        en: `The House comes alive: ${label.verbe.en} now runs on its own, on the dials you set.`
+      }));
+  pushOutcomeFloat({ label: `⚙️ ${tr(label.court)}`, kind: "gain" });
   save();
   render();
   return true;

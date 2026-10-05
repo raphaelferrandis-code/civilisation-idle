@@ -21,6 +21,7 @@ import { recordRoulette } from '../chronicleStats.js';
 import { nuitActive } from './nuitGrandJeu.js';
 import { pushOutcomeFloat } from '../outcomeFloat.js';
 import { fmt } from '../utils.js';
+import { tr } from '../i18n.js';
 
 // L'ordre des cases sur la roue européenne, dans le sens horaire depuis le zéro.
 export const ROULETTE_WHEEL = [0, 32, 15, 19, 4, 21, 2, 25, 17, 34, 6, 27, 13, 36, 11, 30, 8, 23, 10, 5, 24, 16, 33, 1, 20, 14, 31, 9, 22, 18, 29, 7, 28, 12, 35, 3, 26];
@@ -144,7 +145,10 @@ export function spinRoulette(bets, options = {}) {
     if (hist.length > ROULETTE_HISTORY_LEN) hist.splice(0, hist.length - ROULETTE_HISTORY_LEN);
     recordRoulette({ wagered: total, won: faveurGain, number: n });
     if (!silent) {
-      pushOutcomeFloat({ label: faveurGain > 0 ? `🎡 ${n} : +${fmt(faveurGain)} faveur` : `🎡 ${n}`, kind: faveurGain > 0 ? "gain" : "cost" });
+      pushOutcomeFloat({
+        label: faveurGain > 0 ? tr({ fr: `🎡 ${n} : +${fmt(faveurGain)} faveur`, en: `🎡 ${n}: +${fmt(faveurGain)} favor` }) : `🎡 ${n}`,
+        kind: faveurGain > 0 ? "gain" : "cost"
+      });
     }
     if (doRender) render();
     return result;

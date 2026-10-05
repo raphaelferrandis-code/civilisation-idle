@@ -16,6 +16,7 @@ import { ROUE_INTERVAL_S, ROUE_SEGMENTS_H } from '../balance.js';
 import { recettesPerHour } from './maisonTable.js';
 import { chronicle } from './utils.js';
 import { fmt } from '../utils.js';
+import { tr } from '../i18n.js';
 import { pushOutcomeFloat } from '../outcomeFloat.js';
 import { recordRoue } from '../chronicleStats.js';
 
@@ -64,8 +65,13 @@ export function spinRoue(options = {}) {
     state.faveur = Math.max(0, (state.faveur || 0) + gain);
     recordRoue(gain);
     // La plus belle case de la roue s'écrit dans la Chronique.
-    if (h >= Math.max(...ROUE_SEGMENTS_H)) chronicle(`La roue de la Maison s'arrête sur sa plus belle case : ${fmt(gain)} faveur.`);
-    if (!silent && !isNotifyPaused()) pushOutcomeFloat({ label: `☸ +${fmt(gain)} faveur`, kind: "gain" });
+    if (h >= Math.max(...ROUE_SEGMENTS_H)) {
+      chronicle(tr({
+        fr: `La roue de la Maison s'arrête sur sa plus belle case : ${fmt(gain)} faveur.`,
+        en: `The House wheel stops on its finest slot: ${fmt(gain)} favor.`
+      }));
+    }
+    if (!silent && !isNotifyPaused()) pushOutcomeFloat({ label: tr({ fr: `☸ +${fmt(gain)} faveur`, en: `☸ +${fmt(gain)} favor` }), kind: "gain" });
     save();
     if (doRender) render();
     return result;

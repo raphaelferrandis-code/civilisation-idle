@@ -111,14 +111,20 @@ export function generateEpitaph() {
 // ligne trompeuse et dupliquée après un reload pendant le deuil (crisis.js:510).
 function logCollapseLine(reason, gain) {
   if (reason === "auto_collapse") {
-    chronicle("L'Édit d'effondrement s'applique : la cité tombe au moment choisi, son héritage préservé.");
+    chronicle(tr({
+      fr: "L'Édit d'effondrement s'applique : la cité tombe au moment choisi, son héritage préservé.",
+      en: "The Collapse Edict takes effect: the city falls at the chosen moment, its heritage preserved."
+    }));
     return;
   }
-  const label = reason === "manual" ? "manuel"
-    : reason === "forced" ? "force (Phoenix)"
-    : reason === "auto_script" ? "automatique (Script)"
-    : "automatique";
-  chronicle(`Le crépuscule s'abat sur la cité (effondrement ${label}). Nos palais s'écroulent, laissant derrière eux un linceul de ${fmt(gain)} ruines.`);
+  const label = reason === "manual" ? { fr: "manuel", en: "manual" }
+    : reason === "forced" ? { fr: "forcé (Phénix)", en: "forced (Phoenix)" }
+    : reason === "auto_script" ? { fr: "automatique (Script)", en: "automatic (Script)" }
+    : { fr: "automatique", en: "automatic" };
+  chronicle(tr({
+    fr: `Le crépuscule s'abat sur la cité (effondrement ${label.fr}). Nos palais s'écroulent, laissant derrière eux un linceul de ${fmt(gain)} ruines.`,
+    en: `Twilight falls upon the city (${label.en} collapse). Our palaces crumble, leaving behind a shroud of ${fmt(gain)} ruins.`
+  }));
 }
 
 // Monte la Cité (state.chute, transitoire comme le deuil) et lui fait jouer la chute.

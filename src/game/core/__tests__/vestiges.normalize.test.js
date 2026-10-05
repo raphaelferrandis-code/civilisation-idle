@@ -32,7 +32,8 @@ describe("normalizeVestiges — records de cité morte (v3)", () => {
     const [out] = normalizeVestiges([v3]);
     expect(out.cityName).toBe("Valmoren");
     expect(out.year).toBe(412);
-    expect(out.eraName).toBe("Âge du Bronze");
+    // eraName (figé dans la langue du moment, jamais lu) est jeté : eraIndex suffit (I18N-6).
+    expect(out.eraName).toBeUndefined();
     expect(out.eraIndex).toBe(8);
     expect(out.eraBand).toBe(3);
     expect(out.mapSeed).toBe(123456);

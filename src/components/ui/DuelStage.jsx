@@ -5,6 +5,7 @@ import { FLAMBEURS, flambeurDeLaNuit, nuitResteMin } from '../../game/core/actio
 import { DUEL_RTP, DUEL_MANCHES } from '../../game/core/balance.js';
 import { state, save } from '../../game/core/state.js';
 import { tr } from '../../game/core/i18n.js';
+import { fmtCote } from '../../game/core/utils.js';
 import { celebrerGain } from '../../game/core/grandsGains.js';
 import { tipProps } from './HelpBubble.jsx';
 import StageHelp from './StageHelp.jsx';
@@ -176,8 +177,8 @@ export default function DuelStage({ onClose }) {
         <StageHelp>
           <p>
             {tr({
-              fr: `Le grand flambeur de la Nuit te défie aux dés : quatre dés chacun, la plus haute somme prend la manche, une égalité se rejoue. Le premier à deux manches emporte les deux mises, moins la part de la Maison (×${(2 * DUEL_RTP).toFixed(2).replace('.', ',')} ta mise). Une heure de recettes au moins (${fmtMise(min)}), et pas de plafond.`,
-              en: `The Night's high roller challenges you at dice: four dice each, the higher total takes the round, a tie is replayed. First to two rounds takes both stakes, less the House's share (×${(2 * DUEL_RTP).toFixed(2)} your stake). At least one hour of takings (${fmtMise(min)}), and no ceiling.`
+              fr: `Le grand flambeur de la Nuit te défie aux dés : quatre dés chacun, la plus haute somme prend la manche, une égalité se rejoue. Le premier à deux manches emporte les deux mises, moins la part de la Maison (${fmtCote(2 * DUEL_RTP, 2)} ta mise). Une heure de recettes au moins (${fmtMise(min)}), et pas de plafond.`,
+              en: `The Night's high roller challenges you at dice: four dice each, the higher total takes the round, a tie is replayed. First to two rounds takes both stakes, less the House's share (${fmtCote(2 * DUEL_RTP, 2)} your stake). At least one hour of takings (${fmtMise(min)}), and no ceiling.`
             })}
           </p>
           <p>
@@ -206,7 +207,7 @@ export default function DuelStage({ onClose }) {
                 rackY={L.floor + 6}
                 rackX={Math.round((L.W * L.k) / 2)}
                 label={tr({ fr: 'Duel', en: 'Duel' })}
-                sub={`×${(2 * DUEL_RTP).toFixed(2).replace('.', tr({ fr: ',', en: '.' }))}`}
+                sub={fmtCote(2 * DUEL_RTP, 2)}
                 stake={stake}
                 onStake={setStake}
                 faveur={faveur}

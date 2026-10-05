@@ -22,6 +22,7 @@ import { registerChoiceDialog } from './game/core/choiceDialog.js';
 import { currentEraIndex } from './game/core/mechanics.js';
 import { eras } from './game/data/world.js';
 import { getEraTheme } from './game/data/eraThemes.js';
+import { RAGNAROK_FINAL_TITLE_TEXT } from './game/data/myths.js';
 import { tr, getLang, applyDocumentLang } from './game/core/i18n.js';
 import { applyMotionAttribute } from './game/map/ambianceMode.js';
 import { applyDensityAttribute, applyContrastAttribute } from './game/core/uiPrefs.js';
@@ -446,7 +447,7 @@ export default function App() {
           <img src={logoUrl} alt={tr({ fr: "Effondrement Idle", en: "Collapse Idle" })} className="brand-logo" />
         </div>
         
-        <nav className="tabs" aria-label="Vues">
+        <nav className="tabs" aria-label={tr({ fr: "Vues", en: "Views" })}>
           {/* AUCUNE BULLE SUR LES ONGLETS EN ÉTAT NORMAL (B1). L'ancien `title`
               répétait simplement le nom de l'onglet, déjà écrit juste en
               dessous dans .tab-label : le migrer aurait ouvert une bulle sombre
@@ -561,14 +562,16 @@ export default function App() {
               boutons étaient le quart des choses à lire. Les Options, elles,
               restent toujours là : les mêmes actions y vivent aussi. */}
           {revealMeta && (<>
-          <button className="btn-tiny" data-qa="save" onClick={handleSave} {...tipProps(null, "Sauvegarder")}>
-            <PixelIcon name="nav/save" className="qa-icon" /><span className="qa-label">Save</span>
+          {/* Libellés et bulles dans la langue du joueur (audit du 05/10, I18N-11) :
+              les bulles étaient en français et les libellés en anglais, partout. */}
+          <button className="btn-tiny" data-qa="save" onClick={handleSave} {...tipProps(null, tr({ fr: "Sauvegarder", en: "Save" }))}>
+            <PixelIcon name="nav/save" className="qa-icon" /><span className="qa-label">{tr({ fr: "Sauver", en: "Save" })}</span>
           </button>
-          <button className="btn-tiny" data-qa="export" onClick={handleExport} {...tipProps(null, "Exporter")}>
-            <PixelIcon name="nav/export" className="qa-icon" /><span className="qa-label">Export</span>
+          <button className="btn-tiny" data-qa="export" onClick={handleExport} {...tipProps(null, tr({ fr: "Exporter", en: "Export" }))}>
+            <PixelIcon name="nav/export" className="qa-icon" /><span className="qa-label">{tr({ fr: "Exporter", en: "Export" })}</span>
           </button>
-          <button className="btn-tiny" data-qa="import" disabled={chuteEnCours} onClick={() => reopenDialog(setIsImportOpen)} {...tipProps(null, "Importer")}>
-            <PixelIcon name="nav/import" className="qa-icon" /><span className="qa-label">Import</span>
+          <button className="btn-tiny" data-qa="import" disabled={chuteEnCours} onClick={() => reopenDialog(setIsImportOpen)} {...tipProps(null, tr({ fr: "Importer", en: "Import" }))}>
+            <PixelIcon name="nav/import" className="qa-icon" /><span className="qa-label">{tr({ fr: "Importer", en: "Import" })}</span>
           </button>
           </>)}
           <button className="btn-tiny" data-qa="options" onClick={() => reopenDialog(setIsOptionsOpen)} {...tipProps(null, "Options")}>
@@ -596,9 +599,11 @@ export default function App() {
           changement de vue, ce qui fait repartir la navigation clavier du
           contenu au lieu du logo. */}
       <main id="vue-active" tabIndex={-1} aria-label={activeViewLabel} ref={mainRef}>
+        {/* Le titre stocké n'est qu'un drapeau (posé par l'héritage Ragnarok, en
+            français) : le texte affiché suit la langue du moment (I18N-6). */}
         {finalChronicleTitle && (
-          <div className="final-chronicle-title" aria-label="Titre final de la Chronique">
-            {finalChronicleTitle}
+          <div className="final-chronicle-title" aria-label={tr({ fr: "Titre final de la Chronique", en: "Final title of the Chronicle" })}>
+            {tr(RAGNAROK_FINAL_TITLE_TEXT)}
           </div>
         )}
 

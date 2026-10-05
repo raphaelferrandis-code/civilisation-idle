@@ -3,7 +3,9 @@
 // Données de nommage procédural : prénoms, épithètes, métiers, maisons, rôles,
 // rues et résidences. Extrait de layout.js (Audit Phase 6 / E-02) — pures listes
 // de chaînes, aucune dépendance géométrique ; consommées par cmCitizenName /
-// cmRoadName / cmResidenceName.
+// cmRoadName / cmResidenceName. Les noms PROPRES (prénoms, maisons, rues,
+// résidences) restent français dans les deux langues ; les mots génériques
+// (rôles, types d'habitation) sont en { fr, en } (audit I18N-4).
 
 export const CM_GIVEN = [
   "Aldric", "Sibylle", "Garin", "Mahaut", "Renaud", "Ysoria", "Tassin", "Oda",
@@ -61,14 +63,17 @@ export function cmPasserbyName(seed, band, fem, child) {
   if (band <= 3) return `${given} ${pick(child ? CM_TRADES_FAMILY : fem ? CM_TRADES_F : CM_TRADES_M, Math.floor(seed / 7))}`;
   return `${given} ${pick(CM_HOUSES, Math.floor(seed / 7))}`;
 }
+// Rôles des passants (repli si l'âge n'a pas les siens, cf. ageVisualConfig) :
+// des unités { fr, en } que l'infobulle et la fiche lisent via tr(). L'anglais
+// est au participe (« tending the fire »), comme les activités de la fiche.
 export const CM_ROLES = [
-  ["veille le feu", "cherche du bois", "rentre au camp"],
-  ["porte un panier", "revient des champs", "parle au puits"],
-  ["traverse le marché", "livre des sacs", "suit les remparts"],
-  ["rejoint l'atelier", "passe par la halle", "porte un message"],
-  ["sort d'une avenue", "compte les chariots", "file vers les quais"],
-  ["prend une ligne rapide", "traverse un quartier haut", "sort d'une tour"],
-  ["suit le flux civique", "rejoint une station", "marche sous les arches"]
+  [{ fr: "veille le feu", en: "tending the fire" }, { fr: "cherche du bois", en: "gathering wood" }, { fr: "rentre au camp", en: "heading back to camp" }],
+  [{ fr: "porte un panier", en: "carrying a basket" }, { fr: "revient des champs", en: "back from the fields" }, { fr: "parle au puits", en: "chatting at the well" }],
+  [{ fr: "traverse le marché", en: "crossing the market" }, { fr: "livre des sacs", en: "delivering sacks" }, { fr: "suit les remparts", en: "walking the ramparts" }],
+  [{ fr: "rejoint l'atelier", en: "off to the workshop" }, { fr: "passe par la halle", en: "passing through the market hall" }, { fr: "porte un message", en: "carrying a message" }],
+  [{ fr: "sort d'une avenue", en: "coming off an avenue" }, { fr: "compte les chariots", en: "counting the carts" }, { fr: "file vers les quais", en: "hurrying to the quays" }],
+  [{ fr: "prend une ligne rapide", en: "catching an express line" }, { fr: "traverse un quartier haut", en: "crossing an upper district" }, { fr: "sort d'une tour", en: "leaving a tower" }],
+  [{ fr: "suit le flux civique", en: "following the civic flow" }, { fr: "rejoint une station", en: "heading for a station" }, { fr: "marche sous les arches", en: "walking under the arches" }]
 ];
 export const CM_STREET_OF = [
   "des Tanneurs", "du Levant", "des Halles", "du Puits", "des Granges", "des Forges",
@@ -90,3 +95,63 @@ export const CM_RESIDENCES = [
   "des Coteaux", "de l'Estuaire", "du Cadran Solaire", "des Lauriers",
   "de la Palmeraie", "du Ciel Ouvert", "de la Comète", "des Deux Rives", "du Signal"
 ];
+
+// EN ANGLAIS, le complément d'un nom de lieu (« des Tanneurs », « de l'Aurore »)
+// reste un nom propre français, couleur assumée — seul le mot générique suit la
+// langue. On retire juste l'article pour le placer devant : « Tanneurs Street »,
+// « Aurore Housing Estate », et non « Street des Tanneurs ».
+export function cmOfEn(of) {
+  return String(of || "").replace(/^(?:de la |de l'|des |du |de |d')/, "");
+}
+
+// Noms des types d'habitation et de district, au survol de la carte comme dans
+// la fiche d'habitant (son logis). Unités { fr, en } : cmVariantLabel rend
+// l'unité, l'appelant la passe à tr() — ou en tire fr/en pour composer un nom
+// entier dans chaque langue (« Cabane d'Oda » / « Oda's Hut »).
+export const CM_VARIANT_LABELS = {
+  tent: { fr: "Tente", en: "Tent" },
+  hut: { fr: "Cabane", en: "Hut" },
+  longhouse: { fr: "Longue maison", en: "Longhouse" },
+  courtyard: { fr: "Maison à cour", en: "Courtyard House" },
+  townhouse: { fr: "Maison de ville", en: "Townhouse" },
+  crafthouse: { fr: "Logis d'artisan", en: "Artisan's House" },
+  towerhouse: { fr: "Maison-tour", en: "Tower House" },
+  manor: { fr: "Manoir", en: "Manor" },
+  stonehouse: { fr: "Maison de pierre", en: "Stone House" },
+  insula: { fr: "Immeuble de rapport", en: "Apartment Block" },
+  insula2: { fr: "Immeuble de rapport", en: "Apartment Block" },
+  domus: { fr: "Domus", en: "Domus" },
+  taberna: { fr: "Taberna", en: "Taberna" },
+  villa: { fr: "Villa", en: "Villa" },
+  terrace: { fr: "Rangée ouvrière", en: "Workers' Terrace" },
+  tenement: { fr: "Immeuble populaire", en: "Tenement" },
+  block: { fr: "Bloc résidentiel", en: "Residential Block" },
+  tower: { fr: "Tour d'habitation", en: "Apartment Tower" },
+  megablock: { fr: "Grand ensemble", en: "Housing Estate" },
+  arcologyhome: { fr: "Logement d'arcologie", en: "Arcology Dwelling" },
+  haussmann: { fr: "Immeuble haussmannien", en: "Haussmann Building" },
+  gardentower: { fr: "Tour-jardin", en: "Garden Tower" },
+  domehome: { fr: "Maison-dôme", en: "Dome House" },
+  podstack: { fr: "Grappe de capsules", en: "Pod Cluster" },
+  skytower: { fr: "Gratte-ciel", en: "Skyscraper" },
+  skytower2: { fr: "Gratte-ciel", en: "Skyscraper" },
+  // Grands complexes (districts) conservés :
+  market: { fr: "Marché", en: "Market" },
+  temple: { fr: "Temple", en: "Temple" },
+  keep: { fr: "Donjon", en: "Keep" },
+  forum: { fr: "Forum", en: "Forum" },
+  palace: { fr: "Palais", en: "Palace" },
+  station: { fr: "Station civique", en: "Civic Station" },
+  spire: { fr: "Flèche administrative", en: "Administrative Spire" },
+  archive: { fr: "Archives", en: "Archives" },
+  observatory: { fr: "Observatoire", en: "Observatory" },
+  dense: { fr: "Quartier dense", en: "Dense Quarter" },
+  arcology: { fr: "Arcologie", en: "Arcology" },
+  grid: { fr: "Quartier en grille", en: "Grid Quarter" }
+};
+const CM_HOME_LABEL = { fr: "Logement", en: "Home" };
+const CM_BUILDING_LABEL = { fr: "Bâtiment", en: "Building" };
+export function cmVariantLabel(type, variant) {
+  if (Object.prototype.hasOwnProperty.call(CM_VARIANT_LABELS, variant)) return CM_VARIANT_LABELS[variant];
+  return type === "house" ? CM_HOME_LABEL : CM_BUILDING_LABEL;
+}

@@ -21,6 +21,7 @@
 import { state, render, gamePaused, collapseInProgress } from '../state.js';
 import { regulationContext } from '../mechanics.js';
 import { fmt } from '../utils.js';
+import { tr } from '../i18n.js';
 import {
   ICARUS_EDGE,
   ICARUS_CAP,
@@ -166,8 +167,8 @@ function resolveCrash() {
   // le fil. Le float dit la Faveur, jamais le multiplicateur : à C = 1 (edge % des
   // vols) il n'y a pas eu de vol, un « ×1.00 » se lirait comme un gain nul.
   const crashLabel = refundFaveur > 0
-    ? `🪽 la cire fond : +${fmt(refundFaveur)} faveur (plumes)`
-    : `🪽 la cire fond : ${fmt(flight.stakeFaveur)} faveur perdue`;
+    ? tr({ fr: `🪽 la cire fond : +${fmt(refundFaveur)} faveur (plumes)`, en: `🪽 the wax melts: +${fmt(refundFaveur)} favor (feathers)` })
+    : tr({ fr: `🪽 la cire fond : ${fmt(flight.stakeFaveur)} faveur perdue`, en: `🪽 the wax melts: ${fmt(flight.stakeFaveur)} favor lost` });
   pushOutcomeFloat({ label: crashLabel, kind: refundFaveur > 0 ? "gain" : "cost" });
   render();
 }
@@ -250,8 +251,14 @@ export function cashOutIcarus() {
       // Jalon du Grand Reset VII : décrocher un jackpot (compteur remis à 0 au GR).
       state.icarusJackpots = (state.icarusJackpots || 0) + 1;
       chronicle(left > 0
-        ? `Icare frôle le soleil sans fondre : il emporte sa part de la cagnotte du temple (+${fmt(jackpotFaveur)} faveur). La cella en garde ${fmt(Math.round(left))}.`
-        : `Icare frôle le soleil sans fondre : la cagnotte de Faveur du temple se déverse (+${fmt(jackpotFaveur)} faveur).`);
+        ? tr({
+            fr: `Icare frôle le soleil sans fondre : il emporte sa part de la cagnotte du temple (+${fmt(jackpotFaveur)} faveur). La cella en garde ${fmt(Math.round(left))}.`,
+            en: `Icarus grazes the sun without melting: he carries off his share of the temple pot (+${fmt(jackpotFaveur)} favor). The cella keeps ${fmt(Math.round(left))}.`
+          })
+        : tr({
+            fr: `Icare frôle le soleil sans fondre : la cagnotte de Faveur du temple se déverse (+${fmt(jackpotFaveur)} faveur).`,
+            en: `Icarus grazes the sun without melting: the temple's Favor pot pours out (+${fmt(jackpotFaveur)} favor).`
+          }));
     }
   }
   // La cagnotte est nourrie sur l'EDGE à CHAQUE résolution, y compris gagnée : le
@@ -279,7 +286,7 @@ export function cashOutIcarus() {
     jackpotFaveur,
     stakeFaveur: flight.stakeFaveur
   };
-  pushOutcomeFloat({ label: `🪽 ×${mR.toFixed(2)} : +${fmt(faveur)} faveur`, kind: "gain" });
+  pushOutcomeFloat({ label: tr({ fr: `🪽 ×${mR.toFixed(2)} : +${fmt(faveur)} faveur`, en: `🪽 ×${mR.toFixed(2)}: +${fmt(faveur)} favor` }), kind: "gain" });
   render();
   return lastOutcome;
 }

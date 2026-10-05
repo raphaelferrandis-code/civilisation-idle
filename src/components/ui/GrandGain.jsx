@@ -3,6 +3,7 @@ import Monte from './Monte.jsx';
 import { onGrandGain } from '../../game/core/grandsGains.js';
 import { sonSlots } from '../../game/audio/slotsSound.js';
 import { tr } from '../../game/core/i18n.js';
+import { numLocale } from '../../game/core/utils.js';
 import { FaveurIcon } from './FaveurIcon.jsx';
 import '../../styles/grands-gains.css';
 
@@ -34,7 +35,7 @@ export default function GrandGain() {
   return (
     <div className={`grand-gain is-${fete.id}`} key={fete.key} aria-live="polite" style={{ animationDuration: `${DUREE[fete.id]}ms` }}>
       <span className="grand-gain-label">{tr(fete.label)}</span>
-      <span className="grand-gain-mult">×{Math.floor(fete.mult).toLocaleString('fr-FR')}</span>
+      <span className="grand-gain-mult">×{Math.floor(fete.mult).toLocaleString(numLocale())}</span>
       <span className="grand-gain-value">+<Monte value={fete.gain} dur={Math.round((DUREE[fete.id] || 2600) * 0.6)} /> <FaveurIcon /></span>
     </div>
   );

@@ -13,6 +13,7 @@ import { BOUDOIR_UNLOCK_RANK, ROULETTE_UNLOCK_RANK, COURSES_UNLOCK_RANK } from "
 import { regulationActionUnlocked } from "../../../game/core/mechanics/crisis-cost.js";
 import { REGULATION_ACTIONS } from "../../../game/data/regulationActions.js";
 import { state } from "../../../game/core/state.js";
+import { tr } from "../../../game/core/i18n.js";
 
 // Les lieux de la Maison des Plaisirs : quel jeu (`kind`, celui qu'attend
 // templeGames.js) ou quelle vue (`view`) chacun ouvre, son nom, son verrou.
@@ -27,35 +28,42 @@ import { state } from "../../../game/core/state.js";
 // L'ORDRE DU MENU n'est plus celui de ce tableau : depuis le « tableau d'étages »
 // (2026-10-03, plaisirs/PlaisirsMenu.jsx), le menu range les lieux par ÉTAGE, tels
 // que la coupe cuite les pose (le toit en haut, le rez en bas, de gauche à droite).
+//
+// Les noms sont BILINGUES (audit du 05/10, I18N-5) et se lisent par spotNom() : le
+// menu entier restait en français dans la version anglaise. Les `id` restent les
+// clés — aucune logique ne lit un nom.
 export const PLAISIRS_SPOTS = [
-  { id: "des",     kind: "augury",    label: "Les osselets" },
-  { id: "cartes",  kind: "blackjack", label: "Le vingt-et-un" },
-  { id: "icare",   kind: "icarus",    label: "Le vol d'Icare" },
-  { id: "tickets", kind: "scratch",   label: "Les tickets" },
+  { id: "des",     kind: "augury",    label: { fr: "Les osselets", en: "Knucklebones" } },
+  { id: "cartes",  kind: "blackjack", label: { fr: "Le vingt-et-un", en: "Twenty-one" } },
+  { id: "icare",   kind: "icarus",    label: { fr: "Le vol d'Icare", en: "Icarus's flight" } },
+  { id: "tickets", kind: "scratch",   label: { fr: "Les tickets", en: "Scratch tickets" } },
   // La machine à sous (2026-10-03) : sa salle n'existe qu'à partir de la Fonte.
-  { id: "machines", kind: "slots",    label: "Les machines" },
-  // Le nom suit celui de l'ONGLET (« Boutique ») : c'est la même destination.
-  { id: "boutique", view: "tech",     label: "La boutique" },
+  { id: "machines", kind: "slots",    label: { fr: "Les machines", en: "Slot machines" } },
+  // Le nom suit celui de l'ONGLET (« Boutique » / « Shop ») : c'est la même destination.
+  { id: "boutique", view: "tech",     label: { fr: "La boutique", en: "The shop" } },
   // LES LIEUX QU'ON REGARDE : ni jeu ni vue, mais la coupe les dessine et ils
   // vivent (la troupe danse sur la scène, les ombres bougent derrière la tenture
   // du boudoir). Les choisir fait défiler la coupe jusqu'à eux, sans bouton
   // d'action (`spotIsVisit`).
-  { id: "scene",   kind: null,        label: "La scène" },
+  { id: "scene",   kind: null,        label: { fr: "La scène", en: "The stage" } },
   // LE BOUDOIR est le SALON PRIVÉ (Raph, 2026-10-04 : « salon privé sans limite ») : la
   // roulette sans plafond de mise, au titre de Mécène (spotRankLock). Même `id` que sa
   // salle dans la coupe.
   // Le menu garde le nom de la SALLE (« Le salon privé » est la plaque de la table) :
   // il tient sur sa ligne, cadenas compris.
-  { id: "boudoir", kind: "rouletteVip", label: "Le boudoir" },
+  { id: "boudoir", kind: "rouletteVip", label: { fr: "Le boudoir", en: "The boudoir" } },
   // LE SALON est la salle de la ROULETTE (lot 3, Raph 2026-10-04) : il s'ouvre au titre
   // de Familier. Même `id` que sa salle dans la coupe.
-  { id: "salon",   kind: "roulette",  label: "La roulette" },
+  { id: "salon",   kind: "roulette",  label: { fr: "La roulette", en: "Roulette" } },
   // LES COURSES et LE GRAND FLAMBEUR (2026-10-04, docs/PLAN-NUIT-DES-PLAISIRS.md) : pas
   // de salle à eux dans la coupe — le menu les range au rez-de-chaussée. Les courses
   // s'ouvrent au Notable ; le flambeur pendant la Nuit du Grand Jeu (ou pour un Prince).
-  { id: "courses", kind: "courses",   label: "Les courses" },
-  { id: "flambeur", kind: "duel",     label: "Le grand flambeur" }
+  { id: "courses", kind: "courses",   label: { fr: "Les courses", en: "The races" } },
+  { id: "flambeur", kind: "duel",     label: { fr: "Le grand flambeur", en: "The high roller" } }
 ];
+
+// Le nom d'un lieu dans la langue du joueur.
+export const spotNom = (spot) => (spot ? tr(spot.label) : "");
 
 // Le VERBE de chaque lieu — celui du bouton qui apparaît sur l'illustration une
 // fois le lieu choisi. Repris mot pour mot des boutons existants du Temple
@@ -65,20 +73,22 @@ export const PLAISIRS_SPOTS = [
 // Table à part plutôt qu'un champ de plus par lieu : les coordonnées se
 // recalibrent souvent, et mêler du texte à des nombres qu'on édite à la main
 // est le meilleur moyen d'en casser un.
+// Bilingue comme les noms (I18N-5) : l'anglais reprend les boutons des tables
+// (« Cast », « Pull », « Challenge »…).
 export const SPOT_VERBES = {
-  des: "Jeter",
-  cartes: "Jouer",
-  tickets: "Gratter",
-  icare: "Voler",
-  machines: "Tirer",
-  boutique: "Entrer",
-  scene: "Écouter",
-  boudoir: "Miser",
-  salon: "Miser",
-  courses: "Parier",
-  flambeur: "Défier"
+  des: { fr: "Jeter", en: "Cast" },
+  cartes: { fr: "Jouer", en: "Play" },
+  tickets: { fr: "Gratter", en: "Scratch" },
+  icare: { fr: "Voler", en: "Fly" },
+  machines: { fr: "Tirer", en: "Pull" },
+  boutique: { fr: "Entrer", en: "Enter" },
+  scene: { fr: "Écouter", en: "Listen" },
+  boudoir: { fr: "Miser", en: "Bet" },
+  salon: { fr: "Miser", en: "Bet" },
+  courses: { fr: "Parier", en: "Wager" },
+  flambeur: { fr: "Défier", en: "Challenge" }
 };
-export const spotVerbe = (spot) => (spot && SPOT_VERBES[spot.id]) || "Ouvrir";
+export const spotVerbe = (spot) => tr((spot && SPOT_VERBES[spot.id]) || { fr: "Ouvrir", en: "Open" });
 
 // Un lieu qu'on REGARDE (la scène) : il n'ouvre rien, on s'y rend.
 export function spotIsVisit(spot) {

@@ -12,20 +12,64 @@
  *
  * La langue est un réglage d'interface (comme numberFormatMode dans utils.js),
  * pas un champ de sauvegarde : stockée en localStorage, indépendante du save.
- * Module-feuille SANS import (utilisable depuis la couche données comme l'UI).
+ * Module-feuille : seul import, saveKey.js, lui-même sans dépendance
+ * (utilisable depuis la couche données comme l'UI).
+ *
+ * Une seule voie de traduction : tr() sur une unité { fr, en } écrite sur place
+ * (ou localizeData() pour aplatir des données). Pour ajouter une langue : une
+ * clé de plus dans SUPPORTED_LANGS et dans chaque unité. La langue courante se
+ * lit par getLang() — `lang` reste interne au module.
  * ==========================================================================*/
 
-const LANG_KEY = "civ-opt-lang";
-export const SUPPORTED_LANGS = ["fr", "en"];
-export const DEFAULT_LANG = "fr";
+import { SAVE_KEY } from "./saveKey.js";
 
-export let lang = (() => {
+const LANG_KEY = "civ-opt-lang";
+const SUPPORTED_LANGS = ["fr", "en"];
+const DEFAULT_LANG = "fr";
+
+// ── LANGUE DE DÉPART (audit 2026-10-05, I18N-1) ─────────────────────────────
+// Le français était imposé à tous : un joueur anglophone démarrait l'.exe dans
+// une langue qu'il ne lit pas, et devait trouver Options › Affichage › Langue à
+// l'aveugle. Sans choix enregistré, on suit donc la langue du système
+// (navigator.languages ; dans Electron, elle suit celle de Windows) : la
+// première langue proposée que le jeu parle, sinon l'anglais.
+// SEULEMENT pour un joueur NEUF : les joueurs d'avant n'ont jamais écrit la clé
+// (le français était le défaut) — une save déjà là sans clé de langue, c'est un
+// joueur qui jouait en français, il y reste (sinon un Français sur un Windows
+// anglais basculerait en anglais à la mise à jour).
+// ⚠ Ce module s'évalue APRÈS cloudSave.js et fileSave.js (main.jsx) : une save
+// que Drive ou Steam Cloud vient de rapporter sur un poste neuf est donc « déjà
+// là » — ce joueur démarre en français, pas dans la langue du système.
+// Le choix de départ est ÉCRIT tout de suite : au lancement suivant la save
+// existe, et c'est la clé qui doit répondre — pas la règle « save sans clé ».
+function systemLang() {
+  const nav = globalThis.navigator;
+  const list = nav && nav.languages && nav.languages.length ? nav.languages : [nav && nav.language];
+  const codes = Array.from(list, (l) => String(l || "").toLowerCase().split(/[-_]/)[0]).filter(Boolean);
+  if (codes.length === 0) return DEFAULT_LANG; // le système ne dit rien : le français d'avant
+  return codes.find((c) => SUPPORTED_LANGS.includes(c)) || "en";
+}
+
+let lang = (() => {
+  let storage;
+  let saved = null;
+  let hasSave = false;
   try {
-    const saved = localStorage.getItem(LANG_KEY);
-    return SUPPORTED_LANGS.includes(saved) ? saved : DEFAULT_LANG;
+    storage = globalThis.localStorage || null;
+    saved = storage ? storage.getItem(LANG_KEY) : null;
+    hasSave = storage ? storage.getItem(SAVE_KEY) !== null : false;
   } catch {
-    return DEFAULT_LANG;
+    storage = null; // stockage refusé (navigation privée) : rien de relu, rien d'écrit
   }
+  if (SUPPORTED_LANGS.includes(saved)) return saved;
+  // Hors page (tests sous Node, worker) : ni langue système à suivre ni choix à
+  // écrire — le français d'avant, le même sur tous les postes et en CI.
+  if (typeof document === "undefined") return DEFAULT_LANG;
+  const start = hasSave ? DEFAULT_LANG : systemLang();
+  try {
+    if (storage) storage.setItem(LANG_KEY, start);
+  } catch { /* écriture refusée : la langue reste active pour la session */ }
+  return start;
 })();
 
 export function getLang() {
@@ -77,26 +121,9 @@ export function tr(value) {
   return String(value);
 }
 
-// Dictionnaire d'interface : libellés courts codés en dur dans les composants
-// (boutons, onglets, titres). Usage : t("close") → "Fermer" / "Close".
-// On migre les chaînes JSX vers des clés au fur et à mesure ; une clé absente
-// retombe sur la clé elle-même, donc rien ne plante si on en oublie une.
-const UI = {
-  // Options
-  options:            { fr: "Options",                 en: "Options" },
-  close:              { fr: "Fermer",                   en: "Close" },
-  language:           { fr: "Langue",                   en: "Language" },
-  languageHint:       { fr: "Langue de l'interface et des textes",
-                        en: "Interface and text language" },
-  tabDisplay:         { fr: "Affichage",                en: "Display" },
-  tabSound:           { fr: "Son",                      en: "Sound" },
-  tabOther:           { fr: "Autre",                    en: "Other" }
-};
-
-export function t(key) {
-  const entry = UI[key];
-  return entry ? tr(entry) : key;
-}
+// (Le dictionnaire de clés UI et son t() ont été retirés — audit 2026-10-05,
+// I18N-12 : deux de ses sept clés seulement étaient lues, tout le reste de
+// l'interface passait déjà par tr({ fr, en }) en ligne. Une seule voie.)
 
 // ────────────────────────── Résolution des données ──────────────────────────
 // La langue est figée pour la durée d'une session (OptionsDialog recharge la

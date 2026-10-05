@@ -1,6 +1,7 @@
 import { useState, useRef, useEffect, lazy, Suspense } from 'react';
 import { useGameState } from '../../hooks/useGameState.js';
-import { PLAISIRS_SPOTS, spotIsOpen, spotIsFullFrame, spotIsVisit, spotCanVisit, spotRankLock, spotVerbe, spotOuvertSalle } from './plaisirs/anchors.js';
+import { PLAISIRS_SPOTS, spotIsOpen, spotIsFullFrame, spotIsVisit, spotCanVisit, spotRankLock, spotVerbe, spotNom, spotOuvertSalle } from './plaisirs/anchors.js';
+import { tr } from '../../game/core/i18n.js';
 import SalleCanvas from './plaisirs/SalleCanvas.jsx';
 import { tableVars } from '../ui/plaisirsMaterial.js';
 import { useSalleBake } from './plaisirs/salleBake.js';
@@ -279,8 +280,8 @@ export default function PlaisirsView() {
               // Un jeu pas encore ouvert reste DESSINÉ mais non cliquable.
               tabIndex={ouvert ? 0 : -1}
               aria-disabled={!ouvert}
-              aria-label={spot.label}
-              title={ouvert ? spot.label : `${spot.label}, bientôt`}
+              aria-label={spotNom(spot)}
+              title={ouvert ? spotNom(spot) : tr({ fr: `${spotNom(spot)}, bientôt`, en: `${spotNom(spot)}, coming soon` })}
               onMouseEnter={() => setSurvol(spot.id)}
               onMouseLeave={() => setSurvol((s) => (s === spot.id ? null : s))}
               onFocus={() => setSurvol(spot.id)}
@@ -350,7 +351,7 @@ export default function PlaisirsView() {
                 type="button"
                 autoFocus
                 onClick={(e) => { e.stopPropagation(); lancer(spot); }}
-                title={spot.label}
+                title={spotNom(spot)}
               >
                 {spotVerbe(spot)}
               </button>

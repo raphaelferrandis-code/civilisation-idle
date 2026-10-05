@@ -2,9 +2,17 @@
 
 import { state } from './state.js';
 import { Decimal, D } from './num.js';
-import { tr } from './i18n.js';
+import { tr, getLang } from './i18n.js';
 
 const NUMBER_FORMAT_KEY = "civ-opt-number-format";
+
+// LA LOCALE DES NOMBRES ENTIERS (audit du 05/10, I18N-10) : « fr-FR » était écrit en
+// dur, et la version anglaise lisait « 560 000 » au lieu de « 560,000 » sur le
+// compteur d'habitants et dans les infobulles de valeur exacte.
+export const numLocale = () => (getLang() === "en" ? "en-US" : "fr-FR");
+
+// Un entier avec les séparateurs de milliers de la langue (« 3 000 » / « 3,000 »).
+export const fmtInt = (n) => Math.round(n).toLocaleString(numLocale());
 
 export let numberFormatMode = (() => {
   try {
@@ -32,7 +40,9 @@ function formatFullNumber(value) {
   const sign = value < 0 ? "-" : "";
   const decimals = abs < 10 ? 1 : 0;
   const [integer, fraction] = abs.toFixed(decimals).split(".");
-  const grouped = integer.replace(/\B(?=(\d{3})+(?!\d))/g, " ");
+  // Milliers groupés à la manière de la langue : espace en français, virgule en
+  // anglais (la décimale reste au point dans les deux).
+  const grouped = integer.replace(/\B(?=(\d{3})+(?!\d))/g, getLang() === "en" ? "," : " ");
   return fraction ? `${sign}${grouped}.${fraction}` : `${sign}${grouped}`;
 }
 
@@ -48,7 +58,7 @@ function formatScientificNumber(value) {
 // Qa…Dc menaient jusqu'à 1e36 et la même barre montrait « 13.8Qa » à côté de
 // « 8.90e41 » : deux notations, dont une que personne ne lit (Sx avant Sp ?).
 export const COMPACT_UNITS = ["K", "M", "B", "T"];
-// Premier nombre écrit en scientifique : mille trillions.
+// Premier nombre écrit en scientifique : mille T (un million de milliards, 10^15).
 export const SCIENTIFIC_FROM = 1e15;
 
 // Compact à suffixes (K, M, B, T), puis scientifique dès SCIENTIFIC_FROM.
@@ -56,7 +66,12 @@ export const SCIENTIFIC_FROM = 1e15;
 function formatCompactNumber(value, extraDecimals = 0) {
   const sign = value < 0 ? "-" : "";
   let v = Math.abs(value);
-  if (v < 1000) return `${sign}${v.toFixed((v < 10 ? 1 : 0) + (extraDecimals ? 1 : 0))}`;
+  if (v < 1000) {
+    // L'arrondi peut atteindre 1000 (999.6 → « 1000 ») : on l'écrit alors « 1.00K ».
+    const txt = v.toFixed((v < 10 ? 1 : 0) + (extraDecimals ? 1 : 0));
+    if (Number(txt) < 1000) return `${sign}${txt}`;
+    v = 1000;
+  }
   if (v >= SCIENTIFIC_FROM) return value.toExponential(2 + extraDecimals).replace("e+", "e");
   let i = -1;
   while (v >= 1000 && i < COMPACT_UNITS.length - 1) {
@@ -69,7 +84,19 @@ function formatCompactNumber(value, extraDecimals = 0) {
   // serrées (coûts de boutique, badges de palier, débits de la topbar).
   // `extraDecimals` (le compact « vivant » de fmtShortLive) reste ajouté par
   // dessus, pour que le count-up garde un chiffre qui bouge.
-  return `${sign}${v.toFixed((v < 10 ? 2 : v < 100 ? 1 : 0) + extraDecimals)}${COMPACT_UNITS[i]}`;
+  const decimales = (x) => (x < 10 ? 2 : x < 100 ? 1 : 0) + extraDecimals;
+  // L'ARRONDI FRANCHIT LES BORNES (audit du 05/10, I18N-10) : la division se faisait
+  // avant l'arrondi de toFixed, d'où « 10.00K » pour 9 999.6 et « 1000K » pour
+  // 999 999. C'est la valeur ARRONDIE qui choisit ses décimales, et qui passe à
+  // l'unité suivante (ou au scientifique, après le T) si elle atteint 1000.
+  let r = Number(v.toFixed(decimales(v)));
+  if (r >= 1000) {
+    if (i >= COMPACT_UNITS.length - 1) return value.toExponential(2 + extraDecimals).replace("e+", "e");
+    v /= 1000;
+    i += 1;
+    r = Number(v.toFixed(decimales(v)));
+  }
+  return `${sign}${r.toFixed(decimales(r))}${COMPACT_UNITS[i]}`;
 }
 
 export const fmt = (value) => {
@@ -142,7 +169,8 @@ export function rateScale(value) {
 
 // Habitants « crédibles » (compteur cosmétique dérivé de crediblePopulation) :
 // exacts avec séparateurs jusqu'au million (17, 3 000, 560 000), compacts au-delà.
-export const fmtHabitants = (n) => (n < 1e6 ? Math.round(n).toLocaleString("fr-FR") : fmtShort(n));
+// Séparateurs de la langue (« 560,000 » en anglais), via fmtInt.
+export const fmtHabitants = (n) => (n < 1e6 ? fmtInt(n) : fmtShort(n));
 
 // Compact « vivant » : mantisse enrichie de 2 décimales pour que le count-up
 // de RollingNumber reste VISIBLE sur les grands nombres — avec 3 chiffres
@@ -160,10 +188,15 @@ export const fmtShortLive = (value) => {
 
 export const pct = (value) => `${Math.max(0, Math.min(999, value * 100)).toFixed(1)}%`;
 
+// UNE COTE (« ×2.50 ») : décimale au POINT dans les deux langues, comme tous les
+// nombres du jeu (l'Aide, « Les nombres »). Les osselets écrivaient « ×2,50 » même en
+// anglais, les courses et le duel en virgule en français (audit du 05/10, I18N-11).
+export const fmtCote = (m, decimals = m < 10 ? 2 : 1) => `×${Number(m).toFixed(decimals)}`;
+
 // Durée APPROCHÉE en langage courant : « 3j 4h », « 8h 12min », « 45min ». On ne
 // descend jamais sous la minute — c'est un ordre de grandeur (réserve d'absence,
 // délai avant un palier), pas un chronomètre. Pour un compte à rebours précis,
-// voir fmtCycleTime dans CityStatusPanel, qui zéro-padde façon horloge.
+// voir fmtClock plus bas, qui zéro-padde façon horloge.
 // Remontée ici depuis CityStatusPanel : le rapport de reprise en a besoin aussi,
 // et deux copies de ce formatage finiraient par diverger d'une unité.
 // ⚠ BILINGUE depuis B5. Ce formateur était en FRANÇAIS EN DUR alors qu'il est
@@ -182,6 +215,29 @@ export function fmtSecs(s) {
   if (j > 0) return h > 0 ? `${j} ${uJ} ${h} h` : `${j} ${uJ}`;
   if (h > 0) return min > 0 ? `${h} h ${min} min` : `${h} h`;
   return `${min} min`;
+}
+
+// Durée façon HORLOGE (« 3j 04h 12m », « 2h 05m 09s ») : seules les unités utiles,
+// zéro-paddées dès qu'une unité supérieure existe. UNE seule écriture (audit du
+// 05/10, I18N-10) : la Chronique, l'encart latéral et les faits divers en avaient
+// chacun leur copie, toutes trois avec le « j » français en dur (« 3j 04h » en
+// anglais). `seconds` : "always" (l'encart, qui compte à la seconde), "under-day"
+// (la Chronique : les secondes tombent dès qu'on compte en jours), "never" (les
+// faits divers, à la minute).
+export function fmtClock(totalSecs, { seconds = "under-day" } = {}) {
+  const t = Math.max(0, Math.floor(totalSecs) || 0);
+  const s = t % 60;
+  const m = Math.floor(t / 60) % 60;
+  const h = Math.floor(t / 3600) % 24;
+  const j = Math.floor(t / 86400);
+  const pad = (n) => String(n).padStart(2, "0");
+  let out;
+  if (j > 0) out = `${j}${tr({ fr: "j", en: "d" })} ${pad(h)}h ${pad(m)}m`;
+  else if (h > 0) out = `${h}h ${pad(m)}m`;
+  else if (m > 0 || seconds === "never") out = `${m}m`;
+  else return `${s}s`;
+  const avecSecondes = seconds === "always" || (seconds === "under-day" && j === 0);
+  return avecSecondes ? `${out} ${pad(s)}s` : out;
 }
 
 // Pas de QUANTIFICATION du délai avant achat (B5), en secondes. Deux raisons,

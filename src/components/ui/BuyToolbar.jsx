@@ -13,11 +13,12 @@ export default function BuyToolbar() {
     invalidateRenderCache("buildings");
   };
 
+  // « ×10 » comme partout ailleurs dans le jeu (le « x » latin y faisait exception).
   const modes = [
-    { label: 'x1', value: 1 },
-    { label: 'x10', value: 10 },
-    { label: 'x25', value: 25 },
-    { label: 'x100', value: 100 },
+    { label: '×1', value: 1 },
+    { label: '×10', value: 10 },
+    { label: '×25', value: 25 },
+    { label: '×100', value: 100 },
   ];
 
   return (

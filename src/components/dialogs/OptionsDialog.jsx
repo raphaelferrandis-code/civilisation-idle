@@ -26,7 +26,7 @@ import { weatherMode, setWeatherMode } from '../../game/map/weatherMode.js';
 import { seasonMode, setSeasonMode } from '../../game/map/seasonMode.js';
 import { densityMode as density, setDensityMode, contrastMode as contrast, setContrastMode } from '../../game/core/uiPrefs.js';
 import { applyCityMapQuality } from '../../game/map/cityMapRuntime.js';
-import { getLang, setLang, t, tr } from '../../game/core/i18n.js';
+import { getLang, setLang, tr } from '../../game/core/i18n.js';
 import {
   getAutoScriptRules,
   toggleAutoScriptRule,
@@ -36,7 +36,7 @@ import {
   setAutomateThreshold,
   setAutomateField
 } from '../../game/core/actions.js';
-import { state, invalidateRenderCache, render, save, AUTOMATE_FIELD_BOUNDS, collapseUnderway } from '../../game/core/state.js';
+import { state, invalidateRenderCache, render, save, AUTOMATE_FIELD_BOUNDS, RULE_LABELS, collapseUnderway } from '../../game/core/state.js';
 import { AUTO_COLLAPSE_MIN_SECONDS } from '../../game/core/balance.js';
 import { markPendingWipe, isLocalSaveUnreadable, localSaveSuspendReason, CURRENT_SAVE_VERSION } from '../../game/core/saveKey.js';
 import { SLOT_COUNT, readSlotMeta, slotIsEmpty, writeSlot, loadSlot, loadBackup, keepFallbackGame, saveToFile, getLastSlotRefusal } from '../../game/core/saveSlots.js';
@@ -655,7 +655,7 @@ export default function OptionsDialog({ isOpen, onClose, onSave, onExport, onImp
             <>
               <div className="options-row">
                 <div>
-                  <OptionLabel label={t('language')} hint={t('languageHint')} />
+                  <OptionLabel label={tr({ fr: "Langue", en: "Language" })} hint={tr({ fr: "Langue de l'interface et des textes", en: "Interface and text language" })} />
                 </div>
                 <div className="number-format-control">
                   <button
@@ -710,7 +710,8 @@ export default function OptionsDialog({ isOpen, onClose, onSave, onExport, onImp
                     type="button"
                     onClick={() => handleFormatChange('full')}
                   >
-                    1 200 000
+                    {/* L'aperçu groupe comme le format complet de la langue (I18N-10). */}
+                    {tr({ fr: "1 200 000", en: "1,200,000" })}
                   </button>
                   <button
                     className={`format-option ${formatMode === 'scientific' ? 'active' : ''}`}
@@ -1423,7 +1424,8 @@ export default function OptionsDialog({ isOpen, onClose, onSave, onExport, onImp
               {autoScriptRules.map(r => (
                 <div key={r.id} className="options-row auto-script-rule">
                   <div>
-                    <span className="auto-script-label">{r.label}</span>
+                    {/* Libellé tiré de la table par id, dans la langue du moment (I18N-7). */}
+                    <span className="auto-script-label">{tr(RULE_LABELS[r.id] || r.id)}</span>
                     <div className="auto-script-threshold">
                       <DraftNumberInput
                         className="auto-script-input"
@@ -1457,7 +1459,7 @@ export default function OptionsDialog({ isOpen, onClose, onSave, onExport, onImp
                 return (
                   <div key={r.id} className="options-row auto-script-rule">
                     <div>
-                      <span className="auto-script-label">{r.label}</span>
+                      <span className="auto-script-label">{tr(RULE_LABELS[r.id] || r.id)}</span>
                       {hasThreshold && (
                         <div className="auto-script-threshold">
                           <input

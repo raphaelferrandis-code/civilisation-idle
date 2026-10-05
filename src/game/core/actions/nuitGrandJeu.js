@@ -24,6 +24,7 @@ import { figerCaisse } from './offeringTrunk.js';
 import { spectacleActif } from './affluence.js';
 import { chronicle } from './utils.js';
 import { fmt } from '../utils.js';
+import { tr } from '../i18n.js';
 import { pushOutcomeFloat } from '../outcomeFloat.js';
 
 export { spectacleActif };
@@ -119,8 +120,12 @@ export function ouvrirNuit(now = Date.now()) {
   state.spectacleDebut = now;
   state.spectacleFin = fin;
   const fl = flambeurDeLaNuit();
-  chronicle(`La Maison des Plaisirs ouvre la Nuit du Grand Jeu : toutes ses portes, la troupe sur scène, ${fl.nom.fr} au salon privé${verse > 0 ? `, ${fmt(verse)} faveur versés à la cagnotte` : ''} — et ce qui se passe à la Maison reste à la Maison.`);
-  if (!isNotifyPaused()) pushOutcomeFloat({ label: '🎭 La Nuit du Grand Jeu', kind: 'gain' });
+  // Le flambeur dans chaque langue (I18N-9 : `.fr` était forcé).
+  chronicle(tr({
+    fr: `La Maison des Plaisirs ouvre la Nuit du Grand Jeu : toutes ses portes, la troupe sur scène, ${fl.nom.fr} au salon privé${verse > 0 ? `, ${fmt(verse)} faveur versés à la cagnotte` : ''} — et ce qui se passe à la Maison reste à la Maison.`,
+    en: `The House of Pleasures opens the Night of High Play: every door, the troupe on stage, ${fl.nom.en || fl.nom.fr} in the private salon${verse > 0 ? `, ${fmt(verse)} favor poured into the pot` : ''} — and what happens at the House stays at the House.`
+  }));
+  if (!isNotifyPaused()) pushOutcomeFloat({ label: tr({ fr: '🎭 La Nuit du Grand Jeu', en: '🎭 The Night of High Play' }), kind: 'gain' });
   const info = { debut: now, fin, verse, flambeur: fl };
   for (const fn of ecouteurs) { try { fn(info); } catch { /* l'affichage est un plus */ } }
   save();
@@ -161,7 +166,7 @@ export function lancerSpectacle(now = Date.now()) {
   state.faveur = (state.faveur || 0) - cout;
   state.spectacleDebut = now;
   state.spectacleFin = now + SPECTACLE_DUREE_MIN * MIN;
-  if (!isNotifyPaused()) pushOutcomeFloat({ label: `🎭 −${fmt(cout)} faveur`, kind: 'cost' });
+  if (!isNotifyPaused()) pushOutcomeFloat({ label: tr({ fr: `🎭 −${fmt(cout)} faveur`, en: `🎭 −${fmt(cout)} favor` }), kind: 'cost' });
   save();
   render();
   return { cout, fin: state.spectacleFin };

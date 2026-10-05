@@ -13,6 +13,7 @@ import { state, save } from '../../game/core/state.js';
 import { tableLimits } from '../../game/core/actions/maisonTable.js';
 import { REGULATION_ACTIONS_BY_ID } from '../../game/data/regulationActions.js';
 import { tr } from '../../game/core/i18n.js';
+import { fmtCote } from '../../game/core/utils.js';
 import { celebrerGain } from '../../game/core/grandsGains.js';
 import { tipProps } from './HelpBubble.jsx';
 import StageHelp from './StageHelp.jsx';
@@ -200,7 +201,8 @@ export default function AuguryStage({ table, onClose }) {
   const rites = Object.values(AUGURY_RITES).filter((rite) => !rite.artifact || hasTempleArtifact(rite.artifact));
   const chosenRite = rites.find((r) => r.id === riteId) || rites[0];
   const chosenIndex = Math.max(0, rites.indexOf(chosenRite));
-  const multTxt = (m) => `×${m.toFixed(m < 10 ? 2 : 1).replace('.', ',')}`;
+  // Décimale au point dans les deux langues (fmtCote) : « ×2,50 » s'affichait aussi en anglais.
+  const multTxt = (m) => fmtCote(m);
   // Laisser courir : tout le gain du jet (mise rendue comprise) sur le suivant,
   // plafonné à la limite de la table.
   const rideAmount = outcome && outcome.win ? Math.min(tableMax, outcome.faveurGain) : 0;

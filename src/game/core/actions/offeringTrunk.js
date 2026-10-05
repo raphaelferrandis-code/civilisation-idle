@@ -18,6 +18,7 @@ import { state, save, render, isNotifyPaused, isOfflineSim } from '../state.js';
 import { pushOutcomeFloat } from '../outcomeFloat.js';
 import { recordOffering } from '../chronicleStats.js';
 import { fmt } from '../utils.js';
+import { tr } from '../i18n.js';
 import { recettesPerSecond, caisseCap, CAISSE_INITIAL } from './maisonTable.js';
 import { affluenceEntre } from './affluence.js';
 
@@ -68,7 +69,7 @@ export function collectTrunk(options = {}) {
   // isNotifyPaused : l'auto-relève tourne aussi pendant la simulation hors-ligne
   // (C12) — sans ce garde, chaque relève virtuelle empilait un float, et le
   // retour d'une longue absence ouvrait sur une rafale de « +N faveur ».
-  if (!silent && !isNotifyPaused()) pushOutcomeFloat({ label: `🏺 +${fmt(gain)} faveur`, kind: "gain" });
+  if (!silent && !isNotifyPaused()) pushOutcomeFloat({ label: tr({ fr: `🏺 +${fmt(gain)} faveur`, en: `🏺 +${fmt(gain)} favor` }), kind: "gain" });
   // La sim hors-ligne sauve UNE fois à la fin : un save() par relève sous
   // horloge virtuelle écrivait des dizaines d'états antidatés (miroir compris).
   if (!isOfflineSim()) save();

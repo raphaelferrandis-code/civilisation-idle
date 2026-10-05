@@ -9,7 +9,9 @@ import { i18nMissingEn } from "../i18n.js";
 
 // Ces imports DÉCLENCHENT le localizeData(...) de chaque module → alimentent
 // i18nMissingEn avant l'exécution du test. Liste = tous les consommateurs de
-// localizeData (grep). À COMPLÉTER si un nouveau module de données en appelle un.
+// localizeData. À COMPLÉTER si un nouveau module en appelle un : la porte
+// statique (i18n.static.test.js) relit le code et signale tout appelant absent
+// d'ici (cityPersonality.js y a manqué jusqu'à l'audit du 05/10, I18N-8).
 import "../../data/activeRuins.js";
 import "../../data/boons.js";
 import "../../data/buildings.js";
@@ -22,6 +24,7 @@ import "../../data/regulationActions.js";
 import "../../data/upgrades.js";
 import "../../data/world.js";
 import "../chronicleEvaluator.js";
+import "../../map/procedural/cityPersonality.js";
 import "../../../components/ui/journalThemes.js";
 import "../../../components/views/ruinsTree/branchTheme.js";
 

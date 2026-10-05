@@ -3,6 +3,7 @@
 import { state } from "../state.js";
 import { chronicle, log } from "./utils.js";
 import { fmt } from "../utils.js";
+import { tr } from "../i18n.js";
 import { D } from "../num.js";
 import { ruinEffectSum } from "../mechanics/shared.js";
 import {
@@ -63,7 +64,10 @@ export function registerOlympusCrisisResolved() {
   if (o.unlockedProfile === "bureaucracy") {
     const gain = Math.round(OLYMPUS_BUREAUCRACY_KNOWLEDGE * cultAmpMult());
     state.knowledge = D(state.knowledge).add(gain);
-    chronicle(`Les parchemins de la Bureaucratie Sacrée enregistrent la résolution de la crise : +${gain} savoirs sont versés à nos archives.`);
+    chronicle(tr({
+      fr: `Les parchemins de la Bureaucratie Sacrée enregistrent la résolution de la crise : +${gain} savoirs sont versés à nos archives.`,
+      en: `The scrolls of the Sacred Bureaucracy record the crisis's resolution: +${gain} knowledge is added to our archives.`
+    }));
   }
 }
 
@@ -85,7 +89,10 @@ export function registerOlympusCollapse(reason) {
     o.profileProgress[dominant.profile.id] = (o.profileProgress[dominant.profile.id] || 0) + (dominant.score / 100) * cultAmpMult();
     if (o.profileProgress[dominant.profile.id] >= OLYMPUS_COMPLETION_SCORE) {
       o.unlockedProfile = dominant.profile.id;
-      log(`L'Olympe s'est prononce: ${dominant.profile.name}. ${dominant.profile.heritageDescription}`);
+      log(tr({
+        fr: `L'Olympe s'est prononcé : ${tr(dominant.profile.name)}. ${tr(dominant.profile.heritageDescription)}`,
+        en: `Olympus has spoken: ${tr(dominant.profile.name)}. ${tr(dominant.profile.heritageDescription)}`
+      }));
     }
   }
 }
@@ -98,7 +105,10 @@ export function olympusRuinBonus(gain, reason) {
   const speed = 1 - cycleAge / OLYMPUS_QUICK_COLLAPSE_MS;
   const bonus = D(gain).mul((0.12 + speed * 0.18) * cultAmpMult()).floor();
   if (bonus.gt(0)) {
-    chronicle(`Le Culte Apocalyptique glorifie notre fin précipitée : les prêtres nous guident à travers le chaos, révélant +${fmt(bonus)} ruines sacrées sous les cendres.`);
+    chronicle(tr({
+      fr: `Le Culte Apocalyptique glorifie notre fin précipitée : les prêtres nous guident à travers le chaos, révélant +${fmt(bonus)} ruines sacrées sous les cendres.`,
+      en: `The Apocalyptic Cult glorifies our hastened end: the priests guide us through the chaos, revealing +${fmt(bonus)} sacred ruins beneath the ashes.`
+    }));
   }
   return D(gain).add(bonus);
 }

@@ -4,6 +4,7 @@ import {
   state,
   defaultAutoScriptRules,
   defaultAutomateRules,
+  RULE_LABELS,
   AUTOMATE_FIELD_BOUNDS,
   invalidateRenderCache,
   render,
@@ -73,7 +74,13 @@ export function checkAutoScriptRules() {
       triggered = elapsed >= rule.threshold;
     }
     if (triggered) {
-      log(`Script : "${rule.label} ${rule.threshold}${rule.unit}", effondrement declenche.`);
+      // Libellé lu dans la table par id, comme les Options (I18N-7).
+      const label = RULE_LABELS[rule.id] || { fr: rule.id, en: rule.id };
+      const amountEn = rule.unit === "%" ? `${rule.threshold}%` : `${rule.threshold} ${rule.unit}`;
+      log(tr({
+        fr: `Script : « ${label.fr} ${rule.threshold} ${rule.unit} », effondrement déclenché.`,
+        en: `Script: “${label.en} ${amountEn}”, collapse triggered.`
+      }));
       collapse("auto_script");
       return;
     }
@@ -194,16 +201,23 @@ export function checkAutomateRules() {
         // ruin_architects (M5). silent : l'automate garde sa propre chronique.
         if (!buyBuildingCore(cheapest.id, { amount: 1, silent: true })) break;
         bought += 1;
-        lastName = tr(cheapest.name).toLowerCase();
+        lastName = tr(cheapest.name);
       }
       if (bought > 0) {
         invalidateRenderCache("buildings");
         didBuy = true;
         // UNE ligne par tick, quel que soit le débit : dix lignes par seconde
         // noieraient la Chronique.
+        // Le nom n'est mis en minuscules que dans la phrase française.
         chronicle(bought === 1
-          ? `Les mécanismes automatiques ont discrètement érigé : ${lastName}.`
-          : `Les mécanismes automatiques ont discrètement érigé ${bought} bâtiments, jusqu'à : ${lastName}.`);
+          ? tr({
+              fr: `Les mécanismes automatiques ont discrètement érigé : ${lastName.toLowerCase()}.`,
+              en: `The automatic mechanisms have quietly raised: ${lastName}.`
+            })
+          : tr({
+              fr: `Les mécanismes automatiques ont discrètement érigé ${bought} bâtiments, jusqu'à : ${lastName.toLowerCase()}.`,
+              en: `The automatic mechanisms have quietly raised ${bought} buildings, up to: ${lastName}.`
+            }));
       }
     }
     if (rule.type === "crisis_action") {

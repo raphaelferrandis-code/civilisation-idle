@@ -7,6 +7,7 @@
 import { state, renderCache } from '../../state.js';
 import { buildings } from '../../../data/buildings.js';
 import { fmt } from '../../utils.js';
+import { tr } from '../../i18n.js';
 import { Decimal, D } from '../../num.js';
 import { ruinEffectSum } from '../shared.js';
 
@@ -46,7 +47,8 @@ export function buildingMilestoneInfo(building, count) {
   return {
     milestone,
     bonus,
-    label: `x${fmt(bonus)} atteint`
+    // Bilingue (audit du 05/10, I18N-11) : l'infobulle anglaise lisait « (x4 atteint) ».
+    label: tr({ fr: `×${fmt(bonus)} atteint`, en: `×${fmt(bonus)} reached` })
   };
 }
 

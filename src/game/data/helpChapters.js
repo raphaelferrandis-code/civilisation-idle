@@ -69,7 +69,7 @@ export const HELP_CHAPTERS = [
         h: { fr: 'Les nombres', en: 'Numbers' },
         items: [
           { t: { fr: 'Les suffixes', en: 'Suffixes' }, d: { fr: 'K pour mille, M pour million, B pour milliard, T pour mille milliards. La décimale s\'écrit avec un point : 1.5K, c\'est mille cinq cents.', en: 'K for thousand, M for million, B for billion, T for trillion. Decimals use a point: 1.5K is one thousand five hundred.' } },
-          { t: { fr: 'Au-delà', en: 'Beyond' }, d: { fr: 'Dès mille trillions, tous les nombres passent en notation scientifique : 1.20e40 vaut 1.20 × 10⁴⁰. Le format se choisit dans l\'onglet Affichage.', en: 'From a thousand trillion on, every number switches to scientific notation: 1.20e40 means 1.20 × 10⁴⁰. The format is chosen in the Display tab.' } }
+          { t: { fr: 'Au-delà', en: 'Beyond' }, d: { fr: 'Dès un million de milliards (mille T), tous les nombres passent en notation scientifique : 1.20e40 vaut 1.20 × 10⁴⁰. Le format se choisit dans l\'onglet Affichage.', en: 'From a thousand trillion on, every number switches to scientific notation: 1.20e40 means 1.20 × 10⁴⁰. The format is chosen in the Display tab.' } }
         ]
       }
     ]
@@ -377,8 +377,8 @@ export const HELP_CHAPTERS = [
       {
         h: { fr: 'Échanger', en: 'Trading' },
         items: [
-          { t: { fr: 'Acheter', en: 'Buy' }, d: { fr: 'Une minute de ta production de Nourriture, de Savoir ou d\'Infrastructure, contre une minute et demie de ton revenu d\'Or.', en: 'One minute of your Food, Knowledge or Infrastructure production, for a minute and a half of your Gold income.' } },
-          { t: { fr: 'Vendre', en: 'Sell' }, d: { fr: 'Une minute de ta production de Nourriture, contre trente-six secondes de ton revenu d\'Or.', en: 'One minute of your Food production, for thirty-six seconds of your Gold income.' } },
+          { t: { fr: 'Acheter', en: 'Buy' }, d: { fr: 'Une minute de ta production de Nourriture, de Savoir ou d\'Infrastructure, contre une minute et demie de ton revenu d\'Or.', en: 'One minute of your Food, Knowledge or Infrastructure production, for a minute and a half of your Treasury income.' } },
+          { t: { fr: 'Vendre', en: 'Sell' }, d: { fr: 'Une minute de ta production de Nourriture, contre trente-six secondes de ton revenu d\'Or.', en: 'One minute of your Food production, for thirty-six seconds of your Treasury income.' } },
           { t: { fr: 'En crise', en: 'In a crisis' }, d: { fr: 'Le Comptoir ferme tant que la cité est figée.', en: 'The Trading Post closes while the city is frozen.' } }
         ]
       }

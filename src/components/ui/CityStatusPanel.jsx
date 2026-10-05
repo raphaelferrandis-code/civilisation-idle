@@ -4,7 +4,7 @@ import { useCityViewState } from '../../hooks/useCityViewState.js';
 import { globalMultiplier, globalMultiplierDec, currentEraIndex, nextEraProgress } from '../../game/core/mechanics.js';
 import { eras } from '../../game/data/world.js';
 import { getEraTheme } from '../../game/data/eraThemes.js';
-import { pct, clamp01, fmtSecs } from '../../game/core/utils.js';
+import { pct, clamp01, fmtSecs, fmtClock } from '../../game/core/utils.js';
 import { state, getLastSaveAt, getLastSaveError } from '../../game/core/state.js';
 import { isLocalSaveUnreadable, localSaveSuspendReason } from '../../game/core/saveKey.js';
 import { idleCapSeconds, nextIdleCapPalier, clepsydreCapSeconds, clepsydreRefusal, spendStoredTime, chooseCycleVow } from '../../game/core/main.js';
@@ -34,18 +34,9 @@ const SEDIMENT_PALIERS = [
 ];
 
 // Durée du cycle en j/h/m/s : on n'affiche que les unités utiles, en zéro-paddant
-// les unités inférieures dès qu'une unité supérieure est présente (style horloge).
-function fmtCycleTime(totalSecs) {
-  const s = totalSecs % 60;
-  const m = Math.floor(totalSecs / 60) % 60;
-  const h = Math.floor(totalSecs / 3600) % 24;
-  const j = Math.floor(totalSecs / 86400);
-  const pad = (n) => String(n).padStart(2, '0');
-  if (j > 0) return `${j}j ${pad(h)}h ${pad(m)}m ${pad(s)}s`;
-  if (h > 0) return `${h}h ${pad(m)}m ${pad(s)}s`;
-  if (m > 0) return `${m}m ${pad(s)}s`;
-  return `${s}s`;
-}
+// les unités inférieures dès qu'une unité supérieure est présente (style horloge),
+// à la seconde même en jours. Écriture commune (utils.fmtClock).
+const fmtCycleTime = (totalSecs) => fmtClock(totalSecs, { seconds: 'always' });
 
 // Contenu VIVANT de la bulle « Usure » : le compte à rebours du prochain palier
 // descend seconde par seconde, une chaîne se figerait à l'ouverture et mentirait

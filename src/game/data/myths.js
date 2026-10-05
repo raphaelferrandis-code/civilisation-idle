@@ -73,7 +73,12 @@ export const RAGNAROK_FIRE_RUPTURE_PER_SEC = 0.003;   // le Feu : +0,3 %/s de Ru
 export const RAGNAROK_ARK_TARGET           = 8;       // l'Arche : 8 offrandes
 export const RAGNAROK_ARK_OFFERING_PROD_SEC = 65;     // prix d'UNE offrande : 65 s de la prod d'AVANT le reset d'activation
 export const RAGNAROK_ARK_COOLDOWN_MS      = 100_000; // l'Arche n'accepte qu'une offrande toutes les 100 s
+// Titre final gravé par l'héritage Ragnarok. `state.finalChronicleTitle` en
+// garde la chaîne française, mais ce n'est qu'un DRAPEAU : l'écran affiche
+// tr(RAGNAROK_FINAL_TITLE_TEXT), dans la langue du moment (I18N-6) — les
+// sauvegardes existantes restent valables sans migration.
 export const RAGNAROK_FINAL_TITLE = "Sous le regard du Ragnarok";
+export const RAGNAROK_FINAL_TITLE_TEXT = { fr: RAGNAROK_FINAL_TITLE, en: "Under the Gaze of Ragnarok" };
 
 // Âge du cycle Ragnarok en ms (0 si le Mythe n'est pas actif) — la seule horloge
 // des fléaux : phases, Loup, Feu et Fin en dérivent tous.
@@ -315,6 +320,35 @@ export const CADMOS_ORIENTATIONS = {
   }
 };
 
+// Un Âge de Cadmos se reconnaît à ce qui ne dépend pas de la langue : son
+// orientation et l'index de son mot (`wordIndex`). Son nom et le libellé de son
+// orientation sont RECOMPOSÉS à l'affichage, dans la langue du moment (I18N-6) —
+// `name` / `orientationLabel` stockés ne sont plus qu'un instantané de secours.
+// Une entrée d'avant l'index retrouve son mot par sa forme française ou anglaise.
+export function cadmosWordIndex(entry) {
+  const definition = CADMOS_ORIENTATIONS[entry?.orientation];
+  if (!definition) return -1;
+  const index = entry.wordIndex;
+  if (Number.isInteger(index) && index >= 0 && index < definition.words.length) return index;
+  return definition.words.findIndex((w) => w.fr === entry.word || w.en === entry.word);
+}
+
+export function cadmosAgeNameText(orientation, wordIndex) {
+  const definition = CADMOS_ORIENTATIONS[orientation];
+  const word = definition.words[wordIndex];
+  return { fr: `L'Âge ${definition.article.fr} ${word.fr}`, en: `The Age of ${word.en}` };
+}
+
+export function cadmosAgeName(entry) {
+  const index = cadmosWordIndex(entry);
+  return index >= 0 ? tr(cadmosAgeNameText(entry.orientation, index)) : (entry?.name || "");
+}
+
+export function cadmosOrientationLabel(entry) {
+  const definition = CADMOS_ORIENTATIONS[entry?.orientation];
+  return definition ? tr(definition.label) : (entry?.orientationLabel || "");
+}
+
 export const MYTHS = [
   // ── Acte I · Fondation ────────────────────────────────────────────────────
   {
@@ -387,7 +421,7 @@ export const MYTHS = [
     name: { fr: "Le Mythe d'Énée", en: "The Myth of Aeneas" },
     description: {
       fr: `Le territoire de la cité se dégrade au fil du temps. Toutes les ${ENEE_TERRITORY_INTERVAL_MS / 60_000} minutes, il devient invivable : la production de Nourriture tombe à 0, le Trésor n'accumule plus d'Or, et l'Usure monte ${ENEE_USURE_DEGRADED_MULT}x plus vite. Pour résoudre la crise, vous devez migrer vers un nouveau territoire en abandonnant vos bâtiments.`,
-      en: `The city's territory degrades over time. Every ${ENEE_TERRITORY_INTERVAL_MS / 60_000} minutes it becomes unlivable: Food production drops to 0, the Treasury accrues no more Gold, and Wear rises ${ENEE_USURE_DEGRADED_MULT}x faster. To resolve the crisis, you must migrate to a new territory, abandoning your buildings.`
+      en: `The city's territory degrades over time. Every ${ENEE_TERRITORY_INTERVAL_MS / 60_000} minutes it becomes unlivable: Food production drops to 0, the Treasury no longer grows, and Wear rises ${ENEE_USURE_DEGRADED_MULT}x faster. To resolve the crisis, you must migrate to a new territory, abandoning your buildings.`
     },
     objectif: {
       fr: `Effectuer au moins ${ENEE_MIGRATIONS_TARGET} migrations avant l'effondrement.`,
@@ -551,7 +585,7 @@ export const MYTHS = [
     name: { fr: "Le Mythe de l'Âge d'Or", en: "The Myth of the Golden Age" },
     description: {
       fr: `La paix dorée : Rupture plafonnée à ${Math.round(OR_RUPTURE_CAP * 100)} %, crises suspendues. Des caravanes proposent des lots contre de l'Or — on peut marchander, mais un marchand vexé s'en va. Si l'écart Nourriture/Trésor dépasse ${Math.round(OR_BALANCE_RATIO * 100)} %, l'Usure monte ×${OR_USURE_IMBALANCE_MULT}.`,
-      en: `The golden peace: Rupture capped at ${Math.round(OR_RUPTURE_CAP * 100)}%, crises suspended. Caravans offer lots for Gold — you can haggle, but an offended merchant walks away. If the Food/Treasury gap exceeds ${Math.round(OR_BALANCE_RATIO * 100)}%, Wear rises ×${OR_USURE_IMBALANCE_MULT}.`
+      en: `The golden peace: Rupture capped at ${Math.round(OR_RUPTURE_CAP * 100)}%, crises suspended. Caravans offer lots for Treasury — you can haggle, but an offended merchant walks away. If the Food/Treasury gap exceeds ${Math.round(OR_BALANCE_RATIO * 100)}%, Wear rises ×${OR_USURE_IMBALANCE_MULT}.`
     },
     objectif: {
       fr: `Conclure ${OR_DEALS_TARGET} marchés avec les caravanes.`,
@@ -559,7 +593,7 @@ export const MYTHS = [
     },
     heritageDescription: {
       fr: "Le Comptoir : débloque l'onglet Marchandage — échanger de l'Or contre des ressources (et vendre son surplus), en permanence, au tarif du marchand.",
-      en: "The Trading Post: unlocks the Trading tab — exchange Gold for resources (and sell your surplus), permanently, at the merchant's rate."
+      en: "The Trading Post: unlocks the Trading tab — exchange Treasury for resources (and sell your surplus), permanently, at the merchant's rate."
     },
 
     onActivate() {
@@ -685,7 +719,7 @@ export const MYTHS = [
     },
     objectif: {
       fr: `Dégager, malgré la dette, un Trésor net (Trésor moins Dette) gagné ce cycle égal à ${ATRIDES_GAIN_SECONDS} s de ta production d'Or avant de vous effondrer.`,
-      en: `Clear, despite the debt, a net Treasury (Treasury minus Debt) gained this cycle worth ${ATRIDES_GAIN_SECONDS}s of your Gold output before you collapse.`
+      en: `Clear, despite the debt, a net Treasury (Treasury minus Debt) gained this cycle worth ${ATRIDES_GAIN_SECONDS}s of your Treasury output before you collapse.`
     },
     heritageDescription: {
       fr: "Débloque le bouton 'Pacte des Atrides' en début de cycle normal (runs normales) pour doubler la production pendant 2 minutes en échange de -50% pendant la crise.",
@@ -782,8 +816,15 @@ export const MYTHS = [
     applyHeritage() {
       state.ragnarokHeritage = true;
       state.finalChronicleTitle = RAGNAROK_FINAL_TITLE;
-      if (!state.history.some((entry) => entry.includes(RAGNAROK_FINAL_TITLE))) {
-        state.history = [`${RAGNAROK_FINAL_TITLE}: tous les Mythes sont accomplis.`, ...state.history].slice(0, 48);
+      // En QUEUE via log() : le journal lit les 5 dernières lignes. Ajoutée en
+      // tête puis coupée par slice(0, 48), elle était jetée au log suivant sans
+      // avoir jamais été vue (I18N-6).
+      const titles = Object.values(RAGNAROK_FINAL_TITLE_TEXT);
+      if (!(state.history || []).some((entry) => titles.some((title) => String(entry).includes(title)))) {
+        log(tr({
+          fr: `${RAGNAROK_FINAL_TITLE_TEXT.fr} : tous les Mythes sont accomplis.`,
+          en: `${RAGNAROK_FINAL_TITLE_TEXT.en}: all the Myths are completed.`
+        }));
       }
     }
   }
@@ -857,6 +898,7 @@ export function checkActUnlocks() {
 // Filet de sécurité : aplatit les champs de données { fr, en } des mythes (name,
 // description, objectif, heritageDescription) en chaînes de la
 // langue courante. Rend inoffensif tout consommateur d'affichage non enveloppé
-// de tr(). CADMOS_ORIENTATIONS reste géré via tr() (ses `words` servent aussi de
-// clés internes). Les fonctions des mythes sont préservées (cf. localizeData).
+// de tr(). CADMOS_ORIENTATIONS reste géré via tr() (les deux langues de ses
+// `words` servent à reconnaître le mot d'un Âge, cf. cadmosWordIndex). Les
+// fonctions des mythes sont préservées (cf. localizeData).
 localizeData(MYTHS);

@@ -28,7 +28,9 @@ export const ACTIVE_RUIN_DEFINITIONS = [
     id: "enee",
     stateKey: "eneeHeritage",
     title: { fr: "Migration fondatrice", en: "Founding Migration" },
-    source: { fr: "Énée", en: "Énée" },
+    // Les sources suivent les noms anglais des Mythes (audit du 05/10, I18N-11) :
+    // l'anglais recopiait le français (« Énée », « Phénix »…).
+    source: { fr: "Énée", en: "Aeneas" },
     bonus: { fr: "Boost de départ actif (+10% par effondrement, jusqu'à +100%).", en: "Active starting boost (+10% per collapse, up to +100%)." },
     malus: { fr: `Rupture initiale +${Math.round(ACTIVE_RUIN_RUPTURE_START * 100)}.`, en: `Initial Rupture +${Math.round(ACTIVE_RUIN_RUPTURE_START * 100)}.` }
   },
@@ -36,7 +38,7 @@ export const ACTIVE_RUIN_DEFINITIONS = [
     id: "promethee",
     stateKey: "prometheeBraisiers",
     title: { fr: "Braisiers ancestraux", en: "Ancestral Braziers" },
-    source: { fr: "Prométhée", en: "Prométhée" },
+    source: { fr: "Prométhée", en: "Prometheus" },
     bonus: { fr: "Bonus Nourriture x2 actif en début de cycle.", en: "Active Food bonus x2 at the start of the cycle." },
     malus: { fr: `Chaque moteur de Nourriture coûte ${Math.round((ACTIVE_RUIN_FOOD_ENGINE_COST_MULT - 1) * 100)}% plus cher.`, en: `Each Food engine costs ${Math.round((ACTIVE_RUIN_FOOD_ENGINE_COST_MULT - 1) * 100)}% more.` }
   },
@@ -52,7 +54,7 @@ export const ACTIVE_RUIN_DEFINITIONS = [
     id: "hephaistos",
     stateKey: "hephHeritage",
     title: { fr: "Automates ancestraux", en: "Ancestral Automatons" },
-    source: { fr: "Héphaïstos", en: "Héphaïstos" },
+    source: { fr: "Héphaïstos", en: "Hephaestus" },
     bonus: { fr: "Automatisations permanentes actives.", en: "Permanent automations active." },
     malus: { fr: `L'Usure monte ${Math.round((ACTIVE_RUIN_USURE_MULT - 1) * 100)}% plus vite.`, en: `Wear rises ${Math.round((ACTIVE_RUIN_USURE_MULT - 1) * 100)}% faster.` }
   },
@@ -68,7 +70,7 @@ export const ACTIVE_RUIN_DEFINITIONS = [
     id: "sisyphe",
     stateKey: "sisypheHeritage",
     title: { fr: "Pente du rocher", en: "The Slope" },
-    source: { fr: "Sisyphe", en: "Sisyphe" },
+    source: { fr: "Sisyphe", en: "Sisyphus" },
     bonus: { fr: "L'inflation naturelle des coûts croît plus lentement, pour toujours.", en: "Natural cost inflation grows more slowly, forever." },
     malus: { fr: `Chaque achat réinflate tous les coûts de ${((ACTIVE_RUIN_SISYPHE_CREEP - 1) * 100).toFixed(1)} % : le rocher reprend sa pente.`, en: `Each purchase re-inflates all costs by ${((ACTIVE_RUIN_SISYPHE_CREEP - 1) * 100).toFixed(1)}%: the boulder rolls back.` }
   },
@@ -84,7 +86,7 @@ export const ACTIVE_RUIN_DEFINITIONS = [
     id: "icare",
     stateKey: "icareHeritage",
     title: { fr: "Cire fondante", en: "Melting Wax" },
-    source: { fr: "Icare", en: "Icare" },
+    source: { fr: "Icare", en: "Icarus" },
     bonus: { fr: "L'Aile disponible pendant les cycles normaux.", en: "The Wing available during normal cycles." },
     malus: { fr: `L'Aile monte toute seule dès que la Rupture atteint ${Math.round(ACTIVE_RUIN_ICARE_AUTO_BURN * 100)} % : tu gardes le vol, tu perds le moment.`, en: `The Wing climbs on its own once Rupture reaches ${Math.round(ACTIVE_RUIN_ICARE_AUTO_BURN * 100)}%: you keep the flight, you lose the timing.` }
   },
@@ -92,7 +94,7 @@ export const ACTIVE_RUIN_DEFINITIONS = [
     id: "phenix",
     stateKey: "phoenixHeritage",
     title: { fr: "Bûcher programmé", en: "Scheduled Pyre" },
-    source: { fr: "Phénix", en: "Phénix" },
+    source: { fr: "Phénix", en: "Phoenix" },
     bonus: { fr: "Script d'effondrement automatique disponible.", en: "Automatic collapse script available." },
     malus: { fr: `Le bûcher s'allume de force au bout de ${Math.round(ACTIVE_RUIN_PHENIX_FORCED_SEC / 60)} minutes de cycle, quels que soient tes réglages.`, en: `The pyre lights itself after ${Math.round(ACTIVE_RUIN_PHENIX_FORCED_SEC / 60)} minutes of cycle, whatever your settings.` }
   },
@@ -100,7 +102,7 @@ export const ACTIVE_RUIN_DEFINITIONS = [
     id: "atrides",
     stateKey: "atridesHeritage",
     title: { fr: "Pacte signé d'office", en: "Pact Signed For You" },
-    source: { fr: "Atrides", en: "Atrides" },
+    source: { fr: "Atrides", en: "Atreides" },
     bonus: { fr: "Pacte des Atrides disponible en début de cycle.", en: "Pact of the Atreides available at cycle start." },
     malus: { fr: "Le pacte est signé sans toi au lancement : tu prends le doublement, donc tu prendras la moitié pendant la crise.", en: "The pact is signed without you at launch: you take the doubling, so you will take the halving during the crisis." }
   }

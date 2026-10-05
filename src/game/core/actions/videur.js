@@ -21,6 +21,7 @@ import {
   VIDEUR_MEMOIRE, VIDEUR_COMPTE, VIDEUR_LISSAGE, VIDEUR_ECHANTILLON, VIDEUR_OEIL, VIDEUR_PORTE, VIDEUR_BANNI_MIN
 } from '../balance.js';
 import { chronicle } from './utils.js';
+import { tr } from '../i18n.js';
 
 const MIN = 60 * 1000;
 
@@ -80,7 +81,10 @@ export function observerMise(mise, tc, now = Date.now()) {
     state.bjMises = [];
     state.bjHaut = null;
     state.bjBas = null;
-    chronicle("Le videur te raccompagne à la porte de la salle du vingt-et-un : à la Maison, on n'aime pas les compteurs de cartes.");
+    chronicle(tr({
+      fr: "Le videur te raccompagne à la porte de la salle du vingt-et-un : à la Maison, on n'aime pas les compteurs de cartes.",
+      en: "The bouncer walks you to the door of the twenty-one room: at the House, card counters are not welcome."
+    }));
     return 'porte';
   }
   return videurOeil() ? 'oeil' : null;

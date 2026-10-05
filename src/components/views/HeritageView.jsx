@@ -10,7 +10,7 @@ import { buyUpgrade, engraveCadmosEpitaph, faveurShopItems, buyFaveurItem, artif
 import { state, openView } from '../../game/core/state.js';
 import { upgrades } from '../../game/data/upgrades.js';
 import { codexSavoirBonus } from '../../game/data/world.js';
-import { CADMOS_MAX_PERMANENT_EPITAPHS, CADMOS_EPITAPH_BONUS_PCT } from '../../game/data/myths.js';
+import { CADMOS_MAX_PERMANENT_EPITAPHS, CADMOS_EPITAPH_BONUS_PCT, cadmosAgeName, cadmosOrientationLabel } from '../../game/data/myths.js';
 import { pushOutcomeFloat } from '../../game/core/outcomeFloat.js';
 import { fmt } from '../../game/core/utils.js';
 import {
@@ -214,16 +214,21 @@ export default function HeritageView() {
   // CADMOS (héritage du mythe) : les Âges de la Chronique à graver en Noms de
   // Pouvoir permanents. Gratuits mais plafonnés ; la règle vit dans l'infobulle
   // du titre de leur ligne.
-  const cadmosEffect = (e) => `${e.orientationLabel} +${cadmosBonusPct}% ${tr({ fr: 'permanent', en: 'permanent' })}`;
+  // Nom de l'Âge et orientation RECOMPOSÉS dans la langue du moment (I18N-6) :
+  // ceux stockés dans la sauvegarde sont figés dans la langue du choix.
+  const cadmosEffect = (e) => {
+    const label = cadmosOrientationLabel(e);
+    return tr({ fr: `${label} +${cadmosBonusPct}% permanent`, en: `${label} +${cadmosBonusPct}% permanent` });
+  };
   const cadmosObjs = cadmosHeritage ? [
     ...cadmosPermanentEpitaphs.map((e) => ({
       id: `epitaphe:${e.id}`, icon: 'myths/epitaph', free: true,
-      name: e.name, effect: cadmosEffect(e),
+      name: cadmosAgeName(e), effect: cadmosEffect(e),
       owned: true, ownedLabel: tr({ fr: 'Gravé', en: 'Engraved' })
     })),
     ...cadmosCandidates.map((e) => ({
       id: `epitaphe:${e.id}`, icon: 'myths/epitaph', free: true,
-      name: e.name, effect: cadmosEffect(e),
+      name: cadmosAgeName(e), effect: cadmosEffect(e),
       owned: false, canBuy: !cadmosFull,
       buyLabel: tr({ fr: 'Graver', en: 'Engrave' }),
       blockedLabel: tr({ fr: 'Complet', en: 'Full' }),

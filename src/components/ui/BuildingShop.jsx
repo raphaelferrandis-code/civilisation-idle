@@ -48,9 +48,10 @@ const RES_NAMES = {
 function fmtGainPct(pct) {
   if (pct == null || !Number.isFinite(pct) || pct <= 0) return "";
   const p = pct * 100;
-  if (p < 0.1) return "<0.1 %";
-  if (p >= 100) return `+${Math.round(p)} %`;
-  return `+${p.toFixed(p < 10 ? 1 : 0)} %`;
+  // Signe + partout (« <0.1 % » le perdait), espace avant % en français seulement.
+  if (p < 0.1) return tr({ fr: "+<0.1 %", en: "+<0.1%" });
+  const v = p >= 100 ? String(Math.round(p)) : p.toFixed(p < 10 ? 1 : 0);
+  return tr({ fr: `+${v} %`, en: `+${v}%` });
 }
 import { tr } from '../../game/core/i18n.js';
 import { D, Decimal } from '../../game/core/num.js';

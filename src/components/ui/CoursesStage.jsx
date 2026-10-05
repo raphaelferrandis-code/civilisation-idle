@@ -1,11 +1,12 @@
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { useGameState } from '../../hooks/useGameState.js';
-import { lancerCourse, coursePartants, coursesUnlocked, coteAffichee, parisPropres, parisTotal } from '../../game/core/actions/courses.js';
+import { lancerCourse, coursePartants, coursesUnlocked, coteAffichee, parisPropres, parisTotal, nomCheval } from '../../game/core/actions/courses.js';
 import { nuitResteMin } from '../../game/core/actions/nuitGrandJeu.js';
 import { tableLimits, chipRack, chipIndexOf } from '../../game/core/actions/maisonTable.js';
 import { COURSES_RTP } from '../../game/core/balance.js';
 import { state, save } from '../../game/core/state.js';
 import { tr } from '../../game/core/i18n.js';
+import { fmtCote } from '../../game/core/utils.js';
 import { celebrerGain } from '../../game/core/grandsGains.js';
 import { tipProps } from './HelpBubble.jsx';
 import StageHelp from './StageHelp.jsx';
@@ -103,7 +104,8 @@ function dessiner(g, W, band, partants, plan, ms, gagnant) {
   }
 }
 
-const fmtCote = (p) => coteAffichee(p).toFixed(1).replace('.', tr({ fr: ',', en: '.' }));
+// La cote d'un partant (« ×4.2 ») : décimale au point dans les deux langues (fmtCote).
+const coteTxt = (p) => fmtCote(coteAffichee(p), 1);
 
 export default function CoursesStage({ onClose }) {
   const band = usePlaisirsBand();
@@ -300,11 +302,11 @@ export default function CoursesStage({ onClose }) {
               disabled={phase === 'race'}
               onClick={() => poser(x.couloir)}
               onContextMenu={(e) => { e.preventDefault(); retirer(x.couloir); }}
-              {...tipProps(`${x.couloir + 1}. ${x.nom}`, tr({ fr: `Cote ×${fmtCote(x.p)}, mise comprise. Clic droit : reprend la mise.`, en: `Odds ×${fmtCote(x.p)}, stake included. Right-click: take the bet back.` }))}
+              {...tipProps(`${x.couloir + 1}. ${nomCheval(x.nom)}`, tr({ fr: `Cote ${coteTxt(x.p)}, mise comprise. Clic droit : reprend la mise.`, en: `Odds ${coteTxt(x.p)}, stake included. Right-click: take the bet back.` }))}
             >
               <span className="courses-num" style={{ background: cas.S, color: cas.H }}>{x.couloir + 1}</span>
-              <span className="courses-nom">{x.nom}</span>
-              <span className="courses-cote">×{fmtCote(x.p)}</span>
+              <span className="courses-nom">{nomCheval(x.nom)}</span>
+              <span className="courses-cote">{coteTxt(x.p)}</span>
               {mise > 0 && (
                 <span className="courses-mise">
                   <img src={chipUrl(band, chipIndexOf(chipRack(Math.max(1, mise), 1)[0]))} alt="" aria-hidden="true" draggable="false" style={{ width: CHIP_ART.w, height: CHIP_ART.h }} />

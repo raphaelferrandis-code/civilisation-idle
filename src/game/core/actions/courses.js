@@ -17,11 +17,22 @@ import { recordCourse } from '../chronicleStats.js';
 import { pushOutcomeFloat } from '../outcomeFloat.js';
 import { chronicle } from './utils.js';
 import { fmt } from '../utils.js';
+import { tr } from '../i18n.js';
 
 export const NOMS = [
   "Pégase", "Borée", "Zéphyr", "Bucéphale", "Arion", "Xanthos", "Éole", "Hermès",
   "Nyx", "Aurore", "Phébus", "Sirius", "Céleste", "Tonnerre", "Rubis", "Sultane"
 ];
+
+// Le nom AFFICHÉ d'un partant (audit du 05/10, I18N-11) : les figures de la mythologie
+// prennent leur graphie anglaise (comme Icarus ou Sisyphus) ; les autres sont des noms
+// propres, gardés tels quels. Le nom français reste la CLÉ : il est sauvegardé dans
+// state.courseField, et la robe du cheval en dérive (coursesArt, robeOf).
+const NOMS_EN = {
+  "Pégase": "Pegasus", "Borée": "Boreas", "Zéphyr": "Zephyrus", "Bucéphale": "Bucephalus",
+  "Éole": "Aeolus", "Hermès": "Hermes", "Aurore": "Aurora", "Phébus": "Phoebus"
+};
+export const nomCheval = (nom) => tr({ fr: nom, en: NOMS_EN[nom] || nom });
 
 export function coursesUnlocked() {
   return maisonRank() >= COURSES_UNLOCK_RANK || nuitActive();
@@ -111,10 +122,14 @@ export function lancerCourse(paris, options = {}) {
     recordCourse({ wagered: total, won: gain, cote: coteExacte(pw) });
     // Un outsider (cote ×10 et plus) qui gagne avec ta mise dessus : la Chronique s'en souvient.
     if (gain > 0 && coteExacte(pw) >= 10) {
-      chronicle(`${partants.find((x) => x.couloir === gagnant).nom}, l'outsider à ×${coteAffichee(pw)}, gagne la course sous ta mise : +${fmt(gain)} faveur.`);
+      const cheval = nomCheval(partants.find((x) => x.couloir === gagnant).nom);
+      chronicle(tr({
+        fr: `${cheval}, l'outsider à ×${coteAffichee(pw)}, gagne la course sous ta mise : +${fmt(gain)} faveur.`,
+        en: `${cheval}, the outsider at ×${coteAffichee(pw)}, wins the race with your stake on it: +${fmt(gain)} favor.`
+      }));
     }
     if (!silent && !isNotifyPaused()) {
-      pushOutcomeFloat({ label: gain > 0 ? `🏇 +${fmt(gain)} faveur` : `🏇 ${partants.find((x) => x.couloir === gagnant).nom}`, kind: gain > 0 ? "gain" : "cost" });
+      pushOutcomeFloat({ label: gain > 0 ? tr({ fr: `🏇 +${fmt(gain)} faveur`, en: `🏇 +${fmt(gain)} favor` }) : `🏇 ${nomCheval(partants.find((x) => x.couloir === gagnant).nom)}`, kind: gain > 0 ? "gain" : "cost" });
     }
     if (doRender) render();
     return result;

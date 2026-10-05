@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { fdChronicle, onFaitsDivers } from '../../game/core/faitsDivers.js';
 import { EPOCHS } from '../../game/data/eraThemes.js';
 import { tr } from '../../game/core/i18n.js';
+import { fmtClock } from '../../game/core/utils.js';
 import { tipProps } from './HelpBubble.jsx';
 
 // LES FAITS DIVERS DANS LA CHRONIQUE (docs/PLAN-FAITS-DIVERS.md).
@@ -15,14 +16,9 @@ import { tipProps } from './HelpBubble.jsx';
 
 const ROMAN = ['I', 'II', 'III', 'IV', 'V', 'VI', 'VII', 'VIII', 'IX', 'X', 'XI', 'XII', 'XIII', 'XIV', 'XV', 'XVI'];
 const ageOf = (band) => tr((EPOCHS[Math.max(0, Math.min(EPOCHS.length - 1, band | 0))] || EPOCHS[0]).label);
-// Le temps de jeu à vie, à la minute (même horloge que les frises du Registre).
-function fmtAt(sec) {
-  const m = Math.floor(sec / 60) % 60, h = Math.floor(sec / 3600) % 24, j = Math.floor(sec / 86400);
-  const pad = (n) => String(n).padStart(2, '0');
-  if (j > 0) return `${j}j ${pad(h)}h ${pad(m)}m`;
-  if (h > 0) return `${h}h ${pad(m)}m`;
-  return `${m}m`;
-}
+// Le temps de jeu à vie, à la minute (même horloge que les frises du Registre ;
+// écriture commune, utils.fmtClock).
+const fmtAt = (sec) => fmtClock(sec, { seconds: 'never' });
 
 export default function FaitsDiversChronique() {
   // La mémoire des faits divers change par mutation en place : le re-rendu suit son

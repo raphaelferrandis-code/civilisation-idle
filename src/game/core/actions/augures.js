@@ -40,6 +40,13 @@ import { feedPot, payRound, potRake } from './templePot.js';
 import { recordWager } from './maisonRang.js';
 import { clampStake } from './maisonTable.js';
 import { recordOsselets } from '../chronicleStats.js';
+import { tr } from '../i18n.js';
+
+// Note de repli d'un jet perdu, quand le pari n'a pas la sienne (noteFail).
+const AUGURY_FAIL_NOTE = {
+  fr: "Le pari tourne court, mais la table retient ton nom.",
+  en: "The wager falls short, but the table remembers your name."
+};
 
 // Les RITES : quatre paris sur la même table. `p` = la chance de gagner, `spread`
 // répartit Vénus/Chien (un gros spread gonfle Vénus DANS les gains et le Chien
@@ -275,7 +282,12 @@ export function castAugury(id, riteId = "classique", options = {}) {
         // Le Coup de Vénus offre un vol d'Icare à la mise du jet (compté dans la
         // paytable). Une file pleine le perd : la table rend alors un peu moins.
         result.freeFlight = grantFreeFlight(stake);
-        if (result.freeFlight) chronicle(`Coup de Vénus ! Les dés de « ${a.label} » tombent en trois six. La Maison offre un vol d'Icare.`);
+        if (result.freeFlight) {
+          chronicle(tr({
+            fr: `Coup de Vénus ! Les dés de « ${a.label} » tombent en trois six. La Maison offre un vol d'Icare.`,
+            en: `Venus throw! The dice of “${a.label}” land on three sixes. The House offers a flight of Icarus.`
+          }));
+        }
         // LE CARRÉ DE SIX. Rafle au PRORATA DE LA MISE, jamais minté : ce qui sort
         // de la cella y a été versé par l'edge des tables. On n'incrémente PAS
         // state.icarusJackpots : ce compteur est le jalon « frôler le soleil » du
@@ -286,8 +298,14 @@ export function castAugury(id, riteId = "classique", options = {}) {
           state.faveur = Math.max(0, (state.faveur || 0) + rake);
           state.icarusPotFaveur = left;
           chronicle(left > 0
-            ? `Le carré de six ! Les quatre dés de « ${a.label} » montrent la même face. La Maison cède sa part de la cagnotte (+${fmt(rake)} faveur) ; la cella en garde ${fmt(Math.round(left))}.`
-            : `Le carré de six ! Les quatre dés de « ${a.label} » montrent la même face. La cella est vidée jusqu'à la dernière faveur (+${fmt(rake)}).`);
+            ? tr({
+                fr: `Le carré de six ! Les quatre dés de « ${a.label} » montrent la même face. La Maison cède sa part de la cagnotte (+${fmt(rake)} faveur) ; la cella en garde ${fmt(Math.round(left))}.`,
+                en: `Four sixes! All four dice of “${a.label}” show the same face. The House yields its share of the pot (+${fmt(rake)} favor); the cella keeps ${fmt(Math.round(left))}.`
+              })
+            : tr({
+                fr: `Le carré de six ! Les quatre dés de « ${a.label} » montrent la même face. La cella est vidée jusqu'à la dernière faveur (+${fmt(rake)}).`,
+                en: `Four sixes! All four dice of “${a.label}” show the same face. The cella is emptied down to the last favor (+${fmt(rake)}).`
+              }));
         }
       }
     }
@@ -299,16 +317,16 @@ export function castAugury(id, riteId = "classique", options = {}) {
     // Registre de la Chronique : une partie d'osselets de plus (mise débitée, gain
     // net, temps forts Vénus/Chien).
     recordOsselets({ wagered: stake, won: result.faveurGain, tier });
-    result.note = win ? (a.noteWin || a.note) : (a.noteFail || "Le pari tourne court, mais la table retient ton nom.");
+    result.note = win ? (a.noteWin || a.note) : (a.noteFail || tr(AUGURY_FAIL_NOTE));
     if (!silent) {
       // Le carré de six passe AVANT Vénus : c'est le même tier, mais l'annoncer
       // « Coup de Vénus » quand la cagnotte vient de tomber raterait l'événement.
       // Sur cella vide (rafle à 0) on retombe volontairement sur Vénus.
-      const floatLabel = result.jackpotGain > 0 ? `🏺 Carré de six ! +${fmt(result.jackpotGain)} faveur`
-        : tier === "venus" ? "🎲 Coup de Vénus !"
-        : tier === "dog" ? "🎲 Le jet du Chien…"
-        : win ? `🎲 +${fmt(result.faveurGain)} faveur`
-        : `🎲 −${fmt(stake)} faveur`;
+      const floatLabel = result.jackpotGain > 0 ? tr({ fr: `🏺 Carré de six ! +${fmt(result.jackpotGain)} faveur`, en: `🏺 Four sixes! +${fmt(result.jackpotGain)} favor` })
+        : tier === "venus" ? tr({ fr: "🎲 Coup de Vénus !", en: "🎲 Venus throw!" })
+        : tier === "dog" ? tr({ fr: "🎲 Le jet du Chien…", en: "🎲 The Dog throw…" })
+        : win ? tr({ fr: `🎲 +${fmt(result.faveurGain)} faveur`, en: `🎲 +${fmt(result.faveurGain)} favor` })
+        : tr({ fr: `🎲 −${fmt(stake)} faveur`, en: `🎲 −${fmt(stake)} favor` });
       pushOutcomeFloat({ label: floatLabel, kind: win ? "gain" : "cost" });
     }
     renderCache._frameRatesVer = -1;
@@ -316,7 +334,7 @@ export function castAugury(id, riteId = "classique", options = {}) {
     return result;
   };
 
-  result.note = win ? (a.noteWin || a.note) : (a.noteFail || "Le pari tourne court, mais la table retient ton nom.");
+  result.note = win ? (a.noteWin || a.note) : (a.noteFail || tr(AUGURY_FAIL_NOTE));
   if (!defer) result.apply();
   return result;
 }
@@ -354,15 +372,26 @@ export function doubleAugury(id, stake, options = {}) {
     const wagerEff = Math.min(wager, Math.max(0, Math.round(state.faveur || 0)));
     if (win) {
       state.faveur = Math.max(0, (state.faveur || 0) + wagerEff);
-      chronicle(`Défiés une seconde fois sur « ${a.label} », les dieux sourient encore : la Faveur redouble.`);
+      chronicle(tr({
+        fr: `Défiés une seconde fois sur « ${a.label} », les dieux sourient encore : la Faveur redouble.`,
+        en: `Challenged a second time on “${a.label}”, the gods smile again: the Favor doubles.`
+      }));
     } else {
       state.faveur = Math.max(0, (state.faveur || 0) - wagerEff);
-      chronicle(`Les dieux se lassent d'être éprouvés : la Faveur de « ${a.label} » leur revient.`);
+      chronicle(tr({
+        fr: `Les dieux se lassent d'être éprouvés : la Faveur de « ${a.label} » leur revient.`,
+        en: `The gods tire of being tested: the Favor of “${a.label}” returns to them.`
+      }));
     }
     // Registre de la Chronique — le double n'avait AUCUN compteur : ses gains et
     // pertes étaient invisibles de faveurEarned et de games.osselets.
     recordOsselets({ wagered: win ? 0 : wagerEff, won: win ? wagerEff : 0 });
-    pushOutcomeFloat({ label: win ? `🎲 +${wagerEff} faveur !` : "🎲 Le jet du Chien…", kind: win ? "gain" : "cost" });
+    pushOutcomeFloat({
+      label: win
+        ? tr({ fr: `🎲 +${wagerEff} faveur !`, en: `🎲 +${wagerEff} favor!` })
+        : tr({ fr: "🎲 Le jet du Chien…", en: "🎲 The Dog throw…" }),
+      kind: win ? "gain" : "cost"
+    });
     if (doRender) render();
     return result;
   };

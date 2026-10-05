@@ -1,5 +1,6 @@
 import { useGameState } from '../../../hooks/useGameState.js';
 import { tr } from '../../../game/core/i18n.js';
+import { numLocale } from '../../../game/core/utils.js';
 import { rankProgress, RANK_LABELS } from '../../../game/core/actions/maisonRang.js';
 import { MAISON_RANKS } from '../../../game/core/balance.js';
 import { ARTIFACT_NODES } from '../../../game/data/artifacts.js';
@@ -12,9 +13,10 @@ import '../../../styles/plaisirs-rang.css';
  * une ligne de la bourse. Le détail (la réputation, ce que le titre suivant ouvre)
  * vit dans l'infobulle : pas de phrase à l'écran.
  */
+// Séparateurs de la langue (I18N-10) : la valeur sert dans les deux phrases.
 const heures = (h) => (h >= 10
-  ? Math.round(h).toLocaleString('fr-FR')
-  : h.toLocaleString('fr-FR', { maximumFractionDigits: 1 }));
+  ? Math.round(h).toLocaleString(numLocale())
+  : h.toLocaleString(numLocale(), { maximumFractionDigits: 1 }));
 
 function detail(p) {
   const rep = heures(p.reputation);

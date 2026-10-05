@@ -19,6 +19,7 @@ import {
   BLESSING_DURATION_S
 } from '../balance.js';
 import { chronicle } from './utils.js';
+import { tr } from '../i18n.js';
 import { pushOutcomeFloat } from '../outcomeFloat.js';
 import { ARTIFACT_NODES } from '../../data/artifacts.js';
 import { hasTempleArtifact } from './templeArtifacts.js';
@@ -75,8 +76,11 @@ export function buyFaveurItem(id) {
     if (faveur < cost) return false;
     state.faveur = faveur - cost;
     state.styletLevel = (state.styletLevel || 0) + 1;
-    pushOutcomeFloat({ label: `🎟️ Stylet niveau ${state.styletLevel}`, kind: "gain" });
-    chronicle(`Un stylet mieux taillé pour racler le vernis : le grattage gagne en aisance (stylet, niveau ${state.styletLevel}).`);
+    pushOutcomeFloat({ label: tr({ fr: `🎟️ Stylet niveau ${state.styletLevel}`, en: `🎟️ Stylus level ${state.styletLevel}` }), kind: "gain" });
+    chronicle(tr({
+      fr: `Un stylet mieux taillé pour racler le vernis : le grattage gagne en aisance (stylet, niveau ${state.styletLevel}).`,
+      en: `A sharper stylus to scrape the varnish: scratching gets easier (stylus, level ${state.styletLevel}).`
+    }));
   } else if (id === "blessing") {
     const cost = blessingCost();
     if (faveur < cost) return false;
@@ -85,8 +89,17 @@ export function buyFaveurItem(id) {
     const base = Math.max(Date.now(), state.blessingUntil || 0);
     state.blessingUntil = base + BLESSING_DURATION_S * 1000;
     state.blessingMult = BLESSING_MULT;
-    pushOutcomeFloat({ label: `🌾 Bénédiction : +${Math.round((BLESSING_MULT - 1) * 100)}% production`, kind: "gain" });
-    chronicle(`Une bénédiction de la Maison se répand sur la cité : la production s'élève pour un temps (+${Math.round((BLESSING_MULT - 1) * 100)} %).`);
+    pushOutcomeFloat({
+      label: tr({
+        fr: `🌾 Bénédiction : +${Math.round((BLESSING_MULT - 1) * 100)}% production`,
+        en: `🌾 Blessing: +${Math.round((BLESSING_MULT - 1) * 100)}% production`
+      }),
+      kind: "gain"
+    });
+    chronicle(tr({
+      fr: `Une bénédiction de la Maison se répand sur la cité : la production s'élève pour un temps (+${Math.round((BLESSING_MULT - 1) * 100)} %).`,
+      en: `A blessing from the House spreads over the city: production rises for a while (+${Math.round((BLESSING_MULT - 1) * 100)}%).`
+    }));
   } else {
     return false;
   }
@@ -122,9 +135,11 @@ export function buyTempleArtifact(id) {
   recordShopSpend(cost);
   if (!state.templeArtifacts) state.templeArtifacts = {};
   state.templeArtifacts[id] = true;
-  const label = (node.label && node.label.fr) || id;
+  // Nom dans la langue du joueur (I18N-9 : `.fr` était forcé, alors que
+  // l'anglais existe dans artifacts.js).
+  const label = tr(node.label) || id;
   pushOutcomeFloat({ label: `⚜️ ${label}`, kind: "gain" });
-  chronicle(`La Maison s'enrichit d'un artefact : ${label}.`);
+  chronicle(tr({ fr: `La Maison s'enrichit d'un artefact : ${label}.`, en: `The House gains an artifact: ${label}.` }));
   save();
   render();
   return true;

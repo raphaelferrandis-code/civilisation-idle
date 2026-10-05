@@ -17,7 +17,7 @@ import { productionBreakdown } from '../../game/core/mechanics/production/produc
 import { eras } from '../../game/data/world.js';
 import { renderCache, state } from '../../game/core/state.js';
 import { idleCapSeconds } from '../../game/core/main.js';
-import { fmt, fmtShort, rateScale } from '../../game/core/utils.js';
+import { fmt, fmtShort, fmtClock, rateScale } from '../../game/core/utils.js';
 import { crediblePopulation } from '../../game/core/demographics.js';
 import { D, Decimal, toNum } from '../../game/core/num.js';
 import { tr } from '../../game/core/i18n.js';
@@ -37,18 +37,9 @@ const actLabel = (act) => act === "ragnarok"
   : tr({ fr: `Acte ${romanOf(act)}`, en: `Act ${romanOf(act)}` });
 
 // Durées façon horloge (même convention que l'encart latéral) : seules les
-// unités utiles s'affichent, zéro-paddées dès qu'une unité supérieure existe.
-function fmtDuration(totalSecs) {
-  const s = Math.floor(totalSecs) % 60;
-  const m = Math.floor(totalSecs / 60) % 60;
-  const h = Math.floor(totalSecs / 3600) % 24;
-  const j = Math.floor(totalSecs / 86400);
-  const pad = (n) => String(n).padStart(2, '0');
-  if (j > 0) return `${j}j ${pad(h)}h ${pad(m)}m`;
-  if (h > 0) return `${h}h ${pad(m)}m ${pad(s)}s`;
-  if (m > 0) return `${m}m ${pad(s)}s`;
-  return `${s}s`;
-}
+// unités utiles s'affichent, zéro-paddées dès qu'une unité supérieure existe ;
+// les secondes tombent dès qu'on compte en jours. Écriture commune (utils.fmtClock).
+const fmtDuration = (totalSecs) => fmtClock(totalSecs, { seconds: 'under-day' });
 
 // Compteurs entiers (bâtiments…) : pas de décimale parasite sous 1000 (« 0.0 »),
 // format compact (fmt) au-delà.

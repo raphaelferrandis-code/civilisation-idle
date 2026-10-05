@@ -178,7 +178,10 @@ export function tick(dt) {
     // ouvrait la crise vers ~21 min et le cycle pourrissait, gelé (harnais :
     // âge 6 h). Miroir du bloc principal plus bas dans le tick.
     if (isMythEffectActive(RAGNAROK_ID) && !collapseInProgress && ragnarokAge() >= RAGNAROK_DURATION_MS) {
-      log("La Fin est là. Le ciel se déchire, et le monde des dieux s'éteint.");
+      log(tr({
+        fr: "La Fin est là. Le ciel se déchire, et le monde des dieux s'éteint.",
+        en: "The End has come. The sky tears open, and the world of the gods goes dark."
+      }));
       collapse("forced");
     }
     return;
@@ -227,7 +230,10 @@ export function tick(dt) {
 
     if (state.atridesDebtGrowthMultiplier < 1 && Date.now() >= (state.atridesRenegotiateActiveUntil || 0)) {
       state.atridesDebtGrowthMultiplier = 1;
-      log("Les accords de renegociation ont expire. La dette de la cite reprend sa croissance normale.");
+      log(tr({
+        fr: "Les accords de renégociation ont expiré. La dette de la cité reprend sa croissance normale.",
+        en: "The renegotiation agreements have expired. The city's debt resumes its normal growth."
+      }));
     }
   }
 
@@ -333,7 +339,7 @@ export function tick(dt) {
   if (currentEra > peaks.eraIndex) {
     peaks.eraIndex = currentEra;
     // B1 — Célébration : chaque nouvelle ère franchie ce cycle (float doré).
-    if (!isNotifyPaused()) pushOutcomeFloat({ label: `🏛️ Ère : ${eras[currentEra].name}`, kind: "gain" });
+    if (!isNotifyPaused()) pushOutcomeFloat({ label: tr({ fr: `🏛️ Ère : ${eras[currentEra].name}`, en: `🏛️ Era: ${eras[currentEra].name}` }), kind: "gain" });
     if (currentEra > (state.bestEraIndex || 0)) {
       const prevTier = eraTier(state.bestEraIndex || 0);
       state.bestEraIndex = currentEra;
@@ -347,7 +353,10 @@ export function tick(dt) {
       // d'ère MAJEUR (cf. ERA_RUIN_BONUS_PER_INDEX). Les ères « factices »
       // (tier inchangé) avancent le compteur sans log ni récompense.
       if (newTier > prevTier) {
-        log(`Sommet historique : l'ère ${eras[currentEra].name} est atteinte pour la première fois. Chaque effondrement rapportera désormais +${newTier} ruines.`);
+        log(tr({
+          fr: `Sommet historique : l'ère ${eras[currentEra].name} est atteinte pour la première fois. Chaque effondrement rapportera désormais +${newTier} ruines.`,
+          en: `Historic peak: ${eras[currentEra].name} is reached for the first time. Every collapse will now yield +${newTier} ruins.`
+        }));
       }
     }
   }
@@ -358,8 +367,11 @@ export function tick(dt) {
   if (grDiscoveredId && !isNotifyPaused()) {
     const mm = GRAND_RESET_MILESTONES.find((x) => x.id === grDiscoveredId);
     if (mm) {
-      pushOutcomeFloat({ label: `👑 Grand Reset à portée : ${tr(mm.name)}`, kind: "gain" });
-      log(`Un seuil s'illumine : « ${tr(mm.name)} ». Un Grand Reset s'offre désormais à toi (page Effondrement).`);
+      pushOutcomeFloat({ label: tr({ fr: `👑 Grand Reset à portée : ${tr(mm.name)}`, en: `👑 Grand Reset within reach: ${tr(mm.name)}` }), kind: "gain" });
+      log(tr({
+        fr: `Un seuil s'illumine : « ${tr(mm.name)} ». Un Grand Reset s'offre désormais à toi (page Effondrement).`,
+        en: `A threshold lights up: “${tr(mm.name)}”. A Grand Reset is now open to you (Collapse page).`
+      }));
     }
   }
 
@@ -446,7 +458,10 @@ export function tick(dt) {
   if (hasActiveRuin(state, "phenix") && !collapseInProgress && !isOfflineSim()) {
     const ageSec = (Date.now() - (state.cycleStartedAt || Date.now())) / 1000;
     if (ageSec >= ACTIVE_RUIN_PHENIX_FORCED_SEC) {
-      log("Bûcher programmé : l'heure est venue, la cité s'embrase sans attendre ton ordre.");
+      log(tr({
+        fr: "Bûcher programmé : l'heure est venue, la cité s'embrase sans attendre ton ordre.",
+        en: "Scheduled Pyre: the hour has come, and the city goes up in flames without waiting for your order."
+      }));
       collapse("forced");
       return;
     }
@@ -458,7 +473,10 @@ export function tick(dt) {
   // Mythe s'est déjà sacré en direct et ce bloc ne tourne plus (le pacte est levé).
   if (isMythEffectActive(RAGNAROK_ID) && !collapseInProgress && !isOfflineSim()) {
     if (ragnarokAge() >= RAGNAROK_DURATION_MS) {
-      log("La Fin est là. Le ciel se déchire, et le monde des dieux s'éteint.");
+      log(tr({
+        fr: "La Fin est là. Le ciel se déchire, et le monde des dieux s'éteint.",
+        en: "The End has come. The sky tears open, and the world of the gods goes dark."
+      }));
       collapse("forced");
       return;
     }
@@ -534,7 +552,7 @@ function celebratePopMilestone() {
     : Math.floor(toNum(D(state.population).max(1).log10()));
   if (popExp >= 2 && popExp > (state.popMilestoneExp || 0)) {
     state.popMilestoneExp = popExp;
-    pushOutcomeFloat({ label: `✨ ${fmt(state.population)} de Rayonnement !`, kind: "gain" });
+    pushOutcomeFloat({ label: tr({ fr: `✨ ${fmt(state.population)} de Rayonnement !`, en: `✨ ${fmt(state.population)} Radiance!` }), kind: "gain" });
   }
 }
 

@@ -5,7 +5,8 @@
 // sur ce fichier, alors que le plan comptait dessus comme garde-fou de l'étape 4.
 // La porte est rendue, et l'étape 7 (suppression du drapeau `CM.iso`) en profite.
 // Ne pas remettre ce commentaire magique sans raison écrite.
-import { state, collapseInProgress, setCollapseInProgress, renderCache, openView } from '../core/state.js';
+import { state, collapseInProgress, setCollapseInProgress, renderCache, openView, buildingById } from '../core/state.js';
+import { tr } from '../core/i18n.js';
 import { toNum, D } from '../core/num.js';
 import { pressureBreakdown, cityVitals } from '../core/mechanics.js';
 import {
@@ -115,7 +116,7 @@ import { cityMapCalmRioterAt, quayWallTune, quayWallTiles, ensureQuayGate } from
 import { getVehicleDensity, chooseRoadVehicleType, vehSkinFor, thoughtBubbleAnchor, citizenSpawnCell, citizenWorkNear } from './agents.js';
 import { makeFleetCtl, riverFleetBudget, updateRiverFleet } from './riverFleet.js';
 import { pickAtScreen, describePick, citizenHoverTick, focusPick, releaseFocusCamera, focusCameraTarget, FOCUS_TUNE } from './citizenFocus.js';
-import { cmPasserbyName } from './cityNaming.js';
+import { cmPasserbyName, cmVariantLabel, cmOfEn } from './cityNaming.js';
 
 
 // ── Qualité de rendu (préréglage joueur, cf. qualityMode.js) ─────────────────
@@ -522,51 +523,11 @@ function cityMapEnsureTooltip(mapRoot, tooltipElement = null) {
   CM.tooltip = tooltipElement || mapRoot?.querySelector(".city-map-tooltip") || null;
 }
 
+// Libellé d'un type d'habitation ou de district, dans la langue du joueur. La
+// table { fr, en } vit dans cityNaming.js (CM_VARIANT_LABELS), testable sans
+// monter la carte.
 function cityMapVariantLabel(type, variant) {
-  const labels = {
-    tent: "Tente",
-    hut: "Cabane",
-    longhouse: "Longue maison",
-    courtyard: "Maison à cour",
-    townhouse: "Maison de ville",
-    crafthouse: "Logis d'artisan",
-    towerhouse: "Maison-tour",
-    manor: "Manoir",
-    stonehouse: "Maison de pierre",
-    insula: "Immeuble de rapport",
-    insula2: "Immeuble de rapport",
-    domus: "Domus",
-    taberna: "Taberna",
-    villa: "Villa",
-    terrace: "Rangée ouvrière",
-    tenement: "Immeuble populaire",
-    block: "Bloc résidentiel",
-    tower: "Tour d'habitation",
-    megablock: "Grand ensemble",
-    arcologyhome: "Logement d'arcologie",
-    haussmann: "Immeuble haussmannien",
-    gardentower: "Tour-jardin",
-    domehome: "Maison-dôme",
-    podstack: "Grappe de capsules",
-    skytower: "Gratte-ciel",
-    skytower2: "Gratte-ciel",
-    // Grands complexes (districts) conservés :
-    market: "Marché",
-    temple: "Temple",
-    keep: "Donjon",
-    forum: "Forum",
-    palace: "Palais",
-    station: "Station civique",
-    spire: "Flèche administrative",
-    archive: "Archives",
-    observatory: "Observatoire",
-    dense: "Quartier dense",
-    arcology: "Arcologie",
-    grid: "Quartier en grille"
-  };
-  if (labels[variant]) return labels[variant];
-  if (type === "house") return "Logement";
-  return "Bâtiment";
+  return tr(cmVariantLabel(type, variant));
 }
 
 // Habitat COLLECTIF : un immeuble ne porte pas le nom d'une personne (une
@@ -580,28 +541,48 @@ const CM_COLLECTIVE_HOMES = new Set([
 
 function cityMapDescribeTile(t) {
   if (t.type === "engine") {
-    // Corps en français d'atelier, pas en données brutes : « Édifice principal ·
+    // Corps en langage d'atelier, pas en données brutes : « Édifice principal ·
     // niveau 12 · 2 annexes » remplace « Niveau total 12 | groupe 1/3 (4) -
     // complexe ». L'édifice nº 1 porte le niveau entier, les suivants sont des
     // annexes de niveau 1 (cf. cmEngineInstances).
-    const title = t.buildingName || cityMapVariantLabel(t.type, t.variant);
-    const stage = t.tier >= 3 ? "quartier dense" : t.tier >= 2 ? "complexe" : t.tier >= 1 ? "groupe de bâtiments" : "";
+    // Le TITRE est le nom de la boutique (buildingById, déjà dans la langue du
+    // joueur par localizeData) : cityBuildings.js n'en garde plus de copie
+    // française. `buildingName` ne sert plus qu'au port de commerce, nommé à part.
+    // ⚠ Les REPÈRES CIVIQUES (pseudo-tuiles `__district`, iso/isoDistricts.js)
+    // empruntent le DESSIN d'un moteur (`buildingId`) sans en être un : ils
+    // gardent leur titre générique, pas le nom du bâtiment prêté (un forum
+    // s'appelait sinon « Tribunaux », des archives « Bibliothèques »).
+    const b = t.__district ? null : buildingById[t.buildingId];
+    const title = t.buildingName ? tr(t.buildingName) : b ? tr(b.name) : cityMapVariantLabel(t.type, t.variant);
+    const stage = t.tier >= 3 ? { fr: "quartier dense", en: "dense quarter" }
+      : t.tier >= 2 ? { fr: "complexe", en: "complex" }
+      : t.tier >= 1 ? { fr: "groupe de bâtiments", en: "building cluster" } : null;
+    const stFr = stage ? ` · ${stage.fr}` : "", stEn = stage ? ` · ${stage.en}` : "";
     const annexes = (t.groupTotal || 1) - 1;
     const lvl = Math.floor(t.level || 1);
+    const gLvl = Math.floor(t.groupLevel || 1);
     const body = annexes > 0
       ? (t.groupIndex === 1
-        ? `Édifice principal · niveau ${lvl} · ${annexes} annexe${annexes > 1 ? "s" : ""}${stage ? ` · ${stage}` : ""}`
-        : `Annexe de l'édifice principal · niveau ${Math.floor(t.groupLevel || 1)}`)
-      : `Niveau ${lvl}${stage ? ` · ${stage}` : ""}`;
+        ? tr({
+          fr: `Édifice principal · niveau ${lvl} · ${annexes} annexe${annexes > 1 ? "s" : ""}${stFr}`,
+          en: `Main building · level ${lvl} · ${annexes} annex${annexes > 1 ? "es" : ""}${stEn}` })
+        : tr({ fr: `Annexe de l'édifice principal · niveau ${gLvl}`, en: `Annex of the main building · level ${gLvl}` }))
+      : tr({ fr: `Niveau ${lvl}${stFr}`, en: `Level ${lvl}${stEn}` });
     return { title, body };
   }
   const seed = cmHash(`${t.key}:${state.cycles || 0}`);
   const band = (CM.layout && CM.layout.counts) ? CM.layout.counts.eraBand : 2;
-  const label = cityMapVariantLabel(t.type, t.variant);
-  const title = t.type !== "house" ? label
-    : CM_COLLECTIVE_HOMES.has(t.variant) ? `${label} ${cmResidenceName(seed)}`
-    : `${label} ${cmDeName(cmCitizenName(seed, band))}`;
-  return { title };
+  const label = cmVariantLabel(t.type, t.variant);
+  if (t.type !== "house") return { title: tr(label) };
+  // Nom ENTIER écrit dans chaque langue : « Cabane d'Oda » / « Oda's Hut »,
+  // « Tour d'habitation des Tilleuls » / « Tilleuls Apartment Tower ». Les noms
+  // propres (occupant, résidence) restent français dans les deux.
+  if (CM_COLLECTIVE_HOMES.has(t.variant)) {
+    const res = cmResidenceName(seed);
+    return { title: tr({ fr: `${label.fr} ${res}`, en: `${cmOfEn(res)} ${label.en}` }) };
+  }
+  const who = cmCitizenName(seed, band);
+  return { title: tr({ fr: `${label.fr} ${cmDeName(who)}`, en: `${who}'s ${label.en}` }) };
 }
 // La fiche d'habitant (citizenFocus.js) nomme son logis et son atelier comme
 // l'infobulle les nomme : même fonction, publiée sur CM pour éviter l'import
@@ -621,7 +602,15 @@ function cityMapHitTest(sx, sy) {
     for (const p of CM.rioters) {
       const sp = cityMapScreenFromWorld(p.x, p.y);
       if (Math.hypot(sp.x - sx, sp.y - sy) < citizenRadius) {
-        return { title: "Une émeute est en cours !", body: "Des habitants en colère défilent, torches et armes de fortune levées. Cliquez sur un émeutier pour l'apaiser.", kind: "Émeute" };
+        // `kindId` = la catégorie STABLE, que lit la logique (curseur) : le
+        // libellé `kind` suit la langue, on ne le compare jamais.
+        return {
+          title: tr({ fr: "Une émeute est en cours !", en: "A riot has broken out!" }),
+          body: tr({
+            fr: "Des habitants en colère défilent, torches et armes de fortune levées. Cliquez sur un émeutier pour l'apaiser.",
+            en: "Angry inhabitants march by, torches and makeshift weapons raised. Click a rioter to calm them down." }),
+          kind: tr({ fr: "Émeute", en: "Riot" }), kindId: "riot",
+        };
       }
     }
   }
@@ -643,7 +632,10 @@ function cityMapHitTest(sx, sy) {
     }
   }
   if (bestCitizen) {
-    return { title: bestCitizen.name, body: bestCitizen.role, kind: "Habitant", pick: { kind: "citizen", p: bestCitizen } };
+    return {
+      title: bestCitizen.name, body: tr(bestCitizen.role),
+      kind: tr({ fr: "Habitant", en: "Inhabitant" }), kindId: "citizen", pick: { kind: "citizen", p: bestCitizen },
+    };
   }
   // LA MAISON DES PLAISIRS, avant les merveilles et les bâtiments : elle est
   // seule au milieu du fleuve, rien ne la dispute, et elle monte très haut
@@ -653,18 +645,30 @@ function cityMapHitTest(sx, sy) {
   // qu'on le touche, comme une habitation ou un moteur.
   if (plaisirsHitTest(sx, sy)) {
     return {
-      title: "La Maison des Plaisirs",
-      body: "On y joue, on y boit, on y perd son or. Cliquez pour entrer.",
-      kind: "Monument",
+      title: tr({ fr: "La Maison des Plaisirs", en: "The House of Pleasures" }),
+      body: tr({
+        fr: "On y joue, on y boit, on y perd son or. Cliquez pour entrer.",
+        en: "Come to gamble, drink and lose your fortune. Click to enter." }),
+      kind: tr({ fr: "Monument", en: "Monument" }), kindId: "monument",
       plaisirs: true,
     };
   }
   if (Array.isArray(state.wonders)) {
+    // Nom, condition et jalon sont des unités { fr, en } (CM_WONDERS, layout.js) :
+    // la phrase est écrite entière dans chaque langue.
     const wonderTip = (wi) => {
       const w = CM_WONDERS[wi];
       const tier = (state.wonderTiers && state.wonderTiers[w.id]) || 1;
-      const next = w.tiers && tier < w.tiers.length ? ` · prochain rang : ${w.tierLabel(w.tiers[tier])}` : " · rang maximal";
-      return { title: `${w.name} (rang ${WONDER_TIER_NAMES[tier]})`, body: `${w.unlockedBy || ""}${next}`, kind: "Merveille" };
+      const rank = WONDER_TIER_NAMES[tier];
+      const jalon = w.tiers && tier < w.tiers.length ? w.tierLabel(w.tiers[tier]) : null;
+      const cond = w.unlockedBy || { fr: "", en: "" };
+      return {
+        title: tr({ fr: `${w.name.fr} (rang ${rank})`, en: `${w.name.en} (rank ${rank})` }),
+        body: tr(jalon
+          ? { fr: `${cond.fr} · prochain rang : ${jalon.fr}`, en: `${cond.en} · next rank: ${jalon.en}` }
+          : { fr: `${cond.fr} · rang maximal`, en: `${cond.en} · highest rank` }),
+        kind: tr({ fr: "Merveille", en: "Wonder" }), kindId: "wonder",
+      };
     };
     // BOÎTES RÉELLEMENT DESSINÉES à la dernière frame (publiées par drawWonder),
     // parcourues à l'envers : la liste est en ordre du peintre, ce qui est DEVANT
@@ -716,19 +720,32 @@ function cityMapHitTest(sx, sy) {
     for (let i = hb.length - 1; i >= 0; i -= 1) {
       const b = hb[i].b, t = hb[i].t;
       if (!maskHit(b, sx, sy)) continue;
-      return { ...cityMapDescribeTile(t), kind: t.type === "house" ? "Logement" : "Bâtiment", tile: t, cell: t.gx + "," + t.gy };
+      return { ...cityMapDescribeTile(t), ...cityMapTileKind(t), tile: t, cell: t.gx + "," + t.gy };
     }
   }
   const tile = CM.tileGrid?.get(gx + "," + gy);
   if (tile) {
     const info = cityMapDescribeTile(tile);
-    return { ...info, kind: tile.type === "house" ? "Logement" : "Bâtiment", tile, cell: tile.gx + "," + tile.gy };
+    return { ...info, ...cityMapTileKind(tile), tile, cell: tile.gx + "," + tile.gy };
   }
   if (CM.roadSet.has(`${gx},${gy}`)) {
     const road = CM.layout.roadMap && CM.layout.roadMap.get(gx + "," + gy);
-    return { title: cmRoadName(gx, gy), kind: road && road.rank === "plaza" ? "Place" : "Voie", cell: gx + "," + gy };
+    const plaza = !!(road && road.rank === "plaza");
+    return {
+      title: cmRoadName(gx, gy),
+      kind: plaza ? tr({ fr: "Place", en: "Square" }) : tr({ fr: "Voie", en: "Road" }), kindId: plaza ? "plaza" : "road",
+      cell: gx + "," + gy,
+    };
   }
   return null;
+}
+
+// Catégorie affichée d'une tuile bâtie (dans la langue du joueur) et son
+// identifiant stable `kindId`, le seul que la logique ait le droit de lire.
+function cityMapTileKind(t) {
+  return t.type === "house"
+    ? { kind: tr({ fr: "Logement", en: "Home" }), kindId: "home" }
+    : { kind: tr({ fr: "Bâtiment", en: "Building" }), kindId: "building" };
 }
 
 function cityMapShowTooltip(hit, sx, sy, { immediate = false } = {}) {
@@ -743,11 +760,14 @@ function cityMapShowTooltip(hit, sx, sy, { immediate = false } = {}) {
   const kindEl = CM.tooltip.querySelector("[data-citymap-tooltip-kind]");
   const titleEl = CM.tooltip.querySelector("[data-citymap-tooltip-title]");
   const bodyEl = CM.tooltip.querySelector("[data-citymap-tooltip-body]");
-  if (kindEl) kindEl.textContent = hit.kind || "";
-  if (titleEl) titleEl.textContent = hit.title || "";
+  // tr() en dernier filet : les textes arrivent déjà résolus, mais une unité
+  // { fr, en } oubliée s'afficherait « [object Object] ».
+  const body = tr(hit.body);
+  if (kindEl) kindEl.textContent = tr(hit.kind);
+  if (titleEl) titleEl.textContent = tr(hit.title);
   if (bodyEl) {
-    bodyEl.textContent = hit.body || "";
-    bodyEl.hidden = !hit.body;
+    bodyEl.textContent = body;
+    bodyEl.hidden = !body;
   }
   CM.tooltip.style.left = `${Math.min(CM.cw - 18, sx + 14)}px`;
   CM.tooltip.style.top = `${Math.max(12, sy - 8)}px`;
@@ -847,15 +867,17 @@ function bindCityMapInput(canvas, mapRoot, callbacks = {}) {
     // l'émeutier au passage (il le retire de la foule). Le survol suffit et ne
     // coûte rien de plus : son rayon (7·zoom) est INCLUS dans celui du clic
     // (10·zoom), donc « l'infobulle dit Émeute » implique « le clic apaise ».
+    // ⚠ On lit `kindId` (stable), JAMAIS le libellé `kind` : il suit la langue,
+    // et l'ancien `kind === "Émeute"` aurait éteint la main en anglais.
     //
     // Depuis la fiche d'habitant (2026-10-03), TOUT passant s'ouvre au clic :
-    // `kind === "Habitant"` suffit. La bulle de pensée garde son propre test —
+    // son `pick` suffit. La bulle de pensée garde son propre test —
     // son rayon de clic est PLUS LARGE que la silhouette (on la vise au-dessus
     // de la tête). Il ne tourne que si les drapeaux gratuits ont échoué.
     const h = CM.hover;
     // `_cursorBase` = la main SANS compter les passants : citizenHoverTick la
     // reprend quand un passant entre ou sort de sous la souris immobile.
-    const clickableOther = !!(h && (h.plaisirs || h.kind === "Émeute"))
+    const clickableOther = !!(h && (h.plaisirs || h.kindId === "riot"))
       || (!!callbacks.onCitizenThoughtClicked && !!cityMapHitTestCitizenWithThought(mx, my));
     CM._cursorBase = clickableOther ? "pointer" : "grab";
     CM.hoverPick = h && h.pick ? h.pick : null;
@@ -2704,7 +2726,7 @@ function initCityMap(canvas, options = {}) {
         CM.centered = true;
       };
       center();
-      return w.name + " — rang " + WONDER_TIER_NAMES[t] + "  (rangs 1..5 ; __hideWonder() pour arrêter)";
+      return w.name.fr + " — rang " + WONDER_TIER_NAMES[t] + "  (rangs 1..5 ; __hideWonder() pour arrêter)";
     };
     window.__hideWonder = () => { CM.previewWonder = null; CM.centered = false; CM.layout = null; return "aperçu arrêté"; };
     // Accès direct au runtime carte (caméra, véhicules, layout) pour la vérif visuelle :

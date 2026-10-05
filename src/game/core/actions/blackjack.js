@@ -23,6 +23,7 @@
 import { state, render, gamePaused, collapseInProgress } from '../state.js';
 import { regulationContext } from '../mechanics.js';
 import { fmt } from '../utils.js';
+import { tr } from '../i18n.js';
 import {
   BLACKJACK_MULT,
   BLACKJACK_RTP_REF,
@@ -309,10 +310,10 @@ function resolve() {
     player: hand.hands[0].cards.slice(),
     dealer: hand.dealer.slice()
   };
-  const label = result === "blackjack" ? `🃏 Vingt-et-un ! +${fmt(totalGain)} faveur`
-    : result === "win" ? `🃏 +${fmt(totalGain)} faveur`
-      : result === "push" ? "🃏 égalité"
-        : "🃏 main perdue";
+  const label = result === "blackjack" ? tr({ fr: `🃏 Vingt-et-un ! +${fmt(totalGain)} faveur`, en: `🃏 Twenty-One! +${fmt(totalGain)} favor` })
+    : result === "win" ? tr({ fr: `🃏 +${fmt(totalGain)} faveur`, en: `🃏 +${fmt(totalGain)} favor` })
+      : result === "push" ? tr({ fr: "🃏 égalité", en: "🃏 push" })
+        : tr({ fr: "🃏 main perdue", en: "🃏 hand lost" });
   pushOutcomeFloat({ label, kind: totalGain > 0 ? "gain" : "cost" });
   render();
 }

@@ -93,6 +93,12 @@
   content: "\00a0:";
 }
 
+/* En anglais, pas d'espace avant le deux-points (html[lang] posé par
+   applyDocumentLang, i18n.js). */
+:root:lang(en) .chronicle-bilan-stat span::after {
+  content: ":";
+}
+
 .chronicle-bilan-stat strong {
   flex: 0 0 auto;
   text-align: right;

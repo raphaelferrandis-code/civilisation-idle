@@ -14,7 +14,6 @@ import { doubleBlackjack, splitBlackjack, basicAction, blackjackSabot } from '..
 import { videurBarre, videurBarreMin, videurOeil } from '../../game/core/actions/videur.js';
 import { hasTempleArtifact } from '../../game/core/actions/templeArtifacts.js';
 import { tableLimits } from '../../game/core/actions/maisonTable.js';
-import { fmt } from '../../game/core/utils.js';
 import { tr } from '../../game/core/i18n.js';
 import { tipProps } from './HelpBubble.jsx';
 import { cardSrc, cardLabel, CARD_BACK_SRC, CARD_DECK_SRC } from './cardSprites.js';
@@ -171,7 +170,8 @@ export default function BlackjackStage({ table, onClose }) {
     if (outcome.result === 'blackjack') return <>{tr({ fr: 'Vingt-et-un ! ', en: 'Twenty-one! ' })}{gain}</>;
     if (outcome.result === 'win') return <>{tr({ fr: 'Gagné : ', en: 'Win: ' })}{gain}</>;
     if (outcome.result === 'push') return tr({ fr: `Égalité : +${fmtMise(outcome.faveurGain)} faveur`, en: `Push: +${fmtMise(outcome.faveurGain)} favor` });
-    return tr({ fr: `Perdu : −${fmt(outcome.stakeFaveur || stake)} faveur`, en: `Lost: −${fmt(outcome.stakeFaveur || stake)} favor` });
+    // fmtMise comme le gain et toutes les autres tables (fmt écrivait « 1.23K » à côté d'une mise « 1 230 »).
+    return tr({ fr: `Perdu : −${fmtMise(outcome.stakeFaveur || stake)} faveur`, en: `Lost: −${fmtMise(outcome.stakeFaveur || stake)} favor` });
   };
 
   // Le sabot (ce qui reste avant la carte de coupe — pas le compte : c'est au joueur de
@@ -222,7 +222,7 @@ export default function BlackjackStage({ table, onClose }) {
         <StageHelp>
           <p>
             {tr({
-              fr: `Approche 21 sans dépasser. Le croupier tire jusqu’à 17. Un « vingt-et-un » (21 en deux cartes) paie 6 contre 5 (×2,2), une victoire ×2, l’égalité rend la mise. As : 1 ou 11, figures : 10. Sur tes deux premières cartes, tu peux doubler la mise (une seule carte de plus) ou refendre une paire. La mise est libre, jusqu'à la limite de la table (${fmtMise(tableMax)}).`,
+              fr: `Approche 21 sans dépasser. Le croupier tire jusqu’à 17. Un « vingt-et-un » (21 en deux cartes) paie 6 contre 5 (×2.2), une victoire ×2, l’égalité rend la mise. As : 1 ou 11, figures : 10. Sur tes deux premières cartes, tu peux doubler la mise (une seule carte de plus) ou refendre une paire. La mise est libre, jusqu'à la limite de la table (${fmtMise(tableMax)}).`,
               en: `Get close to 21 without going over. The dealer draws to 17. A natural (21 on two cards) pays 6 to 5 (×2.2), a win ×2, a push returns the stake. Aces: 1 or 11, faces: 10. On your first two cards you can double the stake (one more card only) or split a pair. The stake is free, up to the table limit (${fmtMise(tableMax)}).`
             })}
           </p>
@@ -358,7 +358,7 @@ export default function BlackjackStage({ table, onClose }) {
                       <button
                         type="button"
                         className="bj-double"
-                        {...tipProps(tr({ fr: 'Doubler', en: 'Double' }), tr({ fr: `Double la mise (${fmt(hand.stakeFaveur)} de plus), une seule carte, et la main passe.`, en: `Double the stake (${fmt(hand.stakeFaveur)} more), one single card, and the hand passes.` }))}
+                        {...tipProps(tr({ fr: 'Doubler', en: 'Double' }), tr({ fr: `Double la mise (${fmtMise(hand.stakeFaveur)} de plus), une seule carte, et la main passe.`, en: `Double the stake (${fmtMise(hand.stakeFaveur)} more), one single card, and the hand passes.` }))}
                         onClick={onDouble}
                       >
                         {tr({ fr: 'Doubler', en: 'Double' })}
@@ -368,7 +368,7 @@ export default function BlackjackStage({ table, onClose }) {
                       <button
                         type="button"
                         className="bj-double"
-                        {...tipProps(tr({ fr: 'Refendre', en: 'Split' }), tr({ fr: `Sépare la paire en deux mains, chacune avec sa mise (${fmt(hand.stakeFaveur)} de plus). Un 21 refendu paie ×2.`, en: `Split the pair into two hands, each with its own stake (${fmt(hand.stakeFaveur)} more). A split 21 pays ×2.` }))}
+                        {...tipProps(tr({ fr: 'Refendre', en: 'Split' }), tr({ fr: `Sépare la paire en deux mains, chacune avec sa mise (${fmtMise(hand.stakeFaveur)} de plus). Un 21 refendu paie ×2.`, en: `Split the pair into two hands, each with its own stake (${fmtMise(hand.stakeFaveur)} more). A split 21 pays ×2.` }))}
                         onClick={onSplit}
                       >
                         {tr({ fr: 'Refendre', en: 'Split' })}

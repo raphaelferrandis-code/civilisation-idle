@@ -7,6 +7,7 @@ import { describe, it, expect, beforeEach, afterEach, vi } from "vitest";
 import { state, setState, hydrateState } from "../state.js";
 import { PALIERS, palierOf, celebrerGain, onGrandGain } from "../grandsGains.js";
 import { MID_GAME_FIXTURE, FIXED_NOW } from "./fixtures.js";
+import { setLang } from "../i18n.js";
 
 let off = null;
 beforeEach(() => {
@@ -48,6 +49,17 @@ describe("Les grands gains", () => {
     expect(celebrerGain({ gain: 50000, stake: 100, game: "machine", show: false }).id).toBe("legende");
     expect(seen).toEqual([]);
     expect(state.history[state.history.length - 1]).toContain("à la machine à sous");
+  });
+
+  // Audit du 05/10 (I18N-5) : la légende s'écrivait en français dans la Chronique anglaise.
+  it("la légende s'écrit dans la langue du joueur", () => {
+    setLang("en");
+    try {
+      celebrerGain({ gain: 123400, stake: 100, game: "courses", show: false });
+      expect(String(state.history[state.history.length - 1])).toContain("Legendary win at the races: ×1,234 the stake");
+    } finally {
+      setLang("fr");
+    }
   });
 
   it("rien pour une mise ou un gain nuls", () => {

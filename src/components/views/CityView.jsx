@@ -795,7 +795,7 @@ export default function CityView() {
                   <strong className={atridesReached ? "stat-green" : "stat-gold"}>
                     {atridesReached ? tr({ fr: "Malédiction conjurée !", en: "Curse lifted!" }) : `${atridesGainSec}s / ${ATRIDES_GAIN_SECONDS}s`}
                   </strong>
-                  <small>{tr({ fr: "Trésor net gagné ce cycle (en s de production d'Or)", en: "Net treasury gained this cycle (in s of Gold output)" })}</small>
+                  <small>{tr({ fr: "Trésor net gagné ce cycle (en s de production d'Or)", en: "Net treasury gained this cycle (in s of Treasury output)" })}</small>
                 </div>
 
                 <div className={`myth-stat ${atridesDrainDisabled ? "is-green" : "is-red"}`}>
@@ -810,10 +810,10 @@ export default function CityView() {
                   onClick={rembourserAtridesDebt}
                   disabled={!canRepayAtrides}
                   className="btn-primary"
-                  title={!canRepayAtrides ? tr({ fr: "Rembourse la dette en payant de l'Or", en: "Repays the debt by paying Gold" }) : undefined}
-                  {...tipProps(null, canRepayAtrides ? tr({ fr: "Rembourse la dette en payant de l'Or", en: "Repays the debt by paying Gold" }) : null)}
+                  title={!canRepayAtrides ? tr({ fr: "Rembourse la dette en payant de l'Or", en: "Repays the debt by paying Treasury" }) : undefined}
+                  {...tipProps(null, canRepayAtrides ? tr({ fr: "Rembourse la dette en payant de l'Or", en: "Repays the debt by paying Treasury" }) : null)}
                 >
-                  {tr({ fr: `Rembourser (${fmt(atridesRepayCost)} Or)`, en: `Repay (${fmt(atridesRepayCost)} Gold)` })}
+                  {tr({ fr: `Rembourser (${fmt(atridesRepayCost)} Or)`, en: `Repay (${fmt(atridesRepayCost)} Treasury)` })}
                 </button>
 
                 <button
@@ -876,7 +876,7 @@ export default function CityView() {
 
               {eneeDegraded && (
                 <div className="myth-alert">
-                  ⚠️ {tr({ fr: <><strong>Alerte : Le territoire se dégrade !</strong> Nourriture à 0, Or bloqué, Usure x2. Migrez dès que possible.</>, en: <><strong>Alert: The territory is degrading!</strong> Food at 0, Gold blocked, Wear x2. Migrate as soon as possible.</> })}
+                  ⚠️ {tr({ fr: <><strong>Alerte : Le territoire se dégrade !</strong> Nourriture à 0, Or bloqué, Usure x2. Migrez dès que possible.</>, en: <><strong>Alert: The territory is degrading!</strong> Food at 0, Treasury frozen, Wear x2. Migrate as soon as possible.</> })}
                 </div>
               )}
 
@@ -885,7 +885,7 @@ export default function CityView() {
                 disabled={!eneeDegraded}
                 className="btn-critical enee-migrate-btn"
                 title={!eneeDegraded ? tr({ fr: "Le territoire est viable pour le moment.", en: "The territory is viable for now." }) : undefined}
-                {...tipProps(null, eneeDegraded ? tr({ fr: "Détruit tous les bâtiments mais conserve les ressources (Or, Rayonnement, Savoir)", en: "Destroys all buildings but keeps the resources (Gold, Radiance, Knowledge)" }) : null)}
+                {...tipProps(null, eneeDegraded ? tr({ fr: "Détruit tous les bâtiments mais conserve les ressources (Or, Rayonnement, Savoir)", en: "Destroys all buildings but keeps the resources (Treasury, Radiance, Knowledge)" }) : null)}
               >
                 {eneeDegraded ? tr({ fr: "MIGRER (Nouveau Territoire)", en: "MIGRATE (New Territory)" }) : tr({ fr: "Territoire viable (Attendre dégradation)", en: "Territory viable (Await degradation)" })}
               </button>

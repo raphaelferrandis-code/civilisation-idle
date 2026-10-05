@@ -58,7 +58,7 @@ import { clamp01, canPayCost, payCost, fmt } from '../utils.js';
 import { D } from '../num.js';
 import { crediblePopulation } from '../demographics.js';
 import { COLLAPSE_PREP_MAX, FOYER_RELIEF_CAP, FOYER_REFORM_CAP, FOYER_RELIEF_ADD, FOYER_RELIEF_INSTANT_FACTOR, FOYER_MALUS_RESOURCE, FOYER_MALUS_PCT, FOYER_REFORM, REFORM_ACTION_FOYER, POLICY_MAX_ACTIVE } from '../balance.js';
-import { HEPH_POP_CRISIS_THRESHOLD, PHENIX_RENAISSANCE_TARGET, PHENIX_REBIRTH_WINDOW_MS, PHENIX_REBIRTH_POP_MULT, ENEE_HERITAGE_MAX_COLLAPSES, isMythEffectActive } from '../../data/myths.js';
+import { HEPH_POP_CRISIS_THRESHOLD, PHENIX_RENAISSANCE_TARGET, PHENIX_REBIRTH_WINDOW_MS, PHENIX_REBIRTH_POP_MULT, ENEE_HERITAGE_MAX_COLLAPSES, isMythEffectActive, cadmosAgeName } from '../../data/myths.js';
 import { hasActiveRuin } from '../../data/activeRuins.js';
 import { checkMythOnCollapse } from './myths.js';
 import { recordCollapse } from '../chronicleStats.js';
@@ -141,8 +141,16 @@ function atlasSkipAvailable() {
 
 function atlasTakeHit(event) {
   state.atlasSkipUsed = true;
-  pushOutcomeFloat({ label: "Atlas prend le coup", kind: "gain" });
-  chronicle(`Atlas prend le coup : « ${event.title || "la crise"} » passe sans laisser de trace. Ses épaules ne reprendront ce poids qu'au prochain cycle.`);
+  pushOutcomeFloat({ label: tr({ fr: "Atlas prend le coup", en: "Atlas takes the hit" }), kind: "gain" });
+  chronicle(event.title
+    ? tr({
+        fr: `Atlas prend le coup : « ${event.title} » passe sans laisser de trace. Ses épaules ne reprendront ce poids qu'au prochain cycle.`,
+        en: `Atlas takes the hit: “${event.title}” passes without a trace. His shoulders will not bear that weight again until the next cycle.`
+      })
+    : tr({
+        fr: "Atlas prend le coup : la crise passe sans laisser de trace. Ses épaules ne reprendront ce poids qu'au prochain cycle.",
+        en: "Atlas takes the hit: the crisis passes without a trace. His shoulders will not bear that weight again until the next cycle."
+      }));
 }
 
 // Retour visuel d'un choix de crise. Toutes les options n'ont pas de libellé de
@@ -207,7 +215,10 @@ export function autoResolveCrisisEvent(event, stance) {
   // Mythe d'Héphaïstos : sous le seuil de population, la crise s'impose sans choix
   // — même override qu'openCrisisEvent, pour ne pas court-circuiter le mythe.
   if (isMythEffectActive("mythe_d_hephaistos") && D(state.population).lt(HEPH_POP_CRISIS_THRESHOLD)) {
-    chronicle(`La colère d'Héphaïstos s'abat sur notre population affaiblie (${fmt(crediblePopulation(state.population))} hab). Face à son courroux, nos appels restent vains et le déclin s'impose à nous.`);
+    chronicle(tr({
+      fr: `La colère d'Héphaïstos s'abat sur notre population affaiblie (${fmt(crediblePopulation(state.population))} hab). Face à son courroux, nos appels restent vains et le déclin s'impose à nous.`,
+      en: `The wrath of Hephaestus falls upon our weakened population (${fmt(crediblePopulation(state.population))} inhabitants). Before his fury our pleas are in vain, and decline is forced upon us.`
+    }));
     addProductionPenalty("global", 0.06);
     state.instability = clamp01(state.instability + 0.05);
     return;
@@ -235,14 +246,20 @@ export function autoResolveCrisisEvent(event, stance) {
     if (choice.stance === "temporiser") state.cycleCrisesProfited = (state.cycleCrisesProfited || 0) + 1;
   }
   state.instability = clamp01(state.instability);
-  chronicle(`Le Conseil de crise tranche : « ${choice.label} », appliqué sans délai.`);
+  chronicle(tr({
+    fr: `Le Conseil de crise tranche : « ${choice.label} », appliqué sans délai.`,
+    en: `The Crisis council decides: “${choice.label}”, applied without delay.`
+  }));
 }
 
 export async function openCrisisEvent(event) {
   setGamePaused(true);
   render();
   if (isMythEffectActive("mythe_d_hephaistos") && D(state.population).lt(HEPH_POP_CRISIS_THRESHOLD)) {
-    chronicle(`La colère d'Héphaïstos s'abat sur notre population affaiblie (${fmt(crediblePopulation(state.population))} hab). Face à son courroux, nos appels restent vains et le déclin s'impose à nous.`);
+    chronicle(tr({
+      fr: `La colère d'Héphaïstos s'abat sur notre population affaiblie (${fmt(crediblePopulation(state.population))} hab). Face à son courroux, nos appels restent vains et le déclin s'impose à nous.`,
+      en: `The wrath of Hephaestus falls upon our weakened population (${fmt(crediblePopulation(state.population))} inhabitants). Before his fury our pleas are in vain, and decline is forced upon us.`
+    }));
     addProductionPenalty("global", 0.06);
     state.instability = clamp01(state.instability + 0.05);
     setGamePaused(false);
@@ -273,8 +290,8 @@ export async function openCrisisEvent(event) {
   ));
   if (atlasSkipAvailable()) {
     options.push({
-      label: "Atlas prend le coup",
-      detail: "La crise passe sans aucun effet. Une fois par cycle.",
+      label: tr({ fr: "Atlas prend le coup", en: "Atlas takes the hit" }),
+      detail: tr({ fr: "La crise passe sans aucun effet. Une fois par cycle.", en: "The crisis passes with no effect. Once per cycle." }),
       atlasSkip: true
     });
   }
@@ -322,8 +339,15 @@ export function triggerCollapseChoices(shouldRender = true) {
     // « préparer ») puis rouverte dans le même cycle n'offre pas un second rite —
     // sinon collapsePreparation s'empilait jusqu'à COLLAPSE_PREP_MAX. La remise à
     // zéro se fait au cycle neuf (resetTemporaryRunState).
-    const source = state.timeWear >= 1 ? "l'usure du temps" : "la rupture structurelle";
-    chronicle(`La fin d'une ère approche : ${source} a vaincu nos dernières défenses. Le destin de notre cité se joue désormais dans la tourmente des crises.`);
+    chronicle(state.timeWear >= 1
+      ? tr({
+          fr: "La fin d'une ère approche : l'usure du temps a vaincu nos dernières défenses. Le destin de notre cité se joue désormais dans la tourmente des crises.",
+          en: "The end of an era draws near: the wear of time has overcome our last defenses. Our city's fate now plays out in the turmoil of crises."
+        })
+      : tr({
+          fr: "La fin d'une ère approche : la rupture structurelle a vaincu nos dernières défenses. Le destin de notre cité se joue désormais dans la tourmente des crises.",
+          en: "The end of an era draws near: structural rupture has overcome our last defenses. Our city's fate now plays out in the turmoil of crises."
+        }));
     openView("prestige");
     save();
     if (shouldRender) render();
@@ -339,19 +363,28 @@ export function resumeAfterCrisisOutcome() {
 
 const TERMINAL_PREP_CHRONICLES = {
   exodus: [
-    "Quelques familles chargent leurs grains et quittent la cité par les portes de l'aube : elle tombera par la faim.",
-    "Une longue procession emporte les réserves vers d'autres terres. Les greniers vides annoncent la fin.",
-    "La cité entière prend la route avec tout ce qui se mange. Elle mourra de faim, mais ses enfants vivront ailleurs."
+    { fr: "Quelques familles chargent leurs grains et quittent la cité par les portes de l'aube : elle tombera par la faim.",
+      en: "A few families load their grain and leave the city through the dawn gates: it will fall to hunger." },
+    { fr: "Une longue procession emporte les réserves vers d'autres terres. Les greniers vides annoncent la fin.",
+      en: "A long procession carries the stores off to other lands. The empty granaries herald the end." },
+    { fr: "La cité entière prend la route avec tout ce qui se mange. Elle mourra de faim, mais ses enfants vivront ailleurs.",
+      en: "The whole city takes to the road with everything edible. It will starve, but its children will live elsewhere." }
   ],
   prepareArchives: [
-    "Nos scribes copient les registres essentiels avant la fin : le temps aura raison de nous, pas l'oubli.",
-    "Les chroniques sont mises à l'abri sous la pierre. La mémoire de notre peuple survivra aux ruines.",
-    "Tout le savoir de la cité est gravé, scellé, enterré. Elle s'éteindra lentement, et rien ne sera oublié."
+    { fr: "Nos scribes copient les registres essentiels avant la fin : le temps aura raison de nous, pas l'oubli.",
+      en: "Our scribes copy the essential registers before the end: time will defeat us, but not oblivion." },
+    { fr: "Les chroniques sont mises à l'abri sous la pierre. La mémoire de notre peuple survivra aux ruines.",
+      en: "The chronicles are sheltered beneath the stone. The memory of our people will outlive the ruins." },
+    { fr: "Tout le savoir de la cité est gravé, scellé, enterré. Elle s'éteindra lentement, et rien ne sera oublié.",
+      en: "All the city's knowledge is engraved, sealed, buried. It will fade slowly, and nothing will be forgotten." }
   ],
   holdOrder: [
-    "La garde double les patrouilles pour une dernière nuit : la cité tombera debout.",
-    "La garde tient les rues jusqu'au bout. Quand l'ordre cédera, il cédera d'un coup.",
-    "La loi martiale est proclamée pour la fin. La cité tombera sous la Rupture, mais en rangs serrés."
+    { fr: "La garde double les patrouilles pour une dernière nuit : la cité tombera debout.",
+      en: "The guard doubles its patrols for one last night: the city will fall standing." },
+    { fr: "La garde tient les rues jusqu'au bout. Quand l'ordre cédera, il cédera d'un coup.",
+      en: "The guard holds the streets to the very end. When order gives way, it will give way all at once." },
+    { fr: "La loi martiale est proclamée pour la fin. La cité tombera sous la Rupture, mais en rangs serrés.",
+      en: "Martial law is proclaimed for the end. The city will fall to the Rupture, but in close ranks." }
   ]
 };
 
@@ -387,7 +420,7 @@ export function runTerminalCrisisAction(type, tier = 0) {
   // est renforcé — mourir proprement rapporte davantage.
   state.collapsePreparation = Math.min(COLLAPSE_PREP_MAX, (state.collapsePreparation || 0) + boostedPrep(tierDef.prep));
 
-  chronicle(TERMINAL_PREP_CHRONICLES[type]?.[tier] || "La cité se prépare à tomber.");
+  chronicle(tr(TERMINAL_PREP_CHRONICLES[type]?.[tier] || { fr: "La cité se prépare à tomber.", en: "The city prepares to fall." }));
   save();
   render();
 }
@@ -466,7 +499,15 @@ export function completeCollapse(gain, fallenDynasty, epitaph, reason) {
     checkMythOnCollapse();
     state.activeMythId = null;
   } else {
-    log(`Phenix : renaissance ${state.phoenixRenaissances}/${PHENIX_RENAISSANCE_TARGET}${(state.phoenixRenaissances || 0) === 0 ? " (chaine brisee, on repart de zero)" : ""}.`);
+    log((state.phoenixRenaissances || 0) === 0
+      ? tr({
+          fr: `Phénix : renaissance ${state.phoenixRenaissances}/${PHENIX_RENAISSANCE_TARGET} (chaîne brisée, on repart de zéro).`,
+          en: `Phoenix: rebirth ${state.phoenixRenaissances}/${PHENIX_RENAISSANCE_TARGET} (chain broken, starting over from zero).`
+        })
+      : tr({
+          fr: `Phénix : renaissance ${state.phoenixRenaissances}/${PHENIX_RENAISSANCE_TARGET}.`,
+          en: `Phoenix: rebirth ${state.phoenixRenaissances}/${PHENIX_RENAISSANCE_TARGET}.`
+        }));
   }
 
   if (state.eneeHeritage) {
@@ -495,10 +536,10 @@ export function completeCollapse(gain, fallenDynasty, epitaph, reason) {
   state.lastCollapsedBuildings = { ...state.buildings };
   
   // Métadonnées de la civ qui tombe, figées AVANT le reset (cycles/seed/nom réécrits plus bas).
+  // Pas de nom d'ère : il serait figé dans la langue du moment, eraIndex suffit (I18N-6).
   captureCurrentVestige({
     cityName: state.cityName,
     year: age,
-    eraName: era,
     eraIndex: currentEraIndex(),
     cycleIndex: state.cycles,
   });
@@ -570,7 +611,10 @@ export function completeCollapse(gain, fallenDynasty, epitaph, reason) {
     }
     if (bestId && bestCount > 0) {
       state.buildings[bestId] = bestCount;
-      chronicle(`La Racine-mère n'a pas brûlé : ${bestCount} bâtiments se relèvent intacts des cendres.`);
+      chronicle(tr({
+        fr: `La Racine-mère n'a pas brûlé : ${bestCount} bâtiments se relèvent intacts des cendres.`,
+        en: `The Mother root did not burn: ${bestCount} buildings rise intact from the ashes.`
+      }));
     }
   }
 
@@ -595,7 +639,13 @@ export function completeCollapse(gain, fallenDynasty, epitaph, reason) {
 
   if (runCadmosChronicle.length) {
     state.cadmosLastRunChronicle = runCadmosChronicle;
-    chronicle(`La stèle de Cadmos garde gravée à jamais la mémoire de notre passage : ${runCadmosChronicle.map((entry) => entry.name).join(", ")}.`);
+    // Noms recomposés dans la langue du moment (I18N-6) : un Âge nommé avant un
+    // changement de langue garde sinon son nom stocké dans l'autre.
+    const ages = runCadmosChronicle.map((entry) => cadmosAgeName(entry)).join(", ");
+    chronicle(tr({
+      fr: `La stèle de Cadmos garde gravée à jamais la mémoire de notre passage : ${ages}.`,
+      en: `The stele of Cadmus keeps the memory of our passage engraved forever: ${ages}.`
+    }));
   }
 
   state.atridesNextRunPenaltyActive = applyAtridesPenalty;
@@ -604,9 +654,16 @@ export function completeCollapse(gain, fallenDynasty, epitaph, reason) {
   enforceInfrastructureCap();
   resetCyclePeaks();
   state.cycleStartedAt = Date.now();
-  const source = reason === "manual" ? "choisit l'effondrement" : "atteint sa limite";
-  const legacyNote = chosenEpitaphDefinition ? ` Legs gravé : ${chosenEpitaphDefinition.logLabel}.` : "";
-  log(`Cycle ${state.cycles - 1}, an ${age}: ${fallenDynasty}, ${era}, ${source}. Epitaphe: ${epitaph}${legacyNote} Les survivants nomment ${fmt(gain)} ruines et recommencent.`);
+  const legacyLabel = chosenEpitaphDefinition ? tr(chosenEpitaphDefinition.logLabel) : "";
+  log(reason === "manual"
+    ? tr({
+        fr: `Cycle ${state.cycles - 1}, an ${age} : ${fallenDynasty}, ${era}, choisit l'effondrement. Épitaphe : ${epitaph}${legacyLabel ? ` Legs gravé : ${legacyLabel}.` : ""} Les survivants nomment ${fmt(gain)} ruines et recommencent.`,
+        en: `Cycle ${state.cycles - 1}, year ${age}: ${fallenDynasty}, ${era}, chooses collapse. Epitaph: ${epitaph}${legacyLabel ? ` Legacy engraved: ${legacyLabel}.` : ""} The survivors name ${fmt(gain)} ruins and begin again.`
+      })
+    : tr({
+        fr: `Cycle ${state.cycles - 1}, an ${age} : ${fallenDynasty}, ${era}, atteint sa limite. Épitaphe : ${epitaph}${legacyLabel ? ` Legs gravé : ${legacyLabel}.` : ""} Les survivants nomment ${fmt(gain)} ruines et recommencent.`,
+        en: `Cycle ${state.cycles - 1}, year ${age}: ${fallenDynasty}, ${era}, reaches its limit. Epitaph: ${epitaph}${legacyLabel ? ` Legacy engraved: ${legacyLabel}.` : ""} The survivors name ${fmt(gain)} ruins and begin again.`
+      }));
   
   if (has("conservateurs_ruines")) {
     // Jamais de dogme : ce sont des CHOIX exclusifs (paires conflictsWith) que
@@ -620,11 +677,17 @@ export function completeCollapse(gain, fallenDynasty, epitaph, reason) {
       state.upgrades[cheapest.id] = true;
       renderCache.cachedRuinEffects = null;
       renderCache.cachedRuinEffectsSignature = "";
-      chronicle(`Nos archivistes, fouillant les vestiges des anciens âges, ont exhumé un secret perdu : ${cheapest.name}.`);
+      chronicle(tr({
+        fr: `Nos archivistes, fouillant les vestiges des anciens âges, ont exhumé un secret perdu : ${tr(cheapest.name)}.`,
+        en: `Our archivists, searching the remains of ancient ages, have unearthed a lost secret: ${tr(cheapest.name)}.`
+      }));
     }
   }
   if (memoireSavoirBonus > 0) {
-    chronicle(`La mémoire des cycles anciens imprègne nos esprits : nous recueillons +${fmt(memoireSavoirBonus)} savoirs tirés des écrits oubliés.`);
+    chronicle(tr({
+      fr: `La mémoire des cycles anciens imprègne nos esprits : nous recueillons +${fmt(memoireSavoirBonus)} savoirs tirés des écrits oubliés.`,
+      en: `The memory of ancient cycles fills our minds: we gather +${fmt(memoireSavoirBonus)} knowledge from forgotten writings.`
+    }));
   }
 
   // Phénix : si le pacte continue, fixer la cible de la PROCHAINE renaissance,
@@ -686,10 +749,22 @@ const ACTION_FOYER = {
 
 // Dépêches des réformes de fond (recul DURABLE par foyer).
 const REFORM_CHRONICLES = {
-  scarcity: "Des entrepôts d'État sont édifiés pour toujours : la cité ne craint plus la disette d'une mauvaise saison.",
-  inequality: "Une charte des communs est gravée dans le marbre : le partage des richesses devient loi, et la rue s'apaise durablement.",
-  complexity: "Le grand cadastre est achevé : chaque rue, chaque toit est enregistré ; l'administration cesse d'étouffer sous sa propre taille.",
-  dissent: "Un panthéon d'État unit les cultes sous un même toit : la mémoire commune scelle l'unité du peuple pour les années à venir."
+  scarcity: {
+    fr: "Des entrepôts d'État sont édifiés pour toujours : la cité ne craint plus la disette d'une mauvaise saison.",
+    en: "State granaries are raised for good: the city no longer fears the dearth of a bad season."
+  },
+  inequality: {
+    fr: "Une charte des communs est gravée dans le marbre : le partage des richesses devient loi, et la rue s'apaise durablement.",
+    en: "A charter of the commons is carved in marble: sharing wealth becomes law, and the streets settle for good."
+  },
+  complexity: {
+    fr: "Le grand cadastre est achevé : chaque rue, chaque toit est enregistré ; l'administration cesse d'étouffer sous sa propre taille.",
+    en: "The great land registry is complete: every street, every roof is recorded; the administration stops choking on its own size."
+  },
+  dissent: {
+    fr: "Un panthéon d'État unit les cultes sous un même toit : la mémoire commune scelle l'unité du peuple pour les années à venir.",
+    en: "A state pantheon unites the cults under one roof: shared memory seals the people's unity for years to come."
+  }
 };
 
 export function runCrisisAction(id, options = {}) {
@@ -721,7 +796,10 @@ export function runCrisisAction(id, options = {}) {
     renderCache._framePressureVer = -1;
     renderCache._frameRatesVer = -1;
     if (state.crisisLimitAnnounced) state.crisisOpenedAt = Date.now();
-    chronicle(REFORM_CHRONICLES[reformFoyer] || "Une réforme de fond s'installe durablement dans la cité.");
+    chronicle(tr(REFORM_CHRONICLES[reformFoyer] || {
+      fr: "Une réforme de fond s'installe durablement dans la cité.",
+      en: "A deep reform takes lasting hold in the city."
+    }));
     if (doRender) render();
     return;
   }
@@ -783,12 +861,30 @@ export function runCrisisAction(id, options = {}) {
   // `note` = dépêche de chronique. L'effet sur la Rupture passe désormais par le
   // relief de foyer (cf. ACTION_FOYER / FOYER_RELIEF_*), plus un coup instantané.
   const effects = {
-    rationing: { key: "rationing", note: "Les entrepôts ont été scellés et rationnés : nous apprenons à vivre de peu pour repousser la faim." },
-    festivals: { key: "festivals", note: "De grands jeux civiques sont proclamés sur les places publiques ; le peuple oublie un instant sa colère sous les bannières de la dynastie." },
-    census: { key: "census", note: "Nos scribes achèvent le grand recensement, gravant chaque nom sur l'argile pour redonner un visage à la cité." },
-    reforms: { key: "reforms", note: "De profondes réformes institutionnelles sont votées, consolidant les assises de la cité face aux menaces imminentes." },
-    archiveCrisis: { key: "census", note: "L'étude minutieuse des catastrophes passées est consignée par écrit, afin que les générations futures sachent comment faire face à l'effroi." },
-    ancestorCrisis: { key: "festivals", note: "Les autels de nos ancêtres sont fleuris ; la peur s'efface devant la ferveur et la continuité de notre lignée." }
+    rationing: { key: "rationing", note: {
+      fr: "Les entrepôts ont été scellés et rationnés : nous apprenons à vivre de peu pour repousser la faim.",
+      en: "The storehouses have been sealed and rationed: we learn to live on little to hold off hunger."
+    } },
+    festivals: { key: "festivals", note: {
+      fr: "De grands jeux civiques sont proclamés sur les places publiques ; le peuple oublie un instant sa colère sous les bannières de la dynastie.",
+      en: "Great civic games are proclaimed in the public squares; for a moment the people forget their anger beneath the dynasty's banners."
+    } },
+    census: { key: "census", note: {
+      fr: "Nos scribes achèvent le grand recensement, gravant chaque nom sur l'argile pour redonner un visage à la cité.",
+      en: "Our scribes complete the great census, inscribing every name in clay to give the city back its face."
+    } },
+    reforms: { key: "reforms", note: {
+      fr: "De profondes réformes institutionnelles sont votées, consolidant les assises de la cité face aux menaces imminentes.",
+      en: "Sweeping institutional reforms are passed, shoring up the city's foundations against looming threats."
+    } },
+    archiveCrisis: { key: "census", note: {
+      fr: "L'étude minutieuse des catastrophes passées est consignée par écrit, afin que les générations futures sachent comment faire face à l'effroi.",
+      en: "A careful study of past disasters is set down in writing, so that future generations will know how to face the dread."
+    } },
+    ancestorCrisis: { key: "festivals", note: {
+      fr: "Les autels de nos ancêtres sont fleuris ; la peur s'efface devant la ferveur et la continuité de notre lignée.",
+      en: "Our ancestors' altars are decked with flowers; fear gives way to fervor and the continuity of our line."
+    } }
   };
   const effect = effects[id];
   if (!effect) return;
@@ -823,7 +919,7 @@ export function runCrisisAction(id, options = {}) {
   renderCache._framePressureVer = -1;
   renderCache._frameRatesVer = -1;
   if (state.crisisLimitAnnounced) state.crisisOpenedAt = Date.now();
-  chronicle(effect.note);
+  chronicle(tr(effect.note));
   if (doRender) render();
 }
 

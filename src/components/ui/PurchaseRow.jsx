@@ -1,7 +1,7 @@
 import { memo, useEffect, useRef, useState } from 'react';
 import { buyBuilding } from '../../game/core/actions.js';
 import { state, setBuyAmount, invalidateRenderCache } from '../../game/core/state.js';
-import { fmt, fmtShort, signed, signedShort, labelFor, rateScale } from '../../game/core/utils.js';
+import { fmt, fmtShort, fmtInt, signed, signedShort, labelFor, rateScale } from '../../game/core/utils.js';
 import { tr } from '../../game/core/i18n.js';
 import { RES_ICONS } from './resourceIcons.js';
 import { tipProps } from './HelpBubble.jsx';
@@ -22,7 +22,7 @@ function exactLabel(value) {
     return typeof value?.toExponential === "function" ? String(value.toExponential(3)).replace("e+", "e") : String(value);
   }
   if (Math.abs(n) >= 1e15) return n.toExponential(3).replace("e+", "e");
-  return Math.round(n).toLocaleString("fr-FR");
+  return fmtInt(n);
 }
 
 /**

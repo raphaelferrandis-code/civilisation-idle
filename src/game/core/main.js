@@ -89,11 +89,11 @@ export async function exportSave() {
   try {
     if (!navigator.clipboard) throw new Error("clipboard indisponible");
     await navigator.clipboard.writeText(text);
-    log("Sauvegarde exportee dans le presse-papiers.");
+    log(tr({ fr: "Sauvegarde exportée dans le presse-papiers.", en: "Save exported to the clipboard." }));
     render();
     return { ok: true, text };
   } catch {
-    log("Copie automatique impossible, copie le texte manuellement.");
+    log(tr({ fr: "Copie automatique impossible, copie le texte manuellement.", en: "Automatic copy failed: copy the text manually." }));
     render();
     return { ok: false, text };
   }
@@ -127,7 +127,10 @@ export function importSave(text) {
     // (champs inconnus jetés), puis l'écrirait de force dans le nuage. Refusée.
     if (isFutureSave(parsed)) {
       lastImportRefusal = "newer";
-      log("Import refusé : cette sauvegarde vient d'une version plus récente du jeu. Mets le jeu à jour pour la charger.");
+      log(tr({
+        fr: "Import refusé : cette sauvegarde vient d'une version plus récente du jeu. Mets le jeu à jour pour la charger.",
+        en: "Import refused: this save comes from a newer version of the game. Update the game to load it."
+      }));
       render();
       return false;
     }
@@ -136,7 +139,7 @@ export function importSave(text) {
     // postes l'adopteront au lancement au lieu de remettre l'ancienne dans Drive.
     imported.saveEpoch = newSaveEpoch();
     // La ligne du Journal voyage avec la partie importée : c'est elle qu'on verra.
-    imported.history = [...(imported.history || []), "Une civilisation importee reprend son cycle."].slice(-48);
+    imported.history = [...(imported.history || []), tr({ fr: "Une civilisation importée reprend son cycle.", en: "An imported civilization resumes its cycle." })].slice(-48);
     // Mise en place PAR UN RECHARGEMENT (saveSlots.js, SAV-8) : sur place, la main
     // de vingt-et-un, le vol d'Icare et les séquences en vol de la partie quittée
     // se réglaient dans la partie importée. Le démarrage pousse aussi le nuage :
@@ -149,14 +152,14 @@ export function importSave(text) {
     });
     if (!ok) {
       lastImportRefusal = "storage";
-      log("Import impossible : le stockage est plein.");
+      log(tr({ fr: "Import impossible : le stockage est plein.", en: "Import failed: storage is full." }));
       render();
       return false;
     }
     return true;
   } catch {
     lastImportRefusal = "invalid";
-    log("Import impossible: le texte ne ressemble pas a une sauvegarde valide.");
+    log(tr({ fr: "Import impossible : le texte ne ressemble pas à une sauvegarde valide.", en: "Import failed: the text does not look like a valid save." }));
     render();
     return false;
   }

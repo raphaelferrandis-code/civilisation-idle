@@ -12,6 +12,8 @@
  *     6 mégalopole / singularité
  * ============================================================================ */
 
+// `citizenRoles` : unités { fr, en } (ce que fait le passant), lues via tr() par
+// l'infobulle de la carte et la fiche d'habitant. Anglais au participe.
 const AGE_CONFIG = [
   { // 0 — primitif : huttes, feux, sentiers de terre
     id: "primitif",
@@ -21,7 +23,11 @@ const AGE_CONFIG = [
     plazaSize: 0,         // pas de place : le feu central tient ce rôle
     parkChance: 0.3,      // espaces vides / nature dans le tissu
     treeDensity: 1.25,
-    citizenRoles: ["veille le feu", "cherche du bois", "rentre au camp", "écoute les anciens", "guette l'horizon"],
+    citizenRoles: [
+      { fr: "veille le feu", en: "tending the fire" }, { fr: "cherche du bois", en: "gathering wood" },
+      { fr: "rentre au camp", en: "heading back to camp" }, { fr: "écoute les anciens", en: "listening to the elders" },
+      { fr: "guette l'horizon", en: "watching the horizon" }
+    ],
     vehicles: [{ type: "basket", weight: 1 }],
     decorDensity: 0.2
   },
@@ -33,7 +39,11 @@ const AGE_CONFIG = [
     plazaSize: 0,         // pas encore de place : le puits/feu tient ce rôle (la 1re esplanade dallée arrive au bourg — buildPlazas impose un plancher 4×4, trop massif pour un hameau)
     parkChance: 0.24,
     treeDensity: 1.1,
-    citizenRoles: ["porte un panier", "revient des champs", "parle au puits", "mène une chèvre", "bat le grain"],
+    citizenRoles: [
+      { fr: "porte un panier", en: "carrying a basket" }, { fr: "revient des champs", en: "back from the fields" },
+      { fr: "parle au puits", en: "chatting at the well" }, { fr: "mène une chèvre", en: "leading a goat" },
+      { fr: "bat le grain", en: "threshing grain" }
+    ],
     vehicles: [{ type: "basket", weight: 2 }],   // brouette ET charrette à bras retirées : le hameau ne porte plus qu'à dos d'homme
     decorDensity: 0.35
   },
@@ -45,7 +55,11 @@ const AGE_CONFIG = [
     plazaSize: 2,
     parkChance: 0.18,
     treeDensity: 0.95,
-    citizenRoles: ["traverse le marché", "livre des sacs", "crie une annonce", "marchande au comptoir", "pousse une brouette"],
+    citizenRoles: [
+      { fr: "traverse le marché", en: "crossing the market" }, { fr: "livre des sacs", en: "delivering sacks" },
+      { fr: "crie une annonce", en: "calling out the news" }, { fr: "marchande au comptoir", en: "haggling at the counter" },
+      { fr: "pousse une brouette", en: "pushing a wheelbarrow" }
+    ],
     vehicles: [{ type: "basket", weight: 1 }, { type: "wagon", weight: 2 }],   // brouette ET charrette à bras retirées : panier + attelage à bœuf
     decorDensity: 0.5
   },
@@ -57,7 +71,11 @@ const AGE_CONFIG = [
     plazaSize: 2,
     parkChance: 0.14,
     treeDensity: 0.85,
-    citizenRoles: ["suit les remparts", "rejoint l'atelier", "porte un message", "monte la garde", "prie au sanctuaire"],
+    citizenRoles: [
+      { fr: "suit les remparts", en: "walking the ramparts" }, { fr: "rejoint l'atelier", en: "off to the workshop" },
+      { fr: "porte un message", en: "carrying a message" }, { fr: "monte la garde", en: "standing guard" },
+      { fr: "prie au sanctuaire", en: "praying at the shrine" }
+    ],
     vehicles: [{ type: "wagon", weight: 2 }, { type: "chariot", weight: 2 }, { type: "caravan", weight: 1 }],
     decorDensity: 0.6
   },
@@ -69,7 +87,11 @@ const AGE_CONFIG = [
     plazaSize: 3,
     parkChance: 0.12,
     treeDensity: 0.7,
-    citizenRoles: ["sort d'une avenue", "compte les chariots", "file vers les quais", "déclame un édit", "escorte un convoi"],
+    citizenRoles: [
+      { fr: "sort d'une avenue", en: "coming off an avenue" }, { fr: "compte les chariots", en: "counting the carts" },
+      { fr: "file vers les quais", en: "hurrying to the quays" }, { fr: "déclame un édit", en: "proclaiming an edict" },
+      { fr: "escorte un convoi", en: "escorting a convoy" }
+    ],
     vehicles: [{ type: "wagon", weight: 2 }, { type: "chariot", weight: 3 }, { type: "caravan", weight: 2 }],
     decorDensity: 0.75
   },
@@ -81,7 +103,11 @@ const AGE_CONFIG = [
     plazaSize: 3,
     parkChance: 0.1,
     treeDensity: 0.55,
-    citizenRoles: ["prend une ligne rapide", "traverse un quartier haut", "sort d'une tour", "presse le pas sous les arches", "lit les proclamations"],
+    citizenRoles: [
+      { fr: "prend une ligne rapide", en: "catching an express line" }, { fr: "traverse un quartier haut", en: "crossing an upper district" },
+      { fr: "sort d'une tour", en: "leaving a tower" }, { fr: "presse le pas sous les arches", en: "hurrying under the arches" },
+      { fr: "lit les proclamations", en: "reading the proclamations" }
+    ],
     // ⛔ PAS DE FLOTTE MODERNE ICI (Raph 2026-08-05, en voyant sa capitale) : des
     // berlines des années 2000 sur une ville de pierre et de colonnades, « ça ne
     // va pas ». Cette ère garde la vieille automobile sombre ; le pack MinZinn
@@ -99,7 +125,11 @@ const AGE_CONFIG = [
     plazaSize: 4,
     parkChance: 0.08,
     treeDensity: 0.4,
-    citizenRoles: ["suit le flux civique", "rejoint une station", "marche sous les arches", "consulte un terminal", "surveille les niveaux"],
+    citizenRoles: [
+      { fr: "suit le flux civique", en: "following the civic flow" }, { fr: "rejoint une station", en: "heading for a station" },
+      { fr: "marche sous les arches", en: "walking under the arches" }, { fr: "consulte un terminal", en: "checking a terminal" },
+      { fr: "surveille les niveaux", en: "monitoring the levels" }
+    ],
     vehicles: [
       { type: "car", weight: 3 }, { type: "tram", weight: 2 }, { type: "drone", weight: 2 },
       { type: "bus", weight: 0.6 }, { type: "van", weight: 0.5 }, { type: "truck", weight: 0.4 },
@@ -120,7 +150,11 @@ const AGE_CONFIG = [
     plazaSize: 4,
     parkChance: 0.06,
     treeDensity: 0.3,
-    citizenRoles: ["dérive entre les tours-mémoire", "écoute le chœur planétaire", "synchronise un nœud", "veille la membrane", "consulte la conscience commune"],
+    citizenRoles: [
+      { fr: "dérive entre les tours-mémoire", en: "drifting between the memory towers" }, { fr: "écoute le chœur planétaire", en: "listening to the planetary choir" },
+      { fr: "synchronise un nœud", en: "syncing a node" }, { fr: "veille la membrane", en: "watching over the membrane" },
+      { fr: "consulte la conscience commune", en: "consulting the common mind" }
+    ],
     vehicles: [{ type: "drone", weight: 4 }, { type: "tram", weight: 1 }],
     decorDensity: 1.1
   },
@@ -132,7 +166,11 @@ const AGE_CONFIG = [
     plazaSize: 5,
     parkChance: 0.05,
     treeDensity: 0.2,
-    citizenRoles: ["guide un essaim d'étoiles", "veille un cœur stellaire", "ajuste une orbite", "déploie une voile solaire", "écoute l'esprit des étoiles"],
+    citizenRoles: [
+      { fr: "guide un essaim d'étoiles", en: "guiding a swarm of stars" }, { fr: "veille un cœur stellaire", en: "tending a stellar core" },
+      { fr: "ajuste une orbite", en: "adjusting an orbit" }, { fr: "déploie une voile solaire", en: "unfurling a solar sail" },
+      { fr: "écoute l'esprit des étoiles", en: "listening to the spirit of the stars" }
+    ],
     vehicles: [{ type: "drone", weight: 5 }, { type: "tram", weight: 1 }],
     decorDensity: 1.2
   },
@@ -144,7 +182,11 @@ const AGE_CONFIG = [
     plazaSize: 5,
     parkChance: 0.04,
     treeDensity: 0.12,
-    citizenRoles: ["réécrit une constante", "tisse une portion de vide", "stabilise l'entropie", "grave une loi nouvelle", "contemple le Grand Amas"],
+    citizenRoles: [
+      { fr: "réécrit une constante", en: "rewriting a constant" }, { fr: "tisse une portion de vide", en: "weaving a patch of void" },
+      { fr: "stabilise l'entropie", en: "stabilizing entropy" }, { fr: "grave une loi nouvelle", en: "engraving a new law" },
+      { fr: "contemple le Grand Amas", en: "contemplating the Great Cluster" }
+    ],
     vehicles: [{ type: "drone", weight: 6 }],
     decorDensity: 1.3
   }

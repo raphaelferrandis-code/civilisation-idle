@@ -57,7 +57,7 @@ function RegulButton({ a, label, btnClass }) {
       >
         <span className="regul-btn-line">
           <strong>{label}</strong>
-          <span className="regul-cost"><FaveurIcon /> {fmt(tableLimits().min)} à {fmt(tableLimits().max)}</span>
+          <span className="regul-cost"><FaveurIcon /> {tr({ fr: `${fmt(tableLimits().min)} à ${fmt(tableLimits().max)}`, en: `${fmt(tableLimits().min)} to ${fmt(tableLimits().max)}` })}</span>
         </span>
         <span className="regul-btn-line regul-btn-sub">
           <span className="regul-gamble-tag">🎲 {tr({ fr: 'mise en Faveur', en: 'Favor stake' })} · {tr({ fr: 'ouvre la table', en: 'opens the table' })}</span>

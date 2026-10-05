@@ -37,7 +37,7 @@ export function raiseRegulFatigue() {
 export function chronicle(message) {
   const year = cycleYear();
   const era = eras[currentEraIndex()].name;
-  log(`An ${fmt(year)}, ${era}: ${message}`);
+  log(tr({ fr: `An ${fmt(year)}, ${era} : ${message}`, en: `Year ${fmt(year)}, ${era}: ${message}` }));
 }
 
 export function cycleYear() {
@@ -62,26 +62,53 @@ export function chronicleBuilding(building, previousCount, newCount) {
   // à 20 avec le capstone Ville-Monde. Codé en dur ici, la chronique sautait un
   // palier sur cinq une fois le capstone acquis.
   const step = milestoneStepSize();
+  // Phrases entières par langue : le nom n'est mis en minuscules que dans la
+  // phrase française (en anglais, le nom garde sa majuscule de nom de bâtiment).
+  const name = tr(building.name);
 
   if (previousCount === 0) {
     if (building.id === "watch") {
-      chronicle(`Une milice s'organise sous nos remparts pour assurer la sécurité commune (+${fmt(amount)}).`);
+      chronicle(tr({
+        fr: `Une milice s'organise sous nos remparts pour assurer la sécurité commune (+${fmt(amount)}).`,
+        en: `A militia forms beneath our ramparts to keep the common peace (+${fmt(amount)}).`
+      }));
     } else if (building.id === "bureaucracy") {
-      chronicle(`Une bureaucratie naissante commence à enregistrer nos lois et décrets (+${fmt(amount)}).`);
+      chronicle(tr({
+        fr: `Une bureaucratie naissante commence à enregistrer nos lois et décrets (+${fmt(amount)}).`,
+        en: `A fledgling bureaucracy begins to record our laws and decrees (+${fmt(amount)}).`
+      }));
     } else if (["foragers", "storytellers", "scribes", "ruin_architects"].includes(building.id)) {
-      chronicle(`Les premiers ${tr(building.name).toLowerCase()} offrent leurs services et se joignent à notre destinée (+${fmt(amount)}).`);
+      chronicle(tr({
+        fr: `Les premiers ${name.toLowerCase()} offrent leurs services et se joignent à notre destinée (+${fmt(amount)}).`,
+        en: `The first ${name} offer their services and join our destiny (+${fmt(amount)}).`
+      }));
     } else {
-      chronicle(`Les premiers ${tr(building.name).toLowerCase()} s'élèvent dans nos quartiers (+${fmt(amount)}).`);
+      chronicle(tr({
+        fr: `Les premiers ${name.toLowerCase()} s'élèvent dans nos quartiers (+${fmt(amount)}).`,
+        en: `The first ${name} rise in our districts (+${fmt(amount)}).`
+      }));
     }
   } else if (amount >= step || newCount % step === 0) {
     if (building.id === "watch") {
-      chronicle(`La milice s'étend et compte désormais de nombreuses garnisons (${fmt(newCount)} unités, +${fmt(amount)}).`);
+      chronicle(tr({
+        fr: `La milice s'étend et compte désormais de nombreuses garnisons (${fmt(newCount)} unités, +${fmt(amount)}).`,
+        en: `The militia expands and now counts many garrisons (${fmt(newCount)} units, +${fmt(amount)}).`
+      }));
     } else if (building.id === "bureaucracy") {
-      chronicle(`L'administration de la cité s'alourdit, comptant plus de fonctionnaires (${fmt(newCount)} unités, +${fmt(amount)}).`);
+      chronicle(tr({
+        fr: `L'administration de la cité s'alourdit, comptant plus de fonctionnaires (${fmt(newCount)} unités, +${fmt(amount)}).`,
+        en: `The city's administration grows heavier, with ever more officials (${fmt(newCount)} units, +${fmt(amount)}).`
+      }));
     } else if (["foragers", "storytellers", "scribes", "ruin_architects"].includes(building.id)) {
-      chronicle(`Notre corporation de ${tr(building.name).toLowerCase()} s'agrandit pour atteindre ${fmt(newCount)} membres (+${fmt(amount)}).`);
+      chronicle(tr({
+        fr: `Notre corporation de ${name.toLowerCase()} s'agrandit pour atteindre ${fmt(newCount)} membres (+${fmt(amount)}).`,
+        en: `Our guild of ${name} grows to ${fmt(newCount)} members (+${fmt(amount)}).`
+      }));
     } else {
-      chronicle(`Le nombre de ${tr(building.name).toLowerCase()} construits atteint désormais ${fmt(newCount)} édifices (+${fmt(amount)}).`);
+      chronicle(tr({
+        fr: `Le nombre de ${name.toLowerCase()} construits atteint désormais ${fmt(newCount)} édifices (+${fmt(amount)}).`,
+        en: `The city's ${name} now number ${fmt(newCount)} (+${fmt(amount)}).`
+      }));
     }
   }
 }

@@ -71,7 +71,7 @@ export default function ChoiceDialog({ dialog, onChoose }) {
     : dialog.mourning
       ? tr({ fr: "Épitaphe", en: "Epitaph" })
       : dialog.variant === "cadmos"
-        ? tr({ fr: "Cadmos", en: "Cadmos" })
+        ? tr({ fr: "Cadmos", en: "Cadmus" })
         : tr({ fr: "Crise active", en: "Active Crisis" });
   const className = dialog.mourning
     ? "event-dialog epitaph-dialog"

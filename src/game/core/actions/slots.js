@@ -19,6 +19,7 @@
 import { state, render, gamePaused, collapseInProgress } from '../state.js';
 import { regulationContext } from '../mechanics.js';
 import { fmt } from '../utils.js';
+import { tr } from '../i18n.js';
 import {
   ICARUS_RTP,
   SLOTS_UNLOCK_ERA,
@@ -151,17 +152,22 @@ function drawWheel(stakeFaveur, session = null) {
       // entière). Pas de plancher ici : cette case tombe bien plus souvent que le GRAND.
       const { rake } = potRake(state.icarusPotFaveur || 0, stakeFaveur);
       wheel.jackpotFaveur = drawFromPot(rake);
-      if (wheel.jackpotFaveur > 0) chronicle(`La roue de la machine à sous tombe sur la cagnotte de la Maison : elle verse ${fmt(wheel.jackpotFaveur)} faveur.`);
+      if (wheel.jackpotFaveur > 0) {
+        chronicle(tr({
+          fr: `La roue de la machine à sous tombe sur la cagnotte de la Maison : elle verse ${fmt(wheel.jackpotFaveur)} faveur.`,
+          en: `The slot machine's wheel lands on the House pot: it pays out ${fmt(wheel.jackpotFaveur)} favor.`
+        }));
+      }
     }
     const won = wheel.faveurGain + wheel.jackpotFaveur;
     if (won > 0) state.faveur = Math.max(0, (state.faveur || 0) + won);
     addToSeries(session, won);
     recordSlotsBonus({ won, jackpot: wheel.jackpotFaveur });
     pushOutcomeFloat({
-      label: wheel.jackpotFaveur > 0 ? `🎰 Cagnotte +${fmt(wheel.jackpotFaveur)} faveur`
-        : wheel.freeSpins ? `🎰 +${wheel.freeSpins} tours gratuits`
-          : wheel.flight ? '🎰 vol d’Icare offert'
-            : `🎰 +${fmt(wheel.faveurGain)} faveur`,
+      label: wheel.jackpotFaveur > 0 ? tr({ fr: `🎰 Cagnotte +${fmt(wheel.jackpotFaveur)} faveur`, en: `🎰 Pot +${fmt(wheel.jackpotFaveur)} favor` })
+        : wheel.freeSpins ? tr({ fr: `🎰 +${wheel.freeSpins} tours gratuits`, en: `🎰 +${wheel.freeSpins} free spins` })
+          : wheel.flight ? tr({ fr: '🎰 vol d’Icare offert', en: '🎰 free flight of Icarus' })
+            : tr({ fr: `🎰 +${fmt(wheel.faveurGain)} faveur`, en: `🎰 +${fmt(wheel.faveurGain)} favor` }),
       kind: 'gain'
     });
     render();
@@ -211,13 +217,26 @@ function drawHoldWin(stakeFaveur, coinCells, session = null) {
       // Le GRAND : son plancher (payé par la machine), plus la part de cagnotte de la mise.
       const { rake } = potRake(state.icarusPotFaveur || 0, stakeFaveur);
       hw.grandFaveur = payRound(stakeFaveur * SLOTS_GRAND_FLOOR) + drawFromPot(rake);
-      chronicle(`Hold & Win : les quinze cases de la machine à sous ! Le GRAND verse ${fmt(hw.grandFaveur)} faveur.`);
-    } else if (hw.majeurs) chronicle(`Hold & Win : le MAJEUR tombe à la machine à sous (+${fmt(Math.round(stakeFaveur * 100))} faveur).`);
+      chronicle(tr({
+        fr: `Hold & Win : les quinze cases de la machine à sous ! Le GRAND verse ${fmt(hw.grandFaveur)} faveur.`,
+        en: `Hold & Win: all fifteen cells of the slot machine! The GRAND pays out ${fmt(hw.grandFaveur)} favor.`
+      }));
+    } else if (hw.majeurs) {
+      chronicle(tr({
+        fr: `Hold & Win : le MAJEUR tombe à la machine à sous (+${fmt(Math.round(stakeFaveur * 100))} faveur).`,
+        en: `Hold & Win: the MAJOR lands at the slot machine (+${fmt(Math.round(stakeFaveur * 100))} favor).`
+      }));
+    }
     const won = hw.faveurGain + hw.grandFaveur;
     state.faveur = Math.max(0, (state.faveur || 0) + won);
     addToSeries(session, won);
     recordSlotsBonus({ won, jackpot: hw.grandFaveur });
-    pushOutcomeFloat({ label: hw.full ? `🎰 GRAND +${fmt(won)} faveur` : `🎰 Hold & Win +${fmt(won)} faveur`, kind: 'gain' });
+    pushOutcomeFloat({
+      label: hw.full
+        ? tr({ fr: `🎰 GRAND +${fmt(won)} faveur`, en: `🎰 GRAND +${fmt(won)} favor` })
+        : tr({ fr: `🎰 Hold & Win +${fmt(won)} faveur`, en: `🎰 Hold & Win +${fmt(won)} favor` }),
+      kind: 'gain'
+    });
     render();
     return hw;
   };
@@ -278,7 +297,10 @@ export function spinSlots(stake, options = {}) {
     if (ev.freeSpins) {
       result.freeSpinsWon = ev.freeSpins;
       addFreeSpins(stakeFaveur, ev.freeSpins, fs);
-      chronicle(`${ev.stars} étoiles à la machine à sous : ${ev.freeSpins} tours gratuits.`);
+      chronicle(tr({
+        fr: `${ev.stars} étoiles à la machine à sous : ${ev.freeSpins} tours gratuits.`,
+        en: `${ev.stars} stars at the slot machine: ${ev.freeSpins} free spins.`
+      }));
     }
     result.freeLeft = slotsFreeSpins() ? slotsFreeSpins().left : 0;
     // La cagnotte est nourrie sur l'EDGE d'un tour PAYÉ ; tours gratuits, roue et Hold &
@@ -288,10 +310,10 @@ export function spinSlots(stake, options = {}) {
     recordSlots({ wagered: fs ? 0 : stakeFaveur, won: result.faveurGain, freeSpins: ev.freeSpins > 0, wheel: ev.wheel, holdWin: ev.holdWin });
 
     if (!silent) {
-      const label = ev.holdWin ? '🎰 Hold & Win !'
-        : ev.freeSpins ? `🎰 ${ev.freeSpins} tours gratuits`
-          : result.faveurGain > 0 ? `🎰 +${fmt(result.faveurGain)} faveur`
-            : ev.wheel ? '🎰 la roue !' : '🎰 rien';
+      const label = ev.holdWin ? tr({ fr: '🎰 Hold & Win !', en: '🎰 Hold & Win!' })
+        : ev.freeSpins ? tr({ fr: `🎰 ${ev.freeSpins} tours gratuits`, en: `🎰 ${ev.freeSpins} free spins` })
+          : result.faveurGain > 0 ? tr({ fr: `🎰 +${fmt(result.faveurGain)} faveur`, en: `🎰 +${fmt(result.faveurGain)} favor` })
+            : ev.wheel ? tr({ fr: '🎰 la roue !', en: '🎰 the wheel!' }) : tr({ fr: '🎰 rien', en: '🎰 nothing' });
       pushOutcomeFloat({ label, kind: result.faveurGain > 0 || ev.freeSpins || ev.wheel || ev.holdWin ? 'gain' : 'cost' });
     }
     if (doRender) render();

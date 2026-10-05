@@ -6,7 +6,7 @@ import { tr } from '../../../game/core/i18n.js';
 import { tipProps } from '../../ui/HelpBubble.jsx';
 import AutoDials, { RateBadge } from '../../ui/TempleAutoDials.jsx';
 import OffrandesBloc from './OffrandesBloc.jsx';
-import { PLAISIRS_SPOTS, spotIsOpen, spotIsVisit, spotRankLock, spotNightLock, spotVideurLock, spotVerbe } from './anchors.js';
+import { PLAISIRS_SPOTS, spotIsOpen, spotIsVisit, spotRankLock, spotNightLock, spotVideurLock, spotVerbe, spotNom } from './anchors.js';
 import { videurBarreMin } from '../../../game/core/actions/videur.js';
 import { RANK_LABELS } from '../../../game/core/actions/maisonRang.js';
 import { MAISON_RANKS } from '../../../game/core/balance.js';
@@ -78,7 +78,7 @@ export default function PlaisirsMenu({ navRef, bake, band, survol, selection, pl
   const autos = Object.values(AUTO_OF).some((id) => state.templeAuto?.[id]?.unlocked);
 
   return (
-    <nav ref={navRef} className={`plaisirs-menu${autos ? ' has-autos' : ''}`} aria-label="Les lieux de la Maison des Plaisirs">
+    <nav ref={navRef} className={`plaisirs-menu${autos ? ' has-autos' : ''}`} aria-label={tr({ fr: 'Les lieux de la Maison des Plaisirs', en: 'The rooms of the House of Pleasures' })}>
       {/* LA BOURSE, en tête : on lit ce qu'on peut miser avant de choisir où. */}
       <OffrandesBloc onRoue={onRoue} />
 
@@ -111,7 +111,7 @@ export default function PlaisirsMenu({ navRef, bake, band, survol, selection, pl
                 <div
                   key={spot.id}
                   className={`pm-lieu${choisi ? ' is-sel' : ''}${survol === spot.id ? ' is-hover' : ''}${visite ? ' is-visit' : ''}`}
-                  {...(titre ? tipProps(spot.label, nuit
+                  {...(titre ? tipProps(spotNom(spot), nuit
                     ? tr({ fr: "S'ouvre pendant la Nuit du Grand Jeu, et à toute heure pour un Prince de la Maison.", en: 'Opens during the Night of High Play, and at any hour for a Prince of the House.' })
                     : videur
                       ? tr({ fr: `Le videur t'a raccompagné : la table te rouvre dans ${videurBarreMin()} min.`, en: `The bouncer showed you out: the table reopens to you in ${videurBarreMin()} min.` })
@@ -123,14 +123,14 @@ export default function PlaisirsMenu({ navRef, bake, band, survol, selection, pl
                     className="pm-go"
                     disabled={!ouvert}
                     aria-current={choisi ? 'true' : undefined}
-                    title={ouvert || titre ? undefined : 'Bientôt'}
+                    title={ouvert || titre ? undefined : tr({ fr: 'Bientôt', en: 'Coming soon' })}
                     onMouseEnter={() => onHover(spot.id)}
                     onMouseLeave={() => onHover(null, spot.id)}
                     onFocus={() => onHover(spot.id)}
                     onBlur={() => onHover(null, spot.id)}
                     onClick={(e) => { e.stopPropagation(); onPick(spot); }}
                   >
-                    <span className="pm-nom">{spot.label}</span>
+                    <span className="pm-nom">{spotNom(spot)}</span>
                     {ouvert && <small className="pm-verbe">{spotVerbe(spot)}</small>}
                     {!ouvert && titre && <small className="pm-verbe pm-verrou">🔒 {titre}</small>}
                   </button>
@@ -145,7 +145,7 @@ export default function PlaisirsMenu({ navRef, bake, band, survol, selection, pl
                         fr: auto.on ? 'La flamme brûle : l’auto joue. Souffler pour la suspendre.' : 'La flamme est éteinte. Cliquer pour la rallumer.',
                         en: auto.on ? 'The flame burns: the automation plays. Blow to pause it.' : 'The flame is out. Click to relight it.'
                       }))}
-                      aria-label={`${spot.label} : ${tr({ fr: 'automatisation', en: 'automation' })}`}
+                      aria-label={tr({ fr: `${spotNom(spot)} : automatisation`, en: `${spotNom(spot)}: automation` })}
                       aria-pressed={!!auto.on}
                       onClick={(e) => { e.stopPropagation(); setTempleAuto(autoId, { on: !auto.on }); }}
                     >

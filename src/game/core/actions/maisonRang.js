@@ -23,6 +23,7 @@ import { grantFreeFlight } from './templeFlights.js';
 import { nuitReputationMult } from './nuitGrandJeu.js';
 import { chronicle } from './utils.js';
 import { fmt } from '../utils.js';
+import { tr } from '../i18n.js';
 import { pushOutcomeFloat } from '../outcomeFloat.js';
 
 export { maisonRank };
@@ -137,12 +138,34 @@ function giveGift(id) {
 
 function announceRank(r, given) {
   const rk = MAISON_RANKS[r];
-  const label = RANK_LABELS[rk.id].fr;
-  const parts = [`les tables montent à ×${rk.mult.toLocaleString("fr-FR")}`];
-  if (given.faveur > 0) parts.push(`elle te verse ${fmt(given.faveur)} faveur`);
-  const names = given.gifts.map((id) => (ARTIFACT_NODES[id] ? ARTIFACT_NODES[id].label.fr : id));
-  if (names.length) parts.push(`elle t'offre ${names.join(", ")}`);
-  if (given.flights > 0) parts.push(`${given.flights} vol${given.flights > 1 ? "s" : ""} d'Icare`);
-  chronicle(`La Maison des Plaisirs t'élève au rang de ${label} : ${parts.join(" ; ")}.`);
-  if (!isNotifyPaused()) pushOutcomeFloat({ label: given.faveur > 0 ? `🎖 ${label} : +${fmt(given.faveur)} faveur` : `🎖 ${label}`, kind: "gain" });
+  // Titre et cadeaux dans la langue du joueur (I18N-9 : `.fr` était forcé) ; la
+  // liste des faveurs est écrite en entier dans chaque langue.
+  const label = tr(RANK_LABELS[rk.id]);
+  const names = given.gifts.map((id) => (ARTIFACT_NODES[id] ? tr(ARTIFACT_NODES[id].label) : id));
+  const partsFr = [`les tables montent à ×${rk.mult.toLocaleString("fr-FR")}`];
+  const partsEn = [`the tables rise to ×${rk.mult.toLocaleString("en-US")}`];
+  if (given.faveur > 0) {
+    partsFr.push(`elle te verse ${fmt(given.faveur)} faveur`);
+    partsEn.push(`it pays you ${fmt(given.faveur)} favor`);
+  }
+  if (names.length) {
+    partsFr.push(`elle t'offre ${names.join(", ")}`);
+    partsEn.push(`it gives you ${names.join(", ")}`);
+  }
+  if (given.flights > 0) {
+    partsFr.push(`${given.flights} vol${given.flights > 1 ? "s" : ""} d'Icare`);
+    partsEn.push(`${given.flights} flight${given.flights > 1 ? "s" : ""} of Icarus`);
+  }
+  chronicle(tr({
+    fr: `La Maison des Plaisirs t'élève au rang de ${label} : ${partsFr.join(" ; ")}.`,
+    en: `The House of Pleasures raises you to the rank of ${label}: ${partsEn.join("; ")}.`
+  }));
+  if (!isNotifyPaused()) {
+    pushOutcomeFloat({
+      label: given.faveur > 0
+        ? tr({ fr: `🎖 ${label} : +${fmt(given.faveur)} faveur`, en: `🎖 ${label}: +${fmt(given.faveur)} favor` })
+        : `🎖 ${label}`,
+      kind: "gain"
+    });
+  }
 }

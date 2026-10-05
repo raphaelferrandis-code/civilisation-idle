@@ -7,7 +7,7 @@ import {
   has,
   nomadInfrastructureCap
 } from '../../game/core/mechanics.js';
-import { fmt, fmtShort, clamp01, multLabel, fmtHabitants, rateScale } from '../../game/core/utils.js';
+import { fmt, fmtShort, clamp01, multLabel, fmtHabitants, fmtInt, rateScale } from '../../game/core/utils.js';
 import { tr } from '../../game/core/i18n.js';
 import { state, renderCache } from '../../game/core/state.js';
 import OdometerNumber from './OdometerNumber.jsx';
@@ -27,7 +27,7 @@ function exactLabel(value) {
   if (!Number.isFinite(n)) {
     return typeof value?.toExponential === "function" ? value.toExponential(3) : String(value);
   }
-  return Math.round(n).toLocaleString("fr-FR");
+  return fmtInt(n);
 }
 
 function mood(value, labels) {
