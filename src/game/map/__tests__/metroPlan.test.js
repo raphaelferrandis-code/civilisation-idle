@@ -1,9 +1,9 @@
 // LE MÉTRO DU QUAI (lot 3 de docs/PLAN-ETAGES.md) — le plan pur.
 // Ce que le rendu suppose : la rive opposée au cœur, une ligne au-dessus de la
-// berge (jamais bâtie), lissée, avec une rampe à chaque bout, et le monorail à
-// partir de la bande 7.
+// berge (jamais bâtie), lissée, avec une rampe à chaque bout qui plonge dans une
+// trémie (sur du terrain libre, tirée droite), et le monorail à partir de la bande 7.
 import { describe, it, expect } from 'vitest';
-import { METRO, metroSide, bankRowAt, planMetro } from '../procedural/metroPlan.js';
+import { METRO, metroSide, bankRowAt, planMetro, metroZ, metroUAt } from '../procedural/metroPlan.js';
 
 // Fleuve horizontal, eau sur les rangées 40-44 (une marche à la colonne 50 : 40-45),
 // berges = la rangée qui suit l'eau de chaque côté.
@@ -52,10 +52,10 @@ describe('planMetro', () => {
     }
     for (let i = 1; i < p.pts.length; i += 1) expect(Math.abs(p.pts[i].y - p.pts[i - 1].y)).toBeLessThan(0.3);
   });
-  it('rampe à chaque bout, tablier plein au milieu', () => {
+  it('rampe à chaque bout, sous terre à la bouche du tunnel, tablier plein au milieu', () => {
     const p = planMetro(args);
-    expect(p.pts[0].z).toBe(0);
-    expect(p.pts[p.pts.length - 1].z).toBe(0);
+    expect(p.pts[0].z).toBeCloseTo(-METRO.pit, 9);
+    expect(p.pts[p.pts.length - 1].z).toBeCloseTo(-METRO.pit, 9);
     expect(p.pts[Math.floor(p.pts.length / 2)].z).toBe(METRO.deck);
     for (const q of p.pts) expect(q.z).toBeLessThanOrEqual(METRO.deck);
   });
@@ -69,6 +69,32 @@ describe('planMetro', () => {
     const a = planMetro(args), b = planMetro({ ...args, band: 7 });
     expect(b.mono).toBe(true);
     expect(b.pts).toEqual(a.pts);
+  });
+  it('les bouts au sol sont tirés droits (une tranchée ne suit pas la berge)', () => {
+    const p = planMetro(args);
+    const n = p.pts.length;
+    for (let i = 1; i <= p.ground; i += 1) {
+      expect(p.pts[i].y).toBe(p.pts[0].y);
+      expect(p.pts[n - 1 - i].y).toBe(p.pts[n - 1].y);
+    }
+  });
+  it('la trémie se pose sur du terrain libre : la ligne raccourcit devant une rue', () => {
+    const a = planMetro(args);
+    // une rue en travers du quai sur les 3 premières colonnes de la ligne
+    const road = (x) => x >= a.x0 && x < a.x0 + 3;
+    const b = planMetro({ ...args, free: (x) => !road(x) });
+    expect(b.x0).toBeGreaterThanOrEqual(a.x0 + 3);
+    expect(b.x1).toBe(a.x1);
+    // tout le terrain pris : pas de ligne
+    expect(planMetro({ ...args, free: () => false })).toBeNull();
+  });
+  it('profil : −pit à la bouche, le tablier au bout de la rampe, en S', () => {
+    expect(metroZ(0)).toBeCloseTo(-METRO.pit, 9);
+    expect(metroZ(METRO.ramp)).toBeCloseTo(METRO.deck, 9);
+    const u0 = metroUAt(0);
+    expect(u0).toBeGreaterThan(1.5);
+    expect(u0).toBeLessThan(METRO.ground);
+    expect(metroZ(u0)).toBeCloseTo(0, 4);
   });
   it('une ville qui ne borde pas le quai : pas de ligne', () => {
     expect(planMetro({ ...args, built: () => false })).toBeNull();

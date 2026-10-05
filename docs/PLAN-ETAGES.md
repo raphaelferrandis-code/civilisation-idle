@@ -100,6 +100,10 @@ tête de pont, là où l'autoroute est encore au sol : **jamais de superposition
 B5 vert et crème, B6 bleu et blanc : viaduc de fer à poutres-treillis sur piles de
 pierre, deux voies, marquises de verre. B7-B9 : deux poutres fines sur piles en Y,
 rames profilées et stations-capsules dans la matière de l'ère. Molette `__metro`.
+**Repris le 2026-10-04** (cf. journal) : B5 treillis vert sur colonnes de fonte jumelles,
+B6 poutre-caisson de béton sur piles en marteau, B7-9 inchangé en structure ; rames du
+peintre des bateaux (`iso/metroCars.js`) ; gares à quais et auvents ; rames qui
+s'arrêtent en gare ; bouts en TRÉMIE ENTERRÉE (plus de talus).
 ⚠ Le tram de l'enceinte (agents.js `drawTram`, juin) n'est pas dessiné en iso : rien à
 concilier.
 ### Lot 4 — Quartier flottant (B9) et chute des étages · `iso/isoFloatIsle.js`
@@ -198,3 +202,42 @@ autres postes (fleuve, nuit) varient de ±15 ms d'une passe à l'autre sans lien
      elle mordait la rangée d'immeubles et la rame se peignait par-dessus.
   Vérifié par séquences d'images déterministes (`captureFrame({ now })`) : passage en
   gare, sortie des deux tunnels (bandes 5 et 7), couloirs aériens (bande 9).
+- 2026-10-04 — **reprise du métro** (Raph, captures bande 6 : « le tunnel du métro fait
+  2 gros carrés verts qui ne vont pas et se posent sur la route. Le design du métro est
+  très cheap »). Mesuré avant : trémie = boîte d'herbe de 1,3 × 0,9 × 0,8 tuile posée SUR
+  la promenade (et sur la route d'accès du pont quand la ligne finissait en tête de pont) ;
+  rames = boîtes alignées sur l'axe dominant (en escalier dans les courbes) ; piles =
+  blocs ; gare = plaque de verre sur quatre poteaux d'un pixel.
+  1. **Bouts : trémie enterrée** (`metroPlan.js`). Le profil descend SOUS le sol
+     (`METRO.pit` 0,62 tuile à la bouche, `metroZ`/`metroUAt`), rampe de 7 cellules ;
+     les `ground` (5) cellules de chaque bout — tranchée puis rampe maçonnée — sont tirées
+     DROITES au milieu de la cellule de berge du bout et exigent du terrain LIBRE (ni rue,
+     ni bâtiment, ni eau, ni tête de pont, ni port, ni Plaisirs) : la ligne raccourcit
+     jusqu'à en trouver (vérifié sur 18 graines : aucune ligne perdue). Au rendu
+     (`isoMetro.js`) : mur du fond sombre à assises (un CREUX — une face claire se lisait
+     comme un mur posé), bande d'ombre au pied, bouche en arc à claveaux et clé de voûte
+     (bout ouest, la seule qui regarde la caméra), parapets, culée au raccord du viaduc.
+  2. **Ce qui cache une rame n'est plus trié mais EFFACÉ** : la voiture est peinte dans
+     une toile de travail, et l'on efface tout ce qui est sous la ligne du parapet (ou du
+     mur de la trémie) côté caméra, rangée d'art par rangée d'art. Exact quel que soit
+     l'ordre du peintre. Dans la tranchée, sa clé est juste après le FOND des tronçons
+     couverts (la clé « en l'air » la faisait passer sur le toit de la maison voisine).
+  3. **Rames** (`metroCars.js`) : le peintre des bateaux (volumes, lumière quantifiée,
+     contour d'encre), cap libre (32), penchées sur la rampe, coupées net au plan de la
+     bouche (tranche fermée de noir). B5 Sprague verte, voiture du milieu rouge ; B6
+     blanche à bandeau vitré et portes bleues ; B7-9 nacre profilée à liseré d'ère ; baies
+     allumées la nuit, phares et feux rouges. Cuisson ~7 ms, budget 4 par frame.
+  4. **Horaire** : accélération, arrêt de 4,5 s au milieu de chaque gare, départ
+     (`timetable`), sortie et entrée de tunnel lancées.
+  5. **Viaduc** : traverses et rails, treillis Warren riveté (B5), poutre-caisson (B6) ;
+     piles : colonnes de fonte jumelles sur socle de pierre (B5), marteau de béton (B6),
+     Y (B7-9), jamais sur une rue ni dans une gare. **Gares** sur 3 tronçons (4 au
+     monorail) : deux quais, deux auvents (verrière à chevrons et lambrequin B5, tôle à
+     nervures et bandeau bleu B6), la voie à ciel ouvert — on voit la rame à l'arrêt. Le
+     téléphérique se pose sur l'auvent côté fleuve (`STATION`).
+  6. **Rien ne se pose dans une trémie** : réverbères du quai (`quayLampList`), petite vie
+     (`registerVieMask` dans isoVie), et les flâneurs du quai font demi-tour au parapet
+     (`metroCutSpans`).
+  ⚠ `sidePt` prend des TUILES (premier essai : la largeur écrasée sur l'axe, tranchée
+  et quais invisibles). ⚠ Vérif d'une autre bande sur une même ville :
+  `CM.layout.counts.eraBand = n; __metro({ replan: true })`.

@@ -384,12 +384,23 @@ export function drawVieFlag(ctx, x, y, o = {}) {
 // par frame et pousse un item par acteur { wx, wy, draw(ctx, now) }.
 const _providers = [];
 export function registerVieActors(fn) { if (!_providers.includes(fn)) _providers.push(fn); }
+// MASQUES : un lieu où rien ne se pose (la trémie du métro, isoMetro.js, 2026-10-04 :
+// sinon un héron ou un drapeau du quai se tenait au-dessus du vide). fn(wx, wy) → vrai
+// = l'acteur n'est pas peint. Enregistré par le module du lieu (pas d'import d'ici :
+// isoMetro importe déjà ce module).
+const _masks = [];
+export function registerVieMask(fn) { if (!_masks.includes(fn)) _masks.push(fn); }
 const _actors = [];
 export function vieActors(now) {
   _actors.length = 0;
   if (!VIE.on) return _actors;
   for (const fn of _providers) {
     try { fn(now, _actors); } catch (e) { if (!CM._vieErr) { CM._vieErr = true; console.warn('vie', e); } }
+  }
+  if (_masks.length) {
+    let n = 0;
+    for (const a of _actors) if (!_masks.some((m) => m(a.wx, a.wy))) _actors[n++] = a;
+    _actors.length = n;
   }
   return _actors;
 }
