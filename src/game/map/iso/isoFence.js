@@ -21,8 +21,8 @@ import { depthOf, ISO_X, ISO_Y } from './projection.js';
 import { isoArt, inkBox } from './isoArt.js';
 import { mkCanvas } from '../pixelUtil.js';
 import { COUR } from './isoTissu.js';
-import { plazaEraForBand, personHT, plazaKindAtCell, FENCED_KINDS } from './isoPlaza.js';
-import { fenceEdges, fenceInputs, FENCE } from '../fenceEdges.js';
+import { plazaEraForBand, personHT, plazaKindAtCell, FENCED_KINDS, isoPlazaBoxes, isoPlazaCells, plazaKindOfBox } from './isoPlaza.js';
+import { fenceEdges, fenceInputs, FENCE, midGates } from '../fenceEdges.js';
 
 // ── CLÔTURES (lot L9, docs/PLAN-TISSU-URBAIN.md) ────────────────────────────
 // L'art était livré depuis le 2026-07-30 et la règle de pose écrite ET testée
@@ -209,6 +209,35 @@ export function isoFencesFor(L, band) {
   CM._fences = list;
   if (import.meta.env?.DEV && typeof window !== 'undefined') window.__fencesCount = list.length;
   return list;
+}
+
+// ON N'ENJAMBE PAS LA GRILLE (audit 2026-10-05, BUG-62) : maintenant qu'elle se pose, les
+// passants de la ville entrent dans un square et en sortent par ses PORTES (le milieu
+// de chaque côté, midGates — la même règle que la pose). Rend les pas interdits, en
+// clés cityMapWalkRoadKey × 4 + direction (0 = E, 1 = W, 2 = S, 3 = N, l'ordre de
+// CM_DIRS), dans les deux sens ; lu par roadStepAllowed (agents.js). Vide quand la
+// grille ne se pose pas. Mêmes squares que la pose : une place sans sorte connue en est.
+const WALK_SIDES = [['e', 1, 0, 0, 1], ['w', -1, 0, 1, 0], ['s', 0, 1, 2, 3], ['n', 0, -1, 3, 2]];
+export function fenceWalkBlock(L, band) {
+  const out = new Set();
+  if (!L || !FENCE_ISO.on || !FENCE.on || !FENCE.plazas || !FENCE.gateMid || !plazaEraForBand(band)) return out;
+  const cells = new Set();
+  for (const box of isoPlazaBoxes(L)) {
+    const kind = plazaKindOfBox(L, box);
+    if (kind && !FENCED_KINDS.has(kind)) continue;
+    for (const c of isoPlazaCells(L, box)) cells.add(c.gx + ',' + c.gy);
+  }
+  if (!cells.size) return out;
+  const gates = midGates(cells);
+  for (const k of cells) {
+    const c = k.indexOf(','), gx = +k.slice(0, c), gy = +k.slice(c + 1);
+    for (const [side, dx, dy, d, back] of WALK_SIDES) {
+      if (cells.has((gx + dx) + ',' + (gy + dy)) || gates.has(k + ',' + side)) continue;
+      out.add((gx * 10000 + gy) * 4 + d);
+      out.add(((gx + dx) * 10000 + gy + dy) * 4 + back);
+    }
+  }
+  return out;
 }
 if (import.meta.env?.DEV && typeof window !== 'undefined') {
   window.__fences = (arg) => {

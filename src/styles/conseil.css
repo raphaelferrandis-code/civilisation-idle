@@ -305,16 +305,18 @@
   font: 650 0.78rem/1.15 var(--font-body);
   color: var(--skin-cream);
 }
+/* Effets d'un édit : relevés au plancher de 11 px (0.66-0.68 → 0.6875,
+   imperceptible ; décision de Raph, audit 2026-10-05, BUG-119). */
 .app .conseil-policy-good {
-  font: 650 0.68rem/1.2 var(--font-body);
+  font: 650 0.6875rem/1.2 var(--font-body);
   color: #8EE0B0;
 }
 .app .conseil-policy-bad {
-  font: 600 0.66rem/1.2 var(--font-body);
+  font: 600 0.6875rem/1.2 var(--font-body);
   color: #F2A08C;
 }
 .app .conseil-policy-lock {
-  font: 600 0.66rem/1.2 var(--font-body);
+  font: 600 0.6875rem/1.2 var(--font-body);
   color: var(--text-weak);
 }
 
@@ -353,6 +355,12 @@
   margin-left: -1px;
   background: rgba(255, 255, 255, 0.9);
   transition: left 0.3s ease;
+}
+/* Cible qui plafonne sous 100 % (BUG-78) : le repère devient une butée ambrée. */
+.app .conseil-rupture-track > .ghost.is-plateau {
+  width: 3px;
+  margin-left: -2px;
+  background: #F0A36B;
 }
 
 /* ── ÉCRANS MOYENS : le pied passe sur une colonne ────────────────────────── */

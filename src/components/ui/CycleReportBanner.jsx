@@ -35,17 +35,22 @@ function deltaFromRatio(ratio) {
 
 export default function CycleReportBanner() {
   const shown = useGameState(s => s.lastCycleReport);
+  // LA CHUTE SUR LA CARTE (docs/PLAN-CHUTE.md) : le bilan est rempli au noir, juste
+  // avant le lever. Il attend la fin du lever (state.chute) pour paraître, et ses
+  // 9 s ne courent qu'à partir de là (audit du 05/10, CHUTE-11, choix de Raph) —
+  // il surgissait sur le lever, dont il mangeait presque toute sa durée.
+  const chute = useGameState(s => s.chute);
 
   // Aucun état local : le bandeau EST le champ du state, et le minuteur ne fait
   // que le consommer. Recopier le rapport en state React obligerait à écrire
   // dans un effet, et à tenir deux vérités sur « qu'est-ce qui est affiché ».
   useEffect(() => {
-    if (!shown) return undefined;
+    if (!shown || chute) return undefined;
     const id = setTimeout(clearCycleReport, SHOW_MS);
     return () => clearTimeout(id);
-  }, [shown]);
+  }, [shown, chute]);
 
-  if (!shown) return null;
+  if (!shown || chute) return null;
 
   const gain = D(shown.ruinGain || 0);
   const prevGain = shown.prevRuinGain == null ? null : D(shown.prevRuinGain);

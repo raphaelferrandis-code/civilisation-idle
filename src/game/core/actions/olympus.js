@@ -6,14 +6,16 @@ import { fmt } from "../utils.js";
 import { tr } from "../i18n.js";
 import { D } from "../num.js";
 import { ruinEffectSum } from "../mechanics/shared.js";
+import { rates } from "../mechanics.js";
 import {
   OLYMPUS_BUREAUCRACY_KNOWLEDGE,
+  OLYMPUS_BUREAUCRACY_RATE_SECONDS,
   OLYMPUS_COMPLETION_SCORE,
   OLYMPUS_HIGH_RUPTURE,
   OLYMPUS_IDLE_THRESHOLD_MS,
   OLYMPUS_MIN_DOMINANT_SCORE,
   OLYMPUS_QUICK_COLLAPSE_MS,
-  OLYMPUS_SLEEP_KNOWLEDGE_PER_IDLE_HOUR,
+  OLYMPUS_SLEEP_KNOWLEDGE_RATE_SHARE,
   defaultOlympusState,
   dominantOlympusProfile
 } from "../../data/olympus.js";
@@ -36,7 +38,8 @@ function cultAmpMult() {
 // dépêche (audit 2026-10-05, BUG-26). Cumul en mémoire seulement : un
 // rechargement perd au pire une ligne, jamais le savoir, déjà versé.
 const BUREAUCRACY_CHRONICLE_MS = 60_000;
-let bureaucracyPending = { gain: 0, crises: 0 };
+// `gain` en Decimal : indexé sur la production de Savoir (BUG-26), il dépasse le float.
+let bureaucracyPending = { gain: D(0), crises: 0 };
 let bureaucracyChronicledAt = -Infinity;
 
 // `force` : la chute écrit le reliquat du cycle qui tombe, sans attendre la minute.
@@ -45,15 +48,17 @@ function flushBureaucracyChronicle(force = false) {
   // cumul d'avant l'absence attend le retour au lieu d'y disparaître.
   if (bureaucracyPending.crises <= 0 || isOfflineSim()) return;
   // Import d'une autre sauvegarde entre-temps : ce cumul n'est pas le sien.
-  if (state.olympus?.unlockedProfile !== "bureaucracy") { bureaucracyPending = { gain: 0, crises: 0 }; return; }
+  if (state.olympus?.unlockedProfile !== "bureaucracy") { bureaucracyPending = { gain: D(0), crises: 0 }; return; }
   const now = Date.now();
   // Horloge reculée (now < dernière ligne) : on écrit plutôt que de se taire
   // jusqu'à ce qu'elle rattrape l'ancienne échéance.
   if (!force && now >= bureaucracyChronicledAt && now - bureaucracyChronicledAt < BUREAUCRACY_CHRONICLE_MS) return;
-  const { gain, crises } = bureaucracyPending;
-  bureaucracyPending = { gain: 0, crises: 0 };
+  const { crises } = bureaucracyPending;
+  const gain = fmt(bureaucracyPending.gain);
+  bureaucracyPending = { gain: D(0), crises: 0 };
   bureaucracyChronicledAt = now;
-  // Entiers bruts, comme avant le cumul (fmt écrirait « 2.0 crises »).
+  // Le nombre de crises en entier brut (fmt écrirait « 2.0 crises ») ; le savoir,
+  // indexé sur la production, passe par fmt.
   chronicle(crises > 1
     ? tr({
         fr: `Les parchemins de la Bureaucratie Sacrée enregistrent la résolution de ${crises} crises : +${gain} savoirs sont versés à nos archives.`,
@@ -72,7 +77,8 @@ export function registerOlympusInteraction() {
   o.idleCredited = false;
 }
 
-export function tickOlympus(dt) {
+// `r` : le relevé de rates() que le tick vient de prendre (le Sommeil s'y indexe).
+export function tickOlympus(dt, r = null) {
   const o = olympus();
   const now = Date.now();
   o.totalPlayedSeconds = (o.totalPlayedSeconds || 0) + dt;
@@ -86,7 +92,7 @@ export function tickOlympus(dt) {
       o.idleCredited = true;
     }
     o.idleSeconds = (o.idleSeconds || 0) + dt;
-    applyOlympusSleepHeritage(dt);
+    applyOlympusSleepHeritage(dt, r);
   }
 
   if ((state.instability || 0) >= OLYMPUS_HIGH_RUPTURE) {
@@ -102,11 +108,14 @@ export function registerOlympusCrisisResolved() {
   const o = olympus();
   o.crisesResolved = (o.crisesResolved || 0) + 1;
   if (o.unlockedProfile === "bureaucracy") {
-    const gain = Math.round(OLYMPUS_BUREAUCRACY_KNOWLEDGE * cultAmpMult());
+    // max(3, 2 s de production de Savoir) par acte, renforcé par l'Autel du culte
+    // (BUG-26). En Decimal de bout en bout.
+    const gain = D(rates().knowledge).max(0).mul(OLYMPUS_BUREAUCRACY_RATE_SECONDS)
+      .max(OLYMPUS_BUREAUCRACY_KNOWLEDGE).mul(cultAmpMult()).round();
     state.knowledge = D(state.knowledge).add(gain);
     // Hors ligne, rien à cumuler pour un Journal jeté : le savoir est versé quand même.
     if (isOfflineSim()) return;
-    bureaucracyPending.gain += gain;
+    bureaucracyPending.gain = bureaucracyPending.gain.add(gain);
     bureaucracyPending.crises += 1;
     flushBureaucracyChronicle();
   }
@@ -159,9 +168,13 @@ export function olympusRuinBonus(gain, reason) {
 // olympusAbyssProductionMultiplier() a migré vers mechanics/production/olympusProd.js
 // (audit G‑18 : un multiplicateur de production n'a rien à faire côté actions).
 
-function applyOlympusSleepHeritage(dt) {
+// Religion du Sommeil : 10 % de la production de Savoir en plus pendant
+// l'inactivité, renforcés par l'Autel du culte (BUG-26). Paie aussi pendant le
+// farm hors ligne, qui rejoue tick() : c'est le cœur du culte (« le monde avance
+// pendant que tu dors »).
+function applyOlympusSleepHeritage(dt, r) {
   const o = olympus();
   if (o.unlockedProfile !== "sleep") return;
-  const gain = OLYMPUS_SLEEP_KNOWLEDGE_PER_IDLE_HOUR * (dt / 3600) * cultAmpMult();
+  const gain = D((r || rates()).knowledge).max(0).mul(OLYMPUS_SLEEP_KNOWLEDGE_RATE_SHARE * dt * cultAmpMult());
   state.knowledge = D(state.knowledge).add(gain);
 }

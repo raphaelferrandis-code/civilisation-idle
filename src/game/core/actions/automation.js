@@ -241,37 +241,36 @@ export function checkAutomateRules() {
         // plus aucun aqueduc, ni égout, ni ministère (audit 2026-10-05, BUG-6).
         // Elle écarte aussi toute devise de prestige (ruin_architects, M5). Prix
         // lu par buildingBatchCost, celui que buyBuildingCore fait payer, calculé
-        // une fois par candidat et non dans le comparateur du tri.
-        const candidates = [];
+        // une fois par candidat (PERF-17) : un balayage, sans tri.
+        // Le MOINS CHER de la catégorie, et lui seul : hors de prix ou sous la
+        // réserve, l'automate ATTEND au lieu de se rabattre sur un plus cher
+        // payable. Le lot 5 passait au candidat suivant : « le moins cher » était
+        // devenu « le moins cher abordable », l'Or partait au fil de l'eau et
+        // l'Âge d'Or ne concluait plus un seul marché automates actifs, là où le
+        // harnais de l'audit (05/10 00:04) le réussissait en 1 h 04. La voirie,
+        // écartée par buyableInMass, ne peut plus le figer à elle seule (BUG-6).
+        let cheapest = null;
         for (const b of buildings) {
           if (b.category !== rule.category || !buyableInMass(b)) continue;
           const prices = buildingBatchCost(b, 1);
-          // RÉSERVE : ce que l'automate ne touche pas. Sans elle, l'auto-achat
-          // vidait la caisse et sabotait les autres branches, donc on le laissait
-          // éteint. Testée sur TOUTES les devises du lot, coût principal et
-          // extraCost compris, sinon la réserve fuit par la porte de derrière.
-          if (reserve > 0 && !leavesReserve(prices, reserve)) continue;
-          // Hors de prix : buyBuildingCore le refuserait sur ce MÊME prix, après
-          // l'avoir recalculé. Écarté AVANT le tri : la plupart des ticks rien
-          // n'est abordable, et trier puis re-chiffrer chaque candidat pesait la
-          // moitié du rattrapage hors ligne (audit 2026-10-05, PERF-17). Le tri
-          // est stable : l'ordre des restants ne change pas.
-          if (!canPayCost(prices)) continue;
-          candidates.push({ b, prices });
+          if (!cheapest || prices[b.currency].lt(cheapest.prices[cheapest.b.currency])) cheapest = { b, prices };
         }
-        candidates.sort((x, y) => D(x.prices[x.b.currency]).cmp(y.prices[y.b.currency]));
-        let built = null;
-        for (const { b } of candidates) {
-          // buyBuildingCore paie, incrémente ET applique les contraintes de Mythe
-          // (Babel/Sisyphe/Prométhée) + lifetimePurchases — que l'ancien payCost
-          // direct contournait. silent : l'automate garde sa propre chronique.
-          // auto : le journal de Sisyphe dit qu'un automate a lâché le rocher.
-          // Un refus passe au candidat suivant au lieu d'arrêter l'automate.
-          if (buyBuildingCore(b.id, { amount: 1, silent: true, auto: true })) { built = b; break; }
-        }
-        if (!built) break;
+        if (!cheapest) break;
+        // RÉSERVE : ce que l'automate ne touche pas. Sans elle, l'auto-achat
+        // vidait la caisse et sabotait les autres branches, donc on le laissait
+        // éteint. Testée sur TOUTES les devises du lot, coût principal et
+        // extraCost compris, sinon la réserve fuit par la porte de derrière.
+        if (reserve > 0 && !leavesReserve(cheapest.prices, reserve)) break;
+        // Hors de prix : buyBuildingCore le refuserait sur ce MÊME prix, après
+        // l'avoir recalculé — on s'arrête avant (PERF-17).
+        if (!canPayCost(cheapest.prices)) break;
+        // buyBuildingCore paie, incrémente ET applique les contraintes de Mythe
+        // (Babel/Sisyphe/Prométhée) + lifetimePurchases — que l'ancien payCost
+        // direct contournait. silent : l'automate garde sa propre chronique.
+        // auto : le journal de Sisyphe dit qu'un automate a lâché le rocher.
+        if (!buyBuildingCore(cheapest.b.id, { amount: 1, silent: true, auto: true })) break;
         bought += 1;
-        lastBuiltName = tr(built.name);
+        lastBuiltName = tr(cheapest.b.name);
       }
       // VOIRIE, servie À PART et après les bâtiments : un chantier refusé (file
       // ou réserve de chantiers pleine) ne bloque plus rien. Un chantier par tick

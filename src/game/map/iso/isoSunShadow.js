@@ -62,18 +62,23 @@
 // ⚠ « multiply ≈ source-over » NE VAUT QU'EN RENDU LOGICIEL. Sur canvas GPU (le .exe
 // sur une vraie carte graphique), chaque blit multiply relit la destination : audit
 // du 2026-10-05 (PERF-1), mégapole ère 33 au zoom 1, ~1 540 ombres par image =
-// 30-31 ms par frame en multiply, 22,8 en source-over, 19,6 sans ombre. Le choix
-// du mode est un arbitrage visuel (cf. `mode` ci-dessous), pas une question gratuite.
+// 30-31 ms par frame en multiply, 22,8 en source-over, 19,6 sans ombre.
+// D'où la DÉCISION DE RAPH du 2026-10-05 (PERF-1 = B, planche planches/ombres-soleil) :
+// source-over, teinte #00081c (un bleu nuit presque noir), dose 0,22. Recalée sur
+// l'ancien multiply #8e96ad à 0,5 : 99 % de son assombrissement, ΔE 1,1 à 1,4 sur les
+// pixels d'ombre, et −13 à −15 ms de GPU par image dans le .exe. Ce sont les valeurs
+// PAR DÉFAUT qui changent, pas une molette : les cuissons qui lisent la teinte
+// (quais et ports par isoBoxBake, Plaisirs) la lisent au chargement.
 //
 // Molette : __sunShadow({ on, len, alpha, col, mode, minH })
 //   len    = longueur de l'ombre par pixel de hauteur (0,5 ≈ fin d'après-midi) ;
-//   alpha  = dose ; col = teinte (froide : le ciel dans l'ombre, jamais du noir) ;
-//   mode   = composition ('multiply' : l'ombre assombrit le sol en gardant sa
-//            texture — un voile source-over se lisait comme de la peinture).
+//   alpha  = dose ; col = teinte (froide : le ciel dans l'ombre, jamais du noir pur) ;
+//   mode   = composition ('source-over' depuis PERF-1 ; 'multiply', l'ancien, garde la
+//            texture du sol mais relit la destination à chaque blit sur GPU).
 //   minH   = hauteur à l'écran (px) sous laquelle un objet ne projette rien.
 import { CM } from '../layout.js';
 
-export const SUN_SHADOW = { on: true, len: 0.5, alpha: 0.5, col: '#8e96ad', mode: 'multiply', minH: 12, minZoom: 0.6 };
+export const SUN_SHADOW = { on: true, len: 0.5, alpha: 0.22, col: '#00081c', mode: 'source-over', minH: 12, minZoom: 0.6 };
 // Direction du soleil à l'écran : (2, 1) normalisé — l'est du monde, l'axe des
 // arêtes « avant-gauche » des losanges. Une ombre couchée l'y suit exactement.
 const SUN_DIR_X = 2 / Math.sqrt(5), SUN_DIR_Y = 1 / Math.sqrt(5);
@@ -421,7 +426,8 @@ export function sunShadowNightK() {
 // Une ombre cuite à part dans un canvas (celle de la Maison des Plaisirs, cf.
 // isoPlaisirs) ne peut pas l'être avec le sprite : un multiply sur du vide rend la
 // couleur de l'ombre elle-même, un VOILE gris-bleu sur le sol au lieu de
-// l'assombrir. Elle est donc posée au blit, en multiply et avec la force du moment.
+// l'assombrir. Elle est donc posée au blit, au mode de l'ombre (SUN_SHADOW.mode) et
+// avec la force du moment.
 // (La capture des ombres des scènes moteur cuites, captureSunShadows et
 // bakeSunShadowPlane, est partie avec leur cache — audit du 05/10, MORT-1.)
 export function drawSunShadowPlane(ctx, cv, x, y, w, h) {

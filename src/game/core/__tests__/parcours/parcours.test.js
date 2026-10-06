@@ -8,7 +8,10 @@
 //
 // Hors de la suite par défaut : `npm run test:parcours` (ou PARCOURS=1 avec
 // --testTimeout=0). Réglages (variables d'environnement) :
-//   PC_HOURS (8) heures virtuelles au plus · PC_POST (0,5) heures jouées après le
+//   PC_HOURS (12) heures virtuelles au plus — 8 jusqu'au lot 11 de l'audit : le
+//   sceau VII ne tombe plus à 20 min (BUG-40) et l'Âge d'Or se joue automates
+//   allumés (AGE-OR-AUTOMATES), le Ragnarök croise alors l'absence de 4 h posée à
+//   6 h, sa Fin tombe au retour et le titre arrive vers 10 h 25 · PC_POST (0,5) heures jouées après le
 //   titre · PC_DT (1) pas en s — la boucle du jeu est à 1 Hz ; à 2 s, la
 //   récupération d'ÉPAULER (15 ticks) tombe au 16e et Atlas casse · PC_SEED ·
 //   PC_MAXREAL (10) minutes réelles au plus
@@ -23,7 +26,7 @@ const FATAL = /throw|numeric|roundtrip|BLOCAGE|gr-refus|myth-activation/;
 
 it.runIf(PARCOURS_ON)("partie complète : du premier feu au titre final", async () => {
   const NAME = env.PC_NAME || "parcours";
-  const HOURS = Number(env.PC_HOURS || 8);
+  const HOURS = Number(env.PC_HOURS || 12);
   const DT = Number(env.PC_DT || 1);
   const SEED = Number(env.PC_SEED || 12345);
   const MAXREAL = Number(env.PC_MAXREAL || 10) * 60_000;

@@ -7,8 +7,10 @@ import { describe, it, expect, beforeEach, afterEach, vi } from "vitest";
 import { CM } from "../../layout.js";
 import { state, normalizeCityRelics } from "../../../core/state.js";
 import { chuteFrame, chuteCollect } from "../isoChute.js";
-import { CHUTE, CHUTE_TUNE, chuteMs, chuteWaveEnd } from "../chuteState.js";
+import { CHUTE, CHUTE_TUNE, CHUTE_SHORT_K, chuteMs, chuteWaveEnd, chuteTune } from "../chuteState.js";
 import { abortCityFall, playCityFall, captureCityRelics, takeCityRelics, playCityRise } from "../../cityMapBridge.js";
+import { setChuteMode, resetChuteSession } from "../../chuteMode.js";
+import { snapZoom } from "../projection.js";
 
 const T = CM.TILE;
 const saved = {};
@@ -16,8 +18,12 @@ beforeEach(() => {
   for (const k of ["layout", "canvas", "cam", "cw", "ch", "citizens", "vehicles", "citizenTarget", "nightF", "focus", "camGoal", "zoomGoal"]) saved[k] = CM[k];
   saved.relics = state.cityRelics;
   saved.seed = state.mapSeed;
+  // La chute complète, sauf dans les tests de la version courte (CHUTE-9).
+  setChuteMode("full");
+  resetChuteSession();
 });
 afterEach(() => {
+  setChuteMode("session");
   abortCityFall();
   Object.assign(CM, { layout: saved.layout, canvas: saved.canvas, cam: saved.cam, cw: saved.cw, ch: saved.ch, citizens: saved.citizens, vehicles: saved.vehicles, citizenTarget: saved.citizenTarget, nightF: saved.nightF, focus: saved.focus, camGoal: saved.camGoal, zoomGoal: saved.zoomGoal });
   state.cityRelics = saved.relics;
@@ -219,5 +225,118 @@ describe("les ruines du cycle précédent", () => {
     expect(got).toEqual(v1.map((it) => [...it.slice(0, 4), keys[it[4]], ...it.slice(5, 9)]));
     // Les pièces de la scène moteur (monuments) ne sont jamais arasées.
     expect(items.filter((it) => it.kind === "relic" && it.r.kind === "p").every((it) => !it.r.razed)).toBe(true);
+  });
+});
+
+// Audit du 05/10, CHUTE-9 (choix de Raph) : avec l'Édit et la Cité affichée, la chute
+// complète figeait la partie ~13 s par cycle. Réglage « Chute de la cité » : complète
+// à chaque fois, complète une fois par session puis courte (défaut), ou toujours
+// courte ; la courte joue les durées × 0,3, sans nuit. Et le lever rend au joueur son
+// zoom, qui n'est plus borné à [1 ; 1,6].
+describe("complète ou courte", () => {
+  // Durée de la chute jusqu'au noir, avec les réglages de la chute en cours.
+  const fallTotal = () => { const R = chuteTune(); return chuteWaveEnd() + R.nightAt + R.nightMs + R.fadeAt + R.fadeMs; };
+
+  it("par défaut, seule la première chute regardée de la session est complète", () => {
+    setChuteMode("session");
+    mountCity();
+    playCityFall();
+    expect(CHUTE.short).toBe(false);
+    expect(fallTotal()).toBeGreaterThan(13000);
+    abortCityFall();
+    playCityFall();
+    expect(CHUTE.short).toBe(true);
+    expect(fallTotal()).toBeLessThan(3000);
+    abortCityFall();
+    playCityFall();
+    expect(CHUTE.short).toBe(true);
+  });
+
+  it("« toujours complète » et « toujours courte » s'en tiennent à leur réglage", () => {
+    setChuteMode("short");
+    mountCity();
+    playCityFall();
+    expect(CHUTE.short).toBe(true);
+    abortCityFall();
+    setChuteMode("full");
+    for (let i = 0; i < 2; i += 1) {
+      playCityFall();
+      expect(CHUTE.short).toBe(false);
+      abortCityFall();
+    }
+  });
+
+  it("la version courte : durées × 0,3, et la nuit ne tombe pas sur les ruines", () => {
+    setChuteMode("short");
+    mountCity();
+    playCityFall();
+    const R = chuteTune();
+    expect(R.waveDur).toBeCloseTo(CHUTE_TUNE.waveDur * CHUTE_SHORT_K, 6);
+    expect(R.riseDawnMs).toBeCloseTo(CHUTE_TUNE.riseDawnMs * CHUTE_SHORT_K, 6);
+    expect(R.nightMs + R.nightAt + R.riseNightMs).toBe(0);
+    CM.nightF = 0;
+    CHUTE.scrub = chuteWaveEnd() + R.fadeAt - 1;     // la vague passée, juste avant le fondu
+    chuteFrame();
+    expect(CM.nightF).toBeCloseTo(CHUTE_TUNE.duskNight, 6);   // le crépuscule, pas la nuit
+    expect(CHUTE.fade).toBe(0);
+    CHUTE.scrub = fallTotal() + 1;
+    chuteFrame();
+    expect(CHUTE.done).toBe(true);
+    expect(CHUTE.fade).toBe(1);
+    expect(CHUTE_TUNE.nightMs).toBeGreaterThan(0);  // la version complète, elle, garde sa nuit
+  });
+
+  it("le lever rend au joueur son zoom, même hors de [1 ; 1,6]", () => {
+    vi.stubGlobal("document", { hidden: false, querySelector: () => null });
+    try {
+      const L = mountCity();
+      CM.cam.zoom = 2.5;
+      playCityFall();
+      CHUTE.scrub = 1e6;                    // le noir
+      chuteFrame();
+      CHUTE.scrub = null;
+      playCityRise(() => {});
+      expect(CHUTE.act).toBe("rise");
+      CM.layout = { ...L, tiles: [] };      // la carte du cycle neuf est là
+      CM.cam.zoom = 0.4;                    // le recul de la chute
+      chuteFrame();
+      expect(CM.cam.zoom).toBe(snapZoom(2.5));
+      expect(CM.zoomGoal).toBe(CM.cam.zoom);
+    } finally {
+      vi.unstubAllGlobals();
+    }
+  });
+
+  // Sans nuit jusqu'au bout : la courte tombe au crépuscule, son campement sort du noir
+  // au crépuscule (il sortait en pleine nuit le temps du fondu) ; la complète, de la nuit.
+  it("le campement sort du noir au crépuscule dans la courte, de la nuit dans la complète", () => {
+    vi.stubGlobal("document", { hidden: false, querySelector: () => null });
+    try {
+      for (const [mode, n0] of [["short", CHUTE_TUNE.duskNight], ["full", 1]]) {
+        setChuteMode(mode);
+        const L = mountCity();
+        playCityFall();
+        CHUTE.scrub = 1e6;                  // le noir
+        chuteFrame();
+        CHUTE.scrub = null;
+        playCityRise(() => {});
+        CM.layout = { ...L, tiles: [] };    // la carte du cycle neuf est là
+        chuteFrame();
+        const R = chuteTune();
+        CM.nightF = 0;                      // l'horloge : plein jour
+        CHUTE.scrub = R.riseBlackMs + R.riseFadeMs / 2;   // en plein fondu
+        chuteFrame();
+        expect(CHUTE.fade).toBeGreaterThan(0);
+        expect(CM.nightF).toBeCloseTo(n0, 6);
+        CM.nightF = 0;
+        CHUTE.scrub = R.riseBlackMs + R.riseFadeMs + R.riseNightMs + R.riseDawnMs + 1;
+        chuteFrame();
+        expect(CHUTE.act).toBe(null);       // l'aube finie, à l'heure de l'horloge
+        expect(CM.nightF).toBeCloseTo(0, 6);
+        CHUTE.scrub = null;
+      }
+    } finally {
+      vi.unstubAllGlobals();
+    }
   });
 });

@@ -257,8 +257,9 @@ export function skinNightPixels(img, skin = {}) {
 }
 
 // Pose l'habillage sur la sortie d'une recette ({ R, H, D, … }) : rend { R, H, D, N, mirror }
-// dans le même cadre que R (D : null, cf. plus bas).
-export function applyPlaisirsSkin(out, skin) {
+// dans le même cadre que R (D : null, cf. plus bas). `slice` : la largeur des tranches du
+// lieu (isoPlaisirs.plaisirsTune.slice), sur lesquelles se cale le calque vivant.
+export function applyPlaisirsSkin(out, skin, slice = 8) {
   const R = out.R, H = out.H, img = skin.img, [ax, ay] = skin.at;
   const R2 = { ox: R.ox, oy: R.oy, w: R.w, h: R.h, data: new Uint8ClampedArray(R.data.length) };
   // Avec ses couches vivantes, la matière est le FOND (l'image sans ce qui bouge).
@@ -271,20 +272,39 @@ export function applyPlaisirsSkin(out, skin) {
     const k = (y * R.w + x) * 4;
     R2.data[k] = base.data[s]; R2.data[k + 1] = base.data[s + 1]; R2.data[k + 2] = base.data[s + 2]; R2.data[k + 3] = 255;
   }
-  // CE QUI VIT, reporté dans le cadre de R : N images côte à côte (largeur N·R.w).
+  // CE QUI VIT, reporté dans le cadre de R : N images côte à côte. Recadrées sur les
+  // seules COLONNES qui bougent, élargies aux tranches entières qui les contiennent
+  // (audit du 05/10, MEM-3, choix B de Raph) : chaque image prenait toute la largeur
+  // du cadre (10,8 Mo à la Fonte pour un ballon de 32 × 52, 2,6 Mo au feu de camp ;
+  // 1,07 et 0,56 Mo recadrées). Toute la HAUTEUR reste : une tranche pose ses
+  // rangées comme avant, seule sa colonne source se décale. `x0` : la première
+  // colonne gardée (repère de R), `cols` : les colonnes gardées, `stride` = cols + 1
+  // (une colonne vide entre deux images : l'échantillon de bord d'une tranche y
+  // retrouve le vide qu'il avait à côté dans le cadre entier) ; `w` = stride · N, la
+  // largeur du raster.
   let live = null;
   if (skin.liveImg && skin.live) {
-    const n = skin.live.n, L = skin.liveImg, fw = L.width / n;
-    const data = new Uint8ClampedArray(R.w * n * R.h * 4);
+    const n = skin.live.n, L = skin.liveImg, fw = L.width / n, S = Math.max(1, slice | 0);
+    let c0 = R.w, c1 = -1;
     for (let f = 0; f < n; f += 1) for (let j = 0; j < L.height; j += 1) for (let i = 0; i < fw; i += 1) {
-      const s = (j * L.width + f * fw + i) * 4;
-      if (L.data[s + 3] < 128) continue;
+      if (L.data[(j * L.width + f * fw + i) * 4 + 3] < 128) continue;
       const x = ax - R.ox + i, y = ay - R.oy + j;
       if (x < 0 || y < 0 || x >= R.w || y >= R.h) continue;
-      const k = (y * R.w * n + f * R.w + x) * 4;
-      data[k] = L.data[s]; data[k + 1] = L.data[s + 1]; data[k + 2] = L.data[s + 2]; data[k + 3] = 255;
+      if (x < c0) c0 = x; if (x > c1) c1 = x;
     }
-    live = { w: R.w * n, h: R.h, data, n, ms: skin.live.ms };
+    if (c1 >= c0) {
+      const x0 = Math.floor(c0 / S) * S, w = Math.min(R.w, Math.ceil((c1 + 1) / S) * S) - x0, stride = w + 1;
+      const data = new Uint8ClampedArray(stride * n * R.h * 4);
+      for (let f = 0; f < n; f += 1) for (let j = 0; j < L.height; j += 1) for (let i = 0; i < fw; i += 1) {
+        const s = (j * L.width + f * fw + i) * 4;
+        if (L.data[s + 3] < 128) continue;
+        const x = ax - R.ox + i, y = ay - R.oy + j;
+        if (x < 0 || y < 0 || x >= R.w || y >= R.h) continue;
+        const k = (y * stride * n + f * stride + x - x0) * 4;
+        data[k] = L.data[s]; data[k + 1] = L.data[s + 1]; data[k + 2] = L.data[s + 2]; data[k + 3] = 255;
+      }
+      live = { w: stride * n, h: R.h, data, n, ms: skin.live.ms, x0, cols: w, stride };
+    }
   }
   // Les HAUTEURS : celle du pixel du code au même endroit ; ailleurs (la silhouette
   // PixelLab déborde un peu), celle du pixel du code le plus proche SOUS lui dans sa

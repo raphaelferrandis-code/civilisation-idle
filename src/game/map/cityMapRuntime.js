@@ -38,6 +38,7 @@ import { resolveShortcut, resolveCameraKey } from '../core/shortcuts.js';
 import { dayNightMode } from './dayNightMode.js';
 import { qualitySettings } from './qualityMode.js';
 import { mapFrameMs, noteMapInput, noteMapCamera } from './energySaver.js';
+import { makeVsyncEstimator } from './frameCadence.js';
 import { CHUTE } from './iso/chuteState.js';
 import { mountFpsProbe } from './fpsProbe.js';
 import { ambianceK } from './ambianceMode.js';
@@ -57,6 +58,7 @@ import { drawIsoWorld } from './iso/isoRenderer.js';
 // clic tombe sur la maison. Le peintre n'avait aucune raison de le porter.
 import { plaisirsHitTest } from './iso/isoPlaisirs.js';
 import { plazaWalkAnchors } from './iso/isoPlaza.js';
+import { fenceWalkBlock } from './iso/isoFence.js';
 // Les faits divers (docs/PLAN-FAITS-DIVERS.md) : leurs scènes passent par la petite
 // vie ; leur clic passe AVANT celui de la carte (bindFaitsDiversInput).
 import { bindFaitsDiversInput } from './faitsDivers/index.js';
@@ -1460,6 +1462,8 @@ function cityMapEnsureLayoutInner(now, deps = {}) {
   const plazaAnchors = plazaWalkAnchors(L, L.counts ? L.counts.eraBand : 0);
   CM.plazaWalkOffset = plazaAnchors ? plazaAnchors.offset : null;
   CM.walkRoadList = L.roads.filter((r) => cmIsWalkableRoad(L, r.gx, r.gy) && !(plazaAnchors && plazaAnchors.blocked.has(r.gx * 10000 + r.gy)));
+  // La GRILLE DES SQUARES (audit 2026-10-05, BUG-62) : on y entre par ses portes.
+  CM.fenceWalkBlock = fenceWalkBlock(L, L.counts ? L.counts.eraBand : 0);
   // Cellules de route appartenant aux places : cibles de flânerie des piétons.
   CM.plazaRoadCells = [];
   if (L.plan && Array.isArray(L.plan.plazas)) {
@@ -2210,6 +2214,10 @@ function initCityMap(canvas, options = {}) {
   // relevé par l'économie d'énergie (fenêtre sans focus, joueur absent :
   // energySaver.js) sauf pendant la chute.
   let last = performance.now();
+  // Vsync mesurée sur les rappels rAF (frameCadence.js, PERF-57) : la tolérance du
+  // saut d'image en est la moitié, au plus 8 ms.
+  const vsyncEst = makeVsyncEstimator();
+  let lastRaf = 0;
   // ── Cycle jour/nuit ── phase ancrée sur l'horloge murale (Date.now) : la
   // position dans le cycle survit à l'actualisation et aux reloads dev, au lieu
   // de repartir en plein jour à chaque chargement. Courbe à PLATEAUX : le jour
@@ -2259,6 +2267,8 @@ function initCityMap(canvas, options = {}) {
     // initCityMap relance une boucle neuve au prochain montage).
     if (!CM.ctx || !CM.canvas) return;
     CM.raf = requestAnimationFrame(loop);   // AVANT de travailler : une exception ne tue pas la boucle
+    if (lastRaf) vsyncEst.note(now - lastRaf);   // seuls les rappels rAF mesurent la vsync
+    lastRaf = now;
     frame(now);
   }
   // ── FILET D'EXCEPTION DE LA BOUCLE (audit du 2026-10-05, BUG-32) ────────────
@@ -2293,10 +2303,13 @@ function initCityMap(canvas, options = {}) {
     // de la falaise de l'eau l'a exposé. Avec la tolérance : cap 60 → chaque
     // vsync passe (60 réguliers) ; cap 30 → 16,7 ms reste refusé, 33,3 accepté
     // (30 réguliers, inchangé). La capture, elle, court-circuite le throttle.
+    // Les 8 ms ne valent qu'à 60 Hz : la tolérance est une demi-vsync MESURÉE, au
+    // plus 8 ms (frameCadence.js ; PERF-57, décision de Raph du 2026-10-05). À 144-
+    // 240 Hz, 8 ms fixes laissaient « 60 » tourner à 72-82 i/s.
     // Économie d'énergie (energySaver.js, PERF-5) : le cap est RELEVÉ sans focus
     // ou joueur absent, jamais abaissé ; même tolérance (12 i/s = 5 vsyncs à 60 Hz).
     // La repeinte synchrone (canvas réalloué, donc vide) le court-circuite aussi.
-    if (now - last < mapFrameMs(cmFrameMs, now, !!CHUTE.act) - 8 && !CM.capture && !syncPaint) return;
+    if (now - last < mapFrameMs(cmFrameMs, now, !!CHUTE.act) - vsyncEst.tolerance() && !CM.capture && !syncPaint) return;
     const dt = Math.min(1 / 30, (now - last) / 1000);
     // La simulation (passants, véhicules, émeute, bateaux) en sous-pas de ≤ 1/30 s
     // (simStepsFor, BUG-67) ; la capture garde son pas unique, déterministe.

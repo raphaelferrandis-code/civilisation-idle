@@ -290,8 +290,8 @@ export function castAugury(id, riteId = "classique", options = {}) {
         }
         // LE CARRÉ DE SIX. Rafle au PRORATA DE LA MISE, jamais minté : ce qui sort
         // de la cella y a été versé par l'edge des tables. On n'incrémente PAS
-        // state.icarusJackpots : ce compteur est le jalon « frôler le soleil » du
-        // Grand Reset VII, il appartient à Icare.
+        // state.icarusJackpots : ce compteur des jackpots appartient à Icare (son
+        // jalon du Grand Reset VII aussi, icarusSealFlights).
         if (jackpot && (state.icarusPotFaveur || 0) > 0) {
           const { rake, left } = potRake(state.icarusPotFaveur, stake);
           result.jackpotGain = rake;

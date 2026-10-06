@@ -41,7 +41,6 @@
   :root:not([data-pointer="coarse"]) .app[data-active-view="city"] .city-controls-panel {
     background: rgba(12, 15, 24, 0.95);
     backdrop-filter: none;
-    -webkit-backdrop-filter: none;
     border: 0;
     box-shadow:
       inset 0 0 0 1px rgba(0, 0, 0, 0.6),
@@ -113,7 +112,9 @@
     min-height: 0;
     margin-top: 0.3rem;
     padding: 0.22rem 0.6rem 0.28rem;
-    font-size: 0.68rem;
+    /* Le plancher de 11 px (variables.css) : 0.68 → 0.6875, imperceptible
+       (décision de Raph, audit 2026-10-05, BUG-119). */
+    font-size: 0.6875rem;
   }
 
   /* ── La boutique : s'arrête au-dessus de la poignée de Régulation ───────── */
@@ -150,7 +151,9 @@
   :root:not([data-pointer="coarse"]) .app[data-active-view="city"] .city-shop-dock .purchase-row {
     display: grid;
     /* Le gain du lot (« +0.7 % ») au bout de la ligne de production, comme
-       dans la maquette : une ligne de moins par rangée. */
+       dans la maquette : une ligne de moins par rangée. La rangée « eta » est
+       VIDE depuis que l'échéance a quitté l'écran (BUG-118) ; gardée pour que
+       les rangées achetables gardent leur hauteur au pixel. */
     grid-template-columns: 4rem minmax(0, 1fr) auto auto;
     grid-template-areas:
       "thumb name  name buy"
@@ -239,12 +242,7 @@
   :root:not([data-pointer="coarse"]) .app[data-active-view="city"] .city-shop-dock .pr-gain {
     grid-area: gain;
     align-self: end;
-    font-size: 0.68rem;
-  }
-  :root:not([data-pointer="coarse"]) .app[data-active-view="city"] .city-shop-dock .pr-eta {
-    grid-area: eta;
-    margin: 0;
-    font-size: 0.66rem;
+    font-size: 0.6875rem;   /* plancher de 11 px (BUG-119) */
   }
   :root:not([data-pointer="coarse"]) .app[data-active-view="city"] .city-shop-dock .pr-step-track {
     grid-area: track;
@@ -490,11 +488,16 @@
   :root:not([data-pointer="coarse"]) .app[data-active-view="city"] .topbar .topbar-people {
     display: none;
   }
+  /* UNE ligne tant qu'elle tient, DEUX quand elle ne tient plus (3 + 2 en
+     1584×861, la fenêtre .exe par défaut, en fin de partie) : les cases ne se
+     rognent plus (décision de Raph sur BUG-20 : b). En 1920 et 2560 la ligne
+     tient, rien ne bouge — même largeur au contenu que l'ancienne grille en
+     colonnes `auto`. */
   :root:not([data-pointer="coarse"]) .app[data-active-view="city"] .topbar-resources:not(.is-partial),
   :root:not([data-pointer="coarse"]) .app[data-active-view="city"] .topbar-resources.is-partial {
-    grid-template-columns: none;
-    grid-auto-flow: column;
-    grid-auto-columns: auto;
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: center;
   }
   /* Une case = l'icône à gauche sur deux lignes, le chiffre, le débit dessous
      (maquette .res). Le nom passe dans l'infobulle de la valeur. ⚠ Plus de
@@ -502,6 +505,7 @@
      dimensionner sur son contenu — et le chiffre a désormais sa taille fixe. */
   :root:not([data-pointer="coarse"]) .app[data-active-view="city"] .topbar .resource-card-unified {
     container-type: normal;
+    flex: 0 0 auto;
     grid-template-columns: auto auto;
     grid-template-areas:
       "nom valeur"

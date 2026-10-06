@@ -189,14 +189,17 @@ export function pressureBreakdown(forceDecimalPath = false) {
   //     (demesureDamp), plafonnée à DEMESURE_CUT_CAP → jamais totalement effacée.
   // Reste à 0 sous le seuil (early game intact). Sûr au-delà du float (log10 Decimal fini).
   const popLog = Number.isFinite(popF) ? Math.log10(Math.max(10, popF)) : toNum(D(state.population).max(10).log10());
-  // « Gouvernail des millions » (demesureSlow) : l'hubris d'échelle croît moins vite.
-  const demesureRaw = Math.max(0, (popLog - DEMESURE_FREE_LOG_POP) * DEMESURE_COEF)
-    * (1 - Math.min(0.8, ruinEffectSum("demesureSlow")));
+  const demesureRaw = Math.max(0, (popLog - DEMESURE_FREE_LOG_POP) * DEMESURE_COEF);
   const demesureCut = Math.min(
     DEMESURE_CUT_CAP,
     policyDemesureDamp()
   );
-  const demesure = softCap(demesureRaw, DEMESURE_SOFT_CAP) * (1 - demesureCut);
+  // « Gouvernail des millions » (demesureSlow) : « Démesure −30 % » APRÈS le soft
+  // cap, donc −30 % réels à toutes les échelles (audit 2026-10-05, BUG-80,
+  // décision de Raph). Appliquée avant, la réduction était rabotée par le plafond
+  // doux : −23 % à popLog 12, −9 % à popLog 60, là où le nœud s'achète.
+  const demesureSlow = Math.min(0.8, ruinEffectSum("demesureSlow"));
+  const demesure = softCap(demesureRaw, DEMESURE_SOFT_CAP) * (1 - demesureSlow) * (1 - demesureCut);
   // Théocratie (ruptureGrowthMultiplier) : amplifie la SOMME des affluents avant
   // le barrage. Hissé en variable pour être exposé dans gauges — sans lui,
   // l'Anatomie ne se réconcilie pas avec la cible.

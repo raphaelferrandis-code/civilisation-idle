@@ -2,7 +2,7 @@ import { describe, it, expect, beforeEach, afterEach } from "vitest";
 
 import { CM, CM_WONDERS, cmWonderExtent, cmWonderHeightTiles } from "../../layout.js";
 import {
-  worldToScreen, screenToWorld, panDeltaToScreen, depthOf, tileDiamond,
+  worldToScreen, screenToWorld, panDeltaToScreen, depthOf,
   visibleCellBounds, wonderAnchor, wonderFootWorld, ISO_X, ISO_Y,
 } from "../projection.js";
 
@@ -40,7 +40,10 @@ describe("projection — losange 2:1", () => {
 
   it("une tuile devient un losange 2·TILE × TILE (64×32 à zoom 1)", () => {
     CM.cam = { x: 0, y: 0, zoom: 1 };
-    const d = tileDiamond(0, 0);
+    // Les 4 coins de la cellule (0,0) projetés (tileDiamond, sans appelant hors
+    // de ce test, a été retiré : audit du 05/10, TEST-10).
+    const T = CM.TILE;
+    const d = { n: worldToScreen(0, 0), e: worldToScreen(T, 0), s: worldToScreen(T, T), w: worldToScreen(0, T) };
     expect(d.e.x - d.w.x).toBeCloseTo(2 * 32 * ISO_X);   // largeur 64
     expect(d.s.y - d.n.y).toBeCloseTo(32 * 2 * ISO_Y);   // hauteur 32
     // Sommets alignés : N et S partagent le même x (axe vertical du losange).

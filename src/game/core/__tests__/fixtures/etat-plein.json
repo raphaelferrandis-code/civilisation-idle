@@ -10,6 +10,7 @@
   "ruins": "3.01722307159026e+37",
   "cycles": 5,
   "icarusJackpots": 1,
+  "icarusSealFlights": 1,
   "grRevealed": {
    "2": true,
    "3": true,
@@ -106,7 +107,7 @@
   "atlasEpaules": 12,
   "atlasCrushed": true,
   "atlasShoulderCdTicks": 7,
-  "sisypheMult": 222602668820747620,
+  "sisypheMult": 13.37,
   "sisypheHeritage": true,
   "sisypheCran": 3,
   "sisypheMontees": 2,
@@ -122,12 +123,15 @@
   "orHeritage": true,
   "orDealsClosed": 8,
   "orUsureImbalance": true,
+  "orNextCaravanAt": 1800054030000,
+  "orMerchantVexed": true,
   "phoenixHeritage": true,
   "phoenixCycleCount": 3,
   "phoenixTotalRuins": "3.34022044278464e+38",
   "phoenixRenaissances": 3,
   "phoenixRebirthTargetPop": "5.072633977390218e+58",
   "phoenixNextForceAt": 1800053000000,
+  "phoenixCycleSec": 187.5,
   "ragnarokArkOfferings": 8,
   "ragnarokArkCost": {
    "food": "4.819298774252946e+137",
@@ -245,7 +249,9 @@
   },
   "icareAltitude": 5,
   "icareAutoBurnLatched": true,
+  "icareHoldSec": 73,
   "atridesReached": true,
+  "atridesEarned": "4.2e+31",
   "mythStartGold": "3.89345336539956e+106",
   "mythStartPop": "10",
   "icareHeritage": true,
@@ -954,6 +960,7 @@
    "longestCycleSec": 1666,
    "mostCrisesInCycle": 3,
    "fastestEraGainSec": 2,
+   "collapses": 41,
    "grTimings": {
     "2": {
      "discovered": 5592,
@@ -1064,6 +1071,10 @@
      "act": 3
     }
    }
+  },
+  "achievements": {
+   "CHUTE_PREMIERE": 1799990000000,
+   "SCEAU_III": 1799995000000
   },
   "saveEpoch": {
    "id": "abc123",

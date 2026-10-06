@@ -73,7 +73,8 @@ describe('les familles vivantes passent par le rabattement device', () => {
     expect(blitsDe('iso/boatKit.js', (l) => l.includes('ctx.drawImage(e.cv, bx, by, dw, dh)')).length).toBe(1);
     expect(src('iso/boatKit.js')).toMatch(/const bx = snapDev\(x \+ e\.ox \* z\), by = snapDev\(y \+ e\.oy \* z\)/);
     // Et la taille : sans elle, la position seule laisse la coupe dépendre du sous-pixel.
-    expect(src('iso/boatKit.js')).toMatch(/const dw = snapDev\(side \* z\)/);
+    // Le canvas est serré (PERF-36) : c'est l'ÉCHELLE de l'ancien carré qui est rabattue.
+    expect(src('iso/boatKit.js')).toMatch(/const k = snapDev\(e\.side \* z\) \/ e\.side/);
     expect(src('iso/isoPort.js')).toMatch(/y: snapDev\(p\.y \+ bob\)/);
     expect(src('iso/isoPort.js')).not.toMatch(/isoBoat\.img/);
   });

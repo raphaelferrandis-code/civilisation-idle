@@ -2,8 +2,9 @@
 
 // Baril du paquet production (audit G‑18/#10). L'ex-fichier de 977 lignes est
 // découpé en 7 sous-modules à DAG acyclique sous ./production/ ; ce baril ne fait
-// que réexporter l'API publique HISTORIQUE (exactement les 30 symboles d'avant),
-// donc les consommateurs (baril mechanics.js + crisis-cost.js) importent toujours
+// que réexporter l'API publique HISTORIQUE (exactement les 30 symboles d'avant,
+// plus deux d'affichage depuis BUG-81 : relicBlessingMultiplier et
+// displayedProductionMultiplier), donc les consommateurs (baril mechanics.js + crisis-cost.js) importent toujours
 // depuis ./production.js sans le moindre changement.
 //
 //   L0  olympusProd       multiplicateur « Abîme » de l'Olympe (rapatrié d'actions)
@@ -44,7 +45,10 @@ export {
   enforceInfrastructureCap,
   globalMultiplier,
   globalMultiplierDec,
-  globalMultiplierBreakdown
+  globalMultiplierBreakdown,
+  // Affichage seul (audit du 05/10, BUG-81) : le moteur ne les lit pas.
+  relicBlessingMultiplier,
+  displayedProductionMultiplier
 } from './production/globalMultipliers.js';
 
 export {

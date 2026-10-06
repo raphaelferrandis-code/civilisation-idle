@@ -99,7 +99,7 @@ source dans git à un commit fixe ; **test** = un test lit le script ou sa sorti
 | `importPackVehicles.mjs` | `[--zip <archive>] [--sat] [--vmax]` | pack MinZinn (hors dépôt) → bandes `agents/vehicles/`, `vehicleSkins.js` | pack externe |
 | `installVegetation.mjs` | `[--dry]` | `data/vegetation-raw/` + `data/vegetation-trees.json` → arbres `iso/` | idem. ; puis `snowTrees` ; test |
 | `snowTrees.mjs` | `[--dry]` | arbres `iso/` → `…-winter.png` | idem. ; test |
-| `sceneLive.mjs` | `[--dry] [--cle a,b] [--masques]` | scènes moteur (git `af920cd1`) → `<clé>-live/-back.png`, `iso/plaza/anim/`, planche | épinglé ; `LIVE_LAYERS` à reporter à la main ; test |
+| `sceneLive.mjs` | `[--dry] [--cle a,b] [--masques]` | scènes moteur (git `af920cd1`) → `<clé>-live/-back.png`, `iso/plaza/anim/`, planche | épinglé ; `LIVE_LAYERS` à reporter à la main (n, ms, fond, `box` du timbre imprimée) ; test |
 | `plazaBrazierAnim.mjs` | `[--dry] [--ere antique]` | braseros (git `af920cd1`) → `iso/plaza/anim/brazier-*`, statique, planche | épinglé ; test |
 | `plaisirsGirls.mjs` | `--build` / `--gigolos` / `--repos`, `--preview…` | dessin au pixel (dans le script) → bandes `agents/inhabitants/`, sources `art/plaisirs/*.aseprite` | aperçus sans écriture dans `public/` |
 | `plaisirsAlanguies.mjs` | sans argument | tirages `art/plaisirs/pixellab/` → `agents/inhabitants/` | idem. |

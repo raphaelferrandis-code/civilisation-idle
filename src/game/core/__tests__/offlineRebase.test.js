@@ -222,8 +222,11 @@ describe("BUG-9 / BUG-10 — la crise terminale ne mange plus l'absence ni le fa
   // Crise terminale ouverte à 30 s de cycle : moisson nulle, l'Édit ne peut pas
   // effondrer, la cité reste gelée — en ligne comme hors ligne. La sortie `break`
   // de la sim créditait pourtant le reste de l'absence au taux plein (+4,5e8 de
-  // Nourriture ici, quel que soit le déclencheur).
+  // Nourriture ici, quel que soit le déclencheur). La sim attend d'abord la fin de
+  // la grâce terminale, cité gelée, comme en ligne (BUG-76) : ouverte 60 s avant
+  // le départ, il lui reste 120 s.
   it("farm figé en crise terminale à moisson nulle : rien n'est produit, le reliquat va dans la clepsydre", () => {
+    const graceLeft = autoCollapseDelay() / 1000 - 60;
     for (const trigger of ["usure", "temps", "rupture100"]) {
       const young = (t) => ({
         ...terminalFarm(trigger)(t),
@@ -237,9 +240,9 @@ describe("BUG-9 / BUG-10 — la crise terminale ne mange plus l'absence ni le fa
       expect(state.cycles).toBe(before.cycles);
       expect(state.crisisLimitAnnounced).toBe(true);
       expect(D(state.food).eq(before.food)).toBe(true);
-      expect(state.storedSeconds).toBe(7200 - 10); // un pas de sim, puis la cité figée
-      expect(report.creditedSec).toBe(10);
-      expect(report.storedSec).toBe(7190);
+      expect(state.storedSeconds).toBe(7200 - graceLeft); // la grâce rejouée, puis la cité figée
+      expect(report.creditedSec).toBe(graceLeft);
+      expect(report.storedSec).toBe(7200 - graceLeft);
       expect(state.lastTick).toBe(FIXED_NOW);
     }
   });

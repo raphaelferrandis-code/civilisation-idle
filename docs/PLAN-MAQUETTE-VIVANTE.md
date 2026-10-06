@@ -552,6 +552,15 @@ places ne sont plus animées... ».
 - Vérifié en jeu : place centrale, bande 4, les cinq ères forcées (`__plaza({ era })`),
   deux captures à 500 ms d'écart : l'eau bouge, la pierre non.
 
+**2026-10-06 — les GRANDES places (audit du 05/10, BUG-63, choix (c) de Raph).** Depuis la
+ville par îlots, toute place faisait un îlot (4×4) : les « trois arbres » et les « massifs
+sur les axes » du forum ne se posaient jamais (0 arbre, 0 massif mesurés). Le forum prend
+désormais quatre îlots (14 × 9) et le square un carré de 2×2 îlots (9 × 9) — cf.
+docs/PLAN-ILOTS.md. Le dessin prévu apparaît : forum = trois arbres (deux au médiéval) et
+quatre massifs ; square = deux arbres, huit massifs, sa pelouse, sa grille à portes. Sur une
+grande place le kit se déploie (`PLAZA_TUNE.grand`, variante A = `__plaza({ grand: false })`).
+Planche : `planches/grandes-places/`.
+
 ## 9. La petite vie (lot 6, demandé le 2026-10-01)
 
 > « Tu peux refaire tous les petits éléments de vie, oiseaux, poissons, feuilles,

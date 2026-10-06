@@ -170,11 +170,13 @@ export function recordShopSpend(cost) {
 
 // ── Records & superlatifs ────────────────────────────────────────────────────
 
-// À l'effondrement : plus gros gain de ruines, plus long cycle tenu, plus de
-// crises stabilisées en un cycle. `ruinGain` peut être Decimal/number/string.
+// À l'effondrement : un effondrement de plus à vie (succès, STEAM-9), plus gros
+// gain de ruines, plus long cycle tenu, plus de crises stabilisées en un cycle.
+// `ruinGain` peut être Decimal/number/string.
 export function recordCollapse({ ruinGain = 0, cycleSec = 0, crises = 0 } = {}) {
   const s = reg();
   if (!s) return;
+  s.collapses = (Number(s.collapses) || 0) + 1;
   if (D(ruinGain).gt(D(s.biggestRuinGain))) s.biggestRuinGain = D(ruinGain).toString();
   const sec = pos(cycleSec);
   if (sec > s.longestCycleSec) s.longestCycleSec = sec;

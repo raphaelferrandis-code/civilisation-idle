@@ -67,15 +67,17 @@ const SNOW_SHADE = [170, 176, 184];  // metalSlate — le creux bleuté
 // RAFALES (CM.gustF, cf. weatherMode.js) : l'averse arrive par paquets. Ce que
 // la bourrasque ajoute à pleine force est réglé ci-dessous ; à gustF = 0 tout
 // retombe EXACTEMENT sur l'averse d'avant.
-// Molette : __rain({ on, drops, len, alpha, gust, width }) — gust: 0 coupe les
-// rafales, width: 0.6 rend le filet d'un pixel d'avant. `on: false` ne coupe que
+// Molette : __rain({ on, drops, len, alpha, gust, width, tiers }) — gust: 0 coupe
+// les rafales, width: 0.6 rend le filet d'un pixel d'avant. `on: false` ne coupe que
 // le RIDEAU : le ciel reste chargé et les impacts continuent (c'est le geste
-// qu'on fait pour juger les éclats seuls, cf. __splash).
-export const RAIN_TUNE = { on: true, drops: 1, len: 1, alpha: 1, gust: 1, width: 1 };
+// qu'on fait pour juger les éclats seuls, cf. __splash). `tiers: 0` rend l'A/B des
+// paliers d'inclinaison (cf. gustTier) : la goutte suit de nouveau la rafale en
+// continu ; `nappes` compte les nappes reforgées depuis le chargement.
+export const RAIN_TUNE = { on: true, drops: 1, len: 1, alpha: 1, gust: 1, width: 1, tiers: 3 };
 if (import.meta.env?.DEV && typeof window !== 'undefined') {
   window.__rain = (o) => {
     if (o) Object.assign(RAIN_TUNE, o);
-    return { ...RAIN_TUNE, etampes: rainStamps.size, forges: rainStampBuilds };
+    return { ...RAIN_TUNE, etampes: rainStamps.size, forges: rainStampBuilds, nappes: rainVeilForges };
   };
 }
 const RAIN_CAP = 900;
@@ -230,14 +232,22 @@ export function rainVeilDraws(n, lw, lh, ox = 0, from = 0) {
   return out;
 }
 
+// Géométrie de la nappe telle qu'elle entre dans sa clé : inclinaison et longueur au
+// pas de 4 px, épaisseur telle quelle. Pure et exportée (le test compte les reforges).
+export function rainVeilGeo(dx, dy, th) {
+  return [Math.round(dx / 4) * 4, Math.max(2, Math.round(dy / 4) * 4), th];
+}
+
 // La nappe pour une géométrie donnée, reforgée seulement quand elle change.
 // ⚠ QUANTIFIER, sinon on reforge à CHAQUE IMAGE : sous rafale l'inclinaison et
 // la longueur glissent en continu pendant les 480 ms d'attaque. Au pas de 4 px
-// une bourrasque coûte cinq reforges au lieu de trente.
+// une bourrasque coûte cinq reforges au lieu de trente — et la forme de la goutte ne
+// suit plus la rafale qu'en trois paliers (cf. gustTier).
+let rainVeilForges = 0;           // diagnostic (__rain) : nappes reforgées en entier
 function rainVeilFor(n, dx, dy, th, W, H) {
   if (typeof document === 'undefined' || n <= 0) return null;
   const dpr = CM.dpr || 1;
-  const kdx = Math.round(dx / 4) * 4, kdy = Math.max(2, Math.round(dy / 4) * 4);
+  const [kdx, kdy] = rainVeilGeo(dx, dy, th);
   const kn = n < 24 ? n : Math.round(n / 8) * 8;
   const marge = Math.abs(kdx) + th + 8;
   const lw = W + marge * 2, lh = Math.max(1, H);
@@ -260,6 +270,7 @@ function rainVeilFor(n, dx, dy, th, W, H) {
     rainVeil.key = key; rainVeil.np = np;
     return rainVeil;
   }
+  rainVeilForges += 1;
   const V = rainVeil && rainVeil.cv.length === RAIN_LANES ? rainVeil
     : { key: '', geo: '', np: 0, marge: 0, lw: 0, lh: 0, cv: [], cx: [] };
   const pw = Math.max(1, Math.round(lw * dpr)), ph = Math.max(1, Math.round(lh * dpr));
@@ -323,9 +334,35 @@ export function precipKind(season, rainF) {
 // fait pas tourner sous les yeux du joueur. Seule l'amplitude enfle — plus une
 // poussée plancher, sans quoi une averse tirée à vent quasi nul ne montrerait
 // ses rafales qu'en densité.
-function gustWind(g) {
-  const w = CM.windX || 0;
+function gustWind(g, w = CM.windX || 0) {
   return w + (w < 0 ? -1 : 1) * (Math.abs(w) * GUST_LEAN + GUST_KICK) * g;
+}
+
+// LA FORME DE LA GOUTTE NE SUIT LA RAFALE QU'EN TROIS PALIERS (audit du 2026-10-05,
+// PERF-23, décision de Raph) : calme, demi-rafale, pleine rafale. Inclinaison,
+// longueur et épaisseur entrent dans la clé de la nappe : suivies en continu, chaque
+// bourrasque reforgeait les quatre nappes plein écran à chaque cran de 4 px (~280
+// reforges par averse, jusqu'à 7 par seconde). La rafale garde en continu ce qui ne
+// reforge rien : la VITESSE de chute et l'OPACITÉ du rideau de rafale. `tiers` < 2 :
+// la forme continue d'avant (molette __rain({ tiers: 0 }), pour l'A/B).
+export function gustTier(g, tiers = RAIN_TUNE.tiers) {
+  const n = tiers | 0;
+  return n >= 2 ? Math.round(g * (n - 1)) / (n - 1) : g;
+}
+
+// La goutte de la nappe pour une intensité `r`, une rafale `g` (déjà ramenée à son
+// palier) et le vent d'averse `w` : inclinaison dx, longueur dy (px), épaisseur th.
+export function rainDropShape(r, g, w = CM.windX || 0) {
+  const len = (10 + 14 * r) * RAIN_TUNE.len;          // px, trait plus long sous l'averse
+  // ÉPAISSEUR DE LA GOUTTE, en pixels PLEINS — 2 px de tête sous l'averse, 1 px
+  // sur une bruine, la rafale ajoutant sa part comme au reste. C'est la même
+  // courbe qu'au temps du trait lissé (retour Raph 2026-07-29 : « le filet est un
+  // peu trop fin »), sauf qu'elle épaississait alors pour COMPENSER
+  // l'anticrénelage ; ici elle dessine vraiment la goutte, et la queue s'affine
+  // toute seule dans l'étampe.
+  const th = Math.max(1, Math.round((1 + 0.6 * r + 0.35 * g) * RAIN_TUNE.width));
+  const lenB = len * (1 + 0.25 * g);
+  return { dx: gustWind(g, w) * lenB * 0.8, dy: lenB, th };
 }
 
 export function drawIsoRain(now) {
@@ -362,19 +399,12 @@ export function drawIsoRain(now) {
     (RAIN_FALL_PX / Math.max(1, H)) * (1 + GUST_SPEED * g)
   );
   rainPhaseAt = st.at; rainPhase = st.phase;
-  const wind = gustWind(g);
-  const len = (10 + 14 * r) * RAIN_TUNE.len;          // px, trait plus long sous l'averse
   const prevAA = ctx.imageSmoothingEnabled;
   ctx.imageSmoothingEnabled = false;
-  // ÉPAISSEUR DE LA GOUTTE, en pixels PLEINS — 2 px de tête sous l'averse, 1 px
-  // sur une bruine, la rafale ajoutant sa part comme au reste. C'est la même
-  // courbe qu'au temps du trait lissé (retour Raph 2026-07-29 : « le filet est un
-  // peu trop fin »), sauf qu'elle épaississait alors pour COMPENSER
-  // l'anticrénelage ; ici elle dessine vraiment la goutte, et la queue s'affine
-  // toute seule dans l'étampe.
-  const th = Math.max(1, Math.round((1 + 0.6 * r + 0.35 * g) * RAIN_TUNE.width));
-  const lenB = len * (1 + 0.25 * g);
-  const V = rainVeilFor(n, wind * lenB * 0.8, lenB, th, W, H);
+  // La forme de la goutte (inclinaison, longueur, épaisseur : la clé de la nappe) suit
+  // la rafale par PALIERS (gustTier) ; vitesse et rideau de rafale, en continu.
+  const shp = rainDropShape(r, gustTier(g));
+  const V = rainVeilFor(n, shp.dx, shp.dy, shp.th, W, H);
   if (!V) { ctx.imageSmoothingEnabled = prevAA; return; }
   // L'opacité passe par le CONTEXTE et non par la couleur : l'étampe porte déjà
   // son propre dégradé tête/queue, on ne fait que la doser.

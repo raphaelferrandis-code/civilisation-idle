@@ -23,7 +23,7 @@ import { registerChoiceDialog } from "../choiceDialog.js";
 import { tick } from "../actions/tick.js";
 import { icareClimb, icareDescend, atlasEpauler, sisyphePousser, babelDeclareTongue, babelToggleAutoTongue, ragnarokOffrir, ragnarokOfferingCost } from "../actions/myths.js";
 import { openCrisisEvent, autoResolveCrisisEvent } from "../actions/crisis.js";
-import { ICARE_CLIMB_RUPTURE, ICARE_CLIMB_PROD_MULT, ATLAS_SHOULDER_CD_TICKS, ATLAS_COUNT_THRESHOLD, SISYPHE_CRANS, SISYPHE_MONTEES_TARGET, SISYPHE_STEP_BASE, BABEL_TOWER_TARGET, BABEL_COMMON_TONGUE_MULT, RAGNAROK_ARK_TARGET, RAGNAROK_ARK_COOLDOWN_MS, RAGNAROK_WINTER_AT_MS, RAGNAROK_WINTER_PROD_MULT, RAGNAROK_WOLF_AT_MS, RAGNAROK_FIRE_AT_MS } from "../../data/myths.js";
+import { ICARE_CLIMB_RUPTURE, ICARE_CLIMB_PROD_MULT, ICARE_HOLD_SEC, ATLAS_SHOULDER_CD_TICKS, ATLAS_COUNT_THRESHOLD, SISYPHE_CRANS, SISYPHE_MONTEES_TARGET, SISYPHE_STEP_BASE, BABEL_TOWER_TARGET, BABEL_COMMON_TONGUE_MULT, RAGNAROK_ARK_TARGET, RAGNAROK_ARK_COOLDOWN_MS, RAGNAROK_WINTER_AT_MS, RAGNAROK_WINTER_PROD_MULT, RAGNAROK_WOLF_AT_MS, RAGNAROK_FIRE_AT_MS } from "../../data/myths.js";
 import { buyBuilding } from "../actions/building.js";
 import { buildingCostAt, ruinGain } from "../mechanics.js";
 import { buildings } from "../../data/buildings.js";
@@ -340,14 +340,43 @@ describe("Icare — le vol par paliers", () => {
     expect(infraAt(3) / base).toBeCloseTo(Math.pow(ICARE_CLIMB_PROD_MULT, 3), 4);
   });
 
-  it("la 5e montée sacre le Mythe au tick même, et l'Aile reprend le cadran sans couture", () => {
+  // Audit 2026-10-05, BUG-41 : la 5e montée sacrait le Mythe en 5 clics gratuits.
+  // Il faut désormais TENIR l'altitude 5 pendant 2 min de jeu ; le sacre tombe au
+  // tick qui achève le maintien.
+  it("la 5e montée ne sacre plus : 2 min tenues à l'altitude 5, et l'Aile reprend le cadran sans couture", () => {
     volState({ activeMythId: "mythe_d_icare", icareAltitude: 4, icareHeritage: false, instability: 0.2 });
     icareClimb();                 // altitude 5
-    tick(1);                      // validation vivante
+    for (let s = 1; s < ICARE_HOLD_SEC; s += 1) {
+      state.instability = 0.2;    // régulée : une crise terminale gèlerait le maintien
+      tick(1);
+    }
+    expect(state.mythsCompleted.mythe_d_icare).toBeUndefined(); // 119 s tenues
+    state.instability = 0.2;
+    tick(1);                      // la 120e seconde : validation vivante
     expect(state.mythsCompleted.mythe_d_icare).toBe(true);
     expect(state.activeMythId).toBeNull();       // contrainte levée…
     expect(state.icareHeritage).toBe(true);      // …l'Aile est accordée…
     expect(state.icareAltitude).toBe(5);         // …et l'altitude reste ENTRE SES MAINS
+  });
+
+  it("redescendre sous l'altitude 5 remet le maintien à zéro ; pause et crise terminale le gèlent", () => {
+    volState({ activeMythId: "mythe_d_icare", icareAltitude: 5, icareHeritage: false, instability: 0.2 });
+    for (let s = 0; s < 90; s += 1) { state.instability = 0.2; tick(1); }
+    expect(state.icareHoldSec).toBe(90);
+    icareDescend();
+    tick(1);
+    expect(state.icareHoldSec).toBe(0);          // le maintien repart de zéro
+    icareClimb();
+    state.instability = 0.2;
+    tick(1);
+    expect(state.icareHoldSec).toBe(1);
+    stateModule.setGamePaused(true);             // une fenêtre de crise ouverte
+    tick(1);
+    stateModule.setGamePaused(false);
+    state.crisisLimitAnnounced = true;           // la crise terminale gèle la cité
+    tick(1);
+    expect(state.icareHoldSec).toBe(1);
+    expect(state.mythsCompleted.mythe_d_icare).toBeUndefined();
   });
 
   it("redescendre est gratuit et borné à zéro", () => {

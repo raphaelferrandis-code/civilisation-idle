@@ -153,6 +153,15 @@ export function edgeStrips(imageData) {
   return { left: strip(false), right: strip(true), top: rowTone(0), bottom: rowTone(h - 1) };
 }
 
+// CADENCE DE LA SÈVE (décision de Raph du 2026-10-05, PERF-40 = B). Chaque image
+// repose le calque entier (putImageData), agrandi ~3,5 fois en pixelated : avec une
+// carte graphique ça ne coûte rien (0,07 cœur à 15 i/s), mais quand le navigateur
+// dessine sans (rendererProbe.slowRenderer, le Chrome de Raph), le raster et la
+// composition du calque agrandi prenaient 1,8 à 2 cœurs. 8 i/s dans ce cas seulement ;
+// sur GPU, rien ne change.
+export const SAP_FRAME_MS = { gpu: 66, soft: 125 };
+export const sapFrameMs = (slow) => (slow ? SAP_FRAME_MS.soft : SAP_FRAME_MS.gpu);
+
 // Peint la sève dans `out` (ImageData w×h, effacée ici).
 //   st.lit     : Set des veines allumées (un nœud acquis allume toute sa lignée)
 //   st.pending : Set des veines qui mènent à un nœud À PRENDRE (fil continu, atténué)

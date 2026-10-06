@@ -41,11 +41,17 @@
 //   au format des fontaines — anim/<clé>.png = N images PLEINES (le jeu les pose À
 //   LA PLACE du statique, isoPlaza.propAnim) et anim/zone/<clé>.png = ce qui bouge
 //   (lu par la garde isoPlaza.test.js) ; le statique n'est pas touché.
-//   Sortie : <clé>-live.png, bande HORIZONTALE de N images au canvas de l'image,
-//   qui ne porte QUE ce qui bouge (transparent ailleurs), et <clé>-back.png quand
-//   une pièce a été gommée. L'image d'origine n'est pas touchée : elle reste le
-//   repli tant que les couches ne sont pas chargées (cityEngineSprites.LIVE_LAYERS,
-//   tenu à la main : n, ms et fond y sont reportés — garde sceneLive.test.js).
+//   Sortie : <clé>-live.png, bande HORIZONTALE de N TIMBRES qui ne portent QUE ce
+//   qui bouge, et <clé>-back.png quand une pièce a été gommée. Le timbre est la boîte
+//   réunie de ce qui bouge sur toutes les images, élargie d'un pixel vide de chaque
+//   côté (dans la toile) ; sa place dans l'image, `box: [x, y, w, h]`, est imprimée
+//   (audit du 05/10, ASSET-4, choix A de Raph : des images pleine toile, où 0 à 28 %
+//   bouge, pesaient 37,8 Mo décodés pour les 24 bandes, et chacune se reposait plein
+//   cadre à chaque image). Les habillages des Plaisirs (`dir`) gardent N images au
+//   canvas de l'image : plaisirsSkin les reporte lui-même dans le cadre du lieu.
+//   L'image d'origine n'est pas touchée : elle reste le repli tant que les couches ne
+//   sont pas chargées (cityEngineSprites.LIVE_LAYERS, tenu à la main : n, ms, fond et
+//   boîte y sont reportés — garde sceneLive.test.js).
 //   Source lue dans git à SOURCE_REV : relancer ne repart jamais de sa sortie (sauf
 //   `fromDisk`, une image plus jeune — elle n'est jamais réécrite par ce script).
 //
@@ -249,6 +255,20 @@ const lum = (c) => 0.3 * c[0] + 0.59 * c[1] + 0.11 * c[2];
 // Hash déterministe (aucun Math.random : relancer rend les mêmes PNG) : `hash`,
 // importé de scripts/lib/fire.mjs avec le dessin de la flamme.
 const inBox = (x, y, b) => x >= b[0] && x <= b[2] && y >= b[1] && y <= b[3];
+// Boîte [x, y, w, h] des pixels opaques de TOUTES les images (W × H, RGBA), élargie
+// d'un pixel de chaque côté sans sortir de la toile.
+function liveBox(frames, W, H) {
+  let x0 = W, y0 = H, x1 = -1, y1 = -1;
+  for (const fr of frames) {
+    for (let p = 0; p < W * H; p += 1) {
+      if (!fr[p * 4 + 3]) continue;
+      const x = p % W, y = (p - x) / W;
+      if (x < x0) x0 = x; if (x > x1) x1 = x; if (y < y0) y0 = y; if (y > y1) y1 = y;
+    }
+  }
+  x0 = Math.max(0, x0 - 1); y0 = Math.max(0, y0 - 1); x1 = Math.min(W - 1, x1 + 1); y1 = Math.min(H - 1, y1 + 1);
+  return [x0, y0, x1 - x0 + 1, y1 - y0 + 1];
+}
 
 function selectZone(src, z, claimed) {
   const { width: W, height: H, data } = src;
@@ -528,7 +548,11 @@ for (const [cle, T] of Object.entries(TARGETS)) {
     frames.push(fr);
     for (let y = 0; y < H; y += 1) fr.copy(strip.data, (y * W * T.n + f * W) * 4, y * W * 4, (y + 1) * W * 4);
   }
-  console.log(`${cle} (${W}×${H}) : ${T.n} × ${T.ms} ms — ${live.map((e) => `${e.z.kind} ${e.idx.length}`).join(', ')}${erased ? ` ; gommé ${erased} px` : ''}`);
+  // LE TIMBRE d'un bâtiment (cf. l'en-tête) : boîte réunie des pixels qui bougent, plus
+  // un pixel vide autour — sur GPU, un échantillon de bord tombe sur ce vide et non sur
+  // le timbre voisin de la bande.
+  const box = T.dir || T.plaza ? null : liveBox(frames, W, H);
+  console.log(`${cle} (${W}×${H}) : ${T.n} × ${T.ms} ms — ${live.map((e) => `${e.z.kind} ${e.idx.length}`).join(', ')}${erased ? ` ; gommé ${erased} px` : ''}${box ? ` ; box: [${box.join(', ')}]` : ''}`);
   // Planche : origine (ou masques), fond, puis fond + image (ce que le jeu compose).
   const comp = frames.map((fr) => { const c = Buffer.from(back); for (let i = 0; i < fr.length; i += 4) if (fr[i + 3]) fr.copy(c, i, i, i + 4); return c; });
   let first = src.data;
@@ -547,7 +571,13 @@ for (const [cle, T] of Object.entries(TARGETS)) {
     fs.writeFileSync(`${dir}/anim/zone/${cle}.png`, PNG.sync.write(zone));
     continue;
   }
-  fs.writeFileSync(`${dir}/${cle}-live.png`, PNG.sync.write(strip));
+  if (box) {
+    const [bx, by, bw, bh] = box, st = new PNG({ width: bw * T.n, height: bh });
+    frames.forEach((fr, f) => {
+      for (let y = 0; y < bh; y += 1) fr.copy(st.data, (y * bw * T.n + f * bw) * 4, ((by + y) * W + bx) * 4, ((by + y) * W + bx + bw) * 4);
+    });
+    fs.writeFileSync(`${dir}/${cle}-live.png`, PNG.sync.write(st));
+  } else fs.writeFileSync(`${dir}/${cle}-live.png`, PNG.sync.write(strip));
   const fBack = `${dir}/${cle}-back.png`;
   if (erased) { const b = new PNG({ width: W, height: H }); back.copy(b.data); fs.writeFileSync(fBack, PNG.sync.write(b)); } else if (fs.existsSync(fBack)) fs.unlinkSync(fBack);
 }

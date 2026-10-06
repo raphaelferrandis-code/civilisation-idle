@@ -1017,7 +1017,6 @@
 :root[data-pointer="coarse"] .hud-pop {
   background: var(--surface-panel);
   backdrop-filter: none;
-  -webkit-backdrop-filter: none;
 }
 
 /* ⚠⚠ LA RÉGULATION AVAIT ÉCHAPPÉ À CETTE LISTE, ET POUR UNE RAISON QUI SE
@@ -1037,7 +1036,6 @@
 :root[data-pointer="coarse"] .app[data-active-view="city"] .city-controls-panel {
   background: var(--surface-panel);
   backdrop-filter: none;
-  -webkit-backdrop-filter: none;
 }
 
 /* La barre d'onglets aussi : c'est elle qu'on vise en aveugle, au pouce. */
@@ -1050,14 +1048,12 @@
 :root[data-pointer="coarse"] .topbar-resources {
   background: var(--surface-panel);
   backdrop-filter: none;
-  -webkit-backdrop-filter: none;
 }
 
 /* Plancher relevé sur les petits caractères de la boutique — c'est la surface
    qu'on lit le plus longtemps. 0.78rem = 12,5px, contre 11,5 avant. */
 :root[data-pointer="coarse"] .city-shop-dock .pr-prod-item,
 :root[data-pointer="coarse"] .city-shop-dock .pr-gain,
-:root[data-pointer="coarse"] .city-shop-dock .pr-eta,
 :root[data-pointer="coarse"] .city-shop-dock .pr-count {
   font-size: 0.78rem;
 }

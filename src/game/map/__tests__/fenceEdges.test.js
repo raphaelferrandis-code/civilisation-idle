@@ -7,7 +7,7 @@
 // sens : elle pose là où il faut, et surtout elle ne pose RIEN à l'intérieur d'un
 // quartier homogène, ce qui serait le treillis qu'on vient de retirer.
 import { describe, it, expect, beforeEach, afterEach } from "vitest";
-import { fenceEdges, FENCE } from "../fenceEdges.js";
+import { fenceEdges, FENCE, midGates } from "../fenceEdges.js";
 
 // Sol de ville N×N ; `mat` donne la matière d'une cellule, `urban` par défaut.
 const carte = (N, mat = () => "urban") => {
@@ -200,6 +200,37 @@ describe("pose des clôtures", () => {
     const o = { ...carte(11, (k) => (w.has(k) ? "wonder" : "urban")), wonderSet: w };
     expect(fenceEdges(o, { ...FENCE, on: false })).toEqual([]);
     expect(fenceEdges(o, { ...FENCE, cap: 3 }).length).toBe(3);
+  });
+
+  // LE SQUARE DE LA VILLE PAR ÎLOTS (audit 2026-10-05, BUG-62 ; choix (b) de Raph) :
+  // chaque place est un îlot CEINT DE RUES. La porte « partout où une route touche »
+  // ouvrait tout le pourtour — 0 arête de grille sur 52 squares mesurés. Désormais :
+  // une porte au milieu de chaque côté, la grille partout ailleurs, même le long d'une rue.
+  it("le square ceint de rues garde sa grille, percée au milieu de chaque côté", () => {
+    expect(DEFAUT.gateMid).toBe(true);
+    const sq = new Set();
+    for (let y = 3; y <= 6; y += 1) for (let x = 3; x <= 6; x += 1) sq.add(x + "," + y);
+    const mat = (k) => (sq.has(k) ? "plaza" : "road");      // tout autour : la rue
+    const o = carte(10, mat);
+    const e = fenceEdges(o).map(cle);
+    // 16 arêtes de pourtour, 2 portes par côté de 4 → 8 arêtes de grille, aux angles.
+    expect(e.length).toBe(8);
+    for (const porte of ["4,3:n", "5,3:n", "4,6:s", "5,6:s", "3,4:w", "3,5:w", "6,4:e", "6,5:e"]) expect(e).not.toContain(porte);
+    for (const grille of ["3,3:n", "6,3:n", "3,3:w", "3,6:w", "6,6:s", "6,6:e"]) expect(e).toContain(grille);
+    // L'ancienne règle (porte à chaque rue) : plus une seule arête — le défaut mesuré.
+    expect(fenceEdges(o, { ...FENCE, gateMid: false }).length).toBe(0);
+  });
+
+  it("midGates : une porte par côté impair, deux par côté pair, chaque bout de côté la sienne", () => {
+    // 3×5 : côtés de 3 (une porte) et de 5 (une porte).
+    const r = new Set();
+    for (let y = 0; y < 5; y += 1) for (let x = 0; x < 3; x += 1) r.add(x + "," + y);
+    expect([...midGates(r)].sort()).toEqual(["0,2,w", "1,0,n", "1,4,s", "2,2,e"]);
+    // Un côté coupé en deux (une encoche au milieu du bord nord) : chaque morceau a sa porte.
+    const u = new Set();
+    for (let y = 0; y < 3; y += 1) for (let x = 0; x < 5; x += 1) if (!(y === 0 && x === 2)) u.add(x + "," + y);
+    const g = [...midGates(u)].filter((k) => k.endsWith(",n"));
+    expect(g.sort()).toEqual(["0,0,n", "1,0,n", "2,1,n", "3,0,n", "4,0,n"]);
   });
 
   it("rend la MÊME liste, dans le même ordre, à chaque calcul", () => {

@@ -255,6 +255,15 @@ export default function IcarusStage({ table, onClose }) {
           tout le cadran ») et porte la commande SE POSER en surimpression. */}
       {phase !== 'ready' && (
       <div className={`icarus-sky${phase === 'crashed' ? ' is-crashed' : ''}${outcome?.jackpotFaveur ? ' is-jackpot' : ''}`} style={{ background: icarusSkyCss(band) }}>
+        {/* Le halo qui respire, peint une fois sur deux calques dont seule
+            l'opacité s'anime (audit 2026-10-05, PERF-65) ; l'embrasement de la
+            chute garde son propre filtre, sur le soleil. */}
+        {phase !== 'crashed' && (
+          <>
+            <i className="icarus-sun-halo is-repos" aria-hidden="true" />
+            <i className="icarus-sun-halo is-eclat" aria-hidden="true" />
+          </>
+        )}
         <img
           className={`icarus-sun${phase === 'crashed' ? ' is-flare' : ''}`}
           src="/pixelart/ui/icarus/sun.png"

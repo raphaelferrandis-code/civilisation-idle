@@ -170,11 +170,15 @@ setNotifyPaused(true)            // aucun re-render React pendant la boucle
 while (remaining > 0 && collapses < OFFLINE_MAX_COLLAPSES) {
   step = min(STEP, remaining); remaining -= step; virtual += step
   tick(step)                      // prod + Usure + dérive Rupture + auto-achat (Héphaïstos) + pics
-  fire = trigger==="usure" ? timeWear>=seuil : trigger==="temps" ? cycleAge>=timeSeconds : crisisLimitAnnounced
+  fire = trigger==="usure" ? timeWear>=seuil : trigger==="temps" ? cycleAge>=timeSeconds : false
+  fire ||= crisisLimitAnnounced && graceÉcoulée   // crise terminale : 3 min depuis l'annonce, comme en ligne
+  if (fire && prepare && rationner/réformer possible) fire = false   // « préparer » rejoué
   if (fire && ruinGain(projected) > 0) { completeCollapse(...); collapses++; markThresholds() }
 }
 // temps restant après le cap d'effondrements : crédit linéaire (pas de gâchis)
 ```
+
+- **Parité avec le jeu ouvert** (audit 2026-10-05, BUG-76, décision de Raph) : la crise terminale attend la même grâce (`autoCollapseDelay()`, 3 min depuis `crisisOpenedAt`, posé sous l'horloge virtuelle) et l'option `prepare` tente le même Rationnement puis les mêmes Réformes avant la chute. Les deux règles vivent dans `terminalGraceElapsed` et `edictPrepareTerminal`, partagées par `checkAutoCollapse` et la sim : fermer le jeu ne farme plus plus vite que le laisser ouvert.
 
 - `OFFLINE_MAX_COLLAPSES` = **20** → borne perf + équilibre.
 - **Effets de bord neutralisés** : notifications React suspendues (`setNotifyPaused`), crises narratives supprimées, spam de Chronique jeté (`history` sauvé/restauré), `completeCollapse` (sync) au lieu de `runCollapseSequence` (async/épitaphe).

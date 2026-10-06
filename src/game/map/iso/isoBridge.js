@@ -542,6 +542,14 @@ function bakeFor(m) {
 function originScreen(B) {
   return worldToScreen(B.oy + B.ox / 2, B.oy - B.ox / 2);
 }
+// Boîte ÉCRAN du raster d'une travée (item 'bridgeSeg'), ou null tant qu'il n'est pas
+// cuit : la forêt cuite dans le sol (forestBake.js) y marque ce que le pont recouvre.
+export function bridgeSegScreenBox(it) {
+  const bk = _bakes.get(it.si);
+  if (!bk) return null;
+  const B = bk.B, z = CM.cam.zoom, o = originScreen(B);
+  return { x0: o.x, y0: o.y, x1: o.x + B.w * z, y1: o.y + B.h * z };
+}
 
 // ── Tri peintre ──────────────────────────────────────────────────────────────
 // LES HABITUÉS VONT ET VIENNENT (lot 5) : chacun a son cycle — il arrive en longeant
@@ -736,10 +744,11 @@ export function drawIsoBridgeSeg(ctx, it, now) {
       if (hb.bx + hb.dw > cut) {
         ctx.save();
         ctx.beginPath();
-        ctx.rect(cut, hb.by - 2, hb.bx + hb.dw - cut + 2, hb.dw + 4);
+        // La coque n'est plus cuite au carré (boatKit, PERF-36) : sa hauteur est `dh`.
+        ctx.rect(cut, hb.by - 2, hb.bx + hb.dw - cut + 2, hb.dh + 4);
         ctx.clip();
         ctx.globalAlpha = hb.a == null ? 1 : hb.a;
-        ctx.drawImage(hb.img, hb.bx, hb.by, hb.dw, hb.dw);
+        ctx.drawImage(hb.img, hb.bx, hb.by, hb.dw, hb.dh);
         if (hb.crew) hb.crew(ctx);          // ses marins avec (boatKit.drawCrew)
         ctx.restore();
       }
@@ -1039,6 +1048,10 @@ export function drawIsoBridgeUnder() {
     ctx.fillStyle = bridgeTune.under;
     fillQ(qUnder);
     if (qSun) {
+      // L'ombre du soleil au mode de toutes les autres (source-over depuis PERF-1) :
+      // en multiply, son bleu nuit ne s'y poserait pas, l'ombre du pont aurait un
+      // autre ton que celle des façades.
+      ctx.globalCompositeOperation = SUN_SHADOW.mode || 'multiply';
       ctx.fillStyle = SUN_SHADOW.col;
       ctx.globalAlpha = sun;
       fillQ(qSun);

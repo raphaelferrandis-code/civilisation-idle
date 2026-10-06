@@ -22,6 +22,16 @@
   image-rendering: pixelated;
   vertical-align: -0.15em;
 }
+/* Le <picture> d'une icône à variante compacte (PixelIcon `compact`) ne pose
+   aucune boîte : l'<img> reste l'enfant direct de la mise en page (flex du rail).
+   ⚠ Le <source> aussi doit disparaître : la feuille du navigateur ne le masque
+   pas, et devenu enfant du flex il ajoutait un écart (+4 px par lieu, mesuré). */
+.px-icon-picture {
+  display: contents;
+}
+.px-icon-picture > source {
+  display: none;
+}
 
 /* Barre de stats de l'encart Cité : format fixe, plus net que l'em par défaut. */
 .csp-stat-icon.px-icon {
@@ -81,7 +91,6 @@
   /* Voile sombre du bandeau (lisibilité sur la carte) */
   background: linear-gradient(180deg, rgba(13, 15, 23, 0.80), rgba(13, 15, 23, 0.62));
   backdrop-filter: blur(14px);
-  -webkit-backdrop-filter: blur(14px);
   /* Le cadre or vient de frames.css (cadre universel, réglable via --ui-frame-w). */
 }
 
@@ -94,7 +103,6 @@
   background: transparent;
   box-shadow: none;
   backdrop-filter: none;
-  -webkit-backdrop-filter: none;
   overflow: hidden;
   cursor: default;
   /* Conteneur de requête : l'odomètre se dimensionne sur la largeur réelle
@@ -568,17 +576,18 @@ dialog {
   border: 1px solid var(--line);
   border-radius: 0;
   background: var(--panel-2);
-  backdrop-filter: blur(16px);
-  -webkit-backdrop-filter: blur(16px);
   color: var(--text);
   box-shadow: 0 24px 64px rgba(0, 0, 0, 0.7);
   padding: 1.5rem;
 }
 
+/* Pas de flou « verre » sur les modales (décision de Raph, audit BUG-53) :
+   le voile sombre à 75 % masque déjà le fond, et un flou recalculé sous la
+   modale coûte un cœur en rendu logiciel. Ne jamais remettre la forme
+   -webkit-backdrop-filter : lightningcss ne garde qu'elle au build, et
+   Chromium l'ignore (le flou n'existait alors qu'en dev). */
 dialog::backdrop {
   background: rgba(5, 6, 8, 0.75);
-  backdrop-filter: blur(4px);
-  -webkit-backdrop-filter: blur(4px);
 }
 
 .event-dialog p {
@@ -1168,6 +1177,24 @@ dialog::backdrop { background: rgba(8, 5, 1, 0.72); }
   100% { transform: translateX(calc(100vw)); }
 }
 
+/* 8 à 10. Époques transcendantes (ères 35+, bandes 7 à 9). Sans règle, le
+   bandeau retombait sur le style neutre (décision de Raph sur BUG-106 : a).
+   Teintes des anciennes peaux d'époque — jade, or, irisé — et AUCUN cadre
+   ajouté : en Cité, le HUD impose fond et bordure, le thème ne joue que sur
+   le titre, son halo et le texte. */
+/* 8. Conscience partagée : jade bioluminescent */
+.chronicle-ticker.is-noosphere .ticker-masthead { color: rgb(101, 226, 174); letter-spacing: 0.14em; text-shadow: 0 0 8px rgba(49, 216, 146, 0.55); }
+.chronicle-ticker.is-noosphere .ticker-line { color: rgb(206, 233, 222); }
+.chronicle-ticker.is-noosphere .ticker-new-dot { background: rgb(49, 216, 146); box-shadow: 0 0 6px rgb(49, 216, 146); }
+/* 9. Écho stellaire : or stellaire chaud */
+.chronicle-ticker.is-stellar .ticker-masthead { color: rgb(240, 203, 117); letter-spacing: 0.16em; text-shadow: 0 0 8px rgba(234, 182, 62, 0.55); }
+.chronicle-ticker.is-stellar .ticker-line { color: rgb(233, 225, 206); }
+.chronicle-ticker.is-stellar .ticker-new-dot { background: rgb(234, 182, 62); box-shadow: 0 0 6px rgb(234, 182, 62); }
+/* 10. Verbe premier : blanc-violet irisé, halo à deux teintes (froide, chaude) */
+.chronicle-ticker.is-demiurge .ticker-masthead { color: rgb(236, 228, 248); letter-spacing: 0.18em; text-shadow: -1px 0 6px rgba(140, 210, 255, 0.5), 1px 0 6px rgba(255, 160, 225, 0.5); }
+.chronicle-ticker.is-demiurge .ticker-line { color: rgb(225, 206, 233); }
+.chronicle-ticker.is-demiurge .ticker-new-dot { background: rgb(215, 195, 223); box-shadow: -1px 0 5px rgba(140, 210, 255, 0.8), 1px 0 5px rgba(255, 160, 225, 0.8); }
+
 /* Dépêche de crise : signal rouge persistant tant que la crise est ouverte
    (déclaré en dernier pour primer sur les thèmes d''âge) */
 .chronicle-ticker.is-crisis {
@@ -1298,4 +1325,59 @@ main:focus { outline: none; }
   color: var(--text-strong);
   font-variant-numeric: tabular-nums;
   white-space: nowrap;
+}
+
+/* ============================================================================
+   LUEUR « PEINTE UNE FOIS, OPACITÉ ANIMÉE » (audit 2026-10-05, PERF-65 b,
+   décision de Raph). Une ombre floue ANIMÉE (box-shadow, drop-shadow) n'est pas
+   composable : le navigateur la repeint à chaque image, sur le processeur en
+   rendu logiciel, tant que la lueur respire (toute la Nuit pour la cagnotte).
+   Ici les deux états de la lueur sont peints UNE fois, chacun sur son calque —
+   ::before le repos, ::after l'éclat — et seule leur opacité respire, en fondu
+   croisé : le compositeur mêle deux calques déjà peints. Les deux extrêmes sont
+   ceux d'avant ; entre les deux, la lueur s'allume au lieu de grandir.
+   Mode d'emploi : <i className="lueur" aria-hidden="true" /> dans un parent
+   positionné, puis sur ce <i> :
+     --lueur-a, --lueur-b : box-shadow du repos et de l'éclat ;
+     --lueur-duree        : UNE demi-respiration (l'animation va et vient) ;
+     --lueur-retard       : retard de la première respiration ;
+     --lueur-marge        : décolle la lueur du bord du parent, quand un anneau
+                            peint par le parent doit rester PAR-DESSUS elle (une
+                            ombre externe n'est jamais peinte sous sa boîte).
+   Mouvement réduit ou « Aucun » : le repos seul, fixe. */
+.lueur,
+.lueur::before,
+.lueur::after {
+  position: absolute;
+  pointer-events: none;
+  border-radius: inherit;
+}
+.lueur {
+  inset: calc(-1 * var(--lueur-marge, 0px));
+}
+.lueur::before,
+.lueur::after {
+  content: "";
+  inset: 0;
+  animation: lueur-fondu var(--lueur-duree, 1s) ease-in-out var(--lueur-retard, 0s) infinite alternate backwards;
+}
+.lueur::before {
+  box-shadow: var(--lueur-a, none);
+  animation-direction: alternate-reverse;
+}
+.lueur::after {
+  box-shadow: var(--lueur-b, none);
+  opacity: 0;
+}
+@keyframes lueur-fondu {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .lueur::before,
+  .lueur::after { animation: none; }
+}
+:root[data-motion="none"] .lueur::before,
+:root[data-motion="none"] .lueur::after {
+  animation: none !important;
 }

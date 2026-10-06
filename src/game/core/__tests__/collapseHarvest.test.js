@@ -11,7 +11,7 @@ import { describe, it, expect, beforeEach, afterEach, vi } from "vitest";
 import { state, setState, hydrateState, invalidateRenderCache } from "../state.js";
 import { registerChoiceDialog } from "../choiceDialog.js";
 import { runCollapseSequence, collapseCause } from "../events.js";
-import { collapseHarvest, collapseHarvestBase } from "../mechanics/collapseHarvest.js";
+import { collapseHarvest, collapseHarvestBase, projectedCollapseHarvest, projectedCollapseLegacy } from "../mechanics/collapseHarvest.js";
 import { EPITAPH_LEGACIES, epitaphLegacyById, epitaphRuinMultiplier } from "../../data/epitaphs.js";
 import { cycleVowRuinMult } from "../../data/vows.js";
 import { fmt } from "../utils.js";
@@ -89,5 +89,32 @@ describe("chute — la stèle, le crédit et le Journal disent le même chiffre"
     expect(ligne, "la ligne d'effondrement doit être écrite").toBeTruthy();
     expect(ligne).toContain(`linceul de ${fmt(credite)} ruines`);
     expect(ligne).not.toContain("linceul de 100 ruines");
+  });
+});
+
+// Décision de Raph sur BUG-33 (A) : l'autel, la jauge de la Cité et le Bilan
+// affichent la moisson COMPLÈTE, avec le legs gravé ou la dernière volonté.
+describe("moisson affichée — le chiffre de l'autel est celui que verse la chute", () => {
+  it("testament gravé : l'affichage vaut le crédit réel, au rite et au legs près", async () => {
+    state.upgrades.rituel_effondrement = true;
+    state.testamentLegacyId = "plunder";
+    invalidateRenderCache("all");
+    const affiche = projectedCollapseHarvest(D(100), collapseCause());
+    expect(affiche.gt(100), "le Rite et le Pillage majorent déjà le chiffre affiché").toBe(true);
+    const seq = runCollapseSequence(D(100), "manual");
+    await vi.advanceTimersByTimeAsync(2000);
+    await seq;
+    expect(D(state.prevCycle.ruinGain).eq(affiche)).toBe(true);
+  });
+
+  it("sans testament, la dernière volonté ; sans rien, aucun legs", () => {
+    state.testamentLegacyId = null;
+    state.nextEpitaphLegacy = { id: "plunder", cause: "rupture", chosenCycle: 0, startedAt: FIXED_NOW };
+    expect(projectedCollapseLegacy()?.id).toBe("plunder");
+    const cause = collapseCause();
+    expect(projectedCollapseHarvest(D(100), cause).eq(collapseHarvest(D(100), epitaphLegacyById("plunder"), cause))).toBe(true);
+    state.nextEpitaphLegacy = null;
+    expect(projectedCollapseLegacy()).toBe(null);
+    expect(projectedCollapseHarvest(D(100), cause).eq(collapseHarvest(D(100), null, cause))).toBe(true);
   });
 });

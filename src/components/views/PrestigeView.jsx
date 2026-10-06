@@ -19,6 +19,7 @@ import {
   ruptureTarget
 } from '../../game/core/mechanics.js';
 import { collapseCause } from '../../game/core/events.js';
+import { projectedCollapseHarvest } from '../../game/core/mechanics/collapseHarvest.js';
 import {
   collapse,
   runTerminalCrisisAction,
@@ -49,6 +50,11 @@ export default function PrestigeView() {
   const crisisOpenedAt = useGameState(s => s.crisisOpenedAt);
   const firstGame = useGameState(isFirstGame);
   useGameState(s => s.activeMythId);
+  const atlasCrushed = useGameState(s => s.atlasCrushed);
+  // Le chiffre de l'autel compte le legs gravé et le vœu (BUG-33) : graver un
+  // autre sceau, ou tenir le vœu, doit le redessiner.
+  useGameState(s => s.testamentLegacyId);
+  useGameState(s => s.cycleVow);
   const history = useGameState(s => s.history);
   const terminalPreparations = useGameState(s => s.terminalPreparations);
   // L'auto-effondrement « rupture100 » est la SEULE configuration où le moteur
@@ -102,8 +108,10 @@ export default function PrestigeView() {
   const hoverTarget = isCrisisActive ? hoverTargetRaw : null;
 
   // Icare ne confisque plus l'effondrement manuel : le « vol par paliers » rend
-  // la main au joueur (refonte 2026-07-19). Seul Atlas verrouille encore.
-  const mythBlocksCollapse = isMythEffectActive("mythe_d_atlas");
+  // la main au joueur (refonte 2026-07-19). Seul Atlas verrouille encore, tant
+  // que le ciel n'a pas écrasé la cité : le pacte rompu rend la chute (le moteur,
+  // collapse(), applique la même règle).
+  const mythBlocksCollapse = isMythEffectActive("mythe_d_atlas") && !atlasCrushed;
   const canCollapse = ruinGainVal.gt(0) && !mythBlocksCollapse;
 
 
@@ -192,9 +200,19 @@ export default function PrestigeView() {
   const wearCrisis = isCrisisActive && (timeWear || 0) >= 1 && instability < 1;
   const factors = ruinGainFactors();
   const journal = (history || []).slice(-5);
-  // Préviz de moisson : au survol d'un palier, l'odomètre roule vers le total
-  // qu'apporterait ce rite (et revient au départ du survol).
-  const previewGain = hoverTarget ? ruinGainWithPrep(hoverTarget.prep) : null;
+  // Moisson COMPLÈTE (décision de Raph sur BUG-33 : A) : Rite × legs gravé, ou
+  // dernière volonté, × vœu — le chiffre que la chute versera, et non plus le
+  // gain brut. Préviz : au survol d'un palier, l'odomètre roule vers le total
+  // qu'apporterait ce rite (et revient au départ du survol). Le rite DÉCLARE sa
+  // cause, donc l'affinité du legs : même ordre que collapseCause, où l'Usure
+  // prime sur la cause déclarée.
+  const shownGain = isCrisisActive ? projectedCollapseHarvest(ruinGainVal, collapseCause()) : null;
+  const previewGain = hoverTarget
+    ? projectedCollapseHarvest(
+        ruinGainWithPrep(hoverTarget.prep),
+        (timeWear || 0) >= 1 ? "time" : TERMINAL_EDICT_CAUSE[hoverTarget.type]
+      )
+    : null;
 
   // HORS CRISE : LA VEILLE (refonte « chaque onglet est un lieu », maquette V4).
   // Décor de la salle des sceaux, la Rupture, l'Usure et la chute annoncée en
@@ -204,6 +222,11 @@ export default function PrestigeView() {
   // le pourquoi est dans sa bulle et dans l'Aide, plus en phrase à l'écran.
   if (!isCrisisActive) {
     const target = ruptureTarget();
+    // PLATEAU (audit 2026-10-05, BUG-78, décision de Raph) : Rupture haute mais
+    // cible sous 100 % — la bascule de la crise terminale exige une cible pleine,
+    // la jauge s'arrêtera donc sous la chute. Un indicateur discret (« plafond »
+    // au lieu de « cible », repère ambré sur la piste), le pourquoi en bulle.
+    const plateau = target < 1 && (instability || 0) >= 0.9;
     const causeLabel = String(FAVORED_CAUSE_LABELS[collapseCause()] || '').replace(/^(chute|fall) /i, '');
     return (
       <Place
@@ -218,7 +241,9 @@ export default function PrestigeView() {
         keys={<>
           <div
             className="place-key is-wide"
-            {...tipProps(tr({ fr: 'Rupture', en: 'Rupture' }), tr({ fr: `Elle glisse vers sa cible : ${pct(target)}.`, en: `It drifts toward its target: ${pct(target)}.` }))}
+            {...tipProps(tr({ fr: 'Rupture', en: 'Rupture' }), plateau
+              ? tr({ fr: `Sa cible plafonne à ${pct(target)} : la Rupture n'ira pas jusqu'à la chute. L'Usure, ou l'Édit réglé sur « Durée », y mènera.`, en: `Its target caps at ${pct(target)}: Rupture will not reach the fall. Wear, or the Edict set to “Time”, will get there.` })
+              : tr({ fr: `Elle glisse vers sa cible : ${pct(target)}.`, en: `It drifts toward its target: ${pct(target)}.` }))}
           >
             <span className="place-key-head">
               <span className="place-key-label">{tr({ fr: 'Rupture', en: 'Rupture' })}</span>
@@ -230,9 +255,9 @@ export default function PrestigeView() {
               <span className="tick" style={{ left: '50%' }} />
               <span className="tick" style={{ left: '75%' }} />
               <span className="tick" style={{ left: '90%' }} />
-              <span className="ghost" style={{ left: `${Math.min(1, target) * 100}%` }} />
+              <span className={`ghost${plateau ? ' is-plateau' : ''}`} style={{ left: `${Math.min(1, target) * 100}%` }} />
             </span>
-            <span className="place-key-sub">{tr({ fr: 'cible', en: 'target' })} <b className={target >= 1 ? 'is-rupture' : ''}>{pct(target)}</b></span>
+            <span className="place-key-sub">{plateau ? tr({ fr: 'plafond', en: 'ceiling' }) : tr({ fr: 'cible', en: 'target' })} <b className={target >= 1 ? 'is-rupture' : plateau ? 'is-bad' : ''}>{pct(target)}</b></span>
           </div>
           <div className="place-key" {...tipProps(tr({ fr: 'Usure du Temps', en: 'Wear of Time' }), null)}>
             <span className="place-key-head">
@@ -342,9 +367,9 @@ export default function PrestigeView() {
                                   ? tr({ fr: "Un seul rite par chute.", en: "Only one rite per fall." })
                                   : tr({ fr: `Pas assez de ${RITE_RESOURCE_LABEL[TERMINAL_RITE_RESOURCE[def.type]] ? tr(RITE_RESOURCE_LABEL[TERMINAL_RITE_RESOURCE[def.type]]) : ""} en réserve.`, en: "Not enough in reserve." })}
                                 onClick={() => { setHoverTarget(null); runTerminalCrisisAction(def.type, i); }}
-                                onMouseEnter={() => setHoverTarget({ prep: t.prep })}
+                                onMouseEnter={() => setHoverTarget({ prep: t.prep, type: def.type })}
                                 onMouseLeave={() => setHoverTarget(null)}
-                                onFocus={() => setHoverTarget({ prep: t.prep })}
+                                onFocus={() => setHoverTarget({ prep: t.prep, type: def.type })}
                                 onBlur={() => setHoverTarget(null)}
                               >
                                 <span className="edict-tier-row">
@@ -371,10 +396,10 @@ export default function PrestigeView() {
                 <h4>{tr({ fr: "Bilan de la Chute", en: "Fall Summary" })}</h4>
                 <div
                   className={`harvest-count${previewGain ? " is-preview" : ""}`}
-                  {...tipProps(null, tr({ fr: "Ruines récupérées à l'effondrement.", en: "Ruins recovered at the collapse." }))}
+                  {...tipProps(null, tr({ fr: "Ruines récupérées à l'effondrement, Rite de Passage, legs gravé (ou dernière volonté) et vœu compris.", en: "Ruins recovered at the collapse, including the Rite of Passage, the engraved legacy (or last will) and the vow." }))}
                 >
                   <span className="harvest-plus">+</span>
-                  <OdometerNumber value={previewGain ?? ruinGainVal} />
+                  <OdometerNumber value={previewGain ?? shownGain} />
                   <PixelIcon name="glyphs/ruines" className="harvest-glyph" />
                 </div>
                 <ul className="harvest-factors">

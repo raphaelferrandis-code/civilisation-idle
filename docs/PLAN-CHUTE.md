@@ -17,13 +17,27 @@ retenue ; la variante « la nuit » non plus.
 4. Dans le noir : la stèle (si un choix reste à faire), le choix des Ruines actives,
    le cycle suivant est fondé **dans la même vallée**.
 5. **Le lever** — du noir, la nuit et le seul feu du campement au milieu des ruines,
-   puis l'aube. L'interface revient.
+   puis l'aube. L'interface revient ; la caméra est sur le nouveau cœur, au zoom
+   qu'avait le joueur avant la chute (il n'est plus borné à [1 ; 1,6]). Le bilan de
+   cycle (chemin de l'Édit ou du testament) attend la fin du lever pour paraître, et
+   ses 9 s ne courent qu'à partir de là.
 6. Les ruines restent sur la carte : chaque case que la nouvelle cité bâtit efface la
    sienne. Les monuments restent debout en ruine ; une maison sur deux n'est plus
    qu'un pan de mur arasé ; la forêt ne pousse pas dans les ruines.
 
 Un clic sur la carte (ou Échap, Espace, Entrée) mène la chute directement au noir,
 et le lever directement à l'aube.
+
+**Complète ou courte** (audit du 05/10, CHUTE-9, choix de Raph) : la partie est en
+pause pendant la chute — la version complète dure ~13 s jusqu'au noir, ce qu'un joueur
+qui laisse la Cité affichée avec l'Édit payait à chaque cycle. Réglage Options ›
+Affichage › « Chute de la cité » (`map/chuteMode.js`, hors sauvegarde) : *Toujours
+complète*, *Complète une fois* (défaut : la première chute regardée de la session est
+complète, les suivantes courtes) ou *Toujours courte*. La version courte
+(`setChuteShort`, chuteState.js) joue toutes les durées × 0,3, sans nuit — ni celle qui
+tombe sur les ruines, ni celle tenue au feu du campement : ~2,7 s jusqu'au noir. La
+cité tombe au crépuscule, et le campement en sort au crépuscule, puis une aube courte
+(~1 s) rejoint l'heure de l'horloge.
 
 Du déclenchement à la fin du lever (`collapseUnderway`, state.js), la partie ne se
 remplace pas : import et chargement d'emplacement sont refusés et leurs boutons grisés
@@ -36,8 +50,21 @@ ne peint pas sous un dialog ouvert, la chute resterait figée jusqu'à son filet
 ## La règle qui change : la même vallée
 
 `completeCollapse` (crisis.js) garde la graine, le fleuve (`riverWP`) et la fiche du
-cœur (`cityCore` : cœur, pont, `maxN`) ; les rues, les places, les îlots et les slots
-repartent de zéro ; la cité reçoit un nouveau nom. En jeu, la fiche de cœur est
+cœur (`cityCore` : cœur, pont, `riverN`) ; les rues, les places, les îlots et les slots
+repartent de zéro ; la cité reçoit un nouveau nom.
+
+La grille aussi repart de sa taille naturelle (audit du 05/10, CHUTE-4, choix B de
+Raph). La vallée gardait d'abord la plus grande grille jamais atteinte (`maxN`) :
+chaque recalcul de ville d'un cycle neuf se faisait alors sur elle, 15 à 40 fois plus
+cher, à vie (campement d'après une mégapole : 180-200 ms au lieu de 4-10). Ruines,
+cœur, pont et slots sont rangés par rapport au centre de grille ; seul le fleuve
+dépend de la grille (son cours court de cx − 1,8·N à cx + 1,8·N). La vallée garde donc
+sa **largeur de pose** (`cityCore.riverN` = la plus grande de la cité tombée, jamais en
+recul) et layout.js pose le fleuve avec elle : mêmes échantillons que la cité tombée,
+au même endroit par rapport au centre — hors évasement des Plaisirs, qui suit la ville
+neuve. Le campement de la vallée coûte ~20 ms, dont ~17 de fleuve (son cours est aussi
+long que celui de la cité tombée). Son cours couvre la grille et la déborde de loin :
+au-delà, c'est le ruban du bord du monde (`isoRiver.js`), comme pour toute cité. En jeu, la fiche de cœur est
 toujours là : le relevé du vestige (`captureCurrentVestige`, juste avant) recalcule la
 ville, ce qui pose la fiche pour la graine courante — **toute sauvegarde, même
 ancienne, passe dans la vallée à sa première chute**. La « nouvelle vallée, sans
@@ -118,8 +145,11 @@ ruines de la carte affichée).
 
 ## Tests
 
-`chuteState.test.js` (la vague), `chuteVallee.test.js` (même vallée, ruines dans la
+`chuteState.test.js` (la vague), `isoChute.test.js` (le metteur en scène ; complète ou
+courte, zoom du lever), `chuteVallee.test.js` (même vallée, ruines dans la
 sauvegarde), `chuteValleeCarte.test.js` (même vallée, relevé du vestige branché),
+`chuteValleeFleuve.test.js` (grille naturelle, fleuve à sa largeur de pose),
+`cycleReportChute.test.jsx` (le bilan attend la fin du lever),
 `chuteRelicsLoad.test.js` (vrai démarrage avec des ruines : la TDZ),
 `chuteImportGuard.test.js` (ni import ni emplacement pendant la chute),
 `ruinArt.test.js` (manifeste ↔ images ↔ sprites).

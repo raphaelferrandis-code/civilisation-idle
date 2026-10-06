@@ -21,7 +21,7 @@
 // flèches, cabines) : une flèche passe au-dessus d'un navire, jamais dessous.
 import { CM } from '../layout.js';
 import { quayWallTiles, quayWallTune, quayStyleFor } from '../quaysAndRiot.js';
-import { bakeBoxes, blitLayer, paintBakeUnder, h01, mul, mix, hexRgb, FACE_LIGHT, faceLit } from './isoBoxBake.js';
+import { bakeBoxes, blitLayer, paintBakeUnder, h01, mul, mix, hexRgb, FACE_LIGHT, faceLit, anchoredBake, boxesKey, riverKey, shiftBake } from './isoBoxBake.js';
 import { drawMooredHull, hullFootprint, riverEdgeAt as edgeAt, riverWaterAt as waterAtW, riverWindow, registerPortProvider, registerPortLamps, quayJoin } from './portBerths.js';
 import { queueFlameGlow } from '../flameGlow.js';
 import { drawSmoke } from './boatFx.js';
@@ -33,7 +33,7 @@ if (import.meta.env?.DEV && typeof window !== 'undefined') {
     if (o === false) TRADE.on = false;
     else if (o === true) TRADE.on = true;
     else if (o && typeof o === 'object') Object.assign(TRADE, o);
-    _cache.clear();
+    _cache.clear(); _bakes.clear();
     return { ...TRADE };
   };
 }
@@ -251,7 +251,7 @@ function tradePlan(tp, level, band, T, sm) {
       ships.push({ role: 'steam', x: xs, y: yAt(xs) + dir * (fp.beam / 2 + 0.06), z: -wh });
     }
   }
-  return { style, P, low, high, ships, beacons, smokes, yAt, dir, wh: wh * T, x0, x1, depth: tp.depth };
+  return { style, P, low, high, ships, beacons, smokes, yAt, yTab, dir, wh: wh * T, x0, x1, depth: tp.depth };
 }
 
 // ── LA COULEUR D'UN POINT TOUCHÉ ─────────────────────────────────────────────
@@ -260,7 +260,10 @@ function tradePlan(tp, level, band, T, sm) {
 // l'encre de la cuisson (isoBoxBake, option `ink`).
 // ⚠ Retour Raph (2026-10-03) : « il manque le côté pixel art » — l'ancien ombrage
 // multipliait des aplats par la lumière, avec un bruit continu : un rendu 3D lisse.
-function shadeTrade(plan, T) {
+// GRAIN ANCRÉ AU PORT (PERF-10, cf. isoBoxBake.anchoredBake) : dalles, briques,
+// mouchetis et nervures se lisent en (rx, ry), relatifs à l'ancre (OX, OY) ; la
+// géométrie (distance au bord `u`, axes des travées) reste en (wx, wy).
+function shadeTrade(plan, T, OX = 0, OY = 0) {
   const P = plan.P, dir = plan.dir, yAt = plan.yAt;
   const md = (v, m) => ((v % m) + m) % m;
   // Brique de 6 × 2 au joint d'un pixel, assises décalées, quelques briques plus sombres.
@@ -277,30 +280,31 @@ function shadeTrade(plan, T) {
   const inner = (hit, wx, wy, zz) => {
     const bx = hit.bx, face = hit.face, part = bx.part;
     const u = (yAt(wx / T) * T - wy) * dir;                       // distance au bord, px
-    const g = speck(wx, wy + zz);
+    const rx = wx - OX, ry = wy - OY;                             // le grain, depuis l'ancre
+    const g = speck(rx, ry + zz);
     let col;
     if (part === 'apron') {
       if (face !== 2) return faceLit(P.wall, FACE_LIGHT[face]);
       if (plan.style === 'terminal') {
-        const ki = Math.floor(wx / 32), kj = Math.floor(u / 32);
+        const ki = Math.floor(rx / 32), kj = Math.floor(u / 32);
         col = P.top[Math.floor(h01(ki, kj, 4) * P.top.length)];
         // Taches d'huile (en damier : des pixels, pas un dégradé).
-        const st = h01(Math.floor(wx / 6), Math.floor(u / 4), 9);
-        if (st < 0.06 && ((Math.floor(wx) + Math.floor(u)) & 1)) col = mul(col, 0.86);
-        if (md(wx, 32) < 1 || md(u, 32) < 1) col = P.gap;
+        const st = h01(Math.floor(rx / 6), Math.floor(u / 4), 9);
+        if (st < 0.06 && ((Math.floor(rx) + Math.floor(u)) & 1)) col = mul(col, 0.86);
+        if (md(rx, 32) < 1 || md(u, 32) < 1) col = P.gap;
         // Rails des portiques (deux files), ligne de sécurité jaune au bord, en tirets.
         if (Math.abs(u - 0.28 * T) < 0.8 || Math.abs(u - 1.36 * T) < 0.8) col = P.rail;
-        if (u > 0.45 * T && u < 0.45 * T + 1.2 && md(Math.floor(wx / 4), 2) === 0) col = P.line;
+        if (u > 0.45 * T && u < 0.45 * T + 1.2 && md(Math.floor(rx / 4), 2) === 0) col = P.line;
         if (u < 1.4) col = P.coping;
         if (P.glow && u > 0.12 * T && u < 0.12 * T + 1) col = P.glow;
       } else {
         // Pavés de 6 × 4 en quinconce.
         const rowp = Math.floor(u / 4), offp = (rowp & 1) ? 3 : 0;
-        col = P.top[Math.floor(h01(Math.floor((wx + offp) / 6), rowp, 5) * P.top.length)];
-        if (u - rowp * 4 < 1 || md(Math.floor(wx) + offp, 6) === 0) col = P.gap;
+        col = P.top[Math.floor(h01(Math.floor((rx + offp) / 6), rowp, 5) * P.top.length)];
+        if (u - rowp * 4 < 1 || md(Math.floor(rx) + offp, 6) === 0) col = P.gap;
         // Voie ferrée : deux rails sur traverses.
         const ur = u - 0.62 * T;
-        if (ur > -3 && ur < 6 && md(Math.floor(wx), 3) === 0) col = P.sleeper;
+        if (ur > -3 && ur < 6 && md(Math.floor(rx), 3) === 0) col = P.sleeper;
         if (Math.abs(ur + 1) < 0.6 || Math.abs(ur - 4) < 0.6) col = P.rail;
         if (u < 1.4) col = P.coping;
       }
@@ -311,8 +315,8 @@ function shadeTrade(plan, T) {
       col = P.wall;
       if (plan.style === 'docks') {
         const row = Math.floor(-zz / 3.2), off = (row & 1) ? 4 : 0;
-        if (((-zz) - row * 3.2) < 0.9 || md(Math.floor(wx) + off, 8) === 0) col = P.gap;
-      } else if (md(Math.floor(wx), 16) === 0) col = P.gap;
+        if (((-zz) - row * 3.2) < 0.9 || md(Math.floor(rx) + off, 8) === 0) col = P.gap;
+      } else if (md(Math.floor(rx), 16) === 0) col = P.gap;
       if (-zz > plan.wh - 2.2) col = mix(mul(col, 0.6), [58, 76, 56], 0.3);   // pied mouillé
       return faceLit(mul(col, g), FACE_LIGHT[face]);
     }
@@ -321,10 +325,10 @@ function shadeTrade(plan, T) {
     if (part === 'stack') {
       const hz = bx.hz || 5, lvl = Math.max(0, Math.floor((zz - 0.01) / hz));
       col = P.conts[Math.floor(h01(bx.cx, bx.cy * 7 + lvl, 29) * P.conts.length)];
-      if (face === 2) return faceLit(md(Math.floor(wx), 3) === 0 ? mul(col, 0.9) : col, 1.08);
+      if (face === 2) return faceLit(md(Math.floor(rx), 3) === 0 ? mul(col, 0.9) : col, 1.08);
       if (zz - lvl * hz < 1) col = mul(col, 0.55);                                // jointure entre deux conteneurs
-      else if (face === 1 && md(Math.floor(wx), 2) === 0) col = mul(col, 0.84);  // nervures
-      else if (face === 0 && md(Math.floor(wy), 3) === 0) col = mul(col, 0.78);  // barres des portes
+      else if (face === 1 && md(Math.floor(rx), 2) === 0) col = mul(col, 0.84);  // nervures
+      else if (face === 0 && md(Math.floor(ry), 3) === 0) col = mul(col, 0.78);  // barres des portes
       return faceLit(col, FACE_LIGHT[face]);
     }
     if (part === 'gantry' || part === 'boom') {
@@ -332,12 +336,12 @@ function shadeTrade(plan, T) {
       if (part === 'boom' && u < -2.1 * T) col = face === 2 ? [230, 230, 228] : [200, 60, 52];   // pointe blanc et rouge
       if (P.glow && part === 'boom' && face !== 2 && bx.Z1 - zz < 1) col = P.glow;
       // Croisillons des jambes : un pixel plus sombre en zigzag.
-      if (part === 'gantry' && face !== 2 && bx.Z1 - bx.Z0 > T && md(Math.floor(zz) - Math.floor(face === 1 ? wx : wy) * 2, 6) === 0) col = mul(col, 0.78);
+      if (part === 'gantry' && face !== 2 && bx.Z1 - bx.Z0 > T && md(Math.floor(zz) - Math.floor(face === 1 ? rx : ry) * 2, 6) === 0) col = mul(col, 0.78);
       return faceLit(col, face === 2 ? 1.1 : FACE_LIGHT[face]);
     }
     if (part === 'house') {
       col = P.house;
-      if (face !== 2 && zz > bx.Z0 + 0.35 * (bx.Z1 - bx.Z0) && zz < bx.Z0 + 0.6 * (bx.Z1 - bx.Z0) && md(Math.floor(face === 1 ? wx : wy), 4) < 2) col = [70, 96, 120];
+      if (face !== 2 && zz > bx.Z0 + 0.35 * (bx.Z1 - bx.Z0) && zz < bx.Z0 + 0.6 * (bx.Z1 - bx.Z0) && md(Math.floor(face === 1 ? rx : ry), 4) < 2) col = [70, 96, 120];
       return faceLit(col, FACE_LIGHT[face]);
     }
     if (part === 'trolley') return faceLit(P.trolley, FACE_LIGHT[face]);
@@ -356,7 +360,7 @@ function shadeTrade(plan, T) {
       const ox = wx - bx.mid, east = ox > 0, d = Math.abs(ox);
       if (d < 1.2) return faceLit(P.ridge, east ? 0.86 : 1.04);
       col = md(Math.floor(d), 3) === 0 ? P.roofD : P.roof;
-      if (md(Math.floor(d), 3) === 1 && md(Math.floor(wy / 4) + Math.floor(d / 3), 2) === 0) col = mix(col, P.roofD, 0.5);
+      if (md(Math.floor(d), 3) === 1 && md(Math.floor(ry / 4) + Math.floor(d / 3), 2) === 0) col = mix(col, P.roofD, 0.5);
       return faceLit(mul(col, g), east ? 0.72 : 1.04);
     }
     if (part === 'warehouse') {
@@ -378,7 +382,7 @@ function shadeTrade(plan, T) {
       return faceLit(col, FACE_LIGHT[face]);
     }
     if (part === 'crane') return faceLit(face === 2 ? mul(P.crane, 1.3) : P.crane, FACE_LIGHT[face]);
-    if (part === 'cab') return faceLit(face === 2 ? [70, 72, 76] : (md(Math.floor(face === 1 ? wx : wy), 4) === 0 ? mul(P.cab, 0.8) : P.cab), FACE_LIGHT[face]);
+    if (part === 'cab') return faceLit(face === 2 ? [70, 72, 76] : (md(Math.floor(face === 1 ? rx : ry), 4) === 0 ? mul(P.cab, 0.8) : P.cab), FACE_LIGHT[face]);
     if (part === 'chimney') return faceLit(P.chimney, FACE_LIGHT[face]);
     if (part === 'goods') {
       col = P.goods[(bx.gk | 0) % P.goods.length];
@@ -401,7 +405,13 @@ const TRADE_INK = {
 };
 
 // ── LE CACHE ─────────────────────────────────────────────────────────────────
+// `_cache` : par géométrie ABSOLUE (le plan, ses navires et ses feux, à leur place) ;
+// `_bakes` : les cuissons par clé RELATIVE à l'ancre du port (PERF-10), gardées d'une
+// translation à l'autre. `TRADE_X` : les champs de boîte en abscisse monde, en plus de
+// X0/X1 (l'axe d'une travée de toit).
 const _cache = new Map();
+const _bakes = new Map();
+const TRADE_X = ['X0', 'X1', 'mid'];
 function tradeGeom(t, band) {
   const L = CM.layout, rv = L && L.river;
   if (!rv || !rv.present || !rv.samples || !t.tradePort) return null;
@@ -416,12 +426,22 @@ function tradeGeom(t, band) {
     + ':' + (TRADE.shadow ? 1 : 0) + (TRADE.reflect ? 1 : 0) + (TRADE.ink ? 1 : 0);
   if (_cache.has(key)) return _cache.get(key);
   const T = CM.TILE, sm = rv.samples;
-  const plan = tradePlan(t.tradePort, level, band, T, sm);
-  const shade = shadeTrade(plan, T);
-  const [j0, j1] = riverWindow(sm, t.tradePort.x0 - 4, t.tradePort.x0 + t.tradePort.len + 4);
-  const isWater = (wx, wy) => waterAtW(sm, wx, wy, T, j0, j1);
-  const opt = { shade, isWater, shadow: TRADE.shadow, reflect: TRADE.reflect, foam: (b) => b.part === 'gantry' && b.Z0 <= 0.01, ink: TRADE.ink ? TRADE_INK : null };
-  const g = { plan, low: bakeBoxes(plan.low, opt), high: bakeBoxes(plan.high, opt) };
+  const plan = tradePlan(tp, level, band, T, sm);
+  const [j0, j1] = riverWindow(sm, tp.x0 - 4, tp.x0 + tp.len + 4);
+  // LA CUISSON ANCRÉE AU PORT (PERF-10, isoBoxBake.anchoredBake) : l'ancre est le coin
+  // du site (première colonne, sa rangée de bord). Quand la grille grandit, le port se
+  // translate avec la ville : même clé relative, la cuisson se garde, décalée.
+  const OX = tp.x0 * T, OY = tp.edge[0] * T;
+  const rel = band + ':' + lvlB + ':' + tp.side + ':' + T + ':' + plan.wh + ':' + (TRADE.shadow ? 1 : 0) + (TRADE.reflect ? 1 : 0) + (TRADE.ink ? 1 : 0)
+    + '|' + plan.yTab.map((y) => Math.round((y - tp.edge[0]) * 1e4)).join(',')
+    + '|' + riverKey(sm, j0, j1, tp.x0, tp.edge[0]) + '|' + boxesKey(plan.low, OX, OY, TRADE_X) + '|' + boxesKey(plan.high, OX, OY, TRADE_X);
+  const bk = anchoredBake(_bakes, rel, OX, OY, () => {
+    const shade = shadeTrade(plan, T, OX, OY);
+    const isWater = (wx, wy) => waterAtW(sm, wx, wy, T, j0, j1);
+    const opt = { shade, isWater, shadow: TRADE.shadow, reflect: TRADE.reflect, foam: (b) => b.part === 'gantry' && b.Z0 <= 0.01, ink: TRADE.ink ? TRADE_INK : null, origin: { X: OX, Y: OY } };
+    return { low: bakeBoxes(plan.low, opt), high: bakeBoxes(plan.high, opt) };
+  }, (v, dX, dY) => ({ low: shiftBake(v.low, dX, dY), high: shiftBake(v.high, dX, dY) }), 3);
+  const g = { plan, low: bk.low, high: bk.high };
   if (_cache.size > 4) _cache.clear();
   _cache.set(key, g);
   return g;

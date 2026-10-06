@@ -139,7 +139,7 @@
   gap: 1rem;
 }
 .app .place-key-label {
-  font: 700 0.68rem/1 var(--font-body);
+  font: 700 0.6875rem/1 var(--font-body);   /* plancher de 11 px (BUG-119) */
   letter-spacing: 0.12em;
   text-transform: uppercase;
   color: var(--text-mid);

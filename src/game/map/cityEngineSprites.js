@@ -791,7 +791,7 @@ function blitProp(ctx, ox, oy, sw, sh, p, cx, cy, wFrac, hFrac) {
   const prev = ctx.imageSmoothingEnabled; ctx.imageSmoothingEnabled = false;
   const fl = liveLayer(p);
   ctx.drawImage(fl && fl.back ? propArt(p + '-back', fl.back) : propArt(p, im), left, top, drawW, drawH);
-  if (fl) drawLiveFrame(ctx, fl, left, top, drawW, drawH, curNow);
+  if (fl) drawLiveFrame(ctx, fl, im, left, top, drawW, drawH, curNow);
   ctx.imageSmoothingEnabled = prev;
   // Un bâtiment de scène masque les halos déposés DERRIÈRE lui (cf. lightLayer.js).
   lightCutImage(im, left, top, drawW, drawH);
@@ -807,44 +807,51 @@ function blitProp(ctx, ox, oy, sw, sh, p, cx, cy, wFrac, hFrac) {
 // lanternes des tours cosmiques ; la roue de la grue romaine des grands travaux, les
 // charges des grues cosmiques, les drones, les anneaux et les cristaux en orbite des
 // tours de la fin. Seul un halo respirait, et seulement la nuit.
-// scripts/sceneLive.mjs cuit, par image, une bande `<clé>-live` (au canvas de
-// l'image, N images, rien que ce qui bouge) et, quand une pièce a été gommée pour
-// être redessinée ou déplacée, le fond `<clé>-back`. blitProp et blitCosmicTower
-// posent le fond puis l'image du moment, au MÊME cadre ; tant que les couches ne
-// sont pas chargées, l'image d'origine sert de repli. Chargement paresseux, liste
-// EXPLICITE des fichiers livrés (garde : sceneLive.test.js). Chaque instance a sa
-// phase (graine du lot : deux grues voisines ne hissent pas en cadence). Cran
-// d'ambiance « aucune » : la première image, figée.
-// ⚠ Tenue en double avec TARGETS du script (n, ms, fond) : la garde confronte les fichiers.
+// scripts/sceneLive.mjs cuit, par image, une bande `<clé>-live` (N TIMBRES, rien que
+// ce qui bouge) et, quand une pièce a été gommée pour être redessinée ou déplacée, le
+// fond `<clé>-back`. blitProp et blitCosmicTower posent le fond au cadre de l'image,
+// puis le timbre du moment à sa place `box` ; tant que les couches ne sont pas
+// chargées, l'image d'origine sert de repli. Chargement paresseux, liste EXPLICITE des
+// fichiers livrés (garde : sceneLive.test.js). Chaque instance a sa phase (graine du
+// lot : deux grues voisines ne hissent pas en cadence). Cran d'ambiance « aucune » :
+// la première image, figée.
+// `box` = [x, y, w, h] du timbre dans l'image (audit du 05/10, ASSET-4, choix A de
+// Raph) : la bande portait N images pleine toile où 0 à 28 % bouge — 37,8 Mo décodés
+// pour les 24, 3,5 Mo recadrées — et chaque tour animée reposait une seconde image
+// plein cadre par-dessus son fond, à chaque frame (en rendu logiciel, un drawImage se
+// paie à la surface, vide compris). Le timbre garde un pixel vide autour de ce qui
+// bouge : sur GPU, l'échantillon de bord y tombe, et non sur le timbre voisin.
+// ⚠ Tenue en double avec TARGETS du script (n, ms, fond, boîte imprimée) : la garde
+// confronte les fichiers.
 export const LIVE_LAYERS = {
   // Feux
-  'cult-vesta': { n: 8, ms: 120, back: true },
-  'cult-mausoleum': { n: 8, ms: 120, back: true },
-  'cult-memorial': { n: 8, ms: 120, back: true },
-  'cult-memorial-grand': { n: 8, ms: 120, back: true },
-  'cosmic-ancestral_cult-7': { n: 12, ms: 120, back: false },
-  'cosmic-ancestral_cult-8': { n: 12, ms: 120, back: false },
-  'watch-stone': { n: 8, ms: 120, back: false },
-  'cosmic-watch-7': { n: 12, ms: 120, back: false },
-  'cosmic-watch-8': { n: 24, ms: 120, back: false },
+  'cult-vesta': { n: 8, ms: 120, back: true, box: [65, 41, 9, 12] },
+  'cult-mausoleum': { n: 8, ms: 120, back: true, box: [13, 44, 6, 10] },
+  'cult-memorial': { n: 8, ms: 120, back: true, box: [56, 34, 12, 26] },
+  'cult-memorial-grand': { n: 8, ms: 120, back: true, box: [88, 61, 21, 50] },
+  'cosmic-ancestral_cult-7': { n: 12, ms: 120, back: false, box: [57, 120, 15, 33] },
+  'cosmic-ancestral_cult-8': { n: 12, ms: 120, back: false, box: [55, 139, 17, 21] },
+  'watch-stone': { n: 8, ms: 120, back: false, box: [37, 24, 21, 9] },
+  'cosmic-watch-7': { n: 12, ms: 120, back: false, box: [55, 75, 19, 14] },
+  'cosmic-watch-8': { n: 24, ms: 120, back: false, box: [31, 57, 67, 58] },
   // Mécanismes
-  'works-classical': { n: 16, ms: 140, back: false },
-  'works-classical-grand': { n: 16, ms: 140, back: false },
-  'cosmic-public_works-7': { n: 16, ms: 160, back: true },
-  'cosmic-public_works-8': { n: 16, ms: 160, back: true },
-  'cosmic-public_works-9': { n: 16, ms: 160, back: true },
-  'mint-cosmic-8': { n: 24, ms: 120, back: false },
-  'granary-cosmic-8': { n: 24, ms: 120, back: false },
-  'cosmic-observatories-8': { n: 24, ms: 120, back: false },
-  'mint-cosmic-9': { n: 24, ms: 120, back: true },
-  'cosmic-watch-9': { n: 24, ms: 120, back: true },
-  'cosmic-observatories-9': { n: 24, ms: 120, back: false },
+  'works-classical': { n: 16, ms: 140, back: false, box: [29, 14, 35, 24] },
+  'works-classical-grand': { n: 16, ms: 140, back: false, box: [40, 24, 61, 49] },
+  'cosmic-public_works-7': { n: 16, ms: 160, back: true, box: [31, 76, 34, 45] },
+  'cosmic-public_works-8': { n: 16, ms: 160, back: true, box: [14, 86, 56, 67] },
+  'cosmic-public_works-9': { n: 16, ms: 160, back: true, box: [26, 60, 78, 54] },
+  'mint-cosmic-8': { n: 24, ms: 120, back: false, box: [24, 91, 82, 64] },
+  'granary-cosmic-8': { n: 24, ms: 120, back: false, box: [34, 87, 68, 27] },
+  'cosmic-observatories-8': { n: 24, ms: 120, back: false, box: [9, 130, 72, 29] },
+  'mint-cosmic-9': { n: 24, ms: 120, back: true, box: [21, 97, 88, 59] },
+  'cosmic-watch-9': { n: 24, ms: 120, back: true, box: [37, 59, 54, 38] },
+  'cosmic-observatories-9': { n: 24, ms: 120, back: false, box: [11, 81, 106, 61] },
   // Fumée de l'hôtel des monnaies (stade 1, Moneta du Marbre) : le panache peint
   // devient des bouffées qui montent, dérivent et se défont.
-  'mint-prop-house': { n: 20, ms: 150, back: true },
-  'mint-prop-house-grand': { n: 20, ms: 150, back: true },
-  'mint-moneta': { n: 20, ms: 150, back: true },
-  'mint-moneta-grand': { n: 20, ms: 150, back: true },
+  'mint-prop-house': { n: 20, ms: 150, back: true, box: [31, 0, 12, 14] },
+  'mint-prop-house-grand': { n: 20, ms: 150, back: true, box: [61, 0, 20, 23] },
+  'mint-moneta': { n: 20, ms: 150, back: true, box: [74, 0, 20, 24] },
+  'mint-moneta-grand': { n: 20, ms: 150, back: true, box: [119, 0, 31, 31] },
 };
 const liveImg = {};
 function liveAsset(name) {
@@ -866,12 +873,15 @@ function liveLayer(key) {
   const strip = liveAsset(key + '-live');
   const back = L.back ? liveAsset(key + '-back') : null;
   if (!strip || (L.back && !back)) return null;
-  return { strip, back, n: L.n, ms: L.ms };
+  return { strip, back, n: L.n, ms: L.ms, box: L.box };
 }
-function drawLiveFrame(ctx, fl, left, top, drawW, drawH, now) {
-  const fw = fl.strip.naturalWidth / fl.n, fh = fl.strip.naturalHeight;
+// Le timbre du moment, à sa place dans l'image `im` posée en (left, top, drawW, drawH) :
+// même transformée source → écran que l'image entière.
+function drawLiveFrame(ctx, fl, im, left, top, drawW, drawH, now) {
+  const [bx, by, bw, bh] = fl.box;
+  const kx = drawW / im.naturalWidth, ky = drawH / im.naturalHeight;
   const f = (CM.ambianceK ?? 1) > 0 ? (Math.floor((now || 0) / fl.ms) + (curSeed % fl.n)) % fl.n : 0;
-  ctx.drawImage(fl.strip, f * fw, 0, fw, fh, left, top, drawW, drawH);
+  ctx.drawImage(fl.strip, f * bw, 0, bw, bh, left + bx * kx, top + by * ky, bw * kx, bh * ky);
 }
 
 // TOUR COSMIQUE (âge 35+) — sprite PixelLab HAUT (128×224) blité en GRAND, base ANCRÉE au sol
@@ -893,7 +903,7 @@ function blitCosmicTower(ctx, ox, oy, sw, sh, key, now, band, cp, baseOverride) 
   // dire quelque chose, pas parce qu'on les enneige.
   const fl = liveLayer(key);
   ctx.drawImage(fl && fl.back ? propArt(key + '-back', fl.back) : propArt(key, im), cx - drawW / 2, baseY - drawH, drawW, drawH);
-  if (fl) drawLiveFrame(ctx, fl, cx - drawW / 2, baseY - drawH, drawW, drawH, now);
+  if (fl) drawLiveFrame(ctx, fl, im, cx - drawW / 2, baseY - drawH, drawW, drawH, now);
   ctx.imageSmoothingEnabled = prev;
   lightCutImage(im, cx - drawW / 2, baseY - drawH, drawW, drawH);
   const pearl = isPearl(key);

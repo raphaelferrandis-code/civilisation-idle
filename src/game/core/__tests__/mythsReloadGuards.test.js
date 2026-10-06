@@ -148,10 +148,13 @@ describe("BUG-25 — la Ruine active « Pacte signé d'office » scelle bien le 
 });
 
 describe("SAV-10 — dette des Atrides et Pente du rocher au-delà de 9e15", () => {
-  it("un aller-retour JSON → hydrateState garde 1e100 de dette et une Pente à 1e17", () => {
+  // La Pente, elle, a un plafond de jeu depuis BUG-35 (×20, au cran et à
+  // l'hydratation) : une save d'avant à 1e17 y revient, sans retomber à ×1.
+  it("un aller-retour JSON → hydrateState garde 1e100 de dette ; une Pente à 1e17 revient au plafond ×20", () => {
     const out = roundTrip({ atridesDebt: 1e100, sisypheMult: 1e17 });
     expect(out.atridesDebt).toBe(1e100);
-    expect(out.sisypheMult).toBe(1e17);
+    expect(out.sisypheMult).toBe(20);
+    expect(roundTrip({ sisypheMult: 7.4 }).sisypheMult).toBe(7.4);
   });
 
   it("garde aussi la dette plafonnée par le tick (Number.MAX_VALUE)", () => {

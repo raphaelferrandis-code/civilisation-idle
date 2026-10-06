@@ -88,6 +88,16 @@ voitures de l'ère (`drawIsoVehicle` + `vehSkinFor`) soulevées à la hauteur du
 Molette `__highway({ on, cars, lamps, shadow })`.
 ⚠ Les voitures de la grille continuent de rouler AU SOL sur l'artère, sous le tablier :
 c'est voulu (l'avenue reste en dessous), mais elles y passent dans l'ombre.
+**En ville par îlots** (bandes 2 à 9 ; audit 2026-10-05, BUG-16 — elle avait disparu en
+silence, son plan n'étant calculé que hors îlots) : choix **A'** de Raph. Le tablier passe
+au-dessus du **cardo** (mêmes colonnes `bx`, `bx+1`), **sans dégagement** — les rangées
+des îlots sont déjà reculées derrière le trottoir. « Dans la ville » = un îlot ouvert de
+part et d'autre du cardo, ou le cardo du pont jusqu'au forum ; la place centrale = le
+forum. Seul l'échangeur prend du terrain : ses pelouses sont gardées hors lot par
+`planIlots` (`isHold` : mêmes îlots, mêmes rues, la capacité les décompte), ses occupants
+relogés une fois (la première pose replanifie les îlots une seconde fois, une seule fois
+par ville). Une ville existante en bande 6 à 9 bouge donc une fois : les quelques
+bâtiments posés sous l'échangeur. Test : `highwayIlots.test.js`.
 ### Lot 3 — Métro (B5) et monorail (B7) · `procedural/metroPlan.js` + `iso/isoMetro.js`
 **Une seule ligne, deux époques** : le monorail n'est PAS sur l'artère (l'autoroute
 l'occupe dès la bande 6) — c'est la ligne du métro qui se modernise. Tracé dérivé du

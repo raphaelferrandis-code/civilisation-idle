@@ -17,6 +17,7 @@ export {
 export {
   buyBuilding,
   buyAllAffordable,
+  buyAllAffordableChained,
   exhumeVestige,
   performGrandReset,
   buyUpgrade,

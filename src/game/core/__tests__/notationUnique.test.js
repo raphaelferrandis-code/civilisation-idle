@@ -26,6 +26,13 @@ describe("notation unique — K, M, B, T puis scientifique", () => {
     expect(fmtShortLive(1.38e16)).toBe("1.3800e16");
   });
 
+  it("au-delà du float, le format vivant ne garde que deux décimales (BUG-20)", () => {
+    // L'odomètre n'y roule plus : « 2.2017e2741 » était rogné dans sa case.
+    expect(fmtShortLive(D("2.2017e2741"))).toBe("2.20e2741");
+    expect(fmtShortLive(D("4.4397e345"))).toBe("4.44e345");
+    expect(fmtShortLive(D("-3.5e400"))).toBe("-3.50e400");
+  });
+
   it("aucun nombre affiché ne porte de suffixe à deux lettres", () => {
     for (let e = 3; e <= 300; e += 1) {
       const s = fmt(1.5 * Math.pow(10, e));

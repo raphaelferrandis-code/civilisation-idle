@@ -97,7 +97,7 @@
 /* Pastille plate à angle vif (seul le compteur est cranté). */
 .app .mythes-chip {
   padding: 0.28rem 0.5rem;
-  font: 700 0.66rem/1 var(--font-body);
+  font: 700 0.6875rem/1 var(--font-body);   /* plancher de 11 px (BUG-119) */
   letter-spacing: 0.08em;
   text-transform: uppercase;
   color: var(--text-mid);
@@ -312,7 +312,6 @@
   border-image: none;
   background: rgba(13, 16, 26, 0.96);
   backdrop-filter: none;
-  -webkit-backdrop-filter: none;
   box-shadow:
     inset 0 0 0 1px rgba(0, 0, 0, 0.6),
     inset 0 0 0 2px rgba(196, 204, 221, 0.06),
@@ -365,7 +364,6 @@
   border-image: none;
   background: rgba(13, 16, 26, 0.96);
   backdrop-filter: none;
-  -webkit-backdrop-filter: none;
   box-shadow:
     inset 0 0 0 1px rgba(0, 0, 0, 0.6),
     inset 0 0 0 2px rgba(196, 204, 221, 0.06),

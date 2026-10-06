@@ -161,7 +161,7 @@
 }
 .app #tech .echoppe-line-title {
   margin: 0.75rem 0.3rem 0.35rem;
-  font: 750 0.66rem/1 var(--font-body);
+  font: 750 0.6875rem/1 var(--font-body);   /* plancher de 11 px (BUG-119) */
   letter-spacing: 0.12em;
   text-transform: uppercase;
   color: var(--gold-dim);
@@ -255,7 +255,7 @@
   min-width: 0;
 }
 .app .echoppe-card-line {
-  font: 750 0.66rem/1 var(--font-body);
+  font: 750 0.6875rem/1 var(--font-body);   /* plancher de 11 px (BUG-119) */
   letter-spacing: 0.12em;
   text-transform: uppercase;
   color: var(--gold-dim);

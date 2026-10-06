@@ -57,4 +57,15 @@ describe('crédits — CREDITS.md et l\'onglet Crédits', () => {
   it('le pack sans licence (LaserKiwi) n\'est plus parmi les packs livrés', () => {
     expect(packRows().some((r) => /LaserKiwi/i.test(r.join(' ')))).toBe(false);
   });
+
+  // STEAM-7 : l'outil n'exige aucun crédit, mais Raph a voulu le nommer dans le jeu —
+  // la page Steam déclare le contenu généré par IA, l'onglet Crédits dit la même chose.
+  it('PixelLab est nommé dans l\'onglet, en français et en anglais, comme outil d\'IA', () => {
+    const fr = strings('fr').find((s) => s.includes('PixelLab'));
+    const en = strings('en').find((s) => s.includes('PixelLab'));
+    expect(fr).toMatch(/pixellab\.ai/);
+    expect(fr).toMatch(/IA/);
+    expect(en).toMatch(/pixellab\.ai/);
+    expect(en).toMatch(/AI/);
+  });
 });

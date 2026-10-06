@@ -104,7 +104,6 @@
 .app[data-active-view="city"] .topbar .resource-card-unified {
   background: transparent !important;
   backdrop-filter: none;
-  -webkit-backdrop-filter: none;
   border: 0;
 }
 
@@ -119,7 +118,6 @@
   padding: 0.5rem 1rem 0.65rem;
   background: rgba(13, 15, 23, 0.66);
   backdrop-filter: blur(14px);
-  -webkit-backdrop-filter: blur(14px);
 }
 .app[data-active-view="city"] .city-stage-hud .stability-gauge { width: 100%; }
 
@@ -133,7 +131,6 @@
   padding: 0.7rem 0.85rem;
   background: rgba(30, 35, 45, 0.5);
   backdrop-filter: blur(18px);
-  -webkit-backdrop-filter: blur(18px);
   border-color: rgba(255, 255, 255, 0.1);
   box-shadow: 0 14px 40px rgba(0, 0, 0, 0.45);
   animation: city-chronicle-in 360ms cubic-bezier(0.2, 0.9, 0.3, 1);
@@ -409,7 +406,6 @@
   margin: 0;
   background: rgba(30, 35, 45, 0.44);
   backdrop-filter: blur(18px);
-  -webkit-backdrop-filter: blur(18px);
   border: 1px solid rgba(255, 255, 255, 0.09);
   box-shadow: 0 16px 44px rgba(0, 0, 0, 0.5);
 }

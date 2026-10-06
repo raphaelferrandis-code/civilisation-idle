@@ -561,3 +561,61 @@
   .compte-row { grid-template-columns: minmax(0, 1fr) 3.2rem 5rem; }
   .compte-row-bar { display: none; }
 }
+
+/* ── Les succès (audit 2026-10-05, SUCCES-AFFICHAGE) : pleine largeur sous les
+   trois colonnes de la Bibliothèque. Une icône 64 px par succès, à sa taille
+   native (pixels 1:1, comme sur Steam), SANS cadre ni fond : les familles
+   coulent côte à côte et passent à la ligne. Nom, condition et date sont dans
+   l'infobulle. Survol = luminosité, sans lévitation (DA chrome-wizard). ── */
+.app .chronique-wide {
+  grid-column: 1 / -1;
+  min-width: 0;
+}
+
+.succes-groups {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  gap: 1rem 2.5rem;
+}
+
+.succes-group {
+  flex: 0 1 auto;
+  min-width: 0;
+}
+
+.succes-grid {
+  list-style: none;
+  margin: 0.55rem 0 0;
+  padding: 0;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.375rem;
+}
+
+.succes-tile {
+  width: 64px;
+  height: 64px;
+  display: grid;
+  place-items: center;
+  cursor: default;
+}
+
+.succes-tile img {
+  display: block;
+  width: 64px;
+  height: 64px;
+  image-rendering: pixelated;
+}
+
+.succes-tile.is-unlocked:hover img,
+.succes-tile.is-unlocked:focus-visible img {
+  filter: brightness(1.18);
+}
+
+/* Secret pas encore révélé : ni icône ni nom, qui le trahiraient. */
+.succes-secret {
+  font: 400 2rem/1 var(--font-title);
+  color: var(--muted);
+  opacity: 0.55;
+}

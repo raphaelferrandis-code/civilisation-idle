@@ -158,6 +158,8 @@ function underAvant(ctx) {
     quad(m.fA - T, m.fB + T, m.tUp, m.tDn);
     if (sun > 0 && m.vertical) {
       const k = 0.894 * SUN_SHADOW.len;
+      // (PERF-1 : l'ombre du soleil prend le mode de SUN_SHADOW, comme les autres)
+      ctx.globalCompositeOperation = SUN_SHADOW.mode || 'multiply';
       ctx.fillStyle = SUN_SHADOW.col; ctx.globalAlpha = sun;
       quad(m.fA, m.fB, m.tDn, m.tDn + k * m.hq);
       const Q = m.K.parapet;

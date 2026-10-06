@@ -1,6 +1,7 @@
 // FICHIERS DU .EXE tenus par le process principal (main.cjs) : la save canonique
 // en fichier (Steam Cloud), la détection de Google Drive et son fichier nuage,
-// l'export vers un fichier, le protocole app:// et l'état de la fenêtre.
+// l'export vers un fichier, le protocole app://, l'état de la fenêtre, et le pont
+// optionnel des succès Steam (STEAM-9).
 // Module SANS `electron` (seulement fs, path, os) : il se teste tel quel sous
 // Vitest (src/__tests__/desktopFiles.test.js), main.cjs ne fait que le brancher.
 "use strict";
@@ -132,6 +133,22 @@ const DRIVE_PROBE_TIMEOUT_MS = 300;
 // Le chemin retenu au lancement précédent a droit à plus de patience : c'est le
 // seul attendu, et le rater couperait le nuage pour toute la session.
 const DRIVE_CACHED_TIMEOUT_MS = 1500;
+
+// VERSION STEAM : PAS DE MIROIR GOOGLE DRIVE (audit 2026-10-05, STEAM-4 / ELEC-3,
+// décision C de Raph). Steam Cloud transporte déjà la partie (saves/save.json,
+// ci-dessus) ; un second nuage écrirait dans le Drive du joueur sans le lui demander,
+// et deux transports qui arbitrent chacun « la plus avancée » se marcheraient dessus.
+// Le miroir reste dans l'.exe hors Steam (le navigateur n'en a jamais eu). Est
+// « version Steam » :
+//   · un jeu LANCÉ par le client Steam — il pose SteamAppId / SteamGameId dans
+//     l'environnement (comme pour les drapeaux d'overlay, main.cjs) ;
+//   · une BUILD Steam, même lancée à la main depuis son dossier : `npm run dist-steam`
+//     injecte `civSteamBuild: true` dans le package.json empaqueté
+//     (-c.extraMetadata, package.json › scripts) ; `meta` = ce package.json.
+function isSteamVersion({ env = process.env, meta = null } = {}) {
+  if (env && (env.SteamAppId || env.SteamGameId)) return true;
+  return Boolean(meta && (meta.civSteamBuild === true || meta.civSteamBuild === "true"));
+}
 
 function driveCandidates({ platform = process.platform, home = os.homedir() } = {}) {
   const out = [];
@@ -397,6 +414,96 @@ function fitWindowBounds(bounds, workAreas) {
   };
 }
 
+// ── SUCCÈS STEAM (audit 2026-10-05, STEAM-9) ──────────────────────────────────
+// Pont OPTIONNEL vers Steamworks : steamworks.js n'est PAS une dépendance du jeu.
+// Sans le module, sans App ID ou sans client Steam lancé, rien ne casse : les succès
+// vivent dans la save (src/game/core/achievements.js), qui les renvoie tous à chaque
+// lancement. Mode d'emploi : docs/STEAM-SUCCES.md.
+const STEAM_APP_ID_RE = /^[1-9][0-9]{0,9}$/;
+// Même forme que data/achievements.js (ACHIEVEMENT_ID_RE) : le nom d'API Steam.
+const STEAM_ACHIEVEMENT_ID_RE = /^[A-Z][A-Z0-9_]{0,63}$/;
+const STEAM_ACHIEVEMENTS_MAX = 256;
+
+// App ID : `constant` (main.cjs, à remplir quand Valve l'aura attribué), sinon
+// SteamAppId posé par le client Steam, sinon le premier steam_appid.txt lisible dans
+// `dirs` (développement seulement : ce fichier ne se livre pas). null = pas de pont.
+function resolveSteamAppId({ constant = "", env = process.env, dirs = [] } = {}) {
+  const pick = (value) => {
+    const text = String(value == null ? "" : value).trim();
+    return STEAM_APP_ID_RE.test(text) ? Number(text) : null;
+  };
+  const fromConstant = pick(constant);
+  if (fromConstant) return fromConstant;
+  const fromEnv = pick(env && env.SteamAppId);
+  if (fromEnv) return fromEnv;
+  for (const dir of dirs) {
+    if (!dir) continue;
+    try {
+      const fromFile = pick(fs.readFileSync(path.join(dir, "steam_appid.txt"), "utf8"));
+      if (fromFile) return fromFile;
+    } catch { /* pas de fichier ici */ }
+  }
+  return null;
+}
+
+// Les noms reçus de la page : chaînes au format d'API, sans doublon, bornées.
+function sanitizeAchievementIds(ids) {
+  if (!Array.isArray(ids)) return [];
+  const out = [];
+  for (const id of ids) {
+    if (typeof id !== "string" || !STEAM_ACHIEVEMENT_ID_RE.test(id) || out.includes(id)) continue;
+    out.push(id);
+    if (out.length >= STEAM_ACHIEVEMENTS_MAX) break;
+  }
+  return out;
+}
+
+// Le pont. `load` rend le module steamworks.js (un require gardé par l'appelant),
+// `log` écrit au journal. Steamworks s'initialise UNE fois, au premier start() ou
+// unlock() ; un échec (module absent, Steam fermé, App ID refusé) est noté et le
+// pont reste éteint pour la session. unlock() n'active que les succès qui manquent
+// et rend leur nombre ; un nom inconnu de Steamworks est noté une seule fois.
+function createSteamAchievements({ appId = null, load = null, log = () => {} } = {}) {
+  let client = null;
+  let tried = false;
+  const reported = new Set();
+  // Le journal du .exe (texte de support, jamais montré au joueur).
+  const journal = (line) => { try { log(line); } catch { /* journal indisponible */ } };
+  const start = () => {
+    if (tried) return client;
+    tried = true;
+    if (!appId || typeof load !== "function") return null;
+    try {
+      const steamworks = load();
+      const api = steamworks && typeof steamworks.init === "function" ? steamworks.init(appId) : null;
+      client = api && api.achievement && typeof api.achievement.activate === "function" ? api : null;
+      journal(client ? `[steam] Steamworks prêt (App ID ${appId})` : "[steam] steamworks.js sans API de succès : pont éteint");
+    } catch (e) {
+      client = null;
+      journal(`[steam] Steamworks indisponible, succès gardés dans la save : ${e && e.message ? e.message : e}`);
+    }
+    return client;
+  };
+  const unlock = (ids) => {
+    const list = sanitizeAchievementIds(ids);
+    if (!list.length) return 0;
+    const api = start();
+    if (!api) return 0;
+    let done = 0;
+    for (const id of list) {
+      try {
+        if (typeof api.achievement.isActivated === "function" && api.achievement.isActivated(id)) continue;
+        if (api.achievement.activate(id)) done += 1;
+        else if (!reported.has(id)) { reported.add(id); journal(`[steam] succès refusé par Steamworks (nom d'API inconnu ?) : ${id}`); }
+      } catch (e) {
+        if (!reported.has(id)) { reported.add(id); journal(`[steam] succès ${id} : ${e && e.message ? e.message : e}`); }
+      }
+    }
+    return done;
+  };
+  return { start, unlock, isReady: () => Boolean(client) };
+}
+
 module.exports = {
   saveFilePaths,
   createSaveStore,
@@ -407,6 +514,7 @@ module.exports = {
   resolveAppRequest,
   parseByteRange,
   APP_CSP,
+  isSteamVersion,
   driveCandidates,
   probeDir,
   detectGoogleDriveRoot,
@@ -414,4 +522,7 @@ module.exports = {
   writeWindowState,
   fitWindowBounds,
   DRIVE_PROBE_TIMEOUT_MS,
+  resolveSteamAppId,
+  sanitizeAchievementIds,
+  createSteamAchievements,
 };

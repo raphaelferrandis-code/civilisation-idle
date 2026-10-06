@@ -12,7 +12,8 @@
 // faut déclarer à Steam (« nudité partielle / contenu sexuel suggestif ») — brouillon
 // du questionnaire dans docs/STEAM-PUBLICATION.md (audit STEAM-6) ; tout ajout plus
 // osé se reporte là-bas. Chaque âge a les siennes ; un âge pas encore dessiné retombe
-// sur les femmes de son jeu d'habitants.
+// sur les femmes de son jeu d'habitants — et tous les âges, case « tenues sages »
+// cochée (Options, en bas de ce fichier).
 //
 // DESSINÉES À LA MAIN (scripts/plaisirsGirls.mjs, sources art/plaisirs/*.aseprite) :
 // après deux passes PixelLab, Raph — « les yeux ne sont pas beaux, la courtisane est
@@ -58,6 +59,33 @@ const CAST = {
   8: troupe('astral', ['voile', 'eclat', 'lumiere'], 'lumiere', ['servant', 'ange']),                    // nacre et or
   9: troupe('cristal', ['voile', 'eclat', 'lumiere'], 'lumiere', ['servant', 'ange']),                   // cristal
 };
+// ── TENUES SAGES (audit 2026-10-05, STEAM-6 ; Raph : « oui, désactivée par défaut ») ──
+// Une case des Options › Affichage : la Maison ne montre plus ses troupes. plaisirsCast
+// rend alors null pour tous les âges, et chaque lecteur prend le repli déjà prévu pour
+// un âge pas encore dessiné : les femmes (filles, danseuses, croupière, hôtesses des
+// bateaux) et les hommes (gigolos) du jeu d'habitants de l'âge, habillés comme la
+// ville ; ni courtisane alanguie ni promeneuse sur le ponton. Utile aux streamers, et
+// pour viser une classification plus basse (docs/STEAM-PUBLICATION.md). Préférence
+// d'AFFICHAGE, hors save (localStorage, comme la qualité) ; relue à chaque appel :
+// la carte et la coupe la suivent à l'image suivante.
+const SAGES_KEY = 'civ-opt-plaisirs-sages';
+
+export let tenuesSages = (() => {
+  try {
+    return localStorage.getItem(SAGES_KEY) === 'true';
+  } catch {
+    return false;
+  }
+})();
+
+export function setTenuesSages(on) {
+  tenuesSages = !!on;
+  try {
+    localStorage.setItem(SAGES_KEY, tenuesSages ? 'true' : 'false');
+  } catch { /* stockage indisponible : le réglage vaut pour la session */ }
+}
+
 export function plaisirsCast(band) {
+  if (tenuesSages) return null;
   return CAST[Math.max(0, Math.min(9, band | 0))] || null;
 }

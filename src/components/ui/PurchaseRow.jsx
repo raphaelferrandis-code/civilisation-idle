@@ -40,8 +40,7 @@ function PurchaseRow({
   affordable,
   babelBlocked,
   // Trois états lisibles SANS la couleur (E5) : "affordable", "soon", "locked".
-  // Calculé par le parent, qui seul dispose de l'échéance en secondes ; le
-  // déduire ici du libellé d'ETA obligerait à parser une phrase TRADUITE.
+  // Calculé par le parent, qui seul dispose de l'échéance en secondes.
   rowState = "locked",
   // Gain relatif du lot (B6) : DEUX CHAÎNES déjà formatées, jamais un objet.
   // La rangée est mémoïsée et arePropsEqual compare des primitives ; un objet
@@ -53,8 +52,7 @@ function PurchaseRow({
   tier,
   production,
   lackingKey,
-  pulse,
-  etaLabel
+  pulse
 }) {
   // Les niveaux sont des entiers : pas de décimale sous 1000 (fmt(0) → "0.0").
   // Au-delà, compact forcé (fmtShort) : un compteur « full » déborderait la pastille.
@@ -127,8 +125,7 @@ function PurchaseRow({
           .is-affordable), et un second signal pour la même chose n'ajoute que
           du bruit — retour de test de Raphaël. Elle ne sert donc qu'à séparer
           « bientôt » de « verrouillé », deux états que le cadre confond en un
-          seul aspect atténué. Purement visuelle : l'échéance est dite en toutes
-          lettres juste à côté. */}
+          seul aspect atténué. Purement visuelle (aria-hidden). */}
       {rowState !== 'affordable' && <span className="pr-state-pip" aria-hidden="true" />}
       <div className="pr-name-row">
         <h3 className="pr-name" {...tipProps(tr(b.name), tr(b.desc))}>{tr(b.name)}</h3>
@@ -176,21 +173,8 @@ function PurchaseRow({
           <span style={{ width: `${stepPct}%` }}></span>
         </div>
 
-        {/* DÉLAI AVANT ACHAT (B5) : n'existe que sur une rangée impayable, donc
-            aucune ligne ajoutée à celles qu'on peut acheter. Le libellé arrive
-            DÉJÀ FORMATÉ du parent — le comparateur de mémoïsation reste ainsi
-            une comparaison de primitives. */}
-        {etaLabel && (
-          <div
-            className="pr-eta"
-            {...tipProps(null, tr({
-              fr: "Au rythme actuel de production. Un bonus temporaire ou une chute de rendement le change.",
-              en: "At the current production rate. A temporary bonus or a drop in output changes it."
-            }))}
-          >
-            {etaLabel}
-          </div>
-        )}
+        {/* Plus de ligne d'échéance (« payable dans… », B5) : Raph n'en veut
+            pas à l'écran (décision sur BUG-118). */}
 
         <div className="pr-footer">
           {/* TERNAIRE COUPÉ (B1). Un bouton `disabled` ne reçoit aucun événement
@@ -283,17 +267,13 @@ function arePropsEqual(prev, next) {
     // Babel) — l'oublier figerait la production affichée des autres rangées.
     sameMult(prev.outputMult, next.outputMult) &&
     prev.lackingKey === next.lackingKey &&  // highlight is-lacking par devise
-    // Délai avant achat (B5) : une CHAÎNE déjà formatée, donc comparable comme
-    // une primitive. L'oublier ici figerait le compte à rebours sur sa première
-    // valeur jusqu'au prochain achat, en silence.
-    prev.etaLabel === next.etaLabel &&
-    // État à trois valeurs (E5). Même piège que l'ETA juste au-dessus : la
-    // rangée est mémoïsée, donc TOUT ce qui s'affiche doit être comparé ici,
-    // sinon le pip reste figé sur son premier état jusqu'au prochain achat.
+    // État à trois valeurs (E5) : la rangée est mémoïsée, donc TOUT ce qui
+    // s'affiche doit être comparé ici, sinon le pip reste figé sur son premier
+    // état jusqu'au prochain achat.
     prev.rowState === next.rowState &&
-    // Gain relatif (B6), deux chaînes formatées. Même règle que l'ETA et
-    // l'état : tout ce qui s'affiche se compare ici, sinon le chip se fige sur
-    // sa première valeur jusqu'au prochain achat.
+    // Gain relatif (B6), deux chaînes formatées. Même règle que l'état : tout
+    // ce qui s'affiche se compare ici, sinon le chip se fige sur sa première
+    // valeur jusqu'au prochain achat.
     prev.gainLabel === next.gainLabel &&
     prev.gainTitle === next.gainTitle
   );

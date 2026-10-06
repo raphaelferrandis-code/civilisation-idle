@@ -41,6 +41,7 @@ import {
   crisisOpen
 } from '../shared.js';
 import { olympusAbyssProductionMultiplier } from './olympusProd.js';
+import { templeRelicMultiplier, blessingProductionMultiplier } from './crisisLevers.js';
 
 export function ruinMultiplier() {
   if (isMythEffectActive("mythe_du_chaos")) return 1;
@@ -252,6 +253,9 @@ const BREAKDOWN_LABELS = {
   fimbul:       { fr: "Hiver Fimbul",          en: "Fimbulwinter" }
 };
 
+// Hors du produit global, ajouté à l'affichage seulement (BUG-81).
+const RELICS_LABEL = { fr: "Reliques & Bénédiction", en: "Relics & Blessing" };
+
 // Sous-facteurs de l'Arbre des Ruines, affichés en retrait sous leur agrégat.
 const RUIN_TREE_LABELS = {
   braise:      { fr: "Sève de braise",      en: "Ember sap" },
@@ -300,15 +304,44 @@ export function globalMultiplierBreakdown() {
     label: BREAKDOWN_LABELS[key],
     value: (!Number.isFinite(value) && DEC_MIRRORS[key]) ? DEC_MIRRORS[key]() : value
   }));
+  // Produit total : même bascule — recomposé depuis les facteurs affichés
+  // (mêmes appels, même passe) pour que la pile se multiplie à son total.
+  const productShown = Number.isFinite(product)
+    ? product
+    : shown.reduce((acc, f) => acc.mul(f.value), new Decimal(1));
+  // Reliques & Bénédiction : HORS du produit global (cf. relicBlessingMultiplier),
+  // exposées à part pour que la pile affichée retombe sur le total affiché
+  // (`product` reste le produit global seul, celui du moteur).
+  const relics = relicBlessingMultiplier();
+  // Pas d'arithmétique native sur un Decimal (piégée en dev, cf. num.js).
+  const floatTotal = productShown instanceof Decimal ? Infinity : productShown * relics;
   return {
     factors: shown,
     parts: Object.entries(s.ruinTreeParts).map(([key, value]) => ({ key, label: RUIN_TREE_LABELS[key], value })),
-    // Produit total : même bascule — recomposé depuis les facteurs affichés
-    // (mêmes appels, même passe) pour que la pile se multiplie à son total.
-    product: Number.isFinite(product)
-      ? product
-      : shown.reduce((acc, f) => acc.mul(f.value), new Decimal(1))
+    product: productShown,
+    relics: { key: "relics", label: RELICS_LABEL, value: relics },
+    total: Number.isFinite(floatTotal) ? floatTotal : D(productShown).mul(relics)
   };
+}
+
+// Reliques du temple × Bénédiction (décision de Raph sur BUG-81 : A). Elles
+// passent par crisisProductionMultiplier, HORS du produit global, et agissent
+// ENTIÈRES sur toutes les ressources (la Nourriture et le Trésor compris, qui ne
+// reçoivent que la racine du produit global). AFFICHAGE SEUL : le moteur ne lit
+// pas cette fonction. Les politiques et les malus de crise restent hors du
+// chiffre affiché : ils varient selon la ressource.
+export function relicBlessingMultiplier() {
+  return templeRelicMultiplier() * blessingProductionMultiplier();
+}
+
+// Multiplicateur AFFICHÉ (tuile de la Chronique, clé « Multiplicateur » de la
+// Bibliothèque, « Multi. » de la Cité) : produit global × Reliques × Bénédiction.
+// Acheter la Corne (×2) ou l'Œil d'or (×4) doit se voir. Number, ou Decimal
+// au-delà du float (fmt et RollingNumber savent l'écrire).
+export function displayedProductionMultiplier() {
+  const relics = relicBlessingMultiplier();
+  const m = globalMultiplier() * relics;
+  return Number.isFinite(m) ? m : globalMultiplierDec().mul(relics);
 }
 
 // Miroir Decimal de globalMultiplier pour le chemin tardif (au-delà du float).

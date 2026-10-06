@@ -5,9 +5,12 @@
 //   1. chaque couche annoncée a ses PNG — une couche sans fichier ne casserait rien
 //      en dev (Vite rend 200), mais compterait en erreur dans le .exe ; et chaque
 //      bande livrée est annoncée (sinon de l'art mort que personne ne dessine) ;
-//   2. la GÉOMÉTRIE : la bande est N images au canvas EXACT de l'image d'origine,
-//      le fond aussi — blitProp les pose au même cadre ; un pixel de trop et la
-//      flamme glisse à côté de son foyer, la charge à côté de son câble ;
+//   2. la GÉOMÉTRIE : la bande est N TIMBRES de la boîte `box` (audit du 05/10,
+//      ASSET-4), boîte tenue DANS l'image d'origine, et le fond au canvas exact de
+//      l'image — blitProp pose le fond au cadre de l'image et le timbre à sa place ;
+//      un pixel de trop et la flamme glisse à côté de son foyer, la charge à côté de
+//      son câble. Le timbre garde un pixel vide sur ses bords (hors bord de l'image) :
+//      sur GPU, l'échantillon de bord y tombe et non sur le timbre voisin ;
 //   3. une bande qui ne bouge pas, ou une image vide, est un élément figé de plus.
 import { describe, it, expect } from "vitest";
 import fs from "node:fs";
@@ -30,16 +33,36 @@ describe("scènes vivantes : couches animées des bâtiments-moteur", () => {
     expect(livrees.sort()).toEqual(Object.keys(LIVE_LAYERS).sort());
   });
 
-  it("la bande fait N images au canvas exact de l'image, le fond aussi", () => {
+  it("la bande fait N timbres de sa boîte, la boîte tient dans l'image, le fond au canvas de l'image", () => {
+    let full = 0, kept = 0;
     for (const [k, L] of Object.entries(LIVE_LAYERS)) {
       const src = read(k), strip = read(`${k}-live`);
-      expect(strip.height, `${k} : hauteur`).toBe(src.height);
-      expect(strip.width, `${k} : ${L.n} images de ${src.width} px`).toBe(src.width * L.n);
+      expect(L.box, `${k} : boîte`).toHaveLength(4);
+      const [bx, by, bw, bh] = L.box;
+      expect(bx >= 0 && by >= 0 && bw > 0 && bh > 0 && bx + bw <= src.width && by + bh <= src.height, `${k} : boîte ${L.box} dans ${src.width}×${src.height}`).toBe(true);
+      expect([strip.width, strip.height], `${k} : ${L.n} timbres de ${bw}×${bh}`).toEqual([bw * L.n, bh]);
       if (L.back) {
         const b = read(`${k}-back`);
         expect([b.width, b.height], `${k}-back`).toEqual([src.width, src.height]);
       }
+      // Le liseré vide : colonnes et rangées de bord du timbre, sauf au bord de l'image.
+      const edge = [];
+      if (bx > 0) edge.push((f, j) => [0, j]);
+      if (bx + bw < src.width) edge.push((f, j) => [bw - 1, j]);
+      for (let f = 0; f < L.n; f += 1) {
+        for (let j = 0; j < bh; j += 1) for (const e of edge) {
+          const [x, y] = e(f, j);
+          expect(strip.data[(y * strip.width + f * bw + x) * 4 + 3], `${k} image ${f} : bord vertical`).toBe(0);
+        }
+        for (let i = 0; i < bw; i += 1) {
+          if (by > 0) expect(strip.data[(f * bw + i) * 4 + 3], `${k} image ${f} : bord haut`).toBe(0);
+          if (by + bh < src.height) expect(strip.data[((bh - 1) * strip.width + f * bw + i) * 4 + 3], `${k} image ${f} : bord bas`).toBe(0);
+        }
+      }
+      full += src.width * src.height * L.n; kept += bw * bh * L.n;
     }
+    // Ce qu'on a gagné : moins d'un dixième des pixels décodés (37,8 → 3,5 Mo).
+    expect(kept / full).toBeLessThan(0.1);
   });
 
   it("habillages des Plaisirs : chaque `live` a son fond et sa bande, au canvas de l'image", () => {

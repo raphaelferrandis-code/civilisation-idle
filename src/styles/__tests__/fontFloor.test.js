@@ -5,7 +5,8 @@
  * sous ~11 px il ne reste plus de ligne de pixels pour poser un accent. Le
  * relevé du 05/10 en a trouvé 18 sous ce plancher, jusqu'à 8,8 px, surtout dans
  * la refonte Cité et les tables des Plaisirs (audit du 2026-10-05, BUG-119).
- * Celles qui frôlaient le plancher (0.65-0.68rem) y ont été remontées.
+ * Celles qui frôlaient le plancher (0.65-0.68rem) y ont été remontées, PARTOUT
+ * — refonte V4 comprise, sur décision de Raph : l'écart est imperceptible.
  *
  * Les EXCEPTIONS RESTANTES sont comptées fichier par fichier, et chacune dit
  * pourquoi elle tient encore : un fichier qui en gagne une fait échouer la
@@ -24,18 +25,17 @@ const PLANCHER_REM = 0.6875;
 const EXCEPTIONS = {
   // Cotes de la maquette V4 de la refonte « la ville d'abord », relevées côte à
   // côte en 2560×1340 et validées par Raph (en-tête de cite.css) : le bouton
-  // ACHETER (0.58rem), la clepsydre, le gain et l'échéance des rangées. À trancher.
-  "cite.css": 4,
-  // Même refonte V4 (lieux illustrés, Conseil, rail, échoppe, Aide) : cotes de
-  // maquette, même décision en attente.
-  "conseil.css": 6,
-  "lieux.css": 2,
-  "places.css": 1,
+  // ACHETER des rangées (0.58rem). Raph juge sur planche (planches/plancher-11px).
+  "cite.css": 1,
+  // Même refonte V4 : les états du Conseil (0.6 à 0.64), l'état d'une tuile de
+  // mythe (0.6), le libellé du rail et des Options (0.6), l'étiquette de l'Aide
+  // (0.62). Même planche, même décision en attente.
+  "conseil.css": 3,
+  "lieux.css": 1,
   "rail.css": 2,
-  "echoppe.css": 2,
-  "help-book.css": 2,
+  "help-book.css": 1,
   // Le chiffre posé SUR le jeton pixel art de la roulette (0.55rem) : il doit
-  // tenir dans le sprite — à juger à l'œil avant de le grandir.
+  // tenir dans le sprite — sur la même planche.
   "plaisirs-roulette.css": 1,
   // Fenêtre ≤ 760 px seulement (trois ou quatre plaques sur 375 px de large).
   "plaisirs-tables.css": 2
@@ -86,5 +86,12 @@ describe("plancher typographique (11 px)", () => {
     for (const nom of ["plaisirs-scene.css", "views-plaisirs.css", "citizen-sheet.css"]) {
       expect(sous[nom] || [], nom).toEqual([]);
     }
+  });
+
+  it("refonte V4 : plus rien entre 0.65 et 0.68rem (remonté à 0.6875, décision de Raph)", () => {
+    const frolent = Object.entries(sous).flatMap(([nom, liste]) =>
+      liste.filter((l) => /(?:^|\s)0\.6[5-8]\d*rem/.test(l.split(" → ")[1])).map((l) => `${nom} : ${l}`));
+    expect(frolent).toEqual([]);
+    for (const nom of ["places.css", "echoppe.css"]) expect(sous[nom] || [], nom).toEqual([]);
   });
 });

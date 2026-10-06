@@ -39,12 +39,14 @@ const HANDS = new Set(['steer', 'pole', 'row', 'paddle', 'haul']);
 export const isFerryPassenger = (M, cr) => !!M && M.role === 'ferry' && !HANDS.has(cr.pose);
 
 // Le dessin d'un membre d'équipage `cr` (place cuite : pose, id, role) sur le bateau
-// `M` : { name, scale } — scale nulle = celle du jeu d'habitants (agents.js).
-export function crewSpec(band, M, cr) {
+// `M` : { name, scale } — scale nulle = celle du jeu d'habitants (agents.js). `id` : qui
+// il est (par défaut l'id de sa place ; boatKit.drawCrew y mêle l'identité du bateau,
+// la cuisson étant partagée par un vivier de graines — audit du 05/10, PERF-14).
+export function crewSpec(band, M, cr, id = cr.id) {
   const b = Math.max(0, Math.min(9, band | 0));
   if (cr.role === 'hostess') {
     const girls = (plaisirsCast(b) || {}).girls;
-    if (girls && girls.length) { const g = girls[(cr.id >>> 0) % girls.length]; return { name: g.name, scale: g.scale }; }
+    if (girls && girls.length) { const g = girls[(id >>> 0) % girls.length]; return { name: g.name, scale: g.scale }; }
   }
   const C = BOAT_CAST[b];
   let list = C.crew;
@@ -52,7 +54,7 @@ export function crewSpec(band, M, cr) {
   else if (M && M.beacon && C.police) list = C.police;
   else if (M && M.role === 'ferry' && !HANDS.has(cr.pose)) list = C.pass;
   else if (M && M.role === 'shuttle') list = C.pass;   // les passagers de la navette
-  return { name: list[(cr.id >>> 0) % list.length], scale: null };
+  return { name: list[(id >>> 0) % list.length], scale: null };
 }
 export const crewName = (band, M, cr) => crewSpec(band, M, cr).name;
 

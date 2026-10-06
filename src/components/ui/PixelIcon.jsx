@@ -25,7 +25,16 @@
 // eslint-disable-next-line react-refresh/only-export-components
 export const FAMILIES_WITH_VARIANTS = new Set(['res', 'glyphs', 'prep', 'foyers', 'seals', 'myths', 'nav', 'ruins']);
 // eslint-disable-next-line react-refresh/only-export-components
-export const SIZES_BY_FAMILY = { ruins: [24, 32], myths: [16, 32], nav: [24] };
+export const SIZES_BY_FAMILY = { ruins: [24, 32], myths: [16, 32], nav: [24, 32] };
+
+// RAIL COMPACT (audit 2026-10-05, BUG-43, décision de Raph) : avec les NEUF lieux et
+// une fenêtre basse, le rail en emblèmes de 48 px débordait (libellés rognés, puis
+// défilement). Il passe alors en 32 px, servis par les variantes CUITES nav/@32
+// (scripts/bakeUiIconSizes.cjs) et non par le navigateur au plus proche voisin, qui
+// coupait les traits fins. La même condition vit dans rail.css (taille de la boîte) :
+// railCompact.test.js confronte les deux.
+// eslint-disable-next-line react-refresh/only-export-components
+export const RAIL_ICON_COMPACT = { media: '(min-width: 981px) and (max-height: 892px)', size: 32, minTabs: 9 };
 
 // Classe portée par l'<img> -> taille CSS appliquée. À tenir synchronisée avec les règles
 // correspondantes des feuilles de style ; un écart ici se voit tout de suite en jeu
@@ -61,8 +70,11 @@ export function resolveIconSrc(name, className = '', size) {
   return `/pixelart/ui/${name}@${px}.png`;
 }
 
-export default function PixelIcon({ name, className = '', alt = '', title, size }) {
-  return (
+// `compact` ({ media, size }) : une seconde variante native, choisie par le NAVIGATEUR
+// quand la requête média est vraie (<picture>) — sans écouteur de redimensionnement.
+// La feuille de style doit poser la même taille dans la même condition.
+export default function PixelIcon({ name, className = '', alt = '', title, size, compact }) {
+  const img = (
     <img
       className={`px-icon${className ? ' ' + className : ''}`}
       src={resolveIconSrc(name, className, size)}
@@ -71,5 +83,12 @@ export default function PixelIcon({ name, className = '', alt = '', title, size 
       title={title}
       draggable="false"
     />
+  );
+  if (!compact) return img;
+  return (
+    <picture className="px-icon-picture">
+      <source media={compact.media} srcSet={resolveIconSrc(name, className, compact.size)} />
+      {img}
+    </picture>
   );
 }

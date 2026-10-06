@@ -176,11 +176,15 @@ export const fmtHabitants = (n) => (n < 1e6 ? fmtInt(n) : fmtShort(n));
 // de RollingNumber reste VISIBLE sur les grands nombres — avec 3 chiffres
 // significatifs (« 8.19T »), l'affichage paraît figé entre deux ticks alors
 // que la valeur roule. Réservé aux gros compteurs animés (topbar).
+// Au-delà du float, l'odomètre ne roule plus (repli plat) : ses décimales
+// vivantes n'y servent à rien, et un exposant à 3 chiffres ou plus les payait en
+// largeur (« 2.2017e2741 » rogné dans sa case du ruban) — deux décimales, comme
+// fmt (décision de Raph sur BUG-20).
 export const fmtShortLive = (value) => {
   if (value instanceof Decimal) {
     const n = value.toNumber();
     if (Number.isFinite(n)) return formatCompactNumber(n, 2);
-    return value.toExponential(4).replace("e+", "e");
+    return value.toExponential(Math.abs(value.exponent) >= 100 ? 2 : 4).replace("e+", "e");
   }
   if (!Number.isFinite(value)) return "inf";
   return formatCompactNumber(value, 2);
@@ -240,14 +244,13 @@ export function fmtClock(totalSecs, { seconds = "under-day" } = {}) {
   return avecSecondes ? `${out} ${pad(s)}s` : out;
 }
 
-// Pas de QUANTIFICATION du délai avant achat (B5), en secondes. Deux raisons,
-// et la seconde est la plus importante :
-//   - lisibilité : un compte à rebours qui bouge d'une seconde sur une échéance
-//     de quarante minutes est du bruit ;
-//   - PERF : la boutique est mémoïsée pour ne PAS se re-rendre au tick. La
-//     signature d'abonnement est construite à partir du LIBELLÉ, donc de la
-//     valeur quantifiée — sans ce pas, elle changerait chaque seconde pour
-//     chaque rangée et on perdrait exactement l'optimisation qu'on protège.
+// Pas de QUANTIFICATION du délai avant achat (B5), en secondes. Le délai ne
+// s'écrit plus sur les rangées (décision de Raph sur BUG-118 : pas d'échéance
+// à l'écran) ; il ne décide plus que de l'état « bientôt » (pastille, E5).
+// PERF : la boutique est mémoïsée pour ne PAS se re-rendre au tick. La signature
+// d'abonnement est construite sur la valeur quantifiée — sans ce pas, elle
+// changerait chaque seconde pour chaque rangée et on perdrait exactement
+// l'optimisation qu'on protège.
 const ETA_STEP_SECONDS = [
   [60, 5],       // sous la minute : au pas de 5 s
   [3600, 60],    // sous l'heure : à la minute
@@ -260,16 +263,6 @@ export function quantizeEta(seconds) {
     if (s < limite) return Math.ceil(s / pas) * pas;
   }
   return s;
-}
-
-// Délai avant achat, quantifié puis mis en mots. Descend SOUS la minute, à la
-// différence de fmtSecs — c'est un compte à rebours, pas un ordre de grandeur —
-// mais lui délègue au-delà, pour qu'il n'existe qu'une seule écriture des
-// heures et des jours dans le jeu.
-export function fmtEta(seconds) {
-  const q = quantizeEta(seconds);
-  if (q < 60) return `${Math.max(5, q)} s`;
-  return fmtSecs(q);
 }
 
 export function labelFor(key) {

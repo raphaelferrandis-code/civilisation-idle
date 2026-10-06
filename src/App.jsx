@@ -1,7 +1,7 @@
 import { lazy, Suspense, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import Topbar from './components/ui/Topbar.jsx';
 import CityStatusPanel from './components/ui/CityStatusPanel.jsx';
-import PixelIcon from './components/ui/PixelIcon.jsx';
+import PixelIcon, { RAIL_ICON_COMPACT } from './components/ui/PixelIcon.jsx';
 import ChoiceDialog from './components/dialogs/ChoiceDialog.jsx';
 import ViewErrorBoundary from './components/ui/ViewErrorBoundary.jsx';
 import OutcomeFloatLayer from './components/ui/OutcomeFloatLayer.jsx';
@@ -24,7 +24,7 @@ import { placeUnlocked } from './game/core/places.js';
 import { pushOutcomeFloat } from './game/core/outcomeFloat.js';
 import { resolveShortcut, resolveViewDigit, feedDebugSequence } from './game/core/shortcuts.js';
 import { tabBadgeSignature, parseTabBadges } from './game/core/mechanics/tabBadges.js';
-import { buyAllAffordable } from './game/core/actions.js';
+import { buyAllAffordableChained } from './game/core/actions.js';
 import { registerChoiceDialog } from './game/core/choiceDialog.js';
 import { currentEraIndex } from './game/core/mechanics.js';
 import { eras } from './game/data/world.js';
@@ -274,8 +274,9 @@ export default function App() {
         } else if (hit.id in BUY_BY_ID) {
           // Un achat de masse par appui, lui aussi : touche tenue, la répétition
           // enchaînait les « Tout acheter » (jusqu'à 10 000 achats chacun) et
-          // figeait l'interface (audit 2026-10-05, PERF-16).
-          if (!event.repeat) buyAllAffordable(BUY_BY_ID[hit.id]);
+          // figeait l'interface (audit 2026-10-05, PERF-16). Par tranches de
+          // ~16 ms d'une image à l'autre (BUG-79) : tout, mais sans gel.
+          if (!event.repeat) buyAllAffordableChained(BUY_BY_ID[hit.id]);
         }
         // PAS de `return` : la séquence secrète « debug » contient un « e », qui
         // est aussi un raccourci d'achat. Elle doit continuer d'accumuler.
@@ -497,8 +498,14 @@ export default function App() {
             >
               {/* RAIL du bureau (refonte « la ville d'abord ») : l'icône en 48 px,
                   sa taille de dessin — nette, sans rééchantillonnage. Au doigt,
-                  la barre basse garde sa variante 24. */}
-              <PixelIcon name={tab.icon} className="tab-icon" size={coarse ? undefined : 48} />
+                  la barre basse garde sa variante 24. Neuf lieux dans une fenêtre
+                  basse : la variante cuite @32 (BUG-43, rail.css). */}
+              <PixelIcon
+                name={tab.icon}
+                className="tab-icon"
+                size={coarse ? undefined : 48}
+                compact={!coarse && ongletsBarre.length >= RAIL_ICON_COMPACT.minTabs ? RAIL_ICON_COMPACT : undefined}
+              />
               {/* Le libellé COURT sert partout où la place est comptée : la rangée
                   du doigt et, depuis la refonte, le rail du bureau (≈ 6,75 rem). */}
               <span className="tab-label">{tr(tab.short ? tab.short : tab.label)}</span>

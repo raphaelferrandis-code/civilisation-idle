@@ -22,7 +22,7 @@ import { createBuildingPlacer, placeCategorySlotted, VARIANTS_HOUSE, houseFootpr
 import { planIlots, ilotReachFor, ilotMemoryCells } from './ilotLayout.js';
 import { ILOT_BANDS, ANNEX_BODIES, annexOwnArt, ROWS } from './ilotArt.js';
 import { createWaterModel } from './procedural/waterModel.js';
-import { planHighway, vergeCells } from './procedural/highwayPlan.js';
+import { planHighway, vergeCells, interchangeLawns, HIGHWAY } from './procedural/highwayPlan.js';
 import { CM_GIVEN, CM_EPITHETS, CM_TRADES, CM_HOUSES, CM_ROLES, CM_STREET_OF, CM_RESIDENCES, cmOfEn } from './cityNaming.js';
 import {
   CM_MAP_BUILDINGS,
@@ -268,11 +268,14 @@ const ILOT_HALL_MAX = 3;
 // respirent (lots-jardins, cf. ilotLayout ILOT_AIR) — une fiche v1 se replace une
 // fois (plus bas, « LA RESPIRATION DES ÎLOTS ») ; 3 = rues du hameau effacées pour de
 // bon à la réorganisation (audit 2026-10-05, BUG-13) — une fiche v2 qui les a gardées
-// efface une fois ses rues mémorisées (ses maisons, elles, ne bougent pas).
-export const ILOT_MEMORY_V = 3;
+// efface une fois ses rues mémorisées (ses maisons, elles, ne bougent pas) ; 4 = grand
+// forum (audit 2026-10-05, BUG-63) — une fiche v3 agrandit son forum une fois.
+export const ILOT_MEMORY_V = 4;
 // Version à partir de laquelle la mémoire des rues d'une ville par îlots est sûre
 // (plus de sentiers du hameau à y chercher).
 const ILOT_ROADS_V = 3;
+// Version à partir de laquelle le forum est né grand (ilotLayout.js, GRAND_FORUM).
+const ILOT_FORUM_V = 4;
 if (import.meta.env?.DEV && typeof window !== "undefined") {
   window.__ilots = (on) => {
     if (on != null) ILOT_MODE.on = on !== false;
@@ -1098,13 +1101,18 @@ function cmRoadName(gx, gy) {
   // Les cellules de place portent un nom de place, pas de rue.
   const road = L && L.roadMap && L.roadMap.get(gx + "," + gy);
   if (road && road.rank === "plaza") {
-    // Nom stable pour toute la place : basé sur la place la plus proche.
+    // Nom stable pour toute la place : basé sur la place la plus proche — celle dont le
+    // RECTANGLE contient la case d'abord (`w`, `h` : places des îlots). Au seul centre, le
+    // bord d'une grande place (forum 14 × 9, square 9 × 9 ; audit 2026-10-05, BUG-63)
+    // prenait le nom de la place voisine, plus proche de lui que son propre centre.
     let pKey = gx + ":" + gy;
     let pKind = "centrale";
     if (L.plan && Array.isArray(L.plan.plazas)) {
       let best = Infinity;
       for (const p of L.plan.plazas) {
-        const d = Math.hypot(gx - p.gx, gy - p.gy);
+        const px0 = p.w ? p.gx - (p.w >> 1) : 0, py0 = p.h ? p.gy - (p.h >> 1) : 0;
+        const inR = !!(p.w && p.h) && gx >= px0 && gx < px0 + p.w && gy >= py0 && gy < py0 + p.h;
+        const d = inR ? -1 : Math.hypot(gx - p.gx, gy - p.gy);
         if (d < best) { best = d; pKey = p.gx + ":" + p.gy; pKind = p.kind || "centrale"; }
       }
     }
@@ -2434,7 +2442,9 @@ function cityGridDims(s, c, mapSeed) {
   while (N * N * packFactor < total + enginePressure * 1.35 + 10 + c.megaDistricts * 18 && N < NCAP) N += 2;
   // LA GRILLE NE RÉTRÉCIT JAMAIS (mémoire des rues) : rues, slots et sites sont
   // relatifs au centre de grille ; une grille qui reculerait (population qui baisse,
-  // étalement qui décroît avec les ères) couperait la ville à ses bords.
+  // étalement qui décroît avec les ères) couperait la ville à ses bords. Le temps d'un
+  // cycle seulement : la vallée (crisis.js) ne garde pas maxN, elle en tire la largeur
+  // de pose du fleuve (cityCore.riverN, cf. computeCityLayout).
   if (roadMemoryActive(c.eraBand) && s.cityCore && (s.cityCore.seed >>> 0) === (mapSeed >>> 0)
     && Number.isFinite(s.cityCore.maxN) && s.cityCore.maxN > N) N = Math.min(NCAP, s.cityCore.maxN | 0);
   return { N, total, enginePressure };
@@ -2464,8 +2474,18 @@ function computeCityLayout(s) {
   lp("dimension");
 
   // Rivière fixe — stockée dans state.riverWP, la ville s'étend autour
-  const xStart = cx - N * 1.8, xEnd = cx + N * 1.8;
   const WN = 6;
+  // LARGEUR DE POSE DU FLEUVE (audit du 05/10, CHUTE-4, choix B de Raph). Le cours
+  // court de cx − 1,8·RN à cx + 1,8·RN : ses abscisses dépendent de la grille. Dans
+  // la MÊME VALLÉE (crisis.js), la cité neuve repart de sa grille naturelle — garder la
+  // plus grande grille jamais atteinte (maxN) rendait chaque recalcul d'un cycle neuf
+  // 15 à 40 fois plus cher, à vie —, mais le fleuve garde la largeur de pose de la cité
+  // tombée (cityCore.riverN) : comme les ruines, le cœur et le pont, il reste où il
+  // était par rapport au centre de grille. Hors vallée (pas de riverN), RN = N.
+  const keptRiverN = s.cityCore && (s.cityCore.seed >>> 0) === (mapSeed >>> 0)
+    && s.riverWP && s.riverWP.length === WN && Number.isFinite(s.cityCore.riverN) ? s.cityCore.riverN | 0 : 0;
+  const RN = Math.max(N, keptRiverN);
+  const xStart = cx - RN * 1.8, xEnd = cx + RN * 1.8;
   let WP;
   if (s.riverWP && s.riverWP.length === WN) {
     WP = s.riverWP.map((p, i) => ({
@@ -2488,7 +2508,9 @@ function computeCityLayout(s) {
   // de grands trous s'ouvrent entre samples sur les grandes cartes et le RUBAN
   // PEINT (spline continue) recouvre des cellules classées « sèches » → des
   // bâtiments se posent sous l'eau peinte. Pas de fixe : ~1.5 cellule par pas.
-  const STEPS = Math.max(12, Math.ceil((N * 3.6 / (WN - 1)) / 1.5));
+  // (Sur la longueur du COURS, RN : dans la vallée, les mêmes échantillons que la
+  // cité tombée.)
+  const STEPS = Math.max(12, Math.ceil((RN * 3.6 / (WN - 1)) / 1.5));
   const riverSamples = [];
   for (let i = 0; i < WN - 1; i += 1) {
     const p0 = WP[Math.max(0, i - 1)], p1 = WP[i], p2 = WP[i + 1], p3 = WP[Math.min(WN - 1, i + 2)];
@@ -2941,12 +2963,17 @@ function computeCityLayout(s) {
   // rues d'îlots se reposent depuis `ilot.blocks`, le reste se retrace. Une mémoire
   // saine reste telle quelle, et les maisons ne bougent pas (deux migrations
   // distinctes : passer en v3 ne doit pas rejouer la v2).
+  // v4 (audit 2026-10-05, BUG-63) : le forum d'un îlot d'une fiche d'avant s'agrandit
+  // une fois en GRAND FORUM (planIlots, `forumGrow`) ; seuls les bâtiments des trois îlots
+  // gagnés sont relogés (plus bas, `forumClaim`).
+  let ilotForumGrow = false;
   if (ilotMode && s.cityCore && s.cityCore.ilot && (s.cityCore.ilot.v | 0) < ILOT_MEMORY_V) {
     if ((s.cityCore.ilot.v | 0) < 2) {
       const store = cmCityMapSlotsFor(s), pre = `${s.cycles || 0}:dec_`;
       for (const k of Object.keys(store)) if (k.startsWith(pre)) delete store[k];
     }
     if ((s.cityCore.ilot.v | 0) < ILOT_ROADS_V && hamletRoads) s.cityRoads = null;
+    if ((s.cityCore.ilot.v | 0) < ILOT_FORUM_V) ilotForumGrow = true;
     s.cityCore.ilot.v = ILOT_MEMORY_V;
   }
 
@@ -3977,17 +4004,108 @@ function computeCityLayout(s) {
       for (const [x, y] of tradeCells(tradePort)) tradeHeld.add(x + "," + y);
       for (let i = 0; i < tradePort.len; i += 1) tradeHeld.add((tradePort.x0 + i) + "," + (tradePort.edge[i] - dirT * tradePort.depth));
     }
-    ilot = planIlots({
-      N, cx, cy, core: plan.core, bx: Math.round(riverBridge.x),
+    const bxI = Math.round(riverBridge.x);
+    // LE GRAND FORUM (audit 2026-10-05, BUG-63) : une fiche d'avant agrandit son forum une
+    // fois (`forumGrow`) ; les bâtiments qui tenaient les trois îlots gagnés sont relogés
+    // aussitôt (`forumClaim`, evictOn plus bas) — rien d'autre ne bouge.
+    const runIlots = (lawn) => {
+      const il = runIlots0(lawn);
+      if (il.forumClaim && il.forumClaim.length) evictOn(il.forumClaim);
+      return il;
+    };
+    const runIlots0 = (lawn) => planIlots({
+      N, cx, cy, core: plan.core, bx: bxI, forumGrow: ilotForumGrow,
       isWet: (x, y) => riverSet.has(x + "," + y),
       isBank: (x, y) => bankSet.has(x + "," + y),
       isReserved: (x, y) => { const k = x + "," + y; return wonderCells.has(k) || plaisirsClear.has(k) || tradeHeld.has(k); },
       isRural: (x, y) => ruralHeld(x + "," + y),
       isHeld: (x, y) => !!heldBy && heldBy.has(x + "," + y),
       heldOwner: (x, y) => (heldBy && heldBy.get(x + "," + y)) || null,
+      isHold: lawn ? (x, y) => lawn.has(x + "," + y) : null,
       demand: ilotDemand,
       memory: s.cityCore && s.cityCore.ilot,
     });
+    // ── L'AUTOROUTE DE L'ARTÈRE EN VILLE PAR ÎLOTS (audit 2026-10-05, BUG-16) ──
+    // Elle avait disparu en silence des bandes 6 à 9 (son plan n'était calculé que sous
+    // `townOn`). Choix A' de Raph : le tablier passe au-dessus du CARDO, qui tient les
+    // colonnes de l'artère (bx, bx+1), SANS dégagement de part et d'autre — les rangées
+    // des îlots sont déjà reculées derrière le trottoir. Seul l'ÉCHANGEUR prend du
+    // terrain : ses pelouses (et un raccord éventuel) sont gardées hors lot par planIlots
+    // (`isHold` : mêmes îlots, mêmes rues), et un bâtiment qui y tenait sa place est
+    // relogé, une fois. Le croisement est figé dans s.cityCore.highway. Le plan lit les
+    // rues d'îlots : la première pose d'un échangeur replanifie donc les îlots avec ses
+    // pelouses — une seule fois par ville, le choix figé les donne ensuite d'emblée.
+    const hwyOn = HIGHWAY.on && (c.eraBand | 0) >= HIGHWAY.band;
+    const highwayOf = (il, fix) => {
+      const blockCells = new Set(), plazaCells = new Set(), coreRows = [];
+      for (const b of il.blocks) for (const q of b.cells) blockCells.add(q.x + "," + q.y);
+      for (const p of il.plazas) {
+        for (const q of p.block.cells) plazaCells.add(q.x + "," + q.y);
+        if (p.kind === "centrale") for (let y = p.block.y0; y <= p.block.y1; y += 1) coreRows.push(y);
+      }
+      const inGrid = (x, y) => x >= 1 && y >= 1 && x < N - 1 && y < N - 1;
+      const isWet = (x, y) => riverSet.has(x + "," + y) || bankSet.has(x + "," + y);
+      // Le cardo du pont jusqu'au forum (rue de départ de planIlots) est de la ville
+      // même là où aucun îlot ne le borde encore : un cœur loin du fleuve (mesuré : 100
+      // cases, graine 0x51a7c0de) coupait sinon la rive à la première rangée nue.
+      const oyI = Math.round(plan.core.y);
+      let wTop = -1, wBot = -1;
+      for (let y = 0; y < N; y += 1) if (isWet(bxI, y)) { if (wTop < 0) wTop = y; wBot = y; }
+      const onSeed = (y) => wTop >= 0 && (oyI < wTop ? y >= oyI && y < wTop : oyI > wBot && y > wBot && y <= oyI);
+      return planHighway({
+        N, ax: bxI, cx, cy, band: c.eraBand | 0, coreRows, isWet,
+        isRoad: (x, y) => il.streets.has(x + "," + y),
+        // « Dans la ville » = un îlot ouvert de part et d'autre du cardo à cette hauteur.
+        inCity: (x, y) => {
+          if (onSeed(y)) return true;
+          for (let dy = -1; dy <= 1; dy += 1) for (let dx = -6; dx <= 7; dx += 1) if (blockCells.has((bxI + dx) + "," + (y + dy))) return true;
+          return false;
+        },
+        hard: (x, y) => {
+          const k = x + "," + y;
+          return !inGrid(x, y) || riverSet.has(k) || bankSet.has(k) || townReserve.has(k) || wonderCells.has(k) || plaisirsClear.has(k)
+            || tradeHeld.has(k) || plazaCells.has(k) || ILOT_OUTSIDE_RE.test((heldBy && heldBy.get(k)) || "");
+        },
+        held: (x, y) => !!heldBy && heldBy.has(x + "," + y),
+        fix,
+      });
+    };
+    // Pelouses + raccord d'un échangeur, ou null.
+    const lawnOf = (H) => H && H.interchange ? new Set([...H.lawn, ...H.pave]) : null;
+    const evictOn = (cells) => {
+      if (!heldBy || !cells) return;
+      const evicted = new Set();
+      for (const k of cells) { const o = heldBy.get(k); if (o) evicted.add(o); }
+      if (!evicted.size) return;
+      const store = cmCityMapSlotsFor(s);
+      for (const [k, o] of Array.from(heldBy)) if (evicted.has(o)) heldBy.delete(k);
+      for (const o of evicted) delete store[o];
+    };
+    const hwyFix = hwyOn && s.cityCore && s.cityCore.highway ? s.cityCore.highway : null;
+    let hwyLawn = null;
+    if (hwyFix && (hwyFix.sign === 1 || hwyFix.sign === -1) && Number.isFinite(hwyFix.dy)) {
+      hwyLawn = new Set(interchangeLawns(bxI, cy + hwyFix.dy, hwyFix.sign).map(([x, y]) => x + "," + y));
+      evictOn(hwyLawn);
+    }
+    ilot = runIlots(hwyLawn);
+    if (hwyOn) {
+      highway = highwayOf(ilot, hwyFix);
+      const lawn1 = lawnOf(highway);
+      const same = (hwyLawn ? hwyLawn.size : 0) === (lawn1 ? lawn1.size : 0) && (!lawn1 || [...lawn1].every((k) => hwyLawn.has(k)));
+      if (!same) {
+        hwyLawn = lawn1;
+        evictOn(hwyLawn);
+        ilot = runIlots(hwyLawn);
+        const ic = highway && highway.interchange;
+        highway = highwayOf(ilot, ic ? { sign: ic.sign, dy: ic.yc - cy } : null);
+      }
+      if (highway && highway.interchange) {
+        if (s.cityCore) s.cityCore.highway = { sign: highway.interchange.sign, dy: highway.interchange.yc - cy };
+        // Les pelouses : jamais bâties, repeintes en herbe ; une rue d'îlot qui les
+        // traverse reste une rue (la boucle passe au-dessus).
+        for (const k of highway.lawn) { if (ilot.streets.has(k)) continue; townReserve.add(k); townGreen.add(k); }
+      }
+    }
     if (s.cityCore) s.cityCore.ilot = { v: ILOT_MEMORY_V, ...ilot.memory };
     for (const [k, m] of ilot.streets) {
       const e = roadMeta.get(k);
@@ -4000,8 +4118,17 @@ function computeCityLayout(s) {
       }
       memKeep.add(k);
     }
+    // Le RACCORD de l'échangeur (la rue transversale prolongée jusqu'au cardo, gardé
+    // hors lot plus haut) — vide en pratique : une rue d'îlot touche déjà le cardo.
+    if (highway && highway.interchange) {
+      for (const k of highway.pave) {
+        if (!roadKey.has(k)) { const ci = k.indexOf(","); roadKey.add(k); roads.push({ gx: +k.slice(0, ci), gy: +k.slice(ci + 1) }); roadMeta.set(k, { h: true, v: false, rank: "secondary" }); }
+        memKeep.add(k);
+      }
+    }
     // Places : l'îlot entier devient place (rang `plaza`, comme les places du réseau).
-    plan.plazas = ilot.plazas.map((p) => ({ gx: p.gx, gy: p.gy, size: p.size, kind: p.kind }));
+    // `w`, `h` : l'emprise (une grande place n'est pas un carré de `size`, cf. cmRoadName).
+    plan.plazas = ilot.plazas.map((p) => ({ gx: p.gx, gy: p.gy, size: p.size, kind: p.kind, w: p.block.x1 - p.block.x0 + 1, h: p.block.y1 - p.block.y0 + 1 }));
     for (const p of ilot.plazas) {
       for (const c2 of p.block.cells) {
         const k = c2.x + "," + c2.y;
@@ -5613,10 +5740,10 @@ function computeCityLayout(s) {
   // Rien de tout ça une fois la ville passée en régime cosmique (bandes 7+) :
   // on n'élève pas de chèvres dans une mégastructure stellaire.
   //
-  // ⛔ ÉTEINT tant que CRITTERS_ON est faux (sprites retirés le 2026-10-05, licence :
-  // cf. critters.js). Rien n'est posé : des bêtes invisibles bloqueraient encore
-  // leurs cellules (faits divers, chiens et chats de la petite vie). Le placement
-  // ne tire que des hachages par cellule, il ne déplace donc rien d'autre du plan.
+  // Seulement si CRITTERS_ON (bêtes maison depuis le 2026-10-05, cf. critters.js) :
+  // éteint, rien n'est posé — des bêtes invisibles bloqueraient encore leurs cellules
+  // (faits divers, chiens et chats de la petite vie). Le placement ne tire que des
+  // hachages par cellule, il ne déplace donc rien d'autre du plan.
   const critters = [];
   if (CRITTERS_ON && c.eraBand <= 6) {
     const taken = new Set();

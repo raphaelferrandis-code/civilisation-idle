@@ -67,6 +67,8 @@ import { collapseHarvest } from './mechanics/collapseHarvest.js';
 import { BRAISIERS_DURATION_MS, ENEE_HERITAGE_DURATION_MS, HEPH_POP_DECAY_START_MIN, RAGNAROK_ID, RAGNAROK_WINTER_AT_MS, isMythEffectActive, getMythById } from '../data/myths.js';
 import { D } from './num.js';
 import { decideTickCredit, shiftStateTimestamps } from './offlineCredit.js';
+import { checkAchievements, syncSteamAchievements, ACHIEVEMENTS_CHECK_MS } from './achievements.js';
+import { pageHiddenForTick, isWindowMinimized, onWindowMinimizedChange } from './desktopWindow.js';
 
 import {
   encodeSaveText,
@@ -247,6 +249,36 @@ function atlasHoldsEdict() {
   return isMythEffectActive("mythe_d_atlas") && !state.atlasCrushed;
 }
 
+// Crise terminale sous l'Édit : la grâce de autoCollapseDelay() depuis l'annonce,
+// puis l'option « préparer ». PARTAGÉES par checkAutoCollapse et le farm hors ligne
+// (audit 2026-10-05, BUG-76) : hors ligne, la chute tombait au pas même de
+// l'annonce, sans grâce ni préparation — fermer le jeu farmait plus vite que le
+// laisser ouvert (~+25 % de chutes en cycles de 12 min), et un réglage payé et
+// coché ne s'appliquait pas pendant l'absence. Sous la sim, Date.now() est
+// l'horloge virtuelle : crisisOpenedAt (posé par triggerCollapseChoices) y vit.
+// Vrai quand la grâce est écoulée ; la pose à défaut (vieille sauvegarde).
+function terminalGraceElapsed() {
+  if (!state.crisisOpenedAt) { state.crisisOpenedAt = Date.now(); return false; }
+  return Date.now() - state.crisisOpenedAt >= autoCollapseDelay();
+}
+
+// Option "prepare" : si la crise terminale est ouverte ET résoluble (Rupture, pas
+// Usure), on tente Rationner puis Réformes avant d'effondrer. Une action baisse
+// l'instabilité mais PAS l'usure → on ne tente que si ça peut réellement résoudre.
+// Vrai quand une action a été jouée : la chute est alors reportée (nouvelle grâce).
+function edictPrepareTerminal(ac) {
+  if (!ac.prepare || !state.crisisLimitAnnounced) return false;
+  const canAutoResolve = state.instability >= 1 && (state.timeWear || 0) < 1;
+  if (!canAutoResolve) return false;
+  const costs = crisisCosts();
+  const action = canPayCost(costs.rationing) ? "rationing" : canPayCost(costs.reforms) ? "reforms" : null;
+  if (!action) return false;
+  runCrisisAction(action, { render: false, force: true });
+  state.crisisOpenedAt = Date.now();
+  if (!crisisOpen()) resumeAfterCrisisOutcome();
+  return true;
+}
+
 function simulateAwayCrises(elapsedSeconds) {
   if (!farmEligible()) return null;
   const ac = state.crisisDoctrine.autoCollapse;
@@ -303,8 +335,12 @@ function simulateAwayCrises(elapsedSeconds) {
       // 24 min ; sous la sim il s'en garde (deuil async), la Fin tombe donc ICI,
       // par le chemin synchrone — sinon le cycle survivait à la Fin pendant
       // l'absence, et le pacte ne se brisait qu'à la chute suivante de l'Édit.
+      // La crise terminale attend sa grâce et rejoue « préparer », comme en ligne
+      // (BUG-76) ; la Fin de Ragnarök, elle, n'attend rien (en ligne, le tick
+      // l'effondre de force, hors de l'Édit).
       const endDue = ragnarokEndDue();
-      const fire = triggered || state.crisisLimitAnnounced || endDue;
+      let fire = endDue || triggered || (state.crisisLimitAnnounced && terminalGraceElapsed());
+      if (fire && !endDue && edictPrepareTerminal(ac)) fire = false;
       if (!fire) continue;
 
       // Chaque effondrement hors-ligne grave le testament s'il existe, sinon
@@ -555,6 +591,12 @@ function advanceIdleClocks(seconds) {
   tickRoadWorks(seconds);
   decayRegulationRelief(seconds);
   if ((state.buildings.roads || 0) !== roadsBefore) invalidateRenderCache("buildings");
+  // La fenêtre du Phénix se compte en temps de JEU (BUG-38), et le temps crédité en
+  // est : la cité y a produit. Sans ça, un onglet caché, une absence ou un versement
+  // de clepsydre faisaient monter la population vers la cible sans user la fenêtre
+  // — renaissance offerte. (Le maintien d'Icare n'avance pas : la Rupture est gelée
+  // hors ligne, ce serait un sacre sans risque.)
+  if (isMythEffectActive("mythe_du_phenix")) state.phoenixCycleSec = (state.phoenixCycleSec || 0) + seconds;
 }
 
 function advanceWorldBy(seconds, opts = {}) {
@@ -711,9 +753,9 @@ export function applyOfflineProgress(elapsedSeconds = (Date.now() - state.lastTi
   if (collapseInProgress) return;
   // Dialogue bloquant (gamePaused) ou crise terminale HORS farm : cité gelée, le
   // temps part dans la clepsydre (stashFrozenAbsence). En FARM, la crise terminale
-  // n'est qu'une fin de cycle : la simulation laisse l'Édit effondrer dès le
-  // premier pas, quel que soit son déclencheur (BUG-9, BUG-10) — avant, toute la
-  // nuit du farm était jetée si l'on quittait pendant la grâce terminale.
+  // n'est qu'une fin de cycle : la simulation laisse l'Édit effondrer au bout de
+  // la grâce qui lui reste, quel que soit son déclencheur (BUG-9, BUG-10, BUG-76)
+  // — avant, toute la nuit du farm était jetée si l'on quittait pendant la grâce.
   if (gamePaused || (state.crisisLimitAnnounced && !farmEligible())) {
     stashFrozenAbsence(elapsedSeconds);
     return;
@@ -811,32 +853,14 @@ export function checkAutoCollapse() {
     // comportement historique de rupture100, étendu aux deux autres déclencheurs
     // (BUG-10). La crise terminale gèle le tick, donc l'Usure : sur « usure », un
     // cycle arrivé à 100 % de Rupture avant le seuil restait gelé pour toujours,
-    // l'Édit payé ne tirait plus jamais.
-    if (!state.crisisOpenedAt) { state.crisisOpenedAt = Date.now(); return; }
-    if (Date.now() - state.crisisOpenedAt < autoCollapseDelay()) return;
+    // l'Édit payé ne tirait plus jamais. Grâce partagée avec le farm (BUG-76).
+    if (!terminalGraceElapsed()) return;
   } else {
     return;
   }
 
-  // Option "prepare" : si la crise terminale est ouverte ET résoluble (Rupture, pas
-  // Usure), on tente Rationner puis Réformes avant d'effondrer. Une action baisse
-  // l'instabilité mais PAS l'usure → on ne tente que si ça peut réellement résoudre.
-  if (ac.prepare && state.crisisLimitAnnounced) {
-    const canAutoResolve = state.instability >= 1 && (state.timeWear || 0) < 1;
-    const costs = crisisCosts();
-    if (canAutoResolve && canPayCost(costs.rationing)) {
-      runCrisisAction("rationing", { render: false, force: true });
-      state.crisisOpenedAt = Date.now();
-      if (!crisisOpen()) resumeAfterCrisisOutcome();
-      return;
-    }
-    if (canAutoResolve && canPayCost(costs.reforms)) {
-      runCrisisAction("reforms", { render: false, force: true });
-      state.crisisOpenedAt = Date.now();
-      if (!crisisOpen()) resumeAfterCrisisOutcome();
-      return;
-    }
-  }
+  // Option "prepare" (edictPrepareTerminal, partagée avec le farm hors ligne).
+  if (edictPrepareTerminal(ac)) return;
 
   const gain = ruinGain(projected).floor().max(0);
   if (D(gain).lte(0)) return; // cité trop jeune/petite : rien à récolter, on n'effondre pas à vide
@@ -903,8 +927,10 @@ function retryMusicStart() {
   playMusic();
 }
 
+// « En arrière-plan » : onglet caché, ou fenêtre de l'.exe réduite — la page y
+// reste « visible » depuis que la cité vit en arrière-plan (ELEC-6, desktopWindow.js).
 function shouldPlayMusic() {
-  return optMusic && (!optMusicActiveTabOnly || (typeof document !== 'undefined' && !document.hidden));
+  return optMusic && (!optMusicActiveTabOnly || (typeof document !== 'undefined' && !document.hidden && !isWindowMinimized()));
 }
 
 export function playMusic() {
@@ -1098,7 +1124,8 @@ export function initAudio() {
   applyMusicVolume();
 
   document.addEventListener("visibilitychange", syncMusicVisibility);
-  
+  onWindowMinimizedChange(syncMusicVisibility); // .exe réduit / rendu (ELEC-6)
+
   if (optMusic) {
     playMusic();
   }
@@ -1127,13 +1154,27 @@ export function startGameLoop() {
   // la modale) est rouvert ici — sinon le cycle tournait sans Ruines actives et
   // sans recours, rendant Antée inaccomplissable (M15).
   resumeActiveRuinsChoiceIfPending().catch((err) => console.error("Reprise du choix des Ruines actives :", err));
+  // SUCCÈS (STEAM-9, achievements.js) : ce qui est déjà débloqué repart vers Steam
+  // (le process principal n'active que ce qui manque), puis une première relecture
+  // — une ancienne save reçoit ici, d'un coup, tout ce qu'elle a déjà mérité —, puis
+  // une toutes les ACHIEVEMENTS_CHECK_MS. Gardé comme le reste : jamais bloquant.
+  const checkAchievementsSafely = () => {
+    try { checkAchievements(); } catch (err) { console.error("Succès :", err); }
+  };
+  try { syncSteamAchievements(); } catch (err) { console.error("Succès (Steam) :", err); }
+  checkAchievementsSafely();
+  const achievementsInterval = setInterval(checkAchievementsSafely, ACHIEVEMENTS_CHECK_MS);
   const trackInteraction = () => registerOlympusInteraction();
   if (typeof window !== "undefined") {
     window.addEventListener("pointerdown", trackInteraction, { passive: true });
     window.addEventListener("keydown", trackInteraction);
   }
   
-  const isTabHidden = () => typeof document !== "undefined" && document.hidden;
+  // Dans l'.exe, la cité VIT en arrière-plan (ELEC-6, desktopWindow.js) : ses
+  // minuteries ne sont plus étranglées, une fenêtre réduite ou couverte n'est donc
+  // jamais « cachée » pour le tick — il crédite en direct, et seule une vraie veille
+  // (écart mural, régime 'offline') ou une fermeture passe par le hors-ligne.
+  const isTabHidden = pageHiddenForTick;
   // lastWall = horloge murale du dernier crédit. N'AVANCE QUE quand on crédite :
   // un tick 'skip' (onglet caché) le laisse figé, si bien que le premier tick
   // visible — ou le visibilitychange — crédite TOUTE l'absence, une seule fois.
@@ -1231,6 +1272,7 @@ export function startGameLoop() {
     }
     clearInterval(tickInterval);
     clearInterval(saveInterval);
+    clearInterval(achievementsInterval);
     clearTimeout(earlySaveTimeout);
     document.removeEventListener("visibilitychange", handleVisibilityChange);
   };

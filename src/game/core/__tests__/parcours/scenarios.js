@@ -6,8 +6,11 @@
 //   doctrine "auto" : Conseil de crise possédé, postures « Stabiliser » ;
 //   doctrine "ask"  : chaque crise narrative ouvre sa fenêtre, que le joueur
 //                     met `dialogMs` à trancher (partie en pause, horloge qui tourne).
-// `prelude` : Mythes joués d'abord, dans l'ordre (le Phénix suit Icare : sans
-// l'Aile, la cité n'atteint pas la Rupture dans la fenêtre de 3 min).
+// `prelude` : Mythes joués d'abord, dans l'ordre (l'ordre de l'Acte III : Icare
+// avant le Phénix ; depuis BUG-38, le Phénix se joue aussi sans l'Aile).
+// `atlasNoClick` : le joueur n'épaule jamais ni ne régule (il a quitté la table) ;
+// `noEdit` : l'Édit d'effondrement reste éteint, seule la chute manuelle sort
+// d'une crise terminale ; `stopWhen(g)` : arrêt anticipé du scénario.
 import { vi } from "vitest";
 import { setupEnv, restoreEnv, loadSave, step, makeLogger, scanState, roundTrip, vtSec, fmtT } from "./harness.js";
 import { createPlayer } from "./player.js";
@@ -25,7 +28,7 @@ function heritageDefaults(g, myth) {
     .map((key) => [key, before[key]]);
 }
 
-export async function runMythScenario(mythId, { doctrine = "auto", dialogMs = 0, maxSec = 3600, seed = 777, dt = 1, prelude = [], name } = {}) {
+export async function runMythScenario(mythId, { doctrine = "auto", dialogMs = 0, maxSec = 3600, seed = 777, dt = 1, prelude = [], name, atlasNoClick = false, noEdit = false, stopWhen = null } = {}) {
   const g = await setupEnv(seed);
   const log = makeLogger(name || `${mythId}-${doctrine}`);
   try {
@@ -49,7 +52,8 @@ export async function runMythScenario(mythId, { doctrine = "auto", dialogMs = 0,
       g.st.invalidateRenderCache("all");
     }
     for (const p of ["p25", "p50", "p75"]) g.actions.setCrisisPosture(p, doctrine === "auto" ? "stabiliser" : "ask");
-    const player = createPlayer(g, { dt, log, mythOrder: [...prelude, mythId], noGR: true, doctrine, dialogMs, icarusHunt: false });
+    const player = createPlayer(g, { dt, log, mythOrder: [...prelude, mythId], noGR: true, doctrine, dialogMs, icarusHunt: false, atlasNoClick, noEdit });
+    const cycles0 = state.cycles || 0;
     const start = vtSec();
     let lastScan = start;
     log(`[SCÉNARIO] ${mythId} doctrine=${doctrine} fenêtres=${dialogMs} ms`);
@@ -62,6 +66,7 @@ export async function runMythScenario(mythId, { doctrine = "auto", dialogMs = 0,
         scanState(g, (bad) => player.anomaly("numeric", bad.join(" ; ")));
       }
       if (g.myth.isMythCompleted(mythId)) break;
+      if (stopWhen && stopWhen(g)) break;
     }
     const done = g.myth.isMythCompleted(mythId);
     const rt = roundTrip(g);
@@ -74,6 +79,8 @@ export async function runMythScenario(mythId, { doctrine = "auto", dialogMs = 0,
       attempts: player.R.myth[mythId]?.attempts || 0,
       anomalies: player.R.anomalies,
       dialogs: player.R.dialogs,
+      cycles: (state.cycles || 0) - cycles0,
+      fails: player.R.myth[mythId]?.fails || 0,
       tail: log.tail()
     };
   } finally {

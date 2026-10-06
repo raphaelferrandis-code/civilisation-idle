@@ -160,7 +160,7 @@ fs.mkdirSync(PAL_DIR, { recursive: true });
 fs.writeFileSync(path.join(PUB, 'master-palette.json'), JSON.stringify(palette, null, 2));
 
 // .gpl (GIMP/Aseprite/Lospec)
-const gplLines = ['GIMP Palette', 'Name: Civilisation Idle — Master', 'Columns: 8', '#'];
+const gplLines = ['GIMP Palette', 'Name: Effondrement Idle — Master', 'Columns: 8', '#'];
 const toGpl = (h, name) => {
   const r = parseInt(h.slice(1, 3), 16), g = parseInt(h.slice(3, 5), 16), b = parseInt(h.slice(5, 7), 16);
   return `${String(r).padStart(3)} ${String(g).padStart(3)} ${String(b).padStart(3)}\t${name}`;

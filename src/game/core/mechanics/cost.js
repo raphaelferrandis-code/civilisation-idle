@@ -6,7 +6,7 @@ import { buildings } from '../../data/buildings.js';
 import { Decimal, D } from '../num.js';
 import { clamp, canPayCost } from '../utils.js';
 import { SISYPHE_SCALE_REDUCTION } from '../../data/myths.js';
-import { ACTIVE_RUIN_FOOD_ENGINE_COST_MULT, ACTIVE_RUIN_BABEL_COST_MULT, hasActiveRuin } from '../../data/activeRuins.js';
+import { ACTIVE_RUIN_FOOD_ENGINE_COST_MULT, ACTIVE_RUIN_BABEL_COST_MULT, ACTIVE_RUIN_SISYPHE_CREEP, ACTIVE_RUIN_SISYPHE_MULT_CAP, hasActiveRuin } from '../../data/activeRuins.js';
 
 // Catégorie sur laquelle la cité s'appuie le plus (par nombre de bâtiments).
 // Sert au fardeau « Confusion des langues » : il frappe ce qui a été réellement
@@ -127,6 +127,25 @@ export function maxBuyAmount(building) {
   return Math.max(1, lo);
 }
 
+// « Pente du rocher » sur un lot de `batchSize` unités : multiplicateur courant
+// (state.sisypheMult) et nombre j d'unités du lot qui restent SOUS le plafond
+// (mult × c^i < CAP) ; les suivantes paient le plafond.
+function sisypheSlope(batchSize) {
+  const mult = Math.max(1, state.sisypheMult || 1);
+  if (mult >= ACTIVE_RUIN_SISYPHE_MULT_CAP) return { mult: ACTIVE_RUIN_SISYPHE_MULT_CAP, j: 0 };
+  const j = Math.ceil(Math.log(ACTIVE_RUIN_SISYPHE_MULT_CAP / mult) / Math.log(ACTIVE_RUIN_SISYPHE_CREEP));
+  return { mult, j: Math.min(batchSize, Math.max(0, j)) };
+}
+
+// Somme B × s^n × Σ_{i<k} (s·c)^i × remise : les k unités d'un lot qui grimpent la
+// pente. Même garde float → Decimal que geomSum (buildingBatchCost).
+function slopeSum(B, s, n, k, discount) {
+  const step = s * ACTIVE_RUIN_SISYPHE_CREEP;
+  const flt = B * Math.pow(s, n) * (Math.pow(step, k) - 1) / (step - 1) * discount;
+  if (Number.isFinite(flt)) return new Decimal(flt);
+  return D(s).pow(n).mul(B).mul(D(step).pow(k).sub(1)).div(step - 1).mul(discount);
+}
+
 export function buildingBatchCost(building, amount = state.buyAmount) {
   // 'max' vaut 1 ici pour ne pas boucler : maxBuyAmount appelle cette fonction.
   // 'step', lui, se résout sans récursion.
@@ -151,21 +170,31 @@ export function buildingBatchCost(building, amount = state.buyAmount) {
       ? D(B).mul(k).mul(discount)
       : D(s).pow(n).mul(B).mul(D(s).pow(k).sub(1)).div(s - 1).mul(discount);
   };
+  // Ruine active « Pente du rocher » : la malédiction cumulative de l'ancien
+  // Sisyphe survit dans le fardeau (cf. building.js). Depuis la refonte « la
+  // Montée », le Mythe lui-même n'inflate plus les coûts. Le cran tombe à CHAQUE
+  // unité achetée : l'unité i du lot coûte donc mult × c^i fois son prix, plafonné
+  // à ×CAP — les j premières unités forment une série de raison scale × c, les
+  // suivantes une série de raison scale, au plafond. Un lot coûte ainsi exactement
+  // autant que les mêmes achats un par un (audit 2026-10-05, BUG-35).
+  const slope = hasActiveRuin(state, "sisyphe") ? sisypheSlope(batchSize) : null;
+  const sumOf = (B) => {
+    if (!slope) return geomSum(B, scale, count, batchSize);
+    const capped = slope.j < batchSize
+      ? geomSum(B, scale, count + slope.j, batchSize - slope.j).mul(ACTIVE_RUIN_SISYPHE_MULT_CAP)
+      : null;
+    if (slope.j <= 0) return capped;
+    const climbing = slopeSum(B, scale, count, slope.j, discount).mul(slope.mult);
+    return capped ? climbing.add(capped) : climbing;
+  };
   const costs = {};
-  const mainSum = geomSum(building.base, scale, count, batchSize);
+  const mainSum = sumOf(building.base);
   costs[building.currency] = costs[building.currency] ? costs[building.currency].add(mainSum) : mainSum;
   if (building.extraCost) {
     for (const [currency, base] of Object.entries(building.extraCost)) {
-      const extraSum = geomSum(base, scale, count, batchSize);
+      const extraSum = sumOf(base);
       costs[currency] = costs[currency] ? costs[currency].add(extraSum) : extraSum;
     }
-  }
-  // Ruine active « Pente du rocher » : la malédiction cumulative de l'ancien
-  // Sisyphe survit dans le fardeau (cf. building.js). Depuis la refonte « la
-  // Montée », le Mythe lui-même n'inflate plus les coûts.
-  if (hasActiveRuin(state, "sisyphe") && (state.sisypheMult || 1) > 1) {
-    const mult = state.sisypheMult;
-    for (const currency of Object.keys(costs)) costs[currency] = costs[currency].mul(mult);
   }
   if (hasActiveRuin(state, "promethee") && building.food > 0) {
     for (const currency of Object.keys(costs)) costs[currency] = costs[currency].mul(ACTIVE_RUIN_FOOD_ENGINE_COST_MULT);

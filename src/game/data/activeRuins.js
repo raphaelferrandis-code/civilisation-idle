@@ -14,7 +14,16 @@ const ACTIVE_RUIN_RUIN_GAIN_PER_MALUS = 0.10;
 // n'est jamais une taxe arbitraire — c'est le don lui-même, qui se déclenche sans
 // toi. La question posée au joueur devient donc : « lesquels de mes pouvoirs
 // puis-je me permettre de laisser partir tout seuls ? »
-export const ACTIVE_RUIN_SISYPHE_CREEP    = 1.004; // Sisyphe : le rocher reprend sa pente, par achat
+// Sisyphe : le rocher reprend sa pente, PAR BÂTIMENT acheté — un lot de 100 vaut
+// 100 crans, au même prix que 100 achats un par un (forme fermée, cost.js). Le
+// cran se prenait une fois par APPEL : un Max valait 1 cran, « Tout acheter » et
+// les automates 1 par unité (×7,4 après 500 unités) — audit 2026-10-05, BUG-35,
+// choix A de Raph. Compté juste à l'ancien ×1,004, la cible de 180 bâtiments
+// (~1 330 unités) aurait coûté ×204 : retuné à ×1,0008 (≈ ×3), et plafonné à ×20
+// en filet (cran et hydratation, state.js) tant qu'un cycle avec automates et une
+// absence de 8 h n'ont pas validé la constante.
+export const ACTIVE_RUIN_SISYPHE_CREEP    = 1.0008;
+export const ACTIVE_RUIN_SISYPHE_MULT_CAP = 20;
 export const ACTIVE_RUIN_BABEL_COST_MULT  = 1.25;  // Babel : la catégorie dominante coûte plus cher
 export const ACTIVE_RUIN_ICARE_AUTO_BURN  = 0.60;  // Icare : la Surchauffe part seule à cette Rupture
 export const ACTIVE_RUIN_PHENIX_FORCED_SEC = 900;  // Phénix : le bûcher s'allume à heure fixe
@@ -72,7 +81,7 @@ export const ACTIVE_RUIN_DEFINITIONS = [
     title: { fr: "Pente du rocher", en: "The Slope" },
     source: { fr: "Sisyphe", en: "Sisyphus" },
     bonus: { fr: "L'inflation naturelle des coûts croît plus lentement, pour toujours.", en: "Natural cost inflation grows more slowly, forever." },
-    malus: { fr: `Chaque achat réinflate tous les coûts de ${((ACTIVE_RUIN_SISYPHE_CREEP - 1) * 100).toFixed(1)} % : le rocher reprend sa pente.`, en: `Each purchase re-inflates all costs by ${((ACTIVE_RUIN_SISYPHE_CREEP - 1) * 100).toFixed(1)}%: the boulder rolls back.` }
+    malus: { fr: `Chaque bâtiment acheté réinflate tous les coûts de ${((ACTIVE_RUIN_SISYPHE_CREEP - 1) * 100).toFixed(2).replace(".", ",")} % (jusqu'à ×${ACTIVE_RUIN_SISYPHE_MULT_CAP}) : le rocher reprend sa pente.`, en: `Each building bought re-inflates all costs by ${((ACTIVE_RUIN_SISYPHE_CREEP - 1) * 100).toFixed(2)}% (up to ×${ACTIVE_RUIN_SISYPHE_MULT_CAP}): the boulder rolls back.` }
   },
   {
     id: "babel",

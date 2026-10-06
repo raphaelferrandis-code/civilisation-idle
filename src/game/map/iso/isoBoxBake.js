@@ -12,7 +12,8 @@
 // flanc sud, flanc est), et le peintre de la scène dit sa couleur (`shade`). Pas un
 // trait lissé, pas une couleur d'antialias : les bords tombent au pixel.
 //   · OMBRE : un pixel de sol est à l'ombre si le rayon vers le soleil (l'est du monde,
-//     cf. isoSunShadow) traverse une boîte. Posée en multiply, à la force du soleil.
+//     cf. isoSunShadow) traverse une boîte. Posée au mode et à la teinte de l'ombre du
+//     soleil (SUN_SHADOW, lue à la cuisson), à la force du soleil.
 //   · REFLET : la scène retournée sous le plan de l'eau de chaque boîte (`mz`, 0 par
 //     défaut), versée dans le calque des reflets (isoReflect.noteReflectionImage).
 // ⚠ Axes du monde SEULEMENT : une boîte en biais sortirait en escaliers de pixels.
@@ -68,9 +69,10 @@ export function castRay(boxes, ax, ay, mirror) {
 
 // LA CUISSON. `shade(hit, wx, wy, zz, mirror)` rend [r, g, b] (lumière comprise) ;
 // `isWater(wx, wy)` dit si le sol sous un pixel est de l'eau (reflets, clapot) ;
-// `foam(bx)` si une boîte fait un clapot clair à son pied. Rend { AX0, AY0, W, H,
-// body, shadow, refl } (canevas) ou null.
-export function bakeBoxes(boxes, { shade, isWater, shadow = true, reflect = true, foam = null, pad = 6, ink = null }) {
+// `foam(bx)` si une boîte fait un clapot clair à son pied ; `origin` ({ X, Y }, px monde
+// entiers) : l'ancre de la scène, où se lit le grain de ce clapot (cf. anchoredBake).
+// Rend { AX0, AY0, W, H, body, shadow, refl } (canevas) ou null.
+export function bakeBoxes(boxes, { shade, isWater, shadow = true, reflect = true, foam = null, pad = 6, ink = null, origin = null }) {
   if (!boxes.length) return null;
   let AX0 = Infinity, AX1 = -Infinity, AY0 = Infinity, AY1 = -Infinity;
   for (const b of boxes) {
@@ -91,10 +93,11 @@ export function bakeBoxes(boxes, { shade, isWater, shadow = true, reflect = true
   if (ink) boxes.forEach((b, k) => { b._k = k; });
   const shad = new Uint8ClampedArray(W * H * 4);
   const refl = new Uint8ClampedArray(W * H * 4);
-  const shCol = hexRgb(SUN_SHADOW.col) || [142, 150, 173];
+  const shCol = hexRgb(SUN_SHADOW.col) || [0, 8, 28];
   const kSun = (SUN_SHADOW.len || 0.5) * 2 / Math.sqrt(5);
   const casters = boxes.filter((b) => b.Z1 > 0.5 && !b.noShadow);
   const foamers = foam ? boxes.filter(foam) : [];
+  const oX = origin ? origin.X : 0, oY = origin ? origin.Y : 0;
   // INDEX EN GRILLE D'ART (cases de 16 px) : une boîte ne couvre à l'écran que les x
   // d'art entre X0 − Y1 et X1 − Y0, et les y entre (X0 + Y0)/2 − Z1 et (X1 + Y1)/2 − Z0
   // (retournés sous le plan d'eau pour le reflet : une seconde grille). Le terminal
@@ -153,11 +156,12 @@ export function bakeBoxes(boxes, { shade, isWater, shadow = true, reflect = true
         }
       }
       if (!isWet(gx, gy)) continue;
-      // Clapot au pied des pieux : un pixel clair au contact de l'eau, devant eux.
+      // Clapot au pied des pieux : un pixel clair au contact de l'eau, devant eux. Son
+      // grain se lit depuis l'ancre de la scène (PERF-10) : il suit le port, pas le monde.
       for (const b of foamers) {
         const dx = gx - b.X1, dy = gy - b.Y1;
         const inX = gx >= b.X0 - 0.5 && gx <= b.X1 + 1.6, inY = gy >= b.Y0 - 0.5 && gy <= b.Y1 + 1.6;
-        if (inX && inY && (dx > 0 || dy > 0) && h01(Math.floor(gx), Math.floor(gy), 21) < 0.7) {
+        if (inX && inY && (dx > 0 || dy > 0) && h01(Math.floor(gx - oX), Math.floor(gy - oY), 21) < 0.7) {
           body[i] = 214; body[i + 1] = 230; body[i + 2] = 232; body[i + 3] = 150;
           break;
         }
@@ -194,6 +198,84 @@ export function bakeBoxes(boxes, { shade, isWater, shadow = true, reflect = true
     return { cv, AX0: AX0 + x0, AY0: AY0 + y0, W: w, H: h };
   };
   return { AX0, AY0, W, H, body: put(body), shadow: put(shad), refl: put(refl) };
+}
+
+// ── LA CUISSON ANCRÉE AU PORT (audit du 05/10, PERF-10, choix A de Raph) ────────
+// Quand la grille grandit, le layout recentre la ville : un port se TRANSLATE d'un
+// nombre entier de cases (sa clé de géométrie change), et sa cuisson se refaisait —
+// port de commerce ~200 ms, Vieux-Port ~85 ms, ponton ~25 ms, dans la même image —,
+// pour la même scène, décalée. Ce qui l'empêchait d'être gardée : son GRAIN (écume au
+// pied des pieux, mouchetis, dalles, briques, nervures : h01 et modulos) se lisait sur
+// les coordonnées monde ABSOLUES.
+// Chaque port cuit désormais dans son repère : une ANCRE (OX, OY), un coin de son site
+// en px monde (entier, multiple de la tuile), et tout son grain se lit RELATIF à cette
+// ancre (le peintre de la scène reçoit l'ancre, bakeBoxes la reçoit en `origin`). Une
+// scène translatée cuit alors la même image, au pixel près, décalée de (dX − dY,
+// (dX + dY)/2) en px d'art — un entier : la tuile est paire. La cuisson se garde, ses
+// calques déplacés (shiftBake). Le grain a changé UNE fois, au passage à l'ancre :
+// même dessin, pas les mêmes pixels (planche avant/après : planches/ports-grain-ancre).
+// La CLÉ RELATIVE dit tout ce que la cuisson lit, rapporté à l'ancre : les boîtes
+// (boxesKey) et le fleuve qui borde le port (riverKey : l'eau, ses reflets, son
+// clapot). Un fleuve qui se RÉSHAPE sous le port la change, et la cuisson se refait,
+// comme avant — au premier cycle, la largeur de pose du fleuve suit la grille (RN = N,
+// layout.computeCityLayout) : la berge glisse de ~1 px à chaque croissance, et le port
+// doit la suivre. Dans la même vallée (largeur figée), la grille grandit en pure
+// translation : la cuisson se garde.
+export const anchorStats = { cuites: 0, gardees: 0 };
+// Arrondi des valeurs d'une clé : la même scène translatée diffère au 1e-12 près
+// (flottants), jamais au 1e-4.
+const rk = (v) => Math.round(v * 1e4) / 1e4;
+// Les champs de boîte qui sont des abscisses / ordonnées monde (px) ; un port en
+// ajoute (`mid`, l'axe d'une travée du port de commerce). Les champs `_…` sont des
+// marques de cuisson (inkPass), pas de la géométrie.
+const BOX_X = ['X0', 'X1'], BOX_Y = ['Y0', 'Y1'];
+export function boxesKey(boxes, OX, OY, xKeys = BOX_X, yKeys = BOX_Y) {
+  let s = '';
+  for (const b of boxes) {
+    for (const k in b) {
+      if (k[0] === '_') continue;
+      const v = b[k];
+      if (typeof v === 'number') s += k + (xKeys.includes(k) ? rk(v - OX) : yKeys.includes(k) ? rk(v - OY) : rk(v)) + ',';
+      else if (v != null && typeof v !== 'object' && typeof v !== 'function') s += k + v + ',';
+    }
+    s += ';';
+  }
+  return s;
+}
+// Les échantillons [j0, j1] du fleuve (tuiles), relatifs à l'ancre (ox, oy) en tuiles.
+export function riverKey(sm, j0, j1, ox, oy) {
+  let s = '';
+  for (let j = Math.max(0, j0); j <= Math.min(sm.length - 1, j1); j += 1) s += rk(sm[j].x - ox) + ',' + rk(sm[j].y - oy) + ',' + rk(sm[j].hw || 2) + ';';
+  return s;
+}
+// Une cuisson (bakeBoxes) déplacée de (dX, dY) px monde : mêmes canevas, calques décalés.
+export function shiftBake(B, dX, dY) {
+  if (!B || (!dX && !dY)) return B;
+  const dA = dX - dY, dB = (dX + dY) / 2;
+  const mv = (l) => l && { ...l, AX0: l.AX0 + dA, AY0: l.AY0 + dB };
+  return { ...B, AX0: B.AX0 + dA, AY0: B.AY0 + dB, body: mv(B.body), shadow: mv(B.shadow), refl: mv(B.refl) };
+}
+// La cuisson de la clé relative `rel`, cuite à l'ancre (OX, OY) par `make()` ou gardée
+// d'une ancre précédente et déplacée par `shift(v, dX, dY)`. `store` : la Map du port
+// (les `cap` dernières clés).
+const _stores = new Set();
+export function anchoredBake(store, rel, OX, OY, make, shift, cap = 4) {
+  _stores.add(store);
+  let e = store.get(rel);
+  if (!e) {
+    e = { OX, OY, v: make() };
+    anchorStats.cuites += 1;
+    while (store.size >= cap) store.delete(store.keys().next().value);
+    store.set(rel, e);
+    return e.v;
+  }
+  anchorStats.gardees += 1;
+  store.delete(rel); store.set(rel, e);                  // la plus récente
+  return shift(e.v, OX - e.OX, OY - e.OY);
+}
+// Oublie toutes les cuissons gardées (les tests : la prochaine cuisson est fraîche).
+export function forgetAnchoredBakes() {
+  for (const s of _stores) s.clear();
 }
 
 // ── L'ENCRE : ce qui fait d'une cuisson un dessin de pixel art ─────────────────
@@ -273,7 +355,7 @@ export function blitArt(ctx, cv, AX0, AY0, W, H) {
   return { X, Y, w: X1 - X, h: Y1 - Y };
 }
 
-// Sous les bateaux : l'ombre d'une cuisson (multiply, force du soleil du moment) et
+// Sous les bateaux : l'ombre d'une cuisson (mode de SUN_SHADOW, force du soleil du moment) et
 // son reflet (calque des reflets, posé sous la surface à l'image suivante).
 export function paintBakeUnder(ctx, B, { shadow = true, reflect = true } = {}) {
   if (!B) return;

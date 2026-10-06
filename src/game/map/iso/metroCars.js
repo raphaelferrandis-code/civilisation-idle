@@ -297,7 +297,8 @@ function closeCut(S, K, c0, c1, h0, h1) {
 }
 
 // ── Cache des cuissons ───────────────────────────────────────────────────────
-// Clé : bande | rôle | 1re classe | cap (32) | pente (1/20) | coupe (px) | nuit.
+// Clé : bande | rôle | 1re classe | cap (32) | pente (1/20) | coupe (au pas de 2 px,
+// isoMetro.trainActors ; PERF-14) | nuit.
 // Budget par frame PARTAGÉ avec la flotte, en millisecondes (vehicleBakeBudget.js ;
 // audit du 05/10, PERF-14) : au-delà, une voiture garde sa dernière image — et sa
 // première attend la frame suivante.
@@ -311,6 +312,18 @@ function toCanvas(R) {
   return cv;
 }
 export const quantPitch = (tp) => Math.max(-9, Math.min(9, Math.round(tp * 20)));
+// La coupe d'une voiture aux bouches du tunnel : en a (repère de la voiture), la part
+// entre les deux plans — `sig` = son milieu sur la ligne, `total` = la longueur de la
+// ligne, Lh = sa demi-longueur ; null quand elle est entière. Au pas de 2 px (audit du
+// 05/10, PERF-14, décision de Raph) : au pixel près, la coupe entrait dans la clé de
+// cuisson (~1 100 clés pour un cache de 700) et des voitures se montraient une ou deux
+// images avec leur coupe d'avant. Écart d'au plus 1 px monde au bord de la bouche, à
+// l'arrêt en station aussi.
+export function metroCut(sig, total, Lh) {
+  const q2 = (v) => 2 * Math.round(v / 2);
+  const lo = q2(-sig), hi = q2(total - sig);
+  return (lo > -Lh - 2 || hi < Lh + 2) ? [Math.max(-Lh - 3, lo), Math.min(Lh + 3, hi)] : null;
+}
 function bakeMetroCar(spec, now = 0, force = false) {
   const key = spec.band + '|' + spec.role + '|' + (spec.first ? 1 : 0) + '|' + spec.dir + '|' + spec.pq + '|'
     + (spec.cut ? spec.cut[0] + ':' + spec.cut[1] : '-') + '|' + (spec.night ? 1 : 0);

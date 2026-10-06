@@ -101,9 +101,17 @@ export function setLang(next) {
 // Appelé au démarrage ET à chaque changement de langue. Le changement recharge
 // la page en pratique, mais s'appuyer là-dessus ferait dépendre une propriété
 // d'accessibilité d'un effet de bord d'un autre module.
+//
+// Le TITRE suit aussi la langue (audit 2026-10-05, STEAM-10 et I18N-11, décision de
+// Raph) : l'onglet du navigateur, et la fenêtre de l'.exe — Electron reprend le
+// titre de la page (main.cjs ne pose pas de `title`). index.html porte le nom
+// français pour le premier affichage.
+export const GAME_TITLE = { fr: "Effondrement Idle", en: "Collapse Idle" };
+
 export function applyDocumentLang() {
   try {
     document.documentElement.lang = lang;
+    document.title = tr(GAME_TITLE);
   } catch { /* pas de DOM (tests, worker) : rien à poser */ }
 }
 

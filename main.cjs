@@ -5,15 +5,18 @@ const { pathToFileURL } = require("url");
 const {
   createSaveStore, createCloudStore, detectGoogleDriveRoot, safeExportName, exportTarget,
   resolveAppRequest, parseByteRange, APP_CSP, readWindowState, writeWindowState, fitWindowBounds,
+  isSteamVersion,
+  resolveSteamAppId, createSteamAchievements,
 } = require("./desktopFiles.cjs");
 
-// Nom affiché dans les fenêtres du système (questions, erreurs). ⚠ Le nom définitif
-// du produit reste à trancher (audit 2026-10-05, STEAM-10 : « Civilisation Idle »
-// ici et dans build.productName, « Civilisation: Effondrement Idle » dans le
-// <title>) : une seule ligne à changer ici. Il ne commande RIEN d'autre — ni le
+// Nom affiché dans les fenêtres du système (questions, erreurs), dans la langue du
+// jeu. NOM DU PRODUIT (audit 2026-10-05, STEAM-10, décision de Raph) : « Effondrement
+// Idle » en français, « Collapse Idle » en anglais — le même que build.productName,
+// le <title> d'index.html (que i18n.js traduit : la fenêtre suit le titre de la page),
+// le manifeste et la description de package.json. Il ne commande RIEN d'autre — ni le
 // dossier de la save (USER_DATA_DIR) ni celui du nuage (CLOUD_DIR_NAME,
-// desktopFiles.cjs), figés à part.
-const APP_TITLE = "Civilisation Idle";
+// desktopFiles.cjs), figés à part sous leurs anciens noms.
+const APP_TITLE = { fr: "Effondrement Idle", en: "Collapse Idle" };
 
 // DOSSIER DE LA SAVE, FIGÉ (audit 2026-10-05, STEAM-4) — AVANT tout le reste : le
 // verrou d'instance unique, le journal, le localStorage (la partie) et la save en
@@ -22,8 +25,8 @@ const APP_TITLE = "Civilisation Idle";
 // renommer « name », ajouter un productName au premier niveau ou un app.setName()
 // aurait ouvert un dossier vide — toutes les parties existantes envolées en
 // apparence. ⚠ « civilisation-effondrement » est le dossier où vivent AUJOURD'HUI
-// les saves (dev et .exe confondus) : ne JAMAIS le changer (surtout pas en
-// « Civilisation Idle »).
+// les saves (dev et .exe confondus) : ne JAMAIS le changer (surtout pas pour le
+// nom du produit, « Effondrement Idle », ni l'ancien, « Civilisation Idle »).
 // CE_USER_DATA (tests seulement) : un autre dossier, pour lancer le jeu sans
 // jamais toucher la vraie partie (%APPDATA%\civilisation-effondrement).
 const USER_DATA_DIR = process.env.CE_USER_DATA
@@ -55,6 +58,15 @@ if (steamOverlayFlags) {
   app.commandLine.appendSwitch("in-process-gpu");
   app.commandLine.appendSwitch("disable-direct-composition");
 }
+// VERSION STEAM (STEAM-4 / ELEC-3, décision C de Raph) : lancée par Steam, OU build
+// Steam (`civSteamBuild` injecté dans le package.json empaqueté par `npm run
+// dist-steam`) — isSteamVersion, desktopFiles.cjs. Elle n'a PAS de miroir Google
+// Drive (Steam Cloud transporte saves/save.json) : plus bas, Drive n'y est même pas
+// cherché. L'.exe hors Steam le garde.
+const packageMeta = (() => {
+  try { return require("./package.json"); } catch { return null; }
+})();
+const steamVersion = isSteamVersion({ env: process.env, meta: packageMeta });
 
 // Une seule instance à la fois : deux fenêtres partageraient le même userData
 // (la save vit dans localStorage — verrou LevelDB exclusif) et se disputeraient
@@ -140,6 +152,29 @@ function fromGame(event) {
 // système que le jeu ouvre (dialogue d'export, questions du moteur de rendu).
 let pageLang = "fr";
 
+// SUCCÈS STEAM (audit 2026-10-05, STEAM-9) — pont OPTIONNEL (desktopFiles.cjs,
+// createSteamAchievements ; docs/STEAM-SUCCES.md). steamworks.js n'est PAS installé :
+// sans lui (npm i steamworks.js, en « dependencies »), sans App ID ou sans client
+// Steam, rien ne casse — les succès vivent dans la save et le jeu les renvoie tous à
+// chaque lancement. App ID : STEAM_APP_ID (à remplir quand Valve l'aura attribué ;
+// lu seulement par la version Steam, l'.exe hors Steam ne parle pas à Steam), sinon
+// SteamAppId posé par le client Steam, sinon un steam_appid.txt de développement à
+// côté de l'exe (ou à la racine du projet avec `npm run electron`) — à ne pas livrer.
+const STEAM_APP_ID = "";
+const steamAchievements = createSteamAchievements({
+  appId: resolveSteamAppId({
+    constant: steamVersion ? STEAM_APP_ID : "",
+    env: process.env,
+    dirs: [path.dirname(process.execPath), ...(isPackaged ? [] : [process.cwd(), __dirname])],
+  }),
+  load: () => require("steamworks.js"),
+  log: journal,
+});
+// Les noms d'API débloqués (préload, window.civSteam) : activés s'ils manquent.
+ipcMain.on("steam:achievements", (event, ids) => {
+  if (fromGame(event)) steamAchievements.unlock(ids);
+});
+
 // SAVE EN FICHIER (STEAM-4) : userData/saves/save.json, ce que Steam Auto-Cloud
 // synchronise (réglages dans desktopFiles.cjs). Le jeu la relit au lancement AVANT
 // le localStorage et l'y recopie si elle est plus avancée (src/game/core/fileSave.js),
@@ -177,19 +212,22 @@ ipcMain.on("save:clear", (event) => {
 // la page tourne dans le bac à sable (sandbox: true, createWindow). Lecture,
 // écriture et effacement restent SYNCHRONES pour la page, comme quand le préload
 // les faisait : le jeu arbitre au lancement, et la fermeture écrit sa dernière save.
+// Version Steam (steamVersion, plus haut) : magasin éteint pour toute la session,
+// Drive jamais cherché — ni sonde de lecteur, ni fichier lu ou écrit dans le Drive.
 let cloudStore = createCloudStore(null); // éteint tant que Drive n'est pas trouvé
-const driveRootReady = gotSingleInstanceLock
+const driveRootReady = gotSingleInstanceLock && !steamVersion
   ? detectGoogleDriveRoot({ cacheFile: path.join(USER_DATA_DIR, "drive.json") }).catch(() => null)
-  : Promise.resolve(null); // instance perdante : elle se ferme, rien à chercher
+  : Promise.resolve(null); // instance perdante (elle se ferme) ou version Steam : rien à chercher
 const cloudReady = driveRootReady.then((root) => {
   if (root) cloudStore = createCloudStore(root);
   return cloudStore;
 });
-// { dir, initial } : le dossier nuage (null = pas de Drive) et le fichier lu AU
-// LANCEMENT — le cliché que src/game/core/cloudSave.js arbitre avant state = load().
+// { dir, initial, steam } : le dossier nuage (null = pas de Drive), le fichier lu AU
+// LANCEMENT — le cliché que src/game/core/cloudSave.js arbitre avant state = load() —
+// et `steam` : version Steam, la partie voyage par Steam Cloud (Options le dit).
 ipcMain.on("cloud:init", (event) => {
   if (!fromGame(event)) { event.returnValue = { dir: null, initial: { status: "off", text: null } }; return; }
-  cloudReady.then((store) => { event.returnValue = { dir: store.dir, initial: store.read() }; });
+  cloudReady.then((store) => { event.returnValue = { dir: store.dir, initial: store.read(), steam: steamVersion }; });
 });
 ipcMain.on("cloud:read", (event) => {
   event.returnValue = fromGame(event) ? cloudStore.read() : { status: "error", text: null };
@@ -240,6 +278,12 @@ ipcMain.on("window:set-fullscreen", (event, on) => {
   const win = BrowserWindow.fromWebContents(event.sender);
   if (win && !win.isDestroyed()) win.setFullScreen(Boolean(on));
 });
+// FENÊTRE RÉDUITE (ELEC-6) : la page le demande au lancement, puis createWindow le
+// lui relaie (minimize / restore) — seule la carte s'arrête de peindre.
+ipcMain.on("window:get-minimized", (event) => {
+  const win = BrowserWindow.fromWebContents(event.sender);
+  event.returnValue = Boolean(win && !win.isDestroyed() && win.isMinimized());
+});
 
 // Garde-fous du moteur de rendu (BUG-18). Rien n'y ferme la fenêtre d'office :
 // la partie vit dans le localStorage, l'autosave la garde à 10 s près.
@@ -289,7 +333,7 @@ function watchRenderer(win) {
     }
     dialog.showMessageBox(win, {
       type: "error",
-      title: APP_TITLE,
+      title: say(APP_TITLE.fr, APP_TITLE.en),
       message: say("Le jeu s'est arrêté plusieurs fois de suite.", "The game stopped several times in a row."),
       detail: logFile ? say(`Journal : ${logFile}`, `Log: ${logFile}`) : undefined,
       buttons: [say("Recharger", "Reload"), say("Fermer", "Close")],
@@ -312,7 +356,7 @@ function watchRenderer(win) {
     unresponsiveAsk = new AbortController();
     dialog.showMessageBox(win, {
       type: "warning",
-      title: APP_TITLE,
+      title: say(APP_TITLE.fr, APP_TITLE.en),
       message: say("Le jeu ne répond plus.", "The game is not responding."),
       buttons: [say("Attendre", "Wait"), say("Recharger", "Reload")],
       defaultId: 0,
@@ -364,6 +408,16 @@ function createWindow() {
       // désormais par le process principal (canaux IPC plus haut), le préload ne
       // garde que contextBridge et ipcRenderer.
       sandbox: true,
+      // LA CITÉ VIT FENÊTRE RÉDUITE OU COUVERTE (audit 2026-10-05, ELEC-6, décision
+      // B de Raph). Par défaut, Chromium étrangle une fenêtre réduite — et, sous
+      // Windows, une fenêtre couverte par une autre — comme un onglet caché : la
+      // minuterie du tick tombait à ~1/min, et le jeu passait au régime d'absence
+      // (plafond, clepsydre). Coupé, les minuteries battent à leur rythme et la page
+      // reste « visible » pour l'API de visibilité : la simulation continue. Seule la
+      // carte cesse de peindre fenêtre réduite (window:minimized, plus bas). Le crédit
+      // hors-ligne ne vaut plus que pour une vraie fermeture ou une veille (écart
+      // mural, src/game/core/offlineCredit.js). Le navigateur ne change pas.
+      backgroundThrottling: false,
       devTools: devToolsAllowed,
       preload: path.join(__dirname, "preload.cjs"),
     },
@@ -398,6 +452,13 @@ function createWindow() {
   };
   win.on("enter-full-screen", tellFullScreen);
   win.on("leave-full-screen", tellFullScreen);
+  // Réduite / rendue (ELEC-6) : la carte suspend son rendu, la simulation continue
+  // (src/game/core/desktopWindow.js).
+  const tellMinimized = (on) => () => {
+    if (!win.isDestroyed()) win.webContents.send("window:minimized", on);
+  };
+  win.on("minimize", tellMinimized(true));
+  win.on("restore", tellMinimized(false));
 
   const contents = win.webContents;
   // Clavier avant la page et le menu (ELEC-1, ELEC-2).
@@ -453,6 +514,10 @@ app.whenReady().then(() => {
   // dépend pas du menu.
   if (isPackaged) Menu.setApplicationMenu(null);
   if (launchedBySteam) journal(`[steam] lancé par Steam, drapeaux d'overlay ${steamOverlayFlags ? "posés" : "retirés (--no-steam-overlay)"}`);
+  if (steamVersion) journal("[steam] version Steam : miroir Google Drive coupé (Steam Cloud)");
+  // Steamworks (succès, STEAM-9) initialisé AVANT la fenêtre : l'overlay de Steam
+  // s'accroche mieux à un jeu qui a déjà ouvert l'API. Sans App ID : ne fait rien.
+  steamAchievements.start();
   // Permissions du navigateur (ELEC-4) : aucune, sauf écrire dans le presse-papiers
   // (« Exporter » y copie la sauvegarde). Le jeu ne demande ni caméra, ni micro, ni
   // notifications système, ni position : tout autre demande est refusée sans
@@ -499,7 +564,7 @@ app.whenReady().then(() => {
   // muette (le 404 ci-dessus ne dit rien à qui n'ouvre pas les DevTools).
   if (!fs.existsSync(path.join(distRoot, "index.html"))) {
     dialog.showErrorBox(
-      `${APP_TITLE} — fichiers manquants`,
+      `${APP_TITLE.fr} — fichiers manquants`,
       "dist/index.html est introuvable. Lancer `npm run build` d'abord, puis relancer le jeu."
     );
     app.quit();

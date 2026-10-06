@@ -18,16 +18,23 @@ const SHORTCUTS_KEY = "civ-opt-shortcuts";
 // n'ont rien à faire ici non plus.
 // + = - _ sont les touches de ZOOM (resolveCameraKey) : attribuées à un achat,
 // chaque dézoom achetait aussi — au clavier comme au bouton « Zoom arrière »,
-// qui rejoue la touche (audit 2026-10-05, BUG-103).
+// qui rejoue la touche (audit 2026-10-05, BUG-103). « ) » aussi : c'est ce que
+// rend en AZERTY la touche du zoom arrière (ZOOM_OUT_CODE).
 const FORBIDDEN_KEYS = new Set([
   "escape", "tab", "enter", " ", "shift", "control", "alt", "meta",
   "arrowup", "arrowdown", "arrowleft", "arrowright", "backspace", "delete",
-  "+", "=", "-", "_",
+  "+", "=", "-", "_", ")",
 ]);
 
 // Rangée des chiffres 1 à 8, reconnue à la touche PHYSIQUE (`code`) : en AZERTY,
 // sans Maj, elle rend « & é " ' ( - è _ » et non des chiffres (BUG-50).
 const VIEW_DIGIT_CODE = /^Digit([1-8])$/;
+
+// Touche PHYSIQUE à droite du 0 : « - » en QWERTY, « ) » en AZERTY, « ß » en
+// QWERTZ. Elle dézoome quelle que soit la disposition — à côté du « = » qui
+// zoome déjà —, ce qui rend le zoom arrière clavier aux AZERTY sans pavé
+// numérique ; elle est donc interdite aux raccourcis (décision de Raph, BUG-50).
+const ZOOM_OUT_CODE = "Minus";
 
 // `key` = valeur par défaut, `id` = clé de personnalisation et de traduction.
 // `digits` marque les raccourcis de vue 1..8, générés à part (leur cible dépend
@@ -102,7 +109,7 @@ export function shortcutRejection(def, rawKey, code = "") {
     if (FORBIDDEN_KEYS.has(key)) return { reason: "forbidden", key };
     return { reason: "invalid", key };
   }
-  if (FORBIDDEN_KEYS.has(key)) return { reason: "forbidden", key };
+  if (FORBIDDEN_KEYS.has(key) || code === ZOOM_OUT_CODE) return { reason: "forbidden", key };
   // Les chiffres sont réservés aux vues 1 à 8.
   if ((key >= "0" && key <= "9") || VIEW_DIGIT_CODE.test(code || "")) return { reason: "digit", key };
   const taken = SHORTCUT_DEFS.find((d) => d.id !== def.id && shortcutKey(d) === key);
@@ -118,12 +125,6 @@ export function setShortcutKey(id, rawKey, code = "") {
   shortcutPrefs = { ...shortcutPrefs, [id]: { ...shortcutPrefs[id], key } };
   persist();
   return true;
-}
-
-export function resetShortcutKey(id) {
-  if (!shortcutPrefs[id]) return;
-  shortcutPrefs = { ...shortcutPrefs, [id]: { ...shortcutPrefs[id], key: null } };
-  persist();
 }
 
 // Coupe ou rétablit un raccourci. Aucune interface ne l'appelle aujourd'hui (le
@@ -153,6 +154,9 @@ function shortcutsBlocked(event) {
 // « debug » doit continuer d'accumuler les lettres derrière.
 export function resolveShortcut(event) {
   if (shortcutsBlocked(event)) return null;
+  // La touche du zoom arrière n'est jamais un raccourci, même posée avant
+  // d'être refusée (un « ß » de clavier allemand, par exemple).
+  if (event.code === ZOOM_OUT_CODE) return null;
   const key = String(event.key || "").toLowerCase();
   if (key.length !== 1) return null;
   for (const def of SHORTCUT_DEFS) {
@@ -172,11 +176,13 @@ export function resolveShortcut(event) {
 // dialogue ouvert.
 // ⚠ Un +/- tapé sur la RANGÉE DES CHIFFRES appartient aux vues : en AZERTY, le 6
 // rend « - » et le 8 « _ », et changer d'onglet dézoomait la carte (BUG-50).
-// Le zoom arrière clavier passe alors par le pavé numérique ; la molette et le
-// bouton restent. Les évènements rejoués par MapTools n'ont pas de `code` : le
-// bouton zoome toujours.
+// Le zoom arrière clavier passe alors par la touche à droite du 0 (ZOOM_OUT_CODE,
+// « ) » en AZERTY) ou par le pavé numérique ; la molette et le bouton restent.
+// Les évènements rejoués par MapTools n'ont pas de `code` : le bouton zoome
+// toujours.
 export function resolveCameraKey(event) {
   if (shortcutsBlocked(event)) return null;
+  if (event.code === ZOOM_OUT_CODE) return { zoom: -1 };
   const surChiffre = VIEW_DIGIT_CODE.test(event.code || "");
   switch (event.key) {
     case "ArrowLeft": return { pan: [-1, 0] };

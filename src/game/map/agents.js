@@ -1061,6 +1061,8 @@ function cityMapDirBit(dirIndex) {
 }
 
 function roadStepAllowed(gx, gy, dirIndex) {
+  // La GRILLE du square ne s'enjambe pas : on y entre par ses portes (isoFence.fenceWalkBlock).
+  if (CM.fenceWalkBlock && CM.fenceWalkBlock.size && CM.fenceWalkBlock.has(cityMapWalkRoadKey(gx, gy) * 4 + dirIndex)) return false;
   const road = CM.layout && CM.layout.roadMap && CM.layout.roadMap.get(gx + "," + gy);
   const nx = gx + CM_DIRS[dirIndex][0], ny = gy + CM_DIRS[dirIndex][1];
   if (road) {

@@ -1,6 +1,6 @@
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { bakeTableScene } from '../../../game/map/iso/plaisirsTableBake.js';
-import { plaisirsCast } from '../../../game/map/iso/plaisirsCast.js';
+import { plaisirsCast, tenuesSages } from '../../../game/map/iso/plaisirsCast.js';
 import { agentSetForBand, agentSpecFor, drawNamedAgentIso, AGENT_SCALE } from '../../../game/map/agents.js';
 import { CM } from '../../../game/map/layout.js';
 import { usePlaisirsBand } from '../../ui/plaisirsMaterial.js';
@@ -128,15 +128,20 @@ export default function PlaisirsTable({ game, dealer = 'g', variant = 0, tablePx
   // charge. ⚠ Seule la première fille de chaque troupe a sa bande (`spec.repos`,
   // plaisirsCast.js) : la courtisane du duel (DuelStage, deuxième ou troisième fille)
   // garde sa pose fixe sans demander une bande absente.
+  // TENUES SAGES (plaisirsCast.js, STEAM-6) : relue au rendu, la croupière suit la case.
+  const sages = tenuesSages;
   useEffect(() => {
     const cv = cvRef.current;
     if (!cv || !bake) return undefined;
     let alive = true, tries = 0, timer = 0;
+    // La fille de la troupe ; sans troupe (tenues sages), une femme de l'âge, qui
+    // s'assied à la table comme le grand flambeur (sa taille est celle de la ville).
+    const girl = dealer === 'g' ? (plaisirsCast(band) || { girls: [] }).girls[variant % 3] || null : null;
     const spec = dealer == null ? null : dealer === 'g'
-      ? (plaisirsCast(band) || { girls: [] }).girls[variant % 3] || null
+      ? girl || agentSpecFor(agentSetForBand(band), 1, variant)
       : agentSpecFor(agentSetForBand(band), dealer, variant);
     const HDK = 32 / (CM.TILE * 0.71 * AGENT_SCALE);
-    const repos = spec && dealer === 'g' ? spec.repos || null : null;
+    const repos = girl ? girl.repos || null : null;
     const calme = typeof window !== 'undefined' && typeof window.matchMedia === 'function'
       && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
     const draw = (now) => {
@@ -150,7 +155,7 @@ export default function PlaisirsTable({ game, dealer = 'g', variant = 0, tablePx
         // Maison : il S'ASSIED à la table — ses pieds descendent sous le plateau jusqu'à
         // ce que sa tête tienne dans le cadre, à la hauteur de celle de la croupière.
         const sc = spec.scale * HDK;
-        const h = dealer !== 'g' ? hauteurDe(spec.name, sc) : null;
+        const h = !girl ? hauteurDe(spec.name, sc) : null;
         const assis = h != null ? Math.max(0, h + 3 - bake.dealer.y) : 0;
         const x = bake.dealer.x + 0.5, y = bake.dealer.y + assis + 0.5;
         anime = !!(repos && !calme && drawNamedAgentIso(g, x, y, 1, repos, sc, 0, true, now, 0));
@@ -168,7 +173,7 @@ export default function PlaisirsTable({ game, dealer = 'g', variant = 0, tablePx
     };
     loop();
     return () => { alive = false; clearTimeout(timer); };
-  }, [bake, band, dealer, variant]);
+  }, [bake, band, dealer, variant, sages]);
 
   const L = bake ? {
     k, W, H,

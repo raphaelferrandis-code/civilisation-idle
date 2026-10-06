@@ -41,6 +41,8 @@ const SIDES = [['n', 0, -1], ['s', 0, 1], ['e', 1, 0], ['w', -1, 0]];
 // est publique, l'enclore en fait un enclos ») : c'est un arbitrage explicite de Raph,
 // pas un oubli. Une enceinte percée d'entrées se lit comme un square clos, pas comme
 // un enclos — c'est la porte qui fait la différence.
+// Depuis la ville par îlots, la porte du square est au MILIEU de chaque côté (cf.
+// `gateMid`, choix de Raph après l'audit du 2026-10-05) et non plus à chaque rue.
 export const FENCE = {
   on: true,
   // ⛔ Parvis des merveilles : COUPÉ le 2026-10-03 — chaque merveille a désormais SON
@@ -51,8 +53,55 @@ export const FENCE = {
   plazas: true,      // places — même geste, l'esplanade devient un square
   quays: false,      // ⛔ berge : abandonné, cf. la note ci-dessus
   gateOnRoad: true,  // laisse une OUVERTURE partout où une route aborde l'enceinte
+  // LE SQUARE : une porte au MILIEU de chaque côté, la grille partout ailleurs, même le
+  // long d'une rue (audit 2026-10-05, BUG-62 ; choix (b) de Raph). En ville par îlots,
+  // chaque place est un îlot ceint de rues : la porte « partout où une route touche »
+  // ouvrait tout le pourtour, et pas une arête de grille ne se posait (0 sur 52
+  // squares mesurés). Vaut pour les places ; `gateOnRoad` garde les autres sources.
+  gateMid: true,
   cap: 4000,         // garde-fou de dernier recours, cf. plus bas
 };
+
+// Côté du monde d'un décalage (dx, dy) vers le voisin (pour les appelants qui raisonnent en dx, dy).
+export const SIDE_OF = (dx, dy) => (dx > 0 ? 'e' : dx < 0 ? 'w' : dy > 0 ? 's' : 'n');
+
+/**
+ * LES PORTES D'UN SQUARE : le milieu de chaque côté de son pourtour. Un côté est une
+ * suite CONTIGUË d'arêtes de pourtour sur une même ligne (même rangée pour n/s, même
+ * colonne pour e/w) ; sa porte est son arête du milieu (côté impair) ou ses deux
+ * arêtes du milieu (côté pair) — 1 à 2 arêtes par côté. Un pourtour rogné (merveille,
+ * berge) donne plusieurs côtés sur une ligne : chacun a sa porte, aucun bout de place
+ * n'est emmuré.
+ * @param {Set<string>} cells cellules de la place ("gx,gy")
+ * @returns {Set<string>} arêtes-portes, "gx,gy,côté" (côté du monde, comme les sprites)
+ */
+export function midGates(cells) {
+  const lines = new Map();                          // "côté:ligne" → positions le long
+  for (const k of cells) {
+    const c = k.indexOf(',');
+    const gx = +k.slice(0, c), gy = +k.slice(c + 1);
+    for (const [side, dx, dy] of SIDES) {
+      if (cells.has((gx + dx) + ',' + (gy + dy))) continue;
+      const horiz = side === 'n' || side === 's';
+      const lk = side + ':' + (horiz ? gy : gx);
+      if (!lines.has(lk)) lines.set(lk, []);
+      lines.get(lk).push(horiz ? gx : gy);
+    }
+  }
+  const out = new Set();
+  for (const [lk, pos] of lines) {
+    const side = lk.slice(0, 1), line = +lk.slice(2), horiz = side === 'n' || side === 's';
+    pos.sort((a, b) => a - b);
+    for (let i = 0; i < pos.length;) {
+      let j = i;
+      while (j + 1 < pos.length && pos[j + 1] === pos[j] + 1) j += 1;
+      const n = j - i + 1, mids = n % 2 ? [i + (n - 1) / 2] : [i + n / 2 - 1, i + n / 2];
+      for (const m of mids) out.add((horiz ? pos[m] + ',' + line : line + ',' + pos[m]) + ',' + side);
+      i = j + 1;
+    }
+  }
+  return out;
+}
 
 /**
  * Arêtes à clôturer.
@@ -92,11 +141,14 @@ export function fenceEdges(o, cfg = FENCE) {
   // `plazaSourceOk` (facultatif) : quelles cellules de place ont DROIT à la clôture —
   // depuis le 2026-09-30, le seul square (jardin) ; le forum, le marché et le parvis
   // sont des lieux publics ouverts (cf. isoPlaza, FENCED_KINDS). Absent : toutes.
+  const plazaSrc = new Set();
   if (cfg.plazas) {
     for (const k of urbanSet) {
-      if (matOf(k) === 'plaza' && (!o.plazaSourceOk || o.plazaSourceOk(k))) sources.set(k, null);
+      if (matOf(k) === 'plaza' && (!o.plazaSourceOk || o.plazaSourceOk(k))) { sources.set(k, null); plazaSrc.add(k); }
     }
   }
+  // Les portes des squares (cf. FENCE.gateMid), calculées sur leurs seules cellules.
+  const gates = cfg.gateMid && plazaSrc.size ? midGates(plazaSrc) : null;
   if (cfg.quays) {
     // Berge BÂTIE seulement : une cellule de sol de ville qui touche l'eau. La
     // rive sauvage n'a pas de garde-corps, elle a de l'herbe.
@@ -143,7 +195,10 @@ export function fenceEdges(o, cfg = FENCE) {
       // et une esplanade qu'on ne peut pas aborder ne se lit plus comme une place.
       // (Demande de Raph, 2026-08-06 : « en laissant des entrées au niveau des
       // routes ».) C'est aussi ce qui distingue un square clos d'un enclos.
-      if (cfg.gateOnRoad && theirs === 'road') continue;
+      // Le SQUARE, lui, a ses portes au milieu de chaque côté (FENCE.gateMid) : ceint
+      // de rues, la règle des routes l'aurait laissé sans une arête de grille.
+      if (gates && plazaSrc.has(k)) { if (gates.has(gx + ',' + gy + ',' + side)) continue; }
+      else if (cfg.gateOnRoad && theirs === 'road') continue;
       // Une arête est partagée : sans ce départage, le parvis et la rue d'en
       // face poseraient chacun leur panneau au même endroit, en double.
       // On la donne à la cellule SOURCE ; si les deux sont sources, à la

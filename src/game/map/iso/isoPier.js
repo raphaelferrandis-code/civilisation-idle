@@ -25,8 +25,8 @@
 // Pas un trait lissé, pas une couleur d'antialias : les bords tombent au pixel, comme
 // sur les quais validés le même jour.
 //   · OMBRE : un pixel de sol est à l'ombre si le rayon vers le soleil (l'est du monde,
-//     cf. isoSunShadow) traverse une boîte. Posée en multiply, à la force du soleil du
-//     moment, AVANT les bateaux (paintPierUnder).
+//     cf. isoSunShadow) traverse une boîte. Posée au mode et à la teinte de l'ombre du
+//     soleil (SUN_SHADOW), à la force du moment, AVANT les bateaux (paintPierUnder).
 //   · REFLET : la même scène retournée sous le plan de l'eau, versée dans le calque des
 //     reflets (isoReflect.noteReflectionImage) : il ondule, se teinte et s'éteint avec
 //     ceux des bateaux et des façades.
@@ -39,7 +39,7 @@
 // ponton sprité, est parti avec lui : audit du 05/10, MORT-6.)
 import { CM } from '../layout.js';
 import { quayStyleFor } from '../quaysAndRiot.js';
-import { castRay, bakeBoxes, blitLayer, paintBakeUnder, h01, mul, mix, hexRgb, FACE_LIGHT } from './isoBoxBake.js';
+import { castRay, bakeBoxes, blitLayer, paintBakeUnder, h01, mul, mix, hexRgb, FACE_LIGHT, anchoredBake, boxesKey, riverKey, shiftBake } from './isoBoxBake.js';
 import { paintTradePortUnder } from './isoTradePort.js';
 import { paintOldPortUnder } from './isoOldPort.js';
 import { rippleField, noteRipples } from './waterRipples.js';
@@ -56,7 +56,7 @@ export const PIER = { reach: 0.58, house: 0.85, houseGap: 0.14, crane: true, sha
 if (import.meta.env?.DEV && typeof window !== 'undefined') {
   window.__pier = (o) => {
     if (o && typeof o === 'object') Object.assign(PIER, o);
-    _cache.clear();
+    _cache.clear(); _bakes.clear();
     return { ...PIER };
   };
 }
@@ -254,11 +254,13 @@ function worldBox(F, bx, T) {
 
 // ── LA CUISSON (moteur partagé : iso/isoBoxBake.js) ─────────────────────────
 // Couleur d'un point touché. (wx, wy, zz) en px monde ; (a, c) en px le long / en
-// travers du ponton (repère local, depuis la racine).
+// travers du ponton (repère local, depuis la racine). Le grain (mouchetis, cerclages,
+// assises) se lit en (rx, ry), relatifs à l'ancre du port (P.OX, P.OY : PERF-10).
 function shadeHit(M, P, hit, wx, wy, zz, a, c, mirror) {
   const bx = hit.bx, face = hit.face, part = bx.part;
   const edgeX = bx.X1 - wx, edgeY = bx.Y1 - wy;
-  const g = 1 + (h01(Math.floor(wx), Math.floor(wy), 3) - 0.5) * 0.06;
+  const rx = wx - (P.OX || 0), ry = wy - (P.OY || 0);
+  const g = 1 + (h01(Math.floor(rx), Math.floor(ry), 3) - 0.5) * 0.06;
   let col;
   if (part === 'pile' || part === 'post') {
     col = M.pile || M.post;
@@ -279,7 +281,7 @@ function shadeHit(M, P, hit, wx, wy, zz, a, c, mirror) {
     col = M.load;
     if (face === 2) col = mul(col, 1.15);
     // Cerclage d'une caisse / nervures d'un conteneur : une ligne tous les 3 px.
-    else if (((Math.floor(face === 1 ? wx : wy) % 3) + 3) % 3 === 0) col = mul(col, 0.8);
+    else if (((Math.floor(face === 1 ? rx : ry) % 3) + 3) % 3 === 0) col = mul(col, 0.8);
   } else if (face === 2 && !mirror) {
     // ── DESSUS DU TABLIER ──
     if (M.kind === 'plank' || M.kind === 'log') {
@@ -315,11 +317,12 @@ function shadeHit(M, P, hit, wx, wy, zz, a, c, mirror) {
     col = M.face;
     if (M.kind === 'stone') {
       // Assises de 3 px, joints verticaux décalés d'une assise à l'autre.
-      const u = face === 1 ? wx : wy, row = Math.floor(zz / 3.2);
+      const u = face === 1 ? rx : ry, row = Math.floor(zz / 3.2);
       const off = (row & 1) ? 4 : 0;
       if (zz - row * 3.2 < 0.9) col = M.gap;
       else if ((((Math.floor(u) + off) % 8) + 8) % 8 === 0) col = M.gap;
-      else col = mix(M.face, M.top[(row + Math.floor((u + off) / 8)) % M.top.length], 0.25);
+      // (Modulo positif : depuis l'ancre, `u` peut être négatif.)
+      else col = mix(M.face, M.top[(((row + Math.floor((u + off) / 8)) % M.top.length) + M.top.length) % M.top.length], 0.25);
       if (zz < 2.2) col = mix(mul(M.face, 0.6), [58, 76, 56], 0.3);
     } else if (M.kind === 'plank' || M.kind === 'log') {
       if (bx.Z1 - zz < 1) col = mul(col, 1.1);         // arête haute éclairée
@@ -340,15 +343,15 @@ function waterAt(sm, wx, wy, T, si) {
   return q.d < q.hw - 0.02;
 }
 
-function bakePier(F, plan, M, T, band, sm) {
-  const boxes = plan.boxes.map((b) => worldBox(F, b, T));
+// `boxes` : les boîtes du plan en px monde (worldBox) ; `O` = { X, Y } : l'ancre du port.
+function bakePier(F, plan, M, T, band, sm, boxes, O) {
   // Repère local en px : a le long, c en travers, depuis la racine.
   const rx = F.root.x * T, ry = F.root.y * T;
   const P = {
     wHalf: plan.w * T / 2,
     headHalfA: plan.head ? (plan.head.a1 - plan.head.a0) * T / 2 : 0,
     headMidA: plan.head ? (plan.head.a0 + plan.head.a1) * T / 2 : 0,
-    glow: null,
+    glow: null, OX: O.X, OY: O.Y,
   };
   if (plan.glow) {
     const st = quayStyleFor(band);
@@ -363,6 +366,7 @@ function bakePier(F, plan, M, T, band, sm) {
     isWater: (gx, gy) => waterAt(sm, gx, gy, T, F.si),
     shadow: PIER.shadow, reflect: PIER.reflect,
     foam: PIER.foam ? (b) => b.Z0 <= 0.01 && (b.part === 'pile' || b.part === 'post' || b.part === 'mole') : null,
+    origin: O,
   });
 }
 
@@ -379,7 +383,10 @@ export function isPierPortTile(t) {
 }
 
 // ── LE CACHE, PAR PORT ──────────────────────────────────────────────────────
+// `_cache` : par géométrie ABSOLUE (repère, plan) ; `_bakes` : les cuissons par clé
+// RELATIVE à l'ancre du port (PERF-10), gardées d'une translation à l'autre.
 const _cache = new Map();
+const _bakes = new Map();
 function geomFor(t, spanX, spanY, band, ei) {
   if (!isPierPortTile(t)) return null;   // pas de ponton fantôme, quel que soit l'appelant
   const L = CM.layout, rv = L && L.river;
@@ -400,7 +407,16 @@ function geomFor(t, spanX, spanY, band, ei) {
     // Ères d'énergie : la grue et sa charge prennent la nacre des bâtiments cosmiques
     // (un engin de chantier jaune y faisait anachronisme).
     const M = plan.cosmic ? { ...MATS[matKey], crane: [208, 214, 222], load: [138, 150, 168] } : MATS[matKey];
-    const bake = bakePier(F, plan, M, CM.TILE, band, rv.samples);
+    const T = CM.TILE, sm = rv.samples;
+    const boxes = plan.boxes.map((b) => worldBox(F, b, T));
+    // LA CUISSON ANCRÉE AU PORT (PERF-10, isoBoxBake.anchoredBake) : l'ancre est le coin
+    // du lot ; translaté avec la ville (racine, fleuve voisin et boîtes au même endroit
+    // par rapport à lui), le ponton garde sa cuisson, décalée.
+    const OX = t.gx * T, OY = t.gy * T, r4 = (v) => Math.round(v * 1e4);
+    const rel = band + ':' + matKey + ':' + (plan.cosmic ? 1 : 0) + ':' + T + ':' + (PIER.shadow ? 1 : 0) + (PIER.reflect ? 1 : 0) + (PIER.foam ? 1 : 0)
+      + ':' + F.dir.x + ',' + F.dir.y + ',' + F.across.x + ',' + F.across.y + ':' + r4(F.root.x - t.gx) + ',' + r4(F.root.y - t.gy) + ',' + r4(F.hw)
+      + '|' + riverKey(sm, F.si - 8, F.si + 9, t.gx, t.gy) + '|' + boxesKey(boxes, OX, OY);
+    const bake = anchoredBake(_bakes, rel, OX, OY, () => bakePier(F, plan, M, T, band, sm, boxes, { X: OX, Y: OY }), shiftBake, 8);
     g = bake ? { F, plan, bake, stage } : null;
   }
   if (_cache.size > 8) _cache.clear();
@@ -432,8 +448,8 @@ function portTiles(L) {
 }
 
 // ── LA POSE (blitArt, paintBakeUnder : iso/isoBoxBake.js) ─────────────────────
-// Sous les bateaux, après les quais : l'ombre du ponton (multiply, force du soleil du
-// moment) et son reflet (calque des reflets, posé sous la surface à l'image suivante).
+// Sous les bateaux, après les quais : l'ombre du ponton (mode de SUN_SHADOW, force du
+// soleil du moment) et son reflet (calque des reflets, posé sous la surface à l'image suivante).
 // C'est aussi la passe des DESSOUS des deux ports du XIXe (terminal de commerce,
 // bassin du Vieux-Port — docs/PLAN-PORTS.md) : même moment de la frame, même moteur.
 export function paintPierUnder(ctx, now = 0) {

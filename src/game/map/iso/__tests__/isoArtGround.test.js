@@ -63,6 +63,10 @@ const LIVE = new Set([
   "isoBridge.js|tile",
   "isoProps.js|'plaza/' + pr.prop + '-' + pr.era",
   "isoProps.js|'plaza/anim/brazier-' + pr.era",
+  // Les arbres de la forêt cuite dans le sol (PERF-3) : leur décodage ne passe pas par
+  // l'invalidation douce — l'identité de chaque image entre dans la version du niveau
+  // (forestBake.forestBakeLevel), et une tuile cuite avec une autre image se recuit.
+  "forestBake.js|nm",
 ]);
 
 describe("PERF-27 — seuls les arts du sol invalident le sol", () => {

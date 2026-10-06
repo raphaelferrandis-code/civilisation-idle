@@ -242,7 +242,7 @@ export function tick(dt) {
   const vitals = cityVitals();
   const pressure = pressureBreakdown();
   const r = rates(vitals, pressure);
-  tickOlympus(dt);
+  tickOlympus(dt, r);
 
   state.population = D(state.population).add(r.population.mul(dt)).max(1);
   state.food = D(state.food).add(r.food.mul(dt)).max(0);

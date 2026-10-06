@@ -36,4 +36,25 @@ describe("parcours court depuis la save d'Acte III", () => {
     // En « ask », les crises ont bien ouvert leurs fenêtres (le scénario n'est pas vide).
     expect(Object.values(res.dialogs).reduce((sum, n) => sum + n, 0)).toBeGreaterThanOrEqual(minDialogs);
   });
+
+  // ATLAS SANS CLIC (trouvaille du harnais, audit 2026-10-05) : le joueur n'épaule
+  // jamais, le ciel écrase la cité. Sans Édit, la crise terminale qui suit n'avait
+  // aucune sortie — la chute manuelle restait refusée sous un pacte déjà rompu, et
+  // la partie était bloquée. Choix (a) de Raph : le ciel tombé rompt le pacte, la
+  // chute redevient permise.
+  it("Atlas sans clic ni Édit : le ciel écrase la cité, puis la chute manuelle rend la main", async () => {
+    let crushed = false;
+    const res = await runMythScenario("mythe_d_atlas", {
+      doctrine: "auto", atlasNoClick: true, noEdit: true, maxSec: 1800,
+      stopWhen: (g) => {
+        crushed ||= Boolean(g.st.state.atlasCrushed);
+        return (g.st.state.cycles || 0) > 0 && crushed;
+      }
+    });
+    expect(res.anomalies.filter((a) => FATAL.test(a.kind)), res.tail).toEqual([]);
+    expect(crushed, res.tail).toBe(true);
+    expect(res.done).toBe(false);
+    expect(res.cycles, `la cité écrasée n'est jamais tombée en ${Math.round(res.sec)} s\n${res.tail}`).toBeGreaterThanOrEqual(1);
+    expect(res.fails).toBe(1); // le pacte est rompu, pas sacré
+  });
 });

@@ -44,8 +44,9 @@ import { forestFloorSig } from './isoForestFloor.js';
 import { meadowSig } from './isoMeadow.js';
 import { ISO_X, ISO_Y } from './projection.js';
 import {
-  solPyramideStats, levelZoom, tileSideCss, camSpace, tileSpace, tileOrigin, cookTile, ZOOM_MIN, softCoalescer,
+  solPyramideStats, levelZoom, tileSideCss, camSpace, tileSpace, tileOrigin, cookTile, ZOOM_MIN, softCoalescer, gutterCss, camForTile,
 } from './solPyramide.js';
+import { forestBakeLevel, forestTileSig, bakeForestTile, forestBakeNoteGround, forestBakeStats } from './forestBake.js';
 
 export const PYR = { budgetMs: 8, gestureBudgetMs: 12, gestureMaxTiles: 6, holeCapMs: 80, memMo: 96, ring: 1, gestureMs: 400 };
 
@@ -253,27 +254,41 @@ function estimateMs(z) {
   return best != null ? best : 4;
 }
 
-function cook(z, tx, ty, now) {
+function cook(z, tx, ty, now, lvF = null) {
   const key = posKey(z, tx, ty);
   const old = cache.get(key);
   // La toile de l'entrée remplacée resert (PERF-53, cf. cookTile) : elle n'est plus lue
   // une fois l'entrée remplacée — la cuisson est synchrone, sous la même clé, et ce
   // qu'elle a déjà posé dans l'image en cours en reste une copie. Une cuisson qui
   // échoue l'a déjà effacée : l'entrée part avec elle (la tuile redevient manquante).
-  let t;
+  // `lvF` : la forêt du niveau à cuire par-dessus le sol (forestBake.js, PERF-3) ;
+  // `fsig` garde l'empreinte de ce qui a été cuit (0 : aucun arbre).
+  let t, fsig = 0;
   try {
-    t = cookTile(z, tx, ty, { canvas: old && old.dpr === cacheDpr ? old.canvas : undefined });
+    t = cookTile(z, tx, ty, {
+      canvas: old && old.dpr === cacheDpr ? old.canvas : undefined,
+      after: lvF ? (tctx, cam, side) => { fsig = bakeForestTile(lvF, tctx, tx, ty, cam, side); } : null,
+    });
   } catch (err) {
     if (old && cache.get(key) === old) { cache.delete(key); bytes -= old.bytes; }
     throw err;
   }
   if (old) bytes -= old.bytes;
   const e = { key, z, tx, ty, S: t.S, G: t.G, canvas: t.canvas, bytes: t.canvas.width * t.canvas.height * 4,
-    sig: sigCur, suf: sufCur, tsig: curL ? tileSig(curL, z, tx, ty, t.S) : 0, chk: sigCur, chkOk: true, epoch, dpr: cacheDpr, last: now };
+    sig: sigCur, suf: sufCur, tsig: curL ? tileSig(curL, z, tx, ty, t.S) : 0, chk: sigCur, chkOk: true, epoch, dpr: cacheDpr, last: now, fsig };
   cache.set(key, e); bytes += e.bytes;
   const prev = costMs.get(z);
   costMs.set(z, prev == null ? t.ms : prev * 0.7 + t.ms * 0.3);
   return e;
+}
+
+// Une tuile au sol À JOUR mais cuite sans forêt (cuite à un autre moment : plancher
+// pré-cuit, glissement de zoom) : ses arbres se posent par-dessus, sans recuire le
+// sol — les mêmes octets qu'une cuisson complète (bakeForestTile pose son état à neuf
+// après drawIsoGround comme ici), pour quelques poses au lieu d'une tuile.
+function addForest(e, lvF) {
+  e.fsig = bakeForestTile(lvF, e.canvas.getContext('2d'), e.tx, e.ty, camForTile(e.tx, e.ty, e.S, e.z, 0), e.S + 2 * e.G);
+  forestBakeStats.ajouts += 1;
 }
 
 function evict(keep) {
@@ -312,9 +327,16 @@ function tilesInRect(x0, y0, x1, y1, S) {
 // décalages entiers (S·dpr est entier par construction, cf. tileSideCss) — deux
 // voisines ne peuvent plus se séparer. Simulé : 0 trou, 0 recouvrement, dans
 // toutes les configurations. Exportée pour le test (solPyramideSeam.test.js).
+// ⚠ L'ARRONDI EST DÉTERMINISTE (audit du 05/10, PERF-3) : caméra quantifiée, c·dpr est
+// un entier au bruit flottant près ; avec cw·dpr impair, l'origine tombait pile sur un
+// demi-pixel et ce bruit choisissait le sens d'une frame à l'autre. On retire le bruit
+// (c·dpr ramené à son entier) : le demi-pixel s'arrondit toujours vers le haut, et la
+// forêt cuite dans les tuiles (forestBake.js, phase du canevas) retombe au pixel près
+// où le peintre la poserait. Hors caméra quantifiée, l'arrondi d'avant.
 export function screenOrigin(c, cw, ch, dpr) {
   const d = dpr || 1;
-  return { x: Math.round((cw / 2 - c.x) * d) / d, y: Math.round((ch / 2 - c.y) * d) / d };
+  const exact = (v) => { const r = Math.round(v); return Math.abs(v - r) < 1e-6 ? r : v; };
+  return { x: Math.round(cw * d / 2 - exact(c.x * d)) / d, y: Math.round(ch * d / 2 - exact(c.y * d)) / d };
 }
 
 // Dessine la partie [ax, bx) × [ay, by) (espace tuile du niveau de `e`) de la
@@ -411,6 +433,7 @@ function cachedLevelsNear(z) {
 
 // ── La frame ─────────────────────────────────────────────────────────────────
 export function paintGroundPyramid(ctx, L, nowMs) {
+  forestBakeNoteGround(null);   // rien de cuit sous la frame tant qu'elle n'est pas composée
   if (!L) return false;
   // Un décodage retenu par la fenêtre des invalidations douces : rendu ici.
   if (soft.flush(performance.now())) bumpEpoch();
@@ -458,6 +481,13 @@ export function paintGroundPyramid(ctx, L, nowMs) {
   const vides = visAll.length - vis.length;
   const keep = new Set();
   for (const t of vis) keep.add(posKey(z, t.tx, t.ty));
+  // LA FORÊT CUITE (forestBake.js, PERF-3) : le contexte du niveau COURANT, ou null.
+  // Seules les tuiles de ce niveau la portent ; cuites ailleurs (plancher pré-cuit,
+  // niveau cible d'un glissement), elles sont sans arbres — qui s'y ajoutent à
+  // l'arrivée (addForest). Une entrée du niveau dont l'empreinte de forêt n'est plus
+  // celle d'aujourd'hui (plan, saison, phase…) se recuit comme une périmée.
+  const lvF = forestBakeLevel(L, z, { mb: mbZ, S, G: gutterCss(), dpr, cw, ch });
+  const forestOk = (e) => (e.fsig || 0) === (lvF ? forestTileSig(lvF, e.tx, e.ty) : 0);
 
   // 1) Cuisson des manquantes / périmées, du centre vers les bords, sous budget.
   // ⚠ Pendant un GLISSEMENT de zoom (zoomGoal ≠ zoom), on cuit au niveau CIBLE,
@@ -474,7 +504,11 @@ export function paintGroundPyramid(ctx, L, nowMs) {
   const cxT = (x0 + x1) / 2 * rc, cyT = (y0 + y1) / 2 * rc;
   const mbC = zc === z ? mbZ : mapBBoxAtLevel(L, zc);
   const need = tilesInRect(x0 * rc, y0 * rc, x1 * rc, y1 * rc, Sc)
-    .filter((t) => inMap(mbC, t.tx, t.ty, Sc) && !fresh(cache.get(posKey(zc, t.tx, t.ty))))
+    .filter((t) => {
+      if (!inMap(mbC, t.tx, t.ty, Sc)) return false;
+      const e = cache.get(posKey(zc, t.tx, t.ty));
+      return !fresh(e) || (zc === z && !forestOk(e));
+    })
     .sort((a, b) => (Math.hypot((a.tx + 0.5) * Sc - cxT, (a.ty + 0.5) * Sc - cyT) - Math.hypot((b.tx + 0.5) * Sc - cxT, (b.ty + 0.5) * Sc - cyT)));
   const t0 = performance.now();
   // En geste, un budget un peu plus large : un trou (fond hors-monde) se voit
@@ -517,19 +551,28 @@ export function paintGroundPyramid(ctx, L, nowMs) {
   } else {
     for (const t of holes) {
       if (performance.now() - t0 > PYR.holeCapMs) break;
-      cook(zc, t.tx, t.ty, nowMs); n += 1;
+      cook(zc, t.tx, t.ty, nowMs, zc === z ? lvF : null); n += 1;
     }
   }
   for (const t of others) {
     if (n >= maxN) break;
+    // Un sol à jour qui n'attend que ses arbres : quelques poses, pas une tuile.
+    const e = zc === z && lvF ? cache.get(posKey(z, t.tx, t.ty)) : null;
+    if (e && !e.fsig && fresh(e)) {
+      if (n > 0 && performance.now() - t0 > budget) break;
+      addForest(e, lvF); n += 1;
+      continue;
+    }
     if (n > 0 && performance.now() - t0 + estimateMs(zc) > budget) break;
-    cook(zc, t.tx, t.ty, nowMs); n += 1;
+    cook(zc, t.tx, t.ty, nowMs, zc === z ? lvF : null); n += 1;
   }
 
-  // 2) Composition.
+  // 2) Composition. Les tuiles du niveau posées avec leur forêt à jour sont notées :
+  //    le peintre n'y repose pas les arbres cuits (forestBake.fbTree).
   const prevSm = ctx.imageSmoothingEnabled;
   let levels = null;
   let hits = 0, replis = 0, trous = 0;
+  const freshF = lvF ? new Set() : null;
   for (const t of vis) {
     const e = cache.get(posKey(z, t.tx, t.ty));
     if (e) {
@@ -537,12 +580,23 @@ export function paintGroundPyramid(ctx, L, nowMs) {
       drawPart(ctx, e, o.x, o.y, o.x + S, o.y + S, s, org, dpr);
       e.last = nowMs;
       if (fresh(e)) hits += 1; else replis += 1;
+      if (freshF && forestOk(e)) freshF.add((t.tx + 32768) * 65536 + t.ty + 32768);
     } else {
       if (!levels) levels = cachedLevelsNear(z);
       if (drawFallback(ctx, z, t.tx, t.ty, S, zoom, org, dpr, levels, nowMs)) replis += 1; else trous += 1;
     }
   }
   ctx.imageSmoothingEnabled = prevSm;
+  // Ce que le peintre de CETTE frame doit savoir de la forêt cuite : niveau, étirement,
+  // tuiles à jour, origine de l'espace tuile (non arrondie : celle de worldToScreen),
+  // et si la caméra est sur la grille device (sinon l'arrondi de l'origine retombe
+  // sur l'ancien calcul et la phase cuite ne vaut plus, cf. screenOrigin).
+  forestBakeNoteGround(lvF ? {
+    lv: lvF, z, s, zoom, camX: CM.cam.x, camY: CM.cam.y, cw, ch, fresh: freshF,
+    vis: { tx0: Math.floor(x0 / S), tx1: Math.floor((x1 - 1e-9) / S), ty0: Math.floor(y0 / S), ty1: Math.floor((y1 - 1e-9) / S) },
+    offX: cw / 2 - c.x, offY: ch / 2 - c.y,
+    quant: Math.abs(c.x * dpr - Math.round(c.x * dpr)) < 1e-6 && Math.abs(c.y * dpr - Math.round(c.y * dpr)) < 1e-6,
+  } : null);
 
   // 3) Repos : le PLANCHER sous la vue d'abord (le dézoom réflexe révèle d'un
   //    coup 4 à 40 fois plus de monde : seules les tuiles du plancher peuvent
@@ -568,10 +622,20 @@ export function paintGroundPyramid(ctx, L, nowMs) {
       }
     }
     const ring = tilesInRect(x0 - R * S, y0 - R * S, x1 + R * S, y1 + R * S, S)
-      .filter((t) => inMap(mbZ, t.tx, t.ty, S) && !keep.has(posKey(z, t.tx, t.ty)) && !fresh(cache.get(posKey(z, t.tx, t.ty))));
+      .filter((t) => {
+        if (!inMap(mbZ, t.tx, t.ty, S) || keep.has(posKey(z, t.tx, t.ty))) return false;
+        const e = cache.get(posKey(z, t.tx, t.ty));
+        return !fresh(e) || (lvF && !forestOk(e));
+      });
     for (const t of ring) {
+      const e = lvF ? cache.get(posKey(z, t.tx, t.ty)) : null;
+      if (e && !e.fsig && fresh(e)) {
+        if (performance.now() - t0 > budget) break;
+        addForest(e, lvF);
+        continue;
+      }
       if (performance.now() - t0 + estimateMs(z) > budget) break;
-      cook(z, t.tx, t.ty, nowMs);
+      cook(z, t.tx, t.ty, nowMs, lvF);
     }
   }
 
@@ -586,7 +650,8 @@ export function paintGroundPyramid(ctx, L, nowMs) {
 
   solPyramideStats.hits += hits; solPyramideStats.replis += replis; solPyramideStats.trous = (solPyramideStats.trous || 0) + trous;
   // La dernière frame, à plat — ce que la sonde et le banc lisent pour comprendre un trou.
-  solPyramideStats.dernier = { zoom: +zoom.toFixed(3), z, zc, s: +s.toFixed(3), vis: vis.length, vides, aCuire: need.length, cuites: n, hits, replis, trous, gesture, zoomGoal: CM.zoomGoal == null ? null : +CM.zoomGoal.toFixed(3), msSol: +(performance.now() - t0).toFixed(1) };
+  solPyramideStats.dernier = { zoom: +zoom.toFixed(3), z, zc, s: +s.toFixed(3), vis: vis.length, vides, aCuire: need.length, cuites: n, hits, replis, trous, gesture, zoomGoal: CM.zoomGoal == null ? null : +CM.zoomGoal.toFixed(3), msSol: +(performance.now() - t0).toFixed(1),
+    foret: lvF ? freshF.size : forestBakeStats.raison };
   solPyramideStats.tuilesVisibles = vis.length; solPyramideStats.memoMo = Math.round(bytes / 1048576 * 10) / 10;
   solPyramideStats.entrees = cache.size;
   // Diagnostic du lot 3 : combien d'entrées portent la signature courante, combien

@@ -20,7 +20,7 @@
 // peintre (drawOldPort, scène riveraine de la tuile du port).
 import { CM } from '../layout.js';
 import { quayWallTiles, quayWallTune } from '../quaysAndRiot.js';
-import { bakeBoxes, blitLayer, paintBakeUnder, h01, mul, mix, FACE_LIGHT, faceLit } from './isoBoxBake.js';
+import { bakeBoxes, blitLayer, paintBakeUnder, h01, mul, mix, FACE_LIGHT, faceLit, anchoredBake, boxesKey, riverKey, shiftBake } from './isoBoxBake.js';
 import { drawMooredHull, hullFootprint, riverEdgeAt, riverWaterAt, riverWindow, registerPortLamps, quayJoin } from './portBerths.js';
 import { queueFlameGlow } from '../flameGlow.js';
 import { depthOf, worldToScreen } from './projection.js';
@@ -37,7 +37,7 @@ if (import.meta.env?.DEV && typeof window !== 'undefined') {
     if (o === false) OLDPORT.on = false;
     else if (o === true) OLDPORT.on = true;
     else if (o && typeof o === 'object') Object.assign(OLDPORT, o);
-    _cache.clear();
+    _cache.clear(); _bakes.clear();
     return { ...OLDPORT };
   };
 }
@@ -270,29 +270,34 @@ function basinPoly(b, sm, over) {
   return pts;
 }
 
-function shadeOldPort(plan) {
+// GRAIN ANCRÉ AU PORT (PERF-10, cf. isoBoxBake.anchoredBake) : dalles, assises,
+// planches et mouchetis se lisent en (rx, ry), relatifs à l'ancre (OX, OY) ; les bords
+// des boîtes (margelles) restent en (wx, wy).
+function shadeOldPort(plan, OX = 0, OY = 0) {
   const P = PAL;
   const inner = (hit, wx, wy, zz) => {
     // Raccord en bandes (cf. oldPortPlan) : le flanc est d'une bande, découvert là où la
     // berge recule d'un pixel, se peint comme la face avant — sinon une rainure sombre
     // à chaque marche.
     const bx = hit.bx, face = bx.join && hit.face === 0 ? 1 : hit.face, part = bx.part;
-    const g = 1 + (h01(Math.floor(wx), Math.floor(wy), 3) - 0.5) * 0.05;
+    const rx = wx - OX, ry = wy - OY;                             // le grain, depuis l'ancre
+    const g = 1 + (h01(Math.floor(rx), Math.floor(ry), 3) - 0.5) * 0.05;
     let col;
     if (part === 'quay') {
       if (face !== 2) return mul(P.wall, FACE_LIGHT[face]);
-      const ka = Math.floor(wx / 10.5), kb = Math.floor(wy / 9);
+      const ka = Math.floor(rx / 10.5), kb = Math.floor(ry / 9);
       col = P.top[Math.floor(h01(ka, kb, 5) * P.top.length)];
-      if (((wx % 10.5) + 10.5) % 10.5 < 1 || ((wy % 9) + 9) % 9 < 1) col = P.gap;
+      if (((rx % 10.5) + 10.5) % 10.5 < 1 || ((ry % 9) + 9) % 9 < 1) col = P.gap;
       // Margelle au pourtour ; sur une bande du raccord, côté eau seulement.
       if (bx.join ? bx.Y1 - wy < 1.3 : (bx.X1 - wx < 1.3 || bx.Y1 - wy < 1.3 || wx - bx.X0 < 1.1 || wy - bx.Y0 < 1.1)) col = P.coping;
       return mul(col, g);
     }
     if (part === 'wall') {
       if (face === 2) return mul(P.coping, g);
-      const row = Math.floor(-zz / 3.2), off = (row & 1) ? 4 : 0, u = face === 1 ? wx : wy;
+      const row = Math.floor(-zz / 3.2), off = (row & 1) ? 4 : 0, u = face === 1 ? rx : ry;
       if (((-zz) - row * 3.2) < 0.9 || ((((Math.floor(u) + off) % 8) + 8) % 8 === 0)) col = P.gap;
-      else col = mix(P.wall, P.top[(row + Math.floor((u + off) / 8)) % P.top.length], 0.25);
+      // (Modulo positif : depuis l'ancre, `u` est négatif à l'ouest et au nord du bassin.)
+      else col = mix(P.wall, P.top[(((row + Math.floor((u + off) / 8)) % P.top.length) + P.top.length) % P.top.length], 0.25);
       if (-zz > plan.wh - 2.2) col = mix(mul(P.wall, 0.6), [58, 76, 56], 0.3);
       return mul(col, FACE_LIGHT[face] * g);
     }
@@ -305,35 +310,35 @@ function shadeOldPort(plan) {
     }
     if (part === 'gangway') {
       if (face !== 2) return mul(P.deckGap, FACE_LIGHT[face]);
-      return mul(P.deck[Math.floor(h01(Math.floor(wy / 2), 5, 13) * P.deck.length)], g);
+      return mul(P.deck[Math.floor(h01(Math.floor(ry / 2), 5, 13) * P.deck.length)], g);
     }
     if (part === 'rope') return P.rope;
     if (part === 'post') return mul(P.pole, FACE_LIGHT[face]);
     if (part === 'crate') return mul(face === 2 ? P.crateTop : P.crate, FACE_LIGHT[face] * g);
-    if (part === 'net') return ((Math.floor(wx) + Math.floor(wy)) % 3 === 0) ? P.netGap : mul(P.net, g);
+    if (part === 'net') return ((Math.floor(rx) + Math.floor(ry)) % 3 === 0) ? P.netGap : mul(P.net, g);
     // Ponton du fond (est-ouest) : planches en travers, flotteurs blancs.
     if (part === 'pontoonEW') {
       if (face !== 2) return mul(P.float, FACE_LIGHT[face]);
-      const k = Math.floor(wx / 3), r = wx - k * 3;
+      const k = Math.floor(rx / 3), r = rx - k * 3;
       col = P.deck[Math.floor(h01(k, 7, 11) * P.deck.length)];
       if (r < 1) col = P.deckGap;
       return mul(col, g);
     }
     if (part === 'pontoon') {
       if (face !== 2) return mul(P.float, FACE_LIGHT[face]);
-      const k = Math.floor(wy / 3), r = wy - k * 3;
+      const k = Math.floor(ry / 3), r = ry - k * 3;
       col = P.deck[Math.floor(h01(k, 3, 11) * P.deck.length)];
       if (r < 1) col = P.deckGap;
       return mul(col, g);
     }
     if (part === 'fort' || part === 'merlon') {
       if (face === 2) return faceLit(mul(P.fortD, g), 1.04);
-      const row = Math.floor(zz / 4), off = (row & 1) ? 5 : 0, u = face === 1 ? wx : wy;
+      const row = Math.floor(zz / 4), off = (row & 1) ? 5 : 0, u = face === 1 ? rx : ry;
       col = ((zz - row * 4) < 1 || ((((Math.floor(u) + off) % 10) + 10) % 10 === 0)) ? P.fortGap : P.fort;
       // Meurtrières : une fente sombre au milieu des faces, aux deux tiers de la hauteur.
       if (part === 'fort' && zz > bx.Z1 * 0.55 && zz < bx.Z1 * 0.72) {
         const mid = face === 1 ? (bx.X0 + bx.X1) / 2 : (bx.Y0 + bx.Y1) / 2;
-        if (Math.abs(u - mid) < 1.1) col = [44, 40, 38];
+        if (Math.abs((face === 1 ? wx : wy) - mid) < 1.1) col = [44, 40, 38];
       }
       return faceLit(mul(col, g), FACE_LIGHT[face]);
     }
@@ -358,7 +363,11 @@ function shadeOldPort(plan) {
 const OLD_INK = { skip: (b) => b.part === 'pole' || b.part === 'flag' || b.part === 'rope' };
 
 // ── LE CACHE ─────────────────────────────────────────────────────────────────
+// `_cache` : par géométrie ABSOLUE (le plan, ses bateaux, son eau) ; `_bakes` : les
+// cuissons par clé RELATIVE à l'ancre du bassin (PERF-10), gardées d'une translation
+// à l'autre.
 const _cache = new Map();
+const _bakes = new Map();
 function oldPortGeom(t, band) {
   const L = CM.layout, rv = L && L.river;
   if (!rv || !rv.present || !rv.samples || !t.oldPort) return null;
@@ -371,7 +380,6 @@ function oldPortGeom(t, band) {
   if (_cache.has(key)) return _cache.get(key);
   const T = CM.TILE, sm = rv.samples;
   const plan = oldPortPlan(t.oldPort, band, T, sm);
-  const shade = shadeOldPort(plan);
   const b = t.oldPort;
   // Pour le reflet et le clapot : l'eau = le ruban OU le bassin.
   // Bas du bassin par quart de tuile, calculé une fois (riverEdgeAt parcourt le fleuve).
@@ -383,11 +391,21 @@ function oldPortGeom(t, band) {
     return y <= bottom[Math.min(bottom.length - 1, Math.round((x - b.gx) * 4))];
   };
   const [j0, j1] = riverWindow(sm, b.gx - 4, b.gx + b.w + 4);
-  const isWater = (wx, wy) => inBasin(wx, wy) || riverWaterAt(sm, wx, wy, T, j0, j1);
-  const opt = { shade, isWater, shadow: OLDPORT.shadow, reflect: OLDPORT.reflect, foam: null };
-  // Le fort et le phare sont DESSINÉS (encre de la cuisson, comme le terminal) ; les
-  // quais et pontons restent du sol.
-  const g = { plan, low: bakeBoxes(plan.low, opt), high: bakeBoxes(plan.high, { ...opt, ink: OLDPORT.ink ? OLD_INK : null }) };
+  // LA CUISSON ANCRÉE AU PORT (PERF-10, isoBoxBake.anchoredBake) : l'ancre est le coin
+  // nord-ouest du bassin ; translaté avec la ville, il garde sa cuisson, décalée.
+  const OX = b.gx * T, OY = b.gy * T;
+  const rel = band + ':' + b.w + ',' + b.h + ':' + T + ':' + plan.wh + ':' + (OLDPORT.shadow ? 1 : 0) + (OLDPORT.reflect ? 1 : 0) + (OLDPORT.ink ? 1 : 0)
+    + '|' + bottom.map((y) => Math.round((y - b.gy) * 1e4)).join(',')
+    + '|' + riverKey(sm, j0, j1, b.gx, b.gy) + '|' + boxesKey(plan.low, OX, OY) + '|' + boxesKey(plan.high, OX, OY);
+  const bk = anchoredBake(_bakes, rel, OX, OY, () => {
+    const shade = shadeOldPort(plan, OX, OY);
+    const isWater = (wx, wy) => inBasin(wx, wy) || riverWaterAt(sm, wx, wy, T, j0, j1);
+    const opt = { shade, isWater, shadow: OLDPORT.shadow, reflect: OLDPORT.reflect, foam: null, origin: { X: OX, Y: OY } };
+    // Le fort et le phare sont DESSINÉS (encre de la cuisson, comme le terminal) ; les
+    // quais et pontons restent du sol.
+    return { low: bakeBoxes(plan.low, opt), high: bakeBoxes(plan.high, { ...opt, ink: OLDPORT.ink ? OLD_INK : null }) };
+  }, (v, dX, dY) => ({ low: shiftBake(v.low, dX, dY), high: shiftBake(v.high, dX, dY) }), 3);
+  const g = { plan, low: bk.low, high: bk.high };
   if (_cache.size > 4) _cache.clear();
   _cache.set(key, g);
   return g;

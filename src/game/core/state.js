@@ -19,6 +19,8 @@ import { generateCityName } from '../map/procedural/cityName.js';
 import { normalizeRoadMemory } from '../map/roadMemory.js';
 import { PERSONALITIES } from '../map/procedural/cityPersonality.js';
 import { defaultFaitsDivers, normalizeFaitsDivers } from './faitsDiversState.js';
+// Module PUR (aucun import) : lisible pendant `state = load()` sans piège TDZ.
+import { ACHIEVEMENT_ID_RE } from '../data/achievements.js';
 
 // La clé vit dans saveKey.js (cloudSave.js doit la lire AVANT l'évaluation de
 // ce module — cf. l'en-tête de cloudSave.js) ; ré-exportée ici pour les clients.
@@ -57,7 +59,7 @@ export { CURRENT_SAVE_VERSION }; // défini dans saveKey.js (lisible par cloudSa
 export const DECIMAL_SAVE_FIELDS = [
   "population", "food", "gold", "knowledge", "infrastructure", "ruins",
   "phoenixTotalRuins", "phoenixRebirthTargetPop", "hephPopPeak",
-  "mythStartGold", "mythStartPop"
+  "mythStartGold", "mythStartPop", "atridesEarned"
 ];
 
 // Anciens coûts des nœuds de ruines SUPPRIMÉS par la refonte de l'arbre
@@ -200,6 +202,9 @@ export function defaultChronicleStats() {
     longestCycleSec: 0,
     mostCrisesInCycle: 0,
     fastestEraGainSec: 0,   // 0 = jamais mesuré
+    // Effondrements traversés À VIE (`cycles`, lui, repart à 0 au Grand Reset) :
+    // les succès de chutes (STEAM-9) le lisent.
+    collapses: 0,
     grTimings: {},          // { [gr]: { discovered:number|null, performed:number|null } }
     mythTimings: {}         // { [mythId]: { at, runSec, order, act } }
   };
@@ -222,7 +227,9 @@ function normalizeSlotsFreeSpins(raw) {
   };
 }
 
-function normalizeChronicleStats(raw) {
+// `collapsesSeed` : effondrements à vie d'une save d'AVANT ce compteur (cf.
+// collapsesSeedOf, plus bas) — une borne basse, jamais une invention.
+function normalizeChronicleStats(raw, collapsesSeed = 0) {
   const def = defaultChronicleStats();
   const s = isPlainObject(raw) ? raw : {};
   const games = {};
@@ -278,9 +285,38 @@ function normalizeChronicleStats(raw) {
     longestCycleSec: finiteNumber(s.longestCycleSec, 0, 0),
     mostCrisesInCycle: finiteInteger(s.mostCrisesInCycle, 0, 0),
     fastestEraGainSec: finiteNumber(s.fastestEraGainSec, 0, 0),
+    // `== null` et pas finiteInteger seul : Number(null) vaut 0, le repli ne jouerait pas.
+    collapses: s.collapses == null ? finiteInteger(collapsesSeed, 0, 0) : finiteInteger(s.collapses, 0, 0),
     grTimings,
     mythTimings
   };
+}
+
+// Effondrements à vie d'une save sans le compteur : ceux du Grand Reset en cours
+// (`cycles`), plus les 10 du sceau I s'il a été réclamé — il l'a forcément été dans
+// une partie précédente, remise à zéro depuis par ce Grand Reset.
+function collapsesSeedOf(source) {
+  const sealI = isPlainObject(source.grClaimed)
+    ? Boolean(source.grClaimed[1])
+    : finiteInteger(source.grandResetCount, 0, 0) >= 1; // save linéaire : sceaux I→N
+  return finiteInteger(source.cycles, 0, 0) + (sealI ? 10 : 0);
+}
+
+// LES SUCCÈS (STEAM-9, src/game/core/achievements.js) : { [id]: horodatage mural
+// (ms) du déblocage }. Un id inconnu de cette version est GARDÉ (une save venue
+// d'une version plus récente ne perd pas les siens) ; seuls les ids mal formés
+// tombent. Borné à 256 entrées (la liste en compte 80).
+function normalizeAchievements(raw) {
+  const out = {};
+  if (!isPlainObject(raw)) return out;
+  let n = 0;
+  for (const [id, at] of Object.entries(raw)) {
+    if (n >= 256) break;
+    if (!ACHIEVEMENT_ID_RE.test(id)) continue;
+    out[id] = finiteNumber(at, 0, 0);
+    n += 1;
+  }
+  return out;
 }
 
 const VALID_TEMPOS = ["recueilli", "mesure", "fervent"];
@@ -405,6 +441,10 @@ export const defaultState = () => ({
   // Jackpots d'Icare décrochés (vol ≥ ×10, cagnotte du temple pleine) : jalon du
   // Grand Reset VII. Remis à 0 au GR — re-gagnable dans la boucle précédant GR7.
   icarusJackpots: 0,
+  // Vols posés à ×25 ou plus avec une mise d'au moins la moitié de la limite de la
+  // salle commune : LE jalon du Grand Reset VII depuis l'audit du 2026-10-05
+  // (BUG-40, choix b de Raph). Remis à 0 au GR, comme icarusJackpots.
+  icarusSealFlights: 0,
   // Jalons de Grand Reset DÉCOUVERTS : { [grIndex]: true }. Un jalon reste masqué
   // (« ??? ») jusqu'à ce qu'il soit atteint une 1re fois ; il est alors révélé —
   // et le reste (survit au GR, cf. GR_PERSISTENT_FIELDS).
@@ -469,12 +509,19 @@ export const defaultState = () => ({
   // « Les Caravanes » (Âge d'Or) : marchés conclus ce cycle.
   orDealsClosed: 0,
   orUsureImbalance: false,
+  // Après un départ (BUG-70) : pas de caravane avant cet horodatage (60 s après un
+  // marchand vexé, 20 s après un refus), et la suivante renchérie si vexé.
+  orNextCaravanAt: 0,
+  orMerchantVexed: false,
   phoenixHeritage: false,
   phoenixCycleCount: 0,
   phoenixTotalRuins: new Decimal(0),
   phoenixRenaissances: 0,
   phoenixRebirthTargetPop: new Decimal(0),
   phoenixNextForceAt: null,
+  // Âge du cycle sous le Phénix en temps de jeu NON PAUSÉ (s), cumulé au tick : la
+  // fenêtre de renaissance se juge dessus (audit 2026-10-05, BUG-38). Per-cycle.
+  phoenixCycleSec: 0,
   // « L'Hiver Fimbul » (Ragnarok) : offrandes versées à l'Arche, prix d'UNE
   // offrande figé à l'activation (4 Decimals — activateMyth le pose via rates()),
   // bouchées du Loup déjà prises (dérivé de l'âge du cycle). Tout per-cycle.
@@ -500,7 +547,13 @@ export const defaultState = () => ({
   // fardeau « Cire fondante » à UNE montée automatique par franchissement du seuil.
   icareAltitude: 0,
   icareAutoBurnLatched: false,
+  // Secondes de jeu tenues d'affilée à l'altitude cible pendant le Mythe d'Icare
+  // (audit 2026-10-05, BUG-41). Per-cycle.
+  icareHoldSec: 0,
   atridesReached: false,
+  // Or PRODUIT pendant le Mythe des Atrides (cumulé au tick, hors aubaines, fêtes
+  // et legs) : l'objectif compare ce gain moins la dette (BUG-39). Per-cycle.
+  atridesEarned: new Decimal(0),
   mythStartGold: new Decimal(0),
   mythStartPop: new Decimal(0),
   icareHeritage: false,
@@ -768,6 +821,9 @@ export const defaultState = () => ({
   // GR_PERSISTENT_FIELDS). Objet plein dès le defaultState : la Chronique le lit
   // directement. Nourri par les recorders de chronicleStats.js.
   chronicleStats: defaultChronicleStats(),
+  // Les succès débloqués { [id]: horodatage (ms) } (STEAM-9, core/achievements.js).
+  // ÉTERNELS (cf. GR_PERSISTENT_FIELDS) : un succès ne se reperd pas.
+  achievements: {},
   // Époque de la partie { id, at } : posée par les gestes qui la REMPLACENT
   // (import, emplacement, copie de secours, effacement), lue par l'arbitrage du
   // nuage avant l'horloge à vie (saveKey.js, newSaveEpoch ; SAV-4). null = partie
@@ -1689,6 +1745,11 @@ export function normalizeCityCore(raw) {
   }
   const maxN = Number.isFinite(Number(raw.maxN)) ? Math.max(0, Math.min(400, Math.floor(Number(raw.maxN)))) : 0;
   const out = { seed: seed >>> 0, dx, dy, bx: Math.round(bx), wonders, quarters, districts, maxN };
+  // Largeur de pose du fleuve de la MÊME VALLÉE (crisis.js, layout.js ; audit du
+  // 05/10, CHUTE-4) : perdue au rechargement, le fleuve se reposerait sur la grille
+  // neuve et ne longerait plus les ruines. Absente hors vallée.
+  const riverN = Number.isFinite(Number(raw.riverN)) ? Math.max(0, Math.min(400, Math.floor(Number(raw.riverN)))) : 0;
+  if (riverN > 0) out.riverN = riverN;
   if (central) out.central = central;
   const ports = normalizeCityPorts(raw.ports);
   if (ports) out.ports = ports;
@@ -1697,6 +1758,14 @@ export function normalizeCityCore(raw) {
   // réorganiserait à chaque partie ouverte.
   const ilot = normalizeCityIlot(raw.ilot);
   if (ilot) out.ilot = ilot;
+  // L'échangeur de l'autoroute figé à sa première pose (layout.js, audit 2026-10-05,
+  // BUG-16) : { sign: ±1, dy } depuis le centre de grille. Perdu au rechargement, la
+  // ville replanifierait ses îlots à chaque partie ouverte et l'échangeur pourrait se
+  // reposer ailleurs (bâtiments relogés de nouveau).
+  const hw = raw.highway;
+  if (isPlainObject(hw) && (hw.sign === 1 || hw.sign === -1) && Number.isFinite(Number(hw.dy)) && Math.abs(Number(hw.dy)) <= 400) {
+    out.highway = { sign: hw.sign, dy: Math.round(Number(hw.dy)) };
+  }
   return out;
 }
 
@@ -1989,6 +2058,7 @@ export function hydrateState(parsed = {}) {
     ruins: decimalField(source.ruins, base.ruins),
     cycles: finiteInteger(source.cycles, base.cycles),
     icarusJackpots: finiteInteger(source.icarusJackpots, base.icarusJackpots, 0),
+    icarusSealFlights: finiteInteger(source.icarusSealFlights, base.icarusSealFlights, 0),
     // grRevealed ⊇ grClaimed : un sceau réclamé (y compris migré depuis un save
     // linéaire) est forcément « découvert ». On fusionne les 3 sources.
     // legacyClaimedFromCount UNIQUEMENT pour un save linéaire (sans grClaimed) :
@@ -2038,9 +2108,11 @@ export function hydrateState(parsed = {}) {
     atlasShoulderCdTicks: source.atlasShoulderCdTicks != null
       ? finiteInteger(source.atlasShoulderCdTicks, 0, 0, 15)
       : finiteInteger(Math.ceil((Number(source.atlasShoulderCdEnd) - Date.now()) / 1000), 0, 0, 15),
-    // Plafond Number.MAX_VALUE, pas MAX_SAFE_INTEGER : ×1,004 par achat passe 9e15
-    // en fin de partie, et un rechargement effaçait la Pente (audit 2026-10-05, SAV-10).
-    sisypheMult: finiteNumber(source.sisypheMult, 1, 1, Number.MAX_VALUE),
+    // Plafond ×20 (= ACTIVE_RUIN_SISYPHE_MULT_CAP de data/activeRuins.js, écrit en
+    // dur : pas d'import ici, TDZ) : le filet du cran compté par unité (audit
+    // 2026-10-05, BUG-35). Une save d'avant, où la Pente comptait par appel et
+    // pouvait passer 1e74 après une absence, revient ainsi sous le plafond.
+    sisypheMult: finiteNumber(source.sisypheMult, 1, 1, 20),
     sisypheHeritage: Boolean(source.sisypheHeritage),
     sisypheCran: finiteInteger(source.sisypheCran, 0, 0),
     sisypheMontees: finiteInteger(source.sisypheMontees, 0, 0),
@@ -2056,11 +2128,22 @@ export function hydrateState(parsed = {}) {
     orHeritage: Boolean(source.orHeritage),
     orDealsClosed: finiteInteger(source.orDealsClosed, 0, 0),
     orUsureImbalance: Boolean(source.orUsureImbalance),
+    // Bornée à now + la plus longue attente (SAV-12) : 60_000 =
+    // OR_CARAVAN_WAIT_VEXED_MS de data/myths.js, écrit en dur (TDZ) —
+    // clockShift.test.js vérifie qu'il ne diverge pas.
+    orNextCaravanAt: finiteNumber(source.orNextCaravanAt, 0, 0, Date.now() + 60_000),
+    orMerchantVexed: Boolean(source.orMerchantVexed),
     phoenixHeritage: Boolean(source.phoenixHeritage),
     phoenixCycleCount: finiteInteger(source.phoenixCycleCount, 0),
     phoenixTotalRuins: decimalField(source.phoenixTotalRuins, 0),
     phoenixRenaissances: finiteInteger(source.phoenixRenaissances, 0),
     phoenixRebirthTargetPop: decimalField(source.phoenixRebirthTargetPop, 0),
+    // Une save d'avant (BUG-38) en plein Phénix n'a pas ce compteur : l'âge MURAL du
+    // cycle en tient lieu, l'ancienne mesure de la fenêtre — arrêté au dernier crédit
+    // (lastTick) : l'absence qui suit, le rattrapage hors ligne l'ajoute lui-même.
+    phoenixCycleSec: source.phoenixCycleSec != null || source.activeMythId !== "mythe_du_phenix"
+      ? finiteNumber(source.phoenixCycleSec, 0, 0)
+      : finiteNumber((Math.min(Date.now(), Number(source.lastTick) || Date.now()) - Number(source.cycleStartedAt)) / 1000, 0, 0),
     ragnarokArkOfferings: finiteInteger(source.ragnarokArkOfferings, 0, 0),
     // Le prix d'une offrande (4 Decimals), figé à l'activation ; null hors Ragnarok.
     ragnarokArkCost: source.ragnarokArkCost && typeof source.ragnarokArkCost === "object"
@@ -2089,7 +2172,9 @@ export function hydrateState(parsed = {}) {
     templeArtifacts: normalizeBooleanMap(source.templeArtifacts, TEMPLE_ARTIFACT_IDS),
     icareAltitude: finiteInteger(source.icareAltitude, 0, 0),
     icareAutoBurnLatched: Boolean(source.icareAutoBurnLatched),
+    icareHoldSec: finiteNumber(source.icareHoldSec, 0, 0),
     atridesReached: Boolean(source.atridesReached),
+    atridesEarned: decimalField(source.atridesEarned, 0),
     mythStartGold: decimalField(source.mythStartGold, 0),
     mythStartPop: decimalField(source.mythStartPop, 0),
     icareHeritage: Boolean(source.icareHeritage),
@@ -2236,7 +2321,12 @@ export function hydrateState(parsed = {}) {
     maisonGiftRefund: finiteNumber(source.maisonGiftRefund, 0, 0, 1e300),
     maisonReputation: finiteNumber(source.maisonReputation, 0, 0, 1e12),
     maisonRank: finiteInteger(source.maisonRank, 0, 0, 4),
-    blessingUntil: finiteNumber(source.blessingUntil, 0, 0),
+    // Bornée à now + 24 h (audit 2026-10-05, SAV-12, décision de Raph) : les
+    // Bénédictions se cumulent sans plafond (+3 min par achat), il n'y a donc pas
+    // de durée maximale exacte. Une horloge en avance puis corrigée entre deux
+    // sessions laissait une Bénédiction active des mois ; 24 h ne touche aucun
+    // joueur normal.
+    blessingUntil: finiteNumber(source.blessingUntil, 0, 0, Date.now() + 24 * 3600 * 1000),
     blessingMult: finiteNumber(source.blessingMult, 1, 1, 10),
     scarcityRawEase: source.scarcityRawEase == null ? null : finiteNumber(source.scarcityRawEase, 0, 0, 1),
     goldReserveEase: source.goldReserveEase == null ? null : finiteNumber(source.goldReserveEase, 0, 0, 1e9),
@@ -2283,7 +2373,8 @@ export function hydrateState(parsed = {}) {
     mapSeed: Number.isFinite(source.mapSeed) && source.mapSeed > 0 ? Math.floor(source.mapSeed) >>> 0 : null,
     lifetimePurchases: finiteInteger(source.lifetimePurchases, 0, 0),
     playTimeSec: finiteNumber(source.playTimeSec, 0, 0),
-    chronicleStats: normalizeChronicleStats(source.chronicleStats),
+    chronicleStats: normalizeChronicleStats(source.chronicleStats, collapsesSeedOf(source)),
+    achievements: normalizeAchievements(source.achievements),
     saveEpoch: normalizeSaveEpoch(source.saveEpoch),
     faitsDivers: normalizeFaitsDivers(source.faitsDivers),
     buildings: normalizeNumberMap(source.buildings, buildingIds, base.buildings, true),
@@ -2644,9 +2735,10 @@ export function resetTemporaryRunState(s) {
   s.stagnationSec = 0;
   s.popMilestoneExp = 0;
   s.activeRuinIds = [];
-  // Pente du rocher (Ruine active Sisyphe) : l'inflation ×1.004/achat est celle
-  // DU cycle — comme le fardeau, elle se rechoisit à chaque chute. Sans ce reset
-  // elle s'accumulait de cycle en cycle (×50 après 1 000 achats, puis ×50 de plus…).
+  // Pente du rocher (Ruine active Sisyphe) : l'inflation par bâtiment acheté est
+  // celle DU cycle — comme le fardeau, elle se rechoisit à chaque chute. Sans ce
+  // reset elle s'accumulait de cycle en cycle (×50 après 1 000 achats à l'ancien
+  // ×1,004, puis ×50 de plus…).
   s.sisypheMult = 1;
   s.pendingActiveRuinsChoice = false;
   // defaultState() est l'unique source de vérité pour la forme de ces deux
@@ -2727,6 +2819,8 @@ export function resetTemporaryRunState(s) {
   s.babelCommonTongue = (s.babelHeritage && s.babelAutoTongue) ? s.babelAutoTongue : null;
   s.orDealsClosed    = 0;
   s.orUsureImbalance = false;
+  s.orNextCaravanAt  = 0;
+  s.orMerchantVexed  = false;
   s.hephPopPeak      = D(s.population || 0);
   s.hephGoalReached  = false;
   
@@ -2740,10 +2834,13 @@ export function resetTemporaryRunState(s) {
   // Barré par le test de classe dans grandReset.test.js.
   s.icareAltitude       = 0;
   s.icareAutoBurnLatched = false;
+  s.icareHoldSec        = 0;
+  s.phoenixCycleSec     = 0;
   s.sisypheCran         = 0;
   s.sisypheMontees      = 0;
   s.sisypheUsages       = { food: 0, knowledge: 0, infrastructure: 0 };
   s.atridesReached      = false;
+  s.atridesEarned       = new Decimal(0);
   s.prometheePopReached = false;
   s.prometheeFailed     = false;
   s.chaosReached        = false;
@@ -2808,6 +2905,8 @@ export const GR_PERSISTENT_FIELDS = [
   // un journal de records, il traverse le Grand Reset (l'horloge à vie, les
   // timings de GR/Mythes et les compteurs de jeux ne se réinitialisent jamais).
   "chronicleStats",
+  // Les succès (STEAM-9) : un succès gagné ne se reperd pas.
+  "achievements",
   // La clepsydre (C7). Choix EXPLICITE : le temps mis de côté est du temps déjà
   // vécu par le joueur, pas une ressource de partie. L'effacer au Grand Reset
   // punirait exactement le geste que la clepsydre existe pour servir — garder

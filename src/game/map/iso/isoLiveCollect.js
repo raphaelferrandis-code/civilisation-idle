@@ -38,6 +38,7 @@ import { streetKitFor } from './streetKits.js';
 import { STREET_PROPS } from './isoStreetProps.js';
 import { isoUnitDepth, isoUnitDepthEx, vehSortLift, vehSortWide, orderUnitsAroundVehicles, rioterLane } from './isoUnits.js';
 import { WILD_THIN_UNIT, isoWildForest } from './isoWildForest.js';
+import { treeBlockedIn } from './forestBake.js';
 import { depthOf } from './projection.js';
 import { districtMassTiles } from './isoDistricts.js';
 import { vieActors } from './isoVie.js';
@@ -232,19 +233,10 @@ export function collectIsoItems(bake, now) {
   // ⚠ TOUTES les places, pas seulement la centrale : les places de quartier ont
   // droit au même dégagement, sinon un arbre du décor vient chevaucher leur
   // mobilier.
+  // (La règle vit dans forestBake.js : la forêt cuite dans le sol écarte les mêmes arbres.)
   const pbT = isoPlazaBoxes(L);
   const segsT = L.terrePlein || [];
-  const treeBlocked = (gx, gy) => {
-    for (const b of pbT) {
-      if (gx >= b.gx0 - 1.5 && gx <= b.gx1 + 1.5 && gy >= b.gy0 - 1.5 && gy <= b.gy1 + 1.5) return true;
-    }
-    for (const sg of segsT) {
-      if (sg.axis === 'v') {
-        if (Math.abs(gx + 0.5 - (sg.x + 1)) < 1.0 && gy >= sg.y0 - 1 && gy <= sg.y1 + 1.5) return true;
-      } else if (Math.abs(gy + 0.5 - (sg.y + 1)) < 1.0 && gx >= sg.x0 - 1 && gx <= sg.x1 + 1.5) return true;
-    }
-    return false;
-  };
+  const treeBlocked = (gx, gy) => treeBlockedIn(pbT, segsT, gx, gy);
   // Emprise des PONTS (étendue « jusqu'au sec ») : aucun arbre/rocher dessus —
   // un rocher du décor mordait la culée au débouché (vu par Raph à la capture).
   // Le VERDICT (places, terre-pleins, ponts) ne dépend que du plan et des ponts : il

@@ -46,8 +46,10 @@ import {
   activateAtridesPact,
   migrerEnee,
   rewardCitizenThought,
-  buyAllAffordable
+  buyAllAffordableChained
 } from '../../game/core/actions.js';
+import { collapseCause } from '../../game/core/events.js';
+import { projectedCollapseHarvest } from '../../game/core/mechanics/collapseHarvest.js';
 import { save, setCityName, commitCityName, state, markChronicleRead } from '../../game/core/state.js';
 import { ensureMapSeed } from '../../game/map/procedural/seedManager.js';
 import { computeCityPersonality } from '../../game/map/procedural/cityPersonality.js';
@@ -58,6 +60,7 @@ import { isCoarsePointer } from '../../game/core/pointerMode.js';
 import { D, toNum } from '../../game/core/num.js';
 import {
   ICARE_ALTITUDE_TARGET,
+  ICARE_HOLD_SEC,
   ICARE_CLIMB_PROD_MULT,
   OR_DEALS_TARGET,
   ATLAS_SHOULDER_TARGET,
@@ -102,12 +105,12 @@ export default function CityView() {
   const {
     cityName, population, food, gold, knowledge, infrastructure,
     cycleStartedAt, archaeologyUses,
-    activeMythId, icareAltitude, icareHeritage, mythStartGold, babelCategory, babelHeritage, babelCommonTongue, babelAutoTongue,
+    activeMythId, icareAltitude, icareHoldSec, icareHeritage, babelCategory, babelHeritage, babelCommonTongue, babelAutoTongue,
     ragnarokArkOfferings, ragnarokArkNextAt,
     sisypheCran, sisypheMontees, sisypheUsesFood, sisypheUsesKnowledge, sisypheUsesInfra,
-    orDealsClosed, orUsureImbalance, phoenixRenaissances, phoenixRebirthTargetPop,
+    orDealsClosed, orUsureImbalance, orNextCaravanAt, phoenixRenaissances, phoenixRebirthTargetPop, phoenixCycleSec,
     hephPopPeak, hephGoalReached,
-    atridesDebt, atridesReached, atridesDrainDisabled, atridesDebtGrowthMultiplier,
+    atridesDebt, atridesEarned, atridesReached, atridesDrainDisabled, atridesDebtGrowthMultiplier,
     atridesRenegotiateActiveUntil, atridesRenegotiateCooldownEnd,
     atridesHeritage, atridesPactActive, atridesNextRunPenaltyActive,
     eneeMigrations, eneeDegraded, eneeTerritoryStartedAt, eneeHeritage, eneeCollapseCount,
@@ -312,6 +315,11 @@ export default function CityView() {
   const isIcare = isMythEffectActive("mythe_d_icare");
   // Carte de vol : pendant le Mythe, ou dès que l'Aile (héritage) est acquise.
   const showVol = isIcare || Boolean(icareHeritage);
+  // Maintien d'Icare (BUG-41) : « 1:12/2:00 » dès l'altitude cible atteinte.
+  const mmss = (sec) => `${Math.floor(sec / 60)}:${String(Math.floor(sec % 60)).padStart(2, "0")}`;
+  const icareHoldLabel = isIcare && (icareAltitude || 0) >= ICARE_ALTITUDE_TARGET
+    ? ` · ${mmss(Math.min(ICARE_HOLD_SEC, icareHoldSec || 0))}/${mmss(ICARE_HOLD_SEC)}`
+    : "";
   const isBabel = isMythEffectActive("mythe_de_babel");
   // Carte Babel : pendant le Mythe (la tour), ou en héritage (la Langue commune).
   const showBabel = isBabel || Boolean(babelHeritage);
@@ -338,14 +346,18 @@ export default function CityView() {
     D(food || 0).gte(ragnarokLot.food) && D(gold || 0).gte(ragnarokLot.gold) &&
     D(knowledge || 0).gte(ragnarokLot.knowledge) && D(infrastructure || 0).gte(ragnarokLot.infrastructure);
   const isOr = isMythEffectActive("mythe_age_or");
+  // Attente de la caravane suivante après un départ (BUG-70), comme l'Arche.
+  const orCdLeft = Math.max(0, Math.ceil(((orNextCaravanAt || 0) - now) / 1000));
   const isPhoenix = isMythEffectActive("mythe_du_phenix");
   const isHeph = isMythEffectActive("mythe_d_hephaistos");
   const cycleSeconds = Math.floor((now - (cycleStartedAt || now)) / 1000);
   const activeEpitaphDefinition = activeEpitaphLegacy ? epitaphLegacyById(activeEpitaphLegacy.id) : null;
   // Le legs vaut pour tout le cycle (plus de compte à rebours).
   const hasActiveEpitaphLegacy = Boolean(activeEpitaphDefinition);
+  // Fenêtre du Phénix en temps de jeu non pausé (phoenixCycleSec, cumulé au tick) :
+  // la même mesure que la renaissance (crisis.js) — elle s'arrête sous une pause.
   const phoenixWindowSecs = isPhoenix
-    ? Math.max(0, Math.ceil(((cycleStartedAt || now) + PHENIX_REBIRTH_WINDOW_MS - now) / 1000))
+    ? Math.max(0, Math.ceil(PHENIX_REBIRTH_WINDOW_MS / 1000 - (phoenixCycleSec || 0)))
     : null;
 
   // Atlas — « le poids du ciel » : pendant le Mythe, la course aux 12 épaulées ;
@@ -359,14 +371,15 @@ export default function CityView() {
   const isAtrides = isMythEffectActive("mythe_atrides");
   const totalProd = Math.max(0, toNum(r.food.add(r.gold).add(r.knowledge).add(r.infrastructure)));
   const atridesDebtGrowthRate = Math.max(10, totalProd * 0.01) * (atridesDebtGrowthMultiplier || 1);
-  const netGold = D(gold).sub(atridesDebt || 0);
+  // Le net de l'objectif : l'Or PRODUIT pendant le pacte moins la dette (BUG-39).
+  const netGold = D(atridesEarned || 0).sub(atridesDebt || 0);
   // Progression RELATIVE des mythes à objectif « N s de production » : on affiche
   // exactement ce que mythTicks.js mesure pour la réussite (ressource gagnée ce
   // cycle ÷ taux courant → « X s / N s »), et non un seuil absolu. Les flags
   // *Reached (source de vérité) figent l'état « atteint ».
   const goldRate = Math.max(0, toNum(r.gold));
   const secOfProd = (gained, rate) => (rate > 0 ? Math.max(0, Math.floor(toNum(gained) / rate)) : 0);
-  const atridesGainSec = secOfProd(netGold.sub(mythStartGold || 0), goldRate);
+  const atridesGainSec = secOfProd(netGold, goldRate);
   const atridesRepayCost = (atridesDebt || 0) * ATRIDES_DEBT_PAYBACK_FACTOR;
   const canRepayAtrides = D(gold).gte(atridesRepayCost) && (atridesDebt || 0) > 0;
 
@@ -529,7 +542,9 @@ export default function CityView() {
               lvl >= threshold ? Math.min(max, 0.3 + (lvl - threshold) * ramp) : 0;
             // Reworks §5.1/§5.2 surfacés ici : cible (fantôme) + gain projeté.
             const targetLvl = clamp01(ruptureTarget());
-            const projectedRuin = ruinGain(true);
+            // Moisson COMPLÈTE (décision de Raph sur BUG-33 : A) : Rite × legs
+            // gravé, ou dernière volonté, × vœu, comme l'autel et le Bilan.
+            const projectedRuin = projectedCollapseHarvest(ruinGain(true), collapseCause());
             // Bulle détaillée : une ligne par source de pression (B1). Fonction et
             // non chaîne, et relue sur pressureBreakdown() : les parts bougent au
             // tick, un contenu figé à l'ouverture mentirait au bout de 2 s.
@@ -556,7 +571,7 @@ export default function CityView() {
               >
                 <div className="sg-meta">
                   <span className="sg-label">{tr(tier.label)}</span>
-                  <span className="sg-collapse-gain" {...tipProps(null, tr({ fr: "Ruines obtenues si la cité s'effondrait maintenant. Tenir plus longtemps et chuter plus profond rapporte davantage.", en: "Ruins gained if the city collapsed right now. Holding out longer and falling deeper yields more." }))}>+{fmt(projectedRuin)}</span>
+                  <span className="sg-collapse-gain" {...tipProps(null, tr({ fr: "Ruines obtenues si la cité s'effondrait maintenant, Rite de Passage, legs gravé (ou dernière volonté) et vœu compris. Tenir plus longtemps et chuter plus profond rapporte davantage.", en: "Ruins gained if the city collapsed right now, including the Rite of Passage, the engraved legacy (or last will) and the vow. Holding out longer and falling deeper yields more." }))}>+{fmt(projectedRuin)}</span>
                   <span className="sg-pct" id="rupturePanelValue">{pctValue}%</span>
                 </div>
                 <div className="sg-track">
@@ -686,7 +701,7 @@ export default function CityView() {
           <button
             type="button"
             className="buy-all-fab"
-            onClick={() => buyAllAffordable(null)}
+            onClick={() => buyAllAffordableChained(null)}
             aria-label={tr({ fr: "Tout acheter", en: "Buy all" })}
             {...tipProps(
               tr({ fr: "Tout acheter", en: "Buy all" }),
@@ -811,7 +826,7 @@ export default function CityView() {
                   <strong className={atridesReached ? "stat-green" : "stat-gold"}>
                     {atridesReached ? tr({ fr: "Malédiction conjurée !", en: "Curse lifted!" }) : `${atridesGainSec}s / ${ATRIDES_GAIN_SECONDS}s`}
                   </strong>
-                  <small>{tr({ fr: "Trésor net gagné ce cycle (en s de production d'Or)", en: "Net treasury gained this cycle (in s of Treasury output)" })}</small>
+                  <small>{tr({ fr: "Or produit moins la Dette (en s de production d'Or)", en: "Treasury produced minus the Debt (in s of Treasury output)" })}</small>
                 </div>
 
                 <div className={`myth-stat ${atridesDrainDisabled ? "is-green" : "is-red"}`}>
@@ -1036,20 +1051,20 @@ export default function CityView() {
                   </div>
                 </div>
               )}
-              {/* Icare — « le vol par paliers » : pendant le Mythe, la course à
-                  l'altitude 5 ; avec l'héritage (l'Aile), le même cadran en cycle
+              {/* Icare — « le vol par paliers » : pendant le Mythe, tenir
+                  l'altitude 5 deux minutes ; avec l'héritage (l'Aile), le même cadran en cycle
                   normal, sans plafond. MONTER coûte de la Rupture immédiate et
                   accélère sa montée — redescendre est gratuit. */}
               {showVol && (
                 <div className="myth-status-card icare" {...tipProps(isIcare ? tr({ fr: "Icare", en: "Icarus" }) : tr({ fr: "L'Aile", en: "The Wing" }), isIcare
-                  ? tr({ fr: `Atteindre l'altitude ${ICARE_ALTITUDE_TARGET}. Chaque montée : production ×${ICARE_CLIMB_PROD_MULT}, Rupture immédiate et accélérée.`, en: `Reach altitude ${ICARE_ALTITUDE_TARGET}. Each climb: production ×${ICARE_CLIMB_PROD_MULT}, instant and hastened Rupture.` })
+                  ? tr({ fr: `Tenir l'altitude ${ICARE_ALTITUDE_TARGET} pendant ${ICARE_HOLD_SEC / 60} min. Chaque montée : production ×${ICARE_CLIMB_PROD_MULT}, Rupture immédiate et accélérée.`, en: `Hold altitude ${ICARE_ALTITUDE_TARGET} for ${ICARE_HOLD_SEC / 60} min. Each climb: production ×${ICARE_CLIMB_PROD_MULT}, instant and hastened Rupture.` })
                   : tr({ fr: "L'Aile : choisis ton altitude — la production grimpe, la Rupture s'emballe.", en: "The Wing: choose your altitude — production soars, Rupture races." }))}>
                   <PixelIcon name="myths/icare" className="myth-card-icon" />
                   <div className="myth-card-info">
                     <span>{isIcare ? tr({ fr: "Icare", en: "Icarus" }) : tr({ fr: "L'Aile", en: "The Wing" })}</span>
                     <strong id="icareAltitudeValue">
                       {isIcare
-                        ? tr({ fr: `Altitude ${icareAltitude || 0}/${ICARE_ALTITUDE_TARGET} · R ${Math.round((instability || 0) * 100)} %`, en: `Altitude ${icareAltitude || 0}/${ICARE_ALTITUDE_TARGET} · R ${Math.round((instability || 0) * 100)}%` })
+                        ? tr({ fr: `Altitude ${icareAltitude || 0}/${ICARE_ALTITUDE_TARGET}${icareHoldLabel} · R ${Math.round((instability || 0) * 100)} %`, en: `Altitude ${icareAltitude || 0}/${ICARE_ALTITUDE_TARGET}${icareHoldLabel} · R ${Math.round((instability || 0) * 100)}%` })
                         : tr({ fr: `Altitude ${icareAltitude || 0} · ×${fmt(Math.pow(ICARE_CLIMB_PROD_MULT, icareAltitude || 0))}`, en: `Altitude ${icareAltitude || 0} · ×${fmt(Math.pow(ICARE_CLIMB_PROD_MULT, icareAltitude || 0))}` })}
                     </strong>
                     <div className="myth-card-actions">
@@ -1118,8 +1133,8 @@ export default function CityView() {
                   la négociation ; le déséquilibre Nourriture/Trésor brûle l'Usure ×3. */}
               {isOr && (
                 <div className="myth-status-card age-or" {...tipProps(tr({ fr: "Âge d'Or", en: "Golden Age" }), tr({
-                  fr: `Conclure ${OR_DEALS_TARGET} marchés avec les caravanes. Marchander baisse le prix, mais un marchand vexé s'en va. Le déséquilibre Nourriture/Trésor brûle l'Usure.`,
-                  en: `Close ${OR_DEALS_TARGET} deals with the caravans. Haggling lowers the price, but an offended merchant walks away. Food/Treasury imbalance burns Wear.`
+                  fr: `Conclure ${OR_DEALS_TARGET} marchés avec les caravanes. Marchander baisse le prix, mais un marchand vexé s'en va : la caravane suivante tarde et demande plus cher. Le déséquilibre Nourriture/Trésor brûle l'Usure.`,
+                  en: `Close ${OR_DEALS_TARGET} deals with the caravans. Haggling lowers the price, but an offended merchant walks away: the next caravan comes late and asks more. Food/Treasury imbalance burns Wear.`
                 }))}>
                   <PixelIcon name="myths/age-or" className="myth-card-icon" />
                   <div className="myth-card-info">
@@ -1131,9 +1146,11 @@ export default function CityView() {
                       })}
                     </strong>
                     <div className="myth-card-actions">
-                      <button type="button" className="btn-primary" onClick={negotiateOrDeal}
-                        {...tipProps(null, tr({ fr: "Une caravane attend au portail.", en: "A caravan waits at the gate." }))}>
-                        {tr({ fr: "Négocier", en: "Negotiate" })}
+                      <button type="button" className={orCdLeft > 0 ? "btn-secondary" : "btn-primary"} onClick={negotiateOrDeal}
+                        disabled={orCdLeft > 0}
+                        title={orCdLeft > 0 ? tr({ fr: "La caravane suivante est en route.", en: "The next caravan is on its way." }) : undefined}
+                        {...tipProps(null, orCdLeft > 0 ? null : tr({ fr: "Une caravane attend au portail.", en: "A caravan waits at the gate." }))}>
+                        {orCdLeft > 0 ? tr({ fr: `Négocier (${orCdLeft}s)`, en: `Negotiate (${orCdLeft}s)` }) : tr({ fr: "Négocier", en: "Negotiate" })}
                       </button>
                     </div>
                   </div>

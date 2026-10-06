@@ -14,7 +14,7 @@ import { describe, it, expect, beforeAll, beforeEach, afterAll, vi } from "vites
 
 import { state, setState, hydrateState, invalidateRenderCache } from "../state.js";
 import { Decimal } from "../num.js";
-import { globalMultiplier, globalMultiplierBreakdown } from "../mechanics.js";
+import { globalMultiplier, globalMultiplierBreakdown, displayedProductionMultiplier, relicBlessingMultiplier } from "../mechanics.js";
 import { MID_GAME_FIXTURE, FIXED_NOW } from "./fixtures.js";
 
 // Les 16 facteurs du produit, DANS L'ORDRE. Toute modification de cette liste
@@ -102,6 +102,35 @@ describe("globalMultiplierBreakdown — l'Arbre des Ruines reste un seul facteur
     expect(Math.abs(produitDesParts - agregat)).toBeLessThanOrEqual(1e-12 * Math.max(1, agregat));
     expect(parts.map((p) => p.key)).toEqual(["braise", "vestiges", "regrowth", "abyssDogma"]);
     for (const p of parts) expect(p.label?.fr, `${p.key} doit avoir un libellé`).toBeTruthy();
+  });
+});
+
+// Décision de Raph sur BUG-81 (A) : le multiplicateur AFFICHÉ compte les
+// Reliques et la Bénédiction, sans toucher au produit du moteur.
+describe("multiplicateur affiché — Reliques & Bénédiction comprises", () => {
+  it("acheter la Corne double le chiffre affiché, pas le produit global", () => {
+    invalidateRenderCache("all");
+    const avant = displayedProductionMultiplier();
+    const produitAvant = globalMultiplierBreakdown().product;
+    state.templeArtifacts = { ...(state.templeArtifacts || {}), corne: true };
+    invalidateRenderCache("all");
+    const { product, relics, total } = globalMultiplierBreakdown();
+    expect(product, "le produit global (celui du moteur) ne bouge pas").toBe(produitAvant);
+    expect(product).toBe(globalMultiplier());
+    expect(relics.value).toBe(relicBlessingMultiplier());
+    expect(relics.label.fr).toBe("Reliques & Bénédiction");
+    expect(Math.abs(total - product * relics.value)).toBeLessThanOrEqual(1e-12 * total);
+    expect(displayedProductionMultiplier()).toBe(total);
+    expect(Math.abs(displayedProductionMultiplier() / avant - 2)).toBeLessThan(1e-9);
+  });
+
+  it("au-delà du float, le chiffre affiché passe au Decimal", () => {
+    state.ruins = new Decimal("1e600");
+    state.templeArtifacts = { corne: true };
+    invalidateRenderCache("all");
+    const m = displayedProductionMultiplier();
+    expect(m instanceof Decimal).toBe(true);
+    expect(globalMultiplierBreakdown().total instanceof Decimal).toBe(true);
   });
 });
 

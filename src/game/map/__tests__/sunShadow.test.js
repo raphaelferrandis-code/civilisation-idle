@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, it } from 'vitest';
 import { CM } from '../layout.js';
-import { SUN_SHADOW, sunShadowAlpha, sunShadowNightK, sunShadowPixels, sunShear } from '../iso/isoSunShadow.js';
+import { SUN_SHADOW, drawSunShadowPlane, sunShadowAlpha, sunShadowNightK, sunShadowPixels, sunShear } from '../iso/isoSunShadow.js';
 
 // L'OMBRE DU SOLEIL (2026-09-30, docs/PLAN-MAQUETTE-VIVANTE.md, lot 4).
 // Ce que l'œil ne vérifie pas et que ces gardes tiennent :
@@ -102,6 +102,26 @@ describe('ombre solaire', () => {
     CM.nightF = 1; expect(sunShadowNightK()).toBe(1);
     CM.nightF = 0; CM.lodActive = true; expect(sunShadowNightK()).toBe(1);
     CM.lodActive = false; SUN_SHADOW.on = false; expect(sunShadowNightK()).toBe(1);
+  });
+
+  // 10. Décision de Raph du 2026-10-05 (PERF-1 = B) : source-over bleu nuit à 0,22, au
+  //     lieu du multiply #8e96ad à 0,5 qui relisait la destination à chaque blit sur GPU.
+  //     Ce sont les valeurs PAR DÉFAUT (les cuissons des quais, ports et Plaisirs lisent
+  //     la teinte au chargement), et le blit d'un calque cuit suit le même mode.
+  it('par défaut : source-over #00081c à 0,22, posé tel quel au blit (PERF-1)', () => {
+    expect(SUN_SHADOW).toMatchObject({ mode: 'source-over', col: '#00081c', alpha: 0.22 });
+    SUN_SHADOW.on = true; CM.lodActive = false; CM.nightF = 0;
+    const camWas = CM.cam, fxWas = CM.fxOn;
+    CM.cam = { x: 0, y: 0, zoom: 1 }; CM.fxOn = true;
+    try {
+      const seen = [];
+      const ctx = { globalAlpha: 1, globalCompositeOperation: 'source-over', imageSmoothingEnabled: true,
+        drawImage() { seen.push([this.globalCompositeOperation, this.globalAlpha]); } };
+      drawSunShadowPlane(ctx, {}, 0, 0, 10, 10);
+      expect(seen).toEqual([['source-over', 0.22]]);
+      expect(ctx.globalCompositeOperation).toBe('source-over');
+      expect(ctx.globalAlpha).toBe(1);
+    } finally { CM.cam = camWas; CM.fxOn = fxWas; }
   });
 
   it('la couronne d\'un arbre projette loin de son tronc (pivot au pied)', () => {

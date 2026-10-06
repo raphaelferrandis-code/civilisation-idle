@@ -35,6 +35,18 @@ export function raiseRegulFatigue() {
   state.regulFatigue = Math.min(1, (state.regulFatigue || 0) + FATIGUE_PER_ACTION);
 }
 
+// L'Édit d'effondrement arrive réglé sur « Durée » (audit 2026-10-05, BUG-78,
+// décision de Raph) : sur « 100 % », un cycle dont la cible de Rupture plafonne
+// sous la bascule ne tombait jamais (cycles figés plus de 12 h, l'Édit payé muet).
+// Appelé à l'ACQUISITION du nœud (achat, Conservateurs des ruines). Le réglage de
+// l'Édit est verrouillé tant qu'on ne le possède pas, et la Doctrine repart à
+// neuf au Grand Reset avec le nœud : aucun choix du joueur n'est écrasé.
+export function onUpgradeAcquired(id) {
+  if (id !== "edit_effondrement") return;
+  const ac = state.crisisDoctrine && state.crisisDoctrine.autoCollapse;
+  if (ac) ac.trigger = "temps";
+}
+
 export function chronicle(message) {
   const year = cycleYear();
   const era = eras[currentEraIndex()].name;

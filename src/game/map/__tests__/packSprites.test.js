@@ -8,8 +8,9 @@
 // D'où ces gardes d'EXISTENCE, ancrées sur les tables que le jeu utilise vraiment.
 //
 // Le bétail LaserKiwi a été RETIRÉ le 2026-10-05 (aucune licence publiée, audit
-// STEAM-1) : sa garde vérifie désormais l'autre sens — rien de ce pack ne doit
-// revenir dans public/ tant que critters.js reste éteint.
+// STEAM-1) et remplacé le même jour par des bêtes MAISON (PixelLab, planche
+// planches/animaux-maison validée par Raph) : leurs gardes vérifient les deux sens —
+// éteint, rien dans public/ ; allumé, les 4 diagonales de chaque bête, au cadre maison.
 import { existsSync, readFileSync, readdirSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import path from 'node:path';
@@ -18,6 +19,7 @@ import { VEH_SKINS } from '../vehicleSkins.js';
 import { CRITTER_SIZES, CRITTER_DIAG, CRITTER_HERD, CRITTER_PETS, CRITTERS_ON, ensureCritter, drawCritterIso } from '../critters.js';
 import { AGE_CONFIG } from '../procedural/ageVisualConfig.js';
 import { vehSkinFor } from '../agents.js';
+import { PNG } from 'pngjs';
 
 const PIX = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../../../../public/pixelart/agents');
 const DIAG = ['southeast', 'southwest', 'northwest', 'northeast'];
@@ -134,6 +136,34 @@ describe('bétail et animaux de rue', () => {
       for (const dir of CRITTER_DIAG) if (!existsSync(critBand(kind, dir))) missing.push(`${kind}-${dir}`);
     }
     expect(missing).toEqual([]);
+  });
+
+  // LES BÊTES MAISON, pas un retour du pack (audit STEAM-1) : les cadres carrés de la
+  // planche (manifeste de planches/animaux-maison : vache et mouton 34, chèvre 38,
+  // chien 30, chat 24 — le pack faisait d'autres tailles), alpha binaire, pattes sur
+  // floor(0,94 × cadre) comme le veut drawCritterIso (FOOT_FRAC), et pas de script
+  // d'import du pack.
+  it('allumé : les sprites sont les bêtes maison (cadre, pattes, alpha), pas le pack', () => {
+    if (!CRITTERS_ON) return;
+    const CADRE = { cow: 34, sheep: 34, goat: 38, dog: 30, cat: 24 };
+    const bad = [];
+    for (const kind of Object.keys(CRITTER_SIZES)) {
+      for (const dir of CRITTER_DIAG) {
+        const im = PNG.sync.read(readFileSync(critBand(kind, dir)));
+        const N = CADRE[kind];
+        if (im.width !== N || im.height !== N) { bad.push(`${kind}-${dir} : ${im.width}×${im.height}`); continue; }
+        let low = -1, mid = 0;
+        for (let i = 0; i < N * N; i += 1) {
+          const a = im.data[i * 4 + 3];
+          if (a > 0 && a < 255) mid += 1;
+          if (a > 127) low = Math.max(low, Math.floor(i / N));
+        }
+        if (low !== Math.floor(0.94 * N)) bad.push(`${kind}-${dir} : pattes en ${low}`);
+        if (mid) bad.push(`${kind}-${dir} : ${mid} px semi-transparents`);
+      }
+    }
+    expect(bad).toEqual([]);
+    expect(existsSync(path.resolve(PIX, '../../../scripts/importPackAnimals.mjs'))).toBe(false);
   });
 
   // Le plan tire dans CRITTER_HERD/CRITTER_PETS ; le rendu cherche la taille dans

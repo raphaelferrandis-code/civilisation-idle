@@ -29,4 +29,10 @@ jobs:
       - run: npm ci
       - run: npm run lint
       - run: npm test
+      # Le harnais de partie (audit 2026-10-05, TEST-1) : la partie complète
+      # simulée et les Mythes de l'Acte III, rejoués à chaque push. Étape à part et
+      # nommée : un rééquilibrage qui casse la stratégie du joueur scripté se lit
+      # tout de suite pour ce qu'il est. ~10 s sur le poste, 2 à 3 fois plus en CI.
+      - name: Parcours de partie (harnais)
+        run: npm run test:parcours
       - run: npm run build

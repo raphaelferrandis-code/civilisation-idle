@@ -420,6 +420,13 @@ export const ICARUS_RTP = 1 - ICARUS_EDGE;  // valeur d'un vol offert, par Faveu
 export const ICARUS_CAP = 100;              // multiplicateur maximal (~33 s de vol)
 export const ICARUS_K = Math.LN2 / 5;       // ×2 à 5 s, ×10 à ~16,6 s, ×100 à ~33 s
 export const ICARUS_JACKPOT_MULT = 10;      // se poser à ×10+ rafle la cagnotte
+// Le sceau du Grand Reset VII (« Le Jackpot d'Icare ») : se poser à ×25 ou plus,
+// mise d'au moins la moitié de la limite de la salle commune (tableLimits().base),
+// sur sa propre Faveur (pas un vol offert). Le simple jackpot ×10 tombait en ~20 min,
+// sur 5 vols à 5 % de la Faveur, avant le premier effondrement (audit 2026-10-05,
+// BUG-40, choix b de Raph). Le seuil seul change : ni le RTP, ni la cagnotte.
+export const ICARUS_SEAL_MULT = 25;
+export const ICARUS_SEAL_STAKE_SHARE = 0.5;
 export const ICARUS_HISTORY_LEN = 12;       // derniers points de crash affichés
 
 // ── Tickets à gratter (jeu du temple) ────────────────────────────────────────

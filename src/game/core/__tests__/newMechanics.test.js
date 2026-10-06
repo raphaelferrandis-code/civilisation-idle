@@ -88,6 +88,23 @@ describe("A1 — Démesure (tension d'échelle bornée & gouvernable)", () => {
     expect(d).toBeGreaterThan(0);
     expect(d).toBeLessThan(DEMESURE_SOFT_CAP);
   });
+
+  // « Gouvernail des millions » promet « Démesure −30 % » : réduction appliquée
+  // APRÈS le soft cap (audit 2026-10-05, BUG-80). Avant : −23 % à popLog 12,
+  // −9 % à popLog 60 — le moins là où le nœud s'achète.
+  it("le Gouvernail des millions retire 30 % de la Démesure à toutes les échelles", () => {
+    for (const popLog of [12, 20, 35, 60, 320]) {
+      state.upgrades = { ...MID_GAME_FIXTURE.upgrades };
+      state.population = new Decimal(`1e${popLog}`);
+      invalidateRenderCache("all");
+      const plain = pressureBreakdown().demesure;
+      state.upgrades = { ...MID_GAME_FIXTURE.upgrades, gouvernail_millions: true };
+      invalidateRenderCache("all");
+      const helmed = pressureBreakdown().demesure;
+      expect(plain).toBeGreaterThan(0);
+      expect(helmed / plain, `popLog ${popLog}`).toBeCloseTo(0.7, 9);
+    }
+  });
 });
 
 describe("A2 — Entretien de l'infrastructure", () => {

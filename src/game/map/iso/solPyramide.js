@@ -198,6 +198,9 @@ export function cookTile(z, tx, ty, opts = {}) {
     CM.cw = side; CM.ch = side; CM.ctx = ctx;
     artLayerAnchor(o.x - G, o.y - G);        // origine du CANVAS dans l'espace tuile
     drawIsoGround();
+    // Ce qui se cuit PAR-DESSUS le sol, même caméra (la forêt des niveaux ≤ 0,5,
+    // iso/forestBake.js — branchée par solPyramideFrame, ce module ne la connaît pas).
+    if (opts.after) opts.after(ctx, cam, side);
   } finally {
     artLayerAnchor(null);
     CM.cam.x = saved.x; CM.cam.y = saved.y; CM.cam.zoom = saved.zoom;

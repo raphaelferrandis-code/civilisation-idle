@@ -139,6 +139,61 @@ describe("veille branchée sur la boucle : cadences réelles et retour immédiat
   });
 });
 
+describe("joueur absent : le souffle de la boutique se fige (PERF-65 c)", () => {
+  // <html> réduit à ses attributs : c'est tout ce que lit la feuille de style.
+  function fauxDocument() {
+    const attrs = new Map();
+    return {
+      hasFocus: () => true,
+      documentElement: {
+        setAttribute: (k, v) => attrs.set(k, v),
+        removeAttribute: (k) => attrs.delete(k),
+        hasAttribute: (k) => attrs.has(k),
+      },
+    };
+  }
+
+  it("data-away après 3 min sans entrée, retiré dès la première entrée", () => {
+    const doc = fauxDocument();
+    vi.stubGlobal("document", doc);
+    const away = () => doc.documentElement.hasAttribute("data-away");
+    noteMapInput(0);
+    expect(away()).toBe(false);
+    mapFrameMs(HIGH, ENERGY_TUNE.idleMs - 1000);
+    expect(away()).toBe(false);
+    mapFrameMs(HIGH, ENERGY_TUNE.idleMs);
+    expect(away()).toBe(true);
+    // La caméra qui bouge ne compte pas : seul le joueur revient.
+    noteMapCamera({ x: 9, y: 9, zoom: 2 }, ENERGY_TUNE.idleMs + 50);
+    expect(away()).toBe(true);
+    noteMapInput(ENERGY_TUNE.idleMs + 100);           // un mouvement de souris
+    expect(away()).toBe(false);                       // sans attendre la frame suivante
+    mapFrameMs(HIGH, ENERGY_TUNE.idleMs + 200);
+    expect(away()).toBe(false);
+  });
+
+  it("interrupteur éteint : jamais absent, et l'éteindre efface l'état", () => {
+    const store = new Map();
+    vi.stubGlobal("localStorage", { getItem: (k) => store.get(k) ?? null, setItem: (k, v) => store.set(k, String(v)) });
+    const doc = fauxDocument();
+    vi.stubGlobal("document", doc);
+    noteMapInput(0);
+    mapFrameMs(HIGH, 10 * MIN);
+    expect(doc.documentElement.hasAttribute("data-away")).toBe(true);
+    setEnergySaver(false);
+    expect(doc.documentElement.hasAttribute("data-away")).toBe(false);
+    mapFrameMs(HIGH, 20 * MIN);
+    expect(doc.documentElement.hasAttribute("data-away")).toBe(false);
+    setEnergySaver(true);
+    noteMapInput(20 * MIN);
+  });
+
+  it("la feuille de style met le souffle en pause sous data-away", () => {
+    const css = readFileSync(join(dirname(fileURLToPath(import.meta.url)), "..", "..", "..", "styles", "purchase.css"), "utf8");
+    expect(css).toMatch(/:root\[data-away\] \.purchase-row\.pr-pulse \.btn-purchase:not\(:disabled\) \{\s*animation-play-state: paused;/);
+  });
+});
+
 describe("activée par défaut, éteinte seulement sur choix explicite", () => {
   it("sans réglage enregistré : activée ; « false » enregistré : éteinte", async () => {
     vi.stubGlobal("localStorage", { getItem: () => null, setItem: () => {} });
@@ -154,7 +209,8 @@ describe("câblage dans la boucle de la carte", () => {
   const src = readFileSync(join(dirname(fileURLToPath(import.meta.url)), "..", "cityMapRuntime.js"), "utf8");
 
   it("le cap de frame passe par mapFrameMs, chute exemptée, capture toujours prioritaire", () => {
-    expect(src).toMatch(/now - last < mapFrameMs\(cmFrameMs, now, !!CHUTE\.act\) - 8 && !CM\.capture/);
+    // (tolérance : une demi-vsync mesurée depuis PERF-57, cf. frameCadence.js)
+    expect(src).toMatch(/now - last < mapFrameMs\(cmFrameMs, now, !!CHUTE\.act\) - vsyncEst\.tolerance\(\) && !CM\.capture/);
   });
 
   it("la caméra est relevée après son clamp, et les entrées le sont sur toute la fenêtre", () => {

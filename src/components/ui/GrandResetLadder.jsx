@@ -171,6 +171,8 @@ export default function GrandResetLadder() {
 
           return (
             <li key={m.gr} className={`gr-rung is-${status}${fresh ? ' is-fresh' : ''}`}>
+              {/* Le sceau prêt respire : lueur peinte une fois, opacité animée (PERF-65). */}
+              {status === 'ready' && <i className="lueur" aria-hidden="true" />}
               {/* size explicite : taille portée par `.gr-medal .px-icon` (ancêtre).
                   Le breakpoint étroit la ramène à 24 ; on sert le 32, réduit de 4/3
                   sur mobile uniquement.

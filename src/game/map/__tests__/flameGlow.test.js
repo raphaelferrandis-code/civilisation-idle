@@ -20,7 +20,7 @@ import { CM } from '../layout.js';
 import { ANIM_BANDS, ANIM_FIRE_CORES, blitAnim, animReady } from '../cityEngineSprites.js';
 import {
   FLAME_GLOW, queueFlameGlow, paintFlameGlows, pendingFlameGlows,
-  flameFlicker, flameAssetGlow, suspendFlameGlow,
+  flameFlicker, suspendFlameGlow,
 } from '../flameGlow.js';
 
 const BUILDINGS = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../../../../public/pixelart/agents/buildings');
@@ -203,22 +203,6 @@ describe('lueur des feux — de la lumière, et seulement quand il en faut', () 
     expect(hi).toBeLessThanOrEqual(1.0001);
     expect(hi - lo).toBeGreaterThan(0.3);          // une constante passerait les bornes
     expect(flameFlicker(1234, 1.3)).toBe(flameFlicker(1234, 1.3));  // déterministe (captures)
-  });
-});
-
-describe('flameAssetGlow — seuls les FEUX éclairent', () => {
-  it('un overlay peint avec une flamme éclaire ; un éclat de gemme, non', () => {
-    expect(flameAssetGlow({ file: 'flame-small.png' })).toBeTruthy();
-    expect(flameAssetGlow({ file: 'flame-large.png' })).toBeTruthy();
-    expect(flameAssetGlow({ file: 'gem-glint.png' })).toBe(null);
-    expect(flameAssetGlow({ file: 'needle-beam.png' })).toBe(null);
-    expect(flameAssetGlow({ file: 'arc-glow.png' })).toBe(null);
-    expect(flameAssetGlow(null)).toBe(null);
-  });
-
-  it('le JSON garde le dernier mot', () => {
-    expect(flameAssetGlow({ file: 'flame-large.png', glow: false })).toBe(null);
-    expect(flameAssetGlow({ file: 'gem-glint.png', glow: '10,20,30' })).toBe('10,20,30');
   });
 });
 

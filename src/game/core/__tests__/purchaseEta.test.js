@@ -6,7 +6,7 @@ import { describe, it, expect, beforeEach, afterEach } from "vitest";
 import { state, setState, hydrateState, invalidateRenderCache } from "../state.js";
 import { purchaseEta, ETA_READY, ETA_NO_INCOME, ETA_SECONDS, ETA_UNREACHABLE, ETA_MAX_SECONDS } from "../mechanics/purchaseEta.js";
 import { rates } from "../mechanics/production/rates.js";
-import { quantizeEta, fmtEta, fmtSecs } from "../utils.js";
+import { quantizeEta, fmtSecs } from "../utils.js";
 import { setLang } from "../i18n.js";
 import { D } from "../num.js";
 
@@ -114,20 +114,17 @@ describe("quantification — c'est elle qui protège la mémoïsation de la bout
     expect(quantizeEta(3601)).toBe(7200);
   });
 
-  it("un délai qui décroît d'une seconde ne change PAS le libellé", () => {
-    // C'est l'invariant de perf : la signature d'abonnement est bâtie sur le
-    // libellé. S'il bougeait chaque seconde, la boutique se re-rendrait à 1 Hz.
-    expect(fmtEta(600)).toBe(fmtEta(599));
-    expect(fmtEta(42)).toBe(fmtEta(41));
-  });
-
-  it("ne rend jamais « 0 s »", () => {
-    expect(fmtEta(0)).toBe("5 s");
-    expect(fmtEta(-10)).toBe("5 s");
+  it("un délai qui décroît d'une seconde ne change PAS la valeur quantifiée", () => {
+    // C'est l'invariant de perf : la signature d'abonnement de la boutique est
+    // bâtie sur elle. Si elle bougeait chaque seconde, la boutique se
+    // re-rendrait à 1 Hz. (Le délai ne s'écrit plus à l'écran, BUG-118 : il ne
+    // décide que de l'état « bientôt ».)
+    expect(quantizeEta(600)).toBe(quantizeEta(599));
+    expect(quantizeEta(42)).toBe(quantizeEta(41));
   });
 });
 
-describe("fmtSecs et fmtEta parlent la langue du joueur", () => {
+describe("fmtSecs parle la langue du joueur", () => {
   afterEach(() => setLang("fr"));
 
   it("fmtSecs traduit, au lieu du français en dur dans une phrase anglaise", () => {
@@ -137,12 +134,5 @@ describe("fmtSecs et fmtEta parlent la langue du joueur", () => {
     setLang("en");
     expect(fmtSecs(30)).toBe("less than 1 min");
     expect(fmtSecs(86400 + 3600)).toBe("1 d 1 h");
-  });
-
-  it("fmtEta délègue à fmtSecs au-dessus de la minute : une seule écriture des heures", () => {
-    setLang("fr");
-    expect(fmtEta(7200)).toBe(fmtSecs(7200));
-    setLang("en");
-    expect(fmtEta(7200)).toBe(fmtSecs(7200));
   });
 });

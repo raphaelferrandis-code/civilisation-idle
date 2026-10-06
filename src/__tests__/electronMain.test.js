@@ -492,3 +492,70 @@ describe("main.cjs — fenêtre de jeu (ELEC-2)", () => {
     expect(win.webContents.send).toHaveBeenLastCalledWith("window:fullscreen", true);
   });
 });
+
+describe("main.cjs — la cité vit fenêtre réduite (ELEC-6, décision B de Raph)", () => {
+  it("pas d'étranglement d'arrière-plan : les minuteries battent fenêtre réduite ou couverte", () => {
+    const { win } = boot();
+    expect(win.options.webPreferences.backgroundThrottling).toBe(false);
+  });
+
+  it("réduite / rendue relayé à la page (seul le rendu de la carte s'arrête) ; état lu au lancement", async () => {
+    const fake = boot();
+    const { win } = fake;
+    win.emit("minimize");
+    expect(win.webContents.send).toHaveBeenLastCalledWith("window:minimized", true);
+    win.emit("restore");
+    expect(win.webContents.send).toHaveBeenLastCalledWith("window:minimized", false);
+    expect(await ipc(fake, "window:get-minimized")).toBe(false);
+    win.isMinimized = () => true;
+    expect(await ipc(fake, "window:get-minimized")).toBe(true);
+  });
+
+  it("le préload expose le pont de la fenêtre réduite", () => {
+    const source = fs.readFileSync(path.resolve(__dirname, "../../preload.cjs"), "utf8");
+    expect(source).toMatch(/livesInBackground: true/);
+    expect(source).toMatch(/onMinimizedChange/);
+    expect(source).toMatch(/"window:minimized"/);
+  });
+});
+
+describe("main.cjs — version Steam sans miroir Google Drive (STEAM-4 / ELEC-3, décision C)", () => {
+  it("lancée par Steam : Drive jamais cherché, nuage éteint, la page sait qu'elle est la version Steam", async () => {
+    const fake = boot({ env: { SteamAppId: "480" } });
+    expect(await ipc(fake, "cloud:init")).toEqual({ dir: null, initial: { status: "off", text: null }, steam: true });
+    // Aucune sonde de lecteur : la mémoire du chemin Drive n'est jamais écrite.
+    expect(realExists(path.join(fake.userData, "drive.json"))).toBe(false);
+    expect(await ipc(fake, "cloud:write", {}, '{"a":1}')).toBe(false);
+    expect(fake.journal()).toMatch(/miroir Google Drive coupé/);
+  });
+
+  it("hors Steam : le miroir reste (la page n'est pas la version Steam)", async () => {
+    const fake = boot();
+    expect((await ipc(fake, "cloud:init")).steam).toBe(false);
+  });
+});
+
+describe("main.cjs — nom du produit (STEAM-10)", () => {
+  it("les questions du système portent le nom du jeu dans sa langue", async () => {
+    const { win, asked } = boot();
+    win.emit("unresponsive");
+    expect(asked[0].options.title).toBe("Effondrement Idle");
+    asked[0].answer(0);
+    await new Promise((r) => setTimeout(r, 0));
+    win.webContents.executeJavaScript = vi.fn(() => Promise.resolve("en"));
+    win.webContents.emit("did-finish-load");
+    await new Promise((r) => setTimeout(r, 0));
+    win.emit("unresponsive");
+    expect(asked[1].options.title).toBe("Collapse Idle");
+  });
+
+  it("le même nom partout : productName, description, <title>, manifeste ; `name` (dossier des saves) intact", () => {
+    const root = path.resolve(__dirname, "../..");
+    const pkg = JSON.parse(fs.readFileSync(path.join(root, "package.json"), "utf8"));
+    expect(pkg.name).toBe("civilisation-effondrement");
+    expect(pkg.build.productName).toBe("Effondrement Idle");
+    expect(pkg.description).toMatch(/^Effondrement Idle — /);
+    expect(fs.readFileSync(path.join(root, "index.html"), "utf8")).toMatch(/<title>Effondrement Idle<\/title>/);
+    expect(JSON.parse(fs.readFileSync(path.join(root, "public/manifest.webmanifest"), "utf8")).name).toBe("Effondrement Idle");
+  });
+});

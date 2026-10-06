@@ -71,6 +71,7 @@ import { streetKitLampArt } from './streetKits.js';
 import { isoArt, inkBox, onIsoArtReady } from './isoArt.js';
 import { fmix32 } from '../hash.js';
 import { mkCanvas } from '../pixelUtil.js';
+import { FENCE, midGates, SIDE_OF } from '../fenceEdges.js';
 
 // ── ÉCHELLE DE RÉFÉRENCE ────────────────────────────────────────────────────
 // Unité : hT = HAUTEUR ÉCRAN du sprite en tuiles (1 tuile = TILE × zoom px).
@@ -190,8 +191,17 @@ const PLAZA_TUNE = {
   anim: true,
   animMs: 240,
   placeholders: true, // gabarit plat quand aucun art n'existe pour le prop
+  // LES GRANDES PLACES (audit 2026-10-05, BUG-63) : le forum (14 × 9) et le square (9 × 9)
+  // des villes par îlots. Le kit d'une sorte est dessiné à l'échelle d'UN îlot (4×4) ;
+  // sur une grande place il se déploie — « plus la place est grande, plus on met
+  // d'éléments » (Raph) : un duo de bancs par tranche de GRAND_SIDE cases de côté, des
+  // flâneurs à proportion de l'emprise, la garniture de cœur écartée le long de chaque
+  // axe, et l'arbre de derrière reculé hors de la pièce maîtresse. Une place 4×4 ne
+  // change pas d'un pixel (grandesPlaces.test.js). false = le kit tel quel.
+  grand: true,
   rev: 0,
 };
+const GRAND_SIDE = 4.5;   // cases de côté par duo de bancs du kit, sur une grande place
 if (import.meta.env?.DEV && typeof window !== 'undefined') {
   window.__plaza = (o) => {
     if (o) { Object.assign(PLAZA_TUNE, o); PLAZA_TUNE.rev += 1; }
@@ -803,6 +813,11 @@ function composeOne(L, era, box) {
   // __villagerScale doit reconstruire la composition, pas ressortir le cache.
   const T = CM.TILE;
   const w = box.gx1 - box.gx0 + 1, h = box.gy1 - box.gy0 + 1;
+  // Le kit d'une sorte se déploie sur une grande place (cf. PLAZA_TUNE.grand) ; une place
+  // d'un îlot (4×4) n'y voit aucune différence — par construction : selon les métriques
+  // des images (navigateur), le filet d'une 4×4 peut tomber sur l'emplacement « derrière
+  // le centre », celui que la grande place recule (`tdB`).
+  const grand = PLAZA_TUNE.grand && !!kit && w * h > 16;
   const cxc = box.gx0 + w / 2, cyc = box.gy0 + h / 2;      // centre en CELLULES
   const cells = isoPlazaCells(L, box);
   const props = [];
@@ -1044,6 +1059,9 @@ function composeOne(L, era, box) {
     const benchCap = (PLAZA_TUNE.benchPerSide != null ? PLAZA_TUNE.benchPerSide
       : R.benchPerSide != null ? R.benchPerSide : 4) | 0;
     let g = Math.max(0, Math.floor(benchCap / 2));
+    // Grande place : le plafond du kit vaut par tranche de GRAND_SIDE cases de côté (un
+    // côté de 4 ou 5 en garde un, de 9 deux, de 14 trois). La molette reste un plafond absolu.
+    if (grand && PLAZA_TUNE.benchPerSide == null) g *= Math.max(1, Math.round(side.span / GRAND_SIDE));
     while (g > 1 && usable / g < duo + 2 * minStep) g -= 1;
     if (g > 0 && usable < duo) g = 0;
     benchPerSide = Math.max(benchPerSide, g * 2);
@@ -1105,10 +1123,16 @@ function composeOne(L, era, box) {
       PLAZA_TUNE.treeSpread * Math.min(w, h) / 2,
       (cHW + tHW) * PLAZA_TUNE.minGap / 2 + PLAZA_TUNE.treeClear,
     );
+    // L'arbre de DERRIÈRE, sur une grande place (cf. PLAZA_TUNE.grand), recule au-delà de
+    // la hauteur de la pièce maîtresse : à `td` seulement, son tronc montait juste derrière
+    // la statue du grand forum, qui avait l'air de le porter sur la tête (vu à la planche).
+    // (Un pas en profondeur monte d'une tuile à l'écran : la hauteur se compare telle quelle.)
+    const hC = !centrePris ? 0 : veutArbre ? treeHT : R.centre ? hOf(R.centre.prop, R.centre) : 0;
+    const tdB = grand ? Math.max(td, hC + 0.4) : td;
     const SPOTS = [
       [cxc + td, cyc - td],      // droite de l'écran
       [cxc - td, cyc + td],      // gauche de l'écran
-      [cxc - td, cyc - td],      // derrière le centre
+      [cxc - tdB, cyc - tdB],    // derrière le centre
       [cxc + td, cyc + td],      // devant — dernier recours, il le masque
     ];
     // Le compte inclut l'arbre du CENTRE quand c'est lui qui le tient : il vaut
@@ -1156,12 +1180,15 @@ function composeOne(L, era, box) {
   //    même convention que les bancs : la variante nomme la direction MONDE vers
   //    laquelle le prop REGARDE.
   const fd = Math.min(w, h) * 0.28;
+  // Grande place : chaque axe à sa longueur (le grand forum, plus long que large, garnit
+  // aussi ses bouts) ; une place carrée n'y voit aucune différence.
+  const fdx = grand ? w * 0.28 : fd, fdy = grand ? h * 0.28 : fd;
   if (R.field && R.field.length && sideOn && fd > PLAZA_TUNE.coreR) {
     const F_SPOTS = [
-      [cxc + fd, cyc, 'w'],   // à l'est du centre → regarde l'ouest
-      [cxc - fd, cyc, 'e'],
-      [cxc, cyc + fd, 'n'],
-      [cxc, cyc - fd, 's'],
+      [cxc + fdx, cyc, 'w'],   // à l'est du centre → regarde l'ouest
+      [cxc - fdx, cyc, 'e'],
+      [cxc, cyc + fdy, 'n'],
+      [cxc, cyc - fdy, 's'],
     ];
     for (let fi = 0; fi < F_SPOTS.length; fi += 1) {
       const [fx, fy, face] = F_SPOTS[fi];
@@ -1202,13 +1229,15 @@ function composeOne(L, era, box) {
       return true;
     };
     const cellSet = new Set(cells.map((c) => c.gx + ',' + c.gy));
+    // Sur une grande place, le monde suit l'emprise (racine du nombre de cases rapporté
+    // à un îlot de 16) : 7 au forum d'un îlot, une vingtaine au grand forum.
     const n = R.people.mode === 'stalls'
       ? Math.round(stalls.length * Math.max(1, R.people.perItem | 0) * 0.8)
-      : (R.people.n | 0);
+      : Math.round((R.people.n | 0) * (grand ? Math.max(1, Math.sqrt(cells.length / 16)) : 1));
     folk = buildFolk({
       sd: 'plz' + sd, box, cx: cxc, cy: cyc, n, mode: R.people.mode,
       inPlaza: (gx, gy) => cellSet.has(gx + ',' + gy), free: walkFree, stand,
-      stalls, exits: plazaExits(L, cells, cellSet),
+      stalls, exits: plazaExits(L, cells, cellSet, kind),
       // OÙ L'ON S'ASSOIT (§8 de PLAN-COMPORTEMENTS) : SUR l'assise des bancs qui regardent le
       // sud ou l'est (côtés nord et ouest) — on y voit les gens de FACE, les seules vues
       // assises dessinées — et que rien ne masque (un massif devant un duo). Un rien devant
@@ -1350,16 +1379,19 @@ export function plazaWalkAnchors(L, band) {
   return _anchors.v;
 }
 
-// LES ENTRÉES DE LA PLACE : chaque arête où une rue l'aborde (c'est aussi là que la
-// grille du square laisse sa porte, cf. fenceEdges `gateOnRoad`). `a` = l'ancre côté
+// LES ENTRÉES DE LA PLACE : chaque arête où une rue l'aborde. `a` = l'ancre côté
 // place, `o` = le point de fuite, à mi-chemin dans la cellule de rue.
-function plazaExits(L, cells, cellSet) {
+// Le SQUARE grillagé n'a que ses PORTES, au milieu de chaque côté (fenceEdges, `gateMid`,
+// audit 2026-10-05, BUG-62) : ses flâneurs ne passent pas à travers la grille.
+function plazaExits(L, cells, cellSet, kind) {
   const out = [];
   if (!L.roadMap) return out;
+  const gates = (!kind || FENCED_KINDS.has(kind)) && FENCE.on && FENCE.plazas && FENCE.gateMid ? midGates(cellSet) : null;
   for (const c of cells) {
     for (const [dx, dy] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) {
       const nk = (c.gx + dx) + ',' + (c.gy + dy);
       if (cellSet.has(nk)) continue;
+      if (gates && !gates.has(c.gx + ',' + c.gy + ',' + SIDE_OF(dx, dy))) continue;
       const rc = L.roadMap.get(nk);
       if (!rc || rc.rank === 'plaza' || rc.roadSurface === 'bridge') continue;
       out.push({

@@ -61,7 +61,7 @@ function chuteHooks() {
     // supposent), reçoit la régie de la maquette.
     transformIndexHtml(html) {
       return html
-        .replace('<title>Civilisation: Effondrement Idle</title>', '<title>Maquette — la Chute</title>')
+        .replace('<title>Effondrement Idle</title>', '<title>Maquette — la Chute</title>')
         .replace('</body>', '  <script type="module" src="/maquettes/chute/chute.js"></script>\n  </body>');
     },
   };

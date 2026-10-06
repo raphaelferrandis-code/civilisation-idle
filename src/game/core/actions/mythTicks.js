@@ -20,6 +20,7 @@ import {
   PROMETHEE_FATAL_RUPTURE,
   OR_BALANCE_RATIO,
   ATLAS_FARDEAU_RISE,
+  ICARE_ALTITUDE_TARGET,
   HEPH_POP_DECAY_START_MIN,
   HEPH_POP_DECAY_RATE,
   HEPH_INFRA_PER_PEAK,
@@ -82,10 +83,17 @@ export const MYTH_TICK_HANDLERS = {
   // Sisyphe (« la Montée ») n'a plus de handler de tick : le rocher ne bouge que
   // par les verbes — POUSSER (actions/myths.js) et bâtir qui le lâche (building.js).
 
-  mythe_atrides: (state) => {
+  mythe_atrides: (state, dt) => {
+    // L'Or PRODUIT par le tick (net du drain de la dette, déjà dans rates()), et lui
+    // seul : le stock comptait les Fêtes de jalon, les aubaines et les legs —
+    // 240 s de production d'un coup par palier franchi, sacre au 1er tick avec le
+    // nœud de la Sève (audit 2026-10-05, BUG-39). La cible suit la production du
+    // moment, jamais figée à l'activation : elle y serait quasi nulle.
+    const goldRate = D(rates().gold).max(0);
+    state.atridesEarned = D(state.atridesEarned || 0).add(goldRate.mul(dt));
     if (!state.atridesReached) {
-      const netGained = D(state.gold).sub(state.atridesDebt || 0).sub(state.mythStartGold || 0);
-      const need = D(rates().gold).max(0).mul(ATRIDES_GAIN_SECONDS);
+      const netGained = D(state.atridesEarned).sub(state.atridesDebt || 0);
+      const need = goldRate.mul(ATRIDES_GAIN_SECONDS);
       if (netGained.gte(need) && netGained.gt(0)) {
         state.atridesReached = true;
         log(tr({
@@ -143,6 +151,23 @@ export const MYTH_TICK_HANDLERS = {
         en: "Atlas: the sky has overcome our shoulders. The city buckles and breaks."
       }));
     }
+  },
+
+  // Icare : le MAINTIEN de l'altitude cible, en temps de jeu (un tick en pause ou
+  // en crise terminale ne tourne pas, il ne compte donc pas). Redescendre sous la
+  // cible remet le maintien à zéro ; onCollapse sacre à la fin du maintien, via
+  // checkMythLiveCompletion juste après ce tick (audit 2026-10-05, BUG-41).
+  mythe_d_icare: (state, dt) => {
+    state.icareHoldSec = (state.icareAltitude || 0) >= ICARE_ALTITUDE_TARGET
+      ? (state.icareHoldSec || 0) + dt
+      : 0;
+  },
+
+  // Phénix : l'âge du cycle en temps de jeu NON PAUSÉ, celui que juge la fenêtre de
+  // renaissance (completeCollapse). Les crises à 25/50/75 % et le deuil gèlent la
+  // partie, et donc ce compteur ; l'heure murale, elle, courait (BUG-38).
+  mythe_du_phenix: (state, dt) => {
+    state.phoenixCycleSec = (state.phoenixCycleSec || 0) + dt;
   },
 
   // Babel n'a plus de handler de tick : l'objectif est le COMPTE de bâtiments de
@@ -253,6 +278,8 @@ const MYTH_TICK_ORDER = [
   "mythe_de_promethee",
   "mythe_age_or",
   "mythe_d_atlas",
+  "mythe_d_icare",
+  "mythe_du_phenix",
   "mythe_du_ragnarok",
   "mythe_d_hephaistos",
   "mythe_d_enee",

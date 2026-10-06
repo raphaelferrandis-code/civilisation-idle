@@ -1,0 +1,1207 @@
+{
+  "source": "src/game/data/achievements.js",
+  "generatedBy": "node scripts/exportSteamAchievements.mjs",
+  "count": 80,
+  "achievements": [
+    {
+      "apiName": "ERE_HAMEAU",
+      "group": "eres",
+      "hidden": false,
+      "name": {
+        "french": "Les premiers sentiers",
+        "english": "The First Trails"
+      },
+      "description": {
+        "french": "Atteindre l'ère du Hameau.",
+        "english": "Reach the Hamlet era."
+      },
+      "icon": "public/pixelart/ui/achievements/ERE_HAMEAU.png",
+      "iconGray": "public/pixelart/ui/achievements/ERE_HAMEAU-gris.png"
+    },
+    {
+      "apiName": "ERE_VILLAGE",
+      "group": "eres",
+      "hidden": false,
+      "name": {
+        "french": "La terre partagée",
+        "english": "The Divided Land"
+      },
+      "description": {
+        "french": "Atteindre l'ère du Village.",
+        "english": "Reach the Village era."
+      },
+      "icon": "public/pixelart/ui/achievements/ERE_VILLAGE.png",
+      "iconGray": "public/pixelart/ui/achievements/ERE_VILLAGE-gris.png"
+    },
+    {
+      "apiName": "ERE_BOURG_MARCHAND",
+      "group": "eres",
+      "hidden": false,
+      "name": {
+        "french": "L'or et l'étranger",
+        "english": "Gold and the Stranger"
+      },
+      "description": {
+        "french": "Atteindre l'ère du Bourg marchand.",
+        "english": "Reach the Market Town era."
+      },
+      "icon": "public/pixelart/ui/achievements/ERE_BOURG_MARCHAND.png",
+      "iconGray": "public/pixelart/ui/achievements/ERE_BOURG_MARCHAND-gris.png"
+    },
+    {
+      "apiName": "ERE_CITE_FORTIFIEE",
+      "group": "eres",
+      "hidden": false,
+      "name": {
+        "french": "Inventer l'ennemi",
+        "english": "Inventing the Enemy"
+      },
+      "description": {
+        "french": "Atteindre l'ère de la Cité fortifiée.",
+        "english": "Reach the Fortified City era."
+      },
+      "icon": "public/pixelart/ui/achievements/ERE_CITE_FORTIFIEE.png",
+      "iconGray": "public/pixelart/ui/achievements/ERE_CITE_FORTIFIEE-gris.png"
+    },
+    {
+      "apiName": "ERE_ROYAUME",
+      "group": "eres",
+      "hidden": false,
+      "name": {
+        "french": "Un sceptre pour les provinces",
+        "english": "One Scepter for the Provinces"
+      },
+      "description": {
+        "french": "Atteindre l'ère du Royaume.",
+        "english": "Reach the Kingdom era."
+      },
+      "icon": "public/pixelart/ui/achievements/ERE_ROYAUME.png",
+      "iconGray": "public/pixelart/ui/achievements/ERE_ROYAUME-gris.png"
+    },
+    {
+      "apiName": "ERE_EMPIRE",
+      "group": "eres",
+      "hidden": false,
+      "name": {
+        "french": "Au bord de sa propre chute",
+        "english": "On the Brink of Its Own Fall"
+      },
+      "description": {
+        "french": "Atteindre l'ère de l'Empire.",
+        "english": "Reach the Empire era."
+      },
+      "icon": "public/pixelart/ui/achievements/ERE_EMPIRE.png",
+      "iconGray": "public/pixelart/ui/achievements/ERE_EMPIRE-gris.png"
+    },
+    {
+      "apiName": "ERE_METROPOLE",
+      "group": "eres",
+      "hidden": false,
+      "name": {
+        "french": "Une mer humaine",
+        "english": "A Human Sea"
+      },
+      "description": {
+        "french": "Atteindre l'ère de la Métropole.",
+        "english": "Reach the Metropolis era."
+      },
+      "icon": "public/pixelart/ui/achievements/ERE_METROPOLE.png",
+      "iconGray": "public/pixelart/ui/achievements/ERE_METROPOLE-gris.png"
+    },
+    {
+      "apiName": "ERE_SINGULARITE",
+      "group": "eres",
+      "hidden": false,
+      "name": {
+        "french": "Le titan de métal",
+        "english": "The Titan of Metal"
+      },
+      "description": {
+        "french": "Atteindre l'ère de la Singularité.",
+        "english": "Reach the Singularity era."
+      },
+      "icon": "public/pixelart/ui/achievements/ERE_SINGULARITE.png",
+      "iconGray": "public/pixelart/ui/achievements/ERE_SINGULARITE-gris.png"
+    },
+    {
+      "apiName": "ERE_CONSCIENCE",
+      "group": "eres",
+      "hidden": false,
+      "name": {
+        "french": "La cité devenue monde",
+        "english": "The City Became the World"
+      },
+      "description": {
+        "french": "Atteindre l'ère de la Conscience planétaire.",
+        "english": "Reach the Planetary Consciousness era."
+      },
+      "icon": "public/pixelart/ui/achievements/ERE_CONSCIENCE.png",
+      "iconGray": "public/pixelart/ui/achievements/ERE_CONSCIENCE-gris.png"
+    },
+    {
+      "apiName": "ERE_DYSON",
+      "group": "eres",
+      "hidden": false,
+      "name": {
+        "french": "Pas un photon perdu",
+        "english": "Not a Photon Wasted"
+      },
+      "description": {
+        "french": "Atteindre l'ère de la Sphère de Dyson.",
+        "english": "Reach the Dyson Sphere era."
+      },
+      "icon": "public/pixelart/ui/achievements/ERE_DYSON.png",
+      "iconGray": "public/pixelart/ui/achievements/ERE_DYSON-gris.png"
+    },
+    {
+      "apiName": "CHUTE_PREMIERE",
+      "group": "chutes",
+      "hidden": false,
+      "name": {
+        "french": "Tout ce qui s'élève",
+        "english": "All That Rises"
+      },
+      "description": {
+        "french": "Traverser un premier effondrement.",
+        "english": "Live through a first collapse."
+      },
+      "icon": "public/pixelart/ui/achievements/CHUTE_PREMIERE.png",
+      "iconGray": "public/pixelart/ui/achievements/CHUTE_PREMIERE-gris.png"
+    },
+    {
+      "apiName": "CHUTE_10",
+      "group": "chutes",
+      "hidden": false,
+      "name": {
+        "french": "Le pli de l'histoire",
+        "english": "The Fold of History"
+      },
+      "description": {
+        "french": "Traverser 10 effondrements.",
+        "english": "Live through 10 collapses."
+      },
+      "icon": "public/pixelart/ui/achievements/CHUTE_10.png",
+      "iconGray": "public/pixelart/ui/achievements/CHUTE_10-gris.png"
+    },
+    {
+      "apiName": "CHUTE_50",
+      "group": "chutes",
+      "hidden": false,
+      "name": {
+        "french": "Mémoire des cendres",
+        "english": "Memory of Ashes"
+      },
+      "description": {
+        "french": "Traverser 50 effondrements.",
+        "english": "Live through 50 collapses."
+      },
+      "icon": "public/pixelart/ui/achievements/CHUTE_50.png",
+      "iconGray": "public/pixelart/ui/achievements/CHUTE_50-gris.png"
+    },
+    {
+      "apiName": "CHUTE_100",
+      "group": "chutes",
+      "hidden": false,
+      "name": {
+        "french": "Cent fois sur le métier",
+        "english": "A Hundred Times Over"
+      },
+      "description": {
+        "french": "Traverser 100 effondrements.",
+        "english": "Live through 100 collapses."
+      },
+      "icon": "public/pixelart/ui/achievements/CHUTE_100.png",
+      "iconGray": "public/pixelart/ui/achievements/CHUTE_100-gris.png"
+    },
+    {
+      "apiName": "CHUTE_250",
+      "group": "chutes",
+      "hidden": false,
+      "name": {
+        "french": "L'éternel retour",
+        "english": "The Eternal Return"
+      },
+      "description": {
+        "french": "Traverser 250 effondrements.",
+        "english": "Live through 250 collapses."
+      },
+      "icon": "public/pixelart/ui/achievements/CHUTE_250.png",
+      "iconGray": "public/pixelart/ui/achievements/CHUTE_250-gris.png"
+    },
+    {
+      "apiName": "CYCLE_UNE_HEURE",
+      "group": "chutes",
+      "hidden": false,
+      "name": {
+        "french": "Tenir debout",
+        "english": "Still Standing"
+      },
+      "description": {
+        "french": "Faire tenir une civilisation une heure avant sa chute.",
+        "english": "Keep a civilization standing for an hour before it falls."
+      },
+      "icon": "public/pixelart/ui/achievements/CYCLE_UNE_HEURE.png",
+      "iconGray": "public/pixelart/ui/achievements/CYCLE_UNE_HEURE-gris.png"
+    },
+    {
+      "apiName": "CRISES_TROIS",
+      "group": "chutes",
+      "hidden": false,
+      "name": {
+        "french": "Trois fois sauvée",
+        "english": "Saved Three Times"
+      },
+      "description": {
+        "french": "Stabiliser les trois crises d'un même cycle.",
+        "english": "Stabilize all three crises of a single cycle."
+      },
+      "icon": "public/pixelart/ui/achievements/CRISES_TROIS.png",
+      "iconGray": "public/pixelart/ui/achievements/CRISES_TROIS-gris.png"
+    },
+    {
+      "apiName": "VOEU_TENU",
+      "group": "chutes",
+      "hidden": false,
+      "name": {
+        "french": "Parole tenue",
+        "english": "A Promise Kept"
+      },
+      "description": {
+        "french": "Accomplir le vœu d'un cycle.",
+        "english": "Fulfill a cycle's vow."
+      },
+      "icon": "public/pixelart/ui/achievements/VOEU_TENU.png",
+      "iconGray": "public/pixelart/ui/achievements/VOEU_TENU-gris.png"
+    },
+    {
+      "apiName": "TESTAMENT",
+      "group": "chutes",
+      "hidden": false,
+      "name": {
+        "french": "Les dernières volontés",
+        "english": "Last Wishes"
+      },
+      "description": {
+        "french": "Graver un testament pour les cités à venir.",
+        "english": "Engrave a testament for the cities to come."
+      },
+      "icon": "public/pixelart/ui/achievements/TESTAMENT.png",
+      "iconGray": "public/pixelart/ui/achievements/TESTAMENT-gris.png"
+    },
+    {
+      "apiName": "RUINES_CENT",
+      "group": "cite",
+      "hidden": false,
+      "name": {
+        "french": "Bonne moisson",
+        "english": "A Fine Harvest"
+      },
+      "description": {
+        "french": "Récolter 100 Ruines en un seul effondrement.",
+        "english": "Harvest 100 Ruins in a single collapse."
+      },
+      "icon": "public/pixelart/ui/achievements/RUINES_CENT.png",
+      "iconGray": "public/pixelart/ui/achievements/RUINES_CENT-gris.png"
+    },
+    {
+      "apiName": "RUINES_MILLION",
+      "group": "cite",
+      "hidden": false,
+      "name": {
+        "french": "Un champ de ruines",
+        "english": "A Field of Ruins"
+      },
+      "description": {
+        "french": "Récolter un million de Ruines en un seul effondrement.",
+        "english": "Harvest a million Ruins in a single collapse."
+      },
+      "icon": "public/pixelart/ui/achievements/RUINES_MILLION.png",
+      "iconGray": "public/pixelart/ui/achievements/RUINES_MILLION-gris.png"
+    },
+    {
+      "apiName": "RUINES_BILLIARD",
+      "group": "cite",
+      "hidden": false,
+      "name": {
+        "french": "Des décombres à perte de vue",
+        "english": "Rubble as Far as the Eye Can See"
+      },
+      "description": {
+        "french": "Récolter un million de milliards de Ruines en un seul effondrement.",
+        "english": "Harvest a quadrillion Ruins in a single collapse."
+      },
+      "icon": "public/pixelart/ui/achievements/RUINES_BILLIARD.png",
+      "iconGray": "public/pixelart/ui/achievements/RUINES_BILLIARD-gris.png"
+    },
+    {
+      "apiName": "ARBRE_RACINE",
+      "group": "cite",
+      "hidden": false,
+      "name": {
+        "french": "Une première racine",
+        "english": "A First Root"
+      },
+      "description": {
+        "french": "Acquérir un premier nœud de l'arbre des Ruines.",
+        "english": "Acquire a first node of the Tree of Ruins."
+      },
+      "icon": "public/pixelart/ui/achievements/ARBRE_RACINE.png",
+      "iconGray": "public/pixelart/ui/achievements/ARBRE_RACINE-gris.png"
+    },
+    {
+      "apiName": "ARBRE_COURONNE",
+      "group": "cite",
+      "hidden": false,
+      "name": {
+        "french": "Couronner une branche",
+        "english": "Crowning a Branch"
+      },
+      "description": {
+        "french": "Acquérir la couronne d'une branche de l'arbre des Ruines.",
+        "english": "Acquire the crown of a branch of the Tree of Ruins."
+      },
+      "icon": "public/pixelart/ui/achievements/ARBRE_COURONNE.png",
+      "iconGray": "public/pixelart/ui/achievements/ARBRE_COURONNE-gris.png"
+    },
+    {
+      "apiName": "RAYONNEMENT_GOGOL",
+      "group": "cite",
+      "hidden": false,
+      "name": {
+        "french": "Un gogol",
+        "english": "A Googol"
+      },
+      "description": {
+        "french": "Porter le Rayonnement à un gogol (10^100).",
+        "english": "Raise Radiance to a googol (10^100)."
+      },
+      "icon": "public/pixelart/ui/achievements/RAYONNEMENT_GOGOL.png",
+      "iconGray": "public/pixelart/ui/achievements/RAYONNEMENT_GOGOL-gris.png"
+    },
+    {
+      "apiName": "MERVEILLE_PREMIERE",
+      "group": "cite",
+      "hidden": false,
+      "name": {
+        "french": "La pierre se souvient",
+        "english": "Stone Remembers"
+      },
+      "description": {
+        "french": "Ériger une première merveille.",
+        "english": "Erect a first wonder."
+      },
+      "icon": "public/pixelart/ui/achievements/MERVEILLE_PREMIERE.png",
+      "iconGray": "public/pixelart/ui/achievements/MERVEILLE_PREMIERE-gris.png"
+    },
+    {
+      "apiName": "MERVEILLES_TOUTES",
+      "group": "cite",
+      "hidden": false,
+      "name": {
+        "french": "Les six merveilles",
+        "english": "The Six Wonders"
+      },
+      "description": {
+        "french": "Ériger les six merveilles.",
+        "english": "Erect all six wonders."
+      },
+      "icon": "public/pixelart/ui/achievements/MERVEILLES_TOUTES.png",
+      "iconGray": "public/pixelart/ui/achievements/MERVEILLES_TOUTES-gris.png"
+    },
+    {
+      "apiName": "MERVEILLE_RANG_V",
+      "group": "cite",
+      "hidden": false,
+      "name": {
+        "french": "Le faîte de la pierre",
+        "english": "The Summit of Stone"
+      },
+      "description": {
+        "french": "Élever une merveille à son cinquième rang.",
+        "english": "Raise a wonder to its fifth rank."
+      },
+      "icon": "public/pixelart/ui/achievements/MERVEILLE_RANG_V.png",
+      "iconGray": "public/pixelart/ui/achievements/MERVEILLE_RANG_V-gris.png"
+    },
+    {
+      "apiName": "CITE_BAPTISEE",
+      "group": "cite",
+      "hidden": false,
+      "name": {
+        "french": "Un nom pour la cité",
+        "english": "A Name for the City"
+      },
+      "description": {
+        "french": "Donner soi-même son nom à la cité.",
+        "english": "Name the city yourself."
+      },
+      "icon": "public/pixelart/ui/achievements/CITE_BAPTISEE.png",
+      "iconGray": "public/pixelart/ui/achievements/CITE_BAPTISEE-gris.png"
+    },
+    {
+      "apiName": "SCEAU_I",
+      "group": "sceaux",
+      "hidden": true,
+      "name": {
+        "french": "Le Premier Crépuscule",
+        "english": "The First Dusk"
+      },
+      "description": {
+        "french": "Réclamer le sceau I : traverser 10 effondrements.",
+        "english": "Claim Seal I: live through 10 collapses."
+      },
+      "icon": "public/pixelart/ui/achievements/SCEAU_I.png",
+      "iconGray": "public/pixelart/ui/achievements/SCEAU_I-gris.png"
+    },
+    {
+      "apiName": "SCEAU_II",
+      "group": "sceaux",
+      "hidden": true,
+      "name": {
+        "french": "La Première Merveille",
+        "english": "The First Wonder"
+      },
+      "description": {
+        "french": "Réclamer le sceau II : ériger 3 merveilles.",
+        "english": "Claim Seal II: erect 3 wonders."
+      },
+      "icon": "public/pixelart/ui/achievements/SCEAU_II.png",
+      "iconGray": "public/pixelart/ui/achievements/SCEAU_II-gris.png"
+    },
+    {
+      "apiName": "SCEAU_III",
+      "group": "sceaux",
+      "hidden": true,
+      "name": {
+        "french": "Premier Pacte Mythique",
+        "english": "First Mythic Pact"
+      },
+      "description": {
+        "french": "Réclamer le sceau III : accomplir un premier Mythe.",
+        "english": "Claim Seal III: complete a first Myth."
+      },
+      "icon": "public/pixelart/ui/achievements/SCEAU_III.png",
+      "iconGray": "public/pixelart/ui/achievements/SCEAU_III-gris.png"
+    },
+    {
+      "apiName": "SCEAU_IV",
+      "group": "sceaux",
+      "hidden": true,
+      "name": {
+        "french": "La Colonne du Million",
+        "english": "The Column of the Million"
+      },
+      "description": {
+        "french": "Réclamer le sceau IV : porter le Rayonnement au seuil du sceau.",
+        "english": "Claim Seal IV: raise Radiance to the seal's threshold."
+      },
+      "icon": "public/pixelart/ui/achievements/SCEAU_IV.png",
+      "iconGray": "public/pixelart/ui/achievements/SCEAU_IV-gris.png"
+    },
+    {
+      "apiName": "SCEAU_V",
+      "group": "sceaux",
+      "hidden": true,
+      "name": {
+        "french": "L'Olympe se prononce",
+        "english": "Olympus Speaks"
+      },
+      "description": {
+        "french": "Réclamer le sceau V : obtenir le verdict de l'Olympe.",
+        "english": "Claim Seal V: receive the verdict of Olympus."
+      },
+      "icon": "public/pixelart/ui/achievements/SCEAU_V.png",
+      "iconGray": "public/pixelart/ui/achievements/SCEAU_V-gris.png"
+    },
+    {
+      "apiName": "SCEAU_VI",
+      "group": "sceaux",
+      "hidden": true,
+      "name": {
+        "french": "Acte I : La Fondation Scellée",
+        "english": "Act I: The Foundation Sealed"
+      },
+      "description": {
+        "french": "Réclamer le sceau VI : accomplir 5 Mythes.",
+        "english": "Claim Seal VI: complete 5 Myths."
+      },
+      "icon": "public/pixelart/ui/achievements/SCEAU_VI.png",
+      "iconGray": "public/pixelart/ui/achievements/SCEAU_VI-gris.png"
+    },
+    {
+      "apiName": "SCEAU_VII",
+      "group": "sceaux",
+      "hidden": true,
+      "name": {
+        "french": "Le Jackpot d'Icare",
+        "english": "Icarus's Jackpot"
+      },
+      "description": {
+        "french": "Réclamer le sceau VII : se poser à ×25 ou plus au vol d'Icare, sur une grosse mise.",
+        "english": "Claim Seal VII: land at ×25 or more on Icarus's flight, on a big stake."
+      },
+      "icon": "public/pixelart/ui/achievements/SCEAU_VII.png",
+      "iconGray": "public/pixelart/ui/achievements/SCEAU_VII-gris.png"
+    },
+    {
+      "apiName": "SCEAU_VIII",
+      "group": "sceaux",
+      "hidden": true,
+      "name": {
+        "french": "Acte II : La Domination Scellée",
+        "english": "Act II: Dominion Sealed"
+      },
+      "description": {
+        "french": "Réclamer le sceau VIII : accomplir 8 Mythes.",
+        "english": "Claim Seal VIII: complete 8 Myths."
+      },
+      "icon": "public/pixelart/ui/achievements/SCEAU_VIII.png",
+      "iconGray": "public/pixelart/ui/achievements/SCEAU_VIII-gris.png"
+    },
+    {
+      "apiName": "SCEAU_IX",
+      "group": "sceaux",
+      "hidden": true,
+      "name": {
+        "french": "Les Couronnes Jumelles",
+        "english": "The Twin Crowns"
+      },
+      "description": {
+        "french": "Réclamer le sceau IX : acquérir les 4 couronnes de l'arbre des Ruines.",
+        "english": "Claim Seal IX: acquire the 4 crowns of the Tree of Ruins."
+      },
+      "icon": "public/pixelart/ui/achievements/SCEAU_IX.png",
+      "iconGray": "public/pixelart/ui/achievements/SCEAU_IX-gris.png"
+    },
+    {
+      "apiName": "SCEAU_X",
+      "group": "sceaux",
+      "hidden": true,
+      "name": {
+        "french": "Au-delà de la Singularité",
+        "english": "Beyond the Singularity"
+      },
+      "description": {
+        "french": "Réclamer le sceau X : franchir l'ère du sceau, au-delà de la Singularité.",
+        "english": "Claim Seal X: cross the seal's era, beyond the Singularity."
+      },
+      "icon": "public/pixelart/ui/achievements/SCEAU_X.png",
+      "iconGray": "public/pixelart/ui/achievements/SCEAU_X-gris.png"
+    },
+    {
+      "apiName": "SCEAU_XI",
+      "group": "sceaux",
+      "hidden": true,
+      "name": {
+        "french": "Sous le Regard du Ragnarök",
+        "english": "Under Ragnarök's Gaze"
+      },
+      "description": {
+        "french": "Réclamer le sceau XI : accomplir les 14 Mythes, Ragnarök compris.",
+        "english": "Claim Seal XI: complete all 14 Myths, Ragnarök included."
+      },
+      "icon": "public/pixelart/ui/achievements/SCEAU_XI.png",
+      "iconGray": "public/pixelart/ui/achievements/SCEAU_XI-gris.png"
+    },
+    {
+      "apiName": "SCEAUX_TOUS",
+      "group": "sceaux",
+      "hidden": false,
+      "name": {
+        "french": "Le livre scellé",
+        "english": "The Sealed Book"
+      },
+      "description": {
+        "french": "Réclamer les onze sceaux du Grand Reset.",
+        "english": "Claim all eleven Grand Reset seals."
+      },
+      "icon": "public/pixelart/ui/achievements/SCEAUX_TOUS.png",
+      "iconGray": "public/pixelart/ui/achievements/SCEAUX_TOUS-gris.png"
+    },
+    {
+      "apiName": "MYTHE_CHAOS",
+      "group": "mythes",
+      "hidden": false,
+      "name": {
+        "french": "Né du néant",
+        "english": "Born of the Void"
+      },
+      "description": {
+        "french": "Accomplir le Mythe du Chaos.",
+        "english": "Complete the Myth of Chaos."
+      },
+      "icon": "public/pixelart/ui/achievements/MYTHE_CHAOS.png",
+      "iconGray": "public/pixelart/ui/achievements/MYTHE_CHAOS-gris.png"
+    },
+    {
+      "apiName": "MYTHE_PROMETHEE",
+      "group": "mythes",
+      "hidden": false,
+      "name": {
+        "french": "Le feu volé",
+        "english": "The Stolen Fire"
+      },
+      "description": {
+        "french": "Accomplir le Mythe de Prométhée.",
+        "english": "Complete the Myth of Prometheus."
+      },
+      "icon": "public/pixelart/ui/achievements/MYTHE_PROMETHEE.png",
+      "iconGray": "public/pixelart/ui/achievements/MYTHE_PROMETHEE-gris.png"
+    },
+    {
+      "apiName": "MYTHE_ENEE",
+      "group": "mythes",
+      "hidden": false,
+      "name": {
+        "french": "La migration fondatrice",
+        "english": "The Founding Migration"
+      },
+      "description": {
+        "french": "Accomplir le Mythe d'Énée.",
+        "english": "Complete the Myth of Aeneas."
+      },
+      "icon": "public/pixelart/ui/achievements/MYTHE_ENEE.png",
+      "iconGray": "public/pixelart/ui/achievements/MYTHE_ENEE-gris.png"
+    },
+    {
+      "apiName": "MYTHE_CADMOS",
+      "group": "mythes",
+      "hidden": false,
+      "name": {
+        "french": "Les noms de pouvoir",
+        "english": "Names of Power"
+      },
+      "description": {
+        "french": "Accomplir le Mythe de Cadmos.",
+        "english": "Complete the Myth of Cadmus."
+      },
+      "icon": "public/pixelart/ui/achievements/MYTHE_CADMOS.png",
+      "iconGray": "public/pixelart/ui/achievements/MYTHE_CADMOS-gris.png"
+    },
+    {
+      "apiName": "MYTHE_HEPHAISTOS",
+      "group": "mythes",
+      "hidden": false,
+      "name": {
+        "french": "La forge des automates",
+        "english": "The Forge of Automatons"
+      },
+      "description": {
+        "french": "Accomplir le Mythe d'Héphaïstos.",
+        "english": "Complete the Myth of Hephaestus."
+      },
+      "icon": "public/pixelart/ui/achievements/MYTHE_HEPHAISTOS.png",
+      "iconGray": "public/pixelart/ui/achievements/MYTHE_HEPHAISTOS-gris.png"
+    },
+    {
+      "apiName": "MYTHE_SISYPHE",
+      "group": "mythes",
+      "hidden": false,
+      "name": {
+        "french": "Le rocher au sommet",
+        "english": "The Boulder at the Summit"
+      },
+      "description": {
+        "french": "Accomplir le Mythe de Sisyphe.",
+        "english": "Complete the Myth of Sisyphus."
+      },
+      "icon": "public/pixelart/ui/achievements/MYTHE_SISYPHE.png",
+      "iconGray": "public/pixelart/ui/achievements/MYTHE_SISYPHE-gris.png"
+    },
+    {
+      "apiName": "MYTHE_BABEL",
+      "group": "mythes",
+      "hidden": false,
+      "name": {
+        "french": "La langue commune",
+        "english": "The Common Tongue"
+      },
+      "description": {
+        "french": "Accomplir le Mythe de Babel.",
+        "english": "Complete the Myth of Babel."
+      },
+      "icon": "public/pixelart/ui/achievements/MYTHE_BABEL.png",
+      "iconGray": "public/pixelart/ui/achievements/MYTHE_BABEL-gris.png"
+    },
+    {
+      "apiName": "MYTHE_AGE_OR",
+      "group": "mythes",
+      "hidden": false,
+      "name": {
+        "french": "Les caravanes",
+        "english": "The Caravans"
+      },
+      "description": {
+        "french": "Accomplir le Mythe de l'Âge d'Or.",
+        "english": "Complete the Myth of the Golden Age."
+      },
+      "icon": "public/pixelart/ui/achievements/MYTHE_AGE_OR.png",
+      "iconGray": "public/pixelart/ui/achievements/MYTHE_AGE_OR-gris.png"
+    },
+    {
+      "apiName": "MYTHE_ATLAS",
+      "group": "mythes",
+      "hidden": false,
+      "name": {
+        "french": "Porter le ciel",
+        "english": "Bearing the Sky"
+      },
+      "description": {
+        "french": "Accomplir le Mythe d'Atlas.",
+        "english": "Complete the Myth of Atlas."
+      },
+      "icon": "public/pixelart/ui/achievements/MYTHE_ATLAS.png",
+      "iconGray": "public/pixelart/ui/achievements/MYTHE_ATLAS-gris.png"
+    },
+    {
+      "apiName": "MYTHE_ICARE",
+      "group": "mythes",
+      "hidden": false,
+      "name": {
+        "french": "Les ailes de cire",
+        "english": "Wings of Wax"
+      },
+      "description": {
+        "french": "Accomplir le Mythe d'Icare.",
+        "english": "Complete the Myth of Icarus."
+      },
+      "icon": "public/pixelart/ui/achievements/MYTHE_ICARE.png",
+      "iconGray": "public/pixelart/ui/achievements/MYTHE_ICARE-gris.png"
+    },
+    {
+      "apiName": "MYTHE_PHENIX",
+      "group": "mythes",
+      "hidden": false,
+      "name": {
+        "french": "Trois fois renaître",
+        "english": "Reborn Three Times"
+      },
+      "description": {
+        "french": "Accomplir le Mythe du Phénix.",
+        "english": "Complete the Myth of the Phoenix."
+      },
+      "icon": "public/pixelart/ui/achievements/MYTHE_PHENIX.png",
+      "iconGray": "public/pixelart/ui/achievements/MYTHE_PHENIX-gris.png"
+    },
+    {
+      "apiName": "MYTHE_ATRIDES",
+      "group": "mythes",
+      "hidden": false,
+      "name": {
+        "french": "La dette payée",
+        "english": "The Debt Repaid"
+      },
+      "description": {
+        "french": "Accomplir le Mythe des Atrides.",
+        "english": "Complete the Myth of the Atreides."
+      },
+      "icon": "public/pixelart/ui/achievements/MYTHE_ATRIDES.png",
+      "iconGray": "public/pixelart/ui/achievements/MYTHE_ATRIDES-gris.png"
+    },
+    {
+      "apiName": "MYTHE_ANTEE",
+      "group": "mythes",
+      "hidden": false,
+      "name": {
+        "french": "Le géant et la terre",
+        "english": "The Giant and the Earth"
+      },
+      "description": {
+        "french": "Accomplir le Mythe d'Antée.",
+        "english": "Complete the Myth of Antaeus."
+      },
+      "icon": "public/pixelart/ui/achievements/MYTHE_ANTEE.png",
+      "iconGray": "public/pixelart/ui/achievements/MYTHE_ANTEE-gris.png"
+    },
+    {
+      "apiName": "MYTHE_RAGNAROK",
+      "group": "mythes",
+      "hidden": true,
+      "name": {
+        "french": "Le crépuscule des dieux",
+        "english": "Twilight of the Gods"
+      },
+      "description": {
+        "french": "Achever l'Arche et conjurer le Ragnarök.",
+        "english": "Complete the Ark and ward off Ragnarök."
+      },
+      "icon": "public/pixelart/ui/achievements/MYTHE_RAGNAROK.png",
+      "iconGray": "public/pixelart/ui/achievements/MYTHE_RAGNAROK-gris.png"
+    },
+    {
+      "apiName": "CIEL_TOMBE",
+      "group": "mythes",
+      "hidden": true,
+      "name": {
+        "french": "Le ciel est tombé",
+        "english": "The Sky Fell"
+      },
+      "description": {
+        "french": "Laisser le ciel d'Atlas écraser la cité.",
+        "english": "Let Atlas's sky crush the city."
+      },
+      "icon": "public/pixelart/ui/achievements/CIEL_TOMBE.png",
+      "iconGray": "public/pixelart/ui/achievements/CIEL_TOMBE-gris.png"
+    },
+    {
+      "apiName": "OSSELETS_VENUS",
+      "group": "maison",
+      "hidden": false,
+      "name": {
+        "french": "Coup de Vénus",
+        "english": "Venus Throw"
+      },
+      "description": {
+        "french": "Tirer un coup de Vénus aux osselets.",
+        "english": "Roll a Venus throw at knucklebones."
+      },
+      "icon": "public/pixelart/ui/achievements/OSSELETS_VENUS.png",
+      "iconGray": "public/pixelart/ui/achievements/OSSELETS_VENUS-gris.png"
+    },
+    {
+      "apiName": "OSSELETS_CHIEN",
+      "group": "maison",
+      "hidden": true,
+      "name": {
+        "french": "Le coup du Chien",
+        "english": "The Dog Throw"
+      },
+      "description": {
+        "french": "Tirer le coup du Chien aux osselets.",
+        "english": "Roll the Dog throw at knucklebones."
+      },
+      "icon": "public/pixelart/ui/achievements/OSSELETS_CHIEN.png",
+      "iconGray": "public/pixelart/ui/achievements/OSSELETS_CHIEN-gris.png"
+    },
+    {
+      "apiName": "ICARE_X10",
+      "group": "maison",
+      "hidden": false,
+      "name": {
+        "french": "Plus près du soleil",
+        "english": "Closer to the Sun"
+      },
+      "description": {
+        "french": "Se poser à ×10 ou plus au vol d'Icare.",
+        "english": "Land at ×10 or more on Icarus's flight."
+      },
+      "icon": "public/pixelart/ui/achievements/ICARE_X10.png",
+      "iconGray": "public/pixelart/ui/achievements/ICARE_X10-gris.png"
+    },
+    {
+      "apiName": "GRATTEUX_SOLEIL",
+      "group": "maison",
+      "hidden": false,
+      "name": {
+        "french": "Un soleil sous la cire",
+        "english": "A Sun Beneath the Wax"
+      },
+      "description": {
+        "french": "Gratter un soleil sur un ticket.",
+        "english": "Scratch a sun on a ticket."
+      },
+      "icon": "public/pixelart/ui/achievements/GRATTEUX_SOLEIL.png",
+      "iconGray": "public/pixelart/ui/achievements/GRATTEUX_SOLEIL-gris.png"
+    },
+    {
+      "apiName": "VINGTETUN_NATUREL",
+      "group": "maison",
+      "hidden": false,
+      "name": {
+        "french": "Vingt-et-un d'entrée",
+        "english": "A Natural Twenty-One"
+      },
+      "description": {
+        "french": "Être servi d'un vingt-et-un naturel.",
+        "english": "Be dealt a natural twenty-one."
+      },
+      "icon": "public/pixelart/ui/achievements/VINGTETUN_NATUREL.png",
+      "iconGray": "public/pixelart/ui/achievements/VINGTETUN_NATUREL-gris.png"
+    },
+    {
+      "apiName": "VINGTETUN_SERIE",
+      "group": "maison",
+      "hidden": false,
+      "name": {
+        "french": "La voix de l'oracle",
+        "english": "The Oracle's Voice"
+      },
+      "description": {
+        "french": "Gagner 5 mains de suite au vingt-et-un.",
+        "english": "Win 5 hands in a row at twenty-one."
+      },
+      "icon": "public/pixelart/ui/achievements/VINGTETUN_SERIE.png",
+      "iconGray": "public/pixelart/ui/achievements/VINGTETUN_SERIE-gris.png"
+    },
+    {
+      "apiName": "VIDEUR",
+      "group": "maison",
+      "hidden": true,
+      "name": {
+        "french": "Raccompagné à la porte",
+        "english": "Shown the Door"
+      },
+      "description": {
+        "french": "Se faire sortir du vingt-et-un par le videur.",
+        "english": "Get thrown out of twenty-one by the bouncer."
+      },
+      "icon": "public/pixelart/ui/achievements/VIDEUR.png",
+      "iconGray": "public/pixelart/ui/achievements/VIDEUR-gris.png"
+    },
+    {
+      "apiName": "MACHINE_HOLD",
+      "group": "maison",
+      "hidden": false,
+      "name": {
+        "french": "Tenir et gagner",
+        "english": "Hold and Win"
+      },
+      "description": {
+        "french": "Déclencher le Hold & Win à la machine à sous.",
+        "english": "Trigger the Hold & Win on the slot machine."
+      },
+      "icon": "public/pixelart/ui/achievements/MACHINE_HOLD.png",
+      "iconGray": "public/pixelart/ui/achievements/MACHINE_HOLD-gris.png"
+    },
+    {
+      "apiName": "MACHINE_JACKPOT",
+      "group": "maison",
+      "hidden": false,
+      "name": {
+        "french": "Le gros lot",
+        "english": "The Big One"
+      },
+      "description": {
+        "french": "Rafler un jackpot à la machine à sous.",
+        "english": "Rake in a jackpot on the slot machine."
+      },
+      "icon": "public/pixelart/ui/achievements/MACHINE_JACKPOT.png",
+      "iconGray": "public/pixelart/ui/achievements/MACHINE_JACKPOT-gris.png"
+    },
+    {
+      "apiName": "DUEL_GAGNE",
+      "group": "maison",
+      "hidden": false,
+      "name": {
+        "french": "Le flambeur à terre",
+        "english": "The High Roller Falls"
+      },
+      "description": {
+        "french": "Gagner un duel contre le grand flambeur.",
+        "english": "Win a duel against the high roller."
+      },
+      "icon": "public/pixelart/ui/achievements/DUEL_GAGNE.png",
+      "iconGray": "public/pixelart/ui/achievements/DUEL_GAGNE-gris.png"
+    },
+    {
+      "apiName": "COURSE_OUTSIDER",
+      "group": "maison",
+      "hidden": false,
+      "name": {
+        "french": "Le tocard",
+        "english": "The Long Shot"
+      },
+      "description": {
+        "french": "Gagner une course sur un outsider coté à 10 contre 1 ou plus.",
+        "english": "Win a race on an outsider at odds of 10 to 1 or longer."
+      },
+      "icon": "public/pixelart/ui/achievements/COURSE_OUTSIDER.png",
+      "iconGray": "public/pixelart/ui/achievements/COURSE_OUTSIDER-gris.png"
+    },
+    {
+      "apiName": "ROUE_MAISON",
+      "group": "maison",
+      "hidden": false,
+      "name": {
+        "french": "La roue tourne",
+        "english": "The Wheel Turns"
+      },
+      "description": {
+        "french": "Prendre un tour de la roue de la Maison.",
+        "english": "Take a spin of the House wheel."
+      },
+      "icon": "public/pixelart/ui/achievements/ROUE_MAISON.png",
+      "iconGray": "public/pixelart/ui/achievements/ROUE_MAISON-gris.png"
+    },
+    {
+      "apiName": "NUIT_GRAND_JEU",
+      "group": "maison",
+      "hidden": false,
+      "name": {
+        "french": "La Nuit du Grand Jeu",
+        "english": "The Night of High Play"
+      },
+      "description": {
+        "french": "Vivre une Nuit du Grand Jeu.",
+        "english": "Live through a Night of High Play."
+      },
+      "icon": "public/pixelart/ui/achievements/NUIT_GRAND_JEU.png",
+      "iconGray": "public/pixelart/ui/achievements/NUIT_GRAND_JEU-gris.png"
+    },
+    {
+      "apiName": "MAISON_FAMILIER",
+      "group": "maison",
+      "hidden": false,
+      "name": {
+        "french": "Un visage familier",
+        "english": "A Familiar Face"
+      },
+      "description": {
+        "french": "Devenir Familier de la Maison.",
+        "english": "Become a Familiar face of the House."
+      },
+      "icon": "public/pixelart/ui/achievements/MAISON_FAMILIER.png",
+      "iconGray": "public/pixelart/ui/achievements/MAISON_FAMILIER-gris.png"
+    },
+    {
+      "apiName": "MAISON_MECENE",
+      "group": "maison",
+      "hidden": false,
+      "name": {
+        "french": "Mécène",
+        "english": "Patron"
+      },
+      "description": {
+        "french": "Devenir Mécène de la Maison.",
+        "english": "Become a Patron of the House."
+      },
+      "icon": "public/pixelart/ui/achievements/MAISON_MECENE.png",
+      "iconGray": "public/pixelart/ui/achievements/MAISON_MECENE-gris.png"
+    },
+    {
+      "apiName": "MAISON_PRINCE",
+      "group": "maison",
+      "hidden": false,
+      "name": {
+        "french": "Prince de la Maison",
+        "english": "Prince of the House"
+      },
+      "description": {
+        "french": "Atteindre le plus haut titre de la Maison.",
+        "english": "Reach the highest title of the House."
+      },
+      "icon": "public/pixelart/ui/achievements/MAISON_PRINCE.png",
+      "iconGray": "public/pixelart/ui/achievements/MAISON_PRINCE-gris.png"
+    },
+    {
+      "apiName": "FD_PREMIER",
+      "group": "faits-divers",
+      "hidden": false,
+      "name": {
+        "french": "Ça s'est passé près de chez vous",
+        "english": "It Happened Around the Corner"
+      },
+      "description": {
+        "french": "Surprendre un premier fait divers dans les rues.",
+        "english": "Witness a first local tale in the streets."
+      },
+      "icon": "public/pixelart/ui/achievements/FD_PREMIER.png",
+      "iconGray": "public/pixelart/ui/achievements/FD_PREMIER-gris.png"
+    },
+    {
+      "apiName": "FD_HISTOIRE",
+      "group": "faits-divers",
+      "hidden": false,
+      "name": {
+        "french": "Le fin mot de l'histoire",
+        "english": "The End of the Story"
+      },
+      "description": {
+        "french": "Suivre un feuilleton des rues jusqu'à son dernier chapitre.",
+        "english": "Follow a street serial to its last chapter."
+      },
+      "icon": "public/pixelart/ui/achievements/FD_HISTOIRE.png",
+      "iconGray": "public/pixelart/ui/achievements/FD_HISTOIRE-gris.png"
+    },
+    {
+      "apiName": "FD_TOUTES",
+      "group": "faits-divers",
+      "hidden": false,
+      "name": {
+        "french": "La gazette des rues",
+        "english": "The Street Gazette"
+      },
+      "description": {
+        "french": "Suivre tous les feuilletons des rues jusqu'au bout.",
+        "english": "Follow every street serial to the end."
+      },
+      "icon": "public/pixelart/ui/achievements/FD_TOUTES.png",
+      "iconGray": "public/pixelart/ui/achievements/FD_TOUTES-gris.png"
+    },
+    {
+      "apiName": "FD_CURIOSITES",
+      "group": "faits-divers",
+      "hidden": false,
+      "name": {
+        "french": "Le badaud",
+        "english": "The Onlooker"
+      },
+      "description": {
+        "french": "Remarquer toutes les curiosités de la ville.",
+        "english": "Notice every curiosity in town."
+      },
+      "icon": "public/pixelart/ui/achievements/FD_CURIOSITES.png",
+      "iconGray": "public/pixelart/ui/achievements/FD_CURIOSITES-gris.png"
+    },
+    {
+      "apiName": "FD_AMOUREUX",
+      "group": "faits-divers",
+      "hidden": true,
+      "name": {
+        "french": "Le ruban recousu",
+        "english": "The Ribbon Mended"
+      },
+      "description": {
+        "french": "Mener Nancy et William jusqu'à leur mariage.",
+        "english": "See Nancy and William through to their wedding."
+      },
+      "icon": "public/pixelart/ui/achievements/FD_AMOUREUX.png",
+      "iconGray": "public/pixelart/ui/achievements/FD_AMOUREUX-gris.png"
+    },
+    {
+      "apiName": "TEMPS_UNE_HEURE",
+      "group": "chronique",
+      "hidden": false,
+      "name": {
+        "french": "Une heure d'histoire",
+        "english": "An Hour of History"
+      },
+      "description": {
+        "french": "Jouer une heure.",
+        "english": "Play for an hour."
+      },
+      "icon": "public/pixelart/ui/achievements/TEMPS_UNE_HEURE.png",
+      "iconGray": "public/pixelart/ui/achievements/TEMPS_UNE_HEURE-gris.png"
+    },
+    {
+      "apiName": "TEMPS_DIX_HEURES",
+      "group": "chronique",
+      "hidden": false,
+      "name": {
+        "french": "Le chroniqueur",
+        "english": "The Chronicler"
+      },
+      "description": {
+        "french": "Jouer dix heures.",
+        "english": "Play for ten hours."
+      },
+      "icon": "public/pixelart/ui/achievements/TEMPS_DIX_HEURES.png",
+      "iconGray": "public/pixelart/ui/achievements/TEMPS_DIX_HEURES-gris.png"
+    },
+    {
+      "apiName": "TEMPS_CENT_HEURES",
+      "group": "chronique",
+      "hidden": false,
+      "name": {
+        "french": "La mémoire des âges",
+        "english": "The Memory of the Ages"
+      },
+      "description": {
+        "french": "Jouer cent heures.",
+        "english": "Play for a hundred hours."
+      },
+      "icon": "public/pixelart/ui/achievements/TEMPS_CENT_HEURES.png",
+      "iconGray": "public/pixelart/ui/achievements/TEMPS_CENT_HEURES-gris.png"
+    }
+  ]
+}

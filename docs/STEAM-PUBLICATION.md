@@ -11,6 +11,32 @@ nouvelle source d'images (pack, outil d'IA) se reporte ici **avant** la mise en 
 
 ---
 
+## 0. Nom du produit (STEAM-10, décision de Raph du 05/10)
+
+**« Effondrement Idle »** en français, **« Collapse Idle »** en anglais — page du magasin
+(nom anglais et nom localisé français), fenêtre, onglet, installeur. Plus de « Civilisation » dans
+le nom : la précaution sur la marque « Civilization » (2K) tombe.
+
+Où il est écrit (à garder identique) :
+
+- `package.json` : `build.productName` (nom de l'.exe, de l'installeur NSIS, du menu Démarrer)
+  et `description` ;
+- `index.html` : `<title>` (le nom français, au premier affichage) ;
+- `src/game/core/i18n.js` : `GAME_TITLE`, posé dans `document.title` selon la langue
+  (`applyDocumentLang`) — la fenêtre de l'.exe reprend le titre de la page ;
+- `public/manifest.webmanifest` : `name` ;
+- `main.cjs` : `APP_TITLE` (titre des fenêtres du système, dans la langue du jeu) ;
+- `src/App.jsx` : la marque de la barre latérale et le texte de remplacement du logo.
+
+Ce qui ne change **pas**, à dessein : le champ `name` de `package.json`
+(`civilisation-effondrement`, qui est aussi le dossier des sauvegardes, figé par `main.cjs`),
+`build.appId`, l'hôte `app://localhost`, le dossier « Civilisation Idle » et le fichier
+`civilisation-idle-save.json` du miroir Google Drive (ils existent déjà chez les joueurs). Le
+changement de `productName` déplace seulement le dossier d'installation NSIS et les raccourcis
+des joueurs de l'ancien .exe « Civilisation Idle » : la partie, elle, ne bouge pas.
+
+---
+
 ## 1. Questionnaire de contenu mature (STEAM-6)
 
 ### 1.1 Ce que le jeu montre (faits)
@@ -18,8 +44,11 @@ nouvelle source d'images (pack, outil d'IA) se reporte ici **avant** la mise en 
 **La Maison des Plaisirs** — onglet ouvert très tôt : dès que l'un de ses jeux est débloqué
 (`src/game/core/actions/tick.js`, fait `plaisirs` ; tickets à gratter à `bestEra ≥ 2`), encore
 dans l'âge du Feu ; la façade est sur la carte dès `PLAISIRS_OPEN_ERA = 2`
-(`src/game/map/layout.js`). Elle reste ouverte après un effondrement. **Aucune option ne la
-masque** aujourd'hui.
+(`src/game/map/layout.js`). Elle reste ouverte après un effondrement. Une case **« Tenues
+sages »** (Options › Affichage, **désactivée par défaut**) retire ses troupes : danseuses,
+hôtesses, croupière, courtisanes et gigolos laissent la place aux habitants de l'âge, habillés
+comme la ville, et les courtisanes alanguies disparaissent (`src/game/map/iso/plaisirsCast.js`,
+`tenuesSages`). Les ombres enlacées du boudoir et les jeux d'argent restent.
 
 - Danseuses, hôtesses et courtisanes en pixel art (32 px), une troupe par âge
   (`src/game/map/iso/plaisirsCast.js`, dessinées par `scripts/plaisirsGirls.mjs`) :
@@ -51,8 +80,9 @@ masque** aujourd'hui.
   Jeu » toutes les trois heures, des titres de fidélité façon casino (Familier → Prince de la
   Maison), un mode « Laisser courir » et des automatisations qui jouent seules ;
 - **la monnaie est la Faveur, gagnée uniquement en jeu** : aucun achat, aucun retrait, aucun
-  code de paiement dans le dépôt (vérifié : ni Steamworks, ni boutique, ni microtransaction ; la
-  Faveur ne s'obtient que par le jeu).
+  code de paiement dans le dépôt (vérifié : ni boutique, ni microtransaction ; Steamworks ne sert
+  qu'aux **succès**, par un pont optionnel — `docs/STEAM-SUCCES.md` ; la Faveur ne s'obtient que
+  par le jeu).
 - L'Aide (Options › Aide › « Les tables ») décrit désormais tous ces jeux, machine à sous
   comprise (`src/game/data/helpChapters.js`, gardé par `helpChapters.test.js`).
 
@@ -107,11 +137,13 @@ Feu (âges 0-1), la troupe de la Fonte (cancan), une antichambre avec une alangu
 nuit (ombres enlacées), la machine à sous pendant un Hold & Win. Les ranger dans
 `docs/steam/captures/` (PNG du jeu, pas d'asset tiers brut : cf. `CREDITS.md`).
 
-### 1.4 Question ouverte pour Raph
+### 1.4 « Tenues sages » (faite le 05/10, décision de Raph)
 
-Une case « Maison des Plaisirs : tenues sages » (repli déjà prévu sur les femmes du jeu
-d'habitants, `plaisirsCast.js`) permettrait de viser une classification plus basse et rassurerait
-les streamers. C'est un choix de conception : rien n'est codé.
+La case existe (voir 1.1), désactivée par défaut. Elle rassure les streamers ; elle ne change
+**pas** les réponses ci-dessus, qui décrivent le jeu tel qu'il se lance (case décochée). Si un
+jour la classification visée devait reposer sur elle, le dire dans la description du contenu
+(« an option replaces these outfits with ordinary townsfolk clothing ») plutôt que de décocher
+les cases.
 
 ---
 
@@ -125,9 +157,11 @@ la réponse sur la page du magasin.
 
 Le jeu n'appelle aucun service d'IA ni aucun serveur pendant la partie : aucun `fetch` vers une
 URL distante dans `src/`, aucune mention de pixellab.ai, Anthropic ou OpenAI dans `src/`,
-`main.cjs` ou `preload.cjs` (vérifié le 05/10). La seule écriture hors du dossier du jeu est le
-miroir de la sauvegarde vers un dossier Google Drive local quand il existe (.exe) : une copie de
-fichier, qui ne génère rien.
+`main.cjs` ou `preload.cjs` (vérifié le 05/10), hors le texte de la ligne « Génération
+d'images » des Crédits (`OptionsDialog.jsx`, STEAM-7) — un libellé, pas un appel. La seule écriture hors du dossier du jeu est le
+miroir de la sauvegarde vers un dossier Google Drive local quand il existe (.exe hors Steam
+seulement : la version Steam n'a pas ce miroir, Steam Cloud transporte la save, STEAM-4) : une
+copie de fichier, qui ne génère rien.
 
 ### 2.2 Pré-généré : l'inventaire
 
@@ -150,7 +184,13 @@ Ordres de grandeur au 05/10, sur ~4 990 PNG de `public/pixelart/` :
 | Code (et le dessin « pixel par pixel » ci-dessus) | écrit avec un **assistant de programmation IA** (Claude, Anthropic), sous la direction et la relecture de Raph | tout le dépôt | 732 commits sur 757 portent « Co-Authored-By: Claude » (`git log`, 05/10) |
 
 Le pack LaserKiwi (bétail, chiens, chats), lui-même un export PixelLab d'un tiers sans licence, a
-été **retiré du jeu** le 05/10 (`CREDITS.md`, « Retirés du jeu ») : il n'est plus à déclarer.
+été **retiré du jeu** le 05/10 (`CREDITS.md`, « Retirés du jeu ») : il n'est plus à déclarer. Les
+bêtes qui l'ont remplacé (vache, mouton, chèvre, chien, chat, `agents/animals/critter-*.png`) sont
+**faites maison avec PixelLab** : elles entrent dans la ligne PixelLab ci-dessus.
+
+L'onglet Options › Crédits porte une ligne **« Génération d'images »** qui nomme PixelLab
+(décision de Raph du 05/10, FR et EN, gardée par `credits.test.js`) : la page du magasin et le
+jeu disent la même chose.
 
 ### 2.3 Le processus de retouche (à résumer dans le formulaire)
 
@@ -225,3 +265,18 @@ page Steam (section « À propos » ou mentions légales), bloc prêt à coller 
 > Silkscreen, Inter (SIL OFL 1.1).
 
 Tableau complet, termes et fichiers : `CREDITS.md`.
+
+---
+
+## 4. Succès Steam (STEAM-9)
+
+80 succès nommés et décrits en français et en anglais, suivis dans la sauvegarde ; le pont vers
+Steamworks est prêt mais **éteint tant que l'App ID n'existe pas et que `steamworks.js` n'est pas
+installé**. Liste, fichiers pour le site Steamworks (`docs/steam/succes.json` et `.csv`), mise en
+service du pont et tests : `docs/STEAM-SUCCES.md`.
+
+Les succès se lisent aussi dans le jeu (Chronique › la Bibliothèque), et chacun a ses deux icônes
+64×64 à téléverser sur Steamworks (`public/pixelart/ui/achievements/`, débloquée et grise). Elles
+reprennent l'art existant du jeu ; 22 viennent de PixelLab (`art/succes/`) : elles entrent dans la
+ligne PixelLab de l'inventaire du § 2.2. Deux composent des cartes du pack Bit Digitalis (crédité,
+usage commercial permis).

@@ -11,6 +11,7 @@
 import { CM } from '../layout.js';
 import { worldToScreen } from './projection.js';
 import { ensureDrone, drawDroneRotors, VEH_SCALE } from '../agents.js';
+import { SUN_SHADOW, sunShadowAlpha } from './isoSunShadow.js';
 
 // ── OISEAUX : 🚫 LA NUÉE QUI TRAVERSE EST PARTIE ────────────────────────────
 // Réponse de Raph (2026-10-01) : des oiseaux POSÉS qui s'envolent (pigeons des places
@@ -36,9 +37,19 @@ export function drawIsoDrones(now) {
     const t2 = now || 0;
     const hover = Math.sin(t2 / 380 + v.x * 0.04) * s * 0.04;
     const dScale = (CM.droneSize || 0.58) * VEH_SCALE;   // le drone est un véhicule : même échelle
-    // Ombre AU SOL (à la position projetée), drone en altitude au-dessus.
-    ctx.fillStyle = 'rgba(0,0,0,0.12)';
-    ctx.beginPath(); ctx.ellipse(p.x, p.y, s * dScale * 0.2, s * dScale * 0.07, 0, 0, Math.PI * 2); ctx.fill();
+    // Ombre AU SOL (à la position projetée), drone en altitude au-dessus — celle du
+    // SOLEIL (audit 2026-10-05, BUG-99 ; choix (a) de Raph) : sa teinte, son mode et sa
+    // force du moment, donc éteinte la nuit, en vue lointaine et au palier « perf »,
+    // fondue sous le zoom 0,6. L'ellipse noire fixe restait seule au sol la nuit.
+    const sk = SUN_SHADOW.alpha > 0 ? sunShadowAlpha() / SUN_SHADOW.alpha : 0;
+    if (sk > 0) {
+      const ga = ctx.globalAlpha, op = ctx.globalCompositeOperation;
+      ctx.globalAlpha = ga * 0.12 * sk;
+      if (SUN_SHADOW.mode) ctx.globalCompositeOperation = SUN_SHADOW.mode;
+      ctx.fillStyle = SUN_SHADOW.col;
+      ctx.beginPath(); ctx.ellipse(p.x, p.y, s * dScale * 0.2, s * dScale * 0.07, 0, 0, Math.PI * 2); ctx.fill();
+      ctx.globalAlpha = ga; ctx.globalCompositeOperation = op;
+    }
     if (!(dchr && dchr.ready && dchr.img)) { ctx.globalAlpha = pa; continue; }
     const q = worldToScreen(v.tx, v.ty);
     let hx = q.x - p.x, hy = q.y - p.y;

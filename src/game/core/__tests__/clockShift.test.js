@@ -15,7 +15,7 @@ import {
   CLOCK_REWIND_TOLERANCE_SEC
 } from "../offlineCredit.js";
 import { startGameLoop } from "../main.js";
-import { RAGNAROK_ARK_COOLDOWN_MS, ATRIDES_RENEGOTIATE_DURATION_MS, ATRIDES_RENEGOTIATE_COOLDOWN_MS } from "../../data/myths.js";
+import { RAGNAROK_ARK_COOLDOWN_MS, ATRIDES_RENEGOTIATE_DURATION_MS, ATRIDES_RENEGOTIATE_COOLDOWN_MS, OR_CARAVAN_WAIT_VEXED_MS } from "../../data/myths.js";
 import { VIDEUR_BANNI_MIN, NUIT_DUREE_MIN, NUIT_INTERVAL_H, SPECTACLE_DUREE_MIN } from "../balance.js";
 import { MID_GAME_FIXTURE, FIXED_NOW } from "./fixtures.js";
 
@@ -163,5 +163,19 @@ describe("échéances futures bornées au chargement (SAV-12)", () => {
     expect(ok.bjBarreJusqua).toBe(FIXED_NOW + 10 * MIN);
     expect(ok.nuitProchaine).toBe(FIXED_NOW + 2 * HOUR);
     expect(ok.roueAt).toBe(FIXED_NOW - 5 * MIN);
+  });
+
+  // Décision de Raph sur SAV-12 (a) : la Bénédiction, qui se cumule sans plafond,
+  // est bornée à maintenant + 24 h au chargement.
+  it("Bénédiction : bornée à maintenant + 24 h, une durée légitime passe telle quelle", () => {
+    expect(hydrateState({ blessingUntil: FAR_FUTURE }).blessingUntil).toBe(FIXED_NOW + DAY);
+    expect(hydrateState({ blessingUntil: FIXED_NOW + 3 * HOUR }).blessingUntil).toBe(FIXED_NOW + 3 * HOUR);
+  });
+
+  // Caravane de l'Âge d'Or (BUG-70) : l'attente écrite en dur dans hydrateState
+  // (TDZ) suit OR_CARAVAN_WAIT_VEXED_MS.
+  it("Âge d'Or : l'attente de la caravane suivante est bornée à sa plus longue durée", () => {
+    expect(hydrateState({ orNextCaravanAt: FIXED_NOW + OR_CARAVAN_WAIT_VEXED_MS }).orNextCaravanAt).toBe(FIXED_NOW + OR_CARAVAN_WAIT_VEXED_MS);
+    expect(hydrateState({ orNextCaravanAt: FAR_FUTURE }).orNextCaravanAt).toBe(FIXED_NOW + OR_CARAVAN_WAIT_VEXED_MS);
   });
 });

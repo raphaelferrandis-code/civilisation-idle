@@ -30,8 +30,10 @@ import { isoEngineSceneBox, isoEngineScenesFlag } from './isoEngineScene.js';
 import { drawEngineRuin } from './isoChuteScene.js';
 import { clearDustCache } from './chuteDust.js';
 import {
-  CHUTE, CHUTE_TUNE, chuteMs, chuteTileState, chuteFallenRadius, chuteWaveEnd, chuteHash,
+  CHUTE, CHUTE_TUNE, chuteTune, setChuteShort, chuteMs, chuteTileState, chuteFallenRadius, chuteWaveEnd, chuteHash,
 } from './chuteState.js';
+import { chuteShortNext, noteChutePlayed } from '../chuteMode.js';
+import { isWindowMinimized } from '../../core/desktopWindow.js';
 import { worldToScreen, depthOf, snapZoom, ISO_X, ISO_Y } from './projection.js';
 import { HOUSE_LOT_WF } from '../spriteScale.js';
 
@@ -96,7 +98,7 @@ function onSkip(e) {
   e.preventDefault();
   e.stopImmediatePropagation();
   if (e.type === 'click') return;   // le clic qui suit le pointerdown : déjà servi
-  const T = CHUTE_TUNE;
+  const T = chuteTune();
   if (CHUTE.act === 'fall') {
     // directement au début du fondu au noir
     const target = chuteWaveEnd() + T.nightAt + T.nightMs + T.fadeAt;
@@ -118,14 +120,21 @@ function listenSkip(on) {
 }
 
 // Lance la chute. Renvoie une promesse tenue quand le noir est atteint, ou null si
-// la carte n'est pas là pour la jouer (onglet caché, carte pas encore construite).
+// la carte n'est pas là pour la jouer (onglet caché, fenêtre de l'.exe réduite — la
+// carte n'y peint plus, ELEC-6 —, carte pas encore construite).
 function startFall() {
   const L = CM.layout;
-  if (!L || !CM.canvas || !CM.cam || (typeof document !== 'undefined' && document.hidden)) return null;
+  if (!L || !CM.canvas || !CM.cam || (typeof document !== 'undefined' && document.hidden) || isWindowMinimized()) return null;
   // Le passant ou la charrette qu'on suivait (fiche d'habitant, citizenFocus.js)
   // part avec sa ville : sa fiche se ferme, et la caméra qui le suivait — elle
   // éteignait tout recentrage à chaque frame — laisse la vague partir du cœur.
   clearCitizenFocus();
+  // Complète ou courte (réglage « Chute de la cité », map/chuteMode.js ; CHUTE-9) :
+  // par défaut, la première chute regardée de la session est complète, les suivantes
+  // courtes. Le lever qui suit garde la même version.
+  const short = chuteShortNext();
+  setChuteShort(short);
+  noteChutePlayed(short);
   const core = coreOf(L);
   CHUTE.core = core;
   CHUTE.maxD = waveRadius(L, core);
@@ -145,7 +154,7 @@ function startFall() {
   CHUTE.act = 'fall';
   CHUTE.t0 = now0();
   listenSkip(true);
-  const T = CHUTE_TUNE;
+  const T = chuteTune();
   const total = chuteWaveEnd() + T.nightAt + T.nightMs + T.fadeAt + T.fadeMs;
   return new Promise((resolve) => {
     fallResolve = resolve;
@@ -254,6 +263,10 @@ function startRise(onDone) {
   listenSkip(true);
   clearDustCache();
 }
+// La lumière d'où le campement sort du noir : la nuit, ou, dans la version courte
+// (sans nuit, CHUTE-9), le crépuscule où la cité est tombée — elle sortait sinon en
+// pleine nuit le temps du fondu, la seule nuit restée de la version courte.
+const riseNight0 = () => (CHUTE.short ? chuteTune().duskNight : 1);
 // clockN : la nuit de l'horloge murale à cette frame (cf. chuteFrame).
 function riseFrame(clockN) {
   const L = CM.layout;
@@ -263,24 +276,27 @@ function riseFrame(clockN) {
       if (L) {
         const core = coreOf(L);
         CM.cam.x = (core.x + 0.5) * CM.TILE; CM.cam.y = (core.y + 0.5) * CM.TILE;
-        CM.cam.zoom = snapZoom(Math.max(1, Math.min(1.6, playerZoom)));
+        // Le zoom du joueur, tel qu'il l'avait avant la chute (audit du 05/10, CHUTE-9 :
+        // il n'est plus borné à [1 ; 1,6], le cadrage choisi ne saute plus à chaque
+        // cycle). Le plancher de la carte neuve s'applique à la frame (cmClampCamera).
+        CM.cam.zoom = snapZoom(playerZoom);
         CM.zoomGoal = CM.cam.zoom; CM.camGoal = null; CM.panVel = null;
         CM.centered = true;
       }
       CHUTE.t0 = now0();
     }
     CHUTE.fade = 1;
-    CM.nightF = 1; CM.dayRising = false;
+    CM.nightF = riseNight0(); CM.dayRising = false;
     return;
   }
-  const T = CHUTE_TUNE, ms = chuteMs();
+  const T = chuteTune(), ms = chuteMs(), n0 = riseNight0();
   const a = ms - T.riseBlackMs;
   CHUTE.fade = 1 - smooth(a / T.riseFadeMs);
   const b = a - T.riseFadeMs - T.riseNightMs;
   // L'aube rend la lumière à L'HEURE DE L'HORLOGE : la nuit du campement fond vers
   // elle (le plein jour la plupart du temps), et la boucle reprend la main sans saut
   // — rendre 0 faisait retomber d'un coup la nuit de l'horloge, une chute sur trois.
-  CM.nightF = 1 + (clockN - 1) * smooth(b / T.riseDawnMs); CM.dayRising = false;
+  CM.nightF = n0 + (clockN - n0) * smooth(b / T.riseDawnMs); CM.dayRising = false;
   if (b > T.riseDawnMs) {
     CHUTE.act = null; CHUTE.fade = 0; CHUTE.done = true;
     riseEnded();
@@ -297,10 +313,11 @@ export function chuteFrame() {
   // jour soudain quand la cité tombe de nuit, ni de nuit soudaine après l'aube.
   const clockN = Math.max(0, Math.min(1, CM.nightF || 0));
   if (CHUTE.act === 'rise') { riseFrame(clockN); return; }
-  const T = CHUTE_TUNE, ms = chuteMs(), end = chuteWaveEnd();
+  const T = chuteTune(), ms = chuteMs(), end = chuteWaveEnd();
   const tn = ms - end - T.nightAt;
   let n = clockN + (T.duskNight - clockN) * smooth(ms / T.duskInMs);
-  if (tn > 0) n = T.duskNight + (1 - T.duskNight) * smooth(tn / T.nightMs);
+  // Version courte (nightMs nul) : pas de nuit, le crépuscule tient jusqu'au noir.
+  if (tn > 0 && T.nightMs > 0) n = T.duskNight + (1 - T.duskNight) * smooth(tn / T.nightMs);
   const tf = tn - T.nightMs - T.fadeAt;
   CHUTE.fade = tf > 0 ? smooth(tf / T.fadeMs) : 0;
   CM.nightF = n; CM.dayRising = true;
@@ -458,6 +475,12 @@ function relicsFor(L) {
   }
   relicCache = { relics: R, L, live, cells };
   return relicCache;
+}
+// Les cellules des ruines rejouées (null sans ruines) : la forêt neuve n'y pousse pas
+// — la forêt cuite dans le sol (forestBake.js) n'y cuit donc rien non plus.
+export function chuteRelicCells(L) {
+  const rc = L ? relicsFor(L) : null;
+  return rc && rc.live.length ? rc.cells : null;
 }
 function relicImage(r) {
   if (r.kind === 'h') return houseRelicCanvas(r.pk, r.tint, r.model, r.vi, r.razed);

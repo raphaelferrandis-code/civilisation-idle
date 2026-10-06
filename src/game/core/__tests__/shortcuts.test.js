@@ -10,7 +10,7 @@ import { describe, it, expect, beforeEach } from "vitest";
 
 import {
   SHORTCUT_DEFS, shortcutKey, shortcutRejection, shortcutPrefs,
-  setShortcutKey, setShortcutOff, resetShortcutKey,
+  setShortcutKey, setShortcutOff,
   resolveShortcut, resolveViewDigit, resolveCameraKey, feedDebugSequence, pressedDigit,
 } from "../shortcuts.js";
 
@@ -18,8 +18,12 @@ const def = (id) => SHORTCUT_DEFS.find((d) => d.id === id);
 // Évènement clavier minimal, hors saisie et hors dialogue.
 const ev = (key, mods = {}) => ({ key, ctrlKey: false, metaKey: false, altKey: false, ...mods });
 
+// Chaque test repart des touches par défaut, toutes actives : on vide les
+// préférences en place (resetShortcutKey, sans interface, a été retiré —
+// audit du 05/10, TEST-10). `shortcutPrefs` est une liaison vivante : elle
+// désigne toujours l'objet courant, même après une réattribution.
 beforeEach(() => {
-  for (const d of SHORTCUT_DEFS) { resetShortcutKey(d.id); setShortcutOff(d.id, false); }
+  for (const id of Object.keys(shortcutPrefs)) delete shortcutPrefs[id];
 });
 
 describe("table", () => {
@@ -104,12 +108,6 @@ describe("réattribution — les garde-fous", () => {
     expect(shortcutRejection(def("buy_city"), "e")).toBeNull();
   });
 
-  it("le retour au défaut rend bien la touche d'origine", () => {
-    setShortcutKey("buy_all", "b");
-    resetShortcutKey("buy_all");
-    expect(shortcutKey(def("buy_all"))).toBe("e");
-  });
-
   // BUG-103 (audit 2026-10-05) : « Tout acheter » posé sur « - » achetait à
   // chaque dézoom, au clavier comme au bouton de la carte qui rejoue la touche.
   it("refuse les touches de zoom + = - _", () => {
@@ -175,6 +173,27 @@ describe("touches caméra (A9)", () => {
     expect(resolveCameraKey(ev("-", { code: "Minus" }))).toEqual({ zoom: -1 });
     expect(resolveCameraKey(ev("=", { code: "Equal" }))).toEqual({ zoom: 1 });
     expect(resolveCameraKey(ev("-"))).toEqual({ zoom: -1 });
+  });
+
+  // Décision de Raph sur BUG-50 : la touche à droite du 0 dézoome quelle que
+  // soit la disposition — le zoom arrière clavier revient aux AZERTY sans pavé.
+  it("la touche à droite du 0 dézoome : « ) » en AZERTY, « ß » en QWERTZ", () => {
+    expect(resolveCameraKey(ev(")", { code: "Minus" }))).toEqual({ zoom: -1 });
+    expect(resolveCameraKey(ev("°", { code: "Minus" }))).toEqual({ zoom: -1 });   // avec Maj
+    expect(resolveCameraKey(ev("ß", { code: "Minus" }))).toEqual({ zoom: -1 });
+    // Le « ) » de Maj+0 en QWERTY n'est pas cette touche.
+    expect(resolveCameraKey(ev(")", { code: "Digit0" }))).toBeNull();
+  });
+
+  it("…et elle est interdite aux raccourcis, même posée avant le refus", () => {
+    expect(shortcutRejection(def("buy_all"), ")", "Minus").reason).toBe("forbidden");
+    expect(shortcutRejection(def("buy_all"), "ß", "Minus").reason).toBe("forbidden");
+    expect(shortcutRejection(def("buy_all"), ")").reason).toBe("forbidden");
+    expect(setShortcutKey("buy_all", ")", "Minus")).toBe(false);
+    shortcutPrefs.buy_all = { key: "ß" };
+    expect(resolveShortcut(ev("ß", { code: "Minus" }))).toBeNull();
+    shortcutPrefs.buy_all = { key: ")" };
+    expect(shortcutKey(def("buy_all"))).toBe("e");
   });
 });
 

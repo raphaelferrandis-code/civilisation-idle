@@ -201,14 +201,22 @@ export function drawPlaisirsRing(spot, now) {
   const t = (now || 0) / 1000;
   const breath = 0.5 + 0.5 * Math.sin((t * Math.PI * 2) / Math.max(0.5, A.ringSec));
   const nBands = Math.max(1, A.bands | 0);
-  for (let k = nBands; k >= 1; k -= 1) {
-    // De l'extérieur vers l'intérieur : chaque bande ajoute sa part.
-    const f = (k / nBands) * (1 + 0.03 * breath);
-    if (k < nBands) ringToScreen(spot, f);
-    ringPath(ctx);
-    // Teinte : néon au bord, braise au cœur — le lieu chauffe vers son pied.
-    ctx.fillStyle = `rgba(${k > nBands * 0.6 ? NEON : EMBER},${(A.bandA * vis * (0.8 + 0.2 * breath)).toFixed(3)})`;
-    ctx.fill();
+  // LA NAPPE seulement à partir du CRÉPUSCULE (décision de Raph du 2026-10-05,
+  // PERF-51 = B) : de jour, son alpha (~0,007) ne bougeait l'eau que d'1 à 2 niveaux
+  // sur 255, pour 4 ellipses de 72 sommets remplies en additif (0,2 à 0,8 ms par
+  // image en rendu logiciel, selon le zoom). Sous 3 niveaux, le cerne ne se lit plus
+  // que par ses éclats et sa guirlande ; la nuit, rien ne change.
+  const bandA = A.bandA * vis * (0.8 + 0.2 * breath);
+  if (bandA * 255 >= 3) {
+    for (let k = nBands; k >= 1; k -= 1) {
+      // De l'extérieur vers l'intérieur : chaque bande ajoute sa part.
+      const f = (k / nBands) * (1 + 0.03 * breath);
+      if (k < nBands) ringToScreen(spot, f);
+      ringPath(ctx);
+      // Teinte : néon au bord, braise au cœur — le lieu chauffe vers son pied.
+      ctx.fillStyle = `rgba(${k > nBands * 0.6 ? NEON : EMBER},${bandA.toFixed(3)})`;
+      ctx.fill();
+    }
   }
   /* ── LE MIROITEMENT : ce qui fait la figure ─────────────────────────────────
    * PREMIÈRE VERSION REFUSÉE (planche du 2026-08-22) : quatre grands aplats
@@ -463,7 +471,7 @@ function bakeFor(band, g, winter) {
   // filles) : l'habillage en remplace la matière. Ses lumières et fanions (`props`)
   // tomberaient à côté du dessin : ils ne sont plus posés (MORT-15).
   let out = bakePlaisirs(wonderKitForBand(band, winter), g);
-  out = { ...out, ...applyPlaisirsSkin(out, skin) };
+  out = { ...out, ...applyPlaisirsSkin(out, skin, plaisirsTune.slice) };
   const R = out.R, occ = new Uint8Array(R.w);
   let x0 = R.w, y0 = R.h, x1 = -1, y1 = -1;
   for (let i = 0; i < R.w; i += 1) {
@@ -509,8 +517,10 @@ function bakeFor(band, g, winter) {
     // derrière SA balustrade (plaisirsSkin.js).
     stroll: out.stroll ? { ...out.stroll, ...(out.walk || {}), ...(out.balcony ? { balcony: out.balcony } : {}), ...(out.door ? { door: out.door } : {}) } : null,
     rail: out.rail || null, skinned: !!skin,
-    // Ce qui vit dans l'habillage (plaisirsSkin.js, `live`) : N images côte à côte.
-    live: out.live ? { cv: rasterCanvas({ w: out.live.w, h: out.live.h, data: out.live.data }), n: out.live.n, ms: out.live.ms } : null,
+    // Ce qui vit dans l'habillage (plaisirsSkin.js, `live`) : N images côte à côte, sur
+    // les seules colonnes [x0, x0 + cols[ du cadre (MEM-3), au pas `stride`.
+    live: out.live ? { cv: rasterCanvas({ w: out.live.w, h: out.live.h, data: out.live.data }), n: out.live.n, ms: out.live.ms,
+      x0: out.live.x0, cols: out.live.cols, stride: out.live.stride } : null,
     // Rangées occupées par colonne : la matière, la nuit, et le vivant (ses N images).
     rowsR: colRows(R), rowsN: out.N ? colRows(out.N) : null, rowsLive: out.live ? colRows(out.live) : null,
     ripples: plaisirsRipples(R, out.H) };
@@ -897,11 +907,24 @@ export function drawIsoPlaisirsSeg(ctx, it, now) {
       pose(ctx, crop, cv, c0, hasR ? rr : null);
       // Ce qui vit dans l'habillage (torches, ballon captif) : la même tranche de
       // l'image du moment. Cran d'ambiance « aucune » : la première, figée.
+      // Le calque ne garde que les colonnes [x0, x0 + cols[ (MEM-3) : une tranche hors de
+      // ces colonnes n'a rien qui bouge ; une tranche dedans pose la même source, au
+      // décalage de colonne près (fx : colonne du cadre → colonne de la bande).
       const lv = bk.live;
-      if (lv) {
+      const la = lv ? Math.max(c0, lv.x0) : 0, lb = lv ? Math.min(it.c1, lv.x0 + lv.cols) : 0;
+      if (lv && la < lb) {
         const f = (CM.ambianceK ?? 1) > 0 ? Math.floor((now || 0) / lv.ms) % lv.n : 0;
-        const lr = _rowsL, fx = f * R.w;
-        if (sliceRows(bk.rowsLive, fx + ca, fx + cb, lr)) pose(ctx, crop, lv.cv, fx + c0, lr);
+        const lr = _rowsL, fx = f * lv.stride - lv.x0;
+        if (sliceRows(bk.rowsLive, fx + Math.max(ca, lv.x0), fx + Math.min(cb, lv.x0 + lv.cols), lr)) {
+          if (la === c0 && lb === it.c1) pose(ctx, crop, lv.cv, fx + c0, lr);
+          else {
+            // Tranche à cheval sur le bord du calque (largeur des tranches changée à la
+            // molette depuis la cuisson) : la part qui y tombe, à la même échelle.
+            const px = sx0 + ((la - c0) * sw) / cw, pw = ((lb - la) * sw) / cw;
+            if (crop) ctx.drawImage(lv.cv, fx + la, lr[0], lb - la, lr[1] - lr[0], px, y0 + lr[0] * k, pw, (lr[1] - lr[0]) * k);
+            else ctx.drawImage(lv.cv, fx + la, 0, lb - la, R.h, px, y0, pw, y1 - y0);
+          }
+        }
       }
       if (hasR) {
         const b = tight ? litBox(sx0, y0, sw / cw, k, 0, rr[0], cw, rr[1]) : { x0: sx0, y0, x1: sx1, y1 };

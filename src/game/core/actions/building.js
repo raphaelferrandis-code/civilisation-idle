@@ -50,8 +50,8 @@ import { tr } from '../i18n.js';
 import { buildings } from '../../data/buildings.js';
 import { MILESTONE_BOON_SECONDS, MAX_BATCH_AMOUNT, grandResetProductionMult, grandResetRuinGainMult, ROAD_WORK_QUEUE_MAX, ROAD_WORKS_BANK_MAX } from '../balance.js';
 import { PROMETHEE_RUPTURE_PER_FOOD, isMythEffectActive } from '../../data/myths.js';
-import { hasActiveRuin, ACTIVE_RUIN_SISYPHE_CREEP } from '../../data/activeRuins.js';
-import { chronicleBuilding, chronicle, log } from './utils.js';
+import { hasActiveRuin, ACTIVE_RUIN_SISYPHE_CREEP, ACTIVE_RUIN_SISYPHE_MULT_CAP } from '../../data/activeRuins.js';
+import { chronicleBuilding, chronicle, log, onUpgradeAcquired } from './utils.js';
 import { resetAnnals } from '../annals.js';
 import { resetCameraCenter } from '../../map/cityMapBridge.js';
 import { recordGrPerformed, recordShopSpend } from '../chronicleStats.js';
@@ -146,8 +146,11 @@ export function buyBuildingCore(id, { amount: amountOverride = null, silent = fa
     }
   } else if (hasActiveRuin(state, "sisyphe")) {
     // Ruine active « Pente du rocher » : la malédiction cumulative de l'ANCIEN
-    // Sisyphe survit dans le fardeau (state.sisypheMult, lu par cost.js).
-    state.sisypheMult = (state.sisypheMult || 1) * ACTIVE_RUIN_SISYPHE_CREEP;
+    // Sisyphe survit dans le fardeau (state.sisypheMult, lu par cost.js). Un cran
+    // PAR UNITÉ, plus par appel : un Max de 100 inflait comme un seul achat (audit
+    // 2026-10-05, BUG-35) ; le prix du lot suit la même pente (cost.js). Plafonné.
+    state.sisypheMult = Math.min(ACTIVE_RUIN_SISYPHE_MULT_CAP,
+      (state.sisypheMult || 1) * Math.pow(ACTIVE_RUIN_SISYPHE_CREEP, amount));
   }
   if (isMythEffectActive("mythe_de_promethee") && building.food > 0) {
     const ruptureAdded = amount * PROMETHEE_RUPTURE_PER_FOOD;
@@ -199,8 +202,16 @@ export const BUY_ALL_CURRENCIES = new Set(["food", "gold", "knowledge", "infrast
 // ATTEINT en fin de partie (audit 2026-10-05, BUG-79) : les coûts explosent
 // géométriquement (scale^count), mais une chute à ressources ~1e60 et plus laisse
 // une pression sur E acheter 10 000 bâtiments d'un trait (0,4 s en test, 1,5 à
-// 2,1 s mesurés en jeu), et il en reste d'abordables — la pression suivante les prend.
+// 2,1 s mesurés en jeu), et il en reste d'abordables. D'où, pour le clavier et le
+// bouton, la passe EN TRANCHES (buyAllAffordableChained) ; ce plafond ne borne
+// plus que l'appel synchrone (simulation, harnais, tests).
 const BUY_ALL_MAX_ITERS = 10000;
+// Passe en tranches (décision de Raph sur BUG-79 : c) : ~16 ms d'achats par
+// image, enchaînées d'une image à l'autre. Le plafond d'unités ne sert plus que
+// contre la boucle pathologique : une vraie fin de partie en demande des
+// dizaines de milliers (coûts en scale^count, ressources en e2000 et plus).
+const BUY_ALL_SLICE_MS = 16;
+const BUY_ALL_MAX_UNITS = 1_000_000;
 
 // Exportée pour BuildingShop.jsx (délai avant achat, B5), qui a besoin EXACTEMENT
 // de la même garde : ce qui ne s'achète pas en masse n'entre pas dans le délai.
@@ -231,15 +242,76 @@ export function buyableInMass(building) {
 // Babel. Retourne le nombre de bâtiments érigés.
 //   - category : quand fourni ("city" | "knowledge" | "infra"), restreint l'achat
 //     de masse à ce SEUL onglet (raccourcis M / S / I) ; null = les trois (touche E).
+// Appel SYNCHRONE (simulation, harnais, tests) ; le clavier et le bouton passent
+// par buyAllAffordableChained, la même chose en tranches.
 export function buyAllAffordable(category = null) {
-  // Même gel moteur que buyBuildingCore (BUG-71) : sans lui, le glouton tournait
-  // à vide et les chantiers de voirie, eux, passaient.
-  if (gamePaused || collapseInProgress || state.crisisLimitAnnounced || crisisOpen()) return 0;
+  if (buyAllFrozen()) return 0;
+  const { bought } = buyAllGreedy(category, BUY_ALL_MAX_ITERS);
+  const works = buyAllRoadWorks(category);
+  concludeBuyAll(category, bought, works);
+  return bought + works;
+}
+
+// Passe EN COURS du clavier ou du bouton : une seule à la fois.
+let buyAllChain = null;
+
+// « Tout acheter » du CLAVIER (E, M, S, I) et du bouton de la Cité (décision de
+// Raph sur BUG-79 : c). Même glouton, même ordre d'achats, mais par tranches de
+// ~16 ms enchaînées d'une image à l'autre jusqu'à ce que plus rien ne soit
+// abordable : une pression achète TOUT, sans le gel de 1,5 à 2,1 s d'une fin de
+// partie. Le gel moteur est revérifié à chaque tranche (une crise, une chute, un
+// dialogue arrivés entre deux images arrêtent la passe), et UN seul float, UNE
+// seule ligne de Chronique disent le total à la fin. La passe s'arrête dès
+// qu'une tranche finit avant son horloge : sinon la production de chaque image
+// la ferait tourner sans fin, comme un automate. Une pression pendant une passe
+// ne la relance pas. Rend false si rien n'a été lancé.
+export function buyAllAffordableChained(category = null) {
+  if (buyAllChain || buyAllFrozen()) return false;
+  const chain = { bought: 0 };
+  buyAllChain = chain;
+  const finish = (frozen) => {
+    buyAllChain = null;
+    concludeBuyAll(category, chain.bought, frozen ? 0 : buyAllRoadWorks(category));
+  };
+  const step = () => {
+    if (buyAllFrozen()) { finish(true); return; }
+    const { bought, done } = buyAllGreedy(category, BUY_ALL_MAX_UNITS - chain.bought, nowMs() + BUY_ALL_SLICE_MS);
+    chain.bought += bought;
+    if (done || chain.bought >= BUY_ALL_MAX_UNITS) { finish(false); return; }
+    // Les achats comptent dès le tick qui suit (sommes de bâtiments, débits).
+    invalidateRenderCache("buildings");
+    nextFrame(step);
+  };
+  step();
+  return true;
+}
+
+const nowMs = () => (typeof performance !== "undefined" ? performance.now() : Date.now());
+
+// Image suivante : requestAnimationFrame, ou un délai nul hors navigateur et
+// onglet caché (rAF y est suspendu : la passe attendrait le retour du joueur).
+function nextFrame(fn) {
+  if (typeof requestAnimationFrame === "function" && !(typeof document !== "undefined" && document.hidden)) requestAnimationFrame(fn);
+  else setTimeout(fn, 0);
+}
+
+// Même gel moteur que buyBuildingCore (BUG-71), plus la crise ouverte : sans
+// lui, le glouton tournait à vide et les chantiers de voirie, eux, passaient.
+function buyAllFrozen() {
+  return gamePaused || collapseInProgress || state.crisisLimitAnnounced || crisisOpen();
+}
+
+// Le glouton seul, borné par `maxUnits` et par l'horloge (`deadline`, en
+// performance.now()). Rend { bought, done } : done = plus rien d'abordable (ou
+// un refus) ; faux quand une borne l'a coupé avant.
+function buyAllGreedy(category, maxUnits, deadline = Infinity) {
   const babelLock = isMythEffectActive("mythe_de_babel") ? state.babelCategory : null;
   const babelRuin = hasActiveRuin(state, "babel");
+  const timed = deadline !== Infinity;
 
   let bought = 0;
-  while (bought < BUY_ALL_MAX_ITERS) {
+  while (bought < maxUnits) {
+    if (timed && nowMs() >= deadline) return { bought, done: false };
     // Re-balayage de TOUS les bâtiments à chaque tour : buyableInMass relit
     // isUnlocked. On retient l'unité la PLUS chère réellement payable (toutes
     // devises via canPayCost).
@@ -257,9 +329,9 @@ export function buyAllAffordable(category = null) {
         bestKey = key;
       }
     }
-    if (!best) break;                                   // plus rien d'abordable
+    if (!best) return { bought, done: true };          // plus rien d'abordable
     const dominant = babelRuin ? dominantBuildingCategory() : null;
-    if (!buyBuildingCore(best.id, { amount: 1, silent: true })) break;
+    if (!buyBuildingCore(best.id, { amount: 1, silent: true })) return { bought, done: true };
     bought += 1;
     // Le PLUS CHER LE RESTE tant qu'il est payable : son achat ne fait que monter
     // son propre prix (scale > 1) et ne baisse celui d'aucun autre — la Pente du
@@ -272,21 +344,31 @@ export function buyAllAffordable(category = null) {
     // bascule de la catégorie dominante ALLÈGE l'ancienne, dont un bâtiment plus
     // cher peut redevenir payable — on re-balaie dès qu'elle bascule. Un achat ne
     // révèle aucun bâtiment (les pics de cycle ne bougent qu'au tick).
-    while (bought < BUY_ALL_MAX_ITERS
+    // (Coupé aussi par l'horloge d'une tranche : on reprend à l'image suivante.)
+    while (bought < maxUnits
+      && (!timed || nowMs() < deadline)
       && (!babelRuin || dominantBuildingCategory() === dominant)
       && buyBuildingCore(best.id, { amount: 1, silent: true })) bought += 1;
   }
+  return { bought, done: false };
+}
 
-  // VOIRIE (Raph 2026-07-29 : « branche le raccourci Tout acheter ») : les
-  // chantiers passent par leur propre guichet, hors du glouton — buyRoadWorkCore
-  // borne tout (file de ROAD_WORK_QUEUE_MAX, réserve plafonnée), la boucle
-  // s'arrête donc d'elle-même. La rangée vit dans l'onglet Infrastructure et
-  // respecte le verrou de Babel comme les autres.
+// VOIRIE (Raph 2026-07-29 : « branche le raccourci Tout acheter ») : les
+// chantiers passent par leur propre guichet, hors du glouton — buyRoadWorkCore
+// borne tout (file de ROAD_WORK_QUEUE_MAX, réserve plafonnée), la boucle
+// s'arrête donc d'elle-même. La rangée vit dans l'onglet Infrastructure et
+// respecte le verrou de Babel comme les autres.
+function buyAllRoadWorks(category) {
+  const babelLock = isMythEffectActive("mythe_de_babel") ? state.babelCategory : null;
   let works = 0;
   if ((!category || category === "infra") && (!babelLock || babelLock === "infra")) {
     while (works < ROAD_WORK_QUEUE_MAX + ROAD_WORKS_BANK_MAX && buyRoadWorkCore()) works += 1;
   }
+  return works;
+}
 
+// Le retour d'un achat de masse : UN float, UNE ligne de Chronique, un render.
+function concludeBuyAll(category, bought, works) {
   if (bought > 0 || works > 0) {
     const catLabel = category ? BUY_ALL_CATEGORY_LABELS[category] : null;
     const worksFr = works > 0 ? ` · +${fmt(works)} chantier${works > 1 ? "s" : ""}` : "";
@@ -312,7 +394,6 @@ export function buyAllAffordable(category = null) {
     invalidateRenderCache("buildings");
     render();
   }
-  return bought + works;
 }
 
 export async function exhumeVestige() {
@@ -508,6 +589,7 @@ export function buyUpgrade(id) {
     if (upgrade.cost && upgrade.cost.faveur) recordShopSpend(upgrade.cost.faveur);
   }
   state.upgrades[id] = true;
+  onUpgradeAcquired(id); // l'Édit arrive réglé sur « Durée » (BUG-78)
   state.lifetimePurchases = (state.lifetimePurchases || 0) + 1;
   renderCache.cachedRuinEffects = null;
   renderCache.cachedRuinEffectsSignature = "";

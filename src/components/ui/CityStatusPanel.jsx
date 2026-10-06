@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef } from 'react';
 import { createPortal } from 'react-dom';
 import { useCityViewState } from '../../hooks/useCityViewState.js';
-import { globalMultiplier, globalMultiplierDec, currentEraIndex, nextEraProgress, sedimentTiers, sedimentTierIndex, cycleAgeSec } from '../../game/core/mechanics.js';
+import { displayedProductionMultiplier, currentEraIndex, nextEraProgress, sedimentTiers, sedimentTierIndex, cycleAgeSec } from '../../game/core/mechanics.js';
 import { eras } from '../../game/data/world.js';
 import { getEraTheme } from '../../game/data/eraThemes.js';
 import { pct, clamp01, fmtSecs, fmtClock } from '../../game/core/utils.js';
@@ -69,11 +69,11 @@ export default function CityStatusPanel({ variant = 'full' }) {
   const currentEra = eras[eraIdx];
   const eraProgress = nextEraProgress(eraIdx);
   const eraTheme = getEraTheme(eraIdx);
-  // Au-delà du float, globalMultiplier() déborde à Infinity par design (le
-  // moteur bascule sur le miroir Decimal, cf. rates.js) : « ×inf » n'apprend
-  // rien — RollingNumber accepte un Decimal et fmt sait l'écrire.
-  const globalMultF = globalMultiplier();
-  const globalMult = Number.isFinite(globalMultF) ? globalMultF : globalMultiplierDec();
+  // Multiplicateur AFFICHÉ : Reliques et Bénédiction comprises (décision de Raph
+  // sur BUG-81 : A). Au-delà du float, il passe au Decimal (le moteur bascule sur
+  // le miroir, cf. rates.js) : « ×inf » n'apprendrait rien — RollingNumber
+  // accepte un Decimal et fmt sait l'écrire.
+  const globalMult = displayedProductionMultiplier();
 
   const cycleSeconds = Math.floor((tickNow - (cycleStartedAt || tickNow)) / 1000);
   const cycleTimeLabel = fmtCycleTime(cycleSeconds);
@@ -247,7 +247,7 @@ export default function CityStatusPanel({ variant = 'full' }) {
           <span className="csp-stat-label">{tr({ fr: 'Cycles', en: 'Cycles' })}</span>
           <strong><RollingNumber value={cycles} /></strong>
         </div>
-        <div className="csp-stat" {...tipProps(tr({ fr: 'Multi.', en: 'Multi.' }), tr({ fr: "Multiplicateur global de production, hors Reliques, Bénédiction et politiques", en: "Global production multiplier, excluding Relics, Blessing and policies" }))}>
+        <div className="csp-stat" {...tipProps(tr({ fr: 'Multi.', en: 'Multi.' }), tr({ fr: "Multiplicateur de production, Reliques et Bénédiction comprises, hors politiques", en: "Production multiplier, Relics and Blessing included, excluding policies" }))}>
           <PixelIcon name="glyphs/mult" className="csp-stat-icon" />
           <span className="csp-stat-label">{tr({ fr: 'Multi.', en: 'Multi.' })}</span>
           <strong>x<RollingNumber value={globalMult} /></strong>

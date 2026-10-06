@@ -253,20 +253,6 @@ export function wonderAnchor(idx, gridN, cx, cy) {
   return worldToScreen(f.x, f.y);
 }
 
-// Les 4 coins écran du losange de la cellule (gx,gy) (ordre N,E,S,W) + centre.
-// En mode legacy, renvoie le carré équivalent (utile pour du debug partagé).
-export function tileDiamond(gx, gy) {
-  const T = CM.TILE;
-  const wx = gx * T, wy = gy * T;
-  return {
-    n: worldToScreen(wx, wy),            // sommet haut (coin nord de la cellule)
-    e: worldToScreen(wx + T, wy),        // droite
-    s: worldToScreen(wx + T, wy + T),    // bas (coin SUD = ancre des sprites)
-    w: worldToScreen(wx, wy + T),        // gauche
-    c: worldToScreen(wx + T / 2, wy + T / 2),
-  };
-}
-
 // BORNES EN LOSANGE du viewport — le complément de visibleCellBounds. En iso,
 // l'écran projeté en monde est un LOSANGE dont visibleCellBounds prend la boîte
 // englobante : ~2× l'aire, donc ~1,8× trop d'items retenus par le peintre

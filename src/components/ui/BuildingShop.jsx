@@ -22,8 +22,8 @@ import { renderCache, state } from '../../game/core/state.js';
 import { uiRevealed, uiRevealFresh } from '../../game/core/uiReveal.js';
 import { buyableInMass } from '../../game/core/actions/building.js';
 import { roadWorkAffordable } from '../../game/core/actions/roadWorks.js';
-import { purchaseEta, ETA_SECONDS, ETA_NO_INCOME, ETA_UNREACHABLE } from '../../game/core/mechanics/purchaseEta.js';
-import { fmtEta, quantizeEta, labelFor } from '../../game/core/utils.js';
+import { purchaseEta, ETA_SECONDS } from '../../game/core/mechanics/purchaseEta.js';
+import { quantizeEta } from '../../game/core/utils.js';
 import { productionScales, buildingRelativeGain } from '../../game/core/mechanics/production/productionBreakdown.js';
 import PixelIcon from './PixelIcon.jsx';
 import { tr } from '../../game/core/i18n.js';
@@ -284,8 +284,11 @@ function BuildingShop({ open: openProp, onToggle }) {
   )?.id;
 
   // ── DÉLAI AVANT ACHAT (B5) ────────────────────────────────────────────────
+  // Plus de ligne d'échéance (« payable dans… ») sous les rangées : Raph n'en
+  // veut pas à l'écran (décision sur BUG-118, comme vitesse et ETA ailleurs).
+  // Le délai ne décide plus que de la pastille « bientôt » (E5).
   // La cité est FIGÉE en crise terminale (tick.js sort avant tout crédit) :
-  // annoncer un délai serait un mensonge, il ne s'écoulerait jamais.
+  // un délai ne s'y écoulerait jamais, rien n'y est « bientôt ».
   // On s'abonne ici et non au `crisisFrozen` de la Topbar, qui est une variable
   // locale à ce composant-là.
   const crisisFrozen = useGameState((s) => !!s.crisisLimitAnnounced);
@@ -295,64 +298,28 @@ function BuildingShop({ open: openProp, onToggle }) {
   // conséquence parce qu'une abordabilité bascule rarement ; un délai, lui,
   // DÉCOMPTE par construction — trente compteurs déphasés feraient changer la
   // signature plusieurs fois par seconde, et on perdrait exactement le `memo()`
-  // sans props qui protège la boutique du tick.
-  //
-  // La signature est bâtie sur la valeur QUANTIFIÉE et non sur les secondes
-  // brutes : quantifier après coup ne servirait à rien, la comparaison porte
-  // sur ce qui est comparé, pas sur ce qui est affiché. On y met les secondes
-  // quantifiées plutôt que le libellé (E5) : c'est la MÊME source de stabilité,
-  // mais elle reste exploitable pour décider de l'état « bientôt », alors que
-  // le libellé est une phrase TRADUITE qu'il faudrait parser.
-  const etaSig = useGameState(() => {
+  // sans props qui protège la boutique du tick. La signature ne retient donc
+  // que les rangées « bientôt » : payables sous une minute au rythme actuel,
+  // seuil comparé à l'échéance DÉJÀ QUANTIFIÉE — un seuil posé sur les secondes
+  // brutes basculerait d'un tick à l'autre et ferait clignoter la rangée.
+  const soonSig = useGameState(() => {
     if (crisisFrozen) return "";
-    const parts = [];
+    const ids = [];
     for (const b of visibleBuildings) {
       if (b.id === "roads") continue;                 // encart à part, sans délai (et sans prix dans costById)
       if (affordability[b.id] === "") continue;       // payable : rien à annoncer
       if (!buyableInMass(b)) continue;                // coûte des Ruines : elles tombent, elles ne coulent pas
       const res = purchaseEta(costById[b.id]);
-      if (res.kind === ETA_SECONDS) parts.push(`${b.id}=${quantizeEta(res.seconds)}`);
-      else if (res.kind === ETA_NO_INCOME) parts.push(`${b.id}=~${res.currency}`);
-      else if (res.kind === ETA_UNREACHABLE) parts.push(`${b.id}=!`);
+      if (res.kind === ETA_SECONDS && quantizeEta(res.seconds) <= SOON_ETA_SECONDS) ids.push(b.id);
     }
-    return parts.join("|");
+    return ids.join("|");
   });
 
-  // Rangées « bientôt » (E5) : payables sous une minute au rythme actuel. Le
-  // seuil est comparé à l'échéance DÉJÀ QUANTIFIÉE, ce qui règle gratuitement
-  // le Risque de la fiche — un seuil posé sur les secondes brutes basculerait
-  // d'un tick à l'autre et ferait clignoter la rangée.
   const soonById = useMemo(() => {
     const map = {};
-    if (!etaSig) return map;
-    for (const part of etaSig.split("|")) {
-      const [id, valeur] = part.split("=");
-      const secondes = Number(valeur);
-      if (Number.isFinite(secondes) && secondes <= SOON_ETA_SECONDS) map[id] = true;
-    }
+    if (soonSig) for (const id of soonSig.split("|")) map[id] = true;
     return map;
-  }, [etaSig]);
-
-  const etaById = useMemo(() => {
-    const map = {};
-    if (!etaSig) return map;
-    for (const part of etaSig.split("|")) {
-      const [id, valeur] = part.split("=");
-      map[id] = valeur === "!"
-        // Chiffrer serait exact et inutile : ce n'est pas d'attendre qu'il
-        // s'agit, mais de faire grandir la production. On le dit comme ça,
-        // plutôt qu'avec un « hors de portée » qui sonne définitif.
-        ? tr({ fr: "pas à ce rythme de production", en: "not at this production rate" })
-        : valeur.startsWith("~")
-        // Pas de revenu sur cette devise : on N'AFFIRME PAS l'impossibilité.
-        // L'Or vaut 0/s tant que le Rayonnement est sous 25, ce qui est l'état
-        // de départ de chaque cycle — « hors de portée » y serait faux et
-        // décourageant.
-        ? tr({ fr: `pas encore de ${labelFor(valeur.slice(1))}`, en: `no ${labelFor(valeur.slice(1))} income yet` })
-        : tr({ fr: `payable dans ${fmtEta(Number(valeur))}`, en: `affordable in ${fmtEta(Number(valeur))}` });
-    }
-    return map;
-  }, [etaSig]);
+  }, [soonSig]);
 
   return (
     <div className={`panel shop-panel ${open ? 'is-open' : 'is-collapsed'}`} ref={sheetRef}>
@@ -479,7 +446,6 @@ function BuildingShop({ open: openProp, onToggle }) {
               gainLabel={gainLabel}
               gainTitle={gainTitle}
               pulse={pulse}
-              etaLabel={etaById[b.id] || ""}
             />
           );
         })}

@@ -65,6 +65,7 @@ export const SHIFTED_STATE_FIELDS = [
   "phoenixNextForceAt",
   "atridesRenegotiateActiveUntil",
   "atridesRenegotiateCooldownEnd",
+  "orNextCaravanAt",
   "eneeTerritoryStartedAt",
   "trunkAt",
   "roueAt",

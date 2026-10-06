@@ -202,9 +202,11 @@ TRANSPARENT puis blittées en source-over, elles cesseraient de s'ajouter à l'e
 et le halo deviendrait un aplat. Elles restent EN DIRECT.
 
 **Le palier « Auto ».** Il est choisi par `detectAutoTier()` (`qualityMode.js`)
-d'après le NOMBRE DE CŒURS et le dpr, jamais d'après la durée réelle des frames ni
-le type de rendu : une machine à 16 cœurs reçoit « Élevée » d'office, même en
-rendu logiciel. À trancher par Raph (PERF-4).
+d'après le NOMBRE DE CŒURS et le dpr, et depuis le 2026-10-06 d'après le type de
+rendu : rendu logiciel reconnu ou WebGL absent (`rendererProbe.slowRenderer`) →
+« Équilibrée sans effets » (décision de Raph, PERF-4 = b). Jamais d'après la durée
+réelle des frames : le palier ne change pas en cours de partie. Sans effets, les
+lumières ne sont plus occultées non plus (halos directs, PERF-2).
 
 **Culling de la cuisson.** Rejet précoce avant `kindAt` et tout tracé, marge d'une
 cellule pleine (le losange pend sous son coin nord, tuiles et touffes débordent).
@@ -240,25 +242,45 @@ fusion** compte autant que le nombre de blits (cf. §3).
 Toutes sont détaillées, chiffres et correctif compris, dans le rapport d'audit du
 2026-10-05. Celles qui changent un visuel ou une promesse attendent Raph.
 
-1. **Ombres du soleil (PERF-1)** — premier poste du .exe. Passer `SUN_SHADOW.mode`
-   en `source-over` (−7,5 ms mesurés) est un arbitrage visuel, à juger en A/B figé
-   avec `__sunShadow({ mode, col, alpha })`. Le correctif structurel (cuire les
-   ombres des objets fixes dans les tuiles du sol, −11 ms GPU / −8 ms logiciel)
-   ne change pas le rendu mais coûte un chantier (effort L).
+1. **Ombres du soleil (PERF-1)** — premier poste du .exe. FAIT le 2026-10-06 :
+   `SUN_SHADOW` par défaut en `source-over`, teinte `#00081c`, dose 0,22 (choix de
+   Raph sur la planche `planches/ombres-soleil` : 99 % de l'assombrissement du
+   multiply, −13 à −15 ms GPU). Le correctif structurel (cuire les ombres des
+   objets fixes dans les tuiles du sol, −11 ms GPU / −8 ms logiciel) reste ouvert
+   (effort L).
 2. **Calque de lumière (PERF-2)** — la grille fine du lot 4 a retiré ~70 % des
-   découpes de jour ; restent la nuit (−17 à −23 ms en logiciel si l'on coupe
-   dépôts et découpes) et le fait qu'aucun palier de qualité ne le coupe.
+   découpes de jour. Depuis le 2026-10-06, les paliers sans effets (Performance,
+   et « Auto » en rendu logiciel) ne découpent plus rien (halos directs, choix de
+   Raph) ; aux autres paliers, la nuit garde son coût.
 3. **Dézoom maximal en « Élevée » (PERF-3)** — 16 fps (.exe), ~12 fps (logiciel).
-   Sans toucher au sens d'« Élevée » : ne plus pousser au peintre les items sous
-   ~2 px, cuire dans les tuiles du sol les arbres qui ne recoupent rien. Au-delà
-   (seuil de 3-4 px, `lodZoom` ≈ 0,45 en Élevée) : décision de Raph, car
-   `qualityMode.js` promet « TOUT reste visible même en dézoom total ».
-4. **Palier « Auto » (PERF-4)** — détecter le rendu logiciel (renderer WebGL) ou
-   mesurer les frames, et choisir « Équilibrée » sur une machine lente.
+   FAIT le 2026-10-06 (choix (a) + (d) de Raph) : « Auto » prend « Équilibrée sans
+   effets » sur une machine lente (PERF-4), et aux niveaux 0,375 et 0,5 de la
+   pyramide les arbres de forêt sont CUITS dans les tuiles du sol
+   (`iso/forestBake.js`, molette `__forestBake`) — le peintre ne pose que ceux que
+   quelque chose recouvre. Vue de forêt au zoom 0,375 : 52-57 → 33-35 ms
+   (logiciel) ; cœur de ville : inchangé. Reste ouvert : le zoom 0,125 des très
+   grandes cartes, servi par le niveau 0,25 réduit et lissé, où l'arbre cuit ne
+   serait plus l'arbre posé (question posée à Raph). Au-delà (seuil de 3-4 px,
+   `lodZoom` ≈ 0,45 en Élevée) : décision de Raph, car `qualityMode.js` promet
+   « TOUT reste visible même en dézoom total ».
+4. **Palier « Auto » (PERF-4)** — FAIT le 2026-10-06 : rendu logiciel ou WebGL
+   absent → « Équilibrée sans effets » ; pas de descente sur la durée des frames
+   (choix de Raph).
 5. **Le démarrage** — le hors-ligne (`creditSpan()`, forme close) et le plan au
    boot (chemin chaud, ~0,3-0,7 s) sont écartés depuis juillet ; le gel du
    rattrapage après une longue absence est réglé (PERF-8, lot 4). Restent le JIT
    (frames à 50 ms les ~25 premières) et le décodage des PNG.
+6. **Les cuissons des ports à la croissance de grille (PERF-10)** — FAIT le
+   2026-10-06 (choix A de Raph, planche `planches/ports-grain-ancre`) : le grain des
+   ports (écume, dalles, briques, mouchetis) se lit depuis l'ANCRE du port, plus sur
+   le monde ; une scène translatée cuit la même image, et la cuisson se GARDE,
+   décalée (`isoBoxBake.anchoredBake`, clé relative = boîtes + fleuve voisin). Mesuré
+   (mega-33 / mega-135, croissance de 2 cases dans la vallée) : postes « quais » +
+   « fleuve » de 93-97 → 30-32 ms, deux cuissons sur deux gardées. Reste : au
+   premier cycle (et au-delà de la largeur de la cité tombée), le fleuve s'étire
+   avec la grille (RN = N) et glisse sous le port — la cuisson se refait, juste
+   (question posée à Raph). Les ~25 ms restants de « quais » sont les quais du
+   fleuve, pas les ports.
 
 ---
 
@@ -305,6 +327,19 @@ Toutes sont détaillées, chiffres et correctif compris, dans le rapport d'audit
 12. **La fluidité se juge en PROD** (`npm run build` puis `npm run preview`, ou le
     .exe) : le serveur de dev ajoute le HMR, les molettes et React en mode
     développement.
+13. **Le canevas 2D est DIFFÉRÉ, même en logiciel** (PERF-3, 2026-10-06). Un
+    `drawImage` est enregistré, puis rastérisé plus tard — souvent dans une AUTRE
+    phase du profileur, ou après la frame. Mesuré : 60 blits de tuiles « coûtaient »
+    0,2 ms dans un mode et 10,8 ms dans l'autre, pour le même travail rastérisé
+    ailleurs. Pour comparer deux modes en boucle de `forceFrame`, finir chaque frame
+    mesurée par `CM.ctx.getImageData(0, 0, 1, 1)` (la rastérisation tombe dans la
+    mesure), et chauffer jusqu'à ce que plus aucune tuile ne cuise (anneau et
+    plancher compris), pas seulement le visible.
+14. **Deux chargements ne rendent pas la même image** (PERF-10, 2026-10-06), même
+    `captureFrame({ now })` figé et horloges gelées : la petite vie (`isoVie.js` :
+    l'onde de vent, les bestioles) garde un état qui dérive. Une planche avant/après
+    entre deux serveurs coupe `VIE.on` des deux côtés ; restent quelques lueurs et
+    reflets d'eau (à vérifier par un A/A du même serveur).
 
 ---
 
@@ -319,6 +354,7 @@ En dev seulement (`npm run dev`) : absentes du build de prod et de l'.exe
 | `__solPyramideTune({ budgetMs, gestureBudgetMs, memMo… })` | réglages de la pyramide (`PYR`, `iso/solPyramideFrame.js`) |
 | `__sunShadow({ on, mode, col, alpha, minH })` | ombres du soleil (A/B de PERF-1) |
 | `__lightOcclusion({ on })` | occultation des lumières (`on:false` = calque coupé) |
+| `__forestBake({ on, juge, minShare })` | forêt cuite dans le sol aux niveaux ≤ 0,5 (A/B de PERF-3 ; `juge:false` saute toujours) ; relevé `stats` |
 | `globalThis.__isoCellCull = false` | rejoue le balayage complet dans la cuisson d'une tuile |
 | `window.__engineDensityCap` | densité des bâtiments-moteur (défaut 48) |
 | `window.__hallSceneMax` | échelle max d'une halle (défaut 1,7 ; 3 = aucun bornage) |

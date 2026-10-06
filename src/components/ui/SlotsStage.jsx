@@ -11,6 +11,7 @@ import { bakeSlotsScene, paintReels, paintLive, paintHold, paintWinCells, lancer
 import { sonSlots, ronronSlots, prechaufferSons } from '../../game/audio/slotsSound.js';
 import { fmt } from '../../game/core/utils.js';
 import { tr } from '../../game/core/i18n.js';
+import { onWindowMinimizedChange } from '../../game/core/desktopWindow.js';
 import { celebrerGain, palierOf } from '../../game/core/grandsGains.js';
 import { FaveurIcon, PotIcon } from './FaveurIcon.jsx';
 import { tipProps } from './HelpBubble.jsx';
@@ -178,14 +179,20 @@ export default function SlotsStage({ table, onClose }) {
   }, []);
   // Onglet masqué en plein tour : le rAF s'arrête, donc le tour ne finit pas, mais le
   // ronron des rouleaux (en boucle) jouait jusqu'au retour. On le coupe ; au retour, le
-  // tour s'achève d'un coup, sans lui.
+  // tour s'achève d'un coup, sans lui. Fenêtre de l'.exe RÉDUITE : la page y reste
+  // « visible » (ELEC-6, desktopWindow.js), aucun visibilitychange — même coupure.
   useEffect(() => {
-    const onHide = () => {
+    const couper = () => {
       const a = anim.current;
-      if (document.hidden && a.ronron) { a.ronron.stop(); a.ronron = null; }
+      if (a.ronron) { a.ronron.stop(); a.ronron = null; }
     };
+    const onHide = () => { if (document.hidden) couper(); };
     document.addEventListener('visibilitychange', onHide);
-    return () => document.removeEventListener('visibilitychange', onHide);
+    const offMinimized = onWindowMinimizedChange((minimized) => { if (minimized) couper(); });
+    return () => {
+      document.removeEventListener('visibilitychange', onHide);
+      offMinimized();
+    };
   }, []);
   const later = (fn, ms) => { anim.current.timers.push(setTimeout(fn, ms)); };
 

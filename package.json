@@ -2,7 +2,7 @@
   "name": "civilisation-effondrement",
   "private": true,
   "version": "1.0.0",
-  "description": "Civilisation Idle — un jeu incremental d'ascension et d'effondrement.",
+  "description": "Effondrement Idle — un jeu incrémental d'ascension et d'effondrement.",
   "author": "Raphael Ferrandis",
   "type": "module",
   "main": "main.cjs",
@@ -19,12 +19,12 @@
     "test:parcours": "vitest run src/game/core/__tests__/parcours --testTimeout=0",
     "electron": "electron .",
     "dist-win": "vite build && electron-builder --win",
-    "dist-steam": "vite build && electron-builder --win dir",
+    "dist-steam": "vite build && electron-builder --win dir -c.extraMetadata.civSteamBuild=true",
     "zip:web": "node scripts/zipDist.mjs"
   },
   "build": {
     "appId": "com.civilisationidle.game",
-    "productName": "Civilisation Idle",
+    "productName": "Effondrement Idle",
     "copyright": "© 2026 Raphael Ferrandis",
     "files": [
       "dist/**/*",

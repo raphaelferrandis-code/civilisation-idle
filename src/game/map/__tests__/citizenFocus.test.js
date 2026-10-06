@@ -299,13 +299,17 @@ describe("citizenSheet — la fiche", () => {
   // BUG-87 (audit du 2026-10-05) : la coque du kit est un CANVAS cuit, sans
   // `complete` ni `naturalWidth` — la fiche du bac gardait sa niche vide.
   it("le bac : son portrait est sa coque cuite, un canvas prêt à peindre", () => {
-    const hull = { width: 64, height: 64, getContext: () => null };
-    const sh = { kind: "ferry", id: 9, trip: 1, state: "cross", _hull: { img: hull, bx: 0, by: 0, dw: 32, wx: 10, wy: 10 } };
+    // Canvas SERRÉ (PERF-36) : la coque 63 × 23, plus une colonne et une rangée vides.
+    const hull = { width: 64, height: 24, getContext: () => null };
+    const sh = { kind: "ferry", id: 9, trip: 1, state: "cross", _hull: { img: hull, bx: 5, by: 7, dw: 32, dh: 12, iw: 63, ih: 23, wx: 10, wy: 10 } };
     CM.ships = [sh];
     focusPick({ kind: "boat", p: sh });
     const fr = focusPortrait(0);
     expect(fr.img).toBe(hull);
-    expect(fr.fh).toBe(64);
+    // L'encre en px (fh = 1) : toute la coque, sans la marge — et pas repliée en deux
+    // « frames » comme le ferait la boîte d'encre d'une planche (64 de large pour 24).
+    expect(fr.fh).toBe(1);
+    expect(fr.ink).toEqual({ l: 0, t: 0, r: 63, b: 23 });
     expect(portraitImgReady(fr.img)).toBe(true);
     // Les images, elles, attendent d'être décodées ; un canvas vide ne peint rien.
     expect(portraitImgReady({ complete: false, naturalWidth: 0 })).toBe(false);

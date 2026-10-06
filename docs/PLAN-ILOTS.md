@@ -274,6 +274,32 @@ PLAN-ROUTES) et « une maison ne bouge jamais » (keepInPlace).
     une rue mémorisée (hors tablier) est sautée, le lieu prend la suivante. Sans rue sur
     son chemin, sa place est identique au pixel (15 cas comparés à la version publiée).
     plaisirsRues.test.js (échoue sans la garde).
+- 2026-10-06 (audit du 05/10, lot 11 — décisions de Raph) : deux oublis du passage aux
+  îlots rebranchés. L'AUTOROUTE de l'artère (PLAN-ETAGES lot 2) n'était plus calculée
+  aux bandes 6-9 : choix A', au-dessus du cardo, sans dégagement ; ses deux pelouses
+  d'échangeur passent à `planIlots` par `isHold` (ni lot, ni cour, ni halle ; mêmes
+  îlots, mêmes rues ; la capacité les décompte), occupants relogés une fois
+  (highwayIlots.test.js). Les SQUARES (îlots-places de sorte `jardin`) ont enfin leur
+  grille : une porte au milieu de chaque côté (fenceEdges `gateMid`), au lieu d'une
+  porte à chaque rue — qui, autour d'un îlot, ouvrait tout le pourtour. Planches :
+  `planches/autoroute-ilots/`, `planches/squares-grille/`.
+- 2026-10-06 (même lot, BUG-63, choix (c) de Raph) : LES GRANDES PLACES. Toutes les places
+  faisaient un îlot (4×4) : le forum n'avait jamais les trois arbres ni les massifs sur
+  les axes de son kit. Le FORUM prend quatre îlots (`GRANDES_PLACES`, ilotLayout) — les
+  deux du croisement à l'ouest du cardo et les deux îlots longs qui les prolongent le long
+  du decumanus, rues intérieures comprises : 14 × 9 cases ; le decumanus de l'ouest
+  débouche sur lui, le cardo (pont, autoroute) le longe intact. Le SQUARE naît sur un
+  carré de 2×2 îlots ordinaires (9 × 9) quand il en trouve un encore fermé autour de son
+  îlot — ses trois compagnons s'ouvrent avec lui. Rôles seulement : grille, ordre
+  d'ouverture, rues et lots des autres îlots inchangés. Une fiche v3 agrandit son forum
+  une fois (`ILOT_MEMORY_V` = 4, `forumGrow`) : les bâtiments des trois îlots gagnés sont
+  relogés (`forumClaim`), ses halles restent au cœur à l'angle d'un îlot de maisons voisin
+  (48 à 57 bâtiments relogés sur 5 graines, bandes 3 à 7 ; rien d'autre ne bouge, autoroute
+  comprise — grandesPlaces.test.js, test d'empreinte). Les squares déjà ouverts gardent leur
+  îlot. Le kit d'une sorte se DÉPLOIE sur une grande place (isoPlaza, `PLAZA_TUNE.grand`) :
+  un duo de bancs par tranche de 4,5 cases de côté, le monde à proportion, les massifs le
+  long de chaque axe, l'arbre de derrière reculé hors de la statue ; une place 4×4 ne change
+  pas d'un pixel. Planche : `planches/grandes-places/`.
 - ⚠ Fragilité connue, hors îlots : quand le niveau des champs change leur découpage
   (`cmTerroirParcels`), la parcelle 0 qui s'épaissit mord sa propre rangée de moulins
   (distance 1, plus les sentiers qui les desservent) et le terroir entier se refonde

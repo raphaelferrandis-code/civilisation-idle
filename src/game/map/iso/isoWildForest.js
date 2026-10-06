@@ -264,7 +264,9 @@ function isoWildForestBlock(L, bx, by, ctx) {
   return arr;
 }
 
-export function isoWildForest(L, b) {
+// L'état de la ceinture (blocs dispersés, liste de la vue), refait quand le plan ou un
+// réglage change — ou quand trop de blocs se sont accumulés.
+function forestState(L) {
   // ':pv…' : le parvis d'une merveille en APERÇU (hors urbanSet, contrairement aux
   // actives) doit chasser les arbres sauvages → la dispersion se refait à l'aller-retour.
   const sig = (CM.layoutRecomputeAt || 0) + ':' + (L.gridN | 0) + ':' + (L.mapSeed || 0)
@@ -274,14 +276,55 @@ export function isoWildForest(L, b) {
     + ':f' + (FOREST.on ? Object.values(FOREST).join('/') : 'off');
   let st = CM._isoWildForest;
   if (!st || st.sig !== sig || st.blocks.size > WILD_BLOCK_CAP) {
-    st = CM._isoWildForest = { sig, blocks: new Map(), list: [], key: '' };
+    st = CM._isoWildForest = { sig, blocks: new Map(), list: [], key: '', ctx: null, ctxL: null };
   }
+  return st;
+}
+
+// Signature de la dispersion courante (la forêt cuite dans le sol, forestBake.js,
+// la porte dans la version de ses tuiles).
+export function isoWildForestSig(L) { return forestState(L).sig; }
+
+// Les arbres du BLOC (bx, by), pour la forêt cuite dans le sol (forestBake.js) : le
+// même cache que la ceinture, sans toucher à la liste de la vue.
+export function isoWildForestBlockAt(L, bx, by) {
+  const st = forestState(L);
+  const bk = bx + ',' + by;
+  let arr = st.blocks.get(bk);
+  if (!arr) { arr = isoWildForestBlock(L, bx, by, forestCtx(L, st)); st.blocks.set(bk, arr); }
+  return arr;
+}
+
+export function isoWildForest(L, b) {
+  const st = forestState(L);
   const bx0 = Math.floor((b.gx0 - WILD_PAD) / WILD_BLOCK);
   const bx1 = Math.floor((b.gx1 + WILD_PAD) / WILD_BLOCK);
   const by0 = Math.floor((b.gy0 - WILD_PAD) / WILD_BLOCK);
   const by1 = Math.floor((b.gy1 + WILD_PAD) / WILD_BLOCK);
   const key = bx0 + ':' + bx1 + ':' + by0 + ':' + by1;
   if (key === st.key) return st.list;   // mêmes blocs visibles → rien à refaire
+  const ctx = forestCtx(L, st);
+  // Liste RÉUTILISÉE (vidée, jamais réallouée) : elle ne se reconstruit qu'au
+  // changement d'ensemble de blocs, et seuls les blocs neufs sont dispersés.
+  const list = st.list;
+  list.length = 0;
+  for (let by = by0; by <= by1; by += 1) {
+    for (let bx = bx0; bx <= bx1; bx += 1) {
+      const bk = bx + ',' + by;
+      let arr = st.blocks.get(bk);
+      if (!arr) { arr = isoWildForestBlock(L, bx, by, ctx); st.blocks.set(bk, arr); }
+      for (let i = 0; i < arr.length; i += 1) list.push(arr[i]);
+    }
+  }
+  st.key = key;
+  return list;
+}
+
+// Le contexte de dispersion (où l'herbe est sauvage, distance à la vie…) : il ne
+// dépend que du plan et des réglages que porte la signature — gardé sur l'état, pour
+// le plan qui l'a vu naître.
+function forestCtx(L, st) {
+  if (st.ctx && st.ctxL === L) return st.ctx;
   const urbanSet = L.urbanSet, roadSet = L.roadSet;
   const riverCells = (L.river && L.river.present && L.river.cells) || null;
   const banks = (L.river && L.river.banks) || null;
@@ -323,18 +366,6 @@ export function isoWildForest(L, b) {
   const lifeKeep = lifeOn ? (gx, gy) => treeLifeKeep(lifeD.at(gx, gy)) : null;
   const lifeAt = lifeOn ? (gx, gy) => lifeD.at(gx, gy) : null;
   const ctx = { isWild, nearCity, cellNoise, lifeKeep, lifeAt, densK: treeDensK() };
-  // Liste RÉUTILISÉE (vidée, jamais réallouée) : elle ne se reconstruit qu'au
-  // changement d'ensemble de blocs, et seuls les blocs neufs sont dispersés.
-  const list = st.list;
-  list.length = 0;
-  for (let by = by0; by <= by1; by += 1) {
-    for (let bx = bx0; bx <= bx1; bx += 1) {
-      const bk = bx + ',' + by;
-      let arr = st.blocks.get(bk);
-      if (!arr) { arr = isoWildForestBlock(L, bx, by, ctx); st.blocks.set(bk, arr); }
-      for (let i = 0; i < arr.length; i += 1) list.push(arr[i]);
-    }
-  }
-  st.key = key;
-  return list;
+  st.ctx = ctx; st.ctxL = L;
+  return ctx;
 }

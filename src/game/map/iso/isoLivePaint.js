@@ -39,7 +39,8 @@ import { drawIsoFieldPixel } from './isoField.js';
 import { drawIsoMill } from './isoMill.js';
 import { drawTerroirTeam } from './terroirLife.js';
 import { isoFlatFootprint, isoFrontOffset, isoWetFootprint, seasonTree } from './isoGroundDetail.js';
-import { ISO_TREE_VARIANTS, TREE_DEAD_VARIANT, TREE_SPRITES, cityTreeVariant, treeAliveVariant, treeSpriteK } from './isoGroundProps.js';
+import { ISO_TREE_VARIANTS, TREE_SPRITES, treeSpriteK } from './isoGroundProps.js';
+import { fbEnd, fbMark, fbTree, forestBakeFrame, treeTvNow } from './forestBake.js';
 import { HOVER_GOLD, rgb } from './isoPalette.js';
 import { drawIsoPlaisirsSeg } from './isoPlaisirs.js';
 import { drawIsoPlazaGrid, drawIsoPlazaProp } from './isoPlaza.js';
@@ -179,7 +180,15 @@ export function paintIsoItems(bake, items, now) {
     const fOff = (t.__district || isoFlatFootprint(t)) ? null : isoFrontOffset(t, L.roadMap);
     return worldToScreen((t.gx + spanX + (fOff ? fOff.ox : 0)) * T, (t.gy + spanY + (fOff ? fOff.oy : 0)) * T);
   };
+  // LA FORÊT CUITE DANS LE SOL (iso/forestBake.js, audit du 05/10, PERF-3) : aux
+  // niveaux ≤ 0,5, les arbres de la forêt sont déjà dans les tuiles du sol. Un arbre
+  // n'est sauté que si rien de ce qui le précède ici ne le recouvre — d'où la marque
+  // posée pour chaque objet AVANT son dessin. null : rien de cuit, tout se pose.
+  const fb = forestBakeFrame(T, z, now, items);
   for (const it of items) {
+    if (fb) {
+      if (it.kind === 'tree') { if (fbTree(fb, it.tr)) continue; } else fbMark(fb, it);
+    }
     // Les RUINES du cycle précédent (iso/isoChute.js), triées à leur profondeur.
     if (it.kind === 'relic') { paintRelic(ctx, it); continue; }
     if (it.kind === 'tile') {
@@ -317,14 +326,9 @@ export function paintIsoItems(bake, items, now) {
       // et par vie de cache, au lieu d'une fois par arbre et par frame.
       // `tr.v` : essence et âge décidés à la plantation (forêt sauvage, cf.
       // isoWildForest) ; sinon un arbre de VILLE, de l'essence de son ère (lot 6).
-      let tv = tr._tv;
-      if (tv === undefined) tv = tr._tv = tr.v || cityTreeVariant(tr.gx, tr.gy, band);
-      // Hors hiver et hors ruines, la cellule du sapin mort reçoit une essence
-      // vivante — tirée à part, et mémoïsée comme la variante.
-      if (tv === TREE_DEAD_VARIANT && !deadTreeOk) {
-        if (tr._ta === undefined) tr._ta = treeAliveVariant(tr.gx, tr.gy);
-        tv = tr._ta;
-      } else if (tr.dead && deadTreeOk) tv = TREE_DEAD_VARIANT;   // conifère de la forêt (isoWildForest)
+      // Hors hiver et hors ruines, la cellule du sapin mort reçoit une essence vivante.
+      // (forestBake.treeTvNow : la forêt cuite dans le sol choisit par la même porte.)
+      const tv = treeTvNow(tr, band, deadTreeOk);
       const tImg0 = treeImgs[tv];
       if (tImg0) {
         // Canevas de l'essence (64 jeune, 96 adulte, 104-128 grand) au grain commun.
@@ -494,6 +498,7 @@ export function paintIsoItems(bake, items, now) {
       drawIsoCitizenItem(ctx, it.p, now, z);
     }
   }
+  if (fb) fbEnd(fb);   // le verdict de la frame (forestBake : ce qu'a rapporté la forêt cuite)
   // (Ici vivait la passe SILHOUETTES FANTÔMES — une unité recouverte redessinée en
   //  transparence par-dessus le peintre. Éteinte le 2026-10-01 à la demande de Raph,
   //  « enlever l'effet fantôme », puis retirée le 2026-10-06 : une unité cachée est

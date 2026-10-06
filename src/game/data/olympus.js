@@ -8,8 +8,15 @@ export const OLYMPUS_HIGH_RUPTURE = 0.72;
 export const OLYMPUS_COMPLETION_SCORE = 12;
 export const OLYMPUS_MIN_DOMINANT_SCORE = 75;
 export const OLYMPUS_QUICK_COLLAPSE_MS = 8 * 60_000;
-export const OLYMPUS_SLEEP_KNOWLEDGE_PER_IDLE_HOUR = 8;
+// Héritages indexés sur la PRODUCTION (audit 2026-10-05, BUG-26, décision de
+// Raph) : à montant fixe (+3 savoirs par acte, +8 par heure d'inactivité), ils ne
+// valaient plus rien vers 17 effondrements, quand le profil se révèle (savoir à
+// 1e60 par seconde et plus). Bureaucratie : max(3, 2 s de production de Savoir)
+// par acte de régulation. Sommeil : 10 % de la production de Savoir en plus,
+// tant que le joueur n'a rien touché depuis OLYMPUS_IDLE_THRESHOLD_MS.
+export const OLYMPUS_SLEEP_KNOWLEDGE_RATE_SHARE = 0.1;
 export const OLYMPUS_BUREAUCRACY_KNOWLEDGE = 3;
+export const OLYMPUS_BUREAUCRACY_RATE_SECONDS = 2;
 export const OLYMPUS_ABYSS_PROD_MAX = 1.35;
 
 // `feeds` = ce qui NOURRIT la ferveur du culte, en clair — la traduction honnête
@@ -30,7 +37,7 @@ export const OLYMPUS_PROFILES = {
     short: { fr: "Dieu des Registres", en: "God of Records" },
     description: { fr: "La cité voit tes décisions comme des décrets sacrés. Chaque crise classée, payée, résolue devient une prière administrative.", en: "The city sees your decisions as sacred decrees. Every crisis filed, paid, resolved becomes an administrative prayer." },
     feeds: { fr: "Se nourrit des crises résolues plutôt que subies, et d'un règne aux commandes, sans longues absences.", en: "Fed by crises resolved rather than endured, and by a reign at the helm, without long absences." },
-    heritageDescription: { fr: "Les crises résolues donnent un petit bonus de Savoir.", en: "Resolved crises grant a small Knowledge bonus." }
+    heritageDescription: { fr: "Chaque crise résolue verse 2 secondes de production de Savoir.", en: "Each resolved crisis yields 2 seconds of Knowledge production." }
   },
   sleep: {
     id: "sleep",
@@ -38,7 +45,7 @@ export const OLYMPUS_PROFILES = {
     short: { fr: "Dieu qui Rêve", en: "Dreaming God" },
     description: { fr: "Tes habitants pensent que le monde avance pendant que tu dors. Les veilleurs parlent bas pour ne pas réveiller la divinité.", en: "Your people believe the world moves forward while you sleep. The watchmen speak low so as not to wake the divinity." },
     feeds: { fr: "Se nourrit du temps où la cité tourne sans toi, et des effondrements rares.", en: "Fed by the time the city runs without you, and by rare collapses." },
-    heritageDescription: { fr: "Les longues sessions idle génèrent un micro-bonus passif.", en: "Long idle sessions generate a passive micro-bonus." }
+    heritageDescription: { fr: "Quand tu ne touches à rien plus de 3 minutes, le Savoir coule 10 % plus vite.", en: "When you leave the city untouched for over 3 minutes, Knowledge flows 10% faster." }
   },
   abyss: {
     id: "abyss",

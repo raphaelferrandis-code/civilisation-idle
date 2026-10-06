@@ -9,6 +9,8 @@
 // murale tourne (fenêtre du Phénix, chrono du Ragnarök…). Le harnais de l'audit
 // les résolvait en temps nul.
 import { settle, roundTrip, vtSec, fmtT } from "./harness.js";
+// balance.js n'importe rien : le lire ici ne charge pas le jeu avant setupEnv.
+import { ICARUS_SEAL_MULT, ICARUS_SEAL_STAKE_SHARE } from "../../balance.js";
 
 export const MYTH_IDS = [
   "mythe_du_chaos", "mythe_de_promethee", "mythe_d_enee", "mythe_de_cadmos", "mythe_d_hephaistos",
@@ -47,7 +49,9 @@ export function createPlayer(g, opts = {}) {
     fastBuy: opts.fastBuy ?? true,
     noGR: !!opts.noGR,
     ragnarokSmart: opts.ragnarokSmart ?? true,
-    survive: !!opts.survive
+    survive: !!opts.survive,
+    atlasNoClick: !!opts.atlasNoClick,    // Atlas : ni ÉPAULER ni régulation (joueur parti)
+    noEdit: !!opts.noEdit                 // Édit d'effondrement éteint : la chute manuelle seule
   };
   const R = {
     milestones: [], cycles: [], offline: [], anomalies: [], roundTrips: [], myth: {}, gr: [], dialogs: {},
@@ -210,25 +214,30 @@ export function createPlayer(g, opts = {}) {
     if (P.doctrine === "auto" && M.has("conseil_de_crise") && state.crisisDoctrine && state.crisisDoctrine.p25 === "ask") {
       for (const p of ["p25", "p50", "p75"]) A.setCrisisPosture(p, "stabiliser");
     }
-    if (M.has("edit_effondrement") && state.crisisDoctrine?.autoCollapse && !state.crisisDoctrine.autoCollapse.enabled) {
+    if (P.noEdit) {
+      if (state.crisisDoctrine?.autoCollapse?.enabled) A.setAutoCollapseConfig({ enabled: false });
+    } else if (M.has("edit_effondrement") && state.crisisDoctrine?.autoCollapse && !state.crisisDoctrine.autoCollapse.enabled) {
       A.setAutoCollapseConfig(P.editTemps ? { enabled: true, trigger: "temps", timeSeconds: 2400, prepare: false } : { enabled: true, trigger: "rupture100", prepare: false });
     }
     if (state.hephHeritage) {
-      // Pendant l'Âge d'Or, les automates d'achat dépensent l'Or au fil de l'eau :
-      // aucune caravane n'est jamais payable (0 marché en 3 h virtuelles, relevé du
-      // 05/10). Le joueur les coupe le temps du pacte, puis les rallume.
-      const want = state.activeMythId !== "mythe_age_or";
-      for (const r of A.getAutomateRules()) if (r.type === "buy_cheapest" && Boolean(r.enabled) !== want) A.toggleAutomate(r.id);
+      // Automates d'achat TOUJOURS allumés, Âge d'Or compris : depuis la correction
+      // d'AGE-OR-AUTOMATES (audit du 05/10), l'automate attend que le moins cher
+      // soit payable au lieu de vider l'Or sur un plus cher — les caravanes se
+      // paient sans couper quoi que ce soit, comme avant le lot 5.
+      for (const r of A.getAutomateRules()) if (r.type === "buy_cheapest" && !r.enabled) A.toggleAutomate(r.id);
     }
   }
 
-  // ── Icare : chasse au jackpot (sceau VII) ────────────────────────────────
+  // ── Icare : chasse au sceau VII ──────────────────────────────────────────
+  // Depuis BUG-40 (choix b de Raph), le sceau veut un vol posé à ×25 ou plus, mise
+  // d'au moins la moitié de la salle commune : le joueur mise cette moitié dès que
+  // sa Faveur la couvre, et vise ×25.
   function icarusHunt() {
     if (!P.icarusHunt) return;
     if (state.grRevealed && state.grRevealed[7]) return;
     if (A.icarusFlying()) {
       const m = A.icarusMultiplier();
-      if (m >= 10.01) {
+      if (m >= ICARUS_SEAL_MULT + 0.01) {
         const o = A.cashOutIcarus();
         if (o && o.type === "cashout") {
           R.flights.cashouts++;
@@ -240,8 +249,8 @@ export function createPlayer(g, opts = {}) {
     if (g.st.gamePaused || state.crisisLimitAnnounced) return;
     if (!A.icarusUnlocked()) return;
     const lim = A.tableLimits();
-    const stake = Math.max(lim.min, Math.min(lim.base, Math.floor((state.faveur || 0) * 0.05)));
-    if ((state.faveur || 0) < stake || stake < lim.min) return;
+    const stake = Math.max(lim.min, Math.ceil(lim.base * ICARUS_SEAL_STAKE_SHARE));
+    if ((state.faveur || 0) < stake || stake > lim.max) return;
     if (A.launchIcarus(stake)) R.flights.launched++;
   }
 
@@ -299,7 +308,7 @@ export function createPlayer(g, opts = {}) {
 
   function mythTactic(cycleAge) {
     const id = state.activeMythId;
-    if (id && mythState.id === id) mythState.snap = { age: cycleAge | 0, inst: +(state.instability || 0).toFixed(3), wear: +(state.timeWear || 0).toFixed(3), terminal: !!state.crisisLimitAnnounced, cran: state.sisypheCran, montees: state.sisypheMontees, fardeau: Math.round(state.atlasFardeau || 0), epaules: state.atlasEpaules, crushed: state.atlasCrushed, phx: state.phoenixRenaissances, atr: state.atridesReached, debt: Math.round(state.atridesDebt || 0) };
+    if (id && mythState.id === id) mythState.snap = { age: cycleAge | 0, inst: +(state.instability || 0).toFixed(3), wear: +(state.timeWear || 0).toFixed(3), terminal: !!state.crisisLimitAnnounced, cran: state.sisypheCran, montees: state.sisypheMontees, fardeau: Math.round(state.atlasFardeau || 0), epaules: state.atlasEpaules, crushed: state.atlasCrushed, phx: state.phoenixRenaissances, atr: state.atridesReached, debt: Math.round(state.atridesDebt || 0), alt: state.icareAltitude, hold: Math.round(state.icareHoldSec || 0) };
     if (!id) return "normal";
     switch (id) {
       case "mythe_de_promethee": {
@@ -331,14 +340,25 @@ export function createPlayer(g, opts = {}) {
       case "mythe_age_or":
         return "orDeal";
       case "mythe_d_atlas":
+        // Joueur parti : le ciel écrase la cité, la Rupture monte jusqu'à la crise
+        // terminale, dont seule la chute manuelle sort sans Édit (ATLAS-ECRASE).
+        if (P.atlasNoClick) return "hold";
         // Bouton ÉPAULER actif (récupération à 0) et ciel lourd : on clique.
         if ((state.atlasShoulderCdTicks || 0) === 0 && (state.atlasFardeau || 0) >= g.myth.ATLAS_COUNT_THRESHOLD) A.atlasEpauler();
         regulate(0.85);
         return "hold";
-      case "mythe_d_icare":
-        while ((state.icareAltitude || 0) < 5 && !state.crisisLimitAnnounced) { const a = state.icareAltitude || 0; A.icareClimb(); if ((state.icareAltitude || 0) === a) break; }
+      case "mythe_d_icare": {
+        // TENIR l'altitude 5 pendant 2 min de jeu (BUG-41) : la Rupture monte
+        // alors au plafond. Freins permanents d'abord (politiques), montée d'une
+        // traite au creux de la jauge, puis régulation serrée jusqu'au sacre.
+        for (const pol of ["paxDivina", "martialLaw"]) if (!(state.activePolicies || []).includes(pol) && (state.activePolicies || []).length < 2 && M.regulationPolicyUnlocked(pol)) A.togglePolicy(pol);
+        if ((state.icareAltitude || 0) < 5 && !state.crisisLimitAnnounced && state.instability <= 0.1) {
+          while ((state.icareAltitude || 0) < 5) { const a = state.icareAltitude || 0; A.icareClimb(); if ((state.icareAltitude || 0) === a) break; }
+        }
+        regulateHard(0.8);
         return "hold";
-      case "mythe_du_phenix": return phenixTactic(cycleAge);
+      }
+      case "mythe_du_phenix": return phenixTactic();
       case "mythe_atrides":
         if (Date.now() >= (state.atridesRenegotiateCooldownEnd || 0)) A.renegocierAtridesDebt();
         buyBuildings((b) => b.currency !== "gold");
@@ -398,15 +418,19 @@ export function createPlayer(g, opts = {}) {
     return "custom";
   }
 
-  function phenixTactic(cycleAge) {
+  // La fenêtre du Phénix se compte en temps de jeu NON PAUSÉ (phoenixCycleSec,
+  // BUG-38), plus en âge mural du cycle : les fenêtres de crise ne la mangent plus.
+  function phenixTactic() {
     buyBuildings(() => true);
     const target = D(state.phoenixRebirthTargetPop || 0);
     const peak = D(state.cyclePeaks?.population || state.population);
-    // Monter (Aile) pour embraser la Rupture vers 2 min 30 si l'objectif de pop est là.
-    if (state.icareHeritage && cycleAge >= 100 && cycleAge <= 175 && peak.gte(target) && !M.crisisOpen()) {
+    const windowSec = g.myth.PHENIX_REBIRTH_WINDOW_MS / 1000;
+    const played = state.phoenixCycleSec || 0;
+    // Monter (Aile) pour embraser la Rupture en fin de fenêtre si l'objectif de pop est là.
+    if (state.icareHeritage && played >= windowSec - 80 && played <= windowSec - 5 && peak.gte(target) && !M.crisisOpen()) {
       if ((state.icareAltitude || 0) < 12 && state.instability < 0.99) A.icareClimb();
     }
-    if (M.crisisOpen() && cycleAge <= 180) return "collapseNow";
+    if (M.crisisOpen() && played <= windowSec) return "collapseNow";
     return "custom";
   }
 

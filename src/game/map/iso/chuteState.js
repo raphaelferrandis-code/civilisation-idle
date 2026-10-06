@@ -27,8 +27,20 @@ export const CHUTE_TUNE = {
   relicKeep: 55,         // % des maisons dont la ruine reste debout (le reste est arasé)
 };
 
+// LA VERSION COURTE (audit du 05/10, CHUTE-9 ; réglage « Chute de la cité » des
+// Options, map/chuteMode.js) : toutes les durées × 0,3, sans nuit — ni la nuit qui
+// tombe sur les ruines (nightAt, nightMs), ni celle tenue au feu du campement
+// (riseNightMs) ; le campement sort du noir au crépuscule (isoChute.js, riseNight0).
+// Crépuscule, recul de caméra et ruines arasées ne changent pas.
+// Rebâtie depuis CHUTE_TUNE à chaque chute (la molette __chute.TUNE la suit).
+export const CHUTE_SHORT_K = 0.3;
+const TUNE_MS = ['waveStart', 'waveDur', 'waveJitter', 'shakeMs', 'dustLead', 'dustMs', 'duskInMs',
+  'fadeAt', 'fadeMs', 'riseBlackMs', 'riseFadeMs', 'riseDawnMs'];
+const SHORT_TUNE = { ...CHUTE_TUNE };
+
 export const CHUTE = {
   act: null,             // null | 'fall' (la chute) | 'rise' (le lever du cycle suivant)
+  short: false,          // version courte (setChuteShort), gardée de la chute à son lever
   t0: 0,                 // performance.now() au début de l'acte
   scrub: null,           // instant forcé (captures, tests) — sinon l'horloge murale
   core: { x: 0, y: 0 },  // cœur de la vague (cellules)
@@ -38,6 +50,17 @@ export const CHUTE = {
   done: false,           // l'acte est au bout (le noir est atteint / l'aube est faite)
   fall: new WeakMap(),   // tuile → instant de sa chute (ms)
 };
+
+// Pose la version de la chute qui commence (et de son lever).
+export function setChuteShort(on) {
+  CHUTE.short = !!on;
+  if (!CHUTE.short) return;
+  Object.assign(SHORT_TUNE, CHUTE_TUNE);
+  for (const k of TUNE_MS) SHORT_TUNE[k] = CHUTE_TUNE[k] * CHUTE_SHORT_K;
+  SHORT_TUNE.nightAt = 0; SHORT_TUNE.nightMs = 0; SHORT_TUNE.riseNightMs = 0;
+}
+// Les réglages de la chute en cours : CHUTE_TUNE, ou sa version courte.
+export const chuteTune = () => (CHUTE.short ? SHORT_TUNE : CHUTE_TUNE);
 
 export function chuteMs(now = (typeof performance !== 'undefined' ? performance.now() : 0)) {
   return CHUTE.scrub != null ? CHUTE.scrub : now - CHUTE.t0;
@@ -58,20 +81,20 @@ export function chuteFallAt(t) {
   const sx = t.spanX || t.size || 1, sy = t.spanY || t.size || 1;
   const d = Math.hypot(t.gx + sx / 2 - CHUTE.core.x, t.gy + sy / 2 - CHUTE.core.y) / Math.max(1, CHUTE.maxD);
   const j = (hash('chute:' + t.gx + ':' + t.gy) % 1000) / 1000;
-  const T = CHUTE_TUNE;
+  const T = chuteTune();
   v = T.waveStart + Math.pow(d, T.wavePow) * T.waveDur + (j - 0.5) * T.waveJitter;
   CHUTE.fall.set(t, v);
   return v;
 }
 // Rayon tombé (cellules) à l'instant ms : sous lui, les rues se vident.
 export function chuteFallenRadius(ms) {
-  const T = CHUTE_TUNE;
+  const T = chuteTune();
   const q = (ms - T.waveStart) / T.waveDur;
   return q <= 0 ? -1 : CHUTE.maxD * Math.pow(q, 1 / T.wavePow);
 }
 // Fin de la vague, gigue comprise (les tuiles hors champ finissent de tomber après).
 export function chuteWaveEnd() {
-  const T = CHUTE_TUNE;
+  const T = chuteTune();
   return T.waveStart + T.waveDur * 1.25 + T.waveJitter;
 }
 
@@ -88,7 +111,7 @@ const SHAKE_ST = { ph: 'shake', ox: 0, oy: 0, dust: -1 };
 const RUIN_ST = { ph: 'ruin', dust: -1 };
 export function chuteTileState(t) {
   if (CHUTE.act !== 'fall') return null;
-  const ms = chuteMs(), tf = chuteFallAt(t), T = CHUTE_TUNE;
+  const ms = chuteMs(), tf = chuteFallAt(t), T = chuteTune();
   if (ms < tf - T.shakeMs) return null;
   const df = Math.floor((ms - (tf - T.dustLead)) / T.dustMs * DUST_FRAMES);
   const dust = df >= 0 && df < DUST_FRAMES ? df : -1;

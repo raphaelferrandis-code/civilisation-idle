@@ -102,7 +102,12 @@ export function ragnarokWinterMult() {
 // normal : la pression, c'est le joueur qui l'allume. L'héritage (l'Aile) rend le
 // même verbe dans les cycles normaux, SANS plafond — libre au joueur de se
 // saboter s'il n'a pas compris le principe. La Surchauffe est REMPLACÉE.
-export const ICARE_ALTITUDE_TARGET     = 5;    // Réussite : atteindre l'altitude 5
+export const ICARE_ALTITUDE_TARGET     = 5;    // Réussite : TENIR l'altitude 5…
+// … pendant 2 min de jeu d'affilée (pauses et crise terminale ne comptent pas),
+// sacre à la fin du maintien. « Atteindre » l'altitude 5 se bouclait en 5 clics
+// gratuits, 2 s mesurées (audit 2026-10-05, BUG-41) ; tenir ×32 de production sous
+// +75 % de Rupture immédiate et +250 % de vitesse est un vrai pari.
+export const ICARE_HOLD_SEC            = 120;
 export const ICARE_CLIMB_PROD_MULT     = 2;    // ×2 production par altitude (cumulatif)
 export const ICARE_CLIMB_RUPTURE       = 0.15; // Rupture immédiate par montée
 export const ICARE_CLIMB_RUPTURE_HASTE = 0.5;  // +50 % de vitesse de Rupture par altitude
@@ -173,6 +178,12 @@ export const OR_DEAL_ASK_MARKUP       = 1.6;   // Prix demandé : 160 % de la va
 export const OR_DEAL_HAGGLE_STEP      = 0.85;  // Chaque marchandage : le prix baisse à 85 %
 export const OR_DEAL_PATIENCE_MIN     = 2;     // Patience cachée du marchand : 2 à 4 marchandages
 export const OR_DEAL_PATIENCE_MAX     = 4;
+// Un départ a un prix (audit 2026-10-05, BUG-70, décision de Raph) : sans lui, une
+// caravane neuve se rouvrait au clic suivant, et la patience cachée n'avait aucun
+// enjeu. ⚠ OR_CARAVAN_WAIT_VEXED_MS est recopié en dur dans hydrateState (TDZ).
+export const OR_CARAVAN_WAIT_VEXED_MS   = 60_000; // Marchand vexé : la suivante attend 60 s
+export const OR_CARAVAN_WAIT_REFUSED_MS = 20_000; // Refus poli : 20 s
+export const OR_DEAL_VEXED_SURCHARGE    = 1.25;   // Après un marchand vexé, la suivante demande +25 %
 
 // ── Constantes Mythe de Babel ─────────────────────────────────────────────────
 // Refonte 2026-07-20 (retour Raph : « reviens aux défis plus simples ») : la
@@ -199,12 +210,17 @@ export const BABEL_CAT_LABELS     = {
 // effondrement, reconstruire la cité à PHENIX_REBIRTH_POP_MULT × la population de
 // redémarrage (le reliquat post-effondrement) en moins de PHENIX_REBIRTH_WINDOW_MS.
 // Réussir PHENIX_RENAISSANCE_TARGET renaissances de suite. Rater une fenêtre brise
-// la chaîne (retour à 0). Cible RELATIVE au départ du cycle, et bornée — mais à
-// l'activation, ce départ vaut le plancher de 10 habitants sans Reliquaire des
-// pics : la 1re cible est alors 600, pas « à l'échelle » de la partie (audit
-// 2026-10-05, BUG-79 ; cf. BUG-41).
+// la chaîne (retour à 0).
+// Cible ANCRÉE (audit 2026-10-05, BUG-41) : le départ vaut souvent le plancher de
+// 10 habitants (600 à viser, bouclé en secondes). Chaque cible vaut donc
+// max(60× le départ, pic du cycle d'avant) — « renaître au moins aussi haut » :
+// le cycle interrompu par le pacte pour la 1re, le cycle tombé pour les suivantes.
+// Fenêtre en temps de jeu NON PAUSÉ (state.phoenixCycleSec, cumulé au tick) : la
+// Rupture monte au plus de 0,6 %/s, soit 167 s de 0 à 100 %, et les crises à 25,
+// 50 et 75 % gèlent la partie pendant que l'heure murale courait. À 3 min murales,
+// aucune renaissance sans l'Aile d'Icare (BUG-38).
 export const PHENIX_RENAISSANCE_TARGET = 3;          // 3 renaissances réussies consécutives
-export const PHENIX_REBIRTH_WINDOW_MS  = 3 * 60_000; // fenêtre de reconstruction (3 min)
+export const PHENIX_REBIRTH_WINDOW_MS  = 4 * 60_000; // fenêtre de reconstruction (4 min de jeu)
 export const PHENIX_REBIRTH_POP_MULT   = 60;         // reconstruire à 60× le reliquat post-effondrement
 
 // ── Constantes Mythe d'Héphaïstos ────────────────────────────────────────────
@@ -250,7 +266,11 @@ export const ATRIDES_DEBT_PAYBACK_FACTOR    = 1.2;
 export const ATRIDES_RENEGOTIATE_COOLDOWN_MS = 120_000;
 export const ATRIDES_RENEGOTIATE_DURATION_MS = 30_000;
 export const ATRIDES_RENEGOTIATE_MULT        = 0.3;
-export const ATRIDES_GAIN_SECONDS           = 150;     // Réussite : Trésor NET gagné ce cycle ≥ 150 s de production d'Or (malgré la dette)
+// Réussite : Or PRODUIT pendant le Mythe (state.atridesEarned, cumulé au tick), moins
+// la dette, ≥ 150 s de production d'Or. Le stock comptait aussi les Fêtes de jalon
+// (240 s de production d'un coup) et les aubaines : sacre au 1er tick avec le nœud,
+// cible fuyante sans lui (audit 2026-10-05, BUG-39).
+export const ATRIDES_GAIN_SECONDS           = 150;
 export const ATRIDES_NEXT_RUN_PENALTY_MULT  = 0.8;
 
 // ── Constantes Mythe d'Énée ──────────────────────────────────────────────────
@@ -529,8 +549,11 @@ export const MYTHS = [
     act: 2,
     name: { fr: "Le Mythe de Sisyphe", en: "The Myth of Sisyphus" },
     description: {
-      fr: `Le rocher attend au pied : ${SISYPHE_CRANS} crans jusqu'au sommet. POUSSER paie le cran dans une matière au choix — chaque matière ré-employée double son prix. Bâtir pendant la montée lâche le rocher. Au premier sommet, le rocher retombe. Toujours.`,
-      en: `The boulder waits at the foot: ${SISYPHE_CRANS} notches to the summit. PUSH pays the notch in a material of your choice — each reused material doubles its price. Building during the climb lets go of the boulder. At the first summit, the boulder rolls back down. Always.`
+      // La voirie ne compte pas comme bâtir (décision Raph, audit 2026-10-05,
+      // BUG-24) : des travaux publics mis en file, pas une construction — et
+      // l'automate Infra, qui pose un chantier par tick, ne lâche pas le rocher.
+      fr: `Le rocher attend au pied : ${SISYPHE_CRANS} crans jusqu'au sommet. POUSSER paie le cran dans une matière au choix — chaque matière ré-employée double son prix. Bâtir pendant la montée lâche le rocher ; les chantiers de voirie ne comptent pas. Au premier sommet, le rocher retombe. Toujours.`,
+      en: `The boulder waits at the foot: ${SISYPHE_CRANS} notches to the summit. PUSH pays the notch in a material of your choice — each reused material doubles its price. Building during the climb lets go of the boulder; road works do not count. At the first summit, the boulder rolls back down. Always.`
     },
     objectif: {
       fr: `Hisser le rocher au sommet ${SISYPHE_MONTEES_TARGET} fois (${SISYPHE_CRANS} crans), sans bâtir pendant la montée.`,
@@ -589,8 +612,8 @@ export const MYTHS = [
     act: 2,
     name: { fr: "Le Mythe de l'Âge d'Or", en: "The Myth of the Golden Age" },
     description: {
-      fr: `La paix dorée : Rupture plafonnée à ${Math.round(OR_RUPTURE_CAP * 100)} %, crises suspendues. Des caravanes proposent des lots contre de l'Or — on peut marchander, mais un marchand vexé s'en va. Si l'écart Nourriture/Trésor dépasse ${Math.round(OR_BALANCE_RATIO * 100)} %, l'Usure monte ×${OR_USURE_IMBALANCE_MULT}.`,
-      en: `The golden peace: Rupture capped at ${Math.round(OR_RUPTURE_CAP * 100)}%, crises suspended. Caravans offer lots for Treasury — you can haggle, but an offended merchant walks away. If the Food/Treasury gap exceeds ${Math.round(OR_BALANCE_RATIO * 100)}%, Wear rises ×${OR_USURE_IMBALANCE_MULT}.`
+      fr: `La paix dorée : Rupture plafonnée à ${Math.round(OR_RUPTURE_CAP * 100)} %, crises suspendues. Des caravanes proposent des lots contre de l'Or — on peut marchander, mais un marchand vexé s'en va, et la caravane suivante tarde et demande plus cher. Si l'écart Nourriture/Trésor dépasse ${Math.round(OR_BALANCE_RATIO * 100)} %, l'Usure monte ×${OR_USURE_IMBALANCE_MULT}.`,
+      en: `The golden peace: Rupture capped at ${Math.round(OR_RUPTURE_CAP * 100)}%, crises suspended. Caravans offer lots for Treasury — you can haggle, but an offended merchant walks away, and the next caravan comes late and asks more. If the Food/Treasury gap exceeds ${Math.round(OR_BALANCE_RATIO * 100)}%, Wear rises ×${OR_USURE_IMBALANCE_MULT}.`
     },
     objectif: {
       fr: `Conclure ${OR_DEALS_TARGET} marchés avec les caravanes.`,
@@ -604,6 +627,8 @@ export const MYTHS = [
     onActivate() {
       state.orDealsClosed = 0;
       state.orUsureImbalance = false;
+      state.orNextCaravanAt = 0;
+      state.orMerchantVexed = false;
     },
 
     onCollapse() {
@@ -658,8 +683,8 @@ export const MYTHS = [
       en: `The CLIMB button appears. Each climb: production ×${ICARE_CLIMB_PROD_MULT}, +${Math.round(ICARE_CLIMB_RUPTURE * 100)}% instant Rupture, and Rupture rises ${Math.round(ICARE_CLIMB_RUPTURE_HASTE * 100)}% faster per altitude.`
     },
     objectif: {
-      fr: `Atteindre l'altitude ${ICARE_ALTITUDE_TARGET}.`,
-      en: `Reach altitude ${ICARE_ALTITUDE_TARGET}.`
+      fr: `Tenir l'altitude ${ICARE_ALTITUDE_TARGET} pendant ${ICARE_HOLD_SEC / 60} minutes de jeu d'affilée.`,
+      en: `Hold altitude ${ICARE_ALTITUDE_TARGET} for ${ICARE_HOLD_SEC / 60} straight minutes of play.`
     },
     heritageDescription: {
       fr: "L'Aile : MONTER et redescendre restent disponibles dans les cycles normaux, sans plafond. La production grimpe, la Rupture s'emballe — à toi de choisir ton altitude.",
@@ -668,10 +693,13 @@ export const MYTHS = [
 
     onActivate() {
       state.icareAltitude = 0;
+      state.icareHoldSec = 0;
     },
 
     onCollapse() {
-      return (state.icareAltitude || 0) >= ICARE_ALTITUDE_TARGET;
+      // Le maintien (cumulé au tick, mythTicks.js) et l'altitude à l'instant : une
+      // redescente sous 5 remet le maintien à zéro au tick suivant.
+      return (state.icareAltitude || 0) >= ICARE_ALTITUDE_TARGET && (state.icareHoldSec || 0) >= ICARE_HOLD_SEC;
     },
 
     applyHeritage() {
@@ -684,24 +712,28 @@ export const MYTHS = [
     act: 3,
     name: { fr: "Le Mythe du Phénix", en: "The Myth of the Phoenix" },
     description: {
-      fr: `Renaître de ses cendres, vite, plusieurs fois. Après chaque effondrement, reconstruisez la cité jusqu'à ${PHENIX_REBIRTH_POP_MULT}× sa population de redémarrage en moins de ${PHENIX_REBIRTH_WINDOW_MS / 60_000} minutes. Réussissez ${PHENIX_RENAISSANCE_TARGET} renaissances d'affilée. Rater une fenêtre brise la chaîne et vous repartez de zéro.`,
-      en: `Rise from your ashes, fast, several times over. After each collapse, rebuild the city to ${PHENIX_REBIRTH_POP_MULT}× its restart Radiance in under ${PHENIX_REBIRTH_WINDOW_MS / 60_000} minutes. Achieve ${PHENIX_RENAISSANCE_TARGET} rebirths in a row. Missing a window breaks the chain and you start over from zero.`
+      fr: `Renaître de ses cendres, vite, plusieurs fois. Après chaque effondrement, reconstruisez la cité jusqu'à ${PHENIX_REBIRTH_POP_MULT}× sa population de redémarrage, et au moins au pic du cycle d'avant, en moins de ${PHENIX_REBIRTH_WINDOW_MS / 60_000} minutes de jeu. Réussissez ${PHENIX_RENAISSANCE_TARGET} renaissances d'affilée. Rater une fenêtre brise la chaîne et vous repartez de zéro.`,
+      en: `Rise from your ashes, fast, several times over. After each collapse, rebuild the city to ${PHENIX_REBIRTH_POP_MULT}× its restart Radiance, and at least to the previous cycle's peak, in under ${PHENIX_REBIRTH_WINDOW_MS / 60_000} minutes of play. Achieve ${PHENIX_RENAISSANCE_TARGET} rebirths in a row. Missing a window breaks the chain and you start over from zero.`
     },
     objectif: {
-      fr: `Réussir ${PHENIX_RENAISSANCE_TARGET} renaissances consécutives : à chaque cycle, atteindre ${PHENIX_REBIRTH_POP_MULT}× le Rayonnement de départ en moins de ${PHENIX_REBIRTH_WINDOW_MS / 60_000} min, puis s'effondrer pour renaître.`,
-      en: `Achieve ${PHENIX_RENAISSANCE_TARGET} consecutive rebirths: each cycle, reach ${PHENIX_REBIRTH_POP_MULT}× the starting Radiance in under ${PHENIX_REBIRTH_WINDOW_MS / 60_000} min, then collapse to be reborn.`
+      fr: `Réussir ${PHENIX_RENAISSANCE_TARGET} renaissances consécutives : à chaque cycle, atteindre ${PHENIX_REBIRTH_POP_MULT}× le Rayonnement de départ (au moins le pic du cycle d'avant) en moins de ${PHENIX_REBIRTH_WINDOW_MS / 60_000} min de jeu, puis s'effondrer pour renaître.`,
+      en: `Achieve ${PHENIX_RENAISSANCE_TARGET} consecutive rebirths: each cycle, reach ${PHENIX_REBIRTH_POP_MULT}× the starting Radiance (at least the previous cycle's peak) in under ${PHENIX_REBIRTH_WINDOW_MS / 60_000} min of play, then collapse to be reborn.`
     },
     heritageDescription: {
       fr: `Script d'Automatisation : débloque un panneau dans les Options pour définir des conditions d'effondrement automatique dans toutes les runs futures (seuil de Rupture, seuil d'Usure, durée du cycle).`,
       en: `Automation Script: unlocks a panel in the Options to set automatic collapse conditions in all future runs (Rupture threshold, Wear threshold, cycle duration).`
     },
 
-    onActivate() {
+    // `prevPeakPop` : pic de population du cycle d'avant, capté par activateMyth
+    // AVANT resetCivilization (après, il ne reste que le plancher de départ).
+    onActivate({ prevPeakPop = 0 } = {}) {
       state.phoenixCycleCount  = 0;
       state.phoenixTotalRuins  = D(0);
       state.phoenixRenaissances = 0;
-      // Cible de la 1re renaissance : 60× la population de démarrage actuelle.
-      state.phoenixRebirthTargetPop = D(state.population).mul(PHENIX_REBIRTH_POP_MULT);
+      state.phoenixCycleSec    = 0;
+      // Cible de la 1re renaissance : 60× la population de démarrage, et au moins
+      // le pic du cycle d'avant (BUG-41).
+      state.phoenixRebirthTargetPop = D(state.population).mul(PHENIX_REBIRTH_POP_MULT).max(D(prevPeakPop));
       state.phoenixNextForceAt = null;
     },
 
@@ -723,8 +755,8 @@ export const MYTHS = [
       en: "A cursed debt weighs on the city. The debt grows every second (+1% of production per minute) and drains 10% of every resource produced. Mercifully, you start with an initial treasury and a global x3 production bonus for the first 2 minutes."
     },
     objectif: {
-      fr: `Dégager, malgré la dette, un Trésor net (Trésor moins Dette) gagné ce cycle égal à ${ATRIDES_GAIN_SECONDS} s de ta production d'Or avant de vous effondrer.`,
-      en: `Clear, despite the debt, a net Treasury (Treasury minus Debt) gained this cycle worth ${ATRIDES_GAIN_SECONDS}s of your Treasury output before you collapse.`
+      fr: `Produire, malgré la dette, un Trésor net (Or produit pendant le pacte moins la Dette) égal à ${ATRIDES_GAIN_SECONDS} s de ta production d'Or avant de vous effondrer.`,
+      en: `Produce, despite the debt, a net Treasury (Treasury produced during the pact minus the Debt) worth ${ATRIDES_GAIN_SECONDS}s of your Treasury output before you collapse.`
     },
     heritageDescription: {
       fr: "Débloque le bouton 'Pacte des Atrides' en début de cycle normal (runs normales) pour doubler la production pendant 2 minutes en échange de -50% pendant la crise.",
@@ -739,6 +771,7 @@ export const MYTHS = [
       state.atridesRenegotiateActiveUntil = 0;
       state.atridesRenegotiateCooldownEnd = 0;
       state.atridesReached = false;
+      state.atridesEarned = D(0);
       state.mythStartGold = D(state.gold);
     },
 
@@ -760,8 +793,8 @@ export const MYTHS = [
       en: "At the start, choose from your unlocked Legacies those that become active Ruins. Each active Ruin keeps its usual bonus but adds its associated penalty for this cycle."
     },
     objectif: {
-      fr: `Porter au moins ${ANTEE_MIN_ACTIVE_RUINS} maluses simultanés (Héritages activés comme Ruines actives) et, sous ce poids, faire croître le Rayonnement ×${ANTEE_POP_MULT} depuis le départ.`,
-      en: `Carry at least ${ANTEE_MIN_ACTIVE_RUINS} simultaneous penalties (Legacies activated as active Ruins) and, under that weight, grow Radiance ×${ANTEE_POP_MULT} from the start.`
+      fr: `Porter au moins ${ANTEE_MIN_ACTIVE_RUINS} maluses simultanés (Héritages activés comme Ruines actives) et, sous ce poids, faire croître le Rayonnement ×${ANTEE_POP_MULT} depuis le départ, et au moins jusqu'au pic du cycle d'avant.`,
+      en: `Carry at least ${ANTEE_MIN_ACTIVE_RUINS} simultaneous penalties (Legacies activated as active Ruins) and, under that weight, grow Radiance ×${ANTEE_POP_MULT} from the start, and at least to the previous cycle's peak.`
     },
     heritageDescription: {
       fr: "Ruines actives : dans les runs futures, chaque début de cycle propose de choisir volontairement des Héritages avec leur malus. Les Ruines gagnées à l'effondrement reçoivent un multiplicateur proportionnel au nombre de malus actifs (placeholder).",
@@ -769,14 +802,17 @@ export const MYTHS = [
     },
     requiresActiveRuinsChoice: true,
 
-    onActivate() {
+    // Base ANCRÉE (audit 2026-10-05, BUG-41) : max(départ, pic du cycle d'avant /
+    // 50) — « retrouver son pic d'avant sous 4 fardeaux ». Le départ seul vaut le
+    // plancher de 10 habitants après un Grand Reset : 500 à viser, 2 à 12 s mesurées.
+    onActivate({ prevPeakPop = 0 } = {}) {
       state.activeRuinIds = [];
       state.pendingActiveRuinsChoice = true;
-      state.mythStartPop = D(state.population).max(1);
+      state.mythStartPop = D(state.population).max(1).max(D(prevPeakPop).div(ANTEE_POP_MULT));
     },
 
     onCollapse() {
-      // Porter ≥4 maluses ET prospérer malgré eux : pic de pop ≥ 50× le départ.
+      // Porter ≥4 maluses ET prospérer malgré eux : pic de pop ≥ 50× la base.
       const peakPop = D(state.cyclePeaks?.population || state.population);
       return activeRuinCount(state) >= ANTEE_MIN_ACTIVE_RUINS &&
              peakPop.gte(D(state.mythStartPop || 1).mul(ANTEE_POP_MULT));

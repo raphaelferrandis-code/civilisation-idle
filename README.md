@@ -1,6 +1,6 @@
-# Civilisation: Effondrement Idle
+# Effondrement Idle
 
-Jeu idle de civilisation, crises, ruines, héritages et mythes, porté sur React avec Vite.
+*Collapse Idle* en anglais. Jeu idle de civilisation, crises, ruines, héritages et mythes, porté sur React avec Vite.
 
 ## Commandes
 
@@ -40,6 +40,13 @@ Le process principal Electron est `main.cjs`. Il sert les fichiers via le protoc
   fichier, fichier nuage Google Drive, export) passe par le process principal.
 - Lancé par Steam (`SteamAppId` / `SteamGameId` présents) : drapeaux de l'overlay
   (`in-process-gpu`, `disable-direct-composition`) ; `--no-steam-overlay` les retire.
+- **Version Steam** (lancée par Steam, ou build `npm run dist-steam`, qui injecte
+  `civSteamBuild` dans le package.json empaqueté) : pas de miroir Google Drive, Steam
+  Cloud transporte `saves\save.json`. L'.exe hors Steam garde le miroir.
+- La cité **vit fenêtre réduite ou couverte** (`backgroundThrottling: false`) : seul
+  le rendu de la carte s'arrête quand la fenêtre est réduite. Le crédit hors-ligne ne
+  vaut que pour une vraie fermeture ou une veille. Le navigateur, lui, traite toujours
+  un onglet caché comme une absence.
 
 ## Tests & CI
 

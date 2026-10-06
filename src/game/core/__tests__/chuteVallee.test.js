@@ -49,15 +49,33 @@ afterEach(() => {
 });
 
 describe("la même vallée", () => {
-  it("garde graine, fleuve, cœur et grille ; efface les îlots ; prend les ruines relevées", async () => {
+  // Audit du 05/10, CHUTE-4 (choix B de Raph) : la grille n'est plus gardée (maxN), le
+  // fleuve garde sa largeur de pose (riverN) — la plus grande des deux.
+  it("garde graine, fleuve, cœur et largeur de pose du fleuve ; efface grille et îlots ; prend les ruines relevées", async () => {
     const name0 = state.cityName;
     const fresh = relicsOf(12345, 4);
     await collapseWith(() => fresh);
     expect(state.mapSeed).toBe(12345);
     expect(state.riverWP).toEqual(RIVER);
-    expect(state.cityCore).toEqual({ seed: 12345, dx: -1.5, dy: -4, bx: -2, maxN: 96 });
+    expect(state.cityCore).toEqual({ seed: 12345, dx: -1.5, dy: -4, bx: -2, riverN: 96 });
     expect(state.cityRelics).toBe(fresh);
     expect(state.cityName).not.toBe(name0);
+  });
+
+  it("la largeur de pose du fleuve ne recule pas d'une chute à l'autre", async () => {
+    state.cityCore = { seed: 12345, dx: -1.5, dy: -4, bx: -2, maxN: 40, riverN: 96 };
+    await collapseWith(() => null);
+    expect(state.cityCore.riverN).toBe(96);
+    expect(state.cityCore.maxN).toBeUndefined();
+    // Elle survit au rechargement (normalizeCityCore).
+    const reloaded = hydrateState(JSON.parse(JSON.stringify(state)));
+    expect(reloaded.cityCore.riverN).toBe(96);
+  });
+
+  it("une sauvegarde sans largeur de pose n'en invente pas au rechargement", () => {
+    const reloaded = hydrateState(JSON.parse(JSON.stringify({ ...MID_GAME_FIXTURE, mapSeed: 7, cityCore: { seed: 7, dx: 0, dy: 0, bx: 0, maxN: 50 } })));
+    expect(reloaded.cityCore.maxN).toBe(50);
+    expect("riverN" in reloaded.cityCore).toBe(false);
   });
 
   it("une chute non regardée (rien de relevé) garde les ruines d'avant", async () => {

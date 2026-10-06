@@ -12,7 +12,7 @@
 import { state } from '../state.js';
 import { D } from '../num.js';
 import { has } from './shared.js';
-import { epitaphRuinMultiplier } from '../../data/epitaphs.js';
+import { epitaphRuinMultiplier, epitaphLegacyById } from '../../data/epitaphs.js';
 import { cycleVowRuinMult } from '../../data/vows.js';
 
 // « Rite de Passage » (nœud rituel_effondrement) : +25 % de Ruines à la chute.
@@ -32,4 +32,22 @@ export function collapseHarvest(gain, legacy, cause) {
     .mul(epitaphRuinMultiplier(legacy, cause))
     .mul(cycleVowRuinMult(state))
     .round();
+}
+
+// Legs que la PROCHAINE chute appliquera : le testament gravé, sinon la
+// dernière volonté — ce que runCollapseSequence retient sur le chemin de
+// l'Édit. Sans testament, la stèle laissera choisir un autre legs : le chiffre
+// affiché peut alors changer au moment de graver.
+export function projectedCollapseLegacy() {
+  return epitaphLegacyById(state.testamentLegacyId) || epitaphLegacyById(state.nextEpitaphLegacy?.id);
+}
+
+// Moisson AFFICHÉE avant la chute (autel, jauge de la Cité, Bilan ; décision de
+// Raph sur BUG-33 : A) : la même composition que la moisson versée, legs
+// projeté compris, et non plus le ruinGain brut (jusqu'à ×2,1 d'écart). Le
+// bonus Apocalypse de l'Olympe reste hors du chiffre : chute manuelle rapide
+// seulement, il a sa propre ligne de chronique. `cause` : collapseCause()
+// (events.js, que ce module ne peut pas importer sans cycle).
+export function projectedCollapseHarvest(gain, cause) {
+  return collapseHarvest(gain, projectedCollapseLegacy(), cause);
 }

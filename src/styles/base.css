@@ -228,7 +228,6 @@ h1 {
   border: 1px solid var(--line);
   background: var(--panel);
   backdrop-filter: blur(16px);
-  -webkit-backdrop-filter: blur(16px);
   box-shadow:
     0 1px 0 var(--panel-border) inset,
     0 4px 6px -1px rgba(0, 0, 0, 0.1),

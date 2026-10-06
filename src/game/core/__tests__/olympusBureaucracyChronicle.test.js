@@ -3,14 +3,19 @@
 // chaque acte de régulation — y compris chaque édit de l'Intendance, un toutes
 // les 20 s par consigne — écrivait sa ligne « +3 savoirs » dans la Chronique,
 // plafonnée à 48 lignes : les vraies entrées du Journal en étaient chassées.
-// Le savoir reste versé à CHAQUE acte (montant inchangé) ; la Chronique n'en
-// garde qu'une ligne par minute au plus, qui cumule les versements, et la chute
-// écrit le reliquat du cycle qui tombe.
+// Le savoir reste versé à CHAQUE acte ; la Chronique n'en garde qu'une ligne par
+// minute au plus, qui cumule les versements, et la chute écrit le reliquat du
+// cycle qui tombe. Montants indexés sur la production (décision de Raph, b) :
+// Bureaucratie = max(3, 2 s de Savoir) par acte ; Sommeil = 10 % du Savoir
+// produit pendant l'inactivité.
 
 import { describe, it, expect, beforeEach, afterEach, vi } from "vitest";
-import { state, setState, hydrateState, setOfflineSim } from "../state.js";
-import { D } from "../num.js";
+import { state, setState, hydrateState, setOfflineSim, invalidateRenderCache } from "../state.js";
+import { D, Decimal } from "../num.js";
+import { fmt } from "../utils.js";
+import { rates } from "../mechanics.js";
 import { registerOlympusCrisisResolved, registerOlympusCollapse, tickOlympus } from "../actions/olympus.js";
+import { OLYMPUS_IDLE_THRESHOLD_MS } from "../../data/olympus.js";
 import { MID_GAME_FIXTURE, FIXED_NOW } from "./fixtures.js";
 
 const bureaucracyLines = () => (state.history || []).filter((l) => l.includes("Bureaucratie Sacrée"));
@@ -39,7 +44,7 @@ describe("Bureaucratie Sacrée : une ligne de Chronique par minute (BUG-26)", ()
     const k0 = D(state.knowledge);
     registerOlympusCrisisResolved();
     const perAct = D(state.knowledge).sub(k0).toNumber();
-    expect(perAct).toBeGreaterThanOrEqual(3); // montant de l'héritage inchangé
+    expect(perAct).toBeGreaterThanOrEqual(3); // plancher de l'héritage
     expect(bureaucracyLines()).toHaveLength(1);
 
     for (let i = 0; i < 9; i++) {
@@ -58,7 +63,7 @@ describe("Bureaucratie Sacrée : une ligne de Chronique par minute (BUG-26)", ()
     const lines = bureaucracyLines();
     expect(lines).toHaveLength(2);
     expect(lines[1]).toContain("9 crises");
-    expect(lines[1]).toContain(`+${perAct * 9} savoirs`);
+    expect(lines[1]).toContain(`+${fmt(D(perAct * 9))} savoirs`);
 
     // Rien en attente : un tick plus tard n'écrit rien.
     vi.setSystemTime(base + 200_000);
@@ -102,5 +107,56 @@ describe("Bureaucratie Sacrée : une ligne de Chronique par minute (BUG-26)", ()
     registerOlympusCrisisResolved();
     expect(D(state.knowledge).eq(k0)).toBe(true);
     expect(bureaucracyLines()).toHaveLength(0);
+  });
+});
+
+// Une cité qui produit beaucoup de Savoir : le plancher de 3 n'y joue plus.
+function bigKnowledgeCity() {
+  state.buildings = { ...state.buildings, scribes: 5000, storytellers: 5000 };
+  state.grandResetCount = 10;
+  invalidateRenderCache("all");
+}
+
+describe("Héritages de l'Olympe indexés sur la production (BUG-26)", () => {
+  it("Bureaucratie : max(3, 2 s de production de Savoir) par acte", () => {
+    const rate = D(rates().knowledge).max(0);
+    const expected = rate.mul(2).max(3).round();
+    const k0 = D(state.knowledge);
+    registerOlympusCrisisResolved();
+    expect(D(state.knowledge).sub(k0).sub(expected).abs().lte(expected.mul(1e-9))).toBe(true);
+  });
+
+  it("Bureaucratie : dans une grande cité, un acte vaut 2 s de production, plus le forfait de 3", () => {
+    bigKnowledgeCity();
+    const rate = D(rates().knowledge);
+    expect(rate.gt(1000)).toBe(true);
+    const k0 = D(state.knowledge);
+    registerOlympusCrisisResolved();
+    expect(D(state.knowledge).sub(k0).div(rate.mul(2)).toNumber()).toBeCloseTo(1, 3);
+  });
+
+  it("Bureaucratie : en Decimal au-delà du float (stock à 1e400)", () => {
+    state.knowledge = new Decimal("1e400");
+    invalidateRenderCache("all");
+    registerOlympusCrisisResolved();
+    expect(D(state.knowledge).gte(new Decimal("1e400"))).toBe(true);
+    expect(Number.isNaN(D(state.knowledge).mantissa)).toBe(false);
+  });
+
+  it("Sommeil : 10 % du Savoir produit pendant l'inactivité, rien quand le joueur est là", () => {
+    state.olympus.unlockedProfile = "sleep";
+    bigKnowledgeCity(); // la fixture ne produit pas encore de Savoir
+    const r = rates();
+    // Joueur présent : rien.
+    let k0 = D(state.knowledge);
+    tickOlympus(10, r);
+    expect(D(state.knowledge).eq(k0)).toBe(true);
+    // Plus de 3 min sans geste : 10 % de la production du pas.
+    vi.setSystemTime(base + OLYMPUS_IDLE_THRESHOLD_MS + 1000);
+    k0 = D(state.knowledge);
+    tickOlympus(10, r);
+    const expected = D(r.knowledge).max(0).mul(0.1 * 10);
+    expect(expected.gt(0)).toBe(true);
+    expect(D(state.knowledge).sub(k0).div(expected).toNumber()).toBeCloseTo(1, 6);
   });
 });

@@ -8,13 +8,14 @@ import {
   ruinMultiplierDec,
   heritageQuality,
   totalBuildingCount,
-  globalMultiplier,
-  globalMultiplierDec,
   globalMultiplierBreakdown,
+  displayedProductionMultiplier,
   rates,
   completedMythCount
 } from '../../game/core/mechanics.js';
 import { productionBreakdown } from '../../game/core/mechanics/production/productionBreakdown.js';
+import { projectedCollapseHarvest } from '../../game/core/mechanics/collapseHarvest.js';
+import { collapseCause } from '../../game/core/events.js';
 import { eras } from '../../game/data/world.js';
 import { renderCache, state } from '../../game/core/state.js';
 import { idleCapSeconds } from '../../game/core/main.js';
@@ -27,6 +28,7 @@ import { GRAND_RESET_MILESTONES } from '../../game/core/mechanics/grandResetMile
 import PixelIcon from '../ui/PixelIcon.jsx';
 import CycleAnnals from '../ui/CycleAnnals.jsx';
 import FaitsDiversChronique from '../ui/FaitsDiversChronique.jsx';
+import AchievementsChronique from '../ui/AchievementsChronique.jsx';
 import Place, { PlaceKey } from '../ui/Place.jsx';
 import { tipProps } from '../ui/HelpBubble.jsx';
 
@@ -53,6 +55,15 @@ function fmtCount(n) {
 // à Infinity (par design — le moteur bascule alors sur son miroir Decimal,
 // cf. rates.js), on affiche le miroir. fmt sait écrire un Decimal (« 1.23e456 »).
 const fmtMult = (f, dec) => (Number.isFinite(f) ? fmt(f) : fmt(dec()));
+
+// Signature quantifiée du multiplicateur AFFICHÉ (Reliques et Bénédiction
+// comprises, BUG-81) : acheter une relique ou voir la Bénédiction expirer doit
+// redessiner. Au-delà du float, il est un Decimal : la signature suit sa forme
+// écrite — un String(Infinity) constant figerait l'affichage.
+const multSignature = () => {
+  const m = displayedProductionMultiplier();
+  return m instanceof Decimal ? fmt(m) : Math.round(m * 1000);
+};
 
 // Tuile de statistique du Bilan : libellé, valeur, icône et infobulle optionnelles.
 function StatTile({ label, value, icon, hint }) {
@@ -115,25 +126,24 @@ function FactorRow({ label, value, sub = false }) {
 // SIGNATURE quantifiée du total, donc le panneau ne se redessine que quand un
 // facteur bouge vraiment.
 function MultiplierAnatomy() {
-  useGameState(() => {
-    const m = globalMultiplier();
-    // Au-delà du float, la signature suit le miroir Decimal formaté — un
-    // String(Infinity) constant figerait le panneau alors que la pile grandit.
-    return Number.isFinite(m) ? Math.round(m * 1000) : fmt(globalMultiplierDec());
-  });
-  const { factors, parts, product } = globalMultiplierBreakdown();
+  useGameState(multSignature);
+  const { factors, parts, product, relics, total } = globalMultiplierBreakdown();
   // Un facteur à 1 ne multiplie rien : l'afficher noierait les 3 qui comptent
-  // sous 13 lignes inertes.
-  const actifs = factors.filter((f) => !isOne(f.value));
+  // sous 13 lignes inertes. Reliques & Bénédiction (BUG-81) ferment la liste :
+  // hors du produit global, elles entrent dans le total affiché.
+  const actifs = [...factors, relics].filter((f) => !isOne(f.value));
   const arbreActif = factors.some((f) => f.key === "ruinTree" && !isOne(f.value));
+  // Nourriture et Trésor : la racine du produit global, puis les Reliques et la
+  // Bénédiction ENTIÈRES (crisisProductionMultiplier, rates.js).
+  const racine = product instanceof Decimal ? product.sqrt().mul(relics.value) : Math.sqrt(product) * relics.value;
 
   return (
     <div className="chronicle-bilan-section mult-anatomy">
       <div className="chronicle-bilan-head" {...tipProps(
         tr({ fr: "Anatomie du multiplicateur", en: "Anatomy of the multiplier" }),
         tr({
-          fr: "Le détail du multiplicateur GLOBAL. Les Reliques, la Bénédiction, les politiques, les malus de crise et des bonus par ressource agissent en dehors de lui, et ne figurent pas ici.",
-          en: "The breakdown of the GLOBAL multiplier. Relics, the Blessing, policies, crisis penalties and per-resource bonuses act outside it, and are not listed here."
+          fr: "Le détail du multiplicateur de production. Les politiques, les malus de crise et des bonus par ressource agissent en dehors de lui, et ne figurent pas ici.",
+          en: "The breakdown of the production multiplier. Policies, crisis penalties and per-resource bonuses act outside it, and are not listed here."
         })
       )}>
         <h3>{tr({ fr: "Anatomie du multiplicateur", en: "Anatomy of the multiplier" })}</h3>
@@ -161,17 +171,23 @@ function MultiplierAnatomy() {
         )}
         <div className="mult-row mult-row--total">
           <span className="mult-row-label">{tr({ fr: "Produit", en: "Product" })}</span>
-          <span className="mult-row-value">{fmtFactor(product)}</span>
+          <span className="mult-row-value">{fmtFactor(total)}</span>
         </div>
       </div>
-      {/* LA RÈGLE QUE LA TUILE TAISAIT. rates.js n'applique que sa RACINE à la
-          Nourriture et au Trésor : écrire « multiplicateur de production » sans
-          le dire apprend une fausse leçon au joueur qui arbitre ses achats. */}
+      {/* LA RÈGLE QUE LA TUILE TAISAIT. rates.js n'applique que la RACINE du
+          produit global à la Nourriture et au Trésor : écrire « multiplicateur
+          de production » sans le dire apprend une fausse leçon au joueur qui
+          arbitre ses achats. Les Reliques, elles, s'y appliquent entières. */}
       <p className="mult-note">
-        {tr({
-          fr: `La Nourriture et le Trésor n'en reçoivent que la racine, soit ${fmtFactor(product instanceof Decimal ? product.sqrt() : Math.sqrt(product))}.`,
-          en: `Food and Treasury only receive its square root, that is ${fmtFactor(product instanceof Decimal ? product.sqrt() : Math.sqrt(product))}.`
-        })}
+        {isOne(relics.value)
+          ? tr({
+              fr: `La Nourriture et le Trésor n'en reçoivent que la racine, soit ${fmtFactor(racine)}.`,
+              en: `Food and Treasury only receive its square root, that is ${fmtFactor(racine)}.`
+            })
+          : tr({
+              fr: `La Nourriture et le Trésor n'en reçoivent que ${fmtFactor(racine)} : la racine du produit, hors Reliques et Bénédiction.`,
+              en: `Food and Treasury only receive ${fmtFactor(racine)}: the square root of the product, Relics and Blessing excepted.`
+            })}
       </p>
     </div>
   );
@@ -326,7 +342,9 @@ function CivilizationReview() {
   const wondersCount = useGameState(s => (s.wonders || []).length);
   const mythsCount = useGameState(s => completedMythCount(s));
 
-  const projectedRuin = ruinGain(true);
+  // Moisson COMPLÈTE (décision de Raph sur BUG-33 : A) : Rite × legs gravé, ou
+  // dernière volonté, × vœu, comme l'autel et la jauge de la Cité.
+  const projectedRuin = projectedCollapseHarvest(ruinGain(true), collapseCause());
   const cycleSeconds = Math.max(0, Math.floor((renderCache.tickNow - (cycleStartedAt || renderCache.tickNow)) / 1000));
 
   return (
@@ -365,15 +383,15 @@ function CivilizationReview() {
         <StatTile label={tr({ fr: "Bâtiments debout", en: "Standing buildings" })} value={fmtCount(totalBuildingCount())} />
         <StatTile
           label={tr({ fr: "Multi. de production", en: "Production multi." })}
-          value={`x${fmtMult(globalMultiplier(), globalMultiplierDec)}`}
+          value={`x${fmt(displayedProductionMultiplier())}`}
           icon="glyphs/mult"
           // L'ancienne prose énumérait des sources sans un chiffre (« ruines,
           // ères, merveilles, routes… »). Le détail chiffré vit maintenant dans
           // l'Anatomie, juste en dessous : cette bulle n'a plus qu'à y renvoyer.
-          // Elle disait « appliqué à toute la production » : faux, les Reliques,
-          // la Bénédiction, les politiques et les malus de crise agissent hors de
-          // ce produit (crisisProductionMultiplier ; audit du 05/10, BUG-81).
-          hint={tr({ fr: "Multiplicateur global de la production. Les Reliques, la Bénédiction, les politiques et les malus de crise s'appliquent en plus, hors de ce chiffre. Son détail facteur par facteur est dans l'Anatomie, plus bas.", en: "Global production multiplier. Relics, the Blessing, policies and crisis penalties apply on top of it, outside this figure. Its factor by factor breakdown is in the Anatomy, below." })}
+          // Reliques et Bénédiction comprises (décision de Raph sur BUG-81 : A) ;
+          // les politiques et les malus de crise restent hors du chiffre, ils
+          // varient selon la ressource.
+          hint={tr({ fr: "Multiplicateur de la production, Reliques et Bénédiction comprises. Les politiques et les malus de crise s'appliquent en plus, hors de ce chiffre. Son détail facteur par facteur est dans l'Anatomie, plus bas.", en: "Production multiplier, Relics and Blessing included. Policies and crisis penalties apply on top of it, outside this figure. Its factor by factor breakdown is in the Anatomy, below." })}
         />
         <StatTile
           label={tr({ fr: "Crises stabilisées", en: "Crises stabilized" })}
@@ -398,7 +416,7 @@ function CivilizationReview() {
           label={tr({ fr: "Ruines si effondrement", en: "Ruins if collapse" })}
           value={fmt(projectedRuin)}
           icon="glyphs/ruines"
-          hint={tr({ fr: "Ruines obtenues si la cité s'effondrait à cet instant. Tenir plus longtemps et chuter plus profond rapporte davantage.", en: "Ruins gained if the city collapsed right now. Holding out longer and falling deeper yields more." })}
+          hint={tr({ fr: "Ruines obtenues si la cité s'effondrait à cet instant, Rite de Passage, legs gravé (ou dernière volonté) et vœu compris. Tenir plus longtemps et chuter plus profond rapporte davantage.", en: "Ruins gained if the city collapsed right now, including the Rite of Passage, the engraved legacy (or last will) and the vow. Holding out longer and falling deeper yields more." })}
         />
         <StatTile
           label={tr({ fr: "Héritage préparé", en: "Heritage prepared" })}
@@ -695,10 +713,7 @@ export default function ChronicleView() {
   const cycles = useGameState(s => s.cycles || 0);
   const grandResetCount = useGameState(s => s.grandResetCount || 0);
   // Le multiplicateur bouge au tick : signature quantifiée, comme l'Anatomie.
-  useGameState(() => {
-    const m = globalMultiplier();
-    return Number.isFinite(m) ? Math.round(m * 1000) : fmt(globalMultiplierDec());
-  });
+  useGameState(multSignature);
 
   // Les âges déjà atteints (sur l'ensemble des cycles) sont révélés ; le
   // suivant est annoncé en silhouette, le reste demeure inconnu.
@@ -722,7 +737,7 @@ export default function ChronicleView() {
         />
         <PlaceKey
           label={tr({ fr: 'Multiplicateur', en: 'Multiplier' })}
-          value={`×${fmtMult(globalMultiplier(), globalMultiplierDec)}`}
+          value={`×${fmt(displayedProductionMultiplier())}`}
           valueClassName="is-gold"
         />
         <PlaceKey
@@ -784,6 +799,11 @@ export default function ChronicleView() {
         {/* Les faits divers de la carte : absents tant que rien n'a été vu. */}
         <FaitsDiversChronique />
         <TempleRegistry />
+      </div>
+      {/* Les succès, sur toute la largeur sous les trois colonnes : une grille
+          d'icônes qui se lit en bandeau plutôt qu'en colonne. */}
+      <div className="chronique-wide">
+        <AchievementsChronique />
       </div>
     </Place>
   );

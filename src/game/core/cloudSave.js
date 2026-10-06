@@ -25,6 +25,14 @@ export function cloudSaveDir() {
   return c && c.dir ? c.dir : null;
 }
 
+// Version Steam (audit 2026-10-05, STEAM-4 / ELEC-3, décision C de Raph) : aucun
+// miroir Google Drive — Steam Cloud transporte la save en fichier (fileSave.js).
+// civCloud y existe, éteint (`dir: null`) : tout ici reste neutre, Options le dit.
+export function cloudSteamVersion() {
+  const c = cc();
+  return Boolean(c && c.steam === true);
+}
+
 // État du nuage POUR CETTE SESSION :
 //   'off'        — pas de Drive / pas en .exe : rien à faire.
 //   'ok'         — contenu du nuage CONNU (lu, ou fichier absent donc vide).

@@ -45,18 +45,30 @@ if (import.meta.env?.DEV && typeof window !== 'undefined') {
 const CACHE_MAX = 900;
 const _cache = new Map();
 
-// Raster RGBA → canvas CARRÉ (côté = la plus grande dimension), image calée en
-// haut à gauche. Carré parce que le pont redessine la coque d'un bateau sorti de
-// sous lui avec un `drawImage(img, bx, by, dw, dw)` (isoBridge, part 'ship') : un
-// canvas carré y passe tel quel.
+// Raster RGBA → canvas SERRÉ, image calée en haut à gauche, plus UNE colonne et UNE
+// rangée transparentes à droite et en bas (audit du 05/10, PERF-36, choix A de Raph).
+// Le canvas était CARRÉ (côté = la plus grande dimension) : 1,8 fois la mémoire et
+// les pixels composés de la coque, de son ombre et de son reflet. L'échelle de pose ne
+// change pas (cf. drawBoat : k = snapDev(côté · z) / côté) ; la marge est OBLIGATOIRE :
+// le bord droit et le bas de la pose tombent entre deux pixels device, et sur GPU le
+// dernier texel s'y étirerait — c'est la marge vide qui s'étire.
 function toCanvas(R) {
   if (typeof document === 'undefined') return null;
-  const side = Math.max(R.w, R.h);
   const cv = document.createElement('canvas');
-  cv.width = side; cv.height = side;
+  cv.width = R.w + 1; cv.height = R.h + 1;
   cv.getContext('2d').putImageData(new ImageData(R.data, R.w, R.h), 0, 0);
   return cv;
 }
+
+// LE VIVIER DES GRAINES (audit du 05/10, PERF-14, décision de Raph). La graine VISUELLE
+// d'un bateau (cargaison, fanion, place des marins : tout ce que lit la cuisson) était
+// unique par bateau — et sh.id croît sans fin : aucun bateau ne réutilisait les
+// cuissons d'un autre (10 à 38 ms chacune), le cache de 900 entrées tournait toute la
+// session. Elle est tirée d'un vivier de BOAT_SEED_POOL graines par modèle : deux
+// marchands identiques se croisent parfois, mais presque plus rien ne cuit après les
+// premières minutes d'une ère. Ce qui ne cuit pas reste propre au bateau (`ident`,
+// l'ancienne graine) : QUI sont ses marins (drawCrew), sa cadence d'animation, son halo.
+export const BOAT_SEED_POOL = 16;
 
 // Modèle d'un bateau de la flotte : métier → liste de l'ère → tirage stable par
 // bateau (tous les marchands d'une époque ne sont plus des clones).
@@ -69,7 +81,8 @@ export function boatSpecFor(sh, band) {
   // Les bateaux de service prennent le modèle de leur RANG (police, puis pompiers) :
   // tirés au hasard, deux patrouilles de police pouvaient se croiser sans pompiers.
   const id = role === 'service' && sh.svc != null ? list[sh.svc % list.length] : list[h32(sh.id | 0, 17, 3) % list.length];
-  return { id, seed: h32(sh.id | 0, 23, 5) % 9973 };
+  const ident = h32(sh.id | 0, 23, 5) % 9973;
+  return { id, seed: ident % BOAT_SEED_POOL, ident };
 }
 
 export function boatFootprint(spec) {
@@ -117,9 +130,10 @@ function getBake(spec, dir, state, pose, force, now, empty = false, noBake = fal
   if (!vehicleBakeOpen(now) && !force) return null;
   e = vehicleBakeTimed(() => {
     const b = bakeBoat(M, dirTheta(dir), { variant: M.variant(spec.seed), state, k: pose.k, empty });
+    // `side`, `rside` : le côté de l'ancien carré, qui règle toujours l'échelle de pose.
     return {
-      cv: toCanvas(b.img), w: b.img.w, h: b.img.h, ox: b.img.ox, oy: b.img.oy,
-      rcv: toCanvas(b.refl), rw: b.refl.w, rh: b.refl.h, rox: b.refl.ox, roy: b.refl.oy,
+      cv: toCanvas(b.img), w: b.img.w, h: b.img.h, ox: b.img.ox, oy: b.img.oy, side: Math.max(b.img.w, b.img.h),
+      rcv: toCanvas(b.refl), rw: b.refl.w, rh: b.refl.h, rox: b.refl.ox, roy: b.refl.oy, rside: Math.max(b.refl.w, b.refl.h),
       anchors: b.anchors,
       crew: b.crew, mcv: crewMaskCanvas(b.crew),
     };
@@ -148,7 +162,8 @@ function crewMaskCanvas(crew) {
 // Chaque marin est peint dans une toile de travail À LA GRILLE DEVICE (comme les
 // habitants à terre : même bande, même finesse à tous les zooms), on y efface ce que
 // le masque dit caché, puis on la pose. Le masque est mis à l'échelle EXACTEMENT
-// comme l'image du bateau (k = dw / côté) : ses bords tombent sur ceux du plat-bord.
+// comme l'image du bateau (k, l'échelle de pose de drawBoat) : ses bords tombent sur
+// ceux du plat-bord.
 let _crewCv = null;
 // `po` (le bac, lot 5 de PLAN-COMPORTEMENTS) : { names, hide } — ses places de voyageur
 // reçoivent ceux qui attendaient au ponton (names[j], place de trop = vide), ou restent
@@ -156,7 +171,10 @@ let _crewCv = null;
 // `now` : l'horloge de la FRAME, celle du reste de la flotte (audit du 2026-10-05,
 // BUG-101 : sur performance.now(), respiration et salut échappaient aux captures à
 // horloge figée et décrochaient de la scène quand l'horloge du jeu ralentit).
-function drawCrew(ctx, e, M, bx, by, k, z, band, now, po = null) {
+// `ident` (boatSpecFor) : l'identité du bateau, mêlée à celle de la place cuite — la
+// cuisson est partagée par tout le vivier (PERF-14), ses marins non ; sans `ident`
+// (embarcadères, amarres), la place cuite seule, comme avant.
+function drawCrew(ctx, e, M, bx, by, k, z, band, now, po = null, ident = null) {
   if (!e.crew || !e.crew.length || !e.mcv) return;
   let pj = 0;
   const d = CM.dpr || 1;
@@ -164,20 +182,21 @@ function drawCrew(ctx, e, M, bx, by, k, z, band, now, po = null) {
   const cv = _crewCv;
   for (let n = 0; n < e.crew.length; n += 1) {
     const cr = e.crew[n];
+    const who = ident == null ? cr.id >>> 0 : h32(cr.id >>> 0, ident, 31);
     let sp = null;
     if (po && isFerryPassenger(M, cr)) {
       const j = pj; pj += 1;
       if (po.hide) continue;
       if (po.names) { sp = po.names[j]; if (!sp) continue; }
     }
-    if (!sp) sp = crewSpec(band, M, cr);
+    if (!sp) sp = crewSpec(band, M, cr, who);
     const F = agentFrameIso(sp.name, crewDir(cr.phi), z, sp.scale);
     if (!F) continue;
     // Il respire (lot 3 de PLAN-COMPORTEMENTS) : la bande d'attente, déphasée par marin.
-    const I = agentIdleFrameIso(sp.name, crewDir(cr.phi), z, sp.scale, now || 0, ((cr.id >>> 0) % 97) / 97);
+    const I = agentIdleFrameIso(sp.name, crewDir(cr.phi), z, sp.scale, now || 0, (who % 97) / 97);
     // Le salut d'un bateau à l'autre (pose 'wave', §8) : la main levée, en boucle.
     const Wv = cr.pose === 'wave' ? agentPoseFrameIso(sp.name, crewDir(cr.phi), z, sp.scale, 'wave',
-      (((now || 0) / 1400) + ((cr.id >>> 0) % 97) / 97) % 1) : null;
+      (((now || 0) / 1400) + (who % 97) / 97) % 1) : null;
     const S = Wv || I || { img: F.img, sx: 0, fh: F.fh };
     const ex0 = bx + (cr.x0 - e.ox) * k, ey0 = by + (cr.y0 - e.oy) * k;
     const mx = Math.floor(ex0 * d) / d, my = Math.floor(ey0 * d) / d;
@@ -223,13 +242,18 @@ export function kitState(spec, state) {
  * flotte, ou n'importe quel objet stable) garde la dernière image quand le budget
  * de cuisson de la frame est épuisé — et, sans image encore, rien n'est posé (null)
  * jusqu'à la cuisson. Sans `memo`, la cuisson est forcée.
- * Rend { img, bx, by, dw, dh, anchors (écran) } ou null.
+ * Rend { img, bx, by, dw, dh, iw, ih, anchors (écran) } ou null : `img` (canvas serré,
+ * cf. toCanvas) se pose en (bx, by, dw, dh) ; la coque y occupe ses iw × ih premiers
+ * pixels (la colonne et la rangée de plus sont vides).
  */
 export function drawBoat(ctx, spec, x, y, theta, z, now, opts = {}) {
   const M = spec && BOAT_MODELS[spec.id];
   if (!M) return null;
   const state = kitState(spec, opts.state);
-  const pose = animPose(M, state, now, spec.seed, !!opts.empty);
+  // La cadence (et plus bas le halo) suit l'identité du bateau, pas sa graine de vivier :
+  // deux bateaux qui partagent leurs cuissons ne rament pas en mesure.
+  const ident = spec.ident != null ? spec.ident : null;
+  const pose = animPose(M, state, now, ident != null ? ident : spec.seed, !!opts.empty);
   const dir = dirIndex(theta);
   const memo = opts.memo || null;
   // Un bateau encore invisible (fondu d'entrée à 0) ne dépense pas le budget.
@@ -237,26 +261,34 @@ export function drawBoat(ctx, spec, x, y, theta, z, now, opts = {}) {
   if (!e && memo) e = memo._kitBake;
   if (!e || !e.cv) return null;
   if (memo) memo._kitBake = e;
-  const side = e.cv.width;
+  // L'échelle de l'ancien carré (snapDev(côté · z) / côté), posée sur le canvas serré :
+  // chaque pixel source retombe où il tombait (PERF-36).
+  const k = snapDev(e.side * z) / e.side;
   const bx = snapDev(x + e.ox * z), by = snapDev(y + e.oy * z);
-  const dw = snapDev(side * z);
-  const dh = dw;
+  const dw = e.cv.width * k, dh = e.cv.height * k;
   if (opts.reflect !== false && e.rcv) {
-    noteReflectionImage(ctx, e.rcv, snapDev(x + e.rox * z), snapDev(y + e.roy * z), snapDev(e.rcv.width * z), snapDev(e.rcv.height * z));
+    const kr = snapDev(e.rside * z) / e.rside;
+    noteReflectionImage(ctx, e.rcv, snapDev(x + e.rox * z), snapDev(y + e.roy * z), e.rcv.width * kr, e.rcv.height * kr);
   }
   // LÉVITATION (Démiurge) : un halo sur l'eau sous la coque, et l'ombre portée
   // descend jusqu'à l'eau (son pivot est le pied de chaque colonne de l'image, qui
   // est ici le dessous de la coque, HOVER px plus haut).
-  if (M.hover && opts.reflect !== false) drawHoverGlow(ctx, x, y, z, M.len * 0.5, M.glow || '#ffffff', now, spec.seed);
+  if (M.hover && opts.reflect !== false) drawHoverGlow(ctx, x, y, z, M.len * 0.5, M.glow || '#ffffff', now, ident != null ? ident : spec.seed);
   const prevSm = ctx.imageSmoothingEnabled;
   ctx.imageSmoothingEnabled = false;
-  drawSunShadow(ctx, e.cv, bx, by + (M.hover ? snapDev(HOVER * z) : 0), dw, dh, 0, 0, 0, 0, 'column', false);
+  // L'ombre, elle, se lit sur l'ANCIEN CARRÉ (rectangle source côté × côté, rogné au
+  // canvas serré à la cuisson du masque : vide au-delà, comme l'était le carré). Son
+  // seuil de taille (SUN_SHADOW.minH) juge la hauteur POSÉE : avec la hauteur serrée,
+  // une pirogue vue de flanc (48 × 11) ou une annexe (26 × 9) perdait son ombre aux
+  // zooms 0,7 à 1 (95 cas sur 4 080 modèle × cap × zoom).
+  const dS = snapDev(e.side * z);
+  drawSunShadow(ctx, e.cv, bx, by + (M.hover ? snapDev(HOVER * z) : 0), dS, dS, 0, 0, e.side, e.side, 'column', false);
   ctx.drawImage(e.cv, bx, by, dw, dh);
   // L'équipage par-dessus, découpé par ce qui passe devant lui. L'ère des habits est
   // celle de la ville (un bateau de l'ère d'avant qui finit sa route s'est rhabillé).
   const band = opts.band != null ? opts.band : ((CM.layout && CM.layout.counts && CM.layout.counts.eraBand) | 0);
   const po = (opts.passNames || opts.hidePass) ? { names: opts.passNames || null, hide: !!opts.hidePass } : null;
-  const crew = e.crew && e.crew.length ? (c2) => drawCrew(c2, e, M, bx, by, dw / side, z, band, now, po) : null;
+  const crew = e.crew && e.crew.length ? (c2) => drawCrew(c2, e, M, bx, by, k, z, band, now, po, ident) : null;
   if (crew) crew(ctx);
   ctx.imageSmoothingEnabled = prevSm;
   const anchors = {};
@@ -275,7 +307,7 @@ export function drawBoat(ctx, spec, x, y, theta, z, now, opts = {}) {
     pass = e.crew.filter((cr) => cr.a != null && isFerryPassenger(M, cr))
       .map((cr) => ({ dx: cr.a * fx - cr.c * fy, dy: cr.a * fy + cr.c * fx, h: cr.ft }));
   }
-  return { img: e.cv, bx, by, dw, dh, anchors, model: M, crew, lamps: lamps.length ? lamps : null, pass };
+  return { img: e.cv, bx, by, dw, dh, iw: e.w, ih: e.h, anchors, model: M, crew, lamps: lamps.length ? lamps : null, pass };
 }
 
 // ── À QUAI : L'API DES PORTS (session « port et plage », drawMooredHull) ──────────
@@ -302,7 +334,9 @@ function mooredSpec(role, band, seed = 1) {
     id = list && list[Math.min(i, list.length - 1)];
   }
   if (!id || !BOAT_MODELS[id]) return null;
-  return { id, seed: seed % 9973 };
+  // Le vivier des graines vaut aussi à quai (PERF-14) : les amarres se partagent leurs
+  // cuissons ; `ident` garde à chacune sa cadence.
+  return { id, seed: seed % BOAT_SEED_POOL, ident: seed % 9973 };
 }
 export function mooredFootprint(role, band) {
   return boatFootprint(mooredSpec(role, band));
@@ -343,7 +377,7 @@ export function drawMooredKit(ctx, { role, heading, x, y, z = 0, now = 0, bob = 
   const r = drawBoat(ctx, spec, p.x, snapDev(p.y + dy), worldHeadingOfScreen(heading), zoom, now, { state: 'dock', empty: true, memo });
   // Un vapeur à quai garde ses feux allumés : sa cheminée fume, droit (la flotte
   // le fait déjà pour les siens, isoPort.drawKitShip ; ceux des ports ne fumaient pas).
-  if (r && r.anchors && r.anchors.smoke) drawSmoke(ctx, r.anchors.smoke, now, zoom, spec.seed | 0, heading, false);
+  if (r && r.anchors && r.anchors.smoke) drawSmoke(ctx, r.anchors.smoke, now, zoom, spec.ident | 0, heading, false);
   // L'ère a son modèle : true même si sa première image attend le budget (rien de posé
   // cette frame).
   return true;

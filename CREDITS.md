@@ -35,7 +35,7 @@ Ce fichier fait foi pour la conformité : **une ligne par pack réellement livr�
 |---|---|---|---|---|---|---|---|
 | Pixel Vehicles | MinZinn | <https://minzinn.itch.io/pixelvehicles> | **CC BY 4.0** : commercial oui, modification oui ; crédit + lien vers la licence + mention des modifications **obligatoires** partout où le jeu est diffusé | **exigé** | MinZinn | 164 bandes `public/pixelart/agents/vehicles/veh-*` : 116 bandes teintées (liste dans `src/game/map/vehicleSkins.js`) + 48 bandes nues de van, camion, bus, taxi, police, ambulance (la bande nue `veh-car-*` est la vieille automobile PixelLab) | `scripts/importPackVehicles.mjs` (+ `scripts/lib/packBake.mjs`) : recadrage, réduction, désaturation, quantification |
 | Complete UI Book Styles Pack (Full, style `02_WizardBook`) | Crusenho Agus Hennihuno | <https://crusenho.itch.io/complete-ui-book-styles-pack> | commercial oui, modification oui ; crédit **avec lien vers la page produit** et mention des modifications ; revente interdite, même modifiée ; NFT interdits | **exigé** | Crusenho | 11 PNG `public/pixelart/ui/chrome/wizard/` (recolorés par remap exact) | `scripts/exportWizardChrome.mjs` |
-| Pixel Playing Cards | Bit Digitalis | bitdigitalis.itch.io (page produit exacte à reporter) | commercial oui ; crédit demandé (`src/components/ui/cardSprites.js`) | **exigé** | Bit Digitalis | 54 PNG `public/pixelart/ui/cards/` : 52 cartes, `back.png`, `deck.png` (ramené à sa taille native) | aucun : copiés tels quels |
+| Pixel Playing Cards | Bit Digitalis | bitdigitalis.itch.io (page produit exacte à reporter) | commercial oui ; crédit demandé (`src/components/ui/cardSprites.js`) | **exigé** | Bit Digitalis | 54 PNG `public/pixelart/ui/cards/` : 52 cartes, `back.png`, `deck.png` (ramené à sa taille native) | copiés tels quels ; 6 cartes reposées 1:1 en éventail dans 2 icônes de succès (`public/pixelart/ui/achievements/VINGTETUN_*`, `scripts/bakeAchievementIcons.cjs`) |
 | 16x16 Water Tiles Animated (Tile Set 1) | Zro Dfects | zrodfects.itch.io (page produit exacte à reporter) | commercial oui, modification oui ; crédit apprécié ; **redistribution du pack interdite** (`scripts/bakeWaterTiles.mjs`) | conseillé (présent) | Zro Dfects | 12 PNG `public/pixelart/water/river-tiles*.png` (remappés à la rampe ardoise du fleuve) | `scripts/bakeWaterTiles.mjs` |
 | Pixel Art Top Down - Basic | Cainos | <https://cainos.itch.io/pixel-art-top-down-basic> | gratuit ; commercial oui ; **redistribution interdite** (`scripts/sliceCainosPlants.mjs`) ; crédit non exigé d'après l'en-tête du script — termes à relire sur la page avant la sortie | conseillé (présent) | Cainos | 15 touffes `public/pixelart/iso/deco/tuft-*.png`, 6 buissons `public/pixelart/iso/bush-1..6.png` et leurs 6 versions d'hiver `bush-N-winter.png` | `scripts/sliceCainosPlants.mjs` puis `scripts/remapPalette.mjs` ; hiver : `scripts/snowTrees.mjs` |
 | Fantasy UI Borders (#030, clé grecque) | Kenney | <https://kenney.nl> | **CC0** (domaine public) : aucune condition | facultatif (présent) | Kenney | `src/assets/ui/topbar-frame.png` (teinté or) | à la main (commit `4bf0e16d`) |
@@ -54,11 +54,13 @@ pad-end : licence MIT) ont leurs notices dans Options › Crédits › licences 
 ## Outil de génération : PixelLab
 
 L'essentiel de l'art du jeu (bâtiments-moteur, habitants, véhicules d'époque, bateaux, tuiles de
-sol, arbres, icônes de boutique, scènes, Maison des Plaisirs) est **pré-généré** avec
+sol, arbres, animaux, icônes de boutique, scènes, Maison des Plaisirs) est **pré-généré** avec
 [PixelLab](https://www.pixellab.ai) (abonnement), puis retouché et quantifié par les scripts du
 dépôt (`scripts/fetch*.mjs`, `scripts/quantize.cjs`, `scripts/remapPalette.mjs`…). Aucune
-génération n'a lieu pendant la partie. Ce n'est pas un pack : aucun crédit n'est exigé, mais la
-déclaration « contenu généré par IA » de Steam l'est — inventaire et brouillon dans
+génération n'a lieu pendant la partie. Ce n'est pas un pack : aucun crédit n'est exigé — Raph a
+tout de même voulu une ligne **« Génération d'images »** dans Options › Crédits (2026-10-05,
+audit STEAM-7), en français et en anglais —, mais la déclaration « contenu généré par IA » de
+Steam l'est — inventaire et brouillon dans
 [`docs/STEAM-PUBLICATION.md`](docs/STEAM-PUBLICATION.md). Conditions d'utilisation :
 <https://pixellab.ai/termsofservice> (vérifier l'usage commercial de toutes les générations, y
 compris celles d'avant l'abonnement actuel).
@@ -68,12 +70,14 @@ compris celles d'avant l'abonnement actuel).
 - **2D Pixel Animal Character Pack** (LaserKiwi, <https://laserkiwi.itch.io/2d-pixel-animal-character-pack>)
   — bétail (vache, mouton, chèvre) et animaux de rue (chien, chat). **Retiré le 2026-10-05**
   (décision de Raph, audit STEAM-1) : la page n'a jamais publié de licence, et le pack est
-  lui-même un export PixelLab d'un tiers. Les 20 `critter-*.png` et
-  `scripts/importPackAnimals.mjs` sont supprimés ; `src/game/map/critters.js` est éteint
-  (`CRITTERS_ON = false` : la carte ne pose plus de bêtes) ; le feuilleton « La Chèvre des
-  toits » est éteint (`off` dans `src/game/data/faitsDivers.js`) ; la curiosité « La vache »
-  est désormais dessinée par le bœuf maison des attelages (PixelLab). Les fichiers restent dans
-  l'historique git.
+  lui-même un export PixelLab d'un tiers. Ses 20 `critter-*.png` et
+  `scripts/importPackAnimals.mjs` sont supprimés (ils restent dans l'historique git). Les
+  bêtes sont revenues le même jour, **faites maison avec PixelLab** (vache, mouton, chèvre,
+  chien, chat : planche `planches/animaux-maison`, validée par Raph ; manifeste des objets
+  PixelLab dans sa `sources/manifest.json`) : mêmes noms de fichiers
+  (`public/pixelart/agents/animals/critter-*.png`), `CRITTERS_ON = true`, feuilleton « La
+  Chèvre des toits » rallumé. La curiosité « La vache » reste dessinée par le bœuf maison des
+  attelages.
 
 ## Écartés après essai (rien d'embarqué)
 

@@ -55,6 +55,8 @@ export default function CagnotteSalle({ centre = '50%' }) {
         tr({ fr: 'Nourrie par chaque mise des tables et par la Nuit du Grand Jeu. Icare la rafle à ×10, le carré de six aux osselets, la grande roue de la machine.', en: 'Fed by every stake at the tables and by the Night of High Play. Icarus sweeps it at ×10, four sixes at knucklebones, the machine\'s grand wheel.' })
       )}
     >
+      {/* La lueur de la Nuit, peinte une fois et respirant en opacité (PERF-65). */}
+      {nuit && <i className="lueur" aria-hidden="true" />}
       <span className="salle-cagnotte-titre">{tr({ fr: 'Cagnotte', en: 'Jackpot' })}</span>
       <Rouleau value={pot} />
     </div>

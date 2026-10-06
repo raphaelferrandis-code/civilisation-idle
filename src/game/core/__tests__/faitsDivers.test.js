@@ -137,16 +137,24 @@ describe("faitsDivers — l'enregistreur", () => {
   });
 });
 
-// La Chèvre des toits est éteinte depuis le 2026-10-05 (`off`) : son sprite venait
-// du pack LaserKiwi, retiré faute de licence (audit STEAM-1).
+// La Chèvre des toits a été éteinte le 2026-10-05 (`off`) : son sprite venait du pack
+// LaserKiwi, retiré faute de licence (audit STEAM-1) ; elle est revenue le même jour
+// avec la chèvre maison. L'interrupteur reste : on l'éprouve en l'éteignant ici.
 describe("faitsDivers — une histoire éteinte", () => {
-  it("n'est plus jamais proposée, ni nouvelle ni en cours", () => {
-    expect(FD_STORIES.chevre.off).toBe(true);
+  const ids = (life) => fdCandidates({ band: 9, nightF: 0, life }).filter((c) => c.kind === "story").map((c) => c.story.id);
+  it("la Chèvre, rallumée, est de nouveau proposée", () => {
+    expect(FD_STORIES.chevre.off).toBeFalsy();
     live(10 * 3600);
-    const ids = (life) => fdCandidates({ band: 9, nightF: 0, life }).filter((c) => c.kind === "story").map((c) => c.story.id);
-    expect(ids(10 * 3600)).not.toContain("chevre");
-    fdInscrire("chevre", "enclos", 1);                  // une sauvegarde qui l'avait commencée
-    expect(ids(20 * 3600)).not.toContain("chevre");
+    expect(ids(10 * 3600)).toContain("chevre");
+  });
+  it("n'est plus jamais proposée, ni nouvelle ni en cours", () => {
+    FD_STORIES.chevre.off = true;
+    try {
+      live(10 * 3600);
+      expect(ids(10 * 3600)).not.toContain("chevre");
+      fdInscrire("chevre", "enclos", 1);                // une sauvegarde qui l'avait commencée
+      expect(ids(20 * 3600)).not.toContain("chevre");
+    } finally { delete FD_STORIES.chevre.off; }
   });
   it("ce qui en a été lu reste dans la Chronique", () => {
     live(30 * MIN);

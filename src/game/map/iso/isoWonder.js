@@ -547,6 +547,55 @@ function originScreen(m) {
   const R = m.bk.R;
   return worldToScreen(m.cx + R.oy + R.ox / 2, m.cy + R.oy - R.ox / 2);
 }
+// Boîte ÉCRAN de ce que pose une tranche de merveille (item 'wonderSeg') : le raster du
+// monument, son îlot s'il est cuit, la coque d'un bateau qui y accoste — ou null sans
+// modèle. La forêt cuite dans le sol (forestBake.js) y marque ce que la merveille recouvre.
+export function wonderSegScreenBox(it) {
+  const m = it.m || modelOf(it.w, it.wi);
+  if (!m) return null;
+  const z = CM.cam.zoom, T = CM.TILE;
+  let b = null;
+  const grow = (x0, y0, x1, y1) => {
+    if (!b) b = { x0, y0, x1, y1 };
+    else { b.x0 = Math.min(b.x0, x0); b.y0 = Math.min(b.y0, y0); b.x1 = Math.max(b.x1, x1); b.y1 = Math.max(b.y1, y1); }
+  };
+  // Un objet posé (flamme, drapeau, lueur…) : autour de son point, jusqu'à son pied.
+  const prop = (pr, at) => {
+    const p = at || worldToScreen(m.cx + pr.x, m.cy + pr.y, pr.h), r = 1.5 * T * z;
+    grow(p.x - r, p.y - 2 * r, p.x + r, p.y + Math.max(0, pr.h || 0) * z + r);
+  };
+  const part = it.part;
+  if (part === 'decor' || part === 'pprop') {
+    // Le LIEU : une pièce du décor, ou un objet posé dessus.
+    const pl = m.pl || placeFor(m);
+    if (part === 'decor') {
+      const dc = pl && pl.decor[it.di];
+      if (dc) { const d = decorBox(m, dc, z); grow(d.x, d.y, d.x + d.w, d.y + d.h); }
+    } else if (pl && pl.props[it.pi]) prop(pl.props[it.pi]);
+    return b;
+  }
+  if (part === 'isle' || part === 'itall' || part === 'iprop' || part === 'iship') {
+    // L'îlot de l'Aiguille (la cuisson que la tranche va poser), ce qu'il porte, la
+    // coque d'un bateau qui y accoste.
+    const isl = m.isl || (m.il ? isleFor(m) : null);
+    if (isl) {
+      const B2 = isl.R, q = worldToScreen(m.cx + B2.oy + B2.ox / 2, m.cy + B2.oy - B2.ox / 2);
+      grow(q.x, q.y, q.x + B2.w * z, q.y + B2.h * z);
+      if (part === 'iprop' && isl.props[it.pi]) prop(isl.props[it.pi]);
+    }
+    const hb = it.sh && it.sh._hull;
+    if (hb) grow(hb.bx, hb.by, hb.bx + hb.dw, hb.by + hb.dh);
+    return b;
+  }
+  // Le monument (ombre, tranches, cœur) et les objets qu'il porte.
+  const R = m.bk.R, o = originScreen(m);
+  grow(o.x, o.y, o.x + R.w * z, o.y + R.h * z);
+  if (part === 'prop') {
+    const pr = m.bk.props[it.pi];
+    if (pr) prop(pr, pr.rx != null ? { x: o.x + pr.rx * z, y: o.y + pr.ry * z } : null);
+  }
+  return b;
+}
 // Profondeur du BORD AVANT du socle sur la verticale locale X (px monde) : le point
 // du carré |x|,|y| ≤ half le plus au sud-est sur x − y = X a x + y = 2·half − |X|.
 function frontDepth(m, X) {
@@ -791,7 +840,7 @@ export function drawIsoWonderSeg(ctx, it, now) {
     if (hb) {
       const prevA = ctx.globalAlpha;
       ctx.globalAlpha = hb.a == null ? 1 : hb.a;
-      ctx.drawImage(hb.img, hb.bx, hb.by, hb.dw, hb.dw);
+      ctx.drawImage(hb.img, hb.bx, hb.by, hb.dw, hb.dh);   // canvas serré (boatKit, PERF-36)
       if (hb.crew) hb.crew(ctx);          // ses marins avec (boatKit.drawCrew), comme au pont
       ctx.globalAlpha = prevA;
     }

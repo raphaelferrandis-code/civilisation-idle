@@ -434,14 +434,27 @@
 }
 
 .scratch-cell.is-win {
+  position: relative;
   background: color-mix(in srgb, var(--gold), transparent 78%);
   box-shadow: inset 0 0 0 2px var(--gold);
-  animation: scratch-shine 1.2s ease-in-out infinite;
+}
+
+/* L'éclat des cases gagnantes (1,2 s, aller-retour) : le halo est peint une fois
+   sur ce calque et seule son opacité respire — un box-shadow animé était repeint à
+   chaque image jusqu'au ticket suivant (audit 2026-10-05, PERF-65 b). */
+.scratch-cell.is-win::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  box-shadow: 0 0 10px 2px color-mix(in srgb, var(--gold), transparent 30%);
+  opacity: 0;
+  animation: scratch-shine 0.6s ease-in-out infinite alternate;
 }
 
 @keyframes scratch-shine {
-  0%, 100% { box-shadow: inset 0 0 0 2px var(--gold); }
-  50% { box-shadow: inset 0 0 0 2px var(--gold), 0 0 10px 2px color-mix(in srgb, var(--gold), transparent 30%); }
+  from { opacity: 0; }
+  to { opacity: 1; }
 }
 
 .scratch-canvas {
@@ -483,7 +496,7 @@
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .scratch-cell.is-win { animation: none; }
+  .scratch-cell.is-win::after { animation: none; }
   .scratch-canvas { transition: none; }
   .bj-card { animation: none; }
 }
@@ -877,20 +890,47 @@
   height: 96px;
   margin-left: -48px;
   image-rendering: pixelated;
-  filter: drop-shadow(0 0 22px rgba(255, 170, 60, 0.8));
-  animation: icarus-sun-breathe 2.4s ease-in-out infinite;
   transition: transform 0.25s steps(3), filter 0.25s ease;
 }
 
 .icarus-sun.is-flare {
   transform: scale(2);
   filter: drop-shadow(0 0 46px rgba(255, 90, 40, 1)) brightness(1.5) saturate(1.5);
-  animation: none;
 }
 
+/* LE HALO QUI RESPIRE (2,4 s, aller-retour), sous le soleil : deux calques
+   (IcarusStage), chacun peint UNE fois avec son drop-shadow — le repos et
+   l'éclat d'avant, au pixel près —, et seule l'opacité de leur ENVELOPPE
+   s'anime, en fondu croisé. Le filtre vit sur le ::before, jamais animé : il
+   est peint une fois dans le calque de l'enveloppe, que le compositeur mêle.
+   Avant, le drop-shadow lui-même était animé, donc recalculé à chaque image
+   (audit 2026-10-05, PERF-65 b). La copie du soleil que porte chaque calque
+   est entièrement couverte par le soleil, posé par-dessus. */
+.icarus-sun-halo {
+  position: absolute;
+  top: -30px;
+  left: 50%;
+  width: 96px;
+  height: 96px;
+  margin-left: -48px;
+  pointer-events: none;
+  animation: icarus-sun-breathe 1.2s ease-in-out infinite alternate backwards;
+}
+.icarus-sun-halo.is-repos { animation-direction: alternate-reverse; }
+.icarus-sun-halo.is-eclat { opacity: 0; }
+.icarus-sun-halo::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: url("/pixelart/ui/icarus/sun.png") center / 96px 96px no-repeat;
+  image-rendering: pixelated;
+}
+.icarus-sun-halo.is-repos::before { filter: drop-shadow(0 0 16px rgba(255, 170, 60, 0.65)); }
+.icarus-sun-halo.is-eclat::before { filter: drop-shadow(0 0 30px rgba(255, 190, 80, 0.95)); }
+
 @keyframes icarus-sun-breathe {
-  0%, 100% { filter: drop-shadow(0 0 16px rgba(255, 170, 60, 0.65)); }
-  50% { filter: drop-shadow(0 0 30px rgba(255, 190, 80, 0.95)); }
+  from { opacity: 0; }
+  to { opacity: 1; }
 }
 
 .icarus-sky.is-crashed {
@@ -988,7 +1028,7 @@
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .icarus-sun, .icarus-bird, .icarus-sky.is-crashed, .icarus-feathers i { animation: none !important; }
+  .icarus-sun-halo, .icarus-bird, .icarus-sky.is-crashed, .icarus-feathers i { animation: none !important; }
 }
 /* Les plumes pour le cran « Mouvement : Aucune » (base.css), comme le réglage du
    système : posées, au lieu de sauter à leur dernière image, invisibles (BUG-54). */

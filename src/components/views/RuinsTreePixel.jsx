@@ -23,7 +23,8 @@ import { computePixelTreeLayout } from "./ruinsTree/pixelLayout.js";
 import { TREE_ART, PIXEL_LAYOUT } from "./ruinsTree/anchors.js";
 import { SAP_PATHS } from "./ruinsTree/sapPaths.js";
 import { SAP_COLORS } from "./ruinsTree/sapMaterials.js";
-import { prepareSapScene, paintSap, edgeStrips } from "./ruinsTree/sapRenderer.js";
+import { prepareSapScene, paintSap, edgeStrips, sapFrameMs } from "./ruinsTree/sapRenderer.js";
+import { slowRenderer } from "../../game/map/rendererProbe.js";
 import TreeNode from "./ruinsTree/TreeNode.jsx";
 import NodeTooltip from "./ruinsTree/NodeTooltip.jsx";
 import RuinsRegistry from "./ruinsTree/RuinsRegistry.jsx";
@@ -201,8 +202,9 @@ export default function RuinsTreePixel() {
     else ctx.drawImage(ready.img, 0, 0);
   }, [ready]);
 
-  // Boucle de la sève : ~15 i/s, en pause onglet caché. Première image
-  // SYNCHRONE (un onglet caché suspend rAF, cf. piège du navigateur intégré).
+  // Boucle de la sève : ~15 i/s (~8 sans carte graphique, cf. sapFrameMs), en
+  // pause onglet caché. Première image SYNCHRONE (un onglet caché suspend rAF, cf.
+  // piège du navigateur intégré).
   useEffect(() => {
     const cv = sapRef.current;
     const scene = ready?.scene;
@@ -211,11 +213,12 @@ export default function RuinsTreePixel() {
     const out = ctx.createImageData(scene.w, scene.h);
     paintSap(out, scene, sapStRef.current, performance.now());
     ctx.putImageData(out, 0, 0);
+    const frameMs = sapFrameMs(slowRenderer());
     let raf = 0;
     let last = 0;
     const loop = (now) => {
       raf = requestAnimationFrame(loop);
-      if (document.hidden || now - last < 66) return;
+      if (document.hidden || now - last < frameMs) return;
       const st = sapStRef.current;
       // Le réglage peut changer vue ouverte (Options, réglage du système) : on
       // le relit ici, et une bascule repeint une fois dans le nouvel état.

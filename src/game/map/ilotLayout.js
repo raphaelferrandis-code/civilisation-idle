@@ -31,6 +31,17 @@ const LOT_MARGIN = 12;
 // `motifs` : respirations par îlot (un îlot long en a une de plus).
 export const ILOT_AIR = { on: true, motifs: 2 };   // dose « forte », choisie par Raph (2026-10-04)
 if (import.meta.env?.DEV && typeof window !== "undefined") window.__ilotAir = (on) => { if (on && typeof on === "object") Object.assign(ILOT_AIR, { on: true }, on); else ILOT_AIR.on = on !== false; return { ...ILOT_AIR }; };
+// LES GRANDES PLACES (audit 2026-10-05, BUG-63, choix (c) de Raph) : le forum sur quatre
+// îlots, le square sur un carré de 2×2 îlots, au lieu d'un îlot chacun (cf. planIlots).
+// Molette de comparaison : __grandesPlaces({ forum: false, square: false }) puis recalcul
+// de la ville — pour une ville NEUVE : une ville déjà agrandie le reste, sa fiche porte
+// les îlots de ses places.
+export const GRANDES_PLACES = { forum: true, square: true };
+if (import.meta.env?.DEV && typeof window !== "undefined") window.__grandesPlaces = (o) => { if (o && typeof o === "object") Object.assign(GRANDES_PLACES, o); return { ...GRANDES_PLACES }; };
+// Les îlots (i, j) du grand forum : les deux du croisement à l'ouest du cardo, puis les
+// deux îlots longs qui les prolongent le long du decumanus — le 3e donne le coin
+// nord-ouest du rectangle, le 2e le coin sud-est.
+const GRAND_FORUM_BLOCKS = [[-1, -1], [-1, 0], [-3, -1], [-3, 0]];
 // Cases de cardo sur la rive d'en face, au débouché du pont.
 const BRIDGE_LANDING = 5;
 // Lots de maisons par îlot plein (4×4 : 12 lots de bord) — pour l'ESTIMATION du
@@ -100,8 +111,12 @@ export function ilotReachFor({ lots, halls, pitch = ILOT_DEFAULTS.pitch }) {
  * @param {(x,y)=>boolean} o.isBank     berge (ni bâti ni îlot ; une rue peut la longer)
  * @param {(x,y)=>boolean} o.isReserved merveille + parvis, domaine des Plaisirs, districts…
  * @param {(x,y)=>boolean} [o.isHeld]   cellule tenue par un bâtiment (mémoire)
+ * @param {(x,y)=>boolean} [o.isHold]   cellule d'îlot GARDÉE en pelouse (échangeur de l'autoroute) :
+ *                                      ni lot, ni cour, ni halle — l'îlot, ses rues et l'ordre ne bougent pas
  * @param {object} o.demand  { lots, halls:[{key, zone}], annexes:[{key, id, size, zone, index}] }
  * @param {object} [o.memory] { blocks:["i:j"…], plazas:{"i:j":kind}, halls:{key:"i:j"}, annexes:{key:[dx,dy]} }
+ * @param {boolean} [o.forumGrow] fiche d'avant le grand forum : son forum d'un îlot s'agrandit, une fois,
+ *                                en reprenant des cases tenues (rendues dans `forumClaim`, à reloger)
  * @param {number} [o.pitch]
  */
 export function planIlots(o) {
@@ -180,12 +195,133 @@ export function planIlots(o) {
   for (const k of mem.blocks || []) { const b = blockByKey(k); if (b && !openedSet.has(k)) openB(b); }
   for (const [k, kind] of Object.entries(mem.plazas || {})) if (openedSet.has(k)) role.set(k, { kind: "plaza", plazaKind: kind });
   const full4 = (b) => b.cells.length === (pitch - 1) * (pitch - 1);
-  const heldIn = (b) => o.isHeld && b.cells.some((c) => o.isHeld(c.x, c.y));
+  // LES PELOUSES DE L'ÉCHANGEUR (layout.js, autoroute de l'artère — audit 2026-10-05,
+  // BUG-16) : `isHold` retire des cases aux lots, aux cours et aux halles SANS toucher
+  // à `usable` — mêmes îlots, mêmes rues, même ordre d'ouverture (un îlot rogné aurait
+  // pu sortir de l'ordre et décaler tous les rangs suivants). La capacité les décompte
+  // (capOf) : il manque des lots, la ville ouvre un îlot de plus, au bout de l'ordre.
+  // Un îlot qui en porte ne devient ni forum, ni place, ni halle (comme un îlot tenu).
+  const hold = o.isHold || null;
+  const heldIn = (b) => b.cells.some((c) => (o.isHeld && o.isHeld(c.x, c.y)) || (hold && hold(c.x, c.y)));
   // LA CAMPAGNE DÉJÀ POSÉE (champs, moulins, port + marge) : un îlot NEUF qui la
   // toucherait (lui ou sa rue) est DIFFÉRÉ — la ville l'entoure. Un îlot déjà
   // ouvert reste ouvert.
   const ruralIn = (b) => !!o.isRural && (b.cells.some((c) => o.isRural(c.x, c.y)) || b.ring.some((c) => o.isRural(c.x, c.y)));
   const deferred = (b) => !openedSet.has(bkey(b)) && ruralIn(b);
+  // ── LE GRAND FORUM (audit 2026-10-05, BUG-63, choix (c) de Raph) ────────────
+  // Toutes les places faisaient UN îlot, 4×4 : le forum de chaque ère n'avait jamais
+  // les arbres d'ombrage ni les massifs sur les axes que ses kits lui dessinent
+  // (isoPlaza.js, KIND_KITS) — sur 4×4, pas la place d'un second arbre, pas de champ
+  // intérieur. Il prend maintenant QUATRE îlots, de part et d'autre du decumanus, à
+  // l'ouest du cardo : les deux îlots du croisement (l'ancien forum en est un) et les
+  // deux îlots longs qui les prolongent, rues intérieures comprises — 14 × 9 cases. Le
+  // decumanus de l'ouest débouche sur lui et sa fontaine tombe dans l'axe ; le cardo
+  // (le pont, l'autoroute) le longe à l'est, intact.
+  // Ce ne sont que des RÔLES : la grille, l'ordre d'ouverture, les rues et les lots de
+  // tous les autres îlots ne bougent pas (grandesPlaces.test.js, test d'empreinte). Il
+  // faut les quatre îlots PLEINS et toutes les cases du rectangle constructibles (ni
+  // eau, ni berge, ni réservé, ni pelouse d'échangeur) : un fleuve à moins de cinq
+  // rangées du decumanus laisse le forum sur un îlot, comme avant.
+  // Une fiche d'avant (`o.forumGrow`) agrandit son forum UNE fois : les bâtiments des
+  // trois îlots gagnés sont relogés (`forumClaim`, layout.js), une place de quartier qui
+  // s'y trouvait se fond dans le forum. La fiche porte ensuite ses quatre îlots en
+  // « centrale » : plus rien ne bouge.
+  const gfAll = GRAND_FORUM_BLOCKS.map(([i, j]) => i + ":" + j);
+  const gfKeys = GRANDES_PLACES.forum ? gfAll : [];     // pour en ouvrir un ; un forum déjà agrandi est reconnu sans
+  const gfRect = () => {
+    const a = grid.interior(GRAND_FORUM_BLOCKS[2][0], GRAND_FORUM_BLOCKS[2][1]);
+    const z = grid.interior(GRAND_FORUM_BLOCKS[1][0], GRAND_FORUM_BLOCKS[1][1]);
+    return { x0: a.x0, y0: a.y0, x1: z.x1, y1: z.y1 };
+  };
+  const fullB = (b) => b.cells.length === (b.x1 - b.x0 + 1) * (b.y1 - b.y0 + 1);
+  // Le grand forum s'il tient ({ x0, y0, x1, y1, held }), sinon null. `claim` : des
+  // cases tenues sont permises (la migration) et relevées dans `held`.
+  const grandForumFits = (claim) => {
+    if (!gfKeys.length) return null;
+    const R = gfRect(), held = [];
+    // La géométrie d'abord : un îlot qui ne s'ouvrira jamais ferait courir l'ordre
+    // paresseux jusqu'à son bout (blockByKey).
+    for (let y = R.y0; y <= R.y1; y += 1) for (let x = R.x0; x <= R.x1; x += 1) if (!usable(x, y) || (hold && hold(x, y))) return null;
+    for (const k of gfKeys) {
+      const b = blockByKey(k);
+      if (!b || !fullB(b) || deferred(b)) return null;
+      const r = role.get(k);
+      if (r && r.plazaKind !== "centrale" && !claim) return null;
+      for (const c of b.cells) if (o.isHeld && o.isHeld(c.x, c.y)) held.push(c.x + "," + c.y);
+    }
+    if (held.length && !claim) return null;
+    return { ...R, held };
+  };
+  let forumG = null, forumClaim = [], forumGrew = false;
+  {
+    const centrales = [...role].filter(([, r]) => r.plazaKind === "centrale").map(([k]) => k);
+    const asForum = (g) => { forumG = g; for (const k of gfAll) role.set(k, { kind: "plaza", plazaKind: "centrale" }); };
+    if (centrales.length > 1) {
+      // La fiche porte déjà le grand forum : il tient tant que ses quatre îlots se rouvrent.
+      // Sinon (un îlot perdu en route), le forum redevient l'îlot du croisement.
+      if (gfAll.every((k) => centrales.includes(k))) forumG = { ...gfRect(), held: [] };
+      else {
+        const keep = centrales.find((k) => k === "-1:-1" || k === "-1:0") || centrales[0];
+        for (const k of centrales) if (k !== keep) role.delete(k);
+      }
+    } else if (centrales.length === 1 && o.forumGrow && gfKeys.includes(centrales[0])) {
+      const g = grandForumFits(true);
+      if (g) { asForum(g); forumClaim = g.held; forumGrew = true; }
+    } else if (!centrales.length) {
+      const g = grandForumFits(false);
+      if (g) asForum(g);
+    }
+  }
+  // ── LE GRAND SQUARE (même chantier) ─────────────────────────────────────────
+  // Le square (sorte « jardin », la place verte et grillagée) naît sur un carré de
+  // 2×2 îlots ordinaires, rues intérieures comprises — 9 × 9 cases : sa pelouse en
+  // anneau, ses arbres, ses massifs sur les diagonales et sur les axes, sa grille à
+  // portes. Ses trois îlots compagnons s'ouvrent avec lui : ils ne sont encore ni
+  // ouverts ni tenus, personne ne déménage. Sans carré libre autour de son îlot, le
+  // square garde un îlot. Les squares d'avant restent comme ils sont.
+  const groups = [];                                    // les grandes places : { keys, x0, y0, x1, y1 }
+  if (forumG) groups.push({ keys: gfAll, x0: forumG.x0, y0: forumG.y0, x1: forumG.x1, y1: forumG.y1 });
+  const sqKeys = (i0, j0) => [[i0, j0], [i0 + 1, j0], [i0, j0 + 1], [i0 + 1, j0 + 1]];
+  const sqRect = (i0, j0) => { const a = grid.interior(i0, j0), z = grid.interior(i0 + 1, j0 + 1); return { x0: a.x0, y0: a.y0, x1: z.x1, y1: z.y1 }; };
+  const plainB = (i, j) => !ilotMerge(i, j) && !grid.absorbed(i, j);   // un îlot ordinaire (4×4)
+  {
+    // Ceux de la fiche : quatre îlots « jardin » en carré. Lus en ordre de LECTURE (j
+    // puis i, en nombres) : le premier îlot restant d'un pavage de carrés en est toujours
+    // le coin haut-gauche. L'ordre des chaînes (« 10:3 » avant « 9:3 ») recollait deux
+    // squares accolés de travers (grandesPlaces.test.js).
+    const jard = new Set([...role].filter(([, r]) => r.plazaKind === "jardin").map(([k]) => k));
+    const used = new Set();
+    const ijOf = (k) => { const ci = k.indexOf(":"); return [+k.slice(0, ci), +k.slice(ci + 1)]; };
+    for (const k of [...jard].sort((p, q) => { const a = ijOf(p), b = ijOf(q); return a[1] - b[1] || a[0] - b[0]; })) {
+      const [i0, j0] = ijOf(k);
+      const ks = sqKeys(i0, j0).map(([i, j]) => i + ":" + j);
+      if (!ks.every((q) => jard.has(q) && !used.has(q)) || !sqKeys(i0, j0).every(([i, j]) => plainB(i, j))) continue;
+      for (const q of ks) used.add(q);
+      groups.push({ keys: ks, ...sqRect(i0, j0) });
+    }
+  }
+  // Un grand square dont l'îlot `b` est un coin, ou null. Même géométrie d'abord que le
+  // forum (blockByKey ne court qu'après un îlot qui s'ouvrira).
+  const grandSquareAt = (b) => {
+    if (!GRANDES_PLACES.square) return null;
+    for (const [di, dj] of [[0, 0], [-1, 0], [0, -1], [-1, -1]]) {
+      const i0 = b.i + di, j0 = b.j + dj;
+      if (!sqKeys(i0, j0).every(([i, j]) => plainB(i, j))) continue;
+      const R = sqRect(i0, j0);
+      let ok = true;
+      for (let y = R.y0; y <= R.y1 && ok; y += 1) for (let x = R.x0; x <= R.x1 && ok; x += 1) if (!usable(x, y) || (hold && hold(x, y))) ok = false;
+      const mates = [];
+      for (const [i, j] of sqKeys(i0, j0)) {
+        const k = i + ":" + j;
+        if (!ok || k === bkey(b)) continue;
+        const q = blockByKey(k);
+        if (!q || !full4(q) || role.has(k) || openedSet.has(k) || heldIn(q) || deferred(q)) ok = false;
+        else mates.push(q);
+      }
+      if (ok) return { keys: sqKeys(i0, j0).map(([i, j]) => i + ":" + j), mates, ...R };
+    }
+    return null;
+  };
   // Le FORUM : le premier îlot complet au croisement du cardo et du decumanus.
   if (![...role.values()].some((r) => r.plazaKind === "centrale")) {
     const ok = (b) => full4(b) && !heldIn(b) && !deferred(b);
@@ -209,16 +345,37 @@ export function planIlots(o) {
   }
   const est = Math.ceil(o.demand.lots / lotsPerBlock()) + o.demand.halls.length + 2;
   const startOf = (zone) => zone === "center" ? 1 : zone === "mid" ? Math.round(est * 0.3) : Math.round(est * 0.55);
+  // LE GRAND FORUM, À LA MIGRATION : une halle qui tenait un des îlots gagnés ne part pas
+  // au bout de la ville (seuls les îlots neufs y sont libres) — elle reste au cœur, au plus
+  // près du forum (le premier îlot de l'ordre, pas le rang de sa zone : celui-ci a grandi
+  // avec la ville depuis sa pose), à l'angle d'un îlot de MAISONS : les maisons de son
+  // emprise sont relogées (`forumClaim`), jamais un autre monument ni un atelier.
+  const DEC_RE = /:dec_/;
+  const ousted = new Set();
+  if (forumGrew) for (const h of o.demand.halls) if (gfAll.includes(memHalls[h.key])) ousted.add(h.key);
+  // Un carré sz × sz de l'îlot où rien d'autre qu'une maison ne tient (les ateliers sont
+  // semés dans presque tous les îlots : c'est l'emprise de la halle qui compte).
+  const decFits = (q, sz) => {
+    const ok = (x, y) => !(hold && hold(x, y)) && !(o.isHeld && o.isHeld(x, y) && !DEC_RE.test((o.heldOwner && o.heldOwner(x, y)) || ""));
+    const inQ = new Set(q.cells.map((c) => c.x + "," + c.y));
+    for (let gy = q.y0; gy + sz - 1 <= q.y1; gy += 1) for (let gx = q.x0; gx + sz - 1 <= q.x1; gx += 1) {
+      let all = true;
+      for (let dy = 0; dy < sz && all; dy += 1) for (let dx = 0; dx < sz && all; dx += 1) all = inQ.has((gx + dx) + "," + (gy + dy)) && ok(gx + dx, gy + dy);
+      if (all) return true;
+    }
+    return false;
+  };
   for (const h of o.demand.halls) {
     if (hallBlock.has(h.key)) continue;
     let b = null;
+    const free = ousted.has(h.key) ? (q) => decFits(q, Math.min(h.size || 1, q.x1 - q.x0 + 1, q.y1 - q.y0 + 1)) : (q) => !heldIn(q);
     // Départ : le rang de sa zone, ou le dernier îlot si l'ordre est plus court.
-    const r0 = order.at(startOf(h.zone)) ? startOf(h.zone) : order.produced.length - 1;
+    const r0 = ousted.has(h.key) ? 1 : order.at(startOf(h.zone)) ? startOf(h.zone) : order.produced.length - 1;
     for (let r = r0, q; !b && (q = order.at(r)); r += 1) {
-      if (!role.has(bkey(q)) && q.cells.length >= 9 && !heldIn(q) && !deferred(q)) b = q;
+      if (!role.has(bkey(q)) && q.cells.length >= 9 && free(q) && !deferred(q)) b = q;
     }
     if (!b) continue;
-    role.set(bkey(b), { kind: "hall", key: h.key, size: h.size || 1 });
+    role.set(bkey(b), { kind: "hall", key: h.key, size: h.size || 1, ousted: ousted.has(h.key) });
     hallBlock.set(h.key, b);
     memHalls[h.key] = bkey(b);
   }
@@ -272,7 +429,8 @@ export function planIlots(o) {
   // Les mémorisés d'abord, puis l'ordre, jusqu'à loger la demande ET atteindre le
   // forum et chaque halle. Une place de quartier naît tous les ILOT_PLAZA_EVERY
   // îlots OUVERTS (compte stable : l'ouverture est mémorisée).
-  const capOf = (b) => { const r = role.get(bkey(b)); return !r ? b.lots.length - airSet(b).size : r.kind === "hall" ? Math.max(0, b.lots.length - 2 * r.size) : 0; };
+  const holdLots = (b) => { if (!hold) return 0; const air = airSet(b); let n = 0; for (const l of b.lots) if (hold(l.gx, l.gy) && !air.has(l.gx + "," + l.gy)) n += 1; return n; };
+  const capOf = (b) => { const r = role.get(bkey(b)); return !r ? b.lots.length - airSet(b).size - holdLots(b) : r.kind === "hall" ? Math.max(0, b.lots.length - 2 * r.size - holdLots(b)) : 0; };
   let need = o.demand.lots + LOT_MARGIN;
   for (const b of opened) need -= capOf(b);
   let maxRole = -1;
@@ -286,11 +444,18 @@ export function planIlots(o) {
     if (openedSet.has(k)) continue;
     if (need <= 0 && b.rank > maxRole) break;
     if (deferred(b)) continue;
+    let sq = null;
     if (!role.has(k) && full4(b) && !heldIn(b) && opened.length % ILOT_PLAZA_EVERY === ILOT_PLAZA_EVERY / 2) {
-      role.set(k, { kind: "plaza", plazaKind: PLAZA_KINDS[Math.floor(opened.length / ILOT_PLAZA_EVERY) % PLAZA_KINDS.length] });
+      const kind = PLAZA_KINDS[Math.floor(opened.length / ILOT_PLAZA_EVERY) % PLAZA_KINDS.length];
+      role.set(k, { kind: "plaza", plazaKind: kind });
+      if (kind === "jardin") sq = grandSquareAt(b);
     }
     openB(b);
     need -= capOf(b);
+    if (sq) {                                           // ses compagnons s'ouvrent avec lui
+      for (const q of sq.mates) { role.set(bkey(q), { kind: "plaza", plazaKind: "jardin" }); openB(q); }
+      groups.push({ keys: sq.keys, x0: sq.x0, y0: sq.y0, x1: sq.x1, y1: sq.y1 });
+    }
   }
   const blocks = opened;
 
@@ -306,24 +471,30 @@ export function planIlots(o) {
   for (const b of blocks) {
     const r = role.get(bkey(b));
     if (!r || r.kind !== "hall") continue;
-    const inB = new Set(b.cells.map((q) => q.x + "," + q.y));
+    const inB = new Set(b.cells.filter((q) => !(hold && hold(q.x, q.y))).map((q) => q.x + "," + q.y));
     // Une halle qui GRANDIT (palier d'achats) ne chasse pas les maisons de son
     // îlot : si la taille neuve mord une case tenue par un autre, elle garde la
     // plus grande taille qui tient.
-    const mine = (x, y) => { const ow = o.heldOwner ? o.heldOwner(x, y) : null; return !ow || ow === r.key; };
+    // (Une halle chassée par le grand forum, elle, prend la place de maisons : cf. `ousted`.)
+    const mine = (x, y) => { const ow = o.heldOwner ? o.heldOwner(x, y) : null; return !ow || ow === r.key || (!!r.ousted && DEC_RE.test(ow)); };
     const fits = (gx, gy, sz) => { for (let dy = 0; dy < sz; dy += 1) for (let dx = 0; dx < sz; dx += 1) if (!inB.has((gx + dx) + "," + (gy + dy)) || !mine(gx + dx, gy + dy)) return false; return true; };
     let at = null;
     for (let sz = Math.min(r.size, b.x1 - b.x0 + 1, b.y1 - b.y0 + 1); sz >= 1 && !at; sz -= 1) {
       for (let gy = b.y0; gy + sz - 1 <= b.y1 && !at; gy += 1) for (let gx = b.x0; gx + sz - 1 <= b.x1 && !at; gx += 1) if (fits(gx, gy, sz)) at = { gx, gy, size: sz, block: b };
     }
     if (!at) continue;
-    for (let dy = 0; dy < at.size; dy += 1) for (let dx = 0; dx < at.size; dx += 1) lotTaken.add((at.gx + dx) + "," + (at.gy + dy));
+    for (let dy = 0; dy < at.size; dy += 1) for (let dx = 0; dx < at.size; dx += 1) {
+      const x = at.gx + dx, y = at.gy + dy;
+      lotTaken.add(x + "," + y);
+      if (r.ousted && o.isHeld && o.isHeld(x, y) && (!o.heldOwner || o.heldOwner(x, y) !== r.key)) forumClaim.push(x + "," + y);
+    }
     hallAt.set(r.key, at);
   }
   const lotAt = new Map();
-  for (const b of houseBlocks) for (const l of b.lots) if (!airSet(b).has(l.gx + "," + l.gy)) lotAt.set(l.gx + "," + l.gy, { l, b });
+  const onLawn = (q) => !!hold && hold(q.gx, q.gy);     // pelouse de l'échangeur
+  for (const b of houseBlocks) for (const l of b.lots) if (!airSet(b).has(l.gx + "," + l.gy) && !onLawn(l)) lotAt.set(l.gx + "," + l.gy, { l, b });
   const courtOf = new Set();
-  for (const b of houseBlocks) for (const c of b.court) courtOf.add(c.gx + "," + c.gy);
+  for (const b of houseBlocks) for (const c of b.court) if (!onLawn(c)) courtOf.add(c.gx + "," + c.gy);
   const typesIn = new Map();                            // "i:j" → Set(id)
   const annexAt = new Map();
   const memAnnex = { ...(mem.annexes || {}) };
@@ -381,10 +552,10 @@ export function planIlots(o) {
     const e = { gx: l.gx, gy: l.gy, faces: l.faces, block: bkey(b), long: isLong(b) };
     lotFace.set(l.gx + "," + l.gy, e);
     if (airSet(b).has(l.gx + "," + l.gy)) air.push({ gx: l.gx, gy: l.gy });
-    else if (!lotTaken.has(l.gx + "," + l.gy)) lots.push(e);
+    else if (!lotTaken.has(l.gx + "," + l.gy) && !onLawn(l)) lots.push(e);
   }
   const courts = [];
-  for (const b of houseBlocks) for (const c of b.court) if (!lotTaken.has(c.gx + "," + c.gy)) courts.push(c);
+  for (const b of houseBlocks) for (const c of b.court) if (!lotTaken.has(c.gx + "," + c.gy) && !onLawn(c)) courts.push(c);
 
   // ── Les rues : pourtours des îlots ouverts + cardo (deux voies) ──────────
   const streets = blockStreets(grid, blocks, seed);
@@ -395,6 +566,17 @@ export function planIlots(o) {
       if (e) { e.h = e.h || m.h; e.v = true; e.rank = "main"; } else streets.set(tk, { h: m.h, v: true, rank: "main" });
     }
     if (x === bx || x === twin) m.rank = "main";
+  }
+  // Les rues INTÉRIEURES d'une grande place (au forum, le decumanus et la rue qui
+  // séparait ses îlots) deviennent la place : elles ne bordent que ses îlots.
+  const groupOf = new Map();                            // "i:j" → grande place
+  for (const g of groups) {
+    g.cells = [];
+    for (let y = g.y0; y <= g.y1; y += 1) for (let x = g.x0; x <= g.x1; x += 1) {
+      g.cells.push({ x, y });
+      streets.delete(x + "," + y);
+    }
+    for (const k of g.keys) groupOf.set(k, g);
   }
   // HIÉRARCHIE : une rue sur deux est une RUELLE (`path`, sans trottoir), l'autre
   // une rue (`secondary`), le cardo et le decumanus des artères (`main`). v1 avait
@@ -418,6 +600,16 @@ export function planIlots(o) {
   for (const b of blocks) {
     const r = role.get(bkey(b));
     if (!r) continue;
+    // Une grande place : UNE place (son rectangle, rues intérieures comprises), décrite
+    // au rang de son premier îlot ouvert.
+    const g = r.kind === "plaza" ? groupOf.get(bkey(b)) : null;
+    if (g) {
+      if (g.done) continue;
+      g.done = true;
+      const { x0, y0, x1, y1 } = g, w = x1 - x0 + 1, h = y1 - y0 + 1;
+      plazas.push({ block: { cells: g.cells, x0, y0, x1, y1 }, kind: r.plazaKind, gx: x0 + Math.floor(w / 2), gy: y0 + Math.floor(h / 2), size: Math.min(w, h), blocks: g.keys.slice() });
+      continue;
+    }
     const w = b.x1 - b.x0 + 1, h = b.y1 - b.y0 + 1;
     if (r.kind === "plaza") plazas.push({ block: b, kind: r.plazaKind, gx: b.x0 + Math.floor(w / 2), gy: b.y0 + Math.floor(h / 2), size: Math.min(w, h) });
     else if (hallAt.has(r.key)) halls.push({ key: r.key, ...hallAt.get(r.key) });
@@ -427,5 +619,7 @@ export function planIlots(o) {
   const memOut = { blocks: blocks.map(bkey), plazas: memPlazas, halls: memHalls, annexes: memAnnex };
   for (const k of Object.keys(memOut.halls)) if (!openedSet.has(memOut.halls[k])) delete memOut.halls[k];
   // `order` : la suite complète, calculée seulement si quelqu'un la lit.
-  return { grid, get order() { return order.all(); }, blocks, opened: openedSet, streets, plazas, halls, hallBlock, hallAt, annexAt, lots, lotFace, courts, air, memory: memOut, seed };
+  // `forumClaim` : cases tenues que le grand forum reprend (migration d'une fiche d'avant) —
+  // leurs bâtiments sont à reloger (layout.js).
+  return { grid, get order() { return order.all(); }, blocks, opened: openedSet, streets, plazas, halls, hallBlock, hallAt, annexAt, lots, lotFace, courts, air, memory: memOut, seed, forumClaim };
 }

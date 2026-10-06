@@ -105,3 +105,7 @@ public/pixelart/ui/scratch/
 # mais l'ARCHIVE SOURCE ne doit pas être republiée — la licence Crusenho
 # l'interdit explicitement. Et c'est 5,9 Mo de binaire à vie dans l'historique.
 *.7z
+
+# App ID Steam de DÉVELOPPEMENT (succès, docs/STEAM-SUCCES.md) : Valve le réserve
+# aux essais, il ne se livre pas et ne se versionne pas.
+steam_appid.txt

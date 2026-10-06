@@ -31,7 +31,15 @@
 // Préférence d'AFFICHAGE persistée hors save (localStorage, comme la qualité) :
 // ACTIVÉE par défaut, interrupteur dans les Options. Un banc de mesure qui
 // laisse la caméra posée plus de 3 min doit l'éteindre (`civ-opt-energy-saver`
-// = "false"), sinon il mesure le palier de 20 i/s. Module-FEUILLE (aucun import).
+// = "false"), sinon il mesure le palier de 20 i/s. Module-FEUILLE, à un import
+// près : desktopWindow.js, feuille lui aussi.
+//
+// FENÊTRE DE L'.EXE RÉDUITE (audit 2026-10-05, ELEC-6) : la carte ne peint plus DU
+// TOUT (cap infini), interrupteur des Options ou pas, chute comprise — personne ne
+// la regarde. La simulation, elle, continue (backgroundThrottling coupé, main.cjs).
+// La rAF continue de battre : la fenêtre rendue repeint à la vsync suivante.
+import { isWindowMinimized } from "../core/desktopWindow.js";
+
 const ENERGY_KEY = "civ-opt-energy-saver";
 
 export const ENERGY_TUNE = {
@@ -52,6 +60,7 @@ export let energySaver = (() => {
 
 export function setEnergySaver(on) {
   energySaver = !!on;
+  if (!energySaver && awayShown) showAway(false);
   try {
     localStorage.setItem(ENERGY_KEY, energySaver ? "true" : "false");
   } catch { /* stockage indisponible : le réglage vaut pour la session */ }
@@ -78,8 +87,29 @@ export function energyFrameMs(baseMs, o) {
 // relevée par la frame après son clamp.
 const watch = { inputAt: 0, camAt: 0, cx: NaN, cy: NaN, cz: NaN };
 
+// ── Joueur ABSENT, signal partagé avec l'interface (audit 2026-10-05, PERF-65) ──
+// Le souffle doré du premier achat payable (purchase.css) est la seule animation
+// CSS permanente du jeu : une ombre repeinte à chaque image, +76 à +135 ms de CPU
+// par seconde en rendu logiciel, pendant tout l'AFK. Au-delà de idleMs sans
+// aucune entrée (interrupteur des Options compris), <html data-away> la met en
+// pause ; la première entrée l'enlève AUSSITÔT (noteMapInput), sans attendre la
+// frame suivante. Rien ne change sous les yeux du joueur. Posé par mapFrameMs,
+// qui bat à chaque rAF, modale ouverte comprise (la carte y saute seulement son
+// dessin) : c'est justement l'AFK typique, un dialogue de crise resté ouvert.
+const AWAY_ATTR = "data-away";
+let awayShown = false;
+
+function showAway(on) {
+  awayShown = on;
+  try {
+    if (on) document.documentElement.setAttribute(AWAY_ATTR, "");
+    else document.documentElement.removeAttribute(AWAY_ATTR);
+  } catch { /* hors navigateur : rien à afficher */ }
+}
+
 export function noteMapInput(now) {
   watch.inputAt = now;
+  if (awayShown) showAway(false);
 }
 
 export function noteMapCamera(cam, now) {
@@ -91,6 +121,8 @@ export function noteMapCamera(cam, now) {
 }
 
 export function mapFrameMs(baseMs, now, show = false) {
+  if (!awayShown && energySaver && now - watch.inputAt >= ENERGY_TUNE.idleMs) showAway(true);
+  if (isWindowMinimized()) return Infinity;   // .exe réduit (ELEC-6) : plus aucune frame
   let focused = true;
   try {
     if (typeof document !== "undefined" && typeof document.hasFocus === "function") focused = document.hasFocus();

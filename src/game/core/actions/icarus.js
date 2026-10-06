@@ -27,6 +27,8 @@ import {
   ICARUS_CAP,
   ICARUS_K,
   ICARUS_JACKPOT_MULT,
+  ICARUS_SEAL_MULT,
+  ICARUS_SEAL_STAKE_SHARE,
   ICARUS_HISTORY_LEN,
   ICARUS_HISTORY_COLOMBIER,
   SOUFFLE_CONSOLATION_MULT,
@@ -38,7 +40,7 @@ import { hasTempleArtifact } from './templeArtifacts.js';
 import { potRake, feedPot, drawFromPot, payRound } from './templePot.js';
 import { recordWager } from './maisonRang.js';
 import { consumeFreeFlight } from './templeFlights.js';
-import { clampStake } from './maisonTable.js';
+import { clampStake, tableLimits } from './maisonTable.js';
 import { pushOutcomeFloat } from '../outcomeFloat.js';
 import { recordIcarus } from '../chronicleStats.js';
 
@@ -238,13 +240,14 @@ export function cashOutIcarus() {
   if (mR >= ICARUS_JACKPOT_MULT && (state.icarusPotFaveur || 0) > 0) {
     const { rake, left } = potRake(state.icarusPotFaveur, flight.stakeFaveur);
     // rake > 0 obligatoire : sur un pot fractionnaire minuscule, la part arrondie
-    // tombe à 0 — jalon GR VII décroché et chronique « +0 faveur » sans rafle
-    // réelle. Le payout ×10, lui, est déjà servi plus haut dans tous les cas.
+    // tombe à 0 — jackpot compté et chronique « +0 faveur » sans rafle réelle. Le
+    // payout ×10, lui, est déjà servi plus haut dans tous les cas.
     if (rake > 0) {
       jackpotFaveur = rake;
       state.faveur += jackpotFaveur;
       state.icarusPotFaveur = left;
-      // Jalon du Grand Reset VII : décrocher un jackpot (compteur remis à 0 au GR).
+      // Jackpots décrochés (compteur remis à 0 au GR). Ce n'est plus le jalon du
+      // Grand Reset VII : c'est icarusSealFlights, plus bas (BUG-40).
       state.icarusJackpots = (state.icarusJackpots || 0) + 1;
       chronicle(left > 0
         ? tr({
@@ -256,6 +259,13 @@ export function cashOutIcarus() {
             en: `Icarus grazes the sun without melting: the temple's Favor pot pours out (+${fmt(jackpotFaveur)} favor).`
           }));
     }
+  }
+  // Jalon du Grand Reset VII (audit 2026-10-05, BUG-40) : un vol posé à ×25+, mise
+  // de sa propre Faveur d'au moins la moitié de la salle commune. Compté sur le
+  // vol lui-même, cagnotte pleine ou non : seul le seuil du sceau a changé.
+  if (mR >= ICARUS_SEAL_MULT && !flight.freeFlight
+    && flight.stakeFaveur >= tableLimits().base * ICARUS_SEAL_STAKE_SHARE) {
+    state.icarusSealFlights = (state.icarusSealFlights || 0) + 1;
   }
   // La cagnotte est nourrie sur l'EDGE à CHAQUE résolution, y compris gagnée : le
   // versement ne dépend plus de l'issue, et c'est ce qui rend l'espérance exacte et

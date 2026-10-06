@@ -54,6 +54,8 @@ export default function NuitBandeau() {
   if (!info) return null;
   return (
     <div className="nuit-bandeau" role="status" onClick={() => setInfo(null)}>
+      {/* La lueur du ruban, peinte une fois et respirant en opacité (PERF-65). */}
+      <i className="lueur" aria-hidden="true" />
       <span className="nuit-titre">✦ {tr({ fr: 'La Nuit du Grand Jeu', en: 'The Night of High Play' })} ✦</span>
       <span className="nuit-sous">
         {tr(info.flambeur.nom)}

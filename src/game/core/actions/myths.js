@@ -47,6 +47,9 @@ import {
   OR_DEAL_HAGGLE_STEP,
   OR_DEAL_PATIENCE_MIN,
   OR_DEAL_PATIENCE_MAX,
+  OR_CARAVAN_WAIT_VEXED_MS,
+  OR_CARAVAN_WAIT_REFUSED_MS,
+  OR_DEAL_VEXED_SURCHARGE,
   ATRIDES_DEBT_PAYBACK_FACTOR,
   ATRIDES_RENEGOTIATE_COOLDOWN_MS,
   ATRIDES_RENEGOTIATE_DURATION_MS,
@@ -424,10 +427,16 @@ export async function activateMyth(mythId, { babelCategory } = {}) {
   // Mythe — sans conséquence pour le Ragnarok (ses fléaux dépendent de l'âge du
   // cycle, encore ancien ici), et le cache de frame est invalidé par le reset.
   const _preResetRates = mythId === RAGNAROK_ID ? ratesFn() : null;
+  // Même ancre pour Antée et le Phénix (audit 2026-10-05, BUG-41) : le pic de
+  // population du cycle d'AVANT le pacte, capté avant le reset. Le cycle en cours
+  // si le pacte l'interrompt en route, le cycle tombé s'il est signé au départ d'un
+  // cycle (prevCycle, remis à zéro par le Grand Reset) — le plus haut des deux.
+  const _prevPeakPop = D(state.cyclePeaks?.population || state.population || 0)
+    .max(D(state.prevCycle?.peakPop || 0));
   const _savedBabelCategory = state.babelCategory;
   resetCivilization();
   state.babelCategory = _savedBabelCategory;
-  if (typeof myth.onActivate === "function") await myth.onActivate();
+  if (typeof myth.onActivate === "function") await myth.onActivate({ prevPeakPop: _prevPeakPop });
   if (_preResetRates) {
     const part = (rate, floor) => D(rate).max(0).mul(RAGNAROK_ARK_OFFERING_PROD_SEC).max(floor).floor();
     state.ragnarokArkCost = {
@@ -639,7 +648,9 @@ export function ragnarokOffrir() {
 // ACCEPTER paie le prix courant ; MARCHANDER le fait baisser (OR_DEAL_HAGGLE_STEP)
 // mais sa patience est CACHÉE (2 à 4 marchandages) — la dépasser, c'est le voir
 // partir, marché perdu. Tout l'état d'une négociation vit dans la fermeture de
-// cette fonction : zéro champ persistant hors orDealsClosed (le compteur du défi).
+// cette fonction. Persistants : orDealsClosed (le compteur du défi) et le prix
+// d'un départ (BUG-70) — orNextCaravanAt (la suivante attend 60 s après un
+// marchand vexé, 20 s après un refus) et orMerchantVexed (elle demande +25 %).
 const OR_DEAL_RESOURCES = [
   { key: "food", label: { fr: "Nourriture", en: "Food" } },
   { key: "knowledge", label: { fr: "Savoir", en: "Knowledge" } },
@@ -655,6 +666,8 @@ const OR_MOOD_LINES = [
 export async function negotiateOrDeal() {
   if (!isMythEffectActive("mythe_age_or") || collapseInProgress || state.crisisLimitAnnounced || gamePaused) return;
   if ((state.orDealsClosed || 0) >= OR_DEALS_TARGET) return;
+  // La caravane suivante n'est pas encore là (BUG-70).
+  if (Date.now() < (state.orNextCaravanAt || 0)) return;
 
   setGamePaused(true);
   render();
@@ -670,6 +683,13 @@ export async function negotiateOrDeal() {
     + Math.floor(Math.random() * (OR_DEAL_PATIENCE_MAX - OR_DEAL_PATIENCE_MIN + 1));
   let haggles = 0;
   let note = "";
+  // Le confrère vexé a fait passer le mot : cette caravane-ci (une seule) ouvre
+  // plus cher.
+  if (state.orMerchantVexed) {
+    state.orMerchantVexed = false;
+    price = price.mul(OR_DEAL_VEXED_SURCHARGE).round();
+    note = tr({ fr: "Le mot a couru qu'un confrère a été vexé : le prix de départ est plus haut. ", en: "Word has spread that a fellow merchant was offended: the opening price is higher. " });
+  }
 
   for (;;) {
     const mood = tr(OR_MOOD_LINES[Math.min(OR_MOOD_LINES.length - 1, haggles)]);
@@ -693,6 +713,8 @@ export async function negotiateOrDeal() {
     if (choice?.deal === "haggle") {
       haggles += 1;
       if (haggles > patience) {
+        state.orNextCaravanAt = Date.now() + OR_CARAVAN_WAIT_VEXED_MS;
+        state.orMerchantVexed = true;
         chronicle(tr({
           fr: "Le marchand remballe, vexé : « On ne me prend pas pour un âne. » La caravane s'éloigne.",
           en: "The merchant packs up, offended: 'I am no fool.' The caravan departs."
@@ -720,7 +742,9 @@ export async function negotiateOrDeal() {
       break;
     }
 
-    break; // Refuser
+    // Refuser : sans rancune (pas de surcoût), mais la suivante se fait attendre.
+    state.orNextCaravanAt = Date.now() + OR_CARAVAN_WAIT_REFUSED_MS;
+    break;
   }
 
   setGamePaused(false);

@@ -16,21 +16,21 @@
 // prendre AGENT_SCALE fermerait le cycle layout → critters → agents → layout.
 // L'échelle arrive donc en argument, depuis l'appelant qui l'a déjà sous la main.
 //
-// ⛔ SPRITES RETIRÉS LE 2026-10-05 (audit STEAM-1, décision de Raph) : le pack
-// LaserKiwi n'a jamais publié de licence, et on ne vend pas un asset sans licence.
-// Les 20 critter-*.png et scripts/importPackAnimals.mjs sont partis ; tant que
-// CRITTERS_ON est faux, layout.js ne pose plus aucune bête, ensureCritter ne
-// demande aucun fichier (pas de 404) et drawCritterIso rend false — ses appelants
-// (faits divers compris) s'en accommodent déjà. Le module reste : c'est le
-// contrat de placement et de blit, prêt pour des bêtes MAISON. Les remettre =
-// livrer les 4 diagonales de chaque bête de CRITTER_SIZES, puis passer à true
-// (packSprites.test.js vérifie les deux sens).
-export const CRITTERS_ON = false;
+// ⛔ PACK LASERKIWI RETIRÉ LE 2026-10-05 (audit STEAM-1, décision de Raph) : il n'a
+// jamais publié de licence, et on ne vend pas un asset sans licence. Ses 20
+// critter-*.png et scripts/importPackAnimals.mjs sont partis.
+// ✅ BÊTES MAISON depuis le 2026-10-05 (planches/animaux-maison, validées par Raph) :
+// vache, mouton, chèvre, chien et chat faits avec PixelLab, objets 8 directions
+// « low top-down » (la chaîne du bœuf des attelages), 4 diagonales chacune, posées
+// 1:1 dans un cadre carré, pattes sur 0,94 du cadre (FOOT_FRAC). Mêmes noms de
+// fichiers que le pack : le contrat de placement et de blit n'a pas bougé.
+// Éteint (false), layout.js ne pose aucune bête, ensureCritter ne demande aucun
+// fichier et drawCritterIso rend false (packSprites.test.js vérifie les deux sens).
+export const CRITTERS_ON = true;
 
 // Hauteur de rendu en TUILES, avant AGENT_SCALE — même unité que les `scale`
-// d'habitants et de bêtes de trait (le bœuf du jeu vaut 0,975). Elle décidait
-// aussi de la taille de CUISSON du pack retiré : des bêtes maison devront être
-// cuites à cette taille de BOÎTE.
+// d'habitants et de bêtes de trait (le bœuf du jeu vaut 0,975). Le cadre de chaque
+// bête maison a été choisi pour cette taille de BOÎTE (manifeste de la planche).
 export const CRITTER_SIZES = { cow: 0.95, sheep: 0.66, goat: 0.64, dog: 0.55, cat: 0.42 };
 export const CRITTER_DIAG = ['southeast', 'southwest', 'northwest', 'northeast'];
 // Tirages de layout.js, déclarés ICI pour qu'une garde puisse vérifier que tout

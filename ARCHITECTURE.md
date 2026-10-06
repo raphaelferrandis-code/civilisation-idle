@@ -1,4 +1,4 @@
-# Architecture — *Civilisation Effondrement*
+# Architecture — *Effondrement Idle*
 
 Document d'orientation : les **contrats implicites** du moteur, à connaître avant
 de toucher au cœur. Pour le *quoi* (mécaniques de jeu), lire les commentaires du

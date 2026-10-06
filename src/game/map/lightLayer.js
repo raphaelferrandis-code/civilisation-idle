@@ -29,6 +29,17 @@ import { CM } from './layout.js';
  *
  * Réglage live : window.__lightOcclusion({ on }) — `on:false` rend la main au
  * dessin direct (halos par-dessus tout), pour comparer.
+ *
+ * PALIERS SANS EFFETS (décision de Raph du 2026-10-05, PERF-2) : au palier
+ * « Performance », et en « Auto » quand le navigateur dessine sans carte graphique
+ * (« Équilibrée sans effets », qualityMode.js), CM.fxOn est faux et les lumières ne
+ * sont plus OCCULTÉES : le calque est armé, toutes les lumières y sont déposées et
+ * posées après le voile comme d'habitude, mais rien n'y découpe sa silhouette. Une
+ * lueur traverse alors la façade peinte devant elle — l'ancien comportement des
+ * halos directs. Les découpes sont le gros du prix du calque la nuit (−11 à −14 ms
+ * en rendu logiciel, audit PERF-2). Pourquoi pas `on: false` : sans calque, les
+ * fenêtres, émissifs et lueurs des scènes, qui ne vivent que dans le calque,
+ * s'éteindraient. Molette : __lightOcclusion({ occlude: false }).
  * ========================================================================== */
 
 // minUnit = taille ÉCRAN d'une tuile (px) sous laquelle on renonce à
@@ -42,7 +53,8 @@ import { CM } from './layout.js';
 // litBox). Audit du 2026-10-05 (PERF-2) : image identique au pixel (vérifiée en jeu,
 // rendu logiciel et GPU) ; `__lightOcclusion({ fine: 0, tight: false })` rejoue
 // l'ancien chemin (A/B de la mesure).
-export const LIGHT_LAYER = { on: true, cell: 64, minUnit: 12, fine: 16, tight: true };
+// occlude = découpes actives (en plus du palier : CM.fxOn faux les coupe, cf. plus haut).
+export const LIGHT_LAYER = { on: true, cell: 64, minUnit: 12, fine: 16, tight: true, occlude: true };
 if (import.meta.env?.DEV && typeof window !== 'undefined') {
   window.__lightOcclusion = (o) => { if (o) Object.assign(LIGHT_LAYER, o); return { ...LIGHT_LAYER }; };
 }
@@ -53,6 +65,7 @@ let usable = false;         // le calque a été armé pour CETTE frame (sinon :
 let suspended = false;      // passe hors écran (silhouette de survol, mesure d'encre)
 let painted = false;        // au moins une lumière déposée depuis le début de frame
 let needClear = false;      // effacement PARESSEUX : une frame sans lampe ne coûte rien
+let occlude = true;         // les sprites peints APRÈS une lumière la découpent (pas sans effets)
 let glows = 0, cuts = 0, spared = 0;    // diagnostic (window.__lightStats)
 
 // Grilles grossières de COUVERTURE : « y a-t-il de la lumière dans ce coin
@@ -185,6 +198,7 @@ function hasCov(x0, y0, x1, y1) {
 export function beginLightLayer(enabled) {
   armed = false; usable = false; suspended = false; painted = false;
   glows = 0; cuts = 0; spared = 0;
+  occlude = CM.fxOn !== false && LIGHT_LAYER.occlude !== false;
   if (enabled === false || !LIGHT_LAYER.on) return false;
   if (!ensureBuf()) return false;
   ensureCov();
@@ -258,7 +272,7 @@ export function litBox(dx, dy, kx, ky, u0, v0, u1, v1) {
 // Généraliste : `fn(lctx)` trace la silhouette, le composite est déjà posé.
 // (x0,y0)-(x1,y1) = emprise écran, pour l'échappatoire « aucune lumière ici ».
 export function lightCut(x0, y0, x1, y1, fn) {
-  if (!armed || suspended || !painted) return false;
+  if (!armed || suspended || !painted || !occlude) return false;
   if (!hasCov(x0, y0, x1, y1)) return false;
   if (!hasFine(x0, y0, x1, y1)) { spared += 1; return false; }
   bctx.save();
@@ -279,7 +293,7 @@ export function lightCut(x0, y0, x1, y1, fn) {
 // Le garde de lightCut, AVANT de fabriquer la fermeture (audit du 05/10, PERF-46) :
 // de jour, ou sans lumière déposée, chaque arbre, buisson ou moulin en allouait une.
 export function lightCutImage(img, dx, dy, dw, dh, sx, sy, sw, sh) {
-  if (!armed || suspended || !painted || !img || !(dw > 0) || !(dh > 0)) return false;
+  if (!armed || suspended || !painted || !occlude || !img || !(dw > 0) || !(dh > 0)) return false;
   return lightCut(dx, dy, dx + dw, dy + dh, (lc) => {
     if (sw == null) lc.drawImage(img, dx, dy, dw, dh);
     else lc.drawImage(img, sx, sy, sw, sh, dx, dy, dw, dh);
@@ -288,7 +302,15 @@ export function lightCutImage(img, dx, dy, dw, dh, sx, sy, sw, sh) {
 
 // Le même garde, pour l'appelant qui doit fabriquer sa propre silhouette (plusieurs
 // blits : le vent dans les arbres, cf. isoLivePaint) — sans fermeture de jour.
-export const lightCutLive = () => armed && !suspended && painted;
+export const lightCutLive = () => armed && !suspended && painted && occlude;
+
+// La découpe de l'emprise (x0,y0)-(x1,y1) effacerait-elle quelque chose ? Mêmes
+// gardes que lightCut, sans rien découper : un arbre cuit dans le sol (audit du
+// 05/10, PERF-3, iso/forestBake.js) n'est sauté que si sa découpe n'aurait rien fait.
+export function lightWouldCut(x0, y0, x1, y1) {
+  if (!armed || suspended || !painted || !occlude) return false;
+  return hasCov(x0, y0, x1, y1) && hasFine(x0, y0, x1, y1);
+}
 
 // ── Rendu du calque ─────────────────────────────────────────────────────────
 // À appeler dans la passe de nuit, APRÈS le voile. Renvoie true si le calque a
@@ -320,5 +342,5 @@ export function paintLightLayer(ctx) {
 // Diagnostic (window.__lightStats()) : nombre de lumières déposées et de
 // silhouettes découpées à la dernière passe vivante ; `spared` = découpes que
 // les cases de 64 auraient fait payer et que la grille fine a épargnées.
-export const lightLayerStats = () => ({ armed, usable, glows, cuts, spared });
+export const lightLayerStats = () => ({ armed, usable, occlude, glows, cuts, spared });
 if (import.meta.env?.DEV && typeof window !== 'undefined') window.__lightStats = lightLayerStats;

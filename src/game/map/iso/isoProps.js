@@ -30,8 +30,18 @@ export const PROP_LIGHT = {
   gaslamp: { fx: 0.5, fy: 0.08, r: 0.6, col: '255,208,150' },
   ledlamp: { fx: 0.5, fy: 0.06, r: 0.6, col: '150,225,255' },
 };
+// UNE ÈRE SANS ART pour un objet prend la variante existante la plus juste (audit
+// 2026-10-05, BRASERO-INDUSTRIEL). Le lieu d'une merveille cuit à la bande 4 (ses
+// braseros) reste affiché le temps que celui de la bande 5 se cuise (placeLive,
+// budget de cuisson) ; ses braseros se dessinaient avec l'ère de la bande 5, et
+// plaza/brazier-industrial.png n'existe pas (repli SPA en dev, ERR_FILE_NOT_FOUND
+// dans le .exe). La corbeille de fer forgé médiévale est la plus proche de la fonte.
+// (Bande 6 : le même transitoire, si deux bandes passent avant la cuisson.)
+const PROP_ERA_ALIAS = { 'brazier-industrial': 'medieval', 'brazier-modern': 'medieval' };
+const withArtEra = (pr) => { const e = PROP_ERA_ALIAS[pr.prop + '-' + pr.era]; return e ? { ...pr, era: e } : pr; };
 // Art des objets : celui des places de l'ère (statue, brasero).
 export function propArt(pr) {
+  pr = withArtEra(pr);
   const a = isoArt('plaza/' + pr.prop + '-' + pr.era);
   return a.ready && a.img ? a.img : null;
 }
@@ -42,6 +52,7 @@ export function propArt(pr) {
 const BRAZIER_ANIM_ERAS = new Set(['antique', 'medieval', 'cosmic']);
 const BRAZIER_ANIM_MS = 110;
 function brazierStrip(pr) {
+  pr = withArtEra(pr);
   if (pr.prop !== 'brazier' || pr.tint || !BRAZIER_ANIM_ERAS.has(pr.era) || !((CM.ambianceK ?? 1) > 0)) return null;
   const a = isoArt('plaza/anim/brazier-' + pr.era);
   if (!a.ready || !a.img) return null;

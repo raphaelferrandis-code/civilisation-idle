@@ -69,7 +69,7 @@ import {
   registerOlympusCrisisIgnored,
   registerOlympusCrisisResolved
 } from './olympus.js';
-import { log, chronicle, cycleYear, resetCyclePeaks, regulLedgerPush, raiseRegulFatigue } from './utils.js';
+import { log, chronicle, cycleYear, resetCyclePeaks, regulLedgerPush, raiseRegulFatigue, onUpgradeAcquired } from './utils.js';
 import { checkWonders } from './wonders.js';
 
 // Foyer qui pèse le plus sur la cible de Rupture en ce moment.
@@ -481,13 +481,6 @@ export function completeCollapse(gain, fallenDynasty, epitaph, reason) {
     cause: reason || ""
   };
 
-  // Horodatage du DÉCLENCHEMENT, consommé et remis à zéro à chaque effondrement
-  // (un tampon qui traînerait fausserait la fenêtre d'un effondrement ultérieur).
-  // Les chemins qui appellent completeCollapse sans passer par collapse() — la
-  // simulation hors-ligne — retombent sur Date.now(), sans délai de dialogue.
-  const collapseAt = collapseTriggeredAt ?? Date.now();
-  collapseTriggeredAt = null;
-
   const wasAtrides = isMythEffectActive("mythe_atrides");
   const applyAtridesPenalty = wasAtrides && state.atridesDrainDisabled;
   const wasPhoenix = state.activeMythId === "mythe_du_phenix";
@@ -499,15 +492,16 @@ export function completeCollapse(gain, fallenDynasty, epitaph, reason) {
     state.phoenixTotalRuins = D(state.phoenixTotalRuins).add(gain);
     state.phoenixCycleCount = (state.phoenixCycleCount || 0) + 1;
     // Renaissance chronométrée : le cycle qui s'achève compte s'il a atteint la
-    // cible de population (60× le reliquat) DANS la fenêtre. Sinon la chaîne se
-    // brise et on repart de zéro.
-    // Mesurée au DÉCLENCHEMENT (collapseAt) et non ici : entre les deux vivent
-    // les 2 s de deuil et la délibération d'épitaphe — la chaîne cassait alors
-    // que la règle affichée était respectée (M8 de l'audit).
-    const cycleAgeMs = collapseAt - (state.cycleStartedAt || collapseAt);
+    // cible de population DANS la fenêtre. Sinon la chaîne se brise et on repart
+    // de zéro.
+    // Fenêtre jugée en temps de jeu NON PAUSÉ (phoenixCycleSec, cumulé au tick :
+    // audit 2026-10-05, BUG-38). Le deuil de 2 s et la délibération d'épitaphe
+    // gèlent la partie et donc ce compteur : le lire ici vaut le lire au
+    // déclenchement (M8 de l'audit du 27/07), sans horodatage à garder entre les deux.
+    const cycleGameMs = (state.phoenixCycleSec || 0) * 1000;
     const cyclePeakPop = D(state.cyclePeaks?.population || state.population);
     const rebirthTarget = D(state.phoenixRebirthTargetPop || 0);
-    const renaissanceOk = rebirthTarget.gt(0) && cyclePeakPop.gte(rebirthTarget) && cycleAgeMs <= PHENIX_REBIRTH_WINDOW_MS;
+    const renaissanceOk = rebirthTarget.gt(0) && cyclePeakPop.gte(rebirthTarget) && cycleGameMs <= PHENIX_REBIRTH_WINDOW_MS;
     state.phoenixRenaissances = renaissanceOk ? (state.phoenixRenaissances || 0) + 1 : 0;
   }
   const phoenixDone = wasPhoenix && (state.phoenixRenaissances || 0) >= PHENIX_RENAISSANCE_TARGET;
@@ -565,16 +559,21 @@ export function completeCollapse(gain, fallenDynasty, epitaph, reason) {
   state.cycles += 1;
   // LA MÊME VALLÉE (docs/PLAN-CHUTE.md) : la cité suivante naît au milieu des ruines
   // de celle qui tombe — même graine (relief, forêt), même fleuve, même cœur, même
-  // pont, même grille (les ruines sont rangées par rapport à son centre). Les rues,
+  // pont (les ruines sont rangées par rapport au centre de la grille). Les rues,
   // les places et les slots repartent de zéro ; la cité reçoit un nouveau nom.
+  // La grille, elle, repart de sa taille naturelle : garder la plus grande jamais
+  // atteinte (maxN) rendait chaque recalcul d'un cycle neuf 15 à 40 fois plus cher,
+  // à vie (audit du 05/10, CHUTE-4, choix B de Raph). Seul le fleuve dépend de la
+  // grille : il garde la largeur de pose de la cité tombée (riverN, layout.js).
   // En jeu, la fiche de cœur est TOUJOURS là : captureCurrentVestige (juste au-dessus)
   // recalcule la ville quand la fiche de la graine courante manque, ce qui la pose —
   // toute sauvegarde, même ancienne, passe donc dans la vallée à sa première chute
   // (fiche présente : relevé léger, sans recalcul, cf. layout.js captureVestige). La
   // « nouvelle vallée » ci-dessous ne sert que sans carte branchée (tests du cœur).
   const core = state.cityCore;
+  const riverN = core ? Math.max(Number(core.riverN) || 0, Number(core.maxN) || 0) | 0 : 0;
   const valley = core && (core.seed >>> 0) === (state.mapSeed >>> 0)
-    ? { seed: core.seed >>> 0, dx: core.dx, dy: core.dy, bx: core.bx, ...(Number.isFinite(core.maxN) ? { maxN: core.maxN } : {}) }
+    ? { seed: core.seed >>> 0, dx: core.dx, dy: core.dy, bx: core.bx, ...(riverN > 0 ? { riverN } : {}) }
     : null;
   // Les ruines relevées par la carte pendant la chute (iso/isoChute.js) ; rien si
   // aucune carte montée ne les a relevées (chute hors ligne, Cité démontée) — les
@@ -699,6 +698,7 @@ export function completeCollapse(gain, fallenDynasty, epitaph, reason) {
       // sans passer par le verbe joueur : la chute est encore en cours ici.
       state.ruins = D(state.ruins).sub(ruinNodeCost(cheapest));
       state.upgrades[cheapest.id] = true;
+      onUpgradeAcquired(cheapest.id);
       state.lifetimePurchases = (state.lifetimePurchases || 0) + 1;
       renderCache.cachedRuinEffects = null;
       renderCache.cachedRuinEffectsSignature = "";
@@ -716,12 +716,16 @@ export function completeCollapse(gain, fallenDynasty, epitaph, reason) {
     }));
   }
 
-  // Phénix : si le pacte continue, fixer la cible de la PROCHAINE renaissance,
-  // relative au reliquat de population qu'on vient de garder (state.population
-  // est déjà réinitialisé à keptPop à ce stade). Le chrono repart du cycleStartedAt
-  // remis juste au-dessus.
+  // Phénix : si le pacte continue, fixer la cible de la PROCHAINE renaissance :
+  // 60× le reliquat de population qu'on vient de garder (state.population est déjà
+  // réinitialisé à keptPop à ce stade), et au moins le pic de la cité qui vient de
+  // tomber (prevCycle, posé en tête) — sans cet ancrage, les renaissances 2 et 3
+  // visaient le plancher et se bouclaient en secondes (audit 2026-10-05, BUG-41).
+  // Le chrono de jeu repart de zéro.
   if (wasPhoenix && !phoenixDone) {
-    state.phoenixRebirthTargetPop = D(state.population).mul(PHENIX_REBIRTH_POP_MULT);
+    state.phoenixRebirthTargetPop = D(state.population).mul(PHENIX_REBIRTH_POP_MULT)
+      .max(D(state.prevCycle?.peakPop || 0));
+    state.phoenixCycleSec = 0;
   }
   state.phoenixNextForceAt = null;
 
@@ -735,12 +739,6 @@ export function completeCollapse(gain, fallenDynasty, epitaph, reason) {
   resetCameraCenter();
 }
 
-// Posé par collapse(), lu par completeCollapse : la fenêtre du Phénix se juge à
-// l'instant où le joueur déclenche la chute. Variable de MODULE et non champ
-// d'état — un champ partirait dans l'autosave et survivrait à un F5 en plein
-// deuil, faussant la mesure d'un effondrement bien plus tard.
-let collapseTriggeredAt = null;
-
 // Rend true si la chute est réellement lancée, false si elle est refusée : le
 // Script du Phénix n'écrit « effondrement déclenché » qu'à ce prix — avant, la
 // ligne s'écrivait à chaque tick d'une cité trop jeune et vidait le journal
@@ -748,8 +746,11 @@ let collapseTriggeredAt = null;
 export function collapse(reason) {
   if (collapseInProgress) return false;
   // Atlas coupe l'effondrement MANUEL (« on ne repose pas le monde ») : le moteur
-  // le refuse lui-même, plus seulement le bouton de PrestigeView (BUG-71).
-  if (reason === "manual" && isMythEffectActive("mythe_d_atlas")) return false;
+  // le refuse lui-même, plus seulement le bouton de PrestigeView (BUG-71). Une fois
+  // le ciel tombé, le pacte est rompu et la chute redevient permise, comme pour
+  // l'Édit (atlasHoldsEdict, main.js) : sans Édit, la cité écrasée restait sinon
+  // gelée en crise terminale, sans aucune sortie (harnais de parcours du 05/10).
+  if (reason === "manual" && isMythEffectActive("mythe_d_atlas") && !state.atlasCrushed) return false;
   if (reason !== "forced" && reason !== "auto_script" && !crisisOpen()) return false;
   // auto_script (Script du Phénix) et forced (Phénix) peuvent tirer SOUS 100 % de
   // Rupture : sans `projected`, ruinGain() rendrait 0 hors crise (prestige.js) et
@@ -760,8 +761,6 @@ export function collapse(reason) {
   if (reason === "auto_script" && D(gain).floor().lte(0)) return false;
   setCollapseInProgress(true);
   setGamePaused(true);
-  // La fenêtre du Phénix se juge ICI, pas après le deuil et la stèle (M8).
-  collapseTriggeredAt = Date.now();
   // La chronique de l'effondrement est écrite par runCollapseSequence APRÈS le
   // point de non-retour : l'écrire ici la persistait avant le deuil, et un reload
   // pendant le deuil la gravait sur une cité NON effondrée — ligne trompeuse,

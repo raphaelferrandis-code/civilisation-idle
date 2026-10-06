@@ -5,8 +5,11 @@
 //   - citizenMul : densité d'habitants (coût par frame des agents)
 //   - fps        : cap de rafraîchissement de la boucle (fluidité du geste)
 // Préférence d'AFFICHAGE persistée hors save (localStorage, comme dayNightMode) :
-// elle survit au Grand Reset et ne voyage pas avec l'export. Module-FEUILLE (aucun
-// import) → utilisable depuis l'UI comme depuis la couche rendu.
+// elle survit au Grand Reset et ne voyage pas avec l'export. Module quasi FEUILLE
+// (un seul import, rendererProbe.js, feuille lui aussi) → utilisable depuis l'UI
+// comme depuis la couche rendu.
+import { slowRenderer } from "./rendererProbe.js";
+
 const QUALITY_KEY = "civ-opt-quality";
 const QUALITY_MODES = ["auto", "high", "balanced", "perf"];
 
@@ -31,11 +34,18 @@ export let qualityMode = (() => {
 // est haute, plus la simplification arrive tôt (allège le dézoom). Zoom ∈ [0.35, 3.2].
 // `fx` = l'OMBRE DU SOLEIL et les REFLETS dans l'eau (docs/PLAN-MAQUETTE-VIVANTE.md) :
 // mesurés à +4 ms chacun par image au zoom 1 en rendu logiciel (2026-09-30). Le
-// palier des machines modestes s'en passe.
+// palier des machines modestes s'en passe. Sans `fx`, les lumières ne sont plus
+// OCCULTÉES non plus (décision de Raph du 2026-10-05, PERF-2 : halos directs,
+// par-dessus la façade devant eux, cf. lightLayer.js) : −11 à −14 ms la nuit en
+// rendu logiciel.
+// `balancedNoFx` (« Équilibrée sans effets ») n'est pas un choix du joueur : c'est
+// le palier que prend « Auto » quand le navigateur dessine sans carte graphique
+// (décision de Raph du 2026-10-05, PERF-4 = b ; cf. detectAutoTier).
 const QUALITY_TIERS = {
-  high:     { dpr: 2.0, citizenMul: 1.0, fps: 60, lodZoom: 0,    fx: true },
-  balanced: { dpr: 1.5, citizenMul: 0.7, fps: 30, lodZoom: 0.55, fx: true },
-  perf:     { dpr: 1.0, citizenMul: 0.4, fps: 30, lodZoom: 0.85, fx: false },
+  high:         { dpr: 2.0, citizenMul: 1.0, fps: 60, lodZoom: 0,    fx: true },
+  balanced:     { dpr: 1.5, citizenMul: 0.7, fps: 30, lodZoom: 0.55, fx: true },
+  balancedNoFx: { dpr: 1.5, citizenMul: 0.7, fps: 30, lodZoom: 0.55, fx: false },
+  perf:         { dpr: 1.0, citizenMul: 0.4, fps: 30, lodZoom: 0.85, fx: false },
 };
 
 // 'auto' : palier deviné à partir de l'appareil. On reste conservateur — on ne
@@ -75,15 +85,27 @@ function detectAutoTier() {
     // tomber en « perf » (dpr 1, moitié des habitants, LOD précoce) un téléphone
     // qui tenait 60-120 fps AU PALIER LE PLUS LOURD. On ne garde donc que le
     // nombre de cœurs, qui dit vraiment la classe de l'appareil.
-    if (tactile) return cores <= 4 ? "perf" : "balanced";
+    if (tactile) return withRenderer(cores <= 4 ? "perf" : "balanced");
     const weak = (dpr >= 2 && cores <= 4) || cores <= 2;
-    return weak ? "balanced" : "high";
+    return withRenderer(weak ? "balanced" : "high");
   } catch {
     return "balanced";
   }
 }
 
-// Palier que « Auto » retient sur cet appareil ('high' | 'balanced' | 'perf'),
+// RENDU SANS CARTE GRAPHIQUE (décision de Raph du 2026-10-05, PERF-4 = b) : rendu
+// logiciel reconnu ou WebGL absent (rendererProbe.slowRenderer) → « Équilibrée sans
+// effets » : 70 % d'habitants, simplification sous le zoom 0,55, ni ombre du soleil,
+// ni reflets, ni occultation des lumières. Un PC à 16 cœurs au GPU coupé recevait
+// « Élevée », le palier le plus lourd sur la machine la plus lente. « Performance »,
+// plus léger encore, est gardé. La sonde est faite une fois et gardée : le palier ne
+// change JAMAIS en cours de partie (pas de descente sur des images lentes, choix de
+// Raph). Un palier choisi à la main n'y passe pas : il est respecté.
+function withRenderer(tier) {
+  return tier !== "perf" && slowRenderer() ? "balancedNoFx" : tier;
+}
+
+// Palier que « Auto » retient sur cet appareil ('high' | 'balanced' | 'balancedNoFx' | 'perf'),
 // affiché dans les Options (« Auto (Élevée) ») : le joueur ne savait pas quel
 // palier tournait chez lui (audit du 2026-10-05, PERF-4).
 export function autoQualityTier() {

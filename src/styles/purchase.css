@@ -169,10 +169,15 @@
 
 /* ----- Zone centrale : nom, production, palier ----- */
 
+/* Le badge ⚡×N passe SOUS le nom quand les deux ne tiennent pas côte à côte :
+   « Hôtels des monnaies » était coupé même en 2560, « National Banks » en 1366
+   (décision de Raph sur BUG-117 : b). Le nom récupère la largeur du badge, la
+   rangée grandit d'une ligne de badge, et seulement dans ce cas. */
 .pr-name-row {
   display: flex;
+  flex-wrap: wrap;
   align-items: center;
-  gap: 0.45rem;
+  gap: 0.1rem 0.45rem;
   min-width: 0;
 }
 
@@ -298,22 +303,6 @@
   color: var(--gold-bright);
 }
 
-/* ----- DELAI AVANT ACHAT (B5) -----
-   Present uniquement sur une rangee impayable : les rangees achetables ne
-   gagnent aucune ligne. Discret — c'est une indication de patience, pas un
-   avertissement : jamais de rouge. */
-.pr-eta {
-  margin-top: 0.2rem;
-  font-size: 0.6875rem;
-  letter-spacing: 0.03em;
-  color: var(--muted);
-  opacity: 0.9;
-  font-variant-numeric: tabular-nums;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-
 
 /* ----- Bouton d'achat : action + coût intégré ----- */
 .btn-purchase {
@@ -405,6 +394,13 @@
 .purchase-row.pr-pulse .btn-purchase:not(:disabled) {
   animation: affordable-breathe 2.6s ease-in-out infinite;
 }
+/* Joueur absent (3 min sans entrée, le signal de l'économie d'énergie,
+   energySaver.js) : le souffle se fige là où il en est, et repart à la première
+   entrée. Seule animation permanente du jeu, repeinte à chaque image en rendu
+   logiciel (audit 2026-10-05, PERF-65 c). */
+:root[data-away] .purchase-row.pr-pulse .btn-purchase:not(:disabled) {
+  animation-play-state: paused;
+}
 
 @media (prefers-reduced-motion: reduce) {
   .purchase-row.pr-pulse .btn-purchase { animation: none !important; }
@@ -447,7 +443,6 @@
   padding: 0.45rem 0.5rem;
   background: color-mix(in srgb, var(--bg-panel), transparent 8%);
   backdrop-filter: blur(12px);
-  -webkit-backdrop-filter: blur(12px);
 }
 
 /* Onglets : accent par catégorie + badge compteur d'achetables */

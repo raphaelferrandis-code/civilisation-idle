@@ -167,13 +167,15 @@ export function pickAtScreen(sx, sy) {
   }
   return best;
 }
-// Silhouette d'une coque à l'écran : la boîte d'encre de l'image posée dans son
-// carré de dessin (sh._hull, publié par le port à chaque frame où il la peint).
+// Silhouette d'une coque à l'écran (sh._hull, publié par le port à chaque frame où il
+// la peint). Son canvas est SERRÉ sur la coque, qui en occupe les iw × ih premiers
+// pixels (boatKit.toCanvas, audit du 05/10, PERF-36) : la boîte d'encre lue au carré
+// (imgInkBox replie un canvas plus large que haut en planche de frames) n'y vaut plus.
 function hullBox(sh) {
   const hb = sh._hull;
-  if (!hb || !hb.img) return null;
-  const ink = imgInkBox(hb.img);
-  return { x0: hb.bx + ink.l * hb.dw, y0: hb.by + ink.t * hb.dw, x1: hb.bx + ink.r * hb.dw, y1: hb.by + ink.b * hb.dw };
+  if (!hb || !hb.img || !hb.iw) return null;
+  const k = hb.dw / hb.img.width;
+  return { x0: hb.bx, y0: hb.by, x1: hb.bx + hb.iw * k, y1: hb.by + hb.ih * k };
 }
 // ── LE VOYAGEUR DU BAC ───────────────────────────────────────────────────────
 // Le bac avance sa `trip` à chaque accostage (riverFleet.ferryStep). Les voyageurs
@@ -824,8 +826,10 @@ export function focusPortrait(now) {
   if (f.kind === 'boat') {
     const hb = p._hull || p._lastHull;
     if (p._hull) p._lastHull = p._hull;
-    if (!hb || !hb.img) return null;
-    return { img: hb.img, sx: 0, fh: hb.img.naturalHeight || hb.img.height, ink: imgInkBox(hb.img), fit: 'ink' };
+    if (!hb || !hb.img || !hb.iw) return null;
+    // La coque occupe les iw × ih premiers pixels de son canvas serré (cf. hullBox) :
+    // son encre, en px (`fh` = 1).
+    return { img: hb.img, sx: 0, fh: 1, ink: { l: 0, t: 0, r: hb.iw, b: hb.ih }, fit: 'ink' };
   }
   if (f.kind !== 'vehicle') {
     // Personnage de scène dessiné par son NOM de bande : il marche s'il marche

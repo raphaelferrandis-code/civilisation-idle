@@ -133,8 +133,11 @@ export const GRAND_RESET_MILESTONES = [
     gr: 7, id: "jackpot_icare",
     name: { fr: "Le Jackpot d'Icare", en: "Icarus's Jackpot" },
     system: { fr: "Icare", en: "Icarus" },
-    // BINAIRE : un seul jackpot suffit.
-    check: () => (state.icarusJackpots || 0) >= 1
+    // BINAIRE : un seul vol suffit — posé à ×25+, mise d'au moins la moitié de la
+    // salle commune (icarus.js, ICARUS_SEAL_*). Le simple jackpot ×10 faisait de ce
+    // sceau le plus facile de l'échelle, et souvent le PREMIER Grand Reset, vers
+    // 20 min de jeu (audit 2026-10-05, BUG-40, choix b de Raph).
+    check: () => (state.icarusSealFlights || 0) >= 1
   },
   {
     gr: 8, id: "acte_ii_scelle",
@@ -170,7 +173,7 @@ export const GRAND_RESET_MILESTONES = [
 //
 // ⚠ COURT-CIRCUIT OBLIGATOIRE sur un sceau acquis ou prêt. Un Grand Reset repart
 // d'un defaultState() sur lequel on ne recopie que GR_PERSISTENT_FIELDS : cycles,
-// wonders, icarusJackpots, bestEraIndex, upgrades et cyclePeaks sont EFFACÉS,
+// wonders, icarusSealFlights, bestEraIndex, upgrades et cyclePeaks sont EFFACÉS,
 // alors que grRevealed et grClaimed survivent. Sans ce court-circuit, six jauges
 // sur onze afficheraient ~0 % juste après un Grand Reset — y compris sur les
 // rangées qui portent le bouton « Réclamer » ou la coche. La jauge contredirait

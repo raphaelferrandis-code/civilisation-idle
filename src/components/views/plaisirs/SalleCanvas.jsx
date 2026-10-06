@@ -86,11 +86,15 @@ export default function SalleCanvas({ bake, band, lit, padLeft = 0, focus = null
     const cv = ref.current;
     if (!cv || !bake) return undefined;
     let raf = 0, last = 0, alive = true;
+    // La toile d'art (PERF-72) : la salle s'y compose à un pixel par pixel de coupe.
+    const art = document.createElement('canvas');
     const set = agentSetForBand(band);
     // Les FILLES DE LA MAISON (type « g ») et la troupe de la scène (« d ») ; un âge
-    // qui n'a pas encore les siennes prend les femmes de son jeu d'habitants.
-    const cast = plaisirsCast(band);
+    // qui n'a pas encore les siennes prend les femmes de son jeu d'habitants. Relue à
+    // chaque image : la case « tenues sages » (plaisirsCast.js, STEAM-6) s'y applique
+    // sans attendre une autre salle.
     const specOf = (type, variant) => {
+      const cast = plaisirsCast(band);
       if (type === 'g' || type === 'd') {
         const list = cast && (type === 'd' ? cast.dancers : cast.girls);
         return list && list.length ? list[variant % list.length] : agentSpecFor(set, 1, variant);
@@ -153,9 +157,12 @@ export default function SalleCanvas({ bake, band, lit, padLeft = 0, focus = null
       if (Math.abs(sc.x - tx) < 0.3) sc.x = tx;
       const ox = Math.round(pad + avail / 2 - sc.x * Z), oy = Math.round(-sc.cur * Z);
       if (cv.width !== W || cv.height !== H) { cv.width = W; cv.height = H; }
-      cv.style.width = W / dpr + 'px';
-      cv.style.height = H / dpr + 'px';
-      cv.dataset.z = String(Z);
+      // Style et dataset écrits seulement s'ils changent (PERF-72) : à chaque image, ces
+      // écritures relançaient le style de la page pour rien.
+      const cssW = W / dpr + 'px', cssH = H / dpr + 'px';
+      if (cv.style.width !== cssW) cv.style.width = cssW;
+      if (cv.style.height !== cssH) cv.style.height = cssH;
+      if (cv.dataset.z !== String(Z)) cv.dataset.z = String(Z);
       const L = layoutRef.current;
       if (!L || L.Z !== Z || L.ox !== ox || L.oy !== oy || L.dpr !== dpr || L.H !== H) {
         layoutRef.current = { Z, ox, oy, dpr, W, H };
@@ -164,46 +171,72 @@ export default function SalleCanvas({ bake, band, lit, padLeft = 0, focus = null
       const g = cv.getContext('2d');
       g.imageSmoothingEnabled = false;
       g.globalCompositeOperation = 'source-over';
+      g.globalAlpha = 1;
+      // LA SALLE À LA RÉSOLUTION DE L'ART (audit du 05/10, PERF-72, choix A de Raph) :
+      // tout ce qui est en pixels d'art — fond, habitants, cabine, avant-plan, la lumière
+      // en multiply, néons, étoiles, reflets, rais — se compose dans une toile d'art
+      // (A, un pixel de coupe = un pixel), agrandie d'UN blit entier vers l'écran : Z²
+      // fois moins de pixels composés (mesuré en rendu logiciel, 2560 × 1244 : 31 → 16 ms
+      // l'image à Z = 3, 30 → 12 ms à Z = 4). Les couches lisses (lueur, poursuites,
+      // halos) restent à la résolution de l'écran, par-dessus. Ce qui en bouge : les
+      // habitants et les étoiles se calent sur la grille de l'art (au plus 1 à 2 px
+      // d'écran à Z = 3, 1 à 2 % des pixels) ; le reste, au pixel près.
+      // Le pixel d'art (0, 0) de la coupe tombe en (ax, ay) de la toile d'art, dont le
+      // coin est posé en (X0, Y0) ∈ ]−Z, 0]² à l'écran. À Z = 1, la toile d'art EST
+      // l'écran (aucun blit de plus).
+      const ax = Math.ceil(ox / Z), ay = Math.ceil(oy / Z);
+      const X0 = ox - ax * Z, Y0 = oy - ay * Z;
+      const AW = Math.ceil(W / Z) + 1, AH = Math.ceil(H / Z) + 1;
+      let A = g;
+      if (Z > 1) {
+        if (art.width !== AW || art.height !== AH) { art.width = AW; art.height = AH; }
+        A = art.getContext('2d');
+        A.imageSmoothingEnabled = false;
+        A.globalCompositeOperation = 'source-over';
+        A.globalAlpha = 1;
+      }
       // Le ciel au-delà de la coupe (au-dessus), puis la coupe.
-      g.fillStyle = bake.skyHex || '#9fd0ee';
-      g.fillRect(0, 0, W, H);
-      g.fillStyle = bake.waterHex || '#355d78';                    // et l'eau, en dessous
-      g.fillRect(0, oy + bake.H * Z, W, H);
+      A.fillStyle = bake.skyHex || '#9fd0ee';
+      A.fillRect(0, 0, AW, AH);
+      A.fillStyle = bake.waterHex || '#355d78';                    // et l'eau, en dessous
+      A.fillRect(0, ay + bake.H, AW, AH);
       // Cadre plus large que la coupe (petit facteur) : ses colonnes du bord,
       // prolongées, continuent le ciel, la rive et l'eau jusqu'aux bords.
-      if (ox > 0) g.drawImage(bake.cv, 0, 0, 1, bake.H, 0, oy, ox, bake.H * Z);
-      if (ox + bake.W * Z < W) g.drawImage(bake.cv, bake.W - 1, 0, 1, bake.H, ox + bake.W * Z, oy, W - ox - bake.W * Z, bake.H * Z);
-      g.drawImage(bake.cv, ox, oy, bake.W * Z, bake.H * Z);
-      // Les HABITANTS de l'âge, entre le fond et l'avant-plan.
+      if (ax > 0) A.drawImage(bake.cv, 0, 0, 1, bake.H, 0, ay, ax, bake.H);
+      if (ax + bake.W < AW) A.drawImage(bake.cv, bake.W - 1, 0, 1, bake.H, ax + bake.W, ay, AW - ax - bake.W, bake.H);
+      A.drawImage(bake.cv, ax, ay, bake.W, bake.H);
+      // Les HABITANTS de l'âge, entre le fond et l'avant-plan — dans la toile d'art, à
+      // z = 1 : un pixel de coupe = un pixel de sprite (cf. HDK).
       // Ceux de DEVANT (de dos, qui regardent le jeu) passent après l'avant-plan.
       const people = (front) => {
         // Le MANÈGE de l'hôtesse (elle, son client) suit ses pistes.
         if (!front && mo) for (const tr of mo.tracks) {
           const st = trackAt(tr.keys, mo.period, now), spec = specOf(tr.type, tr.variant);
           if (st.hide || !spec) continue;
-          drawNamedAgentIso(g, ox + (Math.round(st.x) + 0.5) * Z, oy + (Math.round(st.y) + 0.5) * Z, Z, spec.name, spec.scale * HDK, st.dir, st.walk, now, 0);
+          drawNamedAgentIso(A, ax + Math.round(st.x) + 0.5, ay + Math.round(st.y) + 0.5, 1, spec.name, spec.scale * HDK, st.dir, st.walk, now, 0);
         }
         for (const f of bake.figures) {
           if (!!f.front !== front) continue;
           // La courtisane alanguie : son sprite, posé sur le sol, retourné vers la gauche.
           if (f.type === 'L') {
+            const cast = plaisirsCast(band);
             const im = alanguieImg(cast && cast.alanguie);
             if (!im) continue;
-            const w = im.naturalWidth, h = im.naturalHeight, x0 = ox + (f.x - Math.floor(w / 2)) * Z, y0 = oy + (f.y - h + 1) * Z;
+            const w = im.naturalWidth, h = im.naturalHeight, x0 = ax + f.x - Math.floor(w / 2), y0 = ay + f.y - h + 1;
             if (f.dir === 2) {
-              g.save();
-              g.translate(x0 + w * Z, y0);
-              g.scale(-1, 1);
-              g.drawImage(im, 0, 0, w * Z, h * Z);
-              g.restore();
-            } else g.drawImage(im, x0, y0, w * Z, h * Z);
+              A.save();
+              A.translate(x0 + w, y0);
+              A.scale(-1, 1);
+              A.drawImage(im, 0, 0, w, h);
+              A.restore();
+            } else A.drawImage(im, x0, y0, w, h);
             continue;
           }
           const spec = specOf(f.type, f.variant);
           if (!spec) continue;
           // La troupe DANSE (sa bande de danse, jouée en boucle sur place).
           if (f.type === 'd' && spec.danse) {
-            drawNamedAgentIso(g, ox + (f.x + 0.5) * Z, oy + (f.y + 0.5) * Z, Z, spec.danse, (spec.danseScale || spec.scale) * HDK, f.dir, true, now, f.phase || 0, 1, null, true);
+            drawNamedAgentIso(A, ax + f.x + 0.5, ay + f.y + 0.5, 1, spec.danse, (spec.danseScale || spec.scale) * HDK, f.dir, true, now, f.phase || 0, 1, null, true);
             continue;
           }
           let x = f.x, dir = f.dir, walking = false;
@@ -217,17 +250,17 @@ export default function SalleCanvas({ bake, band, lit, padLeft = 0, focus = null
           }
           // Le SERVEUR passe avec son plateau (sa bande « -plateau »).
           const nom = f.tray && spec.plateau ? spec.plateau : spec.name;
-          drawNamedAgentIso(g, ox + (Math.round(x) + 0.5) * Z, oy + (f.y + 0.5) * Z, Z, nom, spec.scale * HDK, dir, walking, now, (f.x * 0.13) % 1);
+          drawNamedAgentIso(A, ax + Math.round(x) + 0.5, ay + f.y + 0.5, 1, nom, spec.scale * HDK, dir, walking, now, (f.x * 0.13) % 1);
         }
       };
       // La cabine de l'ascenseur, à la hauteur où la porte le manège (au rez sinon).
       const cabY = bake.lift ? Math.round(mo && mo.cabin ? trackAt(mo.cabin.map((k) => ({ t: k.t, x: 0, y: k.y })), mo.period, now).y : bake.lift.stops[0] + 1) : null;
       // La CABINE (cuite en deux calques : le fond avant les passagers, la grille après).
-      const cab = bake.cabinCv, cabAt = (img) => g.drawImage(img, ox + (bake.lift.x0 + 2) * Z, oy + (cabY - cab.h + 1) * Z, cab.w * Z, cab.h * Z);
+      const cab = bake.cabinCv, cabAt = (img) => A.drawImage(img, ax + bake.lift.x0 + 2, ay + cabY - cab.h + 1, cab.w, cab.h);
       if (cabY != null && cab) cabAt(cab.back);
       people(false);
       if (cabY != null && cab) cabAt(cab.front);
-      g.drawImage(bake.cvF, ox, oy, bake.W * Z, bake.H * Z);
+      A.drawImage(bake.cvF, ax, ay, bake.W, bake.H);
       people(true);
       // LA NUIT — la Maison est hors du temps, il y fait toujours nuit (salleNightF) :
       // la coupe s'assombrit, ses lumières restent, chaque applique, chaque lustre pose
@@ -236,27 +269,29 @@ export default function SalleCanvas({ bake, band, lit, padLeft = 0, focus = null
       const fete = nuitActive() || spectacleActif();
       const lum = bake.lumiere;
       const bw = bake.W * Z, bh = bake.H * Z;
-      if (nf > 0.02 && lum) {
+      const night = nf > 0.02 && lum;
+      if (night) {
         // LA LUMIÈRE CALCULÉE (salleLumiere.js) : la carte d'éclairage en multiply — la
         // nuit dehors, la pénombre dedans, les lampes et les cônes des tables.
-        g.globalCompositeOperation = 'multiply';
-        g.fillStyle = dehorsCss();
-        if (oy > 0) g.fillRect(0, 0, W, oy);
-        if (oy + bh < H) g.fillRect(0, oy + bh, W, H - oy - bh);
-        if (ox > 0) g.fillRect(0, Math.max(0, oy), ox, Math.min(H, oy + bh) - Math.max(0, oy));
-        if (ox + bw < W) g.fillRect(ox + bw, Math.max(0, oy), W - ox - bw, Math.min(H, oy + bh) - Math.max(0, oy));
-        g.drawImage(lum.cv, ox, oy, bw, bh);
-        g.globalCompositeOperation = 'source-over';
+        A.globalCompositeOperation = 'multiply';
+        A.fillStyle = dehorsCss();
+        if (ay > 0) A.fillRect(0, 0, AW, ay);
+        if (ay + bake.H < AH) A.fillRect(0, ay + bake.H, AW, AH - ay - bake.H);
+        if (ax > 0) A.fillRect(0, Math.max(0, ay), ax, Math.min(AH, ay + bake.H) - Math.max(0, ay));
+        if (ax + bake.W < AW) A.fillRect(ax + bake.W, Math.max(0, ay), AW - ax - bake.W, Math.min(AH, ay + bake.H) - Math.max(0, ay));
+        A.drawImage(lum.cv, ax, ay, bake.W, bake.H);
+        A.globalCompositeOperation = 'source-over';
         // Ce qui brille par lui-même : flammes, lanternes, néons.
-        g.drawImage(bake.cvN, ox, oy, bw, bh);
-        g.globalCompositeOperation = 'lighter';
-        // Les ÉTOILES au-dessus du toit, qui scintillent.
+        A.drawImage(bake.cvN, ax, ay, bake.W, bake.H);
+        A.globalCompositeOperation = 'lighter';
+        // Les ÉTOILES au-dessus du toit, qui scintillent. Tirées sur l'écran comme
+        // avant, posées sur la grille de l'art (moins de Z px d'écart).
         const yCiel = Math.min(H, oy + (bake.roofTop - 4) * Z);
         for (let i = 0; i < ETOILES && yCiel > 0; i += 1) {
           const sx = Math.round(hashP(i, 11) * W / Z) * Z, sy = Math.round(hashP(i, 12) * yCiel / Z) * Z;
           const a = 0.35 + 0.45 * Math.max(0, Math.sin(now / (600 + (i % 7) * 130) + i));
-          g.fillStyle = `rgba(255,246,220,${a.toFixed(3)})`;
-          g.fillRect(sx, sy, Z, Z);
+          A.fillStyle = `rgba(255,246,220,${a.toFixed(3)})`;
+          A.fillRect(Math.round((sx - X0) / Z), Math.round((sy - Y0) / Z), 1, 1);
         }
         // Les REFLETS des lumières dans l'eau : la couche des lumières renversée sous la
         // ligne d'eau, rangée par rangée, ondulante, de plus en plus pâle.
@@ -268,14 +303,21 @@ export default function SalleCanvas({ bake, band, lit, padLeft = 0, focus = null
             if (sy < 0) break;
             if ((y + vague) % 3 === 0) continue;
             const dx = Math.round(Math.sin(now / 520 + y * 0.9) * 1.6);
-            g.globalAlpha = Math.max(0, 0.36 - (y - wy) * 0.009);
-            g.drawImage(bake.cvN, 0, sy, bake.W, 1, ox + dx * Z, oy + y * Z, bw, Z);
+            A.globalAlpha = Math.max(0, 0.36 - (y - wy) * 0.009);
+            A.drawImage(bake.cvN, 0, sy, bake.W, 1, ax + dx, ay + y, bake.W, 1);
           }
-          g.globalAlpha = 1;
+          A.globalAlpha = 1;
         }
         // Les RAIS des tables : la lumière vue dans l'air, plus dense pendant la fête.
-        g.globalAlpha = fete ? 0.95 : 0.7;
-        g.drawImage(lum.rais, ox, oy, bw, bh);
+        A.globalAlpha = fete ? 0.95 : 0.7;
+        A.drawImage(lum.rais, ax, ay, bake.W, bake.H);
+        A.globalAlpha = 1;
+        A.globalCompositeOperation = 'source-over';
+      }
+      // La toile d'art à l'écran, d'un seul blit entier (opaque : le ciel la couvre).
+      if (A !== g) g.drawImage(art, 0, 0, AW, AH, X0, Y0, AW * Z, AH * Z);
+      if (night) {
+        g.globalCompositeOperation = 'lighter';
         // La LUEUR autour des flammes et des néons (un flou agrandi).
         if (bake.lueurCv) {
           g.imageSmoothingEnabled = true;

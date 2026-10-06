@@ -273,3 +273,34 @@ describe("état de la fenêtre (ELEC-2)", () => {
     expect(fitWindowBounds(null, screen)).toBe(null);
   });
 });
+
+// STEAM-4 / ELEC-3, décision C de Raph : la version Steam n'a pas de miroir Google
+// Drive (Steam Cloud transporte la save). « Version Steam » = lancée par Steam, ou
+// build Steam (marque injectée par `npm run dist-steam`).
+describe("version Steam (pas de miroir Google Drive)", () => {
+  const { isSteamVersion } = require("../../desktopFiles.cjs");
+
+  it("lancée par le client Steam : SteamAppId ou SteamGameId dans l'environnement", () => {
+    expect(isSteamVersion({ env: { SteamAppId: "480" }, meta: null })).toBe(true);
+    expect(isSteamVersion({ env: { SteamGameId: "480" }, meta: {} })).toBe(true);
+  });
+
+  it("build Steam lancée à la main : la marque civSteamBuild du package.json empaqueté", () => {
+    expect(isSteamVersion({ env: {}, meta: { civSteamBuild: true } })).toBe(true);
+    // electron-builder convertit « true » en booléen ; la chaîne est tolérée quand même.
+    expect(isSteamVersion({ env: {}, meta: { civSteamBuild: "true" } })).toBe(true);
+  });
+
+  it("l'.exe hors Steam et `npm run electron` gardent le miroir", () => {
+    expect(isSteamVersion({ env: {}, meta: { name: "civilisation-effondrement" } })).toBe(false);
+    expect(isSteamVersion({ env: {}, meta: { civSteamBuild: false } })).toBe(false);
+    expect(isSteamVersion({ env: {}, meta: null })).toBe(false);
+  });
+
+  it("la marque est posée par le script dist-steam, et seulement par lui", () => {
+    const pkg = JSON.parse(fs.readFileSync(path.resolve(__dirname, "../../package.json"), "utf8"));
+    expect(pkg.scripts["dist-steam"]).toMatch(/-c\.extraMetadata\.civSteamBuild=true/);
+    expect(pkg.scripts["dist-win"]).not.toMatch(/civSteamBuild/);
+    expect(pkg.civSteamBuild).toBeUndefined();
+  });
+});

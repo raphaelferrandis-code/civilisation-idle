@@ -22,10 +22,12 @@ import { numberFormatMode, setNumberFormatMode, encodeSaveText } from '../../gam
 import { dayNightMode, setDayNightMode } from '../../game/map/dayNightMode.js';
 import { qualityMode, setQualityMode, autoQualityTier } from '../../game/map/qualityMode.js';
 import { energySaver, setEnergySaver } from '../../game/map/energySaver.js';
+import { tenuesSages, setTenuesSages } from '../../game/map/iso/plaisirsCast.js';
 import { probeRenderer } from '../../game/map/rendererProbe.js';
 import { ambianceMode, setAmbianceMode } from '../../game/map/ambianceMode.js';
 import { weatherMode, setWeatherMode } from '../../game/map/weatherMode.js';
 import { seasonMode, setSeasonMode } from '../../game/map/seasonMode.js';
+import { chuteMode, setChuteMode } from '../../game/map/chuteMode.js';
 import { densityMode as density, setDensityMode, contrastMode as contrast, setContrastMode } from '../../game/core/uiPrefs.js';
 import { applyCityMapQuality } from '../../game/map/cityMapRuntime.js';
 import { getLang, setLang, tr } from '../../game/core/i18n.js';
@@ -44,7 +46,7 @@ import { markPendingWipe, isLocalSaveUnreadable, localSaveSuspendReason, CURRENT
 import { SLOT_COUNT, readSlotMeta, slotIsEmpty, writeSlot, loadSlot, loadBackup, keepFallbackGame, saveToFile, getLastSlotRefusal } from '../../game/core/saveSlots.js';
 import { listSaveBackups, readSaveBackup } from '../../game/core/saveBackups.js';
 import { pushOutcomeFloat } from '../../game/core/outcomeFloat.js';
-import { cloudWipe, cloudSaveDir, cloudSaveStatus, cloudSyncInfo } from '../../game/core/cloudSave.js';
+import { cloudWipe, cloudSaveDir, cloudSaveStatus, cloudSyncInfo, cloudSteamVersion } from '../../game/core/cloudSave.js';
 import { requestChoiceDialog } from '../../game/core/choiceDialog.js';
 import {
   SHORTCUT_DEFS, shortcutKey, shortcutLabel,
@@ -66,11 +68,12 @@ function OptionLabel({ label, hint }) {
 // Palier retenu par « Auto » et moteur de rendu détecté (audit du 2026-10-05,
 // PERF-4) : rien ne disait au joueur qu'« Auto » tournait en Élevée sur un rendu
 // logiciel. Le palier se lit sur le bouton (« Auto (Élevée) »), le moteur dans
-// l'infobulle. La sonde WebGL (une fois par session) ne part qu'au rendu de
-// l'onglet Affichage.
+// l'infobulle. La sonde WebGL est faite une fois par session (qualityMode s'en sert
+// pour « Auto » : rendu logiciel → « Équilibrée sans effets », PERF-4 = b).
 const QUALITY_TIER_LABEL = {
   high: { fr: "Élevée", en: "High" },
   balanced: { fr: "Équilibrée", en: "Balanced" },
+  balancedNoFx: { fr: "Équilibrée sans effets", en: "Balanced, no effects" },
   perf: { fr: "Performance", en: "Performance" },
 };
 
@@ -229,6 +232,13 @@ export default function OptionsDialog({ isOpen, onClose, onSave, onExport, onImp
     setOptionRevision((revision) => revision + 1);
   };
 
+  // Tenues sages (plaisirsCast.js, STEAM-6) : la carte et la coupe relisent la troupe
+  // à chaque image, la table à son prochain rendu — rien à recuire.
+  const handleTenuesSagesToggle = () => {
+    setTenuesSages(!tenuesSages);
+    setOptionRevision((revision) => revision + 1);
+  };
+
   // Vie de la carte : pas de bake à invalider ni de canvas à redimensionner, le
   // rendu relit CM.ambianceK à la frame suivante. D'où l'absence d'équivalent
   // applyCityMapQuality ici.
@@ -265,6 +275,13 @@ export default function OptionsDialog({ isOpen, onClose, onSave, onExport, onImp
   const handleSeasonChange = (mode) => {
     if (mode === seasonMode) return;
     setSeasonMode(mode);
+    setOptionRevision((revision) => revision + 1);
+  };
+
+  // La chute sur la carte (chuteMode.js, CHUTE-9) : lue au début de chaque chute.
+  const handleChuteChange = (mode) => {
+    if (mode === chuteMode) return;
+    setChuteMode(mode);
     setOptionRevision((revision) => revision + 1);
   };
 
@@ -544,7 +561,14 @@ export default function OptionsDialog({ isOpen, onClose, onSave, onExport, onImp
   // Suspendue parce que la save vient d'une version PLUS RÉCENTE du jeu (SAV-6),
   // et non parce qu'elle est illisible : la partie est là, il faut mettre à jour.
   const saveFromNewer = saveSuspended && localSaveSuspendReason() === "newer";
-  const [cloudTone, cloudLabel, cloudText] = !cloudDir
+  // Version Steam (STEAM-4 / ELEC-3) : pas de Google Drive, Steam Cloud transporte
+  // la partie — le dire, plutôt que « Drive non détecté ».
+  const [cloudTone, cloudLabel, cloudText] = !cloudDir && cloudSteamVersion()
+    ? ['on', tr({ fr: "Steam Cloud", en: "Steam Cloud" }), tr({
+        fr: "Dans la version Steam, la partie voyage avec Steam Cloud, si tu l'as activé dans Steam. La copie dans Google Drive est réservée à la version hors Steam.",
+        en: "In the Steam version, your game travels with Steam Cloud, if you enabled it in Steam. The Google Drive copy is only for the non-Steam version."
+      })]
+    : !cloudDir
     ? ['off', tr({ fr: "Inactive", en: "Inactive" }), tr({
         fr: "« Google Drive pour ordinateur » n'est pas détecté sur ce poste (fonction réservée à la version installée du jeu).",
         en: "“Google Drive for desktop” was not detected on this device (feature only available in the installed build)."
@@ -1016,6 +1040,41 @@ export default function OptionsDialog({ isOpen, onClose, onSave, onExport, onImp
                   </button>
                 </div>
               </div>
+
+              {/* LA CHUTE SUR LA CARTE (CHUTE-9, choix de Raph) : complète une fois
+                  par session par défaut, la partie est en pause pendant la chute. */}
+              <div className="options-row">
+                <div>
+                  <OptionLabel label={tr({ fr: "Chute de la cité", en: "Fall of the city" })} hint={tr({ fr: "Quand la cité tombe sous vos yeux : la vague de ruines, la nuit, puis le lever du campement dans les ruines. La partie attend la fin de la chute. « Complète une fois » la joue en entier à la première chute de la session, puis en version courte : plus rapide, sans la nuit.", en: "When the city falls before your eyes: the wave of ruins, the night, then the camp rising among the ruins. The game waits for the fall to end. “Full once” plays it in full at the first fall of the session, then in a short version: faster, without the night." })} />
+                </div>
+                <div className="number-format-control">
+                  <button className={`format-option ${chuteMode === 'full' ? 'active' : ''}`} type="button" onClick={() => handleChuteChange('full')}>
+                    {tr({ fr: "Toujours complète", en: "Always full" })}
+                  </button>
+                  <button className={`format-option ${chuteMode === 'session' ? 'active' : ''}`} type="button" onClick={() => handleChuteChange('session')}>
+                    {tr({ fr: "Complète une fois", en: "Full once" })}
+                  </button>
+                  <button className={`format-option ${chuteMode === 'short' ? 'active' : ''}`} type="button" onClick={() => handleChuteChange('short')}>
+                    {tr({ fr: "Toujours courte", en: "Always short" })}
+                  </button>
+                </div>
+              </div>
+
+              {/* TENUES SAGES (STEAM-6, plaisirsCast.js) : désactivée par défaut. */}
+              <div className="options-row">
+                <div>
+                  <OptionLabel label={tr({ fr: "Tenues sages", en: "Modest outfits" })} hint={tr({ fr: "Maison des Plaisirs : les danseuses, hôtesses, courtisanes et gigolos laissent la place aux habitants de l'âge, habillés comme la ville.", en: "House of Pleasures: the dancers, hostesses, courtesans and gigolos give way to the townsfolk of the age, dressed like the city." })} />
+                </div>
+                <button
+                  type="button"
+                  className={`toggle-btn ${tenuesSages ? 'on' : 'off'}`}
+                  aria-label={tr({ fr: tenuesSages ? 'Activé' : 'Désactivé', en: tenuesSages ? 'On' : 'Off' })}
+                  aria-pressed={Boolean(tenuesSages)}
+                  onClick={handleTenuesSagesToggle}
+                >
+
+                </button>
+              </div>
             </>
           )}
 
@@ -1486,6 +1545,19 @@ export default function OptionsDialog({ isOpen, onClose, onSave, onExport, onImp
                     {tr({
                       fr: "« Fantasy UI Borders » par Kenney (kenney.nl), domaine public (CC0), teinté or.",
                       en: "“Fantasy UI Borders” by Kenney (kenney.nl), public domain (CC0), tinted gold."
+                    })}
+                  </small>
+                </div>
+              </div>
+              {/* L'outil, pas un pack : aucun crédit n'est exigé, Raph l'a voulu ici
+                  (STEAM-7) ; la déclaration Steam vit dans docs/STEAM-PUBLICATION.md. */}
+              <div className="options-row">
+                <div>
+                  <span>{tr({ fr: "Génération d'images", en: "Image generation" })}</span>
+                  <small>
+                    {tr({
+                      fr: "L'essentiel du pixel art (bâtiments, habitants, véhicules d'époque, bateaux, sols, arbres, animaux, icônes, scènes) a été généré avec PixelLab (pixellab.ai), un outil d'IA, puis choisi, ramené à la palette du jeu et retouché. Rien n'est généré pendant la partie.",
+                      en: "Most of the pixel art (buildings, townsfolk, period vehicles, boats, ground, trees, animals, icons, scenes) was generated with PixelLab (pixellab.ai), an AI tool, then selected, reduced to the game palette and retouched. Nothing is generated while you play."
                     })}
                   </small>
                 </div>

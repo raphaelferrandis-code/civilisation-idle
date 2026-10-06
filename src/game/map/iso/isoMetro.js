@@ -35,7 +35,7 @@ import { worldToScreen, depthOf } from './projection.js';
 import { vieK, registerVieMask } from './isoVie.js';
 import { planMetro, METRO, metroUAt } from '../procedural/metroPlan.js';
 import { boxShapes, bakeShapes, blitBaked, makeBakeCache, artKdAt, elevGlow, segGeo, relTo, vquad, isoLocal } from './elevPaint.js';
-import { drawMetroCar, CAR, CAR_PITCH, dirIndex, quantPitch } from './metroCars.js';
+import { drawMetroCar, CAR, CAR_PITCH, dirIndex, quantPitch, metroCut } from './metroCars.js';
 
 export const MET = { on: true, trains: 1, shadow: 0.55, stops: 1 };
 
@@ -788,9 +788,9 @@ function trainActors(p, M, band, now, out, vis) {
       if (!vis(x, y, cz)) continue;
       const theta = Math.atan2(qb.y - qa.y, qb.x - qa.x);
       const tp = (qb.z - qa.z) / (2 * bog);
-      // Coupe aux bouches : en a (repère de la voiture), la part entre les deux plans.
-      const lo = Math.round(-sig), hi = Math.round(p.total - sig);
-      const cut = (lo > -G.Lh - 2 || hi < G.Lh + 2) ? [Math.max(-G.Lh - 3, lo), Math.min(G.Lh + 3, hi)] : null;
+      // Coupe aux bouches : en a (repère de la voiture), la part entre les deux plans,
+      // au pas de 2 px (metroCut ; PERF-14).
+      const cut = metroCut(sig, p.total, G.Lh);
       if (cut && cut[1] - cut[0] < 2) continue;
       const role = c === 0 ? 'head' : c === nCars - 1 ? 'tail' : 'mid';
       const spec = { band, role, first: band === 5 && c === 1, dir: dirIndex(theta), pq: quantPitch(tp), cut, night };

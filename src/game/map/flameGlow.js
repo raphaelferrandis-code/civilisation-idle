@@ -193,16 +193,3 @@ function glowPuff(col) {
   puffs.set(col, cv);   // null mémorisé aussi : on ne retente pas à chaque frame
   return cv;
 }
-
-// ── Quels overlays de merveille sont des FEUX ? ─────────────────────────────
-// Règle par la DONNÉE, pas par une liste de merveilles : un overlay éclaire s'il
-// est peint avec un asset de flamme (flame-small/flame-large aujourd'hui, un
-// éventuel flame-spiral demain). Les éclats de gemme, rayons et pulsations sont
-// déjà de la lumière — leur ajouter un halo les empâterait. Un JSON peut trancher
-// explicitement : "glow": false (jamais) ou "glow": "255,120,40" (teinte imposée).
-export function flameAssetGlow(asset) {
-  if (!asset) return null;
-  if (asset.glow === false) return null;
-  if (typeof asset.glow === 'string') return asset.glow;
-  return /flame/i.test(asset.file || '') ? FLAME_COL : null;
-}

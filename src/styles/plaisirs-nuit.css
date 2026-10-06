@@ -224,8 +224,19 @@
     linear-gradient(180deg, rgba(255, 215, 106, 0.16), transparent 40%),
     linear-gradient(180deg, #4a0c24, #2a0614);
   border: 2px solid #e8bc5a;
-  box-shadow: 0 0 0 2px #2a0614, 0 0 28px rgba(232, 74, 122, 0.55), 0 6px 0 rgba(0, 0, 0, 0.5);
-  animation: nuit-descend 0.7s cubic-bezier(0.2, 1.4, 0.4, 1) both, nuit-lueur 1.8s ease-in-out 0.7s infinite alternate;
+  box-shadow: 0 0 0 2px #2a0614, 0 6px 0 rgba(0, 0, 0, 0.5);
+  animation: nuit-descend 0.7s cubic-bezier(0.2, 1.4, 0.4, 1) both;
+}
+/* La lueur rose → or qui respire (1,8 s, après la descente) : peinte une fois sur
+   les deux calques de .lueur (components.css), seule l'opacité s'anime (audit
+   2026-10-05, PERF-65 b). Marge de 4 px : bordure + anneau sombre de 2 px, qui
+   reste par-dessus la lueur comme dans l'ancienne liste d'ombres. */
+.nuit-bandeau > .lueur {
+  --lueur-a: 0 0 18px rgba(232, 74, 122, 0.4);
+  --lueur-b: 0 0 36px rgba(255, 179, 90, 0.7);
+  --lueur-duree: 1.8s;
+  --lueur-retard: 0.7s;
+  --lueur-marge: 4px;
 }
 .nuit-titre {
   font-family: var(--font-title);
@@ -246,10 +257,6 @@
 @keyframes nuit-descend {
   from { transform: translate(-50%, -140%); opacity: 0; }
   to { transform: translate(-50%, 0); opacity: 1; }
-}
-@keyframes nuit-lueur {
-  from { box-shadow: 0 0 0 2px #2a0614, 0 0 18px rgba(232, 74, 122, 0.4), 0 6px 0 rgba(0, 0, 0, 0.5); }
-  to { box-shadow: 0 0 0 2px #2a0614, 0 0 36px rgba(255, 179, 90, 0.7), 0 6px 0 rgba(0, 0, 0, 0.5); }
 }
 @media (max-width: 760px) {
   .nuit-titre { font-size: 1.15rem; }
@@ -314,11 +321,20 @@
 }
 .salle-cagnotte.is-nuit {
   border-color: #ffd76a;
-  animation: cagnotte-nuit 1.1s ease-in-out infinite alternate;
+  box-shadow: none;
 }
-@keyframes cagnotte-nuit {
-  from { box-shadow: 0 0 0 2px #160810, 0 4px 0 rgba(0, 0, 0, 0.5), 0 0 14px rgba(232, 74, 122, 0.5); }
-  to { box-shadow: 0 0 0 2px #160810, 0 4px 0 rgba(0, 0, 0, 0.5), 0 0 30px rgba(255, 200, 60, 0.85); }
+/* Pendant la Nuit (20 min), l'enseigne s'embrase, rose → or, 1,1 s : chaque état
+   de l'ancienne liste d'ombres (anneau, ombre portée, lueur) est peint une fois sur
+   un calque de .lueur (components.css), seule leur opacité respire. Avant, un
+   box-shadow flou de 14 à 30 px repeint à chaque image (audit 2026-10-05, PERF-62
+   et PERF-65 b). La liste ENTIÈRE et non la seule lueur : ici l'ombre portée passe
+   par-dessus la lueur (mesuré : 11 niveaux d'écart au plus, contre 34 à 59 avec la
+   lueur seule). Marge de 2 px : la boîte de la bordure. */
+.salle-cagnotte > .lueur {
+  --lueur-a: 0 0 0 2px #160810, 0 4px 0 rgba(0, 0, 0, 0.5), 0 0 14px rgba(232, 74, 122, 0.5);
+  --lueur-b: 0 0 0 2px #160810, 0 4px 0 rgba(0, 0, 0, 0.5), 0 0 30px rgba(255, 200, 60, 0.85);
+  --lueur-duree: 1.1s;
+  --lueur-marge: 2px;
 }
 @media (max-width: 760px) {
   .salle-cagnotte { top: 6px; padding: 0.25rem 0.8rem 0.3rem; gap: 0.45rem; }
@@ -326,5 +342,5 @@
   .salle-cagnotte-montant { font-size: 1.1rem; }
 }
 @media (prefers-reduced-motion: reduce) {
-  .salle-cagnotte::before, .salle-cagnotte::after, .salle-cagnotte.is-nuit { animation: none; }
+  .salle-cagnotte::before, .salle-cagnotte::after { animation: none; }
 }
