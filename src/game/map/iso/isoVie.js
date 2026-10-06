@@ -32,8 +32,12 @@ export const VIE = {
   // oiseaux posés (isoVieOiseaux) ; `envol` force la phase de vol en capture (0..1)
   pigeons: 1, mouettes: 1, envol: null,
   pluieForce: null,
-  // vent dans les arbres (0 = immobiles) ; `ventForce` impose un vent en capture
-  vent: 1, ventForce: null,
+  // vent dans les arbres (0 = immobiles) ; `ventForce` impose un vent en capture ;
+  // la brise passe toutes les `ventPeriode` s, son front avance de `ventVitesse` cases/s.
+  // ÉTEINT par défaut (Raph, 2026-10-06) : en pixel art la couronne ne peut bouger que
+  // par sauts d'un texel entier, et même en brise rare l'effet « pique les yeux ».
+  // __vie({ vent: 1 }) le rallume pour juger.
+  vent: 0, ventForce: null, ventPeriode: 9, ventVitesse: 3,
   // petite vie de terre (isoVieTerre)
   chiens: 1, chats: 1, papillons: 1, linge: 1,
   // halos de lumière au pixel (addGlow) — false = dégradés lissés d'avant
@@ -309,28 +313,54 @@ export function drawVieAir(now) {
 }
 
 // ── LE VENT DANS LES ARBRES ─────────────────────────────────────────────────
+// ⛔ ÉTEINT PAR DÉFAUT depuis le 2026-10-06 (VIE.vent = 0) : même en brise qui passe,
+// « l'effet n'est pas agréable, il pique les yeux » (Raph). Ne pas le rallumer sans lui.
 // Réponse de Raph (2026-10-01) : « des arbres qui bougent ». En pixel art, un arbre
 // ne se tord pas : sa couronne se DÉCALE d'un texel, par bandes (le haut d'un texel,
 // le milieu d'un demi arrondi, le tronc jamais). Décaler d'un TEXEL entier garde
 // la grille d'échantillonnage alignée sur celle du bas : pas de fourmillement.
-// L'onde traverse la ville dans le sens du vent, si bien qu'une rafale se voit
-// PASSER sur la forêt. Brise légère par beau temps (un arbre sur trois bouge, par
-// instants), franche quand la météo souffle (CM.windX, CM.gustF).
+// La rafale se voit PASSER sur la forêt : c'est une BRISE QUI PASSE, pas une
+// oscillation. Retour de Raph (2026-10-06) : « le mouvement des arbres n'est pas
+// reposant » — chaque arbre oscillait sans fin sur sa propre phase (le haut de la
+// couronne sautait d'un texel une à deux fois par seconde, vent nul compris) : des
+// centaines de petits sauts éparpillés, un scintillement des feuillages clairs
+// qu'on ne voit plus pendant un drag et qui saute aux yeux quand la carte s'arrête.
+// Désormais un FRONT traverse la ville dans le sens du vent toutes les ventPeriode
+// secondes ; l'arbre qu'il touche se penche d'un texel (montée brève, retour plus
+// lent) puis se tient IMMOBILE jusqu'au front suivant. À un instant donné ~8 % des
+// arbres sont penchés, ensemble, en une bande qui avance (mesuré sur 2 400 arbres,
+// 10 s à 60 i/s : 2,4 à 4 fois moins de sauts qu'avant selon le vent).
+// Par grand vent (|vent| > 1, captures) les arbres restent couchés en plus ; sous
+// une averse, la bourrasque (CM.gustF) les couche tous à la fois puis les relâche.
 // Rend null (arbre immobile) ou trois bandes [y0, y1, décalage] en rangées source.
+const SWAY_RISE = 0.35, SWAY_FALL = 1.1;   // s : le front penche vite, l'arbre se redresse plus lentement
+const smooth01 = (k) => k * k * (3 - 2 * k);
 export function vieTreeSway(tr, now, sw, sh, hpx) {
   if (!VIE.on || !(VIE.vent > 0) || CM.lodActive) return null;
   if (hpx / sw < 0.75) return null;                  // texel sous le pixel : rien à décaler
   const wind = VIE.ventForce != null ? +VIE.ventForce : (CM.windX || 0);
   const gust = CM.gustF || 0;
-  const A = (0.6 + Math.abs(wind) * 1.3 + gust * 0.8) * VIE.vent;
+  const aw = Math.abs(wind);
   const dir = wind >= 0 ? 1 : -1;
   let sd = tr._vieSw;
   if (sd === undefined) sd = tr._vieSw = (((tr.gx * 73856093) ^ (tr.gy * 19349663)) >>> 0) % 1000 / 1000 * 6.28;
   const t = (now || 0) / 1000;
-  const ph = (tr.gx * 0.9 + tr.gy * 0.35) * 0.42 * dir - t * 1.2 + sd * 0.35;
-  // Penché du côté où le vent pousse, et une oscillation irrégulière par-dessus.
-  const s = dir * Math.abs(wind) * 0.55 + Math.sin(ph) * 0.8 + Math.sin(ph * 2.3 + sd) * 0.25;
-  const top = Math.round(A * s), mid = Math.round(A * s * 0.45);
+  // Heure LOCALE du front : sa position le long du vent (les axes des ombres de nuages),
+  // à ±0,25 s près par arbre, pour que le front ne soit pas une règle tirée au cordeau.
+  const P = Math.max(1, +VIE.ventPeriode || 9), v = Math.max(0.1, +VIE.ventVitesse || 3);
+  const x = (tr.gx * 0.94 + tr.gy * 0.34) * dir;
+  const u = t - x / v + (sd / 6.28 - 0.5) * 0.5;
+  const tau = ((u % P) + P) % P;
+  const g = tau < SWAY_RISE ? smooth01(tau / SWAY_RISE)
+    : tau < SWAY_RISE + SWAY_FALL ? 1 - smooth01((tau - SWAY_RISE) / SWAY_FALL) : 0;
+  // Penché du côté où le vent pousse : la brise (UN texel, quel que soit le vent de la
+  // météo — à deux, chaque passage faisait deux sauts de plus), la bourrasque
+  // d'averse, et le grand vent qui couche l'arbre en permanence.
+  const s = dir * (g + gust * 1.2 + Math.max(0, aw - 1) * 0.8) * VIE.vent;
+  const top = Math.round(s);
+  // D'un texel, la couronne penche D'UN BLOC (haut et milieu ensemble, le tronc tient) :
+  // le haut seul se « déchirait » du milieu, une ligne en travers du feuillage.
+  const mid = Math.abs(top) <= 1 ? top : Math.round(s * 0.5);
   // ⚠ Trois bandes MÊME au repos : un arbre qui passerait d'un blit unique à trois
   // bandes (coupures au pixel entier) se ré-échantillonnerait d'une frame à l'autre
   // et scintillerait au lieu de bouger.
