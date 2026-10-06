@@ -27,6 +27,26 @@ beforeEach(() => {
 afterEach(() => { GRANDES_PLACES.forum = true; GRANDES_PLACES.square = true; PLAZA_TUNE.grand = true; PLAZA_TUNE.rev += 1; });
 
 describe("les grandes places des villes par îlots", () => {
+  // Les deux réponses de Raph sur la planche planches/grandes-places (BUG-63-SUITE) :
+  // (1) le kit DÉPLOYÉ est le défaut (des bancs sur chaque côté, une vingtaine de
+  // flâneurs) — lu avant qu'un test ne touche la molette ; (2) un square déjà ouvert
+  // garde son îlot, même entouré d'îlots libres : seuls les nouveaux naissent sur 2×2.
+  it("décisions de Raph : kit déployé par défaut, un square d'avant n'est pas agrandi", () => {
+    expect(PLAZA_TUNE.grand).toBe(true);
+    const il = planIlots({
+      N: 161, cx: 80, cy: 80, core: { x: 80, y: 60 }, bx: 80,
+      isWet: () => false, isBank: () => false, isReserved: () => false,
+      demand: { lots: 10, halls: [], annexes: [] },
+      memory: { blocks: ["9:3"], plazas: { "9:3": "jardin" } },
+    });
+    const old = il.plazas.find((p) => p.block && p.block.i === 9 && p.block.j === 3);
+    expect(old, "le square d'avant").toBeTruthy();
+    expect(old.blocks).toBeUndefined();
+    expect(old.size).toBe(4);
+    expect(il.plazas.some((p) => (p.blocks || []).includes("9:3"))).toBe(false);
+    for (const k of ["10:3", "9:4", "10:4"]) expect(il.memory.plazas[k], k).toBeUndefined();
+  });
+
   it("une partie existante agrandit son forum UNE fois, et rien d'autre ne bouge (empreinte)", () => {
     // La partie d'avant : forum d'un îlot, fiche v3.
     GRANDES_PLACES.forum = false; GRANDES_PLACES.square = false;

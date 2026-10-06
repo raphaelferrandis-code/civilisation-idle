@@ -33,6 +33,12 @@ export const CRITTERS_ON = true;
 // bête maison a été choisi pour cette taille de BOÎTE (manifeste de la planche).
 export const CRITTER_SIZES = { cow: 0.95, sheep: 0.66, goat: 0.64, dog: 0.55, cat: 0.42 };
 export const CRITTER_DIAG = ['southeast', 'southwest', 'northwest', 'northeast'];
+// Cap d'AGENT (0 +x, 1 −x, 2 +y, 3 −y : dirOf des faits divers, figures, bêtes de
+// trait) → indice de CRITTER_DIAG. Le monde +x descend à droite de l'écran (sud-est),
+// +y descend à gauche (sud-ouest) : c'est la table DRAFT_DIAG_MAP du bœuf
+// (isoUnits.js) relue dans l'ordre de CRITTER_DIAG. Passé tel quel, un cap tournait
+// la bête d'un quart de tour sur deux caps sur quatre (1 −x → sud-ouest).
+export const CRITTER_DIR_OF_CAP = [0, 2, 1, 3];
 // Tirages de layout.js, déclarés ICI pour qu'une garde puisse vérifier que tout
 // ce que le plan peut poser a bien un sprite. Répétitions volontaires : c'est la
 // pondération (le mouton domine, la vache est rare, le chien plus fréquent que

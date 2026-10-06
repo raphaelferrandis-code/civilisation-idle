@@ -140,10 +140,8 @@ describe("PERF-65 (b) et PERF-62 — lueurs « peintes une fois, opacité animé
     "affordable-breathe": "souffle de la boutique, en pause joueur absent (PERF-65 c)",
     "crisis-vignette-pulse": "pouls de crise, 20 images/s tenues par step-end (PERF-11)",
     sgCollapsePulse: "jauge de chute : PERF-11 (D) non retenu",
-    "icarus-pulse": "bouton SE POSER : rogné par le clip-path, question posée à Raph",
-    oralPulse: "lueur de TEXTE (dépêche orale), question posée à Raph",
-    "pm-rampe": "lueur de TEXTE (spectacle), question posée à Raph",
-    "slots-breathe": "lueur de TEXTE (machine), question posée à Raph",
+    "pm-rampe": "lueur de TEXTE (spectacle), gardée (décision de Raph, PERF-65)",
+    "slots-breathe": "lueur de TEXTE (machine), gardée (décision de Raph, PERF-65)",
     "pm-flicker": "flamme en steps(2) : deux images par cycle",
   };
   const feuilles = fs.readdirSync(path.join(src, "styles")).filter((f) => f.endsWith(".css"));
@@ -173,6 +171,24 @@ describe("PERF-65 (b) et PERF-62 — lueurs « peintes une fois, opacité animé
   it("les lueurs converties ne respirent plus qu'en opacité", () => {
     for (const nom of ["lueur-fondu", "icarus-sun-breathe", "scratch-shine"]) expect(kf[nom], nom).toEqual(["opacity"]);
     for (const nom of ["nuit-lueur", "cagnotte-nuit", "gr-ready-pulse"]) expect(kf[nom], nom).toBeUndefined();
+  });
+
+  // Décisions de Raph du 2026-10-06 (PERF-65, suite) : (1) le bouton SE POSER perd son
+  // onde, que le clip-path rognait et qui écrasait l'embossage et l'enfoncement ;
+  // (2) la dépêche orale respire 4 fois puis reste fixe, sur l'état de repos de son pouls.
+  it("SE POSER sans onde (il s'enfonce de nouveau), dépêche orale : 4 respirations puis fixe", () => {
+    expect(kf["icarus-pulse"]).toBeUndefined();
+    expect(usages.filter((u) => /icarus-pulse/.test(u.val))).toEqual([]);
+    expect(decls("styles/views-regulation.css", ".icarus-cashout").animation).toBeUndefined();
+    expect(decls("styles/views-regulation.css", ".icarus-cashout:active")["box-shadow"]).toContain("inset");
+    const oral = decls("styles/components.css", ".chronicle-ticker.is-oral .ticker-masthead");
+    expect(oral.animation).toBe("oralPulse 5s 4 ease-in-out");
+    // Fixe = l'état des bornes du pouls : pas de saut à la dernière respiration.
+    let repos = null;
+    postcss.parse(lire("styles/components.css")).walkAtRules("keyframes", (a) => {
+      if (a.params === "oralPulse") a.walkRules((r) => { if (norm(r.selector) === "0%, 100%") repos = r.first.value; });
+    });
+    expect(oral["text-shadow"]).toBe(repos);
   });
 
   it("les deux états d'avant sont les deux calques d'aujourd'hui", () => {

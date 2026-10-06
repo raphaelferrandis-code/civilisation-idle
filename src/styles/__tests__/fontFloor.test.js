@@ -6,7 +6,11 @@
  * relevé du 05/10 en a trouvé 18 sous ce plancher, jusqu'à 8,8 px, surtout dans
  * la refonte Cité et les tables des Plaisirs (audit du 2026-10-05, BUG-119).
  * Celles qui frôlaient le plancher (0.65-0.68rem) y ont été remontées, PARTOUT
- * — refonte V4 comprise, sur décision de Raph : l'écart est imperceptible.
+ * — refonte V4 comprise, sur décision de Raph : l'écart est imperceptible. Puis,
+ * sur la planche planches/plancher-11px, le reste de la refonte V4 aussi (ACHETER
+ * des rangées de la Cité, libellés du rail et des Options, états du Conseil, état
+ * des tuiles de Mythes, étiquette de l'Aide) : décision de Raph, vérifiée sans
+ * débordement en 1280×800, 1584×861 et 2560×1340.
  *
  * Les EXCEPTIONS RESTANTES sont comptées fichier par fichier, et chacune dit
  * pourquoi elle tient encore : un fichier qui en gagne une fait échouer la
@@ -23,23 +27,17 @@ const PLANCHER_REM = 0.6875;
 
 // fichier → nombre maximal de déclarations sous le plancher, et pourquoi.
 const EXCEPTIONS = {
-  // Cotes de la maquette V4 de la refonte « la ville d'abord », relevées côte à
-  // côte en 2560×1340 et validées par Raph (en-tête de cite.css) : le bouton
-  // ACHETER des rangées (0.58rem). Raph juge sur planche (planches/plancher-11px).
-  "cite.css": 1,
-  // Même refonte V4 : les états du Conseil (0.6 à 0.64), l'état d'une tuile de
-  // mythe (0.6), le libellé du rail et des Options (0.6), l'étiquette de l'Aide
-  // (0.62). Même planche, même décision en attente.
-  "conseil.css": 3,
-  "lieux.css": 1,
-  "rail.css": 2,
-  "help-book.css": 1,
-  // Le chiffre posé SUR le jeton pixel art de la roulette (0.55rem) : il doit
-  // tenir dans le sprite — sur la même planche.
+  // EXCEPTION ASSUMÉE (décision de Raph sur la planche planches/plancher-11px) : le
+  // chiffre posé SUR le jeton pixel art de la roulette (0.55rem). Il doit tenir dans
+  // le sprite : à 11 px, il en déborde.
   "plaisirs-roulette.css": 1,
   // Fenêtre ≤ 760 px seulement (trois ou quatre plaques sur 375 px de large).
   "plaisirs-tables.css": 2
 };
+// La refonte V4 « la ville d'abord » : ses dernières cotes sous le plancher (ACHETER
+// 0.58rem, rail et Options 0.6, Conseil 0.6 à 0.64, tuiles de Mythes 0.6, Aide 0.62)
+// sont remontées à 11 px — décision de Raph. Elles ne redescendent pas.
+const V4_AU_PLANCHER = ["cite.css", "conseil.css", "lieux.css", "rail.css", "help-book.css", "places.css", "echoppe.css"];
 
 const racine = path.resolve(__dirname, "../..");
 const feuilles = fs.readdirSync(racine, { recursive: true })
@@ -92,6 +90,13 @@ describe("plancher typographique (11 px)", () => {
     const frolent = Object.entries(sous).flatMap(([nom, liste]) =>
       liste.filter((l) => /(?:^|\s)0\.6[5-8]\d*rem/.test(l.split(" → ")[1])).map((l) => `${nom} : ${l}`));
     expect(frolent).toEqual([]);
-    for (const nom of ["places.css", "echoppe.css"]) expect(sous[nom] || [], nom).toEqual([]);
+  });
+
+  it("refonte V4 : plus aucune cote sous 11 px (ACHETER, rail, Options, Conseil, Mythes, Aide)", () => {
+    for (const nom of V4_AU_PLANCHER) expect(sous[nom] || [], nom).toEqual([]);
+  });
+
+  it("le jeton de roulette reste la seule exception hors petits écrans", () => {
+    expect(sous["plaisirs-roulette.css"] || []).toEqual([".rl-jeton small → 0.55rem"]);
   });
 });

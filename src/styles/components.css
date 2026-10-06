@@ -1078,7 +1078,11 @@ dialog::backdrop { background: rgba(8, 5, 1, 0.72); }
   border: 1px dashed #422d1b;
   background: radial-gradient(circle at 10% 50%, #1b120c 0%, #0d0906 100%);
 }
-.chronicle-ticker.is-oral .ticker-masthead { color: #cda88b; animation: oralPulse 5s infinite ease-in-out; }
+/* La dépêche orale peut rester affichée toute la bande 0 : sa lueur de TEXTE
+   (text-shadow, repeinte à chaque image en rendu logiciel) respire 4 fois puis reste
+   fixe sur son état de repos, celui des bornes de oralPulse (décision de Raph du
+   2026-10-06, PERF-65). */
+.chronicle-ticker.is-oral .ticker-masthead { color: #cda88b; text-shadow: 0 0 5px rgba(186, 115, 41, 0.2); animation: oralPulse 5s 4 ease-in-out; }
 .chronicle-ticker.is-oral .ticker-line { color: #d1bba8; }
 
 @keyframes oralPulse {

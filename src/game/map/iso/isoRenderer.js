@@ -22,6 +22,7 @@
 // `isoArt`, `isoPalette`) ; rien ne remonte ici.
 import { endReflectionBuild } from './isoReflect.js';
 import { updateCitizens, updateVehicles, drawCitizenThoughts } from '../agents.js';
+import { updateHighwayTraffic } from '../highwayTraffic.js';
 import { drawCitizenFocusOverlay } from '../citizenFocus.js';
 import { fp } from '../framePerf.js';
 import { CM } from '../layout.js';
@@ -182,6 +183,9 @@ function drawIsoWorldInner(dt, now, steps) {
   for (let s = 0; s < steps; s += 1) {
     updateCitizens(dt);
     updateVehicles(dt);
+    // Circulation de l'autoroute : APRÈS la flotte — elle reprend au pied des rampes
+    // d'accès les voitures que la flotte vient d'y amener.
+    updateHighwayTraffic(dt);
     updateCrisis(dt, now);   // émeute : même sim que le legacy ; rendu via le peintre (drawIsoLive)
   }
   fp('sim-agents');

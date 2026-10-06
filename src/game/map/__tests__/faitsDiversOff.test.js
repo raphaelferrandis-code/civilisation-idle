@@ -2,7 +2,8 @@
 // la carte. La Chèvre des toits l'a été le 2026-10-05 (son sprite venait du pack
 // LaserKiwi, retiré faute de licence, audit STEAM-1), puis RALLUMÉE avec la chèvre
 // maison (PixelLab, planche validée par Raph) : scène, trace et chèvre sacrée. La vache
-// des curiosités reste dessinée par le bœuf maison des attelages.
+// des curiosités, dessinée un temps par le bœuf des attelages, a retrouvé la vache
+// maison (décision de Raph, lot 13 de l'audit : fdVache.test.js).
 import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import path from 'node:path';
@@ -36,11 +37,11 @@ describe('faits divers — histoires éteintes et rallumées', () => {
     expect(readFileSync(path.join(HERE, '../../core/faitsDivers.js'), 'utf8')).toMatch(/if \(story\.off\) continue;/);
   });
 
-  it('la vache des curiosités a toujours sa scène, dessinée par le bœuf maison', () => {
+  it('la vache des curiosités a toujours sa scène, dessinée par la vache maison', () => {
     const vache = FD_CURIOS.find((g) => g.id === 'vache');
     expect(buildersFor({ kind: 'curio', curio: vache })).toBeTruthy();
     const gags = src('faitsDivers/fdGags.js');
-    expect(gags).toMatch(/drawDraftIso\(ctx, p\.x, p\.y, z, 'ox'/);
-    expect(gags).not.toMatch(/drawCritterIso/);
+    expect(gags).toMatch(/drawCritterIso\(ctx, p\.x, p\.y, CM\.TILE \* z, \{ kind: 'cow'/);
+    expect(gags).not.toMatch(/drawDraftIso/);
   });
 });

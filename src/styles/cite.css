@@ -274,8 +274,10 @@
     min-height: 0;
     padding: 0.42rem 0.55rem;
   }
+  /* 0.6875rem, le plancher de 11 px, et non la cote V4 (0.58rem = 9,3 px) : jugé sur
+     la planche planches/plancher-11px, décision de Raph (audit 2026-10-05, BUG-119). */
   :root:not([data-pointer="coarse"]) .app[data-active-view="city"] .city-shop-dock .btn-purchase .bp-action {
-    font-size: 0.58rem;
+    font-size: 0.6875rem;
     letter-spacing: 0.12em;
     text-transform: uppercase;
   }

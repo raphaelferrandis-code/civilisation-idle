@@ -2269,6 +2269,20 @@ function vehicleLaneOffset(v, s) {
 //     un flux continu). Les branches parkT/pauseT restantes (rendu) sont donc inertes.
 function vehicleChooseNext(v) {
   if (!CM.walkRoadList.length) return;
+  // ITINÉRAIRE DONNÉ (`v.route`, cases [gx, gy]) : les voitures de l'autoroute descendues
+  // en ville (highwayTraffic.js) roulent jusqu'au pied d'une rampe d'accès. Liste vide =
+  // arrivée : elle attend que la rampe la prenne. Case qui n'est plus voisine ou plus une
+  // chaussée (recalcul du plan) : l'itinéraire tombe, highwayTraffic en redonne un.
+  if (v.route) {
+    if (!v.route.length) return;
+    const [nx, ny] = v.route[0];
+    const i = CM_DIRS.findIndex((d) => d[0] === nx - v.gx && d[1] === ny - v.gy);
+    if (i < 0 || !CM.walkRoadSet.has(cityMapWalkRoadKey(nx, ny))) { v.route = null; return; }
+    v.route.shift();
+    v.gx = nx; v.gy = ny; v.dir = i;
+    v.tx = (nx + 0.5) * CM.TILE; v.ty = (ny + 0.5) * CM.TILE;
+    return;
+  }
   const arrived = v.goal && v.goal.gx === v.gx && v.goal.gy === v.gy;
   if (!v.goal || arrived || Math.random() < 0.03) {
     const cross = Math.random() < 0.22 ? crossBankGoal(v.gx, v.gy) : null;
@@ -2408,6 +2422,7 @@ function vehicleRemap(v) {
   v.x = v.tx = (r.gx + 0.5) * CM.TILE;
   v.y = v.ty = (r.gy + 0.5) * CM.TILE;
   v.goal = null;
+  if (v.route) v.route = null;              // itinéraire donné : caduc (highwayTraffic en redonne un)
   v._lox = undefined; v._loy = undefined;   // sa file repart de la nouvelle rue
   v.fade = 0;
 }

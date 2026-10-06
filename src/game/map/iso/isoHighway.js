@@ -10,7 +10,9 @@
 //     ce qui roule dessus passe entre les deux ;
 //   · les PILES en T sur le terre-plein central, les lampadaires, l'OMBRE au sol ;
 //   · la CIRCULATION : les vraies voitures de l'ère (drawIsoVehicle, skins de
-//     vehSkinFor), posées à la hauteur du tablier, en pur f(now).
+//     vehSkinFor), posées à la hauteur du tablier. Elles vivent dans
+//     highwayTraffic.js (voies, sorties vers les rues, retours par les rampes
+//     d'accès) ; ici on ne fait que les dessiner, jusqu'au pied des rampes.
 // Tout morceau qui se répète est CUIT (elevPaint) : le tablier droit tient en deux
 // images par zoom.
 //
@@ -19,7 +21,7 @@ import { CM } from '../layout.js';
 import { worldToScreen, depthOf } from './projection.js';
 import { drawIsoVehicle } from './isoUnits.js';
 import { muteSunShadow } from './isoSunShadow.js';
-import { vehSkinFor } from '../agents.js';
+import { highwayTrafficLanes, h01 } from '../highwayTraffic.js';
 import { bankRibbon, loopRibbons, HIGHWAY } from '../procedural/highwayPlan.js';
 import { boxShapes, bakeShapes, blitBaked, makeBakeCache, artKdAt, elevGlow as glowAt, segGeo, shadeFace as shade, relTo as rel, vquad } from './elevPaint.js';
 
@@ -169,65 +171,48 @@ function baked(key, make) {
 const r1 = (v) => Math.round(v * 10) / 10;
 
 // ── LA CIRCULATION ───────────────────────────────────────────────────────────
-const CAR_TYPES = ['car', 'car', 'car', 'taxi', 'car', 'bus', 'car', 'van', 'car', 'truck'];
-function h01(n) {
-  let h = Math.imul((n | 0) ^ 0x85ebca6b, 2654435761) >>> 0;
-  h ^= h >>> 15; h = Math.imul(h, 0x2c1b3c6d) >>> 0; h ^= h >>> 12;
-  return (h >>> 0) / 4294967296;
-}
-// Point du ruban à l'abscisse curviligne s : position, cap, hauteur.
-function along(r, s) {
-  let j = 1;
-  while (j < r.cum.length - 1 && r.cum[j] < s) j += 1;
-  const a = r.pts[j - 1], b = r.pts[j], seg = (r.cum[j] - r.cum[j - 1]) || 1;
-  const u = Math.max(0, Math.min(1, (s - r.cum[j - 1]) / seg));
-  return { x: a.x + (b.x - a.x) * u, y: a.y + (b.y - a.y) * u, z: a.z + (b.z - a.z) * u, ux: (b.x - a.x) / seg, uy: (b.y - a.y) / seg, i: j - 1 };
-}
-// Les voitures du tablier, par id (ri·1000 + li·100 + i) : bornées par le plan et
-// réutilisées ; vidées quand le plan change (audit du 05/10, MEM-9 — les entrées d'un
-// plan quitté restaient). Cf. highwayActors.
-const _veh = [];
-let _vehFor = null;
-function carActors(r, ri, now, band, T, out, vis) {
-  const total = r.cum[r.cum.length - 1];
-  if (total <= 0) return;
-  const t = now / 1000;
-  r.lanes.forEach((lo, li) => {
-    const dir = r.lanes.length === 1 ? 1 : (lo > 0 ? 1 : -1);
-    const gap = (1.4 + h01(ri * 31 + li * 7) * 1.2) * T;
-    const n = Math.floor(total / gap);
-    for (let i = 0; i < n; i += 1) {
-      const id = ri * 1000 + li * 100 + i;
-      if (h01(id * 13) < 0.3 * (2 - HWY.cars)) continue;
-      const s = ((t * 2.4 * T * dir + i * gap + h01(id * 3) * gap * 0.5) % total + total) % total;
-      const p = along(r, s);
-      if (p.z < 0.12 * T) continue;                       // au sol : les voitures du jeu y sont déjà
-      const x = p.x + -p.uy * lo * T, y = p.y + p.ux * lo * T;
-      if (!vis(x, y, p.z)) continue;
-      const hx = p.ux * dir, hy = p.uy * dir;
+// Les voitures des voies (highwayTraffic.js : position, cap et tronçon du ruban tenus
+// à jour par la simulation), jusqu'au pied des rampes : c'est là qu'elles passent à la
+// flotte des rues, qui les dessine ensuite comme les autres.
+function carActors(ribs, T, out, vis) {
+  const lanes = highwayTrafficLanes();
+  if (!lanes) return;
+  for (const l of lanes) {
+    const r = ribs[l.ri];
+    if (!r) continue;
+    const nF = r.dF.length - 1;
+    for (const c of l.cars) {
+      const x = c.x, y = c.y, z = c.z;
+      if (!vis(x, y, z)) continue;
+      const v = c.v, hx = c.hx, hy = c.hy;
       const vdir = Math.abs(hx) > Math.abs(hy) ? (hx > 0 ? 0 : 1) : (hy > 0 ? 2 : 3);
-      const type = CAR_TYPES[Math.floor(h01(id * 17) * CAR_TYPES.length)];
-      const v = _veh[id] || (_veh[id] = { x: 0, y: 0, gx: 0, gy: 0, dir: 0, type, skin: vehSkinFor(type, id * 2654435761, band), rollDist: 0, fade: 1, _lox: 0, _loy: 0, tx: 0, ty: 0, parkT: 0, pauseT: 0 });
-      if (v._band !== band) { v._band = band; v.type = type; v.skin = vehSkinFor(type, id * 2654435761, band) || undefined; }
-      const z = p.z;
+      const i = Math.min(nF, c.seg);
       // Clé : après SON tronçon et le suivant (le suivant, plus avant, recouvrirait le
       // bas de la carrosserie), jamais avant le sol qu'elle survole.
-      const dCar = Math.max(depthOf(x, y), r.dF[p.i], r.dF[Math.min(r.dF.length - 1, p.i + 1)]) + 0.05 * T;
+      const dCar = Math.max(depthOf(x, y), r.dF[i], r.dF[Math.min(nF, i + 1)]) + 0.05 * T;
+      // Au pied d'une rampe (à ras du sol) : une voiture des rues, ombre comprise — celle
+      // qu'elle garde en descendant dans la flotte.
+      const ground = z < 0.04 * T;
       out.push({ wx: x, wy: y, d: dCar, draw(ctx, nw) {
         v.x = x; v.y = y; v.gx = Math.floor(x / T); v.gy = Math.floor(y / T);
-        v.dir = vdir; v.rollDist = s; v.tx = x + hx * T; v.ty = y + hy * T;
+        v.dir = vdir; v.tx = x + hx * T; v.ty = y + hy * T;
         const zz = CM.cam.zoom, nn = CM.nightF || 0;
         // ⚠ PERF (rendu logiciel) : les phares du jeu sont deux arcs et un dégradé radial
         // par véhicule — ×60 voitures sur un tablier, c'était le poste n° 2 de la nuit.
         // On les coupe (parkT > 0 éteint les phares, rien d'autre ne le lit en iso) et on
-        // pose deux lueurs au pixel, comme le trafic aérien.
+        // pose deux lueurs au pixel, comme le trafic aérien. (highwayTraffic les rallume
+        // en la rendant à la rue.)
         v.parkT = nn > 0.3 ? 1 : 0;
-        ctx.save();
-        ctx.translate(0, -Math.round(z * zz * (CM.dpr || 1)) / (CM.dpr || 1));
-        // ⚠ Ombre et REFLET coupés (muteSunShadow) : sous la translation, le crochet du
-        // reflet lirait la voiture à une fausse hauteur d'écran et la refléterait dans
-        // le fleuve ; le tablier porte déjà son ombre.
-        try { muteSunShadow(() => drawIsoVehicle(ctx, v, nw, zz)); } finally { ctx.restore(); }
+        if (ground) {
+          drawIsoVehicle(ctx, v, nw, zz);
+        } else {
+          ctx.save();
+          ctx.translate(0, -Math.round(z * zz * (CM.dpr || 1)) / (CM.dpr || 1));
+          // ⚠ Ombre et REFLET coupés (muteSunShadow) : sous la translation, le crochet du
+          // reflet lirait la voiture à une fausse hauteur d'écran et la refléterait dans
+          // le fleuve ; le tablier porte déjà son ombre.
+          try { muteSunShadow(() => drawIsoVehicle(ctx, v, nw, zz)); } finally { ctx.restore(); }
+        }
         if (nn > 0.3) {
           const f = worldToScreen(x + hx * 0.22 * T, y + hy * 0.22 * T, z + 0.08 * T);
           const r0 = worldToScreen(x - hx * 0.22 * T, y - hy * 0.22 * T, z + 0.08 * T);
@@ -236,7 +221,7 @@ function carActors(r, ri, now, band, T, out, vis) {
         }
       } });
     }
-  });
+  }
 }
 
 // ── LES ACTEURS ──────────────────────────────────────────────────────────────
@@ -255,7 +240,6 @@ export function highwayActors(now, out, decay = 0) {
     return p.x > -mg && p.x < CM.cw + mg && p.y > -mg && p.y < CM.ch + mg * 2;
   };
   const ribs = highwayRibbons(L.highway, T);
-  if (_vehFor !== ribs) { _vehFor = ribs; _veh.length = 0; }
   ribs.forEach((r, ri) => {
     for (let i = 0; i < r.pts.length - 1; i += 1) {
       const a = r.pts[i], b = r.pts[i + 1];
@@ -346,10 +330,11 @@ export function highwayActors(now, out, decay = 0) {
         } });
       }
     }
-    if (HWY.cars > 0 && decay < 0.5) { const n0 = out.length; carActors(r, ri, now, band, T, out, vis); hwyStats.cars += out.length - n0; }
   });
+  if (HWY.cars > 0 && decay < 0.5) { const n0 = out.length; carActors(ribs, T, out, vis); hwyStats.cars += out.length - n0; }
 }
 
 if (import.meta.env?.DEV && typeof window !== 'undefined') {
-  window.__highway = (o) => { if (o) Object.assign(HWY, o); const L = CM.layout; return { ...HWY, plan: L && L.highway ? { banks: L.highway.banks.map((b) => ({ sign: b.sign, y0: b.y0, len: b.len, s0: b.s0, s1: b.s1, ramp: b.ramp })), interchange: L.highway.interchange, ax: L.highway.ax } : null, stats: { ...hwyStats }, deck: HIGHWAY.deck }; };
+  // `cars` règle aussi l'effectif de la circulation (highwayTraffic : 0 vide le tablier).
+  window.__highway = (o) => { if (o) { Object.assign(HWY, o); if (o.cars != null) window.__highwayTraffic({ cars: o.cars }); } const L = CM.layout; return { ...HWY, plan: L && L.highway ? { banks: L.highway.banks.map((b) => ({ sign: b.sign, y0: b.y0, len: b.len, s0: b.s0, s1: b.s1, ramp: b.ramp })), interchange: L.highway.interchange, ax: L.highway.ax } : null, stats: { ...hwyStats }, deck: HIGHWAY.deck }; };
 }

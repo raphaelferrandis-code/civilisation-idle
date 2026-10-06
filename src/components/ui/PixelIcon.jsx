@@ -32,9 +32,10 @@ export const SIZES_BY_FAMILY = { ruins: [24, 32], myths: [16, 32], nav: [24, 32]
 // défilement). Il passe alors en 32 px, servis par les variantes CUITES nav/@32
 // (scripts/bakeUiIconSizes.cjs) et non par le navigateur au plus proche voisin, qui
 // coupait les traits fins. La même condition vit dans rail.css (taille de la boîte) :
-// railCompact.test.js confronte les deux.
+// railCompact.test.js confronte les deux. 909 px : la hauteur sous laquelle les neuf
+// lieux à 48 px débordent, libellés au plancher de 11 px (BUG-119 ; 892 avant).
 // eslint-disable-next-line react-refresh/only-export-components
-export const RAIL_ICON_COMPACT = { media: '(min-width: 981px) and (max-height: 892px)', size: 32, minTabs: 9 };
+export const RAIL_ICON_COMPACT = { media: '(min-width: 981px) and (max-height: 909px)', size: 32, minTabs: 9 };
 
 // Classe portée par l'<img> -> taille CSS appliquée. À tenir synchronisée avec les règles
 // correspondantes des feuilles de style ; un écart ici se voit tout de suite en jeu

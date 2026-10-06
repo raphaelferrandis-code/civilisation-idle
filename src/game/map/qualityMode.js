@@ -41,11 +41,15 @@ export let qualityMode = (() => {
 // `balancedNoFx` (« Équilibrée sans effets ») n'est pas un choix du joueur : c'est
 // le palier que prend « Auto » quand le navigateur dessine sans carte graphique
 // (décision de Raph du 2026-10-05, PERF-4 = b ; cf. detectAutoTier).
+// `rainVeils` = les nappes plein écran du rideau de pluie (iso/isoWeather.js). En
+// rendu logiciel c'est la surface composée qui se paie : quatre nappes (huit sous
+// rafale) coûtaient 5 à 6 ms par image. Deux suffisent aux paliers des machines
+// modestes (décision de Raph du 2026-10-06, PERF-23) ; les autres n'ont pas bougé.
 const QUALITY_TIERS = {
-  high:         { dpr: 2.0, citizenMul: 1.0, fps: 60, lodZoom: 0,    fx: true },
-  balanced:     { dpr: 1.5, citizenMul: 0.7, fps: 30, lodZoom: 0.55, fx: true },
-  balancedNoFx: { dpr: 1.5, citizenMul: 0.7, fps: 30, lodZoom: 0.55, fx: false },
-  perf:         { dpr: 1.0, citizenMul: 0.4, fps: 30, lodZoom: 0.85, fx: false },
+  high:         { dpr: 2.0, citizenMul: 1.0, fps: 60, lodZoom: 0,    fx: true,  rainVeils: 4 },
+  balanced:     { dpr: 1.5, citizenMul: 0.7, fps: 30, lodZoom: 0.55, fx: true,  rainVeils: 4 },
+  balancedNoFx: { dpr: 1.5, citizenMul: 0.7, fps: 30, lodZoom: 0.55, fx: false, rainVeils: 2 },
+  perf:         { dpr: 1.0, citizenMul: 0.4, fps: 30, lodZoom: 0.85, fx: false, rainVeils: 2 },
 };
 
 // 'auto' : palier deviné à partir de l'appareil. On reste conservateur — on ne

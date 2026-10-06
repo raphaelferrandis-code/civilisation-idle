@@ -72,8 +72,9 @@ const SNOW_SHADE = [170, 176, 184];  // metalSlate — le creux bleuté
 // le RIDEAU : le ciel reste chargé et les impacts continuent (c'est le geste
 // qu'on fait pour juger les éclats seuls, cf. __splash). `tiers: 0` rend l'A/B des
 // paliers d'inclinaison (cf. gustTier) : la goutte suit de nouveau la rafale en
-// continu ; `nappes` compte les nappes reforgées depuis le chargement.
-export const RAIN_TUNE = { on: true, drops: 1, len: 1, alpha: 1, gust: 1, width: 1, tiers: 3 };
+// continu ; `nappes` compte les nappes reforgées depuis le chargement. `voies: 2`
+// ou `4` force le nombre de nappes (A/B de PERF-23, cf. rainLanes), 0 le rend au palier.
+export const RAIN_TUNE = { on: true, drops: 1, len: 1, alpha: 1, gust: 1, width: 1, tiers: 3, voies: 0 };
 if (import.meta.env?.DEV && typeof window !== 'undefined') {
   window.__rain = (o) => {
     if (o) Object.assign(RAIN_TUNE, o);
@@ -209,8 +210,22 @@ function rainStamp(dx, dy, w, rgb) {
 // PERF-23 : ce commentaire en annonçait ~27). Ils sont
 // LIBÉRÉS dès que l'averse s'arrête ou tourne à la neige — la pluie ne tombe que
 // 12 % du cycle, rien ne justifie de les garder au sec.
+//
+// DEUX NAPPES au palier « Performance » et en « Équilibrée sans effets » (le choix
+// d'Auto en rendu logiciel) — décision de Raph du 2026-10-06, PERF-23 : en rendu
+// logiciel c'est la SURFACE composée qui se paie, et les quatre nappes (huit sous
+// rafale) coûtaient 5 à 6 ms par image. Mêmes gouttes aux mêmes places (la goutte i
+// va sur la voie i % 2), regroupées aux deux bouts de l'éventail : même vitesse
+// moyenne, même écart entre la plus lente et la plus rapide, rideau un peu moins
+// dispersé. Moitié de composition et de mémoire. Le palier arrive par CM.rainVeils
+// (qualityMode.js, publié par cityMapRuntime) ; les autres paliers n'ont pas bougé.
 const RAIN_LANES = 4;
 const LANE_SPEED = [1, 1.26, 1.52, 1.78];   // même éventail qu'au temps du (1 + sd2 × 0,78) par goutte
+const LANE_SPEED_2 = [1, 1.78];             // les deux bouts du même éventail
+export function rainLanes() {
+  const v = RAIN_TUNE.voies || CM.rainVeils;
+  return v === 2 ? 2 : RAIN_LANES;
+}
 let rainVeil = null;
 
 // Où semer les gouttes d'une nappe, et sur quelle voie. DEUX POSES PAR GOUTTE :
@@ -219,12 +234,12 @@ let rainVeil = null;
 // invisible sur une image fixe, elle ne se trahit qu'en mouvement, et trop tard.
 // La goutte i ne dépend que de i (et de la nappe) : les n premières sont un PRÉFIXE
 // des n + k suivantes. `from` ne rend que les gouttes [from, n) — l'ajout à une
-// nappe déjà semée (cf. rainVeilFor).
-export function rainVeilDraws(n, lw, lh, ox = 0, from = 0) {
+// nappe déjà semée (cf. rainVeilFor). `lanes` : 4 nappes, ou 2 (cf. rainLanes).
+export function rainVeilDraws(n, lw, lh, ox = 0, from = 0, lanes = RAIN_LANES) {
   const out = [];
   for (let i = from; i < n; i += 1) {
     const sd = _rnd(i, 1), sd2 = _rnd(i, 2);
-    const lane = i % RAIN_LANES;
+    const lane = i % lanes;
     const x = Math.round(_frac(sd2 + sd * 0.37) * lw) - ox;
     const y = Math.round(sd * lh);
     out.push({ lane, x, y }, { lane, x, y: y - lh });
@@ -247,11 +262,14 @@ let rainVeilForges = 0;           // diagnostic (__rain) : nappes reforgées en 
 function rainVeilFor(n, dx, dy, th, W, H) {
   if (typeof document === 'undefined' || n <= 0) return null;
   const dpr = CM.dpr || 1;
+  const lanes = rainLanes();
   const [kdx, kdy] = rainVeilGeo(dx, dy, th);
   const kn = n < 24 ? n : Math.round(n / 8) * 8;
   const marge = Math.abs(kdx) + th + 8;
   const lw = W + marge * 2, lh = Math.max(1, H);
-  const geo = [kdx, kdy, th, lw, lh, dpr].join(',');
+  // Le nombre de nappes est dans la clé : un changement de palier en pleine averse
+  // reforge (avec le bon nombre de canvas) au lieu de reprendre l'ancien jeu.
+  const geo = [kdx, kdy, th, lw, lh, dpr, lanes].join(',');
   const key = kn + ',' + geo;
   if (rainVeil && rainVeil.key === key) return rainVeil;
   const st = rainStamp(kdx, kdy, th, RAIN_COL);
@@ -265,19 +283,19 @@ function rainVeilFor(n, dx, dy, th, W, H) {
   // préfixe (rainVeilDraws), on n'ajoute que les nouvelles, dans le même ordre :
   // mêmes pixels qu'une forge complète. La descente et les rafales (la forme de la
   // goutte change) reforgent comme avant.
-  if (rainVeil && rainVeil.geo === geo && np > rainVeil.np && rainVeil.cv.length === RAIN_LANES) {
-    sowRainVeil(rainVeil, rainVeilDraws(np, rainVeil.lw, rainVeil.lh, st.ox, rainVeil.np), st);
+  if (rainVeil && rainVeil.geo === geo && np > rainVeil.np && rainVeil.cv.length === lanes) {
+    sowRainVeil(rainVeil, rainVeilDraws(np, rainVeil.lw, rainVeil.lh, st.ox, rainVeil.np, lanes), st);
     rainVeil.key = key; rainVeil.np = np;
     return rainVeil;
   }
   rainVeilForges += 1;
-  const V = rainVeil && rainVeil.cv.length === RAIN_LANES ? rainVeil
+  const V = rainVeil && rainVeil.cv.length === lanes ? rainVeil
     : { key: '', geo: '', np: 0, marge: 0, lw: 0, lh: 0, cv: [], cx: [] };
   const pw = Math.max(1, Math.round(lw * dpr)), ph = Math.max(1, Math.round(lh * dpr));
   // Taille LOGIQUE exacte de la nappe (pw × ph device) : c'est elle qui sert de
   // période au bouclage et de taille de pose. À dpr 1 : lw × lh, à l'identique.
   const vw = pw / dpr, vh = ph / dpr;
-  for (let l = 0; l < RAIN_LANES; l += 1) {
+  for (let l = 0; l < lanes; l += 1) {
     let cv = V.cv[l];
     if (!cv) { cv = V.cv[l] = document.createElement('canvas'); V.cx[l] = cv.getContext('2d'); }
     if (cv.width !== pw || cv.height !== ph) { cv.width = pw; cv.height = ph; }
@@ -290,7 +308,7 @@ function rainVeilFor(n, dx, dy, th, W, H) {
     c2.clearRect(0, 0, vw, vh);
     c2.imageSmoothingEnabled = false;
   }
-  sowRainVeil(V, rainVeilDraws(np, vw, vh, st.ox), st);
+  sowRainVeil(V, rainVeilDraws(np, vw, vh, st.ox, 0, lanes), st);
   V.key = key; V.geo = geo; V.np = np; V.marge = marge; V.lw = vw; V.lh = vh;
   rainVeil = V;
   return V;
@@ -309,14 +327,16 @@ function sowRainVeil(V, plan, st) {
 // tourner l'attribution nappe↔vitesse : le rideau de rafale réutilise les mêmes
 // dessins que celui du fond, et sans ce décalage les deux se superposeraient
 // EXACTEMENT chaque fois que leurs phases se rejoignent — la bourrasque se
-// lirait alors comme un coup d'opacité au lieu d'un surcroît de gouttes.
+// lirait alors comme un coup d'opacité au lieu d'un surcroît de gouttes. Le rideau
+// de rafale tourne d'un DEMI-tour : 2 voies sur 4, 1 sur 2 (cf. rainLanes).
 function drawRainVeil(ctx, V, phase, tour, alpha) {
   if (!(alpha > 0.002)) return;
   ctx.globalAlpha = Math.min(1, alpha);
   const x0 = snapDev(-V.marge);
-  for (let l = 0; l < RAIN_LANES; l += 1) {
-    const cv = V.cv[(l + tour) % RAIN_LANES];
-    const s = snapDev(_frac(phase * LANE_SPEED[l]) * V.lh);   // à l'ENTIER DEVICE : la nappe reste sur la grille
+  const lanes = V.cv.length, speed = lanes === 2 ? LANE_SPEED_2 : LANE_SPEED;
+  for (let l = 0; l < lanes; l += 1) {
+    const cv = V.cv[(l + tour) % lanes];
+    const s = snapDev(_frac(phase * speed[l]) * V.lh);   // à l'ENTIER DEVICE : la nappe reste sur la grille
     ctx.drawImage(cv, x0, s, V.lw, V.lh);
     ctx.drawImage(cv, x0, s - V.lh, V.lw, V.lh);
   }
@@ -414,7 +434,7 @@ export function drawIsoRain(now) {
   // attribution de vitesses, dont seule l'OPACITÉ suit la bouffée. La densité
   // doit enfler par FONDU et jamais par le nombre : ajouter des gouttes les
   // ferait NAÎTRE en plein vol (le compte se lit en bout de liste).
-  if (g > 0.02) drawRainVeil(ctx, V, st.phase * 1.18, 2, 0.42 * r * g * GUST_DROPS * RAIN_TUNE.alpha);
+  if (g > 0.02) drawRainVeil(ctx, V, st.phase * 1.18, V.cv.length >> 1, 0.42 * r * g * GUST_DROPS * RAIN_TUNE.alpha);
   ctx.globalAlpha = prevAlpha;
   ctx.imageSmoothingEnabled = prevAA;
 }

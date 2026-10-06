@@ -33,13 +33,18 @@ export const PROP_LIGHT = {
 // LE MÊME FEU PARTOUT (décision de Raph, audit du 05/10, STRUCT-4) : les braseros
 // et les flammes des ponts et des merveilles éclairent par la recette de tous les
 // feux (flameGlow.queueFlameGlow : halo pré-cuit, lueur discrète de jour, nappe la
-// nuit), au poids des braseros de parvis — ils s'additionnent (10 braseros sur le
-// pont de marbre, 13 flammes et 2 braseros au Mausolée rang V de la bande 4).
+// nuit) — ils s'additionnent (10 braseros sur le pont de marbre, 13 flammes et 2
+// braseros au Mausolée rang V de la bande 4).
 // Avant, un dégradé de nuit seule (glowAt) : le même brasero
 // n'éclairait pas pareil sur un pont et sur une place. Les réverbères, eux, ne sont
 // pas des feux : ils restent sur glowAt. (`col` du brasero ne sert plus qu'à ses
 // reflets sur le fleuve, drawIsoBridgeNight.)
-export const FIRE_GLOW_MUL = 0.6;
+// POIDS 1,0 (décision de Raph du 2026-10-06, suite de STRUCT-4) : au poids 0,6 des
+// braseros de parvis, ces feux éclairaient nettement moins la nuit qu'avant (cœur
+// ~0,28 contre 0,55, planche feux-unifies) ; 1,0 retrouve à peu près l'ancien éclat
+// de nuit, avec une lueur de jour un peu plus visible. Ils sont peu nombreux à
+// l'écran (10 à 15), quand les parvis en alignent des dizaines.
+export const FIRE_GLOW_MUL = 1.0;
 // UNE ÈRE SANS ART pour un objet prend la variante existante la plus juste (audit
 // 2026-10-05, BRASERO-INDUSTRIEL). Le lieu d'une merveille cuit à la bande 4 (ses
 // braseros) reste affiché le temps que celui de la bande 5 se cuise (placeLive,

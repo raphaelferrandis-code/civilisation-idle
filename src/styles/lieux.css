@@ -180,8 +180,10 @@
   color: var(--skin-cream);
 }
 .app .myth-tile.is-locked b { color: var(--text-weak); }
+/* Au plancher de 11 px, pas à la cote V4 (0.6rem) : décision de Raph sur la planche
+   planches/plancher-11px (audit 2026-10-05, BUG-119). */
 .app .myth-tile-state {
-  font: 800 0.6rem/1 var(--font-body);
+  font: 800 0.6875rem/1 var(--font-body);
   letter-spacing: 0.1em;
   text-transform: uppercase;
   color: var(--text-mid);

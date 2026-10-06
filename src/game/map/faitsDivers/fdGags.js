@@ -9,7 +9,7 @@ import { CM } from '../layout.js';
 import { worldToScreen, depthOf } from '../iso/projection.js';
 import { vieK, drawnBoxOf, inkTopAt } from '../iso/isoVie.js';
 import { isoFrontOffset } from '../iso/isoGroundDetail.js';
-import { drawDraftIso } from '../iso/isoUnits.js';
+import { drawCritterIso, CRITTER_DIR_OF_CAP } from '../critters.js';
 import { AGENT_SCALE } from '../agents.js';
 import { WINTER } from '../seasonMode.js';
 import { fdBlitScreen, fdPixel, fdFigure, fdNoteThing } from './fdDraw.js';
@@ -40,9 +40,12 @@ function openCurio(app, t, again) {
   return { who: cast.who, line, isNew, title: g.title };
 }
 
-// Le long d'une rue : l'axe et son sens.
+// Le long d'une rue : l'axe et son sens. `??` et non `||` : un tronçon nord-sud de
+// roadRunSpots vaut (0, 1), et `0 || 1` en faisait la diagonale (1, 1) — la file, les
+// citrouilles et la vache partaient en biais à travers l'îlot, la vache regardant le
+// long de la rue au lieu de se tenir en travers.
 function runAxis(s) {
-  return { ax: s.ax || 1, ay: s.ay || 0 };
+  return { ax: s.ax ?? 1, ay: s.ay ?? 0 };
 }
 
 // ── LA FILE D'ATTENTE ────────────────────────────────────────────────────────
@@ -229,11 +232,18 @@ function buildCerfvolant(app) {
 }
 
 // ── LA VACHE ─────────────────────────────────────────────────────────────────
-// Dessinée par le BŒUF MAISON (bandes veh-ox-<diagonale>, PixelLab, celui des
-// attelages et des champs : drawDraftIso, frame 0 = à l'arrêt) depuis que la vache
-// du pack LaserKiwi est partie, faute de licence (2026-10-05, cf. critters.js).
-// drawDraftIso suit la convention de cap des agents (0 +x, 1 −x, 2 +y, 3 −y) : elle
-// se tient donc vraiment EN TRAVERS de la rue.
+// Dessinée par la VACHE MAISON (critters.js : PixelLab, planche animaux-maison
+// validée par Raph, la même que le bétail des prés). Entre le départ de celle du
+// pack LaserKiwi, faute de licence, et son arrivée (2026-10-05), le bœuf des
+// attelages la remplaçait. Les bêtes posées ont leurs propres diagonales
+// (CRITTER_DIAG) : le cap d'agent passe par CRITTER_DIR_OF_CAP, et elle se tient
+// vraiment EN TRAVERS de la rue.
+// Boîte de clic = l'encre MESURÉE des 4 diagonales (cadre 34, posé à 0,94 au-dessus
+// des pieds) : de 0,06 à 0,94 de la frame en largeur ; le haut à 0,18 de la frame de
+// trois quarts face (sud-est, sud-ouest), à 0,06 de dos (nord-ouest, nord-est : la
+// tête et les cornes dépassent du dos), soit 0,76 et 0,88 au-dessus des pieds, plus
+// 0,02 pour l'arrondi du blit. Indexé comme CRITTER_DIAG.
+const COW_TOP = [0.79, 0.79, 0.9, 0.9];
 function buildVache(app) {
   const s = app.spot;
   const { ax, ay } = runAxis(s);
@@ -241,6 +251,7 @@ function buildVache(app) {
   const cowCast = g.cast.findIndex((c) => c.ct < 0), manCast = g.cast.findIndex((c) => c.ct >= 0);
   const cow = thing(app, 0, s.x, s.y, cowCast);
   const man = figure(app, 1, s.x - ax * 0.7, s.y - ay * 0.7, { ct: 0, dir: dirOf(ax, ay), cast: manCast, variant: 5 });
+  const dir = CRITTER_DIR_OF_CAP[dirOf(ay, -ax)];
   app.figs = [cow, man];
   app.actors = (now, out, alpha) => {
     pushFig(out, man, app.band, alpha);
@@ -252,12 +263,9 @@ function buildVache(app) {
         const z = CM.cam ? CM.cam.zoom : 1;
         const pa = ctx.globalAlpha;
         if (alpha < 1) ctx.globalAlpha = pa * alpha;
-        const ok = drawDraftIso(ctx, p.x, p.y, z, 'ox', { dir: dirOf(ay, -ax), rollDist: 0 });
+        const m = drawCritterIso(ctx, p.x, p.y, CM.TILE * z, { kind: 'cow', dir }, AGENT_SCALE, CM.dpr);
         ctx.globalAlpha = pa;
-        // Boîte de clic = l'encre mesurée de la bande (de 0,12 à 0,87 de la frame en
-        // largeur, de 0,10 à 0,91 en hauteur, frame posée à 0,82 au-dessus des pieds).
-        const h = CM.TILE * z * 0.975 * AGENT_SCALE;
-        if (ok) fdNoteThing(cow, { x0: p.x - h * 0.38, x1: p.x + h * 0.38, y0: p.y - h * 0.72, y1: p.y + h * 0.1 });
+        if (m) fdNoteThing(cow, { x0: p.x - m.box * 0.45, x1: p.x + m.box * 0.45, y0: p.y - m.box * COW_TOP[dir], y1: p.y + m.box * 0.06 });
       },
     });
   };

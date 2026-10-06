@@ -3,8 +3,13 @@
 // tirages déterministes, ciel vide avant la bande 7.
 import { describe, it, expect, beforeEach, afterEach } from 'vitest';
 import { CM } from '../../layout.js';
-import { SKY, SKY_BANDS, roadRuns, pickLanes, laneCars, riverLanes, h01, skyTrafficActors, skyStats, streetKey, gateEnds, GATE_FADE } from '../isoSkyTraffic.js';
+import { SKY, SKY_BANDS, roadRuns, pickLanes, laneCars, riverLanes, h01, skyTrafficActors, skyStats, streetKey, gateEnds, GATE_FADE,
+  CROSS, crossWater, laneAlt, laneY, ISLE_SKIRT, skyLanesOf } from '../isoSkyTraffic.js';
 import { elevatedActors } from '../isoElevated.js';
+import { floatIsleSpan, ISLE } from '../isoFloatIsle.js';
+import { depthOf } from '../projection.js';
+import { state } from '../../../core/state.js';
+import { growCity } from '../../../../test/city.js';
 
 const T = 32;
 const set = (keys) => new Set(keys);
@@ -188,5 +193,127 @@ describe('profondeur et portes de couloir', () => {
         if (dEnd > GATE_FADE * T) expect(c.fade).toBe(1);
       }
     }
+  });
+});
+
+// RETOUR RAPH (2026-10-06) : les voitures volantes « ne passent pas au-dessus du
+// fleuve, elles disparaissent ». Les rues qui descendent au fleuve s'arrêtent au quai
+// (l'eau n'est pas la ville) : leur couloir finissait dans une porte sur la berge, et
+// chaque voiture s'y effaçait au bord de l'eau. Le couloir franchit maintenant l'eau.
+describe('le fleuve ne coupe plus un couloir (crossWater)', () => {
+  // fleuve horizontal : rangées 20 à 27 (8 cases d'eau)
+  const wet = (x, y) => y >= 20 && y <= 27;
+  const N = 60;
+  const run = (c, a, b) => ({ axis: 'y', c, a, b });
+  it('une rue qui bute sur le quai franchit l\'eau ; sa porte va sur la première case de l\'autre rive', () => {
+    // la rue s'arrête 2 cases avant l'eau (la promenade du quai)
+    expect(crossWater([run(10, 2, 18)], wet, null, N)).toEqual([run(10, 2, 29)]);
+    // depuis la rive sud, dans l'autre sens
+    expect(crossWater([run(10, 30, 50)], wet, null, N)).toEqual([run(10, 19, 50)]);
+  });
+  it('retrouve la rue de la même colonne sur l\'autre rive : un seul couloir, liste alignée', () => {
+    const out = crossWater([run(10, 2, 18), run(30, 2, 18), run(10, 29, 45)], wet, null, N);
+    expect(out[0]).toEqual(run(10, 2, 45));
+    expect(out[1]).toEqual(run(30, 2, 29));
+    expect(out[2]).toBeNull();                    // fusionnée : même rang, même hauteur pour les autres
+  });
+  it('rien ne change loin de l\'eau, sur un fleuve trop large, ou quand un obstacle se dresse sur le trajet', () => {
+    expect(crossWater([run(10, 2, 15)], wet, null, N)).toEqual([run(10, 2, 15)]);   // 5 cases de quai
+    const wide = (x, y) => y >= 20 && y < 20 + CROSS.water + 2;
+    expect(crossWater([run(10, 2, 18)], wide, null, N)).toEqual([run(10, 2, 18)]);
+    const isle = (x, y) => x === 10 && y === 23;                                    // l'île d'une merveille
+    expect(crossWater([run(10, 2, 18)], wet, isle, N)).toEqual([run(10, 2, 18)]);
+    const bank = (x, y) => x === 10 && y === 28;                                    // un bâtiment sur la berge
+    expect(crossWater([run(10, 2, 18)], wet, bank, N)).toEqual([run(10, 2, 18)]);
+    expect(crossWater([run(10, 2, 58)], wet, null, N)[0]).toEqual(run(10, 2, 58));  // pas d'eau au bout
+  });
+  it('le métro du quai d\'en face se survole, on ne s\'y pose pas ; la bande 7 l\'enjambe d\'une bosse', () => {
+    const metro = (x, y) => y === 28 || y === 29;
+    const [r] = crossWater([run(10, 2, 18)], wet, null, N, metro);
+    expect(r.b).toBe(31);                       // porte sur la case 30, derrière la ligne
+    expect(r.over).toEqual([[28, 30]]);
+    const lanes7 = pickLanes([run(10, 2, 18)], SKY_BANDS[7], 30, 30, T, (l) => crossWater(l, wet, null, N, metro));
+    const ln = lanes7[0];
+    expect(ln.alt).toBeLessThan(CROSS.over * T);
+    expect(laneAlt(ln, 29 * T)).toBeCloseTo(CROSS.over * T, 6);   // au-dessus de la ligne
+    expect(laneAlt(ln, 10 * T)).toBe(ln.alt);                    // ailleurs, sa hauteur
+    // la montée est continue (pas de saut d'une frame à l'autre)
+    for (let s = 20 * T; s < 31 * T; s += 0.1 * T) expect(Math.abs(laneAlt(ln, s + 0.1 * T) - laneAlt(ln, s))).toBeLessThan(0.1 * T);
+    // la porte d'arrivée est à la hauteur de la voie à ce bout
+    expect(gateEnds(lanes7).find((g) => !g.isStart).alt).toBeCloseTo(laneAlt(ln, ln.b), 6);
+    // bandes 8-9 : assez haut, pas de bosse
+    expect(pickLanes([run(10, 2, 18)], SKY_BANDS[9], 30, 30, T, (l) => crossWater(l, wet, null, N, metro))[0].humps).toBeNull();
+  });
+  it('sans franchissement, les couloirs restent ceux des rues (même choix, mêmes hauteurs)', () => {
+    const runs = [run(10, 2, 18), run(40, 0, 60), { axis: 'x', c: 5, a: 0, b: 50 }];
+    const plain = pickLanes(runs, SKY_BANDS[9], 30, 30, T);
+    const crossed = pickLanes(runs, SKY_BANDS[9], 30, 30, T, (l) => crossWater(l, wet, null, N));
+    expect(crossed.map((l) => [l.id, l.alt])).toEqual(plain.map((l) => [l.id, l.alt]));
+  });
+});
+
+describe('la ville des tests à la bande 7 : aucun couloir ne finit au bord de l\'eau', () => {
+  beforeEach(() => {
+    state.cityRoads = null; state.cityCore = null; state.cityMapSlots = {}; state.cityArchetype = null; state.cityPersonality = null; state.riverWP = null;
+    state.wonders = [];
+  });
+  it('les rues qui descendent au fleuve le franchissent, portes au sec', () => {
+    const L = growCity(40, 60);
+    expect(L.counts.eraBand).toBe(7);
+    const R = L.river, Tt = CM.TILE;
+    const lanes = skyLanesOf(L, 7).filter((l) => !l.river && l.axis === 'y' && l.dir === 1);
+    let crossing = 0;
+    for (const l of lanes) {
+      const a = Math.round(l.a / Tt - 0.3), b = Math.round(l.b / Tt + 0.3);
+      // aucune porte à 3 cases ou moins de l'eau, côté eau (dans cette ville, rien ne
+      // barre le passage) ; les portes au sec
+      for (let k = 0; k < CROSS.reach; k += 1) {
+        expect(R.isWater(l.row, b + k), `couloir ${l.row} : porte au bord de l'eau (bout sud)`).toBe(false);
+        expect(R.isWater(l.row, a - 1 - k), `couloir ${l.row} : porte au bord de l'eau (bout nord)`).toBe(false);
+      }
+      expect(R.isWater(l.row, a) || R.isWater(l.row, b - 1)).toBe(false);
+      let w = false; for (let y = a; y < b; y += 1) if (R.isWater(l.row, y)) w = true;
+      if (w) crossing += 1;
+    }
+    expect(crossing, 'couloirs au-dessus du fleuve').toBeGreaterThan(0);
+  });
+});
+
+// Au-dessus du fleuve, l'îlot flottant (bande 9) coupait net les voies : la voiture
+// disparaissait dans son emprise et reparaissait 7 cases plus loin.
+describe('les voies du fleuve contournent le quartier flottant', () => {
+  const water = (x, y) => y >= 46 && y <= 53;
+  const river = { present: true, riverYAt: () => 49.5, isWater: water, bridge: { x: 60, y: 49.5 } };
+  const layout = () => ({ gridN: 120, mapSeed: 12345, cx: 60, cy: 60, counts: { eraBand: 9 }, roadSet: new Set(), roadMap: new Map(), urbanSet: null, river });
+  let saved;
+  beforeEach(() => { saved = { layout: CM.layout, cam: { ...CM.cam }, cw: CM.cw, ch: CM.ch, lod: CM.lodActive }; });
+  afterEach(() => { CM.layout = saved.layout; Object.assign(CM.cam, saved.cam); CM.cw = saved.cw; CM.ch = saved.ch; CM.lodActive = saved.lod; });
+  it('s\'écartent de l\'îlot, chacune de son côté, sans saut', () => {
+    const isle = floatIsleSpan(layout());
+    expect(isle).not.toBeNull();
+    const xc = (isle.x0 + isle.x1) / 2;
+    for (const ln of riverLanes(river, 120, 2, [2.6, 5.2], T, isle)) {
+      const off = (wx) => laneY(ln, wx, river, T) - 49.5 * T;
+      // au droit de l'îlot : hors de son rayon, du côté de la voie
+      expect(Math.abs(off(xc))).toBeGreaterThanOrEqual((ISLE.R + ISLE_SKIRT.margin - 0.01) * T);
+      expect(Math.sign(off(xc))).toBe(Math.sign(ln.cOff));
+      // loin de lui : la voie d'origine
+      expect(off(xc + 20 * T)).toBeCloseTo(ln.cOff, 6);
+      for (let wx = xc - 12 * T; wx < xc + 12 * T; wx += 0.1 * T) expect(Math.abs(off(wx + 0.1 * T) - off(wx))).toBeLessThan(0.1 * T);
+    }
+  });
+  it('des voitures passent au droit de l\'îlot (elles y étaient coupées)', () => {
+    const L = layout();
+    CM.layout = L; CM.lodActive = false; CM.cw = 1200; CM.ch = 800;
+    const isle = floatIsleSpan(L);
+    CM.cam.x = (isle.x0 + isle.x1) / 2; CM.cam.y = 49.5 * T; CM.cam.zoom = 1;
+    let inSpan = 0;
+    for (let t = 0; t < 40000; t += 500) {
+      const out = [];
+      skyTrafficActors(t, out);
+      // véhicules du fleuve : clé à l'aplomb + 0,05 tuile
+      inSpan += out.filter((a) => a.wx > isle.x0 && a.wx < isle.x1 && Math.abs(a.d - (depthOf(a.wx, a.wy) + 0.05 * T)) < 1e-6).length;
+    }
+    expect(inSpan).toBeGreaterThan(0);
   });
 });

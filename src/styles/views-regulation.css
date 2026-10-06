@@ -1114,12 +1114,9 @@
   color: #fff !important;
   font-family: var(--font-number) !important;
   font-size: 1.02rem !important;
-  animation: icarus-pulse 0.9s ease-in-out infinite;
-}
-
-@keyframes icarus-pulse {
-  0%, 100% { box-shadow: 0 0 0 0 rgba(255, 205, 90, 0.4); }
-  50% { box-shadow: 0 0 0 6px rgba(255, 205, 90, 0); }
+  /* Plus d'onde « icarus-pulse » (décision de Raph du 2026-10-06, PERF-65) : le
+     clip-path cranté des dalles la rognait en entier, et son box-shadow animé
+     écrasait l'embossage de la dalle et son enfoncement au clic (:active, plus bas). */
 }
 
 .icarus-result {

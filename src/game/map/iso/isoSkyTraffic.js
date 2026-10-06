@@ -10,7 +10,8 @@
 //   1. Un couloir suit une GRANDE RUE DROITE, jamais le travers d'un îlot. Le
 //      peintre trie un objet volant à l'aplomb de son pied ; un pied qui tombe
 //      dans l'emprise d'une tour ferait sauter le véhicule de derrière à devant
-//      la tour en pleine traversée. Au-dessus d'une rue, l'aplomb est libre.
+//      la tour en pleine traversée. Au-dessus d'une rue, l'aplomb est libre — et
+//      au-dessus du fleuve qu'elle descend rejoindre, qu'il FRANCHIT (crossWater).
 //   2. Les couloirs en x et en y volent à des HAUTEURS DIFFÉRENTES : pas de
 //      croisement à niveau, comme les règles de l'air.
 //   3. Une OMBRE au sol (décision de Raph, 2026-10-02) dit l'altitude ; elle est
@@ -22,7 +23,7 @@
 // le voile, découpés par ce qui est devant.
 //
 // Molette : __skyTraffic({ on, density, shadow, trails, beacons, jets }).
-import { CM } from '../layout.js';
+import { CM, CM_WONDERS, cmForEachWonderCell } from '../layout.js';
 import { worldToScreen, screenToWorld, depthOf } from './projection.js';
 import { lightCtx } from '../lightLayer.js';
 import { vieK } from './isoVie.js';
@@ -30,6 +31,9 @@ import { drawEraAgentIso } from '../agents.js';
 import { muteSunShadow } from './isoSunShadow.js';
 import { boxShapes, bakeShapes, blitBaked, makeBakeCache, artKdAt, elevGlow as glowAt } from './elevPaint.js';
 import { floatIsleSpan } from './isoFloatIsle.js';
+import { metroPlanFor } from './isoMetro.js';
+import { cableSite } from './isoCableCar.js';
+import { tradeCells } from '../portSites.js';
 
 export const SKY = { on: true, density: 1, shadow: 0.35, trails: 1, beacons: 1, jets: 1, gates: 1, minZoom: 0.42 };
 
@@ -98,11 +102,137 @@ export function roadRuns(roadSet, roadMap, minLen, urban = null) {
   return runs;
 }
 
+// ── LE FLEUVE NE COUPE PLUS UN COULOIR ───────────────────────────────────────
+// Retour Raph (2026-10-06) : les voitures volantes « ne passent pas au-dessus du
+// fleuve, elles disparaissent ». L'eau n'est ni une rue ni la ville (`urbanSet`) :
+// les rues qui descendent au fleuve finissaient au quai, leur porte se posait sur la
+// berge et chaque voiture s'y effaçait au bord de l'eau, rive après rive. Un couloir
+// qui bute sur l'eau la FRANCHIT maintenant, à sa hauteur : il retrouve sur l'autre
+// rive la rue de la même colonne quand elle commence à portée (un seul couloir d'une
+// rive à l'autre), sinon sa porte se pose sur la première case de la berge d'en face.
+// Au-dessus de l'eau, rien à trier contre la ville : la règle 1 tient. On ne franchit
+// pas là où quelque chose se dresse sur le trajet ou sur la berge d'arrivée
+// (`blocked` : bâtiment, merveille, ports, Plaisirs, quartier flottant, téléphérique)
+// — la porte reste alors au quai, comme avant. Ce qui est BAS (`under` : le viaduc du
+// métro, sur le quai de la rive opposée au cœur) se survole, mais on ne s'y pose
+// pas : la porte va sur la première case libre derrière lui, et le couloir qui
+// passe trop bas pour lui (bande 7) s'élève le temps de l'enjamber (`over`, cf.
+// laneAlt).
+// Rend la liste ALIGNÉE sur `runs` (même rang = même hauteur de couloir) : un tronçon
+// prolongé (avec `over`, les cases survolées de `under`), ou null quand il a fusionné
+// avec celui de l'autre rive.
+// `reach` : cases sèches tolérées entre le bout d'une rue et l'eau (la promenade du
+// quai) ; `water` : largeur d'eau maximale franchie ; `over` : hauteur (tuiles) qui
+// passe au-dessus du métro (tablier 1,45 + rame 0,48, gare 2,18, plus la marge) ;
+// `ramp` : longueur (tuiles) de la montée et de la descente.
+export const CROSS = { reach: 3, water: 16, over: 2.4, ramp: 2.5 };
+export function crossWater(runs, isWater, blocked, N, under = null) {
+  const out = runs.map((r) => ({ ...r }));
+  if (typeof isWater !== 'function') return out;
+  const gone = new Set();
+  const at = (r, v) => (r.axis === 'x' ? [v, r.c] : [r.c, v]);
+  const wet = (r, v) => { const [x, y] = at(r, v); return isWater(x, y); };
+  const ok = (r, v) => { const [x, y] = at(r, v); return x >= 0 && y >= 0 && x < N && y < N && !(blocked && blocked(x, y)); };
+  const low = (r, v) => { if (!under) return false; const [x, y] = at(r, v); return under(x, y); };
+  // Depuis v (première case hors du tronçon), dans le sens st : la première case
+  // SÈCHE et libre de la rive d'en face, ou null (pas d'eau à portée, trop large,
+  // obstacle). `lo`/`hi` : les cases basses survolées en chemin.
+  const across = (r, v, st) => {
+    let lo = null, hi = null;
+    const mark = (w) => { if (low(r, w)) { lo = lo == null ? w : Math.min(lo, w); hi = hi == null ? w : Math.max(hi, w); } };
+    for (let k = 0; !wet(r, v); k += 1) { if (k >= CROSS.reach || !ok(r, v)) return null; mark(v); v += st; }
+    for (let n = 0; wet(r, v); n += 1) { if (n >= CROSS.water || !ok(r, v)) return null; mark(v); v += st; }
+    for (let k = 0; low(r, v); k += 1) { if (k >= CROSS.reach || !ok(r, v)) return null; mark(v); v += st; }
+    return ok(r, v) ? { v, over: lo == null ? null : [lo, hi + 1] } : null;
+  };
+  for (const r of out) {
+    if (gone.has(r)) continue;
+    for (const st of [1, -1]) {
+      const hit = across(r, st > 0 ? r.b : r.a - 1, st);
+      if (!hit) continue;
+      const { v } = hit;
+      // la rue de la même colonne sur l'autre rive, si elle commence à portée (cases
+      // libres entre la berge et elle)
+      const o = out.find((q) => {
+        if (q === r || gone.has(q) || q.axis !== r.axis || q.c !== r.c) return false;
+        const s = st > 0 ? q.a : q.b - 1;
+        const gap = (s - v) * st;
+        if (gap < 0 || gap > CROSS.reach) return false;
+        for (let k = 0; k < gap; k += 1) if (!ok(r, v + k * st) || low(r, v + k * st)) return false;
+        return true;
+      });
+      if (o) { gone.add(o); if (st > 0) r.b = o.b; else r.a = o.a; }
+      else if (st > 0) r.b = v + 1;
+      else r.a = v;
+      if (hit.over) r.over = [...(r.over || []), hit.over];
+    }
+  }
+  return out.map((r) => (gone.has(r) ? null : r));
+}
+
+// Hauteur d'une voie à l'abscisse s (le long du couloir) : la sienne, plus la bosse
+// qui enjambe le métro du quai d'en face (montée et descente en cosinus).
+export function laneAlt(lane, s) {
+  let z = lane.alt;
+  if (lane.humps) {
+    for (const h of lane.humps) {
+      const u = s < h.a ? h.a - s : s > h.b ? s - h.b : 0;
+      if (u < h.ramp) z = Math.max(z, lane.alt + h.dz * (0.5 + 0.5 * Math.cos(Math.PI * u / h.ramp)));
+    }
+  }
+  return z;
+}
+
+// Ce qui se dresse sur le trajet d'un couloir qui franchit l'eau (cellules) : les
+// bâtiments, les merveilles (l'île de la mégapole comprise), le terre-plein du port de
+// commerce et le Vieux-Port, l'enclos des Plaisirs, l'emprise du quartier flottant, la
+// colonne du téléphérique. Et ce qui est BAS (`under`) : la ligne du métro du quai.
+function crossBlocked(L, T) {
+  const occ = new Set();
+  const N = L.gridN;
+  for (const t of L.tiles || []) {
+    if (t.type === 'field') continue;
+    const sx = t.spanX || t.size || 1, sy = t.spanY || t.size || 1;
+    for (let i = 0; i < sx; i += 1) for (let j = 0; j < sy; j += 1) occ.add((t.gx + i) + ',' + (t.gy + j));
+  }
+  if (L.wonderTiers && L.wonderSlots) {
+    for (const id of Object.keys(L.wonderTiers)) {
+      const wi = CM_WONDERS.findIndex((w) => w.id === id);
+      const sl = wi >= 0 ? L.wonderSlots[wi] : null;
+      if (sl) cmForEachWonderCell(sl, id, N, (x, y, k) => occ.add(k), L.wonderTiers[id]);
+    }
+  }
+  if (L.wonderGround) for (const k of L.wonderGround) occ.add(k);
+  const ports = L.ports || {};
+  const cols = [];                                     // colonnes interdites [x0, x1]
+  if (ports.trade && ports.trade.len) {
+    for (const [x, y] of tradeCells(ports.trade)) occ.add(x + ',' + y);
+    cols.push([ports.trade.x0 - 1, ports.trade.x0 + ports.trade.len]);
+  }
+  const op = ports.old;
+  const R = L.river || {}, pl = R.plaisirs;
+  const isle = floatIsleSpan(L);
+  if (isle) cols.push([Math.floor(isle.x0 / T), Math.ceil(isle.x1 / T)]);
+  const metro = metroPlanFor(L);
+  const low = new Set();                               // la ligne (± une case : gares, quais)
+  if (metro) for (const q of metro.pts) for (let d = -1; d <= 1; d += 1) low.add(q.x + ',' + (Math.floor(q.y) + d));
+  const cable = cableSite(L, metro);
+  if (cable) cols.push([Math.floor(cable.x - 1.5), Math.ceil(cable.x + 0.5)]);
+  return {
+    blocked: (x, y) => occ.has(x + ',' + y) || cols.some(([a, b]) => x >= a && x <= b)
+      || (op && x >= op.gx - 1 && x <= op.gx + op.w && y >= op.gy - 1 && y <= op.gy + op.h)
+      || (pl && Math.hypot(x + 0.5 - pl.x, y + 0.5 - pl.y) < (pl.clear || 8) + 1),
+    under: (x, y) => low.has(x + ',' + y),
+  };
+}
+
 // Choisit les couloirs : les tronçons les plus longs d'abord, écartés d'au moins
 // `cfg.sep` cellules d'un couloir parallèle qui les chevauche — un quadrillage qui
 // couvre toute la ville, pas une grappe autour des plus grandes rues.
 // Chaque couloir = deux voies à contresens (±0,22 tuile), à la hauteur de son axe.
-export function pickLanes(runs, cfg, cx, cy, T) {
+// `cross` (facultatif) prolonge les tronçons CHOISIS (crossWater) : le choix des
+// couloirs et leurs hauteurs restent ceux des rues de la ville.
+export function pickLanes(runs, cfg, cx, cy, T, cross = null) {
   const sorted = runs.slice().sort((p, q) => (q.b - q.a) - (p.b - p.a) || p.c - q.c || p.a - q.a);
   const chosen = { x: [], y: [] };
   for (const r of sorted) {
@@ -113,14 +243,19 @@ export function pickLanes(runs, cfg, cx, cy, T) {
   const lanes = [];
   for (const axis of ['x', 'y']) {
     const tiers = cfg.tiers[axis];
-    chosen[axis].forEach((r, i) => {
+    const runsOf = cross ? cross(chosen[axis]) : chosen[axis];
+    runsOf.forEach((r, i) => {
+      if (!r) return;                                  // fusionné avec la rue d'en face
       // tirages en repère du centre : la même rue garde ses voies quand la grille grandit
       const rel = (axis === 'x' ? r.c - cy : r.c - cx) * 131 + (axis === 'x' ? 7 : 13);
       const alt = tiers[i % tiers.length] * T;
+      // trop bas pour le métro qu'il survole : la bosse qui l'enjambe (laneAlt)
+      const humps = r.over && alt < CROSS.over * T
+        ? r.over.map(([p, q]) => ({ a: p * T, b: q * T, dz: CROSS.over * T - alt, ramp: CROSS.ramp * T })) : null;
       for (const dir of [1, -1]) {
         const id = rel * 4 + (dir > 0 ? 1 : 2);
         lanes.push({
-          id, axis, dir, alt,
+          id, axis, dir, alt, humps,
           c: (r.c + 0.5) * T + dir * 0.22 * T, row: r.c,
           a: (r.a + 0.3) * T, b: (r.b - 0.3) * T,
           speed: (1.6 + h01(id * 5) * 0.7) * T,
@@ -136,7 +271,11 @@ export function pickLanes(runs, cfg, cx, cy, T) {
 // Au-dessus du FLEUVE : rien à traverser, le plus beau couloir de la ville. Il suit
 // la ligne d'eau (riverYAt, en cellules) sur toute la longueur où elle coule, à la
 // hauteur des couloirs en x ; `pairs` paires de voies, de part et d'autre du milieu.
-export function riverLanes(river, N, pairs, tiers, T) {
+// `isle` (emprise du quartier flottant, floatIsleSpan) : les voies s'en ÉCARTENT, chacune
+// de son côté (PLAN-ETAGES, lot 4). ⚠ Elles étaient coupées net dans son emprise : la
+// voiture disparaissait au milieu du fleuve et reparaissait de l'autre côté de l'îlot.
+export const ISLE_SKIRT = { margin: 0.6, ramp: 6 };
+export function riverLanes(river, N, pairs, tiers, T, isle = null) {
   if (!river || !river.present || typeof river.riverYAt !== 'function' || !(pairs > 0)) return [];
   let a = -1, b = -1;
   for (let x = 0; x < N; x += 1) {
@@ -145,15 +284,23 @@ export function riverLanes(river, N, pairs, tiers, T) {
     if (wet) { if (a < 0) a = x; b = x + 1; }
   }
   if (a < 0 || b - a < 12) return [];
+  // Rayon de l'îlot, relu sur son emprise publiée (± R + 1,2 tuile autour du site).
+  const half = isle ? (isle.x1 - isle.x0) / 2 : 0;
+  const isleR = half / T - 1.2;
   const lanes = [];
   for (let p = 0; p < pairs; p += 1) {
     const side = (p % 2 ? -1 : 1) * (0.9 + Math.floor(p / 2) * 1.4);
     const alt = tiers[p % tiers.length] * T;
+    // la voie intérieure passe à R + margin du milieu, l'extérieure garde son écart
+    const skirt = isle ? {
+      x: (isle.x0 + isle.x1) / 2, r0: half, r1: half + ISLE_SKIRT.ramp * T,
+      d: Math.sign(side) * Math.max(0, (isleR + ISLE_SKIRT.margin - (Math.abs(side) - 0.22)) * T),
+    } : null;
     for (const dir of [1, -1]) {
       const id = 900001 + p * 4 + (dir > 0 ? 1 : 2);
       lanes.push({
         id, axis: 'x', dir, alt, river: true,
-        c: 0, cOff: (side + dir * 0.22) * T,
+        c: 0, cOff: (side + dir * 0.22) * T, skirt,
         a: a * T, b: b * T,
         speed: (1.8 + h01(id * 5) * 0.6) * T,
         gap: (1.6 + h01(id * 3) * 1.2) * T,
@@ -168,14 +315,32 @@ let _lanesFor = null, _lanesBand = -1, _lanes = [], _runs = [];
 function lanesOf(L, band) {
   if (_lanesFor === L && _lanesBand === band) return _lanes;
   const cfg = SKY_BANDS[band];
+  const T = CM.TILE, R = L.river;
+  // `_runs` reste celui des rues : les jetpacks décollent et se posent sur la chaussée,
+  // jamais au milieu du fleuve. Seuls les couloirs le franchissent.
   _runs = cfg && L.roadSet ? roadRuns(L.roadSet, L.roadMap, 12, L.urbanSet && L.urbanSet.size ? L.urbanSet : null) : [];
-  _lanes = cfg ? [...pickLanes(_runs, cfg, L.cx, L.cy, CM.TILE), ...riverLanes(L.river, L.gridN, cfg.river, cfg.tiers.x, CM.TILE)] : [];
+  let cross = null;
+  if (cfg && R && R.present && typeof R.isWater === 'function') {
+    const cb = crossBlocked(L, T);
+    cross = (list) => crossWater(list, (x, y) => R.isWater(x, y), cb.blocked, L.gridN, cb.under);
+  }
+  _lanes = cfg ? [...pickLanes(_runs, cfg, L.cx, L.cy, T, cross), ...riverLanes(R, L.gridN, cfg.river, cfg.tiers.x, T, floatIsleSpan(L))] : [];
   _lanesFor = L; _lanesBand = band;
   return _lanes;
 }
-// Ordonnée monde d'une voie à l'abscisse wx (le couloir du fleuve suit l'eau).
-function laneY(lane, wx, L, T) {
-  return lane.river ? L.river.riverYAt(wx / T) * T + lane.cOff : lane.c;
+// Les couloirs du layout (mémorisés par layout et par bande) — lu par les gardes.
+export function skyLanesOf(L, band) { return lanesOf(L, band); }
+// Ordonnée monde d'une voie à l'abscisse wx (le couloir du fleuve suit l'eau, et
+// s'écarte du quartier flottant).
+export function laneY(lane, wx, river, T) {
+  if (!lane.river) return lane.c;
+  let y = river.riverYAt(wx / T) * T + lane.cOff;
+  const k = lane.skirt;
+  if (k && k.d) {
+    const u = Math.abs(wx - k.x);
+    if (u < k.r1) y += k.d * (u <= k.r0 ? 1 : 0.5 + 0.5 * Math.cos(Math.PI * (u - k.r0) / (k.r1 - k.r0)));
+  }
+  return y;
 }
 
 // Positions des véhicules d'un couloir à l'instant t (s) : pas régulier + gigue,
@@ -290,7 +455,6 @@ export function skyTrafficActors(now, out, decay = 0) {
   const health = CM.healthF == null ? 1 : CM.healthF;
   // La ville qui tombe vide son ciel (lot 4) : à l'effondrement il ne reste rien.
   const keep = cfg.keep * Math.max(0, Math.min(1.5, SKY.density)) * (0.4 + 0.6 * Math.max(0, Math.min(1, health))) * (1 - decay);
-  const isle = floatIsleSpan(L);
   const lanes = lanesOf(L, band);
   skyStats.lanes = lanes.length;
   const maxAlt = Math.max(...cfg.tiers.x, ...cfg.tiers.y) * T;
@@ -309,15 +473,16 @@ export function skyTrafficActors(now, out, decay = 0) {
     if (!lane.river && (ax ? (lane.c < vb.y0 || lane.c > vb.y1 || lane.b < vb.x0 || lane.a > vb.x1)
       : (lane.c < vb.x0 || lane.c > vb.x1 || lane.b < vb.y0 || lane.a > vb.y1))) continue;
     for (const car of laneCars(lane, t, keep, T)) {
-      const wx = ax ? car.s : lane.c, wy = ax ? laneY(lane, car.s, L, T) : car.s;
+      const wx = ax ? car.s : lane.c, wy = ax ? laneY(lane, car.s, L.river, T) : car.s;
       if (wx < vb.x0 || wx > vb.x1 || wy < vb.y0 || wy > vb.y1) continue;
       const alpha = car.fade * zf;
       if (alpha <= 0.02) continue;
       // Tri à l'ÉCRAN : la boîte monde d'un écran iso (un losange) est deux fois
       // trop grande — sans ce test, le plafond se dépensait hors champ.
-      const ps = worldToScreen(wx, wy, lane.alt);
+      const ps = worldToScreen(wx, wy, laneAlt(lane, car.s));
       if (ps.x < -mg || ps.x > CM.cw + mg || ps.y < -mg || ps.y > CM.ch + mg) continue;
-      if (isle && lane.river && wx > isle.x0 && wx < isle.x1) continue;   // l'îlot flottant
+      // (Plus de coupe dans l'emprise du quartier flottant : les voies du fleuve le
+      // contournent, cf. riverLanes.)
       if (h01(lane.id * 7919 + car.i) >= zPart) continue;
       cand.push({ lane, wx, wy, alpha, kind: car.kind, s: car.s });
     }
@@ -330,7 +495,7 @@ export function skyTrafficActors(now, out, decay = 0) {
     const dKey = lane.river ? depthOf(wx, wy) + 0.05 * T : streetKey(lane.axis, lane.row, c.s, T);
     const ax = lane.axis === 'x';
     skyStats.cars += 1;
-    const alt = lane.alt;
+    const alt = laneAlt(lane, c.s);
     if (SKY.shadow > 0 && n < 0.5) {
       const sx = wx + alt * SKY.shadow;
       out.push({ wx: sx, wy, d: depthOf(sx, wy) - 0.6 * T, draw(ctx) {
@@ -368,7 +533,7 @@ export function skyTrafficActors(now, out, decay = 0) {
         if (wx < vb.x0 || wx > vb.x1 || wy < vb.y0 || wy > vb.y1) continue;
         const blink = (Math.floor(t * 1.5 + s / T) % 4) === 0 ? 1 : 0.45;
         out.push({ wx, wy, draw() {
-          const p = worldToScreen(wx, wy, lane.alt - 0.15 * T);
+          const p = worldToScreen(wx, wy, laneAlt(lane, s) - 0.15 * T);
           glowAt(p.x, p.y, 4 * z / 0.625, '170,140,255', 0.45 * blink * (CM.nightF || 0) * SKY.beacons * zf);
         } });
       }
@@ -411,7 +576,8 @@ export function gateEnds(lanes) {
   const out = [];
   for (const ln of lanes) {
     if (ln.river || ln.dir !== 1) continue;
-    for (const end of [ln.a, ln.b]) out.push({ axis: ln.axis, row: ln.row, along: end, mid: ln.c - 0.22 * CM.TILE, alt: ln.alt, isStart: end === ln.a });
+    // (à la hauteur de la voie à ce bout : une porte posée au pied d'une bosse est un peu plus haute)
+    for (const end of [ln.a, ln.b]) out.push({ axis: ln.axis, row: ln.row, along: end, mid: ln.c - 0.22 * CM.TILE, alt: laneAlt(ln, end), isStart: end === ln.a });
   }
   return out;
 }

@@ -74,7 +74,9 @@
   :root:not([data-pointer="coarse"]) .tab .tab-label {
     display: block;
     max-width: 100%;
-    font: 700 0.6rem/1.1 var(--font-body);
+    /* Au plancher de 11 px, pas à la cote V4 (0.6rem) : décision de Raph sur la
+       planche planches/plancher-11px (audit 2026-10-05, BUG-119). */
+    font: 700 0.6875rem/1.1 var(--font-body);
     /* 0.02em : le rail fait 5.5rem (maquette) ; à 0.08em « RÉGULATION » ne
        tenait plus en 1600 px (mesuré : 73 px pour 70). */
     letter-spacing: 0.02em;
@@ -156,22 +158,24 @@
   }
   :root:not([data-pointer="coarse"]) .quick-actions [data-qa="options"] .qa-label {
     display: block;
-    font: 700 0.6rem/1.1 var(--font-body);
+    font: 700 0.6875rem/1.1 var(--font-body);   /* idem (BUG-119) */
     letter-spacing: 0.02em;
     text-transform: uppercase;
   }
 }
 
 /* RAIL COMPACT (audit 2026-10-05, BUG-43, décision de Raph). Les neuf lieux en
-   emblèmes de 48 px demandent 893 px de haut (mesuré : le rail déborde jusqu'à
-   892) : en dessous (fenêtre de l'.exe en 1584×861, portables 1366×768, Steam
-   Deck), il défilait, sans que rien le montre. Les emblèmes passent alors en
+   emblèmes de 48 px demandent 910 px de haut (mesuré : le rail déborde jusqu'à
+   909 ; 893 avant que les libellés ne passent à 11 px, BUG-119) : en dessous
+   (fenêtre de l'.exe en 1584×861, 1600×900, portables 1366×768, Steam Deck), il
+   défilait, sans que rien le montre. Les emblèmes passent alors en
    32 px — les variantes CUITES nav/@32, que PixelIcon sert dans la même condition
    (RAIL_ICON_COMPACT, par un <picture>) ; jamais le 48 réduit par le navigateur,
    qui coupait les traits fins. Les libellés ne bougent pas. Les neuf lieux
-   tiennent alors dès 749 px de haut (1280×720 défile encore). ⚠ Garder la requête
-   et le compte de lieux identiques à RAIL_ICON_COMPACT (railCompact.test.js). */
-@media (min-width: 981px) and (max-height: 892px) {
+   tiennent alors dès 765 px de haut (1366×768 tient, 1280×720 défile encore).
+   ⚠ Garder la requête et le compte de lieux identiques à RAIL_ICON_COMPACT
+   (railCompact.test.js), et remesurer si la taille des libellés change. */
+@media (min-width: 981px) and (max-height: 909px) {
   :root:not([data-pointer="coarse"]) .tabs:has(> .tab:nth-child(9)) .tab .tab-icon {
     width: 32px;
     height: 32px;

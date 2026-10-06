@@ -140,6 +140,8 @@ function cmApplyQualitySettings() {
   cmLodZoom = (s.lodZoom != null) ? s.lodZoom : 0.55;
   // Ombre du soleil et reflets dans l'eau (iso/isoSunShadow.js, iso/isoReflect.js).
   CM.fxOn = s.fx !== false;
+  // Nappes du rideau de pluie, 4 ou 2 (iso/isoWeather.js, PERF-23).
+  CM.rainVeils = s.rainVeils || 4;
 }
 cmApplyQualitySettings();
 
@@ -1979,7 +1981,17 @@ export function cmSyncRoadFleet(L, wantVeh, deps = {}) {
     v.col = vehicleType === "car" ? ["#9b4d38", "#c0a85d", "#6f8490", "#a8a092", "#5f6f7c", "#8f6544"][n % 6] : ["#8f6534", "#b08a4a", "#7b5b35", "#c0a46a", "#6f5636", "#9a7440"][n % 6];
   };
   const list = CM.vehicles;
-  if (!list.length) CM.vehicleSerial = 0;
+  // Les voitures de l'AUTOROUTE qui roulent en ville (`v.hwy`, highwayTraffic.js) ne sont
+  // pas de la flotte : effectif à part, elles ne se comptent ni ne partent ici. Rangées en
+  // tête de liste, l'excédent de la flotte part toujours de la queue.
+  let nHwy = 0;
+  for (const v of list) if (v.hwy) nHwy += 1;
+  if (nHwy) {
+    const hw = list.filter((v) => v.hwy), own = list.filter((v) => !v.hwy);
+    list.length = 0;
+    list.push(...hw, ...own);
+  }
+  if (list.length === nHwy) CM.vehicleSerial = 0;
   // EN RUINE (Usure > 0,88 ou Rupture ≥ 1, le critère de getVehicleDensity) : plus un
   // seul véhicule (décision de Raph, audit du 2026-10-05, MORT-11). Le trafic y devenait
   // des « charrettes brisées » sans sprite iso : invisibles mais simulées — les pigeons
@@ -1987,6 +1999,7 @@ export function cmSyncRoadFleet(L, wantVeh, deps = {}) {
   // bas), à sa monture.
   const ruined = (state.timeWear || 0) > 0.88 || (state.instability || 0) >= 1;
   if (ruined) wantVeh = 0;
+  wantVeh += nHwy;
   // Nouvel âge : chacun garde sa place et son conducteur (seed), il change de monture.
   // Pas à chaque ère : dans un même âge le tirage ne change pas, seul le rang de la rue
   // où il roule changerait — une voiture deviendrait charrette sous les yeux du joueur.

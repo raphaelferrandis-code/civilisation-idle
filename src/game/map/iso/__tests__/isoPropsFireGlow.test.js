@@ -4,8 +4,8 @@
 // passaient par la recette de tous les feux (flameGlow.queueFlameGlow : plancher de
 // jour, nappe la nuit, poids). Le même brasero n'éclairait pas pareil sur un pont et
 // sur un parvis. Ici : en plein jour, brasero et flamme déposent une lueur discrète,
-// dans la teinte des feux et au poids des braseros de parvis ; le réverbère, qui
-// n'est pas un feu, reste sur glowAt (rien de jour).
+// dans la teinte des feux et au poids FIRE_GLOW_MUL (1,0) ; le réverbère, qui n'est
+// pas un feu, reste sur glowAt (rien de jour).
 // Fichier à part : le cache d'art est un cache de MODULE, il doit naître avec ce faux
 // `Image` (cf. isoArtShared.test.js).
 import { it, expect, beforeAll, afterAll, afterEach } from "vitest";
@@ -65,10 +65,11 @@ it("un brasero de pont éclaire comme un brasero de parvis, même en plein jour"
   expect(sink.glows).toHaveLength(1);
   const g = sink.glows[0];
   expect(rgbOf(g.col)).toBe(FLAME_COL);
-  // Poids des braseros de parvis (0,6), scintillement de SA phase.
+  // Poids 1,0 (décision de Raph du 2026-10-06 : à 0,6, celui des braseros de parvis,
+  // ces feux éclairaient la nuit deux fois moins qu'avant), scintillement de SA phase.
   const want = FLAME_GLOW.day * FLAME_GLOW.gain * props.FIRE_GLOW_MUL * flameFlicker(now, 10 * 0.41 + 2 * 0.23);
   expect(alphaOf(g.col)).toBeCloseTo(want, 3);
-  expect(props.FIRE_GLOW_MUL).toBe(0.6);
+  expect(props.FIRE_GLOW_MUL).toBe(1.0);
   // Point chaud à 18 % sous le haut de l'encre, rayon 0,55 tuile (comme le parvis).
   expect(g.r).toBeCloseTo(Math.max(6, 32 * 0.55) * FLAME_GLOW.r);
   for (const v of [g.x, g.y]) expect(Number.isFinite(v)).toBe(true);

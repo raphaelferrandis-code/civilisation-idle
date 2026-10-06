@@ -110,6 +110,9 @@
   pointer-events: none;
 }
 .rl-jeton img { image-rendering: pixelated; filter: drop-shadow(0 1px 0 rgba(0, 0, 0, 0.6)); }
+/* 0.55rem, SOUS le plancher de 11 px : exception assumée par Raph (planche
+   planches/plancher-11px, audit 2026-10-05, BUG-119) — à 11 px le chiffre déborde
+   du jeton. Comptée par la garde fontFloor.test.js. */
 .rl-jeton small {
   font-family: var(--font-number);
   font-size: 0.55rem;

@@ -268,8 +268,12 @@ function makeSkiffC(band) {
     seedless: true,
     variant(seed) { return { hull: N.shell, hullIn: N.shellIn, rail: N.shell, floor: N.shellIn, glowRail: N.glow, seed }; },
     anchors() { return {}; },
-    build(S) {
-      const V = this.variant(1);
+    // La variante transmise par la cuisson, comme les autres modèles (audit du
+    // 05/10, MORT-11 : `this.variant(1)` en dur l'ignorait). Aucun pixel ne change —
+    // la variante de l'esquif ne dépend pas de la graine (planches/barque-variante :
+    // 72 comparaisons identiques, bandes 7 à 9, 8 caps, 3 graines).
+    build(S, ctx) {
+      const V = ctx.variant || this.variant(1);
       lift(band, S, () => {
         drawHull(S, { L: 18, B: 8, D: 2.8, sb: 1.2, ss: 0.6, pb: 1.5, ps: 2.4, ts: 0.4, flare: 0.25, th: 0.7, plank: 0, open: true, floor: 0.9, bottom: hover }, V);
         asPart(S, 11, () => surf(S, (u, v) => [-1 + 4 * Math.cos(u) * Math.cos(v), 2.8 * Math.sin(u) * Math.cos(v), 0.9 + 3 * Math.sin(v)], 0, Math.PI * 2, 0, Math.PI / 2,

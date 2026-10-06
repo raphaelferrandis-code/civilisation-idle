@@ -72,7 +72,8 @@ describe("palier retenu par « Auto »", () => {
 // 0,55, ni ombre, ni reflets, ni occultation des lumières). Jamais de descente en
 // cours de partie : la sonde est faite une fois. Un palier choisi à la main gagne.
 describe("« Auto » sans carte graphique : Équilibrée sans effets", () => {
-  const NO_FX = { dpr: 1.5, citizenMul: 0.7, fps: 30, lodZoom: 0.55, fx: false };
+  // Deux nappes de pluie au lieu de quatre (PERF-23, décision de Raph du 2026-10-06).
+  const NO_FX = { dpr: 1.5, citizenMul: 0.7, fps: 30, lodZoom: 0.55, fx: false, rainVeils: 2 };
   let created = 0;
   // Un document dont le WebGL annonce `name` (null : pas de WebGL du tout).
   const glDoc = (name) => ({

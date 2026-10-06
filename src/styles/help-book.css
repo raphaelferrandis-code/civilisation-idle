@@ -185,10 +185,12 @@
   color: var(--text-secondary);
 }
 
-/* Étiquette d'ère (« Ère II ») : pastille PLATE à angle vif, comme les autres. */
+/* Étiquette d'ère (« Ère II ») : pastille PLATE à angle vif, comme les autres.
+   Au plancher de 11 px, pas à la cote V4 (0.62rem) : décision de Raph sur la planche
+   planches/plancher-11px (audit 2026-10-05, BUG-119). */
 .help-tag {
   padding: 0.2rem 0.35rem 0.15rem;
-  font: 700 0.62rem/1 var(--font-body);
+  font: 700 0.6875rem/1 var(--font-body);
   letter-spacing: 0.06em;
   text-transform: uppercase;
   color: var(--gold-ivory);

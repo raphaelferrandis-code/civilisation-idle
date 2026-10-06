@@ -253,3 +253,22 @@ autres postes (fleuve, nuit) varient de ±15 ms d'une passe à l'autre sans lien
   ⚠ `sidePt` prend des TUILES (premier essai : la largeur écrasée sur l'axe, tranchée
   et quais invisibles). ⚠ Vérif d'une autre bande sur une même ville :
   `CM.layout.counts.eraBand = n; __metro({ replan: true })`.
+- 2026-10-06 — **retour de Raph en jeu : les voitures volantes « ne passent pas au-dessus
+  du fleuve, elles disparaissent »** (lot 13 de l'audit du 05/10). Deux causes :
+  1. L'eau n'est ni une rue ni la ville (`urbanSet`) : les rues qui descendent au fleuve
+     s'arrêtaient au quai, leur porte se posait sur la berge, et chaque voiture s'y
+     effaçait au bord de l'eau (6 portes au bord de l'eau dans la ville des tests, bande
+     7). Un couloir qui bute sur l'eau la **franchit** (`crossWater`, appliqué aux
+     tronçons CHOISIS : mêmes couloirs, mêmes hauteurs) : il retrouve la rue de la même
+     colonne sur l'autre rive (un seul couloir), sinon sa porte se pose sur la première
+     case de la berge d'en face. Pas de franchissement là où quelque chose se dresse
+     (bâtiment, merveille, ports, Plaisirs, îlot, téléphérique) : porte au quai, comme
+     avant. Le **métro du quai d'en face** se survole sans s'y poser ; à la bande 7 (1,95
+     tuile, sous la rame et la gare) le couloir l'enjambe d'une bosse à 2,4 (`laneAlt`).
+     Les jetpacks gardent les rues (`_runs`) : ils ne se posent pas sur l'eau.
+  2. Bande 9 : les voies du fleuve étaient **coupées net** dans l'emprise de l'îlot
+     flottant (la voiture disparaissait au milieu de l'eau, reparaissait 7 cases plus
+     loin) ; elles s'en écartent maintenant, chacune de son côté (`skirt`, rampe de 6
+     tuiles), comme le disait le lot 4.
+  Vérifié en jeu (Chrome headless, captures déterministes) : planche
+  `planches/voitures-volantes/`. Gardes : `isoSkyTraffic.test.js`.
