@@ -86,18 +86,20 @@ export const HOUSE_WINDOWS = {
   ],
   // LES ROMAINES TOURNÉES VERS LEUR RUE (bande 4, 2026-10-04, docs/PLAN-ILOTS.md) :
   // autres vues des mêmes objets — « fr » = façade à droite, « bl »/« br » = le dos.
-  // Domus : portes, porche et fente de l'atrium éteints ; la marque sous l'avant-toit de
-  // l'aile gauche (« fr », 2 px, ombre ou lucarne ?) laissée éteinte faute de vitre franche.
+  // Domus : portes, porche et fente de l'atrium éteints. Depuis le 2026-10-06 :
+  //   « fr » = la domus retournée (miroir, lumière repeinte face par face) ; ses fenêtres
+  //   sont celles de la domus en miroir, x' = 64 - x - largeur — sur le mur passé au soleil,
+  //   l'ébrasement à l'ombre est devenu un cadre clair : on n'allume que la vitre ;
+  //   « bl » = le dos, corps principal seul (trois fenêtres sur le long mur, les deux du mur
+  //   d'ombre de la domus) ; « br » = ce dos retourné, même règle que « fr ».
   'domus-fr': [
-    [20, 35, 2, 2, 22, 34, 2, 3], [46, 30, 1, 3, 47, 29, 1, 4, 48, 30, 1, 3],
+    [52, 28, 1, 3, 51, 29, 1, 2], [29, 34, 2, 3], [21, 34, 1, 3], [14, 30, 1, 3],
   ],
   'domus-bl': [
-    [18, 34, 1, 2, 19, 34, 1, 2, 20, 34, 1, 3, 21, 34, 1, 3],
-    [30, 37, 1, 1, 31, 35, 1, 3, 32, 35, 1, 4, 33, 35, 1, 4],
+    [12, 22, 2, 3], [22, 27, 2, 3], [32, 32, 2, 3], [42, 34, 2, 3], [49, 30, 1, 3, 50, 29, 1, 3],
   ],
   'domus-br': [
-    [16, 34, 1, 2, 17, 33, 1, 3, 18, 33, 1, 3], [28, 35, 1, 3, 29, 35, 1, 3, 30, 36, 1, 3],
-    [41, 35, 1, 2, 42, 34, 1, 3], [47, 29, 1, 3, 48, 28, 1, 4],
+    [50, 22, 2, 3], [40, 27, 2, 3], [30, 32, 2, 3], [21, 34, 1, 3], [14, 30, 1, 3],
   ],
   // Échoppe de dos : volets clos allumés (comme ceux de la maison de ville, Raph
   // 2026-10-03) ; la face à l'ombre de « bl », noire et encombrée, reste éteinte.

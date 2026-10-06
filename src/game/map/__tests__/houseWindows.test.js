@@ -39,8 +39,9 @@ describe('fenêtres relevées des maisons', () => {
     insula: [[0, 48, 64, 28]],       // les arcades du rez
     stonehouse: [[13, 35, 4, 8]],    // la porte
     // Les romaines tournées (2026-10-04) : portes, porche, portes cintrées, rambarde.
-    'domus-fr': [[31, 34, 5, 11], [40, 37, 7, 8]],
-    'domus-bl': [[42, 30, 6, 14]],
+    // 2026-10-06 : « fr » est la domus retournée — son portique et sa porte, en miroir ;
+    // « bl » est le dos de la domus, sans porte.
+    'domus-fr': [[33, 33, 15, 15]],
     'insula2-fr': [[33, 33, 22, 5], [33, 54, 21, 16]],
     // Les rangées mitoyennes (2026-10-04) : étals, comptoirs, portiques, portes, balcon.
     'row-taberna-fl': [[18, 57, 33, 24]],
