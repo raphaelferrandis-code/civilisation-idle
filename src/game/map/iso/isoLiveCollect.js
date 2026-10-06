@@ -20,6 +20,7 @@ import { vehicleLaneOffset } from '../agents.js';
 import { CM, CM_WONDERS, cmEngineHomeHidden, cmHash, cmWonderActiveIds } from '../layout.js';
 import { pixelHouseReady } from '../pixelHouses.js';
 import { REVEAL_PIN_MS, SMOKE_TUNE, crisisSmokeShare } from './isoAmbient.js';
+import { DECLINE, isAbandoned } from '../cityDecline.js';
 import { bridgeBlocks, bridgeGeoms, pushIsoBridgeItems } from './isoBridge.js';
 import { pushIsoWonderItems } from './isoWonder.js';
 import { isoEngineScenesFlag } from './isoEngineScene.js';
@@ -133,13 +134,17 @@ export function collectIsoItems(bake, now) {
     // elle doit passer sous le voisin situé au nord, pas par-dessus tout.
     if (smokeK > 0 && (t.type === 'house' || t.type === 'enginehome') && pixelHouseReady(t)) {
       if (t._smokeS === undefined) t._smokeS = cmHash('smk:' + t.gx + ':' + t.gy) >>> 0;
-      if (t._smokeS % SMOKE_TUNE.share === 0) { const it = pushItem(); it.d = d + 0.001; it.kind = 'smoke'; it.t = t; }
+      // (Un foyer abandonné ne fume plus — cityDecline.js.)
+      if (t._smokeS % SMOKE_TUNE.share === 0 && !isAbandoned(t, L)) { const it = pushItem(); it.d = d + 0.001; it.kind = 'smoke'; it.t = t; }
     }
     // FUMÉE DE CRISE (isoAmbient) : colonne de suie, tirage FIXE par maison (le
     // même hash à chaque frame → une maison qui fume continue de fumer).
+    // Avec la ville qui s'éteint (cityDecline.js), la suie monte des quartiers ABANDONNÉS :
+    // une part ×1,5 d'entre eux, soit à peu près la part d'avant sur toute la ville.
     if (crisisP > 0 && (t.type === 'house' || t.type === 'enginehome') && pixelHouseReady(t)) {
       if (t._crisisS === undefined) t._crisisS = cmHash('crs:' + t.gx + ':' + t.gy) >>> 0;
-      if ((t._crisisS % 1000) < crisisP * 1000) { const it = pushItem(); it.d = d + 0.0012; it.kind = 'crisissmoke'; it.t = t; }
+      const burns = DECLINE.on ? isAbandoned(t, L) && (t._crisisS % 1000) < crisisP * 1500 : (t._crisisS % 1000) < crisisP * 1000;
+      if (burns) { const it = pushItem(); it.d = d + 0.0012; it.kind = 'crisissmoke'; it.t = t; }
     }
     // CHEVRON « nouveau bâtiment » (A4) : item SÉPARÉ juste au-dessus du sien
     // (profondeur > fumée), le temps de REVEAL_PIN_MS après l'achat. Coupé par le

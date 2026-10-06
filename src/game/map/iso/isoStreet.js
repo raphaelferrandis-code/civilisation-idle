@@ -46,6 +46,7 @@ import { drawSunShadow } from './isoSunShadow.js';
 // mobilier d'avant (PNG, parterres) a été retiré le 2026-10-06 (audit, MORT-13).
 import { streetKitFor, streetKitGlow, streetKitLampArt, streetKitPlantArt, wildShrubArt } from './streetKits.js';
 import { chuteLightsOut } from './chuteState.js';
+import { isAbandonedAt } from '../cityDecline.js';
 
 // ── NUIT : voile bleu puis halos des lampadaires ────────────────────────────
 // Lit CM.nightF (cycle jour/nuit du runtime, forcé par les captures). Lumières
@@ -665,7 +666,9 @@ function isoLampStride(L, band) {
   }
   return Math.max(1, Math.ceil(nVis / LAMP_LIGHT_CAP));
 }
-export const lampLit = (lp, K) => K.stride <= 1 || ((cmHash('lmpcap:' + lp.gx + ':' + lp.gy) >>> 0) % K.stride) === 0;
+// (Un quartier abandonné n'éclaire plus ses rues — la ville qui s'éteint, cityDecline.js.)
+export const lampLit = (lp, K) => (K.stride <= 1 || ((cmHash('lmpcap:' + lp.gx + ':' + lp.gy) >>> 0) % K.stride) === 0)
+  && !isAbandonedAt(Math.floor(lp.gx), Math.floor(lp.gy));
 
 // Emprise ÉCRAN, généreuse, de la lumière d'un mât : nappe de tête, flaque au
 // sol et cœurs réunis. Elle décide quels sprites paieront une découpe — la

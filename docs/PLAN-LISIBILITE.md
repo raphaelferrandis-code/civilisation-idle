@@ -59,6 +59,38 @@ les autres rentrent dans le rang. (Leçon d'août : une hiérarchie est RARE par
 Compter, en 2560×1340 (fenêtre de Raph), les cadres et les informations visibles en même
 temps sur la Cité ; proposer une liste de coupes chiffrée. Aucune coupe sans accord.
 
-## 3. Journal
+## 3. Relevé de l'écran Cité (U, 2026-10-06)
+
+Partie avancée fabriquée (bande 5, 6 cycles, crise de cycle ouverte → Régulation dépliée),
+2560×1340, `scratchpad/releve-cite.mjs` (cadres = bordure, image de bordure ou plaque
+`::before/::after` à image ; nombres = nœuds texte qui portent un chiffre).
+
+| Bloc | Boîte (px) | Cadres | Textes | Nombres |
+|---|---|---|---|---|
+| Boutique (10 lignes visibles) | 392 × 1 029 | **25** (10 plaques de ligne, 10 boutons) | 115 | **69** |
+| Ruban des ressources | 665 × 77 | 5 | 5 valeurs + 5 débits | 10 (odomètres découpés en chiffres) |
+| Identité | 349 × 99 | 7 | 6 | 2 |
+| Régulation (dépliée en crise) | 2 034 × 87 | 0 | 34 | 12 |
+| Rail | 77 × 697 | 1 | 9 | 1 |
+| Outils de carte | 202 × 51 | 0 | 2 | 0 |
+
+Carte cliquable : **72 %** de l'écran (Régulation dépliée). La boutique porte à elle seule
+plus de nombres que tout le reste réuni : par ligne, la production (×2 ou ×3 débits), la
+part du total, le prix, le compteur.
+
+Coupes PROPOSÉES (aucune faite) : boutique = un seul débit + le prix par ligne, le reste
+en infobulle (−30 nombres) et lignes sans plaque, séparées d'un filet (−10 cadres) ; débits
+du ruban en infobulle (−5) ; « Réserve d'absence » vers les Options.
+
+## 4. Journal
 
 - 2026-10-06 : constats chiffrés, cause de la grille trouvée (géants prévus ≠ posés).
+- G1 FAIT (`69992426`, local) : bande 7 neuve 30 → 7 % de rues nues ; save bande 8
+  31 → 7,7 %, 447 → 273 îlots.
+- U FAIT (relevé ci-dessus, coupes à arbitrer).
+- E FAIT : `map/cityDecline.js` — front d'abandon du bord vers le cœur au-delà de 50 % de
+  Rupture (par quartiers de 10 cases), maisons ternies le jour, fenêtres, verre d'ère et
+  réverbères éteints la nuit, plus de fumée de cheminée ; la suie de crise monte des
+  quartiers abandonnés. ~30 % de la ville éteinte à 75 %, le cœur (0,3 du rayon) jamais.
+  ⚠ Au dézoom < 0,55 (LOD) les fenêtres sont coupées de toute façon : seul le ternissement
+  se voit. Planche `.preview-shots/declin-planche.png`.

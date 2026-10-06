@@ -23,6 +23,7 @@ import { houseFootprint } from './procedural/buildingGenerator.js';
 import { drawSunShadow } from './iso/isoSunShadow.js';
 import { noteReflection } from './iso/isoReflect.js';
 import { drawHouseWindows } from './houseWindows.js';
+import { isAbandoned, dimmedCanvas } from './cityDecline.js';
 import { drawSceneEmissive, EMISSIVE_HOUSE } from './sceneEmissive.js';
 import { ORIENT, ROWS, ROW_VIEW, ilotArtKeys } from './ilotArt.js';
 import { ROW_VARIANTS, rowVariantIndex, recolorData } from './rowVariants.js';
@@ -515,7 +516,12 @@ export function drawPixelHouse(t, x, y, w, h) {
   const ctx = CM.ctx;
   const prev = ctx.imageSmoothingEnabled;
   ctx.imageSmoothingEnabled = false;        // pixel net
-  ctx.drawImage(g.img, g.bb.x0, g.bb.y0, g.bb.w, g.bb.h, g.dx, g.dy, g.dw, g.dh);
+  // LA VILLE QUI S'ÉTEINT (cityDecline.js) : une maison abandonnée est ternie (même
+  // silhouette), ses fenêtres ne s'allument plus, son verre d'ère non plus.
+  const dead = isAbandoned(t);
+  const dim = dead ? dimmedCanvas(g.img, g.bb.x0, g.bb.y0, g.bb.w, g.bb.h) : null;
+  if (dim) ctx.drawImage(dim, 0, 0, g.bb.w, g.bb.h, g.dx, g.dy, g.dw, g.dh);
+  else ctx.drawImage(g.img, g.bb.x0, g.bb.y0, g.bb.w, g.bb.h, g.dx, g.dy, g.dw, g.dh);
   ctx.imageSmoothingEnabled = prev;
   // Cette maison est peinte APRÈS les lampes qui se trouvent derrière elle :
   // elle doit donc effacer leur halo là où sa silhouette passe devant (cf.
@@ -524,10 +530,10 @@ export function drawPixelHouse(t, x, y, w, h) {
   lightCutImage(g.img, g.dx, g.dy, g.dw, g.dh, g.bb.x0, g.bb.y0, g.bb.w, g.bb.h);
   // La nuit, ses fenêtres s'allument (houseWindows.js) — dans le calque de lumière,
   // APRÈS la découpe : sa propre silhouette ne doit pas les effacer.
-  drawHouseWindows(t, g);
+  if (!dead) drawHouseWindows(t, g);
   // Skins des ères cosmiques (« <variante>-cosmic-<bande> ») : leur verre a la teinte de
   // l'ère, il s'allume comme celui des scènes moteur (sceneEmissive.js).
-  const ci = g.key ? g.key.indexOf('-cosmic-') : -1;
+  const ci = g.key && !dead ? g.key.indexOf('-cosmic-') : -1;
   if (ci >= 0) {
     const band = +g.key.slice(ci + 8);
     drawSceneEmissive(g.img, g.dx, g.dy, g.dw, g.dh, band, g.bb.x0, g.bb.y0, g.bb.w, g.bb.h, EMISSIVE_HOUSE[band] ?? 1);
