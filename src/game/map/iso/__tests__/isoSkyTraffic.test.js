@@ -262,14 +262,24 @@ describe('la ville des tests à la bande 7 : aucun couloir ne finit au bord de l
     expect(L.counts.eraBand).toBe(7);
     const R = L.river, Tt = CM.TILE;
     const lanes = skyLanesOf(L, 7).filter((l) => !l.river && l.axis === 'y' && l.dir === 1);
+    // Un bâtiment entre la porte et l'eau barre le passage (crossWater, cas « obstacle ») :
+    // la voie s'arrête alors sur sa rue. Depuis la ville compacte (docs/PLAN-LISIBILITE.md,
+    // G1), un moulin de la berge en barre un ; seul ce cas est épargné.
+    const occ = new Set();
+    for (const t of L.tiles) {
+      if (t.type === 'field') continue;
+      const sx = t.spanX || t.size || 1, sy = t.spanY || t.size || 1;
+      for (let i = 0; i < sx; i += 1) for (let j = 0; j < sy; j += 1) occ.add((t.gx + i) + ',' + (t.gy + j));
+    }
+    const barred = (x, y0, st) => { for (let k = 0, y = y0; k < CROSS.reach && !R.isWater(x, y); k += 1, y += st) if (occ.has(x + ',' + y)) return true; return false; };
     let crossing = 0;
     for (const l of lanes) {
       const a = Math.round(l.a / Tt - 0.3), b = Math.round(l.b / Tt + 0.3);
-      // aucune porte à 3 cases ou moins de l'eau, côté eau (dans cette ville, rien ne
-      // barre le passage) ; les portes au sec
+      // aucune porte à 3 cases ou moins de l'eau, côté eau (sauf passage barré) ; les
+      // portes au sec
       for (let k = 0; k < CROSS.reach; k += 1) {
-        expect(R.isWater(l.row, b + k), `couloir ${l.row} : porte au bord de l'eau (bout sud)`).toBe(false);
-        expect(R.isWater(l.row, a - 1 - k), `couloir ${l.row} : porte au bord de l'eau (bout nord)`).toBe(false);
+        if (!barred(l.row, b, 1)) expect(R.isWater(l.row, b + k), `couloir ${l.row} : porte au bord de l'eau (bout sud)`).toBe(false);
+        if (!barred(l.row, a - 1, -1)) expect(R.isWater(l.row, a - 1 - k), `couloir ${l.row} : porte au bord de l'eau (bout nord)`).toBe(false);
       }
       expect(R.isWater(l.row, a) || R.isWater(l.row, b - 1)).toBe(false);
       let w = false; for (let y = a; y < b; y += 1) if (R.isWater(l.row, y)) w = true;

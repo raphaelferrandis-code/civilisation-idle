@@ -192,7 +192,17 @@ export function planIlots(o) {
   const role = new Map();                              // "i:j" → { kind, key?, plazaKind?, size? }
   const opened = [], openedSet = new Set();
   const openB = (b) => { opened.push(b); openedSet.add(bkey(b)); };
-  for (const k of mem.blocks || []) { const b = blockByKey(k); if (b && !openedSet.has(k)) openB(b); }
+  // L'ANNEAU VIDE (docs/PLAN-LISIBILITE.md, G1) : une fiche d'avant la correction des grands
+  // logis (`o.release`) a ouvert un anneau d'îlots que rien n'habite — quelques ateliers
+  // semés, pas une maison. Une fois, seuls se rouvrent les îlots mémorisés qui ont un
+  // RÔLE (forum, place, halle) ou qui logent une MAISON (lot tenu par un `dec_*`) ; les
+  // autres redeviennent pré, leurs ateliers sont ressemés en ville, leurs rues effacées
+  // (layout.js, `droppedRing`). Ensuite la règle est celle d'avant : un îlot ouvert le reste.
+  const DEC_RE = /:dec_/;
+  const memRole = new Set([...Object.keys(mem.plazas || {}), ...Object.values(mem.halls || {})]);
+  const houseIn = (b) => !!o.isHeld && b.cells.some((c) => o.isHeld(c.x, c.y) && DEC_RE.test((o.heldOwner && o.heldOwner(c.x, c.y)) || ""));
+  const memKept = (k, b) => !o.release || memRole.has(k) || houseIn(b);
+  for (const k of mem.blocks || []) { const b = blockByKey(k); if (b && !openedSet.has(k) && memKept(k, b)) openB(b); }
   for (const [k, kind] of Object.entries(mem.plazas || {})) if (openedSet.has(k)) role.set(k, { kind: "plaza", plazaKind: kind });
   const full4 = (b) => b.cells.length === (pitch - 1) * (pitch - 1);
   // LES PELOUSES DE L'ÉCHANGEUR (layout.js, autoroute de l'artère — audit 2026-10-05,
@@ -350,7 +360,6 @@ export function planIlots(o) {
   // près du forum (le premier îlot de l'ordre, pas le rang de sa zone : celui-ci a grandi
   // avec la ville depuis sa pose), à l'angle d'un îlot de MAISONS : les maisons de son
   // emprise sont relogées (`forumClaim`), jamais un autre monument ni un atelier.
-  const DEC_RE = /:dec_/;
   const ousted = new Set();
   if (forumGrew) for (const h of o.demand.halls) if (gfAll.includes(memHalls[h.key])) ousted.add(h.key);
   // Un carré sz × sz de l'îlot où rien d'autre qu'une maison ne tient (les ateliers sont
@@ -524,14 +533,21 @@ export function planIlots(o) {
   }
   // 2. Les nouveaux : un rang cible tiré par (métier, index), puis le premier îlot
   //    qui convient en tournant à partir de là.
+  //    DANS LA VILLE D'ABORD (docs/PLAN-LISIBILITE.md, G1) : les îlots qui logent la demande
+  //    (`nPref`, le préfixe de houseBlocks dont la capacité la couvre), pas la marge du bord
+  //    — semés sur tous les îlots, des ateliers tenaient seuls des îlots sans maison, une
+  //    boutique au milieu d'un quadrillage de rues. Repli sur la marge si la ville est pleine.
   const nH = houseBlocks.length;
+  let nPref = 0;
+  for (let cap = 0; nPref < nH && cap < o.demand.lots; nPref += 1) cap += capOf(houseBlocks[nPref]);
+  nPref = Math.max(1, Math.min(nH, nPref));
   for (const a of o.demand.annexes) {
     if (annexAt.has(a.key) || !nH) continue;
     const u = ((a.index * 0.6180339887 + (hash("ilot:" + a.id) % 1000) / 1000) % 1 + 1) % 1;
-    const r0 = Math.floor(u * nH);
+    const r0 = Math.floor(u * nPref);
     let done = false;
     for (let s = 0; s < nH && !done; s += 1) {
-      const b = houseBlocks[(r0 + s) % nH];
+      const b = houseBlocks[s < nPref ? (r0 + s) % nPref : s];
       const ty = typesIn.get(bkey(b));
       if (ty && ty.has(a.id)) continue;
       for (const l of b.lots) {
@@ -618,8 +634,16 @@ export function planIlots(o) {
   for (const b of blocks) { const r = role.get(bkey(b)); if (r && r.kind === "plaza") memPlazas[bkey(b)] = r.plazaKind; }
   const memOut = { blocks: blocks.map(bkey), plazas: memPlazas, halls: memHalls, annexes: memAnnex };
   for (const k of Object.keys(memOut.halls)) if (!openedSet.has(memOut.halls[k])) delete memOut.halls[k];
+  // Les rues des îlots mémorisés qui ne se sont pas rouverts (`o.release`, l'anneau vide) :
+  // le pourtour de chacun, moins ce qui borde encore un îlot ouvert (les rues de la ville).
+  const droppedRing = new Set();
+  for (const k of mem.blocks || []) {
+    if (openedSet.has(k)) continue;
+    const b = blockByKey(k);
+    if (b) for (const c of b.ring) { const ck = c.x + "," + c.y; if (!streets.has(ck)) droppedRing.add(ck); }
+  }
   // `order` : la suite complète, calculée seulement si quelqu'un la lit.
   // `forumClaim` : cases tenues que le grand forum reprend (migration d'une fiche d'avant) —
   // leurs bâtiments sont à reloger (layout.js).
-  return { grid, get order() { return order.all(); }, blocks, opened: openedSet, streets, plazas, halls, hallBlock, hallAt, annexAt, lots, lotFace, courts, air, memory: memOut, seed, forumClaim };
+  return { grid, get order() { return order.all(); }, blocks, opened: openedSet, streets, plazas, halls, hallBlock, hallAt, annexAt, lots, lotFace, courts, air, memory: memOut, seed, forumClaim, droppedRing };
 }

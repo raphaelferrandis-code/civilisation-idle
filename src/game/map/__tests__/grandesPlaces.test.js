@@ -66,20 +66,27 @@ describe("les grandes places des villes par îlots", () => {
     for (let y = R.y0; y <= R.y1; y += 1) for (let x = R.x0; x <= R.x1; x += 1) expect(L.roadMap.get(x + "," + y)?.rank, `${x},${y}`).toBe("plaza");
     expect(state.cityCore.ilot.v).toBe(ILOT_MEMORY_V);
     for (const k of GF) expect(state.cityCore.ilot.plazas[k]).toBe("centrale");
-    // Les rues : aucune perdue hors du forum, aucun rang abaissé.
+    // Les rues : aucune perdue hors du forum, aucun rang abaissé. Seule exception, la
+    // fiche v4 → v5 (docs/PLAN-LISIBILITE.md, G1) : l'ANNEAU VIDE se referme — une rue
+    // perdue ne touche plus aucun îlot ouvert (urbanSet sans les rues = leurs cases).
+    const blockCell = (q) => L.urbanSet.has(q) && !L.roadMap.has(q);
+    const ringOnly = (x, y) => { for (let dy = -1; dy <= 1; dy += 1) for (let dx = -1; dx <= 1; dx += 1) if (blockCell((x + dx) + "," + (y + dy))) return false; return true; };
     const lost = [], lower = [];
     for (const [k, r] of roads0) {
       const [x, y] = k.split(",").map(Number);
       if (inRect(R, x, y)) continue;
       const c = L.roadMap.get(k);
-      if (!c) lost.push(k); else if (RANK[c.rank] < RANK[r]) lower.push(k);
+      if (!c) { if (!ringOnly(x, y)) lost.push(k); } else if (RANK[c.rank] < RANK[r]) lower.push(k);
     }
     expect(lost, "rues perdues").toEqual([]);
     expect(lower, "rangs abaissés").toEqual([]);
-    // Les îlots ouverts restent ouverts ; les autres places et les halles hors du forum
-    // ne bougent pas.
+    // Les îlots ouverts restent ouverts (sauf ceux de l'anneau vide : sans maison ni
+    // rôle, ils se referment) ; les autres places et les halles hors du forum ne
+    // bougent pas.
     const mem = state.cityCore.ilot;
-    expect(mem0.blocks.filter((k) => !mem.blocks.includes(k))).toEqual([]);
+    const outside = L.tiles.filter((t) => (t.type === "house" || t.type === "enginehome") && !L.urbanSet.has(t.gx + "," + t.gy));
+    expect(outside.length, "maisons hors des îlots ouverts").toBe(0);
+    for (const k of mem0.blocks.filter((q) => !mem.blocks.includes(q))) expect(Object.values(mem0.halls).includes(k) || !!mem0.plazas[k], "îlot à rôle refermé " + k).toBe(false);
     for (const [k, v] of Object.entries(mem0.plazas)) if (!GF.includes(k)) expect(mem.plazas[k], k).toBe(v);
     for (const [k, v] of Object.entries(mem0.halls)) if (!GF.includes(v)) expect(mem.halls[k], k).toBe(v);
     // Les bâtiments : aucun perdu ; un bâtiment déplacé tenait le forum, ou c'est une
@@ -102,7 +109,8 @@ describe("les grandes places des villes par îlots", () => {
       if (a.dx === v.dx && a.dy === v.dy) continue;
       moved += 1;
       const x = v.dx + L.cx, y = v.dy + L.cy;
-      if (!inRect(R, x, y) && !(/:dec_/.test(k) && hallFoot.has(x + "," + y))) stray.push(k);
+      // (Un atelier qui tenait seul un îlot de l'anneau vide, refermé, est ressemé en ville.)
+      if (!inRect(R, x, y) && !(/:dec_/.test(k) && hallFoot.has(x + "," + y)) && !(!/:dec_/.test(k) && !blockCell(x + "," + y))) stray.push(k);
     }
     expect(gone).toEqual([]);
     expect(moved, "relogés").toBeGreaterThan(0);

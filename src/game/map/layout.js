@@ -241,12 +241,31 @@ export const ENGINE_HOME_LOOKAHEAD = 44;
 // 2,0 lots par 2×2 et 0,9 par 1×2 : mesuré au Néon (516 grands ensembles, 289 tours
 // sur 1 100 logis : 83 maisons-moteur sans lot à 1,3 / 0,7, encore une à 1,8 / 0,8). L'excédent, quand des
 // tirages 2×2 se replient sur une case, reste en jardins (lots libres, cf. urbanSet).
+// ⚠⚠ CET EXCÉDENT, C'ÉTAIT LA GRILLE (docs/PLAN-LISIBILITE.md, G1, 2026-10-06). Aux bandes
+// cosmiques, 3 tirages sur 10 sont des géants 2×2 — mais au cœur ils se rabattent sur le
+// gratte-ciel d'une case (TOURS_COEUR) et en couronne ils trouvent rarement un angle libre :
+// 30 posés sur 1 844 logis (bande 7), soit ~1 000 lots prévus pour rien. La ville ouvrait
+// un ANNEAU d'îlots vides de 2-3 îlots d'épaisseur, quadrillé de rues nues (31 % des cases
+// de rue à la bande 8) — la « grille » d'un regard extérieur. Deux corrections :
+//  - `cosmicFit` : la part des tirages géants qui se pose vraiment, au premier calcul d'une
+//    bande cosmique (mesurée, cf. le plan) ;
+//  - ensuite la ville se règle sur ce qu'elle a POSÉ au calcul précédent (`cityCore.ilot.big`,
+//    rapport lots en plus / logis, par bande) — jamais au-delà de l'estimation par tirage.
+// `safety` et `pad` : la marge sur ce rapport (un géant de plus qui trouve son angle ne doit
+// laisser aucune maison-moteur sans lot ; LOT_MARGIN d'ilotLayout s'ajoute encore).
+// Mesuré (2026-10-06, `__demoCity` 1e40 et 1e60, bande 7) : 22 à 26 lots en plus pour une
+// estimation de 1 056 → 2 % ; `cosmicFit` en garde 5 % (premier calcul d'une bande).
+export const ILOT_BIG = { cosmicFit: 0.05, safety: 1.15, pad: 8, memo: true };
+if (import.meta.env?.DEV && typeof window !== "undefined") {
+  // Molette : __ilotBig({ memo: false }) rejoue l'estimation seule ; puis __cityRecompute().
+  window.__ilotBig = (o) => { if (o && typeof o === "object") Object.assign(ILOT_BIG, o); return { ...ILOT_BIG }; };
+}
 function ilotBigHomeLots(band, bias, seed, nHouse, nHome) {
   const row = VARIANTS_HOUSE[Math.max(0, Math.min(VARIANTS_HOUSE.length - 1, band | 0))];
   const list = (bias && row[bias]) || row.base;
   const extraOf = list.map((v) => { const [x, y] = houseFootprint(v, band); const a = x * y; return a >= 4 ? 2.0 * (a - 1) / 3 : a === 2 ? 0.9 : 0; });
   if (!extraOf.some(Boolean)) return 0;
-  if ((band | 0) >= 7) return Math.round((nHouse + nHome) * extraOf.reduce((u, e) => u + e, 0) / list.length);
+  if ((band | 0) >= 7) return Math.round((nHouse + nHome) * ILOT_BIG.cosmicFit * extraOf.reduce((u, e) => u + e, 0) / list.length);
   let extra = 0;
   for (const [cat, n] of [["house", nHouse], ["enginehome", nHome]]) {
     for (let k = 0; k < n; k += 1) extra += extraOf[hashString(seed + ":" + cat + ":v" + k) % list.length];
@@ -272,13 +291,17 @@ const ILOT_HALL_MAX = 3;
 // fois (plus bas, « LA RESPIRATION DES ÎLOTS ») ; 3 = rues du hameau effacées pour de
 // bon à la réorganisation (audit 2026-10-05, BUG-13) — une fiche v2 qui les a gardées
 // efface une fois ses rues mémorisées (ses maisons, elles, ne bougent pas) ; 4 = grand
-// forum (audit 2026-10-05, BUG-63) — une fiche v3 agrandit son forum une fois.
-export const ILOT_MEMORY_V = 4;
+// forum (audit 2026-10-05, BUG-63) — une fiche v3 agrandit son forum une fois ; 5 = l'anneau
+// vide (docs/PLAN-LISIBILITE.md, G1) — une fiche v4 referme une fois ses îlots sans maison ni
+// rôle (ilotLayout `release`) et efface leurs rues.
+export const ILOT_MEMORY_V = 5;
 // Version à partir de laquelle la mémoire des rues d'une ville par îlots est sûre
 // (plus de sentiers du hameau à y chercher).
 const ILOT_ROADS_V = 3;
 // Version à partir de laquelle le forum est né grand (ilotLayout.js, GRAND_FORUM).
 const ILOT_FORUM_V = 4;
+// Version à partir de laquelle la fiche n'a plus d'anneau vide (grands logis comptés juste).
+const ILOT_RING_V = 5;
 if (import.meta.env?.DEV && typeof window !== "undefined") {
   // Molette : __annexBody(false) → les annexes reprennent la scène de leur halle.
   window.__annexBody = (on) => {
@@ -2592,8 +2615,15 @@ function computeCityLayout(s) {
     // logis comptés tirage par tirage (cf. ilotBigHomeLots).
     const nHouse = Math.max(0, Math.round(c.houses * (bias.house || 1)));
     const nHome = (c.engineHomes || 0) + ENGINE_HOME_LOOKAHEAD;
-    const lots = nHouse + nHome + ilotBigHomeLots(c.eraBand, personality.variantBias, mapSeed, nHouse, nHome) + annexLots;
-    ilotDemand = { lots, halls, annexes };
+    // Les grands logis : l'estimation par tirage, ramenée à ce que la ville a vraiment
+    // posé au calcul précédent de la même bande (cf. ILOT_BIG).
+    const bigEst = ilotBigHomeLots(c.eraBand, personality.variantBias, mapSeed, nHouse, nHome);
+    const bigMem = ILOT_BIG.memo && s.cityCore && s.cityCore.ilot && s.cityCore.ilot.big;
+    const bigLots = bigMem && bigMem.b === (c.eraBand | 0)
+      ? Math.min(bigEst, Math.ceil(bigMem.r * (nHouse + nHome) * ILOT_BIG.safety) + ILOT_BIG.pad)
+      : bigEst;
+    const lots = nHouse + nHome + bigLots + annexLots;
+    ilotDemand = { lots, halls, annexes, bigEst, bigLots };
   }
   const cityReachBase = ilotMode ? ilotReachFor({ lots: ilotDemand.lots, halls: ilotDemand.halls.length }) : eraReachBase;
   // ── Plan de ville procédural : archétype, cœur urbain, quartiers, places ──
@@ -2965,8 +2995,14 @@ function computeCityLayout(s) {
   // v4 (audit 2026-10-05, BUG-63) : le forum d'un îlot d'une fiche d'avant s'agrandit
   // une fois en GRAND FORUM (planIlots, `forumGrow`) ; seuls les bâtiments des trois îlots
   // gagnés sont relogés (plus bas, `forumClaim`).
-  let ilotForumGrow = false;
+  // v5 (2026-10-06, docs/PLAN-LISIBILITE.md, G1) : l'anneau d'îlots vides des grands logis
+  // trop comptés se referme une fois (`ilotRelease`, cf. planIlots et `droppedRing` plus bas).
+  let ilotForumGrow = false, ilotRelease = false;
   if (ilotMode && s.cityCore && s.cityCore.ilot && (s.cityCore.ilot.v | 0) < ILOT_MEMORY_V) {
+    // ⚠ Pas une fiche v1 : ses maisons sont effacées juste en dessous (respiration), et
+    // l'anneau se reconnaît aux îlots SANS maison — tous le seraient, la ville entière
+    // se refermerait. (Les fiches v1 n'ont vécu que le 04/10.)
+    if ((s.cityCore.ilot.v | 0) >= 2 && (s.cityCore.ilot.v | 0) < ILOT_RING_V) ilotRelease = true;
     if ((s.cityCore.ilot.v | 0) < 2) {
       const store = cmCityMapSlotsFor(s), pre = `${s.cycles || 0}:dec_`;
       for (const k of Object.keys(store)) if (k.startsWith(pre)) delete store[k];
@@ -3743,7 +3779,7 @@ function computeCityLayout(s) {
       return il;
     };
     const runIlots0 = (lawn) => planIlots({
-      N, cx, cy, core: plan.core, bx: bxI, forumGrow: ilotForumGrow,
+      N, cx, cy, core: plan.core, bx: bxI, forumGrow: ilotForumGrow, release: ilotRelease,
       isWet: (x, y) => riverSet.has(x + "," + y),
       isBank: (x, y) => bankSet.has(x + "," + y),
       isReserved: (x, y) => { const k = x + "," + y; return wonderCells.has(k) || plaisirsClear.has(k) || tradeHeld.has(k); },
@@ -3835,7 +3871,34 @@ function computeCityLayout(s) {
         for (const k of highway.lawn) { if (ilot.streets.has(k)) continue; townReserve.add(k); townGreen.add(k); }
       }
     }
-    if (s.cityCore) s.cityCore.ilot = { v: ILOT_MEMORY_V, ...ilot.memory };
+    // `big` (cf. ILOT_BIG) n'est pas dans la mémoire de planIlots : il se reporte, et le
+    // relevé d'après la pose des maisons le met à jour.
+    if (s.cityCore) {
+      const big = s.cityCore.ilot && s.cityCore.ilot.big;
+      s.cityCore.ilot = { v: ILOT_MEMORY_V, ...ilot.memory, ...(big ? { big } : {}) };
+    }
+    // L'ANNEAU VIDE REFERMÉ (fiche v4 → v5, cf. `ilotRelease`) : ses rues étaient entrées
+    // dans la mémoire du réseau (R1, « une rue posée ne disparaît plus ») — exception
+    // explicite et unique, comme le fleuve ou une merveille : une rue qui n'a jamais bordé
+    // qu'un îlot vide s'efface. Rien de ce qui borde un îlot rouvert ne bouge.
+    if (ilot.droppedRing && ilot.droppedRing.size) {
+      const inBlock = new Set();
+      for (const b of ilot.blocks) for (const q of b.cells) inBlock.add(q.x + "," + q.y);
+      for (const p of ilot.plazas) for (const q of p.block.cells) inBlock.add(q.x + "," + q.y);
+      const gone = new Set();
+      for (const k of ilot.droppedRing) {
+        const ci = k.indexOf(","), gx = +k.slice(0, ci);
+        if (!roadKey.has(k) || inBlock.has(k) || ilot.streets.has(k)) continue;
+        if (bridgeCols.has(gx) && (riverSet.has(k) || bankSet.has(k))) continue;   // le pont
+        gone.add(k);
+      }
+      if (gone.size) {
+        for (const k of gone) { roadKey.delete(k); roadMeta.delete(k); memKeep.delete(k); }
+        let w = 0;
+        for (const q of roads) if (!gone.has(q.gx + "," + q.gy)) roads[w++] = q;
+        roads.length = w;
+      }
+    }
     for (const [k, m] of ilot.streets) {
       const e = roadMeta.get(k);
       if (e) { e.h = e.h || m.h; e.v = e.v || m.v; if (rankAbove(m.rank, e.rank)) e.rank = m.rank; }
@@ -5111,6 +5174,24 @@ function computeCityLayout(s) {
   // sentiers et leurs cours, eux, se voyaient.
   placeDecor("enginehome", campLife ? 0 : (c.engineHomes || 0) + ENGINE_HOME_LOOKAHEAD);
   placingOwner = null;   // fin des poses à propriétaire (cf. heldBy)
+  // LE RELEVÉ DES GRANDS LOGIS (cf. ILOT_BIG) : combien de lots de bord en plus d'un par
+  // logis la pose a réellement pris. Mémorisé par bande ; le calcul suivant de la même
+  // bande dimensionne sa demande dessus. Pas de relevé sur une ville trop petite (bruit).
+  let ilotBigUsed = null;
+  if (ilot) {
+    const lotK = new Set(ilot.lots.map((l) => l.gx + "," + l.gy));
+    let n = 0, extra = 0;
+    for (const t of tiles) {
+      if (t.type !== "house" && t.type !== "enginehome") continue;
+      const sx = t.spanX || 1, sy = t.spanY || 1;
+      let inLots = 0;
+      for (let ax = 0; ax < sx; ax += 1) for (let ay = 0; ay < sy; ay += 1) if (lotK.has((t.gx + ax) + "," + (t.gy + ay))) inLots += 1;
+      if (!inLots) continue;
+      n += 1; extra += inLots - 1;
+    }
+    ilotBigUsed = { n, extra, est: ilotDemand.bigEst, demand: ilotDemand.bigLots };
+    if (n >= 40 && s.cityCore && s.cityCore.ilot) s.cityCore.ilot.big = { b: c.eraBand | 0, r: Math.round((extra / n) * 1e4) / 1e4 };
+  }
   // ── LES MAISONS TOURNÉES VERS LEUR RUE (docs/PLAN-ILOTS.md, lot I6) ────────
   // Une maison d'une case posée sur un lot de bord d'îlot reçoit `face`, le côté de
   // sa rue (même ordre que isoBuildingFront : S, E, W, N — le poussé vers la rue et
@@ -5694,6 +5775,8 @@ function computeCityLayout(s) {
   }
   return {
     engineHomePlaced,
+    // Relevé des grands logis (cf. ILOT_BIG) : { n, extra, est, demand } — pour les sondes.
+    ilotBig: ilotBigUsed,
     // Foyer du campement (cf. CAMP_HEARTH) : gardé de tout bâti depuis la
     // pose (hearthClear), il n'a plus qu'à être publié.
     campHearth: hearthCell,

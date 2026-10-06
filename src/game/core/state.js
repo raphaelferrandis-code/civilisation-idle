@@ -1802,7 +1802,11 @@ function normalizeCityIlot(raw) {
   // `v` : version de la fiche (layout.js ILOT_MEMORY_V) — la perdre au chargement
   // replacerait les maisons à chaque rechargement.
   const v = Number.isInteger(raw.v) && raw.v >= 1 && raw.v <= 99 ? raw.v : 1;
-  return { v, blocks, plazas, halls, annexes };
+  // `big` : lots de bord pris en plus par les grands logis au dernier calcul, par logis,
+  // et sa bande (layout.js ILOT_BIG) — une mesure, pas un état : perdue, elle se refait.
+  const big = isPlainObject(raw.big) && Number.isInteger(raw.big.b) && raw.big.b >= 0 && raw.big.b <= 20
+    && Number.isFinite(raw.big.r) && raw.big.r >= 0 && raw.big.r <= 4 ? { b: raw.big.b, r: raw.big.r } : null;
+  return { v, blocks, plazas, halls, annexes, ...(big ? { big } : {}) };
 }
 
 // Les deux ports figés à leur fondation (docs/PLAN-PORTS.md, map/portSites.js) :
