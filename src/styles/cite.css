@@ -114,7 +114,7 @@
     padding: 0.22rem 0.6rem 0.28rem;
     /* Le plancher de 11 px (variables.css) : 0.68 → 0.6875, imperceptible
        (décision de Raph, audit 2026-10-05, BUG-119). */
-    font-size: 0.6875rem;
+    font-size: var(--fs-read);
   }
 
   /* ── La boutique : s'arrête au-dessus de la poignée de Régulation ───────── */
@@ -139,8 +139,9 @@
   }
   :root:not([data-pointer="coarse"]) .app[data-active-view="city"] .city-shop-dock .buy-mode {
     min-height: 0;
-    padding: 0.32rem 0.3rem 0.38rem;
-    font-size: 0.72rem;
+    /* En px : la ligne de 20 px + le socle de la plaque, sans demi-pixel. */
+    padding: 2px 5px 4px;
+    font-size: var(--fs-read);
   }
 
   /* RANGÉES À VIGNETTE (maquette .buy) : l'icône du bâtiment à gauche, le nom
@@ -234,7 +235,7 @@
     gap: 0.15rem 0.55rem;
   }
   :root:not([data-pointer="coarse"]) .app[data-active-view="city"] .city-shop-dock .pr-prod-item {
-    font-size: 0.74rem;
+    font-size: var(--fs-read);
   }
   :root:not([data-pointer="coarse"]) .app[data-active-view="city"] .city-shop-dock .pr-footer {
     display: contents;
@@ -242,7 +243,7 @@
   :root:not([data-pointer="coarse"]) .app[data-active-view="city"] .city-shop-dock .pr-gain {
     grid-area: gain;
     align-self: end;
-    font-size: 0.6875rem;   /* plancher de 11 px (BUG-119) */
+    font-size: var(--fs-read);   /* plancher de 11 px (BUG-119) */
   }
   :root:not([data-pointer="coarse"]) .app[data-active-view="city"] .city-shop-dock .pr-step-track {
     grid-area: track;
@@ -277,12 +278,12 @@
   /* 0.6875rem, le plancher de 11 px, et non la cote V4 (0.58rem = 9,3 px) : jugé sur
      la planche planches/plancher-11px, décision de Raph (audit 2026-10-05, BUG-119). */
   :root:not([data-pointer="coarse"]) .app[data-active-view="city"] .city-shop-dock .btn-purchase .bp-action {
-    font-size: 0.6875rem;
-    letter-spacing: 0.12em;
+    font-size: var(--fs-read);
+    letter-spacing: 2px;
     text-transform: uppercase;
   }
   :root:not([data-pointer="coarse"]) .app[data-active-view="city"] .city-shop-dock .btn-purchase .bp-cost {
-    font-size: 0.86rem;
+    font-size: var(--fs-read);
   }
 
   /* ── La poignée de Régulation : jusqu'aux outils de carte ───────────────── */
@@ -302,8 +303,8 @@
   }
   :root:not([data-pointer="coarse"]) .app[data-active-view="city"] .city-controls-panel .hud-panel-toggle {
     gap: 1rem;
-    font-size: 0.72rem;
-    letter-spacing: 0.12em;
+    font-size: var(--fs-read);
+    letter-spacing: 2px;
   }
   :root:not([data-pointer="coarse"]) .app[data-active-view="city"] .city-controls-panel.is-collapsed .hud-panel-toggle {
     width: 100%;
@@ -339,7 +340,7 @@
   }
   :root:not([data-pointer="coarse"]) .app[data-active-view="city"] .regul-summary-buffer {
     margin-left: auto;
-    font: 600 0.72rem/1 var(--font-body);
+    font: 600 var(--fs-read)/16px var(--font-body);
     color: #8FD0E8;
     white-space: nowrap;
   }
@@ -348,7 +349,7 @@
   }
   :root:not([data-pointer="coarse"]) .app[data-active-view="city"] .regul-summary-pol {
     display: inline;
-    font: 650 0.72rem/1 var(--font-body);
+    font: 650 var(--fs-read)/16px var(--font-body);
     color: var(--text-mid);
     white-space: nowrap;
   }
@@ -401,7 +402,7 @@
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
-    font: 650 0.78rem/1.1 var(--font-body);
+    font: 650 var(--fs-read)/18px var(--font-body);
     color: var(--text-strong);
   }
   :root:not([data-pointer="coarse"]) .regul-quick-val {
@@ -418,7 +419,7 @@
     height: 100%;
     min-height: 0;
     padding: 0.35rem 0.5rem 0.4rem;
-    font-size: 0.74rem;
+    font-size: var(--fs-read);
   }
   :root:not([data-pointer="coarse"]) .regul-quick-council {
     align-self: end;
@@ -523,7 +524,7 @@
   }
   :root:not([data-pointer="coarse"]) .app[data-active-view="city"] .topbar .resource-rate-row {
     justify-self: start;
-    font-size: 0.72rem;
+    font-size: var(--fs-read);
   }
   :root:not([data-pointer="coarse"]) .app[data-active-view="city"] .topbar .resource-value .odo {
     font-size: round(down, 1.28rem, 1px);

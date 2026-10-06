@@ -379,8 +379,11 @@
 }
 .app .pm-collect {
   height: 2.3rem;
-  font-size: 0.8rem;
+  font-size: var(--fs-read);
   font-weight: 700;
+  /* « Relever +58.7M » tient sur DEUX lignes dans 66 px : à l'interligne de
+     20 px elles touchaient le socle de la plaque. 16 px les garde dedans. */
+  line-height: 16px;
 }
 /* Relever et la roue (2026-10-04), côte à côte : la caisse prend la place, la roue
    son mot. */
@@ -396,7 +399,7 @@
 .app .pm-back {
   height: 2.15rem;
   margin: 0 0 0.6rem;
-  font-size: 0.78rem;
+  font-size: var(--fs-read);
   font-weight: 700;
 }
 
@@ -473,15 +476,15 @@
   min-width: 0;
   overflow: hidden;
   overflow-wrap: anywhere;
-  font-size: 0.78rem;
+  font-size: var(--fs-read);
   font-weight: 700;
-  letter-spacing: 0.06em;
+  letter-spacing: 1px;
   text-transform: uppercase;
 }
 .pm-verbe {
   flex: none;
   margin-left: auto;
-  font-size: 0.6875rem; /* plancher de 11 px (variables.css) — 0.68 avant, BUG-119 */
+  font-size: var(--fs-read); /* plancher de 11 px (variables.css) — 0.68 avant, BUG-119 */
   font-weight: 600;
   color: var(--muted);
 }
@@ -560,7 +563,7 @@
   min-width: 0;
 }
 .pm-dials .doctrine-line-label {
-  font-size: 0.7rem;
+  font-size: var(--fs-read);
   font-weight: 600;
   color: var(--muted);
 }
@@ -574,7 +577,7 @@
   min-width: 0;
   min-height: 1.75rem;
   padding: 0 0.35rem;
-  font-size: 0.6875rem; /* plancher de 11 px — 0.68 avant, BUG-119 */
+  font-size: var(--fs-read); /* plancher de 11 px — 0.68 avant, BUG-119 */
 }
 .pm-dials .doctrine-input-wrap { align-self: flex-start; }
 .pm-dials .temple-auto-slider,

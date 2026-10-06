@@ -44,7 +44,7 @@
   min-height: 2.6rem;
   padding: 0.45rem 0.75rem 0.5rem 0.65rem;
   text-align: left;
-  font: 600 0.9rem/1.15 var(--font-body);
+  font: 600 var(--fs-read)/18px var(--font-body);
   color: var(--skin-cream);
 }
 /* Petite plaque de cuir, ASSOMBRIE au repos : la silhouette et son cran
@@ -119,8 +119,8 @@
 
 .help-eyebrow {
   display: block;
-  font: 700 0.7rem/1 var(--font-body);
-  letter-spacing: 0.12em;
+  font: 700 var(--fs-read)/16px var(--font-body);
+  letter-spacing: 2px;
   text-transform: uppercase;
   color: var(--gold-dim);
 }
@@ -151,8 +151,8 @@
 .help-sec h4 {
   margin: 0;
   padding-bottom: 0.5rem;
-  font: 700 0.72rem/1 var(--font-body);
-  letter-spacing: 0.12em;
+  font: 700 var(--fs-read)/16px var(--font-body);
+  letter-spacing: 2px;
   text-transform: uppercase;
   color: var(--gold-dim);
   box-shadow: inset 0 -2px 0 color-mix(in srgb, var(--skin-ink), transparent 20%);
@@ -181,7 +181,7 @@
 }
 .help-dl dd {
   margin: 0;
-  font: 400 0.93rem/1.6 var(--font-body);
+  font: 400 var(--fs-read)/26px var(--font-body);
   color: var(--text-secondary);
 }
 
@@ -190,8 +190,8 @@
    planches/plancher-11px (audit 2026-10-05, BUG-119). */
 .help-tag {
   padding: 0.2rem 0.35rem 0.15rem;
-  font: 700 0.6875rem/1 var(--font-body);
-  letter-spacing: 0.06em;
+  font: 700 var(--fs-read)/16px var(--font-body);
+  letter-spacing: 1px;
   text-transform: uppercase;
   color: var(--gold-ivory);
   background: color-mix(in srgb, var(--skin-field), transparent 45%);
@@ -217,7 +217,7 @@
   min-width: 1.6rem;
   margin: 0 0.1rem;
   padding: 0.12rem 0.4rem 0.18rem;
-  font: 700 0.75rem/1.2 var(--font-body);
+  font: 700 var(--fs-read)/19px var(--font-body);
   text-align: center;
   white-space: nowrap;
   color: var(--skin-cream);
@@ -245,8 +245,8 @@
 .options-status {
   flex: none;
   padding: 0.3rem 0.55rem;
-  font: 700 0.72rem/1 var(--font-body);
-  letter-spacing: 0.06em;
+  font: 700 var(--fs-read)/16px var(--font-body);
+  letter-spacing: 1px;
   text-transform: uppercase;
   cursor: help;
   color: var(--text-mid);

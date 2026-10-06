@@ -106,24 +106,24 @@ h1, h2, h3,
 .city-map-tooltip span {
   margin-bottom: 0.16rem;
   color: var(--gold);
-  font-size: 0.6875rem;
+  font-size: var(--fs-read);
   font-weight: 800;
-  letter-spacing: 0.04em;
+  letter-spacing: 1px;
   text-transform: uppercase;
 }
 
 .city-map-tooltip strong {
   color: #fff1bd;
-  font-size: 0.92rem;
-  line-height: 1.15;
+  font-size: var(--fs-read);
+  line-height: 18px;
 }
 
 .city-map-tooltip em {
   margin-top: 0.22rem;
   color: #d7c69a;
-  font-size: 0.78rem;
+  font-size: var(--fs-read);
   font-style: normal;
-  line-height: 1.25;
+  line-height: 20px;
 }
 
 

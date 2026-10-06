@@ -376,7 +376,7 @@
   background: rgba(12, 9, 11, 0.86);
   box-shadow: inset 0 0 0 1px #000, inset 0 0 0 2px rgba(231, 204, 186, 0.08);
   color: var(--gold-ivory);
-  font-size: 0.85rem;
+  font-size: var(--fs-read);
 }
 .rtp-stage .rt-zoom-btn:hover:not(:disabled) {
   background: rgba(44, 32, 28, 0.92);
@@ -389,28 +389,38 @@
 }
 
 /* ── Bulle (nom, effet, coût — l'essentiel seulement, retour Raphaël) ──────── */
+/* Même carte de cuir que l'infobulle du jeu (.regul-tip, components.css). */
 .rt-tooltip {
   position: absolute;
   z-index: 20;
-  max-width: 250px;
+  isolation: isolate;
+  max-width: 290px;
   display: flex;
   flex-direction: column;
-  gap: 0.3rem;
-  padding: 0.55rem 0.7rem;
+  gap: 4px;
+  padding: 14px 16px 16px;
   transform: translate(14px, 14px);
-  border: 1px solid var(--border);
-  border-radius: 8px;
-  background: rgba(14, 18, 28, 0.98);
-  box-shadow: 0 10px 28px rgba(0, 0, 0, 0.55);
   pointer-events: none;
 }
+.rt-tooltip::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  border: solid transparent;
+  border-width: 12px 6px;
+  border-image: url("/pixelart/ui/chrome/wizard/card.png") 6 3 6 3 fill stretch;
+  image-rendering: pixelated;
+  filter: brightness(0.6) saturate(0.85);
+  box-shadow: 0 6px 0 rgba(0, 0, 0, 0.45);
+}
 .rt-tooltip--flip { transform: translate(calc(-100% - 14px), 14px); }
-.rt-tip-name { font-size: 0.9rem; color: var(--text-strong); line-height: 1.2; }
-.rt-tip-effect { font-family: var(--font-body); font-size: 0.79rem; color: var(--text-secondary); line-height: 1.3; }
+.rt-tip-name { font-size: var(--fs-read); color: var(--brand-gold-bright); line-height: 20px; }
+.rt-tip-effect { font-family: var(--font-body); font-size: var(--fs-read); color: var(--skin-cream); line-height: 20px; }
 .rt-tip-foot { display: flex; flex-wrap: wrap; align-items: baseline; gap: 0.15rem 0.55rem; margin-top: 0.1rem; }
 .rt-tip-cost { font-family: var(--font-number); font-size: 0.82rem; color: var(--gold-ivory); white-space: nowrap; }
 .rt-tip-cost i { font-size: 0.72em; opacity: 0.85; }
-.rt-tip-status { font-family: var(--font-body); font-size: 0.72rem; font-weight: 700; line-height: 1.25; }
+.rt-tip-status { font-family: var(--font-body); font-size: var(--fs-read); font-weight: 700; line-height: 20px; }
 .rt-status--available,
 .rt-status--owned { color: var(--green, #36b37e); }
 .rt-status--cost { color: var(--state-soon); }

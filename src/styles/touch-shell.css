@@ -129,9 +129,9 @@
 :root[data-pointer="coarse"] .tab .tab-label {
   display: block;
   max-width: 100%;
-  font-size: 0.6875rem;
-  letter-spacing: 0.02em;
-  line-height: 1.1;
+  font-size: var(--fs-read);
+  letter-spacing: 0;
+  line-height: 18px;
   text-align: center;
 }
 
@@ -395,9 +395,9 @@
    moins lisible qu'un retour à la ligne. */
 :root[data-pointer="coarse"] .app[data-active-view="city"] .fab-label {
   font-family: var(--font-body);
-  font-size: 0.69rem;
+  font-size: var(--fs-read);
   font-weight: 700;
-  letter-spacing: 0.01em;
+  letter-spacing: 0;
   text-align: center;
 }
 
@@ -782,7 +782,7 @@
 
 :root[data-pointer="coarse"] .app[data-active-view="city"] .city-stage-hud .sg-pct {
   margin-left: auto;
-  font-size: 0.75rem;
+  font-size: var(--fs-read);
 }
 
 /* La piste s'amincit — mais PAS jusqu'au filet.
@@ -821,7 +821,7 @@
 
 :root[data-pointer="coarse"] .city-shop-dock .pr-prod-item,
 :root[data-pointer="coarse"] .city-shop-dock .pr-gain {
-  font-size: 0.72rem;
+  font-size: var(--fs-read);
 }
 
 :root[data-pointer="coarse"] .city-shop-dock .pr-count {
@@ -932,7 +932,7 @@
   min-height: var(--touch-target);
   min-width: var(--touch-target);
   padding: 0 0.35rem;
-  font-size: 0.8rem;
+  font-size: var(--fs-read);
 }
 
 :root[data-pointer="coarse"] .city-shop-dock .shop-controls-row .buy-toolbar {
@@ -984,7 +984,7 @@
 }
 
 :root[data-pointer="coarse"] .first-steps.is-collapsed .first-steps-count {
-  font-size: 0.78rem;
+  font-size: var(--fs-read);
   font-weight: 700;
   color: var(--brand-gold, var(--text-strong));
 }
@@ -1330,10 +1330,10 @@
 }
 
 :root[data-pointer="coarse"] .more-sheet-title {
-  font-size: 0.95rem;
+  font-size: var(--fs-read);
   font-weight: 700;
   color: var(--gold-bright);
-  letter-spacing: 0.04em;
+  letter-spacing: 1px;
 }
 
 :root[data-pointer="coarse"] .more-sheet-close {
@@ -1365,7 +1365,7 @@
   border: 1px solid var(--line);
   background: linear-gradient(180deg, rgba(255, 255, 255, 0.04), rgba(0, 0, 0, 0.16));
   color: var(--text-strong);
-  font-size: 0.9rem;
+  font-size: var(--fs-read);
   text-align: left;
 }
 

@@ -189,16 +189,33 @@
    `pointer-events: auto` est OBLIGATOIRE : `.city-aux` est en `none` pour
    laisser la carte se manipuler à travers, et un enfant n'en sort pas tout
    seul. Sans cette ligne le panneau serait bien là, mais on ne pourrait ni le
-   survoler ni le sélectionner. */
+   survoler ni le sélectionner.
+
+   UNE CARTE DE CUIR (2026-10-06), comme l'infobulle. Le bandeau translucide
+   flouté à barre dorée sur la gauche était la carte générique d'une appli
+   (Raph : « cadre claude »), et la barre gauche est l'« accolade » déjà
+   purgée ailleurs. Matière sur `::before` : la boîte ne bouge pas. */
 .first-steps {
   pointer-events: auto;
-  max-width: 15rem;
+  position: relative;
+  isolation: isolate;
+  max-width: 17rem;
   margin-bottom: 0.5rem;
-  padding: calc(0.6rem * var(--density-k, 1)) calc(0.7rem * var(--density-k, 1));
-  border: 1px solid var(--border-soft);
-  border-left: 2px solid var(--brand-gold, var(--text-strong));
-  background: color-mix(in srgb, var(--surface-panel) 92%, transparent);
-  backdrop-filter: blur(6px);
+  padding: 14px 14px 16px;
+}
+
+.first-steps::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  pointer-events: none;
+  border: solid transparent;
+  border-width: 12px 6px;
+  border-image: url("/pixelart/ui/chrome/wizard/card.png") 6 3 6 3 fill stretch;
+  image-rendering: pixelated;
+  filter: brightness(0.82);
+  box-shadow: 0 6px 0 rgba(0, 0, 0, 0.35);
 }
 
 .first-steps-head {
@@ -209,52 +226,51 @@
 }
 
 .first-steps-kicker {
-  font-size: 0.6875rem;
-  letter-spacing: 0.06em;
-  text-transform: uppercase;
-  color: var(--brand-gold, var(--text-mid));
+  font-size: var(--fs-read);
+  color: var(--brand-gold-bright);
 }
 
 .first-steps-count {
-  font-size: 0.6875rem;
-  font-variant-numeric: tabular-nums;
-  color: var(--muted);
+  font-size: var(--fs-read);
+  color: var(--skin-cream);
+  opacity: 0.75;
 }
 
 .first-steps-label {
-  margin: 0.25rem 0 0;
-  font-size: 0.86rem;
-  font-weight: 600;
-  line-height: 1.25;
-  color: var(--text-strong);
+  margin: 6px 0 0;
+  font-size: var(--fs-read);
+  line-height: 20px;
+  color: #FFF3DC;
 }
 
 .first-steps-hint {
-  margin: 0.2rem 0 0;
-  font-size: 0.74rem;
-  line-height: 1.35;
-  color: var(--muted);
+  margin: 4px 0 0;
+  font-size: var(--fs-read);
+  line-height: 20px;
+  color: var(--skin-cream);
 }
 
 /* Les étapes franchies restent visibles en creux : le fil doit montrer d'où
-   l'on vient, sinon il donne l'impression de ne jamais avancer. */
+   l'on vient, sinon il donne l'impression de ne jamais avancer. Trois plots
+   pixel à biseau plein, sur la rampe du cuir. */
 .first-steps-dots {
   display: flex;
-  gap: 0.25rem;
-  margin: 0.45rem 0 0;
+  gap: 4px;
+  margin: 10px 0 0;
   padding: 0;
   list-style: none;
 }
 
 .first-steps-dots li {
-  width: 1.1rem;
-  height: 3px;
+  width: 18px;
+  height: 6px;
   border-radius: 0;
-  background: var(--border);
+  background: var(--skin-ink);
+  box-shadow: inset 0 -2px 0 var(--skin-bevel);
 }
 
-.first-steps-dots li.is-done { background: var(--brand-gold, var(--text-mid)); opacity: 0.55; }
-.first-steps-dots li.is-current { background: var(--brand-gold, var(--text-strong)); }
+.first-steps-dots li.is-done { background: #8A6F3E; box-shadow: inset 0 -2px 0 #6A5230; }
+.first-steps-dots li.is-current { background: var(--brand-gold-bright); box-shadow: inset 0 -2px 0 var(--brand-gold); }
 
 .hud-dock {
   display: flex;
@@ -303,9 +319,9 @@
   background: var(--gold);
   color: #16100a;
   font-family: var(--font-body);
-  font-size: 0.6875rem;
+  font-size: var(--fs-read);
   font-weight: 800;
-  line-height: 1;
+  line-height: 16px;
 }
 .hud-dock-dot {
   position: absolute;
@@ -345,8 +361,8 @@
 }
 .hud-pop-desc {
   margin: 0 0 0.7rem;
-  font-size: 0.8rem;
-  line-height: 1.4;
+  font-size: var(--fs-read);
+  line-height: 22px;
   color: var(--muted);
 }
 .hud-pop--myths {
@@ -450,8 +466,8 @@
 }
 .app[data-active-view="city"] .city-controls-panel .policy-effect,
 .app[data-active-view="city"] .city-controls-panel .regul-cost {
-  font-size: 0.6875rem;
-  line-height: 1.25;
+  font-size: var(--fs-read);
+  line-height: 20px;
 }
 
 /* ── Encart Politiques retravaillé : hiérarchie claire ──
@@ -464,7 +480,7 @@
   border-color: rgba(255, 255, 255, 0.1);
 }
 .app[data-active-view="city"] .city-controls-panel .policy-btn strong {
-  font-size: 0.84rem;
+  font-size: var(--fs-read);
   font-weight: 700;
   color: var(--gold-ivory);
 }
@@ -574,7 +590,7 @@
   background: rgba(16, 13, 10, 0.72);
   color: var(--gold-ivory, #ecdfc0);
   font-family: var(--font-body, sans-serif);
-  font-size: 0.74rem;
+  font-size: var(--fs-read);
   cursor: pointer;
 }
 
@@ -713,8 +729,8 @@
      PAS en dessous — c'est le nom qui identifie la colonne, l'icône seule ne
      distingue pas Savoir d'Infrastructure d'un coup d'œil. */
   .topbar .resource-name {
-    font-size: 0.72rem;
-    letter-spacing: 0.04em;
+    font-size: var(--fs-read);
+    letter-spacing: 1px;
   }
 
   /* La barre de régulation prend TOUTE la largeur au lieu de se serrer à gauche

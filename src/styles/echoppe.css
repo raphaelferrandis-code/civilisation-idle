@@ -161,8 +161,8 @@
 }
 .app #tech .echoppe-line-title {
   margin: 0.75rem 0.3rem 0.35rem;
-  font: 750 0.6875rem/1 var(--font-body);   /* plancher de 11 px (BUG-119) */
-  letter-spacing: 0.12em;
+  font: 750 var(--fs-read)/16px var(--font-body);   /* plancher de 11 px (BUG-119) */
+  letter-spacing: 2px;
   text-transform: uppercase;
   color: var(--gold-dim);
 }
@@ -201,7 +201,7 @@
 }
 .app .ware-name {
   min-width: 0;
-  font: 600 0.82rem/1.2 var(--font-body);
+  font: 600 var(--fs-read)/19px var(--font-body);
   color: var(--skin-cream);
 }
 .app .ware-price {
@@ -213,7 +213,7 @@
   color: var(--text-mid);
 }
 .app .ware.is-afford .ware-price { color: var(--gold-bright); }
-.app .ware.is-owned .ware-price { color: #8EE0B0; font-family: var(--font-body); font-weight: 700; font-size: 0.7rem; }
+.app .ware.is-owned .ware-price { color: #8EE0B0; font-family: var(--font-body); font-weight: 700; font-size: var(--fs-read); }
 .app .ware.is-owned .ware-name,
 .app .ware.is-rank .ware-name { color: var(--text-mid); }
 .app .ware.is-rank .ware-bottle img { filter: grayscale(0.85) brightness(0.6); }
@@ -255,8 +255,8 @@
   min-width: 0;
 }
 .app .echoppe-card-line {
-  font: 750 0.6875rem/1 var(--font-body);   /* plancher de 11 px (BUG-119) */
-  letter-spacing: 0.12em;
+  font: 750 var(--fs-read)/16px var(--font-body);   /* plancher de 11 px (BUG-119) */
+  letter-spacing: 2px;
   text-transform: uppercase;
   color: var(--gold-dim);
 }
@@ -267,7 +267,7 @@
 }
 .app .echoppe-card-effect {
   margin: 0;
-  font: 500 0.95rem/1.5 var(--font-body);
+  font: 500 var(--fs-read)/24px var(--font-body);
   color: var(--text-secondary);
 }
 .app .echoppe-card-foot {
@@ -285,8 +285,8 @@
   color: var(--gold-bright);
 }
 .app .echoppe-card-state {
-  font: 750 0.75rem/1 var(--font-body);
-  letter-spacing: 0.08em;
+  font: 750 var(--fs-read)/16px var(--font-body);
+  letter-spacing: 1px;
   text-transform: uppercase;
   color: var(--text-mid);
 }
@@ -337,5 +337,5 @@
    achat, le titre qui les offre, en or pâle. */
 .app .ware.is-gift .ware-price,
 .app .echoppe-card-state.is-gift { color: #E8C878; font-family: var(--font-body); font-weight: 700; }
-.app .ware.is-gift .ware-price { font-size: 0.7rem; }
+.app .ware.is-gift .ware-price { font-size: var(--fs-read); }
 .app .ware.is-gift .ware-bottle img { filter: saturate(0.6) brightness(0.85); }

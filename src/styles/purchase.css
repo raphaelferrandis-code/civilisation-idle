@@ -80,7 +80,7 @@
    glow : la règle du projet réserve le glow au palier critique, et un chip
    qui brille sur trente rangées ne hiérarchise plus rien. */
 .pr-gain {
-  font-size: 0.72rem;
+  font-size: var(--fs-read);
   font-variant-numeric: tabular-nums;
   color: var(--state-soon);
   white-space: nowrap;
@@ -157,7 +157,7 @@
   flex: 0 0 auto;
   display: inline-flex;
   align-items: center;
-  font-size: 1rem;
+  font-size: var(--fs-read);
   color: var(--muted);
 }
 
@@ -203,7 +203,7 @@
   border: 1px solid color-mix(in srgb, var(--gold), transparent 45%);
   background: color-mix(in srgb, var(--gold), transparent 88%);
   color: var(--gold-bright);
-  font-size: var(--fs-tiny);
+  font-size: var(--fs-read);
   font-weight: 800;
   font-variant-numeric: tabular-nums;
   white-space: nowrap;
@@ -224,7 +224,7 @@
   align-items: center;
   gap: 0.28rem;
   /* Agrandi (0.78→0.88) : place gagnée en retirant les icônes de production */
-  font-size: 0.88rem;
+  font-size: var(--fs-read);
   font-weight: 600;
   color: var(--text-secondary);
   font-variant-numeric: tabular-nums;
@@ -327,8 +327,8 @@
    voisines (les nombres restent compacts via fmtShort, cf. PurchaseRow). */
 .btn-purchase .bp-action {
   max-width: 100%;
-  font-size: 0.78rem;
-  letter-spacing: 0.02em;
+  font-size: var(--fs-read);
+  letter-spacing: 0;
   white-space: nowrap;
 }
 
@@ -340,7 +340,7 @@
   justify-content: center;
   min-width: 0;
   max-width: 100%;
-  font-size: var(--fs-cost);
+  font-size: var(--fs-read);
   font-weight: 700;
   font-variant-numeric: tabular-nums;
 }
@@ -504,7 +504,7 @@
 .buy-mode {
   height: 2rem;
   min-width: 2.75rem;
-  font-size: 0.8rem;
+  font-size: var(--fs-read);
 }
 
 /* Responsive : la rangée d'achat se compacte sous 560px */
@@ -526,7 +526,7 @@
   top: -0.2rem;
   z-index: 3;
   font-family: var(--font-body);
-  font-size: 0.9rem;
+  font-size: var(--fs-read);
   font-weight: 800;
   color: var(--gold-bright);
   text-shadow: 0 0 8px rgba(240, 200, 96, 0.45);
@@ -597,7 +597,7 @@
 .rw-net-track { width: 84px; height: 5px; background: rgba(255, 255, 255, 0.12); overflow: hidden; }
 .rw-net-fill { display: block; height: 100%; background: #8aa65b; transition: width 0.4s ease; }
 .rw-net-fill.is-full { background: #a8c47f; }
-.rw-net-label { font-size: 0.72em; color: #a8c47f; white-space: nowrap; }
+.rw-net-label { font-size: var(--fs-read); color: #a8c47f; white-space: nowrap; }
 .rw-line { display: flex; align-items: center; gap: 8px; min-height: 14px; }
 .rw-line-icon { font-size: 0.72em; color: var(--gold); opacity: 0.9; }
 .rw-bank-icon { color: #8fa3b8; }
@@ -609,7 +609,7 @@
 .rw-bank-pips { display: inline-flex; gap: 3px; flex-wrap: wrap; flex: 1; }
 .rw-pip { width: 7px; height: 11px; border: 1px solid rgba(143, 163, 184, 0.45); }
 .rw-pip.is-filled { background: #8fa3b8; border-color: #8fa3b8; }
-.rw-bank-count { font-size: 0.72em; color: #8fa3b8; white-space: nowrap; }
+.rw-bank-count { font-size: var(--fs-read); color: #8fa3b8; white-space: nowrap; }
 .rw-buy {
   position: relative;
   display: flex;
@@ -627,15 +627,15 @@
 .rw-buy:disabled { border-color: var(--border-soft); background: rgba(255, 255, 255, 0.04); cursor: default; opacity: 0.75; }
 .rw-buy-icon { color: var(--gold); font-size: 0.85em; }
 .rw-buy:disabled .rw-buy-icon { color: inherit; opacity: 0.6; }
-.rw-buy-verb { flex: 1; text-align: left; font-size: 0.85em; }
-.rw-buy-tiles { font-size: 0.75em; opacity: 0.65; white-space: nowrap; }
-.rw-buy-cost { display: inline-flex; align-items: center; gap: 4px; font-size: 0.8em; color: var(--gold); white-space: nowrap; }
+.rw-buy-verb { flex: 1; text-align: left; font-size: var(--fs-read); }
+.rw-buy-tiles { font-size: var(--fs-read); opacity: 0.65; white-space: nowrap; }
+.rw-buy-cost { display: inline-flex; align-items: center; gap: 4px; font-size: var(--fs-read); color: var(--gold); white-space: nowrap; }
 .rw-buy-cost.is-lacking { color: #e07a5f; }
 .rw-float {
   position: absolute;
   right: 8px;
   top: -0.4em;
-  font-size: 0.75em;
+  font-size: var(--fs-read);
   color: var(--state-affordable);
   animation: rwFloat 0.9s ease-out forwards;
   pointer-events: none;

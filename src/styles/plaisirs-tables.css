@@ -148,9 +148,9 @@
   white-space: nowrap;
 }
 .ptable-plaque strong {
-  font-size: 0.78rem;
+  font-size: var(--fs-read);
   color: var(--text-strong);
-  letter-spacing: 0.05em;
+  letter-spacing: 1px;
   text-transform: uppercase;
 }
 .ptable-plaque .ptable-cost {
@@ -159,7 +159,7 @@
   color: var(--gold-bright);
 }
 .ptable-plaque .ptable-info {
-  font-size: 0.6875rem; /* plancher de 11 px (variables.css) — 0.66 avant, BUG-119 */
+  font-size: var(--fs-read); /* plancher de 11 px (variables.css) — 0.66 avant, BUG-119 */
   color: var(--muted);
   white-space: normal;
   text-align: center;
@@ -253,7 +253,7 @@
   .ptable-stake { width: 7.5rem; }
   .ptable-emblem { width: 48px; height: 48px; }
   .ptable-stake::before { top: 44px; }
-  .ptable-plaque strong { font-size: 0.6875rem; } /* plancher de 11 px — 0.68 avant, BUG-119 */
+  .ptable-plaque strong { font-size: var(--fs-read); } /* plancher de 11 px — 0.68 avant, BUG-119 */
   .ptable .bj-side-head { min-width: 2.6rem; }
 }
 
@@ -272,7 +272,7 @@
 .ptable-hud .augury-chip,
 .ptable-say .augury-chip { background: rgba(12, 8, 10, 0.82); }
 .ptable-say .augury-odds { justify-content: flex-end; margin: 0; gap: 0.25rem; flex-wrap: wrap; }
-.ptable-say .augury-callout { font-size: 1rem; }
+.ptable-say .augury-callout { font-size: var(--fs-read); }
 @media (max-width: 760px) {
   .ptable--rites { height: 320px; }
   .ptable--rites .ptable-stake { width: 6.5rem; }
@@ -319,7 +319,7 @@
    seulement (le détail des gains reste dans l'infobulle de la mise). */
 @media (max-width: 760px) {
   .ptable-plaque { padding: 0.12rem 0.3rem; white-space: normal; max-width: 100%; }
-  .ptable-plaque strong { font-size: 0.6rem; text-align: center; letter-spacing: 0.02em; }
+  .ptable-plaque strong { font-size: var(--fs-read); text-align: center; letter-spacing: 0; }
   .ptable-plaque .ptable-info { display: none; }
   .ptable-stake, .ptable--rites .ptable-stake { width: 5.6rem; }
 }
@@ -416,7 +416,10 @@
   white-space: nowrap;
 }
 .ptable-mise-sum.is-broke { color: #ff8f7a; }
-.ptable-mise .ptable-play { min-width: 8rem; width: max-content; white-space: nowrap; }
+/* 34 px et non plus 2.6rem (2026-10-06) : la colonne pose le bouton au-dessus de
+   la rangée de jetons, qu'il chevauchait déjà de 12 px ; avec l'étiquette de mise
+   en Jersey 10, son libellé glissait SOUS les jetons. */
+.ptable-mise .ptable-play { min-width: 8rem; width: max-content; white-space: nowrap; height: 34px; }
 
 .ptable-rack {
   position: absolute;
@@ -463,7 +466,7 @@
 .plaisirs-stage .ptable .ptable-rack-btn {
   min-height: 2rem;
   padding: 0.1rem 0.55rem;
-  font-size: 0.74rem;
+  font-size: var(--fs-read);
   white-space: nowrap;
 }
 .ptable-rack-btn.is-tapis { color: var(--gold-bright); }
@@ -474,7 +477,7 @@
 @media (max-width: 760px) {
   .ptable-rack { gap: 0.1rem 0.2rem; padding: 0.15rem 0.25rem; }
   .ptable-chip span { font-size: 0.58rem; }
-  .plaisirs-stage .ptable .ptable-rack-btn { padding: 0.1rem 0.35rem; font-size: 0.6875rem; } /* 0.66 avant, BUG-119 */
+  .plaisirs-stage .ptable .ptable-rack-btn { padding: 0.1rem 0.35rem; font-size: var(--fs-read); } /* 0.66 avant, BUG-119 */
 }
 /* La table de mise porte maintenant le râtelier sous le plateau. */
 .ptable--mise { height: 344px; }
@@ -484,9 +487,10 @@
 .ptable-mise-sum { display: flex; flex-direction: column; align-items: center; gap: 0; }
 .ptable-mise-sum strong {
   font-family: var(--font-body);
-  font-size: 0.74rem;
+  font-size: var(--fs-read);
+  line-height: 16px;
   color: var(--text-strong);
-  letter-spacing: 0.05em;
+  letter-spacing: 1px;
   text-transform: uppercase;
 }
 .ptable-mise-sum small {
@@ -553,7 +557,7 @@
   border: 1px solid color-mix(in srgb, var(--gold), transparent 45%);
 }
 .bj-sabot > i { display: block; height: 100%; background: linear-gradient(90deg, #c8902a, #ffd76a); }
-.bj-sabot-neuf { color: var(--gold-bright); font-size: 0.8rem; text-shadow: 0 0 6px #ffd76a; }
+.bj-sabot-neuf { color: var(--gold-bright); font-size: var(--fs-read); text-shadow: 0 0 6px #ffd76a; }
 .bj-oeil {
   font-size: 1rem;
   filter: drop-shadow(0 0 4px rgba(255, 80, 80, 0.8));

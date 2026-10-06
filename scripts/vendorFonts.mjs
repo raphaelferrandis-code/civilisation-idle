@@ -6,7 +6,8 @@
 // local. Il est à relancer UNIQUEMENT si l'on change de famille ou de graisse —
 // les fichiers produits sont committés, le jeu ne dépend plus du réseau.
 //
-// QUATRE familles depuis le 2026-09-29 (Jersey 15 pour les titres, cf. plus bas).
+// CINQ familles depuis le 2026-10-06 (Jersey 15 pour les titres, Jersey 10 pour le texte de
+// lecture, cf. plus bas).
 // À l'origine TROIS et pas six : Cinzel, Crimson Text et Baloo 2 ne sont JAMAIS en
 // première position dans les tokens de variables.css, et la mesure au canvas
 // (largeur du glyphe contre le repli seul) confirme qu'elles n'apportent aucun
@@ -48,7 +49,16 @@ const FAMILIES = [
   //    Pixelify (capitale 56 contre 63 pour 100 px, mesuré au canvas). 112 %
   //    rend la même hauteur de capitale, donc la même hiérarchie, sans retoucher
   //    chaque règle de titre.
-  { css: "Jersey+15", nom: "Jersey 15", slug: "jersey-15", poids: "100 900", italique: true, sizeAdjust: "112%" }
+  { css: "Jersey+15", nom: "Jersey 15", slug: "jersey-15", poids: "100 900", italique: true, sizeAdjust: "112%" },
+  // TEXTE DE LECTURE (2026-10-06). Inter « faisait IA » (Raph : « police claude »)
+  // et les essais pixel d'avant (Pixelify, VT323) étaient flous en petit parce que
+  // rendus HORS de leur grille. Jersey 10, la petite sœur des titres, n'est nette
+  // qu'à une taille : 18,6667 px (1 400 unités par em, un pixel = 75 unités).
+  // `sizeAdjust` 116,6667 % pose cette taille sur `font-size: 16px` (le jeton
+  // --fs-read) : le repli Inter, pour les flèches et les signes que Jersey n'a
+  // pas, reste ainsi à 16 px au lieu de grossir à 18,67.
+  // Mêmes `poids` et `italique` que Jersey 15, pour les mêmes raisons.
+  { css: "Jersey+10", nom: "Jersey 10", slug: "jersey-10", poids: "100 900", italique: true, sizeAdjust: "116.6667%" }
 ];
 
 // Google écrit un commentaire /* latin */ juste avant chaque bloc @font-face.

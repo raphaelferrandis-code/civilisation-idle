@@ -21,7 +21,11 @@
   margin-top: 0.4rem;
 }
 
-/* Intitulé de groupe + filet qui court jusqu'au bord. */
+/* Intitulé de groupe + filet qui court jusqu'au bord.
+   2026-10-06 : plus de petites capitales grises espacées sur un filet qui
+   s'évanouit en dégradé — l'en-tête générique d'une appli (Raph : « police
+   claude »). L'intitulé passe en or, en casse normale, et le filet devient un
+   trait GRAVÉ en pixels pleins : une ligne d'encre, une ligne de reflet. */
 .chronicle-bilan-head {
   display: flex;
   align-items: center;
@@ -31,18 +35,16 @@
 .chronicle-bilan-head::after {
   content: "";
   flex: 1 1 auto;
-  height: 1px;
-  background: linear-gradient(90deg, var(--border-soft), transparent 85%);
+  height: 2px;
+  background: linear-gradient(var(--skin-ink) 50%, #3A4560 50%);
 }
 
 .chronicle-bilan-head h3 {
   margin: 0;
   font-family: inherit;
-  font-size: 0.7rem;
-  font-weight: 700;
-  letter-spacing: 0.09em;
-  text-transform: uppercase;
-  color: var(--muted);
+  font-size: var(--fs-read);
+  line-height: 20px;
+  color: var(--brand-gold-bright);
   white-space: nowrap;
 }
 
@@ -70,9 +72,9 @@
 }
 
 .chronicle-bilan-stat span {
-  font-size: 0.6875rem;
+  font-size: var(--fs-read);
   font-weight: 600;
-  letter-spacing: 0.06em;
+  letter-spacing: 1px;
   text-transform: uppercase;
   color: var(--muted);
   /* Le libellé passe à la ligne au lieu d'être amputé : sur une seule ligne
@@ -104,10 +106,10 @@
 }
 
 .chronicle-bilan-stat strong {
-  font-size: 1.08rem;
+  font-size: var(--fs-read);
   font-weight: 700;
   color: var(--text-strong, #fff);
-  line-height: 1.15;
+  line-height: 18px;
 }
 
 .chronicle-bilan-stat .px-icon {
@@ -150,16 +152,16 @@
 
 .chronicle-game-head h4 {
   margin: 0;
-  font-size: 0.86rem;
+  font-size: var(--fs-read);
   font-weight: 700;
   color: var(--text-strong, #fff);
 }
 
 .chronicle-game-plays {
   margin-left: auto;
-  font-size: 0.6875rem;
+  font-size: var(--fs-read);
   font-weight: 600;
-  letter-spacing: 0.05em;
+  letter-spacing: 1px;
   text-transform: uppercase;
   color: var(--muted);
   white-space: nowrap;
@@ -173,15 +175,15 @@
 }
 
 .chronicle-game-net strong {
-  font-size: 1.15rem;
+  font-size: var(--fs-read);
   font-weight: 800;
-  line-height: 1.1;
+  line-height: 18px;
 }
 
 .chronicle-game-net span {
-  font-size: 0.6875rem;
+  font-size: var(--fs-read);
   font-weight: 600;
-  letter-spacing: 0.04em;
+  letter-spacing: 1px;
   text-transform: uppercase;
   color: var(--muted);
 }
@@ -191,13 +193,13 @@
 .chronicle-game-net.is-flat strong { color: var(--text-strong, #fff); }
 
 .chronicle-game-line {
-  font-size: 0.72rem;
+  font-size: var(--fs-read);
   color: var(--text-strong, #fff);
   opacity: 0.85;
 }
 
 .chronicle-game-hl {
-  font-size: 0.6875rem;
+  font-size: var(--fs-read);
   color: var(--muted);
   font-style: italic;
 }
@@ -243,9 +245,9 @@
   padding: 0.08rem 0.35rem;
   background: rgba(255, 255, 255, 0.06);
   font-family: var(--font-number, inherit);
-  font-size: 0.72rem;
+  font-size: var(--fs-read);
   font-weight: 700;
-  letter-spacing: 0.03em;
+  letter-spacing: 0;
   color: var(--accent-gold);
 }
 
@@ -256,7 +258,7 @@
 .chronicle-reg-name {
   flex: 1 1 auto;
   min-width: 0;
-  font-size: 0.8rem;
+  font-size: var(--fs-read);
   font-weight: 600;
   color: var(--text-strong, #fff);
   overflow-wrap: anywhere;
@@ -265,9 +267,9 @@
 .chronicle-reg-name em {
   margin-left: 0.45rem;
   font-style: normal;
-  font-size: 0.6875rem;
+  font-size: var(--fs-read);
   font-weight: 600;
-  letter-spacing: 0.04em;
+  letter-spacing: 1px;
   text-transform: uppercase;
   color: var(--muted);
 }
@@ -275,7 +277,7 @@
 .chronicle-reg-meta {
   flex: 0 1 auto;
   min-width: 0;
-  font-size: 0.7rem;
+  font-size: var(--fs-read);
   color: var(--muted);
   overflow-wrap: anywhere;
 }
@@ -346,15 +348,15 @@
 }
 
 .era-timeline-pop {
-  font-size: var(--fs-label);
+  font-size: var(--fs-read);
   color: var(--muted);
   font-variant-numeric: tabular-nums;
 }
 
 .era-timeline-now {
-  font-size: var(--fs-label);
+  font-size: var(--fs-read);
   text-transform: uppercase;
-  letter-spacing: 0.08em;
+  letter-spacing: 1px;
   color: var(--gold-bright);
   border: 1px solid var(--gold-dim);
   padding: 0.05rem 0.5rem;
@@ -398,7 +400,7 @@
 
 .mult-row-label {
   color: var(--text-secondary);
-  font-size: 0.86rem;
+  font-size: var(--fs-read);
   min-width: 0;
 }
 
@@ -418,7 +420,7 @@
    du dessus et n'entrent pas dans le produit à leur propre titre. */
 .mult-row--sub {
   padding-left: 1.5rem;
-  font-size: 0.8rem;
+  font-size: var(--fs-read);
   opacity: 0.78;
 }
 
@@ -443,8 +445,8 @@
 .mult-empty,
 .mult-note {
   margin: 0.4rem 0 0;
-  font-size: 0.8rem;
-  line-height: 1.4;
+  font-size: var(--fs-read);
+  line-height: 22px;
   color: var(--muted);
 }
 
@@ -466,7 +468,7 @@
   border: 1px solid var(--border);
   background: transparent;
   color: var(--text-secondary);
-  font-size: 0.78rem;
+  font-size: var(--fs-read);
   cursor: pointer;
 }
 
@@ -490,7 +492,7 @@
   align-items: center;
   gap: 0.5rem;
   padding: 0.2rem 0.4rem;
-  font-size: 0.82rem;
+  font-size: var(--fs-read);
 }
 
 .compte-row:nth-child(odd) { background: rgba(255, 255, 255, 0.022); }
@@ -505,7 +507,7 @@
 
 .compte-row-count {
   color: var(--muted);
-  font-size: 0.75rem;
+  font-size: var(--fs-read);
 }
 
 .compte-row-bar {
@@ -527,7 +529,7 @@
   white-space: nowrap;
 }
 
-.compte-row-pct { color: var(--muted); font-size: 0.76rem; }
+.compte-row-pct { color: var(--muted); font-size: var(--fs-read); }
 .compte-row-value { color: var(--text-strong); font-weight: 600; }
 
 /* Le socle et la théocratie ne sont pas des bâtiments : on ne doit pas les
@@ -551,7 +553,7 @@
 
 .compte-empty {
   margin: 0.4rem 0 0;
-  font-size: 0.8rem;
+  font-size: var(--fs-read);
   color: var(--muted);
 }
 

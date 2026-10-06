@@ -103,6 +103,9 @@ function fmtFactor(v) {
   if (!Number.isFinite(v)) return tr({ fr: "au delà du float", en: "beyond float" });
   if (v === 1) return "×1";
   const abs = Math.abs(v);
+  // Au-delà de 1e4, la notation du jeu : `toFixed(0)` sur 5.68e23 rendait
+  // « ×5.6786161003217366e+23 » (vu le 2026-10-06, partie de fin de cycle).
+  if (abs >= 1e4) return `×${fmt(v)}`;
   const dec = abs >= 100 ? 0 : abs >= 10 ? 1 : abs >= 1.1 ? 2 : 3;
   return `×${v.toFixed(dec)}`;
 }

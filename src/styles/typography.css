@@ -55,9 +55,9 @@
 /* La navigation : police lisible, mais on garde l'espacement de capitale */
 .tab {
   font-family: var(--font-body);
-  font-size: 0.8rem;
+  font-size: var(--fs-read);
   font-weight: 600;
-  letter-spacing: 0.12em;
+  letter-spacing: 2px;
 }
 
 /* ----------------------------------------------------------------------------
@@ -182,9 +182,9 @@
 /* Le bouton d'achat : police lisible, en capitales espacées */
 .btn-purchase .bp-action {
   font-family: var(--font-body);
-  font-size: 0.72rem;
+  font-size: var(--fs-read);
   font-weight: 700;
-  letter-spacing: 0.12em;
+  letter-spacing: 2px;
   text-transform: uppercase;
 }
 

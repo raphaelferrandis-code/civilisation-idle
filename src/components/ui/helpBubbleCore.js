@@ -27,7 +27,9 @@ export const REOPEN_GRACE_MS = 400;
 // pour ne rien coûter, assez rapide pour qu'une bulle orpheline ne se voie pas.
 export const ALIVE_POLL_MS = 250;
 
-export const BUBBLE_WIDTH = 280;
+// 320 et non plus 280 (2026-10-06) : la carte de cuir prend 16 px de bord de
+// chaque côté, et Jersey 10 chausse un peu plus large qu'Inter.
+export const BUBBLE_WIDTH = 320;
 export const BUBBLE_MARGIN = 8;   // marge minimale au bord de l'écran
 const BUBBLE_GAP = 10;     // écart entre la cible et la bulle
 const FLIP_ZONE = 150;     // hauteur sous laquelle on bascule au-dessus

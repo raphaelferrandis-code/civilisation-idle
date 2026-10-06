@@ -39,8 +39,8 @@
   text-shadow: 1px 1px 0 #000, 0 0 5px rgba(0, 0, 0, 0.9);
   pointer-events: none;
 }
-.slots-series { font-size: 0.9rem; }
-.slots-win { font-size: 1.35rem; }
+.slots-series { font-size: var(--fs-read); }
+.slots-win { font-family: var(--font-title); font-size: var(--fs-display); }
 
 .slots-history { display: flex; gap: 2px; }
 .slots-chip {
@@ -48,7 +48,7 @@
   place-items: center;
   width: 1.1rem;
   height: 1.1rem;
-  font-size: 0.7rem;
+  font-size: var(--fs-read);
   color: var(--muted);
   background: rgba(12, 8, 10, 0.78);
 }
@@ -156,7 +156,7 @@
   font-size: 1.15rem;
   color: var(--gold-bright, #f3d58a);
 }
-.slots-wheel-result strong.is-jackpot { font-size: 1.5rem; color: #ffe066; }
+.slots-wheel-result strong.is-jackpot { font-family: var(--font-title); font-size: var(--fs-display); color: #ffe066; }
 
 /* L'aide : la table des gains, en symboles. */
 .slots-paytable { display: flex; flex-wrap: wrap; gap: 0.25rem 0.8rem; margin: 0 0 0.45rem; }
@@ -167,11 +167,11 @@
 /* v2 — L'ÉCHELLE DES JACKPOTS, au mur à droite de la machine (valeurs pour la mise en
    jeu) : du texte sur le décor, chaque palier dans sa couleur de pièce. */
 .slots-jp {
-  font-size: 0.78rem;
-  letter-spacing: 0.04em;
+  font-size: var(--fs-read);
+  letter-spacing: 1px;
   color: var(--muted);
 }
-.slots-jp b { font-size: 0.95rem; margin-left: 0.3rem; }
+.slots-jp b { font-size: var(--fs-read); margin-left: 0.3rem; }
 .slots-jp.is-grand b { color: #ffe066; }
 .slots-jp.is-majeur b { color: #ff7a82; }
 .slots-jp.is-mini b { color: #a8c8ff; }

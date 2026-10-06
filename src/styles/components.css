@@ -194,9 +194,9 @@
 .topbar .resource-name {
   min-width: 0;
   overflow: hidden;
-  font-size: 0.9rem;
+  font-size: var(--fs-read);
   font-weight: 700;
-  letter-spacing: 0.12em;
+  letter-spacing: 2px;
   text-transform: uppercase;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -357,7 +357,7 @@
   min-width: 0;
   /* Petits chiffres : rôle --font-small (= Inter, cf. variables.css). */
   font-family: var(--font-small);
-  font-size: 0.9rem;
+  font-size: var(--fs-read);
 }
 
 /* (Le recalage d'1px de ligne de base a sauté avec la mise côte à côte : le
@@ -549,7 +549,7 @@
   height: 1.65rem;
   min-width: 2.5rem;
   padding: 0 0.45rem;
-  font-size: 0.76rem;
+  font-size: var(--fs-read);
 }
 
 .buy-mode.active {
@@ -631,11 +631,11 @@ dialog::backdrop {
 }
 
 .choice-option-head strong {
-  font-size: 0.92rem;
+  font-size: var(--fs-read);
 }
 
 .choice-badge {
-  font-size: 0.6875rem;
+  font-size: var(--fs-read);
   font-weight: 700;
   padding: 0.14rem 0.5rem;
   color: var(--gold-bright);
@@ -649,7 +649,7 @@ dialog::backdrop {
   align-items: center;
   gap: 0.45rem;
   flex-wrap: wrap;
-  font-size: 1.05rem;
+  font-size: var(--fs-read);
   font-weight: 700;
   color: var(--gold-ivory);
 }
@@ -699,9 +699,9 @@ dialog::backdrop {
 }
 
 .choice-row-label {
-  font-size: 0.6875rem;
+  font-size: var(--fs-read);
   font-weight: 700;
-  letter-spacing: 0.07em;
+  letter-spacing: 1px;
   text-transform: uppercase;
   color: var(--muted);
   white-space: nowrap;
@@ -721,9 +721,9 @@ dialog::backdrop {
   border-top: 1px solid var(--line);
   border-bottom: 1px solid var(--line);
   text-align: center;
-  font-size: 0.72rem;
+  font-size: var(--fs-read);
   font-weight: 600;
-  letter-spacing: 0.14em;
+  letter-spacing: 2px;
   text-transform: uppercase;
   color: var(--gold-ivory);
 }
@@ -735,9 +735,9 @@ dialog::backdrop {
 }
 
 .effect-chip {
-  font-size: 0.72rem;
+  font-size: var(--fs-read);
   font-weight: 600;
-  line-height: 1.4;
+  line-height: 22px;
   padding: 0.1rem 0.45rem;
   border: 1px solid rgba(255, 255, 255, 0.14);
   background: rgba(255, 255, 255, 0.05);
@@ -766,10 +766,10 @@ dialog::backdrop {
 
 .dialog-footnote {
   margin: 0.75rem 0 0;
-  font-size: 0.74rem;
+  font-size: var(--fs-read);
   color: var(--muted);
   font-style: italic;
-  line-height: 1.4;
+  line-height: 22px;
 }
 
 /* ── Couloir des annonces (gains, crises, jalons « À portée », nouvel âge) ──
@@ -798,7 +798,7 @@ dialog::backdrop {
 }
 
 .outcome-float {
-  font-size: 1rem;
+  font-size: var(--fs-read);
   font-weight: 800;
   white-space: nowrap;
   padding: 0.4rem 1rem;
@@ -903,9 +903,9 @@ dialog::backdrop { background: rgba(8, 5, 1, 0.72); }
    ============================================================================ *//* Jauge Légitimité Atlas */
 
 
-.babel-cat-name { font-weight: 600; color: var(--gold-ivory); font-size: 0.88rem; min-width: 7rem; }
+.babel-cat-name { font-weight: 600; color: var(--gold-ivory); font-size: var(--fs-read); min-width: 7rem; }
 
-.babel-cat-desc { color: var(--muted); font-size: 0.76rem; }
+.babel-cat-desc { color: var(--muted); font-size: var(--fs-read); }
 
 /* ============================================================================
    DIALOG OPTIONS
@@ -1010,9 +1010,9 @@ dialog::backdrop { background: rgba(8, 5, 1, 0.72); }
 .ticker-masthead {
   flex: 0 0 auto;
   font-family: var(--font-body);
-  font-size: var(--fs-label);
+  font-size: var(--fs-read);
   font-weight: 800;
-  letter-spacing: 0.08em;
+  letter-spacing: 1px;
   text-transform: uppercase;
   color: var(--gold-dim);
   white-space: nowrap;
@@ -1024,8 +1024,8 @@ dialog::backdrop { background: rgba(8, 5, 1, 0.72); }
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
-  font-size: 0.85rem;
-  line-height: 1.4;
+  font-size: var(--fs-read);
+  line-height: 22px;
   color: var(--text-secondary);
   animation: ticker-in 600ms ease-out;
 }
@@ -1055,7 +1055,7 @@ dialog::backdrop { background: rgba(8, 5, 1, 0.72); }
 
 .ticker-date {
   flex: 0 0 auto;
-  font-size: var(--fs-label);
+  font-size: var(--fs-read);
   color: var(--muted);
   white-space: nowrap;
   font-variant-numeric: tabular-nums;
@@ -1246,7 +1246,7 @@ dialog::backdrop { background: rgba(8, 5, 1, 0.72); }
   border: 1px solid var(--border);
   background: var(--panel);
   color: var(--text-strong);
-  font-size: 0.85rem;
+  font-size: var(--fs-read);
   text-decoration: none;
   transform: translateY(-200%);
   transition: transform 120ms ease-out;
@@ -1265,51 +1265,69 @@ dialog::backdrop { background: rgba(8, 5, 1, 0.72); }
 main:focus { outline: none; }
 
 /* ── L'INFOBULLE UNIQUE (B1) ───────────────────────────────────────────────
-   Même recette que .rt-tooltip (arbre des Ruines) : bulle sombre épurée, nom
-   puis contenu, en position fixe sous l'élément survolé. Venue de
+   Nom puis contenu, en position fixe sous l'élément survolé. Venue de
    views-regulation.css : ce n'est plus une pièce d'une vue, c'est la bulle de
-   tout le jeu, et elle est rendue par un portail hors de `.app`.
+   tout le jeu, et elle est rendue par un portail hors de `.app` (d'où des
+   sélecteurs SANS préfixe `.app`).
+
+   UNE CARTE DE CUIR (2026-10-06). La « bulle sombre épurée » — fond nuit à
+   98 %, liseré gris d'1 px, ombre floue de 28 px — était la boîte générique
+   de n'importe quelle appli (Raph : « cadre claude »). Elle prend la matière
+   des cartes du jeu : `card.png` du pack Crusenho, ×2 comme les crans des
+   boutons, assombrie pour que le texte crème reste lisible dessus. Ombre
+   PLEINE décalée, pas floue : un objet pixel n'a pas de pénombre.
+   Comme partout dans la peau cuir, la matière vit sur `::before` : la boîte
+   mesurée par fitTipToHeight reste celle du contenu.
 
    z-index 80 suffit dans body ; DANS une modale, c'est le top layer du
    navigateur qui la met au-dessus, pas cette valeur. */
 .regul-tip {
   position: fixed;
   z-index: 80;
-  max-width: 280px;
+  isolation: isolate;
+  max-width: 320px;
   display: flex;
   flex-direction: column;
-  gap: 0.3rem;
-  padding: 0.55rem 0.7rem;
-  border: 1px solid var(--border);
-  background: rgba(14, 18, 28, 0.98);
-  box-shadow: 0 10px 28px rgba(0, 0, 0, 0.55);
+  gap: 4px;
+  padding: 14px 16px 16px;
   pointer-events: none;
+}
+
+.regul-tip::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  border: solid transparent;
+  border-width: 12px 6px;
+  border-image: url("/pixelart/ui/chrome/wizard/card.png") 6 3 6 3 fill stretch;
+  image-rendering: pixelated;
+  filter: brightness(0.6) saturate(0.85);
+  box-shadow: 0 6px 0 rgba(0, 0, 0, 0.45);
 }
 
 .regul-tip--flip { transform: translateY(-100%); }
 
 .regul-tip-name {
-  font-size: 0.85rem;
-  font-weight: 600;
-  color: var(--text-strong);
-  line-height: 1.2;
   font-family: var(--font-body);
+  font-size: var(--fs-read);
+  line-height: 20px;
+  color: var(--brand-gold-bright);
 }
 
 .regul-tip-text {
   font-family: var(--font-body);
-  font-size: 0.78rem;
-  color: var(--text-secondary);
-  line-height: 1.35;
+  font-size: var(--fs-read);
+  line-height: 20px;
+  color: var(--skin-cream);
 }
 
-/* Contenu STRUCTURÉ : une ligne par couple libellé / valeur. Les valeurs
-   s'alignent à droite en chiffres tabulaires, sinon une pile de nombres
-   tremble d'une ligne à l'autre. Le libellé cède la place en premier. */
+/* Contenu STRUCTURÉ : une ligne par couple libellé / valeur, valeur calée à
+   droite. Le libellé cède la place en premier. */
 .regul-tip-rows {
   display: flex;
   flex-direction: column;
-  gap: 0.18rem;
+  gap: 2px;
   margin: 0;
 }
 
@@ -1317,20 +1335,20 @@ main:focus { outline: none; }
   display: flex;
   align-items: baseline;
   justify-content: space-between;
-  gap: 0.8rem;
+  gap: 16px;
   font-family: var(--font-body);
-  font-size: 0.78rem;
-  line-height: 1.35;
+  font-size: var(--fs-read);
+  line-height: 20px;
 }
 
 .regul-tip-row dt {
-  color: var(--text-secondary);
+  color: var(--skin-cream);
   min-width: 0;
 }
 
 .regul-tip-row dd {
   margin: 0;
-  color: var(--text-strong);
+  color: var(--brand-gold-ivory);
   font-variant-numeric: tabular-nums;
   white-space: nowrap;
 }

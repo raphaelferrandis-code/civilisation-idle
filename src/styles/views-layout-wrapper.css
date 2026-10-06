@@ -12,9 +12,9 @@
 
 .myth-modal .label {
   color: var(--gold);
-  font-size: 0.72rem;
+  font-size: var(--fs-read);
   text-transform: uppercase;
-  letter-spacing: 0.1em;
+  letter-spacing: 2px;
 }
 
 .myth-modal-body {
@@ -34,17 +34,17 @@
 }
 
 .myth-modal-label {
-  font-size: 0.7rem;
+  font-size: var(--fs-read);
   font-weight: 700;
-  letter-spacing: 0.08em;
+  letter-spacing: 1px;
   text-transform: uppercase;
   color: var(--muted);
 }
 
 .myth-modal-row span:last-child {
-  font-size: 0.9rem;
+  font-size: var(--fs-read);
   color: #d8cba6;
-  line-height: 1.45;
+  line-height: 23px;
 }
 
 .myth-modal-row.myth-modal-heritage span:last-child {
@@ -57,9 +57,9 @@
   padding: 0.55rem 0.8rem;
   border-left: 3px solid rgba(194, 96, 58, 0.7);
   background: rgba(194, 96, 58, 0.08);
-  font-size: 0.83rem;
+  font-size: var(--fs-read);
   color: #d4896a;
-  line-height: 1.4;
+  line-height: 22px;
 }
 
 .myth-modal .choice-menu {

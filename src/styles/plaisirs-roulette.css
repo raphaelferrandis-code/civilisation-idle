@@ -96,8 +96,8 @@
 .ptable .rl-tapis .rl-dehors-4 { grid-column: 8 / span 2; }
 .ptable .rl-tapis .rl-dehors-5 { grid-column: 10 / span 2; }
 .ptable .rl-tapis .rl-dehors-6 { grid-column: 12 / span 2; }
-.ptable .rl-dehors.is-rouge .rl-label { color: #e8343a; font-size: 1rem; }
-.ptable .rl-dehors.is-noir .rl-label { color: #0e0a0c; font-size: 1rem; text-shadow: 0 0 2px #f0e8e0; }
+.ptable .rl-dehors.is-rouge .rl-label { color: #e8343a; font-size: var(--fs-read); }
+.ptable .rl-dehors.is-noir .rl-label { color: #0e0a0c; font-size: var(--fs-read); text-shadow: 0 0 2px #f0e8e0; }
 
 /* Le jeton posé sur une case : son image, le montant dessous. */
 .rl-jeton {
@@ -188,11 +188,11 @@
 .plaisirs-stage .rl-dessous .ptable-rack-btn {
   min-height: 2rem;
   padding: 0.1rem 0.35rem;
-  font-size: 0.6875rem; /* plancher de 11 px — 0.66 avant, BUG-119 */
+  font-size: var(--fs-read); /* plancher de 11 px — 0.66 avant, BUG-119 */
   white-space: nowrap;
 }
 .rl-tapis.is-debout .rl-dehors.is-rouge .rl-label,
-.rl-tapis.is-debout .rl-dehors.is-noir .rl-label { font-size: 1.1rem; }
+.rl-tapis.is-debout .rl-dehors.is-noir .rl-label { font-size: var(--fs-read); }
 /* Au doigt : un appui long ne doit pas ouvrir de menu ni sélectionner le texte. */
 .rl-tapis .rl-case { -webkit-touch-callout: none; touch-action: manipulation; }
 

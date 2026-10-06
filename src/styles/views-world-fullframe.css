@@ -152,16 +152,19 @@
 .shop-panel .shop-controls-row .buy-mode {
   flex: 1;
   min-width: 0;
-  height: 1.15rem;
+  /* Hauteur au CONTENU (2026-10-06) : figée à 1.15rem (18 px), elle laissait la
+     ligne de Jersey 10 (20 px) pendre sous la plaque — le texte débordait déjà
+     de 2 px en Inter. */
+  height: auto;
   /* min-height : neutralise la taille de cible globale des <button> (2.5rem). */
   min-height: 1.15rem;
-  /* Corps : gagne sur le 0.8rem générique de purchase.css (VT323 lisible petit). */
-  font-size: 0.72rem;
+  font-size: var(--fs-read);
+  line-height: 20px;
 }
 .shop-panel .shop-collapse-toggle .hud-panel-chevron {
   flex: 0 0 auto;
-  font-size: 0.7rem;
-  line-height: 1;
+  font-size: var(--fs-read);
+  line-height: 16px;
   color: var(--gold-bright);
   transition: transform 0.2s ease;
 }
@@ -297,7 +300,7 @@
   gap: 0.32rem;
   color: var(--res-pop);
   font-family: var(--font-small);
-  font-size: 0.98rem;
+  font-size: var(--fs-read);
   white-space: nowrap;
   opacity: 0.95;
 }

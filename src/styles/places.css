@@ -97,8 +97,8 @@
   min-width: 0;
 }
 .app .place-eyebrow {
-  font: 700 0.72rem/1 var(--font-body);
-  letter-spacing: 0.14em;
+  font: 700 var(--fs-read)/16px var(--font-body);
+  letter-spacing: 2px;
   text-transform: uppercase;
   color: var(--gold-bright);
   text-shadow: 0 1px 2px rgba(0, 0, 0, 0.9);
@@ -139,8 +139,8 @@
   gap: 1rem;
 }
 .app .place-key-label {
-  font: 700 0.6875rem/1 var(--font-body);   /* plancher de 11 px (BUG-119) */
-  letter-spacing: 0.12em;
+  font: 700 var(--fs-read)/16px var(--font-body);   /* plancher de 11 px (BUG-119) */
+  letter-spacing: 2px;
   text-transform: uppercase;
   color: var(--text-mid);
 }
@@ -151,7 +151,7 @@
   white-space: nowrap;
 }
 .app .place-key-sub {
-  font: 500 0.75rem/1.2 var(--font-body);
+  font: 500 var(--fs-read)/19px var(--font-body);
   color: var(--text-mid);
 }
 .app .place-key-sub b {

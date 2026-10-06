@@ -637,9 +637,9 @@ button:disabled::before,
      plus de ligne de pixels pour poser un accent, et ces pastilles sont
      pleines de « é » et de « à ». C'est la règle posée dans variables.css. */
   font-family: var(--font-small);
-  font-size: 0.72rem;
+  font-size: var(--fs-read);
   font-weight: 600;
-  line-height: 1.4;
+  line-height: 22px;
   white-space: nowrap;
 }
 

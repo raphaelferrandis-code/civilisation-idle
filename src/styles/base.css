@@ -143,6 +143,10 @@ body {
   color: var(--text);
   margin: 0;
   font-family: var(--font-body);
+  /* Aucune graisse, italique ni petite capitale FABRIQUÉE par le navigateur :
+     sur une police pixel, un faux gras bouche les contre-formes et une fausse
+     petite capitale (capitale réduite à 70 %) sort de la grille, donc floue. */
+  font-synthesis: none;
 }
 
 button {
@@ -241,7 +245,7 @@ h1 {
 .label {
   display: block;
   margin-bottom: 0.2rem;
-  font-size: 0.72rem;
+  font-size: var(--fs-read);
   font-weight: 800;
   letter-spacing: 0;
   text-transform: uppercase;
@@ -346,8 +350,8 @@ main {
   border: 1px solid rgba(255,255,255,0.09);
   background: rgba(255,255,255,0.05);
   color: #d9d0b8;
-  font-size: 0.74rem;
-  line-height: 1.5;
+  font-size: var(--fs-read);
+  line-height: 24px;
 }
 
 .body-copy {
@@ -419,8 +423,8 @@ main {
 
 .active-ruin-option-text span {
   color: var(--muted);
-  font-size: 0.88rem;
-  line-height: 1.35;
+  font-size: var(--fs-read);
+  line-height: 22px;
 }
 
 textarea {
@@ -516,7 +520,7 @@ body::before {
   border: 1px solid rgba(255, 255, 255, 0.1);
   color: var(--muted);
   font-family: var(--font-body);
-  font-size: 0.76rem;
+  font-size: var(--fs-read);
   padding: 0.15rem 0.45rem;
 }
 
@@ -561,7 +565,7 @@ body::before {
 
 .auto-script-rule > div { display: flex; align-items: center; gap: 0.5rem; flex-wrap: wrap; width: 100%; }
 
-.auto-script-label  { font-size: 0.85rem; color: var(--text); flex: 1; min-width: 10rem; }
+.auto-script-label  { font-size: var(--fs-read); color: var(--text); flex: 1; min-width: 10rem; }
 
 .auto-script-threshold { display: flex; align-items: center; gap: 0.3rem; }
 
@@ -578,13 +582,13 @@ body::before {
   border: 1px solid rgba(255,255,255,0.15);
   border-radius: 0;
   color: var(--text);
-  font-size: 0.85rem;
+  font-size: var(--fs-read);
   text-align: right;
 }
 
 .auto-script-input:focus { outline: none; border-color: rgba(200, 160, 60, 0.55); }
 
-.auto-script-unit { font-size: 0.78rem; color: var(--text-muted, rgba(255,255,255,0.45)); }
+.auto-script-unit { font-size: var(--fs-read); color: var(--text-muted, rgba(255,255,255,0.45)); }
 
 .auto-script-rule .toggle-btn { align-self: flex-end; }
 
@@ -694,13 +698,13 @@ body::before {
 }
 
 .options-row > div span {
-  font-size: 0.9rem;
+  font-size: var(--fs-read);
   font-weight: 700;
   color: #e8d8a8;
 }
 
 .options-row > div small {
-  font-size: 0.78rem;
+  font-size: var(--fs-read);
   color: #a09070;
   font-family: var(--font-body);
 }
@@ -715,9 +719,9 @@ body::before {
   background: rgba(0, 0, 0, 0.28);
   color: var(--gold-ivory);
   font-family: var(--font-body);
-  font-size: 0.9rem;
+  font-size: var(--fs-read);
   font-weight: 700;
-  line-height: 1.4;
+  line-height: 22px;
   text-align: center;
   box-shadow: 0 2px 0 rgba(0, 0, 0, 0.35);
 }

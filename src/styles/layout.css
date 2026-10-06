@@ -376,9 +376,9 @@
 .csp-label {
   flex: 0 0 auto;
   font-family: var(--font-body);
-  font-size: 0.6875rem;
+  font-size: var(--fs-read);
   font-weight: 600;
-  letter-spacing: 0.04em;
+  letter-spacing: 1px;
   text-transform: uppercase;
   color: var(--muted);
 }
@@ -386,7 +386,7 @@
 .csp-value {
   min-width: 0;
   font-family: var(--font-body);
-  font-size: 0.86rem;
+  font-size: var(--fs-read);
   font-weight: 600;
   color: var(--text);
   white-space: normal;
@@ -406,8 +406,8 @@
 
 .csp-laps {
   margin-left: auto;
-  font-size: 0.6875rem;
-  line-height: 1;
+  font-size: var(--fs-read);
+  line-height: 16px;
   letter-spacing: 1px;
 }
 .csp-lap-done  { color: var(--gold); }
@@ -456,7 +456,7 @@
   display: flex;
   align-items: center;
   gap: 0.45rem;
-  font-size: 0.72rem;
+  font-size: var(--fs-read);
 }
 
 .csp-stat-icon { flex: 0 0 auto; font-size: 0.8rem; }
@@ -474,7 +474,7 @@
 }
 
 .csp-stat-era {
-  font-size: 0.74rem !important;
+  font-size: var(--fs-read) !important;
   color: var(--gold-ivory) !important;
 }
 
@@ -505,12 +505,12 @@
   .city-status-panel .csp-stat {
     justify-content: center;
     gap: 0.35rem;
-    font-size: 0.6875rem;
+    font-size: var(--fs-read);
   }
 
   .city-status-panel .csp-stat strong {
     margin-left: 0;
-    font-size: 0.6875rem;
+    font-size: var(--fs-read);
   }
 }
 
@@ -605,7 +605,7 @@
   .quick-actions .btn-tiny {
     min-height: 1.6rem;
     padding: 0 0.2rem;
-    font-size: 0.85rem;
+    font-size: var(--fs-read);
   }
 
   .quick-actions .qa-icon.px-icon {
@@ -727,8 +727,8 @@
 
 .csp-idle-label {
   flex: 1 1 auto;
-  font-size: 0.6875rem;
-  letter-spacing: 0.06em;
+  font-size: var(--fs-read);
+  letter-spacing: 1px;
   text-transform: uppercase;
   color: var(--muted);
 }
@@ -743,7 +743,7 @@
 /* Palier suivant : un OBJECTIF nomme, pas une punition decouverte au retour. */
 .csp-idle-next {
   flex: 0 0 100%;
-  font-size: 0.6875rem;
+  font-size: var(--fs-read);
   color: var(--muted);
   opacity: 0.85;
 }
@@ -756,7 +756,7 @@
   }
   .city-status-panel .csp-idle-label { display: none; }
   .city-status-panel .csp-idle-value { font-size: 0.7rem; }
-  .city-status-panel .csp-idle-next { text-align: center; font-size: 0.6875rem; }
+  .city-status-panel .csp-idle-next { text-align: center; font-size: var(--fs-read); }
 }
 
 
@@ -788,8 +788,8 @@
   margin-top: 0.35rem;
   padding: 0.28rem 0.4rem;
   font-family: inherit;
-  font-size: 0.6875rem;
-  letter-spacing: 0.05em;
+  font-size: var(--fs-read);
+  letter-spacing: 1px;
   text-transform: uppercase;
   color: var(--gold-ivory);
   background: rgba(120, 170, 200, 0.14);
@@ -812,8 +812,8 @@
 .csp-clepsydre-why {
   display: block;
   margin-top: 0.25rem;
-  font-size: 0.6875rem;
-  line-height: 1.35;
+  font-size: var(--fs-read);
+  line-height: 22px;
   color: var(--muted);
   opacity: 0.85;
 }
@@ -828,8 +828,8 @@
   display: flex;
   align-items: center;
   gap: 0.35rem;
-  font-size: 0.6875rem;
-  line-height: 1.3;
+  font-size: var(--fs-read);
+  line-height: 21px;
   min-width: 0;
 }
 
@@ -846,8 +846,8 @@
   min-height: 0;              /* base.css impose 2.5rem à tout bouton */
   padding: 0.12rem 0;
   font-family: inherit;
-  font-size: 0.6875rem;
-  line-height: 1.3;
+  font-size: var(--fs-read);
+  line-height: 21px;
   text-align: left;
   color: inherit;
   background: none;
@@ -886,8 +886,8 @@
   min-height: 0;              /* idem : sinon 2.5rem par option */
   padding: 0.3rem 0.4rem;
   font-family: inherit;
-  font-size: 0.72rem;
-  line-height: 1.35;
+  font-size: var(--fs-read);
+  line-height: 22px;
   text-align: left;
   color: inherit;
   background: rgba(200, 170, 90, 0.1);
@@ -915,7 +915,7 @@
 /* Vœu rompu ou manqué (« pactes » 2026-10) : la moisson sera réduite. */
 .csp-vow-goal.is-broken,
 .csp-vow-mult.is-broken { color: #d98a7a; }
-.csp-vow-option-risk { opacity: 0.6; font-size: 0.85em; }
+.csp-vow-option-risk { opacity: 0.6; font-size: var(--fs-read); }
 
 /* Filet d'avancement : 2 px, pas la barre pleine des autres blocs. */
 .csp-vow-bar {
@@ -939,7 +939,7 @@
      illisible elle ne sert à rien. Seul le mot d'appel se raccourcit au besoin. */
   .city-status-panel .csp-clepsydre-head { justify-content: center; }
   .city-status-panel .csp-clepsydre-why { display: none; } /* la gouttiere est trop etroite : le title le porte */
-  .city-status-panel .csp-clepsydre-pour { font-size: 0.6875rem; }
+  .city-status-panel .csp-clepsydre-pour { font-size: var(--fs-read); }
 }
 
 
@@ -948,8 +948,8 @@
    cas-la ne peut pas passer par les toasts, qui s'effacent en 2,4 s. */
 .csp-save {
   margin-top: 0.35rem;
-  font-size: 0.6875rem;
-  letter-spacing: 0.04em;
+  font-size: var(--fs-read);
+  letter-spacing: 1px;
   color: var(--muted);
   opacity: 0.75;
   text-align: center;
@@ -962,7 +962,7 @@
 }
 
 @media (max-width: 1500px) {
-  .city-status-panel .csp-save { font-size: 0.6875rem; }
+  .city-status-panel .csp-save { font-size: var(--fs-read); }
   /* Gouttiere etroite : le texte complet ne tient pas, le titre le porte. */
   .city-status-panel .csp-save:not(.is-error) { display: none; }
 }

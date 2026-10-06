@@ -26,15 +26,16 @@
 }
 
 .barometer-header span {
-  font-size: 0.85rem;
+  font-size: var(--fs-read);
   font-weight: 600;
   text-transform: uppercase;
-  letter-spacing: 0.05em;
+  letter-spacing: 1px;
   color: var(--muted);
 }
 
 .barometer-header strong {
-  font-size: 1.25rem;
+  font-family: var(--font-title);
+  font-size: var(--fs-display);
   color: #fff;
 }
 
@@ -127,7 +128,7 @@
 
 /* 2. Coût des actions (page Effondrement) */
 .action-cost {
-  font-size: 0.75rem;
+  font-size: var(--fs-read);
   opacity: 0.8;
   font-weight: normal;
 }
@@ -292,8 +293,8 @@
 
 .edict-head h4 {
   margin: 0;
-  font-size: 0.98rem;
-  line-height: 1.2;
+  font-size: var(--fs-read);
+  line-height: 19px;
   color: var(--gold-bright);
 }
 
@@ -342,7 +343,7 @@
 }
 
 .edict-tier-row strong {
-  font-size: 0.8rem;
+  font-size: var(--fs-read);
   color: #fff;
 }
 
@@ -357,7 +358,7 @@
 
 .edict-tier .action-cost {
   margin-left: auto;
-  font-size: 0.72rem;
+  font-size: var(--fs-read);
   font-weight: 500;
   color: var(--muted);
   white-space: nowrap;
@@ -379,7 +380,7 @@
 .edict-sealed-note {
   margin: 0;
   padding: 0.75rem 0.25rem;
-  font-size: 0.78rem;
+  font-size: var(--fs-read);
   font-style: italic;
   text-align: center;
   color: var(--gold-bright);
@@ -405,7 +406,7 @@
 
 .collapse-altar h4 {
   margin: 0;
-  font-size: 1.05rem;
+  font-size: var(--fs-read);
   text-align: center;
   color: #fff;
 }
@@ -428,7 +429,8 @@
 }
 
 .harvest-plus {
-  font-size: 1.2rem;
+  font-family: var(--font-title);
+  font-size: var(--fs-display);
 }
 
 /* Préviz au survol d'un palier : le chiffre s'éclaire le temps du survol. */
@@ -457,7 +459,7 @@
   display: flex;
   justify-content: space-between;
   gap: 0.75rem;
-  font-size: 0.78rem;
+  font-size: var(--fs-read);
   color: var(--muted);
 }
 
@@ -490,15 +492,15 @@
 }
 
 .testament-title {
-  font-size: 0.78rem;
+  font-size: var(--fs-read);
   font-weight: 700;
-  letter-spacing: 0.08em;
+  letter-spacing: 1px;
   text-transform: uppercase;
   color: var(--muted);
 }
 
 .testament-cause {
-  font-size: 0.74rem;
+  font-size: var(--fs-read);
   color: var(--muted);
 }
 
@@ -574,13 +576,13 @@
   display: inline-flex;
   align-items: baseline;
   gap: 0.45rem;
-  font-size: 0.78rem;
+  font-size: var(--fs-read);
   font-weight: 700;
   color: var(--gold-ivory);
 }
 
 .testament-detail-affinity {
-  font-size: 0.6875rem;
+  font-size: var(--fs-read);
   font-weight: 600;
   color: var(--gold-bright);
 }
@@ -609,7 +611,7 @@
   overflow: hidden;
   width: 100%;
   padding: 0.85rem;
-  font-size: 1rem;
+  font-size: var(--fs-read);
   font-weight: 700;
   background: linear-gradient(180deg, #2b2753, #181534);
   color: #ffd9a8;
@@ -670,7 +672,7 @@
   position: relative;
   display: block;
   margin-top: 0.2rem;
-  font-size: 0.7rem;
+  font-size: var(--fs-read);
   font-weight: 500;
   color: rgba(205, 199, 238, 0.85);
 }
@@ -707,10 +709,10 @@
   align-items: center;
   gap: 0.45rem;
   margin-bottom: 0.5rem;
-  font-size: 0.72rem;
+  font-size: var(--fs-read);
   font-weight: 600;
   text-transform: uppercase;
-  letter-spacing: 0.06em;
+  letter-spacing: 1px;
   color: var(--muted);
 }
 
@@ -724,9 +726,9 @@
 }
 
 .crisis-journal-lines li {
-  font-size: 0.8rem;
+  font-size: var(--fs-read);
   font-style: italic;
-  line-height: 1.45;
+  line-height: 23px;
   color: #d6c59b;
 }
 
@@ -770,9 +772,9 @@
 
 .doctrine-group-title {
   margin: 0 0 0.25rem;
-  font-size: 0.78rem;
+  font-size: var(--fs-read);
   font-weight: 700;
-  letter-spacing: 0.08em;
+  letter-spacing: 1px;
   text-transform: uppercase;
   color: var(--muted);
   cursor: help;
@@ -780,7 +782,7 @@
 
 .doctrine-locked {
   margin: 0;
-  font-size: 0.8rem;
+  font-size: var(--fs-read);
   color: var(--muted);
 }
 
@@ -796,7 +798,7 @@
 }
 
 .doctrine-line-label {
-  font-size: 0.8rem;
+  font-size: var(--fs-read);
   color: var(--text);
   white-space: nowrap;
 }
@@ -812,7 +814,7 @@
   border: 1px solid var(--line);
   background: rgba(255, 255, 255, 0.03);
   color: var(--muted);
-  font-size: 0.74rem;
+  font-size: var(--fs-read);
   font-weight: 600;
   cursor: pointer;
   transition: border-color 0.15s ease, background 0.15s ease, color 0.15s ease;
@@ -852,9 +854,9 @@
   color: rgba(242, 217, 122, 0.92);
   background: rgba(12, 10, 8, 0.86);
   font-family: var(--font-body);
-  font-size: 0.86rem;
+  font-size: var(--fs-read);
   text-align: center;
-  letter-spacing: 0.02em;
+  letter-spacing: 0;
 }
 
 
@@ -875,25 +877,20 @@
   font-variant-numeric: tabular-nums;
 }
 
-/* Rattrape ce qui ne suit pas l'héritage : boutons et titres h3-h5 (re-calés
-   en famille par des règles globales), règles à famille propre (chiffres
-   Silkscreen via --font-number, petites lignes en --font-body), et inputs
-   (pas d'héritage de police par défaut). Les h2 de panneaux restent exclus. */
+/* Rattrape ce qui ne suit pas l'héritage : boutons, petites lignes et inputs
+   (pas d'héritage de police par défaut).
+   2026-10-06 : h3-h5 et `strong` SORTENT de la liste. Ils y étaient pour
+   arracher titres et chiffres à Pixelify au profit d'Inter ; la lecture est
+   désormais Jersey 10, nette à UNE taille, et la forcer sur un chiffre posé à
+   1,35 rem (`.place-key-val`) ou sur un titre le rendait flou. Titres et
+   chiffres de ces deux onglets reprennent donc les polices du reste du jeu. */
 #prestige button,
-#prestige h3,
-#prestige h4,
-#prestige h5,
 #prestige small,
-#prestige strong,
 #prestige .crisis-regul-title,
 #prestige .options-row > div small,
 #prestige input,
 #regulation button,
-#regulation h3,
-#regulation h4,
-#regulation h5,
 #regulation small,
-#regulation strong,
 #regulation .crisis-regul-title,
 #regulation input {
   font-family: var(--font-body);
@@ -911,14 +908,14 @@
 #regulation .regul-gamble-tag,
 #regulation .regul-reform-tag,
 #regulation .policy-effect,
-#regulation .crisis-regul-buffer { font-size: 0.74rem; }
+#regulation .crisis-regul-buffer { font-size: var(--fs-read); }
 #prestige .crisis-regul-title,
-#regulation .crisis-regul-title { font-size: 0.75rem; }
+#regulation .crisis-regul-title { font-size: var(--fs-read); }
 #prestige .crisis-policies-count,
-#regulation .crisis-policies-count { font-size: 0.75rem; }
+#regulation .crisis-policies-count { font-size: var(--fs-read); }
 #prestige .policy-active-tag,
-#regulation .policy-active-tag { font-size: 0.6875rem; }
+#regulation .policy-active-tag { font-size: var(--fs-read); }
 #prestige .crisis-foyer-soothed,
 #prestige .crisis-foyer-reformed,
 #regulation .crisis-foyer-soothed,
-#regulation .crisis-foyer-reformed { font-size: 0.6875rem; }
+#regulation .crisis-foyer-reformed { font-size: var(--fs-read); }

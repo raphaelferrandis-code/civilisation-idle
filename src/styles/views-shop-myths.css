@@ -43,8 +43,8 @@
 
 .upgrade p {
   color: var(--muted);
-  font-size: 0.86rem;
-  line-height: 1.35;
+  font-size: var(--fs-read);
+  line-height: 22px;
 }
 
 .upgrade button {
@@ -68,7 +68,7 @@
   white-space: nowrap;
   cursor: default;
 }
-.temple-auto-rate-unit { color: var(--muted); font-size: 0.72rem; }
+.temple-auto-rate-unit { color: var(--muted); font-size: var(--fs-read); }
 
 .temple-auto-slider {
   display: flex;
@@ -119,17 +119,17 @@
 .gr-notch.is-filled { background: var(--gold); border-color: var(--gold); }
 .gr-notch.is-next { border-color: var(--gold-dim); }
 .gr-ladder-panel .gr-ladder-count {
-  font-size: 0.85rem;
+  font-size: var(--fs-read);
   font-weight: 700;
   color: var(--gold);
 }
 /* Ordre-libre : bandeau « N sceaux prêts ». */
 .gr-ladder-ready {
   margin: 0;
-  font-size: 0.82rem;
+  font-size: var(--fs-read);
   font-weight: 700;
   color: var(--gold-bright);
-  letter-spacing: 0.02em;
+  letter-spacing: 0;
 }
 /* Barre de lot : n'apparaît qu'à partir de 2 sceaux prêts (cocher plusieurs
    sceaux et les réclamer dans un seul reset). Le bandeau « N sceaux prêts »
@@ -146,7 +146,7 @@
 .gr-ladder-panel .gr-batch-btn {
   min-height: 2rem;
   padding: 0.2rem 0.75rem;
-  font-size: 0.78rem;
+  font-size: var(--fs-read);
   font-weight: 700;
 }
 .gr-ladder-panel .gr-batch-all {
@@ -242,7 +242,7 @@
   flex: 0 0 2rem;
   text-align: center;
   font-weight: 800;
-  font-size: 0.95rem;
+  font-size: var(--fs-read);
   color: var(--muted);
 }
 .gr-rung-body {
@@ -253,14 +253,14 @@
   min-width: 0;
 }
 .gr-rung-jalon {
-  font-size: 0.9rem;
+  font-size: var(--fs-read);
   font-weight: 700;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
 }
 .gr-rung-sub {
-  font-size: 0.75rem;
+  font-size: var(--fs-read);
   color: var(--muted);
 }
 /* Gravure érodée : le nom des jalons scellés est une ligne de crans illisibles. */
@@ -317,7 +317,7 @@
 
 .gr-rung-reward {
   flex: 0 0 auto;
-  font-size: 0.75rem;
+  font-size: var(--fs-read);
   color: var(--muted);
   white-space: nowrap;
 }
@@ -344,7 +344,7 @@
 }
 .gr-rung-btn {
   padding: 0.25rem 0.7rem;
-  font-size: 0.8rem;
+  font-size: var(--fs-read);
   font-weight: 700;
 }
 .gr-rung-done {
@@ -356,7 +356,7 @@
   justify-content: center;
   color: var(--gold);
   font-weight: 800;
-  font-size: 0.8rem;
+  font-size: var(--fs-read);
 }
 .gr-rung-pending { color: var(--gold); }
 

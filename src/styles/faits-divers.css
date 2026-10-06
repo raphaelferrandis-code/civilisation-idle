@@ -72,14 +72,14 @@
 /* Une ligne de fiche (Diogène : son logis, son humeur) — libellés, pas une phrase. */
 .fait-card .fc-sub {
   margin: 0.2rem 0 0;
-  font-size: 0.75rem;
+  font-size: var(--fs-read);
   color: #d7c69a;
   opacity: 0.85;
 }
 .fait-card .fc-line {
   margin: 0.55rem 0 0;
-  font-size: 0.95rem;
-  line-height: 1.45;
+  font-size: var(--fs-read);
+  line-height: 23px;
   color: #f6e7bf;
 }
 /* Didascalie : « (une bulle) », « (Il mime une boîte.) ». */

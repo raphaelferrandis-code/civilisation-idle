@@ -15,9 +15,9 @@
   background: radial-gradient(ellipse at center, rgba(14, 8, 4, 0.82) 0%, rgba(14, 8, 4, 0.55) 55%, rgba(14, 8, 4, 0) 80%);
   animation: salle-annonce 5200ms ease-out both;
 }
-.salle-annonce-icon { font-size: 1rem; }
+.salle-annonce-icon { font-size: var(--fs-read); }
 .salle-annonce-qui {
-  font-size: 0.85rem;
+  font-size: var(--fs-read);
   color: #f6e4bc;
   text-shadow: 1px 1px 0 #000;
 }

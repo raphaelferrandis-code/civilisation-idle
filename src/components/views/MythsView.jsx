@@ -381,7 +381,7 @@ export default function MythsView() {
                         />
                         <div>
                           <span className="babel-cat-name" style={{ fontWeight: 'bold' }}>{tr(c.label)}</span>
-                          <span className="babel-cat-desc" style={{ display: 'block', fontSize: '0.8rem', color: 'var(--text-dim)' }}>{tr(c.desc)}</span>
+                          <span className="babel-cat-desc" style={{ display: 'block', fontSize: 'var(--fs-read)', color: 'var(--text-dim)' }}>{tr(c.desc)}</span>
                         </div>
                       </label>
                     ))}
@@ -390,7 +390,7 @@ export default function MythsView() {
               )}
             </div>
 
-            <p className="myth-modal-warning" style={{ color: 'var(--red)', marginTop: '1rem', fontSize: '0.9rem' }}>
+            <p className="myth-modal-warning" style={{ color: 'var(--red)', marginTop: '1rem', fontSize: 'var(--fs-read)' }}>
               {activeMythId && activeMythId !== modalMyth.id
                 ? tr({
                     fr: `Le pacte "${activeMyth?.name ? tr(activeMyth.name) : 'en cours'}" est déjà actif ce cycle et sera abandonné. Le cycle sera réinitialisé.`,

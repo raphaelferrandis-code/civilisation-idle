@@ -10,7 +10,7 @@
 .pm-rang-name {
   flex: none;
   font-family: var(--font-body);
-  font-size: 0.74rem;
+  font-size: var(--fs-read);
   font-weight: 700;
   color: #e8c878;
   white-space: nowrap;

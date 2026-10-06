@@ -63,7 +63,7 @@ textarea:focus-visible,
   background: linear-gradient(180deg, #dc5f4b, #b91c1c);
   color: #fff;
   font-weight: 700;
-  font-size: 0.95rem;
+  font-size: var(--fs-read);
   box-shadow: 0 4px 12px rgba(220, 95, 75, 0.25);
 }
 
@@ -84,6 +84,6 @@ textarea:focus-visible,
 .btn-tiny {
   min-height: 1.875rem;
   padding: 0 0.6rem;
-  font-size: 0.78rem;
+  font-size: var(--fs-read);
   font-weight: 600;
 }

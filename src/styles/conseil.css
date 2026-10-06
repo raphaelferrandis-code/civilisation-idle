@@ -45,8 +45,8 @@
    aux cotes V4 (0.6 à 0.64rem) : planche planches/plancher-11px, décision de Raph
    (audit 2026-10-05, BUG-119). */
 .app #regulation .eq-term small {
-  font: 700 0.6875rem/1 var(--font-body);
-  letter-spacing: 0.12em;
+  font: 700 var(--fs-read)/16px var(--font-body);
+  letter-spacing: 2px;
   text-transform: uppercase;
   color: var(--text-weak);
 }
@@ -145,8 +145,8 @@
 
 .app .dossier-state {
   margin: 0.5rem 0.9rem 0.6rem;
-  font: 800 0.6875rem/1 var(--font-body);
-  letter-spacing: 0.12em;
+  font: 800 var(--fs-read)/16px var(--font-body);
+  letter-spacing: 2px;
   text-transform: uppercase;
   color: var(--text-weak);
 }
@@ -181,7 +181,7 @@
 }
 .app #regulation .conseil-decree b {
   min-width: 0;
-  font: 650 0.84rem/1.15 var(--font-body);
+  font: 650 var(--fs-read)/18px var(--font-body);
   color: var(--skin-cream);
 }
 .app .decree-costs {
@@ -202,7 +202,7 @@
   height: 16px;
 }
 .app .decree-kind {
-  font: 600 0.72rem/1.25 var(--font-body);
+  font: 600 var(--fs-read)/20px var(--font-body);
   color: color-mix(in srgb, var(--skin-cream), transparent 35%);
 }
 .app .decree-kind em {
@@ -211,15 +211,15 @@
 }
 .app .conseil-decree.is-reform .decree-kind em { color: var(--gold-bright); }
 .app .decree-side {
-  font: 600 0.7rem/1.2 var(--font-body);
+  font: 600 var(--fs-read)/19px var(--font-body);
   text-align: right;
   white-space: nowrap;
 }
 .app .decree-side.is-cost { color: #F2A08C; }
 .app .decree-side.is-gain { color: #8EE0B0; }
 .app .decree-state {
-  font: 800 0.6875rem/1 var(--font-body);
-  letter-spacing: 0.1em;
+  font: 800 var(--fs-read)/16px var(--font-body);
+  letter-spacing: 2px;
   text-transform: uppercase;
   color: #A8C860;
   text-align: right;
@@ -305,21 +305,21 @@
   height: 24px;
 }
 .app #regulation .conseil-policy b {
-  font: 650 0.78rem/1.15 var(--font-body);
+  font: 650 var(--fs-read)/18px var(--font-body);
   color: var(--skin-cream);
 }
 /* Effets d'un édit : relevés au plancher de 11 px (0.66-0.68 → 0.6875,
    imperceptible ; décision de Raph, audit 2026-10-05, BUG-119). */
 .app .conseil-policy-good {
-  font: 650 0.6875rem/1.2 var(--font-body);
+  font: 650 var(--fs-read)/19px var(--font-body);
   color: #8EE0B0;
 }
 .app .conseil-policy-bad {
-  font: 600 0.6875rem/1.2 var(--font-body);
+  font: 600 var(--fs-read)/19px var(--font-body);
   color: #F2A08C;
 }
 .app .conseil-policy-lock {
-  font: 600 0.6875rem/1.2 var(--font-body);
+  font: 600 var(--fs-read)/19px var(--font-body);
   color: var(--text-weak);
 }
 

@@ -147,9 +147,18 @@
      les tailles et graisses essayées. Jersey 15 (pixel elle aussi, empaquetée par
      scripts/vendorFonts.mjs, recalée à la hauteur de capitale de Pixelify) garde
      un C ouvert. La PROSE (--font-serif) reste en Pixelify : Jersey est trop
-     serrée pour un paragraphe. */
+     serrée pour un paragraphe.
+     LECTURE → Jersey 10 (2026-10-06). Inter « faisait IA » (Raph : « police
+     claude ») au milieu d'un jeu tout en pixels. Les essais pixel d'avant
+     (Pixelify, VT323) avaient été jugés illisibles en petit parce qu'ils
+     étaient rendus HORS de leur grille : à 12,5 px, un pixel de police tombait
+     sur 0,67 pixel d'écran et chaque trait bavait. Jersey 10, petite sœur des
+     titres, est rendue à UNE seule taille, sa grille native (cf. --fs-read) :
+     un pixel de police = un pixel d'écran, net, et à peu près la largeur
+     d'Inter à 13,6 px. Inter reste en repli pour les signes que Jersey n'a
+     pas (flèches, ≥, ±). */
   --font-title: "Jersey 15", "Pixelify Sans", Georgia, serif;
-  --font-body: "Inter", system-ui, -apple-system, sans-serif;
+  --font-body: "Jersey 10", "Inter", system-ui, -apple-system, sans-serif;
   --font-serif: "Pixelify Sans", Georgia, serif;
   /* Chiffres « idle » : Silkscreen — chiffres 5×5 canoniques, chasse fixe
      (compteurs stables, 8≠S). Choisie contre VT323 (essai 2026-07-10) ;
@@ -177,14 +186,30 @@
      bouts : le corps ne descend plus sous 11 px (66 déclarations remontées au
      plancher, dont 7 qui rendaient entre 8 et 8,8 px), et le rôle passe à Inter,
      dessinée pour les petits corps. Le remède « monter le corps » notait juste :
-     il manquait seulement de constater que le plancher n'était pas tenu. */
-  --font-small: "Inter", system-ui, sans-serif;
+     il manquait seulement de constater que le plancher n'était pas tenu.
+     2026-10-06 : même police que la lecture, à la même taille (--fs-read) —
+     une police pixel n'a qu'un corps net, la hiérarchie passe par la couleur. */
+  --font-small: var(--font-body);
 
-  /* Échelle (plancher absolu : 11px / 0.6875rem) */
+  /* ⛔ TAILLES DES POLICES PIXEL : SEULEMENT CES JETONS.
+     Une police pixel n'est nette qu'à sa grille native (ou un multiple entier).
+     · --fs-read : Jersey 10 (1 400 unités par em, un pixel = 75 unités) est
+       native à 18,6667 px. Son @font-face porte `size-adjust: 116.6667%`
+       (scripts/vendorFonts.mjs), donc `font-size: 16px` la rend à 18,6667.
+       TOUT texte en --font-body / --font-small prend ce jeton, petits libellés
+       compris : entre 11 et 18 px il n'existe AUCUNE autre taille nette.
+     · --fs-display : Jersey 15 native à 27 px, `size-adjust: 112%` → 27 / 1,12.
+       Pour les quelques gros chiffres en lecture (gain de la chute, jackpot).
+     Interlignes en px ENTIERS (20 px = la boîte de Jersey 10) : un interligne
+     fractionnaire posait les lignes successives à 21, 22, 21 px.
+     Mesuré le 2026-10-06 sur le poste de Raph : dpr 1, 2560×1440. */
+  --fs-read: 16px;
+  --fs-display: calc(27px / 1.12);
+
+  /* Échelle (plancher absolu : 11px / 0.6875rem). --fs-cost, --fs-label et
+     --fs-tiny sont partis le 2026-10-06 : tous leurs consommateurs étaient du
+     texte de lecture, passé à --fs-read. */
   --fs-h3: 0.9375rem;
-  --fs-cost: 0.8125rem;
-  --fs-label: 0.6875rem;
-  --fs-tiny: 0.6875rem;
 
   /* ----- Rayons : AUCUN -----
      Depuis la refonte d'identité des boutons (2026-07-31,

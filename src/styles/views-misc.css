@@ -15,9 +15,9 @@
   box-shadow: none;
   color: var(--gold);
   font-family: var(--font-body);
-  font-size: 0.78rem;
+  font-size: var(--fs-read);
   font-weight: 800;
-  letter-spacing: 0.08em;
+  letter-spacing: 1px;
   text-transform: uppercase;
   text-align: left;
   cursor: pointer;
@@ -40,8 +40,8 @@
 }
 .hud-panel-chevron {
   flex: 0 0 auto;
-  font-size: 0.7rem;
-  line-height: 1;
+  font-size: var(--fs-read);
+  line-height: 16px;
   color: var(--gold-bright);
   transition: transform 0.2s ease;
 }
@@ -230,13 +230,13 @@
 .cycle-report-year {
   margin-left: 0.5rem;
   font-family: var(--font-body, sans-serif);
-  font-size: 0.76rem;
+  font-size: var(--fs-read);
   color: var(--muted, #9a8f7d);
 }
 
 .cycle-report-line {
   margin-top: 0.28rem;
-  font-size: 0.82rem;
+  font-size: var(--fs-read);
   color: var(--text-secondary, #c8bda9);
 }
 
@@ -334,7 +334,7 @@
 
 .idle-report-title {
   margin: 0.35rem 0 0.5rem;
-  font-size: 0.78rem;
+  font-size: var(--fs-read);
   font-style: italic;
   color: var(--text-secondary, #c8bda9);
 }
@@ -344,7 +344,7 @@
 .idle-report-wear,
 .idle-report-idle {
   margin: 0.25rem 0 0;
-  font-size: 0.74rem;
+  font-size: var(--fs-read);
   color: var(--text-secondary, #c8bda9);
 }
 
@@ -355,7 +355,7 @@
   margin-top: 0.55rem;
   padding-top: 0.4rem;
   border-top: 1px solid var(--frame-line);
-  font-size: 0.6875rem;
+  font-size: var(--fs-read);
   color: var(--muted, #9a8f7d);
 }
 
@@ -369,7 +369,7 @@
   display: flex;
   justify-content: space-between;
   gap: 0.6rem;
-  font-size: 0.76rem;
+  font-size: var(--fs-read);
   color: var(--text-secondary, #c8bda9);
   padding: 0.08rem 0;
 }
