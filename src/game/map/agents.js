@@ -1751,8 +1751,10 @@ const RAIN_RETHINK = new Set(['plaza', 'wonder', 'wander', 'cross', 'night']);
 const DUSK_RETHINK = new Set(['plaza', 'wonder', 'wander', 'cross', 'errand', 'work']);
 // L'évitement (lot 6), en cases : on regarde `reach` devant soi (et `back` derrière,
 // le temps de dépasser), dans un couloir de ± `half`, et l'on s'écarte de `step`.
-// Molette : __avoid({ on, reach, half, step, back }).
-export const AVOID = { on: true, reach: 0.6, half: 0.24, step: 0.22, back: 0.3 };
+// Un écart engagé se garde tant que quelqu'un reste à ± `hold` de sa file (> half +
+// step : l'autre s'écarte aussi, sans quitter ce couloir-là).
+// Molette : __avoid({ on, reach, half, hold, step, back }).
+export const AVOID = { on: true, reach: 0.6, half: 0.24, hold: 0.5, step: 0.22, back: 0.3 };
 if (import.meta.env?.DEV && typeof window !== 'undefined') window.__avoid = (o) => { if (o) Object.assign(AVOID, o); return { ...AVOID }; };
 // LA POSE d'un passant (§8 de PLAN-COMPORTEMENTS) : deux passants qui se croisent et
 // s'arrêtent causer commencent par se SALUER (la première seconde de la causette).
@@ -2078,16 +2080,35 @@ function updateCitizens(dt) {
     // frame d'avant, figures.js) — et l'on fait un pas de côté, du côté libre, le temps
     // de le croiser ; puis on reprend son bord. Ils se traversaient. Le compagnon suit
     // son meneur, il ne décide pas.
+    // ⚠ SANS TREMBLER (2026-10-06, Raph : « les habitants marchent en faisant des petits
+    // tremblements »). Le couloir se mesurait depuis la position DÉJÀ écartée : le pas de
+    // côté (0,22) sortait l'autre du couloir (± 0,24), on revenait, on le revoyait — un
+    // aller-retour en travers toutes les une à deux images (mesuré au Campement : jusqu'à
+    // 91 inversions sur 150 images ; 0 à 1 sans l'évitement). Désormais l'axe passe par
+    // sa FILE (la position dessinée moins son propre écart), et un écart engagé se GARDE,
+    // du même côté, tant que quelqu'un reste à ± `hold` de la file : on ne relâche
+    // qu'une fois l'autre doublé ou sorti de son chemin. Et l'écart est un VECTEUR lissé,
+    // plus un scalaire × le cap du moment : au coin d'une rue il tourne avec le passant
+    // au lieu de sauter d'un axe à l'autre.
     if (moved > 0 && !p.lead && AVOID.on) {
       const hx = p.tx - p.x, hy = p.ty - p.y, hl = Math.hypot(hx, hy);
       if (hl > 0.01) {
-        const side = figAhead(p.x + (p.lox || 0), p.y + (p.loy || 0), hx / hl, hy / hl, CM.TILE * AVOID.reach, CM.TILE * AVOID.half, CM.TILE * AVOID.back);
-        const want = side ? -side * CM.TILE * AVOID.step : 0;
-        p._dodge = (p._dodge || 0) + (want - (p._dodge || 0)) * Math.min(1, dt * 5);
-        p._dhx = -hy / hl; p._dhy = hx / hl;          // la droite du cap
+        const ux = hx / hl, uy = hy / hl, held = p._dside || 0;
+        const side = figAhead(p.x + (p.lox || 0), p.y + (p.loy || 0), ux, uy, CM.TILE * AVOID.reach,
+          CM.TILE * (held ? AVOID.hold : AVOID.half), CM.TILE * AVOID.back, 2.5, -(p._dgx || 0), -(p._dgy || 0));
+        p._dside = side ? (held || side) : 0;
+        // Du côté LIBRE : à gauche du cap (−(−uy, ux), sa droite) si l'autre est à droite.
+        const want = -p._dside * CM.TILE * AVOID.step, k = Math.min(1, dt * 5);
+        p._dvx = (p._dvx || 0) + (-want * uy - (p._dvx || 0)) * k;
+        p._dvy = (p._dvy || 0) + (want * ux - (p._dvy || 0)) * k;
       }
-    } else if (p._dodge) p._dodge *= Math.max(0, 1 - dt * 3);
-    const dgx = (p._dodge || 0) * (p._dhx || 0), dgy = (p._dodge || 0) * (p._dhy || 0);
+    } else if ((p._dvx || p._dvy) && (p.lead || !AVOID.on || p.pauseT > 0)) {
+      // Relâché à l'ARRÊT seulement : l'image où l'on choisit sa case suivante (moved
+      // nul, on ne s'arrête pas) le relâchait de 15 % — un à-coup à chaque case.
+      const k = Math.max(0, 1 - dt * 3);
+      p._dvx *= k; p._dvy *= k;
+    }
+    const dgx = p._dvx || 0, dgy = p._dvy || 0;
     const tox = (p.tox || 0) + dgx, toy = (p.toy || 0) + dgy;
     if (p.lox === undefined) { p.lox = tox; p.loy = toy; }
     else if (moved > 0) {

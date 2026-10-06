@@ -85,4 +85,47 @@ describe("lot 6 — on s'évite", () => {
     expect(sans.gap).toBeLessThan(1.5);                 // avant : il lui passait au travers
     expect(avec.gap).toBeGreaterThan(TILE * 0.1);
   });
+
+  // « Les habitants marchent en faisant des petits tremblements » (Raph, 2026-10-06).
+  // Quelqu'un posé un peu à droite de sa file (0,1 case, dans le couloir de ± 0,24) : le
+  // couloir se mesurait depuis la position DÉJÀ écartée, le pas de côté (0,22) le sortait
+  // du couloir, on revenait, on le revoyait — un aller-retour en travers toutes les une à
+  // deux images (en jeu au Campement : jusqu'à 91 inversions sur 150 images). On s'écarte
+  // UNE fois, on le double, on reprend son bord.
+  it("s'écarte d'un obstacle sans trembler", () => {
+    CM.TILE = TILE; CM.cam = { x: 0, y: 0, zoom: 1 }; CM.cw = 800; CM.ch = 600;
+    CM.nightF = 0; CM.dayP = 0.3; CM.rainF = 0; CM.lodActive = false; CM.riotDraw = null;
+    CM.layoutRecomputeAt = (CM.layoutRecomputeAt || 0) + 1;
+    const roadMap = new Map(), walkRoadSet = new Set(), walkRoadList = [];
+    for (let gx = 0; gx <= 20; gx += 1) {
+      walkRoadSet.add(cityMapWalkRoadKey(gx, 5)); walkRoadList.push({ gx, gy: 5 });
+      roadMap.set(gx + ",5", { gx, gy: 5, mask: MASK, roadSurface: "road" });
+    }
+    CM.layout = { counts: { eraBand: 4, eraIndex: 9 }, roadMap };
+    Object.assign(CM, { walkRoadSet, walkRoadList, roadSet: new Set(walkRoadList.map((c) => c.gx + ",5")), wonderWalkSet: null, plazaRoadCells: null,
+      vehicles: [], homeRoadCells: [], workRoadCells: [], buildingEdgeList: [], buildingEdgeSet: new Set(), globalBubbleCooldown: 999 });
+    vi.spyOn(Math, "random").mockReturnValue(0.5);
+    const a = { gx: 4, gy: 5, x: 4.5 * TILE, y: 5.5 * TILE, tx: 4.5 * TILE, ty: 5.5 * TILE, pauseT: 0, speed: 16, phase: 0.21, dir: -1,
+      charType: 0, fade: 1, goal: { gx: 19, gy: 5 }, goalKind: "work", social: false, _grp: 0, _born: true, _side: 1, _sideAxis: "x" };
+    CM.citizens = [a];
+    let ox = null, oy = 0, flips = 0, lastD = 0, prevY = null, passed = false, dodged = 0;
+    for (let t = 0; t < 30 && !passed; t += DT) {
+      figuresBeginFrame();
+      noteFig(a.x + (a.lox || 0), a.y + (a.loy || 0), FIG.STREET | FIG.MOVING);
+      if (ox == null && a.lox !== undefined && a.x > 4.8 * TILE) { ox = a.x + a.lox + TILE * 1.5; oy = a.y + a.loy + TILE * 0.1; }
+      if (ox != null) noteFig(ox, oy, FIG.STREET);   // l'obstacle, immobile
+      updateCitizens(DT);
+      const y = a.y + a.loy;
+      if (ox != null && prevY != null) {
+        const d = y - prevY;
+        if (Math.abs(d) > 0.02) { if (lastD && Math.sign(d) !== Math.sign(lastD)) flips += 1; lastD = d; }
+        dodged = Math.max(dodged, oy - y);
+      }
+      prevY = y;
+      if (ox != null && a.x + a.lox > ox + TILE * 0.6) passed = true;
+    }
+    expect(passed).toBe(true);
+    expect(dodged).toBeGreaterThan(TILE * 0.25);       // il s'est bien écarté (0,1 + ~0,2)
+    expect(flips).toBeLessThanOrEqual(1);              // s'écarter, revenir : pas de va-et-vient
+  });
 });

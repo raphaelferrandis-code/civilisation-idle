@@ -96,13 +96,19 @@ export const figFree = (x, y, r) => !figNear(x, y, r, false);
 // que l'autre est À CÔTÉ (back) : relâché dès qu'il n'était plus devant, on lui
 // rentrait dedans au moment de le dépasser. Sa propre trace de la frame d'avant (un pas
 // derrière soi, à moins de `self` px) ne compte pas.
-export function figAhead(x, y, hx, hy, r, half, back = 0, self = 2.5) {
+// (lx, ly) : l'axe passe par (x + lx, y + ly) et non par (x, y) — la FILE d'un passant
+// déjà écarté (agents.js) : mesuré depuis l'écart lui-même, le pas de côté sortait
+// l'autre du couloir, on revenait, on le revoyait (le tremblement du 2026-10-06). Sa
+// propre trace, elle, se cherche toujours autour de (x, y), là où on a été dessiné.
+export function figAhead(x, y, hx, hy, r, half, back = 0, self = 2.5, lx = 0, ly = 0) {
   let best = Infinity, side = 0;
-  const s2 = self * self;
-  visit(x, y, r, (i) => {
-    const dx = prev.x[i] - x, dy = prev.y[i] - y;
+  const s2 = self * self, ax = x + lx, ay = y + ly;
+  visit(ax, ay, r, (i) => {
+    const sx = prev.x[i] - x, sy = prev.y[i] - y;
+    if (sx * sx + sy * sy < s2) return false;
+    const dx = prev.x[i] - ax, dy = prev.y[i] - ay;
     const d2 = dx * dx + dy * dy;
-    if (d2 < s2 || d2 >= best) return false;
+    if (d2 >= best) return false;
     const a = dx * hx + dy * hy;
     if (a <= -back || a >= r) return false;
     const l = -dx * hy + dy * hx;
