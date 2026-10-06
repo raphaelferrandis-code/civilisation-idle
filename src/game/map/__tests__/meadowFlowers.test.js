@@ -75,8 +75,10 @@ describe("le pré : les zones", () => {
     expect(MEADOW.scale).toBeGreaterThanOrEqual(8);
   });
 
-  it("l'ancien voile par losange est éteint (il montrait la grille au-delà de 8 %)", () => {
-    expect(GRASS_DETAIL.meadow).toBe(0);
+  it("l'ancien voile par losange est retiré (il montrait la grille au-delà de 8 %)", () => {
+    // Audit du 05/10, MORT-14 : la molette elle-même a disparu, pas seulement sa dose.
+    expect("meadow" in GRASS_DETAIL).toBe(false);
+    expect("wildShade" in GRASS_DETAIL).toBe(false);
   });
 });
 

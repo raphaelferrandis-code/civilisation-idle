@@ -38,15 +38,17 @@
 // ⚠ Relief éteint (TERRAIN.amp = 0) : la projection est affine, donc un point du monde
 // a une position FIXE dans l'espace d'art — c'est ce qui permet de cuire une fois.
 import { CM, cmHash } from '../layout.js';
+import { h01Imul as h01 } from '../hash.js';
+import { mkCanvas } from '../pixelUtil.js';
 import { ISO_X, ISO_Y, depthOf, worldToScreen } from './projection.js';
-import { quayStyleFor, quayWallTune, quayWallColors, ensureQuayGate } from '../quaysAndRiot.js';
+import { quayStyleFor, quayWallTune, quayWallColors, ensureQuayGate, cmRiverNormalAt as riverNormalAt } from '../quaysAndRiot.js';
 import { metroGroundAt } from './isoMetro.js';
 
 // Molette : __quayArt({ bollards, grain, parapet, stairs, endRamp }) ; __quayArt() rend l'état.
 // `endRamp` (2026-10-02) : le quai qui finit sur une GRÈVE garde toute sa largeur et
 // descend sur le sable (cf. LA FIN DU QUAI SUR UNE GRÈVE) ; false = l'ancienne pointe
 // effilée en lame (A/B).
-export const QUAY_ART = { bollards: true, grain: true, parapet: true, stairs: true, endRamp: true };
+const QUAY_ART = { bollards: true, grain: true, parapet: true, stairs: true, endRamp: true };
 
 // ── LE CLAPOTIS AU PIED DU MUR (2026-10-02) ─────────────────────────────────
 // Raph : « fais le clapotis au pied des quais ». Le quai est cuit en tuiles FIXES :
@@ -60,14 +62,14 @@ export const QUAY_ART = { bollards: true, grain: true, parapet: true, stairs: tr
 //   · au retrait, la pierre reste MOUILLÉE (plus sombre) jusqu'à la laisse, et sèche —
 //     la même laisse que le sable mouillé des grèves.
 // Molette : `QUAY_LAP` (window.__quayLap) — `rise` = montée maximale en px d'art.
-export const QUAY_LAP = { on: true, rise: 3, wet: 0.24, foam: 0.85, water: 0.9, minZoom: 0.6 };
-if (typeof window !== 'undefined') window.__quayLap = QUAY_LAP;
+const QUAY_LAP = { on: true, rise: 3, wet: 0.24, foam: 0.85, water: 0.9, minZoom: 0.6 };
+if (import.meta.env?.DEV && typeof window !== 'undefined') window.__quayLap = QUAY_LAP;
 // L'onde du fleuve, POUSSÉE par isoRiver (qui importe ce module : l'importer d'ici
 // ferait un cycle). (i, side) → { u, wet, rise, k } pour le sample i du fleuve, ou null
 // quand l'onde est éteinte (dézoom, effondrement, molette).
 let _quayWave = null;
 export function setQuayWave(fn) { _quayWave = typeof fn === 'function' ? fn : null; }
-if (typeof window !== 'undefined') {
+if (import.meta.env?.DEV && typeof window !== 'undefined') {
   window.__quayArt = (o) => {
     if (o && typeof o === 'object') Object.assign(QUAY_ART, o);
     _inKey = ''; _tileKey = '';                     // force une recuisson
@@ -125,11 +127,7 @@ export function quayTaperProfile(g, n0, side) {
   return out;
 }
 const art = (wx, wy) => ({ x: (wx - wy) * ISO_X, y: (wx + wy) * ISO_Y });
-function riverNormalAt(sm, i) {
-  const a = sm[Math.max(0, i - 1)], b = sm[Math.min(sm.length - 1, i + 1)];
-  let tx = b.x - a.x, ty = b.y - a.y; const tl = Math.hypot(tx, ty) || 1;
-  return { nx: -ty / tl, ny: tx / tl };
-}
+// riverNormalAt = cmRiverNormalAt (../quaysAndRiot.js) : la normale du gating des quais.
 const hexRgb = (h) => {
   if (typeof h !== 'string') return [128, 128, 128];
   if (h[0] === '#') { const n = parseInt(h.slice(1, 7), 16); return [(n >> 16) & 255, (n >> 8) & 255, n & 255]; }
@@ -139,11 +137,7 @@ const hexRgb = (h) => {
 const alphaOf = (h) => { const m = String(h).match(/rgba\([^)]*,\s*([\d.]+)\)/); return m ? +m[1] : 1; };
 const lighten = (c, t) => c.map((v) => Math.round(v + (255 - v) * t));
 const mix = (a, b, t) => a.map((v, i) => Math.round(v + (b[i] - v) * t));
-function h01(x, y, s = 0) {
-  let n = (x | 0) * 374761393 + (y | 0) * 668265263 + s * 982451653;
-  n = Math.imul(n ^ (n >>> 13), 1274126177);
-  return ((n ^ (n >>> 16)) >>> 0) / 4294967296;
-}
+// h01(x, y, graine) → [0, 1) : h01Imul (../hash.js), la même que les boîtes cuites.
 
 // ── GARDE-CORPS ET ESCALIERS (Raph, 2026-10-01 : « fais la planche garde-corps et
 // escaliers ») ────────────────────────────────────────────────────────────────
@@ -158,7 +152,7 @@ function h01(x, y, s = 0) {
 // (essayé : une double volée en Λ au pied des ponts, illisible d'un côté).
 const PARAPET_H = { stone: 3, marble: 4, iron: 4, glass: 4, cosmic: 3 };
 const eraOf = (band) => (band <= 3 ? 'stone' : band === 4 ? 'marble' : band === 5 ? 'iron' : band === 6 ? 'glass' : 'cosmic');
-export const parapetH = (band) => (QUAY_ART.parapet && band >= 2 ? PARAPET_H[eraOf(band)] : 0);
+const parapetH = (band) => (QUAY_ART.parapet && band >= 2 ? PARAPET_H[eraOf(band)] : 0);
 // TOPL : le palier d'entrée, de plain-pied avec la promenade, avant la première marche
 // (Raph : « une petite plateforme plutôt que la marche tout de suite »).
 const RISE = 2, TREAD = 4, LAND = 6, TOPL = 8, STAIR_W = 0.3;   // STAIR_W : largeur, en tuiles
@@ -475,10 +469,7 @@ function buildGeo(L, band) {
 }
 
 // ── LE DESSIN D'UNE TUILE ───────────────────────────────────────────────────
-function mkCanvas(w, h) {
-  if (typeof OffscreenCanvas !== 'undefined') return new OffscreenCanvas(w, h);
-  const c = document.createElement('canvas'); c.width = w; c.height = h; return c;
-}
+// (mkCanvas : ../pixelUtil.js.)
 function bakeTile(tx, ty, m) {
   const geo = _geo, M = 1 << m, Q = 1 / M, SM = S * M, X0 = tx * SM, Y0 = ty * SM;
   const fine = m === 0;                              // détails au pixel : zoom ≥ 0,7 seulement

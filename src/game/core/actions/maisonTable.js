@@ -83,7 +83,7 @@ export function maisonRank() {
   const r = Math.floor(Number(state.maisonRank) || 0);
   return Math.max(0, Math.min(MAISON_RANKS.length - 1, r));
 }
-export function rankMult() {
+function rankMult() {
   return MAISON_RANKS[maisonRank()].mult;
 }
 

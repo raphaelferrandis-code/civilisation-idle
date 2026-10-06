@@ -69,11 +69,10 @@ export function slotsEvaluate(grid) {
 }
 
 // ── LE RTP DE RÉFÉRENCE, calculé (slotsMath.js) ─────────────────────────────────
+// Les chances et le RTP exacts de la machine, calculés une fois et mémorisés (~20 ms).
 // Le plancher du GRAND y compte (la machine le paie) ; sa part de cagnotte, transfert,
-// non. Mémorisé (le calcul prend ~20 ms).
-// Les chances et le RTP exacts de la machine (actions/slotsMath.js), calculés une
-// fois : la case « vol » de la roue offre un vol d'Icare À LA MISE DU TOUR, donc sa
-// valeur vaut la mise × le RTP d'Icare, quelle que soit la mise.
+// non. La case « vol » de la roue offre un vol d'Icare À LA MISE DU TOUR : sa valeur
+// vaut la mise × le RTP d'Icare, quelle que soit la mise.
 let _odds = null;
 export function slotsOdds() {
   if (!_odds) _odds = slotsOddsOf(SLOTS_CFG, ICARUS_RTP);

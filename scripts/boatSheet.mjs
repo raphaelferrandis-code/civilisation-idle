@@ -9,7 +9,9 @@
 import { PNG } from 'pngjs';
 import fs from 'node:fs';
 
-const DIR = 'public/pixelart/iso';
+// Les sprites ne sont plus livrés (la carte dessine ses bateaux par le code, boatKit) :
+// gardés comme source dans art/ (audit du 05/10, MORT-6).
+const DIR = 'art/references-ab/bateaux-sprites';
 const OUT = '.preview-shots';
 // Même ordre que BOAT_SECTORS (isoRenderer) : le cap tourne dans le sens des
 // aiguilles depuis l'est, donc la planche se lit comme une rose des vents.

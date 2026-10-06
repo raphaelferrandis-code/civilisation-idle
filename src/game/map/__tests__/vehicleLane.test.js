@@ -13,7 +13,6 @@ describe("vehicleLaneOffset — boulevard 2 cellules : file au bord extérieur",
   const v = (gx, gy, dir, extra = {}) => ({ gx, gy, dir, parkT: 0, ...extra });
   // Boulevard HORIZONTAL de 2 cellules : rangées gy=5 ET gy=6 en "main".
   function boulevardH() {
-    CM.frameEraIndex = 14;
     const m = new Map();
     for (let x = 3; x <= 7; x += 1) { m.set(x + ",5", { rank: "main" }); m.set(x + ",6", { rank: "main" }); }
     CM.layout = { roadMap: m };
@@ -31,7 +30,6 @@ describe("vehicleLaneOffset — boulevard 2 cellules : file au bord extérieur",
   });
 
   it("avenue / rue : conduite à DROITE généralisée (les deux sens se séparent)", () => {
-    CM.frameEraIndex = 14;
     for (const rank of ["avenue", "secondary"]) {
       CM.layout = { roadMap: new Map([["5,5", { rank }]]) };
       const east = vehicleLaneOffset(v(5, 5, 0), 32);   // est → file SUD
@@ -49,13 +47,11 @@ describe("vehicleLaneOffset — boulevard 2 cellules : file au bord extérieur",
   });
 
   it("esplanade (plaza) : aucun décalage (défensif — piétonne)", () => {
-    CM.frameEraIndex = 14;
     CM.layout = { roadMap: new Map([["5,5", { rank: "plaza" }]]) };
     expect(vehicleLaneOffset(v(5, 5, 0), 32)).toEqual({ x: 0, y: 0 });
   });
 
   it("main SANS voisin (1 cellule) ou stationnement : centré", () => {
-    CM.frameEraIndex = 14;
     CM.layout = { roadMap: new Map([["5,5", { rank: "main" }]]) };  // pas de 2e voie
     expect(vehicleLaneOffset(v(5, 5, 0), 32)).toEqual({ x: 0, y: 0 });
     boulevardH();

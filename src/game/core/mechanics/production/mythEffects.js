@@ -22,22 +22,23 @@ import { epitaphLegacyById, legacyEffectValue } from '../../../data/epitaphs.js'
 import { ruinEffectSum } from '../shared.js';
 
 // ── Babel ────────────────────────────────────────────────────────────────
-export function babelExponentialMult() {
-  if (!isMythEffectActive("mythe_de_babel") || !state.babelCategory) return 1;
-  const cat = state.babelCategory;
-  const n = buildings
+// Le nombre de bâtiments de la catégorie de Babel : une seule règle de compte pour
+// les deux versions du multiplicateur (float et Decimal), qui la recopiaient chacune
+// (audit du 05/10, STRUCT-12).
+function babelCount(cat) {
+  return buildings
     .filter((b) => b.category === cat)
     .reduce((sum, b) => sum + (state.buildings[b.id] || 0), 0);
-  return Math.pow(BABEL_PROD_BASE_MULT, n);
+}
+
+export function babelExponentialMult() {
+  if (!isMythEffectActive("mythe_de_babel") || !state.babelCategory) return 1;
+  return Math.pow(BABEL_PROD_BASE_MULT, babelCount(state.babelCategory));
 }
 
 export function babelExponentialMultDec() {
   if (!isMythEffectActive("mythe_de_babel") || !state.babelCategory) return new Decimal(1);
-  const cat = state.babelCategory;
-  const n = buildings
-    .filter((b) => b.category === cat)
-    .reduce((sum, b) => sum + (state.buildings[b.id] || 0), 0);
-  return Decimal.pow(BABEL_PROD_BASE_MULT, n);
+  return Decimal.pow(BABEL_PROD_BASE_MULT, babelCount(state.babelCategory));
 }
 
 // Héritage « la Langue commune » : la catégorie DÉCLARÉE ce cycle

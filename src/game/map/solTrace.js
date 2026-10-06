@@ -4,8 +4,9 @@
 // Née le 2026-09-14 : la sonde de geste (scripts/sondeGeste.js) montrait chez
 // Raph six frames de suite à 67-101 ms de poste `sol`, à blits CONSTANTS — donc
 // des recuissons répétées du MÊME contenu en plein geste, ce que le lot 3
-// anti-clignotement interdit. Les compteurs agrégés (`__groundZoomCacheStats`)
-// ne disent pas QUELLE branche a pris la main ni ce qui a changé dans la clé.
+// anti-clignotement interdit. Les compteurs agrégés de l'époque (le cache de crans,
+// parti avec la pyramide ; aujourd'hui `__solPyramideStats`) ne disaient pas QUELLE
+// branche avait pris la main ni ce qui avait changé dans la clé.
 // Cette trace le dit, frame par frame, et elle vit en PROD (comme framePerf) :
 // le défaut n'existe que sur la vraie machine, la vraie save, le vrai geste.
 //
@@ -18,10 +19,9 @@
 // Une sorte d'entrée aujourd'hui :
 //   { k: 'layout', … }  un recompute du plan (cityMapRuntime) : durée, phases,
 //                       et les segments de la signature qui ont changé
-// Parties avec leur producteur — scripts/sondeGeste.js les filtre encore, pour
-// des listes vides : 'sol' et 'restore' (paintIsoGroundCached et son cache de
-// crans, pyramide lot 4, 2026-09-14), 'bake' (cityMapBakeMargin, la cuisson
-// avec marge de pan, retirée avec l'ancien quai le 2026-10-01).
+// Parties avec leur producteur : 'sol' et 'restore' (paintIsoGroundCached et
+// son cache de crans, pyramide lot 4, 2026-09-14), 'bake' (cityMapBakeMargin,
+// la cuisson avec marge de pan, retirée avec l'ancien quai le 2026-10-01).
 
 const CAP = 900;
 let on = false;
@@ -49,18 +49,6 @@ export function keyDiff(a, b, sep = ':') {
   const n = Math.max(A.length, B.length);
   for (let i = 0; i < n; i += 1) if (A[i] !== B[i]) out.push(i + ':' + (A[i] ?? '∅') + '→' + (B[i] ?? '∅'));
   return out;
-}
-
-// Instantané du profileur de passes du sol (isoGroundResolve.js,
-// `__isoGroundProfile`) — les ms par passe de la DERNIÈRE cuisson : cellules,
-// faces, herbe, franges, voirie, terre-plein… C'est ce qui dit, dans une
-// tranche, quelle passe paie un coût FIXE au lieu d'un coût au prorata.
-export function solProfileSnap() {
-  const pr = globalThis.__isoGroundProfileLast;
-  if (!pr) return null;
-  const o = {};
-  for (const k in pr) if (typeof pr[k] === 'number' && k !== 't0') o[k] = Math.round(pr[k] * 10) / 10;
-  return o;
 }
 
 if (typeof globalThis !== 'undefined') {

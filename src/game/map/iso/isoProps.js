@@ -6,7 +6,7 @@
 // réverbères de la ville), la même toise (habitant 7-8 px au zoom 1), la même
 // ombre solaire et les mêmes lueurs de nuit pour les deux. Déplacement pur.
 import { CM } from '../layout.js';
-import { isoArt } from './isoArt.js';
+import { isoArt, inkBox } from './isoArt.js';
 import { drawSunShadow } from './isoSunShadow.js';
 import { lightCtx, lightCutImage } from '../lightLayer.js';
 import { streetKitLampArt } from './streetKits.js';
@@ -14,36 +14,14 @@ import { flameFlicker } from '../flameGlow.js';
 
 // ── Art des objets posés (statues, braseros) ─────────────────────────────────
 // L'art des places de l'ère, tel quel : même main que la ville. Boîte d'encre
-// mesurée une fois (le canvas porte du vide).
-const _ink = new WeakMap();
-export function inkBox(img) {
-  const known = _ink.get(img);
-  if (known !== undefined) return known;
-  let b;
-  try {
-    const w = img.naturalWidth || img.width, h = img.naturalHeight || img.height;
-    const cv = document.createElement('canvas');
-    cv.width = w; cv.height = h;
-    const cx = cv.getContext('2d', { willReadFrequently: true });
-    cx.drawImage(img, 0, 0);
-    const d = cx.getImageData(0, 0, w, h).data;
-    let x0 = w, y0 = h, x1 = -1, y1 = -1;
-    for (let y = 0; y < h; y += 1) for (let x = 0; x < w; x += 1) {
-      if (d[(y * w + x) * 4 + 3] > 16) { if (x < x0) x0 = x; if (x > x1) x1 = x; if (y < y0) y0 = y; if (y > y1) y1 = y; }
-    }
-    b = x1 < 0 ? null : { x: x0, y: y0, w: x1 - x0 + 1, h: y1 - y0 + 1 };
-  } catch { b = null; }
-  _ink.set(img, b);
-  return b;
-}
+// mesurée une fois (le canvas porte du vide) — la MÊME que celle des places
+// (inkBox d'isoArt, { x0, y0, w, h }), dans le même cache.
 // Hauteur d'ENCRE voulue (px d'art au zoom 1) par objet posé. Toise : un habitant
 // fait 7 à 8 px. Une statue de pont ≈ 1,3 habitant avec son socle rond ; un brasero
-// sur trépied dépasse la main courante d'une demi-taille d'homme ; un réverbère fait
-// deux habitants. (`small` ×0,72 : sur la main courante ; `big`/porte ×1,4 : vus de
-// loin, sur un attique ou un pylône.)
-export const PROP_INK_H = { statue: 14, brazier: 8, gaslamp: 16, ledlamp: 17 };
-// Art des objets : places de l'ère (statue, brasero) ou réverbères de la ville.
-export const PROP_ART = { gaslamp: 'lamp-gas', ledlamp: 'lamp-electric' };
+// sur trépied dépasse la main courante d'une demi-taille d'homme. (`small` ×0,72 :
+// sur la main courante ; `big`/porte ×1,4 : vus de loin, sur un attique ou un pylône.)
+// Les réverbères (gaslamp, ledlamp) sont ceux du kit de rue, à leur taille d'art.
+export const PROP_INK_H = { statue: 14, brazier: 8 };
 // Point chaud (fraction de la boîte d'encre) et rayon de lueur en tuiles. Un brasero
 // éclaire le parapet et le tablier autour de lui, pas le fleuve entier (à 1,1 tuile
 // les halos amont posaient des disques sur l'eau).
@@ -52,8 +30,9 @@ export const PROP_LIGHT = {
   gaslamp: { fx: 0.5, fy: 0.08, r: 0.6, col: '255,208,150' },
   ledlamp: { fx: 0.5, fy: 0.06, r: 0.6, col: '150,225,255' },
 };
+// Art des objets : celui des places de l'ère (statue, brasero).
 export function propArt(pr) {
-  const a = isoArt(PROP_ART[pr.prop] || ('plaza/' + pr.prop + '-' + pr.era));
+  const a = isoArt('plaza/' + pr.prop + '-' + pr.era);
   return a.ready && a.img ? a.img : null;
 }
 // Le BRASERO brûle : la bande des places (plaza/anim/brazier-<ère>, scripts/
@@ -145,10 +124,13 @@ export function hexToRgbStr(h) {
 export function drawSpriteProp(ctx, pr, p, z, now) {
   // RÉVERBÈRE : celui de la rue de la même ère, dessiné par le code au grain de la
   // ville (iso/streetKits.js, 2026-10-03) — un pixel d'art par pixel d'écran, la
-  // lumière sur ses têtes dessinées. Les PNG d'avant restent le repli.
+  // lumière sur ses têtes dessinées. Sans kit (bandes 0-1, où ni pont ni merveille
+  // ne porte de réverbère), rien : le repli PNG `lamp-gas`/`lamp-electric` d'avant le
+  // kit a été retiré le 2026-10-06 (audit MORT-13).
   if (pr.prop === 'gaslamp' || pr.prop === 'ledlamp') {
     const kl = streetKitLampArt((CM.layout && CM.layout.counts && CM.layout.counts.eraBand) | 0);
-    if (kl) { drawKitLampProp(ctx, kl, p, z); return; }
+    if (kl) drawKitLampProp(ctx, kl, p, z);
+    return;
   }
   let img = propArt(pr);
   if (!img) return;
@@ -160,7 +142,7 @@ export function drawSpriteProp(ctx, pr, p, z, now) {
   const s = (want / bb.h) * z;                       // px écran par px d'art
   const dw = (img.naturalWidth || img.width) * s, dh = (img.naturalHeight || img.height) * s;
   // Pied de l'encre (centre bas) posé sur son support.
-  const dx = Math.round(p.x - (bb.x + bb.w / 2) * s), dy = Math.round(p.y - (bb.y + bb.h) * s + s * 0.5);
+  const dx = Math.round(p.x - (bb.x0 + bb.w / 2) * s), dy = Math.round(p.y - (bb.y0 + bb.h) * s + s * 0.5);
   drawSunShadow(ctx, img, dx, dy, dw, dh, 0, 0, 0, 0, 'column', false);
   const an = now != null ? brazierStrip(pr) : null;
   if (an) {
@@ -176,7 +158,7 @@ export function drawSpriteProp(ctx, pr, p, z, now) {
   const L = PROP_LIGHT[pr.prop];
   // Un brasero qui brûle (bande animée) fait vaciller sa lueur avec lui.
   const fl = an ? flameFlicker(now, (pr.l ?? pr.x ?? 0) * 0.41 + (pr.t ?? pr.y ?? 0) * 0.23) : 1;
-  if (L) glowAt(dx + (bb.x + bb.w * L.fx) * s, dy + (bb.y + bb.h * L.fy) * s, Math.max(6, CM.TILE * z * L.r), L.col, 0.55 * fl);
+  if (L) glowAt(dx + (bb.x0 + bb.w * L.fx) * s, dy + (bb.y0 + bb.h * L.fy) * s, Math.max(6, CM.TILE * z * L.r), L.col, 0.55 * fl);
 }
 
 // Réverbère de kit posé au point écran p (son pied) : ombre du soleil, blit au

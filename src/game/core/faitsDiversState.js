@@ -26,7 +26,7 @@ const int = (v, def = 0, lo = 0, hi = 1e9) => (Number.isFinite(v) ? Math.min(hi,
 const id = (v) => (typeof v === 'string' && v.length > 0 && v.length <= MAX_ID && /^[a-z0-9_:-]+$/i.test(v) ? v : null);
 const optNum = (v) => (v == null ? null : Number.isFinite(v) ? num(v) : null);
 
-export function defaultFaitsDiversLovers() {
+function defaultFaitsDiversLovers() {
   return {
     step: 0,          // rang du PROCHAIN rendez-vous à trouver
     at: null,         // temps à vie du dernier rendez-vous trouvé
@@ -85,7 +85,7 @@ function normalizeCurios(raw) {
   return out;
 }
 
-export function normalizeFaitsDiversLovers(raw) {
+function normalizeFaitsDiversLovers(raw) {
   const def = defaultFaitsDiversLovers();
   if (!isObj(raw)) return def;
   const who = raw.firstFound === 'nancy' || raw.firstFound === 'william' ? raw.firstFound : null;

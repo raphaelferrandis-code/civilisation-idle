@@ -30,7 +30,6 @@ const OU = {
   osselets: { fr: "aux osselets", en: "at knucklebones" },
   icare: { fr: "au Vol d'Icare", en: "at Icarus's flight" },
   tickets: { fr: "aux tickets", en: "at the scratch tickets" },
-  vingtetun: { fr: "au vingt-et-un", en: "at twenty-one" },
   machine: { fr: "à la machine à sous", en: "at the slot machine" },
   roulette: { fr: "à la roulette", en: "at roulette" },
   duel: { fr: "au duel des grands flambeurs", en: "at the high rollers' duel" },
@@ -41,7 +40,7 @@ const OU_MAISON = { fr: "à la Maison des Plaisirs", en: "at the House of Pleasu
 // LES RÉACTIONS (2026-10-04, la luxure du lot 3 de docs/PLAN-NUIT-DES-PLAISIRS.md) :
 // chaque beau gain (×3 la mise et plus) fait réagir la table — la croupière envoie un
 // baiser. Plusieurs abonnés, et indépendant de l'effet des grands gains (`show`).
-export const REACTION_MULT = 3;
+const REACTION_MULT = 3;
 const reactions = new Set();
 export function onGainReaction(fn) {
   if (typeof fn !== "function") return () => {};

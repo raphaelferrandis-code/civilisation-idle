@@ -1,4 +1,3 @@
-"use strict";
 /* ============================================================================
  * bench-plaisirs.js — LA MAISON DES PLAISIRS SUR 20 HEURES (et au-delà).
  *
@@ -28,18 +27,11 @@
  *   - les RUINES : la bourse retombe sous 10 % de son sommet (sommet ≥ 2 h).
  *
  * Usage : node bench-plaisirs.js [--hours=20] [--seed=7] [--profile=id] [--curve=id]
- * Sortie : plaisirs-20h.md (+ résumé console).
+ * Sortie : docs/bench/plaisirs-20h.md, relatif au dossier courant (+ résumé console).
  * ========================================================================== */
 import fs from "fs";
-
-// --- Stubs DOM (avant imports jeu) -----------------------------------------
-global.window = { addEventListener() {}, removeEventListener() {} };
-global.localStorage = { getItem() { return null; }, setItem() {} };
-Object.defineProperty(global, "navigator", { value: { clipboard: { writeText() {} } }, writable: true, configurable: true });
-const stubEl = () => ({ className: "", dataset: {}, innerHTML: "", textContent: "", disabled: false, value: "", checked: false, style: {}, classList: { add() {}, remove() {}, toggle() {}, contains() { return false; } }, addEventListener() {}, setAttribute() {}, showModal() {}, remove() {}, click() {}, appendChild() {}, querySelector() { return stubEl(); }, querySelectorAll() { return []; } });
-global.document = { addEventListener() {}, documentElement: { style: { setProperty() {} } }, body: { appendChild() {} }, querySelector() { return stubEl(); }, querySelectorAll() { return []; }, createElement() { return stubEl(); }, getElementById() { return stubEl(); } };
-global.Audio = class { constructor() { this.volume = 1; } addEventListener() {} play() { return Promise.resolve(); } pause() {} };
-global.render = () => {}; global.save = () => {};
+// Stubs DOM (avant imports jeu) : le faux navigateur commun des harnais.
+import "./scripts/lib/headless.mjs";
 
 const argv = Object.fromEntries(process.argv.slice(2).map((a) => {
   const m = /^--([^=]+)(?:=(.*))?$/.exec(a);
@@ -100,7 +92,7 @@ const RELICS = ["char", "lyre", "miroir", "corne", "toison", "pomme", "oeil"];
  *   --relics=h1,…,h7 le prix des reliques EN HEURES DE RECETTES au moment de
  *                    l'achat (Char → Œil), au lieu des prix fixes
  *   --thresholds=a,b,c,d  les seuils des titres (h de réputation)
- *   --tag=nom        le rapport s'écrit dans plaisirs-20h-<nom>.md
+ *   --tag=nom        le rapport s'écrit dans docs/bench/plaisirs-20h-<nom>.md (ignoré par git)
  * ========================================================================== */
 const list = (v) => (typeof v === "string" ? v.split(",").map(Number) : null);
 const LEVERS = {
@@ -427,7 +419,6 @@ for (const cid of curveIds) {
   md += `## Courbe « ${cid} » — ${curve.label}\n\n`;
   md += `| Profil | ${bal.MAISON_RANKS.slice(1).map((r) => RANK_LABELS[r.id].fr).join(" | ")} | Arbre (hors reliques) | Reliques (heure) | Bourse max (h de recettes) | Bourse max (Faveur) | Bourse finale (h) | Ruines | Fauché (temps de table) | Coups | Gagnants | Gros/Énormes/Légende | Plus gros gain (h) |\n`;
   md += `|---|${bal.MAISON_RANKS.slice(1).map(() => "---").join("|")}|---|---|---|---|---|---|---|---|---|---|---|\n`;
-  const t0 = Date.now;
   for (const pid of profileIds) {
     const p = PROFILES[pid];
     Math.random = mulberry32(SEED);
@@ -446,12 +437,14 @@ for (const cid of curveIds) {
       md += `\n</details>\n\n`;
     }
   }
-  void t0;
   md += `\n`;
 }
-const OUT = argv.tag ? `plaisirs-20h-${argv.tag}.md` : "plaisirs-20h.md";
+// Le rapport versionné vit dans docs/bench/ (audit du 05/10, GIT-6) ; les variantes
+// --tag y sont ignorées par git (.gitignore).
+const OUT = argv.tag ? `docs/bench/plaisirs-20h-${argv.tag}.md` : "docs/bench/plaisirs-20h.md";
 if (LEVERS.bonus || LEVERS.bonusRank || LEVERS.gifts || LEVERS.relics || LEVERS.thresholds) {
   md = md.replace("\n\n## ", `\n\n> Leviers : ${JSON.stringify(LEVERS)}\n\n## `);
 }
+fs.mkdirSync("docs/bench", { recursive: true });
 fs.writeFileSync(OUT, md, "utf8");
 console.log(`Écrit : ${OUT}`);

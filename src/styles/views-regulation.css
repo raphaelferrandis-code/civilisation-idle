@@ -6,8 +6,6 @@
    hairline), explications déplacées dans les TOOLTIPS, Anatomie|Annales côte
    à côte, registre en lignes uniques. La page tient en 1080p sans défilement.
    Importée APRÈS views-crises.css (le bloc typo Inter de #regulation y vit).
-   ⚠ les classes barometer-* de views-crises.css servent encore la jauge héros
-   d'Effondrement — le bandeau d'ici utilise des classes tension-* dédiées.
    ========================================================================== */
 
 /* Régulation en COLONNE FLEX (réorg 2026-07-14) : bandeau + deux colonnes
@@ -35,73 +33,6 @@
 }
 
 .app #regulation.view.active > * { min-height: 0; }
-
-/* ── Bandeau des jauges (une ligne fine, plus de cartes) ── */
-.tension-strip {
-  display: flex;
-  gap: 2.2rem;
-  align-items: center;
-  padding: 0.15rem 0.2rem 0.3rem;
-}
-
-.tension-gauge {
-  display: flex;
-  align-items: center;
-  gap: 0.55rem;
-  min-width: 0;
-}
-
-.tension-gauge--rupture { flex: 2; }
-.tension-gauge--usure { flex: 1; }
-
-.tension-label {
-  font-size: 0.7rem;
-  font-weight: 600;
-  text-transform: uppercase;
-  letter-spacing: 0.06em;
-  color: var(--muted);
-  white-space: nowrap;
-}
-
-.tension-track {
-  position: relative;
-  flex: 1;
-  height: 7px;
-  border-radius: 0;
-  background: rgba(255, 255, 255, 0.06);
-}
-
-.tension-fill {
-  position: absolute;
-  top: 0;
-  bottom: 0;
-  left: 0;
-  border-radius: 0;
-  transition: width 0.3s ease;
-}
-
-.tension-fill--rupture { background: linear-gradient(90deg, #dc5f4b, #ef4444); }
-.tension-fill--usure { background: var(--state-usure); }
-
-/* Fantôme de la cible : où la jauge dérive (détail chiffré dans l'Anatomie). */
-.tension-ghost {
-  position: absolute;
-  top: -2px;
-  bottom: -2px;
-  width: 2px;
-  margin-left: -1px;
-  background: rgba(255, 255, 255, 0.9);
-  border-radius: 0;
-  transition: left 0.3s ease;
-}
-
-.tension-val {
-  font-family: var(--font-number);
-  font-size: 0.9rem;
-  color: var(--text-strong);
-  min-width: 3.2rem;
-  text-align: right;
-}
 
 /* ── Chrome des sections (dé-boxé) ── */
 .regul-block { min-width: 0; }
@@ -141,38 +72,6 @@
   display: inline-block;
 }
 
-/* Compteur de Faveur (monnaie des jeux) — CARTOUCHE : pilule sombre à liseré
-   or, flamme votive qui respire + montant. La maison de la Faveur à l'écran. */
-.faveur-count {
-  margin-left: auto;
-  display: inline-flex;
-  align-items: center;
-  gap: 0.32rem;
-  padding: 0.1rem 0.55rem;
-  border: 1px solid color-mix(in srgb, var(--gold), transparent 55%);
-  border-radius: 0;
-  background: rgba(38, 24, 8, 0.55);
-  color: var(--gold-bright);
-  font-family: var(--font-number);
-  font-size: 0.8rem;
-  letter-spacing: normal;
-  text-transform: none;
-  cursor: default;
-}
-
-.faveur-count .faveur-glyph {
-  height: 1.25em;
-  animation: faveur-flicker 1.9s ease-in-out infinite;
-}
-
-/* La flamme respire : légère montée de brillance, pas un stroboscope.
-   (prefers-reduced-motion coupe toutes les animations via base.css.) */
-@keyframes faveur-flicker {
-  0%, 100% { filter: brightness(1); }
-  42% { filter: brightness(1.32) saturate(1.08); }
-  58% { filter: brightness(1.18); }
-}
-
 /* ── 2. Annales (courbe + registre une-ligne) ── */
 .annals-chart { display: block; }
 
@@ -204,17 +103,14 @@
 .annals-dot {
   width: 7px;
   height: 7px;
-  border-radius: 0;
   display: inline-block;
 }
 
-.annals-dot--diamond { border-radius: 0; transform: rotate(45deg); }
-.annals-dot--square { border-radius: 0; }
+.annals-dot--diamond { transform: rotate(45deg); }
 
 .annals-dot--tri {
   width: 0;
   height: 0;
-  border-radius: 0;
   background: transparent !important;
   border-left: 4px solid transparent;
   border-right: 4px solid transparent;
@@ -308,7 +204,6 @@
 .steward-toggle {
   margin-left: auto;
   border: 1px solid var(--line);
-  border-radius: 0;
   background: transparent;
   color: var(--muted);
   font-size: 0.7rem;
@@ -333,260 +228,10 @@
 
 .steward-signature { font-style: italic; }
 
-/* ── 4. Augures (lignes hairline) + bannière du temple ── */
-.icarus-banner,
-.scratch-banner {
-  display: flex;
-  align-items: center;
-  gap: 0.7rem;
-  width: 100%;
-  padding: 0.42rem 0.7rem;
-  border: 1px solid color-mix(in srgb, var(--gold), transparent 45%);
-  border-radius: 0;
-  background: linear-gradient(120deg, rgba(38, 24, 8, 0.85), rgba(15, 20, 30, 0.55));
-  color: var(--text-strong);
-  cursor: pointer;
-  transition: border-color 0.2s ease, transform 0.15s ease;
-  margin-bottom: 0.2rem;
-}
-
-.icarus-banner:hover,
-.scratch-banner:hover {
-  border-color: var(--gold);
-  transform: translateY(-1px);
-}
-
-.icarus-banner-title {
-  font-size: 0.82rem;
-  font-weight: 700;
-  font-family: "Inter", "Baloo 2", system-ui, sans-serif;
-  white-space: nowrap;
-}
-
-/* La cagnotte a quitté les bandeaux (2026-07-16) : elle ne s'affiche que dans
-   la scène du jeu ouvert (.icarus-stage-pot / .scratch-stage-pot). Le CTA est
-   donc poussé seul à droite. */
-.icarus-banner-free {
-  margin-left: auto;
-  font-size: 0.72rem;
-  color: var(--res-food);
-  white-space: nowrap;
-}
-
-.icarus-banner-cta {
-  margin-left: auto;
-  border: 1px solid var(--gold);
-  border-radius: 0;
-  padding: 0.18rem 0.75rem;
-  font-size: 0.74rem;
-  font-weight: 700;
-  color: var(--gold-bright);
-  font-family: "Inter", "Baloo 2", system-ui, sans-serif;
-}
-
-.icarus-banner-free + .icarus-banner-cta { margin-left: 0.7rem; }
-
-/* Fresques pixel des jeux (fond de bandeau) : bande 400×32 affichée ×2 (64 px),
-   ancrée au bord GAUCHE du bandeau, qui s'éteint dans un fondu long cuit dans
-   l'alpha (scratch/generate-augures-fresques.cjs + fade-fresques.cjs). Un scrim
-   léger à gauche garde le titre lisible sans éteindre le début de la fresque.
-   Réglage fin : --fresque-pos (position) et --fresque-op (opacité). */
-.augure-fresque {
-  position: relative;
-  isolation: isolate;
-  min-height: 66px; /* 64 px intérieurs (bordures 1 px) = fresque 32 px pile ×2 */
-}
-
-.augure-fresque::before,
-.augure-fresque::after {
-  content: "";
-  position: absolute;
-  inset: 0;
-  border-radius: 0;
-  pointer-events: none;
-}
-
-.augure-fresque::before {
-  z-index: -2;
-  background: var(--fresque) var(--fresque-pos, left center) / auto 100% no-repeat;
-  image-rendering: pixelated;
-  opacity: var(--fresque-op, 1);
-}
-
-.augure-fresque::after {
-  z-index: -1;
-  background: linear-gradient(90deg,
-    rgba(20, 13, 5, 0.6) 0%,
-    rgba(20, 13, 5, 0.32) 16%,
-    rgba(20, 13, 5, 0) 40%,
-    rgba(20, 13, 5, 0) 62%,
-    rgba(20, 13, 5, 0.45) 84%,
-    rgba(20, 13, 5, 0.7) 100%);
-}
-
-.fresque-icare { --fresque: url("/pixelart/ui/augures/icare.png"); }
-.fresque-tickets { --fresque: url("/pixelart/ui/augures/tickets.png"); }
-.fresque-vingtetun { --fresque: url("/pixelart/ui/augures/vingtetun.png"); }
-.fresque-osselets { --fresque: url("/pixelart/ui/augures/osselets.png"); }
-
-/* La rangée des osselets prend le même habit de bandeau quand la table est
-   ouverte — et c'est un BOUTON pleine largeur (tout le bandeau ouvre la table,
-   comme les autres jeux), d'où les resets bouton + le hover assorti. */
-.augures-row.augure-fresque {
-  width: 100%;
-  border: 1px solid color-mix(in srgb, var(--gold), transparent 55%);
-  border-radius: 0;
-  padding: 0.32rem 0.7rem;
-  margin-top: 0.2rem;
-  background: linear-gradient(120deg, rgba(38, 24, 8, 0.85), rgba(15, 20, 30, 0.55));
-  color: inherit;
-  font: inherit;
-  text-align: left;
-  cursor: pointer;
-  transition: border-color 0.2s ease, transform 0.15s ease;
-}
-
-.augures-row.augure-fresque:hover {
-  border-color: var(--gold);
-  transform: translateY(-1px);
-}
-
-.augures-list {
-  display: flex;
-  flex-direction: column;
-}
-
-.augures-row {
-  display: flex;
-  align-items: center;
-  gap: 0.6rem;
-  border-top: 1px solid color-mix(in srgb, var(--line), transparent 45%);
-  padding: 0.32rem 0.1rem;
-}
-
-.augures-row--locked { color: var(--muted); }
-
-.augures-name {
-  font-size: 0.78rem;
-  color: var(--text-strong);
-  flex: 1;
-  min-width: 0;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.augures-row--locked .augures-name { color: var(--muted); }
-
-.augures-pips {
-  display: inline-flex;
-  gap: 0.26rem;
-}
-
-.augures-pip {
-  width: 8px;
-  height: 8px;
-  border-radius: 0;
-  border: 1px solid var(--line);
-  display: inline-block;
-}
-
-.augures-pip.is-win { background: var(--res-food); border-color: transparent; }
-.augures-pip.is-loss { background: #e2704b; border-color: transparent; }
-/* Le Chien : pastille rouge sombre cerclée — le pire jet se repère de loin. */
-.augures-pip.is-dog { background: #8c2015; border-color: #ff6a55; }
-
-.augures-favor {
-  font-size: 0.7rem;
-  color: var(--res-treasure);
-  font-family: var(--font-number);
-  white-space: nowrap;
-}
-
-.augures-base {
-  font-size: 0.6875rem;
-  color: var(--muted);
-  white-space: nowrap;
-}
-
-.augures-throw {
-  border: 1px solid color-mix(in srgb, var(--gold), transparent 45%);
-  border-radius: 0;
-  background: color-mix(in srgb, var(--gold), transparent 88%);
-  color: var(--gold-bright);
-  font-family: "Inter", "Baloo 2", system-ui, sans-serif;
-  font-size: 0.7rem;
-  font-weight: 600;
-  padding: 0.16rem 0.6rem;
-  white-space: nowrap;
-  transition: all 0.2s ease;
-}
-
-.augures-throw:hover {
-  background: color-mix(in srgb, var(--gold), transparent 78%);
-  border-color: var(--gold);
-}
-
-.augures-throw:disabled {
-  opacity: 0.45;
-  cursor: default;
-}
-
-/* ── Tronc des offrandes (source de Faveur, monnaie fermée 2026-07-16) ─────
-   Jauge fine dorée (remplissage = trunkValue/TRUNK_CAP, MàJ au tick 1 Hz) +
-   relève manuelle ; le bouton ⚙ achète puis bascule l'auto-relève. */
-.augures-trunk {
-  gap: 0.45rem;
-}
-
-.augures-trunk-gauge {
-  flex: 1 1 3rem;
-  min-width: 2.4rem;
-  height: 0.34rem;
-  border-radius: 0;
-  background: color-mix(in srgb, var(--gold), transparent 88%);
-  border: 1px solid color-mix(in srgb, var(--gold), transparent 70%);
-  overflow: hidden;
-}
-
-.augures-trunk-gauge i {
-  display: block;
-  height: 100%;
-  border-radius: 0;
-  background: linear-gradient(90deg, color-mix(in srgb, var(--gold), transparent 35%), var(--gold-bright));
-  transition: width 0.6s ease;
-}
-
-.augures-trunk-auto {
-  border: 1px solid color-mix(in srgb, var(--gold), transparent 62%);
-  border-radius: 0;
-  background: transparent;
-  color: var(--muted);
-  font-size: 0.6875rem;
-  padding: 0.14rem 0.45rem;
-  white-space: nowrap;
-  transition: all 0.2s ease;
-}
-
-.augures-trunk-auto.is-on {
-  color: var(--gold-bright);
-  background: color-mix(in srgb, var(--gold), transparent 90%);
-}
-
-.augures-trunk-auto:hover:not(:disabled) {
-  border-color: var(--gold);
-  color: var(--gold-bright);
-}
-
-.augures-trunk-auto:disabled {
-  opacity: 0.45;
-  cursor: default;
-}
-
 /* Typo : les <select> suivent le registre Inter de l'onglet (les selects
    n'héritent pas de la police par défaut, comme les inputs). */
 #regulation select {
-  font-family: "Inter", "Baloo 2", system-ui, sans-serif;
+  font-family: var(--font-body);
 }
 
 /* ── La scène des jeux du temple (RegulationStage) — pleine largeur, prend
@@ -602,7 +247,6 @@
   justify-content: flex-start;
   overflow-y: auto;
   border: 1px dashed color-mix(in srgb, var(--line), transparent 55%);
-  border-radius: 0;
   /* Marge latérale : depuis que la scène remplit le tapis, on écarte le contenu
      du bord (et du liseré ::before à 5px) pour qu'il respire. */
   padding: 0.6rem 1rem;
@@ -647,7 +291,6 @@
   border: 1px solid var(--line);
   background: transparent;
   color: var(--muted);
-  border-radius: 0;
   padding: 0.06rem 0.45rem;
   font-size: 0.78rem;
   cursor: pointer;
@@ -671,11 +314,6 @@
 
 .icarus-stage-pot + .stage-close { margin-left: 0.6rem; }
 
-.icarus-pot-hint-inline {
-  color: var(--muted);
-  font-family: "Inter", "Baloo 2", system-ui, sans-serif;
-}
-
 /* ── Tickets à gratter (scène ScratchStage) ── */
 .scratch-stage-pot {
   margin-left: auto;
@@ -688,11 +326,6 @@
 }
 
 .scratch-stage-pot + .stage-close { margin-left: 0.6rem; }
-
-.scratch-pot-hint-inline {
-  color: var(--muted);
-  font-family: "Inter", "Baloo 2", system-ui, sans-serif;
-}
 
 .scratch-history {
   display: flex;
@@ -707,39 +340,12 @@
   text-align: center;
   padding: 0.05rem 0.28rem;
   border: 1px solid var(--line);
-  border-radius: 0;
   font-size: 0.8rem;
   background: rgba(15, 20, 30, 0.35);
 }
 
 .scratch-chip.is-blank { color: var(--muted); opacity: 0.6; }
 .scratch-chip.is-win { border-color: color-mix(in srgb, var(--gold), transparent 55%); }
-
-.scratch-stakes {
-  display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 0.5rem;
-  margin-bottom: 0.6rem;
-}
-
-.scratch-stake {
-  display: flex;
-  flex-direction: column;
-  gap: 0.2rem;
-  align-items: center;
-  padding: 0.55rem 0.4rem;
-  border: 1px solid var(--line);
-  border-radius: 0;
-  background: rgba(15, 20, 30, 0.35);
-  color: var(--text-strong);
-  cursor: pointer;
-  font-family: "Inter", "Baloo 2", system-ui, sans-serif;
-}
-
-.scratch-stake strong { font-size: 0.82rem; }
-.scratch-stake span { font-size: 0.74rem; color: var(--gold-bright); font-family: var(--font-number); }
-.scratch-stake.is-chosen { border-color: var(--gold); box-shadow: inset 0 0 0 1px var(--gold); }
-.scratch-stake.is-broke { opacity: 0.45; }
 
 .scratch-actions {
   display: flex;
@@ -755,7 +361,7 @@
   letter-spacing: 0.04em;
 }
 
-.scratch-reveal-all { font-family: "Inter", "Baloo 2", system-ui, sans-serif; }
+.scratch-reveal-all { font-family: var(--font-body); }
 
 .scratch-legend {
   display: flex;
@@ -783,7 +389,6 @@
   max-width: 320px;
   margin: 0.4rem auto;
   aspect-ratio: 1 / 1;
-  border-radius: 0;
   overflow: hidden;
   background: var(--ticket-art, none) center / 100% 100% no-repeat;
 }
@@ -806,7 +411,6 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  border-radius: 0;
   user-select: none;
 }
 
@@ -864,14 +468,14 @@
 }
 
 .scratch-result--win { color: var(--res-food); }
-.scratch-result--lose { color: var(--muted); font-size: 1rem; font-family: "Inter", "Baloo 2", system-ui, sans-serif; }
+.scratch-result--lose { color: var(--muted); font-size: 1rem; font-family: var(--font-body); }
 .scratch-result-sub { font-size: 0.85rem; color: var(--muted); }
 
 .scratch-jackpot-banner {
   text-align: center;
   /* PROSE, pas chiffres : la règle typo du dépôt réserve Silkscreen
      (--font-number) aux nombres — même pile que .scratch-result--lose. */
-  font-family: "Inter", "Baloo 2", system-ui, sans-serif;
+  font-family: var(--font-body);
   color: var(--gold-bright);
   font-size: 1rem;
   text-shadow: 0 0 10px color-mix(in srgb, var(--gold), transparent 40%);
@@ -898,7 +502,6 @@
   text-align: center;
   padding: 0.05rem 0.3rem;
   border: 1px solid var(--line);
-  border-radius: 0;
   font-family: var(--font-number);
   font-size: 0.72rem;
   background: rgba(15, 20, 30, 0.35);
@@ -924,7 +527,6 @@
   /* La gouttière du sabot (64 px de sprite + 8 px d'air) : rien du jeu ne passe
      dessous, ni les mains, ni les valeurs, ni le filet de séparation. */
   padding: 0.7rem calc(0.85rem + 72px) 0.85rem 0.85rem;
-  border-radius: 0;
   border: 1px solid color-mix(in srgb, var(--gold), transparent 55%);
   background: radial-gradient(120% 95% at 50% 0%, #33204a 0%, #251437 55%, #190d27 100%);
   box-shadow: inset 0 0 26px rgba(0, 0, 0, 0.5), 0 1px 4px rgba(0, 0, 0, 0.35);
@@ -965,7 +567,7 @@
   justify-content: space-between;
   font-size: 0.78rem;
   color: var(--muted);
-  font-family: "Inter", "Baloo 2", system-ui, sans-serif;
+  font-family: var(--font-body);
 }
 
 .bj-val { font-family: var(--font-number); font-size: 0.92rem; color: var(--gold-bright); }
@@ -999,20 +601,6 @@
   to { transform: none; opacity: 1; }
 }
 
-.stage-footnote {
-  text-align: center;
-  font-size: 0.7rem;
-  color: var(--muted);
-  margin-top: 0.4rem;
-  font-family: "Inter", "Baloo 2", system-ui, sans-serif;
-}
-
-.augury-note {
-  text-align: center;
-  font-size: 0.82rem;
-  margin: 0.2rem 0;
-}
-
 /* Les règles .regul-tip ont déménagé dans components.css (B1) : la bulle n'est
    plus une pièce de la Régulation mais l'infobulle de TOUT le jeu, montée dans
    App et portée hors de `.app`. Le nom de classe est conservé, il est écrit sur
@@ -1023,10 +611,6 @@
    Le dialogue réutilise le cadre .event-dialog ; micro-corps en Inter.
    ========================================================================== */
 
-.augury-dialog {
-  width: min(94vw, 620px);
-}
-
 .augury-odds {
   display: flex;
   flex-wrap: wrap;
@@ -1036,22 +620,11 @@
 }
 
 .augury-chip {
-  font-family: "Inter", "Baloo 2", system-ui, sans-serif;
+  font-family: var(--font-body);
   font-size: 0.78rem;
   padding: 0.18rem 0.6rem;
-  border-radius: 0;
   border: 1px solid var(--line);
   color: var(--muted);
-}
-
-.augury-chip--favor {
-  color: var(--res-treasure);
-  border-color: color-mix(in srgb, var(--res-treasure), transparent 55%);
-}
-
-.augury-chip--total {
-  color: var(--text-strong);
-  font-weight: 600;
 }
 
 .augury-chip--win {
@@ -1071,67 +644,6 @@
   border-color: var(--gold);
   text-shadow: 0 0 8px rgba(255, 210, 90, 0.55);
 }
-
-.augury-chip--wrath {
-  color: #ff6a55;
-  border-color: rgba(255, 106, 85, 0.6);
-  font-weight: 600;
-}
-
-.augury-rites {
-  display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 0.5rem;
-  margin: 0.4rem 0 0.7rem;
-}
-
-.augury-rite {
-  display: flex;
-  flex-direction: column;
-  gap: 0.32rem;
-  padding: 0.6rem 0.65rem;
-  border: 1px solid var(--line);
-  border-radius: 0;
-  background: rgba(15, 20, 30, 0.35);
-  text-align: left;
-  color: var(--text-strong);
-  cursor: pointer;
-  transition: border-color 0.15s ease, transform 0.15s ease;
-}
-
-.augury-rite:hover { transform: translateY(-1px); }
-
-.augury-rite strong {
-  font-size: 0.85rem;
-  font-family: "Inter", "Baloo 2", system-ui, sans-serif;
-}
-
-.augury-rite.is-chosen {
-  border-color: var(--gold);
-  box-shadow: inset 0 0 0 1px var(--gold);
-}
-
-.augury-rite.is-broke { opacity: 0.5; }
-
-.augury-rite-cost {
-  font-size: 0.72rem;
-  color: var(--muted);
-  font-family: "Inter", "Baloo 2", system-ui, sans-serif;
-}
-
-.augury-rite-fx {
-  display: flex;
-  flex-direction: column;
-  gap: 0.12rem;
-  font-size: 0.74rem;
-  font-family: "Inter", "Baloo 2", system-ui, sans-serif;
-}
-
-.augury-fx-win { color: var(--res-food); }
-.augury-fx-lose { color: #e2704b; }
-.augury-fx-safe { color: var(--res-food); opacity: 0.75; }
-.augury-fx-risk { color: var(--muted); font-style: italic; opacity: 0.9; }
-.augury-fx-wrath { color: #ff6a55; font-weight: 600; }
 
 .augury-actions {
   display: flex;
@@ -1229,21 +741,14 @@
      n'a ni fond ni bordure, la rangée serait sinon invisible pendant le jet. */
   .augury-die:not([data-face]) {
     box-shadow: inset 0 0 0 2px rgba(216, 199, 162, 0.35);
-    border-radius: 0;
   }
-}
-
-.augury-suspense {
-  text-align: center;
-  color: var(--muted);
-  font-size: 0.85rem;
 }
 
 .augury-callout {
   text-align: center;
   /* PROSE, pas chiffres : Silkscreen (--font-number) est réservée aux nombres
      — même pile que .scratch-result--lose. */
-  font-family: "Inter", "Baloo 2", system-ui, sans-serif;
+  font-family: var(--font-body);
   font-size: 1.05rem;
   letter-spacing: 0.04em;
   margin: 0.2rem 0;
@@ -1252,7 +757,6 @@
 .augury-callout--venus { color: var(--gold-bright); }
 .augury-callout--dog { color: #e2704b; }
 
-.augury-throw,
 .augury-tempt {
   border-color: color-mix(in srgb, var(--gold), transparent 40%) !important;
   color: var(--gold-bright) !important;
@@ -1261,29 +765,6 @@
 /* ==========================================================================
    Le Vol d'Icare — crash game du temple (IcarusDialog), scène PIXEL.
    ========================================================================== */
-
-.icarus-dialog {
-  width: min(94vw, 640px);
-}
-
-.icarus-pot {
-  text-align: center;
-  font-family: "Inter", "Baloo 2", system-ui, sans-serif;
-  font-size: 0.85rem;
-  color: var(--gold-bright);
-  margin: 0.3rem 0 0.5rem;
-}
-
-.icarus-pot strong {
-  font-family: var(--font-number);
-  font-size: 0.95rem;
-}
-
-.icarus-pot-hint {
-  display: block;
-  font-size: 0.72rem;
-  color: var(--muted);
-}
 
 .icarus-history {
   display: flex;
@@ -1297,7 +778,6 @@
   font-family: var(--font-number);
   font-size: 0.7rem;
   padding: 0.14rem 0.45rem;
-  border-radius: 0;
   border: 1px solid var(--line);
 }
 
@@ -1360,7 +840,6 @@
   width: 100%;
   max-width: none;
   margin-inline: auto;
-  border-radius: 0;
   overflow: hidden;
   background: linear-gradient(
     to top,
@@ -1515,48 +994,6 @@
    système : posées, au lieu de sauter à leur dernière image, invisibles (BUG-54). */
 :root[data-motion="none"] .icarus-feathers i { animation: none !important; }
 
-.icarus-stakes {
-  display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 0.5rem;
-  margin-bottom: 0.6rem;
-}
-
-.icarus-stake {
-  display: flex;
-  flex-direction: column;
-  gap: 0.2rem;
-  align-items: center;
-  padding: 0.55rem 0.4rem;
-  border: 1px solid var(--line);
-  border-radius: 0;
-  background: rgba(15, 20, 30, 0.35);
-  color: var(--text-strong);
-  cursor: pointer;
-  font-family: "Inter", "Baloo 2", system-ui, sans-serif;
-}
-
-.icarus-stake strong { font-size: 0.82rem; }
-.icarus-stake span { font-size: 0.74rem; color: var(--gold-bright); font-family: var(--font-number); }
-
-.icarus-stake-free {
-  color: var(--res-food) !important;
-  font-weight: 700;
-  text-shadow: 0 0 8px rgba(54, 179, 126, 0.5);
-}
-
-/* Part de cagnotte emportée par cette mise (potRakeShare) : depuis le prorata,
-   c'est la SEULE chose qui distingue les trois mises autrement qu'à l'échelle,
-   donc elle se lit sur le bouton et pas seulement au survol. Discrète : la mise
-   et son libellé restent les têtes d'affiche. */
-.icarus-stake-rake {
-  font-size: 0.6875rem !important;
-  color: var(--muted) !important;
-  font-family: var(--font-body);
-  letter-spacing: 0.02em;
-}
-.icarus-stake.is-chosen .icarus-stake-rake { color: var(--gold-bright) !important; }
-
 /* Vingt-et-un — le conseil de la Mesure gravée (artefact) : une ligne discrète
    au-dessus des boutons, en langue de temple, jamais un tableau de stratégie. */
 .bj-measure {
@@ -1591,7 +1028,6 @@
   position: relative;
   padding: 0.3rem 2.2rem 0.3rem 0.35rem;
   border: 1px solid transparent;
-  border-radius: 0;
   min-height: 0;
   margin-bottom: 0.25rem;
 }
@@ -1616,42 +1052,6 @@
   color: var(--muted);
   margin: 0 0 0.3rem;
 }
-
-/* Les coffres du temple : la rangée de puissance de mise, partagée par les 4
-   scènes (CoffreSelect.jsx). N'apparaît qu'au premier rang acquis — sobre,
-   l'amphore et des crans ×10, pas de néon. */
-.coffre-select {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 0.3rem;
-  flex-wrap: wrap;
-  margin: 0.2rem 0 0.4rem;
-}
-.coffre-select-label {
-  font-size: 0.72rem;
-  color: var(--muted);
-  letter-spacing: 0.03em;
-}
-.coffre-mult {
-  padding: 0.14rem 0.5rem;
-  font-family: var(--font-number);
-  font-size: 0.74rem;
-  border: 1px solid color-mix(in srgb, var(--gold), transparent 70%);
-  border-radius: 0;
-  background: transparent;
-  color: var(--muted);
-  cursor: pointer;
-}
-.coffre-mult:hover { color: var(--gold-bright); }
-.coffre-mult.is-chosen {
-  border-color: var(--gold);
-  color: var(--gold-bright);
-  background: color-mix(in srgb, var(--gold), transparent 88%);
-}
-
-.icarus-stake.is-chosen { border-color: var(--gold); box-shadow: inset 0 0 0 1px var(--gold); }
-.icarus-stake.is-broke { opacity: 0.45; }
 
 .icarus-actions {
   display: flex;
@@ -1690,14 +1090,14 @@
 }
 
 .icarus-result--win { color: var(--res-food); }
-.icarus-result--burn { color: #ff6a55; font-size: 1rem; font-family: "Inter", "Baloo 2", system-ui, sans-serif; }
+.icarus-result--burn { color: #ff6a55; font-size: 1rem; font-family: var(--font-body); }
 .icarus-result-sub { font-size: 0.85rem; color: var(--muted); }
 
 .icarus-reveal {
   text-align: center;
   font-size: 0.82rem;
   color: var(--muted);
-  font-family: "Inter", "Baloo 2", system-ui, sans-serif;
+  font-family: var(--font-body);
 }
 
 .icarus-knife { color: #e2a04b; }
@@ -1709,7 +1109,6 @@
   color: var(--gold-bright);
   text-shadow: 0 0 14px rgba(255, 210, 90, 0.75);
   border: 1px solid var(--gold);
-  border-radius: 0;
   padding: 0.5rem 0.6rem;
   margin: 0.2rem 0 0.4rem;
   background: rgba(60, 42, 8, 0.5);
@@ -1729,7 +1128,6 @@
 /* Le tapis. Grain 3px façon foilGrain, vignette, double filet dont un usé. */
 .regulation-stage {
   border: 1px solid color-mix(in srgb, var(--gold), transparent 78%);
-  border-radius: 0;
   background:
     radial-gradient(ellipse at 50% 30%, transparent 55%, rgba(0, 0, 0, 0.38)),
     repeating-linear-gradient(0deg, rgba(255, 255, 255, 0.016) 0 3px, transparent 3px 6px),
@@ -1752,55 +1150,9 @@
 }
 .regulation-stage { position: relative; }
 
-/* Les plaques d'os : mises et rites POSÉS sur le tapis. Coins cassés par
-   position (clip-path), ombre courte de pose, ton os patiné. La cassure coupe
-   aussi le liseré : l'arête est à vif, c'est le but. */
-.augury-rite, .scratch-stake, .icarus-stake {
-  border-radius: 0;
-  border-color: color-mix(in srgb, #cdb489, transparent 62%);
-  /* ⚠ background-color À PART : une couleur nue n'est pas une couche valide du
-     raccourci `background: gradient, couleur` — tout le fond sauterait. */
-  background-color: rgba(24, 20, 18, 0.5);
-  background-image: linear-gradient(168deg, rgba(205, 180, 137, 0.13), rgba(0, 0, 0, 0.06) 40%, rgba(0, 0, 0, 0.3));
-  box-shadow:
-    0 2px 0 rgba(0, 0, 0, 0.4),
-    inset 0 1px 0 rgba(255, 244, 214, 0.07);
-  position: relative;
-}
-.augury-rite:nth-child(4n + 1), .scratch-stake:nth-child(3n + 1), .icarus-stake:nth-child(3n + 1) {
-  clip-path: polygon(0 0, calc(100% - 10px) 0, 100% 10px, 100% 100%, 0 100%);
-}
-.augury-rite:nth-child(4n + 2), .scratch-stake:nth-child(3n + 2), .icarus-stake:nth-child(3n + 2) {
-  clip-path: polygon(0 0, 100% 0, 100% calc(100% - 8px), calc(100% - 8px) 100%, 9px 100%, 0 calc(100% - 9px));
-}
-.augury-rite:nth-child(4n + 3), .scratch-stake:nth-child(3n + 3), .icarus-stake:nth-child(3n + 3) {
-  clip-path: polygon(0 6px, 6px 0, 100% 0, 100% 100%, 0 100%);
-}
-.augury-rite:nth-child(4n + 4) {
-  clip-path: polygon(12px 0, 100% 0, 100% 100%, 0 100%, 0 12px);
-}
-.augury-rite:hover { transform: none; background-color: rgba(40, 34, 28, 0.5); }
-
-/* La sélection : le trait d'ocre tracé autour de la plaque — un anneau décalé,
-   à peine tourné (LUI seul tourne, pas la plaque), doublé d'un trait fantôme. */
-.augury-rite.is-chosen, .scratch-stake.is-chosen, .icarus-stake.is-chosen {
-  border-color: color-mix(in srgb, #cdb489, transparent 45%);
-  box-shadow: 0 2px 0 rgba(0, 0, 0, 0.4), inset 0 1px 0 rgba(255, 244, 214, 0.07);
-}
-.augury-rite.is-chosen::after, .scratch-stake.is-chosen::after, .icarus-stake.is-chosen::after {
-  content: '';
-  position: absolute;
-  inset: 2px;
-  pointer-events: none;
-  border: 2px solid color-mix(in srgb, var(--gold), #b0622a 35%);
-  transform: rotate(-0.7deg) translateX(1px);
-  box-shadow: 2px 2px 0 -1px color-mix(in srgb, var(--gold), transparent 70%);
-}
-
 /* Les chips (chance, solde, pitié…) : des jetons d'os coins crantés, posés
    sans être alignés au pixel près. */
 .augury-chip {
-  border-radius: 0;
   clip-path: polygon(
     0 2px, 2px 2px, 2px 0,
     calc(100% - 2px) 0, calc(100% - 2px) 2px, 100% 2px,
@@ -1813,27 +1165,8 @@
 .augury-odds > .augury-chip:nth-child(odd) { transform: translateY(-1px); }
 .augury-odds > .augury-chip:nth-child(even) { transform: translateY(1px); }
 
-/* Les jetons du coffre : même os, même désalignement (ce SONT des jetons de mise). */
-.coffre-mult {
-  border-radius: 0;
-  clip-path: polygon(
-    0 2px, 2px 2px, 2px 0,
-    calc(100% - 2px) 0, calc(100% - 2px) 2px, 100% 2px,
-    100% calc(100% - 2px), calc(100% - 2px) calc(100% - 2px), calc(100% - 2px) 100%,
-    2px 100%, 2px calc(100% - 2px), 0 calc(100% - 2px)
-  );
-  background: linear-gradient(180deg, rgba(205, 180, 137, 0.08), rgba(0, 0, 0, 0.22));
-}
-/* Décalage par MARGES : dans une rangée flex centrée, la marge re-centre le
-   jeton d'un demi-pas — plus sûr qu'un transform sur des boutons qui portent
-   déjà la transition globale `all` (base.css). */
-.coffre-select button.coffre-mult:nth-of-type(odd) { margin-top: 2px; }
-.coffre-select button.coffre-mult:nth-of-type(even) { margin-bottom: 2px; }
-.coffre-mult.is-chosen { box-shadow: inset 0 0 0 1px var(--gold), inset 0 -2px 0 rgba(0, 0, 0, 0.35); }
-
 /* Les CTA : des dalles de bronze embossées, qui S'ENFONCENT au doigt. */
-.augury-throw, .scratch-buy, .icarus-launch, .icarus-cashout {
-  border-radius: 0 !important;
+.scratch-buy, .icarus-launch, .icarus-cashout {
   clip-path: polygon(
     0 3px, 3px 3px, 3px 0,
     calc(100% - 3px) 0, calc(100% - 3px) 3px, 100% 3px,
@@ -1846,13 +1179,10 @@
   text-transform: uppercase;
   letter-spacing: 0.06em;
 }
-.augury-throw:active, .scratch-buy:active, .icarus-launch:active, .icarus-cashout:active {
+.scratch-buy:active, .icarus-launch:active, .icarus-cashout:active {
   transform: translateY(2px);
   box-shadow: inset 0 1px 0 rgba(0, 0, 0, 0.25), inset 0 -1px 0 rgba(0, 0, 0, 0.3);
 }
-
-/* Le chrome annexe de la scène suit (croix de fermeture carrée, plus d'arrondi). */
-.stage-close { border-radius: 0; }
 
 /* Le « ? » des scènes : un jeton d'os dans le titre, qui déplie un feuillet de
    règles au survol (StageHelp.jsx — passe densité 2026-07-17 : les légendes et
@@ -1864,7 +1194,6 @@
   height: 1.35rem;
   padding: 0;
   border: 1px solid color-mix(in srgb, #cdb489, transparent 55%);
-  border-radius: 0;
   clip-path: polygon(
     0 2px, 2px 2px, 2px 0,
     calc(100% - 2px) 0, calc(100% - 2px) 2px, 100% 2px,
@@ -1918,17 +1247,10 @@
    prend tout l'espace restant, et chaque plaque d'os devient une COLONNE :
    le nom en tête, la mise en grand au centre, le détail au pied. Plus de
    petites cartes flottant dans un cadre vide. Les autres phases (jeu,
-   résultat) restent ancrées en haut comme avant (aucun flex: 1 chez elles). */
-/* ⚠ La scène est un enfant DIRECT de #regulation.view, or `.app
-   #regulation.view.active > * { min-height: 0 }` (aide au shrink flex, plus
-   spécifique) écrase le min-height:260px de base → le cadre s'effondrait à
-   ~20px dès que les colonnes du haut étaient hautes (le pupitre les a
-   allongées), et les bandeaux retombaient sur leur min-height avec du vide
-   autour. On rend au cadre une hauteur GARANTIE, avec assez de spécificité
-   pour battre le reset. La page défile si le haut ne laisse pas la place —
-   c'est le prix des bandeaux qui « prennent toute la place » (arbitrage
-   Raphaël 2026-07-17). */
-.app #regulation.view.active > .regulation-stage { min-height: 22rem; }
+   résultat) restent ancrées en haut comme avant (aucun flex: 1 chez elles).
+   (La hauteur garantie de la scène quand elle était un enfant direct de
+   #regulation.view est partie : elle vit dans la Maison des Plaisirs depuis le
+   2026-08-06 — audit 2026-10-05, MORT-8.) */
 
 .regulation-stage > .augury-stage,
 .regulation-stage > .scratch-stage,
@@ -1939,34 +1261,6 @@
   flex: 1 1 auto;
   min-height: 0;
 }
-.augury-rites, .scratch-stakes, .icarus-stakes {
-  flex: 1 1 auto;
-  min-height: 9rem;
-  align-items: stretch;
-}
-/* Les osselets ont 4 rites avec l'artefact : flex plutôt que grid 3 colonnes
-   (le 4e bandeau rejoint le rang au lieu de retomber seul dessous). */
-.augury-rites { display: flex; gap: 0.5rem; }
-.augury-rite { flex: 1 1 0; min-width: 0; }
-/* La plaque devient une colonne dont le contenu SE RÉPARTIT sur toute la
-   hauteur (nom en tête, mise au cœur, détail au pied) — `space-evenly` plutôt
-   que `center` : quand la carte grandit sur un grand écran, le contenu s'étire
-   pour la remplir au lieu de se tasser au milieu en laissant du vide (le grief
-   Raphaël sur les osselets ; les cartes d'Icare qu'il aimait faisaient déjà ça
-   par leurs 4 lignes). */
-.augury-rite, .scratch-stake, .icarus-stake {
-  justify-content: space-evenly;
-  gap: 0.4rem;
-  padding: 0.9rem 0.7rem;
-}
-.scratch-stake strong, .icarus-stake strong, .augury-rite strong {
-  font-size: 0.92rem;
-  letter-spacing: 0.05em;
-  text-transform: uppercase;
-  text-shadow: 1px 1px 0 rgba(0, 0, 0, 0.5);
-}
-.scratch-stake > span, .icarus-stake > span { font-size: 1.05rem; }
-.augury-rite .augury-rite-cost { font-size: 0.95rem; }
 
 /* ── Choix de mise SANS CADRE, séparés par un simple trait (sketch Raph
    2026-07-17 : « pas de cadre, juste une délimitation entre chacun des choix ;
@@ -1975,38 +1269,14 @@
    mais des colonnes de contenu (redevenues des <button> cliquables), séparées
    par un filet vertical fondu. Le contenu monte en tête. Le bouton de jeu unique
    (`stake-play`) n'est rendu QU'À la sélection, en bas à gauche. */
-
-/* 1. Frameless : on annule le look « plaque d'os » sur les 3 familles de choix.
-   ⚠ La plaque est désormais un CONTENEUR (<div>) : son corps cliquable est
-   `.stake-pick`, et le bouton de jeu `.stake-play` vient s'y loger à la sélection.
-   ⚠ specificité : les clip-path sont posés par :nth-child (0,2,0) → on double le
-   sélecteur de classe (0,2,0) et on gagne par l'ordre (bloc plus bas). */
-.augury-rites .augury-rite,
-.scratch-stakes .scratch-stake,
-.icarus-stakes .icarus-stake {
-  border: none;
-  background: none;
-  background-color: transparent;
-  background-image: none;
-  box-shadow: none;
-  clip-path: none;
-  cursor: default;
-  justify-content: flex-start;
-}
-.augury-rites .augury-rite:hover,
-.scratch-stakes .scratch-stake:hover,
-.icarus-stakes .icarus-stake:hover {
-  transform: none;
-  background-color: color-mix(in srgb, #cdb489, transparent 92%);
-}
 /* Le corps cliquable de la plaque (sélectionne la mise) : un bouton dépouillé qui
    porte le contenu (titre / coût / effets), aligné en tête, pleine largeur.
    ⚠ `.stake-pick` est un VRAI <button> : le sélecteur d'élément `button` de base
-   (0,0,1) lui repose box-shadow + border-radius:8px (une carte fantôme au repos)
+   (0,0,1) lui repose bordure + box-shadow (une carte fantôme au repos)
    et `button:hover:not(:disabled)` (0,2,1) BAT `.stake-pick` (0,1,0) → il ré-ajoute
    lift + halo + fond teinté + or au survol. On les annule ici pour tenir le
-   « pas de cadre » ; le seul rehaut de survol reste le fond discret du conteneur
-   (`.augury-rite:hover`). */
+   « pas de cadre » ; le seul rehaut de survol reste celui du conteneur
+   (`.ptable-stake:hover`, plaisirs-tables.css). */
 .stake-pick {
   display: flex;
   flex-direction: column;
@@ -2021,7 +1291,6 @@
   min-height: 0;
   padding: 0;
   border: none;
-  border-radius: 0;
   background: none;
   box-shadow: none;
   color: inherit;
@@ -2036,93 +1305,7 @@
   color: inherit;
 }
 
-/* L'EMBLÈME DE LA MISE — commun aux QUATRE jeux.
-   Il occupe le haut du bandeau, vide depuis que les mises ont perdu leur cadre.
-
-   ⚠ Classe NEUTRE (`.stake-art`) et non `.icarus-stake-art` : le corps cliquable
-   `.stake-pick` est déjà partagé par les quatre jeux, et le vingt-et-un rend ses
-   mises avec les classes DES TICKETS (`.scratch-stake`) — une classe nommée
-   d'après un jeu aurait menti dès le deuxième. Chaque scène garde en revanche sa
-   PROPRE table d'emblèmes ; seule la présentation est mutualisée.
-
-   ⚠ 64 px, LA TAILLE NATIVE du PNG, jamais une valeur intermédiaire : à 48 px
-   on tomberait sur un facteur 0,75 et le pixel art baverait. Si la colonne
-   devait un jour serrer, le seul autre barreau propre est 32 (×0,5).
-   ⚠ `pixelated` est indispensable et non décoratif — sans lui le navigateur
-   interpole, et l'or de l'aile part en bouillie grise.
-   ⚠ `align-self` : `.stake-pick` est une colonne flex en `stretch` par défaut,
-   qui étirerait l'image sur toute la largeur. Calé à gauche, au fer du texte.
-
-   Au repos l'emblème est ASSOMBRI, jamais absent : dans ce projet la hiérarchie
-   passe par la lumière et pas par la présence de l'objet (même règle que les
-   plaques de chrome-wizard.css). Les trois emblèmes restent donc toujours
-   lisibles côte à côte — c'est l'escalade qu'ils racontent, la comparaison est
-   tout leur intérêt. */
-.stake-art {
-  align-self: flex-start;
-  flex: 0 0 auto;
-  width: 64px;
-  height: 64px;
-  image-rendering: pixelated;
-  filter: brightness(0.62) saturate(0.7);
-  transition: filter 140ms;
-}
-
-/* Les trois conteneurs sont énumérés plutôt que de viser `.is-chosen` seul :
-   cette classe sert ailleurs dans le jeu, et l'attraper au vol allumerait des
-   emblèmes qui ne nous appartiennent pas. */
-.icarus-stake.is-chosen .stake-art,
-.scratch-stake.is-chosen .stake-art,
-.augury-rite.is-chosen .stake-art,
-.stake-pick:hover .stake-art {
-  filter: none;
-}
-
-/* 2. La délimitation = un FONDU entre chaque mise (croquis Raph 2026-07-17 :
-   « un fondu entre chaque mise ») : pas un trait net mais une bande verticale
-   douce, dégradée horizontalement (transparent → ocre → transparent) et fondue
-   en haut/bas au masque. Gouttière de rangée à 0 pour que la bande vive pile sur
-   la couture entre deux choix. */
-.augury-rites, .scratch-stakes, .icarus-stakes { gap: 0; }
-.augury-rite + .augury-rite::before,
-.scratch-stake + .scratch-stake::before,
-.icarus-stake + .icarus-stake::before {
-  content: '';
-  position: absolute;
-  left: 0;
-  top: 4%;
-  bottom: 4%;
-  width: 1.7rem;
-  transform: translateX(-50%);
-  pointer-events: none;
-  background: linear-gradient(to right,
-    transparent,
-    color-mix(in srgb, #cdb489, transparent 58%),
-    transparent);
-  -webkit-mask-image: linear-gradient(to bottom, transparent, #000 22%, #000 78%, transparent);
-  mask-image: linear-gradient(to bottom, transparent, #000 22%, #000 78%, transparent);
-}
-
-/* 3. La sélection SANS boîte : on tue l'anneau tournant (::after) et on marque le
-   choix par un fond dégradé DISCRET (fondu, pas d'arête = pas de cadre) + un
-   titre plus vif. */
-.augury-rite.is-chosen::after,
-.scratch-stake.is-chosen::after,
-.icarus-stake.is-chosen::after { content: none; }
-.augury-rites .augury-rite.is-chosen,
-.scratch-stakes .scratch-stake.is-chosen,
-.icarus-stakes .icarus-stake.is-chosen {
-  background-image: linear-gradient(180deg, color-mix(in srgb, var(--gold), transparent 82%), transparent 72%);
-  box-shadow: none;
-}
-.augury-rite.is-chosen strong,
-.scratch-stake.is-chosen strong,
-.icarus-stake.is-chosen strong {
-  color: var(--gold-bright);
-  text-shadow: 0 0 10px rgba(228, 199, 126, 0.45);
-}
-
-/* 4. Le bouton de jeu, LOGÉ DANS la colonne de la mise choisie (retour Raph
+/* Le bouton de jeu, LOGÉ DANS la colonne de la mise choisie (retour Raph
    2026-07-17 : « visuellement dans le cadre de la mise choisie ») : React ne le
    rend que pour le choix sélectionné, et il est cousu au PIED de sa colonne
    (`margin-top:auto`), calé à gauche (`align-self:flex-start`) à l'aplomb du

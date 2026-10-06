@@ -11,7 +11,8 @@ import {
   globalMultiplier,
   globalMultiplierDec,
   globalMultiplierBreakdown,
-  rates
+  rates,
+  completedMythCount
 } from '../../game/core/mechanics.js';
 import { productionBreakdown } from '../../game/core/mechanics/production/productionBreakdown.js';
 import { eras } from '../../game/data/world.js';
@@ -323,7 +324,7 @@ function CivilizationReview() {
   const playTimeSec = useGameState(s => s.playTimeSec);
   const cyclePeaks = useGameState(s => s.cyclePeaks) || {};
   const wondersCount = useGameState(s => (s.wonders || []).length);
-  const mythsCount = useGameState(s => Object.values(s.mythsCompleted || {}).filter(Boolean).length);
+  const mythsCount = useGameState(s => completedMythCount(s));
 
   const projectedRuin = ruinGain(true);
   const cycleSeconds = Math.max(0, Math.floor((renderCache.tickNow - (cycleStartedAt || renderCache.tickNow)) / 1000));

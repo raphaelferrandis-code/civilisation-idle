@@ -11,7 +11,8 @@
 // Tout le reste vit dans `iso/*.js` — 35 modules sortis d'ici au fil de Q10
 // (`docs/PLAN-SUPPRESSION-LEGACY.md` §6 : 11 039 → 359 lignes). L'histoire de chaque
 // extraction — pourquoi cette borne, ce qu'elle a coûté, ce qu'elle a appris — vit
-// dans le plan et les trois `CARTO-*.md`. Cet en-tête l'a longtemps portée, jusqu'à
+// dans le plan et les trois `CARTO-*.md` (docs/CARTO-drawIsoGround.md, cité par le
+// code ; les deux autres dans docs/archive/). Cet en-tête l'a longtemps portée, jusqu'à
 // peser un tiers du fichier en récit de déménagements ; il ne la porte plus. Ce
 // fichier doit se lire pour ce qu'il FAIT, pas pour ce qu'il a cessé de faire.
 //
@@ -64,14 +65,13 @@ function drawIsoLive(now) {
   const b = visibleCellBounds(hw * 2);
   // CULL EN LOSANGE, complément de la boîte b : l'écran iso est un losange dont
   // b prend la boîte englobante — ~44 % des tuiles retenues étaient hors écran
-  // mais triées ET dessinées quand même (PERF-CARTE-REPRISE §6). Marge basse
+  // mais triées ET dessinées quand même (PERF-CARTE-REPRISE §3-4). Marge basse
   // généreuse (10·hh) : un sprite se dresse depuis sa base, une base sous le
-  // bord bas peut encore montrer sa tour. Molette __isoCullOff = 1 pour couper
-  // (vérification par paire de captures, recette REPRISE).
-  const dv = (typeof window !== 'undefined' && window.__isoCullOff)
-    ? null : visibleDiamondBounds(hw * 2, hw * 2 + hh * 10);
-  const dvVis = (wx0, wy0, wx1, wy1) => !dv
-    || !(wx1 - wy0 < dv.u0 || wx0 - wy1 > dv.u1 || wx1 + wy1 < dv.v0 || wx0 + wy0 > dv.v1);
+  // bord bas peut encore montrer sa tour. (Sa molette d'A/B __isoCullOff est
+  // retirée : audit 2026-10-05, DEV-3.)
+  const dv = visibleDiamondBounds(hw * 2, hw * 2 + hh * 10);
+  const dvVis = (wx0, wy0, wx1, wy1) =>
+    !(wx1 - wy0 < dv.u0 || wx0 - wy1 > dv.u1 || wx1 + wy1 < dv.v0 || wx0 + wy0 > dv.v1);
   // Boîtes des habitations pour le survol (cf. drawIsoWorld). null en LOD.
   const houseBoxes = CM._houseBoxes;
   // Marqueur de cellule AVANT le peintre : il est au sol, donc tout ce qui est
@@ -90,50 +90,18 @@ function drawIsoLive(now) {
   // de la frame précédente restent dans les objets non réutilisés : sans effet
   // (chaque kind relit ses propres champs, posés au push). Les items de pont
   // (pushIsoBridgeItems) restent des littéraux — 30-150 par frame, négligeable.
-  const items = collectIsoItems({ T, L, b, band, dvVis, z, smokeK, eraIdx }, now);
+  const items = collectIsoItems({ T, L, b, band, dvVis, z, smokeK }, now);
   fp('vif-collecte');
   items.sort((a, bb) => a.d - bb.d);
   fp('vif-tri');
-  // DIAGNOSTIC DE GREFFE (opt-in, coût nul éteint) : composition du lot et
-  // surtout nombre d'ALTERNANCES entre items « quad pur » (batchables en GL) et
-  // items procéduraux. C'est ce chiffre qui décide de l'architecture du batcher :
-  // une alternance = un vidage de lot, donc une composition plein écran.
-  if (globalThis.__isoItemStats) {
-    const st = { total: items.length, kinds: {}, alternances: 0, quads: 0, proc: 0 };
-    let prevQuad = null;
-    for (const it of items) {
-      st.kinds[it.kind] = (st.kinds[it.kind] || 0) + 1;
-      // « Quad pur » : un seul drawImage, sans géométrie vectorielle (cf. la
-      // cartographie). Les scènes moteur en deviennent quand le cache est actif.
-      const q = it.kind === 'cit' || it.kind === 'tree' || it.kind === 'bush' || it.kind === 'lamp'
-        || (it.kind === 'tile' && it.t && (it.t.type === 'house' || it.t.type === 'enginehome'));
-      if (q) st.quads += 1; else st.proc += 1;
-      if (prevQuad !== null && q !== prevQuad) st.alternances += 1;
-      prevQuad = q;
-    }
-    // Distribution des SÉRIES de quads consécutives : c'est elle qui décide si
-    // une composition par série est jouable (peu de séries longues) ou non
-    // (poussière de séries courtes).
-    const runs = [];
-    let cur = 0;
-    for (const it of items) {
-      const q = it.kind === 'cit' || it.kind === 'tree' || it.kind === 'bush' || it.kind === 'lamp'
-        || (it.kind === 'tile' && it.t && (it.t.type === 'house' || it.t.type === 'enginehome'));
-      if (q) cur += 1;
-      else { if (cur) runs.push(cur); cur = 0; }
-    }
-    if (cur) runs.push(cur);
-    runs.sort((a, b) => b - a);
-    st.series = { nombre: runs.length, plusLongues: runs.slice(0, 6), medianeTaille: runs.length ? runs[runs.length >> 1] : 0 };
-    st.couvertureTop8 = runs.slice(0, 8).reduce((a, b) => a + b, 0);
-    globalThis.__isoItemStatsLast = st;
-  }
+  // (Le DIAGNOSTIC DE GREFFE `__isoItemStats` — séries d'items batchables en GL —
+  //  a été retiré le 2026-10-06 avec la greffe GL elle-même, audit MORT-12.)
   paintIsoItems({ ctx, T, z, hw, hh, L, houseBoxes, band, eraIdx, smokeK }, items, now);
   fp('vif-peinture');
   // SONDE DU TRI (opt-in, coût nul éteinte) : l'ordre réel du peintre, recopié
   // (les objets du pool sont réutilisés à la frame suivante), pour l'audit « une
   // unité dessinée sur un bâtiment qui est devant elle » (PLAN-VIVANT, lot D).
-  if (globalThis.__sortAudit) {
+  if (import.meta.env?.DEV && globalThis.__sortAudit) {
     globalThis.__sortAuditItems = items.map((it) => ({
       d: it.d, kind: it.kind, t: it.t, p: it.p, v: it.v, gwx: it.gwx, gwy: it.gwy,
     }));
@@ -209,7 +177,7 @@ function drawIsoWorldInner(dt, now, steps) {
   // Jamais null, même en LOD : une merveille reste dessinée sprite par sprite.
   CM._wonderBoxes = [];
   // Boîtes des véhicules dessinés, pour la sonde du tri seulement (coût nul éteinte).
-  CM._vehBoxes = globalThis.__sortAudit ? [] : null;
+  CM._vehBoxes = import.meta.env?.DEV && globalThis.__sortAudit ? [] : null;
   refreshSeasonPalette();
   // Sim : mêmes mises à jour que le pipeline legacy (les agents vivent), en sous-pas.
   for (let s = 0; s < steps; s += 1) {

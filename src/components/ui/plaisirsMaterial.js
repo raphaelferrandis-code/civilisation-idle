@@ -21,11 +21,14 @@
 import { useGameState } from '../../hooks/useGameState.js';
 import { eraBandOf } from '../../game/data/eraThemes.js';
 import { currentEraIndex } from '../../game/core/mechanics/shared.js';
+// Le hash entier des peintres de pixels : une feuille sans import, rien de la carte
+// n'entre avec lui dans le chunk de l'interface.
+import { h32 } from '../../game/map/hash.js';
 
 // L'âge de la Maison des Plaisirs : celui de la ville (molette de dev partagée avec
-// la carte et la salle : `__plaisirsTune.band`).
+// la carte et la salle : `__plaisirsTune.band`, absente du build de prod).
 export function plaisirsBandNow() {
-  const t = typeof window !== 'undefined' ? window.__plaisirsTune : null;
+  const t = import.meta.env?.DEV && typeof window !== 'undefined' ? window.__plaisirsTune : null;
   return t && t.band != null ? Math.max(0, Math.min(9, t.band | 0)) : eraBandOf(currentEraIndex());
 }
 export function usePlaisirsBand() {
@@ -74,11 +77,6 @@ function sheet(key, w, h, paint) {
   _cache.set(key, url);
   return url;
 }
-const h32 = (a, b, c = 0) => {
-  let x = (a | 0) * 374761393 + (b | 0) * 668265263 + (c | 0) * 2147483647;
-  x = (x ^ (x >>> 13)) * 1274126177;
-  return (x ^ (x >>> 16)) >>> 0;
-};
 
 // ── Les dés (âges 4 et suivants) ─────────────────────────────────────────────
 // Planche 192 × 32 (six faces de 32 px, 1 à 6) : MÊME géométrie que les os de

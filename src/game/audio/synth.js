@@ -11,6 +11,8 @@ export function hz(nom, oct = 0) {
   return 440 * 2 ** ((midi - 69) / 12);
 }
 
+// PRNG mulberry32 — même algorithme que seededRng (core/utils.js), recopié
+// VOLONTAIREMENT : utils.js importe l'état du jeu, et cette bibliothèque reste pure.
 export function graine(n) {
   let a = n >>> 0;
   return () => {

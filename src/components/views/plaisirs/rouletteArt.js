@@ -6,6 +6,10 @@
 // propre échelle (l'image est agrandie sans lissage), à chaque image de l'animation.
 
 import { ROULETTE_WHEEL, couleurOf } from '../../../game/core/actions/roulette.js';
+// hex ('#rrggbb' → [r, g, b]) et mix (rvb → rvb) : les outils de pixel partagés, deux
+// feuilles sans code de carte (la roue les lit aussi).
+import { hex } from '../../../game/map/iso/plaisirsHDKit.js';
+import { mixRgb as mix } from '../../../game/map/pixelUtil.js';
 
 export const WHEEL_D = 84;            // diamètre en pixels de la roue
 export const WHEEL_SQUASH = 0.56;     // la perspective : la hauteur de l'ellipse
@@ -14,7 +18,6 @@ const R = WHEEL_D / 2 - 1;
 const N = ROULETTE_WHEEL.length;
 const STEP = (Math.PI * 2) / N;
 
-const hex = (c) => [parseInt(c.slice(1, 3), 16), parseInt(c.slice(3, 5), 16), parseInt(c.slice(5, 7), 16)];
 const C = {
   rimDark: hex('#3a1a10'), rim: hex('#6a2e1a'), rimLight: hex('#9a4a2a'),
   brass: hex('#d8a84a'), brassDark: hex('#8a6420'), brassLight: hex('#ffe08a'),
@@ -26,7 +29,6 @@ const C = {
   ball: hex('#fbf6ec'), ballShade: hex('#b8b0a4'),
   ink: hex('#120a08')
 };
-const mix = (a, b, t) => [0, 1, 2].map((i) => Math.round(a[i] + (b[i] - a[i]) * t));
 
 // L'angle d'une case (son centre) dans le repère de la roue, depuis le zéro.
 export function pocketAngle(n) {

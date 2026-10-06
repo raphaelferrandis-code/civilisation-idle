@@ -14,7 +14,7 @@ import { dirOf, figure, pushFig, pushProp, openStory } from './fdKit.js';
 const FACE = [[1, 0], [-1, 0], [0, 1], [0, -1]];
 const STEEL = [210, 214, 222];
 
-export function buildBorne(app) {
+function buildBorne(app) {
   const st = app.ch.stage | 0;
   const s = app.spot;
   const [fx, fy] = FACE[s.face != null ? s.face : 2];

@@ -81,7 +81,7 @@ export function districtMassTiles(L) {
   return _tiles;
 }
 
-if (typeof window !== 'undefined') {
+if (import.meta.env?.DEV && typeof window !== 'undefined') {
   window.__districtMass = (on) => {
     DISTRICT_MASS.on = on !== false;
     _tiles = null; _tilesAt = -1;

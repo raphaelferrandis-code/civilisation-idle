@@ -76,9 +76,10 @@ app.on("second-instance", () => {
 
 // On sert le jeu via un protocole interne « app:// » (comme un serveur web local)
 // au lieu de file://. C'EST INDISPENSABLE : les sprites pixel-art sont chargés
-// avec des chemins absolus ('/pixelart/...') et le terrain fait un fetch() de JSON.
-// En file:// ces deux mécanismes échouent (racine disque + fetch local interdit),
-// les images ne se chargent pas et le jeu retombe sur l'ancien rendu procédural.
+// avec des chemins absolus ('/pixelart/...'), que file:// résout depuis la racine
+// du disque : les images ne se chargeraient pas, et la carte resterait sur ses
+// aplats. (Le terrain faisait aussi un fetch() de JSON, que file:// interdit ; il
+// n'y en a plus hors des harnais de dev.)
 // En app:// tout fonctionne exactement comme dans `npm run dev`.
 // Privilèges (ELEC-5) : `stream` pour la musique (<audio> en boucle sur app://, ce
 // que la doc d'Electron demande pour les médias d'un protocole maison — sans lui,

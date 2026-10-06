@@ -40,6 +40,7 @@
 // elles sont tracées au layout, sur le même champ (cf. terrainField.js).
 import { CM } from '../layout.js';
 import { solInvalidate } from './solInvalidate.js';
+import { mkCanvas } from '../pixelUtil.js';
 import { TERRAIN, terrainFieldU, terrainFlatR, islandDomeU, ss01 } from '../procedural/terrainField.js';
 
 // LA FORME du champ vit dans procedural/terrainField.js depuis le lot « routes
@@ -316,10 +317,7 @@ export function drawTerrainShade() {
     + ':' + W + 'x' + H + terrainKey() + ':k' + TERRAIN.k + '_' + TERRAIN.cap + ':' + _pads.key;
   if (key !== _shade.key || !_shade.buf) {
     if (!_shade.buf || _shade.W !== W || _shade.H !== H) {
-      _shade.buf = typeof OffscreenCanvas !== 'undefined'
-        ? new OffscreenCanvas(W, H)
-        : (() => { const el = document.createElement('canvas'); el.width = W; el.height = H; return el; })();
-      _shade.buf.width = W; _shade.buf.height = H;
+      _shade.buf = mkCanvas(W, H);
       _shade.ctx = _shade.buf.getContext('2d');
       _shade.W = W; _shade.H = H;
     }
@@ -373,7 +371,7 @@ export function drawTerrainShade() {
   ctx.imageSmoothingEnabled = prevSm;
 }
 
-if (typeof window !== 'undefined') {
+if (import.meta.env?.DEV && typeof window !== 'undefined') {
   window.__terrain = (o) => {
     if (o === false) TERRAIN.amp = 0;
     else if (o === true) { if (!TERRAIN.amp) TERRAIN.amp = 1; }

@@ -1,13 +1,13 @@
 "use strict";
 // ── CHANTIER ISO — Phase 1 : LA fonction de projection unique ────────────────
-// Décisions verrouillées (Raphaël, 2026-07-10, cf REPRISE-chantier-iso.md) :
+// Décisions verrouillées (Raphaël, 2026-07-10, cf docs/archive/REPRISE-chantier-iso.md) :
 // losange 2:1 classique, caméra fixe (pas de rotation), grille/logique/save
 // INTACTES — seule la projection monde→écran change.
 //
 // Règle d'or du chantier : PLUS PERSONNE ne projette à la main. Tout passage
-// monde↔écran passe par worldToScreen/screenToWorld ci-dessous, qui répliquent
-// exactement l'ancien mapping quand CM.iso est éteint (identité translatée) :
-// flag off ⇒ zéro changement de comportement, au bit près.
+// monde↔écran passe par worldToScreen/screenToWorld ci-dessous. (Ils répliquaient
+// l'ancien mapping top-down quand le drapeau CM.iso était éteint ; drapeau et
+// top-down sont partis le 2026-08-23, docs/PLAN-SUPPRESSION-LEGACY.md.)
 //
 // Géométrie (mode iso), en px monde autour de la caméra (dx=wx−cam.x, dy=wy−cam.y) :
 //   sx = (dx − dy) · ISO_X · zoom + cw/2        ISO_X = 1
@@ -36,12 +36,8 @@ export const ISO_Y = 0.5;
 // ⚠⚠ La condition NAÏVE du plan — chercher `CM.iso` seul — était insuffisante :
 // `pixelHouses.js` lisait `isoFlag` directement, et trois lecteurs apparus après
 // la rédaction (isoBridge ×2, isoRenderer ×1) n'y figuraient pas non plus.
-
-// Nettoyage ponctuel : la clé de persistance du choix de pipeline ne veut plus rien
-// dire. La laisser traînerait un « 0 » inerte chez qui avait fait `__iso(false)`.
-try {
-  if (typeof localStorage !== "undefined") localStorage.removeItem("cmIsoMode");
-} catch { /* stockage indisponible : rien à nettoyer */ }
+// (Le nettoyage ponctuel de la clé « cmIsoMode », rejoué à chaque démarrage, est
+// parti avant la sortie : aucun joueur ne l'a jamais eue — audit 2026-10-05.)
 
 // ── S11 — QUANTIFICATION DU ZOOM (docs/PLAN-RENDU-VILLE.md) ─────────────────
 // Le pas de grille du sol vaut hw = TILE·z·ISO_X et hh = TILE·z·ISO_Y, soit 32z et
@@ -79,7 +75,7 @@ export function snapZoom(z, dir = 0) {
   const n = dir > 0 ? Math.ceil(v - 1e-6) : dir < 0 ? Math.floor(v + 1e-6) : Math.round(v);
   return Math.max(1, n) / q;
 }
-if (typeof window !== "undefined") {
+if (import.meta.env?.DEV && typeof window !== "undefined") {
   window.__zoomQuant = (per) => {
     if (per === false || per === 0) ZOOM_QUANT.on = false;
     else { ZOOM_QUANT.on = true; if (typeof per === "number" && per > 0) ZOOM_QUANT.per = per | 0; }
@@ -274,7 +270,7 @@ export function tileDiamond(gx, gy) {
 // BORNES EN LOSANGE du viewport — le complément de visibleCellBounds. En iso,
 // l'écran projeté en monde est un LOSANGE dont visibleCellBounds prend la boîte
 // englobante : ~2× l'aire, donc ~1,8× trop d'items retenus par le peintre
-// (mesuré : 437 tuiles pour 246 visibles à zoom 1, PERF-CARTE-REPRISE §6). Or
+// (mesuré : 437 tuiles pour 246 visibles à zoom 1, PERF-CARTE-REPRISE §4). Or
 // les coordonnées écran sont AFFINES en u = wx − wy (ne dépend que de sx) et
 // v = wx + wy (ne dépend que de sy) : le viewport est un simple RECTANGLE dans
 // le repère (u, v). Une emprise [wx0..wx1]×[wy0..wy1] se teste alors par

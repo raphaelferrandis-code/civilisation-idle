@@ -15,8 +15,9 @@
 // dans l'eau restent exacts. La nuit se lit sur ses propres vitres (les teintes
 // bleues et violettes du verre, que rien d'autre ne porte sur le lieu).
 //
-// Un âge sans habillage garde le rendu du code. Un âge habillé ne cuit JAMAIS le rendu du
-// code : le temps du chargement, le lieu garde l'âge d'avant (cf. isoPlaisirs.bakeFor).
+// Les dix âges sont habillés, et le rendu du code n'est JAMAIS cuit pour être montré :
+// le temps du chargement, ou si l'image est perdue, le lieu garde l'âge d'avant, ou rien
+// (cf. isoPlaisirs.bakeFor ; audit du 05/10, PERF-13 puis MORT-15).
 import { plaisirsMirror } from './plaisirsBake.js';
 
 // `src` : le sprite détouré (public/) ; `at` : son coin haut-gauche dans le REPÈRE DU
@@ -105,7 +106,7 @@ const SKINS = {
 // sans ce qui bouge) et `<nom>-live.png` (N images, rien que ce qui bouge) ; si elles
 // manquent, l'image d'origine sert (flammes peintes, immobiles).
 // Molette : `__plaisirsSkins[b].balcony = { … }` (ou `.walk`) puis `__plaisirsBakes()`.
-if (typeof window !== 'undefined') window.__plaisirsSkins = SKINS;
+if (import.meta.env?.DEV && typeof window !== 'undefined') window.__plaisirsSkins = SKINS;
 // La fiche d'un habillage (les tests vérifient les chemins des filles).
 export function plaisirsSkinSpec(band) { return SKINS[band | 0] || null; }
 
@@ -143,8 +144,9 @@ function loadImageData(src, done, fail) {
 // L'entrée de chargement d'un âge (le chargement part au premier appel), ou null
 // (pas d'habillage, ou pas de DOM). `wait` : les images encore en route — l'image,
 // et pour un âge `live` son fond et ses images vivantes. Une image qui ne se charge
-// pas compte comme arrivée : sans l'image, l'âge garde le rendu du code ; sans ses
-// couches vivantes, l'image d'origine sert (flammes peintes, immobiles).
+// pas compte comme arrivée : sans l'image, le lieu garde ce qu'il montrait (l'âge
+// d'avant, ou rien) ; sans ses couches vivantes, l'image d'origine sert (flammes
+// peintes, immobiles).
 function skinEntry(band) {
   const d = SKINS[band | 0];
   if (!d || typeof Image === 'undefined' || typeof document === 'undefined') return null;

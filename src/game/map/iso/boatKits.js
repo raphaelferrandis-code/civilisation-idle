@@ -19,7 +19,6 @@ import {
 import {
   pick, chance, drawHull, person, poler, crewPal, amphora, cargo as cargoOf, squareRig as rigOf,
 } from './boatParts.js';
-export { hullShape, drawHull, person } from './boatParts.js';
 import { makeLanding } from './boatFamilies.js';
 import { ANCIENT_MODELS, ANCIENT_FLEET } from './boatKitsAncient.js';
 import { MODERN_MODELS, MODERN_FLEET } from './boatKitsModern.js';
@@ -69,7 +68,6 @@ const PAL = {
     ['#b07a9a', '#94607f', '#764a65', '#58364b'],   // pourpre éteint
   ],
 };
-export { PAL as MARBRE_PAL };
 
 
 // ── BANDE 4 · MARBRE ──────────────────────────────────────────────────────────

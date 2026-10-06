@@ -60,7 +60,10 @@ const FIRE_SPRITES = [
   // proportions mesurées sur le petit. Si ce classement dérapait hors rampe, rien
   // d'autre ne le dirait. 2619 px mesurés → plancher à la moitié.
   ['agents/buildings/ancestralcult-fire-grand.png', 1200],
-  ['agents/buildings/storyteller-fire.png', 900],
+  // Les originaux des Conteurs (bande animée et feu statique) ne sont plus livrés :
+  // rangés dans art/conteurs/ (audit 2026-10-05, ASSET-3), ils restent la source que
+  // scripts/pixelsPerdus.mjs nettoie pour le foyer du campement.
+  ['art/conteurs/storyteller-fire.png', 900],
   // Le feu RÉELLEMENT affiché au foyer du campement : copie nettoyée de la bande
   // des Conteurs (bloc et étincelles retirés, scripts/pixelsPerdus.mjs) — 1 748 px
   // de rampe mesurés → plancher à la moitié.
@@ -68,7 +71,7 @@ const FIRE_SPRITES = [
   ['agents/buildings/mint-forge-fire.png', 450],
   ['agents/buildings/watch-prop.png', 60],
   ['agents/buildings/ancestralcult-prop.png', 45],
-  ['agents/buildings/storyteller-prop-fire.png', 150],
+  ['art/conteurs/storyteller-prop-fire.png', 150],
   ['agents/buildings/mint-prop-forge.png', 7],
   ['agents/buildings/cult-vesta.png', 12],
   // Braseros des places (et des ponts, des merveilles) : la flamme est posée PAR
@@ -90,8 +93,9 @@ const FIRE_SPRITES = [
 ];
 
 const rampSet = new Set(RAMP.steps.map((s) => s.hex.toLowerCase()));
+// `art/…` : une source rangée hors de public/, à la racine du dépôt.
 function rampPixels(rel) {
-  const png = PNG.sync.read(readFileSync(path.join(PUB, rel)));
+  const png = PNG.sync.read(readFileSync(rel.startsWith('art/') ? path.join(PUB, '../..', rel) : path.join(PUB, rel)));
   let n = 0;
   for (let i = 0; i < png.data.length; i += 4) {
     if (png.data[i + 3] < 128) continue;

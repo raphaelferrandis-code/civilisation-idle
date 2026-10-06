@@ -420,7 +420,9 @@ export function fdForce(o = {}) {
   }
   return made.length === 1 ? made[0] : made;
 }
-if (typeof window !== 'undefined') {
+// Molette de DEV seulement : forcer un chapitre puis cliquer l'inscrit dans la
+// sauvegarde (fdInscrire) — hors de l'.exe (audit 2026-10-05, DEV-3).
+if (import.meta.env?.DEV && typeof window !== 'undefined') {
   window.__faits = (o) => {
     if (o) return fdForce(o);
     return {

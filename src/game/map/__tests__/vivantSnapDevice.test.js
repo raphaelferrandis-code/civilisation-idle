@@ -67,15 +67,15 @@ describe('les familles vivantes passent par le rabattement device', () => {
     }
     expect(src('agents.js')).toMatch(/drawH = Math\.max\(1, snapDev\(/);
   });
-  it('bateaux (isoPort.js) — la flotte et l amarre, coque PixelLab', () => {
-    const b = blitsDe('iso/isoPort.js', (l) => l.includes('isoBoat.img'));
-    expect(b.length).toBe(2);
-    for (const { bloc, line } of b) {
-      expect(bloc, `isoPort.js:${line}`).toMatch(/snapDev\(p\.x - dw \/ 2\)/);
-      expect(bloc, `isoPort.js:${line}`).toMatch(/snapDev\(p\.y - dw \* [\w.]+ \+ bob\)/);
-    }
+  // (Les coques PixelLab de la flotte et de l'amarre — isoBoat.img — sont parties avec
+  // leurs sprites, audit du 05/10, MORT-6 : la garde porte sur la coque du kit.)
+  it('bateaux (boatKit.js) — la coque du kit, et la pose de la flotte qui tangue', () => {
+    expect(blitsDe('iso/boatKit.js', (l) => l.includes('ctx.drawImage(e.cv, bx, by, dw, dh)')).length).toBe(1);
+    expect(src('iso/boatKit.js')).toMatch(/const bx = snapDev\(x \+ e\.ox \* z\), by = snapDev\(y \+ e\.oy \* z\)/);
     // Et la taille : sans elle, la position seule laisse la coupe dépendre du sous-pixel.
-    expect((src('iso/isoPort.js').match(/const dw = Math\.max\(1, snapDev\(/g) || []).length).toBe(2);
+    expect(src('iso/boatKit.js')).toMatch(/const dw = snapDev\(side \* z\)/);
+    expect(src('iso/isoPort.js')).toMatch(/y: snapDev\(p\.y \+ bob\)/);
+    expect(src('iso/isoPort.js')).not.toMatch(/isoBoat\.img/);
   });
   it('bétail (critters.js) — sans import, l arrondi device est réécrit et reçoit dpr', () => {
     const s = src('critters.js');

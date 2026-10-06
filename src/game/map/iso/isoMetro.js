@@ -68,7 +68,7 @@ const matFor = (band) => MAT[Math.max(5, Math.min(9, band | 0))];
 
 // Gabarits (tuiles). Tablier : largeur ; trémie : demi-largeurs intérieure et
 // extérieure (deux voies et leurs rames tiennent dedans) ; parapet ; voies.
-export const GEO = { w: 0.8, wMono: 0.9, pitIn: 0.39, pitOut: 0.45, par: 0.1, lane: 0.2, laneMono: 0.24, beamH: 0.2 };
+const GEO = { w: 0.8, wMono: 0.9, pitIn: 0.39, pitOut: 0.45, par: 0.1, lane: 0.2, laneMono: 0.24, beamH: 0.2 };
 // Gares : quais de part et d'autre du tablier, auvents au-dessus des quais (la voie
 // reste à ciel ouvert : on voit la rame à l'arrêt). Lu par le téléphérique, qui se
 // pose sur l'auvent côté fleuve.
@@ -615,7 +615,7 @@ function headAt(tt, t) {
 }
 
 // ── LES ACTEURS ──────────────────────────────────────────────────────────────
-export const metroStats = { segs: 0, cars: 0, where: null, stopped: 0 };
+const metroStats = { segs: 0, cars: 0, where: null, stopped: 0 };
 let _carCv = null;
 const _memo = new Map();
 export function metroActors(now, out, decay = 0) {
@@ -861,7 +861,7 @@ function drawCarErased(ctx, spec, x, y, cz, now, memo, lines, z, d) {
   return r;
 }
 
-if (typeof window !== 'undefined') {
+if (import.meta.env?.DEV && typeof window !== 'undefined') {
   window.__metro = (o) => {
     // `replan` : recalcule le tracé (après avoir forcé la bande d'un layout, en vérif).
     if (o) { Object.assign(MET, o); if ('stops' in o && _plan) _plan._tt = null; if (o.replan) { _for = null; delete MET.replan; } }

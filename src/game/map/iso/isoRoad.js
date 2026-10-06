@@ -94,10 +94,10 @@ export const ROAD_MATS = [
 // sol↔route un peu assombri, au lieu de la route en sombre — la rue s'assoit dans
 // le sol de l'ère au lieu d'avoir l'air tamponnée dessus. mix = part de route
 // dans le mélange (0..1), v = assombrissement du résultat.
-// edgeFringe : FRANGE DE CHAUSSÉE (jonction route↔sol) — multiplicateur global
-// du crantage des bords du ruban. ESSAYÉ à 1 puis COUPÉ le 2026-07-16 (retour
-// Raph immédiat : « oula non ça ne va pas du tout » — les bords rongés + les
-// gravillons salissaient la route). 0 = bords géométriques nets ; reste un knob.
+// (edgeFringe — FRANGE DE CHAUSSÉE, crantage des bords du ruban — ESSAYÉ puis
+//  COUPÉ le 2026-07-16, « oula non ça ne va pas du tout » : les bords rongés et les
+//  gravillons salissaient la route. Molette retirée le 2026-10-06, audit MORT-14 ;
+//  les bords du ruban restent géométriques et nets.)
 // groove/grooveA : GORGE — fine ombre de contact qui cerne la dalle (largeur en
 // fraction de tuile, alpha) → la rue s'assoit DANS le sol (grammaire « route en
 // creux » des rues top-down), sans toucher au bord net de la dalle.
@@ -105,7 +105,7 @@ export const ROAD_MATS = [
 // en alpha) → la jonction épaulement→sol n'a plus de 2e arête dure.
 // veilK : multiplicateur global du VOILE DE LECTURE (0 = éteint, cf. ROAD_VEIL).
 export const ROAD_DETAIL = {
-  on: true, tiles: true, band: null, shoulderMix: 0.55, shoulderV: 0.92, edgeFringe: 0,
+  on: true, tiles: true, band: null, shoulderMix: 0.55, shoulderV: 0.92,
   groove: 0.03, grooveA: 0.28, feather: 0.05, featherA: 0.4, veilK: 1,
   // TOUTE la voirie (ourlet, épaulement, trottoir, caniveau, rubans, frange,
   // allées de seuil) est peinte dans le calque à l'échelle de l'ART puis agrandie
@@ -175,7 +175,7 @@ export function roadVeilFor(band) {
 }
 
 // ── TROTTOIRS ISO — LA MARCHE, PAS UNE BANDE ─────────────────────────────────
-//历 Historique court, parce qu'il explique la forme actuelle : ce trottoir a
+// Historique court, parce qu'il explique la forme actuelle : ce trottoir a
 // d'abord été une BANDE construite (bordure claire, dalles au ton de l'ère,
 // joints transversaux, liseré de rive), puis une bande TEXTURÉE par un art
 // dédié. Raph a tranché autrement le 2026-08-05 : « techniquement il n'y a pas

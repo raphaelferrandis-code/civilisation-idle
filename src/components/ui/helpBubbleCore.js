@@ -29,8 +29,8 @@ export const ALIVE_POLL_MS = 250;
 
 export const BUBBLE_WIDTH = 280;
 export const BUBBLE_MARGIN = 8;   // marge minimale au bord de l'écran
-export const BUBBLE_GAP = 10;     // écart entre la cible et la bulle
-export const FLIP_ZONE = 150;     // hauteur sous laquelle on bascule au-dessus
+const BUBBLE_GAP = 10;     // écart entre la cible et la bulle
+const FLIP_ZONE = 150;     // hauteur sous laquelle on bascule au-dessus
 
 /**
  * Place la bulle sous la cible, ou au-dessus si le bas de l'écran approche.

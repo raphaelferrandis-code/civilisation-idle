@@ -43,7 +43,7 @@ export function drawIsoGround() {
   const { bake, resolve, out } = makeGroundBake(ISO_GROUND_LOD);
   const { ctx, T, z, hw, hh, LOD, HARD, b, L, band, mat, urb, road, roadMap, riverCells, plazaEra, wg, PR } = bake;
   const { kindAt, grassAt, keyOfKind, lisiere } = resolve;
-  const { fringes, roads, wonderCells, grassCells, grassMask, grassMaskR, veilPush, veilPushRects, flushVeils } = out;
+  const { fringes, roads, wonderCells, grassCells, grassMask, grassMaskR } = out;
   ctx.save();
   ctx.lineJoin = 'round';
   // FOND D'HERBE UNIQUE : l'herbe (l'écrasante majorité des cellules — toute la
@@ -70,9 +70,9 @@ export function drawIsoGround() {
   // les tuiles/touffes débordent un peu. Trop serré, on raboterait le bord.
   // + terrainMax en Y : la contremarche d'une cellule haute pend d'autant sous
   // son losange — culler au coin nord la couperait au bord haut de l'écran.
-  // A/B : globalThis.__isoCellCull = false rejoue le balayage complet.
+  // A/B (dev) : globalThis.__isoCellCull = false rejoue le balayage complet.
   const cullPadX = hw * 2, cullPadY = hh * 4 + terrainMaxPx() * z;
-  const cullOn = globalThis.__isoCellCull !== false;
+  const cullOn = !(import.meta.env?.DEV && globalThis.__isoCellCull === false);
   // Contremarches du relief (quads écran, 8 nombres chacun) : terre claire/sombre
   // + pierre d'ère claire/sombre — la tranche prend la matière de sa cellule.
   // Polish : lèvres (herbe/margelle, quads), assise sombre (quads), joints de
@@ -83,7 +83,7 @@ export function drawIsoGround() {
     { ctx, T, hw, hh, LOD, HARD, b, cullOn, cullPadX, cullPadY,
       L, roadMap, riverCells, urb, mat, plazaEra, wg, PR },
     { kindAt, grassAt, keyOfKind, lisiere },
-    { fringes, roads, wonderCells, grassCells, grassMask, grassMaskR, veilPush, veilPushRects,
+    { fringes, roads, wonderCells, grassCells, grassMask, grassMaskR,
       faceL, faceD, faceLU, faceDU, faceFoot, faceBand, faceJoint, faceLipG, faceLipS },
   );
   if (PR) PR.cells = performance.now() - tLoop;
@@ -144,11 +144,10 @@ export function drawIsoGround() {
   // PARVIS : tout le dallage, PUIS toute la margelle. L'ordre compte — la margelle
   // encadre le parvis et doit rester au-dessus des joints, comme avant.
   drawWonderGroundAll(ctx, wonderCells, hw, hh, wg, wonderToneFor(plazaEra, CM.season === WINTER));
-  // Voiles d'herbe puis FLEURS : même ordre qu'avant (voile sous fleur), mais en
-  // fills d'union groupés. Les motifs de drawGrassDetail tiennent dans leur
-  // cellule → « tous les voiles puis toutes les fleurs » == l'entrelacé par cellule.
+  // Voiles d'herbe puis FLEURS (voile sous fleur). Les motifs de drawGrassDetail
+  // tiennent dans leur cellule → « tous les voiles puis toutes les fleurs » ==
+  // l'entrelacé par cellule.
   const tV = PR && performance.now();
-  flushVeils();
   // PRÉS puis SOUS-BOIS (isoMeadow, isoForestFloor) : deux voiles lissés, dans
   // l'herbe seule — avant les fleurs, qui s'éteignent sous les couronnes.
   if (!LOD) drawGrassVeils(ctx, b, L, T, hw, hh, grassMask, grassMaskR);

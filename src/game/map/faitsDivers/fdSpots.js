@@ -13,14 +13,14 @@
 //   foyer     à côté du feu du campement (âges 0-1)
 // Les autres lieux (place, berge, pont, toit…) arrivent avec leurs histoires.
 import { CM, cmHash } from '../layout.js';
+import { fmix32 } from '../hash.js';
 import { isoWildForest } from '../iso/isoWildForest.js';
 import { isoPlazaBoxes, isoPlazaCompositions } from '../iso/isoPlaza.js';
 import { bridgeBlocks } from '../iso/isoBridge.js';
 
 const key = (x, y) => x + ',' + y;
-// Brassage (fmix32) : cmHash de graines voisines sort des valeurs voisines.
-const fmix = (h) => { h ^= h >>> 16; h = Math.imul(h, 0x85ebca6b); h ^= h >>> 13; h = Math.imul(h, 0xc2b2ae35); h ^= h >>> 16; return h >>> 0; };
-export const fdHash = (s) => fmix(cmHash(s) >>> 0);
+// Brassage (fmix32, ../hash.js) : cmHash de graines voisines sort des valeurs voisines.
+export const fdHash = (s) => fmix32(cmHash(s) >>> 0);
 
 // Emprises de tous les bâtiments (maisons comprises), mémoïsées sur le layout.
 let _foot = null;
@@ -193,7 +193,7 @@ export function doorstepOf(L, t, salt = '') {
 // entiers sous des toits). Plus profond aux âges des tours : un immeuble cache de loin.
 // Rend 0 quand rien ne masque, négatif sinon (−1 par case bâtie, les proches comptent
 // double) — plus grand = mieux.
-export function coneDepth(band) {
+function coneDepth(band) {
   return band >= 6 ? 6 : band >= 4 ? 4 : 3;
 }
 // Les arbres de la ville (décor des jardins et des rues) masquent aussi : leur

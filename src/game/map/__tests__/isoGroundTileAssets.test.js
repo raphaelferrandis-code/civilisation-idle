@@ -3,11 +3,10 @@
 //
 // Pourquoi lire les assets. Trois réglages du renderer ne sont corrects QUE si
 // l'art a une certaine forme, et chacun a déjà coûté un aller-retour :
-//   • le court-circuit du sous-pavage (isoTileIsFlat → blit 1:1) suppose que la
-//     tuile fait exactement le losange d'une cellule à zoom 1 (64×32). Une tuile
-//     64×64 (vue de dessus non projetée) ou 48×48 repasserait silencieusement
-//     par le rééchantillonnage à ratio non entier — ce qui avait effacé toutes
-//     les pierres du pavé.
+//   • le blit 1:1 du sol suppose que la tuile fait exactement le losange d'une
+//     cellule à zoom 1 (64×32). Une tuile 64×64 (vue de dessus non projetée) ou
+//     48×48 se réduirait à un ratio non entier — ce qui avait effacé toutes les
+//     pierres du pavé (le sous-pavage d'alors, retiré le 2026-10-06).
 //   • le masque losange et `insetF` ne sont plus nécessaires parce que les
 //     tuiles sont PLATES. Une tuile régénérée en « dalle en volume » (l'ancien
 //     `create_isometric_tile`) ferait revenir le liseré latéral, donc le

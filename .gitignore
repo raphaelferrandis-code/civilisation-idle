@@ -46,6 +46,13 @@ sim-idle-impact.out.json
 balance-summary.md
 pacing-profiles.md
 course-gr1-profils.md
+# Exception assumée : les rapports des BANCS (bench-*.js) qui servent de mesure de
+# référence sont versionnés dans docs/bench/, où les bancs écrivent (audit du
+# 2026-10-05, GIT-6). Restent ignorés : leurs anciennes sorties à la racine et les
+# variantes d'essai `--tag` de bench-plaisirs.
+/*-impact.md
+/plaisirs-20h*.md
+docs/bench/plaisirs-20h-*.md
 /*.tsv
 public/pixelart/compare.html
 

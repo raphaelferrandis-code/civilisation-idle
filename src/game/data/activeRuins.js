@@ -6,7 +6,7 @@ export const ACTIVE_RUIN_RUPTURE_START = 0.10;
 export const ACTIVE_RUIN_FOOD_ENGINE_COST_MULT = 1.20;
 export const ACTIVE_RUIN_GOLD_PROD_MULT = 0.75;
 export const ACTIVE_RUIN_USURE_MULT = 1.10;
-export const ACTIVE_RUIN_RUIN_GAIN_PER_MALUS = 0.10;
+const ACTIVE_RUIN_RUIN_GAIN_PER_MALUS = 0.10;
 
 // ── Les six fardeaux qui étaient des « slots futurs » ────────────────────────
 // Principe commun, et c'est ce qui fait d'Antée une décision : porter un Héritage

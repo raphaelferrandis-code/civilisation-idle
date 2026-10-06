@@ -711,12 +711,10 @@ export default function CityView() {
         {revealTension && (
         <HudPanel
           className="city-controls-panel"
-          storageKey="regul"
           title={coarse
             ? tr({ fr: "Régulation des tensions", en: "Tension Regulation" })
             // Au bureau la barre repliée est une ligne : titre court (maquette V4).
             : tr({ fr: "Régulation", en: "Regulation" })}
-          defaultOpen={regulDefaultOpen}
           open={regulOpen}
           onToggle={toggleRegul}
           onOpenChange={setRegulOpen}

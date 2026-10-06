@@ -6,9 +6,8 @@ import { tr, localizeData } from '../core/i18n.js';
 import { CRISIS_TREAT_SHIFT, CRISIS_PROFIT_SHIFT, CRISIS_PROFIT_PREP, COLLAPSE_PREP_MAX } from '../core/balance.js';
 
 /* ============================================================================
- * data-world.js - Donnees monde: eras, CRISIS_POOL, CRISIS_EVENTS.
- * Ordre de chargement (index.html): U -> DB -> DU -> DW -> ST -> ME -> EV -> AC -> RE -> MA
- * Scope global partage (pas de modules) - ne pas envelopper dans une IIFE.
+ * world.js - Donnees monde: eras, CRISIS_POOL, CRISIS_EVENTS.
+ * Module ES ordinaire (importé, pas chargé par index.html).
  * ============================================================================ */
 
 // Pente des ères TRANSCENDANTES (n ≥ 35). Calibrée par scratch/sim-era-design.js

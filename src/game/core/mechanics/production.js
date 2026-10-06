@@ -65,7 +65,6 @@ export {
 
 export {
   addProductionPenalty,
-  policyProductionMultiplier,
   policyRiseSlow,
   policyOvershootDamp,
   policyFoyerDamp,

@@ -20,8 +20,10 @@
 // salleBake.worker.js) ; les toiles se fabriquent à part (lumiereToiles, dans le
 // navigateur seulement).
 
-const BAYER = [0, 8, 2, 10, 12, 4, 14, 6, 3, 11, 1, 9, 15, 7, 13, 5];
-const bayer = (x, y) => BAYER[(y & 3) * 4 + (x & 3)] / 16;
+// bayer (trame 4×4) : celle de la coupe (plaisirsHDKit, une feuille pure — le Worker
+// de la cuisson peut la lire).
+import { bayer } from '../../../game/map/iso/plaisirsHDKit.js';
+
 const rgb = (c) => {
   const n = parseInt(String(c || '#ffd08a').slice(1), 16);
   return [((n >> 16) & 255) / 255, ((n >> 8) & 255) / 255, (n & 255) / 255];

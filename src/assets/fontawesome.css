@@ -1,0 +1,79 @@
+/*!
+ * Font Awesome Free 6.7.2 by @fontawesome - https://fontawesome.com
+ * License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License)
+ * Copyright 2024 Fonticons, Inc.
+ */
+/* FONT AWESOME — SOUS-ENSEMBLE (audit 2026-10-05, ASSET-10). Fichier GÉNÉRÉ par
+   scripts/vendorFontAwesome.mjs : ne pas éditer à la main, relancer le script.
+
+   Ce que le jeu met en œuvre de fontawesome.css et solid.css, à la même place
+   dans la cascade et à la même spécificité (le rendu ne bouge pas) : la classe
+   fa-solid — la seule posée —, 25 icônes, et la @font-face en woff2 SEUL
+   (le TTF de repli n'est plus copié dans dist/). Les variables --fa-display,
+   --fa-style… ne sont définies nulle part : leur valeur de repli est écrite
+   telle quelle. */
+
+@font-face {
+  font-family: 'Font Awesome 6 Free';
+  font-style: normal;
+  font-weight: 900;
+  font-display: block;
+  src: url("@fortawesome/fontawesome-free/webfonts/fa-solid-900.woff2") format("woff2");
+}
+
+.fa-solid {
+  -moz-osx-font-smoothing: grayscale;
+  -webkit-font-smoothing: antialiased;
+  display: inline-block;
+  font-style: normal;
+  font-variant: normal;
+  line-height: 1;
+  text-rendering: auto;
+  font-family: 'Font Awesome 6 Free';
+  font-weight: 900;
+}
+
+.fa-solid::before {
+  content: var(--fa);
+}
+
+.fa-archway { --fa: "\f557"; }
+.fa-arrows-left-right { --fa: "\f07e"; }
+.fa-bolt { --fa: "\f0e7"; }
+.fa-book-open { --fa: "\f518"; }
+.fa-box-archive { --fa: "\f187"; }
+.fa-cart-shopping { --fa: "\f07a"; }
+.fa-circle { --fa: "\f111"; }
+.fa-coins { --fa: "\f51e"; }
+.fa-ellipsis { --fa: "\f141"; }
+.fa-expand { --fa: "\f065"; }
+.fa-feather-pointed { --fa: "\f56b"; }
+.fa-gauge-high { --fa: "\f625"; }
+.fa-hammer { --fa: "\f6e3"; }
+.fa-landmark { --fa: "\f66f"; }
+.fa-link { --fa: "\f0c1"; }
+.fa-location-crosshairs { --fa: "\f601"; }
+.fa-minus { --fa: "\f068"; }
+.fa-people-roof { --fa: "\e537"; }
+.fa-plus { --fa: "\2b"; }
+.fa-road { --fa: "\f018"; }
+.fa-scroll { --fa: "\f70e"; }
+.fa-users { --fa: "\f0c0"; }
+.fa-video { --fa: "\f03d"; }
+.fa-wheat-awn { --fa: "\e2cd"; }
+.fa-xmark { --fa: "\f00d"; }
+
+/* Utilitaire d'accessibilité du paquet, GARDÉ : la classe .sr-only du jeu
+   (components.css) ne pose ni marge, ni remplissage, ni bordure — elle comptait
+   sur celle-ci. */
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border-width: 0;
+}

@@ -43,19 +43,20 @@
 import { CM } from '../layout.js';
 import { state } from '../../core/state.js';
 import { worldToScreen, screenToWorld } from './projection.js';
+import { _frac, _rnd } from './isoMath.js';
+import { rasterCanvas } from '../pixelUtil.js';
 import { LIGHT_LAYER, lightCtx, lightCut, litBox } from '../lightLayer.js';
 import { queueFlameGlow } from '../flameGlow.js';
 import { WINTER } from '../seasonMode.js';
 import { wonderKitForBand } from './wonderKits.js';
 import { bakePlaisirs, plaisirsGames, plaisirsShadow } from './plaisirsBake.js';
-import { SUN_SHADOW, sunShear, drawSunShadowPlane } from './isoSunShadow.js';
+import { SUN_SHADOW, sunShear, drawSunShadowPlane, sunShadowVersion } from './isoSunShadow.js';
 import { noteReflectionImage } from './isoReflect.js';
-import { drawFlame, glowAt, hexToRgbStr } from './isoProps.js';
-import { drawVieFlag } from './isoVie.js';
+import { hexToRgbStr } from './isoProps.js';
 import { drawSpriteOutline, dropSpriteOutline } from './isoEngineScene.js';
 import { HOVER_GOLD } from './isoPalette.js';
 import { plaisirsCast } from './plaisirsCast.js';
-import { plaisirsSkin, plaisirsSkinLoading, preloadPlaisirsSkin, applyPlaisirsSkin } from './plaisirsSkin.js';
+import { plaisirsSkin, preloadPlaisirsSkin, applyPlaisirsSkin } from './plaisirsSkin.js';
 import { rippleField, noteRipples } from './waterRipples.js';
 import { colRows, sliceRows, rowCropExact } from './rowCrop.js';
 import { drawNamedAgentIso, AGENT_SCALE } from '../agents.js';
@@ -108,7 +109,7 @@ export const PLAISIRS_AURA = {
   // sans que le fleuve tourne au rose.
   day: 0.28,
 };
-if (typeof window !== 'undefined') {
+if (import.meta.env?.DEV && typeof window !== 'undefined') {
   window.__plaisirsAura = (o) => {
     if (o === false) PLAISIRS_AURA.on = false;
     else if (o && typeof o === 'object') { PLAISIRS_AURA.on = true; Object.assign(PLAISIRS_AURA, o); }
@@ -117,10 +118,9 @@ if (typeof window !== 'undefined') {
   };
 }
 
-// Hash déterministe [0,1) — même idiome que les particules d'ambiance. AUCUN
+// Hash déterministe [0,1) (_rnd) et partie fractionnaire (_frac) : ceux des particules
+// d'ambiance, importés d'isoMath (ils y étaient recopiés mot pour mot). AUCUN
 // Math.random : les captures doivent rester reproductibles.
-const _frac = (x) => x - Math.floor(x);
-const _rnd = (i, j) => _frac(Math.sin(i * 12.9898 + j * 78.233) * 43758.5453);
 
 // Halo additif local (copie de celui d'isoRenderer : l'importer créerait un
 // cycle ES avec le renderer qui, lui, nous importe).
@@ -413,6 +413,9 @@ export function drawPlaisirsSky(now) {
 // Le sprite néon unique (`plaisirs-t3.png`) cède la place à une CUISSON par âge et
 // par jeux ouverts (iso/plaisirsBake.js), même main que les merveilles. Ce module
 // la pose sur l'eau, la trie avec la ville, l'éclaire et la rend cliquable.
+// Depuis, chaque âge porte un HABILLAGE PixelLab (plaisirsSkin.js) : la recette ne
+// fournit plus que la géométrie (silhouette, hauteurs, corniches, tour des filles),
+// sa matière et ses props ne sont plus jamais montrés (audit du 05/10, MORT-15).
 
 // La clé de cuisson. Sur un HABILLAGE (`skinned`), l'hiver et la boutique ne changent
 // rien à l'octet près — R, H, D, N, reflet, corniches, tour des filles (audit du 05/10,
@@ -430,12 +433,7 @@ export function plaisirsBakeKey(band, g, winter, skinned) {
 // `occlude = false` coupe la découpe des filles par ce qui est devant elles (A/B).
 export const plaisirsTune = { band: null, slice: 8, occlude: true };
 
-function rasterCanvas(R) {
-  const cv = document.createElement('canvas');
-  cv.width = R.w; cv.height = R.h;
-  cv.getContext('2d').putImageData(new ImageData(R.data, R.w, R.h), 0, 0);
-  return cv;
-}
+// (rasterCanvas : ../pixelUtil.js.)
 // Plages de rangées occupées de la tranche en cours (cf. rowCrop.js), sans allocation.
 const _rowsR = [0, 0], _rowsL = [0, 0], _rowsN = [0, 0];
 const _bakes = new Map();
@@ -447,19 +445,25 @@ function bakeFor(band, g, winter) {
   // L'HABILLAGE PixelLab de l'âge (plaisirsSkin.js) remplace la matière du code. Audit
   // du 05/10 (PERF-13) : le rendu du code n'est plus cuit le temps qu'il arrive (une
   // cuisson de 50 à 140 ms, jetée une frame plus tard) — l'âge d'avant reste affiché,
-  // ou rien la toute première fois.
+  // ou rien la toute première fois. Ni même si l'image est perdue (MORT-15) : les dix
+  // âges sont habillés, la matière du code n'est plus jamais montrée — comme une scène
+  // moteur sans son PNG (MORT-2), le lieu garde ce qu'il avait, ou rien.
   const skin = plaisirsSkin(band);
-  if (!skin && plaisirsSkinLoading(band)) return _lastBake;
-  const key = plaisirsBakeKey(band, g, winter, !!skin);
+  if (!skin) return _lastBake;
+  // L'ombre portée est cuite avec le reste : sa géométrie (sunShadowVersion, que la
+  // molette __sunShadow fait changer) entre dans la clé, comme pour les autres scènes.
+  const key = plaisirsBakeKey(band, g, winter, !!skin) + ':s' + sunShadowVersion();
   let e = _bakes.get(key);
   if (e) {
     // Le moins récemment servi part le premier (cf. le plafond plus bas).
     if (e !== _lastBake) { _bakes.delete(key); _bakes.set(key, e); }
     return (_lastBake = e);
   }
+  // La recette ne sert plus que la GÉOMÉTRIE (silhouette, hauteurs, corniches, tour des
+  // filles) : l'habillage en remplace la matière. Ses lumières et fanions (`props`)
+  // tomberaient à côté du dessin : ils ne sont plus posés (MORT-15).
   let out = bakePlaisirs(wonderKitForBand(band, winter), g);
-  // Ses lumières et fanions posés par la recette tomberaient à côté de sa matière.
-  if (skin) out = { ...out, ...applyPlaisirsSkin(out, skin), props: [] };
+  out = { ...out, ...applyPlaisirsSkin(out, skin) };
   const R = out.R, occ = new Uint8Array(R.w);
   let x0 = R.w, y0 = R.h, x1 = -1, y1 = -1;
   for (let i = 0; i < R.w; i += 1) {
@@ -500,7 +504,7 @@ function bakeFor(band, g, winter) {
     mir: M ? { ox: M.ox, oy: M.oy, w: M.w, h: M.h, cv: rasterCanvas(M) } : null,
     sh: S ? { ox: S.ox, oy: S.oy, w: S.w, h: S.h, cv: shCv } : null,
     box: x1 < 0 ? null : { x: x0, y: y0, w: x1 - x0 + 1, h: y1 - y0 + 1 },
-    props: out.props || [], ledges: out.ledges || [], apex: out.apex || { x: 0, y: 0, h: R.h }, foot: out.foot || 64,
+    ledges: out.ledges || [], apex: out.apex || { x: 0, y: 0, h: R.h }, foot: out.foot || 64,
     // L'habillage replace les filles sur SES planchers : le tour de SON pont, le balcon
     // derrière SA balustrade (plaisirsSkin.js).
     stroll: out.stroll ? { ...out.stroll, ...(out.walk || {}), ...(out.balcony ? { balcony: out.balcony } : {}), ...(out.door ? { door: out.door } : {}) } : null,
@@ -514,7 +518,7 @@ function bakeFor(band, g, winter) {
   // tous les âges traversés. Ne restent que l'âge cuit et le précédent (celui qu'on
   // montre le temps que l'habillage du nouvel âge arrive, cf. `_lastBake`) ; un âge
   // revisité, au cycle suivant, se recuit. Le plafond reste en garde-fou (les variantes
-  // d'un même âge : jeux ouverts, hiver du rendu du code).
+  // d'un même âge : jeux ouverts).
   for (const [k, b] of _bakes) if (b.band !== band && b.band !== band - 1) _bakes.delete(k);
   if (_bakes.size > 12) _bakes.delete(_bakes.keys().next().value);
   _bakes.set(key, e);
@@ -618,10 +622,6 @@ export function pushIsoPlaisirsItems(items, pl, now = null) {
     const Xa = R.ox + c0, Xb = R.ox + c1;
     const minAbs = Xa <= 0 && Xb >= 0 ? 0 : Math.min(Math.abs(Xa), Math.abs(Xb));
     items.push({ d: frontDepth(m, minAbs), kind: 'plaisirs', m, part: 'slice', c0, c1 });
-  }
-  for (let pi = 0; pi < m.bk.props.length; pi += 1) {
-    const pr = m.bk.props[pi];
-    items.push({ d: frontDepth(m, pr.x - pr.y) + 0.5, kind: 'plaisirs', m, part: 'prop', pi });
   }
   // LES FILLES DE LA MAISON, dehors (les âges qui ont les leurs, plaisirsCast.js) :
   // deux font le tour du ponton, une accueille sous la marquise, une s'accoude au
@@ -932,38 +932,10 @@ export function drawIsoPlaisirsSeg(ctx, it, now) {
     // elle ne se laisse pas viser à travers le mur.
     const hidden = d && plaisirsTune.occlude !== false ? girlOccluders(ctx, m, q, p, d, o) : 0;
     if (d && q.g && hidden < 0.85) noteSceneFigure(q.g, 'plaisirs', q.spec.name, p.x, p.y, d);
-  } else if (it.part === 'prop') {
-    const pr = m.bk.props[it.pi];
-    if (pr) {
-      const p = worldToScreen(m.cx + pr.x, m.cy + pr.y, pr.h);
-      if (pr.prop === 'flame') drawFlame(ctx, p.x, p.y, z, now, pr.small ? 0.8 : pr.big ? 1.6 : 1, (pr.x * 0.37 + pr.y * 0.11) % 3);
-      else if (pr.prop === 'flag') {
-        drawVieFlag(ctx, p.x, p.y, { k: z, now, poleH: pr.poleH || 8, w: pr.fw || 6, h: pr.fh || 4, cols: ['#c8434a', '#7a2333', '#f0cf6a'], swallow: true, seed: it.pi * 7 + 3 });
-      } else if (pr.prop === 'glow') {
-        glowAt(p.x, p.y, Math.max(6, CM.TILE * z * (pr.big ? 1.1 : 0.7)), EMBER, 0.85);
-      } else if (pr.prop === 'beacon') {
-        // Balise d'aviation au sommet de la tour (âge du néon) : un feu rouge qui
-        // bat la seconde — même geste que les merveilles.
-        const on = Math.floor(now / 600) % 2 === 0, sz = Math.max(1, Math.round(z * 1.5));
-        ctx.fillStyle = on ? '#ff3b2e' : '#6a1a14';
-        ctx.fillRect(Math.round(p.x - sz / 2), Math.round(p.y - sz), sz, sz);
-        if (on) glowAt(p.x, p.y - sz / 2, Math.max(5, CM.TILE * z * 0.3), '255,70,50', 0.9);
-      } else if (pr.prop === 'halo') {
-        // Halo des âges cosmiques : un anneau de la lumière de l'ère qui flotte et
-        // respire au-dessus du sommet.
-        const bob = Math.sin(now / 900) * 2 * z, r = (pr.r || 16) * z;
-        ctx.save();
-        ctx.globalAlpha = 0.55 + 0.25 * Math.sin(now / 600);
-        ctx.strokeStyle = `rgb(${NEON})`;
-        ctx.lineWidth = Math.max(1, Math.round(z));
-        ctx.beginPath();
-        ctx.ellipse(Math.round(p.x), Math.round(p.y + bob), r * Math.SQRT2, r / Math.SQRT2, 0, 0, Math.PI * 2);
-        ctx.stroke();
-        ctx.restore();
-        glowAt(p.x, p.y + bob, r * 1.6, NEON, 0.6);
-      }
-    }
   }
+  // (Plus de partie 'prop' — flammes, fanions, lueurs, balise du Néon, halo cosmique de
+  // la recette : ils ne vivaient que sur le rendu du code, plus jamais montré. Les feux
+  // et le ballon de l'habillage vivent dans sa couche `live` — audit du 05/10, MORT-15.)
   ctx.imageSmoothingEnabled = prevSm;
 }
 
@@ -990,7 +962,7 @@ export function plaisirsHitTest(sx, sy) {
   return false;
 }
 
-if (typeof window !== 'undefined') {
+if (import.meta.env?.DEV && typeof window !== 'undefined') {
   window.__plaisirsTune = plaisirsTune;
   window.__plaisirsBakes = () => { const n = _bakes.size; _bakes.clear(); return n; };
 }

@@ -5,23 +5,25 @@
 // partagent la MÊME palette (pas de dérive chromatique entre frames).
 //
 // Usage:
-//   node scripts/quantize.cjs <fichier|dossier> [--colors N] [--min M] [--dry]
+//   node scripts/quantize.cjs <fichier|dossier> [--colors N] [--min M] [--dry] [--force]
 //     --colors N  nb max de teintes (défaut 24)
 //     --min M     saute les fichiers ayant déjà <= M teintes (défaut = N)
 //                 => un fichier déjà propre n'est PAS réécrit (diff git minimal)
 //     --dry       n'écrit rien, affiche seulement ce qui serait fait
+//     --force     passe un dossier que les garde-fous refusent (cf. ci-dessous)
 //
-// Dossiers TOUJOURS ignorés (sécurité) : _orig, _archive, splash, palettes,
-// wonders (calibrées à 32 teintes — le lot @24 les écraserait ; même liste que
-// remapPalette.mjs). Fichiers protégés : tree-base.png (fresque peinte ~1150
-// teintes, cf. l'avertissement de remapPalette.mjs — l'indexer la détruirait).
+// GARDE-FOUS DU MODE LOT (dossier) — partagés avec remapPalette.mjs dans
+// scripts/lib/pixelartGuard.cjs : sous-dossiers protégés (art peint ou calibré :
+// wonders, ruins, ruins-tree, places, boutique, prestige, ui, anim…), feux et
+// tree-base.png TOUJOURS sautés ; un dossier de public/pixelart (art LIVRÉ) est
+// REFUSÉ sans --force. Dans un dossier déjà passé, un fichier au-dessus du plafond
+// l'est PAR CHOIX (enseigne néon, scène peinte) : un fichier neuf se passe seul,
+// et --dry montre ce qu'un lot réécrirait.
 
 const fs = require('fs');
 const path = require('path');
 const { PNG } = require('pngjs');
-
-const SKIP_DIRS = ['_orig', '_archive', 'splash', 'palettes', 'wonders'];
-const PROTECTED_FILES = ['tree-base.png'];
+const { PROTECTED_FILES, batchPngs, batchRefusal } = require('./lib/pixelartGuard.cjs');
 
 // ---- CLI ----
 const argv = process.argv.slice(2);
@@ -33,7 +35,8 @@ const getOpt = (name, def) => {
 const COLORS = parseInt(getOpt('colors', '24'), 10);
 const MIN = parseInt(getOpt('min', String(COLORS)), 10);
 const DRY = argv.includes('--dry');
-if (!target) { console.error('Usage: node scripts/quantize.cjs <fichier|dossier> [--colors N] [--min M] [--dry]'); process.exit(1); }
+const FORCE = argv.includes('--force');
+if (!target) { console.error('Usage: node scripts/quantize.cjs <fichier|dossier> [--colors N] [--min M] [--dry] [--force]'); process.exit(1); }
 
 // ---- helpers ----
 function uniqueOpaque(png) {
@@ -88,18 +91,14 @@ function listPngs(p) {
     }
     return p.toLowerCase().endsWith('.png') ? [p] : [];
   }
-  const out = [];
-  for (const e of fs.readdirSync(p)) {
-    const fp = path.join(p, e);
-    if (fs.statSync(fp).isDirectory()) {
-      if (SKIP_DIRS.includes(e)) continue;
-      out.push(...listPngs(fp));
-    } else if (e.toLowerCase().endsWith('.png')) {
-      if (PROTECTED_FILES.includes(e.toLowerCase())) continue;
-      out.push(fp);
-    }
+  // Dossier : garde-fous du mode lot (scripts/lib/pixelartGuard.cjs). --dry reste
+  // permis, c'est le moyen de voir ce qu'un lot réécrirait.
+  const why = batchRefusal(p);
+  if (why && !FORCE && !DRY) {
+    console.error(`REFUSÉ — ${why}\n  --dry pour voir ce qui serait réécrit, --force pour passer outre.`);
+    process.exit(1);
   }
-  return out;
+  return batchPngs(p);
 }
 
 // ---- run ----

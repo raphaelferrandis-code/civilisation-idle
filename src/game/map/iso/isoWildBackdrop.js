@@ -29,15 +29,16 @@
 // casse la répétition à l'œil (les variantes tournent sur 64 cellules).
 //
 // Repli : tuile d'herbe pas encore décodée → l'aplat d'avant, à l'identique.
-// A/B : globalThis.__wildBackdrop = false rejoue l'aplat.
+// (Sa molette d'A/B __wildBackdrop est retirée : audit 2026-10-05, DEV-3.)
 import { CM, cmHash } from '../layout.js';
 import { worldToScreen, ISO_X, ISO_Y } from './projection.js';
 import { levelZoom } from './solPyramide.js';
-import { blitIsoTileKey, ensureIsoTileKey, ISO_TILE_KEYS } from './isoGroundTiles.js';
+import { blitIsoTileKey, isoTileProbe, ISO_TILE_KEYS } from './isoGroundTiles.js';
 import { SEASON_WILD, GRASS_DETAIL, GRASS_TILE_UNDER, GRASS_TILE_UNDER_WINTER } from './isoGroundDetail.js';
 import { WINTER } from '../seasonMode.js';
 import { diamondPath } from './isoQuad.js';
 import { rgb } from './isoPalette.js';
+import { fm } from '../pixelUtil.js';
 
 export const WILD_BACKDROP_PERIOD = 8;
 const CACHE_MAX = 3;
@@ -49,7 +50,7 @@ const mkCanvas = (w, h) => {
   if (typeof document === 'undefined') return null;
   const c = document.createElement('canvas'); c.width = w; c.height = h; return c;
 };
-const mod = (v, m) => ((v % m) + m) % m;
+const mod = fm;   // modulo réel (../pixelUtil.js)
 
 // Les cellules (i, j) à peindre pour couvrir le rectangle [0, W) × [0, H) du motif,
 // dans l'ordre NORD → SUD (i + j croissant) : les brins d'une tuile d'herbe
@@ -105,7 +106,7 @@ function buildPattern(key, lz, dpr) {
 
 function patternCanvas(lz, dpr, nowMs) {
   const key = ISO_TILE_KEYS.grass;
-  const base = ensureIsoTileKey(key);
+  const base = isoTileProbe(key);
   if (!base || !base.ready) return null;
   const k = lz + '|' + dpr + '|' + (CM.season === WINTER ? 'w' : 's') + '|' + GRASS_DETAIL.tileAlpha + '|' + CM.TILE;
   const i = cache.findIndex((c) => c.key === k);
@@ -154,7 +155,6 @@ export function paintWildBackdrop(ctx, nowMs, covered = false) {
   if (covered) return;
   ctx.fillStyle = rgb(SEASON_WILD, 0.9);
   ctx.fillRect(0, 0, CM.cw, CM.ch);
-  if (globalThis.__wildBackdrop === false) return;
   const L = CM.layout;
   if (!L) return;
   const box = planScreenBox(L);

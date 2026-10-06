@@ -12,17 +12,19 @@
 // le bétail de critters.js — mais jamais plus grandes qu'un homme : un canard fait
 // 6 px, un héron debout 9, un pigeon 5.
 //
-// ⚠ MODULE PUR : aucun import, aucun DOM. Il est lu par le jeu (qui cuit les
-// planches en canvas) ET par scripts/vieBoard.mjs (planche de contrôle en PNG).
+// ⚠ MODULE PUR : aucun DOM, et pour seul import le hachage partagé (../hash.js,
+// une feuille pure lui aussi). Il est lu par le jeu (qui cuit les planches en
+// canvas) ET par scripts/vieBoard.mjs (planche de contrôle en PNG).
 //
 // Convention : '.' = transparent ; toute autre lettre = une couleur de VIE_PAL.
 // Les dessins regardent vers la DROITE ; la gauche est leur miroir.
+import { hash01Lowbias as hash01 } from '../hash.js';
 
 // ── PALETTE ─────────────────────────────────────────────────────────────────
 // Couleurs de la vie : c'est là que la carte a droit à la couleur vive (règle
 // « calme en grand, riche en petit »), mais en petites touches — une tête de
 // colvert, un bec, un ventre de poisson.
-export const VIE_PAL = {
+const VIE_PAL = {
   // ombre sous l'eau (l'opacité se règle au blit)
   K: [14, 28, 36],
   // poisson qui saute
@@ -434,13 +436,9 @@ export function ringPixels(r) {
 // dégradé, comme dans un jeu en pixel art. `dens` (0..1) suit l'heure : la brume
 // s'étoffe et se défait en gagnant ou perdant des pixels, sans jamais devenir floue.
 const BAYER4 = [0, 8, 2, 10, 12, 4, 14, 6, 3, 11, 1, 9, 15, 7, 13, 5];
-export function hash01(n) {
-  let x = (n | 0) + 0x9e3779b9;
-  x = Math.imul(x ^ (x >>> 16), 0x21f0aaad);
-  x = Math.imul(x ^ (x >>> 15), 0x735a2d97);
-  return ((x ^ (x >>> 15)) >>> 0) / 4294967296;
-}
-export const MIST_RGB = [228, 236, 240];
+// hash01 = hash01Lowbias (../hash.js), le tirage de toute la petite vie.
+export { hash01 };
+const MIST_RGB = [228, 236, 240];
 // Bruit de valeur 1D lissé (0..1), pour les bords du filet et ses déchirures.
 function noise1(x, seed) {
   const i = Math.floor(x), f = x - i;
@@ -571,7 +569,7 @@ function noise2(x, y, seed) {
   const b = h(xi, yi + 1) + (h(xi + 1, yi + 1) - h(xi, yi + 1)) * sx;
   return a + (b - a) * sy;
 }
-export const CLOUD_RGB = [112, 122, 146];
+const CLOUD_RGB = [112, 122, 146];
 export function cloudShadowMask(seed, W, H) {
   W = Math.max(8, Math.round(W)); H = Math.max(4, Math.round(H));
   const blobs = [];

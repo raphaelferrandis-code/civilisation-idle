@@ -17,9 +17,13 @@ import { PNG } from 'pngjs';
 const HERE = path.dirname(fileURLToPath(import.meta.url));
 const ROOT = path.resolve(HERE, '..');
 const BUILDINGS = path.join(ROOT, 'public', 'pixelart', 'agents', 'buildings');
+// Les scènes sources ne sont pas livrées : rangées dans art/aqueducs/ (audit
+// 2026-10-05, ASSET-3). ⚠ Les modules découpés ne sont plus chargés par le jeu
+// depuis le retrait des aqueducs (même audit, ASSET-5 et MORT-2).
+const SCENES = path.join(ROOT, 'art', 'aqueducs');
 
 const era = process.argv[2] || 'roman';
-const scenePath = path.join(BUILDINGS, `aqueduct-${era}-scene.png`);
+const scenePath = path.join(SCENES, `aqueduct-${era}-scene.png`);
 if (!fs.existsSync(scenePath)) { console.error(`manque ${scenePath}`); process.exit(1); }
 const scene = PNG.sync.read(fs.readFileSync(scenePath));
 const W = scene.width, H = scene.height;

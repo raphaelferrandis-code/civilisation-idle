@@ -25,14 +25,6 @@ import {
 } from '../../game/core/actions.js';
 import { isMythEffectActive } from '../../game/data/myths.js';
 import { FAVORED_CAUSE_LABELS } from '../../game/data/epitaphs.js';
-
-const RITE_RESOURCE_LABEL = {
-  food: { fr: "Nourriture", en: "Food" },
-  knowledge: { fr: "Savoir", en: "Knowledge" },
-  gold: { fr: "Trésor", en: "Treasury" }
-};
-
-const capitalize = (text) => (text ? text.charAt(0).toUpperCase() + text.slice(1) : "");
 import { costLabel, pct } from '../../game/core/utils.js';
 import { tr } from '../../game/core/i18n.js';
 import CrisisDoctrinePanel from '../ui/CrisisDoctrinePanel.jsx';
@@ -41,6 +33,14 @@ import TestamentSeals from '../ui/TestamentSeals.jsx';
 import Place, { PlaceKey } from '../ui/Place.jsx';
 import { tipProps } from '../ui/HelpBubble.jsx';
 import { isFirstGame } from '../../game/core/onboarding.js';
+
+const RITE_RESOURCE_LABEL = {
+  food: { fr: "Nourriture", en: "Food" },
+  knowledge: { fr: "Savoir", en: "Knowledge" },
+  gold: { fr: "Trésor", en: "Treasury" }
+};
+
+const capitalize = (text) => (text ? text.charAt(0).toUpperCase() + text.slice(1) : "");
 
 export default function PrestigeView() {
   const instability = useGameState(s => s.instability);
@@ -268,8 +268,8 @@ export default function PrestigeView() {
     // la classe déclenche le débord pleine largeur + l'image dans le CSS.
     <section className={`view active${isCrisisActive ? " crisis-backdrop" : ""}`} id="prestige">
       {/* 1. JAUGE HÉROS (crise uniquement) : la jauge fautive pleine largeur.
-          Hors crise, les baromètres Rupture/Usure vivent dans l'onglet
-          Régulation (TensionBarometers) — retour Raph 2026-07-13. */}
+          Hors crise, Rupture et Usure vivent dans les chiffres clés de la
+          Veille (RegulationView) et dans le Conseil. */}
       {isCrisisActive && (
         <div className="barometers-grid">
           <div className={`barometer-card crisis-hero ${wearCrisis ? "time-wear" : "instability"}`}>

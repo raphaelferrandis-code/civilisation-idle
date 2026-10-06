@@ -15,7 +15,7 @@ import { T, dirOf, figure, thing, pushFig, pushProp, openStory } from './fdKit.j
 
 const ROD = [62, 44, 28], LINE = [188, 196, 196];
 
-export function buildMonstre(app) {
+function buildMonstre(app) {
   const st = app.ch.stage | 0;
   const s = app.spot;
   // Vers l'eau : le vecteur de la berge au fil du courant (fdSpots.bankSpots).

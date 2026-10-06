@@ -75,7 +75,6 @@ import {
   fmtSecs,
   labelFor,
   clamp,
-  clamp01,
   canPayCost
 } from './utils.js';
 
@@ -86,7 +85,7 @@ import { registerWorldEffects } from '../data/worldEffects.js';
 
 // Injection des implémentations de core/ dans le pont d'effets de world.js
 // (casse le cycle d'imports world.js ↔ core/).
-registerWorldEffects({ addProductionPenalty, chronicle, clamp01, state });
+registerWorldEffects({ addProductionPenalty, chronicle, state });
 
 export async function exportSave() {
   const text = encodeSaveText(JSON.stringify(state));
@@ -591,13 +590,11 @@ function advanceWorldBy(seconds, opts = {}) {
   return { farm, wearBefore, credited: seconds - frozenSec, frozenStored };
 }
 
-// Raisons de REFUS d'un versement, dans l'ordre où on les teste. La vue les
-// traduit en une phrase sur le bouton : un bouton grisé sans motif se lit comme
-// un bug, et le joueur ne peut pas deviner qu'il doit attendre la fin d'un bonus.
-export const CLEPSYDRE_REFUSALS = ["busy", "crisis", "bonus", "empty"];
-
-// Pourquoi le versement est impossible, ou null s'il est permis. Séparé de
-// spendStoredTime pour que la vue puisse afficher le motif AVANT le clic.
+// Pourquoi le versement est impossible ("busy" | "crisis" | "bonus" | "empty",
+// testés dans cet ordre), ou null s'il est permis. Séparé de spendStoredTime
+// pour que la vue puisse afficher le motif AVANT le clic : un bouton grisé sans
+// motif se lit comme un bug, et le joueur ne peut pas deviner qu'il doit
+// attendre la fin d'un bonus.
 export function clepsydreRefusal() {
   // Effondrement en cours, dialogue bloquant, crise terminale : la sim a déjà
   // ces gardes hors-ligne, et rejouer du temps par-dessus une modale ouverte
@@ -818,7 +815,6 @@ export function checkAutoCollapse() {
     if (!state.crisisOpenedAt) { state.crisisOpenedAt = Date.now(); return; }
     if (Date.now() - state.crisisOpenedAt < autoCollapseDelay()) return;
   } else {
-    if (ac.trigger === "rupture100") state.crisisOpenedAt = state.crisisOpenedAt || null;
     return;
   }
 
@@ -922,7 +918,7 @@ export function playMusic() {
   });
 }
 
-export function pauseMusic() {
+function pauseMusic() {
   if (bgAudio) bgAudio.pause();
 }
 

@@ -100,13 +100,12 @@ const heart = () => (x, y) => disc(5.2, 6, 3.1)(x, y) || disc(10.8, 6, 3.1)(x, y
 const spade = () => (x, y) => disc(5.2, 9.2, 3)(x, y) || disc(10.8, 9.2, 3)(x, y) || tri(2.2, 8.4, 13.8, 8.4, 8, 1.4)(x, y) || tri(8, 9.5, 5.2, 15, 10.8, 15)(x, y);
 const club = () => (x, y) => disc(8, 4.4, 2.7)(x, y) || disc(4.4, 9.4, 2.7)(x, y) || disc(11.6, 9.4, 2.7)(x, y) || disc(8, 8.6, 1.6)(x, y) || tri(8, 9, 5.4, 15, 10.6, 15)(x, y);
 // La CLOCHE : un dôme, des flancs qui s'évasent, la lèvre, le battant.
-const bell = (crack = false) => (x, y) => {
+const bell = () => (x, y) => {
   const dx = Math.abs(x - 8);
   if (y >= 2 && y < 5.4) return dx <= Math.sqrt(Math.max(0, 3.7 * 3.7 - (5.4 - y) * (5.4 - y)));
   if (y >= 5.4 && y < 10) return dx <= 3.7 + (y - 5.4) * 0.22;
   if (y >= 10 && y < 12.2) return dx <= 4.7 + (y - 10) * 1.05;
   if (y >= 12.2 && y <= 13.4) return dx <= 7;
-  void crack;
   return disc(8, 1.4, 1.1)(x, y) || disc(8, 14.5, 1.2)(x, y);
 };
 // La petite police (3×5) : chiffres, ×, et les lettres des enseignes.
@@ -174,7 +173,7 @@ function drawSymbol(B, id, look) {
     case 'fer': {
       const ramp = k(fonte ? IRON : SILVER);
       blob(B, (x, y) => { const d = Math.hypot(x - 8, y - 7.6); return d >= 3.3 && d <= 6.6 && !(y > 9.2 && Math.abs(x - 8) < 3.6); }, 6.5, 5.5, 6.5, ramp, false);
-      for (const a of [-0.35, 0.35, 1.05, 2.1, 2.8, 3.5]) B.put(8 + Math.cos(a + Math.PI) * 4.9, 7.6 - Math.sin(a + Math.PI) * -4.9 * -1, ramp[3]);
+      for (const a of [-0.35, 0.35, 1.05, 2.1, 2.8, 3.5]) B.put(8 + Math.cos(a + Math.PI) * 4.9, 7.6 - Math.sin(a + Math.PI) * 4.9, ramp[3]);
       break;
     }
     case 'bar':
@@ -187,7 +186,7 @@ function drawSymbol(B, id, look) {
       break;
     case 'sept':
       if (fonte) {                                                                            // la cloche de la Liberté
-        blob(B, bell(true), 6.2, 6.5, 6.5, k(BRONZE));
+        blob(B, bell(), 6.2, 6.5, 6.5, k(BRONZE));
         for (const [x, y] of [[9, 5], [8, 6], [9, 7], [8, 8], [9, 9], [10, 10], [9, 11]]) B.put(x, y, BRONZE[3]);   // la fêlure
         B.hline(5, 11, 7, BRONZE[0]);
         break;
@@ -720,39 +719,6 @@ export function paintLive(R, scene, t, pull = 0, win = false) {
     B.put(b.x, b.y, c);
     if (on && look !== 'fonte') { B.put(b.x + 1, b.y, mix(c, scene.glow, 0.5)); }
   });
-}
-
-// ── LES EMBLÈMES DES MISES (32×32) : un jeton, un rouleau de jetons, un lingot ──
-export function stakeArtRaster(stakeId) {
-  const R = makeRaster(0, 0, 32, 32), B = brush(R);
-  const chip = (cx, cy, rx, ry, body, stripe) => {
-    for (let j = -ry - 2; j <= ry + 2; j += 1) for (let i = -rx; i <= rx; i += 1) {
-      const top = (i * i) / (rx * rx) + (j * j) / (ry * ry) <= 1;
-      const side = (i * i) / (rx * rx) + ((j - 2) * (j - 2)) / (ry * ry) <= 1 && j >= 0;
-      if (!top && !side) continue;
-      let c = top ? body[1] : body[3];
-      if (top && (i * i) / (rx * rx) + (j * j) / (ry * ry) > 0.62) c = Math.floor((Math.atan2(j, i) + Math.PI) * 4) % 2 ? stripe : body[1];
-      if (top && (i * i) / (rx * rx) + (j * j) / (ry * ry) < 0.25) c = body[0];
-      if (!top && side && i % 3 === 0) c = stripe;
-      B.put(cx + i, cy + j, c);
-    }
-  };
-  const RD = ['#ff9a9a', '#d8343a', '#a02a30', '#681a1e'], BL = ['#a8c8ff', '#3a6ad8', '#2a4aa0', '#1a2a60'];
-  if (stakeId === 'jeton') chip(16, 17, 11, 6, RD, '#fff6e0');
-  else if (stakeId === 'rouleau') { for (let k = 4; k >= 0; k -= 1) chip(16, 9 + k * 3, 10, 5, k % 2 ? BL : RD, '#fff6e0'); }
-  else {
-    // Le lingot : un trapèze d'or, sa face, son reflet.
-    for (let j = 0; j < 14; j += 1) {
-      const inset = Math.round((13 - j) * 0.45);
-      for (let i = 3 + inset; i < 29 - inset; i += 1) {
-        const topFace = j < 5;
-        B.put(i, 9 + j, topFace ? (i < 12 ? GOLD[0] : GOLD[1]) : (i < 9 + inset ? GOLD[1] : i > 23 - inset ? GOLD[3] : GOLD[2]));
-      }
-    }
-    B.hline(10, 11, 6, '#ffffff');
-  }
-  outline(B, INK);
-  return R;
 }
 
 // ── LE HOLD & WIN, dans la fenêtre ────────────────────────────────────────────

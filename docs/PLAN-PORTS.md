@@ -28,6 +28,9 @@ Choix tranchés par Raph le même soir :
 - Rendu iso : `iso/isoPort.drawIsoRiverside` = maison du port (sprite par stade) +
   appontement au pixel `iso/isoPier.js` (tête en T, grue, ombre, reflet) ; bateau de l'ère
   amarré à la tête (`portMooring` → item `portBoat`). Plage en bande (`isoBeachCells`).
+  (2026-10-06, audit MORT-6 : le bateau de décor `portMooring`/`portBoat` est retiré — les
+  marchands de la flotte accostent à la tête —, comme l'ancien ponton sprité de l'A/B
+  `__pier(false)` ; sprites gardés dans `art/references-ab/`.)
 - Sprites : `port-prop-house` (stade 0), `port-house-medieval` (1), `port-house-classical`
   (bande 4), `port-house-industrial` (2), `port-house-modern` (3), `port-cosmic-7/8/9`,
   + variantes `-grand`.
@@ -74,7 +77,8 @@ La taille du port de commerce suit le nombre de « Ports » achetés (portiques,
 - **Bateaux** (« Amélioration des bateaux et designs ») : refait TOUTES les coques par le code
   (pilote bande 4, puis les autres ; bandes 5-6 après). Contrat :
   - je pose mes navires par UNE indirection `drawMooredHull(ctx, { role, heading, x, y, now })`
-    (sprites boat-*-{secteur} aujourd'hui) ; bascule sur leur `iso/boatKit.js`
+    (sprites boat-*-{secteur} aujourd'hui — 2026-10-06, MORT-6 : le kit seul, le repli
+    sprite est retiré) ; bascule sur leur `iso/boatKit.js`
     (`drawBoat(ctx, spec, x, y, heading, s, now)`, `boatFootprint(spec)` → {len, beam} en
     tuiles) dès qu'il existe ; aucun décalage codé sur BOAT_SIZES × sizeMul ailleurs ;
   - port CENTRAL : leur marchand de la flotte viendra accoster au ponton et REMPLACERA le
@@ -83,6 +87,11 @@ La taille du port de commerce suit le nombre de « Ports » achetés (portiques,
   - j'exporte `portBerths(L)` → [{ id, kind: 'central'|'commerce'|'plaisance', x, y, heading,
     axis, maxLen, decor }] et `portWaterObstacles(L)` au format riverDodge { t, lat, r, id }
     (module `iso/portBerths.js`) ;
+    ⚠ 2026-10-06 (audit MORT-5 / BUG-17) : ce contrat n'avait aucun lecteur. Il ne reste que
+    `portBerths(L, 'commerce')` : le poste LIBRE du terminal (entre ses navires-décor), lu
+    par `boatBerths.fleetBerths` — l'escale des marchands aux bandes 5-9. Les postes-décor
+    du ponton et du bassin et `portWaterObstacles` sont partis (dans riverDodge, les coques
+    de la rive poussaient le trafic dans la file d'en face) ;
   - les prévenir avant de toucher isoFleet.js, riverFleet.js, drawIsoShips / drawIsoPortBoat.
   - ⚠ les hunks non commités `sh._hull` / `wxS` / `wyS` d'isoPort.drawIsoShips sont de la
     session des PONTS : ne jamais les commiter avec les miens.
@@ -188,7 +197,9 @@ La taille du port de commerce suit le nombre de « Ports » achetés (portiques,
     déplacés par ère) ; tests 1951 verts.
   - Reste : voiliers de plaisance (kit de la session des bateaux), port cosmique à
     redessiner, escales de la flotte au port de commerce (session des bateaux, postes
-    `portBerths` kind 'commerce').
+    `portBerths` kind 'commerce'). → Escales FAITES le 2026-10-06 (audit BUG-17) : poste
+    libre entre les navires-décor, approche par le large, marchand peint par la scène du
+    terminal ; quai plein (3 navires-décor) → pas de poste.
   - Commit local `73a33d2`. Puis, le même jour, **coques du kit** (session des bateaux :
     `boatKit.drawMooredKit` / `mooredFootprint`) branchées dans `portBerths` : barques,
     cotre et chaloupe à vapeur au bassin XIXe, plaisance moderne avec VOILIERS en bande 6,

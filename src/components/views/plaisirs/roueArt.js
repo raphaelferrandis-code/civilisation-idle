@@ -7,6 +7,10 @@
 // au pixel ne le serait pas. Lumière en haut à gauche, comme toute la carte.
 
 import { ROUE_SEGMENTS_H } from '../../../game/core/balance.js';
+// hex ('#rrggbb' → [r, g, b]) et mix (rvb → rvb) : les outils de pixel partagés, deux
+// feuilles sans code de carte (la roulette les lit aussi).
+import { hex } from '../../../game/map/iso/plaisirsHDKit.js';
+import { mixRgb as mix } from '../../../game/map/pixelUtil.js';
 
 export const ROUE_D = 132;                        // diamètre du disque, en pixels
 export const ROUE_W = ROUE_D + 4;                 // la toile : le disque et son ombre
@@ -17,7 +21,6 @@ const CX = ROUE_W / 2 - 0.5;
 const CY = 10 + ROUE_D / 2 - 0.5;
 const R = ROUE_D / 2 - 1;
 
-const hex = (c) => [parseInt(c.slice(1, 3), 16), parseInt(c.slice(3, 5), 16), parseInt(c.slice(5, 7), 16)];
 const C = {
   rouge: hex('#b8242a'), rougeDark: hex('#86161c'), rougeLight: hex('#d84a3e'),
   creme: hex('#f0dcae'), cremeDark: hex('#d2b884'), cremeLight: hex('#fff2d0'),
@@ -28,7 +31,6 @@ const C = {
   piece: hex('#f2c94c'), pieceDark: hex('#9a6c14'), pieceLight: hex('#fff3b0'),
   ink: hex('#1a0e08')
 };
-const mix = (a, b, t) => [0, 1, 2].map((i) => Math.round(a[i] + (b[i] - a[i]) * t));
 
 // Le nombre de pièces d'une case (1 à 7), ou 0 pour la plus belle (la couronne).
 const PALIERS = [...new Set(ROUE_SEGMENTS_H)].sort((a, b) => a - b);

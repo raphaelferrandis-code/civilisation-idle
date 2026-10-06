@@ -18,6 +18,7 @@ vi.mock("../iso/isoRenderer.js", async (orig) => ({
     h.draws.push({
       rainF: CM.rainF, dayP: CM.dayP, ambianceK: CM.ambianceK, riotWindow: CM.riotWindow,
       rioters: CM.rioters, capture: !!CM.capture,
+      nVeh: CM.vehicles.length, nShips: CM.ships.length, nCit: CM.citizens.length,
     });
     return true;
   }),
@@ -193,5 +194,40 @@ describe("frames synchrones : aucune chaîne rAF de plus (PERF-58)", () => {
     expect(rafQueue.length).toBe(1);
     tick(); tick();
     expect(rafQueue.length).toBe(1);
+  });
+});
+
+describe("harnais de vérif (DEV-5)", () => {
+  beforeAll(() => { mount(); tick(); tick(); });
+
+  it("un cliché « sans vie » rend ensuite véhicules et navires, EN PLACE", () => {
+    // Témoins posés à la main (un campement n'a encore ni flotte ni trafic) :
+    // aucun tick ne passe pendant qu'ils sont dans les pools.
+    const veh = { witness: "char" }, ship = { witness: "barque" }, cit = { witness: "passant" };
+    const pools = { vehicles: CM.vehicles, ships: CM.ships, citizens: CM.citizens };
+    CM.vehicles.push(veh); CM.ships.push(ship); CM.citizens.push(cit);
+    const before = { vehicles: CM.vehicles.slice(), ships: CM.ships.slice(), citizens: CM.citizens.slice() };
+    h.draws.length = 0;
+    CM.captureFrame({ citizens: "none" });
+    expect(h.draws.at(-1)).toMatchObject({ capture: true, nVeh: 0, nShips: 0, nCit: 0 });
+    // Avant : véhicules et navires restaient perdus jusqu'au prochain recalcul du plan.
+    for (const k of ["vehicles", "ships", "citizens"]) {
+      expect(CM[k]).toBe(pools[k]);            // mêmes tableaux (isoChute compare l'identité)
+      expect(CM[k]).toEqual(before[k]);
+    }
+    CM.vehicles.splice(CM.vehicles.indexOf(veh), 1);
+    CM.ships.splice(CM.ships.indexOf(ship), 1);
+    CM.citizens.splice(CM.citizens.indexOf(cit), 1);
+  });
+
+  it("__showWonder pose aussi la cible de zoom : le glissé ne le ramène pas en arrière", () => {
+    CM.zoomGoal = 0.5;
+    expect(typeof window.__showWonder(0, 3)).toBe("string");
+    for (let k = 0; k < 6 && CM.cam.zoom !== 1.3; k += 1) tick();
+    expect(CM.cam.zoom).toBe(1.3);
+    expect(CM.zoomGoal).toBe(1.3);
+    tick(); tick();
+    expect(CM.cam.zoom).toBe(1.3);           // avant : retombait vers 0,5
+    window.__hideWonder();
   });
 });

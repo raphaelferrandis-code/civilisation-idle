@@ -110,7 +110,7 @@ describe("isoUnitDepth — unités face aux emprises multi-tuiles", () => {
     const deux = isoUnitDepthEx(wx, wy);
     expect(deux.d).toBe(raw);
     expect(deux.d).toBeLessThan(19 * T);             // sous la clé de la tour sud
-    expect(deux.hidden).toBe(true);                  // → passe silhouette fantôme
+    expect(deux.hidden).toBe(true);                  // → plafonnée par la tour sud
   });
 
   it("VÉHICULE dans la rue DERRIÈRE une rangée : jamais peint sur un toit (Raph 2026-10-04)", () => {

@@ -7,11 +7,15 @@
 //
 //   Lancer :
 //     node scripts/remapPalette.mjs <fichier.png> [--epoch <id>] [--max 22] [--inplace] [--out dir] [--dry]
-//     node scripts/remapPalette.mjs --dir public/pixelart/agents [--dry]   (lot, époque auto par tag)
-//              → le mode --dir saute _orig/, _archive/, splash/, palettes/, wonders/
-//                (assets peints / sources / merveilles à signature or-pourpre).
-//              ⚠ ui/ruins/tree-base.png (fresque peinte, ~1150 teintes) n'est PAS dans un dossier
-//                exclu : ne le cible pas explicitement, l'indexer le détruirait.
+//     node scripts/remapPalette.mjs --dir public/pixelart/agents/inhabitants [--dry] [--force]
+//              (lot, époque auto par tag)
+//              → garde-fous du mode --dir partagés avec quantize.cjs (scripts/lib/pixelartGuard.cjs) :
+//                sous-dossiers protégés (art peint ou calibré : wonders, ruins, ruins-tree, places,
+//                boutique, prestige, ui, anim…) et feux TOUJOURS sautés ; un dossier de
+//                public/pixelart (art LIVRÉ, où tout fichier au-dessus du plafond l'est PAR
+//                CHOIX) est REFUSÉ sans --force (--dry reste permis pour voir).
+//              ⚠ tree-base.png (fresque peinte, ~1150 teintes) est refusé même ciblé
+//                explicitement, sauf --force : l'indexer le détruirait.
 //
 //   • --epoch  force l'époque (feu|bois|pierre|couronne|marbre|fonte|neon|noosphere|stellaire|demiurge).
 //              Sinon : déduite de spriteEpochTags (master-palette.json) d'après le nom de fichier.
@@ -38,6 +42,10 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { PNG } from 'pngjs';
+import pixelartGuard from './lib/pixelartGuard.cjs';
+import oklabLib from './lib/oklab.cjs';
+
+const { PROTECTED_FILES, batchPngs, batchRefusal } = pixelartGuard;
 
 // fileURLToPath (PAS url.pathname) : avec un espace dans le chemin du projet,
 // pathname garde le %20 encodé → les écritures partaient dans un répertoire
@@ -51,10 +59,11 @@ const PAL = JSON.parse(fs.readFileSync(path.join(PUB, 'master-palette.json'), 'u
 const argv = process.argv.slice(2);
 const flag = (n) => argv.includes(n);
 const opt = (n, d) => { const i = argv.indexOf(n); return i >= 0 ? argv[i + 1] : d; };
-const positional = argv.filter((a, i) => !a.startsWith('--') && !(i > 0 && argv[i - 1].startsWith('--') && !['--inplace', '--dry', '--no-accent', '--declutter', '--binary-alpha'].includes(argv[i - 1])));
+const positional = argv.filter((a, i) => !a.startsWith('--') && !(i > 0 && argv[i - 1].startsWith('--') && !['--inplace', '--dry', '--no-accent', '--declutter', '--binary-alpha', '--force'].includes(argv[i - 1])));
 const MAX = parseInt(opt('--max', '22'), 10);
 const FRINGE = parseInt(opt('--fringe', '16'), 10);
 const DRY = flag('--dry');
+const FORCE = flag('--force');
 const INPLACE = flag('--inplace');
 const NO_ACCENT = flag('--no-accent');
 const DECLUTTER = flag('--declutter');
@@ -116,22 +125,8 @@ function targetFor(epochId) {
 
 // Distance perceptuelle en OKLab (Björn Ottosson). Bien plus fidèle que le
 // redmean/RGB : deux teintes « proches à l'œil » le sont aussi dans l'espace.
-// sRGB (0..255) -> linéaire (table 256) -> LMS -> cube root -> OKLab.
-const _lin = new Float64Array(256);
-for (let i = 0; i < 256; i++) { const c = i / 255; _lin[i] = c <= 0.04045 ? c / 12.92 : Math.pow((c + 0.055) / 1.055, 2.4); }
-function oklab(r, g, b) {
-  const R = _lin[r], G = _lin[g], B = _lin[b];
-  const l = 0.4122214708 * R + 0.5363325363 * G + 0.0514459929 * B;
-  const m = 0.2119034982 * R + 0.6806995451 * G + 0.1073969566 * B;
-  const s = 0.0883024619 * R + 0.2817188376 * G + 0.6299787005 * B;
-  const l_ = Math.cbrt(l), m_ = Math.cbrt(m), s_ = Math.cbrt(s);
-  return [
-    0.2104542553 * l_ + 0.7936177850 * m_ - 0.0040720468 * s_,
-    1.9779984951 * l_ - 2.4285922050 * m_ + 0.4505937099 * s_,
-    0.0259040371 * l_ + 0.7827717662 * m_ - 0.8086757660 * s_
-  ];
-}
-const labDist2 = (a, b) => { const dL = a[0] - b[0], da = a[1] - b[1], db = a[2] - b[2]; return dL * dL + da * da + db * db; };
+// Implémentation partagée : scripts/lib/oklab.cjs.
+const { oklab, labD2: labDist2 } = oklabLib;
 function nearestLab(targetLab, lab) {
   let bi = 0, bd = Infinity;
   for (let i = 0; i < targetLab.length; i++) { const d = labDist2(targetLab[i], lab); if (d < bd) { bd = d; bi = i; } }
@@ -269,33 +264,24 @@ const dir = opt('--dir', null);
 let files;
 if (dir) {
   // Scan RÉCURSIF (les agents sont rangés en sous-dossiers : inhabitants/, buildings/, …).
-  // Dossiers TOUJOURS ignorés (sécurité, même liste que quantize.cjs + wonders) : sources,
-  // assets PEINTS non pixel-lockés, et les merveilles (leur OR/pourpre signature n'existe pas
-  // dans le cœur → un snap aveugle les rabat sur du cuivre ; elles ont leur propre pipeline
-  // wonders/lock-palette.cjs, ou se repassent une par une avec --extra "#or,#pourpre").
-  // `ruins` = même raison, apprise à la dure : la fresque de l'Arbre des Ruines et ses 47
-  // emblèmes sont du FEU, et le cœur anti-jaune n'a pas de rampe d'incandescence — la passe
-  // de 913 sprites a rabattu les flammes sur de la terre cuite (#ec360f → #b06a48) et éteint
-  // l'œuvre. Son pipeline est scratch/install-tree.cjs (cf. scratch/fireRamp.cjs).
-  const SKIP_DIRS = ['_orig', '_archive', 'splash', 'palettes', 'wonders', 'ruins'];
-  // Même leçon, au niveau du FICHIER cette fois : les feux de la cité (bandes
-  // animées des scènes moteur, scènes de repli qui portent un foyer, et les 80
-  // bandes de torche d'émeutier) vivent dans des dossiers qu'on remappe. La passe
-  // du 2026-07-01 les a rabattus sur les rampes bois/argile/PEAU — la flamme de
-  // la tour de guet était littéralement peinte en skin-lit. Ils ont leur propre
-  // rampe (public/pixelart/fire-ramp.json) et leur propre outil
-  // (scripts/reflame.mjs) ; la garde __tests__/flameHue.test.js tombe si on
-  // repasse le remap dessus.
-  const SKIP_FIRE = /(-fire\.png$|-torch-|^(?:watch-prop|ancestralcult-prop|mint-prop-forge|cult-vesta)\.png$)/;
-  const walk = (d) => fs.readdirSync(d, { withFileTypes: true }).flatMap((e) => {
-    const p = path.join(d, e.name);
-    if (e.isDirectory()) return SKIP_DIRS.includes(e.name) ? [] : walk(p);
-    if (SKIP_FIRE.test(e.name)) return [];
-    return e.name.endsWith('.png') && !e.name.endsWith('.remap.png') ? [p] : [];
-  });
-  files = walk(dir);
+  // Dossiers et fichiers sautés, dossiers refusés : scripts/lib/pixelartGuard.cjs, liste
+  // UNIQUE avec quantize.cjs — chaque entrée y porte la leçon qui l'a fait ajouter (les
+  // merveilles rabattues sur du cuivre, la fresque des Ruines éteinte par la passe de 913
+  // sprites, la flamme de la tour de guet peinte en skin-lit…).
+  const why = batchRefusal(dir);
+  if (why && !FORCE && !DRY) {
+    console.error(`REFUSÉ — ${why}\n  --dry pour voir ce qui serait réécrit, --force pour passer outre.`);
+    process.exit(1);
+  }
+  files = batchPngs(dir);
 }
-else files = positional;
+else {
+  files = positional.filter((f) => {
+    if (FORCE || !PROTECTED_FILES.includes(path.basename(f).toLowerCase())) return true;
+    console.warn('skip (fichier protégé, --force pour passer outre) :', f);
+    return false;
+  });
+}
 if (!files.length) { console.error('Aucun fichier. Usage : node scripts/remapPalette.mjs <fichier.png|--dir dossier> [options]'); process.exit(1); }
 
 const res = files.map(remapFile);

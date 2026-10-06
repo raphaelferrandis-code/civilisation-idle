@@ -110,9 +110,8 @@ describe("hydrateState() — refonte Arbre des Ruines (respec)", () => {
     expect(s.upgrades.root_cellars).toBeUndefined();
     expect(s.upgrades.stone_bread).toBeUndefined();
     expect(s.upgrades.conseil_de_crise).toBe(true);
-    // Annonce dans la Chronique + arbre à re-révéler.
+    // Annonce dans la Chronique.
     expect(s.history.some((h) => /Arbre des Ruines a été refondu/.test(h))).toBe(true);
-    expect(s.ruinsSeenNodes).toEqual([]);
   });
 
   it("remet les dogmes à zéro (paires exclusives à re-choisir) quand la refonte migre", () => {
@@ -130,11 +129,17 @@ describe("hydrateState() — refonte Arbre des Ruines (respec)", () => {
     const s = hydrateState({
       ruins: "10",
       upgrades: { conseil_de_crise: true, dogma_merchant_law: true },
-      ruinsSeenNodes: ["conseil_de_crise"]
+      ruinsSeenNodes: ["conseil_de_crise"],
+      mythStartInfra: "12",
+      roadDoors: { onRoad: 3, total: 4 }
     });
     expect(s.ruins.eq(10)).toBe(true);
     expect(s.upgrades.dogma_merchant_law).toBe(true);
-    expect(s.ruinsSeenNodes).toEqual(["conseil_de_crise"]);
+    // Champ mort retiré de l'état (SAV-17) : la clé d'une vieille save disparaît
+    // d'elle-même, hydrateState reconstruisant l'objet champ par champ.
+    expect("ruinsSeenNodes" in s).toBe(false);
+    expect("mythStartInfra" in s).toBe(false);
+    expect("roadDoors" in s).toBe(false);
   });
 
   it("rétro-compat archéologie : archaeologyUsed=true devient 1 exhumation utilisée", () => {

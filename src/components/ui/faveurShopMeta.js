@@ -1,8 +1,7 @@
-// Métadonnées de la Boutique de Faveur (libellés, icônes, descriptions, ligne
-// d'effet) — EXTRAITES de FaveurShop.jsx pour être partagées avec la Boutique
-// immersive (HeritageView). Un fichier de composant ne peut pas exporter de
-// constantes/fonctions sans casser le Fast Refresh (react-refresh/only-export-
-// components), d'où ce module dédié.
+// Métadonnées de la Boutique de Faveur (libellés, descriptions, ligne d'effet)
+// lues par la Boutique immersive (HeritageView). Un fichier de composant ne peut
+// pas exporter de constantes/fonctions sans casser le Fast Refresh
+// (react-refresh/only-export-components), d'où ce module dédié.
 import { BLESSING_MULT, BLESSING_DURATION_S } from '../../game/core/balance.js';
 import { tr } from '../../game/core/i18n.js';
 
@@ -11,7 +10,6 @@ import { tr } from '../../game/core/i18n.js';
 export const LABELS = {
   blessing: { fr: 'Bénédiction', en: 'Blessing' }
 };
-export const ICONS = { blessing: '🌾' };
 export const DESCS = {
   blessing: { fr: `+${Math.round((BLESSING_MULT - 1) * 100)} % de production pendant ${Math.round(BLESSING_DURATION_S / 60)} min. Rachetable, la durée se cumule. Son prix suit les recettes de la Maison.`, en: `+${Math.round((BLESSING_MULT - 1) * 100)}% production for ${Math.round(BLESSING_DURATION_S / 60)} min. Repeatable, duration stacks. Its price follows the House takings.` }
 };

@@ -20,7 +20,6 @@
 //
 // Pur : aucun DOM pour DESSINER. Chaque objet est un raster RGBA ; le passage en
 // canvas est fait à la demande (streetKitLampArt, streetKitPlantArt, mémoïsés).
-import { solInvalidate } from './solInvalidate.js';
 import { bridgeKitForBand } from './bridgeKits.js';
 import { SPRING, AUTUMN, WINTER } from '../seasonMode.js';
 
@@ -603,21 +602,11 @@ function cosmicMedian() {
 // Palette d'une bande : celle de son pont (une seule main).
 function palOf(band) { return bridgeKitForBand(band).pal; }
 
-// Molette A/B : __streetKit(false) rejoue le mobilier d'avant (PNG, parterres,
-// mâts des deux voies), __streetKit(true) le kit. Le sol cuit est invalidé (le
-// terre-plein y vit).
-export const STREET_KIT = { on: true };
-if (typeof window !== 'undefined') {
-  window.__streetKit = (v) => {
-    if (typeof v === 'boolean') { STREET_KIT.on = v; solInvalidate('all'); }
-    return { ...STREET_KIT };
-  };
-}
-
-// Kit de la bande, ou null (bandes 0-1 : ni boulevard ni réverbère ; ou molette
-// coupée → le mobilier d'avant, inchangé).
+// Kit de la bande, ou null (bandes 0-1 : ni boulevard ni réverbère). (La molette
+// A/B __streetKit(false), qui rejouait le mobilier d'avant — PNG, parterres, mâts
+// des deux voies —, a été retirée le 2026-10-06 avec ce mobilier, audit MORT-13.)
 export function streetKitFor(band) {
-  return (STREET_KIT.on && KITS[band | 0]) || null;
+  return KITS[band | 0] || null;
 }
 // Couleur de la lumière de l'ère (liseré des terre-pleins cosmiques).
 export function streetKitGlow(band) {
@@ -627,7 +616,7 @@ export function streetKitGlow(band) {
 
 // ── Raster → art (canvas) ────────────────────────────────────────────────────
 // Format « art » d'isoArt ({ ready, img }), plus la métrique de pied déjà connue
-// (`_foot`, lue par lampFootMetrics) : le dessin sait où est son pied, rien à mesurer.
+// (`_foot`, lue par lampBox et les kits) : le dessin sait où est son pied, rien à mesurer.
 function toCanvas(S) {
   if (typeof document === 'undefined' && typeof OffscreenCanvas === 'undefined') return null;
   const c = typeof document !== 'undefined' ? document.createElement('canvas') : new OffscreenCanvas(S.w, S.h);
@@ -656,9 +645,9 @@ function lampRaster(band) {
 }
 
 const _lampArt = new Map();
-// Réverbère de l'ère, en art prêt à poser (ou null : pas de kit → PNG d'avant).
-// `lig` suit le format de LAMP_LIGHTS (isoStreet.js) : sources en FRACTION du
-// canvas. `tieY` : hauteur (px d'art au-dessus du sol) où l'on peut nouer un fil,
+// Réverbère de l'ère, en art prêt à poser (ou null : pas de kit, pas de mât).
+// `lig` : la lumière du mât (cf. isoLampLightFrame, isoStreet.js), sources en
+// FRACTION du canvas. `tieY` : hauteur (px d'art au-dessus du sol) où l'on peut nouer un fil,
 // null si le mât brûle.
 export function streetKitLampArt(band) {
   const K = streetKitFor(band);

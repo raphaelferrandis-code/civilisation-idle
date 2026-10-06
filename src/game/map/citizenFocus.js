@@ -50,7 +50,7 @@ import { tr } from '../core/i18n.js';
 // zoom = cran visé à la désignation quand on regarde de plus loin (un passant
 // y fait ~30 px de haut) ; rate = amortissement du suivi (cf. CAM_FEEL).
 export const FOCUS_TUNE = { zoom: 2, rate: 6 };
-if (typeof window !== 'undefined') {
+if (import.meta.env?.DEV && typeof window !== 'undefined') {
   window.__citizenFocus = (o) => { if (o) Object.assign(FOCUS_TUNE, o); return { ...FOCUS_TUNE }; };
 }
 
@@ -90,7 +90,7 @@ export function noteSceneFigure(q, scene, sprite, sx, sy, d) {
   noteFigure(q);
 }
 // Vérification : les personnages de scène peints à la dernière frame, et où.
-if (typeof window !== 'undefined') {
+if (import.meta.env?.DEV && typeof window !== 'undefined') {
   window.__focusFigures = () => drawnFigs.map((p) => ({
     scene: p.scene, name: p.persona ? p.persona.name : null,
     x: p._figBox ? Math.round((p._figBox.x0 + p._figBox.x1) / 2) : null,
@@ -175,12 +175,6 @@ function hullBox(sh) {
   const ink = imgInkBox(hb.img);
   return { x0: hb.bx + ink.l * hb.dw, y0: hb.by + ink.t * hb.dw, x1: hb.bx + ink.r * hb.dw, y1: hb.by + ink.b * hb.dw };
 }
-// Compatibilité (tests, appelants d'avant les véhicules) : la personne visée.
-export function citizenAtScreen(sx, sy) {
-  const k = pickAtScreen(sx, sy);
-  return k && (k.kind === 'citizen' || k.kind === 'figure') ? k.p : null;
-}
-
 // ── LE VOYAGEUR DU BAC ───────────────────────────────────────────────────────
 // Le bac avance sa `trip` à chaque accostage (riverFleet.ferryStep). Les voyageurs
 // de la traversée n° t attendent tant que trip = t ; le bac qui ACCOSTE à leur
@@ -432,7 +426,9 @@ export function drawCitizenFocusOverlay(ctx, now = 0) {
 // Tout ce qui ne bouge pas se tire d'une graine (âge, caractère, part d'humeur
 // propre, conducteur, chargement) ; le reste se LIT dans l'état, à chaque relevé.
 // Libellés {fr, en} : la fiche les passe à tr().
-function mix(seed, k) {
+// mixHash : un brassage de HASH (graine, sel) → uint32 — rien à voir avec les `mix`
+// de couleurs des peintres, d'où le nom (audit du 05/10, STRUCT-9).
+function mixHash(seed, k) {
   let x = (seed ^ Math.imul(k + 1, 0x9E3779B1)) >>> 0;
   x = Math.imul(x ^ (x >>> 16), 0x7FEB352D) >>> 0;
   x = Math.imul(x ^ (x >>> 15), 0x846CA68B) >>> 0;
@@ -452,8 +448,8 @@ const pickOf = (list, seed) => list[seed % list.length];
 function figureIdentity(p) {
   if (p.persona) return p.persona;
   // `figSeed` : graine donnée par la scène (pont, bac…) ; sinon celle du dessin.
-  const seed = p.figSeed != null ? mix(p.figSeed >>> 0, 29)
-    : mix(Math.floor((p.phase || 0) * 1e9) >>> 0, (p.skinVariant || 0) + 31);
+  const seed = p.figSeed != null ? mixHash(p.figSeed >>> 0, 29)
+    : mixHash(Math.floor((p.phase || 0) * 1e9) >>> 0, (p.skinVariant || 0) + 31);
   const fem = p.charType === 1 || (p.charType === 2 && ((seed >>> 17) & 1) === 1);
   p.persona = { seed, fem, name: p.stageName || cmPasserbyName(seed, bandNow(), fem, p.charType === 2) };
   return p.persona;
@@ -464,7 +460,7 @@ const idOf = (p, kind) => (kind === 'figure' || p.scene ? figureIdentity(p) : p)
 // jusqu'à l'âge industriel ; ensuite, une conductrice sur deux.
 function vehicleIdentity(v) {
   if (v.driver) return;
-  const seed = (v.seed >>> 0) || mix(Math.round(v.x * 7 + v.y * 13) >>> 0, Math.round(v.speed || 1));
+  const seed = (v.seed >>> 0) || mixHash(Math.round(v.x * 7 + v.y * 13) >>> 0, Math.round(v.speed || 1));
   v.seed = seed;
   const band = bandNow();
   v.driverFem = v.type === 'basket' ? !!v.woman : band >= 6 && ((seed >>> 9) & 1) === 1;
@@ -473,7 +469,7 @@ function vehicleIdentity(v) {
 // Le bac : son passeur, même règle que les conducteurs.
 function boatIdentity(sh) {
   if (sh.driver) return;
-  const seed = mix((sh.id | 0) >>> 0, 41);
+  const seed = mixHash((sh.id | 0) >>> 0, 41);
   const band = bandNow();
   sh.driverFem = band >= 6 && ((seed >>> 9) & 1) === 1;
   sh.driver = cmPasserbyName(seed, band, sh.driverFem, false);
@@ -544,7 +540,7 @@ const CARGO = {
   goods: [['Caisses', 'Crates'], ['Primeurs', 'Produce'], ['Matériaux', 'Materials'], ['Colis', 'Parcels']],
 };
 function vehicleLoad(v) {
-  const e = vehicleEra(v), s = mix(v.seed >>> 0, 5);
+  const e = vehicleEra(v), s = mixHash(v.seed >>> 0, 5);
   const c = (list) => { const it = pickOf(list, s); return { fr: it[0], en: it[1] }; };
   if (v.type === 'basket') return { cargo: c(CARGO.basket) };
   if (v.type === 'wagon') return { cargo: c(CARGO[e] || CARGO.goods) };
@@ -771,17 +767,17 @@ export function citizenSheet() {
   }
   const id = idOf(p, f.kind);
   const band = bandNow();
-  const seed = (id.seed >>> 0) || mix(Math.round((p.phase || 0) * 1000), 7);
+  const seed = (id.seed >>> 0) || mixHash(Math.round((p.phase || 0) * 1000), 7);
   const child = p.charType === 2;
   const fem = !!id.fem;
   const span = ADULT_AGE[Math.max(0, Math.min(ADULT_AGE.length - 1, band))];
-  const age = child ? 4 + (mix(seed, 1) % 10) : span[0] + (mix(seed, 1) % (span[1] - span[0] + 1));
-  const t1 = mix(seed, 2) % TRAITS.length;
-  let t2 = mix(seed, 3) % (TRAITS.length - 1);
+  const age = child ? 4 + (mixHash(seed, 1) % 10) : span[0] + (mixHash(seed, 1) % (span[1] - span[0] + 1));
+  const t1 = mixHash(seed, 2) % TRAITS.length;
+  let t2 = mixHash(seed, 3) % (TRAITS.length - 1);
   if (t2 >= t1) t2 += 1;
   // Humeur = la santé de la cité (CM.healthF, la même qui teinte la carte),
   // tirée par le tempérament de chacun, assombrie par l'émeute et l'averse.
-  let mood = (CM.healthF ?? 0.6) + ((mix(seed, 4) % 1000) / 1000 - 0.5) * 0.3;
+  let mood = (CM.healthF ?? 0.6) + ((mixHash(seed, 4) % 1000) / 1000 - 0.5) * 0.3;
   if (Array.isArray(CM.rioters) && CM.rioters.length) mood -= 0.25;
   if ((CM.rainF || 0) > 0.15) mood -= 0.06;
   let m = MOODS[0];

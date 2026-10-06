@@ -1,6 +1,10 @@
 // fetchFountainAnims.mjs — assemble les strips d'EAU ANIMÉE des fontaines de
-// place iso : public/pixelart/iso/anim/plaza-fountain-<ère>.png (8 frames
-// horizontales, dimensions du crop).
+// place iso : anim/plaza-fountain-<ère>.png (8 frames horizontales, dimensions
+// du crop).
+//
+//   ⚠ 2026-10-06 : le mode 'scene' des places est RETIRÉ du jeu (audit MORT-12) ;
+//   scènes et strips sont rangés comme source dans art/references-ab/places-scene/,
+//   où ce script les lit et les écrit désormais (plus rien n'est livré).
 //
 //   Chaîne : la fontaine de chaque scène plaza-<ère>.png a été RECADRÉE (rects
 //   FOUNTAIN ci-dessous) puis animée par PixelLab (animate_object v3,
@@ -25,8 +29,8 @@ import fs from 'node:fs';
 import path from 'node:path';
 
 const HOST = '34bdff47-15d5-48b4-bdfa-940882b16e34';
-const OUT = 'public/pixelart/iso/anim';
-const SCENES = 'public/pixelart/iso';
+const OUT = 'art/references-ab/places-scene/anim';
+const SCENES = 'art/references-ab/places-scene';
 const FRAMES = 8;
 const FORCE = process.argv.includes('--force');
 const FILTER = (process.argv[2] && !process.argv[2].startsWith('--')) ? process.argv[2] : '';
@@ -84,7 +88,7 @@ const JET = {
 };
 
 // animation_id RÉEL par ère (≠ animation_group_id — extrait de l'URL des frames
-// donnée par get_object, même piège que fetchCaravanVehAnims) : les frames se
+// donnée par get_object, même piège que l'ancien fetchCaravanVehAnims) : les frames se
 // téléchargent en DIRECT sur backblaze, le zip de l'hôte ne les expose pas.
 const ANIM_ID = {
   antique: '753c90cf-39a0-4f4d-b934-1f4f412d82bd',

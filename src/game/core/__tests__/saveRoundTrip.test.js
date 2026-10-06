@@ -25,7 +25,6 @@ const REMIS_A_NEUF = {
   lastCycleReport: "bilan de cycle déjà montré, jamais rejoué",
   pendingCrisisSlot: "verrou d'une modale de crise disparue avec la page (BUG-22)",
   cadmosPromptPending: "modale de Cadmos disparue : son palier sera reproposé",
-  roadDoors: "cache d'affichage recalculé par la carte, non relu",
 };
 
 const json = (value) => JSON.parse(JSON.stringify(value));

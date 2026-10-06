@@ -194,7 +194,6 @@
   overflow-y: auto;
   overscroll-behavior: contain;
   margin: 0;
-  border-radius: 0;
   border-top: 1px solid var(--line);
   background: var(--surface-panel);
   box-shadow: 0 -10px 30px rgba(0, 0, 0, 0.6);
@@ -345,7 +344,6 @@
   height: 3.4rem;
   min-height: 0;
   padding: 0;
-  border-radius: 0;
   border: 1px solid var(--gold);
   background: color-mix(in srgb, var(--surface-panel), var(--gold) 14%);
   color: var(--gold-bright);
@@ -388,7 +386,6 @@
   height: auto;
   min-height: 3.4rem;
   padding: 0.3rem 0.15rem;
-  border-radius: 0;
   line-height: 1.05;
 }
 
@@ -484,7 +481,6 @@
   transform: translateX(-50%);
   width: 2.4rem;
   height: 4px;
-  border-radius: 0;
   background: rgba(255, 255, 255, 0.28);
   pointer-events: none;
 }
@@ -768,7 +764,6 @@
   width: auto;
   right: 0;
   padding: 0.15rem 0.5rem 0.2rem;
-  border-radius: 0;
   background: rgba(13, 15, 23, 0.72);
 }
 
@@ -959,7 +954,6 @@
   max-width: none;
   padding: 0;
   margin-bottom: 0.4rem;
-  border-radius: 0;
   border-left-width: 1px;
   display: grid;
   place-items: center;
@@ -1135,14 +1129,6 @@
 :root[data-pointer="coarse"] .augury-stage button,
 :root[data-pointer="coarse"] .pm-dials button {
   min-height: var(--touch-target);
-}
-
-/* Les bandeaux d'appel des jeux (« jouer », « encaisser ») portaient des
-   pastilles de 0.18rem de haut : au doigt, une cible de la taille du texte. */
-:root[data-pointer="coarse"] .icarus-banner-cta,
-:root[data-pointer="coarse"] .scratch-banner button {
-  min-height: 2.25rem;
-  padding: 0.2rem 0.9rem;
 }
 
 /* Le ticket à gratter doit rester assez grand pour qu'un doigt — bien plus

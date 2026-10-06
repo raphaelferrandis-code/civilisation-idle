@@ -65,7 +65,7 @@ export function evaluate(grid, cfg) {
 
 // ── LE HOLD & WIN ────────────────────────────────────────────────────────────────
 // Les valeurs des pièces : { v (× la mise), w (poids), jp ('mini' | 'majeur') }.
-export function coinMean(hw) {
+function coinMean(hw) {
   const tot = hw.values.reduce((s, c) => s + c.w, 0);
   return hw.values.reduce((s, c) => s + c.v * c.w, 0) / tot;
 }
@@ -78,7 +78,10 @@ export function hwOutlook(k0, hw, cells = 15) {
   const go = (k, r) => {
     if (k >= cells) return { coins: cells, full: 1 };
     if (r <= 0) return { coins: k, full: 0 };
-    const key = k * 10 + r;
+    // r ∈ [1, respins] : la base (respins + 1) garde la clé unique quel que soit le
+    // réglage. (`k * 10 + r` confondait (k, 11) et (k + 1, 1) dès 11 relances ; seul
+    // l'ordre du parcours en profondeur évitait de relire l'entrée écrasée.)
+    const key = k * (hw.respins + 1) + r;
     if (memo.has(key)) return memo.get(key);
     const m = cells - k, p = hw.pNew;
     let coins = 0, full = 0;

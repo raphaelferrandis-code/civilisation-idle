@@ -18,7 +18,7 @@
 //     colonnes, le lit maçonné du lupanar et son rideau rouge.
 import { INK, h32, piece, contactShadow, FOOT, BK, SD, FR } from './plaisirsHDKit.js';
 import {
-  BONE, CLAY, HIDE, FURB, FURG, LEAF, flame, furPile, jar, tableCrew, boudoirRoom, tableEra,
+  BONE, CLAY, HIDE, FURG, LEAF, flame, furPile, jar, tableCrew, boudoirRoom, tableEra,
   counterEra, shelvesEra, stageEra, item, candle,
 } from './plaisirsEraRooms.js';
 
@@ -124,9 +124,8 @@ const BOIS = {
     }
     counterEra(ctx, x, y, Math.min(48, w - 40), {
       top: [W[0], W[1]], face: [W[1], W[2], W[3]], style: 'plank',
-      items(Q, x0, yt, cw) {
+      items(Q, x0, yt) {
         for (let t = 0; t < 3; t += 1) { const bx = x0 + 6 + t * 13; for (let j = 0; j < 4; j += 1) for (let i = 0; i < 9; i += 1) Q.put(bx + i, yt - 4 + j, j === 0 ? ['#d8404a', '#e8b040', '#7aa040'][t] : (i + j) % 2 ? '#c8a050' : '#a8823a'); }
-        void cw;
       },
     });
     counterCrew(ctx, r, x, 24, true);
@@ -212,7 +211,7 @@ const PIERRE = {
     tableCrew(ctx, r, x, 19, 0, true);
   },
   tickets(ctx, r) {
-    const { P, S } = ctx, { x, y, y0, w } = r, kx = x - (w >= 150 ? 14 : 0);
+    const { P } = ctx, { x, y, y0, w } = r, kx = x - (w >= 150 ? 14 : 0);
     // La BLANQUE (la loterie d'alors) : les billets épinglés au tableau, l'urne voilée.
     piece(P, kx - 17, y0 + 8, 34, 22, (Q) => {
       Q.rect(kx - 17, y0 + 8, 34, 22, OAK[2]); Q.rect(kx - 15, y0 + 10, 30, 18, OAK[3]);
@@ -227,7 +226,6 @@ const PIERRE = {
       },
     });
     counterCrew(ctx, r, kx, 21);
-    void S;
   },
   boutique(ctx, r) {
     const { x, y, w } = r, sw = Math.min(58, w - 32);
@@ -265,9 +263,9 @@ const PIERRE = {
           O.put(i, j, e < 3 ? (e === 1 ? '#e8c060' : '#466234') : (i + j * 2) % 11 === 0 ? '#9a2a2a' : '#b83232');
         }
         const cx = Math.round((x0 + x1) / 2);
-        for (let k = 0; k < 2; k += 1) for (let j = 0; j < LION.length; j += 1) for (let i = 0; i < LION[j].length; i += 1) {
+        for (let j = 0; j < LION.length; j += 1) for (let i = 0; i < LION[j].length; i += 1) {
           if (LION[j][i] !== 'g') continue;
-          for (let a = 0; a < 2; a += 1) for (let b = 0; b < 2; b += 1) O.put(cx - 8 + i * 2 + a + (k ? 0 : 0), top + 6 + j * 2 + b, k ? null : '#f0c850');
+          for (let a = 0; a < 2; a += 1) for (let b = 0; b < 2; b += 1) O.put(cx - 8 + i * 2 + a, top + 6 + j * 2 + b, '#f0c850');
         }
       },
     });
@@ -456,14 +454,13 @@ const COURONNE = {
         }
         O.put(cx, base - 4, '#ffe9a0'); O.put(cx - 10, base - 8, '#ffe9a0'); O.put(cx + 10, base - 8, '#ffe9a0');
       },
-      extra(c, plat) {
+      extra(c) {
         // Deux bannières fleurdelisées au cadre.
         const { O } = c, { x0r, x1r, y0 } = r;
         for (const bx of [x0r + 8, x1r - 16]) {
           for (let j = 0; j < 18; j += 1) for (let i = 0; i < 8; i += 1) { if (j > 14 && Math.abs(i - 3.5) < j - 14) continue; O.put(bx + i, y0 + 10 + j, i === 0 ? '#5a7ad8' : '#3a5ab8'); }
           motif(O, LYS, bx + 1, y0 + 14, BRASS[1]);
         }
-        void plat;
       },
     });
   },
@@ -683,4 +680,3 @@ const MARBRE = {
 };
 
 export { BOIS, PIERRE, COURONNE, MARBRE };
-void FURB; void FURG; void FR;

@@ -150,7 +150,7 @@ fs.writeFileSync(path.join(DIR, 'ancestralcult-prop.png'), PNG.sync.write(prop))
 //   Aucune couleur inventée : la rampe est la seule source (garde flameHue).
 const FWG = 192, FHG = 160;
 // Largeur du BOL du foyer : 21 px sur le stade 0 (x38..58), 32 sur le palier
-// (x81..112, cf. la passe cendres de fetchProps). Dans le petit, la flamme fait
+// (x81..112, cf. la passe cendres de scripts/_archive/fetchProps.mjs). Dans le petit, la flamme fait
 // EXACTEMENT la largeur de son bol — on garde ce rapport, donc ×1,52 et non ×2.
 // Effet de bord heureux : à 0,605 px/px de densité de palier contre 0,84 pour
 // l'atelier, la flamme garde ainsi sa taille À L'ÉCRAN. C'est le CERCLE qui

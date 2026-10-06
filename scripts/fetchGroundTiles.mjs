@@ -1,7 +1,14 @@
 // fetchGroundTiles.mjs — TUILES DE SOL isométriques, lots PixelLab `create_tiles_pro`
 //   → public/pixelart/iso/<clé>-<n>.png (4 variantes par matière).
-//   Remplace fetchIsoTiles.mjs (create_isometric_tile, 1 tuile par matière).
+//   Remplace fetchIsoTiles.mjs (create_isometric_tile, 1 tuile par matière —
+//   archivé dans scripts/_archive/).
 //   Lancer :  node scripts/fetchGroundTiles.mjs        (filtre : … grass)
+//
+// ⚠ REFUSE D'ÉCRASER une tuile déjà en place sans `--force` : les tuiles livrées
+// ont été RETOUCHÉES depuis leur récolte (dé-liserage de derimTiles.mjs, sols
+// cohérents, neige…) et un relancement rendrait de l'art NEUF par-dessus (audit
+// du 05/10, SCRIPT-4). Ce fichier sert surtout de DOCUMENTATION des lots (ids,
+// indices, verdicts) que citent isoGroundTiles.js, isoRoad.js et isoWonderGround.js.
 //
 // POURQUOI CE SCRIPT NORMALISE AU LIEU DE COPIER LE PNG
 // ────────────────────────────────────────────────────
@@ -18,9 +25,8 @@
 // avant). Le losange y est en 1:1 — c'est une vraie vue de dessus, donc un CARRÉ
 // tourné de 45°. L'écraser ×0,5 en y n'est pas une bidouille : c'est exactement
 // sa projection iso. On sort donc une tuile 64×32 pleine, blittée 1:1 à zoom 1 :
-// le format 2:1 exact déclenche le court-circuit `isoTileIsFlat` du moteur, qui
-// la dispense de sous-pavage et d'inset (réservés aux dalles en volume — les
-// road-*, pas régénérées).
+// le format 2:1 exact est celui du blit 1:1 du moteur (le sous-pavage et l'inset
+// d'alors, réservés aux dalles en volume, ont été retirés le 2026-10-06).
 //
 // ÉGALISATION — la variété doit venir du DESSIN, pas de la valeur
 // ──────────────────────────────────────────────────────────────
@@ -357,7 +363,11 @@ const LOTS = [
   // 
 ];
 const BUCKET = 'https://backblaze.pixellab.ai/file/pixellab-tiles/f1f2e80b-b12d-4940-a5a9-e76f8558b9e0';
-const FILTER = process.argv[2] || '';
+// Le filtre est le premier argument qui n'est PAS une option : `argv[2]` tout court
+// prenait `--equalize` (ou `--force`) pour un filtre, qui n'attrapait aucune matière.
+const FILTER = process.argv.slice(2).find((a) => !a.startsWith('--')) || '';
+const FORCE = process.argv.includes('--force');
+const targetsOf = (mat) => [...mat.tiles.map((_, i) => `${OUT}/${mat.key}-${i + 1}.png`), `${OUT}/${mat.key}.png`];
 
 /* ── géométrie : LA MÊME que le moteur (isoGroundTiles.js `isoFaceKeeps`) ────────
  * Recopier la formule ici serait tentant, mais c'est le masque du sol : s'il
@@ -651,6 +661,15 @@ for (const lot of LOTS) {
   const batch = [];
   for (const mat of lot.mats) {
     if (FILTER && !mat.key.includes(FILTER)) continue;
+    // GARDE 0 (écrasement), AVANT tout téléchargement : une tuile en place a pu être
+    // retouchée depuis sa récolte (cf. l'en-tête) — on ne la remplace que sur demande.
+    const inPlace = targetsOf(mat).filter((f) => fs.existsSync(f));
+    if (inPlace.length && !FORCE) {
+      console.error(`${mat.key} — ${inPlace.length} tuile(s) déjà en place (${inPlace.map((f) => f.slice(OUT.length + 1)).join(', ')}) :`
+        + ' RIEN ÉCRIT. Elles ont pu être retouchées depuis (cf. derimTiles.mjs) ; --force pour les remplacer.');
+      process.exitCode = 2;
+      continue;
+    }
     const tiles = [], seats = [];
     let missing = false;
     for (const t of mat.tiles) {
@@ -741,9 +760,13 @@ for (const lot of LOTS) {
     const after = tiles.map((p) => lum(meanRGB(p)));
     const rest = Math.max(...after) - Math.min(...after);
     tiles.forEach((p, i) => fs.writeFileSync(`${OUT}/${mat.key}-${i + 1}.png`, PNG.sync.write(p)));
-    // La 1re variante sert aussi de tuile de base : tout chemin qui demande encore
-    // `<clé>.png` (sauvegarde d'un ancien build, outil hors jeu) reste servi.
-    fs.writeFileSync(`${OUT}/${mat.key}.png`, PNG.sync.write(tiles[0]));
+    // La tuile de base `<clé>.png` (copie de la 1re variante) n'est plus demandée par le
+    // sol : la sonde de disponibilité vise la variante 1 (isoTileProbe, audit du 05/10,
+    // ASSET-8). On ne la récrit que là où elle est encore livrée — les chaussées que
+    // lisent les tabliers de pont (isoArt, isoBridge.roadSampler) — ou pour une matière
+    // à tuile unique, que le blit lit sous son nom nu.
+    const baseF = `${OUT}/${mat.key}.png`;
+    if (tiles.length <= 1 || fs.existsSync(baseF)) fs.writeFileSync(baseF, PNG.sync.write(tiles[0]));
     tones.push([mat.key, target.map(Math.round)]);
     const fill = tiles.map((p) => {
       const OV = p.height - FH;                    // 0 sauf herbe à débord

@@ -67,7 +67,7 @@ function pushDog(out, x, y, alpha, o = {}) {
   });
 }
 
-export function buildCynique(app) {
+function buildCynique(app) {
   const st = app.ch.stage | 0;
   const s = app.spot;
   const [fx, fy] = FACE[s.face != null ? s.face : 2];

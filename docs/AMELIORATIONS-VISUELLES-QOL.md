@@ -723,7 +723,7 @@ Effort M, impact fort, axe B et E. Fusion de B1 et E3.
 4. Migration ciblée ensuite, pas les 126 `title=` d'un coup : PurchaseRow (6 occurrences), CityStatusPanel.
 5. Ajouter un délai d'ouverture de 120 ms et la règle « pas deux fois » : si une bulle a été fermée il y a moins de 400 ms, la suivante s'ouvre sans délai ni fondu. Un timestamp module suffit.
 6. Déplacer les règles `.regul-tip` de `views-regulation.css` vers `components.css` pour respecter l'ordre de cascade du barrel `src/index.css`.
-7. Bug connexe déjà documenté (`AUDIT-2026-07-21.md:348`, bulle orpheline quand la cible est démontée) : le montage global l'aggrave, il faut le corriger dans le même lot.
+7. Bug connexe déjà documenté (`archive/AUDIT-2026-07-21.md:348`, bulle orpheline quand la cible est démontée) : le montage global l'aggrave, il faut le corriger dans le même lot.
 
 **Risque** : le `title` natif reste le repli clavier et tactile. Ne pas le supprimer sans vérifier que `tipProps` déclenche bien au focus (il le fait), et conserver un `aria-label` équivalent sur les éléments migrés.
 

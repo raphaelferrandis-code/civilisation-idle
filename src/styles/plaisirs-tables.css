@@ -78,7 +78,6 @@
 .ptable-hud .scratch-history { justify-content: flex-start; margin: 0; }
 .ptable-hud .bj-chip,
 .ptable-hud .scratch-chip { background: rgba(12, 8, 10, 0.78); }
-.ptable-hud .coffre-select { margin: 0; padding: 0.15rem 0.3rem; background: rgba(12, 8, 10, 0.78); }
 
 /* ── LES MISES, POSÉES SUR LE TAPIS ─────────────────────────────────────────
    Chaque mise sur son cercle : son emblème posé dessus, une plaque (nom, prix)
@@ -145,7 +144,7 @@
   background: rgba(12, 8, 10, 0.82);
   border: 1px solid color-mix(in srgb, var(--gold), transparent 58%);
   box-shadow: 0 2px 0 rgba(0, 0, 0, 0.45);
-  font-family: "Inter", "Baloo 2", system-ui, sans-serif;
+  font-family: var(--font-body);
   white-space: nowrap;
 }
 .ptable-plaque strong {
@@ -484,7 +483,7 @@
 }
 .ptable-mise-sum { display: flex; flex-direction: column; align-items: center; gap: 0; }
 .ptable-mise-sum strong {
-  font-family: "Inter", "Baloo 2", system-ui, sans-serif;
+  font-family: var(--font-body);
   font-size: 0.74rem;
   color: var(--text-strong);
   letter-spacing: 0.05em;

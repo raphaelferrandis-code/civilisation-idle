@@ -18,7 +18,9 @@
 // qu'une fois cuit, un bateau à quai garde celui de l'ère d'avant le temps de sa
 // recuisson.
 //
-// Molette : __boatKit({ on, budgetMs }) — on:false rend les sprites PixelLab.
+// Molette : __boatKit({ budgetMs }). (L'A/B `on: false`, qui rendait les sprites
+// PixelLab, est parti avec eux : le kit couvre les dix bandes, boatKitCover.test ;
+// audit du 05/10, MORT-6.)
 
 import { CM } from '../layout.js';
 import { worldToScreen } from './projection.js';
@@ -33,15 +35,10 @@ import { agentFrameIso, agentIdleFrameIso, agentPoseFrameIso } from '../agents.j
 import { crewSpec, crewDir, isFerryPassenger } from './boatCrew.js';
 import { VEHICLE_BAKE, vehicleBakeOpen, vehicleBakeTimed } from './vehicleBakeBudget.js';
 
-export const BOATKIT = { on: true };
-if (typeof window !== 'undefined') {
+if (import.meta.env?.DEV && typeof window !== 'undefined') {
   window.__boatKit = (o) => {
-    if (o) {
-      const { budgetMs, ...rest } = o;
-      Object.assign(BOATKIT, rest);
-      if (budgetMs != null) VEHICLE_BAKE.ms = budgetMs;
-    }
-    return { ...BOATKIT, budgetMs: VEHICLE_BAKE.ms, cached: _cache.size };
+    if (o && o.budgetMs != null) VEHICLE_BAKE.ms = o.budgetMs;
+    return { budgetMs: VEHICLE_BAKE.ms, cached: _cache.size };
   };
 }
 
@@ -64,24 +61,15 @@ function toCanvas(R) {
 // Modèle d'un bateau de la flotte : métier → liste de l'ère → tirage stable par
 // bateau (tous les marchands d'une époque ne sont plus des clones).
 export function boatSpecFor(sh, band) {
-  if (!BOATKIT.on) return null;
   const fl = fleetFor(band);
   if (!fl) return null;
-  const role = sh.kind === 'fisher' ? 'fisher' : (sh.kind || 'trade');
+  const role = sh.kind || 'trade';
   const list = fl[role] || fl.trade;
   if (!list || !list.length) return null;
   // Les bateaux de service prennent le modèle de leur RANG (police, puis pompiers) :
   // tirés au hasard, deux patrouilles de police pouvaient se croiser sans pompiers.
   const id = role === 'service' && sh.svc != null ? list[sh.svc % list.length] : list[h32(sh.id | 0, 17, 3) % list.length];
   return { id, seed: h32(sh.id | 0, 23, 5) % 9973 };
-}
-
-// Bateau d'amarrage (port) : le modèle signature de l'ère, tiré au lieu.
-export function mooredSpecFor(band, key) {
-  if (!BOATKIT.on) return null;
-  const fl = fleetFor(band);
-  if (!fl || !fl.trade || !fl.trade.length) return null;
-  return { id: fl.trade[0], seed: h32(Math.round(key * 100) | 0, 29, 7) % 9973 };
 }
 
 export function boatFootprint(spec) {
@@ -94,9 +82,6 @@ export function boatFootprint(spec) {
 export function boatSizeMul(spec) {
   const M = spec && BOAT_MODELS[spec.id];
   return M ? M.len / (0.7 * 32) : 1;
-}
-export function boatModel(spec) {
-  return (spec && BOAT_MODELS[spec.id]) || null;
 }
 export function boatHasLights(spec) {
   const M = spec && BOAT_MODELS[spec.id];
@@ -303,8 +288,7 @@ const MOORED = {
   rowboat: ['pleasure', 0], dinghy: ['pleasure', 1], sail: ['pleasure', 2], motorboat: ['pleasure', 3],
   fisher: ['fisher', 0],
 };
-export function mooredSpec(role, band, seed = 1) {
-  if (!BOATKIT.on) return null;
+function mooredSpec(role, band, seed = 1) {
   const fl = fleetFor(band);
   if (!fl) return null;
   let id = null;
@@ -324,15 +308,15 @@ export function mooredFootprint(role, band) {
   return boatFootprint(mooredSpec(role, band));
 }
 // Cap ÉCRAN → cap MONDE (le kit cuit dans le repère du monde).
-export function worldHeadingOfScreen(h) {
+function worldHeadingOfScreen(h) {
   const hx = Math.cos(h), hy = Math.sin(h);
   return Math.atan2(hy - hx / 2, hx / 2 + hy);
 }
 /**
  * Pose un bateau à quai du kit. Mêmes arguments que drawMooredHull : (x, y) en
  * tuiles monde, heading = cap ÉCRAN, z = niveau de l'eau (tuiles, négatif au pied
- * d'un mur de quai). Rend false si l'ère n'a pas de modèle pour ce rôle (repli
- * sur les sprites chez l'appelant).
+ * d'un mur de quai). Rend false si l'ère n'a pas de modèle pour ce rôle (rien n'est
+ * posé ; cas impossible pour les rôles des ports, boatKitCover.test).
  */
 export function drawMooredKit(ctx, { role, heading, x, y, z = 0, now = 0, bob = true, band = null, seed = null }) {
   const b = band != null ? band : ((CM.layout && CM.layout.counts && CM.layout.counts.eraBand) | 0);
@@ -361,7 +345,7 @@ export function drawMooredKit(ctx, { role, heading, x, y, z = 0, now = 0, bob = 
   // le fait déjà pour les siens, isoPort.drawKitShip ; ceux des ports ne fumaient pas).
   if (r && r.anchors && r.anchors.smoke) drawSmoke(ctx, r.anchors.smoke, now, zoom, spec.seed | 0, heading, false);
   // L'ère a son modèle : true même si sa première image attend le budget (rien de posé
-  // cette frame) — false ferait poser le sprite de repli de l'appelant.
+  // cette frame).
   return true;
 }
 const _mooredMemo = new Map();

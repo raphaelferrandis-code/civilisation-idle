@@ -1,4 +1,3 @@
-"use strict";
 /* ============================================================================
  * sim-10-profils.js - Simulateur headless "10 profils de joueur" pour
  * "Civilisation Effondrement" (CE).
@@ -50,32 +49,10 @@
 import fs from "fs";
 
 // ---------------------------------------------------------------------------
-// 0. Stubs d'environnement (doivent exister AVANT les import() du jeu)
-//    Repris a l'identique de simulate-ce.js : le moteur attend un DOM minimal.
+// 0. Stubs d'environnement (doivent exister AVANT les import() du jeu) : le faux
+//    navigateur commun des harnais (le même que simulate-ce.js), en import statique.
 // ---------------------------------------------------------------------------
-// addEventListener : cloudSave.js s'abonne a `pagehide` des l'import (SCRIPT-1).
-global.window = { addEventListener() {}, removeEventListener() {} };
-global.localStorage = { getItem() { return null; }, setItem() {} };
-Object.defineProperty(global, "navigator", {
-  value: { clipboard: { writeText() {} } }, writable: true, configurable: true
-});
-const stubEl = () => ({
-  className: "", dataset: {}, innerHTML: "", returnValue: "0", textContent: "",
-  disabled: false, value: "", checked: false, style: {},
-  classList: { add() {}, remove() {}, toggle() {}, contains() { return false; } },
-  addEventListener() {}, removeEventListener() {}, setAttribute() {}, showModal() {},
-  remove() {}, click() {}, appendChild() {}, querySelector() { return stubEl(); },
-  querySelectorAll() { return []; }
-});
-global.document = {
-  addEventListener() {}, documentElement: { style: { setProperty() {} } },
-  body: { appendChild() {} }, querySelector() { return stubEl(); },
-  querySelectorAll() { return []; }, createElement() { return stubEl(); },
-  getElementById() { return stubEl(); }
-};
-global.Audio = class { constructor() { this.volume = 1; } addEventListener() {} play() { return Promise.resolve(); } pause() {} };
-global.render = () => {};
-global.save = () => {};
+import "./scripts/lib/headless.mjs";
 
 // ---------------------------------------------------------------------------
 // 1. Import des vraies formules du jeu (memes modules que simulate-ce.js)

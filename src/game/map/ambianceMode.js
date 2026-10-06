@@ -56,7 +56,7 @@ export function setAmbianceMode(mode) {
 // là les manquerait entièrement.
 const MOTION_BY_MODE = { full: "full", sober: "full", none: "none" };
 
-export function motionMode() {
+function motionMode() {
   return MOTION_BY_MODE[ambianceMode] ?? "full";
 }
 

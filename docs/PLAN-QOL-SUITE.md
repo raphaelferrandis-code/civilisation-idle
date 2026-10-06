@@ -146,7 +146,7 @@ Le champ `at` (`events.js:171`) n'est lu nulle part : sur le chemin Edit il n'y 
 ### 3.1. B1, une seule infobulle (M)
 
 **Fichiers, dans l'ordre.**
-1. `src/components/ui/HelpBubble.jsx`. Accepter un contenu structuré dans `tipProps` (signature ligne 35, garde `if (!text) return {}` ligne 36) sans casser les 23 sites d'appel existants, et corriger la bulle orpheline dans le même geste (`AUDIT-2026-07-21.md:347` : `tipProps` ne pose que `onMouseLeave`/`onBlur`, un démontage de la cible ne tire aucun des deux).
+1. `src/components/ui/HelpBubble.jsx`. Accepter un contenu structuré dans `tipProps` (signature ligne 35, garde `if (!text) return {}` ligne 36) sans casser les 23 sites d'appel existants, et corriger la bulle orpheline dans le même geste (`archive/AUDIT-2026-07-21.md:347` : `tipProps` ne pose que `onMouseLeave`/`onBlur`, un démontage de la cible ne tire aucun des deux).
 2. `src/App.jsx`, monter `HelpBubbleLayer` à côté d'`OutcomeFloatLayer` (ligne 344).
 3. `src/components/views/RegulationView.jsx:39`, retirer la couche locale. `showFn` est un singleton de module (`HelpBubble.jsx:13`, écrit sans garde d'unicité lignes 47-55) : deux instances montées se voleraient la référence.
 4. `src/components/ui/Topbar.jsx`. Les 5 tooltips (objet 83-104), l'attribut ligne 141, et **garder** le `title` de valeur exacte ligne 154 qui répond à une autre question. Deux `title` ajoutés depuis : ligne 164 (« figé ») et 197 (6e cellule Habitants). Au passage, le tooltip population ligne 85 répète « Habitants estimés » alors que la 6e cellule affiche déjà ce chiffre ligne 205.
@@ -158,7 +158,7 @@ Le champ `at` (`events.js:171`) n'est lu nulle part : sur le chemin Edit il n'y 
 Les `<dialog>` sont dans le top layer : `ChoiceDialog` appelle `showModal()` (`ChoiceDialog.jsx:28` et `47`), Options / Import / Debug sont aussi des `<dialog>`. Une bulle en z-index 80 sera peinte dessous quel que soit le z-index. Ne pas migrer les `title` d'`OptionsDialog` ni de `ChoiceDialog` dans ce lot.
 Les 5 tooltips de la Topbar contiennent des `\n` (85-86, 89-90, 93-94, 97-98, 101-102) : le contenu structuré doit arriver **en même temps** que la migration Topbar, pas après, sinon la Topbar régresse.
 Le texte est figé au `mouseenter` (`showTipAt`, 15-27), or la Topbar se re-rend à chaque tick (elle appelle `cityVitals()` et `rates()` lignes 48-50) et ses tooltips contiennent des valeurs vivantes. Avec le `title` natif le gel ne se voyait pas.
-`FaveurShop.jsx` est **mort** : aucun import dans le dépôt (`AUDIT-2026-07-21.md:505`). Ne pas le migrer.
+`FaveurShop.jsx` est **mort** : aucun import dans le dépôt (`archive/AUDIT-2026-07-21.md:505`). Ne pas le migrer.
 `etaLabel` (`PurchaseRow.jsx:356`) est une chaîne déjà formatée pour rester comparable comme une primitive par `arePropsEqual` (284-308). Ne pas la transformer en objet.
 `.app` porte `filter: grayscale(1)` en deuil (`layout.css:11-13`) : ce filtre crée un bloc conteneur et casse le `position:fixed` de la couche.
 Accessibilité : la bulle a `role="tooltip"` (ligne 61) mais aucun `aria-describedby`. Retirer un `title` sans compensation supprime l'information pour un lecteur d'écran.

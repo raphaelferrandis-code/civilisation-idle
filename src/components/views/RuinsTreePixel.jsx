@@ -362,9 +362,9 @@ export default function RuinsTreePixel() {
   }, []);
 
   // Réglage des ancres : `window.__ruinsAnchors = true` → un clic journalise
-  // les coordonnées SOURCE de l'illustration (celles d'anchors.js).
+  // les coordonnées SOURCE de l'illustration (celles d'anchors.js). Dev seulement.
   const onWorldClick = useCallback((e) => {
-    if (!window.__ruinsAnchors) return;
+    if (!(import.meta.env?.DEV && window.__ruinsAnchors)) return;
     const rect = worldRef.current?.getBoundingClientRect();
     if (!rect || rect.width === 0) return;
     const sx = Math.floor(((e.clientX - rect.left) / rect.width) * ART_W);

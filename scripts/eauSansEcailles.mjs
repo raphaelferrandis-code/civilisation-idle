@@ -177,13 +177,17 @@ fs.writeFileSync(OUT, PNG.sync.write(sheet));
 // lavis de nuit, réglés sur elles dans WATER_SHEETS).
 if (!process.argv.includes('--out')) {
   const DIR = path.dirname(OUT);
-  const read = (name) => PNG.sync.read(fs.readFileSync(path.join(DIR, name)));
+  // Les bandes de 16 px et la nappe turquoise (source de l'eau trouble, eauTrouble.mjs)
+  // ne sont plus livrées depuis le 2026-10-06 (audit MORT-12) : elles sont rangées
+  // comme source dans art/references-ab/eau-planches/.
+  const SRC = path.join('art', 'references-ab', 'eau-planches');
+  const read = (name) => PNG.sync.read(fs.readFileSync(path.join(SRC, name)));
   const ref = read('river-tiles-calm-ciel.png');
   const key = (d, i) => d[i] + ',' + d[i + 1] + ',' + d[i + 2];
-  for (const [from, to] of [
-    ['river-tiles-calm-turquoise.png', 'river-tiles-calm-turquoise-v2.png'],
-    ['river-tiles-calm-hiver.png', 'river-tiles-calm-hiver-v2.png'],
-    ['river-tiles-calm.png', 'river-tiles-calm-v2.png'],
+  for (const [from, to, dir] of [
+    ['river-tiles-calm-turquoise.png', 'river-tiles-calm-turquoise-v2.png', SRC],
+    ['river-tiles-calm-hiver.png', 'river-tiles-calm-hiver-v2.png', DIR],
+    ['river-tiles-calm.png', 'river-tiles-calm-v2.png', DIR],
   ]) {
     const src = read(from);
     if (src.width !== ref.width || src.height !== ref.height) throw new Error(from + ' : pas la taille de la bande ciel');
@@ -200,8 +204,8 @@ if (!process.argv.includes('--out')) {
       if (!c) throw new Error(to + ' : couleur sans correspondance ' + key(sheet.data, i));
       out.data[i] = c[0]; out.data[i + 1] = c[1]; out.data[i + 2] = c[2]; out.data[i + 3] = 255;
     }
-    fs.writeFileSync(path.join(DIR, to), PNG.sync.write(out));
-    console.log('écrit', path.join(DIR, to));
+    fs.writeFileSync(path.join(dir, to), PNG.sync.write(out));
+    console.log('écrit', path.join(dir, to));
   }
 }
 

@@ -3,19 +3,6 @@
    ============================================================================ */
 
 /* En-tête de la Cité */
-.city-header-panel {
-  display: flex;
-  flex-direction: column;
-  align-items: stretch;
-  gap: 0.9rem;
-  padding: 1.25rem 1.5rem;
-  border: 1px solid rgba(var(--era-rgb), 0.22);
-  border-radius: 0;
-  background: radial-gradient(ellipse at 50% 0%, rgba(var(--era-rgb), 0.12), transparent 75%), var(--panel);
-  box-shadow: 0 4px 24px rgba(0, 0, 0, 0.4), inset 0 1px 0 rgba(255, 255, 255, 0.05);
-  margin-bottom: 1rem;
-}
-
 .city-title-wrapper {
   display: flex;
   flex-direction: row;
@@ -31,65 +18,6 @@
 
 .city-title-wrapper:focus-within {
   border-color: var(--gold-bright);
-}
-
-.city-inline-era {
-  display: grid;
-  gap: 0.4rem;
-  width: 100%;
-  max-width: none;
-  margin-top: 0;
-  padding-top: 0.65rem;
-  border-top: 1px solid rgba(var(--era-rgb), 0.16);
-}
-
-.city-inline-era-head {
-  display: grid;
-  grid-template-columns: auto minmax(0, 1fr) auto;
-  gap: 0.6rem;
-  align-items: baseline;
-}
-
-.city-inline-era-head span,
-.city-inline-era-head small,
-.city-inline-era-progress span {
-  color: rgba(var(--era-rgb), 0.68);
-  font-size: 0.72rem;
-  font-weight: 800;
-  text-transform: uppercase;
-}
-
-.city-inline-era-head strong {
-  overflow: hidden;
-  color: var(--gold-bright);
-  font-family: var(--font-title);
-  font-size: 1rem;
-  line-height: 1.1;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.city-inline-era-head small {
-  overflow: hidden;
-  text-align: right;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.city-inline-era-progress {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) auto;
-  gap: 0.6rem;
-  align-items: center;
-}
-
-.city-title-label {
-  font-family: var(--font-body);
-  font-size: 0.6875rem;
-  font-weight: 800;
-  text-transform: uppercase;
-  color: var(--gold-bright);
-  letter-spacing: 0.08em;
 }
 
 .city-title-wrapper .city-name-input {
@@ -158,7 +86,6 @@
 .crisis-foyer {
   position: relative;
   border: 1px solid rgba(255, 255, 255, 0.07);
-  border-radius: 0;
   background: rgba(0, 0, 0, 0.22);
 }
 
@@ -199,14 +126,6 @@
   transition: color 0.2s ease;
 }
 
-.crisis-foyer-pct {
-  margin-left: auto;
-  font-family: var(--font-body);
-  font-size: 0.8rem;
-  font-weight: 700;
-  color: var(--foyer-color, var(--gold-bright));
-}
-
 .crisis-foyer-chevron {
   flex: 0 0 auto;
   margin-left: auto;
@@ -222,7 +141,6 @@
 .crisis-foyer-track {
   flex: 0 0 100%;
   height: 4px;
-  border-radius: 0;
   background: rgba(0, 0, 0, 0.45);
   overflow: hidden;
 }
@@ -230,7 +148,6 @@
 .crisis-foyer-fill {
   display: block;
   height: 100%;
-  border-radius: 0;
   background: var(--foyer-color, var(--gold));
   transition: width 0.4s ease;
 }
@@ -254,7 +171,6 @@
   gap: 0.3rem;
   padding: 0.45rem;
   border: 1px solid rgba(var(--era-rgb), 0.32);
-  border-radius: 0;
   background: var(--surface-panel);
   box-shadow: 0 12px 30px rgba(0, 0, 0, 0.55);
 }
@@ -266,7 +182,6 @@
   gap: 0.18rem;
   padding: 0.4rem 0.55rem;
   border: 1px solid color-mix(in srgb, var(--foyer-color, var(--gold)), transparent 58%);
-  border-radius: 0;
   background: color-mix(in srgb, var(--foyer-color, var(--gold)), transparent 90%);
   color: var(--text-strong);
   font-family: var(--font-body);
@@ -291,37 +206,14 @@
   cursor: not-allowed;
 }
 
-.crisis-regul-cost {
-  flex: 0 1 auto;
-  overflow: hidden;
-  font-size: 0.7rem;
-  color: var(--muted);
-  text-align: right;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.crisis-foyer-locked {
-  display: block;
-  padding-top: 0.1rem;
-  font-size: 0.72rem;
-  font-style: italic;
-  color: var(--muted);
-}
-
 /* Identité couleur de chaque foyer = la ressource qu'il consomme (Étape 4).
-   Partagée par la variante compacte (.crisis-foyer--*) et la variante full
-   (.tactical-card--*). Dissidence = usure (violet d'état), plus l'ancien
-   violet « infra » qui entrait en collision avec l'infrastructure. */
-.crisis-foyer--food,  .tactical-card--food,  .regul-summary-foyer--food  { --foyer-color: var(--res-food); }
-.crisis-foyer--gold,  .tactical-card--gold,  .regul-summary-foyer--gold  { --foyer-color: var(--res-treasure); }
-.crisis-foyer--know,  .tactical-card--know,  .regul-summary-foyer--know  { --foyer-color: var(--res-knowledge); }
-.crisis-foyer--usure, .tactical-card--usure, .regul-summary-foyer--usure { --foyer-color: var(--state-usure); }
-
-/* Carte tactique (variante full) : liseré gauche teinté par la ressource. */
-.tactical-card[class*="tactical-card--"] {
-  border-left: 3px solid color-mix(in srgb, var(--foyer-color, var(--gold)), transparent 45%);
-}
+   Partagée par la rangée du foyer (.crisis-foyer--*) et le résumé de
+   régulation (.regul-summary-foyer--*). Dissidence = usure (violet d'état), plus
+   l'ancien violet « infra » qui entrait en collision avec l'infrastructure. */
+.crisis-foyer--food,  .regul-summary-foyer--food  { --foyer-color: var(--res-food); }
+.crisis-foyer--gold,  .regul-summary-foyer--gold  { --foyer-color: var(--res-treasure); }
+.crisis-foyer--know,  .regul-summary-foyer--know  { --foyer-color: var(--res-knowledge); }
+.crisis-foyer--usure, .regul-summary-foyer--usure { --foyer-color: var(--state-usure); }
 
 /* ── Étape 4 : boutons de régulation enrichis (effet · contrepartie · coût) ── */
 .regul-btn-line {
@@ -330,14 +222,6 @@
   justify-content: space-between;
   gap: 0.5rem;
   width: 100%;
-}
-
-.regul-gain {
-  flex: 0 0 auto;
-  font-size: 0.6875rem;
-  font-weight: 700;
-  color: #9bd17a;            /* bénéfice : ce que l'action calme */
-  white-space: nowrap;
 }
 
 .regul-malus {
@@ -369,28 +253,11 @@
   color: #9bd17a;
   background: rgba(155, 209, 122, 0.12);
   border: 1px solid rgba(155, 209, 122, 0.35);
-  border-radius: 0;
   padding: 0.02rem 0.34rem;
   line-height: 1.4;
 }
 
-.tactical-htitle {
-  display: flex;
-  align-items: center;
-  gap: 0.45rem;
-  min-width: 0;
-}
-
-.tactical-foyer-icon {
-  width: 24px;
-  height: 24px;
-  flex: 0 0 auto;
-  object-fit: contain;
-  image-rendering: pixelated;
-}
-
-.is-soothed .crisis-foyer-fill,
-.is-soothed .tactical-fill {
+.is-soothed .crisis-foyer-fill {
   filter: saturate(0.7) brightness(1.05);
   box-shadow: 0 0 6px rgba(155, 209, 122, 0.45);
 }
@@ -422,13 +289,11 @@
   color: var(--gold);
   background: color-mix(in srgb, var(--gold), transparent 88%);
   border: 1px solid color-mix(in srgb, var(--gold), transparent 60%);
-  border-radius: 0;
   padding: 0.02rem 0.34rem;
   line-height: 1.4;
 }
 
-.is-reformed .crisis-foyer-fill,
-.is-reformed .tactical-fill {
+.is-reformed .crisis-foyer-fill {
   box-shadow: 0 0 6px color-mix(in srgb, var(--gold), transparent 50%);
 }
 
@@ -455,14 +320,6 @@
   font-weight: 600;
   color: #7fc6e6;
   letter-spacing: 0.02em;
-}
-.crisis-regul-buffer--full {
-  font-size: 0.82rem;
-  margin: 0.1rem 0 0.6rem;
-  color: var(--muted);
-}
-.crisis-regul-buffer--full strong {
-  color: #7fc6e6;
 }
 
 /* ── Levier C — Politiques permanentes (toggles) ─────────────────────────────── */
@@ -493,7 +350,6 @@
   text-align: left;
   padding: 0.5rem 0.7rem;
   border: 1px solid rgba(127, 198, 230, 0.28);
-  border-radius: 0;
   background: rgba(20, 30, 40, 0.5);
   cursor: pointer;
 }
@@ -578,14 +434,12 @@
   flex: 1 1 auto;
   max-width: 180px;
   height: 6px;
-  border-radius: 0;
   background: rgba(255, 255, 255, 0.06);
   overflow: hidden;
 }
 .crisis-fatigue-fill {
   display: block;
   height: 100%;
-  border-radius: 0;
   background: linear-gradient(90deg, #e0934a, #d8632b);
   transition: width 0.3s ease;
 }
@@ -593,106 +447,6 @@
   flex: 0 0 auto;
   font-weight: 700;
   color: #e0934a;
-}
-
-/* Panneau de progression de l'Ère / Rupture */
-.era-progress-panel {
-  display: flex;
-  flex-direction: column;
-  gap: 0.85rem;
-  padding: 1.5rem;
-  border: 1px solid rgba(var(--era-rgb), 0.28);
-  border-left: 4px solid var(--gold);
-  border-radius: 0;
-  background: 
-    linear-gradient(135deg, rgba(var(--era-rgb), 0.06) 0%, transparent 45%),
-    rgba(22, 28, 43, 0.96);
-  box-shadow: 0 10px 32px rgba(0, 0, 0, 0.45), inset 0 1px 0 rgba(255, 255, 255, 0.03);
-  margin-bottom: 1rem;
-}
-
-.era-header-row {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: flex-end;
-  justify-content: space-between;
-  gap: 0.75rem;
-}
-
-.era-title-block {
-  display: flex;
-  flex-direction: column;
-  gap: 0.2rem;
-}
-
-.era-subtitle {
-  font-family: var(--font-body);
-  font-size: 0.72rem;
-  font-weight: 800;
-  text-transform: uppercase;
-  color: rgba(var(--era-rgb), 0.6);
-  letter-spacing: 0.08em;
-}
-
-.era-title-name {
-  font-family: var(--font-title);
-  font-size: 1.55rem;
-  color: var(--gold-bright);
-  text-shadow: 0 0 12px rgba(var(--era-rgb), 0.25);
-  margin: 0;
-  line-height: 1.1;
-}
-
-.era-next-pointer {
-  font-size: 0.78rem;
-  font-weight: 700;
-  color: rgba(var(--era-rgb), 0.7);
-  background: rgba(var(--era-rgb), 0.1);
-  padding: 0.25rem 0.65rem;
-  border-radius: 0;
-  border: 1px solid rgba(var(--era-rgb), 0.15);
-}
-
-.era-progress-bar-wrapper {
-  display: flex;
-  align-items: center;
-  gap: 0.85rem;
-}
-
-.era-progress-track {
-  flex: 1;
-  height: 8px;
-  background: rgba(0, 0, 0, 0.5);
-  border: 1px solid rgba(var(--era-rgb), 0.15);
-  border-radius: 0;
-  overflow: hidden;
-}
-
-.era-progress-fill {
-  display: block;
-  height: 100%;
-  border-radius: 0;
-  background: linear-gradient(90deg, #a8a14e, var(--gold), #c2603a);
-  box-shadow: 0 0 12px rgba(var(--era-rgb), 0.35);
-  transition: width 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-}
-
-.era-progress-percentage {
-  font-family: var(--font-body);
-  font-size: 0.8rem;
-  font-weight: 700;
-  color: var(--gold-bright);
-  min-width: 2.2rem;
-  text-align: right;
-}
-
-.era-description-text {
-  font-family: var(--font-body);
-  font-size: 0.86rem;
-  line-height: 1.5;
-  color: #c4bca6;
-  font-style: italic;
-  margin: 0;
 }
 
 /* Jauge fine de pression civilisationnelle (intégrée à l'en-tête de la cité) */
@@ -715,10 +469,6 @@
   align-items: center;
   gap: 0.45rem;
   line-height: 1;
-}
-
-.sg-icon {
-  font-size: 0.82rem;
 }
 
 .sg-label {
@@ -757,7 +507,6 @@
   border-style: solid;
   border-width: 5px 10px 5px 9px;
   border-color: transparent;
-  border-radius: 0;
   background: rgba(0, 0, 0, 0.5);
   background-origin: padding-box;
   background-clip: padding-box;
@@ -793,7 +542,6 @@
   padding-left: 7px;
   bottom: 0;
   display: block;
-  border-radius: 0;
   background: var(--sg-color);
   box-shadow: 0 0 8px var(--sg-glow);
   transition:
@@ -810,7 +558,6 @@
   bottom: 0;
   width: 2px;
   margin-left: -1px;
-  border-radius: 0;
   background: rgba(255, 255, 255, 0.92);
   box-shadow: 0 0 4px rgba(255, 255, 255, 0.6);
   transition: left 0.4s cubic-bezier(0.4, 0, 0.2, 1);
@@ -879,7 +626,6 @@
 .city-map-container {
   position: relative;
   border: 1px solid rgba(var(--era-rgb), 0.2);
-  border-radius: 0;
   background: var(--surface-app);
   overflow: hidden;
   box-shadow: 0 12px 36px rgba(0, 0, 0, 0.5);
@@ -918,47 +664,7 @@
   -webkit-touch-callout: none;
 }
 
-.map-interaction-hint {
-  position: absolute;
-  top: 1rem;
-  left: 1rem;
-  z-index: 6;
-  display: flex;
-  align-items: center;
-  gap: 0.45rem;
-  padding: 0.35rem 0.75rem;
-  border-radius: 0;
-  background: rgba(13, 10, 7, 0.78);
-  border: 1px solid rgba(var(--era-rgb), 0.3);
-  backdrop-filter: blur(6px);
-  font-size: 0.72rem;
-  color: #fff1bd;
-  pointer-events: none;
-  font-weight: 600;
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
-}
-
-.hint-pulse-dot {
-  width: 6px;
-  height: 6px;
-  background: var(--gold-bright);
-  border-radius: 0;
-  animation: hintPulse 2s infinite ease-in-out;
-}
-
-@keyframes hintPulse {
-  0%, 100% { transform: scale(1); opacity: 0.3; box-shadow: 0 0 0 0 rgba(240, 200, 96, 0); }
-  50% { transform: scale(1.3); opacity: 1; box-shadow: 0 0 8px 2px rgba(240, 200, 96, 0.6); }
-}
-
-/* Grille des Ressources Unifiées */
-.unified-resource-grid {
-  display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 0.55rem;
-  margin-bottom: 0.55rem;
-}
-
+/* Cartes de ressources du bandeau (Topbar) */
 .resource-card-unified {
   display: flex;
   flex-direction: column;
@@ -966,7 +672,6 @@
   gap: 0.4rem;
   padding: 0.7rem 0.85rem;
   border: 1px solid rgba(255, 255, 255, 0.05);
-  border-radius: 0;
   background: var(--panel);
   backdrop-filter: blur(12px);
   -webkit-backdrop-filter: blur(12px);
@@ -1012,7 +717,6 @@
 .resource-card-unified.card-gold .resource-icon i { color: var(--res-gold); }
 .resource-card-unified.card-knowledge .resource-icon i { color: var(--res-know); }
 .resource-card-unified.card-infra .resource-icon i { color: var(--res-infra); }
-.resource-card-unified.stability-vitals-card .resource-icon i { color: var(--red); }
 
 .resource-name {
   font-family: var(--font-body);
@@ -1028,7 +732,6 @@
 .resource-card-unified.card-gold .resource-name { color: var(--res-gold); }
 .resource-card-unified.card-knowledge .resource-name { color: var(--res-know); }
 .resource-card-unified.card-infra .resource-name { color: var(--res-infra); }
-.resource-card-unified.stability-vitals-card .resource-name { color: var(--red); }
 
 .resource-value {
   font-family: var(--font-title);
@@ -1044,25 +747,6 @@
 .resource-card-unified.card-knowledge .resource-value { color: var(--res-know); text-shadow: 0 0 10px rgba(76, 157, 232, 0.15); }
 .resource-card-unified.card-infra .resource-value { color: var(--res-infra); text-shadow: 0 0 10px rgba(136, 147, 184, 0.18); }
 
-.resource-card-unified .card-body {
-  display: flex;
-  flex-direction: column;
-  gap: 0.55rem;
-  flex: 1;
-}
-
-.resource-rate-wrapper {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  font-size: 0.75rem;
-}
-
-.rate-label {
-  color: var(--muted);
-  font-family: var(--font-body);
-}
-
 .rate-value {
   font-weight: 700;
 }
@@ -1070,164 +754,7 @@
 .rate-value.positive { color: var(--green); }
 .rate-value.negative { color: var(--red); }
 
-.resource-gauge-section {
-  display: flex;
-  flex-direction: column;
-  gap: 0.25rem;
-  margin-top: 0.2rem;
-}
-
-.gauge-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  font-size: 0.7rem;
-}
-
-.gauge-label {
-  color: var(--muted);
-  font-size: 0.6875rem;
-  text-transform: uppercase;
-  font-weight: 700;
-  font-family: var(--font-body);
-}
-
-.gauge-mood-text {
-  font-weight: 700;
-  font-size: 0.74rem;
-  font-family: var(--font-body);
-}
-
-.resource-card-unified.card-food .gauge-mood-text { color: #a8a14e; }
-.resource-card-unified.card-gold .gauge-mood-text { color: #e8a84a; }
-.resource-card-unified.card-knowledge .gauge-mood-text { color: #5f93b0; }
-
-.mini-gauge-bar {
-  height: 5px;
-  background: rgba(0, 0, 0, 0.4);
-  border-radius: 0;
-  overflow: hidden;
-}
-
-.gauge-fill {
-  display: block;
-  height: 100%;
-  border-radius: 0;
-  transition: width 0.3s ease;
-}
-
-.food-bar .gauge-fill { background: linear-gradient(90deg, #a8a14e, var(--green)); }
-.gold-bar .gauge-fill { background: linear-gradient(90deg, #e8a84a, var(--res-gold)); }
-.knowledge-bar .gauge-fill { background: linear-gradient(90deg, #5f93b0, var(--blue)); }
-
-.resource-card-unified .card-footer {
-  padding-top: 0.4rem;
-  border-top: 1px solid rgba(255, 255, 255, 0.04);
-}
-
-.resource-desc {
-  display: block;
-  font-size: 0.74rem;
-  color: var(--muted);
-  line-height: 1.35;
-}
-
-/* Jauges de Stabilité & Vitalité (Carte 6) */
-.stability-vitals-body {
-  justify-content: center;
-}
-
-.stability-gauge-row {
-  display: flex;
-  flex-direction: column;
-  gap: 0.2rem;
-}
-
-.gauge-meta {
-  display: flex;
-  justify-content: space-between;
-  align-items: baseline;
-  font-size: 0.72rem;
-}
-
-.gauge-title {
-  color: var(--muted);
-  font-weight: 700;
-}
-
-.gauge-meta-right {
-  display: flex;
-  align-items: baseline;
-  gap: 0.3rem;
-}
-
-.gauge-meta strong {
-  font-family: var(--font-body);
-  font-size: 0.85rem;
-  font-weight: 700;
-  color: var(--text);
-}
-
-.gauge-meta strong.danger-pulse {
-  color: var(--red) !important;
-  animation: redAlertPulse 1.2s infinite alternate;
-}
-
-@keyframes redAlertPulse {
-  0% { opacity: 0.6; text-shadow: 0 0 0 rgba(239, 68, 68, 0); }
-  100% { opacity: 1; text-shadow: 0 0 8px rgba(239, 68, 68, 0.8); }
-}
-
-/* Bouton Exhumer */
-.exhume-btn-redesigned {
-  width: 100%;
-  margin-top: 0.5rem;
-  margin-bottom: 1rem;
-  padding: 0.75rem 1.5rem;
-  border: 1px solid var(--gold);
-  border-radius: 0;
-  background: linear-gradient(180deg, rgba(var(--era-rgb), 0.18) 0%, rgba(22, 28, 43, 0.95) 100%);
-  color: var(--gold-bright);
-  font-family: var(--font-title);
-  font-weight: 700;
-  font-size: 0.95rem;
-  letter-spacing: 0.04em;
-  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.3);
-  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
-}
-
-.exhume-btn-redesigned:hover:not(:disabled) {
-  border-color: var(--gold-bright);
-  background: linear-gradient(180deg, rgba(var(--era-rgb), 0.28) 0%, rgba(40, 50, 74, 0.98) 100%);
-  box-shadow: 0 6px 18px rgba(var(--era-rgb), 0.15), 0 0 12px rgba(var(--era-rgb), 0.1);
-  transform: translateY(-1px);
-}
-
-/* Panneau des Mythes Actifs */
-.active-myths-panel {
-  display: flex;
-  flex-direction: column;
-  gap: 0.75rem;
-  padding: 1.25rem 1.5rem;
-  border: 1px solid rgba(var(--era-rgb), 0.18);
-  border-radius: 0;
-  background: rgba(18, 20, 28, 0.45);
-  backdrop-filter: blur(16px);
-  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.03), 0 8px 24px rgba(0, 0, 0, 0.35);
-  margin-bottom: 1rem;
-}
-
-.panel-heading-myths {
-  font-family: var(--font-body);
-  font-size: 0.78rem;
-  font-weight: 800;
-  text-transform: uppercase;
-  color: var(--gold);
-  letter-spacing: 0.08em;
-  border-bottom: 1px solid rgba(var(--era-rgb), 0.15);
-  padding-bottom: 0.45rem;
-}
-
+/* Grille des Mythes actifs */
 .myths-grid-redesigned {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(13rem, 1fr));
@@ -1240,7 +767,6 @@
   gap: 0.65rem;
   padding: 0.65rem 0.85rem;
   border: 1px solid rgba(255, 255, 255, 0.05);
-  border-radius: 0;
   background: rgba(255, 255, 255, 0.02);
 }
 
@@ -1297,19 +823,6 @@
 .myth-card-info .danger-text { color: var(--red) !important; }
 .myth-card-info .positive-text { color: var(--green) !important; }
 
-/* Ajustements responsive */
-@media (max-width: 1200px) {
-  .unified-resource-grid {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-  }
-}
-
-@media (max-width: 768px) {
-  .unified-resource-grid {
-    grid-template-columns: 1fr;
-  }
-}
-
 /* ============================================================================
    BULLLES DE PENSÉES & MULTIPLICATEUR DE BOOST
    ============================================================================ */
@@ -1335,7 +848,6 @@
   gap: 0.3rem;
   max-width: min(60vw, 520px);
   padding: 0.5rem 1.15rem 0.55rem;
-  border-radius: 0;
   background: rgba(12, 10, 8, 0.92);
   border: 1px solid var(--gold);
   box-shadow: 0 2px 10px rgba(0, 0, 0, 0.45);
@@ -1382,7 +894,6 @@
 
 .myth-panel {
   margin-top: 1rem;
-  border-radius: 0;
   overflow: hidden;
 }
 
@@ -1408,7 +919,6 @@
   margin: 0;
   padding: 1rem;
   background: none;
-  border-radius: 0;
 }
 
 .myth-panel--atrides .panel-heading { border-bottom: 1px solid rgba(220, 50, 50, 0.15); }
@@ -1442,7 +952,6 @@
   flex-direction: column;
   padding: 0.75rem;
   border-left: 3px solid var(--stat-color);
-  border-radius: 0;
   background: rgba(0, 0, 0, 0.2);
 }
 
@@ -1468,7 +977,6 @@
 
 .myth-stat .stat-green { color: var(--green); }
 .myth-stat .stat-gold  { color: var(--gold); }
-.myth-stat .stat-red   { color: var(--red); }
 .myth-stat .stat-text  { color: var(--text); }
 .myth-stat small.stat-green { opacity: 1; color: var(--green); }
 
@@ -1486,7 +994,6 @@
 .myth-alert {
   padding: 0.75rem;
   border: 1px solid rgba(220, 50, 50, 0.3);
-  border-radius: 0;
   background: rgba(220, 50, 50, 0.1);
   font-size: 0.85rem;
   color: var(--red);
@@ -1505,7 +1012,6 @@
   margin-bottom: 1rem;
   padding: 1rem;
   border: 1px solid var(--green);
-  border-radius: 0;
   background: rgba(76, 201, 168, 0.15);
 }
 
@@ -1527,7 +1033,6 @@
   margin-bottom: 1rem;
   padding: 1rem;
   border: 1px solid var(--gold);
-  border-radius: 0;
   background: rgba(201, 100, 76, 0.1);
   overflow: hidden;
 }
@@ -1622,7 +1127,6 @@
 .city-stage .city-map-container {
   margin-bottom: 0;
   border-color: rgba(var(--era-rgb), 0.28);
-  border-radius: 0;
 }
 
 /* Carte plus haute : c'est le héros. La régulation est passée DESSOUS, donc on
@@ -1646,7 +1150,6 @@
     rgba(8, 6, 3, 0.88) 0%,
     rgba(8, 6, 3, 0.55) 50%,
     transparent 100%);
-  border-radius: 0;
 }
 
 /* Seuls les éléments interactifs captent la souris ; ailleurs le clic/drag
@@ -1691,7 +1194,6 @@
   margin-bottom: 1rem;
   padding: 1rem 1.25rem 1.15rem;
   border: 1px solid rgba(var(--era-rgb), 0.14);
-  border-radius: 0;
   background:
     radial-gradient(ellipse at 50% 0%, rgba(var(--era-rgb), 0.08), transparent 70%),
     var(--panel);

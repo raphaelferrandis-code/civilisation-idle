@@ -10,8 +10,9 @@
 //   PRINCIPE — UNE palette maître pour tout le jeu :
 //     • un CŒUR neutre (~36 teintes) PARTAGÉ par TOUS les sprites, toutes époques —
 //       c'est lui qui garantit la cohésion (bois/pierre/peau/feuillage/métal/eau identiques partout) ;
-//     • un ACCENT par ÉPOQUE (3 pas : deep/mid/bright) calculé depuis les ancres HSL de
-//       src/game/data/eraThemes.js → le sprite, le chrome UI et le sol de carte parlent la même couleur ;
+//     • un ACCENT par ÉPOQUE (3 pas : deep/mid/bright) calculé depuis les ancres HSL des
+//       époques (EPOCHS ci-dessous — la SEULE source de ces teintes : eraThemes.js ne les
+//       porte plus depuis que le chrome n'est plus teinté par l'âge, audit 2026-10-05) ;
 //     • palette UTILISABLE d'une époque = cœur (36) + accent (3) = 39 teintes (≤ 48).
 //       Cible APRÈS remap : 16-24 teintes par sprite (cf. remapPalette.mjs).
 import fs from 'node:fs';
@@ -28,7 +29,6 @@ const PUB = path.join(ROOT, 'public', 'pixelart');
 const PAL_DIR = path.join(PUB, 'palettes');
 
 /* ---- utilitaires couleur ------------------------------------------------- */
-// Identique à eraThemes.js (cohérence stricte avec le chrome/sol).
 function hslToRgb(h, s, l) {
   s /= 100; l /= 100;
   const k = (n) => (n + h / 30) % 12;
@@ -70,8 +70,8 @@ const CORE = {
 };
 const CORE_FLAT = Object.values(CORE).flat(); // [[hex,name], ...] 36
 
-/* ---- Accents par ÉPOQUE — miroir des ancres HSL de eraThemes.EPOCHS ------- */
-// ⚠ Si tu modifies une teinte d'époque dans eraThemes.js, reporte-la ici (couplage assumé).
+/* ---- Accents par ÉPOQUE — ancres HSL (source unique, cf. en-tête) ---------- */
+// Les ids et les bandes suivent eraThemes.EPOCHS / eraBandOf.
 const EPOCHS = [
   { band: 0, id: 'feu',       label: 'Âge du Feu',        hsl: [24, 62, 55] },
   { band: 1, id: 'bois',      label: 'Âge du Bois',       hsl: [18, 52, 50] },
@@ -142,10 +142,10 @@ const epochs = EPOCHS.map((e) => {
 const palette = {
   meta: {
     generatedBy: 'scripts/buildPalette.mjs',
-    coupledTo: 'src/game/data/eraThemes.js (EPOCHS hsl)',
+    coupledTo: 'src/game/data/eraThemes.js (ids et bandes des époques)',
     coreCount: CORE_FLAT.length,
     perSpriteTarget: [16, 24],
-    note: 'UNE palette : cœur partagé (cohésion) + accent par époque (calculé depuis eraThemes). ' +
+    note: 'UNE palette : cœur partagé (cohésion) + accent par époque (ancres HSL de ce script). ' +
           'Cible 16-24 teintes/sprite via scripts/remapPalette.mjs.'
   },
   core: Object.fromEntries(Object.entries(CORE).map(([k, v]) => [k, v.map(([h, name]) => ({ hex: h, name }))])),

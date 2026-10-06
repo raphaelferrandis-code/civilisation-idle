@@ -34,7 +34,7 @@
 
 // Trois primitives de raster, recopiées du peintre du pont (isoPixelPaint) plutôt
 // qu'importées : le kit de bateaux ne dépend ainsi d'aucun chantier voisin.
-export function makeRaster(ox, oy, w, h) {
+function makeRaster(ox, oy, w, h) {
   return { ox, oy, w, h, data: new Uint8ClampedArray(Math.max(1, w * h) * 4) };
 }
 const _hex = new Map();
@@ -75,7 +75,7 @@ export const dirTheta = (k) => (k * 2 * Math.PI) / BOAT_DIRS;
 // `ramp` va du plus clair au plus sombre. L'indice est lu sur l'éclairement de
 // la normale : dessus ≈ 0, flanc éclairé ≈ 1, flanc à l'ombre ≈ len − 2, creux
 // = dernier. `bias` décale (joint, bordé, liseré) sans quitter la rampe.
-export function shadeIndex(n, len, bias = 0) {
+function shadeIndex(n, len, bias = 0) {
   const d = n[0] * LIGHT[0] + n[1] * LIGHT[1] + n[2] * LIGHT[2];
   const k = Math.round(((0.92 - d) * (len - 1)) / 1.62) + bias;
   return Math.max(0, Math.min(len - 1, k));
@@ -490,5 +490,3 @@ export function projectLocal(theta, p) {
   const wx = p[0] * fx - p[1] * fy, wy = p[0] * fy + p[1] * fx;
   return { X: wx - wy, Y: (wx + wy) / 2 - p[2], wx, wy };
 }
-
-export { emit as _emit, LIGHT, VIEW };

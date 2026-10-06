@@ -1003,7 +1003,5 @@ export const FD_CURIOS = [
 export const FD_STORY_LIST = [SECTE, TORTUE, CHEVRE, CYNIQUE, VOLANT, BORNE, MONSTRE, MUSICIEN];
 export const FD_STORIES = Object.fromEntries(FD_STORY_LIST.map((s) => [s.id, s]));
 
-// Le lieu d’un chapitre : le sien, sinon celui de son histoire.
-export const fdPlaceOf = (story, ch) => ch.place || story.place;
 // La nuit : true (la nuit seulement), false (le jour seulement), null (peu importe).
 export const fdNightOf = (story, ch) => (ch.night != null ? ch.night : story.night != null ? story.night : null);

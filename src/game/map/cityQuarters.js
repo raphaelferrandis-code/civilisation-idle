@@ -178,7 +178,7 @@ export function onBelt(gx, gy, centers, w, minD) {
   return d1 >= minD && d2 - d1 < w;
 }
 
-if (typeof window !== "undefined") {
+if (import.meta.env?.DEV && typeof window !== "undefined") {
   window.__cityQuarters = (o) => {
     if (o === false) CITY_QUARTERS.on = false;
     else if (o && typeof o === "object") Object.assign(CITY_QUARTERS, o);

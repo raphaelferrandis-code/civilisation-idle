@@ -2,7 +2,7 @@
 // Frontière numérique Decimal (break_infinity.js).
 // Réservé aux valeurs qui croissent sans plafond : ressources principales,
 // coûts, ruines, multiplicateurs cumulés. Les jauges bornées (instabilité,
-// usure, légitimité, ratios de vitals…) restent des number natifs — créer des
+// usure, ratios de vitals…) restent des number natifs — créer des
 // Decimal dans le hot path du tick pour des valeurs bornées est une perte
 // de perf pure.
 //

@@ -61,7 +61,10 @@ const GLINT_MIN = Number(arg('glintMin', 3));
 const DEMOTE = Number(arg('demote', 1));      // de combien de crans on rabat les éclats du substrat
 const TONE = arg('tone', 'water');            // water = garde le contrôle de teinte, none = coloris natif
 const SRC = arg('in', path.join(process.cwd(), 'public/pixelart/water/river-tiles.png'));
-const OUT = arg('out', path.join(process.cwd(), 'public/pixelart/water/river-tiles-calm.png'));
+// Les bandes calmes de 16 px ne sont plus livrées depuis le 2026-10-06 (audit
+// MORT-12) : ce sont les sources des nappes « -v2 » (eauSansEcailles.mjs), rangées
+// dans art/references-ab/eau-planches/.
+const OUT = arg('out', path.join(process.cwd(), 'art/references-ab/eau-planches/river-tiles-calm.png'));
 
 const src = PNG.sync.read(fs.readFileSync(SRC));
 if (src.height !== T || src.width !== T * FRAMES) {

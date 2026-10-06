@@ -14,7 +14,6 @@
 .barometer-card {
   padding: 0.85rem 1rem;
   border: 1px solid var(--line);
-  border-radius: 0;
   background: rgba(15, 20, 30, 0.45);
   box-shadow: inset 0 1px 0 var(--shine);
 }
@@ -42,44 +41,9 @@
 .barometer-track {
   position: relative;
   height: 8px;
-  border-radius: 0;
   background: rgba(255, 255, 255, 0.06);
   overflow: hidden;
   margin-bottom: 0.5rem;
-}
-
-/* Rework 2 — fantôme de la cible : marqueur lumineux à la position pressure.total. */
-.barometer-target-ghost {
-  position: absolute;
-  top: 0;
-  bottom: 0;
-  width: 3px;
-  margin-left: -1.5px;
-  background: rgba(255, 255, 255, 0.92);
-  border-radius: 0;
-  transition: left 0.30s ease;
-}
-
-.barometer-fill {
-  display: block;
-  height: 100%;
-  border-radius: 0;
-  transition: width 0.30s ease;
-}
-
-.instability .barometer-fill {
-  background: linear-gradient(90deg, #dc5f4b, #ef4444);
-}
-
-.time-wear .barometer-fill {
-  background: linear-gradient(90deg, color-mix(in srgb, var(--state-usure), #14102a 28%), var(--state-usure));
-}
-
-.barometer-footer {
-  display: flex;
-  justify-content: space-between;
-  font-size: 0.75rem;
-  color: var(--muted);
 }
 
 
@@ -114,7 +78,6 @@
   border-style: solid;
   border-width: 5px 10px 5px 9px;
   border-color: transparent;
-  border-radius: 0;
   background: none;
   margin-bottom: 0.5rem;
 }
@@ -162,129 +125,7 @@
   text-shadow: 2px 2px 0 rgba(40, 12, 24, 0.9);
 }
 
-/* Crans gravés : les cibles des édits (25/50/75). */
-.barometer-mark {
-  position: absolute;
-  top: 0;
-  bottom: 0;
-  width: 2px;
-  margin-left: -1px;
-  background: rgba(255, 255, 255, 0.22);
-}
-
-/* Fantôme de prévisualisation (survol d'un palier d'édit) : où la jauge
-   serait ramenée si l'on scellait ce palier. */
-.barometer-target-ghost.ghost-preview {
-  background: #fff;
-  box-shadow: 0 0 6px 1px rgba(255, 255, 255, 0.55);
-}
-
-/* 2. Tableau Tactique (Tensions & Actions) */
-.tactical-board {
-  margin-top: 1rem;
-}
-
-.tactical-board h3 {
-  margin-bottom: 1.25rem;
-  font-size: 1.1rem;
-  color: var(--muted);
-}
-
-.tactical-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
-  gap: 1.25rem;
-}
-
-.tactical-card {
-  display: flex;
-  flex-direction: column;
-  justify-content: space-between;
-  padding: 1.25rem;
-  border: 1px solid var(--line);
-  border-radius: 0;
-  background: rgba(10, 15, 25, 0.6);
-  backdrop-filter: blur(12px);
-  -webkit-backdrop-filter: blur(12px);
-}
-
-.tactical-info header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  margin-bottom: 0.5rem;
-}
-
-.tactical-info h4 {
-  margin: 0;
-  font-size: 1rem;
-  font-weight: 600;
-  color: #fff;
-}
-
-.tactical-value {
-  font-family: var(--font-number);
-  font-size: 1rem;
-  color: var(--gold-bright);
-}
-
-.tactical-info p {
-  margin: 0 0 0.75rem 0;
-  font-size: 0.83rem;
-  color: var(--muted);
-  line-height: 1.4;
-  min-height: 2.8rem;
-}
-
-.tactical-track {
-  height: 6px;
-  border-radius: 0;
-  background: rgba(255, 255, 255, 0.06);
-  overflow: hidden;
-  margin-bottom: 1.25rem;
-}
-
-.tactical-fill {
-  display: block;
-  height: 100%;
-  border-radius: 0;
-  background: var(--foyer-color, var(--gold));
-  transition: width 0.3s ease;
-}
-
-.tactical-actions {
-  display: flex;
-  flex-direction: column;
-  gap: 0.4rem;
-}
-
-.tactical-actions button {
-  width: 100%;
-  padding: 0.55rem 0.7rem;
-  border: 1px solid color-mix(in srgb, var(--foyer-color, var(--gold)), transparent 62%);
-  border-radius: 0;
-  background: color-mix(in srgb, var(--foyer-color, var(--gold)), transparent 90%);
-  color: var(--text-strong);
-  font-weight: 600;
-  display: flex;
-  flex-direction: column;
-  align-items: stretch;
-  gap: 0.18rem;
-  text-align: left;
-  transition: all 0.2s ease;
-}
-
-.tactical-actions button:hover:not(:disabled) {
-  background: color-mix(in srgb, var(--foyer-color, var(--gold)), transparent 80%);
-  border-color: color-mix(in srgb, var(--foyer-color, var(--gold)), transparent 30%);
-  transform: translateY(-1px);
-}
-
-.tactical-actions button:disabled {
-  opacity: 0.35;
-  cursor: not-allowed;
-}
-
+/* 2. Coût des actions (page Effondrement) */
 .action-cost {
   font-size: 0.75rem;
   opacity: 0.8;
@@ -476,7 +317,6 @@
   background: transparent;
   border: 0;
   border-bottom: 1px solid var(--line);
-  border-radius: 0;
   transition: background 0.15s ease;
 }
 
@@ -506,13 +346,6 @@
   color: #fff;
 }
 
-.edict-tier-target {
-  margin-right: auto;
-  font-size: 0.74rem;
-  color: var(--muted);
-  white-space: nowrap;
-}
-
 .edict-tier-sub {
   display: flex;
   align-items: center;
@@ -532,10 +365,8 @@
 
 /* Dé-boxing : dans la zone de crise, les chips perdent leur pilule (bordure +
    fond) — la COULEUR seule porte le sens. ~25 boîtes de moins à l'écran. */
-.edict-tier .effect-chip,
-.prep-active-maluses .effect-chip {
+.edict-tier .effect-chip {
   border: 0;
-  border-radius: 0;
   background: transparent;
   padding: 0;
 }
@@ -561,28 +392,6 @@
   height: 32px;
   margin: 0 auto 0.35rem;
   transform: rotate(-8deg);
-}
-
-.edict-escalation {
-  margin: 0.8rem 0 0;
-  font-size: 0.74rem;
-  font-style: italic;
-  color: #fca5a5;
-}
-
-/* ── Malus actifs : ligne nue (l'ancienne boîte rouge écrasait la hiérarchie). ── */
-.prep-active-maluses {
-  display: flex;
-  align-items: center;
-  flex-wrap: wrap;
-  gap: 0.45rem;
-  margin-top: 0.8rem;
-  font-size: 0.76rem;
-}
-
-.prep-active-maluses > span:first-child {
-  font-weight: 600;
-  color: var(--muted);
 }
 
 /* ── L'AUTEL de la moisson : AUCUNE boîte propre (dé-boxing) — le voile sombre
@@ -721,7 +530,6 @@
   place-items: center;
   padding: 0.5rem 0.25rem;
   border: 1px solid var(--line);
-  border-radius: 0;
   background: rgba(255, 255, 255, 0.03);
   cursor: pointer;
   transition: border-color 0.15s ease, background 0.15s ease;
@@ -753,14 +561,6 @@
   color: var(--gold-bright);
 }
 
-.testament-seal .seal-affinity {
-  position: absolute;
-  top: -0.35rem;
-  right: -0.15rem;
-  font-size: 0.7rem;
-  filter: drop-shadow(0 1px 2px rgba(0, 0, 0, 0.6));
-}
-
 /* Détail du sceau gravé (contenu de l'infobulle, déplié sous la rangée). */
 .testament-detail {
   display: flex;
@@ -783,13 +583,6 @@
   font-size: 0.6875rem;
   font-weight: 600;
   color: var(--gold-bright);
-}
-
-.testament-detail-tagline {
-  margin: 0;
-  font-size: 0.72rem;
-  font-style: italic;
-  color: var(--muted);
 }
 
 .testament-detail .effect-chips {
@@ -818,7 +611,6 @@
   padding: 0.85rem;
   font-size: 1rem;
   font-weight: 700;
-  border-radius: 0;
   background: linear-gradient(180deg, #2b2753, #181534);
   color: #ffd9a8;
   border: 2px solid #cf9c50;
@@ -897,23 +689,6 @@
   background: #fbbf24;
   transition: width 1s linear;
   pointer-events: none;
-}
-
-.surchauffe-btn-action {
-  width: 100%;
-  padding: 0.6rem;
-  font-size: 0.85rem;
-  font-weight: 600;
-  border-radius: 0;
-  background: rgba(220, 95, 75, 0.1);
-  color: #fca5a5;
-  border: 1px solid rgba(220, 95, 75, 0.4);
-  cursor: pointer;
-}
-
-.surchauffe-btn-action:hover {
-  background: rgba(220, 95, 75, 0.2);
-  border-color: #ef4444;
 }
 
 /* (L'ancien .auto-collapse-timer est remplacé par .hold-countdown-strip,
@@ -1035,7 +810,6 @@
   min-height: 1.9rem;
   padding: 0 0.65rem;
   border: 1px solid var(--line);
-  border-radius: 0;
   background: rgba(255, 255, 255, 0.03);
   color: var(--muted);
   font-size: 0.74rem;
@@ -1068,41 +842,6 @@
   padding-bottom: 0;
 }
 
-.ragnarok-constraints-panel,
-.ragnarok-fresco-banner {
-  display: grid;
-  gap: 0.75rem;
-  padding: 1rem;
-  border: 1px solid rgba(var(--era-rgb), 0.42);
-  border-radius: 0;
-  background: linear-gradient(135deg, rgba(var(--era-rgb), 0.12), rgba(255, 255, 255, 0.025));
-  box-shadow: inset 0 0 0 1px rgba(var(--era-rgb), 0.08);
-}
-
-.ragnarok-constraints-heading {
-  display: flex;
-  flex-direction: column;
-  gap: 0.2rem;
-}
-
-.ragnarok-constraints-heading strong,
-.ragnarok-fresco-banner strong {
-  color: #f2dfaa;
-  font-family: var(--font-title);
-  font-size: 1rem;
-}
-
-.ragnarok-constraints-panel ul {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(16rem, 1fr));
-  gap: 0.45rem 0.75rem;
-  margin: 0;
-  padding-left: 1rem;
-  color: #d6c59b;
-  font-size: 0.82rem;
-  line-height: 1.35;
-}
-
 .final-chronicle-title {
   position: sticky;
   top: 0;
@@ -1110,7 +849,6 @@
   margin: 0 0 0.75rem;
   padding: 0.5rem 0.75rem;
   border: 1px solid rgba(var(--era-rgb), 0.34);
-  border-radius: 0;
   color: rgba(242, 217, 122, 0.92);
   background: rgba(12, 10, 8, 0.86);
   font-family: var(--font-body);
@@ -1133,7 +871,7 @@
    a déménagé — mêmes règles, sinon il retomberait en pixel-font illisible. */
 #prestige,
 #regulation {
-  font-family: "Inter", "Baloo 2", system-ui, sans-serif;
+  font-family: var(--font-body);
   font-variant-numeric: tabular-nums;
 }
 
@@ -1147,7 +885,6 @@
 #prestige h5,
 #prestige small,
 #prestige strong,
-#prestige .tactical-value,
 #prestige .crisis-regul-title,
 #prestige .options-row > div small,
 #prestige input,
@@ -1157,35 +894,28 @@
 #regulation h5,
 #regulation small,
 #regulation strong,
-#regulation .tactical-value,
 #regulation .crisis-regul-title,
 #regulation input {
-  font-family: "Inter", "Baloo 2", system-ui, sans-serif;
+  font-family: var(--font-body);
 }
 
 /* Micro-corps remontés au seuil lisible. */
-#prestige .regul-gain,
 #prestige .regul-malus,
 #prestige .regul-cost,
 #prestige .regul-gamble-tag,
 #prestige .regul-reform-tag,
 #prestige .policy-effect,
 #prestige .crisis-regul-buffer,
-#prestige .crisis-foyer-locked,
-#regulation .regul-gain,
 #regulation .regul-malus,
 #regulation .regul-cost,
 #regulation .regul-gamble-tag,
 #regulation .regul-reform-tag,
 #regulation .policy-effect,
-#regulation .crisis-regul-buffer,
-#regulation .crisis-foyer-locked { font-size: 0.74rem; }
+#regulation .crisis-regul-buffer { font-size: 0.74rem; }
 #prestige .crisis-regul-title,
 #regulation .crisis-regul-title { font-size: 0.75rem; }
 #prestige .crisis-policies-count,
 #regulation .crisis-policies-count { font-size: 0.75rem; }
-#prestige .crisis-regul-buffer--full,
-#regulation .crisis-regul-buffer--full { font-size: 0.85rem; }
 #prestige .policy-active-tag,
 #regulation .policy-active-tag { font-size: 0.6875rem; }
 #prestige .crisis-foyer-soothed,

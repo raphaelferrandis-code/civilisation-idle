@@ -3,17 +3,17 @@
 import { localizeData } from "../core/i18n.js";
 
 /**
- * eraThemes.js — source de vérité unique du thème visuel par ère/époque.
+ * eraThemes.js — l'ÉPOQUE d'une ère : bande visuelle 0-9 (eraBandOf), nom de
+ * l'époque et position de l'ère dans son époque (getEraTheme).
  *
- * Deux granularités :
- *  - ÉPOQUE (band 0–6, une tous les 5 ères) : grosse bascule visuelle —
- *    palette du chrome UI, peau structurelle CSS ([data-era-band]),
- *    ambiance carte (sol, chaleur nocturne).
- *  - ÈRE (index 0–34) : micro-dérive d'accent + détail signature sur la
- *    carte + ligne d'annonce du bandeau de transition.
+ * La bande est la source unique lue par la carte (layout.js), l'état, le
+ * journal, les Plaisirs et le récit d'absence. Le nom et la position servent
+ * au bandeau de transition (App.jsx), à l'infobulle de l'Âge
+ * (CityStatusPanel) et à la chronique des faits divers.
  *
- * Consommé par App.jsx (variables CSS inline + data-era-band), Topbar,
- * journalThemes.js et le rendu canvas (iso/isoRenderer.js).
+ * Plus de palette d'accent ni d'ambiance de carte ici : le chrome n'est plus
+ * teinté par l'âge et la carte a ses propres tables par ère. Les ancres HSL
+ * des époques vivent dans scripts/buildPalette.mjs (palette pixel-art).
  */
 
 import { eras, eraTier } from "./world.js";
@@ -41,134 +41,27 @@ export function eraBandOf(eraIndex) {
 }
 
 /* ------------------------------------------------------------------ */
-/* Les 7 époques                                                       */
+/* Les 10 époques                                                      */
 /* ------------------------------------------------------------------ */
 
 export const EPOCHS = [
-  {
-    id: "feu", label: { fr: "Âge du Feu", en: "Age of Fire" },
-    // Accent braise : orange profond, chrome rugueux.
-    hue: 24, sat: 62, lum: 55,
-    map: {
-      urbanGround: [80, 64, 38],
-      wildGround: "#2a3620",
-      nightWarm: "255,176,96"
-    }
-  },
-  {
-    id: "bois", label: { fr: "Âge du Bois", en: "Age of Wood" },
-    // Argile et cuivre : terre cuite chaude (remplace l'ancien ocre jaune).
-    hue: 18, sat: 52, lum: 50,
-    map: {
-      urbanGround: [98, 64, 44],
-      wildGround: "#2d3a1e",
-      nightWarm: "255,170,120"
-    }
-  },
-  {
-    id: "pierre", label: { fr: "Âge de la Pierre taillée", en: "Age of Hewn Stone" },
-    // Terre cuite claire : argile taillée (remplace l'ancien or parchemin jaune).
-    hue: 14, sat: 46, lum: 55,
-    map: {
-      urbanGround: [110, 78, 56],
-      wildGround: "#2d3a1e",
-      nightWarm: "255,186,132"
-    }
-  },
-  {
-    id: "couronne", label: { fr: "Âge de la Couronne", en: "Age of the Crown" },
-    // Héraldique : pourpre royal feutré (saturation contenue — un violet
-    // trop vif rend le chrome agressif sur les boutons d'achat).
-    hue: 292, sat: 22, lum: 66,
-    map: {
-      urbanGround: [104, 92, 64],
-      wildGround: "#2d3a1e",
-      nightWarm: "255,200,120"
-    }
-  },
-  {
-    id: "marbre", label: { fr: "Âge du Marbre", en: "Age of Marble" },
-    // Gravure classique : bleu lapis sur marbre.
-    hue: 214, sat: 55, lum: 64,
-    map: {
-      urbanGround: [124, 114, 92],
-      wildGround: "#2e381f",
-      nightWarm: "255,210,140"
-    }
-  },
-  {
-    id: "fonte", label: { fr: "Âge de la Fonte", en: "Age of Iron" },
-    // Gazette et métal : cuivre patiné.
-    hue: 17, sat: 48, lum: 58,
-    map: {
-      urbanGround: [120, 110, 100],
-      wildGround: "#2c3322",
-      nightWarm: "255,215,150"
-    }
-  },
-  {
-    id: "neon", label: { fr: "Âge du Néon", en: "Age of Neon" },
-    // Flux : cyan froid, la nuit elle-même change de couleur.
-    hue: 185, sat: 64, lum: 58,
-    map: {
-      urbanGround: [92, 94, 99],
-      wildGround: "#262c26",
-      nightWarm: "150,230,255"
-    }
-  },
-  // ── Époques TRANSCENDANTES (bands 7–9, ères 35+) ──────────────────────────
-  // Trois CHAPITRES fortement contrastés en teinte (jade → or → violet-blanc),
-  // jamais un dégradé continu : c'est ce qui évite la « bouillie galactique ».
-  // S'éloignent du cyan néon (band 6). Les ères « factices » héritent de la bande
-  // de leur palier majeur (cf. eraBandOf via eraTier).
-  {
-    id: "noosphere", label: { fr: "Âge de la Noosphère", en: "Age of the Noosphere" },
-    // La planète vivante s'éclaire de l'intérieur : jade bioluminescent.
-    hue: 155, sat: 68, lum: 52,
-    map: {
-      urbanGround: [14, 34, 26],   // [R,G,B] sombre jade
-      wildGround: "#08140e",
-      nightWarm: "110,240,180"
-    }
-  },
-  {
-    id: "stellaire", label: { fr: "Âge stellaire", en: "Stellar Age" },
-    // Essaimage d'étoile en étoile : or stellaire chaud.
-    hue: 42, sat: 80, lum: 58,
-    map: {
-      urbanGround: [40, 30, 14],   // [R,G,B] sombre or/ambre
-      wildGround: "#14100a",
-      nightWarm: "255,205,120"
-    }
-  },
-  {
-    id: "demiurge", label: { fr: "Âge du Démiurge", en: "Age of the Demiurge" },
-    // Manipulation du vide et de la réalité : blanc-violet iridescent sur noir.
-    hue: 282, sat: 30, lum: 76,
-    map: {
-      urbanGround: [22, 16, 34],   // [R,G,B] sombre violet (R≤255 !)
-      wildGround: "#0a0810",
-      nightWarm: "225,215,255"
-    }
-  }
+  { id: "feu", label: { fr: "Âge du Feu", en: "Age of Fire" } },
+  { id: "bois", label: { fr: "Âge du Bois", en: "Age of Wood" } },
+  { id: "pierre", label: { fr: "Âge de la Pierre taillée", en: "Age of Hewn Stone" } },
+  { id: "couronne", label: { fr: "Âge de la Couronne", en: "Age of the Crown" } },
+  { id: "marbre", label: { fr: "Âge du Marbre", en: "Age of Marble" } },
+  { id: "fonte", label: { fr: "Âge de la Fonte", en: "Age of Iron" } },
+  { id: "neon", label: { fr: "Âge du Néon", en: "Age of Neon" } },
+  // ── Époques TRANSCENDANTES (bands 7–9, ères 35+) : les ères « factices »
+  // héritent de la bande de leur palier majeur (cf. eraBandOf via eraTier).
+  { id: "noosphere", label: { fr: "Âge de la Noosphère", en: "Age of the Noosphere" } },
+  { id: "stellaire", label: { fr: "Âge stellaire", en: "Stellar Age" } },
+  { id: "demiurge", label: { fr: "Âge du Démiurge", en: "Age of the Demiurge" } }
 ];
 
 /* ------------------------------------------------------------------ */
-/* Dérivation des couleurs                                             */
+/* Position dans l'époque                                              */
 /* ------------------------------------------------------------------ */
-
-function hslToRgb(h, s, l) {
-  s /= 100; l /= 100;
-  const k = (n) => (n + h / 30) % 12;
-  const a = s * Math.min(l, 1 - l);
-  const f = (n) => l - a * Math.max(-1, Math.min(k(n) - 3, Math.min(9 - k(n), 1)));
-  return [Math.round(f(0) * 255), Math.round(f(8) * 255), Math.round(f(4) * 255)];
-}
-
-function rgbHex([r, g, b]) {
-  const c = (v) => v.toString(16).padStart(2, "0");
-  return `#${c(r)}${c(g)}${c(b)}`;
-}
 
 const ROMANS = ["I", "II", "III", "IV", "V"];
 
@@ -189,13 +82,10 @@ function bandRange(band) {
   return bandRanges.get(band) || { start: 0, size: 1 };
 }
 
-// Cache : 35 thèmes immuables, calculés une fois.
+// Cache : un thème immuable par ère, calculé une fois.
 const themeCache = new Map();
 
-/**
- * Thème complet d'une ère : bande, époque, palette chrome UI (famille
- * "gold" redéfinie), détail signature et annonce.
- */
+/** Thème d'une ère : bande, époque et position de l'ère dans son époque. */
 export function getEraTheme(eraIndex) {
   const max = eras.length - 1;
   const i = Math.max(0, Math.min(max, eraIndex | 0));
@@ -203,16 +93,7 @@ export function getEraTheme(eraIndex) {
 
   const band = eraBandOf(i);
   const epoch = EPOCHS[band];
-
-  // Micro-dérive intra-époque : la teinte glisse légèrement à chaque ère,
-  // la lumière monte — chaque ère est une variation sensible mais douce.
   const stepInEpoch = i % 5;
-  const t = stepInEpoch / 4;
-  const hue = (epoch.hue + (t - 0.5) * 10 + 360) % 360;
-  const lum = epoch.lum + (t - 0.5) * 5;
-  const sat = epoch.sat;
-
-  const accent = hslToRgb(hue, sat, lum);
   const range = bandRange(band);
   const theme = {
     eraIndex: i,
@@ -224,23 +105,10 @@ export function getEraTheme(eraIndex) {
     epochSize: range.size,
     // Chiffre romain sur V : seulement pour les époques de cinq ères (0-6) ;
     // null au-delà, où l'appelant écrit la position en clair (BUG-102).
-    epochNumeral: band <= 6 ? ROMANS[stepInEpoch] : null,
-    // Famille chrome : remplace --gold/--gold-bright/--gold-dim/--gold-deep.
-    accent: rgbHex(accent),
-    accentBright: rgbHex(hslToRgb(hue, sat, Math.min(82, lum + 12))),
-    accentDim: rgbHex(hslToRgb(hue, Math.max(18, sat - 22), Math.max(30, lum - 8))),
-    accentDeep: rgbHex(hslToRgb(hue, Math.min(100, sat + 6), Math.max(18, lum - 22))),
-    accentIvory: rgbHex(hslToRgb(hue, 38, 86)),
-    accentRgb: `${accent[0]}, ${accent[1]}, ${accent[2]}`
+    epochNumeral: band <= 6 ? ROMANS[stepInEpoch] : null
   };
   themeCache.set(i, theme);
   return theme;
-}
-
-/** Ambiance carte d'une bande (sol urbain, fond sauvage, chaleur nocturne). */
-export function mapThemeForBand(band) {
-  const b = Math.max(0, Math.min(EPOCHS.length - 1, band | 0));
-  return EPOCHS[b].map;
 }
 
 // Aplatit les `label` { fr, en } des époques en chaînes (cf. i18n.js).

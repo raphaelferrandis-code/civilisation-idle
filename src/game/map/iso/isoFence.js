@@ -18,9 +18,10 @@
 // avec le compteur de `tissuMetrics`. Ici, seulement le RENDU.
 import { CM } from '../layout.js';
 import { depthOf, ISO_X, ISO_Y } from './projection.js';
-import { isoArt } from './isoArt.js';
+import { isoArt, inkBox } from './isoArt.js';
+import { mkCanvas } from '../pixelUtil.js';
 import { COUR } from './isoTissu.js';
-import { plazaEraForBand, personHT, inkBox, plazaKindAtCell, FENCED_KINDS } from './isoPlaza.js';
+import { plazaEraForBand, personHT, plazaKindAtCell, FENCED_KINDS } from './isoPlaza.js';
 import { fenceEdges, fenceInputs, FENCE } from '../fenceEdges.js';
 
 // ── CLÔTURES (lot L9, docs/PLAN-TISSU-URBAIN.md) ────────────────────────────
@@ -119,9 +120,7 @@ export function fenceStrip(side, era, per) {
   const right = side === 'n' || side === 's';         // sens d'avance à l'écran
   const cw = Math.max(1, Math.round(per * step));
   const ch = Math.max(1, Math.round((per - 1) * drop + bb.h));
-  const c = (typeof OffscreenCanvas !== 'undefined')
-    ? new OffscreenCanvas(cw, ch)
-    : Object.assign(document.createElement('canvas'), { width: cw, height: ch });
+  const c = mkCanvas(cw, ch);
   const g = c.getContext('2d');
   g.imageSmoothingEnabled = false;
   for (let i = 0; i < per; i += 1) {
@@ -208,10 +207,10 @@ export function isoFencesFor(L, band) {
   }
   _fenceCache = { key, list };
   CM._fences = list;
-  if (typeof window !== 'undefined') window.__fencesCount = list.length;
+  if (import.meta.env?.DEV && typeof window !== 'undefined') window.__fencesCount = list.length;
   return list;
 }
-if (typeof window !== 'undefined') {
+if (import.meta.env?.DEV && typeof window !== 'undefined') {
   window.__fences = (arg) => {
     if (arg === false) FENCE_ISO.on = false;
     else if (arg && typeof arg === 'object') { FENCE_ISO.on = true; Object.assign(FENCE_ISO, arg); }

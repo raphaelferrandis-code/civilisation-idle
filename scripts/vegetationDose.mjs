@@ -116,7 +116,9 @@ function main() {
     src.forEach((p, i) => {
       const t = tonePng(p, o, g);
       console.log(GRASS[i].padEnd(12), 'lum', meanLum(p).toFixed(1), '→', meanLum(t).toFixed(1));
-      if (!dry) fs.writeFileSync(`${DIR}/${GRASS[i]}.png`, PNG.sync.write(t));
+      // Seules les tuiles LIVRÉES sont récrites : la base `iso-grass.png` n'est plus
+      // dans public/ (le sol sonde la variante 1, audit du 05/10, ASSET-8).
+      if (!dry && fs.existsSync(`${DIR}/${GRASS[i]}.png`)) fs.writeFileSync(`${DIR}/${GRASS[i]}.png`, PNG.sync.write(t));
     });
     console.log('gamma', g.toFixed(3), '· GRASS_TILE_UNDER', JSON.stringify(toneOne(...UNDER_SRC, o, g)));
     return;

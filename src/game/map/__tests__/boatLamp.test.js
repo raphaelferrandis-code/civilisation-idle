@@ -1,7 +1,8 @@
 import { describe, it, expect, beforeEach, afterEach } from "vitest";
 
 import { CM } from "../layout.js";
-import { boatLampMul, boatLampFlicker, boatHasNavLights, navLightOffsets, navUvFor, setNavUv, shipVisual, NAV_STAGES, NAV_PORT_COL, NAV_STBD_COL } from "../iso/isoFleet.js";
+import { boatLampMul, boatLampFlicker, NAV_PORT_COL, NAV_STBD_COL } from "../iso/isoFleet.js";
+import { BOAT_MODELS, fleetFor } from "../iso/boatKits.js";
 import { queueFlameGlow, paintFlameGlows, FLAME_GLOW } from "../flameGlow.js";
 
 // Aucun bateau ne lisait nightF : la nuit tombée, le fleuve restait un ruban
@@ -17,35 +18,27 @@ import { queueFlameGlow, paintFlameGlows, FLAME_GLOW } from "../flameGlow.js";
 //      de jour DÉLIBÉRÉ (FLAME_GLOW.day) pour qu'une forge brûle aussi à midi,
 //      et la v1 en héritait.
 
+// Qui en porte est une règle du MODÈLE du kit (`lights`, boatKits) : les feux sont
+// des ancres de la coque. (Les relevés par stade et par face des anciens sprites —
+// NAV_ANCHOR, NAV_UV, navLightOffsets, NAV_STAGES — et leurs tests sont partis avec
+// eux, audit du 05/10, MORT-6.)
 describe("feux de navigation — qui en porte", () => {
-  it("ni le pêcheur, ni le radeau, ni la barque à rames", () => {
-    // Le pêcheur est à l'ancre ; le radeau et la barque n'ont tout simplement
-    // rien pour porter un feu, et à leur ère ça n'aurait aucun sens.
-    for (const dark of ["fisher", "raft", "rowboat"]) {
-      expect(boatHasNavLights(dark)).toBe(false);
-    }
-    // Tout ce qui a un pont ou un mât en porte.
-    for (const lit of ["sail", "steam", "container", "cosmic", "dinghy", "motorboat"]) {
-      expect(boatHasNavLights(lit)).toBe(true);
+  it("jamais le pêcheur, à aucune ère", () => {
+    // Il est à l'ancre, hors des règles de route.
+    for (let band = 0; band <= 9; band += 1) {
+      for (const id of fleetFor(band).fisher) expect(BOAT_MODELS[id].lights, `bande ${band} : ${id}`).toBeFalsy();
     }
   });
 
-  it("la garde porte sur la COQUE, pas sur la pose du pêcheur", () => {
-    // Le pêcheur a deux sprites (fisher / fisher-row) mais un seul stade. Si la
-    // garde regardait la clé de sprite, il s'allumerait dès qu'il navigue —
-    // exactement ce qu'on ne veut pas.
-    expect(shipVisual("fisher", 4, 18, "anchor").stage).toBe("fisher");
-    expect(shipVisual("fisher", 4, 18, "cruise").stage).toBe("fisher");
-    expect(boatHasNavLights(shipVisual("fisher", 4, 18, "cruise").stage)).toBe(false);
+  it("ni le radeau, ni la pirogue des premières ères", () => {
+    // Rien pour porter un feu, et à leur ère ça n'aurait aucun sens (Raph, 2026-07-29).
+    for (const id of fleetFor(0).trade) expect(BOAT_MODELS[id].lights, id).toBeFalsy();
   });
 
-  it("la liste à calibrer et celle qui s'allume ne peuvent pas diverger", () => {
-    // Deux listes à tenir séparément auraient fini par se contredire — le seuil
-    // du vapeur avait déjà pris cette pente, recopié à trois endroits. Ici le
-    // calibreur reçoit NAV_STAGES ; ce test vérifie que tout ce qu'on y calibre
-    // s'allume pour de vrai.
-    expect(NAV_STAGES.length).toBeGreaterThan(0);
-    for (const s of NAV_STAGES) expect(boatHasNavLights(s)).toBe(true);
+  it("dès qu'il y a un mât ou une passerelle, le marchand de l'ère en porte", () => {
+    for (let band = 3; band <= 9; band += 1) {
+      expect(fleetFor(band).trade.some((id) => BOAT_MODELS[id].lights), `bande ${band}`).toBe(true);
+    }
   });
 
   it("bâbord est rouge, tribord est vert", () => {
@@ -56,52 +49,21 @@ describe("feux de navigation — qui en porte", () => {
   });
 });
 
-describe("feux de navigation — placement", () => {
-  const PLAT = { mast: 0, beam: 1, foreP: 0, foreS: 0 };
-
-  it("les deux feux encadrent l'axe, perpendiculairement au cap", () => {
-    for (const heading of [0, 0.7, Math.PI / 2, 2.4, -1.1]) {
-      const { port, stbd } = navLightOffsets(heading, 10, PLAT);
-      // Opposés l'un à l'autre (même avance, écartement symétrique).
-      expect(port.x).toBeCloseTo(-stbd.x, 6);
-      expect(port.y).toBeCloseTo(-stbd.y, 6);
-      // Perpendiculaires au cap : produit scalaire nul avec le vecteur d'avance.
-      const dot = port.x * Math.cos(heading) + port.y * Math.sin(heading);
-      expect(Math.abs(dot)).toBeLessThan(1e-9);
-      expect(Math.hypot(port.x, port.y)).toBeCloseTo(10, 6);
-    }
-  });
-
-  it("bâbord est bien à GAUCHE du sens de marche", () => {
-    // Cap vers la droite de l'écran (est) : la gauche du marin est vers le HAUT
-    // de l'écran, donc y négatif.
-    const { port, stbd } = navLightOffsets(0, 10, PLAT);
-    expect(port.y).toBeLessThan(0);
-    expect(stbd.y).toBeGreaterThan(0);
-  });
-
-  it("chaque feu a sa propre AVANCE, qui suit le cap", () => {
-    // La régression qui a motivé les deux `fore` : sans eux, les feux étaient
-    // cloués sur l'axe central et un clic à gauche ou à droite du sprite ne
-    // changeait rien du tout.
-    const an = { mast: 0, beam: 0, foreP: 1, foreS: -1 };
-    const est = navLightOffsets(0, 10, an);
-    expect(est.port.x).toBeCloseTo(10, 6);    // bâbord à la proue
-    expect(est.stbd.x).toBeCloseTo(-10, 6);   // tribord à la poupe
-    // Cap au sud (écran, y vers le bas) : l'avance devient verticale.
-    const sud = navLightOffsets(Math.PI / 2, 10, an);
-    expect(sud.port.y).toBeCloseTo(10, 6);
-    expect(sud.stbd.y).toBeCloseTo(-10, 6);
-  });
-
-  it("l'ÉLÉVATION reste verticale quand le bateau vire", () => {
-    // Un mât ne se couche pas dans un virage : `mast` est le seul terme qui ne
-    // tourne pas avec le cap.
-    const an = { mast: 1, beam: 0, foreP: 0, foreS: 0 };
-    for (const heading of [0, 1.2, Math.PI, -2.0]) {
-      const { port } = navLightOffsets(heading, 10, an);
-      expect(port.x).toBeCloseTo(0, 6);
-      expect(port.y).toBeCloseTo(-10, 6);
+describe("feux de navigation — placement (ancres du modèle)", () => {
+  // Ancre = [avance, travers, hauteur] dans le repère du bateau, y vers le sud du
+  // monde : un travers NÉGATIF est à la gauche du marin, donc bâbord. Les deux feux
+  // encadrent l'axe à la même avance et la même hauteur — c'est ce qui donne le sens
+  // de marche.
+  const lit = Object.entries(BOAT_MODELS).filter(([, M]) => M.lights);
+  it("chaque coque qui porte ses feux a bâbord à gauche, tribord à droite, face à face", () => {
+    expect(lit.length).toBeGreaterThan(0);
+    for (const [id, M] of lit) {
+      const A = M.anchors({ variant: M.variant ? M.variant(1) : {}, state: "cruise", k: 0 });
+      expect(A.port && A.stbd, `${id} : ancres port/stbd`).toBeTruthy();
+      expect(A.port[1], `${id} : bâbord à gauche`).toBeLessThan(0);
+      expect(A.stbd[1], `${id} : tribord à droite`).toBeGreaterThan(0);
+      expect(A.port[0], `${id} : même avance`).toBe(A.stbd[0]);
+      expect(A.port[2], `${id} : même hauteur`).toBe(A.stbd[2]);
     }
   });
 });
@@ -118,54 +80,6 @@ function countGlows(mul) {
   queueFlameGlow(100, 100, 12, "255,172,72", 0, 0, mul);
   return paintFlameGlows(ctx);
 }
-
-const SECTORS = ["east", "southeast", "south", "southwest", "west", "northwest", "north", "northeast"];
-
-describe("feux de navigation — position par face", () => {
-  const poses = [];
-  const pose = (st, se, o) => { poses.push([st, se]); setNavUv(st, se, o); };
-  afterEach(() => { for (const [st, se] of poses.splice(0)) setNavUv(st, se, null); });
-
-  // ⚠ On travaille sur `dinghy`, le SEUL stade dont aucune face n'est relevée.
-  // Ce test visait steam/north à l'écriture ; le relevé de Raph l'a peuplé et le
-  // test est tombé. Un cas de départ doit être choisi pour ce qu'il est — vide —
-  // et non pour ce qu'il se trouve être un jour donné.
-  it("une face calibrée prime sur la projection du profil", () => {
-    // Les 8 vues d'un bateau ne sont pas la rotation rigide d'un même objet :
-    // PixelLab les redessine, le mât se déplace, la coque change de longueur
-    // apparente. Projeter le profil sur les 7 autres est donc une APPROXIMATION,
-    // et une face relevée doit toujours l'emporter.
-    expect(navUvFor("dinghy", "north")).toBe(null);
-    pose("dinghy", "north", { p: [0.4, 0.3], s: [0.6, 0.35] });
-    expect(navUvFor("dinghy", "north")).toEqual({ p: [0.4, 0.3], s: [0.6, 0.35] });
-    // Les autres faces du même bateau restent sur le repli.
-    expect(navUvFor("dinghy", "south")).toBe(null);
-  });
-
-  it("les 8 faces sont indépendantes", () => {
-    pose("dinghy", "east", { p: [0.1, 0.1], s: [0.2, 0.2] });
-    pose("dinghy", "west", { p: [0.8, 0.1], s: [0.9, 0.2] });
-    expect(navUvFor("dinghy", "east").p[0]).not.toBe(navUvFor("dinghy", "west").p[0]);
-    expect(navUvFor("dinghy", "northeast")).toBe(null);
-  });
-
-  it("le relevé de Raph est bien en place et complet là où il doit l'être", () => {
-    // Garde de non-régression sur les données elles-mêmes : un copier-coller
-    // tronqué ou un stade oublié se verrait ici et nulle part ailleurs.
-    for (const st of ["sail", "steam", "container", "motorboat"]) {
-      const faces = SECTORS.filter((se) => navUvFor(st, se));
-      expect(faces.length, `${st} : ${faces.length} faces relevées`).toBeGreaterThanOrEqual(7);
-      for (const se of faces) {
-        const uv = navUvFor(st, se);
-        for (const c of [uv.p, uv.s]) {
-          expect(c).toHaveLength(2);
-          expect(c[0]).toBeGreaterThanOrEqual(0); expect(c[0]).toBeLessThanOrEqual(1);
-          expect(c[1]).toBeGreaterThanOrEqual(0); expect(c[1]).toBeLessThanOrEqual(1);
-        }
-      }
-    }
-  });
-});
 
 describe("feux de navigation — battement", () => {
   it("respire LENTEMENT et LÉGÈREMENT", () => {

@@ -11,8 +11,10 @@
 //
 //   solInvalidate('all')           saison, bande d'ère, plage, relief, molettes,
 //                                  canvas réalloués : tout est périmé
-//   solInvalidate('soft')          décodage tardif (art, tuile, place) : le
-//                                  contenu reste valable, recuisson coalescée
+//   solInvalidate('soft')          décodage tardif (art, tuile, place) : périme
+//                                  tout comme 'all', mais coalescé (une époque par
+//                                  fenêtre de 250 ms) ; les tuiles périmées restent
+//                                  affichées jusqu'à leur recuisson
 //   solInvalidate('cells', set)    recompute de layout — la pyramide n'en a pas
 //                                  besoin : elle re-juge chaque tuile sur la
 //                                  signature de ses cellules (lot 3)

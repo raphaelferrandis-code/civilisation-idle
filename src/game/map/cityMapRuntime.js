@@ -31,10 +31,9 @@ import {
   cmDeName,
   cmResidenceName,
   cmPick,
-  WONDER_CLEAR_R,
   WONDER_TIER_NAMES
 } from './layout.js';
-import { setCityMapEngineTileMap, setResetCameraCenterHandler } from './cityMapBridge.js';
+import { setResetCameraCenterHandler, setRoadDoors } from './cityMapBridge.js';
 import { resolveShortcut, resolveCameraKey } from '../core/shortcuts.js';
 import { dayNightMode } from './dayNightMode.js';
 import { qualitySettings } from './qualityMode.js';
@@ -47,8 +46,7 @@ import { firstGameGraceActive, makeGraceLatch } from './firstGameGrace.js';
 import { currentSeason } from './seasonMode.js';
 import { buildNecropolis } from './necropolis.js';
 import { cityCrisisBand } from './procedural/cityPersonality.js';
-import { preloadHouseSprites, houseSpriteHeightTiles, houseSpriteReachTilesIso, pixelHouseImages } from './pixelHouses.js';
-import { glInit, glBegin, glQuad, glFlush, glFinish, glGetCanvas, glStats } from './glPainter.js';
+import { preloadHouseSprites, houseSpriteHeightTiles, houseSpriteReachTilesIso } from './pixelHouses.js';
 // CHANTIER ISO (Phase 1) : projection unique — obligatoire pour TOUT passage
 // monde↔écran. Plus personne ne projette à la main — la règle d'or du chantier
 // iso, désormais sans alternative : il n'y a plus qu'une projection.
@@ -69,7 +67,6 @@ import { waterShoreTune } from './iso/isoPalette.js';
 import { riverIslandObstacles, riverDodge, tradeStage, tradeSizeMul } from './iso/isoFleet.js';
 import { boatSpecFor, boatFootprint } from './iso/boatKit.js';
 import { fleetBerths, fleetPortMarks, projectOnRibbon } from './iso/boatBerths.js';
-import { BOATKIT } from './iso/boatKit.js';
 import { fleetFor, fleetRoles, BOAT_MODELS } from './iso/boatKits.js';
 import { ferrySite, navWindow, ribbonLength, quayHiddenDepth, FERRY_TIP, shuttleSite, ribbonAt } from './riverFleet.js';
 import { MAISON_LANDING_PX } from './iso/boatKitsPlaisirs.js';
@@ -101,18 +98,11 @@ import { solTrace, solRec, keyDiff } from './solTrace.js';
 import { solInvalidate } from './iso/solInvalidate.js';
 import { solPyramideAB } from './iso/solPyramide.js';
 import { tissuMetrics, tissuReport } from './tissuMetrics.js';
-// ⚠ Ces six imports ont été élagués le 2026-08-23 avec le pipeline top-down
-// (étape 4). Ce qui reste ne sert PLUS au dessin de la carte : `renderWorld` n'y
-// garde que le clic d'apaisement et le réglage de mur de quai, les cinq autres
-// modules ne sont plus tenus que par les molettes console (bloc `window.__*` en
-// fin de fichier) — l'étape 6 les emportera. Élagué à la MESURE, pas au plan :
-// celui-ci annonçait de supprimer les lignes `renderBuildings`, `pixelRiver` et
-// `pixelBridge`, alors que quatre de leurs symboles étaient encore lus ici, et il
-// oubliait `vehSkinFor`.
-// ⚠ `pixelBridge` a fini par partir quand même, le 2026-08-23 (Q2, option B) — mais
-// pour la bonne raison, mesurée : son drapeau n'avait plus de LECTEUR une fois l'A/B
-// du pont retiré. La mesure avait raison de le retenir alors, et raison de le lâcher
-// maintenant ; c'est le plan qui avait tort les deux fois.
+// Ces imports sont VIVANTS (élagués à la mesure le 2026-08-23,
+// docs/PLAN-SUPPRESSION-LEGACY.md) : `maskHit` sert au survol des bâtiments (cityMapHitTest),
+// `cityMapCalmRioterAt` au clic d'apaisement, le trio du quai (`quayWallTune`,
+// `quayWallTiles`, `ensureQuayGate`) au placement des pontons et des escaliers, et
+// les fonctions d'agents.js au trafic et à la foule.
 import { maskHit } from './iso/isoMask.js';
 import { cityMapCalmRioterAt, quayWallTune, quayWallTiles, ensureQuayGate } from './quaysAndRiot.js';
 import { getVehicleDensity, chooseRoadVehicleType, vehSkinFor, thoughtBubbleAnchor, citizenSpawnCell, citizenWorkNear } from './agents.js';
@@ -189,7 +179,7 @@ function cityMapResizeCanvas(canvas) {
 // Foule du campement (bande 0) : marcheurs par tente, plafond, et cadence
 // d'arrivée. Molette : `__campCrowd({ perHouse: 2 })` (dev).
 const CAMP_CROWD = { perHouse: 1.4, cap: 40, spawnMs: 350 };
-if (typeof window !== "undefined") {
+if (import.meta.env?.DEV && typeof window !== "undefined") {
   window.__campCrowd = (o) => { if (o) Object.assign(CAMP_CROWD, o); cmRecomputeCitizenTarget(); return { ...CAMP_CROWD, target: CM.citizenTarget }; };
 }
 
@@ -229,7 +219,7 @@ function cmCitizenTargetFor(L, crowdMul) {
 // sans jamais écraser le réglage Qualité du joueur (qui, lui, sert la machine)
 // ni la molette de débogage.
 function cmCrowdMul() {
-  const base = (typeof window !== "undefined" && window.__citizenMul) || cmCitizenMul;
+  const base = (import.meta.env?.DEV && typeof window !== "undefined" && window.__citizenMul) || cmCitizenMul;
   return base * (CM.weatherCrowdK ?? 1);
 }
 
@@ -397,7 +387,7 @@ function cityMapCenterCamera(layout) {
 // du sol net (recuisson coalescée sur `ISO_SETTLE_MS = 110 ms`). Molette :
 // `__camFeel({ zoomRate, panDecay, camRate, panKey, wheelStep, keyZoom })`.
 const CAM_FEEL = { zoomRate: 15, panDecay: 6.5, camRate: 9, panKey: 1100, wheelStep: 1.12, keyZoom: 1.06 };
-if (typeof window !== 'undefined') {
+if (import.meta.env?.DEV && typeof window !== 'undefined') {
   window.__camFeel = (o) => { if (o) Object.assign(CAM_FEEL, o); return { ...CAM_FEEL }; };
 }
 
@@ -798,7 +788,7 @@ function cityMapShowTooltip(hit, sx, sy, { immediate = false } = {}) {
     CM.tipTimer = setTimeout(() => {
       CM.tipTimer = null;
       if (CM.hover === hit) CM.tooltip.classList.add("visible");
-    }, window.__tipDelay ?? 500);
+    }, import.meta.env?.DEV && window.__tipDelay != null ? window.__tipDelay : 500);
   }
 }
 
@@ -1201,9 +1191,8 @@ let _cachedEngineGroupSig = "";
 // — le bâtiment neuf apparaît une demi-seconde plus tard, à l'arrêt, au lieu
 // de geler le geste. Plafond LAYOUT_DEFER_MAX_MS : un pan ininterrompu ne
 // repousse pas la vérité de la carte indéfiniment. Suivi de mouvement
-// AUTONOME (les deux pipelines passent ici, pas seulement l'iso).
-// Molette d'A/B : window.__layoutDefer = false pour retrouver l'ancien
-// comportement.
+// AUTONOME (il ne dépend pas du peintre iso). (Sa molette
+// d'A/B __layoutDefer est retirée : audit 2026-10-05, DEV-3.)
 const LAYOUT_GESTURE_STILL_MS = 280;
 // 10 s : mesuré sur la machine de jeu (deux relevés), un dézoom énergique tient
 // facilement 6 s sans pause de 280 ms — le plafond forçait alors le recompute
@@ -1307,15 +1296,14 @@ function cityMapEnsureLayoutInner(now, deps = {}) {
   // (structure des blocs identique — cf. cmEngineGroupSig, stable entre paliers), on NE
   // recalcule PAS le layout (placement + connexion routière). On rafraîchit juste t.level
   // sur les tuiles moteur → la NAPPE (drawEngineSprawl) grandit d'UNE maison par achat,
-  // gratuitement. Débrayable : window.__stableSkip = false.
+  // gratuitement. (Sa molette d'A/B __stableSkip est retirée : audit 2026-10-05, DEV-3.)
   const structSig = eraIndex + '|' + (state.cycles || 0) + '|' + crisisBand + '|' + wonderSig + '|' + roadCount + '|' + engineGroupSig;
-  const skipStable = typeof window === 'undefined' || window.__stableSkip !== false;
   const refreshLevels = () => {
     const b = state.buildings || {};
     for (const tt of CM.layout.tiles) if (tt.type === 'engine' && tt.buildingId) tt.level = Math.floor(b[tt.buildingId] || 0);
     _lyLevelsSig = engineSig;
   };
-  if (skipStable && CM.layout && structSig === CM.layoutStructSig) {
+  if (CM.layout && structSig === CM.layoutStructSig) {
     refreshLevels();
     CM.layoutSig = sig;
     return;
@@ -1332,27 +1320,25 @@ function cityMapEnsureLayoutInner(now, deps = {}) {
     { core: coreSig, group: engineGroupSig, crisis: crisisBand }, now - CM.layoutRecomputeAt);
   const coreChanged = th.core;
   if (th.wait) {
-    if (th.group && skipStable && engineSig !== _lyLevelsSig) refreshLevels();   // la nappe suit chaque achat
+    if (th.group && engineSig !== _lyLevelsSig) refreshLevels();   // la nappe suit chaque achat
     return;
   }
   // Geste de caméra en cours → recompute différé à l'accalmie (cf. bloc de
   // constantes plus haut). Jamais pendant une capture (déterminisme du harnais).
-  if (typeof window === 'undefined' || window.__layoutDefer !== false) {
-    const cam = CM.cam;
-    // Caméra qui SUIT un habitant (fiche d'habitant) : elle glisse à chaque frame
-    // sans que le joueur fasse un geste. Ce n'est pas un geste à protéger — le
-    // compter comme tel repousserait chaque achat jusqu'au plafond de 10 s.
-    const following = !!(CM.focus && CM.focus.cam) && !CM.drag && cam.zoom === CM.zoomGoal;
-    if (cam.x !== _lyCamX || cam.y !== _lyCamY || cam.zoom !== _lyCamZ) {
-      _lyCamX = cam.x; _lyCamY = cam.y; _lyCamZ = cam.zoom;
-      if (!following) _lyCamMoveAt = now;
-    }
-    if (CM.layout && !CM.capture && now - _lyCamMoveAt < LAYOUT_GESTURE_STILL_MS) {
-      if (!_lyDeferredAt) _lyDeferredAt = now;
-      if (now - _lyDeferredAt < LAYOUT_DEFER_MAX_MS) return; // on retente à chaque frame
-    }
-    _lyDeferredAt = 0;
+  const cam = CM.cam;
+  // Caméra qui SUIT un habitant (fiche d'habitant) : elle glisse à chaque frame
+  // sans que le joueur fasse un geste. Ce n'est pas un geste à protéger — le
+  // compter comme tel repousserait chaque achat jusqu'au plafond de 10 s.
+  const following = !!(CM.focus && CM.focus.cam) && !CM.drag && cam.zoom === CM.zoomGoal;
+  if (cam.x !== _lyCamX || cam.y !== _lyCamY || cam.zoom !== _lyCamZ) {
+    _lyCamX = cam.x; _lyCamY = cam.y; _lyCamZ = cam.zoom;
+    if (!following) _lyCamMoveAt = now;
   }
+  if (CM.layout && !CM.capture && now - _lyCamMoveAt < LAYOUT_GESTURE_STILL_MS) {
+    if (!_lyDeferredAt) _lyDeferredAt = now;
+    if (now - _lyDeferredAt < LAYOUT_DEFER_MAX_MS) return; // on retente à chaque frame
+  }
+  _lyDeferredAt = 0;
   // Trace (solTrace.js) : QUEL segment de la signature a déclenché ce recompute
   // — segments de `sig` : 0 ère, 1 cycles, 2 crise, 3 merveilles, 4 routes,
   // 5 moteurs — et combien il a coûté, phase par phase
@@ -1396,10 +1382,11 @@ function cityMapEnsureLayoutInner(now, deps = {}) {
   {
     const rc = L.roadCover;
     state.roadCoverage = (rc && rc.engineTotal > 0) ? rc.engineConnected / rc.engineTotal : 0;
-    // Portes réelles (sur rue / total brut, murés compris) : affichage seul.
-    state.roadDoors = rc
+    // Portes réelles (sur rue / total brut, murés compris) : affichage seul,
+    // hors de l'état (cityMapBridge.setRoadDoors).
+    setRoadDoors(rc
       ? { onRoad: rc.engineConnected | 0, total: Math.max(rc.engineConnected | 0, rc.engineAll | 0) }
-      : null;
+      : null);
     // Chantiers de voirie : la carte fait foi sur le prochain chantier proposé
     // (nature, tuiles, cible) et sur les tronçons élargis appliqués — la
     // boutique (prix) et le sim (bonus) ne font que lire ces caches.
@@ -1427,8 +1414,6 @@ function cityMapEnsureLayoutInner(now, deps = {}) {
   for (const k in CM.born) if (!seen[k] && !k.startsWith("wonder:")) delete CM.born[k];
 
   CM.layout = L;
-  setCityMapEngineTileMap(L.engineTileMap);
-  CM.gridN = L.gridN;
   // Géométrie de la nécropole (cités mortes à l'ouest) — recalculée avec le layout
   // (mémoïsé par le throttle ci-dessus ; un effondrement change state.cycles → recompute).
   L.necropolis = buildNecropolis(state, L, CM.TILE);
@@ -1447,9 +1432,10 @@ function cityMapEnsureLayoutInner(now, deps = {}) {
     }
   }
 
-  // Filtre : on ne dessine que les routes valides et les jonctions de pont.
+  // Filtre : routes valides et jonctions de pont (ne sert plus qu'à repérer les
+  // cellules-pont, ci-dessous).
   const validRoadSet = L.roadSet || new Set(L.roads.map((r) => `${r.gx},${r.gy}`));
-  CM.roadList = L.roads.filter((r) => {
+  const roadList = L.roads.filter((r) => {
     const k = r.gx + "," + r.gy;
     if (!validRoadSet.has(k)) return false;
     const inWater = L.river && L.river.cells && L.river.cells.has(k);
@@ -1580,19 +1566,17 @@ function cityMapEnsureLayoutInner(now, deps = {}) {
       CM.buildingEdgeList.push(c);
     }
   }
-  // Ponts précalculés : évite Array.filter à chaque frame dans cityMapDrawBridges
-  CM.bridgeList = CM.roadList.filter((r) => r.roadSurface === "bridge");
+  const bridgeList = roadList.filter((r) => r.roadSurface === "bridge");
   // Spans de pont (composantes connexes) + repérage du pont HISTORIQUE (le plus
-  // proche du cœur, cf. river.bridge). Partagé par le rendu statique ET les
-  // lampes nocturnes live. Adjacence orthogonale sur l'ensemble des cellules-pont.
+  // proche du cœur, cf. river.bridge). Seul lecteur : le modèle des ponts
+  // (iso/isoBridge.js). Adjacence orthogonale sur l'ensemble des cellules-pont.
   CM.bridgeSpans = [];
-  CM.historicBridgeCells = new Set();
   {
     const bmap = new Map();
-    for (const r of CM.bridgeList) bmap.set(r.gx + "," + r.gy, r);
+    for (const r of bridgeList) bmap.set(r.gx + "," + r.gy, r);
     const seen = new Set();
     const ortho = [[1, 0], [-1, 0], [0, 1], [0, -1]];
-    for (const start of CM.bridgeList) {
+    for (const start of bridgeList) {
       const sk = start.gx + "," + start.gy;
       if (seen.has(sk)) continue;
       seen.add(sk);
@@ -1615,7 +1599,6 @@ function cityMapEnsureLayoutInner(now, deps = {}) {
       let best = CM.bridgeSpans[0], bd = Infinity;
       for (const sp of CM.bridgeSpans) { const d = Math.abs(sp.cx - bx); if (d < bd) { bd = d; best = sp; } }
       best.historic = true;
-      for (const c of best.cells) CM.historicBridgeCells.add(c.gx + "," + c.gy);
     }
   }
   // Routes par rive (hors cellules-pont) : cibles pour biaiser le trafic vers la
@@ -1628,46 +1611,6 @@ function cityMapEnsureLayoutInner(now, deps = {}) {
       (r.gy < ry(r.gx) ? CM.bankRoads.n : CM.bankRoads.s).push(r);
     }
   }
-  // Précalcul des seeds de route — évite la string `road:${gx}:${gy}:${era}` à chaque frame
-  const _eraForSeed = L.counts ? L.counts.eraIndex : 0;
-  for (const r of CM.roadList) {
-    r._seed = cmHash(`road:${r.gx}:${r.gy}:${_eraForSeed}`);
-  }
-
-  // Cellules "ville" : la foret (infinie) ne pousse pas dessus.
-  const occ = new Set(L.roadSet ? Array.from(L.roadSet) : L.roads.map((r) => `${r.gx},${r.gy}`));
-  for (const t of L.tiles) {
-    const span = t.size || 1;
-    for (let ax = 0; ax < span; ax += 1) for (let ay = 0; ay < span; ay += 1) occ.add((t.gx + ax) + "," + (t.gy + ay));
-  }
-  for (const d of (L.districts || [])) {
-    for (let ax = 0; ax < d.size; ax += 1) for (let ay = 0; ay < d.size; ay += 1) occ.add((d.gx + ax) + "," + (d.gy + ay));
-  }
-  const activeWonderOcc = cmWonderActiveIds(state);
-  for (let wi = 0; wi < CM_WONDERS.length; wi += 1) {
-    if (!activeWonderOcc.has(CM_WONDERS[wi].id)) continue;
-    const slot = cmWonderSlot(wi, L.gridN, L.cx, L.cy);
-    for (let dy = -WONDER_CLEAR_R; dy <= WONDER_CLEAR_R; dy += 1)
-      for (let dx = -WONDER_CLEAR_R; dx <= WONDER_CLEAR_R; dx += 1)
-        if (Math.hypot(dx, dy) <= WONDER_CLEAR_R) occ.add((slot.gx + dx) + "," + (slot.gy + dy));
-  }
-  if (L.river && L.river.cells) {
-    for (const k of L.river.cells) occ.add(k);
-    for (const k of L.river.banks) occ.add(k);
-  }
-  CM.occupied = occ;
-  // Cellules occupées par un BÂTIMENT (tuiles + districts moteur) — sert au Y-SORT des
-  // habitants/véhicules : un agent dont le voisin NORD est un bâtiment est « devant » lui
-  // (dessiné en 2e passe pour ne pas être rogné). Recalculé au recompute (tuiles stables).
-  const bcells = new Set();
-  for (const t of L.tiles) {
-    const bx = t.spanX || t.size || 1, by = t.spanY || t.size || 1;
-    for (let ax = 0; ax < bx; ax += 1) for (let ay = 0; ay < by; ay += 1) bcells.add((t.gx + ax) + "," + (t.gy + ay));
-  }
-  for (const d of (L.districts || [])) {
-    for (let ax = 0; ax < d.size; ax += 1) for (let ay = 0; ay < d.size; ay += 1) bcells.add((d.gx + ax) + "," + (d.gy + ay));
-  }
-  CM.buildingCells = bcells;
   // Fiches Y-SORT « peintre » par cellule bâtie (clé gx*10000+gy, fiche PARTAGÉE par
   // empreinte) : x0/x1 = recouvrement colonne (px monde), baseY = ligne de contact au
   // sol (bas d'empreinte — l'ordre du peintre), topY = portée du sprite vers le nord.
@@ -1704,7 +1647,6 @@ function cityMapEnsureLayoutInner(now, deps = {}) {
     for (let ax = 0; ax < d.size; ax += 1) for (let ay = 0; ay < d.size; ay += 1) binfo.set((d.gx + ax) * 10000 + (d.gy + ay), rec);
   }
   CM.buildingInfo = binfo;
-  CM.riverRow = -999;
 
   if (!CM.centered) {
     cityMapCenterCamera(L);
@@ -1735,14 +1677,14 @@ function cityMapEnsureLayoutInner(now, deps = {}) {
 
   // Trafic fluvial : l'EFFECTIF VOULU par métier (marchand / plaisancier /
   // pêcheur) — la vie de chaque bateau est pilotée par riverFleet.js, appelé une
-  // fois par frame en amont de la bascule iso/legacy. Ici on ne fait plus que
+  // fois par frame avant le peintre iso. Ici on ne fait plus que
   // publier la consigne ; la flotte n'est plus reconstruite en bloc (un pêcheur
   // en pose de 90 s n'y survivait pas).
   const hasRiver = !!(L.river && L.river.present);
   const portLvl = hasRiver ? Math.floor((state.buildings && state.buildings.river_ports) || 0) : 0;
   // Les métiers que l'ère sait DESSINER (kit de bateaux) : chaland et passeur n'existent
   // que là (docs/PLAN-BATEAUX.md).
-  const kitFleet = BOATKIT.on && L.counts ? fleetFor(L.counts.eraBand | 0) : null;
+  const kitFleet = L.counts ? fleetFor(L.counts.eraBand | 0) : null;
   CM.shipBudget = riverFleetBudget(state, L, kitFleet ? fleetRoles(L.counts.eraBand | 0) : null);
 
   // Quais d'escale : position sur le ruban de chaque PORT fluvial (pas les moulins),
@@ -1774,10 +1716,12 @@ function cityMapEnsureLayoutInner(now, deps = {}) {
     // roadMap — il n'existe pas de liste de ponts dans le layout.)
     CM.shipAvoidT = CM.shipDocks.map((d) => d.t);
     // POSTES D'ACCOSTAGE (docs/PLAN-BATEAUX.md, lot 4) : le marchand vient se ranger
-    // au ponton. Vides là où l'ère n'a pas encore son kit de bateaux.
+    // au ponton — bandes 5-9, au quai du terminal de commerce (BUG-17). Vides là où l'ère
+    // n'a pas encore son kit de bateaux.
     CM.shipBerths = fleetBerths(L);
-    // Les ports que le bac et la navette fuient : les postes, plus la capitainerie et le
-    // terminal (sans poste depuis BUG-17, ils restent des ports — cf. fleetPortMarks).
+    // Les ports que le bac et la navette fuient : les postes des pontons, plus la
+    // capitainerie et le terminal (sans ponton depuis BUG-17, ils restent des ports — cf.
+    // fleetPortMarks ; le poste de quai du terminal n'y ajoute rien).
     CM.shipPortMarks = fleetPortMarks(L);
     CM.riverGates = [];
     if (hasRiver && L.river.samples && L.roadMap) {
@@ -2124,7 +2068,7 @@ export function spawnOneCitizen(L) {
   const r = citizenSpawnCell(cmHash(`${state.cycles || 0}:${n}:seuil`));
   if (!r) return;
   const seed = cmHash(`${state.cycles || 0}:${n}:${r.gx},${r.gy}`);
-  // Rôles définis par la config d'âge (huttes → tours), fallback legacy.
+  // Rôles définis par la config d'âge (huttes → tours), repli : CM_ROLES par bande.
   const roleList = (L.ageCfg && L.ageCfg.citizenRoles)
     || CM_ROLES[Math.min(L.counts.eraBand || 0, CM_ROLES.length - 1)];
   const band = L.counts.eraBand || 0;
@@ -2208,15 +2152,12 @@ function initCityMap(canvas, options = {}) {
   if (CM.inited) return;
   if (!canvas || typeof canvas.getContext !== "function") return;
   const mapRoot = options.mapRoot || canvas.parentElement;
-  const miniCanvas = options.minimap || null;
   const isActive = options.isActive || function () { return true; };
 
   CM.inited = true;
   CM.canvas = canvas;
   CM.ctx = canvas.getContext("2d");
   if (!CM.ctx) { CM.inited = false; CM.canvas = null; return; } // G-30 : contexte 2D perdu → abandon propre (sinon tailles offscreen NaN)
-  CM.mini = miniCanvas;
-  CM.mctx = CM.mini ? CM.mini.getContext("2d") : null;
   cityMapEnsureTooltip(mapRoot, options.tooltip);
   const resize = () => cityMapResizeCanvas(canvas);
   resize();
@@ -2515,12 +2456,11 @@ function initCityMap(canvas, options = {}) {
       // Cache per-frame derived values — constant within a frame, avoids recompute par sprite/route
       // Les fenêtres « allumées » des sprites sont de VRAIES lumières :
       // alpha entièrement piloté par la nuit (0 en plein jour).
+      // (CM.litWarm, l'ambre des fenêtres des scènes procédurales, est parti avec elles —
+      // audit du 05/10, MORT-2 : plus personne ne le lisait.)
       const _n = CM.nightF;
-      CM.litWarm = `rgba(255,204,68,${(_n * 0.9).toFixed(2)})`;
       CM.litGold = `rgba(255,220,120,${(_n * 0.95).toFixed(2)})`;
-      CM.cmLitColorStr = `rgba(255,${Math.round(204 + (1 - _n) * 28)},${Math.round(68 + (1 - _n) * 64)},${(_n * 0.94).toFixed(2)})`;
       if (CM.layout && CM.layout.counts) {
-        CM.frameEraIndex = CM.layout.counts.eraIndex || 0;
         CM.frameRuined = (state.timeWear || 0) > 0.88 || (state.instability || 0) >= 1;
       }
       fp('ambiance-meteo-saison');
@@ -2530,8 +2470,8 @@ function initCityMap(canvas, options = {}) {
       // Révélation per-buy des maisons-MOTEUR : compteur = maisons du palier (engineHomes)
       // + achats depuis le dernier recompute (borné au LOOKAHEAD=44 du pool pré-placé).
       // Rafraîchi chaque frame (~29 additions) → « 1 achat = 1 bâtiment » qui apparaît,
-      // SANS recompute du layout. Calculé AVANT la bascule iso/legacy : les DEUX rendus
-      // masquent revealIdx >= compteur (drawTile en legacy, drawIsoLive en iso).
+      // SANS recompute du layout. Calculé AVANT le peintre : drawIsoLive masque
+      // revealIdx >= compteur.
       if (CM.layout && CM.layout.counts) {
         let rawNow = 0; const _b = state.buildings || {};
         for (const meta of CM_MAP_BUILDINGS) rawNow += Math.floor(_b[meta.id] || 0);
@@ -2567,11 +2507,9 @@ function initCityMap(canvas, options = {}) {
         }
       }
       fp('reveal-per-achat');
-      // FLOTTE : un SEUL point de simulation, ici, en amont de la bascule
-      // iso/legacy — les deux rendus ne font plus que dessiner. Avant, chacun
-      // avançait `t` de son côté dans sa fonction de dessin, ce qui a laissé les
-      // deux versions diverger en silence (l'escale à quai n'existait qu'en
-      // legacy, et le seuil d'ère du vapeur n'était pas le même des deux côtés).
+      // FLOTTE : un SEUL point de simulation, ici, en amont du peintre, qui ne fait
+      // plus que dessiner. (Du temps des deux rendus, chacun avançait `t` de son côté
+      // et ils avaient divergé en silence : escale à quai, seuil d'ère du vapeur.)
       if (!CM.fleetCtl) CM.fleetCtl = makeFleetCtl();
       const _noLife = !!(CM.capture && CM.capture.citizens === 'none');
       const _fleetBudget = _noLife ? { trade: 0, yacht: 0, fisher: 0 } : (CM.shipBudget || { trade: 0, yacht: 0, fisher: 0 });
@@ -2655,11 +2593,24 @@ function initCityMap(canvas, options = {}) {
     // dès que son effectif ne collait plus). Le budget doit être coupé À LA
     // SOURCE pour qu'un cliché « sans vie » ait vraiment un fleuve vide.
     CM.capture = { night: opts.night ?? 0, health: opts.health ?? 1, citizens: opts.citizens, live };
-    if (opts.citizens === 'none') { CM.citizens.length = 0; CM.vehicles.length = 0; CM.ships.length = 0; }
+    // Cliché « sans vie » : les pools sont vidés le temps de la frame, puis
+    // RENDUS — véhicules et navires ne se reconstruisent qu'au recalcul du plan,
+    // un cliché de vérif les laissait disparus jusqu'au prochain achat (DEV-5).
+    const savedLife = opts.citizens === 'none'
+      ? { citizens: CM.citizens.slice(), vehicles: CM.vehicles.slice(), ships: CM.ships.slice() }
+      : null;
+    if (savedLife) { CM.citizens.length = 0; CM.vehicles.length = 0; CM.ships.length = 0; }
     last = -1e9; // by-passe le throttle pour forcer un vrai rendu
     resize();
     frame(opts.now ?? 0);
     CM.capture = null;
+    // Rendus EN PLACE (isoChute compare l'identité de CM.vehicles), sauf un pool
+    // que la frame a déjà regarni : un recalcul du plan pendant le cliché fait foi.
+    if (savedLife) {
+      for (const k of ['citizens', 'vehicles', 'ships']) {
+        if (CM[k].length === 0) for (const x of savedLife[k]) CM[k].push(x);
+      }
+    }
     let out = CM.canvas;
     const scale = opts.scale || 1;
     if (scale !== 1) {
@@ -2800,73 +2751,9 @@ function initCityMap(canvas, options = {}) {
       console.log(tissuReport(m));
       return m;
     };
-    // BANC DU BATCHER WebGL (chantier rendu) : compare, sur les VRAIS sprites du
-    // jeu et à l'échelle d'une frame de dézoom, le débit de Canvas 2D (un
-    // `drawImage` par sprite) et celui du batcher (un seul appel de dessin).
-    // C'est la mesure qui décide de la greffe — et elle doit se faire sur la
-    // machine de JEU, la seule dont le GPU compte. Usage : await __glBench().
-    window.__glBench = async (opts = {}) => {
-      const N = opts.n || 3000;
-      const passes = opts.passes || 12;
-      if (!glInit()) return { erreur: 'WebGL2 indisponible sur ce poste' };
-      // Sources RÉELLES : les habitations décodées de la bande courante.
-      const srcs = [];
-      for (const im of pixelHouseImages()) if (im && (im.naturalWidth || im.width)) srcs.push(im);
-      if (!srcs.length) return { erreur: 'aucun sprite décodé — ouvre la carte puis relance' };
-      const W = CM.cw || 1200, H = CM.ch || 600;
-      const ctx = CM.ctx;
-      // Positions tirées une fois : les deux chemins dessinent EXACTEMENT la
-      // même chose, au même endroit, dans le même ordre.
-      const items = [];
-      for (let i = 0; i < N; i++) {
-        const s = srcs[i % srcs.length];
-        const sw = s.naturalWidth || s.width, sh = s.naturalHeight || s.height;
-        const k = 0.5;
-        items.push({ s, sw, sh, x: Math.round((cmHash('bx' + i) % 10000) / 10000 * W), y: Math.round((cmHash('by' + i) % 10000) / 10000 * H), w: Math.round(sw * k), h: Math.round(sh * k) });
-      }
-      // ⚠ SYNCHRONISATION OBLIGATOIRE. Les deux pipelines sont asynchrones :
-      // sans forcer l'attente, on chronomètre le remplissage d'une file, pas le
-      // travail du GPU (le piège « drawImage/s ne mesure rien quand le GPU
-      // sature » de la reprise perf). `getImageData(1×1)` vide le pipeline 2D,
-      // `glFinish` bloque jusqu'à la fin du GPU.
-      const sync2d = () => ctx.getImageData(0, 0, 1, 1);
-      // DÉBIT SOUTENU : `passes` répétitions enchaînées puis UNE synchronisation,
-      // divisé par le nombre de passes. Synchroniser à chaque passe mesurerait
-      // surtout l'attente du vsync (~16 ms), qui écraserait le signal.
-      let refuses = 0, rendus = 0;
-      const run2d = () => {
-        const prev = ctx.imageSmoothingEnabled;
-        ctx.imageSmoothingEnabled = false;
-        for (const it of items) ctx.drawImage(it.s, 0, 0, it.sw, it.sh, it.x, it.y, it.w, it.h);
-        ctx.imageSmoothingEnabled = prev;
-      };
-      const runGl = () => {
-        glBegin(W, H, CM.dpr || 1);
-        for (const it of items) if (!glQuad(it.s, 0, 0, it.sw, it.sh, it.x, it.y, it.w, it.h)) refuses++;
-        rendus = glFlush();
-        ctx.drawImage(glGetCanvas(), 0, 0, W, H);   // composition dans la frame
-      };
-      // Chauffe (compilation de shaders, upload d'atlas, caches du pilote).
-      run2d(); runGl(); sync2d(); glFinish();
-      let t0 = performance.now();
-      for (let p = 0; p < passes; p++) run2d();
-      sync2d();
-      const m2d = +((performance.now() - t0) / passes).toFixed(2);
-      refuses = 0;
-      t0 = performance.now();
-      for (let p = 0; p < passes; p++) runGl();
-      glFinish(); sync2d();
-      const mgl = +((performance.now() - t0) / passes).toFixed(2);
-      window.__glBenchLast = { rendus, refuses: Math.round(refuses / passes) };
-      return {
-        sprites: N,
-        canvas2D_ms: m2d,
-        webgl_ms: mgl,
-        gain: m2d > 0 ? '×' + (m2d / mgl).toFixed(1) + ' plus rapide' : 'n/a',
-        rendusParLot: window.__glBenchLast,
-        atlas: glStats(),
-      };
-    };
+    // (Le BANC DU BATCHER WebGL `__glBench` et le batcher lui-même, glPainter.js,
+    //  ont été retirés le 2026-10-06 avec la greffe GL du peintre, dont le gain
+    //  mesuré en jeu était nul — ×1,02 — audit MORT-12.)
     // MONTAGE DE DÉMO EN UN APPEL (Phase 0 chantier iso) — concentre tous les gotchas
     // du harnais : fige tick+autosave (clearInterval), pompe l'état SANS déclencher la
     // crise (instability/timeWear remis à 0 avant ET après), recompute, fait tourner la
@@ -2943,15 +2830,18 @@ function initCityMap(canvas, options = {}) {
         CM.cam.x = slot.gx * CM.TILE + CM.TILE / 2;
         CM.cam.y = slot.gy * CM.TILE - CM.TILE * 4;
         CM.cam.zoom = 1.3;
+        // Centrage autoritaire (A9, comme cityMapCenterCamera) : sans resynchroniser
+        // les cibles amorties, cmCameraGlide ramenait aussitôt le zoom à l'ancienne
+        // cible (DEV-5).
+        CM.zoomGoal = CM.cam.zoom; CM.camGoal = null; CM.panVel = null;
         CM.centered = true;
       };
       center();
       return w.name.fr + " — rang " + WONDER_TIER_NAMES[t] + "  (rangs 1..5 ; __hideWonder() pour arrêter)";
     };
     window.__hideWonder = () => { CM.previewWonder = null; CM.centered = false; CM.layout = null; return "aperçu arrêté"; };
-    // Accès direct au runtime carte (caméra, véhicules, layout) pour la vérif visuelle :
-    // ex. centrer/zoomer sur un attelage avant __cityShot.
-    window.__CM = CM;
+    // (`window.__CM`, l'accès direct au runtime pour la vérif visuelle, est posé plus
+    //  haut dans ce même bloc : une seule assignation.)
     // Banc du lot 1 de PLAN-SOL-PYRAMIDE : sol en tuiles vs sol plein, couture mesurée.
     window.__solPyramideAB = (o) => solPyramideAB(o);
   }

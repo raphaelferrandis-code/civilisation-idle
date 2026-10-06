@@ -23,13 +23,12 @@
 //
 // Pur : aucun DOM, aucun CM.
 import { put, rgbOf, h32, frameOf, ramp } from './isoPixelPaint.js';
-import { mats, box, revolve, cyl, taper, pick, obelisk, menhirs, line, pixelFinish, nightOf } from './wonderBake.js';
+import { mats, box, revolve, cyl, taper, pick, obelisk, line, pixelFinish, nightOf, V, CYPRESS, cypress } from './wonderBake.js';
+import { fm } from '../pixelUtil.js';
 
-const V = true;
-const fm = (a, n) => ((a % n) + n) % n;
 const WATER = ['#a9d0de', '#7fb0c9', '#5a8cab', '#41698a'];
-// Verts des buis, ifs et cyprès : la famille de l'herbe du jeu, en plus sombre.
-const CYPRESS = ['#4f7a3a', '#3c6530', '#2c5127', '#1f3d1e', '#142a15'];
+// Verts des buis, ifs et cyprès (CYPRESS, wonderBake) : la famille de l'herbe du jeu,
+// en plus sombre.
 const DIRT = ['#b29a74', '#9c835f', '#86704f', '#6c5a40'];
 const FLOWERS = ['#f2efe2', '#e8c95a', '#d98aa0', '#9fb7e8'];
 
@@ -126,7 +125,7 @@ export function defaultGates(w, roadGates = {}) {
 
 // ── Plan du lieu, par merveille ──────────────────────────────────────────────
 // Rend { col(x, y) → couleur | null (l'herbe du jeu), decor, props }.
-//   decor : { kind: 'cypress'|'topiary'|'fountain'|'blocks'|'logs'|'obelisk'|'menhir'|'wallX'|…, x, y, s? }
+//   decor : { kind: 'cypress'|'topiary'|'fountain'|'blocks'|'logs'|'obelisk'|'wallX'|…, x, y, s? }
 //   props : comme les recettes (statue, brazier, gaslamp, ledlamp, flame, glow).
 // opts.enclose : false → pas d'enceinte ici (elle borde alors le jardin) ;
 // opts.roadGates : { N|S|E|W: [u…] } là où une rue aborde le lieu.
@@ -277,7 +276,7 @@ export function placePlan(id, tier, K, B, half, opts = {}) {
   };
   return {
     col: (x, y) => edge(x, y) || snowy(x, y),
-    decor, props, gateW,
+    decor, props,
   };
 }
 
@@ -377,11 +376,9 @@ export function bakeDecor(kind, K, s = 10) {
   const ext = big ? Math.max(14, s / 2 + 4) : 14;
   const R = frameOf(V, [[-ext, ext, -ext, ext, -2, 44]]);
   if (kind === 'cypress' || kind === 'topiary') {
-    const H = kind === 'cypress' ? 26 : 11, r = kind === 'cypress' ? 3.4 : 3;
-    revolve(R, 0, 0, 0, 2, cyl(0.9), () => rgbOf('#5a4028'));
-    revolve(R, 0, 0, 1.5, 1.5 + H, (h) => r * Math.pow(Math.sin(Math.PI * Math.min(1, Math.max(0, (h - 1.5) / H)) * 0.92 + 0.12), 0.8),
-      (I, h, a) => (K.snow && I > 0.62 ? rgbOf('#eef3f8')
-        : rgbOf(CYPRESS[Math.min(4, Math.max(0, Math.round((1 - I) * 3.2) - 1 + (h32(Math.round(a * 6), Math.round(h / 2), 3) % 5 === 0 ? 1 : 0)))])));
+    // Le cyprès des lieux (wonderBake), l'if taillé en est un petit.
+    if (kind === 'cypress') cypress(R, K, 2, 1.5, 26, 3.4);
+    else cypress(R, K, 2, 1.5, 11, 3);
   } else if (kind === 'tree') {
     // Arbre d'ornement : fût court, houppier rond.
     revolve(R, 0, 0, 0, 7, cyl(1.2), () => rgbOf('#5a4028'));
@@ -402,8 +399,6 @@ export function bakeDecor(kind, K, s = 10) {
     }
   } else if (kind === 'obelisk') {
     obelisk(R, X, 0, 0, 0, 22);
-  } else if (kind === 'menhir') {
-    menhirs(R, X, 0, 1, 3, 11, 'front', 0);
   } else if (kind === 'wallX' || kind === 'wallY') {
     wallModule(R, X, K, s, kind === 'wallX' ? 'x' : 'y');
   } else if (kind === 'pier' || kind === 'post') {

@@ -43,7 +43,7 @@
    - le fondu d'apparition/disparition est CALCULÉ mais jamais DESSINÉ (`p.fade`,
      `_sleepFade`) → les passants popent à la porte ;
    - la bulle de pensée va à un passant au hasard parmi ~900, souvent hors écran ou
-     endormi (cf. `REPRISE-bulles-habitants.md`, jamais corrigé) ;
+     endormi (cf. `docs/archive/REPRISE-bulles-habitants.md`, jamais corrigé) ;
    - les obstacles des places suivent l'ANCIEN décor supprimé → les passants
      traversent les étals et les bancs du kit iso ;
    - les porteuses de panier n'apparaissent jamais (`v.woman` jamais posé) ;

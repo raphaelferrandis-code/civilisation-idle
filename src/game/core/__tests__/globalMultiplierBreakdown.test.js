@@ -21,7 +21,7 @@ import { MID_GAME_FIXTURE, FIXED_NOW } from "./fixtures.js";
 // doit refléter une modification du produit de globalMultipliers.js, et
 // réciproquement.
 const CLES_ATTENDUES = [
-  "ruins", "market", "roads", "infra", "recurringAge", "ruinEffects",
+  "ruins", "bureaucracy", "roads", "infra", "recurringAge", "ruinEffects",
   "ruinTree", "unspentRuins", "grandReset", "icare", "atrides", "pact",
   "nextRunPenalty", "enee", "olympus", "fimbul"
 ];

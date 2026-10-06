@@ -10,99 +10,38 @@
  * TOUTES les teintes d'un bloc, y compris le contour sombre qui fait la
  * profondeur — le bouton perdrait exactement ce qu'on est venu chercher.
  *
- * Usage : node scripts/exportWizardChrome.mjs [chemin du pack]
+ * Usage : node scripts/exportWizardChrome.mjs <dossier Sprites du pack>
+ *   ex. …/Complete_UI_Book_Styles_Pack_Full_v1.0/02_WizardBook/Sprites
+ * Le chemin est OBLIGATOIRE : le pack n'est pas dans le dépôt (licence), et l'ancien
+ * défaut pointait le scratchpad d'une session Claude d'un autre poste.
  */
 import { readFileSync, writeFileSync, mkdirSync, existsSync } from 'node:fs';
 import { join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import zlib from 'node:zlib';
+import { PNG } from 'pngjs';
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..');
-const SRC = process.argv[2] || join(
-  process.env.LOCALAPPDATA || '', 'Temp', 'claude',
-  'C--Users-Raphi-civilisation-idle', '2b8c464b-7745-42f6-ba28-d1941e8510b4',
-  'scratchpad', 'uibookfull', 'Complete_UI_Book_Styles_Pack_Full_v1.0',
-  '02_WizardBook', 'Sprites'
-);
+const SRC = process.argv[2];
+if (!SRC) {
+  console.error('Usage : node scripts/exportWizardChrome.mjs <dossier Sprites du pack>\n' +
+    '  le dossier 02_WizardBook/Sprites du pack Complete UI Book Styles (Crusenho),\n' +
+    '  qui contient les UI_WizardBook_*.png.');
+  process.exit(1);
+}
 const OUT = join(ROOT, 'public', 'pixelart', 'ui', 'chrome', 'wizard');
 
-/* ---------- PNG minimal (lecture + écriture RGBA, sans dépendance) -------- */
+/* ---------- PNG (pngjs, comme les autres scripts) : RGBA { w, h, rgba } ----
+   Un lecteur/écrivain écrit à la main vivait ici (audit 2026-10-05, SCRIPT-11) ;
+   pngjs rend les mêmes pixels et gère en plus l'entrelacé et les profondeurs ≠ 8. */
 function readPng(buf) {
-  let p = 8, w = 0, h = 0, bitDepth = 0, colorType = 0, pal = null, trns = null;
-  const idat = [];
-  while (p < buf.length) {
-    const len = buf.readUInt32BE(p);
-    const type = buf.toString('ascii', p + 4, p + 8);
-    const data = buf.subarray(p + 8, p + 8 + len);
-    if (type === 'IHDR') {
-      w = data.readUInt32BE(0); h = data.readUInt32BE(4);
-      bitDepth = data[8]; colorType = data[9];
-      if (data[12] !== 0) throw new Error('PNG entrelacé non géré');
-    } else if (type === 'PLTE') pal = data;
-    else if (type === 'tRNS') trns = data;
-    else if (type === 'IDAT') idat.push(data);
-    else if (type === 'IEND') break;
-    p += 12 + len;
-  }
-  if (bitDepth !== 8) throw new Error('profondeur ' + bitDepth + ' non gérée');
-  const raw = zlib.inflateSync(Buffer.concat(idat));
-  const ch = { 0: 1, 2: 3, 3: 1, 4: 2, 6: 4 }[colorType];
-  if (!ch) throw new Error('colorType ' + colorType + ' non géré');
-  const stride = w * ch;
-  const px = Buffer.alloc(h * stride);
-  let o = 0;
-  for (let y = 0; y < h; y++) {
-    const f = raw[o++];
-    const line = raw.subarray(o, o + stride); o += stride;
-    const prev = y ? px.subarray((y - 1) * stride, y * stride) : Buffer.alloc(stride);
-    const cur = px.subarray(y * stride, (y + 1) * stride);
-    for (let i = 0; i < stride; i++) {
-      const a = i >= ch ? cur[i - ch] : 0, b = prev[i], c = i >= ch ? prev[i - ch] : 0;
-      let v = line[i];
-      if (f === 1) v += a; else if (f === 2) v += b; else if (f === 3) v += (a + b) >> 1;
-      else if (f === 4) { const pp = a + b - c, pa = Math.abs(pp - a), pb = Math.abs(pp - b), pc = Math.abs(pp - c); v += (pa <= pb && pa <= pc) ? a : (pb <= pc ? b : c); }
-      cur[i] = v & 255;
-    }
-  }
-  // → RGBA
-  const rgba = Buffer.alloc(w * h * 4);
-  for (let i = 0, n = w * h; i < n; i++) {
-    let r, g, b, a = 255;
-    if (colorType === 6) { r = px[i * 4]; g = px[i * 4 + 1]; b = px[i * 4 + 2]; a = px[i * 4 + 3]; }
-    else if (colorType === 2) { r = px[i * 3]; g = px[i * 3 + 1]; b = px[i * 3 + 2]; }
-    else if (colorType === 3) { const ix = px[i]; r = pal[ix * 3]; g = pal[ix * 3 + 1]; b = pal[ix * 3 + 2]; if (trns && ix < trns.length) a = trns[ix]; }
-    else if (colorType === 0) { r = g = b = px[i]; }
-    else { r = g = b = px[i * 2]; a = px[i * 2 + 1]; }
-    rgba[i * 4] = r; rgba[i * 4 + 1] = g; rgba[i * 4 + 2] = b; rgba[i * 4 + 3] = a;
-  }
-  return { w, h, rgba };
+  const p = PNG.sync.read(buf);
+  return { w: p.width, h: p.height, rgba: p.data };
 }
 
 function writePng(w, h, rgba) {
-  const stride = w * 4;
-  const raw = Buffer.alloc(h * (stride + 1));
-  for (let y = 0; y < h; y++) {
-    raw[y * (stride + 1)] = 0;
-    rgba.copy(raw, y * (stride + 1) + 1, y * stride, (y + 1) * stride);
-  }
-  const chunk = (type, data) => {
-    const b = Buffer.alloc(8 + data.length + 4);
-    b.writeUInt32BE(data.length, 0); b.write(type, 4, 'ascii');
-    data.copy(b, 8); b.writeUInt32BE(crc(Buffer.concat([Buffer.from(type, 'ascii'), data])), 8 + data.length);
-    return b;
-  };
-  let tbl = null;
-  function crc(buf) {
-    if (!tbl) { tbl = new Int32Array(256); for (let n = 0; n < 256; n++) { let c = n; for (let k = 0; k < 8; k++) c = c & 1 ? 0xedb88320 ^ (c >>> 1) : c >>> 1; tbl[n] = c; } }
-    let c = -1; for (const v of buf) c = tbl[(c ^ v) & 255] ^ (c >>> 8); return (c ^ -1) >>> 0;
-  }
-  const ihdr = Buffer.alloc(13);
-  ihdr.writeUInt32BE(w, 0); ihdr.writeUInt32BE(h, 4);
-  ihdr[8] = 8; ihdr[9] = 6;
-  return Buffer.concat([
-    Buffer.from([137, 80, 78, 71, 13, 10, 26, 10]),
-    chunk('IHDR', ihdr), chunk('IDAT', zlib.deflateSync(raw, { level: 9 })), chunk('IEND', Buffer.alloc(0))
-  ]);
+  const p = new PNG({ width: w, height: h });
+  rgba.copy(p.data);
+  return PNG.sync.write(p);
 }
 
 const hex = (r, g, b) => '#' + [r, g, b].map(v => v.toString(16).padStart(2, '0')).join('').toUpperCase();
@@ -163,15 +102,18 @@ function rampMap(img, to, ancre) {
   return map;
 }
 
+// Seuls les sprites que lit le CSS (chrome-wizard.css, conseil, lieux, échoppe…) :
+// card-on, gauge-fill et les variantes or de button-sm, segment et card ont été
+// retirés de public/ comme orphelins (audit 2026-10-05, ASSET-3) — les réécrire
+// les remettrait dans le build.
 const PICKS = [
   ['Button08a', 'button'],   // plaque d'action : cuir embossé + socle, coins coupés
   ['Button01a', 'button-sm'],// utilitaire
   ['Frame04a',  'segment'],  // segment / onglet
   ['Slot01a',   'card'],     // carte, rangée d'achat
-  ['Slot01b',   'card-on'],  // carte retenue
   ['Bar01a',    'gauge'],    // piste de jauge
-  ['Fill01a',   'gauge-fill']
 ];
+const GOLD = new Set(['button']);   // déclinaison or (button-gold.png)
 
 if (!existsSync(SRC)) { console.error('Pack introuvable :', SRC); process.exit(1); }
 mkdirSync(OUT, { recursive: true });
@@ -181,7 +123,7 @@ for (const [src, name] of PICKS) {
   const img = readPng(readFileSync(join(SRC, `UI_WizardBook_${src}.png`)));
   writeFileSync(join(OUT, `${name}.png`), writePng(img.w, img.h, img.rgba));
   manifest.push(`${name}.png        ${img.w}x${img.h}   <- ${src}`);
-  if (name === 'button' || name === 'button-sm' || name === 'segment' || name === 'card') {
+  if (GOLD.has(name)) {
     const gold = remap(img, rampMap(img, OR, OR_ANCRE));
     writeFileSync(join(OUT, `${name}-gold.png`), writePng(gold.w, gold.h, gold.rgba));
     manifest.push(`${name}-gold.png   ${img.w}x${img.h}   (remap or)`);

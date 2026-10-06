@@ -127,7 +127,6 @@
   padding: 0.5rem 0.85rem;
   text-align: left;
   border: 1px solid rgba(var(--era-rgb), 0.22);
-  border-radius: 0;
   clip-path: polygon(
     0 3px, 3px 3px, 3px 0,
     calc(100% - 3px) 0, calc(100% - 3px) 3px, 100% 3px,
@@ -162,7 +161,6 @@
   min-width: 1.15rem;
   padding: 0 0.28rem;
   border: 1px solid color-mix(in srgb, var(--gold), transparent 45%);
-  border-radius: 0;
   background: color-mix(in srgb, var(--gold), transparent 78%);
   color: var(--gold-bright);
   font-family: var(--font-number);
@@ -252,7 +250,6 @@
   align-items: center;
   justify-content: center;
   gap: 0.4rem;
-  border-radius: 0;
   border-color: rgba(var(--era-rgb), 0.2);
   clip-path: polygon(
     0 2px, 2px 2px, 2px 0,
@@ -290,7 +287,6 @@
   gap: 0.65rem;
   padding: 0.75rem 0.8rem;
   border: 1px solid rgba(var(--era-rgb), 0.24);
-  border-radius: 0;
   clip-path: polygon(
     0 3px, 3px 3px, 3px 0,
     calc(100% - 3px) 0, calc(100% - 3px) 3px, 100% 3px,
@@ -364,7 +360,6 @@
   height: 7px;
   overflow: hidden;
   border: 1px solid rgba(0, 0, 0, 0.55);
-  border-radius: 0;
   background: var(--bg-inset);
   box-shadow: 0 1px 0 rgba(255, 255, 255, 0.05), inset 0 1px 2px rgba(0, 0, 0, 0.5);
 }
@@ -373,7 +368,6 @@
   position: relative;
   display: block;
   height: 100%;
-  border-radius: 0;
   transition: width 0.4s ease;
   box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.28);
 }
@@ -668,7 +662,7 @@
   gap: 0.3rem 0.4rem;
   margin-top: 0.15rem;
   padding-top: 0.4rem;
-  border-top: 1px solid var(--frame-line, rgba(140, 120, 80, 0.22));
+  border-top: 1px solid var(--frame-line);
 }
 
 .csp-idle-label {
@@ -714,7 +708,7 @@
 .csp-clepsydre {
   margin-top: 0.4rem;
   padding-top: 0.4rem;
-  border-top: 1px solid var(--frame-line, rgba(140, 120, 80, 0.22));
+  border-top: 1px solid var(--frame-line);
 }
 
 .csp-clepsydre-head {
@@ -740,7 +734,6 @@
   color: var(--gold-ivory);
   background: rgba(120, 170, 200, 0.14);
   border: 1px solid rgba(150, 195, 220, 0.42);
-  border-radius: 0;
   cursor: pointer;
 }
 
@@ -821,7 +814,6 @@
   gap: 0.16rem;
   background: rgba(20, 17, 14, 0.98);
   border: 1px solid rgba(210, 180, 110, 0.45);
-  border-radius: 0;
   box-shadow: 0 6px 18px rgba(0, 0, 0, 0.55);
 }
 
@@ -840,7 +832,6 @@
   color: inherit;
   background: rgba(200, 170, 90, 0.1);
   border: 1px solid rgba(210, 180, 110, 0.3);
-  border-radius: 0;
   cursor: pointer;
 }
 .csp-vow-option:hover {
@@ -872,7 +863,6 @@
   height: 2px;
   margin-top: 0.14rem;
   background: rgba(255, 255, 255, 0.09);
-  border-radius: 0;
   overflow: hidden;
 }
 .csp-vow-bar-fill {
@@ -892,25 +882,6 @@
   .city-status-panel .csp-clepsydre-pour { font-size: 0.6875rem; }
 }
 
-
-/* Rappel des SCEAUX PRETS (B9) : le plateau vit dans un autre onglet, un sceau
-   pouvait dormir des heures. Doré et non rouge — c'est une invitation. */
-.csp-seals {
-  margin-top: 0.4rem;
-  padding: 0.22rem 0.4rem;
-  border: 1px solid color-mix(in srgb, var(--gold), transparent 55%);
-  border-radius: 0;
-  background: color-mix(in srgb, var(--gold), transparent 82%);
-  color: var(--gold-bright);
-  font-size: 0.6875rem;
-  letter-spacing: 0.04em;
-  text-align: center;
-}
-
-@media (max-width: 1500px) {
-  /* Gouttiere etroite : le compte suffit, le titre porte la phrase. */
-  .city-status-panel .csp-seals { font-size: 0.6875rem; padding: 0.18rem 0.15rem; }
-}
 
 /* Pastille de SAUVEGARDE (C10) : l'information n'existait nulle part sans
    cliquer. Discrete par defaut, insistante quand la sauvegarde echoue — ce

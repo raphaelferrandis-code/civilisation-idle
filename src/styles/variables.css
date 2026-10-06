@@ -69,7 +69,6 @@
 
   /* ----- Fonds ----- */
   --bg: var(--surface-app);
-  --bg-main: var(--surface-app);
   --ink: #080A12;                /* ombre la plus profonde, sous --surface-app */
   --bg-panel: var(--surface-panel);
   --bg-card: var(--surface-card);
@@ -81,12 +80,14 @@
   /* ----- Bordures ----- */
   --line: var(--border);
   --border-soft: rgba(255, 255, 255, 0.08);
-  --border-strong: rgba(255, 255, 255, 0.16);
   --panel-border: rgba(255, 255, 255, 0.08);
+  /* Filet bronze qui sépare deux blocs d'un même cadre (réserve, clepsydre,
+     rapport d'absence). Lu depuis longtemps, jamais défini : c'était la valeur
+     de repli des lecteurs qui s'appliquait — la voici nommée (STRUCT-14). */
+  --frame-line: rgba(140, 120, 80, 0.22);
 
   /* ----- Textes ----- */
   --text: var(--text-strong);
-  --text-main: var(--text-strong);
   --text-secondary: #C4CCDD;
   --muted: var(--text-mid);
   --text-muted: var(--text-mid);
@@ -100,11 +101,9 @@
   --gold-ivory: var(--brand-gold-ivory);
   --gold-dim: var(--brand-gold-dim);
   --accent-gold: var(--brand-gold);
-  --accent-gold-bright: var(--brand-gold-bright);
 
   /* ----- Couleurs fonctionnelles ----- */
   --green: var(--res-food);             /* flux positifs / résilience */
-  --blue: var(--res-knowledge);         /* savoir / mémoire */
   --red: var(--state-rupture);          /* crise / rupture / irréversible */
   --violet: var(--state-usure);         /* usure (plus jamais l'infrastructure) */
   --orange: #E8943A;                    /* achat / alerte douce */
@@ -182,27 +181,22 @@
   --font-small: "Inter", system-ui, sans-serif;
 
   /* Échelle (plancher absolu : 11px / 0.6875rem) */
-  --fs-h1: 1.75rem;
-  --fs-h2: 1.25rem;
   --fs-h3: 0.9375rem;
-  --fs-value: 1.375rem;
-  --fs-body: 0.875rem;
   --fs-cost: 0.8125rem;
   --fs-label: 0.6875rem;
   --fs-tiny: 0.6875rem;
 
-  /* ----- Rayons -----
-     TOUS À ZÉRO depuis la refonte d'identité des boutons (2026-07-31,
-     docs/AUDIT-BOUTONS-IDENTITE.md). Le jeu ne connaît plus le coin arrondi :
+  /* ----- Rayons : AUCUN -----
+     Depuis la refonte d'identité des boutons (2026-07-31,
+     docs/AUDIT-BOUTONS-IDENTITE.md), le jeu ne connaît plus le coin arrondi :
      l'affordance passe par la SILHOUETTE CRANTÉE (cranté = ça se clique, angle
      vif = ça s'affiche), pas par un rayon. L'audit avait relevé 15 valeurs de
      rayon différentes dans le dépôt et 256 déclarations : le coin arrondi ne
      signifiait plus rien.
-     ⚠ Les noms sont CONSERVÉS, pas supprimés : une centaine de règles les
-     nomment encore, et les garder à 0 évite un renommage massif pour rien.
-     Y toucher rouvrirait le look générique sur tout le jeu d'un coup. */
-  --r-panel: 0;
-  --r-card: 0;
-  --r-tiny: 0;
-  --r-pill: 0;
+     Le rayon vaut 0 par défaut : ne l'écrire que là où il écrase quelque chose
+     (règles d'élément `button`, `dialog`, champs de formulaire). Les seules
+     formes rondes voulues sont des médaillons et des halos (50 %), plus la bulle
+     de l'arbre des Ruines (8 px). Les jetons --r-panel/--r-card/--r-tiny/--r-pill
+     (tous à 0, que plus aucune règle ne lisait) et ~180 `border-radius: 0` qui
+     n'écrasaient rien ont été retirés (audit 2026-10-05, STRUCT-14). */
 }

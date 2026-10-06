@@ -200,13 +200,8 @@ h1 {
 .resource-value,
 .rate-value,
 .rate-value strong,
-.gauge-meta strong,
-.gauge-mood-text,
 .chip,
-.sg-pct,
-.era-progress-percentage,
-.auto-collapse-countdown,
-.prestige-stats strong {
+.sg-pct {
   font-variant-numeric: tabular-nums;
 }
 
@@ -231,7 +226,6 @@ h1 {
 
 .panel {
   border: 1px solid var(--line);
-  border-radius: 0;
   background: var(--panel);
   backdrop-filter: blur(16px);
   -webkit-backdrop-filter: blur(16px);
@@ -242,20 +236,6 @@ h1 {
 }
 
 /* (CSS mort purgé : .era-card sidebar) */
-
-/* Colonne droite de la vue Cité */
-
-
-.city-right-col {
-  display: flex;
-  flex-direction: column;
-  gap: 1rem;
-  min-width: 0;
-}
-
-.city-right-col .villager-feed {
-  margin-bottom: 0;
-}
 
 /* (CSS mort purgé : .era-card-city) */
 
@@ -282,11 +262,6 @@ main {
   padding: var(--main-pad);
 }
 
-@keyframes message-bump {
-  0% { opacity: 0; transform: translateY(4px); }
-  100% { opacity: 1; transform: translateY(0); }
-}
-
 .panel {
   min-width: 0;
   /* Densité (E4) : le rembourrage des panneaux suit le cran. Seul l'espace
@@ -309,7 +284,6 @@ main {
   padding: 0.8rem 1rem 0.65rem;
   background: linear-gradient(180deg, rgba(var(--era-rgb), 0.08), rgba(var(--era-rgb), 0.015) 80%, transparent);
   border-bottom: 2px solid rgba(var(--era-rgb), 0.3);
-  border-radius: 0;
 }
 
 .panel-heading h2 {
@@ -330,7 +304,6 @@ main {
   display: inline-block;
   width: 2px;
   height: 0.7em;
-  border-radius: 0;
   background: var(--gold);
   opacity: 0.65;
 }
@@ -359,10 +332,6 @@ main {
 
 /* (CSS mort purgé : .city-pop-card / .city-pressure-card / .city-dashboard / city-prod-*) */
 
-.counter-bump {
-  animation: counter-bump 260ms ease-out;
-}
-
 @keyframes counter-bump {
   0% { transform: translateY(0); filter: brightness(1); }
   45% { transform: translateY(-1px); filter: brightness(1.24); }
@@ -372,107 +341,20 @@ main {
 /* (CSS mort purgé : .city-health-grid / .health-* / .state-list / .state-row /
    .crisis-list / .chronicle-preview / .crisis-summary / .terminal-crisis-panel / .collapse-card) */
 
-@keyframes milestone-flash {
-  0% {
-    border-color: var(--gold-ivory);
-    box-shadow: 0 0 0 rgba(var(--era-rgb), 0);
-    filter: brightness(1);
-  }
-
-  28% {
-    border-color: var(--gold-ivory);
-    box-shadow: 0 0 26px rgba(var(--era-rgb), 0.34);
-    filter: brightness(1.18);
-  }
-
-  100% {
-    box-shadow: 0 0 0 rgba(var(--era-rgb), 0);
-    filter: brightness(1);
-  }
-}
-
-.level-chip {
-  flex: 0 0 auto;
-}
-
-.work-bar span {
-  position: relative;
-  display: block;
-  width: var(--work-fill, 0%);
-  height: 100%;
-  overflow: hidden;
-  border-radius: 0;
-  background: linear-gradient(90deg, #7c7a30 0%, var(--green) 55%, #c4b84a 100%);
-  box-shadow: none;
-  transition: width 200ms ease, box-shadow 200ms ease;
-}
-
-.work-bar span::after {
-  content: "";
-  position: absolute;
-  inset: 0;
-  width: 35%;
-  background: linear-gradient(90deg, transparent, rgba(255, 252, 220, 0.85), transparent);
-  opacity: 0;
-  transform: translateX(-120%);
-}
-
-.active-machine .work-bar span {
-  background: linear-gradient(90deg, #8c8a3a 0%, #c2c06a 40%, var(--gold) 100%);
-  box-shadow: 0 0 6px rgba(130, 212, 120, 0.35), 0 0 14px rgba(226, 196, 80, 0.18);
-}
-
-.active-machine .work-bar span::after {
-  opacity: 1;
-  animation: machine-work var(--work-duration, 3.6s) linear infinite;
-}
-
-@keyframes machine-work {
-  from { transform: translateX(-120%); }
-  to { transform: translateX(260%); }
-}
-
-.active-machine:hover .work-bar span::after,
-.active-machine:focus-within .work-bar span::after {
-  animation-duration: 6s;
-}
-
-@keyframes machine-pulse {
-  0%, 100% { box-shadow: inset 0 1px 0 var(--shine); }
-  50% { box-shadow: inset 0 1px 0 var(--shine), 0 0 0 1px rgba(130, 212, 120, 0.12), 0 2px 12px rgba(130, 212, 120, 0.08); }
-}
-
-.upgrade .effect-line {
-  margin-top: 0.35rem;
-  color: var(--gold-ivory);
-  font-weight: 700;
-}
-
 
 .chip {
   padding: 0.18rem 0.5rem;
   border: 1px solid rgba(255,255,255,0.09);
-  border-radius: 0;
   background: rgba(255,255,255,0.05);
   color: #d9d0b8;
   font-size: 0.74rem;
   line-height: 1.5;
 }
 
-.output-chip {
-  color: var(--gold-ivory);
-}
-
 .body-copy {
   max-width: 58rem;
   margin-bottom: 1rem;
   line-height: 1.5;
-}
-
-.upgrade-grid {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 0.75rem;
 }
 
 .upgrade.bought {
@@ -513,7 +395,6 @@ main {
   align-items: flex-start;
   padding: 0.75rem;
   border: 1px solid var(--line);
-  border-radius: 0;
   background: rgba(255, 255, 255, 0.035);
   cursor: pointer;
 }
@@ -584,18 +465,8 @@ menu {
   /* minmax(0, 1fr) et non 1fr : sinon le min-content des enfants nowrap
      (ticker, titres) déborde de la colonne (Audit UI Phase 6) */
   .topbar,
-  .view.active,
-  .upgrade-grid,
-  .crisis-outcomes {
+  .view.active {
     grid-template-columns: minmax(0, 1fr);
-  }
-
-  .city-production-strip {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-  }
-
-  .prestige-stats {
-    grid-template-columns: repeat(2, 1fr);
   }
 }
 
@@ -610,7 +481,6 @@ menu {
   }
 
   .panel-heading,
-  .shop-item,
   .upgrade {
     grid-template-columns: 1fr;
     align-items: stretch;
@@ -621,100 +491,9 @@ menu {
   }
 
   .panel-heading button,
-  .shop-item button,
   .upgrade button {
     width: 100%;
   }
-
-  .city-production-strip,
-  .prestige-stats {
-    grid-template-columns: 1fr;
-  }
-}
-
-/* Progress bars in branch headings */
-
-
-.branch-progress {
-  display: flex;
-  align-items: center;
-  gap: 0.5rem;
-  margin-top: 0.5rem;
-}
-
-.branch-progress-bar {
-  flex: 1;
-  height: 4px;
-  background: rgba(255, 255, 255, 0.08);
-  border-radius: 0;
-  overflow: hidden;
-}
-
-.branch-progress-bar span {
-  display: block;
-  height: 100%;
-  border-radius: 0;
-  transition: width 0.4s ease;
-}
-
-.branch-progress-bar.resilience span { background: rgba(125, 187, 114, 0.65); }
-
-.branch-progress-bar.prosperity span { background: rgba(var(--era-rgb), 0.65); }
-
-.branch-progress-bar.knowledge span  { background: rgba(115, 166, 200, 0.65); }
-
-.branch-progress-bar.rupture span    { background: rgba(200, 100, 100, 0.65); }
-
-.branch-progress-label {
-  font-size: 0.72rem;
-  color: var(--muted);
-  white-space: nowrap;
-}
-
-@keyframes crisis-alert-in {
-  from { opacity: 0; transform: translateY(-6px); }
-  to   { opacity: 1; transform: translateY(0); }
-}
-
-.crisis-alert-body strong {
-  display: block;
-  margin-bottom: 0.25rem;
-  color: #f0a090;
-  font-size: 1rem;
-}
-
-.crisis-alert-body p {
-  margin: 0;
-  color: var(--muted);
-  font-size: 0.84rem;
-  line-height: 1.45;
-}
-
-/* Preview ruines dans la carte effondrement */
-
-
-.collapse-preview {
-  display: flex;
-  gap: 0.75rem;
-  margin: 0.4rem 0 0.65rem;
-  padding: 0.45rem 0.6rem;
-  border-radius: 0;
-  background: rgba(215, 109, 86, 0.08);
-  font-size: 0.78rem;
-  color: #e09080;
-  font-weight: 700;
-}
-
-.auto-collapse-countdown {
-  display: block;
-  margin-top: 0.5rem;
-  padding: 0.35rem 0.7rem;
-  border: 1px solid rgba(200, 100, 100, 0.5);
-  border-radius: 0;
-  color: #e08080;
-  background: rgba(200, 100, 100, 0.08);
-  font-size: 0.85rem;
-  font-variant-numeric: tabular-nums;
 }
 
 /* Vignette sombre sur les bords */
@@ -736,44 +515,15 @@ body::before {
 .chip {
   background: rgba(255, 255, 255, 0.05);
   border: 1px solid rgba(255, 255, 255, 0.1);
-  border-radius: 0;
   color: var(--muted);
   font-family: var(--font-body);
   font-size: 0.76rem;
   padding: 0.15rem 0.45rem;
 }
 
-.output-chip { color: var(--gold-bright); }
-
-
-
-@keyframes ancient-bar-shine {
-  0%   { transform: translateX(-160%); }
-  55%  { transform: translateX(320%); }
-  100% { transform: translateX(320%); }
-}
-
 .panel-heading { border-bottom-color: rgba(var(--era-rgb), 0.3); }
 
 .panel-heading .label::before { background: var(--gold); }
-
-@keyframes flame-flicker {
-  0%, 100% { transform: scaleY(0.9) scaleX(1.02); opacity: 0.85; }
-  50%      { transform: scaleY(1.16) scaleX(0.9); opacity: 1; }
-}
-
-@keyframes smoke-rise {
-  0%   { transform: translateY(0) scale(0.5); opacity: 0; }
-  18%  { opacity: 0.55; }
-  100% { transform: translateY(-72px) scale(1.9); opacity: 0; }
-}
-
-@keyframes cz-walk {
-  0%   { transform: translateX(-3px); }
-  100% { transform: translateX(3px); }
-}
-
-@keyframes win-glow { 0%, 100% { opacity: 0.9; } 50% { opacity: 0.5; } }
 
 
 /* ============================================================================
@@ -788,24 +538,8 @@ body::before {
   min-width: 0;
 }
 
-.city-left-col .city-header-panel {
-  order: -1;
-}
-
-.city-left-col .era-progress-panel {
-  order: 1;
-}
-
-.city-left-col .unified-resource-grid {
-  order: 2;
-}
-
 .city-left-col .city-map-container {
   order: 3;
-}
-
-.city-left-col .exhume-btn-redesigned {
-  order: 4;
 }
 
 /* (Plus d'`order` pour .atrides-debt-panel / .enee-panel : ces panneaux d'action
@@ -813,10 +547,6 @@ body::before {
    restes de l'ancienne colonne les y envoyaient EN DERNIER, sous les cartes de
    statut — MIGRER et Rembourser finissaient hors de l'écran, audit du 05/10,
    BUG-19. L'ordre du JSX fait foi : actions d'abord.) */
-
-.city-left-col .active-myths-panel {
-  order: 7;
-}
 
 /* Sur mobile : la vue Cite repasse en une colonne (etat puis construction). */
 
@@ -876,7 +606,6 @@ body::before {
   align-items: center;
   gap: 0.55rem;
   padding: 0.4rem 0.6rem;
-  border-radius: 0;
   border: 1px solid rgba(var(--era-rgb), 0.18);
   cursor: pointer;
   transition: background 0.15s;
@@ -885,11 +614,6 @@ body::before {
 .babel-cat-option:hover { background: rgba(var(--era-rgb), 0.09); }
 
 .babel-cat-option input[type="radio"] { accent-color: var(--gold); flex-shrink: 0; }
-
-@keyframes surchauffeGlow {
-  0%, 100% { box-shadow: 0 0 14px rgba(194, 96, 58, 0.25); }
-  50%       { box-shadow: 0 0 28px rgba(194, 96, 58, 0.55); }
-}
 
 .options-tabs {
   display: grid;
@@ -901,7 +625,6 @@ body::before {
 .options-tab {
   min-height: 2.25rem;
   padding: 0 0.7rem;
-  border-radius: 0;
   color: var(--muted);
   font-size: 0.85rem;
 }
@@ -918,7 +641,6 @@ body::before {
   gap: 0;
   margin: 1rem 0;
   border: 1px solid var(--border);
-  border-radius: 0;
   /* HAUTEUR FIXE, et non un simple plancher. Les Options sont devenues une
      fenêtre centrale du jeu : elle ne doit plus changer de taille d'un onglet
      à l'autre. « Son » tient en trois lignes, « Affichage » en douze — sans
@@ -990,7 +712,6 @@ body::before {
   display: inline-block;
   min-width: 2.4rem;
   padding: 0.35rem 0.7rem;
-  border-radius: 0;
   border: 1px solid color-mix(in srgb, var(--gold), transparent 55%);
   background: rgba(0, 0, 0, 0.28);
   color: var(--gold-ivory);
@@ -1031,7 +752,6 @@ body::before {
 .format-option {
   min-height: 2.25rem;
   padding: 0 0.7rem;
-  border-radius: 0;
   color: var(--muted);
   font-size: 0.85rem;
 }

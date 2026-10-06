@@ -32,6 +32,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { execSync } from 'node:child_process';
 import { PNG } from 'pngjs';
+import { hash, tongueMask, flameDepth, flameTop, flameRampIndex } from './lib/fire.mjs';
 
 // Dernier commit où les statiques sont les sprites d'ORIGINE (avant ce script).
 const SOURCE_REV = 'af920cd1';
@@ -40,7 +41,14 @@ const ANIM = path.join(DIR, 'anim');
 const ZONE = path.join(ANIM, 'zone');
 const SHEET = '.preview-shots/braseros.png';
 const DRY = process.argv.includes('--dry');
-const ONLY = (() => { const i = process.argv.indexOf('--ere'); return i > 0 ? process.argv[i + 1] : null; })();
+const ONLY = (() => {
+  const i = process.argv.indexOf('--ere');
+  if (i < 0) return null;
+  const v = process.argv[i + 1];
+  // `--ere` sans valeur : refuser plutôt que tout réécrire (même garde que sceneLive --cle).
+  if (!v || v.startsWith('--')) { console.error('--ere attend une ère : --ere antique'); process.exit(1); }
+  return v;
+})();
 
 const RAMP = JSON.parse(fs.readFileSync('public/pixelart/fire-ramp.json', 'utf8')).steps
   .map((s) => [parseInt(s.hex.slice(1, 3), 16), parseInt(s.hex.slice(3, 5), 16), parseInt(s.hex.slice(5, 7), 16)]);
@@ -93,55 +101,10 @@ const RECIPES = {
 };
 
 // ── Une flamme de langues à l'instant u ∈ [0,1) (boucle) ───────────────────
-function flameMask(R, u, W, H) {
-  const m = new Uint8Array(W * H);
-  const th = u * Math.PI * 2;
-  for (const t of R.tongues) {
-    const hh = t.h * (1 + 0.16 * Math.sin(th + t.ph) + 0.07 * Math.sin(2 * th + 1.7 * t.ph));
-    const sway = 1.1 * Math.sin(th + t.ph + 1.3);
-    for (let y = R.top; y <= R.base; y += 1) {
-      const k = (R.base + 0.5 - (y + 0.5)) / hh;     // 0 au pied → 1 à la pointe
-      if (k < 0 || k > 1) continue;
-      const xc = R.cx + t.dx + sway * k * k;
-      const hw = t.w * Math.pow(1 - k, 0.75) + 0.2;
-      for (let x = 0; x < W; x += 1) if (Math.abs(x + 0.5 - xc) <= hw) m[y * W + x] = 1;
-    }
-  }
-  return m;
-}
-
-// Profondeur (érosion 4-voisins). Le pied de la flamme sort des braises : le
-// voisin du DESSOUS n'est jamais « dehors », sinon le pied virerait au rouge.
-function depthOf(m, W, H, base) {
-  const d = new Uint8Array(W * H);
-  for (let i = 0; i < m.length; i += 1) d[i] = m[i] ? 1 : 0;
-  for (let pass = 1; pass < 4; pass += 1) {
-    const prev = d.slice();
-    for (let y = 0; y < H; y += 1) for (let x = 0; x < W; x += 1) {
-      const i = y * W + x;
-      if (prev[i] < pass) continue;
-      const at = (xx, yy) => (yy > base ? pass : (xx < 0 || xx >= W || yy < 0) ? 0 : prev[yy * W + xx]);
-      if (at(x - 1, y) >= pass && at(x + 1, y) >= pass && at(x, y - 1) >= pass && at(x, y + 1) >= pass) d[i] = pass + 1;
-    }
-  }
-  return d;
-}
-
-function flameColor(depth, k, core) {
-  // k : hauteur relative dans la flamme (0 pied → 1 sommet) ; core : le pixel est
-  // dans l'axe (le cœur blanc reste un point, pas une nappe sur toute la bouche).
-  if (depth <= 1) return k > 0.62 ? 2 : k > 0.3 ? 3 : 4;
-  if (depth === 2) return k > 0.55 ? 4 : 5;
-  if (depth === 3) return k > 0.4 ? 5 : 6;
-  return k > 0.3 ? 6 : core ? 7 : 6;
-}
-
-// Hash entier déterministe (pas de Math.random : relancer = mêmes PNG).
-const hash = (a, b, c) => {
-  let h = (a * 374761393 + b * 668265263 + c * 2147483647) | 0;
-  h = Math.imul(h ^ (h >>> 13), 1274126177);
-  return ((h ^ (h >>> 16)) >>> 0) / 4294967296;
-};
+// Le dessin (langues, profondeur par érosion, couleur par profondeur, hash) vit
+// dans scripts/lib/fire.mjs, partagé avec les feux peints de sceneLive.mjs. Ici :
+// souffle ±16 %, balancement de 1,1 px.
+const flameMask = (R, u, W, H) => tongueMask(W, H, R.tongues, { cx: R.cx, base: R.base, top: R.top, breath: 0.16, sway: 1.1 }, u);
 
 function fireFrame(R, src, u, fi) {
   const { width: W, height: H } = src;
@@ -165,13 +128,12 @@ function fireFrame(R, src, u, fi) {
   }
   // 2-3. Flamme colorée par profondeur.
   const m = flameMask(R, u, W, H);
-  const d = depthOf(m, W, H, R.base);
-  let yTop = R.base;
-  for (let y = 0; y < H && yTop === R.base; y += 1) for (let x = 0; x < W; x += 1) if (m[y * W + x]) { yTop = y; break; }
+  const d = flameDepth(m, W, H, R.base);
+  const yTop = flameTop(m, W, R.base);
   const span = Math.max(1, R.base - yTop);
   for (let y = 0; y < H; y += 1) for (let x = 0; x < W; x += 1) {
     if (!m[y * W + x]) continue;
-    put((y * W + x) * 4, RAMP[flameColor(d[y * W + x], (R.base - y) / span, Math.abs(x + 0.5 - R.cx) <= R.whiteW)]);
+    put((y * W + x) * 4, RAMP[flameRampIndex(d[y * W + x], (R.base - y) / span, Math.abs(x + 0.5 - R.cx) <= R.whiteW)]);
   }
   // Étincelles : un pixel qui monte au-dessus des langues et s'éteint en trois
   // temps (or → orange → rouge). Phase propre à chacune, bouclée sur N.

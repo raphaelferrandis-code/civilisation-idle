@@ -29,8 +29,8 @@ import Monte from './Monte.jsx';
 import { usePlaisirsBand, icarusSkyCss, icarusFlyer } from './plaisirsMaterial.js';
 
 /**
- * Le Vol d'Icare — SCÈNE INTÉGRÉE (ex-IcarusDialog, dé-modalisée 2026-07-14 :
- * le jeu se joue dans la scène en bas de la page Régulation). Le moteur
+ * Le Vol d'Icare — SCÈNE INTÉGRÉE (dé-modalisée 2026-07-14 : le jeu se joue dans
+ * la scène des jeux, RegulationStage, sur la salle de la Maison des Plaisirs). Le moteur
  * (actions/icarus.js) reste autoritaire : rouvrir la scène PENDANT un vol le
  * REPREND en cours (le timer de chute n'a jamais cessé de courir).
  */

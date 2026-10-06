@@ -1,4 +1,5 @@
-// Bandes d'eau CALMES du fleuve (public/pixelart/water/river-tiles-calm*.png).
+// Bandes d'eau CALMES du fleuve de 16 px (river-tiles-calm*.png, sources des nappes
+// « -v2 » livrées — cf. waterSansEcailles.test.js).
 //
 // Retour Raph 2026-07-30 : « le fleuve est trop bruyant ». Mesuré sur la bande
 // du pack : 48,6 % des pixels changent à CHAQUE transition et PAS UN SEUL n'est
@@ -34,8 +35,13 @@ const RAMP = [                               // rampe ardoise du remap (bakeWate
   [44, 62, 72], [68, 92, 103], [92, 119, 130], [122, 150, 160], [158, 184, 192],
 ];
 
+// Les bandes de 16 px d'avant la nappe sans écailles (2026-10-02) ne sont plus
+// livrées : rangées comme source dans art/references-ab/eau-planches/ (audit du
+// 05/10, MORT-12). La bande du pack (river-tiles.png) reste dans public/.
+const WATER_DIRS = ["public/pixelart/water", "art/references-ab/eau-planches"];
 const load = (name) => {
-  const p = PNG.sync.read(fs.readFileSync(path.join(process.cwd(), "public/pixelart/water", name)));
+  const file = WATER_DIRS.map((d) => path.join(process.cwd(), d, name)).find((f) => fs.existsSync(f));
+  const p = PNG.sync.read(fs.readFileSync(file));
   const key = (x, y) => { const i = (y * p.width + x) * 4; return `${p.data[i]},${p.data[i + 1]},${p.data[i + 2]}`; };
   const rgbAt = (x, y) => { const i = (y * p.width + x) * 4; return [p.data[i], p.data[i + 1], p.data[i + 2]]; };
   return { png: p, key, rgbAt };

@@ -143,7 +143,6 @@ const FOYER_LABELS = {
   complexity: { fr: "Complexité", en: "Complexity" },
   dissent: { fr: "Dissidence", en: "Dissent" }
 };
-export const LEGACY_EFFECT_KEYS = LEGACY_EFFECT_LABELS.map(([key]) => key);
 
 // Valeur EFFECTIVE d'un effet multiplicatif du legs (1 = sans effet) : la
 // valeur d'affinité si la chute y correspond, puis « Épitaphes profondes »

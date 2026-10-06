@@ -4,7 +4,6 @@
 export const effects = {
   addProductionPenalty: () => {},
   chronicle: () => {},
-  clamp01: (v) => Math.max(0, Math.min(1, v)),
   state: null
 };
 export function registerWorldEffects(impl) { Object.assign(effects, impl); }

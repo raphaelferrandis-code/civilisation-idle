@@ -103,8 +103,7 @@ button,
 
 /* LA PLAQUE. Absolue, donc invisible pour la mise en page. */
 button::before,
-.app button::before,
-.app .icarus-banner-cta::before {
+.app button::before {
   content: "";
   position: absolute;
   inset: 0;
@@ -133,21 +132,9 @@ button::before,
   transition: filter 120ms linear;
 }
 
-/* `Jeter` / `Gratter` / `Jouer` / `Voler` sont des <span>, pas des boutons :
-   ce sont les libellés d'appel des bandeaux de mini-jeu. Ils ont donc besoin
-   d'être positionnés pour porter leur plaque. */
-.app .icarus-banner-cta {
-  position: relative;
-  isolation: isolate;
-  border: 0;
-  background: transparent;
-  color: var(--skin-cream);
-}
-
 /* Survol : la matière s'éclaire, elle ne lévite pas. */
 button:hover:not(:disabled)::before,
-.app button:hover:not(:disabled)::before,
-.app .augure-fresque:hover .icarus-banner-cta::before {
+.app button:hover:not(:disabled)::before {
   filter: brightness(1.18);
 }
 button:hover:not(:disabled) {
@@ -236,11 +223,7 @@ button:disabled::before,
 
 /* ── UTILITAIRES ET ART — sans plaque ───────────────────────────────────────
    `.btn-close` est LE RÔLE MANQUANT relevé par l'audit : « Fermer / Quitter »
-   revenait ONZE fois sans jamais avoir de nom.
-   ⛔ Les fresques des Augures (`.augure-fresque`, bandeaux 400×32 DESSINÉS) et
-   les bannières de mini-jeu sont de l'ART : une plaque par-dessus masquerait le
-   dessin. Elles réagissent au survol par la luminosité seule. */
-.app .btn-ghost::before,
+   revenait ONZE fois sans jamais avoir de nom. */
 .app .btn-close::before,
 .app .stage-close::before,
 .app .shop-collapse-toggle::before,
@@ -249,9 +232,6 @@ button:disabled::before,
 .app .idle-report-close::before,
 .app .rt-zoom-btn::before,
 .app .first-steps-head::before,
-.app .augure-fresque::before,
-.app .scratch-banner::before,
-.app .icarus-banner::before,
 .app .outcome-float::before {
   border-image: none;
   border-width: 0;
@@ -261,7 +241,6 @@ button:disabled::before,
    clignotement dans un en-tête qu'on survole sans arrêt (« quand j'hover la
    souris pour réduire la boutique ça illumine un cadre, faut pas »).
    Leur retour de survol passe par la couleur du chevron, gérée ailleurs. */
-.app .btn-ghost:hover:not(:disabled)::before,
 .app .btn-close:hover:not(:disabled)::before,
 .app .stage-close:hover:not(:disabled)::before,
 .app .stage-help:hover:not(:disabled)::before,
@@ -310,7 +289,6 @@ button:disabled::before,
 .app .compte-tab::before,
 .app .shop-subtab::before,
 .app .doctrine-seg-btn::before,
-.app .coffre-mult::before,
 .app .csp-vow-option::before,
 .app .csp-vow-trigger::before,
 .app .edict-tier::before,
@@ -325,7 +303,6 @@ button:disabled::before,
 .app .compte-tab:hover:not(.active):not(.is-active)::before,
 .app .shop-subtab:hover:not(.active)::before,
 .app .doctrine-seg-btn:hover:not(.active):not(.is-active)::before,
-.app .coffre-mult:hover:not(.is-chosen)::before,
 .app .stake-pick:hover:not(.active)::before,
 .app .edict-tier:hover:not(.active)::before {
   filter: brightness(0.85) saturate(0.85);
@@ -339,7 +316,6 @@ button:disabled::before,
 .app .shop-subtab.active::before,
 .app .doctrine-seg-btn.active::before,
 .app .doctrine-seg-btn.is-active::before,
-.app .coffre-mult.is-chosen::before,
 .app .stake-pick.active::before,
 .app .stake-pick.is-active::before,
 .app .edict-tier.active::before,
@@ -365,7 +341,6 @@ button:disabled::before,
 .app .shop-subtab.active,
 .app .doctrine-seg-btn.active,
 .app .doctrine-seg-btn.is-active,
-.app .coffre-mult.is-chosen,
 .app .stake-pick.active,
 .app .edict-tier.active {
   color: var(--skin-cream);
@@ -415,19 +390,15 @@ button:disabled::before,
    à décaler, et le remplissage doit être clippé par elle.
    ════════════════════════════════════════════════════════════════════════════ */
 .app .pr-step-track,
-.app .era-track,
 .app .gr-gauge,
 .app .rw-net-track,
 .app .rw-work-track,
-.app .work-bar,
-.app .branch-progress-bar,
 .app .compte-row-bar {
   min-height: 8px;
   border-style: solid;
   border-width: 3px 4px;
   border-color: transparent;
   border-image: url("/pixelart/ui/chrome/wizard/gauge.png") 3 4 fill stretch;
-  border-radius: 0;
   background: transparent;
   box-shadow: none;
   image-rendering: pixelated;
@@ -451,7 +422,6 @@ button:disabled::before,
   border-width: 48px 40px 42px 48px;
   border-color: transparent;
   border-image: var(--ui-greek-src) var(--ui-greek-slice) round;
-  border-radius: 0;
   image-rendering: pixelated;
 }
 @media (max-width: 720px) {
@@ -476,7 +446,6 @@ button:disabled::before,
   isolation: isolate;
   background: transparent;
   border: 0;
-  border-radius: 0;
   /* ⚠ DÉBORDEMENT DE TEXTE, mesuré en injectant une valeur longue
      (« Maîtrise du bois ») dans les 26 tuiles : la rangée était en
      `nowrap` + `space-between`, donc la VALEUR poussait et le LIBELLÉ
@@ -566,7 +535,6 @@ button:disabled::before,
 }
 /* Les jauges d'âge et d'usure : même chenal creux que les autres pistes. */
 .app .csp-bar {
-  border-radius: 0;
   background: var(--skin-ink);
   box-shadow: inset 0 1px 0 rgba(0, 0, 0, 0.5);
 }
@@ -617,9 +585,6 @@ button:disabled::before,
    On garde le SENS (positif / coût) et on descend la saturation vers la palette
    du jeu — même geste que sur les débits, mais ici les teintes sont écrites en
    dur dans `components.css`, un `filter` ne suffisait pas. */
-.app .effect-chip {
-  border-radius: 0;
-}
 .app .effect-chip.is-gain {
   color: #9CC08A;
   border-color: rgba(122, 148, 100, 0.4);
@@ -655,13 +620,10 @@ button:disabled::before,
 .app .annals-chip,
 .app .augury-chip,
 .app .effect-chip,
-.app .level-chip,
-.app .output-chip,
 .app .scratch-chip,
 .app .bj-chip,
 .app .icarus-crash-chip,
 .app .choice-badge,
-.app .milestone-badge,
 .app .chronicle-reg-badge,
 .app .pr-milestone-badge {
   display: inline-flex;
@@ -669,7 +631,6 @@ button:disabled::before,
   gap: 0.25rem;
   padding: 0.1rem 0.45rem;
   border: 1px solid color-mix(in srgb, var(--skin-ink), transparent 25%);
-  border-radius: 0;
   background: color-mix(in srgb, var(--skin-field), transparent 88%);
   box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.05);
   /* ⚠ `--font-small` (Inter) et pas la police pixel : sous 11 px il ne reste
@@ -685,7 +646,6 @@ button:disabled::before,
 /* ── VALEUR : un nombre. Les chiffres passent en chasse fixe pour que les
       colonnes ne dansent pas quand la valeur change. ─────────────────────── */
 .app .annals-chip,
-.app .output-chip,
 .app .scratch-chip,
 .app .bj-chip,
 .app .icarus-crash-chip,
@@ -696,9 +656,7 @@ button:disabled::before,
 /* ── ÉTAT : un mot. Un peu plus d'air, jamais de fond plein — un statut
       permanent ne doit pas crier (même raison que le Testament). ─────────── */
 .app .choice-badge,
-.app .milestone-badge,
-.app .pr-milestone-badge,
-.app .level-chip {
+.app .pr-milestone-badge {
   padding: 0.12rem 0.5rem;
   /* ⛔ `.level-chip` portait un DÉGRADÉ 3 couleurs (olive → vert → jaune) et
      `.milestone-badge` un dégradé d'or : deux aplats de plus dans une UI qui
@@ -712,7 +670,6 @@ button:disabled::before,
 .app .tab-badge,
 .app .hud-dock-badge {
   border: 2px solid #100a06;
-  border-radius: 0;
   background: var(--brand-gold);
   color: #140d06;
   font-family: var(--font-pixel);
@@ -745,8 +702,8 @@ button:disabled::before,
    dedans : la session Plaisirs les refait. Le COMPTE (pastille dorée sur un
    onglet) reste cranté : c'est une notification, pas une valeur. */
 :root .app :is(
-  .effect-chip, .annals-chip, .choice-badge, .milestone-badge,
-  .chronicle-reg-badge, .pr-milestone-badge, .level-chip, .output-chip, .gr-rung-reward,
+  .effect-chip, .annals-chip, .choice-badge,
+  .chronicle-reg-badge, .pr-milestone-badge, .gr-rung-reward,
   .era-timeline-now
 ) {
   padding: 0;
@@ -816,7 +773,6 @@ button:disabled::before,
      vide. Au bureau le conteneur est dimensionné au contenu : pas d'espace libre
      à distribuer, donc `grow` n'a aucun effet et le rendu est inchangé. */
   flex: 1 0 auto;
-  border-radius: 0;
   /* le filet de séparation, en ombre interne : zéro coût de mise en page */
   box-shadow: inset 1px 0 0 color-mix(in srgb, var(--skin-ink), transparent 45%);
 }
@@ -894,16 +850,9 @@ input[type="radio"] {
 /* ════════════════════════════════════════════════════════════════════════════
    5 · LES CONTENEURS — angle vif
    Si tout portait la matière, elle ne dirait plus rien.
+   Rien à écrire : aucun coin du jeu n'est arrondi (variables.css, « Rayons »),
+   un `border-radius: 0` ici n'écraserait rien (audit 2026-10-05, STRUCT-14).
    ════════════════════════════════════════════════════════════════════════════ */
-.app .panel,
-.app .hud-panel,
-.app .shop-panel,
-.app .purchase-row,
-.app .roadworks-panel,
-.app .tactical-card,
-.app .city-status-panel {
-  border-radius: 0;
-}
 
 /* ════════════════════════════════════════════════════════════════════════════
    6 · NEUTRALISATIONS
@@ -931,7 +880,6 @@ input[type="radio"] {
 .app .doctrine-seg-btn,
 .app .testament-seal,
 .app .stake-pick,
-.app .coffre-mult,
 .app[data-active-view="city"] .city-controls-panel .policy-btn,
 .app[data-active-view="city"] .city-controls-panel .policy-btn.regul-locked,
 .city-shop-dock .shop-panel .purchase-row .btn-purchase,
@@ -939,7 +887,6 @@ input[type="radio"] {
   background: transparent;
   box-shadow: none;
   border-color: transparent;
-  border-radius: 0;
 }
 
 /* ⚠ DÉFAUT DE MISE EN PAGE trouvé en posant la matière : le chevron de repli de

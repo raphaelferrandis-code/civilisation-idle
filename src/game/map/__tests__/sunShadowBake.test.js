@@ -1,6 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { CM } from '../layout.js';
-import { SUN_SHADOW, SHADOW_BAKE_BUDGET, captureSunShadows, drawSunShadow, pivotGround, rectKey, sunShadowPixels, sunShear } from '../iso/isoSunShadow.js';
+import { SUN_SHADOW, SHADOW_BAKE_BUDGET, drawSunShadow, pivotGround, rectKey, sunShadowPixels, sunShear } from '../iso/isoSunShadow.js';
 
 // LA CUISSON DES MASQUES D'OMBRE (audit du 05/10, PERF-22). Ce que ces gardes tiennent :
 //   1. la grille typée rend EXACTEMENT les pixels de l'ancien Set de chaînes, dans le
@@ -8,7 +8,7 @@ import { SUN_SHADOW, SHADOW_BAKE_BUDGET, captureSunShadows, drawSunShadow, pivot
 //   2. le masque est posé d'UNE pose d'image, aux mêmes octets que les fillRect d'un
 //      pixel d'avant (la teinte du jeu est en #rrggbb) ;
 //   3. le budget par image étale les cuissons neuves sans en perdre aucune, et ne
-//      s'applique ni en capture ni en cuisson de scène ;
+//      s'applique pas en capture ;
 //   4. un échec (image cassée) est retenu : plus de canvas + getImageData à chaque frame.
 
 // L'algorithme d'AVANT (Set de chaînes), recopié tel quel : l'oracle de l'égalité.
@@ -214,20 +214,15 @@ describe('masques d\'ombre : la cuisson', () => {
     expect(ctx.draws).toBe(1);
   });
 
-  it('ni en capture ni en cuisson de scène : un cliché et une scène cuite sont complets', () => {
+  it('pas de budget en capture : un cliché est complet', () => {
     const imgs = Array.from({ length: 8 }, (_, i) => img(200, 200, 40 + i));
     CM._wonderBoxes = [];
     CM.capture = { night: 0 };
     const ctx = mapCtx();
     CM.ctx = ctx;
-    for (const im of imgs.slice(0, 4)) drawSunShadow(ctx, im, 0, 0, 200, 200, 0, 0, 0, 0, 'column', false);
-    expect(ctx.draws).toBe(4);
+    for (const im of imgs) drawSunShadow(ctx, im, 0, 0, 200, 200, 0, 0, 0, 0, 'column', false);
+    expect(ctx.draws).toBe(imgs.length);   // 320 000 px : deux budgets, tout passe
     CM.capture = null;
-    CM._wonderBoxes = [];
-    const list = captureSunShadows(() => {
-      for (const im of imgs.slice(4)) drawSunShadow(ctx, im, 0, 0, 200, 200, 0, 0, 0, 0, 'column', false);
-    });
-    expect(list.length).toBe(4);
   });
 
   it('hors de la carte (salle des Plaisirs, carte démontée) : pas de budget, l\'horloge figée ne bloque rien', () => {

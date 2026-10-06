@@ -36,7 +36,7 @@ export const FD_TUNE = {
 // Ordre de préférence des PREMIÈRES rencontres (le metteur en scène le suit sept
 // fois sur dix) : la secte d'abord — un feu la nuit à la lisière accroche l'œil sans
 // rien expliquer —, puis ce qui se voit de plus en plus.
-export const FD_INTRO = { secte: 1, musicien: 2, tortue: 3, monstre: 4, cynique: 5, chevre: 6, borne: 7, volant: 8 };
+const FD_INTRO = { secte: 1, musicien: 2, tortue: 3, monstre: 4, cynique: 5, chevre: 6, borne: 7, volant: 8 };
 
 const listeners = new Set();
 export function onFaitsDivers(fn) {
@@ -53,14 +53,10 @@ export function fdState() {
   if (!state.faitsDivers) state.faitsDivers = defaultFaitsDivers();
   return state.faitsDivers;
 }
-export const fdLifeSec = () => (state.chronicleStats && state.chronicleStats.lifetimePlaySec) || 0;
+const fdLifeSec = () => (state.chronicleStats && state.chronicleStats.lifetimePlaySec) || 0;
 export const fdCycle = () => (state.cycles | 0) + 1000 * (state.grandResetCount | 0);
 
 // ── LIRE ─────────────────────────────────────────────────────────────────────
-export function fdSeen(storyId, chId) {
-  const s = fdState().seen[storyId];
-  return !!(s && s[chId]);
-}
 // Où en est une histoire : combien de chapitres vus (dans l'ordre), quand le dernier.
 export function fdProgress(story) {
   const seen = fdState().seen[story.id] || {};

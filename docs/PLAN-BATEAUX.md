@@ -103,6 +103,8 @@ façon Le Havre (b5-6+, navires amarrés fixes) et port de plaisance façon Vieu
 - je fournis `iso/boatKit.js` → `drawBoat(...)`, `boatFootprint(spec)` ; elle pose ses
   navires par son indirection `drawMooredHull` ;
 - elle exporte `portBerths(L)` et `portWaterObstacles(L)` (`iso/portBerths.js`) ;
+  (2026-10-06, audit MORT-5 : seul reste `portBerths(L, 'commerce')`, le poste libre du
+  terminal, lu par `fleetBerths` ; `portWaterObstacles` est parti, sans lecteur) ;
 - le port CENTRAL est servi par MA flotte (vrai accostage) ; `pierMoorings` reste sa source ;
 - chacun prévient avant de toucher les fichiers de l'autre (isoPier.js chez elle ;
   isoFleet.js, riverFleet.js, drawIsoShips/drawIsoPortBoat chez moi).
@@ -348,3 +350,14 @@ façon Le Havre (b5-6+, navires amarrés fixes) et port de plaisance façon Vieu
   (pontons flottants du bac et de la navette, embarcadères sur pieux) NOTENT leurs remous au
   dessin (`boatScenes.landingRipples` → `iso/waterRipples.js`), peints à l'image suivante
   dans la passe des remous, sous les quais et les coques (cf. PLAN-MERVEILLES §7, 2026-10-04).
+
+- 2026-10-06 — **Les sprites de bateaux retirés** (audit du 05/10, MORT-6, décision de Raph :
+  « supprimer les références d'A/B tranchées »). Le kit couvre les dix bandes, chaque métier
+  et chaque rôle des ports (garde : `boatKitCover.test.js`) : l'A/B `__boatKit({ on: false })`
+  et tout ce qu'il servait sont partis — coques PixelLab de la flotte (`drawIsoShips`), repli
+  « profil » et barque de réglage, bateau de décor du ponton (`drawIsoPortBoat`, item
+  `portBoat`), repli sprite de `drawMooredHull`, feux relevés par face (`NAV_UV`,
+  `NAV_ANCHOR`, `navLightOffsets`) et le calibreur `navCalib.js`. Les feux ne sont plus que
+  les ancres `port`/`stbd` des modèles. Les 72 `boat-<stade>-<secteur>.png` sont gardés
+  comme source dans `art/references-ab/bateaux-sprites/` (`boatSheet`, `boatFaces` y
+  lisent) ; `public/pixelart/agents/boats/` reste (scène moteur du port).

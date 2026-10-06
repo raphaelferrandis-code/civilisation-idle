@@ -3,7 +3,7 @@
 // chaque clé moteur (scratch.js / blackjack.js, stable dans les saves) est
 // mappée sur une icône pixel-art DÉJÀ en jeu. Le nom du symbole n'est jamais
 // affiché : seule la lisibilité/distinction des emblèmes compte.
-export const SCRATCH_SYMBOL_SRC = {
+const SCRATCH_SYMBOL_SRC = {
   olive: '/pixelart/ui/myths/benediction.png',            // branche d'olivier
   amphore: '/pixelart/ui/faveur/amphore.png',             // l'amphore de la cagnotte
   laurier: '/pixelart/ui/glyphs/couronne.png',            // couronne d'or

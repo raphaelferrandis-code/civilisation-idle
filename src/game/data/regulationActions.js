@@ -119,8 +119,8 @@ export const REGULATION_ACTIONS = [
   // lot 1 des gains « vrai casino » (2026-10-04, cf. actions/maisonTable.js) ; le
   // rite (prudent/ancestral/grand/interdit) est un PARI : il fixe la chance et la
   // VARIANCE (AUGURY_RITE_BETS), chacun rendant 97 %. Plus rien ne s'achète pour
-  // pencher les cotes. `p` n'est plus lu par le moteur (regulModel en tire un
-  // winPct que rien n'affiche). Id « prayForRain » CONSERVÉ (tests, persistance,
+  // pencher les cotes. `p` n'est plus lu par le moteur (le winPct que regulModel en
+  // tirait, jamais affiché, est parti). Id « prayForRain » CONSERVÉ (tests, persistance,
   // historique des jets). Pas de champ `cost` : les gambles sont hors crisisCosts
   // (le temple est sa propre économie).
   {

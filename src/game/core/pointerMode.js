@@ -61,7 +61,7 @@ function detect() {
 // changement de régime (watchPointerMode).
 let verdict = null;
 
-export function applyPointerMode() {
+function applyPointerMode() {
   if (typeof document === "undefined") return "fine";
   verdict = detect();
   const mode = verdict ? "coarse" : "fine";

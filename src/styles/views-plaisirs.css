@@ -70,7 +70,6 @@
   /* OPAQUE, sans flou : une plaque, pas du verre dépoli sous du texte. */
   background: var(--surface-panel, #161c2b);
   border: 1px solid var(--border);
-  border-radius: 0;
   box-shadow: 0 6px 22px rgba(8, 4, 14, 0.55);
   z-index: 6;
   /* Le conteneur ne capte rien : sans ça, ses marges voleraient les clics
@@ -198,7 +197,6 @@
     /* OPAQUE. Même règle que toutes les surfaces posées sur une image dans ce
        jeu : ce n'est pas la taille du texte qui manquait, c'est le fond. */
     background: var(--surface-panel);
-    border-radius: 0;
   }
 
   /* ---- UNE SCÈNE NE COMPRIME PLUS SON CONTENU ----
@@ -221,12 +219,6 @@
        automatique dès que la place manque — c'est `flex-shrink` qui décide, pas
        `height`. Sans cette ligne, la rangée de mises ressortait encore de 62px
        sous la scène (mesuré aux osselets). */
-    flex-shrink: 0;
-  }
-
-  .plaisirs-stage .augury-rites,
-  .plaisirs-stage .icarus-stakes,
-  .plaisirs-stage .scratch-stakes {
     flex-shrink: 0;
   }
 
@@ -276,7 +268,6 @@
        défile chez lui plutôt que de rogner le jeu au-dessus. */
     overflow-y: auto;
     overscroll-behavior: contain;
-    border-radius: 0;
     border-left: 0;
     border-right: 0;
   }
@@ -650,8 +641,8 @@
        il casse le grain du pixel art, et ce qui reste visible devient un lavis
        au lieu d'une texture concurrente.
 
-   C'est mot pour mot la recette du menu volant plus haut, qui est parfaitement
-   lisible sur cette même illustration : on ne fait que l'appliquer au panneau.
+   (C'était alors la recette du menu volant ; le menu est depuis devenu opaque et
+   sans flou, et le panneau aussi — cf. ci-dessous.)
 
    ⚠ `--panel-2` et non `--panel` : c'est le jeton des surfaces DE LECTURE (0,90
    à 0,97 selon l'ère, contre 0,82), et ce panneau est devenu la surface de

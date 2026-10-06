@@ -13,9 +13,10 @@
 // renderer regarde donc le petit quart du problème. Les deux fichiers doivent
 // écrire dans le MÊME relevé, d'où ce module.
 //
-// ⚠ NON gaté sur import.meta.env.DEV, contrairement aux harnais __cityShot /
-// __demoCity : le lag a été constaté dans le build Electron, il faut pouvoir
-// profiler là, sur une vraie fenêtre et une vraie sauvegarde.
+// ⚠ NON gaté sur import.meta.env.DEV, contrairement à toutes les autres molettes
+// (règle et liste fermée des exceptions : devKnobs.js) : le lag a été constaté
+// dans le build Electron, il faut pouvoir profiler là, sur une vraie fenêtre et
+// une vraie sauvegarde.
 //
 // Le PROPRIÉTAIRE du relevé est l'appelant le plus externe (frame()) : lui seul
 // appelle fpBegin/fpEnd. Le renderer se contente de jalonner avec fp().
@@ -44,7 +45,3 @@ export function fpEnd() {
   globalThis.__isoFrameProfileLast = out;
   out = null;
 }
-
-// Vrai quand un relevé est en cours — permet à un appelant de sauter un calcul
-// de diagnostic coûteux quand le profileur est éteint.
-export function fpActive() { return out !== null; }

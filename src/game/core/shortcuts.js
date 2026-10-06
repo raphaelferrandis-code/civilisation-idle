@@ -86,7 +86,7 @@ export const shortcutKey = (def) => {
   const key = shortcutPrefs[def.id]?.key;
   return key && !FORBIDDEN_KEYS.has(key) ? key : def.key;
 };
-export const shortcutOff = (def) => Boolean(shortcutPrefs[def.id]?.off);
+const shortcutOff = (def) => Boolean(shortcutPrefs[def.id]?.off);
 
 // Libellé affichable d'une touche : « E », « Échap », « ² ».
 export const shortcutLabel = (key) => (key ? key.toUpperCase() : "—");
@@ -126,6 +126,9 @@ export function resetShortcutKey(id) {
   persist();
 }
 
+// Coupe ou rétablit un raccourci. Aucune interface ne l'appelle aujourd'hui (le
+// panneau des touches ne fait que réassigner) : gardé exporté pour
+// shortcuts.test.js, qui vérifie que shortcutOff est bien respecté.
 export function setShortcutOff(id, off) {
   shortcutPrefs = { ...shortcutPrefs, [id]: { ...shortcutPrefs[id], off: Boolean(off) } };
   persist();
@@ -134,7 +137,7 @@ export function setShortcutOff(id, off) {
 // Le contexte interdit-il tout raccourci ? Gardes reprises telles quelles de
 // l'ancien gestionnaire : jamais pendant une saisie, jamais par-dessus un
 // dialogue, jamais avec un modificateur (Ctrl+S reste « enregistrer »).
-export function shortcutsBlocked(event) {
+function shortcutsBlocked(event) {
   if (event.ctrlKey || event.metaKey || event.altKey) return true;
   // Ce module vit dans le cœur du jeu : il est importé en Node par les tests,
   // où il n'y a pas de DOM. Sans cette garde, la seule lecture du contexte de

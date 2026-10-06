@@ -206,7 +206,7 @@ export function auguryTierBones(tier) {
 // On tire un tier DANS la moitié correspondante, aux poids réels de la table (rite
 // ancestral : le double n'a pas de rite), renormalisés sur cette moitié. L'issue
 // est déjà décidée par le caller : ceci n'est QUE de l'habillage.
-export function auguryDoubleBones(id, win) {
+function auguryDoubleBones(id, win) {
   const rite = AUGURY_RITES.classique;
   const o = auguryTierOdds(rite.p, rite.spread);
   const half = win

@@ -215,7 +215,6 @@ const FICHIERS_DEV = {
   "src/game/core/debugTools.js": "outils de debug",
   "src/game/map/fpsProbe.js": "sonde de fluidité (?fps), affichage de dev",
   "src/game/map/tissuMetrics.js": "mesure du tissu urbain, rapport console",
-  "src/game/map/iso/navCalib.js": "calibrage des feux de navigation, HUD de dev",
   "src/game/map/pixelGrid.js": "sonde G0 de la grille de pixels",
   "src/game/map/frameGuard.js": "messages console des exceptions de la carte",
 };

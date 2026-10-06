@@ -40,6 +40,7 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import { PNG } from 'pngjs';
+import { bakeHalf } from './lib/half.mjs';
 
 const DIAG = ['southeast', 'southwest', 'northeast', 'northwest'];
 const CARD = ['south', 'east', 'north', 'west'];
@@ -69,17 +70,6 @@ if (!FOLDER || !DIRS || !(DIV >= 2)) {
 
 const ROOT = path.join('public/pixelart/agents', FOLDER);
 const px = (img, x, y) => { const i = (y * img.width + x) * 4; return [img.data[i], img.data[i + 1], img.data[i + 2], img.data[i + 3]]; };
-const setPx = (img, x, y, [r, g, b, a]) => { const i = (y * img.width + x) * 4; img.data[i] = r; img.data[i + 1] = g; img.data[i + 2] = b; img.data[i + 3] = a; };
-
-// Palette d'ARRIVÉE = les couleurs pleines de la source.
-function paletteOf(img) {
-  const seen = new Map();
-  for (let y = 0; y < img.height; y += 1) for (let x = 0; x < img.width; x += 1) {
-    const [r, g, b, a] = px(img, x, y);
-    if (a > 128) seen.set((r << 16) | (g << 8) | b, [r, g, b]);
-  }
-  return [...seen.values()];
-}
 
 // DÉRIVE DE LUMINANCE, pondérée par l'alpha. ⚠ Cette mesure existe parce qu'une
 // règle de couleur peut NOIRCIR tout un lot sans qu'aucune autre métrique ne
@@ -164,44 +154,10 @@ function airRatio(src, out, div) {
 //    pixels dans la planche et un seul une fois cuite, mais c'est elle qui dit
 //    « émeute » d'un coup d'œil : si une couleur chaude occupe ne serait-ce
 //    qu'une petite part du bloc (`--hotShare`), elle l'emporte sur la moyenne.
-function bake(src, hot) {
-  const pal = paletteOf(src);
-  const w = Math.floor(src.width / DIV), h = Math.floor(src.height / DIV);
-  const out = new PNG({ width: w, height: h });
-  const n2 = DIV * DIV;
-  for (let y = 0; y < h; y += 1) for (let x = 0; x < w; x += 1) {
-    let r = 0, g = 0, b = 0, a = 0, hotW = 0, hotK = -1, hotBest = -1;
-    for (let dy = 0; dy < DIV; dy += 1) for (let dx = 0; dx < DIV; dx += 1) {
-      const [pr, pg, pb, pa] = px(src, x * DIV + dx, y * DIV + dy);
-      r += pr * pa; g += pg * pa; b += pb * pa; a += pa;
-      if (hot && pa > 16) {
-        const k = (pr << 16) | (pg << 8) | pb;
-        if (hot.has(k)) { hotW += pa; if (pa > hotBest) { hotBest = pa; hotK = k; } }
-      }
-    }
-    if (a / n2 < ALPHA) { setPx(out, x, y, [0, 0, 0, 0]); continue; }
-    let best;
-    if (hotK >= 0 && hotW >= HOTSHARE * a) {
-      best = [(hotK >> 16) & 255, (hotK >> 8) & 255, hotK & 255];
-    } else {
-      // Moyenne PRÉMULTIPLIÉE : sans pondérer par l'alpha, les pixels
-      // transparents du bord tirent la couleur vers le noir et le sprite se
-      // cerne d'un liseré. Rabattue sur la palette de la source pour ne pas
-      // inventer de teinte intermédiaire (même discipline que quantize.cjs).
-      const m = [r / a, g / a, b / a];
-      let bd = Infinity;
-      best = pal[0];
-      for (const c of pal) {
-        const dd = (c[0] - m[0]) ** 2 + (c[1] - m[1]) ** 2 + (c[2] - m[2]) ** 2;
-        if (dd < bd) { bd = dd; best = c; }
-      }
-    }
-    // Alpha BINAIRE : le blit est en plus-proche-voisin, un bord semi-opaque n'y
-    // gagne rien et salit la silhouette au petit zoom.
-    setPx(out, x, y, [best[0], best[1], best[2], 255]);
-  }
-  return out;
-}
+// La cuisson elle-même (moyenne PRÉMULTIPLIÉE, rabattage sur la palette de la
+// source, alpha BINAIRE, priorité aux braises) vit dans scripts/lib/half.mjs,
+// partagée avec fetchAgentFlat.mjs et fetchAgentIdle.mjs.
+const bake = (src, hot) => bakeHalf(src, { div: DIV, alpha: ALPHA, hot, hotShare: HOTSHARE });
 
 const HOT = hotSet(HOTFILE);
 const files = fs.readdirSync(ROOT)

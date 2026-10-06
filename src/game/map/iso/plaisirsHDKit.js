@@ -3,6 +3,7 @@
 // Partagé par la coupe (plaisirsCoupeHD.js : structure, matières, cuisson) et le
 // mobilier des âges (plaisirsEraRooms.js). Un pixel de coupe = un pixel de fille.
 import { makeRaster } from './isoPixelPaint.js';
+import { h32 } from '../hash.js';
 
 // La TOISE : `K` agrandit les largeurs du plan (exprimées à l'ancienne toise).
 // Une boîte : plafond (CEIL), mur du fond (WALLH), sol en profondeur (FLOORD) ; la
@@ -26,11 +27,8 @@ export function mix(c1, c2, t) {
   const a = hex(c1), b = hex(c2), m = (i) => Math.round(a[i] + (b[i] - a[i]) * t).toString(16).padStart(2, '0');
   return '#' + m(0) + m(1) + m(2);
 }
-export const h32 = (a, b = 0, c = 0) => {
-  let x = (a | 0) * 374761393 + (b | 0) * 668265263 + (c | 0) * 2147483647;
-  x = (x ^ (x >>> 13)) * 1274126177;
-  return (x ^ (x >>> 16)) >>> 0;
-};
+// h32 : le hash entier des peintres de pixels (../hash.js), ré-exporté pour la coupe.
+export { h32 };
 // Un peintre sur un raster ; (ox, oy) : où tombe son pixel (0, 0) dans le cadre (les
 // PIÈCES de mobilier se peignent dans un petit raster à part, puis se posent).
 export function painter(R, ox = 0, oy = 0) {

@@ -21,13 +21,13 @@ import PlaisirsTable from '../views/plaisirs/PlaisirsTable.jsx';
 import TableMise from '../views/plaisirs/TableMise.jsx';
 import { initialStake, rememberStake, fmtMise } from '../views/plaisirs/miseMemory.js';
 import Monte from './Monte.jsx';
+import ScratchCanvas from './ScratchCanvas.jsx';
+import { scratchSymbolSrc } from './scratchSymbols.js';
 
 // Flamme votive du vernis (dessinée AU CANVAS — un <img> n'y entre pas).
 // Préchargée au module, gardée nulle hors navigateur (tests node).
 const FLAME_IMG = typeof Image !== 'undefined' ? new Image() : null;
 if (FLAME_IMG) FLAME_IMG.src = '/pixelart/ui/faveur/flamme.png';
-import ScratchCanvas from './ScratchCanvas.jsx';
-import { scratchSymbolSrc } from './scratchSymbols.js';
 
 // LE MÉTAL DU TICKET suit la mise (lot 1 des gains « vrai casino », mise libre) :
 // bronze sous le dixième de la limite de la table, argent jusqu'à la moitié, or
@@ -54,8 +54,8 @@ function Sym({ name, cls }) {
 }
 
 /**
- * Les tickets à gratter — SCÈNE INTÉGRÉE (bas de la page Régulation, comme
- * osselets/Icare). Le moteur (actions/scratch.js) tire l'issue et fige la grille
+ * Les tickets à gratter — SCÈNE INTÉGRÉE (RegulationStage, sur la salle de la
+ * Maison des Plaisirs, comme osselets/Icare). Le moteur (actions/scratch.js) tire l'issue et fige la grille
  * À L'ACHAT, mais l'EFFET est différé jusqu'à ce que le joueur ait vraiment
  * GRATTÉ le vernis (auto-révélation à SCRATCH_REVEAL_PCT %, ou bouton « Tout
  * révéler »). Phases : achat (choix de la mise) → grattage → résultat. Fermer

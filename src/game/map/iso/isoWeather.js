@@ -72,7 +72,7 @@ const SNOW_SHADE = [170, 176, 184];  // metalSlate — le creux bleuté
 // le RIDEAU : le ciel reste chargé et les impacts continuent (c'est le geste
 // qu'on fait pour juger les éclats seuls, cf. __splash).
 export const RAIN_TUNE = { on: true, drops: 1, len: 1, alpha: 1, gust: 1, width: 1 };
-if (typeof window !== 'undefined') {
+if (import.meta.env?.DEV && typeof window !== 'undefined') {
   window.__rain = (o) => {
     if (o) Object.assign(RAIN_TUNE, o);
     return { ...RAIN_TUNE, etampes: rainStamps.size, forges: rainStampBuilds };
@@ -414,7 +414,7 @@ export function drawIsoRain(now) {
 // côté ? » se trompe deux fois : il refuse une venelle entière à cause d'une
 // scène basse, et il accepte le pied d'une tour.
 const SPLASH_TUNE = { on: true, count: 1, size: 1, alpha: 1 };
-if (typeof window !== 'undefined') {
+if (import.meta.env?.DEV && typeof window !== 'undefined') {
   window.__splash = (o) => { if (o) Object.assign(SPLASH_TUNE, o); return { ...SPLASH_TUNE, vivants: splashes.length }; };
 }
 const SPLASH_LIFE = 260;         // ms de vie de l'ÉCLAT (les trois images)
@@ -731,7 +731,7 @@ function drawIsoSplashes(now, r, g) {
 // recuisson à chaque cran d'intensité. La neige posée reste le liseré d'hiver.
 // Molette : __snowfall({ on, flakes, size, alpha }).
 const SNOWFALL_TUNE = { on: true, flakes: 1, size: 1, alpha: 1 };
-if (typeof window !== 'undefined') {
+if (import.meta.env?.DEV && typeof window !== 'undefined') {
   window.__snowfall = (o) => { if (o) Object.assign(SNOWFALL_TUNE, o); return { ...SNOWFALL_TUNE }; };
 }
 // Calibré à l'écran (1208×611, TILE 32, zoom 1) : ~490 flocons de 3 px et 2 px.

@@ -38,13 +38,13 @@ export const PORT_SITES = {
   tradeGap: 3,         // marge à la ville et au domaine des Plaisirs
 };
 
-if (typeof window !== 'undefined') {
+if (import.meta.env?.DEV && typeof window !== 'undefined') {
   window.__portSites = (o) => { if (o && typeof o === 'object') Object.assign(PORT_SITES, o); return { ...PORT_SITES }; };
 }
 
 // Première rangée d'eau d'une colonne, en descendant (rive nord) ou en montant
 // (rive sud) depuis `from`. null si la colonne n'a pas d'eau à portée.
-export function firstWaterRow(isWater, gx, from, dir, maxSteps = 24) {
+function firstWaterRow(isWater, gx, from, dir, maxSteps = 24) {
   for (let k = 0; k <= maxSteps; k += 1) {
     const gy = from + dir * k;
     if (isWater(gx, gy)) return gy;

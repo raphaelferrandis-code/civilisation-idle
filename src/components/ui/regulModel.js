@@ -28,7 +28,7 @@ export const FOYER_META = [
   { key: 'complexity', tone: 'know',  label: { fr: 'Complexité',  en: 'Complexity' } },
   { key: 'dissent',    tone: 'usure', label: { fr: 'Dissidence',  en: 'Dissent' } }
 ];
-export const FOYER_BY_KEY = Object.fromEntries(FOYER_META.map((m) => [m.key, m]));
+const FOYER_BY_KEY = Object.fromEntries(FOYER_META.map((m) => [m.key, m]));
 
 // Action id de la réforme de fond par foyer.
 const REFORM_ID = {
@@ -85,8 +85,7 @@ function describeRegAction(action, cost, ctx, currentReform) {
     malusRes: action.malusRes,
     malusPct: action.malusPct || 0,
     bonus: action.infraAdd ? 'infra' : null,
-    gamble: action.kind === 'gamble',
-    winPct: Math.round((action.p || 0) * 100)
+    gamble: action.kind === 'gamble'
   };
 }
 
@@ -146,21 +145,16 @@ export function regulationPolicies() {
   };
 }
 
-const FOYER_SHORT = {
-  scarcity: { fr: 'Subsistance', en: 'Subsistence' },
-  inequality: { fr: 'Inégalités', en: 'Inequality' },
-  complexity: { fr: 'Complexité', en: 'Complexity' },
-  dissent: { fr: 'Dissidence', en: 'Dissent' }
-};
-
 // Effet d'une politique en libellé court (cumule riseSlow / surcharge / étouffement).
+// Le nom d'un foyer vient de FOYER_META (la source unique — une table FOYER_SHORT le
+// recopiait mot pour mot, audit du 05/10, STRUCT-12).
 export function policyEffectLabel(p) {
   const parts = [];
   if (p.riseSlow) parts.push(`−${Math.round(p.riseSlow * 100)}% ${tr({ fr: 'montée de la Rupture', en: 'Rupture rise' })}`);
   if (p.overshootDamp) parts.push(`−${Math.round(p.overshootDamp * 100)}% ${tr({ fr: 'surcharge', en: 'overshoot' })}`);
   if (p.foyerDamp) {
     for (const [f, v] of Object.entries(p.foyerDamp)) {
-      parts.push(`−${Math.round(v * 100)}% ${tr(FOYER_SHORT[f]) || f} ${tr({ fr: '(continu)', en: '(continuous)' })}`);
+      parts.push(`−${Math.round(v * 100)}% ${tr(FOYER_BY_KEY[f]?.label) || f} ${tr({ fr: '(continu)', en: '(continuous)' })}`);
     }
   }
   if (p.demesureDamp) parts.push(`−${Math.round(p.demesureDamp * 100)}% ${tr({ fr: 'Démesure (échelle)', en: 'Hubris (scale)' })}`);

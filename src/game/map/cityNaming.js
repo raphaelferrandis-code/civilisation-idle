@@ -39,9 +39,9 @@ export const CM_GIVEN_F = [
   "Sibylle", "Mahaut", "Ysoria", "Oda", "Maelis", "Nessa", "Aveline", "Linnea",
   "Edith", "Soraya", "Talia", "Bruna", "Eda", "Sira", "Ilya", "Solen"
 ];
-export const CM_EPITHETS_M = ["le Veilleur", "l'Ancien", "le Taciturne", "le Boiteux", "le Cadet", "le Guetteur"];
-export const CM_EPITHETS_F = ["la Patiente", "la Vive", "la Rousse", "la Sage", "l'Aïeule", "la Nomade"];
-export const CM_TRADES_M = [
+const CM_EPITHETS_M = ["le Veilleur", "l'Ancien", "le Taciturne", "le Boiteux", "le Cadet", "le Guetteur"];
+const CM_EPITHETS_F = ["la Patiente", "la Vive", "la Rousse", "la Sage", "l'Aïeule", "la Nomade"];
+const CM_TRADES_M = [
   "du Moulin", "des Granges", "le Forgeron", "du Puits", "des Halles", "le Tisserand",
   "du Four", "des Tanneurs", "le Charpentier", "du Marché", "des Vignes", "le Tonnelier"
 ];

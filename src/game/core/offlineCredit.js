@@ -27,7 +27,7 @@
 // Seuil aligné sur le plancher d'applyOfflineProgress (elapsed <= 10 → no-op) pour
 // que le régime 'offline' crédite toujours réellement — et qu'aucune seconde ne
 // tombe entre les deux régimes.
-export const OFFLINE_CATCHUP_MIN_SEC = 10;
+const OFFLINE_CATCHUP_MIN_SEC = 10;
 // Sous ce recul, c'est de la gigue d'horloge (resynchronisation NTP fine) : le
 // régime 'live' à 0 s l'absorbe sans rien décaler.
 export const CLOCK_REWIND_TOLERANCE_SEC = 5;

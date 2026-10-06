@@ -177,7 +177,7 @@ registerVieActors((now, out) => {
 });
 
 // Vérification : où sont les mâts (monde, tuiles).
-if (typeof window !== 'undefined') {
+if (import.meta.env?.DEV && typeof window !== 'undefined') {
   window.__vieFlags = () => ({
     quai: quayMasts().map((m) => [m.x, m.y]),
     publics: publicFlagTiles()

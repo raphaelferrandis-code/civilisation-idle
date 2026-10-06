@@ -50,7 +50,7 @@ const FEU = {
   span: { clear: 1.0 },
   ped: null,
   props: null,
-  monument: { type: 'totem', w: 4, h: 25, flame: true },
+  monument: { type: 'totem', w: 4, h: 25 },
 };
 
 // ── BANDE 1 · BOIS — le pont de charpente ─────────────────────────────────────
@@ -93,7 +93,7 @@ const PIERRE = {
   span: { clear: 1.15 },
   ped: null,
   props: null,
-  monument: { type: 'pillar', w: 7, h: 24, flame: true },
+  monument: { type: 'pillar', w: 7, h: 24 },
   flags: { at: 'piers', cols: ['#b2382d', '#7e2620', '#e2b444'], poleH: 10 },
 };
 
@@ -174,7 +174,7 @@ const FONTE = {
   span: { clear: 2.0 },
   ped: { w: 5, h: 7, panel: false, over: 1 },
   props: { pier: 'gaslamp', mid: null, era: 'industrial' },
-  monument: { type: 'pylon', w: 8, h: 34, statue: 'gold' },
+  monument: { type: 'pylon', w: 8, h: 34 },
   flags: { at: 'mid', cols: ['#2f5a9e', '#1f3a6a', '#e2b444'], poleH: 11 },
 };
 
@@ -225,7 +225,7 @@ function cosmic(id, glow, quay) {
     span: { clear: 9 },
     ped: null,
     props: null,
-    superstructure: { type: 'suspension', towerH: 74, towerW: 3, sag: 0.78 },
+    superstructure: { type: 'suspension', towerH: 74, towerW: 3 },
     entrance: { type: 'ring', dl: 4, out: 8, band: 3 },
     flags: { at: 'towers', cols: [quay, '#151826', glow], poleH: 8 },
   };

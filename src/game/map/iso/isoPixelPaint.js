@@ -9,7 +9,8 @@
 // wx = l, wy = t). Écran au zoom 1 : X = wx − wy, Y = (wx + wy)/2 − h. Une face
 // verticale est une élévation cisaillée 2:1, un dessus est rempli en projetant
 // chaque pixel sur son plan. Lumière haut-gauche : normale +y éclairée, +x ombrée.
-// Pur : aucun DOM, aucun CM.
+// Pur : aucun DOM, aucun CM ; pour seul import le hachage partagé (feuille pure).
+import { h32 } from '../hash.js';
 
 // ── Raster ───────────────────────────────────────────────────────────────────
 export function makeRaster(ox, oy, w, h) {
@@ -39,12 +40,9 @@ export function rgbOf(c) {
 }
 export const dim = (c, k) => { const v = rgbOf(c); return [v[0] * k, v[1] * k, v[2] * k]; };
 
-// Hash entier stable (même famille que cmHash, sans dépendance).
-export function h32(a, b = 0, c = 0) {
-  let x = (a | 0) * 374761393 + (b | 0) * 668265263 + (c | 0) * 2147483647;
-  x = (x ^ (x >>> 13)) * 1274126177;
-  return (x ^ (x >>> 16)) >>> 0;
-}
+// Hash entier stable (même famille que cmHash) : la variante partagée, ré-exportée
+// pour les peintres qui la lisent ici (../hash.js, une feuille pure).
+export { h32 };
 export const mod = (a, n) => ((Math.floor(a) % n) + n) % n;
 
 // ── Projection (repère du pont → écran zoom 1) ───────────────────────────────

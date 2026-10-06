@@ -285,6 +285,10 @@ export function labelFor(key) {
   }[key] || key;
 }
 
+// ⚠ clamp01 et clamp : déclarations de `function` OBLIGATOIRES (hissées). state.js
+// les lit pendant load(), au milieu du cycle d'import state ↔ utils : réécrites en
+// `const` fléchée, elles tomberaient en zone morte si utils.js était évalué en
+// premier — perte de sauvegarde (ARCHITECTURE.md §7, audit du 05/10, STRUCT-10).
 export function clamp01(value) {
   return Math.max(0, Math.min(1, value));
 }
@@ -333,33 +337,6 @@ function toNumberLoose(value) {
 
 export function costLabel(cost) {
   return Object.entries(cost).map(([currency, amount]) => `${fmt(amount)} ${labelFor(currency)}`).join(" + ");
-}
-
-export function roman(value) {
-  const numerals = [
-    [1000, "M"],
-    [900, "CM"],
-    [500, "D"],
-    [400, "CD"],
-    [100, "C"],
-    [90, "XC"],
-    [50, "L"],
-    [40, "XL"],
-    [10, "X"],
-    [9, "IX"],
-    [5, "V"],
-    [4, "IV"],
-    [1, "I"]
-  ];
-  let output = "";
-  let n = Math.max(1, Math.floor(value));
-  for (const [amount, symbol] of numerals) {
-    while (n >= amount) {
-      output += symbol;
-      n -= amount;
-    }
-  }
-  return output;
 }
 
 export function seededRng(seed) {

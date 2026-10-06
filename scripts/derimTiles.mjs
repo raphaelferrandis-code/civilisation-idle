@@ -3,7 +3,7 @@
  * ---------------------------------------------------------------------------
  * Le grief (Raph 2026-07-31) : « tous mes sols ont leur tuile enfermée par une
  * ligne de pixels sombres ». Ce n'est pas le rendu — le masque du losange pave
- * sans trou ni recouvrement et le blit est 1:1 (cf. isoTileIsFlat). L'anneau est
+ * sans trou ni recouvrement et le blit est 1:1 (cf. blitIsoTileKey). L'anneau est
  * PEINT DANS LE PNG : les lots PixelLab cuisent un liseré de dalle sur l'arête
  * malgré le prompt « seamless, no borders ». Répété par cellule, il retrace la
  * grille. `derim()` dans fetchGroundTiles.mjs existait pour ça mais était opt-in
@@ -349,8 +349,8 @@ export const FAMILY = /^(ground-[a-z]+(-winter)?|iso-(grass|dirt|sand|shingle|wo
 //    renderer trace lui-même les joints (WONDER_GROUND.joint). Son liseré de
 //    1 px est le dessin, pas le défaut. `--only iso-wonder` pour l'inclure.
 //  · iso-pavement — 64×64, une dalle EN VOLUME (face 2:1 + épaisseur), pas un
-//    losange de cellule : le masque de losange n'y veut rien dire. Le renderer
-//    la traite déjà à part (cf. groundTileTune).
+//    losange de cellule : le masque de losange n'y veut rien dire (et le jeu ne
+//    l'affiche pas).
 export const SKIP = /^(iso-wonder|iso-pavement)/;
 export const RIM_FAMILY = FAMILY;
 if (!IS_MAIN) { /* importé : le détecteur suffit, pas d'effet de bord */ } else {

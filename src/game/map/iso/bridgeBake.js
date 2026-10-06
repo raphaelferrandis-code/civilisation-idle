@@ -33,12 +33,12 @@
 // dans des canvas. Testable en Node.
 
 import {
-  makeRaster, alphaAt, rgbOf, dim, h32, mod, projLT, litNormal, frameOf,
+  makeRaster, alphaAt, rgbOf, dim, h32, mod, projLT, frameOf,
   paintWall, paintTop, paintBox, paintLine, fillPoly, ramp, shadeOf, ashlar, woodTex,
   outline, archGeom, intrados, arcDist,
 } from './isoPixelPaint.js';
-// Réexportés : les tests et les appelants du pont les lisaient ici.
-export { makeRaster, alphaAt, rgbOf, h32, projLT, litNormal, paintWall, paintTop, paintBox, ashlar, outline, archGeom };
+// Réexportés pour bridgeModel.test (qui les lit ici).
+export { alphaAt, projLT };
 
 // ── LE PEINTRE DES CALQUES ───────────────────────────────────────────────────
 // M = modèle géométrique d'une travée (cf. isoBridge.buildModel), K = kit de
@@ -218,7 +218,7 @@ function paintParapet(R, M, K, P, side) {
   if (!Q || !Q.h) return;
   const up = side === 'up';
   const t0 = up ? M.tUp : M.tDn - M.pth, t1 = up ? M.tUp + M.pth : M.tDn;
-  const hh = Q.type === 'crenel' ? Q.h : Q.h;
+  const hh = Q.h;
   // Face visible : amont → sa face INTÉRIEURE (t1, normale +t) ; aval → sa face
   // EXTÉRIEURE (t1 = tDn, normale +t). Toutes deux en t1.
   paintWall(R, v, 't', t1, M.pA, M.pB, 0, hh, (u, hv, lit) => parapetTex(K, P, u, hv, lit));
@@ -647,7 +647,7 @@ function gatePortal(R, M, K, P, g) {
 // créneaux, toit d'ardoise en croupe (la bannière est posée par isoBridge).
 function gateTower(R, M, K, P, g) {
   const v = M.vertical, SL = P.slate.map(rgbOf);
-  const mid = (g.o0 + g.o1) / 2, w = g.o1 - g.o0;
+  const w = g.o1 - g.o0;
   const geo = archGeom({ l0: g.o0, l1: g.o1, crown: g.hs + w * 0.62, spring: g.hs }, true);
   const pass = (t) => intrados(geo, t);
   const B = g.bodyH, C = g.crenH;
@@ -691,7 +691,6 @@ function gateTower(R, M, K, P, g) {
     if (hv < 2) return ramp(P, base + 1);
     return ashlar(P, u, hv, lit, K, 47);
   });
-  void mid;
 }
 
 // ANNEAU DE LUMIÈRE (bandes 7-9) : un arc d'énergie qui enjambe la route, posé

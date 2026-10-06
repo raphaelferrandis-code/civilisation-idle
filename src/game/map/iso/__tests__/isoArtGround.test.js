@@ -50,15 +50,19 @@ function calls(file) {
 }
 // Appels de la PASSE VIVANTE dans ces modules (le sol ne les atteint pas) : arbres
 // de saison, réverbères, chaussée du pont (sa propre cuisson), objets des ponts et
-// des merveilles, arbres de l'îlot de l'Aiguille, navires à quai.
+// des merveilles, arbres de l'îlot de l'Aiguille, navires à quai, et le registre des
+// places (mobilier, bandes animées, pieds d'arbre mesurés : items vivants, aucun n'est
+// cuit dans le sol — PERF-26 ; passé par isoArt avec STRUCT-4).
 const LIVE = new Set([
+  "isoPlaza.js|'plaza/anim/' + prop + '-' + era",
+  "isoPlaza.js|base + '-' + variant + '-' + era",
+  "isoPlaza.js|base + '-' + era",
+  "isoPlaza.js|TREE_ART + v",
   "isoGroundDetail.js|name + '-winter'",
   "isoWonder.js|name",
-  "isoStreet.js|'lamp-' + lampEraForBand(band) + '?v=' + LAMP_V",
   "isoBridge.js|tile",
-  "isoProps.js|PROP_ART[pr.prop] || ('plaza/' + pr.prop + '-' + pr.era)",
+  "isoProps.js|'plaza/' + pr.prop + '-' + pr.era",
   "isoProps.js|'plaza/anim/brazier-' + pr.era",
-  "portBerths.js|'boat-' + h.key + '-' + boatSector(heading)",
 ]);
 
 describe("PERF-27 — seuls les arts du sol invalident le sol", () => {
@@ -77,17 +81,17 @@ describe("PERF-27 — seuls les arts du sol invalident le sol", () => {
         }
       }
     }
-    // Le prédicat n'est pas vide de sens : les cinq arts du sol sont bien là…
-    for (const s of ["plaza-", "deco/tuft-", "median-lawn", "median-lawn-winter", "flowerbed-"]) expect(groundLits.has(s), s).toBe(true);
+    // Le prédicat n'est pas vide de sens : les trois arts du sol sont bien là…
+    for (const s of ["deco/tuft-", "median-lawn", "median-lawn-winter"]) expect(groundLits.has(s), s).toBe(true);
     // …et la liste des appels vivants n'est pas périmée.
     expect([...LIVE].filter((id) => !liveSeen.has(id))).toEqual([]);
   });
 
   it("le prédicat écarte les sprites de la passe vivante", () => {
-    for (const n of ["boat-sail-3", "tree-2", "tree-2-winter", "plaza/fence-n-antique", "lamp-gas?v=3", "bush-1", "anim/plaza-fountain-medieval?v=2"]) {
+    for (const n of ["boat-sail-3", "tree-2", "tree-2-winter", "plaza/fence-n-antique", "plaza/flowerbed-antique"]) {
       expect(isoArtFeedsGround(n), n).toBe(false);
     }
-    for (const n of ["plaza-antique", "deco/tuft-3", "median-lawn-winter", "flowerbed-2"]) expect(isoArtFeedsGround(n), n).toBe(true);
+    for (const n of ["deco/tuft-3", "median-lawn", "median-lawn-winter"]) expect(isoArtFeedsGround(n), n).toBe(true);
   });
 
   describe("au décodage", () => {

@@ -38,7 +38,7 @@ import {
 // même vent ») : un plan d'ailes commun, normale horizontale WIND (vers le sud, un
 // peu à l'est — face à l'œil, avec ce qu'il faut de biais pour se lire en
 // perspective). U = l'horizontale du plan, W = la verticale.
-export const MILL_WIND = { nx: 0.34, ny: 0.94 };
+const MILL_WIND = { nx: 0.34, ny: 0.94 };
 const WN = Math.hypot(MILL_WIND.nx, MILL_WIND.ny);
 const NX = MILL_WIND.nx / WN, NY = MILL_WIND.ny / WN;
 const UX = NY, UY = -NX;                       // horizontale du plan des ailes
@@ -69,7 +69,7 @@ export function millKind(band) {
   return band <= 1 ? 'post' : band === 2 ? 'tower' : band === 3 ? 'white' : band === 4 ? 'smock'
     : band === 5 ? 'brick' : band === 6 ? 'turbine' : 'cosmic';
 }
-export function millModel(band) { return MODELS[millKind(band)]; }
+function millModel(band) { return MODELS[millKind(band)]; }
 
 // Chaume (calottes, toits de grange anciens), toile, enduit à la chaux, plâtre
 // blanc des calottes industrielles, acier peint des éoliennes.

@@ -2,7 +2,7 @@
 //
 // Extraites d'isoRenderer.js le 2026-08-23 (Q10). Une scène moteur est un décor
 // legacy (props de `cityEngineSprites`) reposé en repère iso : boîte bornée par
-// l'emprise, encre mesurée une fois pour caler le liseré, cache de rendu, et
+// l'emprise, encre mesurée une fois pour caler le liseré, et
 // QUARANTAINE — une scène qui jette est retirée du tour au lieu d'emporter la frame.
 // Le liseré de sprite simple vit ici pour la même raison : c'est le même geste
 // (mesurer l'encre, en tirer un contour) sur un dessin sans scène.
@@ -15,8 +15,8 @@
 // était la SEULE dépendance entrante de ce bloc, et trois passes le tracent. Une
 // teinte partagée par trois peintres est une teinte de palette.
 //
-// ⚠ Aucun cycle : engineSprites, engineSceneCache, engineAnim, flameGlow,
-// lightLayer et spriteScale citent bien isoRenderer — tous en PROSE, aucun import.
+// ⚠ Aucun cycle : engineSprites, engineAnim, flameGlow, lightLayer et
+// spriteScale citent bien isoRenderer — tous en PROSE, aucun import.
 import { CM, cmHash, cmEngineAtelierFoot } from '../layout.js';
 import { maskFromImageData } from "./isoMask.js";
 import { fp } from '../framePerf.js';
@@ -24,7 +24,6 @@ import { worldToScreen, ISO_X } from './projection.js';
 import { grainTune, ENGINE_UNIT_F } from '../spriteScale.js';
 import { drawEngineSprite } from '../engineSprites.js';
 import { engineCraft, getPropVersion } from '../cityEngineSprites.js';
-import { drawCachedEngineScene } from '../engineSceneCache.js';
 import { engineAnimNow } from '../engineAnim.js';
 import { suspendFlameGlow } from '../flameGlow.js';
 import { suspendLightLayer } from '../lightLayer.js';
@@ -62,7 +61,7 @@ const HALL_SCENE_MAX_DEFAULT = 1.7;
 // grand est simplement un plus grand bâtiment : rien à corriger.
 const HALL_SCENE_CAP_MAX_BAND = 2;
 export const isoEngineScenesFlag = { on: true };
-if (typeof window !== 'undefined') window.__isoEngineScenes = (on) => { isoEngineScenesFlag.on = on !== false; return isoEngineScenesFlag.on; };
+if (import.meta.env?.DEV && typeof window !== 'undefined') window.__isoEngineScenes = (on) => { isoEngineScenesFlag.on = on !== false; return isoEngineScenesFlag.on; };
 const _isoSceneQuarantine = new Set();   // buildingIds dont la scène a jeté (repli socle)
 // Taille de la quarantaine, lue par les tests (audit du 05/10, TEST-5) : une scène
 // qui lève est avalée ici en silence, seul ce compte la trahit hors du jeu.
@@ -98,8 +97,7 @@ export const isoSceneQuarantineSize = () => _isoSceneQuarantine.size;
 // ⚠ L'EMPREINTE (audit 2026-10-05, BUG-59) : banques nationales et ministères ont
 // une halle d'empreinte 3 (sprite « -grand », substitué sur l'empreinte, cf.
 // palierImg) et des ateliers d'empreinte 2, au MÊME palier d'achat — sans elle,
-// tous partageaient la mesure du premier dessiné. Même piège que celui réparé
-// dans sceneKey (engineSceneCache).
+// tous partageaient la mesure du premier dessiné.
 const ENG_INK_REF = 96;                 // côté de la mesure, assez fin sans coûter
 const _engInkCache = new Map();
 let _engInkCanvas = null;
@@ -107,13 +105,15 @@ let _engInkCanvas = null;
 // passée ne servent plus jamais (audit 2026-10-05, PERF-9 : le cache n'était jamais
 // purgé, une entrée par espèce et par ère, cycle après cycle). Vidé au changement.
 let _engInkEra = '';
-// ⚠ LE CHARGEMENT DES PNG (BUG-59) : un prop pas encore décodé ne laisse PAS
-// « rien d'encré », il laisse le REPLI procédural, qui a une vraie encre (une
-// université en bande ≤ 3 remplit toute sa boîte). Or un prop n'est chargé qu'à
-// son premier dessin (propIm) : la première frame d'une sauvegarde mesurait
-// tous les moteurs visibles sur leur repli, et figeait cette boîte pour l'ère —
-// le défaut « la guilde vole le survol des Tribunaux » revenait. Chaque mesure
-// note donc la VERSION DES PROPS (getPropVersion, bumpée à chaque décodage) ;
+// ⚠ LE CHARGEMENT DES PNG (BUG-59) : un prop n'est chargé qu'à son premier dessin
+// (propIm), donc la première frame d'une sauvegarde voit des scènes incomplètes.
+// Le repli procédural, qui avait une vraie encre (une université en bande ≤ 3
+// remplissait toute sa boîte), est retiré depuis (MORT-2) : une scène sans décor
+// ne dessine plus rien, et « rien d'encré, rien en cache » vaut de nouveau. Reste
+// le repli PNG → PNG (le décor du stade 0 le temps que celui de l'ère charge), qui
+// figerait sinon la mauvaise boîte pour l'ère — le défaut « la guilde vole le
+// survol des Tribunaux ». Chaque mesure note donc la VERSION DES PROPS
+// (getPropVersion, bumpée à chaque décodage) ;
 // une mesure prise sous une version plus ancienne est refaite. La version n'est
 // PAS dans la clé : l'entrée est remplacée, la Map ne grossit pas à chaque
 // décodage paresseux.
@@ -124,8 +124,8 @@ let _engInkEra = '';
 const ENG_INK_REFRESH_PER_FRAME = 8;
 let _engInkFrame = null;
 let _engInkRefreshes = 0;
-// Clé mémoïsée sur la TUILE (objet layout recréé à chaque recalcul, comme
-// sceneKey) : plus de concaténations par moteur et par frame.
+// Clé mémoïsée sur la TUILE (objet layout recréé à chaque recalcul) : plus de
+// concaténations par moteur et par frame.
 function engineInkKey(t, era) {
   if (t._inkEp === era) return t._inkKey;
   const craft = engineCraft(t);   // un atelier des guildes = un dessin par métier
@@ -136,11 +136,11 @@ function engineInkKey(t, era) {
 }
 // L'ÈRE DE LA CLÉ, plafonnée à 34 (audit 2026-10-05, MEM-6) : au-delà, une scène ne
 // dépend plus que de sa bande — tous les seuils d'ère du dessin sont ≤ 30 (stades
-// engineStage et pixelBuildings à 10/25/30, variantes à 5/10/11, bateaux du port). Sans
+// engineStage à 10/25/30, variantes à 5/10/11, bateaux du port). Sans
 // plafond, chaque ère transcendante vidait le cache et refaisait ~56 mesures à 96 px
-// (getImageData compris) pour des boîtes identiques. Seul écart : le repli
-// paramétrique du port (props de quai pas encore décodés, bateau tous les 2 âges),
-// re-mesuré de toute façon au décodage (getPropVersion).
+// (getImageData compris) pour des boîtes identiques. (Le port paramétrique, qui
+// changeait de bateau tous les 2 âges avant le décodage de ses props, est retiré
+// avec les autres replis procéduraux — MORT-2.)
 const ENG_INK_ERA_MAX = 34;
 function engineInkFrac(t, now) {
   if (typeof document === 'undefined') return null;
@@ -362,7 +362,7 @@ export function isoEngineSceneBox(t, anchor, spanX, spanY, T, z, hh) {
   // branche ne change rien pour lui.
   const spanSum = spanX + spanY;
   const unit = T * z * ISO_X * ENGINE_UNIT_F;
-  const HALL_SCENE_MAX = (typeof window !== 'undefined' && window.__hallSceneMax) || HALL_SCENE_MAX_DEFAULT;
+  const HALL_SCENE_MAX = (import.meta.env?.DEV && typeof window !== 'undefined' && window.__hallSceneMax) || HALL_SCENE_MAX_DEFAULT;
   const sceneBand = CM.layout?.counts?.eraBand ?? 0;
   const capSum = sceneBand <= HALL_SCENE_CAP_MAX_BAND
     ? (cmEngineAtelierFoot(id) || 1) * 2 * HALL_SCENE_MAX
@@ -412,16 +412,11 @@ function drawIsoEngineSceneBody(ctx, t, id, bx, by, bw, now, aNow) {
     // la scène : un liseré tracé sur une AUTRE image que celle dessinée juste
     // après cernerait une silhouette que le bâtiment n'a pas.
     if (CM.hover && CM.hover.tile === t) drawIsoEngineOutline(t, bx, by, bw, aNow, HOVER_GOLD);
-    // SCÈNE CUITE (engineSceneCache) : plans statiques blittés, animé en direct.
-    // false = cache indisponible (molette off, échelle hors bornes, cuisson
-    // échouée) → dessin direct intégral, comme avant.
-    // ⚠ LES DEUX TEMPS sont passés, et ce n'est pas de la coquetterie : `now`
-    // sert la CLÉ du cache (son époque est mémoïsée sur la frame — un temps par
-    // instance la ferait recalculer par scène, le piège des huit concaténations
-    // documenté là-bas), `aNow` ne sert que la passe animée.
-    if (!drawCachedEngineScene(ctx, t, bx, by, bw, now, aNow)) {
-      drawEngineSprite(t, bx, by, bw, bw, aNow);
-    }
+    // Dessin direct, à l'horloge de l'instance. (Le cache de scènes cuites,
+    // engineSceneCache, est retiré à l'audit du 05/10 — MORT-1 : opt-in jamais
+    // activé, un drawImage remplacé par un drawImage, et en retard sur les
+    // fenêtres de nuit et les scènes vivantes, qu'il éteignait ou figeait.)
+    drawEngineSprite(t, bx, by, bw, bw, aNow);
     // Rend la boîte publiée à l'appelant pour le hit-test au survol. Sans elle,
     // viser un moteur haut (une école, un temple) retombait sur la cellule
     // projetée sous le curseur, c'est-à-dire celle SITUÉE DERRIÈRE.

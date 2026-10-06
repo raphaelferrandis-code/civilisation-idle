@@ -65,7 +65,7 @@ export function betPayout(key) {
   if (/^[dc][123]$/.test(key)) return 3;
   return 0;
 }
-export const isBetKey = (key) => betPayout(key) > 0;
+const isBetKey = (key) => betPayout(key) > 0;
 
 export function rouletteUnlocked() {
   // La Nuit du Grand Jeu ouvre toutes les portes (nuitGrandJeu.js).

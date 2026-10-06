@@ -128,7 +128,7 @@ export default function StewardPanel() {
         <span className="regul-block-count">{armed}/{slots || 0}</span>
       </h3>
       {resting && (
-        <p className="steward-resting" {...tipProps(null, tr({ fr: "Au-delà de 50 % de fatigue, l'intendance attend que l'administration récupère.", en: 'Beyond 50% fatigue, the stewardship waits for the administration to recover.' }))}>
+        <p className="steward-resting" {...tipProps(null, tr({ fr: `Au-delà de ${Math.round(STEWARD_FATIGUE_GATE * 100)} % de fatigue, l'intendance attend que l'administration récupère.`, en: `Beyond ${Math.round(STEWARD_FATIGUE_GATE * 100)}% fatigue, the stewardship waits for the administration to recover.` }))}>
           😮‍💨 {tr({ fr: "l'administration souffle, consignes en pause", en: 'the administration is catching its breath, clauses paused' })}
         </p>
       )}

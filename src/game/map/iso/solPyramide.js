@@ -7,12 +7,13 @@
 // plein écran d'isoGroundBake.js a été retiré, la molette d'A/B avec lui.
 //   __solPyramideStats          cuites, ms, hits, replis étirés, sales, mémoire
 //
-// Lot 1 — LA TUILE : la géométrie (fonctions pures, testées) et la cuisson
-// d'UNE tuile par `drawIsoGround`, ancrée MONDE. Pas encore de rendu par
-// tuiles dans la frame (lot 2) : ce lot livre la brique et sa PREUVE, le banc
-// `solPyramideAB` (dev) qui compare, à caméra identique, le sol en tuiles au
-// sol plein d'aujourd'hui, et le sol en tuiles à lui-même sur une grille
-// décalée d'une demi-tuile — l'invariance à la découpe, c'est la couture mesurée.
+// Ce module porte LA TUILE (lot 1) : la géométrie (fonctions pures, testées) et
+// la cuisson d'UNE tuile par `drawIsoGround`, ancrée MONDE. Le rendu par tuiles
+// dans la frame (cache, budget, anneau) vit dans solPyramideFrame.js depuis le
+// lot 2. La PREUVE du lot 1 reste ici : le banc `solPyramideAB` (dev) compare, à
+// caméra identique, le sol en tuiles au sol plein, et le sol en tuiles à lui-même
+// sur une grille décalée d'une demi-tuile — l'invariance à la découpe, c'est la
+// couture mesurée.
 //
 // L'ESPACE DES TUILES. `worldToScreen(p) = tileSpace(p) − camSpace(cam) + centre`
 // (cf. projection.js) : tout point du monde a une position FIXE dans « l'écran à
@@ -37,6 +38,7 @@ import { ISO_X, ISO_Y, snapZoom } from './projection.js';
 import { terrainZ } from './isoTerrain.js';
 import { drawIsoGround } from './isoGroundBake.js';
 import { artLayerAnchor } from './isoArtLayer.js';
+import { mkCanvas } from '../pixelUtil.js';
 
 export const TILE_PX = 256;                 // côté d'une tuile, en px DEVICE
 export const ZOOM_MIN = 0.25, ZOOM_MAX = 3.2;
@@ -114,8 +116,7 @@ export function tileSideCss(dpr, z = 1) {
 // hw·2 et hh·4, qui suit le zoom) — mais une gouttière d'une cellule (64 px à
 // z = 1) faisait cuire 2,25 fois la surface utile : 4,2 ms la tuile contre 2,2.
 // Les 8 px couvrent l'antialiasing d'un bord et un trait de joint.
-// eslint-disable-next-line no-unused-vars
-export function gutterCss(z, T) { return 8; }
+export function gutterCss() { return 8; }
 
 // Position d'un point du monde dans l'écran à caméra nulle (avec son terrain).
 export function tileSpace(wx, wy, z) {
@@ -157,10 +158,7 @@ export function tilesCovering(cx, cy, z, cw, ch, S, shift = 0) {
 
 // ── La cuisson d'une tuile ───────────────────────────────────────────────────
 
-const mkCanvas = (w, h) => {
-  if (typeof OffscreenCanvas !== 'undefined') return new OffscreenCanvas(w, h);
-  const c = document.createElement('canvas'); c.width = w; c.height = h; return c;
-};
+// (mkCanvas : ../pixelUtil.js.)
 
 // Cuit la tuile (tx, ty) du niveau z dans un canvas de (S + 2G)·dpr px device,
 // via drawIsoGround, et renvoie { canvas, G, S, ms }. Restaure TOUT l'état
@@ -169,7 +167,7 @@ const mkCanvas = (w, h) => {
 export function cookTile(z, tx, ty, opts = {}) {
   const dpr = CM.dpr || 1;
   const S = tileSideCss(dpr, z);
-  const G = opts.gutter != null ? opts.gutter : gutterCss(z, CM.TILE);
+  const G = opts.gutter != null ? opts.gutter : gutterCss();
   const shift = opts.shift || 0;
   const side = S + 2 * G;
   const W = Math.round(side * dpr);

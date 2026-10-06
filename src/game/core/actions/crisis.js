@@ -213,29 +213,32 @@ function settleCrisisChoice(choice, instabilityBefore) {
   return (state.instability || 0) < instabilityBefore;
 }
 
-// Résolution automatique d'un event de crise selon la posture, SANS pause ni
-// dialogue (cf. CE-spec-idle-crises.md §A.3). Miroir des effets d'openCrisisEvent.
-export function autoResolveCrisisEvent(event, stance) {
-  // Mythe d'Héphaïstos : sous le seuil de population, la crise s'impose sans choix
-  // — même override qu'openCrisisEvent, pour ne pas court-circuiter le mythe.
-  if (isMythEffectActive("mythe_d_hephaistos") && D(state.population).lt(HEPH_POP_CRISIS_THRESHOLD)) {
-    chronicle(tr({
-      fr: `La colère d'Héphaïstos s'abat sur notre population affaiblie (${fmt(crediblePopulation(state.population))} hab). Face à son courroux, nos appels restent vains et le déclin s'impose à nous.`,
-      en: `The wrath of Hephaestus falls upon our weakened population (${fmt(crediblePopulation(state.population))} inhabitants). Before his fury our pleas are in vain, and decline is forced upon us.`
-    }));
-    addProductionPenalty("global", 0.06);
-    state.instability = clamp01(state.instability + 0.05);
-    return;
-  }
-  // Fardeau du ciel (Antée) : Atlas prend le PREMIER coup, pas celui que tu
-  // choisis — même sous Conseil automatisé, le skip du cycle part d'office ici.
-  if (atlasSkipAvailable() && hasActiveRuin(state, "atlas")) {
-    atlasTakeHit(event);
-    return;
-  }
-  const opts = event.options || [];
-  const choice = opts.find((o) => o.stance === stance) || opts[0];
-  if (!choice || typeof choice.apply !== "function") return;
+// ── Ce que la crise manuelle et la crise automatique font À L'IDENTIQUE ──────
+// (audit du 05/10, STRUCT-12 : les deux chemins recopiaient ces blocs ligne à ligne ;
+// une retouche d'un côté seulement aurait fait diverger le Conseil et le dialogue.)
+//
+// Mythe d'Héphaïstos : sous le seuil de population, la crise s'impose sans choix.
+// Rend true si la colère s'est abattue (la crise est alors close).
+function hephaistosOverride() {
+  if (!(isMythEffectActive("mythe_d_hephaistos") && D(state.population).lt(HEPH_POP_CRISIS_THRESHOLD))) return false;
+  chronicle(tr({
+    fr: `La colère d'Héphaïstos s'abat sur notre population affaiblie (${fmt(crediblePopulation(state.population))} hab). Face à son courroux, nos appels restent vains et le déclin s'impose à nous.`,
+    en: `The wrath of Hephaestus falls upon our weakened population (${fmt(crediblePopulation(state.population))} inhabitants). Before his fury our pleas are in vain, and decline is forced upon us.`
+  }));
+  addProductionPenalty("global", 0.06);
+  state.instability = clamp01(state.instability + 0.05);
+  return true;
+}
+// Fardeau du ciel (Antée) : Atlas prend le PREMIER coup, pas celui que tu choisis —
+// le skip du cycle part d'office, dialogue ou Conseil. Rend true s'il l'a pris.
+function atlasBurdenTakesHit(event) {
+  if (!(atlasSkipAvailable() && hasActiveRuin(state, "atlas"))) return false;
+  atlasTakeHit(event);
+  return true;
+}
+// Le choix appliqué, puis tout ce qui le suit : stabilisée ou non (Moisson de crise,
+// vœux, Olympe), le retour à l'écran, l'aiguille bornée.
+function applyCrisisChoice(choice) {
   const before = state.instability || 0;
   const outcome = choice.apply();
   const stabilized = settleCrisisChoice(choice, before);
@@ -250,6 +253,19 @@ export function autoResolveCrisisEvent(event, stance) {
     if (choice.stance === "temporiser") state.cycleCrisesProfited = (state.cycleCrisesProfited || 0) + 1;
   }
   state.instability = clamp01(state.instability);
+}
+
+// Résolution automatique d'un event de crise selon la posture, SANS pause ni
+// dialogue (cf. CE-spec-idle-crises.md §A.3). Miroir des effets d'openCrisisEvent.
+export function autoResolveCrisisEvent(event, stance) {
+  // Héphaïstos et le fardeau d'Atlas passent avant tout choix, comme au dialogue :
+  // le Conseil automatisé ne court-circuite ni le mythe ni le skip du cycle.
+  if (hephaistosOverride()) return;
+  if (atlasBurdenTakesHit(event)) return;
+  const opts = event.options || [];
+  const choice = opts.find((o) => o.stance === stance) || opts[0];
+  if (!choice || typeof choice.apply !== "function") return;
+  applyCrisisChoice(choice);
   chronicle(tr({
     fr: `Le Conseil de crise tranche : « ${choice.label} », appliqué sans délai.`,
     en: `The Crisis council decides: “${choice.label}”, applied without delay.`
@@ -261,23 +277,9 @@ export function autoResolveCrisisEvent(event, stance) {
 export async function openCrisisEvent(event, slotId = null) {
   setGamePaused(true);
   render();
-  if (isMythEffectActive("mythe_d_hephaistos") && D(state.population).lt(HEPH_POP_CRISIS_THRESHOLD)) {
-    chronicle(tr({
-      fr: `La colère d'Héphaïstos s'abat sur notre population affaiblie (${fmt(crediblePopulation(state.population))} hab). Face à son courroux, nos appels restent vains et le déclin s'impose à nous.`,
-      en: `The wrath of Hephaestus falls upon our weakened population (${fmt(crediblePopulation(state.population))} inhabitants). Before his fury our pleas are in vain, and decline is forced upon us.`
-    }));
-    addProductionPenalty("global", 0.06);
-    state.instability = clamp01(state.instability + 0.05);
-    setGamePaused(false);
-    render();
-    return;
-  }
-
-  // Fardeau du ciel (Antée) : Atlas prend le PREMIER coup, pas celui que tu
-  // choisis — le skip du cycle est consommé d'office, sans dialogue. Le pouvoir
-  // reste, le moment part.
-  if (atlasSkipAvailable() && hasActiveRuin(state, "atlas")) {
-    atlasTakeHit(event);
+  // Héphaïstos (la crise s'impose sans choix) puis le fardeau d'Atlas (le skip du
+  // cycle est consommé d'office, sans dialogue : le pouvoir reste, le moment part).
+  if (hephaistosOverride() || atlasBurdenTakesHit(event)) {
     setGamePaused(false);
     render();
     return;
@@ -324,20 +326,7 @@ export async function openCrisisEvent(event, slotId = null) {
   // absent throw ENTRE le setGamePaused(true) et le (false) → jeu figé en pause
   // (soft-lock) au lieu d'une erreur récupérable.
   if (!choice || typeof choice.apply !== "function") { setGamePaused(false); render(); return; }
-  const instabilityBefore = state.instability || 0;
-  const outcome = choice.apply();
-  const stabilized = settleCrisisChoice(choice, instabilityBefore);
-  pushCrisisOutcome(outcome, choice, stabilized);
-  if (stabilized) {
-    registerOlympusCrisisResolved();
-    // « Moisson de crise » : les crises narratives STABILISÉES du cycle comptent.
-    state.cycleCrisesResolved = (state.cycleCrisesResolved || 0) + 1;
-  } else {
-    registerOlympusCrisisIgnored();
-    // Vœu « L'audace » : les crises dont on a PROFITÉ.
-    if (choice.stance === "temporiser") state.cycleCrisesProfited = (state.cycleCrisesProfited || 0) + 1;
-  }
-  state.instability = clamp01(state.instability);
+  applyCrisisChoice(choice);
   setGamePaused(false);
   render();
 }
@@ -975,7 +964,7 @@ export function runCrisisAction(id, options = {}) {
 // coût est le malus de production CONTINU tant qu'elle est active (récupérable à
 // l'extinction). Borné par POLICY_MAX_ACTIVE (budget de stabilité).
 export function togglePolicy(id) {
-  // Gel moteur (BUG-71, RETRI-2026-07-27 #15) : ni sous un dialogue, ni pendant
+  // Gel moteur (BUG-71, docs/archive/RETRI-2026-07-27.md #15) : ni sous un dialogue, ni pendant
   // la chute, ni en crise terminale — la cité figée ne change plus de loi.
   if (gamePaused || collapseInProgress || state.crisisLimitAnnounced) return;
   if (!POLICY_BY_ID[id]) return;

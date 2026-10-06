@@ -3,43 +3,39 @@
 // (docs/PLAN-PORTS.md §5, contrat avec la session des bateaux, 2026-10-01)
 //
 // · `drawMooredHull` — UNE indirection pour tout navire posé à quai par les ports
-//   (terminal de commerce, bassin du Vieux-Port). D'abord les coques DESSINÉES PAR
-//   LE CODE de la session des bateaux (iso/boatKit.js, drawMooredKit : cargos de
-//   l'ère au terminal, plaisance d'époque au bassin) ; repli sur les sprites
-//   boat-<métier>-<secteur> là où l'ère n'a pas de modèle. Aucun décalage codé
-//   ailleurs sur BOAT_SIZES × échelle.
+//   (terminal de commerce, bassin du Vieux-Port) : les coques DESSINÉES PAR LE CODE
+//   de la session des bateaux (iso/boatKit.js, drawMooredKit : cargos de l'ère au
+//   terminal, plaisance d'époque au bassin). (Le repli sur les sprites
+//   boat-<métier>-<secteur> est parti avec l'A/B `__boatKit({ on: false })` : le kit
+//   a un modèle pour chaque rôle à chaque bande, boatKitCover.test ; audit du 05/10,
+//   MORT-6.)
 // · `hullFootprint` — longueur et largeur d'une coque, en tuiles (mêmes sources ;
 //   `kit: true` quand la coque vient du kit).
+// · `portBerths` — les postes que les ports publient (le poste libre du terminal de
+//   commerce, où la flotte fait escale).
 // La flotte MOBILE (riverFleet) reste à la session des bateaux : rien ici ne
 // simule de navigation.
 import { CM } from '../layout.js';
-import { worldToScreen } from './projection.js';
-import { isoArt } from './isoArt.js';
-import { boatSector, BOAT_IMG_TOP } from './isoFleet.js';
-import { noteReflection } from './isoReflect.js';
-import { drawSunShadow } from './isoSunShadow.js';
-import { snapDev } from '../blitSnap.js';
 import { ensureQuayGate } from '../quaysAndRiot.js';
 import { drawMooredKit, mooredFootprint } from './boatKit.js';
 
-// Rôle → sprite et échelle (unité : la largeur de dessin du sprite en tuiles). Les
-// échelles marchandes de la FLOTTE (FLEET_SCALE × 0,7 × 1,15) sont écrêtées pour passer
-// sous le pont ; un navire À QUAI ne navigue pas : le cargo du terminal reprend une
-// taille de cargo face aux portiques (×1,45), le vapeur des docks ×1,3.
+// Dimensions de REPLI d'une coque (tuiles), pour un rôle que le kit ne connaîtrait pas
+// (une coquille dans un plan de port) : le poste reste coté au lieu de jeter.
 const HULLS = {
-  container: { key: 'container', w: 0.7 * 2.6 * 1.15 * 1.45, len: 2.6, beam: 0.6 },
-  steam: { key: 'steam', w: 0.7 * 2.4 * 1.15 * 1.3, len: 2.1, beam: 0.52 },
-  sail: { key: 'sail', w: 0.7 * 1.8 * 1.15, len: 1.15, beam: 0.36 },
-  fisher: { key: 'fisher-row', w: 0.7 * 1.3 * 1.15, len: 0.7, beam: 0.26 },
-  motorboat: { key: 'motorboat', w: 0.7 * 1.25 * 1.15, len: 0.75, beam: 0.28 },
-  dinghy: { key: 'dinghy', w: 0.7 * 1.1 * 1.15, len: 0.6, beam: 0.24 },
-  rowboat: { key: 'rowboat', w: 0.7 * 1.0 * 1.15, len: 0.55, beam: 0.22 },
+  container: { len: 2.6, beam: 0.6 },
+  steam: { len: 2.1, beam: 0.52 },
+  sail: { len: 1.15, beam: 0.36 },
+  fisher: { len: 0.7, beam: 0.26 },
+  motorboat: { len: 0.75, beam: 0.28 },
+  dinghy: { len: 0.6, beam: 0.24 },
+  rowboat: { len: 0.55, beam: 0.22 },
 };
 
 const curBand = () => (CM.layout && CM.layout.counts && CM.layout.counts.eraBand) | 0;
 
-// ⚠ Les longueurs du kit ne sont pas celles des sprites (porte-conteneurs 2,4 tuiles,
-// vedette 0,94, annexe 0,5) : les postes se cotent TOUJOURS par ici, à la bande du plan.
+// ⚠ Les longueurs du kit ne sont pas celles des anciens sprites (porte-conteneurs 2,4
+// tuiles, vedette 0,94, annexe 0,5) : les postes se cotent TOUJOURS par ici, à la bande
+// du plan.
 export function hullFootprint(role, band = curBand()) {
   const fp = mooredFootprint(role, band);
   if (fp) return { len: fp.len, beam: fp.beam, kit: true };
@@ -55,22 +51,7 @@ export function hullFootprint(role, band = curBand()) {
 // du mur, qui pend sous la margelle jusqu'à l'eau : un bateau à quai flotte EN BAS.
 export function drawMooredHull(ctx, { role, heading, x, y, z = 0, now = 0, bob = true, band = null }) {
   // Le kit pose coque, reflet, ombre et roulis ; il rend false sans modèle pour l'ère.
-  if (drawMooredKit(ctx, { role, heading, x, y, z, now, bob, band })) return true;
-  const h = HULLS[role] || HULLS.sail;
-  const art = isoArt('boat-' + h.key + '-' + boatSector(heading));
-  if (!art || !art.ready) return false;
-  const T = CM.TILE, s = T * CM.cam.zoom;
-  const p = worldToScreen(x * T, y * T, z * T);
-  const dw = Math.max(1, snapDev(s * h.w));
-  if (p.x < -dw || p.x > CM.cw + dw || p.y < -dw || p.y > CM.ch + dw) return false;
-  const dy = bob ? Math.sin((now || 0) / 1500 + x * 1.7 + y) * s * 0.012 : 0;
-  const bx = snapDev(p.x - dw / 2), by = snapDev(p.y - dw * BOAT_IMG_TOP + dy);
-  const prev = ctx.imageSmoothingEnabled; ctx.imageSmoothingEnabled = false;
-  noteReflection(ctx, art.img, bx, by, dw, dw, 0, 0, 0, 0, 'column', 'water');
-  drawSunShadow(ctx, art.img, bx, by, dw, dw, 0, 0, 0, 0, 'column', false);
-  ctx.drawImage(art.img, bx, by, dw, dw);
-  ctx.imageSmoothingEnabled = prev;
-  return true;
+  return drawMooredKit(ctx, { role, heading, x, y, z, now, bob, band });
 }
 
 // Bord d'eau PEINT (le ruban, pas le riverSet) d'une rive au droit d'une colonne.
@@ -106,43 +87,36 @@ export function riverWaterAt(sm, wx, wy, T, j0 = 0, j1 = sm.length - 1) {
 }
 
 
-// ── POSTES D'AMARRAGE ET EMPRISES DANS L'EAU (contrat avec la session des bateaux) ──
-// Chaque port publie ce qu'il sait par un FOURNISSEUR (pas d'import croisé : ce
-// module ne connaît aucun port) : fn(L) → { berths: [...], water: [{ x, y, r }] }.
-//   berths : { id, kind: 'central'|'commerce'|'plaisance', x, y (tuiles monde, centre
-//            de coque), heading (cap écran, rad), axis ({x,y} monde, le long du quai),
-//            maxLen (tuiles), decor (un navire-décor y est déjà peint) } ;
-//   water  : des disques (tuiles monde) que la flotte doit contourner.
+// ── LES POSTES D'AMARRAGE (contrat avec la session des bateaux) ──────────────────
+// Chaque port publie ses postes par un FOURNISSEUR (pas d'import croisé : ce module ne
+// connaît aucun port) : fn(L) → [{ id, kind, x, y (tuiles monde), heading (cap écran,
+// rad), axis ({x,y} monde, le long du quai), maxLen (tuiles), decor, … }].
+// LU PAR LA FLOTTE (boatBerths.fleetBerths) : le poste LIBRE du terminal de commerce
+// (kind 'commerce', decor: false) devient l'escale des marchands. Ses champs propres :
+// (x, y) = le point du FLANC côté quai (la coque s'y range de sa demi-largeur le long
+// de `out`, vers l'eau), `z` = le plan de l'eau sous le quai (négatif), `clear` = la
+// largeur des navires-décor voisins (la file où le marchand les longe), `extent` =
+// { x0, x1 } le long du quai.
+// ⚠ Audit du 2026-10-05 (MORT-5) : le contrat n'avait aucun lecteur. Les fournisseurs du
+// ponton central et du bassin (postes-décor, que la flotte ne prend pas) et les emprises
+// dans l'eau (`portWaterObstacles`) sont partis avec lui : versées dans l'évitement de la
+// flotte (riverDodge, portée ± 0,045 du ruban, dégagement = rayon + demi-LONGUEUR), les
+// coques de la rive poussaient tout le trafic dans la file d'en face sur une vingtaine de
+// tuiles ; le ponton est déjà une passe (riverFleet.navPrepare).
 const _providers = new Map();
 export function registerPortProvider(kind, fn) { if (typeof fn === 'function') _providers.set(kind, fn); }
-function collect(L) {
-  const berths = [], water = [];
-  if (!L) return { berths, water };
-  for (const fn of _providers.values()) {
+// `kind` : un seul fournisseur (celui du terminal : on ne cuit pas les autres ports pour rien).
+export function portBerths(L, kind = null) {
+  const berths = [];
+  if (!L) return berths;
+  for (const [k, fn] of _providers) {
+    if (kind && k !== kind) continue;
     try {
       const r = fn(L);
-      if (r && r.berths) berths.push(...r.berths);
-      if (r && r.water) water.push(...r.water);
+      if (r && r.length) berths.push(...r);
     } catch { /* un port mal posé ne prive pas les autres */ }
   }
-  return { berths, water };
-}
-export function portBerths(L) { return collect(L).berths; }
-// Au format de riverIslandObstacles (isoFleet.js) : { t, lat, r, id }, t = position le
-// long du ruban (index de sample / (n − 1)), lat = écart à l'axe sur la normale
-// (−ty, tx), r = rayon en tuiles (plancher 0,35, cf. la note de riverIslandObstacles).
-export function portWaterObstacles(L) {
-  const sm = L && L.river && L.river.samples;
-  if (!sm || sm.length < 2) return [];
-  const len = sm.length, out = [];
-  for (const o of collect(L).water) {
-    let bi = 0, bd = Infinity;
-    for (let i = 0; i < len; i += 1) { const dd = (sm[i].x - o.x) ** 2 + (sm[i].y - o.y) ** 2; if (dd < bd) { bd = dd; bi = i; } }
-    const a = sm[Math.max(0, bi - 1)], b = sm[Math.min(len - 1, bi + 1)];
-    let tx = b.x - a.x, ty = b.y - a.y; const tl = Math.hypot(tx, ty) || 1; tx /= tl; ty /= tl;
-    out.push({ t: bi / Math.max(1, len - 1), lat: (o.x - sm[bi].x) * -ty + (o.y - sm[bi].y) * tx, r: Math.max(0.35, o.r || 0.5), id: o.id || 'port' });
-  }
-  return out;
+  return berths;
 }
 
 // Fenêtre de segments du fleuve qui bordent un intervalle de x (tuiles), marge comprise.
@@ -157,8 +131,8 @@ export function riverWindow(sm, x0, x1, margin = 10) {
 
 // ── LES RÉVERBÈRES DES PORTS (au format d'isoStreet.isoLamps) ───────────────────
 // { wx, wy (px monde), gx, gy, d (profondeur), s (graine) } : ils héritent du dessin de
-// mât de l'ère, des halos de nuit et du plafond d'allumage des rues. Mêmes fournisseurs
-// que les postes, par port.
+// mât de l'ère, des halos de nuit et du plafond d'allumage des rues. Un fournisseur par
+// port.
 const _lampProviders = new Map();
 export function registerPortLamps(kind, fn) { if (typeof fn === 'function') _lampProviders.set(kind, fn); }
 let _lampKey = '', _lamps = [];

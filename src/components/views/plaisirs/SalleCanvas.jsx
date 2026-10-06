@@ -5,6 +5,7 @@ import { plaisirsCast } from '../../../game/map/iso/plaisirsCast.js';
 import { salleNightF } from './salleBake.js';
 import { nuitActive, spectacleActif } from '../../../game/core/actions/nuitGrandJeu.js';
 import { dehorsCss } from './salleLumiere.js';
+import { h01Pair } from '../../../game/map/hash.js';
 
 // LA FÊTE (la Nuit du Grand Jeu, le spectacle) : des paillettes d'or et de rose tombent
 // dans la coupe, et les lustres brillent plus fort. Une paillette = un pixel d'art, sa
@@ -26,11 +27,7 @@ function alanguieImg(name) {
 
 // Les ÉTOILES du ciel de nuit, au-dessus de la verrière.
 const ETOILES = 70;
-const hashP = (i, k) => {
-  let x = (i | 0) * 374761393 + (k | 0) * 668265263;
-  x = (x ^ (x >>> 13)) * 1274126177;
-  return ((x ^ (x >>> 16)) >>> 0) / 4294967296;
-};
+const hashP = h01Pair;     // hash 2D → [0, 1) (../../../game/map/hash.js)
 
 /**
  * LA MAISON DES PLAISIRS EN COUPE (refonte du 2026-10-02, phase 2 reprise le

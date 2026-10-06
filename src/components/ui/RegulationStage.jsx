@@ -13,8 +13,10 @@ import GrandGain from './GrandGain.jsx';
 
 /**
  * La scène des jeux du temple (retour Raph 2026-07-14 : « les jeux se lancent
- * dans le cadre vide en bas ») — colonne droite de l'étage bas de la page
- * Régulation. UN SEUL jeu actif à la fois : le pont unique (templeGames.js)
+ * dans le cadre vide en bas ») — née en bas de la page Régulation, montée depuis
+ * la migration du 2026-08-06 PAR-DESSUS la salle de la Maison des Plaisirs
+ * (PlaisirsView). Elle garde son nom et ses classes `regul-block regulation-stage`
+ * (le CSS des scènes s'y accroche). UN SEUL jeu actif à la fois : le pont unique (templeGames.js)
  * livre le jeu ouvert { kind, openedAt, …req } ; ouvrir un jeu remplace le
  * précédent. Vide : un simple filigrane. Échap referme (sauf si un vrai
  * dialogue est ouvert), sans ouvrir les Options.

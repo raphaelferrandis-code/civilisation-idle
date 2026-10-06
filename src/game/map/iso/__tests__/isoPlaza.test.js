@@ -5,7 +5,7 @@ import path from "node:path";
 import { CM } from "../../layout.js";
 import {
   isoPlazaBox, isoPlazaBoxes, isoPlazaCells, isoPlazaComposition, isoPlazaCompositions, plazaEraForBand,
-  isoPlazaKitOn, isoPlazaSceneOn, isoPlazaSceneCoversGround, plazaAnchor, grateFit,
+  isoPlazaKitOn, plazaAnchor, grateFit,
   PLAZA_TUNE, RECIPES, KIND_KITS, HOUSE_HT, TALL_PROPS, personHT, ANIM_PROPS, ANIM_ERAS,
 } from "../isoPlaza.js";
 // Place carrée de `n` cellules, coin en (gx0, gy0), au format roadMap du layout
@@ -668,25 +668,18 @@ describe("molette", () => {
     expect(benchBase).not.toBe(0.9);
   });
 
-  it("le mode arbitre le kit, la scène et le sol", () => {
+  // (Le mode 'scene' — l'ancienne image unique — est retiré depuis le 2026-10-06,
+  // audit MORT-12 : il ne reste que le kit et 'off'.)
+  it("le mode arbitre le kit", () => {
     resetTune({ mode: "kit" });
     expect(isoPlazaKitOn(4)).toBe(true);
-    expect(isoPlazaSceneOn(4)).toBe(false);
-    expect(isoPlazaSceneCoversGround(4)).toBe(false);   // la dalle de sol reprend la main
-    resetTune({ mode: "scene" });
-    expect(isoPlazaKitOn(4)).toBe(false);
-    expect(isoPlazaSceneCoversGround(4)).toBe(true);
     resetTune({ mode: "off" });
     expect(isoPlazaKitOn(4)).toBe(false);
-    expect(isoPlazaSceneOn(4)).toBe(false);
   });
 
-  it("aucun mode ne fait apparaître de place aux stades primitifs", () => {
-    for (const mode of ["kit", "scene"]) {
-      resetTune({ mode });
-      expect(isoPlazaKitOn(1)).toBe(false);
-      expect(isoPlazaSceneOn(1)).toBe(false);
-    }
+  it("le kit ne fait pas apparaître de place aux stades primitifs", () => {
+    resetTune({ mode: "kit" });
+    expect(isoPlazaKitOn(1)).toBe(false);
   });
 });
 

@@ -69,7 +69,9 @@ describe("BUG-17 — pas d'escale devant un ponton qui n'est pas peint", () => {
     expect(isPierPortTile(null)).toBe(false);
   });
 
-  it("bande 5 : ni la capitainerie ni le terminal ne reçoivent de poste ni de ponton cuit", () => {
+  // (L'escale au QUAI du terminal, sans ponton, est éprouvée par tradeQuayBerth.test.js ;
+  // le terre-plein n'a ici pas de géométrie, il n'en publie pas.)
+  it("bande 5 : ni la capitainerie ni le terminal ne reçoivent de poste au ponton ni de ponton cuit", () => {
     expect(fleetFor(5).trade.length).toBeGreaterThan(0);     // la boucle tourne vraiment
     const office = port(20, { portOffice: { side: "N" } });
     const trade = port(50, { tradePort: { side: "N", x0: 48, len: 6 } });

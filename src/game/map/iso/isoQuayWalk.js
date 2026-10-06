@@ -24,6 +24,7 @@
 // DEVANT le promeneur ; les files sont donc tenues côté terre (0,5 et 0,68 de la
 // largeur) : les pieds restent au-dessus de sa lisse à l'écran, rien ne se chevauche.
 import { CM, cmHash } from '../layout.js';
+import { fmix32 as fmix } from '../hash.js';
 import { worldToScreen } from './projection.js';
 import { isoUnitDepthEx, drawIsoCitizenItem } from './isoUnits.js';
 import { registerVieActors } from './isoVie.js';
@@ -33,7 +34,7 @@ import { noteFig, FIG } from '../figures.js';
 
 // Molette : __quayWalk({ on, density, speed }).
 export const QUAY_WALK = { on: true, density: 1, speed: 1 };
-if (typeof window !== 'undefined') {
+if (import.meta.env?.DEV && typeof window !== 'undefined') {
   window.__quayWalk = (o) => { if (o) Object.assign(QUAY_WALK, o); _key = ''; return { ...QUAY_WALK }; };
 }
 
@@ -50,9 +51,9 @@ const MATE_SIDE = [-1, 1];          // file aval : vers l'eau (pas plus près qu
 const PASS = { gap: 0.45, off: 0.09 };   // en samples ; écart latéral (fraction de largeur)
 const SPEED_PX = 4.6;             // px monde / s : un flâneur, plus lent qu'un passant
 const DIRS = (tx, ty) => (Math.abs(tx) > Math.abs(ty) ? (tx > 0 ? 0 : 1) : (ty > 0 ? 2 : 3));
-// ⚠ BRASSÉ (fmix32) : cmHash de graines voisines (« …:0o », « …:1o ») sort des
-// valeurs voisines — les promeneurs d'un tronçon avançaient en paquets de 3 à 5.
-const fmix = (h) => { h ^= h >>> 16; h = Math.imul(h, 0x85ebca6b); h ^= h >>> 13; h = Math.imul(h, 0xc2b2ae35); h ^= h >>> 16; return h >>> 0; };
+// ⚠ BRASSÉ (fmix = fmix32, ../hash.js) : cmHash de graines voisines (« …:0o »,
+// « …:1o ») sort des valeurs voisines — les promeneurs d'un tronçon avançaient en
+// paquets de 3 à 5.
 const h01 = (s) => fmix(cmHash(s) >>> 0) / 4294967296;
 
 // Les promeneurs d'un tronçon : tirés une fois par ville (graine = tronçon + rang).
@@ -175,6 +176,6 @@ registerVieActors((now, out) => {
 });
 
 // Vérification : les promeneurs du moment (monde, tuiles).
-if (typeof window !== 'undefined') {
+if (import.meta.env?.DEV && typeof window !== 'undefined') {
   window.__quayWalkers = () => _walkers.map((w) => [+(w.p.x / CM.TILE).toFixed(1), +(w.p.y / CM.TILE).toFixed(1), w.p.pauseT ? 'arrêt' : 'marche']);
 }

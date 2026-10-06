@@ -13,10 +13,11 @@
 // commitée.
 //
 // ⚠ LA PALETTE DE SAISON N'EST PAS ICI, ET NE PEUT PAS Y ÊTRE. `SEASON_GRASS` et
-// ses trois sœurs sont RÉASSIGNÉES à chaque frame par isoRenderer, et une liaison
-// importée est en LECTURE SEULE en ESM — les déplacer jetterait un TypeError à la
-// première frame. Elles restent donc chez leur seul écrivain, et lisent `GRASS` /
-// `GRASS_WILD` d'ici comme référence d'été.
+// ses trois sœurs sont RÉASSIGNÉES à chaque frame par
+// isoGroundDetail.refreshSeasonPalette() (appelée en tête de frame par isoRenderer),
+// et une liaison importée est en LECTURE SEULE en ESM — les déplacer jetterait un
+// TypeError à la première frame. Elles restent donc chez leur seul écrivain
+// (isoGroundDetail.js), et lisent `GRASS` / `GRASS_WILD` d'ici comme référence d'été.
 //
 // ⚠ LE TON DE CHAUSSÉE (`roadTone`) n'est pas ici non plus : il dépend du voile de
 // lecture de l'ère, donc de `ROAD_DETAIL` — 34 usages de réglage de VOIRIE, qui

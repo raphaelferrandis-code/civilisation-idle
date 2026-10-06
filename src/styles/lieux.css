@@ -310,7 +310,6 @@
   padding: 0.9rem 1rem 1rem;
   border: 0;
   border-image: none;
-  border-radius: 0;
   background: rgba(13, 16, 26, 0.96);
   backdrop-filter: none;
   -webkit-backdrop-filter: none;
@@ -364,7 +363,6 @@
   padding: 0.9rem 1rem 1rem;
   border: 0;
   border-image: none;
-  border-radius: 0;
   background: rgba(13, 16, 26, 0.96);
   backdrop-filter: none;
   -webkit-backdrop-filter: none;

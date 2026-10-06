@@ -28,8 +28,9 @@
 // }
 // Pur jusqu'à drawRipples.
 import { h32 } from './isoPixelPaint.js';
+import { fm } from '../pixelUtil.js';   // modulo réel
 
-export const RIPPLE_STEP = 80;          // ms entre deux repeints (~12 images/s)
+const RIPPLE_STEP = 80;          // ms entre deux repeints (~12 images/s)
 const PERIOD = 2600;                    // ms, une houle de rides
 const REACH = 8;                        // px monde : portée des rides
 const WAKE = 13;                        // px monde : longueur d'un sillage
@@ -37,7 +38,6 @@ const pack = (r, g, b, a) => ((a << 24) | (b << 16) | (g << 8) | r) >>> 0;
 const C_LINE = pack(240, 248, 247, 255);   // liseré au contact
 const C_SOFT = pack(214, 236, 240, 225);   // son second rang, déchiré
 const C_RING = pack(204, 230, 238, 215);   // rides et sillage, un peu transparents
-const fm = (a, n) => ((a % n) + n) % n;
 
 // Distance d'un point au bord d'un polygone convexe (négative dedans) — dedans quand
 // il est du même côté de toutes les arêtes, quel que soit le sens du polygone.
@@ -161,7 +161,7 @@ export function rippleField(contact) {
 
 // Allume les remous de l'instant t (ms) dans out (Uint32Array w × h, octets RGBA).
 // Pur : un même t redonne la même image.
-export function paintRipples(F, t, out) {
+function paintRipples(F, t, out) {
   out.fill(0);
   const p = t / PERIOD + F.ph;
   // Le liseré respire avec la houle : plus fourni quand l'eau monte contre l'ouvrage.

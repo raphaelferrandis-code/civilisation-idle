@@ -1,11 +1,17 @@
 "use strict";
 
+// Baril des actions : ne ré-exporte que ce que ses importeurs lisent (l'UI, les
+// harnais racine bench-*/sim-*, le parcours scripté) — les tests visent les
+// modules directs. Les blocs de la Maison (rang, roulette, roue, Nuit, duel,
+// courses) restent ENTIERS même si leurs scènes les importent en direct :
+// importer le baril évalue tous les modules d'actions dans l'ordre du jeu réel
+// (bench-plaisirs, bench-temple) ; retirer un bloc entier changerait cet ordre
+// dans un cycle d'imports sensible (cf. data/myths.js → baril).
+
 export {
   log,
   chronicle,
-  cycleYear,
-  chronicleBuilding,
-  resetCyclePeaks
+  cycleYear
 } from './actions/utils.js';
 
 export {
@@ -18,10 +24,6 @@ export {
 } from './actions/building.js';
 
 export {
-  pickCrisisEvent,
-  checkCrisisThresholds,
-  openCrisisEvent,
-  triggerCollapseChoices,
   resumeAfterCrisisOutcome,
   runTerminalCrisisAction,
   completeCollapse,
@@ -51,11 +53,7 @@ export {
   clampStake,
   autoStake,
   blessingCost,
-  potCap,
-  chipRack,
-  chipPile,
-  chipIndexOf,
-  chipValueAt
+  potCap
 } from './actions/maisonTable.js';
 
 // Le rang de la Maison (lot 2) : réputation, titres, cadeaux.
@@ -75,7 +73,6 @@ export {
   cashOutIcarus,
   icarusFlying,
   icarusFlightInfo,
-  icarusTakeoffAt,
   icarusMultiplier,
   icarusMultiplierAt,
   icarusLastOutcome,
@@ -93,9 +90,7 @@ export { hasTempleArtifact } from './actions/templeArtifacts.js';
 export {
   playScratch,
   scratchGrid,
-  scratchUnlocked,
   scratchPayout,
-  scratchPrizes,
   scratchOdds,
   scratchRtpRef
 } from './actions/scratch.js';
@@ -133,11 +128,9 @@ export {
   blackjackHand,
   blackjackActive,
   blackjackLastOutcome,
-  blackjackUnlocked,
   blackjackResult,
   handValue,
-  isBlackjack,
-  BLACKJACK_SUITS
+  isBlackjack
 } from './actions/blackjack.js';
 
 export {
@@ -152,19 +145,13 @@ export {
   tickSteward,
   stewardSlotCount,
   stewardActionChoices,
-  stewardActionAllowed,
   stewardMagistrate,
   STEWARD_SLOT_UNLOCKS,
   BASE_ACTION_LABELS
 } from './actions/steward.js';
 
-export { addProductionPenalty } from './mechanics.js';
-
 export {
-  checkMythOnCollapse,
-  chooseActiveRuins,
   promptActiveRuinsForNewCycle,
-  promptCadmosAgeName,
   engraveCadmosEpitaph,
   activateMyth,
   icareClimb,
@@ -182,17 +169,13 @@ export {
   renegocierAtridesDebt,
   transmettreAtrides,
   activateAtridesPact,
-  resetCivilization,
   migrerEnee
 } from './actions/myths.js';
 
 export {
-  initAutoScriptRules,
   getAutoScriptRules,
   toggleAutoScriptRule,
   setAutoScriptThreshold,
-  checkAutoScriptRules,
-  initAutomateRules,
   getAutomateRules,
   toggleAutomate,
   setAutomateThreshold,
@@ -202,14 +185,7 @@ export {
   setAutoCollapseConfig
 } from './actions/automation.js';
 
-export {
-  registerOlympusInteraction,
-  tickOlympus,
-  registerOlympusCrisisResolved,
-  registerOlympusCrisisIgnored,
-  registerOlympusCollapse,
-  olympusRuinBonus
-} from './actions/olympus.js';
+export { registerOlympusInteraction } from './actions/olympus.js';
 
 export {
   tick,

@@ -1,7 +1,8 @@
 "use strict";
 
-// Prestige & fin de cycle : gain de ruines, seuils dynastie / Grand Reset,
-// légitimité, usure du temps, qualité d'héritage. Dépend uniquement de shared.
+// Prestige & fin de cycle : gain de ruines, multiplicateur du Grand Reset, usure du
+// temps, qualité d'héritage. Dépendances : state, balance, data (world, myths,
+// activeRuins), shared et production/mythEffects.
 import { state, defaultState } from '../state.js';
 import { Decimal, D, toNum } from '../num.js';
 import { clamp } from '../utils.js';
@@ -50,7 +51,9 @@ function grandResetRuinMultiplier() {
 // Horloge du cycle : FIGÉE pendant la crise terminale (le tick est en pause,
 // rien ne vit — regarder l'écran ne doit pas faire mûrir la moisson). Elle
 // repart quand un édit relance la cité (crisisLimitAnnounced retombe).
-function cycleClockNow() {
+// Exportée : l'an du cycle des vœux (actions/utils.cycleYearFrozen) lit la MÊME
+// horloge — elle en recopiait la condition (audit du 05/10, STRUCT-12).
+export function cycleClockNow() {
   return (state.crisisLimitAnnounced && state.crisisOpenedAt)
     ? state.crisisOpenedAt
     : Date.now();
@@ -137,7 +140,7 @@ export function ruinGainWithPrep(prep) {
   return ruinGain(false, boostedPrep(prep));
 }
 
-export const HERITAGE_QUALITY_LABELS = [
+const HERITAGE_QUALITY_LABELS = [
   { fr: "Fragile", en: "Fragile" },
   { fr: "Stable", en: "Stable" },
   { fr: "Riche", en: "Rich" },
@@ -146,7 +149,7 @@ export const HERITAGE_QUALITY_LABELS = [
 
 // Cran de qualité (0-3) — -1 hors crise (« en formation »). Sert à l'échelle
 // colorée de l'autel ; heritageQuality() reste la façade texte historique.
-export function heritageQualityTier() {
+function heritageQualityTier() {
   if (!crisisOpen()) return -1;
   const gain = ruinGain();
   const age = Math.max(1, (cycleClockNow() - state.cycleStartedAt) / 1000);
@@ -253,9 +256,10 @@ export function ruinGain(projected = false, extraPrep = 0) {
   return populationDepthDec.mul(restProduct).floor().max(minGain * flatMaturity).add(eraFlatBonus * flatMaturity).floor().max(atLeastOne);
 }
 
-export function completedMythCount() {
-  return Object.values(state.mythsCompleted || {}).filter(Boolean).length;
-}
+// completedMythCount : la règle unique vit dans shared.js (la grille des sceaux et la
+// merveille de la Singularité la lisent sans importer ce module) ; ré-exportée ici
+// pour le baril mechanics.
+export { completedMythCount } from './shared.js';
 
 export function timeWearRate() {
   const cycleFatigue = 1 + Math.min(1.2, state.cycles * 0.045);

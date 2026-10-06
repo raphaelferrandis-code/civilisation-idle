@@ -15,7 +15,7 @@ import { fdHash, fdFootprints, spotOpen } from './fdSpots.js';
 import { T, dirOf, figure, thing, pushFig, pushProp, openStory } from './fdKit.js';
 
 // Où elle en est, chapitre par chapitre : la moitié de ce qui reste.
-export const ZENON = [0, 0.5, 0.75, 0.875, 0.9375, 0.96875, 1];
+const ZENON = [0, 0.5, 0.75, 0.875, 0.9375, 0.96875, 1];
 
 // LE CHEMIN : la berge du fleuve, du côté le plus habité, sur le tronçon qui longe la
 // ville (deux cases au plus du sol urbain). Sans fleuve : une ligne ouest → est au
@@ -77,7 +77,7 @@ function pointAt(L, pts, f) {
   return { ...pts[i], i };
 }
 
-export function buildTortue(app) {
+function buildTortue(app) {
   const st = app.ch.stage | 0;
   const L = CM.layout;
   const pts = tortoisePath(L);

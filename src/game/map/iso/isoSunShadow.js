@@ -59,6 +59,11 @@
 //   · le masque ne garde pas ce que le sprite recouvre de lui-même (il est peint
 //     juste après) : moins de surface à remplir (1,3 Mpx d'ombre pour un écran
 //     de 1,6 Mpx au zoom 1).
+// ⚠ « multiply ≈ source-over » NE VAUT QU'EN RENDU LOGICIEL. Sur canvas GPU (le .exe
+// sur une vraie carte graphique), chaque blit multiply relit la destination : audit
+// du 2026-10-05 (PERF-1), mégapole ère 33 au zoom 1, ~1 540 ombres par image =
+// 30-31 ms par frame en multiply, 22,8 en source-over, 19,6 sans ombre. Le choix
+// du mode est un arbitrage visuel (cf. `mode` ci-dessous), pas une question gratuite.
 //
 // Molette : __sunShadow({ on, len, alpha, col, mode, minH })
 //   len    = longueur de l'ombre par pixel de hauteur (0,5 ≈ fin d'après-midi) ;
@@ -73,12 +78,13 @@ export const SUN_SHADOW = { on: true, len: 0.5, alpha: 0.5, col: '#8e96ad', mode
 // arêtes « avant-gauche » des losanges. Une ombre couchée l'y suit exactement.
 const SUN_DIR_X = 2 / Math.sqrt(5), SUN_DIR_Y = 1 / Math.sqrt(5);
 export function sunShear(len = SUN_SHADOW.len) { return { kx: len * SUN_DIR_X, ky: 1 + len * SUN_DIR_Y }; }
-// Version de la GÉOMÉTRIE (longueur, teinte, seuil) : les scènes cuites la portent
-// dans leur clé et se re-cuisent quand elle change. La force (jour, nuit, molette
-// on/off, vue lointaine) ne se cuit jamais : elle s'applique au blit.
+// Version de la GÉOMÉTRIE (longueur, teinte, seuil) : la cuisson des Plaisirs
+// (isoPlaisirs) la porte dans sa clé et se re-cuit quand elle change. La force
+// (jour, nuit, molette on/off, vue lointaine) ne se cuit jamais : elle s'applique
+// au blit (drawSunShadowPlane).
 let _geoVer = 0;
 export const sunShadowVersion = () => _geoVer;
-if (typeof window !== 'undefined') {
+if (import.meta.env?.DEV && typeof window !== 'undefined') {
   window.__sunShadow = (o) => {
     if (o === false) SUN_SHADOW.on = false;
     else if (o === true) SUN_SHADOW.on = true;
@@ -271,8 +277,7 @@ export function rectKey(sx, sy, sw, sh) {
 // au repos). Il se compte en pixels SOURCE (un sprite de 400×340 vaut ~70 images
 // d'habitant) et le premier masque de l'image passe toujours. Même horloge que
 // iso/bakeBudget.js (l'identité de CM._wonderBoxes, neuve à chaque image) ; illimité
-// en capture (un cliché est complet), hors du peintre, et en cuisson de scène
-// (captureSunShadows : la scène cuite resterait sans ombre).
+// en capture (un cliché est complet) et hors du peintre.
 // ⚠ « Hors du peintre » = toute toile qui n'est pas CELLE DE LA CARTE (CM.ctx), et pas
 // seulement « CM._wonderBoxes nul » : la salle et les tables des Plaisirs posent l'ombre
 // de leurs habitants (drawNamedAgentIso) carte DÉMONTÉE — CityView n'est pas monté sur
@@ -362,20 +367,17 @@ export function drawSunShadow(ctx, img, dx, dy, dw, dh, sx = 0, sy = 0, sw = 0, 
   if (_mute) return;
   // Le REFLET dans l'eau se branche ici (iso/isoReflect.js) : tout sprite posé sur
   // la carte passe par cette porte juste avant son blit. Avant le seuil de taille
-  // et la nuit : un reflet ne dépend pas du soleil. Jamais en cuisson de scène (le
-  // repère n'est pas l'écran : la scène cuite se reflète au blit, cf. le cache).
-  if (reflect && _reflHook && !_sink) _reflHook(ctx, img, dx, dy, dw, dh, sx, sy, sw, sh, pivot);
+  // et la nuit : un reflet ne dépend pas du soleil.
+  if (reflect && _reflHook) _reflHook(ctx, img, dx, dy, dw, dh, sx, sy, sw, sh, pivot);
   if (!img || dw <= 0 || dh < SUN_SHADOW.minH) return;
-  // En cuisson de scène, la force ne compte pas : elle sera appliquée au blit.
-  const a = _sink ? 1 : sunShadowAlpha();
+  const a = sunShadowAlpha();
   if (a <= 0) return;
   if (!sw) sw = img.naturalWidth || img.width || 0;
   if (!sh) sh = img.naturalHeight || img.height || 0;
-  const m = shadowMask(img, sx, sy, sw, sh, pivot, !_sink && ctx === CM.ctx);
+  const m = shadowMask(img, sx, sy, sw, sh, pivot, ctx === CM.ctx);
   if (!m || !m.canvas) return;
   const kx = dw / sw, ky = dh / sh;
   const x = dx + m.ox * kx, y = dy + m.oy * ky, w = m.canvas.width * kx, h = m.canvas.height * ky;
-  if (_sink) { _sink.push({ canvas: m.canvas, x, y, w, h }); return; }
   paintShadow(ctx, m.canvas, x, y, w, h, a);
 }
 
@@ -415,41 +417,13 @@ export function sunShadowNightK() {
   return Math.max(0, Math.min(1, 1 - sunShadowAlpha() / full));
 }
 
-// ── LES SCÈNES CUITES (engineSceneCache) ─────────────────────────────────────
-// Une scène de bâtiment-moteur est cuite UNE fois dans un canvas TRANSPARENT puis
-// blittée. Son ombre ne peut pas y être cuite : un multiply sur du vide rend la
-// couleur de l'ombre elle-même, et la scène posait un VOILE gris-bleu sur le sol
-// au lieu de l'assombrir (vu en A/B cache/direct, 2026-09-30) — rogné en plus par
-// les marges du canvas. La cuisson RELÈVE donc les ombres de ses props au lieu de
-// les peindre (captureSunShadows), les fond en UN calque (bakeSunShadowPlane :
-// l'union — deux ombres qui se croisent ne foncent pas deux fois), que le blit
-// pose en multiply avec la force du moment (drawSunShadowPlane).
-let _sink = null;
-export function captureSunShadows(fn) {
-  const prev = _sink, list = [];
-  _sink = list;
-  try { fn(); } finally { _sink = prev; }
-  return list;
-}
-// `list` en px LOGIQUES du repère de cuisson ; `mk(w, h)` fabrique un canvas.
-// Rend { cv, x, y, w, h } (x, y, w, h logiques, calés sur la grille device) ou null.
-export function bakeSunShadowPlane(list, dpr, mk) {
-  if (!list || !list.length) return null;
-  let x0 = Infinity, y0 = Infinity, x1 = -Infinity, y1 = -Infinity;
-  for (const s of list) {
-    if (s.x < x0) x0 = s.x; if (s.y < y0) y0 = s.y;
-    if (s.x + s.w > x1) x1 = s.x + s.w; if (s.y + s.h > y1) y1 = s.y + s.h;
-  }
-  const X0 = Math.floor(x0 * dpr), Y0 = Math.floor(y0 * dpr);
-  const W = Math.ceil(x1 * dpr) - X0, H = Math.ceil(y1 * dpr) - Y0;
-  if (!(W > 0 && H > 0)) return null;
-  const cv = mk(W, H);
-  const c = cv.getContext('2d');
-  c.setTransform(dpr, 0, 0, dpr, -X0, -Y0);
-  c.imageSmoothingEnabled = false;
-  for (const s of list) c.drawImage(s.canvas, s.x, s.y, s.w, s.h);
-  return { cv, x: X0 / dpr, y: Y0 / dpr, w: W / dpr, h: H / dpr };
-}
+// ── UN CALQUE D'OMBRE CUIT ───────────────────────────────────────────────────
+// Une ombre cuite à part dans un canvas (celle de la Maison des Plaisirs, cf.
+// isoPlaisirs) ne peut pas l'être avec le sprite : un multiply sur du vide rend la
+// couleur de l'ombre elle-même, un VOILE gris-bleu sur le sol au lieu de
+// l'assombrir. Elle est donc posée au blit, en multiply et avec la force du moment.
+// (La capture des ombres des scènes moteur cuites, captureSunShadows et
+// bakeSunShadowPlane, est partie avec leur cache — audit du 05/10, MORT-1.)
 export function drawSunShadowPlane(ctx, cv, x, y, w, h) {
   const a = sunShadowAlpha();
   if (a <= 0 || !cv) return;

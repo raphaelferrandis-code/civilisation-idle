@@ -21,15 +21,15 @@ Les sprites (habitants ET bâtiments) sont rangés en **sous-dossiers** de `publ
 
 | Dossier | Contenu | Chargé par |
 |---|---|---|
-| `inhabitants/` | habitants par ère (`caveman`→`future`, + femmes/enfants), `farmer`, porteurs (`basket-*`) | `agents.js` (`ensureAgentChar`), `cityEngineSprites.js` (farmer) |
+| `inhabitants/` | habitants par ère (`caveman`→`crystal*`, + femmes/enfants), `farmer`, porteurs (`basket-*`) | `agents.js` (`ensureAgentChar`), `cityEngineSprites.js` (farmer) |
 | `animals/` | bêtes de trait : `ox`, `horse` | `agents.js` (`ensureAgentChar`) |
 | `vehicles/` | véhicules : `veh-*` (cart, wagon, chariot, caravan, car, tram, barrow) | `agents.js` (`ensureVeh`) |
-| `boats/` | bateaux par ère : `boat-*` (raft, sail, steam, container, cosmic-7/8/9) | `agents.js` / `cityEngineSprites.js` |
+| `boats/` | bateaux par ère : `boat-*` (raft, sail, steam, container, cosmic-7/8/9) | `cityEngineSprites.js` (scène moteur du port ; le repli de la flotte iso, dans `agents.js`, est parti avec l'A/B `__boatKit`, audit du 05/10, MORT-6) |
 | `events/` | agents de crise : émeutiers **par ère** `rioter-‹ère›-‹genre›-‹arme›` (ère ∈ {`stone`,``médiéval=sans préfixe``,`anti`,`ind`,`fut`} ; genre ∈ {man,woman} ; arme ∈ {torch,fork}) — sélection via `riotEraKey(band)` dans `agents.js`, repli sur le jeu médiéval non préfixé | `agents.js` (`drawNamedAgent`+`riotEraKey`) ; la SIMULATION d'émeute reste dans `renderWorld.js` (`updateCrisis`), le dessin est passé à l'iso |
 | `buildings/` | props + scènes des **bâtiments-moteur** + acteurs de scène (`forager-*` clips, `caravan-mule-rest` = mulet couché qui lève la tête, `*-prop-*`, `*-fire`, `*-back`) | `cityEngineSprites.js` (`PROP_KEYS`, `ANIM_BANDS`, forager, mule), `engineSprites.js` |
 | `plazas/` | ⚠ **kit RÉDUIT le 2026-08-23** : ne restent que `bench`, `bush`, `fountain`, `flag` et `planter` — les seuls que le repli iso sonde (`LEGACY_PROP`, isoPlaza.js). `lamppost-*`, `paving-*` et `plazas/anim/` sont partis avec le rendu top-down. Description d'origine : **places** en 5 grappes d'ère (`antique·classique·industrielle·moderne·futuriste`) : props `lamppost·fountain·flag·planter·bush` en `‹prop›-‹ère›.png` ; le banc en 4 variantes directionnelles `bench-‹n\|s\|e\|w›-‹ère›.png` (tourné vers le centre) ; et la **dalle de sol** en 4 variantes tuilées `paving-‹0..3›-‹ère›.png` (32×32, `create_tiles_pro` square_topdown, tirées par cellule). **`plazas/anim/`** = strips d'animation bakés (`fountain-‹ère›.png`, 8 frames côte à côte, eau animée via `create_1_direction_object`+`animate_object`) | `plazaProps.js` (registre + `plazaEraForBand`, `variant`, `plazaPropImage`, `plazaAnimReady`/`blitPlazaAnim`), appelé par `cityMapDrawPlazaSurface`/`cityMapDrawPlazas` de `renderWorld.js` |
 
-Le routage est **codé** : `agentDir(name)` dans `agents.js` (nom→dossier : ox/horse→`animals`, rioter→`events`, sinon `inhabitants`) ; chaque chargeur pointe sur son sous-dossier. Les scripts `fetch*` écrivent dans le bon sous-dossier (`OUT`). Remap en lot (scan **récursif**) : `node scripts/remapPalette.mjs --dir public/pixelart/agents`.
+Le routage est **codé** : `agentDir(name)` dans `agents.js` (nom→dossier : ox/horse→`animals`, rioter→`events`, sinon `inhabitants`) ; chaque chargeur pointe sur son sous-dossier. Les scripts `fetch*` écrivent dans le bon sous-dossier (`OUT`). Remap en lot (scan **récursif**) : `node scripts/remapPalette.mjs --dir <dossier>` — un dossier de `public/pixelart` est refusé sans `--force` (cf. plus bas, « remapPalette »).
 ⚠️ `scripts/contactSheet.mjs` lit `agents/` **à plat** → à passer en récursif si réutilisé.
 
 ## Fichiers à retravailler (à la main, dans Aseprite / Piskel / GIMP…)
@@ -68,11 +68,11 @@ Serveur dev lancé, dans la console de la page : `await window.__cityShot({name:
 `.preview-shots/x.png`. Monter une ville de démo : `window.__state` + `window.__D` +
 `window.__cityRecompute()` (cf. hooks DEV dans cityMapRuntime.js).
 
-## Régénérer / re-séparer (outil agent)
+## Outils de fabrication
 
-`scripts/separatePixelTerrain.mjs` régénère `grass.png` + les overlays à partir des tilesets
-**couplés** (herbe+route) source dans `_archive/coupled/` (non versionné — re-téléchargeables
-depuis PixelLab par leur id). Méthode : il rend le vert (« dominance du vert ») **transparent**.
+Les scripts qui fabriquent ou retouchent ces sprites sont décrits dans `scripts/README.md`
+(familles, usages, garde-fous). L'ancien `scripts/separatePixelTerrain.mjs` (`grass.png` et
+overlays du rendu vu de dessus) est supprimé avec ce rendu (audit du 05/10, SCRIPT-5).
 
 ## Fiche DA — bâtiments-moteur (sprites PixelLab faits main)
 
@@ -178,7 +178,10 @@ n'expose PAS ce champ** (il faut taper l'API REST directement). Donc on ne s'y f
   sprite (plus proche voisin perceptuel « redmean »), puis **plafonne à K teintes** (défaut 22),
   tue le halo AA, et préserve l'alpha. C'est le **verrou dur** (Python/Aseprite absents → node+pngjs).
   - Un fichier : `node scripts/remapPalette.mjs <f.png> [--epoch feu] [--max 22] [--inplace]`
-  - Lot (époque auto par tag) : `node scripts/remapPalette.mjs --dir public/pixelart/agents`
+  - Lot (époque auto par tag) : `node scripts/remapPalette.mjs --dir <dossier de travail>`. Un
+    dossier de `public/pixelart` est **refusé sans `--force`** : c'est de l'art livré, où tout
+    fichier au-dessus du plafond l'est par choix (garde-fous partagés avec `quantize.cjs` :
+    `scripts/lib/pixelartGuard.cjs`).
   - `--dry` = rapport seul. Sans `--inplace` → écrit `<nom>.remap.png` à côté.
 - Validé : `market-prop-stall` 153→22, `granary-prop-silo` 120→14, `field-prop-crop-gold` 100→11 —
   silhouettes intactes, moyenne **107→17** sur les pires sprites.

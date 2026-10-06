@@ -9,24 +9,23 @@
 // Grands Resets, page Effondrement, sous la Doctrine de crise).
 //
 // Ce module est PUR côté lecture (il lit `state`) et n'importe QUE state + shared
-// (has) + les données de l'arbre + num — aucun cycle d'import avec prestige.js.
+// (has, completedMythCount) + les données de l'arbre + num — aucun cycle d'import
+// avec prestige.js.
 
 import { state } from '../state.js';
 import { D } from '../num.js';
-import { has } from './shared.js';
+import { has, completedMythCount as mythCount } from './shared.js';
 import { PRESTIGE_TREE } from '../../data/upgrades.js';
 import { recordGrDiscovered } from '../chronicleStats.js';
 
-// Nombre de Mythes accomplis (inline pour éviter d'importer prestige.js).
-function mythCount() {
-  return Object.values(state.mythsCompleted || {}).filter(Boolean).length;
-}
+// Nombre de Mythes accomplis : completedMythCount, la règle unique de shared.js (elle
+// était recopiée ici pour ne pas importer prestige.js ; shared est une feuille).
 
 // Seuils TUNABLES des 11 sceaux. Deux sont RELATIFS (indexés sur le nombre de
 // sceaux déjà réclamés, = le driver du ×2^n) pour ne jamais devenir triviaux tard
 // ni infaisables tôt ; les autres sont robustes par nature (contenu, comptes,
 // arbre qui se re-bâtit). Système ORDRE-LIBRE : chaque sceau est indépendant.
-export const GR_MILESTONE_THRESHOLDS = {
+const GR_MILESTONE_THRESHOLDS = {
   cycles: 10,          // GR1  — effondrements traversés
   wonders: 3,          // GR2  — merveilles érigées
   myths1: 1,           // GR3  — 1er Mythe honoré

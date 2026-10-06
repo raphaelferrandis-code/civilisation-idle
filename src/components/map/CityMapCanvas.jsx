@@ -13,8 +13,11 @@ export default function CityMapCanvas({ onCitizenThoughtClicked }) {
 
   useEffect(() => {
     if (!canvasRef.current) return undefined;
+    // Pas de `mapRoot` : le runtime prend le parent du canvas, le cadre
+    // `.civilization-map-interactive` de CityView. L'ancien `closest()` visait une
+    // classe qu'aucun élément ne porte, ne trouvait jamais rien et retombait déjà
+    // sur ce parent (audit 2026-10-05, MORT-7).
     startCityMapRuntime(canvasRef.current, {
-      mapRoot: canvasRef.current.closest(".civilization-map"),
       tooltip: tooltipRef.current,
       // Met le rendu en pause tant qu'une modale (<dialog open>) est ouverte par-dessus
       // la carte (Options, Import, Debug, choix de crise). Inutile de dessiner derrière

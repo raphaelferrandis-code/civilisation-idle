@@ -44,7 +44,7 @@ import { forestFloorSig } from './isoForestFloor.js';
 import { meadowSig } from './isoMeadow.js';
 import { ISO_X, ISO_Y } from './projection.js';
 import {
-  solPyramideStats, levelZoom, tileSideCss, camSpace, tileSpace, tileOrigin, cookTile, ZOOM_MIN, ZOOM_MAX, softCoalescer,
+  solPyramideStats, levelZoom, tileSideCss, camSpace, tileSpace, tileOrigin, cookTile, ZOOM_MIN, softCoalescer,
 } from './solPyramide.js';
 
 export const PYR = { budgetMs: 8, gestureBudgetMs: 12, gestureMaxTiles: 6, holeCapMs: 80, memMo: 96, ring: 1, gestureMs: 400 };
@@ -627,9 +627,7 @@ export function groundCoversScreen(L) {
 
 export function solPyramideReset() { cache.clear(); bytes = 0; costMs.clear(); }
 
-if (typeof globalThis !== 'undefined') {
+if (import.meta.env?.DEV && typeof globalThis !== 'undefined') {
   globalThis.__solPyramideTune = (o) => { if (o) Object.assign(PYR, o); return { ...PYR }; };
   globalThis.__solPyramideReset = solPyramideReset;
 }
-// Bornes connues du module (documentation vivante) : les niveaux vont de ZOOM_MIN à ZOOM_MAX.
-export const SOL_PYRAMIDE_LEVELS = { min: ZOOM_MIN, max: ZOOM_MAX };

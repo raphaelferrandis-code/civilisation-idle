@@ -15,6 +15,15 @@ export function has(id) {
   return Boolean(state.upgrades[id]);
 }
 
+// Nombre de Mythes accomplis (à vie : mythsCompleted survit aux Grands Resets). UNE
+// règle, lue par l'Effondrement et la Doctrine (prestige, crisis-cost), les sceaux du
+// Grand Reset et la merveille de la Singularité (audit du 05/10, STRUCT-12) — elle
+// était recopiée en trois endroits. Pure sur l'état PASSÉ (`s`) : la métrique d'une
+// merveille lit l'état qu'on lui donne, pas forcément celui du jeu.
+export function completedMythCount(s = state) {
+  return Object.values(s.mythsCompleted || {}).filter(Boolean).length;
+}
+
 export function isUnlocked(item) {
   if (item.id && item.category && (state.buildings[item.id] || 0) > 0) return true;
   if (item.unlockCycles && state.cycles < item.unlockCycles) return false;

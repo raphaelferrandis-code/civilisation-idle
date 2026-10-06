@@ -23,7 +23,7 @@
 import { eras } from '../../data/world.js';
 import { fmtShort } from '../utils.js';
 import { toNum } from '../num.js';
-import { currentEraIndex } from './shared.js';
+import { currentEraIndex, completedMythCount } from './shared.js';
 
 // Le PIC du cycle (state.cyclePeaks, tenu à jour par tick.js) et non la valeur
 // de l'instant : la vérification ne dépend plus du moment où elle tourne. Lue
@@ -85,7 +85,7 @@ export const WONDERS = [
     // Rééchelonné 2026-07-03 : 14 mythes au total (le 14e = Ragnarök, terminal).
     // mythsCompleted survit aux Grand Resets (à vie). Rang V = TOUS les mythes
     // accomplis (Ragnarök compris) : la merveille finale culmine à la fin de tout.
-    metric: (s) => Object.values(s.mythsCompleted || {}).filter(Boolean).length, tiers: [1, 4, 7, 10, 14],
+    metric: (s) => completedMythCount(s), tiers: [1, 4, 7, 10, 14],
     tierLabel: (v) => ({
       fr: `${v} mythe${v > 1 ? "s" : ""} accompli${v > 1 ? "s" : ""}`,
       en: `${v} myth${v > 1 ? "s" : ""} completed` }) }

@@ -237,7 +237,11 @@ Revenu de ruines en début de partie : **~2-5 ruines/cycle** (cf. [balance.js:23
 
 ## F. Simulation d'impact — résultats
 
-Script [`sim-idle-impact.js`](sim-idle-impact.js) (20 cycles, vraies formules). Aujourd'hui le gain idle = **0** (l'Usure avance, rien ne produit).
+Script `sim-idle-impact.js` (20 cycles, vraies formules). Aujourd'hui le gain idle = **0** (l'Usure avance, rien ne produit).
+
+> Le chantier est livré (`applyOfflineProgress`) : le script, qui mesurait l'état « avant »,
+> a été supprimé le 06/10 (audit du 05/10, SCRIPT-7) ; il reste dans l'historique git.
+> Les mesures ci-dessous datent de la conception.
 
 **Rendement idle = production × cap, par ère** (mesuré) :
 

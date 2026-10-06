@@ -43,7 +43,7 @@ import { CM } from './layout.js';
 // rendu logiciel et GPU) ; `__lightOcclusion({ fine: 0, tight: false })` rejoue
 // l'ancien chemin (A/B de la mesure).
 export const LIGHT_LAYER = { on: true, cell: 64, minUnit: 12, fine: 16, tight: true };
-if (typeof window !== 'undefined') {
+if (import.meta.env?.DEV && typeof window !== 'undefined') {
   window.__lightOcclusion = (o) => { if (o) Object.assign(LIGHT_LAYER, o); return { ...LIGHT_LAYER }; };
 }
 
@@ -214,8 +214,6 @@ export function releaseLightLayer() {
 // déposée, purement fantôme.
 export function suspendLightLayer(on) { suspended = !!on; }
 
-export const lightLayerArmed = () => armed && !suspended;
-
 // ── Dépôt d'une lumière ─────────────────────────────────────────────────────
 // Renvoie le contexte du calque (déjà en additif) ou null si le calque n'est pas
 // disponible. (x0,y0)-(x1,y1) = emprise écran de la lumière, utilisée pour la
@@ -323,4 +321,4 @@ export function paintLightLayer(ctx) {
 // silhouettes découpées à la dernière passe vivante ; `spared` = découpes que
 // les cases de 64 auraient fait payer et que la grille fine a épargnées.
 export const lightLayerStats = () => ({ armed, usable, glows, cuts, spared });
-if (typeof window !== 'undefined') window.__lightStats = lightLayerStats;
+if (import.meta.env?.DEV && typeof window !== 'undefined') window.__lightStats = lightLayerStats;

@@ -17,7 +17,7 @@
 //     K chantiers de façon déterministe (connect + élargissements) — le compteur
 //     reste la seule vérité, les saves restent compatibles.
 
-import { state, invalidateRenderCache, render, buildingById, gamePaused, collapseInProgress } from '../state.js';
+import { state, buildingById, gamePaused, collapseInProgress } from '../state.js';
 import { D } from '../num.js';
 import { currentEraIndex } from '../mechanics/shared.js';
 import { buildingDiscount } from '../mechanics/cost.js';
@@ -110,7 +110,7 @@ export function roadWorkAffordable() {
 // Chantiers de l'ÈRE COURANTE (rampe) : compteur remis à zéro quand l'ère
 // change — la remontée éclair post-Effondrement traverse les ères sans traîner
 // la rampe du cycle entier ; c'est en campant sur son ère de pointe qu'elle mord.
-export function roadWorksEraIndex() {
+function roadWorksEraIndex() {
   const era = Math.max(0, currentEraIndex());
   let we = state.roadWorksEra;
   if (!we || typeof we !== 'object' || we.era !== era) {
@@ -172,15 +172,6 @@ function enqueueRoadWork(rw, n) {
     left: total
   };
   if (!rw.active) rw.active = work; else rw.queue.push(work);
-}
-
-export function buyRoadWork() {
-  const bought = buyRoadWorkCore();
-  if (bought) {
-    invalidateRenderCache('buildings');
-    render();
-  }
-  return bought;
 }
 
 // Avancée des chantiers sur l'horloge virtuelle (appelé par tick, hors-ligne

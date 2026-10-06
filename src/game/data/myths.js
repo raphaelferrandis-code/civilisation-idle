@@ -244,8 +244,8 @@ export const BRAISIERS_DURATION_MS     = 120_000; // Durée du bonus Braisiers e
 export const BRAISIERS_FOOD_MULT       = 2;      // Multiplicateur Nourriture pendant les Braisiers
 
 // ── Constantes Mythe des Atrides ──────────────────────────────────────────────
-export const ATRIDES_STARTING_DEBT          = 5000;
-export const ATRIDES_STARTING_GOLD          = 2000;
+const ATRIDES_STARTING_DEBT          = 5000;
+const ATRIDES_STARTING_GOLD          = 2000;
 export const ATRIDES_DEBT_PAYBACK_FACTOR    = 1.2;
 export const ATRIDES_RENEGOTIATE_COOLDOWN_MS = 120_000;
 export const ATRIDES_RENEGOTIATE_DURATION_MS = 30_000;

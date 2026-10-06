@@ -44,7 +44,7 @@ export function drawNotes(ctx, r, now, phase, alpha) {
   }
 }
 
-export function buildMusicien(app) {
+function buildMusicien(app) {
   const st = app.ch.stage | 0;
   const s = app.spot;
   const [fx, fy] = FACE[s.face != null ? s.face : 2];

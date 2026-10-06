@@ -16,7 +16,7 @@ const FACE = [[1, 0], [-1, 0], [0, 1], [0, -1]];
 // La boucle d'un essai (s) : élan, saut, eau, retour sur la berge.
 const LOOP = [4.2, 1.1, 2.2, 1.2];
 
-export function buildVolant(app) {
+function buildVolant(app) {
   const st = app.ch.stage | 0;
   const s = app.spot;
   const [fx, fy] = FACE[s.face != null ? s.face : 2];

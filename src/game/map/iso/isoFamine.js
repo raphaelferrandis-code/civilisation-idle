@@ -23,7 +23,7 @@ import { pressureBreakdown } from '../../core/mechanics.js';
 import { cmHash } from '../layout.js';
 
 export const FAMINE_TUNE = { on: true, from: 0.2, full: 0.45, force: null };
-if (typeof window !== 'undefined') {
+if (import.meta.env?.DEV && typeof window !== 'undefined') {
   window.__famine = (o) => { if (o) Object.assign(FAMINE_TUNE, o); return { ...FAMINE_TUNE }; };
 }
 

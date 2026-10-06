@@ -51,7 +51,7 @@ function drawAll(nightF) {
     const { ctx, grads, fills } = spy();
     CM.ctx = ctx; CM.nightF = nightF; CM.TILE = 32; CM.cam = { x: 0, y: 0, zoom: 1 };
     CM.layout = { counts: { eraBand: e.band, eraIndex: e.ei } };
-    drawEngineSprite({ buildingId: id, tier: 1, gx: 3, gy: 4, size: 2 }, 0, 0, 120, 120, now, 'anim');
+    drawEngineSprite({ buildingId: id, tier: 1, gx: 3, gy: 4, size: 2 }, 0, 0, 120, 120, now);
     all.grads.push(...grads); all.fills.push(...fills);
   }
   return all;

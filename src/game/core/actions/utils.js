@@ -1,7 +1,7 @@
 "use strict";
 
 import { state } from '../state.js';
-import { currentEraIndex, milestoneStepSize } from '../mechanics.js';
+import { currentEraIndex, milestoneStepSize, cycleClockNow } from '../mechanics.js';
 import { eras } from '../../data/world.js';
 import { fmt } from '../utils.js';
 import { tr } from '../i18n.js';
@@ -46,12 +46,12 @@ export function cycleYear() {
   return Math.floor(elapsed / 60) + 1;
 }
 
-// L'an du cycle sur l'horloge FIGÉE pendant la crise terminale — la même que
-// cycleClockNow (mechanics/prestige.js), ne pas laisser diverger. Lu par les vœux
-// de durée : la cité gelée ne vieillit pas, ni devant l'autel ni jeu fermé (sinon
-// « Le grand âge » se tenait en attendant, « Le feu court » se rompait en délibérant).
+// L'an du cycle sur l'horloge FIGÉE pendant la crise terminale — cycleClockNow
+// (mechanics/prestige.js), lue et non plus recopiée. Lu par les vœux de durée : la
+// cité gelée ne vieillit pas, ni devant l'autel ni jeu fermé (sinon « Le grand âge »
+// se tenait en attendant, « Le feu court » se rompait en délibérant).
 export function cycleYearFrozen() {
-  const now = (state.crisisLimitAnnounced && state.crisisOpenedAt) ? state.crisisOpenedAt : Date.now();
+  const now = cycleClockNow();
   const elapsed = Math.max(0, (now - (state.cycleStartedAt || now)) / 1000);
   return Math.floor(elapsed / 60) + 1;
 }

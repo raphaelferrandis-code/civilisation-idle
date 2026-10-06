@@ -12,8 +12,6 @@ export function resetCityMapRuntime() {
   CM.inited = false;
   CM.canvas = null;
   CM.ctx = null;
-  CM.mini = null;
-  CM.mctx = null;
   CM.drag = null;
   CM.dragged = false;
   if (CM.raf) {

@@ -1,6 +1,6 @@
 "use strict";
 // Couche pixel-art des HABITATIONS (logements NON achetables de la carte, tuiles
-// type:"house"). Miroir de pixelBuildings.js. Le sprite est ANCRÉ PAR LA BASE et
+// type:"house"). Le sprite est ANCRÉ PAR LA BASE et
 // monte AU-DESSUS de sa tuile selon son ratio : les tours / mega-complexes de late
 // game dépassent largement leur emprise → « suivent le nom ». Repli sur le rendu
 // procédural (drawHouseShape) si : flag OFF, variante sans sprite, ou pas encore
@@ -29,7 +29,7 @@ import { ROW_VARIANTS, rowVariantIndex, recolorData } from './rowVariants.js';
 import { RUIN_HOUSES } from './ruinArt.js';
 import { razeImageData } from './ruinRaze.js';
 
-export const pixelHousesFlag = { on: true };
+const pixelHousesFlag = { on: true };
 
 // B — VARIATION PAR INSTANCE. Sans elle, les 12 archétypes sont stampés à l'identique
 // sur le millier d'habitations d'une grande ville : c'est ça, et non le nombre de
@@ -51,7 +51,7 @@ export const pixelHousesFlag = { on: true };
 // Le tirage doit être déterministe : les habitations sont repeintes à chaque frame,
 // une variation aléatoire changerait d'aspect à chaque image (et à chaque zoom ou achat).
 // Indexé sur gx/gy seuls, donc stable aussi à travers un recalcul de layout.
-export const houseVarTune = { on: true };
+const houseVarTune = { on: true };
 
 // Les 12 variantes livrées. Les ères cosmiques (band 7-9) réutilisent les mêmes
 // variantes tardives (tower/megablock/arcologyhome, cf. clamp de VARIANTS_HOUSE) :
@@ -299,15 +299,6 @@ function ensure(key) {
   e.img.src = "/pixelart/houses/" + key + ".png";
   cache.set(key, e);
   return e;
-}
-
-// Images d'habitation DÉJÀ décodées — accesseur de DIAGNOSTIC (banc du batcher
-// WebGL : il lui faut de vraies sources, aux vraies dimensions). Lecture seule,
-// aucun chargement déclenché.
-export function pixelHouseImages() {
-  const out = [];
-  for (const e of cache.values()) if (e.ready && e.img) out.push(e.img);
-  return out;
 }
 
 // Précharge les sprites d'habitation susceptibles d'apparaître AVANT qu'une tuile ne
@@ -742,7 +733,7 @@ export function houseSpriteReachTilesIso(variant, spanX, spanY) {
 }
 
 // Dev : bascule le rendu pixel des habitations. __pixelHouses(false) → procédural.
-if (typeof window !== "undefined") {
+if (import.meta.env?.DEV && typeof window !== "undefined") {
   window.__pixelHouses = (on) => {
     pixelHousesFlag.on = on !== false;
     return pixelHousesFlag.on;

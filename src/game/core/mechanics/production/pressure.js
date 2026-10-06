@@ -35,11 +35,11 @@ import { ruptureGrowthMultiplier, policyFoyerDamp, policyDemesureDamp } from './
 //   - scarcity    : pénurie alimentaire face à la population
 //   - inequality  : inégalité de richesse (or)
 //   - complexity  : complexité administrative (bâtiments/savoir)
-//   - dissent     : dissidence/légitimité insuffisante
+//   - dissent     : dissidence (cycles, ruines accumulées, instabilité courante)
 //   - structural  : instabilité intrinsèque des bâtiments, portée par l'infra
 //     et réduite en prise directe par les bâtiments stabilisants
 // De cette somme on retranche la mitigation (couverture d'infrastructure en
-// RATIO + légitimité, ruines, grâces de fondation/installation). Complexity,
+// RATIO, ruines, grâces de fondation/installation). Complexity,
 // inequality et structural utilisent des plafonds DOUX (cap·x/(x+cap)) : la
 // jauge reste sensible aux achats à toutes les échelles. Les constantes nues
 // ci-dessous (0.55, 0.34, 0.22, 2.2, …) sont des poids/plafonds locaux non
@@ -105,15 +105,17 @@ export function pressureBreakdown(forceDecimalPath = false) {
   // Rupture à vie (scarcityRawEase puis instability). On bascule alors sur le
   // Decimal, comme le fait déjà infraCoverage juste en dessous.
   if (!forceDecimalPath && Number.isFinite(popF) && Number.isFinite(foodF) && Number.isFinite(goldF) && Number.isFinite(knowF) && Number.isFinite(infraF) && Number.isFinite(population * 2.4)) {
-    // Chemin float.
-    scarcityRaw = Math.max(0, (population * 2.4 - foodF) / Math.max(120, population * 2.4));
+    // Chemin float. Le déficit de nourriture est celui de scarcityRawInstant (la même
+    // formule, lue et non recopiée — audit du 05/10, STRUCT-12) : sur ce chemin ses
+    // propres gardes passent, il prend donc lui aussi sa branche float.
+    scarcityRaw = scarcityRawInstant();
     inequalityRaw = Math.max(0, goldF / Math.max(80, population * 1.25) - 0.55);
     knowledgeStrain = knowF / Math.max(180, infraF * 38 + 180);
     infraCoverage = infraF / Math.max(coverageDemandBase, population * INFRA_COVERAGE_POP_FACTOR);
   } else {
     // Au-delà du float : mêmes formules en ratios Decimal (les sorties restent bornées).
     const popDec = D(state.population).max(1);
-    scarcityRaw = Math.max(0, popDec.mul(2.4).sub(state.food).div(popDec.mul(2.4).max(120)).toNumber());
+    scarcityRaw = scarcityRawInstant(true);    // sa branche Decimal, forcée comme ici
     inequalityRaw = Math.max(0, D(state.gold).div(popDec.mul(1.25).max(80)).toNumber() - 0.55);
     knowledgeStrain = D(state.knowledge).div(D(state.infrastructure).mul(38).add(180).max(180)).toNumber();
     infraCoverage = D(state.infrastructure).div(popDec.mul(INFRA_COVERAGE_POP_FACTOR).max(coverageDemandBase)).toNumber();

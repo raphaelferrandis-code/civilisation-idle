@@ -35,13 +35,13 @@
 // au droit du port est presque toujours ouest→est (|pente| ≤ 0,55 sur 60 graines,
 // cf. la note des pontons) : l'axe nord-sud y est perpendiculaire à 30° près au pire.
 //
-// Molette : __pier({ on, reach, house, … }) ; __pier(false) rend le sprite d'avant.
+// Molette : __pier({ reach, house, … }). (L'A/B `__pier(false)`, qui rendait l'ancien
+// ponton sprité, est parti avec lui : audit du 05/10, MORT-6.)
 import { CM } from '../layout.js';
 import { quayStyleFor } from '../quaysAndRiot.js';
 import { castRay, bakeBoxes, blitLayer, paintBakeUnder, h01, mul, mix, hexRgb, FACE_LIGHT } from './isoBoxBake.js';
 import { paintTradePortUnder } from './isoTradePort.js';
 import { paintOldPortUnder } from './isoOldPort.js';
-import { registerPortProvider } from './portBerths.js';
 import { rippleField, noteRipples } from './waterRipples.js';
 
 // Le lancer de rayon est parti dans iso/isoBoxBake.js (partagé avec le Vieux-Port et
@@ -52,12 +52,10 @@ export { castRay };
 //         fleuve (bornée) — au-delà de ~0,6 il entre dans la voie des bateaux ;
 // house : recul de la maison du port sur la plage, en tuiles (0 = au ras de l'eau,
 //         comme avant : elle posait son socle de pierre dans le fleuve).
-export const PIER = { on: true, reach: 0.58, house: 0.85, houseGap: 0.14, crane: true, shadow: true, reflect: true, foam: true };
-if (typeof window !== 'undefined') {
+export const PIER = { reach: 0.58, house: 0.85, houseGap: 0.14, crane: true, shadow: true, reflect: true, foam: true };
+if (import.meta.env?.DEV && typeof window !== 'undefined') {
   window.__pier = (o) => {
-    if (o === false) PIER.on = false;
-    else if (o === true) PIER.on = true;
-    else if (o && typeof o === 'object') Object.assign(PIER, o);
+    if (o && typeof o === 'object') Object.assign(PIER, o);
     _cache.clear();
     return { ...PIER };
   };
@@ -228,7 +226,7 @@ function pierFrame(t, spanX, spanY, rv) {
   const wl = Math.hypot(wx, wy);
   if (wl < 1e-6) { wx = -ty; wy = tx; } else { wx /= wl; wy /= wl; }
   // Molette héritée des pontons sprités : __pontoonAxis = 'auto' | 'ns' | 'ew'.
-  const axisOv = (typeof window !== 'undefined' && window.__pontoonAxis) || 'auto';
+  const axisOv = (import.meta.env?.DEV && typeof window !== 'undefined' && window.__pontoonAxis) || 'auto';
   const ew = axisOv === 'ew' || (axisOv !== 'ns' && Math.abs(wx) > Math.abs(wy));
   const dir = ew ? { x: Math.sign(wx) || 1, y: 0 } : { x: 0, y: Math.sign(wy) || 1 };
   const across = ew ? { x: 0, y: 1 } : { x: 1, y: 0 };
@@ -370,8 +368,8 @@ function bakePier(F, plan, M, T, band, sm) {
 
 // Le port qui a SON ponton au pixel : la tuile moteur du port fluvial, ni le bassin du
 // Vieux-Port, ni le terminal de commerce, ni la capitainerie — ceux-là amarrent leurs
-// propres navires (docs/PLAN-PORTS.md). UN prédicat pour tous : le peintre (portTiles),
-// les postes de la flotte (boatBerths) et le bateau de décor (isoPort.portMooring).
+// propres navires (docs/PLAN-PORTS.md). UN prédicat pour tous : le peintre (portTiles)
+// et les postes de la flotte (boatBerths).
 // ⚠ Audit du 2026-10-05 (BUG-17) : fleetBerths n'écartait que le Vieux-Port ; aux
 // bandes 5-9, la capitainerie et le terminal (mouillés : ils bordent l'eau) recevaient
 // un ponton FANTÔME — cuit, jamais peint — où les marchands accostaient en plein fleuve
@@ -392,7 +390,7 @@ function geomFor(t, spanX, spanY, band, ei) {
   // de ms — elle se refaisait à chaque fois. Le cache est indexé par la clé, pas par
   // l'objet tuile (un recalcul en fabrique de nouveaux).
   const key = (L.mapSeed | 0) + ':' + t.gx + ',' + t.gy + ',' + spanX + ',' + spanY + ':' + band + ':' + stage + ':' + PIER.reach + ':' + PIER.house
-    + ':' + (PIER.crane ? 1 : 0) + (PIER.shadow ? 1 : 0) + (PIER.reflect ? 1 : 0) + (PIER.foam ? 1 : 0) + ':' + ((typeof window !== 'undefined' && window.__pontoonAxis) || 'a');
+    + ':' + (PIER.crane ? 1 : 0) + (PIER.shadow ? 1 : 0) + (PIER.reflect ? 1 : 0) + (PIER.foam ? 1 : 0) + ':' + ((import.meta.env?.DEV && typeof window !== 'undefined' && window.__pontoonAxis) || 'a');
   if (_cache.has(key)) return _cache.get(key);
   const F = pierFrame(t, spanX, spanY, rv);
   let g = null;
@@ -441,7 +439,6 @@ function portTiles(L) {
 export function paintPierUnder(ctx, now = 0) {
   paintOldPortUnder(ctx, now);
   paintTradePortUnder(ctx);
-  if (!PIER.on) return;
   const L = CM.layout;
   if (!L || CM.collapseAt) return;
   const band = (L.counts && L.counts.eraBand) | 0, ei = (L.counts && L.counts.eraIndex) | 0;
@@ -478,7 +475,6 @@ function pierRipples(g, sm) {
 // d'ancrage de la maison (px écran) : la racine du ponton, reculée de PIER.house sur
 // la plage — ou null si rien n'a été posé.
 export function drawPortPier(ctx, t, spanX, spanY, band, ei) {
-  if (!PIER.on) return null;
   const g = geomFor(t, spanX, spanY, band, ei);
   if (!g) return null;
   blitLayer(ctx, g.bake.body);
@@ -505,11 +501,10 @@ export function pierHouseFoot(g, w = 0, d = 0) {
 }
 
 // Mouillage du bateau de l'ère : bord à bord le long de la TÊTE, côté large (le bateau
-// est parallèle au fleuve, comme le cap que lui donne drawIsoPortBoat) ; sans tête
-// (rondins), le long du tablier, à son bout. Rend des candidats (tuiles monde), du
-// meilleur au repli — l'appelant écarte ceux qui tombent sur un pont.
+// est parallèle au fleuve) ; sans tête (rondins), le long du tablier, à son bout. Rend
+// des candidats (tuiles monde), du meilleur au repli — l'appelant écarte ceux qui
+// tombent sur un pont.
 export function pierMoorings(t, spanX, spanY, band, ei, effSize) {
-  if (!PIER.on) return null;
   const g = geomFor(t, spanX, spanY, band, ei);
   if (!g) return null;
   return mooringsOf(g.F, g.plan, effSize);
@@ -518,7 +513,6 @@ export function pierMoorings(t, spanX, spanY, band, ei, effSize) {
 // géométrie seule (pierFrame + pierPlan), ni cuisson ni tri isPierPortTile. Ne sert
 // qu'à REPÉRER le port sur le ruban (boatBerths.fleetPortMarks) — jamais d'escale.
 export function pierSiteMoorings(t, spanX, spanY, band, ei, effSize) {
-  if (!PIER.on) return null;
   const L = CM.layout, rv = L && L.river;
   if (!rv || !rv.present || !rv.samples || rv.samples.length < 2) return null;
   const F = pierFrame(t, spanX, spanY, rv);
@@ -541,32 +535,3 @@ function mooringsOf(F, plan, effSize) {
   out.push({ ...P(a, side), along: 'pier' }, { ...P(a, -side), along: 'pier' });
   return { cands: out, dir: F.dir, si: F.si };
 }
-
-// ── CE QUE LA FLOTTE DOIT SAVOIR DU PONTON (iso/portBerths.js) ─────────────────
-// Le poste CENTRAL (bord à bord le long de la tête, sinon du tablier) et l'emprise du
-// ponton dans l'eau, en disques le long du tablier et de la tête.
-const headingOf = (ax) => Math.atan2((ax.x + ax.y) * 0.5, ax.x - ax.y);   // axe monde → cap écran
-registerPortProvider('central', (L) => {
-  if (!PIER.on || !L || !L.counts) return null;
-  const band = L.counts.eraBand | 0, ei = L.counts.eraIndex | 0;
-  const berths = [], water = [];
-  for (const t of portTiles(L)) {
-    const sx = t.spanX || t.size || 1, sy = t.spanY || t.size || 1;
-    const g = geomFor(t, sx, sy, band, ei);
-    if (!g) continue;
-    const F = g.F, plan = g.plan;
-    const pm = pierMoorings(t, sx, sy, band, ei, 1.2);
-    const c = pm && pm.cands[0];
-    if (c) {
-      const axis = c.along === 'pier' ? F.dir : F.across;
-      berths.push({ id: 'central', kind: 'central', x: c.x, y: c.y, heading: headingOf(axis), axis, maxLen: plan.head ? (plan.head.c1 - plan.head.c0) : 1.2, decor: true });
-    }
-    const P = (a, cc) => ({ x: F.root.x + F.dir.x * a + F.across.x * cc, y: F.root.y + F.dir.y * a + F.across.y * cc });
-    for (let a = 0.3; a <= plan.reach; a += 0.6) water.push({ ...P(a, 0), r: plan.w / 2 + 0.15, id: 'ponton' });
-    if (plan.head) {
-      const hm = (plan.head.a0 + plan.head.a1) / 2, hr = (plan.head.a1 - plan.head.a0) / 2 + 0.15;
-      for (let cc = plan.head.c0 + hr; cc <= plan.head.c1 - hr + 1e-6; cc += 0.6) water.push({ ...P(hm, cc), r: hr, id: 'ponton' });
-    }
-  }
-  return { berths, water };
-});

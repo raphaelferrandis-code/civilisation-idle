@@ -14,9 +14,8 @@ import {
   FATIGUE_COST_PENALTY
 } from '../balance.js';
 import { REGULATION_ACTIONS, REGULATION_ACTIONS_BY_ID, POLICY_BY_ID } from '../../data/regulationActions.js';
-import { crisisOpen, currentEraIndex, mapStage, ruinEffectSum } from './shared.js';
+import { crisisOpen, currentEraIndex, mapStage, ruinEffectSum, completedMythCount } from './shared.js';
 import { rates } from './production.js';
-import { completedMythCount } from './prestige.js';
 
 // Fatigue de régulation — multiplicateurs dérivés de state.regulFatigue [0..1].
 // Efficacité : réduit l'effet des actions (jamais sous 1 - FATIGUE_EFFECT_PENALTY).
@@ -24,7 +23,7 @@ import { completedMythCount } from './prestige.js';
 export function regulFatigueEffectMult() {
   return 1 - (state.regulFatigue || 0) * FATIGUE_EFFECT_PENALTY;
 }
-export function regulFatigueCostMult() {
+function regulFatigueCostMult() {
   return 1 + (state.regulFatigue || 0) * FATIGUE_COST_PENALTY;
 }
 
@@ -154,10 +153,11 @@ export function crisisCosts() {
   };
 }
 
-// Délai d'inaction avant l'effondrement automatique pour le trigger "rupture100"
-// de la Doctrine de crise (cf. CE-spec-idle-crises.md §A.4) : une grâce laissant
-// au joueur le temps d'intervenir avant que l'Édit d'effondrement ne tranche.
-// Utilisé par checkAutoCollapse() dans main.js et renderCrisisSummary() dans render.js.
+// Délai d'inaction avant l'effondrement automatique, une fois la crise terminale
+// ouverte (cf. CE-spec-idle-crises.md §A.4 ; tous déclencheurs depuis BUG-10) :
+// une grâce laissant au joueur le temps d'intervenir avant que l'Édit
+// d'effondrement ne tranche. Lu par checkAutoCollapse() (main.js) et par le
+// compte à rebours de l'onglet Crises (PrestigeView).
 export function autoCollapseDelay() {
   return 3 * 60 * 1000;
 }

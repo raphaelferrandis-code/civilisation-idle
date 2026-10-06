@@ -11,7 +11,8 @@
  * décision structurante : la somme des lignes DOIT retomber sur le nombre déjà
  * lisible en haut de l'écran, sinon l'écran d'explication explique de travers.
  * Or ce débit ne vient pas que des bâtiments — un socle en sort tout seul
- * (rates.js:96-98) : 0,04 de Rayonnement par seconde, la Nourriture tirée de la
+ * (rates() : valeurs initiales de pop/food/gold, dans le chemin float comme
+ * dans le chemin Decimal) : 0,04 de Rayonnement par seconde, la Nourriture tirée de la
  * population (×0,012), l'Or au-dessus de 25 habitants (×0,0015). En partie
  * neuve, ce socle est CENT POUR CENT de la nourriture produite ; plus tard il
  * suit la population, donc il ne disparaît jamais. Il a sa propre ligne.
@@ -29,7 +30,8 @@
  *
  * C'est exact tant que la queue est purement multiplicative et commune à tous
  * les contributeurs, ce qui est le cas. Le seul terme ADDITIF est la théocratie
- * sur le Savoir, ajoutée APRÈS le multiplicateur (rates.js:126 et 190) : elle
+ * sur le Savoir, ajoutée APRÈS le multiplicateur (theocracyKnowledgeRate() dans
+ * les deux chemins de rates()) : elle
  * ne se met pas à l'échelle, elle a sa propre ligne.
  * ==========================================================================*/
 
@@ -60,7 +62,8 @@ const CHAMP_PAR_RESSOURCE = {
 
 export const BREAKDOWN_RESOURCES = Object.keys(CHAMP_PAR_RESSOURCE);
 
-// Le socle : ce que la cité produit sans le moindre bâtiment (rates.js:96-98).
+// Le socle : ce que la cité produit sans le moindre bâtiment (valeurs initiales de
+// pop/food/gold dans rates()).
 // Recopié ici volontairement, c'est trois lignes stables ; un test les compare
 // au débit réel d'un état SANS bâtiment, ce qui attrape toute dérive.
 function socleBase(resource) {

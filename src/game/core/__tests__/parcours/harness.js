@@ -138,7 +138,7 @@ export function scanState(g, out) {
 }
 
 // Champs que l'hydratation remet à neuf par conception (cf. saveRoundTrip.test.js).
-const TRANSIENT = new Set(["lastCycleReport", "mourning", "chute", "pendingCrisisSlot", "cadmosPromptPending", "roadDoors"]);
+const TRANSIENT = new Set(["lastCycleReport", "mourning", "chute", "pendingCrisisSlot", "cadmosPromptPending"]);
 
 // Aller-retour JSON → hydrateState → JSON : liste des champs qui changent.
 export function roundTrip(g) {

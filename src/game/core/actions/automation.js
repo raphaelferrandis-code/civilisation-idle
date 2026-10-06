@@ -31,7 +31,7 @@ import { D } from '../num.js';
 import { collapse, runCrisisAction } from './crisis.js';
 import { log, chronicle } from './utils.js';
 
-export function initAutoScriptRules() {
+function initAutoScriptRules() {
   state.autoScriptRules = defaultAutoScriptRules();
   return state.autoScriptRules;
 }
@@ -94,7 +94,7 @@ export function checkAutoScriptRules() {
   }
 }
 
-export function initAutomateRules() {
+function initAutomateRules() {
   state.automateRules = defaultAutomateRules();
   return state.automateRules;
 }

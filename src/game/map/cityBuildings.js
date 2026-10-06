@@ -8,7 +8,7 @@
 // monnaies » là où la boutique dit « Mints ». Le titre d'un moteur se lit sur
 // buildingById[id].name (déjà dans la langue du joueur), cf. cityMapDescribeTile.
 
-export const CM_ENGINE_BUILDINGS = [
+const CM_ENGINE_BUILDINGS = [
   { id: "foragers",          zone: "outer"   },
   { id: "granaries_city",    zone: "outer"   },
   { id: "caravans",          zone: "caravan" },
@@ -20,7 +20,7 @@ export const CM_ENGINE_BUILDINGS = [
   { id: "mint_houses",       zone: "center"  },
   { id: "imperial_exchanges",zone: "center"  }
 ];
-export const CM_KNOWLEDGE_BUILDINGS = [
+const CM_KNOWLEDGE_BUILDINGS = [
   { id: "storytellers",   zone: "outer"  },
   { id: "scribes",        zone: "outer"  },
   { id: "schools",        zone: "mid"    },
@@ -32,7 +32,7 @@ export const CM_KNOWLEDGE_BUILDINGS = [
   { id: "printing_houses",zone: "mid"    },
   { id: "think_tanks",    zone: "edge"   }
 ];
-export const CM_INFRA_BUILDINGS = [
+const CM_INFRA_BUILDINGS = [
   // Points d'eau semés dans la ville. La zone n'est ici qu'un DÉFAUT : chaque
   // instance reçoit la sienne par cmRequestZone (alternance des trois anneaux),
   // sans quoi elles s'alignent toutes sur le même rayon. « outside » (la berge,

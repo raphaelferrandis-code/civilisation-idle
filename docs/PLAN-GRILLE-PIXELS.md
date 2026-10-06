@@ -402,7 +402,7 @@ alors n'était pas de mieux réduire, c'était de **redessiner plus simple**. Le
 §5-G1 le disait déjà en une ligne ; il fallait le lire avant de cuire, pas après.
 
 **Donc, pour les émeutiers, deux routes seulement** — aucune n'est une cuisson :
-1. **Régé FLAT** (même recette que les 30 habitants, `scripts/isoBatchRoster.json`)
+1. **Régé FLAT** (même recette que les 30 habitants, `scripts/_archive/isoBatchRoster.json`)
    : 20 personnages × 4 diagonales. Coûte des générations PixelLab, donc ça se
    demande. C'est la seule route qui les mette vraiment en grille.
 2. **Ne rien faire.** Ils sont à 0,146, ils fourmillent, et c'est l'état

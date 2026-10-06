@@ -43,13 +43,13 @@ import { worldToScreen as isoWorldToScreen } from './iso/projection.js';
 
 // `baseColor` et `cmLitColor` vivaient ici. Leurs derniers lecteurs — le bloc LOD
 // de `renderBuildings.js` pour l'un, `buildingShapes.js` pour l'autre — sont partis
-// à l'étape 6, le 2026-08-23. (Ne pas confondre `cmLitColor` avec
-// `CM.cmLitColorStr`, la chaîne que cityMapRuntime publie encore : autre
-// identifiant, toujours vivant.)
+// à l'étape 6, le 2026-08-23. (`CM.cmLitColorStr`, la chaîne que cityMapRuntime
+// publiait encore sans lecteur, est partie à son tour : audit 2026-10-05.)
 
 // Normale unitaire au sample i du fleuve (perpendiculaire à la tangente locale).
-// Helper du gating des quais (calculé une fois par layout).
-function cmRiverNormalAt(sm, i) {
+// Helper du gating des quais (calculé une fois par layout). Exportée : le peintre des
+// quais (iso/isoQuay.js) la recopiait mot pour mot (audit du 05/10, STRUCT-12).
+export function cmRiverNormalAt(sm, i) {
   const a = sm[Math.max(0, i - 1)], b = sm[Math.min(sm.length - 1, i + 1)];
   let tx = b.x - a.x, ty = b.y - a.y; const tl = Math.hypot(tx, ty) || 1;
   return { nx: -ty / tl, ny: tx / tl };

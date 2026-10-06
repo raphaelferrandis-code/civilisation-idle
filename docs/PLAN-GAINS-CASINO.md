@@ -195,7 +195,7 @@ faut que la sensation de gagner soit agréable, qu'on ait l'impression d'avoir �
 au bout d'un moment, mais qu'une mise trop agressive puisse faire tout perdre — comme les applis
 de casino qui ne font pas jouer d'argent réel ».
 
-**La mesure** (`bench-plaisirs.js`, rapport `plaisirs-20h.md`). Six profils (prudent 2 % de la
+**La mesure** (`bench-plaisirs.js`, rapport `docs/bench/plaisirs-20h.md`). Six profils (prudent 2 % de la
 bourse par coup, joueur 5 %, agressif 25 %, tout ou rien, collectionneur, absent) jouent 20 h sur
 le VRAI moteur : six jeux, caisse, titres et cadeaux, automatisations, arbre et reliques, Grand
 Reset. L'ère record selon le temps de jeu est une HYPOTHÈSE en trois courbes (la sim complète du
@@ -274,7 +274,7 @@ Osselets : les rites restent sur le tapis, la pile se pose sur le rite choisi. I
 à la limite. Les Coffres (`CoffreSelect`, `coffreMeta`) et l'ancien `AuguresPanel` (mort) sont
 supprimés.
 
-**Banc.** `bench-temple.js` réécrit : 13 garde-fous, tous verts (rapport `temple-faveur-impact.md`).
+**Banc.** `bench-temple.js` réécrit : 13 garde-fous, tous verts (rapport `docs/bench/temple-faveur-impact.md`).
 21 mesuré sur 1 M de mains : jeu parfait 98,86 % ± 0,11 ; Monte-Carlo sur les moteurs : osselets
 97,2 %, Icare 97,1 %, 21 auto 98,2 %.
 

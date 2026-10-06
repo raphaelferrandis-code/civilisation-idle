@@ -142,11 +142,6 @@ export function blackjackSabot() {
   const plein = sabot.total - sabot.coupe, avant = Math.max(0, sabot.cartes.length - sabot.coupe);
   return { reste: plein > 0 ? avant / plein : 0, neuf: sabot.neuf };
 }
-// Bat un sabot neuf (le videur après un compteur, les tests).
-export function battreSabot() {
-  sabot = nouveauSabot();
-}
-
 // Une main est VIVANTE si elle existe, n'est pas résolue ET appartient au cycle
 // courant (un effondrement l'abandonne, cf. en-tête).
 function handLive() {
@@ -215,7 +210,7 @@ function isSoftHand(cards) {
   let total = 0, aces = 0;
   for (const c of cards) {
     if (c.rank === "A") { aces += 1; total += 11; }
-    else total += upValue(c) === 11 ? 11 : upValue(c);
+    else total += upValue(c);
   }
   while (total > 21 && aces > 0) { total -= 10; aces -= 1; }
   return aces > 0;

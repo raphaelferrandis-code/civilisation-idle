@@ -18,7 +18,9 @@
 import { PNG } from 'pngjs';
 import fs from 'node:fs';
 
-const DIR = 'public/pixelart/iso';
+// Les sprites ne sont plus livrés (la carte dessine ses bateaux par le code, boatKit) :
+// gardés comme source dans art/ (audit du 05/10, MORT-6).
+const DIR = 'art/references-ab/bateaux-sprites';
 const OUT = '.preview-shots';
 const SECTORS = ['east', 'southeast', 'south', 'southwest', 'west', 'northwest', 'north', 'northeast'];
 const ALL = ['raft', 'sail', 'steam', 'container', 'rowboat', 'dinghy', 'motorboat', 'fisher', 'fisher-row'];

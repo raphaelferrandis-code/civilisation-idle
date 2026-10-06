@@ -25,7 +25,7 @@ export const MEADOW = {
   wet: 0.16, wetCol: [58, 104, 46],
   autumn: 1.35,
 };
-if (typeof window !== 'undefined') {
+if (import.meta.env?.DEV && typeof window !== 'undefined') {
   window.__meadow = (o) => {
     if (o === false) MEADOW.on = false;
     else if (o && typeof o === 'object') Object.assign(MEADOW, { on: true }, o);
@@ -87,7 +87,7 @@ export function meadowSig(L, mix, gx0, gx1, gy0, gy1) {
 // Molette : __lawn(false) | ({ alpha, col, crisp }) ; la part de fleurs du massif est
 // LAWN_FLOWER_P (isoGroundDetail).
 export const LAWN = { on: true, alpha: 0.16, col: [178, 204, 120], crisp: true };
-if (typeof window !== 'undefined') {
+if (import.meta.env?.DEV && typeof window !== 'undefined') {
   window.__lawn = (o) => {
     if (o === false) LAWN.on = false;
     else if (o && typeof o === 'object') Object.assign(LAWN, { on: true }, o);

@@ -662,7 +662,6 @@ export const PRESTIGE_TREE = PRESTIGE_TREE_BRANCHES.flatMap((branch) =>
       name: upgrade?.name || id,
       cost: upgrade?.cost || { ruins: 0 },
       capstone: Boolean(upgrade?.capstone),
-      purchased: false,
       effect: upgrade?.effect || ""
     };
   }))

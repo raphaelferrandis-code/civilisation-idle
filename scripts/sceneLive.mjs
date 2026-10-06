@@ -57,13 +57,21 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { execSync } from 'node:child_process';
 import { PNG } from 'pngjs';
+import { hash, tongueMask, flameDepth, flameTop, flameRampIndex } from './lib/fire.mjs';
 
 const SOURCE_REV = 'af920cd1';
 const DIR = 'public/pixelart/agents/buildings';
 const SHEET = '.preview-shots/scenes-vivantes.png';
 const DRY = process.argv.includes('--dry');
 const MASKS = process.argv.includes('--masques');
-const ONLY = (() => { const i = process.argv.indexOf('--cle'); return i > 0 ? process.argv[i + 1].split(',') : null; })();
+const ONLY = (() => {
+  const i = process.argv.indexOf('--cle');
+  if (i < 0) return null;
+  const v = process.argv[i + 1];
+  // `--cle` sans valeur : refuser plutôt que tout réécrire (ou lever une TypeError).
+  if (!v || v.startsWith('--')) { console.error('--cle attend une ou plusieurs clés : --cle cult-vesta[,autre]'); process.exit(1); }
+  return v.split(',');
+})();
 
 const RAMP_HEX = JSON.parse(fs.readFileSync('public/pixelart/fire-ramp.json', 'utf8')).steps.map((s) => s.hex.toLowerCase());
 const hexRgb = (s) => [parseInt(s.slice(1, 3), 16), parseInt(s.slice(3, 5), 16), parseInt(s.slice(5, 7), 16)];
@@ -238,12 +246,8 @@ function hsv(r, g, b) {
 }
 const keyOf = (d, i) => '#' + [d[i], d[i + 1], d[i + 2]].map((v) => v.toString(16).padStart(2, '0')).join('');
 const lum = (c) => 0.3 * c[0] + 0.59 * c[1] + 0.11 * c[2];
-// Hash déterministe (aucun Math.random : relancer rend les mêmes PNG).
-const hash = (a, b, c) => {
-  let h = (a * 374761393 + b * 668265263 + c * 2147483647) | 0;
-  h = Math.imul(h ^ (h >>> 13), 1274126177);
-  return ((h ^ (h >>> 16)) >>> 0) / 4294967296;
-};
+// Hash déterministe (aucun Math.random : relancer rend les mêmes PNG) : `hash`,
+// importé de scripts/lib/fire.mjs avec le dessin de la flamme.
 const inBox = (x, y, b) => x >= b[0] && x <= b[2] && y >= b[1] && y <= b[3];
 
 function selectZone(src, z, claimed) {
@@ -316,48 +320,23 @@ function erase(buf, W, H, mask) {
   }
 }
 
-// Flamme de langues (cf. plazaBrazierAnim.mjs), à l'échelle de la flamme gommée.
+// Flamme de langues (scripts/lib/fire.mjs, le dessin des braseros des places), à
+// l'échelle de la flamme gommée : souffle ±17 %, balancement proportionnel à la hauteur.
 function tongueFlame(W, H, geo, u) {
   const { cx, base, h, w } = geo;
   const tongues = h >= 7
     ? [{ dx: 0, h, w: w * 0.85, ph: 0 }, { dx: -w * 0.65, h: h * 0.6, w: w * 0.55, ph: 2.2 }, { dx: w * 0.65, h: h * 0.68, w: w * 0.55, ph: 4.1 }]
     : [{ dx: 0, h, w: w * 0.9, ph: 0 }, { dx: (w > 1.6 ? 0.6 : 0.3) * w, h: h * 0.62, w: w * 0.5, ph: 3.1 }];
-  const m = new Uint8Array(W * H);
-  const th = u * Math.PI * 2;
-  for (const t of tongues) {
-    const hh = t.h * (1 + 0.17 * Math.sin(th + t.ph) + 0.07 * Math.sin(2 * th + 1.7 * t.ph));
-    const sway = Math.max(0.6, h * 0.12) * Math.sin(th + t.ph + 1.3);
-    for (let y = Math.max(0, Math.floor(base - hh - 1)); y <= base; y += 1) {
-      const k = (base - y) / hh;
-      if (k < 0 || k > 1) continue;
-      const xc = cx + t.dx + sway * k * k;
-      const hw = t.w * Math.pow(1 - k, 0.75) + 0.2;
-      for (let x = Math.max(0, Math.floor(xc - hw - 1)); x <= Math.min(W - 1, Math.ceil(xc + hw + 1)); x += 1) {
-        if (Math.abs(x + 0.5 - xc) <= hw) m[y * W + x] = 1;
-      }
-    }
-  }
+  const m = tongueMask(W, H, tongues, { cx, base, breath: 0.17, sway: Math.max(0.6, h * 0.12) }, u);
   // Profondeur 4-voisins ; le pied sort du foyer, le voisin du dessous n'est jamais dehors.
-  const d = new Uint8Array(W * H);
-  for (let i = 0; i < m.length; i += 1) d[i] = m[i];
-  for (let pass = 1; pass < 4; pass += 1) {
-    const prev = d.slice();
-    for (let y = 0; y < H; y += 1) for (let x = 0; x < W; x += 1) {
-      const i = y * W + x;
-      if (prev[i] < pass) continue;
-      const at = (xx, yy) => (yy > base ? pass : (xx < 0 || xx >= W || yy < 0) ? 0 : prev[yy * W + xx]);
-      if (at(x - 1, y) >= pass && at(x + 1, y) >= pass && at(x, y - 1) >= pass && at(x, y + 1) >= pass) d[i] = pass + 1;
-    }
-  }
-  let top = base;
-  for (let i = 0; i < m.length; i += 1) if (m[i]) { top = Math.min(top, Math.floor(i / W)); }
-  const span = Math.max(1, base - top);
+  const d = flameDepth(m, W, H, base);
+  const span = Math.max(1, base - flameTop(m, W, base));
   const px = [];
   for (let i = 0; i < m.length; i += 1) {
     if (!m[i]) continue;
     const y = Math.floor(i / W), x = i - y * W, k = (base - y) / span, dep = d[i];
     const core = Math.abs(x + 0.5 - cx) <= Math.max(0.6, w * 0.35);
-    const c = dep <= 1 ? (k > 0.62 ? 2 : k > 0.3 ? 3 : 4) : dep === 2 ? (k > 0.55 ? 4 : 5) : dep === 3 ? (k > 0.4 ? 5 : 6) : (k > 0.3 ? 6 : core ? 7 : 6);
+    const c = flameRampIndex(dep, k, core);
     // Petite flamme (≤ 2 px de demi-largeur) : son cœur n'atteint jamais la
     // profondeur 3 — on l'éclaire dans l'axe, sinon elle brûlerait toute rouge.
     const lit = w <= 2 && core && k < 0.55 ? Math.max(c, k < 0.25 ? 6 : 5) : c;

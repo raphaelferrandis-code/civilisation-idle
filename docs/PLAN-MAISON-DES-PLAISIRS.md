@@ -63,7 +63,9 @@ Icare a sa plateforme d'envol au sommet (perchoir, ballon, mât selon l'âge).
   - `iso/plaisirsBake.js` (pur) : pièces de l'ADN (`petalValance`, `lanternGarland`,
     `stripedCone`, `petalPlate`), pavillons des jeux, recettes `bakeFeu` / `bakeMarbre` /
     `bakeNeon` ; les autres bandes retombent sur le Marbre (`plaisirsRecipeBand`) ;
-    `plaisirsGames(s)` = pavillons selon les jeux ouverts.
+    `plaisirsGames(s)` = pavillons selon les jeux ouverts. *(2026-10-06 : `stripedCone` et
+    les pavillons des jeux retirés du code — plus jamais peints depuis que les jeux sont
+    DEDANS, audit MORT-11 ; les dix âges ont leur recette.)*
   - `iso/isoPlaisirs.js` : le sprite `plaisirs-t3.png` n'est plus lu ; cuisson en cache
     (âge × jeux × hiver), TRANCHES triées au bord avant d'un pied rond (comme les
     merveilles), ombre + reflet, calque de nuit, survol/clic au pixel du raster ; aura à la

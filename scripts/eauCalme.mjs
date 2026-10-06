@@ -13,8 +13,10 @@
  * pixel : c'est une table de correspondance exacte, donc le motif, les frames et
  * l'animation restent identiques au pixel près.
  *
- * Sortie : `public/pixelart/water/river-tiles-calm-ciel.png` (l'azur reste sur le
- * disque pour l'A/B). Branché par WATER_SHEETS.beau (iso/isoRiver.js).
+ * Sortie : `river-tiles-calm-ciel.png`. ⚠ Depuis le 2026-10-06 (audit MORT-12),
+ * l'azur et le ciel de 16 px ne sont plus livrés : rangés comme source dans
+ * art/references-ab/eau-planches/, où ce script lit et écrit. Le ciel est la
+ * source de la nappe livrée `-v2` (scripts/eauSansEcailles.mjs).
  *
  * Usage : node scripts/eauCalme.mjs [--proof <png>]
  */
@@ -22,7 +24,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { PNG } from 'pngjs';
 
-const DIR = path.join('public', 'pixelart', 'water');
+const DIR = path.join('art', 'references-ab', 'eau-planches');
 const SRC = path.join(DIR, 'river-tiles-calm-azur.png');
 const OUT = path.join(DIR, 'river-tiles-calm-ciel.png');
 const PROOF = (() => { const i = process.argv.indexOf('--proof'); return i >= 0 ? process.argv[i + 1] : null; })();

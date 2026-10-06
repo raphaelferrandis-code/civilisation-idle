@@ -31,7 +31,7 @@ const nameOf = (who) => ({ fr: AMOUREUX_NAMES[who].fr, en: AMOUREUX_NAMES[who].e
 
 // Le prochain bâtiment désigné par une piste : un type présent en ville, autre que
 // celui d'ici et que les deux derniers.
-export function chooseNextType(L, here, seed) {
+function chooseNextType(L, here, seed) {
   const by = engineTilesByType(L);
   const L2 = fdState().lovers;
   const avoid = new Set([here, L2.next, L2.first].filter(Boolean));

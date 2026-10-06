@@ -69,6 +69,7 @@
 // ============================================================================
 
 import { cmHash, ROAD_N, ROAD_E, ROAD_S, ROAD_W } from '../layout.js';
+import { fmix32 } from '../hash.js';
 import { depthOf } from './projection.js';
 import { personHT, plazaEraForBand, propFootprint, footClash, lampFootprint } from './isoPlaza.js';
 
@@ -106,15 +107,9 @@ const KIT = {
   cosmic: [['planter', 0.55, 3], ['bench', 0.66, 3], ['bin', 0.52, 4]],
 };
 
-// Rebrassage 32 bits (finalizer de MurmurHash3). ⚠ Indispensable : le bit
-// faible de cmHash vaut la PARITÉ de l'entrée, donc `hash & 1` sur 'x,y' rend un
+// Rebrassage 32 bits (fmix32, finalizer de MurmurHash3, ../hash.js). ⚠ Indispensable :
+// le bit faible de cmHash vaut la PARITÉ de l'entrée, donc `hash & 1` sur 'x,y' rend un
 // damier — piège déjà payé une fois sur les variantes d'habitation.
-function fmix32(h) {
-  h ^= h >>> 16; h = Math.imul(h, 2246822507);
-  h ^= h >>> 13; h = Math.imul(h, 3266489909);
-  h ^= h >>> 16;
-  return h >>> 0;
-}
 
 // Direction MONDE vers laquelle l'objet REGARDE (convention du kit des places :
 // `face` nomme ce que le prop a en face de lui). Sur un trottoir, il regarde la
@@ -306,7 +301,7 @@ export function computeStreetProps(L, T, opts) {
   return out;
 }
 
-if (typeof window !== 'undefined') {
+if (import.meta.env?.DEV && typeof window !== 'undefined') {
   window.__streetProps = (arg) => {
     if (arg === false) STREET_PROPS.on = false;
     else if (arg && typeof arg === 'object') { STREET_PROPS.on = true; Object.assign(STREET_PROPS, arg); }

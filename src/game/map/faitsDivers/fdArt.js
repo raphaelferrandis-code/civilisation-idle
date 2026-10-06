@@ -558,11 +558,3 @@ export const FD_ART = {
     '.kT...Tk.',
   ]] },
 };
-
-// La bonne image d'une planche, ou null (nom inconnu).
-export function fdArtRows(name, fi = 0) {
-  const def = FD_ART[name];
-  if (!def) return null;
-  const n = def.frames.length;
-  return def.frames[((fi % n) + n) % n];
-}

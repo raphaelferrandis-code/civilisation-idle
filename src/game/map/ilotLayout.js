@@ -20,7 +20,7 @@ import { gridOf, blockOrderLazy, blockStreets, ILOT_DEFAULTS } from "./procedura
 
 // Une place de quartier tous les PLAZA_EVERY îlots (au rang PLAZA_EVERY/2 du
 // cycle) : un square, un marché, un parvis — le Marbre a ses forums de quartier.
-export const ILOT_PLAZA_EVERY = 16;
+const ILOT_PLAZA_EVERY = 16;
 const PLAZA_KINDS = ["marche", "jardin", "parvis"];
 // Lots de marge : la ville ouvre un peu d'avance (achats à venir, grands logis).
 // 12 (v1 : 6) : au Néon, une maison-moteur sur 129 restait sans lot ; les lots en trop
@@ -30,7 +30,7 @@ const LOT_MARGIN = 12;
 // comparaison : __ilotAir(false) puis recalcul de la ville.
 // `motifs` : respirations par îlot (un îlot long en a une de plus).
 export const ILOT_AIR = { on: true, motifs: 2 };   // dose « forte », choisie par Raph (2026-10-04)
-if (typeof window !== "undefined") window.__ilotAir = (on) => { if (on && typeof on === "object") Object.assign(ILOT_AIR, { on: true }, on); else ILOT_AIR.on = on !== false; return { ...ILOT_AIR }; };
+if (import.meta.env?.DEV && typeof window !== "undefined") window.__ilotAir = (on) => { if (on && typeof on === "object") Object.assign(ILOT_AIR, { on: true }, on); else ILOT_AIR.on = on !== false; return { ...ILOT_AIR }; };
 // Cases de cardo sur la rive d'en face, au débouché du pont.
 const BRIDGE_LANDING = 5;
 // Lots de maisons par îlot plein (4×4 : 12 lots de bord) — pour l'ESTIMATION du
@@ -38,7 +38,7 @@ const BRIDGE_LANDING = 5;
 // moins (~1,5 lot de jardin par motif, mesuré : 134 → 184 îlots pour les mêmes 780
 // maisons à deux motifs) : sous-estimé, le rayon grandissait d'une ère à l'autre, la
 // grille avec lui, et le fleuve qui s'étire avec la grille noyait des rues de berge.
-export const ILOT_LOTS_PER_BLOCK = 11;
+const ILOT_LOTS_PER_BLOCK = 11;
 const lotsPerBlock = () => ILOT_LOTS_PER_BLOCK - (ILOT_AIR.on ? 1.5 * (ILOT_AIR.motifs | 0) : 0);
 
 const hash = (str) => {

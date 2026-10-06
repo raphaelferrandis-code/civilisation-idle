@@ -34,6 +34,7 @@
 // cellule rendent donc les mêmes pixels, et la signature de tuile (2 cellules de
 // marge, cf. tileSig) couvre déjà le voisinage lu ici.
 import { solInvalidate } from './solInvalidate.js';
+import { vegHash as h01 } from './vegNoise.js';
 
 // amp  : poids du bruit face au champ. Le champ passe de −1 à +1 en ~1 cellule de
 //        part et d'autre du bord (pente 2 par cellule) : amp 0,9 déplace le bord de
@@ -47,18 +48,12 @@ export const LISIERE = { on: true, amp: 0.9, f1: 1.4, f2: 4.2, fine: 0.35, roads
 // franc est voulu (même règle que la frange d'herbe) — ils ne comptent pas dans
 // le champ et ne sont jamais retouchés.
 const SOFT = { grass: 1, urban: 2, dirt: 3, sand: 4, shingle: 5 };
-export const lisiereSoft = (k) => SOFT[k] !== undefined;
+const lisiereSoft = (k) => SOFT[k] !== undefined;
 
-// Hash entier → [0, 1). Pas de chaîne : ce bruit est évalué des milliers de fois
-// par cellule de bord, là où `smoothNoise` (cmHash sur une chaîne) coûterait cent
-// fois plus pour le même service.
-function h01(ix, iy, s) {
-  let h = Math.imul(ix | 0, 0x27d4eb2d) ^ Math.imul(iy | 0, 0x165667b1) ^ Math.imul(s | 0, 0x9e3779b9);
-  h = Math.imul(h ^ (h >>> 15), 0x85ebca6b);
-  h = Math.imul(h ^ (h >>> 13), 0xc2b2ae35);
-  h ^= h >>> 16;
-  return (h >>> 0) / 4294967296;
-}
+// Hash entier → [0, 1) : h01 = vegHash (vegNoise.js, feuille sans import), qu'il
+// recopiait instruction pour instruction (audit du 05/10, STRUCT-12). Pas de chaîne :
+// ce bruit est évalué des milliers de fois par cellule de bord, là où `smoothNoise`
+// (cmHash sur une chaîne) coûterait cent fois plus pour le même service.
 // Poids B-spline quadratique des cellules −1, 0, +1 pour une position t ∈ [0,1)
 // dans la cellule (somme = 1).
 function bw(t, out) {
@@ -386,7 +381,7 @@ export function makeLisiere(kindAt, neutral, cfg = LISIERE, world = null) {
 // Entrées du cache de texels (tests de mémoire, outils).
 export const lisiereCacheSize = () => texCache.size;
 
-if (typeof window !== 'undefined') {
+if (import.meta.env?.DEV && typeof window !== 'undefined') {
   // Molette : __lisiere(true|false) ; ({ amp, f1, f2, fine }) règle le bord.
   // Recuit tout le sol (la pyramide jette ses tuiles).
   window.__lisiere = (arg) => {

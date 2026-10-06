@@ -7,7 +7,7 @@
 // (import.meta.env.DEV) : Vite retire ce module du bundle de production.
 // ⚠ Ne rien importer d'ici ailleurs que dans DebugDialog.
 
-import { state, render } from './state.js';
+import { state, render, invalidateRenderCache } from './state.js';
 import { has, isUnlocked } from './mechanics.js';
 import { log } from './actions.js';
 import { D } from './num.js';
@@ -54,6 +54,9 @@ export function debugBuyEarlyRuins() {
     state.ruins = D(state.ruins).sub(costRuins);
     state.upgrades[upgrade.id] = true;
   }
+  // Des nœuds viennent d'être posés sans passer par buyUpgrade : débits et
+  // effets de ruines à recalculer (rives_fecondes change riverEngineMult).
+  invalidateRenderCache("all");
   log("Debug: achats de ruines de debut appliques quand possible.");
   render();
 }

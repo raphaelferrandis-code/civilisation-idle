@@ -60,7 +60,7 @@ export function generateRoadsGraph({
   // des superblocks refuserait les maisons. Avant la bande 7 : zéro changement.
   // Molette : globalThis.__superMesh (défaut +2 ; 0 = trame historique) —
   // recompute nécessaire (__cityRecompute), c'est du layout.
-  const superMesh = (counts.eraBand >= 7) ? (globalThis.__superMesh ?? 2) : 0;
+  const superMesh = (counts.eraBand >= 7) ? (import.meta.env?.DEV && globalThis.__superMesh != null ? globalThis.__superMesh : 2) : 0;
 
   // ── Squelette identitaire vs échafaudage (archétypes organiques) ────────────
   // Deux natures de cellules pour scattered/crossroads/linear :
@@ -771,7 +771,7 @@ export function trimDemandlessRoads({ roads, roadKey, roadMeta, demand, keep = n
 export const ROAD_PRUNE = { on: true, reach: 2 };
 export function pruneUnservedRoads({ roads, roadKey, roadMeta, demand, coreX, coreY, keep: keepIn = null }) {
   const cfg = ROAD_PRUNE;
-  const reach = Math.max(0, (typeof globalThis !== "undefined" && globalThis.__roadPruneReach != null)
+  const reach = Math.max(0, (import.meta.env?.DEV && typeof globalThis !== "undefined" && globalThis.__roadPruneReach != null)
     ? globalThis.__roadPruneReach | 0 : cfg.reach | 0);
   if (!cfg.on || !roadKey.size) return roads;
   const isPlaza = (k) => { const m = roadMeta.get(k); return !!(m && m.rank === "plaza"); };

@@ -1,4 +1,3 @@
-"use strict";
 /* ============================================================================
  * bench-temple.js - Banc d'equilibrage des JEUX DE LA MAISON DES PLAISIRS.
  *
@@ -23,24 +22,17 @@
  *       perte reelle (Monte-Carlo Icare) ; la limite x10 par titre, la salle
  *       commune et la rafle restent a la base.
  *
- * Sortie : temple-faveur-impact.md (+ resume console).
+ * Sortie : docs/bench/temple-faveur-impact.md, relatif au dossier courant (+ resume console).
  * Usage  : node bench-temple.js
  * ========================================================================== */
 import fs from "fs";
-
-// --- Stubs DOM (avant imports jeu) -----------------------------------------
-global.window = { addEventListener() {}, removeEventListener() {} };
-global.localStorage = { getItem() { return null; }, setItem() {} };
-Object.defineProperty(global, "navigator", { value: { clipboard: { writeText() {} } }, writable: true, configurable: true });
-const stubEl = () => ({ className: "", dataset: {}, innerHTML: "", textContent: "", disabled: false, value: "", checked: false, style: {}, classList: { add() {}, remove() {}, toggle() {}, contains() { return false; } }, addEventListener() {}, setAttribute() {}, showModal() {}, remove() {}, click() {}, appendChild() {}, querySelector() { return stubEl(); }, querySelectorAll() { return []; } });
-global.document = { addEventListener() {}, documentElement: { style: { setProperty() {} } }, body: { appendChild() {} }, querySelector() { return stubEl(); }, querySelectorAll() { return []; }, createElement() { return stubEl(); }, getElementById() { return stubEl(); } };
-global.Audio = class { constructor() { this.volume = 1; } addEventListener() {} play() { return Promise.resolve(); } pause() {} };
-global.render = () => {}; global.save = () => {};
+// Stubs DOM (avant imports jeu) : le faux navigateur commun des harnais.
+import "./scripts/lib/headless.mjs";
 
 // --- Imports jeu ------------------------------------------------------------
 const { state, defaultState, setState } = await import("./src/game/core/state.js");
 await import("./src/game/core/actions.js"); // ordre d'evaluation du jeu reel
-const { auguryPaytable, auguryTierOdds, castAugury, AUGURY_RITES } = await import("./src/game/core/actions/augures.js");
+const { auguryPaytable, castAugury, AUGURY_RITES } = await import("./src/game/core/actions/augures.js");
 const { icarusEffectiveEdge, resolveIcarusHeadless } = await import("./src/game/core/actions/icarus.js");
 const { scratchRtpRef, scratchOdds } = await import("./src/game/core/actions/scratch.js");
 const { handValue, isBlackjack, blackjackResult, resolveBlackjackHeadless, BLACKJACK_SUITS } = await import("./src/game/core/actions/blackjack.js");
@@ -48,7 +40,7 @@ const { slotsOdds } = await import("./src/game/core/actions/slots.js");
 const { betCovers, betPayout } = await import("./src/game/core/actions/roulette.js");
 const { potRecycle } = await import("./src/game/core/actions/templePot.js");
 const { recettesPerHour, tableLimits, blessingCost, potCap, autoStake } = await import("./src/game/core/actions/maisonTable.js");
-const { recordWager, maisonReputation } = await import("./src/game/core/actions/maisonRang.js");
+const { maisonReputation } = await import("./src/game/core/actions/maisonRang.js");
 const { potRakeShare } = await import("./src/game/core/actions/templePot.js");
 const { eras } = await import("./src/game/data/world.js");
 const bal = await import("./src/game/core/balance.js");
@@ -388,7 +380,9 @@ ${titleRows.map((x) => `| ${x.id} | ${x.h} | x${x.mult.toLocaleString("fr-FR")} 
 |---|---|---|---|---|
 ${eraRows.map((x) => `| ${x.i} ${x.name} | ${f(x.r)} | ${f(x.max)} | ${f(x.ben)} | ${f(x.pot)} |`).join("\n")}
 `;
-fs.writeFileSync("temple-faveur-impact.md", md, "utf8");
+// Le rapport versionné vit dans docs/bench/ (audit du 05/10, GIT-6).
+fs.mkdirSync("docs/bench", { recursive: true });
+fs.writeFileSync("docs/bench/temple-faveur-impact.md", md, "utf8");
 
 console.log(checks.map((c) => `${c.ok ? "PASS" : "FAIL"}  ${c.id}\n      ${c.detail}`).join("\n"));
 const failed = checks.filter((c) => !c.ok).length;

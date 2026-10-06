@@ -7,8 +7,8 @@
 // mise est LIBRE entre les limites de la table (actions/maisonTable.js).
 // Le vol est un état MODULE (éphémère : un rechargement en plein vol abandonne
 // la mise — le vol dure ~5-30 s) ; le point de crash est tiré à l'envol et un
-// setTimeout AUTORITAIRE résout la chute même si le dialogue est fermé. L'UI
-// (IcarusDialog) ne fait que lire icarusMultiplier()/icarusLastOutcome().
+// setTimeout AUTORITAIRE résout la chute même si la scène est fermée. L'UI
+// (IcarusStage) ne fait que lire icarusMultiplier()/icarusLastOutcome().
 //   - launchIcarus(stake) : paie la mise (Faveur), tire C = (1-EDGE)/U et
 //     programme la chute à t = ln(C)/K.
 //   - cashOutIcarus() : si m(now) < C, paie round(mise × m) ; à ×JACKPOT ou
@@ -82,10 +82,6 @@ export function icarusHistoryLen() {
 
 export function icarusFlying() {
   return Boolean(flight && !flight.resolved);
-}
-
-export function icarusTakeoffAt() {
-  return flight && !flight.resolved ? flight.takeoffAt : 0;
 }
 
 // La mise du vol EN COURS (Faveur, et s'il est offert), pour qu'une scène rouverte

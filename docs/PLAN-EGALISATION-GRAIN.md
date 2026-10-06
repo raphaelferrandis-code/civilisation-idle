@@ -166,6 +166,8 @@ typologie.
 > - Scripts morts réparés/à réparer : `contactSheet.mjs`, `flipBuildings.mjs`,
 >   `zoomCheck.mjs` pointent toujours sur `public/pixelart/buildings/` disparu
 >   (non réparés en G0, la planche de jugement a son propre outil `grainBoard.mjs`).
+>   `flipBuildings.mjs` et `zoomCheck.mjs` ont été SUPPRIMÉS le 06/10 (audit du 05/10,
+>   SCRIPT-5) : `grainBoard.mjs` et `spriteZoom.mjs` les remplacent.
 
 Objectif : la table des écarts, sprite par sprite, et la planche de jugement.
 Aucune retouche dans ce lot.

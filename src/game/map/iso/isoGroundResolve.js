@@ -12,7 +12,7 @@
 // celles que les passes consommaient déjà :
 //   · `bake`    — le contexte de cuisson (canevas, métrique, bornes, drapeaux, layout) ;
 //   · `resolve` — les résolveurs (`kindAt`, `grassAt`, `keyOfKind`) ;
-//   · `out`     — les tampons vides, et de quoi les remplir/vider (`veilPush`, `flushVeils`).
+//   · `out`     — les tampons vides (arêtes de frange, rubans, parvis, herbe).
 // L'orchestrateur les déstructure et les répartit ; il ne les construit plus.
 //
 // ⚠ `ISO_GROUND_LOD` ARRIVE EN PARAMÈTRE, et le nom est celui d'origine EXPRÈS : le
@@ -24,7 +24,6 @@ import { CM } from '../layout.js';
 import { visibleCellBounds, ISO_X, ISO_Y } from './projection.js';
 import { terrainMaxPx } from './isoTerrain.js';
 import { ensureQuayGate } from '../quaysAndRiot.js';
-import { isoArt } from './isoArt.js';
 import { COUR, builtCells, courOf } from './isoTissu.js';
 import { ROAD_DETAIL, roadTone } from './isoRoad.js';
 import { BEACH, ISO_TILE_KEYS, plazaEraTileKey } from './isoGroundTiles.js';
@@ -32,7 +31,7 @@ import { isBeachBankCell, beachPortCells } from './isoBeachCells.js';
 import { WONDER_GROUND, wonderGroundSet } from './isoWonderGround.js';
 import { FRONTIER, frontierFlip, urbanMatFor, urbanToneFor } from './isoGroundDetail.js';
 import { WINTER } from '../seasonMode.js';
-import { plazaEraForBand, isoPlazaSceneCoversGround, plazaLawnAtCell } from './isoPlaza.js';
+import { plazaEraForBand, plazaLawnAtCell } from './isoPlaza.js';
 import { LISIERE, makeLisiere } from './isoLisiere.js';
 import { LAWN, townLawnAt } from './isoMeadow.js';
 
@@ -68,14 +67,11 @@ export function makeGroundBake(ISO_GROUND_LOD) {
   // possible). kind = tuile PixelLab ; le ton d'aplat s'en déduit. L'EAU n'est
   // pas peinte ici : le fleuve est un RUBAN LIVE lissé par-dessus le bake
   // (drawIsoRiver) — le sol sous l'eau reste de l'herbe (berges douces).
-  // Quand la SCÈNE de place de l'ère est décodée, la dalle claire disparaît
-  // (la scène porte son propre dallage — l'ancienne dalle dépassait autour,
-  // retour Raph) : les cellules plaza redeviennent du sol urbain calme.
-  // En place COMPOSÉE (mode par défaut) il n'y a plus d'image qui porte le
-  // dallage : la dalle de sol redevient l'esplanade, et le mobilier se pose
-  // dessus. D'où le test sur le MODE, pas seulement sur le décodage du PNG.
+  // En place COMPOSÉE, aucune image ne porte le dallage : la dalle de sol est
+  // l'esplanade, et le mobilier se pose dessus. (L'ancienne SCÈNE de place, qui
+  // portait son propre dallage et rendait les cellules au sol urbain, a été
+  // retirée le 2026-10-06.)
   const plazaEra = plazaEraForBand(band);
-  const plazaSceneReady = !!(plazaEra && isoPlazaSceneCoversGround(band) && isoArt('plaza-' + plazaEra).ready);
   // Résolu UNE FOIS par recuisson : l'ère est celle de la bande, elle ne change
   // pas d'une cellule à l'autre. Résoudre par cellule ferait 4 lectures de cache
   // sur chaque cellule de place pour un verdict identique.
@@ -178,7 +174,7 @@ export function makeGroundBake(ISO_GROUND_LOD) {
   // Diagnostic opt-in (globalThis.__beachStats), lu UNE fois par bake : une propriété
   // absente de l'objet global coûte ~35 ns à chercher (audit du 05/10, DEV-4), soit
   // ~0,7 ms par recuisson complète quand le drapeau était relu à chaque cellule.
-  const beachStats = globalThis.__beachStats
+  const beachStats = import.meta.env?.DEV && globalThis.__beachStats
     ? (globalThis.__beachStatsLast || (globalThis.__beachStatsLast = {})) : null;
   const kindAt = (gx, gy) => {
     const key = gx + ',' + gy;
@@ -190,7 +186,7 @@ export function makeGroundBake(ISO_GROUND_LOD) {
     const isWater = !!(riverCells && riverCells.has(key));
     // Le SQUARE (place 'jardin') porte une pelouse sur son anneau extérieur (cf.
     // plazaLawnAtCell) : de l'herbe, pas de dallage.
-    if (cell && cell.rank === 'plaza') k = plazaSceneReady ? 'urban' : (plazaLawnAtCell(L, key) ? 'grass' : 'plaza');   // ⚠ piège places-dans-roadSet
+    if (cell && cell.rank === 'plaza') k = plazaLawnAtCell(L, key) ? 'grass' : 'plaza';   // ⚠ piège places-dans-roadSet
     // Parvis de merveille : l'emprise réservée porte son dallage propre (l'eau
     // garde la priorité — le ruban du fleuve passe dessus, berges douces).
     else if (!isWater && wg && wg.has(key)) k = 'wonder';
@@ -225,8 +221,9 @@ export function makeGroundBake(ISO_GROUND_LOD) {
     // Routes HORS tissu urbain : fond d'HERBE depuis le 2026-07-20 (retour Raph :
     // le fond de cellule 'dirt' — aplat terre + tuile de mottes — dépassait du
     // ruban en « pavé de terre » cranté à la jonction herbe↔sol). Le chemin se
-    // lit par sa dalle + ourlet/épaulement CONTINUS ; le kind 'dirt' n'est plus
-    // produit mais sa plomberie (texAlpha/fringe) reste, knob de retour facile.
+    // lit par sa dalle + ourlet/épaulement CONTINUS : le fond des routes hors tissu
+    // n'est plus 'dirt'. (Le kind 'dirt' reste produit EN VILLE — cour de terre de
+    // courField, juste en dessous — et sa plomberie texAlpha/fringe sert toujours.)
     else if (!isWater && L.urbanSet && L.urbanSet.has(key)) {
       // Sol de ville : pavé près du bâti, cour de terre plus loin, friche au-delà
       // (cf. COUR — c'est ici que la moitié vide de la ville cesse d'être minérale).
@@ -271,62 +268,15 @@ export function makeGroundBake(ISO_GROUND_LOD) {
   // là-dessous ressortirait sur les quais).
   // Pas de frange vers une pelouse de ville (LAWN.crisp) : ses langues brouillaient le bord.
   const grassAt = (gx, gy) => kindAt(gx, gy) === 'grass' && !(riverCells && riverCells.has(gx + ',' + gy)) && !isLawn(gx, gy);
-  // VOILES D'HERBE REMISÉS PAR PALIER D'ALPHA. Les deux voiles (prés clair/foncé,
-  // ombre sauvage) faisaient un fill de losange PAR cellule d'herbe : jusqu'à 2 ×
-  // ~9 000 fills = 57 % de la recuisson (mesuré). On accumule les losanges par
-  // (famille, alpha quantifié au 1/256) et on les vide en fills d'UNION par
-  // paquets → une poignée de fills. Losanges DISJOINTS → l'union nonzero rend
-  // identique (aucun double-alpha), et le pas d'alpha 1/256 est sous le seuil
-  // perceptible sur un voile à alpha ≤ 0,1.
-  const VEIL_COL = [[24, 38, 16], [214, 226, 150], [26, 36, 18]];
-  const veil = [new Map(), new Map(), new Map()];
+  // (Les VOILES D'HERBE PAR LOSANGE — prés clair/foncé, ombre sauvage, remisés par
+  //  palier d'alpha : VEIL_COL, veilPush, veilPushRects, flushVeils — n'étaient plus
+  //  alimentés depuis que les prés sont des ZONES lissées (iso/isoMeadow.js, lot 4 de
+  //  docs/PLAN-VEGETATION.md : « voiles de sol = image lissée, jamais par losange »).
+  //  Retirés le 2026-10-06, audit MORT-14.)
   const grassCells = [];               // (gx, gy, px, py) à plat — fleurs différées
   // Géométrie de l'herbe (losanges, rectangles de lisière) : le gabarit des voiles
   // lissés (prés, sous-bois — isoForestFloor.drawGrassVeils).
   const grassMask = [], grassMaskR = [];
-  const veilPush = (fam, a, px, py) => {
-    const q = Math.min(255, Math.max(1, Math.round(a * 255)));
-    const m = veil[fam];
-    const arr = m.get(q);
-    if (arr) arr.push(px, py); else m.set(q, [px, py]);
-  };
-  // LISIÈRE ARRONDIE (cf. isoLisiere) : une cellule de bord ne voile que SES PIXELS
-  // D'HERBE — ses rectangles de texels, qui ne recouvrent ni les losanges ni les
-  // rectangles des autres cellules. Voiler le losange entier teintait la terre
-  // de l'ancienne forme de la cellule (jusqu'à 8 % de vert : la grille revenait).
-  const veilR = [new Map(), new Map(), new Map()];
-  const veilPushRects = (fam, a, rects) => {
-    const q = Math.min(255, Math.max(1, Math.round(a * 255)));
-    const m = veilR[fam];
-    const arr = m.get(q);
-    if (arr) { for (let i = 0; i < rects.length; i += 1) arr.push(rects[i]); } else m.set(q, rects.slice());
-  };
-  const flushVeils = () => {
-    for (let f = 0; f < 3; f += 1) {
-      const c = VEIL_COL[f];
-      for (const [q, arr] of veil[f]) {
-        ctx.fillStyle = `rgba(${c[0]},${c[1]},${c[2]},${(q / 255).toFixed(3)})`;
-        let n = 0;
-        ctx.beginPath();
-        for (let i = 0; i < arr.length; i += 2) {
-          // ⚠ Pas diamondPath (isoQuad) : il ouvre un NOUVEAU chemin à chaque losange,
-          // et seul le dernier de chaque paquet était rempli — d'où des prés
-          // invisibles pendant des mois (trouvé le 2026-10-04, PLAN-VEGETATION lot 4).
-          const x = arr[i], y = arr[i + 1];
-          ctx.moveTo(x, y); ctx.lineTo(x + hw, y + hh); ctx.lineTo(x, y + 2 * hh); ctx.lineTo(x - hw, y + hh); ctx.closePath();
-          n += 1;
-          if (n >= 256) { ctx.fill(); ctx.beginPath(); n = 0; }   // bbox locale (cf. joints)
-        }
-        if (n) ctx.fill();
-      }
-      for (const [q, arr] of veilR[f]) {
-        ctx.fillStyle = `rgba(${c[0]},${c[1]},${c[2]},${(q / 255).toFixed(3)})`;
-        ctx.beginPath();
-        for (let i = 0; i < arr.length; i += 4) ctx.rect(arr[i], arr[i + 1], arr[i + 2] - arr[i], arr[i + 3] - arr[i + 1]);
-        ctx.fill();
-      }
-    }
-  };
   // LISIÈRE ARRONDIE (cf. isoLisiere) : le classement par pixel d'art
   // des cellules de bord. L'eau est HORS CHAMP — son sol est recouvert par le
   // fleuve, et la laisser voter ferait mordre son herbe dans la grève.
@@ -339,6 +289,6 @@ export function makeGroundBake(ISO_GROUND_LOD) {
   return {
     bake: { ctx, T, z, hw, hh, LOD, HARD, b, L, band, mat, urb, road, roadMap, riverCells, plazaEra, wg, PR },
     resolve: { kindAt, grassAt, keyOfKind, lisiere },
-    out: { fringes, roads, wonderCells, grassCells, grassMask, grassMaskR, veilPush, veilPushRects, flushVeils },
+    out: { fringes, roads, wonderCells, grassCells, grassMask, grassMaskR },
   };
 }

@@ -106,7 +106,6 @@ export function wonderKitForBand(band, winter = false) {
       metal: METAL[b],
       roof: ROOF[b],
       glow: GLOW[b],
-      glass: B.pal.glass || '#a9bfd6',
       glassRamp: GLASS[b], turf: TURF, win: WIN,
       banner: B.pal.banner || BANNER,
       brick: BRICK, night: NIGHT[b],
@@ -115,9 +114,8 @@ export function wonderKitForBand(band, winter = false) {
     // Un monument tranche plus que le pont : sa face à l'ombre descend d'un cran.
     litBase: B.litBase || 2, shadeBase: Math.min(6, (B.shadeBase || 4) + 1),
     course: B.course || 5, block: B.block || 12, joint: B.joint != null ? B.joint : 2, rough: !!B.rough,
-    // Ce qu'une ère sait bâtir : la grue de la cathédrale, la lanterne du phare.
+    // Ce qu'une ère sait bâtir : la grue de la cathédrale.
     crane: b <= 3 ? 'roue' : b <= 5 ? 'vapeur' : b <= 6 ? 'tour' : 'lumiere',
-    lantern: b <= 4 ? 'feu' : b <= 5 ? 'gaz' : 'lampe',
     // Planche des statues et braseros (art des places, plaza/<objet>-<ère>).
     propEra: b <= 2 || b === 4 ? 'antique' : b === 3 ? 'medieval' : b === 5 ? 'industrial' : b === 6 ? 'modern' : 'cosmic',
     // Statue d'une merveille : toujours une FIGURE (la planche moderne est une arche

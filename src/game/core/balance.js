@@ -82,7 +82,7 @@ export const INSTABILITY_MAX_RISE_PER_SEC = 0.006;
 // Ancien défaut : coût ∝ population (croissance lente) alors que les stocks
 // suivent la production exponentielle → le coût devenait dérisoire (mesuré
 // ~5e-6 du stock en fin de partie : 5e24 trésor pour 9e32 en réserve).
-// Nouveau modèle (crisisCosts() dans mechanics.js) : coût = N secondes de
+// Nouveau modèle (crisisCosts() dans mechanics/crisis-cost.js) : coût = N secondes de
 // production COURANTE de la ressource. Choix de design : les stocks ne valent
 // qu'~1-2 min de production, donc « N s de prod » est une part réelle de la
 // réserve — et devient INPAYABLE si le joueur a tout dépensé. C'est voulu : il
@@ -470,8 +470,11 @@ export const BLACKJACK_HISTORY_LEN = 12;      // dernières mains affichées (ba
 // lit (le sous-estimer gonflerait le versement à la cagnotte). MESURÉ le 2026-10-03
 // (2 M de mains, règles du moteur : paquet unique rebattu, croupier S17, une
 // refente, double après refente) : naïf 93,0 %, base 96,7 %, base + double 98,3 %,
-// base + double + refente 98,9 % ± 0,16 pt. À re-mesurer si BLACKJACK_MULT,
-// BLACKJACK_DEALER_STAND ou basicAction bougent.
+// base + double + refente 98,9 % ± 0,16 pt. ⚠ Depuis le lot 4, le jeu interactif se
+// joue sur un SABOT de BLACKJACK_SABOT_JEUX jeux coupé à BLACKJACK_SABOT_PENETRATION
+// (plus bas) : plusieurs jeux font BAISSER le RTP du jeu sans comptage, donc 0,995
+// reste un majorant. À re-mesurer si BLACKJACK_MULT, BLACKJACK_DEALER_STAND,
+// basicAction, BLACKJACK_SABOT_JEUX ou BLACKJACK_SABOT_PENETRATION bougent.
 export const BLACKJACK_RTP_REF = 0.995;
 // RTP de l'AUTO (base + double, jamais de refente) — ne sert qu'au badge de débit.
 export const BLACKJACK_RTP_AUTO = 0.983;
@@ -807,7 +810,8 @@ export const INEQUALITY_EASE_HALF_LIFE_S = 10;  // demi-vie du lissage EMA de la
 // contributeur MODÉRÉ partout. (Vrai correctif de fond = ajouter des puits d'or.)
 export const INEQUALITY_RESERVE_CAP_S = 600;
 
-// Plafond de la mitigation d'Usure (infra/savoir/légitimité). Non bornée, elle
+// Plafond de la mitigation d'Usure (infrastructure + savoir, cf. timeWearRate dans
+// mechanics/prestige.js ; la légitimité est supprimée). Non bornée, elle
 // gelait l'Usure en fin de partie (taux mesuré ~0.002) : l'Usure redevient une
 // deadline garantie — toute civilisation finit par tomber par le temps.
 // Abaissé (8 → 5) : on ne peut plus repousser l'Usure aussi loin → deadline plus
@@ -868,13 +872,16 @@ export const INFRA_COVERAGE_MIN_BASE = 30;
 // équipée ×3 », l'accumulation passive ne trivialise plus la jauge.
 export const INFRA_COVERAGE_EFFECTIVE_CAP = 3;
 
-// Mitigation : log10(1 + couvertureEff×MULT + légitimité×0.16) × COEF, plafond
-// relevé (0.75 → 1.1). Relever le plafond ne recrée pas la cité ineffondrable :
-// l'Usure (mitigation plafonnée ×8) reste la deadline garantie. Rupture = jauge
-// pilotée par les choix du joueur ; Usure = horloge inévitable.
-// Relevé 6 → 8 (calibrage 2026-07) : COMPENSATION PARTIELLE de la suppression du
-// terme de légitimité (+legitimacy×0.16 dans institutionalLog) — récupère ~40-45 %
-// du barrage perdu en mid-game ; la Rupture reste un peu plus exigeante qu'avant.
+// Mitigation : log10(1 + couvertureEff×MULT) × COEF (+ ruines « stability » et
+// grâces), plafond relevé (0.75 → 1.1) — cf. pressureBreakdown dans
+// mechanics/production/pressure.js. Relever le plafond ne recrée pas la cité
+// ineffondrable : l'Usure (mitigation plafonnée ×TIME_WEAR_MITIGATION_CAP = 5)
+// reste la deadline garantie. Rupture = jauge pilotée par les choix du joueur ;
+// Usure = horloge inévitable.
+// MULT relevé 6 → 8 (calibrage 2026-07) : COMPENSATION PARTIELLE de la suppression
+// de l'ancien terme de légitimité (+legitimacy×0.16 dans institutionalLog) —
+// récupère ~40-45 % du barrage perdu en mid-game ; la Rupture reste un peu plus
+// exigeante qu'avant.
 export const INFRA_COVERAGE_MITIGATION_MULT = 8;
 export const MITIGATION_LOG_COEF = 0.30;
 export const MITIGATION_CAP = 1.1;
@@ -895,14 +902,6 @@ export const STABILIZER_DIRECT_FACTOR = 6;
 // cité bien équipée digère sa taille administrative (absorption max ~×2.5).
 export const COMPLEXITY_COVERAGE_ABSORB = 0.5;
 
-// ── Gain idle : production + Usure capées sur le temps d'absence ──────────────
-// (cf. CE-spec-idle-crises.md §B). Pendant l'absence, la cité produit à son taux
-// courant ET vieillit (Usure), tous deux bornés par le MÊME cap de temps. Au-delà
-// du cap : tout gèle (ni prod, ni Usure) — évite de revenir sur une cité plus
-// vieille que ce qu'elle a produit (l'ancien hors-ligne ne faisait QUE vieillir).
-// Le cap commence à 2 h GRATUITES (corrige « ferme l'onglet → rien » dès le départ),
-// puis les upgrades « Veilleurs de nuit » l'étendent. Le rendement idle scalant
-// déjà ~×13/ère, on ne vend que des HEURES (pas besoin de scaler le cap par ère).
 // ── Chantiers de voirie ──────────────────────────────────────────────────────
 // L'achat de routes n'est plus « +1 tuile » à coût géométrique (mur exponentiel
 // contre un besoin linéaire) : 1 achat = 1 CHANTIER, un objet fini — raccord
@@ -955,6 +954,14 @@ export const ROAD_NEXT_FALLBACK_TILES = 10;      // estimation avant le 1er calc
 export const ROAD_WIDEN_BONUS_EACH = 0.01;       // +1 % par tronçon élargi…
 export const ROAD_WIDEN_BONUS_MAX = 0.08;        // …plafonné (la couverture fait +10 % à côté)
 
+// ── Gain idle : production + Usure capées sur le temps d'absence ──────────────
+// (cf. CE-spec-idle-crises.md §B). Pendant l'absence, la cité produit à son taux
+// courant ET vieillit (Usure), tous deux bornés par le MÊME cap de temps. Au-delà
+// du cap : tout gèle (ni prod, ni Usure) — évite de revenir sur une cité plus
+// vieille que ce qu'elle a produit (l'ancien hors-ligne ne faisait QUE vieillir).
+// Le cap commence à 2 h GRATUITES (corrige « ferme l'onglet → rien » dès le départ),
+// puis les upgrades « Veilleurs de nuit » l'étendent. Le rendement idle scalant
+// déjà ~×13/ère, on ne vend que des HEURES (pas besoin de scaler le cap par ère).
 export const IDLE_BASE_CAP_SECONDS = 2 * 3600;        // cap gratuit pour tous
 // Incrément de cap (secondes) débloqué par chaque palier de ruines. Cumulés à la
 // base : 2h → 8h → 24h (Veille fondue dans Cycle & Crise → 2 paliers). Coûts dans upgrades.js.
@@ -998,9 +1005,11 @@ export const OFFLINE_UNCAPPED_COLLAPSES = 500;
 // Plafonds de la MÉCANIQUE rejouée hors ligne (cf. isOfflineSim). Celui du Temple
 // est PAR JEU et non global : un plafond global serait entièrement consommé par
 // le premier jeu de la liste, et les quatre autres ne tourneraient jamais.
-// NON NÉGOCIABLE côté équilibrage : l'économie de Faveur est en régime rtp
-// supérieur à 1 assumé, bornée par la CADENCE. Rejouer des milliers de parties
-// pendant une absence rouvrirait l'imprimante que templePot.js referme.
+// NON NÉGOCIABLE côté équilibrage : l'économie de Faveur est bornée par la
+// CADENCE. (Ce commentaire parlait d'un « rtp supérieur à 1 assumé » : depuis le
+// lot 1 du casino, AUCUN jeu ne rend plus de 100 %, cf. LA TABLE DE LA MAISON plus
+// haut et templePot.js.) Rejouer des milliers de parties pendant une absence ferait
+// tourner les autos sans commune mesure avec le jeu en direct.
 export const OFFLINE_MAX_TEMPLE_PLAYS_PER_GAME = 40;
 // Idem pour les aubaines : leur cadence les borne déjà (nextBoonAt sur horloge
 // virtuelle), ce plafond est la ceinture par-dessus la bretelle.
@@ -1051,11 +1060,12 @@ export const PREP_FUNEBRE_BOOST = 1.5;
 
 // ── A1 · Démesure (hubris d'échelle) ─────────────────────────────────────────
 // Problème : tous les foyers de Rupture sont plafonnés en doux et la mitigation
-// (couverture d'infra + légitimité) peut ramener la cible sous 1.0 → « tout
-// acheter » fige la jauge et l'effondrement par Rupture devient impossible.
+// (couverture d'infra) peut ramener la cible sous 1.0 → « tout acheter » fige la
+// jauge et l'effondrement par Rupture devient impossible.
 // La Démesure est un SOCLE d'instabilité qui croît avec la taille de la cité,
-// ajouté APRÈS la mitigation (la couverture/légitimité ne peut pas l'effacer) et
-// SANS plafond : la grandeur elle-même engendre une tension irréductible. Sous
+// ajouté APRÈS la mitigation (la couverture ne peut pas l'effacer) : la grandeur
+// elle-même engendre une tension irréductible. (Elle était d'abord SANS plafond ;
+// elle est bornée en doux depuis le rework de cadence, voir plus bas.) Sous
 // DEMESURE_FREE_LOG_POP habitants (10^4 = 10 000), aucune Démesure → l'early game
 // et le début de chaque cycle restent intacts.
 export const DEMESURE_FREE_LOG_POP = 4;   // pop sous 10^4 : Démesure nulle
@@ -1068,8 +1078,9 @@ export const DEMESURE_COEF = 0.05;        // pression par décade de population 
 // 10^30 elle valait 1.56 à elle seule, épinglant la cible à 2-4× le seuil quoi que
 // fasse le joueur (cycle métronome ~2 min, « aucun moyen de gérer »). Désormais :
 //   1. BORNÉE par un soft cap (Michaelis-Menten) → contribution max ~DEMESURE_SOFT_CAP.
-//   2. RÉDUCTIBLE par la GOUVERNANCE : la Légitimité (institutions qui administrent
-//      l'empire, terme log) + la politique « Gouvernance impériale » (demesureDamp).
+//   2. RÉDUCTIBLE par la GOUVERNANCE : la politique « Gouvernance impériale »
+//      (demesureDamp), plafonnée à DEMESURE_CUT_CAP (le terme log de la Légitimité
+//      a disparu avec elle, cf. DEMESURE_COEF).
 // L'anti-immortalité ne repose plus sur la Démesure mais sur l'USURE (deadline de
 // plusieurs heures) : une cité bien gouvernée ramène sa cible sous 1.0 et coaste
 // sur l'Usure ; une cité négligée s'effondre toujours vite par la Rupture.

@@ -11,6 +11,7 @@
 //
 // Le pixel du jeton est le pixel de la table (×k, entier) : pas de lissage, un
 // contour sombre, une lumière en haut à gauche (cf. la règle d'éclairage de la carte).
+import { hex, mix } from '../../../game/map/iso/plaisirsHDKit.js';
 
 const DENOM = ['#ece6d6', '#c8402e', '#2f8f55', '#2a2a33', '#7c43a8', '#e2b13c', '#d8742c', '#3577c8'];
 
@@ -35,15 +36,8 @@ const MATS = [
 const W = 12, FACE_H = 6, THICK = 2;
 export const CHIP_ART = { w: W + 2, h: FACE_H + THICK + 2, thick: THICK };
 
-function hex(c) {
-  const n = parseInt(c.slice(1), 16);
-  return [(n >> 16) & 255, (n >> 8) & 255, n & 255];
-}
-function mix(a, b, t) {
-  const A = hex(a), B = hex(b);
-  const m = A.map((v, i) => Math.round(v + (B[i] - v) * t));
-  return `#${m.map((v) => v.toString(16).padStart(2, '0')).join('')}`;
-}
+// hex ('#rrggbb' → [r, g, b]) et mix (hex → hex) : l'outillage de pixel des Plaisirs
+// (plaisirsHDKit), importé en tête de module au lieu d'être recopié.
 function luminance(c) {
   const [r, g, b] = hex(c);
   return 0.299 * r + 0.587 * g + 0.114 * b;

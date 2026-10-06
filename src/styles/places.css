@@ -162,7 +162,6 @@
 .app .place-view .is-rupture { color: #FF8F73; }
 .app .place-view .is-gold { color: var(--res-treasure, #F0B429); }
 .app .place-view .is-food { color: var(--res-food, #36B37E); }
-.app .place-view .is-know { color: var(--res-knowledge, #4C9DE8); }
 .app .place-view .is-good { color: #7FC6E6; }
 .app .place-view .is-bad { color: #F0A36B; }
 
@@ -180,15 +179,6 @@
   padding: 0.4rem 2rem 1.5rem;
   scrollbar-width: thin;
   scrollbar-color: rgba(201, 169, 104, 0.3) transparent;
-}
-
-/* Un plateau de lieu : surface OPAQUE, contour dur, angle vif. */
-.app .place-plate {
-  background: rgba(13, 16, 26, 0.96);
-  box-shadow:
-    inset 0 0 0 1px rgba(0, 0, 0, 0.6),
-    inset 0 0 0 2px rgba(196, 204, 221, 0.06),
-    0 3px 0 rgba(0, 0, 0, 0.35);
 }
 
 /* ── PETIT ÉCRAN : le titre passe au-dessus des clés, les marges se resserrent ── */

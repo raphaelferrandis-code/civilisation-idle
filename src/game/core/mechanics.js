@@ -10,7 +10,7 @@
 //   production  pipeline de production (multiplicateurs, pression, vitals, rates)
 //   cost        coûts des bâtiments + archéologie
 //   upgrades    disponibilité upgrades / nœuds prestige / dogmes
-//   prestige    gain de ruines, seuils dynastie/GR, légitimité, usure, héritage
+//   prestige    gain de ruines, multiplicateur du Grand Reset, usure, héritage
 //   crisis-cost coûts de crise, prép. terminales, contexte/déblocage régulation
 
 // shared : re-export NOMMÉ du sous-ensemble public. ownedRuinUpgradeCount (utilisé

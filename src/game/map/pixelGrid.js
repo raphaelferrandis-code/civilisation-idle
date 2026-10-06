@@ -121,7 +121,7 @@ export function pxGridVerdict(list) {
   };
 }
 
-if (typeof window !== 'undefined') {
+if (import.meta.env?.DEV && typeof window !== 'undefined') {
   window.__pxGrid = (on) => {
     pxProbe.on = on !== false;
     if (pxProbe.on) reset();

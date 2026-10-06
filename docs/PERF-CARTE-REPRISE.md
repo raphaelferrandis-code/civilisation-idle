@@ -1,40 +1,69 @@
 # Perf de la carte — état et reprise
 
-**Dernière mise à jour :** 2026-07-25 · **Périmètre :** rendu de la carte iso
-(`src/game/map/`) · **Public :** reprendre le chantier sur un autre poste.
+**Dernière mise à jour :** 2026-10-06 (réécrit après l'audit du 2026-10-05,
+STRUCT-13 ; la version du 2026-07-25 est dans l'historique git) · **Périmètre :**
+rendu de la carte iso (`src/game/map/`) · **Public :** reprendre le chantier sur un
+autre poste.
 
 Ce document dit **ce qui est mesuré**, **ce qui est livré**, **ce qui a été tenté
-puis rejeté** (avec les chiffres, pour ne pas le refaire), et **quoi faire ensuite**.
+puis rejeté** (avec les chiffres, pour ne pas le refaire), et **où sont les pistes
+ouvertes**. Le détail des pistes vit dans le rapport d'audit
+(`docs/audits/audit-2026-10-05-RAPPORT.md`, entrées PERF-1 à PERF-73) : ce document
+ne le recopie pas.
 
 ---
 
-## 1. Le verdict en une ligne
+## 1. Le verdict (état au 2026-10-06)
 
-La carte n'est pas lourde : elle **fait deux fois trop de travail**. Le culling se
-fait sur un RECTANGLE de cellules alors que l'écran, en projection isométrique, se
-projette en LOSANGE — dont la boîte englobante fait le double de l'aire. Environ
-**50 % du sol** et **44 % du tri peintre** portent sur des objets hors écran.
+Les deux défauts de juillet sont réglés : le peintre culle en **losange**
+(`visibleDiamondBounds` dans `iso/isoRenderer.js` : les ~44 % d'items hors écran
+du rectangle englobant ne sont plus ni triés ni dessinés), et le sol n'est plus
+recuit au zoom ni au pan : c'est une **pyramide de tuiles** ancrées monde
+(`iso/solPyramide*.js`, docs/PLAN-SOL-PYRAMIDE.md), cuites sous budget et
+réutilisées d'une frame à l'autre.
 
-Le régime établi tient le budget (frame ~25 ms pour 33 disponibles). Ce qui fait
-mal, c'est la **recuisson du sol** au zoom/pan, et le **démarrage**.
+Ce qui coûte aujourd'hui, c'est le **nombre de blits** du peintre, et la façon dont
+ils sont composés. Deux machines, deux goulots, à ne jamais confondre :
+
+- **Le .exe sur une vraie carte graphique** est limité par le **GPU** : chaque blit
+  `multiply` (ombres du soleil) ou `destination-out` (calque de lumière) relit la
+  destination. Le profileur de frame JS ne voit pas ce coût (cf. §7).
+- **Le Chrome de Raph rend en LOGICIEL** (accélération désactivée) : c'est la
+  surface remplie et le nombre d'appels qui pèsent, le mode de fusion presque pas.
+
+Mesures de l'audit (mégapole ère 33, zoom 1, jour) : ~30 ms par frame dans le .exe
+(32 fps), ~44 ms en logiciel ; la nuit en logiciel ~58 ms ; le dézoom maximal en
+« Élevée » 61-67 ms (.exe) et 78-91 ms (logiciel). Les trois premiers postes, par
+rentabilité mesurée : les ombres du soleil (PERF-1), le calque de lumière (PERF-2),
+le dézoom sans niveau de détail (PERF-3).
 
 ---
 
 ## 2. L'outillage (à connaître avant de mesurer quoi que ce soit)
 
-Trois profileurs opt-in, tous au même idiome : un drapeau `globalThis`, coût nul
-éteint, relevé dans `…Last`.
+Des profileurs opt-in, tous au même idiome : un drapeau `globalThis`, coût nul
+éteint, relevé dans `…Last` ou dans un objet de compteurs.
 
 | Drapeau | Couvre | Fichier |
 |---|---|---|
-| `__layoutProfile` | le CALCUL du layout (14 phases) | `layout.js` |
-| `__isoGroundProfile` | la RECUISSON du sol (cells/flat/grass/fringe/roads) | `iso/isoRenderer.js` |
-| `__isoFrameProfile` | **la FRAME entière**, préambule inclus | `framePerf.js` 🆕 |
+| `__isoFrameProfile` | **la FRAME entière**, préambule inclus (postes `fp('…')`) | `framePerf.js` |
+| `__isoProfParts` | la pesée fine de `vif-peinture`, dans le même relevé | `iso/isoLivePaint.js` |
+| `__layoutProfile` | le CALCUL du plan, par phase | `layout.js` |
+| `__isoGroundProfile` | la cuisson d'une tuile de sol (cells/flat/grass/fringe/roads) | `iso/isoGroundResolve.js`, `iso/isoGroundBake.js` |
+| `__solPyramideStats` | la pyramide : tuiles cuites, ms, hits, replis, mémoire, invalidations | `iso/solPyramide.js` |
+| `__solTrace(true)` / `__solTraceDump()` | le journal des recomputes du plan | `solTrace.js` |
+| `__lightStats()` (dev) | dépôts et découpes du calque de lumière | `lightLayer.js` |
 
-`framePerf.js` est le seul **non gaté sur `import.meta.env.DEV`** : le lag a été
-constaté dans le build Electron, il faut pouvoir profiler là, sur une vraie fenêtre
-et une vraie sauvegarde. Les harnais `__cityShot` / `__demoCity`, eux, sautent en
-prod.
+La sonde de geste (`scripts/sondeGeste.js`, à coller dans la console d'un build de
+prod) enregistre 12 s de geste et imprime un JSON : rythme des frames dessinées,
+postes, blits, lectures de pixels, pyramide.
+
+Les profileurs de ce tableau (sauf `__lightStats`) sont les seules molettes
+**non gatées sur `import.meta.env.DEV`** : le lag a été constaté dans le build
+Electron, il faut pouvoir profiler là, sur une vraie fenêtre et une vraie sauvegarde.
+Toutes les autres molettes (`__cityShot`, `__demoCity`, `__CM`, les réglages et A/B
+du §8…) n'existent qu'en dev : la règle et la liste fermée sont dans
+`src/game/map/devKnobs.js` (audit 2026-10-05, DEV-3).
 
 ### Mesurer dans le vrai jeu (Electron)
 
@@ -52,23 +81,66 @@ const rows = [], t0 = performance.now();
     const k = [...new Set(rows.flatMap(Object.keys))];
     const m = n => { const a = rows.map(r=>r[n]||0).sort((x,y)=>x-y); return +a[a.length>>1].toFixed(1); };
     console.table(Object.fromEntries(k.map(n=>[n, m(n)])));
-    console.log('images/s', (rows.length/5).toFixed(1), '| canvas', __CM.canvas.width+'x'+__CM.canvas.height, '| dpr', __CM.dpr);
+    const cv = document.getElementById('cityCanvas');   // pas __CM : molette de dev, absente de l'.exe
+    console.log('images/s', (rows.length/5).toFixed(1), '| canvas', cv.width+'x'+cv.height, '| dpr', (cv.width/cv.clientWidth).toFixed(2));
   } })();
 ```
 
-**Ce chiffre manque encore.** Toutes les mesures ci-dessous viennent de la pane
-d'aperçu, qui rend en arrière-plan (`document.hidden`) — donc probablement en
-rastérisation LOGICIELLE. Les **proportions** sont fiables, les **valeurs absolues**
-non. C'est la première chose à faire à la reprise.
+⚠ **Ce relevé est du temps JavaScript.** Dans le .exe sur GPU, la frame réelle
+(30-31 ms à l'audit) dépasse largement ce que `__isoFrameProfile` additionne : le
+GPU compose après coup. Pour le temps réel d'image, mesurer l'intervalle entre
+frames DESSINÉES (la sonde de geste le fait) ou passer par le protocole DevTools
+(CDP, traces de rendu), et toujours lire d'abord le renderer WebGL (la sonde
+l'imprime) : « SwiftShader » ou « Basic Render Driver » = rendu logiciel.
 
 ---
 
 ## 3. Chiffres de référence
 
-Ville de test : 29 types × 230 achats, 2 058 tuiles, 1 204 bâtiments-moteur,
-grille N=168, canvas 1208×611, caméra au centre.
+### Audit du 2026-10-05 (campagne en jeu réel)
 
-### Frame en régime établi — **24,8 ms** (budget 33)
+Mégapole ère 33 (et ère 135 pour la bande 9), Chrome en rendu logiciel
+(2560×1340, le cas de Raph) et .exe Electron sur RTX (1765×1200). Médianes de
+plusieurs relevés, A/B par molette, ordres alternés.
+
+| Situation | .exe GPU | Chrome logiciel |
+|---|---|---|
+| Jour, zoom 1 | 30-31 ms | 42-46 ms |
+| … sans ombres du soleil | 19,6 ms | ~36 ms |
+| … ombres en `source-over` | 22,8 ms | ≈ multiply |
+| Nuit, zoom 1 | ~26 ms (≈38 fps) | 52-63 ms |
+| … calque de lumière coupé | −6,5 ms | 29,6-31 ms |
+| Dézoom maximal (0,35), « Élevée » | 61-67,5 ms | 77,8-91 ms |
+
+Comptages par frame (jour, zoom 1) : ~4 000 `drawImage`, dont ~1 540 ombres en
+`multiply` ; calque de lumière : 90 dépôts et 605 découpes de jour, 847 et 1 155 la
+nuit (avant la grille fine du lot 4). Au dézoom maximal : ~11 700 items et ~12 000
+`drawImage` (arbres 4 175, tuiles 2 989, props de place 2 110, lampadaires 845).
+
+**Coûts unitaires** (banc canvas de l'audit, `_audit/tmp-frame-budget/`, ms pour
+1 000 appels sauf mention) :
+
+| Opération | GPU (RTX, 2,1 Mpx) | Logiciel (3,4 Mpx) |
+|---|---|---|
+| blit sprite 72×96 (nearest) | 8,0 | 5,8 |
+| blit d'ombre 72×96 en `multiply` | 20,9 | 12,8 |
+| ombre 96×48 `source-over` / `multiply` | 7,4 / 21,5 | — |
+| découpe `destination-out` (calque lumière) | 5,8 | — |
+| blit hors écran (cull Skia) | 4,4 | 0,3 |
+| voile plein écran `multiply` (1 appel) | 2,0 | 1,9 |
+| pluie : 4 nappes × 2 blits plein écran | 2,4 | 4,2 |
+| sol : tuiles 256 couvrant l'écran | 1,2 | 0,7 |
+
+À retenir : sur GPU, un blit `multiply` coûte ~2,8× un blit normal, et un blit hors
+écran n'est PAS gratuit (le cull JS paie) ; en logiciel, c'est la surface qui coûte.
+
+### Juillet 2026 (archive : avant la pyramide et le cull en losange)
+
+Ville de test : 29 types × 230 achats, 2 058 tuiles, 1 204 bâtiments-moteur,
+grille N=168, canvas 1208×611, caméra au centre. Mesures dans la pane d'aperçu
+(probablement en rendu logiciel) : les proportions comptent plus que les valeurs.
+
+#### Frame en régime établi — **24,8 ms** (budget 33)
 
 | phase | ms | part |
 |---|---|---|
@@ -82,10 +154,12 @@ grille N=168, canvas 1208×611, caméra au centre.
 Le préambule de `frame()` est **gratuit** : `pressureBreakdown()` + `cityVitals()`
 à chaque frame mesurent 0,0-0,1 ms. Ce n'était pas le problème.
 
-### Recuisson du sol — le vrai point noir
+#### Recuisson du sol — le point noir de juillet (réglé par la pyramide)
 
 ∝ cellules VISIBLES, donc ∝ 1/zoom², et **indépendant de la taille de la ville**
-(un village de 434 tuiles coûte déjà 169 ms à zoom 1).
+(un village de 434 tuiles coûte déjà 169 ms à zoom 1). C'est ce coût que la
+pyramide de tuiles a sorti de la frame : une tuile se cuit une fois, sous budget,
+et sert à tous les zooms voisins.
 
 | zoom | avant culling | après culling |
 |---|---|---|
@@ -96,7 +170,7 @@ Le préambule de `frame()` est **gratuit** : `pressureBreakdown()` + `cityVitals
 Découpage à zoom 0,4 (1 018 ms à l'époque) : `cells` 607, `flat` 191, `fringe` 170,
 `roads` 157, `grass` 141, `tiles` 0, `median` 0.
 
-### Recensement des appels canvas (compteur → indépendant de la machine)
+#### Recensement des appels canvas (compteur → indépendant de la machine)
 
 Une frame : `lineTo` **11 172**, `drawImage` 1 626, `beginPath` 1 589, `stroke`
 1 091, `fill` 483, `fillRect` 407, `arc` 390, `createRadialGradient` 290,
@@ -110,33 +184,30 @@ le DESSIN VECTORIEL. Avant le bake, les quais pesaient **10 065 des 11 172 lineT
 
 ## 4. Ce qui est LIVRÉ
 
-| Correctif | Gain mesuré | Vérification |
+| Correctif | Où | Note |
 |---|---|---|
-| **Quais bakés** (`CM.quayCanvas`) | poste 5,7 → 0,8 ms ; frame 22,4 → 18,8 | écart moyen 1,1-1,4/255, 0 % de pixels perceptibles, pan/zoom/dézoom propres |
-| **Budget de geste** (`ISO_CRISP_BUDGET_MS`) | dézoom : médiane **396 → 37 ms** | sol net revient bien à l'arrêt (`zoomB === cam.zoom`, clé sans `:lod`) |
-| **Culling par cellule** (`drawIsoGround`) | −13 % à zoom 1, −15 % à 0,4 | 681 px/738 k diffèrent, max **14/255**, 0 au-dessus du seuil perceptible |
-| **Profileur de frame** | — | disponible en build Electron |
+| **Sol en pyramide de tuiles** (2026-09-14) | `iso/solPyramide.js`, `iso/solPyramideFrame.js` | remplace le bake plein écran, le « budget de geste » (`ISO_CRISP_BUDGET_MS`, `CM._isoGroundBakeMs`) et le cache de crans ; réglages `PYR` |
+| **Cull en losange du peintre** | `iso/isoRenderer.js` (`visibleDiamondBounds`, `iso/projection.js`) | le rectangle englobant retenait 437 tuiles pour 246 visibles à zoom 1 (1 006 / 582 à 0,6) ; marge basse de 10·hh, les sprites hauts dépassant loin au-dessus de leur ancre |
+| **Culling par cellule** dans la cuisson d'une tuile | `iso/isoGroundBake.js` | −13 à −15 % ; A/B dev `globalThis.__isoCellCull = false` |
+| **Pool d'items** de la collecte | `iso/isoLiveCollect.js` | les pics de ramasse-miettes de vif-collecte (26-39 ms) ont disparu |
+| **Quais cuits** | `iso/isoQuay.js` | l'ancien `CM.quayCanvas` / `cityMapDrawQuays` est parti avec le legacy ; recuits seulement si leur géométrie change (lot 4 de l'audit, PERF-10) |
+| **Profileurs dans l'.exe** | `framePerf.js`, `devKnobs.js` (`PROD_KNOBS`) | toutes les autres molettes sont retirées du build de prod |
+| **Corrections de l'audit du 05/10** | commits `perf(audit): lot 4` et `perf(audit): lot 8` | gels du passage d'ère, du hors-ligne et de l'émeute, cuissons étalées sous budget (`iso/bakeBudget.js`), calque de lumière à grille fine, économie d'énergie sans focus, masques d'ombre, fleuve mémorisé, salle des Plaisirs en Worker… rendu identique au pixel |
 
 ### Détails à connaître
 
-**Quais — bake PARTIEL.** `cityMapDrawQuays(now, mode)` : `'base'` (bakable) /
-`'glow'` (additif, reste EN DIRECT) / absent (tout — c'est l'iso qui appelle sans
-mode, cf. P6 du plan de suppression du legacy). Les lueurs
-sont en `globalCompositeOperation = "lighter"` ; bakées sur un offscreen
-TRANSPARENT puis blittées en source-over, elles cessent de s'ajouter à l'eau et le
-halo devient un aplat. Ne jamais baker l'additif.
+**Quais — ne jamais cuire l'additif.** Les lueurs des quais sont en
+`globalCompositeOperation = "lighter"` (`paintQuays`) : cuites sur un offscreen
+TRANSPARENT puis blittées en source-over, elles cesseraient de s'ajouter à l'eau
+et le halo deviendrait un aplat. Elles restent EN DIRECT.
 
-**Budget de geste.** Le palier « Élevée » recuisait le sol NET à chaque cran de
-geste ; la clé du bake contenant le zoom, un dézoom payait ~1 s PAR IMAGE.
-Désormais le geste net est conditionné au **coût mesuré** de la dernière recuisson
-(`CM._isoGroundBakeMs`) contre 45 ms. Auto-calibrant. Molette `__crispBudgetMs`.
-⚠ Le palier est choisi par `detectAutoTier()` d'après le NOMBRE DE CŒURS : 16 cœurs
-→ « Élevée » d'office. **Une machine rapide reçoit donc les réglages les plus
-coûteux**, alors que le coût dépend de la ville et du zoom, pas du CPU.
+**Le palier « Auto ».** Il est choisi par `detectAutoTier()` (`qualityMode.js`)
+d'après le NOMBRE DE CŒURS et le dpr, jamais d'après la durée réelle des frames ni
+le type de rendu : une machine à 16 cœurs reçoit « Élevée » d'office, même en
+rendu logiciel. À trancher par Raph (PERF-4).
 
-**Culling.** Rejet précoce avant `kindAt` et tout tracé, marge d'une cellule pleine
-(le losange pend sous son coin nord, tuiles et touffes débordent). A/B :
-`globalThis.__isoCellCull = false`.
+**Culling de la cuisson.** Rejet précoce avant `kindAt` et tout tracé, marge d'une
+cellule pleine (le losange pend sous son coin nord, tuiles et touffes débordent).
 Le rendu n'est pas bit-identique **et la cause est comprise** : en coupant les
 voiles (`__grassDetail({meadow:0})`) l'écart tombe à 217 px / max 2 → c'est la
 composition des lots de 256 de `veilPush` qui change, donc l'antialiasing des
@@ -157,43 +228,37 @@ Chacun est commenté **sur place dans le code** avec ses chiffres.
 
 **Leçon transversale, vérifiée quatre fois : sur cette carte, ce qui coûte est
 TOUJOURS le tracé, jamais le JavaScript autour.** Toute optimisation visant des
-allocations, des hachages ou des lookups est perdue d'avance.
+allocations, des hachages ou des lookups est perdue d'avance. (Exception
+confirmée par l'audit : au dézoom maximal, la collecte et le tri de ~11 700 items
+redeviennent un vrai poste JS — 13-15 ms dans le .exe.) Et sur GPU, le **mode de
+fusion** compte autant que le nombre de blits (cf. §3).
 
 ---
 
-## 6. À FAIRE ensuite, par ordre de valeur
+## 6. Pistes ouvertes (par valeur mesurée)
 
-### ① Mesurer dans Electron (30 s, prérequis de tout le reste)
-Coller le snippet du §2 en jeu réel. La fenêtre fait 1600×900 contre 1208×611 ici,
-soit ~2× les pixels : les phases limitées par le remplissage (peinture, quais,
-fleuve, nuit ≈ 21 des 24,8 ms) doubleraient → ~45 ms, hors budget. À confirmer.
+Toutes sont détaillées, chiffres et correctif compris, dans le rapport d'audit du
+2026-10-05. Celles qui changent un visuel ou une promesse attendent Raph.
 
-### ② Culling du tri peintre (`drawIsoLive`) — le plus gros gain restant
-Même défaut que le sol, même ligne de code (`visibleCellBounds` rectangulaire).
-Mesuré : **44 % des tuiles retenues sont hors écran** (437 retenues, 246 visibles à
-zoom 1 ; 1 006 / 582 à zoom 0,6). Le peintre trie ET dessine ~1,8× trop d'items,
-pour 10,7 ms sur 25.
-
-⚠ **Plus risqué que le sol** : les bâtiments sont HAUTS et leur sprite déborde loin
-au-dessus de l'ancre sud. Une extension verticale mal calée fait apparaître et
-disparaître des bâtiments au bord de l'écran — régression qu'on ne voit qu'en
-jouant. Il faut **mesurer** la hauteur réelle des sprites (cf. `engineInkFrac`,
-`propBBox`), pas l'estimer.
-
-### ③ Le démarrage (« lent dès le début », signalé en build Electron)
-Écarté en lecture : la progression hors-ligne utilise `creditSpan()`, une forme
-CLOSE en O(1) — pas une boucle de ticks. Et `cityMapSlots` étant persisté, le
-layout au boot prend le chemin CHAUD (~0,3-0,7 s), pas les 2,3 s du froid.
-Restent : le JIT (frames à 50 ms qui tombent à 25 après ~25 frames) et le décodage
-des PNG. Candidat non mesuré : `img.decode()` à la création dans `ensureProps`.
-
-### ④ Structurels (gros chantiers)
-- **Bake en chunks WORLD-space** : supprimerait la recuisson au pan ET au zoom.
-  C'est le seul vrai correctif du point noir §3.
-- **Arbitrage `lodZoom`** : en « Élevée » il vaut 0 → aucune simplification des
-  sprites, les 2 058 tuiles sont dessinées une par une même à zoom 0,4 (~190 ms de
-  frame). C'est une promesse produit (« tout reste visible »), pas un bug — à
-  trancher par Raph.
+1. **Ombres du soleil (PERF-1)** — premier poste du .exe. Passer `SUN_SHADOW.mode`
+   en `source-over` (−7,5 ms mesurés) est un arbitrage visuel, à juger en A/B figé
+   avec `__sunShadow({ mode, col, alpha })`. Le correctif structurel (cuire les
+   ombres des objets fixes dans les tuiles du sol, −11 ms GPU / −8 ms logiciel)
+   ne change pas le rendu mais coûte un chantier (effort L).
+2. **Calque de lumière (PERF-2)** — la grille fine du lot 4 a retiré ~70 % des
+   découpes de jour ; restent la nuit (−17 à −23 ms en logiciel si l'on coupe
+   dépôts et découpes) et le fait qu'aucun palier de qualité ne le coupe.
+3. **Dézoom maximal en « Élevée » (PERF-3)** — 16 fps (.exe), ~12 fps (logiciel).
+   Sans toucher au sens d'« Élevée » : ne plus pousser au peintre les items sous
+   ~2 px, cuire dans les tuiles du sol les arbres qui ne recoupent rien. Au-delà
+   (seuil de 3-4 px, `lodZoom` ≈ 0,45 en Élevée) : décision de Raph, car
+   `qualityMode.js` promet « TOUT reste visible même en dézoom total ».
+4. **Palier « Auto » (PERF-4)** — détecter le rendu logiciel (renderer WebGL) ou
+   mesurer les frames, et choisir « Équilibrée » sur une machine lente.
+5. **Le démarrage** — le hors-ligne (`creditSpan()`, forme close) et le plan au
+   boot (chemin chaud, ~0,3-0,7 s) sont écartés depuis juillet ; le gel du
+   rattrapage après une longue absence est réglé (PERF-8, lot 4). Restent le JIT
+   (frames à 50 ms les ~25 premières) et le décodage des PNG.
 
 ---
 
@@ -212,10 +277,12 @@ des PNG. Candidat non mesuré : `img.decode()` à la création dans `ensureProps
    différents — c'était le BATEAU qui avait bougé.
 5. **Un premier relevé aberrant après un déplacement de caméra est un TRANSITOIRE
    de bake.** Le rejouer avant de conclure.
-6. **Après un rechargement HMR, les scènes moteur rendent en REPLI PROCÉDURAL**
-   tant qu'`ensureProps()` n'a pas chargé les PNG — sans erreur ni warning. Le test
-   qui tranche est non destructif : remettre la molette à sa valeur d'AVANT et
-   recapturer ; si l'aspect plat persiste, il est environnemental.
+6. **Après un rechargement HMR, les scènes moteur rendent sans leurs PNG** tant
+   qu'`ensureProps()` ne les a pas chargés — sans erreur ni warning (en repli
+   procédural jusqu'au 2026-10-06, et depuis la suppression de ce repli, audit
+   MORT-2, pas du tout). Le test qui tranche est non destructif : remettre la
+   molette à sa valeur d'AVANT et recapturer ; si l'écart persiste, il est
+   environnemental.
 7. **Tester le GESTE demande `CM.forceFrame()`** : `captureFrame` force
    `settled = true` et ne prend jamais le chemin du geste. Et il faut poser
    `CM.cam.zoom` ET `CM.zoomGoal`, sinon `cmCameraGlide` ramène la caméra à chaque
@@ -225,24 +292,42 @@ des PNG. Candidat non mesuré : `img.decode()` à la création dans `ensureProps
 9. **Ne pas mesurer et lancer les tests en parallèle** : les suites qui appellent
    `computeCityLayout` sont assez lourdes pour souffrir de la contention CPU (4
    tests rouges à vide, verts en re-run).
+10. **Le profileur de frame est AVEUGLE au GPU** (audit du 05/10). Sur le .exe
+    GPU, `__isoFrameProfile` additionne le JavaScript ; la composition GPU (blits
+    `multiply`, `destination-out`) se paie ensuite. Une piste qui « ne gagne rien »
+    au profileur peut gagner 10 ms d'image réelle : mesurer l'intervalle entre
+    frames dessinées, ou la trace CDP.
+11. **Lire le renderer avant de conclure.** Le Chrome de Raph a l'accélération
+    matérielle désactivée : rendu LOGICIEL, où multiply et source-over coûtent
+    pareil et où seule la surface compte. Une mesure sur une autre machine ne se
+    transpose pas : la sonde de geste imprime le renderer WebGL, c'est la première
+    ligne à lire.
+12. **La fluidité se juge en PROD** (`npm run build` puis `npm run preview`, ou le
+    .exe) : le serveur de dev ajoute le HMR, les molettes et React en mode
+    développement.
 
 ---
 
 ## 8. Molettes de réglage disponibles
 
+En dev seulement (`npm run dev`) : absentes du build de prod et de l'.exe
+(`src/game/map/devKnobs.js`). Vérifiées présentes le 2026-10-06 ; `__crispBudgetMs`,
+`__quayBake` et `__groundLodZoom` sont partis avec ce qu'ils réglaient.
+
 | Molette | Effet |
 |---|---|
-| `window.__isoCellCull = false` | rejoue le balayage complet du sol (A/B du culling) |
-| `window.__crispBudgetMs` | budget de recuisson en plein geste (défaut 45) |
-| `window.__quayBake = false` | rejoue les quais en direct (A/B du bake) |
+| `__solPyramideTune({ budgetMs, gestureBudgetMs, memMo… })` | réglages de la pyramide (`PYR`, `iso/solPyramideFrame.js`) |
+| `__sunShadow({ on, mode, col, alpha, minH })` | ombres du soleil (A/B de PERF-1) |
+| `__lightOcclusion({ on })` | occultation des lumières (`on:false` = calque coupé) |
+| `globalThis.__isoCellCull = false` | rejoue le balayage complet dans la cuisson d'une tuile |
 | `window.__engineDensityCap` | densité des bâtiments-moteur (défaut 48) |
 | `window.__hallSceneMax` | échelle max d'une halle (défaut 1,7 ; 3 = aucun bornage) |
-| `window.__groundLodZoom` | seuil de recuisson allégée (piste rejetée, cf. §5) |
-| `window.__grassDetail({meadow:0})` | coupe les voiles d'herbe |
+| `__grassDetail({ meadow: 0 })` | coupe les voiles d'herbe |
 
 ---
 
 ## 9. Portes CI
 
-`npm run lint` · `npx vitest run` · `npm run build` — les trois passent.
+`npm run lint` · `npm test` · `npm run build` — ce que rejoue la CI
+(`.github/workflows/ci.yml`).
 ⚠ Couper le serveur Vite avant `build` (EPERM sinon).

@@ -1,5 +1,4 @@
 import { useEffect, useRef } from 'react';
-import { useCollapsiblePanel } from '../../hooks/useCollapsiblePanel.js';
 import { useSheetSwipeClose } from '../../hooks/useSheetSwipeClose.js';
 import { isCoarsePointer } from '../../game/core/pointerMode.js';
 
@@ -8,9 +7,12 @@ const NO_OP = () => {};
 /**
  * Encart de HUD pliable : un titre cliquable, un corps qui se replie.
  * En late game le HUD de la Cité déborde — chaque encart peut donc être réduit
- * à son seul titre. L'état (ouvert/fermé) est mémorisé en localStorage par
- * `storageKey` (voir useCollapsiblePanel) : il survit aux remontages
- * (changement d'onglet) et aux rechargements.
+ * à son seul titre. L'état (ouvert/fermé) est PILOTÉ par l'appelant (`open`,
+ * `onToggle`, `onOpenChange`), qui le mémorise (useCollapsiblePanel) : au doigt,
+ * la poignée de la Régulation est un bouton flottant posé sur la carte, hors de
+ * l'encart — deux `useCollapsiblePanel` sur la même clé tiendraient deux
+ * vérités qui divergent au premier clic. (Le chemin non piloté, sans appelant,
+ * est parti : audit 2026-10-05.)
  *
  * `summary` — POIGNÉE : un résumé montré à la place du corps quand l'encart est
  * replié. Sans lui, replier revient à éteindre l'information ; avec lui, replier
@@ -24,34 +26,20 @@ const NO_OP = () => {};
  */
 export default function HudPanel({
   title,
-  storageKey,
   className = '',
-  defaultOpen = true,
   summary = null,
   openWhen = false,
-  open: openProp,
-  onToggle,
+  open = false,
+  onToggle = NO_OP,
   onOpenChange,
   swipeToClose = false,
   children,
 }) {
-  const [selfOpen, selfToggle, setSelfOpen] = useCollapsiblePanel(storageKey, defaultOpen);
-  // PILOTAGE EXTERNE (`open` + `onToggle`) : quand la poignée de l'encart n'est
-  // PAS son bandeau — au doigt, la Régulation se replie hors de l'écran et c'est
-  // un bouton flottant posé sur la carte qui l'ouvre — l'état doit vivre chez
-  // l'appelant, sinon deux `useCollapsiblePanel` sur la même clé tiennent deux
-  // vérités qui divergent au premier clic.
-  // ⚠ Le hook interne est appelé QUAND MÊME (un hook ne se met pas sous
-  // condition) ; en mode piloté sa valeur est simplement ignorée, et comme rien
-  // n'appelle plus son `toggle`, il n'écrit jamais dans localStorage : l'appelant
-  // reste seul à mémoriser.
-  const pilote = typeof openProp === 'boolean';
-  const open = pilote ? openProp : selfOpen;
-  const toggle = pilote ? onToggle : selfToggle;
+  const toggle = onToggle;
   // ⚠ Repli STABLE et non un `() => {}` écrit ici : `setOpen` est en dépendance
   // de l'effet `openWhen`, une identité neuve à chaque rendu le relancerait à
   // chaque tick (1 Hz en vue Cité).
-  const setOpen = pilote ? (onOpenChange || NO_OP) : setSelfOpen;
+  const setOpen = onOpenChange || NO_OP;
 
   // Front montant seulement : sans cette mémoire, la condition restant vraie
   // rouvrirait l'encart à chaque rendu (1 Hz en vue Cité) et le bouton

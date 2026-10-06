@@ -14,6 +14,9 @@ import { WATER_SHEETS } from "../iso/isoRiver.js";
 import { lumOf } from "../../../test/pixels.js";
 
 const read = (src) => PNG.sync.read(fs.readFileSync(path.join(process.cwd(), "public", src)));
+// La nappe turquoise (le dessin d'origine) n'est plus livrée : rangée comme source
+// dans art/references-ab/eau-planches/ (audit du 05/10, MORT-12).
+const readOld = (name) => PNG.sync.read(fs.readFileSync(path.join(process.cwd(), "art", "references-ab", "eau-planches", name)));
 const rgb = (p, i) => `${p.data[i * 4]},${p.data[i * 4 + 1]},${p.data[i * 4 + 2]}`;
 const moyenne = (p) => {
   const s = [0, 0, 0];
@@ -28,7 +31,7 @@ const saturation = ([r, g, b]) => {
 
 describe("l'eau trouble de la cité en ruine", () => {
   const trouble = read("/pixelart/water/river-tiles-calm-trouble-v2.png");
-  const turquoise = read("/pixelart/water/river-tiles-calm-turquoise-v2.png");
+  const turquoise = readOld("river-tiles-calm-turquoise-v2.png");
 
   it("est branchée sur le coloris « usure »", () => {
     expect(WATER_SHEETS.usure.src).toBe("/pixelart/water/river-tiles-calm-trouble-v2.png");

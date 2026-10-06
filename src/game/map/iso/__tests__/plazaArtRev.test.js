@@ -18,11 +18,12 @@ class FakeImage {
 }
 const fire = (pred) => { for (const [src, go] of loads) if (pred(src)) { go(); loads.delete(src); } };
 
-let mod, prevImage;
+let mod, isoArt, prevImage;
 beforeAll(async () => {
   prevImage = globalThis.Image;
   globalThis.Image = FakeImage;
   mod = await import("../isoPlaza.js");
+  ({ isoArt } = await import("../isoArt.js"));
 });
 afterAll(() => { globalThis.Image = prevImage; setSolPyramideInvalidator(null); });
 
@@ -47,6 +48,11 @@ describe("registre d'art des places", () => {
     fire((s) => s.includes("/plaza/"));
     expect(mod.isoPlazaCompositions(L, 3)).toBe(c0);
     expect(sol).toEqual([]);
+    // Un arbre de la FORÊT (registre partagé avec isoArt depuis STRUCT-4) : la place ne
+    // l'a pas demandé, son décodage ne la recompose pas.
+    isoArt("tree-chene-j1");
+    fire((s) => s.startsWith("/pixelart/iso/tree-chene-j1"));
+    expect(mod.isoPlazaCompositions(L, 3)).toBe(c0);
     // Un arbre décodé : la place se recale sur son pied mesuré, à la frame suivante.
     fire((s) => s.startsWith("/pixelart/iso/tree-1"));
     expect(mod.isoPlazaCompositions(L, 3)).not.toBe(c0);

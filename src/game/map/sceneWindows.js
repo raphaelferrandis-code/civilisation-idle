@@ -138,7 +138,7 @@ export function sceneWindowUnits(data, width, height, glass) {
 // Fenêtres SOMBRES d'un sprite : relevées à la main (une fenêtre = des rectangles
 // [x, y, w, h, …]) ; un dessin sans relevé n'allume rien. Listes d'indices de pixels,
 // comme le verre nommé.
-export function darkWindowUnits(key, width) {
+function darkWindowUnits(key, width) {
   const wins = SCENE_WINDOWS_DATA[key];
   if (!wins) return [];
   return wins.map((r) => {
@@ -253,7 +253,7 @@ export function drawSceneWindows(ctx, img, key, dx, dy, dw, dh, seed = 0) {
   lc.restore();
 }
 
-if (typeof window !== 'undefined') {
+if (import.meta.env?.DEV && typeof window !== 'undefined') {
   // Molette : __sceneWindows({ on, litGlass, litDark, level, alpha, dark, dome }).
   window.__sceneWindows = (o = {}) => { Object.assign(SCENE_WINDOWS, o); return { ...SCENE_WINDOWS }; };
 }

@@ -500,6 +500,6 @@ function jetActors(out, t, cfg, vb, zf, T, d) {
   }
 }
 
-if (typeof window !== 'undefined') {
+if (import.meta.env?.DEV && typeof window !== 'undefined') {
   window.__skyTraffic = (o) => { if (o) Object.assign(SKY, o); return { ...SKY, stats: { ...skyStats } }; };
 }

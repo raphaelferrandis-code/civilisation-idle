@@ -10,6 +10,7 @@ npm run build      # build de production (dist/)
 npm run lint       # ESLint
 npm test           # suite Vitest (vitest run)
 npm run preview    # prévisualise le build
+npm run zip:web    # archive de dist/ pour un hébergeur statique (scripts/zipDist.mjs)
 ```
 
 ## Application desktop (Electron)
@@ -56,19 +57,43 @@ Le process principal Electron est `main.cjs`. Il sert les fichiers via le protoc
 - L'intégration continue (`.github/workflows/ci.yml`) rejoue lint + tests + build à
   chaque push et pull request.
 
+## Molettes de dev (`window.__…`)
+
+Les réglages, interrupteurs d'A/B, sondes et harnais de capture exposés à la console
+(`window.__x`, `globalThis.__x`) n'existent que sous `npm run dev` et sous Vitest.
+Règle unique : chacun est gardé par `import.meta.env?.DEV`, sa définition comme ses
+lectures. Le build de production remplace ce drapeau par `false` et en retire le code :
+aucune molette dans `dist/` ni dans l'.exe, où le jeu suit toujours ses valeurs par
+défaut.
+
+Seule exception, une liste fermée : les profileurs bon marché de la sonde de perf
+(`scripts/sondeGeste.js`, `docs/PERF-CARTE-REPRISE.md`), qui doivent pouvoir mesurer
+dans l'.exe. La règle et la liste sont en tête de `src/game/map/devKnobs.js` ;
+`src/game/map/__tests__/devKnobs.test.js` refuse toute molette qui en sort.
+
 ## Structure
 
 - `src/components` : interface React.
 - `src/game/core` : état, boucle de jeu, actions et mécaniques.
 - `src/game/data` : bâtiments, upgrades, mythes et données de monde.
-- `src/game/map` : runtime canvas de la carte de cité, découpé par responsabilité (`layout`, agents, rendu monde, rendu bâtiments).
-- `public/audio` : musique de fond.
+- `src/game/map` : la carte de cité en canvas 2D isométrique. `layout.js` (disposition
+  de la ville), `cityMapRuntime.js` (boucle, caméra, entrées), `agents.js` (habitants
+  et véhicules), `cityEngineSprites.js` (scènes des bâtiments-moteur) et le peintre
+  iso dans `iso/` : `isoRenderer.js` orchestre plus de 120 modules (sol en
+  pyramide de tuiles, collecte et peinture des items triés, fleuve, ports, places…).
+  Contrats et pièges : [ARCHITECTURE.md](ARCHITECTURE.md).
+- `src/assets/musiques/` : les musiques (un fichier par piste ; mode d'emploi dans
+  son `LISEZMOI.md`). `public/pixelart/` : les sprites (le build les recompresse sans
+  perte dans `dist/`, `public/` n'est jamais touché).
+- `scripts/` : l'outillage (art, sortie web, planches, retouches) — familles, usages et
+  conventions dans [scripts/README.md](scripts/README.md). Harnais d'équilibrage à la
+  racine : `bench-*.js`, `simulate-ce.js`, `sim-10-profils.js` ; les rapports des bancs
+  sont versionnés dans `docs/bench/`.
+- `docs/` : les plans de chantier, classés (actifs, clos mais de référence, archivés)
+  dans [docs/README.md](docs/README.md). Les passations et audits périmés de la
+  racine sont dans `docs/archive/`.
 
 ## Crédits
 
 Les ressources externes (packs de sprites et d'icônes) et leurs licences sont listées dans
 [CREDITS.md](CREDITS.md).
-
-## Notes
-
-La carte de cité n'est plus chargée depuis `public/js` par injection de scripts. Elle est importée depuis `src/game/map` et montée par `CityMapCanvas`.

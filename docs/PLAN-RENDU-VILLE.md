@@ -78,8 +78,10 @@ dans le dépôt**, non connectés.
 | **Les districts** | 22 à 108 emprises civiques typées (palace/forum/archive/keep/market/temple/tower/spire/arcology) calculées (`layout.js:2119-2160`), versées dans `reserved`, excluant les cellules du pool bâtissable (`:2205`) — **et dessinées nulle part** (grep exhaustif : les seuls consommateurs sont l'occupation, le Y-sort et le survol) | la couche de repères qui manque à une image où 848 bâtiments sur 849 font la même hauteur |
 | **L'occultation des bâtiments** | `houseSpriteHeightTiles` calcule la portée avec **la formule du mode legacy top-down**. En iso un sprite qui monte de `dh` px masque `2·dh/T` tuiles au nord, pas `dh/HOUSE_UNIT`. Erreur mesurée : stonehouse rend **1,11 tuile au lieu de 3,48** (×3,1), tenement **1,50 au lieu de 7,02** (×4,7). Et `clipOnly = !isHouse` interdit à **tout** bâtiment-moteur d'occulter quoi que ce soit | « le bâtiment mange ce qui est derrière lui » est le mécanisme même de la masse dans les deux références. Aucun test ne verrouille cette fonction |
 
-À quoi s'ajoute **le cache de scènes** (`engineSceneCache.js`), écrit, prouvé
-(−38 à −51 %), opt-in et éteint — cf. `REPRISE-TRACE-VECTORIEL.md` §3.1.
+À quoi s'ajoutait **le cache de scènes** (`engineSceneCache.js`), écrit, prouvé
+(−38 à −51 %), opt-in et éteint — **supprimé depuis** (audit du 2026-10-05, MORT-1 :
+plus aucun gain une fois les scènes en PNG, et il éteignait les fenêtres de nuit),
+cf. `REPRISE-TRACE-VECTORIEL.md` §3.1.
 
 ---
 

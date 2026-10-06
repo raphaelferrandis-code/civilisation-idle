@@ -1,137 +1,82 @@
 import { describe, it, expect } from "vitest";
 
+import { CM_MAP_BUILDINGS } from "../cityBuildings.js";
+import { drawEngineSprite } from "../engineSprites.js";
 import { drawCityEngineSprite } from "../cityEngineSprites.js";
+import { CM } from "../layout.js";
 
-// Le lint ne voit pas ce qui se passe DANS une branche de stade : ce smoke-test
-// exécute réellement le sprite pour attraper toute variable indéfinie / erreur
-// runtime, sur tous les stades d'ère et tiers.
-// ⚠ Sous Node, `Image` n'existe pas : ce fichier ne parcourt QUE le repli
-// procédural, et ne doit JAMAIS poser d'Image factice — propImg / animImg sont des
-// états de module, l'ordre des tests déciderait alors du chemin suivi (rouge en
-// ordre mélangé, audit du 05/10, TEST-5). Le chemin PNG, celui du jeu, et le palier
-// du culte vivent dans cityEngineSprites.png.test.js.
+// ── SANS PNG, UNE SCÈNE MOTEUR NE DESSINE RIEN (audit du 05/10, MORT-2) ──────────
+// Décision de Raph : les ~3 400 lignes de replis procéduraux des bâtiments-moteur —
+// des scènes vectorielles que personne ne voyait qu'aux premières frames, avant le
+// décodage des PNG — sont retirées. Tant qu'un décor n'est pas chargé, sa scène ne
+// dessine RIEN : ni flash d'un autre style à l'ouverture, ni encre parasite mesurée
+// pour le survol (BUG-59 : « pas d'encre, pas de cache » redevient vrai).
+// Sous Node, `Image` n'existe pas : aucun décor ne se charge jamais, c'est l'état
+// « PNG pas encore décodé » prolongé indéfiniment. Ce fichier vérifie qu'il ne laisse
+// AUCUN appel au contexte, sur toutes les familles et toutes les ères.
+// ⚠ Il ne doit JAMAIS poser d'Image factice : propImg / animImg sont des états de
+// module, l'ordre des tests déciderait alors du chemin suivi (audit du 05/10, TEST-5).
+// Le chemin PNG, celui du jeu, vit dans cityEngineSprites.png.test.js.
 
-// Mini-mock de CanvasRenderingContext2D : no-op + compteur de fillRect pour
-// vérifier qu'on dessine effectivement quelque chose.
-function makeCtx() {
-  const ctx = {
+// Contexte-espion : la moindre méthode appelée (dessin, état, dégradé) est comptée.
+function makeSpyCtx() {
+  const calls = [];
+  const base = {
     fillStyle: "#000", strokeStyle: "#000", lineWidth: 1, lineCap: "butt",
-    globalAlpha: 1, globalCompositeOperation: "source-over",
-    _fills: 0,
+    globalAlpha: 1, globalCompositeOperation: "source-over", imageSmoothingEnabled: false,
   };
-  for (const m of [
-    "beginPath", "moveTo", "lineTo", "arc", "ellipse", "closePath", "fill",
-    "stroke", "save", "restore", "translate", "rotate", "scale",
-    "quadraticCurveTo", "bezierCurveTo", "arcTo", "rect", "roundRect",
-    "strokeRect", "fillText", "clip", "setLineDash", "drawImage",
-  ]) ctx[m] = () => {};
-  // Les scènes qui halonnent (nuit, néon) demandent un dégradé : sans ces deux-là le
-  // smoke-test s'arrête sur une méthode absente du MOCK et non sur un vrai défaut.
-  const grad = { addColorStop: () => {} };
-  ctx.createRadialGradient = () => grad;
-  ctx.createLinearGradient = () => grad;
-  ctx.fillRect = () => { ctx._fills += 1; };
-  return ctx;
-}
-
-// Reproduit la construction du contexte dans engineSprites.js (helpers px/strokeRect).
-function makeContext({ id, ei, tier, now, pass, ctx }) {
-  ctx = ctx || makeCtx();
-  const ox = 0, oy = 0, sw = 64, sh = 80;          // emprise rectangulaire (large × profonde)
-  const px = (rx, ry, rw, rh, col) => { ctx.fillStyle = col; ctx.fillRect(ox + sw * rx, oy + sh * ry, sw * rw, sh * rh); };
-  const strokeRect = (rx, ry, rw, rh, col) => { ctx.strokeStyle = col; ctx.strokeRect(ox + sw * rx, oy + sh * ry, sw * rw, sh * rh); };
-  const c = {
-    ctx, id, tier, ox, oy, sw, sh, px, strokeRect, now,
-    litWarm: `rgba(255,204,68,0.45)`, litGold: `rgba(255,220,120,0.50)`,
-    band: 0, ei, gw: 4, gh: 4,
-  };
-  if (pass !== undefined) c.pass = pass;
-  return c;
-}
-
-// Un âge représentatif par stade (ei<10/<20/<30/sinon).
-const stages = [{ ei: 4 }, { ei: 14 }, { ei: 24 }, { ei: 32 }];
-
-describe.each(["water_mills", "mint_houses", "imperial_exchanges", "caravans"])("drawCityEngineSprite — %s", (id) => {
-  it("dessine les 4 stades d'ère pour chaque tier sans planter", () => {
-    for (const { ei } of stages) {
-      for (const tier of [0, 1, 2]) {
-        for (const now of [0, 1234]) {
-          const c = makeContext({ id, ei, tier, now });
-          let result;
-          expect(() => { result = drawCityEngineSprite(c); }).not.toThrow();
-          expect(result).toBe(true);          // le sprite est pris en charge
-          expect(c.ctx._fills).toBeGreaterThan(0); // il a effectivement dessiné
-        }
-      }
-    }
+  const ctx = new Proxy(base, {
+    get(target, prop) {
+      if (prop in target) return target[prop];
+      return () => { calls.push(String(prop)); return { addColorStop: () => {} }; };
+    },
+    set(target, prop, value) { target[prop] = value; return true; },
   });
+  return { ctx, calls };
+}
 
-  // Les passes de cache ('back' statique sous / 'anim' ce qui lit now / 'front' statique
-  // par-dessus) ne doivent JAMAIS planter : chaque branche dérive ses trois booléens et
-  // saute simplement les appels qui ne la concernent pas.
-  it("accepte les passes back/anim/front sans planter", () => {
-    for (const { ei } of stages) {
-      for (const tier of [0, 1, 2]) {
-        for (const pass of ["back", "anim", "front"]) {
-          const c = makeContext({ id, ei, tier, now: 1234, pass });
-          let result;
-          expect(() => { result = drawCityEngineSprite(c); }).not.toThrow();
-          expect(result).toBe(true);          // le sprite reste pris en charge quelle que soit la passe
+const bandOf = (ei) => Math.min(9, Math.floor(ei / 5));
+const IDS = CM_MAP_BUILDINGS.map((b) => b.id);
+
+it("le registre couvre les 29 familles de la carte", () => {
+  expect(IDS.length).toBeGreaterThanOrEqual(29);
+});
+
+describe.each(IDS)("drawEngineSprite sans PNG — %s", (id) => {
+  it("ne dessine rien, à aucun âge, aucun palier", () => {
+    for (let ei = 0; ei < 50; ei += 1) {
+      for (const tier of [0, 3]) {
+        for (const size of id === "imperial_exchanges" ? [3, 5] : [1, 3]) {
+          const { ctx, calls } = makeSpyCtx();
+          CM.ctx = ctx;
+          CM.nightF = ei % 2 ? 1 : 0;
+          CM.layout = { counts: { eraBand: bandOf(ei), eraIndex: ei } };
+          const t = {
+            type: "engine", buildingId: id, tier, size, groupIndex: size >= 3 ? 1 : 2 + (ei % 3), gx: 3 + ei, gy: 4,
+            spanX: id === "river_ports" ? 4 : undefined, spanY: id === "river_ports" ? 3 : undefined,
+            waterEnd: ei % 2 ? "W" : "E",
+          };
+          expect(() => drawEngineSprite(t, 0, 0, 120, 120, 1234 + ei * 97)).not.toThrow();
+          expect(calls, `${id} âge ${ei} tier ${tier} empreinte ${size}`).toEqual([]);
         }
       }
     }
   });
 });
 
-// ── Conservation des appels : back + anim + front ≡ all ─────────────────────────
-// Un ctx-espion (Proxy) compte chaque appel de méthode de dessin. Pour des ids
-// représentatifs, la SOMME des appels des trois passes doit être EXACTEMENT le
-// compte de pass='all' (chaque appel de dessin vit dans UNE et UNE SEULE passe).
-// NB : on ne compare que les méthodes de DESSIN — save/translate/beginPath font
-// partie de la plomberie ré-exécutée à chaque passe (ex. le miroir de l'aqueduc).
-// `storytellers` (suggéré) vit dans drawEngineSpriteCore, dont l'import tirerait
-// state.js (localStorage absent en environnement node) → remplacé par
-// granaries_city, même moule économique.
-const DRAW_METHODS = ["fillRect", "strokeRect", "drawImage", "fill", "stroke", "fillText"];
-function makeSpyCtx() {
-  const counts = Object.fromEntries(DRAW_METHODS.map((m) => [m, 0]));
-  const base = makeCtx();
-  const ctx = new Proxy(base, {
-    get(target, prop) {
-      const v = target[prop];
-      if (typeof v === "function" && DRAW_METHODS.includes(prop)) {
-        return (...args) => { counts[prop] += 1; return v.apply(target, args); };
-      }
-      return v;
-    },
-    set(target, prop, value) { target[prop] = value; return true; },
+// Les trois familles qui n'avaient plus de chemin vers une scène moteur (champs
+// irrigués refusés par isoEngineScene, moulins cuits par isoMill, aqueducs posés en
+// points d'eau) ont perdu leur branche : drawCityEngineSprite ne les prend plus en charge.
+describe.each(["irrigated_fields", "water_mills", "aqueducts"])("famille retirée — %s", (id) => {
+  it("n'est plus prise en charge par drawCityEngineSprite", () => {
+    for (const ei of [4, 14, 24, 32, 38, 49]) {
+      const { ctx, calls } = makeSpyCtx();
+      const result = drawCityEngineSprite({
+        ctx, id, tier: 1, litGold: "rgba(255,220,120,0.5)", ox: 0, oy: 0, sw: 64, sh: 80,
+        px: () => {}, strokeRect: () => {}, now: 1234, band: bandOf(ei), ei, gw: 4, gh: 4,
+      });
+      expect(result).toBe(false);
+      expect(calls).toEqual([]);
+    }
   });
-  return { ctx, counts };
-}
-function drawCounts({ id, ei, tier, now, pass }) {
-  const { ctx, counts } = makeSpyCtx();
-  drawCityEngineSprite(makeContext({ id, ei, tier, now, pass, ctx }));
-  return counts;
-}
-
-describe.each(["foragers", "granaries_city", "guilds", "mint_houses", "markets"])(
-  "passes back+anim+front ≡ all — %s", (id) => {
-    it("conserve exactement le nombre d'appels de dessin", () => {
-      for (const { ei } of stages) {
-        for (const tier of [0, 2]) {
-          const now = 1234;
-          const all = drawCounts({ id, ei, tier, now, pass: "all" });
-          const back = drawCounts({ id, ei, tier, now, pass: "back" });
-          const anim = drawCounts({ id, ei, tier, now, pass: "anim" });
-          const front = drawCounts({ id, ei, tier, now, pass: "front" });
-          for (const m of DRAW_METHODS) {
-            expect(back[m] + anim[m] + front[m], `${id} ei=${ei} tier=${tier} ${m}`).toBe(all[m]);
-          }
-        }
-      }
-    });
-  }
-);
-// (Le palier du cercle de mégalithes, qui pose une Image prête, est parti dans
-// cityEngineSprites.png.test.js.)
+});

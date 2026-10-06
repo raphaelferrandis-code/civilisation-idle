@@ -20,6 +20,7 @@
  * reste le k-ième quand la ville grandit (même géométrie ⇒ même ordre). C'est ce
  * qui permet à la mémoire de ne jamais déplacer un îlot déjà ouvert.
  * ========================================================================== */
+import { fm } from '../pixelUtil.js';   // feuille pure, aucune dépendance au monde
 
 // Réglages par défaut (pilote : bande 4, grille romaine).
 //   pitch      : rue + îlot. 5 ⇒ îlots de 4×4 cases (12 lots de bord, cour 2×2).
@@ -29,7 +30,7 @@
 export const ILOT_DEFAULTS = { pitch: 5, minCells: 6, axisBonus: 0.35, reach: 40 };
 
 const key = (x, y) => x + "," + y;
-const mod = (a, n) => ((a % n) + n) % n;
+const mod = fm;   // modulo réel (../pixelUtil.js)
 
 /**
  * Géométrie de la grille : quelle rue, quel îlot pour une cellule.

@@ -11,10 +11,10 @@
 //   · un FÛT central qui porte des plateaux ronds ;
 //   · le DAIS EN PÉTALES : une bordure festonnée rayée cramoisi et crème ;
 //   · des GUIRLANDES DE LANTERNES ROUGES ;
-//   · un pavillon par jeu (osselets, tickets, vingt-et-un) et, au sommet, la
-//     plateforme d'envol d'Icare.
-// L'âge donne la matière (la pierre, le métal, le toit de son kit) ; les jeux
-// ouverts ajoutent leurs pavillons.
+//   · au sommet, la plateforme d'envol d'Icare.
+// L'âge donne la matière (la pierre, le métal, le toit de son kit). Les jeux sont
+// DEDANS (la coupe) : plus de pavillons de jeux sur le pont
+// (docs/PLAN-MAISON-DES-PLAISIRS.md).
 //
 // Repère : celui des merveilles — x est, y sud, h altitude (px d'écran), origine au
 // pied du lieu, au niveau de l'EAU (h = 0). Lumière haut-gauche : faces sud
@@ -24,11 +24,11 @@
 import { rgbOf, h32, frameOf, outline, put } from './isoPixelPaint.js';
 import {
   mats, box as box0, facet as facet0, revolve as revolve0, cyl, taper, domeProf, ring3d as ring3d0, PLANE_H, line as line0, pick, band5, stairs,
-  hip as hip0, nightOf,
+  nightOf,
 } from './wonderBake.js';
 import { plaisirsPlan } from './plaisirsPlan.js';
+import { fm } from '../pixelUtil.js';   // modulo réel
 
-const fm = (a, n) => ((a % n) + n) % n;
 const TAU = Math.PI * 2;
 
 // ── LA HAUTEUR DE CHAQUE PIXEL (pour le reflet et l'ombre) ────────────────────
@@ -67,14 +67,6 @@ function ring3d(R, c, rad, th, U, W, col, part) {
     if (v) noteD(R, p.x, p.y, p.h);
     return v;
   }, part);
-}
-function hip(R, x0, x1, y0, y1, h0, H, col) {
-  const f = typeof col === 'function' ? col : () => col;
-  return hip0(R, x0, x1, y0, y1, h0, H, (I, x, y, h) => {
-    const v = f(I, x, y, h);
-    if (v) noteD(R, x, y, h);
-    return v;
-  });
 }
 // Le trait : le même tracé que paintLine (Bresenham entre les deux projections),
 // profondeur interpolée le long du trait.
@@ -323,74 +315,6 @@ function dotDepth(R, X, Y, w, h, d) {
 export function post(R, x, y, h0, h1, col) {
   line(R, [x, y, h0], [x, y, h1], col);
 }
-// CANOPÉE CONIQUE rayée (tente, parasol, kiosque) : cône de rayon r à la base h0,
-// pointe en h0 + H, bord festonné de `drop` px. Rayures par secteur.
-export function stripedCone(R, X, cx, cy, r, h0, H, n = 12, drop = 3, opt = {}) {
-  const pals = opt.pal || [VELVET, CANVAS];
-  revolve(R, cx, cy, h0, h0 + H, taper(h0, h0 + H, r, 0.6), (I, hh, ang) => {
-    const k = Math.floor(fm(ang / TAU * n, n));
-    return pick((k & 1) ? pals[1] : pals[0], I);
-  });
-  petalValance(R, cx, cy, r, h0 + 0.5, drop, n, { pal: pals, neon: opt.neon });
-  line(R, [cx, cy, h0 + H], [cx, cy, h0 + H + 3], opt.tip || X.P.metal[1]);
-}
-
-// ── Les pavillons des jeux ───────────────────────────────────────────────────
-// La MATIÈRE d'un pavillon suit l'âge : `L(I)` pour un volume éclairé, `F(k)` pour
-// un aplat (0 clair … 2 sombre). Marbre par défaut.
-export function pavMat(X, kind) {
-  if (kind === 'wood') return { L: X.woodL, F: (k) => X.wood(k + 1) };
-  if (kind === 'stone') return { L: X.smooth, F: (k) => X.marble(k) };
-  if (kind === 'metal') return { L: X.metalL, F: (k) => X.metal(k) };
-  if (kind === 'crystal') return { L: (I) => [...X.glassL(I).slice(0, 3), A_LIGHT], F: (k) => lit(X.P.glassRamp[k]) };
-  return { L: X.marbleL, F: (k) => X.marble(k) };
-}
-// LES OSSELETS : une table ronde sous un parasol rayé.
-function pavOsselets(R, X, x, y, h, k = 1, M = pavMat(X)) {
-  const q = (v) => v * k;
-  for (const [dx, dy] of [[-7, -7], [7, -7], [-7, 7], [7, 7]]) post(R, x + q(dx), y + q(dy), h, h + q(15), X.P.metal[2]);
-  revolve(R, x, y, h, h + 1, cyl(q(3.5)), M.L);
-  revolve(R, x, y, h + 1, h + q(6), cyl(q(1.6)), M.L);
-  revolve(R, x, y, h + q(6), h + q(8), cyl(q(7)), (I, hh, a, rho, cap) => (cap ? rgbOf(VELVET[3]) : M.L(I)));
-  stripedCone(R, X, x, y, q(12), h + q(15), q(9), 12, 3);
-}
-// LE VINGT-ET-UN : un pavillon clos à rideaux, toit à quatre pans, une enseigne.
-function pavCartes(R, X, x, y, h, k = 1, M = pavMat(X)) {
-  const w = 9 * k, d = 7 * k, H = 16 * k;
-  box(R, x - w, x + w, y - d, y + d, h, h + H, (f, u, hv, lv) => {
-    if (hv >= h + H - 2) return M.F(lv ? 0 : 2);
-    if (hv < h + 2) return M.F(lv ? 1 : 2);
-    const m = fm(u, f === 'S' ? 6 : 7);
-    if (m < 1.2) return M.F(lv ? 1 : 2);                     // pilastre
-    return velvetFold(lv ? 0.5 : 0.2, u);                    // rideau tiré
-  }, () => M.F(0));
-  hip(R, x - w - 1.5, x + w + 1.5, y - d - 1.5, y + d + 1.5, h + H, 8, X.roofL);
-  // Enseigne : un losange d'or (le carreau des cartes) sur le pignon sud.
-  const sx = x, sy = y + d + 1.6, sh = h + H + 3;
-  for (const [a, b] of [[0, 2], [-1, 1], [1, 1], [0, 0], [-1, 0.5], [1, 0.5]]) {
-    put(R, Math.floor(sx + a - sy - R.ox), Math.floor((sx + sy) / 2 - sh - b - R.oy), lit(X.P.metal[0]));
-  }
-}
-// LES TICKETS : un kiosque hexagonal, comptoir ouvert, coupole et épi d'or.
-function pavTickets(R, X, x, y, h, k = 1, M = pavMat(X)) {
-  const q = (v) => v * k;
-  revolve(R, x, y, h, h + q(14), cyl(q(7.5)), (I, hh, ang) => {
-    // Le comptoir : une baie sur la face qui regarde la rotonde… et l'œil.
-    const face = Math.abs(fm(ang - Math.PI * 0.35 + Math.PI, TAU) - Math.PI) < 0.7;
-    if (face && hh > h + q(5) && hh < h + q(11)) return [rgbOf(VELVET[4])[0], rgbOf(VELVET[4])[1], rgbOf(VELVET[4])[2], A_WIN];
-    if (hh >= h + q(12)) return X.metal(band5(I) <= 1 ? 0 : 1);
-    return M.L(I);
-  }, 6);
-  revolve(R, x, y, h + q(14), h + q(20), domeProf(h + q(14), q(8.5), q(6)), (I) => pick(VELVET, I));
-  revolve(R, x, y, h + q(19), h + q(25), taper(h + q(19), h + q(25), 1.3, 0), X.metalL);
-}
-// LA BOUTIQUE (ouverte au premier effondrement) : une échoppe à auvent rayé.
-function pavBoutique(R, X, x, y, h, M = null) {
-  box(R, x - 8, x + 8, y - 6, y + 6, h, h + 12, M ? (f, u, hv, lv) => M.F(lv ? 1 : 2) : X.stone(71), M ? () => M.F(0) : X.top(1));
-  box(R, x - 9, x + 9, y + 6, y + 10, h + 10, h + 12, (f, u) => rgbOf((Math.floor(u / 3) & 1) ? CANVAS[1] : VELVET[1]), (l, t) => rgbOf((Math.floor(t / 3) & 1) ? CANVAS[0] : VELVET[0]));
-  hip(R, x - 9, x + 9, y - 7, y + 7, h + 12, 6, X.roofL);
-}
-
 // PLATEFORME D'ENVOL d'Icare, au sommet : un mât, une hune, deux ailes d'or
 // déployées et la flamme rouge du lieu. La forme suit l'âge (ici : mât et ailes).
 export function icarePerch(R, X, x, y, h, props) {
@@ -823,7 +747,7 @@ function bakeNeon(K, g) {
 // Les âges Bois, Pierre taillée, Couronne, Fonte et cosmiques partagent la même
 // ossature — c'est l'ADN : un SOCLE sur l'eau, un FÛT qui monte par étages, à
 // chaque étage un PLATEAU (terrasse ou jupe de toit) bordé de PÉTALES, des
-// GUIRLANDES de lumières, les PAVILLONS des jeux sur le pourtour, une COURONNE et
+// GUIRLANDES de lumières, une COURONNE et
 // la plateforme d'Icare au sommet. Chaque âge n'en donne que la matière et les
 // pièces propres (portique, masque, roue à aubes, lévitation).
 //
@@ -835,8 +759,6 @@ function bakeNeon(K, g) {
 //   RB, H, foot?           rayon du socle, hauteur du cadre, rayon de tri
 //   base(R, X, props)      peint le socle, rend { deck, fut } (altitudes)
 //   garland?               { r, h (au-dessus du pont), n, opts, post }
-//   pav: { osselets, tickets, cartes, boutique } → [x, y, k] ; pavM : matière
-//   pavHook?(R, X, game, x, y, h, k, props) → true s'il a peint le pavillon lui-même
 //   futR(h), futCol(I, h, a, rho)
 //   levels: [{ h, th, r | prof(hh), col, valance: { r, drop, n, pal, neon, trim },
 //              bal?: { r }, posts?: { r, n, col }, hook?(R, X, props, part) }]
@@ -857,22 +779,8 @@ function tiered(K, g, Sf) {
       if ((part === 'back') === (x + y < 0)) post(R, x, y, deck, deck + gar.h + 1, gar.post || X.P.metal[2]);
     }
   };
-  const M = S.pavM || pavMat(X);
-  const pavs = (part) => {
-    for (const game of ['boutique', 'tickets', 'osselets', 'cartes']) {
-      const p = S.pav && S.pav[game];
-      if (!p || !g[game] || (part === 'back') !== (p[0] + p[1] < 0)) continue;
-      const [x, y, k = 1] = p;
-      if (S.pavHook && S.pavHook(R, X, game, x, y, deck, k, props)) continue;
-      if (game === 'osselets') pavOsselets(R, X, x, y, deck, k, M);
-      else if (game === 'tickets') pavTickets(R, X, x, y, deck, k, M);
-      else if (game === 'cartes') pavCartes(R, X, x, y, deck, k, M);
-      else pavBoutique(R, X, x, y, deck, M);
-    }
-  };
   if (gar) { posts('back'); ledges.push(...lanternGarland(R, 0, 0, gar.r, deck + gar.h, gar.n, 'back', gar.opts)); }
   if (S.extra) S.extra(R, X, props, 'back', deck);
-  pavs('back');
   const fut = (hA, hB) => { if (hB > hA) revolve(R, 0, 0, hA, hB, (h) => S.futR(h), S.futCol); };
   const ring = (L, part) => {
     if (!L.posts) return;
@@ -907,7 +815,6 @@ function tiered(K, g, Sf) {
   fut(hPrev, S.top);
   if (pending) pending();
   const apexH = S.crown(R, X, props, S.top, g);
-  pavs('front');
   if (gar) { posts('front'); ledges.push(...lanternGarland(R, 0, 0, gar.r, deck + gar.h, gar.n, 'front', gar.opts)); }
   // Les pièces du BORD (merlons, roue à aubes) sont les plus proches de l'œil.
   if (S.extra) S.extra(R, X, props, 'front', deck);
@@ -979,14 +886,6 @@ function bakeBois(K, g) {
       return { deck: 10, fut: 10 };
     },
     garland: { r: 58, h: 15, n: 12, opts: { phase: 0.15, sag: 4, step: 5 }, post: W[2] },
-    pav: {},   // les jeux sont DEDANS (la coupe) : plus de kiosques sur le pont
-    pavM: null,
-    pavHook(R, X, game, x, y, h, k) {
-      if (game !== 'cartes') return false;
-      // Le vingt-et-un sous une TENTE de toile rayée.
-      gableStripedPal(R, x - 10 * k, x + 10 * k, y - 7 * k, y + 7 * k, h, 12 * k, [VELVET, CANVAS]);
-      return true;
-    },
     futR: (h) => (h < 38 ? 22 : h < 60 ? 16 : 11),
     futCol,
     levels: [
@@ -1005,15 +904,6 @@ function bakeBois(K, g) {
     },
   });
 }
-// Toit à deux pans rayé (tente) : palette au choix.
-export function gableStripedPal(R, x0, x1, y0, y1, h0, H, pals) {
-  const cx = (x0 + x1) / 2, ins = [cx, (y0 + y1) / 2, h0 + H * 0.3];
-  const tex = (I, px) => pick((Math.floor(px / 3) & 1) ? pals[1] : pals[0], I);
-  facet(R, [[x0, y0, h0], [x0, y1, h0], [cx, y1, h0 + H], [cx, y0, h0 + H]], ins, tex);
-  facet(R, [[x1, y0, h0], [x1, y1, h0], [cx, y1, h0 + H], [cx, y0, h0 + H]], ins, tex);
-  facet(R, [[x0, y1, h0], [x1, y1, h0], [cx, y1, h0 + H]], ins, (I) => pick(pals[1], I - 0.15));
-}
-
 // ══ BANDE 2 — LA PIERRE TAILLÉE : le pavillon au portique ════════════════════
 //   îlot maçonné et podium, braseros ; rotonde de pierre à PORTIQUE (quatre
 //   colonnes, fronton) ; terrasse à balustrade de bronze et vélum rayé ; étage à
@@ -1043,8 +933,6 @@ function bakePierre(K, g) {
       return { deck: 8, fut: 13 };
     },
     garland: { r: 62, h: 15, n: 12, opts: { phase: 0.15 } },
-    pav: {},   // les jeux sont DEDANS
-    pavM: null,
     futR: (h) => (h < 52 ? 26 : h < 74 ? 20 : 14),
     futCol,
     levels: [
@@ -1116,14 +1004,6 @@ function bakeCouronne(K, g) {
         if ((part === 'back') !== (x + y < 0) || (Math.abs(x) < 15 && y > 0)) continue;
         box(R, x - 2, x + 2, y - 2, y + 2, 10, 15, X.plain(0), X.top(1));
       }
-    },
-    pav: {},   // les jeux sont DEDANS
-    pavHook(R, X, game, x, y, h, k) {
-      if (game !== 'cartes') return false;
-      // Le vingt-et-un dans un PAVILLON DE TOURNOI : tambour de toile, cône rayé.
-      revolve(R, x, y, h, h + 12 * k, cyl(8 * k), (I, hh, a) => pick((Math.floor(fm(a / TAU * 12, 12)) & 1) ? CANVAS : VELVET, I));
-      stripedCone(R, X, x, y, 10 * k, h + 12 * k, 9 * k, 12, 3);
-      return true;
     },
     futR: (h) => (h < 62 ? 28 : h < 94 ? 22 : 16),
     futCol,
@@ -1233,7 +1113,8 @@ export function nightLife(col, floors, n) {
 }
 // LA PORTE de face (la baie qui regarde l'œil, angle π/4) : chambranle, deux battants
 // à panneaux, poignées, imposte allumée, et le trait de lumière entre les battants.
-// `m` : { frame, frameDark, wood, panel, dark, handle } (la matière de l'âge).
+// `m` : { frame, frameDark, wood, panel, dark, handle, transom? } (la matière de
+// l'âge ; `transom` : les traverses de l'imposte, `dark` à défaut).
 export function doorPx(u, hh, m) {
   const au = Math.abs(u);
   if (au > 6 || hh > 17 || hh < 1) return null;
@@ -1241,7 +1122,7 @@ export function doorPx(u, hh, m) {
   if (hh > 12 && hh <= 16) {
     const d2 = u * u + (hh - 12) * (hh - 12) * 1.6;
     if (d2 > 22) return rgbOf(m.frameDark);
-    if (u === 0 || (au === Math.round((hh - 12) * 0.9) + 1 && hh < 16)) return rgbOf(m.dark);
+    if (u === 0 || (au === Math.round((hh - 12) * 0.9) + 1 && hh < 16)) return rgbOf(m.transom || m.dark);
     return lit(hh > 14 ? '#fff0c0' : '#ffd890');
   }
   if (hh > 12) return rgbOf(m.frameDark);
@@ -1261,6 +1142,8 @@ export function withDoor(col, h0, m) {
   };
 }
 const DOOR_WOOD = { frame: '#d2a53e', frameDark: '#8a6420', wood: '#5a2418', panel: '#6e3020', dark: '#3a1610', handle: '#f0cf6a' };
+// La porte de la Fonte : l'acajou à panneaux, l'imposte tenue par des traverses de FONTE.
+const DOOR_FONTE = { ...DOOR_WOOD, transom: '#2c2f36' };
 const DOOR_NEON = { frame: '#e6e9ed', frameDark: '#9aa2ad', wood: '#2a2a34', panel: '#3e3e4c', dark: '#16161c', handle: '#ff8cc6' };
 const DOOR_CRYSTAL = { frame: '#eef1f4', frameDark: '#9aa4b2', wood: '#3a3a5a', panel: '#5a5a80', dark: '#1e1e30', handle: '#ffffff' };
 const DOOR_RUSTIC = { frame: '#8a6440', frameDark: '#5a3e24', wood: '#6e4a2a', panel: '#86603a', dark: '#3a2614', handle: '#c8a060' };
@@ -1283,27 +1166,14 @@ function bakeFonte(K, g) {
   // une double porte d'acajou à panneaux et poignées de laiton, chambranle doré et une
   // IMPOSTE en éventail allumée ; l'enseigne est sur l'AUVENT (un auvent cache
   // toujours le mur juste au-dessous de lui : une enseigne murale y disparaissait).
-  const door = (I, u, hh) => {
-    const au = Math.abs(u);
-    if (au > 6 || hh > 17) return null;
-    if (au >= 5 && hh <= 16) return rgbOf(hh === 16 ? '#f0cf6a' : au === 6 ? '#8a6420' : '#d2a53e');   // chambranle
-    if (hh > 12 && hh <= 16) {                                  // l'imposte en éventail
-      const d2 = u * u + (hh - 12) * (hh - 12) * 1.6;
-      if (d2 > 22) return rgbOf('#8a6420');
-      if (u === 0 || (au === Math.round((hh - 12) * 0.9) + 1 && hh < 16)) return rgbOf('#2c2f36');
-      return lit(hh > 14 ? '#fff0c0' : '#ffd890');
-    }
-    if (hh > 12) return rgbOf('#8a6420');
-    if (u === 0) return lit('#ffc870');                         // la porte entrebâillée : la lumière du dedans
-    if (au === 1 && hh === 6) return rgbOf('#f0cf6a');         // les poignées
-    const panel = au >= 2 && au <= 3 && ((hh >= 2 && hh <= 4) || (hh >= 7 && hh <= 10));
-    return rgbOf(panel ? '#6e3020' : hh === 11 ? '#3a1610' : '#5a2418');
-  };
+  // C'est la porte de toutes les rotondes (doorPx) en matière DOOR_FONTE, posée dans SA
+  // baie de face — et non par withDoor, qui la placerait à l'angle π/4 (audit du 05/10,
+  // STRUCT-12 : elle en recopiait le dessin ligne à ligne).
   const wall = (I, h, a, rho) => {
     const f = fOf(h), hh = h - f.h0, kd = kind(f);
     // s : position dans la baie (0 au milieu) ; les pilastres aux bords, puis les rideaux.
     const s = fm(a / TAU * N_BAYS, 1) - 0.5, bay = Math.floor(fm(a / TAU * N_BAYS, N_BAYS)), edge = 0.5 - Math.abs(s);
-    if (f.i === 0 && bay === 1 && hh >= 1) { const d = door(I, Math.round(s * TAU * rho / N_BAYS), Math.floor(hh)); if (d) return d; }
+    if (f.i === 0 && bay === 1 && hh >= 1) { const d = doorPx(Math.round(s * TAU * rho / N_BAYS), Math.floor(hh), DOOR_FONTE); if (d) return d; }
     if (hh < 2 || hh > FH - 2) return ironL(I - 0.1);
     if (edge < 0.09 || hh < 3 || hh > FH - 3) return ironL(I);
     if (edge < 0.2) return velvetFold(I, a * rho);
@@ -1390,7 +1260,6 @@ function bakeFonte(K, g) {
       }
       ring3d(R, [cx + 1, cy, ch], rr + 3, 3, [0, 1, 0], [0, 0, 1], (I) => pick(VELVET, I), 'front');
     },
-    pav: {},
     // Où se tiennent les FILLES DE LA MAISON sur la carte (isoPlaisirs.js) : le tour
     // du ponton, l'entrée sous la marquise, le balcon du premier.
     stroll: (() => {
@@ -1536,13 +1405,11 @@ export function plaisirsGames(s, eraIndex = 0) {
 }
 
 // ── Point d'entrée ───────────────────────────────────────────────────────────
-// `g` : jeux ouverts { osselets, tickets, cartes, icare, boutique }. Les âges pas
-// encore dessinés retombent sur la recette la plus proche (déroulé en cours).
+// `g` : jeux ouverts { osselets, tickets, cartes, icare, boutique }. Les dix âges
+// ont leur recette.
 const RECIPES = { 0: bakeFeu, 1: bakeBois, 2: bakePierre, 3: bakeCouronne, 4: bakeMarbre, 5: bakeFonte, 6: bakeNeon, 7: bakeCosmique, 8: bakeCosmique, 9: bakeCosmique };
 export function plaisirsRecipeBand(band) {
-  const b = Math.max(0, Math.min(9, band | 0));
-  if (RECIPES[b]) return b;
-  return 4;
+  return Math.max(0, Math.min(9, band | 0));
 }
 // Rend aussi `H` (hauteur de chaque pixel, pour l'ombre) et `mirror` (le reflet
 // exact, cf. plaisirsMirror) et `D` (profondeur de chaque pixel, cf. depthsOf).
@@ -1553,4 +1420,3 @@ export function bakePlaisirs(K, g = {}) {
   out.mirror = plaisirsMirror(out.R, out.H);
   return out;
 }
-export const PLAISIRS_PALETTE = { VELVET, CANVAS, PAPER, HIDE, OCHRE, NEON_PINK };

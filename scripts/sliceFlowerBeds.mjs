@@ -1,9 +1,12 @@
 // sliceFlowerBeds.mjs — découpe une PLANCHE PixelLab de parterres de fleurs
 // (props séparés sur fond transparent — le format que PixelLab réussit, cf. le
 // chantier terre-plein : les bandes entières s'effondrent, les props sont bons)
-// en sprites individuels public/pixelart/iso/flowerbed-1..N.png, triés de
-// gauche à droite. Chaque composante connexe (8-connexité, ombre attachée
-// comprise) devient un sprite rogné à 1 px de marge.
+// en sprites individuels flowerbed-1..N.png, triés de gauche à droite. Chaque
+// composante connexe (8-connexité, ombre attachée comprise) devient un sprite
+// rogné à 1 px de marge.
+//   ⚠ 2026-10-06 : les parterres du terre-plein sont RETIRÉS du jeu (kit de rue,
+//   audit MORT-13) ; leurs PNG sont rangés comme source dans
+//   art/references-ab/terre-plein-parterres/, où ce script écrit désormais.
 //   Lancer :  node scripts/sliceFlowerBeds.mjs <planche.png> [préfixe]
 //     préfixe par défaut `flowerbed` ; la planche HIVER se découpe avec
 //     `flowerbed-winter` (⚠ sans préfixe elle ÉCRASE les bacs d'été).
@@ -13,7 +16,7 @@ import { fileURLToPath } from 'node:url';
 import { PNG } from 'pngjs';
 
 const HERE = path.dirname(fileURLToPath(import.meta.url));
-const ISO = path.resolve(HERE, '..', 'public', 'pixelart', 'iso');
+const ISO = path.resolve(HERE, '..', 'art', 'references-ab', 'terre-plein-parterres');
 const srcPath = process.argv[2];
 const prefix = process.argv[3] || 'flowerbed';
 if (!srcPath) { console.error('usage: node scripts/sliceFlowerBeds.mjs <planche.png> [préfixe]'); process.exit(1); }

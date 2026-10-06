@@ -92,8 +92,9 @@ Pilote **bande 2 (médiéval)** = l'ère de la capture de Raph. Planche avant/ap
   rangs de plantes de lumière (couleur de l'ère, calque de nuit) et piquets de cristal.
   Assolement par saison (`SEASON_CROP`), une clôture par limite (nord/ouest toujours,
   sud/est face à la campagne). Cache par parcelle × bande × saison × clôtures. L'ancien
-  patchwork vectoriel `drawIsoField` = l'« avant » de `__fieldTune({ on: false })` ;
-  `__fieldTune({ band })` force un âge.
+  patchwork vectoriel `drawIsoField` (l'« avant » de `__fieldTune({ on: false })`) a
+  été retiré le 2026-10-06 (audit du 05/10, MORT-13) ; `__fieldTune({ band })` force
+  un âge.
 - **Moulins** (`iso/millBake.js`, posés par `drawIsoMill` dans `iso/isoMill.js`) : un
   modèle par âge (`MODELS`, `millKind(band)`) — pivot en bois sur chevalet (0-1), tour de
   pierre (2), tour chaulée à calotte d'ardoise (3), hollandais à balcon et fût de roseau

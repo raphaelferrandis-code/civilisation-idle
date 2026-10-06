@@ -2,9 +2,8 @@
 // ── LES POSTES D'ACCOSTAGE DE LA FLOTTE (docs/PLAN-BATEAUX.md §5, lot 4) ──────
 //
 // Le marchand ne « s'arrête » plus 2,5 s au milieu du fleuve à hauteur du port :
-// il vient se ranger BORD À BORD au ponton, charge, décharge, et repart. Le bateau
-// qui y était peint en décor (drawIsoPortBoat) laisse la place à la flotte dans
-// les ères où le kit de bateaux existe.
+// il vient se ranger BORD À BORD au ponton, charge, décharge, et repart. (Le bateau
+// qui y était peint en décor, drawIsoPortBoat, est parti : audit du 05/10, MORT-6.)
 //
 // Un poste = un point d'eau au pied du ponton (pierMoorings, la géométrie du port
 // tenue par la session « port et plage » : elle reste la source), exprimé dans le
@@ -14,12 +13,16 @@
 // Un poste par port : la tête du ponton (le long du fleuve, on y glisse de côté
 // sans manœuvre). Les candidats de pierMoorings sont des RÉGLAGES d'un même poste,
 // on prend le premier que l'emprise d'un pont ne bloque pas.
+//
+// Bandes 5-9 (plus de ponton au fleuve) : le poste LIBRE du terminal de commerce,
+// publié par isoTradePort (contrat portBerths) — cf. plus bas.
 
 import { CM } from '../layout.js';
-import { pierMoorings, pierSiteMoorings, pierPlan, PIER, isPierPortTile } from './isoPier.js';
+import { pierMoorings, pierSiteMoorings, pierPlan, isPierPortTile } from './isoPier.js';
+import { portBerths } from './portBerths.js';
+import './isoTradePort.js';   // son fournisseur de postes s'enregistre à l'import
 import { bridgeBlocks } from './isoBridge.js';
 import { BOAT_MODELS, fleetFor } from './boatKits.js';
-import { BOATKIT } from './boatKit.js';
 import { worldToScreen } from './projection.js';
 import { agentSetForBand, agentSpecFor, drawNamedAgentIso, AGENT_SCALE } from '../agents.js';
 import { focusMark, drawFocusRingAt, noteSceneFigure, sceneRingWidth } from '../citizenFocus.js';
@@ -59,7 +62,7 @@ function berthsOf(L, marks) {
   if (!rv || !rv.present || !rv.samples || rv.samples.length < 2 || !rv.cells) return out;
   const c = L.counts || {};
   const band = c.eraBand | 0, ei = c.eraIndex | 0;
-  const fl = BOATKIT.on ? fleetFor(band) : null;
+  const fl = fleetFor(band);
   if (!fl || !fl.trade) return out;
   const T = CM.TILE;
   // Le poste est coté pour le plus long marchand de l'époque.
@@ -102,6 +105,35 @@ function berthsOf(L, marks) {
       break;
     }
   }
+  // L'ESCALE DU TERMINAL DE COMMERCE (audit du 2026-10-05, BUG-17 et MORT-5) : son poste
+  // libre, entre les navires-décor, s'il loge le plus long marchand de l'époque. Ni
+  // ponton ni porteurs (`pier` nul : le terre-plein n'a pas de tablier) ; le marchand y
+  // vient en LONGEANT les navires-décor par le large (`approachLat`), se range de côté
+  // une fois arrêté, et s'en écarte de même avant de repartir (riverFleet) — `quay` (la
+  // tuile du terminal) et `span` (son quai, en t) disent à la scène du terminal de le
+  // peindre tant qu'il y manœuvre. Ce n'est pas un repère pour le bac et la navette :
+  // le terminal a déjà le sien (pierSiteMoorings), un second déplaçait leurs sites.
+  if (!marks) {
+    const beam = Math.max(...fl.trade.map((id) => BOAT_MODELS[id].beam / 32));
+    for (const b of portBerths(L, 'commerce')) {
+      if (b.decor || !b.out || !b.extent || !(b.maxLen >= big)) continue;
+      // Le centre de coque au pied du mur, sur le plan de l'eau (z < 0). La flotte navigue
+      // au plan du sol : (x, y, z) se peint où se peindrait (x − z, y − z, 0) (projection.js,
+      // ISO_X = 1, ISO_Y = 0,5) — le marchand se range là où se peignent les navires-décor.
+      const z = b.z || 0;
+      const vx = b.x + b.out.x * beam / 2 - z, vy = b.y + b.out.y * beam / 2 - z;
+      if (bridgeBlocks(vx * T, vy * T, (big * 0.55 + 0.3) * T)) continue;
+      const pr = projectOnRibbon(rv.samples, vx, vy);
+      const inland = projectOnRibbon(rv.samples, vx - b.out.x, vy - b.out.y);
+      if (!pr || !inland) continue;
+      const side = inland.lat < pr.lat ? -1 : 1;                 // la rive du quai
+      const span = [b.extent.x0, b.extent.x1].map((x) => projectOnRibbon(rv.samples, x - z, vy).t).sort((p, q) => p - q);
+      out.push({
+        id: b.id, x: vx, y: vy, t: pr.t, lat: pr.lat, th: Math.atan2(b.axis.y, b.axis.x), along: 'quay', side, beam: big * 0.3, pier: null, band,
+        approachLat: pr.lat - side * b.clear, quay: b.tile, span,
+      });
+    }
+  }
   return out;
 }
 
@@ -137,7 +169,7 @@ function porterAt(seed, k, t, a0, len, leg) {
 }
 export function dockPorters(berth, elapsed, seed = 0, dwell = Infinity) {
   const P = berth && berth.pier;
-  if (!P || !PIER.on || !(elapsed >= 0)) return [];
+  if (!P || !(elapsed >= 0)) return [];
   const a0 = -0.45, a1 = Math.max(a0 + 0.6, P.reach - 0.45);
   const len = a1 - a0;
   const leg = len / PORTER.speed;

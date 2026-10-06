@@ -26,7 +26,7 @@
 // La NUIT, les baies sont cuites allumées (une autre image, même géométrie).
 import { CM } from '../layout.js';
 import { worldToScreen } from './projection.js';
-import { bakeBoat, surf, rampRGB, rgbOf, noReflect, asPart, dirIndex, dirTheta, projectLocal } from './boatBake.js';
+import { bakeBoat, surf, rampRGB, rgbOf, noReflect, asPart, dirIndex, dirTheta } from './boatBake.js';
 import { snapDev } from '../blitSnap.js';
 import { vehicleBakeOpen, vehicleBakeTimed } from './vehicleBakeBudget.js';
 
@@ -85,7 +85,7 @@ function monoLivery(band) {
     windows: 'mono', doors: [-7, 7], doorW: 1.4, win: [5.3, 8.3],
   };
 }
-export function liveryFor(band) {
+function liveryFor(band) {
   const b = Math.max(5, Math.min(9, band | 0));
   return b >= 7 ? monoLivery(b) : LIVERY[b];
 }
@@ -137,7 +137,7 @@ function makeModel(ctx) {
 
 // ── Voiture de fer (B5-6) ────────────────────────────────────────────────────
 function buildIron(S, K) {
-  const { V, G, ctx, S2, BOX, glass, body, cabFront, cabRear, lo, hi } = K;
+  const { V, G, ctx, S2, BOX, glass, body, cabFront, cabRear } = K;
   const { Lh, W, hb, ht, crown } = G;
   const doors = V.doors, dw = V.doorW;
   const inDoor = (a) => doors.some((d) => Math.abs(a - d) <= dw);
@@ -179,7 +179,6 @@ function buildIron(S, K) {
   });
   // Les bouts : cabine (fanal, vitres) ou intercirculation (porte, soufflet).
   const endPaint = (cab, rear) => (a, c, h, nw) => {
-    const roofH = ht + crown * (1 - (c / W) * (c / W));
     if (h > ht) return rampRGB(V.roof, nw, 1);
     if (h < hb + 0.7) return rampRGB(DARK, nw);
     if (cab) {
@@ -197,7 +196,6 @@ function buildIron(S, K) {
     }
     // Bout d'intercirculation : une porte à vitre au centre.
     if (Math.abs(c) < 1.4) return h > 7.6 && h < 10.4 && Math.abs(c) < 0.9 ? glass(nw) : rampRGB(body, nw, 1);
-    void roofH;
     return rampRGB(body, nw);
   };
   asPart(S, 3, () => {
@@ -232,7 +230,6 @@ function buildIron(S, K) {
     }
   });
   closeCut(S, K, -W, W, 0, ht + crown);
-  void lo; void hi;
 }
 
 // ── Voiture de monorail (B7-9) ───────────────────────────────────────────────
@@ -314,7 +311,7 @@ function toCanvas(R) {
   return cv;
 }
 export const quantPitch = (tp) => Math.max(-9, Math.min(9, Math.round(tp * 20)));
-export function bakeMetroCar(spec, now = 0, force = false) {
+function bakeMetroCar(spec, now = 0, force = false) {
   const key = spec.band + '|' + spec.role + '|' + (spec.first ? 1 : 0) + '|' + spec.dir + '|' + spec.pq + '|'
     + (spec.cut ? spec.cut[0] + ':' + spec.cut[1] : '-') + '|' + (spec.night ? 1 : 0);
   let e = _cache.get(key);
@@ -333,7 +330,6 @@ export function bakeMetroCar(spec, now = 0, force = false) {
   if (_cache.size > CACHE_MAX) _cache.delete(_cache.keys().next().value);
   return e;
 }
-export function metroCarsClear() { _cache.clear(); }
 
 // Pose une voiture : (wx, wy, wz) = milieu de la voiture au niveau du rail (px monde),
 // theta = cap monde. Rend { bx, by, dw, dh, img, lamps: [{x, y, tail}] } ou null.
@@ -358,4 +354,4 @@ export function drawMetroCar(ctx, spec, wx, wy, wz, now, memo = null) {
   }
   return { bx, by, dw, dh, img: e.cv, lamps, e };
 }
-export { dirIndex, projectLocal };
+export { dirIndex };

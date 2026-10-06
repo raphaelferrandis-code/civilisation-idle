@@ -38,7 +38,7 @@ const matFor = (band) => MAT[Math.max(6, Math.min(9, band | 0))];
 
 // ── RUBANS (monde) ───────────────────────────────────────────────────────────
 let _ribFor = null, _ribs = [];
-export function highwayRibbons(H, T) {
+function highwayRibbons(H, T) {
   if (!H) return [];
   if (_ribFor === H) return _ribs;
   const out = [];
@@ -240,7 +240,7 @@ function carActors(r, ri, now, band, T, out, vis) {
 }
 
 // ── LES ACTEURS ──────────────────────────────────────────────────────────────
-export const hwyStats = { segs: 0, cars: 0 };
+const hwyStats = { segs: 0, cars: 0 };
 export function highwayActors(now, out, decay = 0) {
   hwyStats.segs = 0; hwyStats.cars = 0;
   const L = CM.layout;
@@ -350,6 +350,6 @@ export function highwayActors(now, out, decay = 0) {
   });
 }
 
-if (typeof window !== 'undefined') {
+if (import.meta.env?.DEV && typeof window !== 'undefined') {
   window.__highway = (o) => { if (o) Object.assign(HWY, o); const L = CM.layout; return { ...HWY, plan: L && L.highway ? { banks: L.highway.banks.map((b) => ({ sign: b.sign, y0: b.y0, len: b.len, s0: b.s0, s1: b.s1, ramp: b.ramp })), interchange: L.highway.interchange, ax: L.highway.ax } : null, stats: { ...hwyStats }, deck: HIGHWAY.deck }; };
 }

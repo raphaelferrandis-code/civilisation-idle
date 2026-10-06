@@ -1,6 +1,5 @@
 /* eslint-disable */
 import { state, isOfflineSim } from '../core/state.js';
-import { eras } from '../data/world.js';
 import { seededRng } from '../core/utils.js';
 import { toNum } from '../core/num.js';
 import { currentEraIndex } from '../core/mechanics.js';
@@ -45,23 +44,18 @@ import { TILE_REF, WONDER_PPT } from './spriteScale.js';
  *
  * Dépendances globales attendues au chargement :
  *   - seededRng()   (utils.js)
- *   - state, eras   (state.js, data-world.js)
+ *   - state         (state.js) ; l'ère, par currentEraIndex (mechanics.js)
  * ============================================================================ */
-
-// Bascule du placement décoratif PERSISTANT (slots, comme les moteurs) vs legacy
-// (tri positionnel re-tiré à chaque recompute). À false = ancien comportement.
-const CM_SLOTTED_DECOR = true;
 
 // ── Objet état du canvas (partagé avec citymap.js) ──────────────────────────
 const CM = {
   TILE: TILE_REF,
-  canvas: null, ctx: null, mini: null, mctx: null,
+  canvas: null, ctx: null,
   cam: { x: 0, y: 0, zoom: 1 },
   cw: 0, ch: 0, dpr: 1,
-  layout: null, layoutSig: "", layoutCoreSig: "", layoutRecomputeAt: 0, gridN: 20,
+  layout: null, layoutSig: "", layoutCoreSig: "", layoutRecomputeAt: 0,
   born: {},
   citizens: [],
-  roadList: [],
   roadSet: new Set(),
   walkRoadList: [],
   walkRoadSet: new Set(),
@@ -86,8 +80,6 @@ const CM = {
   centered: false,
   inited: false,
   // Lazy-init au besoin dans initCityMap :
-  occupied: null,
-  riverRow: -999,
   rioters: null,
   riotGoal: null,
   riotGoalAt: 0,
@@ -178,15 +170,15 @@ export const ROAD_RANKS = {
 // vivaient dans les faubourgs qu'on supprime. La nappe grise n'est donc pas un
 // problème d'ÉTALEMENT mais de REMPLISSAGE — à traiter en posant du contenu.
 // Molette : `__cityReach(0.85)` ; `__cityReach()` rend la valeur courante.
-export const CITY_REACH = { k: 1 };
-if (typeof window !== "undefined") {
+const CITY_REACH = { k: 1 };
+if (import.meta.env?.DEV && typeof window !== "undefined") {
   window.__cityReach = (v) => {
     if (v != null) CITY_REACH.k = Math.max(0.5, Math.min(1.2, +v || 1));
     if (typeof window.__cityRecompute === "function") window.__cityRecompute();
     return CITY_REACH.k;
   };
 }
-if (typeof window !== "undefined") {
+if (import.meta.env?.DEV && typeof window !== "undefined") {
   window.__roadRanks = (o) => {
     if (o && typeof o === "object") Object.assign(ROAD_RANKS, o);
     if (typeof window.__cityRecompute === "function") window.__cityRecompute();
@@ -215,7 +207,7 @@ if (typeof window !== "undefined") {
 // (urbanGroundCoversBuildings.test.js). Le curseur n'est pas borné par le goût
 // mais par ces contrats : 5/8 est le dernier cran qui les respecte, et il divise
 // déjà le groupement par deux. Ne pas le remonter sans relancer la suite.
-export const ENGINE_SPREAD = { gap: 5, reach: 8 };
+const ENGINE_SPREAD = { gap: 5, reach: 8 };
 
 // ── LA VILLE PAR ÎLOTS (docs/PLAN-ILOTS.md) ─────────────────────────────────
 // Raph 2026-10-04 : « il faut tout refaire le placement des bâtiments, là on a un
@@ -281,7 +273,7 @@ export const ILOT_MEMORY_V = 3;
 // Version à partir de laquelle la mémoire des rues d'une ville par îlots est sûre
 // (plus de sentiers du hameau à y chercher).
 const ILOT_ROADS_V = 3;
-if (typeof window !== "undefined") {
+if (import.meta.env?.DEV && typeof window !== "undefined") {
   window.__ilots = (on) => {
     if (on != null) ILOT_MODE.on = on !== false;
     if (typeof window.__cityRecompute === "function") window.__cityRecompute();
@@ -313,7 +305,7 @@ export const PLAISIRS_OPEN_ERA = 2;
 // bloc « le cœur sort de l'eau » dans computeCityLayout. 2 est le rayon mesuré
 // qui tient toujours sur la plus petite carte (N = 20, 150 graines) ; 3 bute sur
 // le bord nord dans 13 % des parties neuves.
-export const CORE_DRY_RADIUS = 2;
+const CORE_DRY_RADIUS = 2;
 
 // ── FOYER DU CAMPEMENT — validé par Raph le 2026-09-28 ──────────────────────
 // Un feu commun au cœur du camp (bande 0), avec de l'art EXISTANT : l'ancien
@@ -327,7 +319,7 @@ export const CORE_DRY_RADIUS = 2;
 // bande, vers la 11e minute, et le village n'avait plus de centre. À la bande 2,
 // la place (plazas) prend le relais.
 export const CAMP_HEARTH = { on: true, lastBand: 1 };
-if (typeof window !== "undefined") {
+if (import.meta.env?.DEV && typeof window !== "undefined") {
   // __campHearth(false) éteint ; __campHearth({ lastBand: 0 }) rejoue le feu du
   // seul campement (A/B du village).
   window.__campHearth = (on) => {
@@ -370,7 +362,7 @@ export const CAMP_LIFE = { on: true, ringK: 10, jitterK: 1.5 };
 // tente se dessine juste derrière l'autre. La diagonale horizontale reste
 // permise : deux tentes côte à côte, un demi-losange d'écart, c'est un camp.
 const CAMP_TENT_GAP = [[1, 0], [-1, 0], [0, 1], [0, -1], [1, 1], [-1, -1]];
-if (typeof window !== "undefined") {
+if (import.meta.env?.DEV && typeof window !== "undefined") {
   window.__campLife = (o) => {
     if (o === false) CAMP_LIFE.on = false;
     else if (o && typeof o === "object") { CAMP_LIFE.on = true; Object.assign(CAMP_LIFE, o); }
@@ -379,7 +371,7 @@ if (typeof window !== "undefined") {
     return { ...CAMP_LIFE };
   };
 }
-if (typeof window !== "undefined") {
+if (import.meta.env?.DEV && typeof window !== "undefined") {
   window.__engineSpread = (o) => {
     if (o && typeof o === "object") Object.assign(ENGINE_SPREAD, o);
     if (typeof window.__cityRecompute === "function") window.__cityRecompute();
@@ -406,8 +398,6 @@ function medianHalfFor(rank, eraIndex) {
 }
 
 // ── Palettes et données visuelles ────────────────────────────────────────────
-const CM_TINTS = ["#c9a84c", "#d8a24a", "#caa05a", "#d6b257", "#cf9a4a", "#d1c06a", "#b98f6a", "#cf8a5a"];
-
 // Registre des bâtiments carte → ./cityBuildings.js (données pures extraites).
 
 // Affinité à l'eau d'un bâtiment moteur : où son emprise a le droit de se poser.
@@ -621,7 +611,7 @@ export function cmCellNoise(gx, gy) {
 // monter l'amplitude ne fait que remuer un champ déjà groupé. La molette est là pour
 // ça : `__treeClump(1.3)` puis recompter groupés/isolés.
 export const TREE_CLUMP = { amp: 0 };
-if (typeof window !== "undefined") {
+if (import.meta.env?.DEV && typeof window !== "undefined") {
   window.__treeClump = (v) => {
     if (v != null) TREE_CLUMP.amp = Math.max(0, Math.min(1.9, +v || 0));
     if (typeof window.__cityRecompute === "function") window.__cityRecompute();
@@ -647,17 +637,11 @@ function cmEraFrac(index) {
 function cmEraBand(index) {
   return eraBandOf(index);
 }
-function cmEraIndexFor(s) {
-  if (typeof currentEraIndex === "function") return currentEraIndex();
-  if (typeof eras !== "undefined" && Array.isArray(eras) && eras.length > 0) {
-    let index = 0;
-    const pop = toNum(s.population) || 0;
-    for (let i = 0; i < eras.length; i += 1) {
-      if (pop >= toNum(eras[i].at)) index = i; else break; // early exit ; toNum() évite la coercion native d'un seuil Decimal (ères transcendantes)
-    }
-    return index;
-  }
-  return 0;
+// L'ère de la partie EN COURS (currentEraIndex lit l'état global) : l'état passé en
+// argument n'y change rien (cf. campHearth.test.js). Le repli qui recomptait les ères
+// sur s.population ne servait jamais — l'import est statique (audit du 2026-10-05, MORT-4).
+function cmEraIndexFor() {
+  return currentEraIndex();
 }
 
 function cmEngineTier(count) {
@@ -833,7 +817,7 @@ function cmRiverPortSpan(level) {
 // le NOMBRE d'arbres, pas leur taille — 7,6 ms avant, 7,7 à ×1, 6,4 à ×0,8.
 // Molette : __treeScale({ grainR: null }) rejoue les tailles au hasard (A/B).
 const TREE_TUNE = { h: 2.7, mulMid: 0.85, mulLate: 0.65, grainR: 1.26, grainDens: 0.8 };
-if (typeof window !== "undefined") window.__treeScale = (o = {}) => {
+if (import.meta.env?.DEV && typeof window !== "undefined") window.__treeScale = (o = {}) => {
   Object.assign(TREE_TUNE, o);
   // Le rayon et la densité se décident à la pose : on replante.
   if (("grainR" in o || "grainDens" in o) && typeof window.__cityRecompute === "function") window.__cityRecompute();
@@ -860,7 +844,7 @@ if (typeof window !== "undefined") window.__treeScale = (o = {}) => {
 // Molette : __treeLife(false) rejoue les arbres d'avant (hors camp et village,
 // dont l'emprise est plantée par la forêt quoi qu'il arrive).
 export const TREE_LIFE = { on: true, clear: 2, keep: [0.3, 0.6, 0.85], cityClear: 1 };
-if (typeof window !== "undefined") {
+if (import.meta.env?.DEV && typeof window !== "undefined") {
   window.__treeLife = (o) => {
     if (o === false) TREE_LIFE.on = false;
     else if (o && typeof o === "object") { TREE_LIFE.on = true; Object.assign(TREE_LIFE, o); }
@@ -940,10 +924,10 @@ function treeCanvasT(r, fixed) { return (r || 0.7) * TREE_TUNE.h * treeBandMul(f
 // Molette : window.__engineDensityCap.
 const CM_ENGINE_LIN = 12, CM_ENGINE_K = 2.6, CM_ENGINE_CAP = 48;
 // Plafond PROPRE aux moulins (docs/PLAN-TERROIR.md) : la halle + 14 moulins.
-export const CM_MILL_CAP = 15;
+const CM_MILL_CAP = 15;
 function cmEngineCount(n) {
   if (n <= CM_ENGINE_LIN) return n;
-  const cap = (typeof globalThis !== "undefined" && globalThis.__engineDensityCap) || CM_ENGINE_CAP;
+  const cap = (import.meta.env?.DEV && typeof globalThis !== "undefined" && globalThis.__engineDensityCap) || CM_ENGINE_CAP;
   return Math.min(cap, CM_ENGINE_LIN + Math.round(CM_ENGINE_K * (Math.sqrt(n - CM_ENGINE_LIN + 1) - 1)));
 }
 // Emprise d'un groupe. La HALLE (idx 0) garde la croissance historique — c'est le
@@ -1157,6 +1141,9 @@ function cmBaseWonderSlot(idx, gridN, cx, cy, ringTarget) {
   // Emplacement thématique propre à chaque merveille (angle/anneau dédiés),
   // avec un léger jitter seedé pour que deux parties ne soient pas identiques.
   const w = CM_WONDERS[idx] || CM_WONDERS[0];
+  // ⚠ Graine de l'état GLOBAL, pas du `s` passé à computeCityLayout (ce slot est
+  // aussi lu hors calcul, par cmWonderSlot) : un plan calculé sur un autre état
+  // (tests, aperçus) garde les emplacements de la partie en cours.
   const seed = (typeof state !== "undefined" && state && state.mapSeed) ? state.mapSeed : 0;
   const jit = seed ? (((cmHash(seed + ":wslot:" + w.id) % 100) / 100) - 0.5) * 0.5 : 0;
   const angle = (w.slot ? w.slot.angle : idx * (Math.PI * 2 / CM_WONDERS.length) - Math.PI / 2) + jit;
@@ -1578,7 +1565,6 @@ function cityCounts(s) {
   const infraDepth  = lg(toNum(s.infrastructure));
   const knowledgeDepth = lg(toNum(s.knowledge));
   const urbanTier   = cmClamp(eraBand * 1.8 + Math.max(0, infraDepth - 5) * 0.85, 0, 14);
-  const campTier    = cmClamp(popDepth - 1, 0, 3);
   const lateSurge   = Math.pow(Math.max(0, eraIndex - 12), 2.08);
   // Multiplicateur progressif : village compact (×1) → mégalopole étendue (×2.5)
   const lateScale   = 1 + Math.pow(eraFrac, 2) * 1.5;
@@ -1610,7 +1596,7 @@ function cityCounts(s) {
   // 64 achats : N 128 → 114 et le recompute chute d'autant, pour zéro perte de
   // lecture (les ateliers sont déjà là). Molette __engineHomesK.
   let engineHomes = 0;
-  const eK = (typeof globalThis !== "undefined" && globalThis.__engineHomesK) || 0.6;
+  const eK = (import.meta.env?.DEV && typeof globalThis !== "undefined" && globalThis.__engineHomesK) || 0.6;
   for (const meta of CM_MAP_BUILDINGS) {
     const lvl = Math.floor((s.buildings && s.buildings[meta.id]) || 0);
     if (lvl <= 0) continue;
@@ -1625,7 +1611,7 @@ function cityCounts(s) {
   // maisons se posent près des routes ; sans nouveaux quartiers, le placement plafonne
   // et agrandir N ne fait qu'une grille vide). Group-based (via engineHomes) → stable
   // dans un palier. Cappé pour borner le coût de routes-gen/connexion. Molette __engineQK.
-  const engineQuarters = Math.min(40, Math.round(engineHomes / ((typeof globalThis !== "undefined" && globalThis.__engineQK) || 55)));
+  const engineQuarters = Math.min(40, Math.round(engineHomes / ((import.meta.env?.DEV && typeof globalThis !== "undefined" && globalThis.__engineQK) || 55)));
   // `houses` = maisons de POPULATION (toujours affichées). engineHomes est placé
   // SÉPARÉMENT (catégorie 'enginehome') pour être révélé per-buy (cf. computeCityLayout
   // + drawTile). engineHomesRaw = total brut d'achats moteur (Σ niveaux) → sert de
@@ -1634,7 +1620,7 @@ function cityCounts(s) {
   for (const meta of CM_MAP_BUILDINGS) engineHomesRaw += Math.floor((s.buildings && s.buildings[meta.id]) || 0);
   // La Maison des Plaisirs se dresse quand ses jeux ouvrent (cf. PLAISIRS_OPEN_ERA).
   const plaisirsOpen = Math.max(eraIndex, (s && s.bestEraIndex) | 0) >= PLAISIRS_OPEN_ERA;
-  return { houses, engineHomes, engineHomesRaw, engineQuarters, infraRings, megaDistricts, civicMonuments, urbanTier, campTier, eraIndex, eraBand, eraFrac, plaisirsOpen };
+  return { houses, engineHomes, engineHomesRaw, engineQuarters, infraRings, megaDistricts, civicMonuments, urbanTier, eraIndex, eraBand, eraFrac, plaisirsOpen };
 }
 
 // ── Connexion des bâtiments au réseau ────────────────────────────────────────
@@ -1903,10 +1889,9 @@ function connectBuildingsToNetwork(o) {
   // Candidats = tuiles PAS ENCORE reliées, maintenus entre itérations (l'ancienne
   // version rescannait TOUTES les tuiles à chaque bâtiment connecté). L'ordre
   // relatif de `tiles` est préservé → mêmes ex æquo, même pick.
-  // Champ maintenu INCRÉMENTALEMENT (défaut) : 1 seule BFS complète, puis relaxFrom
-  // après chaque carve. `window.__incrConnect = false` → ancien régime (recompute
-  // complet à chaque itération) pour A/B.
-  const useIncr = !(typeof globalThis !== "undefined" && globalThis.__incrConnect === false);
+  // Champ maintenu INCRÉMENTALEMENT : 1 seule BFS complète, puis relaxFrom après
+  // chaque carve (l'ancien recompute complet à chaque itération, et sa molette
+  // d'A/B __incrConnect, sont retirés — audit 2026-10-05, DEV-3).
   let pending = tiles.filter((t) => !served(t));
   let guard = tiles.length + 8;
   // La boucle de desserte, en fonction : elle tourne une 2e fois sans les
@@ -1915,9 +1900,8 @@ function connectBuildingsToNetwork(o) {
   // Tout est déjà desservi : le champ ne serait lu par personne (planCost ne vise que
   // les tuiles non desservies, ici et dans l'estimation de la vague) — PERF-7.
   if (!pending.some((t) => !served(t))) return;
-  if (useIncr) computeField();
+  computeField();
   while (guard-- > 0 && pending.length > 0) {
-    if (!useIncr) computeField();
     let pick = null;
     const still = [];
     for (const t of pending) {
@@ -1947,7 +1931,7 @@ function connectBuildingsToNetwork(o) {
     // band 4). L'emprise tranche, et elle tranche juste.
     const foot = (pick.t.spanX || pick.t.size || 1) * (pick.t.spanY || pick.t.size || 1);
     carve(p, (pick.isEngine && foot >= ROAD_RANKS.streetFoot) ? rank : "path");
-    if (useIncr) relaxFrom(p.attach, p.path); // MAJ champ (au lieu de recompute complet)
+    relaxFrom(p.attach, p.path); // MAJ champ (au lieu de recompute complet)
     if (pick.isEngine) {
       if (waveLeft <= 0) {
         // Ouverture d'une vague : sa taille se fige sur les BÂTIMENTS manquants
@@ -1970,7 +1954,7 @@ function connectBuildingsToNetwork(o) {
       if (!b1 || b1.d !== 1) continue;
       const p1 = planPath(b1);
       carve(p1, "path");
-      if (useIncr) relaxFrom(p1.attach, p1.path);
+      relaxFrom(p1.attach, p1.path);
     }
     pending = pending.filter((t) => t !== pick.t || !served(t));
   }
@@ -2387,8 +2371,10 @@ function computeTerrePleinSegments(roadMap, N) {
 // ── Profilage DEV du layout ──────────────────────────────────────────────────
 // Activer : `globalThis.__layoutProfile = true` → chaque computeCityLayout
 // remplit `globalThis.__layoutProfileLast = { total, <phase>: ms }`. Coût nul
-// éteint (un test de booléen par marque). Chantier perf late game (REPRISE.md) :
-// le layout gelait 1,4 s (gridN 92) à 4,4 s (gridN 148) par recompute.
+// éteint (un test de booléen par marque). Chantier perf late game de juillet (sa
+// passation, à la racine, a été supprimée le 2026-07-18 ; l'état actuel est dans
+// docs/PERF-CARTE-REPRISE.md) : le layout gelait 1,4 s (gridN 92) à 4,4 s
+// (gridN 148) par recompute.
 let _lpT0 = 0, _lpLast = 0, _lpOut = null;
 const lpBegin = () => {
   _lpOut = (typeof globalThis !== "undefined" && globalThis.__layoutProfile) ? {} : null;
@@ -2444,7 +2430,7 @@ function cityGridDims(s, c, mapSeed) {
   // bute (ilotLayout.js) — au-delà d'environ 4e5 achats par type, des maisons-moteur
   // achetées ne sont plus posées (12 491 sur 16 845 à 1e6). La carte ne révèle que ce
   // qu'elle a posé (engineHomePlaced) : aucune maison fantôme, mais aucun signal non plus.
-  const NCAP = Math.floor((typeof globalThis !== "undefined" && globalThis.__nCapOverride) || 360);
+  const NCAP = Math.floor((import.meta.env?.DEV && typeof globalThis !== "undefined" && globalThis.__nCapOverride) || 360);
   while (N * N * packFactor < total + enginePressure * 1.35 + 10 + c.megaDistricts * 18 && N < NCAP) N += 2;
   // LA GRILLE NE RÉTRÉCIT JAMAIS (mémoire des rues) : rues, slots et sites sont
   // relatifs au centre de grille ; une grille qui reculerait (population qui baisse,
@@ -2691,7 +2677,7 @@ function computeCityLayout(s) {
     // LA RÈGLE : hors de la ville, avec de la marge. `reachMul` multiplie le
     // contour urbain nominal, `gap` ajoute des tuiles franches par dessus.
     // Molette : `globalThis.__plaisirsFar = 1.6` puis `__cityRecompute()`.
-    reachMul: (typeof globalThis !== "undefined" && globalThis.__plaisirsFar) || 1.35,
+    reachMul: (import.meta.env?.DEV && typeof globalThis !== "undefined" && globalThis.__plaisirsFar) || 1.35,
     gap: 12,        // tuiles franches au delà du contour (dont 3,25 de demi-sprite)
     // ⚠ LA MARCHE PART DU CENTRE, PAS D'UN PLANCHER EN FRACTION DE GRILLE. Un
     // `uMin` de 0,545 avait l'air anodin — il vaut 0,16 N, soit 49 tuiles à
@@ -2899,7 +2885,7 @@ function computeCityLayout(s) {
   //   - Un cœur déjà au sec ne bouge pas d'un pixel.
   // Molette (A/B) : `globalThis.__coreDryRadius = -1` coupe le déplacement,
   // puis `__cityRecompute()`.
-  const coreDryR = (typeof globalThis !== "undefined" && Number.isFinite(globalThis.__coreDryRadius))
+  const coreDryR = (import.meta.env?.DEV && typeof globalThis !== "undefined" && Number.isFinite(globalThis.__coreDryRadius))
     ? globalThis.__coreDryRadius : CORE_DRY_RADIUS;
   if (coreDryR >= 0) {
     const R = coreDryR;
@@ -4309,7 +4295,6 @@ function computeCityLayout(s) {
     // Camp : les tentes se posent autour du feu (cf. CAMP_LIFE).
     campRing: campLife ? { x: hearthCell.gx + 0.5, y: hearthCell.gy + 0.5, ringK: CAMP_LIFE.ringK, jitterK: CAMP_LIFE.jitterK } : null
   });
-  const pushTile = (t) => tiles.push(t);
   // Multiplicateurs de personnalité : une cité agricole a plus de champs,
   // une cité savante plus de lieux de savoir... (bornés par les caps d'ère)
   const biasedCount = (n, mul) => Math.max(0, Math.round(n * (mul || 1)));
@@ -4473,7 +4458,7 @@ function computeCityLayout(s) {
   // clés dans un Float64Array + argsort d'indices, jitter par hash entier —
   // pas d'objets temporaires ni de hash de chaîne par cellule.
   const engineCandidates = (zone, affinity, size, id, index = 0, total = 1,
-    limit = ((typeof globalThis !== "undefined" && globalThis.__engineTopK) || 1024)) => {
+    limit = ((import.meta.env?.DEV && typeof globalThis !== "undefined" && globalThis.__engineTopK) || 1024)) => {
     const _t0 = (typeof globalThis !== "undefined" && globalThis.__layoutProfile) ? performance.now() : 0;
     const waterAffine = cmWaterAffine(affinity);
     const idHash = cmHash(id + ":" + index) >>> 0;
@@ -4491,7 +4476,7 @@ function computeCityLayout(s) {
     // Bascule d'équivalence (A/B) : `globalThis.__engineGeoCache = false` rejoue le
     // scoring d'origine, cellule par cellule. Sert à prouver que le cache produit
     // une ville IDENTIQUE, pas seulement plus vite.
-    const legacy = (typeof globalThis !== "undefined" && globalThis.__engineGeoCache === false);
+    const legacy = (import.meta.env?.DEV && typeof globalThis !== "undefined" && globalThis.__engineGeoCache === false);
     if (legacy) {
       base = engineBaseFor(zone, affinity, size);
       const half = size / 2;
@@ -4551,7 +4536,7 @@ function computeCityLayout(s) {
     }
     // Compteurs de diagnostic (uniquement sous __layoutProfile) : appels, cellules
     // scorées, et répartition score/sélection. Sans eux on optimise à l'aveugle.
-    const _dbg = (typeof globalThis !== "undefined" && globalThis.__layoutProfile) ? globalThis.__engCand : null;
+    const _dbg = (import.meta.env?.DEV && typeof globalThis !== "undefined" && globalThis.__layoutProfile) ? globalThis.__engCand : null;
     if (_dbg) { _dbg.calls += 1; _dbg.cells += n; _dbg.scoreMs += performance.now() - _t0; }
     const _t1 = _dbg ? performance.now() : 0;
     // Sélection top-K (tas max) : on n'a besoin que des ~meilleures cellules,
@@ -5278,7 +5263,6 @@ function computeCityLayout(s) {
     return true;
   };
   const placeDecor = (category, count) => {
-    if (!CM_SLOTTED_DECOR) { placer.placeCategory(category, count, usedKeys, pushTile); return; }
     placeCategorySlotted(category, count, {
       // Mode îlots : les lots de bord, îlot par îlot, en rangée (ilotLayout.js).
       ordered: ilot ? ilot.lots : placer.orderedList(category),
@@ -5835,10 +5819,6 @@ function computeCityLayout(s) {
     return out;
   })();
   lp("median");
-  const engineTileMap = new Map(
-    tiles.filter((t) => t.type === "engine" && t.buildingId)
-         .map((t) => [t.gx + "," + t.gy, t])
-  );
   // ── Zone urbaine = SOL de la ville (distinct du réseau de rues) ───────────
   // Frontière organique de la cité (organicLimit, petite marge pour englober les
   // rues/bâtis de lisière) ∪ emprises bâties, hors fleuve. PAS le roadSet complet :
@@ -5953,7 +5933,7 @@ function computeCityLayout(s) {
     campHearth: hearthCell,
     gridN: N, cx, cy, tiles, urbanSet,
     roads: roadGraph.roads, roadSet: roadGraph.roadSet, roadMap: roadGraph.roadMap, roadMeta,
-    districts, trees, critters, maxD2, counts: c, roadCover: netCover, roadWorksInfo, median, roadMedian, terrePlein, river, water, engineTileMap, wonderSlots, wonderGround, wonderTiers, wonderPaveR, townGreen: (townOn || ilot) ? townGreen : null, ilotAir: ilot ? ilot.air : null,
+    districts, trees, critters, maxD2, counts: c, roadCover: netCover, roadWorksInfo, median, roadMedian, terrePlein, river, water, wonderSlots, wonderGround, wonderTiers, wonderPaveR, townGreen: (townOn || ilot) ? townGreen : null, ilotAir: ilot ? ilot.air : null,
     // Les deux ports du XIXe (docs/PLAN-PORTS.md) : le bassin du Vieux-Port
     // { gx, gy, w, h } et le terre-plein de commerce { x0, len, side, depth, edge }.
     ports: (oldBasin || tradePort) ? { old: oldBasin, trade: tradePort } : null,
@@ -5984,7 +5964,7 @@ function computeCityLayout(s) {
 // repassent par le relevé léger. Molette (A/B) : `__vestigeFull = true` force le
 // recalcul complet.
 function lightVestigeFrame(s) {
-  if (typeof globalThis !== "undefined" && globalThis.__vestigeFull) return null;
+  if (import.meta.env?.DEV && typeof globalThis !== "undefined" && globalThis.__vestigeFull) return null;
   const mapSeed = ensureMapSeed(s);
   const fix = s.cityCore;
   if (!fix || fix.seed !== (mapSeed >>> 0) || !Array.isArray(s.riverWP) || s.riverWP.length !== 6) return null;
@@ -6037,11 +6017,8 @@ setCaptureVestigeHandler(captureVestige);
 
 export {
   CM,
-  CM_INFRA_IDS,
-  CM_KNOWLEDGE_IDS,
   CM_MAP_BUILDINGS,
   CM_ROLES,
-  CM_TINTS,
   CM_WONDERS,
   ROAD_E,
   ROAD_N,
@@ -6061,14 +6038,12 @@ export {
   applyRoadWidenings,
   cmEngineAtelierFoot,
   cmHash,
-  cmIsBridgeRoad,
   cmIsWalkableRoad,
   cmDeName,
   cmPick,
   cmResidenceName,
   cmRoadName,
   cmWonderSlot,
-  cmWonderActive,
   cmWonderActiveIds,
   cmWonderExtent,
   cmWonderSpriteDims,
@@ -6083,6 +6058,5 @@ export {
   treeRadius,
   treeDensK,
   computeCityLayout,
-  computeMedianSegments,
   computeTerrePleinSegments
 };

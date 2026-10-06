@@ -165,7 +165,6 @@
     min-height: 0;
     padding: 0.45rem 0.5rem 0.5rem 0.45rem;
     border: 0;
-    border-radius: 0;
     background: rgba(255, 255, 255, 0.025);
   }
   :root:not([data-pointer="coarse"]) .app[data-active-view="city"] .city-shop-dock .purchase-row:hover {

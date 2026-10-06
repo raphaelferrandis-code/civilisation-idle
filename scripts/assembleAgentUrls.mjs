@@ -10,6 +10,7 @@ import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import { PNG } from 'pngjs';
+import { fetchAnimFrames, assembleStrip, inkRows } from './lib/pixellab.mjs';
 
 const OUT_ARG = process.argv.find((a) => a.startsWith('--out='));
 const [, , NAME, CHAR_ID, SE, SW, NE, NW] = process.argv.filter((a) => !a.startsWith('--'));
@@ -19,7 +20,6 @@ if (!NAME || !CHAR_ID || !SE || !SW || !NE || !NW) {
 }
 const OUT = OUT_ARG ? OUT_ARG.slice(6) : 'public/pixelart/agents/inhabitants';
 const BACKUP = path.join(os.tmpdir(), 'civ-agents-backup');
-const BASE = 'https://backblaze.pixellab.ai/file/pixellab-characters/f1f2e80b-b12d-4940-a5a9-e76f8558b9e0';
 const DIRS = [['south-east', SE], ['south-west', SW], ['north-east', NE], ['north-west', NW]];
 const FRAMES = 6;
 
@@ -28,20 +28,9 @@ for (const [d, animId] of DIRS) {
   const fname = `${NAME}-${d.replace('-', '')}.png`;
   const dst = path.join(OUT, fname);
   if (fs.existsSync(dst) && !fs.existsSync(path.join(BACKUP, fname))) fs.copyFileSync(dst, path.join(BACKUP, fname));
-  const imgs = [];
-  for (let n = 0; n < FRAMES; n += 1) {
-    const url = `${BASE}/${CHAR_ID}/animations/${animId}/${d}/${n}.png`;
-    const r = await fetch(url);
-    if (!r.ok) throw new Error(`HTTP ${r.status} sur ${url}`);
-    imgs.push(PNG.sync.read(Buffer.from(await r.arrayBuffer())));
-  }
-  const fw = imgs[0].width, fh = imgs[0].height;
-  const strip = new PNG({ width: fw * FRAMES, height: fh });
-  for (let i = 0; i < FRAMES; i += 1) PNG.bitblt(imgs[i], strip, 0, 0, fw, fh, i * fw, 0);
+  const imgs = await fetchAnimFrames(CHAR_ID, animId, d, FRAMES);
+  const strip = assembleStrip(imgs);
   fs.writeFileSync(dst, PNG.sync.write(strip));
-  let top = -1, bot = -1;
-  for (let y = 0; y < fh; y++) for (let x = 0; x < fw; x++) {
-    if (imgs[0].data[(y * fw + x) * 4 + 3] > 16) { if (top < 0) top = y; bot = y; break; }
-  }
-  console.log(`bande ${fname} ${fw * FRAMES}×${fh} — perso ${bot - top + 1}px/${fh} (ratio ${((bot - top + 1) / fh).toFixed(2)})`);
+  const fh = imgs[0].height, { h } = inkRows(imgs[0]);
+  console.log(`bande ${fname} ${strip.width}×${fh} — perso ${h}px/${fh} (ratio ${(h / fh).toFixed(2)})`);
 }

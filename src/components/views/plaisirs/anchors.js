@@ -41,10 +41,10 @@ export const PLAISIRS_SPOTS = [
   { id: "machines", kind: "slots",    label: { fr: "Les machines", en: "Slot machines" } },
   // Le nom suit celui de l'ONGLET (« Boutique » / « Shop ») : c'est la même destination.
   { id: "boutique", view: "tech",     label: { fr: "La boutique", en: "The shop" } },
-  // LES LIEUX QU'ON REGARDE : ni jeu ni vue, mais la coupe les dessine et ils
-  // vivent (la troupe danse sur la scène, les ombres bougent derrière la tenture
-  // du boudoir). Les choisir fait défiler la coupe jusqu'à eux, sans bouton
-  // d'action (`spotIsVisit`).
+  // LE LIEU QU'ON REGARDE : ni jeu ni vue, mais la coupe le dessine et il vit (la
+  // troupe danse sur la scène). Le choisir fait défiler la coupe jusqu'à lui, sans
+  // bouton d'action (`spotIsVisit`). (Le boudoir en était aussi, avant de devenir
+  // la roulette sans plafond, ci-dessous.)
   { id: "scene",   kind: null,        label: { fr: "La scène", en: "The stage" } },
   // LE BOUDOIR est le SALON PRIVÉ (Raph, 2026-10-04 : « salon privé sans limite ») : la
   // roulette sans plafond de mise, au titre de Mécène (spotRankLock). Même `id` que sa
@@ -70,9 +70,6 @@ export const spotNom = (spot) => (spot ? tr(spot.label) : "");
 // (Jeter, Gratter, Jouer, Voler) : le joueur les connaît déjà, en inventer de
 // nouveaux lui ferait réapprendre ce qu'il sait.
 //
-// Table à part plutôt qu'un champ de plus par lieu : les coordonnées se
-// recalibrent souvent, et mêler du texte à des nombres qu'on édite à la main
-// est le meilleur moyen d'en casser un.
 // Bilingue comme les noms (I18N-5) : l'anglais reprend les boutons des tables
 // (« Cast », « Pull », « Challenge »…).
 export const SPOT_VERBES = {
@@ -159,10 +156,12 @@ export function spotNightLock(spot) {
 }
 
 // CE QUE LA COUPE MONTRE OUVERT (2026-10-04) : les lieux ACQUIS, sans ce que la Nuit
-// du Grand Jeu ouvre pour vingt minutes. La coupe se recuit à chaque changement de
-// cette liste, et une cuisson fige la page plusieurs secondes : la Nuit n'en
-// déclenche aucune (le menu, lui, suit spotIsOpen et ouvre bien ses portes). Les
-// courses et le flambeur n'ont pas de salle : jamais dans la liste.
+// du Grand Jeu ouvre pour vingt minutes (le menu, lui, suit spotIsOpen et ouvre bien
+// ses portes). Les courses et le flambeur n'ont pas de salle : jamais dans la liste.
+// (Le choix venait du coût de la cuisson, qui recuisait la coupe à chaque changement
+// de cette liste. Depuis l'audit du 05/10 — PERF-30, PERF-38 — la cuisson ne dépend
+// plus que de l'âge et tourne dans un Worker : la liste ne fait que trier les figures,
+// cf. figuresOuvertes dans salleBake.js. La règle est gardée telle quelle.)
 export function spotOuvertSalle(spot) {
   if (!spot) return false;
   if (spot.kind === "courses" || spot.kind === "duel") return false;

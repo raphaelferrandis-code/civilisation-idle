@@ -6,7 +6,7 @@
 // Règle d'arbitrage : LA PARTIE LA PLUS AVANCÉE GAGNE. Le juge est l'horloge à
 // vie chronicleStats.lifetimePlaySec (éternelle : elle survit au Grand Reset et
 // ne peut que croître) ; à égalité, le save le plus récent (lastTick, horodaté
-// par save()). On ne compare PAS les timestamps seuls : un poste resté hors
+// par la boucle de tick depuis M16, pas par save()). On ne compare PAS les timestamps seuls : un poste resté hors
 // ligne avec une vieille partie mais ouvert en dernier écraserait des heures de
 // progression — l'horloge à vie, elle, ne ment jamais.
 //

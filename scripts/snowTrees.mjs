@@ -1,5 +1,5 @@
 // snowTrees.mjs — VERSION D'HIVER des sprites de végétation iso.
-//   public/pixelart/iso/{famille d'arbres, tree-4, bush-1..6}.png → …-winter.png
+//   public/pixelart/iso/{famille d'arbres, tree-4}.png → …-winter.png
 //   Lancer :  node scripts/snowTrees.mjs            (--dry pour ne rien écrire)
 //
 // POURQUOI DÉRIVER AU LIEU DE GÉNÉRER
@@ -28,10 +28,9 @@ const DIR = 'public/pixelart/iso';
 // La FAMILLE D'ARBRES (docs/PLAN-VEGETATION.md, lot 1) est lue dans son manifeste :
 // tout arbre posé par installVegetation.mjs reçoit son hiver ici.
 const FAMILY = JSON.parse(fs.readFileSync('scripts/data/vegetation-trees.json', 'utf8')).trees.map((t) => t.name);
-const SPRITES = [...new Set([
-  ...FAMILY, 'tree-4',
-  'bush-1', 'bush-2', 'bush-3', 'bush-4', 'bush-5', 'bush-6',
-])];
+// (Les buissons bush-1..6 n'en sont plus depuis le 2026-10-06 : rendu retiré, PNG
+// rangés dans art/references-ab/buissons-cainos/.)
+const SPRITES = [...new Set([...FAMILY, 'tree-4'])];
 
 // Rampe de neige — tons DOMINANTS mesurés sur iso-grass-winter-1..4 (1772 / 428 /
 // 217 pixels). Ne pas « améliorer » ces valeurs à l'œil : c'est leur identité

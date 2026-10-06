@@ -94,7 +94,7 @@ et moisson** : dès qu'on demande une récompense, la gravité y ramène. Le dia
 confirmé par la donnée, et pas seulement par l'intuition.
 
 Les 130 pistes sont archivées dans
-[REFONTE-MYTHES-annexe-idees.md](REFONTE-MYTHES-annexe-idees.md), avec les notes et les
+[archive/REFONTE-MYTHES-annexe-idees.md](archive/REFONTE-MYTHES-annexe-idees.md), avec les notes et les
 critiques des jurys. Elles ont été produites **avant** les décisions du §3, donc beaucoup
 visent encore des multiplicateurs. À lire comme un gisement, pas comme une recommandation.
 
@@ -584,7 +584,7 @@ récompenses interchangeables.
 ## 7. Où sont les choses
 
 - Ce document : `docs/REFONTE-MYTHES.md`
-- Les 130 pistes brutes avec notes et critiques : `docs/REFONTE-MYTHES-annexe-idees.md`
+- Les 130 pistes brutes avec notes et critiques : `docs/archive/REFONTE-MYTHES-annexe-idees.md`
 - Données des Mythes : `src/game/data/myths.js`, `src/game/data/activeRuins.js`
 - Logique : `src/game/core/actions/myths.js`, `src/game/core/actions/crisis.js`
 - Effets : `src/game/core/mechanics/production/mythEffects.js`, `src/game/core/mechanics/prestige.js`

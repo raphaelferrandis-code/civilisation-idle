@@ -8,8 +8,9 @@
 //
 // Remplace, à TOUTES les bandes, la scène d'avant (cityEngineSprites, bloc
 // `water_mills` : tour PixelLab + croix vue de face tournée dans le plan de
-// l'écran) — un moulin par ère, cf. millBake.js. Molette :
-// __millTune({ on, band, period }).
+// l'écran, retiré à l'audit du 05/10 — MORT-2) — un moulin par ère, cf.
+// millBake.js. Molette : __millTune({ on, band, period }) ; `on: false` ne dessine
+// plus rien (la scène d'avant n'existe plus).
 import { CM, cmHash } from '../layout.js';
 import { worldToScreen } from './projection.js';
 import { wonderKitForBand } from './wonderKits.js';
@@ -22,7 +23,7 @@ import { lightCtx, lightCutImage } from '../lightLayer.js';
 import { HOVER_GOLD } from './isoPalette.js';
 import { bakeBudgetOk, bakeTimed } from './bakeBudget.js';
 
-export const millTune = { on: true, band: null, period: 1700 };   // ms par quart de tour
+const millTune = { on: true, band: null, period: 1700 };   // ms par quart de tour
 
 function rasterCanvas(R) {
   const cv = document.createElement('canvas');
@@ -109,7 +110,7 @@ function place(o, R, z) {
 }
 
 // Dessine le moulin de la tuile `t` ; rend la boîte d'encre écran (survol) ou
-// false (molette coupée → la scène d'avant prend le relais).
+// false (molette coupée, ou hors navigateur).
 export function drawIsoMill(ctx, t, now) {
   if (!millTune.on || typeof document === 'undefined') return false;
   const L = CM.layout;
@@ -167,6 +168,6 @@ export function drawIsoMill(ctx, t, now) {
   return { dx: x0, dy: y0, dw: x1 - x0, dh: y1 - y0 };
 }
 
-if (typeof window !== 'undefined') {
+if (import.meta.env?.DEV && typeof window !== 'undefined') {
   window.__millTune = (o) => { if (o) Object.assign(millTune, o); _bakes.clear(); _shown = null; return { ...millTune }; };
 }

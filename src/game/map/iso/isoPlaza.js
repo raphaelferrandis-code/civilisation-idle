@@ -30,10 +30,10 @@
 //
 //   COMMENT ITÉRER (molette console, cf. docs/PLACES-ISO-COMPOSEES.md) :
 //     __plaza()                        → l'état courant
-//     __plaza({ mode:'scene' })        → revient à l'ancien PNG (A/B immédiat)
+//     __plaza({ mode:'off' })          → pas de mobilier (la dalle seule)
 //     __plaza({ propScale: 1.3 })      → tout le mobilier ×1,3
 //     __plaza({ hT:{ bench:0.6 } })    → un seul prop
-//     __plaza({ density: 0.5 })        → moitié moins garni
+//     __plaza({ benchPerSide: 1 })     → moins garni (plafond de bancs par côté)
 //     __plaza({ grid: true })          → rôles des cellules + empreintes
 //     __plaza({ ruler: true })         → étalon de taille posé sur la place
 //     __plaza({ only: 'bench' })       → n'affiche qu'un prop (jugement d'art)
@@ -68,6 +68,9 @@ import { queueFlameGlow, FLAME_COL } from '../flameGlow.js';
 import { drawSunShadow } from './isoSunShadow.js';
 import { stallVideProp, STALLS_VIDES } from './isoFamine.js';
 import { streetKitLampArt } from './streetKits.js';
+import { isoArt, inkBox, onIsoArtReady } from './isoArt.js';
+import { fmix32 } from '../hash.js';
+import { mkCanvas } from '../pixelUtil.js';
 
 // ── ÉCHELLE DE RÉFÉRENCE ────────────────────────────────────────────────────
 // Unité : hT = HAUTEUR ÉCRAN du sprite en tuiles (1 tuile = TILE × zoom px).
@@ -109,19 +112,20 @@ const personHT = () => ADULT_SCALE * AGENT_SCALE;
 // serait figée avant le premier réglage de molette). `hT` reste accepté pour ce
 // qui n'est PAS à l'échelle du corps.
 const personF = (f) => personHT() * f;
-// ACCENTS VERTICAUX : un mât, une statue, un obélisque sont FAITS pour dépasser
+// ACCENTS VERTICAUX : une statue, un arbre, un kiosque sont FAITS pour dépasser
 // — ils ponctuent la place et se voient de loin. Tout le reste est du MOBILIER
 // et doit rester sous la demi-maison (c'est le défaut qu'on répare : un banc
 // aussi large qu'une maison). Le test isoPlaza.test.js applique les deux
 // plafonds séparément ; ajouter un prop haut sans l'inscrire ici le fera tomber.
-const TALL_PROPS = new Set(['flag', 'statue', 'obelisk', 'tree', 'fountain-forum', 'bandstand',
+// (`flag` et `obelisk` en sont sortis le 2026-10-06 : aucune recette ne les pose.)
+const TALL_PROPS = new Set(['statue', 'tree', 'fountain-forum', 'bandstand',
   'stall-red', 'stall-ochre', 'stall-blue', 'stall-green', 'stall-yellow', 'stall-cyan', 'stall-magenta', 'stall-amber']);
 
 // ── MOLETTE DE RÉGLAGE ──────────────────────────────────────────────────────
 // `rev` s'incrémente à chaque réglage : la composition mémoïsée se reconstruit
 // sans avoir à recharger la page.
 const PLAZA_TUNE = {
-  mode: 'kit',        // 'kit' (composée) | 'scene' (ancien PNG) | 'off'
+  mode: 'kit',        // 'kit' (composée) | 'off' — l'ancien PNG unique ('scene') est retiré
   propScale: 1,       // multiplie TOUTES les hauteurs
   // Géométrie de la composition (cf. § COMPOSITION) — tout en CELLULES.
   // PLAFOND de bancs par côté. `null` = suivre la recette de l'ère (6 au forum
@@ -142,7 +146,9 @@ const PLAZA_TUNE = {
   pairTight: 0.95,    // serrage du duo de bancs, en largeurs de banc
   benchInset: 0.62,   // distance du bord de la place au pied du banc
   cornerKeep: 1.0,    // dégagement gardé à chaque coin (les lampadaires y sont)
-  sideGap: 0.68,      // écart banc ↔ compagnon le long du bord
+  // (`sideGap` et `sideDir`, écart et sens du compagnon, sont partis le 2026-10-06 :
+  //  plus rien ne les lisait depuis que les bacs se logent dans les INTERVALLES entre
+  //  duos, à l'écart `mate` calculé sur les largeurs — cf. § COMPOSITION.)
   // Arbres sur la place — PLAFOND DUR, au-dessus de la recette comme de l'emprise.
   // Relevé de 2 à 4 avec la densification du 2026-08-03 : le square moderne veut
   // son jardin, et le laisser à 2 aurait rendu ce plafond MENTEUR — la recette le
@@ -166,11 +172,6 @@ const PLAZA_TUNE = {
   // l'air posées sur la pierre. Sur une ellipse vue en iso, la moitié basse EST
   // l'arc avant — d'où 0.5. À 0, la margelle repasse entièrement derrière.
   grateFrontF: 0.5,
-  // Sens du compagnon le long du bord. 'in' = vers le MILIEU du côté (défaut) :
-  // poussés vers l'extérieur ('out'), les compagnons de deux côtés adjacents se
-  // retrouvent au même point à l'écran dans le coin — c'est le chevauchement
-  // signalé le 2026-07-29, et le filet les supprimait un sur deux.
-  sideDir: 'in',
   sideOn: true,       // un buisson ou un pot à côté de chaque banc
   jitter: 0,          // désordre (0 = composition strictement symétrique)
   coreR: 1.15,        // rayon (cellules) autour du centre où rien ne se pose
@@ -191,7 +192,7 @@ const PLAZA_TUNE = {
   placeholders: true, // gabarit plat quand aucun art n'existe pour le prop
   rev: 0,
 };
-if (typeof window !== 'undefined') {
+if (import.meta.env?.DEV && typeof window !== 'undefined') {
   window.__plaza = (o) => {
     if (o) { Object.assign(PLAZA_TUNE, o); PLAZA_TUNE.rev += 1; }
     return { ...PLAZA_TUNE };
@@ -207,22 +208,9 @@ if (typeof window !== 'undefined') {
 // Les deux kits existaient ; seule la table était inversée.
 export const plazaEraForBand = (band) => (band >= 7 ? 'cosmic' : band >= 6 ? 'modern'
   : band >= 5 ? 'industrial' : band >= 4 ? 'antique' : band >= 2 ? 'medieval' : null);
-// Ère iso → grappe du kit top-down legacy (repli d'art tant que l'iso manque).
-// ⚠ DEUX TABLES ONT VÉCU ICI — `LEGACY_ERA` (nom d'ère iso → nom du kit top-down :
-// medieval → classique, cosmic → futuriste…) et `LEGACY_PROP` (nom d'objet iso → nom
-// du kit, `null` = pas d'équivalent). Elles pilotaient le repli de `propImage` sur
-// /pixelart/plazas/. Retirées le 2026-08-23 avec le kit lui-même (Q3).
-//
-// Ce n'était pas une nouvelle décision : la table s'était déjà vidée d'elle-même,
-// prop par prop, et chaque `null` portait sa raison écrite. Le BAC y est passé le
-// 2026-08-07 — posé sans variante, il ne trouvait pas d'iso et sortait DE FACE au
-// milieu d'une place en 3/4, sans que rien ne casse. Le PUITS ensuite : son repli
-// sur la fontaine aurait banalisé la pièce maîtresse de la place à travers toute la
-// ville, en silence. À chaque fois la même conclusion, écrite noir sur blanc :
-// **on préfère l'échec bruyant**, parce qu'un gabarit gris se voit tout de suite.
-// Ne restaient vivants que `bench` et `fountain` ; le reste (`bush`, `flag`,
-// `amphora`) n'est émis par aucune recette. Il n'y avait plus de repli à garder,
-// seulement un piège à retirer.
+// (Les tables `LEGACY_ERA` / `LEGACY_PROP` du repli sur le kit top-down ont été
+//  retirées avec lui le 2026-08-23 — Q3 de docs/PLAN-SUPPRESSION-LEGACY.md, et
+//  l'en-tête de ce fichier : on préfère l'échec bruyant.)
 // ── RECETTES PAR ÈRE ────────────────────────────────────────────────────────
 // C'est ICI qu'on travaille. La COMPOSITION est fixée (voir plus bas) et voulue
 // par Raph : fontaine au milieu, des bancs par côté tournés vers le centre, un
@@ -623,7 +611,7 @@ const ANIM_MS = { brazier: 110, well: 140 };
 function propAnim(prop, era) {
   if (!ANIM_PROPS.has(prop)) return null;
   if (ANIM_ERAS[prop] && !ANIM_ERAS[prop].has(era)) return null;
-  const e = art('/pixelart/iso/plaza/anim/' + prop + '-' + era + '.png');
+  const e = isoArt('plaza/anim/' + prop + '-' + era);
   if (!e.ready) return null;
   const w = e.img.naturalWidth | 0, h = e.img.naturalHeight | 0;
   const n = h > 0 ? Math.max(1, Math.round(w / h)) : 1;
@@ -653,12 +641,7 @@ function plazaTreeCount(w, h) {
 // ⚠ cmHash est un FNV-1a SIGNÉ dont le BIT FAIBLE n'est que la parité de
 // l'entrée : `cmHash(k) & 1` sur des coordonnées donne un DAMIER, pas un
 // tirage. On rebrasse donc systématiquement (fmix32) avant tout usage, et on
-// ne consomme jamais les bits bruts.
-function fmix32(h) {
-  h ^= h >>> 16; h = Math.imul(h, 0x85ebca6b);
-  h ^= h >>> 13; h = Math.imul(h, 0xc2b2ae35);
-  h ^= h >>> 16; return h >>> 0;
-}
+// ne consomme jamais les bits bruts. (fmix32 : la variante partagée, ../hash.js.)
 const h01 = (k) => fmix32(cmHash(k) >>> 0) / 4294967296;
 
 // ── LES BOÎTES DES PLACES ───────────────────────────────────────────────────
@@ -712,8 +695,8 @@ export function isoPlazaBoxes(L) {
   _boxCache = { at: CM.layoutRecomputeAt, boxes };
   return boxes;
 }
-// La PLUS GRANDE — c'est la place centrale. Gardée pour le mode 'scene', qui
-// n'a jamais su afficher qu'une seule place.
+// La PLUS GRANDE — c'est la place centrale (la collecte du peintre s'en sert de
+// garde : sans place centrale, pas de place du tout).
 export function isoPlazaBox(L) {
   const b = isoPlazaBoxes(L);
   return b.length ? b[0] : null;
@@ -745,8 +728,10 @@ export function isoPlazaCells(L, box) {
 // c'est l'encre mesurée du PNG qui commande) mais au filet anti-chevauchement et
 // au gabarit : il faut connaître l'encombrement AVANT que l'image soit décodée.
 const PROP_ASPECT = {
-  bench: 1.6, planter: 1.4, bush: 1.1, amphora: 0.8, fountain: 1.2,
-  flag: 0.5, statue: 0.6, stall: 1.5, bollard: 0.5, obelisk: 0.4, tree: TREE_ASPECT,
+  // (bush, amphora, flag, bollard, obelisk : retirés le 2026-10-06, aucune recette ne
+  //  les émet — ni les places, ni le trottoir, ni les oiseaux.)
+  bench: 1.6, planter: 1.4, fountain: 1.2,
+  statue: 0.6, stall: 1.5, tree: TREE_ASPECT,
   bin: 0.75,                            // corbeille : plus haute que large
   grate: 2.0,                           // large et plate : elle cercle le tronc
   well: 0.9,                            // puits de quartier : un peu plus haut que large
@@ -800,7 +785,7 @@ export const lampFootprint = (gxf, gyf) => ({
 //
 // Le hasard ne sert plus qu'à CHOISIR quel compagnon (buisson ou pot) accompagne
 // quel banc. La géométrie, elle, est symétrique et se règle par la molette
-// (benchPerSide, benchInset, benchSpread, sideGap).
+// (benchPerSide, benchInset, pairTight, cornerKeep, minGap).
 //
 // Les positions sont en CELLULES fractionnaires ; `wx, wy` en px monde = le
 // point où le prop TOUCHE LE SOL. Mémoïsé par (layout, ère, réglages).
@@ -838,9 +823,8 @@ function composeOne(L, era, box) {
   // ÉCRAN plus haut) — la même que celle du mobilier de trottoir, une seule
   // implémentation pour un seul art.
   const placed = [];
-  const foot = (gxf, gyf, prop, hT) => propFootprint(gxf, gyf, prop, hT);
   const fits = (gxf, gyf, prop, hT) => {
-    const f = foot(gxf, gyf, prop, hT);
+    const f = propFootprint(gxf, gyf, prop, hT);
     for (const o of placed) if (footClash(f, o, PLAZA_TUNE.minGap)) return false;
     placed.push(f);
     return true;
@@ -849,7 +833,7 @@ function composeOne(L, era, box) {
   // maîtresse) ne demande pas la permission au filet, il s'impose et le reste
   // s'écarte. Sans ça, un centre pourrait être refusé et la place resterait
   // vide en son milieu.
-  const reserve = (gxf, gyf, prop, hT) => { placed.push(foot(gxf, gyf, prop, hT)); };
+  const reserve = (gxf, gyf, prop, hT) => { placed.push(propFootprint(gxf, gyf, prop, hT)); };
 
   const add = (prop, variant, gxf, gyf, hT, extra) => {
     if (!fits(gxf, gyf, prop, hT)) return false;
@@ -996,11 +980,10 @@ function composeOne(L, era, box) {
   // plus comme une paire (attrapé par le test du « banc jumeau »). Un bac étant
   // bien plus étroit qu'un banc, la demi-somme des largeurs seule ne suffit pas.
   const mate = Math.max((wBench + wMate) * 0.5 * PLAZA_TUNE.minGap, minStep * 0.6, duo * 1.2);
-  // Empreinte d'un DUO seul le long du bord. Les bacs, eux, ne font pas partie
-  // du groupe : ils se logent dans les INTERVALLES (les deux bouts, et entre
-  // deux duos). C'est ce qui permet de tenir deux duos là où deux groupes
-  // « bac + duo + bac » ne tenaient pas.
-  const spanFor = () => duo;
+  // L'empreinte d'un groupe le long du bord est celle du DUO seul (`duo`). Les
+  // bacs, eux, ne font pas partie du groupe : ils se logent dans les INTERVALLES
+  // (les deux bouts, et entre deux duos). C'est ce qui permet de tenir deux duos
+  // là où deux groupes « bac + duo + bac » ne tenaient pas.
   let benchPerSide = 0;
   // LA RÈGLE DU DUO, opposable à TOUTE garniture. Un banc doit avoir son jumeau
   // pour plus proche voisin — c'est la demande de Raph (« 2 bancs côte à côte »),
@@ -1061,8 +1044,8 @@ function composeOne(L, era, box) {
     const benchCap = (PLAZA_TUNE.benchPerSide != null ? PLAZA_TUNE.benchPerSide
       : R.benchPerSide != null ? R.benchPerSide : 4) | 0;
     let g = Math.max(0, Math.floor(benchCap / 2));
-    while (g > 1 && usable / g < spanFor() + 2 * minStep) g -= 1;
-    if (g > 0 && usable < spanFor()) g = 0;
+    while (g > 1 && usable / g < duo + 2 * minStep) g -= 1;
+    if (g > 0 && usable < duo) g = 0;
     benchPerSide = Math.max(benchPerSide, g * 2);
 
     const segAt = (k) => side.base + (k - (g - 1) / 2) * (usable / g);
@@ -1209,7 +1192,7 @@ function composeOne(L, era, box) {
     const pH = personHT();
     const obst = placed.slice();
     const stand = (x, y) => {
-      const f = foot(x, y, 'person', pH);
+      const f = propFootprint(x, y, 'person', pH);
       for (const o2 of obst) if (footClash(f, o2, PLAZA_TUNE.minGap)) return false;
       return true;
     };
@@ -1439,11 +1422,13 @@ function buildLamps(box, w, h, R, T) {
 }
 
 // ── REGISTRE D'ART ──────────────────────────────────────────────────────────
-// Chargement paresseux, chaîne de repli : sprite ISO → kit top-down legacy →
-// gabarit plat. Le décodage d'un sprite N'INVALIDE PAS le sol (audit du 05/10,
+// Chargement paresseux, chaîne de repli : sprite ISO → gabarit plat (le kit
+// top-down est retiré, cf. l'en-tête). Le décodage d'un sprite N'INVALIDE PAS le sol (audit du 05/10,
 // PERF-26) : aucun PNG de ce registre n'y est cuit — le mobilier est un item vivant,
-// et le sol ne lit que plazaLawnAtCell et, en mode scène, isoArt('plaza-<ère>').
-const artCache = new Map();
+// et le sol ne lit que plazaLawnAtCell.
+// Le registre EST celui de l'art iso (isoArt, audit du 05/10, STRUCT-4) : les objets
+// posés des ponts et des merveilles (isoProps) et les clôtures lisent les mêmes PNG
+// sous les mêmes clés — une entrée et une mesure d'encre par image, plus deux.
 // RÉVISION D'ART. ⚠ Le recentrage des arbres sur leur pied dépend d'une mesure
 // qui n'existe qu'APRÈS décodage du PNG. Faire porter la clé de composition par
 // le seul nombre de pieds mesurés ne suffisait pas : rien ne garantissait qu'on
@@ -1453,24 +1438,17 @@ const artCache = new Map();
 // d'un arbre : la composition ne lit aucune autre image (treeFootMetrics est sa
 // seule dépendance), et chaque décodage de banc, d'étal ou de bande animée la
 // refaisait pour TOUTES les places, flâneurs compris (5 à 19 ms, ~50 fois par ère).
-const TREE_ART = '/pixelart/iso/tree-';
+// Un arbre déjà décodé quand la place se compose n'appelle rien : son pied se mesure
+// tout de suite. ⚠ Seulement les arbres que la PLACE a demandés sans les trouver
+// prêts (`_treeWait`, rempli par treeFootMetrics) : le registre est désormais partagé,
+// et les dizaines de variantes de la forêt (chêne, pin, bouleau, hiver…) qui s'y
+// décodent recomposeraient sinon toutes les places à chaque image.
+const TREE_ART = 'tree-';
 let _artRev = 0;
-function art(src) {
-  let e = artCache.get(src);
-  if (e) return e;
-  e = { img: null, ready: false, failed: false };
-  artCache.set(src, e);
-  if (typeof Image !== 'undefined') {
-    const im = new Image();
-    im.onload = () => {
-      e.img = im; e.ready = true;
-      if (src.startsWith(TREE_ART)) _artRev += 1;   // → recompose : cf. la clé plus bas
-    };
-    im.onerror = () => { e.failed = true; };
-    im.src = src;
-  }
-  return e;
-}
+const _treeWait = new Set();
+onIsoArtReady((name) => {
+  if (_treeWait.delete(name)) _artRev += 1;         // → recompose : cf. la clé plus bas
+});
 // Les props qui ONT une face (fichiers `<prop>-<n|s|e|w>-<ère>.png`, et pas de nom nu) :
 // le banc, le bac, les caisses, la clôture et les étals. Les autres (corbeille, fontaine,
 // statue…) n'existent que sous leur nom nu, même posés avec une face par les rues
@@ -1483,23 +1461,21 @@ const propHasFaces = (prop) => FACED_PROPS.has(prop) || prop.startsWith('stall-'
 // l'échec de la variante — un banc non directionnel vaut mieux que pas de banc, mais
 // demander les deux d'un coup coûtait un 404 par prop orienté.
 function propImage(prop, era, variant) {
-  const base = '/pixelart/iso/plaza/' + prop;
+  const base = 'plaza/' + prop;
   if (variant && propHasFaces(prop)) {
-    const ev = art(base + '-' + variant + '-' + era + '.png');
+    const ev = isoArt(base + '-' + variant + '-' + era);
     if (ev.ready) return ev.img;
     if (!ev.failed) return null;          // pas encore décodée : on attend son verdict
   }
-  const e = art(base + '-' + era + '.png');
+  const e = isoArt(base + '-' + era);
   return e.ready ? e.img : null;
 }
 
 // ── ARBITRAGE DU MODE ───────────────────────────────────────────────────────
+// La place composée redevient une vraie dalle de sol : c'est elle qui donne
+// l'esplanade. (Le mode 'scene' — une image unique par ère posée sur la dalle,
+// qui portait son propre dallage — a été retiré le 2026-10-06, audit MORT-12.)
 export const isoPlazaKitOn = (band) => PLAZA_TUNE.mode === 'kit' && !!plazaEraForBand(band);
-export const isoPlazaSceneOn = (band) => PLAZA_TUNE.mode === 'scene' && !!plazaEraForBand(band);
-// Le SOL : en mode scène le PNG porte son propre dallage (la dalle claire
-// dépassait autour, retour Raph) ; en mode composé la place redevient une vraie
-// dalle de sol, c'est elle qui donne l'esplanade.
-export const isoPlazaSceneCoversGround = (band) => isoPlazaSceneOn(band);
 
 // ── PASSE PEINTRE ───────────────────────────────────────────────────────────
 // Pousse un item par prop : chacun trie à SA profondeur, donc un passant au sud
@@ -1597,46 +1573,9 @@ export function isoPlazaLamps(L, band) {
 }
 
 // ── ENCRE D'UN SPRITE ───────────────────────────────────────────────────────
-// ⚠ LA CAUSE DU « ÇA VOLE ». Les PNG du kit ont du vide transparent tout autour
-// de l'objet. Poser le BAS DU CANVAS sur le sol laisse donc l'objet flotter
-// au-dessus de son ombre, d'une hauteur qui change d'un sprite à l'autre — c'est
-// exactement ce que Raph a vu le 2026-07-29. On mesure l'encre une fois au
-// décodage et on ancre dessus : bas de l'encre sur le sol, centre de l'encre sur
-// le point. `hT` devient alors la hauteur de l'OBJET VISIBLE, pas du canvas.
-// (Même leçon que les scènes de moteur : rogner sur l'encre MESURÉE, jamais sur
-// des fractions de boîte.)
-const inkCache = new WeakMap();
-function inkBox(img) {
-  let b = inkCache.get(img);
-  if (b !== undefined) return b;
-  b = null;
-  const w = img.naturalWidth | 0, h = img.naturalHeight | 0;
-  if (w && h) {
-    try {
-      const c = (typeof OffscreenCanvas !== 'undefined') ? new OffscreenCanvas(w, h)
-        : Object.assign(document.createElement('canvas'), { width: w, height: h });
-      const g = c.getContext('2d', { willReadFrequently: true });
-      g.imageSmoothingEnabled = false;
-      g.drawImage(img, 0, 0);
-      const d = g.getImageData(0, 0, w, h).data;
-      let x0 = w, y0 = h, x1 = -1, y1 = -1;
-      for (let y = 0; y < h; y += 1) {
-        for (let x = 0; x < w; x += 1) {
-          if (d[(y * w + x) * 4 + 3] > 16) {
-            if (x < x0) x0 = x; if (x > x1) x1 = x;
-            if (y < y0) y0 = y; if (y > y1) y1 = y;
-          }
-        }
-      }
-      // Une encre VIDE n'est pas « tout le canvas » : c'est un sprite cassé. On
-      // le signale par null et le prop ne se dessine pas, plutôt que de poser un
-      // rectangle transparent qui volerait la place à son voisin.
-      if (x1 >= x0) b = { x0, y0, w: x1 - x0 + 1, h: y1 - y0 + 1 };
-    } catch { b = { x0: 0, y0: 0, w, h }; }   // canvas souillé : repli sur le canvas
-  }
-  inkCache.set(img, b);
-  return b;
-}
+// inkBox (isoArt.js) : la boîte d'encre { x0, y0, w, h } mesurée une fois par image.
+// On ancre dessus — bas de l'encre sur le sol, centre de l'encre sur le point —, si
+// bien que `hT` est la hauteur de l'OBJET VISIBLE, pas du canvas (« ça vole »).
 
 // ── PIED D'UN ARBRE DE LA CARTE ─────────────────────────────────────────────
 // Pour CENTRER la margelle sur le tronc et la dimensionner sur l'étalement des
@@ -1653,14 +1592,13 @@ function inkBox(img) {
 const treeFootCache = new Map();
 function treeFootMetrics(v) {
   if (treeFootCache.has(v)) return treeFootCache.get(v);
-  const e = art(TREE_ART + v + '.png');
-  if (!e.ready) return null;                    // pas décodé : on réessaiera
+  const e = isoArt(TREE_ART + v);
+  if (!e.ready) { _treeWait.add(TREE_ART + v); return null; }   // pas décodé : on réessaiera
   const im = e.img, w = im.naturalWidth | 0, h = im.naturalHeight | 0;
   let m = null;
   if (w && h) {
     try {
-      const c = (typeof OffscreenCanvas !== 'undefined') ? new OffscreenCanvas(w, h)
-        : Object.assign(document.createElement('canvas'), { width: w, height: h });
+      const c = mkCanvas(w, h);
       const g = c.getContext('2d', { willReadFrequently: true });
       g.imageSmoothingEnabled = false;
       g.drawImage(im, 0, 0);
@@ -1738,9 +1676,10 @@ function recArt(rec, era) {
   }
   if (!rec._artIm) rec._artIm = propImage(rec.prop, era, rec.variant);
 }
-// Ombre DOUCE au pied et rien d'autre — le socle carré a été rejeté (il marque
-// le conflit au lieu de le régler) — et calée sur la LARGEUR D'ENCRE, pas sur
-// celle du canvas, sinon elle déborde de l'objet.
+// Au pied, l'OMBRE DU SOLEIL (drawSunShadow) et rien d'autre — l'ellipse douce est
+// partie le 2026-09-30 et le socle carré a été rejeté (il marque le conflit au lieu
+// de le régler) — calée sur la LARGEUR D'ENCRE, pas sur celle du canvas, sinon elle
+// déborde de l'objet.
 export function drawIsoPlazaProp(ctx, rec, era, now) {
   if (rec.prop === 'person') { drawPlazaPerson(ctx, rec, now); return; }
   if (rec.prop === 'garland') { drawPlazaGarland(ctx, rec, now); return; }
@@ -1826,9 +1765,10 @@ export function drawIsoPlazaProp(ctx, rec, era, now) {
 // au cœur du feu, à 18 % sous le haut de l'encre — le point chaud des braseros
 // des ponts (PROP_LIGHT, isoProps.js). Quatre sur un parvis : poids 0,6, elles
 // s'additionnent. L'orbe cosmique n'est pas un feu, il éclaire or pâle.
-// ⚠ L'encre d'ICI (inkBox ci-dessus) rend { x0, y0, w, h } — pas le { x, y } de
-// celle d'isoProps d'où ces lignes viennent : `bb.x` y valait undefined, la lueur
-// tombait en NaN et aucun brasero de parvis n'éclairait (audit 05/10, BUG-61).
+// ⚠ L'encre (inkBox) rend { x0, y0, w, h }. Ces lignes venaient d'isoProps, dont
+// l'encre rendait alors { x, y } : `bb.x` valait undefined, la lueur tombait en NaN
+// et aucun brasero de parvis n'éclairait (audit 05/10, BUG-61). Il n'y a plus qu'une
+// encre, celle d'isoArt (STRUCT-4).
 function brazierGlow(rec, era, bb, im, g, now) {
   const x = g.dx + ((bb.x0 + bb.w * 0.5) / im.naturalWidth) * g.dw;
   const y = g.dy + ((bb.y0 + bb.h * 0.18) / im.naturalHeight) * g.dh;
@@ -2011,48 +1951,14 @@ export function drawIsoPlazaGrid(ctx, comp) {
   }
 }
 
-// `inkBox` est exporté pour les CLÔTURES (lot L9) : la composition d'une bande a
-// besoin de la boîte d'encre du panneau, et une seconde implémentation de la mesure
-// dériverait de celle qui sert au dessin.
+// `inkBox` (isoArt.js) est ré-exporté pour la garde de la lueur des braseros : c'est
+// l'encre que brazierGlow reçoit au dessin.
 // `plazaPropImage` : pour la garde des requêtes (plazaPropRequests.test.js).
 // `brazierGlow` : pour la garde de la lueur des braseros (plazaBrazierGlow.test.js).
 // `plazaRecArt` : pour la garde de l'image gardée sur le rec (plazaRecArt.test.js).
 export { PLAZA_TUNE, RECIPES, KIND_KITS, HOUSE_HT, houseF, TALL_PROPS, personHT, ADULT_SCALE, inkBox, plazaBases, propImage as plazaPropImage, brazierGlow, recArt as plazaRecArt };
 
-// ── LA FONTAINE DE LA SCÈNE DE PLACE, rapatriée d'isoRenderer le 2026-08-23
-// (Q10). Elle décrivait déjà une scène de CE module ; la laisser dans le peintre
-// obligeait à y garder les rects du crop, donc deux endroits à corriger si l'art
-// bouge. Le commentaire ci-dessous est celui d'origine, mot pour mot.
-// ── PLACE ───────────────────────────────────────────────────────────────────
-// `isoPlazaBox` (composante connexe de la dalle) et `plazaEraForBand` ont
-// DÉMÉNAGÉ dans isoPlaza.js : la place composée et l'ancienne scène doivent
-// lire la MÊME emprise et la MÊME ère, une copie ici les ferait diverger.
-// Ce qui reste ci-dessous ne sert qu'au mode 'scene' (__plaza({mode:'scene'})),
-// gardé comme référence d'A/B : la scène par ère validée le 2026-07-12
-// (fontaine monumentale + parterres + bancs, UNE image posée sur la dalle).
-// ── FONTAINE ANIMÉE : l'eau de la scène de place, bakée en strip 8 frames
-// (/pixelart/iso/anim/plaza-fountain-<ère>.png, scripts/fetchFountainAnims.mjs)
-// et blittée PAR-DESSUS la scène à l'emplacement exact du crop source. Hors
-// eau, chaque frame est VERROUILLÉE sur les pixels de la scène → zéro couture,
-// zéro wobble ; le repli (strip absent) est simplement la scène statique.
-// Rects en px de la scène SOURCE — miroir exact de FOUNTAIN du script.
-// FA_V : version de cache des strips (à incrémenter à chaque réécriture des
-// PNG, le cache HTTP ressert sinon l'ancienne version — leçon aqueducs).
-export const FA_V = 2;
-export const FOUNTAIN_ANIM = {
-  antique: { x: 100, y: 4, w: 108, h: 116 },
-  medieval: { x: 110, y: 8, w: 126, h: 128 },
-  industrial: { x: 108, y: 26, w: 116, h: 104 },
-  modern: { x: 116, y: 26, w: 124, h: 100 },
-  cosmic: { x: 92, y: 0, w: 110, h: 128 },
-};
-// Molette : __fountainAnim({ on, ms }) — ms = durée d'une frame.
-// 240 ms (≈4 fps, cycle 1.5-2 s) : à 120 les ondulations « allaient trop
-// vite » (retour Raph) ; l'eau de fontaine doit rester paisible.
-export const FOUNTAIN_TUNE = { on: true, ms: 240 };
-if (typeof window !== 'undefined') {
-  window.__fountainAnim = (o) => { if (o) Object.assign(FOUNTAIN_TUNE, o); return { ...FOUNTAIN_TUNE }; };
-}
-
-
-
+// (La FONTAINE ANIMÉE de l'ancienne scène de place — FOUNTAIN_ANIM, FA_V,
+//  FOUNTAIN_TUNE et la molette __fountainAnim, strips anim/plaza-fountain-<ère> —
+//  a été retirée le 2026-10-06 avec le mode 'scene' ; les PNG sont gardés comme
+//  source dans art/references-ab/places-scene/.)

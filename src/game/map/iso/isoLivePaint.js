@@ -2,35 +2,25 @@
 //
 // Sortie de `drawIsoLive` le 2026-08-23 (Q10). Un aiguillage sur `it.kind` :
 // bâtiments et habitations, arbres, bestioles, mobilier et dalles de place, fumée,
-// chevron, merveilles, Maison des Plaisirs, lampadaires, clôtures, buissons, tabliers
-// de pont, bateau du port, véhicules, émeutiers. Plus la GREFFE WebGL des longues
-// séries, la passe FANTÔME et la fermeture de la couche lumière.
+// chevron, merveilles, Maison des Plaisirs, lampadaires, clôtures, tabliers de pont,
+// navires à quai et porteurs, véhicules, émeutiers. Plus la fermeture de la couche
+// lumière.
 //
-// ⚠ TROIS PHASES PARTENT ENSEMBLE, ET C'ÉTAIT LA CONDITION. La préparation, la boucle
-// et la composition se partagent l'ÉTAT DES LOTS GPU (`glPending`, `glRuns`,
-// `glSprites`, la boîte englobante `gbx0..gby1`) — un état RÉASSIGNÉ, donc
-// indéplaçable seul (cf. P28 du plan : une liaison importée est en lecture seule).
-// En les emmenant d'un bloc, l'état voyage avec ses écritures et la contrainte
-// disparaît. Même motif que l'état de saison et la couche de marche, ailleurs dans
-// ce chantier.
-//
-// ⚠ LA GREFFE GL EN DEUX MOTS, parce qu'elle explique la forme du code : l'ordre du
-// peintre entrelace sprites et procédural, et composer à chaque alternance serait
-// ruineux. Mais la distribution est très inégale — deux séries (les ceintures
-// forestières) portent la moitié des sprites au dézoom. On ne bascule donc que les
-// séries LONGUES, et leur composition tombe À SA PLACE dans la file : la profondeur
-// est préservée.
+// (La GREFFE WebGL des longues séries — opt-in `__glPainter`, gain mesuré nul,
+//  ×1,02 — et la passe FANTÔME — éteinte le 2026-10-01 à la demande de Raph — ont
+//  été retirées le 2026-10-06 avec les autres références d'A/B tranchées, audit du
+//  05/10, MORT-12.)
 //
 // ⚠ Contexte destructuré en tête : les onze lectures vers l'englobante redeviennent
-// des locales à leur nom, si bien que les 461 lignes sont reprises SANS UNE LIGNE DE
-// CHANGÉE. `items` et `now` restent des paramètres nommés — ce sont les deux vraies
-// entrées de la passe : la liste, et l'instant.
+// des locales à leur nom — c'est ce qui a permis, le 2026-08-23, de reprendre les
+// 461 lignes de l'époque SANS UNE LIGNE DE CHANGÉE (le peintre a évolué depuis).
+// `items` et `now` restent des paramètres nommés — ce sont les deux vraies entrées de
+// la passe : la liste, et l'instant.
 import { state } from '../../core/state.js';
 import { AGENT_SCALE } from '../agents.js';
 import { drawCritterIso } from '../critters.js';
 import { pxProbe, recPx } from '../pixelGrid.js';
 import { fp } from '../framePerf.js';
-import { glBegin, glFlush, glGetCanvas, glInit, glQuad } from '../glPainter.js';
 import { CM, cmHash, treeBandMul, treeCanvasT } from '../layout.js';
 import {
   LIGHT_LAYER, beginLightLayer, endLightLayer, lightCtx, lightCut, lightCutImage, lightCutLive,
@@ -45,24 +35,22 @@ import { drawIsoBridgeSeg } from './isoBridge.js';
 import { drawIsoWonderSeg } from './isoWonder.js';
 import { drawIsoCampHearthGround, drawIsoCampHearthFire } from './isoCampHearth.js';
 import { drawIsoEngineScene, isoEngineScenesFlag } from './isoEngineScene.js';
-import { drawIsoField, drawIsoFieldPixel } from './isoField.js';
+import { drawIsoFieldPixel } from './isoField.js';
 import { drawIsoMill } from './isoMill.js';
 import { drawTerroirTeam } from './terroirLife.js';
 import { isoFlatFootprint, isoFrontOffset, isoWetFootprint, seasonTree } from './isoGroundDetail.js';
-import { ISO_TREE_VARIANTS, TREE_DEAD_VARIANT, TREE_SPRITES, cityTreeVariant, drawIsoGroundedArt, treeAliveVariant, treeSpriteK } from './isoGroundProps.js';
-import { maskHit } from './isoMask.js';
+import { ISO_TREE_VARIANTS, TREE_DEAD_VARIANT, TREE_SPRITES, cityTreeVariant, treeAliveVariant, treeSpriteK } from './isoGroundProps.js';
 import { HOVER_GOLD, rgb } from './isoPalette.js';
 import { drawIsoPlaisirsSeg } from './isoPlaisirs.js';
-import { FA_V, FOUNTAIN_ANIM, FOUNTAIN_TUNE, drawIsoPlazaGrid, drawIsoPlazaProp } from './isoPlaza.js';
-import { drawIsoPortBoat, drawIsoRiverside, drawIsoShipDeferred } from './isoPort.js';
+import { drawIsoPlazaGrid, drawIsoPlazaProp } from './isoPlaza.js';
+import { drawIsoRiverside, drawIsoShipDeferred } from './isoPort.js';
 import { drawDockPorter } from './boatBerths.js';
 import { drawFleetScene } from './boatScenes.js';
 import {
   isoLampLightFrame, lampBox, lampGlowBox, lampLit, paintLampGlow,
 } from './isoStreet.js';
-import { drawSunShadow, muteSunShadow } from './isoSunShadow.js';
-import { GHOST_TUNE, drawIsoCitizenItem, drawIsoRioter, drawIsoVehicle } from './isoUnits.js';
-import { GL_RUN_MIN } from './isoWildForest.js';
+import { drawSunShadow } from './isoSunShadow.js';
+import { drawIsoCitizenItem, drawIsoRioter, drawIsoVehicle } from './isoUnits.js';
 import { ISO_X, worldToScreen } from './projection.js';
 import { HOUSE_LOT_WF } from '../spriteScale.js';
 import { WINTER } from '../seasonMode.js';
@@ -138,29 +126,6 @@ export function drawIsoHoverCell(ctx, hw, hh) {
 
 export function paintIsoItems(bake, items, now) {
   const { ctx, T, z, hw, hh, L, houseBoxes, band, eraIdx, smokeK } = bake;
-  // ── GREFFE WebGL DES LONGUES SÉRIES ─────────────────────────────────────────
-  // L'ordre du peintre entrelace sprites et procédural : composer à chaque
-  // alternance serait ruineux (572 alternances mesurées au dézoom). Mais la
-  // distribution est très inégale — au dézoom, DEUX séries (les ceintures
-  // forestières nord et sud) portent à elles seules 2 975 des 5 401 sprites.
-  // On ne bascule donc en GL que les séries LONGUES : elles partent en un seul
-  // appel de dessin, et leur composition tombe à SA PLACE dans la file, donc
-  // l'ordre du peintre est rigoureusement conservé. Tout le reste garde le
-  // chemin Canvas 2D, inchangé.
-  // ⚠ OPT-IN (window.__glPainter = true) — VERDICT MESURÉ du 28/07, poste de dev :
-  //  • gain nul (×1,02, dans le bruit) : au dézoom les arbres sont MINUSCULES,
-  //    leur `drawImage` coûte déjà presque rien, et la composition du lot mange
-  //    ce qu'on économise. Le banc __glBench dit pourtant ×12,7 à 12 000
-  //    sprites : le batcher est bon, c'est la MATIÈRE qui manque ici — le vrai
-  //    poids de `vif-peinture` est le dessin VECTORIEL (scènes, ponts, champs),
-  //    pas les sprites (cf. cartographie : « les blits ne coûtent rien »).
-  //  • écart de rééchantillonnage : 3,7 % des pixels (plancher de bruit 0,6 %),
-  //    invisible à l'œil mais réel — GL et Canvas 2D ne choisissent pas les
-  //    mêmes texels quand un sprite est redimensionné.
-  // La bascule redeviendra intéressante quand le procédural sera devenu des
-  // sprites (cache de scènes actif, ponts et champs cuits) : la matière sera là.
-  // À re-mesurer sur la machine de JEU, dont le GPU sature sur le NOMBRE
-  // d'appels — le profil qui, lui, favorise le batcher.
   const profParts = !!globalThis.__isoProfParts;   // pesée fine, cf. plus haut
   // SPRITES D'ARBRE RÉSOLUS UNE FOIS PAR FRAME (et non par arbre). Mesuré à
   // dézoom : les arbres pesaient 12,7 ms sur 34, soit le premier poste de la
@@ -170,7 +135,6 @@ export function paintIsoItems(bake, items, now) {
   // saisonnière. Or tout cela ne dépend que de la VARIANTE (une trentaine, cf.
   // TREE_SPRITES) : on le résout une fois par frame, et chaque arbre n'a plus
   // qu'à lire son entrée.
-  const treeMemo = typeof window === 'undefined' || window.__treeMemo !== false;
   // Le sapin mort n'a sa place qu'en hiver et dans les ruines (TREE_DEAD_VARIANT).
   const deadTreeOk = (CM.season | 0) === WINTER || !!CM.frameRuined;
   const treeImgs = [];
@@ -178,46 +142,6 @@ export function paintIsoItems(bake, items, now) {
     const nm = TREE_SPRITES[tv].name, a = isoArt(nm);
     treeImgs[tv] = a.ready ? (seasonTree(a, nm) || a.img) : null;
   }
-  const glWanted = (typeof window !== 'undefined' && window.__glPainter === true) && items.length >= GL_RUN_MIN * 2;
-  const glOn = glWanted && glInit();
-  let glPending = 0, glRuns = 0, glSprites = 0;
-  if (glOn) {
-    for (const it of items) it._gl = 0;
-    let start = -1;
-    for (let i = 0; i <= items.length; i += 1) {
-      const it = i < items.length ? items[i] : null;
-      // Seuls les kinds à sprite ENTIER et sans géométrie vectorielle sont
-      // éligibles : un arbre/buisson = un blit, rien d'autre.
-      const q = !!it && (it.kind === 'tree' || it.kind === 'bush');
-      if (q) { if (start < 0) start = i; continue; }
-      if (start >= 0 && i - start >= GL_RUN_MIN) { for (let k = start; k < i; k += 1) items[k]._gl = 1; glRuns += 1; }
-      start = -1;
-    }
-    if (glRuns) glBegin(CM.cw, CM.ch, CM.dpr || 1);
-  }
-  // Emprise écran du lot courant : composer PLEIN ÉCRAN coûterait plus cher que
-  // les sprites économisés (une ceinture forestière, ce sont des milliers de
-  // sprites minuscules — 1,3 Mpx au total — contre 1,5 Mpx par composition
-  // plein cadre). On ne recopie donc que le rectangle réellement couvert.
-  let gbx0 = 1e9, gby0 = 1e9, gbx1 = -1e9, gby1 = -1e9;
-  const glCompose = () => {
-    if (!glPending) return;
-    glSprites += glFlush();
-    const dpr = CM.dpr || 1;
-    const x0 = Math.max(0, Math.floor(gbx0)), y0 = Math.max(0, Math.floor(gby0));
-    const x1 = Math.min(CM.cw, Math.ceil(gbx1)), y1 = Math.min(CM.ch, Math.ceil(gby1));
-    if (x1 > x0 && y1 > y0) {
-      const prevS = ctx.imageSmoothingEnabled;
-      ctx.imageSmoothingEnabled = false;
-      ctx.drawImage(glGetCanvas(),
-        Math.round(x0 * dpr), Math.round(y0 * dpr), Math.round((x1 - x0) * dpr), Math.round((y1 - y0) * dpr),
-        x0, y0, x1 - x0, y1 - y0);
-      ctx.imageSmoothingEnabled = prevS;
-    }
-    glPending = 0;
-    gbx0 = 1e9; gby0 = 1e9; gbx1 = -1e9; gby1 = -1e9;
-    glBegin(CM.cw, CM.ch, CM.dpr || 1);   // repart d'un cadre vierge
-  };
   // HALO d'émeute : nappe rouge pulsée AU SOL, sous toute la scène vivante (le
   // cercle écran du legacy devient une ellipse iso 2:1). Mêmes rayon et alphas.
   if (CM.riotDraw) {
@@ -256,9 +180,6 @@ export function paintIsoItems(bake, items, now) {
     return worldToScreen((t.gx + spanX + (fOff ? fOff.ox : 0)) * T, (t.gy + spanY + (fOff ? fOff.oy : 0)) * T);
   };
   for (const it of items) {
-    // Un item NON basculé doit être peint APRÈS le lot en cours : on compose
-    // d'abord, sinon la série GL passerait par-dessus lui.
-    if (glPending && !it._gl) glCompose();
     // Les RUINES du cycle précédent (iso/isoChute.js), triées à leur profondeur.
     if (it.kind === 'relic') { paintRelic(ctx, it); continue; }
     if (it.kind === 'tile') {
@@ -348,10 +269,10 @@ export function paintIsoItems(bake, items, now) {
         const s = { x: n.x + (spanX - spanY) * hw, y: n.y + (spanX + spanY) * hh };
         const w = { x: n.x - spanY * hw, y: n.y + spanY * hh };
         if (isFlatFootprint) {
-          // CHAMPS : patchwork de parcelles cultivées façon TheoTown (cf. drawIsoField) —
+          // CHAMPS : parcelles du terroir cuites au pixel (cf. drawIsoFieldPixel) —
           // la scène legacy (peinture carrée du sol) ne se pose pas sur le losange.
           if (profParts) fp('vif-peinture');
-          if (!drawIsoFieldPixel(ctx, t, spanX, spanY, band, now)) drawIsoField(ctx, t, spanX, spanY, band, eraIdx);
+          drawIsoFieldPixel(ctx, t, spanX, spanY, band, now);
           if (profParts) fp('vif-champs');
           continue;
         }
@@ -397,15 +318,14 @@ export function paintIsoItems(bake, items, now) {
       // `tr.v` : essence et âge décidés à la plantation (forêt sauvage, cf.
       // isoWildForest) ; sinon un arbre de VILLE, de l'essence de son ère (lot 6).
       let tv = tr._tv;
-      if (tv === undefined || !treeMemo) tv = tr._tv = tr.v || cityTreeVariant(tr.gx, tr.gy, band);
+      if (tv === undefined) tv = tr._tv = tr.v || cityTreeVariant(tr.gx, tr.gy, band);
       // Hors hiver et hors ruines, la cellule du sapin mort reçoit une essence
       // vivante — tirée à part, et mémoïsée comme la variante.
       if (tv === TREE_DEAD_VARIANT && !deadTreeOk) {
-        if (tr._ta === undefined || !treeMemo) tr._ta = treeAliveVariant(tr.gx, tr.gy);
+        if (tr._ta === undefined) tr._ta = treeAliveVariant(tr.gx, tr.gy);
         tv = tr._ta;
       } else if (tr.dead && deadTreeOk) tv = TREE_DEAD_VARIANT;   // conifère de la forêt (isoWildForest)
-      // __treeMemo = false : rejoue la résolution par arbre (A/B de la mesure).
-      const tImg0 = treeMemo ? treeImgs[tv] : (() => { const nm = TREE_SPRITES[tv].name, a = isoArt(nm); return a.ready ? (seasonTree(a, nm) || a.img) : null; })();
+      const tImg0 = treeImgs[tv];
       if (tImg0) {
         // Canevas de l'essence (64 jeune, 96 adulte, 104-128 grand) au grain commun.
         const hpx = T * z * treeCanvasT(tr.r, tr.fixed) * treeSpriteK(tv);
@@ -415,14 +335,8 @@ export function paintIsoItems(bake, items, now) {
         const tImg = tImg0;
         const tdx = p.x - hpx / 2, tdy = p.y - hpx * 0.92;
         // L'OMBRE DU SOLEIL (isoSunShadow.js), pivot au PIED du tronc (0,92 du
-        // canvas) : la couronne flotte, son ombre part loin du tronc. Toujours sur
-        // le canvas 2D, même quand le sprite part au batcher GL : la série GL se
-        // compose par-dessus, l'ombre reste dessous.
+        // canvas) : la couronne flotte, son ombre part loin du tronc.
         drawSunShadow(ctx, tImg, tdx, tdy, hpx, hpx, 0, 0, 0, 0, 0.92);
-        // Série basculée : le sprite part au batcher (un seul appel de dessin
-        // pour toute la série). Refus du batcher (atlas plein, source pas
-        // décodée) → chemin 2D, sprite par sprite, comme avant.
-        let batched = false;
         // VENT (iso/isoVie.js, petite vie) : null = arbre immobile, un seul blit comme
         // avant ; sinon trois bandes, la couronne décalée d'un texel entier.
         const tsw = tImg.naturalWidth || tImg.width | 0, tsh = tImg.naturalHeight || tImg.height | 0;
@@ -433,27 +347,12 @@ export function paintIsoItems(bake, items, now) {
         // reflets). Le haut et le bas de l'arbre restent où ils étaient.
         const tdp = CM.dpr || 1;
         const bandY = (r) => (r <= 0 ? tdy : r >= tsh ? tdy + hpx : Math.round((tdy + r * tv2) * tdp) / tdp);
-        if (it._gl) {
-          if (!sway) batched = glQuad(tImg, 0, 0, tsw, tsh, tdx, tdy, hpx, hpx);
-          else {
-            batched = true;
-            for (const [y0, y1, o] of sway) batched = glQuad(tImg, 0, y0, tsw, y1 - y0, tdx + o * tu, bandY(y0), hpx, bandY(y1) - bandY(y0)) && batched;
-          }
-          if (batched) {
-            glPending += 1;
-            if (tdx - tu < gbx0) gbx0 = tdx - tu; if (tdy < gby0) gby0 = tdy;
-            if (tdx + hpx + tu > gbx1) gbx1 = tdx + hpx + tu; if (tdy + hpx > gby1) gby1 = tdy + hpx;
-          }
-        }
-        if (!batched) {
-          const prevTS = ctx.imageSmoothingEnabled;
-          ctx.imageSmoothingEnabled = false;
-          if (!sway) ctx.drawImage(tImg, tdx, tdy, hpx, hpx);
-          else for (const [y0, y1, o] of sway) ctx.drawImage(tImg, 0, y0, tsw, y1 - y0, tdx + o * tu, bandY(y0), hpx, bandY(y1) - bandY(y0));
-          ctx.imageSmoothingEnabled = prevTS;
-        }
-        // L'occultation du calque de lumière vit dans un AUTRE canvas : elle
-        // reste identique quel que soit le pipeline du sprite. Au vent, elle suit
+        const prevTS = ctx.imageSmoothingEnabled;
+        ctx.imageSmoothingEnabled = false;
+        if (!sway) ctx.drawImage(tImg, tdx, tdy, hpx, hpx);
+        else for (const [y0, y1, o] of sway) ctx.drawImage(tImg, 0, y0, tsw, y1 - y0, tdx + o * tu, bandY(y0), hpx, bandY(y1) - bandY(y0));
+        ctx.imageSmoothingEnabled = prevTS;
+        // L'occultation du calque de lumière vit dans un AUTRE canvas. Au vent, elle suit
         // les bandes LÀ OÙ elles sont posées (audit du 05/10, PERF-73) : la
         // silhouette de repos laissait une frange de halo traverser la couronne.
         if (!sway) lightCutImage(tImg, tdx, tdy, hpx, hpx);
@@ -495,30 +394,6 @@ export function paintIsoItems(bake, items, now) {
       drawIsoPlazaProp(ctx, it.art, it.eraKey, now);
     } else if (it.kind === 'plazaGrid') {
       drawIsoPlazaGrid(ctx, it.art);     // overlay de travail (__plaza({grid|ruler}))
-    } else if (it.kind === 'plazaScene') {
-      // Losange de CONTENU mesuré calé pile sur l'emprise de la dalle (le
-      // canvas brut décalait la scène — retour Raph).
-      const p = worldToScreen(it.wx, it.wy);
-      const g = drawIsoGroundedArt(ctx, it.art, p.x, p.y, (it.px + it.py) * T * z * ISO_X * 0.98);
-      // EAU DE LA FONTAINE : frame courante du strip re-projetée sur la scène
-      // (rect source → géométrie du draw) ; hors eau le strip est identique à
-      // la scène (pixels verrouillés) donc l'overlay est invisible à l'arrêt.
-      const fa = FOUNTAIN_ANIM[it.eraKey];
-      // L'eau de fontaine survit au cran « sobre » : c'est une animation lente,
-      // locale et attendue. Seul « aucune » l'arrête, avec le reste.
-      if (fa && FOUNTAIN_TUNE.on && g && (CM.ambianceK ?? 1) > 0) {
-        const fArt = isoArt('anim/plaza-fountain-' + it.eraKey + '?v=' + FA_V);
-        if (fArt.ready) {
-          const iw = it.art.img.naturalWidth || 1, ih = it.art.img.naturalHeight || 1;
-          const nf = Math.max(1, Math.round((fArt.img.naturalWidth || fa.w) / fa.w));
-          const f = Math.floor((now || 0) / FOUNTAIN_TUNE.ms) % nf;
-          const prevFS = ctx.imageSmoothingEnabled;
-          ctx.imageSmoothingEnabled = false;
-          ctx.drawImage(fArt.img, f * fa.w, 0, fa.w, fa.h,
-            g.x + fa.x * (g.w / iw), g.y + fa.y * (g.h / ih), fa.w * (g.w / iw), fa.h * (g.h / ih));
-          ctx.imageSmoothingEnabled = prevFS;
-        }
-      }
     } else if (it.kind === 'smoke') {
       const t = it.t;
       const spanX = t.spanX || t.size || 1, spanY = t.spanY || t.size || 1;
@@ -550,9 +425,8 @@ export function paintIsoItems(bake, items, now) {
       drawIsoPlaisirsSeg(ctx, it, now);
     } else if (it.kind === 'lamp') {
       const p = worldToScreen(it.wx, it.wy);
-      // Taille : celle du kit de l'ère (un pixel d'art = un pixel d'écran au zoom
-      // 1), ou pour un PNG le CONTENU visible ramené à LAMP_TUNE.h tuiles, largeur
-      // au ratio de l'image (cf. lampBox, isoStreet.js).
+      // Taille : celle du réverbère du kit de l'ère (un pixel d'art = un pixel
+      // d'écran au zoom 1, cf. lampBox, isoStreet.js).
       const { m, hpx, wpx } = lampBox(it.art, T * z);
       const ldp = CM.dpr || 1;
       const lx = Math.round((p.x - wpx * m.footXf) * ldp) / ldp, ly = Math.round((p.y - hpx * m.footYf) * ldp) / ldp;
@@ -597,34 +471,6 @@ export function paintIsoItems(bake, items, now) {
       const fdp = CM.dpr || 1, fsn = (v) => Math.round(v * fdp) / fdp;
       ctx.drawImage(st.canvas, fsn(x0), fsn(y0), fsn(st.cw * s), fsn(st.ch * s));
       ctx.imageSmoothingEnabled = prevFS;
-    } else if (it.kind === 'bush') {
-      // Buisson de terre-plein : feuillu réutilisé petit, pied sur la couture.
-      const p = worldToScreen(it.wx, it.wy);
-      // Buisson DÉDIÉ (bush-N) ; repli sur le feuillu rapetissé d'avant si le
-      // PNG manque. Teinté par la saison comme les arbres — sinon le terre-plein
-      // restait vert d'été au milieu d'une avenue en automne.
-      // La clé de saison suit l'art RÉELLEMENT dessiné : sur les premières
-      // frames le buisson n'est pas encore décodé et on tombe sur l'arbre —
-      // une clé fixe aurait figé cet arbre teinté dans le cache pour de bon.
-      let bArt = isoArt('bush-' + it.v), bKey = 'bush-' + it.v;
-      if (!bArt.ready) { const fv = 1 + (it.v % 2); bArt = isoArt('tree-' + fv); bKey = 'tree-' + fv; }
-      if (bArt.ready) {
-        const hpx = T * z * treeCanvasT(it.r);
-        // Ombre d'ancrage au pied (terre-plein) : sans elle le buisson « vole »
-        // au-dessus du gazon (retour Raph 2026-08-03) — l'île garde son rendu nu.
-        if (it.shadow) {
-          ctx.fillStyle = 'rgba(28,40,22,0.38)';
-          ctx.beginPath();
-          ctx.ellipse(p.x, p.y + hpx * 0.01, hpx * 0.30, hpx * 0.115, 0, 0, Math.PI * 2);
-          ctx.fill();
-        }
-        const prevBS = ctx.imageSmoothingEnabled;
-        ctx.imageSmoothingEnabled = false;
-        const bImg = seasonTree(bArt, bKey) || bArt.img;
-        ctx.drawImage(bImg, p.x - hpx / 2, p.y - hpx * 0.92, hpx, hpx);
-        ctx.imageSmoothingEnabled = prevBS;
-        lightCutImage(bImg, p.x - hpx / 2, p.y - hpx * 0.92, hpx, hpx);
-      }
     } else if (it.kind === 'bridgeSeg') {
       // Jalons de pesée (opt-in) : ces deux postes sont les candidats à la
       // cuisson en texture — il faut leur coût RÉEL avant d'y consacrer une
@@ -632,8 +478,6 @@ export function paintIsoItems(bake, items, now) {
       if (profParts) fp('vif-peinture');
       drawIsoBridgeSeg(ctx, it, now);
       if (profParts) fp('vif-ponts');
-    } else if (it.kind === 'portBoat') {
-      drawIsoPortBoat(ctx, it.moor, now, z, T);
     } else if (it.kind === 'fleetShip') {
       drawIsoShipDeferred(ctx, it.sh, now);
     } else if (it.kind === 'porter') {
@@ -650,97 +494,10 @@ export function paintIsoItems(bake, items, now) {
       drawIsoCitizenItem(ctx, it.p, now, z);
     }
   }
-  glCompose();                     // dernière série éventuelle
-  if (glOn) {
-    globalThis.__glPainterLast = { series: glRuns, sprites: glSprites };
-  }
-  // ── SILHOUETTES FANTÔMES ────────────────────────────────────────────────────
-  // La vie urbaine disparaissait derrière le bâti haut (correct en 3/4, mais on ne
-  // voyait plus vivre la ville — Raph 2026-08-03, « à tous les âges »). Une unité
-  // réellement recouverte est REDESSINÉE par-dessus le peintre en transparence : on
-  // la devine à travers la façade. AVANT endLightLayer pour qu'elle vive sous la même
-  // lumière que la scène. Molette : __ghost({ on, alpha, cover }) — alpha 0 = coupé.
-  //
-  // ⚠⚠ LE TEST DE COUVERTURE EST FAIT ICI, ET C'EST TOUT L'OBJET DE Q11 (2026-08-23).
-  // `isoUnitDepthEx` ne sait pas si l'unité est cachée : il lève `hidden` dès qu'un
-  // bâtiment la PLAFONNE dans l'ordre du peintre, sans jamais regarder s'il la
-  // recouvre — sa fiche ne porte AUCUNE hauteur, et il ne faut pas lui en donner
-  // (P23 : la hauteur n'entre pas dans le tri, c'est prouvé). Mesuré avant la
-  // correction : 55 % des unités marquées, dont 62 % que rien ne cachait — on
-  // redessinait ~48 silhouettes par frame pile sur elles-mêmes, invisibles.
-  //
-  // La vraie couverture ne coûte pourtant rien : cette passe tourne À LA FIN de la
-  // même frame, donc `houseBoxes` porte déjà les rectangles RÉELLEMENT dessinés de
-  // tout ce qui s'est peint — mesure exacte, pas une hauteur approchée.
-  if (GHOST_TUNE.on && GHOST_TUNE.alpha > 0 && !CM.lodActive && houseBoxes) {
-    // Index par colonne écran : ~700 boîtes contre ~80 unités, le produit naïf
-    // coûterait plus cher que les redessins qu'on économise.
-    const COL = 128;
-    const parCol = new Map();
-    for (const hb of houseBoxes) {
-      const t = hb.t, bx = hb.b;
-      const sx = t.spanX || t.size || 1, sy = t.spanY || t.size || 1;
-      const key = (t.gx + sx) * T + (t.gy + sy) * T;   // clé peintre, comme isoUnitFiches
-      for (let c = Math.floor(bx.dx / COL); c <= Math.floor((bx.dx + bx.dw) / COL); c += 1) {
-        let a = parCol.get(c); if (!a) parCol.set(c, a = []);
-        a.push(bx); a.push(key);
-      }
-    }
-    const wU = T * z * ISO_X * GHOST_TUNE.wK, hU = T * z * GHOST_TUNE.hK;
-    let vus = 0, dessines = 0;
-    // ⚠⚠ TEST AU PIXEL, et non plus au rectangle (2026-08-23, second tour de Q11).
-    // Le premier jet comparait des AIRES de rectangles. Une boîte d'encre est un
-    // rectangle autour d'une silhouette ISOMÉTRIQUE : ses coins sont vides, et une
-    // unité qui y tombe passait pour cachée — mesuré sur un attelage du pont, sous la
-    // boîte d'une maison de la rive, qui se redessinait sur lui-même. La condition
-    // « les pieds dans la boîte » a été essayée : elle n'écarte AUCUN cas.
-    // On échantillonne donc la silhouette sur une grille et on interroge le MASQUE du
-    // sprite (iso/isoMask.js) : de la matière, ou du vide ?
-    const NX = 3, NY = 5;                              // 15 points : assez pour trancher
-    const couvert = (gwx, gwy, d) => {
-      const sp = worldToScreen(gwx, gwy);
-      const besoin = Math.ceil(NX * NY * GHOST_TUNE.cover);
-      let touches = 0, restants = NX * NY;
-      for (let iy = 0; iy < NY; iy += 1) {
-        // De la tête (iy=0) aux pieds : la tête est ce qui compte le plus pour dire
-        // qu'on ne voit plus l'unité, mais un corps caché aux 3/4 compte aussi.
-        const py = sp.y - hU * (1 - iy / (NY - 1));
-        for (let ix = 0; ix < NX; ix += 1) {
-          const px = sp.x + wU * ((ix / (NX - 1)) - 0.5);
-          let vu = false;
-          for (let c = Math.floor((px - 1) / COL); c <= Math.floor((px + 1) / COL) && !vu; c += 1) {
-            const a = parCol.get(c); if (!a) continue;
-            for (let i = 0; i < a.length; i += 2) {
-              if (a[i + 1] <= d) continue;             // dessiné AVANT l'unité : ne la cache pas
-              if (maskHit(a[i], px, py)) { vu = true; break; }
-            }
-          }
-          if (vu) touches += 1;
-          restants -= 1;
-          if (touches >= besoin) return true;
-          if (touches + restants < besoin) return false;   // plus atteignable
-        }
-      }
-      return false;
-    };
-    const prevGA = ctx.globalAlpha;
-    ctx.globalAlpha = GHOST_TUNE.alpha;
-    // Sans leur ombre : elle a été posée au sol à leur passage dans le peintre, la
-    // repeindre ici la collerait sur la façade qui les cache.
-    muteSunShadow(() => {
-      for (const it of items) {
-        if (!it.ghost) continue;
-        vus += 1;
-        if (!couvert(it.gwx, it.gwy, it.d)) continue;
-        dessines += 1;
-        if (it.kind === 'cit') drawIsoCitizenItem(ctx, it.p, now, z);
-        else if (it.kind === 'veh') drawIsoVehicle(ctx, it.v, now, z);
-        else if (it.kind === 'riot') drawIsoRioter(ctx, it.p, now, z);
-      }
-    });
-    ctx.globalAlpha = prevGA;
-    if (globalThis.__ghostStats) globalThis.__ghostStatsLast = { marquees: vus, dessinees: dessines };
-  }
+  // (Ici vivait la passe SILHOUETTES FANTÔMES — une unité recouverte redessinée en
+  //  transparence par-dessus le peintre. Éteinte le 2026-10-01 à la demande de Raph,
+  //  « enlever l'effet fantôme », puis retirée le 2026-10-06 : une unité cachée est
+  //  simplement cachée.)
   endLightLayer();
   ctx.imageSmoothingEnabled = prevSmooth;
 }

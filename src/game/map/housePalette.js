@@ -1,4 +1,5 @@
 "use strict";
+import { fmix32 } from './hash.js';
 // ÉCHANGE DE MATIÈRE des sprites d'habitation — le vocabulaire de couleurs qui rend
 // 12 archétypes non répétitifs sans dessiner un seul sprite de plus.
 //
@@ -98,7 +99,7 @@ function hexToInt(h) {
 
 // Compile une liste de paires en Map<int source, int cible>, DANS LES DEUX SENS.
 // Chaque groupe pointe sur la canonique (premier hex) du groupe d'en face.
-export function buildSwap(pairs) {
+function buildSwap(pairs) {
   const m = new Map();
   for (const [A, B] of pairs) {
     for (const a of A) if (a !== B[0]) m.set(hexToInt(a), hexToInt(B[0]));
@@ -217,13 +218,7 @@ const FAMILY = {
 // rien. Le finaliseur fmix32 de murmur3 remet le voisinage à 50,5 %.
 // (L'ancien tirage prenait un `% 3` sur la valeur entière : il touchait assez de bits
 // hauts pour échapper au piège, c'est le passage à DEUX états qui l'a ouvert.)
-function fmix32(x) {
-  let h = x >>> 0;
-  h ^= h >>> 16; h = Math.imul(h, 2246822507);
-  h ^= h >>> 13; h = Math.imul(h, 3266489909);
-  h ^= h >>> 16;
-  return h >>> 0;
-}
+// (fmix32 : la variante partagée, ./hash.js.)
 
 // Tirage d'une teinte pour UN archétype, à partir d'un entier DÉJÀ haché. Deux états
 // équiprobables : l'origine, ou l'échange de sa famille. Séparé du hachage lui-même pour

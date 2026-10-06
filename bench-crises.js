@@ -1,4 +1,3 @@
-"use strict";
 /* ============================================================================
  * bench-crises.js - Les choix de crise (paliers 25/50/75 %) changent-ils
  * vraiment l'issue d'une partie, et la bonne réponse dépend-elle de la
@@ -56,18 +55,13 @@
  *   --tiers='{"exodus":[{"target":0.9},{},{}]}' : molette des paliers d'édits.
  *   --legfx='{"laws":{"ruinMult":0.9,"effects":{...}}}' : molette des legs
  *            (remplace ruinMult / favoredRuinMult / effects des legs nommés).
- * Sortie : console + crisis-choices-impact.md (ou --out).
+ * Sortie : console + docs/bench/crisis-choices-impact.md (ou --out), relatif au
+ * dossier courant — le rapport versionné vit dans docs/bench/ (audit 05/10, GIT-6).
  * ========================================================================== */
 import fs from "fs";
-
-// --- Stubs DOM (avant imports jeu), comme bench-rupture.js ------------------
-global.window = { addEventListener() {}, removeEventListener() {} };
-global.localStorage = { getItem() { return null; }, setItem() {} };
-Object.defineProperty(global, "navigator", { value: { clipboard: { writeText() {} } }, writable: true, configurable: true });
-const stubEl = () => ({ className: "", dataset: {}, innerHTML: "", textContent: "", disabled: false, value: "", checked: false, style: {}, classList: { add() {}, remove() {}, toggle() {}, contains() { return false; } }, addEventListener() {}, removeEventListener() {}, setAttribute() {}, showModal() {}, remove() {}, click() {}, appendChild() {}, querySelector() { return stubEl(); }, querySelectorAll() { return []; } });
-global.document = { addEventListener() {}, removeEventListener() {}, documentElement: { style: { setProperty() {} } }, body: { appendChild() {} }, querySelector() { return stubEl(); }, querySelectorAll() { return []; }, createElement() { return stubEl(); }, getElementById() { return stubEl(); } };
-global.Audio = class { constructor() { this.volume = 1; } addEventListener() {} play() { return Promise.resolve(); } pause() {} };
-global.render = () => {}; global.save = () => {};
+import path from "path";
+// Stubs DOM (avant imports jeu) : le faux navigateur commun des harnais.
+import "./scripts/lib/headless.mjs";
 
 const argv = Object.fromEntries(process.argv.slice(2).map((a) => {
   const m = a.match(/^--([^=]+)=?(.*)$/);
@@ -76,7 +70,7 @@ const argv = Object.fromEntries(process.argv.slice(2).map((a) => {
 const BUDGET_S = (Number(argv.hours) || 12) * 3600;
 const SEED = argv.seed != null ? Number(argv.seed) >>> 0 : 0x9e3779b9;
 const ONLY = typeof argv.only === "string" ? argv.only.split(",") : null;
-const OUT = typeof argv.out === "string" ? argv.out : "crisis-choices-impact.md";
+const OUT = typeof argv.out === "string" ? argv.out : "docs/bench/crisis-choices-impact.md";
 const TICK = 5;                 // secondes virtuelles par tick (comme simulate-ce)
 const CYCLE_CAP_S = (Number(argv.cap) || 4) * 3600;
 const LUCIDE_MAX = Number(argv.lucide) || 0.5;
@@ -495,5 +489,6 @@ de cycle). **Meilleur choix : profiter ${nProfit} fois, traiter ${rows.length - 
   });
 }
 if (BRANCH) await branchSection();
+fs.mkdirSync(path.dirname(OUT), { recursive: true });
 fs.writeFileSync(OUT, md, "utf8");
 console.log(`Écrit : ${OUT}`);

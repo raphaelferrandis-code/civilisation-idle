@@ -10,6 +10,7 @@ import { drawSunShadow } from './iso/isoSunShadow.js';
 import { walkPath, walkNearest, walkComponent, nearestCell } from './citizenRoute.js';
 import { dayPhase, citizenTraits, homeTime, dawnFor, pickAgenda, dwellFor, paceFor } from './citizenDay.js';
 import { figAhead } from './figures.js';
+import { fmix32 } from './hash.js';
 
 /* ---- legacy citymap rendering\agents.js ---- */
 
@@ -234,8 +235,8 @@ const AGENT_MODERN = { // band 6 : la ville de bureaux (PLAN-VIVANT, 2026-10-02)
   child: { name: 'modernchild', scale: 0.50 },  // ciré jaune
 };
 // (AGENT_FUTURE, le jeu cyberpunk d'août des bandes 7-9 — futureman/futurewoman/
-// futurechild —, a été remplacé le 2026-10-02 par un jeu par cité, ci-dessous. Les
-// bandes restent sur le disque.)
+// futurechild —, a été remplacé le 2026-10-02 par un jeu par cité, ci-dessous. Ses
+// bandes, comme celles des « grecs », ont quitté public/ : audit 2026-10-05, ASSET-3.)
 // Ères cosmiques (PLAN-VIVANT, 2026-10-02) : UN jeu par bande, habillé comme sa
 // cité — jade et ivoire (7), nacre et or (8), marbre et cristal violet (9). Les
 // cyberpunks sombres d'août ne sont plus servis.
@@ -335,7 +336,7 @@ const ISO_AGENT_NAMES = [...new Set([
 // diagonale remplace) : ce sont leurs DIAGONALES qui se préchargent maintenant, celles
 // de la bande d'ère courante et de la suivante (preloadAgentDiags, plus bas).
 ensureAgentChar('villager');
-if (typeof window !== 'undefined') window.__villagerScale = (h) => { AGENT_SCALE = +h || 1; };
+if (import.meta.env?.DEV && typeof window !== 'undefined') window.__villagerScale = (h) => { AGENT_SCALE = +h || 1; };
 
 // ── Helper PARTAGÉ : dessine un personnage PIXEL NOMMÉ (bande de marche 4 dirs,
 // AGENT_NF frames) à une position écran (sx = centre horizontal, groundY = ligne de
@@ -384,7 +385,8 @@ function drawEraAgent(ctx, sx, groundY, z, dir, walking, now, phase, charType, s
 // vues diagonales : /pixelart/agents/…/{name}-southeast.png etc. En mode iso, la
 // direction MONDE (E/O/S/N) se projette sur UNE diagonale ÉCRAN : E→SE, O→NO,
 // S→SO, N→NE — donc seules les 4 diagonales servent en iso. Générées par vagues
-// PixelLab (pilote : greekman, cf. scripts/fetchAgentsIso.mjs) ; tant qu'une
+// PixelLab (pilote : greekman, cf. scripts/_archive/fetchAgentsIso.mjs — archivé,
+// ne pas relancer : il écraserait les retouches faites depuis) ; tant qu'une
 // bande manque (onerror), l'appelant retombe sur la bande cardinale.
 const ISO_DIAG = ['southeast', 'northwest', 'southwest', 'northeast']; // index = dir monde 0..3
 // Chargeur d'image avec RE-ESSAI : un asset généré PENDANT que le jeu tourne
@@ -420,7 +422,7 @@ function loadWithRetry(src, onOk, onFail) {
 // `__idleAnim(false)` coupe l'attente (retour à l'image 0, pour un A/B).
 const IDLE_NAMES = new Set([...AGENT_SETS.flatMap((set) => [...set.men, ...set.women, set.child]).map((s) => s.name), ...BASKET_CARRIERS]);
 const IDLE_ANIM = { on: true, ms: 280 };
-if (typeof window !== 'undefined') window.__idleAnim = (on) => { if (on != null) IDLE_ANIM.on = !!on; return IDLE_ANIM.on; };
+if (import.meta.env?.DEV && typeof window !== 'undefined') window.__idleAnim = (on) => { if (on != null) IDLE_ANIM.on = !!on; return IDLE_ANIM.on; };
 // L'attente sur UNE seule vue (sud-est) : les filles de la Maison des Plaisirs à la porte
 // et au balcon (iso/isoPlaisirs.js, dir 0), animées à partir de leur propre image
 // (PixelLab animate_image) — elles étaient les dernières figées de la ville.
@@ -451,6 +453,13 @@ function poseStrip(c, name, kind, dd) {
   return s.img.complete && s.img.naturalWidth > 0 ? s : null;
 }
 
+// LE DOS RECOPIE LA FACE : la danse et le repos des filles de la Maison des Plaisirs
+// (scripts/plaisirsGirls.mjs) n'ont que des vues de face — leurs bandes nord étaient
+// des copies binaires des bandes sud (64 fichiers, audit 2026-10-05, ASSET-8). Le nord
+// est donc lu sur le sud : NE sur SE, NO sur SO, un seul fichier et un seul décodage
+// par paire, demi-bandes comprises.
+const MIRROR_BACK = /^plaisirs-.+-(?:danse|repos)$/;
+const diagFileDir = (name, d) => (MIRROR_BACK.test(name) && d.startsWith('north') ? 'south' + d.slice(5) : d);
 const agentDiagChars = {};
 function ensureAgentDiag(name) {
   let c = agentDiagChars[name];
@@ -470,10 +479,13 @@ function ensureAgentDiag(name) {
     c.idleHalf[d] = ih;
   }
   if (typeof Image !== 'undefined') for (const d of ISO_DIAG) {
+    if (diagFileDir(name, d) !== d) continue;   // dos lu sur la face, ci-dessous
+    // Directions servies par ce fichier : `ready` compte des DIRECTIONS (prêt à 4).
+    const n = ISO_DIAG.filter((x) => diagFileDir(name, x) === d).length;
     c.img[d] = loadWithRetry(
       '/pixelart/agents/' + agentDir(name) + '/' + name + '-' + d + '.png',
-      () => { c.ready += 1; },
-      () => { c.failed += 1; },
+      () => { c.ready += n; },
+      () => { c.failed += n; },
     );
     // Bande DEMI-TAILLE pré-cuite optionnelle ({name}-{d}-half.png, réduction ÷2
     // box+palette faite hors ligne) : au petit zoom le canvas la dessine à ~1:1 au
@@ -482,6 +494,10 @@ function ensureAgentDiag(name) {
     const im = new Image();
     c.imgHalf[d] = im;
     im.src = '/pixelart/agents/' + agentDir(name) + '/' + name + '-' + d + '-half.png';
+  }
+  for (const d of ISO_DIAG) {
+    const f = diagFileDir(name, d);
+    if (f !== d) { c.img[d] = c.img[f]; c.imgHalf[d] = c.imgHalf[f]; }
   }
   return c;
 }
@@ -531,7 +547,7 @@ function agentFootF(c, img) {
 // `groundTileTune.exact` pour le blit 1:1 du sol — une cuisson sans son
 // interrupteur ne se juge pas, elle se croit.
 const halfBands = { on: true };
-if (typeof window !== 'undefined') window.__agentHalf = (on) => { halfBands.on = on !== false; return halfBands.on; };
+if (import.meta.env?.DEV && typeof window !== 'undefined') window.__agentHalf = (on) => { halfBands.on = on !== false; return halfBands.on; };
 
 // `pose` (§8) : { kind: 'sit' | 'wave', u: 0-1 } — l'avancement dans la bande de pose.
 function drawNamedAgentIso(ctx, sx, groundY, z, name, scale, dir, walking, now, phase, scaleMul = 1, distPx = null, groundFeet = false, pose = null) {
@@ -577,7 +593,7 @@ function drawNamedAgentIso(ctx, sx, groundY, z, name, scale, dir, walking, now, 
       // Pas exprimé AVANT AGENT_SCALE (2.75 · 0.8 = 2.2, le réglage d'origine) : la
       // longueur d'un pas suit la taille du sprite, sinon un habitant rétréci couvre
       // toujours 2.2 px monde par frame et ses petites jambes patinent.
-      const stride = (typeof window !== 'undefined' && window.__strideLen != null) ? window.__strideLen : 2.75 * AGENT_SCALE;
+      const stride = (import.meta.env?.DEV && typeof window !== 'undefined' && window.__strideLen != null) ? window.__strideLen : 2.75 * AGENT_SCALE;
       frame = Math.floor(distPx / Math.max(0.5, stride) + (phase || 0) * nf) % nf;
     } else {
       frame = Math.floor((now || 0) / 160 + (phase || 0) * 6) % nf;
@@ -775,7 +791,7 @@ function namedPortraitFrame(name, dir, walking, walkDist, phase, now) {
   let frame = 0;
   if (walking) {
     if (walkDist != null) {
-      const stride = (typeof window !== 'undefined' && window.__strideLen != null) ? window.__strideLen : 2.75 * AGENT_SCALE;
+      const stride = (import.meta.env?.DEV && typeof window !== 'undefined' && window.__strideLen != null) ? window.__strideLen : 2.75 * AGENT_SCALE;
       frame = Math.floor(walkDist / Math.max(0.5, stride) + (phase || 0) * nf) % nf;
     } else {
       frame = Math.floor((now || 0) / 160 + (phase || 0) * 6) % nf;
@@ -859,20 +875,13 @@ function eraVehSpec(type, skin) {
   return null;
 }
 // Molette de toise : __eraVeh('wagon', 4, { size: 1.5 }).
-if (typeof window !== 'undefined') window.__eraVeh = (type, band, o) => { const s = ERA_VEH[type] && ERA_VEH[type][band]; if (s && o) Object.assign(s, o); return s ? { ...s } : null; };
+if (import.meta.env?.DEV && typeof window !== 'undefined') window.__eraVeh = (type, band, o) => { const s = ERA_VEH[type] && ERA_VEH[type][band]; if (s && o) Object.assign(s, o); return s ? { ...s } : null; };
 const vehDiagReady = (c) => !!c && c.ready >= ISO_DIAG.length;
 
 // Rebrassage avant tirage : l'appelant fournit un compteur de spawn, dont les bits
 // de poids faible suivent l'ordre d'apparition. Sans fmix32 les cinq premières
 // voitures d'une rue sortent dans l'ordre du catalogue (cf. la démonstration du
-// damier dans housePalette.js).
-function fmix32(x) {
-  let h = x >>> 0;
-  h ^= h >>> 16; h = Math.imul(h, 2246822507);
-  h ^= h >>> 13; h = Math.imul(h, 3266489909);
-  h ^= h >>> 16;
-  return h >>> 0;
-}
+// damier dans housePalette.js). fmix32 : ./hash.js.
 // ⛔ LA FLOTTE DU PACK NE ROULE QU'À PARTIR DE LA BANDE 6. Refus de Raph le
 // 2026-08-05 devant sa capitale monumentale (bande 5, pierre et colonnades) : des
 // berlines des années 2000 dessus, « ça ne va pas ». Le gel se joue ICI et pas
@@ -976,7 +985,7 @@ const DRONE_HUBS = [
 ];
 const DRONE_ROTOR_R = 0.205;   // rayon du disque de souffle (fraction du sprite)
 let droneRotorsOn = true;       // molette de debug __droneRotors(false)
-if (typeof window !== 'undefined') {
+if (import.meta.env?.DEV && typeof window !== 'undefined') {
   window.__droneRotors = (on) => { droneRotorsOn = on !== false; return droneRotorsOn; };
   // Taille globale du drone en live (défaut 0.58) : window.__droneSize(0.5) etc.
   window.__droneSize = (v) => { CM.droneSize = (+v > 0) ? +v : 0.58; return CM.droneSize; };
@@ -1036,37 +1045,12 @@ function drawDroneRotors(ctx, dsz, t, phase) {
   }
   ctx.globalAlpha = prevA;
 }
-if (typeof window !== 'undefined') window.__vehScale = (h) => { VEH_SCALE = +h || 1; };
+if (import.meta.env?.DEV && typeof window !== 'undefined') window.__vehScale = (h) => { VEH_SCALE = +h || 1; };
 
-// ── Bateaux pixel-art (objets top-down PixelLab, vue est unique) ─────────────
-// Fichier : agents/boat-{stage}.png (1 frame, 64px). Le fleuve étant ~horizontal,
-// drawShips applique déjà miroir est↔ouest + inclinaison au repère → une seule vue
-// (proue à droite, superstructure vers le haut) suffit. Valeur = FRACTION de remplissage
-// du sprite dans son cadre 64px (≈0.7) ; la TAILLE par stade (croissante, gigantisme
-// final) est portée par sizeMul de drawShips, PAS ici — à ajuster au cas par cas selon
-// le cadrage de chaque PNG. Repli procédural si le sprite du stade n'est pas (encore)
-// chargé. Le cosmic partage une clé de remplissage mais 3 teintes par band
-// (boat-cosmic-{7,8,9}). Chargement PARESSEUX : seul le bateau de l'ère courante est
-// demandé (pas de préchargement en masse → pas de 404 inutiles).
-const BOAT_SIZES = { raft: 0.7, sail: 0.7, steam: 0.7, container: 0.7, cosmic: 0.7 };
-const BOAT_LIFT = 0.06; // remonte un peu le sprite pour poser la coque sur l'eau
-// `BOAT_SCALE` et sa molette `__boatScale` ne servaient qu'au `drawShips` top-down,
-// parti à l'étape 6. La flotte iso a sa propre échelle (isoRenderer, BOAT_IMG_K).
-const boatImg = {};
-function ensureBoat(name) {
-  let c = boatImg[name];
-  if (c) return c;
-  c = { img: null, ready: false };
-  boatImg[name] = c;
-  if (typeof Image !== 'undefined') {
-    const im = new Image();
-    im.onload = () => { c.ready = true; };
-    im.src = '/pixelart/agents/boats/boat-' + name + '.png';
-    c.img = im;
-  }
-  return c;
-}
-const boatReady = (c) => !!c && c.ready && c.img && c.img.naturalWidth > 0;
+// (Bateaux pixel-art top-down — ensureBoat, boatReady, BOAT_SIZES, BOAT_LIFT : le
+//  repli « profil » de la flotte iso, parti avec l'A/B `__boatKit({ on: false })`,
+//  audit du 05/10, MORT-6. Les PNG de agents/boats/ restent : la scène moteur du port
+//  les lit, cityEngineSprites.ensurePortBoat.)
 
 function cityMapWalkRoadKey(gx, gy) {
   return gx * 10000 + gy;
@@ -1507,7 +1491,7 @@ function citizenChooseNext(p) {
     ? (pedByRank && pedByRank[rank] != null ? pedByRank[rank]
       : (sidewalkEra ? CM.isoPedEdge : CM.isoPedEdgeLow))
     : null;
-  let pedEdge = CM.TILE * ((typeof window !== 'undefined' && window.__pedEdge != null) ? window.__pedEdge
+  let pedEdge = CM.TILE * ((import.meta.env?.DEV && typeof window !== 'undefined' && window.__pedEdge != null) ? window.__pedEdge
     : (isoPed != null ? isoPed : 0.42));
   // Étalement PERSONNEL dans la bande (iso) : chaque habitant tient SA ligne de
   // trottoir (tirée de sa phase, stable pas après pas) — une file au cordeau
@@ -1537,7 +1521,7 @@ function citizenChooseNext(p) {
     || isBridgeCell(p.gx + 1, p.gy) || isBridgeCell(p.gx - 1, p.gy)
     || isBridgeCell(p.gx, p.gy + 1) || isBridgeCell(p.gx, p.gy - 1);
   if (onBridge) {
-    const forced = (typeof window !== 'undefined' && window.__bridgePedEdge != null) ? window.__bridgePedEdge : null;
+    const forced = (import.meta.env?.DEV && typeof window !== 'undefined' && window.__bridgePedEdge != null) ? window.__bridgePedEdge : null;
     const band = forced == null ? bridgeWalkBand((p.gx + 0.5) * CM.TILE, (p.gy + 0.5) * CM.TILE) : null;
     if (band) {
       // Côté DROIT du sens de marche, sur l'axe transverse du pont (span
@@ -1623,7 +1607,7 @@ function citizenChooseNext(p) {
 // habitants ici, porteurs de panier dans updateVehicles ; attelages et voitures gardent
 // leur vitesse. Distinct de __isoWalkSpeed, qui compense la projection iso.
 const PED_SPEED = { k: 0.625 };
-if (typeof window !== 'undefined') window.__pedSpeed = (v) => { if (v > 0) PED_SPEED.k = +v; return PED_SPEED.k; };
+if (import.meta.env?.DEV && typeof window !== 'undefined') window.__pedSpeed = (v) => { if (v > 0) PED_SPEED.k = +v; return PED_SPEED.k; };
 
 // ── LA VIE DANS LA RUE (docs/PLAN-VIVANT.md, lot D, 2026-10-02) ─────────────
 // Fin des files indiennes : une partie des passants marche EN COMPAGNIE. Un
@@ -1638,7 +1622,7 @@ if (typeof window !== 'undefined') window.__pedSpeed = (v) => { if (v > 0) PED_S
 // `radius` = distance maximale d'accrochage (1,5 case : il rejoint en marchant).
 // Molette : __companions({ on, p, pChild, side, back, chatP, catchK, radius }).
 const COMPANIONS = { on: true, p: 0.24, pChild: 0.6, radius: 1.5, side: 0.2, back: 0.12, chatP: 0.03, chatMin: 2.5, chatMax: 6, catchK: 1.6 };
-if (typeof window !== 'undefined') window.__companions = (o) => { if (o) Object.assign(COMPANIONS, o); return { ...COMPANIONS }; };
+if (import.meta.env?.DEV && typeof window !== 'undefined') window.__companions = (o) => { if (o) Object.assign(COMPANIONS, o); return { ...COMPANIONS }; };
 let citTick = 0;   // compteur de passes : un meneur absent de la passe (liste refaite) est lâché
 const dirToward = (dx, dy) => (Math.abs(dx) > Math.abs(dy) ? (dx > 0 ? 0 : 1) : (dy > 0 ? 2 : 3));
 // Décision UNIQUE, au premier passage : s'accroche-t-il, et à qui ? Le meneur est le
@@ -1712,7 +1696,7 @@ function companionFollow(p, L, dt) {
 // Allure de marche d'un passant à l'écran (px monde / s) : la même formule que le pas
 // d'updateCitizens (vitesse propre × calme iso × allure piétonne).
 function pedWalkSpeed(p) {
-  const isoK = (typeof window !== 'undefined' && window.__isoWalkSpeed != null) ? window.__isoWalkSpeed : 0.72;
+  const isoK = (import.meta.env?.DEV && typeof window !== 'undefined' && window.__isoWalkSpeed != null) ? window.__isoWalkSpeed : 0.72;
   return (p.speed || 24) * isoK * PED_SPEED.k;
 }
 function companionChat(p) {
@@ -1772,7 +1756,7 @@ const DUSK_RETHINK = new Set(['plaza', 'wonder', 'wander', 'cross', 'errand', 'w
 // le temps de dépasser), dans un couloir de ± `half`, et l'on s'écarte de `step`.
 // Molette : __avoid({ on, reach, half, step, back }).
 export const AVOID = { on: true, reach: 0.6, half: 0.24, step: 0.22, back: 0.3 };
-if (typeof window !== 'undefined') window.__avoid = (o) => { if (o) Object.assign(AVOID, o); return { ...AVOID }; };
+if (import.meta.env?.DEV && typeof window !== 'undefined') window.__avoid = (o) => { if (o) Object.assign(AVOID, o); return { ...AVOID }; };
 // LA POSE d'un passant (§8 de PLAN-COMPORTEMENTS) : deux passants qui se croisent et
 // s'arrêtent causer commencent par se SALUER (la première seconde de la causette).
 function citizenPose(p) {
@@ -1789,7 +1773,7 @@ function updateCitizens(dt) {
   // (pas dt) : la phase survit aux recalculs et reste commune à tous les habitants.
   // Molette dev : __wonderCrowd = 1 force la vague, 0 la coupe, null → auto.
   const gatherT = (typeof performance !== 'undefined' ? performance.now() : Date.now()) / 1000;
-  const crowdOverride = (typeof window !== 'undefined' && window.__wonderCrowd != null) ? +window.__wonderCrowd : null;
+  const crowdOverride = (import.meta.env?.DEV && typeof window !== 'undefined' && window.__wonderCrowd != null) ? +window.__wonderCrowd : null;
   CM.wonderPull = !(CM.wonderGatherCells && CM.wonderGatherCells.length) ? 0
     : crowdOverride != null ? crowdOverride
       : (gatherT % 150) < 35 ? 1 : 0;
@@ -1808,7 +1792,7 @@ function updateCitizens(dt) {
   CM.globalBubbleCooldown -= dt;
   if (CM.globalBubbleCooldown <= 0) {
     // ⚠ TIRÉE PARMI CEUX QU'ON VOIT (docs/PLAN-COMPORTEMENTS.md, lot 1 ; diagnostic de
-    // REPRISE-bulles-habitants.md, resté sans suite). Le porteur était tiré parmi TOUS
+    // docs/archive/REPRISE-bulles-habitants.md, resté sans suite). Le porteur était tiré parmi TOUS
     // les habitants — jusqu'à ~900, la caméra en montre une fraction — donc presque
     // toujours hors champ, ou endormi derrière une porte : « il n'y a plus de bulles ».
     // Désormais : un passant à l'écran, éveillé, ni en partance ni en fondu, et pas au
@@ -1861,8 +1845,8 @@ function updateCitizens(dt) {
   // Molettes de marche (__isoWalkSpeed, __pedTurn) lues UNE fois par frame (audit du
   // 05/10, PERF-44) : une propriété absente de `window` est lente à chercher, et elles
   // l'étaient deux fois par passant et par frame (~0,1 ms à 1 000 passants).
-  const isoK = (typeof window !== 'undefined' && window.__isoWalkSpeed != null) ? window.__isoWalkSpeed : 0.72;
-  const pedTurn = (typeof window !== 'undefined' && window.__pedTurn != null) ? window.__pedTurn : 0.9;
+  const isoK = (import.meta.env?.DEV && typeof window !== 'undefined' && window.__isoWalkSpeed != null) ? window.__isoWalkSpeed : 0.72;
+  const pedTurn = (import.meta.env?.DEV && typeof window !== 'undefined' && window.__pedTurn != null) ? window.__pedTurn : 0.9;
   for (const p of CM.citizens) {
     p._tick = citTick;
     if (p.thoughtTimer === undefined) p.thoughtTimer = 0;
@@ -2238,7 +2222,7 @@ function vehicleLaneTarget(v) {
     // plafond sous la ligne des piétons (pedEdge 0.42). Même contrat que le boulevard :
     // pur RENDU (pathfinding centré), partagé phares/carrosserie, nudge __vehLaneBias.
     const eiR = CM.layout?.counts?.eraIndex ?? 13;
-    const laneBias = (typeof window !== "undefined" && window.__vehLaneBias != null) ? window.__vehLaneBias : 0;
+    const laneBias = (import.meta.env?.DEV && typeof window !== "undefined" && window.__vehLaneBias != null) ? window.__vehLaneBias : 0;
     // ISO : centre de voie = demi-chaussée dessinée / 2 — par RANG de la cellule
     // (hiérarchie des largeurs : la file colle au ruban réel, étroit ou large),
     // repli sur le scalaire CM.isoVehLane ; legacy : heuristique procédurale.
@@ -2352,7 +2336,7 @@ function vehicleChooseNext(v) {
 // à quatre au carrefour, pas de file figée derrière un véhicule sans issue.
 // Tout est en TUILES ; molette __vehGap({ on, stop, free, patience, push }).
 const VEH_GAP = { on: true, stop: 0.1, free: 0.5, patience: 3, push: 1.5, look: 2.5 };
-if (typeof window !== 'undefined') window.__vehGap = (o) => Object.assign(VEH_GAP, o || {});
+if (import.meta.env?.DEV && typeof window !== 'undefined') window.__vehGap = (o) => Object.assign(VEH_GAP, o || {});
 // Longueur au sol (tuiles) d'un véhicule : son encre couvre ~65 % de la boîte dessinée
 // (T·size·VEH_SCALE), boîte où il est vu en biais (longueur + largeur).
 function vehGroundLen(v) {
@@ -2539,7 +2523,7 @@ function drawVehicleHeadlights(ctx, v) {
 
 // ⚠ Retirés le 2026-08-23 (étape 6) avec le rendu top-down : `drawCitizens`,
 // `drawGroundAgents`, `drawShips`, `drawVehicles`, `frontByPainter`.
-export { agentSetForBand, agentSpecFor, agentFrameIso, chooseRoadVehicleType, getVehicleDensity, updateVehicles, vehicleGapFactors, VEH_GAP, updateCitizens, CM_DIRS, cityMapWalkRoadKey, roadStepAllowed, drawCitizenThoughts, vehicleLaneOffset, drawEraAgent, drawEraAgentIso, drawNamedAgent, drawNamedAgentIso, drawVehicleHeadlights, thoughtBubbleAnchor, riotEraKey, ensureVeh, vehReady, VEH_SIZES, VEH_PULL, VEH_PUSH, ensureBoat, boatReady, BOAT_SIZES, BOAT_LIFT, ensureDrone, drawDroneRotors, ensureVehDiag, vehDiagReady, vehSkinFor, eraVehSpec, ISO_DIAG, ISO_AGENT_NAMES, BASKET_CARRIERS, agentDir, AGENT_SCALE, VEH_SCALE,
+export { agentSetForBand, agentSpecFor, agentFrameIso, chooseRoadVehicleType, getVehicleDensity, updateVehicles, vehicleGapFactors, VEH_GAP, updateCitizens, CM_DIRS, cityMapWalkRoadKey, roadStepAllowed, drawCitizenThoughts, vehicleLaneOffset, drawEraAgent, drawEraAgentIso, drawNamedAgent, drawNamedAgentIso, drawVehicleHeadlights, thoughtBubbleAnchor, riotEraKey, ensureVeh, vehReady, VEH_SIZES, VEH_PULL, VEH_PUSH, ensureDrone, drawDroneRotors, ensureVehDiag, vehDiagReady, vehSkinFor, eraVehSpec, ISO_DIAG, ISO_AGENT_NAMES, BASKET_CARRIERS, agentDir, AGENT_SCALE, VEH_SCALE,
   citizenSpawnCell, citizenAtDoorstep, citizenWorkNear, IDLE_NAMES, IDLE_ONE, POSE_NAMES, POSE_NONE, CARDINAL_NAMES, agentIdleFrameIso, agentPoseFrameIso, citizenPose, citizenScreenBox, citizenPortraitFrame, namedPortraitFrame, imgInkBox, citizenSheltering };
 // AGENT_SCALE / VEH_SCALE sont exportés en LIAISON VIVE (ESM) : le rendu iso les relit
 // à chaque frame, donc __villagerScale / __vehScale agissent aussi sur la vue iso.

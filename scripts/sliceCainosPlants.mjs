@@ -16,7 +16,9 @@
 //
 // Usage (--report liste les boîtes mesurées sans rien écrire) :
 //   --mode tufts --src "<...>/TX Plant.png"   → deco/tuft-1..15 (touffes d'herbe)
-//   --mode plants --src "<...>/TX Plant.png"  → bush-1..6
+//   --mode plants --src "<...>/TX Plant.png" --out art/references-ab/buissons-cainos
+//                                             → bush-1..6 (le jeu ne les dessine plus
+//                                               depuis le 2026-10-06 : source seule)
 // Ce qui a été essayé puis REFUSÉ par Raph le 2026-07-22, et n'est donc plus
 // sorti : les 3 ARBRES de la planche végétale, et toutes les PIERRES de
 // « TX Props.png » (plates puis rondes). Ne pas re-proposer.

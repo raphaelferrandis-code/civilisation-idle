@@ -24,7 +24,6 @@
   margin: 0.9rem 0;
   padding: 0.85rem 1rem;
   border: 1px solid rgba(var(--era-rgb),0.12);
-  border-radius: 0;
   background: rgba(0,0,0,0.2);
 }
 
@@ -57,7 +56,6 @@
   margin: 0.2rem 0 0.8rem;
   padding: 0.55rem 0.8rem;
   border-left: 3px solid rgba(194, 96, 58, 0.7);
-  border-radius: 0;
   background: rgba(194, 96, 58, 0.08);
   font-size: 0.83rem;
   color: #d4896a;
@@ -79,14 +77,4 @@
   background: linear-gradient(180deg, color-mix(in srgb, var(--gold), var(--surface-raised) 80%) 0%, var(--surface-raised) 100%);
   box-shadow: inset 0 1px 0 var(--shine), 0 4px 14px rgba(0,0,0,0.35), 0 0 0 1px rgba(var(--era-rgb),0.18);
 }
-
-/* Bâtiments bloqués par le Mythe de Babel */
-
-
-.shop-item.babel-blocked {
-  opacity: 0.32;
-  filter: saturate(0.12);
-}
-
-.shop-item.babel-blocked button { cursor: not-allowed; }
 

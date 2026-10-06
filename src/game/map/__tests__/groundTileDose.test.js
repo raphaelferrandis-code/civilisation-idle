@@ -122,14 +122,13 @@ describe("S2 — dose de la tuile de sol par matière", () => {
         urb: URB, mat: MAT, plazaEra: "antique", wg: null, PR: null },
       { kindAt: () => "urban", grassAt: () => false, keyOfKind: () => GENERIC, lisiere },
       { fringes: [], roads: [], wonderCells: [], grassCells: [], grassMask: [], grassMaskR: [],
-        veilPush() {}, veilPushRects() {},
         faceL: [], faceD: [], faceLU: [], faceDU: [], faceFoot: [], faceBand: [], faceJoint: [], faceLipG: [], faceLipS: [] },
     );
     let saved;
     beforeEach(() => {
       saved = { cam: CM.cam, cw: CM.cw, ch: CM.ch, season: CM.season, detail: { ...URBAN_DETAIL } };
       Object.assign(CM, { cam: { x: 0, y: 0, zoom: 1 }, cw: 200, ch: 200, season: 0 });
-      Object.assign(URBAN_DETAIL, { on: true, tiles: true, noiseAmp: 0, tileJit: 0 });
+      Object.assign(URBAN_DETAIL, { on: true, tiles: true });
       // Les DEUX tuiles prêtes : si la générique ne se peint pas, c'est la règle
       // (alpha 0 pour l'urbain), pas un PNG absent.
       isoTileCache.set(GENERIC, ready("generique"));

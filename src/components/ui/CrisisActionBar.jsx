@@ -14,18 +14,16 @@ import { tipProps } from './HelpBubble.jsx';
 
 /**
  * Actions de régulation des foyers de tension (Subsistance / Inégalités /
- * Complexité / Dissidence). Rendu dans l'en-tête de la Cité
- * (variant="compact", toujours visible) — le SEUL point d'action depuis le
- * retrait de la table tactique de l'onglet Régulation (retour Raph
- * 2026-07-13 : la Chancellerie l'y rendait redondante). La variante "full"
- * (tableau tactique large) n'a PLUS de consommateur — conservée telle quelle
- * pour un éventuel retour ; à purger si elle reste orpheline au prochain audit.
+ * Complexité / Dissidence), dans la poignée de régulation de la Cité
+ * (HudPanel de CityView) : la barre complète au doigt (CrisisActionBar), le
+ * geste réflexe de chaque foyer au bureau (RegulQuick), le résumé replié
+ * (RegulSummary).
  *
- * Les deux variantes mappent la MÊME config `foyers` : chaque bouton annonce
- * désormais ce qu'il calme (−X % du foyer), sa contrepartie de production
- * (↓Y % d'une ressource jusqu'au prochain effondrement) et son coût (montant +
- * équivalent en secondes de production). L'abonnement à `instability` cale le
- * recalcul (coûts, relief décroissant) sur le tick (1 Hz).
+ * Tous lisent la MÊME config `foyers` : chaque bouton annonce ce qu'il calme
+ * (−X % du foyer), sa contrepartie de production (↓Y % d'une ressource jusqu'au
+ * prochain effondrement) et son coût (montant + équivalent en secondes de
+ * production). L'abonnement à `instability` cale le recalcul (coûts, relief
+ * décroissant) sur le tick (1 Hz).
  */
 
 // Bouton de régulation : libellé + coût (ligne 1), puis la contrepartie de
@@ -346,13 +344,10 @@ export default function CrisisActionBar() {
                 </span>
               </summary>
               <div className="crisis-foyer-actions">
-                {f.actions.length === 0 ? (
-                  <span className="crisis-foyer-locked">{tr({ fr: 'Disponible au cycle 2', en: 'Available at cycle 2' })}</span>
-                ) : (
-                  f.actions.map((a) => (
-                    <RegulButton key={a.id} a={a} label={a.label} btnClass="crisis-regul-btn" />
-                  ))
-                )}
+                {/* Jamais vide : chaque foyer porte au moins sa réforme (regulationFoyers). */}
+                {f.actions.map((a) => (
+                  <RegulButton key={a.id} a={a} label={a.label} btnClass="crisis-regul-btn" />
+                ))}
               </div>
             </details>
           ))}

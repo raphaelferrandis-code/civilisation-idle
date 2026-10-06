@@ -16,9 +16,10 @@
 //     hauteurs de mur. C'est ce qui fait qu'une maison en retrait sur la promenade
 //     montre ses étages et son TOIT dans l'eau, comme en vrai — son pied, le mur le
 //     cache. Un bateau est posé sur l'eau : décalage nul.
-//   · LE MUR DU QUAI SE REFLÈTE AUSSI, et DEVANT les maisons (il est plus près de
-//     nous, son reflet aussi) : une bande de pierre juste sous le bord de l'eau,
-//     pied sombre du mur d'abord, margelle claire au bout — la lecture d'un canal.
+//   · LE MUR DU QUAI se reflète en physique, DEVANT les maisons — mais ce reflet se
+//     lisait comme une corniche pâle posée sur l'eau (planche du 2026-09-30) : il a
+//     été éteint, puis retiré le 2026-10-06 (audit MORT-12). Sa hauteur, elle, sert
+//     toujours : c'est de là que part le miroir de ce qui borde le quai.
 //   · Seule la RIVE D'EN FACE se voit dans l'eau : le reflet part vers le BAS de
 //     l'écran, celui d'un objet de la rive proche tomberait sur sa propre berge.
 //     On ne le dessine même pas.
@@ -37,10 +38,10 @@
 // par la caméra (pan et zoom) : invisible. Le calque ne garde trace que de ce qu'il
 // porte, par BANDES de 32 px : la pose coûte la surface des reflets, pas l'écran.
 //
-// Molette : __reflect({ on, alpha, tint, wobble, speed, wall })
+// Molette : __reflect({ on, alpha, tint, wobble, speed })
 //   alpha  = force du reflet ; tint = part de couleur d'eau (0 : couleurs vraies) ;
 //   wobble = amplitude de l'ondulation en pixels d'art (0 : miroir figé) ;
-//   speed  = vitesse de l'ondulation ; wall = reflet du mur de quai.
+//   speed  = vitesse de l'ondulation.
 import { CM } from '../layout.js';
 import { worldToScreen } from './projection.js';
 import { maskSlot, pivotGround, rectKey, setSunShadowReflectHook } from './isoSunShadow.js';
@@ -49,13 +50,12 @@ import { maskSlot, pivotGround, rectKey, setSunShadowReflectHook } from './isoSu
 // 0,5 / 0,35 le reflet virait au gris et on ne reconnaissait plus l'ocre des
 // immeubles ; à 0,7 il pesait comme un bâtiment noyé. L'ondulation à 2 pixels
 // casse assez les bords pour qu'on lise de l'eau, pas une vitre.
-// Le reflet du MUR de quai est ÉTEINT par défaut (planche du 2026-09-30, zoom 1) :
-// exact en physique, il se lisait comme une corniche pâle posée sur l'eau ; sans
-// lui, l'eau montre les façades et les toits retournés et l'œil lit « la ville dans
-// le fleuve ». Gardé pour l'A/B : __reflect({ wall: true }).
-// `wallTaper` (2026-10-02) : le reflet descend de la hauteur du mur À CET ENDROIT (il
-// s'enfonce dans la grève au bout d'un quai) ; false = l'ancien tout-ou-rien (A/B).
-export const REFLECT = { on: true, alpha: 0.6, tint: 0.15, wobble: 2, speed: 1, wall: false, minZoom: 0.6, wallTaper: true };
+// Le reflet du MUR de quai a été retiré (planche du 2026-09-30, zoom 1 : il se lisait
+// comme une corniche pâle posée sur l'eau ; sans lui, l'œil lit « la ville dans le
+// fleuve »). Le reflet de ce qui borde le quai descend de la hauteur du mur À CET
+// ENDROIT (2026-10-02 : il s'enfonce dans la grève au bout d'un quai). Les deux
+// molettes d'A/B (`wall`, `wallTaper`) ont été retirées le 2026-10-06.
+export const REFLECT = { on: true, alpha: 0.6, tint: 0.15, wobble: 2, speed: 1, minZoom: 0.6 };
 // Force de la frame : coupée en vue lointaine (LOD), à l'effondrement, au palier
 // « perf » ; en FONDU sous `minZoom` (0,6 → 0,7), comme l'ombre du soleil.
 function reflectK() {
@@ -63,7 +63,7 @@ function reflectK() {
   const z = CM.cam && CM.cam.zoom != null ? CM.cam.zoom : 1;
   return Math.max(0, Math.min(1, (z - REFLECT.minZoom) / 0.1));
 }
-if (typeof window !== 'undefined') {
+if (import.meta.env?.DEV && typeof window !== 'undefined') {
   window.__reflect = (o) => {
     if (o === false) REFLECT.on = false;
     else if (o === true) REFLECT.on = true;
@@ -193,7 +193,6 @@ let _build = false;          // une frame est en train de le remplir
 let _ref = null;             // caméra + transform de la frame de cuisson
 let _cols = null;            // eau par colonne d'écran de la frame de cuisson
 let _drop = 0;               // hauteur du mur de quai à l'écran (px) de la frame
-let _wall = null;            // { runs, cols } : le mur de quai de la rive d'en face
 let _wallCol = null;         // par colonne d'écran (cf. _cols) : part du mur plein sur ce bord d'eau (0..1)
 // Ce que porte le calque, par bande : étendue x (px device), et bandes utilisées.
 let _sx0 = null, _sx1 = null, _s0 = Infinity, _s1 = -Infinity;
@@ -286,47 +285,16 @@ export function noteReflectionImage(ctx, cv, x, y, w, h) {
 // Pose le calque de la frame précédente sur l'eau, puis ouvre celui de cette
 // frame. Appelé à la FIN de drawIsoRiver, qui fournit : le tracé du ruban (clip),
 // ses bords à l'écran, la hauteur du mur de quai (px), la couleur de l'eau, et le
-// mur de la rive d'en face ({ runs : polylignes du bord d'eau, cols }) ou null.
+// mur de la rive d'en face ({ runs : polylignes du bord d'eau }) ou null.
 export function drawIsoReflections(ctx, now, clipPath, edges, drop, tintRGB, wall = null) {
   const k = reflectK();
   if (k > 0 && _layer && _ref && _s1 >= _s0) compositeLayer(ctx, now, clipPath, tintRGB, k);
   beginBuild(ctx, edges, drop, wall, k);
 }
 
-// Le peintre a fini : le mur de quai se reflète DEVANT les maisons (peint en
-// dernier), puis plus rien ne s'ajoute au calque de cette frame.
+// Le peintre a fini : plus rien ne s'ajoute au calque de cette frame.
 export function endReflectionBuild() {
-  if (_build && REFLECT.wall && _wall && _drop > 0) drawWallReflection();
   _build = false;
-}
-
-// Le reflet du mur : du bord de l'eau (pied du mur, sombre) jusqu'à deux hauteurs
-// de mur sous la margelle (la margelle, claire) — le mur retourné.
-function drawWallReflection() {
-  const { runs, cols } = _wall, h = _drop;
-  const bands = [[0, 0.5, cols.bot], [0.5, 0.86, cols.top], [0.86, 1, cols.coping]];
-  _lctx.globalAlpha = 1;
-  for (const run of runs) {
-    if (!run || run.length < 2) continue;
-    for (const [a, b, col] of bands) {
-      _lctx.fillStyle = col;
-      _lctx.beginPath();
-      // Hauteur du mur À CET ENDROIT (`f`, cf. beginBuild) : il s'enfonce dans la grève.
-      const hh = (p) => h * (p.f == null ? 1 : p.f);
-      for (let i = 0; i < run.length; i += 1) {
-        const p = run[i], y = p.y + hh(p) + a * hh(p);
-        if (i) _lctx.lineTo(p.x, y); else _lctx.moveTo(p.x, y);
-      }
-      for (let i = run.length - 1; i >= 0; i -= 1) _lctx.lineTo(run[i].x, run[i].y + hh(run[i]) + b * hh(run[i]));
-      _lctx.closePath();
-      _lctx.fill();
-    }
-    for (let i = 1; i < run.length; i += 1) {
-      const p = run[i - 1], q = run[i];
-      const x0 = Math.min(p.x, q.x), y0 = Math.min(p.y, q.y) + h;
-      markDirty(x0, y0, Math.abs(q.x - p.x) + 1, Math.abs(q.y - p.y) + h + 1);
-    }
-  }
 }
 
 function compositeLayer(ctx, now, clipPath, tintRGB, strength = 1) {
@@ -390,7 +358,7 @@ function compositeLayer(ctx, now, clipPath, tintRGB, strength = 1) {
 function releaseLayer() {
   _layer.width = 0; _layer.height = 0;
   _sx0 = null; _sx1 = null; _s0 = Infinity; _s1 = -Infinity;
-  _ref = null; _cols = null; _wall = null; _wallCol = null;
+  _ref = null; _cols = null; _wallCol = null;
 }
 
 function beginBuild(ctx, edges, drop, wall, k = 1) {
@@ -431,7 +399,6 @@ function beginBuild(ctx, edges, drop, wall, k = 1) {
   _ref = { ox: o.x, oy: o.y, z: CM.cam.zoom, a: M.a, d: M.d, e: M.e, f: M.f };
   _cols = waterColumns(edges, CM.cw || cv.width);
   _drop = drop || 0;
-  _wall = wall && wall.runs && wall.runs.length ? wall : null;
   // Colonnes dont le bord d'eau HAUT est un mur de quai (les tronçons de `wall`), avec la
   // PART du mur plein à cet endroit (`f` des points, 1 si absent) interpolée le long du
   // bord. Sans description du mur (`wall` absent), la règle d'avant : un mur partout.
@@ -442,7 +409,7 @@ function beginBuild(ctx, edges, drop, wall, k = 1) {
     for (const run of wall.runs) {
       for (let k = 1; k < run.length; k += 1) {
         const p = run[k - 1], q = run[k];
-        const fp = p.f == null || !REFLECT.wallTaper ? 1 : p.f, fq = q.f == null || !REFLECT.wallTaper ? 1 : q.f;
+        const fp = p.f == null ? 1 : p.f, fq = q.f == null ? 1 : q.f;
         const i0 = Math.max(0, Math.floor(Math.min(p.x, q.x) / C.step));
         const i1 = Math.min(C.n - 1, Math.ceil(Math.max(p.x, q.x) / C.step));
         const dx = q.x - p.x;

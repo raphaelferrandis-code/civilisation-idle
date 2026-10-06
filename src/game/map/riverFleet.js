@@ -319,6 +319,20 @@ function ringDist(a, b) {
 
 const DOCK_RANGE = 0.05;   // demi-zone d'escale autour d'un port (unités de t)
 
+// LE QUAI DU TERMINAL DE COMMERCE (boatBerths, poste `quay`) : tant qu'un marchand y
+// manœuvre le long des navires-décor — il y vient, y attend son tour, s'y amarre, s'en
+// écarte, en repart —, c'est la scène du terminal qui le peint (isoTradePort), entre
+// son quai et ses portiques. Peint avant elle comme tout bateau en route, il passait
+// SOUS les navires amarrés et la face du quai. Rend la tuile du terminal, sinon null.
+function quayOf(sh, berths, L) {
+  const id = sh.berthId != null ? sh.berthId : sh.quayLeft;
+  if (id == null) return null;
+  const b = berths.find((x) => x.id === id);
+  if (!b || !b.quay || !b.span) return null;
+  const pad = (sh._len || 1) / 2 + 0.3;
+  return (sh.t - b.span[0]) * L > -pad && (b.span[1] - sh.t) * L > -pad ? b.quay : null;
+}
+
 /**
  * Avance la flotte d'un pas. Mute `ships` (naissances et morts comprises).
  *
@@ -387,7 +401,15 @@ export function updateRiverFleet(ships, ctl, budget, dt, env = {}) {
       if (sh.stateT <= 0) {
         sh.state = 'cruise'; sh.done = true;
         // Il largue : le poste se libère, il reprend sa file.
-        if (sh.berthId != null) { if (owners[sh.berthId] === sh.id) delete owners[sh.berthId]; sh.berthId = null; sh.berthTh = null; }
+        if (sh.berthId != null) {
+          // AU QUAI DU TERMINAL, il s'en écarte d'abord sur place, jusqu'à la file qui
+          // longe les navires-décor (cf. plus bas) : reparti droit devant, sa coque
+          // balayait le navire amarré devant lui.
+          const b = nav ? berths.find((x) => x.id === sh.berthId) : null;
+          if (b && b.approachLat != null) { sh.unmoor = b.approachLat; sh.quayLeft = b.id; }
+          if (owners[sh.berthId] === sh.id) delete owners[sh.berthId];
+          sh.berthId = null; sh.berthTh = null;
+        }
       }
       continue;                        // à l'arrêt : ni avance, ni dérive
     }
@@ -513,8 +535,14 @@ export function updateRiverFleet(ships, ctl, budget, dt, env = {}) {
         continue;
       }
     }
+    // IL S'ÉCARTE DU QUAI (cf. le largage) : sur place jusqu'à sa file, puis il repart.
+    if (sh.unmoor != null) {
+      if (!nav || sh.lat == null || Math.abs(sh.lat - sh.unmoor) < 0.08) delete sh.unmoor;
+      else moveF = 0;
+    }
     sh.t += sh.dir * sh.speed * moveF * (nav ? (sh._navF == null ? 1 : sh._navF) : 1) * step;
     sh._moveF = moveF;
+    if (sh.kind === 'trade') sh.quay = nav ? quayOf(sh, berths, nav.L) : null;
 
     // Sortie de carte : il a fini son voyage. Plus de wrap — c'est tout le
     // point du module.
@@ -678,7 +706,10 @@ function navPrepare(ships, env) {
   // marchand amarré à sa tête prend encore la place d'une coque. Les autres passent
   // par le chenal libre en face, un sens à la fois (même règle que sous le pont).
   // Celui qui vient s'y amarrer n'est pas concerné par la passe de SON poste.
+  // Le quai du terminal (b.quay) n'avance pas dans le lit : pas de passe — on double le
+  // marchand amarré comme tout bateau arrêté (cf. DOUBLER).
   for (const b of env.berths || []) {
+    if (b.quay) continue;
     const r = ribbonAt(sm, b.t);
     const far = -(b.side || 1) * laneRoom(r.hw, 0.5);
     const edge = b.lat - (b.side || 1) * ((b.beam || 0.5) / 2 + 0.75);
@@ -909,12 +940,16 @@ function navSteer(ships, env, step, nav) {
       if (A._berthApproach > 0 && A.kind !== 'shuttle') {
         const Bx = env.berths.find((x) => x.id === A.berthId);
         const p = A._berthApproach;
-        goal += (Bx.lat - goal) * p * p * (3 - 2 * p);
+        // Au quai du terminal, il vise la file qui LONGE les navires-décor : il ne se
+        // range de côté qu'une fois arrêté (goal = berthLat à quai, plus haut).
+        const lat = Bx.approachLat != null ? Bx.approachLat : Bx.lat;
+        goal += (lat - goal) * p * p * (3 - 2 * p);
       }
       if (toStop > 0) {
         goal += (A._stop.lat - goal) * toStop * toStop * (3 - 2 * toStop);
         A._berthApproach = toStop;                   // le rendu la trie avec son ponton
       }
+      if (A.unmoor != null) goal = A.unmoor;         // il s'écarte du quai, sur place
     }
     // Dynamique transversale amortie : la coque glisse vers sa file, sans à-coup.
     const want = Math.max(-NAV_TUNE.latSpeed, Math.min(NAV_TUNE.latSpeed, (goal - A.lat) * 0.9));
@@ -931,6 +966,8 @@ function navSteer(ships, env, step, nav) {
       const target = d1 <= d2 ? a1 : a2;
       const d = Math.atan2(Math.sin(target - A.th), Math.cos(target - A.th));
       A.th += Math.max(-0.5 * step, Math.min(0.5 * step, d));
+    } else if (A.unmoor != null) {
+      // Il s'écarte du quai DE CÔTÉ : le cap ne suit pas cette vitesse en travers.
     } else if (Math.hypot(vx, vy) > 0.015) {
       const target = Math.atan2(vy, vx);
       const d = Math.atan2(Math.sin(target - A.th), Math.cos(target - A.th));

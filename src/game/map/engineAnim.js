@@ -21,23 +21,23 @@
 //     suffit à ce que rien ne se re-synchronise jamais. `rate: 0` → déphasage pur.
 //
 // COÛT : une multiplication et une addition par scène et par frame. La graine est
-// mémoïsée SUR LA TUILE (objet layout persistant, même geste que `t._scnKey` du cache
-// de scènes et `tr._tv` des arbres), donc le hash de chaîne n'est payé qu'une fois par
-// tuile et par vie de layout. Aucun dessin en plus : même nombre de scènes, mêmes
-// blits, mêmes plans cuits — le cache de scènes ne garde QUE les plans statiques, qui
-// ne lisent pas `now` (cf. engineSceneCache : `back`/`front` cuits, `anim` en direct).
+// mémoïsée SUR LA TUILE (objet layout persistant, même geste que `t._inkKey` de la
+// mesure d'encre et `tr._tv` des arbres), donc le hash de chaîne n'est payé qu'une fois
+// par tuile et par vie de layout. Aucun dessin en plus : même nombre de scènes, mêmes
+// blits.
 //
 // ⚠ DÉTERMINISTE en (gx, gy) : invariante entre frames ET entre recomputes de layout,
 // donc les captures (`__cityShot`, harnais de scènes) restent reproductibles — aucun
 // Math.random, aucune dépendance à l'écran.
 //
-// ⚠ CE QUI NE DOIT PAS ÊTRE DÉCALÉ : l'eau de l'aqueduc, dont le flux se RACCORDE
-// d'une tuile à l'autre (cf. ANIM_BANDS dans cityEngineSprites : « même horloge (ms)
-// partout → la frame est globale, pas par tuile »). Les aqueducs ne passent pas par
-// ici — drawIsoEngineScene les renvoie à leur rendu d'emprise dédié — mais si une
-// scène raccordée entre tuiles voisines apparaît un jour, elle doit garder `now`.
+// ⚠ CE QUI NE DOIT PAS ÊTRE DÉCALÉ : un flux qui se RACCORDE d'une tuile à l'autre
+// (l'eau des anciens aqueducs : « même horloge (ms) partout → la frame est globale,
+// pas par tuile »). Les aqueducs sont devenus des points d'eau et leur scène est
+// retirée (audit du 05/10, MORT-2) — mais si une scène raccordée entre tuiles
+// voisines apparaît un jour, elle doit garder `now`.
 
 import { cmHash } from './layout.js';
+import { fmix32 } from './hash.js';
 
 // spread : étalement des déphasages, en ms. Il doit COUVRIR le plus long cycle des
 //   scènes — mesuré à ~5 200 ms (la navette du chaland de la place de commerce),
@@ -49,7 +49,7 @@ export const ENGINE_ANIM_STAGGER = { on: true, spread: 9000, rate: 0.06 };
 // Version des réglages : bumpée par la molette pour invalider les graines déjà
 // mémoïsées sur les tuiles (sinon un A/B en live ne changerait rien à l'écran).
 let tuneVer = 0;
-if (typeof window !== 'undefined') {
+if (import.meta.env?.DEV && typeof window !== 'undefined') {
   window.__engineAnimStagger = (o) => {
     if (o) Object.assign(ENGINE_ANIM_STAGGER, o);
     tuneVer += 1;
@@ -61,14 +61,7 @@ if (typeof window !== 'undefined') {
 // impair — ses bits de poids faible ne valent rien (le bit 0 n'est que la parité de
 // l'entrée), ce qui a déjà produit un DAMIER PARFAIT sur les teintes de maisons
 // (houseVariants.test.js). Un déphasage tiré des bits bruts alignerait une tuile sur
-// deux, c'est-à-dire exactement le défaut qu'on vient corriger.
-function fmix32(h) {
-  h = (h ^ (h >>> 16)) >>> 0;
-  h = Math.imul(h, 2246822507) >>> 0;
-  h = (h ^ (h >>> 13)) >>> 0;
-  h = Math.imul(h, 3266489909) >>> 0;
-  return (h ^ (h >>> 16)) >>> 0;
-}
+// deux, c'est-à-dire exactement le défaut qu'on vient corriger. (fmix32 : ./hash.js.)
 
 /**
  * Le temps que doit lire la scène de la tuile `t` à la frame `now`.

@@ -26,8 +26,8 @@ import { createClickLock } from '../views/plaisirs/clickLock.js';
 import Monte from './Monte.jsx';
 
 /**
- * Le Vingt-et-un — SCÈNE INTÉGRÉE (bas de la page Régulation, comme osselets/
- * Icare/scratch). Le moteur (actions/blackjack.js) est autoritaire : rouvrir la
+ * Le Vingt-et-un — SCÈNE INTÉGRÉE (RegulationStage, sur la salle de la Maison des
+ * Plaisirs, comme osselets/Icare/scratch). Le moteur (actions/blackjack.js) est autoritaire : rouvrir la
  * scène pendant une main la REPREND en cours. Phases : pari (choix de la mise) →
  * jeu (tirer/rester) → résultat. Les cartes sont des sprites pixel du pack Bit
  * Digitalis (cardSprites.js) : couleurs internationales à l'écran, clés antiques

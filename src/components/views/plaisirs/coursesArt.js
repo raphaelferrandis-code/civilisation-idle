@@ -13,6 +13,11 @@
 //
 // ⛔ Le cheval n'est jamais agrandi ni réduit autrement que par `k` (entier) : pas de
 // réduction par moyenne (mémoire « PixelLab : jamais de réduction par moyenne »).
+//
+// L'outillage vient de deux feuilles sans code de carte (plaisirsHDKit n'importe que
+// isoPixelPaint et le hachage partagé) : le chunk de la vue n'embarque rien de plus.
+import { bayer, mix } from '../../../game/map/iso/plaisirsHDKit.js';
+import { h01Pair as h32 } from '../../../game/map/hash.js';
 
 // ── Le cheval et son jockey ──────────────────────────────────────────────────
 // Lettres : H casquette, F visage, S casaque, T casaque ombrée, K botte et sabot,
@@ -165,21 +170,7 @@ const PISTES = [
 ];
 export const pisteOf = (band) => PISTES[Math.max(0, Math.min(PISTES.length - 1, band | 0))];
 
-const BAYER = [0, 8, 2, 10, 12, 4, 14, 6, 3, 11, 1, 9, 15, 7, 13, 5];
-const bayer = (x, y) => BAYER[(y & 3) * 4 + (x & 3)] / 16;
-const h32 = (a, b) => {
-  let x = (a | 0) * 374761393 + (b | 0) * 668265263;
-  x = (x ^ (x >>> 13)) * 1274126177;
-  return ((x ^ (x >>> 16)) >>> 0) / 4294967296;
-};
-function hex(c) {
-  const n = parseInt(c.slice(1), 16);
-  return [(n >> 16) & 255, (n >> 8) & 255, n & 255];
-}
-export function mix(a, b, t) {
-  const A = hex(a), B = hex(b);
-  return '#' + A.map((v, i) => Math.round(v + (B[i] - v) * t).toString(16).padStart(2, '0')).join('');
-}
+// bayer, mix (hex → hex) et le hash 2D [0,1) (`h32` ici) : importés en tête de module.
 
 // Les chiffres des stalles (3 × 5).
 const CHIFFRES = {

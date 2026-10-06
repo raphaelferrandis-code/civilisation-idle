@@ -2,7 +2,8 @@
 
 Ce fichier fait foi pour le chantier « la place n'est plus une image ».
 Il remplace l'approche « une scène PixelLab par ère » (mode `scene`, gardé pour
-l'A/B).
+l'A/B jusqu'au 2026-10-06, puis RETIRÉ — audit du 05/10, MORT-12 ; ses PNG sont
+rangés comme source dans `art/references-ab/places-scene/`).
 
 ---
 
@@ -209,9 +210,10 @@ anti-chevauchement existe toujours, mais il ne devrait plus rien avoir à couper
    la hauteur de l'**objet visible**, pas du canvas — un banc réglé à 16 px en
    faisait 10 avant.
 2. *Les compagnons se chevauchaient aux coins.* Poussés vers l'extérieur, ceux de
-   deux côtés adjacents tombaient au même point à l'écran. Ils vont maintenant
-   vers le milieu du côté (`sideDir: 'in'`), et surtout `cornerKeep` garde les
-   angles libres.
+   deux côtés adjacents tombaient au même point à l'écran. Ils sont allés vers
+   le milieu du côté (molette `sideDir`, retirée le 2026-10-06 : les compagnons se
+   logent désormais dans les intervalles entre duos de bancs), et surtout
+   `cornerKeep` garde les angles libres.
 
 ## 4 ter. La fontaine grandit d'ère en ère
 
@@ -251,7 +253,7 @@ ces ères n'étaient testées qu'en 5×5. Motif retiré : **un mât par angle, p
 
 ```js
 __plaza()                     // l'état courant
-__plaza({ mode: 'scene' })    // revient à l'ancien PNG — A/B immédiat
+__plaza({ mode: 'off' })      // pas de mobilier (le mode 'scene' est retiré, 2026-10-06)
 __plaza({ mode: 'kit' })      // la place composée (défaut)
 __plaza({ propScale: 1.3 })   // tout le mobilier ×1,3
 __plaza({ furnScale: 0.8 })   // rapetisse ce qui est à l'échelle du corps (pas les arbres)
@@ -259,15 +261,12 @@ __plaza({ hT: { bench: 0.6 } })   // une seule taille
 __plaza({ benchPerSide: 3 })  // maximum de bancs par côté (le côté peut en mettre moins)
 __plaza({ benchInset: 0.8 })  // les bancs plus loin du bord
 __plaza({ cornerKeep: 1.4 })  // plus de dégagement aux coins
-__plaza({ sideGap: 0.9 })     // banc et compagnon plus écartés
-__plaza({ sideDir: 'out' })   // compagnon vers le coin plutôt que vers le milieu
 __plaza({ sideOn: false })    // bancs seuls
 __plaza({ centre: 'tree' })   // un arbre au milieu plutôt que la fontaine
 __plaza({ pairTight: 1.2 })   // desserre le duo de bancs
 __plaza({ treeMax: 3 })       // plafond d'arbres (le compte suit l'emprise)
 __plaza({ treeSpread: 0.5 })  // arbres plus loin de la fontaine
 __plaza({ treeR: 0.9 })       // arbres plus grands (r au sens des arbres de carte)
-__plaza({ shadow: 0 })        // coupe les ombres au pied
 __plaza({ coreR: 1.5 })       // dégagement autour de la pièce maîtresse
 __plaza({ jitter: 0.3 })      // casse la symétrie (0 par défaut)
 __plaza({ seed: 3 })          // rebat les compagnons, même géométrie
@@ -421,7 +420,8 @@ volontairement laid : personne ne doit le confondre avec un rendu fini.
    (`gameFullReloadPlugin` couvre tout `src/game/`).
 3. Quand la composition tient, produire l'art prop par prop et le juger isolé
    avec `__plaza({ only: 'bench' })`.
-4. A/B contre l'ancien rendu à tout moment : `__plaza({ mode: 'scene' })`.
+4. (A/B contre l'ancien rendu par `__plaza({ mode: 'scene' })` : retiré le
+   2026-10-06 avec le mode.)
 
 ## 8. État de l'art produit
 

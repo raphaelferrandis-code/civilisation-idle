@@ -38,6 +38,7 @@ import { setWonderPlacePainter, wonderGroundSet } from './isoWonderGround.js';
 import { blitIsoTileKey, ISO_TILE_KEYS } from './isoGroundTiles.js';
 // Les arbres de l'îlot sont ceux de la ville (sprites, teinte de saison).
 import { isoArt } from './isoArt.js';
+import { rasterCanvas } from '../pixelUtil.js';
 import { seasonTree } from './isoGroundDetail.js';
 import { bakeBudgetOk, bakeTimed } from './bakeBudget.js';
 import { TERRAIN } from './isoTerrain.js';
@@ -69,12 +70,7 @@ function bandOf(L) {
 }
 
 // ── Cuisson (une par merveille × rang × ère) ─────────────────────────────────
-function rasterCanvas(R) {
-  const cv = document.createElement('canvas');
-  cv.width = R.w; cv.height = R.h;
-  cv.getContext('2d').putImageData(new ImageData(R.data, R.w, R.h), 0, 0);
-  return cv;
-}
+// (rasterCanvas : ../pixelUtil.js.)
 // Colonnes non vides et boîte d'encre (survol, découpe).
 function inkOf(R) {
   const col = new Uint8Array(R.w);
@@ -582,7 +578,9 @@ export function pushIsoWonderItems(items, w, wi) {
   if (offscreenBound(m)) return;
   m.bk = bakeLive(m);
   if (!m.bk) return;
-  const R = m.bk.R, S = wonderTune.slice;
+  // Tranche d'au moins 1 px : `__wonderTune.slice = 0` (ou négatif) depuis la console
+  // rendait la boucle des tranches infinie et figeait l'onglet.
+  const R = m.bk.R, S = Math.max(1, wonderTune.slice | 0);
   // Cull : la boîte d'encre à l'écran, avec une marge pour l'ombre portée.
   const o = originScreen(m), z = CM.cam.zoom, bx = m.bk.box;
   if (!bx) return;
@@ -686,6 +684,25 @@ export function pushIsoWonderItems(items, w, wi) {
   for (let i = pn; i < pool.length && pool[i].m; i += 1) { pool[i].m = null; pool[i].sh = null; }
 }
 
+// LA NUIT d'une pièce cuite : son calque allumé (`cvN` : vitres, lanternes, filets
+// lumineux) déposé au pixel dans le calque de lumière, d'autant plus fort que la nuit
+// est noire — APRÈS la découpe de la pièce (sinon elle effacerait sa propre lumière).
+// (sx, sy, sw, sh) : le cadre source ; sx = null, l'image entière. Cinq pièces
+// recopiaient ce dépôt (audit du 05/10, STRUCT-12).
+function nightBlit(cvN, sx, sy, sw, sh, dx, dy, dw, dh) {
+  const nf = CM.nightF || 0;
+  if (!cvN || !(nf > 0.03)) return;
+  const lc = lightCtx(dx, dy, dx + dw, dy + dh);
+  if (!lc) return;
+  const sm = lc.imageSmoothingEnabled;
+  lc.imageSmoothingEnabled = false;
+  lc.globalAlpha = Math.min(1, nf * 1.15);
+  if (sx == null) lc.drawImage(cvN, dx, dy, dw, dh);
+  else lc.drawImage(cvN, sx, sy, sw, sh, dx, dy, dw, dh);
+  lc.globalAlpha = 1;
+  lc.imageSmoothingEnabled = sm;
+}
+
 export function drawIsoWonderSeg(ctx, it, now) {
   // Le modèle est celui calculé au tri de CETTE frame (porté par l'item).
   const m = it.m || modelOf(it.w, it.wi);
@@ -719,18 +736,7 @@ export function drawIsoWonderSeg(ctx, it, now) {
       lightCutImage(cv, x0, y0, x1 - x0, y1 - y0, it.c0, cut, it.c1 - it.c0, R.h - cut);
       // LA NUIT : vitres et vitraux allumés, lanternes, filets lumineux — déposés
       // APRÈS la découpe de la tranche (sinon elle les effacerait elle-même).
-      const nf = CM.nightF || 0;
-      if (m.bk.cvN && nf > 0.03) {
-        const lc = lightCtx(x0, y0, x1, y1);
-        if (lc) {
-          const sm = lc.imageSmoothingEnabled;
-          lc.imageSmoothingEnabled = false;
-          lc.globalAlpha = Math.min(1, nf * 1.15);
-          lc.drawImage(m.bk.cvN, it.c0, cut, it.c1 - it.c0, R.h - cut, x0, y0, x1 - x0, y1 - y0);
-          lc.globalAlpha = 1;
-          lc.imageSmoothingEnabled = sm;
-        }
-      }
+      nightBlit(m.bk.cvN, it.c0, cut, it.c1 - it.c0, R.h - cut, x0, y0, x1 - x0, y1 - y0);
     }
   } else if (it.part === 'isle') {
     const isl = m.isl || isleFor(m);
@@ -750,11 +756,7 @@ export function drawIsoWonderSeg(ctx, it, now) {
         blitInk(ctx, isl.cv, isl.box, 0, bcut, B2.w, B2.h - bcut, dx, dy, dw, dh);
         // LA NUIT : les filets lumineux du quai, déposés APRÈS la découpe (comme les
         // tranches du monument : sinon elle les effacerait elle-même).
-        const nf = CM.nightF || 0;
-        if (isl.cvN && nf > 0.03) {
-          const lc = lightCtx(dx, dy, dx + dw, dy + dh);
-          if (lc) { const sm = lc.imageSmoothingEnabled; lc.imageSmoothingEnabled = false; lc.globalAlpha = Math.min(1, nf * 1.15); lc.drawImage(isl.cvN, 0, bcut, B2.w, B2.h - bcut, dx, dy, dw, dh); lc.globalAlpha = 1; lc.imageSmoothingEnabled = sm; }
-        }
+        nightBlit(isl.cvN, 0, bcut, B2.w, B2.h - bcut, dx, dy, dw, dh);
         // L'ÉCUME bat le pied des rochers (wonderIsle.bakeFoam) : l'image du moment,
         // calée sur la base, sous tout ce qui se tient sur l'île.
         if (e >= 0.98 && isl.foam && !CM.lodActive) {
@@ -777,11 +779,7 @@ export function drawIsoWonderSeg(ctx, it, now) {
       const dx = Math.round(s.x), dy = Math.round(s.y), dw = Math.round(s.x + R2.w * z) - dx, dh = Math.round(s.y + R2.h * z) - dy;
       drawSunShadow(ctx, q.cv, dx, dy, dw, dh, 0, 0, R2.w, R2.h, 'column', false);
       blitInk(ctx, q.cv, q.box, 0, 0, R2.w, R2.h, dx, dy, dw, dh, true);
-      const nf = CM.nightF || 0;
-      if (q.cvN && nf > 0.03) {
-        const lc = lightCtx(dx, dy, dx + dw, dy + dh);
-        if (lc) { const sm = lc.imageSmoothingEnabled; lc.imageSmoothingEnabled = false; lc.globalAlpha = Math.min(1, nf * 1.15); lc.drawImage(q.cvN, dx, dy, dw, dh); lc.globalAlpha = 1; lc.imageSmoothingEnabled = sm; }
-      }
+      nightBlit(q.cvN, null, 0, 0, 0, dx, dy, dw, dh);
       // Ce qu'elle porte (drapeau, feu, lanterne) : à son sommet, juste après elle.
       for (const pr of q.props) drawWonderProp(ctx, m, { ...pr, x: q.x + pr.x, y: q.y + pr.y, h: q.h + pr.h }, z, now, it.ti * 13 + 5);
     }
@@ -803,11 +801,7 @@ export function drawIsoWonderSeg(ctx, it, now) {
     const dx = Math.round(q.x), dy = Math.round(q.y), dw = Math.round(q.x + C.w * z) - dx, dh = Math.round(q.y + C.h * z) - dy;
     ctx.drawImage(fr.cv, dx, dy, dw, dh);
     lightCutImage(fr.cv, dx, dy, dw, dh);
-    const nf = CM.nightF || 0;
-    if (fr.cvN && nf > 0.03) {
-      const lc = lightCtx(dx, dy, dx + dw, dy + dh);
-      if (lc) { const sm = lc.imageSmoothingEnabled; lc.imageSmoothingEnabled = false; lc.globalAlpha = Math.min(1, nf * 1.15); lc.drawImage(fr.cvN, dx, dy, dw, dh); lc.globalAlpha = 1; lc.imageSmoothingEnabled = sm; }
-    }
+    nightBlit(fr.cvN, null, 0, 0, 0, dx, dy, dw, dh);
   } else if (it.part === 'decor') {
     const pl = m.pl || placeFor(m), dc = pl && pl.decor[it.di];
     if (dc) {
@@ -817,11 +811,7 @@ export function drawIsoWonderSeg(ctx, it, now) {
       drawSunShadow(ctx, dc.cv, dx, dy, dw, dh, 0, 0, R2.w, R2.h, 'column', true);
       blitInk(ctx, dc.cv, dc.box, 0, 0, R2.w, R2.h, dx, dy, dw, dh, true);
       // LA NUIT : bandeau et piliers de l'enceinte de verre, lanterne de fonte.
-      const nf = CM.nightF || 0;
-      if (dc.cvN && nf > 0.03) {
-        const lc = lightCtx(dx, dy, dx + dw, dy + dh);
-        if (lc) { const sm = lc.imageSmoothingEnabled; lc.imageSmoothingEnabled = false; lc.globalAlpha = Math.min(1, nf * 1.15); lc.drawImage(dc.cvN, dx, dy, dw, dh); lc.globalAlpha = 1; lc.imageSmoothingEnabled = sm; }
-      }
+      nightBlit(dc.cvN, null, 0, 0, 0, dx, dy, dw, dh);
     }
   } else if ((it.part === 'prop' || it.part === 'pprop') && e >= 0.98) {
     const pl = it.part === 'pprop' ? m.pl || placeFor(m) : null;
@@ -998,7 +988,7 @@ function drawBeam(x, y, z, col) {
 // ── Sondes ───────────────────────────────────────────────────────────────────
 // __wonderTune.band = n → force la matière
 // d'une ère (null : celle de la ville) ; __wonderBakes() vide le cache de cuisson.
-if (typeof window !== 'undefined') {
+if (import.meta.env?.DEV && typeof window !== 'undefined') {
   window.__wonderTune = wonderTune;
   window.__wonderBakes = () => { const n = _bakes.size; _bakes.clear(); return n; };
   window.__wonderPlaces = () => [..._places.values()].map((e) => ({ key: e.key, P: e.P, garden: e.garden ? e.garden.ext : 0, decor: e.decor.length }));

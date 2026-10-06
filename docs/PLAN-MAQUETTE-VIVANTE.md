@@ -163,6 +163,9 @@ cuire les émeutiers, voile de santé, usure visuelle des bâtiments.
   multiply au blit avec la force du moment (`drawSunShadowPlane`). La clé de cache
   porte la seule géométrie (`sunShadowVersion`). Et les passes hors écran des scènes
   (mesure d'encre, liseré de survol) coupent l'ombre (`muteSunShadow`).
+  **Mise à jour 2026-10-06** : le cache des scènes est supprimé (audit du 05/10,
+  MORT-1), et avec lui `captureSunShadows` / `bakeSunShadowPlane`. Restent
+  `drawSunShadowPlane` et `sunShadowVersion`, qui servent la cuisson des Plaisirs.
 - **Êtres mobiles** : habitants (vue diagonale et repli cardinal), véhicules, bêtes
   de trait, bateaux (flotte et amarrés), émeutiers portent l'ombre, pivot `'bottom'`
   (la rangée d'encre la plus basse de CHAQUE image d'animation). La passe FANTÔME ne
@@ -532,11 +535,14 @@ places ne sont plus animées... ».
     calme, même teinte » ;
   - médiéval : jets éteints à mi-boucle → « jets continus » ; la statuette du pinacle
     bougeait → figée ;
-  - moderne : deux essais, jets éteints puis rallumés d'un coup → animé PAR LE CODE
-    (`scripts/plazaAnimJets.mjs`) : un reflet monte chaque jet, une goutte se détache du
-    sommet, l'écume bat au pied, des éclats s'allument sur le bassin. Boucle parfaite par
-    construction ; zone d'eau écrite dans `anim/zone/` (le blanc des jets ne lit pas
-    « bleu » au critère de couleur) ;
+  - moderne : deux essais, jets éteints puis rallumés d'un coup → animé PAR LE CODE :
+    un reflet monte chaque jet, une goutte se détache du sommet, l'écume bat au pied,
+    des éclats s'allument sur le bassin. Boucle parfaite par construction ; zone d'eau
+    écrite dans `anim/zone/` (le blanc des jets ne lit pas « bleu » au critère de
+    couleur). Depuis le 04/10, la fontaine régénérée (vrai losange iso) est animée par
+    `scripts/sceneLive.mjs` (cible `fountain-forum-modern`, mêmes sorties) ; l'ancien
+    script, calé sur la rampe de la première image, a été supprimé (audit du 05/10,
+    SCRIPT-6) ;
   - cosmique : le premier essai dérivait d'un état à l'autre → « boucle subtile »,
     anneaux immobiles.
 - Raccord de boucle mesuré (dernière → première frame, rapporté au pas moyen) : 1,0 à

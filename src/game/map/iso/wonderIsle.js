@@ -42,12 +42,10 @@
 // Pur : aucun DOM, aucun CM.
 import { rgbOf, h32, frameOf, ramp, put } from './isoPixelPaint.js';
 import { rippleField } from './waterRipples.js';
-import { mats, facet, revolve, cyl, taper, domeProf, pick, band5, lum, stoneIdx, obelisk, column, nightOf, pixelFinish, boulder, rockShape, vnoise, ROCK } from './wonderBake.js';
+import { mats, facet, revolve, cyl, taper, domeProf, pick, band5, lum, stoneIdx, obelisk, column, nightOf, pixelFinish, boulder, rockShape, vnoise, ROCK, V, CYPRESS, cypress } from './wonderBake.js';
+import { fm } from '../pixelUtil.js';
 
-const V = true;
-const fm = (a, n) => ((a % n) + n) % n;
 const T = 32;
-const CYPRESS = ['#4f7a3a', '#3c6530', '#2c5127', '#1f3d1e', '#142a15'];
 // Les verts de la tuile d'herbe du jeu (iso-grass), du plus clair au plus sombre ;
 // le sable des berges (iso-sand) ; la terre battue du sentier ; la neige.
 const MEADOW = ['#5c8f47', '#4c7c41', '#3a6a36', '#2e5e2f', '#214e23', '#19451b'];
@@ -148,7 +146,9 @@ export function bakeIsleBase(K, tier, il) {
     if (fm(v, s) < 1 || fm(u + off, s) < 1) return ramp(P, base + 2);
     return ramp(P, base + (h32(row, col, 3) % 6 === 0 ? 1 : 0));
   };
-  const corniced = (h1, tex) => (I, x, y, h) => (h >= h1 - 2 ? ramp(P, stoneIdx(K, I) - 1) : h === h1 - 3 ? ramp(P, stoneIdx(K, I) + 2) : tex(I, x, y, h));
+  // Corniche LOCALE de l'îlot (mur de quai) — `cornicedL`, pour ne pas la confondre avec
+  // corniced(X, tex, h0, h1) de wonderBake, d'une autre signature (audit du 05/10).
+  const cornicedL = (h1, tex) => (I, x, y, h) => (h >= h1 - 2 ? ramp(P, stoneIdx(K, I) - 1) : h === h1 - 3 ? ramp(P, stoneIdx(K, I) + 2) : tex(I, x, y, h));
   // Rochers du pourtour (au pied du quai), tirés une fois ; qui a peint chaque pixel
   // en dernier (l'écume rejaillit sur la roche, jamais sur ce qui la cache).
   const rocks = isleRocks(M, tier);
@@ -181,7 +181,7 @@ export function bakeIsleBase(K, tier, il) {
   else {
     M.levels.forEach((L, li) => {
       const pts = ellipse(M, L.su, L.sv, li === 0 ? 56 : 44);
-      const wall = corniced(L.h1, X.stoneF(201 + li));
+      const wall = cornicedL(L.h1, X.stoneF(201 + li));
       prism(R, pts, L.h0, L.h1, li === 0 ? vaults(wall, L.h1) : wall, footShade(slabs(li === M.levels.length - 1 ? 9 : 14 - li * 2, 2), M.levels[li + 1]));
     });
   }
@@ -198,7 +198,7 @@ export function bakeIsleBase(K, tier, il) {
     };
     const lw = 22, out = M.side * 18;
     prism(R, rect(M, -lw - 8, lw + 8, Math.min(landV, landV + out), Math.max(landV, landV + out)), 0, 4,
-      corniced(4, X.stoneF(205)), slabs(8, 1));
+      cornicedL(4, X.stoneF(205)), slabs(8, 1));
     let vFrom = landV + out * 0.2, h0 = 4, w = 10;
     M.levels.forEach((L, li) => {
       const vEdge = M.side * M.RY * L.sv;                    // bord avant de ce gradin
@@ -269,7 +269,7 @@ export function bakeIsleBase(K, tier, il) {
   // Au rang I, la plage est à fleur d'eau : seuls les rochers se mirent.
   const Rr = frameOf(V, [[-ext, ext, -ext, ext, -2, M.top + 24]]);
   const L0 = M.levels[0];
-  if (tier >= 2) prism(Rr, ellipse(M, L0.su, L0.sv, 56), 0, L0.h1, corniced(L0.h1, X.stoneF(201)), null);
+  if (tier >= 2) prism(Rr, ellipse(M, L0.su, L0.sv, 56), 0, L0.h1, cornicedL(L0.h1, X.stoneF(201)), null);
   drawRocks(rocks.filter((q) => q.vis), Rr, null);
   // Le reflet ne s'allume pas (le calque de lumière ne se mire pas), mais ses
   // marqueurs de nuit ne restent pas dans l'image : nightOf remet leur alpha à 255.
@@ -651,11 +651,12 @@ export function bakeIsleTall(kind, K, tier) {
       revolve(R, 0, 0, H - 14, H - 4, cyl(r + 0.4), (I, h, a) => (fm(a * 4 / Math.PI, 1) < 0.18 ? pick(X.P.metal, I) : X.light(X.glass(I > 0.3 ? 1 : 2))));
       props.push({ prop: 'glow', x: 0, y: 0, h: H - 9, big: true, sweep: true });
     }
-  } else if (kind === 'cypress' || kind === 'tree') {
-    const big = kind === 'tree';
-    const Hh = big ? 22 : 24, r = big ? 8 : 3.4;
-    revolve(R, 0, 0, 0, 3, cyl(big ? 1.2 : 0.9), () => rgbOf('#5a4028'));
-    revolve(R, 0, 0, 2, 2 + Hh, big ? domeProf(2, r, Hh) : (h) => r * Math.pow(Math.sin(Math.PI * Math.min(1, Math.max(0, (h - 2) / Hh)) * 0.92 + 0.12), 0.8),
+  } else if (kind === 'cypress') {
+    cypress(R, K, 3, 2, 24, 3.4);                  // le cyprès des lieux (wonderBake)
+  } else if (kind === 'tree') {
+    const Hh = 22, r = 8;
+    revolve(R, 0, 0, 0, 3, cyl(1.2), () => rgbOf('#5a4028'));
+    revolve(R, 0, 0, 2, 2 + Hh, domeProf(2, r, Hh),
       (I, h, a) => (K.snow && I > 0.62 ? rgbOf('#eef3f8') : rgbOf(CYPRESS[Math.min(4, Math.max(0, Math.round((1 - I) * 3.2) - 1 + (h32(Math.round(a * 6), Math.round(h / 2), 3) % 5 === 0 ? 1 : 0)))])));
   } else if (kind === 'obelisk') {
     obelisk(R, X, 0, 0, 0, 30);

@@ -4,8 +4,7 @@
 //   · le DESSIN — véhicules 4 directions avec attelage et pousseur, émeutiers,
 //     objets portés par les habitants ;
 //   · la PROFONDEUR — la clé de tri qui les empêche de se faire avaler par une
-//     emprise de bâtiment, la sonde qui la mesure, et le voile FANTÔME des unités
-//     cachées.
+//     emprise de bâtiment, et la sonde qui la mesure.
 // Le second existe POUR le premier : une unité qui circule est ponctuelle, et le
 // tri scalaire `wx + wy` du peintre ne suffit pas face à un sprite multi-tuiles.
 //
@@ -59,7 +58,7 @@ const VEH_DIAG_MAP = {
 // au suivi automatique. Même contrat que __strideLen pour le pas des piétons.
 const vehStrideT = { v: null };
 function vehStride() { return vehStrideT.v != null ? vehStrideT.v : 0.144 * VEH_SCALE; }
-if (typeof window !== 'undefined') window.__vehStride = (x) => { vehStrideT.v = x > 0 ? x : null; return vehStride(); };
+if (import.meta.env?.DEV && typeof window !== 'undefined') window.__vehStride = (x) => { vehStrideT.v = x > 0 ? x : null; return vehStride(); };
 
 // ── GRILLE DE BLIT DES UNITÉS QUI ROULENT ───────────────────────────────────
 // Le blit est en PLUS PROCHE VOISIN (`imageSmoothingEnabled = false`) : à
@@ -193,8 +192,8 @@ export function vehSortWide(v, T) {
 // véhicule, centré sur son point de tri, le long de son axe de marche. Même règle
 // que l'audit du 2026-10-03 (avant : ~6 % des recouvrements mal rangés, dont des
 // passants debout sur les chariots). Molette : __vehOrder(false) pour comparer.
-export const VEH_ORDER = { on: true };
-if (typeof window !== 'undefined') window.__vehOrder = (on) => { VEH_ORDER.on = on !== false; return VEH_ORDER.on; };
+const VEH_ORDER = { on: true };
+if (import.meta.env?.DEV && typeof window !== 'undefined') window.__vehOrder = (on) => { VEH_ORDER.on = on !== false; return VEH_ORDER.on; };
 // Audit du 05/10 (PERF-19) : chaque véhicule reparcourait TOUS les items du peintre
 // (~7 000 en mégapole) pour n'y garder que les passants et les émeutiers — ~1 ms par
 // frame. Une seule passe les met de côté (tableaux du module, réutilisés), dans le même
@@ -463,7 +462,7 @@ function drawIsoRioterInner(ctx, p, now, z) {
   const rSwap = RIOT_ERA_SWAP[rEra];
   if (rSwap && rSwap[rgen]) rgen = rSwap[rgen];
   const torch = rgen.endsWith('torch');
-  // BANDES DIAGONALES (DA « Figurine d'époque », batch riotIsoRoster) d'abord :
+  // BANDES DIAGONALES (DA « Figurine d'époque », batch scripts/_archive/riotIsoRoster.json) d'abord :
   // ère puis base médiévale ; repli CARDINAL legacy tant qu'une bande manque.
   // Anim par DISTANCE (p.walkDist, posé par updateCrisis) — anti-patinage.
   const wd = p.walkDist != null ? p.walkDist : null;
@@ -541,7 +540,7 @@ function drawIsoRioterInner(ctx, p, now, z) {
 // façade qui occulte, or aucun prop de place (banc, fontaine) n'y figure non plus.
 // Molette : window.__isoUnitDepth(false) = retour au tri scalaire brut.
 const isoUnitDepthFlag = { on: true };
-if (typeof window !== 'undefined') window.__isoUnitDepth = (on) => { isoUnitDepthFlag.on = on !== false; return isoUnitDepthFlag.on; };
+if (import.meta.env?.DEV && typeof window !== 'undefined') window.__isoUnitDepth = (on) => { isoUnitDepthFlag.on = on !== false; return isoUnitDepthFlag.on; };
 
 // ── SONDE Q9 / P23 (docs/PLAN-SUPPRESSION-LEGACY.md) ────────────────────────
 // isoUnitDepth ne lit AUCUNE hauteur de bâtiment — les fiches ne portent que
@@ -573,10 +572,9 @@ if (typeof window !== 'undefined') window.__isoUnitDepth = (on) => { isoUnitDept
 // visite peu. C'est une grille régulière calée près des faces qui l'a levé.
 //
 // CE QUE LA MESURE A TROUVÉ À LA PLACE : `cap` lève `hidden` pour 86-87 % des
-// unités (2 eres mesurées, foule normale) et la passe FANTÔME redessine sans
-// vérifier — voir son bloc plus bas. L'aveuglement à la hauteur ne casse donc
-// pas le tri, il fait REDESSINER en transparence ~6 unités sur 7 à chaque frame.
-// C'est un sujet de coût/rendu, pas de profondeur. Chantier distinct.
+// unités (2 eres mesurées, foule normale) et la passe FANTÔME d'alors redessinait
+// sans vérifier. L'aveuglement à la hauteur ne casse donc pas le tri ; c'était un
+// sujet de coût/rendu, pas de profondeur — clos avec la passe, retirée le 2026-10-06.
 //
 // La sonde reste : elle re-tranche en une frame si la géométrie des fiches change.
 //   __depthProbe(true)  arme et remet à zéro     __depthProbe(false)  éteint
@@ -588,17 +586,17 @@ function depthProbeReset() {
   depthProbe.out = {
     units: 0,        // appels comptés
     lift: 0,         // une remontée a été calculée
-    cap: 0,          // un plafond existe (= `hidden` = passe fantôme)
+    cap: 0,          // un plafond existe (= `hidden`)
     conflict: 0,     // les deux à la fois
     suppressed: 0,   // LE CAS P23 : le plafond a ÉCRASÉ la remontée
-    ghostLifted: 0,  // remontée gagnante mais unité quand même marquée fantôme
+    ghostLifted: 0,  // remontée gagnante mais unité quand même plafonnée (`hidden`)
     cappers: {},     // qui plafonne, dans les cas `suppressed` : id -> compte
     samples: [],     // 8 premiers cas `suppressed`, pour l'œil
   };
-  if (typeof window !== 'undefined') window.__depthProbeLast = depthProbe.out;
+  if (import.meta.env?.DEV && typeof window !== 'undefined') window.__depthProbeLast = depthProbe.out;
   return depthProbe.out;
 }
-if (typeof window !== 'undefined') {
+if (import.meta.env?.DEV && typeof window !== 'undefined') {
   window.__depthProbe = (on) => {
     depthProbe.on = on !== false;
     if (depthProbe.on) depthProbeReset();
@@ -654,7 +652,8 @@ function isoUnitFiches() {
 // Clé peintre d'une unité au sol dont les PIEDS (contact sol visuel) sont en (wx, wy).
 // isoUnitDepthEx renvoie AUSSI `hidden` : vrai quand un occulteur franc au sud plafonne
 // l'unité (elle sera dessinée AVANT lui, donc recouverte par son sprite s'il est assez
-// haut) — c'est le signal de la passe SILHOUETTE FANTÔME. Objet de sortie PARTAGÉ
+// haut) — le verdict « plafonnée », lu par les tests du tri (la passe SILHOUETTE
+// FANTÔME qui le consommait a été retirée le 2026-10-06). Objet de sortie PARTAGÉ
 // (zéro alloc, ~600 appels/frame) : à consommer immédiatement, ne pas retenir.
 // `wide` (px monde d'écran, défaut 0) : demi-largeur de l'unité elle-même, ajoutée au
 // test de recouvrement de colonne. Un passant est un point ; un VÉHICULE est large
@@ -729,8 +728,7 @@ export function isoUnitDepth(wx, wy) {
   return isoUnitDepthEx(wx, wy).d;
 }
 
-// Dessin d'UN habitant du tri peintre (partagé entre la passe normale et la passe
-// silhouette fantôme — même rendu, seul globalAlpha diffère).
+// Dessin d'UN habitant du tri peintre.
 export function drawIsoCitizenItem(ctx, p, now, z) {
   const sp = worldToScreen(p.x + (p.lox || 0), p.y + (p.loy || 0));
   const walking = (p.pauseT || 0) <= 0;
@@ -764,8 +762,8 @@ export function drawIsoCitizenItem(ctx, p, now, z) {
 // lueur passe par la file des feux (flameGlow.js) : posée au tri du peintre, masquée
 // par ce qui passe devant, chaude par-dessus le voile de nuit. Pas d'enfant
 // porte-lumière. Molette : __carryLight({ on, share }).
-export const CARRY_LIGHT = { on: true, share: 0.55 };
-if (typeof window !== 'undefined') window.__carryLight = (o) => { if (o) Object.assign(CARRY_LIGHT, o); return { ...CARRY_LIGHT }; };
+const CARRY_LIGHT = { on: true, share: 0.55 };
+if (import.meta.env?.DEV && typeof window !== 'undefined') window.__carryLight = (o) => { if (o) Object.assign(CARRY_LIGHT, o); return { ...CARRY_LIGHT }; };
 function carryLight(ctx, p, sp, z, now, fa) {
   const nf = CM.nightF || 0;
   if (!CARRY_LIGHT.on || nf < 0.35 || (p.charType || 0) === 2) return;
@@ -802,30 +800,12 @@ function carryLight(ctx, p, sp, z, now, fa) {
     torch ? FLAME_COL : '255,196,110', now, ph * 3, (torch ? 0.9 : 0.75) * k);
 }
 
-// Silhouettes fantômes : réglage live. __ghost({ on: true }) rallume, __ghost({ alpha: 0.5 })
-// renforce. L'alpha par défaut est volontairement discret — on devine, on ne lit pas.
-// ⚠ `cover`/`wK`/`hK` posés le 2026-08-23 avec le test de couverture exact (Q11).
-// `cover` = fraction de la silhouette qu'une façade doit recouvrir pour qu'on
-// redessine ; `wK`/`hK` = la silhouette elle-même, en fractions de tuile (elle suit
-// l'échelle des habitants, cf. sceneHumanH).
-//
-// ALPHA : 0,34 → 0,58 → **0,70**, choix de Raph le 2026-08-23. Le réglage discret
-// d'origine compensait le fait que la plupart des fantômes se posaient sur des unités
-// que rien ne cachait ; une fois le marquage exact, ils peuvent se lire. À 0,70 la
-// silhouette se voit franchement à travers la façade — c'est passé de « on devine »
-// à « on voit », et c'est assumé.
-// ⚠ Contrepartie signalée avant le choix : plus l'alpha monte, plus les faux positifs
-// du test de couverture se voient. Ils viennent de ce que la boîte d'encre est un
-// RECTANGLE autour d'une silhouette isométrique (coins vides) — cf. le § du test dans
-// isoLivePaint. Si un jour ça se remarque en jeu, c'est ce test-là qu'il faut affiner,
-// pas l'alpha qu'il faut redescendre.
-//
-// ⛔ ÉTEINT LE 2026-10-01, demande de Raph : « enlever l'effet fantôme des habitants,
-// émeutiers et véhicules quand ils passent derrière un bâtiment ». L'audit du vivant
-// (docs/PLAN-VIVANT.md §2, constat 6) l'avait montré : dans les villes de tours
-// (bandes 6 à 9), des dizaines de silhouettes semblaient escalader les façades. Une
-// unité cachée est désormais simplement cachée. Le code reste, rallumable pour
-// comparer : __ghost({ on: true }).
+// (Les SILHOUETTES FANTÔMES — une unité cachée redessinée en transparence par-dessus
+//  la façade, GHOST_TUNE et la molette __ghost — ont été ÉTEINTES le 2026-10-01 à la
+//  demande de Raph, « enlever l'effet fantôme des habitants, émeutiers et véhicules
+//  quand ils passent derrière un bâtiment » : dans les villes de tours, des dizaines
+//  de silhouettes semblaient escalader les façades (docs/PLAN-VIVANT.md §2, constat
+//  6). Retirées le 2026-10-06, audit MORT-12 : une unité cachée est simplement cachée.)
 // Scale des émeutiers redessinés en aplats, par préfixe d'ère (riotEraKey). L'arme
 // levée agrandit la toile de l'animation (44 à 48 px selon la direction) : les bandes
 // sont ramenées à 48 px pieds alignés (scripts/padStrip.mjs), personnage ~30 px →
@@ -835,9 +815,4 @@ function carryLight(ctx, p, sp, z, now, fa) {
 const RIOT_FLAT_SCALE = { 'stone-': 0.98, '': 0.98, 'anti-': 0.98, 'ind-': 0.98, 'mod-': 0.98, 'fut-': 0.98 };
 // Jeux d'émeutiers incomplets : combinaison manquante → combinaison dessinée.
 const RIOT_ERA_SWAP = { 'mod-': { 'man-fork': 'man-torch', 'woman-torch': 'woman-fork' } };
-
-export const GHOST_TUNE = { on: false, alpha: 0.7, cover: 0.35, wK: 0.34, hK: 0.68 };
-if (typeof window !== 'undefined') {
-  window.__ghost = (o) => { if (o) Object.assign(GHOST_TUNE, o); return { ...GHOST_TUNE }; };
-}
 

@@ -11,6 +11,7 @@
 import { cmHash } from '../layout.js';
 import { lightCutImage } from '../lightLayer.js';
 import { isoTileBBox } from './isoGroundTiles.js';
+import { plazaEraForBand } from './isoPlaza.js';
 
 // ── POINTS D'EAU (ex-aqueducs) ──────────────────────────────────────────────
 // 🚫 L'AQUEDUC-STRUCTURE A ÉTÉ RETIRÉ le 2026-08-05, ART COMPRIS. Vivait ici un
@@ -37,11 +38,11 @@ import { isoTileBBox } from './isoGroundTiles.js';
 //
 // Ère : même échelle que les places, PLUS un cran primitif — les places
 // n'existent qu'à partir du band 2, mais les aqueducs s'achètent dès le début.
-// ⚠ Même correction que plazaEraForBand le 2026-09-30, restée oubliée ici
-// jusqu'au 2026-10-04 : le bassin romain va à l'âge du MARBRE (band 4), le puits
-// de bois aux bands 2-3 (Pierre taillée, Couronne).
-export const waterPointEra = (band) => (band >= 7 ? 'cosmic' : band >= 6 ? 'modern'
-  : band >= 5 ? 'industrial' : band >= 4 ? 'antique' : band >= 2 ? 'medieval' : 'primitive');
+// ⚠ La table était RECOPIÉE ici : la correction de plazaEraForBand du 2026-09-30 (le
+// bassin romain à l'âge du MARBRE, band 4 ; le puits de bois aux bands 2-3) y est
+// restée oubliée jusqu'au 2026-10-04. Elle est désormais LUE (audit du 05/10,
+// STRUCT-12) : une seule échelle d'ères pour les places et les points d'eau.
+export const waterPointEra = (band) => plazaEraForBand(band) || 'primitive';
 // Hauteur en `p` = MULTIPLES DE LA HAUTEUR D'UN HABITANT, exactement comme le
 // mobilier des places — et surtout PAS en tuiles. C'est la règle du kit : ancré
 // sur autre chose, un prop ne suit plus quand l'échelle des habitants bouge, et
@@ -190,13 +191,6 @@ export function treeVariantsOf(sp, age) {
 // Les ADULTES : les arbres de ville (L.trees) n'en prennent pas d'autres (lot 2) —
 // un vieil arbre de 128 px couvrirait une maison, un jeune se perdrait dans la rue.
 export const TREE_ADULTS = TREE_LIVING.filter((i) => TREE_SPRITES[i].age === 1);
-// Essence d'une cellule (arbres de ville ; la forêt sauvage décide la sienne à la
-// plantation, cf. isoWildForest), stable. Le sapin mort garde sa part historique (un
-// tirage sur quatre, même hash qu'avant) ; le reste se tire parmi les adultes.
-export function treeBaseVariant(gx, gy) {
-  if (cmHash('tree:' + gx + ':' + gy) % 4 === 3) return TREE_DEAD_VARIANT;
-  return TREE_ADULTS[cmHash('treeL:' + gx + ':' + gy) % TREE_ADULTS.length];
-}
 // Essence VIVANTE qui remplace le sapin mort hors hiver et hors ruines : un tirage
 // à part, parmi les adultes (jamais TREE_DEAD_VARIANT).
 export function treeAliveVariant(gx, gy) { return TREE_ADULTS[cmHash('treeA:' + gx + ':' + gy) % TREE_ADULTS.length]; }
@@ -233,16 +227,13 @@ export function cityTreeVariant(gx, gy, band) {
 // ont besoin de sa taille avant ou en dehors du dessin (particules d'ambiance). `band` :
 // l'ère de la ville, pour un arbre de ville (sans `v`).
 export function treeVariantOf(tr, band = 0) { return tr._tv || tr.v || cityTreeVariant(tr.gx, tr.gy, band); }
-// Buissons DÉDIÉS bush-1..N (pack Cainos, cf. scripts/sliceCainosPlants.mjs),
-// rangés du plus petit au plus grand. Avant, un « buisson » de terre-plein était
-// un feuillu rapetissé — donc un tronc d'arbre miniature. Repli sur tree-N si le
-// PNG manque (cf. les sprites absents du .exe hors ligne : un art absent ne doit
-// rien effacer).
-export const ISO_BUSH_VARIANTS = 6;
+// (Les buissons PNG bush-1..6 du pack Cainos — terre-plein et île d'avant le kit de
+//  rue — ont été retirés le 2026-10-06 : les buissons sont dessinés par le code,
+//  streetKits.js. Leurs PNG sont gardés comme source dans art/references-ab/.)
 // Végétation de l'île (cf. son bloc dans drawIsoLive). `rMin/rMax` sont des rayons
 // NORMALISÉS de l'ellipse : le tiers central est laissé à la merveille.
 // Molette : window.__islandDeco.
-export const ISLAND_DECO = { on: true, count: 9, rMin: 0.5, rMax: 0.88, size: 0.3 };
-if (typeof window !== 'undefined') window.__islandDeco = ISLAND_DECO;
+export const ISLAND_DECO = { on: true, count: 9, rMin: 0.5, rMax: 0.88 };
+if (import.meta.env?.DEV && typeof window !== 'undefined') window.__islandDeco = ISLAND_DECO;
 
 

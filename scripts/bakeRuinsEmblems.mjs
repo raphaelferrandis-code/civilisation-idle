@@ -17,6 +17,7 @@
 //   node scripts/bakeRuinsEmblems.mjs [--sheet]
 import fs from "node:fs";
 import { PNG } from "pngjs";
+import oklabLib from "./lib/oklab.cjs";
 import { NODE_ANCHORS, DOGMA_ANCHORS } from "../src/components/views/ruinsTree/anchors.js";
 
 // Le jeu localise ses données au chargement : il lui faut un navigateur minimal.
@@ -26,20 +27,18 @@ const { PRESTIGE_TREE, PRESTIGE_DOGMAS } = await import("../src/game/data/upgrad
 
 const ART = "public/pixelart/ruins-tree/memoire.png";
 const EMB = "public/pixelart/ui/ruins";
+// Les emblèmes que le jeu ne sert plus un par un (maîtres 64 px, variantes @24, @32
+// des nœuds ordinaires) sont rangés hors de public/ (audit 2026-10-05, ASSET-3) :
+// l'arbre ne lit que l'atlas. Restent livrés les @32 des couronnes (registre).
+const EMB_SRC = "art/emblemes-ruines";
+const emblemFile = (id, size) => [EMB_SRC, EMB].map((d) => `${d}/node-${id}@${size}.png`).find((p) => fs.existsSync(p));
 const OUT = "public/pixelart/ruins-tree/emblems.png";
 const OUT_JS = "src/components/views/ruinsTree/emblemAtlas.js";
 const CELL = 36;
 const STATES = ["lit", "avail", "dim", "locked"];
 
-// ── OKLab ───────────────────────────────────────────────────────────────────
-const lin = (c) => { c /= 255; return c <= 0.04045 ? c / 12.92 : ((c + 0.055) / 1.055) ** 2.4; };
-function oklab([r, g, b]) {
-  const R = lin(r), G = lin(g), B = lin(b);
-  const l = Math.cbrt(0.4122214708 * R + 0.5363325363 * G + 0.0514459929 * B);
-  const m = Math.cbrt(0.2119034982 * R + 0.6806995451 * G + 0.1073969566 * B);
-  const s = Math.cbrt(0.0883024619 * R + 0.2817188376 * G + 0.6299787005 * B);
-  return [0.2104542553 * l + 0.793617785 * m - 0.0040720468 * s, 1.9779984951 * l - 2.428592205 * m + 0.4505937099 * s, 0.0259040371 * l + 0.7827717662 * m - 0.808675766 * s];
-}
+// ── OKLab (scripts/lib/oklab.cjs : même calcul au bit près que l'ancienne copie) ──
+const oklab = ([r, g, b]) => oklabLib.oklab(r, g, b);
 
 // ── Palettes : une rampe par matière, en tons RELEVÉS sur l'arbre ──────────
 // Un tri automatique (k-moyennes) mêlait la lave du tronc et les braises à
@@ -119,7 +118,7 @@ const ORDER = [...Object.keys(NODE_ANCHORS), ...Object.keys(DOGMA_ANCHORS)];
 const atlas = new PNG({ width: ORDER.length * CELL, height: STATES.length * CELL });
 ORDER.forEach((id, col) => {
   const size = CAP.has(id) ? 32 : 24;
-  const src = PNG.sync.read(fs.readFileSync(`${EMB}/node-${id}@${size}.png`));
+  const src = PNG.sync.read(fs.readFileSync(emblemFile(id, size)));
   // la case fait 36 : l'emblème (24, ou 32 pour une couronne) + 1 px de liseré y tient
   const padded = new PNG({ width: size + 2, height: size + 2 });
   for (let y = 0; y < size; y++) for (let x = 0; x < size; x++) {
@@ -162,7 +161,7 @@ if (process.argv.includes("--sheet")) {
   for (let p = 0; p < sheet.data.length; p += 4) { sheet.data[p] = 14; sheet.data[p + 1] = 18; sheet.data[p + 2] = 36; sheet.data[p + 3] = 255; }
   ids.forEach((id, r) => {
     const size = CAP.has(id) ? 32 : 24;
-    const src = PNG.sync.read(fs.readFileSync(`${EMB}/node-${id}@${size}.png`));
+    const src = PNG.sync.read(fs.readFileSync(emblemFile(id, size)));
     const blit = (img, sx, sy, sw, sh, dx, dy) => {
       for (let y = 0; y < sh * K; y++) for (let x = 0; x < sw * K; x++) {
         const i = ((sy + Math.floor(y / K)) * img.width + sx + Math.floor(x / K)) * 4;

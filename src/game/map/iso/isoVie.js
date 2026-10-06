@@ -50,20 +50,30 @@ export const vieStats = {};
 // `vieWhere` garde les premières positions écran peintes par couche (coin haut-
 // gauche du dernier blit) : c'est ce qui permet de cadrer une vérification sur une
 // bête de 5 px dans une image de 1600.
-export const vieWhere = {};
+const vieWhere = {};
 const _last = { x: 0, y: 0 };
+// SONDE ÉTEINTE au chargement, armée par le premier __vieStats() (dev seulement) :
+// les compteurs tournaient à chaque frame en prod aussi — une clé et jusqu'à six
+// tableaux neufs par couche, depuis ~25 sites — pour une console que le joueur
+// n'ouvre jamais (audit du 05/10, MORT-6). Même idiome que `grainProbe`.
+export const vieProbe = { on: false };
 export function vieCount(k, n = 1) {
+  if (!vieProbe.on) return;
   vieStats[k] = (vieStats[k] || 0) + n;
   const w = vieWhere[k] || (vieWhere[k] = []);
   if (w.length < 6) w.push([Math.round(_last.x), Math.round(_last.y)]);
 }
 export function vieResetStats() {
+  if (!vieProbe.on) return;
   for (const k in vieStats) vieStats[k] = 0;
   for (const k in vieWhere) vieWhere[k].length = 0;
 }
-if (typeof window !== 'undefined') {
+if (import.meta.env?.DEV && typeof window !== 'undefined') {
   window.__vie = (o) => { if (o) Object.assign(VIE, o); return { ...VIE }; };
-  window.__vieStats = () => ({ ...vieStats, where: JSON.parse(JSON.stringify(vieWhere)) });
+  window.__vieStats = () => {
+    if (!vieProbe.on) { vieProbe.on = true; console.info('Compteurs de la petite vie armés : relancer __vieStats() après une frame.'); }
+    return { ...vieStats, where: JSON.parse(JSON.stringify(vieWhere)) };
+  };
 }
 
 // ── TAILLE D'UN PIXEL D'ART ─────────────────────────────────────────────────
@@ -111,7 +121,6 @@ export function vieSprite(name, fi = 0, flip = false, flipY = false) {
   _cache.set(key, e);
   return e;
 }
-export function vieFrames(name) { const d = VIE_ART[name]; return d ? d.frames.length : 0; }
 // Ombre de poisson : calibre ('small' | 'big'), pose de queue, et cap par miroirs.
 export function fishShadowSprite(size, fi, flip, flipY) {
   const key = 'fish:' + size + '|' + fi + '|' + (flip ? 1 : 0) + (flipY ? 1 : 0);

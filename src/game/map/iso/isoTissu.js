@@ -292,12 +292,13 @@ export function courOf(L) {
   }
   return L._courField;
 }
-if (typeof window !== 'undefined') {
+if (import.meta.env?.DEV && typeof window !== 'undefined') {
   // Molette cour/friche : __cour(false) rend la nappe minérale d'avant le lot ;
-  // __cour({near,ring,minPatch,sidewalk}) règle la morphologie — near = rayon de
-  // fermeture (soude les bâtiments d'un même pâté et bouche les trous plus
-  // petits que 2·near), ring = largeur de la couronne de cour, minPatch = taille
-  // en dessous de laquelle une tache est absorbée. Rebake immédiat.
+  // __cour({scale,coreDens,ringDens,minPatch,sidewalk,lawnFrom}) règle la morphologie
+  // (champ de densité v2, cf. COUR) — scale = rayon du carré de lissage, coreDens /
+  // ringDens = seuils quartier bâti / faubourg, minPatch = taille en dessous de
+  // laquelle une tache est absorbée, sidewalk = trottoirs bordés selon le champ,
+  // lawnFrom = bande où la couronne passe en pelouse. Rebake immédiat.
   window.__cour = (arg) => {
     if (arg === false) COUR.on = false;
     else if (arg && typeof arg === 'object') { COUR.on = true; Object.assign(COUR, arg); }

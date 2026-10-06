@@ -9,7 +9,9 @@ import path from 'node:path';
 import { plaisirsCast } from '../plaisirsCast.js';
 
 const INH = path.join('public', 'pixelart', 'agents', 'inhabitants');
-const DIAG = ['southeast', 'northwest', 'southwest', 'northeast'];
+// Les FACES seulement : le dos d'une bande de repos est lu sur sa face (MIRROR_BACK
+// d'agents.js, audit du 05/10, ASSET-8) — les bandes nord n'existent plus.
+const DIAG = ['southeast', 'southwest'];
 const girlsOfAllBands = () => {
   const seen = new Map();
   for (let b = 0; b <= 9; b += 1) for (const g of plaisirsCast(b).girls) seen.set(g.name, g);
@@ -17,7 +19,7 @@ const girlsOfAllBands = () => {
 };
 
 describe('troupe de la Maison des Plaisirs : bandes de repos', () => {
-  it('chaque `repos` déclaré a ses 4 diagonales (et leurs demi-bandes)', () => {
+  it('chaque `repos` déclaré a ses 2 faces (et leurs demi-bandes)', () => {
     const missing = [];
     for (const g of girlsOfAllBands()) {
       if (!g.repos) continue;

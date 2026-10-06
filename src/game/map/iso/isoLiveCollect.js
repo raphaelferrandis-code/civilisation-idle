@@ -12,31 +12,29 @@
 // dans le peintre aurait été laisser une mécanique sans son moteur.
 //
 // ⚠ Contexte destructuré en tête, même technique que le sol : les HUIT lectures vers
-// l'englobante redeviennent des locales à leur nom, si bien que les 386 lignes sont
-// reprises SANS UNE LIGNE DE CHANGÉE. Aucune n'est réassignée — vérifié avant la coupe.
+// l'englobante redeviennent des locales à leur nom — c'est ce qui a permis, le
+// 2026-08-23, de reprendre les 386 lignes de l'époque SANS UNE LIGNE DE CHANGÉE (la
+// collecte a évolué depuis). Aucune n'est réassignée — vérifié avant la coupe.
 import { state } from '../../core/state.js';
 import { vehicleLaneOffset } from '../agents.js';
 import { CM, CM_WONDERS, cmEngineHomeHidden, cmHash, cmWonderActiveIds } from '../layout.js';
 import { pixelHouseReady } from '../pixelHouses.js';
-import { WINTER } from '../seasonMode.js';
 import { REVEAL_PIN_MS, SMOKE_TUNE, crisisSmokeShare } from './isoAmbient.js';
-import { isoArt } from './isoArt.js';
 import { bridgeBlocks, bridgeGeoms, pushIsoBridgeItems } from './isoBridge.js';
 import { pushIsoWonderItems } from './isoWonder.js';
 import { isoEngineScenesFlag } from './isoEngineScene.js';
 import { fenceStrip, isoFencesFor } from './isoFence.js';
 import { isoFlatFootprint, isoFrontOffset } from './isoGroundDetail.js';
-import { ISLAND_DECO, ISO_BUSH_VARIANTS, WATER_POINT_P, waterPointEra } from './isoGroundProps.js';
+import { ISLAND_DECO, WATER_POINT_P, waterPointEra } from './isoGroundProps.js';
 import { plaisirsReady, pushIsoPlaisirsItems } from './isoPlaisirs.js';
 import {
-  isoPlazaBox, isoPlazaBoxes, isoPlazaItems, isoPlazaKitOn, isoPlazaSceneOn, plazaEraForBand, personHT,
+  isoPlazaBox, isoPlazaBoxes, isoPlazaItems, isoPlazaKitOn, plazaEraForBand, personHT,
 } from './isoPlaza.js';
-import { portMooring } from './isoPort.js';
 import { fleetSceneItems } from './boatScenes.js';
 import {
-  isoLamps, isoStreetPropsFor, medianPlan, medianSlots, streetLampArt, streetPropEra, wildShrubActor,
+  isoLamps, isoStreetPropsFor, medianPlan, streetLampArt, streetPropEra, wildShrubActor,
 } from './isoStreet.js';
-import { STREET_KIT, streetKitFor } from './streetKits.js';
+import { streetKitFor } from './streetKits.js';
 import { STREET_PROPS } from './isoStreetProps.js';
 import { isoUnitDepth, isoUnitDepthEx, vehSortLift, vehSortWide, orderUnitsAroundVehicles, rioterLane } from './isoUnits.js';
 import { WILD_THIN_UNIT, isoWildForest } from './isoWildForest.js';
@@ -59,7 +57,7 @@ export function collectIsoItems(bake, now) {
   // Registre des figures (figures.js) : la frame qui s'achève devient la référence.
   figuresBeginFrame();
   const portDepth = {};          // scène du port par poste (porteurs du ponton)
-  const { T, L, b, band, dvVis, z, smokeK, eraIdx } = bake;
+  const { T, L, b, band, dvVis, z, smokeK } = bake;
   const crisisP = crisisSmokeShare(state.instability);
   const items = ISO_ITEM_VIEW;
   items.length = 0;
@@ -71,18 +69,12 @@ export function collectIsoItems(bake, now) {
         d: 0, kind: '', t: null, tr: null, p: null, v: null, w: null, wi: 0,
         moor: null, art: null, eraKey: '', axis: '', wx: 0, wy: 0, gx: 0, gy: 0,
         px: 0, py: 0, x0: 0, x1: 0, y0: 0, y1: 0, r: 0, i: 0, n: 0, pieces: null,
-        // Passe FANTÔME : le marqueur et le POINT MONDE qui a servi à la profondeur.
-        // Ils sont déclarés ICI, dans la forme du pool, parce que c'est tout l'objet
-        // du pool — une hidden class stable. `ghost` était posé à la volée sur les
-        // seules unités, donc la forme dérivait selon l'ordre de réutilisation.
-        ghost: false, gwx: 0, gwy: 0,
+        // Le POINT MONDE qui a servi à la profondeur d'une unité (lu par
+        // orderUnitsAroundVehicles et la chute). Déclaré ICI, dans la forme du pool,
+        // parce que c'est tout l'objet du pool — une hidden class stable.
+        gwx: 0, gwy: 0,
       };
     }
-    // ⚠ REMISE À ZÉRO OBLIGATOIRE : les objets survivent d'une frame à l'autre. Un
-    // item réutilisé après avoir été une unité fantôme gardait `ghost = true` et
-    // repassait dans la passe. Sans effet visible aujourd'hui (aucune branche de
-    // `kind` ne l'attrapait), mais c'est un piège armé pour le prochain `kind`.
-    it.ghost = false;
     itemN += 1;
     items.push(it);
     return it;
@@ -155,11 +147,10 @@ export function collectIsoItems(bake, now) {
     if (t._revealPinAt && (CM.ambianceK ?? 1) > 0 && now - t._revealPinAt < REVEAL_PIN_MS && pixelHouseReady(t)) {
       items.push({ d: d + 0.002, kind: 'revealpin', t });
     }
-    // BATEAU AMARRÉ du port : item SÉPARÉ trié à SA position — dessiné dans la
-    // scène riveraine il héritait de la profondeur de l'EMPRISE du bâtiment et
-    // passait PAR-DESSUS la travée du pont voisin (retour Raph, band 7).
-    // portMooring écarte de plus le mouillage de l'emprise des ponts. Même
-    // test « mouillé » que le rendu de la scène (cas riverain du switch).
+    // PORT RIVERAIN : sa profondeur, pour les porteurs du ponton. Même test
+    // « mouillé » que le rendu de la scène (cas riverain du switch).
+    // (L'item 'portBoat' — le bateau de DÉCOR amarré, qui ne dessinait plus rien
+    //  depuis que de vrais marchands accostent — est parti, audit du 05/10, MORT-6.)
     if (t.buildingId === 'river_ports' && t.type === 'engine' && isoEngineScenesFlag.on
       && L.river && L.river.present && L.river.cells) {
       let wet = false;
@@ -171,11 +162,6 @@ export function collectIsoItems(bake, now) {
         // Profondeur de la scène du port (bâtiment + ponton) : les porteurs du
         // ponton passent APRÈS elle, sinon le tablier les recouvre (cf. plus bas).
         portDepth[t.gx + ',' + t.gy] = d;
-        const moor = portMooring(t, sx, T, band, eraIdx, L.river);
-        if (moor) {
-          const hb = T * 0.30 * moor.effSize;   // contact visuel (même geste que les véhicules)
-          items.push({ d: isoUnitDepth(moor.mx * T + hb, moor.my * T + hb), kind: 'portBoat', moor });
-        }
       }
     }
   }
@@ -208,7 +194,11 @@ export function collectIsoItems(bake, now) {
     // l'œil, devant celui de l'autre — avancée comme un marchand, elle couvrait le bout
     // du ponton et sa lanterne.
     const hb = sh.kind === 'shuttle' ? 0 : T * 0.30 * (sh._len || 1);
-    items.push({ d: isoUnitDepth(P.wx + hb, P.wy + hb), kind: 'fleetShip', sh });
+    // Au quai du TERMINAL (sh.quay) : sa scène le peint entre son quai et ses portiques
+    // (isoPort.drawQuayShips) ; l'item, trié APRÈS elle, n'est que le repli.
+    const qd = sh.quay != null ? portDepth[sh.quay] : null;
+    const ds = isoUnitDepth(P.wx + hb, P.wy + hb);
+    items.push({ d: qd == null ? ds : Math.max(ds, qd + 0.002), kind: 'fleetShip', sh });
     const pd = portDepth[sh.berthId];
     for (const q of sh._porters || []) {
       noteFig(q.x * T, q.y * T, FIG.PORT | (q.walking ? FIG.MOVING : 0));
@@ -306,7 +296,7 @@ export function collectIsoItems(bake, now) {
   // (choix STABLE par cellule, donc pas de scintillement au pan) libère le
   // premier poste de la frame. Réglage : window.__wildThin = fraction gardée
   // (1 = tout, 0.5 = un sur deux).
-  const wildKeep = (typeof window !== 'undefined' && window.__wildThin != null) ? window.__wildThin : 1;
+  const wildKeep = (import.meta.env?.DEV && typeof window !== 'undefined' && window.__wildThin != null) ? window.__wildThin : 1;
   const wildThinOn = wildKeep < 1 && T * z < WILD_THIN_UNIT;
   for (const wt of isoWildForest(L, b)) {
     if (wt.gx < b.gx0 || wt.gx > b.gx1 || wt.gy < b.gy0 || wt.gy > b.gy1) continue;
@@ -321,35 +311,18 @@ export function collectIsoItems(bake, now) {
     if (treeExcluded(wt, (wt.gx + 0.5 + wt.jx) * T, (wt.gy + 0.5 + wt.jy) * T)) continue;
     { const it = pushItem(); it.d = depthOf((wt.gx + 0.5 + wt.jx) * T, (wt.gy + 0.9 + wt.jy) * T); it.kind = 'tree'; it.tr = wt; }
   }
-  // PLACE. Deux modes, arbitrés par __plaza({mode}) :
-  //   'kit'   (défaut) — place COMPOSÉE : un item PAR PROP, chacun trié à SA
-  //           profondeur. C'est ce qui permet à un passant de croiser un banc
-  //           (la scène unique n'avait qu'une profondeur pour toute la place)
-  //           ET aux props de garder leur taille quand la place s'agrandit.
-  //   'scene' — l'ancienne image unique, gardée comme référence d'A/B.
-  {
-    const pb = isoPlazaBox(L);
-    const pKey = plazaEraForBand(band);
-    if (pb && pKey) {
-      if (isoPlazaKitOn(band)) {
-        // Culling par une boîte d'UNE cellule autour du pied : un prop monte
-        // au-dessus de son point d'ancrage, un test sur le point seul le ferait
-        // disparaître au ras du bord haut de l'écran.
-        // La même boîte autour de l'enveloppe d'une place : hors champ, elle est
-        // sautée d'un bloc, flâneurs compris (PERF-48).
-        isoPlazaItems(L, band, pushItem, (wx, wy) => dvVis(wx - T, wy - T, wx + T, wy + T), now,
-          (wx0, wy0, wx1, wy1) => dvVis(wx0 - T, wy0 - T, wx1 + T, wy1 + T));
-      } else if (isoPlazaSceneOn(band)) {
-        const pArt = isoArt('plaza-' + pKey);
-        if (pArt.ready) {
-          const cxw = ((pb.gx0 + pb.gx1 + 1) / 2) * T, cyw = ((pb.gy0 + pb.gy1 + 1) / 2) * T;
-          items.push({
-            d: depthOf(cxw, cyw), kind: 'plazaScene', wx: cxw, wy: cyw,
-            px: pb.gx1 - pb.gx0 + 1, py: pb.gy1 - pb.gy0 + 1, art: pArt, eraKey: pKey,
-          });
-        }
-      }
-    }
+  // PLACE COMPOSÉE : un item PAR PROP, chacun trié à SA profondeur. C'est ce qui
+  // permet à un passant de croiser un banc (l'ancienne image unique, le mode
+  // 'scene' retiré le 2026-10-06, n'avait qu'une profondeur pour toute la place)
+  // ET aux props de garder leur taille quand la place s'agrandit.
+  if (isoPlazaBox(L) && plazaEraForBand(band) && isoPlazaKitOn(band)) {
+    // Culling par une boîte d'UNE cellule autour du pied : un prop monte
+    // au-dessus de son point d'ancrage, un test sur le point seul le ferait
+    // disparaître au ras du bord haut de l'écran.
+    // La même boîte autour de l'enveloppe d'une place : hors champ, elle est
+    // sautée d'un bloc, flâneurs compris (PERF-48).
+    isoPlazaItems(L, band, pushItem, (wx, wy) => dvVis(wx - T, wy - T, wx + T, wy + T), now,
+      (wx0, wy0, wx1, wy1) => dvVis(wx0 - T, wy0 - T, wx1 + T, wy1 + T));
   }
   // MOBILIER DE TROTTOIR (bancs, bacs, corbeilles) : mêmes items `plazaProp` que
   // la place, donc même art et même tri — seule la POSE est à nous (isoStreetProps).
@@ -448,9 +421,10 @@ export function collectIsoItems(bake, now) {
   // LAMPADAIRES : mâts de l'ère le long des routes (liste déterministe
   // isoLamps), posés au peintre ; leurs halos de nuit se dessinent dans
   // drawIsoNight à la MÊME position (points lumineux ancrés, retour Raph).
+  // Réverbère du kit de l'ère ; null sans kit (bandes 0-1, où isoLamps est vide).
   if (!CM.lodActive) {
     const lampArt = streetLampArt(band);
-    if (lampArt.ready) {
+    if (lampArt) {
       for (const lp of isoLamps(L, band)) {
         if (lp.gx < b.gx0 || lp.gx > b.gx1 || lp.gy < b.gy0 || lp.gy > b.gy1) continue;
         if (!dvVis(lp.wx, lp.wy, lp.wx, lp.wy)) continue;
@@ -462,16 +436,13 @@ export function collectIsoItems(bake, now) {
       }
     }
   }
-  // TERRE-PLEIN façon PLACE (2026-08-03) : le sol (gazon moucheté + PARTERRES
-  // de fleurs) est dans le BAKE ; ici on ne pose que les BUISSONS par-dessus —
-  // les slots IMPAIRS de medianSlots (les pairs portent les parterres), petits
-  // (r 0.14-0.21, réfs municipales de Raph), légèrement décalés de l'axe, avec
-  // ombre d'ancrage au pied (shadow) — fini les buissons « qui volent ».
-  if (!CM.lodActive) {
-    // Ère à KIT (streetKits.js, 2026-10-02) : les plantations de l'ère, dessinées
-    // par le code, là seulement où la ville borde le terre-plein (medianPlan) ;
-    // les mâts du plan passent par isoLamps. Chaque plantation se dessine elle-même.
-    const kitT = streetKitFor(band);
+  // TERRE-PLEIN : le sol est dans le BAKE ; ici, les plantations de l'ère (kit,
+  // streetKits.js, 2026-10-02), dessinées par le code, là seulement où la ville
+  // borde le terre-plein (medianPlan) ; les mâts du plan passent par isoLamps.
+  // Chaque plantation se dessine elle-même. (Les buissons PNG d'avant le kit,
+  // alternés avec les parterres du bake — medianSlots —, retirés le 2026-10-06.)
+  const kitT = streetKitFor(band);
+  if (!CM.lodActive && kitT && kitT.median) {
     for (const sg of (L.terrePlein || [])) {
       if (sg.axis === 'v') {
         if (sg.x + 1 < b.gx0 - 1 || sg.x + 1 > b.gx1 + 1) continue;
@@ -480,24 +451,9 @@ export function collectIsoItems(bake, now) {
         if (sg.y + 1 < b.gy0 - 1 || sg.y + 1 > b.gy1 + 1) continue;
         if (sg.x1 < b.gx0 - 2 || sg.x0 > b.gx1 + 2) continue;
       }
-      if (kitT && kitT.median) {
-        for (const sl of medianPlan(L, sg, T, kitT)) {
-          if (!sl.urban || sl.kind === 'lamp') continue;
-          const it = pushItem(); it.d = depthOf(sl.wx, sl.wy); it.kind = 'vie'; it.v = sl;
-        }
-        continue;
-      }
-      // En HIVER, les slots à BAC portent aussi un buisson : les bacs sont
-      // retirés du bake (seuls les buissons enneigés rendent bien, retour Raph)
-      // et la bande garde son rythme plein — un buisson par ~1.25 tuile.
-      const winterBush = CM.season === WINTER;
-      for (const sl of medianSlots(sg, T)) {
-        if (sl.kind !== 'bush' && !winterBush) continue;
-        const po = (((sl.h >>> 5) % 100) / 100 - 0.5) * T * 0.12;   // écart léger à l'axe
-        const wx = sg.axis === 'v' ? sl.wx + po : sl.wx;
-        const wy = sg.axis === 'v' ? sl.wy : sl.wy + po;
-        const jj = ((sl.h >>> 12) % 100) / 100;
-        items.push({ d: depthOf(wx, wy), kind: 'bush', wx, wy, r: 0.14 + jj * 0.07, v: 1 + ((sl.h >>> 9) % ISO_BUSH_VARIANTS), shadow: true });
+      for (const sl of medianPlan(L, sg, T, kitT)) {
+        if (!sl.urban || sl.kind === 'lamp') continue;
+        const it = pushItem(); it.d = depthOf(sl.wx, sl.wy); it.kind = 'vie'; it.v = sl;
       }
     }
   }
@@ -532,17 +488,9 @@ export function collectIsoItems(bake, now) {
         const gx = wx / T, gy = wy / T;
         if (gx < b.gx0 - 2 || gx > b.gx1 + 2 || gy < b.gy0 - 2 || gy > b.gy1 + 2) continue;
         // Buisson dessiné par le code, au grain de la ville (iso/streetKits.js,
-        // 2026-10-03) : ombre solaire, vent. Molette __streetKit(false) : l'ancien.
-        if (STREET_KIT.on) {
-          const it = pushItem(); it.d = depthOf(wx, wy); it.kind = 'vie';
-          it.v = wildShrubActor(wx, wy, h >>> 3, 1 + ((h >>> 20) % 3));
-          continue;
-        }
-        items.push({
-          d: depthOf(wx, wy), kind: 'bush', wx, wy,
-          r: ISLAND_DECO.size * (0.8 + ((h >>> 20) % 100) / 250),
-          v: 1 + ((h >>> 27) % ISO_BUSH_VARIANTS),
-        });
+        // 2026-10-03) : ombre solaire, vent.
+        const it = pushItem(); it.d = depthOf(wx, wy); it.kind = 'vie';
+        it.v = wildShrubActor(wx, wy, h >>> 3, 1 + ((h >>> 20) % 3));
       }
     }
   }
@@ -561,7 +509,7 @@ export function collectIsoItems(bake, now) {
       // piétons hors champ payaient tri + drawImage à chaque frame.
       if (!dvVis(pwx, pwy, pwx, pwy)) continue;
       noteFig(pwx, pwy, FIG.STREET | ((p.pauseT || 0) > 0 ? 0 : FIG.MOVING));
-      { const dx = isoUnitDepthEx(pwx, pwy); const it = pushItem(); it.d = dx.d; it.ghost = dx.hidden; it.gwx = pwx; it.gwy = pwy; it.kind = 'cit'; it.p = p; }
+      { const it = pushItem(); it.d = isoUnitDepthEx(pwx, pwy).d; it.gwx = pwx; it.gwy = pwy; it.kind = 'cit'; it.p = p; }
     }
     // Véhicules : mêmes règles (drones = passe aérienne, plus tard). La
     // carrosserie est dessinée CENTRÉE sur l'ancre (drawIsoVehicle) : son
@@ -580,7 +528,7 @@ export function collectIsoItems(bake, now) {
       // isoUnitDepthEx). Le porteur de panier est un passant : un point.
       { const gwx = v.x + lo.x + h, gwy = v.y + lo.y + h;
         const w = vehSortWide(v, T), e = v.type === 'basket' ? 0 : w, alongX = v.dir === 0 || v.dir === 1;
-        const dx = isoUnitDepthEx(gwx, gwy, w, alongX ? e : 0, alongX ? 0 : e); const it = pushItem(); it.d = dx.d; it.ghost = dx.hidden; it.gwx = gwx; it.gwy = gwy; it.kind = 'veh'; it.v = v; }
+        const it = pushItem(); it.d = isoUnitDepthEx(gwx, gwy, w, alongX ? e : 0, alongX ? 0 : e).d; it.gwx = gwx; it.gwy = gwy; it.kind = 'veh'; it.v = v; }
     }
   }
   // ÉMEUTE : émeutiers dans le TRI PEINTRE (clé pieds + offsets de file, comme
@@ -595,7 +543,7 @@ export function collectIsoItems(bake, now) {
       const laneX = ln.x, laneY = ln.y;
       { const gwx = p.x + laneX, gwy = p.y + laneY;
         noteFig(gwx, gwy, FIG.RIOT | FIG.MOVING);
-        const dx = isoUnitDepthEx(gwx, gwy); items.push({ d: dx.d, ghost: dx.hidden, gwx, gwy, kind: 'riot', p }); }
+        items.push({ d: isoUnitDepthEx(gwx, gwy).d, gwx, gwy, kind: 'riot', p }); }
     }
   }
   // Passants et émeutiers qui recoupent un véhicule : rangés selon le sol du véhicule

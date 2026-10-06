@@ -38,7 +38,7 @@ import { lightCtx } from './lightLayer.js';
 //        vive ; un feu qui n'aurait que sa source éclairerait sa propre flamme et
 //        rien autour. La nappe est purement nocturne (de jour, le soleil la mange).
 export const FLAME_GLOW = { on: true, gain: 1, day: 0.16, night: 0.30, r: 1, halo: 2.5, haloA: 0.42 };
-if (typeof window !== 'undefined') {
+if (import.meta.env?.DEV && typeof window !== 'undefined') {
   window.__flameGlow = (o) => { if (o) Object.assign(FLAME_GLOW, o); return { ...FLAME_GLOW }; };
 }
 

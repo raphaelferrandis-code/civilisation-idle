@@ -615,7 +615,7 @@ export function resetSnowCache() {
   for (const fn of resetHooks) fn();
 }
 
-if (typeof window !== "undefined") {
+if (import.meta.env?.DEV && typeof window !== "undefined") {
   // A/B immédiat — c'est tout l'intérêt d'une passe de runtime : on juge les
   // deux états sans relancer de dérivation.
   window.__snowRoof = (on) => {

@@ -28,7 +28,7 @@ import { LEAF_KINDS, puffSprite } from './vieArt.js';
 // forêt sauvage). Par ère : feuilles qui tombent (jour) + lucioles (nuit) ; à
 // l'ère cosmique (band ≥ 7) elles cèdent la place à des MOTES d'énergie montantes.
 const AMBIENT = { on: true, leaves: 1, sparks: 1 };
-if (typeof window !== 'undefined') {
+if (import.meta.env?.DEV && typeof window !== 'undefined') {
   window.__ambient = (o) => { if (o) Object.assign(AMBIENT, o); return { ...AMBIENT }; };
 }
 // Ancres de végétation visibles (base monde + rayon + graine), plafonnées. Mémoïsé
@@ -188,7 +188,7 @@ export function drawIsoAmbient(now) {
 // !usePixelHouse et n'est jamais atteinte en iso : ne pas passer par là.
 // Molette : __smoke({ on, share, puffs, rise }).
 export const SMOKE_TUNE = { on: true, share: 7, puffs: 4, rise: 1 };
-if (typeof window !== 'undefined') {
+if (import.meta.env?.DEV && typeof window !== 'undefined') {
   window.__smoke = (o) => { if (o) Object.assign(SMOKE_TUNE, o); return { ...SMOKE_TUNE }; };
 }
 
@@ -250,7 +250,7 @@ export function drawIsoSmoke(box, s, now, k) {
 // colonne ne se devinait qu'à ×2,5 ; 10 bouffées (pas 12 : le Chrome de Raph rend
 // sans GPU, ~10 % des maisons × bouffées = des centaines de blits à 100 %).
 export const CRISIS_SMOKE_TUNE = { on: true, from: 0.5, max: 0.10, puffs: 10, rise: 4.6, size: 1.7, fadePow: 0.25 };
-if (typeof window !== 'undefined') {
+if (import.meta.env?.DEV && typeof window !== 'undefined') {
   window.__crisisSmoke = (o) => { if (o) Object.assign(CRISIS_SMOKE_TUNE, o); return { ...CRISIS_SMOKE_TUNE }; };
 }
 

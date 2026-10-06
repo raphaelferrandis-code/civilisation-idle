@@ -468,7 +468,7 @@ function relicImage(r) {
 // Fin de collecte du peintre (iso/isoLiveCollect.js) : la chute vide les rues sous la
 // vague ; les ruines du cycle précédent entrent dans le tri, la forêt neuve les évite.
 const GONE_PROPS = /^(person|garland|stall|crates|brazier)/;
-const LIFE_KINDS = new Set(['cit', 'veh', 'vie', 'elev', 'critter', 'smoke', 'revealpin', 'terroirTeam', 'fleetScene', 'porter', 'portBoat', 'lamp', 'plaisirs']);
+const LIFE_KINDS = new Set(['cit', 'veh', 'vie', 'elev', 'critter', 'smoke', 'revealpin', 'terroirTeam', 'fleetScene', 'porter', 'lamp', 'plaisirs']);
 function itemPos(it, T) {
   switch (it.kind) {
     case 'plazaProp': return it.art && it.art.wx != null ? [it.art.wx, it.art.wy] : null;

@@ -10,7 +10,7 @@
 // voile lumineux. La matière suit la cité : laque et jade, nuit et or, améthyste.
 // ⚠ La salle des tickets montre DES TICKETS (retour de Raph du 2026-10-03 : la roue de
 // fortune « menait aux tickets, c'est pas logique ») — on y voit ce qu'on va gratter.
-import { INK, mix, h32, piece, contactShadow, FOOT, BK, SD, FR } from './plaisirsHDKit.js';
+import { INK, mix, h32, piece, contactShadow, FOOT, BK, SD } from './plaisirsHDKit.js';
 import { tableCrew, boudoirRoom, tableEra, counterEra, shelvesEra, stageEra, item } from './plaisirsEraRooms.js';
 import { slotRow } from './plaisirsSlotsCoupe.js';
 
@@ -418,4 +418,3 @@ const COSMIC = {
 };
 
 export { NEON, COSMIC };
-void FR;

@@ -1,6 +1,7 @@
 import { state } from '../../game/core/state.js';
 import { currentEraIndex } from '../../game/core/mechanics.js';
 import { tr } from '../../game/core/i18n.js';
+import { getRoadDoors } from '../../game/map/cityMapBridge.js';
 
 /* État du réseau routier, lu par l'encart Voirie. Vit hors du composant : le
    lint interdit d'exporter autre chose que des composants depuis un .jsx
@@ -13,7 +14,7 @@ import { tr } from '../../game/core/i18n.js';
 export function roadNetworkInfo() {
   const cov = state.roadCoverage;
   const c = (typeof cov === "number" && cov > 0) ? Math.min(1, cov) : 0;
-  const d = state.roadDoors;
+  const d = getRoadDoors();
   const doors = (d && d.total > 0) ? d : null;
   const ei = currentEraIndex();
   const rank = ei >= 30

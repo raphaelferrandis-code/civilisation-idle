@@ -1,4 +1,3 @@
-"use strict";
 /* ============================================================================
  * bench-myths.js - Mesure EXACTE de l'impact de chaque Heritage de Mythe sur la
  * production, l'Usure, les couts et l'automatisation - SANS avoir a atteindre le
@@ -10,25 +9,18 @@
  * Tous les chiffres viennent des vraies formules (src/game/**). Ce qui n'est pas
  * mesurable headless (ex. adjacence Babel = carte) est FLAGGE, pas invente.
  *
- * Sortie : myth-impact.md (+ table console).
+ * Sortie : docs/bench/myth-impact.md, relatif au dossier courant (+ table console).
  * Usage  : node bench-myths.js
  * ========================================================================== */
 import fs from "fs";
-
-// --- Stubs DOM (avant imports jeu) -----------------------------------------
-// addEventListener : cloudSave.js s'abonne à `pagehide` dès l'import (SCRIPT-1).
-global.window = { addEventListener() {}, removeEventListener() {} };
-global.localStorage = { getItem() { return null; }, setItem() {} };
-Object.defineProperty(global, "navigator", { value: { clipboard: { writeText() {} } }, writable: true, configurable: true });
-const stubEl = () => ({ className: "", dataset: {}, innerHTML: "", textContent: "", disabled: false, value: "", checked: false, style: {}, classList: { add() {}, remove() {}, toggle() {}, contains() { return false; } }, addEventListener() {}, setAttribute() {}, showModal() {}, remove() {}, click() {}, appendChild() {}, querySelector() { return stubEl(); }, querySelectorAll() { return []; } });
-global.document = { addEventListener() {}, documentElement: { style: { setProperty() {} } }, body: { appendChild() {} }, querySelector() { return stubEl(); }, querySelectorAll() { return []; }, createElement() { return stubEl(); }, getElementById() { return stubEl(); } };
-global.Audio = class { constructor() { this.volume = 1; } addEventListener() {} play() { return Promise.resolve(); } pause() {} };
-global.render = () => {}; global.save = () => {};
+// Stubs DOM (avant imports jeu) : le faux navigateur commun des harnais.
+import "./scripts/lib/headless.mjs";
 
 // --- Imports jeu ------------------------------------------------------------
 const { buildings } = await import("./src/game/data/buildings.js");
 const mythMod = await import("./src/game/data/myths.js");
-const { MYTHS, getMythById } = mythMod;
+const { MYTHS } = mythMod;
+const { BABEL_COMMON_TONGUE_MULT, CADMOS_EPITAPH_BONUS_PCT, CADMOS_MAX_PERMANENT_EPITAPHS } = mythMod;
 const stateModule = await import("./src/game/core/state.js");
 const { state, defaultState, invalidateRenderCache, setState } = stateModule;
 const { registerChoiceDialog } = await import("./src/game/core/choiceDialog.js");
@@ -39,7 +31,7 @@ const { D, toNum } = await import("./src/game/core/num.js");
 const actions = await import("./src/game/core/actions.js");
 const { addProductionPenalty } = mech;
 const { chronicle } = actions;
-const { clamp01, fmt } = await import("./src/game/core/utils.js");
+const { clamp01 } = await import("./src/game/core/utils.js");
 const { registerWorldEffects } = await import("./src/game/data/worldEffects.js");
 registerWorldEffects({ addProductionPenalty, chronicle, clamp01, state });
 
@@ -52,11 +44,6 @@ function prodTotal() {
   invalidateRenderCache("all");
   const r = rates();
   return n(r.population) + n(r.food) + n(r.gold) + n(r.knowledge) + n(r.infrastructure);
-}
-function prodBreakdown() {
-  invalidateRenderCache("all");
-  const r = rates();
-  return { pop: n(r.population), food: n(r.food), gold: n(r.gold), knowledge: n(r.knowledge), infra: n(r.infrastructure) };
 }
 
 // Economie de reference (mid-game raisonnable, toutes categories actives).
@@ -90,16 +77,20 @@ function sampleCost() {
   return n(buildingBatchCost(b, 10).gold || buildingBatchCost(b, 10)[b.currency]);
 }
 
-// Carte heritage -> automatisation/mecanique debloquee (exacte, depuis le code).
+// Carte heritage -> automatisation/mecanique debloquee (exacte, depuis le code :
+// heritageDescription de data/myths.js). ⚠ A tenir a jour quand un heritage change
+// (audit 2026-10-05, SCRIPT-7) : l'Age d'Or est devenu le Comptoir, Babel la Langue
+// commune (plus d'adjacence), Atlas une crise annulee (plus de Legitimite).
 const AUTOMATION = {
   mythe_d_hephaistos: "Panneau AUTOMATES : achat auto de batiments + actions de crise auto (runs futures)",
   mythe_du_phenix: "Panneau SCRIPT : effondrement auto selon seuils (Rupture/Usure/temps)",
-  mythe_d_icare: "L Aile (bouton MONTER) : x2 prod par altitude, Rupture acceleree",
+  mythe_d_icare: "L Aile (MONTER / redescendre) dans les cycles normaux, sans plafond : prod qui grimpe, Rupture qui s'emballe",
   mythe_atrides: "Bouton PACTE : x2 production 2 min (puis -50% pendant la crise)",
   mythe_d_antee: "Choix RUINES ACTIVES en debut de cycle : x ruines selon malus actives",
-  mythe_d_atlas: "L Epaule (bouton EPAULER) : monte la Legitimite, qui adoucit les crises",
-  mythe_de_cadmos: "Gravure d'EPITAPHES : +2% permanent / orientation (max 3)",
-  mythe_de_babel: "SYNERGIE d'adjacence sur la carte : +10% prod / voisin du meme type"
+  mythe_d_atlas: "L Epaule : 1x/cycle, une gestion de crise au choix passe sans aucun effet",
+  mythe_de_cadmos: `Gravure d'EPITAPHES : +${Math.round(CADMOS_EPITAPH_BONUS_PCT * 100)}% permanent / orientation (max ${CADMOS_MAX_PERMANENT_EPITAPHS})`,
+  mythe_de_babel: `LANGUE COMMUNE : 1x/cycle, la categorie declaree produit +${Math.round((BABEL_COMMON_TONGUE_MULT - 1) * 100)}% jusqu'a l'effondrement (reglable en auto)`,
+  mythe_age_or: "Le COMPTOIR : onglet Marchandage permanent (Or <-> ressources, vente du surplus, au tarif du marchand)"
 };
 
 // Pre-setup applique AVANT la mesure "before" (pour isoler l'effet propre de
@@ -124,7 +115,8 @@ const ACTIVATE = {
   mythe_de_cadmos: () => { state.cadmosPermanentEpitaphs = [
     { id: "a", orientation: "food", name: "x" }, { id: "b", orientation: "food", name: "y" }, { id: "c", orientation: "food", name: "z" }
   ]; }, // 3 epitaphes Nourriture = +6% food permanent
-  mythe_age_or: () => { state.food = D(60000); state.gold = D(60000); }, // equilibre -> -20% Usure
+  mythe_de_babel: () => { state.babelCommonTongue = "city"; },        // Langue commune declaree : Cite +20% (babelCommonTongueMult)
+  mythe_age_or: () => {},   // le Comptoir : onglet Marchandage, effet hors prod (actions/myths.js)
   mythe_d_icare: () => { state.icareAltitude = 1; },                  // l Aile : altitude 1 = x2 prod
   mythe_atrides: () => { state.atridesPactActive = true; state.cycleStartedAt = NOW; }, // x2 prod 2min
   mythe_d_atlas: () => {},  // skip d'une gestion de crise 1x/cycle : effet hors prod (crisis.js)
@@ -205,7 +197,7 @@ let md = `# Impact des Heritages de Mythes - mesure exacte
 
 > Genere par \`bench-myths.js\`. Etat de reference identique pour tous (economie mid-game,
 > pop 40k, ~370 batiments, 6 cycles). Chaque heritage est applique avec sa **condition
-> d'activation reelle** (fenetre temporelle, equilibre, surchauffe...), puis on remesure.
+> d'activation reelle** (fenetre temporelle, langue declaree, altitude...), puis on remesure.
 > Tous les chiffres viennent des formules de \`src/game/**\`. **${gates}/${results.length}** heritages
 > debloquent une mecanique/automatisation persistante (vrai gate) ; les autres sont des multiplicateurs.
 
@@ -228,11 +220,13 @@ for (const r of results) {
 }
 
 md += `\n## Lecture / verdict global
-- **Gates (${gates})** : ces Mythes debloquent une mecanique **persistante** (panneaux d'automatisation Hephaistos/Phenix, boutons actifs Icare/Atrides, jauge Atlas, choix Antee, gravure Cadmos, synergie Babel). Leur "impact production" passif peut etre ~x1 : la valeur est dans la **capacite debloquee**, pas dans un multiplicateur constant.
-- **Multiplicateurs** : effet passif direct mesurable (ex. Cadmos +6% nourriture avec 3 epitaphes, Sisyphe couts x${(results.find((r) => r.id === "mythe_de_sisyphe")?.costX || 1).toFixed(2)}, Enee +100% global 30s/cycle, Icare Surchauffe x${(results.find((r) => r.id === "mythe_d_icare")?.prodX || 1).toFixed(0)} ponctuel, Atrides Pacte x${(results.find((r) => r.id === "mythe_atrides")?.prodX || 1).toFixed(0)}).
-- **Non mesurable headless (flagge)** : Babel adjacence (necessite la carte / placement), Antee ruines actives (multiplicateur applique a l'effondrement selon malus choisis), Ragnarok x4 ruines (effectif uniquement au 11e Grand Reset).
+- **Gates (${gates})** : ces Mythes debloquent une mecanique **persistante** (panneaux d'automatisation Hephaistos/Phenix, boutons actifs Icare/Atrides, parade d'Atlas, choix Antee, gravure Cadmos, Langue commune de Babel, Comptoir de l'Age d'Or). Leur "impact production" passif peut etre ~x1 : la valeur est dans la **capacite debloquee**, pas dans un multiplicateur constant.
+- **Multiplicateurs** : effet passif direct mesurable (ex. Cadmos +6% nourriture avec 3 epitaphes, Sisyphe couts x${(results.find((r) => r.id === "mythe_de_sisyphe")?.costX || 1).toFixed(2)}, Enee +100% global 30s/cycle, Icare l Aile a l'altitude 1 x${(results.find((r) => r.id === "mythe_d_icare")?.prodX || 1).toFixed(0)}, Atrides Pacte x${(results.find((r) => r.id === "mythe_atrides")?.prodX || 1).toFixed(0)}).
+- **Non mesurable headless (flagge)** : Atlas (une gestion de crise annulee : effet hors production), Comptoir de l'Age d'Or (echanges au gre du joueur), Antee ruines actives (multiplicateur applique a l'effondrement selon malus choisis), Ragnarok x4 ruines (effectif uniquement au 11e Grand Reset).
 - **A calibrer (placeholder dans data/myths.js)** : objectifs de Chaos, Sisyphe, Antee marques "placeholder/a calibrer".
 `;
 
-fs.writeFileSync("myth-impact.md", md, "utf8");
-console.log(`\nEcrit : myth-impact.md (${gates}/${results.length} gates)`);
+// Le rapport versionné vit dans docs/bench/ (audit du 05/10, GIT-6).
+fs.mkdirSync("docs/bench", { recursive: true });
+fs.writeFileSync("docs/bench/myth-impact.md", md, "utf8");
+console.log(`\nEcrit : docs/bench/myth-impact.md (${gates}/${results.length} gates)`);

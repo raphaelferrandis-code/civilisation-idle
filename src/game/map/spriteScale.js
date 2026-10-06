@@ -49,8 +49,8 @@ export const PALIER_SPANSUM = {
   'exchange-prop-stall-grand': 6, 'bank-house-renaissance-grand': 6,
   'bank-house-glass-grand': 6, 'bank-basilica-roman-grand': 6,
   'bank-house-neoclassical-grand': 6,
-  'mill-prop-house-grand': 6, 'mill-house-stone-grand': 6,
-  'mill-house-roman-grand': 6, 'mill-house-industrial-grand': 6,
+  // (Les quatre paliers des moulins ont suivi leur scène moteur, retirée — MORT-2 :
+  // les moulins sont cuits par iso/isoMill.js. PNG rangés dans art/moulins-paliers/.)
   'ministries-council-grand': 6, 'ministries-tower-grand': 6,
   'ministries-capitol-grand': 6, 'ministries-curia-grand': 6,
   'ministries-palace-grand': 6,
@@ -108,7 +108,7 @@ export const PALIER_SPANSUM = {
 // exception MESURÉE (le terminal a une porte de service courte, il lui faut un
 // peu plus). Change la taille dessinée ET la porte apparente : ne bouger que
 // sur mesure, jamais à l'œil.
-export const PALIER_HFRAC_DEFAUT = 0.7;
+const PALIER_HFRAC_DEFAUT = 0.7;
 export const PALIER_HFRAC = { 'granary-hub-grand': 0.75 };
 export const palierHFrac = (cle) => PALIER_HFRAC[cle] || PALIER_HFRAC_DEFAUT;
 

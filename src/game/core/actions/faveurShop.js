@@ -25,7 +25,7 @@ import { ARTIFACT_NODES } from '../../data/artifacts.js';
 import { hasTempleArtifact } from './templeArtifacts.js';
 import { blessingCost, recettesPerHour } from './maisonTable.js';
 import { recordShopSpend } from '../chronicleStats.js';
-import { templeRelicMultiplier } from '../mechanics/production/crisisLevers.js';
+import { templeRelicMultiplier, blessingProductionMultiplier } from '../mechanics/production/crisisLevers.js';
 
 // Coût du PROCHAIN niveau d'un augment à niveaux (croissant). Arrondi.
 function tierCost(base, growth, level) {
@@ -44,12 +44,12 @@ export function templeRelicProdMult() {
   return templeRelicMultiplier();
 }
 
-// Multiplicateur de Bénédiction actif (1 hors bénédiction) — lu par la
-// production (crisisProductionMultiplier). Expire tout seul (Date.now()).
-// LE CHAR DU SOLEIL (relique) la rend PERMANENTE : plus rien n'expire.
+// Multiplicateur de Bénédiction actif (1 hors bénédiction). Expire tout seul
+// (Date.now()). LE CHAR DU SOLEIL (relique) la rend PERMANENTE : plus rien n'expire.
+// Celui que lit la PRODUCTION (crisisLevers.js), ré-exporté — une seule source (une
+// copie ici n'aurait servi qu'aux tests et à l'étal, et aurait pu dériver).
 export function blessingMultiplier() {
-  if (hasTempleArtifact("char")) return Math.max(BLESSING_MULT, (state.blessingUntil || 0) > Date.now() ? (state.blessingMult || 1) : 1);
-  return (state.blessingUntil || 0) > Date.now() ? (state.blessingMult || 1) : 1;
+  return blessingProductionMultiplier();
 }
 
 // Descripteurs pour l'UI : { id, kind, cost, canAfford, active?, endsAt?, maxed? }.

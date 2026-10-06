@@ -49,6 +49,7 @@
 // ancre (null, le défaut) : comportement byte-identique à avant.
 import { CM } from '../layout.js';
 import { ISO_X, ISO_Y } from './projection.js';
+import { mkCanvas } from '../pixelUtil.js';
 
 let _layer = null;
 let _anchor = null;   // { x, y } en px d'espace écran à caméra nulle, ou null
@@ -58,9 +59,7 @@ export function artLayerAnchor(x, y) { _anchor = (x == null) ? null : { x, y }; 
 export function artLayerBegin(z) {
   const wArt = Math.ceil(CM.cw / z) + 2, hArt = Math.ceil(CM.ch / z) + 2;
   if (!_layer || _layer.w !== wArt || _layer.h !== hArt) {
-    const c = (typeof OffscreenCanvas !== 'undefined')
-      ? new OffscreenCanvas(wArt, hArt) : document.createElement('canvas');
-    c.width = wArt; c.height = hArt;
+    const c = mkCanvas(wArt, hArt);
     const cx = c.getContext('2d');
     if (!cx) return null;
     _layer = { c, ctx: cx, w: wArt, h: hArt };

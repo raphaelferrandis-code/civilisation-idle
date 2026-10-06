@@ -35,6 +35,7 @@
 // d'identité ; il rend des fiches de passant ({ wx, wy, d, dir, walking, alpha… }) que
 // isoPlaza dessine. Banc : iso/__tests__/plazaFolk.test.js.
 import { cmHash } from '../layout.js';
+import { fmix32 as fmix } from '../hash.js';
 
 // Molette : __plazaFolk({ on, slot, speed, leaveP, viaP, density }).
 //   on: false → le temps de la place s'arrête (poses figées, pour une capture A/B).
@@ -48,7 +49,7 @@ export const FOLK = {
 };
 let _rev = 0;      // bumpé par la molette : les places se recomposent (le nombre en dépend)
 export const folkRev = () => _rev;
-if (typeof window !== 'undefined') {
+if (import.meta.env?.DEV && typeof window !== 'undefined') {
   window.__plazaFolk = (o) => { if (o) { Object.assign(FOLK, o); _rev += 1; } return { ...FOLK }; };
 }
 
@@ -73,8 +74,7 @@ const MIX = {
 // Le temps de s'asseoir (et de se relever), et celui du salut qui ouvre une causette (s).
 const SIT_S = 0.9, WAVE_S = 1.3;
 
-// ⚠ BRASSÉ (fmix) : cmHash de graines voisines sort des valeurs voisines.
-const fmix = (h) => { h ^= h >>> 16; h = Math.imul(h, 0x85ebca6b); h ^= h >>> 13; h = Math.imul(h, 0xc2b2ae35); h ^= h >>> 16; return h >>> 0; };
+// ⚠ BRASSÉ (fmix = fmix32, ../hash.js) : cmHash de graines voisines sort des valeurs voisines.
 const h01 = (s) => fmix(cmHash(s) >>> 0) / 4294967296;
 // Direction de dessin (0 : +x, 1 : −x, 2 : +y, 3 : −y), la convention des habitants.
 const face = (dx, dy) => (Math.abs(dx) >= Math.abs(dy) ? (dx >= 0 ? 0 : 1) : (dy >= 0 ? 2 : 3));

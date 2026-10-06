@@ -131,7 +131,9 @@ describe('fenêtres d’une maison : emprise serrée, blit inchangé', () => {
 });
 
 describe('emprise d’un réverbère : elle contient tout ce qu’il peint', () => {
-  // Les quatre lumières d'ère (isoStreet.LAMP_LIGHTS), dont le gaz à deux cœurs.
+  // Les quatre styles de lumière que portent les réverbères du kit (`lig`,
+  // streetKits.js : feu, gaz, électrique, pulsé), dont le gaz à deux cœurs. Valeurs
+  // reprises de l'ancienne table LAMP_LIGHTS d'isoStreet (retirée, audit MORT-13).
   const LIGS = [
     { style: 'fire', col: '255,186,84', day: 0.5, hx: 0.49, hy: 0.13, em: [{ fx: 0.49, fy: 0.12, r: 0.30 }] },
     { style: 'gas', col: '255,201,120', day: 0.12, hx: 0.48, hy: 0.20, em: [{ fx: 0.32, fy: 0.20, r: 0.20 }, { fx: 0.635, fy: 0.20, r: 0.20 }] },

@@ -6,7 +6,7 @@
 // « plaisirs » survit au rechargement (liste blanche d'activeView).
 import { describe, it, expect, beforeEach, afterEach, vi } from "vitest";
 import { setState, hydrateState, invalidateRenderCache } from "../state.js";
-import { writeSlot, readSlotMeta, loadSlot, clearSlot, slotIsEmpty } from "../saveSlots.js";
+import { writeSlot, readSlotMeta, loadSlot, slotIsEmpty } from "../saveSlots.js";
 import { SAVE_KEY, PENDING_LOAD_KEY } from "../saveKey.js";
 import { MID_GAME_FIXTURE, FIXED_NOW } from "./fixtures.js";
 
@@ -71,7 +71,8 @@ describe("emplacements de sauvegarde — une seule clé (SAV-14)", () => {
     writeSlot(0);
     expect(store.has(META)).toBe(false);
     expect(readSlotMeta(0).city).toBe("Ici");
-    clearSlot(0);
+    // Clé de l'emplacement retirée : vide, sans méta résiduelle.
+    store.delete(SLOT);
     expect(slotIsEmpty(0)).toBe(true);
     expect(readSlotMeta(0)).toBe(null);
   });

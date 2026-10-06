@@ -14,7 +14,7 @@ import { CM } from './layout.js';
 import { LIGHT_LAYER, lightCtx, litBox } from './lightLayer.js';
 
 // Fenêtre de teinte par bande, en degrés, et planchers de saturation / valeur.
-export const EMISSIVE_BANDS = {
+const EMISSIVE_BANDS = {
   // jade : mesuré sur l'art livré, le verre tombe entre 140 et 150 (vert d'eau) et le
   // feuillage sous 105 — la fenêtre passe entre les deux.
   7: { h0: 125, h1: 195, s: 0.15, v: 0.42, glow: [120, 255, 200] },
@@ -127,7 +127,7 @@ export function drawSceneEmissive(img, dx, dy, dw, dh, band, sx, sy, sw, sh, kMu
   else lc.drawImage(mask.cv, sx, sy, sw, sh, dx, dy, dw, dh);
   lc.restore();
 }
-if (typeof window !== 'undefined') {
+if (import.meta.env?.DEV && typeof window !== 'undefined') {
   // Molette : __emissive({ on, k, mix, house: { 7: 0.45 } }) — k = intensité, mix = part
   // de couleur pure, house = part laissée aux maisons par bande.
   window.__emissive = (o) => {

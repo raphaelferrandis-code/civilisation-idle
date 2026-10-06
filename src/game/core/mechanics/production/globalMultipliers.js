@@ -87,7 +87,10 @@ function grandResetMultiplier() {
   return grandResetProductionMult(state.grandResetCount);
 }
 
-function marketMultiplier() {
+// La Bureaucratie : +8 % de production globale par bâtiment. (Elle s'appelait
+// « market », clé et fonction, sous le libellé « Bureaucratie » — audit du 05/10,
+// STRUCT-12.)
+function bureaucracyMultiplier() {
   return 1 + state.buildings.bureaucracy * 0.08;
 }
 
@@ -203,7 +206,7 @@ function globalScalarFactors() {
 export function globalMultiplier() {
   if (renderCache._frameGlobalMultVer === renderCache.frameVersion) return renderCache._frameGlobalMult;
   const { recurringAgeBonus, icareMult, atridesMult, pactMult, nextRunPenaltyMult, eneeBoost, ruinTreeMult, fimbulMult } = globalScalarFactors();
-  renderCache._frameGlobalMult = ruinMultiplier() * marketMultiplier() * roadNetworkMultiplier() * infraMultiplier() * recurringAgeBonus * ruinEffectMultiplier("globalMult") * ruinTreeMult * unspentRuinsPowerMultiplier() * grandResetMultiplier() * icareMult * atridesMult * pactMult * nextRunPenaltyMult * eneeBoost * olympusAbyssProductionMultiplier() * fimbulMult;
+  renderCache._frameGlobalMult = ruinMultiplier() * bureaucracyMultiplier() * roadNetworkMultiplier() * infraMultiplier() * recurringAgeBonus * ruinEffectMultiplier("globalMult") * ruinTreeMult * unspentRuinsPowerMultiplier() * grandResetMultiplier() * icareMult * atridesMult * pactMult * nextRunPenaltyMult * eneeBoost * olympusAbyssProductionMultiplier() * fimbulMult;
   renderCache._frameGlobalMultVer = renderCache.frameVersion;
   return renderCache._frameGlobalMult;
 }
@@ -232,7 +235,7 @@ export function globalMultiplier() {
 // l'associativité.
 const BREAKDOWN_LABELS = {
   ruins:        { fr: "Ruines",                en: "Ruins" },
-  market:       { fr: "Bureaucratie",          en: "Bureaucracy" },
+  bureaucracy:  { fr: "Bureaucratie",          en: "Bureaucracy" },
   roads:        { fr: "Réseau routier",        en: "Road network" },
   infra:        { fr: "Infrastructure",        en: "Infrastructure" },
   recurringAge: { fr: "Âges récurrents",       en: "Recurring ages" },
@@ -262,7 +265,7 @@ export function globalMultiplierBreakdown() {
   // Mêmes appels, MÊME ORDRE que le produit de globalMultiplier.
   const factors = [
     ["ruins",          ruinMultiplier()],
-    ["market",         marketMultiplier()],
+    ["bureaucracy",    bureaucracyMultiplier()],
     ["roads",          roadNetworkMultiplier()],
     ["infra",          infraMultiplier()],
     ["recurringAge",   s.recurringAgeBonus],
@@ -317,7 +320,7 @@ export function globalMultiplierDec() {
   renderCache._frameGlobalMultDec = ruinMultiplierDec()
     .mul(unspentRuinsPowerMultiplierDec())
     .mul(infraMultiplierDec())
-    .mul(marketMultiplier() * roadNetworkMultiplier() * recurringAgeBonus * ruinEffectMultiplier("globalMult") * ruinTreeMult * grandResetMultiplier() * icareMult * atridesMult * pactMult * nextRunPenaltyMult * eneeBoost * olympusAbyssProductionMultiplier() * fimbulMult);
+    .mul(bureaucracyMultiplier() * roadNetworkMultiplier() * recurringAgeBonus * ruinEffectMultiplier("globalMult") * ruinTreeMult * grandResetMultiplier() * icareMult * atridesMult * pactMult * nextRunPenaltyMult * eneeBoost * olympusAbyssProductionMultiplier() * fimbulMult);
   renderCache._frameGlobalMultDecVer = renderCache.frameVersion;
   return renderCache._frameGlobalMultDec;
 }

@@ -28,7 +28,7 @@ import { drawSmoke } from './boatFx.js';
 import { worldToScreen, depthOf } from './projection.js';
 
 export const TRADE = { on: true, shadow: true, reflect: true, ink: true };
-if (typeof window !== 'undefined') {
+if (import.meta.env?.DEV && typeof window !== 'undefined') {
   window.__trade = (o) => {
     if (o === false) TRADE.on = false;
     else if (o === true) TRADE.on = true;
@@ -450,15 +450,24 @@ export function paintTradePortUnder(ctx) {
 }
 
 // Le terminal, dans le tri du peintre (scène riveraine de sa tuile).
-export function drawTradePort(ctx, t, band, ei, now) {
+// `docked(ctx)` : peint les marchands de la flotte qui manœuvrent à son quai (isoPort) —
+// à la place des navires-décor dans l'ordre des calques, la flèche des portiques passe
+// au-dessus d'eux aussi.
+export function drawTradePort(ctx, t, band, ei, now, docked = null) {
   if (!TRADE.on) return;
   const g = tradeGeom(t, band);
   if (!g) return;
   // Navires à quai, cap le long du quai (vers l'est à l'écran : le monde +x), au
   // niveau de l'eau (au pied du mur). Rive nord : ils sont DEVANT le quai (peints
   // après lui) ; rive sud : DERRIÈRE (peints avant, le quai cache leur flanc bas).
+  // Le marchand qui vient s'amarrer ou qui repart longe les navires-décor par le large :
+  // devant eux rive nord (peint après), derrière eux rive sud (avant).
   const heading = Math.atan2(0.5, 1);
-  const ships = () => { for (const sh of g.plan.ships) drawMooredHull(ctx, { role: sh.role, heading, x: sh.x, y: sh.y, z: sh.z, now, band }); };
+  const ships = () => {
+    if (docked && g.plan.dir < 0) docked(ctx);
+    for (const sh of g.plan.ships) drawMooredHull(ctx, { role: sh.role, heading, x: sh.x, y: sh.y, z: sh.z, now, band });
+    if (docked && g.plan.dir > 0) docked(ctx);
+  };
   const B = g.low;
   if (g.plan.dir < 0) ships();
   if (B) blitLayer(ctx, B.body);
@@ -475,22 +484,42 @@ export function drawTradePort(ctx, t, band, ei, now) {
   }
 }
 
-// ── CE QUE LA FLOTTE DOIT SAVOIR DU TERMINAL (iso/portBerths.js) ───────────────
-// Un poste par navire à quai (décor), et l'emprise de ces coques dans l'eau.
+// ── L'ESCALE DE LA FLOTTE (iso/portBerths.js → boatBerths.fleetBerths) ─────────
+// ⚠ Audit du 2026-10-05 (BUG-17, MORT-5) : dès la bande 5, plus de ponton au fleuve, et
+// le terminal n'offrait aucun poste — les marchands marquaient une pause de 2,5 s en
+// plein courant au droit des ports. Il publie son poste LIBRE : la plus longue travée de
+// quai entre ses navires-décor (ou entre eux et un bout du quai), où un marchand vient se
+// ranger. Les navires-décor ne bougent pas (rendu au repos inchangé) : quai plein, pas
+// de poste — la flotte (fleetBerths) n'y prend que ce qui loge son plus long marchand.
+const BERTH_GAP = 0.15, BERTH_END = 0.25;   // jeu (tuiles) le long des navires-décor, aux bouts du quai
 registerPortProvider('commerce', (L) => {
   if (!TRADE.on || !L || !L.counts) return null;
   const band = L.counts.eraBand | 0;
-  const berths = [], water = [];
+  const out = [];
   for (const t of tradeTiles(L)) {
     const g = tradeGeom(t, band);
     if (!g) continue;
-    g.plan.ships.forEach((sh, i) => {
+    const pl = g.plan;
+    const gaps = [];
+    let a = pl.x0 + BERTH_END, clear = 0;
+    for (const sh of pl.ships) {                        // rangés d'ouest en est (tradePlan)
       const fp = hullFootprint(sh.role, band);
-      berths.push({ id: 'commerce-' + i, kind: 'commerce', x: sh.x, y: sh.y, heading: Math.atan2(0.5, 1), axis: { x: 1, y: 0 }, maxLen: fp.len + 0.6, decor: true });
-      for (let d = -fp.len / 2 + fp.beam / 2; d <= fp.len / 2 - fp.beam / 2 + 1e-6; d += fp.beam) water.push({ x: sh.x + d, y: sh.y, r: fp.beam / 2 + 0.15, id: 'navire-a-quai' });
+      gaps.push([a, sh.x - fp.len / 2 - BERTH_GAP]);
+      a = sh.x + fp.len / 2 + BERTH_GAP;
+      clear = Math.max(clear, fp.beam);
+    }
+    gaps.push([a, pl.x1 - BERTH_END]);
+    let best = null;
+    for (const gp of gaps) if (gp[1] - gp[0] > (best ? best[1] - best[0] : 0)) best = gp;
+    if (!best) continue;
+    const x = (best[0] + best[1]) / 2;
+    out.push({
+      id: 'quai:' + t.gx + ',' + t.gy, tile: t.gx + ',' + t.gy, kind: 'commerce', decor: false,
+      x, y: pl.yAt(x) + pl.dir * 0.06, heading: Math.atan2(0.5, 1), axis: { x: 1, y: 0 }, out: { x: 0, y: pl.dir },
+      maxLen: best[1] - best[0], z: -pl.wh / CM.TILE, clear: clear + 0.08, extent: { x0: pl.x0, x1: pl.x1 },
     });
   }
-  return { berths, water };
+  return out;
 });
 
 // ── LES RÉVERBÈRES DU TERMINAL (iso/portBerths.js → isoStreet.isoLamps) ─────────

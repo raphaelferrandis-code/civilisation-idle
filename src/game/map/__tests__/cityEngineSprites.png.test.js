@@ -3,14 +3,15 @@ import { describe, it, expect, vi, afterAll } from "vitest";
 // ── SCÈNES DE BÂTIMENTS : LE CHEMIN PNG, CELUI QUE VOIT LE JOUEUR ──────────────
 // Audit du 05/10 (TEST-5). Sous Node, `Image` n'existe pas : propReady() et
 // animReady() répondent toujours faux, et cityEngineSprites.test.js ne traverse
-// donc QUE le repli procédural. Or une exception dans une branche « prop prêt »
-// est avalée en jeu par la quarantaine d'isoEngineScene : la scène devient un
-// socle gris pour la session, sans le moindre échec en CI.
+// donc QUE l'état « décor pas chargé » (où une scène ne dessine plus rien depuis
+// MORT-2). Or une exception dans une branche « prop prêt » est avalée en jeu par
+// la quarantaine d'isoEngineScene : la scène devient un socle gris pour la
+// session, sans le moindre échec en CI.
 //
 // Ici, une Image DÉJÀ PRÊTE est posée sur globalThis AVANT tout import (vi.hoisted
 // passe devant les import) : propImg / animImg sont des états de MODULE, remplis
 // une seule fois par le premier dessin. Fichier SÉPARÉ pour la même raison — dans
-// le fichier du repli, l'ordre d'exécution décidait du chemin parcouru (rouge en
+// le fichier sans Image, l'ordre d'exécution décidait du chemin parcouru (rouge en
 // ordre mélangé, audit du 05/10).
 const { ImagePrete } = vi.hoisted(() => {
   class ImagePrete {
@@ -25,7 +26,8 @@ const { ImagePrete } = vi.hoisted(() => {
 import { CM_MAP_BUILDINGS } from "../cityBuildings.js";
 import { drawEngineSprite } from "../engineSprites.js";
 import { blitProp, blitAnim, propReady, animReady, setEngineSpan } from "../cityEngineSprites.js";
-import { drawIsoEngineScene, isoSceneQuarantineSize } from "../iso/isoEngineScene.js";
+import { drawIsoEngineScene, isoEngineSceneBox, isoSceneQuarantineSize } from "../iso/isoEngineScene.js";
+import { engineAnimNow } from "../engineAnim.js";
 import { CM } from "../layout.js";
 
 afterAll(() => { vi.unstubAllGlobals(); });
@@ -70,10 +72,11 @@ function makeCtx() {
 // Bande d'ère d'un âge (cinq âges par bande, comme eraBandOf).
 const bandOf = (ei) => Math.min(9, Math.floor(ei / 5));
 const IDS = CM_MAP_BUILDINGS.map((b) => b.id);
-// Familles SANS décor PNG : leurs props ont été retirés à l'audit du 05/10 (ASSET-5)
-// — les champs irrigués sont refusés par isoEngineScene, les moulins cuits par
-// isoMill. Seul leur repli procédural reste : on vérifie qu'il ne lève pas.
-const SANS_PNG = new Set(["irrigated_fields", "water_mills"]);
+// Familles SANS scène moteur : leurs props (ASSET-5) puis leurs branches (MORT-2) ont
+// été retirés à l'audit du 05/10 — les champs irrigués sont refusés par isoEngineScene,
+// les moulins cuits par isoMill, les aqueducs posés en points d'eau. Elles ne dessinent
+// plus rien : on vérifie seulement qu'elles ne lèvent pas.
+const SANS_PNG = new Set(["irrigated_fields", "water_mills", "aqueducts"]);
 
 function poser(ei, nightF) {
   CM.nightF = nightF;
@@ -87,15 +90,12 @@ it("le registre couvre les 29 familles de la carte", () => {
 });
 
 // Les 29 familles × les 50 âges × les 4 tiers × jour / nuit × empreintes 1 à 3
-// (et 5 pour la bourse), en dessin direct ('all') comme en passes de la scène
-// cuite ('back' / 'anim' / 'front', engineSceneCache) — la passe tourne avec
-// l'âge pour que le test reste court.
+// (et 5 pour la bourse).
 describe.each(IDS)("drawEngineSprite, props prêts — %s", (id) => {
   it("dessine tous les âges sans lever, et par le PNG", () => {
     const ctx = makeCtx();
     CM.ctx = ctx;
     const sizes = id === "imperial_exchanges" ? [3, 5] : [1, 2, 3];
-    const passes = ["all", "back", "anim", "front"];
     for (let ei = 0; ei < 50; ei += 1) {
       for (const tier of [0, 1, 2, 3]) {
         for (const nightF of [0, 1]) {
@@ -107,9 +107,8 @@ describe.each(IDS)("drawEngineSprite, props prêts — %s", (id) => {
               spanX: id === "river_ports" ? 4 : undefined, spanY: id === "river_ports" ? 3 : undefined,
               waterEnd: ei % 2 ? "W" : "E",
             };
-            const pass = passes[(ei + tier) % 4];
-            expect(() => drawEngineSprite(t, 0, 0, 120, 120, 1234 + ei * 97, pass),
-              `${id} âge ${ei} tier ${tier} nuit ${nightF} empreinte ${size} passe ${pass}`).not.toThrow();
+            expect(() => drawEngineSprite(t, 0, 0, 120, 120, 1234 + ei * 97),
+              `${id} âge ${ei} tier ${tier} nuit ${nightF} empreinte ${size}`).not.toThrow();
           }
         }
       }
@@ -117,6 +116,39 @@ describe.each(IDS)("drawEngineSprite, props prêts — %s", (id) => {
     // Le chemin PNG a réellement été parcouru (sinon ce fichier testerait à vide
     // le repli, comme l'autre).
     if (!SANS_PNG.has(id)) expect(ctx._images).toBeGreaterThan(0);
+  });
+});
+
+// ── LA SCÈNE ISO EST DESSINÉE EN DIRECT (audit du 05/10, MORT-1) ───────────────
+// Le cache des scènes cuites (engineSceneCache) est retiré : il éteignait les fenêtres
+// de nuit et figeait les scènes vivantes, pour un drawImage remplacé par un drawImage.
+// La porte d'entrée iso rend donc EXACTEMENT les appels de drawEngineSprite, posés sur
+// la boîte de la scène et à l'horloge de l'instance. (Les passes 'back' / 'anim' /
+// 'front', qui ne servaient que ce cache, ont suivi : plus de test de leur conservation.)
+describe("drawIsoEngineScene ≡ drawEngineSprite sur sa boîte", () => {
+  function rec() {
+    const ctx = makeCtx(), calls = [];
+    ctx.drawImage = (im, ...a) => { calls.push(String(im && im.src).split("/").pop() + ":" + a.map((v) => Math.round(v * 100) / 100).join(",")); };
+    return { ctx, calls };
+  }
+  it.each(["foragers", "guilds", "libraries", "watch", "imperial_exchanges"])("%s", (id) => {
+    CM.cam = CM.cam || {};
+    CM.cam.zoom = 1;
+    for (const ei of [4, 22, 32, 44]) {
+      for (const nightF of [0, 1]) {
+        poser(ei, nightF);
+        const t = { type: "engine", buildingId: id, tier: 1, size: 2, groupIndex: 3, gx: 6, gy: 7 };
+        const iso = rec();
+        CM.ctx = iso.ctx;
+        drawIsoEngineScene(iso.ctx, t, { x: 200, y: 200 }, 2, 2, 32, 1, 16, 4321);
+        const { bx, by, bw } = isoEngineSceneBox(t, { x: 200, y: 200 }, 2, 2, 32, 1, 16);
+        const direct = rec();
+        CM.ctx = direct.ctx;
+        drawEngineSprite(t, bx, by, bw, bw, engineAnimNow(t, 4321));
+        expect(iso.calls.length, `${id} âge ${ei} nuit ${nightF}`).toBeGreaterThan(0);
+        expect(iso.calls, `${id} âge ${ei} nuit ${nightF}`).toEqual(direct.calls);
+      }
+    }
   });
 });
 

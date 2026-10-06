@@ -17,15 +17,18 @@ import { lumOf as lum } from "../../../test/pixels.js";
 
 const FRAMES = 8;
 const read = (src) => PNG.sync.read(fs.readFileSync(path.join(process.cwd(), "public", src)));
+// Les anciennes bandes de 16 px (témoins) ne sont plus livrées : rangées comme source
+// dans art/references-ab/eau-planches/ (audit du 05/10, MORT-12).
+const readOld = (name) => PNG.sync.read(fs.readFileSync(path.join(process.cwd(), "art", "references-ab", "eau-planches", name)));
 const key = (p, x, y) => { const i = (y * p.width + x) * 4; return `${p.data[i]},${p.data[i + 1]},${p.data[i + 2]}`; };
 
 // Coloris branché → son ancienne bande de 16 px (même palette de cinq couleurs).
 const COLORIS = [
-  ["beau", "/pixelart/water/river-tiles-calm-ciel.png"],
-  ["usure", "/pixelart/water/river-tiles-calm-trouble.png"],
-  ["hiver", "/pixelart/water/river-tiles-calm-hiver.png"],
-  ["pluie", "/pixelart/water/river-tiles-calm.png"],
-].map(([cle, ancien]) => ({ cle, png: read(WATER_SHEETS[cle].src), ancien: read(ancien) }));
+  ["beau", "river-tiles-calm-ciel.png"],
+  ["usure", "river-tiles-calm-trouble.png"],
+  ["hiver", "river-tiles-calm-hiver.png"],
+  ["pluie", "river-tiles-calm.png"],
+].map(([cle, ancien]) => ({ cle, png: read(WATER_SHEETS[cle].src), ancien: readOld(ancien) }));
 
 const tile = (p) => p.height;
 

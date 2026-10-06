@@ -51,14 +51,6 @@ export function flame(ctx, L, cx, by, h, w = Math.max(3, Math.round(h * 0.55)), 
   }
   L.mark(cx, by - Math.round(h * 0.4), halo);
 }
-// Une BÛCHE vue de face (cylindre couché) : écorce, bout coupé clair.
-export function log(L, x0, y, w, r, ramp = FURB) {
-  for (let i = 0; i < w; i += 1) for (let j = -r; j <= r; j += 1) {
-    const c = j === -r ? ramp[1] : j < 0 ? ramp[2] : j === r ? ramp[4] : ramp[3];
-    L.put(x0 + i, y + j, (i * 7 + j * 3) % 11 === 0 ? ramp[4] : c);
-  }
-  for (let j = -r; j <= r; j += 1) { L.put(x0, y + j, j === 0 ? '#c8a070' : '#e0bc8a'); }
-}
 // Un AMAS DE FOURRURES (couche, tapis) : bandes de poil aux bords effilochés.
 export function furPile(L, x0, y0, w, h, ramps) {
   for (let j = 0; j < h; j += 1) {
@@ -87,8 +79,6 @@ export function jar(L, cx, by, h, r, ramp = CLAY, zig = true) {
   }
   L.hline(cx - Math.round(r * 0.5), by - h + 1, Math.round(r) + 1, ramp[0]);  // la lèvre
 }
-// Une grille de lettres posée telle quelle (`lit` : les lettres qui s'allument la nuit).
-export function grid(ctx, L, x, y, rows, pal, lit = null) { L.spr(x, y, rows, pal, false, lit, lit ? ctx.N : null); }
 
 // ── LE FEU : le campement ────────────────────────────────────────────────────
 // Les PEINTURES de la grotte, à l'ocre et au charbon, sur la peau du fond de scène.
@@ -302,10 +292,14 @@ export function tableCrew(ctx, r, tx, half, t = 0, girlCroupier = false) {
 //   niche (couleur du fond), bed(Q, x, y) (le lit, en pièce), valance(Q, x0, top, w)
 //   (le lambrequin), curtain(i, j, x0, w) → couleur de la tenture fermée (allumée),
 //   drape (rampe des rideaux relevés), couch / table / wall / extra (le reste).
+//   Facultatifs (le boudoir de la Fonte, plaisirsCoupeHD, passe par ici avec les
+//   siens) : nicheShade [base, pente] de l'assombrissement du fond ([0,3, 0,12]),
+//   drapeRight (le cran de `drape` au bord du rideau droit, 4).
 export function alcoveEra(ctx, x, y, closed, A) {
   const { O, F, N, P } = ctx;
   const top = y - HD.WALLH + 8, w = 50, x0 = x - 25;
-  for (let j = top; j < y + 2; j += 1) for (let i = x0; i < x0 + w; i += 1) O.put(i, j, mix(A.niche, INK, 0.3 + ((j - top) / (y - top)) * 0.12));
+  const [nb, ns] = A.nicheShade || [0.3, 0.12];
+  for (let j = top; j < y + 2; j += 1) for (let i = x0; i < x0 + w; i += 1) O.put(i, j, mix(A.niche, INK, nb + ((j - top) / (y - top)) * ns));
   piece(O, x - 20, y - 20, 40, 22, (Q) => A.bed(Q, x, y));
   contactShadow(P, x - 18, x + 18, y + 2);
   piece(F, x0 - 2, top - 4, w + 4, 8, (Q) => A.valance(Q, x0 - 2, top - 4, w + 4), { ink: null });
@@ -317,12 +311,12 @@ export function alcoveEra(ctx, x, y, closed, A) {
     }
     N.mark(x, y - 18, A.glow || '#ff9ab8');
   } else {
-    const V = A.drape;
+    const V = A.drape, edgeR = V[A.drapeRight != null ? A.drapeRight : 4];
     for (let j = top + 1; j < y + 3; j += 1) {
       const t = (j - top) / (y - top), cw = t < 0.55 ? 7 - Math.round(t * 6) : 3 + Math.round((t - 0.55) * 8);
       for (let i = 0; i < cw; i += 1) {
         const c = V[1 + ((i + 1) % 3)];
-        F.put(x0 + i, j, i === cw - 1 ? V[4] : c); F.put(x0 + w - 1 - i, j, i === cw - 1 ? V[4] : c);
+        F.put(x0 + i, j, i === cw - 1 ? V[4] : c); F.put(x0 + w - 1 - i, j, i === cw - 1 ? edgeR : c);
       }
     }
   }
@@ -597,7 +591,7 @@ const FEU = {
     tableCrew(ctx, r, x, 20, 0, true);
   },
   tickets(ctx, r) {
-    const { P, N } = ctx, { x, y, w, y0, crew: fig, v } = r;
+    const { P } = ctx, { x, y, w, y0, crew: fig, v } = r;
     const kx = x - (w >= 150 ? 18 : 6);
     // Au mur, la peau des comptes : des rangées de bâtons à l'ocre.
     piece(P, kx - 16, y0 + 8, 32, 22, (Q) => {
@@ -614,7 +608,6 @@ const FEU = {
       }
     });
     lotJar(ctx, kx, y);
-    void N;
     fig(kx - 3, y + BK, 0, 0, v(0), { back: true, role: 'guichetier' });
     fig(kx - 20, y + SD, 0, 0, v(1));
     fig(kx + 34, y + SD, 2, 'g', v(2));

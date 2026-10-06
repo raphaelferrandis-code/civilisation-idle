@@ -18,9 +18,9 @@ import { tileSideCss, gutterCss, camForTile, tileSpace } from '../solPyramide.js
 if (typeof globalThis.DOMMatrix === 'undefined') {
   globalThis.DOMMatrix = class { constructor(a) { this.a = a; } };
 }
-// Art « décodé » (faux) : sans lui, les chemins du gazon PixelLab et des bacs de
-// fleurs ne seraient jamais parcourus sous Node.
-for (const [k, w, h] of [['median-lawn', 64, 64], ['median-lawn-winter', 64, 64], ['flowerbed-1', 55, 37], ['flowerbed-3', 55, 37]]) {
+// Art « décodé » (faux) : sans lui, le chemin du gazon PixelLab ne serait jamais
+// parcouru sous Node.
+for (const [k, w, h] of [['median-lawn', 64, 64], ['median-lawn-winter', 64, 64]]) {
   const e = isoArt(k); e.ready = true; e.img = { naturalWidth: w, naturalHeight: h, k };
 }
 
@@ -88,7 +88,7 @@ const plan = (band) => ({ gridN: N, counts: { eraBand: band }, terrePlein: SEGS,
 function cookAll(L, z) {
   CM.layout = L; CM.TILE = T; CM.dpr = 1;
   CM.cam = { x: 0, y: 0, zoom: z };
-  const S = tileSideCss(1, z), side = S + 2 * gutterCss(z, T);
+  const S = tileSideCss(1, z), side = S + 2 * gutterCss();
   const c = [tileSpace(0, 0, z), tileSpace(N * T, 0, z), tileSpace(0, N * T, z), tileSpace(N * T, N * T, z)];
   const xs = c.map((p) => p.x), ys = c.map((p) => p.y);
   const out = [];
@@ -128,8 +128,9 @@ describe('terre-pleins : le culling de tuile ne change aucun pixel', () => {
 
   // [bande, saison, zoom] : la Fonte (sable + gravillons) dans les deux saisons
   // et trois crans ; le gazon nu (Pierre), les bandes de tonte (Néon), le liseré
-  // lumineux (cosmique) ; la bande 0 sans kit (gazon PixelLab + bacs de fleurs).
-  const CASES = [[5, 1, 1], [5, 3, 0.5], [5, 3, 2], [3, 1, 1], [6, 1, 2], [7, 3, 0.5], [0, 1, 1], [0, 3, 2]];
+  // lumineux (cosmique). (La bande 0 sans kit — gazon moucheté et bacs de fleurs —
+  // n'a plus de terre-plein dessiné depuis le 2026-10-06, cf. plus bas.)
+  const CASES = [[5, 1, 1], [5, 3, 0.5], [5, 3, 2], [3, 1, 1], [6, 1, 2], [7, 3, 0.5]];
   it.each(CASES)('bande %i, saison %i, zoom %f : mêmes appels visibles, tuile par tuile', (band, season, z) => {
     const { on, off } = both(band, season, z);
     expect(on.length).toBe(off.length);
@@ -142,9 +143,21 @@ describe('terre-pleins : le culling de tuile ne change aucun pixel', () => {
     expect(vis).toBeGreaterThan(0);                       // le plan est bien dessiné quelque part
   });
 
-  // Gazon PixelLab pas encore décodé : le mouchetis de tonte (sans kit) et l'aplat
-  // seul (kit, motif null) prennent le relais le temps du chargement — mêmes gardes.
-  it.each([[0, 1, 1], [5, 1, 1]])('bande %i, saison %i, zoom %f, gazon pas décodé : mêmes appels visibles', (band, season, z) => {
+  // Audit du 05/10, MORT-13 : le terre-plein d'avant le kit (gazon moucheté, bacs
+  // de fleurs flowerbed-N) est retiré. Sans kit — bandes 0-1, qui n'ont de toute
+  // façon pas de boulevard —, drawIsoMedians ne dessine RIEN, même sur un plan qui
+  // porterait une couture.
+  it('sans kit (bandes 0-1) : aucun appel de dessin', () => {
+    for (const band of [0, 1]) {
+      CM.season = 1;
+      const r = cookAll(plan(band), 1);
+      expect(r.reduce((a, x) => a + x.all, 0), 'bande ' + band).toBe(0);
+    }
+  });
+
+  // Gazon PixelLab pas encore décodé : l'aplat seul (motif null) prend le relais le
+  // temps du chargement — mêmes gardes.
+  it.each([[5, 1, 1]])('bande %i, saison %i, zoom %f, gazon pas décodé : mêmes appels visibles', (band, season, z) => {
     const art = isoArt('median-lawn');
     art.ready = false;
     try {

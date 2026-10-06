@@ -13,10 +13,11 @@
 // image dit où sont les jambes, les bras, la tête (le pas soulève le corps d'un pixel)
 // et le buste (il rebondit d'un pixel, en retard sur le corps).
 //
-//   node scripts/plaisirsGirls.mjs [--preview=out.png] [--only=cancan]
-// Écrit les bandes dans public/pixelart/agents/inhabitants (mêmes noms que les
-// personnages PixelLab qu'elles remplacent) et, si Aseprite est là, les sources
-// art/plaisirs/<nom>.aseprite (un calque par pièce, une étiquette par animation).
+//   node scripts/plaisirsGirls.mjs [--build] [--preview=out.png] [--only=cancan]
+// `--build` écrit les bandes dans public/pixelart/agents/inhabitants (mêmes noms que
+// les personnages PixelLab qu'elles remplacent) et, si Aseprite est là (variable
+// ASEPRITE pour un autre chemin), les sources art/plaisirs/<nom>.aseprite (une
+// étiquette par animation). Les aperçus (`--preview…`) n'écrivent rien dans public/.
 // Les GIGOLOS de la Maison (2026-10-04) passent par le même gréement : section « LES
 // GIGOLOS », `--gigolos`, `--preview-gigolos=out.png`.
 import fs from 'node:fs';
@@ -859,10 +860,13 @@ function preview(out, rowsOfFrames, k = 10) {
 // ── L'export ─────────────────────────────────────────────────────────────────
 // Les bandes du jeu ({nom}-{southeast|southwest|northeast|northwest}.png, mêmes noms
 // que les personnages PixelLab qu'elles remplacent) ; sud-ouest et nord-ouest sont
-// les MIROIRS de sud-est et nord-est. La danse : face seulement (le dos recopie).
+// les MIROIRS de sud-est et nord-est. La danse : face seulement (le dos recopie) — et
+// le dos n'est plus écrit : agents.js le lit sur la face (MIRROR_BACK, audit du
+// 2026-10-05, ASSET-8 : 64 bandes nord étaient des copies binaires des bandes sud).
 // Puis, si Aseprite est installé, une source par fille : art/plaisirs/<nom>.aseprite,
-// une étiquette par animation (marche-se, marche-ne, cancan-se).
-const ASEPRITE = 'C:/Program Files/Aseprite/Aseprite.exe';
+// une étiquette par animation (marche-se, marche-ne, cancan-se). Aseprite installé
+// ailleurs (Steam…) : ASEPRITE=<chemin de Aseprite.exe> devant la commande.
+const ASEPRITE = process.env.ASEPRITE || 'C:/Program Files/Aseprite/Aseprite.exe';
 function build(only) {
   const written = [];
   const save = (file, frames) => { fs.writeFileSync(path.join(OUT, file), PNG.sync.write(strip(frames))); written.push(file); };
@@ -876,7 +880,7 @@ function build(only) {
     const dance = ROSTER[n].dance;
     if (dance) {
       const d = DANCES[dance].map((g) => frame(n, 'se', g));
-      for (const [dir, fr] of [['southeast', d], ['southwest', d.map(mirror)], ['northeast', d], ['northwest', d.map(mirror)]]) save(`${n}-danse-${dir}.png`, fr);
+      for (const [dir, fr] of [['southeast', d], ['southwest', d.map(mirror)]]) save(`${n}-danse-${dir}.png`, fr);
       sheets[n].push([`${dance}-se`, d]);
     }
     if (CROUPIERES.includes(n)) sheets[n].push(['repos-se', saveRepos(n, save)]);
@@ -884,15 +888,19 @@ function build(only) {
   return { written, sheets };
 }
 // La bande de REPOS d'une croupière ({nom}-repos-{direction}.png), face seulement : le
-// dos recopie, comme la danse. Jouée à la table (PlaisirsTable.jsx).
+// dos recopie, comme la danse (lu sur la face par agents.js, rien d'écrit au nord).
+// Jouée à la table (PlaisirsTable.jsx).
 function saveRepos(n, save) {
   const r = REPOS.map((g) => frame(n, 'se', g));
-  for (const [dir, fr] of [['southeast', r], ['southwest', r.map(mirror)], ['northeast', r], ['northwest', r.map(mirror)]]) save(`${n}-repos-${dir}.png`, fr);
+  for (const [dir, fr] of [['southeast', r], ['southwest', r.map(mirror)]]) save(`${n}-repos-${dir}.png`, fr);
   return r;
 }
 // La source Aseprite : les images d'une bande temporaire, rangées en étiquettes.
 async function asepriteSources(sheets, calque = 'fille') {
-  if (!fs.existsSync(ASEPRITE)) { console.log('Aseprite absent : sources non écrites'); return; }
+  if (!fs.existsSync(ASEPRITE)) {
+    console.log(`Aseprite absent (${ASEPRITE}) : sources non écrites — variable ASEPRITE=<chemin de Aseprite.exe> s'il est installé ailleurs`);
+    return;
+  }
   const { execFileSync } = await import('node:child_process');
   fs.mkdirSync('art/plaisirs', { recursive: true });
   for (const [who, anims] of Object.entries(sheets)) {

@@ -108,11 +108,6 @@ function isoBuildFootSet(L) {
 // frontière ne coûte que le ou les blocs nouvellement entrés, jamais la zone
 // entière. La liste concaténée est elle-même mémoïsée tant que l'ensemble des
 // blocs visibles ne change pas.
-// Longueur minimale d'une série de sprites pour valoir une bascule GL : sous ce
-// seuil, la composition (un blit plein écran) coûterait plus que les
-// `drawImage` économisés. 120 capture les ceintures forestières et laisse la
-// poussière de séries courtes au chemin 2D.
-export const GL_RUN_MIN = 120;
 
 // Pesée fine de la passe vivante (opt-in : globalThis.__isoProfParts = true) :
 // isole les postes procéduraux candidats à la cuisson en texture. Le drapeau se
@@ -165,7 +160,7 @@ const STANDS = [
   [0.82, 0.13, 0.02, 0.03],     // chênaie
 ];
 const SPECIES = ['chene', 'bouleau', 'sapin', 'pin'];
-if (typeof window !== 'undefined') {
+if (import.meta.env?.DEV && typeof window !== 'undefined') {
   window.__forest = (o) => {
     if (o === false) FOREST.on = false;
     else if (o && typeof o === 'object') Object.assign(FOREST, o);

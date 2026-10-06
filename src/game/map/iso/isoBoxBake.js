@@ -19,14 +19,13 @@
 import { CM } from '../layout.js';
 import { SUN_SHADOW, sunShadowAlpha } from './isoSunShadow.js';
 import { noteReflectionImage } from './isoReflect.js';
+import { h01Imul as h01 } from '../hash.js';
+import { mkCanvas, mixRgb as mix } from '../pixelUtil.js';
 
-export function h01(x, y, s = 0) {
-  let n = (x | 0) * 374761393 + (y | 0) * 668265263 + s * 982451653;
-  n = Math.imul(n ^ (n >>> 13), 1274126177);
-  return ((n ^ (n >>> 16)) >>> 0) / 4294967296;
-}
+// h01(x, y, graine) → [0, 1) (../hash.js) et mix (rvb → rvb, ../pixelUtil.js) : les
+// variantes partagées, ré-exportées pour les ports qui les lisent ici.
+export { h01, mix };
 export const mul = (c, k) => [Math.min(255, Math.round(c[0] * k)), Math.min(255, Math.round(c[1] * k)), Math.min(255, Math.round(c[2] * k))];
-export const mix = (a, b, t) => [Math.round(a[0] + (b[0] - a[0]) * t), Math.round(a[1] + (b[1] - a[1]) * t), Math.round(a[2] + (b[2] - a[2]) * t)];
 export const hexRgb = (h) => {
   if (typeof h !== 'string') return null;
   if (h[0] === '#') { const n = parseInt(h.slice(1, 7), 16); return [(n >> 16) & 255, (n >> 8) & 255, n & 255]; }
@@ -42,11 +41,6 @@ export const FACE_LIGHT = [0.64, 0.8, 1];
 export function faceLit(col, k) {
   if (k >= 1) return k === 1 ? col : mix(col, [255, 246, 222], Math.min(0.6, (k - 1) * 0.9));
   return mix(mul(col, k), [34, 42, 96], (1 - k) * 0.42);
-}
-
-function mkCanvas(w, h) {
-  if (typeof OffscreenCanvas !== 'undefined') return new OffscreenCanvas(w, h);
-  const c = document.createElement('canvas'); c.width = w; c.height = h; return c;
 }
 
 // Rayon d'un pixel d'art (ax, ay) → la boîte touchée la plus proche de l'œil.

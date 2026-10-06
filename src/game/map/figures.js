@@ -113,8 +113,7 @@ export function figAhead(x, y, hx, hy, r, half, back = 0, self = 2.5) {
   return side;
 }
 
-export const figCount = () => prev.n;
-if (typeof window !== 'undefined') {
+if (import.meta.env?.DEV && typeof window !== 'undefined') {
   window.__figures = () => {
     const by = {};
     for (let i = 0; i < prev.n; i += 1) {

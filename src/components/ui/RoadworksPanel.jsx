@@ -1,5 +1,5 @@
-import { useRef, useState, useEffect } from 'react';
 import { useGameState } from '../../hooks/useGameState.js';
+import { useBuyFeedback } from '../../hooks/useBuyFeedback.js';
 import { buyBuilding } from '../../game/core/actions.js';
 import { buildingById } from '../../game/core/state.js';
 import { fmtShort, labelFor } from '../../game/core/utils.js';
@@ -26,11 +26,8 @@ import { buildingIconSrc } from '../../game/data/buildingIcons.js';
  * de Babel interdit l'Infrastructure — le moteur refuse, le bouton s'éteint.
  */
 export default function RoadworksPanel({ building: b, babelBlocked = false }) {
-  const [floats, setFloats] = useState([]);
-  const [shaking, setShaking] = useState(false);
-  const timersRef = useRef([]);
-  const floatIdRef = useRef(0);
-  useEffect(() => () => { timersRef.current.forEach(clearTimeout); }, []);
+  // « +1 chantier » qui flotte à l'achat, l'encart qui tremble au refus.
+  const { floats, shaking, spawnFloat, doShake } = useBuyFeedback();
 
   // ABONNEMENT-SIGNATURE (audit du 05/10, BUG-48). L'encart lit l'état
   // directement, mais il n'était rendu que quand la boutique se re-rendait —
@@ -63,15 +60,6 @@ export default function RoadworksPanel({ building: b, babelBlocked = false }) {
   // Même règle que l'abordabilité de la boutique (badge de l'onglet).
   const buyable = !babelBlocked && roadWorkAffordable();
 
-  const spawnFloat = (text) => {
-    const id = floatIdRef.current += 1;
-    setFloats((f) => [...f, { id, text }]);
-    timersRef.current.push(setTimeout(() => setFloats((f) => f.filter((x) => x.id !== id)), 900));
-  };
-  const doShake = () => {
-    setShaking(true);
-    timersRef.current.push(setTimeout(() => setShaking(false), 400));
-  };
   const handleBuy = () => {
     if (buyBuilding("roads")) spawnFloat(done ? tr({ fr: "+1 en réserve", en: "+1 stockpiled" }) : tr({ fr: "+1 chantier", en: "+1 work site" }));
     else doShake();

@@ -99,7 +99,7 @@ describe("l'habillage n'est prêt que COMPLET", () => {
     expect(s && s.img && s.back && s.liveImg).toBeTruthy();
   });
 
-  it("une couche vivante perdue : l'image d'origine ; l'image perdue : le rendu du code", () => {
+  it("une couche vivante perdue : l'image d'origine ; l'image perdue : plus rien à attendre", () => {
     fakeDom();
     const src5 = plaisirsSkinSpec(5).src;
     preloadPlaisirsSkin(5);

@@ -18,7 +18,7 @@ import { AGENT_SCALE } from '../agents.js';
 import { fdProgress } from '../../core/faitsDivers.js';
 import { FD_STORIES } from '../../data/faitsDivers.js';
 
-export function buildSecte(app) {
+function buildSecte(app) {
   const { x, y } = app.spot;
   const st = app.ch.stage | 0;
   const people = app.ch.cast.map((c, i) => ({ c, i })).filter((e) => e.c.ct >= 0);

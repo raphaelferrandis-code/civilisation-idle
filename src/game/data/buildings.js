@@ -3,9 +3,8 @@
 import { localizeData } from '../core/i18n.js';
 
 /* ============================================================================
- * data-buildings.js - Donnees statiques: buildings, buildingDisplayOrder, dynastyNames.
- * Ordre de chargement (index.html): U -> DB -> DU -> DW -> ST -> ME -> EV -> AC -> RE -> MA
- * Scope global partage (pas de modules) - ne pas envelopper dans une IIFE.
+ * buildings.js - Donnees statiques: buildings, buildingDisplayOrder, dynastyNames.
+ * Module ES ordinaire (importé, pas chargé par index.html).
  * ============================================================================ */
 
 export const buildings = [

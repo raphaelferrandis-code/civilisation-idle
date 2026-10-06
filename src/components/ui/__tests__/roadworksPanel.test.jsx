@@ -18,6 +18,7 @@ import { roadNetworkInfo } from "../roadNetwork.js";
 import { state, setState, defaultState, buildingById } from "../../../game/core/state.js";
 import { D } from "../../../game/core/num.js";
 import { roadWorkAffordable, roadWorkCost } from "../../../game/core/actions/roadWorks.js";
+import { setRoadDoors } from "../../../game/map/cityMapBridge.js";
 import { ROAD_WORK_QUEUE_MAX, ROAD_WORKS_BANK_MAX } from "../../../game/core/balance.js";
 
 // Rendu SSR de l'encart Voirie : les TROIS phases produisent la bonne
@@ -71,12 +72,12 @@ describe("encart Voirie — rendu des trois phases", () => {
     // serait hors d'atteinte), mais le compte brut — cœurs d'îlots murés
     // compris — reste disponible pour le dire à l'écran.
     state.roadCoverage = 1;
-    state.roadDoors = { onRoad: 533, total: 601 };
+    setRoadDoors({ onRoad: 533, total: 601 });
     const net = roadNetworkInfo();
     expect(net.pct).toBe(100);
     expect(net.doors).toEqual({ onRoad: 533, total: 601 });
     // Pas de carte montée (partie neuve) : rien à dire, pas de faux chiffre.
-    state.roadDoors = null;
+    setRoadDoors(null);
     expect(roadNetworkInfo().doors).toBeNull();
   });
 

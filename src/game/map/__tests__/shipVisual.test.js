@@ -1,6 +1,7 @@
 import { describe, it, expect } from "vitest";
 
 import { shipVisual, tradeStage } from "../iso/isoFleet.js";
+import { BOAT_MODELS, fleetFor } from "../iso/boatKits.js";
 
 // Trois métiers sur le fleuve, trois aspects (riverFleet.js pilote leur vie, ce
 // module décide de quoi ils ont l'air). Deux invariants tiennent la fiche :
@@ -14,37 +15,25 @@ import { shipVisual, tradeStage } from "../iso/isoFleet.js";
 // en toge). Les deux rendus avaient divergé sans que personne le voie ; le
 // seuil vivait même à trois endroits du seul fichier iso.
 
+// (La clé de sprite et l'échelle des sprites ont quitté shipVisual avec eux, audit du
+// 05/10, MORT-6 : la coque et sa longueur viennent du modèle du kit, et la pose du
+// pêcheur — canne tendue à l'ancre — de boatKit.kitState, cf. boatFisherPose.test.)
 describe("shipVisual — le pêcheur ne vieillit pas", () => {
-  it("garde la même barque de la première à la dernière ère", () => {
+  it("garde le même stade de la première à la dernière ère, dans les deux poses", () => {
     const eres = [[0, 1], [2, 8], [4, 18], [5, 27], [6, 34], [9, 44]];
-    // L'ère ne doit RIEN changer, dans l'une comme dans l'autre pose : seul
-    // l'état de la barque a le droit de faire varier le sprite.
     for (const st of ["anchor", "cruise"]) {
-      const keys = new Set(eres.map(([band, ei]) => shipVisual("fisher", band, ei, st).key));
-      expect(keys.size).toBe(1);
+      for (const [band, ei] of eres) expect(shipVisual("fisher", band, ei, st).stage).toBe("fisher");
     }
-    expect(shipVisual("fisher", 0, 1, "anchor").key).toBe("fisher");
   });
 
-  it("ne sort sa canne qu'à l'ARRÊT", () => {
-    // « On ne pêche pas en naviguant » (Raph) : deux poses du même bonhomme, la
-    // bascule se fait sur l'état de la barque et sur rien d'autre.
-    const pose = shipVisual("fisher", 4, 18, "anchor").key;
-    const route = shipVisual("fisher", 4, 18, "cruise").key;
-    expect(pose).not.toBe(route);
-    expect(pose).toBe("fisher");
-    // Tout ce qui n'est pas l'ancre est en route — y compris un état inconnu,
-    // sinon un futur état ferait pêcher le bonhomme en pleine traversée.
+  it("ne se pose qu'à l'ANCRE", () => {
+    // « On ne pêche pas en naviguant » (Raph). Tout ce qui n'est pas l'ancre est en
+    // route — y compris un état inconnu, sinon un futur état ferait pêcher le
+    // bonhomme en pleine traversée.
+    const route = shipVisual("fisher", 4, 18, "cruise").wake;
     for (const st of ["cruise", "dock", undefined, "", "leave"]) {
-      expect(shipVisual("fisher", 4, 18, st).key).toBe(route);
+      expect(shipVisual("fisher", 4, 18, st).wake).toBe(route);
     }
-  });
-
-  it("garde la même barque et la même échelle dans les deux poses", () => {
-    const a = shipVisual("fisher", 4, 18, "anchor");
-    const b = shipVisual("fisher", 4, 18, "cruise");
-    expect(a.sizeMul).toBe(b.sizeMul);
-    expect(a.stage).toBe(b.stage);
   });
 
   it("ne laisse un sillage QUE lorsqu'il avance", () => {
@@ -60,14 +49,14 @@ describe("shipVisual — le pêcheur ne vieillit pas", () => {
     expect(shipVisual("fisher", 4, 18, "cruise").wake).toBeLessThan(shipVisual("trade", 4, 18).wake);
   });
 
-  it("reste la plus PETITE chose qui flotte", () => {
-    // Échelle ramenée de 1,75 à 1,3 (Raph). La valeur généreuse datait du
-    // pêcheur v1, sombre, qui se perdait sur l'eau ; la barque claire actuelle
-    // se lit très bien plus petite. Une barque de pêche qui rivalise de taille
-    // avec un vapeur ne se lit plus comme une barque.
-    const barque = shipVisual("fisher", 4, 18, "anchor").sizeMul;
-    for (const [band, ei] of [[2, 8], [5, 27], [6, 34]]) {
-      expect(barque).toBeLessThan(shipVisual("trade", band, ei).sizeMul);
+  it("reste plus PETIT que le marchand de son ère", () => {
+    // Une barque de pêche qui rivalise de taille avec un vapeur ne se lit plus
+    // comme une barque (Raph). Tenu désormais par les longueurs du kit.
+    for (let band = 0; band <= 9; band += 1) {
+      const fl = fleetFor(band);
+      const barque = Math.max(...fl.fisher.map((id) => BOAT_MODELS[id].len));
+      const marchand = Math.min(...fl.trade.map((id) => BOAT_MODELS[id].len));
+      expect(barque, `bande ${band}`).toBeLessThan(marchand);
     }
   });
 });

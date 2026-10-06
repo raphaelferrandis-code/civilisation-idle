@@ -33,7 +33,7 @@ export const ROAD_MEMORY = { on: true, lastBand: 9 };
 
 const RANKS = ["path", "secondary", "avenue", "main", "plaza"];
 const RANK_IDX = { path: 0, secondary: 1, avenue: 2, main: 3, plaza: 4 };
-export const MEMORY_MAX_CELLS = 40000;
+const MEMORY_MAX_CELLS = 40000;
 
 export function roadMemoryActive(eraBand) {
   return !!ROAD_MEMORY.on && (eraBand | 0) <= ROAD_MEMORY.lastBand;
@@ -125,7 +125,7 @@ export function normalizeRoadMemory(raw) {
   };
 }
 
-if (typeof window !== "undefined") {
+if (import.meta.env?.DEV && typeof window !== "undefined") {
   window.__roadMemory = (o) => {
     if (o && typeof o === "object") Object.assign(ROAD_MEMORY, o);
     if (typeof window.__cityRecompute === "function") window.__cityRecompute();

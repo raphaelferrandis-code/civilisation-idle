@@ -194,7 +194,7 @@ export function floatIsleSpan(L) {
   return { x0: (site.x - ISLE.R - 1.2) * T, x1: (site.x + ISLE.R + 1.2) * T };
 }
 
-export const isleStats = { on: false, site: null };
+const isleStats = { on: false, site: null };
 let _siteFor = null, _site = null;
 export function floatIsleActors(now, out, decay = 0) {
   isleStats.on = false;
@@ -251,7 +251,7 @@ export function floatIsleActors(now, out, decay = 0) {
   }
 }
 
-if (typeof window !== 'undefined') {
+if (import.meta.env?.DEV && typeof window !== 'undefined') {
   // Seul un réglage de FORME vide les images cuites (allumer/éteindre ne coûte rien).
   window.__floatIsle = (o) => { if (o) { Object.assign(ISLE, o); if (Object.keys(o).some((k) => k !== 'on' && k !== 'shuttles')) { _siteFor = null; _bakes.clear(); } } return { ...ISLE, stats: { ...isleStats } }; };
 }

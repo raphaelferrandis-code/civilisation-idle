@@ -1,17 +1,19 @@
 // LES HARNAIS DE LA RACINE (audit 2026-10-05, SCRIPT-1 / SCRIPT-2) : simulate-ce,
-// sim-10-profils, bench-myths, bench-rupture, sim-idle-impact et simulate-game
-// plantaient DÈS L'IMPORT depuis le 20/07 — leur faux `window` n'avait pas
+// sim-10-profils, bench-myths et bench-rupture plantaient DÈS L'IMPORT depuis le
+// 20/07 — leur faux `window` n'avait pas
 // d'addEventListener, que cloudSave.js appelle au chargement — et simulate-ce /
 // sim-10-profils appelaient icarusStakes, retiré du jeu le 04/10. Personne ne l'a
-// vu : ils sont hors lint et hors suite. Deux gardes :
+// vu : ils étaient hors lint et hors suite (le lint les couvre depuis SCRIPT-13,
+// globalIgnores ne les exclut plus). Deux gardes :
 //   1. chaque nom qu'un harnais déstructure d'un module du jeu existe encore
 //      (un export retiré donnait `undefined`, puis un TypeError au premier appel,
 //      parfois des heures de jeu simulé plus tard) ;
 //   2. chaque harnais RAPIDE se lance pour de vrai, avec un budget minuscule,
 //      dans un dossier temporaire (ils écrivent leurs rapports dans le dossier
 //      COURANT : jamais ceux du dépôt), et rend la main avec le code 0.
-// bench-temple (~7 s, pas de budget réglable) reste hors de la garde 2 ;
-// sim-idle-impact-return ne tourne pas sous Node (import.meta.glob) — SCRIPT-7.
+// bench-temple (~7 s, pas de budget réglable) reste hors de la garde 2.
+// sim-idle-impact, sim-idle-impact-return et simulate-game, dépassés (le gain idle
+// est livré, simulate-ce les remplace), ont été supprimés — SCRIPT-7.
 import { describe, it, expect, beforeAll, afterAll } from "vitest";
 import { execFile } from "node:child_process";
 import fs from "node:fs";
@@ -22,18 +24,17 @@ const ROOT = path.resolve(__dirname, "../..");
 const read = (f) => fs.readFileSync(path.join(ROOT, f), "utf8");
 
 const TOUS = [
-  "simulate-ce.js", "sim-10-profils.js", "sim-idle-impact.js", "simulate-game.js",
+  "simulate-ce.js", "sim-10-profils.js",
   "bench-myths.js", "bench-rupture.js", "bench-crises.js", "bench-plaisirs.js", "bench-temple.js",
 ];
 
-// [fichier, arguments (budget minuscule), rapport attendu dans le dossier courant]
+// [fichier, arguments (budget minuscule), rapport attendu, relatif au dossier courant]
+// Les rapports versionnés des bancs vont dans docs/bench/ (audit du 05/10, GIT-6).
 const RAPIDES = [
-  ["bench-rupture.js", [], "rupture-impact.md"],
-  ["bench-myths.js", [], "myth-impact.md"],
-  ["bench-crises.js", ["--hours=0.2"], "crisis-choices-impact.md"],
-  ["bench-plaisirs.js", ["--hours=0.2"], "plaisirs-20h.md"],
-  ["sim-idle-impact.js", ["--cycles=1", "--grow=60"], "sim-idle-impact.out.json"],
-  ["simulate-game.js", ["0.05"], null],
+  ["bench-rupture.js", [], "docs/bench/rupture-impact.md"],
+  ["bench-myths.js", [], "docs/bench/myth-impact.md"],
+  ["bench-crises.js", ["--hours=0.2"], "docs/bench/crisis-choices-impact.md"],
+  ["bench-plaisirs.js", ["--hours=0.2"], "docs/bench/plaisirs-20h.md"],
   ["simulate-ce.js", ["--hours=0.05", "--scenario=optimized"], "balance-summary.md"],
   ["sim-10-profils.js", ["--hours=0.05", "--profile=theoricien"], "course-gr1-profils.md"],
 ];

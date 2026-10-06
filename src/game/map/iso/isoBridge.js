@@ -65,6 +65,7 @@ import { colRows, sliceRows, rowCropExact, colCropExact } from './rowCrop.js';
 // ces fonctions qu'au dessin, jamais au chargement du module.
 import { agentSetForBand, agentSpecFor, drawNamedAgentIso, drawNamedAgent, AGENT_SCALE } from '../agents.js';
 import { focusMark, drawFocusRingAt, noteSceneFigure, sceneRingWidth } from '../citizenFocus.js';
+import { rasterCanvas } from '../pixelUtil.js';
 
 // Réglages live : window.__bridgeTune (le pont n'est pas baké dans le sol, un
 // changement se voit à la frame suivante ; ce qui touche la géométrie invalide
@@ -504,12 +505,7 @@ function roadSampler(tile) {
   return { ready: true, tex };
 }
 
-function rasterCanvas(R) {
-  const cv = document.createElement('canvas');
-  cv.width = R.w; cv.height = R.h;
-  cv.getContext('2d').putImageData(new ImageData(R.data, R.w, R.h), 0, 0);
-  return cv;
-}
+// (rasterCanvas : ../pixelUtil.js.)
 // Colonnes non vides d'un raster (on ne pousse pas de tranche vide au tri).
 function occupied(R) {
   const col = new Uint8Array(R.w);
@@ -1127,7 +1123,7 @@ export function drawIsoBridgeNight(now) {
 }
 
 // ── Sondes ───────────────────────────────────────────────────────────────────
-if (typeof window !== 'undefined') {
+if (import.meta.env?.DEV && typeof window !== 'undefined') {
   window.__bridgeTune = bridgeTune;
   // __bridgeGeo() → le modèle de chaque travée (sans le kit, lisible en console).
   window.__bridgeGeo = () => (bridgeGeoms() || []).map((m) => ({

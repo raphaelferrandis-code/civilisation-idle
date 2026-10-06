@@ -1,4 +1,5 @@
-import { memo, useEffect, useRef, useState } from 'react';
+import { memo } from 'react';
+import { useBuyFeedback } from '../../hooks/useBuyFeedback.js';
 import { buyBuilding } from '../../game/core/actions.js';
 import { state, setBuyAmount, invalidateRenderCache } from '../../game/core/state.js';
 import { fmt, fmtShort, fmtInt, signed, signedShort, labelFor, rateScale } from '../../game/core/utils.js';
@@ -75,27 +76,8 @@ function PurchaseRow({
   // Devises manquantes : signature fournie par le parent (abonné aux ressources).
   const lackingSet = lackingKey ? new Set(lackingKey.split(",")) : null;
 
-  /* Game feel (Phase 7) : +N flottant à l'achat, shake si impayable */
-  const [floats, setFloats] = useState([]);
-  const [shaking, setShaking] = useState(false);
-  const floatId = useRef(0);
-
-  // Les minuteries des floats (900 ms) et du shake (400 ms) survivaient au
-  // démontage de la rangée (changement d'ère, filtre de boutique) : setState
-  // sur un composant démonté. Motif classique : ids collectés, purge à l'adieu.
-  const timersRef = useRef([]);
-  useEffect(() => () => { timersRef.current.forEach(clearTimeout); }, []);
-
-  const spawnFloat = (text) => {
-    const id = ++floatId.current;
-    setFloats((f) => [...f, { id, text }]);
-    timersRef.current.push(setTimeout(() => setFloats((f) => f.filter((x) => x.id !== id)), 900));
-  };
-
-  const doShake = () => {
-    setShaking(true);
-    timersRef.current.push(setTimeout(() => setShaking(false), 400));
-  };
+  /* Game feel (Phase 7) : +N flottant à l'achat, shake si impayable (useBuyFeedback) */
+  const { floats, shaking, spawnFloat, doShake } = useBuyFeedback();
 
   const handleBuy = (event) => {
     const before = state.buildings[b.id] || 0;

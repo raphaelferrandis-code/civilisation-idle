@@ -27,6 +27,7 @@ import { FOREST, forestDensity, forestLifeDist } from './isoWildForest.js';
 import { solInvalidate } from './solInvalidate.js';
 import { meadowPixel, townLawnAt } from './isoMeadow.js';
 import { courOf } from './isoTissu.js';
+import { mkCanvas } from '../pixelUtil.js';
 
 export const FOREST_FLOOR = {
   on: true,
@@ -36,7 +37,7 @@ export const FOREST_FLOOR = {
   flowerCut: 0.3,           // au-delà, les fleurs s'éteignent (plus aucune à from + 2·flowerCut·span)
   winter: 0.55,             // sur la neige, l'ombre reste plus légère
 };
-if (typeof window !== 'undefined') {
+if (import.meta.env?.DEV && typeof window !== 'undefined') {
   window.__forestFloor = (o) => {
     if (o === false) FOREST_FLOOR.on = false;
     else if (o && typeof o === 'object') Object.assign(FOREST_FLOOR, { on: true }, o);
@@ -96,8 +97,7 @@ export function drawCellVeil(ctx, b, T, fill) {
     if (fill(b.gx0 + i, b.gy0 + j, d, (j * W + i) * 4)) any = true;
   }
   if (!any) return;
-  const c = (typeof OffscreenCanvas !== 'undefined') ? new OffscreenCanvas(W, H)
-    : Object.assign(document.createElement('canvas'), { width: W, height: H });
+  const c = mkCanvas(W, H);
   c.getContext('2d').putImageData(img, 0, 0);
   const O = worldToScreen(b.gx0 * T, b.gy0 * T);
   const X = worldToScreen((b.gx0 + 1) * T, b.gy0 * T), Y = worldToScreen(b.gx0 * T, (b.gy0 + 1) * T);
@@ -109,7 +109,7 @@ export function drawCellVeil(ctx, b, T, fill) {
 }
 
 // Le voile du sous-bois, peint une fois par cuisson.
-export function drawForestFloor(ctx, b, L, T) {
+function drawForestFloor(ctx, b, L, T) {
   if (!FOREST_FLOOR.on || !L) return;
   const at = forestFloorAt(L);
   const A = FOREST_FLOOR.alpha * (CM.season === WINTER ? FOREST_FLOOR.winter : 1);

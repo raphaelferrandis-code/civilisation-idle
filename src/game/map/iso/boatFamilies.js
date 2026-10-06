@@ -13,7 +13,7 @@
 //   rope (couleur), net, + couleurs de cargaison (cf. boatParts.cargo) et, au besoin,
 //   log / logEnd (rondins), thatch, tile, paint (rampes de liserés).
 
-import { surf, box, boxRamp, tube, rope, ellipsoid, rampRGB, asPart, noReflect, PART, h32, inFrame } from './boatBake.js';
+import { surf, box, boxRamp, tube, rope, ellipsoid, rampRGB, asPart, noReflect, PART, h32 } from './boatBake.js';
 import {
   pick, chance, glow, drawHull, person, poler, crewPal, cargo, rowOars, netPile, lateenRig, squareRig, railing,
 } from './boatParts.js';
@@ -431,5 +431,3 @@ export function pennant(S, a, c, h, len, ramp, k = 0) {
       (u, v, nw) => rampRGB(ramp, nw));
   });
 }
-
-export { inFrame };

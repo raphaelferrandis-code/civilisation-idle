@@ -91,7 +91,6 @@
   gap: 0.18rem;
   padding: 0.25rem 0.8rem 0.32rem;
   border: 0;
-  border-radius: 0;
   background: transparent;
   box-shadow: none;
   backdrop-filter: none;
@@ -542,7 +541,6 @@
   height: 1.65rem;
   min-width: 2.5rem;
   padding: 0 0.45rem;
-  border-radius: 0;
   font-size: 0.76rem;
 }
 
@@ -554,42 +552,6 @@
 
 /* (CSS mort purgé : .city-dashboard / jauges ville / .health-* / .state-* /
    .crisis-summary / .terminal-actions / #exhumeBtn — plus aucun usage JSX) */
-
-.milestone-badge {
-  border-color: rgba(var(--era-rgb), 0.66);
-  background: linear-gradient(135deg, rgba(var(--era-rgb), 0.28), rgba(var(--era-rgb), 0.08));
-  color: #fff1bd;
-  box-shadow: 0 0 12px rgba(var(--era-rgb), 0.18);
-}
-
-.work-bar {
-  height: 0.6rem;
-  overflow: hidden;
-  border: 1px solid var(--border);
-  border-radius: 0;
-  background: var(--bg-inset);
-  box-shadow: inset 0 1px 3px rgba(0,0,0,0.5);
-}
-
-.active-machine .work-bar {
-  border-color: #5e4828;
-}
-
-.active-machine {
-  animation: machine-pulse 2.8s ease-in-out infinite;
-}
-
-.active-machine:hover,
-.active-machine:focus-within {
-  animation-duration: 8s;
-}
-
-.locked-hint {
-  margin: 0.2rem 0 0;
-  font-size: 0.78rem;
-  font-style: italic;
-  color: var(--muted);
-}
 
 .danger {
   border-color: color-mix(in srgb, var(--red), transparent 55%);
@@ -667,7 +629,6 @@ dialog::backdrop {
   font-size: 0.6875rem;
   font-weight: 700;
   padding: 0.14rem 0.5rem;
-  border-radius: 0;
   color: var(--gold-bright);
   border: 1px solid rgba(var(--era-rgb), 0.45);
   background: rgba(var(--era-rgb), 0.12);
@@ -769,7 +730,6 @@ dialog::backdrop {
   font-weight: 600;
   line-height: 1.4;
   padding: 0.1rem 0.45rem;
-  border-radius: 0;
   border: 1px solid rgba(255, 255, 255, 0.14);
   background: rgba(255, 255, 255, 0.05);
   color: var(--muted);
@@ -833,7 +793,6 @@ dialog::backdrop {
   font-weight: 800;
   white-space: nowrap;
   padding: 0.4rem 1rem;
-  border-radius: 0;
   border: 1px solid rgba(255, 255, 255, 0.2);
   background: rgba(10, 12, 14, 0.88);
   color: var(--gold-ivory);
@@ -871,68 +830,11 @@ dialog::backdrop {
   100% { opacity: 0; transform: translateY(-30px); }
 }
 
-.dynasty-dialog {
-  border-color: var(--gold);
-}
-
-.dynasty-dialog .label {
-  color: var(--gold-bright);
-}
-
-.dynasty-dialog h2 {
-  color: var(--gold-bright);
-}
-
-.dynasty-dialog .choice-menu {
-  grid-template-columns: 1fr;
-}
-
-.dynasty-dialog .choice-menu button {
-  border-color: var(--line);
-  background: rgba(255, 255, 255, 0.04);
-}
-
-.dynasty-dialog .choice-menu button:hover {
-  border-color: var(--gold);
-  background: rgba(var(--era-rgb), 0.1);
-  color: var(--gold-bright);
-}
-
 .debug-grid {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 0.6rem;
   margin: 1rem 0;
-}
-
-/* Banner d'urgence crise */
-
-
-.crisis-alert {
-  display: flex;
-  gap: 0.85rem;
-  align-items: flex-start;
-  margin-bottom: 1.1rem;
-  padding: 0.85rem 1rem;
-  border: 1px solid rgba(215, 109, 86, 0.5);
-  border-left: 3px solid var(--red);
-  border-radius: 0;
-  background: linear-gradient(135deg, rgba(215, 109, 86, 0.1) 0%, transparent 60%),
-    rgba(30, 14, 12, 0.95);
-  animation: crisis-alert-in 350ms ease-out;
-}
-
-.crisis-alert-icon {
-  flex-shrink: 0;
-  display: grid;
-  place-items: center;
-  width: 2rem;
-  height: 2rem;
-  border-radius: 0;
-  border: 2px solid rgba(215, 109, 86, 0.7);
-  color: var(--red);
-  font-weight: 800;
-  font-size: 1rem;
 }
 
 .buy-mode-max {
@@ -942,26 +844,17 @@ dialog::backdrop {
 }
 
 /* Glow retiré des titres : réservé à affordable / critical / milestone (Phase 4) */
-h1, .panel-heading h2, .era-name, .event-dialog h2 {
+h1, .panel-heading h2, .event-dialog h2 {
   letter-spacing: 0.06em;
 }
 
 /* Textes secondaires / descriptions en Crimson Text */
 
 
-.body-copy, .shop-item p, .upgrade p, .upgrade .effect-line,
-.tension-card p, .tension-note, .health-effect, .locked-hint,
-.event-dialog p, .villager-text, .choice-menu small,
-small, .chip, .doctrine-display small {
+.body-copy, .upgrade p,
+.event-dialog p, .choice-menu small,
+small, .chip {
   font-family: var(--font-body);
-}
-
-/* (CSS mort purgé : surcouche parchemin des .resource legacy) */
-
-.milestone-badge {
-  background: color-mix(in srgb, var(--gold), transparent 84%);
-  border-color: var(--gold);
-  color: var(--gold-bright);
 }
 
 /* ---------- BOUTONS x1 / x10 / x25 / x100 ---------- */
@@ -971,7 +864,6 @@ small, .chip, .doctrine-display small {
 
 .buy-mode {
   border: 1px solid var(--border);
-  border-radius: 0;
   background: linear-gradient(180deg, var(--surface-card) 0%, var(--surface-panel) 100%);
   color: var(--gold-dim);
   /* Petits caractères : Pixelify déformait les chiffres (« x25 » lu « x88 »).
@@ -984,14 +876,6 @@ small, .chip, .doctrine-display small {
   border-color: var(--gold);
   color: var(--gold-bright);
   box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.06);
-}
-
-/* ---------- BARRES DE PROGRESSION (rupture/usure + jauges ville) ---------- */
-
-
-.work-bar {
-  background: var(--bg-inset) !important;
-  border-color: var(--border);
 }
 
 /* ---------- Dialogues : parchemin encadre d'or ---------- */
@@ -1010,41 +894,9 @@ dialog::backdrop { background: rgba(8, 5, 1, 0.72); }
    ============================================================================ *//* Jauge Légitimité Atlas */
 
 
-
-
-
 .babel-cat-name { font-weight: 600; color: var(--gold-ivory); font-size: 0.88rem; min-width: 7rem; }
 
 .babel-cat-desc { color: var(--muted); font-size: 0.76rem; }
-
-/* Bouton Surchauffe */
-
-
-.surchauffe-btn {
-  margin-top: 0.5rem;
-  width: 100%;
-  min-height: 2.4rem;
-  border-color: rgba(194, 96, 58, 0.5);
-  background: linear-gradient(180deg, #3a1a0a 0%, #2e1508 100%);
-  color: #e8a06a;
-  font-weight: 700;
-  letter-spacing: 0.04em;
-  transition: border-color 150ms, box-shadow 150ms, background 150ms, transform 100ms;
-}
-
-.surchauffe-btn:hover:not(:disabled) {
-  border-color: rgba(194, 96, 58, 0.85);
-  background: linear-gradient(180deg, #4a220c 0%, #3a1a0a 100%);
-  box-shadow: 0 0 14px rgba(194, 96, 58, 0.28), inset 0 1px 0 rgba(255, 160, 80, 0.12);
-  transform: translateY(-1px);
-}
-
-.surchauffe-btn.surchauffe-active {
-  border-color: rgba(194, 96, 58, 0.9);
-  background: linear-gradient(180deg, #5a2a0e 0%, #471e0b 100%);
-  box-shadow: 0 0 20px rgba(194, 96, 58, 0.35), inset 0 1px 0 rgba(255, 160, 80, 0.18);
-  animation: surchauffeGlow 1.5s ease-in-out infinite;
-}
 
 /* ============================================================================
    DIALOG OPTIONS
@@ -1105,7 +957,6 @@ dialog::backdrop { background: rgba(8, 5, 1, 0.72); }
   min-height: 2rem;
   padding: 0.35rem 0.8rem;
   border: 1px solid var(--border);
-  border-radius: 0;
   background: var(--surface-card);
   color: var(--muted);
   font-size: 0.8rem;
@@ -1123,8 +974,6 @@ dialog::backdrop { background: rgba(8, 5, 1, 0.72); }
 }
 
 .toggle-btn:hover { border-color: var(--gold); }
-
-.villager-feed.hidden-by-options { display: none; }
 
 /* (CSS mort purgé : CollapseChronicle — composant jamais importé,
    remplacé par JournalPanel, lui-même destiné à devenir ChronicleTicker en Phase 2) */
@@ -1144,7 +993,6 @@ dialog::backdrop { background: rgba(8, 5, 1, 0.72); }
   min-height: 2.5rem;
   padding: 0.4rem 0.9rem;
   border: 1px solid var(--border-soft);
-  border-radius: 0;
   background: var(--panel);
   cursor: default;
   transition: border-color 0.3s ease, background 0.3s ease;
@@ -1159,13 +1007,6 @@ dialog::backdrop { background: rgba(8, 5, 1, 0.72); }
   text-transform: uppercase;
   color: var(--gold-dim);
   white-space: nowrap;
-}
-
-.ticker-sep {
-  flex: 0 0 auto;
-  width: 1px;
-  height: 1.1em;
-  background: var(--border-strong);
 }
 
 .ticker-line {
@@ -1194,21 +1035,10 @@ dialog::backdrop { background: rgba(8, 5, 1, 0.72); }
   color: var(--muted);
 }
 
-.ticker-empty {
-  color: var(--muted);
-  font-style: italic;
-}
-
-/* État vide : le bandeau garde sa place (pas de saut de layout) mais s'efface. */
-.chronicle-ticker.is-idle {
-  opacity: 0.55;
-}
-
 .ticker-new-dot {
   flex: 0 0 auto;
   width: 7px;
   height: 7px;
-  border-radius: 0;
   background: var(--cyan);
   box-shadow: 0 0 6px var(--cyan);
   animation: ticker-dot 2s ease-in-out infinite;
@@ -1272,7 +1102,6 @@ dialog::backdrop { background: rgba(8, 5, 1, 0.72); }
   border-right: 6px solid #4a1515;
   border-top: 1px solid #cc9955;
   border-bottom: 1px solid #cc9955;
-  border-radius: 0;
 }
 .chronicle-ticker.is-scroll .ticker-masthead { color: #ffd899; letter-spacing: 0.14em; }
 .chronicle-ticker.is-scroll .ticker-line { color: #ebd6c4; }
@@ -1297,7 +1126,6 @@ dialog::backdrop { background: rgba(8, 5, 1, 0.72); }
   width: 6px;
   height: 6px;
   background-color: #ff3b30;
-  border-radius: 0;
   box-shadow: 0 0 6px #ff3b30;
   animation: pressLedBlink 1.5s infinite steps(1);
 }
@@ -1381,7 +1209,6 @@ dialog::backdrop { background: rgba(8, 5, 1, 0.72); }
   z-index: 200;
   padding: 0.5rem 0.9rem;
   border: 1px solid var(--border);
-  border-radius: 0;
   background: var(--panel);
   color: var(--text-strong);
   font-size: 0.85rem;
@@ -1419,7 +1246,6 @@ main:focus { outline: none; }
   gap: 0.3rem;
   padding: 0.55rem 0.7rem;
   border: 1px solid var(--border);
-  border-radius: 0;
   background: rgba(14, 18, 28, 0.98);
   box-shadow: 0 10px 28px rgba(0, 0, 0, 0.55);
   pointer-events: none;
@@ -1432,7 +1258,7 @@ main:focus { outline: none; }
   font-weight: 600;
   color: var(--text-strong);
   line-height: 1.2;
-  font-family: "Inter", "Baloo 2", system-ui, sans-serif;
+  font-family: var(--font-body);
 }
 
 .regul-tip-text {

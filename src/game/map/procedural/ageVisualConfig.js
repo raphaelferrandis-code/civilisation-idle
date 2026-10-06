@@ -139,7 +139,7 @@ const AGE_CONFIG = [
   },
   // ── Époques TRANSCENDANTES (bands 7–9) ──────────────────────────────────────
   // Réutilisent les archétypes/véhicules existants (drones) : seuls le degré
-  // d'ordre, la densité, les rôles et l'ambiance (mapThemeForBand) évoluent. Les
+  // d'ordre, la densité et les rôles évoluent. Les
   // SPRITES de bâtiments restent ceux de la mégalopole tant que la passe d'art
   // cosmique (Phases B/C) n'est pas faite.
   { // 7 — Noosphère : la planète-cerveau, grille quasi parfaite

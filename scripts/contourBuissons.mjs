@@ -12,9 +12,12 @@
  * (pixel opaque au bord de l'encre), jamais dans le feuillage. On les remplace donc
  * par couleur exacte, sans autre critère ; l'alpha n'est jamais écrit.
  *
- * ⚠ Les variantes d'HIVER (`bush-N-winter.png`) sont DÉRIVÉES des buissons d'été par
- * `scripts/snowTrees.mjs` : le relancer après `--apply` (il régénère aussi les arbres
- * d'hiver, à l'identique tant que leurs sprites d'été n'ont pas bougé).
+ * ⚠ Les variantes d'HIVER (`bush-N-winter.png`) étaient DÉRIVÉES des buissons d'été
+ * par `scripts/snowTrees.mjs`.
+ *
+ * ⚠ 2026-10-06 : le jeu ne dessine plus ces buissons (kit de rue dessiné par le code,
+ * streetKits.js) ; leurs PNG sont rangés comme source dans
+ * art/references-ab/buissons-cainos/, où ce script les lit désormais.
  *
  * Usage :
  *   node scripts/contourBuissons.mjs            # mesure seule, n'écrit rien
@@ -25,7 +28,7 @@ import path from 'node:path';
 import { PNG } from 'pngjs';
 
 const APPLY = process.argv.includes('--apply');
-const DIR = path.join('public', 'pixelart', 'iso');
+const DIR = path.join('art', 'references-ab', 'buissons-cainos');
 const MAP = new Map([
   ['107,69,48', [13, 11, 12]],    // contour brun-rouge → contour des arbres
   ['74,47,34', [33, 26, 29]],     // reprise brun foncé → brun-noir des arbres

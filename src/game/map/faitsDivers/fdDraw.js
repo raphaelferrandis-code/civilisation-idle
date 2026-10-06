@@ -30,7 +30,7 @@ function toCanvas(sp) {
   return cv;
 }
 // Image `fi` de la planche `name` ({ cv, w, h, foot }), regard à droite (flip : miroir).
-export function fdSprite(name, fi = 0, flip = false) {
+function fdSprite(name, fi = 0, flip = false) {
   const def = FD_ART[name];
   if (!def) return null;
   const n = def.frames.length;

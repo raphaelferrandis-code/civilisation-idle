@@ -11,7 +11,6 @@
   padding: 0 0 0.45rem;
   border: 0;
   border-bottom: 1px solid rgba(var(--era-rgb), 0.15);
-  border-radius: 0;
   background: none;
   box-shadow: none;
   color: var(--gold);
@@ -100,7 +99,6 @@
   display: block;
   width: 2.1rem;
   height: 4px;
-  border-radius: 0;
   background: rgba(255, 255, 255, 0.12);
   overflow: hidden;
 }
@@ -108,7 +106,6 @@
 .regul-summary-fill {
   display: block;
   height: 100%;
-  border-radius: 0;
   background: var(--foyer-color, var(--gold));
   transition: width 0.4s ease;
 }
@@ -131,10 +128,6 @@
 }
 .app[data-active-view="city"] .city-controls-panel.hud-panel.is-collapsed {
   padding-bottom: 0.7rem;
-}
-/* Panneau Mythes : un peu plus compact dans le rail. */
-.app[data-active-view="city"] .active-myths-panel.hud-panel {
-  padding: 0.75rem 0.9rem;
 }
 
 /* ---- Bannières d'héritage (Énée/Atrides) : toasts centrés en haut ----
@@ -176,26 +169,15 @@
    ============================================================================ */
 .body-copy,
 .event-dialog p,
-.era-description-text,
-.shop-item p,
 .upgrade p,
-.locked-hint,
 .pr-locked-hint,
 .enee-boost-banner p,
 .atrides-pact-banner p,
-.outcome-card p,
-.crisis-alert-body p,
 .choice-menu small,
 .chronicle-ticker:not(.is-press):not(.is-cyber-feed) .ticker-text {
   font-family: var(--font-serif);
   font-size: 1.06em;
   letter-spacing: 0.005em;
-}
-
-/* La saveur d'une ère parle en chroniqueur */
-.era-flavor {
-  font-family: var(--font-serif);
-  font-size: 0.88rem;
 }
 
 /* La personnalité de la cité (« Cité savante ») est un SOUS-TITRE du nom, pas
@@ -204,7 +186,6 @@
   font-family: var(--font-title);
   font-size: 0.88rem;
 }
-
 
 
 /* ============================================================================
@@ -222,7 +203,6 @@
   max-width: min(28rem, 82%);
   padding: 0.7rem 1.1rem 0.75rem;
   border: 1px solid var(--brand-gold-dim, rgba(200, 170, 100, 0.45));
-  border-radius: 0;
   background: linear-gradient(180deg, rgba(22, 18, 14, 0.94), rgba(14, 11, 9, 0.92));
   box-shadow: 0 6px 22px rgba(0, 0, 0, 0.55);
   text-align: center;
@@ -312,7 +292,6 @@
   border-width: 48px 40px 42px 48px;
   border-color: transparent;
   border-image: var(--ui-greek-src) var(--ui-greek-slice) round;
-  border-radius: 0;
   image-rendering: pixelated;
   background: linear-gradient(180deg, rgba(20, 17, 13, 0.95), rgba(13, 11, 9, 0.93));
   box-shadow: 0 6px 24px rgba(0, 0, 0, 0.55);
@@ -327,7 +306,6 @@
     border-width: 1px;
     border-image: none;
     border-color: var(--brand-gold-dim, rgba(200, 170, 100, 0.45));
-    border-radius: 0;
   }
 }
 
@@ -376,7 +354,7 @@
 .idle-report-idle {
   margin-top: 0.55rem;
   padding-top: 0.4rem;
-  border-top: 1px solid var(--frame-line, rgba(140, 120, 80, 0.22));
+  border-top: 1px solid var(--frame-line);
   font-size: 0.6875rem;
   color: var(--muted, #9a8f7d);
 }

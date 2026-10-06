@@ -30,7 +30,7 @@ function ploughmanOf(q) {
   return pp;
 }
 
-export const terroirLifeTune = { on: true, speed: 0.3 };   // cases par seconde
+const terroirLifeTune = { on: true, speed: 0.3 };   // cases par seconde
 
 // LOT 5 de PLAN-COMPORTEMENTS : il labourait le MÊME sillon pour toujours, la bête
 // sautait d'un côté à l'autre à chaque bout (demi-tour instantané), et il labourait la
@@ -178,6 +178,6 @@ export function drawTerroirTeam(ctx, it, now) {
   ctx.globalAlpha = pa0;
 }
 
-if (typeof window !== 'undefined') {
+if (import.meta.env?.DEV && typeof window !== 'undefined') {
   window.__terroirLife = (o) => { if (o) Object.assign(terroirLifeTune, o); return { ...terroirLifeTune }; };
 }

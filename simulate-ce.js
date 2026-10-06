@@ -1,4 +1,3 @@
-"use strict";
 /* ============================================================================
  * simulate-ce.js - Simulateur headless + tableau de bord d'equilibrage pour
  * "Civilisation Effondrement" (CE).
@@ -24,32 +23,10 @@
 import fs from "fs";
 
 // ---------------------------------------------------------------------------
-// 0. Stubs d'environnement (doivent exister AVANT les import() du jeu)
+// 0. Stubs d'environnement (doivent exister AVANT les import() du jeu) : le faux
+//    navigateur commun des harnais, en import statique (évalué avant ce corps).
 // ---------------------------------------------------------------------------
-// addEventListener : cloudSave.js s'abonne à `pagehide` dès l'import (sans lui,
-// TypeError au chargement — audit 2026-10-05, SCRIPT-1).
-global.window = { addEventListener() {}, removeEventListener() {} };
-global.localStorage = { getItem() { return null; }, setItem() {} };
-Object.defineProperty(global, "navigator", {
-  value: { clipboard: { writeText() {} } }, writable: true, configurable: true
-});
-const stubEl = () => ({
-  className: "", dataset: {}, innerHTML: "", returnValue: "0", textContent: "",
-  disabled: false, value: "", checked: false, style: {},
-  classList: { add() {}, remove() {}, toggle() {}, contains() { return false; } },
-  addEventListener() {}, removeEventListener() {}, setAttribute() {}, showModal() {},
-  remove() {}, click() {}, appendChild() {}, querySelector() { return stubEl(); },
-  querySelectorAll() { return []; }
-});
-global.document = {
-  addEventListener() {}, documentElement: { style: { setProperty() {} } },
-  body: { appendChild() {} }, querySelector() { return stubEl(); },
-  querySelectorAll() { return []; }, createElement() { return stubEl(); },
-  getElementById() { return stubEl(); }
-};
-global.Audio = class { constructor() { this.volume = 1; } addEventListener() {} play() { return Promise.resolve(); } pause() {} };
-global.render = () => {};
-global.save = () => {};
+import "./scripts/lib/headless.mjs";
 
 // ---------------------------------------------------------------------------
 // 1. Import des vraies formules du jeu
@@ -98,7 +75,7 @@ registerChoiceDialog((dialog) => {
 const mech = await import("./src/game/core/mechanics.js");
 const {
   isUnlocked, canBuyUpgrade, checkDogmaAvailability, ruinGain, crisisOpen,
-  buildingBatchCost, globalMultiplier, rates, timeWearRate,
+  buildingBatchCost, globalMultiplier, rates,
   currentEraIndex, ownedRuinBranchPurchaseCount, ownedRuinTreePurchaseCount, has,
   grandResetMilestoneMet, grandResetMilestone, terminalCrisisReady
 } = mech;
@@ -688,7 +665,6 @@ const MYTH_PROF = { afk: false, growSeconds: 600, manage: true, manageBelow: 0.8
 // strategie generique ne peut pas satisfaire (et parfois sabote, ex. Promethee).
 // Copie exacte des micro-strategies validees dans sim-10-profils.js.
 const goldNum  = () => num(state.gold);
-const powerNum = () => num(state.population) + num(state.food) * 0.05 + num(state.gold) * 0.1 + num(state.knowledge) * 0.25 + num(state.infrastructure);
 
 const MYTH_TACTICS = {
   // ── Acte I ────────────────────────────────────────────────────────────────
@@ -973,7 +949,7 @@ async function runOptimized({ withMyths = true, profile = PROFILES.balanced } = 
     // On grimpe d'abord tout ce qui est deja debloque (fige le SOMMET de chaque epoch).
     trace("G:climbGRs");
     const maxGR = state.ragnarokHeritage ? 11 : 10;
-    let nextGR = await climbReadyGRs();
+    const nextGR = await climbReadyGRs();
     const nextMs = nextGR <= maxGR ? grandResetMilestone(nextGR) : null;
     const blockedByGR = Boolean(nextMs) && !grandResetMilestoneMet(nextGR);
 
@@ -989,12 +965,12 @@ async function runOptimized({ withMyths = true, profile = PROFILES.balanced } = 
       await driveMyths(rec);
       buyHeritage();
       rec.checkPassiveMilestones();
-      nextGR = await climbReadyGRs();
+      await climbReadyGRs(); // le prochain tour de boucle relit le jalon courant
     } else if (blockedByGR && nextMs.id === "jackpot_icare") {
       // Jalon Icare (GR VII) : le bot ne decroche pas le jackpot passivement -> il JOUE.
       trace("H:icarus");
       playIcarusForJackpot(rec);
-      nextGR = await climbReadyGRs();
+      await climbReadyGRs();
     }
   }
   rec.final = snapshot();

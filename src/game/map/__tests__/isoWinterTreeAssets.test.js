@@ -21,12 +21,11 @@ import { lum } from "../../../test/pixels.js";
 const DIR = new URL("../../../../public/pixelart/iso/", import.meta.url);
 // La famille d'arbres (docs/PLAN-VEGETATION.md, lot 1) est lue dans son manifeste,
 // comme le fait scripts/snowTrees.mjs : un arbre ajouté est testé sans retoucher ici.
+// (Les buissons bush-1..6 n'en sont plus : leur rendu a été retiré le 2026-10-06 et
+// leurs PNG rangés dans art/references-ab/buissons-cainos/, hors du jeu livré.)
 const FAMILY = JSON.parse(fs.readFileSync(new URL("../../../../scripts/data/vegetation-trees.json", import.meta.url), "utf8"))
   .trees.map((t) => t.name);
-const NAMES = [...new Set([
-  ...FAMILY, "tree-4",
-  "bush-1", "bush-2", "bush-3", "bush-4", "bush-5", "bush-6",
-])];
+const NAMES = [...new Set([...FAMILY, "tree-4"])];
 const read = (name) => PNG.sync.read(fs.readFileSync(new URL(name + ".png", DIR)));
 
 // Rampe de neige du SOL d'hiver (fetchGroundTiles, tons dominants de

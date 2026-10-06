@@ -13,6 +13,8 @@ import { performGrandReset } from '../../game/core/actions.js';
 import { GRAND_RESET_PROD_BASE } from '../../game/core/balance.js';
 import { tr } from '../../game/core/i18n.js';
 import { fmt } from '../../game/core/utils.js';
+import PixelIcon from './PixelIcon.jsx';
+import { tipProps } from './HelpBubble.jsx';
 
 // Un compteur de sceau s'écrit en entier ; seul le Rayonnement, qui dépasse le
 // domaine lisible, passe par le format compact.
@@ -20,14 +22,12 @@ import { fmt } from '../../game/core/utils.js';
 // le compteur est un Decimal. String() l'écrivait « 1e+45 » à côté d'un
 // « 8.90e41 » de fmt() — deux notations dans la même jauge.
 const grNombre = (v) => (typeof v === "number" && Math.abs(v) < 1e4 ? String(Math.floor(v)) : fmt(v));
-import PixelIcon from './PixelIcon.jsx';
-import { tipProps } from './HelpBubble.jsx';
 
 const ROMAN = ['', 'I', 'II', 'III', 'IV', 'V', 'VI', 'VII', 'VIII', 'IX', 'X', 'XI'];
 
 // Gain de production d'UN sceau, lu à la source (GRAND_RESET_PROD_BASE) : le
-// libellé suit la constante au lieu de la figer. Virgule décimale côté français.
-// Décimale au POINT dans les deux langues, comme tous les nombres du jeu (fmt).
+// libellé suit la constante au lieu de la figer. Décimale au POINT dans les deux
+// langues, comme tous les nombres du jeu (fmt).
 const prodStep = { fr: String(GRAND_RESET_PROD_BASE), en: String(GRAND_RESET_PROD_BASE) };
 
 // Médaillon pixel-art de chaque sceau (emblèmes existants + 2 dédiés). Montré

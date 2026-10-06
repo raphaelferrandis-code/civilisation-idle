@@ -19,8 +19,10 @@ export function addProductionPenalty(type, amount) {
 // Bénédiction de la boutique de Faveur : bonus TEMPORAIRE de production
 // (multiplicateur global tant que Date.now() < state.blessingUntil). Inline ici
 // (pas d'import de actions/faveurShop → pas de cycle avec le baril mechanics).
-// LE CHAR DU SOLEIL (relique, 2026-07-17) la rend PERMANENTE.
-function blessingProductionMultiplier() {
+// LE CHAR DU SOLEIL (relique, 2026-07-17) la rend PERMANENTE. SEULE source du
+// calcul : la Boutique le ré-exporte (blessingMultiplier) au lieu de le recopier
+// (audit du 05/10, STRUCT-12 — même leçon que les reliques ci-dessous).
+export function blessingProductionMultiplier() {
   const active = (state.blessingUntil || 0) > Date.now() ? (state.blessingMult || 1) : 1;
   return (state.templeArtifacts || {}).char ? Math.max(BLESSING_MULT, active) : active;
 }
@@ -50,7 +52,7 @@ export function crisisProductionMultiplier(type) {
 // (revient à 1 dès qu'on les désactive, contrairement à crisisProduction qui ne
 // se rétablit jamais). Replié dans crisisProductionMultiplier → s'applique à
 // toutes les ressources, chemins float et Decimal. Plancher 0.1 (max 90 % malus).
-export function policyProductionMultiplier(type) {
+function policyProductionMultiplier(type) {
   const policies = state.activePolicies;
   if (!policies || !policies.length) return 1;
   // « Loi des témoins » (policyCostHalf) : le coût de production continu des

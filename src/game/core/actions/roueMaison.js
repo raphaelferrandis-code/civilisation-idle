@@ -26,7 +26,7 @@ export function roueUnlocked() {
 }
 
 // L'instant où le prochain tour est prêt (ms).
-export function roueReadyAt() {
+function roueReadyAt() {
   const at = Number(state.roueAt) || 0;
   return at > 0 ? at + ROUE_INTERVAL_S * 1000 : 0;
 }

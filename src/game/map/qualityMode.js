@@ -33,7 +33,7 @@ export let qualityMode = (() => {
 // mesurés à +4 ms chacun par image au zoom 1 en rendu logiciel (2026-09-30). Le
 // palier des machines modestes s'en passe.
 const QUALITY_TIERS = {
-  high:     { dpr: 2.0, citizenMul: 1.0, fps: 60, lodZoom: 0,    crispGesture: true, fx: true },
+  high:     { dpr: 2.0, citizenMul: 1.0, fps: 60, lodZoom: 0,    fx: true },
   balanced: { dpr: 1.5, citizenMul: 0.7, fps: 30, lodZoom: 0.55, fx: true },
   perf:     { dpr: 1.0, citizenMul: 0.4, fps: 30, lodZoom: 0.85, fx: false },
 };

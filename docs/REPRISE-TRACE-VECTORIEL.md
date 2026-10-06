@@ -69,6 +69,15 @@ Rappel du recensement d'appels (pris AVANT le bake des quais) : `lineTo` 11 172,
 
 ### 3.1 Scènes moteur — **le code est déjà écrit, il est éteint**
 
+> **⛔ PÉRIMÉ — le cache est SUPPRIMÉ (audit du 2026-10-05, MORT-1).** Depuis que les
+> scènes sont des PNG, les plans qu'il cuisait ne contenaient plus qu'un drawImage :
+> il remplaçait un drawImage par un drawImage. Activé, il éteignait les fenêtres de
+> nuit (calque de lumière suspendu pendant la cuisson) et figeait les scènes vivantes
+> (LIVE_LAYERS cuites dans le plan `back`). Les scènes ne coûtent plus que 0,2-0,4 ms
+> par frame. `engineSceneCache.js`, la capture d'ombre (`captureSunShadows`,
+> `bakeSunShadowPlane`) et le paramètre `pass` des scènes ont été retirés. Ne pas le
+> ressusciter : la suite de ce paragraphe date d'avant les PNG.
+
 `src/game/map/engineSceneCache.js` cuit chaque scène d'atelier une fois et la blitte
 pour toutes les instances. Découpage en trois plans : `back` et `front` **cuits**,
 `anim` (flammes, humains, lueurs) **en direct**.

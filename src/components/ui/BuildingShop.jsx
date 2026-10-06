@@ -26,6 +26,12 @@ import { purchaseEta, ETA_SECONDS, ETA_NO_INCOME, ETA_UNREACHABLE } from '../../
 import { fmtEta, quantizeEta, labelFor } from '../../game/core/utils.js';
 import { productionScales, buildingRelativeGain } from '../../game/core/mechanics/production/productionBreakdown.js';
 import PixelIcon from './PixelIcon.jsx';
+import { tr } from '../../game/core/i18n.js';
+import { D, Decimal } from '../../game/core/num.js';
+import BuyToolbar from './BuyToolbar.jsx';
+import PurchaseRow from './PurchaseRow.jsx';
+import RoadworksPanel from './RoadworksPanel.jsx';
+import { tipProps } from './HelpBubble.jsx';
 
 // Seuil de l'état « bientôt » (E5) : payable en moins d'une minute au rythme
 // actuel. Une minute est le palier de quantizeEta juste au-dessus des pas de
@@ -56,12 +62,6 @@ function fmtGainPct(pct) {
   const v = p >= 100 ? String(Math.round(p)) : p.toFixed(p < 10 ? 1 : 0);
   return tr({ fr: `+${v} %`, en: `+${v}%` });
 }
-import { tr } from '../../game/core/i18n.js';
-import { D, Decimal } from '../../game/core/num.js';
-import BuyToolbar from './BuyToolbar.jsx';
-import PurchaseRow from './PurchaseRow.jsx';
-import RoadworksPanel from './RoadworksPanel.jsx';
-import { tipProps } from './HelpBubble.jsx';
 
 /* Segments de production [[ressource, valeur/s], …] — mêmes formules que
    l'ancien texte "Produit/Ajoute", rendu en icônes par PurchaseRow.

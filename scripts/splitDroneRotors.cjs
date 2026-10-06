@@ -23,8 +23,10 @@ const fs = require('fs');
 const path = require('path');
 const { PNG } = require('pngjs');
 
-const SRC = path.join(__dirname, '..', 'public', 'pixelart', 'agents', 'vehicles', 'drone-mech.png');
-const OUT_BODY = SRC.replace('drone-mech.png', 'drone-mech-body.png');
+// La source n'est jamais chargée par le jeu : rangée hors de public/ (audit
+// 2026-10-05, ASSET-3). Seul le châssis produit est livré.
+const SRC = path.join(__dirname, '..', 'art', 'vehicules', 'drone-mech.png');
+const OUT_BODY = path.join(__dirname, '..', 'public', 'pixelart', 'agents', 'vehicles', 'drone-mech-body.png');
 
 // Moyeux détectés (pixel le plus « noir » de chaque coin) : TL, TR, BL, BR.
 const HUBS = [[15, 16], [50, 15], [13, 48], [51, 50]];

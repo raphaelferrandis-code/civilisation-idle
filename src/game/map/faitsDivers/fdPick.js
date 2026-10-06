@@ -21,23 +21,19 @@ const PAD = 9, MIN_HALF_W = 7, MIN_H = 18;
 // Cran de zoom visé à l'ouverture quand on regarde de plus loin.
 const OPEN_ZOOM = 1.75;
 
-let frameN = 0;
 let buf = [], drawn = [];
 // Début de frame : ce qui a été peint à la précédente devient la liste visée.
 export function fdFrame() {
-  frameN += 1;
   drawn = buf;
   buf = [];
 }
 export function noteFait(target, box) {
-  target._seen = frameN;
   target._box = box;
   if (buf.length < 400) buf.push(target);
 }
-export const fdFrameN = () => frameN;
 
 // La cible la plus proche du point écran, ou null.
-export function fdPickAt(sx, sy) {
+function fdPickAt(sx, sy) {
   let best = null, bestD = Infinity, bestY = -Infinity;
   for (const t of drawn) {
     const b = t._box;
@@ -56,7 +52,6 @@ export function fdPickAt(sx, sy) {
 // La souris est relue à chaque frame (ils bougent, la souris peut rester immobile).
 let mouse = null;
 let hover = null;
-export const fdHovered = () => hover;
 export function fdHoverTick() {
   const next = mouse && !CM.drag ? fdPickAt(mouse.x, mouse.y) : null;
   hover = next;
@@ -86,7 +81,7 @@ export function fdMark(t) {
   return 0;
 }
 
-export function fdOpen(t) {
+function fdOpen(t) {
   if (!t || !t.app) return;
   focus = t;
   opened = t.app.open ? t.app.open(t) : null;
@@ -103,7 +98,7 @@ export function fdOpen(t) {
   emit();
 }
 // Re-clic sur la cible déjà ouverte : la scène peut avoir autre chose à dire.
-export function fdReopen() {
+function fdReopen() {
   if (!focus || !focus.app) return;
   opened = focus.app.open ? focus.app.open(focus, true) : opened;
   emit();

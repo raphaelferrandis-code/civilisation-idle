@@ -57,7 +57,7 @@ export { CURRENT_SAVE_VERSION }; // défini dans saveKey.js (lisible par cloudSa
 export const DECIMAL_SAVE_FIELDS = [
   "population", "food", "gold", "knowledge", "infrastructure", "ruins",
   "phoenixTotalRuins", "phoenixRebirthTargetPop", "hephPopPeak",
-  "mythStartGold", "mythStartInfra", "mythStartPop"
+  "mythStartGold", "mythStartPop"
 ];
 
 // Anciens coûts des nœuds de ruines SUPPRIMÉS par la refonte de l'arbre
@@ -502,7 +502,6 @@ export const defaultState = () => ({
   icareAutoBurnLatched: false,
   atridesReached: false,
   mythStartGold: new Decimal(0),
-  mythStartInfra: new Decimal(0),
   mythStartPop: new Decimal(0),
   icareHeritage: false,
   instability: 0,
@@ -526,9 +525,8 @@ export const defaultState = () => ({
   // Chantiers PRÉPAYÉS en réserve (réseau achevé) : lancés tout seuls par le
   // tick dès que la carte repropose du travail.
   roadWorksBank: 0,
-  // Portes réelles écrites par la carte (affichage seul) : bâtiments achetables
-  // ayant une rue à leur porte / total brut, cœurs d'îlots murés compris.
-  roadDoors: null,
+  // (Les portes réelles écrites par la carte, affichage seul, vivent hors de
+  // l'état : cityMapBridge.setRoadDoors — elles ne se sauvent plus.)
   // A6 — Temps cumulé (s) passé sous le seuil de Rupture « stagnation » : monte
   // l'Usure d'une cité sur-stabilisée. Monte/descend dans le tick, reset au cycle.
   stagnationSec: 0,
@@ -827,9 +825,6 @@ export const defaultState = () => ({
   // La chute se joue sur la carte (events.js) : la Cité est montée, quel que soit
   // l'onglet. Transitoire, comme le deuil.
   chute: false,
-  // UI seulement : ids de nœuds de ruines déjà « vus » (animation de croissance
-  // jouée une seule fois). Hors GR_PERSISTENT_FIELDS → l'arbre re-pousse au GR.
-  ruinsSeenNodes: [],
   atridesDebt: 0,
   atridesDrainDisabled: false,
   atridesDebtGrowthMultiplier: 1,
@@ -884,8 +879,8 @@ export const RELIC_CAP = 2200;
 // pour TOUTE sauvegarde plus ancienne que CURRENT_SAVE_VERSION. Le jeu concluait
 // « sauvegarde illisible », archivait la partie sous ...-corrupt-backup et
 // repartait à zéro. Même piège que OLD_RUIN_NODE_COSTS en tête de fichier.
-// Ses dépendances sont sûres : DECIMAL_SAVE_FIELDS est un const de la ligne 38,
-// isPlainObject et normalizeMythsCompleted sont des déclarations de fonction
+// Ses dépendances sont sûres : DECIMAL_SAVE_FIELDS est un const déclaré en tête
+// de fichier, isPlainObject et normalizeMythsCompleted sont des déclarations de fonction
 // (hoistées, donc utilisables avant leur ligne).
 //
 // Clé = version DE DÉPART ; la fonction transforme (en place) un save de cette
@@ -2096,7 +2091,6 @@ export function hydrateState(parsed = {}) {
     icareAutoBurnLatched: Boolean(source.icareAutoBurnLatched),
     atridesReached: Boolean(source.atridesReached),
     mythStartGold: decimalField(source.mythStartGold, 0),
-    mythStartInfra: decimalField(source.mythStartInfra, 0),
     mythStartPop: decimalField(source.mythStartPop, 0),
     icareHeritage: Boolean(source.icareHeritage),
     // Le tick laisse monter la dette jusqu'à Number.MAX_VALUE : la plafonner à
@@ -2321,10 +2315,7 @@ export function hydrateState(parsed = {}) {
     // Maison des Plaisirs ramenait à la Cité (audit 2026-10-05, SAV-14).
     activeView: ["city", "regulation", "prestige", "ruinsView", "tech", "mythView", "comptoir", "history", "plaisirs"].includes(source.activeView)
       ? source.activeView
-      : "city",
-    ruinsSeenNodes: Array.isArray(source.ruinsSeenNodes)
-      ? source.ruinsSeenNodes.filter((x) => typeof x === "string")
-      : []
+      : "city"
   };
   if (!stateOut.crisisLimitAnnounced) stateOut.crisisOpenedAt = null;
   // Migration : les anciens upgrades d'auto-effondrement (intendant/conseil/memoire)
@@ -2354,7 +2345,6 @@ export function hydrateState(parsed = {}) {
     if (refund > 0) {
       stateOut.ruins = D(stateOut.ruins).add(refund);
       for (const id of dogmaIds) delete stateOut.upgrades[id];
-      stateOut.ruinsSeenNodes = [];
       // Bornée à 48 comme log() (SAV-13) : une 49e ligne débordait le journal.
       stateOut.history = [
         ...(stateOut.history || []),
@@ -2478,8 +2468,9 @@ export function load() {
     }
     return loaded;
   } catch (e) {
-    // Save illisible (JSON tronqué par un quota, régression qu'aucun repli champ
-    // par champ ne contourne…) : on joue une partie neuve DE REPLI, mais on
+    // Save illisible (fichier ou import abîmé, régression qu'aucun repli champ
+    // par champ ne contourne… — setItem est atomique, un quota ne tronque rien) :
+    // on joue une partie neuve DE REPLI, mais on
     // ARCHIVE d'abord le payload brut (deux copies différentes gardées), et rien
     // ne s'écrira — ni la clé principale, que « Réessayer » relira, ni le nuage —
     // tant que le joueur n'a pas tranché dans les Options (saveKey.js). Avant,
@@ -2574,6 +2565,10 @@ export function invalidateRenderCache(scope = "all") {
     renderCache._frameRatesVer = -1;
   }
   if (scope === "all" || scope === "upgrades") {
+    // Les sommes de bâtiments lisent aussi des nœuds (milestoneStep,
+    // riverEngineMult, getBuildingSums) : sans les vider, un nœud posé laissait
+    // les débits périmés jusqu'au prochain achat de bâtiment (audit 2026-10-05).
+    renderCache._buildingSums = null;
     renderCache._upgradesVersion++;
     renderCache._frameRatesVer = -1;
   }

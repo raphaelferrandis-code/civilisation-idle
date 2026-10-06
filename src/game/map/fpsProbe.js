@@ -20,7 +20,8 @@ const FLAG_KEY = "civ-fps-probe";
 // Trois façons de l'allumer, de la plus pratique à la plus technique :
 //   · l'URL  ?fps=1   → la seule utilisable au doigt sur un téléphone ;
 //   · localStorage    → survit aux rechargements (posé par l'URL) ;
-//   · window.__fps    → depuis une console, pour le poste de dev.
+//   · window.__fps    → depuis une console, pour le poste de dev (molette de
+//                       dev, absente du build de prod : devKnobs.js).
 // `?fps=0` l'éteint et efface la mémoire — sinon on ne pourrait plus s'en
 // débarrasser sans vider le stockage à la main.
 function probeWanted() {
@@ -28,10 +29,10 @@ function probeWanted() {
     const p = new URLSearchParams(window.location.search).get("fps");
     if (p === "1") { localStorage.setItem(FLAG_KEY, "1"); return true; }
     if (p === "0") { localStorage.removeItem(FLAG_KEY); return false; }
-    if (window.__fps === true) return true;
+    if (import.meta.env?.DEV && window.__fps === true) return true;
     return localStorage.getItem(FLAG_KEY) === "1";
   } catch {
-    return window.__fps === true;
+    return !!(import.meta.env?.DEV && window.__fps === true);
   }
 }
 

@@ -22,8 +22,6 @@
   border-width: var(--ui-frame-w-ctrl) !important;
   border-color: transparent !important;
   border-image: var(--ui-frame-src) var(--ui-frame-slice) stretch !important;
-  /* Le cadre porte ses propres coins (clé grecque) : pas de rayon arrondi. */
-  border-radius: 0 !important;
 }
 
 /* ============================================================================
@@ -59,8 +57,7 @@
    écran à part entière du jeu, elles portent le même chrome que Chronique,
    Effondrement et Mythes. Le cadre est posé sur la FENÊTRE et non sur l'encart
    intérieur : c'est la fenêtre que le joueur lit comme un panneau, et les bandes
-   haute et basse (90 px) auraient dévoré la zone de défilement.
-   `border-radius: 0` est indispensable ici, la règle générale `dialog` en pose 12. */
+   haute et basse (90 px) auraient dévoré la zone de défilement. */
 #history .panel,
 #prestige .panel,
 #mythView .panel,
@@ -69,7 +66,6 @@
   border-width: 48px 40px 42px 48px;
   border-color: transparent;
   border-image: var(--ui-greek-src) var(--ui-greek-slice) round;
-  border-radius: 0;
   padding: 0;
   image-rendering: pixelated;
 }
@@ -82,7 +78,6 @@
 #mythView .panel > .panel-heading {
   margin: 0 0 1rem;
   padding: 0 0 0.65rem;
-  border-radius: 0;
 }
 
 /* Sous 720 px le cadre mangerait 88 px de largeur utile : on repasse au

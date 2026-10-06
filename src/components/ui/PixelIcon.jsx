@@ -15,9 +15,10 @@
 
 // Familles pour lesquelles des variantes ont été cuites (cf. scripts/bakeUiIconSizes.cjs).
 // `ruins/` n'est décliné qu'en 24 et 32, les deux seules tailles auxquelles PixelIcon le
-// demande (Habitants dans la topbar, sceaux du Testament, une carte de mythe) : l'arbre,
-// lui, ne passe PAS par ce composant et dimensionne ses emblèmes en POURCENTAGE
-// (.rt-emblem, 72 % — ruinsTree.css), donc il lui faut le maître pleine résolution.
+// demande (Habitants dans la topbar, sceaux du Testament, une carte de mythe). L'arbre,
+// lui, ne passe PAS par ce composant : il lit l'atlas ruins-tree/emblems.png
+// (emblemAtlas.js), et les emblèmes que plus rien ne sert un par un sont rangés dans
+// art/emblemes-ruines/ (audit 2026-10-05, ASSET-3).
 // Ces trois tables sont EXPORTÉES pour pixelIconSizes.test.js, qui les recopiait (audit
 // 2026-10-05, TEST-12) : même précédent que resolveIconSrc ci-dessous pour la règle
 // react-refresh (le Fast Refresh dev n'en pâtit pas).

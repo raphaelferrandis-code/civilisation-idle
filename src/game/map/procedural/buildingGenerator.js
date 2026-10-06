@@ -132,8 +132,8 @@ export const houseFootprint = (variant, eraBand = 0) =>
 //   - FRANGE (au-delà de `outer`) : les maisons BASSES de nacre.
 // Une montagne au centre, et la frange humaine qui la mesure. Molette :
 // globalThis.__tourCoeur({ on, inner, outer }), puis __cityRecompute().
-export const TOURS_COEUR = { on: true, inner: 0.42, outer: 0.72 };
-if (typeof globalThis !== "undefined") {
+const TOURS_COEUR = { on: true, inner: 0.42, outer: 0.72 };
+if (import.meta.env?.DEV && typeof globalThis !== "undefined") {
   globalThis.__tourCoeur = (o) => { if (o) Object.assign(TOURS_COEUR, o); return { ...TOURS_COEUR }; };
 }
 const HAUTES = new Set(["skytower", "skytower2", "tower", "megablock", "arcologyhome"]);
@@ -358,33 +358,11 @@ export function createBuildingPlacer({
     return best;
   };
 
-  // Place `count` bâtiments d'une catégorie ; `usedKeys` est partagé avec le
-  // placement moteur pour éviter tout chevauchement.
-  const placeCategory = (category, count, usedKeys, pushTile) => {
-    const list = orderedList(category);
-    let placed = 0;
-    for (let i = 0; i < list.length && placed < count; i += 1) {
-      const cell = list[i];
-      const k = cell.gx + "," + cell.gy;
-      if (usedKeys.has(k)) continue;
-      // PR2 — placement par lots : tout bâtiment décoratif doit être PROCHE d'une
-      // rue (rayon HOUSE_ROAD_RADIUS). Assez large pour remplir l'intérieur des
-      // blocs (bâtiments au milieu), assez borné pour éviter les orphelins isolés.
-      if (requireRoad && !nearRoad(cell.gx, cell.gy)) continue;
-      const variant = chooseVariant(category, placed, cell);
-      pushTile({
-        gx: cell.gx, gy: cell.gy, type: category,
-        variant,
-        qkind: quarterKindAt(cell.gx, cell.gy),
-        key: k, d2: cell.d2
-      });
-      usedKeys.add(k);
-      placed += 1;
-    }
-    return placed;
-  };
-
-  return { placeCategory, chooseVariant, smallVariant, orderedList, quarterKindAt, quarterIdAt, roadAdj, nearRoad, requireRoad };
+  // (Le placement positionnel `placeCategory`, re-tiré à chaque recalcul, est parti avec
+  // sa bascule CM_SLOTTED_DECOR — toujours vraie — à l'audit du 2026-10-05 (MORT-4) : la
+  // pose passe par placeCategorySlotted, et le filtre PR2 (requireRoad + nearRoad) par le
+  // `cellFree` de l'appelant, cf. decCellFree dans layout.js.)
+  return { chooseVariant, smallVariant, orderedList, quarterKindAt, quarterIdAt, roadAdj, nearRoad, requireRoad };
 }
 
 // ── Placement décoratif PERSISTANT (slots) ──────────────────────────────────

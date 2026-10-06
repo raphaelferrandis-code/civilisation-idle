@@ -133,6 +133,30 @@ describe('Maison des Plaisirs : mémoire bornée', () => {
   });
 });
 
+// LE RENDU DU CODE N'EST PLUS JAMAIS MONTRÉ (audit du 05/10, MORT-15). Les dix âges sont
+// habillés : la recette ne sert plus que la géométrie. Une image d'habillage perdue ne
+// fait plus cuire (50 à 140 ms) ni paraître la matière du code et ses props (flammes,
+// fanions, balise, halo) : le lieu garde l'âge qu'il montrait.
+describe('Maison des Plaisirs : jamais le rendu du code (MORT-15)', () => {
+  it("image d'habillage perdue : aucune cuisson, l'âge d'avant reste à l'écran", () => {
+    const before = visit(2);
+    const shown = before.find((it) => it.part === 'slice').m.bk;
+    expect(shown.skinned).toBe(true);
+    const n0 = bakePlaisirs.mock.calls.length;
+    frame(4);                                       // lance le chargement de l'âge 4
+    const lost = pending.findIndex((im) => im._src === plaisirsSkinSpec(4).src);
+    expect(lost).toBeGreaterThanOrEqual(0);
+    pending.splice(lost, 1)[0].onerror();
+    deliverAll();
+    const after = frame(4);
+    expect(bakePlaisirs.mock.calls.length).toBe(n0);      // pas de cuisson du code
+    const m = after.find((it) => it.part === 'slice').m;
+    expect(m.bk).toBe(shown);                              // l'âge d'avant, tel quel
+    expect(m.band).toBe(2);
+    expect(after.some((it) => it.part === 'prop')).toBe(false);
+  });
+});
+
 describe('Maison des Plaisirs : rien d empilé hors écran (PERF-51)', () => {
   it('hors écran : la base et les filles, aucune tranche', () => {
     const on = visit(5);

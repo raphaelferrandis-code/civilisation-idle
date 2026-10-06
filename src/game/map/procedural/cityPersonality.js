@@ -125,8 +125,8 @@ function personalityWeights(s) {
 // chaque changement de bande recalcule tout le plan (300-560 ms mesurés), et un
 // aller-retour autour du seuil rebattait le campement à chaque passage.
 // L'Usure garde ses seuils (0,6 / 0,88) : c'est une autre horloge.
-export const CRISIS_BAND_ENTER = 0.75;
-export const CRISIS_BAND_LEAVE = 0.70;
+const CRISIS_BAND_ENTER = 0.75;
+const CRISIS_BAND_LEAVE = 0.70;
 let _lastCrisisBand = 0;
 export function cityCrisisBand(s) {
   const timeWear = (s && s.timeWear) || 0;

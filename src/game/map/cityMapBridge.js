@@ -1,14 +1,5 @@
-let engineTileMap = null;
 let captureVestigeHandler = null;
 let resetCameraCenterHandler = null;
-
-export function setCityMapEngineTileMap(tileMap) {
-  engineTileMap = tileMap || null;
-}
-
-export function getCityMapEngineTileMap() {
-  return engineTileMap;
-}
 
 export function setCaptureVestigeHandler(handler) {
   captureVestigeHandler = typeof handler === "function" ? handler : null;
@@ -25,6 +16,15 @@ export function setResetCameraCenterHandler(handler) {
 export function resetCameraCenter() {
   if (resetCameraCenterHandler) resetCameraCenterHandler();
 }
+
+// Portes réelles (sur rue / total brut, cœurs d'îlots murés compris) : écrites
+// par la carte à chaque recalcul, lues par l'encart Voirie (roadNetwork.js).
+// Affichage seul : hors de l'état, donc hors de la sauvegarde, où hydrateState
+// ne les relisait de toute façon pas (audit 2026-10-05, SAV-17). null tant
+// qu'aucune carte n'a calculé de plan.
+let roadDoors = null;
+export function setRoadDoors(doors) { roadDoors = doors || null; }
+export function getRoadDoors() { return roadDoors; }
 
 // ── LA CHUTE SUR LA CARTE (iso/isoChute.js, docs/PLAN-CHUTE.md) ─────────────────
 // Le cœur du jeu (events.js, crisis.js) joue la chute sans connaître la carte : la

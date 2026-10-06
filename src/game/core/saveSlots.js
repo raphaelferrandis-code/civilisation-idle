@@ -198,13 +198,6 @@ export function keepFallbackGame() {
   render();
 }
 
-export function clearSlot(i) {
-  try {
-    localStorage.removeItem(slotKey(i));
-    localStorage.removeItem(metaKey(i));
-  } catch { /* stockage indisponible */ }
-}
-
 // Écrit la partie en cours dans un FICHIER. Dans le .exe on passe par le pont
 // Electron : dialogue d'enregistrement natif ouvert sur les Documents, tenu par le
 // process principal (main.cjs, audit 2026-10-05 SAV-14 — avant, ~/Documents en dur

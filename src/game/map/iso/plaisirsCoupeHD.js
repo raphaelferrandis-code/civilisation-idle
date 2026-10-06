@@ -29,7 +29,7 @@ import { slotRow } from './plaisirsSlotsCoupe.js';
 import {
   HD, LH, INK, bayer, mix, h32, painter, sym, piece, palOf, lightPool, FOOT, contactShadow, turnedLeg, BK, SD, FR,
 } from './plaisirsHDKit.js';
-import { flame, alanguieBoudoir, ALANGUIE_HALL } from './plaisirsEraRooms.js';
+import { flame, ALANGUIE_HALL, boudoirRoom } from './plaisirsEraRooms.js';
 import { furnishEra } from './plaisirsEraFurnish.js';
 
 
@@ -274,9 +274,8 @@ function damaskAt(S, x, y, y0, y1) {
     return r === RAIL ? G[1] : r === 2 ? G[2] : Wd[4];
   }
   // Le papier peint : fond, motif en quinconce, et l'ombre portée sous la corniche.
-  const tx = 18, ty = 22, col = Math.floor(x / tx), row = Math.floor((dy + (col & 1) * 11) / ty);
+  const tx = 18, ty = 22, col = Math.floor(x / tx);
   const mx = ((x % tx) + tx) % tx - 4, my = ((dy + (col & 1) * 11) % ty) - 4;
-  void row;
   let c = P[2];
   if (mx >= 0 && mx < 9 && my >= 0 && my < 13) {
     const ch = DAMASK[my][mx];
@@ -314,7 +313,7 @@ function sconce(P, N, pal, x, y) {
 // ── Le décor des murs ────────────────────────────────────────────────────────
 // La BAIE sur la ville : arc de fonte, vitre (le ciel du dehors), rideaux de velours
 // relevés en embrasses à glands d'or.
-function windowBay(P, N, S, x, top, h) {
+function windowBay(P, S, x, top, h) {
   // Au village et au Moyen Âge : une baie en plein cintre, ses volets de bois ouverts.
   if (S.kit === 'bois' || S.kit === 'pierre' || S.kit === 'couronne') { shutterWindow(P, S, x, top, h); return; }
   const w = 18, x0 = x - 9, G = S.gold, V = S.velvet, I = S.iron;
@@ -343,7 +342,6 @@ function windowBay(P, N, S, x, top, h) {
   // La cantonnière, galon d'or.
   P.rect(x0 - 5, top - 5, w + 10, 3, V[2]); P.hline(x0 - 5, top - 5, w + 10, V[1]);
   for (let i = 0; i < w + 10; i += 1) P.put(x0 - 5 + i, top - 2, i % 2 ? G[1] : G[3]);
-  void N;
 }
 // La baie à VOLETS (Bois, Pierre, Couronne) : tableau de pierre ou de bois, le ciel par
 // l'ouverture (au Moyen Âge, un vitrail losangé), deux volets ouverts contre le mur.
@@ -871,44 +869,37 @@ export function shadowFrames(hat = 'top') {
   _shadows.set(hat, out);
   return out;
 }
-function alcove(O, F, N, R, S, x, y, closed) {
-  const V = S.velvet, G = S.gold, top = y - HD.WALLH + 8, w = 50, x0 = x - 25;
-  for (let j = top; j < y + 2; j += 1) for (let i = x0; i < x0 + w; i += 1) O.put(i, j, mix(V[5], INK, 0.35 + (j - top) / (y - top) * 0.1));
-  // Le lit : tête de laiton, oreillers, drap, couvre-lit.
-  piece(O, x - 20, y - 20, 40, 22, (P) => {
-    for (let i = 0; i < 9; i += 1) P.vline(x - 19 + i * 2, y - 19 + (i === 0 || i === 8 ? 0 : 3), 16 - (i === 0 || i === 8 ? 0 : 3), i % 4 === 0 ? G[2] : G[1]);
-    P.hline(x - 19, y - 19, 17, G[1]); P.hline(x - 18, y - 16, 15, G[2]);
-    P.rect(x - 16, y - 10, 9, 4, '#fff0f4'); P.hline(x - 16, y - 10, 9, '#ffffff'); P.put(x - 16, y - 7, '#f0c8d4');
-    P.rect(x - 17, y - 6, 36, 2, '#f8eee4');
-    P.rect(x - 17, y - 4, 36, 5, V[2]); P.hline(x - 17, y - 4, 36, V[1]); P.hline(x - 17, y, 36, V[4]);
-    for (let i = -14; i < 18; i += 6) P.put(x + i, y - 2, V[3]);
-  });
-  contactShadow(R, x - 18, x + 18, y + 2);
-  // Le lambrequin, galon et franges d'or.
-  piece(F, x0 - 2, top - 4, w + 4, 8, (P) => {
-    P.rect(x0 - 2, top - 4, w + 4, 5, V[2]); P.hline(x0 - 2, top - 4, w + 4, V[1]); P.hline(x0 - 2, top, w + 4, V[4]);
-    for (let i = 0; i < w + 4; i += 1) { P.put(x0 - 2 + i, top + 1, i % 2 ? G[1] : G[3]); if (i % 3 === 0) P.put(x0 - 2 + i, top + 2, G[2]); }
-  }, { ink: null });
-  if (closed) {
-    // La TENTURE tirée, jusqu'AU SOL (des souliers dépassaient dessous, 2026-10-03),
-    // éclairée par-derrière : elle s'allume la nuit, et les ombres s'y enlacent.
-    for (let j = top + 1; j < y + HD.FLOORD - 4; j += 1) for (let i = x0; i < x0 + w; i += 1) {
-      const fold = (i - x0) % 6, glow = 1 - Math.abs((i - x) / 25) * 0.5;
-      const c = fold === 0 ? '#d8805a' : fold === 3 ? '#ffd0a8' : glow > 0.8 ? '#ffc496' : '#f6ae82';
-      F.put(i, j, c); N.put(i, j, c);
-    }
-    // Les OMBRES qui s'y animent sont peintes par la vue (shadowFrames).
-    N.mark(x, y - 18, '#ff9ab8');
-  } else {
-    // Rideaux relevés en embrasses.
-    for (let j = top + 1; j < y + 3; j += 1) {
-      const t = (j - top) / (y - top), cw = t < 0.55 ? 7 - Math.round(t * 6) : 3 + Math.round((t - 0.55) * 8);
-      for (let i = 0; i < cw; i += 1) {
-        const c = V[1 + ((i + 1) % 3)];
-        F.put(x0 + i, j, i === cw - 1 ? V[4] : c); F.put(x0 + w - 1 - i, j, i === cw - 1 ? V[5] : c);
-      }
-    }
-  }
+// L'ALCÔVE DE LA FONTE : l'habit de alcoveEra (plaisirsEraRooms.js), dont elle recopiait
+// la structure ligne à ligne (audit du 05/10, STRUCT-12) — velours de la salle, lit à
+// tête de laiton, lambrequin à franges d'or, tenture orangée allumée par-derrière (les
+// OMBRES qui s'y animent sont peintes par la vue, shadowFrames ; elle descend jusqu'AU
+// SOL : des souliers dépassaient dessous, 2026-10-03). Ses deux écarts à l'habit commun
+// sont gardés tels quels : un fond un peu plus sombre (nicheShade) et le bord du
+// rideau droit relevé d'un cran plus foncé (drapeRight).
+function alcoveFonte(S) {
+  const V = S.velvet, G = S.gold;
+  return {
+    niche: V[5], nicheShade: [0.35, 0.1], drape: V, drapeRight: 5,
+    // Le lit : tête de laiton, oreillers, drap, couvre-lit.
+    bed: (P, x, y) => {
+      for (let i = 0; i < 9; i += 1) P.vline(x - 19 + i * 2, y - 19 + (i === 0 || i === 8 ? 0 : 3), 16 - (i === 0 || i === 8 ? 0 : 3), i % 4 === 0 ? G[2] : G[1]);
+      P.hline(x - 19, y - 19, 17, G[1]); P.hline(x - 18, y - 16, 15, G[2]);
+      P.rect(x - 16, y - 10, 9, 4, '#fff0f4'); P.hline(x - 16, y - 10, 9, '#ffffff'); P.put(x - 16, y - 7, '#f0c8d4');
+      P.rect(x - 17, y - 6, 36, 2, '#f8eee4');
+      P.rect(x - 17, y - 4, 36, 5, V[2]); P.hline(x - 17, y - 4, 36, V[1]); P.hline(x - 17, y, 36, V[4]);
+      for (let i = -14; i < 18; i += 6) P.put(x + i, y - 2, V[3]);
+    },
+    // Le lambrequin, galon et franges d'or.
+    valance: (P, X, Y, W) => {
+      P.rect(X, Y, W, 5, V[2]); P.hline(X, Y, W, V[1]); P.hline(X, Y + 4, W, V[4]);
+      for (let i = 0; i < W; i += 1) { P.put(X + i, Y + 5, i % 2 ? G[1] : G[3]); if (i % 3 === 0) P.put(X + i, Y + 6, G[2]); }
+    },
+    // La tenture tirée : plis tous les 6 px, plus claire au milieu.
+    curtain: (i) => {
+      const fold = i % 6, glow = 1 - Math.abs((i - 25) / 25) * 0.5;
+      return fold === 0 ? '#d8805a' : fold === 3 ? '#ffd0a8' : glow > 0.8 ? '#ffc496' : '#f6ae82';
+    },
+  };
 }
 // LE PARAVENT à trois feuilles peintes (des iris).
 function screen3(O, R, S, x, y) {
@@ -1096,7 +1087,7 @@ function cutWall(P, S, x, y0, y1, side) {
 }
 // Le BALCON de chaque étage, dehors : la poutre déborde, ses PÉTALES (lambrequin rayé)
 // et sa guirlande d'ampoules — l'ADN du lieu, vu de la carte.
-function balcony(P, N, S, x0, x1, y, side) {
+function balcony(P, N, S, x0, x1, y) {
   const V = S.velvet, C = S.cream;
   beam(P, S, Math.min(x0, x1), Math.max(x0, x1), y, HD.STRUCT);
   const xa = Math.min(x0, x1), xb = Math.max(x0, x1);
@@ -1110,7 +1101,6 @@ function balcony(P, N, S, x0, x1, y, side) {
     P.put(x, yy, '#3a2a22');
     if ((x - xa) % 10 === 5) { P.put(x, yy + 1, '#fff2c8'); N.put(x, yy + 1, '#fff2c8'); P.put(x, yy + 2, '#ffd88a'); N.put(x, yy + 2, '#ffd88a'); }
   }
-  void side;
 }
 
 // ── LA BOÎTE d'un salon ──────────────────────────────────────────────────────
@@ -1261,29 +1251,19 @@ function furnish(ctx, id, x, y, w, x0r, x1r, y0, seed) {
     default: break;
   }
 }
+// LE BOUDOIR DE LA FONTE : celui de tous les âges (boudoirRoom, plaisirsEraRooms.js) —
+// l'alcôve fermée au bout le plus loin de la cage, l'ouverte de l'autre côté, la
+// courtisane alanguie à la place du canapé sans antichambre pour elle — habillé de la
+// Fonte : la chaise capitonnée, le cœur au mur, la table au champagne, le paravent.
 function boudoir(ctx, x, y, w, x0r, x1r, y0, seed) {
-  const { O, F, N, R, S, pal, fig } = ctx;
-  const wide = w >= 220;
-  // L'alcôve fermée (au bout le plus loin de la cage), l'ouverte de l'autre côté.
-  const ax = Math.round(x1r) - 30, bx = Math.round(x0r) + 30;
-  alcove(O, F, N, R, S, ax, y, true);
-  ctx.boudoir = { x: ax, level: ctx.level };
-  ctx.show = { x: ax + 1, y: y + 1 };                      // les ombres de la tenture
-  if (wide) alcove(O, F, N, R, S, bx, y, false);
-  // Sans antichambre pour elle, la courtisane alanguie prend la place du canapé.
-  const lx = alanguieBoudoir(ctx, { x0r, y, w, seed }, ax);
-  if (lx != null) {
-    O.spr(lx - 6, y0 + 9, HEART, pal);
-    return;
-  }
-  const mid = wide ? Math.round((bx + ax) / 2) : Math.round((x0r + ax) / 2) - 6;
-  chaise(O, R, S, mid - 10, y);
-  O.spr(mid - 16, y0 + 9, HEART, pal);
-  champagneTable(O, N, R, S, pal, mid + 18, y);
-  if (wide) screen3(O, R, S, mid + 46, y);
-  fig(mid - 8, y + SD, 0, 'g', seed, { role: 'courtisane' });
-  fig(mid + 6, y + SD + 1, 2, 0, seed + 3);
-  if (wide) fig(bx + 2, y + BK + 1, 0, 'g', seed + 1, { role: 'courtisane' });
+  const { O, N, R, S, pal } = ctx;
+  boudoirRoom(ctx, { x0r, x1r, y, w, y0, seed }, {
+    ...alcoveFonte(S),
+    couch: (c, cx, cy) => chaise(O, R, S, cx, cy),
+    wall: (c, cx, cy0) => O.spr(cx - 6, cy0 + 9, HEART, pal),
+    table: (c, cx, cy) => champagneTable(O, N, R, S, pal, cx, cy),
+    extra: (c, cx, cy) => screen3(O, R, S, cx, cy),
+  });
 }
 
 // ── LE NIVEAU : ses boîtes dans la charpente ─────────────────────────────────
@@ -1687,36 +1667,6 @@ function wallAt(S, x, y, y0, y1) {
       if (by === 0 || bx === 1) return St[1];
       return h32(Math.floor((x + off) / 16), row, 3) % 5 === 0 ? St[3] : St[2];
     }
-    case 'marble': {                                        // frise grecque, panneaux veinés, soubassement de velours
-      const St = S.stone, G = S.gold, V = S.velvet;
-      if (dy < 6) {
-        if (dy === 0) return INK;
-        if (dy === 1 || dy === 5) return G[2];
-        const k = ((x % 8) + 8) % 8, r = dy - 2;
-        const on = (r === 0 && k < 6) || (r === 1 && (k === 0 || k === 5)) || (r === 2 && (k === 0 || (k >= 3 && k <= 5)));
-        return on ? G[1] : V[3];
-      }
-      if (up <= 3) return St[3];
-      if (up <= WAINSCOT) return up === WAINSCOT ? G[2] : (x % 26) < 2 ? V[4] : V[3];
-      if (up <= WAINSCOT + RAIL) return up === WAINSCOT + RAIL ? G[1] : G[3];
-      const k = ((x % 28) + 28) % 28;
-      if (k === 0 || k === 27) return G[2];
-      const vein = (x * 3 + dy * 2 + (h32(x >> 3, dy >> 3, 5) % 7)) % 23 === 0;
-      return vein ? St[2] : k < 4 ? St[0] : St[1];
-    }
-    case 'glasswall': {                                     // la baie sur la ville de nuit, meneaux chromés
-      const C = S.gold, Gl = S.glass;
-      if (dy < 3) return dy === 0 ? INK : C[2];
-      if (up <= 3) return S.wood[4];
-      if (up <= WAINSCOT) return up === WAINSCOT ? S.neon : x % 12 < 1 ? S.wood[4] : S.wood[3];
-      if (up <= WAINSCOT + 2) return C[1];
-      const m = ((x % 18) + 18) % 18;
-      if (m === 0) return C[1];
-      if (m === 1) return C[3];
-      const towerH = 8 + (h32(Math.floor(x / 9), 3, 7) % 18), ty = y1 - WAINSCOT - 2 - towerH;
-      if (y > ty) return x % 3 === 1 && (y - ty) % 4 === 2 && h32(x, y, 9) % 3 === 0 ? '#ffe9a0' : '#2a3050';
-      return mix(mix(Gl[4], '#1a1e3c', 0.5), Gl[3], (dy / (y1 - y0)) * 0.5);
-    }
     case 'pompei': {                                        // le rouge de Pompéi : panneaux, filets d'ocre, soubassement noir
       const St = S.stone, G = S.gold, k = ((x % 44) + 44) % 44, top = dy - 6;
       if (dy < 6) {                                           // la frise grecque
@@ -1817,19 +1767,10 @@ function wallAt(S, x, y, y0, y1) {
         return k < 2 ? LILAC[3] : up % 6 === 0 ? LILAC[2] : LILAC[1];
       }
       if (k < 3) return k === 1 ? LILAC[0] : AMETH[1];
-      const c = geode(x, up - WAINSCOT, top);
+      const c = geode(x, up - WAINSCOT);
       if (c) return c;
       const t = top / Math.max(1, y1 - y0 - WAINSCOT - 4);
       return (x + top * 2) % 17 === 0 ? LILAC[1] : t < 0.5 ? LILAC[2] : mix(LILAC[2], LILAC[3], (t - 0.5));
-    }
-    case 'crystal': {                                       // panneaux de lumière, fils lumineux
-      const Gl = S.glass, W = S.wood;
-      if (dy < 3) return dy === 0 ? INK : S.glow;
-      if (up <= 3) return W[3];
-      if (up <= WAINSCOT) return up === WAINSCOT ? S.glow : W[x % 20 < 1 ? 2 : 1];
-      const k = ((x % 16) + 16) % 16;
-      if (k === 0) return S.glow;
-      return mix(Gl[1], Gl[2], Math.max(0, Math.min(1, dy / (y1 - y0) + (k < 3 ? -0.1 : 0.1))));
     }
     default: return damaskAt(S, x, y, y0, y1);
   }
@@ -1861,11 +1802,10 @@ function astralLine(x, top) {
 }
 // La géode du Cristal : des cristaux debout sur la cimaise, d'autres pendus à la corniche,
 // faces claire (au jour, à gauche) et sombre, pointe blanche.
-function geode(x, upW, top) {
+function geode(x, upW) {
   // Une GRAPPE tous les 48 px, au pied d'un panneau sur deux : un grand cristal au
   // milieu, deux petits penchés ; chaque cristal a sa face au jour, son arête, sa face
   // à l'ombre, et une pointe claire.
-  void top;
   const cell = Math.floor(x / 48);
   if (h32(cell, 7, 5) % 2) return null;
   const base = cell * 48 + 16 + (h32(cell, 7, 6) % 12);
@@ -1882,30 +1822,21 @@ function geode(x, upW, top) {
 // Ce que le mur ALLUME la nuit (fils de lumière, néon de cimaise, fenêtres de la ville).
 function wallNight(S, x, y, y0, y1) {
   const up = y1 - y, dy = y - y0;
-  // Le néon de corniche du casino ; les étoiles de l'Astral ; les pointes de la géode.
+  // Le néon de corniche du casino ; les étoiles de l'Astral.
   if (S.wall === 'deco') return dy === 2 ? S.neon : null;
   if (S.wall === 'astral') return dy > 4 && up > WAINSCOT + 3 && ((x % 60) + 60) % 60 >= 3 && astralStar(x, dy - 4) ? '#fff4c8' : null;
   if (S.wall === 'cristal') return null;
   if (S.wall === 'jade') return null;
-  if (S.wall === 'glasswall') {
-    if (up === WAINSCOT) return S.neon;
-    const c = wallAt(S, x, y, y0, y1);
-    return c === '#ffe9a0' ? c : null;
-  }
-  if (S.wall === 'crystal') return (((x % 16) + 16) % 16 === 0 || up === WAINSCOT || y - y0 === 1) ? S.glow : null;
   return null;
 }
 function floorAt(S, x, j) {
   const n = HD.FLOORD;
   if (j === n - 1) return S.wood[4];
-  if (j === n - 2) return S.floor === 'light' ? S.glow : S.floor === 'carpet' ? S.gold[2] : S.gold[3];
+  if (j === n - 2) return S.floor === 'carpet' ? S.gold[2] : S.gold[3];
   switch (S.floor) {
     case 'logs': { const r = Math.floor(j / 3), k = j % 3; return k === 0 ? S.wood[1] : k === 2 ? S.wood[3] : (x + r * 5) % 23 === 0 ? S.wood[3] : S.wood[2]; }
     case 'planks': { const r = Math.floor(j / 2); if ((x + r * 13) % 29 === 0) return S.wood[4]; return j % 2 === 0 ? S.wood[2] : mix(S.wood[1], S.wood[2], 0.5); }
     case 'flags': { const r = Math.floor(j / 3), off = (r & 1) * 7, k = (((x + off) % 14) + 14) % 14; if (j % 3 === 2 || k === 0) return S.stone[4]; return h32(Math.floor((x + off) / 14), r, 5) % 4 === 0 ? S.stone[2] : S.stone[1]; }
-    case 'checker': { const r = Math.floor(j / 3), k = Math.floor((x + 400) / 9); return (k + r) & 1 ? S.stone[0] : '#3a2a2a'; }
-    case 'terrazzo': { const r = Math.floor(j / 3), k = Math.floor((x + 400) / 8); return (k + r) & 1 ? '#f4f0f2' : '#1e1e26'; }
-    case 'light': { const k = ((x % 12) + 12) % 12; return k === 0 || j % 4 === 3 ? S.glow : S.wood[1]; }
     case 'mosaic': {                                         // la mosaïque : tesselles blanches, une vague noire
       if (j === 4 || j === 5) { const k = (((x + (j === 5 ? 3 : 0)) % 8) + 8) % 8; return k < 4 ? '#2a1e1a' : '#efe6d6'; }
       if (j === 3 || j === 6) return '#2a1e1a';
@@ -1945,27 +1876,13 @@ function ceilAt(S, x, j) {
 function lamp(P, N, S, pal, x, y) {
   const L = (px, py, c) => { P.put(px, py, c); N.put(px, py, c); };
   switch (S.light) {
-    case 'gas': case 'chandelier': chandelier(P, N, pal, x, y); return;
+    case 'gas': chandelier(P, N, pal, x, y); return;
     case 'torch': {                                         // la torche dans son anneau de corde
       const ty = y + 16;
       for (let j = 0; j < 12; j += 1) { P.put(x, ty + j, S.wood[1]); P.put(x + 1, ty + j, S.wood[3]); }
       P.rect(x - 1, ty, 4, 3, S.paper[3]); P.hline(x - 1, ty, 4, S.paper[2]);           // la poix
       P.hline(x - 2, ty + 7, 6, S.wood[4]); P.hline(x - 2, ty + 8, 6, S.wood[3]);       // l'anneau
       flame({ N }, P, x, ty - 1, 9);
-      return;
-    }
-    case 'lantern': {                                       // la lanterne de papier rouge
-      P.vline(x, y, 5, '#3a2a22');
-      for (let j = 0; j < 9; j += 1) {
-        const hw = j === 0 || j === 8 ? 2 : j === 1 || j === 7 ? 3 : 4;
-        for (let i = -hw; i <= hw; i += 1) {
-          const c = j === 0 || j === 8 ? S.gold[2] : i === 0 || Math.abs(i) === 3 ? '#a82a2a' : i < 0 ? '#ff7a52' : '#e8483a';
-          P.put(x + i, y + 5 + j, c);
-          if (j > 0 && j < 8) N.put(x + i, y + 5 + j, i < 0 ? '#ffb070' : '#ff8a5a');
-        }
-      }
-      P.put(x, y + 14, S.gold[3]); P.put(x, y + 15, '#e8483a');
-      P.mark(x, y + 9, '#ff9a6a');
       return;
     }
     case 'brazier': {                                       // la lampe à huile de bronze, à chaînes
@@ -2051,27 +1968,13 @@ function lamp(P, N, S, pal, x, y) {
       P.mark(x, y + 10, S.glow);
       return;
     }
-    case 'neon': {                                          // l'anneau de néon
-      P.vline(x, y, 4, S.gold[3]);
-      for (let a = 0; a < 64; a += 1) {
-        const t = (a / 64) * Math.PI * 2, px = x + Math.round(Math.cos(t) * 10), py = y + 7 + Math.round(Math.sin(t) * 3);
-        L(px, py, a < 32 ? S.neon : mix(S.neon, '#ffffff', 0.3));
-      }
-      P.mark(x, y + 7, S.neon);
-      return;
-    }
-    default: {                                              // l'orbe de lumière
-      for (let j = -3; j <= 3; j += 1) for (let i = -3; i <= 3; i += 1) if (i * i + j * j <= 10) L(x + i, y + 9 + j, i + j < -2 ? '#ffffff' : S.glow);
-      for (const [dx, dy] of [[-5, 9], [5, 9], [0, 4], [0, 14]]) N.put(x + dx, y + dy, S.glow2);
-      P.mark(x, y + 9, S.glow);
-    }
   }
 }
 
 // ── L'ornement des murs, âge par âge ─────────────────────────────────────────
 function decorPiece(P, N, S, pal, kind, x, yC, k) {
   switch (kind) {
-    case 'window': if (S.wall !== 'hide') windowBay(P, N, S, x, yC + 9, 17); return;
+    case 'window': if (S.wall !== 'hide') windowBay(P, S, x, yC + 9, 17); return;
     case 'mirror': ovalMirror(P, S, x, yC + 18); return;
     case 'paintingSconces': painting(P, S, x - 10, yC + 8, 20, 14, k); sconce(P, N, pal, x - 16, yC + 9); sconce(P, N, pal, x + 16, yC + 9); return;
     case 'paintingTall': painting(P, S, x - 7, yC + 7, 14, 18, k + 1); return;
@@ -2106,16 +2009,6 @@ function decorPiece(P, N, S, pal, kind, x, yC, k) {
         P.put(x + i, yC + 7 + j, c);
       }
       for (let i = -9; i <= 9; i += 2) P.put(x + i, yC + 29, S.gold[1]);
-      return;
-    }
-    case 'amphoraNiche': {                                  // la niche et son amphore
-      for (let j = 0; j < 22; j += 1) for (let i = -7; i <= 7; i += 1) {
-        const arc = j < 7 ? Math.sqrt(49 - (7 - j) ** 2) : 7;
-        if (Math.abs(i) > arc) continue;
-        P.put(x + i, yC + 7 + j, mix(S.stone[3], INK, 0.3));
-      }
-      P.ellipse(x, yC + 22, 4, 5, (i) => (i < -1 ? '#d07a4a' : '#a8582e'));
-      P.rect(x - 1, yC + 15, 3, 3, '#a8582e'); P.hline(x - 3, yC + 15, 7, '#d07a4a');
       return;
     }
     case 'neonSign': {                                      // une enseigne au néon (cœur, étoile)
@@ -2207,12 +2100,7 @@ function decorPiece(P, N, S, pal, kind, x, yC, k) {
       P.hline(x - 5, yC + 25, 11, '#ffffff');
       return;
     }
-    case 'glyph': {                                         // un glyphe de lumière
-      for (let j = 0; j < 14; j += 1) { P.put(x, yC + 9 + j, S.glow); N.put(x, yC + 9 + j, S.glow); }
-      for (const [dx, dy] of [[-3, 12], [3, 12], [-2, 16], [2, 16], [-4, 20], [4, 20]]) { P.put(x + dx, yC + dy, S.glow2); N.put(x + dx, yC + dy, S.glow2); }
-      return;
-    }
-    default: painting(P, S, x - 10, yC + 8, 20, 14, k); void pal;
+    default: painting(P, S, x - 10, yC + 8, 20, 14, k);
   }
 }
 
@@ -2338,17 +2226,6 @@ function hallPieceHD(kind, O, R, S, x, y) {
       });
       return;
     }
-    case 'arcade': {
-      contactShadow(R, x - 6, x + 6, yb + 1);
-      piece(O, x - 7, yb - 30, 15, 31, (P) => {
-        P.rect(x - 6, yb - 29, 13, 29, '#2a2f64'); P.rect(x - 5, yb - 24, 11, 8, '#1a1a20');
-        for (let i = 0; i < 9; i += 1) for (let j = 0; j < 6; j += 1) if ((i + j) & 1) P.put(x - 4 + i, yb - 23 + j, S.neon2 || S.neon);
-        P.rect(x - 6, yb - 14, 13, 3, '#3a3f7a'); P.put(x - 2, yb - 13, '#c8434a'); P.put(x + 2, yb - 13, '#f0cf6a');
-        P.hline(x - 6, yb - 29, 13, S.neon);
-      });
-      O.mark(x, yb - 20, S.neon2 || S.neon);
-      return;
-    }
     case 'orb': {
       contactShadow(R, x - 5, x + 5, yb + 1);
       piece(O, x - 6, yb - 22, 13, 23, (P) => {
@@ -2390,7 +2267,7 @@ function hallPieceHD(kind, O, R, S, x, y) {
 // l'ENGIN D'ICARE de l'âge : ses ailes de plumes et de cire, le ballon, le deltaplane,
 // les ailes de lumière. Rend le haut de la salle.
 function topShape(S) { return S.top === 'verriere' || S.top === 'dome' || S.top === 'neondome' ? 'dome' : 'tri'; }
-function topRatio(S) { return topShape(S) === 'dome' ? 0.74 : S.top === 'spire' ? 0.95 : S.top === 'pagoda' ? 0.7 : 0.62; }
+function topRatio(S) { return topShape(S) === 'dome' ? 0.74 : S.top === 'pagoda' ? 0.7 : 0.62; }
 // La demi-largeur du toit de pagode à la hauteur t (0 au pied, 1 au faîte) : un profil
 // creux (raide en haut, évasé en bas) et des coyaux relevés au bord.
 const pagodaHalf = (rr, t) => rr * Math.pow(Math.max(0, 1 - t), 1.45) * (1 + 0.12 * Math.max(0, 1 - t / 0.1));
@@ -2432,7 +2309,7 @@ function topRoom(ctx, cx, yBase, wTop) {
     P.put(cx + i, oy + j, q > 0.7 ? (i + j < 0 ? G[1] : G[3]) : S.sky[0]);
   }
   // Les rais du jour, du haut-gauche (tramés).
-  const ray = S.top === 'neondome' || S.top === 'spire' ? S.glass[0] : '#fff4d8';
+  const ray = S.top === 'neondome' ? S.glass[0] : '#fff4d8';
   for (let j = -ry + T; j < HD.FLOORD - 1; j += 1) for (let i = -r + T; i < r - T; i += 1) {
     const x = cx + i, y = yF + j;
     if (j < 0 && !inside(i, j, r - T, ry - T)) continue;
@@ -2492,7 +2369,6 @@ function topBack(S, i, j, ri, rj, dome) {
       if (S.cosmo === 'astral') return rafter || ring ? S.gold[2] : astralStar(i + 400, -j) ? '#fff4c8' : NAVY[2];
       return rafter ? AMETH[2] : ring ? AMETH[1] : top > 0.5 ? LILAC[1] : LILAC[2];
     }
-    default: return rafter ? S.glow : mix(S.glass[1], S.glass[2], top);          // la flèche de cristal
   }
 }
 function topBackNight(S, i, j, ri, rj, dome) {
@@ -2502,17 +2378,13 @@ function topBackNight(S, i, j, ri, rj, dome) {
     const lon = Math.asin(Math.max(-1, Math.min(1, nx / cosl)));
     return Math.abs(((lon / Math.PI) * 9 + 50.5) % 1 - 0.5) > 0.44 ? S.neon : null;
   }
-  if (S.top === 'spire') {
-    const half = ri * (1 + j / rj), u = half ? i / half : 0;
-    return Math.abs((((u + 1) * 5) % 1) - 0.5) > 0.42 ? S.glow : null;
-  }
   if (S.top === 'pagoda' && S.cosmo === 'astral') return astralStar(i + 400, -j) ? '#fff4c8' : null;
   return null;
 }
 // Ce qui meuble la salle sous le toit, âge par âge.
 function topDecor(ctx, cx, yF, r, ry, T, inside) {
   const { P, O, N, S, fig } = ctx;
-  const light = S.top === 'spire' || S.top === 'pagoda';
+  const light = S.top === 'pagoda';
   const green = light ? [S.glow, S.glow2, mix(S.glow2, INK, 0.3), mix(S.glow2, INK, 0.5)] : ['#9ad070', '#62a24e', '#3f7a3a', '#285428'];
   // Un massif sous les verrières, les dômes et la pagode ; sous les pentes de chaume, de
   // tuile et d'ardoise, ce qu'on range au grenier.
@@ -2544,7 +2416,7 @@ function topDecor(ctx, cx, yF, r, ry, T, inside) {
   fig(cx - 70, yF + 5, 0, 1, 11);
   fig(cx - 58, yF + 6, 2, 'g', 12);
   fig(cx + 62, yF + 6, 2, 0, 13);
-  const side = { tent: 'totem', thatch: 'drum', tiles: 'brazier', slate: 'armor', dome: 'statue', spire: 'orb', pagoda: 'orb' }[S.top] || 'palm';
+  const side = { tent: 'totem', thatch: 'drum', tiles: 'brazier', slate: 'armor', dome: 'statue', pagoda: 'orb' }[S.top] || 'palm';
   hallPieceHD(side, O, P, S, cx - r + T + 28, yF);
   hallPieceHD(side, O, P, S, cx + r - T - 28, yF);
   // La lunette de l'astronome, à partir de Rome.
@@ -2882,8 +2754,8 @@ export function bakeCoupeHD(K) {
     cutWall(P, S, x1 - HD.WALL, yT - HD.STRUCT, yB, 1);
     beam(P, S, x0, x1, yT - HD.STRUCT, HD.STRUCT);
     const over = i === L - 1 ? 10 : 18;
-    balcony(P, N, S, x0 - over, x0, yT - HD.STRUCT, -1);
-    balcony(P, N, S, x1, x1 + over, yT - HD.STRUCT, 1);
+    balcony(P, N, S, x0 - over, x0, yT - HD.STRUCT);
+    balcony(P, N, S, x1, x1 + over, yT - HD.STRUCT);
     levels.push({ i, cx, w, yT, y0: yT + HD.CEIL, y1: yT + HD.CEIL + HD.WALLH, rooms: prog[i] });
     level(ctx, { cx, w, yT }, prog[i], i, core);
     yT -= LH;

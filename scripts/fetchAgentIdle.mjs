@@ -34,6 +34,8 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { PNG } from 'pngjs';
 import AdmZip from 'adm-zip';
+import { downloadCharacterZip, assembleStrip, stripShadow } from './lib/pixellab.mjs';
+import { bakeHalf, paletteOf, nearest } from './lib/half.mjs';
 
 const args = process.argv.slice(2);
 const flag = (k, d) => { const a = args.find((x) => x.startsWith('--' + k + '=')); return a ? a.slice(k.length + 3) : d; };
@@ -49,60 +51,10 @@ if (!NAME || !CHAR_ID) { console.error('usage: node scripts/fetchAgentIdle.mjs <
 
 const RX = /animations\/([^/]+)\/(south-east|south-west|north-east|north-west)(?:-([0-9a-f]{8}))?\/frame_(\d+)\.png$/i;
 const at = (img, x, y) => (y * img.width + x) * 4;
+// Téléchargement (avec ses réessais sur 423), ombre cuite (même critère que
+// stripBakedShadow.mjs), palette et demi-bande : scripts/lib/pixellab.mjs et half.mjs.
 
-async function download() {
-  for (let i = 0; i < 20; i += 1) {
-    const r = await fetch(`https://api.pixellab.ai/mcp/characters/${CHAR_ID}/download`);
-    if (r.ok) return Buffer.from(await r.arrayBuffer());
-    if (r.status !== 423) throw new Error('download HTTP ' + r.status);
-    await new Promise((res) => setTimeout(res, 15000));
-  }
-  throw new Error('download : 423 trop longtemps (un job pend)');
-}
-
-function paletteOf(img) {
-  const seen = new Map();
-  for (let i = 0; i < img.data.length; i += 4) {
-    if (img.data[i + 3] > 128) seen.set((img.data[i] << 16) | (img.data[i + 1] << 8) | img.data[i + 2], [img.data[i], img.data[i + 1], img.data[i + 2]]);
-  }
-  return [...seen.values()];
-}
-const nearest = (pal, r, g, b) => {
-  let best = pal[0], bd = Infinity;
-  for (const c of pal) {
-    const d = (c[0] - r) ** 2 + (c[1] - g) ** 2 + (c[2] - b) ** 2;
-    if (d < bd) { bd = d; best = c; }
-  }
-  return best;
-};
-// Ombre cuite : gris neutre opaque dans les 6 rangées du bas d'une frame, qui touche
-// le vide (contagion) — cf. stripBakedShadow.mjs.
-function stripShadow(img) {
-  const W = img.width, H = img.height, ROWS = 6;
-  const grey = (i) => {
-    if (img.data[i + 3] < 128) return false;
-    const r = img.data[i], g = img.data[i + 1], b = img.data[i + 2];
-    const mx = Math.max(r, g, b), mn = Math.min(r, g, b), lum = (r + g + b) / 3;
-    return mx - mn <= 24 && lum >= 60 && lum <= 200;
-  };
-  const empty = (x, y) => x < 0 || y < 0 || x >= W || y >= H || img.data[at(img, x, y) + 3] < 128;
-  let n = 0, changed = true;
-  while (changed) {
-    changed = false;
-    for (let y = Math.max(0, H - ROWS); y < H; y += 1) {
-      for (let x = 0; x < W; x += 1) {
-        const i = at(img, x, y);
-        if (!grey(i)) continue;
-        if (empty(x - 1, y) || empty(x + 1, y) || empty(x, y - 1) || empty(x, y + 1)) {
-          img.data[i + 3] = 0; n += 1; changed = true;
-        }
-      }
-    }
-  }
-  return n;
-}
-
-const buf = await download();
+const buf = await downloadCharacterZip(CHAR_ID);
 const byDir = Object.fromEntries(DIRS.map((d) => [d, []]));
 const ALL4 = new Set(['south-east', 'south-west', 'north-east', 'north-west']);
 const folders = new Set();
@@ -168,10 +120,9 @@ for (const d of DIRS) {
     });
     console.log(`  ${d} : canevas recadré au format de la marche (${WH}), décalage ${dx},${dy}`);
   }
-  const fh = frames[0].height, fw = frames[0].width, n = frames.length;
-  const strip = new PNG({ width: fw * n, height: fh });
+  const fh = frames[0].height, n = frames.length;
   let shadow = 0, snapped = 0;
-  frames.forEach((img, k) => {
+  for (const img of frames) {
     shadow += stripShadow(img);
     for (let i = 0; i < img.data.length; i += 4) {
       if (img.data[i + 3] < 128) { img.data[i + 3] = 0; continue; }
@@ -179,26 +130,11 @@ for (const d of DIRS) {
       if (c[0] !== img.data[i] || c[1] !== img.data[i + 1] || c[2] !== img.data[i + 2]) snapped += 1;
       img.data[i] = c[0]; img.data[i + 1] = c[1]; img.data[i + 2] = c[2]; img.data[i + 3] = 255;
     }
-    PNG.bitblt(img, strip, 0, 0, fw, fh, k * fw, 0);
-  });
+  }
+  const strip = assembleStrip(frames);
   const full = path.join(OUT, `${NAME}-${AS}-${tag}.png`);
   fs.writeFileSync(full, PNG.sync.write(strip));
-  // Demi-bande : moyenne 2×2 pondérée par l'alpha, palette d'origine, alpha binaire.
-  const w = Math.floor(strip.width / 2), h = Math.floor(strip.height / 2);
-  const half = new PNG({ width: w, height: h });
-  for (let y = 0; y < h; y += 1) {
-    for (let x = 0; x < w; x += 1) {
-      let r = 0, g = 0, b = 0, a = 0;
-      for (let dy = 0; dy < 2; dy += 1) for (let dx = 0; dx < 2; dx += 1) {
-        const i = at(strip, x * 2 + dx, y * 2 + dy), pa = strip.data[i + 3];
-        r += strip.data[i] * pa; g += strip.data[i + 1] * pa; b += strip.data[i + 2] * pa; a += pa;
-      }
-      const o = at(half, x, y);
-      if (a / 4 < 128) { half.data[o + 3] = 0; continue; }
-      const c = nearest(pal, r / a, g / a, b / a);
-      half.data[o] = c[0]; half.data[o + 1] = c[1]; half.data[o + 2] = c[2]; half.data[o + 3] = 255;
-    }
-  }
-  fs.writeFileSync(full.replace('.png', '-half.png'), PNG.sync.write(half));
+  // Demi-bande : moyenne 2×2 pondérée par l'alpha, palette de la MARCHE, alpha binaire.
+  fs.writeFileSync(full.replace('.png', '-half.png'), PNG.sync.write(bakeHalf(strip, { pal })));
   console.log(`${AS} ${NAME}-${AS}-${tag}.png ${strip.width}×${fh} (${n} images) · ombre retirée ${shadow} px · rabattus ${snapped} px`);
 }

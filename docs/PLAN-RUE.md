@@ -53,7 +53,9 @@ autres ères.
   `streetKitFor(band)` (null = ère pas encore faite → mobilier d'avant),
   `streetKitLampArt`, `streetKitPlantArt` (canvas mémoïsés, `_foot` connu par
   construction : `artW/artH` en px d'art = px d'écran au zoom 1).
-  Molette A/B `__streetKit(false|true)` (invalide le sol cuit).
+  Molette A/B `__streetKit(false|true)` (invalide le sol cuit) — RETIRÉE le
+  2026-10-06 avec le mobilier d'avant (audit du 05/10, MORT-13 ; PNG rangés dans
+  `art/references-ab/`).
 - `iso/isoStreet.js` — `streetLampArt(band)` (seule porte d'entrée de l'art du mât :
   peintre, lumière, reflets), `lampBox(art, unit)` (taille d'écran : kit au grain,
   PNG à `LAMP_TUNE.h`), `medianPlan(L, seg, T, kit)` (source unique : plantations,

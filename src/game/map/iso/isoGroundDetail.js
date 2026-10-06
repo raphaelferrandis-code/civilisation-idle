@@ -1,9 +1,10 @@
 // LES MATIÈRES DU SOL — de quoi chaque cellule est FAITE, et comment on la garnit.
 //
 // Extraites d'isoRenderer.js le 2026-08-23 (Q10). Six sections du fichier, un seul
-// sujet : le tapis d'herbe vivant (brins, touffes, speckle, fleurs), le bruit lissé
-// qui le fait respirer, la LISIÈRE qui divague entre herbe et ville, la FRANGE
-// d'herbe, les matières de sol urbain par âge, et la frange de chaussée.
+// sujet : le tapis d'herbe vivant (brins, touffes, fleurs), le bruit lissé qui le
+// fait respirer, la LISIÈRE qui divague entre herbe et ville, la FRANGE d'herbe, les
+// matières de sol urbain par âge, et celles de la chaussée. (Le speckle et la frange
+// de chaussée, refusés, ont été retirés le 2026-10-06 : audit MORT-14.)
 // S'y ajoutent deux choses qui en dépendent directement : le FRONT DE RUE (où une
 // maison se pose par rapport à sa chaussée) et la GÉOMÉTRIE DE RUE publiée aux
 // agents — ils lisent les mêmes matières, une copie les ferait diverger.
@@ -36,7 +37,7 @@ import {
 
 export let SEASON_GRASS = GRASS, SEASON_WILD = GRASS_WILD, SEASON_TIP = null, SEASON_FLOWER_MUL = 1;
 
-// ── Détail d'herbe : tapis VIVANT (touffes de brins + speckle + fleurs éparses)
+// ── Détail d'herbe : tapis VIVANT (touffes de brins + fleurs éparses)
 // posé DANS le bake du sol, par-dessus la tuile d'herbe (design réfs pixel-art
 // validé par Raph 2026-07-12 : brins en V + pâquerettes ; réfs = DESIGN, pas
 // couleur). Dispersion en ESPACE-MONDE (hash par cellule UNIQUE → aucune
@@ -52,10 +53,8 @@ export let SEASON_GRASS = GRASS, SEASON_WILD = GRASS_WILD, SEASON_TIP = null, SE
 // « tile », + aplat herbe forcé v=1 → pas de maillage par cellule) sur laquelle on
 // pose des FLEURS assez présentes + des TOUFFES de brins MODÉRÉES (revenues à la
 // demande, mais dosées pour ne PAS re-carpetter : « trop de pixels » = l'écueil).
-// speckle & wildShade (plaques de prairie) restent des knobs, à 0 par défaut.
-// meadow : PRÉS — plaques lentes de nuance par bruit LISSÉ (smoothNoise, aucune
-// couture de cellule ni de bloc, contrairement à la variance par cellule qui
-// dessinait un maillage) ; foncé = herbe grasse, clair = herbe sèche. Dosé bas.
+// (speckle, wildShade — plaques de prairie — et meadow — prés par voile de losange —
+// éteints de longue date, ont été retirés le 2026-10-06, audit MORT-14 : cf. plus bas.)
 // tileAlpha 0 → 1 (Raph 2026-07-28) : la tuile d'herbe regénérée (4 variantes
 // brutes, patchwork voulu) est DESSINÉE — l'ancien 0 datait de la tuile unique
 // qui tapissait ; « branche ce que j'ai mis en image ».
@@ -66,7 +65,7 @@ export let SEASON_GRASS = GRASS, SEASON_WILD = GRASS_WILD, SEASON_TIP = null, SE
 // ne se voyaient pas (voile ≤ 8 %, dosé losange par losange — plus haut, la grille
 // ressortirait) ; ils sont maintenant des ZONES lissées (iso/isoMeadow.js), et les
 // fleurs vont en colonies (FLOWER_COLONY, plus bas).
-export const GRASS_DETAIL = { on: true, tileAlpha: 1, flowerP: 0.22, tuftP: 0.45, speckleP: 0, wildShade: 0, meadow: 0, clumpP: 0.09, clumpScale: 0.55, colony: true };
+export const GRASS_DETAIL = { on: true, tileAlpha: 1, flowerP: 0.22, tuftP: 0.45, clumpP: 0.09, clumpScale: 0.55, colony: true };
 // Sous-couche des tuiles d'herbe À CREUX (noFill, cf. fetchGroundTiles) : les
 // trous entre brins doivent lire comme l'OMBRE sous l'herbe, pas comme le fond
 // olive du bake (plus clair que les brins → relief inversé, points clairs).
@@ -144,8 +143,6 @@ export function refreshSeasonPalette() {
   SEASON_TIP = seasonTip(s);
   SEASON_FLOWER_MUL = seasonFlowerMul(s);
 }
-const GD_SPECK_L = [138, 164, 96];   // speckle vert clair
-const GD_SPECK_Y = [198, 208, 126];  // speckle jaune pâle
 // Palette de fleurs [pétale, cœur] : pâquerette blanche dominante + accents jaune
 // (bouton d'or), rose, rouge/coquelicot, violet, bleuet. Poids par RÉPÉTITION
 // (blanc/jaune plus fréquents que les vives) → un pré fleuri, pas des confettis.
@@ -212,13 +209,6 @@ export function drawGrassDetail(ctx, gx, gy, px, py, hw, hh, onGrass = null, flo
   };
   const h1 = cmHash('gd:' + gx + ':' + gy);
   const h2 = cmHash('gd2:' + gx + ':' + gy);
-  // Speckle (knob speckleP, défaut 0) : 1 point clair/jaune pâle.
-  if (GRASS_DETAIL.speckleP > 0 && (h1 & 255) / 255 < GRASS_DETAIL.speckleP) {
-    const fx = 0.2 + ((h1 >> 8) & 63) / 63 * 0.6;
-    const fy = 0.2 + ((h1 >> 14) & 63) / 63 * 0.6;
-    const sx = Math.round(px + (fx - fy) * hw), sy = Math.round(py + (fx + fy) * hh);
-    if (ok(fx, fy)) rect(sx, sy, pu, pu, (h1 & 1) ? GD_SPECK_Y : GD_SPECK_L, 0.5);
-  }
   // Touffe de brins (knob tuftP, défaut 0) : 2-3 brins verticaux, corps foncé + pointe.
   if (!lawn && GRASS_DETAIL.tuftP > 0 && (h2 & 255) / 255 < GRASS_DETAIL.tuftP) {
     const fx = 0.28 + ((h2 >> 8) & 31) / 31 * 0.44;
@@ -291,10 +281,10 @@ export function drawGrassDetail(ctx, gx, gy, px, py, hw, hh, onGrass = null, flo
     deco(isoArt('deco/tuft-' + (1 + (h3 % GD_TUFTS))), fx, fy, GRASS_DETAIL.clumpScale);
   }
 }
-if (typeof window !== 'undefined') {
+if (import.meta.env?.DEV && typeof window !== 'undefined') {
   // Molette de réglage : rebake le sol immédiatement.
   // __grassDetail(false) éteint ; (nombre) = fréquence des fleurs ; ({tileAlpha,
-  // flowerP,tuftP,speckleP,wildShade,clumpP}) = réglage fin. Ex. réactiver les
+  // flowerP,tuftP,clumpP,clumpScale,colony}) = réglage fin. Ex. réactiver les
   // brins : __grassDetail({ tuftP: 0.25 }) ; couper les touffes dessinées :
   // __grassDetail({ clumpP: 0 }).
   window.__grassDetail = (arg) => {
@@ -350,7 +340,7 @@ export function smoothNoise(gx, gy, scale, salt) {
 // p : part des cellules frontalières retournées de chaque côté.
 // Réglage live : __frontier(false) / ({ p, scale, solo }).
 export const FRONTIER = { on: true, p: 0.3, scale: 3.2, solo: false };
-if (typeof window !== 'undefined') {
+if (import.meta.env?.DEV && typeof window !== 'undefined') {
   window.__frontier = (arg) => {
     if (arg === false) FRONTIER.on = false;
     else if (arg && typeof arg === 'object') { FRONTIER.on = true; Object.assign(FRONTIER, arg); }
@@ -463,7 +453,7 @@ export function isoWetFootprint(t, river, rc, spanX, spanY) {
   t._wet = { rc, banks, gx: t.gx, gy: t.gy, sx: spanX, sy: spanY, v: wet };
   return wet;
 }
-if (typeof window !== 'undefined') {
+if (import.meta.env?.DEV && typeof window !== 'undefined') {
   // Molette front de rue : __front(false) recentre les bâtiments comme avant ;
   // __front({push,gap}) règle le poussé (push = fraction de tuile vers la rue,
   // gap = marge minimale gardée jusqu'à la chaussée).
@@ -506,7 +496,7 @@ export function isoRowSetback(t, roadMap, cfg = ROW_SETBACK) {
   t._rowBack = (ox || oy) ? { ox, oy } : null;
   return t._rowBack;
 }
-if (typeof window !== 'undefined') {
+if (import.meta.env?.DEV && typeof window !== 'undefined') {
   // Molette : __rowSetback(false) recolle les rangées au bord du lot ;
   // __rowSetback({margin}) règle le sol gardé entre trottoir et façade.
   window.__rowSetback = (arg) => {
@@ -554,21 +544,16 @@ export function frontierFlip(gx, gy, isUrban, urbanLogical, built, cfg = FRONTIE
 // ── FRANGE D'HERBE (jonction herbe↔sol) ──────────────────────────────────────
 // L'escalier de losanges FRANC entre l'herbe et le sol urbain était la couture la
 // plus dure de la carte. Le long de chaque arête partagée herbe/sol, l'herbe MORD
-// désormais sur le sol : langues crantées profondes de 1..3 « pixels » d'art
-// (pas pu suivant le zoom, comme le tapis d'herbe), pointe assombrie (ourlet
-// d'ombre du gazon), trouées pour respirer, et quelques touffes debout à cheval
-// sur la lisière. Haché par cellule+arête → stable au rebake, aucun motif répété.
-// Ne s'applique QU'AUX sols urbain/terre (les dallages formels — place, parvis —
-// gardent leur bord franc voulu) et pas vers l'eau (le fleuve couvre en live).
-// Réglage live : __grassFringe(false) / ({depth,gapP,tuftP,flowerP,dark}).
+// désormais sur le sol, avec des trouées pour respirer, et quelques touffes debout
+// à cheval sur la lisière. Haché par cellule+arête → stable au rebake, aucun motif
+// répété. Ne s'applique QU'AUX sols urbain/terre (les dallages formels — place,
+// parvis — gardent leur bord franc voulu) et pas vers l'eau (le fleuve couvre en
+// live). Réglage live : __grassFringe(false) / ({gapP,tuftP,flowerP,wander,wanderF}).
 // mode 'none' depuis le 2026-07-20 : la lisière herbe↔sol est un bord FRANC —
 // seuls restent les touffes debout et les fleurs (accents validés). Historique
-// des retours Raph, ne pas re-proposer sans demande : langues crantées 'teeth'
-// (pointes sombres lisaient en « tas »), puis ourlet continu 'hem' (« ça n'a
-// rien changé, enlève-le »). Les deux restent en knob — mais `dark` a été mis à
-// 0 en même temps : le look 'teeth' HISTORIQUE se rejoue avec
-// __grassFringe({mode:'teeth', dark:1}) (sans dark:1, pointes sans ourlet
-// d'ombre = un rendu qui n'a jamais existé) ; 'hem' : __grassFringe({mode:'hem'}).
+// des retours Raph, ne pas re-proposer : langues crantées 'teeth' (pointes sombres
+// lisaient en « tas »), puis ourlet continu 'hem' (« ça n'a rien changé,
+// enlève-le ») — leurs molettes ont été RETIRÉES le 2026-10-06 (audit MORT-14).
 // mode 'wander' (2026-07-22) : on ne DÉCORE plus la couture, on DÉPLACE le bord.
 // Les quatre décorations tentées ('teeth', 'hem', edgeFringe, contour d'un pack
 // de tuiles) ont toutes été refusées, et toutes ajoutaient un élément SOMBRE le
@@ -588,10 +573,8 @@ export function frontierFlip(gx, gy, isUrban, urbanLogical, built, cfg = FRONTIE
 // d'herbe (leur débord de brins passe DEVANT le sol au nord, cf. le blit à
 // débord d'ensureIsoTileKey/blitIsoTileKey), pas des brins ajoutés par la
 // frange.)
-export const GRASS_FRINGE = { on: true, mode: 'wander', depth: 1, gapP: 0.14, tuftP: 0.10, flowerP: 0.08, dark: 0, wander: 2.6, wanderF: 12 };
-const GF_MID = [102, 126, 72];    // herbe légèrement ombrée (varie le corps des langues)
-const GF_DARK = [76, 100, 54];    // pointe sombre : l'ourlet d'ombre de la lisière
-export function drawGrassFringeEdge(ctx, f, pu, soilTone, lis = null, flowerK = 1) {
+export const GRASS_FRINGE = { on: true, mode: 'wander', gapP: 0.14, tuftP: 0.10, flowerP: 0.08, wander: 2.6, wanderF: 12 };
+function drawGrassFringeEdge(ctx, f, pu, soilTone, lis = null, flowerK = 1) {
   const dxE = f.bx - f.ax, dyE = f.by - f.ay;
   const len = Math.hypot(dxE, dyE);
   const steps = Math.max(3, Math.round(len / pu));
@@ -625,8 +608,8 @@ export function drawGrassFringeEdge(ctx, f, pu, soilTone, lis = null, flowerK = 
     return null;
   };
   if (mode === 'wander' && soilTone) {
-    // BORD DÉPLACÉ (cf. l'en-tête du bloc). Densité ×2 comme 'hem' : sur une
-    // diagonale 2:1, un pas par pu laisserait l'escalier à jour entre les carrés.
+    // BORD DÉPLACÉ (cf. l'en-tête du bloc). Densité ×2 : sur une diagonale 2:1,
+    // un pas par pu laisserait l'escalier à jour entre les carrés.
     const D = GRASS_FRINGE.wander * pu;
     const F = GRASS_FRINGE.wanderF;
     const n2 = Math.max(4, Math.ceil(len / pu) * 2);
@@ -650,18 +633,6 @@ export function drawGrassFringeEdge(ctx, f, pu, soilTone, lis = null, flowerK = 
       // D'HIVER plus haut. La neige vient des tuiles ISO_TILE_WINTER.)
     }
   }
-  if (mode === 'hem') {
-    // TRAIT CONTINU : rangée de pixels d'art SANS trouée qui longe l'arête, à
-    // cheval côté sol — pas-de-vis en carrés opaques (pas de stroke anti-aliasé,
-    // la lisière reste crispe). Densité ×2 pour un escalier plein sur les
-    // diagonales 2:1.
-    const n2 = Math.ceil(len / pu) * 2;
-    for (let i = 0; i < n2; i += 1) {
-      const t = (i + 0.5) / n2;
-      rect(Math.round(f.ax + dxE * t + f.inx * 0.5 * pu - pu / 2),
-        Math.round(f.ay + dyE * t + f.iny * 0.5 * pu - pu / 2), GF_DARK);
-    }
-  }
   for (let i = 0; i < steps; i += 1) {
     const h = cmHash(f.seed + ':' + i);
     if ((h & 255) / 255 < GRASS_FRINGE.gapP) continue;         // trouée : la lisière respire
@@ -669,16 +640,6 @@ export function drawGrassFringeEdge(ctx, f, pu, soilTone, lis = null, flowerK = 
     const at = onEdge(t);
     if (!at) continue;
     const ex = at[0], ey = at[1];
-    if (mode === 'teeth') {
-      const d = Math.max(1, Math.round((1 + ((h >>> 8) % 3)) * GRASS_FRINGE.depth));
-      for (let j = 0; j < d; j += 1) {
-        const bx = Math.round(ex + f.inx * (j + 0.5) * pu - pu / 2);
-        const by = Math.round(ey + f.iny * (j + 0.5) * pu - pu / 2);
-        const col = (j === d - 1 && GRASS_FRINGE.dark) ? GF_DARK
-          : (((h >> (10 + j)) & 3) === 0 ? GF_MID : SEASON_GRASS);
-        rect(bx, by, col);
-      }
-    }
     // Touffe debout occasionnelle, à cheval sur la lisière : brins sombres à
     // pointe claire (mêmes tons que le tapis d'herbe → aucun accent nouveau).
     if ((h % 997) / 997 < GRASS_FRINGE.tuftP) {
@@ -697,7 +658,7 @@ export function drawGrassFringeEdge(ctx, f, pu, soilTone, lis = null, flowerK = 
   // pâquerettes & accents de la palette du tapis (GD_FLOWERS, blanc/jaune
   // dominants), posés à cheval sur la lisière, surtout côté herbe — une
   // guirlande discrète qui souligne le bord. 2e boucle : dessinées APRÈS les
-  // langues pour qu'un pas voisin ne rogne pas leurs pétales.
+  // touffes pour qu'un pas voisin ne rogne pas leurs pétales.
   // `flowerK` : au camp, la lisière est de la terre PIÉTINÉE — pas de guirlande.
   const fringeFlowerP = GRASS_FRINGE.flowerP * SEASON_FLOWER_MUL * flowerK;
   if (fringeFlowerP > 0) {
@@ -717,8 +678,8 @@ export function drawGrassFringeEdge(ctx, f, pu, soilTone, lis = null, flowerK = 
     }
   }
 }
-if (typeof window !== 'undefined') {
-  // Frange d'herbe : __grassFringe(false) éteint ; ({depth,gapP,tuftP,flowerP,dark})
+if (import.meta.env?.DEV && typeof window !== 'undefined') {
+  // Frange d'herbe : __grassFringe(false) éteint ; ({gapP,tuftP,flowerP,wander,wanderF})
   // réglage fin ; sans argument = rallume. Rebake immédiat.
   window.__grassFringe = (arg) => {
     if (arg === false) GRASS_FRINGE.on = false;
@@ -771,20 +732,19 @@ const URBAN_MATS = [
   { tone: [206, 200, 186], type: 'tech', seam: [130, 210, 220], tile: 'ground-tech' },  // 8 stellaire — nacre ivoire
   { tone: [198, 194, 210], type: 'tech', seam: [150, 224, 232], tile: 'ground-tech' },  // 9 démiurge — nacre lavande
 ];
-// tileA/tileJit : DOSAGE de la tuile de matière « terre » — alpha = tileA +
-// bruit LISSÉ × tileJit. Historique des retours Raph : tuile PLEINE = tapis
-// criard (2026-07-12), alpha haché PAR CELLULE = damier de losanges, plaques
-// par bruit lissé = « tas de terre » épars, et même en dose constante à 0.6
-// les mottes lisaient encore comme des tas/« pavés de jonction » (2026-07-20).
-// VERDICT FINAL 2026-07-20 : le grief était la FORCE de la trame, pas sa
-// répartition → dose CONSTANTE ET FAIBLE (0.12 = simple grain qui vit, zéro
-// motte lisible ; validé par captures jour/nuit). tileJit reste un knob.
-// noiseAmp : VOILE DE NUANCE par bruit lissé — essayé à 0.3, coupé le
-// 2026-07-16 (retour Raph : « retire les plaques grises sur le sol ») ; knob.
+// tileA : DOSAGE de la tuile de matière « terre ». Historique des retours Raph :
+// tuile PLEINE = tapis criard (2026-07-12), alpha haché PAR CELLULE = damier de
+// losanges, plaques par bruit lissé (`tileJit`) = « tas de terre » épars, et même
+// en dose constante à 0.6 les mottes lisaient encore comme des tas/« pavés de
+// jonction » (2026-07-20). VERDICT FINAL 2026-07-20 : le grief était la FORCE de la
+// trame, pas sa répartition → dose CONSTANTE (validé par captures jour/nuit).
+// (noiseAmp — VOILE DE NUANCE par bruit lissé, essayé à 0.3, coupé le 2026-07-16 :
+//  « retire les plaques grises sur le sol » — et tileJit ont été retirés le
+//  2026-10-06, audit MORT-14.)
 // tileA 0.12 → 1 (Raph 2026-07-28) : le 0.12 dosait l'ANCIENNE tuile de terre
 // unique (historique ci-dessus, conservé) ; les 4 variantes brutes regénérées
 // s'affichent pleines, comme les autres matières.
-export const URBAN_DETAIL = { on: true, mult: 1, band: null, tiles: true, tileA: 1, tileJit: 0, noiseAmp: 0 };   // band≠null = force ère (preview) ; tiles=false → procédural
+export const URBAN_DETAIL = { on: true, mult: 1, band: null, tiles: true, tileA: 1 };   // band≠null = force ère (preview) ; tiles=false → procédural
 // S2 — DOSE PAR MATIÈRE (docs/PLAN-RENDU-VILLE.md). `tileA` ne s'appliquait qu'à la
 // TERRE BATTUE : partout ailleurs la tuile partait à alpha 1, sans qu'aucun réglage
 // ne puisse la calmer. Or le grain mesuré des matières de sol est très inégal —
@@ -914,11 +874,10 @@ export function drawUrbanDetail(ctx, gx, gy, px, py, hw, hh, mat) {
     return;
   }
 }
-if (typeof window !== 'undefined') {
+if (import.meta.env?.DEV && typeof window !== 'undefined') {
   // Molette sol urbain : __groundMat(false) off ; (nombre)=intensité ; ({band:3})
-  // force une ère pour l'aperçu ; ({mult,band,tileA,tileJit,noiseAmp}) réglage fin
-  // (tileA/tileJit = dose de la trame terre par cellule ; noiseAmp = voile de
-  // nuance en plaques lissées). Rebake immédiat.
+  // force une ère pour l'aperçu ; ({mult,band,tileA}) réglage fin (tileA = dose de
+  // la trame terre par cellule). Rebake immédiat.
   window.__groundMat = (arg) => {
     if (arg === false) URBAN_DETAIL.on = false;
     else if (typeof arg === 'number') { URBAN_DETAIL.on = true; URBAN_DETAIL.mult = arg; }
@@ -954,52 +913,19 @@ export function isoEraSurface(band) {
     veil: ROAD_VEIL[Math.max(0, Math.min(ROAD_VEIL.length - 1, b))],
   };
 }
-// ── FRANGE DE CHAUSSÉE : même grammaire que la lisière d'herbe, entre la dalle
-// et son épaulement — l'épaulement MORD sur le bord du ruban par petits blocs
-// (1..2 pu, deux tons), et la matière de la route s'égrène en GRAVILLONS épars
-// sur l'épaulement. Le bord parfaitement géométrique faisait « route tamponnée » ;
-// cranté, il fait chemin qui vit avec son sol. Intensité PAR ÈRE (roadFringeK) :
-// terre battue très effrangée → pavé/dalle un peu → asphalte à peine → tech NETTE
-// (une voie high-tech aux bords rongés ne se lit pas). Bake seulement, hash par
-// arête+pas (stable, continu de cellule en cellule — rien « par cellule »).
-export function roadFringeK(band) {
-  return band >= 7 ? 0 : band >= 6 ? 0.5 : band >= 2 ? 0.75 : 1;
-}
-export function drawRoadEdgeFringe(ctx, seg, pu, biteCol, biteCol2, spillCol, k) {
-  const dxE = seg.bx - seg.ax, dyE = seg.by - seg.ay;
-  const len = Math.hypot(dxE, dyE);
-  if (len < pu * 2) return;
-  const steps = Math.max(2, Math.round(len / pu));
-  for (let i = 0; i < steps; i += 1) {
-    const h = cmHash(seg.seed + ':' + i);
-    const t = (i + 0.5) / steps;
-    const ex = seg.ax + dxE * t, ey = seg.ay + dyE * t;
-    // Morsure de l'épaulement sur la dalle (vers l'INTÉRIEUR du ruban).
-    if ((h & 255) / 255 < 0.6 * k) {
-      const d = 1 + ((h >>> 8) % 2);
-      for (let j = 0; j < d; j += 1) {
-        ctx.fillStyle = ((h >>> (10 + j)) & 1) ? biteCol : biteCol2;
-        ctx.fillRect(Math.round(ex - seg.ox * (j + 0.5) * pu - pu / 2), Math.round(ey - seg.oy * (j + 0.5) * pu - pu / 2), pu, pu);
-      }
-    }
-    // Gravillons égrenés vers l'EXTÉRIEUR (sur l'épaulement, un peu au-delà).
-    if (((h >>> 16) & 255) / 255 < 0.3 * k) {
-      const dOut = 1 + ((h >>> 24) & 1);
-      ctx.fillStyle = spillCol;
-      ctx.fillRect(Math.round(ex + seg.ox * (dOut + 0.2) * pu - pu / 2), Math.round(ey + seg.oy * (dOut + 0.2) * pu - pu / 2), pu, pu);
-    }
-  }
-}
+// (La FRANGE DE CHAUSSÉE — morsures de l'épaulement et gravillons sur le bord du
+//  ruban, roadFringeK/drawRoadEdgeFringe — refusée par Raph le 2026-07-16, « oula
+//  non ça ne va pas du tout », a été retirée le 2026-10-06, audit MORT-14.)
 export function roadMatFor(band) {
   const b = ROAD_DETAIL.band != null ? ROAD_DETAIL.band : band;
   return ROAD_MATS[Math.max(0, Math.min(ROAD_MATS.length - 1, b | 0))];
 }
-if (typeof window !== 'undefined') {
+if (import.meta.env?.DEV && typeof window !== 'undefined') {
   // Molette chaussée : __roadMat(false) off ; ({tiles,band,shoulderMix,shoulderV,
-  // groove,grooveA,feather,featherA,edgeFringe,veilK}) réglage fin (shoulder* =
-  // teinte de l'épaulement ; groove* = gorge d'ombre au contact de la dalle ;
-  // feather* = ourlet de fondu épaulement→sol ; edgeFringe = crantage rejeté, 0 ;
-  // veilK = dose du voile de lecture, 0 rend la rue à sa tuile nue). Rebake immédiat.
+  // groove,grooveA,feather,featherA,veilK}) réglage fin (shoulder* = teinte de
+  // l'épaulement ; groove* = gorge d'ombre au contact de la dalle ; feather* =
+  // ourlet de fondu épaulement→sol ; veilK = dose du voile de lecture, 0 rend la
+  // rue à sa tuile nue). Rebake immédiat.
   window.__roadMat = (arg) => {
     if (arg === false) ROAD_DETAIL.on = false;
     else if (arg && typeof arg === 'object') { ROAD_DETAIL.on = true; Object.assign(ROAD_DETAIL, arg); }
@@ -1040,7 +966,7 @@ function syncIsoStreetGeom() {
   }
 }
 syncIsoStreetGeom();
-if (typeof window !== 'undefined') {
+if (import.meta.env?.DEV && typeof window !== 'undefined') {
   window.__sidewalkIso = (arg) => {
     if (arg === false) SIDEWALK_ISO.on = false;
     else if (arg && typeof arg === 'object') { SIDEWALK_ISO.on = true; Object.assign(SIDEWALK_ISO, arg); }

@@ -19,13 +19,8 @@ import { worldToScreen } from './projection.js';
 import { isoPlazaCompositions } from './isoPlaza.js';
 import { VIE, vieK, vieZoomFade, vieSprite, vieBlit, viePixel, vieCount, registerVieActors } from './isoVie.js';
 import { BFLY_KINDS } from './vieArt.js';
+import { hash01Lowbias as h32 } from '../hash.js';
 
-function h32(n) {
-  let x = (n | 0) + 0x9e3779b9;
-  x = Math.imul(x ^ (x >>> 16), 0x21f0aaad);
-  x = Math.imul(x ^ (x >>> 15), 0x735a2d97);
-  return ((x ^ (x >>> 15)) >>> 0) / 4294967296;
-}
 const bandOf = () => ((CM.layout && CM.layout.counts && CM.layout.counts.eraBand) | 0);
 
 // ── CHIENS ──────────────────────────────────────────────────────────────────
@@ -290,7 +285,7 @@ registerVieActors((now, out) => {
   pushLaundry(now, out);
 });
 
-if (typeof window !== 'undefined') {
+if (import.meta.env?.DEV && typeof window !== 'undefined') {
   window.__vieTerre = () => ({
     chats: catSpots().map((s) => [s.x, s.y]),
     linge: lineSpots().map((s) => [s.x, s.y]),

@@ -19,13 +19,8 @@ import { isoFrontOffset } from './isoGroundDetail.js';
 import { isoPlazaCompositions, propFootprint, footClash, lampFootprint } from './isoPlaza.js';
 import { figNear } from '../figures.js';
 import { VIE, vieK, vieZoomFade, vieSprite, vieBlit, vieCount, registerVieActors, registerVieAir, vieOccupied, drawnBoxOf, inkTopAt } from './isoVie.js';
+import { hash01Lowbias as h32 } from '../hash.js';
 
-function h32(n) {
-  let x = (n | 0) + 0x9e3779b9;
-  x = Math.imul(x ^ (x >>> 16), 0x21f0aaad);
-  x = Math.imul(x ^ (x >>> 15), 0x735a2d97);
-  return ((x ^ (x >>> 15)) >>> 0) / 4294967296;
-}
 const bandOf = () => ((CM.layout && CM.layout.counts && CM.layout.counts.eraBand) | 0);
 
 // ── LES POSTES ──────────────────────────────────────────────────────────────
@@ -364,7 +359,7 @@ registerVieAir((ctx, now) => {
 });
 
 // Vérification : où sont les volées (monde, tuiles) et dans quel état.
-if (typeof window !== 'undefined') {
+if (import.meta.env?.DEV && typeof window !== 'undefined') {
   window.__vieFlocks = () => flocks().map((f) => { const s = spotOf(f, f.home); return { kind: f.kind, state: f.state, x: s.x, y: s.y, n: f.birds.length, area: f.area.kind }; });
   window.__vieRoofs = () => roofHouses().map((r) => [r.t.gx + 0.5, r.t.gy + 0.5]);
 }

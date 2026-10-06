@@ -2,6 +2,7 @@ import { describe, it, expect } from "vitest";
 
 import { streetKitFor, streetKitRasters, wildShrubRasters } from "../iso/streetKits.js";
 import { medianPlan, medianUrbanCells } from "../iso/isoStreet.js";
+import { AGE_CONFIG, ageConfigFor } from "../procedural/ageVisualConfig.js";
 
 // LE MOBILIER DE RUE PAR ÈRE (iso/streetKits.js, 2026-10-02/03). Les images
 // PixelLab des réverbères s'affichaient à un cinquième de leur pixel ; le kit
@@ -25,6 +26,19 @@ describe("streetKits — réverbère et plantations au grain de la ville", () =>
   it("chaque ère à boulevards a son kit ; le camp et le hameau n'en ont pas", () => {
     for (const b of BANDS) expect(streetKitFor(b)).not.toBeNull();
     for (const b of [0, 1]) expect(streetKitFor(b)).toBeNull();
+  });
+
+  // Audit du 05/10, MORT-13 : le mobilier d'avant le kit (parterres, buissons et
+  // réverbères PNG) est RETIRÉ. Sans kit, le terre-plein et les mâts ne se dessinent
+  // plus du tout : toute bande qui trace des avenues (donc des terre-pleins, cf.
+  // computeTerrePleinSegments) doit avoir un kit avec terre-plein ET réverbère.
+  it("toute bande à avenues a un terre-plein et un réverbère de kit (rien d'autre ne les dessine)", () => {
+    for (let b = 0; b < AGE_CONFIG.length; b += 1) {
+      if (!ageConfigFor(b).roadRanks.avenue) continue;
+      const K = streetKitFor(b);
+      expect(K && K.median, `bande ${b} : terre-plein`).toBeTruthy();
+      expect(K && typeof K.lamp, `bande ${b} : réverbère`).toBe("function");
+    }
   });
 
   it("chaque réverbère fait environ deux habitants et demi (16 à 23 px d'encre au zoom 1)", () => {

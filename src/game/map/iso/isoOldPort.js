@@ -21,7 +21,7 @@
 import { CM } from '../layout.js';
 import { quayWallTiles, quayWallTune } from '../quaysAndRiot.js';
 import { bakeBoxes, blitLayer, paintBakeUnder, h01, mul, mix, FACE_LIGHT, faceLit } from './isoBoxBake.js';
-import { drawMooredHull, hullFootprint, riverEdgeAt, riverWaterAt, riverWindow, registerPortProvider, registerPortLamps, quayJoin } from './portBerths.js';
+import { drawMooredHull, hullFootprint, riverEdgeAt, riverWaterAt, riverWindow, registerPortLamps, quayJoin } from './portBerths.js';
 import { queueFlameGlow } from '../flameGlow.js';
 import { depthOf, worldToScreen } from './projection.js';
 import { BASIN_NORTH_QUAY } from '../portSites.js';
@@ -32,7 +32,7 @@ import { rippleField, noteRipples } from './waterRipples.js';
 import { chuteTileState } from './chuteState.js';
 
 export const OLDPORT = { on: true, shadow: true, reflect: true, ink: true };
-if (typeof window !== 'undefined') {
+if (import.meta.env?.DEV && typeof window !== 'undefined') {
   window.__oldPort = (o) => {
     if (o === false) OLDPORT.on = false;
     else if (o === true) OLDPORT.on = true;
@@ -524,24 +524,6 @@ export function drawOldPort(ctx, t, band, now) {
     queueFlameGlow(p.x, p.y, T * CM.cam.zoom * 0.42, '255,236,180', now, 1.3, 1.5);
   }
 }
-
-// ── CE QUE LA FLOTTE DOIT SAVOIR DU VIEUX-PORT (iso/portBerths.js) ─────────────
-// Les places du bassin (toutes occupées par un bateau-décor). Rien dans le fleuve :
-// le bassin est HORS du ruban, seule son entrée le touche.
-registerPortProvider('plaisance', (L) => {
-  if (!OLDPORT.on || !L || !L.counts) return null;
-  const band = L.counts.eraBand | 0;
-  const berths = [];
-  for (const t of oldPortTiles(L)) {
-    const g = oldPortGeom(t, band);
-    if (!g) continue;
-    g.plan.boats.forEach((bt, i) => {
-      const fp = hullFootprint(bt.role, band);
-      berths.push({ id: 'plaisance-' + i, kind: 'plaisance', x: bt.x, y: bt.y, heading: bt.heading, axis: null, maxLen: fp.len + 0.1, decor: true });
-    });
-  }
-  return { berths, water: [] };
-});
 
 // ── LES RÉVERBÈRES DU VIEUX-PORT (iso/portBerths.js → isoStreet.isoLamps) ───────
 // Le long du quai du fond (pas devant la capitainerie) et des deux quais latéraux, un

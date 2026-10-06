@@ -68,10 +68,7 @@
    jamais dans les compteurs) */
 .body-copy,
 .event-dialog p,
-.era-description-text,
-.shop-item p,
 .upgrade p,
-.locked-hint,
 .pr-locked-hint,
 .choice-menu small,
 .ticker-text {
@@ -161,7 +158,6 @@
 
 /* Labels : inscriptions de monnaie — minuscules, très espacées, en retrait */
 .resource-name,
-.city-title-label,
 .myth-modal-label {
   letter-spacing: 0.16em;
   font-weight: 600;

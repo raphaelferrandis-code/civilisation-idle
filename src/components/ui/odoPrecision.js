@@ -20,13 +20,13 @@ export const MAX_SLOTS = 6;
 // Basculements par seconde visés sur le dernier chiffre. La précision étant
 // entière, le rythme obtenu tombe dans [0.5, 5] par seconde selon l'arrondi —
 // jamais figé, jamais un moulin.
-export const TARGET_FLIPS = 1.6;
+const TARGET_FLIPS = 1.6;
 
 // Bande morte de l'hystérésis : tant que le rythme reste dedans, on ne
 // retouche pas la forme du cadran (plus large que la plage atteignable pour
 // qu'une simple fluctuation de débit ne déclenche rien).
-export const BAND_LOW = 0.4;
-export const BAND_HIGH = 8;
+const BAND_LOW = 0.4;
+const BAND_HIGH = 8;
 
 // Un changement de forme re-monte le cadran (toutes les colonnes claquent, la
 // police se recalcule) : il faut que la sortie de bande dure, et qu'on ne

@@ -110,15 +110,15 @@ export const ROWS = {
     selfEnd: ["haussmann", "terrace"],
     models: { haussmann: ["fl", "fr"], terrace: ["fl", "fr", "bl", "br"] },
   },
-};
-ROWS[6] = {
-  // Néon : la rue commerçante — boutiques néon en façade, dos et bouts en brique (la
-  // rangée de la Fonte, que la bande 6 tire encore ; les dos néon sont des murs aveugles).
-  sides: ["neonshop", "terrace"],
-  of: { neonshop: "neonshop", block: "neonshop", terrace: "terrace" },
-  end: "terrace",
-  selfEnd: ["neonshop", "terrace"],
-  models: { neonshop: ["fl", "fr"], terrace: ["fl", "fr", "bl", "br"] },
+  6: {
+    // Néon : la rue commerçante — boutiques néon en façade, dos et bouts en brique (la
+    // rangée de la Fonte, que la bande 6 tire encore ; les dos néon sont des murs aveugles).
+    sides: ["neonshop", "terrace"],
+    of: { neonshop: "neonshop", block: "neonshop", terrace: "terrace" },
+    end: "terrace",
+    selfEnd: ["neonshop", "terrace"],
+    models: { neonshop: ["fl", "fr"], terrace: ["fl", "fr", "bl", "br"] },
+  },
 };
 export const ROW_VIEW = { S: "fl", E: "fr", N: "bl", W: "br" };
 

@@ -13,9 +13,10 @@ import { tr } from '../../game/core/i18n.js';
  * encarts de mise). Or la scène vit dans `.regulation-stage { overflow-y:auto }`
  * qui CLIPPE tout enfant absolu débordant par le haut. Le feuillet est donc
  * `position: fixed` (il échappe à l'overflow) et positionné en JS relativement
- * au bouton — un positionneur maison plutôt que l'anchor positioning CSS, qui
- * n'existe pas dans le Chromium de l'.exe Electron shippé (< Chrome 125). Il
- * bascule vers le BAS seulement s'il n'y a pas la place au-dessus.
+ * au bouton — un positionneur maison plutôt que l'anchor positioning CSS : le
+ * Chromium de l'.exe (Electron 42) le connaît, mais la version web doit tenir
+ * dans les navigateurs qui ne l'ont pas encore. Il bascule vers le BAS
+ * seulement s'il n'y a pas la place au-dessus.
  */
 export default function StageHelp({ children }) {
   const wrapRef = useRef(null);

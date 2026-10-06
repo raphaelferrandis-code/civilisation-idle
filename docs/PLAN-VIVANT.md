@@ -46,7 +46,7 @@ https://claude.ai/artifact/X7TKD4qanQs1ch3qYG8xBP
 
 - **Trait** : aplats francs, contour noir d'un pixel autour de toute la silhouette, pas
   d'ombrage, pas de tramage, visage à deux points. C'est la recette FLAT validée en
-  août (`scripts/isoBatchRoster.json`, `_doc`).
+  août (`scripts/_archive/isoBatchRoster.json`, `_doc`).
 - **Grain** : chaque image est dessinée pour sa taille d'affichage. Gens : toile 56 px
   (personnage ~28 px) + bande `-half` de 28 px pour le petit zoom. Véhicules et
   attelages : toile 64 px + `-half` 32 px. Jamais une planche 3 à 6 fois trop grande.

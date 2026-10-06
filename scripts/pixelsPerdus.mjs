@@ -47,6 +47,10 @@ const PROOF = (() => { const i = argv.indexOf('--proof'); return i >= 0 ? argv[i
 
 const BLD = 'public/pixelart/agents/buildings';
 const ISO = 'public/pixelart/iso';
+// Les originaux des Conteurs (`storyteller-fire`, `-prop-fire`) ne sont plus dessinés
+// par le jeu depuis le 2026-08-05 : rangés hors de public/ (audit 2026-10-05, ASSET-3),
+// ils restent la SOURCE de `camp-hearth-fire.png`.
+const CONTEURS = 'art/conteurs';
 
 const read = (p) => PNG.sync.read(fs.readFileSync(p));
 const hexOf = (d, i) => '#' + [d[i], d[i + 1], d[i + 2]].map((v) => v.toString(16).padStart(2, '0')).join('');
@@ -70,8 +74,8 @@ const ZONE = { x0: 32, x1: 61, y0: 16, y1: 28 };
 const SPARK_MAX_Y = 24, SPARK_MAX_PX = 20;
 
 function cleanFire() {
-  const fire = read(path.join(BLD, 'storyteller-fire.png'));
-  const prop = read(path.join(BLD, 'storyteller-prop-fire.png'));
+  const fire = read(path.join(CONTEURS, 'storyteller-fire.png'));
+  const prop = read(path.join(CONTEURS, 'storyteller-prop-fire.png'));
   const ground = read(path.join(BLD, 'camp-hearth.png'));
   const N = Math.round(fire.width / FW);
   const propAt = (x, y) => { const i = (y * FW + x) * 4; return prop.data[i + 3] > 16 ? i : -1; };

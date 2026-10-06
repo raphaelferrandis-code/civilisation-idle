@@ -15,6 +15,7 @@ import path from 'path';
 import { fileURLToPath } from 'url';
 import { PNG } from 'pngjs';
 import { houseScaleK, HOUSE_LOT_WF, ENGINE_UNIT_F, TILE_REF, COSMIC_TOWER_H, PALIER_SPANSUM } from '../src/game/map/spriteScale.js';
+import { VARIANTS_HOUSE, houseFootprint } from '../src/game/map/procedural/buildingGenerator.js';
 
 // fileURLToPath, PAS url.pathname : les espaces du chemin y restent en %20 →
 // répertoire fantôme « Civilisation%20idle » et ENOENT (audit 2026-10-05, SCRIPT-3).
@@ -24,29 +25,30 @@ const VIEW = 2;                 // zoom de lecture de la planche
 const HUMAIN = 10;              // px apparents @z=1 (perso visible)
 const BANDE_PORTE = [10, 14];   // px apparents
 
-// Copie de VARIANTS_HOUSE (buildingGenerator.js) POUR LA PLANCHE seulement —
-// pas une source de verite, juste le melange reellement tire par bande.
-const VARIANTS_HOUSE = [
-  ['tent', 'hut'],
-  ['hut', 'longhouse', 'tent'],
-  ['townhouse', 'courtyard', 'hut', 'manor'],
-  ['stonehouse', 'manor', 'townhouse'],
-  ['courtyard', 'stonehouse', 'manor', 'townhouse'],
-  ['block', 'tenement', 'tower'],
-  ['tower', 'block', 'megablock', 'arcologyhome', 'tenement'],
-];
-const HOUSE_FOOTPRINT = { manor: [2, 2], tenement: [1, 2], tower: [1, 2], megablock: [2, 2], arcologyhome: [2, 2] };
-const COSMIC = new Set(['tower', 'megablock', 'arcologyhome']);
+// Le melange reellement tire par bande : VARIANTS_HOUSE et les emprises viennent
+// de buildingGenerator.js (importable sous Node). La copie locale qui vivait ici
+// s'etait figee a 7 bandes et une vingtaine d'archetypes de moins (audit
+// 2026-10-05, SCRIPT-11). Une bande tire dans base, poor ou rich selon la
+// personnalite de la ville : la planche montre leur union.
+const variantesDeBande = (bande) => {
+  const t = VARIANTS_HOUSE[Math.min(VARIANTS_HOUSE.length - 1, bande)];
+  return [...t.base, ...(t.poor || []), ...(t.rich || [])];
+};
+// Variantes a skin d'ere cosmique (bandes 7+) : miroir de COSMIC_VARIANTS de
+// pixelHouses.js, module navigateur qu'on ne peut pas importer ici.
+const COSMIC = new Set(['tower', 'megablock', 'arcologyhome', 'gardentower', 'domehome', 'podstack', 'skytower', 'skytower2']);
 
 const inv = JSON.parse(fs.readFileSync(path.join(DATA, 'sprite-inventory.json'), 'utf8'));
 const ann = JSON.parse(fs.readFileSync(path.join(DATA, 'sprite-annotations.json'), 'utf8'));
 const fracs = JSON.parse(fs.readFileSync(path.join(DATA, 'engine-fractions.json'), 'utf8'));
-const invByKey = new Map(inv.entries.map((e) => [e.key, e]));
+const pngPath = (e) => path.join(ROOT, 'public', 'pixelart', e.famille === 'house' ? 'houses' : path.join('agents', 'buildings'), e.key + '.png');
+// L'inventaire est un instantané : il peut citer un sprite retiré depuis (ENOENT en
+// pleine planche). On ne garde que les entrées dont le PNG existe encore.
+const invByKey = new Map(inv.entries.filter((e) => fs.existsSync(pngPath(e))).map((e) => [e.key, e]));
 const annByKey = new Map(ann.entries.map((a) => [a.key, a]));
 
 function pngOf(e) {
-  const dir = e.famille === 'house' ? 'houses' : path.join('agents', 'buildings');
-  return PNG.sync.read(fs.readFileSync(path.join(ROOT, 'public', 'pixelart', dir, e.key + '.png')));
+  return PNG.sync.read(fs.readFileSync(pngPath(e)));
 }
 
 function fond(png, rgb) {
@@ -117,18 +119,21 @@ function spriteKeyPourBande(v, bande) {
 
 function plancheHabitations(outDir) {
   const rangs = [];
+  const absentes = new Set();
   for (let bande = 0; bande <= 9; bande++) {
-    const variants = VARIANTS_HOUSE[Math.min(6, bande)];
-    const cles = [...new Set(variants.map((v) => spriteKeyPourBande(v, bande)))];
+    const cles = [...new Set(variantesDeBande(bande).map((v) => spriteKeyPourBande(v, bande)))]
+      .filter((k) => invByKey.has(k) || (absentes.add(k), false));
     if (bande >= 8 && cles.join() === rangs[rangs.length - 1]?.cles.join()) continue;
     rangs.push({ bande, cles });
   }
+  // Une maison absente de l'inventaire (scripts/data/sprite-inventory.json, à
+  // régénérer par spriteScaleAudit.mjs inventory) est sautée, pas fatale.
+  if (absentes.size) console.log(`hors inventaire (sautees) : ${[...absentes].join(', ')}`);
   const MARGE = 24, GAP = 16;
   const items = rangs.map((r) => r.cles.map((key) => {
     const e = invByKey.get(key);
     const base = key.replace(/-cosmic-\d$/, '');
-    const [spanX, spanY] = HOUSE_FOOTPRINT[base] && !(COSMIC.has(base) && /-cosmic-/.test(key) && base === 'tower')
-      ? HOUSE_FOOTPRINT[base] : (base === 'tower' && /-cosmic-/.test(key) ? [2, 2] : (HOUSE_FOOTPRINT[base] || [1, 1]));
+    const [spanX, spanY] = houseFootprint(base, r.bande);
     const wpx = (spanX + spanY) * TILE_REF * HOUSE_LOT_WF;
     const k = houseScaleK(spanX, wpx, e.ink16.w, spanY, key);
     return { key, e, sc: k * VIEW };

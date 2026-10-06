@@ -611,7 +611,8 @@ export const MODERN_MODELS = {
 };
 export const MODERN_FLEET = {
   5: { trade: ['vapeur', 'cargo-vapeur'], barge: ['peniche'], fisher: ['barque-peinte'], ferry: ['chaloupe'], service: ['remorqueur', 'drague'], landing: 'ponton-fer',
-    // À quai seulement (bassin du port) : canot, voilier, voilier, bateau à moteur.
+    // À quai seulement (bassin du port) : canot, voilier, voilier, et la chaloupe dans
+    // le rôle du bateau à moteur.
     pleasure: ['canot-plaisance', 'cotre', 'cotre', 'chaloupe'] },
   6: { trade: ['porte-conteneurs', 'petrolier'], barge: ['pousseur'], fisher: ['bateau-moteur'], ferry: ['navette'], service: ['police', 'pompiers'], landing: 'ponton-acier',
     pleasure: ['annexe', 'deriveur', 'voilier', 'vedette'] },

@@ -10,7 +10,7 @@ export default defineConfig([
   // `.preview-shots` (scripts de captures, gitignoré — mais ESLint 10 ne lit pas
   // .gitignore) et `maquettes` (prototypes hors jeu, avec leurs caches Vite) : sans
   // eux, `npm run lint` échoue en local.
-  globalIgnores(['dist', 'scratch', 'scratchpad', '.claude', '.preview-shots', 'maquettes', 'simulate-game.js', 'simulate-ce.js', 'sim-idle-*.js', 'bench-myths.js', 'bench-rupture.js', 'bench-temple.js']),
+  globalIgnores(['dist', 'scratch', 'scratchpad', '.claude', '.preview-shots', 'maquettes']),
   {
     files: ['**/*.{js,jsx}'],
     extends: [
@@ -25,11 +25,12 @@ export default defineConfig([
   },
   {
     // Outillage Node : process principal Electron, scripts de build/génération
-    // et simulateur `sim-10-profils.js` — tournent sous Node (require, process,
-    // __dirname, setImmediate...), pas dans le navigateur. Sans ce bloc ils sont
-    // soit non lintés (.mjs/.cjs invisibles à la config `.js/.jsx`), soit criblés
-    // de faux `no-undef`.
-    files: ['**/*.{mjs,cjs}', 'main.cjs', 'scripts/**/*.js', 'sim-10-profils.js', 'bench-crises.js', 'bench-plaisirs.js'],
+    // et harnais d'équilibrage de la racine (bench-*, simulate-ce, sim-10-profils)
+    // — tournent sous Node (require, process, __dirname, setImmediate...), pas dans
+    // le navigateur. Sans ce bloc ils sont soit non lintés (.mjs/.cjs invisibles à
+    // la config `.js/.jsx`), soit criblés de faux `no-undef`. Les harnais ne sont
+    // plus exclus du lint (audit 2026-10-05, SCRIPT-13).
+    files: ['**/*.{mjs,cjs}', 'main.cjs', 'scripts/**/*.js', 'sim-10-profils.js', 'simulate-ce.js', 'bench-*.js'],
     extends: [js.configs.recommended],
     languageOptions: { globals: globals.node },
   },

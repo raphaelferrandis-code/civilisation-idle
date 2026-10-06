@@ -17,10 +17,11 @@ import {
 
 // ── Tirages ───────────────────────────────────────────────────────────────────
 // Deux passes de hachage : en une seule, les petites graines tombaient presque
-// toutes sur la même voile (4 safran sur 5 à la première planche).
-export const mix = (seed, salt, k) => h32(h32(seed, salt, k), k ^ 0x5bd1, salt);
-export const pick = (arr, seed, salt) => arr[mix(seed, salt, 911) % arr.length];
-export const chance = (seed, salt, p) => (mix(seed, salt, 733) % 1000) / 1000 < p;
+// toutes sur la même voile (4 safran sur 5 à la première planche). mixHash : un
+// brassage de HASH, pas un mélange de couleurs (audit du 05/10, STRUCT-9).
+export const mixHash = (seed, salt, k) => h32(h32(seed, salt, k), k ^ 0x5bd1, salt);
+export const pick = (arr, seed, salt) => arr[mixHash(seed, salt, 911) % arr.length];
+export const chance = (seed, salt, p) => (mixHash(seed, salt, 733) % 1000) / 1000 < p;
 
 // Couleur ÉMISSIVE (lumière cosmique, hublot allumé) : jamais ombrée.
 export const glow = (hex) => { const c = rgbOf(hex); return () => c; };
@@ -173,7 +174,7 @@ export function poler(S, sh, a, side, P, wood, k) {
 // (boatCrew.crewName). Ce sont les sprites des habitants qui portent l'époque — les
 // garde-robes des marins en volumes ont suivi ces derniers.
 export function crewPal(seed, salt) {
-  return { id: mix(seed, salt, 97) };
+  return { id: mixHash(seed, salt, 97) };
 }
 
 // ── CARGAISONS ────────────────────────────────────────────────────────────────
@@ -181,14 +182,14 @@ const AMPHORA = [[0, 0.35], [0.5, 0.95], [1.8, 1.15], [3.0, 0.75], [3.6, 0.42], 
 export function amphora(S, a, c, h, ramp) {
   revolve(S, a, c, h, AMPHORA, (nw, t) => rampRGB(ramp, nw, t > 0.86 ? 1 : 0));
 }
-export function sack(S, a, c, h, ramp) {
+function sack(S, a, c, h, ramp) {
   ellipsoid(S, a, c, h + 0.9, 1.6, 1.15, 0.95, (nw) => rampRGB(ramp, nw), 0);
 }
-export function block(S, a, c, h, sa, sc, sz, ramp) {
+function block(S, a, c, h, sa, sc, sz, ramp) {
   box(S, a - sa, a + sa, c - sc, c + sc, h, h + sz, (f, u, v, nw) => rampRGB(ramp, nw, (f === 'top' ? 0 : (h32(Math.floor(u * 5), Math.floor(v * 5), 3) % 7 === 0 ? 1 : 0))));
 }
 // Tonneau couché (le long de a) : douelles et deux cercles plus sombres.
-export function barrel(S, a, c, h, ramp, hoop) {
+function barrel(S, a, c, h, ramp, hoop) {
   surf(S, (u, v) => {
     const r = 1.05 * (1 - 0.18 * u * u);
     return [a + u * 1.5, c + r * Math.cos(v), h + 1.05 + r * Math.sin(v)];
@@ -197,7 +198,7 @@ export function barrel(S, a, c, h, ramp, hoop) {
     return hp ? rampRGB(hoop || ramp, nw, 2) : rampRGB(ramp, nw);
   });
 }
-export function crate(S, a, c, h, s, ramp) {
+function crate(S, a, c, h, s, ramp) {
   box(S, a - s, a + s, c - s, c + s, h, h + s * 1.7, (f, u, v, nw) => {
     const edge = f !== 'top' && (u < 0.12 || u > 0.88 || v < 0.12 || v > 0.88);
     return rampRGB(ramp, nw, edge ? 1 : 0);
@@ -206,14 +207,14 @@ export function crate(S, a, c, h, s, ramp) {
 // Ballot de laine / de drap : un coussin ficelé.
 // (Le lien n'est tracé que sur le DESSUS : sur chaque face, à cette taille, il
 // faisait un semis de traits — la première planche lisait du bruit.)
-export function bale(S, a, c, h, ramp, tie) {
+function bale(S, a, c, h, ramp, tie) {
   box(S, a - 1.9, a + 1.9, c - 1.4, c + 1.4, h, h + 2.1, (f, u, v, nw) => {
     const t = f === 'top' && Math.abs(u - 0.5) < 0.09;
     return t && tie ? rampRGB(tie, nw) : rampRGB(ramp, nw, f !== 'top' && v < 0.15 ? 1 : 0);
   });
 }
 // Pot de terre trapu (premières époques).
-export function pot(S, a, c, h, ramp) {
+function pot(S, a, c, h, ramp) {
   revolve(S, a, c, h, [[0, 0.6], [0.7, 1.2], [1.6, 1.1], [2.2, 0.7], [2.5, 0.75]], (nw, t) => rampRGB(ramp, nw, t > 0.85 ? 1 : 0));
 }
 // Conteneur : tôle ondulée (cannelures verticales), une couleur par boîte.

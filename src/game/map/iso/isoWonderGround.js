@@ -89,10 +89,10 @@ export function wonderGroundSet(L) {
   CM._pvWonderGround = { sig, set };
   return set;
 }
-if (typeof window !== 'undefined') {
-  // __districts({ parvis: true }) donne aux 19 emprises civiques le dallage des
-  // merveilles. Éteint par défaut : c'est une décision de DA. Rend aussi l'inventaire,
-  // pour qu'on puisse juger de ce qu'on regarde.
+if (import.meta.env?.DEV && typeof window !== 'undefined') {
+  // __districts({ parvis: false }) retire aux 19 emprises civiques le dallage des
+  // merveilles (A/B). ALLUMÉ par défaut depuis le lot A (cf. DISTRICT_GROUND plus haut).
+  // Rend aussi l'inventaire, pour qu'on puisse juger de ce qu'on regarde.
   window.__districts = (o) => {
     if (o && typeof o === 'object') Object.assign(DISTRICT_GROUND, o);
     CM._districtGround = null; CM._pvWonderGround = null; solInvalidate('all');

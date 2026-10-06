@@ -1,18 +1,20 @@
 "use strict";
 
-// Pont UI UNIQUE des jeux du temple (osselets, Vol d'Icare, et les jeux à
-// venir — blackjack, tickets à gratter…). UN SEUL jeu actif à la fois : ouvrir
-// un jeu remplace le précédent dans la scène (RegulationStage, en bas de la
-// page Régulation). Chaque jeu garde sa propre forme de requête (`req`) ; la
-// scène lit `game.kind` pour choisir quelle scène monter.
+// Pont UI UNIQUE des jeux du temple (osselets, Vol d'Icare, vingt-et-un,
+// tickets à gratter, tables de la Maison…). UN SEUL jeu actif à la fois :
+// ouvrir un jeu remplace le précédent dans la scène (RegulationStage, montée
+// dans la Maison des Plaisirs par PlaisirsView). Chaque jeu garde sa propre
+// forme de requête (`req`) ; la scène lit `game.kind` pour choisir quelle
+// scène monter.
 //
 // Ouvrir depuis n'importe où (boutons de pari de la Cité, barre de crise…)
-// bascule sur l'onglet Régulation ; si la scène n'est pas encore montée (vue en
-// cours de chargement), la requête est BUFFERISÉE et livrée à l'enregistrement.
+// bascule sur l'onglet des Plaisirs ; si la scène n'est pas encore montée (vue
+// en cours de chargement), la requête est BUFFERISÉE et livrée à
+// l'enregistrement.
 //
-// Les ponts par jeu (auguryTable.js, icarusDialog.js, …) ne sont plus que de
-// minces verbes sémantiques (openAuguryTable(id), openIcarusFlight()) qui
-// délèguent ici — c'est CE module qui détient « quel jeu est ouvert ».
+// Les appelants passent par openTempleGame(kind) ; seul le pont des osselets
+// (auguryTable.js, openAuguryTable(id)) reste un mince verbe sémantique qui
+// délègue ici — c'est CE module qui détient « quel jeu est ouvert ».
 
 import { openView } from './state.js';
 

@@ -19,12 +19,12 @@
 // que les 477 lignes sont reprises SANS UNE LIGNE DE CHANGÉE. Aucune n'est réassignée
 // dans le corps — vérifié avant la coupe, c'est ce qui autorise des `const`.
 import { cmEngineHomeHidden, cmHash, ROAD_E, ROAD_N, ROAD_S, ROAD_W } from '../layout.js';
-import { worldToScreen, ISO_X, ISO_Y } from './projection.js';
+import { worldToScreen, ISO_X } from './projection.js';
 import { COUR, builtNear } from './isoTissu.js';
 import { ROAD_DETAIL, SIDEWALK_ISO, isoRoadHalfW, roadTileAlpha, roadTone, roadVeilFor } from './isoRoad.js';
 import { artLayerBegin, artLayerEnd } from './isoArtLayer.js';
-import { blitIsoTileKey, ensureIsoTileKey } from './isoGroundTiles.js';
-import { drawRoadEdgeFringe, isoBuildingFront, roadFringeK, roadMatFor, smoothNoise } from './isoGroundDetail.js';
+import { blitIsoTileKey, isoTileProbe } from './isoGroundTiles.js';
+import { isoBuildingFront, roadMatFor, smoothNoise } from './isoGroundDetail.js';
 import { fillWorldQuad, pathWorldQuad } from './isoQuad.js';
 import { rgb } from './isoPalette.js';
 import { LISIERE } from './isoLisiere.js';
@@ -72,16 +72,12 @@ export function drawIsoGroundRoads(bake, resolve, roads) {
   const rmat = roadMatFor(band);
   const rVeil = roadVeilFor(ROAD_DETAIL.band != null ? ROAD_DETAIL.band : band);   // voile de lecture (forçage d'aperçu honoré)
   // Constantes de la passe route : teinte d'ÉPAULEMENT (mélange sol↔route un peu
-  // assombri — la rue s'assoit dans le sol au lieu d'avoir l'air tamponnée),
-  // tons de la FRANGE de chaussée (morsures = épaulement en 2 valeurs,
-  // gravillons = matière de la route) et intensité par ère (forçage d'aperçu honoré).
+  // assombri — la rue s'assoit dans le sol au lieu d'avoir l'air tamponnée).
+  // (La FRANGE de chaussée — bords rongés + gravillons, ROAD_DETAIL.edgeFringe —
+  //  refusée le 2026-07-16, a été retirée le 2026-10-06, audit MORT-14.)
   const shm = ROAD_DETAIL.shoulderMix, shv = ROAD_DETAIL.shoulderV;
   const shTone = [0, 1, 2].map((i) => Math.round((urb[i] * (1 - shm) + road[i] * shm) * shv));
   const shCol = `rgb(${shTone[0]},${shTone[1]},${shTone[2]})`;
-  const shCol2 = `rgb(${Math.round(shTone[0] * 0.9)},${Math.round(shTone[1] * 0.9)},${Math.round(shTone[2] * 0.9)})`;
-  const spillCol = rgb(road, 1);
-  const rfK = ROAD_DETAIL.on ? ROAD_DETAIL.edgeFringe * roadFringeK(ROAD_DETAIL.band != null ? ROAD_DETAIL.band : band) : 0;
-  const puR = Math.max(1, Math.round(hw * 0.055));
   const cbR = T * 0.05;
   // COULOIRS FUSIONNÉS : même union que les 5 quads par cellule (pavé + bras
   // selon le masque) mais en bandes MAXIMALES par ligne/colonne — beaucoup moins
@@ -311,13 +307,9 @@ export function drawIsoGroundRoads(bake, resolve, roads) {
   // PEINT EN PIXELS). Ce sont les mêmes tracés, à la même géométrie : seule la
   // résolution de rastérisation change — et avec elle le bord, qui cesse d'être
   // trois fois plus fin que le pixel de l'art voisin.
-  // La liste des cellules à peindre est figée AVANT la bascule du calque (sous
-  // lui, worldToScreen répond dans un autre repère). Depuis le lot 4 de la
-  // pyramide, plus de tranche à borner : une tuile est toujours cuite entière.
-  const roadsVis = [];
-  for (const r of roads) {
-    roadsVis.push(r);
-  }
+  // Depuis le lot 4 de la pyramide, plus de tranche à borner : une tuile est
+  // toujours cuite entière, on peint toutes les cellules de `roads` (la copie
+  // `roadsVis` qu'en faisait le découpage en tranches est partie, audit 2026-10-05).
   const lay = (ROAD_DETAIL.pixel !== false && roads.length) ? artLayerBegin(z) : null;
   const sctx = lay ? lay.ctx : ctx;
   const shw = lay ? T * ISO_X : hw;   // demi-largeur du losange DANS le repère de dessin
@@ -492,7 +484,7 @@ export function drawIsoGroundRoads(bake, resolve, roads) {
     if (!m) { m = { rmat: roadMatFor(pb), road: roadTone(pb), rVeil: roadVeilFor(pb) }; paveMats.set(pb, m); }
     return m;
   };
-  for (const r of roadsVis) {
+  for (const r of roads) {
     const cm = matOf(r);
     const cx = (r.gx + 0.5) * T, cy = (r.gy + 0.5) * T;
     const wb = T * wOf(r);          // demi-chaussée de LA cellule (hiérarchie par rang)
@@ -510,7 +502,7 @@ export function drawIsoGroundRoads(bake, resolve, roads) {
       if (mask & ROAD_S) pathWorldQuad(sctx, cx - wb, cy + wb, cx + wb, (r.gy + 1) * T);
       if (mask & ROAD_N) pathWorldQuad(sctx, cx - wb, r.gy * T, cx + wb, cy - wb);
     }
-    const rTile = (ROAD_DETAIL.on && ROAD_DETAIL.tiles && cm.rmat.tile && !HARD) ? ensureIsoTileKey(cm.rmat.tile) : null;
+    const rTile = (ROAD_DETAIL.on && ROAD_DETAIL.tiles && cm.rmat.tile && !HARD) ? isoTileProbe(cm.rmat.tile) : null;
     if (rTile && rTile.ready) {
       // Tuile DOSÉE sur l'aplat de chaussée (ROAD_TILE_A, bible des surfaces) : même
       // ton moyen, grain rabattu. L'aplat d'abord, sinon la dose montrerait le sol.
@@ -546,45 +538,6 @@ export function drawIsoGroundRoads(bake, resolve, roads) {
         else fillWorldQuad(sctx, cx - dw2, r.gy * T + o, cx + dw2, r.gy * T + o + dl);
       }
     }
-    // FRANGE DE CHAUSSÉE : crante chaque bord EXPOSÉ du ruban (flancs des bras +
-    // caps du pavé sans connexion — les impasses s'effritent au bout). Un flanc
-    // qui fait face à une voie JUMELLE non connectée (boulevard 2-cellules) est
-    // SAUTÉ : le terre-plein porte cette couture. Arêtes en MONDE → projetées,
-    // normale sortante (ox,oy) monde → écran via (±hw,±hh).
-    if (rfK > 0 && !LOD && !r.rd) {
-      const x0w = r.gx * T, y0w = r.gy * T, x1w = (r.gx + 1) * T, y1w = (r.gy + 1) * T;
-      const roadN2 = L.roadSet.has(r.gx + ',' + (r.gy - 1)), roadS2 = L.roadSet.has(r.gx + ',' + (r.gy + 1));
-      const roadE2 = L.roadSet.has((r.gx + 1) + ',' + r.gy), roadW2 = L.roadSet.has((r.gx - 1) + ',' + r.gy);
-      const segs = [];
-      if (mask & ROAD_E) {
-        if (!roadN2 || (mask & ROAD_N)) segs.push([cx + wb, cy - wb, x1w, cy - wb, 0, -1, 'en']);
-        if (!roadS2 || (mask & ROAD_S)) segs.push([cx + wb, cy + wb, x1w, cy + wb, 0, 1, 'es']);
-      } else segs.push([cx + wb, cy - wb, cx + wb, cy + wb, 1, 0, 'ec']);
-      if (mask & ROAD_W) {
-        if (!roadN2 || (mask & ROAD_N)) segs.push([x0w, cy - wb, cx - wb, cy - wb, 0, -1, 'wn']);
-        if (!roadS2 || (mask & ROAD_S)) segs.push([x0w, cy + wb, cx - wb, cy + wb, 0, 1, 'ws']);
-      } else segs.push([cx - wb, cy - wb, cx - wb, cy + wb, -1, 0, 'wc']);
-      if (mask & ROAD_S) {
-        if (!roadE2 || (mask & ROAD_E)) segs.push([cx + wb, cy + wb, cx + wb, y1w, 1, 0, 'se']);
-        if (!roadW2 || (mask & ROAD_W)) segs.push([cx - wb, cy + wb, cx - wb, y1w, -1, 0, 'sw']);
-      } else segs.push([cx - wb, cy + wb, cx + wb, cy + wb, 0, 1, 'sc']);
-      if (mask & ROAD_N) {
-        if (!roadE2 || (mask & ROAD_E)) segs.push([cx + wb, y0w, cx + wb, cy - wb, 1, 0, 'ne']);
-        if (!roadW2 || (mask & ROAD_W)) segs.push([cx - wb, y0w, cx - wb, cy - wb, -1, 0, 'nw']);
-      } else segs.push([cx - wb, cy - wb, cx + wb, cy - wb, 0, -1, 'nc']);
-      for (const s of segs) {
-        const A = worldToScreen(s[0], s[1]), B = worldToScreen(s[2], s[3]);
-        let nx2 = (s[4] - s[5]) * shw, ny2 = (s[4] + s[5]) * (shw * ISO_Y / ISO_X);
-        const nl2 = Math.hypot(nx2, ny2) || 1;
-        nx2 /= nl2; ny2 /= nl2;
-        // `puR` est l'unité de pixel des effets : dans le calque, elle vaut déjà
-        // le pixel d'art (hw = T), donc les gravillons sortent au bon calibre.
-        drawRoadEdgeFringe(sctx, {
-          ax: A.x, ay: A.y, bx: B.x, by: B.y, ox: nx2, oy: ny2,
-          seed: 'rf:' + r.gx + ',' + r.gy + ':' + s[6],
-        }, lay ? Math.max(1, Math.round(shw * 0.055)) : puR, shCol, shCol2, spillCol, rfK);
-      }
-    }
   }
   // ── PAS DE MIETTES DE SOL ENTRE DEUX CHAUSSÉES (Raph 2026-10-01) ──────────
   // « Ces petits morceaux de sol qui ne sont pas logiques ». Deux cellules de
@@ -609,7 +562,7 @@ export function drawIsoGroundRoads(bake, resolve, roads) {
       const v = 0.97 + smoothNoise(r.gx, r.gy, 4, 'rb') * 0.06;
       sctx.beginPath();
       pathWorldQuad(sctx, x0, y0, x1, y1);
-      const tile = (ROAD_DETAIL.on && ROAD_DETAIL.tiles && cm.rmat.tile && !HARD) ? ensureIsoTileKey(cm.rmat.tile) : null;
+      const tile = (ROAD_DETAIL.on && ROAD_DETAIL.tiles && cm.rmat.tile && !HARD) ? isoTileProbe(cm.rmat.tile) : null;
       if (tile && tile.ready) {
         const ra = roadTileAlpha(cm.rmat.tile);
         if (ra < 1) { sctx.fillStyle = rgb(cm.road, v); sctx.fill(); }
@@ -629,7 +582,7 @@ export function drawIsoGroundRoads(bake, resolve, roads) {
         sctx.fill();
       }
     };
-    for (const r of roadsVis) {
+    for (const r of roads) {
       const c = laneAt(r.gx, r.gy);
       if (!c || cornerAt(r.gx, r.gy)) continue;
       const cx = (r.gx + 0.5) * T, cy = (r.gy + 0.5) * T, w = T * wOf(r), m = c.mask | 0;

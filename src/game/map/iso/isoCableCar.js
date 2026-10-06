@@ -98,7 +98,7 @@ function cabinShapes(M, T) {
 }
 
 let _siteFor = null, _site = null;
-export const cableStats = { on: false, site: null };
+const cableStats = { on: false, site: null };
 export function cableCarActors(now, out, decay = 0) {
   cableStats.on = false;
   const L = CM.layout;
@@ -164,7 +164,7 @@ export function cableCarActors(now, out, decay = 0) {
   }
 }
 
-if (typeof window !== 'undefined') {
+if (import.meta.env?.DEV && typeof window !== 'undefined') {
   // Seul un réglage de FORME vide les images cuites (allumer/éteindre ne coûte rien).
   window.__cableCar = (o) => { if (o) { Object.assign(CABLE, o); if (Object.keys(o).some((k) => k !== 'on')) { _siteFor = null; _bakes.clear(); } } return { ...CABLE, stats: { ...cableStats } }; };
 }

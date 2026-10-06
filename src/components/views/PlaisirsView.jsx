@@ -37,30 +37,20 @@ const HeritageView = lazy(() => import('./HeritageView.jsx'));
  * clic tombent au pixel du lieu ; les ancres du bouton d'action se lisent sur la
  * cuisson (centre et cadre de chaque lieu), plus à la main.
  *
- * Des lieux qu'on clique. Le jeu s'ouvre PAR-DESSUS et
- * l'illustration reste visible derrière (arbitrage Raph) : on ne quitte jamais
- * le lieu, refermer ramène au hub.
+ * Des lieux qu'on clique. Le jeu s'ouvre PAR-DESSUS et la salle reste visible
+ * derrière (arbitrage Raph) : on ne quitte jamais le lieu, refermer ramène au hub.
  *
- * MENU FLOTTANT à gauche : sans lui, rien ne dit au joueur ce qui est cliquable
- * dans une illustration, et il balaie l'image à la souris en espérant tomber
- * dessus. Le menu donne la liste, et DÉSIGNE l'endroit sur l'image —
- * survoler une entrée allume le lieu sans rien ouvrir, ce qui apprend la salle.
- * Il rend aussi le hub utilisable au clavier, ce qu'une image seule interdit.
+ * LE MENU (tableau d'étages, plaisirs/PlaisirsMenu.jsx) donne la liste des lieux
+ * et DÉSIGNE l'endroit sur la coupe — survoler une entrée allume le lieu sans rien
+ * ouvrir, ce qui apprend la salle. Il rend aussi le hub utilisable au clavier.
  *
- * Deux états, et c'est la distinction qui fait tout l'intérêt :
- *   survol    — passager, éteint dès qu'on s'éloigne ;
- *   selection — posé par le clic, reste allumé pendant qu'on joue.
+ * Deux états : `survol` (passager) et `selection` (posée par le clic, reste
+ * allumée pendant qu'on joue). Et deux temps sur le DÉCOR : choisir un lieu pose
+ * son bouton d'action, c'est ce bouton qui engage la partie (cf. `choisir`).
  *
- * Géométrie : les ancres vivent en PIXELS SOURCE de l'illustration
- * (plaisirs/anchors.js) et sont converties ici en POURCENTAGES. C'est ce qui
- * rend le hub indépendant de la taille d'affichage — mettre l'image à l'échelle
- * ne décale aucun point, et il n'y a rien à recalibrer entre un écran large et
- * un téléphone.
- *
- * CALIBRAGE : `window.__plaisirsAnchors = true` en console, puis chaque clic sur
- * l'illustration journalise ses coordonnées SOURCE, prêtes à recopier dans le
- * fichier d'ancres. Poser cinq points chauds à la main sans ça, c'est viser à
- * l'aveugle.
+ * Géométrie : aucune ancre relevée à la main. Le canevas rapporte sa mise en
+ * place (`mise` : facteur, origine) et `geo()` convertit en pixels CSS du cadre
+ * le centre et le cadre que la cuisson rend pour chaque lieu.
  */
 export default function PlaisirsView() {
   const [survol, setSurvol] = useState(null);
@@ -81,15 +71,16 @@ export default function PlaisirsView() {
   // (La valeur ne sert plus qu'à ça depuis que la coupe suit les lieux ACQUIS, plus bas.)
   useGameState(() => PLAISIRS_SPOTS.map((s) => (spotIsOpen(s) ? '1' : spotRankLock(s) != null ? 'r' : '0')).join(''));
   // L'ÂGE de la salle : celui de la ville (même bande que la carte), suivi en direct.
-  // Molette de dev partagée avec la carte : `__plaisirsTune.band = n` force l'âge.
+  // Molette de dev partagée avec la carte : `__plaisirsTune.band = n` force l'âge
+  // (absente du build de prod : devKnobs.js).
   const band = useGameState(() => {
-    const t = typeof window !== 'undefined' ? window.__plaisirsTune : null;
+    const t = import.meta.env?.DEV && typeof window !== 'undefined' ? window.__plaisirsTune : null;
     return t && t.band != null ? t.band | 0 : eraBandOf(currentEraIndex());
   });
   // Ce que la salle MONTRE : chaque table dont le jeu est ACQUIS (la scène est
   // toujours là, ses musiciens jouent pour le décor). Pas ce que la Nuit du Grand Jeu
-  // ouvre pour vingt minutes : la coupe se recuirait (la page figée plusieurs
-  // secondes) à l'ouverture et à la fermeture de chaque Nuit (anchors.spotOuvertSalle).
+  // ouvre pour vingt minutes (anchors.spotOuvertSalle, qui dit d'où vient ce choix).
+  // La cuisson ne dépend que de l'âge (`band`) ; `open` ne fait que trier les figures.
   const salle = useGameState(() => PLAISIRS_SPOTS.map((s) => (spotOuvertSalle(s) ? '1' : '0')).join(''));
   const open = { scene: true };
   PLAISIRS_SPOTS.forEach((sp, i) => { if (sp.kind || sp.view) open[sp.id] = salle[i] === '1'; });
@@ -130,7 +121,7 @@ export default function PlaisirsView() {
     return { x: (mise.ox / mise.dpr) + (g.x + 0.5) * k, y: oy + (g.y + 0.5) * k, r: g.r * k, top: oy + g.box.y0 * k };
   };
   // Seuls les LIEUX du menu s'allument au survol — jeux, boutique, et depuis le
-  // tableau d'étages les lieux qu'on regarde (scène, boudoir, salon).
+  // tableau d'étages le lieu qu'on regarde (la scène).
   const survoler = (id) => setSurvol(id && PLAISIRS_SPOTS.some((sp) => sp.id === id) ? id : null);
 
   // DEUX TEMPS, et c'est voulu (Raph, 2026-08-07) : choisir un lieu ne lance
@@ -175,12 +166,13 @@ export default function PlaisirsView() {
   // jeu — on quitte donc le plein cadre (la boutique la cacherait).
   const tournerRoue = () => { setPlein(null); openTempleGame('roue'); };
 
-  // Un lieu qu'on REGARDE (scène, boudoir, salon) : il n'ouvre rien, la coupe
-  // défile jusqu'à lui (`focus`). La partie en cours se referme — son panneau
+  // Un lieu qu'on REGARDE (la scène ; le boudoir et le salon sont devenus des tables
+  // de roulette) : il n'ouvre rien, la coupe défile jusqu'à lui (`focus`) et la
+  // scène joue sa mélodie. La partie en cours se referme — son panneau
   // couvrirait ce qu'on est venu voir (une main de vingt-et-un se reprend à la
   // réouverture, un vol d'Icare se résout seul).
   const regarder = (spot) => {
-    if (spotRankLock(spot) != null) return; // le boudoir attend son titre
+    if (spotRankLock(spot) != null) return; // un lieu qui attend son titre ne se regarde pas
     closeTempleStage();
     setPlein(null);
     setSelection(spot.id);
@@ -211,9 +203,8 @@ export default function PlaisirsView() {
           // PLEIN CADRE. L'ancien plafond à 3x la taille native bridait
           // l'illustration au milieu d'un grand écran. `aspectRatio` + une
           // hauteur maximale suffisent : le navigateur réduit la largeur tout
-          // seul quand la fenêtre est basse, et le ratio reste exact — ce qui
-          // est vital ici, puisque les points chauds sont placés en POURCENTAGE
-          // du cadre. Déformer l'image les décalerait tous.
+          // seul quand la fenêtre est basse. (Les lieux ne dépendent plus du
+          // ratio : leurs ancres viennent de la cuisson, cf. `geo`.)
           width: '100%',
           // La hauteur OFFERTE vient de la feuille (--plaisirs-frame-h,
           // views-plaisirs.css), qui la déduit de la barre et du padding réels.
@@ -289,8 +280,9 @@ export default function PlaisirsView() {
               aria-disabled={!ouvert}
               aria-label={spotNom(spot)}
               title={ouvert ? spotNom(spot) : tr({ fr: `${spotNom(spot)}, bientôt`, en: `${spotNom(spot)}, coming soon` })}
-              onMouseEnter={() => setSurvol(spot.id)}
-              onMouseLeave={() => setSurvol((s) => (s === spot.id ? null : s))}
+              // Pas de survol souris ici : `pointerEvents: 'none'` (plus bas) le
+              // rend impossible. onClick reste — un lecteur d'écran active par
+              // un clic synthétique, que pointer-events ne bloque pas.
               onFocus={() => setSurvol(spot.id)}
               onBlur={() => setSurvol((s) => (s === spot.id ? null : s))}
               onClick={(e) => { e.stopPropagation(); viser(spot); }}
@@ -318,8 +310,7 @@ export default function PlaisirsView() {
                 // lui aurait volé l'ancre des tickets en silence.
                 zIndex: spot.z || 1,
                 padding: 0,
-                boxSizing: 'border-box',
-                transition: 'background 120ms, box-shadow 120ms, border-color 120ms'
+                boxSizing: 'border-box'
               }}
             />
           );

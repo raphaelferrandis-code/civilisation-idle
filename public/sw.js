@@ -13,9 +13,9 @@
 // STRATÉGIE, et le compromis qu'elle assume :
 //   · à l'installation on met en cache la COQUILLE seulement (page, scripts,
 //     styles, polices) — quelques mégaoctets ;
-//   · le reste (2 000 sprites, l'audio : ~30 Mo) est mis en cache AU FUR ET À
-//     MESURE qu'il est demandé.
-// Tout précharger à l'installation aurait fait attendre 33 Mo avant le premier
+//   · le reste (les sprites et l'audio : ~4 800 fichiers et ~42 Mo dans dist/ à
+//     l'audit du 05/10) est mis en cache AU FUR ET À MESURE qu'il est demandé.
+// Tout précharger à l'installation aurait fait attendre des dizaines de Mo avant le premier
 // écran, sur un lien mobile, avec le risque d'échouer en entier. La contrepartie
 // est explicite : APRÈS UNE PREMIÈRE PARTIE EN LIGNE, tout ce qu'on a vu est
 // disponible hors ligne ; un sprite jamais affiché ne l'est pas encore.

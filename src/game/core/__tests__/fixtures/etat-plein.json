@@ -247,7 +247,6 @@
   "icareAutoBurnLatched": true,
   "atridesReached": true,
   "mythStartGold": "3.89345336539956e+106",
-  "mythStartInfra": "12345",
   "mythStartPop": "10",
   "icareHeritage": true,
   "instability": 0.012,
@@ -294,10 +293,6 @@
    "count": 1
   },
   "roadWorksBank": 120,
-  "roadDoors": {
-   "onRoad": 3,
-   "total": 5
-  },
   "stagnationSec": 2,
   "popMilestoneExp": 91,
   "nextBoonAt": 1800016786614.153,
@@ -1294,9 +1289,6 @@
   "activeView": "prestige",
   "mourning": true,
   "chute": true,
-  "ruinsSeenNodes": [
-   "granaries"
-  ],
   "atridesDebt": 2.2547060002024017e+118,
   "atridesDrainDisabled": true,
   "atridesDebtGrowthMultiplier": 0.3,

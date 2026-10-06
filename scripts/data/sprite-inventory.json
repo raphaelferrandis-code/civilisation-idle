@@ -2549,25 +2549,6 @@
    "classe": "prop-cosmic"
   },
   {
-   "key": "caravan-mule-east",
-   "famille": "engine",
-   "w": 560,
-   "h": 80,
-   "ink16": {
-    "x0": 7,
-    "y0": 13,
-    "w": 539,
-    "h": 49
-   },
-   "ink40": {
-    "x0": 7,
-    "y0": 13,
-    "w": 539,
-    "h": 49
-   },
-   "classe": "strip"
-  },
-  {
    "key": "caravan-mule-rest",
    "famille": "engine",
    "w": 720,
@@ -2583,25 +2564,6 @@
     "y0": 13,
     "w": 701,
     "h": 44
-   },
-   "classe": "strip"
-  },
-  {
-   "key": "caravan-mule-west",
-   "famille": "engine",
-   "w": 560,
-   "h": 80,
-   "ink16": {
-    "x0": 14,
-    "y0": 13,
-    "w": 539,
-    "h": 49
-   },
-   "ink40": {
-    "x0": 14,
-    "y0": 13,
-    "w": 539,
-    "h": 49
    },
    "classe": "strip"
   },

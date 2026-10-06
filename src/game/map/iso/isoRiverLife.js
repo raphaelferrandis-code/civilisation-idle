@@ -26,6 +26,7 @@
 // (cycle ES = zone morte, piège payé deux fois sur ce chantier). isoRiver POUSSE sa
 // config (configureRiverLife).
 import { CM, cmHash } from '../layout.js';
+import { hash01Lowbias as h32 } from '../hash.js';
 import { worldToScreen } from './projection.js';
 import { bridgeBlocks } from './isoBridge.js';
 import { figNear } from '../figures.js';
@@ -41,13 +42,7 @@ export function configureRiverLife(o) { Object.assign(CFG, o); }
 // Molettes : __vie({ brume, poissons, sauts, pluie, feuilles, canards, cygnes,
 // herons, libellules, eclats }) ; compteurs : __vieStats() (isoVie.js).
 
-// Hash → [0,1). ⚠ Toujours >>> 0 : le cmHash maison rend du SIGNÉ.
-function h32(n) {
-  let x = (n | 0) + 0x9e3779b9;
-  x = Math.imul(x ^ (x >>> 16), 0x21f0aaad);
-  x = Math.imul(x ^ (x >>> 15), 0x735a2d97);
-  return ((x ^ (x >>> 15)) >>> 0) / 4294967296;
-}
+// Hash → [0,1) : h32 = hash01Lowbias (../hash.js), celui de toute la petite vie.
 
 // Point du ruban à la position t ∈ [0,1] et au décalage transversal lat ∈ [-1,1].
 function ribbonPoint(sm, t, lat) {
@@ -706,7 +701,7 @@ export function vieFishRipple(ctx, x, y, q, size, alpha) {
 
 // Outil de vérification : où sont les familles et les hérons À CET INSTANT (monde,
 // en tuiles) — une bête de 5 px ne se trouve pas à l'œil sur une carte de 300 tuiles.
-if (typeof window !== 'undefined') {
+if (import.meta.env?.DEV && typeof window !== 'undefined') {
   window.__vieSpots = (now = 0) => {
     const L = CM.layout, rv = L && L.river;
     if (!rv || !rv.samples) return null;

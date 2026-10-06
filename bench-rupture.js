@@ -1,4 +1,3 @@
-"use strict";
 /* ============================================================================
  * bench-rupture.js - Mesure EXACTE de l'impact des achats (batiments
  * stabilisants, infrastructure, nourriture) sur la cible de Rupture, a trois
@@ -10,20 +9,12 @@
  * mesuree etait : effet ~0.000 en fin de partie (sources saturees aux plafonds
  * durs, mitigation plafonnee a 0.75 des ~1e5 d'infra).
  *
- * Sortie : rupture-impact.md (+ table console).
+ * Sortie : docs/bench/rupture-impact.md, relatif au dossier courant (+ table console).
  * Usage  : node bench-rupture.js
  * ========================================================================== */
 import fs from "fs";
-
-// --- Stubs DOM (avant imports jeu) -----------------------------------------
-// addEventListener : cloudSave.js s'abonne à `pagehide` dès l'import (SCRIPT-1).
-global.window = { addEventListener() {}, removeEventListener() {} };
-global.localStorage = { getItem() { return null; }, setItem() {} };
-Object.defineProperty(global, "navigator", { value: { clipboard: { writeText() {} } }, writable: true, configurable: true });
-const stubEl = () => ({ className: "", dataset: {}, innerHTML: "", textContent: "", disabled: false, value: "", checked: false, style: {}, classList: { add() {}, remove() {}, toggle() {}, contains() { return false; } }, addEventListener() {}, setAttribute() {}, showModal() {}, remove() {}, click() {}, appendChild() {}, querySelector() { return stubEl(); }, querySelectorAll() { return []; } });
-global.document = { addEventListener() {}, documentElement: { style: { setProperty() {} } }, body: { appendChild() {} }, querySelector() { return stubEl(); }, querySelectorAll() { return []; }, createElement() { return stubEl(); }, getElementById() { return stubEl(); } };
-global.Audio = class { constructor() { this.volume = 1; } addEventListener() {} play() { return Promise.resolve(); } pause() {} };
-global.render = () => {}; global.save = () => {};
+// Stubs DOM (avant imports jeu) : le faux navigateur commun des harnais.
+import "./scripts/lib/headless.mjs";
 
 // --- Imports jeu ------------------------------------------------------------
 const stateModule = await import("./src/game/core/state.js");
@@ -135,5 +126,7 @@ md += `
 - **Nourriture -50%** : controle positif - la scarcity doit reagir fortement (c'est la tension voulue).
 - Leviers de reglage : \`INFRA_COVERAGE_*\`, \`MITIGATION_*\`, \`STABILIZER_DIRECT_FACTOR\`, \`COMPLEXITY_COVERAGE_ABSORB\` dans \`src/game/core/balance.js\`.
 `;
-fs.writeFileSync("rupture-impact.md", md, "utf8");
-console.log("Ecrit : rupture-impact.md");
+// Le rapport versionné vit dans docs/bench/ (audit du 05/10, GIT-6).
+fs.mkdirSync("docs/bench", { recursive: true });
+fs.writeFileSync("docs/bench/rupture-impact.md", md, "utf8");
+console.log("Ecrit : docs/bench/rupture-impact.md");

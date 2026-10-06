@@ -24,13 +24,15 @@
 import {
   put, rgbOf, h32, projLT, frameOf, paintBox, paintLine, fillPoly, ramp, shadeOf, ashlar,
 } from './isoPixelPaint.js';
+// Modulo RÉEL (celui d'isoPixelPaint arrondit d'abord à l'entier : nervures,
+// vitrages et rayures en fraction de tour y tombaient tous à zéro) — ../pixelUtil.js.
+import { fm } from '../pixelUtil.js';
 
-const V = true;   // repère vertical : wx = t = x, wy = l = y
+// Repère vertical : wx = t = x, wy = l = y. Exporté : l'îlot et le lieu des merveilles
+// peignent dans le même repère.
+export const V = true;
 const S2 = Math.SQRT2;
 const PR = (x, y, h = 0) => projLT(V, y, x, h);
-// Modulo RÉEL (celui d'isoPixelPaint arrondit d'abord à l'entier : nervures,
-// vitrages et rayures en fraction de tour y tombaient tous à zéro).
-const fm = (a, n) => ((a % n) + n) % n;
 
 // ── Lumière ──────────────────────────────────────────────────────────────────
 // Soleil haut-gauche, le même que les faces des boîtes : un mur sud lit le cran 1,
@@ -190,6 +192,19 @@ export const cyl = (r) => () => r;
 export const taper = (h0, h1, r0, r1) => (h) => r0 + ((r1 - r0) * (h - h0)) / (h1 - h0);
 export const domeProf = (h0, r, H) => (h) => r * Math.sqrt(Math.max(0, 1 - ((h - h0) / H) ** 2));
 export const ballProf = (hc, r) => (h) => Math.sqrt(Math.max(0, r * r - (h - hc) * (h - hc)));
+
+// CYPRÈS (et if taillé) des merveilles : un fût de bois de `trunk` px, puis un fuseau
+// de rayon `r` et de hauteur `H` posé à `base`, dans les verts des buis, ifs et cyprès
+// (la famille de l'herbe du jeu, en plus sombre), poudré de neige l'hiver. Partagé
+// par l'îlot de l'Aiguille (bakeIsleTall) et le lieu des merveilles (bakeDecor), qui
+// recopiaient la palette et le dessin (audit du 05/10, STRUCT-12).
+export const CYPRESS = ['#4f7a3a', '#3c6530', '#2c5127', '#1f3d1e', '#142a15'];
+export function cypress(R, K, trunk, base, H, r) {
+  revolve(R, 0, 0, 0, trunk, cyl(0.9), () => rgbOf('#5a4028'));
+  revolve(R, 0, 0, base, base + H, (h) => r * Math.pow(Math.sin(Math.PI * Math.min(1, Math.max(0, (h - base) / H)) * 0.92 + 0.12), 0.8),
+    (I, h, a) => (K.snow && I > 0.62 ? rgbOf('#eef3f8')
+      : rgbOf(CYPRESS[Math.min(4, Math.max(0, Math.round((1 - I) * 3.2) - 1 + (h32(Math.round(a * 6), Math.round(h / 2), 3) % 5 === 0 ? 1 : 0)))])));
+}
 
 // ROCHER NATUREL (îlot de l'Aiguille, 2026-10-04). Raph, sur le rang I : « tu me la
 // fais bien en pixel art l'île ? ». Les rochers étaient des œufs lisses (révolution)
@@ -1334,10 +1349,12 @@ export function bakeCathedral(K, tier, B, Hmax) {
     }
     return st(117)(f, uu, hv, lit);
   };
-  const portal = [{ f: 'S', u0: -0.045 * u, u1: 0.045 * u, h0: 0, h1: 0.17 * u, arch: 'pointed', col: (uu, hv, lit) => (hv > 0.1 * u ? X.marble(lit ? 1 : 2) : X.metal(2)) }];
+  // (portalHoles : elle s'appelait `portal` et masquait la fonction exportée du même
+  // nom dans tout bakeCathedral — audit du 05/10, STRUCT-12.)
+  const portalHoles = [{ f: 'S', u0: -0.045 * u, u1: 0.045 * u, h0: 0, h1: 0.17 * u, arch: 'pointed', col: (uu, hv, lit) => (hv > 0.1 * u ? X.marble(lit ? 1 : 2) : X.metal(2)) }];
   if (tier === 2) walls(R, -tw0, tw0, yF, yFront, 0, fH, 3, ragged(st(117), fH, 11), X.top(2));
   else {
-    box(R, -tw0, tw0, yF, yFront, 0, Hn, corniced(X, pierce(facade, portal), 0, Hn), X.top(2));
+    box(R, -tw0, tw0, yF, yFront, 0, Hn, corniced(X, pierce(facade, portalHoles), 0, Hn), X.top(2));
     gable(R, -tw0, tw0, yF, yFront, Hn, 0.14 * u, X.roofL, (I) => X.smooth(I));
   }
   const tE = tower(1);
