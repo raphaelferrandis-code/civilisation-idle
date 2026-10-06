@@ -34,7 +34,7 @@ import { CM, cmHash } from '../layout.js';
 import { worldToScreen, ISO_X, ISO_Y } from './projection.js';
 import { levelZoom } from './solPyramide.js';
 import { blitIsoTileKey, isoTileProbe, ISO_TILE_KEYS } from './isoGroundTiles.js';
-import { SEASON_WILD, GRASS_DETAIL, GRASS_TILE_UNDER, GRASS_TILE_UNDER_WINTER } from './isoGroundDetail.js';
+import { SEASON_WILD, GRASS_DETAIL, GRASS_TILE_UNDER, GRASS_TILE_UNDER_WINTER, grassFlattenA } from './isoGroundDetail.js';
 import { WINTER } from '../seasonMode.js';
 import { diamondPath } from './isoQuad.js';
 import { rgb } from './isoPalette.js';
@@ -101,6 +101,14 @@ function buildPattern(key, lz, dpr) {
     if (!blitIsoTileKey(ctx, key, nx, ny, hw, mir, h)) complete = false;
     if (alpha < 1) ctx.globalAlpha = 1;
   }
+  // L'échelle de l'ère (isoGroundDetail.GRASS_ERA) : le même adoucissement que l'herbe
+  // du plan, sinon le bord du plan se verrait aux ères de tours.
+  const flat = grassFlattenA();
+  if (flat > 0) {
+    const u = CM.season === WINTER ? GRASS_TILE_UNDER_WINTER : GRASS_TILE_UNDER;
+    ctx.fillStyle = `rgba(${u[0]},${u[1]},${u[2]},${flat.toFixed(3)})`;
+    ctx.fillRect(0, 0, W, H);
+  }
   return { canvas, complete };
 }
 
@@ -108,7 +116,7 @@ function patternCanvas(lz, dpr, nowMs) {
   const key = ISO_TILE_KEYS.grass;
   const base = isoTileProbe(key);
   if (!base || !base.ready) return null;
-  const k = lz + '|' + dpr + '|' + (CM.season === WINTER ? 'w' : 's') + '|' + GRASS_DETAIL.tileAlpha + '|' + CM.TILE;
+  const k = lz + '|' + dpr + '|' + (CM.season === WINTER ? 'w' : 's') + '|' + GRASS_DETAIL.tileAlpha + '|' + CM.TILE + '|' + grassFlattenA().toFixed(3);
   const i = cache.findIndex((c) => c.key === k);
   let hit = i >= 0 ? cache[i] : null;
   if (hit && (hit.complete || nowMs - hit.at < RETRY_MS)) {

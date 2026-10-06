@@ -28,6 +28,7 @@ import { solInvalidate } from './solInvalidate.js';
 import { meadowPixel, townLawnAt } from './isoMeadow.js';
 import { courOf } from './isoTissu.js';
 import { mkCanvas } from '../pixelUtil.js';
+import { GRASS_TILE_UNDER, GRASS_TILE_UNDER_WINTER, grassFlattenA } from './isoGroundDetail.js';
 
 export const FOREST_FLOOR = {
   on: true,
@@ -131,7 +132,8 @@ function drawForestFloor(ctx, b, L, T) {
 export function drawGrassVeils(ctx, b, L, T, hw, hh, mask, maskR) {
   if (!L || (!mask.length && !maskR.length)) return;
   const meadow = meadowPixel(L, townLawnAt(L, courOf(L)));
-  if (!meadow && !FOREST_FLOOR.on) return;
+  const flat = grassFlattenA();
+  if (!meadow && !FOREST_FLOOR.on && !(flat > 0)) return;
   ctx.save();
   // ⚠ Pas diamondPath (isoQuad) : il ouvre un NOUVEAU chemin à chaque losange, le
   // gabarit n'aurait gardé que le dernier.
@@ -142,6 +144,13 @@ export function drawGrassVeils(ctx, b, L, T, hw, hh, mask, maskR) {
   }
   for (let i = 0; i < maskR.length; i += 4) ctx.rect(maskR[i], maskR[i + 1], maskR[i + 2] - maskR[i], maskR[i + 3] - maskR[i + 1]);
   ctx.clip();
+  // L'ÉCHELLE DE L'ÈRE (isoGroundDetail.GRASS_ERA) : la tuile d'herbe adoucie vers son
+  // ton moyen — un gazon vu de haut aux ères de tours. Sous les prés et le sous-bois.
+  if (flat > 0) {
+    const u = CM.season === WINTER ? GRASS_TILE_UNDER_WINTER : GRASS_TILE_UNDER;
+    ctx.fillStyle = `rgba(${u[0]},${u[1]},${u[2]},${flat.toFixed(3)})`;
+    ctx.fillRect(0, 0, CM.cw, CM.ch);
+  }
   if (meadow) drawCellVeil(ctx, b, T, meadow);
   drawForestFloor(ctx, b, L, T);
   ctx.restore();

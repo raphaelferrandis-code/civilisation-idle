@@ -312,3 +312,16 @@ Méthode habituelle : planche avant/après sur de vraies captures, validation de
     la ville). Rien n'est AJOUTÉ sur la couture (7 refus). Pelouse = bande ≥ 2 seulement
     (camp et village gardent leur pré) ; aux ères où la cour de terre devient gazon
     (`COUR.lawnFrom`), elle en est.
+  - Commit local `4b836b13`.
+- 2026-10-06, Raph (capture d'un parc cosmique) : « du coup l'herbe et les fleurs
+  paraissent énormes, on les voit depuis le ciel ». Les arbres suivaient déjà l'échelle
+  de l'ère (`treeBandMul` : ×0,85 bandes 5-6, ×0,65 dès 7), pas l'herbe : brins de la
+  tuile, touffes et fleurs en croix de 3 pixels, aussi grosses qu'une voiture ; et les
+  grands parcs (presque tout en cœur de pelouse) portaient une fleur sur deux cellules.
+  `GRASS_ERA` (isoGroundDetail, molette dev `__grassEra`), le GRAIN ne bouge pas :
+  - tuile d'herbe adoucie vers son ton moyen (`GRASS_TILE_UNDER`) à (1 − k) × 1,4
+    (0,21 aux bandes 5-6, 0,49 dès 7), dans l'herbe seule (`drawGrassVeils`) et sur le fond
+    hors plan (`isoWildBackdrop`, sinon le bord du plan se verrait) ;
+  - fleurs, brins et touffes × k² ; sous k 0,9, une fleur = UN pixel ;
+  - massif des pelouses `LAWN_FLOWER_P` 0,5 → 0,3.
+  Vérifié en jeu bandes 6 et 8 (A/B même séance). Rien ne change jusqu'à la bande 4.

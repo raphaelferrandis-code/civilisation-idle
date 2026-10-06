@@ -23,7 +23,7 @@
 // géométrie de rue sur `CM` pour les agents. L'effet de bord voyage donc avec ce
 // module — c'est isoRenderer qui le déclenche désormais, en l'important. (Cf. P32 du
 // plan : `roadIsoHierarchy.test.js` en dépend et le dit maintenant à voix haute.)
-import { CM, cmHash } from '../layout.js';
+import { CM, cmHash, treeBandMul } from '../layout.js';
 import { solInvalidate } from './solInvalidate.js';
 import { seasonGrass, seasonWild, seasonTip, seasonFlowerMul, seasonCanopyTint, WINTER } from '../seasonMode.js';
 import { isoArt } from './isoArt.js';
@@ -170,7 +170,36 @@ const GD_FLOWERS = [
 // Molette : __grassDetail({ colony: false }) rejoue le semis uniforme.
 export const FLOWER_COLONY = { from: 0.45, span: 0.2, norm: 2.34, scale: 9, dominant: 0.7 };
 // Part de fleurs d'une cellule au CŒUR d'une pelouse de ville (massif, cf. isoMeadow.LAWN).
-export const LAWN_FLOWER_P = 0.5;
+// 0,5 → 0,3 (2026-10-06) : les grands parcs des ères tardives n'ont presque que du cœur,
+// et à une fleur sur deux cellules ils se couvraient de confettis.
+export const LAWN_FLOWER_P = 0.3;
+// ── L'HERBE SUIT L'ÉCHELLE DE L'ÈRE (Raph, 2026-10-06, capture d'un parc cosmique :
+// « l'herbe et les fleurs paraissent énormes, on les voit depuis le ciel ») ──────────
+// Les arbres rapetissent déjà aux ères de tours (treeBandMul, layout.js : ×0,85 aux
+// bandes 5-6, ×0,65 dès la 7) — un arbre de village à côté d'une arcologie est un
+// séquoia. L'herbe, elle, gardait son dessin de village : brins de la tuile, touffes et
+// fleurs de 3 pixels d'art, aussi gros qu'une voiture. Le GRAIN ne bouge pas (un pixel
+// d'art reste un pixel d'habitation) : ce qui suit l'ère, c'est ce qu'on DESSINE —
+//  · la tuile d'herbe est adoucie vers son ton moyen (`flatten` × (1 − k), voile posé dans
+//    l'herbe seule, isoForestFloor.drawGrassVeils, et sur le fond hors plan) : ses brins
+//    se lisent comme un gazon vu de haut ;
+//  · les fleurs, brins et touffes se raréfient (× k²) ;
+//  · sous `dotBelow`, une fleur n'est plus une croix de 3 pixels mais UN pixel.
+// Molette (dev) : __grassEra(false) | ({ flatten, dotBelow }).
+export const GRASS_ERA = { on: true, flatten: 1.4, dotBelow: 0.9 };
+if (import.meta.env?.DEV && typeof window !== 'undefined') {
+  window.__grassEra = (o) => {
+    if (o === false) GRASS_ERA.on = false;
+    else if (o && typeof o === 'object') Object.assign(GRASS_ERA, { on: true }, o);
+    else GRASS_ERA.on = true;
+    solInvalidate('all');
+    return { ...GRASS_ERA };
+  };
+}
+// Échelle de la végétation à l'ère du plan courant (1 jusqu'à la bande 4).
+export function grassEraK() { return GRASS_ERA.on ? treeBandMul(false) : 1; }
+// Alpha du voile qui adoucit la tuile d'herbe vers son ton moyen.
+export function grassFlattenA(k = grassEraK()) { return Math.max(0, Math.min(0.6, (1 - k) * GRASS_ERA.flatten)); }
 // Colonies par couleur dominante : pâquerettes, boutons d'or, coquelicots, bleuets, mêlées.
 const COLONY_KINDS = [[0.3, 0], [0.25, 3], [0.15, 6], [0.12, 8], [0.18, -1]];
 // Facteur de colonie en (gx, gy), de moyenne 1 sur la carte.
@@ -195,7 +224,9 @@ function colonyFlower(gx, gy) {
 // résiduel ici est la CHAÎNE de style reconstruite par rect, pas l'appel de dessin.
 // `lawn` : 0 herbe sauvage, 1 pelouse de ville, 2 cœur de pelouse (isoMeadow.townLawnAt) —
 // la pelouse n'a ni touffes ni herbes folles, et ses fleurs vont en massif au cœur.
-export function drawGrassDetail(ctx, gx, gy, px, py, hw, hh, onGrass = null, flowerK = 1, lawn = 0) {
+// `eraK` : échelle de la végétation à l'ère (grassEraK) — densités × eraK², fleur en un pixel.
+export function drawGrassDetail(ctx, gx, gy, px, py, hw, hh, onGrass = null, flowerK = 1, lawn = 0, eraK = 1) {
+  const eraP = eraK * eraK;
   const pu = Math.max(1, Math.round(hw * 0.055));    // « pixel » d'art (suit le zoom)
   // LISIÈRE ARRONDIE (cf. isoLisiere) : dans une cellule de bord, un motif ne se pose
   // que si SON point est de l'herbe — sinon la fleur tomberait dans la terre que
@@ -210,7 +241,7 @@ export function drawGrassDetail(ctx, gx, gy, px, py, hw, hh, onGrass = null, flo
   const h1 = cmHash('gd:' + gx + ':' + gy);
   const h2 = cmHash('gd2:' + gx + ':' + gy);
   // Touffe de brins (knob tuftP, défaut 0) : 2-3 brins verticaux, corps foncé + pointe.
-  if (!lawn && GRASS_DETAIL.tuftP > 0 && (h2 & 255) / 255 < GRASS_DETAIL.tuftP) {
+  if (!lawn && GRASS_DETAIL.tuftP > 0 && (h2 & 255) / 255 < GRASS_DETAIL.tuftP * eraP) {
     const fx = 0.28 + ((h2 >> 8) & 31) / 31 * 0.44;
     const fy = 0.30 + ((h2 >> 13) & 31) / 31 * 0.42;
     const bx = Math.round(px + (fx - fy) * hw), by = Math.round(py + (fx + fy) * hh);
@@ -230,15 +261,17 @@ export function drawGrassDetail(ctx, gx, gy, px, py, hw, hh, onGrass = null, flo
   const colony = GRASS_DETAIL.colony !== false;
   // Pelouse : rien au bord, un massif au cœur (LAWN_FLOWER_P) ; ailleurs, la colonie.
   const fP = lawn ? (lawn === 2 ? LAWN_FLOWER_P : 0) : GRASS_DETAIL.flowerP * (colony ? flowerColonyK(gx, gy) : 1);
-  if (fP > 0 && (cmHash('gf:' + gx + ':' + gy) & 1023) / 1023 < fP * SEASON_FLOWER_MUL * flowerK) {
+  if (fP > 0 && (cmHash('gf:' + gx + ':' + gy) & 1023) / 1023 < fP * SEASON_FLOWER_MUL * flowerK * eraP) {
     const fl = colony ? colonyFlower(gx, gy) : GD_FLOWERS[cmHash('fc:' + gx + ':' + gy) % GD_FLOWERS.length];
     const petal = fl[0], core = fl[1];
     const fx = 0.3 + ((h1 >> 20) & 15) / 15 * 0.4;
     const fy = 0.3 + ((h2 >> 20) & 15) / 15 * 0.4;
     const cx = Math.round(px + (fx - fy) * hw), cy = Math.round(py + (fx + fy) * hh);
     if (ok(fx, fy)) {
-      const shape = colony ? fl[2] : 'croix';
-      if (shape === 'bouton') {
+      const shape = eraK < GRASS_ERA.dotBelow ? 'point' : colony ? fl[2] : 'croix';
+      if (shape === 'point') {
+        rect(cx, cy, pu, pu, petal, 1);               // vue de haut, aux ères de tours
+      } else if (shape === 'bouton') {
         rect(cx - pu, cy, pu, pu, petal, 1); rect(cx + pu, cy, pu, pu, petal, 1);
         rect(cx, cy - pu, pu, pu, petal, 1); rect(cx, cy, pu, pu, core, 1);
       } else if (shape === 'pavot') {
@@ -275,10 +308,10 @@ export function drawGrassDetail(ctx, gx, gy, px, py, hw, hh, onGrass = null, flo
   // touffe dessinée fait ~une demi-cellule, à la densité des brins elle
   // re-carpetterait le sol — l'écueil déjà tranché avec Raph le 2026-07-12.
   const h3 = cmHash('gc:' + gx + ':' + gy);
-  if (!lawn && GRASS_DETAIL.clumpP > 0 && (h3 & 1023) / 1023 < GRASS_DETAIL.clumpP) {
+  if (!lawn && GRASS_DETAIL.clumpP > 0 && (h3 & 1023) / 1023 < GRASS_DETAIL.clumpP * eraP) {
     const fx = 0.24 + ((h3 >> 10) & 31) / 31 * 0.52;
     const fy = 0.24 + ((h3 >> 16) & 31) / 31 * 0.52;
-    deco(isoArt('deco/tuft-' + (1 + (h3 % GD_TUFTS))), fx, fy, GRASS_DETAIL.clumpScale);
+    deco(isoArt('deco/tuft-' + (1 + (h3 % GD_TUFTS))), fx, fy, GRASS_DETAIL.clumpScale * eraK);
   }
 }
 if (import.meta.env?.DEV && typeof window !== 'undefined') {
@@ -983,7 +1016,7 @@ if (import.meta.env?.DEV && typeof window !== 'undefined') {
 // ⚠ Le LISSAGE est coupé UNE FOIS pour toute la fournée : les touffes sont des
 // sprites agrandis au pixel d'art, et le poser par cellule coûterait des centaines
 // d'écritures de propriété pour le même résultat.
-export function drawGrassDetailAll(ctx, grassCells, hw, hh, lisiere = null, flowerK = null, lawn = null) {
+export function drawGrassDetailAll(ctx, grassCells, hw, hh, lisiere = null, flowerK = null, lawn = null, eraK = 1) {
   const prevGDS = ctx.imageSmoothingEnabled;
   ctx.imageSmoothingEnabled = false;
   // Lisière arrondie : le test de matière ne coûte que dans les cellules de BORD.
@@ -991,7 +1024,7 @@ export function drawGrassDetailAll(ctx, grassCells, hw, hh, lisiere = null, flow
   for (let i = 0; i < grassCells.length; i += 4) {
     const gx = grassCells[i], gy = grassCells[i + 1];
     drawGrassDetail(ctx, gx, gy, grassCells[i + 2], grassCells[i + 3], hw, hh,
-      onGrass && lisiere.isEdge(gx, gy) ? onGrass : null, flowerK ? flowerK(gx, gy) : 1, lawn ? lawn(gx, gy) : 0);
+      onGrass && lisiere.isEdge(gx, gy) ? onGrass : null, flowerK ? flowerK(gx, gy) : 1, lawn ? lawn(gx, gy) : 0, eraK);
   }
   ctx.imageSmoothingEnabled = prevGDS;
 }

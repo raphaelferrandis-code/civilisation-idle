@@ -3,7 +3,7 @@
 import { describe, it, expect } from "vitest";
 import fs from "node:fs";
 import { PNG } from "pngjs";
-import { FLOWER_COLONY, GRASS_DETAIL, GRASS_TILE_UNDER, flowerColonyK } from "../iso/isoGroundDetail.js";
+import { FLOWER_COLONY, GRASS_DETAIL, GRASS_ERA, GRASS_TILE_UNDER, flowerColonyK, grassFlattenA } from "../iso/isoGroundDetail.js";
 import { LAWN, MEADOW, meadowAt, meadowPixel, townLawnAt } from "../iso/isoMeadow.js";
 import { CM } from "../layout.js";
 import { lum } from "../../../test/pixels.js";
@@ -133,5 +133,19 @@ describe("la pelouse de ville (lot 5)", () => {
     expect(px(12, 12, d, 0)).toBe(true);
     expect([...d]).toEqual([...LAWN.col, Math.round(LAWN.alpha * 255)]);
     MEADOW.on = true;
+  });
+});
+
+describe("l'herbe suit l'échelle de l'ère (2026-10-06)", () => {
+  it("rien ne change jusqu'à la bande 4 ; la tuile s'adoucit ensuite, plus fort aux ères de tours", () => {
+    expect(grassFlattenA(1)).toBe(0);
+    const mid = grassFlattenA(0.85), late = grassFlattenA(0.65);
+    expect(mid).toBeGreaterThan(0.1);
+    expect(late).toBeGreaterThan(mid);
+    expect(late).toBeLessThanOrEqual(0.6);                 // jamais un aplat : le gazon garde son grain
+  });
+  it("les fleurs deviennent un pixel dès les bandes 5-6, pas avant", () => {
+    expect(GRASS_ERA.dotBelow).toBeGreaterThan(0.85);
+    expect(GRASS_ERA.dotBelow).toBeLessThanOrEqual(1);
   });
 });
