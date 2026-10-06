@@ -12,7 +12,9 @@ import { makeRoadInputs } from "../../../test/roads.js";
 // de pont). Ce test verrouille l'invariant réparé par repairMaskSeams
 // (cmBuildRoadGraph) : le graphe FINAL forme UNE seule composante par masques.
 
-const ARCHETYPES = ["scattered", "crossroads", "linear", "radial", "districts", "capital", "megalopolis"];
+// La seule recette du générateur (audit 2026-10-05, MORT-4 : les recettes
+// géométriques sont parties avec l'ancien placement).
+const ARCHETYPES = ["scattered"];
 
 // Harnais partagé avec roadGraph.test.js, avec un GRAIN par seed (les ancres
 // tournent) pour balayer des géométries variées.
@@ -90,7 +92,7 @@ describe("cmBuildRoadGraph — réparation des coutures de masques", () => {
 
   it("les tampons de réparation restent hors de l'eau (sémantique de pont droit)", () => {
     for (let seed = 1; seed <= 5; seed += 1) {
-      const inp = makeInputs("crossroads", 3, seed, { withRiver: true });
+      const inp = makeInputs("scattered", 3, seed, { withRiver: true });
       const out = generateRoadsGraph(inp);
       const river = {
         isWater: (gx, gy) => inp.riverSet.has(gx + "," + gy),

@@ -208,11 +208,13 @@ describe("citizenSheet — la fiche", () => {
     expect(s.driver).toBeTruthy();
     expect(s.cargo.fr).toMatch(/Amphores/);
     expect(focusCameraTarget()).not.toBe(null);
-    const tram = { type: "tram", skin: "cos7", seed: 42, x: 0, y: 0, dir: 2, gx: 0, gy: 0, speed: 30 };
-    CM.vehicles = [tram];
-    focusPick({ kind: "vehicle", p: tram });
+    // (Le tram, qui ne circulait pas, est retiré : audit du 2026-10-05, ASSET-3.)
+    const bus = { type: "bus", skin: "", seed: 42, x: 0, y: 0, dir: 2, gx: 0, gy: 0, speed: 30 };
+    CM.vehicles = [bus];
+    focusPick({ kind: "vehicle", p: bus });
     s = citizenSheet();
-    expect(s.name.fr).toBe("Tram magnétique");
+    expect(s.name.fr).toBe("Autobus");
+    expect(s.activity.fr).toBe("Dessert sa ligne");
     expect(s.riders).toBeGreaterThan(0);
     CM.vehicles = [];
     expect(citizenSheet().lost).toBe(true);

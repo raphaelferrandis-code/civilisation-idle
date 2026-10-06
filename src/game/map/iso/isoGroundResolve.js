@@ -22,7 +22,6 @@
 // connaître la politique de qui l'appelle.
 import { CM } from '../layout.js';
 import { visibleCellBounds, ISO_X, ISO_Y } from './projection.js';
-import { terrainMaxPx } from './isoTerrain.js';
 import { ensureQuayGate } from '../quaysAndRiot.js';
 import { COUR, builtCells, courOf } from './isoTissu.js';
 import { ROAD_DETAIL, roadTone } from './isoRoad.js';
@@ -42,10 +41,7 @@ export function makeGroundBake(ISO_GROUND_LOD) {
   const HARD = LOD && !ISO_GROUND_LOD.light;
   const hw = T * z * ISO_X;            // demi-largeur du losange
   const hh = T * z * ISO_Y;            // demi-hauteur
-  // + terrainMax : une cellule dont la projection PLATE est sous le bord bas peut
-  // être LEVÉE dans l'écran par le relief — la borne grossière s'unprojette à z=0,
-  // elle doit donc s'élargir du plafond du champ (0 quand le terrain est coupé).
-  const b = visibleCellBounds(hw * 2 + terrainMaxPx() * z);
+  const b = visibleCellBounds(hw * 2);
   // Profileur opt-in (globalThis.__isoGroundProfile = true) — même idiome que
   // __layoutProfile : coût nul éteint, phases en ms dans __isoGroundProfileLast.
   const PR = globalThis.__isoGroundProfile

@@ -556,11 +556,7 @@ function cityMapDescribeTile(t) {
     // Le TITRE est le nom de la boutique (buildingById, déjà dans la langue du
     // joueur par localizeData) : cityBuildings.js n'en garde plus de copie
     // française. `buildingName` ne sert plus qu'au port de commerce, nommé à part.
-    // ⚠ Les REPÈRES CIVIQUES (pseudo-tuiles `__district`, iso/isoDistricts.js)
-    // empruntent le DESSIN d'un moteur (`buildingId`) sans en être un : ils
-    // gardent leur titre générique, pas le nom du bâtiment prêté (un forum
-    // s'appelait sinon « Tribunaux », des archives « Bibliothèques »).
-    const b = t.__district ? null : buildingById[t.buildingId];
+    const b = buildingById[t.buildingId];
     const title = t.buildingName ? tr(t.buildingName) : b ? tr(b.name) : cityMapVariantLabel(t.type, t.variant);
     const stage = t.tier >= 3 ? { fr: "quartier dense", en: "dense quarter" }
       : t.tier >= 2 ? { fr: "complexe", en: "complex" }
@@ -1405,10 +1401,6 @@ function cityMapEnsureLayoutInner(now, deps = {}) {
     seen[t.key] = true;
     if (!CM.born[t.key]) CM.born[t.key] = now;
   }
-  for (const d of L.districts || []) {
-    seen[d.key] = true;
-    if (!CM.born[d.key]) CM.born[d.key] = now;
-  }
   // Les clés "wonder:*" sont gérées par la boucle de rendu (animation de levée à
   // la (ré)érection) et NON par cette comptabilité de naissance des tuiles : ne
   // pas les purger ici, sinon l'horodatage de naissance est effacé à chaque
@@ -1619,9 +1611,9 @@ function cityMapEnsureLayoutInner(now, deps = {}) {
   // empreinte) : x0/x1 = recouvrement colonne (px monde), baseY = ligne de contact au
   // sol (bas d'empreinte — l'ordre du peintre), topY = portée du sprite vers le nord.
   // Maisons/enginehome : hauteur RÉELLE du PNG (houseSpriteHeightTiles, défaut 2.2
-  // tuiles tant que pas mesuré). Moteur/civic/districts : clipOnly = ne PEUVENT PAS
-  // occulter un agent (scènes basses type champs/marchés, et les tours de district
-  // sont bakées SOUS les agents) — seulement le « rognage de tête » côté nord.
+  // tuiles tant que pas mesuré). Moteur/civic : clipOnly = ne PEUVENT PAS
+  // occulter un agent (scènes basses type champs/marchés) — seulement le « rognage
+  // de tête » côté nord.
   const binfo = new Map();
   const Tpx = CM.TILE;
   for (const t of L.tiles) {
@@ -1641,14 +1633,6 @@ function cityMapEnsureLayoutInner(now, deps = {}) {
       clipOnly: !isHouse,
     };
     for (let ax = 0; ax < bx; ax += 1) for (let ay = 0; ay < by; ay += 1) binfo.set((t.gx + ax) * 10000 + (t.gy + ay), rec);
-  }
-  for (const d of (L.districts || [])) {
-    const rec = {
-      x0: d.gx * Tpx, x1: (d.gx + d.size) * Tpx,
-      baseY: (d.gy + d.size) * Tpx, topY: ((d.gy + d.size) - 1.15) * Tpx,
-      clipOnly: true,
-    };
-    for (let ax = 0; ax < d.size; ax += 1) for (let ay = 0; ay < d.size; ay += 1) binfo.set((d.gx + ax) * 10000 + (d.gy + ay), rec);
   }
   CM.buildingInfo = binfo;
 
@@ -1981,9 +1965,7 @@ export function cmSyncRoadFleet(L, wantVeh, deps = {}) {
   const era = L.counts.eraIndex;
   // Le type, son skin, son allure et sa teinte : tirés au numéro `n`, au rang de la rue.
   const retype = (v, n, rank) => {
-    let vehicleType = chooseRoadVehicleType(era, rank, n);
-    // Pas de tram sur les voies (véhicule rail) → retombe sur une voiture.
-    if (vehicleType === "tram") vehicleType = "car";
+    const vehicleType = chooseRoadVehicleType(era, rank, n);
     v.type = vehicleType;
     // Une porteuse sur deux (docs/PLAN-COMPORTEMENTS.md, lot 3) : dessinée en
     // août (basket-woman-flat) mais jamais posée — `v.woman` n'était jamais vrai.
@@ -1993,18 +1975,22 @@ export function cmSyncRoadFleet(L, wantVeh, deps = {}) {
     // où le tirage a lieu, le rendu ne fait que lire v.skin. La BANDE compte :
     // sous la bande 6 le pack ne sort pas et le skin revient vide.
     v.skin = vehSkinFor(vehicleType, n, L.counts.eraBand);
-    v.speed = vehicleType === "drone" ? 58 + (n % 5) * 7 : vehicleType === "car" || vehicleType === "tram" || vehicleType === "taxi" || vehicleType === "police" ? 34 + (n % 6) * 4 : vehicleType === "ambulance" ? 40 + (n % 4) * 4 : vehicleType === "bus" || vehicleType === "truck" ? 24 + (n % 4) * 3 : vehicleType === "van" ? 30 + (n % 5) * 3 : vehicleType === "basket" ? 11 + (n % 3) * 2 : vehicleType === "chariot" ? 24 + (n % 4) * 3 : vehicleType === "caravan" ? 16 + (n % 4) * 2 : 14 + (n % 4) * 2;
-    v.col = vehicleType === "car" || vehicleType === "tram" ? ["#9b4d38", "#c0a85d", "#6f8490", "#a8a092", "#5f6f7c", "#8f6544"][n % 6] : ["#8f6534", "#b08a4a", "#7b5b35", "#c0a46a", "#6f5636", "#9a7440"][n % 6];
+    v.speed = vehicleType === "drone" ? 58 + (n % 5) * 7 : vehicleType === "car" || vehicleType === "taxi" || vehicleType === "police" ? 34 + (n % 6) * 4 : vehicleType === "ambulance" ? 40 + (n % 4) * 4 : vehicleType === "bus" || vehicleType === "truck" ? 24 + (n % 4) * 3 : vehicleType === "van" ? 30 + (n % 5) * 3 : vehicleType === "basket" ? 11 + (n % 3) * 2 : vehicleType === "chariot" ? 24 + (n % 4) * 3 : vehicleType === "caravan" ? 16 + (n % 4) * 2 : 14 + (n % 4) * 2;
+    v.col = vehicleType === "car" ? ["#9b4d38", "#c0a85d", "#6f8490", "#a8a092", "#5f6f7c", "#8f6544"][n % 6] : ["#8f6534", "#b08a4a", "#7b5b35", "#c0a46a", "#6f5636", "#9a7440"][n % 6];
   };
   const list = CM.vehicles;
   if (!list.length) CM.vehicleSerial = 0;
-  // Nouvel âge, ou ville en ruine (chooseRoadVehicleType rend alors la charrette
-  // brisée — même critère que lui) : chacun garde sa place et son conducteur (seed),
-  // il change de monture. Pas à chaque ère : dans un même âge le tirage ne change pas,
-  // seul le rang de la rue où il roule changerait — une voiture deviendrait charrette
-  // sous les yeux du joueur.
+  // EN RUINE (Usure > 0,88 ou Rupture ≥ 1, le critère de getVehicleDensity) : plus un
+  // seul véhicule (décision de Raph, audit du 2026-10-05, MORT-11). Le trafic y devenait
+  // des « charrettes brisées » sans sprite iso : invisibles mais simulées — les pigeons
+  // fuyaient et les piétons cédaient le passage devant rien. Celui qu'on suit reste (plus
+  // bas), à sa monture.
   const ruined = (state.timeWear || 0) > 0.88 || (state.instability || 0) >= 1;
-  const typeKey = `${L.counts.eraBand | 0}:${ruined ? 1 : 0}`;
+  if (ruined) wantVeh = 0;
+  // Nouvel âge : chacun garde sa place et son conducteur (seed), il change de monture.
+  // Pas à chaque ère : dans un même âge le tirage ne change pas, seul le rang de la rue
+  // où il roule changerait — une voiture deviendrait charrette sous les yeux du joueur.
+  const typeKey = String(L.counts.eraBand | 0);
   if (CM.vehicleTypeKey !== typeKey) {
     CM.vehicleTypeKey = typeKey;
     for (const v of list) {

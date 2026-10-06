@@ -54,7 +54,6 @@ import { drawIsoDrones } from './isoSky.js';
 import { drawIsoNight } from './isoStreet.js';
 import { drawIsoRain } from './isoWeather.js';
 import { chuteFrame, paintChuteFade } from './isoChute.js';
-import { drawTerrainShade } from './isoTerrain.js';
 import {
   worldToScreen, visibleCellBounds, visibleDiamondBounds, ISO_X, ISO_Y,
 } from './projection.js';
@@ -227,7 +226,6 @@ function drawIsoWorldInner(dt, now, steps) {
   fp('bateaux');
   drawIsoLive(now);      // (les merveilles y sont des items du tri peintre)
   endReflectionBuild();  // plus rien ne se reflète après la scène (cf. isoReflect)
-  drawTerrainShade();    // ombrage du relief — par-dessus la scène : le flanc prend aussi le bâti
   fp('scene-vivante');
   drawVieClouds(now);    // ombres de nuages : sur le sol ET le bâti, sous ce qui vole
   drawVieAir(now);       // petite vie qui VOLE (héron qui change de poste…), iso/isoVie.js

@@ -178,6 +178,12 @@ bord de l'artère. Deux causes, deux corrections :
 
 ## 4 quater. L5 — les cités, TOUTES les ères (Raph 2026-10-01 : « passe aux cités et fais toutes les ères »)
 
+> ⚠ 2026-10-06 (audit du 05/10, MORT-4) : la ville par îlots (docs/PLAN-ILOTS.md) a
+> remplacé tout ce lot aux bandes 2 à 9. Les extensions planifiées, la percée, `axisX`,
+> les recettes géométriques de roadGraph, les molettes `__roadMemory` et
+> `__cityQuarters(false)` sont parties avec l'ancien placement ; la mémoire des rues,
+> elle, couvre toujours toutes les bandes.
+
 - **Mémoire sur toutes les bandes** (`ROAD_MEMORY.lastBand = 9`). Archétype
   organique forcé jusqu'au bourg seulement ; à partir de la cité, le plan de l'ère
   (radial, districts, capitale, mégalopole) reprend ses droits…

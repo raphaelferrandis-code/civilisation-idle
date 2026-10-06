@@ -2,9 +2,9 @@
 // sur une ville de la bande 4 (pilote). Même méthode que roadMemory.test.js : on
 // fait grandir l'état GLOBAL (l'ère se lit sur `state`).
 import { describe, it, expect, beforeEach } from "vitest";
-import { ILOT_MODE, ILOT_MEMORY_V, ENGINE_HOME_LOOKAHEAD } from "../layout.js";
+import { ILOT_MEMORY_V, ENGINE_HOME_LOOKAHEAD } from "../layout.js";
 import { state, normalizeCityCore } from "../../core/state.js";
-import { ROAD_MEMORY, decodeRoadMemory } from "../roadMemory.js";
+import { decodeRoadMemory } from "../roadMemory.js";
 import { ANNEX_BODIES } from "../ilotArt.js";
 import { gridOf, ILOT_DEFAULTS } from "../procedural/blockCity.js";
 import { growCity as grow } from "../../../test/city.js";
@@ -35,7 +35,6 @@ function memRoadsInIlots(L) {
 }
 
 beforeEach(() => {
-  ROAD_MEMORY.on = true; ILOT_MODE.on = true;
   state.cityRoads = null; state.cityCore = null; state.cityMapSlots = {}; state.cityArchetype = null; state.cityPersonality = null; state.riverWP = null;
 });
 

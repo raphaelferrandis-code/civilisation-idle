@@ -40,7 +40,6 @@ import { isoUnitDepth, isoUnitDepthEx, vehSortLift, vehSortWide, orderUnitsAroun
 import { WILD_THIN_UNIT, isoWildForest } from './isoWildForest.js';
 import { treeBlockedIn } from './forestBake.js';
 import { depthOf } from './projection.js';
-import { districtMassTiles } from './isoDistricts.js';
 import { vieActors } from './isoVie.js';
 import { elevatedActors } from './isoElevated.js';
 import { pushTerroirTeams } from './terroirLife.js';
@@ -212,20 +211,8 @@ export function collectIsoItems(bake, now) {
     // Lot 6 : ceux qui attendent le bac, qui y montent ou en descendent.
     if (it.what === 'traveller') noteFig(it.x * T, it.y * T, FIG.SCENE | (it.walking ? FIG.MOVING : 0));
   }
-  // REPÈRES CIVIQUES (isoDistricts) : les emprises de district deviennent des
-  // pseudo-tiles moteur — même item 'tile', même peintre, même scène span-aware,
-  // même survol. PAS de poussé de front (cf. le marqueur __district) : une masse
-  // civique reste centrée sur son esplanade, elle ne se colle pas à la rue.
-  const dMass = districtMassTiles(L);
-  if (dMass) {
-    for (const t of dMass) {
-      if (t.gx + t.spanX < b.gx0 || t.gx > b.gx1 || t.gy + t.spanY < b.gy0 || t.gy > b.gy1) continue;
-      if (!dvVis(t.gx * T, t.gy * T, (t.gx + t.spanX) * T, (t.gy + t.spanY) * T)) continue;
-      const it = pushItem();
-      it.d = depthOf((t.gx + t.spanX) * T, (t.gy + t.spanY) * T);
-      it.kind = 'tile'; it.t = t;
-    }
-  }
+  // (Les REPÈRES CIVIQUES d'isoDistricts — pseudo-tiles des grands ensembles — sont
+  // partis avec eux et l'ancien placement : audit 2026-10-05, MORT-4.)
   // Arbres (décor) — assez près de la ville seulement (le bake du sol couvre le
   // reste). AÉRATION (retour Raph « tout est trop collé ») : pas d'arbre décoratif
   // à moins de 1.5 cellule de la place ni à moins de 1 cellule d'un terre-plein

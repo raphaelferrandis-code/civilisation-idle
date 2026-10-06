@@ -15,7 +15,7 @@ qu'ils gardent. On ne les déplace donc pas ; seul ce qu'aucun code ne cite va d
 - `STEAM-PUBLICATION.md` : déclarations Steam, à relire et compléter au moment de publier.
 - `ui-references.md` : assets d'interface intégrés et leur provenance. Référence vivante, à tenir à jour à chaque ajout.
 - `APRES-LA-SORTIE.md` : les chantiers de structure renvoyés après la sortie.
-- `audits/audit-2026-10-05-RAPPORT.md` et `audits/audit-2026-10-05-trouvailles.json` : l'audit en cours de correction.
+- `audits/audit-2026-10-05-RAPPORT.md` et `audits/audit-2026-10-05-trouvailles.json` : l'audit du 05/10 et sa correction. Ces deux fichiers ne sont pas versionnés : ils restent sur le poste de Raph.
 
 ## Clos ou livrés pour l'essentiel, de référence (cités par le code)
 

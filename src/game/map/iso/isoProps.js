@@ -10,7 +10,7 @@ import { isoArt, inkBox } from './isoArt.js';
 import { drawSunShadow } from './isoSunShadow.js';
 import { lightCtx, lightCutImage } from '../lightLayer.js';
 import { streetKitLampArt } from './streetKits.js';
-import { flameFlicker } from '../flameGlow.js';
+import { queueFlameGlow, FLAME_COL as FIRE_LIGHT } from '../flameGlow.js';
 
 // ── Art des objets posés (statues, braseros) ─────────────────────────────────
 // L'art des places de l'ère, tel quel : même main que la ville. Boîte d'encre
@@ -30,6 +30,16 @@ export const PROP_LIGHT = {
   gaslamp: { fx: 0.5, fy: 0.08, r: 0.6, col: '255,208,150' },
   ledlamp: { fx: 0.5, fy: 0.06, r: 0.6, col: '150,225,255' },
 };
+// LE MÊME FEU PARTOUT (décision de Raph, audit du 05/10, STRUCT-4) : les braseros
+// et les flammes des ponts et des merveilles éclairent par la recette de tous les
+// feux (flameGlow.queueFlameGlow : halo pré-cuit, lueur discrète de jour, nappe la
+// nuit), au poids des braseros de parvis — ils s'additionnent (10 braseros sur le
+// pont de marbre, 13 flammes et 2 braseros au Mausolée rang V de la bande 4).
+// Avant, un dégradé de nuit seule (glowAt) : le même brasero
+// n'éclairait pas pareil sur un pont et sur une place. Les réverbères, eux, ne sont
+// pas des feux : ils restent sur glowAt. (`col` du brasero ne sert plus qu'à ses
+// reflets sur le fleuve, drawIsoBridgeNight.)
+export const FIRE_GLOW_MUL = 0.6;
 // UNE ÈRE SANS ART pour un objet prend la variante existante la plus juste (audit
 // 2026-10-05, BRASERO-INDUSTRIEL). Le lieu d'une merveille cuit à la bande 4 (ses
 // braseros) reste affiché le temps que celui de la bande 5 se cuise (placeLive,
@@ -101,7 +111,7 @@ export function glowAt(x, y, r, col, a) {
 }
 
 // FLAMME procédurale (torches des totems, vasques, tour-porte) : 3 images d'un
-// petit feu en pixels d'art, qui ondule ; une lueur douce la nuit.
+// petit feu en pixels d'art, qui ondule ; la lueur de tous les feux (flameGlow).
 const FLAME_PX = [
   ['.y.', 'yoy', 'oro', '.r.'],
   ['y..', 'oy.', 'ooy', '.rr'],
@@ -120,8 +130,8 @@ export function drawFlame(ctx, x, y, z, now, k = 1, phase = 0) {
       ctx.fillRect(x0 + i * s, y0 + j * s, s, s);
     }
   }
-  // La lueur VACILLE avec la flamme (même scintillement que tous les feux, flameGlow.js).
-  glowAt(x, y - 2 * s, Math.max(6, CM.TILE * z * 0.5 * k), '255,170,90', 0.6 * flameFlicker(now, phase * 2.1));
+  // La lueur VACILLE avec la flamme : la recette de tous les feux (FIRE_GLOW_MUL).
+  queueFlameGlow(x, y - 2 * s, Math.max(6, CM.TILE * z * 0.5 * k), FIRE_LIGHT, now || 0, phase * 2.1, FIRE_GLOW_MUL);
 }
 
 export function hexToRgbStr(h) {
@@ -167,9 +177,13 @@ export function drawSpriteProp(ctx, pr, p, z, now) {
   }
   lightCutImage(img, dx, dy, dw, dh);
   const L = PROP_LIGHT[pr.prop];
-  // Un brasero qui brûle (bande animée) fait vaciller sa lueur avec lui.
-  const fl = an ? flameFlicker(now, (pr.l ?? pr.x ?? 0) * 0.41 + (pr.t ?? pr.y ?? 0) * 0.23) : 1;
-  if (L) glowAt(dx + (bb.x0 + bb.w * L.fx) * s, dy + (bb.y0 + bb.h * L.fy) * s, Math.max(6, CM.TILE * z * L.r), L.col, 0.55 * fl);
+  if (!L) return;
+  // Le BRASERO : la lueur des braseros de parvis (isoPlaza.brazierGlow), même point
+  // chaud, même rayon, même teinte — l'orbe cosmique n'est pas un feu, il éclaire or
+  // pâle — et sa phase à lui, tirée de sa place dans le kit.
+  queueFlameGlow(dx + (bb.x0 + bb.w * L.fx) * s, dy + (bb.y0 + bb.h * L.fy) * s, Math.max(6, CM.TILE * z * L.r),
+    pr.era === 'cosmic' ? '255,214,140' : FIRE_LIGHT,
+    now || 0, (pr.l ?? pr.x ?? 0) * 0.41 + (pr.t ?? pr.y ?? 0) * 0.23, FIRE_GLOW_MUL);
 }
 
 // Réverbère de kit posé au point écran p (son pied) : ombre du soleil, blit au

@@ -13,11 +13,12 @@
 //
 // ⚠ Ce défaut est INVISIBLE à un recompute à froid : c'est pour ça qu'il a échappé
 // à toutes mes reproductions (6 tuiles concernées à froid, 239 avec des slots
-// conservés). Le 2e test rejoue donc explicitement la DIVERGENCE, et vérifie
-// d'abord qu'elle a bien lieu — sans quoi il ne prouverait rien.
+// conservés). Le 2e test rejoue donc le RÉTRÉCISSEMENT du rayon sous des slots
+// conservés. (Son pendant sans la mémoire des rues, où le sol rétrécissait
+// vraiment, est parti avec l'interrupteur de la mémoire — audit 2026-10-05, MORT-4 :
+// la mémoire couvre désormais toutes les bandes.)
 import { describe, it, expect, afterEach } from 'vitest';
 import { computeCityLayout } from '../layout.js';
-import { ROAD_MEMORY } from '../roadMemory.js';
 import { cityState as city } from '../../../test/city.js';
 
 // Tuiles dont une cellule d'emprise n'est PAS du sol de ville. Les cellules de
@@ -42,7 +43,7 @@ function homeless(L) {
   return out;
 }
 
-afterEach(() => { delete globalThis.__engineHomesK; ROAD_MEMORY.on = true; });
+afterEach(() => { delete globalThis.__engineHomesK; });
 
 // Deux layouts denses complets à froid frôlaient le délai par défaut de vitest
 // (5 s) quand la suite entière sature les cœurs. Garde d'INVARIANT, pas de
@@ -54,33 +55,6 @@ describe('sol urbain — aucun bâtiment planté dans l\'herbe', () => {
     const L = computeCityLayout(city(60));
     expect(L.tiles.length).toBeGreaterThan(100);
     expect(homeless(L)).toEqual([]);
-  });
-
-  it('couvre encore quand le rayon urbain SE RÉTRÉCIT sous des positions figées', () => {
-    // ⚠ Scénario joué SANS la mémoire des rues : avec elle, les rues de la ville
-    // large restent (règle R1 de docs/PLAN-ROUTES.md) et le sol ne rétrécit plus —
-    // le scénario serait vide. La divergence reste possible là où la mémoire ne
-    // couvre pas (cités, bandes 3+) ; c'est elle qu'on rejoue ici. Le test
-    // suivant vérifie le même invariant AVEC la mémoire.
-    ROAD_MEMORY.on = false;
-    const s = city(60);
-
-    // 1. Ville posée avec un rayon LARGE. Les slots partent dans s.cityMapSlots.
-    globalThis.__engineHomesK = 2.2;
-    const large = computeCityLayout(s);
-    const solLarge = large.urbanSet.size;
-
-    // 2. Même état, slots CONSERVÉS, rayon revenu à sa valeur normale.
-    delete globalThis.__engineHomesK;
-    const reduit = computeCityLayout(s);
-
-    // Le scénario doit VRAIMENT faire diverger le sol, sinon le test est vide.
-    expect(reduit.urbanSet.size, 'le rayon urbain n\'a pas bougé : scénario vide')
-      .toBeLessThan(solLarge);
-    expect(Object.keys(s.cityMapSlots).length, 'aucun slot persisté : scénario vide')
-      .toBeGreaterThan(0);
-
-    expect(homeless(reduit)).toEqual([]);
   });
 
   it('couvre encore, mémoire des rues allumée, quand le rayon se rétrécit', () => {

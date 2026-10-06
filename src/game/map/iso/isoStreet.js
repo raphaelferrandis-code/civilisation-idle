@@ -22,7 +22,6 @@
 // tons, trottoir), ici ce qui se dresse le long et la lumière qui tombe dessus.
 import { CM, cmHash, ROAD_E, ROAD_N, ROAD_S, ROAD_W } from '../layout.js';
 import { worldToScreen, visibleCellBounds, visibleDiamondBounds } from './projection.js';
-import { terrainMaxPx } from './isoTerrain.js';
 import { paintFlameGlows } from '../flameGlow.js';
 import { LIGHT_LAYER, paintLightLayer } from '../lightLayer.js';
 import { quayWallTiles, quayWallTune } from '../quaysAndRiot.js';
@@ -799,15 +798,14 @@ function medianCapsulePath(ctx, ax, ay, bx, by, w) {
 // de plus par recuisson d'écran. Dans le repère u = wx − wy, v = wx + wy, la zone
 // est un RECTANGLE (visibleDiamondBounds) et la couture d'un segment une droite :
 // sa traversée se lit en deux intersections d'intervalles, sans projeter un point.
-// Marge : deux tuiles monde au zoom (capsule, ombre portée, liseré, bac de fleurs)
-// + deux fois le plafond du relief (le signe de terrainZ n'est pas supposé). Une
-// marge trop large coûte un segment dessiné pour rien ; trop serrée, elle
+// Marge : deux tuiles monde au zoom (capsule, ombre portée, liseré, bac de fleurs).
+// Une marge trop large coûte un segment dessiné pour rien ; trop serrée, elle
 // trouerait le terre-plein au bord de la tuile — le banc d'empreinte
 // (medianCull.test.js) vérifie que tout ce qui touche le canvas reste identique.
 // A/B : globalThis.__medianCull = false rejoue le dessin complet (dev et tests).
 function medianView(T, z) {
   if (import.meta.env?.DEV && globalThis.__medianCull === false) return null;
-  const m = (2 * T + 2 * terrainMaxPx()) * z + 8;
+  const m = 2 * T * z + 8;
   return visibleDiamondBounds(m, m);
 }
 // Intervalle [w0, w1] de la coordonnée d'AXE (wx d'un segment 'h', wy d'un 'v')

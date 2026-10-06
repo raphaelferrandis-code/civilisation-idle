@@ -20,7 +20,7 @@
 //
 // Le cache est indexé par POSITION (niveau, tx, ty) — une seule entrée par
 // tuile, la plus récente. Sa fraîcheur = même base de contenu (signature du
-// sol + saison/ère/plage/quai/relief) ET même époque d'invalidation ; sinon
+// sol + saison/ère/plage/quai) ET même époque d'invalidation ; sinon
 // elle sert de repli et se recuit. Pas de purge sur recompute : c'est la leçon
 // du lot 4 anti-clignotement (une partie qui croît changeait la signature
 // toutes les 10 s et le cache mourait) — ici le sol à peine périmé reste à
@@ -55,7 +55,7 @@ let bytes = 0;
 let epoch = 0;                // bascule à chaque invalidation 'all'/'soft' : les entrées d'avant sont périmées
 let cacheDpr = 0;             // dpr auquel le cache a été cuit (le côté S et le raster des tuiles en dépendent)
 let sigCur = '';              // empreinte de CONTENU du plan (groundContentSig) — change quand une cellule change
-let sufCur = '';              // tout le reste (ère, saison, plage, quai, relief, fleuve) — change rarement
+let sufCur = '';              // tout le reste (ère, saison, plage, quai, fleuve) — change rarement
 let curL = null;              // le plan courant, pour signer les tuiles
 let revealSeen = 0;           // compteur de révélation des maisons-moteur vu à la dernière frame
 const soft = softCoalescer(250);  // décodages en rafale : retenus, jamais perdus
@@ -73,8 +73,8 @@ const posKey = (z, tx, ty) => z.toFixed(3) + ':' + tx + ',' + ty;
 // dont la signature n'a pas bougé reste FRAÎCHE : seules celles où le monde a
 // changé se recuisent. Le calcul se fait à la demande et se mémoïse par
 // signature globale (une comparaison par tuile et par recompute, ~0,1 ms).
-// Ce qui ne se signe pas par cellule (saison, ère, plage, quai, relief,
-// géométrie du fleuve) reste dans le suffixe : s'il change, tout se recuit.
+// Ce qui ne se signe pas par cellule (saison, ère, plage, quai, géométrie
+// du fleuve) reste dans le suffixe : s'il change, tout se recuit.
 // Le fleuve est signé PAR TUILE (ses cellules, ses îles qui touchent la tuile) :
 // dans une ville qui grandit, la grille s'étend et le fleuve avec elle — sa
 // taille globale change à chaque recompute (mesuré : 1 866 → 2 003 cellules),
@@ -107,8 +107,8 @@ function engineHomeCells(L) {
   return m;
 }
 
-// La boîte de cellules qu'une tuile signe : ses coins (espace tuile, sans
-// terrain) → monde → cellules, + 2 de marge. Partagée par tileSig et
+// La boîte de cellules qu'une tuile signe : ses coins (espace tuile, sol
+// plat) → monde → cellules, + 2 de marge. Partagée par tileSig et
 // revealTouched — une maison touche une tuile si et seulement si elle est signée.
 function tileCellBox(z, tx, ty, S) {
   const T = CM.TILE;

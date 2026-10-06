@@ -173,11 +173,8 @@ export function paintIsoItems(bake, items, now) {
   // rue n'a pas de mur. Le même décalage est appliqué à la clé de tri, plus haut —
   // les deux ne se séparent jamais. La fumée, la fumée de crise et le chevron la
   // reprennent : avec le coin nu, ils sortaient à côté de la cheminée.
-  // ⚠ Les REPÈRES CIVIQUES (pseudo-tiles de district, __district) ne prennent
-  // PAS le poussé de front : la masse reste centrée sur son esplanade — et la
-  // collecte a trié sans offset, l'ancre doit suivre le même contrat.
   const tileAnchor = (t, spanX, spanY) => {
-    const fOff = (t.__district || isoFlatFootprint(t)) ? null : isoFrontOffset(t, L.roadMap);
+    const fOff = isoFlatFootprint(t) ? null : isoFrontOffset(t, L.roadMap);
     return worldToScreen((t.gx + spanX + (fOff ? fOff.ox : 0)) * T, (t.gy + spanY + (fOff ? fOff.oy : 0)) * T);
   };
   // LA FORÊT CUITE DANS LE SOL (iso/forestBake.js, audit du 05/10, PERF-3) : aux

@@ -117,6 +117,10 @@ Les jeux d'émeutiers incomplets se replient par `RIOT_ERA_SWAP` (isoUnits.js).
 rue change tout tram en voiture (cityMapRuntime.js, « pas de rails sur les rues ») et le
 tram de la muraille (`computeTramRing`, juin) a disparu du code depuis. Les faire rouler
 = décision de Raph (avenues sans rails ? retour d'une voie dédiée ?).
+→ **Tranché le 2026-10-05 (audit, ASSET-3, option A) : trams RETIRÉS** — `ERA_VEH.tram`,
+`VEH_SIZES.tram`, les libellés de la fiche, la conversion tram → voiture ; les poids du
+tram passent à la voiture (bandes 5-6) et au drone (7-8), même tirage véhicule par
+véhicule. Les 40 planches `veh-tram*` sont rangées dans `art/trams/` pour une reprise.
 
 ## 6. Banc et pièges
 

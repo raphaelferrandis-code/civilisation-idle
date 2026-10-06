@@ -16,7 +16,6 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { PNG } from 'pngjs';
 import { CM } from '../layout.js';
-import { TERRAIN } from '../iso/isoTerrain.js';
 import { pushIsoPlaisirsItems, drawIsoPlaisirsSeg } from '../iso/isoPlaisirs.js';
 
 const pending = [];
@@ -55,13 +54,11 @@ beforeAll(() => {
       return { width: 0, height: 0, getContext: () => g };
     },
   };
-  saved.amp = TERRAIN.amp; TERRAIN.amp = 0;
   saved.CM = { layout: CM.layout, TILE: CM.TILE, cam: CM.cam, cw: CM.cw, ch: CM.ch, dpr: CM.dpr, nightF: CM.nightF };
   CM.TILE = 16; CM.cw = 1600; CM.ch = 1200; CM.dpr = 1; CM.nightF = 0;
 });
 afterAll(() => {
   for (const k of ['Image', 'document', 'ImageData']) globalThis[k] = saved[k];
-  TERRAIN.amp = saved.amp;
   Object.assign(CM, saved.CM);
 });
 

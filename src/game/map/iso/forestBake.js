@@ -59,7 +59,6 @@ import { isoWildForestBlockAt, isoWildForestSig, WILD_BLOCK } from './isoWildFor
 import { TREE_SPRITES, TREE_DEAD_VARIANT, ISO_TREE_VARIANTS, cityTreeVariant, treeAliveVariant, treeSpriteK } from './isoGroundProps.js';
 import { isoArt } from './isoArt.js';
 import { seasonTree } from './isoGroundDetail.js';
-import { TERRAIN } from './isoTerrain.js';
 import { SUN_SHADOW } from './isoSunShadow.js';
 import { REFLECT } from './isoReflect.js';
 import { riverEndRays, nearRiverEndRay } from './riverEnds.js';
@@ -192,7 +191,6 @@ function inactiveReason(L, z, dpr, G) {
   // réduit et lissé : l'arbre cuit n'y serait plus l'arbre posé.
   if (z <= ZOOM_MIN_LEVEL + 1e-9 && (CM.zoomFloor || ZOOM_MIN_LEVEL) < ZOOM_MIN_LEVEL - 1e-9) return 'plancher';
   if (CHUTE.act) return 'chute';
-  if (TERRAIN.amp) return 'relief';
   if (Math.abs(G * dpr - Math.round(G * dpr)) > 1e-9) return 'dpr';
   if (import.meta.env?.DEV && typeof window !== 'undefined' && window.__wildThin != null && window.__wildThin < 1) return 'eclaircie';
   return '';
@@ -303,7 +301,7 @@ function geomOf(lv, tr) {
   const T = lv.T, z = lv.z;
   const hpx = T * z * treeCanvasT(tr.r, tr.fixed) * treeSpriteK(tv);
   const fx = (tr.gx + 0.5 + (tr.jx || 0)) * T, fy = (tr.gy + 0.9 + (tr.jy || 0)) * T;
-  const X = (fx - fy) * z, Y = (fx + fy) * 0.5 * z;          // espace tuile (relief nul)
+  const X = (fx - fy) * z, Y = (fx + fy) * 0.5 * z;          // espace tuile (sol plat)
   const cx = X - hpx / 2, cy = Y - hpx * 0.92;
   const pad = 1 / lv.dpr + 0.5, sw = ink.w, sh = ink.h;
   return {

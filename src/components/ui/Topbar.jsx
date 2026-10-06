@@ -7,7 +7,7 @@ import {
   has,
   nomadInfrastructureCap
 } from '../../game/core/mechanics.js';
-import { fmt, fmtShort, clamp01, multLabel, fmtHabitants, fmtInt, rateScale } from '../../game/core/utils.js';
+import { fmt, fmtShort, clamp01, multLabel, fmtHabitants, rateScale, exactLabel } from '../../game/core/utils.js';
 import { tr } from '../../game/core/i18n.js';
 import { state, renderCache } from '../../game/core/state.js';
 import OdometerNumber from './OdometerNumber.jsx';
@@ -20,15 +20,6 @@ import { uiRevealed, uiRevealFresh, uiRevealSignature } from '../../game/core/ui
 // (uiReveal.js) : leur case n'apparaît qu'avec le premier gain. Rayonnement et
 // Nourriture, qui bougent dès la seconde 0, sont toujours là.
 const REVEALED_RESOURCES = new Set(["gold", "knowledge", "infrastructure"]);
-
-/* Valeur exacte pour le tooltip (le bandeau affiche du compact via fmtShort). */
-function exactLabel(value) {
-  const n = typeof value?.toNumber === "function" ? value.toNumber() : value;
-  if (!Number.isFinite(n)) {
-    return typeof value?.toExponential === "function" ? value.toExponential(3) : String(value);
-  }
-  return fmtInt(n);
-}
 
 // AU CLAVIER (BUG-118), la case et sa valeur sont deux arrêts de tabulation :
 // l'une ouvre les humeurs, l'autre la valeur exacte — réservées au survol

@@ -31,11 +31,10 @@
 // tileSpace, donc les cellules se rastérisent sur la même grille quelle que soit
 // la tuile ; (2) le calque de voirie (raster à zoom 1) reçoit l'origine de la
 // tuile par `artLayerAnchor` pour que SA grille soit ancrée monde aussi.
-// ⚠ Le terrain (amp = 0 par défaut) entre dans tileSpace par worldToScreen, pas
-// dans camSpace : cohérent avec la projection, inerte à plat.
+// (Le relief de terrain entrait dans tileSpace par worldToScreen ; éteint, il a
+// été retiré de main le 2026-10-06 — audit MORT-14 : le sol est plat.)
 import { CM } from '../layout.js';
 import { ISO_X, ISO_Y, snapZoom } from './projection.js';
-import { terrainZ } from './isoTerrain.js';
 import { drawIsoGround } from './isoGroundBake.js';
 import { artLayerAnchor } from './isoArtLayer.js';
 import { mkCanvas } from '../pixelUtil.js';
@@ -118,11 +117,11 @@ export function tileSideCss(dpr, z = 1) {
 // Les 8 px couvrent l'antialiasing d'un bord et un trait de joint.
 export function gutterCss() { return 8; }
 
-// Position d'un point du monde dans l'écran à caméra nulle (avec son terrain).
+// Position d'un point du monde (au sol) dans l'écran à caméra nulle.
 export function tileSpace(wx, wy, z) {
-  return { x: (wx - wy) * ISO_X * z, y: (wx + wy) * ISO_Y * z - terrainZ(wx, wy) * z };
+  return { x: (wx - wy) * ISO_X * z, y: (wx + wy) * ISO_Y * z };
 }
-// La part CAMÉRA de worldToScreen (sans terrain) : tileSpace(p) − camSpace(cam) + centre.
+// La part CAMÉRA de worldToScreen : tileSpace(p) − camSpace(cam) + centre.
 export function camSpace(cx, cy, z) {
   return { x: (cx - cy) * ISO_X * z, y: (cx + cy) * ISO_Y * z };
 }

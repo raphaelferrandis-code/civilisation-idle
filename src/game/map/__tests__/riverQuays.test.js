@@ -4,15 +4,12 @@
 // (une rue sur la berge n'est marchable qu'au pied d'un pont). Une case portée par une
 // rue mémorisée reste désormais terre ferme — sauf au pied d'un pont.
 import { describe, it, expect, beforeEach } from "vitest";
-import { ILOT_MODE } from "../layout.js";
 import { state } from "../../core/state.js";
-import { ROAD_MEMORY } from "../roadMemory.js";
 import { growCity as grow } from "../../../test/city.js";
 const rel = (L) => new Set(L.roads.map((r) => (r.gx - L.cx) + "," + (r.gy - L.cy)));
-const bridges = (L) => L.roads.filter((r) => r.roadSurface === "bridge").length;
+const bridgeRoads = (L) => L.roads.filter((r) => r.roadSurface === "bridge");
 
 beforeEach(() => {
-  ROAD_MEMORY.on = true; ILOT_MODE.on = true;
   state.cityRoads = null; state.cityCore = null; state.cityMapSlots = {}; state.cityArchetype = null; state.cityPersonality = null; state.riverWP = null;
 });
 
@@ -30,8 +27,17 @@ describe("rues de quai et fleuve qui s'étire", () => {
         if (L2.river.isBank(x, y) || L2.river.isWater(x, y)) auBord += 1;
       }
       expect(auBord, "rues de quai perdues").toBe(0);
-      // Les pieds de pont restent des culées : les ponts ne disparaissent pas.
-      expect(bridges(L2)).toBeGreaterThanOrEqual(bridges(L1));
+      // Les pieds de pont restent des culées : les ponts ne disparaissent pas. Chaque
+      // case de tablier reste une rue — tablier, ou culée quand le lit qui s'étire la
+      // rend à la berge (le compte de cases de tablier peut donc perdre une case au
+      // bord de l'eau, cf. la grille plus compacte des villes neuves, audit 2026-10-05,
+      // MORT-4) — et aucune colonne de pont ne se perd.
+      for (const r of bridgeRoads(L1)) {
+        const k = (r.gx - L1.cx) + "," + (r.gy - L1.cy);
+        expect(r2.has(k), `case de pont ${k} perdue`).toBe(true);
+      }
+      const cols = (L) => new Set(bridgeRoads(L).map((r) => r.gx - L.cx));
+      expect(cols(L2).size).toBeGreaterThanOrEqual(cols(L1).size);
     });
   }
 });

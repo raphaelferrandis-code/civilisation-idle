@@ -510,10 +510,6 @@ function vehicleLabel(v) {
       return e === 'ind' ? { fr: 'Omnibus', en: 'Omnibus' }
         : e === 'med' ? { fr: 'Caravane marchande', en: 'Merchant caravan' }
           : { fr: 'Caravane', en: 'Caravan' };
-    case 'tram':
-      return e === 'cos8' ? { fr: 'Tram flottant', en: 'Floating tram' }
-        : e === 'cos7' ? { fr: 'Tram magnétique', en: 'Maglev tram' }
-          : { fr: 'Tramway', en: 'Tram' };
     default: return VEH_NAMES[v.type] || { fr: 'Véhicule', en: 'Vehicle' };
   }
 }
@@ -525,7 +521,7 @@ function vehicleActivity(v, lost) {
     case 'basket': return { fr: 'Porte son panier', en: 'Carrying a basket' };
     case 'chariot': return e === 'med' ? { fr: 'Fait sa ronde', en: 'On patrol' } : { fr: 'Traverse la ville', en: 'Crossing town' };
     case 'caravan': return e === 'ind' ? { fr: 'Mène ses voyageurs', en: 'Carrying passengers' } : { fr: 'Convoie des marchandises', en: 'Hauling goods' };
-    case 'tram': case 'bus': return { fr: 'Dessert sa ligne', en: 'On its line' };
+    case 'bus': return { fr: 'Dessert sa ligne', en: 'On its line' };
     case 'taxi': return { fr: 'Cherche un client', en: 'Looking for a fare' };
     case 'police': return { fr: 'Patrouille', en: 'On patrol' };
     case 'ambulance': return { fr: 'En intervention', en: 'On a call' };
@@ -548,7 +544,7 @@ function vehicleLoad(v) {
   if (v.type === 'wagon') return { cargo: c(CARGO[e] || CARGO.goods) };
   if (v.type === 'caravan' && e !== 'ind') return { cargo: c(CARGO.caravan) };
   if (v.type === 'van' || v.type === 'truck') return { cargo: c(CARGO.goods) };
-  if (v.type === 'tram' || v.type === 'bus' || v.type === 'caravan') return { riders: 3 + (s % 38) };
+  if (v.type === 'bus' || v.type === 'caravan') return { riders: 3 + (s % 38) };
   return {};
 }
 

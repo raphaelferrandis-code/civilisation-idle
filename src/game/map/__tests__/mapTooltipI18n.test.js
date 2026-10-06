@@ -104,15 +104,13 @@ describe("bâtiments-moteur et merveilles", () => {
       expect(byId[meta.id] && byId[meta.id].name, meta.id).toBeTruthy();
     }
   });
-  it("le titre d'un moteur est celui de la boutique ; un repère civique garde son titre générique", () => {
+  it("le titre d'un moteur est celui de la boutique", () => {
     const engine = { type: "engine", buildingId: "mint_houses", variant: "mint_houses", level: 3, groupTotal: 1, tier: 1 };
-    // Pseudo-tuile de district (iso/isoDistricts.js) : elle EMPRUNTE le dessin
-    // des tribunaux, elle n'en est pas — avant l'audit son titre était « Bâtiment ».
-    const forum = { type: "engine", buildingId: "courthouses", __district: "forum", gx: 0, gy: 0 };
+    // (Les repères civiques d'isoDistricts, pseudo-tuiles qui empruntaient le dessin
+    // d'un moteur, sont partis avec les grands ensembles — audit 2026-10-05, MORT-4.)
     const port = { type: "engine", buildingId: "river_ports", variant: "river_ports",
       buildingName: { fr: "Port de commerce", en: "Trade Port" }, level: 2, groupIndex: 2, groupTotal: 2, groupLevel: 2 };
     expect(CM.describeTile(engine)).toEqual({ title: "Hôtels des monnaies", body: "Niveau 3 · groupe de bâtiments" });
-    expect(CM.describeTile(forum).title).toBe("Bâtiment");
     expect(CM.describeTile(port).title).toBe("Port de commerce");
     // localizeData aplatit buildings.js dans la langue du chargement : en anglais,
     // buildingById porte « Mints ». On le simule pour prouver que la carte le LIT.
@@ -121,7 +119,6 @@ describe("bâtiments-moteur et merveilles", () => {
       b.name = "Mints";
       setLang("en");
       expect(CM.describeTile(engine)).toEqual({ title: "Mints", body: "Level 3 · building cluster" });
-      expect(CM.describeTile(forum).title).toBe("Building");
       expect(CM.describeTile(port)).toEqual({ title: "Trade Port", body: "Annex of the main building · level 2" });
     } finally { b.name = before; }
   });

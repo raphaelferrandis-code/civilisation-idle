@@ -14,6 +14,20 @@ export const numLocale = () => (getLang() === "en" ? "en-US" : "fr-FR");
 // Un entier avec les séparateurs de milliers de la langue (« 3 000 » / « 3,000 »).
 export const fmtInt = (n) => Math.round(n).toLocaleString(numLocale());
 
+// VALEUR EXACTE des infobulles (bandeau des ressources, boutique) : tous les chiffres
+// sous 1e15, la notation scientifique du jeu au-delà (« 1.234e400 », sans « + »).
+// Une seule recette (décision de Raph, audit du 05/10, STRUCT-12) : le bandeau
+// écrivait tous les chiffres jusqu'au bout du domaine float puis « 1.234e+400 »,
+// la boutique passait déjà en scientifique dès 1e15.
+export function exactLabel(value) {
+  const n = typeof value?.toNumber === "function" ? value.toNumber() : value;
+  if (!Number.isFinite(n)) {
+    return typeof value?.toExponential === "function" ? String(value.toExponential(3)).replace("e+", "e") : String(value);
+  }
+  if (Math.abs(n) >= 1e15) return n.toExponential(3).replace("e+", "e");
+  return fmtInt(n);
+}
+
 export let numberFormatMode = (() => {
   try {
     const saved = localStorage.getItem(NUMBER_FORMAT_KEY);

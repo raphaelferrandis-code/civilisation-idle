@@ -13,6 +13,8 @@ les bandes 0, 1 et 4 (réglages validés du 24/08, puis `cityK 0`, puis hors vil
 seulement) : murs bruns, piliers sous les places, taches grises en tissu dense ; hors
 de la ville il ne se voit plus et son ombrage salit l'eau. **Le moteur n'a aucun art
 pour les pentes.** On ne rallume pas le terrain sous les maisons.
+(Le terrain par case a d'ailleurs quitté `main` le 2026-10-06, audit MORT-14 : aucun
+étage ne le lisait — tous montent par l'axe `wz` de `worldToScreen`.)
 
 À la place, **chaque ère ajoute un étage** — une structure posée sur des piles ou un
 trafic en l'air, peu de lignes, nettes, triées par le peintre comme un bâtiment :

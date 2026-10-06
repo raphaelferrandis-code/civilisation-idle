@@ -25,6 +25,7 @@ import { bakeBoxes, blitLayer, paintBakeUnder, h01, mul, mix, hexRgb, FACE_LIGHT
 import { drawMooredHull, hullFootprint, riverEdgeAt as edgeAt, riverWaterAt as waterAtW, riverWindow, registerPortProvider, registerPortLamps, quayJoin } from './portBerths.js';
 import { queueFlameGlow } from '../flameGlow.js';
 import { drawSmoke } from './boatFx.js';
+import { traderLen } from './boatKits.js';
 import { worldToScreen, depthOf } from './projection.js';
 
 export const TRADE = { on: true, shadow: true, reflect: true, ink: true };
@@ -70,7 +71,8 @@ function cosmicPal(band) {
 // ── LE PLAN : des boîtes en px monde, en repère « bord du quai » ────────────────
 // `u` = distance au bord d'eau vers l'intérieur des terres (négative au-dessus de
 // l'eau), x = le long du quai, z = hauteur (le terre-plein à 0, comme le sol).
-function tradePlan(tp, level, band, T, sm) {
+// `lvlB` = le palier de niveau (tradeGeom) : ce que la cuisson met en cache.
+function tradePlan(tp, level, band, T, sm, lvlB = 0) {
   const style = band >= 6 ? 'terminal' : 'docks';
   const P = band >= 7 ? cosmicPal(band) : PAL[style];
   const dir = tp.side === 'N' ? 1 : -1;
@@ -161,8 +163,11 @@ function tradePlan(tp, level, band, T, sm) {
       };
       stay(1.0, 2.86, -2.3, 2.13, 16);
       stay(1.0, 2.86, 2.0, 2.13, 5);
-      // Chariot sur la flèche, et un conteneur au bout de ses câbles.
-      const ut = -0.55 - 0.9 * h01(k, level, 3);
+      // Chariot sur la flèche, et un conteneur au bout de ses câbles. Tiré sur le PALIER,
+      // pas sur le niveau brut (audit du 2026-10-05, MORT-11) : la cuisson est gardée par
+      // palier, et la place du chariot dépendait du niveau à la première cuisson — elle
+      // changeait d'une session à l'autre.
+      const ut = -0.55 - 0.9 * h01(k, lvlB, 3);
       box(high, 'trolley', xg - 0.13, xg + 0.13, ut - 0.15, ut + 0.15, 1.9, 2.0);
       box(high, 'stay', xg - 0.015, xg + 0.015, ut - 0.01, ut + 0.02, 1.36, 1.9, { noMirror: true });
       box(high, 'stack', xg - 0.26, xg + 0.26, ut - 0.1, ut + 0.1, 1.2, 1.36, { cx: k, cy: 99, hz: 0.16 * T });
@@ -251,6 +256,7 @@ function tradePlan(tp, level, band, T, sm) {
       ships.push({ role: 'steam', x: xs, y: yAt(xs) + dir * (fp.beam / 2 + 0.06), z: -wh });
     }
   }
+  cedeQuai(ships, x0, x1, band);
   return { style, P, low, high, ships, beacons, smokes, yAt, yTab, dir, wh: wh * T, x0, x1, depth: tp.depth };
 }
 
@@ -426,7 +432,7 @@ function tradeGeom(t, band) {
     + ':' + (TRADE.shadow ? 1 : 0) + (TRADE.reflect ? 1 : 0) + (TRADE.ink ? 1 : 0);
   if (_cache.has(key)) return _cache.get(key);
   const T = CM.TILE, sm = rv.samples;
-  const plan = tradePlan(tp, level, band, T, sm);
+  const plan = tradePlan(tp, level, band, T, sm, lvlB);
   const [j0, j1] = riverWindow(sm, tp.x0 - 4, tp.x0 + tp.len + 4);
   // LA CUISSON ANCRÉE AU PORT (PERF-10, isoBoxBake.anchoredBake) : l'ancre est le coin
   // du site (première colonne, sa rangée de bord). Quand la grille grandit, le port se
@@ -509,9 +515,41 @@ export function drawTradePort(ctx, t, band, ei, now, docked = null) {
 // le terminal n'offrait aucun poste — les marchands marquaient une pause de 2,5 s en
 // plein courant au droit des ports. Il publie son poste LIBRE : la plus longue travée de
 // quai entre ses navires-décor (ou entre eux et un bout du quai), où un marchand vient se
-// ranger. Les navires-décor ne bougent pas (rendu au repos inchangé) : quai plein, pas
-// de poste — la flotte (fleetBerths) n'y prend que ce qui loge son plus long marchand.
+// ranger. La flotte (fleetBerths) n'y prend que ce qui loge son plus long marchand — le
+// quai plein en cède une (cedeQuai).
 const BERTH_GAP = 0.15, BERTH_END = 0.25;   // jeu (tuiles) le long des navires-décor, aux bouts du quai
+// Les travées libres [xa, xb] du quai, entre ses navires-décor (rangés d'ouest en est,
+// tradePlan) et à ses deux bouts.
+function quayGaps(ships, x0, x1, band) {
+  const gaps = [];
+  let a = x0 + BERTH_END;
+  for (const sh of ships) {
+    const fp = hullFootprint(sh.role, band);
+    gaps.push([a, sh.x - fp.len / 2 - BERTH_GAP]);
+    a = sh.x + fp.len / 2 + BERTH_GAP;
+  }
+  gaps.push([a, x1 - BERTH_END]);
+  return gaps;
+}
+const widest = (gaps) => Math.max(0, ...gaps.map((g) => g[1] - g[0]));
+// QUAI PLEIN (décision de Raph du 2026-10-05, BUG-17, option a) : au terminal dès le
+// niveau 100 de Ports, aux docks dès 60 sur un quai de 12 tuiles, les navires-décor ne
+// laissaient aucune travée au plus long marchand de l'époque — la flotte retombait sur
+// la pause de 2,5 s en plein courant. Un navire-décor CÈDE SA PLACE à la flotte : celui
+// dont le départ libère la plus longue travée (celui du milieu sur trois ; à égalité, le
+// premier d'ouest en est). Au repos, deux navires-décor au lieu de trois (un au lieu de
+// deux sur un quai court) ; l'escale existe à tous les niveaux. Un quai qui loge déjà
+// le marchand garde tous les siens.
+function cedeQuai(ships, x0, x1, band) {
+  const need = traderLen(band);
+  if (!(need > 0) || !ships.length || widest(quayGaps(ships, x0, x1, band)) >= need) return;
+  let drop = -1, w = -1;
+  for (let i = 0; i < ships.length; i += 1) {
+    const g = widest(quayGaps(ships.filter((_, j) => j !== i), x0, x1, band));
+    if (g > w + 1e-6) { w = g; drop = i; }
+  }
+  if (w >= need) ships.splice(drop, 1);
+}
 registerPortProvider('commerce', (L) => {
   if (!TRADE.on || !L || !L.counts) return null;
   const band = L.counts.eraBand | 0;
@@ -520,15 +558,9 @@ registerPortProvider('commerce', (L) => {
     const g = tradeGeom(t, band);
     if (!g) continue;
     const pl = g.plan;
-    const gaps = [];
-    let a = pl.x0 + BERTH_END, clear = 0;
-    for (const sh of pl.ships) {                        // rangés d'ouest en est (tradePlan)
-      const fp = hullFootprint(sh.role, band);
-      gaps.push([a, sh.x - fp.len / 2 - BERTH_GAP]);
-      a = sh.x + fp.len / 2 + BERTH_GAP;
-      clear = Math.max(clear, fp.beam);
-    }
-    gaps.push([a, pl.x1 - BERTH_END]);
+    const gaps = quayGaps(pl.ships, pl.x0, pl.x1, band);
+    let clear = 0;
+    for (const sh of pl.ships) clear = Math.max(clear, hullFootprint(sh.role, band).beam);
     let best = null;
     for (const gp of gaps) if (gp[1] - gp[0] > (best ? best[1] - best[0] : 0)) best = gp;
     if (!best) continue;

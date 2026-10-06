@@ -3,13 +3,10 @@
 // lui (+2,5 cases de demi-largeur, axe poussé de 1,4) : une place dont l'évasement
 // mettrait sous l'eau une rue déjà mémorisée est sautée.
 import { describe, it, expect, beforeEach } from "vitest";
-import { ILOT_MODE } from "../layout.js";
 import { state } from "../../core/state.js";
-import { ROAD_MEMORY } from "../roadMemory.js";
 import { growCity as grow } from "../../../test/city.js";
 
 beforeEach(() => {
-  ROAD_MEMORY.on = true; ILOT_MODE.on = true;
   state.cityRoads = null; state.cityCore = null; state.cityMapSlots = {}; state.cityArchetype = null; state.cityPersonality = null; state.riverWP = null;
 });
 

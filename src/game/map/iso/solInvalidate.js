@@ -9,7 +9,7 @@
 // Depuis le lot 4, le seul cache est la pyramide de tuiles (solPyramideFrame.js),
 // abonnée par `setSolPyramideInvalidator`.
 //
-//   solInvalidate('all')           saison, bande d'ère, plage, relief, molettes,
+//   solInvalidate('all')           saison, bande d'ère, plage, molettes,
 //                                  canvas réalloués : tout est périmé
 //   solInvalidate('soft')          décodage tardif (art, tuile, place) : périme
 //                                  tout comme 'all', mais coalescé (une époque par

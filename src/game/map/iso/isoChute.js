@@ -378,7 +378,7 @@ export function recordRelics(L = CM.layout) {
       if (/aqueduct|field|farm|crop|orchard/i.test(id)) continue;
       const sx = t.spanX || t.size || 1, sy = t.spanY || t.size || 1;
       const isHouse = t.type === 'house' || t.type === 'enginehome' || !!t.body;
-      const fOff = t.__district ? null : isoFrontOffset(t, L.roadMap);
+      const fOff = isoFrontOffset(t, L.roadMap);
       const anchor = worldToScreen((t.gx + sx + (fOff ? fOff.ox : 0)) * T, (t.gy + sy + (fOff ? fOff.oy : 0)) * T);
       if (isHouse) {
         if (!pixelHouseReady(t)) continue;
@@ -419,7 +419,7 @@ export function recordRelics(L = CM.layout) {
 // ── LES RUINES DU CYCLE PRÉCÉDENT, SUR LA CARTE ─────────────────────────────────
 // Rejouées comme des items du peintre, triés à leur profondeur, partout où la
 // nouvelle cité n'a encore rien posé (bâti, rues, eau, berges, foyer du camp,
-// parvis et pelouses, grands ensembles).
+// parvis et pelouses).
 // Une maison sur deux (TUNE.relicKeep) n'est plus qu'un pan de mur : arasée.
 let relicCache = { relics: null, L: null, live: null, cells: null };
 function relicsFor(L) {
@@ -439,17 +439,11 @@ function relicsFor(L) {
   // Le sol que la cité neuve a pris sans y poser de tuile (layout.js) : l'emprise
   // des merveilles érigées — parvis pavé (wonderGround) et pelouse autour
   // (townGreen) —, les pelouses de l'échangeur et les jardins des îlots
-  // (townGreen), l'emprise des grands ensembles civiques (districts). Une merveille
-  // ré-érigée se repose près du cœur, là où les ruines de l'ancien centre sont les
-  // plus denses : sans ça, ses pans de murs tombaient sur son parvis.
+  // (townGreen). Une merveille ré-érigée se repose près du cœur, là où les ruines de
+  // l'ancien centre sont les plus denses : sans ça, ses pans de murs tombaient sur son
+  // parvis. (Les grands ensembles civiques sont partis avec l'ancien placement, MORT-4.)
   if (L.wonderGround) for (const k of L.wonderGround) occ.add(k);
   if (L.townGreen) for (const k of L.townGreen) occ.add(k);
-  if (L.districts) {
-    for (const d of L.districts) {
-      const s = d.size || 1;
-      for (let a = 0; a < s; a += 1) for (let b = 0; b < s; b += 1) occ.add((d.gx + a) + ',' + (d.gy + b));
-    }
-  }
   const N = L.gridN | 0, cx = Math.floor(N / 2), cy = cx;
   const live = [], cells = new Set();
   // Items en triplets à plat [dx, dy, forme], dans l'ordre du relevé (= ordre de

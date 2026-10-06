@@ -54,7 +54,7 @@ describe('flotte moderne — sprites du pack de véhicules', () => {
   it('tout véhicule tiré par une ère existe côté art', () => {
     const drawnTypes = new Set();
     for (const age of AGE_CONFIG) for (const v of (age.vehicles || [])) drawnTypes.add(v.type);
-    // Les types historiques (charrette, char, tram, panier, drone) ne viennent pas
+    // Les types historiques (charrette, char, panier, drone) ne viennent pas
     // d'un pack : on ne vérifie ici que ceux que le manifeste prétend fournir.
     const fromPack = [...drawnTypes].filter((t) => VEH_SKINS[t]);
     expect(fromPack.length).toBeGreaterThanOrEqual(6);   // bus, van, camion, taxi, police, ambulance…

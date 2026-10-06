@@ -114,7 +114,9 @@ const AGE_CONFIG = [
     // n'entre qu'à la bande 6, avec les tours. Le gel est aussi côté skins
     // (MODERN_FLEET_BAND dans agents.js), sinon la voiture d'ère 5 se repeindrait
     // en berline rouge tout en gardant son nom de type.
-    vehicles: [{ type: "car", weight: 3 }, { type: "tram", weight: 2 }, { type: "wagon", weight: 1 }, { type: "caravan", weight: 1 }],
+    // (Le poids 2 du tram, qui roulait en voiture, passe à la voiture : les trams sont
+    // retirés, audit du 2026-10-05, ASSET-3. Même tirage, véhicule par véhicule.)
+    vehicles: [{ type: "car", weight: 5 }, { type: "wagon", weight: 1 }, { type: "caravan", weight: 1 }],
     decorDensity: 0.85
   },
   { // 6 — mégalopole / singularité
@@ -131,7 +133,7 @@ const AGE_CONFIG = [
       { fr: "surveille les niveaux", en: "monitoring the levels" }
     ],
     vehicles: [
-      { type: "car", weight: 3 }, { type: "tram", weight: 2 }, { type: "drone", weight: 2 },
+      { type: "car", weight: 5 }, { type: "drone", weight: 2 },   // car : 3 + les 2 du tram (ASSET-3)
       { type: "bus", weight: 0.6 }, { type: "van", weight: 0.5 }, { type: "truck", weight: 0.4 },
       { type: "taxi", weight: 0.5 }, { type: "police", weight: 0.25 }, { type: "ambulance", weight: 0.2 },
     ],
@@ -155,7 +157,7 @@ const AGE_CONFIG = [
       { fr: "synchronise un nœud", en: "syncing a node" }, { fr: "veille la membrane", en: "watching over the membrane" },
       { fr: "consulte la conscience commune", en: "consulting the common mind" }
     ],
-    vehicles: [{ type: "drone", weight: 4 }, { type: "tram", weight: 1 }],
+    vehicles: [{ type: "drone", weight: 5 }],   // 4 + le tram, qui y roulait en drone (ASSET-3)
     decorDensity: 1.1
   },
   { // 8 — Âge stellaire : la cité essaime, ordre absolu
@@ -171,7 +173,7 @@ const AGE_CONFIG = [
       { fr: "ajuste une orbite", en: "adjusting an orbit" }, { fr: "déploie une voile solaire", en: "unfurling a solar sail" },
       { fr: "écoute l'esprit des étoiles", en: "listening to the spirit of the stars" }
     ],
-    vehicles: [{ type: "drone", weight: 5 }, { type: "tram", weight: 1 }],
+    vehicles: [{ type: "drone", weight: 6 }],   // 5 + le tram, qui y roulait en drone (ASSET-3)
     decorDensity: 1.2
   },
   { // 9 — Démiurge : la trame du réel, grille parfaite

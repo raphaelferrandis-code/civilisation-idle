@@ -17,7 +17,7 @@ import { lightCutImage } from './lightLayer.js';
 import { HOUSE_UNIT, HOUSE_LOT_WF, houseFitTune, houseScaleK, grainTune, GRAIN_FIX, recDens, grainProbe } from './spriteScale.js';
 import { pxProbe, recPx } from './pixelGrid.js';
 // ISO_Y : la marche d'un rang vers le nord (cf. houseSpriteReachTilesIso). Sens
-// d'import sûr — projection ne connaît que layout/isoTerrain, jamais les sprites.
+// d'import sûr — projection ne connaît que layout, jamais les sprites.
 import { ISO_Y } from './iso/projection.js';
 import { houseFootprint } from './procedural/buildingGenerator.js';
 import { drawSunShadow } from './iso/isoSunShadow.js';

@@ -28,7 +28,6 @@ import { WINTER } from '../seasonMode.js';
 import { PLAZA_GROUND, plazaToneFor, rgb } from './isoPalette.js';
 import { DIRT_TONE } from './isoTissu.js';
 import { WONDER_GROUND, wonderToneFor } from './isoWonderGround.js';
-import { TERRAIN, terrainZ } from './isoTerrain.js';
 import { diamondPath } from './isoQuad.js';
 import { ISO_TILE_WINTER, beachTone, isoTileProbe, blitIsoTileKey } from './isoGroundTiles.js';
 import {
@@ -42,8 +41,7 @@ export function sweepIsoGroundCells(bake, resolve, out) {
     L, roadMap, riverCells, urb, mat, plazaEra, wg, PR,
   } = bake;
   const { kindAt, grassAt, keyOfKind, lisiere } = resolve;
-  const { fringes, roads, wonderCells, grassCells, grassMask, grassMaskR,
-    faceL, faceD, faceLU, faceDU, faceFoot, faceBand, faceJoint, faceLipG, faceLipS } = out;
+  const { fringes, roads, wonderCells, grassCells, grassMask, grassMaskR } = out;
   // LISIÈRE ARRONDIE (cf. isoLisiere) : repeint, DANS les rectangles
   // donnés, la matière `k2` telle que la cellule l'aurait peinte si elle en était
   // faite — même aplat, même tuile, même miroir, même variante. Seuls les sols
@@ -256,88 +254,9 @@ export function sweepIsoGroundCells(bake, resolve, out) {
         if (grassAt(gx, gy + 1)) fringes.push({ ax: p.x - hw, ay: p.y + hh, bx: p.x, by: p.y + hh * 2, inx: ixn, iny: -iyn, seed: 'gfr:s:' + key, wx0: gx, wy0: gy + 1, wx1: gx + 1, wy1: gy + 1, nwx: 0, nwy: -1 });
         if (grassAt(gx - 1, gy)) fringes.push({ ax: p.x, ay: p.y, bx: p.x - hw, by: p.y + hh, inx: ixn, iny: iyn, seed: 'gfr:w:' + key, wx0: gx, wy0: gy, wx1: gx, wy1: gy + 1, nwx: 1, nwy: 0 });
       }
-      // ── CONTREMARCHES DU RELIEF (isoTerrain) ──────────────────────────────
-      // Une cellule plus HAUTE que son voisin SUD ou EST montre la TRANCHE du
-      // terrain : un quad qui pend sous l'arête partagée, de la différence de
-      // niveaux. En 3/4 seules ces deux faces existent (+x, +y) — règle de la
-      // marche, une face qui regarde ailleurs ne se voit pas. Peintes DANS le
-      // balayage : les voisins, dessinés plus bas et plus tard, recouvrent tout
-      // débord — on peut donc descendre le sommet SUD jusqu'au niveau du voisin
-      // DIAGONAL sans trou de coin ni double peinture visible.
-      // Matière TERRE (une coupe de sol montre la terre, jamais l'herbe) ; la
-      // face gauche (+y) regarde la lumière haut-gauche → claire, la droite
-      // (+x) → sombre. Dessinées à TOUS les niveaux d'allégé : elles sont
-      // structurelles — sans elles, le geste montrerait des fentes de fond.
-      if (TERRAIN.amp && !isWater && !isBridge) {
-        // ⚠ LA MÊME AUTORITÉ QUE LE LOSANGE : terrainZ aux coins nord — socles
-        // compris. Comparer des niveaux de cellule (cellLevelU) manquait les
-        // marches AUTOUR DES SOCLES : le losange se pose à la hauteur du replat,
-        // la face doit pendre d'exactement cette hauteur-là, pas de celle du
-        // terrain nu. (Vu à la capture : fentes vertes le long du bâti.)
-        //
-        // REMISÉES, PAS PEINTES : une face ne recouvre jamais un losange (le
-        // voisin plus bas COMMENCE là où elle finit) — l'ordre est donc libre,
-        // et on paie 2 fills d'union par recuisson au lieu de milliers (mesuré :
-        // les fills par cellule coûtaient ~+45 % de recuisson ; c'est toujours
-        // le tracé qui coûte sur cette carte, jamais le JS).
-        const zN = terrainZ(gx * T, gy * T);
-        const zE = terrainZ((gx + 1) * T, gy * T);
-        const zS = terrainZ(gx * T, (gy + 1) * T);
-        // ⚠ SEUIL D'UN CRAN PLEIN (U − ε) : le champ quantifié ne marche que par
-        // multiples de U, mais le BOMBÉ des îles est LISSE — sans ce seuil, ses
-        // différences sous-U fabriquaient des micro-faces d'un pixel, exactement
-        // les « marches » que Raph ne veut pas sur l'île.
-        const stepMin = T / 4 - 0.01;
-        if (zN - zE >= stepMin || zN - zS >= stepMin) {
-          // Le même zoom que le losange : hw = T·z·ISO_X, donc z = hw/T — vrai
-          // aussi sous les transformations de calque (walkLayer bascule le repère).
-          const k = hw / T;
-          const zD = terrainZ((gx + 1) * T, (gy + 1) * T);
-          const dD = Math.max(0, zN - zD) * k;
-          const sx = p.x, sy = p.y + hh * 2;           // sommet SUD du losange
-          // La tranche prend la MATIÈRE de sa cellule : mur de soutènement en
-          // pierre d'ère dans la ville (dallage/place/parvis), terre partout
-          // ailleurs — le brun jurait sur le dallage gris (vu à la bande 4).
-          const stone = kind === 'urban' || kind === 'plaza' || kind === 'wonder';
-          // POLISH (remisé comme le reste, ~5 fills/strokes d'union par recuisson,
-          // sauté en allégé HARD — c'est de la matière, pas de la structure) :
-          //   · LÈVRE — l'herbe DÉBORDE du bord (kind grass), la pierre reçoit sa
-          //     margelle claire ; la terre nue n'a pas de lèvre (un surplomb de
-          //     sol nu se lirait comme un bug, pas comme de la végétation) ;
-          //   · ASSISE sombre sous les GRANDES marches (≥ 2 U — et 2 U d'écran
-          //     valent exactement hh : 2·(T/4)·(hw/T) = hw/2) : la lecture de
-          //     profondeur du mur de quai, en une bande d'ombre ;
-          //   · JOINTS de pierre (faces assez hautes ET assez zoomées : ≥ 6 px) ;
-          //   · OMBRE DE CONTACT au pied — le trait qui pose la marche au sol.
-          const pushFace = (ax, ay, da, db, dark) => {
-            (stone ? (dark ? faceDU : faceLU) : (dark ? faceD : faceL))
-              .push(ax, ay, sx, sy, sx, sy + db, ax, ay + da);
-            if (HARD) return;
-            faceFoot.push(ax, ay + da, sx, sy + db);
-            if (kind === 'grass' || stone) {
-              const lh = Math.max(1, hh * 0.12);
-              (stone ? faceLipS : faceLipG).push(ax, ay, sx, sy, sx, sy + lh, ax, ay + lh);
-            }
-            if (Math.min(da, db) >= hh) {
-              faceBand.push(ax, ay + da * 0.55, sx, sy + db * 0.55, sx, sy + db, ax, ay + da);
-            }
-            if (stone && da >= 6) {
-              for (const tj of [0.35, 0.68]) {
-                const jx = ax + (sx - ax) * tj, jy = ay + (sy - ay) * tj;
-                faceJoint.push(jx, jy + 1, jy + da + (db - da) * tj - 1);
-              }
-            }
-          };
-          if (zN - zE >= stepMin) {
-            const dE = (zN - zE) * k;
-            pushFace(p.x + hw, p.y + hh, dE, Math.max(dE, dD), true);
-          }
-          if (zN - zS >= stepMin) {
-            const dS = (zN - zS) * k;
-            pushFace(p.x - hw, p.y + hh, dS, Math.max(dS, dD), false);
-          }
-        }
-      }
+      // (Les CONTREMARCHES du relief — la tranche de terrain qui pendait sous une
+      //  cellule plus haute que son voisin sud ou est — sont parties avec le relief
+      //  le 2026-10-06, audit MORT-14 : le sol est plat, aucune marche à montrer.)
       // Les cellules-PONT ne reçoivent ni fond ni ruban ici : leur tablier est
       // dessiné APRÈS le fleuve (drawIsoBridges), au-dessus de l'eau. Le PARVIS
       // non plus : ses routes sont carvées par le plan — le garde ne couvre que la

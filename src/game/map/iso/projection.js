@@ -19,7 +19,6 @@
 // Profondeur du peintre (Phase 2) : depthOf = wx + wy (diagonales SE), remplace wy.
 import { CM, cmWonderSlot, cmWonderExtent, cmWonderBaseTiles, cmWonderHeightTiles, CM_WONDERS } from '../layout.js';
 import { solInvalidate } from './solInvalidate.js';
-import { terrainZ } from './isoTerrain.js';
 
 export const ISO_X = 1;
 export const ISO_Y = 0.5;
@@ -103,60 +102,32 @@ if (import.meta.env?.DEV && typeof window !== "undefined") {
 // ⚠ La verticale ne subit AUCUN écrasement iso — un pas d'altitude vaut un pas
 // d'écran. C'est la convention déjà en vigueur (cf. `bridgeLiftWorld`, le premier
 // migré), et elle est ce qui permet à une face verticale d'être un simple ruban qui pend.
+//
+// LE SOL EST PLAT, à l'altitude 0 partout. Le relief de terrain (isoTerrain.js,
+// procedural/terrainField.js) ajoutait ici son terrainZ(wx, wy) à `wz` ; éteint sur
+// main depuis le 2026-08-24 (TERRAIN.amp = 0, il rendait 0 partout), il a été retiré
+// de main le 2026-10-06 (audit MORT-14, décision de Raph) — la passe rallumée reste
+// sur la branche locale `passe-visuelle-21-09`. Les « étages de la ville »
+// (docs/PLAN-ETAGES.md) montent par `wz`, jamais par le sol.
 export function worldToScreen(wx, wy, wz = 0) {
   const z = CM.cam.zoom;
   const dx = wx - CM.cam.x, dy = wy - CM.cam.y;
   return {
     x: (dx - dy) * ISO_X * z + CM.cw / 2,
-    // LE TERRAIN PASSE PAR L'AXE (isoTerrain.js) : l'altitude du sol s'ajoute à
-    // celle que le consommateur demande (wz — le pont s'y compose). terrainZ ne
-    // dépend que du monde → la compensation de pan des bakes (pure translation
-    // caméra) reste exacte. Inerte à TERRAIN.amp = 0 (__terrain(false)).
-    y: (dx + dy) * ISO_Y * z + CM.ch / 2 - (wz + terrainZ(wx, wy)) * z,
+    y: (dx + dy) * ISO_Y * z + CM.ch / 2 - wz * z,
   };
 }
 
-// Écran → monde. ⚠ INVERSE DE LA SURFACE DU SOL (terrain compris), pas d'un plan :
-// un point d'écran désigne un RAYON, et c'est le TERRAIN qui tranche — le survol
-// cherche la cellule de sol sous le curseur, laquelle est levée sur une colline.
-// Un consommateur qui viserait autre chose (le tablier d'un pont) devrait défalquer
-// son altitude AVANT d'appeler.
-//
-// L'itération : la projection soustrait terrainZ·z au y d'écran, et l'algèbre du
-// losange fait qu'ajouter h à l'altitude déplace l'unprojection d'exactement
-// (+h, +h) px monde. On part du plan (h = 0), on lit l'altitude au point obtenu,
-// on re-décale — deux tours suffisent : la pente du champ est bornée bien sous 1
-// (terrasses de 1 U toutes les ~4 tuiles). Aux discontinuités (bord de socle),
-// l'itération retombe d'un côté ou de l'autre — les deux réponses sont des sols.
-// Terrain coupé (amp 0) : h = 0 dès le premier tour, inverse EXACT du plan,
-// au bit près — c'est ce que les gardes de rondtrip verrouillent.
+// Écran → monde : l'inverse EXACT du losange plan (le sol est à l'altitude 0, cf.
+// worldToScreen) — la garde d'aller-retour de projection.test.js le verrouille.
+// Un consommateur qui viserait un point en hauteur (le tablier d'un pont) doit
+// défalquer son altitude AVANT d'appeler.
 export function screenToWorld(sx, sy) {
   const z = CM.cam.zoom;
   const ax = (sx - CM.cw / 2) / z, ay = (sy - CM.ch / 2) / z;
   // ax = dx − dy ; ay/ISO_Y = dx + dy
   const b = ay / ISO_Y;
-  const wx = (b + ax) / 2 + CM.cam.x, wy = (b - ax) / 2 + CM.cam.y;
-  const h0 = terrainZ(wx, wy);
-  if (!h0) return { x: wx, y: wy };
-  // Point fixe α ← terrain(w₀ + α·(1,1)), 6 tours au plus, MEILLEUR RÉSIDU gardé.
-  // Deux régimes, et il faut servir les deux :
-  //   · une RAMPE progressive (coteau, flanc de massif : la diagonale grimpe
-  //     marche après marche) converge géométriquement — pente ≤ 0,3, l'erreur
-  //     fond d'un facteur ~3 par tour ; DEUX candidats s'arrêtaient une marche
-  //     trop tôt (trouvé à la sonde : résidu 8 px pile, 1 U) ;
-  //   · un ESCARPEMENT fait OSCILLER la suite (deux sols — le bord haut visible
-  //     et la bande cachée derrière la face — partagent les mêmes pixels) : on
-  //     rend le candidat au résidu minimal, l'écart est borné par la marche
-  //     locale, et c'est la bonne réponse — les deux sols sont sous le curseur.
-  let a = h0, best = h0, bestE = Infinity;
-  for (let i = 0; i < 6; i += 1) {
-    const t = terrainZ(wx + a, wy + a);
-    const e = Math.abs(t - a);
-    if (e < bestE) { bestE = e; best = a; }
-    if (e === 0) break;
-    a = t;
-  }
-  return { x: wx + best, y: wy + best };
+  return { x: (b + ax) / 2 + CM.cam.x, y: (b - ax) / 2 + CM.cam.y };
 }
 
 // Delta caméra (monde) → delta écran. Sert aux bakes offscreen (pan = translation).

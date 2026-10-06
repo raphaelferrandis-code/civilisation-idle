@@ -11,6 +11,7 @@ import { fleetBerths, fleetPortMarks } from "../iso/boatBerths.js";
 import { portBerths, hullFootprint } from "../iso/portBerths.js";
 import { TRADE, drawTradePort } from "../iso/isoTradePort.js";
 import { fleetFor, BOAT_MODELS } from "../iso/boatKits.js";
+import { anchorStats, forgetAnchoredBakes } from "../iso/isoBoxBake.js";
 import { updateRiverFleet, makeFleetCtl, ribbonLength, FLEET_TUNE } from "../riverFleet.js";
 
 // ── La géométrie : le poste libre du terminal ───────────────────────────────────
@@ -105,13 +106,57 @@ describe("BUG-17 / MORT-5 — le poste libre du terminal de commerce", () => {
     expect(marks).not.toContain(b.t);
   });
 
-  it("quai plein (niveau 120 : trois navires-décor) : pas de poste — les navires-décor ne bougent pas", () => {
+  // Décision de Raph (2026-10-05, BUG-17 « quai plein », option a) : le quai plein ne
+  // laissait aucun poste, la flotte retombait sur la pause de 2,5 s en plein courant.
+  it("quai plein (niveau 120 : trois navires-décor) : celui du milieu cède sa place à la flotte", () => {
     const L = riverLayout([terminal(120)], 6, 31);
     CM.layout = L;
     const big = Math.max(...fleetFor(6).trade.map((id) => BOAT_MODELS[id].len / 32));
+    const fp = hullFootprint("container", 6);
     const [free] = portBerths(L, "commerce");
-    expect(free.maxLen).toBeLessThan(big);
-    expect(fleetBerths(L)).toEqual([]);
+    // Trois navires-décor à 1/6, 1/2 et 5/6 du quai : sans celui du milieu, le poste est à
+    // sa place, entre les deux autres.
+    expect(free.x).toBeCloseTo(47, 5);
+    expect(free.maxLen).toBeCloseTo((40 + 14 * 5 / 6 - fp.len / 2 - 0.15) - (40 + 14 / 6 + fp.len / 2 + 0.15), 5);
+    expect(free.maxLen).toBeGreaterThanOrEqual(big);
+    expect(fleetBerths(L).length).toBe(1);
+  });
+
+  it("docks (bande 5, niveau 60, quai de 12 tuiles) : même règle, le vapeur du milieu cède sa place", () => {
+    const docks = { ...terminal(60), size: 12, spanX: 12, tradePort: { x0: 40, len: 12, side: "N", depth: 4, edge: new Array(12).fill(36) } };
+    const L = riverLayout([docks], 5, 25);
+    CM.layout = L;
+    const big = Math.max(...fleetFor(5).trade.map((id) => BOAT_MODELS[id].len / 32));
+    const fp = hullFootprint("steam", 5);
+    const [free] = portBerths(L, "commerce");
+    expect(free.x).toBeCloseTo(46, 5);
+    expect(free.maxLen).toBeCloseTo((50 - fp.len / 2 - 0.15) - (42 + fp.len / 2 + 0.15), 5);
+    expect(free.maxLen).toBeGreaterThanOrEqual(big);
+    expect(fleetBerths(L).length).toBe(1);
+  });
+
+  it("quai qui loge déjà le marchand (niveau 60 du terminal) : il garde ses deux navires-décor", () => {
+    const L = riverLayout([terminal(60)], 6, 31);
+    CM.layout = L;
+    const fp = hullFootprint("container", 6);
+    const [free] = portBerths(L, "commerce");
+    expect(free.x).toBeCloseTo(47, 5);
+    expect(free.maxLen).toBeCloseTo((50.5 - fp.len / 2 - 0.15) - (43.5 + fp.len / 2 + 0.15), 5);
+  });
+
+  // Audit du 2026-10-05, MORT-11 : le chariot des portiques était tiré sur le niveau BRUT,
+  // la cuisson gardée par PALIER — sa place dépendait du niveau à la première cuisson.
+  it("le chariot des portiques suit le palier : deux niveaux d'un même palier, une seule cuisson", () => {
+    forgetAnchoredBakes();
+    const c0 = anchorStats.cuites;
+    CM.layout = riverLayout([terminal(100)], 6, 31);
+    portBerths(CM.layout, "commerce");
+    expect(anchorStats.cuites).toBe(c0 + 1);
+    // Autre graine (le cache par géométrie absolue ne la connaît pas), niveau 110 : même
+    // palier (100-119), mêmes boîtes — la cuisson relative est reprise telle quelle.
+    CM.layout = { ...riverLayout([terminal(110)], 6, 31), mapSeed: 8 };
+    portBerths(CM.layout, "commerce");
+    expect(anchorStats.cuites).toBe(c0 + 1);
   });
 
   it("la scène du terminal peint les marchands qui manœuvrent à son quai, une fois", () => {

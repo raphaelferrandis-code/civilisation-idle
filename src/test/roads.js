@@ -13,6 +13,8 @@ export function diskLimit(core, R) {
 // la croissance monotone. `seed` donne un GRAIN (les ancres tournent) pour balayer des
 // géométries variées ; null = la géométrie de référence (graine du réseau 0xC0FFEE).
 // `withRiver` : bande d'eau horizontale au sud du cœur, dans la portée du disque.
+// (L'archétype n'est plus qu'une étiquette du plan : le générateur ne trace plus que
+// la recette organique — audit 2026-10-05, MORT-4.)
 export function makeRoadInputs(archetype, eraBand, seed = null, { R = 22, withRiver = false } = {}) {
   const N = 64;
   const core = { x: 32, y: 26 };
@@ -36,8 +38,7 @@ export function makeRoadInputs(archetype, eraBand, seed = null, { R = 22, withRi
   return {
     plan: { archetype, core, reachBase: R, anchors, plazas: [], chaos: 0, order: 1 },
     seed: seed ?? 0xC0FFEE,
-    counts: { eraBand, infraRings: Math.min(4, eraBand), urbanTier: eraBand * 2 },
-    ageCfg: { roadRanks: { main: eraBand >= 1, avenue: eraBand >= 2, secondary: true, path: true } },
+    counts: { eraBand },
     N, riverSet, bankSet: new Set(), riverBridgeX: core.x + 4,
     organicLimit: diskLimit(core, R),
   };

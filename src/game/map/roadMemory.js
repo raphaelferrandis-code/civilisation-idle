@@ -24,20 +24,15 @@
  * | née (bits 5-8) | pavée (bits 9-12). Bandes 0-15 : large pour les 10 bandes.
  * ========================================================================== */
 
-// `lastBand` : dernière bande couverte par la mémoire. Le lot L2 couvrait le
-// campement, le village et le bourg (bandes 0-2) ; le lot L5 (cités, 2026-10-01,
-// « fais toutes les ères ») l'étend à TOUTES les bandes. Molette :
-// `__roadMemory({ on: false })` = ancien calcul partout (A/B), puis
-// `__cityRecompute()` ; `{ lastBand: 2 }` rejoue le pilote seul.
-export const ROAD_MEMORY = { on: true, lastBand: 9 };
+// Couverture : le lot L2 couvrait le campement, le village et le bourg (bandes
+// 0-2) ; le lot L5 (cités, 2026-10-01, « fais toutes les ères ») l'étend à TOUTES
+// les bandes. Son interrupteur (`ROAD_MEMORY`, molette `__roadMemory({ on: false })`
+// = l'ancien calcul sans mémoire) est parti avec l'ancien placement : la ville par
+// îlots repose sur la mémoire (audit 2026-10-05, MORT-4, choix de Raph).
 
 const RANKS = ["path", "secondary", "avenue", "main", "plaza"];
 const RANK_IDX = { path: 0, secondary: 1, avenue: 2, main: 3, plaza: 4 };
 const MEMORY_MAX_CELLS = 40000;
-
-export function roadMemoryActive(eraBand) {
-  return !!ROAD_MEMORY.on && (eraBand | 0) <= ROAD_MEMORY.lastBand;
-}
 
 export function rankAbove(a, b) {
   return (RANK_IDX[a] || 0) > (RANK_IDX[b] || 0);
@@ -122,13 +117,5 @@ export function normalizeRoadMemory(raw) {
     works: Number.isFinite(Number(raw.works)) ? Math.max(0, Math.floor(Number(raw.works))) : 0,
     widened: Number.isFinite(Number(raw.widened)) ? Math.max(0, Math.floor(Number(raw.widened))) : 0,
     plazas: normalizePlazas(raw.plazas),
-  };
-}
-
-if (import.meta.env?.DEV && typeof window !== "undefined") {
-  window.__roadMemory = (o) => {
-    if (o && typeof o === "object") Object.assign(ROAD_MEMORY, o);
-    if (typeof window.__cityRecompute === "function") window.__cityRecompute();
-    return { ...ROAD_MEMORY };
   };
 }

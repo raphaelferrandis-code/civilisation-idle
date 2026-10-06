@@ -1,5 +1,18 @@
 # Plan — Le relief : « tout est plat »
 
+> ## ⛔⛔⛔ RELIEF RETIRÉ DE MAIN LE 2026-10-06 (audit MORT-14, décision de Raph)
+>
+> Éteint depuis le 24/08 et re-testé cassé le 01/10, le relief de terrain a quitté
+> `main` : `procedural/terrainField.js`, `iso/isoTerrain.js` (champ, socles, niveaux,
+> ombrage, molette `__terrain`), les contremarches d'`isoGroundCells`/`isoGroundBake`,
+> le terme `terrainZ` de `worldToScreen` et de `solPyramide.tileSpace`, l'inverse en
+> point fixe de `screenToWorld`, les marges `terrainMaxPx`, le chemin sillonnant
+> `windingPath` (A*) de `roadGraph` et leurs tests. Rendu identique au pixel (à
+> `amp = 0` tout rendait 0) : captures avant/après dans `planches/relief-retire/`.
+> La passe rallumée reste sur la branche locale `passe-visuelle-21-09`. La direction
+> est désormais « les étages de la ville » (`docs/PLAN-ETAGES.md`), qui montent par
+> l'axe `wz` de la projection, jamais par le sol. Ce plan reste comme mémoire.
+
 > ## ⛔⛔ RELIEF ÉTEINT PAR DÉFAUT LE 2026-08-24, PAR DÉCISION DE RAPH
 >
 > « rien ne va c'est tout fracassé […] je te propose d'annuler tout le relief » —

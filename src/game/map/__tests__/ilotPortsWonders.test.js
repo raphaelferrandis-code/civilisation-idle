@@ -5,11 +5,10 @@
 //     des merveilles n'était active qu'avec `townOn`) et en délogeait les maisons.
 // Même méthode que ilotLayout.test.js : on fait grandir l'état GLOBAL.
 import { describe, it, expect, beforeEach } from "vitest";
-import { computeCityLayout, ILOT_MODE } from "../layout.js";
+import { computeCityLayout } from "../layout.js";
 import { state } from "../../core/state.js";
 import { D } from "../../core/num.js";
 import { eras } from "../../data/world.js";
-import { ROAD_MEMORY } from "../roadMemory.js";
 import { tradeCells } from "../portSites.js";
 import { growCity as grow } from "../../../test/city.js";
 
@@ -18,7 +17,6 @@ const foot = (t) => { const out = []; const sx = t.spanX || t.size || 1, sy = t.
 const RURAL = /:(irrigated_fields|water_mills|river_ports):/;
 
 beforeEach(() => {
-  ROAD_MEMORY.on = true; ILOT_MODE.on = true;
   state.cityRoads = null; state.cityCore = null; state.cityMapSlots = {}; state.cityArchetype = null; state.cityPersonality = null; state.riverWP = null;
   state.wonders = [];
 });

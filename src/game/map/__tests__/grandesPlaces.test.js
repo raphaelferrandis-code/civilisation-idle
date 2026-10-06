@@ -7,10 +7,9 @@
 // du forum (sauf les maisons sous l'angle d'une halle chassée du forum, qui reste au cœur).
 // Même méthode que ilotLayout.test.js : on fait grandir l'état GLOBAL.
 import { describe, it, expect, beforeEach, afterEach } from "vitest";
-import { ILOT_MODE, ILOT_MEMORY_V, CM, cmRoadName } from "../layout.js";
+import { ILOT_MEMORY_V, CM, cmRoadName } from "../layout.js";
 import { GRANDES_PLACES, planIlots } from "../ilotLayout.js";
 import { state } from "../../core/state.js";
-import { ROAD_MEMORY } from "../roadMemory.js";
 import { isoPlazaCompositions, PLAZA_TUNE } from "../iso/isoPlaza.js";
 import { growCity as grow } from "../../../test/city.js";
 
@@ -22,7 +21,6 @@ const rectOf = (F) => ({ x0: F.gx - 7, x1: F.gx + 6, y0: F.gy - 4, y1: F.gy + 4 
 const inRect = (R, x, y) => x >= R.x0 && x <= R.x1 && y >= R.y0 && y <= R.y1;
 
 beforeEach(() => {
-  ROAD_MEMORY.on = true; ILOT_MODE.on = true;
   state.cityRoads = null; state.cityCore = null; state.cityMapSlots = {}; state.cityArchetype = null; state.cityPersonality = null; state.riverWP = null;
   state.wonders = [];
 });

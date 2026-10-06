@@ -12,7 +12,6 @@
 // config, l'ensemble effectif des cellules, et le DALLAGE qui s'y pose.
 import { CM, CM_WONDERS, cmWonderSlot, cmForEachWonderCell } from '../layout.js';
 import { solInvalidate } from './solInvalidate.js';
-import { districtLandmarks } from './isoDistricts.js';
 import { PLAZA_ERA_TONE, PLAZA_WINTER, rgb } from './isoPalette.js';   // le dallage compose ses tons
 
 // ⚠ ATTÉNUÉ le 2026-10-01 (Raph, sur la planche du matin : « atténue »). Le porphyre
@@ -37,50 +36,18 @@ export function wonderToneFor(plazaEra, winter) {
 // Ensemble effectif des cellules-parvis : celui du layout, PLUS l'emprise de la
 // merveille en APERÇU (__showWonder force le rendu sans recalcul du plan — le
 // parvis suit pour que l'aperçu soit fidèle). Mémoïsé par (layout, id d'aperçu).
-// ⚠⚠ LES DISTRICTS SONT DES TERRAINS VAGUES, ET C'EST MESURÉ (2026-08-23).
-// `layout.js` place 19 emprises civiques typées — palace, forum, archive, market… —
-// les verse dans `reserved`, donc les EXCLUT du pool bâtissable… et personne ne les
-// dessine. Vérifié à l'écran : leurs 2 à 4 tuiles sont vides, et se lisent comme des
-// friches brunes au milieu d'un tissu dense.
-//
-// `DISTRICT_GROUND.parvis` leur donne le dallage des merveilles — même art, même
-// machinerie, aucune image nouvelle : une friche devient une esplanade civique.
-// ⚠ ALLUMÉ depuis le lot A du chantier « hiérarchie de masse » (2026-08-24) : les
-// emprises portent désormais leurs MASSES (isoDistricts) — l'esplanade est leur
-// parvis, l'ensemble se juge en bloc. `__districts({ parvis: false })` pour l'A/B.
-export const DISTRICT_GROUND = { parvis: true };
-
-export function districtCells(L) {
-  if (!DISTRICT_GROUND.parvis || !L || !L.districts) return null;
-  const sig = (CM.layoutRecomputeAt || 0) + ':' + L.districts.length;
-  const c = CM._districtGround;
-  if (c && c.sig === sig) return c.set;
-  const set = new Set();
-  // L'esplanade suit la MASSE : les seuls repères élus (un par genre, le plus
-  // proche du cœur — cf. isoDistricts). Les autres emprises gardent leur friche.
-  const picks = districtLandmarks(L);
-  for (const d of (picks || [])) {
-    for (let ax = 0; ax < d.size; ax += 1) for (let ay = 0; ay < d.size; ay += 1) {
-      set.add((d.gx + ax) + ',' + (d.gy + ay));
-    }
-  }
-  CM._districtGround = { sig, set };
-  return set;
-}
-
+// (Le dallage des esplanades civiques — `DISTRICT_GROUND.parvis`, sous les masses
+// des grands ensembles d'isoDistricts — est parti avec eux et l'ancien placement :
+// audit 2026-10-05, MORT-4.)
 export function wonderGroundSet(L) {
-  const dis = districtCells(L);
   const pv = CM.previewWonder;
-  if (!pv && !dis) return L.wonderGround || null;
+  if (!pv) return L.wonderGround || null;
   // Le RANG entre dans la clé de mémoïsation : __showWonder(id, rang) change
   // l'emprise sans recalculer le plan, et le cache renvoyait l'ancienne taille.
-  const sig = (CM.layoutRecomputeAt || 0) + ':' + (pv ? pv.id + ':' + pv.tier : '-')
-    + ':' + (dis ? 'd' + dis.size : '-');
+  const sig = (CM.layoutRecomputeAt || 0) + ':' + pv.id + ':' + pv.tier;
   const cache = CM._pvWonderGround;
   if (cache && cache.sig === sig) return cache.set;
   const set = new Set(L.wonderGround || []);
-  if (dis) for (const k of dis) set.add(k);
-  if (!pv) { CM._pvWonderGround = { sig, set }; return set; }
   const wi = CM_WONDERS.findIndex((w) => w.id === pv.id);
   if (wi >= 0 && pv.id !== 'era_mega' && L.gridN) {
     const slot = cmWonderSlot(wi, L.gridN, L.cx, L.cy);
@@ -90,18 +57,6 @@ export function wonderGroundSet(L) {
   return set;
 }
 if (import.meta.env?.DEV && typeof window !== 'undefined') {
-  // __districts({ parvis: false }) retire aux 19 emprises civiques le dallage des
-  // merveilles (A/B). ALLUMÉ par défaut depuis le lot A (cf. DISTRICT_GROUND plus haut).
-  // Rend aussi l'inventaire, pour qu'on puisse juger de ce qu'on regarde.
-  window.__districts = (o) => {
-    if (o && typeof o === 'object') Object.assign(DISTRICT_GROUND, o);
-    CM._districtGround = null; CM._pvWonderGround = null; solInvalidate('all');
-    const L = CM.layout;
-    return {
-      ...DISTRICT_GROUND,
-      emprises: (L && L.districts || []).map((d) => d.kind + ' ' + d.size + 'x' + d.size),
-    };
-  };
   window.__wonderGround = (arg) => {
     if (arg === false) WONDER_GROUND.on = false;
     else if (arg && typeof arg === 'object') { WONDER_GROUND.on = true; Object.assign(WONDER_GROUND, arg); }

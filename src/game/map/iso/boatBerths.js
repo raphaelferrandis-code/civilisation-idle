@@ -22,7 +22,7 @@ import { pierMoorings, pierSiteMoorings, pierPlan, isPierPortTile } from './isoP
 import { portBerths } from './portBerths.js';
 import './isoTradePort.js';   // son fournisseur de postes s'enregistre à l'import
 import { bridgeBlocks } from './isoBridge.js';
-import { BOAT_MODELS, fleetFor } from './boatKits.js';
+import { BOAT_MODELS, fleetFor, traderLen } from './boatKits.js';
 import { worldToScreen } from './projection.js';
 import { agentSetForBand, agentSpecFor, drawNamedAgentIso, AGENT_SCALE } from '../agents.js';
 import { focusMark, drawFocusRingAt, noteSceneFigure, sceneRingWidth } from '../citizenFocus.js';
@@ -66,7 +66,7 @@ function berthsOf(L, marks) {
   if (!fl || !fl.trade) return out;
   const T = CM.TILE;
   // Le poste est coté pour le plus long marchand de l'époque.
-  const big = Math.max(...fl.trade.map((id) => BOAT_MODELS[id].len / 32));
+  const big = traderLen(band);
   for (const t of L.tiles || []) {
     // Seuls les ports à ponton (isPierPortTile, le même tri que le peintre) : la
     // capitainerie et le terminal bordent l'eau mais n'ont pas de ponton (BUG-17) —

@@ -24,16 +24,16 @@ function getVehicleDensity(eraIndex, rank) {
   if (rank === "plaza") return 0;
   const rankBase = rank === "main" ? 1.15 : rank === "avenue" ? 0.78 : rank === "secondary" ? 0.35 : 0.05;
   const ageBase = eraIndex < 3 ? 0.02 : eraIndex < 7 ? 0.22 : eraIndex < 11 ? 0.42 : eraIndex < 13 ? 0.72 : eraIndex < 18 ? 0.98 : 1.12;
+  // En ruine, plus de trafic du tout (cmSyncRoadFleet : décision de Raph, audit du
+  // 2026-10-05, MORT-11) — il y restait 8 % de « charrettes brisées » sans sprite.
   const ruined = (state.timeWear || 0) > 0.88 || (state.instability || 0) >= 1;
-  return ruined ? rankBase * 0.08 : rankBase * ageBase;
+  return ruined ? 0 : rankBase * ageBase;
 }
 
-// Tout ce qui roule au moteur : voiture, tram et la flotte moderne du pack.
-const MOTOR_TYPES = new Set(["car", "tram", "bus", "van", "truck", "taxi", "police", "ambulance"]);
+// Tout ce qui roule au moteur : voiture et la flotte moderne du pack.
+const MOTOR_TYPES = new Set(["car", "bus", "van", "truck", "taxi", "police", "ambulance"]);
 
 function chooseRoadVehicleType(eraIndex, rank, seed) {
-  const ruined = (state.timeWear || 0) > 0.88 || (state.instability || 0) >= 1;
-  if (ruined) return "broken_cart";
   // Sélection pondérée par la config d'âge × le profil de la ville : une cité
   // marchande déborde de caravanes, une cité militaire fait défiler ses chars.
   const ageCfg = CM.layout && CM.layout.ageCfg;
@@ -53,16 +53,13 @@ function chooseRoadVehicleType(eraIndex, rank, seed) {
         roll -= v.w;
         if (roll <= 0) {
           // Véhicules à MOTEUR réservés aux grands axes. La règle valait déjà pour
-          // la voiture et le tram ; le bus et le camion, plus longs qu'une berline,
+          // la voiture ; le bus et le camion, plus longs qu'une berline,
           // n'ont rien à faire dans une venelle — ils y déborderaient de la chaussée.
           // Le REPLI suit la bande (BUG-57, audit du 2026-10-05) : le wagon, pensé
           // pour les ères anciennes, mettait un char à bœufs dans la mégalopole (un
           // véhicule sur cinq en bande 6) et sous les drones des cités cosmiques. En
           // bande 6, la rue étroite prend une voiture ; aux bandes 7-8, un drone.
           if (MOTOR_TYPES.has(v.type) && rank !== "main" && rank !== "avenue") return band >= 7 ? "drone" : band >= 6 ? "car" : "wagon";
-          // Le tram ne roule pas sur les voies (cmSyncRoadFleet en fait une voiture) :
-          // aux bandes 7-8, c'était une berline du pack sous les drones.
-          if (v.type === "tram" && band >= 7) return "drone";
           return v.type;
         }
       }
@@ -74,7 +71,8 @@ function chooseRoadVehicleType(eraIndex, rank, seed) {
   if (eraIndex < 9) return seed % 2 === 0 ? "chariot" : "wagon";
   if (eraIndex < 11) return seed % 3 === 0 ? "caravan" : seed % 3 === 1 ? "wagon" : "chariot";
   if (eraIndex >= 13 && seed % 4 === 0) return "drone";
-  if (eraIndex >= 11 && (rank === "main" || rank === "avenue")) return seed % 3 === 0 ? "tram" : "car";
+  // (Le tram tiré ici roulait en voiture : les trams sont retirés, audit du 2026-10-05, ASSET-3.)
+  if (eraIndex >= 11 && (rank === "main" || rank === "avenue")) return "car";
   if (eraIndex >= 11) return seed % 2 === 0 ? "car" : "wagon";
   if (rank === "main" && seed % 4 === 0) return "chariot";
   if ((rank === "main" || rank === "avenue") && seed % 3 === 0) return "caravan";
@@ -840,14 +838,10 @@ function ensureVehDiag(type, skin) {
 // toise : le conducteur assis un peu plus petit qu'un passant) ; `team` = la bête
 // est dans le dessin → le code n'en ajoute pas (VEH_PULL ignoré). `skins` (au lieu de
 // `skin`) = plusieurs modèles/teintes tirés par véhicule (flotte moderne).
+// 🚫 LES TRAMS SONT RETIRÉS (décision de Raph, audit du 2026-10-05, ASSET-3) : dessinés
+// (1900, moderne, magnétique, flottant) mais jamais en circulation — tout tram tiré
+// roulait en voiture (pas de voie dédiée). Leurs planches sont rangées dans art/trams/.
 const ERA_VEH = {
-  // Tram : vues FIXES (véhicule symétrique, pas de bête), toile 96 → toise ≈ 5 passants.
-  tram: {
-    5: { skin: 'ind', size: 2.4 },   // tram 1900 vert et crème
-    6: { skin: 'mod', size: 2.4 },   // tram moderne blanc et sarcelle
-    7: { skin: 'cos7', size: 2.4 },  // tram magnétique ivoire et jade
-    8: { skin: 'cos8', size: 2.4 },  // tram flottant nacre et or
-  },
   wagon: {
     2: { skin: 'med', size: 1.35, team: true },   // chariot à foin, bœuf
     3: { skin: 'med', size: 1.35, team: true },
@@ -909,7 +903,8 @@ function vehSkinFor(type, seed, band) {
 // bien ») : d'abord la brouette, puis la charrette à bras qui a la même silhouette — plus
 // aucun tirage ne les produit (chooseRoadVehicleType, ageVisualConfig, cityPersonality) et
 // leur absence d'ici suffit à ne plus charger leurs sprites. L'art reste sur le disque.
-const VEH_SIZES = { wagon: 0.85, chariot: 0.8, caravan: 1.0, car: 0.72, tram: 1.4 };
+// (Le tram aussi est parti, ses planches dans art/trams/ : ASSET-3, cf. ERA_VEH.)
+const VEH_SIZES = { wagon: 0.85, chariot: 0.8, caravan: 1.0, car: 0.72 };
 // Flotte moderne (pack MinZinn) : les tailles viennent du MANIFESTE, écrit par le
 // même script que les sprites. Un bus dessiné dans la boîte d'une berline serait
 // simplement une image écrasée — la taille de boîte et la taille de cuisson sont

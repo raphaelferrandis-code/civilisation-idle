@@ -8,8 +8,8 @@ autre poste.
 Ce document dit **ce qui est mesuré**, **ce qui est livré**, **ce qui a été tenté
 puis rejeté** (avec les chiffres, pour ne pas le refaire), et **où sont les pistes
 ouvertes**. Le détail des pistes vit dans le rapport d'audit
-(`docs/audits/audit-2026-10-05-RAPPORT.md`, entrées PERF-1 à PERF-73) : ce document
-ne le recopie pas.
+(`audit-2026-10-05-RAPPORT.md`, entrées PERF-1 à PERF-73, gardé hors du dépôt sur le
+poste de Raph, dans docs/audits) : ce document ne le recopie pas.
 
 ---
 

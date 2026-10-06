@@ -18,14 +18,13 @@
 // lit la caméra, la taille de viewport et la cible dans `CM` — c'est ce qui
 // permet à la pyramide de le pointer sur une tuile (cf. cookTile).
 import { CM } from '../layout.js';
-import { DIRT_TONE, CAMP_GROUND, campFlowerK, courOf } from './isoTissu.js';
+import { CAMP_GROUND, campFlowerK, courOf } from './isoTissu.js';
 import { townLawnAt } from './isoMeadow.js';
 import { sweepIsoGroundCells } from './isoGroundCells.js';
 import { SEASON_GRASS, drawGrassDetailAll, drawGrassFringeAll } from './isoGroundDetail.js';
 import { makeGroundBake } from './isoGroundResolve.js';
 import { drawIsoGroundRoads } from './isoGroundRoads.js';
 import { BEACH } from './isoGroundTiles.js';
-import { terrainKey, terrainMaxPx } from './isoTerrain.js';
 import { rgb } from './isoPalette.js';
 import { drawIsoMedians } from './isoStreet.js';
 import { drawWonderGroundAll, wonderToneFor, WONDER_GROUND, wonderGroundSet } from './isoWonderGround.js';
@@ -68,79 +67,19 @@ export function drawIsoGround() {
   // Le test est un rejet précoce, avant kindAt et tout tracé.
   // ⚠ Marge d'une cellule pleine : le losange pend SOUS son coin nord (2*hh) et
   // les tuiles/touffes débordent un peu. Trop serré, on raboterait le bord.
-  // + terrainMax en Y : la contremarche d'une cellule haute pend d'autant sous
-  // son losange — culler au coin nord la couperait au bord haut de l'écran.
   // A/B (dev) : globalThis.__isoCellCull = false rejoue le balayage complet.
-  const cullPadX = hw * 2, cullPadY = hh * 4 + terrainMaxPx() * z;
+  const cullPadX = hw * 2, cullPadY = hh * 4;
   const cullOn = !(import.meta.env?.DEV && globalThis.__isoCellCull === false);
-  // Contremarches du relief (quads écran, 8 nombres chacun) : terre claire/sombre
-  // + pierre d'ère claire/sombre — la tranche prend la matière de sa cellule.
-  // Polish : lèvres (herbe/margelle, quads), assise sombre (quads), joints de
-  // pierre (verticales, 3 nombres) et ombre de contact au pied (segments, 4).
-  const faceL = [], faceD = [], faceLU = [], faceDU = [];
-  const faceFoot = [], faceBand = [], faceJoint = [], faceLipG = [], faceLipS = [];
   sweepIsoGroundCells(
     { ctx, T, hw, hh, LOD, HARD, b, cullOn, cullPadX, cullPadY,
       L, roadMap, riverCells, urb, mat, plazaEra, wg, PR },
     { kindAt, grassAt, keyOfKind, lisiere },
-    { fringes, roads, wonderCells, grassCells, grassMask, grassMaskR,
-      faceL, faceD, faceLU, faceDU, faceFoot, faceBand, faceJoint, faceLipG, faceLipS },
+    { fringes, roads, wonderCells, grassCells, grassMask, grassMaskR },
   );
   if (PR) PR.cells = performance.now() - tLoop;
-  // CONTREMARCHES DU RELIEF : remisées par le balayage, peintes en DEUX fills
-  // d'union (claire = face +y vers la lumière haut-gauche, sombre = face +x).
-  // L'ordre est libre — une face ne recouvre jamais un losange, le voisin plus
-  // bas commence exactement où elle finit — mais AVANT tout ce qui se pose sur
-  // le sol (parvis, franges, rubans) : la route rampe PAR-DESSUS sa marche.
-  if (faceL.length || faceD.length || faceLU.length || faceDU.length) {
-    const tF = PR && performance.now();
-    const flushFaces = (arr, col) => {
-      if (!arr.length) return;
-      ctx.fillStyle = col;
-      ctx.beginPath();
-      for (let i = 0; i < arr.length; i += 8) {
-        ctx.moveTo(arr[i], arr[i + 1]); ctx.lineTo(arr[i + 2], arr[i + 3]);
-        ctx.lineTo(arr[i + 4], arr[i + 5]); ctx.lineTo(arr[i + 6], arr[i + 7]);
-        ctx.closePath();
-      }
-      ctx.fill();
-    };
-    flushFaces(faceD, rgb(DIRT_TONE, 0.58));
-    flushFaces(faceL, rgb(DIRT_TONE, 0.82));
-    flushFaces(faceDU, rgb(urb, 0.60));    // pierre d'ère : mur de soutènement
-    flushFaces(faceLU, rgb(urb, 0.84));
-    // ── Polish, du fond vers l'avant : assise sombre → joints → lèvre (elle
-    // recouvre le haut des deux premiers) → ombre de contact au pied.
-    flushFaces(faceBand, 'rgba(0,0,0,0.16)');
-    if (faceJoint.length) {
-      ctx.strokeStyle = 'rgba(0,0,0,0.20)';
-      ctx.lineWidth = 1;
-      ctx.beginPath();
-      for (let i = 0; i < faceJoint.length; i += 3) {
-        ctx.moveTo(faceJoint[i], faceJoint[i + 1]);
-        ctx.lineTo(faceJoint[i], faceJoint[i + 2]);
-      }
-      ctx.stroke();
-    }
-    flushFaces(faceLipG, rgb(SEASON_GRASS, 0.72));
-    // Margelle : le ton urbain fondu vers le blanc — le même geste que la berge
-    // maçonnée (lightenHex), en tableau.
-    flushFaces(faceLipS, rgb([
-      Math.round(urb[0] + (255 - urb[0]) * 0.28),
-      Math.round(urb[1] + (255 - urb[1]) * 0.28),
-      Math.round(urb[2] + (255 - urb[2]) * 0.28)], 1));
-    if (faceFoot.length) {
-      ctx.strokeStyle = 'rgba(0,0,0,0.30)';
-      ctx.lineWidth = Math.max(1, z * 0.8);
-      ctx.beginPath();
-      for (let i = 0; i < faceFoot.length; i += 4) {
-        ctx.moveTo(faceFoot[i], faceFoot[i + 1]);
-        ctx.lineTo(faceFoot[i + 2], faceFoot[i + 3]);
-      }
-      ctx.stroke();
-    }
-    if (PR) PR.faces = performance.now() - tF;
-  }
+  // (Les CONTREMARCHES du relief — tranches de terrain remisées par le balayage
+  //  et peintes ici en fills d'union, avec lèvres, assises, joints et ombre de
+  //  pied — sont parties avec le relief le 2026-10-06, audit MORT-14.)
   // PARVIS : tout le dallage, PUIS toute la margelle. L'ordre compte — la margelle
   // encadre le parvis et doit rester au-dessus des joints, comme avant.
   drawWonderGroundAll(ctx, wonderCells, hw, hh, wg, wonderToneFor(plazaEra, CM.season === WINTER));
@@ -184,14 +123,15 @@ export function drawIsoGround() {
 }
 
 // LE SUFFIXE DE CLÉ DU SOL — tout ce qui change le sol cuit HORS du plan et du
-// zoom : bande d'ère, saison, plage (masque du quai + molette), relief, aperçu
-// de merveille. Partagé depuis le lot 2 de PLAN-SOL-PYRAMIDE avec les tuiles
+// zoom : bande d'ère, saison, plage (masque du quai + molette), aperçu de
+// merveille. Partagé depuis le lot 2 de PLAN-SOL-PYRAMIDE avec les tuiles
 // (solPyramideFrame.js) : une identité de contenu, deux caches.
 // ⚠ La PLAGE est dans le sol bakÉ (kind 'shingle') : sa géométrie dépend du
 // masque effectif du quai, donc de `quayGate.key` (layout + mode `full`) et de
 // la molette __beach — sans ces crans, basculer `full` ou couper la plage
 // laissait les galets gelés dans le bake (piège rencontré trois fois).
-// LE TERRAIN est dans le sol bakÉ : niveaux et contremarches dépendent du champ.
+// (Le fragment du RELIEF, `terrainKey()`, vide relief éteint, est parti avec lui
+// le 2026-10-06 — audit MORT-14 : aucune clé n'a changé.)
 // La NEIGE DE GRÈVE (`__beach.snow`) aussi : elle change le ton et la tuile d'hiver
 // des cellules de grève (beachTone, isoWinterTile) — absente du suffixe, la bascule
 // laissait le sable gelé dans les tuiles cuites (audit du 2026-10-05, BUG-100).
@@ -200,7 +140,6 @@ export function groundKeySuffix(L) {
     + ':s' + (CM.season | 0)
     + ':bch' + (BEACH.on ? BEACH.mat + BEACH.islandW + '_' + BEACH.depth + '_' + BEACH.ramp + (BEACH.snow ? '_n' : '') : 'off')
     + ':qg' + ((CM.quayGate && CM.quayGate.key) || '-')
-    + terrainKey()
     + (CM.previewWonder ? ':pv' + CM.previewWonder.id : '');
 }
 

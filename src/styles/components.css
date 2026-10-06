@@ -1138,8 +1138,12 @@ dialog::backdrop { background: rgba(8, 5, 1, 0.72); }
   box-shadow: 0 0 6px #ff3b30;
   animation: pressLedBlink 1.5s infinite steps(1);
 }
+/* La chasse fixe du système (décision de Raph, audit du 05/10, STRUCT-14) :
+   « Roboto Mono » et « Orbitron » (thème 7) ne sont pas embarquées, le .exe hors
+   ligne et presque tous les joueurs voyaient déjà Consolas. On écrit ce qui
+   s'affiche. (Tailles en rem : pas de rétrécissement du « monospace » seul.) */
 .chronicle-ticker.is-press .ticker-masthead,
-.chronicle-ticker.is-press .ticker-line { font-family: "Roboto Mono", monospace; }
+.chronicle-ticker.is-press .ticker-line { font-family: monospace; }
 .chronicle-ticker.is-press .ticker-masthead { color: #cbd7e8; }
 .chronicle-ticker.is-press .ticker-line { color: #c5ced6; }
 
@@ -1168,8 +1172,8 @@ dialog::backdrop { background: rgba(8, 5, 1, 0.72); }
 }
 .chronicle-ticker.is-cyber-feed:hover { overflow: visible; }
 .chronicle-ticker.is-cyber-feed:hover::after { display: none; }
-.chronicle-ticker.is-cyber-feed .ticker-masthead { color: #ffffff; font-family: "Orbitron", "Roboto Mono", monospace; letter-spacing: 0.18em; text-shadow: 0 0 6px rgba(0, 240, 255, 0.6); }
-.chronicle-ticker.is-cyber-feed .ticker-line { color: #b3d7df; font-family: "Roboto Mono", monospace; }
+.chronicle-ticker.is-cyber-feed .ticker-masthead { color: #ffffff; font-family: monospace; letter-spacing: 0.18em; text-shadow: 0 0 6px rgba(0, 240, 255, 0.6); }
+.chronicle-ticker.is-cyber-feed .ticker-line { color: #b3d7df; font-family: monospace; }
 .chronicle-ticker.is-cyber-feed .ticker-new-dot { background: #00f0ff; box-shadow: 0 0 6px #00f0ff; }
 
 @keyframes cyberSweep {

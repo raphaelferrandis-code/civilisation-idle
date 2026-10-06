@@ -177,6 +177,43 @@ describe("BUG-57 — chaque époque roule avec ses véhicules", () => {
   });
 });
 
+// Audit du 2026-10-05, MORT-11 (décision de Raph) et ASSET-3 (trams retirés).
+describe("MORT-11 — en ruine, plus de charrettes fantômes ; ASSET-3 — plus de tram", () => {
+  it("ville en ruine : plus un seul véhicule, même avec du trafic voulu", () => {
+    cmSyncRoadFleet(city(4, 9), 8, deps);
+    expect(CM.vehicles).toHaveLength(8);
+    for (const ruin of [{ timeWear: 0.9 }, { instability: 1 }]) {
+      state.timeWear = 0; state.instability = 0;
+      Object.assign(state, ruin);
+      expect(getVehicleDensity(9, "main")).toBe(0);
+      cmSyncRoadFleet(CM.layout, 8, deps);
+      expect(CM.vehicles).toEqual([]);
+      state.timeWear = 0; state.instability = 0;
+      cmSyncRoadFleet(CM.layout, 8, deps);                      // la ruine passée, le trafic revient
+      expect(CM.vehicles).toHaveLength(8);
+    }
+  });
+
+  it("en ruine, celui qu'on suit reste, à sa monture (plus de « charrette brisée » sans sprite)", () => {
+    cmSyncRoadFleet(city(4, 9), 6, deps);
+    const followed = CM.vehicles[4], type = followed.type;
+    CM.focus = { p: followed, kind: "vehicle", cam: true };
+    state.timeWear = 0.95;
+    cmSyncRoadFleet(CM.layout, 6, deps);
+    expect(CM.vehicles).toEqual([followed]);
+    expect(followed.type).toBe(type);
+  });
+
+  it("aucune ère ne tire de tram : il roulait en voiture (bandes 5-6) ou en drone (7-8)", () => {
+    for (let band = 0; band <= 9; band += 1) {
+      CM.layout = { counts: { eraBand: band }, ageCfg: ageConfigFor(band), personality: null };
+      for (const rank of ["main", "avenue", "secondary"]) for (let s = 0; s < 400; s += 1) expect(chooseRoadVehicleType(band * 4, rank, s)).not.toBe("tram");
+    }
+    CM.layout = null;                                           // repli historique, sans plan
+    for (let s = 0; s < 30; s += 1) expect(chooseRoadVehicleType(12, "main", s)).toBe("car");
+  });
+});
+
 describe("BUG-58 — un passant parti ne laisse pas naître son clone", () => {
   it("le numéro d'apparition ne revient jamais tant qu'il reste quelqu'un", () => {
     const L = city(4, 9);

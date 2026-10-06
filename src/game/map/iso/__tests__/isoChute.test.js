@@ -189,16 +189,17 @@ describe("les raccords de lumière", () => {
 });
 
 describe("les ruines du cycle précédent", () => {
-  it("ne se posent ni sur le parvis, ni sur la pelouse d'une merveille, ni sur un grand ensemble", () => {
+  it("ne se posent ni sur le parvis, ni sur la pelouse d'une merveille", () => {
+    // (Les grands ensembles, `L.districts`, sont partis avec l'ancien placement —
+    // audit 2026-10-05, MORT-4.)
     const L = mountCity();
     L.roadSet = new Set();
     L.wonderGround = new Set(["10,10"]);
     L.townGreen = new Set(["14,10"]);
-    L.districts = [{ gx: 18, gy: 10, size: 2 }];
     const c = 20;   // ruines rangées relativement au centre de la grille
     const item = (gx, gy) => [gx - c, gy - c, 0];
     state.cityRelics = { v: 2, seed: state.mapSeed >>> 0, keys: ["h|domus|0||0"], forms: [[0, 1, 1, -1000, -2000, 2000, 2000]],
-      items: [item(10, 10), item(14, 10), item(19, 11), item(24, 10)].flat() };
+      items: [item(10, 10), item(14, 10), item(24, 10)].flat() };
     const items = [];
     chuteCollect(items, L);
     const at = items.filter((it) => it.kind === "relic").map((it) => it.r.gx + "," + it.r.gy);

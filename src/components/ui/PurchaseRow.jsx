@@ -2,7 +2,7 @@ import { memo } from 'react';
 import { useBuyFeedback } from '../../hooks/useBuyFeedback.js';
 import { buyBuilding } from '../../game/core/actions.js';
 import { state, setBuyAmount, invalidateRenderCache } from '../../game/core/state.js';
-import { fmt, fmtShort, fmtInt, signed, signedShort, labelFor, rateScale } from '../../game/core/utils.js';
+import { fmt, fmtShort, signed, signedShort, labelFor, rateScale, exactLabel } from '../../game/core/utils.js';
 import { tr } from '../../game/core/i18n.js';
 import { RES_ICONS } from './resourceIcons.js';
 import { tipProps } from './HelpBubble.jsx';
@@ -15,16 +15,6 @@ const RES_CLASS = {
   knowledge: "res-know",
   infrastructure: "res-infra"
 };
-
-/* Valeur exacte pour le tooltip des suffixes (K, M, B, T) et de la notation scientifique */
-function exactLabel(value) {
-  const n = typeof value?.toNumber === "function" ? value.toNumber() : value;
-  if (!Number.isFinite(n)) {
-    return typeof value?.toExponential === "function" ? String(value.toExponential(3)).replace("e+", "e") : String(value);
-  }
-  if (Math.abs(n) >= 1e15) return n.toExponential(3).replace("e+", "e");
-  return fmtInt(n);
-}
 
 /**
  * Rangée d'achat de bâtiment (Audit UI Phase 3).

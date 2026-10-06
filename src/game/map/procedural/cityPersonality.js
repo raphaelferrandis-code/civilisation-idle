@@ -54,7 +54,9 @@ const PERSONALITIES = {
     buildingBias: { public: 1.25, library: 1.1, house: 1, farm: 0.85 },
     variantBias: "prestige",
     densityMul: 1.08, orderDelta: 0.18, plazaBias: 1.3,
-    vehicleBias: { chariot: 1.3, tram: 1.2 }, treeMul: 0.8
+    // car 1,08 : le tram (×1,2), qui roulait en voiture, est retiré (audit du 2026-10-05,
+    // ASSET-3) — 5 × 1,08 = 3 + 2 × 1,2 : le même tirage aux bandes 5-6.
+    vehicleBias: { chariot: 1.3, car: 1.08 }, treeMul: 0.8
   },
   pauvre: {
     id: "pauvre", label: { fr: "cité modeste", en: "humble city" },
@@ -68,7 +70,9 @@ const PERSONALITIES = {
     buildingBias: { house: 0.95, public: 1.15, library: 1.15, farm: 0.85 },
     variantBias: "rich",
     densityMul: 0.9, orderDelta: 0.12, plazaBias: 1.6,
-    vehicleBias: { caravan: 1.2, car: 1.2 }, treeMul: 1.15
+    // car 1,12 (et non plus 1,2) : la voiture a repris les 2 du tram retiré (ASSET-3),
+    // non biaisés — 5 × 1,12 = 3 × 1,2 + 2 : le même tirage aux bandes 5-6.
+    vehicleBias: { caravan: 1.2, car: 1.12 }, treeMul: 1.15
   },
   savante: {
     id: "savante", label: { fr: "cité savante", en: "scholarly city" },

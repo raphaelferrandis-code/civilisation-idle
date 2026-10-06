@@ -470,8 +470,8 @@ function wetFracOf(mode) {
 const edgeAt = (u, w, f) => (f >= 1 ? w : f > 0 ? u + f * (w - u) : u);
 
 // Rives GAUCHE et DROITE du ruban, projetées à l'écran. Extrait de
-// riverRibbonPath pour que le pavage de l'eau (drawIsoWaterTiles) puisse borner
-// ses colonnes sur la vraie emprise du ruban, et pas sur sa boîte englobante.
+// riverRibbonPath (il bornait aussi le pavage tuile à tuile de la nappe, retiré :
+// audit du 05/10, MORT-11) ; le liseré des rives le lit tel quel.
 // C'est aussi LE goulot du ressac : les sept appels du ruban dans une frame
 // passent tous par ici, donc corps d'eau, nappe animée, voile, poissons, vie de
 // surface et clips restent collés au bord de l'eau du moment sans un mot de plus.
@@ -1183,9 +1183,8 @@ function drawIsoWaterTiles(ctx, pts, T, z, now, wb) {
     : null;
   if (!G.on || z < G.minZoom || G.strength <= 0) { if (dbg) dbg('reglage'); return; }
   if (!sheet || !sheet.ready) { if (dbg) dbg('image non prete'); return; }
-  const img = sheet.img;
   const len = pts.length;
-  // Boîte écran du fleuve (mêmes bornes que le grain : on ne tile que le visible).
+  // Boîte écran du fleuve : hors de la vue, rien à remplir.
   let bx0 = Infinity, by0 = Infinity, bx1 = -Infinity, by1 = -Infinity, maxHw = 0;
   for (let i = 0; i < len; i += 1) {
     const p = pts[i], w = worldToScreen(p.x * T, p.y * T);
@@ -1208,7 +1207,6 @@ function drawIsoWaterTiles(ctx, pts, T, z, now, wb) {
   const TW = tileOf(sheet);                              // côté du carreau, px de tuile
   const step = TW * G.worldPx * z;                       // période à l'écran
   if (step < 2) { if (dbg) dbg('pas trop fin', { step }); return; }
-  const sz = Math.ceil(step) + 1;                        // +1 px : coutures au zoom fractionnaire
   const rf = snow ? rf0 * 0.35 : rf0;
   const mix = (a, b) => a + (b - a) * rf;
   // RAFALE : la bouffée passe SUR l'eau, la surface claque et file le temps
@@ -1259,154 +1257,58 @@ function drawIsoWaterTiles(ctx, pts, T, z, now, wb) {
   //
   // Or ce double balayage n'est qu'un pavage régulier : exactement ce qu'un
   // motif répété fait en UN appel, le ruban servant alors de RÉGION DE
-  // REMPLISSAGE au lieu de clip. Même réseau de tuiles (origines à ox + k·step),
+  // REMPLISSAGE au lieu de clip. Même réseau de tuiles (origines à ox + n·step),
   // même frame d'animation, même alpha — et plus de coutures, la répétition
   // étant faite par l'échantillonneur au lieu du `+1 px` de recouvrement.
-  // Le cull par bandes ci-dessous devient sans objet : rien à écarter quand il
-  // n'y a qu'un fill. A/B (dev) : globalThis.__waterPattern = false rejoue les tuiles.
-  if (!(import.meta.env?.DEV && globalThis.__waterPattern === false)) {
-    // Repli SILENCIEUX sur le pavage tuile à tuile si le motif n'est pas
-    // disponible (canvas hors écran refusé, source pas décodable) : la nappe
-    // s'affiche toujours, elle coûte seulement plus cher.
-    const k = G.worldPx * z;                     // un pixel de carreau → k px d'écran, quel que soit le carreau
-    const paint = (sh, alpha) => {
-      if (!sh || !sh.ready || alpha <= 0) return false;
-      let pat = null;
-      try {
-        const tile = waterFrameTile(sh, fi);
-        if (tile) pat = ctx.createPattern(tile, 'repeat');
-      } catch { pat = null; }
-      if (!pat) return false;
-      pat.setTransform({ a: k, b: 0, c: 0, d: k, e: ox, f: oy });
-      ctx.globalAlpha = alpha;
-      ctx.fillStyle = pat;
-      riverRibbonPath(ctx, pts, T);
-      ctx.fill(WATER_FILL);
-      fillExtraWater(ctx, T);
-      return true;
-    };
-    ctx.save();
-    ctx.imageSmoothingEnabled = G.worldPx * z < 1;
-    // FONDU : l'ancien coloris à plein, le nouveau par-dessus à `mix`. Le second
-    // fill n'existe QUE pendant la transition (une seconde environ) — le reste du
-    // temps on reste au fill unique qui avait fait tomber les 18 ms de GPU.
-    const fade = !!fromSheet && fromSheet !== sheet;
-    if (fade) paint(fromSheet, Math.min(1, G.strength));
-    let ok = paint(sheet, Math.min(1, G.strength) * (fade ? band.mix : 1));
-    if (!ok && fade) ok = true;               // le nouveau n'est pas décodé : l'ancien tient l'écran
-    if (ok) {
-      if (dbg) dbg('motif', { step: +step.toFixed(2), ox: +ox.toFixed(1), oy: +oy.toFixed(1), fondu: fade });
-      if (tint !== 0) {
-        ctx.globalAlpha = 1;
-        const a = Math.min(1, Math.abs(tint)).toFixed(3);
-        // Le voile clair est l'ÉCLAT DE LA BANDE elle-même : pris ailleurs, il
-        // désaturerait l'azur avec le gris de l'ancienne planche ardoise.
-        ctx.fillStyle = tint > 0 ? `rgba(38,46,62,${a})` : `rgba(${wb.cfg.pale},${a})`;
-        riverRibbonPath(ctx, pts, T);
-        ctx.fill(WATER_FILL);
-        fillExtraWater(ctx, T);
-      }
-      ctx.restore();
-      return;
-    }
-    ctx.restore();
-  }
-  const c0 = Math.floor((bx0 - ox) / step), c1 = Math.ceil((bx1 - ox) / step);
-  const r0 = Math.floor((by0 - oy) / step), r1 = Math.ceil((by1 - oy) / step);
-  // ── EMPRISE RÉELLE DU RUBAN, BANDE DE LIGNE PAR BANDE DE LIGNE ──────────────
-  // Le pavage balayait la BOÎTE ENGLOBANTE du fleuve. Or un ruban en diagonale
-  // n'occupe qu'une fraction de sa boîte : sur une fenêtre de 2005×1369 à zoom
-  // 0,35 (pas de 11 px), cela faisait ~22 000 drawImage par frame dont ~85 %
-  // étaient intégralement jetés par le clip() — mais seulement APRÈS avoir été
-  // envoyés au GPU. Or c'est le GPU qui sature (relevé DevTools sur 13 s de
-  // dézoom : piste GPU pleine du début à la fin, thread principal à 35 %).
   //
-  // On borne donc les colonnes bande par bande. L'enveloppe est CONSERVATRICE :
-  // pour chaque quadrilatère du ruban (entre deux échantillons consécutifs) on
-  // marque sa boîte englobante sur toutes les bandes qu'il traverse, élargie
-  // d'une bande de chaque côté. C'est un sur-ensemble strict de l'aire clippée,
-  // y compris si le fleuve serpente ou repasse sur lui-même — le clip reste seul
-  // juge du découpage. Ce filtre ne retire QUE des tuiles déjà invisibles : le
-  // rendu est identique au pixel près. (Sa molette d'A/B __waterSpanCull est
-  // retirée : audit 2026-10-05, DEV-3.)
-  const nRows = r1 - r0 + 1;
-  let spanLo = null, spanHi = null;
-  if (nRows > 0) {
-    spanLo = new Float64Array(nRows).fill(Infinity);
-    spanHi = new Float64Array(nRows).fill(-Infinity);
-    const { left: rl, right: rr } = riverRibbonScreen(pts, T);
-    for (let i = 1; i < rl.length; i += 1) {
-      const x0 = Math.min(rl[i - 1].x, rl[i].x, rr[i - 1].x, rr[i].x);
-      const x1 = Math.max(rl[i - 1].x, rl[i].x, rr[i - 1].x, rr[i].x);
-      const y0 = Math.min(rl[i - 1].y, rl[i].y, rr[i - 1].y, rr[i].y);
-      const y1 = Math.max(rl[i - 1].y, rl[i].y, rr[i - 1].y, rr[i].y);
-      let ra = Math.floor((y0 - oy) / step) - r0 - 1;   // −1/+1 : une tuile est
-      let rb = Math.floor((y1 - oy) / step) - r0 + 1;   // plus haute qu'une bande
-      if (rb < 0 || ra >= nRows) continue;
-      if (ra < 0) ra = 0;
-      if (rb >= nRows) rb = nRows - 1;
-      for (let r = ra; r <= rb; r += 1) {
-        if (x0 < spanLo[r]) spanLo[r] = x0;
-        if (x1 > spanHi[r]) spanHi[r] = x1;
-      }
-    }
-  }
-  // Diagnostic : on est arrivé jusqu'au dessin. Rapporte combien de bandes ont
-  // été marquées (0 = le cull écarte tout, donc il est faux) et les bornes qui
-  // ont servi.
-  if (dbg) {
-    let marked = 0, lo = Infinity, hi = -Infinity;
-    if (spanLo) {
-      for (let r = 0; r < nRows; r += 1) {
-        if (spanHi[r] >= spanLo[r]) { marked += 1; if (spanLo[r] < lo) lo = spanLo[r]; if (spanHi[r] > hi) hi = spanHi[r]; }
-      }
-    }
-    dbg('dessine', {
-      cull: !!spanLo, nRows, marked, r0, r1, c0, c1,
-      step: +step.toFixed(2), oy: +oy.toFixed(1),
-      by0: +by0.toFixed(1), by1: +by1.toFixed(1),
-      spanX: marked ? [+lo.toFixed(1), +hi.toFixed(1)] : null,
-      cw: CM.cw, ch: CM.ch,
-    });
-  }
-  const prevS = ctx.imageSmoothingEnabled, prevA = ctx.globalAlpha;
-  // Nearest-neighbor tant qu'un pixel de tuile couvre au moins un pixel écran
-  // (pixel art NET, la règle du projet). En dessous, le nearest SAUTE des pixels
-  // et la nappe scintille en défilant : on lisse, ce qui rend au loin une eau
-  // douce — exactement ce qu'elle était avant la texture. Le basculement se fait
-  // à un zoom où le motif n'est de toute façon plus lisible.
-  ctx.imageSmoothingEnabled = G.worldPx * z < 1;
+  // MOTIF INDISPONIBLE (canvas hors écran refusé, source pas décodable) : la nappe
+  // n'est pas peinte, l'APLAT ardoise du corps d'eau (drawIsoRiver) tient l'écran —
+  // comme pendant le décodage d'une planche. (Le repli tuile à tuile sous clip et sa
+  // molette d'A/B __waterPattern sont retirés : createPattern existe dans Chrome et
+  // Electron, et ce repli coûtait les 18 ms de GPU ci-dessus ; audit du 05/10, MORT-11,
+  // décision de Raph.)
+  const k = G.worldPx * z;                       // un pixel de carreau → k px d'écran, quel que soit le carreau
+  const paint = (sh, alpha) => {
+    if (!sh || !sh.ready || alpha <= 0) return false;
+    let pat = null;
+    try {
+      const tile = waterFrameTile(sh, fi);
+      if (tile) pat = ctx.createPattern(tile, 'repeat');
+    } catch { pat = null; }
+    if (!pat) return false;
+    pat.setTransform({ a: k, b: 0, c: 0, d: k, e: ox, f: oy });
+    ctx.globalAlpha = alpha;
+    ctx.fillStyle = pat;
+    riverRibbonPath(ctx, pts, T);
+    ctx.fill(WATER_FILL);
+    fillExtraWater(ctx, T);
+    return true;
+  };
   ctx.save();
-  riverRibbonPath(ctx, pts, T);
-  ctx.clip(WATER_FILL);
-  ctx.globalAlpha = Math.min(1, G.strength);
-  for (let row = r0; row <= r1; row += 1) {
-    let cA = c0, cB = c1;
-    if (spanLo) {
-      const ri = row - r0;
-      if (spanHi[ri] < spanLo[ri]) continue;                     // bande hors ruban
-      // −1 : une tuile posée à gauche de l'emprise déborde dedans (sz > step).
-      cA = Math.max(c0, Math.floor((spanLo[ri] - ox) / step) - 1);
-      cB = Math.min(c1, Math.ceil((spanHi[ri] - ox) / step) + 1);
-    }
-    for (let col = cA; col <= cB; col += 1) {
-      ctx.drawImage(img, fi * TW, 0, TW, TW,
-        Math.floor(ox + col * step), Math.floor(oy + row * step), sz, sz);
-    }
-  }
-  // Voile de météo, même geste que l'averse mais confiné au ruban : ardoise pour
-  // assombrir sous la pluie, éclat de la BANDE COURANTE pour éclaircir au beau
-  // fixe (ce repli tuile à tuile ne fait pas de fondu : un seul coloris à la fois).
+  // Nearest-neighbor tant qu'un pixel de carreau couvre au moins un pixel écran
+  // (pixel art NET, la règle du projet). En dessous, le nearest SAUTE des pixels
+  // et la nappe scintille en défilant : on lisse, ce qui rend au loin une eau douce.
+  ctx.imageSmoothingEnabled = k < 1;
+  // FONDU : l'ancien coloris à plein, le nouveau par-dessus à `mix`. Le second
+  // fill n'existe QUE pendant la transition (une seconde environ) — le reste du
+  // temps on reste au fill unique qui avait fait tomber les 18 ms de GPU.
+  const fade = !!fromSheet && fromSheet !== sheet;
+  if (fade) paint(fromSheet, Math.min(1, G.strength));
+  // (Le nouveau pas encore décodé pendant un fondu : l'ancien tient l'écran.)
+  const ok = paint(sheet, Math.min(1, G.strength) * (fade ? band.mix : 1)) || fade;
+  if (!ok) { if (dbg) dbg('aplat'); ctx.restore(); return; }
+  if (dbg) dbg('motif', { step: +step.toFixed(2), ox: +ox.toFixed(1), oy: +oy.toFixed(1), fondu: fade });
   if (tint !== 0) {
     ctx.globalAlpha = 1;
     const a = Math.min(1, Math.abs(tint)).toFixed(3);
+    // Le voile clair est l'ÉCLAT DE LA BANDE elle-même : pris ailleurs, il
+    // désaturerait l'azur avec le gris de l'ancienne planche ardoise.
     ctx.fillStyle = tint > 0 ? `rgba(38,46,62,${a})` : `rgba(${wb.cfg.pale},${a})`;
     riverRibbonPath(ctx, pts, T);
     ctx.fill(WATER_FILL);
+    fillExtraWater(ctx, T);
   }
   ctx.restore();
-  ctx.globalAlpha = prevA;
-  ctx.imageSmoothingEnabled = prevS;
 }
 
 /* ── MOTIF RÉPÉTABLE DE LA MATIÈRE DE PLAGE ───────────────────────────────────

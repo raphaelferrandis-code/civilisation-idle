@@ -11,21 +11,14 @@
 //
 // ⚠ Gardes de RÉSULTAT depuis l'audit 2026-10-05 (TEST-11) : elles lisaient la signature
 // et la formule dans le TEXTE de projection.js, au caractère près — un reformatage les
-// cassait sans que rien ne change. Le terrain est simulé (un relief connu par case) :
-// on vérifie ce que la projection REND, avec et sans altitude.
-import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
+// cassait sans que rien ne change. On vérifie ce que la projection REND, avec et sans
+// altitude. (Le relief de terrain, qui s'ajoutait à l'axe, est parti le 2026-10-06 —
+// audit MORT-14 : sa garde est partie avec lui, le sol est à l'altitude 0.)
+import { describe, it, expect, beforeEach, afterEach } from 'vitest';
 import fs from 'node:fs';
 import path from 'node:path';
 import { CM } from '../layout.js';
 import { worldToScreen, ISO_X, ISO_Y } from '../iso/projection.js';
-
-// Le relief simulé : nul tant que `relief.on` est faux (TERRAIN.amp = 0 en jeu).
-const relief = { on: false };
-const fakeZ = (wx, wy) => (relief.on ? ((wx * 3 + wy * 5) % 11) + 1 : 0);
-vi.mock('../iso/isoTerrain.js', async (importOriginal) => ({
-  ...(await importOriginal()),
-  terrainZ: (wx, wy) => fakeZ(wx, wy),
-}));
 
 const SRC = (f) => fs.readFileSync(path.join(__dirname, '..', f), 'utf8');
 const PTS = [[0, 0], [64, 32], [-96, 160], [17, 5]];
@@ -37,7 +30,6 @@ beforeEach(() => {
 });
 afterEach(() => {
   Object.assign(CM, saved);
-  relief.on = false;
 });
 
 describe('projection — le troisième axe', () => {
@@ -59,19 +51,6 @@ describe('projection — le troisième axe', () => {
       expect(haut.x).toBe(sol.x);
       expect(haut.y).toBeCloseTo(sol.y - 7 * z, 9);
     }
-  });
-
-  it('le TERRAIN passe par le même axe, ajouté à l altitude demandée', () => {
-    // Depuis la v2 du relief (2026-08-24) le terrain entre DANS la formule : terrainZ
-    // rend 0 à TERRAIN.amp = 0 — le no-op reste garanti par la molette.
-    const z = CM.cam.zoom;
-    const plat = PTS.map(([wx, wy]) => worldToScreen(wx, wy, 3));
-    relief.on = true;
-    PTS.forEach(([wx, wy], i) => {
-      const p = worldToScreen(wx, wy, 3);
-      expect(p.x).toBe(plat[i].x);
-      expect(p.y).toBeCloseTo(plat[i].y - fakeZ(wx, wy) * z, 9);
-    });
   });
 });
 

@@ -3,7 +3,9 @@ import { describe, it, expect } from "vitest";
 import { generateRoadsGraph, trimDemandlessRoads } from "../roadGraph.js";
 import { makeRoadInputs } from "../../../../test/roads.js";
 
-const ARCHETYPES = ["scattered", "crossroads", "linear", "radial", "districts", "capital", "megalopolis"];
+// La seule recette tracée (audit 2026-10-05, MORT-4 : les recettes géométriques ne
+// servaient plus qu'à l'ancien placement ; la ville par îlots trace ses rues).
+const ARCHETYPES = ["scattered"];
 
 // Un jeu d'entrées déterministe pour un archétype et une bande d'ère, à la géométrie
 // de référence (sans grain) : ancres CUMULATIVES comme dans cityPlan.buildAnchors,
@@ -119,6 +121,32 @@ describe("roadGraph — réseau connexe par construction", () => {
         const d = Math.hypot(+k.slice(0, c) - 32, +k.slice(c + 1) - 26);
         expect(d, `${A}: ${k} hors silhouette (${d.toFixed(1)} > ${R + 6})`).toBeLessThanOrEqual(R + 6);
       }
+    }
+  });
+
+  // Audit 2026-10-05, MORT-4 : plus d'ancien placement. Le générateur ne trace que la
+  // recette organique, avec le seul pont historique — à toutes les bandes (avant, les
+  // bandes 3+ tiraient une ou deux traversées de plus, et les archétypes géométriques
+  // posaient leurs rocades et damiers).
+  it("7. un seul pont, le pont historique, même aux bandes avancées", () => {
+    for (const band of [1, 3, 5]) {
+      const inp = makeInputs("scattered", band, { withRiver: true });
+      const out = generateRoadsGraph(inp);
+      const w = band >= 2 ? 2 : 1;
+      expect([...out.bridgeCols].sort((a, b) => a - b), `bande ${band}`)
+        .toEqual(Array.from({ length: w }, (_, i) => inp.riverBridgeX + i));
+      for (const k of out.roadKey) {
+        if (!inp.riverSet.has(k)) continue;
+        const x = +k.slice(0, k.indexOf(","));
+        expect(x >= inp.riverBridgeX && x < inp.riverBridgeX + w, `bande ${band} : route sur l'eau en ${k}`).toBe(true);
+      }
+    }
+  });
+
+  it("8. l'archétype du plan ne change plus le tracé (il ne règle que les ancres)", () => {
+    const ref = [...generateRoadsGraph(makeInputs("scattered", 4, { withRiver: true })).roadKey].sort();
+    for (const A of ["crossroads", "linear", "radial", "districts", "capital", "megalopolis"]) {
+      expect([...generateRoadsGraph(makeInputs(A, 4, { withRiver: true })).roadKey].sort(), A).toEqual(ref);
     }
   });
 });

@@ -17,7 +17,6 @@
 // vérifié avant la coupe. `agents.js` cite bien `drawIsoVehicle`, mais en PROSE.
 import { CM, cmEngineHomeHidden } from '../layout.js';
 import { isoFrontOffset } from './isoGroundDetail.js';
-import { districtMassTiles } from './isoDistricts.js';
 import { worldToScreen } from './projection.js';
 import { drawRiotWeapon } from '../quaysAndRiot.js';
 import { pxProbe, recPx } from '../pixelGrid.js';
@@ -39,9 +38,9 @@ const VEH_DIRS = ['east', 'west', 'south', 'north'];
 // Corrections d'orientation PAR TYPE (audit visuel des rotations d'objets PixelLab,
 // planches .preview-shots/<type>-4views.png, bug vu par Raph « profil d'ouest en
 // est ») : le générateur INVERSE les deux vues SUD sur certains objets (voiture,
-// char, caravane, tram). Tableau = fichier à afficher pour la dir MONDE 0..3
+// char, caravane). Tableau = fichier à afficher pour la dir MONDE 0..3
 // (E,O,S,N → écran SE,NO,SO,NE). Le wagon est correct tel quel (default).
-// L'entrée `cart` est partie avec le retrait des véhicules poussés à la main.
+// Les entrées `cart` et `tram` sont parties avec ces véhicules (le tram : ASSET-3).
 const VEH_DIAG_MAP = {
   default: ['southeast', 'northwest', 'southwest', 'northeast'],
   car: ['southwest', 'northwest', 'southeast', 'northeast'],
@@ -49,7 +48,6 @@ const VEH_DIAG_MAP = {
   // caravan : labels devenus VRAIS après la régénération d'animation (le modèle
   // v3 a « redressé » l'orientation, re-audit veh-audit2.png 2026-07-11) → map
   // par défaut. ⚠ RE-AUDITER après toute régénération : les labels bougent.
-  tram: ['southwest', 'northwest', 'southeast', 'northeast'],
 };
 // Pas de roue (fraction de tuile parcourue par frame de bande diagonale) : par défaut
 // il SUIT VEH_SCALE (0.144 · 0.625 = 0.09, le réglage d'origine à taille pleine) — une
@@ -186,7 +184,7 @@ export function vehSortWide(v, T) {
 // ── PASSANTS AUTOUR D'UN VÉHICULE : ordre LOCAL ──────────────────────────────────
 // Une seule clé par véhicule ne peut pas être juste sur toute sa longueur : vu en
 // biais, son sol monte d'un bout à l'autre (un chariot d'époque fait 1,3 tuile, un
-// tram 2,4). Un passant qui recoupe le véhicule à l'écran est donc rangé par rapport
+// bus du pack davantage). Un passant qui recoupe le véhicule à l'écran est donc rangé par rapport
 // à la ligne de sol du véhicule À SA COLONNE : pieds plus bas = devant (dessiné
 // après), plus haut = derrière (dessiné avant). La ligne : le segment au sol du
 // véhicule, centré sur son point de tri, le long de son axe de marche. Même règle
@@ -270,7 +268,7 @@ function drawIsoVehicleInner(ctx, v, now, z) {
     }
     return;
   }
-  if (!VEH_SIZES[v.type]) return;                  // type sans sprite (broken_cart…) : rien en iso
+  if (!VEH_SIZES[v.type]) return;                  // type sans sprite : rien en iso
   // VEH_SCALE (molette __vehScale) était ignoré ICI : la vue iso dessinait les
   // véhicules à leur taille d'art brute. Il est appliqué à la carrosserie ET aux
   // distances d'attelage plus bas, sinon l'équipage décroche de la carrosserie.
@@ -408,7 +406,7 @@ function drawIsoVehicleInner(ctx, v, now, z) {
   drawBody();
   if (drawTeam && teamBelow) drawTeam();
   if (drawPusher && pusherBelow) drawPusher();
-  // Phares (voiture/tram, nuit, ère motorisée) : fonction PARTAGÉE re-projetée
+  // Phares (véhicules à moteur, nuit, ère motorisée) : fonction PARTAGÉE re-projetée
   // (agents.js) — dessinés À LA PROFONDEUR du véhicule, dans son item peintre,
   // comme le legacy (sinon ils brilleraient par-dessus les murs).
   drawVehicleHeadlights(ctx, v);
@@ -640,12 +638,8 @@ function isoUnitFiches() {
     // recouvre est DEVANT la façade.
     fiche(t, idf, isoFrontOffset(t, L.roadMap));
   }
-  // REPÈRES CIVIQUES (isoDistricts) : des pseudo-tiles hors de L.tiles, que le
-  // peintre dessine pourtant comme des scènes moteur de plusieurs cases. Sans fiche,
-  // un passant qui longeait leur face sud passait sous le mur (audit 2026-10-02,
-  // observatoires de la bande 8). Pas de poussé de front : le peintre n'en met pas.
-  const dMass = districtMassTiles(L);
-  if (dMass) for (const t of dMass) fiche(t, t.buildingId || '', null);
+  // (Les REPÈRES CIVIQUES d'isoDistricts, pseudo-tiles hors de L.tiles, avaient ici
+  // leur fiche ; partis avec les grands ensembles, audit 2026-10-05, MORT-4.)
   _unitFiches = m; _unitFichesAt = memoKey;
   return m;
 }

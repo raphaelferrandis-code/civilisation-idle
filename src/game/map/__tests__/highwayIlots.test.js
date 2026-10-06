@@ -5,9 +5,7 @@
 // l'échangeur prend du terrain, et ne déloge qu'une fois.
 // Même méthode que ilotLayout.test.js : on fait grandir l'état GLOBAL.
 import { describe, it, expect, beforeEach } from "vitest";
-import { ILOT_MODE } from "../layout.js";
 import { state, normalizeCityCore } from "../../core/state.js";
-import { ROAD_MEMORY } from "../roadMemory.js";
 import { vergeCells } from "../procedural/highwayPlan.js";
 import { growCity as grow } from "../../../test/city.js";
 
@@ -23,7 +21,6 @@ const occupied = (L) => {
 };
 
 beforeEach(() => {
-  ROAD_MEMORY.on = true; ILOT_MODE.on = true;
   state.cityRoads = null; state.cityCore = null; state.cityMapSlots = {}; state.cityArchetype = null; state.cityPersonality = null; state.riverWP = null;
   state.wonders = [];
 });

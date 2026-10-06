@@ -18,7 +18,6 @@ vi.mock('../iso/plaisirsBake.js', async (importOriginal) => {
 });
 
 import { CM } from '../layout.js';
-import { TERRAIN } from '../iso/isoTerrain.js';
 import { bakePlaisirs } from '../iso/plaisirsBake.js';
 import { pushIsoPlaisirsItems } from '../iso/isoPlaisirs.js';
 import { plaisirsSkin, plaisirsSkinSpec } from '../iso/plaisirsSkin.js';
@@ -64,13 +63,11 @@ beforeAll(() => {
       return { width: 0, height: 0, getContext: () => g };
     },
   };
-  saved.amp = TERRAIN.amp; TERRAIN.amp = 0;
   saved.CM = { layout: CM.layout, TILE: CM.TILE, cam: CM.cam, cw: CM.cw, ch: CM.ch };
   CM.TILE = 16; CM.cw = 800; CM.ch = 600;
 });
 afterAll(() => {
   for (const k of ['Image', 'document', 'ImageData']) globalThis[k] = saved[k];
-  TERRAIN.amp = saved.amp;
   Object.assign(CM, saved.CM);
 });
 

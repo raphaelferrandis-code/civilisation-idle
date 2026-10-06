@@ -35,8 +35,9 @@
 // hauteur du mur = quayWallTiles(band) × quayWallTune.heightK × T, et la largeur de la
 // promenade = quayStyleFor(band).W. Les deux viennent de quaysAndRiot, inchangés.
 //
-// ⚠ Relief éteint (TERRAIN.amp = 0) : la projection est affine, donc un point du monde
-// a une position FIXE dans l'espace d'art — c'est ce qui permet de cuire une fois.
+// ⚠ Sol plat (le relief de terrain est parti le 2026-10-06) : la projection est affine,
+// donc un point du monde a une position FIXE dans l'espace d'art — c'est ce qui permet
+// de cuire une fois.
 import { CM, cmHash } from '../layout.js';
 import { h01Imul as h01 } from '../hash.js';
 import { mkCanvas } from '../pixelUtil.js';

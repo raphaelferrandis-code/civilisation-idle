@@ -4,12 +4,11 @@
 // libellé « cité … » aussi. Le profil tiré au premier calcul du cycle est figé dans
 // `state.cityPersonality`, remis à null à l'effondrement.
 import { describe, it, expect, beforeEach } from "vitest";
-import { computeCityLayout, ILOT_MODE } from "../layout.js";
+import { computeCityLayout } from "../layout.js";
 import { computeCityPersonality, PERSONALITIES } from "../procedural/cityPersonality.js";
 import { state, hydrateState, resetTemporaryRunState } from "../../core/state.js";
 import { D } from "../../core/num.js";
 import { eras } from "../../data/world.js";
-import { ROAD_MEMORY } from "../roadMemory.js";
 
 const IDS = Object.keys(state.buildings);
 const at = (k) => { const b = {}; for (const id of IDS) b[id] = k; return b; };
@@ -29,7 +28,6 @@ function grow(seed, k) {
 }
 
 beforeEach(() => {
-  ROAD_MEMORY.on = true; ILOT_MODE.on = true;
   state.cityRoads = null; state.cityCore = null; state.cityMapSlots = {}; state.cityArchetype = null; state.cityPersonality = null; state.riverWP = null;
 });
 

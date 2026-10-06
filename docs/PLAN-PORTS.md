@@ -199,7 +199,10 @@ La taille du port de commerce suit le nombre de « Ports » achetés (portiques,
     redessiner, escales de la flotte au port de commerce (session des bateaux, postes
     `portBerths` kind 'commerce'). → Escales FAITES le 2026-10-06 (audit BUG-17) : poste
     libre entre les navires-décor, approche par le large, marchand peint par la scène du
-    terminal ; quai plein (3 navires-décor) → pas de poste.
+    terminal ; quai plein (3 navires-décor) → pas de poste. → Puis (décision de Raph,
+    BUG-17 « quai plein », option a) : quand aucune travée ne loge le plus long marchand,
+    un navire-décor CÈDE SA PLACE à la flotte (`cedeQuai`, isoTradePort.js) — celui du
+    milieu sur trois ; au terminal court de la bande 6 (9-11 tuiles), dès le niveau 30.
   - Commit local `73a33d2`. Puis, le même jour, **coques du kit** (session des bateaux :
     `boatKit.drawMooredKit` / `mooredFootprint`) branchées dans `portBerths` : barques,
     cotre et chaloupe à vapeur au bassin XIXe, plaisance moderne avec VOILIERS en bande 6,

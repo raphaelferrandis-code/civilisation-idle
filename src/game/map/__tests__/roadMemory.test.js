@@ -13,7 +13,7 @@ import { computeCityLayout } from "../layout.js";
 import { state, normalizeCityCore } from "../../core/state.js";
 import { D } from "../../core/num.js";
 import { eras } from "../../data/world.js";
-import { decodeRoadMemory, encodeRoadMemory, normalizeRoadMemory, ROAD_MEMORY } from "../roadMemory.js";
+import { decodeRoadMemory, encodeRoadMemory, normalizeRoadMemory } from "../roadMemory.js";
 
 const KEYS = Object.keys(state.buildings).filter((k) => k !== "roads");
 
@@ -34,7 +34,6 @@ const decorSlots = () => Object.fromEntries(Object.entries(state.cityMapSlots)
   .filter(([k]) => k.includes(":dec_")).map(([k, v]) => [k, v.dx + "," + v.dy]));
 
 beforeEach(() => {
-  ROAD_MEMORY.on = true;
   state.cityRoads = null; state.cityCore = null; state.cityMapSlots = {}; state.cityArchetype = null; state.cityPersonality = null; state.riverWP = null;
 });
 
@@ -49,7 +48,8 @@ describe("mémoire du réseau — une ville qui se souvient", () => {
         const ilotNow = !!(state.cityCore && state.cityCore.ilot);
         if (ilotNow && !prevIlot) { prevRoads = null; prevSlots = null; }
         prevIlot = ilotNow;
-        expect(L.counts.eraBand).toBeLessThanOrEqual(ROAD_MEMORY.lastBand);
+        // La mémoire couvre toutes les bandes : chaque calcul l'écrit.
+        expect(state.cityRoads, `mémoire non écrite à l'ère ${i}`).toBeTruthy();
         const cr = [Math.round(L.plan.core.x) - L.cx, Math.round(L.plan.core.y) - L.cy].join(",");
         if (core) expect(cr, `le cœur a glissé à l'ère ${i}`).toBe(core);
         core = cr;

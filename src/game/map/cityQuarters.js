@@ -22,11 +22,16 @@
  *             (un pré) et devient sa place quand l'ère la justifie.
  *   AÉRATION — des jardins en grappes entre les maisons et une bande verte sur
  *             la frontière entre deux quartiers (médiatrice de leurs centres).
+ *
+ * Depuis la ville par îlots (bandes 2 à 9, docs/PLAN-ILOTS.md), cette structure ne
+ * vaut plus qu'au campement et au village (bandes 0-1) ; les îlots posent ensuite
+ * leurs propres places, leur cardo et leurs jardins.
  * ========================================================================== */
 
-// Réglages. Molette : `__cityQuarters({ ... })` puis `__cityRecompute()`.
+// Réglages. Molette : `__cityQuarters({ ... })` puis `__cityRecompute()`. (Plus
+// d'interrupteur `on` : la ville sans structure ne servait plus qu'à l'ancien
+// placement — audit 2026-10-05, MORT-4.)
 export const CITY_QUARTERS = {
-  on: true,
   centralSize: 4,      // place centrale (plancher de buildPlazas)
   plazaSize: 4,        // place de quartier (marché, parvis, jardin)
   greenSize: 3,        // pré d'un quartier sans place
@@ -54,14 +59,17 @@ export function spreadFor(band) {
   if (b <= 0) return 1;
   return b <= 3 ? CITY_QUARTERS.spread : b <= 5 ? 1.25 : 1.15;
 }
-// L'artère devient boulevard à deux voies (terre-plein) à partir de cette bande ;
-// au-delà de la bande 6 c'est l'autoroute (même géométrie, matière de l'ère).
-export const ARTERY_TWIN_BAND = 5;
+// (La PERCÉE — l'artère en boulevard à deux voies à partir de la bande 5,
+// ARTERY_TWIN_BAND — ne servait plus qu'à l'ancien placement : partie avec lui,
+// audit 2026-10-05, MORT-4. Au bourg, c'est le cardo des îlots qui prend la suite.)
 
 // Kind de quartier → place qui s'y ouvre, et bande d'ouverture. TOUT quartier a
 // sa place au bourg (Raph : « il faut qu'elle trouve sa place ») ; les quatre
 // sortes de place ont leur décor dessiné dès la bande 2 (iso/isoPlaza, KIND_KITS
 // « medieval »). Militaire → parvis : la place d'armes, statue et braseros.
+// Depuis la ville par îlots, ces places s'ouvrent dans les îlots (ilotLayout.js) :
+// au campement et au village, le site d'un quartier n'est qu'un pré, et layout.js
+// ne lit plus ici que la TAILLE du site (place ou pré).
 export const QUARTER_PLAZA = {
   marchand: { kind: "marche", band: 2 },
   agricole: { kind: "marche", band: 2 },     // marché aux grains
@@ -180,8 +188,7 @@ export function onBelt(gx, gy, centers, w, minD) {
 
 if (import.meta.env?.DEV && typeof window !== "undefined") {
   window.__cityQuarters = (o) => {
-    if (o === false) CITY_QUARTERS.on = false;
-    else if (o && typeof o === "object") Object.assign(CITY_QUARTERS, o);
+    if (o && typeof o === "object") Object.assign(CITY_QUARTERS, o);
     if (typeof window.__cityRecompute === "function") window.__cityRecompute();
     return { ...CITY_QUARTERS };
   };

@@ -127,8 +127,9 @@ export const HOUSE_TINTS = [
 // tombe de 27 à 7 entre les bandes 1 et 7. J'ai essayé de corréler ces teintes par
 // ÎLOT (un grain sur la clé du tirage) pour la remonter : **sans effet, ni à la sonde
 // ni à l'œil**, et pour cette raison-là. Essai retiré. Le levier d'une modulation de
-// VALEUR est ailleurs — hiérarchie de hauteur et repères (les `districts`, calculés et
-// dessinés nulle part), pas la teinte. **Ne pas rejouer cette piste.**
+// VALEUR est ailleurs — hiérarchie de hauteur et repères (les anciens `districts`,
+// jamais dessinés, partis avec l'ancien placement — audit 2026-10-05, MORT-4), pas la
+// teinte. **Ne pas rejouer cette piste.**
 //
 // Les paires brutes, exportées pour que le test puisse vérifier l'involution et
 // l'injectivité sur la MÊME donnée que le rendu (et pas sur une copie qui dériverait).

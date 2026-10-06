@@ -41,7 +41,6 @@ import { isoArt } from './isoArt.js';
 import { rasterCanvas } from '../pixelUtil.js';
 import { seasonTree } from './isoGroundDetail.js';
 import { bakeBudgetOk, bakeTimed } from './bakeBudget.js';
-import { TERRAIN } from './isoTerrain.js';
 // Hauteur du mur de quai : le reflet d'une pièce de décor descend de deux fois elle.
 import { quayWallTune } from '../quaysAndRiot.js';
 
@@ -313,9 +312,8 @@ export function wonderCullBound(m) {
   return { box, isle };
 }
 function offscreenBound(m) {
-  // Relief allumé : la projection n'est plus affine, le majorant ne vaut plus — le
-  // cull exact (après cuisson) reste seul juge, comme avant.
-  if (TERRAIN.amp) return false;
+  // La projection est AFFINE (sol plat — le relief, qui la courbait, est parti le
+  // 2026-10-06) : le majorant vaut partout.
   const z = CM.cam.zoom, c = worldToScreen(m.cx, m.cy), b = wonderCullBound(m);
   const off = (q) => c.x + q.x0 * z > CM.cw || c.x + q.x1 * z < 0 || c.y + q.y0 * z > CM.ch || c.y + q.y1 * z < 0;
   return off(b.box) && (!b.isle || off(b.isle));

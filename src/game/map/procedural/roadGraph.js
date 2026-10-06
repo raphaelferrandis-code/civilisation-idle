@@ -5,116 +5,73 @@
  *     - aucune route n'est « coupée » par la silhouette : organicLimit ne décide
  *       plus que de la LONGUEUR d'une antenne/ligne (on tronque le BOUT, jamais
  *       le milieu), il ne perce pas de trou dans un connecteur ;
- *     - les axes et grilles sont bornés à la silhouette (clampRay / runLine) →
- *       plus de chaussées dans le vide quand la ville grandit vite ;
+ *     - les lignes sont bornées à la silhouette (runLine) → plus de chaussées
+ *       dans le vide quand la ville grandit vite ;
  *     - une passe de couture (stitchComponents) RELIE — sans jamais supprimer —
  *       les rares composantes égarées à la composante du cœur : connexité
- *       garantie même si une recette d'archétype laisse un fragment.
+ *       garantie même si la recette laisse un fragment.
  *   Sortie : { roads, roadKey, roadMeta, bridgeCols }, consommée par layout.js.
  *   La validation finale (ponts droits) reste assurée par cmBuildRoadGraph.
+ *
+ *   UNE SEULE RECETTE, l'organique (« scattered ») : la ville par îlots
+ *   (ilotLayout.js) trace elle-même les rues des bandes 2 à 9, et layout.js
+ *   n'appelle plus ce générateur qu'au campement et au village (bandes 0-1), où
+ *   la mémoire des rues force le plan organique. Les recettes géométriques
+ *   (crossroads, linear, radial, districts, capital, megalopolis), la trame des
+ *   superblocks et les traversées seedées des bandes 3+ ne servaient plus qu'à la
+ *   molette `__ilots(false)` : parties avec elle (audit 2026-10-05, MORT-4,
+ *   choix de Raph). L'archétype du plan (cityPlan.js) garde, lui, son rôle :
+ *   ancres de quartier et contour de la ville.
  * ============================================================================ */
 
 import { rngFrom } from "./seedManager.js";
-import { TERRAIN } from "./terrainField.js";
 
 // "plaza" = rang le plus fort (esplanade dallée, exclue du rendu de chaussée).
 const RANK_WEIGHT = { path: 0, secondary: 1, avenue: 2, main: 3, plaza: 4 };
 const ORTHO = [[1, 0], [-1, 0], [0, 1], [0, -1]];
 
-// Archétypes ORGANIQUES : leur réseau final est retracé par la DESSERTE
-// (layout.js) — le générateur ne fournit que le squelette identitaire + un
-// échafaudage de placement dissous ensuite. Les archétypes géométriques
-// (radial, districts, capital, megalopolis) gardent leur réseau tel quel :
-// rocades et grilles sont des tracés voulus, pas des résidus.
-const ORGANIC_ARCHETYPES = new Set(["scattered", "crossroads", "linear"]);
-
+// Le réseau final est retracé par la DESSERTE (layout.js) : le générateur ne
+// fournit que le squelette identitaire + un échafaudage de placement dissous
+// ensuite (cf. plus bas).
 export function generateRoadsGraph({
-  plan, seed, counts, ageCfg, N,
-  riverSet, bankSet, riverBridgeX, organicLimit, bridgeAvoid,
-  // Champ de terrain (terrainField.js), en unités U au centre de cellule —
-  // OPTIONNEL : absent, les tracés longs gardent le staircase historique au bit
-  // près (c'est le contrat des tests existants, qui ne le passent pas).
-  fieldAt = null,
-  // Structure de ville (map/cityQuarters.js) : l'axe vertical des plans
-  // géométriques suit la COLONNE DE L'ARTÈRE (sinon il courait à une case d'elle,
-  // deux chaussées parallèles et une fente de sol entre) ; et UN SEUL PONT
-  // (Raph 2026-10-01, docs/PLAN-PONTS.md) — plus de traversées seedées.
-  axisX = null,
-  singleBridge = false,
+  plan, seed, counts, N,
+  riverSet, bankSet, riverBridgeX, organicLimit,
 }) {
   const cells = new Set();          // "gx,gy" — source de vérité de la connexité
   const meta = new Map();           // "gx,gy" -> { h, v, rank }
   const core = { x: Math.round(plan.core.x), y: Math.round(plan.core.y) };
-  const span = Math.ceil((plan.reachBase || 8) + 6);
-  const mainRank = ageCfg.roadRanks.main ? "main" : "secondary";
-  const A = plan.archetype;
-  // ── SUPERBLOCKS cosmiques (chantier tissu urbain, reprise mégalopole
-  // 2026-08-03, docs/PLAN-TISSU-URBAIN.md §10). Aux bandes 7+, le bâti fait
-  // 7-14 tuiles de haut sur des empreintes de 2-3 tuiles : une rue toutes les
-  // 4-6 cellules se lisait « une route par immeuble » (retour Raph). Ce bump
-  // élargit d'un même geste les pas d'ARTÈRES (capital/mégalopole, grilles de
-  // quartier « districts ») et le TREILLIS de perméabilité : les îlots passent
-  // à ~7-8 cellules — la place de rangées entières d'immeubles identiques.
-  // ⚠ Le treillis est plafonné à +2 (pas 6) : HOUSE_ROAD_RADIUS = 4 doit
-  // continuer de couvrir l'intérieur des îlots (6/2 = 3 ≤ 4), sinon le cœur
-  // des superblocks refuserait les maisons. Avant la bande 7 : zéro changement.
-  // Molette : globalThis.__superMesh (défaut +2 ; 0 = trame historique) —
-  // recompute nécessaire (__cityRecompute), c'est du layout.
-  const superMesh = (counts.eraBand >= 7) ? (import.meta.env?.DEV && globalThis.__superMesh != null ? globalThis.__superMesh : 2) : 0;
 
-  // ── Squelette identitaire vs échafaudage (archétypes organiques) ────────────
-  // Deux natures de cellules pour scattered/crossroads/linear :
-  //   - SQUELETTE (racine du cœur, traversée du pont, axes identitaires, places) :
-  //     ce que la ville a « toujours eu », conservé tel quel ;
-  //   - ÉCHAFAUDAGE (anneaux d'ancres, escaliers vers/entre les ancres, traverses,
-  //     vieux sentiers) : il ne sert qu'à guider le PLACEMENT des bâtiments, puis
+  // ── Squelette identitaire vs échafaudage ────────────────────────────────────
+  // Deux natures de cellules :
+  //   - SQUELETTE (racine du cœur, traversée du pont, places) : ce que la ville
+  //     a « toujours eu », conservé tel quel ;
+  //   - ÉCHAFAUDAGE (anneaux d'ancres, escaliers vers/entre les ancres, trame
+  //     de perméabilité) : il ne sert qu'à guider le PLACEMENT des bâtiments, puis
   //     layout.js le DISSOUT (dissolveToSkeleton) et retrace la desserte réelle
   //     bâtiment par bâtiment. Fini le labyrinthe résiduel des motifs que
   //     l'émondage ne sait pas manger (une boucle n'a pas de feuille).
-  const skeleton = ORGANIC_ARCHETYPES.has(A) ? new Set() : null;
+  const skeleton = new Set();
   let skel = false;                 // vrai pendant la pose d'une primitive du squelette
-  const asSkel = (fn) => { if (!skeleton) { fn(); return; } skel = true; fn(); skel = false; };
+  const asSkel = (fn) => { skel = true; fn(); skel = false; };
 
   // Largeur du pont : DOUBLE-VOIE (2 tuiles) dès la bande 2 (Pierre) ; 1 voie aux
   // âges Feu/Bois. Chaque colonne de voie est un pont droit 1-large INDÉPENDANT
   // (jamais reliées en H) → la validation « pont droit » les traite séparément
   // (2 chaussées parallèles), sans changement. Le rendu les regroupe en un span.
+  // UN SEUL PONT (Raph 2026-10-01, docs/PLAN-PONTS.md) : le pont historique.
   const bridgeLaneW = counts.eraBand >= 2 ? 2 : 1;
-  // Colonnes de pont : pont historique + 1-2 traversées seedées aux ères avancées.
-  const bridgeBaseCols = [Math.round(riverBridgeX)];
-  if (counts.eraBand >= 3 && !singleBridge) {
-    const bRng = rngFrom(seed, "bridges");
-    const extra = counts.eraBand >= 5 ? 2 : 1;
-    // DOMAINE INTERDIT (Maison des Plaisirs) : la colonne tirée y est repoussée
-    // au bord, DU CÔTÉ OÙ ELLE ÉTAIT — la rabattre de l'autre côté la ferait
-    // tomber sur le pont historique une fois sur deux. Si le bord sort de la
-    // carte, on RENONCE à cette traversée : une ville avec un pont de moins se
-    // lit, une traversée plantée en travers du monument, non.
-    // ⚠ Le rayon inclut `bridgeLaneW` : la base occupe les colonnes bx..bx+w-1.
-    const avoidR = bridgeAvoid ? bridgeAvoid.r + bridgeLaneW : 0;
-    for (let i = 0; i < extra; i += 1) {
-      let bx = Math.round(riverBridgeX + (bRng() - 0.5) * N * 0.45);
-      if (bridgeAvoid) {
-        const d = bx - bridgeAvoid.x;
-        if (Math.abs(d) < avoidR) bx = Math.round(bridgeAvoid.x + (d >= 0 ? 1 : -1) * avoidR);
-        bx = Math.max(1, Math.min(N - 2, bx));
-        if (Math.abs(bx - bridgeAvoid.x) < avoidR) continue;
-      }
-      bridgeBaseCols.push(bx);
-    }
-  }
-  // Chaque base occupe `bridgeLaneW` colonnes adjacentes (la 2e voie doit être
+  // La base occupe `bridgeLaneW` colonnes adjacentes (la 2e voie doit être
   // permise sur l'eau, sinon addCell la bloque).
   const bridgeCols = new Set();
-  for (const bx of bridgeBaseCols) for (let dx = 0; dx < bridgeLaneW; dx += 1) bridgeCols.add(bx + dx);
+  for (let dx = 0; dx < bridgeLaneW; dx += 1) bridgeCols.add(Math.round(riverBridgeX) + dx);
 
   const inBounds = (x, y) => x >= 0 && y >= 0 && x < N && y < N;
   const inWater = (x, y) => riverSet.has(x + "," + y) || bankSet.has(x + "," + y);
 
   // ── Primitives de rastérisation ─────────────────────────────────────────────
   // Pose une cellule (sauf eau, hors colonne de pont verticale). PAS de gate
-  // organicLimit ici : la borne d'étendue est gérée par les appelants (runLine /
-  // clampRay), de sorte qu'un connecteur n'est jamais percé en son milieu.
+  // organicLimit ici : la borne d'étendue est gérée par les appelants (runLine,
+  // ring), de sorte qu'un connecteur n'est jamais percé en son milieu.
   function addCell(x, y, axis, rank, allowWater = false) {
     if (!inBounds(x, y)) return false;
     if (inWater(x, y) && !(allowWater && axis === "v" && bridgeCols.has(x))) return false;
@@ -125,7 +82,7 @@ export function generateRoadsGraph({
     if ((RANK_WEIGHT[rank] || 0) > (RANK_WEIGHT[m.rank] || 0)) m.rank = rank;
     meta.set(k, m);
     cells.add(k);
-    if (skel && skeleton) skeleton.add(k);
+    if (skel) skeleton.add(k);
     return true;
   }
 
@@ -154,29 +111,6 @@ export function generateRoadsGraph({
     };
     if (!put(center)) return;
     for (const dir of [1, -1]) for (let p = center + dir; put(p); p += dir) { /* extend */ }
-  }
-
-  // Grand axe LARGE = boulevard de 2 cellules : deux lignes COLLÉES (fixed & fixed+1).
-  // En pixel la chaussée fait alors 2 tuiles pleines, et le terre-plein planté se pose
-  // sur la COUTURE entre les deux (terrePlein) → une vraie voie de chaque côté. Réservé
-  // au rang "main" (les avenues/rues restent fines → densité maîtrisée).
-  function runLineWide(axis, fixed, center, rank, margin = 2.2) {
-    runLine(axis, fixed, center, rank, margin);
-    if (rank === "main") runLine(axis, fixed + 1, center, rank, margin);
-  }
-
-  // Point le plus éloigné le long d'un rayon depuis le cœur encore DANS la
-  // silhouette : sert à borner les axes traversants / rayons / diagonales sans
-  // les couper en chemin (on vise un endpoint propre, puis on relie en plein).
-  function clampRay(angle, maxR, margin = 2.2) {
-    let last = { x: core.x, y: core.y };
-    for (let r = 1; r <= maxR; r += 1) {
-      const x = Math.round(core.x + Math.cos(angle) * r);
-      const y = Math.round(core.y + Math.sin(angle) * r);
-      if (!inBounds(x, y) || !organicLimit(x, y, margin)) break;
-      last = { x, y };
-    }
-    return last;
   }
 
   // Chemin en escalier (rues sinueuses) — chaîne de segments droits. Le point de
@@ -213,128 +147,12 @@ export function generateRoadsGraph({
     }
   }
 
-  // ── CHEMIN SILLONNANT (lot « routes entre les collines », 2026-08-24) ───────
-  // Remplace le staircase pour les TRACÉS LONGS quand le champ de terrain est
-  // fourni et vivant : un A* orienté (état = cellule + direction d'arrivée) où
-  //   · TOURNER coûte (les longues jambes droites de Raph tombent du coût, plus
-  //     du RNG) ;
-  //   · MONTER coûte au CARRÉ de la pente — la route suit les vallées, contourne
-  //     les massifs, et quand elle DOIT grimper, elle fait des lacets : le
-  //     serpentin sort du coût, personne ne le dessine ;
-  //   · un souffle de bruit haché par cellule garde le pittoresque du staircase
-  //     (sans lui, deux tracés en plaine seraient au cordeau), DÉTERMINISTE.
-  // La recherche est BORNÉE à la boîte des extrémités + WIND_M de marge : un
-  // détour reste un détour, pas une errance. Échec (eau infranchissable, boîte
-  // trop petite) → repli staircase : la connexité ne se négocie pas.
-  // ⚠ Sans champ (tests, terrain coupé) → staircase, au bit près.
-  const WIND_M = 16, WIND_TURN = 2.4, WIND_SLOPE = 3.2, WIND_NOISE = 0.25;
-  const windHash = (x, y) => {
-    let h = (Math.imul(x | 0, 374761393) ^ Math.imul(y | 0, 668265263) ^ (seed | 0)) >>> 0;
-    h ^= h >>> 13; h = Math.imul(h, 1274126177) >>> 0;
-    return ((h >>> 8) & 0xffff) / 65536;
-  };
-  function windingPath(x0, y0, x1, y1, rank, label) {
-    if (!fieldAt || !TERRAIN.amp) { staircase(x0, y0, x1, y1, rank, label); return; }
-    const ax = Math.round(x0), ay = Math.round(y0), tx = Math.round(x1), ty = Math.round(y1);
-    if (ax === tx && ay === ty) { addCell(tx, ty, "h", rank); addCell(tx, ty, "v", rank); return; }
-    const bx0 = Math.max(0, Math.min(ax, tx) - WIND_M), bx1 = Math.min(N - 1, Math.max(ax, tx) + WIND_M);
-    const by0 = Math.max(0, Math.min(ay, ty) - WIND_M), by1 = Math.min(N - 1, Math.max(ay, ty) + WIND_M);
-    const W = bx1 - bx0 + 1, H = by1 - by0 + 1;
-    const idOf = (x, y, d) => (((y - by0) * W) + (x - bx0)) * 4 + d;
-    const best = new Float64Array(W * H * 4).fill(Infinity);
-    const from = new Int32Array(W * H * 4).fill(-1);
-    // Tas binaire minimal [f, tie, id, g] à plat — le tie d'insertion rend
-    // l'ordre TOTAL, donc le tracé identique d'une exécution à l'autre.
-    const hp = [];
-    let tie = 0;
-    const push = (f, id, g) => {
-      hp.push([f, tie += 1, id, g]);
-      let i = hp.length - 1;
-      while (i > 0) {
-        const p = (i - 1) >> 1;
-        if (hp[p][0] < hp[i][0] || (hp[p][0] === hp[i][0] && hp[p][1] < hp[i][1])) break;
-        const t = hp[p]; hp[p] = hp[i]; hp[i] = t; i = p;
-      }
-    };
-    const pop = () => {
-      const top = hp[0], last = hp.pop();
-      if (hp.length) {
-        hp[0] = last;
-        let i = 0;
-        for (;;) {
-          const l = i * 2 + 1, r = l + 1;
-          let m = i;
-          if (l < hp.length && (hp[l][0] < hp[m][0] || (hp[l][0] === hp[m][0] && hp[l][1] < hp[m][1]))) m = l;
-          if (r < hp.length && (hp[r][0] < hp[m][0] || (hp[r][0] === hp[m][0] && hp[r][1] < hp[m][1]))) m = r;
-          if (m === i) break;
-          const t = hp[m]; hp[m] = hp[i]; hp[i] = t; i = m;
-        }
-      }
-      return top;
-    };
-    const DX = [1, 0, -1, 0], DY = [0, 1, 0, -1];
-    const fld = (x, y) => fieldAt(x + 0.5, y + 0.5);
-    const okCell = (x, y) => x >= bx0 && x <= bx1 && y >= by0 && y <= by1 && !inWater(x, y);
-    const hMan = (x, y) => Math.abs(tx - x) + Math.abs(ty - y);
-    // Amorce : les 4 premiers pas depuis le départ (pas de pénalité de virage).
-    const f0 = fld(ax, ay);
-    for (let d = 0; d < 4; d += 1) {
-      const nx = ax + DX[d], ny = ay + DY[d];
-      if (!okCell(nx, ny)) continue;
-      const dz = fld(nx, ny) - f0;
-      const g = 1 + WIND_SLOPE * dz * dz + WIND_NOISE * windHash(nx, ny);
-      const id = idOf(nx, ny, d);
-      if (g < best[id]) { best[id] = g; from[id] = -2 - d; push(g + hMan(nx, ny), id, g); }
-    }
-    let goal = -1, guard = W * H * 4;
-    while (hp.length && guard-- > 0) {
-      const [, , id, g] = pop();
-      if (g > best[id] + 1e-9) continue;                 // entrée périmée du tas
-      const d = id % 4, ci = (id - d) / 4;
-      const x = bx0 + (ci % W), y = by0 + ((ci - (ci % W)) / W);
-      if (x === tx && y === ty) { goal = id; break; }
-      const fz = fld(x, y);
-      for (let nd = 0; nd < 4; nd += 1) {
-        if ((nd + 2) % 4 === d) continue;                // pas de demi-tour
-        const nx = x + DX[nd], ny = y + DY[nd];
-        if (!okCell(nx, ny)) continue;
-        const dz = fld(nx, ny) - fz;
-        const ng = g + 1 + (nd !== d ? WIND_TURN : 0)
-          + WIND_SLOPE * dz * dz + WIND_NOISE * windHash(nx, ny);
-        const nid = idOf(nx, ny, nd);
-        if (ng < best[nid] - 1e-9) { best[nid] = ng; from[nid] = id; push(ng + hMan(nx, ny), nid, ng); }
-      }
-    }
-    if (goal < 0) { staircase(x0, y0, x1, y1, rank, label); return; }
-    // Remontée → cellules du chemin (cible → départ), puis pose en JAMBES :
-    // un addEdge par run droit, coins marqués h+v — même vocabulaire de cellules
-    // que le staircase, les passes aval (trim/prune/dissolve) n'y voient rien.
-    const px = [], py = [];
-    for (let id = goal; id >= 0; id = from[id]) {
-      const d = id % 4, ci = (id - d) / 4;
-      px.push(bx0 + (ci % W)); py.push(by0 + ((ci - (ci % W)) / W));
-      if (from[id] <= -2) break;                         // amorce atteinte
-    }
-    px.push(ax); py.push(ay);
-    px.reverse(); py.reverse();
-    // Un run se ferme quand l'AXE du pas change ; chaque coin est marqué h+v.
-    let s = 0;
-    let axis = px[1] === px[0] ? "v" : "h";
-    for (let i = 2; i < px.length; i += 1) {
-      const a = px[i] === px[i - 1] ? "v" : "h";
-      if (a !== axis) {
-        addEdge(px[s], py[s], px[i - 1], py[i - 1], rank);
-        addCell(px[i - 1], py[i - 1], "h", rank);
-        addCell(px[i - 1], py[i - 1], "v", rank);
-        s = i - 1; axis = a;
-      }
-    }
-    addEdge(px[s], py[s], px[px.length - 1], py[py.length - 1], rank);
-    addCell(px[px.length - 1], py[px.length - 1], "h", rank);
-    addCell(px[px.length - 1], py[px.length - 1], "v", rank);
-  }
+  // (Le CHEMIN SILLONNANT — `windingPath`, un A* au coût de pente qui remplaçait
+  //  le staircase quand le champ de terrain était vivant — est parti avec le relief
+  //  le 2026-10-06, audit MORT-14 : relief éteint, il retombait TOUJOURS sur le
+  //  staircase, et les tracés sont inchangés, RNG compris.)
 
-  // Anneau rectangulaire borné à la silhouette (rocades, enceintes).
+  // Anneau rectangulaire borné à la silhouette (autour du cœur et des ancres).
   function ring(rcx, rcy, r, rank) {
     const put = (x, y, axis) => {
       if (!inBounds(x, y) || inWater(x, y) || !organicLimit(x, y, 2.2)) return;
@@ -342,20 +160,6 @@ export function generateRoadsGraph({
     };
     for (let x = rcx - r; x <= rcx + r; x += 1) { put(x, rcy - r, "h"); put(x, rcy + r, "h"); }
     for (let y = rcy - r; y <= rcy + r; y += 1) { put(rcx - r, y, "v"); put(rcx + r, y, "v"); }
-  }
-
-  // Grille locale de quartier (bornée silhouette).
-  function localGrid(gx0, gy0, half, spacing, rank, label) {
-    const rng = rngFrom(seed, "grid:" + label);
-    const off = Math.floor(rng() * spacing);
-    const put = (x, y, axis) => {
-      if (!inBounds(x, y) || inWater(x, y) || !organicLimit(x, y, 2.2)) return;
-      addCell(x, y, axis, rank);
-    };
-    for (let y = gy0 - half + off; y <= gy0 + half; y += spacing)
-      for (let x = gx0 - half; x <= gx0 + half; x += 1) put(x, y, "h");
-    for (let x = gx0 - half + off; x <= gx0 + half; x += spacing)
-      for (let y = gy0 - half; y <= gy0 + half; y += 1) put(x, y, "v");
   }
 
   // Place : bloc marchable h+v au rang "plaza" (eau interdite).
@@ -389,100 +193,27 @@ export function generateRoadsGraph({
     }
   }
 
-  // ── Squelette par archétype ─────────────────────────────────────────────────
+  // ── Squelette (recette organique) ───────────────────────────────────────────
   // Racine : garantit une cellule au cœur à laquelle tout se raccroche.
   asSkel(() => {
     addCell(core.x, core.y, "h", "path");
     addCell(core.x, core.y, "v", "path");
   });
 
-  if (A === "scattered") {
-    asSkel(() => bridgeCrossing("path"));
-    let prevA = null;
-    for (const a of plan.anchors) {
-      windingPath(core.x, core.y, a.gx, a.gy, "path", "sc:" + a.label);
-      const ar = Math.max(1, Math.round((a.r || 2) * 0.5));
-      ring(Math.round(a.gx), Math.round(a.gy), ar, "path");
-      if (prevA) windingPath(prevA.gx, prevA.gy, a.gx, a.gy, "path", "sc-link:" + prevA.label + ">" + a.label);
-      prevA = a;
-    }
-    ring(core.x, core.y, 2, "path");
-  } else if (A === "crossroads") {
-    const rng = rngFrom(seed, "crossroads");
-    const bendY = core.y + Math.round((rng() - 0.5) * 4);
-    const bendX = core.x + Math.round((rng() - 0.5) * 4);
-    const west = clampRay(Math.PI, span), east = clampRay(0, span);
-    asSkel(() => windingPath(west.x, bendY, east.x, core.y, mainRank, "cr:h"));
-    asSkel(() => bridgeCrossing(mainRank));
-    const north = clampRay(-Math.PI / 2, Math.min(span, 6 + span * 0.3));
-    asSkel(() => windingPath(bendX, north.y, core.x, core.y, "secondary", "cr:v"));
-    for (const a of plan.anchors)
-      windingPath(core.x, core.y, a.gx, a.gy, a.band <= 1 ? "path" : "secondary", "cr:" + a.label);
-  } else if (A === "linear") {
-    asSkel(() => linearMainStreet(mainRank));
-    asSkel(() => bridgeCrossing("secondary"));
-    for (const a of plan.anchors)
-      windingPath(a.gx, core.y, a.gx, a.gy, "path", "ln:" + a.label);
-  } else if (A === "radial") {
-    const rng = rngFrom(seed, "radial");
-    const spokes = 5 + Math.floor(rng() * 3);
-    const a0 = rng() * Math.PI * 2;
-    for (let i = 0; i < spokes; i += 1) {
-      const ang = a0 + (i / spokes) * Math.PI * 2 + (rng() - 0.5) * 0.35;
-      const end = clampRay(ang, span);
-      windingPath(core.x, core.y, end.x, end.y, i < 2 ? mainRank : "secondary", "ray:" + i);
-    }
-    bridgeCrossing(mainRank);
-    const rings = Math.min(4, 1 + counts.infraRings);
-    for (let ri = 1; ri <= rings; ri += 1) ring(core.x, core.y, 3 + ri * 4, ri <= 1 ? "avenue" : "secondary");
-    for (const a of plan.anchors) windingPath(core.x, core.y, a.gx, a.gy, "path", "rd:" + a.label);
-  } else if (A === "districts") {
-    bridgeCrossing(mainRank);
-    runLineWide("h", core.y, core.x, mainRank);
-    for (const a of plan.anchors) {
-      windingPath(core.x, core.y, a.gx, a.gy, a.band >= 3 ? "avenue" : "secondary", "dt:" + a.label);
-      localGrid(Math.round(a.gx), Math.round(a.gy), Math.round(a.r + 1), 3 + superMesh, "secondary", "dt:" + a.label);
-    }
-    const rng = rngFrom(seed, "districts-extra");
-    for (let ri = 1; ri <= Math.min(3, counts.infraRings); ri += 1)
-      ring(core.x, core.y, 4 + ri * 5 + Math.floor(rng() * 2), "secondary");
-  } else { // capital / megalopolis
-    const rng = rngFrom(seed, "capital");
-    // Espacement ÉLARGI + moins de lanes + décalage SYMÉTRIQUE : évite les paquets de
-    // routes serrées qui se soudaient en grands aplats gris (cf. plafond roadMedian).
-    const spacing = (A === "megalopolis" ? 5 : 6) + superMesh;
-    runLineWide("h", core.y, core.x, mainRank);
-    bridgeCrossing(mainRank);
-    const vx = axisX != null ? axisX : core.x;
-    runLineWide("v", vx, core.y, mainRank);
-    const lanes = Math.min(5, 2 + counts.eraBand + Math.floor(counts.urbanTier / 5));
-    const off = Math.floor(rng() * 2);   // léger décalage GLOBAL (symétrique), pas asymétrique
-    for (let li = -lanes; li <= lanes; li += 1) {
-      if (li === 0) continue;
-      const d = li * spacing + off;      // même off des deux côtés → espacement régulier
-      const rank = Math.abs(li) <= 2 ? "avenue" : "secondary";
-      runLine("h", core.y + d, core.x, rank);
-      runLine("v", vx + d, core.y, rank);
-    }
-    if (A === "megalopolis") {
-      ring(core.x, core.y, Math.min(Math.floor(N / 2) - 2, Math.round((plan.reachBase || 8) * 0.9)), "avenue");
-      for (let di = 0; di < 4; di += 1) {
-        const ang = Math.PI / 4 + di * Math.PI / 2;
-        const end = clampRay(ang, plan.reachBase || 8);
-        windingPath(core.x, core.y, end.x, end.y, "avenue", "diag:" + di);
-      }
-    }
-    for (const a of plan.anchors)
-      if (a.band <= 1) windingPath(core.x, core.y, a.gx, a.gy, "path", "cp:" + a.label);
+  // Le pont, puis un sentier du cœur à chaque ancre de quartier (et d'une ancre à
+  // la suivante), un anneau autour de chacune et du cœur — échafaudage.
+  asSkel(() => bridgeCrossing("path"));
+  let prevA = null;
+  for (const a of plan.anchors) {
+    staircase(core.x, core.y, a.gx, a.gy, "path", "sc:" + a.label);
+    const ar = Math.max(1, Math.round((a.r || 2) * 0.5));
+    ring(Math.round(a.gx), Math.round(a.gy), ar, "path");
+    if (prevA) staircase(prevA.gx, prevA.gy, a.gx, a.gy, "path", "sc-link:" + prevA.label + ">" + a.label);
+    prevA = a;
   }
+  ring(core.x, core.y, 2, "path");
 
-  // Vieux centre : sentiers fondateurs des villes avancées.
-  if (A !== "scattered" && counts.eraBand >= 2) {
-    const founders = plan.anchors.filter((a) => a.band <= 1).slice(0, 3);
-    for (const a of founders) windingPath(core.x, core.y, a.gx, a.gy, "path", "old:" + a.label);
-  }
-
-  // ÉCHAFAUDAGE DE PERMÉABILITÉ (organiques denses) : un quadrillage de ruelles
+  // ÉCHAFAUDAGE DE PERMÉABILITÉ (villes denses) : un quadrillage de ruelles
   // en RÉSERVE sur toute la silhouette, dissous après le placement comme le
   // reste de l'échafaudage. Le placement ne bâtit jamais sur une cellule de
   // route : ces couloirs restent donc du sol LIBRE qui traverse chaque quartier
@@ -493,9 +224,9 @@ export function generateRoadsGraph({
   // 100 %. GATE par la taille : un petit hameau ne peut rien sceller, et son
   // arbre de desserte à main levée est plus beau sans trame sous-jacente.
   const permSize = (counts.houses || 0) + (counts.engineHomesRaw || 0);
-  if (skeleton && permSize > 150) {
+  if (permSize > 150) {
     const rngP = rngFrom(seed, "perm");
-    const spacing = 4 + Math.min(2, superMesh);   // plafonné : cf. superMesh (HOUSE_ROAD_RADIUS)
+    const spacing = 4;   // HOUSE_ROAD_RADIUS = 4 couvre l'intérieur de chaque maille
     const off = Math.floor(rngP() * spacing);
     for (let gy = off; gy < N; gy += spacing) runLine("h", gy, core.x, "path");
     for (let gx = off; gx < N; gx += spacing) runLine("v", gx, core.y, "path");
@@ -503,54 +234,16 @@ export function generateRoadsGraph({
 
   asSkel(() => { for (const p of plan.plazas || []) plaza(p); });
 
-  // ── Ville-rue : grand-rue E-O sinueuse + traverses, en polyligne connexe ────
-  function linearMainStreet(rank) {
-    const rng = rngFrom(seed, "linear");
-    const drawDir = (dir) => {
-      let yy = core.y;
-      addCell(core.x, yy, "h", rank);
-      for (let stepN = 1; stepN <= span; stepN += 1) {
-        const x = core.x + dir * stepN;
-        if (!inBounds(x, yy) || inWater(x, yy) || !organicLimit(x, yy, 2.2)) break;
-        addCell(x, yy, "h", rank);
-        if (rng() < 0.18) {
-          const ny = yy + (rng() < 0.5 ? -1 : 1);
-          if (inBounds(x, ny) && !inWater(x, ny) && organicLimit(x, ny, 2.2)) {
-            addCell(x, yy, "v", rank); addCell(x, ny, "v", rank); addCell(x, ny, "h", rank);
-            yy = ny;
-          }
-        }
-        if (Math.abs(x - core.x) % 4 === 2) {
-          // Traverses = ÉCHAFAUDAGE (guides de placement), pas le squelette : la
-          // desserte les remplace par de vraies venelles tracées à la demande.
-          const wasSkel = skel; skel = false;
-          const len = 2 + Math.floor(rng() * (2 + counts.eraBand * 1.5));
-          addCell(x, yy, "v", "secondary");
-          for (const sdir of [1, -1]) {
-            for (let t = 1; t <= len; t += 1) {
-              const ty = yy + sdir * t;
-              if (!inBounds(x, ty) || inWater(x, ty) || !organicLimit(x, ty, 2.2)) break;
-              addCell(x, ty, "v", "secondary");
-            }
-          }
-          skel = wasSkel;
-        }
-      }
-    };
-    drawDir(1);
-    drawDir(-1);
-  }
-
   // ── Couture : RELIE (sans supprimer) toute composante égarée au cœur ─────────
   // Une seule BFS terrestre multi-source depuis la composante du cœur ; chaque
   // fragment descend l'arbre `from` jusqu'au réseau. (Les fragments d'outre-fleuve
   // sans pont terrestre restent rares et seront écartés par cmBuildRoadGraph.)
   stitchComponents(cells, false);
-  // Couture du SQUELETTE seul : les archétypes organiques seront DISSOUS sur lui
-  // (layout.js) — il doit être connexe PAR LUI-MÊME (cœur ↔ pont ↔ places), sinon
-  // l'élagage de cmBuildRoadGraph jetterait le pont et tout son quartier. Les
-  // liens tracés ici rejoignent cells ET skeleton (nouvelles cellules comprises).
-  if (skeleton) stitchComponents(skeleton, true);
+  // Couture du SQUELETTE seul : le réseau sera DISSOUS sur lui (layout.js) — il
+  // doit être connexe PAR LUI-MÊME (cœur ↔ pont ↔ places), sinon l'élagage de
+  // cmBuildRoadGraph jetterait le pont et tout son quartier. Les liens tracés ici
+  // rejoignent cells ET skeleton (nouvelles cellules comprises).
+  stitchComponents(skeleton, true);
 
   function components(target) {
     const seen = new Set();
@@ -651,16 +344,16 @@ export function generateRoadsGraph({
     roadKey.add(k);
     roadMeta.set(k, meta.get(k) || { h: false, v: false, rank: "path" });
   }
-  // skeletonKey ≠ null ⇔ archétype organique : layout.js dissout l'échafaudage
-  // après le placement (dissolveToSkeleton) puis retrace la desserte réelle.
+  // skeletonKey : layout.js dissout l'échafaudage après le placement
+  // (dissolveToSkeleton) puis retrace la desserte réelle.
   return { roads, roadKey, roadMeta, bridgeCols, skeletonKey: skeleton };
 }
 
 /* ----------------------------------------------------------------------------
- * dissolveToSkeleton — dissolution de l'échafaudage (archétypes organiques)
+ * dissolveToSkeleton — dissolution de l'échafaudage
  *   Après le PLACEMENT des bâtiments (qui s'est appuyé sur l'échafaudage pour
  *   créer les slots), on ne garde que le squelette identitaire : racine du
- *   cœur, traversée(s) de pont, axes, places, et leurs coutures. Le réseau
+ *   cœur, traversée du pont, places, et leurs coutures. Le réseau
  *   réel est ensuite RETRACÉ par la desserte (connectBuildingsToNetwork) :
  *   chaque bâtiment se raccorde au réseau existant par le plus court chemin →
  *   un ARBRE de sentiers qui mènent quelque part, au lieu du labyrinthe

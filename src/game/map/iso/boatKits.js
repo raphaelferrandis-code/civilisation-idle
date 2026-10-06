@@ -445,3 +445,10 @@ export function fleetRoles(band) {
 export function fleetFor(band) {
   return BAND_FLEET[band] || null;
 }
+// La longueur (tuiles) du plus long marchand d'une bande (0 sans marchand) : les postes
+// de la flotte se cotent pour lui (boatBerths), le terminal de commerce lui garde une
+// travée de quai (isoTradePort, quai plein).
+export function traderLen(band) {
+  const fl = BAND_FLEET[band];
+  return fl && fl.trade ? Math.max(...fl.trade.map((id) => BOAT_MODELS[id].len / 32)) : 0;
+}

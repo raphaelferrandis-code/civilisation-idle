@@ -16,7 +16,8 @@ import { makeRoadInputs } from "../../../test/roads.js";
 //   5. déterminisme ; 6. le tronc émerge (path → secondary) ;
 //   7. une seule composante par masques (la connexité que voit le joueur).
 
-const ORGANIC = ["scattered", "crossroads", "linear"];
+// La recette organique, seule restée au générateur (audit 2026-10-05, MORT-4).
+const ORGANIC = ["scattered"];
 
 // Harnais partagé avec roadMaskRepair et roadGraph (grain par seed).
 const makeInputs = makeRoadInputs;
@@ -168,16 +169,8 @@ describe("desserte organique — le réseau raconte des trajets", () => {
     }
   });
 
-  it("1b. crossroads/linear : quasi-arbre (les axes identitaires peuvent se recroiser)", () => {
-    for (const A of ["crossroads", "linear"]) {
-      for (const band of [1, 2]) {
-        for (let seed = 1; seed <= 5; seed += 1) {
-          const { g } = runPipeline(A, band, seed, { withRiver: true });
-          expect(cyclomatic(g.roadMap), `${A}/b${band}/s${seed}: boucles`).toBeLessThanOrEqual(2);
-        }
-      }
-    }
-  });
+  // (Le test 1b — crossroads et linear en quasi-arbre — est parti avec ces recettes :
+  // audit 2026-10-05, MORT-4.)
 
   it("2. la garde mord : SANS dissolution, le motif est bien un labyrinthe", () => {
     let worst = Infinity;

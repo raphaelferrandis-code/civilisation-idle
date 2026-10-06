@@ -5,9 +5,9 @@ Steam. Aucun ne corrige un bug joueur ; tous touchent beaucoup de fichiers, ou d
 que plusieurs sessions modifient en même temps. Les faire juste avant la sortie, c'est
 risquer une régression pour un gain de maintenance.
 
-Chaque fiche reprend le constat et le correctif de l'audit
-(`docs/audits/audit-2026-10-05-RAPPORT.md`, même identifiant ; preuves dans
-`audit-2026-10-05/_audit/`). Les numéros de ligne datent du 05/10 : les relire avant
+Chaque fiche reprend le constat et le correctif de l'audit (le rapport
+`audit-2026-10-05-RAPPORT.md`, même identifiant, gardé hors du dépôt sur le poste de
+Raph, dans docs/audits ; preuves dans `audit-2026-10-05/_audit/`). Les numéros de ligne datent du 05/10 : les relire avant
 de commencer. Effort : S = une séance, M = quelques séances, L = un chantier.
 
 Règles communes, valables pour toutes les fiches :

@@ -306,3 +306,17 @@ PLAN-ROUTES) et « une maison ne bouge jamais » (keepInPlace).
   ailleurs (relevé : 8×2 → 7×3, terroir passé sur l'autre rive). À traiter côté
   terroir (docs/PLAN-TERROIR.md) : rangée de moulins à distance 2, ou parcelles qui
   grandissent vers le large.
+- 2026-10-06 (audit du 05/10, MORT-4, choix de Raph) : plus de retour au placement
+  d'avant. Partis : la molette `__ilots(false)` (et `ILOT_MODE` : `ilotMode` ⇔ bande de
+  `ILOT_BANDS`), l'interrupteur de la mémoire des rues (`ROAD_MEMORY`, `__roadMemory`) et
+  celui de la structure de ville (`CITY_QUARTERS.on`) ; la percée de l'artère, les
+  extensions planifiées, la grand-rue et les rues de quartier du bourg, le port de
+  commerce du bloc `townOn`, la mémoire des places hors îlots, les grands ensembles avec
+  leur dessin (`iso/isoDistricts.js`, le parvis des districts, les lectures de
+  `L.districts`), les recettes géométriques de `roadGraph` et ses traversées seedées.
+  L'autoroute reste rebranchée sur le cardo (BUG-16). Le terme `megaDistricts × 18` sort
+  du calcul de la grille : une ville NEUVE est plus compacte dès la bande 3 (N 248 → 196
+  à la bande 7), une ville existante garde sa grille (maxN) et son plan à l'identique.
+  Sinon rien ne bouge : empreintes complètes du plan sur 66 calculs (3 graines × 14 ères,
+  villes neuves, saut b1 → b4) égales à HEAD avant le retrait du terme. Garde :
+  ancienPlacementRetire.test.js.
