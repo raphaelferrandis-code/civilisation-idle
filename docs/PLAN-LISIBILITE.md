@@ -94,3 +94,17 @@ du ruban en infobulle (−5) ; « Réserve d'absence » vers les Options.
   quartiers abandonnés. ~30 % de la ville éteinte à 75 %, le cœur (0,3 du rayon) jamais.
   ⚠ Au dézoom < 0,55 (LOD) les fenêtres sont coupées de toute façon : seul le ternissement
   se voit. Planche `.preview-shots/declin-planche.png`.
+- Q+R FAITS : une ville NÉE avec ses quartiers (fiche `q: 1`, donc la prochaine ville après
+  une chute — la partie en cours ne se réorganise pas) est coupée en quatre par le cardo et
+  le decumanus : MARCHANDS (côté fleuve, est), FAUBOURGS (côté fleuve, ouest), POUVOIR
+  (terres, côté forum), SAVANTS (terres, est). Halles et ateliers vont dans le quartier de
+  leur famille (`CM_QUARTER_OF`, cityBuildings.js), chaque quartier a sa place (marché,
+  parvis, square), ses logements (liste « riche » au pouvoir, « pauvre » aux faubourgs, par
+  substitution de MÊME emprise après la pose — jamais pendant, cf. S4), sa boutique
+  (la taberna / le rez haussmannien / la boutique néon chez les marchands), et UN repère :
+  la meilleure halle présente (`LANDMARK_RANK` : bourse, ministères, université,
+  greniers…), 3×3 dès sa naissance, seule au milieu d'une pelouse ; les autres halles
+  plafonnent à 2×2. Nom du quartier dans l'infobulle. Molette `__quartiers`.
+  ⚠ Pièges payés : (1) la liste riche du Néon n'a AUCUN logis d'une case → la pose
+  s'arrêtait (46 maisons sur 1 439) quand le biais était dans le générateur ; (2) le tirage
+  par case faisait changer 49 dessins à un achat. D'où la substitution après la pose.

@@ -37,6 +37,30 @@ if (import.meta.env?.DEV && typeof window !== "undefined") window.__ilotAir = (o
 // de la ville — pour une ville NEUVE : une ville déjà agrandie le reste, sa fiche porte
 // les îlots de ses places.
 export const GRANDES_PLACES = { forum: true, square: true };
+// LES QUARTIERS (docs/PLAN-LISIBILITE.md, Q+R, 2026-10-06) : une ville NÉE avec eux (fiche
+// `q`) groupe halles et ateliers par famille (cityBuildings CM_QUARTER_OF), un quartier
+// par quart de ville — les deux grands axes en sont les limites : du côté du fleuve, les
+// MARCHANDS à l'est du cardo et les FAUBOURGS à l'ouest ; dans les terres, le POUVOIR
+// (côté du forum) et les SAVANTS. Chaque quartier a sa sorte de place, et UN REPÈRE : sa
+// première halle, seule sur son îlot, au milieu d'une pelouse ; les autres halles du
+// quartier rentrent dans le rang (2×2 au plus, à l'angle de leur îlot de maisons).
+// Molette : __quartiers(false) pour une ville neuve sans quartiers.
+// `lmSize` : l'emprise d'un repère, dès sa naissance (à partir de la bande 3 la scène
+// d'un moteur suit son emprise, et l'emprise 3 prend le dessin « -grand ») ; `hallCap` :
+// celle des autres halles d'une ville à quartiers.
+export const ILOT_QUARTERS = { on: true, hallCap: 2, lmSize: 3, scan: 40 };
+if (import.meta.env?.DEV && typeof window !== "undefined") window.__quartiers = (o) => { if (o === false) ILOT_QUARTERS.on = false; else if (o && typeof o === "object") Object.assign(ILOT_QUARTERS, { on: true }, o); else ILOT_QUARTERS.on = true; return { ...ILOT_QUARTERS }; };
+const QUARTER_PLAZA = { marchand: "marche", pouvoir: "parvis", savant: "jardin" };
+// Qui fait le meilleur REPÈRE, à présence égale (le premier calcul d'une ville par îlots
+// pose d'un coup toutes ses halles) : la bourse avant le marché, le temple avant la garde,
+// les greniers avant les égouts. Un repère élu le reste (il ne déménage jamais).
+const LANDMARK_RANK = [
+  "imperial_exchanges", "mint_houses", "guilds", "markets", "caravans",
+  "ministries", "courthouses", "ancestral_cult", "bureaucracy", "watch",
+  "universities", "academies", "libraries", "observatories", "think_tanks", "printing_houses", "schools", "archive_grids", "scribes", "storytellers",
+  "granaries_city", "public_works", "foragers", "ruin_architects", "sewers",
+];
+const lmRank = (id) => { const i = LANDMARK_RANK.indexOf(id); return i < 0 ? LANDMARK_RANK.length : i; };
 if (import.meta.env?.DEV && typeof window !== "undefined") window.__grandesPlaces = (o) => { if (o && typeof o === "object") Object.assign(GRANDES_PLACES, o); return { ...GRANDES_PLACES }; };
 // Les îlots (i, j) du grand forum : les deux du croisement à l'ouest du cardo, puis les
 // deux îlots longs qui les prolongent le long du decumanus — le 3e donne le coin
@@ -157,6 +181,15 @@ export function planIlots(o) {
     seed.push({ x: twin, y, h: y === oy, v: true });
     if (!cross) break;
   }
+  // LES QUARTIERS (cf. ILOT_QUARTERS) : le quart de ville d'une case, borné par le cardo
+  // (entre bx et bx + 1) et le decumanus (rangée oy) ; « côté fleuve » = vers la traversée.
+  const qOn = !!mem.q && ILOT_QUARTERS.on;
+  const rDir = cross ? cross.dir : 1;
+  const quarterAt = (x, y) => {
+    const east = x + 0.5 >= bx + 1, river = (y + 0.5 - (oy + 0.5)) * rDir > 0;
+    return river ? (east ? "marchand" : "faubourg") : (east ? "savant" : "pouvoir");
+  };
+  const quarterOfB = (b) => quarterAt((b.x0 + b.x1) / 2, (b.y0 + b.y1) / 2);
   // La rive d'en face coûte la traversée : on y bâtit quand le cœur est servi.
   const riverMid = cross ? (cross.near + cross.far + 1) / 2 : null;
   const extraCost = (i, j, c) => (riverMid !== null && Math.sign(c.y - riverMid) !== Math.sign((core.y + 0.5) - riverMid) ? 1.5 : 0);
@@ -348,10 +381,14 @@ export function planIlots(o) {
   // bordent le reste — le monument au milieu de son quartier, pas sur une dalle.
   const hallBlock = new Map();
   const memHalls = { ...(mem.halls || {}) };
+  // LES REPÈRES (cf. ILOT_QUARTERS) : quartier → clé de sa halle-repère, élue une fois.
+  const memLm = { ...(mem.lm || {}) };
+  const lmKeys = new Set(Object.values(memLm));
+  const hallSize = (h, lm) => (!qOn ? h.size || 1 : lm ? Math.max(h.size || 1, ILOT_QUARTERS.lmSize) : Math.min(h.size || 1, ILOT_QUARTERS.hallCap));
   for (const h of o.demand.halls) {
     const bk = memHalls[h.key];
     const b = bk && blockByKey(bk);
-    if (b && !role.has(bk)) { role.set(bk, { kind: "hall", key: h.key, size: h.size || 1 }); hallBlock.set(h.key, b); }
+    if (b && !role.has(bk)) { const lm = qOn && lmKeys.has(h.key); role.set(bk, { kind: "hall", key: h.key, size: hallSize(h, lm), landmark: lm }); hallBlock.set(h.key, b); }
   }
   const est = Math.ceil(o.demand.lots / lotsPerBlock()) + o.demand.halls.length + 2;
   const startOf = (zone) => zone === "center" ? 1 : zone === "mid" ? Math.round(est * 0.3) : Math.round(est * 0.55);
@@ -374,17 +411,32 @@ export function planIlots(o) {
     }
     return false;
   };
-  for (const h of o.demand.halls) {
+  // (Ville à quartiers : le meilleur repère d'abord (LANDMARK_RANK) — la première halle
+  // posée dans un quartier en est le repère. Sinon l'ordre du registre, comme avant.)
+  const hallOrder = qOn ? [...o.demand.halls].sort((p, q) => lmRank(p.id) - lmRank(q.id)) : o.demand.halls;
+  for (const h of hallOrder) {
     if (hallBlock.has(h.key)) continue;
     let b = null;
     const free = ousted.has(h.key) ? (q) => decFits(q, Math.min(h.size || 1, q.x1 - q.x0 + 1, q.y1 - q.y0 + 1)) : (q) => !heldIn(q);
     // Départ : le rang de sa zone, ou le dernier îlot si l'ordre est plus court.
     const r0 = ousted.has(h.key) ? 1 : order.at(startOf(h.zone)) ? startOf(h.zone) : order.produced.length - 1;
+    // DANS SON QUARTIER d'abord (cf. ILOT_QUARTERS), sur une fenêtre de `scan` îlots — au-delà
+    // la ville s'étalerait pour lui ; sinon, comme avant, le premier îlot libre. La première
+    // halle d'un quartier en devient le REPÈRE : il lui faut un îlot entier et libre.
+    const quarter = qOn && h.quarter ? h.quarter : null;
+    const lm = !!quarter && !memLm[quarter] && !ousted.has(h.key);
+    if (quarter) {
+      for (let r = r0, q; !b && r < r0 + ILOT_QUARTERS.scan && (q = order.at(r)); r += 1) {
+        if (!role.has(bkey(q)) && q.cells.length >= 9 && free(q) && !deferred(q) && quarterOfB(q) === quarter && (!lm || full4(q))) b = q;
+      }
+    }
     for (let r = r0, q; !b && (q = order.at(r)); r += 1) {
       if (!role.has(bkey(q)) && q.cells.length >= 9 && free(q) && !deferred(q)) b = q;
     }
     if (!b) continue;
-    role.set(bkey(b), { kind: "hall", key: h.key, size: h.size || 1, ousted: ousted.has(h.key) });
+    const isLm = lm && quarterOfB(b) === quarter && full4(b);
+    if (isLm) memLm[quarter] = h.key;
+    role.set(bkey(b), { kind: "hall", key: h.key, size: hallSize(h, isLm), ousted: ousted.has(h.key), landmark: isLm });
     hallBlock.set(h.key, b);
     memHalls[h.key] = bkey(b);
   }
@@ -439,7 +491,8 @@ export function planIlots(o) {
   // forum et chaque halle. Une place de quartier naît tous les ILOT_PLAZA_EVERY
   // îlots OUVERTS (compte stable : l'ouverture est mémorisée).
   const holdLots = (b) => { if (!hold) return 0; const air = airSet(b); let n = 0; for (const l of b.lots) if (hold(l.gx, l.gy) && !air.has(l.gx + "," + l.gy)) n += 1; return n; };
-  const capOf = (b) => { const r = role.get(bkey(b)); return !r ? b.lots.length - airSet(b).size - holdLots(b) : r.kind === "hall" ? Math.max(0, b.lots.length - 2 * r.size - holdLots(b)) : 0; };
+  // (L'îlot d'un REPÈRE de quartier ne loge personne : la halle seule, sur sa pelouse.)
+  const capOf = (b) => { const r = role.get(bkey(b)); return !r ? b.lots.length - airSet(b).size - holdLots(b) : r.kind === "hall" && !r.landmark ? Math.max(0, b.lots.length - 2 * r.size - holdLots(b)) : 0; };
   let need = o.demand.lots + LOT_MARGIN;
   for (const b of opened) need -= capOf(b);
   let maxRole = -1;
@@ -455,7 +508,9 @@ export function planIlots(o) {
     if (deferred(b)) continue;
     let sq = null;
     if (!role.has(k) && full4(b) && !heldIn(b) && opened.length % ILOT_PLAZA_EVERY === ILOT_PLAZA_EVERY / 2) {
-      const kind = PLAZA_KINDS[Math.floor(opened.length / ILOT_PLAZA_EVERY) % PLAZA_KINDS.length];
+      // Ville à quartiers : la place de son quartier (marché, parvis, square) ; les
+      // faubourgs gardent l'alternance.
+      const kind = (qOn && QUARTER_PLAZA[quarterOfB(b)]) || PLAZA_KINDS[Math.floor(opened.length / ILOT_PLAZA_EVERY) % PLAZA_KINDS.length];
       role.set(k, { kind: "plaza", plazaKind: kind });
       if (kind === "jardin") sq = grandSquareAt(b);
     }
@@ -472,11 +527,12 @@ export function planIlots(o) {
   // Un atelier prend un lot de bord (taille 1) ou un angle 2×2 (taille 2). Jamais
   // deux ateliers d'un même métier dans un même îlot ; un emplacement mémorisé
   // tient tant qu'il est encore un lot d'îlot ouvert.
-  const houseBlocks = blocks.filter((b) => { const r = role.get(bkey(b)); return !r || r.kind === "hall"; });
+  const houseBlocks = blocks.filter((b) => { const r = role.get(bkey(b)); return !r || (r.kind === "hall" && !r.landmark); });
   const lotTaken = new Set();
   // Les halles d'abord : l'angle de l'îlot le plus haut à l'écran (x0, y0) s'il est
   // entier, sinon le premier carré qui tient, en réduisant la taille s'il le faut.
   const hallAt = new Map();
+  const lmLawn = [];                                    // pelouse des repères de quartier
   for (const b of blocks) {
     const r = role.get(bkey(b));
     if (!r || r.kind !== "hall") continue;
@@ -489,9 +545,20 @@ export function planIlots(o) {
     const fits = (gx, gy, sz) => { for (let dy = 0; dy < sz; dy += 1) for (let dx = 0; dx < sz; dx += 1) if (!inB.has((gx + dx) + "," + (gy + dy)) || !mine(gx + dx, gy + dy)) return false; return true; };
     let at = null;
     for (let sz = Math.min(r.size, b.x1 - b.x0 + 1, b.y1 - b.y0 + 1); sz >= 1 && !at; sz -= 1) {
+      // Le REPÈRE se pose au MILIEU de son îlot (sa pelouse l'entoure), les autres à l'angle.
+      if (r.landmark) {
+        const cgx = b.x0 + Math.floor((b.x1 - b.x0 + 1 - sz) / 2), cgy = b.y0 + Math.floor((b.y1 - b.y0 + 1 - sz) / 2);
+        if (fits(cgx, cgy, sz)) { at = { gx: cgx, gy: cgy, size: sz, block: b }; break; }
+      }
       for (let gy = b.y0; gy + sz - 1 <= b.y1 && !at; gy += 1) for (let gx = b.x0; gx + sz - 1 <= b.x1 && !at; gx += 1) if (fits(gx, gy, sz)) at = { gx, gy, size: sz, block: b };
     }
     if (!at) continue;
+    if (r.landmark) {
+      for (const q of b.cells) {
+        if (q.x >= at.gx && q.x < at.gx + at.size && q.y >= at.gy && q.y < at.gy + at.size) continue;
+        if (!(hold && hold(q.x, q.y))) lmLawn.push({ gx: q.x, gy: q.y });
+      }
+    }
     for (let dy = 0; dy < at.size; dy += 1) for (let dx = 0; dx < at.size; dx += 1) {
       const x = at.gx + dx, y = at.gy + dy;
       lotTaken.add(x + "," + y);
@@ -541,22 +608,31 @@ export function planIlots(o) {
   let nPref = 0;
   for (let cap = 0; nPref < nH && cap < o.demand.lots; nPref += 1) cap += capOf(houseBlocks[nPref]);
   nPref = Math.max(1, Math.min(nH, nPref));
+  // Ville à quartiers : les îlots du préfixe, rangés par quartier — un atelier se sème
+  // d'abord dans celui de sa famille (la rue des guildes, la rue des écoles…).
+  const prefOfQ = new Map();
+  if (qOn) for (let i = 0; i < nPref; i += 1) { const q = quarterOfB(houseBlocks[i]); if (!prefOfQ.has(q)) prefOfQ.set(q, []); prefOfQ.get(q).push(houseBlocks[i]); }
+  const sowIn = (a, b) => {
+    const ty = typesIn.get(bkey(b));
+    if (ty && ty.has(a.id)) return false;
+    for (const l of b.lots) {
+      // Angle 2×2 : l'ancre est le coin haut-gauche du carré qui contient le lot.
+      const anchors = a.size > 1 ? [[l.gx, l.gy], [l.gx - 1, l.gy], [l.gx, l.gy - 1], [l.gx - 1, l.gy - 1]] : [[l.gx, l.gy]];
+      for (const [gx, gy] of anchors) if (fitsAt(gx, gy, a.size, b)) { take(a, gx, gy, b); return true; }
+    }
+    return false;
+  };
   for (const a of o.demand.annexes) {
     if (annexAt.has(a.key) || !nH) continue;
     const u = ((a.index * 0.6180339887 + (hash("ilot:" + a.id) % 1000) / 1000) % 1 + 1) % 1;
-    const r0 = Math.floor(u * nPref);
     let done = false;
-    for (let s = 0; s < nH && !done; s += 1) {
-      const b = houseBlocks[s < nPref ? (r0 + s) % nPref : s];
-      const ty = typesIn.get(bkey(b));
-      if (ty && ty.has(a.id)) continue;
-      for (const l of b.lots) {
-        // Angle 2×2 : l'ancre est le coin haut-gauche du carré qui contient le lot.
-        const anchors = a.size > 1 ? [[l.gx, l.gy], [l.gx - 1, l.gy], [l.gx, l.gy - 1], [l.gx - 1, l.gy - 1]] : [[l.gx, l.gy]];
-        for (const [gx, gy] of anchors) if (fitsAt(gx, gy, a.size, b)) { take(a, gx, gy, b); done = true; break; }
-        if (done) break;
-      }
+    const mine = qOn && a.quarter ? prefOfQ.get(a.quarter) : null;
+    if (mine && mine.length) {
+      const q0 = Math.floor(u * mine.length);
+      for (let s = 0; s < mine.length && !done; s += 1) done = sowIn(a, mine[(q0 + s) % mine.length]);
     }
+    const r0 = Math.floor(u * nPref);
+    for (let s = 0; s < nH && !done; s += 1) done = sowIn(a, houseBlocks[s < nPref ? (r0 + s) % nPref : s]);
   }
 
   // ── Les maisons : les lots restants, îlot par îlot, en rangée ────────────
@@ -634,6 +710,9 @@ export function planIlots(o) {
   for (const b of blocks) { const r = role.get(bkey(b)); if (r && r.kind === "plaza") memPlazas[bkey(b)] = r.plazaKind; }
   const memOut = { blocks: blocks.map(bkey), plazas: memPlazas, halls: memHalls, annexes: memAnnex };
   for (const k of Object.keys(memOut.halls)) if (!openedSet.has(memOut.halls[k])) delete memOut.halls[k];
+  // Les quartiers : le drapeau de la fiche (gardé tel quel, même molette coupée) et ses repères.
+  if (mem.q) memOut.q = mem.q;
+  if (qOn) { for (const [q, k] of Object.entries(memLm)) if (!memOut.halls[k]) delete memLm[q]; memOut.lm = memLm; }
   // Les rues des îlots mémorisés qui ne se sont pas rouverts (`o.release`, l'anneau vide) :
   // le pourtour de chacun, moins ce qui borde encore un îlot ouvert (les rues de la ville).
   const droppedRing = new Set();
@@ -645,5 +724,10 @@ export function planIlots(o) {
   // `order` : la suite complète, calculée seulement si quelqu'un la lit.
   // `forumClaim` : cases tenues que le grand forum reprend (migration d'une fiche d'avant) —
   // leurs bâtiments sont à reloger (layout.js).
-  return { grid, get order() { return order.all(); }, blocks, opened: openedSet, streets, plazas, halls, hallBlock, hallAt, annexAt, lots, lotFace, courts, air, memory: memOut, seed, forumClaim, droppedRing };
+  // `quarterAt` (ville à quartiers, sinon null) : le quartier d'une case, pour l'infobulle ;
+  // `lmLawn` : la pelouse des repères ; `landmarks` : clés de leurs halles.
+  const landmarks = new Set();
+  for (const r of role.values()) if (r.kind === "hall" && r.landmark) landmarks.add(r.key);
+  return { grid, get order() { return order.all(); }, blocks, opened: openedSet, streets, plazas, halls, hallBlock, hallAt, annexAt, lots, lotFace, courts, air, memory: memOut, seed, forumClaim, droppedRing,
+    quarterAt: qOn ? quarterAt : null, lmLawn, landmarks };
 }

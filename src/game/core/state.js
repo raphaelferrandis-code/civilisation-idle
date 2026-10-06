@@ -1806,7 +1806,16 @@ function normalizeCityIlot(raw) {
   // et sa bande (layout.js ILOT_BIG) — une mesure, pas un état : perdue, elle se refait.
   const big = isPlainObject(raw.big) && Number.isInteger(raw.big.b) && raw.big.b >= 0 && raw.big.b <= 20
     && Number.isFinite(raw.big.r) && raw.big.r >= 0 && raw.big.r <= 4 ? { b: raw.big.b, r: raw.big.r } : null;
-  return { v, blocks, plazas, halls, annexes, ...(big ? { big } : {}) };
+  // `q` : ville née avec ses quartiers ; `lm` : quartier → clé de sa halle-repère
+  // (docs/PLAN-LISIBILITE.md, Q+R).
+  const q = raw.q === 1 ? 1 : 0;
+  const lm = {};
+  if (isPlainObject(raw.lm)) {
+    for (const [k, v2] of Object.entries(raw.lm).slice(0, 8)) {
+      if (/^(marchand|pouvoir|savant|faubourg)$/.test(k) && typeof v2 === "string" && /^[0-9]+:[a-z0-9_]+:[0-9]+$/i.test(v2)) lm[k] = v2;
+    }
+  }
+  return { v, blocks, plazas, halls, annexes, ...(big ? { big } : {}), ...(q ? { q, lm } : {}) };
 }
 
 // Les deux ports figés à leur fondation (docs/PLAN-PORTS.md, map/portSites.js) :

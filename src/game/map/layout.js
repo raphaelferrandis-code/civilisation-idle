@@ -18,14 +18,14 @@ import { CITY_QUARTERS, QUARTER_PLAZA, forSiteCells, hearthOfSite, centralSiteFo
 import { PORT_SITES, BASIN_NORTH_QUAY, oldPortBasinFor, basinCells, tradePortSiteFor, tradeCells } from './portSites.js';
 import { ROAD_LINK_WAVE_FRACTION } from '../core/balance.js';
 import { createBuildingPlacer, placeCategorySlotted, VARIANTS_HOUSE, houseFootprint } from './procedural/buildingGenerator.js';
-import { planIlots, ilotReachFor, ilotMemoryCells } from './ilotLayout.js';
+import { planIlots, ilotReachFor, ilotMemoryCells, ILOT_QUARTERS } from './ilotLayout.js';
 import { ILOT_BANDS, ANNEX_BODIES, annexOwnArt, ROWS } from './ilotArt.js';
 import { createWaterModel } from './procedural/waterModel.js';
 import { planHighway, interchangeLawns, HIGHWAY } from './procedural/highwayPlan.js';
 import { CM_GIVEN, CM_EPITHETS, CM_TRADES, CM_HOUSES, CM_ROLES, CM_STREET_OF, CM_RESIDENCES, cmOfEn } from './cityNaming.js';
 import {
   CM_MAP_BUILDINGS,
-  CM_KNOWLEDGE_IDS, CM_INFRA_IDS, CM_SLOT_PRIORITIES
+  CM_KNOWLEDGE_IDS, CM_INFRA_IDS, CM_SLOT_PRIORITIES, CM_QUARTER_OF
 } from './cityBuildings.js';
 // Taille de tuile et pixels par tuile des merveilles : UNE source, le module d'échelle
 // du grain (sans import, donc sans cycle) — les tests lisaient la copie de layout.js
@@ -281,6 +281,12 @@ function ilotBigHomeLots(band, bias, seed, nHouse, nHome) {
 // des guildes (dessinés pour être semés, cf. GUILD_CRAFTS_B4) et les points d'eau.
 // Corps par âge et exceptions : ilotArt.js (ANNEX_BODIES, annexOwnArt).
 const ILOT_TUNE = { annexBody: true };
+// LES QUARTIERS (docs/PLAN-LISIBILITE.md, Q) : la liste de logements de chaque quartier —
+// les beaux quartiers autour du forum, les faubourgs ouvriers à l'opposé du fleuve ; les
+// marchands et les savants gardent celle de la personnalité. Et la boutique de la rue
+// marchande : la PREMIÈRE entrée de ANNEX_BODIES (atelier, taberna, rez haussmannien,
+// boutique néon), les autres quartiers tirent dans le reste de la liste.
+const QUARTER_HOUSES = { pouvoir: "rich", faubourg: "poor" };
 const ilotTownBody = (id, band) => ILOT_TUNE.annexBody && !!ANNEX_BODIES[band | 0] && !annexOwnArt(id, band | 0);
 // Une HALLE ne dépasse pas 3×3 dans un îlot 4×4 : à 4×4 elle prend l'îlot entier et sa
 // scène (≈ 2 cases de large) trône sur un parvis vide — refusé en v1 (« 25 parvis
@@ -2605,9 +2611,11 @@ function computeCityLayout(s) {
       for (let ei = 0; ei < inst.length; ei += 1) {
         const key = cmMapSlotKey(s.cycles, meta.id, ei);
         // Les points d'eau n'ont pas de halle : tous sont des repères d'une case.
-        if (ei === 0 && meta.id !== "aqueducts") { halls.push({ key, zone: meta.zone, id: meta.id, size: Math.min(ILOT_HALL_MAX, cmEngineGroupFoot(meta.id, inst[0], 0)) }); continue; }
+        // `quarter` : la famille (cityBuildings CM_QUARTER_OF), lue par planIlots quand la
+        // fiche a ses quartiers (`q`).
+        if (ei === 0 && meta.id !== "aqueducts") { halls.push({ key, zone: meta.zone, id: meta.id, quarter: CM_QUARTER_OF[meta.id] || null, size: Math.min(ILOT_HALL_MAX, cmEngineGroupFoot(meta.id, inst[0], 0)) }); continue; }
         const size = meta.id === "aqueducts" || ilotTownBody(meta.id, c.eraBand) ? 1 : cmEngineAtelierFoot(meta.id);
-        annexes.push({ key, id: meta.id, size, zone: meta.zone, index: ei });
+        annexes.push({ key, id: meta.id, size, zone: meta.zone, quarter: CM_QUARTER_OF[meta.id] || null, index: ei });
         annexLots += size * size;
       }
     }
@@ -2978,7 +2986,10 @@ function computeCityLayout(s) {
     s.cityRoads = null;
     delete s.cityCore.wonders; delete s.cityCore.quarters; delete s.cityCore.central;
     delete s.cityCore.districts; delete s.cityCore.highway;
-    s.cityCore.ilot = { v: ILOT_MEMORY_V, blocks: [], plazas: {}, halls: {}, annexes: {} };
+    // `q: 1` : une ville NÉE avec ses quartiers (docs/PLAN-LISIBILITE.md, Q) — halles et
+    // ateliers par famille, un repère par quartier. Une fiche d'avant n'en a pas : sa ville
+    // ne se réorganise pas, la suivante (après la chute) les aura.
+    s.cityCore.ilot = { v: ILOT_MEMORY_V, q: ILOT_QUARTERS.on ? 1 : 0, blocks: [], plazas: {}, halls: {}, annexes: {} };
   }
   // ── LA RESPIRATION DES ÎLOTS : un second passage, léger (Raph 2026-10-04) ──
   // « Ça ne respire pas, tous les îlots sont complets » → des lots de bord restent en
@@ -3002,7 +3013,8 @@ function computeCityLayout(s) {
     // ⚠ Pas une fiche v1 : ses maisons sont effacées juste en dessous (respiration), et
     // l'anneau se reconnaît aux îlots SANS maison — tous le seraient, la ville entière
     // se refermerait. (Les fiches v1 n'ont vécu que le 04/10.)
-    if ((s.cityCore.ilot.v | 0) >= 2 && (s.cityCore.ilot.v | 0) < ILOT_RING_V) ilotRelease = true;
+    // (Ni une fiche née avec ses quartiers : elle est d'après la correction, sans anneau.)
+    if ((s.cityCore.ilot.v | 0) >= 2 && (s.cityCore.ilot.v | 0) < ILOT_RING_V && !s.cityCore.ilot.q) ilotRelease = true;
     if ((s.cityCore.ilot.v | 0) < 2) {
       const store = cmCityMapSlotsFor(s), pre = `${s.cycles || 0}:dec_`;
       for (const k of Object.keys(store)) if (k.startsWith(pre)) delete store[k];
@@ -5059,7 +5071,9 @@ function computeCityLayout(s) {
       if (!an) continue;
       tileOf(req, an.gx, an.gy, an.size);
       if (an.size === 1 && ilotTownBody(req.meta.id, c.eraBand)) {
-        const bodies = ANNEX_BODIES[c.eraBand | 0];
+        const all = ANNEX_BODIES[c.eraBand | 0];
+        const q = ilot.quarterAt ? ilot.quarterAt(an.gx, an.gy) : null;
+        const bodies = !q || all.length < 2 ? all : q === "marchand" ? all.slice(0, 1) : all.slice(1);
         tiles[tiles.length - 1].body = bodies[(cmHash("body:" + req.slotKey) >>> 0) % bodies.length];
       }
     }
@@ -5174,6 +5188,30 @@ function computeCityLayout(s) {
   // sentiers et leurs cours, eux, se voyaient.
   placeDecor("enginehome", campLife ? 0 : (c.engineHomes || 0) + ENGINE_HOME_LOOKAHEAD);
   placingOwner = null;   // fin des poses à propriétaire (cf. heldBy)
+  // LE STYLE DES QUARTIERS (cf. QUARTER_HOUSES) — APRÈS la pose, jamais pendant : le
+  // tirage d'une maison ne doit pas dépendre de sa case (S4, buildingGenerator) — la pose
+  // tire sur une case candidate et peut glisser à la voisine, dans un autre quartier ;
+  // au calcul suivant, le dessin changeait (49 maisons à un achat, mesuré). Ici, posée,
+  // une maison prend le dessin de MÊME EMPRISE de la liste de son quartier (beaux
+  // quartiers, faubourgs ouvriers), tiré par sa position (aux âges cosmiques, par pâté,
+  // pour garder l'îlot uniforme). Emprises inchangées : la demande de lots aussi.
+  if (ilot && ilot.quarterAt) {
+    const band = c.eraBand | 0, row = VARIANTS_HOUSE[Math.max(0, Math.min(VARIANTS_HOUSE.length - 1, band))];
+    const sameFoot = new Map();
+    for (const t of tiles) {
+      if (t.type !== "house" && t.type !== "enginehome") continue;
+      const qb = QUARTER_HOUSES[ilot.quarterAt(t.gx, t.gy)];
+      const list = qb && row[qb];
+      if (!list || list.includes(t.variant)) continue;
+      const [fx, fy] = houseFootprint(t.variant, band);
+      const fk = qb + ":" + fx + "x" + fy;
+      if (!sameFoot.has(fk)) sameFoot.set(fk, list.filter((v) => { const [a, b] = houseFootprint(v, band); return a === fx && b === fy; }));
+      const same = sameFoot.get(fk);
+      if (!same.length) continue;
+      const h = band >= 7 ? cmHash("quartier:" + Math.floor(t.gx / 3) + ":" + Math.floor(t.gy / 3)) : cmHash("quartier:" + t.gx + ":" + t.gy);
+      t.variant = same[(h >>> 0) % same.length];
+    }
+  }
   // LE RELEVÉ DES GRANDS LOGIS (cf. ILOT_BIG) : combien de lots de bord en plus d'un par
   // logis la pose a réellement pris. Mémorisé par bande ; le calcul suivant de la même
   // bande dimensionne sa demande dessus. Pas de relevé sur une ville trop petite (bruit).
@@ -5684,6 +5722,7 @@ function computeCityLayout(s) {
     // sortent du sol de ville plus bas, sauf ceux qu'un bâtiment occupe.
     for (const l of ilot.lots) townGreen.add(l.gx + "," + l.gy);
     for (const q of ilot.air) townGreen.add(q.gx + "," + q.gy);   // l'air des îlots
+    for (const q of ilot.lmLawn) townGreen.add(q.gx + "," + q.gy);   // la pelouse des repères de quartier
   } else for (let gy = 0; gy < N; gy += 1) for (let gx = 0; gx < N; gx += 1) {
     if (!organicLimit(gx, gy, 1.5)) continue;   // avant la clé texte (sortie anticipée)
     const k = gx + "," + gy;
@@ -5777,6 +5816,10 @@ function computeCityLayout(s) {
     engineHomePlaced,
     // Relevé des grands logis (cf. ILOT_BIG) : { n, extra, est, demand } — pour les sondes.
     ilotBig: ilotBigUsed,
+    // Les quartiers d'une ville née avec eux (ilotLayout ILOT_QUARTERS) : (gx, gy) → "marchand"
+    // | "pouvoir" | "savant" | "faubourg", ou null ; et les clés de slot des halles-repères.
+    quarterAt: ilot ? ilot.quarterAt : null,
+    landmarks: ilot ? ilot.landmarks : null,
     // Foyer du campement (cf. CAMP_HEARTH) : gardé de tout bâti depuis la
     // pose (hearthClear), il n'a plus qu'à être publié.
     campHearth: hearthCell,

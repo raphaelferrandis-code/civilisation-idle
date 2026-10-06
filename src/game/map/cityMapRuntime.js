@@ -549,7 +549,27 @@ const CM_COLLECTIVE_HOMES = new Set([
   "dense", "arcology", "grid"
 ]);
 
+// LE QUARTIER (docs/PLAN-LISIBILITE.md, Q) : une ville née avec ses quartiers nomme celui
+// de la tuile survolée — un nom, jamais une phrase.
+const CM_QUARTER_NAMES = {
+  marchand: { fr: "Quartier marchand", en: "Merchant quarter" },
+  pouvoir: { fr: "Quartier du forum", en: "Forum quarter" },
+  savant: { fr: "Quartier savant", en: "Scholars' quarter" },
+  faubourg: { fr: "Faubourgs", en: "Outskirts" },
+};
+function cityMapQuarterName(t) {
+  const qa = CM.layout && CM.layout.quarterAt;
+  const q = qa ? CM_QUARTER_NAMES[qa(t.gx, t.gy)] : null;
+  return q ? tr(q) : null;
+}
+
 function cityMapDescribeTile(t) {
+  const desc = cityMapDescribeTile0(t);
+  const q = t.type === "engine" || t.type === "house" || t.type === "enginehome" ? cityMapQuarterName(t) : null;
+  if (!q) return desc;
+  return { ...desc, body: desc.body ? `${desc.body} · ${q}` : q };
+}
+function cityMapDescribeTile0(t) {
   if (t.type === "engine") {
     // Corps en langage d'atelier, pas en données brutes : « Édifice principal ·
     // niveau 12 · 2 annexes » remplace « Niveau total 12 | groupe 1/3 (4) -

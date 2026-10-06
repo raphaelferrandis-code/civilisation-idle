@@ -53,3 +53,19 @@ export const CM_INFRA_IDS     = new Set(CM_INFRA_BUILDINGS.map((b) => b.id));
 // (Les aqueducs avaient leur propre priorité 0 : la conduite devait réserver la
 //  berge avant tout le monde. Devenus points d'eau, ils passent avec les infra.)
 export const CM_SLOT_PRIORITIES = { infra: 1, knowledge: 2, engine: 3 };
+
+// LES QUARTIERS (docs/PLAN-LISIBILITE.md, Q, 2026-10-06) : la FAMILLE de chaque bâtiment
+// de la ville par îlots. Un regard extérieur : « je vois la ville, pas les quartiers de la
+// ville » — les halles se posaient par ANNEAU (zone), neuf familles mêlées au cœur. Elles
+// se groupent maintenant par secteur autour du forum (ilotLayout.js, `quarterOf`) :
+// les marchands vers le fleuve et le pont, le pouvoir et le culte du côté du forum, les
+// savants de l'autre côté du cardo, les faubourgs à l'opposé du fleuve. La zone garde
+// son rôle d'anneau (près du cœur ou au bord), DANS le secteur. Champs, moulins et ports
+// restent hors des îlots ; les points d'eau, semés partout, n'ont pas de quartier.
+export const CM_QUARTER_OF = {
+  markets: "marchand", guilds: "marchand", caravans: "marchand", mint_houses: "marchand", imperial_exchanges: "marchand",
+  storytellers: "savant", scribes: "savant", schools: "savant", academies: "savant", observatories: "savant",
+  libraries: "savant", universities: "savant", printing_houses: "savant", think_tanks: "savant", archive_grids: "savant",
+  ancestral_cult: "pouvoir", watch: "pouvoir", bureaucracy: "pouvoir", courthouses: "pouvoir", ministries: "pouvoir",
+  foragers: "faubourg", granaries_city: "faubourg", sewers: "faubourg", public_works: "faubourg", ruin_architects: "faubourg",
+};

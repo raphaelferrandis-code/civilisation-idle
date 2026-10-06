@@ -7,6 +7,7 @@
 // restent logées — puis plus rien ne bouge.
 import { describe, it, expect, beforeEach, afterEach } from "vitest";
 import { ENGINE_HOME_LOOKAHEAD, ILOT_BIG, ILOT_MEMORY_V } from "../layout.js";
+import { ILOT_QUARTERS } from "../ilotLayout.js";
 import { state } from "../../core/state.js";
 import { growCity as grow } from "../../../test/city.js";
 
@@ -15,7 +16,7 @@ beforeEach(() => {
   state.cityRoads = null; state.cityCore = null; state.cityMapSlots = {}; state.cityArchetype = null; state.cityPersonality = null; state.riverWP = null;
   state.wonders = [];
 });
-afterEach(() => { Object.assign(ILOT_BIG, BIG0); });
+afterEach(() => { Object.assign(ILOT_BIG, BIG0); ILOT_QUARTERS.on = true; });
 
 // Part des cases de rue (hors places) qui ne bordent RIEN de visible : ni bâtiment, ni
 // place, ni parvis de merveille (8-voisinage).
@@ -57,8 +58,10 @@ describe("l'anneau d'îlots vides", () => {
   });
 
   it("une partie existante (fiche v4) referme son anneau UNE fois, sans rien déplacer d'habité", () => {
-    // La partie d'avant : la demande d'avant (géants comptés à la moyenne de liste).
+    // La partie d'avant : la demande d'avant (géants comptés à la moyenne de liste), et
+    // une ville née avant les quartiers (une fiche à quartiers n'a jamais eu d'anneau).
     Object.assign(ILOT_BIG, { cosmicFit: 1, memo: false });
+    ILOT_QUARTERS.on = false;
     grow(32);
     const L0 = grow(36);
     expect(L0.counts.eraBand).toBe(7);
@@ -71,6 +74,7 @@ describe("l'anneau d'îlots vides", () => {
     const houses0 = Object.entries(state.cityMapSlots).filter(([k]) => /:dec_/.test(k));
     // La mise à jour.
     Object.assign(ILOT_BIG, BIG0);
+    ILOT_QUARTERS.on = true;
     const L = grow(36);
     expect(state.cityCore.ilot.v).toBe(ILOT_MEMORY_V);
     expect(homesOk(L), "maisons-moteur logées").toBe(true);
