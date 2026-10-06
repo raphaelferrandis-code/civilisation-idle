@@ -23,7 +23,7 @@ import { drawIsoVehicle } from './isoUnits.js';
 import { muteSunShadow } from './isoSunShadow.js';
 import { highwayTrafficLanes, h01 } from '../highwayTraffic.js';
 import { bankRibbon, loopRibbons, HIGHWAY } from '../procedural/highwayPlan.js';
-import { boxShapes, bakeShapes, blitBaked, makeBakeCache, artKdAt, elevGlow as glowAt, segGeo, shadeFace as shade, relTo as rel, vquad } from './elevPaint.js';
+import { boxShapes, bakeShapes, blitBaked, makeBakeCache, artKdAt, elevGlow as glowAt, segGeo, shadeFace as shade, relTo as rel } from './elevPaint.js';
 
 export const HWY = { on: true, cars: 1, lamps: 1, shadow: 0.55, th: 0.26, ph: 0.1 };
 
@@ -45,7 +45,22 @@ function highwayRibbons(H, T) {
   if (_ribFor === H) return _ribs;
   const out = [];
   for (const b of H.banks) out.push(bankRibbon(H, b));
-  for (const r of loopRibbons(H)) out.push(r);
+  const loops = loopRibbons(H);
+  for (const r of loops) out.push(r);
+  // L'AMORCE DE CHAQUE BOUCLE (retour Raph, 2026-10-06 : « le même problème sur le bras
+  // d'insertion et de sortie ») : la boucle déborde du tablier dès son premier point, et
+  // ce bout en l'air n'avait pas de face d'about — un trou sur le sol, en triangle. Un
+  // tronçon de dessin seul (la circulation ne le connaît pas : ajouté APRÈS les rubans
+  // qu'elle indexe), posé sur le tablier en amont, bord extérieur sur le bord du tablier :
+  // la bretelle s'en écarte en biseau, comme une voie qui diverge.
+  const xm = H.ax + 1, hwDeck = out.length ? out[0].w / 2 : 0.95;
+  for (const r of loops) {
+    const p0 = r.pts[0], p1 = r.pts[1];
+    const west = r.pts[r.pts.length - 1].x < H.ax;
+    const back = p1.y > p0.y ? -1 : 1;                   // en amont de la boucle, le long du tablier
+    const x = west ? xm - hwDeck + r.w / 2 : xm + hwDeck - r.w / 2;
+    out.push({ id: 'gore' + (west ? -1 : 1), pts: [{ x, y: p0.y + back * GORE_LEN, z: p0.z }, { ...p0 }], w: r.w, lanes: [], main: false, gore: true });
+  }
   for (const r of out) {
     r.pts = r.pts.map((p) => ({ x: p.x * T, y: p.y * T, z: p.z * T }));
     r.cum = [0];
@@ -61,43 +76,118 @@ function highwayRibbons(H, T) {
       r.geo.push(g);
       r.dF.push(Math.max(...[g.AL, g.BL, g.AR, g.BR].map((p) => depthOf(p[0], p[1]))));
     }
-    r.skipL = new Array(r.geo.length).fill(false);
-    r.skipR = new Array(r.geo.length).fill(false);
+    r.clipL = new Array(r.geo.length).fill(FULL);
+    r.clipR = new Array(r.geo.length).fill(FULL);
   }
-  // LES BRETELLES S'INSÈRENT : la glissière du tablier s'ouvre là où une boucle le
-  // longe, et la boucle n'a pas de glissière tant qu'elle est sur le tablier
-  // (retour Raph : « la barrière de l'autoroute coupe le bras d'insertion »).
-  const x0 = H.ax * T, x1 = (H.ax + 2) * T;
-  for (const lp of out.filter((r) => !r.main)) {
-    const west = lp.pts[lp.pts.length - 1].x < x0;
-    let ymin = Infinity, ymax = -Infinity;
-    for (const p of lp.pts) {
-      const near = west ? p.x > x0 - 0.55 * T : p.x < x1 + 0.55 * T;
-      if (near && p.z > 0.2 * T) { if (p.y < ymin) ymin = p.y; if (p.y > ymax) ymax = p.y; }
-    }
-    ymin -= 0.25 * T; ymax += 0.25 * T;
-    for (const r of out.filter((q) => q.main)) {
+  // LES BRETELLES S'INSÈRENT. ⚠ Le premier jet ôtait la tranche et la glissière d'un
+  // tronçon ENTIER (une boucle dès qu'un de ses coins touchait le tablier ; le tablier sur
+  // toute la longueur longée, sauf sa tranche) : des marches de blocs au départ de chaque
+  // bretelle, la tranche du tablier peinte en travers de la boucle, des bouts de boucle
+  // sans face (retour Raph, 2026-10-06). Désormais chaque bord est DÉCOUPÉ au point près :
+  //   · une boucle (et son amorce) n'a de tranche et de glissière que hors du tablier ;
+  //   · le tablier n'a de tranche et de glissière que là où aucune boucle ne le prolonge
+  //     — sa glissière s'ouvre exactement sur la largeur de la bretelle et rejoint celle
+  //     de la boucle (« la barrière de l'autoroute coupe le bras d'insertion », Raph).
+  const decks = out.filter((r) => r.main), slabs = out.filter((r) => !r.main);
+  if (decks.length && slabs.length) {
+    const xW = (xm - hwDeck) * T, xE = (xm + hwDeck) * T, eps = 0.5;
+    // Hors du tablier : x < xW ou x > xE (une boucle ne longe qu'un bord).
+    for (const r of slabs) {
       r.geo.forEach((g, i) => {
-        const ya = Math.min(r.pts[i].y, r.pts[i + 1].y), yb = Math.max(r.pts[i].y, r.pts[i + 1].y);
-        if (yb < ymin || ya > ymax) return;
-        // ruban principal orienté vers +y : sa gauche est l'OUEST
-        if (west) r.skipL[i] = true; else r.skipR[i] = true;
+        r.clipL[i] = outside(g.AL, g.BL, xW, xE, eps);
+        r.clipR[i] = outside(g.AR, g.BR, xW, xE, eps);
       });
     }
-    const onDeck = (p) => p[0] > x0 - 0.06 * T && p[0] < x1 + 0.06 * T;
-    lp.geo.forEach((g, i) => {
-      if (onDeck(g.AL) || onDeck(g.BL)) lp.skipL[i] = true;
-      if (onDeck(g.AR) || onDeck(g.BR)) lp.skipR[i] = true;
-    });
+    // Couvert : sur le bord du tablier, à l'intérieur d'un tronçon de boucle encore à sa
+    // hauteur (les boucles ne descendent qu'une fois écartées).
+    const zMin = H.deck * T - 0.35 * T;
+    const quads = [];
+    for (const r of slabs) r.geo.forEach((g, i) => { if (Math.min(r.pts[i].z, r.pts[i + 1].z) > zMin) quads.push(g); });
+    let qy0 = Infinity, qy1 = -Infinity;
+    for (const g of quads) for (const p of [g.AL, g.BL, g.AR, g.BR]) { qy0 = Math.min(qy0, p[1]); qy1 = Math.max(qy1, p[1]); }
+    const covered = (x, y) => quads.some((g) => inQuad(x, y, g));
+    for (const r of decks) {
+      r.geo.forEach((g, i) => {
+        if (Math.max(g.AL[1], g.BL[1]) < qy0 || Math.min(g.AL[1], g.BL[1]) > qy1) return;
+        r.clipL[i] = uncovered(g.AL, g.BL, covered);
+        r.clipR[i] = uncovered(g.AR, g.BR, covered);
+      });
+    }
   }
   _ribFor = H; _ribs = out;
   return out;
 }
 
-function backShapes(M, r, a, b, g, i, T, skipL, skipR) {
+// ── DÉCOUPE DES BORDS ────────────────────────────────────────────────────────
+// Un bord p→q d'un tronçon se dessine sur une liste d'intervalles [t0, t1] de son
+// paramètre (FULL : en entier ; [] : pas du tout).
+const FULL = [[0, 1]];
+const GORE_LEN = 1.1;                                    // amorce d'une boucle, en tuiles
+// La partie de p→q hors de la bande xW..xE (px monde), à `eps` près.
+function outside(p, q, xW, xE, eps) {
+  const dx = q[0] - p[0];
+  const half = (lim, keep) => {                          // keep(x) : du bon côté de lim
+    const kp = keep(p[0]), kq = keep(q[0]);
+    if (kp && kq) return [0, 1];
+    if (!kp && !kq) return null;
+    const t = Math.abs(dx) < 1e-9 ? 0 : (lim - p[0]) / dx;
+    return kp ? [0, t] : [t, 1];
+  };
+  const w = half(xW - eps, (x) => x < xW - eps), e = half(xE + eps, (x) => x > xE + eps);
+  const out = [w, e].filter((iv) => iv && iv[1] - iv[0] > 1e-3);
+  return out.length === 1 && out[0][0] === 0 && out[0][1] === 1 ? FULL : out;
+}
+// Le point (x, y) dans le quadrilatère convexe d'un tronçon (AL, BL, BR, AR).
+function inQuad(x, y, g) {
+  const P = [g.AL, g.BL, g.BR, g.AR];
+  let sg = 0;
+  for (let k = 0; k < 4; k += 1) {
+    const p = P[k], q = P[(k + 1) & 3];
+    const c = (q[0] - p[0]) * (y - p[1]) - (q[1] - p[1]) * (x - p[0]);
+    if (Math.abs(c) < 1e-6) continue;
+    const s = c > 0 ? 1 : -1;
+    if (!sg) sg = s; else if (s !== sg) return false;
+  }
+  return true;
+}
+// Les intervalles de p→q que `covered` ne couvre pas, au demi-pixel monde.
+function uncovered(p, q, covered) {
+  const L = Math.hypot(q[0] - p[0], q[1] - p[1]), n = Math.max(2, Math.ceil(L * 2));
+  const out = [];
+  let t0 = null;
+  for (let k = 0; k <= n; k += 1) {
+    const t = k / n, c = covered(p[0] + (q[0] - p[0]) * t, p[1] + (q[1] - p[1]) * t);
+    if (!c && t0 == null) t0 = t;
+    if (c && t0 != null) { out.push([t0, (k - 0.5) / n]); t0 = null; }
+  }
+  if (t0 != null) out.push([t0, 1]);
+  return out.length === 1 && out[0][0] === 0 && out[0][1] === 1 ? FULL : out;
+}
+const clipSig = (iv) => (iv === FULL ? '' : iv.length ? iv.map(([a, b]) => a.toFixed(3) + '-' + b.toFixed(3)).join('_') : 'x');
+// LES JOINTS (retour Raph, 2026-10-06 : « des traits blancs entre les tuiles de
+// l'autoroute ») : chaque tronçon est cuit sur SA grille de pixels d'art, ancrée à son
+// origine ; deux tronçons voisins ne tombent pas sur la même, et leur bord commun
+// laissait un pixel de sol entre eux. Chaque tronçon mord de JOINT px monde en amont,
+// sur le précédent (≥ 2 pixels d'art à l'écran, en x comme en y).
+const JOINT = 3;
+const lerp3 = (p, q, t) => [p[0] + (q[0] - p[0]) * t, p[1] + (q[1] - p[1]) * t, p[2] + (q[2] - p[2]) * t];
+const backOff = (p, g) => [p[0] - g.ux * JOINT, p[1] - g.uy * JOINT, p[2]];
+// Face verticale d'un bord p→q, de dz0 à dz1 au-dessus de lui, sur les intervalles
+// `iv`, RABATTUE AU SOL : au pied des rampes, la tranche s'enfonçait sous la chaussée en
+// blocs clairs (elle s'amincit maintenant jusqu'à zéro).
+function edgeFaces(s, a, g, p, q, iv, dz0, dz1, col) {
+  for (const [t0, t1] of iv) {
+    const P = t0 === 0 ? backOff(p, g) : lerp3(p, q, t0), Q = lerp3(p, q, t1);
+    const lo = (c) => Math.max(0, c[2] + dz0), hi = (c) => Math.max(0, c[2] + dz1);
+    if (hi(P) - lo(P) < 0.25 && hi(Q) - lo(Q) < 0.25) continue;
+    s.push({ poly: [rel(a, [P[0], P[1], hi(P)]), rel(a, [Q[0], Q[1], hi(Q)]), rel(a, [Q[0], Q[1], lo(Q)]), rel(a, [P[0], P[1], lo(P)])], col });
+  }
+}
+
+function backShapes(M, r, a, b, g, i, T, clipL, clipR) {
   const s = [];
   const ph = HWY.ph * T;
-  s.push({ poly: [rel(a, g.AL), rel(a, g.BL), rel(a, g.BR), rel(a, g.AR)], col: M.top[i % 2] });
+  s.push({ poly: [rel(a, backOff(g.AL, g)), rel(a, g.BL), rel(a, g.BR), rel(a, backOff(g.AR, g))], col: M.top[i % 2] });
   // marquages : rives pleines, tirets entre voies (deux sur quatre), axe central
   const half = r.w / 2;
   const tick = (u, off, col) => {
@@ -113,24 +203,26 @@ function backShapes(M, r, a, b, g, i, T, skipL, skipR) {
   }
   // glissières dont la face extérieure regarde AILLEURS : on voit leur face intérieure
   const visL = (g.nx + g.ny) > 0, visR = (-g.nx - g.ny) > 0;
-  if (!visL && !skipL) s.push(vquad(a, g.AL, g.BL, 0, ph, M.parIn));
-  if (!visR && !skipR) s.push(vquad(a, g.AR, g.BR, 0, ph, M.parIn));
+  if (!visL) edgeFaces(s, a, g, g.AL, g.BL, clipL, 0, ph, M.parIn);
+  if (!visR) edgeFaces(s, a, g, g.AR, g.BR, clipR, 0, ph, M.parIn);
   return s;
 }
-function frontShapes(M, g, a, T, skipL, skipR, loop) {
+// Tranche, sous-face et glissière des bords visibles, sur leurs intervalles (cf.
+// DÉCOUPE DES BORDS) : une boucle n'en a pas sur le tablier, le tablier pas là où une
+// boucle le prolonge.
+function frontShapes(M, g, a, T, clipL, clipR) {
   const s = [];
   const ph = HWY.ph * T, th = HWY.th * T;
   const visL = (g.nx + g.ny) > 0, visR = (-g.nx - g.ny) > 0;
-  // Sur le tablier, une boucle n'a ni tranche ni glissière (elle EST la chaussée).
-  if (visL && !(loop && skipL)) {
-    s.push(vquad(a, g.AL, g.BL, -th, 0, shade(M, g.nx, g.ny)));
-    s.push(vquad(a, g.AL, g.BL, -th, -th * 0.72, M.under));
-    if (!skipL) s.push(vquad(a, g.AL, g.BL, 0, ph, M.lit));
+  if (visL) {
+    edgeFaces(s, a, g, g.AL, g.BL, clipL, -th, 0, shade(M, g.nx, g.ny));
+    edgeFaces(s, a, g, g.AL, g.BL, clipL, -th, -th * 0.72, M.under);
+    edgeFaces(s, a, g, g.AL, g.BL, clipL, 0, ph, M.lit);
   }
-  if (visR && !(loop && skipR)) {
-    s.push(vquad(a, g.AR, g.BR, -th, 0, shade(M, -g.nx, -g.ny)));
-    s.push(vquad(a, g.AR, g.BR, -th, -th * 0.72, M.under));
-    if (!skipR) s.push(vquad(a, g.AR, g.BR, 0, ph, M.mid));
+  if (visR) {
+    edgeFaces(s, a, g, g.AR, g.BR, clipR, -th, 0, shade(M, -g.nx, -g.ny));
+    edgeFaces(s, a, g, g.AR, g.BR, clipR, -th, -th * 0.72, M.under);
+    edgeFaces(s, a, g, g.AR, g.BR, clipR, 0, ph, M.mid);
   }
   return s;
 }
@@ -258,7 +350,7 @@ export function highwayActors(now, out, decay = 0) {
       }
       hwyStats.segs += 1;
       const g = r.geo[i];
-      const skL = r.skipL[i], skR = r.skipR[i];
+      const clL = r.clipL[i], clR = r.clipR[i];
       // Les CLÉS DE FORME du tronçon et son ombre, gardées sur le plan (audit du 05/10,
       // PERF-54) : elles ne changent qu'avec lui (et la bande, et les molettes d'ombre et
       // d'épaisseur) ; rebâties à chaque frame, elles se rehachaient aussi à chaque
@@ -266,12 +358,13 @@ export function highwayActors(now, out, decay = 0) {
       const kc = r.kc || (r.kc = []);
       let K = kc[i];
       if (!K || K.band !== band) {
-        const kGeo = r1(b.x - a.x) + ',' + r1(b.y - a.y) + ',' + r1(a.z) + ',' + r1(b.z - a.z) + '|' + r.w + '|' + (r.main ? 1 : 0) + (skL ? 'l' : '') + (skR ? 'r' : '');
+        const kGeo = r1(b.x - a.x) + ',' + r1(b.y - a.y) + ',' + r1(a.z) + ',' + r1(b.z - a.z) + '|' + r.w + '|' + (r.main ? 1 : 0) + '|' + clipSig(clL) + '|' + clipSig(clR);
         K = kc[i] = { band, sh: 'sh|' + kGeo, bk: 'bk|' + band + '|' + (i % 2) + '|' + kGeo, fr: 'fr|' + band + '|' + kGeo, sk: null, o: null, q: null, sd: 0, th: null, pi: '', la: '' };
       }
       const dFront = r.dF[i];
-      // ombre au sol, décalée vers le bas-droite (soleil haut-gauche)
-      if (HWY.shadow > 0) {
+      // ombre au sol, décalée vers le bas-droite (soleil haut-gauche) ; pas pour l'amorce
+      // d'une boucle, posée sur le tablier (deux ombres l'une sur l'autre foncent le sol)
+      if (HWY.shadow > 0 && !r.gore) {
         const sk = HWY.shadow;
         if (K.sk !== sk) {
           const o = { x: a.x + a.z * sk, y: a.y, z: 0 };
@@ -288,12 +381,12 @@ export function highwayActors(now, out, decay = 0) {
       }
       const kBk = K.bk, kFr = K.fr;
       out.push({ wx: mx, wy: my, d: dFront - 0.002 * T, draw(ctx) {
-        const bk = baked(kBk, () => backShapes(M, r, a, b, g, i, T, skL, skR));
+        const bk = baked(kBk, () => backShapes(M, r, a, b, g, i, T, clL, clR));
         const p = worldToScreen(a.x, a.y, a.z);
         blitBaked(ctx, bk, p.x, p.y, d);
       } });
       out.push({ wx: mx, wy: my, d: dFront, draw(ctx) {
-        const bk = baked(kFr, () => frontShapes(M, g, a, T, skL, skR, !r.main));
+        const bk = baked(kFr, () => frontShapes(M, g, a, T, clL, clR));
         const p = worldToScreen(a.x, a.y, a.z);
         blitBaked(ctx, bk, p.x, p.y, d);
         // la nuit, les ères cosmiques allument la rive du tablier
@@ -306,7 +399,7 @@ export function highwayActors(now, out, decay = 0) {
       // les boucles toutes les 4 tranches
       const every = r.main ? 6 : 4;
       const top = a.z - HWY.th * T;
-      if (i % every === 0 && top > 0.35 * T) {
+      if (i % every === 0 && top > 0.35 * T && !r.gore) {
         if (K.th !== HWY.th) { K.th = HWY.th; K.pi = 'pi|' + band + '|' + r1(top) + '|' + (r.main ? 1 : 0) + '|' + (Math.abs(g.nx) > Math.abs(g.ny) ? 1 : 0); }
         const kPi = K.pi;
         // ⚠ AVANT le dessus du tablier : le chevêtre est SOUS la chaussée ; trié à
