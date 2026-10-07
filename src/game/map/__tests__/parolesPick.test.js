@@ -1,18 +1,21 @@
 import { describe, it, expect } from "vitest";
 
 import { PAROLES, JOB_GROUP } from "../../data/paroles.js";
-import { JOBS } from "../citizenIdentity.js";
+import { JOBS, TRAITS } from "../citizenIdentity.js";
 import { pickParole, parolesEligible, resolveLines } from "../paroles/pick.js";
 
-// ÉCOUTER (docs/PLAN-ECOUTER-PARLER.md, lot 1) : le catalogue et le choix d'un échange.
+// ÉCOUTER (docs/PLAN-ECOUTER-PARLER.md) : le catalogue et le choix d'un échange.
 
-const NAMES = ["a", "b", "conjoint", "enfant", "hote"];
+const NAMES = ["a", "b", "conjoint", "enfant", "hote", "voisin", "voisine", "gamin", "gamine"];
+const DOING = ["work", "school", "home", "errand", "plaza", "pray", "wonder", "wander", "night", "flee", "shelter", "riot", "river", "port", "field"];
 const adult = (o = {}) => ({ fem: false, child: false, old: false, job: null, traits: [], family: "single", kids: 0, ...o });
 const ctxOf = (o = {}) => ({
   kind: "thought", band: 2, night: false, precip: null, riot: false, wonder: false, prosper: false, cause: null,
+  season: "summer", doing: null,
   a: adult(), b: null, rel: null, kidIs: null, names: { a: "Garin" }, ...o,
 });
 const seq = (vals) => { let i = 0; return () => vals[i++ % vals.length]; };
+const byId = (id) => PAROLES.find((e) => e.id === id);
 
 describe("le catalogue", () => {
   it("chaque entrée a sa forme : un id unique, un genre, une couche, des répliques en deux langues", () => {
@@ -29,7 +32,12 @@ describe("le catalogue", () => {
         if (e.kind === "chat") expect(["a", "b", "parent", "kid"]).toContain(l.who);
       }
       if (e.kind === "chat") expect(e.lines.length, e.id).toBeGreaterThanOrEqual(2);
-      if (e.when && e.when.job) for (const g of e.when.job) expect(Object.values(JOB_GROUP)).toContain(g);
+      const w = e.when || {};
+      if (w.job) for (const j of w.job) expect(JOBS[j], `${e.id} : métier ${j}`).toBeTruthy();
+      if (w.notJob) for (const j of w.notJob) expect(JOBS[j], `${e.id} : métier ${j}`).toBeTruthy();
+      if (w.group) for (const g of w.group) expect(Object.values(JOB_GROUP)).toContain(g);
+      if (w.doing) for (const d of w.doing) expect(DOING, e.id).toContain(d);
+      if (w.trait) expect(TRAITS.some((t) => t.key === w.trait), e.id).toBe(true);
     }
   });
 
@@ -43,6 +51,20 @@ describe("le catalogue", () => {
         }
       }
     }
+  });
+
+  it("la plume : chaque réplique dit de quel monde elle est (cinq âges au plus, jamais du Feu au Démiurge)", () => {
+    for (const e of PAROLES) {
+      expect(Array.isArray(e.bands), `${e.id} : âges`).toBe(true);
+      const [lo, hi] = e.bands;
+      expect(lo <= hi && lo >= 0 && hi <= 9, e.id).toBe(true);
+      expect(hi - lo, `${e.id} : trop d'âges`).toBeLessThanOrEqual(4);
+    }
+  });
+
+  it("la plume : chaque métier a ses mots", () => {
+    const covered = new Set(PAROLES.flatMap((e) => (e.when && e.when.job) || []));
+    for (const key of Object.keys(JOBS)) expect(covered.has(key), key).toBe(true);
   });
 
   it("chaque métier a sa famille", () => {
@@ -65,18 +87,50 @@ describe("le choix", () => {
   it("on n'entend parler que de ce qu'il a : le célibataire ne parle pas de sa femme", () => {
     const married = ctxOf({ a: adult({ family: "married", kids: 2 }), names: { a: "Garin", conjoint: "Oda", enfant: "Tassin" } });
     const single = ctxOf();
-    const soir = PAROLES.find((e) => e.id === "t-couple-soir");
-    expect(parolesEligible(soir, married)).toBe(true);
-    expect(parolesEligible(soir, single)).toBe(false);
+    const sel = byId("b-t-sel-conjoint");
+    expect(parolesEligible(sel, married)).toBe(true);
+    expect(parolesEligible(sel, single)).toBe(false);
     // Sans prénom à citer, l'entrée n'est pas choisie.
-    expect(parolesEligible(soir, { ...married, names: { a: "Garin" } })).toBe(false);
+    expect(parolesEligible(sel, { ...married, names: { a: "Garin" } })).toBe(false);
+  });
+
+  it("les pensées suivent ce qu'il fait : on pense au repas en rentrant, pas en allant travailler", () => {
+    const married = { a: adult({ family: "married" }), names: { a: "Garin", conjoint: "Oda" } };
+    const lentilles = byId("b-t-lentilles");
+    expect(parolesEligible(lentilles, ctxOf({ ...married, doing: "home" }))).toBe(true);
+    expect(parolesEligible(lentilles, ctxOf({ ...married, doing: "work" }))).toBe(false);
+    expect(parolesEligible(lentilles, ctxOf({ ...married, doing: null }))).toBe(false);
+  });
+
+  it("chaque métier ses mots, et seulement le sien ; chaque âge son monde", () => {
+    const boulangere = ctxOf({ band: 2, a: adult({ job: "baker", fem: true }) });
+    const noce = byId("b-t-noce");
+    expect(parolesEligible(noce, boulangere)).toBe(true);
+    expect(parolesEligible(noce, ctxOf({ band: 2, a: adult({ job: "miller" }) }))).toBe(false);
+    // La boulangère du bourg n'a pas les mots de l'usine, ni l'ouvrier ceux du bourg.
+    expect(parolesEligible(noce, { ...boulangere, band: 5 })).toBe(false);
+    const ouvrier = ctxOf({ band: 5, a: adult({ job: "factory" }) });
+    expect(parolesEligible(byId("u-t-sirene"), ouvrier)).toBe(true);
+    expect(parolesEligible(noce, ouvrier)).toBe(false);
+  });
+
+  it("on ne parle pas de son propre métier comme d'un autre : la boulangère n'attend pas le boulanger", () => {
+    const early = byId("b-t-early");
+    expect(parolesEligible(early, ctxOf({ a: adult({ traits: ["early"], job: "guard" }) }))).toBe(true);
+    expect(parolesEligible(early, ctxOf({ a: adult({ traits: ["early"], job: "baker", fem: true }) }))).toBe(false);
+  });
+
+  it("la saison compte", () => {
+    const cidre = byId("b-t-cidre");
+    expect(parolesEligible(cidre, ctxOf({ season: "autumn" }))).toBe(true);
+    expect(parolesEligible(cidre, ctxOf({ season: "spring" }))).toBe(false);
   });
 
   it("un enfant ne pense pas à la paie, et l'on ne parle pas de guichet devant lui", () => {
     const kid = ctxOf({ a: adult({ child: true, family: "child" }), cause: "poverty", band: 4 });
     const t = PAROLES.filter((e) => parolesEligible(e, kid));
     expect(t.some((e) => e.adult)).toBe(false);
-    expect(t.some((e) => e.id === "t-enfant-choux")).toBe(true);
+    expect(t.some((e) => e.id === "b-t-cerises")).toBe(true);
     const chat = ctxOf({ kind: "chat", band: 6, cause: "complexity", a: adult(), b: adult({ child: true }), names: { a: "Garin", b: "Tassin" } });
     expect(PAROLES.filter((e) => parolesEligible(e, chat)).some((e) => e.adult)).toBe(false);
   });
@@ -94,18 +148,18 @@ describe("le choix", () => {
     }
     expect(seen.size).toBe(ok.length);
     // Tout entendu : le moins entendu revient.
-    heard["t-disette"] = 5;
+    heard["b-t-galettes"] = 5;
     const again = pickParole(ctx, heard, () => 0.5);
-    expect(again.id).not.toBe("t-disette");
+    expect(again.id).not.toBe("b-t-galettes");
   });
 
   it("parent et enfant : chacun dit sa réplique, accordée à son genre, prénoms posés", () => {
-    const e = PAROLES.find((x) => x.id === "c-pk-grand");
+    const e = byId("b-c-foire-seul");
     const ctx = ctxOf({ kind: "chat", rel: "parentKid", kidIs: "b", a: adult({ fem: true }), b: adult({ child: true, fem: true }), names: { a: "Oda", b: "Talia" } });
     const lines = resolveLines(e, ctx);
-    expect(lines[0]).toEqual({ who: "b", fr: "Quand je serai grande, je ferai quoi ?", en: "What will I do when I grow up?" });
+    expect(lines[0]).toEqual({ who: "b", fr: "Quand je serai grande, je pourrai aller à la foire toute seule ?", en: "When I’m bigger, can I go to the fair on my own?" });
     expect(lines[1].who).toBe("a");
-    const ciel = resolveLines(PAROLES.find((x) => x.id === "c-couple-ciel"), { ...ctx, names: { enfant: "Tassin" } });
-    expect(ciel[0].fr).toBe("Tassin a encore demandé pourquoi le ciel est en haut.");
+    const forgeron = resolveLines(byId("b-c-forgeron"), { ...ctx, names: { enfant: "Tassin" } });
+    expect(forgeron[0].fr).toBe("Tassin ne veut plus aller à l’école.");
   });
 });

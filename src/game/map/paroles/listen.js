@@ -10,11 +10,13 @@
 // L'écoute en cours vit dans `CM.listening` : { p, q, kind, id, lines, t0, names }.
 // Désigner quelqu'un d'autre la coupe.
 import { CM } from '../layout.js';
-import { onCitizenFocus, identityOfPick, cityConcern } from '../citizenFocus.js';
-import { householdOf, memberOf, ageRange } from '../citizenIdentity.js';
+import { onCitizenFocus, identityOfPick, cityConcern, doingOf } from '../citizenFocus.js';
+import { householdOf, householdSeedOf, memberOf, ageRange, idHash, APARTMENTS } from '../citizenIdentity.js';
+import { CM_COLLECTIVE_HOMES } from '../cityNaming.js';
 import { WINTER } from '../seasonMode.js';
 import { pickParole } from './pick.js';
 import { parolesHeard, parolesNoteHeard } from '../../core/paroles.js';
+import { state } from '../../core/state.js';
 
 // lineMs : le temps d'une réplique (lue, puis la suivante).
 export const LISTEN = { lineMs: 2800 };
@@ -53,10 +55,57 @@ function personOf(kind, p, band) {
     },
   };
 }
+// LES VOISINS : de vraies gens, qu'on peut retrouver sur la carte. Les foyers des
+// maisons de sa rue (au plus VOISINAGE cases de chez lui, la plus proche d'abord) :
+// la maison porte le nom de la tête du foyer (cityMapDescribeTile, même graine) ; on
+// la préfère, puis son conjoint. Dans un immeuble, les foyers des autres
+// appartements. Rend { voisin, voisine } (un homme, une femme), ou moins.
+const VOISINAGE = 4;
+export function neighborsOf(p, band) {
+  const home = p && p.home && p.home.t;
+  if (!home || home.gx == null) return {};
+  const cycles = state.cycles || 0;
+  const own = p.identity && p.identity.household;
+  const ownKey = home.key || `${home.gx},${home.gy}`;
+  const salt = (p.seed >>> 0) || 0;
+  const near = [];
+  if (CM_COLLECTIVE_HOMES.has(home.variant)) {
+    for (let a = 0; a < APARTMENTS; a += 1) {
+      const hh = householdOf(householdSeedOf(ownKey, cycles, a), band);
+      if (hh.seed !== own) near.push({ hh, d: 0, r: idHash(salt, 300 + a) });
+    }
+  }
+  if (CM.tileGrid) {
+    const seen = new Set([ownKey]);
+    for (let dy = -VOISINAGE; dy <= VOISINAGE; dy += 1) {
+      for (let dx = -VOISINAGE; dx <= VOISINAGE; dx += 1) {
+        const t = CM.tileGrid.get((home.gx + dx) + ',' + (home.gy + dy));
+        if (!t || t.type !== 'house' || CM_COLLECTIVE_HOMES.has(t.variant)) continue;
+        const key = t.key || `${t.gx},${t.gy}`;
+        if (seen.has(key)) continue;
+        seen.add(key);
+        const hh = householdOf(householdSeedOf(key, cycles), band);
+        if (hh.seed !== own) near.push({ hh, d: Math.max(Math.abs(dx), Math.abs(dy)), r: idHash(salt, dx * 31 + dy) });
+      }
+    }
+  }
+  near.sort((x, y) => x.d - y.d || x.r - y.r);
+  const pick = (slot) => {
+    for (const n of near) if (n.hh.head === slot && n.hh[slot]) return n.hh[slot].given;
+    for (const n of near) if (n.hh[slot]) return n.hh[slot].given;
+    return null;
+  };
+  const out = {};
+  const m = pick('m'), f = pick('f');
+  if (m) out.voisin = m;
+  if (f) out.voisine = f;
+  return out;
+}
+
 // Les prénoms que les répliques citent : les leurs, celui du conjoint, d'un enfant, de
-// l'hôte — les vrais, ceux du foyer de la fiche.
-function namesOf(A, B) {
-  const names = { a: A.id.given };
+// l'hôte, d'un voisin — les vrais, ceux du foyer de la fiche et de sa rue.
+function namesOf(A, B, p, band) {
+  const names = { a: A.id.given, ...neighborsOf(p, band) };
   if (B) names.b = B.id.given;
   const line = A.id.line, hh = A.hh;
   if (line && hh) {
@@ -64,6 +113,8 @@ function namesOf(A, B) {
     if ((line.kind === 'married' || line.kind === 'single') && hh.kids.length) names.enfant = hh.kids[0].given;
     if (line.kind === 'lodger' || line.kind === 'nephew') names.hote = memberOf(hh, line.host) && memberOf(hh, line.host).given;
   }
+  // Le voisin n'est ni lui, ni l'autre de la causette.
+  for (const k of ['voisin', 'voisine']) if (names[k] && (names[k] === names.a || names[k] === names.b)) delete names[k];
   return names;
 }
 // Leur lien, s'ils sont du même foyer : le couple, ou un parent et son enfant (l'aïeul
@@ -79,6 +130,7 @@ function relOf(A, B) {
 }
 
 // La situation d'une écoute (map/paroles/pick.js).
+const SEASONS = ['spring', 'summer', 'autumn', 'winter'];
 export function listenContext(kind, p, focusKind) {
   const band = bandNow();
   const A = personOf(focusKind, p, band);
@@ -90,6 +142,8 @@ export function listenContext(kind, p, focusKind) {
     band,
     night: (CM.nightF || 0) > 0.55,
     precip: wet ? ((CM.season | 0) === WINTER ? 'snow' : 'rain') : null,
+    season: SEASONS[(CM.season | 0) & 3],
+    doing: doingOf(p),
     riot: Array.isArray(CM.rioters) && CM.rioters.length > 0,
     wonder: !!(CM.wonderGatherCells && CM.wonderGatherCells.length),
     prosper: (CM.healthF ?? 0.6) >= 0.75,
@@ -97,7 +151,7 @@ export function listenContext(kind, p, focusKind) {
     a: A.view,
     b: B ? B.view : null,
     ...relOf(A, B),
-    names: namesOf(A, B),
+    names: namesOf(A, B, p, band),
     partner: q,
   };
 }

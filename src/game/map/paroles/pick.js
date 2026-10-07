@@ -9,15 +9,21 @@
 // ctx = {
 //   kind:   'chat' | 'thought',
 //   band, night, precip ('rain' | 'snow' | null), riot, wonder, prosper,
+//   season: 'spring' | 'summer' | 'autumn' | 'winter',
+//   doing:  ce qu'il fait (citizenFocus.doingOf : 'work', 'home', 'errand'…) ou null,
 //   cause:  ce qui pèse le plus sur la cité (clé de foyer, 'wear', 'poverty') ou null,
 //   a:      { fem, child, old, job, traits, family, kids } — celui qu'on écoute,
 //   b:      { fem, child, traits } | null — l'autre, dans une causette,
 //   rel:    'couple' | 'parentKid' | null, kidIs: 'a' | 'b' (parent et enfant),
-//   names:  { a, b, conjoint, enfant, hote } — les prénoms que les répliques citent.
+//   names:  { a, b, conjoint, enfant, hote, voisin, voisine } — les prénoms que les
+//           répliques citent, tous vrais (listen.js).
 // }
 import { PAROLES, JOB_GROUP } from '../../data/paroles.js';
 
 const VAR = /\{(\w+)\}/g;
+// « de », « que », « jusque » devant un prénom qui commence par une voyelle s'élident.
+const ELIDE = /\b(de|De|que|Que|jusque) \{(\w+)\}/g;
+const VOWEL = /^[AEIOUYÂÊÎÔÛÉÈËÏÜaeiouyâêîôûéèëïü]/;
 const textsOf = (l) => [l.fr, l.m, l.f, l.en].filter(Boolean);
 
 // Un enfant ne dit ni ne pense ce qui est marqué `adult` (la paie, les guichets, le
@@ -37,7 +43,11 @@ export function parolesEligible(e, ctx) {
   if (w.rel && w.rel !== ctx.rel) return false;
   if (w.family && w.family !== a.family) return false;
   if (w.kids && !(a.kids > 0)) return false;
-  if (w.job && !w.job.includes(JOB_GROUP[a.job])) return false;
+  if (w.job && !w.job.includes(a.job)) return false;
+  if (w.notJob && w.notJob.includes(a.job)) return false;
+  if (w.group && !w.group.includes(JOB_GROUP[a.job])) return false;
+  if (w.doing && !w.doing.includes(ctx.doing)) return false;
+  if (w.season && w.season !== ctx.season) return false;
   if (w.trait && !(a.traits || []).includes(w.trait)) return false;
   if (w.traitB && !(b && (b.traits || []).includes(w.traitB))) return false;
   if (w.old && !a.old) return false;
@@ -62,8 +72,15 @@ export function parolesEligible(e, ctx) {
 
 // Plus une entrée est précise (sa famille, son métier, la disette…), plus elle a de
 // chances : on entend d'abord ce qui LUI ressemble, les répliques de tout le monde en
-// dernier.
-const weightOf = (e) => 1 + 2 * Object.keys(e.when || {}).length + (e.bands ? 1 : 0);
+// dernier. Ce qu'on le voit faire (la ligne « Activité » de la fiche) et son métier
+// pèsent le plus : la pensée colle à ce que le joueur a sous les yeux (la plume,
+// docs/PLAN-ECOUTER-PARLER.md, règle 7).
+const weightOf = (e) => {
+  const w = e.when || {};
+  // « Pas ce métier-là » (`notJob`) écarte sans rien préciser : il ne compte pas.
+  const n = Object.keys(w).filter((k) => k !== 'notJob').length;
+  return 1 + 2 * n + (w.doing ? 6 : 0) + (w.job ? 4 : 0);
+};
 
 // L'échange choisi, ou null. Jamais une redite tant qu'il reste du neuf (règle 5) ;
 // la réserve épuisée, le moins entendu.
@@ -85,11 +102,16 @@ export function pickParole(ctx, heard = {}, rand = Math.random, catalog = PAROLE
 export function resolveLines(e, ctx) {
   const kid = ctx.kidIs || 'b';
   const parent = kid === 'a' ? 'b' : 'a';
-  const fill = (t) => t.replace(VAR, (m, k) => (ctx.names && ctx.names[k]) || m);
+  const fill = (t, fr) => {
+    let out = t;
+    // L'élision devant un prénom à voyelle : « la lampe d'Aldis », « qu'Ilya ».
+    if (fr) out = out.replace(ELIDE, (m, w, k) => (ctx.names && VOWEL.test(ctx.names[k] || '') ? `${w.slice(0, -1)}’{${k}}` : m));
+    return out.replace(VAR, (m, k) => (ctx.names && ctx.names[k]) || m);
+  };
   return e.lines.map((l) => {
     const who = e.kind === 'thought' ? 'a' : l.who === 'kid' ? kid : l.who === 'parent' ? parent : l.who;
     const sp = who === 'b' ? ctx.b : ctx.a;
     const fr = l.fr != null ? l.fr : (sp && sp.fem ? l.f : l.m);
-    return { who, fr: fill(fr), en: fill(l.en) };
+    return { who, fr: fill(fr, true), en: fill(l.en, false) };
   });
 }

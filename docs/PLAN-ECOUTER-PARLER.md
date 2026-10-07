@@ -69,9 +69,21 @@ Raph a répondu aux questions du § 11 le jour même (tableau 1 bis).
    réserve de sa situation n'est pas épuisée.
 6. **Écrit à la main**, choisi par l'état du jeu. Pas de génération à la volée : le ton est
    tenu, et le jeu tourne hors ligne.
-7. **Le style des textes du jeu** : phrases courtes et concrètes, ni tiret, ni « ! », ni
-   points de suspension. Le ton de la Chronique et des faits divers : ironie sèche, une
-   chute, de la tendresse.
+7. **La plume** (Raph, 2026-10-07, après le premier jet du lot 1 : « il nous faut des
+   pensées moins IA codée, genre "le marché crie très fort", ça ne veut rien dire ») :
+   - du concret : un prénom, un objet, un lieu, un nombre, une heure ;
+   - ce qu'une tête contient vraiment : un projet, un souci, un petit calcul, un souvenir
+     précis, une envie, une rancune, la tâche du jour ;
+   - la langue parlée, ordinaire ; la plupart des échanges s'arrêtent sur du pratique ;
+   - ni maxime, ni phrase retournée, ni bon mot de fin ; les choses ne parlent pas, ne
+     crient pas, ne se souviennent pas ; l'humour vient du caractère, rarement ;
+   - chaque âge son monde (aucune réplique ne vaut du Feu au Démiurge), les pensées
+     suivent ce qu'on le voit faire, chaque métier a ses mots, les voisins sont de vrais
+     habitants de sa rue ;
+   - ni tiret, ni « ! », ni points de suspension.
+   La charte complète est en tête de `src/game/data/paroles.js` ; les tests la gardent
+   (`parolesPick.test.js`). ⛔ La première version de cette règle demandait « une chute » :
+   c'est elle qui a produit les bons mots rejetés.
 
 ---
 
@@ -144,7 +156,8 @@ fiction), le rapport entre le joueur et « les dieux ».
 2. **La cité telle qu'elle est** : le foyer de Rupture qui domine (la même source que la
    cause de l'humeur), la pluie, la nuit, la dernière crise, la merveille, l'émeute, et **la
    dernière dépêche de la Chronique** : on parle des nouvelles.
-   « Plus de farine au moulin. » « Il y en avait hier. » « Hier, c'était hier. »
+   « Plus de farine au moulin. » « Il y en avait mardi. » « Le meunier attend la charrette
+   de grain depuis trois jours. »
 3. **Toi** : ce qu'ils croient (§ 6). Tard, et pas devant tout le monde.
 
 ### 4.3 La confiance
@@ -225,7 +238,9 @@ dans la cendre, le signe qui change de forme avec les âges) sont écartées.
 
 ### 6.2 Ce que tu fais
 
-Les faits que la cité a vus, et qui nourrissent les rumeurs de la troisième couche :
+Les faits que la cité a vus, et qui nourrissent les rumeurs de la troisième couche.
+⚠ Les exemples ci-dessous datent d'avant la plume (règle 7) : plusieurs finissent sur un bon
+mot. Ils se réécrivent au lot 2.
 
 | Fait | Où il se lit | Exemple |
 |---|---|---|
@@ -381,3 +396,18 @@ Les six questions du premier jet sont tranchées (tableau 1 bis). Aucune ouverte
   nomme quelqu'un que le passant n'a pas est écartée. La mémoire de l'entendu : `state.paroles`, éternelle (`GR_PERSISTENT_FIELDS`),
   son seul enregistreur est `core/paroles.js`. Vérifié en jeu : causette d'un couple au
   prénom de leur fille, pensée liée à la disette, bulle passée de l'un à l'autre.
+- 2026-10-07 : **Raph juge la plume** : la vitesse va, parler de leur vie va, mais les
+  répliques sonnent « IA codée » (« Tu vas où ? » « Là où je vais tous les jours. » « Ça doit
+  être joli, depuis le temps. » ; « le marché crie très fort »). Diagnostic : chaque réplique
+  finissait sur un bon mot (la règle 7 le demandait), les choses parlaient, des maximes, et
+  des répliques valables à tous les âges, donc vagues. Raph retient les cinq leviers : la
+  charte (règle 7 réécrite), les pensées qui suivent ce qu'il fait, un monde par âge, les
+  mots de chaque métier, de vrais voisins. **Catalogue réécrit en entier** : 675 entrées
+  (153 causettes, 522 pensées), par mondes (Feu et Bois, Pierre taillée et Couronne,
+  Marbre, Fonte, Néon, puis Noosphère, Stellaire et Démiurge, plus minces en attendant leur
+  Chronique), chaque métier au moins une pensée. Nouvelles conditions : `when.doing` (ce
+  qu'il fait, `citizenFocus.doingOf`, la même lecture que la ligne « Activité »),
+  `when.job` (le métier exact ; les familles passent dans `when.group`), `when.season`.
+  Nouveaux prénoms : {voisin}, {voisine} (les adultes d'une maison à quatre cases de chez
+  lui, la tête du foyer d'abord, celle dont la maison porte le nom), {gamin}, {gamine} (les
+  enfants de ces maisons) ; `paroles/listen.js`, `neighborsOf`.

@@ -968,6 +968,48 @@ function activityOf(p, lost, fem = false) {
   return { fr: cap(ro ? r.fr : r) || 'Flâne', en: cap(ro ? r.en : null) || 'Strolling' };
 }
 
+// CE QU'IL FAIT, en une clé stable (l'écoute, paroles/listen.js) : la même lecture
+// que la ligne « Activité » de la fiche, pour que ses pensées parlent de ce qu'on
+// le voit faire (docs/PLAN-ECOUTER-PARLER.md, la plume). 'work', 'school' (l'enfant
+// qui va à l'école), 'home', 'errand', 'plaza', 'pray', 'wonder', 'wander',
+// 'night', 'flee', 'shelter', 'riot' (il regarde l'émeute), 'river', 'port',
+// 'field', ou null (une scène sans pensée propre : le bac, la navette).
+export function doingOf(p) {
+  if (!p) return null;
+  const sc = p.scene;
+  if (sc === 'champ') return 'field';
+  if (sc === 'port') return 'port';
+  if (sc === 'pont' || sc === 'quai' || sc === 'bac') return 'river';
+  if (sc === 'place') return 'plaza';
+  if (sc) return null;
+  const inside = p._in || (p.lead && p.lead._in) || null;
+  const atHome = !!(inside && inside.t && p.home && p.home.t && inside.t.gx === p.home.t.gx && inside.t.gy === p.home.t.gy);
+  const child = p.charType === 2 || !!(p.identity && p.identity.child);
+  const ik = inside && !atHome ? inside.kind : null;
+  if (p._nightHidden || p._vanish !== undefined) {
+    if (ik === 'work') return child ? 'school' : 'work';
+    if (ik === 'pray') return 'pray';
+    if (ik === 'errand' || ik === 'leave') return 'errand';
+    return 'home';
+  }
+  if (citizenSheltering(p) || p._shelter) return 'shelter';
+  if (p._watch && (p.pauseT || 0) > 0) return 'riot';
+  if (p.goalKind === 'flee') return 'flee';
+  if (p.leaving) return 'home';
+  // En compagnie, ils font ce que fait le meneur.
+  const k = (p.lead && p.lead.goalKind) || p.goalKind;
+  if (p._browse) return 'errand';
+  if (k === 'work') return child ? 'school' : 'work';
+  if (k === 'home') return 'home';
+  if (k === 'errand') return 'errand';
+  if (k === 'plaza') return 'plaza';
+  if (k === 'pray') return 'pray';
+  if (k === 'wonder') return 'wonder';
+  if (k === 'night') return 'night';
+  if (k === 'cross') return 'river';
+  return 'wander';
+}
+
 // Ce que dit l'infobulle de la carte au survol, dans la langue du joueur (les
 // libellés { fr, en } de la fiche, résolus par tr()). `kindId` est la catégorie
 // STABLE : la logique le lit, jamais le libellé affiché (`kind`).
