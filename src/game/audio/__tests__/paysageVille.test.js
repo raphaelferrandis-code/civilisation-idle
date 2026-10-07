@@ -170,6 +170,25 @@ describe('ce qui dose la ville', () => {
     expect(ciblesNappes(P, { loin: 1, proche: 0, taille: 0.3, bande: 3 }).lointainFoule).toBeCloseTo(0.3, 9);
   });
 
+  it("le port s'entend près de ses gens, de l'âge du Bois au Néon ; la mouette qu'on voit crie, de jour", () => {
+    expect(ciblesNappes(P, { port: 2, bande: 3 }).port).toBeGreaterThan(0.4);
+    expect(ciblesNappes(P, { port: 0, bande: 3 }).port).toBe(0);
+    expect(ciblesNappes(P, { port: 2, bande: 0 }).port).toBe(0);
+    expect(ciblesNappes(P, { port: 2, bande: 8 }).port).toBe(0);
+    const cond = { nuit: 0, saison: 1, sec: 1, vivant: 1 };
+    expect(tauxSeme(SEMES.mouette, {}, cond, 1, 1, 4, 3)).toBeGreaterThan(0);
+    expect(tauxSeme(SEMES.mouette, {}, cond, 1, 1, 4, 0)).toBe(0);
+    expect(tauxSeme(SEMES.mouette, {}, { ...cond, nuit: 1 }, 1, 1, 4, 3)).toBe(0);
+  });
+
+  it('la cloche d’un bateau : des coups de bronze, le dernier qui sonne', () => {
+    for (const n of ['clochebateau1', 'clochebateau2']) {
+      const b = son(n);
+      expect(b.length / SR, n).toBeGreaterThan(2);
+      expect(partBande(b, 300, 5000), n).toBeGreaterThan(0.7);
+    }
+  });
+
   it('la roue grince sur un attelage qu’on voit ; sans attelage, rien', () => {
     const cond = { nuit: 0, saison: 1, sec: 1, vivant: 1 };
     expect(tauxSeme(SEMES.roue, {}, cond, 1, 1, 4, 0)).toBe(0);

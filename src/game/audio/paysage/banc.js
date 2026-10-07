@@ -181,7 +181,7 @@ function rafraichir() {
   for (const [nom, n] of Object.entries(vue.proche)) {
     const s = e.semes[nom];
     n.lu.textContent = s ? (s.sons ? `${s.joues} joués · ${s.sons} sons${s.vus != null ? ` · ${s.vus} vus` : ''}` : 'aucun son')
-      : nom in api.EMETTEURS ? `${(e.emetteurs[nom] || 0)} voix` : `${e.ponctuels[nom]} joués`;
+      : nom in api.EMETTEURS ? `${(e.emetteurs[nom] || 0)} voix · ${(e.emetteursVus && e.emetteursVus[nom]) || 0} vus` : `${e.ponctuels[nom]} joués`;
     n.titre.style.color = api.BANC.solo === nom ? '#e8b86b' : '';
   }
 }

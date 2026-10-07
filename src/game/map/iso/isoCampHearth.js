@@ -32,6 +32,8 @@ import { drawIsoGroundedArt } from './isoGroundProps.js';
 import { HOUSE_UNIT, HOUSE_LOT_WF } from '../spriteScale.js';
 import { queueFlameGlow, FLAME_COL } from '../flameGlow.js';
 import { CM } from '../layout.js';
+// Le guichet du paysage sonore : des modules-FEUILLES (aucun import), sans risque de cycle.
+import { noteEmetteur } from '../../audio/paysage/evenements.js';
 
 const BASE = '/pixelart/agents/buildings/';
 const FIRE_FRAME_W = 96, FIRE_FRAME_H = 80, FIRE_FRAMES = 7;
@@ -89,4 +91,6 @@ export function drawIsoCampHearthFire(ctx, wx, wy, T, z, now) {
   // Lueur : déposée au tri peintre (couche de lumière), donc masquée par les
   // tentes qui passent devant. Centre du feu ≈ milieu de l'encre, un peu haut.
   queueFlameGlow(g.x + g.w * 0.5, g.y + g.h * 0.46, g.w * 0.22, FLAME_COL, now, (wx + wy) * 0.013, 1);
+  // LE SON (docs/PLAN-AMBIANCE-SONORE.md, lot 4) : le feu qu'on voit crépite.
+  noteEmetteur('feu', wx, wy, 1, now);
 }

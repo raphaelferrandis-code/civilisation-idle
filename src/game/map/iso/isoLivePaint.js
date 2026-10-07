@@ -58,6 +58,10 @@ import { WINTER } from '../seasonMode.js';
 import { chuteTileState } from './chuteState.js';
 import { paintHouseFall } from './isoChuteScene.js';
 import { paintRelic, chuteGone } from './isoChute.js';
+// Le guichet du paysage sonore : des modules-FEUILLES (aucun import), sans risque de cycle.
+import { noteEmetteur } from '../../audio/paysage/evenements.js';
+// Le bétail qui s'entend (lot 4) : une famille d'émetteurs par bête ; chiens et chats, non.
+const BETES_SONORES = { cow: 'vaches', sheep: 'moutons', goat: 'chevres' };
 
 // ── Drawables triés au peintre (profondeur = wx + wy) ────────────────────────
 function drawTreeIso(ctx, sx, sy, h) {
@@ -377,6 +381,8 @@ export function paintIsoItems(bake, items, now) {
       // l'enregistre. Famille absente du relevé §1.2 du plan — et le chat est
       // la plus petite bête du jeu, donc a priori la pire densité.
       if (pxProbe.on && m && m.src) recPx('bete · ' + cr.kind, m.src, m.box);
+      // LE SON (docs/PLAN-AMBIANCE-SONORE.md, lot 4) : la vache, le mouton, la chèvre qu'on voit.
+      if (m && BETES_SONORES[cr.kind]) noteEmetteur(BETES_SONORES[cr.kind], (cr.gx + 0.5 + cr.jx) * T, (cr.gy + 0.5 + cr.jy) * T, 1, now);
     } else if (it.kind === 'vie') {
       // Petite vie posée au sol (iso/isoVie.js) : l'acteur se dessine lui-même.
       it.v.draw(ctx, now);

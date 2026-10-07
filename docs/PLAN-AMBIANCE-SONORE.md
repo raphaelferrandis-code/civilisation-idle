@@ -11,7 +11,7 @@ Chantier ouvert le 2026-10-07 sur la demande de Raph :
 > n'entendre que le son de la ville au loin avec la musique en fond qu'on ne touche pas pour
 > l'instant. »
 
-**Statut : décisions prises le 2026-10-07 (§ 9), lots 1 à 3 livrés (le 3e à éprouver en longues parties), lot 4 (les métiers) en cours.**
+**Statut : décisions prises le 2026-10-07 (§ 9), lots 1 à 4 livrés (le 3e et le 4e à éprouver en longues parties), lot 5 (le temps) en cours.**
 Ce document fait foi pour ce chantier.
 
 ---
@@ -742,6 +742,34 @@ applaudissements.
 **Inconnu tant qu'on n'a pas écouté** : le fond de chaque prise (une voiture au loin ?). Les
 pages ne le disent pas, sauf pour les rues de Paris.
 
+### 5.8 Lot 4 : les métiers, la liste de téléchargement (recherche du 2026-10-07)
+
+Pages lues sans rien télécharger, toutes en **CC0** chez BigSoundBank (sans compte). Les
+auteurs sont Joseph Sardin, sauf l'enclume (Pablo Bergel) et le troupeau (Joseph Sardin et
+Axeline T.).
+
+| # | Son | Page | Durée | Pour |
+|---|---|---|---|---|
+| 1 | Small fishing port #1 | <https://bigsoundbank.com/small-fishing-port-1-s2571.html> | 2 min 27 | le port : l'eau, les bateaux, l'activité (Bretagne) |
+| 2 | Gulls on the Harbor | <https://bigsoundbank.com/gulls-on-the-harbor-s2573.html> | 1 min 55 | les cris des mouettes, découpés un à un |
+| 3 | Fireplace #2 | <https://bigsoundbank.com/fireplace-2-s0031.html> | 1 min | le feu qui crépite : foyers, braseros |
+| 4 | Anvil #1 | <https://bigsoundbank.com/anvil-1-s3589.html> | 33 s | le forgeron sur l'enclume |
+| 5 | Saw Wood | <https://bigsoundbank.com/saw-wood-s0559.html> | 13 s | une scie à main |
+| 6 | Nail and Hammer #1 | <https://bigsoundbank.com/nail-and-hammer-1-s0005.html> | 11 s | des clous dans une planche |
+| 7 | Steam Engine, Foley #2 | <https://bigsoundbank.com/steam-engine-foley-2-s3311.html> | 29 s | une machine à vapeur, « facile à boucler » (âge de la Fonte) |
+| 8 | Hiss of Steam Train #1 | <https://bigsoundbank.com/hiss-of-steam-train-1-s0227.html> | 5 s | un jet de vapeur |
+| 9 | Flock of Sheep and Cows | <https://bigsoundbank.com/flock-sheep-and-cows-s3220.html> | 2 min 01 | les cloches d'un troupeau, des moutons, des vaches au loin |
+| 10 | Cow Moos #1 | <https://bigsoundbank.com/cow-moos-s0546.html> | 15 s | cinq meuglements |
+| 11 | Small Herd of Goats | <https://bigsoundbank.com/small-herd-of-goats-s0821.html> | 1 min 16 | des chèvres et leurs cloches |
+| 12 | Rooster Song | <https://bigsoundbank.com/song-of-rooster-s0283.html> | 3 s | le coq, au matin |
+
+**Synthétisés, sans fichier** : la cloche d'un bateau (la cloche de `synth.js`) ; le
+bourdon électrique (Néon) et celui des âges cosmiques.
+
+**Écartés** : les scieries et tronçonneuses (électriques), les marteaux-piqueurs, les
+bateaux de croisière (sauf peut-être une corne), « Fire, Foley » (bruité au balai), la
+forge introuvable sous « forge » chez BigSoundBank (elle est sous « anvil »).
+
 ---
 
 ## 6. Plan d'action
@@ -1144,3 +1172,74 @@ Ma recommandation était donnée pour chacune.
   Vérifié au zoom 0,4 : la Couronne n'a que la foule, le Néon la circulation et la moitié
   de la foule, le cosmique le bourdon. Les couches sont discrètes (niveau 0,07 à 0,09) :
   dézoomer doit éloigner, pas monter le son. 70 tests passent.
+- **2026-10-07, lot 4 (les métiers) : les branchements.** Ils sont faits avant les fichiers
+  (liste au § 5.8). Tout ce qui est enregistré reste muet tant que le fichier manque.
+
+  | Son | Couche | Ce qui le fait sonner |
+  |---|---|---|
+  | `port` | nappe | le port qu'on voit, quel qu'il soit (`iso/isoPort.js`, `drawIsoRiverside`), et les porteurs |
+  | `mouette` | semé | les mouettes posées qu'on voit (`iso/isoVieOiseaux.js`), de jour |
+  | `cloche` | ponctuel, synthétisé | un bateau de commerce qui accoste ou repart, le bac qui part ou touche la rive, de la Pierre à la Fonte (`iso/isoPort.js`) |
+  | `feu` | émetteur | le foyer du campement, les braseros des parvis (hors âges cosmiques), les feux de culte et de guet |
+  | `forge` | émetteur | la loge et la guilde (Feu à Couronne), le forgeron du Marbre, l'atelier des monnaies |
+  | `charpente` | semé | les travaux publics, le charron des caravanes (Pierre à Marbre), de jour |
+  | `vapeur` | émetteur | les machines de la Fonte, et les vapeurs qui naviguent ; `sifflet`, un jet de vapeur de temps en temps |
+  | `electrique` | émetteur, synthétisé | les ateliers du Néon (monnaies, imprimerie, guilde) |
+  | `troupeau` | nappe | les cloches, près des bêtes au pré qu'on voit |
+  | `vache`, `chevre` | semés | les vaches et les chèvres qu'on voit, moins la nuit |
+  | `coq` | semé | à l'aube seulement (cycle du jour 0,90 à 0,06), du côté des champs |
+
+  Le bœuf ou le cheval qui laboure reprend le pas de l'`attelage`, plus discret.
+
+  **Quelle scène fait quel bruit** : `paysage/metiers.js`, un module pur et testé, que la
+  scène de moteur (`iso/isoEngineScene.js`) consulte. Les âges cosmiques n'ont pas d'atelier
+  qui s'entende : leur bourdon est dans la rumeur.
+
+  ⚠ **L'heure de l'image.** Une scène de moteur se dessine à l'horloge de son instance
+  (`aNow`). Le guichet, lui, reconnaît une image à son heure : il faut lui donner le `now`
+  de l'image, sinon la famille se vide à chaque scène.
+
+  ⚠ **Un état de bateau se suit à chaque image**, avant le tri de ce qui est hors champ :
+  un accostage hors champ ne sonne pas quand le bateau entre dans le champ. Une mémoire de
+  plus d'une demi-seconde (flotte non dessinée, dézoom) ne compte pas.
+
+  79 tests du son passent.
+- **2026-10-07, le lot 3 est commité à part** (`c08866cb`, à la demande de Raph). Les
+  fichiers des deux lots étaient mêlés : la version « lot 3 » de chaque fichier a été
+  reconstruite, puis vérifiée dans une copie de travail temporaire (89 tests du son, 295 de
+  la carte), avant d'être commitée seule.
+- **2026-10-07, les 12 fichiers du lot 4 sont importés** : 23 sons, 62 fichiers en tout.
+  - **Boucles en grains** : le port (24 s), le troupeau (24 s), le feu (12 s).
+  - **Boucles en fondu** : l'enclume et la machine à vapeur (12 s).
+  - **Coupés à l'enveloppe** : cinq séries de cris de mouettes, deux passes de scie, deux
+    séries de clous, le jet de vapeur, quatre meuglements, trois bêlements, le coq.
+
+  **Sonie mesurée** :
+
+  | Prise | Sonie |
+  |---|---|
+  | port | −25,6 LUFS |
+  | troupeau | −21,9 LUFS |
+  | feu | −38,3 LUFS |
+  | enclume | −17,6 LUFS |
+  | vapeur | −21,1 LUFS |
+
+  Les niveaux de jeu compensent. Le feu, fait de crépitements épars, est monté moins que
+  l'écart.
+
+  **Crédits** : 36 enregistrements BigSoundBank. S'y ajoutent Pablo Bergel (l'enclume) et
+  Axeline T. (le troupeau, avec Joseph Sardin). L'entrée des Options en tient compte.
+
+  **Le port loin de l'eau** est dessiné en scène de bâtiment. Il sonne aussi :
+  `familleMetier('river_ports')` vaut `port`.
+
+  Vérifié dans le jeu à la Couronne, avec les fichiers :
+  - au pied du port, la nappe vise 0,37 ;
+  - une forge d'atelier des monnaies a sa voix ;
+  - les feux et les attelages sont repérés.
+
+  ⚠ **La mémoire décodée monte à 71 Mo**, toutes familles chargées. Le chargement selon
+  l'âge, prévu au lot 6, devient nécessaire.
+
+  Pas vérifiés dans la pane : le bétail (ses images n'y chargent pas), le bourdon du Néon,
+  la cloche. **Reste** : l'écoute de Raph.

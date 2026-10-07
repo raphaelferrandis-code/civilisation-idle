@@ -18,6 +18,8 @@ import { isoUnitDepth, drawDraftIso } from './isoUnits.js';
 import { agentSetForBand, agentSpecFor, drawNamedAgentIso, AGENT_SCALE } from '../agents.js';
 import { WINTER, SUMMER } from '../seasonMode.js';
 import { focusMark, drawFocusRingAt, noteSceneFigure, sceneRingWidth } from '../citizenFocus.js';
+// Le guichet du paysage sonore : des modules-FEUILLES (aucun import), sans risque de cycle.
+import { noteEmetteur } from '../../audio/paysage/evenements.js';
 
 // LE LABOUREUR A UN NOM (fiche d'habitant, citizenFocus.js) : un objet par
 // parcelle, gardé d'une frame à l'autre — c'est toujours le même qui laboure
@@ -176,6 +178,9 @@ export function drawTerroirTeam(ctx, it, now) {
   parts.sort((a, b) => a[0] - b[0]);
   for (const [, fn] of parts) fn();
   ctx.globalAlpha = pa0;
+  // LE SON (docs/PLAN-AMBIANCE-SONORE.md, lot 4) : le bœuf ou le cheval qui tire la
+  // charrue a le pas de l'attelage, plus discret ; à l'arrêt en bout de sillon, rien.
+  if (q.walking !== false) noteEmetteur('attelage', q.x * T, q.y * T, 0.6, now);
 }
 
 if (import.meta.env?.DEV && typeof window !== 'undefined') {

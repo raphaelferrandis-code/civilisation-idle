@@ -97,6 +97,12 @@ export const NAPPES = {
   lointainFoule: { enregistres: ['brouhaha-rue-1'], vitesse: 0.85, bus: 'lointain', largeur: 0.5, niveau: 0.09 },
   lointainTrafic: { enregistres: ['circulation-carrefour-1'], vitesse: 0.75, bus: 'lointain', largeur: 0.5, niveau: 0.09 },
   lointainCosmique: { son: 'drone', vitesse: 0.5, bus: 'lointain', largeur: 0.5, niveau: 0.07 },
+  // LOT 4 (les métiers) : le PORT — l'eau contre les coques, les cordages, l'activité —,
+  // dosé par les gens du port et des quais près de l'oreille (porteurs, promeneurs).
+  // Niveaux selon la sonie mesurée à l'import : port −25,6 LUFS, troupeau −21,9.
+  port: { enregistres: ['port-peche-1'], bus: 'nappes', largeur: 0.45, niveau: 0.3 },
+  // Les cloches d'un troupeau, près des bêtes qu'on voit au pré (iso/isoLivePaint.js).
+  troupeau: { enregistres: ['troupeau-cloches-1'], bus: 'nappes', largeur: 0.45, niveau: 0.13 },
 };
 // `ref` / `max` : portée en cases (oreille.js, attenuation) ; `voix` : au plus tant à la
 // fois ; `ecartMs` : jamais deux tirs plus serrés.
@@ -112,6 +118,8 @@ export const PONCTUELS = {
   // d'oiseaux — un seul (envol1-2) ou une volée (envol3-4).
   envol: { sons: ['envol1', 'envol2', 'envol3', 'envol4'], ref: 4, max: 16, niveau: 0.2, voix: 2, ecartMs: 300,
     choix: (force) => (force >= 3 ? [2, 4] : [0, 2]) },
+  // LOT 4 : la cloche du bord, quand un bateau accoste ou repart (iso/isoPort.js).
+  cloche: { sons: ['clochebateau1', 'clochebateau2'], ref: 6, max: 26, niveau: 0.16, voix: 1, ecartMs: 3000 },
 };
 // Les émetteurs : seules les `voix` bêtes les plus fortes sonnent (les « voix
 // virtuelles » des moteurs de jeu). La libellule s'entend de près : il faut être
@@ -129,6 +137,15 @@ export const EMETTEURS = {
   // Les sabots de la rue Christine (−27,3 LUFS) : deux chevaux sur une chaussée de ville.
   attelage: { enregistres: ['sabots-rue-1', 'sabots-pas-1'], ref: 3, max: 12, niveau: 0.37, voix: 2 },
   drone: { son: 'drone', ref: 2.5, max: 10, niveau: 0.1, voix: 2 },
+  // LOT 4, les métiers (paysage/metiers.js dit quelle scène fait quel bruit) : le feu d'un
+  // foyer, d'un brasero, d'un culte ; l'enclume du forgeron ; la machine à vapeur de la
+  // Fonte (et des vapeurs qui naviguent) ; le bourdon électrique du Néon (synthétisé).
+  // Niveaux selon la sonie mesurée : feu −38,3 LUFS (des crépitements épars, montés moins
+  // que l'écart : un crépitement s'entend plus que son énergie), forge −17,6, vapeur −21,1.
+  feu: { enregistres: ['feu-cheminee-1'], ref: 2, max: 9, niveau: 0.6, voix: 2 },
+  forge: { enregistres: ['forge-enclume-1'], ref: 3.5, max: 14, niveau: 0.12, voix: 1 },
+  vapeur: { enregistres: ['vapeur-machine-1'], ref: 3.5, max: 14, niveau: 0.16, voix: 2 },
+  electrique: { son: 'electrique', ref: 2.5, max: 10, niveau: 0.08, voix: 2 },
 };
 // Les PONCTUELS SEMÉS (lot 2) : des sons ENREGISTRÉS sans support visible — l'oiseau
 // qu'on entend sans le voir —, tirés au hasard (processus de Poisson) dans les parties de
@@ -171,9 +188,25 @@ export const SEMES = {
   pigeon: { sur: 'pigeons', synth: ['roucoul1', 'roucoul2', 'roucoul3', 'roucoul4', 'roucoul5', 'roucoul6'],
     taux: 6, variantes: 6, ref: 3.5, max: 14, niveau: 0.16, voix: 2, ecartMs: 1500,
     quand: (c) => 1 - c.nuit },
+  // LOT 4 : la mouette qu'on voit crie (iso/isoVieOiseaux.js, sur les quais), de jour.
+  mouette: { sur: 'mouettes', taux: 6, variantes: 4, ref: 6, max: 24, niveau: 0.16, voix: 2, ecartMs: 1200,
+    quand: (c) => 1 - c.nuit },
   // La roue d'une charrette qui grince, de temps en temps, sur un attelage qu'on voit.
   roue: { sur: 'attelage', taux: 5, variantes: 4, ref: 4, max: 14, niveau: 0.12, voix: 1, ecartMs: 2500,
     quand: () => 1 },
+  // LOT 4 : la scie et le marteau d'un chantier qu'on voit, de jour ; un jet de vapeur sur
+  // une machine ; la vache, la chèvre qu'on voit au pré (moins la nuit) ; le coq, à l'aube,
+  // du côté des champs.
+  charpente: { sur: 'charpente', taux: 6, variantes: 4, ref: 4, max: 16, niveau: 0.16, voix: 1, ecartMs: 2500,
+    quand: (c) => 1 - c.nuit },
+  sifflet: { sur: 'vapeur', taux: 1.5, variantes: 1, ref: 4, max: 16, niveau: 0.12, voix: 1, ecartMs: 8000,
+    quand: () => 1 },
+  vache: { sur: 'vaches', taux: 2, variantes: 3, ref: 5, max: 20, niveau: 0.16, voix: 1, ecartMs: 6000,
+    quand: (c) => 1 - 0.7 * c.nuit },
+  chevre: { sur: 'chevres', taux: 3, variantes: 3, ref: 4, max: 16, niveau: 0.14, voix: 1, ecartMs: 4000,
+    quand: (c) => 1 - 0.7 * c.nuit },
+  coq: { milieux: { champ: 1, prairie: 0.3 }, taux: 1.5, variantes: 1, ref: 10, max: 40, niveau: 0.14, voix: 1, ecartMs: 20000,
+    quand: (c) => (c.aube || 0) * c.vivant },
 };
 // La présence (0..1) d'une famille semée : ses milieux à l'écran (Σ milieu × part) ou,
 // semée SUR des émetteurs, la somme de leurs intensités (`sur`) — trois suffisent. PUR.
@@ -498,8 +531,9 @@ const SAISON_SAUTERELLES = [0.4, 1, 0.6, 0];
 //     mesurerFoule), passants des rues d'un côté, flâneurs des places de l'autre.
 //   · `marche` : l'énergie des pas (ceux qui marchent près de l'oreille) ; `moteurs` : celle
 //     des voitures qu'on voit ; `bande` : l'âge (0 Feu … 9 Démiurge, data/eraThemes.js) ;
-//     `etals` : celle des flâneurs d'une place de marché.
-export function ciblesNappes(P, { vent = 1, proche = 1, loin = 0, taille = 0, nuit = 0, pluie = 0, saison = 1, rue = 0, place = 0, marche = 0, moteurs = 0, bande = 0, etals = 0 } = {}, out = {}) {
+//     `etals` : celle des flâneurs d'une place de marché ; `port` : celle du port qu'on
+//     voit et de ses gens (lot 4) ; `betail` : celle des bêtes au pré.
+export function ciblesNappes(P, { vent = 1, proche = 1, loin = 0, taille = 0, nuit = 0, pluie = 0, saison = 1, rue = 0, place = 0, marche = 0, moteurs = 0, bande = 0, etals = 0, port = 0, betail = 0 } = {}, out = {}) {
   // Les nappes s'effacent au dézoom, plus tard que le proche (∝ cos^0,7 contre cos²).
   const nappeK = Math.pow(proche, 0.7);
   const jour = 1 - nuit, sec = Math.pow(1 - Math.min(1, pluie), 2);
@@ -529,6 +563,10 @@ export function ciblesNappes(P, { vent = 1, proche = 1, loin = 0, taille = 0, nu
   // voitures d'époque n'ont pas ce fond moderne ; après, il n'y a plus que des drones).
   out.pas = voixDeFoule(marche, FOULE_E.pas) * (bande <= 4 ? 1 : bande <= 6 ? 0.6 : 0) * nappeK;
   out.circulation = (bande === 6 ? voixDeFoule(moteurs, FOULE_E.moteurs) : 0) * nappeK;
+  // Le port, de l'âge du Bois au Néon (il n'y a pas de quai avant ; après, les ports sont
+  // des machines).
+  out.port = (bande >= 1 && bande <= 6 ? voixDeFoule(port, FOULE_E.place) : 0) * nappeK;
+  out.troupeau = voixDeFoule(betail, FOULE_E.place) * (1 - 0.5 * nuit) * nappeK;
   // La rumeur lointaine selon l'âge, dosée comme la rumeur synthétisée (taille × loin).
   const loinVille = taille * loin;
   out.lointainFoule = loinVille * (bande >= 2 && bande <= 5 ? 1 : bande === 6 ? 0.5 : 0);
@@ -567,6 +605,9 @@ function majNappes(L, f, t) {
     rue: D.mesure.voixRue, place: D.mesure.voixPlace, marche: D.mesure.marche,
     moteurs: energieDe('moteur', D.h, 4, 20), bande: (L.counts && L.counts.eraBand) | 0,
     etals: energieDe('etals', D.h, FOULE.ref, FOULE.max),
+    // Le port qu'on voit (ses bâtiments, iso/isoPort.js), et ses gens.
+    port: energieDe('port', D.h, 5, 24) + 0.5 * D.mesure.voixPort,
+    betail: energieDe('vaches', D.h, 4, 18) + energieDe('moutons', D.h, 4, 18) + energieDe('chevres', D.h, 4, 18),
   }, D.cibles);
   const terre = P.foret + P.prairie + 0.6 * P.champ, herbe = P.prairie + P.champ;
   const panTerre = terre > 0 ? (pans.foret * P.foret + pans.prairie * P.prairie + pans.champ * 0.6 * P.champ) / terre : 0;
@@ -576,7 +617,7 @@ function majNappes(L, f, t) {
     grillons: panTerre, stridulations: panHerbe, cigales: pans.foret, altitude: 0,
     brouhaha: D.mesure.panRue, causerie: D.mesure.panPlace, jeux: D.mesure.panPlace,
     pas: D.mesure.panRue, circulation: 0, etals: D.mesure.panPlace,
-    lointainFoule: 0, lointainTrafic: 0, lointainCosmique: 0,
+    lointainFoule: 0, lointainTrafic: 0, lointainCosmique: 0, port: 0, troupeau: 0,
   };
   for (const [nom, def] of Object.entries(NAPPES)) {
     const v = D.nappes[nom];
@@ -695,6 +736,9 @@ function majSemes(M, L, h, f, t, now) {
     saison: Math.max(0, Math.min(3, (CM.season ?? 1) | 0)),
     sec: Math.pow(1 - Math.min(1, CM.rainF || 0), 2),
     vivant: ((L.counts && L.counts.eraBand) | 0) >= 7 ? 0 : 1,
+    // L'AUBE : la fin de la nuit dans le cycle du jour (cityMapRuntime.js, cmDayNightF :
+    // la nuit pleine finit à 0,90 du cycle, le jour revient à 1).
+    aube: CM.dayP == null ? 0 : (CM.dayP >= 0.9 || CM.dayP < 0.06 ? 1 : 0),
   };
   const habitue = now - D.bougeA > HABITUATION_MS ? 0.5 : 1;
   const T = CM.TILE, mes = D.mesure;
@@ -792,6 +836,8 @@ export function etatPaysage() {
     // La mémoire des sons décodés (Mo) : le budget visé est de 40 Mo (plan, § 3.9).
     memoireMo: [...D.tampons.values()].reduce((s, b) => s + (b.length || 0) * (b.numberOfChannels || 1) * 4, 0) / 1e6,
     emetteurs: Object.fromEntries(Object.entries(D.emetteurs).map(([k, l]) => [k, l.filter((v) => v.pris).length])),
+    // Combien la carte en dessine, par famille d'émetteurs (même sans son prêt).
+    emetteursVus: Object.fromEntries(Object.keys(EMETTEURS).map((k) => [k, (emetteursDe(k) || { n: 0 }).n])),
     ponctuels: { ...D.compte },
     // Par famille semée : combien joués, combien de sons prêts (fichiers décodés).
     // Semée sur des émetteurs : combien la carte en dessine (`vus`).

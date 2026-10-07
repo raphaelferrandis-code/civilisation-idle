@@ -234,9 +234,9 @@ registerVieActors((now, out) => {
           const spr = vieSprite(f.kind === 'gull' ? 'gull' : 'pigeon', peck ? 1 : 0, left);
           if (vieBlit(ctx, spr, p.x + wxp, p.y, k, fz)) {
             vieCount(f.kind === 'gull' ? 'mouettes' : 'pigeons');
-            // LE SON (docs/PLAN-AMBIANCE-SONORE.md, lot 3) : un pigeon posé qu'on voit
-            // peut roucouler.
-            if (f.kind === 'pigeon') noteEmetteur('pigeons', wx, wy, 1, now);
+            // LE SON (docs/PLAN-AMBIANCE-SONORE.md, lots 3 et 4) : un pigeon posé qu'on
+            // voit peut roucouler, une mouette crier.
+            noteEmetteur(f.kind === 'pigeon' ? 'pigeons' : 'mouettes', wx, wy, 1, now);
           }
         },
       });

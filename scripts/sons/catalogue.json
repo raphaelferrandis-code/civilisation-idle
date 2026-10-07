@@ -1,5 +1,5 @@
 {
-  "lisezmoi": "Les sons enregistrés du paysage sonore. Une entrée par son du jeu ; `node scripts/importSons.mjs` écrit src/assets/sons/<id>.ogg. Le nom fait la famille (oiseau, coucou, pic, chouette, grenouille, corneille, alouette ; lot 3 : brouhaha, causerie, jeux, etals, circulation, pas, sabots, enfant, roue). Les coupes viennent d'une mesure de l'enveloppe (passages plus forts que le plancher de bruit de 12 dB), pas d'une écoute : Raph les juge au banc d'écoute. Voir scripts/importSons.mjs et docs/PLAN-AMBIANCE-SONORE.md § 7.",
+  "lisezmoi": "Les sons enregistrés du paysage sonore. Une entrée par son du jeu ; `node scripts/importSons.mjs` écrit src/assets/sons/<id>.ogg. Le nom fait la famille (oiseau, coucou, pic, chouette, grenouille, corneille, alouette ; lot 3 : brouhaha, causerie, jeux, etals, circulation, pas, sabots, enfant, roue ; lot 4 : port, troupeau, feu, forge, vapeur, mouette, charpente, sifflet, vache, chevre, coq). Les coupes viennent d'une mesure de l'enveloppe (passages plus forts que le plancher de bruit de 12 dB), pas d'une écoute : Raph les juge au banc d'écoute. Voir scripts/importSons.mjs et docs/PLAN-AMBIANCE-SONORE.md § 7.",
   "sons": [
     {
       "id": "oiseau-merle-1",
@@ -234,6 +234,144 @@
       "source": "bigsoundbank/OBJWhled_Squeaky wheelbarrow 1 (ID 2516)_BigSoundBank.com.wav",
       "debut": 25.2, "fin": 27.4, "passeHaut": 200, "gain": -3, "fondu": [0.02, 0.15],
       "credit": { "auteur": "Joseph Sardin", "page": "https://bigsoundbank.com/squeaky-wheelbarrow-1-s2516.html", "licence": "CC0" }
+    },
+    {
+      "id": "port-peche-1",
+      "source": "bigsoundbank/AMBNaut_Small fishing port 1 (ID 2571)_BigSoundBank.com.wav",
+      "debut": 2, "fin": 112, "passeHaut": 60, "rms": -22, "brouiller": {"grain": 0.4, "duree": 24, "graine": 11},
+      "credit": { "auteur": "Joseph Sardin", "page": "https://bigsoundbank.com/small-fishing-port-1-s2571.html", "licence": "CC0" }
+    },
+    {
+      "id": "troupeau-cloches-1",
+      "source": "bigsoundbank/AMBFarm_Flock sheep and cows (ID 3220)_BigSoundBank.com.wav",
+      "debut": 6, "fin": 118, "passeHaut": 100, "rms": -24, "brouiller": {"grain": 0.5, "duree": 24, "graine": 12},
+      "credit": { "auteur": "Joseph Sardin ; Axeline T.", "page": "https://bigsoundbank.com/flock-sheep-and-cows-s3220.html", "licence": "CC0" }
+    },
+    {
+      "id": "feu-cheminee-1",
+      "source": "bigsoundbank/FIREBurn_Fireplace 2 (ID 0031)_BigSoundBank.com.wav",
+      "debut": 2, "fin": 58, "passeHaut": 80, "rms": -22, "brouiller": {"grain": 0.35, "duree": 12, "graine": 13},
+      "credit": { "auteur": "Joseph Sardin", "page": "https://bigsoundbank.com/fireplace-2-s0031.html", "licence": "CC0" }
+    },
+    {
+      "id": "forge-enclume-1",
+      "source": "bigsoundbank/METLImpt_Anvil 1 (ID 3589)_BigSoundBank.com.wav",
+      "debut": 2, "fin": 14.3, "passeHaut": 120, "rms": -20, "boucler": {"fondu": 0.3},
+      "credit": { "auteur": "Pablo Bergel", "page": "https://bigsoundbank.com/anvil-1-s3589.html", "licence": "CC0" }
+    },
+    {
+      "id": "vapeur-machine-1",
+      "source": "bigsoundbank/TRNSteam_Steam engine foley 2 (ID 3311)_BigSoundBank.com.wav",
+      "debut": 2, "fin": 14.3, "passeHaut": 60, "rms": -22, "boucler": {"fondu": 0.3},
+      "credit": { "auteur": "Joseph Sardin", "page": "https://bigsoundbank.com/steam-engine-foley-2-s3311.html", "licence": "CC0" }
+    },
+    {
+      "id": "mouette-cri-1",
+      "source": "bigsoundbank/AMBNaut_Gulls on the harbor (ID 2573)_BigSoundBank.com.wav",
+      "debut": 14.9, "fin": 17, "passeHaut": 300, "fondu": [0.02, 0.15],
+      "credit": { "auteur": "Joseph Sardin", "page": "https://bigsoundbank.com/gulls-on-the-harbor-s2573.html", "licence": "CC0" }
+    },
+    {
+      "id": "mouette-cri-2",
+      "source": "bigsoundbank/AMBNaut_Gulls on the harbor (ID 2573)_BigSoundBank.com.wav",
+      "debut": 19, "fin": 21.8, "passeHaut": 300, "fondu": [0.02, 0.15],
+      "credit": { "auteur": "Joseph Sardin", "page": "https://bigsoundbank.com/gulls-on-the-harbor-s2573.html", "licence": "CC0" }
+    },
+    {
+      "id": "mouette-cri-3",
+      "source": "bigsoundbank/AMBNaut_Gulls on the harbor (ID 2573)_BigSoundBank.com.wav",
+      "debut": 25.1, "fin": 27, "passeHaut": 300, "fondu": [0.02, 0.15],
+      "credit": { "auteur": "Joseph Sardin", "page": "https://bigsoundbank.com/gulls-on-the-harbor-s2573.html", "licence": "CC0" }
+    },
+    {
+      "id": "mouette-cri-4",
+      "source": "bigsoundbank/AMBNaut_Gulls on the harbor (ID 2573)_BigSoundBank.com.wav",
+      "debut": 41.3, "fin": 42.1, "passeHaut": 300, "fondu": [0.02, 0.12],
+      "credit": { "auteur": "Joseph Sardin", "page": "https://bigsoundbank.com/gulls-on-the-harbor-s2573.html", "licence": "CC0" }
+    },
+    {
+      "id": "mouette-cri-5",
+      "source": "bigsoundbank/AMBNaut_Gulls on the harbor (ID 2573)_BigSoundBank.com.wav",
+      "debut": 45.8, "fin": 48.3, "passeHaut": 300, "fondu": [0.02, 0.15],
+      "credit": { "auteur": "Joseph Sardin", "page": "https://bigsoundbank.com/gulls-on-the-harbor-s2573.html", "licence": "CC0" }
+    },
+    {
+      "id": "charpente-scie-1",
+      "source": "bigsoundbank/TOOLHand_Saw wood (ID 0559)_BigSoundBank.com.wav",
+      "debut": 0, "fin": 3.8, "passeHaut": 200, "fondu": [0.01, 0.12],
+      "credit": { "auteur": "Joseph Sardin", "page": "https://bigsoundbank.com/saw-wood-s0559.html", "licence": "CC0" }
+    },
+    {
+      "id": "charpente-scie-2",
+      "source": "bigsoundbank/TOOLHand_Saw wood (ID 0559)_BigSoundBank.com.wav",
+      "debut": 6.8, "fin": 10, "passeHaut": 200, "fondu": [0.01, 0.12],
+      "credit": { "auteur": "Joseph Sardin", "page": "https://bigsoundbank.com/saw-wood-s0559.html", "licence": "CC0" }
+    },
+    {
+      "id": "charpente-clou-1",
+      "source": "bigsoundbank/TOOLHand_Nail and hammer 1 (ID 0005)_BigSoundBank.com.wav",
+      "debut": 1.6, "fin": 5, "passeHaut": 150, "fondu": [0.01, 0.1],
+      "credit": { "auteur": "Joseph Sardin", "page": "https://bigsoundbank.com/nail-and-hammer-1-s0005.html", "licence": "CC0" }
+    },
+    {
+      "id": "charpente-clou-2",
+      "source": "bigsoundbank/TOOLHand_Nail and hammer 1 (ID 0005)_BigSoundBank.com.wav",
+      "debut": 5.1, "fin": 8.2, "passeHaut": 150, "fondu": [0.01, 0.1],
+      "credit": { "auteur": "Joseph Sardin", "page": "https://bigsoundbank.com/nail-and-hammer-1-s0005.html", "licence": "CC0" }
+    },
+    {
+      "id": "sifflet-vapeur-1",
+      "source": "bigsoundbank/TRNHorn_Hiss of steam train 1 (ID 0227)_BigSoundBank.com.wav",
+      "debut": 0, "fin": 3.5, "passeHaut": 200, "gain": -3, "fondu": [0.01, 0.4],
+      "credit": { "auteur": "Joseph Sardin", "page": "https://bigsoundbank.com/hiss-of-steam-train-1-s0227.html", "licence": "CC0" }
+    },
+    {
+      "id": "vache-meugle-1",
+      "source": "bigsoundbank/ANMLFarm_Cow moos (ID 0546)_BigSoundBank.com.wav",
+      "debut": 0.15, "fin": 2.5, "passeHaut": 60, "fondu": [0.02, 0.15],
+      "credit": { "auteur": "Joseph Sardin", "page": "https://bigsoundbank.com/cow-moos-s0546.html", "licence": "CC0" }
+    },
+    {
+      "id": "vache-meugle-2",
+      "source": "bigsoundbank/ANMLFarm_Cow moos (ID 0546)_BigSoundBank.com.wav",
+      "debut": 2.75, "fin": 5.4, "passeHaut": 60, "fondu": [0.02, 0.15],
+      "credit": { "auteur": "Joseph Sardin", "page": "https://bigsoundbank.com/cow-moos-s0546.html", "licence": "CC0" }
+    },
+    {
+      "id": "vache-meugle-3",
+      "source": "bigsoundbank/ANMLFarm_Cow moos (ID 0546)_BigSoundBank.com.wav",
+      "debut": 5.5, "fin": 8.25, "passeHaut": 60, "fondu": [0.02, 0.15],
+      "credit": { "auteur": "Joseph Sardin", "page": "https://bigsoundbank.com/cow-moos-s0546.html", "licence": "CC0" }
+    },
+    {
+      "id": "vache-meugle-4",
+      "source": "bigsoundbank/ANMLFarm_Cow moos (ID 0546)_BigSoundBank.com.wav",
+      "debut": 8.4, "fin": 11.7, "passeHaut": 60, "fondu": [0.02, 0.15],
+      "credit": { "auteur": "Joseph Sardin", "page": "https://bigsoundbank.com/cow-moos-s0546.html", "licence": "CC0" }
+    },
+    {
+      "id": "chevre-bele-1",
+      "source": "bigsoundbank/AMBFarm_Small herd of goats (ID 0821)_BigSoundBank.com.wav",
+      "debut": 3.7, "fin": 7.3, "passeHaut": 120, "fondu": [0.02, 0.15],
+      "credit": { "auteur": "Joseph Sardin", "page": "https://bigsoundbank.com/small-herd-of-goats-s0821.html", "licence": "CC0" }
+    },
+    {
+      "id": "chevre-bele-2",
+      "source": "bigsoundbank/AMBFarm_Small herd of goats (ID 0821)_BigSoundBank.com.wav",
+      "debut": 11.8, "fin": 15.4, "passeHaut": 120, "fondu": [0.02, 0.15],
+      "credit": { "auteur": "Joseph Sardin", "page": "https://bigsoundbank.com/small-herd-of-goats-s0821.html", "licence": "CC0" }
+    },
+    {
+      "id": "chevre-bele-3",
+      "source": "bigsoundbank/AMBFarm_Small herd of goats (ID 0821)_BigSoundBank.com.wav",
+      "debut": 20.5, "fin": 22.4, "passeHaut": 120, "fondu": [0.02, 0.15],
+      "credit": { "auteur": "Joseph Sardin", "page": "https://bigsoundbank.com/small-herd-of-goats-s0821.html", "licence": "CC0" }
+    },
+    {
+      "id": "coq-chant-1",
+      "source": "bigsoundbank/ANMLFarm_Song of rooster (ID 0283)_BigSoundBank.com.wav",
+      "debut": 0.35, "fin": 2.25, "passeHaut": 150, "fondu": [0.01, 0.15],
+      "credit": { "auteur": "Joseph Sardin", "page": "https://bigsoundbank.com/song-of-rooster-s0283.html", "licence": "CC0" }
     }
   ]
 }

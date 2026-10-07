@@ -25,7 +25,7 @@
 //
 // PUR (aléa à graine, ni navigateur ni état du jeu) : le test les mesure tous, et ils
 // se rendent dans le Worker des sons (synthese.worker.js), hors du fil principal.
-import { graine, normaliser } from '../synth.js';
+import { graine, normaliser, cloche } from '../synth.js';
 
 export const PAYSAGE_SR = 32000;
 
@@ -39,6 +39,9 @@ export const SONS_PAYSAGE = [
   // synthétisées ont été refusées à l'écoute (« cauchemardesques », Raph, 2026-10-07).
   'fontaine', 'roucoul1', 'roucoul2', 'roucoul3', 'roucoul4', 'roucoul5', 'roucoul6',
   'envol1', 'envol2', 'envol3', 'envol4', 'drone',
+  // Lot 4, les métiers : la cloche d'un bateau qui accoste ou qui part ; le bourdon
+  // électrique des ateliers du Néon.
+  'clochebateau1', 'clochebateau2', 'electrique',
 ];
 
 // ── Petits outils ──────────────────────────────────────────────────────────────
@@ -590,6 +593,41 @@ function rendreDrone(sr) {
   return auNiveau(melanger(Ln, [[rotors, 1], [sifflet, 0.05], [air, 0.12]]), 0.1);
 }
 
+// La CLOCHE d'un bateau (lot 4) : deux ou trois coups d'une petite cloche de bronze (la
+// cloche de modulation de fréquence de synth.js, métal de bronze), le dernier laissé
+// sonner. Variante 1 : deux coups ; variante 2 : trois, un ton plus bas.
+function rendreClocheBateau(v, sr) {
+  const f = v === 1 ? 1046 : 932, coups = v === 1 ? 2 : 3;
+  const out = new Float32Array(Math.round((0.4 * coups + 2.2) * sr));
+  for (let k = 0; k < coups; k += 1) cloche(out, sr, 0.01 + k * 0.38, f, 1.2, k === coups - 1 ? 1 : 0.8, { ratio: 1.41, indice: 2.6, tenue: 1.6 });
+  return normaliser(out, sr, 0.8, 0.2);
+}
+
+// Le BOURDON ÉLECTRIQUE d'un atelier du Néon (lot 4) : le ronflement d'un transformateur
+// (100 Hz et ses harmoniques, les impaires plus fortes — le grain d'un noyau de fer), qui
+// respire à peine, et un grésillement d'arc rare. Les fréquences tombent juste sur la
+// boucle de 4 s ; seul le grésillement, un bruit, se boucle en fondu.
+function rendreElectrique(sr) {
+  const rnd = graine(0xe1ec7), L = 4, Ln = L * sr;
+  const ronfle = new Float32Array(Ln);
+  for (let h = 1; h <= 9; h += 1) {
+    const w = (2 * Math.PI * 100 * h) / sr, a = (h % 2 ? 1 : 0.45) / Math.pow(h, 0.9), p = rnd() * 2 * Math.PI;
+    for (let i = 0; i < Ln; i += 1) ronfle[i] += Math.sin(w * i + p) * a;
+  }
+  for (let i = 0; i < Ln; i += 1) ronfle[i] *= 0.85 + 0.15 * Math.sin((2 * Math.PI * i) / Ln);
+  const n = Ln + Math.round(0.2 * sr), brut = new Float32Array(n);
+  const bp = biquad('bp', 3200, 0.8, sr);
+  let arc = 0;
+  for (let i = 0; i < n; i += 1) {
+    if (rnd() < 0.00008) arc = 0.5 + 0.5 * rnd();
+    arc *= 0.9993;
+    brut[i] = bq(bp, rnd() * 2 - 1) * (0.15 + arc);
+  }
+  const gres = boucler(brut, Ln);
+  auNiveau(ronfle, 1, 1e9); auNiveau(gres, 1, 1e9);
+  return auNiveau(melanger(Ln, [[ronfle, 1], [gres, 0.08]]), 0.12);
+}
+
 // ── Le guichet ─────────────────────────────────────────────────────────────────
 export function rendrePaysage(nom, sr = PAYSAGE_SR) {
   switch (nom) {
@@ -604,6 +642,7 @@ export function rendrePaysage(nom, sr = PAYSAGE_SR) {
     case 'cigales': return rendreCigales(sr);
     case 'fontaine': return rendreFontaine(sr);
     case 'drone': return rendreDrone(sr);
+    case 'electrique': return rendreElectrique(sr);
     default: break;
   }
   let m = /^plouf([1-6])$/.exec(nom);
@@ -616,5 +655,7 @@ export function rendrePaysage(nom, sr = PAYSAGE_SR) {
   if (m) return rendreRoucoul(Number(m[1]), sr);
   m = /^envol([1-4])$/.exec(nom);
   if (m) return rendreEnvol(Number(m[1]), sr);
+  m = /^clochebateau([1-2])$/.exec(nom);
+  if (m) return rendreClocheBateau(Number(m[1]), sr);
   throw new Error('son de paysage inconnu : ' + nom);
 }

@@ -37,6 +37,8 @@ import { boatSpecFor, boatSizeMul, boatHasLights, drawBoat } from './boatKit.js'
 import { dockPorters } from './boatBerths.js';
 import { BOAT_MODELS } from './boatKits.js';
 import { drawSmoke, drawJets } from './boatFx.js';
+// Le guichet du paysage sonore : un module-FEUILLE (aucun import), sans risque de cycle.
+import { noteSon, noteEmetteur } from '../../audio/paysage/evenements.js';
 
 // ── BATEAUX : la flotte (CM.ships) sur le ruban projeté ──────────────────────
 // Reprend la recette drawShips (stade par ère, voie latérale, louvoiement,
@@ -72,6 +74,13 @@ export function drawIsoShips(now) {
     // rien n'est posé.
     const kit = boatSpecFor(sh, band);
     if (!kit) { sh._hull = null; sh._defer = null; continue; }
+    // LE SON (docs/PLAN-AMBIANCE-SONORE.md, lot 4) : l'état d'avant, suivi à CHAQUE image —
+    // un accostage hors champ s'oublie, il ne sonnera pas quand le bateau entrera dans le
+    // champ.
+    // Une mémoire plus vieille qu'une demi-seconde (la flotte n'était plus dessinée :
+    // dézoom, autre onglet) ne compte pas.
+    const etat0 = (now || 0) - (sh._sonA || 0) < 500 ? sh._sonEtat : null;
+    sh._sonEtat = sh.state; sh._sonA = now || 0;
     // Le passeur garde SES places d'une traversée à l'autre : ce sont les voyageurs qui
     // changent — ceux qui attendaient au ponton (boatScenes, sh._passNames ; lot 5 de
     // PLAN-COMPORTEMENTS). La graine suivait le voyage : sur le pont, d'autres gens.
@@ -206,6 +215,13 @@ export function drawIsoShips(now) {
       : sh.kind === 'shuttle' && sh.state === 'cruise' && sh.dest === 'city' ? 'return'
         : sh.state === 'cruise' && sh.salute > 0 ? 'salute' : sh.state;
     const pose = { kit, x: p.x, y: snapDev(p.y + bob), thW, z, state: kstate, wx: wxS, wy: wyS, heading, sizeMul, at: now, alpha: ctx.globalAlpha / (prevAlpha || 1) };
+    // La cloche du bord quand un bateau de commerce accoste ou repart, quand le bac part ou
+    // touche l'autre rive — de l'âge de la Pierre à la Fonte (avant, des radeaux ; après,
+    // des moteurs).
+    if (etat0 != null && etat0 !== sh.state && band >= 2 && band <= 5 && (sh.kind === 'trade' || sh.kind === 'ferry')) {
+      const accoste = sh.state === 'dock' || sh.state === 'board', part = etat0 === 'dock' || etat0 === 'board';
+      if (accoste || part) noteSon('cloche', wxS, wyS, 1);
+    }
     if (sh.kind === 'ferry') { pose.passNames = sh._passNames || null; pose.hidePass = ferryDeckHidden(sh); }
     // À QUAI, ou en train de s'y ranger : le bateau est trié AVEC le ponton (item
     // 'fleetShip' du peintre, cf. drawIsoShipDeferred) — peint ici, avant la passe
@@ -238,6 +254,8 @@ function drawKitShip(ctx, sh, P, now) {
   if (r.pass) sh._deckSlots = r.pass;          // les places des voyageurs (boatScenes)
   // Ce qui bouge par-dessus la coque : la fumée des cheminées, les lances des pompiers.
   if (r.anchors.smoke) drawSmoke(ctx, r.anchors.smoke, now, P.z, sh.id | 0, P.heading, sh.state !== 'dock' && sh.state !== 'anchor');
+  // LE SON (lot 4) : un vapeur qui navigue a la machine de la Fonte, plus discrète.
+  if (r.anchors.smoke && sh.state !== 'dock' && sh.state !== 'anchor') noteEmetteur('vapeur', P.wx, P.wy, 0.6, now);
   if (r.model && r.model.service === 'fire' && sh.state === 'anchor') drawJets(ctx, r.anchors, now, P.z, P.heading, sh.id | 0);
   // `dh`, `iw`, `ih` : le canvas de la coque n'est plus carré (boatKit, PERF-36).
   sh._hull = { img: r.img, bx: r.bx, by: r.by, dw: r.dw, dh: r.dh, iw: r.iw, ih: r.ih, wx: P.wx, wy: P.wy, a: ctx.globalAlpha, at: now, crew: r.crew };
@@ -306,6 +324,9 @@ const PORT_HOUSE_R = {
 export function drawIsoRiverside(ctx, t, spanX, spanY, T, z, now, band, ei) {
   const L = CM.layout, rv = L.river;
   if (!rv || !rv.present || !rv.samples || rv.samples.length < 2) return;
+  // LE SON (docs/PLAN-AMBIANCE-SONORE.md, lot 4) : le port qu'on voit s'entend, quel qu'il
+  // soit (le ponton des premiers âges, le Vieux-Port, le port de commerce, la capitainerie).
+  noteEmetteur('port', (t.gx + (spanX || 1) / 2) * T, (t.gy + (spanY || 1) / 2) * T, 1, now);
   // Le VIEUX-PORT (bande 5+, docs/PLAN-PORTS.md) : bassin creusé, quais, forts.
   if (t.oldPort) { drawOldPort(ctx, t, band, now); return; }
   if (t.tradePort) { drawTradePort(ctx, t, band, ei, now, (c) => drawQuayShips(c, t.gx + ',' + t.gy, now)); return; }

@@ -1776,9 +1776,10 @@ export function drawIsoPlazaProp(ctx, rec, era, now) {
     ctx.drawImage(an.img, f * an.fw, 0, an.fw, an.fh, g.dx, g.dy, g.dw, g.dh);
     lightCutImage(im, g.dx, g.dy, g.dw, g.dh);
     ctx.imageSmoothingEnabled = prev;
-    if (rec.prop === 'brazier') brazierGlow(rec, era, bb, im, g, now);
-    // LE SON (docs/PLAN-AMBIANCE-SONORE.md, lot 3) : l'eau qu'on voit couler s'entend —
-    // une fontaine pleinement, un puits ou une borne en filet.
+    // LE SON (docs/PLAN-AMBIANCE-SONORE.md, lots 3 et 4) : le brasero qu'on voit crépite ;
+    // l'eau qu'on voit couler s'entend — une fontaine pleinement, un puits ou une borne en
+    // filet.
+    if (rec.prop === 'brazier') { brazierGlow(rec, era, bb, im, g, now); noterBrasero(rec, era, now); }
     else noteEmetteur('fontaine', rec.wx, rec.wy, rec.prop === 'well' ? 0.4 : 1, now);
     return;
   }
@@ -1799,7 +1800,11 @@ export function drawIsoPlazaProp(ctx, rec, era, now) {
     lightCutImage(im, g.dx, g.dy, g.dw, g.dh);  // le halo derrière ne traverse pas
   }
   ctx.imageSmoothingEnabled = prev;
-  if (rec.prop === 'brazier') brazierGlow(rec, era, bb, im, g, now);
+  if (rec.prop === 'brazier') { brazierGlow(rec, era, bb, im, g, now); noterBrasero(rec, era, now); }
+}
+// Le brasero crépite (lot 4), sauf l'orbe des âges cosmiques, qui n'est pas un feu.
+function noterBrasero(rec, era, now) {
+  if (era !== 'cosmic') noteEmetteur('feu', rec.wx, rec.wy, 0.6, now);
 }
 
 // LUEUR DU BRASERO (flameGlow.js : « chaque flamme doit émettre une lueur ») :

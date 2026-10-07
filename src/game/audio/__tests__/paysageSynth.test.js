@@ -6,7 +6,7 @@
 import { describe, it, expect } from 'vitest';
 import { rendrePaysage, SONS_PAYSAGE, PAYSAGE_SR, LIBELLULE_HZ, LIBELLULE_NOTE } from '../paysage/paysageSynth.js';
 
-const BOUCLES = ['souffle', 'feuillage', 'courant', 'ressac', 'lointain', 'libellule', 'grillons', 'stridulations', 'cigales', 'fontaine', 'drone'];
+const BOUCLES = ['souffle', 'feuillage', 'courant', 'ressac', 'lointain', 'libellule', 'grillons', 'stridulations', 'cigales', 'fontaine', 'drone', 'electrique'];
 const NAPPES = ['souffle', 'feuillage', 'courant', 'ressac', 'lointain', 'grillons', 'stridulations', 'cigales'];
 const rendus = new Map();
 const son = (nom) => { if (!rendus.has(nom)) rendus.set(nom, rendrePaysage(nom)); return rendus.get(nom); };

@@ -31,6 +31,9 @@ import { muteSunShadow } from './isoSunShadow.js';
 import { HOVER_GOLD } from './isoPalette.js';
 import { chuteTileState } from './chuteState.js';
 import { paintEngineFall } from './isoChuteScene.js';
+// Le guichet du paysage sonore : des modules-FEUILLES (aucun import), sans risque de cycle.
+import { noteEmetteur } from '../../audio/paysage/evenements.js';
+import { familleMetier } from '../../audio/paysage/metiers.js';
 
 // ── SCÈNES MOTEUR legacy posées sur le losange (Phase 3-lite) ────────────────
 // Expérience validée à la capture : les scènes de cityEngineSprites (props
@@ -417,6 +420,17 @@ function drawIsoEngineSceneBody(ctx, t, id, bx, by, bw, now, aNow) {
     // activé, un drawImage remplacé par un drawImage, et en retard sur les
     // fenêtres de nuit et les scènes vivantes, qu'il éteignait ou figeait.)
     drawEngineSprite(t, bx, by, bw, bw, aNow);
+    // LE SON (docs/PLAN-AMBIANCE-SONORE.md, lot 4) : l'atelier qu'on voit travaille (la
+    // forge, la charpente, la vapeur, le bourdon électrique), le feu d'un culte crépite.
+    // Au `now` de l'IMAGE, jamais à l'horloge de l'instance (`aNow`) : le guichet reconnaît
+    // une image à son heure, une heure par scène viderait la famille à chaque appel.
+    {
+      const fam = familleMetier(id, (CM.layout && CM.layout.counts && CM.layout.counts.eraBand) | 0, id === 'guilds' ? engineCraft(t) : 0);
+      if (fam) {
+        const T = CM.TILE, sx = t.spanX || t.size || 1, sy = t.spanY || t.size || 1;
+        noteEmetteur(fam, (t.gx + sx / 2) * T, (t.gy + sy / 2) * T, 1, now);
+      }
+    }
     // Rend la boîte publiée à l'appelant pour le hit-test au survol. Sans elle,
     // viser un moteur haut (une école, un temple) retombait sur la cellule
     // projetée sous le curseur, c'est-à-dire celle SITUÉE DERRIÈRE.
