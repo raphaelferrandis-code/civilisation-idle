@@ -1,14 +1,17 @@
 // LE MIXEUR DU PAYSAGE SONORE (docs/PLAN-AMBIANCE-SONORE.md § 3.8 et § 3.9).
 //
 //   sources ─► gain ─► panoramique ─► bus ─► passe-bas du bus ─► maître ─► étouffoir
-//          ─► baisse ─► sortie (et deux sondes, pour le banc d'écoute)
+//          ─► baisse ─► limiteur ─► sortie (et deux sondes, pour le banc d'écoute)
 //
 //   · trois BUS : les nappes, le proche (ponctuels et émetteurs), le lointain. Les
 //     passe-bas des deux premiers se ferment quand on dézoome (oreille.js, coupure) ;
 //     celui du lointain reste fermé : une ville au loin est sourde ;
 //   · le MAÎTRE porte le volume du joueur et les fondus d'entrée et de sortie ;
 //   · l'ÉTOUFFOIR et la BAISSE assourdissent tout sous une fenêtre ouverte (−8 dB,
-//     passe-bas vers 1,5 kHz) : la ville derrière la vitre.
+//     passe-bas vers 1,5 kHz) : la ville derrière la vitre ;
+//   · le LIMITEUR garde la sortie de l'écrêtage (lot 6) : le maître monte à 2,5 × le
+//     volume du joueur, et une corneille sous l'oreille, au volume plein, toucherait
+//     0 dBFS. Sous −6 dBFS, il ne fait rien.
 //
 // Un StereoPanner par voix, jamais de PannerNode : en 2D le HRTF n'apporte rien et
 // coûte cher (padenot, « web-audio-perf »).
@@ -23,7 +26,11 @@ export function creerMixeur(ctx) {
   baisse.gain.value = 1;
   const sonde = ctx.createAnalyser();
   sonde.fftSize = 2048;
-  maitre.connect(etouffoir); etouffoir.connect(baisse); baisse.connect(ctx.destination); baisse.connect(sonde);
+  const limiteur = ctx.createDynamicsCompressor();
+  limiteur.threshold.value = -6; limiteur.knee.value = 4; limiteur.ratio.value = 20;
+  limiteur.attack.value = 0.002; limiteur.release.value = 0.25;
+  maitre.connect(etouffoir); etouffoir.connect(baisse); baisse.connect(limiteur);
+  limiteur.connect(ctx.destination); limiteur.connect(sonde);
   // La sonde PONDÉRÉE : la pondération K de la sonie (UIT-R BS.1770 : un plateau de
   // +4 dB au-dessus de 1,7 kHz, un passe-haut à 38 Hz), approchée par deux filtres. Le
   // grave d'un vent y pèse moins que des voix au même niveau efficace (lot 6).
@@ -33,9 +40,9 @@ export function creerMixeur(ctx) {
   sousGrave.type = 'highpass'; sousGrave.frequency.value = 38; sousGrave.Q.value = 0.5;
   const sondeK = ctx.createAnalyser();
   sondeK.fftSize = 2048;
-  baisse.connect(plateau); plateau.connect(sousGrave); sousGrave.connect(sondeK);
+  limiteur.connect(plateau); plateau.connect(sousGrave); sousGrave.connect(sondeK);
   const bus = {};
-  const noeuds = [maitre, etouffoir, baisse, sonde, plateau, sousGrave, sondeK];
+  const noeuds = [maitre, etouffoir, baisse, limiteur, sonde, plateau, sousGrave, sondeK];
   for (const nom of BUS) {
     const gain = ctx.createGain();
     const filtre = ctx.createBiquadFilter();
@@ -45,7 +52,7 @@ export function creerMixeur(ctx) {
     noeuds.push(gain, filtre);
   }
   return {
-    ctx, maitre, etouffoir, baisse, sonde, sondeK, bus,
+    ctx, maitre, etouffoir, baisse, limiteur, sonde, sondeK, bus,
     debrancher() { for (const x of noeuds) { try { x.disconnect(); } catch { /* déjà débranché */ } } },
   };
 }

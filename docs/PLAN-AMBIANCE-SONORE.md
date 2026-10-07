@@ -292,6 +292,18 @@ qui plonge dans le fleuve : un plouf le trahirait.
 
   Le proche varie de 2 à 3 dB d'une mesure à l'autre (les sons semés, l'heure) ; le lointain,
   lui, a bien perdu ses 8 dB. Le curseur « lointain » du banc le règle à l'oreille.
+- **La ville qu'on voit** (lot 6, retour de Raph : « en dézoom max, si le joueur regarde la
+  forêt, il entend quand même le bruit lointain de la ville ; il faudrait n'entendre que le bruit
+  doux de la végétation »). La rumeur et ses couches d'âge suivent la part de ville à l'écran,
+  pleines dès le quart (au dézoom maximal, une ville centrée en couvre 0,29 au Feu), et non plus
+  la seule taille de la ville. Au-dessus des bois, une couche `lointainForet` prend sa place : le
+  feuillage joué plus grave, assourdi par le bus du lointain. Le vent d'altitude se retire, lui
+  aussi, devant la ville qu'on voit. Chaque couche lointaine se place du côté de ce qu'elle
+  dit : la rumeur du côté de la ville, la végétation du côté des bois.
+
+  Mesuré, tout chargé, au-dessus d'une forêt sans ville à l'écran : au zoom 0,3, la végétation
+  −50,4, le vent −55,9, aucune rumeur ; de près (zoom 1,6), la forêt −43,7. Au loin, la forêt
+  s'entend donc 7 dB plus bas que de près, et plus du tout la ville.
 
 ### 3.6 Les âges
 
@@ -1381,3 +1393,15 @@ Ma recommandation était donnée pour chacune.
 
   **Reste** : l'épreuve des longues parties, par Raph ; le curseur « lointain » à régler à
   son oreille.
+- **2026-10-07, les réglages de Raph après quinze minutes de jeu**, versés dans les niveaux :
+  le maître à 2,5 (`GAIN_MAITRE`) ; souffle ×0,5, feuillage ×0,55, courant ×0,7, ressac ×0,55,
+  grillons ×0,5, brouhaha ×1,05, causerie ×0,5, troupeau ×0,95, pluie ×0,75, pluie sur le pavé
+  ×0,45, sabots ×0,15, corneille ×2,5. La clé du banc passe à `civ-paysage-banc-4` : ses
+  anciens multiplicateurs ne s'appliqueront pas une seconde fois.
+
+  Avec le maître à 2,5, une corneille sous l'oreille, au volume plein, toucherait 0 dBFS : un
+  **limiteur** garde désormais la sortie du mixeur (seuil −6 dBFS, rien en dessous).
+
+  **Son retour** : dézoomé au-dessus de la forêt, il entendait encore la ville. La rumeur suit
+  maintenant la ville qu'on voit, et la végétation au loin (`lointainForet`) prend sa place
+  au-dessus des bois (§ 3.5). Le banc a son curseur. Raph fera des sessions plus longues.

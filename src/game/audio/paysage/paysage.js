@@ -48,6 +48,14 @@ const ATTENTE_MS = 20000;   // un son que le Worker ne rend pas en 20 s se rend 
 // Dézoomer doit éloigner, pas monter le son (§ 1.1 : le vent de Cities: Skylines, que des
 // joueurs voulaient couper). Le banc le règle (« lointain »).
 const LOINTAIN_BUS = 0.4;
+// LE MAÎTRE : 2,5 × le volume du joueur, le maître du banc de Raph après quinze minutes de
+// jeu (2026-10-07), versé ici. Un limiteur garde la sortie (mixeur.js).
+const GAIN_MAITRE = 2.5;
+// LA VILLE QU'ON VOIT : la rumeur lointaine suit la part de ville à l'écran, pleine dès le
+// quart (au dézoom maximal, une ville centrée en couvre 0,29 au Feu, mesuré). « En dézoom
+// max, si le joueur regarde la forêt, il entend quand même le bruit lointain de la ville ;
+// il faudrait n'entendre que le bruit doux de la végétation » (Raph, 2026-10-07).
+const VILLE_PLEINE = 0.25;
 
 // ── Ce qui sonne ──────────────────────────────────────────────────────────────
 // `niveau` : le gain d'une nappe qui remplit l'écran. `largeur` : l'écart des deux
@@ -56,19 +64,23 @@ const LOINTAIN_BUS = 0.4;
 // maître à 0,5 et ses multiplicateurs sont versés ici — feuillage ×0,8, courant ×0,5
 // puis ×0,8, ressac ×0,7, libellule ×0,8 ; le ressac et la libellule refaits entre les
 // deux (paysageSynth.js, « la tempête », « l'hélicoptère »), validés à la seconde.
+// Puis après quinze minutes de jeu (lot 6) : son maître à 2,5 (GAIN_MAITRE), et souffle
+// ×0,5, feuillage ×0,55, courant ×0,7, ressac ×0,55, grillons ×0,5, brouhaha ×1,05,
+// causerie ×0,5, troupeau ×0,95, pluie ×0,75, pluie sur le pavé ×0,45, sabots ×0,15,
+// corneille ×2,5.
 export const NAPPES = {
-  souffle: { bus: 'nappes', largeur: 0.35, niveau: 0.21 },
-  feuillage: { bus: 'nappes', largeur: 0.45, niveau: 0.18 },
-  courant: { bus: 'nappes', largeur: 0.3, niveau: 0.084 },
+  souffle: { bus: 'nappes', largeur: 0.35, niveau: 0.105 },
+  feuillage: { bus: 'nappes', largeur: 0.45, niveau: 0.099 },
+  courant: { bus: 'nappes', largeur: 0.3, niveau: 0.059 },
   // Le clapotis est clairsemé, borné par ses crêtes (0,7) et non par son énergie : son
   // niveau se juge aux claques, à peine sous celles de l'ancien ressac.
-  ressac: { bus: 'nappes', largeur: 0.3, niveau: 0.18 },
+  ressac: { bus: 'nappes', largeur: 0.3, niveau: 0.099 },
   lointain: { bus: 'lointain', largeur: 0.5, niveau: 0.2 },
   // LOT 2 (la nature), niveaux de départ, à régler à l'oreille. Les insectes suivent le
   // jour, la nuit, la saison et la pluie (majNappes) ; le vent d'altitude est le souffle
   // joué plus grave, sur le bus du lointain : ce qu'on entend dézoomé au-dessus de la
   // campagne, quand la ville est petite.
-  grillons: { bus: 'nappes', largeur: 0.45, niveau: 0.18 },
+  grillons: { bus: 'nappes', largeur: 0.45, niveau: 0.09 },
   stridulations: { bus: 'nappes', largeur: 0.4, niveau: 0.16 },
   cigales: { bus: 'nappes', largeur: 0.4, niveau: 0.14 },
   altitude: { son: 'souffle', vitesse: 0.72, bus: 'lointain', largeur: 0.5, niveau: 0.12 },
@@ -84,8 +96,8 @@ export const NAPPES = {
   // une prise trop riche en crêtes (des pas, des sabots, une place animée) ne monte pas à
   // −20 LUFS sans écrêter, son niveau de jeu la rattrape — causerie −24,7 LUFS, jeux
   // −23,2, étals −24,7, circulation −21, pas −32,3 ; brouhaha −20,3.
-  brouhaha: { enregistres: ['brouhaha-rue-1'], bus: 'nappes', largeur: 0.45, niveau: 0.16 },
-  causerie: { ages: [2, 9], enregistres: ['causerie-place-1', 'causerie-groupe-1'], bus: 'nappes', largeur: 0.4, niveau: 0.27 },
+  brouhaha: { enregistres: ['brouhaha-rue-1'], bus: 'nappes', largeur: 0.45, niveau: 0.168 },
+  causerie: { ages: [2, 9], enregistres: ['causerie-place-1', 'causerie-groupe-1'], bus: 'nappes', largeur: 0.4, niveau: 0.135 },
   jeux: { ages: [2, 9], enregistres: ['jeux-parc-1', 'jeux-cour-1'], bus: 'nappes', largeur: 0.4, niveau: 0.17 },
   // Le marché : les étals d'une place de marché qu'on voit (iso/isoPlaza.js), de jour.
   etals: { enregistres: ['etals-plein-air-1'], bus: 'nappes', largeur: 0.4, niveau: 0.24 },
@@ -103,12 +115,15 @@ export const NAPPES = {
   lointainFoule: { ages: [2, 6], enregistres: ['brouhaha-rue-1'], vitesse: 0.85, bus: 'lointain', largeur: 0.5, niveau: 0.09 },
   lointainTrafic: { ages: [5, 6], enregistres: ['circulation-carrefour-1'], vitesse: 0.75, bus: 'lointain', largeur: 0.5, niveau: 0.09 },
   lointainCosmique: { ages: [7, 9], son: 'drone', vitesse: 0.5, bus: 'lointain', largeur: 0.5, niveau: 0.07 },
+  // La VÉGÉTATION AU LOIN (lot 6) : dézoomé au-dessus des bois, le feuillage plus grave et
+  // assourdi. La rumeur de la ville, elle, ne s'entend plus que là où on la voit.
+  lointainForet: { son: 'feuillage', vitesse: 0.85, bus: 'lointain', largeur: 0.5, niveau: 0.3 },
   // LOT 4 (les métiers) : le PORT — l'eau contre les coques, les cordages, l'activité —,
   // dosé par les gens du port et des quais près de l'oreille (porteurs, promeneurs).
   // Niveaux selon la sonie mesurée à l'import : port −25,6 LUFS, troupeau −21,9.
   port: { ages: [1, 6], enregistres: ['port-peche-1'], bus: 'nappes', largeur: 0.45, niveau: 0.3 },
   // Les cloches d'un troupeau, près des bêtes qu'on voit au pré (iso/isoLivePaint.js).
-  troupeau: { ages: [0, 6], enregistres: ['troupeau-cloches-1'], bus: 'nappes', largeur: 0.45, niveau: 0.13 },
+  troupeau: { ages: [0, 6], enregistres: ['troupeau-cloches-1'], bus: 'nappes', largeur: 0.45, niveau: 0.124 },
   // LOT 5 (le temps) : la PLUIE — sur les flaques et la terre, sur la pierre des villes —,
   // dosée par l'averse (CM.rainF) et ses rafales, partagée selon la part de ville à
   // l'écran ; en hiver, la pluie du jeu tombe en NEIGE : elle se tait et le monde
@@ -116,8 +131,8 @@ export const NAPPES = {
   // Niveaux selon la sonie mesurée, rapportée aux nappes synthétisées (≈ −20 LUFS au
   // niveau 0,2) : pluie −32,6 et −34,1 LUFS, clameur −22,6. Une averse doit s'imposer.
   // `charge` (lot 6) : chargées seulement quand il pleut, quand une émeute gronde.
-  pluie: { charge: 'pluie', enregistres: ['pluie-flaques-1'], bus: 'nappes', largeur: 0.5, niveau: 0.85 },
-  pluieVille: { charge: 'pluie', enregistres: ['pluie-pave-1'], bus: 'nappes', largeur: 0.5, niveau: 0.95 },
+  pluie: { charge: 'pluie', enregistres: ['pluie-flaques-1'], bus: 'nappes', largeur: 0.5, niveau: 0.64 },
+  pluieVille: { charge: 'pluie', enregistres: ['pluie-pave-1'], bus: 'nappes', largeur: 0.5, niveau: 0.43 },
   emeute: { charge: 'emeute', enregistres: ['emeute-clameur-1'], bus: 'nappes', largeur: 0.45, niveau: 0.22 },
 };
 // `ref` / `max` : portée en cases (oreille.js, attenuation) ; `voix` : au plus tant à la
@@ -151,7 +166,7 @@ export const EMETTEURS = {
   // pas (enregistrés). Le drone des âges cosmiques (iso/isoSky.js) : son bourdon
   // (synthétisé, c'est une machine).
   // Les sabots de la rue Christine (−27,3 LUFS) : deux chevaux sur une chaussée de ville.
-  attelage: { ages: [0, 5], enregistres: ['sabots-rue-1', 'sabots-pas-1'], ref: 3, max: 12, niveau: 0.37, voix: 2 },
+  attelage: { ages: [0, 5], enregistres: ['sabots-rue-1', 'sabots-pas-1'], ref: 3, max: 12, niveau: 0.056, voix: 2 },
   drone: { ages: [6, 9], son: 'drone', ref: 2.5, max: 10, niveau: 0.1, voix: 2 },
   // LOT 4, les métiers (paysage/metiers.js dit quelle scène fait quel bruit) : le feu d'un
   // foyer, d'un brasero, d'un culte ; l'enclume du forgeron ; la machine à vapeur de la
@@ -189,7 +204,7 @@ export const SEMES = {
     quand: (c) => c.nuit * c.sec * c.vivant },
   grenouille: { ages: [0, 6], milieux: { rive: 1 }, taux: 10, variantes: 4, ref: 5, max: 20, niveau: 0.16, voix: 2, ecartMs: 700,
     quand: (c) => c.nuit * (c.saison <= ETE ? 1 : c.saison === AUTOMNE ? 0.3 : 0) * c.vivant },
-  corneille: { ages: [0, 6], milieux: { champ: 1, prairie: 0.6, foret: 0.3 }, taux: 3, variantes: 4, ref: 8, max: 30, niveau: 0.18, voix: 1, ecartMs: 4000,
+  corneille: { ages: [0, 6], milieux: { champ: 1, prairie: 0.6, foret: 0.3 }, taux: 3, variantes: 4, ref: 8, max: 30, niveau: 0.45, voix: 1, ecartMs: 4000,
     quand: (c) => (1 - c.nuit) * (c.saison === HIVER ? 1 : c.saison === AUTOMNE ? 0.4 : 0) * c.vivant },
   alouette: { ages: [0, 6], milieux: { champ: 1, prairie: 0.7 }, taux: 2, variantes: 2, ref: 9, max: 34, niveau: 0.16, voix: 1, ecartMs: 8000,
     quand: (c) => (1 - c.nuit) * (c.saison <= ETE ? 1 : 0) * c.sec * c.vivant },
@@ -269,8 +284,8 @@ export const BANC = {
 const OREILLE_DEFAUT = { ...OREILLE };
 // La clé change quand des réglages du banc sont VERSÉS dans les niveaux ci-dessus : les
 // anciens multiplicateurs, retenus chez Raph, s'appliqueraient une seconde fois.
-const CLE_BANC = 'civ-paysage-banc-3';
-try { for (const k of ['civ-paysage-banc', 'civ-paysage-banc-2']) localStorage.removeItem(k); } catch { /* stockage indisponible */ }
+const CLE_BANC = 'civ-paysage-banc-4';
+try { for (const k of ['civ-paysage-banc', 'civ-paysage-banc-2', 'civ-paysage-banc-3']) localStorage.removeItem(k); } catch { /* stockage indisponible */ }
 const nombre = (v, d) => (Number.isFinite(Number(v)) ? Number(v) : d);
 function lireBanc() {
   try {
@@ -551,7 +566,7 @@ export function tick() {
     return;
   }
   D.sortieA = 0;
-  cibler(M.maitre.gain, getPaysageVolume() * BANC.maitre, t, 0.3);
+  cibler(M.maitre.gain, getPaysageVolume() * GAIN_MAITRE * BANC.maitre, t, 0.3);
   cibler(M.bus.lointain.gain.gain, LOINTAIN_BUS * BANC.lointain, t, 0.3);
   const ferme = fenetreOuverte();
   // LA NEIGE (lot 5) : la pluie de l'hiver tombe en neige, et le monde s'assourdit.
@@ -650,17 +665,20 @@ export function ciblesNappes(P, { vent = 1, proche = 1, loin = 0, taille = 0, nu
   const s = Math.max(0, Math.min(3, saison | 0));
   // Courbe adoucie (part^0,6) : un bosquet s'entend, sans couvrir le reste.
   const doux = (x) => Math.pow(Math.max(0, x), 0.6);
+  // La part de ville à l'écran, pleine dès le quart (lot 6) : dézoomé au-dessus des bois,
+  // la rumeur de la ville se tait, même si elle est grande.
+  const villeVue = Math.min(1, ((P.ville || 0) + (P.place || 0)) / VILLE_PLEINE);
   const terre = P.foret + P.prairie + 0.6 * P.champ;
   out.souffle = doux(terre) * vent * nappeK;
   out.feuillage = doux(P.foret) * vent * (s === 3 ? 0.45 : 1) * nappeK;   // l'hiver déshabille les feuillus
   out.courant = doux(P.eau) * nappeK;
   out.ressac = doux(Math.min(1, P.rive)) * nappeK;
-  out.lointain = taille * loin;
+  out.lointain = taille * villeVue * loin;
   out.grillons = doux(P.prairie + P.champ + 0.6 * P.foret + 0.3 * Math.min(1, P.rive)) * nuit * SAISON_GRILLONS[s] * sec * nappeK;
   out.stridulations = doux(P.prairie + P.champ) * jour * SAISON_SAUTERELLES[s] * sec * nappeK;
   out.cigales = doux(P.foret + 0.4 * P.prairie) * jour * (s === 1 ? 1 : 0) * sec * nappeK;
   // Dézoomé au-dessus de la campagne : le vent d'altitude, d'autant plus que la ville est petite.
-  out.altitude = doux(Math.min(1, P.foret + P.prairie + P.champ + P.eau)) * (1 - 0.7 * taille) * vent * loin;
+  out.altitude = doux(Math.min(1, P.foret + P.prairie + P.champ + P.eau)) * (1 - 0.7 * villeVue) * vent * loin;
   // La ville : le brouhaha suit les passants (et un peu les flâneurs), la causerie les
   // flâneurs des places.
   out.brouhaha = voixDeFoule(rue + 0.4 * place, FOULE_E.rue) * nappeK;
@@ -685,10 +703,12 @@ export function ciblesNappes(P, { vent = 1, proche = 1, loin = 0, taille = 0, nu
   out.pluieVille = averse * enVille * loinK;
   out.emeute = voixDeFoule(emeute, FOULE_E.rue) * nappeK;
   // La rumeur lointaine selon l'âge, dosée comme la rumeur synthétisée (taille × loin).
-  const loinVille = taille * loin;
+  const loinVille = taille * villeVue * loin;
   out.lointainFoule = loinVille * (bande >= 2 && bande <= 5 ? 1 : bande === 6 ? 0.5 : 0);
   out.lointainTrafic = loinVille * (bande === 6 ? 1 : bande === 5 ? 0.35 : 0);
   out.lointainCosmique = loinVille * (bande >= 7 ? 1 : 0);
+  // Au-dessus des bois, la végétation (lot 6).
+  out.lointainForet = doux(P.foret) * loin;
   return out;
 }
 // Combien de voix on entend (0..1), pour une énergie `e` (Σ gain² des gens proches) : la
@@ -731,11 +751,12 @@ function majNappes(L, f, t) {
   const panTerre = terre > 0 ? (pans.foret * P.foret + pans.prairie * P.prairie + pans.champ * 0.6 * P.champ) / terre : 0;
   const panHerbe = herbe > 0 ? (pans.prairie * P.prairie + pans.champ * P.champ) / herbe : 0;
   const ou = {
-    souffle: panTerre, feuillage: pans.foret, courant: pans.eau, ressac: pans.rive, lointain: 0,
+    souffle: panTerre, feuillage: pans.foret, courant: pans.eau, ressac: pans.rive, lointain: pans.ville,
     grillons: panTerre, stridulations: panHerbe, cigales: pans.foret, altitude: 0,
     brouhaha: D.mesure.panRue, causerie: D.mesure.panPlace, jeux: D.mesure.panPlace,
     pas: D.mesure.panRue, circulation: 0, etals: D.mesure.panPlace,
-    lointainFoule: 0, lointainTrafic: 0, lointainCosmique: 0, port: 0, troupeau: 0,
+    lointainFoule: pans.ville, lointainTrafic: pans.ville, lointainCosmique: pans.ville, lointainForet: pans.foret,
+    port: 0, troupeau: 0,
     pluie: 0, pluieVille: 0, emeute: 0,
   };
   for (const [nom, def] of Object.entries(NAPPES)) {

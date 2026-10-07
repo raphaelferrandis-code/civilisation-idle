@@ -27,6 +27,11 @@ class FauxContexte {
   createGain() { const n = new Noeud(); n.gain = new Param(1); return n; }
   createBiquadFilter() { const n = new Noeud(); n.frequency = new Param(350); n.Q = new Param(1); n.gain = new Param(0); J.filtres.push(n); return n; }
   createStereoPanner() { const n = new Noeud(); n.pan = new Param(0); return n; }
+  createDynamicsCompressor() {
+    const n = new Noeud();
+    for (const k of ['threshold', 'knee', 'ratio', 'attack', 'release']) n[k] = new Param(0);
+    return n;
+  }
   createAnalyser() { const n = new Noeud(); n.fftSize = 2048; n.getFloatTimeDomainData = (a) => a.fill(0); return n; }
   createBufferSource() {
     const s = new Noeud();

@@ -2,7 +2,8 @@
 // décident quoi jouer, testées sans le jeu.
 //   · les nappes : les grillons la nuit, les sauterelles le jour dans les prés, les
 //     cigales les jours d'été ; la pluie et l'hiver font taire les insectes ; dézoomé,
-//     la nature se tait et le vent d'altitude prend sa place, moins si la ville est grande ;
+//     la nature se tait et le vent d'altitude prend sa place, moins là où l'on voit la
+//     ville ; au-dessus des bois, la végétation, et plus la rumeur de la ville ;
 //   · les ponctuels semés : un oiseau là où il y a de la forêt, de jour ; la chouette la
 //     nuit ; rien aux âges cosmiques ; l'habituation divise par deux ;
 //   · où semer : un lieu de l'écran qui porte le milieu ;
@@ -45,16 +46,28 @@ describe('les nappes de la nature', () => {
     expect(ciblesNappes(PRE, { nuit: 0, saison: 3 }).stridulations).toBe(0);
   });
 
-  it("dézoomé, la nature se tait et le vent d'altitude prend sa place, moins si la ville est grande", () => {
+  it("dézoomé, la nature se tait et le vent d'altitude prend sa place, moins là où l'on voit la ville", () => {
     const pres = ciblesNappes(EAU, { ...JOUR_ETE, proche: 1, loin: 0 });
     const loin = ciblesNappes(EAU, { ...JOUR_ETE, proche: 0, loin: 1 });
     expect(pres.courant).toBeGreaterThan(0.5);
     expect(pres.altitude).toBe(0);
     expect(loin.courant).toBe(0);
     expect(loin.altitude).toBeGreaterThan(0.5);
-    const ville = ciblesNappes(EAU, { ...JOUR_ETE, proche: 0, loin: 1, taille: 1 });
+    const ville = ciblesNappes(parts({ ville: 0.6, prairie: 0.4 }), { ...JOUR_ETE, proche: 0, loin: 1, taille: 1 });
     expect(ville.altitude).toBeLessThan(loin.altitude / 2);
     expect(ville.lointain).toBeCloseTo(1, 6);
+  });
+
+  it("dézoomé au-dessus des bois, on n'entend que la végétation, même près d'une grande ville (Raph, lot 6)", () => {
+    const bois = ciblesNappes(BOIS, { ...JOUR_ETE, proche: 0, loin: 1, taille: 1, bande: 3 });
+    expect(bois.lointain + bois.lointainFoule + bois.lointainTrafic + bois.lointainCosmique).toBe(0);
+    expect(bois.lointainForet).toBeCloseTo(1, 9);
+    expect(bois.altitude).toBeGreaterThan(0.5);
+    // La ville au bord de l'écran ne fait qu'un murmure ; zoomé, la végétation au loin se tait.
+    const lisiere = ciblesNappes(parts({ foret: 0.95, ville: 0.05 }), { proche: 0, loin: 1, taille: 1 });
+    expect(lisiere.lointain).toBeGreaterThan(0);
+    expect(lisiere.lointain).toBeLessThan(0.3);
+    expect(ciblesNappes(BOIS, { ...JOUR_ETE, proche: 1, loin: 0 }).lointainForet).toBe(0);
   });
 });
 
