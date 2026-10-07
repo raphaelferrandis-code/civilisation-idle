@@ -1613,8 +1613,8 @@ export default function OptionsDialog({ isOpen, onClose, onSave, onExport, onImp
                   <span>{tr({ fr: "Sons de la nature et de la ville", en: "Nature and city sounds" })}</span>
                   <small>
                     {tr({
-                      fr: "Enregistrements de Joseph Sardin, du Tiroir du fond, de Pablo Bergel et d'Axeline T., sur BigSoundBank (bigsoundbank.com), domaine public (CC0). Les oiseaux, les grenouilles, les foules, les enfants, les chevaux, la circulation, le port, les feux, les métiers et les bêtes de la carte en viennent, découpés et mis au même niveau.",
-                      en: "Recordings by Joseph Sardin, Le tiroir du fond, Pablo Bergel and Axeline T., on BigSoundBank (bigsoundbank.com), public domain (CC0). The map's birds, frogs, crowds, children, horses, traffic, harbor, fires, trades and livestock come from them, trimmed and leveled."
+                      fr: "Enregistrements de Joseph Sardin, du Tiroir du fond, de Pablo Bergel et d'Axeline T., sur BigSoundBank (bigsoundbank.com), domaine public (CC0). Les oiseaux, les grenouilles, les foules, les enfants, les chevaux, la circulation, le port, les feux, les métiers, les bêtes, la pluie et les émeutes de la carte en viennent, découpés et mis au même niveau.",
+                      en: "Recordings by Joseph Sardin, Le tiroir du fond, Pablo Bergel and Axeline T., on BigSoundBank (bigsoundbank.com), public domain (CC0). The map's birds, frogs, crowds, children, horses, traffic, harbor, fires, trades, livestock, rain and riots come from them, trimmed and leveled."
                     })}
                   </small>
                 </div>

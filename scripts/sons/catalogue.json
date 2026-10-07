@@ -1,5 +1,5 @@
 {
-  "lisezmoi": "Les sons enregistrés du paysage sonore. Une entrée par son du jeu ; `node scripts/importSons.mjs` écrit src/assets/sons/<id>.ogg. Le nom fait la famille (oiseau, coucou, pic, chouette, grenouille, corneille, alouette ; lot 3 : brouhaha, causerie, jeux, etals, circulation, pas, sabots, enfant, roue ; lot 4 : port, troupeau, feu, forge, vapeur, mouette, charpente, sifflet, vache, chevre, coq). Les coupes viennent d'une mesure de l'enveloppe (passages plus forts que le plancher de bruit de 12 dB), pas d'une écoute : Raph les juge au banc d'écoute. Voir scripts/importSons.mjs et docs/PLAN-AMBIANCE-SONORE.md § 7.",
+  "lisezmoi": "Les sons enregistrés du paysage sonore. Une entrée par son du jeu ; `node scripts/importSons.mjs` écrit src/assets/sons/<id>.ogg. Le nom fait la famille (oiseau, coucou, pic, chouette, grenouille, corneille, alouette ; lot 3 : brouhaha, causerie, jeux, etals, circulation, pas, sabots, enfant, roue ; lot 4 : port, troupeau, feu, forge, vapeur, mouette, charpente, sifflet, vache, chevre, coq ; lot 5 : emeute, pluie, chien). Les coupes viennent d'une mesure de l'enveloppe (passages plus forts que le plancher de bruit de 12 dB), pas d'une écoute : Raph les juge au banc d'écoute. Voir scripts/importSons.mjs et docs/PLAN-AMBIANCE-SONORE.md § 7.",
   "sons": [
     {
       "id": "oiseau-merle-1",
@@ -372,6 +372,42 @@
       "source": "bigsoundbank/ANMLFarm_Song of rooster (ID 0283)_BigSoundBank.com.wav",
       "debut": 0.35, "fin": 2.25, "passeHaut": 150, "fondu": [0.01, 0.15],
       "credit": { "auteur": "Joseph Sardin", "page": "https://bigsoundbank.com/song-of-rooster-s0283.html", "licence": "CC0" }
+    },
+    {
+      "id": "emeute-clameur-1",
+      "source": "bigsoundbank/AMBPrtst_Manifestation 6 (ID 3382)_BigSoundBank.com.wav",
+      "debut": 2, "fin": 80, "passeHaut": 100, "passeBas": 7000, "rms": -20, "brouiller": {"grain": 0.22, "duree": 24, "graine": 21},
+      "credit": { "auteur": "Joseph Sardin ; Axeline T.", "page": "https://bigsoundbank.com/manifestation-6-s3382.html", "licence": "CC0" }
+    },
+    {
+      "id": "pluie-flaques-1",
+      "source": "bigsoundbank/RAINWatr_Rain on puddle (ID 1290)_BigSoundBank.com.wav",
+      "debut": 2, "fin": 76, "passeHaut": 80, "rms": -22, "brouiller": {"grain": 0.3, "duree": 20, "graine": 22},
+      "credit": { "auteur": "Joseph Sardin", "page": "https://bigsoundbank.com/rain-on-puddle-s1290.html", "licence": "CC0" }
+    },
+    {
+      "id": "pluie-pave-1",
+      "source": "bigsoundbank/RAINConc_Rain on concrete (ID 1289)_BigSoundBank.com.wav",
+      "debut": 2, "fin": 78, "passeHaut": 100, "rms": -22, "brouiller": {"grain": 0.3, "duree": 20, "graine": 23},
+      "credit": { "auteur": "Joseph Sardin", "page": "https://bigsoundbank.com/rain-on-concrete-s1289.html", "licence": "CC0" }
+    },
+    {
+      "id": "chien-aboie-1",
+      "source": "bigsoundbank/ANMLDog_Old dog barking 2 (ID 2353)_BigSoundBank.com.wav",
+      "debut": 0, "fin": 2.9, "passeHaut": 200, "passeBas": 3000, "gain": -2, "fondu": [0.01, 0.2],
+      "credit": { "auteur": "Joseph Sardin", "page": "https://bigsoundbank.com/old-dog-barking-2-s2353.html", "licence": "CC0" }
+    },
+    {
+      "id": "chien-aboie-2",
+      "source": "bigsoundbank/ANMLDog_Old dog barking 2 (ID 2353)_BigSoundBank.com.wav",
+      "debut": 4.2, "fin": 6, "passeHaut": 200, "passeBas": 3000, "gain": -2, "fondu": [0.01, 0.2],
+      "credit": { "auteur": "Joseph Sardin", "page": "https://bigsoundbank.com/old-dog-barking-2-s2353.html", "licence": "CC0" }
+    },
+    {
+      "id": "chien-aboie-3",
+      "source": "bigsoundbank/ANMLDog_Old dog barking 2 (ID 2353)_BigSoundBank.com.wav",
+      "debut": 7.6, "fin": 9.4, "passeHaut": 200, "passeBas": 3000, "gain": -2, "fondu": [0.01, 0.2],
+      "credit": { "auteur": "Joseph Sardin", "page": "https://bigsoundbank.com/old-dog-barking-2-s2353.html", "licence": "CC0" }
     }
   ]
 }

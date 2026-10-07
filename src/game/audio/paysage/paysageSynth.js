@@ -42,6 +42,8 @@ export const SONS_PAYSAGE = [
   // Lot 4, les métiers : la cloche d'un bateau qui accoste ou qui part ; le bourdon
   // électrique des ateliers du Néon.
   'clochebateau1', 'clochebateau2', 'electrique',
+  // Lot 5, le temps : les carillons de verre des âges cosmiques.
+  'carillon1', 'carillon2', 'carillon3', 'carillon4',
 ];
 
 // ── Petits outils ──────────────────────────────────────────────────────────────
@@ -628,6 +630,23 @@ function rendreElectrique(sr) {
   return auNiveau(melanger(Ln, [[ronfle, 1], [gres, 0.08]]), 0.12);
 }
 
+// Les CARILLONS DE VERRE des âges cosmiques (lot 5) : trois à cinq notes d'un petit
+// carillon, prises dans une gamme pentatonique aiguë, frappées comme par le vent (à
+// intervalles inégaux), qui sonnent longtemps. La cloche de synth.js, en verre : un rapport
+// de fréquences élevé, peu d'indice — des partiels inharmoniques et clairs.
+function rendreCarillon(v, sr) {
+  const rnd = graine(0xca71 + v * 911);
+  const gamme = [1568, 1760, 2093, 2349, 2637, 3136];
+  const n = 3 + Math.floor(rnd() * 3);
+  const out = new Float32Array(Math.round((n * 0.4 + 3) * sr));
+  let t = 0.01;
+  for (let k = 0; k < n; k += 1) {
+    cloche(out, sr, t, gamme[Math.floor(rnd() * gamme.length)], 1.5, 0.5 + 0.5 * rnd(), { ratio: 2.76, indice: 1.2, tenue: 1.1 });
+    t += 0.12 + rnd() * 0.4;
+  }
+  return normaliser(out, sr, 0.8, 0.3);
+}
+
 // ── Le guichet ─────────────────────────────────────────────────────────────────
 export function rendrePaysage(nom, sr = PAYSAGE_SR) {
   switch (nom) {
@@ -657,5 +676,7 @@ export function rendrePaysage(nom, sr = PAYSAGE_SR) {
   if (m) return rendreEnvol(Number(m[1]), sr);
   m = /^clochebateau([1-2])$/.exec(nom);
   if (m) return rendreClocheBateau(Number(m[1]), sr);
+  m = /^carillon([1-4])$/.exec(nom);
+  if (m) return rendreCarillon(Number(m[1]), sr);
   throw new Error('son de paysage inconnu : ' + nom);
 }

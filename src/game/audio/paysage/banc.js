@@ -161,7 +161,7 @@ function rafraichir() {
   if (!panneau || !vue || !api) return;
   const e = api.etat();
   const sortie = e.sortieDb == null ? '·' : `${e.sortieDb.toFixed(1)} dBFS`;
-  vue.etat.textContent = `${e.eveille ? 'éveillé' : 'endormi'} · contexte ${e.contexte || '·'}${e.cache ? ' · fenêtre cachée' : ''}${e.fenetre ? ' · assourdi' : ''}${e.habitue ? ' · habitué' : ''}\n`
+  vue.etat.textContent = `${e.eveille ? 'éveillé' : 'endormi'} · contexte ${e.contexte || '·'}${e.cache ? ' · fenêtre cachée' : ''}${e.fenetre ? ' · assourdi' : ''}${e.habitue ? ' · habitué' : ''}${e.neige > 0 ? ` · neige ${Math.round(e.neige * 100)} %` : ''}\n`
     + `zoom ${f2(e.zoom)} · proximité ${f2(e.p)} · oreille à ${f2(e.h)} cases\n`
     + `sortie ${sortie} · vent ×${f2(e.rafale)} · tampons ${e.tampons}${e.enRoute ? ` (+${e.enRoute})` : ''} (${Math.round(e.memoireMo || 0)} Mo) · fichiers ${e.enregistres}`;
   for (const [m, b] of Object.entries(vue.milieux)) {

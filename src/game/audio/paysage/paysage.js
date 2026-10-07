@@ -103,6 +103,15 @@ export const NAPPES = {
   port: { enregistres: ['port-peche-1'], bus: 'nappes', largeur: 0.45, niveau: 0.3 },
   // Les cloches d'un troupeau, près des bêtes qu'on voit au pré (iso/isoLivePaint.js).
   troupeau: { enregistres: ['troupeau-cloches-1'], bus: 'nappes', largeur: 0.45, niveau: 0.13 },
+  // LOT 5 (le temps) : la PLUIE — sur les flaques et la terre, sur la pierre des villes —,
+  // dosée par l'averse (CM.rainF) et ses rafales, partagée selon la part de ville à
+  // l'écran ; en hiver, la pluie du jeu tombe en NEIGE : elle se tait et le monde
+  // s'assourdit (tick). La CLAMEUR d'une émeute, dosée par les émeutiers proches.
+  // Niveaux selon la sonie mesurée, rapportée aux nappes synthétisées (≈ −20 LUFS au
+  // niveau 0,2) : pluie −32,6 et −34,1 LUFS, clameur −22,6. Une averse doit s'imposer.
+  pluie: { enregistres: ['pluie-flaques-1'], bus: 'nappes', largeur: 0.5, niveau: 0.85 },
+  pluieVille: { enregistres: ['pluie-pave-1'], bus: 'nappes', largeur: 0.5, niveau: 0.95 },
+  emeute: { enregistres: ['emeute-clameur-1'], bus: 'nappes', largeur: 0.45, niveau: 0.22 },
 };
 // `ref` / `max` : portée en cases (oreille.js, attenuation) ; `voix` : au plus tant à la
 // fois ; `ecartMs` : jamais deux tirs plus serrés.
@@ -207,6 +216,13 @@ export const SEMES = {
     quand: (c) => 1 - 0.7 * c.nuit },
   coq: { milieux: { champ: 1, prairie: 0.3 }, taux: 1.5, variantes: 1, ref: 10, max: 40, niveau: 0.14, voix: 1, ecartMs: 20000,
     quand: (c) => (c.aube || 0) * c.vivant },
+  // LOT 5 : un chien aboie au loin, la nuit, du côté des maisons ; aux âges cosmiques, des
+  // carillons de verre (synthétisés) tintent sur la ville, rarement.
+  chien: { milieux: { ville: 1, prairie: 0.3, champ: 0.3 }, taux: 1.2, variantes: 3, ref: 12, max: 45, niveau: 0.1, voix: 1, ecartMs: 12000,
+    quand: (c) => c.nuit * c.vivant },
+  carillon: { milieux: { ville: 1, place: 1 }, synth: ['carillon1', 'carillon2', 'carillon3', 'carillon4'],
+    taux: 1.5, variantes: 4, ref: 8, max: 30, niveau: 0.08, voix: 1, ecartMs: 15000,
+    quand: (c) => c.cosmique || 0 },
 };
 // La présence (0..1) d'une famille semée : ses milieux à l'écran (Σ milieu × part) ou,
 // semée SUR des émetteurs, la somme de leurs intensités (`sur`) — trois suffisent. PUR.
@@ -306,6 +322,11 @@ function cibler(param, v, t, tau) {
   param.setTargetAtTime(v, t, tau);
 }
 
+// Combien il neige (0..1) : la pluie du jeu, l'hiver (la carte peint de la neige quand il
+// « pleut » en hiver, citizenFocus.js). PUR.
+export function neigeDe(saison, pluie) {
+  return ((saison | 0) === 3) ? Math.max(0, Math.min(1, (pluie || 0) / 0.6)) : 0;
+}
 // La fenêtre est-elle cachée (onglet en arrière-plan, .exe réduit) ?
 function cache() {
   if (typeof document !== 'undefined' && document.hidden) return true;
@@ -449,8 +470,10 @@ export function tick() {
   D.sortieA = 0;
   cibler(M.maitre.gain, getPaysageVolume() * BANC.maitre, t, 0.3);
   const ferme = fenetreOuverte();
-  cibler(M.etouffoir.frequency, ferme ? 1500 : 20000, t, 0.08);
-  cibler(M.baisse.gain, ferme ? 0.4 : 1, t, 0.08);
+  // LA NEIGE (lot 5) : la pluie de l'hiver tombe en neige, et le monde s'assourdit.
+  const neige = neigeDe(CM.season, CM.rainF);
+  cibler(M.etouffoir.frequency, ferme ? 1500 : 20000 - 15000 * neige, t, ferme ? 0.08 : 1.5);
+  cibler(M.baisse.gain, ferme ? 0.4 : 1 - 0.25 * neige, t, ferme ? 0.08 : 1.5);
   if (D.repli.length) rendreEnRepli();
   monterNappes(M);
   if (!(CM.cw > 0)) return;
@@ -532,8 +555,10 @@ const SAISON_SAUTERELLES = [0.4, 1, 0.6, 0];
 //   · `marche` : l'énergie des pas (ceux qui marchent près de l'oreille) ; `moteurs` : celle
 //     des voitures qu'on voit ; `bande` : l'âge (0 Feu … 9 Démiurge, data/eraThemes.js) ;
 //     `etals` : celle des flâneurs d'une place de marché ; `port` : celle du port qu'on
-//     voit et de ses gens (lot 4) ; `betail` : celle des bêtes au pré.
-export function ciblesNappes(P, { vent = 1, proche = 1, loin = 0, taille = 0, nuit = 0, pluie = 0, saison = 1, rue = 0, place = 0, marche = 0, moteurs = 0, bande = 0, etals = 0, port = 0, betail = 0 } = {}, out = {}) {
+//     voit et de ses gens (lot 4) ; `betail` : celle des bêtes au pré ;
+//   · `rafale` (0..1, CM.gustF) : les rafales d'une averse ; `emeute` : l'énergie des
+//     émeutiers proches (lot 5).
+export function ciblesNappes(P, { vent = 1, proche = 1, loin = 0, taille = 0, nuit = 0, pluie = 0, saison = 1, rue = 0, place = 0, marche = 0, moteurs = 0, bande = 0, etals = 0, port = 0, betail = 0, rafale = 0, emeute = 0 } = {}, out = {}) {
   // Les nappes s'effacent au dézoom, plus tard que le proche (∝ cos^0,7 contre cos²).
   const nappeK = Math.pow(proche, 0.7);
   const jour = 1 - nuit, sec = Math.pow(1 - Math.min(1, pluie), 2);
@@ -567,6 +592,13 @@ export function ciblesNappes(P, { vent = 1, proche = 1, loin = 0, taille = 0, nu
   // des machines).
   out.port = (bande >= 1 && bande <= 6 ? voixDeFoule(port, FOULE_E.place) : 0) * nappeK;
   out.troupeau = voixDeFoule(betail, FOULE_E.place) * (1 - 0.5 * nuit) * nappeK;
+  // Le temps (lot 5) : la pluie, sauf l'hiver, où elle tombe en neige (silencieuse) ; les
+  // rafales la gonflent ; dézoomé, on l'entend encore (elle tombe partout).
+  const averse = s === 3 ? 0 : Math.pow(Math.min(1, pluie), 0.8) * (0.85 + 0.3 * Math.min(1, rafale));
+  const enVille = Math.min(1, P.ville + P.place), loinK = 0.45 + 0.55 * nappeK;
+  out.pluie = averse * (1 - 0.75 * enVille) * loinK;
+  out.pluieVille = averse * enVille * loinK;
+  out.emeute = voixDeFoule(emeute, FOULE_E.rue) * nappeK;
   // La rumeur lointaine selon l'âge, dosée comme la rumeur synthétisée (taille × loin).
   const loinVille = taille * loin;
   out.lointainFoule = loinVille * (bande >= 2 && bande <= 5 ? 1 : bande === 6 ? 0.5 : 0);
@@ -608,6 +640,7 @@ function majNappes(L, f, t) {
     // Le port qu'on voit (ses bâtiments, iso/isoPort.js), et ses gens.
     port: energieDe('port', D.h, 5, 24) + 0.5 * D.mesure.voixPort,
     betail: energieDe('vaches', D.h, 4, 18) + energieDe('moutons', D.h, 4, 18) + energieDe('chevres', D.h, 4, 18),
+    rafale: CM.gustF || 0, emeute: D.mesure.voixEmeute,
   }, D.cibles);
   const terre = P.foret + P.prairie + 0.6 * P.champ, herbe = P.prairie + P.champ;
   const panTerre = terre > 0 ? (pans.foret * P.foret + pans.prairie * P.prairie + pans.champ * 0.6 * P.champ) / terre : 0;
@@ -618,6 +651,7 @@ function majNappes(L, f, t) {
     brouhaha: D.mesure.panRue, causerie: D.mesure.panPlace, jeux: D.mesure.panPlace,
     pas: D.mesure.panRue, circulation: 0, etals: D.mesure.panPlace,
     lointainFoule: 0, lointainTrafic: 0, lointainCosmique: 0, port: 0, troupeau: 0,
+    pluie: 0, pluieVille: 0, emeute: 0,
   };
   for (const [nom, def] of Object.entries(NAPPES)) {
     const v = D.nappes[nom];
@@ -739,8 +773,10 @@ function majSemes(M, L, h, f, t, now) {
     // L'AUBE : la fin de la nuit dans le cycle du jour (cityMapRuntime.js, cmDayNightF :
     // la nuit pleine finit à 0,90 du cycle, le jour revient à 1).
     aube: CM.dayP == null ? 0 : (CM.dayP >= 0.9 || CM.dayP < 0.06 ? 1 : 0),
+    cosmique: ((L.counts && L.counts.eraBand) | 0) >= 7 ? 1 : 0,
   };
-  const habitue = now - D.bougeA > HABITUATION_MS ? 0.5 : 1;
+  // La neige raréfie les sons semés (lot 5), comme l'habituation.
+  const habitue = (now - D.bougeA > HABITUATION_MS ? 0.5 : 1) * (1 - 0.6 * neigeDe(CM.season, CM.rainF));
   const T = CM.TILE, mes = D.mesure;
   for (const [nom, def] of Object.entries(SEMES)) {
     const sons = sonsDe(nom);
@@ -827,6 +863,7 @@ export function etatPaysage() {
     actif: getPaysageActif(), volume: getPaysageVolume(), cache: cache(), fenetre: fenetreOuverte(),
     contexte: ctx ? ctx.state : null,
     zoom: D.zoom, p: D.p, h: D.h, rafale: D.rafale.v,
+    neige: neigeDe(CM.season, CM.rainF),          // lot 5 : le monde assourdi
     parts: { ...D.mesure.parts }, foule: D.mesure.foule, points: D.mesure.points,
     voixRue: D.mesure.voixRue, voixPlace: D.mesure.voixPlace,
     taille: CM.layout ? tailleVille(CM.layout) : 0,

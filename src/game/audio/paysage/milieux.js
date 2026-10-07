@@ -48,7 +48,7 @@ export function nouvelleMesure() {
   const N = ECHANT.nx * ECHANT.ny;
   return {
     parts: zero(), pans: zero(), foule: 0, foulePlace: 0, foulePort: 0, fouleEmeute: 0, points: 0,
-    voixRue: 0, voixPlace: 0, panRue: 0, panPlace: 0, marche: 0, voixPort: 0,
+    voixRue: 0, voixPlace: 0, panRue: 0, panPlace: 0, marche: 0, voixPort: 0, voixEmeute: 0,
     lieux: { px: new Float32Array(N), py: new Float32Array(N), n: 0, de: Object.fromEntries(MILIEUX.map((m) => [m, new Float32Array(N)])) },
   };
 }
@@ -230,7 +230,7 @@ export const FOULE = { ref: 3, max: 16 };
 const GENS = FIG.STREET | FIG.PLAZA | FIG.QUAY | FIG.PORT;
 export function mesurerFoule(out, oreille = null) {
   const cw = CM.cw, ch = CM.ch, s2 = 2 * ECHANT.sigma * ECHANT.sigma, T = CM.TILE;
-  let n = 0, place = 0, port = 0, emeute = 0, eRue = 0, ePlace = 0, pRue = 0, pPlace = 0, eMarche = 0, ePort = 0;
+  let n = 0, place = 0, port = 0, emeute = 0, eRue = 0, ePlace = 0, pRue = 0, pPlace = 0, eMarche = 0, ePort = 0, eEmeute = 0;
   if (cw > 0 && ch > 0) {
     eachFig((x, y, f) => {
       const s = worldToScreen(x, y);
@@ -250,11 +250,16 @@ export function mesurerFoule(out, oreille = null) {
           if (f & (FIG.PORT | FIG.QUAY)) ePort += e; // ceux du port et des quais (lot 4)
         }
       }
+      // Les émeutiers (lot 5) : leur clameur, à part des voix ordinaires.
+      if (oreille && (f & FIG.RIOT)) {
+        const a = attenuation(Math.hypot(x - oreille.x, y - oreille.y) / T, oreille.h, FOULE.ref, FOULE.max);
+        eEmeute += a * a;
+      }
       return false;
     });
   }
   out.foule = n; out.foulePlace = place; out.foulePort = port; out.fouleEmeute = emeute;
-  out.voixRue = eRue; out.voixPlace = ePlace; out.marche = eMarche; out.voixPort = ePort;
+  out.voixRue = eRue; out.voixPlace = ePlace; out.marche = eMarche; out.voixPort = ePort; out.voixEmeute = eEmeute;
   out.panRue = eRue > 0 ? pRue / eRue : 0; out.panPlace = ePlace > 0 ? pPlace / ePlace : 0;
   return out;
 }

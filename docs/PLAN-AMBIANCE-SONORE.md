@@ -11,7 +11,7 @@ Chantier ouvert le 2026-10-07 sur la demande de Raph :
 > n'entendre que le son de la ville au loin avec la musique en fond qu'on ne touche pas pour
 > l'instant. »
 
-**Statut : décisions prises le 2026-10-07 (§ 9), lots 1 à 4 livrés (le 3e et le 4e à éprouver en longues parties), lot 5 (le temps) en cours.**
+**Statut : décisions prises le 2026-10-07 (§ 9), lots 1 à 5 livrés (les trois derniers à éprouver en longues parties), lot 6 (le mixage final) en cours.**
 Ce document fait foi pour ce chantier.
 
 ---
@@ -770,6 +770,30 @@ bourdon électrique (Néon) et celui des âges cosmiques.
 bateaux de croisière (sauf peut-être une corne), « Fire, Foley » (bruité au balai), la
 forge introuvable sous « forge » chez BigSoundBank (elle est sous « anvil »).
 
+### 5.9 Lot 5 : le temps, la liste de téléchargement (recherche du 2026-10-07)
+
+Pages lues sans rien télécharger, toutes en **CC0** chez BigSoundBank (sans compte).
+
+| # | Son | Page | Durée | Pour |
+|---|---|---|---|---|
+| 1 | Rain on Puddle | <https://bigsoundbank.com/rain-on-puddle-s1290.html> | 1 min 18 | la pluie : de grosses gouttes sur des flaques, sans rien autour (mono) |
+| 2 | Rain on Concrete | <https://bigsoundbank.com/rain-on-concrete-s1289.html> | 1 min 21 | la pluie sur la pierre des villes (variante) |
+| 3 | Manifestation #6 | <https://bigsoundbank.com/manifestation-6-s3382.html> | 1 min 23 | la clameur d'une émeute : chants, cris, hurlements (Joseph Sardin et Axeline T.), recomposée sans langue |
+| 4 | Old dog barking #2 | <https://bigsoundbank.com/old-dog-barking-2-s2353.html> | 14 s | un chien qui aboie au loin, la nuit (mono) |
+
+**Synthétisés, sans fichier** : la neige (le monde assourdi, un filtre) ; aux âges cosmiques,
+des carillons de verre et le passage des navettes.
+
+**Écartés** :
+- tout ce qui a du tonnerre : il n'y a pas d'orage dans le jeu ;
+- les pluies sur une voiture, une brouette ou une bâche (on entend l'objet) ;
+- les autres manifestations, dont la n°14 (sirènes de police, circulation) et la n°7 (une
+  fanfare) ;
+- « Paris by Night » (la circulation moderne).
+
+Il n'existe pas de pluie sur des feuilles chez BigSoundBank : sur la forêt, la pluie sera la
+même, assourdie par un filtre.
+
 ---
 
 ## 6. Plan d'action
@@ -1243,3 +1267,33 @@ Ma recommandation était donnée pour chacune.
 
   Pas vérifiés dans la pane : le bétail (ses images n'y chargent pas), le bourdon du Néon,
   la cloche. **Reste** : l'écoute de Raph.
+- **2026-10-07, lot 5 (le temps).** Raph a jugé le lot 4 « très bien pour le moment ». Les
+  4 fichiers du § 5.9 sont importés : 6 sons, 68 fichiers en tout.
+
+  | Son | Couche | Quand |
+  |---|---|---|
+  | `pluie`, `pluieVille` | nappes | dosées par l'averse (`CM.rainF`), gonflées par ses rafales (`CM.gustF`), partagées selon la part de ville à l'écran (flaques, pavé) ; dézoomé, on l'entend encore |
+  | la neige | filtre | l'hiver, la pluie du jeu tombe en neige (la carte la peint ainsi) : pas de pluie, le monde s'assourdit (passe-bas jusqu'à 5 kHz, −25 %), les sons semés se font rares (−60 %) |
+  | `emeute` | nappe | la clameur d'une manifestation recomposée sans langue, dosée par les émeutiers proches (`FIG.RIOT`) |
+  | `chien` | semé | un chien aboie au loin la nuit, du côté des maisons, jusqu'au Néon |
+  | `carillon` | semé, synthétisé | des carillons de verre aux âges cosmiques, rares |
+
+  **Les niveaux.** La pluie (−32,6 et −34,1 LUFS : de grosses gouttes très percussives)
+  était trop basse. Une sonie se rapporte aux nappes synthétisées : −20 LUFS au niveau 0,2.
+  La pluie est donc montée à 0,85 et 0,95.
+
+  Vérifié dans le jeu, en forçant la météo et la saison :
+  - en automne sous l'averse, en ville : pluie 0,44 et pavé 0,65 ; au zoom 0,5, 0,37 et
+    0,23 ;
+  - en hiver : neige 100 %, plus de pluie, la sortie tombe à −58 dBFS ;
+  - le banc montre « neige N % ».
+
+  Les réglages de météo et de saison de l'origine de vérification sont remis.
+
+  105 tests du son et 295 de la carte passent. **Reste** : l'écoute de Raph. Le lot 6 doit
+  traiter la mémoire décodée (plus de 70 Mo, toutes familles chargées) en ne chargeant que
+  les sons de l'âge en cours.
+- **2026-10-07, les lots 4 et 5 sont commités à part** (le lot 4 en `f5efca74`), à la
+  demande de Raph, par la même méthode que le lot 3 : la version « lot 4 » des fichiers mêlés,
+  vérifiée dans une copie de travail temporaire, posée sur le dernier commit de `main` (une
+  autre session y avait commité entre-temps, rien n'est écrasé).
