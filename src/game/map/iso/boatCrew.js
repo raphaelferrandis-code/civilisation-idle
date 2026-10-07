@@ -37,6 +37,9 @@ const HANDS = new Set(['steer', 'pole', 'row', 'paddle', 'haul']);
 // Un VOYAGEUR du bac (pas le passeur) : sa place reçoit les gens qui attendaient au
 // ponton (boatKit.drawBoat, opts.passNames ; lot 5 de PLAN-COMPORTEMENTS).
 export const isFerryPassenger = (M, cr) => !!M && M.role === 'ferry' && !HANDS.has(cr.pose);
+// Un VOYAGEUR, bac ou navette des Plaisirs (tout ce qui n'est pas l'hôtesse) : sa place
+// reçoit ceux qui attendaient au ponton (boatKit.drawCrew, opts.passNames).
+export const isBoatPassenger = (M, cr) => isFerryPassenger(M, cr) || (!!M && M.role === 'shuttle' && cr.role !== 'hostess');
 
 // Le dessin d'un membre d'équipage `cr` (place cuite : pose, id, role) sur le bateau
 // `M` : { name, scale } — scale nulle = celle du jeu d'habitants (agents.js). `id` : qui

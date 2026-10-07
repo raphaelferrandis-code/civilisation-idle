@@ -154,6 +154,10 @@ function dais(S, hd, St) {
   });
 }
 
+// Combien de places assises sous le dais, à l'aller : ceux qui attendaient au ponton
+// n'y sont jamais plus nombreux (boatScenes).
+export const shuttleSeats = (seed) => 2 + ((seed >>> 0) % 3);
+
 function makeLanternBoat(band) {
   const St = style(band);
   const id = 'plaisirs-' + St.key;
@@ -211,7 +215,7 @@ function makeLanternBoat(band) {
         // Maison, tous sont montés.
         crewSlot(S, L2 - 6.5, 0, hd, 0, { pose: 'stand', sink: 0, id: (V.seed * 7 + 3) | 0, role: 'hostess' });
         const st = ctx.state;
-        const n = st === 'unload' ? 0 : st === 'return' ? (chance(V.seed, 61, 0.45) ? 1 : 0) : 2 + (V.seed % 3);
+        const n = st === 'unload' ? 0 : st === 'return' ? (chance(V.seed, 61, 0.45) ? 1 : 0) : shuttleSeats(V.seed);
         const seats = [[-10, 1], [-6, -1], [-2, 1], [2, -1]];
         for (let i = 0; i < n; i += 1) {
           const [a, s] = seats[i];

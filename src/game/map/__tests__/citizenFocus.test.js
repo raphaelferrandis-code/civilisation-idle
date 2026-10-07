@@ -4,7 +4,7 @@ import { CM } from "../layout.js";
 import {
   focusCitizen, focusPick, releaseFocusCamera, resumeFocusCamera, clearCitizenFocus,
   focusCameraTarget, citizenSheet, onCitizenFocus, noteFigure, noteSceneFigure, citizenHoverTick,
-  keepFigureAlive, FOCUS_TUNE, focusPortrait, portraitImgReady,
+  keepFigureAlive, FOCUS_TUNE, focusPortrait, portraitImgReady, noteBoatCrew, pickAtScreen,
 } from "../citizenFocus.js";
 import {
   cmPasserbyName, CM_GIVEN_M, CM_GIVEN_F, CM_HOUSES, CM_LIEUX,
@@ -262,7 +262,7 @@ describe("citizenSheet — la fiche", () => {
     expect(s.activity.fr).toBe("A débarqué sur l'autre rive");
   });
 
-  it("voyageur qu'on voit descendre : il débarque, puis il est parti ; la navette emmène les siens", () => {
+  it("voyageur qu'on voit descendre : il débarque, puis il est parti", () => {
     CM.cw = 800; CM.ch = 600;
     const sh = { kind: "ferry", id: 4, trip: 9, state: "board" };
     CM.ships = [sh];
@@ -277,13 +277,93 @@ describe("citizenSheet — la fiche", () => {
     s = citizenSheet();
     expect(s.lost).toBe(true);
     expect(s.activity.fr).toBe("A débarqué sur l'autre rive");
-    // La navette des Plaisirs : on l'attend, puis elle l'emmène.
-    const w = { charType: 1, figSeed: 6, sceneTag: "navette", dir: 0 };
+  });
+
+  // Raph, 2026-10-07 : « on perd même le suivi d'un habitant qui rentre dans un bateau
+  // (la navette des plaisirs par exemple) ».
+  it("la navette des Plaisirs : on l'attend, elle l'assoit à bord, la caméra suit jusqu'à la Maison", () => {
+    CM.cw = 800; CM.ch = 600;
+    const sh = { kind: "shuttle", id: 12, trip: 3, state: "cruise", dest: "city", at: null };
+    CM.ships = [sh];
+    const box = { drawW: 20, drawH: 20, top: 282 };
+    const w = { charType: 1, figSeed: 6, sceneTag: "navette", shuttleShip: sh, trip: 4, dir: 0 };
     noteSceneFigure(w, "navette", "anti-woman", 400, 300, box);
     focusPick({ kind: "figure", p: w });
     expect(citizenSheet().activity.fr).toBe("Attend la navette des Plaisirs");
-    for (let i = 0; i < 95; i += 1) citizenHoverTick(40000 + i * 100);
-    expect(citizenSheet().activity.fr).toBe("Parti pour la Maison des Plaisirs");
+    // Elle accoste en ville : la voyageuse est assise à bord, plus peinte sur le ponton.
+    Object.assign(sh, { state: "dock", at: "city", dest: "city", trip: 4 });
+    sh._hull = { wx: 30, wy: 40, bx: 0, by: 0, dw: 32, img: null };
+    for (let i = 0; i < 120; i += 1) citizenHoverTick(40000 + i * 100);
+    let s = citizenSheet();
+    expect(s.lost).toBe(false);
+    expect(s.following).toBe(true);
+    expect(s.activity.fr).toBe("À bord, attend le départ");
+    expect(focusCameraTarget()).toEqual({ x: 30, y: 40 });
+    // En route : la caméra suit la coque.
+    Object.assign(sh, { state: "cruise", at: null, dest: "maison" });
+    sh._hull = { wx: 60, wy: 45, bx: 0, by: 0, dw: 32, img: null };
+    expect(citizenSheet().activity.fr).toBe("Vogue vers la Maison des Plaisirs");
+    expect(focusCameraTarget()).toEqual({ x: 60, y: 45 });
+    // À la Maison : elle est entrée, la caméra s'arrête là.
+    Object.assign(sh, { state: "dock", at: "maison", dest: "maison" });
+    s = citizenSheet();
+    expect(s.lost).toBe(true);
+    expect(s.following).toBe(false);
+    expect(s.activity.fr).toBe("Entrée · Maison des Plaisirs");
+  });
+
+  // Raph, 2026-10-07 : « on ne peut pas suivre les personnages sur les bateaux en
+  // cliquant dessus ».
+  it("un marin peint sur son pont se désigne, et la caméra suit son bateau", () => {
+    CM.cw = 800; CM.ch = 600;
+    CM.lodActive = false;
+    const sh = { kind: "trade", id: 21, state: "cruise" };
+    CM.ships = [sh];
+    const M = { role: "trade" };
+    const cr = { pose: "steer", id: 77 };
+    sh._hull = { wx: 5, wy: 6, bx: 0, by: 0, dw: 32, img: null };
+    noteBoatCrew(sh, M, cr, 1234, { name: "villager" }, -1, 400, 300, 20, 282);
+    citizenHoverTick(50000);
+    const pick = pickAtScreen(400, 292);
+    expect(pick && pick.kind).toBe("figure");
+    const q = pick.p;
+    expect(q.onShip).toBe(sh);
+    focusPick(pick);
+    let s = citizenSheet();
+    expect(s.lost).toBe(false);
+    expect(s.activity.fr).toBe("Tient la barre");
+    expect(s.work).toEqual({ fr: "Bateau marchand", en: "Merchant boat" });
+    expect(s.job && s.job.fr).toBe("Batelier");
+    expect(focusCameraTarget()).toEqual({ x: 5, y: 6 });
+    // Le même marin d'une frame à l'autre : un objet par place.
+    noteBoatCrew(sh, M, cr, 1234, { name: "villager" }, -1, 402, 300, 20, 282);
+    expect(sh._crewFigs.get(1234)).toBe(q);
+    // Passé sous le pont (non peint), il reste désigné tant que son bateau navigue.
+    for (let i = 0; i < 60; i += 1) citizenHoverTick(50100 + i * 100);
+    expect(citizenSheet().lost).toBe(false);
+    // Le bateau quitte le fleuve : parti.
+    CM.ships = [];
+    s = citizenSheet();
+    expect(s.lost).toBe(true);
+    expect(s.activity.fr).toBe("A quitté le fleuve");
+  });
+
+  it("sur le bac, le voyageur peint à bord est la personne qui attendait au ponton", () => {
+    CM.cw = 800; CM.ch = 600;
+    CM.lodActive = false;
+    const sh = { kind: "ferry", id: 30, trip: 6, state: "cross" };
+    CM.ships = [sh];
+    const q = { charType: 0, figSeed: 9, ferryShip: sh, trip: 5, dir: 0 };
+    sh._passPeople = [q];
+    sh._hull = { wx: 1, wy: 2, bx: 380, by: 280, dw: 60, iw: 60, ih: 30, img: { width: 60 } };
+    noteBoatCrew(sh, { role: "ferry" }, { pose: "sit", id: 3 }, 55, { name: "anti-man" }, 0, 400, 300, 20, 282);
+    citizenHoverTick(60000);
+    // Sous le pointeur, le voyageur passe devant la coque du bac.
+    const pick = pickAtScreen(400, 292);
+    expect(pick.kind).toBe("figure");
+    expect(pick.p).toBe(q);
+    focusPick(pick);
+    expect(citizenSheet().activity.fr).toBe("Traverse en bac");
   });
 
   it("le bac : son passeur, ses voyageurs à bord, ses traversées", () => {

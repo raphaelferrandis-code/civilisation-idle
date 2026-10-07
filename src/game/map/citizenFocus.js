@@ -17,8 +17,12 @@
 //       - 'pont' : les accoudés et le pêcheur du parapet (iso/isoBridge.js) ;
 //       - 'bac'  : les voyageurs qui attendent le passeur (iso/boatScenes.js). Ils
 //         MONTENT À BORD quand le bac arrive (sa `trip` avance) et en descendent
-//         sur l'autre rive : suivi, l'un d'eux emmène la caméra sur le bac.
-//     Les deux derniers sont dessinés par drawNamedAgentIso : ils se signalent
+//         sur l'autre rive : suivi, l'un d'eux emmène la caméra sur le bac ;
+//       - 'navette' : ceux qui attendent la navette des Plaisirs. Elle les assoit à
+//         bord en accostant et les mène à la Maison, où ils entrent ;
+//       - 'bateau' : les marins de la flotte (et l'hôtesse de la navette), peints sur
+//         leur pont par boatKit.drawCrew (noteBoatCrew). La caméra suit leur coque.
+//     Ceux-là sont dessinés par drawNamedAgentIso ou drawCrew : ils se signalent
 //     avec la boîte réellement peinte (noteSceneFigure) ;
 //   · 'vehicle' : la flotte des rues (CM.vehicles), porteurs de panier compris
 //     (un « véhicule » côté moteur, un piéton à l'écran) ;
@@ -49,6 +53,7 @@ import {
 import { snapZoom, screenToWorld } from './iso/projection.js';
 import { snapDev } from './blitSnap.js';
 import { cmPasserbyName } from './cityNaming.js';
+import { isBoatPassenger } from './iso/boatCrew.js';
 import { WINTER } from './seasonMode.js';
 import { tr } from '../core/i18n.js';
 import { state } from '../core/state.js';
@@ -81,6 +86,9 @@ const bandNow = () => ((CM.layout && CM.layout.counts && CM.layout.counts.eraBan
 let frameN = 0;
 let figBuf = [], vehBuf = [], drawnFigs = [], drawnVehs = [];
 export function noteFigure(p) {
+  // Peint deux fois dans la frame (le pont redessine un bateau sorti de dessous lui,
+  // et ses marins avec) : la dernière boîte vaut, une seule entrée.
+  if (p._seenFrame === frameN) return;
   p._seenFrame = frameN;
   if (figBuf.length < 4000) figBuf.push(p);
 }
@@ -95,6 +103,47 @@ export function noteSceneFigure(q, scene, sprite, sx, sy, d) {
   q.x = w.x; q.y = w.y;
   q._figBox = { x0: sx - d.drawW * 0.28, x1: sx + d.drawW * 0.28, y0: d.top + d.drawH * 0.03, y1: d.top + d.drawH * 0.91 };
   noteFigure(q);
+}
+// UN MARIN PEINT (boatKit.drawCrew, via isoPort) : `sh` son bateau, `M` le modèle, `cr`
+// sa place cuite, `who` son identité (place × bateau), `sp` le dessin qu'il porte, `j`
+// son rang parmi les voyageurs du bac ou de la navette (−1 : un marin), (fx, fy) ses
+// pieds à l'écran. Un voyageur est la PERSONNE qui attendait au ponton
+// (sh._passPeople, boatScenes) ; un marin, un objet par place, gardé sur son bateau.
+const SHIP_WORK = {
+  trade: { fr: 'Bateau marchand', en: 'Merchant boat' },
+  fisher: { fr: 'Barque de pêche', en: 'Fishing boat' },
+  barge: { fr: 'Chaland', en: 'Barge' },
+  ferry: { fr: 'Bac', en: 'Ferry' },
+  shuttle: { fr: 'Navette des Plaisirs', en: 'Pleasure shuttle' },
+};
+function shipWork(M, hostess) {
+  if (hostess) return { fr: 'Hôtesse · Navette des Plaisirs', en: 'Hostess · Pleasure shuttle' };
+  if (M && M.beacon) return { fr: 'Vedette de police', en: 'Police launch' };
+  if (M && M.service === 'fire') return { fr: 'Bateau pompe', en: 'Fireboat' };
+  if (M && M.role === 'service') return { fr: 'Bateau de service', en: 'Service boat' };
+  return (M && SHIP_WORK[M.role]) || SHIP_WORK.trade;
+}
+export function noteBoatCrew(sh, M, cr, who, sp, j, fx, fy, drawH, top) {
+  if (!sh || !sp) return;
+  sh._crewFrame = frameN;
+  let q = j >= 0 && sh._passPeople ? sh._passPeople[j] : null;
+  if (!q) {
+    if (!sh._crewFigs) sh._crewFigs = new Map();
+    q = sh._crewFigs.get(who);
+    if (!q) {
+      if (sh._crewFigs.size > 24) sh._crewFigs.clear();
+      const hostess = cr.role === 'hostess';
+      q = {
+        figSeed: who >>> 0, onShip: sh, sceneTag: 'bateau',
+        charType: hostess || /woman|girl|plaisirs/.test(sp.name) ? 1 : 0,
+        hostess, passenger: isBoatPassenger(M, cr), pose: cr.pose || 'stand', boatRole: M ? M.role : null,
+        workLabel: shipWork(M, hostess),
+      };
+      sh._crewFigs.set(who, q);
+    }
+    q.pose = cr.pose || 'stand';
+  }
+  noteSceneFigure(q, q.sceneTag || 'bac', sp.name, fx, fy, { drawW: drawH, drawH, top });
 }
 // Vérification : les personnages de scène peints à la dernière frame, et où.
 if (import.meta.env?.DEV && typeof window !== 'undefined') {
@@ -130,10 +179,11 @@ const MIN_HALF_W = 7, MIN_H = 20, PICK_PAD = 9;
 export function pickAtScreen(sx, sy) {
   if (!CM.layout || !CM.cam || CM.lodActive) return null;
   let best = null, bestD = Infinity, bestY = -Infinity;
-  const consider = (kind, p, x0, y0, x1, y1) => {
+  // `bias` : un écart ajouté (la coque du bac cède devant ceux qui sont à son bord).
+  const consider = (kind, p, x0, y0, x1, y1, bias = 0) => {
     const dx = Math.max(x0 - sx, 0, sx - x1);
     const dy = Math.max(y0 - sy, 0, sy - y1);
-    const d = Math.hypot(dx, dy);
+    const d = Math.hypot(dx, dy) + bias;
     if (d > PICK_PAD) return;
     if (d < bestD - 0.5 || (Math.abs(d - bestD) <= 0.5 && y1 > bestY)) {
       bestD = d; bestY = y1; best = { kind, p };
@@ -166,11 +216,13 @@ export function pickAtScreen(sx, sy) {
   for (const v of drawnVehs) {
     if (v._box && CM.vehicles && CM.vehicles.indexOf(v) >= 0) boxed('vehicle', v, v._box);
   }
-  // Le bac : sa coque peinte à cette frame (null hors champ, cf. isoPort).
+  // Le bac : sa coque peinte à cette frame (null hors champ, cf. isoPort). Elle passe
+  // APRÈS les gens peints sur son pont : sous le pointeur, on désigne le passeur ou le
+  // voyageur, et la coque autour d'eux.
   for (const sh of CM.ships || []) {
     if (sh.kind !== 'ferry') continue;
     const b = hullBox(sh);
-    if (b) consider('boat', sh, b.x0, b.y0, b.x1, b.y1);
+    if (b) consider('boat', sh, b.x0, b.y0, b.x1, b.y1, 1);
   }
   return best;
 }
@@ -196,6 +248,27 @@ function ferryLeg(p) {
   if (!CM.ships || CM.ships.indexOf(sh) < 0) return 'landed';
   const t = sh.trip | 0;
   return t >= p.trip + 2 ? 'landed' : t === p.trip + 1 ? 'aboard' : 'wait';
+}
+// ── LE VOYAGEUR DE LA NAVETTE ────────────────────────────────────────────────
+// Il attend le voyage n° t (la navette en est à t − 1) ; elle accoste en ville et
+// passe à t : il est à bord, jusqu'à la Maison des Plaisirs ; elle y accoste : il
+// est entré. 'wait' | 'aboard' | 'arrived' | null (pas un voyageur).
+function shuttleLeg(p) {
+  const sh = p.shuttleShip;
+  if (!sh) return null;
+  if (!CM.ships || CM.ships.indexOf(sh) < 0) return 'arrived';
+  const t = sh.trip | 0;
+  if (t < p.trip) return 'wait';
+  if (t > p.trip || sh.at === 'maison' || (sh.state !== 'dock' && sh.dest === 'city')) return 'arrived';
+  return 'aboard';
+}
+// Le bateau qui le PORTE en ce moment (sa coque guide la caméra et le chevron quand
+// on ne le voit pas lui-même), ou null.
+function shipCarrying(p) {
+  if (ferryLeg(p) === 'aboard') return p.ferryShip;
+  if (shuttleLeg(p) === 'aboard') return p.shuttleShip;
+  if (p.onShip && CM.ships && CM.ships.indexOf(p.onShip) >= 0) return p.onShip;
+  return null;
 }
 
 // SURVOL VIVANT : ce qui est sous le pointeur, réévalué ~12 fois par seconde
@@ -337,12 +410,14 @@ export function focusCameraTarget() {
     const lo = vehicleLaneOffset(p, CM.TILE);
     return { x: p.x + lo.x, y: p.y + lo.y };
   }
-  // Le bac, ou le voyageur monté à bord : la coque (sa dernière position peinte
-  // si elle sort un instant du champ).
-  const sh = f.kind === 'boat' ? p : ferryLeg(p) === 'aboard' ? p.ferryShip : null;
+  // Le bac, le voyageur monté à bord, le marin : la coque (sa dernière position
+  // peinte si elle sort un instant du champ).
+  const sh = f.kind === 'boat' ? p : f.kind === 'figure' ? shipCarrying(p) : null;
   if (sh) {
     if (sh._hull) sh._camAt = { x: sh._hull.wx, y: sh._hull.wy };
-    return sh._camAt || null;
+    if (sh._camAt || sh === p) return sh._camAt || null;
+    // Coque jamais vue sous la caméra : là où on l'a vu, lui, en dernier ; le bateau
+    // entre dans le champ et la caméra le prend.
   }
   return { x: p.x + (p.lox || 0), y: p.y + (p.loy || 0) };
 }
@@ -361,6 +436,17 @@ function isLost(f) {
   // jusqu'au bout de l'embarcadère, en fondu).
   if (leg === 'landed') return frameN - (f.p._seenFrame ?? -1e9) > 10;
   if (leg === 'aboard') return false;
+  // La navette : à bord jusqu'à la Maison, où il entre.
+  const sl = shuttleLeg(f.p);
+  if (sl === 'arrived') return true;
+  if (sl === 'aboard') return false;
+  // Le marin : parti avec son bateau ; ou sa place a disparu (le voyageur du retour
+  // de la navette, débarqué en ville) — son pont est peint, lui non.
+  if (f.p.onShip) {
+    const sh = f.p.onShip;
+    if (!CM.ships || CM.ships.indexOf(sh) < 0) return true;
+    return frameN - (f.p._seenFrame ?? -1e9) > 30 && frameN - (sh._crewFrame ?? -1e9) <= 2;
+  }
   // Les filles de la Maison des Plaisirs ne partent jamais : celle qui passe
   // derrière la rotonde n'est pas peinte, mais elle revient. La maison les
   // déclare vivantes à chaque frame où elle les place (keepFigureAlive) ; sans
@@ -439,10 +525,10 @@ export function drawCitizenFocusOverlay(ctx, now = 0) {
   if (!f || !ctx || !CM.cam || CM.capture || isLost(f)) return;
   const p = f.p;
   let ax, ay, lift = 4;
-  // Le bac, ou le voyageur à son bord : au-dessus de la coque — sauf pendant qu'on
-  // le VOIT monter la passerelle (peint cette frame) : au-dessus de lui.
+  // Le bac, ou qui est à bord : au-dessus de la coque — sauf quand on le VOIT (peint
+  // cette frame, sur la passerelle ou sur le pont) : au-dessus de lui.
   const sh = f.kind === 'boat' ? p
-    : ferryLeg(p) === 'aboard' && p._seenFrame !== frameN ? p.ferryShip : null;
+    : f.kind === 'figure' && p._seenFrame !== frameN ? shipCarrying(p) : null;
   if (sh) {
     const b = hullBox(sh);
     if (!b) return;                                    // coque hors champ cette frame
@@ -548,6 +634,8 @@ function sceneJob(p) {
   if (p.scene === 'port') return 'porter';
   if (p.scene === 'champ') return 'farmer';
   if (p.scene === 'pont' && p.fisher) return 'fisher';
+  // Les marins : le pêcheur de sa barque, le batelier des autres (pas les voyageurs).
+  if (p.scene === 'bateau' && !p.passenger && !p.hostess) return p.boatRole === 'fisher' ? 'fisher' : 'boatman';
   return null;
 }
 // Le dessin d'un personnage de scène, s'il est l'un de ceux des passants : le
@@ -870,6 +958,26 @@ const PLACE_LOOK = {
   bandstand: { fr: 'Écoute le kiosque', en: 'Listening at the bandstand' },
 };
 
+// Ce que fait un marin, selon son bateau et sa pose (boatParts.person).
+const CREW_DO = {
+  row: { fr: 'Rame', en: 'Rowing' },
+  paddle: { fr: 'Pagaie', en: 'Paddling' },
+  pole: { fr: 'Pousse à la perche', en: 'Poling' },
+  steer: { fr: 'Tient la barre', en: 'At the helm' },
+  wave: { fr: 'Salue un bateau qui passe', en: 'Waving at a passing boat' },
+};
+function crewActivity(p, lost) {
+  if (lost) return { fr: 'A quitté le fleuve', en: 'Left the river' };
+  const sh = p.onShip, st = sh ? sh.state : null;
+  if (p.hostess) return st === 'dock' ? { fr: 'Accueille les passagers', en: 'Welcoming passengers' } : { fr: 'Veille sur ses passagers', en: 'Looking after her passengers' };
+  if (p.passenger) return { fr: 'Rentre en ville', en: 'Heading back to town' };
+  if (CREW_DO[p.pose] && st !== 'dock' && st !== 'board' && st !== 'anchor') return CREW_DO[p.pose];
+  if (p.boatRole === 'fisher') return p.pose === 'haul' ? { fr: 'Remonte son filet', en: 'Hauling in the net' } : { fr: 'Pêche sur le fleuve', en: 'Fishing on the river' };
+  if (st === 'dock' || st === 'board') return { fr: 'À quai', en: 'Moored' };
+  if (p.pose === 'haul') return { fr: 'Tire un cordage', en: 'Hauling a rope' };
+  return { fr: 'Navigue sur le fleuve', en: 'Sailing the river' };
+}
+
 function activityOf(p, lost, fem = false) {
   if (p.scene === 'bac') {
     const leg = ferryLeg(p);
@@ -884,10 +992,17 @@ function activityOf(p, lost, fem = false) {
     return { fr: 'Attend le bac', en: 'Waiting for the ferry' };
   }
   if (p.scene === 'navette') {
-    // Elle ne revient pas : la navette l'emmène à la Maison des Plaisirs.
-    return lost ? { fr: 'Parti pour la Maison des Plaisirs', en: 'Off to the House of Pleasures' }
+    // La navette l'emmène à la Maison des Plaisirs, où il entre.
+    const leg = shuttleLeg(p);
+    if (leg === 'arrived') return { fr: `${fem ? 'Entrée' : 'Entré'} · Maison des Plaisirs`, en: 'Went in · House of Pleasures' };
+    if (leg === 'aboard') {
+      return p.shuttleShip.state === 'dock' ? { fr: 'À bord, attend le départ', en: 'Aboard, waiting to leave' }
+        : { fr: 'Vogue vers la Maison des Plaisirs', en: 'Sailing to the House of Pleasures' };
+    }
+    return lost ? { fr: 'A quitté le ponton', en: 'Left the landing' }
       : { fr: 'Attend la navette des Plaisirs', en: 'Waiting for the shuttle' };
   }
+  if (p.scene === 'bateau') return crewActivity(p, lost);
   if (p.scene === 'port' && lost) return { fr: "A fini l'escale", en: 'Done unloading' };
   // OÙ IL EST ENTRÉ (idée 12) : la porte qu'il a passée (agents.js, `p._in`), ou
   // celle de son meneur pour un compagnon.
@@ -983,7 +1098,7 @@ export function doingOf(p) {
   const sc = p.scene;
   if (sc === 'champ') return 'field';
   if (sc === 'port') return 'port';
-  if (sc === 'pont' || sc === 'quai' || sc === 'bac') return 'river';
+  if (sc === 'pont' || sc === 'quai' || sc === 'bac' || sc === 'bateau') return 'river';
   if (sc === 'place') return 'plaza';
   if (sc) return null;
   const inside = p._in || (p.lead && p.lead._in) || null;

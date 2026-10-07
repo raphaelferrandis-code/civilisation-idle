@@ -32,7 +32,7 @@ import { drawHoverGlow, drawSmoke } from './boatFx.js';
 import { drawSunShadow } from './isoSunShadow.js';
 import { snapDev } from '../blitSnap.js';
 import { agentFrameIso, agentIdleFrameIso, agentPoseFrameIso } from '../agents.js';
-import { crewSpec, crewDir, isFerryPassenger } from './boatCrew.js';
+import { crewSpec, crewDir, isFerryPassenger, isBoatPassenger } from './boatCrew.js';
 import { VEHICLE_BAKE, vehicleBakeOpen, vehicleBakeTimed } from './vehicleBakeBudget.js';
 
 if (import.meta.env?.DEV && typeof window !== 'undefined') {
@@ -165,16 +165,19 @@ function crewMaskCanvas(crew) {
 // comme l'image du bateau (k, l'échelle de pose de drawBoat) : ses bords tombent sur
 // ceux du plat-bord.
 let _crewCv = null;
-// `po` (le bac, lot 5 de PLAN-COMPORTEMENTS) : { names, hide } — ses places de voyageur
-// reçoivent ceux qui attendaient au ponton (names[j], place de trop = vide), ou restent
-// vides le temps qu'ils montent (hide).
+// `po` (le bac, lot 5 de PLAN-COMPORTEMENTS ; la navette des Plaisirs à l'aller) :
+// { names, hide } — ses places de voyageur reçoivent ceux qui attendaient au ponton
+// (names[j], place de trop = vide), ou restent vides le temps qu'ils montent (hide).
 // `now` : l'horloge de la FRAME, celle du reste de la flotte (audit du 2026-10-05,
 // BUG-101 : sur performance.now(), respiration et salut échappaient aux captures à
 // horloge figée et décrochaient de la scène quand l'horloge du jeu ralentit).
 // `ident` (boatSpecFor) : l'identité du bateau, mêlée à celle de la place cuite — la
 // cuisson est partagée par tout le vivier (PERF-14), ses marins non ; sans `ident`
 // (embarcadères, amarres), la place cuite seule, comme avant.
-function drawCrew(ctx, e, M, bx, by, k, z, band, now, po = null, ident = null) {
+// `onCrew(cr, who, sp, j, fx, fy, drawH, top, M)` : chaque marin PEINT, ses pieds (fx, fy)
+// et son cadre à l'écran — la fiche d'habitant le rend cliquable (isoPort). `j` = son
+// rang parmi les voyageurs de `po`, −1 pour un marin.
+function drawCrew(ctx, e, M, bx, by, k, z, band, now, po = null, ident = null, onCrew = null) {
   if (!e.crew || !e.crew.length || !e.mcv) return;
   let pj = 0;
   const d = CM.dpr || 1;
@@ -183,9 +186,9 @@ function drawCrew(ctx, e, M, bx, by, k, z, band, now, po = null, ident = null) {
   for (let n = 0; n < e.crew.length; n += 1) {
     const cr = e.crew[n];
     const who = ident == null ? cr.id >>> 0 : h32(cr.id >>> 0, ident, 31);
-    let sp = null;
-    if (po && isFerryPassenger(M, cr)) {
-      const j = pj; pj += 1;
+    let sp = null, j = -1;
+    if (po && isBoatPassenger(M, cr)) {
+      j = pj; pj += 1;
       if (po.hide) continue;
       if (po.names) { sp = po.names[j]; if (!sp) continue; }
     }
@@ -214,6 +217,7 @@ function drawCrew(ctx, e, M, bx, by, k, z, band, now, po = null, ident = null) {
     g.drawImage(e.mcv, 0, n * cr.h, cr.w, cr.h, ex0 - mx, ey0 - my, cr.w * k, cr.h * k);
     g.globalCompositeOperation = 'source-over';
     ctx.drawImage(cv, 0, 0, W, H, mx, my, W / d, H / d);
+    if (onCrew) onCrew(cr, who, sp, j, fx, fy, F.drawH, top, M);
   }
 }
 
@@ -288,7 +292,7 @@ export function drawBoat(ctx, spec, x, y, theta, z, now, opts = {}) {
   // celle de la ville (un bateau de l'ère d'avant qui finit sa route s'est rhabillé).
   const band = opts.band != null ? opts.band : ((CM.layout && CM.layout.counts && CM.layout.counts.eraBand) | 0);
   const po = (opts.passNames || opts.hidePass) ? { names: opts.passNames || null, hide: !!opts.hidePass } : null;
-  const crew = e.crew && e.crew.length ? (c2) => drawCrew(c2, e, M, bx, by, k, z, band, now, po, ident) : null;
+  const crew = e.crew && e.crew.length ? (c2) => drawCrew(c2, e, M, bx, by, k, z, band, now, po, ident, opts.onCrew || null) : null;
   if (crew) crew(ctx);
   ctx.imageSmoothingEnabled = prevSm;
   const anchors = {};

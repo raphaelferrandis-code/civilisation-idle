@@ -18,7 +18,8 @@ import { isoUnitDepth } from './isoUnits.js';
 import { agentSetForBand, agentSpecFor, drawNamedAgentIso, AGENT_SCALE } from '../agents.js';
 import { focusMark, drawFocusRingAt, noteSceneFigure, sceneRingWidth } from '../citizenFocus.js';
 import { ribbonAt, ferryReach, FERRY_TIP, FERRY_WALK, ferryBoardEl } from '../riverFleet.js';
-import { drawBoat } from './boatKit.js';
+import { drawBoat, boatSpecFor } from './boatKit.js';
+import { shuttleSeats } from './boatKitsPlaisirs.js';
 import { fleetFor, BOAT_MODELS } from './boatKits.js';
 import { pontoonAt } from './boatLandings.js';
 import { repaintQuayRect } from './isoQuay.js';
@@ -72,15 +73,29 @@ function traveller(ferry, k, trip = ferry.trip | 0) {
     figSeed: h32(trip, 75, k), ferryShip: ferry, trip, dir: 0,
   });
 }
-// Ceux qui attendent la NAVETTE DES PLAISIRS : le temps de leur attente (ils
-// partent avec elle, la cuisson les assoit à bord).
-let _shuttleParty = { shuttle: null, trip: -1, list: [] };
+// Ceux qui attendent la NAVETTE DES PLAISIRS : le temps de leur attente, puis de leur
+// voyage — la navette qui accoste en ville passe à leur `trip` et les assoit à bord
+// (sh._passNames, places de voyageur de boatKit) jusqu'à la Maison. Ils portent leur
+// navette et leur voyage : citizenFocus en déduit qu'ils sont à bord, puis arrivés.
+// Gardés : le voyage qu'on attend et celui qui est en route.
+let _shuttleParty = { shuttle: null, trips: new Map() };
 function shuttleTraveller(shuttle, trip, k) {
-  if (_shuttleParty.shuttle !== shuttle || _shuttleParty.trip !== trip) _shuttleParty = { shuttle, trip, list: [] };
-  return _shuttleParty.list[k] || (_shuttleParty.list[k] = {
+  if (_shuttleParty.shuttle !== shuttle) _shuttleParty = { shuttle, trips: new Map() };
+  let list = _shuttleParty.trips.get(trip);
+  if (!list) {
+    list = [];
+    _shuttleParty.trips.set(trip, list);
+    for (const t of _shuttleParty.trips.keys()) if (t < (shuttle.trip | 0) - 1) _shuttleParty.trips.delete(t);
+  }
+  return list[k] || (list[k] = {
     charType: h32(trip, 83, k) % 2, variant: h32(trip, 84, k) % 3,
-    figSeed: h32(trip, 85, k), sceneTag: 'navette', dir: 0,
+    figSeed: h32(trip, 85, k), sceneTag: 'navette', shuttleShip: shuttle, trip, dir: 0,
   });
+}
+// Combien partent au voyage `trip` : pas plus que de places sous le dais.
+function shuttleParty(shuttle, trip, band) {
+  const spec = boatSpecFor(shuttle, band);
+  return Math.min(spec ? shuttleSeats(spec.seed) : 2, 1 + (h32(trip, 81, 5) % 3));
 }
 
 // LES PONTONS FLOTTANTS (iso/boatLandings.js) : celui de l'embarcadère de l'ère, à sa
@@ -293,7 +308,16 @@ export function fleetSceneItems(now, band) {
       out[k].phase = (h32(ferry.trip | 0, 76, k - w0) % 97) / 97;
       if (elW < 1.5) out[k].alpha = elW / 1.5;
     }
-    ferry._passNames = partySpecs(band, (ferry.trip | 0) - 1, partySize(ferry, (ferry.trip | 0) - 1));
+    // À bord, les voyageurs du voyage d'avant : leurs dessins et leurs personnes (la fiche
+    // d'habitant les retrouve sur le pont, boatKit.drawCrew → citizenFocus.noteBoatCrew).
+    const tb = (ferry.trip | 0) - 1, set = agentSetForBand(band);
+    ferry._passNames = []; ferry._passPeople = [];
+    for (let k = 0; k < partySize(ferry, tb); k += 1) {
+      const sp = agentSpecFor(set, h32(tb, 73, k) % 2, h32(tb, 74, k) % 3);
+      if (!sp) continue;
+      ferry._passNames.push({ name: sp.name, scale: sp.scale });
+      ferry._passPeople.push(traveller(ferry, k, tb));
+    }
     if (elW < Infinity) out.push(...ferryWalkers(ferry, site, sm, band, pont, elW));
   }
   // LA NAVETTE DES PLAISIRS : son ponton en ville, et ceux qui l'attendent quand elle
@@ -305,7 +329,21 @@ export function fleetSceneItems(now, band) {
     const pid = C.pontoon ? pontoonModel(base, C.pontoon.len, true) : null;
     const away = !(shuttle.state === 'dock' && shuttle.at === 'city');
     const trip = (shuttle.trip | 0) + 1;                 // les passagers du prochain départ
-    const n = 1 + (h32(trip, 81, 5) % 3);
+    const n = shuttleParty(shuttle, trip, band);
+    // À BORD, de l'accostage en ville à la Maison : ceux qui attendaient (voyage en cours).
+    const aboard = shuttle.state === 'dock' ? shuttle.at === 'city' : shuttle.dest === 'maison';
+    shuttle._passNames = null; shuttle._passPeople = null;
+    if (aboard) {
+      const tb = shuttle.trip | 0, set = agentSetForBand(band);
+      shuttle._passNames = []; shuttle._passPeople = [];
+      for (let k = 0; k < shuttleParty(shuttle, tb, band); k += 1) {
+        const q = shuttleTraveller(shuttle, tb, k);
+        const sp = agentSpecFor(set, q.charType, q.variant);
+        if (!sp) continue;
+        shuttle._passNames.push({ name: sp.name, scale: sp.scale });
+        shuttle._passPeople.push(q);
+      }
+    }
     // Chacun a son objet (fiche d'habitant) : cliquable le temps de son attente.
     const mk = (k) => {
       const q = shuttleTraveller(shuttle, trip, k);

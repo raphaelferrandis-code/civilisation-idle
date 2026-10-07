@@ -37,6 +37,7 @@ import { boatSpecFor, boatSizeMul, boatHasLights, drawBoat } from './boatKit.js'
 import { dockPorters } from './boatBerths.js';
 import { BOAT_MODELS } from './boatKits.js';
 import { drawSmoke, drawJets } from './boatFx.js';
+import { noteBoatCrew } from '../citizenFocus.js';
 // Le guichet du paysage sonore : un module-FEUILLE (aucun import), sans risque de cycle.
 import { noteSon, noteEmetteur } from '../../audio/paysage/evenements.js';
 
@@ -223,6 +224,9 @@ export function drawIsoShips(now) {
       if (accoste || part) noteSon('cloche', wxS, wyS, 1);
     }
     if (sh.kind === 'ferry') { pose.passNames = sh._passNames || null; pose.hidePass = ferryDeckHidden(sh); }
+    // La navette, de son départ de la ville à la Maison : ceux qui attendaient à son ponton
+    // (boatScenes) ; au retour, les places reprennent leurs tirages.
+    if (sh.kind === 'shuttle' && sh._passNames) pose.passNames = sh._passNames;
     // À QUAI, ou en train de s'y ranger : le bateau est trié AVEC le ponton (item
     // 'fleetShip' du peintre, cf. drawIsoShipDeferred) — peint ici, avant la passe
     // vivante, le ponton le recouvrait.
@@ -249,7 +253,9 @@ export function drawIsoShips(now) {
 // Coque du kit posée à sa pose de la frame : reflet, ombre, coque ; puis l'ancre
 // de la passe de nuit (feux) et la coque que le pont redessine à sa sortie.
 function drawKitShip(ctx, sh, P, now) {
-  const r = drawBoat(ctx, P.kit, P.x, P.y, P.thW, P.z, now, { state: P.state, memo: sh, passNames: P.passNames, hidePass: P.hidePass });
+  // Chaque marin peint se signale à la fiche d'habitant : on le désigne, on le suit.
+  const onCrew = (cr, who, sp, j, fx, fy, drawH, top, M) => noteBoatCrew(sh, M, cr, who, sp, j, fx, fy, drawH, top);
+  const r = drawBoat(ctx, P.kit, P.x, P.y, P.thW, P.z, now, { state: P.state, memo: sh, passNames: P.passNames, hidePass: P.hidePass, onCrew });
   if (!r) return null;
   if (r.pass) sh._deckSlots = r.pass;          // les places des voyageurs (boatScenes)
   // Ce qui bouge par-dessus la coque : la fumée des cheminées, les lances des pompiers.
