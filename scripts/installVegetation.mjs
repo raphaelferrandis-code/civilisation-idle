@@ -21,7 +21,7 @@
 //  4. 24 teintes au plus (même règle que scripts/quantize.cjs) — fait par ce script-ci.
 import fs from 'node:fs';
 import { PNG } from 'pngjs';
-import { toneOne, lum } from './vegetationDose.mjs';
+import { toneOne, lum, rgb2hsl, hsl2rgb } from './vegetationDose.mjs';
 
 const OUT = 'public/pixelart/iso';
 const RAW = 'scripts/data/vegetation-raw';
@@ -37,11 +37,11 @@ const FOOT = 0.92;
 // `hue` ne tourne QUE le feuillage (masque) : les conifères générés tiraient au bleu
 // canard, ramenés vers le vert ; tourner l'écorce aussi la rendait rose.
 const FAMILY = {
-  feuillu: { y: 84, sat: 1, hue: 0, hi: [0.5, 0.78, 0.85] },
-  bouleau: { y: 92, sat: 0.85, hue: 10 },
+  feuillu: { y: 84, sat: 1, hue: 0, hi: [0.5, 0.78, 0.85], hueTo: 93, darkMax: 0.15 },
+  bouleau: { y: 92, sat: 0.85, hue: 10, darkMax: 0.22 },
   sapin: { y: 62, sat: 0.9, hue: -18 },
-  pin: { y: 66, sat: 0.78, hue: -20, bark: 0.6 },
-  buisson: { y: 80, sat: 1, hue: 0, hi: [0.5, 0.78, 0.85] },
+  pin: { y: 66, sat: 0.78, hue: -20, bark: 0.6, darkMax: 0.25 },
+  buisson: { y: 80, sat: 1, hue: 0, hi: [0.5, 0.78, 0.85], hueTo: 95, darkMax: 0.16 },
   cypres: { y: 60, sat: 0.95, hue: 0 },          // arbres de ville (lot 6) : déjà vert franc
 };
 
@@ -131,8 +131,91 @@ function quantize(p, N = 24) {
   return out;
 }
 
+// OMBRE PEINTE (`trimShadow` au manifeste). Les buissons du 2026-10-07 sortent de
+// PixelLab posés sur une ellipse presque noire ; le jeu pose sa propre ombre. Dans
+// chaque colonne, on garde l'encre jusqu'au plus bas pixel de feuillage (luminance
+// ≥ SHADOW_LUM) plus un pixel de contour ; en dessous, c'est l'ellipse. Une colonne
+// sans aucun feuillage est une aile de l'ellipse : vidée entière.
+const SHADOW_LUM = 25;
+function trimShadow(p) {
+  let cut = 0;
+  for (let x = 0; x < p.width; x++) {
+    let yf = -1;
+    for (let y = p.height - 1; y >= 0 && yf < 0; y--) {
+      const i = (y * p.width + x) * 4;
+      if (p.data[i + 3] >= 128 && lum(p.data[i], p.data[i + 1], p.data[i + 2]) >= SHADOW_LUM) yf = y;
+    }
+    for (let y = yf + 2; y < p.height; y++) {
+      const i = (y * p.width + x) * 4;
+      if (p.data[i + 3]) { p.data[i + 3] = 0; cut++; }
+    }
+  }
+  return cut;
+}
+
+// ADOUCIR (`soften` au manifeste, dessins du 2026-10-07). Raph : « ils ont l'air très
+// contrastés et foncés ». Mesuré : 31 à 56 % de pixels sous 35 de luminance sur les
+// buissons, pins et jeunes bouleaux neufs, contre 11-16 % sur les chênes qu'il aime
+// (tree-1, tree-2) et 25 % sur le sapin ; et des buissons bleu-vert (115-153°) à côté
+// de feuillus à 90-95°. Deux corrections, l'une après l'autre :
+//  1. TEINTE : le feuillage est tourné pour que sa teinte moyenne tombe sur `hueTo`
+//     de la famille (si elle en a une) ;
+//  2. NOIRS : les tons sous LIFT_TOP sont remontés linéairement vers un plancher f
+//     ([0, LIFT_TOP] → [f, LIFT_TOP]), f cherché pour que la part de pixels sous 35
+//     tombe à `darkMax`. Un pixel presque noir (contour) prend la teinte du feuillage
+//     sombre au lieu de rester noir : c'est ce qui calme le contraste sans éclaircir
+//     la masse.
+const LIFT_TOP = 56, DARK = 35;
+function meanLeafHue(p, mask) {
+  let x = 0, y = 0;
+  for (let i = 0; i < mask.length; i++) {
+    if (!mask[i]) continue;
+    const h = hueSat(p.data[i * 4], p.data[i * 4 + 1], p.data[i * 4 + 2])[0] * Math.PI / 180;
+    x += Math.cos(h); y += Math.sin(h);
+  }
+  return (Math.atan2(y, x) * 180 / Math.PI + 360) % 360;
+}
+function darkShare(p, f) {
+  let n = 0, k = 0;
+  for (let i = 0; i < p.data.length; i += 4) {
+    if (!p.data[i + 3]) continue;
+    n++;
+    const L = lum(p.data[i], p.data[i + 1], p.data[i + 2]);
+    if ((L < LIFT_TOP ? f + L * (1 - f / LIFT_TOP) : L) < DARK) k++;
+  }
+  return k / n;
+}
+function soften(p, o) {
+  // Couleur de référence des tons sombres : moyenne des pixels juste au-dessus du seuil.
+  let tr = 0, tg = 0, tb = 0, tn = 0;
+  for (let i = 0; i < p.data.length; i += 4) {
+    if (!p.data[i + 3]) continue;
+    const L = lum(p.data[i], p.data[i + 1], p.data[i + 2]);
+    if (L >= LIFT_TOP * 0.6 && L < LIFT_TOP * 1.4) { tr += p.data[i]; tg += p.data[i + 1]; tb += p.data[i + 2]; tn++; }
+  }
+  const tint = tn ? [tr / tn, tg / tn, tb / tn] : [40, 60, 30], tL = Math.max(1, lum(...tint));
+  if (darkShare(p, 0) <= o.darkMax) return 0;
+  let lo = 0, hi = LIFT_TOP - 1;
+  for (let it = 0; it < 30; it++) { const m = (lo + hi) / 2; if (darkShare(p, m) > o.darkMax) lo = m; else hi = m; }
+  const f = hi;
+  for (let i = 0; i < p.data.length; i += 4) {
+    if (!p.data[i + 3]) continue;
+    const c = [p.data[i], p.data[i + 1], p.data[i + 2]], L = lum(...c);
+    if (L >= LIFT_TOP) continue;
+    const L2 = f + L * (1 - f / LIFT_TOP);
+    // Mélange vers la teinte sombre d'autant plus que le pixel est noir.
+    const w = Math.max(0, 1 - L / 12);
+    for (let ch = 0; ch < 3; ch++) {
+      const scaled = L > 0.5 ? c[ch] * (L2 / L) : 0;
+      p.data[i + ch] = Math.max(0, Math.min(255, Math.round(scaled * (1 - w) + tint[ch] * (L2 / tL) * w)));
+    }
+  }
+  return f;
+}
+
 for (const t of MANIFEST.trees) {
   const src = PNG.sync.read(fs.readFileSync(`${RAW}/${t.name}.png`));
+  if (t.trimShadow) trimShadow(src);
   const bb = inkBox(src);
   // Canevas : `px` de l'essence, AGRANDI (par pas de 8) si l'encre n'y tient pas avec
   // le pied à 0,92 et au milieu — le moteur lit la taille réelle du PNG, le grain reste.
@@ -152,8 +235,24 @@ for (const t of MANIFEST.trees) {
     const d = (Y * N + X) * 4;
     out.data[d] = src.data[q]; out.data[d + 1] = src.data[q + 1]; out.data[d + 2] = src.data[q + 2]; out.data[d + 3] = 255;
   }
-  const o = FAMILY[t.family];
+  let o = FAMILY[t.family];
   MASK = leafMask(out);
+  // Teinte : chaque pixel de feuillage est RAMENÉ vers hueTo (écart à la moyenne divisé
+  // par 2), au lieu d'une rotation uniforme : un buisson bleu-vert tourné de 40° d'un bloc
+  // envoyait ses taches déjà vertes au kaki.
+  let hueShift = 0;
+  if (t.soften && o.hueTo != null) {
+    const hm = meanLeafHue(out, MASK);
+    hueShift = ((o.hueTo - hm + 540) % 360) - 180;
+    for (let i = 0; i < MASK.length; i++) {
+      if (!MASK[i]) continue;
+      const [h, sl, l] = rgb2hsl(out.data[i * 4], out.data[i * 4 + 1], out.data[i * 4 + 2]);
+      const d = ((h - hm + 540) % 360) - 180;
+      const c = hsl2rgb((o.hueTo + d * 0.5 + 360) % 360, sl, l);
+      for (let ch = 0; ch < 3; ch++) out.data[i * 4 + ch] = Math.max(0, Math.min(255, Math.round(c[ch])));
+    }
+    o = { ...o, hue: 0 };
+  }
   const oBark = { ...o, hue: 0 };
   const before = leafMean(out);
   const g = gammaLeaf(out, o);
@@ -171,8 +270,9 @@ for (const t of MANIFEST.trees) {
     }
     toned.data[i] = c[0]; toned.data[i + 1] = c[1]; toned.data[i + 2] = c[2];
   }
+  const lift = t.soften ? soften(toned, { darkMax: o.darkMax ?? 0.2 }) : 0;
   const fin = quantize(toned, 24);
-  console.log(t.name.padEnd(18), `${N}px${N !== t.px ? ' (agrandi)' : ''}`, `encre ${bb.x1 - bb.x0 + 1}×${bb.y1 - bb.y0 + 1}`, `feuillage ${before.toFixed(0)}→${leafMean(fin).toFixed(0)}`,
+  console.log(t.name.padEnd(18), `${N}px${N !== t.px ? ' (agrandi)' : ''}`, `encre ${bb.x1 - bb.x0 + 1}×${bb.y1 - bb.y0 + 1}`, `feuillage ${before.toFixed(0)}→${leafMean(fin).toFixed(0)}`, t.soften ? `adouci (teinte ${hueShift >= 0 ? '+' : ''}${hueShift.toFixed(0)}°, plancher ${lift.toFixed(0)}, sombres ${(darkShare(fin, 0) * 100).toFixed(0)} %)` : '',
     clipped ? `⚠ ${clipped} px hors canevas` : '');
   if (!DRY) fs.writeFileSync(`${OUT}/${t.name}.png`, PNG.sync.write(fin));
 }

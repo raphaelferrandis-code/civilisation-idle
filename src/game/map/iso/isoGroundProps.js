@@ -147,12 +147,12 @@ export const TREE_SPRITES = [
   { name: 'tree-sapin-j2', sp: 'sapin', age: 0, px: 64 },
   { name: 'tree-sapin-j3', sp: 'sapin', age: 0, px: 64 },
   { name: 'tree-sapin-j4', sp: 'sapin', age: 0, px: 64 },
-  { name: 'tree-pin-a1', sp: 'pin', age: 1, px: 104 },
+  { name: 'tree-pin-a1', sp: 'pin', age: 1, px: 96 },
   { name: 'tree-pin-a2', sp: 'pin', age: 1, px: 96 },
-  { name: 'tree-pin-v1', sp: 'pin', age: 2, px: 104 },
-  { name: 'tree-pin-j1', sp: 'pin', age: 0, px: 64 },
+  { name: 'tree-pin-v1', sp: 'pin', age: 2, px: 96 },
+  { name: 'tree-pin-j1', sp: 'pin', age: 0, px: 72 },
   { name: 'tree-pin-j2', sp: 'pin', age: 0, px: 64 },
-  { name: 'tree-pin-j3', sp: 'pin', age: 0, px: 64 },
+  { name: 'tree-pin-j3', sp: 'pin', age: 0, px: 72 },
   { name: 'tree-buisson-1', sp: 'buisson', age: 0, px: 48 },
   { name: 'tree-buisson-2', sp: 'buisson', age: 0, px: 48 },
   { name: 'tree-buisson-3', sp: 'buisson', age: 0, px: 64 },
@@ -167,6 +167,23 @@ export const TREE_SPRITES = [
   { name: 'tree-tilleul-1', sp: 'tilleul', age: 1, px: 96 },
   { name: 'tree-tilleul-2', sp: 'tilleul', age: 1, px: 96 },
   { name: 'tree-tilleul-3', sp: 'tilleul', age: 1, px: 96 },
+  // Buissons de lisière refaits PETITS le 2026-10-07 (1 et 2 aussi) : feuilles, plus de boules,
+  // et la taille d'une hutte (les premiers en faisaient deux).
+  // En FIN de liste : les index des arbres déjà posés ne bougent pas.
+  { name: 'tree-buisson-4', sp: 'buisson', age: 0, px: 48 },
+  { name: 'tree-buisson-5', sp: 'buisson', age: 0, px: 48 },
+  { name: 'tree-buisson-6', sp: 'buisson', age: 0, px: 48 },
+  // Jeunes bouleaux et pins, et un pin adulte de plus (2026-10-07, même main).
+  { name: 'tree-bouleau-j3', sp: 'bouleau', age: 0, px: 64 },
+  { name: 'tree-bouleau-j4', sp: 'bouleau', age: 0, px: 64 },
+  { name: 'tree-bouleau-j5', sp: 'bouleau', age: 0, px: 64 },
+  { name: 'tree-bouleau-j6', sp: 'bouleau', age: 0, px: 64 },
+  { name: 'tree-bouleau-j7', sp: 'bouleau', age: 0, px: 64 },
+  { name: 'tree-bouleau-j8', sp: 'bouleau', age: 0, px: 64 },
+  { name: 'tree-bouleau-j9', sp: 'bouleau', age: 0, px: 64 },
+  { name: 'tree-pin-j4', sp: 'pin', age: 0, px: 64 },
+  { name: 'tree-pin-a3', sp: 'pin', age: 1, px: 96 },
+  { name: 'tree-chene-v4', sp: 'chene', age: 2, px: 136 },
 ];
 export const ISO_TREE_VARIANTS = TREE_SPRITES.length - 1;
 // Rapport de taille de dessin d'un arbre à l'arbre de référence (canevas de 96).
