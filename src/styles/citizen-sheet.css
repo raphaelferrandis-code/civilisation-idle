@@ -43,21 +43,74 @@
   gap: 0.85rem;
 }
 
-/* La niche du portrait : un creux sombre, le sol éclairé d'or en bas. */
+/* La niche du portrait : un creux sombre, le sol éclairé d'or en bas.
+   LE CIEL DERRIÈRE LUI (idée 2, 2026-10-07) : l'heure qu'il est là où il marche
+   (data-sky : jour, crépuscule, aube, nuit), la pluie ou la neige (data-precip),
+   et une teinte qui se refroidit quand son humeur baisse (data-mood 0..4). Des
+   bandes à arêtes FRANCHES, pas un dégradé lisse ; la nuit, la lumière au sol est
+   celle d'une lanterne. Rien ne brille : ni halo, ni orbe. */
 .citizen-sheet .cs-portrait {
+  --sky-hi: #1c2232;
+  --sky-lo: #262a35;
+  --glow: rgba(201, 169, 104, 0.2);
+  --tint: transparent;
+  position: relative;
+  isolation: isolate;
+  overflow: hidden;
   display: grid;
   place-items: end center;
   min-width: 4.6rem;
   min-height: 5.8rem;
   padding: 0.3rem 0.45rem 0.25rem;
   background:
-    radial-gradient(ellipse 60% 18% at 50% 96%, rgba(201, 169, 104, 0.2), transparent 70%),
-    rgba(0, 0, 0, 0.4);
+    linear-gradient(var(--tint), var(--tint)),
+    radial-gradient(ellipse 60% 18% at 50% 96%, var(--glow), transparent 70%),
+    linear-gradient(to bottom, var(--sky-hi) 0 54%, var(--sky-lo) 54% 100%);
   box-shadow: inset 0 0 0 1px rgba(201, 169, 104, 0.22);
 }
+.citizen-sheet .cs-portrait[data-sky="day"] { --sky-hi: #35425c; --sky-lo: #3b3c48; --glow: rgba(214, 182, 110, 0.24); }
+.citizen-sheet .cs-portrait[data-sky="dusk"] { --sky-hi: #282140; --sky-lo: #452c2c; --glow: rgba(224, 140, 80, 0.28); }
+.citizen-sheet .cs-portrait[data-sky="dawn"] { --sky-hi: #262942; --sky-lo: #45363a; --glow: rgba(226, 170, 120, 0.24); }
+.citizen-sheet .cs-portrait[data-sky="night"] { --sky-hi: #0c1020; --sky-lo: #131929; --glow: rgba(240, 176, 90, 0.32); }
+.citizen-sheet .cs-portrait[data-mood="0"] { --tint: rgba(70, 92, 140, 0.3); }
+.citizen-sheet .cs-portrait[data-mood="1"] { --tint: rgba(70, 92, 140, 0.16); }
+.citizen-sheet .cs-portrait[data-mood="4"] { --tint: rgba(214, 182, 110, 0.07); }
 .citizen-sheet .cs-portrait canvas {
+  position: relative;
+  z-index: 1;
   display: block;
   image-rendering: pixelated;
+}
+/* La pluie et la neige tombent DERRIÈRE lui (sous le canvas), en pixels pleins,
+   par crans : une goutte de 1 × 4, un flocon de 2 × 2. */
+.citizen-sheet .cs-portrait[data-precip]::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  pointer-events: none;
+  image-rendering: pixelated;
+}
+.citizen-sheet .cs-portrait[data-precip="rain"]::before {
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='18' shape-rendering='crispEdges'%3E%3Crect x='2' y='1' width='1' height='4' fill='%23a9bed8' fill-opacity='.5'/%3E%3Crect x='8' y='10' width='1' height='4' fill='%23a9bed8' fill-opacity='.4'/%3E%3C/svg%3E");
+  background-size: 12px 18px;
+  animation: cs-rain 540ms steps(6) infinite;
+}
+.citizen-sheet .cs-portrait[data-precip="snow"]::before {
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' shape-rendering='crispEdges'%3E%3Crect x='3' y='2' width='2' height='2' fill='%23eef2fa' fill-opacity='.7'/%3E%3Crect x='11' y='9' width='2' height='2' fill='%23eef2fa' fill-opacity='.55'/%3E%3C/svg%3E");
+  background-size: 16px 16px;
+  animation: cs-snow 2400ms steps(16) infinite;
+}
+@keyframes cs-rain {
+  from { background-position: 0 0; }
+  to { background-position: -2px 18px; }
+}
+@keyframes cs-snow {
+  from { background-position: 0 0; }
+  to { background-position: 4px 16px; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .citizen-sheet .cs-portrait[data-precip]::before { animation: none; }
 }
 
 .citizen-sheet .cs-id {
@@ -122,15 +175,78 @@
   color: #f0e2bc;
 }
 
+/* L'HUMEUR (idée 6) : cinq crans, le mot, sa cause. Le seul rouge est la
+   colère (un danger) ; la cause se lit en retrait. */
+.citizen-sheet .cs-mood {
+  display: inline-flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  column-gap: 0.4rem;
+}
+.citizen-sheet .cs-pips {
+  display: inline-flex;
+  align-self: center;
+  gap: 2px;
+}
+.citizen-sheet .cs-pips > span {
+  width: 6px;
+  height: 8px;
+  background: rgba(240, 226, 188, 0.14);
+  box-shadow: inset 0 0 0 1px rgba(0, 0, 0, 0.45);
+}
+.citizen-sheet .cs-pips > span.is-on {
+  background: var(--gold);
+}
+.citizen-sheet .cs-mood-word.is-bad {
+  color: var(--red);
+}
+.citizen-sheet .cs-mood-cause {
+  color: #c9b98f;
+}
+
+/* LA FAMILLE (idée 7) : le prénom d'un proche qui passe dans la rue est un lien
+   d'or (le geste), sans plaque de bouton. */
+.app .citizen-sheet .cs-kin {
+  padding: 0;
+  font: inherit;
+  line-height: inherit;
+  color: var(--gold);
+  text-decoration: underline dotted;
+  text-underline-offset: 3px;
+  cursor: pointer;
+}
+.app .citizen-sheet .cs-kin::before,
+.app .citizen-sheet .cs-kin:hover::before,
+.app .citizen-sheet .cs-kin:active::before {
+  border-image: none;
+  border-width: 0;
+  filter: none;
+  transform: none;
+}
+.app .citizen-sheet .cs-kin:hover {
+  color: #fff1bd;
+}
+
+/* Les deux gestes du bas : Suivre (la caméra) et Suivant (un autre passant). */
+.citizen-sheet .cs-actions {
+  display: flex;
+  gap: 0.5rem;
+  margin-top: 0.8rem;
+}
+.citizen-sheet .cs-next {
+  flex: 0 0 auto;
+  padding: 0.42rem 0.85rem 0.58rem;
+  font-size: var(--fs-read);
+}
+
 /* Suivre : OR quand il appelle le clic (caméra lâchée), CUIR éclairé quand le
    suivi tourne — l'état retenu n'est jamais en or (chrome-wizard.css). */
 .citizen-sheet .cs-follow {
   display: flex;
+  flex: 1 1 auto;
   align-items: center;
   justify-content: center;
   gap: 0.5rem;
-  width: 100%;
-  margin-top: 0.8rem;
   padding: 0.42rem 0.6rem 0.58rem;
   font-size: var(--fs-read);
 }

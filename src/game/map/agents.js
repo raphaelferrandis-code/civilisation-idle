@@ -767,15 +767,26 @@ function citizenScreenBox(p) {
     footX: sp.x, footY: sp.y, drawH, px: drawH / fh,
   };
 }
+// Le dessin qui REPRÉSENTE ce passant à l'âge courant (sans le repli de chargement
+// de citizenSpec) : la fiche en tire son métier et son âge (citizenIdentity.js).
+function citizenSpriteName(p, band) {
+  const b = band ?? ((CM.layout && CM.layout.counts && CM.layout.counts.eraBand) || 0);
+  const spec = agentSpecFor(agentSetForBand(b), p.charType || 0, p.skinVariant || 0);
+  return spec ? spec.name : null;
+}
 // Le PORTRAIT de la fiche : la planche PLEINE (jamais la -half), la frame qu'il
 // joue en ce moment (même cadence par distance que sur la carte), et la boîte
 // d'encre pour cadrer. Il fait toujours face : un passant qui monte vers le nord
 // est montré de trois quarts face, du côté où il va.
 const PORTRAIT_DIR = [0, 2, 2, 0];   // SE, NO→SO, SO, NE→SE
+// `scale` : l'échelle de carte du dessin (spec.scale), qui égalise les toiles
+// (une toile de 56 px remplie à moitié, une de 32 px remplie aux neuf dixièmes) —
+// la fiche s'en sert pour que la boulangère et son mari aient la même stature.
 function citizenPortraitFrame(p, now) {
   const spec = citizenSpec(p);
   if (!spec) return null;
-  return namedPortraitFrame(spec.name, p.dir, (p.pauseT || 0) <= 0 && !p._nightHidden, p.walkDist, p.phase, now);
+  const fr = namedPortraitFrame(spec.name, p.dir, (p.pauseT || 0) <= 0 && !p._nightHidden, p.walkDist, p.phase, now);
+  return fr && { ...fr, scale: spec.scale };
 }
 // Même portrait pour n'importe quel personnage NOMMÉ (le porteur de panier est un
 // « véhicule » côté moteur, mais il se dessine en piéton).
@@ -1120,6 +1131,15 @@ function facingBuilding(gx, gy) {
   }
   return -1;
 }
+// La TUILE du bâtiment dont il passe la porte (fiche d'habitant, « où il est
+// entré ») : celle que porte la cellule de seuil visée quand il y en a une (`t` des
+// seuils publiés), sinon celle qu'il a en face de lui.
+function doorTile(p, cell) {
+  if (cell && cell.t) return cell.t;
+  const fd = facingBuilding(p.gx, p.gy);
+  if (fd < 0 || !CM.tileGrid) return null;
+  return CM.tileGrid.get((p.gx + CM_DIRS[fd][0]) + ',' + (p.gy + CM_DIRS[fd][1])) || null;
+}
 // Les seuils d'ATELIERS et de commerces (bâtiments-moteur) : vitrines, courses.
 function shopDoorSet() {
   if (!CM._shopDoorSet || CM._shopDoorFor !== CM.workRoadCells) {
@@ -1131,9 +1151,17 @@ function shopDoorSet() {
 // Un TRAVAIL PROCHE de la maison (lot 2) : le lieu de travail était tiré n'importe
 // où dans la ville. Parmi les seuils d'atelier à moins de 18 cases (Manhattan), un
 // tirage par la graine ; à défaut, le plus proche. Appelé au spawn (cityMapRuntime).
-function citizenWorkNear(home, seed) {
-  const list = CM.workRoadCells;
+// `kinds` (facultatif, fiche d'habitant 2026-10-07) : les ids de bâtiments où son
+// métier le fait travailler — le moine au culte des ancêtres, le légionnaire aux
+// Veilleurs. Aucun atelier de ce genre dans la ville : pas de travail (null), plutôt
+// qu'un légionnaire employé aux Marchés. Sans `kinds`, le tirage d'avant, inchangé.
+function citizenWorkNear(home, seed, kinds = null) {
+  let list = CM.workRoadCells;
   if (!list || !list.length) return null;
+  if (kinds) {
+    list = list.filter((c) => c.t && kinds.includes(c.t.buildingId));
+    if (!list.length) return null;
+  }
   if (!home) return list[(seed >>> 8) % list.length];
   const near = [];
   let best = null, bd = Infinity;
@@ -1226,8 +1254,9 @@ function citizenChooseNext(p) {
   // levée (updateCitizens). Jusqu'à la fin de la pluie, c'était la moitié de la foule
   // figée sous les auvents (mesuré en jeu). Ceux qui RENTRENT, eux, courent (RUN_K).
   const env = CM._citEnv || null;
-  if (env && env.rain > 0.3 && !p.leaving && !p.social && !p.lead && !homeTime(dp) && p.goalKind !== "home" && (CM.citT || 0) >= (p._shelterAt || 0)
-    && CM.buildingEdgeSet && CM.buildingEdgeSet.has(cityMapWalkRoadKey(p.gx, p.gy)) && Math.random() < 0.05) {
+  // Le frileux s'abrite dès la petite pluie, et plus souvent (fiche d'habitant).
+  if (env && env.rain > (tr.chilly ? 0.18 : 0.3) && !p.leaving && !p.social && !p.lead && !homeTime(dp) && p.goalKind !== "home" && (CM.citT || 0) >= (p._shelterAt || 0)
+    && CM.buildingEdgeSet && CM.buildingEdgeSet.has(cityMapWalkRoadKey(p.gx, p.gy)) && Math.random() < (tr.chilly ? 0.12 : 0.05)) {
     const fd = facingBuilding(p.gx, p.gy);
     if (fd >= 0) {
       p._shelter = true;
@@ -1240,9 +1269,10 @@ function citizenChooseNext(p) {
   // LÈCHE-VITRINE (lot 2) : en passant devant un atelier, on s'arrête parfois un
   // instant, tourné vers lui — de jour, sans but social, pas en partance, une fois par
   // demi-minute au plus. (Les seules haltes étaient la place et le parvis.)
+  // Le curieux, le gourmand et le distrait s'y arrêtent deux fois plus.
   if (!arrived && p.goal && !p.leaving && !p.social && !homeTime(dp) && !(p._nf > 0)
     && (CM.citT || 0) >= (p._browseAt || 0) && shopDoorSet().has(cityMapWalkRoadKey(p.gx, p.gy))
-    && Math.random() < 0.06) {
+    && Math.random() < (tr.curious || tr.greedy || tr.absent ? 0.12 : 0.06)) {
     const fd = facingBuilding(p.gx, p.gy);
     if (fd >= 0) {
       p.pauseT = 1.8 + Math.random() * 2.6;
@@ -1258,6 +1288,10 @@ function citizenChooseNext(p) {
   if (arrived && !p.social && !p.leaving && !p.lead && citizenAtDoorstep(p)) {
     const dw = dwellFor(p.goalKind, dp, tr, Math.random());
     if (dw) {
+      // OÙ il entre (fiche d'habitant) : son atelier, son logis, la boutique visée —
+      // la cellule qu'il visait, s'il est bien devant (sinon la porte qu'il a en face).
+      const gc = p._goalCell && p._goalCell.gx === p.gx && p._goalCell.gy === p.gy ? p._goalCell : null;
+      p._in = { kind: p.goalKind, t: doorTile(p, gc) };
       p.goal = null; p._path = null;
       p._enter = dw.dawn ? { dawn: true } : { until: (CM.citT || 0) + dw.t };
       const fd = facingBuilding(p.gx, p.gy);
@@ -1325,7 +1359,9 @@ function citizenChooseNext(p) {
     const plazaCells = CM.plazaRoadCells;
     const wonderCells = CM.wonderGatherCells;
     p.gatherDir = null; // ne survit qu'au but « merveille » repiqué ci-dessous
-    const set = (g, kind, social) => { p.goal = { gx: g.gx, gy: g.gy }; p.goalKind = kind; p.social = !!social; p._goalAt = CM.citT || 0; };
+    // `_goalCell` : la cellule visée telle quelle (son `t` dit le bâtiment des
+    // courses, que la fiche nomme quand il y entre).
+    const set = (g, kind, social) => { p.goal = { gx: g.gx, gy: g.gy }; p._goalCell = g; p.goalKind = kind; p.social = !!social; p._goalAt = CM.citT || 0; };
     // Pendant une émeute (lot 4), on ne se donne pas rendez-vous dans son quartier.
     const rc = CM._riotC;
     const calm = (c) => !rc || Math.abs(c.gx - rc.gx) + Math.abs(c.gy - rc.gy) >= 7;
@@ -1362,6 +1398,10 @@ function citizenChooseNext(p) {
     } else if (kind === 'cross') {
       const c = crossBankGoal(p.gx, p.gy);
       if (c && sameIsland(p, c)) set(c, 'cross');
+    } else if (kind === 'pray') {
+      // Le pieux va prier (fiche d'habitant) : au culte des ancêtres, s'il y en a un.
+      const r = pickIn(CM.workRoadCells, (c) => c.t && c.t.buildingId === 'ancestral_cult');
+      if (r) set(r, 'pray');
     } else if (kind === 'night') {
       // Le couche-tard : une place, ou quelques rues plus loin.
       const r = Math.random() < 0.5 ? pickIn(plazaCells)
@@ -1732,8 +1772,13 @@ function citizenGreetings() {
           if (b === a || t < (b._greetAt || 0) || a.dir === b.dir) continue;
           if (Math.hypot(a._gx - b._gx, a._gy - b._gy) > T * 0.55) continue;
           a._greetAt = b._greetAt = t + 25;
-          if (Math.random() >= 0.3) continue;
-          const d = 3 + Math.random() * 3.5;
+          // Le caractère (fiche d'habitant) : un bavard dans la paire, on s'arrête plus
+          // souvent et plus longtemps ; un taciturne, deux fois moins.
+          const ta = a._tr || (a._tr = citizenTraits(a)), tb = b._tr || (b._tr = citizenTraits(b));
+          const chatty = ta.chatty || tb.chatty;
+          const greetP = 0.3 * (chatty ? 1.8 : 1) * (ta.quiet || tb.quiet ? 0.5 : 1);
+          if (Math.random() >= greetP) continue;
+          const d = (3 + Math.random() * 3.5) * (chatty ? 1.4 : 1);
           a.pauseT = b.pauseT = d;
           a.chatT = b.chatT = d;
           a.dir = dirToward(b._gx - a._gx, b._gy - a._gy);
@@ -1748,7 +1793,7 @@ function citizenGreetings() {
 }
 
 const RAIN_RETHINK = new Set(['plaza', 'wonder', 'wander', 'cross', 'night']);
-const DUSK_RETHINK = new Set(['plaza', 'wonder', 'wander', 'cross', 'errand', 'work']);
+const DUSK_RETHINK = new Set(['plaza', 'wonder', 'wander', 'cross', 'errand', 'work', 'pray']);
 // L'évitement (lot 6), en cases : on regarde `reach` devant soi (et `back` derrière,
 // le temps de dépasser), dans un couloir de ± `half`, et l'on s'écarte de `step`.
 // Un écart engagé se garde tant que quelqu'un reste à ± `hold` de sa file (> half +
@@ -1903,6 +1948,7 @@ function updateCitizens(dt) {
       // était déjà dans la rue (rechargement du module) ne disparaît pas sur place.
       if (homeTime(dpNow) && !tr0.owl && !p.lead && !p.leaving && p.fade === 0 && citizenAtDoorstep(p)) {
         p._enter = { dawn: true }; p._vanish = 0;
+        p._in = { kind: 'home', t: doorTile(p, p.home) };
       }
     }
     // COMPAGNON : il vit au rythme de son meneur (docs/PLAN-COMPORTEMENTS.md, lot 1).
@@ -1923,13 +1969,20 @@ function updateCitizens(dt) {
       if (p.leaving && p._vanish === undefined) {
         p.leaveT = (p.leaveT || 0) + dt;
         if (p.leaveT > 40 && !p._leaveRetry) { p._leaveRetry = true; p.leaveCell = nearestDoorstep(p); p.goal = null; }
-        if (p.leaveT > 80) p._vanish = 1;
+        if (p.leaveT > 80) { p._vanish = 1; p._in = { kind: 'leave', t: doorTile(p, null) }; }
       }
       // On s'efface sur un seuil pour ENTRER (`_enter` : travail, courses, maison —
       // lot 2) ou pour PARTIR (la foule baisse). Le « tiers dormeur » qui s'effaçait
       // devant n'importe quelle porte à la nuit tombée n'existe plus : le soir, chacun
       // rentre CHEZ SOI (emploi du temps, citizenDay.js).
-      if ((p._enter || p.leaving) && p._vanish === undefined && citizenAtShelter(p)) p._vanish = 1;
+      if ((p._enter || p.leaving) && p._vanish === undefined && citizenAtShelter(p)) {
+        p._vanish = 1;
+        // Le partant : la porte où il s'efface (la fiche le dit, au lieu de « A quitté la rue »).
+        if (p.leaving) {
+          const lc = p.leaveCell && p.leaveCell.gx === p.gx && p.leaveCell.gy === p.gy ? p.leaveCell : null;
+          p._in = { kind: 'leave', t: doorTile(p, lc) };
+        }
+      }
       if (p._vanish !== undefined) {
         // À l'intérieur : on ressort quand on a fini (travail, courses, passage chez
         // soi) ou, rentré pour la nuit, quand l'aube est venue POUR SOI (les sorties
@@ -1941,7 +1994,7 @@ function updateCitizens(dt) {
         }
         const back = !p._enter && !p.leaving;   // il ressort par sa porte
         p._vanish = back ? Math.min(1, p._vanish + dt * 2.2) : Math.max(0, p._vanish - dt * 2.2);
-        if (back && p._vanish >= 1) p._vanish = undefined;
+        if (back && p._vanish >= 1) { p._vanish = undefined; p._in = null; }
       }
     }
     p._sleepFade = p._vanish === undefined ? 1 : p._vanish;
@@ -2000,13 +2053,18 @@ function updateCitizens(dt) {
     // FACE À L'ÉMEUTE (lot 4) : à moins de 6 cases de la foule, on décide UNE fois —
     // un peu plus d'un sur deux s'éloigne d'un bon pas, un sur quatre s'arrête à
     // distance pour regarder, les autres passent leur chemin.
+    // Le courageux s'arrête plus souvent pour regarder ; le prudent la voit de plus loin
+    // et s'éloigne presque toujours (fiche d'habitant).
     const rc = CM._riotC;
     if (rc && p._riotSeen !== CM.riotEpoch && !p.leaving && !p._enter && !p._shelter) {
       const dR = Math.hypot(p.gx - rc.gx, p.gy - rc.gy);
-      if (dR < 6) {
+      const trR = p._tr || (p._tr = citizenTraits(p));
+      if (dR < (trR.cautious ? 9 : 6)) {
         p._riotSeen = CM.riotEpoch;
         const roll = Math.random();
-        if (roll < 0.55) {
+        const fleeP = trR.cautious ? 0.92 : trR.brave ? 0.25 : 0.55;
+        const watchP = trR.brave ? 0.85 : 0.8;
+        if (roll < fleeP) {
           let goal = null;
           if (p.home && Math.hypot(p.home.gx - rc.gx, p.home.gy - rc.gy) > dR + 2 && CM.walkRoadSet.has(cityMapWalkRoadKey(p.home.gx, p.home.gy))) goal = p.home;
           for (let i = 0; !goal && i < 16; i += 1) {
@@ -2017,8 +2075,8 @@ function updateCitizens(dt) {
             p.goal = { gx: goal.gx, gy: goal.gy }; p.goalKind = 'flee'; p.social = false;
             p._path = null; p.pauseT = 0; p.chatT = 0; p._browse = false;
           }
-        } else if (roll < 0.8 && dR >= 2.5) {
-          p.pauseT = 4 + Math.random() * 5;
+        } else if (roll < watchP && dR >= 2.5) {
+          p.pauseT = (4 + Math.random() * 5) * (trR.brave ? 1.6 : 1);
           p._watch = true;
           p.dir = dirToward(rc.gx - p.gx, rc.gy - p.gy);
         }
@@ -2569,6 +2627,6 @@ function drawVehicleHeadlights(ctx, v) {
 // ⚠ Retirés le 2026-08-23 (étape 6) avec le rendu top-down : `drawCitizens`,
 // `drawGroundAgents`, `drawShips`, `drawVehicles`, `frontByPainter`.
 export { agentSetForBand, agentSpecFor, agentFrameIso, chooseRoadVehicleType, getVehicleDensity, updateVehicles, vehicleGapFactors, VEH_GAP, updateCitizens, CM_DIRS, cityMapWalkRoadKey, roadStepAllowed, drawCitizenThoughts, vehicleLaneOffset, drawEraAgent, drawEraAgentIso, drawNamedAgent, drawNamedAgentIso, drawVehicleHeadlights, thoughtBubbleAnchor, riotEraKey, ensureVeh, vehReady, VEH_SIZES, VEH_PULL, VEH_PUSH, ensureDrone, drawDroneRotors, ensureVehDiag, vehDiagReady, vehSkinFor, eraVehSpec, ISO_DIAG, ISO_AGENT_NAMES, BASKET_CARRIERS, agentDir, AGENT_SCALE, VEH_SCALE,
-  citizenSpawnCell, citizenAtDoorstep, citizenWorkNear, IDLE_NAMES, IDLE_ONE, POSE_NAMES, POSE_NONE, CARDINAL_NAMES, agentIdleFrameIso, agentPoseFrameIso, citizenPose, citizenScreenBox, citizenPortraitFrame, namedPortraitFrame, imgInkBox, citizenSheltering };
+  citizenSpawnCell, citizenAtDoorstep, citizenWorkNear, IDLE_NAMES, IDLE_ONE, POSE_NAMES, POSE_NONE, CARDINAL_NAMES, agentIdleFrameIso, agentPoseFrameIso, citizenPose, citizenScreenBox, citizenPortraitFrame, namedPortraitFrame, imgInkBox, citizenSheltering, citizenSpriteName };
 // AGENT_SCALE / VEH_SCALE sont exportés en LIAISON VIVE (ESM) : le rendu iso les relit
 // à chaque frame, donc __villagerScale / __vehScale agissent aussi sur la vue iso.

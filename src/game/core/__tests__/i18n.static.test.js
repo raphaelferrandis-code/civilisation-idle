@@ -225,7 +225,7 @@ const FICHIERS_DEV = {
 // I18N-4) : si Raph en décide autrement, retirer ces entrées et les traduire.
 const LISTE_BLANCHE = {
   "src/game/map/cityNaming.js": { decl: ["CM_GIVEN", "CM_EPITHETS", "CM_TRADES", "CM_HOUSES", "CM_GIVEN_M", "CM_GIVEN_F",
-    "CM_EPITHETS_M", "CM_EPITHETS_F", "CM_TRADES_M", "CM_TRADES_F", "CM_STREET_OF", "CM_RESIDENCES"] },
+    "CM_EPITHETS_M", "CM_EPITHETS_F", "CM_STREET_OF", "CM_RESIDENCES", "CM_LIEUX"] },
   // Noms de scène de la troupe, par TEXTE et non `decl: ["TROUPE"]` : la
   // déclaration porte aussi les rôles { fr, en } (Danseuse, workLabel…), qu'un
   // `decl` masquerait — un `en` retiré n'y serait plus vu.
@@ -234,6 +234,7 @@ const LISTE_BLANCHE = {
   "src/game/core/actions/courses.js": { decl: ["NOMS"] },                 // CLÉS sauvegardées ; l'écran lit nomCheval()
   "src/game/data/myths.js": { decl: ["RAGNAROK_FINAL_TITLE"] },           // drapeau sauvegardé ; l'écran lit RAGNAROK_FINAL_TITLE_TEXT
   "src/game/map/citizenFocus.js": { decl: ["CARGO"] },                    // paires [fr, en]
+  "src/game/map/citizenIdentity.js": { decl: ["NAME_PARTS"] },            // « Frère Garin » : nom propre, comme les lieux-dits
   "src/game/map/housePalette.js": { decl: ["COULEURS_PROTEGEES"] },       // notes d'outillage, jamais affichées
   "src/components/ui/plaisirsMaterial.js": { decl: ["TABLES"] },          // `name` interne des tapis
   "src/components/dialogs/OptionsDialog.jsx": { textes: ["Français"] },   // le nom d'une langue s'écrit dans cette langue

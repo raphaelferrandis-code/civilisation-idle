@@ -27,10 +27,11 @@ export const CM_HOUSES = [
   "des Ponts", "Aldenne", "Virelane", "Montargis", "de Sorel", "Carrac",
   "des Archives", "Vauquelin", "de Roanne", "Esterlin"
 ];
-// Les mêmes prénoms, épithètes et métiers, RANGÉS PAR GENRE, pour les passants
-// (fiche d'habitant, 2026-10-03) : la fiche montre leur portrait, et un homme ne
-// peut plus s'appeler « Sibylle la Patiente ». Les maisons gardent les listes
-// mêlées ci-dessus (le nom de l'occupant d'une hutte n'a pas de portrait).
+// Les mêmes prénoms et épithètes, RANGÉS PAR GENRE, pour les passants (fiche
+// d'habitant, 2026-10-03) : la fiche montre leur portrait, et un homme ne peut plus
+// s'appeler « Sibylle la Patiente ». (Les métiers rangés par genre, CM_TRADES_M/F,
+// sont partis le 2026-10-07 : le métier d'un passant vient de son dessin et de son
+// travail, plus d'un tirage — citizenIdentity.js.)
 export const CM_GIVEN_M = [
   "Aldric", "Garin", "Renaud", "Tassin", "Doran", "Albin", "Corin", "Estor",
   "Bertran", "Gauvin", "Merin", "Aldis", "Tovan", "Nehm", "Orun", "Khael"
@@ -39,28 +40,36 @@ export const CM_GIVEN_F = [
   "Sibylle", "Mahaut", "Ysoria", "Oda", "Maelis", "Nessa", "Aveline", "Linnea",
   "Edith", "Soraya", "Talia", "Bruna", "Eda", "Sira", "Ilya", "Solen"
 ];
-const CM_EPITHETS_M = ["le Veilleur", "l'Ancien", "le Taciturne", "le Boiteux", "le Cadet", "le Guetteur"];
-const CM_EPITHETS_F = ["la Patiente", "la Vive", "la Rousse", "la Sage", "l'Aïeule", "la Nomade"];
-const CM_TRADES_M = [
-  "du Moulin", "des Granges", "le Forgeron", "du Puits", "des Halles", "le Tisserand",
-  "du Four", "des Tanneurs", "le Charpentier", "du Marché", "des Vignes", "le Tonnelier"
-];
-export const CM_TRADES_F = [
-  "du Moulin", "des Granges", "la Potière", "du Puits", "des Halles", "la Meunière",
-  "du Four", "des Tanneurs", "la Brodeuse", "du Marché", "des Vignes", "la Verrière"
+// Surnoms des camps. « le Boiteux » et « la Rousse » sont partis (2026-10-07) :
+// le boiteux marchait droit, et aucune femme des premiers âges n'est rousse.
+// Ce qu'un surnom impose (l'âge de « l'Ancien », le trait du « Taciturne ») est
+// dans citizenIdentity.js (EPITHET_RULES).
+export const CM_EPITHETS_M = ["le Veilleur", "l'Ancien", "le Taciturne", "le Rieur", "le Cadet", "le Guetteur"];
+export const CM_EPITHETS_F = ["la Patiente", "la Vive", "la Rieuse", "la Sage", "l'Aïeule", "la Nomade"];
+// Les LIEUX-DITS des villages (« du Moulin », « des Vignes »…) : le nom d'un
+// foyer, le même pour l'homme, la femme et les enfants. Vingt, et non plus les
+// huit lieux-dits de CM_TRADES : avec seize prénoms, huit noms de foyer faisaient
+// trois « Ilya du Four » dans la même rue (2026-10-07).
+export const CM_LIEUX = [
+  "du Moulin", "des Granges", "du Puits", "des Halles", "du Four", "des Tanneurs", "du Marché", "des Vignes",
+  "du Pont", "des Saules", "du Gué", "de la Forge", "des Prés", "du Bois", "de la Tour", "des Mares",
+  "du Chêne", "de la Source", "du Mont", "des Ormes"
 ];
 // Nom d'un PASSANT accordé à son genre. Même grammaire par âge que cmCitizenName
-// (layout.js) : épithète au temps des camps, métier ou lieu-dit au temps des
-// villages, nom de maison ensuite. Un enfant ne porte ni épithète ni métier
-// (« Oda la Potière » à huit ans) : son prénom, et le lieu-dit de sa famille.
-const CM_TRADES_FAMILY = CM_TRADES_M.filter((t) => t.startsWith("d"));
+// (layout.js) : épithète au temps des camps, lieu-dit au temps des villages, nom
+// de maison ensuite. Un enfant ne porte pas d'épithète : son prénom, et le
+// lieu-dit de sa famille.
+// ⚠ Plus de MÉTIER tiré au hasard (2026-10-07) : « Garin le Forgeron » marchait
+// en habit de moine vers le moulin. Le métier d'un passant, et le nom qu'il en
+// tire, viennent de son dessin et de son travail (citizenIdentity.js) ; ce repli
+// sert aux personnages dont on ne connaît pas le dessin.
 export function cmPasserbyName(seed, band, fem, child) {
   const pick = (list, s) => list[s % list.length];
   const given = pick(fem ? CM_GIVEN_F : CM_GIVEN_M, seed);
   if (band <= 1) {
     return !child && seed % 3 === 0 ? `${given} ${pick(fem ? CM_EPITHETS_F : CM_EPITHETS_M, Math.floor(seed / 5))}` : given;
   }
-  if (band <= 3) return `${given} ${pick(child ? CM_TRADES_FAMILY : fem ? CM_TRADES_F : CM_TRADES_M, Math.floor(seed / 7))}`;
+  if (band <= 3) return `${given} ${pick(CM_LIEUX, Math.floor(seed / 7))}`;
   return `${given} ${pick(CM_HOUSES, Math.floor(seed / 7))}`;
 }
 // Rôles des passants (repli si l'âge n'a pas les siens, cf. ageVisualConfig) :
@@ -95,6 +104,18 @@ export const CM_RESIDENCES = [
   "des Coteaux", "de l'Estuaire", "du Cadran Solaire", "des Lauriers",
   "de la Palmeraie", "du Ciel Ouvert", "de la Comète", "des Deux Rives", "du Signal"
 ];
+
+// Habitat COLLECTIF : plusieurs familles sous un toit. Un immeuble ne porte pas le
+// nom d'une personne (une « Tour d'habitation de Marc le Tanneur » n'a pas de sens,
+// un « Gratte-ciel d'Oda Valmoren » non plus) mais un nom de résidence ; la fiche
+// d'habitant y loge un foyer par appartement (citizenIdentity.js). Le logement
+// individuel garde le nom de son occupant. Les districts (dense/arcology/grid) sont
+// rangés côté collectif.
+export const CM_COLLECTIVE_HOMES = new Set([
+  "block", "tenement", "tower", "megablock", "arcologyhome",
+  "insula", "insula2", "haussmann", "terrace", "skytower", "skytower2", "podstack", "gardentower",
+  "dense", "arcology", "grid"
+]);
 
 // EN ANGLAIS, le complément d'un nom de lieu (« des Tanneurs », « de l'Aurore »)
 // reste un nom propre français, couleur assumée — seul le mot générique suit la

@@ -7,7 +7,7 @@ import {
   keepFigureAlive, FOCUS_TUNE, focusPortrait, portraitImgReady,
 } from "../citizenFocus.js";
 import {
-  cmPasserbyName, CM_GIVEN_M, CM_GIVEN_F, CM_TRADES_F, CM_HOUSES,
+  cmPasserbyName, CM_GIVEN_M, CM_GIVEN_F, CM_HOUSES, CM_LIEUX,
 } from "../cityNaming.js";
 
 // FICHE D'HABITANT (Raph 2026-10-03 : « chaque pnj un personnage cliquable, une
@@ -46,9 +46,10 @@ describe("cmPasserbyName — le nom s'accorde au portrait", () => {
     for (let s = 1; s < 400; s += 7) {
       expect(CM_GIVEN_M).toContain(cmPasserbyName(s, 0, false, false).split(" ")[0]);
       expect(CM_GIVEN_F).toContain(cmPasserbyName(s, 0, true, false).split(" ")[0]);
-      // Âge des villages : la femme porte un métier féminin ou un lieu-dit.
+      // Âge des villages : un lieu-dit, jamais un métier tiré au hasard (le métier
+      // vient du dessin et du travail, citizenIdentity.js).
       const f = cmPasserbyName(s, 2, true, false);
-      expect(CM_TRADES_F.some((t) => f.endsWith(" " + t))).toBe(true);
+      expect(CM_LIEUX.some((t) => f.endsWith(" " + t))).toBe(true);
       // L'enfant : prénom seul au camp, lieu-dit de la famille au village.
       expect(cmPasserbyName(s, 1, true, true).split(" ")).toHaveLength(1);
       expect(cmPasserbyName(s, 3, false, true)).toMatch(/ d/);

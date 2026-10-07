@@ -40,12 +40,19 @@
 import { CM } from './layout.js';
 import {
   citizenScreenBox, citizenSheltering, thoughtBubbleAnchor, vehicleLaneOffset,
-  imgInkBox, citizenPortraitFrame, namedPortraitFrame,
+  imgInkBox, citizenPortraitFrame, namedPortraitFrame, citizenSpriteName, citizenWorkNear,
 } from './agents.js';
+import {
+  buildIdentity, SPRITE_PROFILE, SCHOOLS, jobLabel, traitWord, householdOf, householdSlot, memberOf,
+  jobOfBuilding, jobWorks,
+} from './citizenIdentity.js';
 import { snapZoom, screenToWorld } from './iso/projection.js';
 import { snapDev } from './blitSnap.js';
 import { cmPasserbyName } from './cityNaming.js';
+import { WINTER } from './seasonMode.js';
 import { tr } from '../core/i18n.js';
+import { state } from '../core/state.js';
+import { pressureBreakdown, cityVitals } from '../core/mechanics.js';
 
 // zoom = cran visé à la désignation quand on regarde de plus loin (un passant
 // y fait ~30 px de haut) ; rate = amortissement du suivi (cf. CAM_FEEL).
@@ -253,6 +260,51 @@ export function focusPick(pick) {
 export function focusCitizen(p) {
   focusPick({ kind: 'citizen', p });
 }
+// « SUIVANT » (Raph, 2026-10-07) : passer au passant le plus proche de celui qu'on
+// regarde, pour flâner de l'un à l'autre. D'abord ceux qu'on VOIT (un passant dont
+// la silhouette sort de l'écran passe après), jamais l'un des derniers désignés.
+// Passants des rues et personnages de scène peints à la dernière frame (le flâneur
+// de la place, le promeneur du quai) ; pas les véhicules.
+const RECENT_MAX = 6;
+const recentPicks = [];
+function noteRecent(p) {
+  const i = recentPicks.indexOf(p);
+  if (i >= 0) recentPicks.splice(i, 1);
+  recentPicks.push(p);
+  if (recentPicks.length > RECENT_MAX) recentPicks.shift();
+}
+function worldPosOf(kind, p) {
+  if (kind === 'vehicle') return { x: p.x, y: p.y };
+  if (kind === 'boat') return p._camAt || (p._hull ? { x: p._hull.wx, y: p._hull.wy } : null);
+  return { x: p.x + (p.lox || 0), y: p.y + (p.loy || 0) };
+}
+function offScreen(kind, p) {
+  const b = kind === 'figure' && p._figBox ? p._figBox : citizenScreenBox(p);
+  if (!b || !(CM.cw > 0) || !(CM.ch > 0)) return false;   // visibilité inconnue : la distance seule
+  return b.x1 < 0 || b.x0 > CM.cw || b.y1 < 0 || b.y0 > CM.ch;
+}
+export function focusNextCitizen() {
+  const f = CM.focus;
+  const cur = f ? f.p : null;
+  if (cur) noteRecent(cur);
+  const from = (f && worldPosOf(f.kind, f.p)) || (CM.cam ? { x: CM.cam.x, y: CM.cam.y } : { x: 0, y: 0 });
+  let best = null, bestScore = Infinity;
+  const consider = (kind, p) => {
+    if (p === cur || recentPicks.indexOf(p) >= 0) return;
+    const w = worldPosOf(kind, p);
+    if (!w || !Number.isFinite(w.x) || !Number.isFinite(w.y)) return;
+    const score = Math.hypot(w.x - from.x, w.y - from.y) + (offScreen(kind, p) ? 1e7 : 0);
+    if (score < bestScore) { bestScore = score; best = { kind, p }; }
+  };
+  for (const p of CM.citizens || []) {
+    if (p._nightHidden || p._dead || (p._sleepFade ?? 1) < 0.3 || (p.fade ?? 1) < 0.5 || p._vanish !== undefined) continue;
+    consider('citizen', p);
+  }
+  for (const p of drawnFigs) if (p._seenFrame === frameN || p._seenFrame === frameN - 1) consider('figure', p);
+  if (!best) return false;
+  focusPick(best);
+  return true;
+}
 // Le joueur reprend la caméra (drag, flèches, recentrage) : la fiche reste
 // ouverte, l'anneau aussi, seul le suivi s'arrête.
 export function releaseFocusCamera() {
@@ -442,22 +494,136 @@ const cap = (s) => (s ? s.charAt(0).toUpperCase() + s.slice(1) : s);
 const lowerFirst = (s) => (s ? s.charAt(0).toLowerCase() + s.slice(1) : s);
 const pickOf = (list, seed) => list[seed % list.length];
 
-// Personnage de scène : une graine tirée de son dessin (phase, variante), puis le
-// même nom accordé que les passants. Posée UNE fois — son nom ne change plus.
-// Rangée à part (`p.persona`), JAMAIS dans `p.name` : sur les places, `name` est
-// déjà le nom de la bande dessinée. Une scène peut fixer le nom elle-même
-// (`p.stageName` : les filles de la Maison des Plaisirs gardent le leur d'âge en âge).
+// Le métier qu'une SCÈNE donne à ses personnages : le porteur du port, le
+// laboureur du champ, le pêcheur du pont. Les autres le tiennent de leur dessin.
+function sceneJob(p) {
+  if (p.scene === 'port') return 'porter';
+  if (p.scene === 'champ') return 'farmer';
+  if (p.scene === 'pont' && p.fisher) return 'fisher';
+  return null;
+}
+// Le dessin d'un personnage de scène, s'il est l'un de ceux des passants : le
+// promeneur du quai est tiré comme eux (genre, variante). Les bandes propres aux
+// scènes (« medieval-man »…) ne disent pas de métier.
+function figureSprite(p) {
+  if (p.sprite) return SPRITE_PROFILE[p.sprite] ? p.sprite : null;
+  return p.charType != null && p.skinVariant != null ? citizenSpriteName(p) : null;
+}
+// Personnage de scène : une graine tirée de son dessin (phase, variante), puis la
+// même personne accordée que les passants (citizenIdentity.js). Posée UNE fois —
+// son nom ne change plus. Rangée à part (`p.persona`), JAMAIS dans `p.name` : sur
+// les places, `name` est déjà le nom de la bande dessinée. Une scène peut fixer le
+// nom elle-même (`p.stageName` : les filles de la Maison des Plaisirs gardent le
+// leur d'âge en âge).
 function figureIdentity(p) {
   if (p.persona) return p.persona;
   // `figSeed` : graine donnée par la scène (pont, bac…) ; sinon celle du dessin.
   const seed = p.figSeed != null ? mixHash(p.figSeed >>> 0, 29)
     : mixHash(Math.floor((p.phase || 0) * 1e9) >>> 0, (p.skinVariant || 0) + 31);
   const fem = p.charType === 1 || (p.charType === 2 && ((seed >>> 17) & 1) === 1);
-  p.persona = { seed, fem, name: p.stageName || cmPasserbyName(seed, bandNow(), fem, p.charType === 2) };
-  return p.persona;
+  const id = buildIdentity({ seed, band: bandNow(), child: p.charType === 2, fem, sprite: figureSprite(p), job: sceneJob(p) });
+  if (p.stageName) id.name = p.stageName;
+  p.persona = id;
+  return id;
 }
-// Qui il est, quelle que soit sa nature : { name, seed, fem }.
-const idOf = (p, kind) => (kind === 'figure' || p.scene ? figureIdentity(p) : p);
+// Passant des rues : l'identité posée à sa naissance (spawnOneCitizen), refaite si
+// l'âge de la cité lui a changé de dessin (le moine des villages devient
+// légionnaire au Marbre : son métier et son nom suivent). Un passant né avant
+// cette fiche la reçoit à son premier relevé, sans changer de nom.
+function citizenIdentityOf(p) {
+  const band = bandNow();
+  const sprite = citizenSpriteName(p, band);
+  const id = p.identity;
+  if (id && id.band === band && id.sprite === sprite) return id;
+  const seed = (p.seed >>> 0) || mixHash(Math.round((p.phase || 0) * 1000), 7);
+  const child = p.charType === 2;
+  const who = { child, fem: !!p.fem, sprite, band };
+  // Son foyer : celui qu'il avait (sa place, si elle existe encore à cet âge), sinon
+  // une famille qui vit ailleurs (le passant né avant la fiche, le harnais de test).
+  let household, slot;
+  if (id && id.household != null) {
+    household = householdOf(id.household, band);
+    slot = memberOf(household, id.slot) ? id.slot : null;
+  } else {
+    household = householdOf(mixHash(seed, 77), band);
+    slot = householdSlot(household, who, new Set());
+  }
+  // Un nouveau dessin de métier cherche son atelier (le moine devenu légionnaire
+  // quitte le culte des ancêtres pour les Veilleurs) ; l'enfant, son école.
+  const prof = SPRITE_PROFILE[sprite] || {};
+  if (id && (child || prof.job) && CM.workRoadCells && CM.workRoadCells.length) {
+    const kinds = child ? SCHOOLS : jobWorks(prof.job);
+    const t = tileNow(p.work && p.work.t);
+    if (!t || !kinds.includes(t.buildingId)) p.work = citizenWorkNear(p.home || p, seed, kinds);
+  }
+  const fresh = buildIdentity({
+    seed, band, child, fem: !!p.fem, sprite, job: workJobOf(p, band), household, slot,
+  });
+  if (id) { p.name = fresh.name; p.fem = fresh.fem; }
+  p.identity = fresh;
+  p._tr = undefined;   // ses traits de comportement (citizenDay.js) suivent la nouvelle fiche
+  return fresh;
+}
+// La tuile qui occupe AUJOURD'HUI l'ancre d'une tuile (un recalcul a pu remplacer
+// la hutte par une maison), ou la tuile elle-même.
+function tileNow(t0) {
+  if (!t0) return null;
+  return (CM.tileGrid && CM.tileGrid.get(t0.gx + ',' + t0.gy)) || t0;
+}
+// Le métier que lui donne son atelier, quand son dessin n'en porte pas.
+function workJobOf(p, band) {
+  if (p.charType === 2) return null;
+  const t = tileNow(p.work && p.work.t);
+  return t && t.type === 'engine' ? jobOfBuilding(t.buildingId, band) : null;
+}
+
+// LA FAMILLE (idée 7) : ce que sa place au foyer dit de lui, avec les prénoms du
+// foyer (citizenIdentity.js). Un proche qui passe dans la rue en ce moment est
+// marqué `here` : la fiche en fait un lien (focusRelative). Pas d'objet passant
+// dans le relevé (la fiche le compare par JSON, et un passant se cite lui-même).
+function livingRelatives(hs, self) {
+  const out = new Map();
+  for (const q of CM.citizens || []) {
+    const qi = q.identity;
+    if (q === self || q._dead || !qi || qi.household !== hs || !qi.slot) continue;
+    out.set(qi.slot, q);
+  }
+  return out;
+}
+function familyOf(p, kind, id) {
+  if (kind !== 'citizen' || !id || !id.line || id.household == null) return null;
+  const hh = householdOf(id.household, id.band);
+  const here = livingRelatives(id.household, p);
+  const person = (slot) => {
+    const m = memberOf(hh, slot);
+    return m ? { given: m.given, fem: m.fem, slot, here: here.has(slot) } : null;
+  };
+  const line = id.line;
+  const base = { kind: line.kind, hh: id.household };
+  switch (line.kind) {
+    case 'married': return { ...base, other: person(line.other), kids: line.kids };
+    case 'single': return { ...base, kids: line.kids };
+    case 'child': return { ...base, parents: line.parents.map(person).filter(Boolean) };
+    case 'elder': return { ...base, of: person(line.of) };
+    case 'lodger': case 'nephew': return { ...base, host: person(line.host) };
+    default: return null;
+  }
+}
+// Désigner un proche que la fiche nomme (s'il est encore dans la rue).
+export function focusRelative(hs, slot) {
+  for (const q of CM.citizens || []) {
+    const qi = q.identity;
+    if (!q._dead && qi && qi.household === hs && qi.slot === slot) { focusPick({ kind: 'citizen', p: q }); return true; }
+  }
+  return false;
+}
+// Qui il est, quelle que soit sa nature : { name, seed, fem, age, job, traits… }.
+// Le passant garde son `name` (celui que les bulles et le journal ont déjà dit).
+function idOf(p, kind) {
+  if (kind === 'figure' || p.scene) return figureIdentity(p);
+  const id = citizenIdentityOf(p);
+  return id.name === p.name ? id : { ...id, name: p.name };
+}
 // Véhicule : son conducteur. Charretiers, cochers et chevaliers sont des hommes
 // jusqu'à l'âge industriel ; ensuite, une conductrice sur deux.
 function vehicleIdentity(v) {
@@ -548,31 +714,8 @@ function vehicleLoad(v) {
   return {};
 }
 
-// Âge adulte par âge de la cité (bande 0 → 9) : la vie s'allonge avec elle.
-const ADULT_AGE = [[15, 42], [16, 48], [16, 56], [17, 60], [18, 66], [18, 74], [20, 82], [22, 104], [24, 130], [30, 160]];
-
-const TRAITS = [
-  { m: 'Bavard', f: 'Bavarde', en: 'Chatty' },
-  { m: 'Taciturne', f: 'Taciturne', en: 'Quiet' },
-  { m: 'Pieux', f: 'Pieuse', en: 'Pious' },
-  { m: 'Rêveur', f: 'Rêveuse', en: 'Dreamy' },
-  { m: 'Gourmand', f: 'Gourmande', en: 'Greedy' },
-  { m: 'Curieux', f: 'Curieuse', en: 'Curious' },
-  { m: 'Économe', f: 'Économe', en: 'Thrifty' },
-  { m: 'Généreux', f: 'Généreuse', en: 'Generous' },
-  { m: 'Rancunier', f: 'Rancunière', en: 'Spiteful' },
-  { m: 'Joyeux', f: 'Joyeuse', en: 'Cheerful' },
-  { m: 'Superstitieux', f: 'Superstitieuse', en: 'Superstitious' },
-  { m: 'Lève-tôt', f: 'Lève-tôt', en: 'Early riser' },
-  { m: 'Têtu', f: 'Têtue', en: 'Stubborn' },
-  { m: 'Courageux', f: 'Courageuse', en: 'Brave' },
-  { m: 'Prudent', f: 'Prudente', en: 'Cautious' },
-  { m: 'Fier', f: 'Fière', en: 'Proud' },
-  { m: 'Distrait', f: 'Distraite', en: 'Absent-minded' },
-  { m: 'Travailleur', f: 'Travailleuse', en: 'Hard-working' },
-  { m: 'Frileux', f: 'Frileuse', en: 'Cold-blooded' },
-  { m: 'Râleur', f: 'Râleuse', en: 'Grumpy' },
-];
+// (L'âge et le caractère se tirent avec le reste de la personne :
+// citizenIdentity.js, ADULT_AGE et TRAITS.)
 const MOODS = [   // du pire au meilleur, seuils sur l'humeur 0..1
   { at: 0, m: 'En colère', f: 'En colère', en: 'Angry' },
   { at: 0.25, m: 'Inquiet', f: 'Inquiète', en: 'Worried' },
@@ -581,6 +724,65 @@ const MOODS = [   // du pire au meilleur, seuils sur l'humeur 0..1
   { at: 0.8, m: 'Radieux', f: 'Radieuse', en: 'Radiant' },
 ];
 const word = (w, fem) => ({ fr: fem ? w.f : w.m, en: w.en });
+
+// L'HUMEUR ET CE QUI LA FAIT (idée 6, 2026-10-07). La base est la santé de la cité
+// (CM.healthF, la teinte de la carte), que cityMapRuntime tire de la prospérité
+// (vivres, or, savoir) et de la tension (foyers de Rupture, Rupture montée,
+// usure) ; le tempérament de chacun la tire de ±0,15, l'émeute et l'averse
+// l'assombrissent. La CAUSE est ce qui la tire le plus vers le bas, dite avec les
+// mots de la rue (« la disette » pour la Subsistance). Rien sous « Content » : on
+// ne cherche pas de raison à la bonne humeur.
+const MOOD_CAUSE = {
+  riot: { fr: "l'émeute", en: 'the riot' },
+  rain: { fr: 'la pluie', en: 'the rain' },
+  snow: { fr: 'la neige', en: 'the snow' },
+  temper: { fr: 'un mauvais jour', en: 'a bad day' },
+  scarcity: { fr: 'la disette', en: 'food shortage' },
+  inequality: { fr: 'les inégalités', en: 'inequality' },
+  complexity: { fr: 'la paperasse', en: 'red tape' },
+  dissent: { fr: 'la dissidence', en: 'dissent' },
+  structural: { fr: 'les fissures', en: 'the cracks' },
+  demesure: { fr: 'la démesure', en: 'hubris' },
+  wear: { fr: "l'usure", en: 'wear' },
+  poverty: { fr: 'la misère', en: 'poverty' },
+};
+const FOYERS = ['scarcity', 'inequality', 'complexity', 'dissent', 'structural', 'demesure'];
+// Les poids de la cité, au même barème que la santé (cityMapRuntime) : la tension
+// pèse 0,55 (la Rupture en cours comptée avec ses foyers, dont le plus lourd
+// prend le nom), la prospérité 0,45 (seuls les manques comptent).
+function cityPulls() {
+  let pr, vt;
+  try { pr = pressureBreakdown(); vt = cityVitals(); } catch { return []; }
+  const out = [];
+  let dom = null, domV = 0;
+  for (const k of FOYERS) if ((pr[k] || 0) > domV) { domV = pr[k]; dom = k; }
+  // Bornés comme la tension de la santé (cityMapRuntime : strain ∈ [0, 1]).
+  if (dom) out.push([dom, Math.min(1, (pr.total || 0) * 0.5 + (state.instability || 0) * 0.55) * 0.55]);
+  out.push(['wear', Math.min(1, (state.timeWear || 0) * 0.6) * 0.55]);
+  out.push(['scarcity', Math.max(0, -(vt.foodBonus || 0)) * 1.6 * 0.45]);
+  out.push(['poverty', Math.max(0, -(vt.goldBonus || 0)) * 0.9 * 0.45]);
+  return out;
+}
+function moodOf(seed, fem) {
+  const temper = ((mixHash(seed, 4) % 1000) / 1000 - 0.5) * 0.3;
+  const riot = Array.isArray(CM.rioters) && CM.rioters.length ? 0.25 : 0;
+  const wet = (CM.rainF || 0) > 0.15 ? 0.06 : 0;
+  const mood = (CM.healthF ?? 0.6) + temper - riot - wet;
+  let level = 0;
+  for (let i = 0; i < MOODS.length; i += 1) if (mood >= MOODS[i].at) level = i;
+  let cause = null;
+  if (level <= 2) {
+    let best = 0;
+    const pulls = [
+      ['riot', riot],
+      [(CM.season | 0) === WINTER ? 'snow' : 'rain', wet],
+      ['temper', Math.max(0, -temper)],
+      ...cityPulls(),
+    ];
+    for (const [k, v] of pulls) if (v > best) { best = v; cause = k; }
+  }
+  return { level, word: word(MOODS[level], fem), cause: cause ? MOOD_CAUSE[cause] : null };
+}
 
 function tileTitle(cell) {
   const t0 = cell && cell.t;
@@ -611,7 +813,7 @@ const PLACE_LOOK = {
   bandstand: { fr: 'Écoute le kiosque', en: 'Listening at the bandstand' },
 };
 
-function activityOf(p, lost) {
+function activityOf(p, lost, fem = false) {
   if (p.scene === 'bac') {
     const leg = ferryLeg(p);
     if (leg === 'landed') {
@@ -630,7 +832,16 @@ function activityOf(p, lost) {
       : { fr: 'Attend la navette des Plaisirs', en: 'Waiting for the shuttle' };
   }
   if (p.scene === 'port' && lost) return { fr: "A fini l'escale", en: 'Done unloading' };
-  if (lost) return { fr: 'A quitté la rue', en: 'Left the street' };
+  // OÙ IL EST ENTRÉ (idée 12) : la porte qu'il a passée (agents.js, `p._in`), ou
+  // celle de son meneur pour un compagnon.
+  const inside = p._in || (p.lead && p.lead._in) || null;
+  const where = inside && inside.t ? tileTitle({ t: inside.t }) : null;
+  const atHome = !!(inside && inside.t && p.home && p.home.t && inside.t.gx === p.home.t.gx && inside.t.gy === p.home.t.gy);
+  if (lost) {
+    if (atHome || (inside && inside.kind === 'home')) return { fr: fem ? 'Rentrée chez elle' : 'Rentré chez lui', en: 'Went home' };
+    if (where) return { fr: `${fem ? 'Entrée' : 'Entré'} · ${where}`, en: `Went in · ${where}` };
+    return { fr: 'A quitté la rue', en: 'Left the street' };
+  }
   if (p.scene === 'pont') {
     return p.fisher ? { fr: 'Pêche à la ligne', en: 'Fishing' } : { fr: 'Regarde le fleuve', en: 'Watching the river' };
   }
@@ -652,8 +863,22 @@ function activityOf(p, lost) {
     return (p.pauseT || 0) > 0 ? { fr: "Regarde l'eau", en: 'Watching the water' } : { fr: 'Flâne sur le quai', en: 'Strolling the quay' };
   }
   const night = (CM.nightF || 0) > 0.55;
-  if (p._nightHidden) return night ? { fr: 'Dort', en: 'Asleep' } : { fr: 'Chez soi', en: 'At home' };
-  if (p._vanish !== undefined) return night ? { fr: 'Va se coucher', en: 'Going to bed' } : { fr: 'Rentre au logis', en: 'Heading home' };
+  const ik = inside && !atHome ? inside.kind : 'home';
+  // À l'intérieur : là où il est entré.
+  if (p._nightHidden) {
+    if (ik === 'work') return { fr: 'Au travail', en: 'At work' };
+    if (ik === 'pray') return where ? { fr: `Prie · ${where}`, en: `Praying · ${where}` } : { fr: 'Prie', en: 'Praying' };
+    if ((ik === 'errand' || ik === 'leave') && where) return { fr: `En visite · ${where}`, en: `Visiting · ${where}` };
+    return night ? { fr: 'Dort', en: 'Asleep' } : { fr: 'Chez soi', en: 'At home' };
+  }
+  // Il passe la porte : il entre (travail, courses, prière, logis), ou il ressort.
+  if (p._vanish !== undefined) {
+    if (!p._enter && !p.leaving) return { fr: 'Ressort', en: 'Coming out' };
+    if (ik === 'work') return { fr: 'Entre au travail', en: 'Going in to work' };
+    if (ik === 'pray') return { fr: 'Entre prier', en: 'Going in to pray' };
+    if ((ik === 'errand' || ik === 'leave') && where) return { fr: `Entre · ${where}`, en: `Going in · ${where}` };
+    return night ? { fr: 'Va se coucher', en: 'Going to bed' } : { fr: 'Rentre chez soi', en: 'Going inside' };
+  }
   if (citizenSheltering(p)) return { fr: "S'abrite de la pluie", en: 'Running from the rain' };
   // Lot 4 de PLAN-COMPORTEMENTS : la ville réagit (averse, émeute).
   if (p._shelter) return { fr: 'Attend sous un auvent', en: 'Waiting under an awning' };
@@ -664,15 +889,11 @@ function activityOf(p, lost) {
   // qu'ils font ENSEMBLE (le but du meneur), ou qu'ils se sont arrêtés causer.
   const L = p.lead;
   const chat = { fr: 'Fait la causette', en: 'Chatting' };
-  if (L) return L.chatT > 0 ? chat : activityOf(L, false);
+  if (L) return L.chatT > 0 ? chat : activityOf(L, false, fem);
   if (p.chatT > 0 && (p._f1 || p._chatWith)) return chat;
   const k = p.goalKind;
-  // Lot 2 de PLAN-COMPORTEMENTS : on ENTRE par la porte (travail, courses, maison).
-  if (p._enter && p._vanish !== undefined) {
-    if (k === 'work') return { fr: 'Entre au travail', en: 'Going in to work' };
-    if (k === 'errand') return { fr: 'Entre dans une boutique', en: 'Stepping into a shop' };
-    return { fr: 'Rentre chez soi', en: 'Going inside' };
-  }
+  // (Entrer par la porte, lot 2 de PLAN-COMPORTEMENTS : traité plus haut, avec le
+  // bâtiment où il entre.)
   if ((p.pauseT || 0) > 0) {
     if (p._browse) return { fr: 'Regarde une vitrine', en: 'Window-shopping' };
     if (k === 'wonder') return { fr: 'Admire la merveille', en: 'Admiring the wonder' };
@@ -685,6 +906,7 @@ function activityOf(p, lost) {
   if (k === 'plaza') return { fr: 'Va sur la place', en: 'Heading to the square' };
   if (k === 'cross') return { fr: "Passe sur l'autre rive", en: 'Crossing the river' };
   if (k === 'errand') return { fr: 'Fait ses courses', en: 'Running errands' };
+  if (k === 'pray') return { fr: 'Va prier', en: 'Off to pray' };
   if (k === 'night') return { fr: 'Se promène à la nuit tombée', en: 'Out for an evening stroll' };
   // Le rôle tiré à l'apparition (ageVisualConfig) est une unité { fr, en } ; une
   // simple chaîne (ancien format) n'a pas d'anglais.
@@ -744,6 +966,7 @@ export function citizenSheet() {
           : { fr: 'Embarque ses voyageurs', en: 'Taking on passengers' },
       riders: ferryAboard(p),
       crossings: p.trip | 0,
+      ...skyOf(),
       following: !!f.cam,
       lost,
     };
@@ -759,27 +982,17 @@ export function citizenSheet() {
       driver: person ? null : p.driver,
       activity: vehicleActivity(p, lost),
       ...vehicleLoad(p),
+      ...skyOf(),
       following: !!f.cam,
       lost,
     };
   }
+  // La personne, tirée d'un seul tenant (citizenIdentity.js) : âge, métier,
+  // caractère et nom s'accordent au dessin et entre eux.
   const id = idOf(p, f.kind);
-  const band = bandNow();
-  const seed = (id.seed >>> 0) || mixHash(Math.round((p.phase || 0) * 1000), 7);
   const child = p.charType === 2;
   const fem = !!id.fem;
-  const span = ADULT_AGE[Math.max(0, Math.min(ADULT_AGE.length - 1, band))];
-  const age = child ? 4 + (mixHash(seed, 1) % 10) : span[0] + (mixHash(seed, 1) % (span[1] - span[0] + 1));
-  const t1 = mixHash(seed, 2) % TRAITS.length;
-  let t2 = mixHash(seed, 3) % (TRAITS.length - 1);
-  if (t2 >= t1) t2 += 1;
-  // Humeur = la santé de la cité (CM.healthF, la même qui teinte la carte),
-  // tirée par le tempérament de chacun, assombrie par l'émeute et l'averse.
-  let mood = (CM.healthF ?? 0.6) + ((mixHash(seed, 4) % 1000) / 1000 - 0.5) * 0.3;
-  if (Array.isArray(CM.rioters) && CM.rioters.length) mood -= 0.25;
-  if ((CM.rainF || 0) > 0.15) mood -= 0.06;
-  let m = MOODS[0];
-  for (const lvl of MOODS) if (mood >= lvl.at) m = lvl;
+  const mood = moodOf(id.seed >>> 0, fem);
   // Le compagnon : meneur ou suiveur d'un passant, partenaire de flânerie d'un
   // promeneur du quai.
   const companion = p.lead || (p._f1 && p._f1.lead === p ? p._f1 : null) || p.mate || p._chatWith || null;
@@ -790,16 +1003,32 @@ export function citizenSheet() {
     kind: child ? 'child' : fem ? 'woman' : 'man',
     name: id.name,
     fem,
-    age,
-    activity: activityOf(p, lost),
+    age: id.age,
+    job: id.job ? jobLabel(id.job, fem) : null,
+    activity: activityOf(p, lost, fem),
     home: tileTitle(p.home),
     work,
+    family: familyOf(p, f.kind, id),
     companion: companion ? idOf(companion).name : null,
-    mood: word(m, fem),
-    traits: [word(TRAITS[t1], fem), word(TRAITS[t2], fem)],
+    mood: mood.word,
+    moodLevel: mood.level,
+    moodCause: mood.cause,
+    traits: id.traits.map((k) => traitWord(k, fem)).filter(Boolean),
+    ...skyOf(),
     following: !!f.cam,
     lost,
   };
+}
+
+// LE CIEL DERRIÈRE LE PORTRAIT (idée 2) : l'heure et le temps qu'il fait là où il
+// marche. `sky` : 'day', 'dusk' (la nuit tombe), 'dawn' (elle se lève), 'night' ;
+// `precip` : 'rain', 'snow' ou null — les mêmes signaux que la carte (nightF,
+// dayRising, rainF au-delà du premier palier de pluie, saison).
+function skyOf() {
+  const n = CM.nightF || 0;
+  const sky = n >= 0.85 ? 'night' : n <= 0.15 ? 'day' : CM.dayRising ? 'dusk' : 'dawn';
+  const precip = (CM.rainF || 0) > 0.15 ? ((CM.season | 0) === WINTER ? 'snow' : 'rain') : null;
+  return { sky, precip };
 }
 
 // L'image du portrait est-elle prête à peindre ? Une image décodée, ou un CANVAS

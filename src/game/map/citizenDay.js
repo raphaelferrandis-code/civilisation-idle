@@ -23,14 +23,31 @@ export function dayPhase(dayP, nightF) {
   return (nightF || 0) > 0.5 ? 0.8 : 0.3;
 }
 
-// Traits d'un passant, tirés de sa phase (stables toute sa vie).
+// Traits d'un passant, tirés de sa phase (stables toute sa vie), et son CARACTÈRE,
+// celui que montre sa fiche (p.identity.traits, citizenIdentity.js) : depuis le
+// 2026-10-07 il AGIT — un « Lève-tôt » n'est jamais couche-tard et sort parmi les
+// premiers, le rêveur traîne le pas, le curieux va voir la merveille, le gourmand
+// fait ses courses, le pieux va prier, le travailleur va travailler, le frileux
+// s'abrite tôt, le bavard cause, le taciturne passe son chemin, le courageux regarde
+// l'émeute et le prudent la fuit. Un passant sans fiche (harnais de test) garde
+// exactement les tirages d'avant.
 const frac = (v) => ((v % 1) + 1) % 1;
 export function citizenTraits(p) {
   const ph = p.phase || 0;
+  const keys = (p.identity && p.identity.traits) || null;
+  const has = (k) => !!keys && keys.indexOf(k) >= 0;
+  const early = has('early');
   return {
-    owl: frac(ph * 517.31) < 0.25,          // couche-tard
-    slow: p.charType !== 2 && frac(ph * 211.73) < 0.15,   // pas lent (un vieux, un flâneur)
-    stagger: frac(ph * 97.13),              // l'heure à laquelle il sort de chez lui, à l'aube
+    owl: !early && frac(ph * 517.31) < 0.25,          // couche-tard
+    slow: p.charType !== 2 && (frac(ph * 211.73) < 0.15 || has('dreamy')),   // pas lent (un vieux, un flâneur, un rêveur)
+    // L'heure à laquelle il sort de chez lui, à l'aube (et rentre au crépuscule) : le
+    // lève-tôt dans le premier quart.
+    stagger: early ? frac(ph * 97.13) * 0.25 : frac(ph * 97.13),
+    early,
+    chatty: has('chatty'), quiet: has('quiet'),
+    curious: has('curious'), greedy: has('greedy'), absent: has('absent'),
+    pious: has('pious'), hardworking: has('hardworking'), dreamy: has('dreamy'),
+    chilly: has('chilly'), brave: has('brave'), cautious: has('cautious'),
   };
 }
 
@@ -55,14 +72,21 @@ export function pickAgenda(dp, traits, r, wonderPull = 0, env = null) {
   else if (dp < 0.25) w = { work: 0.45, errand: 0.18, plaza: 0.14, wonder: 0.05, cross: 0.05, wander: 0.13 };
   else if (dp < 0.38) w = { work: 0.18, errand: 0.2, plaza: 0.34, wonder: 0.1, cross: 0.05, wander: 0.13 };
   else w = { work: 0.34, errand: 0.2, plaza: 0.2, wonder: 0.05, cross: 0.05, wander: 0.16 };
+  // Le caractère (fiche d'habitant) : ce qui l'attire dans sa journée.
+  if (traits.hardworking) w.work *= 1.6;
+  if (traits.dreamy) { w.wander *= 1.5; w.work *= 0.8; }
+  if (traits.curious) { w.wonder = w.wonder * 2.5 + 0.03; w.cross *= 1.6; }
+  if (traits.greedy) w.errand *= 1.6;
+  if (traits.pious) w.pray = 0.12;
   // Les vagues d'attroupement aux merveilles (CM.wonderPull) gardent leur force.
   w.wonder += 0.55 * wonderPull;
   if (rain > 0.15) {
-    const k = Math.min(1, (rain - 0.15) / 0.45);
+    // Le frileux sent la pluie plus tôt, et plus fort.
+    const k = Math.min(1, (rain - 0.15) / (traits.chilly ? 0.25 : 0.45));
     w.plaza *= 1 - 0.8 * k; w.wonder *= 1 - 0.8 * k; w.wander *= 1 - 0.6 * k; w.cross *= 1 - 0.7 * k;
-    w.errand *= 1 + 0.3 * k; w.work *= 1 + 0.2 * k; w.home = 0.25 * k;
+    w.errand *= 1 + 0.3 * k; w.work *= 1 + 0.2 * k; w.home = (traits.chilly ? 0.45 : 0.25) * k;
   }
-  if (season === 3) { w.plaza *= 0.6; w.wander *= 0.6; w.home = (w.home || 0) + 0.06; }
+  if (season === 3) { w.plaza *= 0.6; w.wander *= 0.6; w.home = (w.home || 0) + (traits.chilly ? 0.16 : 0.06); }
   else if (season === 1) { w.plaza *= 1.3; w.wander *= 1.2; }
   let tot = 0;
   for (const k in w) tot += w[k];
@@ -74,8 +98,9 @@ export function pickAgenda(dp, traits, r, wonderPull = 0, env = null) {
 // Combien de temps reste-t-on à l'intérieur (secondes), selon ce qu'on est venu faire.
 // `dawn` : rentré pour la nuit, on ne ressort qu'à l'aube.
 export function dwellFor(kind, dp, traits, r) {
-  if (kind === 'work') return { t: 16 + r * 26 };
-  if (kind === 'errand') return { t: 5 + r * 8 };
+  if (kind === 'work') return { t: (16 + r * 26) * (traits.hardworking ? 1.4 : 1) };
+  if (kind === 'errand') return { t: (5 + r * 8) * (traits.greedy ? 1.3 : 1) };
+  if (kind === 'pray') return { t: 8 + r * 10 };
   if (kind === 'home') return homeTime(dp) && !traits.owl ? { dawn: true } : { t: 6 + r * 14 };
   return null;
 }

@@ -107,10 +107,14 @@ import { tissuMetrics, tissuReport } from './tissuMetrics.js';
 // les fonctions d'agents.js au trafic et à la foule.
 import { maskHit } from './iso/isoMask.js';
 import { cityMapCalmRioterAt, quayWallTune, quayWallTiles, ensureQuayGate } from './quaysAndRiot.js';
-import { getVehicleDensity, chooseRoadVehicleType, vehSkinFor, thoughtBubbleAnchor, citizenSpawnCell, citizenWorkNear } from './agents.js';
+import { getVehicleDensity, chooseRoadVehicleType, vehSkinFor, thoughtBubbleAnchor, citizenSpawnCell, citizenWorkNear, citizenSpriteName } from './agents.js';
 import { makeFleetCtl, riverFleetBudget, updateRiverFleet } from './riverFleet.js';
 import { pickAtScreen, describePick, citizenHoverTick, focusPick, releaseFocusCamera, focusCameraTarget, FOCUS_TUNE } from './citizenFocus.js';
-import { cmPasserbyName, cmVariantLabel, cmOfEn } from './cityNaming.js';
+import { cmVariantLabel, cmOfEn, CM_COLLECTIVE_HOMES } from './cityNaming.js';
+import {
+  buildIdentity, householdOf, householdSeedOf, householdSlot, householdHeadName, jobOfBuilding, jobWorks,
+  SPRITE_PROFILE, SCHOOLS, APARTMENTS, JOBS,
+} from './citizenIdentity.js';
 
 
 // ── Qualité de rendu (préréglage joueur, cf. qualityMode.js) ─────────────────
@@ -540,14 +544,8 @@ function cityMapVariantLabel(type, variant) {
   return tr(cmVariantLabel(type, variant));
 }
 
-// Habitat COLLECTIF : un immeuble ne porte pas le nom d'une personne (une
-// « Tour d'habitation de Marc le Tanneur » n'a pas de sens) mais un nom de
-// résidence (cmResidenceName). Le logement individuel garde le nom de son
-// occupant. Les districts (dense/arcology/grid) sont rangés côté collectif.
-const CM_COLLECTIVE_HOMES = new Set([
-  "block", "tenement", "tower", "megablock", "arcologyhome",
-  "dense", "arcology", "grid"
-]);
+// (Habitat COLLECTIF : CM_COLLECTIVE_HOMES, cityNaming.js — l'immeuble porte un nom
+// de résidence, la fiche d'habitant y loge un foyer par appartement.)
 
 // LE QUARTIER (docs/PLAN-LISIBILITE.md, Q) : une ville née avec ses quartiers nomme celui
 // de la tuile survolée — un nom, jamais une phrase.
@@ -607,7 +605,10 @@ function cityMapDescribeTile0(t) {
     const res = cmResidenceName(seed);
     return { title: tr({ fr: `${label.fr} ${res}`, en: `${cmOfEn(res)} ${label.en}` }) };
   }
-  const who = cmCitizenName(seed, band);
+  // L'occupant est la TÊTE DU FOYER qui vit là (citizenIdentity.js, même graine) :
+  // sa femme, son mari, ses enfants qui passent dans la rue disent « Mariée à
+  // Garin », « Fille d'Oda » de la personne dont la maison porte le nom.
+  const who = householdHeadName(householdOf(seed, band)) || cmCitizenName(seed, band);
   return { title: tr({ fr: `${label.fr} ${cmDeName(who)}`, en: `${who}'s ${label.en}` }) };
 }
 // La fiche d'habitant (citizenFocus.js) nomme son logis et son atelier comme
@@ -2084,17 +2085,42 @@ export function spawnOneCitizen(L) {
   if (!CM.citizens.length) CM.citizenSerial = 0;
   const n = CM.citizenSerial || 0;
   CM.citizenSerial = n + 1;
+  const band = L.counts.eraBand || 0;
+  const cycles = state.cycles || 0;
   // Cellule d'APPARITION : le seuil d'un logement (citizenSpawnCell, agents.js) — plus
   // de piéton qui se matérialise au milieu de la chaussée. Tirage à part du seed
-  // d'apparence, qui garde sa formule d'origine (cellule comprise) et donc sa
-  // distribution : garde-robe, coiffe et type d'habitant ne bougent pas.
-  const r = citizenSpawnCell(cmHash(`${state.cycles || 0}:${n}:seuil`));
-  if (!r) return;
-  const seed = cmHash(`${state.cycles || 0}:${n}:${r.gx},${r.gy}`);
+  // d'apparence, qui garde sa formule d'origine (cellule comprise).
+  // LE FOYER (fiche d'habitant, 2026-10-07) : il naît chez lui, à une place libre de
+  // sa famille (citizenIdentity.js). Le premier seuil tiré est celui d'avant ; s'il
+  // n'y a pas de place pour lui (le mari déjà dans la rue, un vieux dessin chez un
+  // jeune couple) ou si la maison n'est pas encore bâtie, on en tire jusqu'à
+  // SPAWN_TRIES. Aucun ne va : il naît au premier, hébergé chez la tête du foyer.
+  // ⚠ QUI il est se tire UNE fois, au premier seuil (type, dessin, graine) ; les
+  // essais suivants ne changent que sa PORTE. Retirer la personne à chaque essai
+  // écartait ceux qui trouvent rarement une place (le moine, sans famille ; le
+  // garçon, qu'il faut une place de garçon) : la rue se remplissait de femmes.
+  const r0 = citizenSpawnCell(cmHash(`${cycles}:${n}:seuil`));
+  if (!r0) return;
+  const seed = cmHash(`${cycles}:${n}:${r0.gx},${r0.gy}`);
+  const who = citizenWho(seed, band);
+  const taken = livingHouseholdSlots();
+  const tries = who.celibate ? 1 : SPAWN_TRIES;
+  let first = null, pick = null;
+  for (let k = 0; k < tries && !(pick && pick.slot); k += 1) {
+    const r = k ? citizenSpawnCell(cmHash(`${cycles}:${n}:seuil:${k}`)) : r0;
+    if (!r) break;
+    const cand = { r, ...householdAt(r, seed, who, cycles, taken) };
+    if (!first) first = cand;
+    if (!r.t) { pick = cand; break; }          // seuil sans maison connue : sa famille vit ailleurs
+    if (r.t.type === "enginehome" && cmEngineHomeHidden(r.t)) continue;   // pas encore bâtie
+    if (!pick || cand.slot) pick = cand;
+  }
+  pick = pick || first;
+  const { r, household, slot } = pick;
+  const { charType, skinVariant, sprite } = who;
   // Rôles définis par la config d'âge (huttes → tours), repli : CM_ROLES par bande.
   const roleList = (L.ageCfg && L.ageCfg.citizenRoles)
     || CM_ROLES[Math.min(L.counts.eraBand || 0, CM_ROLES.length - 1)];
-  const band = L.counts.eraBand || 0;
   // Garde-robe par ère : peaux/lin aux ères primitives, étoffes teintes ensuite.
   // Tons FONCÉS aux ères 0-1 : les teintes claires lisaient comme des points
   // blancs sur les routes sombres (bug "petits points" CE 0.2/0.3).
@@ -2109,27 +2135,31 @@ export function spawnOneCitizen(L) {
   const hat = hatRoll === 0 ? (band <= 1 ? "#5d4226" : "#3c3228")
     : hatRoll === 1 ? (band >= 3 ? "#8a8a92" : "#c8a85a")
     : null;
-  // Type d'habitant : 0 homme (42 %) / 1 femme (42 %) / 2 enfant (16 %). Tiré via le
-  // seed (déterministe, plus de scintillement) et fixé DÈS le spawn — nécessaire pour
-  // moduler la vitesse des enfants et garder l'identité stable dès la 1re frame.
-  const cr = (seed >> 6) % 100;
-  const charType = cr < 42 ? 0 : cr < 84 ? 1 : 2;
-  const fem = charType === 1 || (charType === 2 && ((seed >>> 17) & 1) === 1);
-  // Variante de dessin (métier, diversité). Fixée au spawn ; agentSpecFor la ramène au
-  // nombre de dessins de l'ère (variant % liste) → 12, multiple de 1, 2, 3, 4 et 6 :
-  // chaque dessin d'une liste sort aussi souvent que les autres (PLAN-VIVANT, 8/ère).
-  const skinVariant = (seed >> 13) % 12;
   // Domicile & lieu de travail : ancres fixes tirées via le seed (stables dans le
   // temps). Repli null tant que la ville n'a ni logement ni atelier bordé de route →
   // le piéton garde alors la flânerie libre (cf. citizenChooseNext).
   const homeCells = CM.homeRoadCells, workCells = CM.workRoadCells;
   // Le domicile EST la cellule d'apparition : il sort de chez lui, et c'est là que le
-  // soir le ramène (homeBias, citizenChooseNext). Null tant que la ville n'a aucun
-  // logement bordé de route — le spawn s'est alors rabattu sur la voirie.
+  // soir le ramène (citizenChooseNext). Null tant que la ville n'a aucun logement
+  // bordé de route — le spawn s'est alors rabattu sur la voirie.
   const home = homeCells && homeCells.length ? r : null;
-  // Un travail PROCHE de chez soi (docs/PLAN-COMPORTEMENTS.md, lot 2) : il était tiré
-  // n'importe où dans la ville.
-  const work = workCells && workCells.length ? citizenWorkNear(r, seed >>> 0) : null;
+  // Un travail PROCHE de chez soi (docs/PLAN-COMPORTEMENTS.md, lot 2), et qui va
+  // avec ce qu'il est (fiche d'habitant, 2026-10-07) : l'enfant à l'école s'il y en a
+  // une, le métier dessiné dans un bâtiment de son métier (le moine au culte des
+  // ancêtres, le légionnaire aux Veilleurs), les autres où le tirage d'avant les met
+  // — et c'est alors l'atelier qui leur donne leur métier (les Moulins, un meunier).
+  const prof = SPRITE_PROFILE[sprite] || {};
+  const child = charType === 2;
+  let work = null;
+  if (workCells && workCells.length) {
+    work = child ? citizenWorkNear(r, seed, SCHOOLS)
+      : prof.job ? citizenWorkNear(r, seed, jobWorks(prof.job))
+        : citizenWorkNear(r, seed);
+  }
+  const workJob = !child && !prof.job && work && work.t ? jobOfBuilding(work.t.buildingId, band) : null;
+  const identity = buildIdentity({
+    seed, band, child, fem: who.fem, sprite, job: workJob, household, slot,
+  });
   CM.citizens.push({
     gx: r.gx, gy: r.gy,
     x: (r.gx + 0.5) * CM.TILE, y: (r.gy + 0.5) * CM.TILE,
@@ -2144,16 +2174,78 @@ export function spawnOneCitizen(L) {
     // → les grappes familiales se lisent mieux à l'écran.
     speed: (9 + (n % 7) * 1.5 + L.counts.urbanTier * 0.6) * (charType === 2 ? 0.85 : 1),
     col: OUTFITS[seed % OUTFITS.length],
-    skin: SKINS[(seed >> 3) % SKINS.length],
+    skin: SKINS[(seed >>> 3) % SKINS.length],
     hat,
-    // Fiche d'habitant (citizenFocus.js) : le seed fonde son âge et son caractère,
-    // et le nom s'accorde au portrait — un homme ne s'appelle plus « Sibylle ».
-    // L'enfant (dessin unique) tire son genre au seed.
+    // Fiche d'habitant (citizenFocus.js) : QUI il est, tiré d'un seul tenant
+    // (citizenIdentity.js) — nom, âge, métier, caractère et famille accordés à son
+    // dessin et à son foyer. `name` et `fem` en sont la copie que lisent les bulles,
+    // le journal et l'infobulle.
     seed,
-    fem,
-    name: cmPasserbyName(seed, L.counts.eraBand, fem, charType === 2),
+    fem: identity.fem,
+    name: identity.name,
+    identity,
     role: cmPick(roleList, Math.floor(seed / 13))
   });
+}
+
+// Combien de seuils on essaie pour qu'un nouveau venu naisse à une place libre de son
+// foyer (spawnOneCitizen). Le premier est celui d'avant la fiche.
+const SPAWN_TRIES = 6;
+// Les places tenues par un passant vivant (ou qui rentre s'effacer), par foyer :
+// Map(graine du foyer → Set des places).
+function livingHouseholdSlots() {
+  const out = new Map();
+  for (const q of CM.citizens) {
+    const id = q.identity;
+    if (q._dead || !id || id.household == null || !id.slot) continue;
+    let s = out.get(id.household);
+    if (!s) out.set(id.household, (s = new Set()));
+    s.add(id.slot);
+  }
+  return out;
+}
+// QUI naît : son type, son dessin. Type d'habitant : 0 homme (42 %) / 1 femme (42 %)
+// / 2 enfant (16 %), variante de dessin sur 12 (multiple de 1, 2, 3, 4 et 6 : chaque
+// dessin d'une liste sort aussi souvent que les autres, PLAN-VIVANT). ⚠ `>>>` et non
+// `>>` (2026-10-07) : la graine est un uint32, `>>` la relisait SIGNÉE, et une graine
+// sur deux donnait un reste négatif — 71 % d'hommes au lieu de 42, et 45 % des
+// passants retombés sur le dessin 0.
+function citizenWho(seed, band) {
+  const charType = ((seed >>> 6) % 100) < 42 ? 0 : ((seed >>> 6) % 100) < 84 ? 1 : 2;
+  const fem = charType === 1 || (charType === 2 && ((seed >>> 17) & 1) === 1);
+  const skinVariant = (seed >>> 13) % 12;
+  const sprite = citizenSpriteName({ charType, skinVariant }, band);
+  const prof = SPRITE_PROFILE[sprite] || {};
+  const celibate = charType !== 2 && !!(prof.job && JOBS[prof.job] && JOBS[prof.job].celibate);
+  return { charType, fem, skinVariant, sprite, child: charType === 2, band, celibate };
+}
+// Son foyer à ce seuil, et la place qu'il y prend : la maison du seuil (la même
+// graine que son nom dans l'infobulle), un appartement d'immeuble, ou, sans logis,
+// une famille qui vit ailleurs.
+function householdAt(r, seed, who, cycles, taken) {
+  const band = who.band;
+  const t = r.t;
+  let household = null, slot = null;
+  if (t && (t.type === "house" || t.type === "enginehome")) {
+    const key = t.key || `${t.gx},${t.gy}`;
+    if (CM_COLLECTIVE_HOMES.has(t.variant)) {
+      const a0 = (seed >>> 9) % APARTMENTS;
+      for (let a = 0; a < APARTMENTS && !slot; a += 1) {
+        const hh = householdOf(householdSeedOf(key, cycles, (a0 + a) % APARTMENTS), band);
+        const s = householdSlot(hh, who, taken.get(hh.seed) || new Set());
+        if (!household || s) { household = hh; slot = s; }
+      }
+    } else {
+      household = householdOf(householdSeedOf(key, cycles), band);
+      slot = householdSlot(household, who, taken.get(household.seed) || new Set());
+    }
+  } else {
+    for (let j = 0; j < 8 && !slot; j += 1) {
+      household = householdOf(cmHash(`${seed}:foyer:${j}`), band);
+      slot = householdSlot(household, who, new Set());
+    }
+  }
+  return { household, slot };
 }
 
 // SOUS-PAS DE SIMULATION (BUG-67, audit du 2026-10-05). Le pas reste plafonné à
