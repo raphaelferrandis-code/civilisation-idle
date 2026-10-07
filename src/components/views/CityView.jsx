@@ -153,6 +153,22 @@ export default function CityView() {
     // est relatif au parent, qui ne commence pas en haut de l'écran sous 1500 px
     // (audit du 05/10, BUG-19 : MIGRER hors de l'écran en 1280×800).
     aux.style.setProperty('--aux-top-vp', `${Math.round(hudBottom + 12)}px`);
+    // LA PAROLE DES PASSANTS SOUS LE HAUT DE L'ÉCRAN : au-dessus de 1500 px le
+    // ruban flotte SUR la scène (cite.css), et l'annonce d'une bulle cliquée, posée
+    // en haut de la scène, passait dessous (retour de Raph, 2026-10-07). Les
+    // bannières de début de cycle (Énée, Atrides) occupent aussi ce haut pendant
+    // deux minutes. Leur bas RÉEL (ruban sur une ou deux lignes), relu à chaque
+    // rendu comme le dock, et compté depuis la SCÈNE, le bloc de l'annonce (le
+    // parent du dock n'en est pas un). Sous 1500 px le ruban est un bandeau
+    // AU-DESSUS de la scène : sans bannière l'écart est négatif, donc 0.
+    const stage = hud.offsetParent;
+    const ribbon = document.querySelector('.topbar');
+    if (stage && ribbon) {
+      const banners = document.querySelector('.cycle-banners');
+      const bottom = Math.max(ribbon.getBoundingClientRect().bottom, banners ? banners.getBoundingClientRect().bottom : 0);
+      const under = bottom - stage.getBoundingClientRect().top;
+      stage.style.setProperty('--top-hud-bottom', `${Math.max(0, Math.round(under))}px`);
+    }
   });
   // Régulation : sur petit écran elle part REPLIÉE (elle vaut jusqu'à ~40 % de la
   // hauteur utile en 1000×700, et c'est la carte qui payait). Sa poignée garde

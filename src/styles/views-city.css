@@ -851,10 +851,13 @@
    .city-stage (l'ancêtre positionné plein cadre) ; centrage par marges auto
    pour laisser transform à l'animation. Colonne au texte centré, citation
    entière (plus d'ellipse). La durée de vie est portée par l'animation
-   bubbleAnnounce, SYNCHRONE avec le setTimeout de CityView (9 s). */
+   bubbleAnnounce, SYNCHRONE avec le setTimeout de CityView (9 s).
+   `--top-hud-bottom` : le bas du ruban quand il flotte sur la scène (au-dessus de
+   1500 px) ou des bannières de début de cycle, posé par CityView ; sans lui
+   l'annonce passait sous le ruban. */
 .map-bubble-alert {
   position: absolute;
-  top: 0.9rem;
+  top: calc(var(--top-hud-bottom, 0px) + 0.9rem);
   left: 0;
   right: 0;
   margin-inline: auto;

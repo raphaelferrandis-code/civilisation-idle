@@ -2138,17 +2138,29 @@ function updateCitizens(dt) {
 // Projection PARTAGÉE (worldToScreen, identité en legacy) → même fonction pour
 // les deux rendus ; l'iso l'appelle en fin de frame (au-dessus de la nuit).
 // Repli emoji tant que l'icône n'est pas décodée.
-const THOUGHT_ICONS = { thought: '/pixelart/ui/res/food.png', scroll: '/pixelart/ui/res/knowledge.png', lightning: '/pixelart/ui/res/gold.png' };
+// ⚠ La VARIANTE CUITE à la taille d'affichage (`@16/@24/@32`, scripts/
+// bakeUiIconSizes.cjs), jamais le maître de 64 px : réduit à 16 px au plus proche
+// voisin il ne gardait qu'un pixel sur quatre, et l'icône sortait déchiquetée dans
+// sa bulle (retour de Raph, 2026-10-07). La taille suit le dpr du canvas : 16 px
+// écran valent 16, 24 ou 32 px réels.
+const THOUGHT_ICONS = { thought: 'food', scroll: 'knowledge', lightning: 'gold' };
+const THOUGHT_ICON_PX = [16, 24, 32];
 const thoughtIconCache = {};
-function thoughtIcon(type) {
-  let c = thoughtIconCache[type];
+function thoughtIconSize(dpr) {
+  const want = 16 * (dpr || 1);
+  return THOUGHT_ICON_PX.find((s) => s >= want - 0.01) || THOUGHT_ICON_PX[THOUGHT_ICON_PX.length - 1];
+}
+function thoughtIcon(type, dpr) {
+  const px = thoughtIconSize(dpr);
+  const key = `${type}@${px}`;
+  let c = thoughtIconCache[key];
   if (c) return c;
   c = { img: null, ready: false };
-  thoughtIconCache[type] = c;
+  thoughtIconCache[key] = c;
   if (typeof Image !== 'undefined' && THOUGHT_ICONS[type]) {
     const im = new Image();
     im.onload = () => { c.img = im; c.ready = true; };
-    im.src = THOUGHT_ICONS[type];
+    im.src = `/pixelart/ui/res/${THOUGHT_ICONS[type]}@${px}.png`;
   }
   return c;
 }
@@ -2188,7 +2200,7 @@ function drawCitizenThoughts(now = 0) {
       // Cartouche : liseré or sombre puis fond parchemin.
       thoughtBubbleBox(ctx, bx, by, BR, 'rgba(122, 92, 40, 0.95)');
       thoughtBubbleBox(ctx, bx, by, BR - 1, 'rgba(255, 248, 230, 0.96)');
-      const ic = thoughtIcon(p.thoughtType);
+      const ic = thoughtIcon(p.thoughtType, CM.dpr);
       if (ic.ready) {
         const prevS = ctx.imageSmoothingEnabled;
         ctx.imageSmoothingEnabled = false;
