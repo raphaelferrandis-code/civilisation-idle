@@ -45,6 +45,8 @@ import { vieActors } from './isoVie.js';
 import { elevatedActors } from './isoElevated.js';
 import { pushTerroirTeams } from './terroirLife.js';
 import { figuresBeginFrame, noteFig, FIG } from '../figures.js';
+// Le guichet du paysage sonore : un module-FEUILLE (aucun import), sans risque de cycle.
+import { noteEmetteur } from '../../audio/paysage/evenements.js';
 import { chuteCollect } from './isoChute.js';
 
 // Pool et vue des items du peintre (cf. commentaire dans drawIsoLive) —
@@ -493,6 +495,9 @@ export function collectIsoItems(bake, now) {
       // piétons hors champ payaient tri + drawImage à chaque frame.
       if (!dvVis(pwx, pwy, pwx, pwy)) continue;
       noteFig(pwx, pwy, FIG.STREET | ((p.pauseT || 0) > 0 ? 0 : FIG.MOVING));
+      // LE SON (docs/PLAN-AMBIANCE-SONORE.md, lot 3) : un enfant qu'on voit peut crier,
+      // appeler, rire — moins dans la rue, où il suit un adulte, que sur une place.
+      if (p.charType === 2) noteEmetteur('enfants', pwx, pwy, 0.5, now);
       { const it = pushItem(); it.d = isoUnitDepthEx(pwx, pwy).d; it.gwx = pwx; it.gwy = pwy; it.kind = 'cit'; it.p = p; }
     }
     // Véhicules : mêmes règles (drones = passe aérienne, plus tard). La

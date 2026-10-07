@@ -2,7 +2,7 @@
 // sorties de ffmpeg et ses arguments, sans lancer ffmpeg. Le piège gardé : ebur128 écrit
 // une ligne par tranche de 100 ms avant son résumé, et la première dit toujours −70 LUFS.
 import { describe, it, expect } from 'vitest';
-import { lireDuree, lireFlux, lireCrete, lireSonie, argsEncodage, defautsEntree, SR } from '../../scripts/importSons.mjs';
+import { lireDuree, lireFlux, lireCrete, lireSonie, argsEncodage, defautsEntree, filtresForme, brouiller, bouclerPrise, SR } from '../../scripts/importSons.mjs';
 
 describe('importSons — les lectures de ffmpeg', () => {
   it('la durée, le flux, la crête', () => {
@@ -41,5 +41,79 @@ describe('importSons — les arguments', () => {
     expect(defautsEntree({ id: 'Mauvais id', source: 'a.wav' }).length).toBe(1);
     expect(defautsEntree({ id: 'oiseau-merle-1' })).toEqual(['source manquante']);
     expect(defautsEntree({ id: 'oiseau-merle-1', source: 'a', debut: 3, fin: 2 })).toEqual(['fin invalide']);
+    expect(defautsEntree({ id: 'brouhaha-rue-1', source: 'a', brouiller: { grain: 0.2, duree: 30 } })).toEqual([]);
+    expect(defautsEntree({ id: 'brouhaha-rue-1', source: 'a', brouiller: { grain: 3, duree: 30 } }).length).toBe(1);
+    expect(defautsEntree({ id: 'brouhaha-rue-1', source: 'a', brouiller: { grain: 0.2, duree: 900 } }).length).toBe(1);
+    expect(defautsEntree({ id: 'sabots-pas-1', source: 'a', boucler: { fondu: 0.5 } })).toEqual([]);
+    expect(defautsEntree({ id: 'sabots-pas-1', source: 'a', boucler: { fondu: 0 } }).length).toBe(1);
+    expect(defautsEntree({ id: 'sabots-pas-1', source: 'a', boucler: { fondu: 0.5 }, brouiller: { grain: 0.2, duree: 30 } }).length).toBe(1);
+  });
+
+  it('une foule entendue de loin passe aussi par un passe-bas', () => {
+    expect(filtresForme({ passeHaut: 120, passeBas: 5000 })).toContain('lowpass=f=5000');
+    expect(filtresForme({}).join(',')).not.toContain('lowpass');
+  });
+});
+
+describe('importSons — la foule sans langue (brouiller)', () => {
+  // Un bruit blanc d'une minute, à graine (le hasard des tests ne varie pas).
+  function bruit(s, n) {
+    let a = s >>> 0;
+    const out = new Float32Array(n);
+    for (let i = 0; i < n; i += 1) { a = (a * 1664525 + 1013904223) >>> 0; out[i] = a / 4294967296 * 2 - 1; }
+    return out;
+  }
+  const src = bruit(7, 60 * SR);
+
+  it('rend une boucle de la durée voulue, au grain près, et toujours la même', () => {
+    const b = brouiller(src, SR, { grain: 0.2, duree: 30, graine: 3 });
+    const H = 0.1 * SR;
+    expect(b.length % H).toBe(0);
+    expect(Math.abs(b.length / SR - 30)).toBeLessThan(0.1);
+    expect(brouiller(src, SR, { grain: 0.2, duree: 30, graine: 3 })).toEqual(b);
+    expect(brouiller(src, SR, { grain: 0.2, duree: 30, graine: 4 })).not.toEqual(b);
+  });
+
+  it('la boucle se referme sans saut : la fin rejoint le début comme deux voisins', () => {
+    const b = brouiller(src, SR, { grain: 0.25, duree: 20, graine: 1 });
+    const sauts = [];
+    for (let i = 1; i < b.length; i += 1) sauts.push(Math.abs(b[i] - b[i - 1]));
+    sauts.sort((x, y) => x - y);
+    expect(Math.abs(b[0] - b[b.length - 1])).toBeLessThanOrEqual(sauts[Math.floor(sauts.length * 0.999)]);
+  });
+
+  it('la puissance reste constante : deux grains sans lien ne creusent ni ne gonflent', () => {
+    const b = brouiller(src, SR, { grain: 0.2, duree: 30, graine: 5 });
+    const fen = Math.round(0.05 * SR), e = [];
+    for (let i = 0; i + fen <= b.length; i += fen) {
+      let s = 0;
+      for (let j = 0; j < fen; j += 1) s += b[i + j] * b[i + j];
+      e.push(Math.sqrt(s / fen));
+    }
+    const moy = e.reduce((s, v) => s + v, 0) / e.length;
+    let srcE = 0;
+    for (let i = 0; i < SR; i += 1) srcE += src[i] * src[i];
+    expect(moy).toBeCloseTo(Math.sqrt(srcE / SR), 1);
+    for (const v of e) expect(Math.abs(v - moy) / moy).toBeLessThan(0.2);
+  });
+
+  it('refuse une prise plus courte qu’un grain', () => {
+    expect(() => brouiller(new Float32Array(100), SR, { grain: 0.2, duree: 10 })).toThrow();
+  });
+});
+
+describe('importSons — la boucle en fondu (boucler)', () => {
+  it('la prise perd la longueur du fondu, et sa fin rejoint son début sans saut', () => {
+    const n = 10 * SR, src = new Float32Array(n);
+    for (let i = 0; i < n; i += 1) src[i] = Math.sin((2 * Math.PI * 3.3 * i) / SR) * 0.5 + Math.sin(i * 0.37) * 0.1;
+    const b = bouclerPrise(src, SR, 0.5);
+    expect(b.length).toBe(n - 0.5 * SR);
+    const sauts = [];
+    for (let i = 1; i < b.length; i += 1) sauts.push(Math.abs(b[i] - b[i - 1]));
+    sauts.sort((x, y) => x - y);
+    expect(Math.abs(b[0] - b[b.length - 1])).toBeLessThanOrEqual(sauts[Math.floor(sauts.length * 0.999)]);
+    // Hors du fondu, la prise est intacte.
+    expect(b[SR]).toBe(src[SR]);
+    expect(() => bouclerPrise(new Float32Array(100), SR, 0.5)).toThrow();
   });
 });

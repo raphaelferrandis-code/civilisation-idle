@@ -24,6 +24,7 @@ import { CM } from '../../map/layout.js';
 import { screenToWorld, worldToScreen } from '../../map/iso/projection.js';
 import { WILD_BLOCK, isoWildForestBlockAt, isoWildForestSig } from '../../map/iso/isoWildForest.js';
 import { eachFig, FIG } from '../../map/figures.js';
+import { attenuation } from './oreille.js';
 
 // Les milieux de la grille. L'eau et la berge l'emportent sur le reste, la place sur
 // la ville, la ville sur la route (une route en ville EST de la ville).
@@ -47,6 +48,7 @@ export function nouvelleMesure() {
   const N = ECHANT.nx * ECHANT.ny;
   return {
     parts: zero(), pans: zero(), foule: 0, foulePlace: 0, foulePort: 0, fouleEmeute: 0, points: 0,
+    voixRue: 0, voixPlace: 0, panRue: 0, panPlace: 0, marche: 0,
     lieux: { px: new Float32Array(N), py: new Float32Array(N), n: 0, de: Object.fromEntries(MILIEUX.map((m) => [m, new Float32Array(N)])) },
   };
 }
@@ -219,9 +221,16 @@ export function echantillonner(L, out, opts = {}) {
 
 // La FOULE : les figures de la dernière image, pondérées par la même gaussienne.
 // Positions en px monde, ramenées à l'écran par worldToScreen.
-export function mesurerFoule(out) {
-  const cw = CM.cw, ch = CM.ch, s2 = 2 * ECHANT.sigma * ECHANT.sigma;
-  let n = 0, place = 0, port = 0, emeute = 0;
+// Et les VOIX PROCHES (lot 3) : chaque passant des rues, des places, des quais et du
+// port est une petite source, atténuée par sa distance à l'`oreille` ({ x, y } px monde,
+// h en cases) comme toutes les autres (oreille.js). L'énergie de leurs voix (Σ gain²)
+// dit combien de monde on entend : un passant sous l'oreille compte, une foule au bord
+// de l'écran dézoomé presque plus. `FOULE.ref` / `FOULE.max` : en cases.
+export const FOULE = { ref: 3, max: 16 };
+const GENS = FIG.STREET | FIG.PLAZA | FIG.QUAY | FIG.PORT;
+export function mesurerFoule(out, oreille = null) {
+  const cw = CM.cw, ch = CM.ch, s2 = 2 * ECHANT.sigma * ECHANT.sigma, T = CM.TILE;
+  let n = 0, place = 0, port = 0, emeute = 0, eRue = 0, ePlace = 0, pRue = 0, pPlace = 0, eMarche = 0;
   if (cw > 0 && ch > 0) {
     eachFig((x, y, f) => {
       const s = worldToScreen(x, y);
@@ -232,10 +241,20 @@ export function mesurerFoule(out) {
       if (f & FIG.PLAZA) place += w;
       if (f & (FIG.PORT | FIG.QUAY)) port += w;
       if (f & FIG.RIOT) emeute += w;
+      if (oreille && (f & GENS)) {
+        const a = attenuation(Math.hypot(x - oreille.x, y - oreille.y) / T, oreille.h, FOULE.ref, FOULE.max);
+        if (a > 0) {
+          const e = a * a, pan = Math.max(-1, Math.min(1, ux));
+          if (f & FIG.PLAZA) { ePlace += e; pPlace += e * pan; } else { eRue += e; pRue += e * pan; }
+          if (f & FIG.MOVING) eMarche += e;        // ceux qui marchent : leurs pas
+        }
+      }
       return false;
     });
   }
   out.foule = n; out.foulePlace = place; out.foulePort = port; out.fouleEmeute = emeute;
+  out.voixRue = eRue; out.voixPlace = ePlace; out.marche = eMarche;
+  out.panRue = eRue > 0 ? pRue / eRue : 0; out.panPlace = ePlace > 0 ? pPlace / ePlace : 0;
   return out;
 }
 

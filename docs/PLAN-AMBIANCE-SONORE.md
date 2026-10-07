@@ -11,7 +11,7 @@ Chantier ouvert le 2026-10-07 sur la demande de Raph :
 > n'entendre que le son de la ville au loin avec la musique en fond qu'on ne touche pas pour
 > l'instant. »
 
-**Statut : décisions prises le 2026-10-07 (§ 9), lots 1 et 2 livrés, lot 3 (la ville) à venir.**
+**Statut : décisions prises le 2026-10-07 (§ 9), lots 1 à 3 livrés (le 3e à éprouver en longues parties), lot 4 (les métiers) en cours.**
 Ce document fait foi pour ce chantier.
 
 ---
@@ -697,6 +697,51 @@ BBS disent seulement « Outdoor ».
 - **⛔ Pas de licence non commerciale** (CC BY-NC, BBC RemArc…) : le jeu est vendu sur Steam.
 - **Le dépôt reste privé**, comme le recommande déjà `CREDITS.md`.
 
+### 5.7 Lot 3 : les voix et la rue, la liste de téléchargement (recherche du 2026-10-07)
+
+**Pourquoi.** Les voix synthétisées du lot 3 ont été refusées à l'écoute (« étranges, un peu
+cauchemardesques », Raph, 2026-10-07), et il n'y a pas de budget. On prend donc de vraies voix,
+gratuites. Le seul fonds sans compte est BigSoundBank (CC0), dont les foules parlent français.
+La règle « sans langue reconnaissable » est tenue par le TRAITEMENT : la chaîne d'import
+recompose la foule en grains de 0,15 à 0,3 s tirés au hasard. Plus aucun mot ne survit, et ce
+sont de vraies voix.
+
+Toutes les pages ont été lues sans rien télécharger. Les prises sont de Joseph Sardin (CC0),
+en stéréo, 48 kHz. **Où les poser** : à la racine du dépôt, comme au lot 2 ; je les range dans
+`/assets/sons/bigsoundbank/`.
+
+**Les voix (le brouhaha, la causerie, les enfants)**
+
+| # | Son | Page | Durée | Pour |
+|---|---|---|---|---|
+| 1 | Pedestrian Place | <https://bigsoundbank.com/pedestrian-place-s0526.html> | 1 min 35 | la causerie : une centaine de personnes aux terrasses d'une place piétonne de Chartres |
+| 2 | Outside Talks #1 | <https://bigsoundbank.com/outside-talks-1-s2968.html> | 3 min 55 | le brouhaha de la rue : une centaine de personnes dehors |
+| 3 | Walla Group: Averages Discussions | <https://bigsoundbank.com/walla-group-averages-discussions-s0684.html> | 2 min 01 | la causerie, version propre : 25 personnes, « ni musique ni autre bruit » |
+| 4 | Parisian park, children's games | <https://bigsoundbank.com/parisian-park-children-games-s1082.html> | 2 min 26 | les enfants qui jouent : « beaucoup d'enfants » dans un parc |
+| 5 | Recreation Kindergarten #2 | <https://bigsoundbank.com/recreation-kindergarten-2-s2741.html> | 4 min 30 | la même chose, une cour de maternelle (variante) |
+| 6 | Kids screaming #1 | <https://bigsoundbank.com/kids-scream-1-s1148.html> | 11 s | des cris de jeu, sans mots |
+| 7 | Kids screaming #3 | <https://bigsoundbank.com/kids-scream-3-s1150.html> | 13 s | idem |
+| 8 | Laughter of Children | <https://bigsoundbank.com/laughter-of-children-s1660.html> | 5 s | des rires d'enfants (mono) |
+| 9 | Howling two children #1 | <https://bigsoundbank.com/howling-two-children-s1661.html> | 3 s | deux enfants qui hurlent pour jouer |
+
+**La rue (la suite du lot 3), dans le même envoi**
+
+| # | Son | Page | Durée | Pour |
+|---|---|---|---|---|
+| 10 | Footsteps on gravels #2 | <https://bigsoundbank.com/footsteps-on-gravels-2-s1117.html> | 1 min 32 | les pas d'une foule sur un chemin, « facile à boucler » (premiers âges) |
+| 11 | Horse Walking on a Path | <https://bigsoundbank.com/horse-walking-on-a-path-s1854.html> | 48 s | un cheval au pas sur un chemin |
+| 12 | Footsteps of horses rue Christine | <https://bigsoundbank.com/footsteps-of-horses-rue-christine-s0979.html> | 57 s | deux chevaux dans une rue de Paris (sabots sur la chaussée) |
+| 13 | Squeaky wheelbarrow #1 | <https://bigsoundbank.com/squeaky-wheelbarrow-1-s2516.html> | 44 s | une roue qui grince : la charrette |
+| 14 | Outdoor Market #1 | <https://bigsoundbank.com/outdoor-market-1-s2728.html> | 3 min 20 | un marché de plein air (Nogent-le-Rotrou), pour les places de marché |
+| 15 | Parisian crossing #2 | <https://bigsoundbank.com/parisian-crossing-2-s3031.html> | 3 min 22 | la circulation de l'âge du Néon : un carrefour parisien (voitures, bus, klaxons) |
+
+**Écartés** : les marchés de Neuilly, les autres rues de Paris, « Car on a Road » (pris dans l'habitacle) ; « Spanish Crowd » (une
+langue reconnaissable) ; « Recreation Kindergarten #1 » (on y joue aux Pokémon) ; les
+applaudissements.
+
+**Inconnu tant qu'on n'a pas écouté** : le fond de chaque prise (une voiture au loin ?). Les
+pages ne le disent pas, sauf pour les rues de Paris.
+
 ---
 
 ## 6. Plan d'action
@@ -720,14 +765,20 @@ validation à l'oreille du précédent.
 ## 7. La chaîne de préparation des fichiers
 
 - **Raph télécharge et dépose ; jamais moi** (règle Defender).
-- **Une table `audio/paysage/catalogue.js`** décrit chaque son du jeu : son fichier source, ses
-  points d'entrée et de sortie, son gain, sa couche.
+- **Une table `scripts/sons/catalogue.json`** décrit chaque son du jeu : son fichier source,
+  ses points d'entrée et de sortie, son gain, son crédit.
 - **Un script `scripts/importSons.mjs`** lit la table. Pour chaque son, il :
   - découpe ;
-  - passe en mono quand il le faut ;
-  - normalise ;
-  - pose les fondus et, pour une boucle, le fondu croisé de la couture ;
-  - encode en Ogg et écrit dans `src/assets/sons/`.
+  - passe en mono, à 32 kHz ;
+  - normalise : la crête à −1 dBFS, ou, pour une nappe, l'énergie (`rms`) ;
+  - pose les fondus ;
+  - pour une NAPPE, rend une boucle exacte : `brouiller` recompose une foule en grains
+    tirés au hasard (plus aucun mot), `boucler` referme une prise rythmée en fondu ;
+  - encode en Ogg et écrit dans `src/assets/sons/`, que le jeu lit par le dossier.
+
+  Par défaut, il ne traite que les sons manquants : refaire un son change son fichier,
+  même à l'identique, car l'Ogg tire un numéro de série à chaque encodage. Un filtre (un
+  bout d'id) refait les sons choisis, `--tout` refait tout.
 - **L'outil d'encodage : ffmpeg par défaut** (§ 9), que Raph installe avec
   `winget install Gyan.FFmpeg`. Il se pilote entièrement depuis un script. Le repli est
   **REAPER**, déjà installé, qui sait rendre en ligne de commande.
@@ -944,3 +995,152 @@ Ma recommandation était donnée pour chacune.
 
   71 tests passent. **Lot 2 livré.** Familles toujours muettes, faute de fichier : coucou,
   pic, alouette.
+- **2026-10-07, lot 3 (la ville), première partie : des voix sans langue.**
+
+  | Son | Ce qu'on entend | Quand |
+  |---|---|---|
+  | `brouhaha` | Seize passants à toutes les distances, dans l'écho d'une rue. | Dosé par les passants proches de l'oreille. |
+  | `causerie` | Trois conversations de deux ou trois voix qui se répondent et rient ; six passants au fond. | Dosée par les flâneurs des places. |
+  | `enfants1-8` | Des cris, des rires, des appels (« é-oh »), une balle qui rebondit, un petit groupe. | De jour, semés sur les enfants que la carte dessine, dans les rues et sur les places. |
+  | `roucoul1-6` | Un pigeon qui roucoule. | Semés sur les pigeons posés qu'on voit. |
+  | `envol1-4` | Les ailes d'un pigeon, ou d'une volée, qui part. | Quand une volée s'envole devant un passant (`iso/isoVieOiseaux.js`). |
+  | `fontaine` | Un jet qui retombe dans son bassin. | Les fontaines dont on voit l'eau couler ; un filet pour un puits ou une borne (`iso/isoPlaza.js`). |
+
+  **Les voix** (`paysage/voix.js`) sont une synthèse de la parole à formants (Klatt) :
+  - une source glottique et quatre formants qui glissent d'une voyelle à l'autre ;
+  - des consonnes de bruit ;
+  - une intonation par phrase.
+
+  Les syllabes sont tirées au hasard, il n'y a donc aucune langue (décision de Raph).
+  Mesuré : une voix a le spectre et le rythme de la parole (quatre à six syllabes par
+  seconde) ; dans la foule, aucune voix ne domine plus.
+
+  **Le dosage.** Chaque passant compte comme une petite source, atténuée par sa distance
+  à l'oreille. L'énergie de leurs voix donne le niveau (`voixDeFoule`) :
+  - une rue vide se tait ;
+  - un passant sous l'oreille ne fait pas une foule (16 %) ;
+  - une rue dense ou une place animée donnent environ 0,7.
+
+  Vérifié dans le jeu, à l'âge de la Couronne (6 places, 6 volées) :
+  - du zoom 2,6 au zoom 0,4, les voix dominent de près puis cèdent à la rumeur lointaine ;
+    la sortie reste entre −44 et −49 dBFS ;
+  - une volée dérangée par un passant claque son envol ; les pigeons visibles roucoulent ;
+  - près d'une place, deux cris d'enfants en quatre secondes ;
+  - la fontaine de la place centrale a sa voix ;
+  - le tick coûte 0,2 ms avec 470 passants.
+
+  ⚠ Dans la pane, le Worker des sons est resté bloqué une fois, au premier chargement des
+  modules : 43 sons « en route », jamais rendus. Un rechargement l'a réglé. Pas observé
+  hors de la pane.
+
+  81 tests passent. **Reste** : l'écoute de Raph ; puis la rue par âge (pas, sabots et
+  roues, moteurs) et une rumeur lointaine propre à chaque âge.
+- **2026-10-07, écoute du lot 3 : les voix synthétisées sont refusées.** « Les voix
+  d'enfants et le brouhaha sonnent étranges et un peu cauchemardesques. » Pas de budget. Le
+  reste (pigeons, envol, fontaine) : « très bien ».
+  - **Les voix synthétisées sont retirées**, et `paysage/voix.js` avec elles.
+  - **De vraies voix les remplacent**, prises chez BigSoundBank (CC0, sans compte) : la
+    liste est au § 5.7.
+  - **La règle « sans langue reconnaissable » est tenue par la chaîne d'import.**
+    `scripts/importSons.mjs` a une option `brouiller`, qui recompose la prise en grains de
+    0,15 à 0,3 s tirés au hasard, en fondu (fenêtre en sinus, recouvrement de moitié). La
+    puissance reste constante. Le résultat est une boucle exacte, sans aucun fondu.
+  - **Une seconde option, `boucler`**, referme une prise rythmée en fondu (des sabots).
+  - **Les nappes de voix jouent un enregistrement** (`enregistres` : le premier fichier
+    présent). Elles se taisent tant qu'il manque : `brouhaha`, `causerie`, et `jeux`, les
+    enfants qui jouent près des places, de jour.
+  - **Les cris et les rires d'enfants sont semés** sur les enfants qu'on voit (famille
+    `enfant`).
+
+  **La rue selon l'âge** (sons 16), branchée dans le même mouvement :
+
+  | Son | Ce qu'on entend | Quand |
+  |---|---|---|
+  | `pas` (nappe) | Les pas d'une foule. | Dosés par ceux qui marchent près de l'oreille. Pleins jusqu'au Marbre, plus discrets à la Fonte et au Néon, muets aux âges cosmiques. |
+  | `attelage` (émetteur) | Des sabots au pas. | Sur les charrettes, chars et diligences qu'on voit (`iso/isoUnits.js`). |
+  | `roue` (semé) | Une roue qui grince. | De temps en temps, sur ces mêmes attelages. |
+  | `circulation` (nappe) | Un carrefour : voitures, bus, klaxons. | À l'âge du Néon seulement, dosée par les voitures qu'on voit. |
+  | `drone` (émetteur, synthétisé) | Quatre rotors légèrement désaccordés, un sifflement électrique. | Les drones des âges cosmiques (`iso/isoSky.js`). |
+
+  Vérifié dans le jeu :
+  - aux âges cosmiques, deux drones ont leur voix ;
+  - à l'âge du Néon, près d'une voiture, la circulation vise 0,69 ;
+  - à l'âge de la Couronne, quatre attelages sont repérés ;
+  - les nappes sans fichier restent muettes.
+
+  ⚠ **Le Worker des sons s'est bloqué une seconde fois dans la pane**, après un changement
+  de code. Un Worker neuf sur la même adresse ne répondait pas non plus au bout de 70 s,
+  alors que les mêmes modules se chargeaient ailleurs. Un **filet de sécurité** est ajouté
+  (`ATTENTE_MS`) : sans réponse en 20 s, le son se rend sur la page, un par passage. Le pire
+  cas est 0,3 s (les cigales), une seule fois.
+
+  68 tests du son et 11 de la chaîne passent. **Reste** :
+  - Raph télécharge les 15 fichiers du § 5.7 ;
+  - je les découpe et les traite ;
+  - l'écoute ;
+  - puis la rumeur lointaine propre à chaque âge.
+- **2026-10-07, les 15 fichiers du § 5.7 sont importés.** Raph les a posés à la racine ; je
+  les ai rangés dans `/assets/sons/bigsoundbank/`.
+
+  Les coupes viennent de la mesure de l'enveloppe, pas d'une écoute :
+  - **Foules, carrefour, pas, sabots de ville** : recomposés en boucles, grains de 0,18 s
+    (rue) à 0,7 s (sabots). La rue, la place, le parc et le marché durent 24 s ; les pas et
+    le carrefour, 20 s ; les sabots, 16 s.
+  - **Le carrefour** : coupé avant le klaxon de 94 s.
+  - **Le cheval sur un chemin** : bouclé en fondu. C'est la variante des sabots.
+  - **Les enfants** : six cris, deux rires et un hurlement, isolés.
+  - **La brouette** : cinq séries de grincements.
+
+  **Les niveaux.** Une nappe se met au niveau par son énergie (`rms`, ≈ −20 dBFS), sa crête
+  plafonnée à −1 dBFS. Les prises riches en crêtes restent plus bas, et leur niveau de jeu
+  les rattrape (`NAPPES`) :
+
+  | Prise | Sonie mesurée |
+  |---|---|
+  | brouhaha | −20,3 LUFS |
+  | causerie | −24,7 LUFS |
+  | jeux | −23,2 LUFS |
+  | étals | −24,7 LUFS |
+  | circulation | −21 LUFS |
+  | pas | −32,3 LUFS |
+  | sabots | −27,3 LUFS |
+
+  **Le marché.** Il a sa nappe, `etals`. Elle est dosée par les flâneurs d'une place de
+  marché qu'on voit (`iso/isoPlaza.js` note `etals`), de jour.
+
+  **Crédits** : la ligne BigSoundBank de `CREDITS.md` passe à 24 enregistrements et 39
+  fichiers. Dans Options › Crédits, l'entrée devient « Sons de la nature et de la ville ».
+
+  **La mémoire.** 67 Mo mesurés d'abord : le contexte décodait les fichiers à 48 kHz. Ils
+  sont désormais décodés à 32 kHz dans un contexte hors ligne, ce qui donne 53 Mo. Seul le
+  fichier choisi de chaque nappe se décode : les variantes écartées restent sur le disque.
+  ⚠ C'est au-dessus des 40 Mo visés au § 3.9. Le levier est pour le lot 6 : ne charger que
+  les sons de l'âge en cours (la circulation au Néon, les sabots de la Pierre à la Fonte,
+  les drones aux âges cosmiques).
+
+  Vérifié dans le jeu, avec les vrais fichiers :
+  - les 70 sons se décodent en 7 s, et les 15 nappes jouent ;
+  - à la Couronne, près de la place centrale : causerie 0,57, jeux 0,57, brouhaha 0,29 ;
+  - sur une place de marché : étals 0,73 ;
+  - en suivant une charrette : deux voix de sabots, des grincements de roue ;
+  - au Néon, la circulation se dose sur les voitures.
+
+  88 tests du son et 295 de la carte passent. **Reste** : l'écoute de Raph.
+- **2026-10-07, la rumeur lointaine selon l'âge (fin du lot 3).** Raph a jugé le lot 3 « bon ».
+  Il le jugera en vrai sur de longues parties.
+
+  Trois couches s'ajoutent sur le bus du lointain à la rumeur synthétisée du lot 1. Elles
+  réemploient des sons déjà en mémoire, joués plus lents, donc plus graves et plus loin,
+  sans un octet de plus :
+
+  | Couche | Ce que c'est | À quels âges |
+  |---|---|---|
+  | `lointainFoule` | le brouhaha ×0,85 | de la Pierre à la Fonte ; moitié au Néon |
+  | `lointainTrafic` | la circulation ×0,75 | un tiers à la Fonte ; pleine au Néon |
+  | `lointainCosmique` | le bourdon des drones ×0,5 | aux âges cosmiques |
+
+  Elles sont dosées comme la rumeur, par la taille de la ville et le dézoom.
+
+  Vérifié au zoom 0,4 : la Couronne n'a que la foule, le Néon la circulation et la moitié
+  de la foule, le cosmique le bourdon. Les couches sont discrètes (niveau 0,07 à 0,09) :
+  dézoomer doit éloigner, pas monter le son. 70 tests passent.

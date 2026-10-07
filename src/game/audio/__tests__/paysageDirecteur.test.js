@@ -53,6 +53,8 @@ const page = {
 
 let P = null, E = null, R = null, Synth = null, CM = null;
 const boucles = () => J.sources.filter((s) => s.loop && s.joue && !s.arretee);
+// Les nappes synthétisées : ici, les enregistrements ne se décodent pas (aucun fichier servi).
+const nappesSynth = () => Object.values(P.NAPPES).filter((d) => !d.enregistres).length;
 const ponctuels = () => J.sources.filter((s) => !s.loop);
 const vider = async () => { for (let i = 0; i < 6; i += 1) await Promise.resolve(); };
 // Le panoramique d'un ponctuel : source → gain → panoramique (mixeur.js).
@@ -74,7 +76,9 @@ beforeAll(async () => {
     terminate() {}
   };
   vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout', 'setInterval', 'clearInterval', 'Date', 'performance'] });
-});
+  // 30 s : charger la carte en Node prend plus des 10 s par défaut quand toute la suite
+  // tourne en parallèle (« Hook timed out », vu le 2026-10-07 ; seul, il passe).
+}, 30000);
 afterAll(() => {
   vi.useRealTimers();
   delete globalThis.window; delete globalThis.document; delete globalThis.AudioBuffer; delete globalThis.Worker;
@@ -101,7 +105,7 @@ describe('le directeur du paysage sonore', () => {
   it("s'éveille avec la carte, s'endort quand on la quitte, et rend le contexte au repos", async () => {
     await eveiller();
     expect(P.etatPaysage().eveille).toBe(true);
-    expect(boucles().length).toBe(2 * Object.keys(P.NAPPES).length);   // chaque nappe, deux têtes
+    expect(boucles().length).toBe(2 * nappesSynth());   // chaque nappe, deux têtes
     P.paysageDetacher();
     vi.advanceTimersByTime(1000);
     expect(P.etatPaysage().eveille).toBe(true);       // le fondu de sortie d'abord…
@@ -122,7 +126,7 @@ describe('le directeur du paysage sonore', () => {
     await vider();
     vi.advanceTimersByTime(200);
     expect(P.etatPaysage().eveille).toBe(true);
-    expect(boucles().length).toBe(2 * Object.keys(P.NAPPES).length);
+    expect(boucles().length).toBe(2 * nappesSynth());
   });
 
   it("Ambiance coupée dans les Options : il se tait et s'endort", async () => {

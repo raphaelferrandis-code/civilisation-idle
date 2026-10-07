@@ -20,6 +20,8 @@ import { isoPlazaCompositions, propFootprint, footClash, lampFootprint } from '.
 import { figNear } from '../figures.js';
 import { VIE, vieK, vieZoomFade, vieSprite, vieBlit, vieCount, registerVieActors, registerVieAir, vieOccupied, drawnBoxOf, inkTopAt } from './isoVie.js';
 import { hash01Lowbias as h32 } from '../hash.js';
+// Le guichet du paysage sonore : un module-FEUILLE (aucun import), sans risque de cycle.
+import { noteSon, noteEmetteur } from '../../audio/paysage/evenements.js';
 
 const bandOf = () => ((CM.layout && CM.layout.counts && CM.layout.counts.eraBand) | 0);
 
@@ -230,7 +232,12 @@ registerVieActors((now, out) => {
           let left;
           if (f.kind === 'gull') { const c = worldToScreen(s.cx * T, s.cy * T); left = c.x < p.x; } else left = h32(b.g + walk) < 0.5;
           const spr = vieSprite(f.kind === 'gull' ? 'gull' : 'pigeon', peck ? 1 : 0, left);
-          if (vieBlit(ctx, spr, p.x + wxp, p.y, k, fz)) vieCount(f.kind === 'gull' ? 'mouettes' : 'pigeons');
+          if (vieBlit(ctx, spr, p.x + wxp, p.y, k, fz)) {
+            vieCount(f.kind === 'gull' ? 'mouettes' : 'pigeons');
+            // LE SON (docs/PLAN-AMBIANCE-SONORE.md, lot 3) : un pigeon posé qu'on voit
+            // peut roucouler.
+            if (f.kind === 'pigeon') noteEmetteur('pigeons', wx, wy, 1, now);
+          }
         },
       });
     }
@@ -265,7 +272,15 @@ registerVieAir((ctx, now) => {
         const fr = Math.floor(now / 90 + h32(b.g) * 2) % 2;
         spr = vieSprite('pigeonFly', fr, pb.x < pa.x);
       }
-      if (vieBlit(ctx, spr, p.x, p.y - lift, k, fz)) vieCount(f.kind === 'gull' ? 'mouettesVol' : 'pigeonsVol');
+      if (vieBlit(ctx, spr, p.x, p.y - lift, k, fz)) {
+        vieCount(f.kind === 'gull' ? 'mouettesVol' : 'pigeonsVol');
+        // LE SON (lot 3) : l'envol claque une fois par vol, au premier oiseau dessiné —
+        // et seulement au départ (une volée entrée dans le champ en plein vol se tait).
+        if (f.kind === 'pigeon' && f.state === 'vol' && f._sonVol !== f.t0 && u < 0.25) {
+          f._sonVol = f.t0;
+          noteSon('envol', A.x * T, A.y * T, f.birds.length);
+        }
+      }
     }
   }
 });

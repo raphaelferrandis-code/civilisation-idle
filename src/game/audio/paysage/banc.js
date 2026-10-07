@@ -111,7 +111,7 @@ function construire() {
     const titre = el('span', 'flex:1;cursor:pointer;', nom);
     titre.title = 'Écouter seul (cliquer de nouveau pour tout rendre)';
     titre.addEventListener('click', () => { api.BANC.solo = api.BANC.solo === nom ? null : nom; });
-    const lu = el('span', 'flex:0 0 120px;text-align:right;color:#d8ccb8;', '');
+    const lu = el('span', 'flex:0 0 150px;text-align:right;color:#d8ccb8;', '');
     const jouer = el('button', BOUTON, '▶');
     jouer.title = 'L’entendre au centre de l’écran';
     jouer.addEventListener('click', () => api.ecouter(nom));
@@ -122,7 +122,7 @@ function construire() {
   };
   for (const nom of Object.keys(api.PONCTUELS)) ligneProche(nom, 'ponctuels');
   for (const nom of Object.keys(api.EMETTEURS)) ligneProche(nom, 'emetteurs');
-  panneau.append(el('div', TITRE, 'Semés (enregistrements)'));
+  panneau.append(el('div', TITRE, 'Semés'));
   for (const nom of Object.keys(api.SEMES)) ligneProche(nom, 'semes');
 
   panneau.append(el('div', TITRE, 'L’oreille'));
@@ -163,13 +163,13 @@ function rafraichir() {
   const sortie = e.sortieDb == null ? '·' : `${e.sortieDb.toFixed(1)} dBFS`;
   vue.etat.textContent = `${e.eveille ? 'éveillé' : 'endormi'} · contexte ${e.contexte || '·'}${e.cache ? ' · fenêtre cachée' : ''}${e.fenetre ? ' · assourdi' : ''}${e.habitue ? ' · habitué' : ''}\n`
     + `zoom ${f2(e.zoom)} · proximité ${f2(e.p)} · oreille à ${f2(e.h)} cases\n`
-    + `sortie ${sortie} · vent ×${f2(e.rafale)} · tampons ${e.tampons}${e.enRoute ? ` (+${e.enRoute})` : ''} · fichiers ${e.enregistres}`;
+    + `sortie ${sortie} · vent ×${f2(e.rafale)} · tampons ${e.tampons}${e.enRoute ? ` (+${e.enRoute})` : ''} (${Math.round(e.memoireMo || 0)} Mo) · fichiers ${e.enregistres}`;
   for (const [m, b] of Object.entries(vue.milieux)) {
     const v = e.parts[m] || 0;
     b.plein.style.width = `${Math.round(Math.min(1, v) * 100)}%`;
     b.lu.textContent = `${Math.round(v * 100)}`;
   }
-  vue.foule.textContent = `foule ${f2(e.foule)} · ville ${Math.round(e.taille * 100)} %`;
+  vue.foule.textContent = `foule ${f2(e.foule)} · voix rue ${f2(e.voixRue)} place ${f2(e.voixPlace)} · ville ${Math.round(e.taille * 100)} %`;
   for (const [nom, n] of Object.entries(vue.nappes)) {
     const v = e.cibles[nom] || 0;
     n.plein.style.width = `${Math.round(Math.min(1, v) * 100)}%`;
@@ -180,7 +180,7 @@ function rafraichir() {
   }
   for (const [nom, n] of Object.entries(vue.proche)) {
     const s = e.semes[nom];
-    n.lu.textContent = s ? (s.sons ? `${s.joues} joués · ${s.sons} sons` : 'aucun fichier')
+    n.lu.textContent = s ? (s.sons ? `${s.joues} joués · ${s.sons} sons${s.vus != null ? ` · ${s.vus} vus` : ''}` : 'aucun son')
       : nom in api.EMETTEURS ? `${(e.emetteurs[nom] || 0)} voix` : `${e.ponctuels[nom]} joués`;
     n.titre.style.color = api.BANC.solo === nom ? '#e8b86b' : '';
   }

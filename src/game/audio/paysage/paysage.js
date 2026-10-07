@@ -8,6 +8,9 @@
 //     du poisson qui retombe, le battement de la libellule — on n'entend que ce qu'on
 //     voit ;
 //   · le LOINTAIN, la ville au loin, prend la place quand on dézoome (oreille.js).
+// La VILLE (lot 3) passe par les mêmes couches : de vraies voix rendues sans langue, dosées
+// par les gens proches de l'oreille ; la fontaine, l'envol des pigeons, l'enfant qui
+// crie, le pigeon qui roucoule — ceux que la carte dessine.
 //
 // SA VIE. Attaché quand la carte se monte (CityMapCanvas.jsx), détaché quand elle se
 // démonte : la carte n'existe que dans l'onglet Cité. Il ne joue que si tout est
@@ -27,7 +30,7 @@ import { audioCtx, enTampon, retenirContexte, relacherContexte } from '../synth.
 import { rendreAilleurs } from '../syntheseAilleurs.js';
 import { rendrePaysage, PAYSAGE_SR, SONS_PAYSAGE } from './paysageSynth.js';
 import { OREILLE, proximite, hauteur, attenuation, panoramique, fondu, coupure } from './oreille.js';
-import { echantillonner, mesurerFoule, nouvelleMesure, tailleVille, tirerLieu, MILIEUX, ECHANT } from './milieux.js';
+import { echantillonner, mesurerFoule, nouvelleMesure, tailleVille, tirerLieu, MILIEUX, ECHANT, FOULE } from './milieux.js';
 import { creerMixeur, creerBoucle, jouerPonctuel, niveauSortie } from './mixeur.js';
 import { paysageEcoute, releverSons, emetteursDe } from './evenements.js';
 import { ENREGISTRES } from './enregistrements.js';
@@ -38,6 +41,7 @@ const TICK_MS = 100;        // le proche (ponctuels, émetteurs)
 const ECHANT_MS = 190;      // les nappes : l'écran est relu cinq fois par seconde
 const SORTIE_MS = 1600;     // fondu de sortie avant le sommeil
 const OUBLI_MS = 120000;    // les tampons survivent deux minutes de sommeil
+const ATTENTE_MS = 20000;   // un son que le Worker ne rend pas en 20 s se rend ici
 
 // ── Ce qui sonne ──────────────────────────────────────────────────────────────
 // `niveau` : le gain d'une nappe qui remplit l'écran. `largeur` : l'écart des deux
@@ -62,22 +66,69 @@ export const NAPPES = {
   stridulations: { bus: 'nappes', largeur: 0.4, niveau: 0.16 },
   cigales: { bus: 'nappes', largeur: 0.4, niveau: 0.14 },
   altitude: { son: 'souffle', vitesse: 0.72, bus: 'lointain', largeur: 0.5, niveau: 0.12 },
+  // LOT 3 (la ville), niveaux de départ, à régler à l'oreille : de VRAIES voix, rendues
+  // sans langue par la chaîne d'import (scripts/importSons.mjs, `brouiller` : la foule
+  // recomposée en grains de quelques dixièmes de seconde tirés au hasard). Les voix
+  // synthétisées ont été refusées (« cauchemardesques », Raph, 2026-10-07). Dosées par
+  // les GENS proches de l'oreille (milieux.js, mesurerFoule) : une rue vide se tait. Le
+  // brouhaha suit les passants ; la causerie et les jeux d'enfants, les flâneurs des
+  // places. `enregistres` : le premier de ces fichiers qui existe fait la nappe ; sans
+  // fichier, elle se tait.
+  // Les niveaux tiennent compte de la sonie MESURÉE à l'import (scripts/importSons.mjs) :
+  // une prise trop riche en crêtes (des pas, des sabots, une place animée) ne monte pas à
+  // −20 LUFS sans écrêter, son niveau de jeu la rattrape — causerie −24,7 LUFS, jeux
+  // −23,2, étals −24,7, circulation −21, pas −32,3 ; brouhaha −20,3.
+  brouhaha: { enregistres: ['brouhaha-rue-1'], bus: 'nappes', largeur: 0.45, niveau: 0.16 },
+  causerie: { enregistres: ['causerie-place-1', 'causerie-groupe-1'], bus: 'nappes', largeur: 0.4, niveau: 0.27 },
+  jeux: { enregistres: ['jeux-parc-1', 'jeux-cour-1'], bus: 'nappes', largeur: 0.4, niveau: 0.17 },
+  // Le marché : les étals d'une place de marché qu'on voit (iso/isoPlaza.js), de jour.
+  etals: { enregistres: ['etals-plein-air-1'], bus: 'nappes', largeur: 0.4, niveau: 0.24 },
+  // La RUE selon l'âge (lot 3, suite) : les pas de ceux qui marchent près de l'oreille,
+  // sur la terre et la pierre (jusqu'à la Fonte) ; la circulation de l'âge du Néon, dosée
+  // par les voitures qu'on voit (iso/isoUnits.js). Enregistrées, rendues sans langue.
+  pas: { enregistres: ['pas-gravier-1'], bus: 'nappes', largeur: 0.4, niveau: 0.33 },
+  circulation: { enregistres: ['circulation-carrefour-1'], bus: 'nappes', largeur: 0.45, niveau: 0.16 },
+  // La RUMEUR LOINTAINE selon l'âge : sur le bus du lointain (assourdi), des couches qui
+  // réemploient des sons déjà en mémoire, joués plus lents — plus graves, plus loin —, et
+  // qui s'ajoutent à la rumeur synthétisée : la foule d'une cité (de la Pierre à la Fonte),
+  // la circulation (à peine à la Fonte, pleine au Néon), le bourdon des drones (âges
+  // cosmiques). Aucune mémoire de plus. Discrètes : dézoomer doit ÉLOIGNER, pas monter le
+  // son (−43 dBFS mesurés au zoom 0,4, contre −45 de près).
+  lointainFoule: { enregistres: ['brouhaha-rue-1'], vitesse: 0.85, bus: 'lointain', largeur: 0.5, niveau: 0.09 },
+  lointainTrafic: { enregistres: ['circulation-carrefour-1'], vitesse: 0.75, bus: 'lointain', largeur: 0.5, niveau: 0.09 },
+  lointainCosmique: { son: 'drone', vitesse: 0.5, bus: 'lointain', largeur: 0.5, niveau: 0.07 },
 };
 // `ref` / `max` : portée en cases (oreille.js, attenuation) ; `voix` : au plus tant à la
 // fois ; `ecartMs` : jamais deux tirs plus serrés.
+// `calibre` : la force est la taille du poisson, un gros sonne plus grave. `choix(force)` :
+// les sons permis, [début, fin) dans `sons`.
 export const PONCTUELS = {
-  plouf: { sons: ['plouf1', 'plouf2', 'plouf3', 'plouf4', 'plouf5', 'plouf6'], ref: 4.5, max: 18, niveau: 0.275, voix: 3, ecartMs: 90 },
-  sortie: { sons: ['sortie1', 'sortie2', 'sortie3'], ref: 3.5, max: 14, niveau: 0.13, voix: 2, ecartMs: 90 },
+  plouf: { sons: ['plouf1', 'plouf2', 'plouf3', 'plouf4', 'plouf5', 'plouf6'], ref: 4.5, max: 18, niveau: 0.275, voix: 3, ecartMs: 90, calibre: true },
+  sortie: { sons: ['sortie1', 'sortie2', 'sortie3'], ref: 3.5, max: 14, niveau: 0.13, voix: 2, ecartMs: 90, calibre: true },
   // Le poisson qui GOBE en surface (iso/isoRiver.js, au début de sa pause) : une goutte,
   // de près seulement — il y en a une douzaine sur le fleuve.
-  plip: { sons: ['plip1', 'plip2', 'plip3', 'plip4'], ref: 2.5, max: 9, niveau: 0.1, voix: 2, ecartMs: 250 },
+  plip: { sons: ['plip1', 'plip2', 'plip3', 'plip4'], ref: 2.5, max: 9, niveau: 0.1, voix: 2, ecartMs: 250, calibre: true },
+  // LOT 3 : l'envol d'une volée de pigeons (iso/isoVieOiseaux.js) ; la force est le nombre
+  // d'oiseaux — un seul (envol1-2) ou une volée (envol3-4).
+  envol: { sons: ['envol1', 'envol2', 'envol3', 'envol4'], ref: 4, max: 16, niveau: 0.2, voix: 2, ecartMs: 300,
+    choix: (force) => (force >= 3 ? [2, 4] : [0, 2]) },
 };
 // Les émetteurs : seules les `voix` bêtes les plus fortes sonnent (les « voix
 // virtuelles » des moteurs de jeu). La libellule s'entend de près : il faut être
 // zoomé sur elle (« quand on regarde une libellule », la demande de Raph). Posée, elle
 // se fait discrète ; c'est en vol franc qu'elle bourdonne (`calme`, ci-dessous).
+// Sans `calme`, l'intensité `k` notée par la carte est le gain lui-même.
 export const EMETTEURS = {
   libellule: { son: 'libellule', ref: 1.7, max: 6.5, niveau: 0.2, voix: 2, calme: 0.35 },
+  // LOT 3 : l'eau qu'on voit couler (iso/isoPlaza.js) — une fontaine (k = 1), un puits ou
+  // une borne qui coule en filet (k = 0,4).
+  fontaine: { son: 'fontaine', ref: 2.2, max: 9, niveau: 0.13, voix: 2 },
+  // L'attelage qu'on voit, charrette, char ou diligence (iso/isoUnits.js) : ses sabots au
+  // pas (enregistrés). Le drone des âges cosmiques (iso/isoSky.js) : son bourdon
+  // (synthétisé, c'est une machine).
+  // Les sabots de la rue Christine (−27,3 LUFS) : deux chevaux sur une chaussée de ville.
+  attelage: { enregistres: ['sabots-rue-1', 'sabots-pas-1'], ref: 3, max: 12, niveau: 0.37, voix: 2 },
+  drone: { son: 'drone', ref: 2.5, max: 10, niveau: 0.1, voix: 2 },
 };
 // Les PONCTUELS SEMÉS (lot 2) : des sons ENREGISTRÉS sans support visible — l'oiseau
 // qu'on entend sans le voir —, tirés au hasard (processus de Poisson) dans les parties de
@@ -109,14 +160,34 @@ export const SEMES = {
     quand: (c) => (1 - c.nuit) * (c.saison === HIVER ? 1 : c.saison === AUTOMNE ? 0.4 : 0) * c.vivant },
   alouette: { milieux: { champ: 1, prairie: 0.7 }, taux: 2, variantes: 2, ref: 9, max: 34, niveau: 0.16, voix: 1, ecartMs: 8000,
     quand: (c) => (1 - c.nuit) * (c.saison <= ETE ? 1 : 0) * c.sec * c.vivant },
+  // LOT 3, la ville : semés SUR ce que la carte dessine (`sur` : une famille d'émetteurs,
+  // evenements.js) plutôt que dans un milieu — l'enfant qu'on voit crie, le pigeon qu'on
+  // voit roucoule. Leur présence est la somme des intensités notées (trois suffisent).
+  // Les enfants sont enregistrés (des cris et des rires de jeu, sans mots) ; le pigeon est
+  // synthétisé (`synth`), et des fichiers pigeon-… dans src/assets/sons/ le remplaceraient.
+  enfant: { sur: 'enfants',
+    taux: 4, variantes: 8, ref: 6, max: 24, niveau: 0.15, voix: 2, ecartMs: 2500,
+    quand: (c) => (1 - c.nuit) * Math.sqrt(c.sec) },
+  pigeon: { sur: 'pigeons', synth: ['roucoul1', 'roucoul2', 'roucoul3', 'roucoul4', 'roucoul5', 'roucoul6'],
+    taux: 6, variantes: 6, ref: 3.5, max: 14, niveau: 0.16, voix: 2, ecartMs: 1500,
+    quand: (c) => 1 - c.nuit },
+  // La roue d'une charrette qui grince, de temps en temps, sur un attelage qu'on voit.
+  roue: { sur: 'attelage', taux: 5, variantes: 4, ref: 4, max: 14, niveau: 0.12, voix: 1, ecartMs: 2500,
+    quand: () => 1 },
 };
-// Le taux (sons par seconde) d'une famille semée : sa présence à l'écran (Σ milieu ×
-// part, adoucie), le moment, la proximité du zoom, l'habituation, et le nombre de sons
-// qu'elle a (`nSons`, face à ses `variantes`). PUR (testé).
-export function tauxSeme(def, parts, cond, proche = 1, habitue = 1, nSons = Infinity) {
-  let presence = 0;
-  for (const [m, k] of Object.entries(def.milieux)) presence += k * (parts[m] || 0);
-  presence = Math.min(1, presence);
+// La présence (0..1) d'une famille semée : ses milieux à l'écran (Σ milieu × part) ou,
+// semée SUR des émetteurs, la somme de leurs intensités (`sur`) — trois suffisent. PUR.
+export function presenceSeme(def, parts, sur = 0) {
+  if (def.sur) return Math.min(1, Math.max(0, sur) / 3);
+  let p = 0;
+  for (const [m, k] of Object.entries(def.milieux)) p += k * (parts[m] || 0);
+  return Math.min(1, p);
+}
+// Le taux (sons par seconde) d'une famille semée : sa présence (adoucie), le moment, la
+// proximité du zoom, l'habituation, et le nombre de sons qu'elle a (`nSons`, face à ses
+// `variantes`). PUR (testé).
+export function tauxSeme(def, parts, cond, proche = 1, habitue = 1, nSons = Infinity, sur = 0) {
+  const presence = presenceSeme(def, parts, sur);
   if (!(presence > 0) || !(nSons > 0)) return 0;
   const variete = Math.min(1, nSons / (def.variantes || 1));
   return (def.taux / 60) * Math.pow(presence, 0.8) * Math.max(0, def.quand(cond)) * proche * habitue * variete;
@@ -181,7 +252,7 @@ const D = {
   tampons: new Map(), enRoute: new Set(), repli: [],
   nappes: {}, emetteurs: {}, enCours: {}, dernier: {}, dernierA: {}, dernierGain: {},
   compte: Object.fromEntries([...Object.keys(PONCTUELS), ...Object.keys(SEMES)].map((k) => [k, 0])),
-  mesure: nouvelleMesure(),
+  mesure: nouvelleMesure(), oreille: { x: 0, y: 0, h: 0 },
   cibles: Object.fromEntries(Object.keys(NAPPES).map((k) => [k, 0])),
   zoom: 1, p: 0, h: 0,
   rafale: { v: 1, cible: 1, prochain: 0 },
@@ -218,13 +289,18 @@ function fenetreOuverte() {
 }
 
 // ── Les tampons : rendus dans le Worker des sons, sinon un par tick ici ─────────
+// Un Worker qui ne répond pas ne doit pas taire le paysage : vu deux fois le 2026-10-07,
+// dans un onglet caché, au premier chargement de ses modules (plus d'une minute sans
+// réponse). Passé ATTENTE_MS, le son se rend ici, un par passage (rendreEnRepli).
 function demander(nom) {
   if (D.tampons.has(nom) || D.enRoute.has(nom)) return;
   D.enRoute.add(nom);
+  const repli = () => { D.enRoute.delete(nom); if (!D.tampons.has(nom) && !D.repli.includes(nom)) D.repli.push(nom); };
+  const garde = setTimeout(repli, ATTENTE_MS);
   rendreAilleurs({ quoi: 'paysage', nom }).then(
     (data) => { if (!D.tampons.has(nom)) D.tampons.set(nom, enTampon(data, PAYSAGE_SR)); },
-    () => { if (!D.repli.includes(nom)) D.repli.push(nom); },
-  ).finally(() => D.enRoute.delete(nom));
+    repli,
+  ).finally(() => { clearTimeout(garde); D.enRoute.delete(nom); });
 }
 function rendreEnRepli() {
   const nom = D.repli.shift();
@@ -233,23 +309,54 @@ function rendreEnRepli() {
 // Les enregistrements (lot 2) : lus par fetch puis décodés par le contexte. L'.exe les
 // sert par son protocole app://, qui accepte fetch (main.cjs, supportFetchAPI ; la CSP
 // permet connect-src 'self'). Un fichier illisible se tait, avec un seul avertissement.
+// Seuls se décodent les fichiers qui JOUENT : ceux des familles semées, et le fichier
+// choisi de chaque nappe ou émetteur enregistré — une variante écartée ne prend pas de
+// mémoire (une boucle de 24 s décodée pèse 3 Mo).
+export function enregistresUtiles(liste = ENREGISTRES, ids = IDS_ENREGISTRES) {
+  const utiles = new Set();
+  for (const e of liste) if (SEMES[e.famille]) utiles.add(e.id);
+  for (const [nom, def] of [...Object.entries(NAPPES), ...Object.entries(EMETTEURS)]) {
+    if (!def.enregistres) continue;
+    const id = sonDeNappe(nom, def, ids);
+    if (id) utiles.add(id);
+  }
+  return utiles;
+}
+// Décodés à 32 kHz, leur fréquence (scripts/importSons.mjs), dans un contexte hors ligne :
+// le contexte du jeu les décoderait à SA fréquence (48 kHz), une fois et demie plus
+// lourds — 67 Mo mesurés au lieu de ~45 (plan, § 3.9). Un tampon se joue dans n'importe
+// quel contexte, rééchantillonné à la lecture.
+let _decodeur = null;
+function decodeur(ctx) {
+  if (_decodeur) return _decodeur;
+  const H = typeof window !== 'undefined' && (window.OfflineAudioContext || window.webkitOfflineAudioContext);
+  try { _decodeur = H ? new H(1, 1, PAYSAGE_SR) : ctx; } catch { _decodeur = ctx; }
+  return _decodeur;
+}
 function decoderEnregistres(ctx) {
+  const utiles = enregistresUtiles(), dec = decodeur(ctx);
   for (const e of ENREGISTRES) {
-    if (D.tampons.has(e.id) || D.enRoute.has(e.id)) continue;
+    if (!utiles.has(e.id) || D.tampons.has(e.id) || D.enRoute.has(e.id)) continue;
     D.enRoute.add(e.id);
     fetch(e.url)
       .then((r) => { if (!r.ok) throw new Error('HTTP ' + r.status); return r.arrayBuffer(); })
-      .then((octets) => ctx.decodeAudioData(octets))
+      .then((octets) => dec.decodeAudioData(octets))
       .then((tampon) => { D.tampons.set(e.id, tampon); }, (err) => {
         if (!D.erreurSon) { D.erreurSon = true; console.warn('Paysage sonore : son illisible', e.id, err); }
       })
       .finally(() => D.enRoute.delete(e.id));
   }
 }
-// Les sons décodés d'une famille semée (leurs ids), dans l'ordre du dossier.
+// Les sons prêts d'une famille semée (leurs ids) : ses enregistrements décodés, dans
+// l'ordre du dossier ; si elle n'a aucun fichier, ses sons synthétisés (`synth`).
+const A_FICHIERS = new Set(ENREGISTRES.map((e) => e.famille));
 function sonsDe(fam) {
   const ids = [];
-  for (const e of ENREGISTRES) if (e.famille === fam && D.tampons.has(e.id)) ids.push(e.id);
+  if (A_FICHIERS.has(fam)) {
+    for (const e of ENREGISTRES) if (e.famille === fam && D.tampons.has(e.id)) ids.push(e.id);
+  } else {
+    for (const s of (SEMES[fam] && SEMES[fam].synth) || []) if (D.tampons.has(s)) ids.push(s);
+  }
   return ids;
 }
 
@@ -329,7 +436,8 @@ export function tick() {
   if (L && now - D.echantA >= ECHANT_MS) {
     D.echantA = now;
     echantillonner(L, D.mesure);
-    mesurerFoule(D.mesure);
+    D.oreille.x = CM.cam.x; D.oreille.y = CM.cam.y; D.oreille.h = h;
+    mesurerFoule(D.mesure, D.oreille);
     majRafale(now);
     majNappes(L, f, t);
   }
@@ -353,10 +461,18 @@ function arreterMinuteur() {
 }
 
 // ── Les nappes ───────────────────────────────────────────────────────────────
+// Le son d'une nappe : synthétisé (`son`, sinon son nom), ou ENREGISTRÉ (`enregistres` :
+// le premier de ces fichiers qui existe, une fois décodé ; sans fichier, la nappe se tait).
+const IDS_ENREGISTRES = new Set(ENREGISTRES.map((e) => e.id));
+export function sonDeNappe(nom, def, ids = IDS_ENREGISTRES) {
+  if (!def.enregistres) return def.son || nom;
+  return def.enregistres.find((id) => ids.has(id)) || null;
+}
 function monterNappes(M) {
   for (const [nom, def] of Object.entries(NAPPES)) {
     if (D.nappes[nom]) continue;
-    const tampon = D.tampons.get(def.son || nom);
+    const son = sonDeNappe(nom, def);
+    const tampon = son && D.tampons.get(son);
     if (tampon) D.nappes[nom] = creerBoucle(M, tampon, def.bus, { largeur: def.largeur, depart: Math.random(), vitesse: def.vitesse || 1 });
   }
 }
@@ -378,7 +494,12 @@ const SAISON_SAUTERELLES = [0.4, 1, 0.6, 0];
 //   · `vent` : la force du vent (≈ 0,5 à 1,4).
 // Les insectes se taisent sous la pluie ; les grillons chantent la nuit, les
 // sauterelles le jour dans les prés, les cigales les jours d'été dans les arbres.
-export function ciblesNappes(P, { vent = 1, proche = 1, loin = 0, taille = 0, nuit = 0, pluie = 0, saison = 1 } = {}, out = {}) {
+//   · `rue` / `place` (lot 3) : l'énergie des voix proches de l'oreille (milieux.js,
+//     mesurerFoule), passants des rues d'un côté, flâneurs des places de l'autre.
+//   · `marche` : l'énergie des pas (ceux qui marchent près de l'oreille) ; `moteurs` : celle
+//     des voitures qu'on voit ; `bande` : l'âge (0 Feu … 9 Démiurge, data/eraThemes.js) ;
+//     `etals` : celle des flâneurs d'une place de marché.
+export function ciblesNappes(P, { vent = 1, proche = 1, loin = 0, taille = 0, nuit = 0, pluie = 0, saison = 1, rue = 0, place = 0, marche = 0, moteurs = 0, bande = 0, etals = 0 } = {}, out = {}) {
   // Les nappes s'effacent au dézoom, plus tard que le proche (∝ cos^0,7 contre cos²).
   const nappeK = Math.pow(proche, 0.7);
   const jour = 1 - nuit, sec = Math.pow(1 - Math.min(1, pluie), 2);
@@ -396,7 +517,46 @@ export function ciblesNappes(P, { vent = 1, proche = 1, loin = 0, taille = 0, nu
   out.cigales = doux(P.foret + 0.4 * P.prairie) * jour * (s === 1 ? 1 : 0) * sec * nappeK;
   // Dézoomé au-dessus de la campagne : le vent d'altitude, d'autant plus que la ville est petite.
   out.altitude = doux(Math.min(1, P.foret + P.prairie + P.champ + P.eau)) * (1 - 0.7 * taille) * vent * loin;
+  // La ville : le brouhaha suit les passants (et un peu les flâneurs), la causerie les
+  // flâneurs des places.
+  out.brouhaha = voixDeFoule(rue + 0.4 * place, FOULE_E.rue) * nappeK;
+  out.causerie = voixDeFoule(place, FOULE_E.place) * nappeK;
+  // Les enfants jouent près des places, de jour, moins sous la pluie.
+  out.jeux = voixDeFoule(place, FOULE_E.place) * jour * Math.sqrt(sec) * nappeK;
+  out.etals = voixDeFoule(etals, FOULE_E.place) * jour * nappeK;
+  // La rue : des pas sur la terre et la pierre, plus discrets sur le pavé (Fonte, Néon),
+  // muets aux âges cosmiques ; la circulation, à l'âge du Néon seulement (avant, les
+  // voitures d'époque n'ont pas ce fond moderne ; après, il n'y a plus que des drones).
+  out.pas = voixDeFoule(marche, FOULE_E.pas) * (bande <= 4 ? 1 : bande <= 6 ? 0.6 : 0) * nappeK;
+  out.circulation = (bande === 6 ? voixDeFoule(moteurs, FOULE_E.moteurs) : 0) * nappeK;
+  // La rumeur lointaine selon l'âge, dosée comme la rumeur synthétisée (taille × loin).
+  const loinVille = taille * loin;
+  out.lointainFoule = loinVille * (bande >= 2 && bande <= 5 ? 1 : bande === 6 ? 0.5 : 0);
+  out.lointainTrafic = loinVille * (bande === 6 ? 1 : bande === 5 ? 0.35 : 0);
+  out.lointainCosmique = loinVille * (bande >= 7 ? 1 : 0);
   return out;
+}
+// Combien de voix on entend (0..1), pour une énergie `e` (Σ gain² des gens proches) : la
+// courbe sature — une avenue pleine ne crie pas cent fois plus fort qu'un passant — et
+// part en douceur : un passant sous l'oreille ne fait pas une foule (16 %). `FOULE_E` :
+// la racine de l'énergie qui donne 40 % de la foule entière. Calée sur le jeu le
+// 2026-10-07 (âge de la Couronne) : une rue dense donne ~0,7, une place animée ~0,7.
+export const FOULE_E = { rue: 1.2, place: 0.8, pas: 1, moteurs: 0.7 };
+export function voixDeFoule(e, e0) {
+  const v = 1 - Math.exp(-Math.sqrt(Math.max(0, e)) / e0);
+  return v * v;
+}
+// L'énergie (Σ gain²) des émetteurs d'une famille vus à la dernière image, atténués par
+// leur distance à l'oreille (portée `ref` / `max`, en cases) : les voitures qu'on voit.
+function energieDe(fam, h, ref, max) {
+  const em = emetteursDe(fam);
+  if (!em) return 0;
+  let e = 0;
+  for (let i = 0; i < em.n; i += 1) {
+    const a = attenuation(Math.hypot(em.x[i] - CM.cam.x, em.y[i] - CM.cam.y) / CM.TILE, h, ref, max) * em.k[i];
+    e += a * a;
+  }
+  return e;
 }
 function majNappes(L, f, t) {
   const P = D.mesure.parts, pans = D.mesure.pans;
@@ -404,6 +564,9 @@ function majNappes(L, f, t) {
   const c = ciblesNappes(P, {
     vent, proche: f.proche, loin: f.loin, taille: tailleVille(L),
     nuit: CM.nightF || 0, pluie: CM.rainF || 0, saison: CM.season ?? 1,
+    rue: D.mesure.voixRue, place: D.mesure.voixPlace, marche: D.mesure.marche,
+    moteurs: energieDe('moteur', D.h, 4, 20), bande: (L.counts && L.counts.eraBand) | 0,
+    etals: energieDe('etals', D.h, FOULE.ref, FOULE.max),
   }, D.cibles);
   const terre = P.foret + P.prairie + 0.6 * P.champ, herbe = P.prairie + P.champ;
   const panTerre = terre > 0 ? (pans.foret * P.foret + pans.prairie * P.prairie + pans.champ * 0.6 * P.champ) / terre : 0;
@@ -411,6 +574,9 @@ function majNappes(L, f, t) {
   const ou = {
     souffle: panTerre, feuillage: pans.foret, courant: pans.eau, ressac: pans.rive, lointain: 0,
     grillons: panTerre, stridulations: panHerbe, cigales: pans.foret, altitude: 0,
+    brouhaha: D.mesure.panRue, causerie: D.mesure.panPlace, jeux: D.mesure.panPlace,
+    pas: D.mesure.panRue, circulation: 0, etals: D.mesure.panPlace,
+    lointainFoule: 0, lointainTrafic: 0, lointainCosmique: 0,
   };
   for (const [nom, def] of Object.entries(NAPPES)) {
     const v = D.nappes[nom];
@@ -439,10 +605,11 @@ function majPonctuels(M, h, f, t, now) {
     if (g < 0.008) return;
     const enCours = (D.enCours[nom] = (D.enCours[nom] || []).filter((fin) => fin > t));
     if (enCours.length >= def.voix || now - (D.dernierA[nom] || -Infinity) < def.ecartMs) return;
-    const tampon = D.tampons.get(def.sons[tirer(nom, def.sons.length)]);
+    const [i0, i1] = def.choix ? def.choix(force) : [0, def.sons.length];
+    const tampon = D.tampons.get(def.sons[i0 + tirer(nom, i1 - i0)]);
     if (!tampon) return;
     // Un gros poisson sonne plus grave ; chaque tir varie un peu (±6 %).
-    const vitesse = (0.94 + Math.random() * 0.12) / Math.pow(Math.max(0.5, force), 0.35);
+    const vitesse = (0.94 + Math.random() * 0.12) / (def.calibre ? Math.pow(Math.max(0.5, force), 0.35) : 1);
     const s = worldToScreen(x, y);
     jouerPonctuel(M, tampon, 'proche', g, panoramique(s.x, CM.cw, OREILLE.panMax), vitesse);
     enCours.push(t + tampon.duration / vitesse);
@@ -457,7 +624,8 @@ const _cands = [];
 function majEmetteurs(M, h, f, t) {
   const T = CM.TILE;
   for (const [fam, def] of Object.entries(EMETTEURS)) {
-    const tampon = D.tampons.get(def.son);
+    const son = sonDeNappe(fam, def);
+    const tampon = son ? D.tampons.get(son) : null;
     const voix = D.emetteurs[fam] || (D.emetteurs[fam] = []);
     for (const v of voix) v.pris = false;
     const notes = tampon ? emetteursDe(fam) : null;
@@ -466,9 +634,11 @@ function majEmetteurs(M, h, f, t) {
       for (let i = 0; i < notes.n; i += 1) {
         const x = notes.x[i], y = notes.y[i], k = notes.k[i];
         const r = Math.hypot(x - CM.cam.x, y - CM.cam.y) / T;
-        // `k` : 1 en vol franc, ½ posée ; posée, la bête descend à `calme`.
+        // `k` : 1 en vol franc, ½ posée ; posée, la bête descend à `calme`. Sans `calme`,
+        // `k` est le gain (une fontaine, un filet d'eau).
+        const fk = def.calme == null ? k : def.calme + (1 - def.calme) * Math.max(0, 2 * k - 1);
         const g = attenuation(r, h, def.ref, def.max) * def.niveau * BANC.emetteurs[fam] * soloK(fam)
-          * f.proche * f.proche * (def.calme + (1 - def.calme) * Math.max(0, 2 * k - 1));
+          * f.proche * f.proche * fk;
         if (g < 0.004) continue;
         const c = _cands[nc] || (_cands[nc] = { g: 0, x: 0, y: 0, k: 0 });
         c.g = g; c.x = x; c.y = y; c.k = k;
@@ -503,8 +673,9 @@ function majEmetteurs(M, h, f, t) {
       const s = worldToScreen(c.x, c.y);
       cibler(v.boucle.gain.gain, c.g, t, 0.08);
       cibler(v.boucle.pan.pan, panoramique(s.x, CM.cw, OREILLE.panMax), t, 0.08);
-      // En vol franc, le battement monte un peu.
-      for (const src of v.boucle.sources) cibler(src.playbackRate, v.vitesse * (1 + 0.06 * c.k), t, 0.1);
+      // En vol franc, le battement monte un peu (une bête ; l'eau garde sa hauteur).
+      const monte = def.calme == null ? 0 : 0.06 * c.k;
+      for (const src of v.boucle.sources) cibler(src.playbackRate, v.vitesse * (1 + monte), t, 0.1);
     }
     for (const v of voix) {
       if (v.pris) continue;
@@ -530,18 +701,31 @@ function majSemes(M, L, h, f, t, now) {
   for (const [nom, def] of Object.entries(SEMES)) {
     const sons = sonsDe(nom);
     if (!sons.length) continue;
-    const taux = tauxSeme(def, mes.parts, cond, f.proche, habitue, sons.length);
+    // Semée SUR des émetteurs : ceux de la dernière image, et la somme de leurs intensités.
+    const em = def.sur ? emetteursDe(def.sur) : null;
+    if (def.sur && !em) continue;
+    let somme = 0;
+    if (em) for (let j = 0; j < em.n; j += 1) somme += em.k[j];
+    const taux = tauxSeme(def, mes.parts, cond, f.proche, habitue, sons.length, somme);
     if (!(taux > 0) || Math.random() >= 1 - Math.exp(-taux * dt)) continue;
-    // Où : un milieu de la famille, tiré en proportion de sa présence, puis un lieu de
-    // l'écran qui le porte, à une case et demie près.
-    let tot = 0;
-    for (const [m, k] of Object.entries(def.milieux)) tot += k * (mes.parts[m] || 0);
-    let r = Math.random() * tot, milieu = null;
-    for (const [m, k] of Object.entries(def.milieux)) { r -= k * (mes.parts[m] || 0); if (r < 0) { milieu = m; break; } }
-    const i = milieu ? tirerLieu(mes, milieu, Math.random()) : -1;
-    if (i < 0) continue;
-    const x = mes.lieux.px[i] + (Math.random() * 2 - 1) * 1.5 * T;
-    const y = mes.lieux.py[i] + (Math.random() * 2 - 1) * 1.5 * T;
+    let x, y;
+    if (em) {
+      // Qui : un émetteur, tiré en proportion de son intensité.
+      let r = Math.random() * somme, j = 0;
+      for (; j < em.n - 1; j += 1) { r -= em.k[j]; if (r < 0) break; }
+      x = em.x[j]; y = em.y[j];
+    } else {
+      // Où : un milieu de la famille, tiré en proportion de sa présence, puis un lieu de
+      // l'écran qui le porte, à une case et demie près.
+      let tot = 0;
+      for (const [m, k] of Object.entries(def.milieux)) tot += k * (mes.parts[m] || 0);
+      let r = Math.random() * tot, milieu = null;
+      for (const [m, k] of Object.entries(def.milieux)) { r -= k * (mes.parts[m] || 0); if (r < 0) { milieu = m; break; } }
+      const i = milieu ? tirerLieu(mes, milieu, Math.random()) : -1;
+      if (i < 0) continue;
+      x = mes.lieux.px[i] + (Math.random() * 2 - 1) * 1.5 * T;
+      y = mes.lieux.py[i] + (Math.random() * 2 - 1) * 1.5 * T;
+    }
     const g = attenuation(Math.hypot(x - CM.cam.x, y - CM.cam.y) / T, h, def.ref, def.max)
       * def.niveau * BANC.semes[nom] * soloK(nom) * f.proche * f.proche;
     if (g < 0.006) continue;
@@ -572,7 +756,8 @@ export function ecouter(nom) {
   }
   if (EMETTEURS[nom]) {
     const def = EMETTEURS[nom];
-    const tampon = D.tampons.get(def.son);
+    const son = sonDeNappe(nom, def);
+    const tampon = son ? D.tampons.get(son) : null;
     if (!tampon) return false;
     const b = creerBoucle(M, tampon, 'proche', { depart: Math.random() });
     const t = M.ctx.currentTime;
@@ -599,14 +784,21 @@ export function etatPaysage() {
     contexte: ctx ? ctx.state : null,
     zoom: D.zoom, p: D.p, h: D.h, rafale: D.rafale.v,
     parts: { ...D.mesure.parts }, foule: D.mesure.foule, points: D.mesure.points,
+    voixRue: D.mesure.voixRue, voixPlace: D.mesure.voixPlace,
     taille: CM.layout ? tailleVille(CM.layout) : 0,
     cibles: { ...D.cibles },
     nappes: Object.keys(D.nappes),
     tampons: D.tampons.size, enRoute: D.enRoute.size,
+    // La mémoire des sons décodés (Mo) : le budget visé est de 40 Mo (plan, § 3.9).
+    memoireMo: [...D.tampons.values()].reduce((s, b) => s + (b.length || 0) * (b.numberOfChannels || 1) * 4, 0) / 1e6,
     emetteurs: Object.fromEntries(Object.entries(D.emetteurs).map(([k, l]) => [k, l.filter((v) => v.pris).length])),
     ponctuels: { ...D.compte },
     // Par famille semée : combien joués, combien de sons prêts (fichiers décodés).
-    semes: Object.fromEntries(Object.keys(SEMES).map((k) => [k, { joues: D.compte[k] || 0, sons: sonsDe(k).length }])),
+    // Semée sur des émetteurs : combien la carte en dessine (`vus`).
+    semes: Object.fromEntries(Object.entries(SEMES).map(([k, def]) => [k, {
+      joues: D.compte[k] || 0, sons: sonsDe(k).length,
+      vus: def.sur ? ((emetteursDe(def.sur) || { n: 0 }).n) : null,
+    }])),
     enregistres: ENREGISTRES.length,
     habitue: D.eveille && horloge() - D.bougeA > HABITUATION_MS,
     sortieDb: D.M ? niveauSortie(D.M) : null,

@@ -1,5 +1,5 @@
 {
-  "lisezmoi": "Les sons enregistrés du paysage sonore. Une entrée par son du jeu ; `node scripts/importSons.mjs` écrit src/assets/sons/<id>.ogg. Le nom fait la famille (oiseau, coucou, pic, chouette, grenouille, corneille, alouette). Les coupes viennent d'une mesure de l'enveloppe (passages plus forts que le plancher de bruit de 12 dB), pas d'une écoute : Raph les juge au banc d'écoute. Voir scripts/importSons.mjs et docs/PLAN-AMBIANCE-SONORE.md § 7.",
+  "lisezmoi": "Les sons enregistrés du paysage sonore. Une entrée par son du jeu ; `node scripts/importSons.mjs` écrit src/assets/sons/<id>.ogg. Le nom fait la famille (oiseau, coucou, pic, chouette, grenouille, corneille, alouette ; lot 3 : brouhaha, causerie, jeux, etals, circulation, pas, sabots, enfant, roue). Les coupes viennent d'une mesure de l'enveloppe (passages plus forts que le plancher de bruit de 12 dB), pas d'une écoute : Raph les juge au banc d'écoute. Voir scripts/importSons.mjs et docs/PLAN-AMBIANCE-SONORE.md § 7.",
   "sons": [
     {
       "id": "oiseau-merle-1",
@@ -90,6 +90,150 @@
       "source": "bigsoundbank/BIRDCrow_Carrion crow 5 (ID 3465)_BigSoundBank.com.wav",
       "debut": 3.45, "fin": 4.4, "passeHaut": 250, "fondu": [0.01, 0.08],
       "credit": { "auteur": "Le tiroir du fond", "page": "https://bigsoundbank.com/carrion-crow-5-s3465.html", "licence": "CC0" }
+    },
+    {
+      "id": "brouhaha-rue-1",
+      "source": "bigsoundbank/CRWDWalla_Outside talks 1 (ID 2968)_BigSoundBank.com.wav",
+      "debut": 2, "fin": 232, "passeHaut": 120, "passeBas": 6000, "rms": -20, "brouiller": {"grain": 0.18, "duree": 24, "graine": 1},
+      "credit": { "auteur": "Joseph Sardin", "page": "https://bigsoundbank.com/outside-talks-1-s2968.html", "licence": "CC0" }
+    },
+    {
+      "id": "causerie-place-1",
+      "source": "bigsoundbank/AMBUrbn_Pedestrian place (ID 0526)_BigSoundBank.com.wav",
+      "debut": 1, "fin": 93, "passeHaut": 100, "passeBas": 8000, "rms": -20, "brouiller": {"grain": 0.25, "duree": 24, "graine": 2},
+      "credit": { "auteur": "Joseph Sardin", "page": "https://bigsoundbank.com/pedestrian-place-s0526.html", "licence": "CC0" }
+    },
+    {
+      "id": "causerie-groupe-1",
+      "source": "bigsoundbank/CRWDWalla_Walla group averages discussions (ID 0684)_BigSoundBank.com.wav",
+      "debut": 1, "fin": 119, "passeHaut": 100, "passeBas": 8000, "rms": -20, "brouiller": {"grain": 0.22, "duree": 24, "graine": 3},
+      "credit": { "auteur": "Joseph Sardin", "page": "https://bigsoundbank.com/walla-group-averages-discussions-s0684.html", "licence": "CC0" }
+    },
+    {
+      "id": "jeux-parc-1",
+      "source": "bigsoundbank/AMBUrbn_Parisian park children games (ID 1082)_BigSoundBank.com.wav",
+      "debut": 2, "fin": 120, "passeHaut": 150, "passeBas": 8000, "rms": -21, "brouiller": {"grain": 0.3, "duree": 24, "graine": 4},
+      "credit": { "auteur": "Joseph Sardin", "page": "https://bigsoundbank.com/parisian-park-children-games-s1082.html", "licence": "CC0" }
+    },
+    {
+      "id": "jeux-cour-1",
+      "source": "bigsoundbank/CRWDChld_Recreation kindergarten 2 (ID 2741)_BigSoundBank.com.wav",
+      "debut": 4, "fin": 266, "passeHaut": 150, "passeBas": 8000, "rms": -21, "brouiller": {"grain": 0.3, "duree": 24, "graine": 5},
+      "credit": { "auteur": "Joseph Sardin", "page": "https://bigsoundbank.com/recreation-kindergarten-2-s2741.html", "licence": "CC0" }
+    },
+    {
+      "id": "etals-plein-air-1",
+      "source": "bigsoundbank/AMBMrkt_Outdoor market 1 (ID 2728)_BigSoundBank.com.wav",
+      "debut": 4, "fin": 196, "passeHaut": 100, "passeBas": 8000, "rms": -20, "brouiller": {"grain": 0.25, "duree": 24, "graine": 6},
+      "credit": { "auteur": "Joseph Sardin", "page": "https://bigsoundbank.com/outdoor-market-1-s2728.html", "licence": "CC0" }
+    },
+    {
+      "id": "circulation-carrefour-1",
+      "source": "bigsoundbank/AMBUrbn_Parisian crossing 2 (ID 3031)_BigSoundBank.com.wav",
+      "debut": 2, "fin": 88, "passeHaut": 40, "rms": -20, "brouiller": {"grain": 0.5, "duree": 20, "graine": 7},
+      "credit": { "auteur": "Joseph Sardin", "page": "https://bigsoundbank.com/parisian-crossing-2-s3031.html", "licence": "CC0" }
+    },
+    {
+      "id": "pas-gravier-1",
+      "source": "bigsoundbank/FEETHmn_Footsteps on gravels 2 (ID 1117)_BigSoundBank.com.wav",
+      "debut": 2, "fin": 90, "passeHaut": 100, "rms": -22, "brouiller": {"grain": 0.4, "duree": 20, "graine": 8},
+      "credit": { "auteur": "Joseph Sardin", "page": "https://bigsoundbank.com/footsteps-on-gravels-2-s1117.html", "licence": "CC0" }
+    },
+    {
+      "id": "sabots-rue-1",
+      "source": "bigsoundbank/FEETHors_Footsteps of horses rue christine (ID 0979)_BigSoundBank.com.wav",
+      "debut": 30, "fin": 50, "passeHaut": 80, "rms": -22, "brouiller": {"grain": 0.7, "duree": 16, "graine": 9},
+      "credit": { "auteur": "Joseph Sardin", "page": "https://bigsoundbank.com/footsteps-of-horses-rue-christine-s0979.html", "licence": "CC0" }
+    },
+    {
+      "id": "sabots-pas-1",
+      "source": "bigsoundbank/FEETHors_Horse walking on a path (ID 1854)_BigSoundBank.com.wav",
+      "debut": 17, "fin": 45.5, "passeHaut": 80, "rms": -22, "boucler": {"fondu": 0.4},
+      "credit": { "auteur": "Joseph Sardin", "page": "https://bigsoundbank.com/horse-walking-on-a-path-s1854.html", "licence": "CC0" }
+    },
+    {
+      "id": "enfant-cri-1",
+      "source": "bigsoundbank/CRWDPanic_Kids scream 1 (ID 1148)_BigSoundBank.com.wav",
+      "debut": 1.1, "fin": 4.2, "passeHaut": 150, "fondu": [0.01, 0.12],
+      "credit": { "auteur": "Joseph Sardin", "page": "https://bigsoundbank.com/kids-scream-1-s1148.html", "licence": "CC0" }
+    },
+    {
+      "id": "enfant-cri-2",
+      "source": "bigsoundbank/CRWDPanic_Kids scream 1 (ID 1148)_BigSoundBank.com.wav",
+      "debut": 4.2, "fin": 6.45, "passeHaut": 150, "fondu": [0.01, 0.12],
+      "credit": { "auteur": "Joseph Sardin", "page": "https://bigsoundbank.com/kids-scream-1-s1148.html", "licence": "CC0" }
+    },
+    {
+      "id": "enfant-cri-3",
+      "source": "bigsoundbank/CRWDPanic_Kids scream 1 (ID 1148)_BigSoundBank.com.wav",
+      "debut": 0.1, "fin": 1.05, "passeHaut": 150, "gain": -2, "fondu": [0.01, 0.1],
+      "credit": { "auteur": "Joseph Sardin", "page": "https://bigsoundbank.com/kids-scream-1-s1148.html", "licence": "CC0" }
+    },
+    {
+      "id": "enfant-cri-4",
+      "source": "bigsoundbank/CRWDPanic_Kids scream 3 (ID 1150)_BigSoundBank.com.wav",
+      "debut": 0.15, "fin": 2.65, "passeHaut": 150, "fondu": [0.01, 0.12],
+      "credit": { "auteur": "Joseph Sardin", "page": "https://bigsoundbank.com/kids-scream-3-s1150.html", "licence": "CC0" }
+    },
+    {
+      "id": "enfant-cri-5",
+      "source": "bigsoundbank/CRWDPanic_Kids scream 3 (ID 1150)_BigSoundBank.com.wav",
+      "debut": 5.6, "fin": 7.6, "passeHaut": 150, "fondu": [0.01, 0.12],
+      "credit": { "auteur": "Joseph Sardin", "page": "https://bigsoundbank.com/kids-scream-3-s1150.html", "licence": "CC0" }
+    },
+    {
+      "id": "enfant-cri-6",
+      "source": "bigsoundbank/CRWDPanic_Kids scream 3 (ID 1150)_BigSoundBank.com.wav",
+      "debut": 7.8, "fin": 9.8, "passeHaut": 150, "fondu": [0.01, 0.12],
+      "credit": { "auteur": "Joseph Sardin", "page": "https://bigsoundbank.com/kids-scream-3-s1150.html", "licence": "CC0" }
+    },
+    {
+      "id": "enfant-rire-1",
+      "source": "bigsoundbank/CRWDLaff_Laughter of children (ID 1660)_BigSoundBank.com.wav",
+      "debut": 0.05, "fin": 1.75, "passeHaut": 150, "fondu": [0.01, 0.1],
+      "credit": { "auteur": "Joseph Sardin", "page": "https://bigsoundbank.com/laughter-of-children-s1660.html", "licence": "CC0" }
+    },
+    {
+      "id": "enfant-rire-2",
+      "source": "bigsoundbank/CRWDLaff_Laughter of children (ID 1660)_BigSoundBank.com.wav",
+      "debut": 1.75, "fin": 3.8, "passeHaut": 150, "fondu": [0.01, 0.12],
+      "credit": { "auteur": "Joseph Sardin", "page": "https://bigsoundbank.com/laughter-of-children-s1660.html", "licence": "CC0" }
+    },
+    {
+      "id": "enfant-hurle-1",
+      "source": "bigsoundbank/CRWDPanic_Howling two children (ID 1661)_BigSoundBank.com.wav",
+      "debut": 0, "fin": 2.2, "passeHaut": 150, "gain": -2, "fondu": [0.01, 0.12],
+      "credit": { "auteur": "Joseph Sardin", "page": "https://bigsoundbank.com/howling-two-children-s1661.html", "licence": "CC0" }
+    },
+    {
+      "id": "roue-grince-1",
+      "source": "bigsoundbank/OBJWhled_Squeaky wheelbarrow 1 (ID 2516)_BigSoundBank.com.wav",
+      "debut": 2.6, "fin": 4.6, "passeHaut": 200, "gain": -3, "fondu": [0.02, 0.15],
+      "credit": { "auteur": "Joseph Sardin", "page": "https://bigsoundbank.com/squeaky-wheelbarrow-1-s2516.html", "licence": "CC0" }
+    },
+    {
+      "id": "roue-grince-2",
+      "source": "bigsoundbank/OBJWhled_Squeaky wheelbarrow 1 (ID 2516)_BigSoundBank.com.wav",
+      "debut": 9.4, "fin": 11.1, "passeHaut": 200, "gain": -3, "fondu": [0.02, 0.15],
+      "credit": { "auteur": "Joseph Sardin", "page": "https://bigsoundbank.com/squeaky-wheelbarrow-1-s2516.html", "licence": "CC0" }
+    },
+    {
+      "id": "roue-grince-3",
+      "source": "bigsoundbank/OBJWhled_Squeaky wheelbarrow 1 (ID 2516)_BigSoundBank.com.wav",
+      "debut": 12.3, "fin": 14, "passeHaut": 200, "gain": -3, "fondu": [0.02, 0.15],
+      "credit": { "auteur": "Joseph Sardin", "page": "https://bigsoundbank.com/squeaky-wheelbarrow-1-s2516.html", "licence": "CC0" }
+    },
+    {
+      "id": "roue-grince-4",
+      "source": "bigsoundbank/OBJWhled_Squeaky wheelbarrow 1 (ID 2516)_BigSoundBank.com.wav",
+      "debut": 17.4, "fin": 19.6, "passeHaut": 200, "gain": -3, "fondu": [0.02, 0.15],
+      "credit": { "auteur": "Joseph Sardin", "page": "https://bigsoundbank.com/squeaky-wheelbarrow-1-s2516.html", "licence": "CC0" }
+    },
+    {
+      "id": "roue-grince-5",
+      "source": "bigsoundbank/OBJWhled_Squeaky wheelbarrow 1 (ID 2516)_BigSoundBank.com.wav",
+      "debut": 25.2, "fin": 27.4, "passeHaut": 200, "gain": -3, "fondu": [0.02, 0.15],
+      "credit": { "auteur": "Joseph Sardin", "page": "https://bigsoundbank.com/squeaky-wheelbarrow-1-s2516.html", "licence": "CC0" }
     }
   ]
 }

@@ -12,6 +12,8 @@ import { CM } from '../layout.js';
 import { worldToScreen } from './projection.js';
 import { ensureDrone, drawDroneRotors, VEH_SCALE } from '../agents.js';
 import { SUN_SHADOW, sunShadowAlpha } from './isoSunShadow.js';
+// Le guichet du paysage sonore : un module-FEUILLE (aucun import), sans risque de cycle.
+import { noteEmetteur } from '../../audio/paysage/evenements.js';
 
 // ── OISEAUX : 🚫 LA NUÉE QUI TRAVERSE EST PARTIE ────────────────────────────
 // Réponse de Raph (2026-10-01) : des oiseaux POSÉS qui s'envolent (pigeons des places
@@ -32,6 +34,8 @@ export function drawIsoDrones(now) {
     // Fondu d'apparition, comme les véhicules au sol (BUG-56, cf. drawIsoVehicle).
     const fa = v.fade == null ? 1 : v.fade;
     if (fa <= 0.02) continue;
+    // LE SON (docs/PLAN-AMBIANCE-SONORE.md, lot 3) : le drone qu'on voit bourdonne.
+    noteEmetteur('drone', v.x, v.y, fa, now);
     const pa = ctx.globalAlpha;
     if (fa < 1) ctx.globalAlpha = pa * fa;
     const t2 = now || 0;

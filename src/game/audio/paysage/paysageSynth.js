@@ -35,6 +35,10 @@ export const SONS_PAYSAGE = [
   'plouf1', 'plouf2', 'plouf3', 'plouf4', 'plouf5', 'plouf6',
   'sortie1', 'sortie2', 'sortie3',
   'plip1', 'plip2', 'plip3', 'plip4',
+  // Lot 3, la ville. Les voix (brouhaha, causerie, enfants) sont ENREGISTRÉES : les voix
+  // synthétisées ont été refusées à l'écoute (« cauchemardesques », Raph, 2026-10-07).
+  'fontaine', 'roucoul1', 'roucoul2', 'roucoul3', 'roucoul4', 'roucoul5', 'roucoul6',
+  'envol1', 'envol2', 'envol3', 'envol4', 'drone',
 ];
 
 // ── Petits outils ──────────────────────────────────────────────────────────────
@@ -473,6 +477,119 @@ function rendreSortie(v, sr) {
   return normaliser(out, sr, 0.8, 0.03);
 }
 
+// ── La ville (lot 3) ───────────────────────────────────────────────────────────
+
+// Le ROUCOULEMENT d'un pigeon : deux à quatre notes graves, bec fermé — presque un son
+// pur, que la gorge gonflée arrondit —, la première roulée (« rrrou »), la plus longue
+// arquée (« COU »), la dernière qui retombe. Chaque note glisse entre trois hauteurs
+// (départ, sommet, fin, en fraction de la hauteur de l'oiseau).
+function rendreRoucoul(v, sr) {
+  const rnd = graine(0x9160c + v * 3301);
+  const base = 290 + rnd() * 130;
+  const notes = [{ d: 0.2 + rnd() * 0.12, f: [0.92, 1.04, 1.07], roule: 0.6, a: 0.7 }];
+  notes.push({ d: 0.32 + rnd() * 0.16, f: [1.02, 1.15, 0.94], roule: 0.12, a: 1 });
+  if (rnd() < 0.7) notes.push({ d: 0.18 + rnd() * 0.12, f: [0.95, 0.9, 0.84], roule: 0.3, a: 0.6 });
+  if (rnd() < 0.3) notes.push({ d: 0.15 + rnd() * 0.08, f: [0.9, 0.88, 0.82], roule: 0.2, a: 0.4 });
+  const dur = notes.reduce((s, x) => s + x.d + 0.07, 0.1);
+  const n = Math.round(dur * sr), out = new Float32Array(n);
+  const lp = biquad('lp', 1100, 0.7, sr), souffle = biquad('bp', 700, 1.2, sr);
+  const vitRoule = 24 + rnd() * 6;
+  let t0 = 0.02, ph = 0;
+  for (const no of notes) {
+    const s0 = Math.round(t0 * sr), ns = Math.round(no.d * sr);
+    for (let j = 0; j < ns && s0 + j < n; j += 1) {
+      const u = j / ns, tt = j / sr;
+      const lisse = (x) => x * x * (3 - 2 * x);
+      const f = base * (u < 0.4 ? no.f[0] + (no.f[1] - no.f[0]) * lisse(u / 0.4) : no.f[1] + (no.f[2] - no.f[1]) * lisse((u - 0.4) / 0.6));
+      ph += (2 * Math.PI * f) / sr;
+      const env = Math.min(1, tt / 0.03) * Math.min(1, (no.d - tt) / 0.06);
+      const roule = 1 - no.roule * (0.5 + 0.5 * Math.sin(2 * Math.PI * vitRoule * tt));
+      const son = Math.sin(ph) + 0.35 * Math.sin(2 * ph) + 0.12 * Math.sin(3 * ph) + 0.05 * Math.sin(4 * ph);
+      out[s0 + j] += (son + bq(souffle, rnd() * 2 - 1) * 0.12) * env * roule * no.a;
+    }
+    t0 += no.d + 0.04 + rnd() * 0.05;
+  }
+  for (let i = 0; i < n; i += 1) out[i] = bq(lp, out[i]);
+  return normaliser(out, sr, 0.8, 0.04);
+}
+
+// Un BATTEMENT d'ailes : un souffle d'air en bande, attaque vive, vite éteint ; les
+// premiers CLAQUENT (au décollage, les ailes du pigeon se touchent au-dessus du dos).
+function battement(out, sr, t, rnd, amp, claque, bp) {
+  const s0 = Math.round(t * sr), n = Math.min(out.length - s0, Math.round(0.09 * sr));
+  for (let j = 0; j < n; j += 1) {
+    const tt = j / sr;
+    const air = bq(bp, rnd() * 2 - 1) * Math.min(1, tt / 0.006) * Math.exp(-tt / 0.024);
+    const clac = claque ? (rnd() * 2 - 1) * Math.exp(-tt / 0.0015) * 0.7 : 0;
+    out[s0 + j] += (air + clac) * amp;
+  }
+}
+// L'ENVOL de pigeons : des coups d'ailes, 8 à 11 par seconde, qui s'éloignent. Variantes
+// 1 et 2 : un pigeon ; 3 et 4 : une volée, quatre à sept oiseaux décalés.
+function rendreEnvol(v, sr) {
+  const rnd = graine(0xe4f01 + v * 2749);
+  const n = Math.round(1.9 * sr), out = new Float32Array(n);
+  const oiseaux = v <= 2 ? 1 : 4 + Math.floor(rnd() * 4);
+  for (let o = 0; o < oiseaux; o += 1) {
+    const bp = biquad('bp', 900 + rnd() * 800, 0.7, sr);
+    const rythme = 8 + rnd() * 3, nb = 8 + Math.floor(rnd() * 5), amp = o === 0 ? 1 : 0.45 + 0.45 * rnd();
+    let t = o === 0 ? 0.005 : rnd() * 0.3;
+    for (let k = 0; k < nb && t < 1.75; k += 1) {
+      battement(out, sr, t, rnd, amp * Math.pow(0.84, Math.max(0, k - 2)), k < 2 + Math.floor(rnd() * 2), bp);
+      t += (1 / rythme) * (k < 2 ? 1.15 : 1);
+    }
+  }
+  return normaliser(out, sr, 0.8, 0.08);
+}
+
+// La FONTAINE : un jet qui retombe dans son bassin — une pluie serrée de gouttelettes
+// (700 par seconde, de 1,2 à 5 kHz, beaucoup de petites, peu de grosses), un
+// ruissellement en bande, et le grave sourd de l'eau qui plonge. 9 s.
+function rendreFontaine(sr) {
+  const rnd = graine(0xf0a7a1), L = 9, Ln = Math.round(L * sr), n = Ln + Math.round(0.8 * sr);
+  const gouttes = new Float32Array(n), ruis = new Float32Array(n), plonge = new Float32Array(n);
+  for (let t = rnd() * 0.01; t < n / sr - 0.05; t += attente(rnd, 700)) {
+    const f0 = Math.exp(Math.log(1200) + rnd() * (Math.log(5000) - Math.log(1200)));
+    bulle(gouttes, sr, t, f0, 0.0015 + 0.003 * rnd(), Math.pow(rnd(), 2), 2);
+  }
+  const env = periodique(rnd, L, 5, 0.8);
+  const bpR = biquad('bp', 2600, 0.5, sr), bpP = biquad('bp', 380, 0.7, sr), r = rose(rnd);
+  let g = 0;
+  for (let i = 0; i < n; i += 1) {
+    if ((i & 63) === 0) g = env((i / sr) % L);
+    ruis[i] = bq(bpR, rnd() * 2 - 1) * (0.75 + 0.25 * g);
+    plonge[i] = bq(bpP, r()) * (0.8 + 0.2 * g);
+  }
+  auNiveau(gouttes, 1, 1e9); auNiveau(ruis, 1, 1e9); auNiveau(plonge, 1, 1e9);
+  return auNiveau(boucler(melanger(n, [[gouttes, 1], [ruis, 0.4], [plonge, 0.5]]), Ln), 0.1);
+}
+
+// Le DRONE des âges cosmiques : quatre rotors, chacun une note riche (le passage des
+// pales, vers 150 Hz), légèrement désaccordés — leurs battements font vivre le son —, le
+// sifflement d'un moteur électrique et un souffle d'air. Toutes les fréquences sont des
+// multiples de ¼ Hz : la boucle de 4 s tombe juste ; seul le souffle se boucle en fondu.
+function rendreDrone(sr) {
+  const rnd = graine(0xd70e5), L = 4, Ln = L * sr;
+  const rotors = new Float32Array(Ln);
+  for (const f of [148, 151.5, 155, 158.25]) {
+    const ph = rnd() * 2 * Math.PI, a = 0.7 + 0.3 * rnd();
+    for (let h = 1; h <= 10; h += 1) {
+      const w = (2 * Math.PI * f * h) / sr, g = a / Math.pow(h, 1.25), p = ph * h;
+      for (let i = 0; i < Ln; i += 1) rotors[i] += Math.sin(w * i + p) * g;
+    }
+  }
+  const sifflet = new Float32Array(Ln);
+  for (let i = 0; i < Ln; i += 1) sifflet[i] = Math.sin((2 * Math.PI * 1180 * i) / sr) + 0.4 * Math.sin((2 * Math.PI * 2360 * i) / sr);
+  const n = Ln + Math.round(0.4 * sr), brut = new Float32Array(n);
+  const hp = biquad('hp', 1500, 0.7, sr), lp = biquad('lp', 6000, 0.7, sr);
+  for (let i = 0; i < n; i += 1) brut[i] = bq(lp, bq(hp, rnd() * 2 - 1));
+  const air = boucler(brut, Ln);
+  const lpR = biquad('lp', 2200, 0.7, sr);
+  for (let k = 0; k < 2; k += 1) for (let i = 0; i < Ln; i += 1) { const y = bq(lpR, rotors[i]); if (k) rotors[i] = y; }
+  auNiveau(rotors, 1, 1e9); auNiveau(sifflet, 1, 1e9); auNiveau(air, 1, 1e9);
+  return auNiveau(melanger(Ln, [[rotors, 1], [sifflet, 0.05], [air, 0.12]]), 0.1);
+}
+
 // ── Le guichet ─────────────────────────────────────────────────────────────────
 export function rendrePaysage(nom, sr = PAYSAGE_SR) {
   switch (nom) {
@@ -485,6 +602,8 @@ export function rendrePaysage(nom, sr = PAYSAGE_SR) {
     case 'grillons': return rendreGrillons(sr);
     case 'stridulations': return rendreStridulations(sr);
     case 'cigales': return rendreCigales(sr);
+    case 'fontaine': return rendreFontaine(sr);
+    case 'drone': return rendreDrone(sr);
     default: break;
   }
   let m = /^plouf([1-6])$/.exec(nom);
@@ -493,5 +612,9 @@ export function rendrePaysage(nom, sr = PAYSAGE_SR) {
   if (m) return rendreSortie(Number(m[1]), sr);
   m = /^plip([1-4])$/.exec(nom);
   if (m) return rendrePlip(Number(m[1]), sr);
+  m = /^roucoul([1-6])$/.exec(nom);
+  if (m) return rendreRoucoul(Number(m[1]), sr);
+  m = /^envol([1-4])$/.exec(nom);
+  if (m) return rendreEnvol(Number(m[1]), sr);
   throw new Error('son de paysage inconnu : ' + nom);
 }

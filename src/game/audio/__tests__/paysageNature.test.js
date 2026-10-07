@@ -11,7 +11,7 @@ import { describe, it, expect } from 'vitest';
 import { readFileSync } from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { ciblesNappes, tauxSeme, SEMES } from '../paysage/paysage.js';
+import { ciblesNappes, tauxSeme, enregistresUtiles, SEMES, NAPPES, EMETTEURS } from '../paysage/paysage.js';
 import { nouvelleMesure, tirerLieu, MILIEUX } from '../paysage/milieux.js';
 import { listeEnregistres, famille, ENREGISTRES } from '../paysage/enregistrements.js';
 
@@ -112,8 +112,21 @@ describe('où semer', () => {
 });
 
 describe('les enregistrements livrés', () => {
-  it("chaque fichier de src/assets/sons a sa famille : un nom mal écrit se tairait sans un mot", () => {
-    for (const e of ENREGISTRES) expect(SEMES[e.famille], `${e.id} : famille « ${e.famille} » inconnue`).toBeTruthy();
+  it("chaque fichier de src/assets/sons a sa place : une famille semée, ou une nappe, ou un émetteur — un nom mal écrit se tairait sans un mot", () => {
+    const listes = [...Object.values(NAPPES), ...Object.values(EMETTEURS)].flatMap((d) => d.enregistres || []);
+    for (const e of ENREGISTRES) {
+      expect(Boolean(SEMES[e.famille]) || listes.includes(e.id), `${e.id} : ni famille semée, ni nappe, ni émetteur`).toBe(true);
+    }
+  });
+
+  it('seuls se décodent les fichiers qui jouent : la variante écartée d’une nappe reste sur le disque', () => {
+    const l = [{ id: 'oiseau-merle-1', famille: 'oiseau' }, { id: 'causerie-place-1', famille: 'causerie' }, { id: 'causerie-groupe-1', famille: 'causerie' }];
+    const u = enregistresUtiles(l, new Set(l.map((e) => e.id)));
+    expect(u.has('oiseau-merle-1')).toBe(true);
+    expect(u.has('causerie-place-1')).toBe(true);
+    expect(u.has('causerie-groupe-1')).toBe(false);
+    // Sans la première, la variante joue.
+    expect(enregistresUtiles(l.slice(2), new Set(['causerie-groupe-1'])).has('causerie-groupe-1')).toBe(true);
   });
 
   it('chaque son du catalogue a été importé, et rien d’autre ne traîne dans le dossier', () => {

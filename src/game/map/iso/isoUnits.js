@@ -28,6 +28,8 @@ import {
   vehicleLaneOffset, ensureVeh, vehReady, VEH_SIZES, VEH_PULL, VEH_PUSH,
   ensureVehDiag, vehDiagReady, eraVehSpec, riotEraKey, AGENT_SCALE, VEH_SCALE, imgInkBox, citizenPose } from '../agents.js';
 import { drawCitizenFocusRing, drawFocusRingAt, focusMark, noteFigure, noteVehicle } from '../citizenFocus.js';
+// Le guichet du paysage sonore : un module-FEUILLE (aucun import), sans risque de cycle.
+import { noteEmetteur } from '../../audio/paysage/evenements.js';
 
 // ── Véhicule en iso (Phase 1.5) : corps sprite 4-dirs + attelage/pousseur ────
 // Réutilise les briques legacy (ensureVeh, VEH_PULL/PUSH, bandes de marche) mais
@@ -245,6 +247,10 @@ function drawIsoVehicleInner(ctx, v, now, z) {
   const wx = v.x + lo.x, wy = v.y + lo.y;
   const p = worldToScreen(wx, wy);
   if (p.x < -s * 2 || p.y < -s * 2 || p.x > CM.cw + s * 2 || p.y > CM.ch + s * 2) return;
+  // LE SON (docs/PLAN-AMBIANCE-SONORE.md, lot 3) : l'attelage qu'on voit (sabots, roues)
+  // et la voiture s'entendent ; le porteur, non (ses pas sont dans ceux de la foule).
+  if (v.type === 'wagon' || v.type === 'chariot' || v.type === 'caravan') noteEmetteur('attelage', wx, wy, 1, now);
+  else if (v.type !== 'basket') noteEmetteur('moteur', wx, wy, 1, now);
   if (v.type === 'basket') {                       // porteurs de panier (ères anciennes)
     // Le porteur marche sur une route, donc toujours en biais à l'écran : vue
     // DIAGONALE si sa bande est livrée (même contrat que les habitants d'ère,

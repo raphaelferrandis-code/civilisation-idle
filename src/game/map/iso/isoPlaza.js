@@ -62,6 +62,8 @@ import { AGENT_SCALE, agentSetForBand, agentSpecFor, drawNamedAgentIso } from '.
 import { focusMark, drawFocusRingAt, noteSceneFigure, sceneRingWidth } from '../citizenFocus.js';
 import { buildFolk, folkAt, folkRev } from './plazaFolk.js';
 import { noteFig, FIG } from '../figures.js';
+// Le guichet du paysage sonore : un module-FEUILLE (aucun import), sans risque de cycle.
+import { noteEmetteur } from '../../audio/paysage/evenements.js';
 import { worldToScreen, depthOf } from './projection.js';
 import { lightCutImage, lightCtx } from '../lightLayer.js';
 import { queueFlameGlow, FLAME_COL } from '../flameGlow.js';
@@ -1588,6 +1590,10 @@ function pushOne(comp, pushItem, visible, now, visibleBox) {
       // arrêté, il ne compte pas — une volée posée près d'une causette repartirait sans fin.
       noteFig(rec.wx, rec.wy, FIG.PLAZA | (rec.walking ? FIG.MOVING : 0));
       if (visible && !visible(rec.wx, rec.wy)) continue;
+      // LE SON (docs/PLAN-AMBIANCE-SONORE.md, lot 3) : les enfants de la place jouent ; un
+      // marché a ses étals.
+      if (rec.charType === 2) noteEmetteur('enfants', rec.wx, rec.wy, 1, now);
+      if (comp.kind === 'marche') noteEmetteur('etals', rec.wx, rec.wy, 1, now);
       const it = pushItem();
       it.d = rec.d; it.kind = 'plazaProp'; it.art = rec; it.eraKey = comp.era;
       n += 1;
@@ -1771,6 +1777,9 @@ export function drawIsoPlazaProp(ctx, rec, era, now) {
     lightCutImage(im, g.dx, g.dy, g.dw, g.dh);
     ctx.imageSmoothingEnabled = prev;
     if (rec.prop === 'brazier') brazierGlow(rec, era, bb, im, g, now);
+    // LE SON (docs/PLAN-AMBIANCE-SONORE.md, lot 3) : l'eau qu'on voit couler s'entend —
+    // une fontaine pleinement, un puits ou une borne en filet.
+    else noteEmetteur('fontaine', rec.wx, rec.wy, rec.prop === 'well' ? 0.4 : 1, now);
     return;
   }
   if (rec.front) {
