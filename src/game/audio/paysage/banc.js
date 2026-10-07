@@ -7,6 +7,10 @@
 // réglages dans le presse-papiers : collés dans la conversation, ils deviennent les
 // valeurs par défaut du code. Le banc les retient d'une session à l'autre.
 //
+// Ouvert, il fait charger les sons de TOUS les âges (lot 6 : la carte ne charge que ceux
+// du sien) : ▶ fait entendre un carillon cosmique à l'âge du Feu. Fermé, la carte revient
+// aux sons de son âge.
+//
 // Outil de réglage, pas interface de jeu : styles en ligne, aucune feuille de style.
 // Il ne connaît le directeur que par l'objet `api` qu'il reçoit (pas d'import de
 // paysage.js, donc pas de cycle).
@@ -20,6 +24,7 @@ export function ouvrirBanc(a) {
   if (a) api = a;
   if (panneau || !api || typeof document === 'undefined') return;
   construire();
+  if (api.toutCharger) api.toutCharger(true);
   rafraichir();
   minuteur = setInterval(rafraichir, 250);
 }
@@ -27,6 +32,7 @@ export function fermerBanc() {
   clearInterval(minuteur);
   minuteur = null;
   if (panneau) panneau.remove();
+  if (panneau && api && api.toutCharger) api.toutCharger(false);
   panneau = null;
   vue = null;
 }
@@ -128,6 +134,7 @@ function construire() {
   panneau.append(el('div', TITRE, 'L’oreille'));
   const oreille = [
     curseur(panneau, 'maître', () => api.BANC.maitre, (v) => { api.BANC.maitre = v; }, 0, 3, 0.05),
+    curseur(panneau, 'lointain', () => api.BANC.lointain, (v) => { api.BANC.lointain = v; }, 0, 3, 0.05),
     curseur(panneau, 'zoom loin', () => api.OREILLE.zLoin, (v) => { api.OREILLE.zLoin = v; }, 0.2, 1.2, 0.01),
     curseur(panneau, 'zoom près', () => api.OREILLE.zPres, (v) => { api.OREILLE.zPres = v; }, 0.6, 3.2, 0.01),
     curseur(panneau, 'hauteur', () => api.OREILLE.h0, (v) => { api.OREILLE.h0 = v; }, 0.5, 10, 0.1),
@@ -160,7 +167,7 @@ const f2 = (v) => (v == null || !Number.isFinite(v) ? '·' : v.toFixed(2));
 function rafraichir() {
   if (!panneau || !vue || !api) return;
   const e = api.etat();
-  const sortie = e.sortieDb == null ? '·' : `${e.sortieDb.toFixed(1)} dBFS`;
+  const sortie = e.sortieDb == null ? '·' : `${e.sortieDb.toFixed(1)} dBFS${e.sonieDb == null ? '' : ` (pondérée ${e.sonieDb.toFixed(1)})`}`;
   vue.etat.textContent = `${e.eveille ? 'éveillé' : 'endormi'} · contexte ${e.contexte || '·'}${e.cache ? ' · fenêtre cachée' : ''}${e.fenetre ? ' · assourdi' : ''}${e.habitue ? ' · habitué' : ''}${e.neige > 0 ? ` · neige ${Math.round(e.neige * 100)} %` : ''}\n`
     + `zoom ${f2(e.zoom)} · proximité ${f2(e.p)} · oreille à ${f2(e.h)} cases\n`
     + `sortie ${sortie} · vent ×${f2(e.rafale)} · tampons ${e.tampons}${e.enRoute ? ` (+${e.enRoute})` : ''} (${Math.round(e.memoireMo || 0)} Mo) · fichiers ${e.enregistres}`;

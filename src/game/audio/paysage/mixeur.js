@@ -1,7 +1,7 @@
 // LE MIXEUR DU PAYSAGE SONORE (docs/PLAN-AMBIANCE-SONORE.md § 3.8 et § 3.9).
 //
 //   sources ─► gain ─► panoramique ─► bus ─► passe-bas du bus ─► maître ─► étouffoir
-//          ─► baisse ─► sortie (et une sonde, pour le banc d'écoute)
+//          ─► baisse ─► sortie (et deux sondes, pour le banc d'écoute)
 //
 //   · trois BUS : les nappes, le proche (ponctuels et émetteurs), le lointain. Les
 //     passe-bas des deux premiers se ferment quand on dézoome (oreille.js, coupure) ;
@@ -24,8 +24,18 @@ export function creerMixeur(ctx) {
   const sonde = ctx.createAnalyser();
   sonde.fftSize = 2048;
   maitre.connect(etouffoir); etouffoir.connect(baisse); baisse.connect(ctx.destination); baisse.connect(sonde);
+  // La sonde PONDÉRÉE : la pondération K de la sonie (UIT-R BS.1770 : un plateau de
+  // +4 dB au-dessus de 1,7 kHz, un passe-haut à 38 Hz), approchée par deux filtres. Le
+  // grave d'un vent y pèse moins que des voix au même niveau efficace (lot 6).
+  const plateau = ctx.createBiquadFilter();
+  plateau.type = 'highshelf'; plateau.frequency.value = 1682; plateau.gain.value = 4;
+  const sousGrave = ctx.createBiquadFilter();
+  sousGrave.type = 'highpass'; sousGrave.frequency.value = 38; sousGrave.Q.value = 0.5;
+  const sondeK = ctx.createAnalyser();
+  sondeK.fftSize = 2048;
+  baisse.connect(plateau); plateau.connect(sousGrave); sousGrave.connect(sondeK);
   const bus = {};
-  const noeuds = [maitre, etouffoir, baisse, sonde];
+  const noeuds = [maitre, etouffoir, baisse, sonde, plateau, sousGrave, sondeK];
   for (const nom of BUS) {
     const gain = ctx.createGain();
     const filtre = ctx.createBiquadFilter();
@@ -35,7 +45,7 @@ export function creerMixeur(ctx) {
     noeuds.push(gain, filtre);
   }
   return {
-    ctx, maitre, etouffoir, baisse, sonde, bus,
+    ctx, maitre, etouffoir, baisse, sonde, sondeK, bus,
     debrancher() { for (const x of noeuds) { try { x.disconnect(); } catch { /* déjà débranché */ } } },
   };
 }
@@ -93,11 +103,19 @@ export function jouerPonctuel(M, tampon, bus, gain, pan, vitesse = 1) {
 // Niveau de sortie (dBFS, efficace) lu sur la sonde : pour le banc d'écoute, et pour
 // vérifier qu'il sort quelque chose là où personne n'écoute (la pane de vérif).
 let _lecture = null;
-export function niveauSortie(M) {
-  if (!M || !M.sonde || typeof M.sonde.getFloatTimeDomainData !== 'function') return null;
-  if (!_lecture || _lecture.length !== M.sonde.fftSize) _lecture = new Float32Array(M.sonde.fftSize);
-  M.sonde.getFloatTimeDomainData(_lecture);
+function lire(sonde) {
+  if (!sonde || typeof sonde.getFloatTimeDomainData !== 'function') return null;
+  if (!_lecture || _lecture.length !== sonde.fftSize) _lecture = new Float32Array(sonde.fftSize);
+  sonde.getFloatTimeDomainData(_lecture);
   let e = 0;
   for (let i = 0; i < _lecture.length; i += 1) e += _lecture[i] * _lecture[i];
   return 10 * Math.log10(e / _lecture.length + 1e-12);
+}
+export function niveauSortie(M) {
+  return lire(M && M.sonde);
+}
+// Sa SONIE, lue sur la sonde pondérée : des dB relatifs, pas des LUFS (la sonde mêle les
+// deux canaux). De quoi COMPARER deux mélanges, deux zooms, deux âges.
+export function sonieSortie(M) {
+  return lire(M && M.sondeK);
 }

@@ -11,7 +11,7 @@ Chantier ouvert le 2026-10-07 sur la demande de Raph :
 > n'entendre que le son de la ville au loin avec la musique en fond qu'on ne touche pas pour
 > l'instant. »
 
-**Statut : décisions prises le 2026-10-07 (§ 9), lots 1 à 5 livrés (les trois derniers à éprouver en longues parties), lot 6 (le mixage final) en cours.**
+**Statut : décisions prises le 2026-10-07 (§ 9), lots 1 à 6 livrés. Reste l'épreuve des longues parties, qui revient à Raph.**
 Ce document fait foi pour ce chantier.
 
 ---
@@ -279,6 +279,19 @@ qui plonge dans le fleuve : un plouf le trahirait.
 - ⚠ **Le lointain doit rester discret.** C'est la leçon de Cities: Skylines, dont le vent
   constant au dézoom agace les joueurs (§ 1.1). Il a son propre curseur dans le banc d'écoute ;
   s'il gêne à l'usage, il aura aussi le sien dans les Options.
+- **Mesuré au lot 6** : dézoomé, le lointain sortait 6 à 11 dB AU-DESSUS du proche (sonie
+  pondérée K, au Feu, sur la grande ville de la partie de vérification). Une rumeur à pleine présence
+  pèse autant qu'une nappe qui remplirait l'écran, quand de près chaque nappe ne joue qu'une
+  part de l'écran. Le bus du lointain joue donc d'un bloc à 0,4, soit −8 dB (`LOINTAIN_BUS`) :
+  son équilibre interne, que Raph a validé, ne bouge pas. Même lieu, mêmes zooms :
+
+  | Zoom | 2,4 | 1,5 | 1 | 0,7 | 0,45 | 0,3 |
+  |---|---|---|---|---|---|---|
+  | avant (dB, pondérés) | −55,7 | −48,6 | −50,5 | −45,9 | −45,4 | −44,2 |
+  | après | −53,3 | −52,1 | −52,9 | −50,8 | −53,3 | −53,1 |
+
+  Le proche varie de 2 à 3 dB d'une mesure à l'autre (les sons semés, l'heure) ; le lointain,
+  lui, a bien perdu ses 8 dB. Le curseur « lointain » du banc le règle à l'oreille.
 
 ### 3.6 Les âges
 
@@ -333,25 +346,58 @@ Les 10 bandes (`data/eraThemes.js`, `eraBandOf`) donnent 5 familles sonores pour
 ### 3.9 Budget
 
 - **Rien n'est calculé à chaque image.**
-  - Un tick à 5 Hz, sans allocation : tableaux réutilisés.
-  - Il lit ce que le peintre a déjà calculé (règle de `PERF-CARTE-REPRISE.md`).
-  - Il s'accroche juste après `drawIsoWorld` (`map/cityMapRuntime.js:2591`) et saute les images
-    de capture (`CM.capture`).
-  - Coût visé : moins de 0,2 ms par tick.
-- **Les voix** : au plus 24 sources simultanées.
-  - Chacune a un `StereoPanner`, un `Gain` et parfois un filtre.
+  - Le paysage tourne sur son propre minuteur, hors de l'image : dix passages par seconde pour
+    le proche (ponctuels, émetteurs) ; un sur deux relit aussi l'écran pour les nappes
+    (`ECHANT_MS`, 190 ms).
+  - Sans allocation : tableaux réutilisés.
+  - Il lit ce que le peintre a déjà calculé (règle de `PERF-CARTE-REPRISE.md`) : les figures de
+    la dernière image, les émetteurs déposés au guichet.
+  - Coût visé : moins de 0,2 ms par passage.
+  - **Mesuré au lot 6**, à la Couronne, sur une grande ville au zoom 0,75 :
+    - 0,3 ms par passage qui relit l'écran, dont 0,17 ms pour les milieux (48 points) et
+      0,04 ms pour la foule ;
+    - 0,02 ms par passage léger ;
+    - soit 2 ms par seconde environ, hors de l'image : la carte n'en sent rien.
+- **Les voix.**
+  - Chaque nappe montée joue deux têtes de lecture, même muette (son gain à 0) : 17 nappes à
+    la Couronne, 34 sources. S'y ajoutent les émetteurs (trois voix au plus par famille) et les
+    ponctuels.
+  - Chaque source a un `StereoPanner`, un `Gain` et parfois un filtre.
   - Pas de `PannerNode` HRTF : il est inutile en 2D et coûteux.
-- **La mémoire** :
-  - Un son décodé pèse durée × fréquence du contexte × canaux × 4 octets, soit **5,8 Mo** pour
-    une boucle mono de 30 s à 48 kHz.
-  - Budget visé : 40 Mo décodés au plus à la fois. Seule la famille d'âge courante est chargée.
-  - Une nappe synthétisée en direct ne coûte qu'un petit tampon de bruit.
-  - Piste à vérifier : décoder dans un `OfflineAudioContext` à 24 ou 32 kHz réduirait la mémoire
-    d'un tiers à la moitié. Les nappes n'ont pas besoin de l'extrême aigu.
+  - Non mesurée : la charge du fil audio (le navigateur ne l'expose pas). Piste, si une machine
+    modeste craque : suspendre une nappe muette depuis longtemps.
+- **La mémoire.**
+  - Un son décodé pèse durée × fréquence × canaux × 4 octets.
+  - Les enregistrements se décodent à 32 kHz, leur fréquence, dans un `OfflineAudioContext` :
+    le contexte du jeu les décoderait à 48 kHz, une fois et demie plus lourds. Une boucle mono de
+    30 s pèse 3,8 Mo.
+  - **Seuls se chargent les sons de l'âge en cours** (lot 6) : une définition porte `ages: [de,
+    à]` (bandes de `data/eraThemes.js`) ; sans `ages`, elle joue à tous les âges. Au
+    changement d'âge, le reste se libère.
+  - **La pluie et la clameur ne se chargent qu'au besoin** (`charge`) : quand il pleut (pas
+    l'hiver, où la pluie tombe en neige), quand des émeutiers sont près de l'écran. Elles restent
+    deux minutes après la fin : une averse qui reprend ne recharge rien.
+  - Le banc d'écoute ouvert charge tout, pour qu'on y écoute n'importe quel son ; fermé, la carte
+    revient aux sons de son âge.
+  - Le budget de 40 Mo visé au départ ne tient pas sans abîmer le son. **Un âge tient sous 70 Mo,
+    sous 76 Mo sous l'averse d'une émeute** : `__tests__/paysageMixage.test.js` le garde.
+
+    | Âge (bande) | Mo décodés |
+    |---|---|
+    | Feu (0) | 50,4 |
+    | Bois (1) | 53,5 |
+    | Pierre taillée, Couronne, Marbre (2 à 4) | 66,5 |
+    | Fonte (5) | 67,8 |
+    | Néon (6) | 62,7 |
+    | Noosphère, stellaire, Démiurge (7 à 9) | 38,9 |
+    | tout à la fois (avant le lot 6 ; le banc ouvert) | 82,7 |
+
+    Mesuré dans le jeu : 50,4 Mo au Feu, 66,5 à la Couronne, 71,6 sous l'averse, 38,9 aux âges
+    cosmiques, comme l'estimation du test.
 - **La largeur sans la stéréo** : une nappe mono jouée par deux têtes de lecture décalées de plus
   de 10 s, panoramiquées à ±0,4, sonne large pour moitié moins de mémoire.
-- **Le poids livré** : 10 à 20 Mo d'Ogg pour tout le paysage. Les ponctuels sont en mono.
-  ⛔ Jamais de MP3 pour une boucle.
+- **Le poids livré** : 10 à 20 Mo d'Ogg visés pour tout le paysage ; **4,4 Mo mesurés** au lot 6
+  (68 fichiers, mono, 32 kHz, Vorbis). ⛔ Jamais de MP3 pour une boucle.
 - **Les fichiers sont déclarés** par `import.meta.glob`, comme les musiques, et jamais sondés
   par URL. C'est la leçon de l'.exe : une chaîne de replis d'URL demande tous ses maillons.
 
@@ -847,7 +893,7 @@ validation à l'oreille du précédent.
 |---|---|
 | **L'agacement** : un idle tourne des heures | Densité basse, variantes, garde-fous par famille, habituation (§ 3.3), épreuve de 2 h (lot 6). |
 | **Une voix reconnaissable** : du français distinct à l'âge du Feu casse l'illusion | Brouhaha indistinct ou filtré. → question 6. |
-| **La mémoire** | Familles d'âge chargées à la demande, synthèse en direct pour les textures, budget de 40 Mo mesuré. |
+| **La mémoire** | Seuls les sons de l'âge en cours se chargent, la pluie et la clameur au besoin ; budget mesuré par âge et gardé par un test (§ 3.9). |
 | **La perf de la carte** | Tick à 5 Hz sans allocation, rien par image, lecture des sorties du peintre. |
 | **Les licences** | Une ligne par pack dans `CREDITS.md`, test des crédits, rien de non commercial. |
 | **Je n'entends pas** | Banc d'écoute, mesures automatiques, validation de Raph à chaque lot. |
@@ -1297,3 +1343,41 @@ Ma recommandation était donnée pour chacune.
   demande de Raph, par la même méthode que le lot 3 : la version « lot 4 » des fichiers mêlés,
   vérifiée dans une copie de travail temporaire, posée sur le dernier commit de `main` (une
   autre session y avait commité entre-temps, rien n'est écrasé).
+- **2026-10-07, lot 6 (le mixage final).** Demandé par Raph après les commits des lots 4
+  et 5.
+
+  **La mémoire** (§ 3.9). Tout charger d'un coup montait à 83 Mo. Désormais :
+  - chaque définition dit ses âges (`ages: [de, à]`) : pas de circulation avant le Néon, pas
+    d'oiseaux aux âges cosmiques, pas de carillons avant eux ; au changement d'âge, ce qui
+    ne joue plus se libère ;
+  - une définition ne joue qu'à son âge, même quand son fichier reste en mémoire pour une
+    autre (la rumeur de foule réemploie le brouhaha) ;
+  - la pluie et la clameur ne se chargent qu'au besoin, et restent deux minutes après ;
+  - le banc d'écoute ouvert charge tout : on y écoute un carillon cosmique à l'âge du Feu.
+
+  Mesuré dans le jeu : 50,4 Mo au Feu, 66,5 à la Couronne (71,6 sous l'averse, rendus à
+  66,5 deux minutes après), 38,9 aux âges cosmiques, comme l'estimation. Le budget de 40 Mo
+  visé au départ ne tient pas sans abîmer le son : `paysageMixage.test.js` garde chaque âge
+  sous 70 Mo (76 sous l'averse d'une émeute) et vérifie qu'aucun son n'est orphelin.
+
+  **Le dézoom** (§ 3.5). Mesuré en sonie pondérée, avec une sonde neuve du mixeur (le niveau
+  efficace surestime le grave d'un vent) : dézoomé, le lointain sortait 6 à 11 dB au-dessus
+  du proche. Son bus joue d'un bloc à 0,4 (−8 dB) ; la courbe est à plat, de −53,3 au zoom
+  2,4 à −53,1 au zoom 0,3. Le banc montre la sonie pondérée à côté du niveau, et gagne un
+  curseur « lointain ».
+
+  **Le CPU** (§ 3.9). 0,3 ms par passage qui relit l'écran, cinq fois par seconde ; 0,02 ms
+  sinon. Environ 2 ms par seconde, hors de l'image.
+
+  **Le paquet.** `vite build` emporte les 68 fichiers (4,4 Mo) et le Worker de synthèse.
+  L'.exe est vérifié sur pièces seulement : le protocole `app://` accepte `fetch`, la CSP
+  permet `connect-src 'self'`. Il n'a pas été construit ici, pour ne pas écraser la release
+  de `../ce-release` ni télécharger Electron : à faire par Raph (`npm run dist-win`), puis
+  écouter la carte.
+
+  **Steam.** La ligne « Sons » de `STEAM-PUBLICATION.md` § 2.2 et les deux brouillons de la
+  déclaration nomment la synthèse et les enregistrements de terrain : aucun son n'est généré
+  par IA.
+
+  **Reste** : l'épreuve des longues parties, par Raph ; le curseur « lointain » à régler à
+  son oreille.

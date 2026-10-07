@@ -21,7 +21,9 @@ beforeAll(async () => {
     }
     terminate() {}
   };
-});
+  // 30 s : charger le cœur du jeu en Node dépasse les 10 s par défaut quand toute la suite
+  // du son tourne en parallèle (« Hook timed out », vu le 2026-10-07 ; seul, il passe).
+}, 30000);
 afterAll(() => { delete globalThis.window; delete globalThis.Worker; });
 beforeEach(() => { demandes.length = 0; });
 const attendre = () => new Promise((r) => setTimeout(r, 0));

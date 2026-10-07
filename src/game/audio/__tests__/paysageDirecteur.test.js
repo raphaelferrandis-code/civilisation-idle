@@ -25,7 +25,7 @@ class FauxTampon {
 class FauxContexte {
   constructor() { this.state = 'running'; this.currentTime = 0; this.destination = new Noeud(); }
   createGain() { const n = new Noeud(); n.gain = new Param(1); return n; }
-  createBiquadFilter() { const n = new Noeud(); n.frequency = new Param(350); n.Q = new Param(1); J.filtres.push(n); return n; }
+  createBiquadFilter() { const n = new Noeud(); n.frequency = new Param(350); n.Q = new Param(1); n.gain = new Param(0); J.filtres.push(n); return n; }
   createStereoPanner() { const n = new Noeud(); n.pan = new Param(0); return n; }
   createAnalyser() { const n = new Noeud(); n.fftSize = 2048; n.getFloatTimeDomainData = (a) => a.fill(0); return n; }
   createBufferSource() {
@@ -53,8 +53,9 @@ const page = {
 
 let P = null, E = null, R = null, Synth = null, CM = null;
 const boucles = () => J.sources.filter((s) => s.loop && s.joue && !s.arretee);
-// Les nappes synthétisées : ici, les enregistrements ne se décodent pas (aucun fichier servi).
-const nappesSynth = () => Object.values(P.NAPPES).filter((d) => !d.enregistres).length;
+// Les nappes synthétisées de l'âge du Feu (sans plan, la carte est à la bande 0) : ici, les
+// enregistrements ne se décodent pas (aucun fichier servi), et un âge ne charge que ses sons.
+const nappesSynth = () => Object.values(P.NAPPES).filter((d) => !d.enregistres && P.joueA(d, 0)).length;
 const ponctuels = () => J.sources.filter((s) => !s.loop);
 const vider = async () => { for (let i = 0; i < 6; i += 1) await Promise.resolve(); };
 // Le panoramique d'un ponctuel : source → gain → panoramique (mixeur.js).
@@ -179,5 +180,28 @@ describe('le directeur du paysage sonore', () => {
     await eveiller();
     vi.advanceTimersByTime(110);
     expect(ponctuels().length).toBe(avant);
+  });
+
+  it("l'âge change : ses nappes montent, celles des autres s'arrêtent ; le banc ouvert charge tout sans le jouer (lot 6)", async () => {
+    await eveiller();
+    const nappesA = (b) => Object.values(P.NAPPES).filter((d) => !d.enregistres && P.joueA(d, b)).length;
+    const synthA = (b) => P.sonsUtiles(b, undefined, undefined, { pluie: false, emeute: false }).synth.size;
+    expect(nappesA(7)).not.toBe(nappesA(0));
+    // Le plan d'une ville cosmique, sans écran (le tick s'arrête après les nappes).
+    CM.cw = 0;
+    CM.layout = { counts: { eraBand: 7 } };
+    vi.advanceTimersByTime(110);
+    await vider();
+    vi.advanceTimersByTime(110);
+    expect(P.etatPaysage().bande).toBe(7);
+    expect(boucles().length).toBe(2 * nappesA(7));
+    expect(P.etatPaysage().tampons).toBe(synthA(7));    // ici, aucun fichier ne se décode
+    P.toutCharger(true);
+    await vider();
+    vi.advanceTimersByTime(110);
+    expect(P.etatPaysage().tampons).toBe(P.sonsUtiles(null).synth.size);
+    expect(boucles().length).toBe(2 * nappesA(7));     // chargés, pas joués
+    P.toutCharger(false);
+    expect(P.etatPaysage().tampons).toBe(synthA(7));
   });
 });

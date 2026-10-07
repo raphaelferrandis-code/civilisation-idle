@@ -28,10 +28,10 @@ import { worldToScreen } from '../../map/iso/projection.js';
 import { isWindowMinimized, onWindowMinimizedChange } from '../../core/desktopWindow.js';
 import { audioCtx, enTampon, retenirContexte, relacherContexte } from '../synth.js';
 import { rendreAilleurs } from '../syntheseAilleurs.js';
-import { rendrePaysage, PAYSAGE_SR, SONS_PAYSAGE } from './paysageSynth.js';
+import { rendrePaysage, PAYSAGE_SR } from './paysageSynth.js';
 import { OREILLE, proximite, hauteur, attenuation, panoramique, fondu, coupure } from './oreille.js';
 import { echantillonner, mesurerFoule, nouvelleMesure, tailleVille, tirerLieu, MILIEUX, ECHANT, FOULE } from './milieux.js';
-import { creerMixeur, creerBoucle, jouerPonctuel, niveauSortie } from './mixeur.js';
+import { creerMixeur, creerBoucle, jouerPonctuel, niveauSortie, sonieSortie } from './mixeur.js';
 import { paysageEcoute, releverSons, emetteursDe } from './evenements.js';
 import { ENREGISTRES } from './enregistrements.js';
 import { getPaysageActif, getPaysageVolume, onPaysageReglages } from './reglages.js';
@@ -42,6 +42,12 @@ const ECHANT_MS = 190;      // les nappes : l'écran est relu cinq fois par seco
 const SORTIE_MS = 1600;     // fondu de sortie avant le sommeil
 const OUBLI_MS = 120000;    // les tampons survivent deux minutes de sommeil
 const ATTENTE_MS = 20000;   // un son que le Worker ne rend pas en 20 s se rend ici
+// LE LOINTAIN D'UN BLOC (lot 6) : le bus du lointain (la rumeur, ses couches d'âge, le vent
+// d'altitude) joue à 0,4, soit −8 dB, sans toucher à son équilibre. Mesuré en sonie
+// pondérée : dézoomé, la rumeur d'une grande ville sortait 6 à 11 dB AU-DESSUS du proche.
+// Dézoomer doit éloigner, pas monter le son (§ 1.1 : le vent de Cities: Skylines, que des
+// joueurs voulaient couper). Le banc le règle (« lointain »).
+const LOINTAIN_BUS = 0.4;
 
 // ── Ce qui sonne ──────────────────────────────────────────────────────────────
 // `niveau` : le gain d'une nappe qui remplit l'écran. `largeur` : l'écart des deux
@@ -79,39 +85,40 @@ export const NAPPES = {
   // −20 LUFS sans écrêter, son niveau de jeu la rattrape — causerie −24,7 LUFS, jeux
   // −23,2, étals −24,7, circulation −21, pas −32,3 ; brouhaha −20,3.
   brouhaha: { enregistres: ['brouhaha-rue-1'], bus: 'nappes', largeur: 0.45, niveau: 0.16 },
-  causerie: { enregistres: ['causerie-place-1', 'causerie-groupe-1'], bus: 'nappes', largeur: 0.4, niveau: 0.27 },
-  jeux: { enregistres: ['jeux-parc-1', 'jeux-cour-1'], bus: 'nappes', largeur: 0.4, niveau: 0.17 },
+  causerie: { ages: [2, 9], enregistres: ['causerie-place-1', 'causerie-groupe-1'], bus: 'nappes', largeur: 0.4, niveau: 0.27 },
+  jeux: { ages: [2, 9], enregistres: ['jeux-parc-1', 'jeux-cour-1'], bus: 'nappes', largeur: 0.4, niveau: 0.17 },
   // Le marché : les étals d'une place de marché qu'on voit (iso/isoPlaza.js), de jour.
   etals: { enregistres: ['etals-plein-air-1'], bus: 'nappes', largeur: 0.4, niveau: 0.24 },
   // La RUE selon l'âge (lot 3, suite) : les pas de ceux qui marchent près de l'oreille,
   // sur la terre et la pierre (jusqu'à la Fonte) ; la circulation de l'âge du Néon, dosée
   // par les voitures qu'on voit (iso/isoUnits.js). Enregistrées, rendues sans langue.
-  pas: { enregistres: ['pas-gravier-1'], bus: 'nappes', largeur: 0.4, niveau: 0.33 },
-  circulation: { enregistres: ['circulation-carrefour-1'], bus: 'nappes', largeur: 0.45, niveau: 0.16 },
+  pas: { ages: [0, 6], enregistres: ['pas-gravier-1'], bus: 'nappes', largeur: 0.4, niveau: 0.33 },
+  circulation: { ages: [6, 6], enregistres: ['circulation-carrefour-1'], bus: 'nappes', largeur: 0.45, niveau: 0.16 },
   // La RUMEUR LOINTAINE selon l'âge : sur le bus du lointain (assourdi), des couches qui
   // réemploient des sons déjà en mémoire, joués plus lents — plus graves, plus loin —, et
   // qui s'ajoutent à la rumeur synthétisée : la foule d'une cité (de la Pierre à la Fonte),
   // la circulation (à peine à la Fonte, pleine au Néon), le bourdon des drones (âges
   // cosmiques). Aucune mémoire de plus. Discrètes : dézoomer doit ÉLOIGNER, pas monter le
   // son (−43 dBFS mesurés au zoom 0,4, contre −45 de près).
-  lointainFoule: { enregistres: ['brouhaha-rue-1'], vitesse: 0.85, bus: 'lointain', largeur: 0.5, niveau: 0.09 },
-  lointainTrafic: { enregistres: ['circulation-carrefour-1'], vitesse: 0.75, bus: 'lointain', largeur: 0.5, niveau: 0.09 },
-  lointainCosmique: { son: 'drone', vitesse: 0.5, bus: 'lointain', largeur: 0.5, niveau: 0.07 },
+  lointainFoule: { ages: [2, 6], enregistres: ['brouhaha-rue-1'], vitesse: 0.85, bus: 'lointain', largeur: 0.5, niveau: 0.09 },
+  lointainTrafic: { ages: [5, 6], enregistres: ['circulation-carrefour-1'], vitesse: 0.75, bus: 'lointain', largeur: 0.5, niveau: 0.09 },
+  lointainCosmique: { ages: [7, 9], son: 'drone', vitesse: 0.5, bus: 'lointain', largeur: 0.5, niveau: 0.07 },
   // LOT 4 (les métiers) : le PORT — l'eau contre les coques, les cordages, l'activité —,
   // dosé par les gens du port et des quais près de l'oreille (porteurs, promeneurs).
   // Niveaux selon la sonie mesurée à l'import : port −25,6 LUFS, troupeau −21,9.
-  port: { enregistres: ['port-peche-1'], bus: 'nappes', largeur: 0.45, niveau: 0.3 },
+  port: { ages: [1, 6], enregistres: ['port-peche-1'], bus: 'nappes', largeur: 0.45, niveau: 0.3 },
   // Les cloches d'un troupeau, près des bêtes qu'on voit au pré (iso/isoLivePaint.js).
-  troupeau: { enregistres: ['troupeau-cloches-1'], bus: 'nappes', largeur: 0.45, niveau: 0.13 },
+  troupeau: { ages: [0, 6], enregistres: ['troupeau-cloches-1'], bus: 'nappes', largeur: 0.45, niveau: 0.13 },
   // LOT 5 (le temps) : la PLUIE — sur les flaques et la terre, sur la pierre des villes —,
   // dosée par l'averse (CM.rainF) et ses rafales, partagée selon la part de ville à
   // l'écran ; en hiver, la pluie du jeu tombe en NEIGE : elle se tait et le monde
   // s'assourdit (tick). La CLAMEUR d'une émeute, dosée par les émeutiers proches.
   // Niveaux selon la sonie mesurée, rapportée aux nappes synthétisées (≈ −20 LUFS au
   // niveau 0,2) : pluie −32,6 et −34,1 LUFS, clameur −22,6. Une averse doit s'imposer.
-  pluie: { enregistres: ['pluie-flaques-1'], bus: 'nappes', largeur: 0.5, niveau: 0.85 },
-  pluieVille: { enregistres: ['pluie-pave-1'], bus: 'nappes', largeur: 0.5, niveau: 0.95 },
-  emeute: { enregistres: ['emeute-clameur-1'], bus: 'nappes', largeur: 0.45, niveau: 0.22 },
+  // `charge` (lot 6) : chargées seulement quand il pleut, quand une émeute gronde.
+  pluie: { charge: 'pluie', enregistres: ['pluie-flaques-1'], bus: 'nappes', largeur: 0.5, niveau: 0.85 },
+  pluieVille: { charge: 'pluie', enregistres: ['pluie-pave-1'], bus: 'nappes', largeur: 0.5, niveau: 0.95 },
+  emeute: { charge: 'emeute', enregistres: ['emeute-clameur-1'], bus: 'nappes', largeur: 0.45, niveau: 0.22 },
 };
 // `ref` / `max` : portée en cases (oreille.js, attenuation) ; `voix` : au plus tant à la
 // fois ; `ecartMs` : jamais deux tirs plus serrés.
@@ -125,10 +132,10 @@ export const PONCTUELS = {
   plip: { sons: ['plip1', 'plip2', 'plip3', 'plip4'], ref: 2.5, max: 9, niveau: 0.1, voix: 2, ecartMs: 250, calibre: true },
   // LOT 3 : l'envol d'une volée de pigeons (iso/isoVieOiseaux.js) ; la force est le nombre
   // d'oiseaux — un seul (envol1-2) ou une volée (envol3-4).
-  envol: { sons: ['envol1', 'envol2', 'envol3', 'envol4'], ref: 4, max: 16, niveau: 0.2, voix: 2, ecartMs: 300,
+  envol: { ages: [2, 6], sons: ['envol1', 'envol2', 'envol3', 'envol4'], ref: 4, max: 16, niveau: 0.2, voix: 2, ecartMs: 300,
     choix: (force) => (force >= 3 ? [2, 4] : [0, 2]) },
   // LOT 4 : la cloche du bord, quand un bateau accoste ou repart (iso/isoPort.js).
-  cloche: { sons: ['clochebateau1', 'clochebateau2'], ref: 6, max: 26, niveau: 0.16, voix: 1, ecartMs: 3000 },
+  cloche: { ages: [2, 5], sons: ['clochebateau1', 'clochebateau2'], ref: 6, max: 26, niveau: 0.16, voix: 1, ecartMs: 3000 },
 };
 // Les émetteurs : seules les `voix` bêtes les plus fortes sonnent (les « voix
 // virtuelles » des moteurs de jeu). La libellule s'entend de près : il faut être
@@ -136,25 +143,25 @@ export const PONCTUELS = {
 // se fait discrète ; c'est en vol franc qu'elle bourdonne (`calme`, ci-dessous).
 // Sans `calme`, l'intensité `k` notée par la carte est le gain lui-même.
 export const EMETTEURS = {
-  libellule: { son: 'libellule', ref: 1.7, max: 6.5, niveau: 0.2, voix: 2, calme: 0.35 },
+  libellule: { ages: [0, 6], son: 'libellule', ref: 1.7, max: 6.5, niveau: 0.2, voix: 2, calme: 0.35 },
   // LOT 3 : l'eau qu'on voit couler (iso/isoPlaza.js) — une fontaine (k = 1), un puits ou
   // une borne qui coule en filet (k = 0,4).
-  fontaine: { son: 'fontaine', ref: 2.2, max: 9, niveau: 0.13, voix: 2 },
+  fontaine: { ages: [2, 9], son: 'fontaine', ref: 2.2, max: 9, niveau: 0.13, voix: 2 },
   // L'attelage qu'on voit, charrette, char ou diligence (iso/isoUnits.js) : ses sabots au
   // pas (enregistrés). Le drone des âges cosmiques (iso/isoSky.js) : son bourdon
   // (synthétisé, c'est une machine).
   // Les sabots de la rue Christine (−27,3 LUFS) : deux chevaux sur une chaussée de ville.
-  attelage: { enregistres: ['sabots-rue-1', 'sabots-pas-1'], ref: 3, max: 12, niveau: 0.37, voix: 2 },
-  drone: { son: 'drone', ref: 2.5, max: 10, niveau: 0.1, voix: 2 },
+  attelage: { ages: [0, 5], enregistres: ['sabots-rue-1', 'sabots-pas-1'], ref: 3, max: 12, niveau: 0.37, voix: 2 },
+  drone: { ages: [6, 9], son: 'drone', ref: 2.5, max: 10, niveau: 0.1, voix: 2 },
   // LOT 4, les métiers (paysage/metiers.js dit quelle scène fait quel bruit) : le feu d'un
   // foyer, d'un brasero, d'un culte ; l'enclume du forgeron ; la machine à vapeur de la
   // Fonte (et des vapeurs qui naviguent) ; le bourdon électrique du Néon (synthétisé).
   // Niveaux selon la sonie mesurée : feu −38,3 LUFS (des crépitements épars, montés moins
   // que l'écart : un crépitement s'entend plus que son énergie), forge −17,6, vapeur −21,1.
-  feu: { enregistres: ['feu-cheminee-1'], ref: 2, max: 9, niveau: 0.6, voix: 2 },
-  forge: { enregistres: ['forge-enclume-1'], ref: 3.5, max: 14, niveau: 0.12, voix: 1 },
-  vapeur: { enregistres: ['vapeur-machine-1'], ref: 3.5, max: 14, niveau: 0.16, voix: 2 },
-  electrique: { son: 'electrique', ref: 2.5, max: 10, niveau: 0.08, voix: 2 },
+  feu: { ages: [0, 6], enregistres: ['feu-cheminee-1'], ref: 2, max: 9, niveau: 0.6, voix: 2 },
+  forge: { ages: [0, 4], enregistres: ['forge-enclume-1'], ref: 3.5, max: 14, niveau: 0.12, voix: 1 },
+  vapeur: { ages: [5, 5], enregistres: ['vapeur-machine-1'], ref: 3.5, max: 14, niveau: 0.16, voix: 2 },
+  electrique: { ages: [6, 6], son: 'electrique', ref: 2.5, max: 10, niveau: 0.08, voix: 2 },
 };
 // Les PONCTUELS SEMÉS (lot 2) : des sons ENREGISTRÉS sans support visible — l'oiseau
 // qu'on entend sans le voir —, tirés au hasard (processus de Poisson) dans les parties de
@@ -172,19 +179,19 @@ export const EMETTEURS = {
 // Niveaux de départ, à régler à l'oreille.
 const PRINTEMPS = 0, ETE = 1, AUTOMNE = 2, HIVER = 3;
 export const SEMES = {
-  oiseau: { milieux: { foret: 1, prairie: 0.3 }, taux: 14, variantes: 8, ref: 7, max: 26, niveau: 0.22, voix: 2, ecartMs: 900,
+  oiseau: { ages: [0, 6], milieux: { foret: 1, prairie: 0.3 }, taux: 14, variantes: 8, ref: 7, max: 26, niveau: 0.22, voix: 2, ecartMs: 900,
     quand: (c) => (1 - c.nuit) * [1, 0.8, 0.6, 0.15][c.saison] * c.sec * c.vivant },
-  coucou: { milieux: { foret: 1 }, taux: 1.2, variantes: 2, ref: 10, max: 40, niveau: 0.18, voix: 1, ecartMs: 20000,
+  coucou: { ages: [0, 6], milieux: { foret: 1 }, taux: 1.2, variantes: 2, ref: 10, max: 40, niveau: 0.18, voix: 1, ecartMs: 20000,
     quand: (c) => (1 - c.nuit) * (c.saison === PRINTEMPS ? 1 : c.saison === ETE ? 0.4 : 0) * c.sec * c.vivant },
-  pic: { milieux: { foret: 1 }, taux: 1.5, variantes: 2, ref: 8, max: 30, niveau: 0.2, voix: 1, ecartMs: 12000,
+  pic: { ages: [0, 6], milieux: { foret: 1 }, taux: 1.5, variantes: 2, ref: 8, max: 30, niveau: 0.2, voix: 1, ecartMs: 12000,
     quand: (c) => (1 - c.nuit) * (c.saison === HIVER ? 0.5 : 1) * c.sec * c.vivant },
-  chouette: { milieux: { foret: 1 }, taux: 1.4, variantes: 2, ref: 9, max: 34, niveau: 0.2, voix: 1, ecartMs: 15000,
+  chouette: { ages: [0, 6], milieux: { foret: 1 }, taux: 1.4, variantes: 2, ref: 9, max: 34, niveau: 0.2, voix: 1, ecartMs: 15000,
     quand: (c) => c.nuit * c.sec * c.vivant },
-  grenouille: { milieux: { rive: 1 }, taux: 10, variantes: 4, ref: 5, max: 20, niveau: 0.16, voix: 2, ecartMs: 700,
+  grenouille: { ages: [0, 6], milieux: { rive: 1 }, taux: 10, variantes: 4, ref: 5, max: 20, niveau: 0.16, voix: 2, ecartMs: 700,
     quand: (c) => c.nuit * (c.saison <= ETE ? 1 : c.saison === AUTOMNE ? 0.3 : 0) * c.vivant },
-  corneille: { milieux: { champ: 1, prairie: 0.6, foret: 0.3 }, taux: 3, variantes: 4, ref: 8, max: 30, niveau: 0.18, voix: 1, ecartMs: 4000,
+  corneille: { ages: [0, 6], milieux: { champ: 1, prairie: 0.6, foret: 0.3 }, taux: 3, variantes: 4, ref: 8, max: 30, niveau: 0.18, voix: 1, ecartMs: 4000,
     quand: (c) => (1 - c.nuit) * (c.saison === HIVER ? 1 : c.saison === AUTOMNE ? 0.4 : 0) * c.vivant },
-  alouette: { milieux: { champ: 1, prairie: 0.7 }, taux: 2, variantes: 2, ref: 9, max: 34, niveau: 0.16, voix: 1, ecartMs: 8000,
+  alouette: { ages: [0, 6], milieux: { champ: 1, prairie: 0.7 }, taux: 2, variantes: 2, ref: 9, max: 34, niveau: 0.16, voix: 1, ecartMs: 8000,
     quand: (c) => (1 - c.nuit) * (c.saison <= ETE ? 1 : 0) * c.sec * c.vivant },
   // LOT 3, la ville : semés SUR ce que la carte dessine (`sur` : une famille d'émetteurs,
   // evenements.js) plutôt que dans un milieu — l'enfant qu'on voit crie, le pigeon qu'on
@@ -194,33 +201,33 @@ export const SEMES = {
   enfant: { sur: 'enfants',
     taux: 4, variantes: 8, ref: 6, max: 24, niveau: 0.15, voix: 2, ecartMs: 2500,
     quand: (c) => (1 - c.nuit) * Math.sqrt(c.sec) },
-  pigeon: { sur: 'pigeons', synth: ['roucoul1', 'roucoul2', 'roucoul3', 'roucoul4', 'roucoul5', 'roucoul6'],
+  pigeon: { ages: [2, 6], sur: 'pigeons', synth: ['roucoul1', 'roucoul2', 'roucoul3', 'roucoul4', 'roucoul5', 'roucoul6'],
     taux: 6, variantes: 6, ref: 3.5, max: 14, niveau: 0.16, voix: 2, ecartMs: 1500,
     quand: (c) => 1 - c.nuit },
   // LOT 4 : la mouette qu'on voit crie (iso/isoVieOiseaux.js, sur les quais), de jour.
-  mouette: { sur: 'mouettes', taux: 6, variantes: 4, ref: 6, max: 24, niveau: 0.16, voix: 2, ecartMs: 1200,
+  mouette: { ages: [2, 6], sur: 'mouettes', taux: 6, variantes: 4, ref: 6, max: 24, niveau: 0.16, voix: 2, ecartMs: 1200,
     quand: (c) => 1 - c.nuit },
   // La roue d'une charrette qui grince, de temps en temps, sur un attelage qu'on voit.
-  roue: { sur: 'attelage', taux: 5, variantes: 4, ref: 4, max: 14, niveau: 0.12, voix: 1, ecartMs: 2500,
+  roue: { ages: [0, 5], sur: 'attelage', taux: 5, variantes: 4, ref: 4, max: 14, niveau: 0.12, voix: 1, ecartMs: 2500,
     quand: () => 1 },
   // LOT 4 : la scie et le marteau d'un chantier qu'on voit, de jour ; un jet de vapeur sur
   // une machine ; la vache, la chèvre qu'on voit au pré (moins la nuit) ; le coq, à l'aube,
   // du côté des champs.
-  charpente: { sur: 'charpente', taux: 6, variantes: 4, ref: 4, max: 16, niveau: 0.16, voix: 1, ecartMs: 2500,
+  charpente: { ages: [2, 4], sur: 'charpente', taux: 6, variantes: 4, ref: 4, max: 16, niveau: 0.16, voix: 1, ecartMs: 2500,
     quand: (c) => 1 - c.nuit },
-  sifflet: { sur: 'vapeur', taux: 1.5, variantes: 1, ref: 4, max: 16, niveau: 0.12, voix: 1, ecartMs: 8000,
+  sifflet: { ages: [5, 5], sur: 'vapeur', taux: 1.5, variantes: 1, ref: 4, max: 16, niveau: 0.12, voix: 1, ecartMs: 8000,
     quand: () => 1 },
-  vache: { sur: 'vaches', taux: 2, variantes: 3, ref: 5, max: 20, niveau: 0.16, voix: 1, ecartMs: 6000,
+  vache: { ages: [0, 6], sur: 'vaches', taux: 2, variantes: 3, ref: 5, max: 20, niveau: 0.16, voix: 1, ecartMs: 6000,
     quand: (c) => 1 - 0.7 * c.nuit },
-  chevre: { sur: 'chevres', taux: 3, variantes: 3, ref: 4, max: 16, niveau: 0.14, voix: 1, ecartMs: 4000,
+  chevre: { ages: [0, 6], sur: 'chevres', taux: 3, variantes: 3, ref: 4, max: 16, niveau: 0.14, voix: 1, ecartMs: 4000,
     quand: (c) => 1 - 0.7 * c.nuit },
-  coq: { milieux: { champ: 1, prairie: 0.3 }, taux: 1.5, variantes: 1, ref: 10, max: 40, niveau: 0.14, voix: 1, ecartMs: 20000,
+  coq: { ages: [0, 6], milieux: { champ: 1, prairie: 0.3 }, taux: 1.5, variantes: 1, ref: 10, max: 40, niveau: 0.14, voix: 1, ecartMs: 20000,
     quand: (c) => (c.aube || 0) * c.vivant },
   // LOT 5 : un chien aboie au loin, la nuit, du côté des maisons ; aux âges cosmiques, des
   // carillons de verre (synthétisés) tintent sur la ville, rarement.
-  chien: { milieux: { ville: 1, prairie: 0.3, champ: 0.3 }, taux: 1.2, variantes: 3, ref: 12, max: 45, niveau: 0.1, voix: 1, ecartMs: 12000,
+  chien: { ages: [0, 6], milieux: { ville: 1, prairie: 0.3, champ: 0.3 }, taux: 1.2, variantes: 3, ref: 12, max: 45, niveau: 0.1, voix: 1, ecartMs: 12000,
     quand: (c) => c.nuit * c.vivant },
-  carillon: { milieux: { ville: 1, place: 1 }, synth: ['carillon1', 'carillon2', 'carillon3', 'carillon4'],
+  carillon: { ages: [7, 9], milieux: { ville: 1, place: 1 }, synth: ['carillon1', 'carillon2', 'carillon3', 'carillon4'],
     taux: 1.5, variantes: 4, ref: 8, max: 30, niveau: 0.08, voix: 1, ecartMs: 15000,
     quand: (c) => c.cosmique || 0 },
 };
@@ -252,6 +259,7 @@ const HABITUATION_MS = 300000;
 const GROUPES = ['nappes', 'ponctuels', 'emetteurs', 'semes'];
 export const BANC = {
   maitre: 1,
+  lointain: 1,     // le bus du lointain (× LOINTAIN_BUS)
   nappes: Object.fromEntries(Object.keys(NAPPES).map((k) => [k, 1])),
   ponctuels: Object.fromEntries(Object.keys(PONCTUELS).map((k) => [k, 1])),
   emetteurs: Object.fromEntries(Object.keys(EMETTEURS).map((k) => [k, 1])),
@@ -269,6 +277,7 @@ function lireBanc() {
     const j = JSON.parse(localStorage.getItem(CLE_BANC) || 'null');
     if (!j || typeof j !== 'object') return;
     BANC.maitre = nombre(j.maitre, 1);
+    BANC.lointain = nombre(j.lointain, 1);
     for (const g of GROUPES) {
       for (const k of Object.keys(BANC[g])) BANC[g][k] = nombre(j[g] && j[g][k], 1);
     }
@@ -277,7 +286,7 @@ function lireBanc() {
 }
 export function reglagesBanc() {
   return {
-    maitre: BANC.maitre,
+    maitre: BANC.maitre, lointain: BANC.lointain,
     nappes: { ...BANC.nappes }, ponctuels: { ...BANC.ponctuels }, emetteurs: { ...BANC.emetteurs }, semes: { ...BANC.semes },
     oreille: { zLoin: OREILLE.zLoin, zPres: OREILLE.zPres, h0: OREILLE.h0 },
   };
@@ -286,7 +295,7 @@ export function retenirBanc() {
   try { localStorage.setItem(CLE_BANC, JSON.stringify(reglagesBanc())); } catch { /* stockage indisponible */ }
 }
 export function remettreBanc() {
-  BANC.maitre = 1; BANC.solo = null;
+  BANC.maitre = 1; BANC.lointain = 1; BANC.solo = null;
   for (const g of GROUPES) for (const k of Object.keys(BANC[g])) BANC[g][k] = 1;
   for (const k of ['zLoin', 'zPres', 'h0']) OREILLE[k] = OREILLE_DEFAUT[k];
   try { localStorage.removeItem(CLE_BANC); } catch { /* idem */ }
@@ -302,6 +311,12 @@ const D = {
   nappes: {}, emetteurs: {}, enCours: {}, dernier: {}, dernierA: {}, dernierGain: {},
   compte: Object.fromEntries([...Object.keys(PONCTUELS), ...Object.keys(SEMES)].map((k) => [k, 0])),
   mesure: nouvelleMesure(), oreille: { x: 0, y: 0, h: 0 },
+  bande: null, utiles: null,
+  // Le banc d'écoute ouvert charge les sons de TOUS les âges (toutCharger) : on y écoute un
+  // carillon cosmique à l'âge du Feu. Ils ne jouent pas pour autant sur la carte.
+  tout: false,
+  // Les conditions de chargement (lot 6) et la dernière fois qu'elles étaient vraies.
+  charge: { pluie: false, emeute: false }, chargeA: { pluie: -Infinity, emeute: -Infinity },
   cibles: Object.fromEntries(Object.keys(NAPPES).map((k) => [k, 0])),
   zoom: 1, p: 0, h: 0,
   rafale: { v: 1, cible: 1, prochain: 0 },
@@ -352,30 +367,55 @@ function demander(nom) {
   const repli = () => { D.enRoute.delete(nom); if (!D.tampons.has(nom) && !D.repli.includes(nom)) D.repli.push(nom); };
   const garde = setTimeout(repli, ATTENTE_MS);
   rendreAilleurs({ quoi: 'paysage', nom }).then(
-    (data) => { if (!D.tampons.has(nom)) D.tampons.set(nom, enTampon(data, PAYSAGE_SR)); },
+    (data) => { if (!D.tampons.has(nom) && utile(nom)) D.tampons.set(nom, enTampon(data, PAYSAGE_SR)); },
     repli,
   ).finally(() => { clearTimeout(garde); D.enRoute.delete(nom); });
 }
 function rendreEnRepli() {
   const nom = D.repli.shift();
-  if (nom && !D.tampons.has(nom)) D.tampons.set(nom, enTampon(rendrePaysage(nom), PAYSAGE_SR));
+  if (nom && !D.tampons.has(nom) && utile(nom)) D.tampons.set(nom, enTampon(rendrePaysage(nom), PAYSAGE_SR));
 }
 // Les enregistrements (lot 2) : lus par fetch puis décodés par le contexte. L'.exe les
 // sert par son protocole app://, qui accepte fetch (main.cjs, supportFetchAPI ; la CSP
 // permet connect-src 'self'). Un fichier illisible se tait, avec un seul avertissement.
-// Seuls se décodent les fichiers qui JOUENT : ceux des familles semées, et le fichier
-// choisi de chaque nappe ou émetteur enregistré — une variante écartée ne prend pas de
-// mémoire (une boucle de 24 s décodée pèse 3 Mo).
-export function enregistresUtiles(liste = ENREGISTRES, ids = IDS_ENREGISTRES) {
-  const utiles = new Set();
-  for (const e of liste) if (SEMES[e.famille]) utiles.add(e.id);
-  for (const [nom, def] of [...Object.entries(NAPPES), ...Object.entries(EMETTEURS)]) {
-    if (!def.enregistres) continue;
-    const id = sonDeNappe(nom, def, ids);
-    if (id) utiles.add(id);
-  }
-  return utiles;
+// Seuls se chargent les sons qui JOUENT (lot 6) : ceux de l'âge en cours — `ages: [de, à]`
+// (bandes de data/eraThemes.js) sur une définition ; sans `ages`, à tous les âges —, et,
+// d'une nappe ou d'un émetteur enregistré, le fichier choisi : une variante écartée ne
+// prend pas de mémoire (une boucle de 24 s décodée pèse 3 Mo). Tout charger d'un coup
+// montait à 83 Mo ; un âge seul tient dans le budget (§ 3.9).
+export function joueA(def, bande) {
+  return !def.ages || (bande >= def.ages[0] && bande <= def.ages[1]);
 }
+// Les sons à charger à la bande `bande` (tous les âges si `null`) : `synth`, les noms que
+// rend paysageSynth.js ; `enr`, les ids des fichiers de src/assets/sons/. `cond` : les
+// conditions du moment ({ pluie, emeute }) ; une définition marquée `charge` ne se charge
+// que si la sienne est vraie (sans `cond`, toujours). PUR.
+export function sonsUtiles(bande = null, liste = ENREGISTRES, ids = IDS_ENREGISTRES, cond = null) {
+  const synth = new Set(), enr = new Set();
+  const joue = (def) => (bande == null || joueA(def, bande)) && (!cond || !def.charge || Boolean(cond[def.charge]));
+  for (const [nom, def] of [...Object.entries(NAPPES), ...Object.entries(EMETTEURS)]) {
+    if (!joue(def)) continue;
+    const s = sonDeNappe(nom, def, ids);
+    if (s) (def.enregistres ? enr : synth).add(s);
+  }
+  for (const def of Object.values(PONCTUELS)) if (joue(def)) for (const s of def.sons) synth.add(s);
+  const fichiers = new Set(liste.map((e) => e.famille));
+  for (const [fam, def] of Object.entries(SEMES)) {
+    if (!joue(def)) continue;
+    if (fichiers.has(fam)) { for (const e of liste) if (e.famille === fam) enr.add(e.id); }
+    else for (const s of def.synth || []) synth.add(s);
+  }
+  return { synth, enr };
+}
+export function enregistresUtiles(liste = ENREGISTRES, ids = IDS_ENREGISTRES, bande = null) {
+  return sonsUtiles(bande, liste, ids).enr;
+}
+// Un son est-il attendu à l'âge en cours ? (Un rendu arrivé après un changement d'âge ne
+// s'installe pas.)
+const utile = (nom) => !D.utiles || D.utiles.synth.has(nom) || D.utiles.enr.has(nom);
+// Une définition joue-t-elle à l'âge de la carte ? Un fichier partagé entre deux âges (la
+// rumeur de foule réemploie le brouhaha) reste en mémoire : c'est l'âge qui décide.
+const aSonAge = (def) => D.bande == null || joueA(def, D.bande);
 // Décodés à 32 kHz, leur fréquence (scripts/importSons.mjs), dans un contexte hors ligne :
 // le contexte du jeu les décoderait à SA fréquence (48 kHz), une fois et demie plus
 // lourds — 67 Mo mesurés au lieu de ~45 (plan, § 3.9). Un tampon se joue dans n'importe
@@ -387,15 +427,15 @@ function decodeur(ctx) {
   try { _decodeur = H ? new H(1, 1, PAYSAGE_SR) : ctx; } catch { _decodeur = ctx; }
   return _decodeur;
 }
-function decoderEnregistres(ctx) {
-  const utiles = enregistresUtiles(), dec = decodeur(ctx);
+function decoderEnregistres(ctx, utiles) {
+  const dec = decodeur(ctx);
   for (const e of ENREGISTRES) {
     if (!utiles.has(e.id) || D.tampons.has(e.id) || D.enRoute.has(e.id)) continue;
     D.enRoute.add(e.id);
     fetch(e.url)
       .then((r) => { if (!r.ok) throw new Error('HTTP ' + r.status); return r.arrayBuffer(); })
       .then((octets) => dec.decodeAudioData(octets))
-      .then((tampon) => { D.tampons.set(e.id, tampon); }, (err) => {
+      .then((tampon) => { if (utile(e.id)) D.tampons.set(e.id, tampon); }, (err) => {
         if (!D.erreurSon) { D.erreurSon = true; console.warn('Paysage sonore : son illisible', e.id, err); }
       })
       .finally(() => D.enRoute.delete(e.id));
@@ -424,9 +464,52 @@ function reveiller() {
   D.M = creerMixeur(ctx);
   D.eveille = true; D.sortieA = 0; D.echantA = 0; D.semeA = 0; D.bougeA = horloge();
   paysageEcoute(true);
-  for (const nom of SONS_PAYSAGE) demander(nom);
-  decoderEnregistres(ctx);
+  chargerPour(bandeDe(CM.layout));
   if (ctx.state !== 'running') armerGeste();
+}
+// Les conditions de chargement (lot 6) : la pluie tombe (pas l'hiver, où elle est neige),
+// des émeutiers sont près de l'écran. Une condition reste vraie deux minutes après sa
+// fin : une averse qui s'arrête et reprend ne recharge pas ses fichiers. Rend `true` si
+// une condition a changé.
+const GARDE_CHARGE_MS = 120000;
+function majCharge(now) {
+  const vu = {
+    pluie: (CM.rainF || 0) > 0.005 && neigeDe(CM.season, CM.rainF) === 0,
+    emeute: (D.mesure.fouleEmeute || 0) > 0,
+  };
+  let change = false;
+  for (const k of Object.keys(vu)) {
+    if (vu[k]) D.chargeA[k] = now;
+    const voulu = vu[k] || now - D.chargeA[k] < GARDE_CHARGE_MS;
+    if (voulu !== D.charge[k]) { D.charge[k] = voulu; change = true; }
+  }
+  return change;
+}
+// L'âge de la carte (0 Feu … 9 Démiurge), lu sur le plan.
+const bandeDe = (L) => ((L && L.counts && L.counts.eraBand) | 0);
+// Charge ce que joue la bande, libère le reste (lot 6) : au réveil, et quand l'âge change.
+// Les boucles qui jouaient un son devenu inutile s'arrêtent avant que son tampon s'oublie.
+function chargerPour(bande) {
+  const u = D.tout ? sonsUtiles(null) : sonsUtiles(bande, ENREGISTRES, IDS_ENREGISTRES, D.charge);
+  D.bande = bande; D.utiles = u;
+  const garde = (s) => u.synth.has(s) || u.enr.has(s);
+  // Une nappe hors de son âge s'arrête même quand son fichier reste en mémoire pour une autre.
+  for (const [nom, v] of Object.entries(D.nappes)) {
+    if (!aSonAge(NAPPES[nom]) || !garde(sonDeNappe(nom, NAPPES[nom]))) { v.arreter(); delete D.nappes[nom]; }
+  }
+  for (const [fam, voix] of Object.entries(D.emetteurs)) {
+    if (!aSonAge(EMETTEURS[fam]) || !garde(sonDeNappe(fam, EMETTEURS[fam]))) { for (const v of voix) v.boucle.arreter(); delete D.emetteurs[fam]; }
+  }
+  for (const k of [...D.tampons.keys()]) if (!garde(k)) D.tampons.delete(k);
+  D.repli = D.repli.filter((n) => u.synth.has(n));
+  for (const nom of u.synth) demander(nom);
+  if (D.M) decoderEnregistres(D.M.ctx, u.enr);
+}
+// Le banc d'écoute s'ouvre (true) ou se ferme (false) : tous les sons, ou ceux de l'âge.
+export function toutCharger(on) {
+  D.tout = Boolean(on);
+  if (D.eveille) chargerPour(D.bande ?? bandeDe(CM.layout));
+  return D.tout;
 }
 function endormir() {
   paysageEcoute(false);
@@ -469,12 +552,14 @@ export function tick() {
   }
   D.sortieA = 0;
   cibler(M.maitre.gain, getPaysageVolume() * BANC.maitre, t, 0.3);
+  cibler(M.bus.lointain.gain.gain, LOINTAIN_BUS * BANC.lointain, t, 0.3);
   const ferme = fenetreOuverte();
   // LA NEIGE (lot 5) : la pluie de l'hiver tombe en neige, et le monde s'assourdit.
   const neige = neigeDe(CM.season, CM.rainF);
   cibler(M.etouffoir.frequency, ferme ? 1500 : 20000 - 15000 * neige, t, ferme ? 0.08 : 1.5);
   cibler(M.baisse.gain, ferme ? 0.4 : 1 - 0.25 * neige, t, ferme ? 0.08 : 1.5);
   if (D.repli.length) rendreEnRepli();
+  if (CM.layout && (bandeDe(CM.layout) !== D.bande || majCharge(now))) chargerPour(bandeDe(CM.layout));
   monterNappes(M);
   if (!(CM.cw > 0)) return;
   const L = CM.layout;
@@ -526,7 +611,7 @@ export function sonDeNappe(nom, def, ids = IDS_ENREGISTRES) {
 }
 function monterNappes(M) {
   for (const [nom, def] of Object.entries(NAPPES)) {
-    if (D.nappes[nom]) continue;
+    if (D.nappes[nom] || !aSonAge(def)) continue;
     const son = sonDeNappe(nom, def);
     const tampon = son && D.tampons.get(son);
     if (tampon) D.nappes[nom] = creerBoucle(M, tampon, def.bus, { largeur: def.largeur, depart: Math.random(), vitesse: def.vitesse || 1 });
@@ -673,7 +758,7 @@ function majPonctuels(M, h, f, t, now) {
   const T = CM.TILE;
   releverSons((nom, x, y, force) => {
     const def = PONCTUELS[nom];
-    if (!def) return;
+    if (!def || !aSonAge(def)) return;
     const r = Math.hypot(x - CM.cam.x, y - CM.cam.y) / T;
     const g = attenuation(r, h, def.ref, def.max) * def.niveau * BANC.ponctuels[nom] * soloK(nom)
       * f.proche * f.proche * (0.7 + 0.3 * Math.min(1.5, force));
@@ -699,7 +784,7 @@ const _cands = [];
 function majEmetteurs(M, h, f, t) {
   const T = CM.TILE;
   for (const [fam, def] of Object.entries(EMETTEURS)) {
-    const son = sonDeNappe(fam, def);
+    const son = aSonAge(def) ? sonDeNappe(fam, def) : null;
     const tampon = son ? D.tampons.get(son) : null;
     const voix = D.emetteurs[fam] || (D.emetteurs[fam] = []);
     for (const v of voix) v.pris = false;
@@ -779,7 +864,7 @@ function majSemes(M, L, h, f, t, now) {
   const habitue = (now - D.bougeA > HABITUATION_MS ? 0.5 : 1) * (1 - 0.6 * neigeDe(CM.season, CM.rainF));
   const T = CM.TILE, mes = D.mesure;
   for (const [nom, def] of Object.entries(SEMES)) {
-    const sons = sonsDe(nom);
+    const sons = aSonAge(def) ? sonsDe(nom) : [];
     if (!sons.length) continue;
     // Semée SUR des émetteurs : ceux de la dernière image, et la somme de leurs intensités.
     const em = def.sur ? emetteursDe(def.sur) : null;
@@ -869,8 +954,9 @@ export function etatPaysage() {
     taille: CM.layout ? tailleVille(CM.layout) : 0,
     cibles: { ...D.cibles },
     nappes: Object.keys(D.nappes),
-    tampons: D.tampons.size, enRoute: D.enRoute.size,
-    // La mémoire des sons décodés (Mo) : le budget visé est de 40 Mo (plan, § 3.9).
+    tampons: D.tampons.size, enRoute: D.enRoute.size, bande: D.bande, charge: { ...D.charge }, tout: D.tout,
+    // La mémoire des sons décodés (Mo) : un âge tient sous 70 Mo (plan, § 3.9 ;
+    // __tests__/paysageMixage.test.js). Le banc ouvert charge tout : ~83 Mo.
     memoireMo: [...D.tampons.values()].reduce((s, b) => s + (b.length || 0) * (b.numberOfChannels || 1) * 4, 0) / 1e6,
     emetteurs: Object.fromEntries(Object.entries(D.emetteurs).map(([k, l]) => [k, l.filter((v) => v.pris).length])),
     // Combien la carte en dessine, par famille d'émetteurs (même sans son prêt).
@@ -885,11 +971,12 @@ export function etatPaysage() {
     enregistres: ENREGISTRES.length,
     habitue: D.eveille && horloge() - D.bougeA > HABITUATION_MS,
     sortieDb: D.M ? niveauSortie(D.M) : null,
+    sonieDb: D.M ? sonieSortie(D.M) : null,     // pondérée : ce que l'oreille entend (lot 6)
   };
 }
 const API = {
   etat: etatPaysage, ecouter, BANC, OREILLE, ECHANT, MILIEUX, NAPPES, PONCTUELS, EMETTEURS, SEMES,
-  retenir: retenirBanc, remettre: remettreBanc, reglages: reglagesBanc,
+  retenir: retenirBanc, remettre: remettreBanc, reglages: reglagesBanc, toutCharger,
 };
 
 // ── Attacher, détacher ───────────────────────────────────────────────────────
