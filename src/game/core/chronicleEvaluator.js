@@ -2,6 +2,7 @@
 
 import { chronicleArticles } from '../data/chronicleArticles.js';
 import { eras } from '../data/world.js';
+import { eraBandOf } from '../data/eraThemes.js';
 import { mapStage, currentEraIndex } from './mechanics.js';
 import { cycleYear } from './actions/utils.js';
 import { D } from './num.js';
@@ -19,6 +20,10 @@ export const CHRONICLE_VISIBLE_MS = 60 * 1000;
 // parutions pour espacer les redites.
 export const RERUN_NO_REPEAT_WINDOW = 10;
 
+// La période de la gazette, sur l'index d'ère. Au-delà de l'ère 34, les âges cosmiques
+// ont chacun la leur (docs/PLAN-ECOUTER-PARLER.md, lot 3) : la Noosphère (âge 7) est
+// la période 8, le Stellaire la 9, le Démiurge la 10. Elles suivent l'ÂGE (eraBandOf)
+// et non un seuil d'index : les ères « factices » héritent de l'âge de leur palier.
 export function getPeriod(eraIndex) {
   if (eraIndex < 4)  return 1;
   if (eraIndex < 9)  return 2;
@@ -26,7 +31,8 @@ export function getPeriod(eraIndex) {
   if (eraIndex < 21) return 4;
   if (eraIndex < 27) return 5;
   if (eraIndex < 32) return 6;
-  return 7;
+  if (eraIndex <= 34) return 7;
+  return Math.min(10, Math.max(8, eraBandOf(eraIndex) + 1));
 }
 
 // Badges de catégorie affichés à CHAQUE dépêche (ChronicleTicker). localizeData

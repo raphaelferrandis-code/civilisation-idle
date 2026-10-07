@@ -39,6 +39,11 @@ export const NOMS_DU_JOUEUR = {
   p7_tension_cult: CREATEUR,
   p7_gold_hand: LA_MAIN,
   p7_know_raphael: { fr: 'celui qui joue', Fr: 'Celui qui joue', en: 'the one who plays', En: 'The one who plays' },
+  // Les âges 7 à 9 (lot 3) : il manque une pensée au chœur, le conseil des étoiles
+  // adopte le mot de Raphaël, les archives de l’Amas montrent la main qui recommence.
+  p8_tension_absent: { fr: 'l’Absent', Fr: 'L’Absent', en: 'the Absent', En: 'The Absent' },
+  p9_tension_joueur: { fr: 'le Joueur', Fr: 'Le Joueur', en: 'the Player', En: 'The Player' },
+  p10_tension_name: { fr: 'Celui qui recommence', Fr: 'Celui qui recommence', en: 'the One who begins again', En: 'The One who begins again' },
 };
 
 export const PAROLES_TOI = [
@@ -59,7 +64,7 @@ export const PAROLES_TOI = [
   { id: 't3-suivi-nom', kind: 'thought', layer: 3, bands: [4, 6], when: { followed: true, trust: 2, period: [5, 7] }, lines: [
     { m: 'Ça fait trois rues que je me sens regardé. Ma grand-mère dirait que c’est {nom}. Je marche plus vite.', f: 'Ça fait trois rues que je me sens regardée. Ma grand-mère dirait que c’est {nom}. Je marche plus vite.', en: 'Three streets now I’ve felt watched. My grandmother would say it’s {nom}. I walk faster.' },
   ] },
-  { id: 't3-suivi-nom-x', kind: 'thought', layer: 3, bands: [7, 9], when: { followed: true, trust: 2, period: [5, 7] }, lines: [
+  { id: 't3-suivi-nom-x', kind: 'thought', layer: 3, bands: [7, 9], when: { followed: true, trust: 2, period: [5, 10] }, lines: [
     { m: 'Ça fait trois passerelles que je me sens regardé. Ma grand-mère dirait que c’est {nom}.', f: 'Ça fait trois passerelles que je me sens regardée. Ma grand-mère dirait que c’est {nom}.', en: 'Three walkways now I’ve felt watched. My grandmother would say it’s {nom}.' },
   ] },
   { id: 't3-suivi-neon', kind: 'thought', layer: 3, bands: [6, 9], when: { followed: true }, lines: [
@@ -341,6 +346,49 @@ export const PAROLES_TOI = [
     { fr: 'Edith a demandé à le voir, dans le journal. Ma voisine a acheté trois exemplaires du suivant, au cas où il répondrait.', en: 'Edith asked to see him, in the paper. My neighbour bought three copies of the next issue, in case he answered.' },
   ] },
 
+  // ── P8, le chœur : l'Absent ──
+  { id: 't3-p8-ascenseur', kind: 'thought', layer: 3, bands: [7, 7], when: { article: ['p8_tension_absent'] }, lines: [
+    { fr: 'Il paraît qu’Edith a trouvé une attention de plus que le chœur. Depuis, je fais attention à ce que je pense dans l’ascenseur.', en: 'They say Edith found one more attention than the chorus has. Since then I mind what I think in the lift.' },
+  ] },
+  { id: 't3-p8-volets', kind: 'chat', layer: 3, bands: [7, 7], when: { article: ['p8_know_minute'] }, lines: [
+    { who: 'a', fr: 'Tu t’es tu, à midi, pour la minute de Raphaël ?', en: 'Did you go quiet at noon, for Raphaël’s minute?' },
+    { who: 'b', fr: 'Oui. Et à midi et une minute, le vent a fait claquer tous les volets de la rue.', en: 'Yes. And at one minute past, the wind banged every shutter in the street.' },
+  ] },
+  { id: 't3-p8-vaisselle', kind: 'thought', layer: 3, bands: [7, 7], when: { article: ['p8_bonus_letter'] }, lines: [
+    { fr: 'J’ai pensé la lettre avec tout le monde, à vingt heures. Ensuite, j’ai fait la vaisselle.', en: 'I thought the letter along with everyone, at eight o’clock. Then I did the washing-up.' },
+  ] },
+  { id: 't3-p8-feu', kind: 'thought', layer: 3, bands: [7, 7], when: { article: ['p8_crisis_claude'] }, lines: [
+    { m: 'La nuit où le chœur s’est tu, je suis allé m’asseoir au feu de Claude. Il y avait du monde. Personne ne parlait, mais ça allait.', f: 'La nuit où le chœur s’est tu, je suis allée m’asseoir au feu de Claude. Il y avait du monde. Personne ne parlait, mais ça allait.', en: 'The night the chorus went silent, I went and sat by Claude’s fire. There were plenty of people. Nobody talked, but it was all right.' },
+  ] },
+  // ── P9, les voiles : le Joueur ──
+  { id: 't3-p9-clause', adult: true, kind: 'thought', layer: 3, bands: [8, 8], when: { article: ['p9_tension_joueur'] }, lines: [
+    { fr: 'Ils ont écrit dans la charte que quelqu’un joue. Mon père a relu son contrat de travail, pour voir s’il y avait une clause.', en: 'They wrote into the charter that someone is playing. My father reread his work contract to see if there was a clause.' },
+  ] },
+  { id: 't3-p9-chaise', kind: 'thought', layer: 3, bands: [8, 8], when: { article: ['p9_paix_table'] }, lines: [
+    { fr: 'Chez nous aussi, on garde une chaise vide pour {nom}. Mon frère s’assied dessus quand maman ne regarde pas.', en: 'At home we keep an empty chair for {nom} too. My brother sits on it when Mum isn’t looking.' },
+  ] },
+  { id: 't3-p9-neige', kind: 'thought', layer: 3, bands: [8, 8], when: { article: ['p9_bonus_ilya'], child: true }, lines: [
+    { fr: 'Une fille de mon école a écrit au Joueur pour avoir un été plus long. Si ça marche, moi, j’écris pour la neige.', en: 'A girl at my school wrote to the Player asking for a longer summer. If it works, I’m writing for snow.' },
+  ] },
+  { id: 't3-p9-sphere', kind: 'chat', layer: 3, bands: [8, 8], when: { article: ['p9_gold_edith'] }, lines: [
+    { who: 'a', fr: 'Tu as vu ce qu’Edith a fait écrire sur la sphère ?', en: 'Have you seen what Edith had written on the sphere?' },
+    { who: 'b', fr: 'Un relevé de compte de mille kilomètres. Mon cousin a peint les chiffres.', en: 'A statement of account a thousand kilometres long. My cousin painted the figures.' },
+  ] },
+  // ── P10, le Démiurge : Celui qui recommence ──
+  { id: 't3-p10-cafe', kind: 'thought', layer: 3, bands: [9, 9], when: { article: ['p10_know_pause'] }, lines: [
+    { fr: 'Pendant la pause, j’avais une tasse à la main. Quand tout est reparti, le café était encore chaud.', en: 'During the pause I had a cup in my hand. When everything started again, the coffee was still hot.' },
+  ] },
+  { id: 't3-p10-chaise', kind: 'thought', layer: 3, bands: [9, 9], when: { article: ['p10_paix_chair'] }, lines: [
+    { fr: 'Chez nous, la chaise vide est près de la fenêtre. Personne ne s’assied dessus, même pas le chat.', en: 'At our place the empty chair is by the window. Nobody sits on it, not even the cat.' },
+  ] },
+  { id: 't3-p10-braise', kind: 'thought', layer: 3, bands: [9, 9], when: { article: ['p10_know_ember'] }, lines: [
+    { fr: 'Ils ont choisi une braise pour passer à la cité d’après. Ma mère dit que Claude le savait depuis toujours.', en: 'They chose an ember to carry over to the next city. My mother says Claude always knew.' },
+  ] },
+  { id: 't3-p10-nous-aussi', kind: 'chat', layer: 3, bands: [9, 9], when: { article: ['p10_tension_name'] }, lines: [
+    { who: 'a', fr: 'Tu crois que {nom} nous recommencera, nous aussi ?', en: 'Do you think {nom} will begin us again too?' },
+    { who: 'b', fr: 'Ma grand-mère dit que c’est déjà arrivé. Plusieurs fois.', en: 'My grandmother says it has already happened. Several times.' },
+  ] },
+
   // ══ LE NOM, UNE FOIS QUE LA GAZETTE L'A ÉCRIT ═══════════════════════════════
   { id: 't3-nom-bougie', kind: 'thought', layer: 3, bands: [2, 6], when: { family: 'married', trust: 2 }, lines: [
     { fr: 'La nuit, {conjoint} laisse une bougie à la fenêtre pour {nom}. Je n’ai jamais demandé pourquoi.', en: 'At night {conjoint} leaves a candle in the window for {nom}. I’ve never asked why.' },
@@ -356,7 +404,7 @@ export const PAROLES_TOI = [
     { who: 'a', fr: 'Tu crois que {nom} nous regarde, là, maintenant ?', en: 'Do you think {nom} is watching us right now?' },
     { who: 'b', fr: 'Ma mère y croit depuis qu’elle a lu ça. Elle se coiffe avant de sortir.', en: 'My mother has believed it ever since she read about it. She does her hair before going out.' },
   ] },
-  { id: 't3-nom-croire', kind: 'chat', layer: 3, bands: [4, 8], when: { trust: 2, period: [5, 7] }, lines: [
+  { id: 't3-nom-croire', kind: 'chat', layer: 3, bands: [4, 8], when: { trust: 2, period: [5, 10] }, lines: [
     { who: 'a', fr: 'Tu crois que {nom} nous regarde, là, maintenant ?', en: 'Do you think {nom} is watching us right now?' },
     { who: 'b', fr: 'Ma grand-mère le croyait. Elle se coiffait avant de sortir.', en: 'My grandmother believed it. She did her hair before going out.' },
   ] },
@@ -389,7 +437,7 @@ export const PAROLES_TOI = [
   { id: 't3-nom-jambe', kind: 'thought', layer: 3, bands: [4, 6], when: { trust: 3, period: [5, 7] }, lines: [
     { fr: 'Ma grand-mère disait qu’il suffit de penser fort pour que {nom} entende. Je pense fort à ma jambe, depuis trois jours.', en: 'My grandmother said you only had to think hard for {nom} to hear. I’ve been thinking hard about my leg for three days.' },
   ] },
-  { id: 't3-nom-examen', kind: 'thought', layer: 3, bands: [7, 9], when: { trust: 3, period: [5, 7] }, lines: [
+  { id: 't3-nom-examen', kind: 'thought', layer: 3, bands: [7, 9], when: { trust: 3, period: [5, 10] }, lines: [
     { fr: 'Ma grand-mère disait qu’il suffit de penser fort pour que {nom} entende. Je pense fort à mon examen, depuis trois jours.', en: 'My grandmother said you only had to think hard for {nom} to hear. I’ve been thinking hard about my exam for three days.' },
   ] },
   { id: 't3-nom-loyer', adult: true, kind: 'thought', layer: 3, bands: [4, 8], when: { trust: 3 }, lines: [

@@ -17,6 +17,9 @@ import {
 } from "../chronicleEvaluator.js";
 import { state, setState, hydrateState, markChronicleRead } from "../state.js";
 import { shallowEqual } from "../../../hooks/useGameState.js";
+import { eraBandOf } from "../../data/eraThemes.js";
+import { eras } from "../../data/world.js";
+import { D } from "../num.js";
 import { FIXED_NOW } from "./fixtures.js";
 
 beforeAll(() => {
@@ -88,7 +91,7 @@ describe("Les Échos — cohérence du cast", () => {
       expect(ids.has(article.id), `id dupliqué : ${article.id}`).toBe(false);
       ids.add(article.id);
       expect(article.period).toBeGreaterThanOrEqual(1);
-      expect(article.period).toBeLessThanOrEqual(7);
+      expect(article.period).toBeLessThanOrEqual(10);
       expect(typeof article.conditionType).toBe("string");
       expect(article.title).toBeTruthy();
       expect(article.text).toBeTruthy();
@@ -190,5 +193,40 @@ describe("Les Échos — seuils de déclenchement", () => {
     expect(getPeriod(27)).toBe(6);
     expect(getPeriod(31)).toBe(6);
     expect(getPeriod(32)).toBe(7);
+    expect(getPeriod(34)).toBe(7);
+  });
+
+  // Les âges 7 à 9 ont leur Chronique (docs/PLAN-ECOUTER-PARLER.md, lot 3) : la période
+  // suit l'âge de l'ère, pas un seuil d'index (les ères « factices » héritent du leur).
+  it("les âges cosmiques ont chacun leur période : Noosphère 8, Stellaire 9, Démiurge 10", () => {
+    for (let i = 35; i < 400; i += 1) {
+      const band = eraBandOf(i);
+      expect(getPeriod(i), `ère ${i}, âge ${band}`).toBe(band + 1);
+    }
+    expect(getPeriod(35)).toBe(8);
+  });
+
+  it("en fin de partie, la gazette publie dans la période de l'âge atteint", () => {
+    for (const [band, period] of [[7, 8], [8, 9], [9, 10]]) {
+      setState(hydrateState({}));
+      const i = eras.findIndex((e, k) => k > 34 && eraBandOf(k) === band);
+      expect(i, `une ère de l'âge ${band}`).toBeGreaterThan(34);
+      state.population = D(eras[i].at).toString();
+      state.chronicleCooldown = 0;
+      checkAndTriggerChronicleEntries(state, 1);
+      const entry = state.chronicleEntries[0];
+      const art = chronicleArticles.find((a) => a.id === entry.articleId);
+      expect(art.period, `âge ${band}`).toBe(period);
+    }
+  });
+
+  it("les périodes 8 à 10 ont de quoi parler dans chaque situation", () => {
+    const types = ["crise", "tension", "usure", "nourriture", "or", "savoir", "stage_start", "stage_6", "stage_12", "pop_100b", "paix", "bonus_libre"];
+    for (let period = 8; period <= 10; period += 1) {
+      const arts = chronicleArticles.filter((art) => art.period === period);
+      for (const type of types) {
+        expect(arts.some((art) => art.conditionType === type), `période ${period}, ${type}`).toBe(true);
+      }
+    }
   });
 });

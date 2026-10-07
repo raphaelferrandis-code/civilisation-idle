@@ -7,7 +7,7 @@ Chantier ouvert le 2026-10-07 sur la demande de Raph :
 > n'interagit pas avec eux, puis après une option dialogue qui permette de parler avec
 > certains. »
 
-**Statut : plan tranché, lots 1 et 2 livrés ; le lot 2 est à juger en jeu.** La fiche d'habitant qui sert de socle est faite
+**Statut : plan tranché, lots 1 à 3 livrés ; les lots 2 et 3 sont à juger en jeu.** La fiche d'habitant qui sert de socle est faite
 (commit `4a99b8bc` : identité, foyers, métier, humeur et sa cause, « où il est entré »).
 Raph a répondu aux questions du § 11 le jour même (tableau 1 bis).
 **Ce document fait foi pour ce chantier.**
@@ -103,9 +103,13 @@ au-delà. Ce qu'elle dit du joueur, période après période :
 | P5 | Le schisme : « Les uns disent qu'il nous guide. Les autres qu'il nous teste. Les derniers qu'il attend. » La Main devient un symbole. |
 | P6 | La Main devient un logo ; Khael ouvre un procès contre l'Invisible. **« Vous n'avez répondu à aucun débat. »** |
 | P7 | La boucle, le compteur. Edith : **« Demande solennelle à vous voir »**. Raphaël : **« Je crois qu'il joue. »** |
+| P8 (lot 3) | Le chœur, la pensée commune de la planète : il y manque une pensée. Edith l'inscrit au registre : **l'Absent**. La minute de silence de Raphaël, et le vent qui se lève à midi et une minute. |
+| P9 (lot 3) | Les voiles : le conseil des étoiles écrit dans sa charte que quelqu'un joue, **le Joueur**. Edith écrit un relevé de compte sur la face extérieure de la sphère ; Raphaël part chercher le bord du jeu ; une chaise vide à chaque conseil. |
+| P10 (lot 3) | Le Démiurge : les archives de mille galaxies montrent la même main qui ferme une cité et en ouvre une autre, **Celui qui recommence**. Khael se déclare incompétent (« l'accusé a écrit les lois »), Edith clôt les comptes sans la signature, une seconde où tout s'arrête (« il a hésité »), une braise choisie pour passer à la cité d'après. |
 
-Les âges 7 à 9 (Noosphère, Stellaire, Démiurge) n'ont **aucun article à eux** : ils restent
-en P7.
+Jusqu'au lot 3, les âges 7 à 9 (Noosphère, Stellaire, Démiurge) restaient en P7 ; ils ont
+désormais leurs périodes, P8 à P10, qui suivent l'ÂGE de l'ère (`eraBandOf`) et non un
+seuil d'index.
 
 **L'Olympe** lit déjà la façon de jouer : `state.olympus` (éternel) compte les chutes
 déclenchées (`manualCollapses`, `totalCollapses`, `collapseRuptureSum`), les crises
@@ -234,7 +238,7 @@ dans la cendre, le signe qui change de forme avec les âges) sont écartées.
   gazette l'a annoncé. À la chute, tout est oublié, comme la gazette.
 - **Les âges 7 à 9 ont leur Chronique** (décision du 2026-10-07) : trois périodes de plus,
   P8 (Noosphère), P9 (Stellaire) et P10 (Démiurge), écrites dans la voix de la gazette et
-  avec ses auteurs. Aujourd'hui ces âges restent en P7.
+  avec ses auteurs (`src/game/data/chronicle/p8.js` à `p10.js`, lot 3).
 
 ### 6.2 Ce que tu fais
 
@@ -273,7 +277,8 @@ curieux regarde son toit.
 le dernier nom que la gazette a publié dans ce cycle, et c'est dans la gazette qu'il
 s'écrit. Ceux qui existent déjà : « une main invisible » (P3), « le Créateur », « Celui qui
 nous guide », « Celui qui regarde » (P4), « Celui qui veille », « la Main » (P5),
-« l'Invisible » (P6). Les cultes de l'Olympe (Dieu de la Fin, des Registres, qui Rêve, du
+« l'Invisible » (P6), « celui qui joue » (P7), puis « l'Absent » (P8), « le Joueur » (P9) et
+« Celui qui recommence » (P10). Les cultes de l'Olympe (Dieu de la Fin, des Registres, qui Rêve, du
 Bord) y entrent par des articles à écrire, quand l'Olympe proclame une religion. Une table
 `articleId → nom` dit quel article donne quel nom ; avant le premier, ils ne t'appellent
 pas. Elle vit dans `parolesToi.js` (`NOMS_DU_JOUEUR`, quatorze articles) ; chaque nom s'écrit
@@ -372,7 +377,7 @@ Le récit seulement :
    mémoire de l'entendu. Raph juge en jeu.
 2. ✅ **Ce qu'on dit de toi** : la troisième couche, branchée sur la Chronique et l'Olympe ;
    le nom de la gazette ; le panneau.
-3. **La Chronique des âges 7 à 9** : P8 à P10, dans la voix de la gazette.
+3. ✅ **La Chronique des âges 7 à 9** : P8 à P10, dans la voix de la gazette.
 4. **Les signes** : vent, lumière, feu, bête ; les réactions par âge et par caractère.
 5. **Le déclic et le dialogue par signes** : Claude, au Feu, jusqu'à P3.
 6. **Les mots**, dès P3 : les passants, puis les figures de la Chronique.
@@ -438,3 +443,16 @@ Les six questions du premier jet sont tranchées (tableau 1 bis). Aucune ouverte
   `state.paroles.bulles` (par cité). Vérifié sur une foule générée aux sept périodes : la
   grand-mère qui « disait » un nom paru la veille, et la caméra qui suit d'office le passant
   désigné (il se sentait suivi à chaque fois) ont été corrigées.
+- 2026-10-07 : Raph : « continue ». **Lot 3 livré** : la Chronique des âges 7 à 9, 93
+  articles (`chronicle/p8.js`, `p9.js`, `p10.js`, 31 chacun, toutes les catégories de la
+  gazette), dans sa voix et avec ses auteurs, tenue par la plume (des faits, des noms, des
+  chiffres ; l'ironie de la situation). L'arc : il manque une pensée au chœur (**l'Absent**),
+  le conseil des étoiles adopte le mot de Raphaël (**le Joueur**), les archives de l'Amas
+  montrent la main qui recommence (**Celui qui recommence**). Des fils se répondent d'une
+  période à l'autre : la chaise vide de Khael (P6, puis la rumeur du lot 2, puis chaque
+  conseil, puis chaque maison), la lettre d'Ilya qui demande un été plus long (P9), retrouvée
+  et accordée par le conseil (P10), Raphaël qui part chercher le bord du jeu et revient
+  sans en avoir trouvé, le feu de Claude que rien ne branche. Le Grand Reset reste au lot 7 :
+  la gazette le pressent (« quand tu recommences, est-ce que tu nous gardes quelque part ? »)
+  sans le dire. `getPeriod` suit l'âge au-delà de l'ère 34 ; `NOMS_DU_JOUEUR` gagne les trois
+  noms ; la rue a douze rumeurs de plus sur ces articles (112 en tout).
