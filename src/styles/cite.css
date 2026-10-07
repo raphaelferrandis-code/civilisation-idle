@@ -56,6 +56,30 @@
     padding: 0.85rem 1.1rem 0.8rem;
   }
 
+  /* EFFONDREMENT IMMINENT (≥ 90 %) : la seule information qui grandit, au second
+     corps net de la police pixel (Jersey 15, 27 px), et ses voisins reculent : le
+     nom de la cité s'estompe, l'encart d'état pâlit. Retour extérieur du
+     2026-10-07 : c'est ce qu'il faut lire en premier sur tout l'écran.
+     Interlettrage resserré : à 0.18em (typography.css), « EFFONDREMENT IMMINENT »
+     ne tiendrait pas à côté du % dans les 24rem de l'encart (mesuré : 314 px de
+     texte pour 349 disponibles à 0.04em). */
+  :root:not([data-pointer="coarse"]) .app[data-active-view="city"] .stability-gauge.sg-collapse .sg-label,
+  :root:not([data-pointer="coarse"]) .app[data-active-view="city"] .stability-gauge.sg-collapse .sg-pct {
+    font: 400 var(--fs-display)/27px var(--font-title);
+    letter-spacing: 0.04em;
+  }
+  :root:not([data-pointer="coarse"]) .app[data-active-view="city"] .city-stage-hud.is-alert .city-name-input {
+    color: var(--text-mid);
+    text-shadow: 0 2px 10px rgba(0, 0, 0, 0.8);
+  }
+  :root:not([data-pointer="coarse"]) .app[data-active-view="city"] .city-stage-hud.is-alert :is(.city-population-label, .city-personality-label) {
+    color: var(--text-weak);
+    opacity: 1;
+  }
+  :root:not([data-pointer="coarse"]) .app[data-active-view="city"] .city-stage-hud.is-alert .city-status-panel {
+    opacity: 0.55;
+  }
+
   /* L'encart d'état, rangé dans l'identité (CityStatusPanel « identity ») :
      deux colonnes compactes sous la jauge, plus de cadre ni de défilement. */
   :root:not([data-pointer="coarse"]) .city-status-panel.is-identity {
@@ -75,14 +99,16 @@
   :root:not([data-pointer="coarse"]) .city-status-panel.is-identity .csp-divider { display: none; }
   /* Cycles, multiplicateur, âge max et temps du cycle vivent dans la Chronique
      (bandeau de la Bibliothèque) : la carte d'identité de la maquette ne les
-     porte pas. Le palier suivant de la réserve non plus. */
-  :root:not([data-pointer="coarse"]) .city-status-panel.is-identity .csp-stats,
-  :root:not([data-pointer="coarse"]) .city-status-panel.is-identity .csp-idle-next {
+     porte pas. La réserve d'absence non plus : elle est dans les Options ›
+     Sauvegarde (coupe du relevé du 06/10, docs/PLAN-LISIBILITE.md), et
+     CityStatusPanel ne la rend plus dans l'identité. */
+  :root:not([data-pointer="coarse"]) .city-status-panel.is-identity .csp-stats {
     display: none;
   }
   /* ⚠ Sous 1500 px, layout.css masque libellés et valeurs de l'encart : c'était
      la barre compacte, une gouttière de 4,5 rem. Dans l'identité il y a la
-     place — et un « 2 h » sans « Réserve d'absence » ne se lit pas. */
+     place, et un « 15 % » sans « Usure » ne se lit pas. La clepsydre garde le
+     libellé de la réserve (.csp-idle-label). */
   :root:not([data-pointer="coarse"]) .city-status-panel.is-identity .csp-label,
   :root:not([data-pointer="coarse"]) .city-status-panel.is-identity .csp-value,
   :root:not([data-pointer="coarse"]) .city-status-panel.is-identity .csp-laps,
@@ -132,10 +158,19 @@
   :root:not([data-pointer="coarse"]) .app[data-active-view="city"] .city-shop-dock .shop-subtabs {
     gap: 0.45rem;
   }
+  /* Onglets au corps de lecture, en Jersey 10 : à 0.8rem en Jersey 15 ils étaient
+     rendus hors de la grille native de la police. Mesuré : 314 px pour les trois
+     en français, 339 en anglais, sur 360 disponibles. */
   :root:not([data-pointer="coarse"]) .app[data-active-view="city"] .city-shop-dock .shop-subtab {
     min-height: 0;
-    padding: 0.5rem 0.5rem 0.55rem;
-    font-size: 0.8rem;
+    padding: 0.375rem 0.625rem 0.5625rem;
+    font: 400 var(--fs-read)/20px var(--font-body);
+    letter-spacing: 1px;
+  }
+  /* Pastilles « N achats possibles » neutres : trois teintes de ressource de plus
+     dans l'en-tête, pour une information de compte. */
+  :root:not([data-pointer="coarse"]) .app[data-active-view="city"] .city-shop-dock .subtab-badge {
+    background: var(--gold-ivory);
   }
   :root:not([data-pointer="coarse"]) .app[data-active-view="city"] .city-shop-dock .buy-mode {
     min-height: 0;
@@ -149,27 +184,32 @@
      Le compteur possédé se pose sur la vignette. Même DOM (PurchaseRow) : le
      pied de carte s'efface (`display: contents`) pour que ses enfants prennent
      place dans la grille. */
+  /* NOM, QUANTITÉ, GAIN, PRIX — et rien d'autre à l'écran (retour extérieur du
+     2026-10-07, maquette « Lisibilité de la Cité ») : la boutique portait à elle
+     seule 69 nombres sur ~95 (relevé U, docs/PLAN-LISIBILITE.md). Le gain du lot
+     remplace les débits sur la rangée ; débits et bonus de palier passent dans
+     son infobulle (PurchaseRow). Plus de plaque de fond : l'air passe ENTRE les
+     rangées (.shop-list), plus dedans. Une seule ligne sous le nom, gain ou
+     débits, jamais deux. */
   :root:not([data-pointer="coarse"]) .app[data-active-view="city"] .city-shop-dock .purchase-row {
     display: grid;
-    /* Le gain du lot (« +0.7 % ») au bout de la ligne de production, comme
-       dans la maquette : une ligne de moins par rangée. La rangée « eta » est
-       VIDE depuis que l'échéance a quitté l'écran (BUG-118) ; gardée pour que
-       les rangées achetables gardent leur hauteur au pixel. */
-    grid-template-columns: 4rem minmax(0, 1fr) auto auto;
+    grid-template-columns: 4rem minmax(0, 1fr) auto;
     grid-template-areas:
-      "thumb name  name buy"
-      "thumb prod  gain buy"
-      "thumb eta   eta  buy"
-      "thumb track track buy";
-    grid-template-rows: auto auto auto auto;
+      "thumb name  buy"
+      "thumb gain  buy"
+      "thumb track buy";
+    grid-template-rows: auto auto auto;
     align-content: center;
     align-items: center;
-    column-gap: 0.7rem;
-    row-gap: 0.12rem;
+    column-gap: 0.625rem;
+    row-gap: 0.1875rem;
     min-height: 0;
-    padding: 0.45rem 0.5rem 0.5rem 0.45rem;
+    padding: 0.125rem 0.5rem 0.125rem 0.45rem;
     border: 0;
-    background: rgba(255, 255, 255, 0.025);
+    background: transparent;
+  }
+  :root:not([data-pointer="coarse"]) .app[data-active-view="city"] .city-shop-dock .shop-list {
+    gap: 1.25rem;
   }
   :root:not([data-pointer="coarse"]) .app[data-active-view="city"] .city-shop-dock .purchase-row:hover {
     background: rgba(255, 255, 255, 0.055);
@@ -184,7 +224,9 @@
     position: relative;
     inset: auto;
     z-index: 0;
-    align-self: center;
+    /* En haut, pas au centre : une rangée au nom sur deux lignes s'allonge, et la
+       quantité (.pr-count) se pose à une hauteur FIXE sur la vignette. */
+    align-self: start;
     width: 4rem;
     height: 4rem;
     opacity: 1;
@@ -227,12 +269,34 @@
     grid-column: 2;
   }
   :root:not([data-pointer="coarse"]) .app[data-active-view="city"] .city-shop-dock .pr-name-row { grid-area: name; }
+  /* Le nom au second corps net de la police pixel (Jersey 15 à 27 px) : à
+     1.16rem il sortait hors de sa grille, et pesait autant que les chiffres.
+     Interlettrage nul : « Hôtels des monnaies » mesure 205 px. Mesuré en jeu à
+     2560 px, il en avait 204 avec un écart de 0.7rem et un bouton rembourré à
+     0.55rem (87 px, bordure comprise) ; d'où 0.625rem et 0.5rem (bouton
+     « Acheter » sans sa quantité, cf. .bp-qty).
+     Les plus longs passent sur DEUX lignes équilibrées plutôt que d'être coupés :
+     « Architectes des ruines » (230 px) et « Instituts stratégiques » (225 px)
+     dépassent la place en 24.5rem, sept noms en 22rem (sous 1500 px). La
+     rangée s'allonge alors, vignette et quantité restent accrochées en haut. */
   :root:not([data-pointer="coarse"]) .app[data-active-view="city"] .city-shop-dock .pr-name {
-    font: 400 1.16rem/1 var(--font-title);
+    font: 400 var(--fs-display)/27px var(--font-title);
+    letter-spacing: 0;
+    white-space: normal;
+    text-wrap: balance;
+  }
+  :root:not([data-pointer="coarse"]) .app[data-active-view="city"] .city-shop-dock .pr-milestone-badge {
+    display: none;
   }
   :root:not([data-pointer="coarse"]) .app[data-active-view="city"] .city-shop-dock .pr-prod {
-    grid-area: prod;
+    grid-area: gain;
+    display: none;
+    flex-wrap: nowrap;
     gap: 0.15rem 0.55rem;
+    overflow: hidden;
+  }
+  :root:not([data-pointer="coarse"]) .app[data-active-view="city"] .city-shop-dock .purchase-row:not(.has-gain) .pr-prod {
+    display: flex;
   }
   :root:not([data-pointer="coarse"]) .app[data-active-view="city"] .city-shop-dock .pr-prod-item {
     font-size: var(--fs-read);
@@ -240,40 +304,73 @@
   :root:not([data-pointer="coarse"]) .app[data-active-view="city"] .city-shop-dock .pr-footer {
     display: contents;
   }
+  /* Le gain en ivoire, sa ressource dite par l'icône (pas de désaturation ici :
+     chrome-wizard.css éteint la teinte des chiffres, l'icône doit garder la
+     sienne). « +<0.1 % » recule. */
   :root:not([data-pointer="coarse"]) .app[data-active-view="city"] .city-shop-dock .pr-gain {
     grid-area: gain;
-    align-self: end;
+    align-self: center;
+    display: inline-flex;
+    align-items: center;
+    gap: 0.375rem;
     font-size: var(--fs-read);   /* plancher de 11 px (BUG-119) */
+    color: var(--text-strong);
+    opacity: 1;
+    filter: none;
+  }
+  :root:not([data-pointer="coarse"]) .app[data-active-view="city"] .city-shop-dock .pr-gain.is-faint {
+    color: var(--text-weak);
+  }
+  :root:not([data-pointer="coarse"]) .app[data-active-view="city"] .city-shop-dock .pr-gain-icon {
+    display: block;
+    width: 16px;
+    height: 16px;
   }
   :root:not([data-pointer="coarse"]) .app[data-active-view="city"] .city-shop-dock .pr-step-track {
     grid-area: track;
     width: 100%;
     height: 2px;
-    margin-top: 0.2rem;
+    margin-top: 0.125rem;
   }
   :root:not([data-pointer="coarse"]) .app[data-active-view="city"] .city-shop-dock .pr-state-pip {
     top: 0.35rem;
     right: auto;
     left: calc(0.45rem + 4rem - 12px);
   }
+  /* La quantité possédée, sur la vignette (cote V4) mais au corps de lecture :
+     à 0.72rem en Jersey 15 elle sortait hors grille, et son or se confondait
+     avec celui des boutons payables. Au ras du bas de la vignette, compté
+     depuis le HAUT (rembourrage + vignette − sa ligne de 18 px) : la vignette
+     est accrochée en haut, et un px entier garde la police pixel nette. */
   :root:not([data-pointer="coarse"]) .app[data-active-view="city"] .city-shop-dock .pr-count {
     position: absolute;
-    left: calc(0.45rem + 0.15rem);
-    bottom: 0.65rem;
+    left: 0.45rem;
+    top: calc(0.125rem + 4rem - 18px);
+    bottom: auto;
     z-index: 1;
-    padding: 0.08rem 0.25rem;
+    padding: 0 0.25rem;
     /* Posé sur la vignette : il garde son fond sombre pour se lire, mais
        perd son filet (« vilaines puces », Raph). */
     border: 0;
-    font-size: 0.72rem;
+    font: 400 var(--fs-read)/18px var(--font-body);
+    color: var(--text-strong);
+  }
+  :root:not([data-pointer="coarse"]) .app[data-active-view="city"] .city-shop-dock .pr-count-x {
+    font-size: inherit;
   }
   :root:not([data-pointer="coarse"]) .app[data-active-view="city"] .city-shop-dock .btn-purchase {
     grid-area: buy;
     flex-direction: column;
     gap: 0.2rem;
-    min-width: 5.8rem;
+    min-width: 5.3rem;
     min-height: 0;
-    padding: 0.42rem 0.55rem;
+    padding: 0.42rem 0.5rem;
+  }
+  /* « Acheter » sans « ×1 » : la barre ×1…Max dit déjà la quantité, et ces
+     22 px rendent au nom sa place en 27 px. En Palier elle reste, elle change
+     d'une rangée à l'autre. */
+  :root:not([data-pointer="coarse"]) .app[data-active-view="city"] .city-shop-dock .bp-qty:not(.is-step) {
+    display: none;
   }
   /* 0.6875rem, le plancher de 11 px, et non la cote V4 (0.58rem = 9,3 px) : jugé sur
      la planche planches/plancher-11px, décision de Raph (audit 2026-10-05, BUG-119). */
@@ -301,10 +398,17 @@
     align-items: center;
     padding-block: 0;
   }
+  /* Le titre recule (gris, plus d'or) : c'est une poignée, pas l'information.
+     Retour extérieur du 2026-10-07 : la barre se lit d'abord comme quatre états,
+     les causes et les gestes ensuite (maquette « Lisibilité de la Cité »). */
   :root:not([data-pointer="coarse"]) .app[data-active-view="city"] .city-controls-panel .hud-panel-toggle {
     gap: 1rem;
     font-size: var(--fs-read);
     letter-spacing: 2px;
+    color: var(--text-mid);
+  }
+  :root:not([data-pointer="coarse"]) .app[data-active-view="city"] .city-controls-panel .hud-panel-toggle:hover:not(:disabled) {
+    color: var(--gold-ivory);
   }
   :root:not([data-pointer="coarse"]) .app[data-active-view="city"] .city-controls-panel.is-collapsed .hud-panel-toggle {
     width: 100%;
@@ -331,17 +435,21 @@
     width: 3.4rem;
     height: 5px;
   }
+  /* Le % des foyers était le plus petit texte de la barre (Silkscreen 0.7rem, en
+     gris) quand « Institutions » et « Politiques » prenaient le corps de lecture
+     en couleur : la hiérarchie était à l'envers. L'état passe devant, le reste
+     recule en gris. */
   :root:not([data-pointer="coarse"]) .app[data-active-view="city"] .regul-summary-pct {
     display: inline;
     min-width: 2.2rem;
-    font: 400 0.7rem/1 var(--font-number);
+    font: 400 var(--fs-read)/16px var(--font-body);
     font-style: normal;
-    color: var(--text-secondary);
+    color: var(--text-strong);
   }
   :root:not([data-pointer="coarse"]) .app[data-active-view="city"] .regul-summary-buffer {
     margin-left: auto;
-    font: 600 var(--fs-read)/16px var(--font-body);
-    color: #8FD0E8;
+    font: 400 var(--fs-read)/16px var(--font-body);
+    color: var(--text-weak);
     white-space: nowrap;
   }
   :root:not([data-pointer="coarse"]) .app[data-active-view="city"] .regul-summary-label {
@@ -349,12 +457,28 @@
   }
   :root:not([data-pointer="coarse"]) .app[data-active-view="city"] .regul-summary-pol {
     display: inline;
-    font: 650 var(--fs-read)/16px var(--font-body);
-    color: var(--text-mid);
+    font: 400 var(--fs-read)/16px var(--font-body);
+    color: var(--text-weak);
     white-space: nowrap;
   }
   :root:not([data-pointer="coarse"]) .app[data-active-view="city"] .regul-summary-pol b {
-    color: var(--text-strong);
+    font-weight: 400;
+    color: var(--text-mid);
+  }
+
+  /* Jauges des foyers : neutres, une seule s'allume. Quatre teintes pleines côte
+     à côte (vert, or vif, bleu, violet) se disputaient l'œil, l'or vif des
+     Inégalités en plus de celui des boutons. L'icône garde l'identité du foyer ;
+     le foyer qui pèse le plus passe au rouge dès la crise profonde (is-dom,
+     dominantFoyerKey). Au doigt et au Conseil, les teintes restent. */
+  :root:not([data-pointer="coarse"]) .app[data-active-view="city"] .city-controls-panel .regul-summary-fill {
+    background: color-mix(in srgb, var(--text-strong), transparent 50%);
+  }
+  :root:not([data-pointer="coarse"]) .app[data-active-view="city"] .city-controls-panel .is-dom .regul-summary-fill {
+    background: var(--red);
+  }
+  :root:not([data-pointer="coarse"]) .app[data-active-view="city"] .regul-summary-foyer.is-dom .regul-summary-pct {
+    color: var(--red);
   }
 
   /* Dépliée (d'elle-même en crise) : le titre passe en colonne à gauche, sur la
@@ -391,28 +515,46 @@
     gap: 0.3rem;
     min-width: 0;
   }
+  /* La tête du foyer : le % au second corps net de la police pixel (Jersey 15 à
+     27 px), le nom au corps de lecture en retrait. Avant, le nom à 18,67 px
+     dominait un % à 0.74rem. */
   :root:not([data-pointer="coarse"]) .regul-quick-head {
     display: flex;
-    align-items: center;
-    gap: 0.4rem;
+    align-items: baseline;
+    gap: 0.5rem;
     min-width: 0;
+  }
+  :root:not([data-pointer="coarse"]) .regul-quick-head .regul-summary-icon {
+    align-self: center;
   }
   :root:not([data-pointer="coarse"]) .regul-quick-name {
     min-width: 0;
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
-    font: 650 var(--fs-read)/18px var(--font-body);
-    color: var(--text-strong);
+    font: 400 var(--fs-read)/20px var(--font-body);
+    color: var(--text-mid);
   }
   :root:not([data-pointer="coarse"]) .regul-quick-val {
-    margin-left: auto;
-    font: 400 0.74rem/1 var(--font-number);
+    font: 400 var(--fs-display)/27px var(--font-title);
+    color: var(--text-strong);
+  }
+  :root:not([data-pointer="coarse"]) .regul-quick-foyer.is-dom .regul-quick-val {
+    color: var(--red);
+  }
+  :root:not([data-pointer="coarse"]) .regul-quick-foyer.is-dom .regul-quick-name {
     color: var(--text-strong);
   }
   :root:not([data-pointer="coarse"]) .regul-quick-foyer .regul-summary-track {
     display: block;
     width: 100%;
+  }
+  /* Les édits : la plaque de cuir seule, sans le liseré ni le voile à la teinte
+     du foyer, et les contreparties en gris (une conséquence ne crie pas). */
+  :root:not([data-pointer="coarse"]) .regul-quick .regul-quick-btn,
+  :root:not([data-pointer="coarse"]) .regul-quick .regul-quick-btn:hover:not(:disabled) {
+    border-color: transparent;
+    background: none;
   }
   :root:not([data-pointer="coarse"]) .regul-quick .regul-quick-btn {
     width: 100%;
@@ -420,6 +562,22 @@
     min-height: 0;
     padding: 0.35rem 0.5rem 0.4rem;
     font-size: var(--fs-read);
+  }
+  :root:not([data-pointer="coarse"]) .regul-quick .regul-quick-btn :is(.regul-cost, .regul-malus, .regul-bonus) {
+    color: var(--text-weak);
+  }
+  /* L'édit du foyer dominant : le seul geste désigné, donc le seul en or (la
+     plaque d'or des boutons payables, chrome-wizard.css). */
+  :root:not([data-pointer="coarse"]) .regul-quick-foyer.is-dom .regul-quick-btn:not(:disabled) {
+    color: #2A1D06;
+  }
+  :root:not([data-pointer="coarse"]) .regul-quick-foyer.is-dom .regul-quick-btn:not(:disabled)::before {
+    border-width: 6px;
+    border-image: url("/pixelart/ui/chrome/wizard/button-gold.png") 3 3 6 3 fill stretch;
+  }
+  :root:not([data-pointer="coarse"]) .regul-quick-foyer.is-dom .regul-quick-btn:not(:disabled) :is(.regul-cost, .regul-malus, .regul-bonus) {
+    color: inherit;
+    opacity: 0.75;
   }
   :root:not([data-pointer="coarse"]) .regul-quick-council {
     align-self: end;
@@ -461,6 +619,11 @@
   :root:not([data-pointer="coarse"]) .app {
     --hud-id-w: 21rem;
     --shop-w: 22rem;
+  }
+  /* Identité de 21rem : à 0.04em « EFFONDREMENT IMMINENT » passait sur deux
+     lignes (mesuré à 1400 px) ; sans interlettrage il tient (291 px pour 301). */
+  :root:not([data-pointer="coarse"]) .app[data-active-view="city"] .stability-gauge.sg-collapse .sg-label {
+    letter-spacing: 0;
   }
 }
 

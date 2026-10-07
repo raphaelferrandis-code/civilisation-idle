@@ -16,9 +16,13 @@ import {
   getSfxEnabled,
   setSfxEnabled,
   getSfxVolume,
-  setSfxVolume
+  setSfxVolume,
+  idleCapSeconds,
+  nextIdleCapPalier
 } from '../../game/core/main.js';
-import { numberFormatMode, setNumberFormatMode, encodeSaveText } from '../../game/core/utils.js';
+import { numberFormatMode, setNumberFormatMode, encodeSaveText, fmtSecs } from '../../game/core/utils.js';
+import { uiRevealed } from '../../game/core/uiReveal.js';
+import { idleReserveHint } from '../ui/idleReserve.js';
 import { dayNightMode, setDayNightMode } from '../../game/map/dayNightMode.js';
 import { qualityMode, setQualityMode, autoQualityTier } from '../../game/map/qualityMode.js';
 import { energySaver, setEnergySaver } from '../../game/map/energySaver.js';
@@ -1270,6 +1274,21 @@ export default function OptionsDialog({ isOpen, onClose, onSave, onExport, onImp
                     <button type="button" disabled={chuteEnCours} onClick={onImport}>{tr({ fr: "Importer", en: "Import" })}</button>
                   )}
                 </div>
+              </div>
+            )}
+            {/* RÉSERVE D'ABSENCE : elle a quitté la carte d'identité de la Cité
+                (relevé du 06/10, docs/PLAN-LISIBILITE.md), une valeur qui ne
+                bouge qu'avec les Ruines n'avait pas à rester à l'écran. Même
+                dévoilement que dans l'encart d'état (clé « meta »). */}
+            {uiRevealed(state, 'meta') && (
+              <div className="options-row" data-opt="idle-reserve">
+                <div>
+                  <OptionLabel
+                    label={tr({ fr: "Réserve d'absence", en: "Away reserve" })}
+                    hint={idleReserveHint(idleCapSeconds(), nextIdleCapPalier())}
+                  />
+                </div>
+                <strong>{fmtSecs(idleCapSeconds())}</strong>
               </div>
             )}
             {/* Emplacements manuels : l'autosave écrase en continu, une partie

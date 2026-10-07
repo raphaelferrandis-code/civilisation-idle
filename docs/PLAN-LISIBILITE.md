@@ -108,3 +108,14 @@ du ruban en infobulle (−5) ; « Réserve d'absence » vers les Options.
   ⚠ Pièges payés : (1) la liste riche du Néon n'a AUCUN logis d'une case → la pose
   s'arrêtait (46 maisons sur 1 439) quand le biais était dans le générateur ; (2) le tirage
   par case faisait changer 49 dessins à un achat. D'où la substitution après la pose.
+- 2026-10-07 : U APPLIQUÉ, après un second retour extérieur (« trop d'informations au même
+  poids ») et une maquette avant/après validée par Raph (canevas « Lisibilité de la Cité »).
+  Au bureau : la boutique ne montre plus que nom (27 px), quantité (sur la vignette), gain
+  du lot et prix, débits et bonus de palier en infobulle, plus de plaque de rangée ;
+  Régulation : % des foyers en 27 px, le foyer dominant en rouge et son édit en or dès 75 %
+  (`dominantFoyerKey`), le reste en gris ; Rupture : « Effondrement imminent » en 27 px,
+  voisins estompés, gain de la chute sur sa ligne, crise profonde en `--state-crisis` ;
+  ruban en ivoire ; réserve d'absence dans les Options › Sauvegarde ; coût manquant gris
+  au lieu de rouge (partout). Gardes : `decisionsAffichage.test.js`, `regulDominant.test.js`.
+  ⚠ Noms longs (« Architectes des ruines », « Instituts stratégiques », sept sous 1500 px) :
+  sur deux lignes, vignette accrochée en haut.

@@ -6,6 +6,7 @@ import { fmt, fmtShort, signed, signedShort, labelFor, rateScale, exactLabel } f
 import { tr } from '../../game/core/i18n.js';
 import { RES_ICONS } from './resourceIcons.js';
 import { tipProps } from './HelpBubble.jsx';
+import PixelIcon from './PixelIcon.jsx';
 import { buildingIconSrc } from '../../game/data/buildingIcons.js';
 
 const RES_CLASS = {
@@ -14,6 +15,16 @@ const RES_CLASS = {
   gold: "res-gold",
   knowledge: "res-know",
   infrastructure: "res-infra"
+};
+
+// Icône pixel de la ressource que sert le gain du lot (chip « +X % »). Au bureau
+// le chiffre passe en ivoire et la couleur ne reste que sur l'icône (cite.css).
+const GAIN_ICON = {
+  population: "res/population",
+  food: "res/food",
+  gold: "res/gold",
+  knowledge: "res/knowledge",
+  infrastructure: "res/infra"
 };
 
 /**
@@ -37,6 +48,8 @@ function PurchaseRow({
   // recréé à chaque rendu parent casserait la mémoïsation de toutes les rangées.
   gainLabel = "",
   gainTitle = "",
+  // Ressource la plus servie par le lot (clé de BREAKDOWN_RESOURCES), "" sinon.
+  gainRes = "",
   milestoneInfo,
   step,
   tier,
@@ -94,8 +107,26 @@ function PurchaseRow({
     babelBlocked ? "babel-blocked" : "",
     pulse ? "pr-pulse" : "",
     shaking ? "pr-shake" : "",
-    icon ? "pr-has-thumb" : ""
+    icon ? "pr-has-thumb" : "",
+    // Au bureau, le gain remplace les débits sur la rangée (cite.css) ; sans gain
+    // (premier apport, effet indirect), les débits restent à sa place.
+    gainLabel ? "has-gain" : ""
   ].filter(Boolean).join(" ");
+
+  // L'infobulle du gain porte aussi ce que la rangée ne montre plus au bureau :
+  // les débits du bâtiment et son bonus de palier. Au doigt ils restent visibles,
+  // l'infobulle les répète sans dommage.
+  const gainTip = [
+    { label: gainTitle },
+    production.length > 0 && {
+      label: tr({ fr: "Production", en: "Output" }),
+      value: production.map(([key, value]) => {
+        const r = rateScale(value);
+        return `${signedShort(r.value)}${r.unit} ${labelFor(key)}`;
+      }).join(" · ")
+    },
+    milestoneInfo && { label: tr({ fr: "Bonus de palier", en: "Milestone bonus" }), value: `×${fmtShort(milestoneInfo.bonus)}` }
+  ].filter(Boolean);
 
   return (
     <article
@@ -157,7 +188,7 @@ function PurchaseRow({
 
         <div
           className="pr-step-track"
-          {...tipProps(null, tr({ fr: `Palier ${stepLabel} dans ${nextIn} achat${nextIn > 1 ? "s" : ""}`, en: `${stepLabel} milestone in ${nextIn} purchase${nextIn > 1 ? "s" : ""}` }))}
+          {...tipProps(null, `${milestoneInfo ? tr({ fr: `Bonus de palier ×${fmtShort(milestoneInfo.bonus)} · `, en: `Milestone bonus ×${fmtShort(milestoneInfo.bonus)} · ` }) : ""}${tr({ fr: `Palier ${stepLabel} dans ${nextIn} achat${nextIn > 1 ? "s" : ""}`, en: `${stepLabel} milestone in ${nextIn} purchase${nextIn > 1 ? "s" : ""}` })}`)}
           aria-hidden="true"
         >
           <span style={{ width: `${stepPct}%` }}></span>
@@ -185,13 +216,14 @@ function PurchaseRow({
               <span key={f.id} className="pr-float" aria-hidden="true">{f.text}</span>
             ))}
             <span className="bp-action">
-              {buyAmount === "max"
-                ? tr({ fr: "Acheter Max", en: "Buy Max" })
-                : buyAmount === "step"
-                  // La quantité est propre à cette rangée : on l'affiche, sinon
-                  // « Acheter Palier » ne dit pas ce qu'on s'apprête à payer.
-                  ? tr({ fr: `Acheter ×${nextIn}`, en: `Buy ×${nextIn}` })
-                  : tr({ fr: `Acheter ×${buyAmount}`, en: `Buy ×${buyAmount}` })}
+              {tr({ fr: "Acheter", en: "Buy" })}
+              {/* La quantité, à part : au bureau elle se masque (cite.css), la
+                  barre ×1…Max la dit déjà et c'est ce qui laisse au nom sa place
+                  en 27 px. SAUF en Palier : la quantité est propre à cette rangée,
+                  « Acheter » seul ne dirait pas ce qu'on s'apprête à payer. */}
+              <span className={`bp-qty${buyAmount === "step" ? " is-step" : ""}`}>
+                {buyAmount === "max" ? " Max" : ` ×${buyAmount === "step" ? nextIn : buyAmount}`}
+              </span>
             </span>
             <span className="bp-cost">
               {Object.entries(prices).map(([currency, amount]) => (
@@ -211,10 +243,12 @@ function PurchaseRow({
               4.2e12 à 8.7e11 d'une rangée à l'autre est impossible. Le chip
               porte la ressource la plus servie, l'infobulle les détaille toutes. */}
           {gainLabel && (
-            <span className="pr-gain" {...tipProps(
+            // « +<0.1 % » : un gain qui ne dit rien recule (is-faint).
+            <span className={`pr-gain${gainLabel.includes("<") ? " is-faint" : ""}`} {...tipProps(
               tr({ fr: "Ce que ce lot ajoute", en: "What this batch adds" }),
-              gainTitle
+              gainTip
             )}>
+              {GAIN_ICON[gainRes] && <PixelIcon name={GAIN_ICON[gainRes]} size={16} className="pr-gain-icon" />}
               {gainLabel}
             </span>
           )}
@@ -265,7 +299,8 @@ function arePropsEqual(prev, next) {
     // ce qui s'affiche se compare ici, sinon le chip se fige sur sa première
     // valeur jusqu'au prochain achat.
     prev.gainLabel === next.gainLabel &&
-    prev.gainTitle === next.gainTitle
+    prev.gainTitle === next.gainTitle &&
+    prev.gainRes === next.gainRes
   );
 }
 

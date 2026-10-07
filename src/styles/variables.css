@@ -44,6 +44,9 @@
   /* ----- États (réservés au signal) ----- */
   --state-rupture: #EF4444;
   --state-usure:   #9B5DE5;
+  /* Crise profonde (Rupture ≥ 75 %) : un rouge orangé à elle, pour que le rouge
+     vif ne dise plus que l'effondrement imminent (retour extérieur 2026-10-07). */
+  --state-crisis:  #E8603C;
 
   /* États d'achat — langage commun boutique / arbre de Ruines / héritage.
      L'ambre « bientôt » réutilise le ton déjà employé par le tooltip de l'arbre.

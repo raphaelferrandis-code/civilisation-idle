@@ -776,7 +776,7 @@
    jauge dit déjà « stable / tendu / critique », et personne ne lit un gain
    projeté en jouant. */
 :root[data-pointer="coarse"] .app[data-active-view="city"] .city-stage-hud .sg-label,
-:root[data-pointer="coarse"] .app[data-active-view="city"] .city-stage-hud .sg-collapse-gain {
+:root[data-pointer="coarse"] .app[data-active-view="city"] .city-stage-hud .sg-stake {
   display: none;
 }
 

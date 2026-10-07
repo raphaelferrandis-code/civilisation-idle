@@ -494,7 +494,9 @@ export default function CityView() {
           <CycleReportBanner />
           {/* Rapport de reprise : encart non modal, posé sur la carte. */}
           <IdleReportPanel />
-          <div className="city-stage-hud" ref={stageHudRef}>
+          {/* is-alert : effondrement imminent (≥ 90 %). La jauge grandit et ses
+              voisins reculent (cite.css) : c'est ce qu'il faut lire en premier. */}
+          <div className={`city-stage-hud${revealGauge && clamp01(instability) >= 0.9 ? ' is-alert' : ''}`} ref={stageHudRef}>
           <div className="city-title-wrapper">
             <input
               id="cityNameInput"
@@ -571,7 +573,6 @@ export default function CityView() {
               >
                 <div className="sg-meta">
                   <span className="sg-label">{tr(tier.label)}</span>
-                  <span className="sg-collapse-gain" {...tipProps(null, tr({ fr: "Ruines obtenues si la cité s'effondrait maintenant, Rite de Passage, legs gravé (ou dernière volonté) et vœu compris. Tenir plus longtemps et chuter plus profond rapporte davantage.", en: "Ruins gained if the city collapsed right now, including the Rite of Passage, the engraved legacy (or last will) and the vow. Holding out longer and falling deeper yields more." }))}>+{fmt(projectedRuin)}</span>
                   <span className="sg-pct" id="rupturePanelValue">{pctValue}%</span>
                 </div>
                 <div className="sg-track">
@@ -601,13 +602,21 @@ export default function CityView() {
                     </svg>
                   )}
                 </div>
+                {/* Ce que la chute rapporterait : sa propre ligne, sous la jauge
+                    (elle était coincée entre le palier et le %). */}
+                <div className="sg-stake" {...tipProps(null, tr({ fr: "Ruines obtenues si la cité s'effondrait maintenant, Rite de Passage, legs gravé (ou dernière volonté) et vœu compris. Tenir plus longtemps et chuter plus profond rapporte davantage.", en: "Ruins gained if the city collapsed right now, including the Rite of Passage, the engraved legacy (or last will) and the vow. Holding out longer and falling deeper yields more." }))}>
+                  <PixelIcon name="glyphs/ruines" size={16} className="sg-stake-icon" />
+                  <span>{tr({ fr: "Chute maintenant", en: "Fall now" })}</span>
+                  <strong className="sg-collapse-gain">+{fmt(projectedRuin)}</strong>
+                </div>
               </div>
             );
           })()}
 
           {/* CARTE D'IDENTITÉ (refonte « la ville d'abord », bureau) : l'encart
               d'état quitte la barre latérale devenue rail et se range ici —
-              âge, Usure, vœu, réserve, clepsydre, sous la jauge de Rupture.
+              âge, Usure, vœu, clepsydre, sous la jauge de Rupture (la réserve
+              d'absence est passée dans les Options › Sauvegarde).
               Au doigt il garde sa feuille « État » (App.jsx). */}
           {!coarse && <CityStatusPanel variant="identity" />}
           </div>{/* /city-stage-hud */}

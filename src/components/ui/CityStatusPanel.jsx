@@ -15,6 +15,7 @@ import { tr } from '../../game/core/i18n.js';
 import RollingNumber from './RollingNumber.jsx';
 import PixelIcon from './PixelIcon.jsx';
 import { tipProps, hideTip } from './HelpBubble.jsx';
+import { idleReserveHint } from './idleReserve.js';
 import { isFirstGame } from '../../game/core/onboarding.js';
 import { uiRevealed } from '../../game/core/uiReveal.js';
 
@@ -351,19 +352,14 @@ export default function CityStatusPanel({ variant = 'full' }) {
 
       {/* Classes DÉDIÉES et non .csp-label/.csp-value : entre 981 et 1500px, ces
           deux-là sont masquées et l'encart deviendrait muet. Ici la valeur reste
-          lisible à tous les paliers, seul le libellé se raccourcit. */}
-      {revealMeta && (
+          lisible à tous les paliers, seul le libellé se raccourcit.
+          Pas dans la carte d'identité de la Cité : la réserve y est passée dans
+          les Options › Sauvegarde (relevé du 06/10, docs/PLAN-LISIBILITE.md),
+          une valeur qui ne bouge qu'avec les Ruines n'a pas à rester à l'écran. */}
+      {revealMeta && !identity && (
       <div
         className="csp-idle"
-        {...tipProps(tr({ fr: "Réserve d'absence", en: 'Away reserve' }), idleNext
-          ? tr({
-              fr: `La cité produit et vieillit en ton absence, jusqu'à ${fmtSecs(idleCap)}. Au-delà, le temps est perdu. « ${idleNext.name} » porte la réserve à ${fmtSecs(idleNext.cap)}.`,
-              en: `The city produces and ages while you are away, up to ${fmtSecs(idleCap)}. Beyond that, time is lost. "${idleNext.name}" raises the reserve to ${fmtSecs(idleNext.cap)}.`
-            })
-          : tr({
-              fr: `La cité produit et vieillit en ton absence, jusqu'à ${fmtSecs(idleCap)}. Réserve maximale atteinte.`,
-              en: `The city produces and ages while you are away, up to ${fmtSecs(idleCap)}. Maximum reserve reached.`
-            }))}
+        {...tipProps(tr({ fr: "Réserve d'absence", en: 'Away reserve' }), idleReserveHint(idleCap, idleNext))}
       >
         <span className="csp-idle-label">{tr({ fr: "Réserve d'absence", en: 'Away reserve' })}</span>
         <strong className="csp-idle-value">{fmtSecs(idleCap)}</strong>

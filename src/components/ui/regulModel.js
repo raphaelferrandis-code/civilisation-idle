@@ -30,6 +30,23 @@ export const FOYER_META = [
 ];
 const FOYER_BY_KEY = Object.fromEntries(FOYER_META.map((m) => [m.key, m]));
 
+// LE FOYER QUI PÈSE LE PLUS, désigné seulement à partir de la crise profonde (75 %,
+// le palier de la jauge de Rupture) : la barre de la Cité le peint en rouge et met
+// son édit en or. Plus tôt aucun foyer n'est un danger, et le rouge comme l'or
+// restent réservés au danger et au geste à faire maintenant (retour extérieur du
+// 2026-10-07, maquette « Lisibilité de la Cité »).
+export const DOMINANT_FOYER_FROM = 0.75;
+
+// `entries` : [clé, pression] de chaque foyer. null sous le seuil, ou si aucun ne pèse.
+export function dominantFoyerKey(entries, instability) {
+  if (!(instability >= DOMINANT_FOYER_FROM)) return null;
+  let best = null;
+  for (const [key, value] of entries) {
+    if ((value || 0) > 0 && (best === null || value > best[1])) best = [key, value];
+  }
+  return best ? best[0] : null;
+}
+
 // Action id de la réforme de fond par foyer.
 const REFORM_ID = {
   scarcity: 'reformScarcity',

@@ -421,6 +421,8 @@ function BuildingShop({ open: openProp, onToggle }) {
           const gainTitle = gains.length
             ? gains.map((g) => `${tr(RES_NAMES[g.resource])} ${fmtGainPct(g.pct) || tr({ fr: "premier apport", en: "first output" })}`).join(" · ")
             : "";
+          // Sa ressource, pour l'icône du chip (une clé, donc une primitive aussi).
+          const gainRes = gainLabel ? gains[0].resource : "";
 
           return (
             <PurchaseRow
@@ -445,6 +447,7 @@ function BuildingShop({ open: openProp, onToggle }) {
               lackingKey={lackingKey}
               gainLabel={gainLabel}
               gainTitle={gainTitle}
+              gainRes={gainRes}
               pulse={pulse}
             />
           );

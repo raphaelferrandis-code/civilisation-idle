@@ -92,6 +92,12 @@
   opacity: 1;
 }
 
+/* L'icône de la ressource servie : seulement dans la boutique de la Cité au
+   bureau (cite.css), où le chiffre du gain passe en ivoire. */
+.pr-gain-icon {
+  display: none;
+}
+
 /* Pied de carte : bouton d'achat (gauche) + compteur possédé (droite), collé en bas. */
 .pr-footer {
   display: flex;
@@ -354,19 +360,22 @@
 
 .bp-cost-item i { font-size: 0.6875rem; opacity: 0.85; }
 
-/* Coût impayable : la ressource manquante passe en rouge */
+/* Coût impayable : la devise manquante S'ÉTEINT, elle ne rougit plus. Le rouge
+   est réservé au danger (Rupture, déficit) : posé sur la plupart des rangées à
+   tout instant, il rendait la jauge d'effondrement banale (retour extérieur du
+   2026-10-07). La différence passe par la lumière : sur un bouton éteint, la
+   devise payable reste au gris moyen, la manquante descend au gris faible et
+   s'estompe. (Plus de règle au survol : un bouton actif n'a jamais de devise
+   manquante, `disabled` suit l'abordabilité.) */
 .bp-cost-item.is-lacking {
-  color: var(--red);
+  color: var(--text-weak);
+  opacity: 0.7;
 }
 
 .btn-purchase:hover:not(:disabled) {
   background: var(--gold);
   color: #16100a;
   transform: translateY(-1px);
-}
-
-.btn-purchase:hover:not(:disabled) .bp-cost-item.is-lacking {
-  color: #7f1d1d;
 }
 
 .btn-purchase:active:not(:disabled) {
@@ -381,8 +390,8 @@
   color: var(--text-disabled);
 }
 
-.btn-purchase:disabled .bp-cost-item.is-lacking {
-  color: color-mix(in srgb, var(--red), transparent 25%);
+.btn-purchase:disabled .bp-cost-item:not(.is-lacking) {
+  color: var(--text-mid);
 }
 
 /* ----- Pulse discret : uniquement le 1er achat possible de la liste ----- */

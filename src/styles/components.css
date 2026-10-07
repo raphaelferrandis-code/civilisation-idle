@@ -364,25 +364,16 @@
    débit est sur sa propre ligne, il n'a plus de ligne de base à partager avec
    les chiffres du cadran.) */
 
-/* Débit : la teinte de SA ressource, atténuée sur le fond de plaque. Il dérive
-   du nombre au-dessus, autant qu'il en porte la couleur — et le nom redevient
-   le seul gris neutre de la case. Trois rangs, trois traitements : nom neutre,
-   valeur en couleur pleine, débit en couleur retirée. Avant, nom et débit
-   partageaient police, corps ET couleur (#9AA4BC) : rien ne les séparait.
+/* Débit : en gris faible, sous un chiffre en ivoire (views-city.css), à côté
+   d'une icône qui porte seule la teinte de la ressource. Il en portait la
+   couleur à 80 % : cinq teintes de plus dans le ruban (retour extérieur du
+   2026-10-07). Contraste : #8B95B0 tient 6,2:1 sur le fond d'application
+   (variables.css, E12), mieux que l'Infrastructure teintée (4,4:1). Le débit
+   NÉGATIF garde son rouge (views-city.css) : un déficit est un danger.
    Graisse 400 : le <strong> du nombre calculait à 900, soit le plus petit
    texte de la case rendu plus gras que son titre. */
-.topbar .card-pop { --res-tint: var(--res-pop); }
-.topbar .card-food { --res-tint: var(--res-food); }
-.topbar .card-gold { --res-tint: var(--res-gold); }
-.topbar .card-knowledge { --res-tint: var(--res-know); }
-.topbar .card-infra { --res-tint: var(--res-infra); }
-
-/* 80 % et pas moins : c'est le plus petit texte de l'écran, et il vient de
-   passer en graisse 400. À 62 % l'Infrastructure (bleu-gris déjà proche du
-   fond) tombait à 3,1:1 de contraste contre 7,5:1 en gris ; à 80 % la teinte
-   la plus faible tient 4,4:1 et la plus vive dépasse 5:1. */
 .topbar .resource-card-unified .rate-value.positive {
-  color: color-mix(in srgb, var(--res-tint, var(--text-mid)) 80%, var(--surface-app));
+  color: var(--text-weak);
 }
 
 .topbar .resource-card-unified .rate-value,

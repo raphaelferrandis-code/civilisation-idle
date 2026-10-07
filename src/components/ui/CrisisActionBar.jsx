@@ -3,10 +3,10 @@ import { useGameState } from '../../hooks/useGameState.js';
 import { pressureBreakdown, regulFatigueEffectMult } from '../../game/core/mechanics.js';
 import { runCrisisAction, togglePolicy } from '../../game/core/actions.js';
 import { openAuguryTable } from '../../game/core/auguryTable.js';
-import { costLabel, canPayCost, pct, fmt } from '../../game/core/utils.js';
+import { costLabel, canPayCost, fmt } from '../../game/core/utils.js';
 import { state, openView } from '../../game/core/state.js';
 import { tableLimits } from '../../game/core/actions/maisonTable.js';
-import { RES_LABEL, FOYER_META, regulationFoyers, regulationPolicies, policyEffectLabel, policyCostLabel } from './regulModel.js';
+import { RES_LABEL, FOYER_META, regulationFoyers, regulationPolicies, policyEffectLabel, policyCostLabel, dominantFoyerKey } from './regulModel.js';
 import { tr } from '../../game/core/i18n.js';
 import { FaveurIcon } from './FaveurIcon.jsx';
 import PixelIcon from './PixelIcon.jsx';
@@ -167,9 +167,10 @@ function FoyerIcon({ k }) {
 
 export function RegulSummary() {
   // Même abonnement que le panneau déplié : la pression bouge au tick (1 Hz).
-  useGameState((s) => s.instability);
+  const instability = useGameState((s) => s.instability);
   useGameState((s) => (s.activePolicies || []).join(','));
   const pressure = pressureBreakdown();
+  const domKey = dominantFoyerKey(FOYER_META.map((m) => [m.key, pressure[m.key]]), instability);
   const mitigationPct = Math.round((pressure.mitigation || 0) * 100);
   const { activeCount, max: policyMax } = regulationPolicies();
   // Les valeurs en TEXTE partent dans l'infobulle : les jauges sont muettes pour
@@ -187,7 +188,7 @@ export function RegulSummary() {
       )}
     >
       {FOYER_META.map((m) => (
-        <span key={m.key} className={`regul-summary-foyer regul-summary-foyer--${m.tone}`} aria-hidden="true">
+        <span key={m.key} className={`regul-summary-foyer regul-summary-foyer--${m.tone}${m.key === domKey ? ' is-dom' : ''}`} aria-hidden="true">
           <FoyerIcon k={m.key} />
           <span className="regul-summary-track">
             <span
@@ -220,10 +221,11 @@ export function RegulSummary() {
  * Au doigt, la feuille garde la barre complète (CrisisActionBar).
  */
 export function RegulQuick() {
-  useGameState((s) => s.instability);
+  const instability = useGameState((s) => s.instability);
   useGameState((s) => s.cycles);
   useGameState((s) => s.regulFatigue || 0);
   const foyers = regulationFoyers();
+  const domKey = dominantFoyerKey(foyers.map((f) => [f.key, f.value]), instability);
   return (
     <div className="regul-quick">
       {foyers.map((f) => {
@@ -231,11 +233,13 @@ export function RegulQuick() {
         // cycle 2), sa première action, réforme comprise.
         const first = f.actions.find((a) => !a.locked && !a.reform && !a.gamble) || f.actions.find((a) => !a.locked) || f.actions[0];
         return (
-          <div key={f.key} className={`regul-quick-foyer regul-summary-foyer--${f.tone}`}>
+          <div key={f.key} className={`regul-quick-foyer regul-summary-foyer--${f.tone}${f.key === domKey ? ' is-dom' : ''}`}>
+            {/* L'ÉTAT D'ABORD : le chiffre en grand, le nom en retrait, le geste
+                dessous. Un entier : la décimale n'apprenait rien à ce corps-là. */}
             <span className="regul-quick-head">
               <FoyerIcon k={f.key} />
+              <strong className="regul-quick-val">{Math.round((f.value || 0) * 100)}%</strong>
               <span className="regul-quick-name">{f.label}</span>
-              <strong className="regul-quick-val">{pct(f.value)}</strong>
             </span>
             <span className="regul-summary-track" aria-hidden="true">
               <span className="regul-summary-fill" style={{ width: `${Math.min(1, f.value || 0) * 100}%` }}></span>

@@ -232,3 +232,46 @@ describe("BUG-106 (a) — le bandeau-dépêche habillé aux ères cosmiques", ()
       .toBeLessThan(css.indexOf(".chronicle-ticker.is-crisis .ticker-masthead"));
   });
 });
+
+describe("Lisibilité de la Cité (retour extérieur du 2026-10-07, maquette validée par Raph)", () => {
+  const BUREAU = ':root:not([data-pointer="coarse"])';
+
+  it("le rouge est réservé au danger : un coût impayable s'éteint, il ne rougit plus", () => {
+    const manque = decls("styles/purchase.css", ".bp-cost-item.is-lacking");
+    expect(manque.color).toBe("var(--text-weak)");
+    expect(lire("styles/purchase.css")).not.toMatch(/is-lacking[^{]*\{[^}]*var\(--red\)/);
+  });
+
+  it("crise profonde et effondrement imminent ne portent plus la même couleur", () => {
+    const crise = decls("styles/views-city.css", ".stability-gauge.sg-crisis")["--sg-color"];
+    const imminent = decls("styles/views-city.css", ".stability-gauge.sg-collapse")["--sg-color"];
+    expect(crise).toBe("var(--state-crisis)");
+    expect(imminent).toBe("var(--red)");
+  });
+
+  it("au bureau, l'état passe au second corps net (27 px) : % des foyers, alerte, noms des rangées", () => {
+    expect(decls("styles/cite.css", `${BUREAU} .regul-quick-val`).font).toContain("var(--fs-display)");
+    expect(decls("styles/cite.css", `${BUREAU} .app[data-active-view="city"] .stability-gauge.sg-collapse .sg-label`).font)
+      .toContain("var(--fs-display)");
+    expect(decls("styles/cite.css", `${BUREAU} .app[data-active-view="city"] .city-shop-dock .pr-name`).font)
+      .toContain("var(--fs-display)");
+  });
+
+  it("la barre repliée : le % des foyers au corps de lecture, institutions et politiques en retrait", () => {
+    const pct = decls("styles/cite.css", `${BUREAU} .app[data-active-view="city"] .regul-summary-pct`);
+    expect(pct.font).toContain("var(--fs-read)");
+    expect(pct.color).toBe("var(--text-strong)");
+    expect(decls("styles/cite.css", `${BUREAU} .app[data-active-view="city"] .regul-summary-buffer`).color).toBe("var(--text-weak)");
+  });
+
+  it("le ruban : chiffres en ivoire, débits positifs en gris (le négatif garde son rouge)", () => {
+    expect(decls("styles/views-city.css", ".resource-card-unified .resource-value").color).toBe("var(--text-strong)");
+    expect(decls("styles/components.css", ".topbar .resource-card-unified .rate-value.positive").color).toBe("var(--text-weak)");
+    expect(decls("styles/views-city.css", ".rate-value.negative").color).toBe("var(--red)");
+  });
+
+  it("la réserve d'absence a quitté la carte d'identité pour les Options", () => {
+    expect(lire("components/ui/CityStatusPanel.jsx")).toMatch(/revealMeta && !identity && \(\s*<div\s+className="csp-idle"/);
+    expect(lire("components/dialogs/OptionsDialog.jsx")).toContain('data-opt="idle-reserve"');
+  });
+});

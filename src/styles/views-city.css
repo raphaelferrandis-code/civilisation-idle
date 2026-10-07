@@ -461,7 +461,9 @@
 
 .stability-gauge.sg-tension  { --sg-color: #e8b339; --sg-glow: rgba(232, 179, 57, 0.32); }
 .stability-gauge.sg-strain   { --sg-color: #ef8434; --sg-glow: rgba(239, 132, 52, 0.35); }
-.stability-gauge.sg-crisis   { --sg-color: var(--red); --sg-glow: rgba(239, 68, 68, 0.4); }
+/* Crise profonde ≠ effondrement imminent : les deux paliers portaient le même
+   rouge, seule la lueur changeait. */
+.stability-gauge.sg-crisis   { --sg-color: var(--state-crisis); --sg-glow: rgba(232, 96, 60, 0.4); }
 .stability-gauge.sg-collapse { --sg-color: var(--red); --sg-glow: rgba(239, 68, 68, 0.55); }
 
 .sg-meta {
@@ -564,11 +566,30 @@
   z-index: 2;
 }
 
-/* Rework §5.1 — gain projeté « si effondrement » dans l'en-tête. */
-.sg-collapse-gain {
+/* Rework §5.1 — gain projeté « si effondrement » : sa propre ligne sous la jauge,
+   et plus en or. Coincé entre le palier et le %, il en faisait trois chiffres de
+   même poids ; et l'or désigne le geste à faire, la chute n'en est pas un
+   (retour extérieur du 2026-10-07). */
+.sg-stake {
+  display: flex;
+  align-items: center;
+  gap: 0.375rem;
+  font-family: var(--font-body);
   font-size: var(--fs-read);
-  font-weight: 700;
-  color: var(--gold);
+  line-height: 20px;
+  color: var(--text-mid);
+}
+
+.sg-stake-icon {
+  flex: 0 0 auto;
+  width: 16px;
+  height: 16px;
+}
+
+.sg-collapse-gain {
+  margin-left: auto;
+  font-weight: 400;
+  color: var(--text-strong);
   white-space: nowrap;
 }
 
@@ -740,11 +761,10 @@
   text-shadow: 0 0 10px rgba(240, 200, 96, 0.15);
 }
 
-.resource-card-unified.card-pop .resource-value { color: var(--res-pop); text-shadow: 0 0 10px rgba(221, 122, 94, 0.15); }
-.resource-card-unified.card-food .resource-value { color: var(--res-food); text-shadow: 0 0 10px rgba(54, 179, 126, 0.15); }
-.resource-card-unified.card-gold .resource-value { color: var(--res-gold); text-shadow: 0 0 10px rgba(240, 180, 41, 0.15); }
-.resource-card-unified.card-knowledge .resource-value { color: var(--res-know); text-shadow: 0 0 10px rgba(76, 157, 232, 0.15); }
-.resource-card-unified.card-infra .resource-value { color: var(--res-infra); text-shadow: 0 0 10px rgba(136, 147, 184, 0.18); }
+/* Le chiffre en ivoire, la couleur de la ressource reste sur son icône : cinq
+   teintes pleines côte à côte se disputaient l'œil avec la jauge de Rupture
+   (retour extérieur du 2026-10-07, maquette « Lisibilité de la Cité »). */
+.resource-card-unified .resource-value { color: var(--text-strong); text-shadow: none; }
 
 .rate-value {
   font-weight: 700;
@@ -1189,7 +1209,7 @@
 
 .city-stage-hud .sg-label,
 .city-stage-hud .sg-pct,
-.city-stage-hud .sg-collapse-gain {
+.city-stage-hud .sg-stake {
   text-shadow: 0 1px 6px rgba(0, 0, 0, 0.9);
 }
 
