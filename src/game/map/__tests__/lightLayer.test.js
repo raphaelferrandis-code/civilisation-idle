@@ -149,28 +149,19 @@ describe('couche de lumière — dépôt, découpe, blit', () => {
     expect(paintLightLayer(makeCtx())).toBe(false);
   });
 
-  // PERF-2 (décision de Raph du 2026-10-05) : au palier sans effets (Performance, ou
-  // « Auto » sur un rendu logiciel), halos DIRECTS — plus aucune découpe, mais toutes
-  // les lumières déposées et posées après le voile : sans calque, fenêtres et émissifs
-  // (qui n'existent que dans le calque) s'éteindraient.
-  it('palier sans effets : dépôts et blit gardés, aucune découpe', () => {
+  // Décision de Raph du 2026-10-07 (revient sur PERF-2) : le palier sans effets
+  // (Performance, ou « Auto » sur un rendu logiciel) coupe l'ombre et les reflets,
+  // JAMAIS l'occultation — sans découpe, les halos traversaient les toits.
+  it('palier sans effets : les lumières restent occultées', () => {
     const fxWas = CM.fxOn;
     try {
       CM.fxOn = false;
       expect(beginLightLayer()).toBe(true);
       expect(glowAt(96, 96)).toBeTruthy();
-      log = [];
-      expect(lightCutImage(IMG, 90, 90, 30, 30)).toBe(false);
-      expect(lightCut(80, 80, 130, 130, (lc) => { lc.beginPath(); lc.fill(); })).toBe(false);
-      expect(log).toHaveLength(0);
-      expect(lightLayerStats()).toMatchObject({ occlude: false, cuts: 0, glows: 1 });
+      expect(lightCutImage(IMG, 90, 90, 30, 30)).toBe(true);
+      expect(lightLayerStats()).toMatchObject({ occlude: true, cuts: 1, glows: 1 });
       endLightLayer();
       expect(paintLightLayer(makeCtx())).toBe(true);
-      expect(draws('lighter').length).toBeGreaterThan(0);
-      // Retour aux effets : l'occultation revient à la frame suivante.
-      CM.fxOn = true;
-      beginLightLayer(); glowAt(96, 96);
-      expect(lightCutImage(IMG, 90, 90, 30, 30)).toBe(true);
     } finally { CM.fxOn = fxWas; }
   });
 });

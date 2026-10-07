@@ -34,10 +34,9 @@ export let qualityMode = (() => {
 // est haute, plus la simplification arrive tôt (allège le dézoom). Zoom ∈ [0.35, 3.2].
 // `fx` = l'OMBRE DU SOLEIL et les REFLETS dans l'eau (docs/PLAN-MAQUETTE-VIVANTE.md) :
 // mesurés à +4 ms chacun par image au zoom 1 en rendu logiciel (2026-09-30). Le
-// palier des machines modestes s'en passe. Sans `fx`, les lumières ne sont plus
-// OCCULTÉES non plus (décision de Raph du 2026-10-05, PERF-2 : halos directs,
-// par-dessus la façade devant eux, cf. lightLayer.js) : −11 à −14 ms la nuit en
-// rendu logiciel.
+// palier des machines modestes s'en passe. Les lumières, elles, restent OCCULTÉES
+// à tous les paliers (décision de Raph du 2026-10-07, qui revient sur PERF-2 :
+// sans découpe, les halos traversaient les toits ; cf. lightLayer.js).
 // `balancedNoFx` (« Équilibrée sans effets ») n'est pas un choix du joueur : c'est
 // le palier que prend « Auto » quand le navigateur dessine sans carte graphique
 // (décision de Raph du 2026-10-05, PERF-4 = b ; cf. detectAutoTier).
@@ -100,7 +99,7 @@ function detectAutoTier() {
 // RENDU SANS CARTE GRAPHIQUE (décision de Raph du 2026-10-05, PERF-4 = b) : rendu
 // logiciel reconnu ou WebGL absent (rendererProbe.slowRenderer) → « Équilibrée sans
 // effets » : 70 % d'habitants, simplification sous le zoom 0,55, ni ombre du soleil,
-// ni reflets, ni occultation des lumières. Un PC à 16 cœurs au GPU coupé recevait
+// ni reflets (les lumières restent occultées). Un PC à 16 cœurs au GPU coupé recevait
 // « Élevée », le palier le plus lourd sur la machine la plus lente. « Performance »,
 // plus léger encore, est gardé. La sonde est faite une fois et gardée : le palier ne
 // change JAMAIS en cours de partie (pas de descente sur des images lentes, choix de

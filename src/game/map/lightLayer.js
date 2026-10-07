@@ -30,16 +30,13 @@ import { CM } from './layout.js';
  * Réglage live : window.__lightOcclusion({ on }) — `on:false` rend la main au
  * dessin direct (halos par-dessus tout), pour comparer.
  *
- * PALIERS SANS EFFETS (décision de Raph du 2026-10-05, PERF-2) : au palier
- * « Performance », et en « Auto » quand le navigateur dessine sans carte graphique
- * (« Équilibrée sans effets », qualityMode.js), CM.fxOn est faux et les lumières ne
- * sont plus OCCULTÉES : le calque est armé, toutes les lumières y sont déposées et
- * posées après le voile comme d'habitude, mais rien n'y découpe sa silhouette. Une
- * lueur traverse alors la façade peinte devant elle — l'ancien comportement des
- * halos directs. Les découpes sont le gros du prix du calque la nuit (−11 à −14 ms
- * en rendu logiciel, audit PERF-2). Pourquoi pas `on: false` : sans calque, les
- * fenêtres, émissifs et lueurs des scènes, qui ne vivent que dans le calque,
- * s'éteindraient. Molette : __lightOcclusion({ occlude: false }).
+ * TOUS LES PALIERS OCCULTENT (décision de Raph du 2026-10-07, qui revient sur
+ * PERF-2 du 2026-10-05). Le palier sans effets (« Performance », ou « Auto » sur un
+ * rendu logiciel : CM.fxOn faux) ne coupe plus que l'ombre du soleil et les reflets.
+ * Couper aussi les découpes faisait traverser les toits et les façades par la lueur
+ * des lampes de la rue d'à côté : un défaut trop visible pour l'économie qu'il
+ * rapportait (−11 à −14 ms la nuit en rendu logiciel, prix assumé). La molette
+ * __lightOcclusion({ occlude: false }) reste pour mesurer.
  * ========================================================================== */
 
 // minUnit = taille ÉCRAN d'une tuile (px) sous laquelle on renonce à
@@ -53,7 +50,7 @@ import { CM } from './layout.js';
 // litBox). Audit du 2026-10-05 (PERF-2) : image identique au pixel (vérifiée en jeu,
 // rendu logiciel et GPU) ; `__lightOcclusion({ fine: 0, tight: false })` rejoue
 // l'ancien chemin (A/B de la mesure).
-// occlude = découpes actives (en plus du palier : CM.fxOn faux les coupe, cf. plus haut).
+// occlude = découpes actives, à tous les paliers (cf. plus haut).
 export const LIGHT_LAYER = { on: true, cell: 64, minUnit: 12, fine: 16, tight: true, occlude: true };
 if (import.meta.env?.DEV && typeof window !== 'undefined') {
   window.__lightOcclusion = (o) => { if (o) Object.assign(LIGHT_LAYER, o); return { ...LIGHT_LAYER }; };
@@ -65,7 +62,7 @@ let usable = false;         // le calque a été armé pour CETTE frame (sinon :
 let suspended = false;      // passe hors écran (silhouette de survol, mesure d'encre)
 let painted = false;        // au moins une lumière déposée depuis le début de frame
 let needClear = false;      // effacement PARESSEUX : une frame sans lampe ne coûte rien
-let occlude = true;         // les sprites peints APRÈS une lumière la découpent (pas sans effets)
+let occlude = true;         // les sprites peints APRÈS une lumière la découpent
 let glows = 0, cuts = 0, spared = 0;    // diagnostic (window.__lightStats)
 
 // Grilles grossières de COUVERTURE : « y a-t-il de la lumière dans ce coin
@@ -198,7 +195,7 @@ function hasCov(x0, y0, x1, y1) {
 export function beginLightLayer(enabled) {
   armed = false; usable = false; suspended = false; painted = false;
   glows = 0; cuts = 0; spared = 0;
-  occlude = CM.fxOn !== false && LIGHT_LAYER.occlude !== false;
+  occlude = LIGHT_LAYER.occlude !== false;
   if (enabled === false || !LIGHT_LAYER.on) return false;
   if (!ensureBuf()) return false;
   ensureCov();
