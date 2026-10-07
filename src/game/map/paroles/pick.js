@@ -20,9 +20,13 @@
 //           le nom que la gazette donne au joueur, { fr, en } ;
 //   et pour ce qu'on dit de toi (troisième couche) : trust (0 à 3), private,
 //   period, articles (Set des articles parus dans ce cycle), followed, collapses,
-//   manual, legacy, profile, away, plaisirs, bulles.
+//   manual, legacy, profile, away, plaisirs, bulles ;
+//   et pour un signe (kind 'sign', lot 4) : sign ('wind' | 'light' | 'fire' |
+//   'beast'), stage (1, 2, 3 : la fois), beast (la bête qui le fixe : 'dog'…) ; les
+//   prénoms gagnent { bete, Bete } ({ fr, en }) et maitre.
 // }
 import { PAROLES, JOB_GROUP } from '../../data/paroles.js';
+import { PAROLES_SIGNES } from '../../data/parolesSignes.js';
 
 const VAR = /\{(\w+)\}/g;
 // « de », « que », « jusque » devant un prénom qui commence par une voyelle s'élident.
@@ -40,10 +44,13 @@ function childOk(e, ctx) {
 
 export function parolesEligible(e, ctx) {
   if (e.kind !== ctx.kind) return false;
+  // Un signe (lot 4) : la pensée de CE signe (ou de n'importe lequel), à cette fois-ci.
+  if (e.kind === 'sign' && (e.stage !== ctx.stage || (e.sign && e.sign !== ctx.sign))) return false;
   const [lo, hi] = e.bands || [0, 9];
   if (ctx.band < lo || ctx.band > hi) return false;
   const w = e.when || {};
   const a = ctx.a, b = ctx.b;
+  if (w.beast && !w.beast.includes(ctx.beast)) return false;
   if (w.rel && w.rel !== ctx.rel) return false;
   if (w.family && w.family !== a.family) return false;
   if (w.kids && !(a.kids > 0)) return false;
@@ -102,7 +109,8 @@ const weightOf = (e) => {
   // « Pas ce métier-là » (`notJob`) écarte sans rien préciser : il ne compte pas.
   const n = Object.keys(w).filter((k) => k !== 'notJob').length;
   // Ce qu'on dit de toi est rare (la confiance, l'écart) : quand ça vient, ça passe.
-  return 1 + 2 * n + (w.doing ? 6 : 0) + (w.job ? 4 : 0) + (e.layer === 3 ? 4 : 0);
+  // La pensée écrite pour CE signe passe devant celle qui vaut pour tous.
+  return 1 + 2 * n + (w.doing ? 6 : 0) + (w.job ? 4 : 0) + (e.layer === 3 ? 4 : 0) + (e.sign ? 3 : 0);
 };
 
 // L'échange choisi, ou null. Jamais une redite tant qu'il reste du neuf (règle 5) ;
@@ -110,6 +118,26 @@ const weightOf = (e) => {
 export function pickParole(ctx, heard = {}, rand = Math.random, catalog = PAROLES) {
   const ok = catalog.filter((e) => parolesEligible(e, ctx));
   if (!ok.length) return null;
+  return chooseFrom(ok, ctx, heard, rand);
+}
+
+// LES SIGNES (lot 4) : la pensée qu'un signe fait naître. Les règles de l'écoute (pas
+// de redite tant qu'il reste du neuf, la précision l'emporte), et deux de plus (§ 5.3) :
+// le caractère fait la lecture, ce qui est écrit pour SON caractère (ou pour un enfant)
+// passe d'abord tant qu'il en reste de neuf ; et le taciturne regarde et ne dit rien,
+// il n'a que ses mots à lui.
+export function pickSign(ctx, heard = {}, rand = Math.random, catalog = PAROLES_SIGNES) {
+  let ok = catalog.filter((e) => parolesEligible(e, ctx));
+  if ((ctx.a.traits || []).includes('quiet')) {
+    const own = ok.filter((e) => e.when && e.when.trait === 'quiet');
+    if (own.length) ok = own;
+  }
+  if (!ok.length) return null;
+  const mine = ok.filter((e) => e.when && (e.when.trait || e.when.child === true) && !(heard[e.id] | 0));
+  return chooseFrom(mine.length ? mine : ok, ctx, heard, rand);
+}
+
+function chooseFrom(ok, ctx, heard, rand) {
   const least = Math.min(...ok.map((e) => heard[e.id] | 0));
   const pool = ok.filter((e) => (heard[e.id] | 0) === least);
   let total = 0;

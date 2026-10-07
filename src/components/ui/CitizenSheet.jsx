@@ -12,6 +12,7 @@ import {
   focusRelative,
 } from '../../game/map/citizenFocus.js';
 import { startListening, stopListening, listenView, listenOptions } from '../../game/map/paroles/listen.js';
+import { signsOffered, giveSign } from '../../game/map/paroles/signs.js';
 import { tr } from '../../game/core/i18n.js';
 import '../../styles/citizen-sheet.css';
 
@@ -135,11 +136,22 @@ function moodValue(sheet) {
 }
 
 // Le relevé complet : la fiche, plus l'écoute (docs/PLAN-ECOUTER-PARLER.md) — ce
-// qu'on entend en ce moment, et ce qu'on peut écouter.
+// qu'on entend en ce moment, et ce qu'on peut écouter — et les signes qu'on peut lui
+// faire (lot 4).
 function readSheet() {
   const s = citizenSheet();
-  return s && { ...s, listen: listenView(), ears: listenOptions() };
+  return s && { ...s, listen: listenView(), ears: listenOptions(), signs: signsOffered() };
 }
+
+// LES SIGNES (lot 4) : le vent, la lumière, le feu (s'il y en a un près de lui), la
+// bête (s'il y en a une). Après la troisième fois, il ne s'y prête plus : la rangée
+// disparaît.
+const SIGN_BUTTONS = [
+  { kind: 'wind', label: { fr: 'Vent', en: 'Wind' } },
+  { kind: 'light', label: { fr: 'Lumière', en: 'Light' } },
+  { kind: 'fire', label: { fr: 'Feu', en: 'Fire' } },
+  { kind: 'beast', label: { fr: 'Bête', en: 'Animal' } },
+];
 
 export default function CitizenSheet() {
   const [open, setOpen] = useState(() => !!CM.focus);
@@ -215,6 +227,7 @@ export default function CitizenSheet() {
   // L'écoute (personnes seulement) : ce qu'on entend, et ce qu'on peut écouter.
   const listen = vehicle ? null : sheet.listen;
   const ears = vehicle ? null : sheet.ears;
+  const signs = vehicle || sheet.lost ? null : sheet.signs;
 
   return (
     <aside className={`citizen-sheet${sheet.lost ? ' is-lost' : ''}${vehicle ? ' is-vehicle' : ''}`} aria-label={name}>
@@ -285,6 +298,22 @@ export default function CitizenSheet() {
               {tr({ fr: 'Ses pensées', en: 'Thoughts' })}
             </button>
           )}
+        </div>
+      )}
+      {signs && (
+        <div className="cs-signs" role="group" aria-label={tr({ fr: 'Signe', en: 'Sign' })}>
+          <span className="cs-signs-label" aria-hidden="true">{tr({ fr: 'Signe', en: 'Sign' })}</span>
+          {SIGN_BUTTONS.filter((b) => signs[b.kind]).map((b) => (
+            <button
+              type="button"
+              className="cs-sign"
+              key={b.kind}
+              disabled={signs.busy}
+              onClick={() => { giveSign(b.kind); setSheet(readSheet()); }}
+            >
+              {tr(b.label)}
+            </button>
+          ))}
         </div>
       )}
       <div className="cs-actions">

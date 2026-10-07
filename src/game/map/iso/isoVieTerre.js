@@ -49,7 +49,10 @@ function pushDogs(now, out) {
     if (ma <= 0.02) continue;
     let hx = c.tx - c.x, hy = c.ty - c.y;
     const hl = Math.hypot(hx, hy);
-    const moving = hl > T * 0.05 && !(c.pauseT > 0);
+    // LE SIGNE DE LA BÊTE (paroles/signs.js) : le chien s'assoit et fixe le passant
+    // désigné ; son maître attend avec lui.
+    const stare = d.stare && d.stare.until > now ? d.stare : null;
+    const moving = hl > T * 0.05 && !(c.pauseT > 0) && !stare;
     if (hl > 1e-3) { hx /= hl; hy /= hl; } else { hx = d.hx || 1; hy = d.hy || 0; }
     d.hx = hx; d.hy = hy;
     // À CÔTÉ du maître, un peu devant (il tire sur la laisse) : placé derrière, il se
@@ -66,7 +69,7 @@ function pushDogs(now, out) {
         const k = vieK(), fz = vieZoomFade() * ma;
         if (fz <= 0) return;
         const p = worldToScreen(wx, wy);
-        const q = worldToScreen(wx + hx * T, wy + hy * T);
+        const q = stare ? worldToScreen(stare.x, stare.y) : worldToScreen(wx + hx * T, wy + hy * T);
         const left = q.x < p.x;
         const spr = moving ? vieSprite('dog', Math.floor(now / 120 + (d.g % 7)) % 2, left) : vieSprite('dogSit', 0, left);
         if (vieBlit(ctx, spr, p.x, p.y, k, fz)) vieCount('chiens');

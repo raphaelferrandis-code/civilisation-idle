@@ -48,6 +48,7 @@ import './isoVieOiseaux.js';   // s'enregistre auprès d'isoVie (pigeons, mouett
 import './isoVieTerre.js';     // … (chiens, chats, papillons, linge)
 import './isoVieDrapeaux.js';  // … (drapeaux des bâtiments publics et des quais)
 import './isoQuayWalk.js';     // … (promeneurs des quais)
+import './isoSignes.js';       // … (les signes du joueur : le vent, la lumière, le feu)
 import { drawVieClouds } from './isoVieNuages.js';
 import { paintQuays } from './isoQuay.js';
 import { paintPierUnder } from './isoPier.js';

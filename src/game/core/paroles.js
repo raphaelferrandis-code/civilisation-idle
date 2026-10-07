@@ -6,7 +6,7 @@
 // carte demande « qu'a-t-il déjà entendu ? » pour choisir un échange neuf
 // (map/paroles/pick.js), puis « inscris-le » quand le joueur l'écoute.
 import { state } from './state.js';
-import { defaultParoles, TOI_MAX } from './parolesState.js';
+import { defaultParoles, defaultSigns, TOI_MAX, SIGN_KINDS } from './parolesState.js';
 import { NOMS_DU_JOUEUR } from '../data/parolesToi.js';
 
 const listeners = new Set();
@@ -25,6 +25,7 @@ export function parolesState() {
   const s = state.paroles;
   if (!Array.isArray(s.toi)) s.toi = [];
   if (!s.bulles) s.bulles = { cycle: 0, n: 0 };
+  if (!s.signs) s.signs = defaultSigns();
   return s;
 }
 // Ce qui a déjà été entendu : { [id]: n } (lecture seule pour le choix).
@@ -63,6 +64,28 @@ export function parolesNoteBubble() {
 export function parolesBulles() {
   const b = parolesState().bulles;
   return b.cycle === (state.cycles | 0) ? b.n | 0 : 0;
+}
+
+// LES SIGNES (lot 4) : le joueur vient d'en faire un. `id` : la pensée qu'il a fait
+// naître, gardée avec ce qui a été entendu (jamais deux fois la même) ; elle ne compte
+// pas dans la confiance (`n`), qui ne vient que de l'écoute.
+export function parolesNoteSign(kind, id = null) {
+  if (!SIGN_KINDS.includes(kind)) return;
+  const s = parolesState();
+  const g = s.signs;
+  const cycle = state.cycles | 0;
+  if (g.cycle !== cycle) { g.cycle = cycle; g.here = {}; }
+  g.n = (g.n | 0) + 1;
+  g.by[kind] = (g.by[kind] | 0) + 1;
+  g.here[kind] = (g.here[kind] | 0) + 1;
+  if (typeof id === 'string' && id) s.heard[id] = (s.heard[id] | 0) + 1;
+  s.rev = (s.rev | 0) + 1;
+  emit();
+}
+// Ce que la cité de ce cycle a vu : { wind: n, … } (elle en parle).
+export function parolesSignsHere() {
+  const g = parolesState().signs;
+  return g.cycle === (state.cycles | 0) ? g.here : {};
 }
 
 // CE QUE LA GAZETTE A DIT, dans ce cycle : les articles parus, et le dernier qui

@@ -7,7 +7,7 @@ Chantier ouvert le 2026-10-07 sur la demande de Raph :
 > n'interagit pas avec eux, puis après une option dialogue qui permette de parler avec
 > certains. »
 
-**Statut : plan tranché, lots 1 à 3 livrés ; les lots 2 et 3 sont à juger en jeu.** La fiche d'habitant qui sert de socle est faite
+**Statut : plan tranché, lots 1 à 4 livrés ; les lots 2 à 4 sont à juger en jeu.** La fiche d'habitant qui sert de socle est faite
 (commit `4a99b8bc` : identité, foyers, métier, humeur et sa cause, « où il est entré »).
 Raph a répondu aux questions du § 11 le jour même (tableau 1 bis).
 **Ce document fait foi pour ce chantier.**
@@ -225,6 +225,43 @@ dans la cendre, le signe qui change de forme avec les âges) sont écartées.
   (`docs/PLAN-AMBIANCE-SONORE.md`), **une fois ce chantier terminé** : en attendant, des
   signes muets.
 
+### 5.5 Ce qui est fait (lot 4)
+
+- **Le geste** : dans la fiche, une rangée « Signe » sous l'écoute : Vent, Lumière, et Feu
+  ou Bête seulement s'il y en a un près de lui (huit cases pour le feu, cinq pour la bête).
+  Le passant s'arrête un quart de seconde après, se tourne vers ce qu'il a vu (d'où vient
+  le vent, la lumière en haut à gauche, le feu, la bête), reste là cinq secondes ; sa
+  pensée vient 1,3 s après le geste, dans la fiche, comme ses pensées. Pendant ce temps les
+  boutons attendent ; aucun délai de recharge ensuite. Après la troisième fois, la rangée
+  disparaît pour lui : il repart sitôt « Ça suffit. » pensé.
+- **Le vent** (`iso/isoSignes.js`) : une rafale qui passe sur lui, des feuilles sèches de la
+  saison (la neige en hiver, une poussière pâle aux âges cosmiques) qui arrivent d'un côté,
+  s'enroulent autour de lui et filent, et une traînée de poussière à ses pieds. Chaque
+  feuille est au tri du peintre.
+- **La lumière** : un rayon oblique venu d'en haut à gauche (la lumière du jeu) jusqu'à
+  lui, et une flaque claire à ses pieds ; la lune la nuit. Couche de lumière, juste après
+  lui au tri : elle l'éclaire, ce qui passe devant la coupe.
+- **Le feu** : le feu le plus proche, parmi les lueurs de feu de la dernière frame
+  (`flameGlow.flameFires`, les teintes de feu seulement, pas les lanternes). Sa lueur grandit
+  (`FIRE_BOOST`), des langues se détachent du haut de la flamme et une gerbe d'étincelles
+  file haut, aux encres de la rampe rouge. La flamme elle-même reste celle de son site.
+- **La bête** : une bête posée (le bétail, le chien ou le chat couché au seuil) se tourne
+  vers lui ; le chien qu'un autre passant promène s'assoit et le fixe, son maître l'attend.
+  Lui la regarde, se retourne (il suit son regard, il n'y a personne), puis la regarde de
+  nouveau. Plus de bêtes après le Néon : le signe n'y est pas proposé.
+- **Ce qu'il en pense** (`src/game/data/parolesSignes.js`, 253 pensées) : par l'âge (au Feu
+  un esprit, au Bourg un présage, au Marbre un dieu, à la Fonte un courant d'air, au Néon
+  une panne, à la Noosphère le chœur, au Stellaire la machinerie de la sphère, au Démiurge
+  toi), par le caractère (le pieux, le superstitieux, le curieux, le râleur, l'enfant ; ce
+  qui est écrit pour lui passe d'abord, tant qu'il en reste de neuf) et par la fois. Le
+  taciturne n'a que ses mots : « Le feu. », « Encore. », « Ça suffit. ». La bête se nomme
+  (« ce chien », « cette chèvre »), le chien promené par le prénom de son maître ; le pieux
+  qui sait le nom de la gazette le dit (« C'est la Main. »).
+- **La trace** : `state.paroles.signs` (éternel : en tout, par signe ; et ce que la cité de
+  ce cycle a vu). La pensée née d'un signe ne revient pas, mais ne compte pas dans la
+  confiance : seule l'écoute l'ouvre. Les rumeurs sur les signes que la cité a vus restent
+  à écrire (§ 6.2).
+
 ---
 
 ## 6. Ce qu'ils savent et ce qu'ils croient de toi
@@ -378,7 +415,7 @@ Le récit seulement :
 2. ✅ **Ce qu'on dit de toi** : la troisième couche, branchée sur la Chronique et l'Olympe ;
    le nom de la gazette ; le panneau.
 3. ✅ **La Chronique des âges 7 à 9** : P8 à P10, dans la voix de la gazette.
-4. **Les signes** : vent, lumière, feu, bête ; les réactions par âge et par caractère.
+4. ✅ **Les signes** : vent, lumière, feu, bête ; les réactions par âge et par caractère.
 5. **Le déclic et le dialogue par signes** : Claude, au Feu, jusqu'à P3.
 6. **Les mots**, dès P3 : les passants, puis les figures de la Chronique.
 7. **Le Démiurge et le Grand Reset dans la fiction.**
@@ -456,3 +493,17 @@ Les six questions du premier jet sont tranchées (tableau 1 bis). Aucune ouverte
   la gazette le pressent (« quand tu recommences, est-ce que tu nous gardes quelque part ? »)
   sans le dire. `getPeriod` suit l'âge au-delà de l'ère 34 ; `NOMS_DU_JOUEUR` gagne les trois
   noms ; la rue a douze rumeurs de plus sur ces articles (112 en tout).
+- 2026-10-07 : Raph : « enchaine ». **Lot 4 livré** : les signes (§ 5.5). La rangée « Signe »
+  de la fiche (Vent, Lumière, et Feu ou Bête quand il y en a un près de lui), le passant qui
+  s'arrête et se tourne vers ce qu'il a vu, puis sa pensée. Dessin : `iso/isoSignes.js` (la
+  rafale de feuilles sèches et de poussière, le rayon oblique et sa flaque dans la couche de
+  lumière, les langues et la gerbe d'étincelles au-dessus du feu attisé, dont la lueur
+  grandit) ; la bête se tourne dans son propre dessin (bétail, chien promené). Décision :
+  `paroles/signs.js`. 253 pensées (`data/parolesSignes.js`), par âge, caractère et fois ; la
+  troisième fois « Ça suffit. », et il ne s'y prête plus. Vérifié en jeu au Feu (le foyer
+  qui monte, Mahaut la pieuse : « Grand-mère ? C'est toi ? », puis « Grand-mère revient.
+  Je lui poserai une noisette sur la pierre ce soir. », puis « Ça suffit, grand-mère. »), et
+  au Bourg (le chien de Bertran : elle le regarde, se retourne, le regarde de nouveau). Deux
+  retouches en cours de route : les langues de feu restaient cachées dans la flamme du grand
+  foyer (elles partent désormais du haut de la flamme), et les feuilles vertes disparaissaient
+  sur l'herbe (le vent soulève des feuilles sèches). Muets jusqu'à la fin du chantier sonore.

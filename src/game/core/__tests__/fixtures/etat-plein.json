@@ -1119,6 +1119,17 @@
    "bulles": {
     "cycle": 3,
     "n": 2
+   },
+   "signs": {
+    "n": 5,
+    "by": {
+     "wind": 3,
+     "fire": 2
+    },
+    "cycle": 3,
+    "here": {
+     "fire": 1
+    }
    }
   },
   "faitsDivers": {

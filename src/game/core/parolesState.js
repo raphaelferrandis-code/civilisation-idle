@@ -21,19 +21,42 @@
 //          enfant… } les autres prénoms cités) }. Le texte se relit dans le catalogue.
 //   bulles { cycle, n } — les bulles de pensée cueillies dans la cité de ce cycle
 //          (les habitants sentent qu'on leur prend des idées)
+//   signs  les signes donnés (lot 4) : { n (en tout, éternel), by { wind, light, fire,
+//          beast } (éternel), cycle, here { … } (dans la cité de ce cycle : ce qu'elle
+//          a vu, et dont elle parle) }
 
 const MAX_ID = 40;
 const MAX_HEARD = 4000;
 export const TOI_MAX = 120;
 const MAX_NAME = 40;
 
+export const SIGN_KINDS = ['wind', 'light', 'fire', 'beast'];
+
 const isObj = (v) => v !== null && typeof v === 'object' && !Array.isArray(v);
 const int = (v, def = 0, lo = 0, hi = 1e9) => (Number.isFinite(v) ? Math.min(hi, Math.max(lo, Math.floor(v))) : def);
 const id = (v) => (typeof v === 'string' && v.length > 0 && v.length <= MAX_ID && /^[a-z0-9_:-]+$/i.test(v) ? v : null);
 const name = (v) => (typeof v === 'string' && v.length > 0 ? v.slice(0, MAX_NAME) : null);
 
+export function defaultSigns() {
+  return { n: 0, by: {}, cycle: 0, here: {} };
+}
 export function defaultParoles() {
-  return { heard: {}, n: 0, rev: 0, toi: [], bulles: { cycle: 0, n: 0 } };
+  return { heard: {}, n: 0, rev: 0, toi: [], bulles: { cycle: 0, n: 0 }, signs: defaultSigns() };
+}
+
+// { wind: n, … } : seulement les signes connus, seulement des comptes positifs.
+function signCounts(raw) {
+  const out = {};
+  if (!isObj(raw)) return out;
+  for (const k of SIGN_KINDS) {
+    const n = int(raw[k], 0, 0, 1e9);
+    if (n > 0) out[k] = n;
+  }
+  return out;
+}
+function normalizeSigns(raw) {
+  if (!isObj(raw)) return defaultSigns();
+  return { n: int(raw.n, 0, 0, 1e9), by: signCounts(raw.by), cycle: int(raw.cycle, 0, 0, 1e9), here: signCounts(raw.here) };
 }
 
 function normalizeToi(raw) {
@@ -81,5 +104,6 @@ export function normalizeParoles(raw) {
   if (isObj(raw.bulles)) {
     out.bulles = { cycle: int(raw.bulles.cycle, 0, 0, 1e9), n: int(raw.bulles.n, 0, 0, 1e9) };
   }
+  out.signs = normalizeSigns(raw.signs);
   return out;
 }

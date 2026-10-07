@@ -91,15 +91,39 @@ export function flameGlowAlpha(mul) {
 const MAX_QUEUE = 512;
 const queue = [];
 
+// ── LE FEU QU'ON ATTISE (docs/PLAN-ECOUTER-PARLER.md, lot 4, le signe du feu) ──
+// Les feux de la frame, en px ÉCRAN (le centre et le rayon de leur lueur) : le signe
+// cherche le plus proche du passant (paroles/signs.js). Un feu, c'est une lueur de
+// teinte FEU : la flamme commune, la forge, le culte. Les lanternes, les orbes
+// cosmiques et les néons n'en sont pas.
+const FIRE_COLS = new Set([FLAME_COL, '255,134,40', '255,118,30']);
+const FIRES_MAX = 96;
+let firesNow = [], firesLast = [];
+// Les feux vus à la dernière frame complète : [{ x, y, r }].
+export const flameFires = () => firesLast;
+// LE feu attisé : sa position écran ATTENDUE (projetée par isoSignes avant la passe
+// du peintre), la tolérance, et `k` ∈ [0, 1] l'enveloppe du moment. Sa lueur grandit
+// et s'avive ; là où on l'a vu (sx, sy, sr) se posent les flammes qui montent.
+export const FIRE_BOOST = { on: false, x: 0, y: 0, tol: 8, k: 0, seen: false, sx: 0, sy: 0, sr: 0 };
+
 // Un feu annonce sa lumière : centre (x,y) et rayon r en px ÉCRAN, déjà projetés
 // par l'appelant. Renvoie true si la lumière est retenue (les gardes coupent
 // bien avant l'invisible → testable).
 export function queueFlameGlow(x, y, r, col, now, phase, mul) {
-  const R = r * FLAME_GLOW.r;
-  const a = flameGlowAlpha(mul) * flameFlicker(now, phase);
+  let R = r * FLAME_GLOW.r;
+  let a = flameGlowAlpha(mul) * flameFlicker(now, phase);
   if (!(a > 0.004) || !(R > 0.5)) return false;
   if (queue.length >= MAX_QUEUE) return false;
   const c = col || FLAME_COL;
+  if (FIRE_COLS.has(c)) {
+    if (firesNow.length < FIRES_MAX) firesNow.push({ x, y, r: R });
+    const B = FIRE_BOOST;
+    if (B.on && Math.abs(x - B.x) < B.tol && Math.abs(y - B.y) < B.tol) {
+      B.seen = true; B.sx = x; B.sy = y; B.sr = R;
+      R *= 1 + 0.9 * B.k;
+      a *= 1 + 1.4 * B.k;
+    }
+  }
   // Nappe ambiante D'ABORD (elle passe sous le cœur, qui doit rester le point le
   // plus chaud), et seulement la nuit.
   const night = (CM && CM.nightF) || 0;
@@ -127,6 +151,12 @@ export function queueFlameGlow(x, y, r, col, now, phase, mul) {
 // APRÈS le voile — et AVANT ses retours anticipés (un feu brûle aussi de jour,
 // et une file jamais vidée traînerait sa lumière d'une frame sur l'autre).
 export function paintFlameGlows(ctx) {
+  // Une fois par frame (la passe de nuit tourne aussi de jour) : les feux de cette
+  // frame deviennent ceux de la dernière frame complète.
+  const done = firesLast;
+  firesLast = firesNow;
+  firesNow = done;
+  firesNow.length = 0;
   const n = queue.length;
   if (!n) return 0;
   if (!ctx) { queue.length = 0; return 0; }

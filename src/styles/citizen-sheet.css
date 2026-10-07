@@ -283,6 +283,36 @@
 .citizen-sheet .cs-ears + .cs-actions {
   margin-top: 0.5rem;
 }
+/* LES SIGNES (lot 4) : un libellé d'or, puis les gestes possibles — le vent, la
+   lumière, le feu s'il y en a un près de lui, la bête s'il y en a une. Plus serrés
+   que l'écoute : jusqu'à quatre sur la largeur de la fiche. */
+.citizen-sheet .cs-signs {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  margin-top: 0.5rem;
+}
+.citizen-sheet .cs-signs-label {
+  flex: 0 0 auto;
+  margin-right: 0.15rem;
+  color: var(--gold);
+  font-size: var(--fs-read);
+  font-weight: 800;
+  letter-spacing: 1px;
+  text-transform: uppercase;
+}
+.citizen-sheet .cs-sign {
+  flex: 1 1 0;
+  min-width: 0;
+  padding: 0.36rem 0.3rem 0.5rem;
+  font-size: var(--fs-read);
+}
+.citizen-sheet .cs-sign:disabled {
+  opacity: 0.55;
+}
+.citizen-sheet .cs-signs + .cs-actions {
+  margin-top: 0.5rem;
+}
 
 /* Les deux gestes du bas : Suivre (la caméra) et Suivant (un autre passant). */
 .citizen-sheet .cs-actions {

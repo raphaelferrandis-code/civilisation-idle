@@ -279,6 +279,8 @@ export function stopListening() {
 export function listenView(now = clock()) {
   const L = CM.listening;
   if (!L || !CM.focus || CM.focus.p !== L.p) return null;
+  // La pensée d'un signe vient après le geste (paroles/signs.js) : rien avant.
+  if (now < L.t0) return null;
   const n = L.lines.length;
   const shown = Math.max(1, Math.min(n, 1 + Math.floor((now - L.t0) / LISTEN.lineMs)));
   return {

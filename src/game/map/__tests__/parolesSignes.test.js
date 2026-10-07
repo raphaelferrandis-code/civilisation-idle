@@ -1,0 +1,317 @@
+import { describe, it, expect, beforeEach } from "vitest";
+
+import { CM } from "../layout.js";
+import { state } from "../../core/state.js";
+import { defaultParoles, normalizeParoles } from "../../core/parolesState.js";
+import { parolesSignsHere } from "../../core/paroles.js";
+import { focusCitizen, clearCitizenFocus } from "../citizenFocus.js";
+import { buildIdentity, householdOf, TRAITS } from "../citizenIdentity.js";
+import { stopListening, listenView } from "../paroles/listen.js";
+import { giveSign, signsOffered, signTick, endSign, nearestFire, nearestBeast, SIGN, BEAST_BEATS } from "../paroles/signs.js";
+import { pickSign, parolesEligible, resolveLines } from "../paroles/pick.js";
+import { PAROLES_SIGNES } from "../../data/parolesSignes.js";
+import { PAROLES } from "../../data/paroles.js";
+import { queueFlameGlow, paintFlameGlows, FIRE_BOOST } from "../flameGlow.js";
+import { chronicleArticles } from "../../data/chronicleArticles.js";
+import { worldToScreen } from "../iso/projection.js";
+
+// LES SIGNES (docs/PLAN-ECOUTER-PARLER.md, lot 4) : le vent, la lumière, le feu, la
+// bête ; ce que le passant en pense, par l'âge, par le caractère, par la répétition.
+
+const NAMES = ["a", "conjoint", "enfant", "hote", "voisin", "voisine", "gamin", "gamine", "nom", "Nom", "bete", "Bete", "maitre"];
+const KINDS = ["wind", "light", "fire", "beast"];
+const BEASTS = ["dog", "cat", "goat", "sheep", "cow"];
+const DOG = { bete: { fr: "ce chien", en: "that dog" }, Bete: { fr: "Ce chien", en: "That dog" } };
+const adult = (o = {}) => ({ fem: false, child: false, old: false, job: null, traits: [], family: "single", kids: 0, ...o });
+const ctxOf = (o = {}) => ({
+  kind: "sign", sign: "wind", stage: 1, band: 2, night: false, precip: null, riot: false, wonder: false, prosper: false,
+  cause: null, season: "summer", doing: null, beast: null,
+  a: adult(), b: null, rel: null, kidIs: null, names: { a: "Garin" }, ...o,
+});
+const textsOf = (l) => [l.fr, l.m, l.f, l.en].filter(Boolean);
+
+describe("le catalogue des signes", () => {
+  it("chaque entrée a sa forme : un id unique, un signe, une fois, une pensée en deux langues", () => {
+    const ids = new Set(PAROLES.map((e) => e.id));
+    const articles = new Set(chronicleArticles.map((a) => a.id));
+    for (const e of PAROLES_SIGNES) {
+      expect(ids.has(e.id), e.id).toBe(false);
+      ids.add(e.id);
+      expect(e.kind).toBe("sign");
+      expect(e.layer).toBe(1);
+      expect([1, 2, 3]).toContain(e.stage);
+      if (e.sign != null) expect(KINDS, e.id).toContain(e.sign);
+      expect(e.lines.length).toBeGreaterThan(0);
+      for (const l of e.lines) {
+        expect(l.who).toBe("a");
+        expect(l.en, e.id).toBeTruthy();
+        expect(!!l.fr || (!!l.m && !!l.f), e.id).toBe(true);
+      }
+      const w = e.when || {};
+      if (w.trait) expect(TRAITS.some((t) => t.key === w.trait), e.id).toBe(true);
+      if (w.beast) for (const b of w.beast) expect(BEASTS, e.id).toContain(b);
+      if (w.article) for (const a of w.article) expect(articles.has(a), `${e.id} : ${a}`).toBe(true);
+    }
+  });
+
+  it("les règles d'écriture : ni tiret, ni « ! », ni points de suspension, l'apostrophe typographique ; jamais « de {nom} »", () => {
+    for (const e of PAROLES_SIGNES) {
+      for (const l of e.lines) {
+        for (const t of textsOf(l)) {
+          expect(t, e.id).not.toMatch(/[—–!…]|\.\.\./);
+          expect(t, e.id).not.toMatch(/'/);
+          expect(t, e.id).not.toMatch(/\b(de|à|De|À) \{[Nn]om\}/);
+          for (const m of t.matchAll(/\{(\w+)\}/g)) expect(NAMES, e.id).toContain(m[1]);
+        }
+      }
+    }
+  });
+
+  it("la plume : chaque pensée dit de quel monde elle est (cinq âges au plus)", () => {
+    for (const e of PAROLES_SIGNES) {
+      const [lo, hi] = e.bands;
+      expect(lo <= hi && lo >= 0 && hi <= 9, e.id).toBe(true);
+      expect(hi - lo, `${e.id} : trop d'âges`).toBeLessThanOrEqual(4);
+    }
+  });
+
+  it("la troisième fois, c'est « Ça suffit. »", () => {
+    for (const e of PAROLES_SIGNES.filter((x) => x.stage === 3)) {
+      for (const l of e.lines) {
+        for (const t of [l.fr, l.m, l.f].filter(Boolean)) expect(t, e.id).toMatch(/^Ça suffit/);
+        expect(l.en, e.id).toMatch(/^That’s enough/);
+      }
+    }
+  });
+
+  it("à chaque âge, chacun a de quoi penser, à chaque fois, de chaque signe qu'il peut y recevoir", () => {
+    const people = {
+      adulte: adult(),
+      enfant: adult({ child: true, family: "child" }),
+      taciturne: adult({ traits: ["quiet", "proud"] }),
+      pieux: adult({ traits: ["pious", "early"] }),
+    };
+    for (let band = 0; band <= 9; band += 1) {
+      // Plus de bêtes après le Néon, guère de feux : seulement le vent et la lumière.
+      const signs = band <= 6 ? KINDS : ["wind", "light"];
+      for (const sign of signs) {
+        for (const night of [false, true]) {
+          for (let stage = 1; stage <= 3; stage += 1) {
+            for (const [who, a] of Object.entries(people)) {
+              const ctx = ctxOf({ band, sign, stage, night, a, beast: sign === "beast" ? "dog" : null, names: { a: "Garin", ...DOG } });
+              expect(pickSign(ctx, {}, () => 0.5), `âge ${band}, ${sign}, fois ${stage}, ${who}, nuit ${night}`).not.toBe(null);
+            }
+          }
+        }
+      }
+    }
+  });
+});
+
+describe("la lecture", () => {
+  it("le caractère fait la lecture : le pieux lit d'abord en pieux, tant qu'il en reste de neuf", () => {
+    const ctx = ctxOf({ band: 0, a: adult({ traits: ["pious", "early"] }) });
+    expect(pickSign(ctx, {}, () => 0.99).id).toBe("s-f1-pious");
+    // Déjà entendue : la réserve de tous reprend.
+    const next = pickSign(ctx, { "s-f1-pious": 1 }, () => 0.5);
+    expect(next.id).not.toBe("s-f1-pious");
+  });
+
+  it("le taciturne regarde et ne dit rien : il n'a que ses mots, même redits", () => {
+    const heard = {};
+    for (let i = 0; i < 6; i += 1) {
+      const r = pickSign(ctxOf({ band: 5, sign: "fire", a: adult({ traits: ["quiet", "pious"] }) }), heard, () => (i * 0.17) % 1);
+      const e = PAROLES_SIGNES.find((x) => x.id === r.id);
+      expect(e.when.trait, r.id).toBe("quiet");
+      expect(r.lines[0].fr).toBe("Le feu.");
+      heard[r.id] = (heard[r.id] | 0) + 1;
+    }
+  });
+
+  it("l'âge fait la lecture : un esprit, un présage, un dieu, un courant d'air, une panne, le chœur, la sphère, toi", () => {
+    const READING = [/esprit/, /esprit/, /présage/, /présage/, /dieu/, /courant d’air/, /panne|ventilation/, /chœur/, /régulateur/, /toi/i];
+    for (let band = 0; band <= 9; band += 1) {
+      const ok = PAROLES_SIGNES.filter((e) => e.sign === "wind" && parolesEligible(e, ctxOf({ band, stage: 2 })));
+      expect(ok.length, `âge ${band}`).toBeGreaterThan(0);
+      for (const e of ok) expect(e.lines[0].fr || e.lines[0].m, e.id).toMatch(READING[band]);
+    }
+  });
+
+  it("la bête se nomme dans chaque langue, et sans accord qui la suive", () => {
+    const ctx = ctxOf({ band: 4, sign: "beast", beast: "goat", names: { a: "Garin", bete: { fr: "cette chèvre", en: "that goat" }, Bete: { fr: "Cette chèvre", en: "That goat" } } });
+    const e = PAROLES_SIGNES.find((x) => x.id === "s-m1-bete");
+    const [l] = resolveLines(e, ctx);
+    expect(l.fr).toBe("Cette chèvre me regarde comme si je lui devais quelque chose.");
+    expect(l.en).toBe("That goat is looking at me as if I owed it something.");
+    // Brouter, c'est pour le bétail : pas pour le chien.
+    const brouter = PAROLES_SIGNES.find((x) => x.id === "s-m1-bete-brouter");
+    expect(parolesEligible(brouter, ctx)).toBe(true);
+    expect(parolesEligible(brouter, { ...ctx, beast: "dog" })).toBe(false);
+  });
+
+  it("le chien qu'on promène : le prénom de son maître, et seulement s'il en a un", () => {
+    const e = PAROLES_SIGNES.find((x) => x.id === "s-u1-bete-chien");
+    const ctx = ctxOf({ band: 5, sign: "beast", beast: "dog", names: { a: "Garin", ...DOG } });
+    expect(parolesEligible(e, ctx)).toBe(false);
+    const withMaster = { ...ctx, names: { ...ctx.names, maitre: "Oda" } };
+    expect(parolesEligible(e, withMaster)).toBe(true);
+    expect(resolveLines(e, withMaster)[0].fr).toMatch(/^Le chien d’Oda /);
+  });
+
+  it("la lune n'est pas le soleil", () => {
+    const night = PAROLES_SIGNES.filter((e) => e.sign === "light" && parolesEligible(e, ctxOf({ band: 2, sign: "light", night: true })));
+    expect(night.length).toBeGreaterThan(0);
+    for (const e of night) expect(e.when.night, e.id).not.toBe(false);
+  });
+});
+
+// ── EN JEU ─────────────────────────────────────────────────────────────────────
+function someone(extra = {}) {
+  let hh = null;
+  for (let s = 1; s < 5000 && !hh; s += 1) { const h = householdOf(s * 7919, 2); if (h.couple) hh = h; }
+  const identity = buildIdentity({ seed: 11, band: 2, fem: false, sprite: "villager", household: hh, slot: "m" });
+  return {
+    name: identity.name, seed: identity.seed, fem: false, charType: 0, skinVariant: 0, phase: 0.3,
+    gx: 10, gy: 10, x: 210, y: 210, lox: 0, loy: 0, tx: 210, ty: 210, pauseT: 0, dir: 2, home: null, work: null,
+    goalKind: "wander", role: "porte un panier", identity, ...extra,
+  };
+}
+const clock = () => performance.now();
+// Un feu peint à la dernière frame, à (wx, wy) monde.
+function fireAt(wx, wy) {
+  const s = worldToScreen(wx, wy);
+  queueFlameGlow(s.x, s.y, 10, null, 0, 0, 1);
+  paintFlameGlows(null);
+}
+
+beforeEach(() => {
+  endSign();
+  clearCitizenFocus();
+  stopListening();
+  paintFlameGlows(null);
+  paintFlameGlows(null);
+  state.paroles = defaultParoles();
+  state.cycles = 3;
+  CM.TILE = 20;
+  CM.cw = 800; CM.ch = 600; CM.dpr = 1;
+  CM.cam = { x: 200, y: 200, zoom: 2 };
+  CM.zoomGoal = 2;
+  CM.nightF = 0; CM.rainF = 0; CM.healthF = 0.6; CM.rioters = []; CM.season = 1; CM.windX = 0;
+  CM.layout = { counts: { eraBand: 2 }, critters: [] };
+  CM.tileGrid = new Map();
+  CM.describeTile = (t) => ({ title: t.title });
+  CM.citizens = [];
+});
+
+describe("le geste", () => {
+  it("la fiche propose le vent et la lumière ; le feu et la bête seulement s'il y en a près de lui", () => {
+    const p = someone();
+    CM.citizens = [p];
+    focusCitizen(p);
+    expect(signsOffered()).toMatchObject({ wind: true, light: true, fire: false, beast: false });
+    fireAt(p.x + 3 * CM.TILE, p.y);
+    CM.layout.critters = [{ gx: 12, gy: 10, jx: 0, jy: 0, kind: "goat", dir: 3 }];
+    expect(signsOffered()).toMatchObject({ fire: true, beast: true });
+    // Trop loin : rien.
+    expect(nearestFire(p, [{ ...worldToScreen(p.x + (SIGN.fireReach + 2) * CM.TILE, p.y), r: 10 }])).toBe(null);
+    CM.layout.critters = [{ gx: 10 + SIGN.beastReach + 2, gy: 10, jx: 0, jy: 0, kind: "goat", dir: 3 }];
+    expect(nearestBeast(p)).toBe(null);
+  });
+
+  it("la première fois la surprise, la deuxième une explication, la troisième « Ça suffit. », puis plus rien", () => {
+    const p = someone();
+    CM.citizens = [p];
+    focusCitizen(p);
+    const stages = [];
+    for (let i = 0; i < 3; i += 1) {
+      const t0 = clock();
+      expect(giveSign("wind", t0)).toBe(true);
+      stages.push(CM.sign.stage);
+      const v = listenView(t0 + SIGN.thoughtMs + 10);
+      expect(v.kind).toBe("thought");
+      if (i === 2) expect(v.lines[0].fr).toMatch(/^Ça suffit/);
+    }
+    expect(stages).toEqual([1, 2, 3]);
+    expect(signsOffered()).toBe(null);
+    expect(giveSign("light")).toBe(false);
+  });
+
+  it("la pensée vient après le geste", () => {
+    const p = someone();
+    CM.citizens = [p];
+    focusCitizen(p);
+    const t0 = clock();
+    giveSign("light", t0);
+    expect(listenView(t0 + 100)).toBe(null);
+    expect(signsOffered(t0 + 100).busy).toBe(true);
+    expect(listenView(t0 + SIGN.thoughtMs + 1).lines).toHaveLength(1);
+    expect(signsOffered(t0 + SIGN.thoughtMs + 1).busy).toBe(false);
+  });
+
+  it("le signe est inscrit et sa pensée ne revient pas, mais il ne compte pas pour la confiance", () => {
+    const p = someone();
+    CM.citizens = [p];
+    focusCitizen(p);
+    giveSign("wind");
+    const id = CM.listening.id;
+    expect(state.paroles.heard[id]).toBe(1);
+    expect(state.paroles.n).toBe(0);
+    expect(state.paroles.signs).toMatchObject({ n: 1, by: { wind: 1 }, cycle: 3, here: { wind: 1 } });
+    // La cité suivante ne l'a pas vu ; le joueur s'en souvient.
+    state.cycles = 4;
+    expect(parolesSignsHere()).toEqual({});
+    expect(normalizeParoles(JSON.parse(JSON.stringify(state.paroles))).signs).toMatchObject({ n: 1, by: { wind: 1 } });
+  });
+
+  it("devant le feu, il s'arrête et se tourne vers lui ; le feu attisé grandit, puis retombe", () => {
+    const p = someone();
+    CM.citizens = [p];
+    focusCitizen(p);
+    fireAt(p.x, p.y - 3 * CM.TILE);          // au nord-est (−y)
+    const t0 = clock();
+    expect(giveSign("fire", t0)).toBe(true);
+    signTick(t0 + 400);
+    expect(p.pauseT).toBeGreaterThan(3);
+    expect(p.dir).toBe(3);
+    expect(FIRE_BOOST.on).toBe(true);
+    expect(FIRE_BOOST.k).toBeGreaterThan(0.9);
+    signTick(t0 + 6300);
+    expect(CM.sign).toBe(null);
+    expect(FIRE_BOOST.on).toBe(false);
+  });
+
+  it("devant la bête, il suit son regard : il se retourne, puis la regarde de nouveau ; elle reprend sa pose", () => {
+    const p = someone();
+    CM.citizens = [p];
+    focusCitizen(p);
+    const goat = { gx: 13, gy: 10, jx: 0, jy: 0, kind: "goat", dir: 3 };   // à l'est (+x)
+    CM.layout.critters = [goat];
+    const t0 = clock();
+    expect(giveSign("beast", t0)).toBe(true);
+    expect(goat.dir).not.toBe(3);                // elle se tourne vers lui
+    signTick(t0 + 400);
+    expect(p.dir).toBe(0);
+    signTick(t0 + BEAST_BEATS.turnAt + 10);
+    expect(p.dir).toBe(1);
+    signTick(t0 + BEAST_BEATS.backAt + 10);
+    expect(p.dir).toBe(0);
+    endSign();
+    expect(goat.dir).toBe(3);
+  });
+
+  it("le chien qu'on promène s'assoit et le fixe, et son maître l'attend", () => {
+    const p = someone();
+    const master = someone({ x: 250, y: 210, tx: 260, ty: 210, seed: 99 });
+    master._vieDog = { side: 1, g: 0, hx: 1, hy: 0 };
+    CM.citizens = [p, master];
+    focusCitizen(p);
+    const t0 = clock();
+    expect(giveSign("beast", t0)).toBe(true);
+    expect(CM.sign.beast.master).toBe(master);
+    expect(master._vieDog.stare).toMatchObject({ x: p.x, y: p.y });
+    signTick(t0 + 400);
+    expect(master.pauseT).toBeGreaterThan(3);
+    endSign();
+    expect(master._vieDog.stare).toBe(null);
+  });
+});
