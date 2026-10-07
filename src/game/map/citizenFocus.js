@@ -250,7 +250,9 @@ export function focusPick(pick) {
   } else {
     vehicleIdentity(p);
   }
-  CM.focus = { p, kind, cam: true };
+  // `since` : depuis quand la caméra le suit (l'écoute, paroles/listen.js : au bout
+  // d'un moment, il sent qu'on le suit).
+  CM.focus = { p, kind, cam: true, since: nowMs() };
   CM.camGoal = null;
   CM.panVel = null;
   const z = CM.zoomGoal ?? (CM.cam ? CM.cam.zoom : FOCUS_TUNE.zoom);
@@ -305,6 +307,7 @@ export function focusNextCitizen() {
   focusPick(best);
   return true;
 }
+const nowMs = () => (typeof performance !== 'undefined' ? performance.now() : Date.now());
 // Le joueur reprend la caméra (drag, flèches, recentrage) : la fiche reste
 // ouverte, l'anneau aussi, seul le suivi s'arrête.
 export function releaseFocusCamera() {
@@ -314,6 +317,7 @@ export function releaseFocusCamera() {
 }
 export function resumeFocusCamera() {
   if (!CM.focus) return;
+  if (!CM.focus.cam) CM.focus.since = nowMs();
   CM.focus.cam = true;
   CM.camGoal = null;
   CM.panVel = null;

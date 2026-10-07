@@ -36,8 +36,14 @@ export function registerIdleReport(handler) {
 //   deltas       [{ key, label, amount }] variations de ressources, déjà filtrées
 //   idle         [{ label }] ce qui n'a PAS tourné, pour que l'écart avec
 //                l'attente ne soit pas lu comme un bug
+// La dernière absence, pour la rue (paroles/listen.js : « pendant des jours, personne
+// n'a posé une pierre »). Comme le rapport, elle ne survit pas au rechargement.
+let absence = null;
+export const lastAbsence = () => absence;
+
 export function publishIdleReport(report) {
   if (!report) return;
+  if (Number.isFinite(report.awaySec)) absence = { sec: report.awaySec, at: Date.now() };
   // Remis D'ABORD : un panneau qui lève ne laisse pas un rapport fantôme rejoué à
   // chaque remontage.
   if (showIdleReport) showIdleReport(report);

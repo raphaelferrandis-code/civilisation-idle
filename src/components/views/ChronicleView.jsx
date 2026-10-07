@@ -28,6 +28,7 @@ import { GRAND_RESET_MILESTONES } from '../../game/core/mechanics/grandResetMile
 import PixelIcon from '../ui/PixelIcon.jsx';
 import CycleAnnals from '../ui/CycleAnnals.jsx';
 import FaitsDiversChronique from '../ui/FaitsDiversChronique.jsx';
+import ParolesChronique from '../ui/ParolesChronique.jsx';
 import AchievementsChronique from '../ui/AchievementsChronique.jsx';
 import Place, { PlaceKey } from '../ui/Place.jsx';
 import { tipProps } from '../ui/HelpBubble.jsx';
@@ -801,6 +802,8 @@ export default function ChronicleView() {
         </div>
         {/* Les faits divers de la carte : absents tant que rien n'a été vu. */}
         <FaitsDiversChronique />
+        {/* Ce qu'on dit de toi : absent tant que le joueur n'a rien entendu sur lui. */}
+        <ParolesChronique />
         <TempleRegistry />
       </div>
       {/* Les succès, sur toute la largeur sous les trois colonnes : une grille

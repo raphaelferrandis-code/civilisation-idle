@@ -15,8 +15,14 @@ import { householdOf, householdSeedOf, memberOf, ageRange, idHash, APARTMENTS } 
 import { CM_COLLECTIVE_HOMES } from '../cityNaming.js';
 import { WINTER } from '../seasonMode.js';
 import { pickParole } from './pick.js';
-import { parolesHeard, parolesNoteHeard } from '../../core/paroles.js';
+import { parolesHeard, parolesNoteHeard, parolesTotal, parolesBulles, parolesKnown } from '../../core/paroles.js';
 import { state } from '../../core/state.js';
+import { getPeriod } from '../../core/chronicleEvaluator.js';
+import { lastAbsence } from '../../core/idleReport.js';
+import { NOMS_DU_JOUEUR } from '../../data/parolesToi.js';
+import { PAROLES } from '../../data/paroles.js';
+
+const PAROLES_BY_ID = new Map(PAROLES.map((e) => [e.id, e]));
 
 // lineMs : le temps d'une réplique (lue, puis la suivante).
 export const LISTEN = { lineMs: 2800 };
@@ -25,6 +31,36 @@ if (import.meta.env?.DEV && typeof window !== 'undefined') {
 }
 
 const bandNow = () => ((CM.layout && CM.layout.counts && CM.layout.counts.eraBand) | 0);
+const eraNow = () => ((CM.layout && CM.layout.counts && CM.layout.counts.eraIndex) | 0);
+
+// CE QU'ON DIT DE TOI (lot 2) — la confiance : combien d'échanges le joueur a déjà
+// entendus (éternel). Au premier palier, il entend ce qu'on PENSE de lui ; au
+// deuxième, ce qu'on en DIT, à l'écart ; au troisième, ce qu'on n'ose pas dire.
+export const TRUST = [5, 15, 40];
+export const trustOf = (n) => TRUST.reduce((t, k) => t + (n >= k ? 1 : 0), 0);
+// Là où l'on ne parle pas de ces choses : au milieu de la place, au marché, au travail.
+const PUBLIC = ['plaza', 'errand', 'work', 'school'];
+// L'absence dont on parle encore : au moins une heure, revenue depuis peu.
+const ABSENCE_MIN_SEC = 3600;
+const ABSENCE_FRESH_MS = 20 * 60 * 1000;
+function absenceFresh() {
+  const a = lastAbsence();
+  return !!a && a.sec >= ABSENCE_MIN_SEC && Date.now() - a.at < ABSENCE_FRESH_MS;
+}
+// Il sent qu'on le suit quand la caméra ne le lâche plus depuis un moment.
+export const FOLLOW_MS = 30000;
+function followedNow(p) {
+  const f = CM.focus;
+  return !!(f && f.cam && f.p === p && f.since != null && clock() - f.since >= FOLLOW_MS);
+}
+// Les parties jouées à la Maison des Plaisirs, à vie (chronicleStats).
+function gamesPlayed() {
+  const g = state.chronicleStats && state.chronicleStats.games;
+  if (!g) return 0;
+  let n = 0;
+  for (const k of Object.keys(g)) n += (g[k] && g[k].plays) | 0;
+  return n;
+}
 const clock = () => (typeof performance !== 'undefined' ? performance.now() : Date.now());
 
 // L'autre de la causette : le meneur ou le compagnon (ils causent en marchant), le
@@ -137,13 +173,20 @@ export function listenContext(kind, p, focusKind) {
   const q = kind === 'chat' ? talkingPartner(p) : null;
   const B = q ? personOf(q.scene ? 'figure' : focusKind, q, band) : null;
   const wet = (CM.rainF || 0) > 0.15;
+  const night = (CM.nightF || 0) > 0.55;
+  const doing = doingOf(p);
+  const known = parolesKnown();
+  const olympus = state.olympus || {};
+  const names = namesOf(A, B, p, band);
+  const nom = known.nameId ? NOMS_DU_JOUEUR[known.nameId] : null;
+  if (nom) { names.nom = { fr: nom.fr, en: nom.en }; names.Nom = { fr: nom.Fr, en: nom.En }; }
   return {
     kind,
     band,
-    night: (CM.nightF || 0) > 0.55,
+    night,
     precip: wet ? ((CM.season | 0) === WINTER ? 'snow' : 'rain') : null,
     season: SEASONS[(CM.season | 0) & 3],
-    doing: doingOf(p),
+    doing,
     riot: Array.isArray(CM.rioters) && CM.rioters.length > 0,
     wonder: !!(CM.wonderGatherCells && CM.wonderGatherCells.length),
     prosper: (CM.healthF ?? 0.6) >= 0.75,
@@ -151,8 +194,22 @@ export function listenContext(kind, p, focusKind) {
     a: A.view,
     b: B ? B.view : null,
     ...relOf(A, B),
-    names: namesOf(A, B, p, band),
+    names,
     partner: q,
+    // Ce qu'on dit de toi (troisième couche, pick.js).
+    trust: trustOf(parolesTotal()),
+    private: night || !PUBLIC.includes(doing),
+    period: getPeriod(eraNow()),
+    articles: known.articles,
+    nameId: known.nameId,
+    followed: followedNow(p),
+    collapses: olympus.totalCollapses | 0,
+    manual: (olympus.manualCollapses | 0) > 0,
+    legacy: state.activeEpitaphLegacy ? state.activeEpitaphLegacy.id : null,
+    profile: olympus.unlockedProfile || null,
+    away: absenceFresh(),
+    plaisirs: gamesPlayed() >= 10,
+    bulles: parolesBulles() >= 3,
   };
 }
 
@@ -173,7 +230,7 @@ export function startListening(kind) {
   if (kind === 'chat' && !ctx.b) return false;
   const r = pickParole(ctx, parolesHeard());
   if (!r) return false;
-  parolesNoteHeard(r.id);
+  parolesNoteHeard(r.id, r.layer === 3 ? toiRecord(r, ctx) : null);
   const q = ctx.partner;
   // Ils restent là le temps de l'échange : la causette d'un salut se prolonge. Les
   // compagnons, eux, causent en marchant.
@@ -190,6 +247,30 @@ export function startListening(kind) {
   };
   return true;
 }
+// Ce qu'il faut garder d'un échange sur le joueur pour le relire dans le panneau
+// « Ce qu'on dit de toi » (parolesState.js) : les prénoms qu'il cite, les genres, le
+// nom que la gazette donnait alors. Le texte se relit dans le catalogue.
+const VAR = /\{(\w+)\}/g;
+function toiRecord(r, ctx) {
+  const e = PAROLES_BY_ID.get(r.id);
+  const n = {};
+  if (e) {
+    for (const l of e.lines) {
+      for (const t of [l.fr, l.m, l.f].filter(Boolean)) {
+        for (const m of t.matchAll(VAR)) {
+          const k = m[1];
+          if (k !== 'a' && k !== 'b' && k !== 'nom' && k !== 'Nom' && typeof ctx.names[k] === 'string') n[k] = ctx.names[k];
+        }
+      }
+    }
+  }
+  return {
+    band: ctx.band, a: ctx.names.a || null, b: ctx.names.b || null,
+    fa: !!(ctx.a && ctx.a.fem), fb: !!(ctx.b && ctx.b.fem),
+    kid: ctx.rel === 'parentKid' ? ctx.kidIs : null, nom: ctx.nameId || null, n,
+  };
+}
+
 export function stopListening() {
   CM.listening = null;
 }

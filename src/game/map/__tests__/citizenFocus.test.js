@@ -71,7 +71,9 @@ describe("focusCitizen — désigner et protéger", () => {
     expect(p.leaving).toBe(false);
     expect(p.leaveCell).toBe(null);
     expect(p.goal).toBe(null);
-    expect(CM.focus).toEqual({ p, kind: "citizen", cam: true });
+    expect(CM.focus).toMatchObject({ p, kind: "citizen", cam: true });
+    // Depuis quand la caméra le suit (l'écoute : au bout d'un moment, il le sent).
+    expect(typeof CM.focus.since).toBe("number");
   });
 
   it("rapproche la caméra au cran visé, sans jamais l'éloigner", () => {

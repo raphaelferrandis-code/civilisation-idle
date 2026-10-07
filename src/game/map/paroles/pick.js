@@ -15,8 +15,12 @@
 //   a:      { fem, child, old, job, traits, family, kids } — celui qu'on écoute,
 //   b:      { fem, child, traits } | null — l'autre, dans une causette,
 //   rel:    'couple' | 'parentKid' | null, kidIs: 'a' | 'b' (parent et enfant),
-//   names:  { a, b, conjoint, enfant, hote, voisin, voisine } — les prénoms que les
-//           répliques citent, tous vrais (listen.js).
+//   names:  { a, b, conjoint, enfant, hote, voisin, voisine, gamin, gamine } — les
+//           prénoms que les répliques citent, tous vrais (listen.js) ; { nom, Nom } :
+//           le nom que la gazette donne au joueur, { fr, en } ;
+//   et pour ce qu'on dit de toi (troisième couche) : trust (0 à 3), private,
+//   period, articles (Set des articles parus dans ce cycle), followed, collapses,
+//   manual, legacy, profile, away, plaisirs, bulles.
 // }
 import { PAROLES, JOB_GROUP } from '../../data/paroles.js';
 
@@ -58,6 +62,24 @@ export function parolesEligible(e, ctx) {
   if (w.riot && !ctx.riot) return false;
   if (w.wonder && !ctx.wonder) return false;
   if (w.prosper && !ctx.prosper) return false;
+  // CE QU'ON DIT DE TOI (troisième couche, lot 2) : on y pense avant d'en parler
+  // (§ 4.3). Une pensée sur le joueur demande un peu de confiance, une causette
+  // davantage, et à l'écart (la nuit, hors de la place, du marché et du travail) ;
+  // le taciturne n'en parle jamais.
+  if (e.layer === 3) {
+    if ((ctx.trust | 0) < Math.max(e.kind === 'chat' ? 2 : 1, w.trust | 0)) return false;
+    if (e.kind === 'chat' && (!ctx.private || (a.traits || []).includes('quiet'))) return false;
+  } else if (w.trust && (ctx.trust | 0) < w.trust) return false;
+  if (w.period && ((ctx.period | 0) < w.period[0] || (ctx.period | 0) > w.period[1])) return false;
+  if (w.article && !w.article.some((id) => ctx.articles && ctx.articles.has(id))) return false;
+  if (w.followed && !ctx.followed) return false;
+  if (w.collapses && (ctx.collapses | 0) < w.collapses) return false;
+  if (w.manual && !ctx.manual) return false;
+  if (w.legacy && w.legacy !== ctx.legacy) return false;
+  if (w.profile && w.profile !== ctx.profile) return false;
+  if (w.away && !ctx.away) return false;
+  if (w.plaisirs && !ctx.plaisirs) return false;
+  if (w.bulles && !ctx.bulles) return false;
   if (!childOk(e, ctx)) return false;
   // Une causette se joue à deux.
   if (e.kind === 'chat' && !b) return false;
@@ -79,7 +101,8 @@ const weightOf = (e) => {
   const w = e.when || {};
   // « Pas ce métier-là » (`notJob`) écarte sans rien préciser : il ne compte pas.
   const n = Object.keys(w).filter((k) => k !== 'notJob').length;
-  return 1 + 2 * n + (w.doing ? 6 : 0) + (w.job ? 4 : 0);
+  // Ce qu'on dit de toi est rare (la confiance, l'écart) : quand ça vient, ça passe.
+  return 1 + 2 * n + (w.doing ? 6 : 0) + (w.job ? 4 : 0) + (e.layer === 3 ? 4 : 0);
 };
 
 // L'échange choisi, ou null. Jamais une redite tant qu'il reste du neuf (règle 5) ;
@@ -102,11 +125,17 @@ export function pickParole(ctx, heard = {}, rand = Math.random, catalog = PAROLE
 export function resolveLines(e, ctx) {
   const kid = ctx.kidIs || 'b';
   const parent = kid === 'a' ? 'b' : 'a';
+  // Un prénom est le même dans les deux langues ; le nom que la gazette te donne
+  // ({nom}, {Nom}) s'écrit dans chacune : { fr, en }.
+  const nameOf = (k, fr) => {
+    const v = ctx.names && ctx.names[k];
+    return v && typeof v === 'object' ? (fr ? v.fr : v.en) : v;
+  };
   const fill = (t, fr) => {
     let out = t;
     // L'élision devant un prénom à voyelle : « la lampe d'Aldis », « qu'Ilya ».
-    if (fr) out = out.replace(ELIDE, (m, w, k) => (ctx.names && VOWEL.test(ctx.names[k] || '') ? `${w.slice(0, -1)}’{${k}}` : m));
-    return out.replace(VAR, (m, k) => (ctx.names && ctx.names[k]) || m);
+    if (fr) out = out.replace(ELIDE, (m, w, k) => (VOWEL.test(nameOf(k, true) || '') ? `${w.slice(0, -1)}’{${k}}` : m));
+    return out.replace(VAR, (m, k) => nameOf(k, fr) || m);
   };
   return e.lines.map((l) => {
     const who = e.kind === 'thought' ? 'a' : l.who === 'kid' ? kid : l.who === 'parent' ? parent : l.who;

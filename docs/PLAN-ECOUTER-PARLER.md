@@ -7,7 +7,7 @@ Chantier ouvert le 2026-10-07 sur la demande de Raph :
 > n'interagit pas avec eux, puis après une option dialogue qui permette de parler avec
 > certains. »
 
-**Statut : plan tranché, lot 1 livré, à juger en jeu.** La fiche d'habitant qui sert de socle est faite
+**Statut : plan tranché, lots 1 et 2 livrés ; le lot 2 est à juger en jeu.** La fiche d'habitant qui sert de socle est faite
 (commit `4a99b8bc` : identité, foyers, métier, humeur et sa cause, « où il est entré »).
 Raph a répondu aux questions du § 11 le jour même (tableau 1 bis).
 **Ce document fait foi pour ce chantier.**
@@ -238,28 +238,34 @@ dans la cendre, le signe qui change de forme avec les âges) sont écartées.
 
 ### 6.2 Ce que tu fais
 
-Les faits que la cité a vus, et qui nourrissent les rumeurs de la troisième couche.
-⚠ Les exemples ci-dessous datent d'avant la plume (règle 7) : plusieurs finissent sur un bon
-mot. Ils se réécrivent au lot 2.
+Les faits que la cité a vus, et qui nourrissent les rumeurs de la troisième couche
+(`src/game/data/parolesToi.js`, condition entre parenthèses).
 
 | Fait | Où il se lit | Exemple |
 |---|---|---|
-| Les chutes que tu déclenches | `state.olympus` (éternel) | « Mon grand-père a vu tomber deux cités. » |
-| Les crises résolues ou ignorées | `state.olympus` | « Il paraît qu'on règle nos crises dans des registres. » |
-| Le temps sans intervenir | `state.olympus.idleSeconds` | « Les veilleurs parlent bas. » |
-| Ton absence | rapport d'absence (`idleReport.js`) | « Trois jours sans que rien ne bouge. » « Les champs ont poussé quand même. » « C'est bien ce qui m'inquiète. » |
-| Le legs choisi à la chute | `activeEpitaphLegacy` | « Sous les ruines, il y avait du grain. Quelqu'un l'avait gardé pour nous. » |
-| Les bulles de pensée cueillies | **à compter** (rien ne les compte aujourd'hui) | « J'avais une idée ce matin. » « Et alors ? » « Elle est partie. Quelqu'un l'a prise. » |
-| La Maison des Plaisirs | `chronicleStats.games` | « Il paraît que là-haut, on joue nos récoltes aux dés. » |
-| La caméra qui suit quelqu'un | la session (`CM.focus`) | le superstitieux presse le pas, l'enfant fait signe |
+| Les chutes, ses ruines (`collapses`) | `state.olympus.totalCollapses` (éternel) | « En labourant, mon père a trouvé des tuiles sous la terre. Il y avait un village ici, avant le nôtre. » |
+| Une chute de ta main (`manual`) | `state.olympus.manualCollapses` | « Les anciens disent que la ville d'avant est tombée d'un coup, un jour où les greniers étaient pleins. Ce n'était pas la famine. » |
+| Le culte proclamé (`profile`) | `state.olympus.unlockedProfile` | « Le veilleur de notre rue parle tout bas, la nuit. Il dit qu'il ne faut pas réveiller la Main. » |
+| Ton absence (`away`) | rapport de reprise (`idleReport.lastAbsence`), une heure au moins, vingt minutes après | « Pendant trois jours, personne n'a posé une pierre. Les champs ont poussé quand même. » |
+| Le legs choisi à la chute (`legacy`) | `activeEpitaphLegacy` | « Sous les ruines, on a trouvé des réserves encore pleines. Le grain était sec, comme si on l'avait rangé pour nous. » |
+| Les bulles cueillies (`bulles`, trois dans la cité) | `state.paroles.bulles`, compté au clic (cityMapRuntime) | « J'avais une idée pour le toit en sortant de chez moi. Au coin de la rue, elle n'y était plus. » |
+| La Maison des Plaisirs (`plaisirs`, dix parties) | `chronicleStats.games` | « Mon cousin sert à la Maison des Plaisirs. Il dit qu'il y a une table où quelqu'un joue toutes les nuits. » |
+| La caméra qui le suit (`followed`, trente secondes) | `CM.focus.since` | « Depuis le pont, je me sens suivi. Deux fois je me suis arrêté devant une vitrine pour voir. Personne. » |
+
+Les crises résolues ou ignorées passent par le culte qu'elles font naître (`profile`). Le
+chemin d'une crise (Traiter ou Profiter) n'est consigné nulle part : à ajouter seulement si
+on veut des rumeurs dessus.
 
 Le chemin d'une crise (Traiter ou Profiter) n'est consigné nulle part aujourd'hui : à
 ajouter seulement si on veut des rumeurs dessus.
 
 ### 6.3 Leur caractère fait la lecture
 
-Le même fait, plusieurs voix, jamais un verdict. Après une chute que tu as déclenchée, le
-pieux dit « Il nous a reposés », le râleur « Il nous a jetés ».
+Le même fait, plusieurs voix, jamais un verdict. Le pieux remercie et demande (« Je
+remercie le Créateur pour la récolte, et je demande qu'on garde un œil sur mon frère »), le
+râleur compte ce qui ne va pas (« Si Celui qui veille veillait vraiment sur nous, l'égout de
+ma rue ne déborderait pas à chaque orage »), le superstitieux touche la main de la porte, le
+curieux regarde son toit.
 
 ### 6.4 Le nom qu'ils te donnent
 
@@ -270,7 +276,11 @@ nous guide », « Celui qui regarde » (P4), « Celui qui veille », « la Main 
 « l'Invisible » (P6). Les cultes de l'Olympe (Dieu de la Fin, des Registres, qui Rêve, du
 Bord) y entrent par des articles à écrire, quand l'Olympe proclame une religion. Une table
 `articleId → nom` dit quel article donne quel nom ; avant le premier, ils ne t'appellent
-pas.
+pas. Elle vit dans `parolesToi.js` (`NOMS_DU_JOUEUR`, quatorze articles) ; chaque nom s'écrit
+dans les deux langues, en tête de phrase et dans la phrase ({Nom}, {nom}), et jamais après
+« de » ni « à » (« du Créateur »). La grand-mère ne « disait » pas un nom paru la veille :
+les répliques qui le traitent comme ancien attendent la période 5 ; avant, ce sont Raphaël
+et Aldric.
 
 ---
 
@@ -360,8 +370,8 @@ Le récit seulement :
 
 1. ✅ **Écouter, le socle** : le geste, les pensées de tout le monde, les couches 1 et 2, la
    mémoire de l'entendu. Raph juge en jeu.
-2. **Ce qu'on dit de toi** : la troisième couche, branchée sur la Chronique et l'Olympe ; le
-   nom de la gazette ; le panneau.
+2. ✅ **Ce qu'on dit de toi** : la troisième couche, branchée sur la Chronique et l'Olympe ;
+   le nom de la gazette ; le panneau.
 3. **La Chronique des âges 7 à 9** : P8 à P10, dans la voix de la gazette.
 4. **Les signes** : vent, lumière, feu, bête ; les réactions par âge et par caractère.
 5. **Le déclic et le dialogue par signes** : Claude, au Feu, jusqu'à P3.
@@ -411,3 +421,20 @@ Les six questions du premier jet sont tranchées (tableau 1 bis). Aucune ouverte
   Nouveaux prénoms : {voisin}, {voisine} (les adultes d'une maison à quatre cases de chez
   lui, la tête du foyer d'abord, celle dont la maison porte le nom), {gamin}, {gamine} (les
   enfants de ces maisons) ; `paroles/listen.js`, `neighborsOf`.
+- 2026-10-07 : Raph, sur la plume : « nettement mieux, on passe au lot 2 avec le style
+  adapté ». **Lot 2 livré**, dans la même plume : 100 rumeurs (82 pensées, 18 causettes),
+  `src/game/data/parolesToi.js`, période par période (la tradition orale du Feu ne sait rien
+  de toi ; l'argile parle de dieux ; Raphaël invente « la main invisible » ; puis le
+  Créateur, Celui qui veille, la Main, le procès de l'Invisible, « je crois qu'il joue »), et
+  par faits vus (§ 6.2). **La confiance** : trois paliers selon les échanges déjà entendus (5,
+  15, 40) : on PENSE à toi au premier, on en PARLE au deuxième, et seulement à l'écart (la
+  nuit, hors de la place, du marché, du travail et de l'école), jamais le taciturne ; le
+  troisième ouvre ce qu'on n'ose pas dire (« il m'arrive de penser à voix basse, au cas
+  où »). Une rumeur pèse un peu plus au tirage quand elle vient. **Le panneau** « Ce qu'on
+  dit de toi » dans la Chronique (`ParolesChronique.jsx`) : absent tant que rien n'a été
+  entendu, la réplique, qui l'a dite, l'âge et le temps de jeu, l'échange entier au survol ;
+  en tête, « On t'appelle la Main » si la gazette de ce cycle a donné un nom. La mémoire :
+  `state.paroles.toi` (éternelle, 120 au plus, le texte relu dans le catalogue) et
+  `state.paroles.bulles` (par cité). Vérifié sur une foule générée aux sept périodes : la
+  grand-mère qui « disait » un nom paru la veille, et la caméra qui suit d'office le passant
+  désigné (il se sentait suivi à chaque fois) ont été corrigées.

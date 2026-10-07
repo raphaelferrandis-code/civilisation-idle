@@ -6,7 +6,8 @@ import { defaultParoles } from "../../core/parolesState.js";
 import { GR_PERSISTENT_FIELDS } from "../../core/state.js";
 import { focusCitizen, clearCitizenFocus, doingOf } from "../citizenFocus.js";
 import { buildIdentity, householdOf, householdSeedOf } from "../citizenIdentity.js";
-import { startListening, listenView, listenOptions, stopListening, listenContext, neighborsOf, LISTEN } from "../paroles/listen.js";
+import { startListening, listenView, listenOptions, stopListening, listenContext, neighborsOf, trustOf, LISTEN } from "../paroles/listen.js";
+import { parolesNoteBubble, parolesBulles } from "../../core/paroles.js";
 import { PAROLES } from "../../data/paroles.js";
 
 // ÉCOUTER EN JEU (docs/PLAN-ECOUTER-PARLER.md, lot 1) : la fiche propose d'écouter une
@@ -153,5 +154,68 @@ describe("la plume : ce qu'il fait, ses voisins", () => {
     expect(neighborsOf(a, 2)).toEqual({});
     // Sans logis connu, pas de voisins (et pas de réplique qui en parle).
     expect(neighborsOf(citizen(hh, "m"), 2)).toEqual({});
+  });
+});
+
+describe("ce qu'on dit de toi (lot 2)", () => {
+  it("la confiance vient de ce qu'on a déjà écouté", () => {
+    expect([0, 4, 5, 14, 15, 39, 40, 500].map(trustOf)).toEqual([0, 0, 1, 1, 2, 2, 3, 3]);
+  });
+
+  it("la rue sait ce que la gazette a publié dans ce cycle, et reprend le dernier nom", () => {
+    const hh = coupleHousehold();
+    const a = citizen(hh, "m", { goalKind: "home" });
+    CM.citizens = [a];
+    CM.layout = { counts: { eraBand: 5, eraIndex: 28 } };
+    state.chronicleEntries = [{ id: "x3", articleId: "p6_know_loops" }, { id: "x2", articleId: "p6_gold_logo" }, { id: "x1", articleId: "p5_food_bread" }];
+    focusCitizen(a);
+    const ctx = listenContext("thought", a, "citizen");
+    expect(ctx.period).toBe(6);
+    expect(ctx.articles.has("p5_food_bread")).toBe(true);
+    expect(ctx.nameId).toBe("p6_gold_logo");
+    expect(ctx.names.nom).toEqual({ fr: "la Main", en: "the Hand" });
+    // Il rentre chez lui : à l'écart. Sur la place, non.
+    expect(ctx.private).toBe(true);
+    a.goalKind = "plaza";
+    expect(listenContext("thought", a, "citizen").private).toBe(false);
+    // Avant le premier article qui le nomme, on ne l'appelle pas.
+    state.chronicleEntries = [{ id: "x1", articleId: "p2_tension_gods" }];
+    expect(listenContext("thought", a, "citizen").names.nom).toBeUndefined();
+    state.chronicleEntries = [];
+  });
+
+  it("ce qu'il entend sur lui s'inscrit, avec de quoi le relire", () => {
+    const hh = coupleHousehold();
+    const a = citizen(hh, "m", { goalKind: "home" });
+    CM.citizens = [a];
+    CM.layout = { counts: { eraBand: 5, eraIndex: 28 } };
+    state.chronicleEntries = [{ id: "x2", articleId: "p6_gold_logo" }];
+    state.paroles = { ...defaultParoles(), n: 40 };
+    const savedOlympus = state.olympus;
+    state.olympus = { ...(savedOlympus || {}), totalCollapses: 2, manualCollapses: 1 };
+    focusCitizen(a);
+    let rec = null;
+    for (let i = 0; i < 400 && !rec; i += 1) {
+      if (!startListening("thought")) break;
+      if (CM.listening.id.startsWith("t3-")) rec = state.paroles.toi[state.paroles.toi.length - 1];
+    }
+    state.olympus = savedOlympus;
+    state.chronicleEntries = [];
+    expect(rec).not.toBe(null);
+    expect(rec.a).toBe(hh.m.given);
+    expect(rec.band).toBe(5);
+    expect(rec.nom).toBe("p6_gold_logo");
+    // Le reste de ce qu'il a entendu ne s'y inscrit pas.
+    expect(state.paroles.toi.every((t) => t.id.startsWith("t3-"))).toBe(true);
+  });
+
+  it("les bulles cueillies se comptent par cité", () => {
+    const saved = state.cycles;
+    state.cycles = 4;
+    parolesNoteBubble(); parolesNoteBubble(); parolesNoteBubble();
+    expect(parolesBulles()).toBe(3);
+    state.cycles = 5;
+    expect(parolesBulles()).toBe(0);
+    state.cycles = saved;
   });
 });

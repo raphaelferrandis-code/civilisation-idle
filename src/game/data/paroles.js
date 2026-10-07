@@ -7,9 +7,9 @@
 //                 l'autre ; `parent` / `kid` quand ils sont parent et enfant) ;
 //   · 'thought' : une PENSÉE, celle du passant désigné (Raph : « dès le début le
 //                 joueur peut regarder les pensées de tout le monde »).
-// Deux couches : 1 = sa vie (sa famille, son métier, son caractère, ce qu'il fait),
+// Trois couches : 1 = sa vie (sa famille, son métier, son caractère, ce qu'il fait),
 // 2 = la cité telle qu'elle va (ce qui pèse sur elle, le temps, la saison, la nuit,
-// l'émeute, la merveille). La troisième, ce qu'ils disent du joueur, est au lot 2.
+// l'émeute, la merveille), 3 = ce qu'ils disent du joueur (parolesToi.js, lot 2).
 //
 // ── LA PLUME (Raph, 2026-10-07 : « il nous faut des pensées moins IA codée, genre
 // "le marché crie très fort", ça ne veut rien dire ») ─────────────────────────────
@@ -51,6 +51,8 @@
 // {gamin}, {gamine} (des enfants de sa rue). Une entrée qui nomme quelqu'un qu'il n'a
 // pas n'est pas choisie.
 
+import { PAROLES_TOI } from './parolesToi.js';
+
 // Les âges (eraThemes.js), par mondes.
 const FEU = [0, 1];      // Feu et Bois : le camp, la chasse, la cueillette, l'abri
 const BOURG = [2, 3];    // Pierre taillée et Couronne : le four, le puits, le seigneur
@@ -83,7 +85,7 @@ export const JOB_GROUP = {
   matron: 'gentry', noble: 'gentry',
 };
 
-export const PAROLES = [
+const PAROLES_VIE = [
   // ══ FEU ET BOIS ════════════════════════════════════════════════════════════════
   // ── Causettes, leur vie ──
   { id: 'f-c-peau', kind: 'chat', layer: 1, bands: FEU, when: { rel: 'couple', kids: true }, lines: [
@@ -2451,3 +2453,6 @@ export const PAROLES = [
     { fr: 'Le conseil a promis l’été pour la semaine prochaine. Les enfants comptent les jours.', en: 'The council has promised summer for next week. The children are counting the days.' },
   ] },
 ];
+
+// La troisième couche, ce qu'on dit de toi (lot 2), vit dans parolesToi.js.
+export const PAROLES = [...PAROLES_VIE, ...PAROLES_TOI];

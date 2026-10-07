@@ -3,10 +3,12 @@ import { describe, it, expect } from "vitest";
 import { PAROLES, JOB_GROUP } from "../../data/paroles.js";
 import { JOBS, TRAITS } from "../citizenIdentity.js";
 import { pickParole, parolesEligible, resolveLines } from "../paroles/pick.js";
+import { NOMS_DU_JOUEUR } from "../../data/parolesToi.js";
+import { chronicleArticles } from "../../data/chronicleArticles.js";
 
 // ÉCOUTER (docs/PLAN-ECOUTER-PARLER.md) : le catalogue et le choix d'un échange.
 
-const NAMES = ["a", "b", "conjoint", "enfant", "hote", "voisin", "voisine", "gamin", "gamine"];
+const NAMES = ["a", "b", "conjoint", "enfant", "hote", "voisin", "voisine", "gamin", "gamine", "nom", "Nom"];
 const DOING = ["work", "school", "home", "errand", "plaza", "pray", "wonder", "wander", "night", "flee", "shelter", "riot", "river", "port", "field"];
 const adult = (o = {}) => ({ fem: false, child: false, old: false, job: null, traits: [], family: "single", kids: 0, ...o });
 const ctxOf = (o = {}) => ({
@@ -24,7 +26,7 @@ describe("le catalogue", () => {
       expect(ids.has(e.id), e.id).toBe(false);
       ids.add(e.id);
       expect(["chat", "thought"]).toContain(e.kind);
-      expect([1, 2]).toContain(e.layer);
+      expect([1, 2, 3]).toContain(e.layer);
       expect(e.lines.length).toBeGreaterThan(0);
       for (const l of e.lines) {
         expect(l.en, e.id).toBeTruthy();
@@ -161,5 +163,53 @@ describe("le choix", () => {
     expect(lines[1].who).toBe("a");
     const forgeron = resolveLines(byId("b-c-forgeron"), { ...ctx, names: { enfant: "Tassin" } });
     expect(forgeron[0].fr).toBe("Tassin ne veut plus aller à l’école.");
+  });
+});
+
+describe("ce qu'on dit de toi (lot 2)", () => {
+  const toiCtx = (o = {}) => ctxOf({ trust: 3, private: true, period: 5, articles: new Set(), collapses: 0, ...o });
+
+  it("on y pense avant d'en parler : la pensée d'abord, la causette ensuite, à l'écart, jamais le taciturne", () => {
+    const base = { band: 2, collapses: 1 };
+    const thought = byId("t3-ruines-tuiles");
+    expect(parolesEligible(thought, toiCtx({ ...base, trust: 0 }))).toBe(false);
+    expect(parolesEligible(thought, toiCtx({ ...base, trust: 1 }))).toBe(true);
+    const chat = byId("t3-ruines-chat");
+    const pair = { ...base, kind: "chat", b: adult(), names: { a: "Garin", b: "Oda" } };
+    expect(parolesEligible(chat, toiCtx({ ...pair, trust: 1 }))).toBe(false);
+    expect(parolesEligible(chat, toiCtx({ ...pair, trust: 2 }))).toBe(true);
+    expect(parolesEligible(chat, toiCtx({ ...pair, trust: 2, private: false }))).toBe(false);
+    expect(parolesEligible(chat, toiCtx({ ...pair, trust: 2, a: adult({ traits: ["quiet"] }) }))).toBe(false);
+  });
+
+  it("ils n'en savent jamais plus que la gazette : l'article d'abord, le nom ensuite", () => {
+    const raphael = byId("t3-p3-raphael");
+    const ctx = toiCtx({ band: 2, period: 3 });
+    expect(parolesEligible(raphael, ctx)).toBe(false);
+    const parus = { articles: new Set(["p3_knowledge_probability"]), names: { a: "Garin", nom: { fr: "la main invisible", en: "the invisible hand" } } };
+    expect(parolesEligible(raphael, { ...ctx, ...parus })).toBe(true);
+    // Sans nom à citer, la réplique qui le cite n'est pas choisie.
+    expect(parolesEligible(raphael, { ...ctx, ...parus, names: { a: "Garin" } })).toBe(false);
+  });
+
+  it("le nom que la gazette te donne s'écrit dans chaque langue", () => {
+    const names = { a: "Garin", b: "Oda", nom: { fr: "la Main", en: "the Hand" }, Nom: { fr: "La Main", en: "The Hand" } };
+    const lines = resolveLines(byId("t3-nom-croire"), toiCtx({ kind: "chat", b: adult(), names }));
+    expect(lines[0].fr).toBe("Tu crois que la Main nous regarde, là, maintenant ?");
+    expect(lines[0].en).toBe("Do you think the Hand is watching us right now?");
+  });
+
+  it("jamais « de {nom} » ni « à {nom} » (du Créateur, au Créateur)", () => {
+    for (const e of PAROLES) {
+      for (const l of e.lines) {
+        for (const t of [l.fr, l.m, l.f].filter(Boolean)) expect(t, e.id).not.toMatch(/\b(de|à) \{[nN]om\}/);
+      }
+    }
+  });
+
+  it("chaque nom et chaque article cités existent dans la Chronique", () => {
+    const ids = new Set(chronicleArticles.map((a) => a.id));
+    for (const k of Object.keys(NOMS_DU_JOUEUR)) expect(ids.has(k), k).toBe(true);
+    for (const e of PAROLES) for (const id of (e.when && e.when.article) || []) expect(ids.has(id), `${e.id} : ${id}`).toBe(true);
   });
 });

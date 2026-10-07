@@ -111,6 +111,7 @@ import { getVehicleDensity, chooseRoadVehicleType, vehSkinFor, thoughtBubbleAnch
 import { makeFleetCtl, riverFleetBudget, updateRiverFleet } from './riverFleet.js';
 import { pickAtScreen, describePick, citizenHoverTick, focusPick, releaseFocusCamera, focusCameraTarget, FOCUS_TUNE } from './citizenFocus.js';
 import { cmVariantLabel, cmOfEn, CM_COLLECTIVE_HOMES } from './cityNaming.js';
+import { parolesNoteBubble } from '../core/paroles.js';
 import {
   buildIdentity, householdOf, householdSeedOf, householdSlot, householdHeadName, jobOfBuilding, jobWorks,
   SPRITE_PROFILE, SCHOOLS, APARTMENTS, JOBS,
@@ -1105,6 +1106,8 @@ function bindCityMapInput(canvas, mapRoot, callbacks = {}) {
       hitCitizen.thoughtType = null;
       hitCitizen.thoughtTimer = 0;
       CM.globalBubbleCooldown = Math.random() * 90 + 90; // 1.5 - 3 minutes before next bubble
+      // La cité le sent : une idée de plus s’en va (paroles, « ce qu’on dit de toi »).
+      parolesNoteBubble();
       callbacks.onCitizenThoughtClicked(hitCitizen, type);
       return;
     }

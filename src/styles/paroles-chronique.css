@@ -1,0 +1,31 @@
+/* CE QU'ON DIT DE TOI (ParolesChronique.jsx, docs/PLAN-ECOUTER-PARLER.md, lot 2).
+   Même grammaire que le registre des faits divers (views-chronicle-timeline.css) ;
+   ici la rangée porte une RÉPLIQUE, pas un titre : elle se lit, elle ne crie pas. */
+
+.chronique-paroles-nom {
+  margin: 0 0 0.6rem;
+  font-size: var(--fs-read);
+  color: var(--muted);
+}
+
+.chronique-paroles-nom strong {
+  color: var(--accent-gold);
+  font-weight: 700;
+}
+
+/* La réplique sur une ligne entière ; qui l'a dite et l'âge passent dessous. */
+.chronique-paroles-line {
+  font-weight: 500;
+  line-height: 1.45;
+}
+
+.chronique-paroles-line em {
+  display: block;
+  margin: 0.15rem 0 0;
+}
+
+/* Le temps de jeu ne se plie pas sous une longue réplique (« 0 » puis « m »). */
+.chronique-paroles-row .chronicle-reg-meta {
+  flex: 0 0 auto;
+  white-space: nowrap;
+}
