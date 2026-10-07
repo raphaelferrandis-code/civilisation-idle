@@ -7,9 +7,9 @@ Chantier ouvert le 2026-10-07 sur la demande de Raph :
 > n'interagit pas avec eux, puis après une option dialogue qui permette de parler avec
 > certains. »
 
-**Statut : plan. Rien n'est codé pour l'écoute ni pour les signes ou les mots.** La fiche
-d'habitant qui sert de socle est faite (commit `4a99b8bc` : identité, foyers, métier,
-humeur et sa cause, « où il est entré »). Les questions du § 11 attendent Raph.
+**Statut : plan tranché, lot 1 en cours.** La fiche d'habitant qui sert de socle est faite
+(commit `4a99b8bc` : identité, foyers, métier, humeur et sa cause, « où il est entré »).
+Raph a répondu aux questions du § 11 le jour même (tableau 1 bis).
 **Ce document fait foi pour ce chantier.**
 
 ---
@@ -39,6 +39,17 @@ humeur et sa cause, « où il est entré »). Les questions du § 11 attendent R
 | Les effets | **Seulement le récit**, « à voir plus tard ». |
 | Les interlocuteurs | **N'importe quel passant.** |
 | L'ordre | La fiche d'abord (faite), puis le lore et les interactions. |
+
+### 1 bis. Les réponses aux questions du § 11 (2026-10-07)
+
+| Question | Réponse |
+|---|---|
+| Les signes | Un signe est un geste du joueur **vers un passant précis**. En plus du vent, de la lumière et du feu : **la bête** (proposition 3). Les sept autres propositions sont écartées. |
+| Quand viennent les mots | **Entre P2 et P3** : au passage de la cité en P3 (index d'ère 9), là où la Chronique parle pour la première fois d'« une main invisible » (`p3_knowledge_probability`). |
+| Les âges 7 à 9 | **On écrit** leur Chronique (P8 à P10) : les habitants n'en savent jamais plus qu'elle. |
+| Les pensées | **Dès le début**, le joueur peut écouter les pensées de **tout le monde**. |
+| Le nom qu'ils te donnent | **Celui de la Chronique** : la rue reprend le nom que la gazette a publié, et c'est là qu'il s'écrit. |
+| Le son des signes | Avec le chantier « ambiance sonore », **quand il sera terminé**. |
 
 ---
 
@@ -150,7 +161,7 @@ Ce qui ouvre la troisième couche :
 
 Un panneau **« Ce qu'on dit de toi »** dans la Chronique, sur le modèle du panneau des faits
 divers. Il ne montre que ce que le joueur a entendu sur lui, daté (âge, temps de jeu), sans
-compte ni « ??? ». C'est là qu'apparaît **le nom qu'ils te donnent** (§ 6.4).
+compte ni « ??? ». Le nom qu'ils te donnent, lui, est celui que la gazette a publié (§ 6.4).
 
 ---
 
@@ -158,31 +169,22 @@ compte ni « ??? ». C'est là qu'apparaît **le nom qu'ils te donnent** (§ 6.4
 
 ### 5.1 Le geste
 
-Dès le début, comme l'a voulu Raph. Dans la fiche, une rangée de signes ; le passant réagit
-(il lève les yeux, s'arrête, se retourne), puis une pensée dit ce qu'il en fait. Un signe ne
-change rien au jeu : le feu monte à l'écran, la production ne bouge pas.
+Dès le début, comme l'a voulu Raph. Un signe est un geste du joueur **vers un passant
+précis** : on le désigne, on choisit le signe dans sa fiche, il réagit (il lève les yeux,
+s'arrête, se retourne), puis une pensée dit ce qu'il en fait. Un signe ne change rien au
+jeu : le feu monte à l'écran, la production ne bouge pas.
 
-### 5.2 Le répertoire
+### 5.2 Le répertoire (tranché le 2026-10-07)
 
-Retenus par Raph :
-- **le souffle de vent** autour de lui ;
-- **la lumière plus intense** sur lui ;
-- **le feu plus fort**, le feu le plus proche ;
-- **écouter ses pensées**, rangé avec l'écoute (§ 4.1).
-
-Proposés, à choisir (§ 11, question 1) :
-1. **Souffler une idée** : une bulle s'allume au-dessus de lui, l'inverse de cueillir ses
-   pensées (`rewardCitizenThought`).
-2. **Envoyer un rêve** à un dormeur, qu'il raconte le lendemain dans une causette (le Dieu
-   qui Rêve de l'Olympe).
-3. **Les bêtes te voient** : un chien ou une chèvre s'arrête et fixe la caméra ; il suit son
+1. **Le souffle de vent** autour de lui.
+2. **La lumière plus intense** sur lui.
+3. **Le feu plus fort**, le feu le plus proche de lui.
+4. **La bête** : un chien, une chèvre ou un oiseau proche s'arrête et le fixe ; il suit son
    regard.
-4. **L'ombre d'un nuage** qui ne passe que sur lui.
-5. **Une étoile filante**, la nuit, dont on entend le vœu.
-6. **Un poisson qui saute** sans raison, près du quai.
-7. **Un mot dans la cendre du feu** : le passage des signes aux mots (§ 7.1).
-8. **Le même signe change de forme avec les âges** : le feu, puis la lampe, puis le néon
-   qui grésille (la Secte du Feu lit déjà les clignotements d'une enseigne).
+
+Écouter ses pensées n'est pas un signe : c'est l'écoute (§ 4.1). Les autres propositions
+(souffler une idée, envoyer un rêve, l'ombre d'un nuage, l'étoile filante, le poisson, le mot
+dans la cendre, le signe qui change de forme avec les âges) sont écartées.
 
 ### 5.3 Comment ils les lisent
 
@@ -203,7 +205,8 @@ Proposés, à choisir (§ 11, question 1) :
 - Le feu passe par les flammes existantes : le feu n'est pas un pigment (`SKIP_FIRE`,
   rampe à part).
 - Le son des signes se règle avec le chantier « ambiance sonore »
-  (`docs/PLAN-AMBIANCE-SONORE.md`).
+  (`docs/PLAN-AMBIANCE-SONORE.md`), **une fois ce chantier terminé** : en attendant, des
+  signes muets.
 
 ---
 
@@ -216,6 +219,9 @@ Proposés, à choisir (§ 11, question 1) :
 - **Les faits publiés** : les articles déjà parus dans ce cycle
   (`state.chronicleEntries[].articleId`). On ne parle du procès de Khael qu'après que la
   gazette l'a annoncé. À la chute, tout est oublié, comme la gazette.
+- **Les âges 7 à 9 ont leur Chronique** (décision du 2026-10-07) : trois périodes de plus,
+  P8 (Noosphère), P9 (Stellaire) et P10 (Démiurge), écrites dans la voix de la gazette et
+  avec ses auteurs. Aujourd'hui ces âges restent en P7.
 
 ### 6.2 Ce que tu fais
 
@@ -242,9 +248,14 @@ pieux dit « Il nous a reposés », le râleur « Il nous a jetés ».
 
 ### 6.4 Le nom qu'ils te donnent
 
-Un nom par période et par culte dominant de l'Olympe (`lastDominantProfile`). Des noms nus
-et concrets, jamais un verbe et une allitération. Pistes à écrire avec Raph : « Celui qui
-regarde », « le Dormeur », « la Main », « le Comptable », « l'Absent ».
+**Celui de la Chronique** (décision du 2026-10-07). La rue ne l'invente pas : elle reprend
+le dernier nom que la gazette a publié dans ce cycle, et c'est dans la gazette qu'il
+s'écrit. Ceux qui existent déjà : « une main invisible » (P3), « le Créateur », « Celui qui
+nous guide », « Celui qui regarde » (P4), « Celui qui veille », « la Main » (P5),
+« l'Invisible » (P6). Les cultes de l'Olympe (Dieu de la Fin, des Registres, qui Rêve, du
+Bord) y entrent par des articles à écrire, quand l'Olympe proclame une religion. Une table
+`articleId → nom` dit quel article donne quel nom ; avant le premier, ils ne t'appellent
+pas.
 
 ---
 
@@ -263,10 +274,11 @@ le dialogue commence par des signes. Si le joueur ne fait rien : « Comme d'habi
 
 ### 7.2 Quand viennent les mots
 
-Proposition (§ 11, question 2) : les mots s'ouvrent quand la Chronique reproche au joueur de
-ne pas répondre, en P6 (« Vous n'avez répondu à aucun débat. »). Avant, des signes. Chaque
-cité refait le chemin ; Claude, lui, se souvient : « On s'est déjà parlé. Pas dans cette
-vie. »
+**Entre P2 et P3** (décision du 2026-10-07) : au passage de la cité en P3 (index d'ère 9).
+C'est l'âge où la gazette parle pour la première fois d'« une main invisible »
+(`p3_knowledge_probability`, Raphaël : « Nous lui conseillons de se reposer. »). Avant, des
+signes. Chaque cité refait le chemin ; Claude, lui, se souvient : « On s'est déjà parlé. Pas
+dans cette vie. »
 
 ### 7.3 Le format
 
@@ -331,32 +343,30 @@ Le récit seulement :
 
 ## 10. Les lots
 
-1. **Écouter, le socle** : le geste, les pensées, les couches 1 et 2 du Feu à la Couronne, la
-   mémoire de l'entendu, le panneau. Raph juge en jeu.
+1. **Écouter, le socle** : le geste, les pensées de tout le monde, les couches 1 et 2, la
+   mémoire de l'entendu. Raph juge en jeu.
 2. **Ce qu'on dit de toi** : la troisième couche, branchée sur la Chronique et l'Olympe ; le
-   nom qu'ils te donnent.
-3. **Les signes** : les trois de Raph et ceux qu'il retient, les réactions par âge et par
-   caractère.
-4. **Le déclic et le dialogue par signes** : Claude, du Feu à la Couronne.
-5. **Les mots** : les passants, puis les figures de la Chronique.
-6. **Les âges 7 à 9, le Démiurge, le Grand Reset dans la fiction.**
+   nom de la gazette ; le panneau.
+3. **La Chronique des âges 7 à 9** : P8 à P10, dans la voix de la gazette.
+4. **Les signes** : vent, lumière, feu, bête ; les réactions par âge et par caractère.
+5. **Le déclic et le dialogue par signes** : Claude, au Feu, jusqu'à P3.
+6. **Les mots**, dès P3 : les passants, puis les figures de la Chronique.
+7. **Le Démiurge et le Grand Reset dans la fiction.**
+8. **Le son des signes**, quand le chantier « ambiance sonore » sera terminé.
 
 ---
 
-## 11. Questions ouvertes
+## 11. Questions
 
-1. **Quels signes** en plus des trois de Raph ? (§ 5.2, propositions 1 à 8)
-2. **Quand s'ouvrent les mots** : en P6, quand la Chronique reproche au joueur de ne pas
-   répondre, ou plus tôt ?
-3. **Les âges 7 à 9** : écrire d'abord leurs articles de Chronique (les habitants n'en savent
-   pas plus qu'elle), ou les laisser en P7 ?
-4. **Écouter ses pensées** : dès le début pour tous, ou après le déclic ?
-5. **Le nom qu'ils te donnent** : écrit dans la Chronique, ou seulement entendu ?
-6. **Le son des signes** : avec le chantier « ambiance sonore » ?
+Les six questions du premier jet sont tranchées (tableau 1 bis). Aucune ouverte.
 
 ---
 
 ## 12. Journal
 
 - 2026-10-07 : idée de Raph et ses cinq décisions. La fiche d'habitant, socle du chantier,
-  est faite et committée (`4a99b8bc`). Plan écrit ; aucun code.
+  est faite et committée (`4a99b8bc`). Plan écrit (`fff6bf29`).
+- 2026-10-07 : Raph tranche les six questions (tableau 1 bis) : la bête en plus du vent, de
+  la lumière et du feu ; les mots entre P2 et P3 ; on écrit la Chronique des âges 7 à 9 ; les
+  pensées de tous dès le début ; le nom est celui de la Chronique ; le son après le chantier
+  sonore. Lot 1 lancé.
