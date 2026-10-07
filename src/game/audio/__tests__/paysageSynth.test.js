@@ -6,7 +6,8 @@
 import { describe, it, expect } from 'vitest';
 import { rendrePaysage, SONS_PAYSAGE, PAYSAGE_SR, LIBELLULE_HZ, LIBELLULE_NOTE } from '../paysage/paysageSynth.js';
 
-const BOUCLES = ['souffle', 'feuillage', 'courant', 'ressac', 'lointain', 'libellule'];
+const BOUCLES = ['souffle', 'feuillage', 'courant', 'ressac', 'lointain', 'libellule', 'grillons', 'stridulations', 'cigales'];
+const NAPPES = ['souffle', 'feuillage', 'courant', 'ressac', 'lointain', 'grillons', 'stridulations', 'cigales'];
 const rendus = new Map();
 const son = (nom) => { if (!rendus.has(nom)) rendus.set(nom, rendrePaysage(nom)); return rendus.get(nom); };
 
@@ -50,8 +51,39 @@ describe('les sons du paysage', () => {
   });
 
   it('deux nappes jouées ensemble ont des longueurs différentes (leur motif ne revient pas ensemble)', () => {
-    const d = BOUCLES.slice(0, 5).map((n) => Math.round(son(n).length / PAYSAGE_SR));
+    const d = NAPPES.map((n) => Math.round(son(n).length / PAYSAGE_SR));
     expect(new Set(d).size).toBe(d.length);
+  });
+
+  // La part d'énergie d'un son entre `f0` et `f1` Hz (deux passe-bandes en cascade).
+  function partBande(b, f0, f1) {
+    const fc = Math.sqrt(f0 * f1), Q = fc / (f1 - f0);
+    const w0 = (2 * Math.PI * fc) / PAYSAGE_SR, al = Math.sin(w0) / (2 * Q), a0 = 1 + al;
+    const c = { b0: al / a0, b2: -al / a0, a1: (-2 * Math.cos(w0)) / a0, a2: (1 - al) / a0 };
+    let x1 = 0, x2 = 0, y1 = 0, y2 = 0, dans = 0, tot = 0;
+    for (let i = 0; i < b.length; i += 1) {
+      const y = c.b0 * b[i] + c.b2 * x2 - c.a1 * y1 - c.a2 * y2;
+      x2 = x1; x1 = b[i]; y2 = y1; y1 = y;
+      dans += y * y; tot += b[i] * b[i];
+    }
+    return dans / tot;
+  }
+
+  it('les grillons chantent autour de 4,4 kHz, les cigales et les sauterelles plus haut, pas dans le grave', () => {
+    expect(partBande(son('grillons'), 3700, 5200)).toBeGreaterThan(0.6);
+    expect(partBande(son('cigales'), 4000, 8000)).toBeGreaterThan(0.5);
+    expect(partBande(son('stridulations'), 6000, 13000)).toBeGreaterThan(0.5);
+    for (const n of ['grillons', 'cigales', 'stridulations']) expect(partBande(son(n), 40, 800), n).toBeLessThan(0.05);
+  });
+
+  it("le plip du gobage est une goutte : bref, et il s'éteint", () => {
+    for (let v = 1; v <= 4; v += 1) {
+      const b = son('plip' + v);
+      expect(b.length / PAYSAGE_SR).toBeLessThanOrEqual(0.25);
+      const debut = mesure(b, 0, Math.round(0.03 * PAYSAGE_SR)).rms;
+      const fin = mesure(b, b.length - Math.round(0.1 * PAYSAGE_SR)).rms;
+      expect(debut, `plip${v}`).toBeGreaterThan(fin * 8);
+    }
   });
 
   // L'enveloppe d'un son : sa valeur absolue lissée par deux pôles à `fc` Hz.

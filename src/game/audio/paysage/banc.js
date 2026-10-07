@@ -122,6 +122,8 @@ function construire() {
   };
   for (const nom of Object.keys(api.PONCTUELS)) ligneProche(nom, 'ponctuels');
   for (const nom of Object.keys(api.EMETTEURS)) ligneProche(nom, 'emetteurs');
+  panneau.append(el('div', TITRE, 'Semés (enregistrements)'));
+  for (const nom of Object.keys(api.SEMES)) ligneProche(nom, 'semes');
 
   panneau.append(el('div', TITRE, 'L’oreille'));
   const oreille = [
@@ -159,9 +161,9 @@ function rafraichir() {
   if (!panneau || !vue || !api) return;
   const e = api.etat();
   const sortie = e.sortieDb == null ? '·' : `${e.sortieDb.toFixed(1)} dBFS`;
-  vue.etat.textContent = `${e.eveille ? 'éveillé' : 'endormi'} · contexte ${e.contexte || '·'}${e.cache ? ' · fenêtre cachée' : ''}${e.fenetre ? ' · assourdi' : ''}\n`
+  vue.etat.textContent = `${e.eveille ? 'éveillé' : 'endormi'} · contexte ${e.contexte || '·'}${e.cache ? ' · fenêtre cachée' : ''}${e.fenetre ? ' · assourdi' : ''}${e.habitue ? ' · habitué' : ''}\n`
     + `zoom ${f2(e.zoom)} · proximité ${f2(e.p)} · oreille à ${f2(e.h)} cases\n`
-    + `sortie ${sortie} · vent ×${f2(e.rafale)} · tampons ${e.tampons}${e.enRoute ? ` (+${e.enRoute})` : ''}`;
+    + `sortie ${sortie} · vent ×${f2(e.rafale)} · tampons ${e.tampons}${e.enRoute ? ` (+${e.enRoute})` : ''} · fichiers ${e.enregistres}`;
   for (const [m, b] of Object.entries(vue.milieux)) {
     const v = e.parts[m] || 0;
     b.plein.style.width = `${Math.round(Math.min(1, v) * 100)}%`;
@@ -177,7 +179,9 @@ function rafraichir() {
     n.nom.style.textDecoration = e.nappes.includes(nom) ? '' : 'line-through';
   }
   for (const [nom, n] of Object.entries(vue.proche)) {
-    n.lu.textContent = nom in e.ponctuels ? `${e.ponctuels[nom]} joués` : `${(e.emetteurs[nom] || 0)} voix`;
+    const s = e.semes[nom];
+    n.lu.textContent = s ? (s.sons ? `${s.joues} joués · ${s.sons} sons` : 'aucun fichier')
+      : nom in api.EMETTEURS ? `${(e.emetteurs[nom] || 0)} voix` : `${e.ponctuels[nom]} joués`;
     n.titre.style.color = api.BANC.solo === nom ? '#e8b86b' : '';
   }
 }

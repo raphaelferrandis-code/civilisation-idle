@@ -1610,6 +1610,17 @@ export default function OptionsDialog({ isOpen, onClose, onSave, onExport, onImp
               </div>
               <div className="options-row">
                 <div>
+                  <span>{tr({ fr: "Chants et cris de la nature", en: "Bird songs and nature calls" })}</span>
+                  <small>
+                    {tr({
+                      fr: "Enregistrements de Joseph Sardin et du Tiroir du fond, sur BigSoundBank (bigsoundbank.com), domaine public (CC0). Les oiseaux, les chouettes, la grenouille et les corneilles de la carte en viennent, découpés et mis au même niveau.",
+                      en: "Recordings by Joseph Sardin and Le tiroir du fond, on BigSoundBank (bigsoundbank.com), public domain (CC0). The map's birds, owls, frog and crows come from them, trimmed and leveled."
+                    })}
+                  </small>
+                </div>
+              </div>
+              <div className="options-row">
+                <div>
                   <span>{tr({ fr: "Cadre doré", en: "Golden frame" })}</span>
                   <small>
                     {tr({

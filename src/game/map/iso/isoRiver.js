@@ -39,6 +39,8 @@ import { WATER, waterShoreTune, rgb } from './isoPalette.js';
 import { RAIN_TUNE, precipKind } from './isoWeather.js';
 import { riverEndRays } from './riverEnds.js';
 import { mkCanvas } from '../pixelUtil.js';
+// Le guichet du paysage sonore : un module-FEUILLE (aucun import), sans risque de cycle.
+import { noteSon } from '../../audio/paysage/evenements.js';
 
 // ── FLEUVE : ruban lissé LIVE (par-dessus le bake, sous ponts et agents) ─────
 // Même philosophie que pixelRiver legacy (Approche A : ruban continu depuis
@@ -755,6 +757,9 @@ export function riverRibbonPath(ctx, pts, T, keep = false, mode = 'wave') {
 // ({ on, count, alpha, speed, size }) — count = poissons par sample (~0.05).
 const fishTune = { on: true, count: 0.07, alpha: 0.34, speed: 1, size: 1 };
 if (import.meta.env?.DEV && typeof window !== 'undefined') window.__fishTune = fishTune;
+// Le dernier cycle dont le gobage a sonné, par poisson (paysage sonore) : un « plip » par
+// pause, pas un par image.
+const _gobeSonne = new Float64Array(16).fill(-1);
 function drawIsoFishShadows(ctx, rv, T, z, now) {
   if (!fishTune.on || z < 0.5) return;
   // L'Usure ne vide plus le fleuve de ses poissons (Raph, 2026-07-27, même
@@ -816,6 +821,13 @@ function drawIsoFishShadows(ctx, rv, T, z, now) {
     if (vieFishShadow(ctx, p.x, p.y, ang, size, swimming, t, h, al) && !swimming) {
       const q = (cyc - Ps) / 1.4;                       // 0..1 sur ~1,4 s de pause
       if (q < 1) vieFishRipple(ctx, p.x, p.y, q, size, 0.4 * (1 - q));
+      // LE SON (docs/PLAN-AMBIANCE-SONORE.md, lot 2) : le petit « plip » du gobage, une
+      // fois par pause, à l'image qui en dessine les rides.
+      const cycle = Math.floor(tf / P);
+      if (q < 0.5 && i < _gobeSonne.length && _gobeSonne[i] !== cycle) {
+        _gobeSonne[i] = cycle;
+        noteSon('plip', (cx + nx * lat) * T, (cy + ny * lat) * T, size);
+      }
     }
   }
   ctx.restore();

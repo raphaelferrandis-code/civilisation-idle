@@ -101,7 +101,7 @@ describe('le directeur du paysage sonore', () => {
   it("s'éveille avec la carte, s'endort quand on la quitte, et rend le contexte au repos", async () => {
     await eveiller();
     expect(P.etatPaysage().eveille).toBe(true);
-    expect(boucles().length).toBe(10);                 // cinq nappes, deux têtes chacune
+    expect(boucles().length).toBe(2 * Object.keys(P.NAPPES).length);   // chaque nappe, deux têtes
     P.paysageDetacher();
     vi.advanceTimersByTime(1000);
     expect(P.etatPaysage().eveille).toBe(true);       // le fondu de sortie d'abord…
@@ -122,7 +122,7 @@ describe('le directeur du paysage sonore', () => {
     await vider();
     vi.advanceTimersByTime(200);
     expect(P.etatPaysage().eveille).toBe(true);
-    expect(boucles().length).toBe(10);
+    expect(boucles().length).toBe(2 * Object.keys(P.NAPPES).length);
   });
 
   it("Ambiance coupée dans les Options : il se tait et s'endort", async () => {

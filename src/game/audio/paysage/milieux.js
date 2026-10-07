@@ -39,9 +39,28 @@ export const MILIEUX = ['foret', 'prairie', 'champ', 'eau', 'rive', 'ville', 'pl
 // en cases depuis le bord de l'eau.
 export const ECHANT = { nx: 8, ny: 6, marge: 0.15, sigma: 0.55, rive: 1.3 };
 
+// `lieux` : où se trouve chaque milieu, pour y SEMER un son (un oiseau tiré dans la forêt
+// à l'écran) — la position monde de chaque point d'échantillonnage (`px`, `py`) et, par
+// milieu, sa contribution (poids × part).
 export function nouvelleMesure() {
   const zero = () => Object.fromEntries(MILIEUX.map((m) => [m, 0]));
-  return { parts: zero(), pans: zero(), foule: 0, foulePlace: 0, foulePort: 0, fouleEmeute: 0, points: 0 };
+  const N = ECHANT.nx * ECHANT.ny;
+  return {
+    parts: zero(), pans: zero(), foule: 0, foulePlace: 0, foulePort: 0, fouleEmeute: 0, points: 0,
+    lieux: { px: new Float32Array(N), py: new Float32Array(N), n: 0, de: Object.fromEntries(MILIEUX.map((m) => [m, new Float32Array(N)])) },
+  };
+}
+// Un lieu de l'écran pour le milieu `m`, tiré en proportion de sa présence : rend
+// l'indice d'un point d'échantillonnage, ou −1 si le milieu est absent. `u` ∈ [0, 1).
+export function tirerLieu(mesure, m, u) {
+  const L = mesure.lieux, de = L && L.de[m];
+  if (!de || !L.n) return -1;
+  let tot = 0;
+  for (let i = 0; i < L.n; i += 1) tot += de[i];
+  if (!(tot > 0)) return -1;
+  let r = u * tot;
+  for (let i = 0; i < L.n; i += 1) { r -= de[i]; if (r < 0) return i; }
+  return L.n - 1;
 }
 
 // ── La grille des milieux ────────────────────────────────────────────────────
@@ -140,6 +159,8 @@ const _pan = Object.fromEntries(MILIEUX.map((m) => [m, 0]));
 export function echantillonner(L, out, opts = {}) {
   for (const m of MILIEUX) { _somme[m] = 0; _pan[m] = 0; out.parts[m] = 0; out.pans[m] = 0; }
   out.points = 0;
+  const lieux = out.lieux;
+  if (lieux) { lieux.n = 0; for (const m of MILIEUX) lieux.de[m].fill(0); }
   const cw = CM.cw, ch = CM.ch, T = CM.TILE;
   if (!L || !(cw > 0) || !(ch > 0)) return out;
   const g = grilleMilieux(L);
@@ -153,7 +174,11 @@ export function echantillonner(L, out, opts = {}) {
     x0 = Math.min(x0, p.x / T); x1 = Math.max(x1, p.x / T); y0 = Math.min(y0, p.y / T); y1 = Math.max(y1, p.y / T);
   }
   retenirSegments(L, x0, y0, x1, y1);
-  const add = (m, w, pan) => { _somme[m] += w; _pan[m] += w * pan; };
+  let ici = -1;
+  const add = (m, w, pan) => {
+    _somme[m] += w; _pan[m] += w * pan;
+    if (lieux && ici >= 0) lieux.de[m][ici] += w;
+  };
   let tot = 0;
   for (let iy = 0; iy < ny; iy += 1) {
     for (let ix = 0; ix < nx; ix += 1) {
@@ -162,6 +187,7 @@ export function echantillonner(L, out, opts = {}) {
       const w = Math.exp(-(ux * ux + vy * vy) / (2 * sigma * sigma));
       const pan = Math.max(-1, Math.min(1, ux));
       const p = screenToWorld(u * cw, v * ch);
+      if (lieux && lieux.n < lieux.px.length) { ici = lieux.n++; lieux.px[ici] = p.x; lieux.py[ici] = p.y; } else ici = -1;
       const cx = p.x / T, cy = p.y / T, gx = Math.floor(cx), gy = Math.floor(cy);
       const m = milieuAt(g, gx, gy);
       const de = bordEau(cx, cy);

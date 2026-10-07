@@ -1,0 +1,95 @@
+{
+  "lisezmoi": "Les sons enregistrés du paysage sonore. Une entrée par son du jeu ; `node scripts/importSons.mjs` écrit src/assets/sons/<id>.ogg. Le nom fait la famille (oiseau, coucou, pic, chouette, grenouille, corneille, alouette). Les coupes viennent d'une mesure de l'enveloppe (passages plus forts que le plancher de bruit de 12 dB), pas d'une écoute : Raph les juge au banc d'écoute. Voir scripts/importSons.mjs et docs/PLAN-AMBIANCE-SONORE.md § 7.",
+  "sons": [
+    {
+      "id": "oiseau-merle-1",
+      "source": "bigsoundbank/BIRDSong_Common blackbird 13 (ID 3486)_BigSoundBank.com.wav",
+      "debut": 0.14, "fin": 4.6, "passeHaut": 400, "fondu": [0.02, 0.12],
+      "credit": { "auteur": "Le tiroir du fond", "page": "https://bigsoundbank.com/common-blackbird-13-s3486.html", "licence": "CC0" }
+    },
+    {
+      "id": "oiseau-merle-2",
+      "source": "bigsoundbank/BIRDSong_Common blackbird 30 (ID 3503)_BigSoundBank.com.wav",
+      "debut": 0.45, "fin": 3.3, "passeHaut": 400, "fondu": [0.02, 0.12],
+      "credit": { "auteur": "Le tiroir du fond", "page": "https://bigsoundbank.com/common-blackbird-30-s3503.html", "licence": "CC0" }
+    },
+    {
+      "id": "oiseau-rougegorge-2",
+      "source": "bigsoundbank/BIRDSong_Robin 1 (ID 1667)_BigSoundBank.com.wav",
+      "debut": 0.08, "fin": 2.25, "passeHaut": 400, "fondu": [0.02, 0.1],
+      "credit": { "auteur": "Joseph Sardin", "page": "https://bigsoundbank.com/robin-1-s1667.html", "licence": "CC0" }
+    },
+    {
+      "id": "oiseau-rougegorge-1",
+      "source": "bigsoundbank/BIRDSong_Robin 4 (ID 1670)_BigSoundBank.com.wav",
+      "debut": 0.08, "fin": 3.0, "passeHaut": 400, "fondu": [0.02, 0.1],
+      "credit": { "auteur": "Joseph Sardin", "page": "https://bigsoundbank.com/robin-4-s1670.html", "licence": "CC0" }
+    },
+    {
+      "id": "chouette-hulotte-1",
+      "source": "bigsoundbank/BIRDPrey_Tawny owl 1 (ID 1763)_BigSoundBank.com.wav",
+      "debut": 0.1, "fin": 7.1, "passeHaut": 150, "fondu": [0.02, 0.2],
+      "credit": { "auteur": "Joseph Sardin", "page": "https://bigsoundbank.com/tawny-owl-1-s1763.html", "licence": "CC0" }
+    },
+    {
+      "id": "chouette-hulotte-2",
+      "source": "bigsoundbank/BIRDPrey_Tawny owl 2 (ID 1764)_BigSoundBank.com.wav",
+      "debut": 0.05, "fin": 7.1, "passeHaut": 150, "fondu": [0.02, 0.2],
+      "credit": { "auteur": "Joseph Sardin", "page": "https://bigsoundbank.com/tawny-owl-2-s1764.html", "licence": "CC0" }
+    },
+    {
+      "id": "grenouille-mare-1",
+      "source": "bigsoundbank/ANMLAmph_One frog (ID 0819)_BigSoundBank.com.wav",
+      "debut": 5.25, "fin": 9.85, "passeHaut": 120, "fondu": [0.03, 0.15],
+      "credit": { "auteur": "Joseph Sardin", "page": "https://bigsoundbank.com/one-frog-s0819.html", "licence": "CC0" }
+    },
+    {
+      "id": "grenouille-mare-2",
+      "source": "bigsoundbank/ANMLAmph_One frog (ID 0819)_BigSoundBank.com.wav",
+      "debut": 12.75, "fin": 14.55, "gain": -2, "passeHaut": 120, "fondu": [0.03, 0.12],
+      "credit": { "auteur": "Joseph Sardin", "page": "https://bigsoundbank.com/one-frog-s0819.html", "licence": "CC0" }
+    },
+    {
+      "id": "grenouille-mare-3",
+      "source": "bigsoundbank/ANMLAmph_One frog (ID 0819)_BigSoundBank.com.wav",
+      "debut": 2.2, "fin": 3.5, "gain": -4, "passeHaut": 120, "fondu": [0.03, 0.12],
+      "credit": { "auteur": "Joseph Sardin", "page": "https://bigsoundbank.com/one-frog-s0819.html", "licence": "CC0" }
+    },
+    {
+      "id": "corneille-noire-1",
+      "source": "bigsoundbank/BIRDCrow_Carrion crow 4 (ID 3464)_BigSoundBank.com.wav",
+      "debut": 0, "fin": 1.62, "passeHaut": 200, "fondu": [0.005, 0.1],
+      "credit": { "auteur": "Le tiroir du fond", "page": "https://bigsoundbank.com/carrion-crow-4-s3464.html", "licence": "CC0" }
+    },
+    {
+      "id": "corneille-noire-2",
+      "source": "bigsoundbank/BIRDCrow_Carrion crow 4 (ID 3464)_BigSoundBank.com.wav",
+      "debut": 1.74, "fin": 3.56, "gain": -2, "passeHaut": 200, "fondu": [0.01, 0.1],
+      "credit": { "auteur": "Le tiroir du fond", "page": "https://bigsoundbank.com/carrion-crow-4-s3464.html", "licence": "CC0" }
+    },
+    {
+      "id": "corneille-noire-3",
+      "source": "bigsoundbank/BIRDCrow_Carrion crow 4 (ID 3464)_BigSoundBank.com.wav",
+      "debut": 3.76, "fin": 5.0, "gain": -2, "passeHaut": 200, "fondu": [0.01, 0.1],
+      "credit": { "auteur": "Le tiroir du fond", "page": "https://bigsoundbank.com/carrion-crow-4-s3464.html", "licence": "CC0" }
+    },
+    {
+      "id": "corneille-noire-4",
+      "source": "bigsoundbank/BIRDCrow_Carrion crow 4 (ID 3464)_BigSoundBank.com.wav",
+      "debut": 5.2, "fin": 6.66, "gain": -3, "passeHaut": 200, "fondu": [0.01, 0.1],
+      "credit": { "auteur": "Le tiroir du fond", "page": "https://bigsoundbank.com/carrion-crow-4-s3464.html", "licence": "CC0" }
+    },
+    {
+      "id": "corneille-noire-5",
+      "source": "bigsoundbank/BIRDCrow_Carrion crow 5 (ID 3465)_BigSoundBank.com.wav",
+      "debut": 0.05, "fin": 3.2, "gain": -2, "passeHaut": 250, "fondu": [0.02, 0.12],
+      "credit": { "auteur": "Le tiroir du fond", "page": "https://bigsoundbank.com/carrion-crow-5-s3465.html", "licence": "CC0" }
+    },
+    {
+      "id": "corneille-noire-6",
+      "source": "bigsoundbank/BIRDCrow_Carrion crow 5 (ID 3465)_BigSoundBank.com.wav",
+      "debut": 3.45, "fin": 4.4, "passeHaut": 250, "fondu": [0.01, 0.08],
+      "credit": { "auteur": "Le tiroir du fond", "page": "https://bigsoundbank.com/carrion-crow-5-s3465.html", "licence": "CC0" }
+    }
+  ]
+}

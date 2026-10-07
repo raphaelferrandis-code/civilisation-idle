@@ -31,8 +31,10 @@ export const PAYSAGE_SR = 32000;
 
 export const SONS_PAYSAGE = [
   'souffle', 'feuillage', 'courant', 'ressac', 'lointain', 'libellule',
+  'grillons', 'stridulations', 'cigales',
   'plouf1', 'plouf2', 'plouf3', 'plouf4', 'plouf5', 'plouf6',
   'sortie1', 'sortie2', 'sortie3',
+  'plip1', 'plip2', 'plip3', 'plip4',
 ];
 
 // ── Petits outils ──────────────────────────────────────────────────────────────
@@ -329,7 +331,103 @@ function rendreLibellule(sr) {
   return auNiveau(melanger(Ln, [[note, 1], [souffle, 0.22]]), 0.12);
 }
 
+// ── Les insectes (lot 2) ───────────────────────────────────────────────────────
+// Trois chœurs, chacun d'individus qui chantent à leur rythme. Pour qu'une boucle
+// tombe juste, chaque individu chante une période qui DIVISE la boucle (L / m, m
+// entier) ; une note qui déborde la fin reprend au début (écriture modulo L). Leurs
+// porteuses sont des sinus remis en phase à chaque note : rien ne casse à la couture.
+
+// Une note : un sinus à `f` Hz, attaque de 1,5 ms, qui s'éteint sur `dur` secondes,
+// écrite à `t` secondes dans une boucle de longueur out.length (modulo).
+function noteBoucle(out, sr, t, f, dur, amp) {
+  const L = out.length, s0 = Math.round(t * sr), n = Math.round(dur * sr);
+  const w = (2 * Math.PI * f) / sr, nA = Math.max(1, Math.round(0.0015 * sr));
+  for (let j = 0; j < n; j += 1) {
+    const e = Math.min(1, j / nA) * (1 - j / n);
+    out[(((s0 + j) % L) + L) % L] += Math.sin(w * j) * e * amp;
+  }
+}
+
+// Les GRILLONS de la nuit : quinze grillons des champs, porteuse entre 3,9 et 4,9 kHz,
+// trois ou quatre impulsions par stridulation (~30 par seconde), une stridulation toutes
+// les 0,4 à 0,9 s. Les plus lointains sont plus faibles. 21 s.
+function rendreGrillons(sr) {
+  const rnd = graine(0x6111a), L = 21, Ln = Math.round(L * sr);
+  const out = new Float32Array(Ln);
+  for (let k = 0; k < 15; k += 1) {
+    const f = 3900 + rnd() * 1000, m = 24 + Math.floor(rnd() * 30), periode = L / m;
+    const nb = 3 + Math.floor(rnd() * 2), pas = 1 / (28 + rnd() * 6);
+    const amp = 0.2 + 0.8 * Math.pow(rnd(), 1.6), phase = rnd() * periode;
+    for (let j = 0; j < m; j += 1) {
+      for (let p = 0; p < nb; p += 1) noteBoucle(out, sr, phase + j * periode + p * pas, f, pas * 0.55, amp);
+    }
+  }
+  return auNiveau(out, 0.08, 0.8);
+}
+
+// Les SAUTERELLES des prés, de jour : six chanteuses, chacune une phrase rêche (des
+// grains de bruit entre 7 et 12 kHz, 12 à 20 par seconde) de 0,6 à 2 s, puis le
+// silence ; une phrase toutes les 3,7 à 11 s. Chaque phrase a son propre filtre et
+// s'écrit d'un bloc, modulo la boucle : une phrase à cheval sur la fin reprend au début,
+// entière. 11 s.
+function rendreStridulations(sr) {
+  const rnd = graine(0x57a1d), L = 11, Ln = Math.round(L * sr);
+  const out = new Float32Array(Ln);
+  for (let k = 0; k < 6; k += 1) {
+    const fc = 7000 + rnd() * 5000;
+    const m = 1 + Math.floor(rnd() * 3), periode = L / m, phrase = 0.6 + rnd() * 1.4;
+    const cadence = 12 + rnd() * 8, amp = 0.3 + 0.7 * rnd(), phase = rnd() * periode;
+    for (let j = 0; j < m; j += 1) {
+      const bp = biquad('bp', fc, 2.2, sr);
+      const s0 = Math.round((phase + j * periode) * sr), ns = Math.round(phrase * sr);
+      for (let i = 0; i < ns; i += 1) {
+        const tt = i / sr, u = (tt * cadence) % 1;
+        const grain = u < 0.45 ? Math.sin((Math.PI * u) / 0.45) : 0;
+        const fond = Math.min(1, tt / 0.1, (phrase - tt) / 0.15);
+        out[(s0 + i) % Ln] += bq(bp, rnd() * 2 - 1) * grain * fond * amp;
+      }
+    }
+  }
+  return auNiveau(out, 0.05, 0.8);
+}
+
+// Les CIGALES de l'été : quatre chanteuses dans les arbres, chacune un bruit serré entre
+// 4,5 et 7 kHz, haché très vite (200 Hz : le grain du chant), découpé en syllabes (7 par
+// seconde), qui enfle et s'arrête par cycles de 7 s. Les enveloppes sont périodiques de
+// la boucle ; le bruit se boucle en fondu. 14 s.
+function rendreCigales(sr) {
+  const rnd = graine(0xc16a1e), L = 14, Ln = Math.round(L * sr), n = Ln + Math.round(0.8 * sr);
+  const out = new Float32Array(n);
+  for (let k = 0; k < 4; k += 1) {
+    const bp = biquad('bp', 4500 + rnd() * 2500, 3, sr);
+    const amp = 0.4 + 0.6 * rnd(), dec = rnd(), dec2 = rnd(), dec3 = rnd();
+    for (let i = 0; i < n; i += 1) {
+      const t = i / sr;
+      const grain = 0.5 + 0.5 * Math.sin(2 * Math.PI * (200 * t + dec));
+      const syll = Math.pow(0.5 + 0.5 * Math.sin(2 * Math.PI * (7 * t + dec2)), 0.6);
+      const u = (t / 7 + dec3) % 1;                              // le cycle du chant : 7 s
+      const chant = u < 0.7 ? Math.min(1, u / 0.25) : Math.max(0, 1 - (u - 0.7) / 0.06);
+      out[i] += bq(bp, rnd() * 2 - 1) * grain * grain * syll * chant * amp;
+    }
+  }
+  return auNiveau(boucler(out, Ln), 0.07, 0.8);
+}
+
 // ── Les ponctuels ──────────────────────────────────────────────────────────────
+
+// Le PLIP d'un poisson qui GOBE en surface (lot 2) : une goutte, une note qui monte et
+// meurt en quelques millisecondes, sur un souffle d'eau à peine audible.
+function rendrePlip(v, sr) {
+  const rnd = graine(0x9119 + v * 6113);
+  const n = Math.round(0.25 * sr), out = new Float32Array(n);
+  const bp = biquad('bp', 1400 + rnd() * 600, 0.8, sr);
+  for (let j = 0; j < Math.round(0.03 * sr); j += 1) {
+    out[j] += bq(bp, rnd() * 2 - 1) * Math.exp(-j / sr / 0.006) * 0.4;
+  }
+  bulle(out, sr, 0.004, 900 + rnd() * 700, 0.008 + rnd() * 0.006, 1, 2.2);
+  if (rnd() < 0.5) bulle(out, sr, 0.03 + rnd() * 0.05, 1500 + rnd() * 900, 0.005, 0.35, 2.4);
+  return normaliser(out, sr, 0.8, 0.02);
+}
 
 // Le PLOUF d'un poisson qui retombe (variante v) : l'impact (un claquement bref,
 // assourdi), la gerbe (de l'eau qui jaillit), la cavité qui se referme (le « bloup » :
@@ -384,11 +482,16 @@ export function rendrePaysage(nom, sr = PAYSAGE_SR) {
     case 'ressac': return rendreRessac(sr);
     case 'lointain': return rendreLointain(sr);
     case 'libellule': return rendreLibellule(sr);
+    case 'grillons': return rendreGrillons(sr);
+    case 'stridulations': return rendreStridulations(sr);
+    case 'cigales': return rendreCigales(sr);
     default: break;
   }
   let m = /^plouf([1-6])$/.exec(nom);
   if (m) return rendrePlouf(Number(m[1]), sr);
   m = /^sortie([1-3])$/.exec(nom);
   if (m) return rendreSortie(Number(m[1]), sr);
+  m = /^plip([1-4])$/.exec(nom);
+  if (m) return rendrePlip(Number(m[1]), sr);
   throw new Error('son de paysage inconnu : ' + nom);
 }

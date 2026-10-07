@@ -27,9 +27,10 @@ import { audioCtx, enTampon, retenirContexte, relacherContexte } from '../synth.
 import { rendreAilleurs } from '../syntheseAilleurs.js';
 import { rendrePaysage, PAYSAGE_SR, SONS_PAYSAGE } from './paysageSynth.js';
 import { OREILLE, proximite, hauteur, attenuation, panoramique, fondu, coupure } from './oreille.js';
-import { echantillonner, mesurerFoule, nouvelleMesure, tailleVille, MILIEUX, ECHANT } from './milieux.js';
+import { echantillonner, mesurerFoule, nouvelleMesure, tailleVille, tirerLieu, MILIEUX, ECHANT } from './milieux.js';
 import { creerMixeur, creerBoucle, jouerPonctuel, niveauSortie } from './mixeur.js';
 import { paysageEcoute, releverSons, emetteursDe } from './evenements.js';
+import { ENREGISTRES } from './enregistrements.js';
 import { getPaysageActif, getPaysageVolume, onPaysageReglages } from './reglages.js';
 import { ouvrirBanc, basculerBanc } from './banc.js';
 
@@ -53,12 +54,23 @@ export const NAPPES = {
   // niveau se juge aux claques, à peine sous celles de l'ancien ressac.
   ressac: { bus: 'nappes', largeur: 0.3, niveau: 0.18 },
   lointain: { bus: 'lointain', largeur: 0.5, niveau: 0.2 },
+  // LOT 2 (la nature), niveaux de départ, à régler à l'oreille. Les insectes suivent le
+  // jour, la nuit, la saison et la pluie (majNappes) ; le vent d'altitude est le souffle
+  // joué plus grave, sur le bus du lointain : ce qu'on entend dézoomé au-dessus de la
+  // campagne, quand la ville est petite.
+  grillons: { bus: 'nappes', largeur: 0.45, niveau: 0.18 },
+  stridulations: { bus: 'nappes', largeur: 0.4, niveau: 0.16 },
+  cigales: { bus: 'nappes', largeur: 0.4, niveau: 0.14 },
+  altitude: { son: 'souffle', vitesse: 0.72, bus: 'lointain', largeur: 0.5, niveau: 0.12 },
 };
 // `ref` / `max` : portée en cases (oreille.js, attenuation) ; `voix` : au plus tant à la
 // fois ; `ecartMs` : jamais deux tirs plus serrés.
 export const PONCTUELS = {
   plouf: { sons: ['plouf1', 'plouf2', 'plouf3', 'plouf4', 'plouf5', 'plouf6'], ref: 4.5, max: 18, niveau: 0.275, voix: 3, ecartMs: 90 },
   sortie: { sons: ['sortie1', 'sortie2', 'sortie3'], ref: 3.5, max: 14, niveau: 0.13, voix: 2, ecartMs: 90 },
+  // Le poisson qui GOBE en surface (iso/isoRiver.js, au début de sa pause) : une goutte,
+  // de près seulement — il y en a une douzaine sur le fleuve.
+  plip: { sons: ['plip1', 'plip2', 'plip3', 'plip4'], ref: 2.5, max: 9, niveau: 0.1, voix: 2, ecartMs: 250 },
 };
 // Les émetteurs : seules les `voix` bêtes les plus fortes sonnent (les « voix
 // virtuelles » des moteurs de jeu). La libellule s'entend de près : il faut être
@@ -67,15 +79,63 @@ export const PONCTUELS = {
 export const EMETTEURS = {
   libellule: { son: 'libellule', ref: 1.7, max: 6.5, niveau: 0.2, voix: 2, calme: 0.35 },
 };
+// Les PONCTUELS SEMÉS (lot 2) : des sons ENREGISTRÉS sans support visible — l'oiseau
+// qu'on entend sans le voir —, tirés au hasard (processus de Poisson) dans les parties de
+// l'écran qui portent leur milieu (milieux.js, tirerLieu). Une famille joue les fichiers
+// de `src/assets/sons/` dont le nom commence par elle (enregistrements.js) ; sans
+// fichier, elle se tait.
+//   · `milieux` : où elle vit, et combien ; `taux` : sons par minute quand ce milieu
+//     remplit l'écran ;
+//   · `quand(c)` : le moment, de 0 à 1 — `c.nuit`, `c.saison` (0 printemps … 3 hiver),
+//     `c.sec` (0 sous l'averse), `c.vivant` (0 aux âges cosmiques, où le jeu ne dessine
+//     plus de bêtes, iso/isoRiverLife.js).
+// `variantes` : combien de sons il faut à la famille pour chanter à son plein taux.
+// Avec moins, elle se fait plus rare d'autant — deux oiseaux qui alternent toutes les
+// quatre secondes, l'oreille les reconnaît vite.
+// Niveaux de départ, à régler à l'oreille.
+const PRINTEMPS = 0, ETE = 1, AUTOMNE = 2, HIVER = 3;
+export const SEMES = {
+  oiseau: { milieux: { foret: 1, prairie: 0.3 }, taux: 14, variantes: 8, ref: 7, max: 26, niveau: 0.22, voix: 2, ecartMs: 900,
+    quand: (c) => (1 - c.nuit) * [1, 0.8, 0.6, 0.15][c.saison] * c.sec * c.vivant },
+  coucou: { milieux: { foret: 1 }, taux: 1.2, variantes: 2, ref: 10, max: 40, niveau: 0.18, voix: 1, ecartMs: 20000,
+    quand: (c) => (1 - c.nuit) * (c.saison === PRINTEMPS ? 1 : c.saison === ETE ? 0.4 : 0) * c.sec * c.vivant },
+  pic: { milieux: { foret: 1 }, taux: 1.5, variantes: 2, ref: 8, max: 30, niveau: 0.2, voix: 1, ecartMs: 12000,
+    quand: (c) => (1 - c.nuit) * (c.saison === HIVER ? 0.5 : 1) * c.sec * c.vivant },
+  chouette: { milieux: { foret: 1 }, taux: 1.4, variantes: 2, ref: 9, max: 34, niveau: 0.2, voix: 1, ecartMs: 15000,
+    quand: (c) => c.nuit * c.sec * c.vivant },
+  grenouille: { milieux: { rive: 1 }, taux: 10, variantes: 4, ref: 5, max: 20, niveau: 0.16, voix: 2, ecartMs: 700,
+    quand: (c) => c.nuit * (c.saison <= ETE ? 1 : c.saison === AUTOMNE ? 0.3 : 0) * c.vivant },
+  corneille: { milieux: { champ: 1, prairie: 0.6, foret: 0.3 }, taux: 3, variantes: 4, ref: 8, max: 30, niveau: 0.18, voix: 1, ecartMs: 4000,
+    quand: (c) => (1 - c.nuit) * (c.saison === HIVER ? 1 : c.saison === AUTOMNE ? 0.4 : 0) * c.vivant },
+  alouette: { milieux: { champ: 1, prairie: 0.7 }, taux: 2, variantes: 2, ref: 9, max: 34, niveau: 0.16, voix: 1, ecartMs: 8000,
+    quand: (c) => (1 - c.nuit) * (c.saison <= ETE ? 1 : 0) * c.sec * c.vivant },
+};
+// Le taux (sons par seconde) d'une famille semée : sa présence à l'écran (Σ milieu ×
+// part, adoucie), le moment, la proximité du zoom, l'habituation, et le nombre de sons
+// qu'elle a (`nSons`, face à ses `variantes`). PUR (testé).
+export function tauxSeme(def, parts, cond, proche = 1, habitue = 1, nSons = Infinity) {
+  let presence = 0;
+  for (const [m, k] of Object.entries(def.milieux)) presence += k * (parts[m] || 0);
+  presence = Math.min(1, presence);
+  if (!(presence > 0) || !(nSons > 0)) return 0;
+  const variete = Math.min(1, nSons / (def.variantes || 1));
+  return (def.taux / 60) * Math.pow(presence, 0.8) * Math.max(0, def.quand(cond)) * proche * habitue * variete;
+}
+// L'HABITUATION (§ 3.3) : la caméra n'a pas bougé depuis cinq minutes, le jeu tourne en
+// fond — les sons semés se raréfient de moitié. Un jeu laissé ouvert ne doit pas picorer
+// l'oreille. Les nappes restent, et le proche suit ce qui se passe à l'écran.
+const HABITUATION_MS = 300000;
 
 // ── Les molettes du banc d'écoute ────────────────────────────────────────────
 // Des MULTIPLICATEURS sur les niveaux ci-dessus, et les seuils de l'oreille. Retenus
 // d'une session à l'autre ; une fois réglés à l'oreille, ils remontent ici comme défauts.
+const GROUPES = ['nappes', 'ponctuels', 'emetteurs', 'semes'];
 export const BANC = {
   maitre: 1,
   nappes: Object.fromEntries(Object.keys(NAPPES).map((k) => [k, 1])),
   ponctuels: Object.fromEntries(Object.keys(PONCTUELS).map((k) => [k, 1])),
   emetteurs: Object.fromEntries(Object.keys(EMETTEURS).map((k) => [k, 1])),
+  semes: Object.fromEntries(Object.keys(SEMES).map((k) => [k, 1])),
   solo: null,
 };
 const OREILLE_DEFAUT = { ...OREILLE };
@@ -89,7 +149,7 @@ function lireBanc() {
     const j = JSON.parse(localStorage.getItem(CLE_BANC) || 'null');
     if (!j || typeof j !== 'object') return;
     BANC.maitre = nombre(j.maitre, 1);
-    for (const g of ['nappes', 'ponctuels', 'emetteurs']) {
+    for (const g of GROUPES) {
       for (const k of Object.keys(BANC[g])) BANC[g][k] = nombre(j[g] && j[g][k], 1);
     }
     if (j.oreille) for (const k of ['zLoin', 'zPres', 'h0']) OREILLE[k] = nombre(j.oreille[k], OREILLE_DEFAUT[k]);
@@ -98,7 +158,7 @@ function lireBanc() {
 export function reglagesBanc() {
   return {
     maitre: BANC.maitre,
-    nappes: { ...BANC.nappes }, ponctuels: { ...BANC.ponctuels }, emetteurs: { ...BANC.emetteurs },
+    nappes: { ...BANC.nappes }, ponctuels: { ...BANC.ponctuels }, emetteurs: { ...BANC.emetteurs }, semes: { ...BANC.semes },
     oreille: { zLoin: OREILLE.zLoin, zPres: OREILLE.zPres, h0: OREILLE.h0 },
   };
 }
@@ -107,7 +167,7 @@ export function retenirBanc() {
 }
 export function remettreBanc() {
   BANC.maitre = 1; BANC.solo = null;
-  for (const g of ['nappes', 'ponctuels', 'emetteurs']) for (const k of Object.keys(BANC[g])) BANC[g][k] = 1;
+  for (const g of GROUPES) for (const k of Object.keys(BANC[g])) BANC[g][k] = 1;
   for (const k of ['zLoin', 'zPres', 'h0']) OREILLE[k] = OREILLE_DEFAUT[k];
   try { localStorage.removeItem(CLE_BANC); } catch { /* idem */ }
 }
@@ -120,12 +180,15 @@ const D = {
   M: null,
   tampons: new Map(), enRoute: new Set(), repli: [],
   nappes: {}, emetteurs: {}, enCours: {}, dernier: {}, dernierA: {}, dernierGain: {},
-  compte: Object.fromEntries(Object.keys(PONCTUELS).map((k) => [k, 0])),
+  compte: Object.fromEntries([...Object.keys(PONCTUELS), ...Object.keys(SEMES)].map((k) => [k, 0])),
   mesure: nouvelleMesure(),
   cibles: Object.fromEntries(Object.keys(NAPPES).map((k) => [k, 0])),
   zoom: 1, p: 0, h: 0,
   rafale: { v: 1, cible: 1, prochain: 0 },
-  echantA: 0, sortieA: 0,
+  echantA: 0, sortieA: 0, semeA: 0,
+  // La dernière fois que la caméra a bougé (habituation), et où elle était.
+  bougeA: 0, cam: { x: NaN, y: NaN, zoom: NaN },
+  erreurSon: false,
   minuteur: null, oubli: null, geste: false, ecouteurs: null,
 };
 const horloge = () => (typeof performance !== 'undefined' ? performance.now() : Date.now());
@@ -167,6 +230,28 @@ function rendreEnRepli() {
   const nom = D.repli.shift();
   if (nom && !D.tampons.has(nom)) D.tampons.set(nom, enTampon(rendrePaysage(nom), PAYSAGE_SR));
 }
+// Les enregistrements (lot 2) : lus par fetch puis décodés par le contexte. L'.exe les
+// sert par son protocole app://, qui accepte fetch (main.cjs, supportFetchAPI ; la CSP
+// permet connect-src 'self'). Un fichier illisible se tait, avec un seul avertissement.
+function decoderEnregistres(ctx) {
+  for (const e of ENREGISTRES) {
+    if (D.tampons.has(e.id) || D.enRoute.has(e.id)) continue;
+    D.enRoute.add(e.id);
+    fetch(e.url)
+      .then((r) => { if (!r.ok) throw new Error('HTTP ' + r.status); return r.arrayBuffer(); })
+      .then((octets) => ctx.decodeAudioData(octets))
+      .then((tampon) => { D.tampons.set(e.id, tampon); }, (err) => {
+        if (!D.erreurSon) { D.erreurSon = true; console.warn('Paysage sonore : son illisible', e.id, err); }
+      })
+      .finally(() => D.enRoute.delete(e.id));
+  }
+}
+// Les sons décodés d'une famille semée (leurs ids), dans l'ordre du dossier.
+function sonsDe(fam) {
+  const ids = [];
+  for (const e of ENREGISTRES) if (e.famille === fam && D.tampons.has(e.id)) ids.push(e.id);
+  return ids;
+}
 
 // ── Réveil et sommeil ────────────────────────────────────────────────────────
 function reveiller() {
@@ -176,9 +261,10 @@ function reveiller() {
   clearTimeout(D.oubli);
   D.oubli = null;
   D.M = creerMixeur(ctx);
-  D.eveille = true; D.sortieA = 0; D.echantA = 0;
+  D.eveille = true; D.sortieA = 0; D.echantA = 0; D.semeA = 0; D.bougeA = horloge();
   paysageEcoute(true);
   for (const nom of SONS_PAYSAGE) demander(nom);
+  decoderEnregistres(ctx);
   if (ctx.state !== 'running') armerGeste();
 }
 function endormir() {
@@ -231,6 +317,11 @@ export function tick() {
   const L = CM.layout;
   const zoom = CM.cam.zoom, p = proximite(zoom, OREILLE), f = fondu(p), h = hauteur(zoom, OREILLE);
   D.zoom = zoom; D.p = p; D.h = h;
+  // L'habituation : la caméra a-t-elle bougé depuis le dernier passage ?
+  const cam = CM.cam;
+  if (!(Math.abs(cam.x - D.cam.x) <= 2 && Math.abs(cam.y - D.cam.y) <= 2 && cam.zoom === D.cam.zoom)) {
+    D.cam.x = cam.x; D.cam.y = cam.y; D.cam.zoom = cam.zoom; D.bougeA = now;
+  }
   const fc = coupure(p, OREILLE);
   cibler(M.bus.nappes.filtre.frequency, fc, t, 0.25);
   cibler(M.bus.proche.filtre.frequency, fc, t, 0.25);
@@ -244,6 +335,7 @@ export function tick() {
   }
   majPonctuels(M, h, f, t, now);
   majEmetteurs(M, h, f, t);
+  if (L) majSemes(M, L, h, f, t, now);
 }
 function tickSur() {
   try {
@@ -264,8 +356,8 @@ function arreterMinuteur() {
 function monterNappes(M) {
   for (const [nom, def] of Object.entries(NAPPES)) {
     if (D.nappes[nom]) continue;
-    const tampon = D.tampons.get(nom);
-    if (tampon) D.nappes[nom] = creerBoucle(M, tampon, def.bus, { largeur: def.largeur, depart: Math.random() });
+    const tampon = D.tampons.get(def.son || nom);
+    if (tampon) D.nappes[nom] = creerBoucle(M, tampon, def.bus, { largeur: def.largeur, depart: Math.random(), vitesse: def.vitesse || 1 });
   }
 }
 // Le vent varie de lui-même, au-delà des rafales cuites dans ses boucles : une cible
@@ -276,20 +368,50 @@ function majRafale(now) {
   if (now >= r.prochain) { r.cible = 0.78 + Math.random() * 0.37; r.prochain = now + 4000 + Math.random() * 6000; }
   r.v += (r.cible - r.v) * 0.08;
 }
-function majNappes(L, f, t) {
-  const P = D.mesure.parts, pans = D.mesure.pans, c = D.cibles;
-  const vent = Math.min(1.4, 0.55 + 0.45 * Math.min(1, Math.abs(CM.windX || 0) / 0.7) + 0.35 * (CM.gustF || 0)) * D.rafale.v;
+// Les SAISONS des insectes (0 printemps, 1 été, 2 automne, 3 hiver) : l'hiver se tait.
+const SAISON_GRILLONS = [0.55, 1, 0.8, 0];
+const SAISON_SAUTERELLES = [0.4, 1, 0.6, 0];
+// Ce que chaque nappe doit jouer, selon les parts de l'écran (milieux.js) et le temps
+// qu'il fait. PUR : le directeur le pose sur les gains, les tests le lisent.
+//   · `proche` / `loin` : le fondu du zoom (oreille.js) ; `taille` : la ville (0..1) ;
+//   · `nuit` (0..1, CM.nightF), `pluie` (0..1, CM.rainF), `saison` (0..3, CM.season) ;
+//   · `vent` : la force du vent (≈ 0,5 à 1,4).
+// Les insectes se taisent sous la pluie ; les grillons chantent la nuit, les
+// sauterelles le jour dans les prés, les cigales les jours d'été dans les arbres.
+export function ciblesNappes(P, { vent = 1, proche = 1, loin = 0, taille = 0, nuit = 0, pluie = 0, saison = 1 } = {}, out = {}) {
   // Les nappes s'effacent au dézoom, plus tard que le proche (∝ cos^0,7 contre cos²).
-  const nappeK = Math.pow(f.proche, 0.7);
-  const terre = P.foret + P.prairie + 0.6 * P.champ;
+  const nappeK = Math.pow(proche, 0.7);
+  const jour = 1 - nuit, sec = Math.pow(1 - Math.min(1, pluie), 2);
+  const s = Math.max(0, Math.min(3, saison | 0));
   // Courbe adoucie (part^0,6) : un bosquet s'entend, sans couvrir le reste.
-  c.souffle = Math.pow(terre, 0.6) * vent * nappeK;
-  c.feuillage = Math.pow(P.foret, 0.6) * vent * (CM.season === 3 ? 0.45 : 1) * nappeK;   // l'hiver déshabille les feuillus
-  c.courant = Math.pow(P.eau, 0.6) * nappeK;
-  c.ressac = Math.pow(Math.min(1, P.rive), 0.6) * nappeK;
-  c.lointain = tailleVille(L) * f.loin;
+  const doux = (x) => Math.pow(Math.max(0, x), 0.6);
+  const terre = P.foret + P.prairie + 0.6 * P.champ;
+  out.souffle = doux(terre) * vent * nappeK;
+  out.feuillage = doux(P.foret) * vent * (s === 3 ? 0.45 : 1) * nappeK;   // l'hiver déshabille les feuillus
+  out.courant = doux(P.eau) * nappeK;
+  out.ressac = doux(Math.min(1, P.rive)) * nappeK;
+  out.lointain = taille * loin;
+  out.grillons = doux(P.prairie + P.champ + 0.6 * P.foret + 0.3 * Math.min(1, P.rive)) * nuit * SAISON_GRILLONS[s] * sec * nappeK;
+  out.stridulations = doux(P.prairie + P.champ) * jour * SAISON_SAUTERELLES[s] * sec * nappeK;
+  out.cigales = doux(P.foret + 0.4 * P.prairie) * jour * (s === 1 ? 1 : 0) * sec * nappeK;
+  // Dézoomé au-dessus de la campagne : le vent d'altitude, d'autant plus que la ville est petite.
+  out.altitude = doux(Math.min(1, P.foret + P.prairie + P.champ + P.eau)) * (1 - 0.7 * taille) * vent * loin;
+  return out;
+}
+function majNappes(L, f, t) {
+  const P = D.mesure.parts, pans = D.mesure.pans;
+  const vent = Math.min(1.4, 0.55 + 0.45 * Math.min(1, Math.abs(CM.windX || 0) / 0.7) + 0.35 * (CM.gustF || 0)) * D.rafale.v;
+  const c = ciblesNappes(P, {
+    vent, proche: f.proche, loin: f.loin, taille: tailleVille(L),
+    nuit: CM.nightF || 0, pluie: CM.rainF || 0, saison: CM.season ?? 1,
+  }, D.cibles);
+  const terre = P.foret + P.prairie + 0.6 * P.champ, herbe = P.prairie + P.champ;
   const panTerre = terre > 0 ? (pans.foret * P.foret + pans.prairie * P.prairie + pans.champ * 0.6 * P.champ) / terre : 0;
-  const ou = { souffle: panTerre, feuillage: pans.foret, courant: pans.eau, ressac: pans.rive, lointain: 0 };
+  const panHerbe = herbe > 0 ? (pans.prairie * P.prairie + pans.champ * P.champ) / herbe : 0;
+  const ou = {
+    souffle: panTerre, feuillage: pans.foret, courant: pans.eau, ressac: pans.rive, lointain: 0,
+    grillons: panTerre, stridulations: panHerbe, cigales: pans.foret, altitude: 0,
+  };
   for (const [nom, def] of Object.entries(NAPPES)) {
     const v = D.nappes[nom];
     if (!v) continue;
@@ -392,6 +514,51 @@ function majEmetteurs(M, h, f, t) {
   }
 }
 
+// ── Les ponctuels semés ──────────────────────────────────────────────────────
+function majSemes(M, L, h, f, t, now) {
+  const dt = Math.min(0.5, Math.max(0, (now - (D.semeA || now)) / 1000));
+  D.semeA = now;
+  if (!(dt > 0) || !(f.proche > 0.02)) return;
+  const cond = {
+    nuit: CM.nightF || 0,
+    saison: Math.max(0, Math.min(3, (CM.season ?? 1) | 0)),
+    sec: Math.pow(1 - Math.min(1, CM.rainF || 0), 2),
+    vivant: ((L.counts && L.counts.eraBand) | 0) >= 7 ? 0 : 1,
+  };
+  const habitue = now - D.bougeA > HABITUATION_MS ? 0.5 : 1;
+  const T = CM.TILE, mes = D.mesure;
+  for (const [nom, def] of Object.entries(SEMES)) {
+    const sons = sonsDe(nom);
+    if (!sons.length) continue;
+    const taux = tauxSeme(def, mes.parts, cond, f.proche, habitue, sons.length);
+    if (!(taux > 0) || Math.random() >= 1 - Math.exp(-taux * dt)) continue;
+    // Où : un milieu de la famille, tiré en proportion de sa présence, puis un lieu de
+    // l'écran qui le porte, à une case et demie près.
+    let tot = 0;
+    for (const [m, k] of Object.entries(def.milieux)) tot += k * (mes.parts[m] || 0);
+    let r = Math.random() * tot, milieu = null;
+    for (const [m, k] of Object.entries(def.milieux)) { r -= k * (mes.parts[m] || 0); if (r < 0) { milieu = m; break; } }
+    const i = milieu ? tirerLieu(mes, milieu, Math.random()) : -1;
+    if (i < 0) continue;
+    const x = mes.lieux.px[i] + (Math.random() * 2 - 1) * 1.5 * T;
+    const y = mes.lieux.py[i] + (Math.random() * 2 - 1) * 1.5 * T;
+    const g = attenuation(Math.hypot(x - CM.cam.x, y - CM.cam.y) / T, h, def.ref, def.max)
+      * def.niveau * BANC.semes[nom] * soloK(nom) * f.proche * f.proche;
+    if (g < 0.006) continue;
+    const enCours = (D.enCours[nom] = (D.enCours[nom] || []).filter((fin) => fin > t));
+    if (enCours.length >= def.voix || now - (D.dernierA[nom] || -Infinity) < def.ecartMs) continue;
+    const tampon = D.tampons.get(sons[tirer(nom, sons.length)]);
+    // Un chant ne se transpose presque pas : ±3 %.
+    const vitesse = 0.97 + Math.random() * 0.06;
+    const s = worldToScreen(x, y);
+    jouerPonctuel(M, tampon, 'proche', g, panoramique(s.x, CM.cw, OREILLE.panMax), vitesse);
+    enCours.push(t + tampon.duration / vitesse);
+    D.dernierA[nom] = now;
+    D.compte[nom] += 1;
+    D.dernierGain[nom] = g;
+  }
+}
+
 // ── Pour le banc : écouter un son seul, au centre ─────────────────────────────
 export function ecouter(nom) {
   const M = D.M;
@@ -414,6 +581,12 @@ export function ecouter(nom) {
     setTimeout(() => b.arreter(), 3400);
     return true;
   }
+  if (SEMES[nom]) {
+    const sons = sonsDe(nom);
+    if (!sons.length) return false;
+    jouerPonctuel(M, D.tampons.get(sons[tirer(nom, sons.length)]), 'proche', SEMES[nom].niveau * BANC.semes[nom], 0, 1);
+    return true;
+  }
   return false;
 }
 
@@ -432,11 +605,15 @@ export function etatPaysage() {
     tampons: D.tampons.size, enRoute: D.enRoute.size,
     emetteurs: Object.fromEntries(Object.entries(D.emetteurs).map(([k, l]) => [k, l.filter((v) => v.pris).length])),
     ponctuels: { ...D.compte },
+    // Par famille semée : combien joués, combien de sons prêts (fichiers décodés).
+    semes: Object.fromEntries(Object.keys(SEMES).map((k) => [k, { joues: D.compte[k] || 0, sons: sonsDe(k).length }])),
+    enregistres: ENREGISTRES.length,
+    habitue: D.eveille && horloge() - D.bougeA > HABITUATION_MS,
     sortieDb: D.M ? niveauSortie(D.M) : null,
   };
 }
 const API = {
-  etat: etatPaysage, ecouter, BANC, OREILLE, ECHANT, MILIEUX, NAPPES, PONCTUELS, EMETTEURS,
+  etat: etatPaysage, ecouter, BANC, OREILLE, ECHANT, MILIEUX, NAPPES, PONCTUELS, EMETTEURS, SEMES,
   retenir: retenirBanc, remettre: remettreBanc, reglages: reglagesBanc,
 };
 

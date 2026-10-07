@@ -11,7 +11,7 @@ Chantier ouvert le 2026-10-07 sur la demande de Raph :
 > n'entendre que le son de la ville au loin avec la musique en fond qu'on ne touche pas pour
 > l'instant. »
 
-**Statut : décisions prises le 2026-10-07 (§ 9), lot 1 livré, lot 2 en cours.**
+**Statut : décisions prises le 2026-10-07 (§ 9), lots 1 et 2 livrés, lot 3 (la ville) à venir.**
 Ce document fait foi pour ce chantier.
 
 ---
@@ -631,7 +631,60 @@ générés s'ajouteraient à la ligne PixelLab de `STEAM-PUBLICATION.md` § 2, a
 **⚠ Écrire sur le disque un son généré par API, c'est un téléchargement** au sens de la règle
 Defender. Il faudrait l'accord de Raph, comme pour l'exception PixelLab.
 
-### 5.5 Les règles de licence (celles du dépôt, appliquées au son)
+### 5.5 Lot 2 : la liste de téléchargement (recherche du 2026-10-07)
+
+Pages lues sans rien télécharger. **Tout est en CC0.**
+- **BigSoundBank (BBS)** : pas de compte. Le crédit « Joseph SARDIN - BigSoundBank.com » est
+  demandé par courtoisie. Une partie des fichiers est d'un second auteur, « Le tiroir du fond ».
+- **Freesound (FS)** : un compte gratuit est nécessaire pour télécharger.
+- BBS n'a ni coucou, ni pic, ni pinson, ni mésange, ni grive, ni alouette : ceux-là viennent
+  de Freesound.
+
+**Où les poser** : `/assets/sons/bigsoundbank/` et `/assets/sons/freesound/` à la racine du
+dépôt, sous leur nom d'origine. Ce dossier n'est pas versionné.
+
+**Le lot minimal (14 fichiers)**
+
+| # | Son | Page | Durée, format |
+|---|---|---|---|
+| 1 | Merle noir | <https://bigsoundbank.com/common-blackbird-13-s3486.html> | 6 s, 48 kHz mono |
+| 2 | Rouge-gorge | <https://bigsoundbank.com/robin-4-s1670.html> | 4 s, 48 kHz mono |
+| 3 | Pinson | <https://freesound.org/people/Sacha.Julien/sounds/725218/> | 2 min 19, « very close » |
+| 4 | Mésange charbonnière | <https://freesound.org/people/D4XX/sounds/607242/> | 2 s |
+| 5 | Troglodyte | <https://freesound.org/people/Sacha.Julien/sounds/734533/> | 2 min 46, oiseau à 6 m |
+| 6 | Grive musicienne | <https://freesound.org/people/richwise/sounds/785669/> | 56 s |
+| 7 | Coucou | <https://freesound.org/people/Artemis_R_Swann/sounds/517480/> | 10 s |
+| 8 | Pic (tambourinage) | <https://freesound.org/people/naturenotesuk/sounds/428146/> | 36 s (route proche, bruits retirés à la main) |
+| 9 | Chouette hulotte | <https://bigsoundbank.com/tawny-owl-1-s1763.html>, plus le #2 : <https://bigsoundbank.com/tawny-owl-2-s1764.html> | 9 s et 8 s, mono |
+| 10 | Grenouille (un cri) | <https://bigsoundbank.com/one-frog-s0819.html> | 15 s, mono |
+| 11 | Grenouilles (fond de mare) | <https://freesound.org/people/nicotep/sounds/547899/> | 4 min, 44 Mo |
+| 12 | Corneille | <https://bigsoundbank.com/carrion-crow-4-s3464.html>, plus le #5 : <https://bigsoundbank.com/carrion-crow-5-s3465.html> | 8 s et 5 s, mono |
+| 13 | Alouette des champs | <https://freesound.org/people/Kinoton/sounds/387426/> | 1 min 15 |
+| 14 | Colvert (pour plus tard) | <https://freesound.org/people/straget/sounds/411849/> | 1 min 38, mono |
+
+**Variantes, si un fichier déçoit à l'écoute** :
+- **Merle** : la série BBS #2 à #30 (s3474 à s3503).
+- **Rouge-gorge** : BBS #1 à #7 (s1667 à s1673).
+- **Pinson** : FS 725328 et 351666.
+- **Mésange** : FS 429156.
+- **Grive** : FS 509478.
+- **Coucou** : FS 475049 et 719066.
+- **Pic** : FS 620236.
+- **Hulotte** : BBS s0429 (un couple).
+- **Grenouilles** : l'alyte BBS s1053 et FS 632408.
+- **Corneilles** : BBS s0956 et le freux FS 744595.
+- **Alouette** : FS 244357.
+
+**À éviter** :
+- les grives FS 673097 et 813086 (route) ;
+- les grenouilles BBS s0997 et s0998 (cascade) et BBS s0691 (vent) ;
+- les corneilles BBS s0754 (route) ;
+- le colvert FS 188376 (la mer s'entend).
+
+**Inconnu tant qu'on n'a pas écouté** : le vrai bruit de fond de chaque fichier. Les pages de
+BBS disent seulement « Outdoor ».
+
+### 5.6 Les règles de licence (celles du dépôt, appliquées au son)
 
 - **Une ligne par pack livré** dans `CREDITS.md`, et son crédit **FR et EN** dans Options ›
   Crédits. `credits.test.js` le vérifie.
@@ -822,4 +875,72 @@ Ma recommandation était donnée pour chacune.
   Deux tests gardent ces reproches : « pas d'hélicoptère », « pas de tempête ». À réécouter
   par Raph.
 - **2026-10-07, seconde écoute** : « c'est bien comme ça ». Seul changement : courant ×0,8,
-  versé dans son niveau ; la clé du banc devient `civ-paysage-banc-3`. **Lot 1 livré.**
+  versé dans son niveau ; la clé du banc devient `civ-paysage-banc-3`. **Lot 1 livré**
+  (commit `bdf8c493`).
+- **2026-10-07, lot 2 (la nature), partie synthétisée** :
+
+  | Son | Ce qu'on entend | Quand |
+  |---|---|---|
+  | `grillons` | Quinze grillons des champs, chacun à son rythme. | La nuit, du printemps à l'automne. |
+  | `stridulations` | Six sauterelles, des phrases rêches espacées. | Le jour, dans les prés et les champs. |
+  | `cigales` | Quatre cigales dans les arbres. | Les jours d'été. |
+  | `plip` | Le poisson-ombre qui gobe, au début de sa pause. | Branché dans `iso/isoRiver.js`. On ne l'entend que si l'on regarde le fleuve (portée de 9 cases). |
+  | `altitude` | Le souffle joué plus grave, sur le bus du lointain. | Dézoomé au-dessus de la campagne, d'autant plus que la ville est petite. |
+
+  Les insectes se taisent sous la pluie et l'hiver. Les règles sont dans une fonction pure,
+  `ciblesNappes`, testée.
+
+  **Enregistrements** :
+  - `paysage/enregistrements.js` lit `src/assets/sons/` par le dossier ; le nom fait la famille.
+  - Le directeur les décode par `fetch`, ce que le protocole `app://` de l'.exe permet.
+  - Les SEMES les sèment dans les parties de l'écran qui portent leur milieu : oiseau, coucou,
+    pic, chouette, grenouille, corneille, alouette. L'habituation (caméra immobile depuis
+    5 min) les divise par deux.
+  - La chaîne `scripts/importSons.mjs` et `scripts/sons/catalogue.json` est essayée de bout en
+    bout sur un son généré.
+
+  Vérifié dans le jeu :
+  - les 22 sons sont rendus et les 9 nappes jouent ;
+  - de jour en automne, les sauterelles jouent, sans grillons ni cigales ;
+  - forcé de nuit, les grillons (0,54) prennent la place des sauterelles ;
+  - centré sur le fleuve au zoom 2, trois plips en 30 s.
+
+  63 tests passent. **Reste** : l'écoute de Raph, et les enregistrements, qu'il télécharge
+  lui-même.
+- **2026-10-07, les enregistrements.** Raph a téléchargé 6 fichiers BigSoundBank. Il s'est
+  passé de Freesound, faute de compte : ni pinson, ni mésange, ni troglodyte, ni grive, ni
+  coucou, ni pic, ni alouette, ni fond de mare. La corneille n°5 manque aussi.
+
+  Ce qui a été fait :
+  - **Rangement** : les fichiers sont dans `/assets/sons/bigsoundbank/`, ignoré par git.
+  - **Coupes** : elles viennent de l'enveloppe mesurée (passages plus forts que le plancher de
+    bruit de 12 dB), pas d'une écoute. On en tire 11 sons, 328 Ko en tout :
+    - le merle et le rouge-gorge, une phrase chacun ;
+    - les deux hulottes, l'appel entier ;
+    - trois passages de grenouille ;
+    - quatre séries de cris de corneille.
+  - **Crédits** : une ligne dans `CREDITS.md` et une mention FR et EN dans Options › Crédits
+    (courtoisie, CC0).
+  - **Rareté** : une famille qui a peu de sons se fait plus rare (`variantes`). Avec deux
+    oiseaux pour huit voulus, ils chantent quatre fois moins souvent.
+  - **Familles muettes, faute de fichier** : coucou, pic, alouette.
+
+  Vérifié dans le jeu :
+  - les 11 enregistrements se décodent ;
+  - ▶ joue chaque famille qui a des fichiers ;
+  - avec un taux d'essai, le semeur place 5 oiseaux dans la forêt à l'écran en 12 s ;
+  - le taux d'origine est ensuite remis.
+
+  Deux tests nouveaux : chaque fichier de `src/assets/sons/` appartient à une famille connue,
+  et le catalogue et le dossier se correspondent. **Pour enrichir** : d'autres merles et
+  rouges-gorges de BigSoundBank (séries #1 à #30 et #1 à #7, sans compte), et la corneille n°5.
+- **2026-10-07, trois fichiers de plus.** Raph a ajouté le merle n°30, le rouge-gorge n°1 et
+  la corneille n°5. On en tire quatre sons : 15 en tout, environ 390 Ko.
+  - **Oiseaux** : quatre sons pour huit voulus, ils ne chantent plus que deux fois moins
+    souvent (quatre fois moins avant).
+  - **Corneille n°5** : deux séries de cris, `corneille-noire-5` et `corneille-noire-6`.
+  - **La chaîne mesure la vraie crête de ce qu'elle écrit.** L'encodage Ogg la dépassait
+    parfois d'un dB ; une seconde passe la ramène sous −1 dBFS.
+
+  71 tests passent. **Lot 2 livré.** Familles toujours muettes, faute de fichier : coucou,
+  pic, alouette.
