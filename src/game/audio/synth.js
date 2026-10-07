@@ -255,6 +255,18 @@ export function audioCtx() {
   if (!_actifs) endormir();             // réveillé pour rien : il se rendort
   return _ctx;
 }
+// Le PAYSAGE SONORE de la carte (paysage/paysage.js) tient le contexte éveillé tant
+// qu'il joue : ses boucles ne passent pas par jouerTampon. Il le RETIENT en s'éveillant
+// et le RELÂCHE en s'endormant ; plus rien ne jouant, le repos s'arme comme pour un son.
+export function retenirContexte() {
+  _actifs += 1;
+  clearTimeout(_repos);
+  _repos = null;
+}
+export function relacherContexte() {
+  _actifs = Math.max(0, _actifs - 1);
+  if (!_actifs) endormir();
+}
 // Un son qui part : le contexte reste éveillé jusqu'à sa fin. À la fin, ses nœuds sont
 // débranchés (ils ne pendent plus au graphe) et, plus rien ne jouant, le repos s'arme.
 function suivre(s, g) {

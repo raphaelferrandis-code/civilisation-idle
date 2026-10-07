@@ -35,6 +35,8 @@ import {
   viePixel, vieRing, vieCount, vieMistF, registerVieActors, registerVieAir, vieIsOccupied,
 } from './isoVie.js';
 import { mistStrand, mistOfDay, LEAF_KINDS } from './vieArt.js';
+// Le guichet du paysage sonore : un module-FEUILLE (aucun import), sans risque de cycle.
+import { noteSon, noteEmetteur } from '../../audio/paysage/evenements.js';
 
 const CFG = { ribbonPath: null, precipKind: () => 'rain' };
 export function configureRiverLife(o) { Object.assign(CFG, o); }
@@ -225,7 +227,7 @@ function drawLeavesPx(ctx, sm, T, z, now, k, fz) {
 // sort tête haute, file à plat au sommet, replonge tête basse — trois images, et
 // l'eau raconte le reste (gouttes au départ, anneaux au départ et à l'arrivée).
 const JUMP_PERIOD = 11000, JUMP_MS = 460;
-let _jumpVis = { idx: -1, t0: 0, t1: 1 };
+let _jumpVis = { idx: -1, t0: 0, t1: 1, son: 0 };
 function drawJumpPx(ctx, sm, T, z, now, vis, k, fz) {
   if (VIE.sauts <= 0) return;
   const t = now || 0;
@@ -234,14 +236,19 @@ function drawJumpPx(ctx, sm, T, z, now, vis, k, fz) {
   if (ph > 2) return;                                 // l'essentiel du temps : rien
   // Le champ est FIGÉ pour la durée du saut : un pan de caméra pendant la demi-
   // seconde ne doit pas téléporter le poisson.
-  if (_jumpVis.idx !== idx) _jumpVis = { idx, t0: vis.t0, t1: vis.t1 };
+  if (_jumpVis.idx !== idx) _jumpVis = { idx, t0: vis.t0, t1: vis.t1, son: 0 };
   const V = _jumpVis;
-  const sc = S(ribbonPoint(sm, V.t0 + h32(idx * 17 + 1) * (V.t1 - V.t0), (h32(idx * 17 + 2) * 2 - 1) * 0.7), T);
+  const rp = ribbonPoint(sm, V.t0 + h32(idx * 17 + 1) * (V.t1 - V.t0), (h32(idx * 17 + 2) * 2 - 1) * 0.7);
+  const sc = S(rp, T);
   if (!onScreen(sc, 30)) return;
   const s = T * z;
   const gros = 0.7 + h32(idx * 17 + 7) * 0.85;
   const dir = h32(idx * 17 + 3) < 0.5 ? -1 : 1;
   const reach = s * 0.34 * gros;
+  // LE SON (docs/PLAN-AMBIANCE-SONORE.md) : la sortie de l'eau, puis le plouf de
+  // l'amerrissage, une fois chacun par saut, à l'image qui les dessine.
+  if (!(V.son & 1) && ph < 0.5) { V.son |= 1; noteSon('sortie', rp.x * T, rp.y * T, gros); }
+  if (!(V.son & 2) && ph >= 1) { V.son |= 2; noteSon('plouf', rp.x * T, rp.y * T, gros); }
   // Anneaux au départ ET à l'arrivée.
   for (const [start, at] of [[0, 0], [1, 1]]) {
     const q = (ph - start) / 0.9;
@@ -501,31 +508,38 @@ function drawDragonflies(ctx, sm, T, z, now, k, fz) {
   if (bandOf() >= 7) return;
   const cs = citySpan(sm), Lt = cs.len, span = cs.b - cs.a, t = (now || 0) / 1000;
   const n = Math.max(2, Math.round(Lt / 9));
-  const spot = (i, c) => {
+  // Le poste de guet, en cases (le son a besoin du monde, le dessin de l'écran).
+  const spotW = (i, c) => {
     const g = (i * 7919 + c * 104729) | 0;
     const tt = cs.a + span * ((i + 0.5 + (h32(g + 1) - 0.5) * 0.8) / n + (h32(g + 2) - 0.5) * 2 / Lt);
     const side = h32(i * 13) < 0.5 ? -1 : 1;
-    return S(ribbonPoint(sm, tt, side * (0.55 + h32(g + 3) * 0.25)), T);
+    return ribbonPoint(sm, tt, side * (0.55 + h32(g + 3) * 0.25));
   };
   for (let i = 0; i < n; i += 1) {
     const P = 5 + h32(i * 3 + 1) * 4;
     const tc = t + h32(i * 3 + 2) * P;
     const c = Math.floor(tc / P), u = (tc % P) / P;
-    const A = spot(i, c);
+    const Aw = spotW(i, c), A = S(Aw, T);
     if (!onScreen(A, 40)) continue;
-    let x = A.x, y = A.y;
+    let x = A.x, y = A.y, wx = Aw.x, wy = Aw.y;
     const dart = 0.06;                                   // part du cycle en vol franc
-    if (u > 1 - dart) {
-      const B = spot(i, c + 1), q = (u - (1 - dart)) / dart;
-      x = A.x + (B.x - A.x) * q; y = A.y + (B.y - A.y) * q;
+    const enVol = u > 1 - dart;
+    const Bw = spotW(i, c + 1), d = S(Bw, T);
+    if (enVol) {
+      const q = (u - (1 - dart)) / dart;
+      x = A.x + (d.x - A.x) * q; y = A.y + (d.y - A.y) * q;
+      wx = Aw.x + (Bw.x - Aw.x) * q; wy = Aw.y + (Bw.y - Aw.y) * q;
     } else {
       x += Math.round(Math.sin(t * 9 + i) * 0.8) * k;    // vibre sur place, au pixel
       y += Math.round(Math.cos(t * 7 + i * 2) * 0.6) * k;
     }
     const hover = (5 + h32(i * 5) * 3) * k;
-    const d = spot(i, c + 1);
     const fr = Math.floor(t * 16 + i) % 2;
-    if (vieBlit(ctx, vieSprite('dragonfly', fr, d.x < A.x), x, y - hover, k, fz)) vieCount('libellules');
+    if (vieBlit(ctx, vieSprite('dragonfly', fr, d.x < A.x), x, y - hover, k, fz)) {
+      vieCount('libellules');
+      // Le battement des ailes (paysage sonore), plus fort en vol franc.
+      noteEmetteur('libellule', wx * T, wy * T, enVol ? 1 : 0.5, now);
+    }
   }
 }
 

@@ -20,6 +20,7 @@ import {
   idleCapSeconds,
   nextIdleCapPalier
 } from '../../game/core/main.js';
+import { getPaysageActif, setPaysageActif, getPaysageVolume, setPaysageVolume } from '../../game/audio/paysage/reglages.js';
 import { numberFormatMode, setNumberFormatMode, encodeSaveText, fmtSecs } from '../../game/core/utils.js';
 import { uiRevealed } from '../../game/core/uiReveal.js';
 import { idleReserveHint } from '../ui/idleReserve.js';
@@ -138,6 +139,8 @@ export default function OptionsDialog({ isOpen, onClose, onSave, onExport, onImp
   const musicTrack = getMusicTrack();
   const sfxEnabled = getSfxEnabled();
   const sfxVolume = getSfxVolume();
+  const paysageActif = getPaysageActif();
+  const paysageVolume = getPaysageVolume();
   const formatMode = numberFormatMode;
   const autoScriptRules = getAutoScriptRules();
   const automateRules = getAutomateRules();
@@ -324,6 +327,18 @@ export default function OptionsDialog({ isOpen, onClose, onSave, onExport, onImp
 
   const handleSfxVolume = (event) => {
     setSfxVolume(Number(event.target.value) / 100);
+    setOptionRevision((revision) => revision + 1);
+  };
+
+  // Le paysage sonore de la carte (docs/PLAN-AMBIANCE-SONORE.md) : à part de la musique
+  // et des bruitages. Le directeur (audio/paysage/paysage.js) suit ces réglages.
+  const handlePaysageToggle = () => {
+    setPaysageActif(!paysageActif);
+    setOptionRevision((revision) => revision + 1);
+  };
+
+  const handlePaysageVolume = (event) => {
+    setPaysageVolume(Number(event.target.value) / 100);
     setOptionRevision((revision) => revision + 1);
   };
 
@@ -1087,7 +1102,7 @@ export default function OptionsDialog({ isOpen, onClose, onSave, onExport, onImp
             <>
               <div className="options-row">
                 <div>
-                  <OptionLabel label={tr({ fr: "Musique", en: "Music" })} hint={tr({ fr: "Ambiance sonore de fond", en: "Background ambient sound" })} />
+                  <OptionLabel label={tr({ fr: "Musique", en: "Music" })} hint={tr({ fr: "La musique de fond", en: "The background music" })} />
                 </div>
                 <button
                   type="button"
@@ -1139,6 +1154,42 @@ export default function OptionsDialog({ isOpen, onClose, onSave, onExport, onImp
                   />
                   <strong style={{ minWidth: '40px', textAlign: 'right' }}>
                     {Math.round(musicVolume * 100)}%
+                  </strong>
+                </div>
+              </div>
+
+              {/* L'AMBIANCE (2026-10-07) : les sons de la carte, à part de la musique. */}
+              <div className="options-row">
+                <div>
+                  <OptionLabel label={tr({ fr: "Ambiance", en: "Ambience" })} hint={tr({ fr: "Les sons de la carte, selon ce que montre l'écran", en: "The sounds of the map, following what the screen shows" })} />
+                </div>
+                <button
+                  type="button"
+                  className={`toggle-btn ${paysageActif ? 'on' : 'off'}`}
+                  aria-label={tr({ fr: paysageActif ? 'Activé' : 'Désactivé', en: paysageActif ? 'On' : 'Off' })}
+                  aria-pressed={Boolean(paysageActif)}
+                  onClick={handlePaysageToggle}
+                >
+
+                </button>
+              </div>
+
+              <div className="options-row options-row-volume">
+                <div>
+                  <OptionLabel label={tr({ fr: "Volume de l'ambiance", en: "Ambience volume" })} hint={tr({ fr: "Niveau des sons de la carte", en: "Level of the map sounds" })} />
+                </div>
+                <div className="volume-control" style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                  <input
+                    type="range"
+                    min="0"
+                    max="100"
+                    step="5"
+                    value={Math.round(paysageVolume * 100)}
+                    onChange={handlePaysageVolume}
+                    aria-label={tr({ fr: "Volume de l'ambiance", en: "Ambience volume" })}
+                  />
+                  <strong style={{ minWidth: '40px', textAlign: 'right' }}>
+                    {Math.round(paysageVolume * 100)}%
                   </strong>
                 </div>
               </div>

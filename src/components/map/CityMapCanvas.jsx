@@ -1,5 +1,6 @@
 import { useEffect, useRef } from 'react';
 import { resetCityMapRuntime, startCityMapRuntime } from '../../game/map/loadCityMapScripts.js';
+import { paysageAttacher, paysageDetacher } from '../../game/audio/paysage/paysage.js';
 
 export default function CityMapCanvas({ onCitizenThoughtClicked }) {
   const canvasRef = useRef(null);
@@ -27,8 +28,12 @@ export default function CityMapCanvas({ onCitizenThoughtClicked }) {
         callbackRef.current?.(citizen, type);
       }
     });
+    // Le paysage sonore vit avec la carte : il s'éveille avec elle et s'endort quand
+    // on quitte l'onglet Cité (docs/PLAN-AMBIANCE-SONORE.md § 3.8).
+    paysageAttacher();
 
     return () => {
+      paysageDetacher();
       resetCityMapRuntime();
     };
   }, []);

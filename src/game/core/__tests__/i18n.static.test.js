@@ -217,6 +217,7 @@ const FICHIERS_DEV = {
   "src/game/map/tissuMetrics.js": "mesure du tissu urbain, rapport console",
   "src/game/map/pixelGrid.js": "sonde G0 de la grille de pixels",
   "src/game/map/frameGuard.js": "messages console des exceptions de la carte",
+  "src/game/audio/paysage/banc.js": "banc d'écoute du paysage sonore (Ctrl+Alt+B), outil de réglage",
 };
 // Par fichier : `decl` = déclarations (const X = … ou function X) ignorées en
 // entier, `textes` = textes exacts tolérés. Les noms PROPRES de la carte

@@ -7,6 +7,7 @@ qu'ils gardent. On ne les déplace donc pas ; seul ce qu'aucun code ne cite va d
 
 ## Actifs : chantier ouvert ou suite attendue
 
+- `PLAN-AMBIANCE-SONORE.md` : le paysage sonore de la carte (nappes par milieu, ponctuels, rumeur lointaine au dézoom), avec les recherches sur les sources gratuites, payantes et l'IA. Lot 1 livré (le moteur, des sons synthétisés réglés à l'oreille par Raph) ; lot 2 (la nature) en cours.
 - `PLAN-ECOUTER-PARLER.md` : écouter les habitants, puis leur répondre par des signes et des mots ; ce qu'ils savent du joueur suit la Chronique. Plan seul (la fiche d'habitant qui sert de socle est faite) ; la suite attend les réponses de Raph (§ 11).
 - `PLAN-VEGETATION.md` : l'herbe et les arbres. Lot 0 fait (planche), la suite attend le choix de Raph.
 - `PLAN-QOL-SUITE.md` : confort de jeu. Fait foi sur `AMELIORATIONS-VISUELLES-QOL.md` ; il reste des fiches.

@@ -44,7 +44,8 @@ function lancer() {
   return ouvrier;
 }
 
-// `tache` : { quoi: 'son', nom, look } | { quoi: 'ronron', look } | { quoi: 'melodie', band }.
+// `tache` : { quoi: 'son', nom, look } | { quoi: 'ronron', look } | { quoi: 'melodie', band }
+//         | { quoi: 'paysage', nom } (paysage/paysageSynth.js).
 // Rend une promesse du Float32Array.
 export function rendreAilleurs(tache) {
   const w = lancer();
