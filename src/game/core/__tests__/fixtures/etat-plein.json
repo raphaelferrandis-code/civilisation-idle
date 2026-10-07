@@ -1080,6 +1080,15 @@
    "id": "abc123",
    "at": 1800000000000
   },
+  "paroles": {
+   "heard": {
+    "c-couple-pain": 2,
+    "t-disette": 1,
+    "c-garde-chat": 1
+   },
+   "n": 4,
+   "rev": 4
+  },
   "faitsDivers": {
    "seen": {
     "boulanger": {

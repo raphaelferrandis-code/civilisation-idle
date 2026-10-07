@@ -7,7 +7,7 @@ Chantier ouvert le 2026-10-07 sur la demande de Raph :
 > n'interagit pas avec eux, puis après une option dialogue qui permette de parler avec
 > certains. »
 
-**Statut : plan tranché, lot 1 en cours.** La fiche d'habitant qui sert de socle est faite
+**Statut : plan tranché, lot 1 livré, à juger en jeu.** La fiche d'habitant qui sert de socle est faite
 (commit `4a99b8bc` : identité, foyers, métier, humeur et sa cause, « où il est entré »).
 Raph a répondu aux questions du § 11 le jour même (tableau 1 bis).
 **Ce document fait foi pour ce chantier.**
@@ -343,7 +343,7 @@ Le récit seulement :
 
 ## 10. Les lots
 
-1. **Écouter, le socle** : le geste, les pensées de tout le monde, les couches 1 et 2, la
+1. ✅ **Écouter, le socle** : le geste, les pensées de tout le monde, les couches 1 et 2, la
    mémoire de l'entendu. Raph juge en jeu.
 2. **Ce qu'on dit de toi** : la troisième couche, branchée sur la Chronique et l'Olympe ; le
    nom de la gazette ; le panneau.
@@ -370,3 +370,14 @@ Les six questions du premier jet sont tranchées (tableau 1 bis). Aucune ouverte
   la lumière et du feu ; les mots entre P2 et P3 ; on écrit la Chronique des âges 7 à 9 ; les
   pensées de tous dès le début ; le nom est celui de la Chronique ; le son après le chantier
   sonore. Lot 1 lancé.
+- 2026-10-07 : **lot 1 livré.** La fiche propose **Écouter** tant que le passant cause
+  (un salut ne s'écoute que pendant qu'il dure ; écouté, il se prolonge le temps des
+  répliques ; des compagnons causent en marchant) et **Ses pensées** toujours. Les
+  répliques arrivent une à une (2,8 s), à la place des lignes ; sur la carte, une bulle
+  sans texte au-dessus de qui parle. Écrit : 45 causettes et 64 pensées, couches 1 et 2
+  (`src/game/data/paroles.js`), avec les vrais prénoms du foyer (conjoint, enfant, hôte).
+  Le tirage (`map/paroles/pick.js`, pur) prend le moins entendu puis le plus précis ; les
+  répliques d'adulte (la paie, les guichets) ne vont pas à un enfant, et une réplique qui
+  nomme quelqu'un que le passant n'a pas est écartée. La mémoire de l'entendu : `state.paroles`, éternelle (`GR_PERSISTENT_FIELDS`),
+  son seul enregistreur est `core/paroles.js`. Vérifié en jeu : causette d'un couple au
+  prénom de leur fille, pensée liée à la disette, bulle passée de l'un à l'autre.

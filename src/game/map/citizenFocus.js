@@ -474,6 +474,50 @@ export function drawCitizenFocusOverlay(ctx, now = 0) {
     }
   }
   ctx.globalAlpha = prevA;
+  drawSpeechMark(ctx);
+}
+
+// ── QUI PARLE (l'écoute, paroles/listen.js) ──────────────────────────────────
+// Pendant une causette qu'on écoute, une petite bulle sans texte au-dessus de qui
+// dit la réplique en cours : les mots sont dans la fiche, la carte ne montre que
+// qui parle. Même grain que le chevron, décalée à droite de la tête.
+const SPEECH = [
+  '0222220',
+  '2111112',
+  '2131312',
+  '2111112',
+  '0222220',
+  '0200000',
+];
+function drawSpeechMark(ctx) {
+  const L = CM.listening;
+  if (!L || L.kind !== 'chat' || !CM.focus || CM.focus.p !== L.p) return;
+  const now = typeof performance !== 'undefined' ? performance.now() : Date.now();
+  const i = Math.floor((now - L.t0) / (L.lineMs || 2800));
+  if (i < 0 || i >= L.lines.length) return;
+  const who = L.lines[i].who === 'b' ? L.q : L.p;
+  if (!who) return;
+  let ax, ay;
+  if (who._figBox) {
+    if (who._seenFrame !== frameN) return;
+    ax = who._figBox.x1; ay = who._figBox.y0;
+  } else {
+    if (who._nightHidden) return;
+    const a = thoughtBubbleAnchor(who);
+    ax = a.x + 5; ay = a.y + 4;
+  }
+  const G = 2;
+  const x0 = Math.round(ax), y0 = Math.round(ay - SPEECH.length * G);
+  if (x0 < -20 || y0 < -20 || x0 > CM.cw || y0 > CM.ch) return;
+  for (let r = 0; r < SPEECH.length; r += 1) {
+    const row = SPEECH[r];
+    for (let c = 0; c < row.length; c += 1) {
+      const v = row[c];
+      if (v === '0') continue;
+      ctx.fillStyle = v === '2' ? '#2A1A0A' : v === '3' ? '#6B5432' : '#F3E6C4';
+      ctx.fillRect(x0 + c * G, y0 + r * G, G, G);
+    }
+  }
 }
 
 // ── IDENTITÉS ────────────────────────────────────────────────────────────────
@@ -624,6 +668,8 @@ function idOf(p, kind) {
   const id = citizenIdentityOf(p);
   return id.name === p.name ? id : { ...id, name: p.name };
 }
+// La même identité, pour l'écoute (paroles/listen.js).
+export const identityOfPick = (kind, p) => idOf(p, kind);
 // Véhicule : son conducteur. Charretiers, cochers et chevaliers sont des hommes
 // jusqu'à l'âge industriel ; ensuite, une conductrice sur deux.
 function vehicleIdentity(v) {
@@ -762,6 +808,13 @@ function cityPulls() {
   out.push(['scarcity', Math.max(0, -(vt.foodBonus || 0)) * 1.6 * 0.45]);
   out.push(['poverty', Math.max(0, -(vt.goldBonus || 0)) * 0.9 * 0.45]);
   return out;
+}
+// Ce qui pèse le plus sur la cité, s'il pèse vraiment (au moins 0,06 de santé) : ce
+// dont les habitants parlent dans la rue (paroles/listen.js).
+export function cityConcern() {
+  let best = null, bestV = 0.06;
+  for (const [k, v] of cityPulls()) if (v > bestV) { bestV = v; best = k; }
+  return best;
 }
 function moodOf(seed, fem) {
   const temper = ((mixHash(seed, 4) % 1000) / 1000 - 0.5) * 0.3;

@@ -227,6 +227,63 @@
   color: #fff1bd;
 }
 
+/* L'ÉCOUTE (docs/PLAN-ECOUTER-PARLER.md) : les répliques prennent la place des
+   lignes de la fiche, une à une. Dans une causette, le prénom de qui parle en or
+   (comme les libellés) ; une pensée n'a pas de prénom, et se lit plus bas. */
+.citizen-sheet .cs-listen {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  gap: 0.45rem 0.85rem;
+  margin: 0.75rem 0 0;
+  padding: 0.65rem 0 0;
+  border-top: 1px solid rgba(201, 169, 104, 0.16);
+}
+.citizen-sheet .cs-line {
+  display: contents;
+}
+.citizen-sheet .cs-line > span {
+  animation: cs-line-in 240ms steps(3, end);
+}
+@keyframes cs-line-in {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+.citizen-sheet .cs-line-who {
+  align-self: baseline;
+  color: var(--gold);
+  font-size: var(--fs-read);
+  font-weight: 800;
+  letter-spacing: 1px;
+  text-transform: uppercase;
+}
+.citizen-sheet .cs-line-text {
+  align-self: baseline;
+  font-size: var(--fs-read);
+  line-height: 20px;
+  color: #f0e2bc;
+}
+.citizen-sheet .cs-listen.is-thought .cs-line-text {
+  grid-column: 1 / -1;
+  color: #d9c9a0;
+}
+@media (prefers-reduced-motion: reduce) {
+  .citizen-sheet .cs-line > span { animation: none; }
+}
+/* Écouter (sa causette) et Ses pensées : deux gestes de cuir, sous la fiche. */
+.citizen-sheet .cs-ears {
+  display: flex;
+  gap: 0.5rem;
+  margin-top: 0.8rem;
+}
+.citizen-sheet .cs-ear {
+  flex: 1 1 0;
+  padding: 0.42rem 0.6rem 0.58rem;
+  font-size: var(--fs-read);
+}
+.citizen-sheet .cs-ears + .cs-actions {
+  margin-top: 0.5rem;
+}
+
 /* Les deux gestes du bas : Suivre (la caméra) et Suivant (un autre passant). */
 .citizen-sheet .cs-actions {
   display: flex;

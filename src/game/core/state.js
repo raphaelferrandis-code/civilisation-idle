@@ -19,6 +19,7 @@ import { generateCityName } from '../map/procedural/cityName.js';
 import { normalizeRoadMemory } from '../map/roadMemory.js';
 import { PERSONALITIES } from '../map/procedural/cityPersonality.js';
 import { defaultFaitsDivers, normalizeFaitsDivers } from './faitsDiversState.js';
+import { defaultParoles, normalizeParoles } from './parolesState.js';
 // Module PUR (aucun import) : lisible pendant `state = load()` sans piège TDZ.
 import { ACHIEVEMENT_ID_RE } from '../data/achievements.js';
 
@@ -834,6 +835,10 @@ export const defaultState = () => ({
   // le fil de Nancy et William. ÉTERNEL (cf. GR_PERSISTENT_FIELDS) ; forme et
   // normalisation dans faitsDiversState.js, seul enregistreur : faitsDivers.js.
   faitsDivers: defaultFaitsDivers(),
+  // Ce que le joueur a entendu des habitants (docs/PLAN-ECOUTER-PARLER.md). ÉTERNEL
+  // (cf. GR_PERSISTENT_FIELDS) ; forme et normalisation dans parolesState.js, seul
+  // enregistreur : paroles.js.
+  paroles: defaultParoles(),
   buildings: Object.fromEntries(buildings.map((b) => [b.id, 0])),
   upgrades: {},
   // Nom procédural tiré à la création de partie (et régénéré à chaque cycle
@@ -2390,6 +2395,7 @@ export function hydrateState(parsed = {}) {
     achievements: normalizeAchievements(source.achievements),
     saveEpoch: normalizeSaveEpoch(source.saveEpoch),
     faitsDivers: normalizeFaitsDivers(source.faitsDivers),
+    paroles: normalizeParoles(source.paroles),
     buildings: normalizeNumberMap(source.buildings, buildingIds, base.buildings, true),
     upgrades: normalizeBooleanMap(source.upgrades, upgradeIds),
     chronicleEntries: normalizeChronicleEntries(source.chronicleEntries),
@@ -2929,6 +2935,9 @@ export const GR_PERSISTENT_FIELDS = [
   // pas, c'est ce qui fait la continuité d'un cycle à l'autre (une histoire
   // commencée avant un Grand Reset se poursuit après).
   "faitsDivers",
+  // Ce que le joueur a entendu des habitants : jamais deux fois la même chose, d'une
+  // cité à l'autre (docs/PLAN-ECOUTER-PARLER.md, règle 5).
+  "paroles",
   // L'époque de la partie (SAV-4) : un Grand Reset est un pas de la MÊME partie.
   // Effacée, elle redeviendrait « la plus ancienne » et l'arbitrage du nuage
   // refuserait toute écriture face à une copie d'époque plus récente.

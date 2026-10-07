@@ -11,6 +11,7 @@ import {
   focusNextCitizen,
   focusRelative,
 } from '../../game/map/citizenFocus.js';
+import { startListening, stopListening, listenView, listenOptions } from '../../game/map/paroles/listen.js';
 import { tr } from '../../game/core/i18n.js';
 import '../../styles/citizen-sheet.css';
 
@@ -133,20 +134,28 @@ function moodValue(sheet) {
   );
 }
 
+// Le relevé complet : la fiche, plus l'écoute (docs/PLAN-ECOUTER-PARLER.md) — ce
+// qu'on entend en ce moment, et ce qu'on peut écouter.
+function readSheet() {
+  const s = citizenSheet();
+  return s && { ...s, listen: listenView(), ears: listenOptions() };
+}
+
 export default function CitizenSheet() {
   const [open, setOpen] = useState(() => !!CM.focus);
-  const [sheet, setSheet] = useState(() => citizenSheet());
+  const [sheet, setSheet] = useState(() => readSheet());
   const portraitRef = useRef(null);
 
   // Désignation, changement d'habitant, suivi lâché ou repris : relevé immédiat,
   // sans attendre la boucle (pas une frame avec la fiche du précédent).
   useEffect(() => onCitizenFocus((p) => {
     setOpen(!!p);
-    setSheet(p ? citizenSheet() : null);
+    setSheet(p ? readSheet() : null);
   }), []);
 
   // Relevé ~10 fois par seconde : l'activité change en marchant, le portrait
-  // joue sa frame. React ne re-rend que si le relevé a changé.
+  // joue sa frame, les répliques de l'écoute arrivent une à une. React ne re-rend
+  // que si le relevé a changé.
   useEffect(() => {
     if (!open) return undefined;
     let raf = 0, last = 0, lastKey = '';
@@ -154,7 +163,7 @@ export default function CitizenSheet() {
       raf = requestAnimationFrame(tick);
       if (now - last < 90) return;
       last = now;
-      const s = citizenSheet();
+      const s = readSheet();
       if (!s) { setOpen(false); return; }   // désignation effacée hors des voies prévues
       const key = JSON.stringify(s);
       if (key !== lastKey) { lastKey = key; setSheet(s); }
@@ -203,6 +212,9 @@ export default function CitizenSheet() {
   // Le sous-titre : son MÉTIER (idée 4), le dessin et l'atelier le disent ; à défaut
   // ce qu'il est (homme, femme, enfant).
   const sub = sheet.job ? tr(sheet.job) : tr(KIND[sheet.kind]);
+  // L'écoute (personnes seulement) : ce qu'on entend, et ce qu'on peut écouter.
+  const listen = vehicle ? null : sheet.listen;
+  const ears = vehicle ? null : sheet.ears;
 
   return (
     <aside className={`citizen-sheet${sheet.lost ? ' is-lost' : ''}${vehicle ? ' is-vehicle' : ''}`} aria-label={name}>
@@ -236,14 +248,45 @@ export default function CitizenSheet() {
           <i className="fa-solid fa-xmark" aria-hidden="true"></i>
         </button>
       </div>
-      <dl className="cs-rows">
-        {rows.filter(Boolean).map(([k, v]) => (
-          <div className="cs-row" key={k}>
-            <dt>{k}</dt>
-            <dd>{v}</dd>
-          </div>
-        ))}
-      </dl>
+      {listen ? (
+        // L'ÉCOUTE : les répliques arrivent une à une à la place des lignes de la
+        // fiche ; dans une causette, le prénom de qui parle, dans une pensée, rien.
+        <div className={`cs-listen is-${listen.kind}`} aria-live="polite">
+          {listen.lines.map((l, i) => (
+            <p className={`cs-line is-${l.who}`} key={i}>
+              {listen.kind === 'chat' && <span className="cs-line-who">{l.name}</span>}
+              <span className="cs-line-text">{tr({ fr: `« ${l.fr} »`, en: `“${l.en}”` })}</span>
+            </p>
+          ))}
+        </div>
+      ) : (
+        <dl className="cs-rows">
+          {rows.filter(Boolean).map(([k, v]) => (
+            <div className="cs-row" key={k}>
+              <dt>{k}</dt>
+              <dd>{v}</dd>
+            </div>
+          ))}
+        </dl>
+      )}
+      {ears && !sheet.lost && (
+        <div className="cs-ears">
+          {listen ? (
+            <button type="button" className="cs-ear" onClick={() => { stopListening(); setSheet(readSheet()); }}>
+              {tr({ fr: 'Retour', en: 'Back' })}
+            </button>
+          ) : ears.chat && (
+            <button type="button" className="cs-ear" onClick={() => { startListening('chat'); setSheet(readSheet()); }}>
+              {tr({ fr: 'Écouter', en: 'Listen' })}
+            </button>
+          )}
+          {(!listen || listen.done) && (
+            <button type="button" className="cs-ear" onClick={() => { startListening('thought'); setSheet(readSheet()); }}>
+              {tr({ fr: 'Ses pensées', en: 'Thoughts' })}
+            </button>
+          )}
+        </div>
+      )}
       <div className="cs-actions">
         {!sheet.lost && (
           <button
