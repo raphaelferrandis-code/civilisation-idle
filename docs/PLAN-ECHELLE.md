@@ -373,3 +373,36 @@ trame gagne. Retiré, non commité.
   8) était une élévation de face → remplacé par le dessin jade dont le verre passe à
   l'ambre (`hueSwap` 160-205° → 38°) ; la tour nacrée à nervures était éclairée de DROITE
   → retournée en miroir aux trois ères (sans perte, la tour est symétrique).
+
+---
+
+## 6. Les tours en onyx (2026-10-07) — « tout est très monochrome, en zoomant c'est très fouillis »
+
+Raph, sur une capture de ville à Singularité VIII : de loin ça va, de près on ne lit plus
+rien. Mesuré : le défaut n'est pas la TEINTE mais la VALEUR. Le gratte-ciel à nervures
+(`skytower2`) n'avait aucun pixel sous L 80 (une insula romaine : la moitié), et au cœur
+300 tours de 6 à 7 tuiles, toutes claires, se recouvrent sans que rien ne détache une tour
+de celle qui est derrière. De loin l'œil lit une texture ; de près il cherche des objets.
+
+Essayé en jeu sur la même ville (remplacement d'images dans la page, rien d'écrit) :
+- **toutes les tours en onyx, maisons basses en nacre** — RETENU par Raph ;
+- une tour sur deux (un des deux gratte-ciel) : entre les deux, plus chargé ;
+- onyx tiré par îlot, maisons basses comprises : patchwork, les dômes deviennent des taches ;
+- onyx au centre, nacre en périphérie : masse sombre trop lourde ;
+- hauteurs graduées vers le centre (5 hauteurs découpées dans le fût) : presque invisible
+  de près ; à garder pour la silhouette de la ville, un jour.
+
+La règle : ce qui est HAUT (`HAUTES` de buildingGenerator : `skytower`, `skytower2`,
+`tower`, `megablock`, `arcologyhome`) prend la matière sombre des bâtiments-moteurs
+cosmiques (50 à 87 % de pixels sombres, rampe fer de la palette maître) ; ce qui est BAS
+(`gardentower`, `domehome`, `podstack`) garde la nacre. Le jade, l'or et le violet ne
+bougent pas. `scripts/onyxSkins.mjs` repeint la nacre (chroma ≤ 30) des 15 skins et de
+leurs 9 ruines sur la rampe `#0d0b0c → #7c828c`, valeur pour valeur ; aucun pixel ne
+bouge (fenêtres de nuit, boîtes d'encre, ombres inchangées). Source relue dans git
+(`323a56ae`) : relancer ne repeint jamais deux fois.
+
+Les autres ères vérifiées le même jour, en jeu (bandes 0 à 6, zoom 0,625 et 1,25) et sur
+les sprites : aucune n'a le défaut. Jusqu'à la bande 5 aucune habitation ne dépasse
+100 px d'encre et toutes ont 19 à 63 % de pixels sombres ; la bande 6 a deux hautes
+(`tower` 25 %, `arcologyhome` 14 %) mais espacées par leurs emprises 1×2 et 2×2, entre
+des rangées de brique et des blocs de verre.
