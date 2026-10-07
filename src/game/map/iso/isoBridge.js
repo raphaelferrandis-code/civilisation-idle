@@ -565,13 +565,21 @@ function idlerRhythm(seed, i, vertical) {
     along: vertical ? [2, 3] : [0, 1],            // marcher vers +l, vers −l (bandes diagonales)
   };
 }
+// UN SIGNE (paroles/signs.js) : l'accoudé s'arrête et se tourne vers ce qu'il a vu
+// (`_signDir`) ; son horloge prend le retard du temps arrêté (`_signLag`, s) et le
+// rattrape doucement ensuite. Le pêcheur, lui, se tourne sans quitter sa ligne.
 export function idlerNow(q, now) {
+  const st = idlerAt(q, now);
+  if (st && q._signDir != null) { st.dir = q._signDir; st.walking = false; }
+  return st;
+}
+function idlerAt(q, now) {
   const nf = CM.nightF || 0;
   if (q.fisher || !q.cyc) return { l: q.l, dir: q.dir, walking: false, alpha: 1, dist: 0 };   // le pêcheur reste à sa ligne, même la nuit
   // La nuit, il en reste un sur trois (s'efface en fondu au crépuscule).
   const na = Math.max(0, Math.min(1, (q.night - nf * 0.7) / 0.1));
   if (na <= 0) return null;
-  const W = IDLER.walk, t = ((now || 0) / 1000 + q.ph * q.cyc) % q.cyc;
+  const W = IDLER.walk, t = ((((now || 0) / 1000 - (q._signLag || 0) + q.ph * q.cyc) % q.cyc) + q.cyc) % q.cyc;
   const fwdDir = q.along[q.from > 0 ? 1 : 0];   // il vient de +l (from = 1) : il marche vers −l
   if (t < W) {
     const u = t / W;

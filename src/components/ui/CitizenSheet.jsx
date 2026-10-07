@@ -12,7 +12,7 @@ import {
   focusRelative,
 } from '../../game/map/citizenFocus.js';
 import { startListening, stopListening, listenView, listenOptions } from '../../game/map/paroles/listen.js';
-import { signsOffered, giveSign } from '../../game/map/paroles/signs.js';
+import { signsOffered, giveSign, reactionLabel } from '../../game/map/paroles/signs.js';
 import { tr } from '../../game/core/i18n.js';
 import '../../styles/citizen-sheet.css';
 
@@ -137,10 +137,10 @@ function moodValue(sheet) {
 
 // Le relevé complet : la fiche, plus l'écoute (docs/PLAN-ECOUTER-PARLER.md) — ce
 // qu'on entend en ce moment, et ce qu'on peut écouter — et les signes qu'on peut lui
-// faire (lot 4).
+// faire (lot 4), avec ce qu'il fait quand il y réagit (« À genoux », « S’enfuit »).
 function readSheet() {
   const s = citizenSheet();
-  return s && { ...s, listen: listenView(), ears: listenOptions(), signs: signsOffered() };
+  return s && { ...s, listen: listenView(), ears: listenOptions(), signs: signsOffered(), react: reactionLabel(CM.focus && CM.focus.p) };
 }
 
 // LES SIGNES (lot 4) : le vent, la lumière, le feu (s'il y en a un près de lui), la
@@ -211,7 +211,7 @@ export default function CitizenSheet() {
     sheet.riders != null && [tr({ fr: 'Voyageurs', en: 'Passengers' }), <span className="cs-num" key="n">{sheet.riders}</span>],
     sheet.crossings != null && [tr({ fr: 'Traversées', en: 'Crossings' }), <span className="cs-num" key="c">{sheet.crossings}</span>],
   ] : [
-    [tr({ fr: 'Activité', en: 'Doing' }), tr(sheet.activity)],
+    [tr({ fr: 'Activité', en: 'Doing' }), tr(sheet.react || sheet.activity)],
     sheet.home && [tr({ fr: 'Logis', en: 'Home' }), tr(sheet.home)],
     // L'enfant va à l'école (citizenIdentity.SCHOOLS) : sa ligne dit « École ».
     sheet.work && [tr(sheet.kind === 'child' ? { fr: 'École', en: 'School' } : { fr: 'Travail', en: 'Work' }), tr(sheet.work)],

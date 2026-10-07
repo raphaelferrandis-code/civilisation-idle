@@ -7,16 +7,20 @@ import { parolesSignsHere } from "../../core/paroles.js";
 import { focusCitizen, clearCitizenFocus } from "../citizenFocus.js";
 import { buildIdentity, householdOf, TRAITS } from "../citizenIdentity.js";
 import { stopListening, listenView } from "../paroles/listen.js";
-import { giveSign, signsOffered, signTick, endSign, nearestFire, nearestBeast, SIGN, BEAST_BEATS } from "../paroles/signs.js";
+import {
+  giveSign, signsOffered, signTick, resetSigns, nearestFire, nearestBeast, parentOnStreet, signActs, reactionLabel,
+  SIGN, REACT, BEAST_BEATS,
+} from "../paroles/signs.js";
 import { pickSign, parolesEligible, resolveLines } from "../paroles/pick.js";
-import { PAROLES_SIGNES } from "../../data/parolesSignes.js";
+import { PAROLES_SIGNES, SIGN_ACTS } from "../../data/parolesSignes.js";
 import { PAROLES } from "../../data/paroles.js";
 import { queueFlameGlow, paintFlameGlows, FIRE_BOOST } from "../flameGlow.js";
 import { chronicleArticles } from "../../data/chronicleArticles.js";
 import { worldToScreen } from "../iso/projection.js";
 
-// LES SIGNES (docs/PLAN-ECOUTER-PARLER.md, lot 4) : le vent, la lumière, le feu, la
-// bête ; ce que le passant en pense, par l'âge, par le caractère, par la répétition.
+// LES SIGNES (docs/PLAN-ECOUTER-PARLER.md, lots 4 et 4 bis) : le vent, la lumière, le
+// feu, la bête ; ce que le passant en pense, par l'âge, par le caractère, par la
+// répétition, et ce qu'il en FAIT.
 
 const NAMES = ["a", "conjoint", "enfant", "hote", "voisin", "voisine", "gamin", "gamine", "nom", "Nom", "bete", "Bete", "maitre"];
 const KINDS = ["wind", "light", "fire", "beast"];
@@ -29,9 +33,10 @@ const ctxOf = (o = {}) => ({
   a: adult(), b: null, rel: null, kidIs: null, names: { a: "Garin" }, ...o,
 });
 const textsOf = (l) => [l.fr, l.m, l.f, l.en].filter(Boolean);
+const signsOf = (e) => [].concat(e.sign || []);
 
 describe("le catalogue des signes", () => {
-  it("chaque entrée a sa forme : un id unique, un signe, une fois, une pensée en deux langues", () => {
+  it("chaque entrée a sa forme : un id unique, un signe, une fois, un geste, une pensée en deux langues", () => {
     const ids = new Set(PAROLES.map((e) => e.id));
     const articles = new Set(chronicleArticles.map((a) => a.id));
     for (const e of PAROLES_SIGNES) {
@@ -40,7 +45,8 @@ describe("le catalogue des signes", () => {
       expect(e.kind).toBe("sign");
       expect(e.layer).toBe(1);
       expect([1, 2, 3]).toContain(e.stage);
-      if (e.sign != null) expect(KINDS, e.id).toContain(e.sign);
+      for (const s of signsOf(e)) expect(KINDS, e.id).toContain(s);
+      expect(SIGN_ACTS, e.id).toContain(e.act);
       expect(e.lines.length).toBeGreaterThan(0);
       for (const l of e.lines) {
         expect(l.who).toBe("a");
@@ -84,6 +90,24 @@ describe("le catalogue des signes", () => {
     }
   });
 
+  it("la pensée dit son geste : qui fuit court, qui rentre rentre, qui prie y va, qui s'agenouille le dit", () => {
+    const SAYS = {
+      flee: /cour|vite|file|rentre|ne reste pas|quitte|change de rue|préfère rentrer/i,
+      home: /rentre|chez moi/i,
+      pray: /chaman|prêtre|culte|temple|augures|ocre|offrande|bougie|pierre/i,
+      kneel: /genou/i,
+      wave: /signe|main|salue|bonjour|salut|coucou/i,
+      parent: /maman|papa/i,
+      back: /recul|arrière|écart/i,
+    };
+    for (const e of PAROLES_SIGNES) {
+      const re = SAYS[e.act];
+      if (!re) continue;
+      const t = e.lines.map((l) => l.fr || l.m).join(" ");
+      expect(t, `${e.id} (${e.act})`).toMatch(re);
+    }
+  });
+
   it("à chaque âge, chacun a de quoi penser, à chaque fois, de chaque signe qu'il peut y recevoir", () => {
     const people = {
       adulte: adult(),
@@ -98,8 +122,10 @@ describe("le catalogue des signes", () => {
         for (const night of [false, true]) {
           for (let stage = 1; stage <= 3; stage += 1) {
             for (const [who, a] of Object.entries(people)) {
-              const ctx = ctxOf({ band, sign, stage, night, a, beast: sign === "beast" ? "dog" : null, names: { a: "Garin", ...DOG } });
-              expect(pickSign(ctx, {}, () => 0.5), `âge ${band}, ${sign}, fois ${stage}, ${who}, nuit ${night}`).not.toBe(null);
+              for (const [where, acts] of [["rue", undefined], ["scène", ["look", "search", "go"]], ["sans logis ni culte", ["look", "back", "search", "go", "flee", "kneel", "wave"]]]) {
+                const ctx = ctxOf({ band, sign, stage, night, a, acts, beast: sign === "beast" ? "dog" : null, names: { a: "Garin", ...DOG } });
+                expect(pickSign(ctx, {}, () => 0.5), `âge ${band}, ${sign}, fois ${stage}, ${who}, nuit ${night}, ${where}`).not.toBe(null);
+              }
             }
           }
         }
@@ -115,6 +141,32 @@ describe("la lecture", () => {
     // Déjà entendue : la réserve de tous reprend.
     const next = pickSign(ctx, { "s-f1-pious": 1 }, () => 0.5);
     expect(next.id).not.toBe("s-f1-pious");
+  });
+
+  it("sous la lumière, la deuxième fois, le pieux s'agenouille ; devant le feu, il va prier", () => {
+    const pious = adult({ traits: ["pious", "early"] });
+    for (let band = 0; band <= 9; band += 1) {
+      const r = pickSign(ctxOf({ band, sign: "light", stage: 2, a: pious }), {}, () => 0.5);
+      expect(r.act, `âge ${band}`).toBe("kneel");
+    }
+    const fire = pickSign(ctxOf({ band: 2, sign: "fire", stage: 2, a: pious }), {}, () => 0.5);
+    expect(fire.act).toBe("pray");
+  });
+
+  it("le superstitieux recule, puis s'enfuit ; devant le feu ou la bête, il s'enfuit tout de suite", () => {
+    const sup = adult({ traits: ["superstitious", "proud"] });
+    expect(pickSign(ctxOf({ band: 2, sign: "wind", stage: 1, a: sup }), {}, () => 0.5).act).toBe("back");
+    expect(pickSign(ctxOf({ band: 2, sign: "fire", stage: 1, a: sup }), {}, () => 0.99).act).toBe("flee");
+    expect(pickSign(ctxOf({ band: 2, sign: "wind", stage: 2, a: sup }), {}, () => 0.5).act).toBe("flee");
+  });
+
+  it("on ne pense pas un geste qu'on ne peut pas faire : ni « je vais au temple » sans temple, ni « je rentre » sans logis", () => {
+    const pious = adult({ traits: ["pious", "early"] });
+    const acts = ["look", "back", "search", "go", "flee", "kneel", "wave"];
+    for (let i = 0; i < 20; i += 1) {
+      const r = pickSign(ctxOf({ band: 2, sign: "fire", stage: 3, a: pious, acts }), {}, () => (i * 0.13) % 1);
+      expect(acts, r.id).toContain(r.act);
+    }
   });
 
   it("le taciturne regarde et ne dit rien : il n'a que ses mots, même redits", () => {
@@ -166,14 +218,35 @@ describe("la lecture", () => {
 });
 
 // ── EN JEU ─────────────────────────────────────────────────────────────────────
-function someone(extra = {}) {
-  let hh = null;
-  for (let s = 1; s < 5000 && !hh; s += 1) { const h = householdOf(s * 7919, 2); if (h.couple) hh = h; }
-  const identity = buildIdentity({ seed: 11, band: 2, fem: false, sprite: "villager", household: hh, slot: "m" });
+// Une petite ville : une rue de 30 cases d'est en ouest (y = 10), une rue nord-sud
+// (x = 20), un culte des ancêtres au bout.
+const T = 20;
+const cityMapWalkRoadKey = (gx, gy) => gx * 10000 + gy;   // la clé des cases de rue (agents.js)
+function streets() {
+  const cells = [];
+  for (let gx = 0; gx <= 30; gx += 1) cells.push({ gx, gy: 10 });
+  for (let gy = 0; gy <= 20; gy += 1) if (gy !== 10) cells.push({ gx: 20, gy });
+  CM.walkRoadList = cells;
+  CM.walkRoadSet = new Set(cells.map((c) => cityMapWalkRoadKey(c.gx, c.gy)));
+  CM.workRoadCells = [{ gx: 20, gy: 0, t: { buildingId: "ancestral_cult" } }];
+  CM.buildingEdgeSet = new Set([cityMapWalkRoadKey(2, 10), cityMapWalkRoadKey(20, 0)]);
+  CM.layoutRecomputeAt = (CM.layoutRecomputeAt || 0) + 1;
+}
+let hhCache = null;
+function couple() {
+  if (hhCache) return hhCache;
+  for (let s = 1; s < 5000; s += 1) { const h = householdOf(s * 7919, 2); if (h.couple && h.kids.length) { hhCache = h; return h; } }
+  throw new Error("pas de foyer");
+}
+function someone(extra = {}, slot = "m") {
+  const hh = couple();
+  const fem = slot === "f";
+  const child = slot[0] === "k";
+  const identity = buildIdentity({ seed: slot === "m" ? 11 : slot === "f" ? 22 : 33, band: 2, fem, sprite: child ? "villagerchild" : fem ? "villagerwoman" : "villager", household: hh, slot });
   return {
-    name: identity.name, seed: identity.seed, fem: false, charType: 0, skinVariant: 0, phase: 0.3,
-    gx: 10, gy: 10, x: 210, y: 210, lox: 0, loy: 0, tx: 210, ty: 210, pauseT: 0, dir: 2, home: null, work: null,
-    goalKind: "wander", role: "porte un panier", identity, ...extra,
+    name: identity.name, seed: identity.seed, fem, charType: child ? 2 : fem ? 1 : 0, skinVariant: 0, phase: 0.3,
+    gx: 10, gy: 10, x: 10.5 * T, y: 10.5 * T, lox: 0, loy: 0, tx: 10.5 * T, ty: 10.5 * T, pauseT: 0, dir: 2,
+    home: null, work: null, goalKind: "wander", role: "porte un panier", identity, speed: 24, ...extra,
   };
 }
 const clock = () => performance.now();
@@ -185,22 +258,23 @@ function fireAt(wx, wy) {
 }
 
 beforeEach(() => {
-  endSign();
+  resetSigns();
   clearCitizenFocus();
   stopListening();
   paintFlameGlows(null);
   paintFlameGlows(null);
   state.paroles = defaultParoles();
   state.cycles = 3;
-  CM.TILE = 20;
+  CM.TILE = T;
   CM.cw = 800; CM.ch = 600; CM.dpr = 1;
   CM.cam = { x: 200, y: 200, zoom: 2 };
   CM.zoomGoal = 2;
-  CM.nightF = 0; CM.rainF = 0; CM.healthF = 0.6; CM.rioters = []; CM.season = 1; CM.windX = 0;
+  CM.nightF = 0; CM.rainF = 0; CM.healthF = 0.6; CM.rioters = []; CM.season = 1; CM.windX = 0; CM.citT = 100;
   CM.layout = { counts: { eraBand: 2 }, critters: [] };
   CM.tileGrid = new Map();
   CM.describeTile = (t) => ({ title: t.title });
   CM.citizens = [];
+  CM.walkRoadList = []; CM.walkRoadSet = new Set(); CM.workRoadCells = []; CM.buildingEdgeSet = null;
 });
 
 describe("le geste", () => {
@@ -209,11 +283,11 @@ describe("le geste", () => {
     CM.citizens = [p];
     focusCitizen(p);
     expect(signsOffered()).toMatchObject({ wind: true, light: true, fire: false, beast: false });
-    fireAt(p.x + 3 * CM.TILE, p.y);
+    fireAt(p.x + 3 * T, p.y);
     CM.layout.critters = [{ gx: 12, gy: 10, jx: 0, jy: 0, kind: "goat", dir: 3 }];
     expect(signsOffered()).toMatchObject({ fire: true, beast: true });
     // Trop loin : rien.
-    expect(nearestFire(p, [{ ...worldToScreen(p.x + (SIGN.fireReach + 2) * CM.TILE, p.y), r: 10 }])).toBe(null);
+    expect(nearestFire(p, [{ ...worldToScreen(p.x + (SIGN.fireReach + 2) * T, p.y), r: 10 }])).toBe(null);
     CM.layout.critters = [{ gx: 10 + SIGN.beastReach + 2, gy: 10, jx: 0, jy: 0, kind: "goat", dir: 3 }];
     expect(nearestBeast(p)).toBe(null);
   });
@@ -267,17 +341,19 @@ describe("le geste", () => {
     const p = someone();
     CM.citizens = [p];
     focusCitizen(p);
-    fireAt(p.x, p.y - 3 * CM.TILE);          // au nord-est (−y)
+    fireAt(p.x, p.y - 3 * T);          // au nord-est (−y)
     const t0 = clock();
-    expect(giveSign("fire", t0)).toBe(true);
+    expect(giveSign("fire", t0, { act: "look" })).toBe(true);
     signTick(t0 + 400);
     expect(p.pauseT).toBeGreaterThan(3);
     expect(p.dir).toBe(3);
+    expect(reactionLabel(p)).toEqual({ fr: "Regarde", en: "Looking" });
     expect(FIRE_BOOST.on).toBe(true);
     expect(FIRE_BOOST.k).toBeGreaterThan(0.9);
     signTick(t0 + 6300);
     expect(CM.sign).toBe(null);
     expect(FIRE_BOOST.on).toBe(false);
+    expect(p._react).toBe(null);
   });
 
   it("devant la bête, il suit son regard : il se retourne, puis la regarde de nouveau ; elle reprend sa pose", () => {
@@ -287,7 +363,7 @@ describe("le geste", () => {
     const goat = { gx: 13, gy: 10, jx: 0, jy: 0, kind: "goat", dir: 3 };   // à l'est (+x)
     CM.layout.critters = [goat];
     const t0 = clock();
-    expect(giveSign("beast", t0)).toBe(true);
+    expect(giveSign("beast", t0, { act: "look" })).toBe(true);
     expect(goat.dir).not.toBe(3);                // elle se tourne vers lui
     signTick(t0 + 400);
     expect(p.dir).toBe(0);
@@ -295,13 +371,13 @@ describe("le geste", () => {
     expect(p.dir).toBe(1);
     signTick(t0 + BEAST_BEATS.backAt + 10);
     expect(p.dir).toBe(0);
-    endSign();
+    resetSigns();
     expect(goat.dir).toBe(3);
   });
 
   it("le chien qu'on promène s'assoit et le fixe, et son maître l'attend", () => {
     const p = someone();
-    const master = someone({ x: 250, y: 210, tx: 260, ty: 210, seed: 99 });
+    const master = someone({ x: 12.5 * T, y: 10.5 * T, tx: 13 * T, ty: 10.5 * T, gx: 12, seed: 99 });
     master._vieDog = { side: 1, g: 0, hx: 1, hy: 0 };
     CM.citizens = [p, master];
     focusCitizen(p);
@@ -311,7 +387,186 @@ describe("le geste", () => {
     expect(master._vieDog.stare).toMatchObject({ x: p.x, y: p.y });
     signTick(t0 + 400);
     expect(master.pauseT).toBeGreaterThan(3);
-    endSign();
+    resetSigns();
     expect(master._vieDog.stare).toBe(null);
+  });
+});
+
+describe("ce qu'il fait", () => {
+  it("il s'agenouille, tourné vers toi, et se relève", () => {
+    const p = someone();
+    CM.citizens = [p];
+    focusCitizen(p);
+    const t0 = clock();
+    giveSign("light", t0, { act: "kneel" });
+    signTick(t0 + 1600);
+    expect([0, 2]).toContain(p.dir);
+    expect(p.pauseT).toBeGreaterThan(5);
+    expect(p._react.pose).toEqual({ kind: "sit", u: 1 });
+    expect(reactionLabel(p).fr).toBe("À genoux");
+    signTick(t0 + REACT.kneel.up + REACT.kneel.upMs / 2);
+    expect(p._react.pose.u).toBeCloseTo(0.5, 1);
+    signTick(t0 + REACT.kneel.end + 10);
+    expect(p._react).toBe(null);
+  });
+
+  it("il te fait signe, deux fois", () => {
+    const p = someone();
+    CM.citizens = [p];
+    focusCitizen(p);
+    const t0 = clock();
+    giveSign("wind", t0, { act: "wave" });
+    signTick(t0 + REACT.wave.start + REACT.wave.ms * 0.5);
+    expect(p._react.pose).toEqual({ kind: "wave", u: 0.5 });
+    expect([0, 2]).toContain(p.dir);
+    signTick(t0 + REACT.wave.start + REACT.wave.ms * 2 + 50);
+    expect(p._react.pose).toBe(null);
+  });
+
+  it("il reste à chercher des yeux, d'un côté puis de l'autre", () => {
+    const p = someone();
+    CM.citizens = [p];
+    focusCitizen(p);
+    const t0 = clock();
+    giveSign("light", t0, { act: "search" });
+    const dirs = new Set();
+    for (let t = 300; t < REACT.search.end; t += 500) { signTick(t0 + t); dirs.add(p.dir); }
+    expect(dirs.size).toBeGreaterThanOrEqual(3);
+    expect(p.pauseT).toBeGreaterThan(0);
+    signTick(t0 + REACT.search.end + 10);
+    expect(p._react).toBe(null);
+  });
+
+  it("il recule d'un pas, sans quitter des yeux ce qu'il a vu", () => {
+    const p = someone();
+    CM.citizens = [p];
+    focusCitizen(p);
+    fireAt(p.x + 3 * T, p.y);           // à l'est
+    const x0 = p.x, t0 = clock();
+    giveSign("fire", t0, { act: "back" });
+    signTick(t0 + REACT.back.to + 10);
+    expect(p.x).toBeLessThan(x0 - REACT.back.dist * T * 0.8);
+    expect(p.dir).toBe(0);
+  });
+
+  it("il part en courant chez lui, et il s'y enferme", () => {
+    streets();
+    const p = someone({ home: { gx: 2, gy: 10 } });
+    CM.citizens = [p];
+    focusCitizen(p);
+    const t0 = clock();
+    giveSign("fire", t0, { act: "flee" }) || giveSign("wind", t0, { act: "flee" });
+    signTick(t0 + REACT.leave.flee + 10);
+    expect(p.goal).toEqual({ gx: 2, gy: 10 });
+    expect(p.goalKind).toBe("home");
+    expect(p._react.run).toBe(true);
+    expect(p._react.stay).toBe(REACT.stay.home);
+    expect(p.pauseT).toBe(0);
+    expect(reactionLabel(p).fr).toBe("S’enfuit");
+  });
+
+  it("sans logis, il fuit loin de ce qui l'a effrayé", () => {
+    streets();
+    const p = someone();
+    CM.citizens = [p];
+    focusCitizen(p);
+    fireAt(p.x + 3 * T, p.y);           // le feu à l'est : il part vers l'ouest
+    const t0 = clock();
+    giveSign("fire", t0, { act: "flee" });
+    signTick(t0 + REACT.leave.flee + 10);
+    expect(p.goalKind).toBe("flee");
+    expect(p.goal.gx).toBeLessThan(10);
+  });
+
+  it("il va prier au culte le plus proche, d'un pas pressé", () => {
+    streets();
+    const p = someone();
+    CM.citizens = [p];
+    focusCitizen(p);
+    expect(signActs(p, false)).toContain("pray");
+    const t0 = clock();
+    giveSign("light", t0, { act: "pray" });
+    signTick(t0 + REACT.leave.pray + 10);
+    expect(p.goal).toEqual({ gx: 20, gy: 0 });
+    expect(p.goalKind).toBe("pray");
+    expect(p._react.hurry).toBeGreaterThan(1);
+    expect(reactionLabel(p).fr).toBe("Va prier");
+  });
+
+  it("sans culte, sans logis, sa pensée ne parle ni de prier ni de rentrer", () => {
+    const p = someone();
+    CM.citizens = [p];
+    const acts = signActs(p, false);
+    expect(acts).not.toContain("pray");
+    expect(acts).not.toContain("home");
+    expect(signActs(p, true)).toEqual(["look", "search", "go"]);
+  });
+
+  it("l'enfant court vers sa mère quand elle est dans la rue, et ils se regardent", () => {
+    streets();
+    const hh = couple();
+    const kidSlot = hh.kids[0].slot || "k0";
+    const kid = someone({ gx: 10, x: 10.5 * T }, kidSlot);
+    const mum = someone({ gx: 14, x: 14.5 * T, tx: 14.5 * T, seed: 77 }, "f");
+    CM.citizens = [kid, mum];
+    expect(parentOnStreet(kid)).toBe(mum);
+    focusCitizen(kid);
+    const t0 = clock();
+    giveSign("wind", t0, { act: "parent" });
+    signTick(t0 + REACT.leave.parent + 10);
+    expect(kid.goal).toEqual({ gx: 14, gy: 10 });
+    expect(kid._react.run).toBe(true);
+    expect(reactionLabel(kid).fr).toBe("Court vers sa mère");
+    // Il la rejoint : ils s'arrêtent et se regardent.
+    kid.x = mum.x - T * 0.5;
+    signTick(t0 + REACT.leave.parent + 800);
+    expect(kid.pauseT).toBeGreaterThan(1);
+    expect(mum.pauseT).toBeGreaterThan(1);
+    expect(kid.dir).toBe(0);
+    expect(mum.dir).toBe(1);
+  });
+
+  it("les passants autour s'arrêtent et regardent eux aussi", () => {
+    const p = someone();
+    const others = [1, 2, 3].map((k) => someone({ gx: 10 + k, x: (10.5 + k) * T, seed: 100 + k }));
+    CM.citizens = [p, ...others];
+    focusCitizen(p);
+    const r = Math.random;
+    Math.random = () => 0.1;
+    try {
+      giveSign("light", clock(), { act: "look" });
+    } finally { Math.random = r; }
+    const t = clock() + 1000;
+    signTick(t);
+    for (const q of others) {
+      expect(q.pauseT, q.name).toBeGreaterThan(0);
+      expect(q.dir, q.name).toBe(1);          // tournés vers lui, à l'ouest
+    }
+  });
+
+  it("un personnage de scène s'arrête, se tourne, prend du retard sur sa scène, puis le rattrape", () => {
+    const fig = someone({ scene: "quai" });
+    focusCitizen(fig);
+    CM.focus.kind = "figure";
+    const t0 = clock();
+    expect(giveSign("light", t0, { act: "look" })).toBe(true);
+    signTick(t0 + 300);
+    signTick(t0 + 1300);
+    expect(fig._signDir).toBe(1);
+    expect(fig._signLag).toBeGreaterThan(0);
+    signTick(t0 + REACT.look + 10);
+    expect(fig._signDir).toBe(null);
+    const lag = fig._signLag;
+    for (let t = 0; t < 40; t += 1) signTick(t0 + REACT.look + 100 + t * 100);
+    expect(fig._signLag).toBeLessThan(lag);
+  });
+
+  it("le laboureur et les gens des bateaux ne reçoivent pas de signe", () => {
+    for (const scene of ["champ", "port", "bac", "navette", "bateau"]) {
+      const fig = someone({ scene });
+      focusCitizen(fig);
+      CM.focus.kind = "figure";
+      expect(signsOffered(), scene).toBe(null);
+    }
   });
 });

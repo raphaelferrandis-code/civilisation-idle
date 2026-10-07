@@ -1254,8 +1254,9 @@ function citizenChooseNext(p) {
   // levée (updateCitizens). Jusqu'à la fin de la pluie, c'était la moitié de la foule
   // figée sous les auvents (mesuré en jeu). Ceux qui RENTRENT, eux, courent (RUN_K).
   const env = CM._citEnv || null;
-  // Le frileux s'abrite dès la petite pluie, et plus souvent (fiche d'habitant).
-  if (env && env.rain > (tr.chilly ? 0.18 : 0.3) && !p.leaving && !p.social && !p.lead && !homeTime(dp) && p.goalKind !== "home" && (CM.citT || 0) >= (p._shelterAt || 0)
+  // Le frileux s'abrite dès la petite pluie, et plus souvent (fiche d'habitant). (Pas
+  // celui qui réagit à un signe : il a mieux à faire, cf. citizenReactGo.)
+  if (env && env.rain > (tr.chilly ? 0.18 : 0.3) && !p.leaving && !p.social && !p.lead && !p._react && !homeTime(dp) && p.goalKind !== "home" && (CM.citT || 0) >= (p._shelterAt || 0)
     && CM.buildingEdgeSet && CM.buildingEdgeSet.has(cityMapWalkRoadKey(p.gx, p.gy)) && Math.random() < (tr.chilly ? 0.12 : 0.05)) {
     const fd = facingBuilding(p.gx, p.gy);
     if (fd >= 0) {
@@ -1270,7 +1271,7 @@ function citizenChooseNext(p) {
   // instant, tourné vers lui — de jour, sans but social, pas en partance, une fois par
   // demi-minute au plus. (Les seules haltes étaient la place et le parvis.)
   // Le curieux, le gourmand et le distrait s'y arrêtent deux fois plus.
-  if (!arrived && p.goal && !p.leaving && !p.social && !homeTime(dp) && !(p._nf > 0)
+  if (!arrived && p.goal && !p.leaving && !p.social && !p._react && !homeTime(dp) && !(p._nf > 0)
     && (CM.citT || 0) >= (p._browseAt || 0) && shopDoorSet().has(cityMapWalkRoadKey(p.gx, p.gy))
     && Math.random() < (tr.curious || tr.greedy || tr.absent ? 0.12 : 0.06)) {
     const fd = facingBuilding(p.gx, p.gy);
@@ -1293,7 +1294,10 @@ function citizenChooseNext(p) {
       const gc = p._goalCell && p._goalCell.gx === p.gx && p._goalCell.gy === p.gy ? p._goalCell : null;
       p._in = { kind: p.goalKind, t: doorTile(p, gc) };
       p.goal = null; p._path = null;
-      p._enter = dw.dawn ? { dawn: true } : { until: (CM.citT || 0) + dw.t };
+      // Rentré chez lui après un signe (« Ça suffit. Je rentre. ») : il s'y enferme le
+      // temps que lui donne sa réaction (paroles/signs.js), pas celui d'un passage.
+      const stay = p._react && p._react.stay;
+      p._enter = stay ? { until: (CM.citT || 0) + stay } : dw.dawn ? { dawn: true } : { until: (CM.citT || 0) + dw.t };
       const fd = facingBuilding(p.gx, p.gy);
       if (fd >= 0) p.dir = fd;
       return;
@@ -1691,6 +1695,60 @@ function companionDetach(p) {
   p.tx = (p.gx + 0.5) * CM.TILE; p.ty = (p.gy + 0.5) * CM.TILE;
   p._grp = undefined;   // il pourra se raccrocher à un autre (companionAssign)
 }
+
+// RÉAGIR À UN SIGNE (docs/PLAN-ECOUTER-PARLER.md, lot 4 bis ; la scène est menée par
+// paroles/signs.js) : le passant part TOUT DE SUITE quelque part, et c'est ce que sa
+// pensée annonce. `spec.kind` :
+//   'home'  chez lui (sinon la porte la plus proche en marchant) ;
+//   'pray'  au culte des ancêtres le plus proche EN MARCHANT (pas un tiré au hasard) ;
+//   'away'  à `spec.dist` cases au moins de `spec.from` { gx, gy } (il fuit) ;
+//   'cell'  vers `spec.cell` { gx, gy } (l'enfant qui court vers sa mère).
+// Rend vrai si un but est posé. Pendant la réaction, `p._react` (posé par signs.js) le
+// garde de ce qui la défairait : l'averse, le soir, l'émeute, l'auvent, la vitrine, la
+// causette ; il court (`run`) ou presse le pas (`hurry`) ; rentré, il reste `stay` s.
+// Un compagnon quitte son meneur ; celui qui s'en va déjà (la foule baisse) y va déjà.
+export function citizenReactGo(p, spec) {
+  if (!p || !spec || !CM.walkRoadList.length || p._riot || p._enter || p._vanish !== undefined) return false;
+  if (p.leaving) return spec.kind === 'home' || spec.kind === 'away';
+  const reachable = (c) => !!c && CM.walkRoadSet.has(cityMapWalkRoadKey(c.gx, c.gy));
+  const cellOf = (key) => ({ gx: Math.floor(key / 10000), gy: key % 10000 });
+  let cell = null, kind = 'wander';
+  if (spec.kind === 'home') {
+    kind = 'home';
+    if (reachable(p.home) && sameIsland(p, p.home)) cell = p.home;
+    else {
+      const es = CM.buildingEdgeSet;
+      const hit = es && es.size ? walkNearest(p.gx, p.gy, (k) => es.has(k), walkNeighbors, 60) : null;
+      if (hit) cell = cellOf(hit.key);
+    }
+  } else if (spec.kind === 'pray') {
+    kind = 'pray';
+    const m = new Map();
+    for (const c of CM.workRoadCells || []) if (c.t && c.t.buildingId === 'ancestral_cult') m.set(cityMapWalkRoadKey(c.gx, c.gy), c);
+    const hit = m.size ? walkNearest(p.gx, p.gy, (k) => m.has(k), walkNeighbors, 400) : null;
+    if (hit) cell = m.get(hit.key);
+  } else if (spec.kind === 'away' && spec.from) {
+    kind = 'flee';
+    const X = spec.from, dmin = spec.dist || 7;
+    const hit = walkNearest(p.gx, p.gy, (k) => Math.hypot(Math.floor(k / 10000) - X.gx, (k % 10000) - X.gy) >= dmin, walkNeighbors, 80);
+    if (hit && hit.key !== cityMapWalkRoadKey(p.gx, p.gy)) cell = cellOf(hit.key);
+  } else if (spec.kind === 'cell' && reachable(spec.cell) && sameIsland(p, spec.cell)) {
+    cell = spec.cell;
+  }
+  if (!cell) return false;
+  if (p.lead) { companionDetach(p); p._grp = 0; }
+  p.goal = { gx: cell.gx, gy: cell.gy }; p._goalCell = cell; p.goalKind = kind; p.social = false;
+  p._goalAt = CM.citT || 0; p._path = null; p.gatherDir = null;
+  p.pauseT = 0; p.chatT = 0; p._chatWith = null; p._browse = false; p._watch = false; p._shelter = false;
+  return true;
+}
+// Une case de culte des ancêtres que ce passant peut atteindre ? (Sa pensée ne dira pas
+// « je vais au temple » s'il n'y en a pas.)
+export function citizenCanPray(p) {
+  if (!p) return false;
+  for (const c of CM.workRoadCells || []) if (c.t && c.t.buildingId === 'ancestral_cult' && sameIsland(p, c)) return true;
+  return false;
+}
 function companionFollow(p, L, dt) {
   p.gx = L.gx; p.gy = L.gy; p.tx = L.tx; p.ty = L.ty;
   p.social = false; p.goal = null;
@@ -1723,7 +1781,8 @@ function companionFollow(p, L, dt) {
   // des « dashs » venaient de là. Le compagnon garde le lissage mais ne dépasse
   // jamais `catchK` fois l'allure du meneur ; quand il rattrape, il regarde où il va.
   const ex = nx - ox, ey = ny - oy, gap = Math.hypot(ex, ey);
-  const runK = citizenSheltering(L) ? RUN_K : 1;   // le meneur court sous l'averse : on court avec lui
+  // Le meneur court sous l'averse, ou devant un signe qui l'a effrayé : on court avec lui.
+  const runK = citizenSheltering(L) || (L._react && L._react.run) ? RUN_K : 1;
   const step = Math.min(gap * Math.min(1, dt * 8), pedWalkSpeed(L) * runK * COMPANIONS.catchK * dt);
   if (gap > 1e-6) { p.x = ox + ex / gap * step; p.y = oy + ey / gap * step; }
   p.walkDist = (p.walkDist || 0) + step;
@@ -1753,7 +1812,7 @@ function citizenGreetings() {
   const T = CM.TILE, t = CM.citT || 0;
   const cells = new Map(), who = [];
   for (const p of CM.citizens) {
-    if (p._nightHidden || p.lead || p.leaving || p.social || p._enter || p._vanish !== undefined) continue;
+    if (p._nightHidden || p.lead || p.leaving || p.social || p._enter || p._react || p._vanish !== undefined) continue;
     if ((p.pauseT || 0) > 0 || t < (p._greetAt || 0)) continue;
     const px = p.x + (p.lox || 0), py = p.y + (p.loy || 0);
     const k = Math.floor(px / T) * 10000 + Math.floor(py / T);
@@ -1804,6 +1863,9 @@ if (import.meta.env?.DEV && typeof window !== 'undefined') window.__avoid = (o) 
 // LA POSE d'un passant (§8 de PLAN-COMPORTEMENTS) : deux passants qui se croisent et
 // s'arrêtent causer commencent par se SALUER (la première seconde de la causette).
 function citizenPose(p) {
+  // Un signe (paroles/signs.js) : il s'agenouille, il te fait signe — à l'arrêt.
+  const R = p._react;
+  if (R && R.pose && (p.pauseT || 0) > 0) return R.pose;
   if (!(p.chatT > 0) || !p._chat0 || !p._chatWith) return null;
   const t = p._chat0 - p.chatT;
   return t >= 0 && t < 1.3 ? { kind: 'wave', u: t / 1.3 } : null;
@@ -2010,8 +2072,9 @@ function updateCitizens(dt) {
     // pas suivant le relançait dans la rue en train de s'effacer (lot 2).
     if (p._vanish !== undefined && (p._enter || p.leaving)) continue;
 
-    // Compagnon (lot D) : accroché à son meneur, il ne cherche pas son chemin.
-    if (p._grp === undefined) companionAssign(p);
+    // Compagnon (lot D) : accroché à son meneur, il ne cherche pas son chemin. (Pas
+    // pendant qu'il réagit à un signe : il vient peut-être de quitter le sien.)
+    if (p._grp === undefined && !p._react) companionAssign(p);
     if (p.lead) {
       const L = p.lead;
       // Lâché seulement si le meneur n'est plus là, ou si LUI part sans son meneur
@@ -2026,7 +2089,7 @@ function updateCitizens(dt) {
     // rebroussent chemin vers un but de temps de pluie (citizenChooseNext tire avec la
     // météo). Sans cela la place restait pleine de ceux partis au sec, et les trajets
     // vers les places sont les plus longs de la ville.
-    if (CM._rainOn && !p.lead && !p.leaving && !p._enter && !p._shelter && (p._goalAt || 0) < CM._rainAt
+    if (CM._rainOn && !p.lead && !p.leaving && !p._enter && !p._shelter && !p._react && (p._goalAt || 0) < CM._rainAt
       && RAIN_RETHINK.has(p.goalKind)) {
       p._goalAt = CM.citT;
       if (Math.random() < 0.75) {
@@ -2040,7 +2103,7 @@ function updateCitizens(dt) {
     // fleuve. Chacun revoit son programme à SON heure (les départs s'étalent sur ~45 s,
     // comme les sorties de l'aube) : le pickAgenda du soir le renvoie chez lui ; un
     // couche-tard sur deux garde sa sortie.
-    if (CM._duskOn && !p.lead && !p.leaving && !p._enter && (p._goalAt || 0) < CM._duskAt && DUSK_RETHINK.has(p.goalKind)) {
+    if (CM._duskOn && !p.lead && !p.leaving && !p._enter && !p._react && (p._goalAt || 0) < CM._duskAt && DUSK_RETHINK.has(p.goalKind)) {
       const trD = p._tr || (p._tr = citizenTraits(p));
       if ((CM.citT || 0) - CM._duskAt >= trD.stagger * 45) {
         p._goalAt = CM.citT;
@@ -2056,7 +2119,7 @@ function updateCitizens(dt) {
     // Le courageux s'arrête plus souvent pour regarder ; le prudent la voit de plus loin
     // et s'éloigne presque toujours (fiche d'habitant).
     const rc = CM._riotC;
-    if (rc && p._riotSeen !== CM.riotEpoch && !p.leaving && !p._enter && !p._shelter) {
+    if (rc && p._riotSeen !== CM.riotEpoch && !p.leaving && !p._enter && !p._shelter && !p._react) {
       const dR = Math.hypot(p.gx - rc.gx, p.gy - rc.gy);
       const trR = p._tr || (p._tr = citizenTraits(p));
       if (dR < (trR.cautious ? 9 : 6)) {
@@ -2103,7 +2166,7 @@ function updateCitizens(dt) {
       if (dist < 2.4) {
         // Un meneur accompagné s'arrête parfois pour bavarder (jamais en partance,
         // jamais en flânerie de place — elle a déjà sa halte).
-        if ((p._nf || 0) > 0 && !p.social && !p.leaving && !abri && Math.random() < COMPANIONS.chatP) companionChat(p);
+        if ((p._nf || 0) > 0 && !p.social && !p.leaving && !abri && !p._react && Math.random() < COMPANIONS.chatP) companionChat(p);
         else citizenChooseNext(p);
       } else {
         // Iso : la projection étale l'écran (losange 2:1) → la même vitesse MONDE
@@ -2115,8 +2178,11 @@ function updateCitizens(dt) {
         // le pas lent, rentrer d'un bon pas le soir…), et un DÉMARRAGE progressif après
         // un arrêt (une demi-seconde) au lieu de repartir d'un bond à pleine vitesse.
         p._ramp = Math.min(1, (p._ramp == null ? 1 : p._ramp) + dt / 0.5);
-        const pace = paceFor(p, p._tr || (p._tr = citizenTraits(p)), dpNow, p.goalKind, env) * (0.35 + 0.65 * p._ramp);
-        const sp = p.speed * dt * isoK * PED_SPEED.k * (abri ? RUN_K : pace);
+        // Un signe l'a effrayé : il COURT, à l'allure de l'averse ; il rentre ou va prier :
+        // il presse le pas (paroles/signs.js, `p._react`).
+        const R = p._react;
+        const pace = paceFor(p, p._tr || (p._tr = citizenTraits(p)), dpNow, p.goalKind, env) * (0.35 + 0.65 * p._ramp) * ((R && R.hurry) || 1);
+        const sp = p.speed * dt * isoK * PED_SPEED.k * (abri || (R && R.run) ? RUN_K : pace);
         p.x += dx / dist * sp;
         p.y += dy / dist * sp;
         // Odomètre de marche : pilote l'animation PAR DISTANCE (les pieds suivent

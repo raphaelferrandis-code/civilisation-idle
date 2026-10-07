@@ -563,8 +563,12 @@ export function folkAt(F, nowMs, T, depthOf, env = null) {
   const out = [], byI = new Map();
   F.frame += 1;
   for (let i = 0; i < F.actors.length; i += 1) {
-    const a = F.actors[i], o = a.off * S;
-    const k = Math.floor((t - o) / S), u = t - o - k * S;
+    // UN SIGNE (paroles/signs.js) : celui qui le reçoit s'arrête et se tourne vers ce
+    // qu'il a vu (`rec._signDir`) ; son horloge prend le retard du temps arrêté
+    // (`rec._signLag`, s), qu'il rattrape doucement ensuite (signs.js le résorbe), pour
+    // que les rendez-vous de la place se retrouvent.
+    const a = F.actors[i], o = a.off * S, lag = (a._rec && a._rec._signLag) || 0;
+    const k = Math.floor((t - lag - o) / S), u = t - lag - o - k * S;
     const L = leg(F, i, k, S);
     if (!L) continue;
     const d = u * L.speed;
@@ -612,6 +616,8 @@ export function folkAt(F, nowMs, T, depthOf, env = null) {
     rec.dir = dir; rec.walking = walking; rec.walkDist = walking ? d * T : 0; rec.alpha = alpha;
     rec.act = act; rec.stall = act === 'stall'; rec.lookAt = F.lookAt; rec.mate = null; rec.pose = pose;
     rec._grp = !walking && act === 'chat' ? L.B.grp : null;
+    if (rec._signDir != null) { rec.dir = rec._signDir; rec.walking = false; rec.walkDist = 0; rec.pose = null; }
+    a._rec = rec;
     rec._f = F.frame;
     byI.set(i, rec);
     out.push(rec);

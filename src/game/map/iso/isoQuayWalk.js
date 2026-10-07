@@ -115,9 +115,14 @@ registerVieActors((now, out) => {
   for (const w of walkers(spans)) {
     const fade = Math.min(1, (w.night - th) / 0.12);     // un fondu de quelques secondes au crépuscule
     if (fade <= 0) continue;
-    const cyc = w.move + w.stop, k = Math.floor(t / cyc), ph = t - k * cyc;
+    // UN SIGNE (paroles/signs.js) : l'un des deux s'arrête et regarde ; la paire attend.
+    // Son horloge prend le retard du temps arrêté (et le rattrape doucement ensuite).
+    const lag = Math.max(w.p._signLag || 0, (w.mate && w.mate._signLag) || 0);
+    const held = w.p._signDir != null || !!(w.mate && w.mate._signDir != null);
+    const tw = t - lag;
+    const cyc = w.move + w.stop, k = Math.floor(tw / cyc), ph = tw - k * cyc;
     const moved = k * w.move + Math.min(ph, w.move);      // secondes de marche écoulées
-    const paused = ph >= w.move;
+    const paused = held || ph >= w.move;
     const distPx = moved * SPEED_PX * w.v * QUAY_WALK.speed;
     const per = 2 * w.len;
     const q = (((distPx / stepPx + w.off) % per) + per) % per;
@@ -156,7 +161,7 @@ registerVieActors((now, out) => {
       const a = quayLanePoint(w.sp.run, u + (fwd ? 0.05 : -0.05), lane);
       dir = DIRS(a.x - pos.x, a.y - pos.y);
     }
-    p.dir = dir;
+    p.dir = p._signDir != null ? p._signDir : dir;
     noteFig(pos.x, pos.y, FIG.QUAY | (paused ? 0 : FIG.MOVING));
     out.push({
       wx: pos.x, wy: pos.y, d: isoUnitDepthEx(pos.x, pos.y).d,
@@ -165,7 +170,7 @@ registerVieActors((now, out) => {
     const m = w.mate;
     if (m) {
       const mp = quayLanePoint(w.sp.run, u, Math.max(0.38, Math.min(0.9, lane + MATE_SIDE[fwd ? 0 : 1] * PAIR_GAP)));
-      m.x = mp.x; m.y = mp.y; m.dir = dir; m.pauseT = p.pauseT; m.walkDist = distPx + 7; m.fade = fade;
+      m.x = mp.x; m.y = mp.y; m.dir = m._signDir != null ? m._signDir : dir; m.pauseT = p.pauseT; m.walkDist = distPx + 7; m.fade = fade;
       noteFig(mp.x, mp.y, FIG.QUAY | (paused ? 0 : FIG.MOVING));
       out.push({
         wx: mp.x, wy: mp.y, d: isoUnitDepthEx(mp.x, mp.y).d,

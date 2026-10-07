@@ -7,7 +7,7 @@ Chantier ouvert le 2026-10-07 sur la demande de Raph :
 > n'interagit pas avec eux, puis après une option dialogue qui permette de parler avec
 > certains. »
 
-**Statut : plan tranché, lots 1 à 4 livrés ; les lots 2 à 4 sont à juger en jeu.** La fiche d'habitant qui sert de socle est faite
+**Statut : plan tranché, lots 1 à 4 bis livrés ; les lots 2 à 4 bis sont à juger en jeu.** La fiche d'habitant qui sert de socle est faite
 (commit `4a99b8bc` : identité, foyers, métier, humeur et sa cause, « où il est entré »).
 Raph a répondu aux questions du § 11 le jour même (tableau 1 bis).
 **Ce document fait foi pour ce chantier.**
@@ -262,6 +262,41 @@ dans la cendre, le signe qui change de forme avec les âges) sont écartées.
   confiance : seule l'écoute l'ouvre. Les rumeurs sur les signes que la cité a vus restent
   à écrire (§ 6.2).
 
+### 5.6 Ce qu'il fait (lot 4 bis)
+
+Raph, sur le lot 4 : « les réactions sont un peu étranges aux signes, et les comportements du
+pnj ne changent pas, il marche tranquillement. Il faudrait plusieurs réactions, par exemple
+si la lumière vient plusieurs fois sur lui, il s'agenouille en priant, ou bien au contraire
+il a peur et part en courant ». Dix idées proposées, toutes retenues (« tout ! »).
+
+- **La pensée annonce le geste, et il le fait.** Chaque pensée porte son geste (`act`) :
+  il regarde, recule d'un pas, s'agenouille tourné vers toi (la pose assise des bancs, posée
+  au sol), te fait signe (la pose du salut), reste vingt secondes à chercher des yeux d'un
+  côté puis de l'autre, part en courant (chez lui, sinon loin de ce qui l'a effrayé), rentre
+  chez lui et s'y enferme quarante secondes (le râleur, plus vite), va prier au culte des
+  ancêtres le plus proche d'un pas pressé, court vers son père ou sa mère s'ils sont dans la
+  rue (l'enfant), ou repart en pressant le pas. Il ne pense jamais un geste qu'il ne peut pas
+  faire : pas de temple sans culte, pas de « je rentre » sans logis (`signActs`).
+- **Qui fait quoi** : le pieux regarde, puis s'agenouille sous la lumière ou va prier, et y
+  retourne à la troisième fois ; le superstitieux et le prudent reculent, puis fuient (tout
+  de suite devant le feu ou la bête) ; le curieux reste à chercher ; le joyeux et l'enfant
+  font signe, l'enfant court ensuite vers ses parents ; le râleur repart en pressant le pas ;
+  les autres regardent, s'expliquent la chose, puis rentrent. Au Feu, au Bourg et au Marbre,
+  n'importe qui peut aussi s'agenouiller sous la lumière la deuxième fois.
+- **Les passants autour** (à trois cases et demie, quatre au plus) s'arrêtent et regardent
+  eux aussi, chacun à son rythme ; un enfant dont le père ou la mère est dans la rue court
+  vers lui.
+- **Les personnages de scène** du quai, du pont (le pêcheur se tourne sans lâcher sa ligne),
+  de la place et de la Maison des Plaisirs s'arrêtent et se tournent ; leur scène prend le
+  retard du temps arrêté, qu'elle rattrape ensuite. Le laboureur (soudé à son attelage), le
+  port, le bac, la navette et les gens des bateaux ne reçoivent pas de signe.
+- **La fiche dit ce qu'il fait** : « À genoux », « S’enfuit », « Va prier », « Court vers sa
+  mère », « Cherche des yeux ».
+- Mécanique : `paroles/signs.js` mène les réactions (une par personne, plusieurs à la fois) ;
+  un passant de la rue part par `agents.citizenReactGo` et porte `p._react`, qui le garde de
+  l'averse, du soir, de l'émeute, de l'auvent, de la vitrine et de la causette le temps de
+  son geste ; un personnage de scène porte `_signDir` et `_signLag`.
+
 ---
 
 ## 6. Ce qu'ils savent et ce qu'ils croient de toi
@@ -416,6 +451,7 @@ Le récit seulement :
    le nom de la gazette ; le panneau.
 3. ✅ **La Chronique des âges 7 à 9** : P8 à P10, dans la voix de la gazette.
 4. ✅ **Les signes** : vent, lumière, feu, bête ; les réactions par âge et par caractère.
+   ✅ 4 bis : ce qu'il FAIT (§ 5.6).
 5. **Le déclic et le dialogue par signes** : Claude, au Feu, jusqu'à P3.
 6. **Les mots**, dès P3 : les passants, puis les figures de la Chronique.
 7. **Le Démiurge et le Grand Reset dans la fiction.**
@@ -507,3 +543,10 @@ Les six questions du premier jet sont tranchées (tableau 1 bis). Aucune ouverte
   retouches en cours de route : les langues de feu restaient cachées dans la flamme du grand
   foyer (elles partent désormais du haut de la flamme), et les feuilles vertes disparaissaient
   sur l'herbe (le vent soulève des feuilles sèches). Muets jusqu'à la fin du chantier sonore.
+- 2026-10-07 : Raph, sur le lot 4 : les réactions sont étranges et le passant continue de
+  marcher tranquillement ; il veut des gestes (s'agenouiller sous la lumière, fuir en
+  courant). Dix idées, toutes retenues. **Lot 4 bis livré** (§ 5.6) : la pensée annonce le
+  geste et il le fait ; les passants autour regardent aussi ; les personnages de scène du
+  quai, du pont, de la place et de la Maison des Plaisirs s'arrêtent ; la fiche dit ce
+  qu'il fait. 325 pensées, chacune avec son geste. Ni le port, ni le bac, ni les bateaux (une
+  autre session y travaille), ni le laboureur.

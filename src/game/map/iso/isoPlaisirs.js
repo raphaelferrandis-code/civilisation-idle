@@ -773,14 +773,19 @@ export function strollWalker(st, k, now) {
   const dr = !arcs || arcs.length === 1 ? (k ? 1.5 : -1.5) : 0;
   return { x: x0 + ty * dr, y: y0 - tx * dr, vx: tx * sg, vy: ty * sg, dist: walked };
 }
+// UN SIGNE (paroles/signs.js) : celle qui le reçoit s'arrête et se tourne vers ce qu'elle
+// a vu (`_signDir`) ; la promeneuse prend le retard du temps arrêté (`_signLag`, s) et le
+// rattrape doucement ensuite.
+const signDirOf = (k, dir) => (TROUPE[k] && TROUPE[k]._signDir != null ? TROUPE[k]._signDir : dir);
 function strollers(cast, st, now) {
   const G = cast.girls, out = [];
   for (let k = 0; k < 2; k += 1) {
-    const w = strollWalker(st, k, now);
-    if (w) out.push({ x: w.x, y: w.y, h: st.h, dir: ISO_DIR(w.vx, w.vy), walking: true, spec: G[k % G.length], k, dist: w.dist });
+    const g = TROUPE[k], held = !!(g && g._signDir != null);
+    const w = strollWalker(st, k, now - ((g && g._signLag) || 0) * 1000);
+    if (w) out.push({ x: w.x, y: w.y, h: st.h, dir: signDirOf(k, ISO_DIR(w.vx, w.vy)), walking: !held, spec: G[k % G.length], k, dist: w.dist });
   }
-  out.push({ x: st.door[0], y: st.door[1], h: st.door[2], dir: 0, walking: false, spec: G[2 % G.length], k: 2 });
-  out.push({ x: st.balcony[0], y: st.balcony[1], h: st.balcony[2], dir: 0, walking: false, spec: G[1 % G.length], k: 3 });
+  out.push({ x: st.door[0], y: st.door[1], h: st.door[2], dir: signDirOf(2, 0), walking: false, spec: G[2 % G.length], k: 2 });
+  out.push({ x: st.balcony[0], y: st.balcony[1], h: st.balcony[2], dir: signDirOf(3, 0), walking: false, spec: G[1 % G.length], k: 3 });
   return out;
 }
 

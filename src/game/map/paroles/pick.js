@@ -44,8 +44,14 @@ function childOk(e, ctx) {
 
 export function parolesEligible(e, ctx) {
   if (e.kind !== ctx.kind) return false;
-  // Un signe (lot 4) : la pensée de CE signe (ou de n'importe lequel), à cette fois-ci.
-  if (e.kind === 'sign' && (e.stage !== ctx.stage || (e.sign && e.sign !== ctx.sign))) return false;
+  // Un signe (lot 4) : la pensée de CE signe (ou de l'un d'eux, ou de n'importe lequel), à
+  // cette fois-ci, et dont il peut faire le geste (`ctx.acts` : pas « je rentre » pour qui
+  // n'a pas de logis, pas « je vais au temple » sans temple, lot 4 bis).
+  if (e.kind === 'sign') {
+    if (e.stage !== ctx.stage) return false;
+    if (e.sign && (Array.isArray(e.sign) ? !e.sign.includes(ctx.sign) : e.sign !== ctx.sign)) return false;
+    if (ctx.acts && !ctx.acts.includes(e.act)) return false;
+  }
   const [lo, hi] = e.bands || [0, 9];
   if (ctx.band < lo || ctx.band > hi) return false;
   const w = e.when || {};
@@ -145,7 +151,7 @@ function chooseFrom(ok, ctx, heard, rand) {
   let x = rand() * total;
   let chosen = pool[pool.length - 1];
   for (const e of pool) { x -= weightOf(e); if (x < 0) { chosen = e; break; } }
-  return { id: chosen.id, kind: chosen.kind, layer: chosen.layer, lines: resolveLines(chosen, ctx) };
+  return { id: chosen.id, kind: chosen.kind, layer: chosen.layer, act: chosen.act || null, lines: resolveLines(chosen, ctx) };
 }
 
 // Les répliques prêtes à lire : qui parle ('a' ou 'b'), en français (accordé au genre de
