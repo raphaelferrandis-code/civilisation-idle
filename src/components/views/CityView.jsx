@@ -804,7 +804,7 @@ export default function CityView() {
 
           {openDock === 'chronique' && chronicleVisible && (
             <div className="panel hud-pop hud-pop--chronique">
-              <ChronicleTicker />
+              <ChronicleTicker onFind={() => setOpenDock(null)} />
             </div>
           )}
 

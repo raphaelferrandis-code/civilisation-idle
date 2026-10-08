@@ -14,8 +14,11 @@
 // pas eux. S'ils la quittent quand même (la ville rebâtie de zéro), ils ressortent de chez
 // eux. On peut leur reparler, un moment après (`againMs`) : un passant n'entend la voix
 // qu'une fois, eux la connaissent.
+// La gazette mène à eux : la signature d'un article (« Khael, juge autoproclamé »), cliquée
+// dans le bandeau-dépêche, fait retrouver la figure sur la carte (showFigure).
 import { CM } from '../layout.js';
 import { citizenSpriteName } from '../agents.js';
+import { focusCitizen } from '../citizenFocus.js';
 import { ageRange, idHash, fnv1a } from '../citizenIdentity.js';
 import { getPeriod } from '../../core/chronicleEvaluator.js';
 import { FIGURES, FIGURE_KEYS, FIGURES_FROM, figureJob } from '../../data/parolesFigures.js';
@@ -219,6 +222,31 @@ export const figureOf = (key) => {
   return alive(p) ? p : null;
 };
 export const figuresNow = () => F;
+
+// ── LA GAZETTE MÈNE À EUX ────────────────────────────────────────────────────
+// La figure qui signe un article (« Khael, juge autoproclamé » : le prénom avant la
+// virgule, le même dans les deux langues), ou null.
+export function figureOfAuthor(author) {
+  if (typeof author !== 'string' || !author) return null;
+  const name = author.split(',')[0].trim();
+  return FIGURE_KEYS.find((k) => FIGURES[k].given === name) || null;
+}
+// Où la trouver maintenant : dans la rue, ou chez elle (la fiche dit où elle est entrée).
+// Avant la période 3, Claude ne sort que la nuit, pour veiller au feu (lot 5).
+export function findFigure(key) {
+  const p = figureOf(key);
+  if (p) return p;
+  const V = key === 'claude' ? veilleeNow() : null;
+  return V && alive(V.claude) && !V.claude.leaving ? V.claude : null;
+}
+// La retrouver sur la carte : la caméra la rejoint et sa fiche s'ouvre. Rend vrai si elle
+// est là.
+export function showFigure(key) {
+  const p = findFigure(key);
+  if (!p) return false;
+  focusCitizen(p);
+  return true;
+}
 
 // Tout s'arrête (la carte démontée, un test qui repart de zéro) : ils quittent la rue.
 export function resetFigures() {

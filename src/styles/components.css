@@ -1035,6 +1035,30 @@ dialog::backdrop { background: rgba(8, 5, 1, 0.72); }
   color: var(--muted);
 }
 
+/* La signature d'une figure de la Chronique qui vit dans la cité : la cliquer la fait
+   retrouver sur la carte (PLAN-ECOUTER-PARLER, lot 6). L'or dit le geste. Préfixée par
+   le bandeau : la peau des boutons (`.app button`) imposait sa couleur, et `button` sa
+   hauteur de 2,5rem et son espacement de lettres. */
+.chronicle-ticker .ticker-author-link {
+  min-height: 0;
+  padding: 0;
+  border: 0;
+  background: none;
+  box-shadow: none;
+  font: inherit;
+  letter-spacing: inherit;
+  vertical-align: baseline;
+  color: var(--gold-dim);
+  text-decoration: underline dotted;
+  text-underline-offset: 3px;
+  cursor: pointer;
+}
+
+.chronicle-ticker .ticker-author-link:hover,
+.chronicle-ticker .ticker-author-link:focus-visible {
+  color: var(--gold);
+}
+
 .ticker-new-dot {
   flex: 0 0 auto;
   width: 7px;

@@ -7,6 +7,7 @@ import { getNotifEnabled } from '../../game/core/main.js';
 import { getJournalTheme } from './journalThemes.js';
 import { tr } from '../../game/core/i18n.js';
 import { tipProps } from './HelpBubble.jsx';
+import { figureOfAuthor, findFigure, showFigure } from '../../game/map/paroles/figures.js';
 
 /**
  * Bandeau-dépêche : remplace l'ancien panneau JournalPanel (Audit UI Phase 2).
@@ -14,7 +15,9 @@ import { tipProps } from './HelpBubble.jsx';
  * CHRONICLE_VISIBLE_MS (1 min) après sa publication, puis le bandeau disparaît
  * jusqu'à la dépêche suivante (cadence de publication : 3 min). Aucune archive.
  */
-export default function ChronicleTicker() {
+// `onFind` : appelé quand la signature a fait retrouver sa figure sur la carte (la Cité
+// referme alors la fenêtre de la chronique, pour laisser voir la fiche).
+export default function ChronicleTicker({ onFind = null } = {}) {
   const entries = useGameState(s => s.chronicleEntries || []);
   const eraIndex = useGameState(() => currentEraIndex());
   const isCrisis = useGameState(() => crisisOpen());
@@ -57,6 +60,12 @@ export default function ChronicleTicker() {
 
   // Texte relu dans l'article source (la save ne garde que articleId, SAV-16).
   const { title, text, author } = chronicleEntryContent(latest);
+  // LA SIGNATURE MÈNE À SA FIGURE (docs/PLAN-ECOUTER-PARLER.md, lot 6) : Claude, Edith,
+  // Raphaël, Khael et Aldric vivent dans la cité ; si celui qui signe s'y trouve, son nom
+  // le fait retrouver sur la carte. (Relu à chaque seconde du tick, comme la fenêtre.)
+  const fig = figureOfAuthor(author);
+  const findable = !!fig && !!findFigure(fig);
+  const who = findable ? author.split(',')[0].trim() : null;
 
   const toggle = () => {
     if (!expanded) markChronicleEntryRead(latest.id);
@@ -94,7 +103,23 @@ export default function ChronicleTicker() {
         {expanded && (
           <span className="ticker-text">
             {" · "}{text}
-            {author && <span className="ticker-author"> · {author}</span>}
+            {author && (
+              <span className="ticker-author">
+                {' · '}
+                {findable ? (
+                  <button
+                    type="button"
+                    className="ticker-author-link"
+                    // Ni replier la dépêche (le clic du bandeau), ni la déplier au clavier.
+                    onClick={(e) => { e.stopPropagation(); if (showFigure(fig) && onFind) onFind(); }}
+                    onKeyDown={(e) => e.stopPropagation()}
+                    {...tipProps(null, tr({ fr: `Retrouver ${who} dans la cité`, en: `Find ${who} in the city` }))}
+                  >
+                    {author}
+                  </button>
+                ) : author}
+              </span>
+            )}
           </span>
         )}
       </span>

@@ -11,7 +11,7 @@ import { stopListening } from "../paroles/listen.js";
 import { resetSigns } from "../paroles/signs.js";
 import { talkOffered, startTalk, talkChoose, stopTalk } from "../paroles/talk.js";
 import { pickParole, pickTalk, pickSign, talkChoices, talkSilence, parolesEligible } from "../paroles/pick.js";
-import { figuresTick, figureOf, resetFigures, FIGURES_LIVE } from "../paroles/figures.js";
+import { figuresTick, figureOf, resetFigures, FIGURES_LIVE, figureOfAuthor, findFigure, showFigure } from "../paroles/figures.js";
 import { PAROLES, JOB_GROUP } from "../../data/paroles.js";
 import { PAROLES_SIGNES, PAROLES_REPONSES, SIGN_ACTS } from "../../data/parolesSignes.js";
 import { PAROLES_MOTS, TALK_ORIENTATIONS } from "../../data/parolesMots.js";
@@ -368,6 +368,21 @@ describe("les figures, en jeu", () => {
     expect(CM.citizens.filter((p) => p.chronique === "khael").length).toBe(1);
     expect(figureOf("khael")).toBe(khael);
     expect(khael.leaving).toBe(false);
+  });
+
+  it("la gazette mène à eux : la signature d'un article retrouve la figure sur la carte", () => {
+    expect(figureOfAuthor("Khael, juge autoproclamé")).toBe("khael");
+    expect(figureOfAuthor("Raphaël, citizen")).toBe("raphael");
+    expect(figureOfAuthor("Garin, forgeron")).toBe(null);
+    expect(figureOfAuthor(null)).toBe(null);
+    expect(findFigure("khael")).toBe(null);          // pas encore dans la rue
+    expect(showFigure("khael")).toBe(false);
+    expect(CM.focus).toBeFalsy();
+    figuresTick(1000);
+    const khael = figureOf("khael");
+    expect(findFigure("khael")).toBe(khael);
+    expect(showFigure("khael")).toBe(true);
+    expect(CM.focus).toMatchObject({ p: khael, kind: "citizen", cam: true });
   });
 
   it("une foule trop maigre : ils ne sortent pas", () => {

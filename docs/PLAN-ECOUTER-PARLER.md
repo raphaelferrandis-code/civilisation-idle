@@ -559,6 +559,11 @@ intéressé par la vie du pnj. Le silence, c'est bien. Fais. »
     (`state.paroles.figures`, éternel). Un signe à Claude : il sait qui le fait, à tous les
     âges ; les autres figures le reçoivent comme tout le monde.
   - On peut leur reparler deux minutes après ; un passant n'entend la voix qu'une fois.
+  - **La gazette mène à eux** : sous une dépêche signée par une figure qui vit dans la
+    cité, la signature (« Khael, juge autoproclamé ») est un bouton doré ; un clic referme
+    la fenêtre de la chronique, la caméra rejoint la figure et sa fiche s'ouvre, même si elle
+    est rentrée chez elle (la fiche dit où). Avant la période 3, Claude ne se retrouve que
+    la nuit, au feu de la veillée. Ailleurs, la signature reste un texte.
 - Vérifié en jeu au Bourg marchand (P3 : Bruna, puis Orun du Pont, « Si c'est encore toi,
   Bertran, ce n'est pas drôle. ») et au Royaume conquérant (P5 : « Je vous teste. »). Les
   figures : au Bourg marchand (Khael au marché : « Les statues des dieux ressemblent aux
@@ -743,3 +748,5 @@ Les six questions du premier jet sont tranchées (tableau 1 bis). Aucune ouverte
   leurs pensées, leurs mots et leurs réponses aux temps forts de leur arc ; Claude dit « tu »
   à tous les âges et se souvient de toi d'une cité à l'autre. Le lot 6 est livré, sans
   Diogène ni la Secte du Feu.
+- 2026-10-08 : **La gazette mène aux figures** (Raph : « go 1 ») : la signature d'une dépêche,
+  quand la figure vit dans la cité, la fait retrouver sur la carte (§ 7.6).
