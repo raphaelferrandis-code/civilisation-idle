@@ -20,8 +20,11 @@ let panneau = null, minuteur = null, api = null, vue = null;
 // lot 7) et les tables de la Maison (audio/tables, lot 10). Le banc les montre s'ils sont
 // là, sans importer leurs modules. `cle` : leur nom dans « Copier les réglages ».
 const sections = new Map();
+// Leurs titres vivent ici, avec le reste du texte de cet outil de réglage.
+const TITRES = { moments: 'Grands moments · Bruitages', tables: 'Les tables de la Maison · Bruitages' };
 export function enregistrerBancMoments(m) {
-  sections.set(m.cle || 'moments', { titre: 'Grands moments · Bruitages', ...m });
+  const cle = m.cle || 'moments';
+  sections.set(cle, { titre: TITRES[cle] || cle, ...m });
 }
 
 export function bancOuvert() {

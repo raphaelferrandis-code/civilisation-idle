@@ -365,7 +365,7 @@ function ecouterTable(fam) {
   LEC.jouer(nom, {}, 2);
 }
 enregistrerBancMoments({
-  cle: 'tables', titre: 'Les tables de la Maison · Bruitages',
+  cle: 'tables',
   familles: Object.keys(NIVEAUX_TABLES), BANC: BANC_TABLES, ecouter: ecouterTable,
   retenir: () => { try { localStorage.setItem(CLE_BANC, JSON.stringify(BANC_TABLES)); } catch { /* indisponible */ } },
   reglages: () => ({ ...BANC_TABLES }),
