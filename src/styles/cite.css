@@ -696,11 +696,13 @@
     min-height: 0;
     margin-inline: auto;
   }
-  /* Le cadre du mythe en cours prend la place à gauche du ruban : le ruban se décale, et
-     reste centré dans ce qui reste (sur deux lignes s'il le faut, comme en 1584 px). */
-  :root:not([data-pointer="coarse"]) .app[data-active-view="city"]:has(.city-myth-frame) .topbar {
-    left: calc(var(--hud-id-w) + var(--myth-frame-w) + 3 * var(--hud-gap));
-    max-width: calc(100% - var(--shop-w) - var(--hud-id-w) - var(--myth-frame-w) - 5 * var(--hud-gap));
+  /* Le cadre du mythe en cours, entre l'identité et le ruban. Sous 1960 px, il n'y a pas
+     la place des deux sur une ligne (mesuré : à 1920 le ruban décalé passait sur deux
+     lignes, à 1584, la fenêtre du .exe, sur trois) : le cadre se pose SOUS le ruban, à
+     droite de l'identité (`--top-hud-bottom` : le bas réel du ruban, publié par CityView). */
+  :root:not([data-pointer="coarse"]) .app[data-active-view="city"] .city-myth-frame {
+    top: calc(var(--top-hud-bottom, 0px) + var(--hud-gap));
+    max-height: calc(100% - var(--top-hud-bottom, 0px) - var(--regul-bar-h) - 3 * var(--hud-gap));
   }
   :root:not([data-pointer="coarse"]) .app[data-active-view="city"] .topbar-resources {
     height: auto;
@@ -748,5 +750,19 @@
   }
   :root:not([data-pointer="coarse"]) .app[data-active-view="city"] .topbar .resource-value .odo {
     font-size: round(down, 1.28rem, 1px);
+  }
+}
+
+/* TRÈS GRAND ÉCRAN : le cadre du mythe en cours prend la place à gauche du ruban, en haut
+   (demande de Raph, 2000 px) ; le ruban se décale et reste centré dans ce qui reste.
+   (En fin de feuille : il doit l'emporter sur le cadre posé sous le ruban, ≥ 1500 px.) */
+@media (min-width: 1960px) {
+  :root:not([data-pointer="coarse"]) .app[data-active-view="city"] .city-myth-frame {
+    top: var(--hud-gap);
+    max-height: calc(100% - var(--regul-bar-h) - 3 * var(--hud-gap));
+  }
+  :root:not([data-pointer="coarse"]) .app[data-active-view="city"]:has(.city-myth-frame) .topbar {
+    left: calc(var(--hud-id-w) + var(--myth-frame-w) + 3 * var(--hud-gap));
+    max-width: calc(100% - var(--shop-w) - var(--hud-id-w) - var(--myth-frame-w) - 5 * var(--hud-gap));
   }
 }

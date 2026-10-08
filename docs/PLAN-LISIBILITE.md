@@ -134,5 +134,7 @@ du ruban en infobulle (−5) ; « Réserve d'absence » vers les Options.
   - **Le mythe en cours à commandes** (`.city-myth-frame`, `cite.css`) : Ragnarök,
     Sisyphe, Icare et l'Aile, Babel et la Langue commune, l'Âge d'Or, Atlas et l'Épaule,
     les Atrides et leur dette, Énée et sa migration, dans un cadre en haut à droite de
-    l'identité ; au-dessus de 1500 px le ruban se décale (`:has`). Au doigt, rien ne
-    change : l'étoile du rail et sa fenêtre gardent tout.
+    l'identité ; à partir de 1960 px le ruban se décale (`:has`) et tient sur une ligne,
+    en dessous le cadre se pose SOUS le ruban (`--top-hud-bottom`) : décalé, le ruban
+    passait sur deux lignes à 1920 et sur trois à 1584 (la fenêtre du .exe). Au doigt,
+    rien ne change : l'étoile du rail et sa fenêtre gardent tout.
