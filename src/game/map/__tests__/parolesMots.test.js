@@ -15,6 +15,7 @@ import { PAROLES_SIGNES, PAROLES_REPONSES, SIGN_ACTS } from "../../data/parolesS
 import { PAROLES_MOTS, VOIX, TALK_ORIENTATIONS } from "../../data/parolesMots.js";
 import { NOMS_DU_JOUEUR } from "../../data/parolesToi.js";
 import { chronicleArticles } from "../../data/chronicleArticles.js";
+import { evaluateCondition } from "../../core/chronicleEvaluator.js";
 
 // LES MOTS (docs/PLAN-ECOUTER-PARLER.md, lot 6) : dès la période 3, le joueur parle à un
 // passant ; quatre réponses, une par voix (le joueur, le dieu, l'indifférent, sa vie), ou le
@@ -284,6 +285,30 @@ describe("le registre", () => {
     expect(out.toi[0].talk).toEqual({ key: "dieu:veille", ri: 1 });
     expect(out.toi[1].talk).toBeUndefined();
     expect(normalizeParoles({}).mots).toEqual({ n: 0, city: -1, said: [], tones: {} });
+  });
+});
+
+describe("la gazette en parle", () => {
+  const withTones = (tones, city = 3) => ({ cycles: 3, grandResetCount: 0, paroles: { mots: { n: 9, city, said: [], tones } } });
+
+  it("quand une voix domine dans la cité (trois échanges, le silence ne compte pas), la gazette en parle", () => {
+    expect(evaluateCondition("voix_vie", withTones({ vie: 2, dieu: 1 }))).toBe(true);
+    expect(evaluateCondition("voix_dieu", withTones({ vie: 2, dieu: 1 }))).toBe(false);
+    expect(evaluateCondition("voix_vie", withTones({ vie: 2 }))).toBe(false);
+    expect(evaluateCondition("voix_vie", withTones({ vie: 2, muet: 5 }))).toBe(false);
+    // Une autre cité ne compte pas.
+    expect(evaluateCondition("voix_vie", withTones({ vie: 3 }, 2))).toBe(false);
+  });
+
+  it("chaque période de la voix a son article pour chaque voix, et chacun te donne le nom de ta voix", () => {
+    const NOMS = { joueur: "le Joueur", dieu: "le Maître", indifferent: "le Passant", vie: "le Voisin d’en haut" };
+    for (let period = 3; period <= 10; period += 1) {
+      for (const o of TALK_ORIENTATIONS) {
+        const arts = chronicleArticles.filter((a) => a.period === period && a.conditionType === `voix_${o}`);
+        expect(arts.length, `période ${period}, ${o}`).toBe(1);
+        expect(NOMS_DU_JOUEUR[arts[0].id].fr, arts[0].id).toBe(NOMS[o]);
+      }
+    }
   });
 });
 

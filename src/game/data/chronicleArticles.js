@@ -15,6 +15,8 @@ import { chroniclePeriod7 } from './chronicle/p7.js';
 import { chroniclePeriod8 } from './chronicle/p8.js';
 import { chroniclePeriod9 } from './chronicle/p9.js';
 import { chroniclePeriod10 } from './chronicle/p10.js';
+// La voix du joueur, dès la période 3 (lot 6) : la gazette parle de celle qui domine.
+import { chronicleVoix } from './chronicle/voix.js';
 
 export const chronicleArticles = [
   ...chroniclePeriod1,
@@ -26,7 +28,8 @@ export const chronicleArticles = [
   ...chroniclePeriod7,
   ...chroniclePeriod8,
   ...chroniclePeriod9,
-  ...chroniclePeriod10
+  ...chroniclePeriod10,
+  ...chronicleVoix
 ];
 
 // Aplatit les feuilles { fr, en } (title/text/author) en chaînes de la langue

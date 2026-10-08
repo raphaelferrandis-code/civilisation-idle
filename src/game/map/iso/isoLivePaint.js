@@ -60,8 +60,9 @@ import { paintHouseFall } from './isoChuteScene.js';
 import { paintRelic, chuteGone } from './isoChute.js';
 // Le guichet du paysage sonore : des modules-FEUILLES (aucun import), sans risque de cycle.
 import { noteEmetteur } from '../../audio/paysage/evenements.js';
-// Le bétail qui s'entend (lot 4) : une famille d'émetteurs par bête ; chiens et chats, non.
-const BETES_SONORES = { cow: 'vaches', sheep: 'moutons', goat: 'chevres' };
+// Les bêtes qui s'entendent : une famille d'émetteurs par bête — le bétail (lot 4), le
+// chien et le chat posés dans la rue (lot 9), qui aboient et miaulent rarement.
+const BETES_SONORES = { cow: 'vaches', sheep: 'moutons', goat: 'chevres', dog: 'chiens', cat: 'chats' };
 
 // ── Drawables triés au peintre (profondeur = wx + wy) ────────────────────────
 function drawTreeIso(ctx, sx, sy, h) {

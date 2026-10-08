@@ -13,6 +13,7 @@
 // plus rien (la scène d'avant n'existe plus).
 import { CM, cmHash } from '../layout.js';
 import { worldToScreen } from './projection.js';
+import { noteEmetteur } from '../../audio/paysage/evenements.js';
 import { wonderKitForBand } from './wonderKits.js';
 import { WINTER } from '../seasonMode.js';
 import {
@@ -163,6 +164,9 @@ export function drawIsoMill(ctx, t, now) {
   nightBlit(tw.N, p);
   nightBlit(sl.N, ps);
   ctx.imageSmoothingEnabled = prevSm;
+  // Le son (paysage, lot 9) : les ailes qui passent et le bois qui grince, jusqu'à la
+  // Fonte ; l'éolienne au Néon ; le pylône de cristal des âges cosmiques se tait.
+  if (band <= 6) noteEmetteur(band === 6 ? 'eolienne' : 'moulinVent', tx, ty, 1, now);
   const x0 = Math.min(p.dx, ps.dx), y0 = Math.min(p.dy, ps.dy);
   const x1 = Math.max(p.dx + p.dw, ps.dx + ps.dw), y1 = Math.max(p.dy + p.dh, ps.dy + ps.dh);
   return { dx: x0, dy: y0, dw: x1 - x0, dh: y1 - y0 };

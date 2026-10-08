@@ -7,6 +7,7 @@ import { mapStage, currentEraIndex } from './mechanics.js';
 import { cycleYear } from './actions/utils.js';
 import { D } from './num.js';
 import { tr, localizeData } from './i18n.js';
+import { cityKey, dominantTone } from './parolesState.js';
 
 // Rythme de la gazette : une dépêche au plus toutes les 3 minutes. Le bandeau
 // (ChronicleTicker) ne l'affiche que pendant CHRONICLE_VISIBLE_MS, puis reste
@@ -56,7 +57,11 @@ const CATEGORY_LABELS = localizeData({
   pop_1b: { ...DEMO },
   pop_100b: { ...DEMO },
   paix: { fr: "Paix", en: "Peace" },
-  bonus_libre: { fr: "Chronique", en: "Chronicle" }
+  bonus_libre: { fr: "Chronique", en: "Chronicle" },
+  voix_joueur: { fr: "La voix", en: "The voice" },
+  voix_dieu: { fr: "La voix", en: "The voice" },
+  voix_indifferent: { fr: "La voix", en: "The voice" },
+  voix_vie: { fr: "La voix", en: "The voice" }
 });
 
 const CATEGORY_PRIORITIES = {
@@ -72,6 +77,10 @@ const CATEGORY_PRIORITIES = {
   crise: 2,
   tension: 3,
   usure: 3,
+  voix_joueur: 3,
+  voix_dieu: 3,
+  voix_indifferent: 3,
+  voix_vie: 3,
   nourriture: 4,
   or: 4,
   savoir: 4,
@@ -90,6 +99,13 @@ export function chronicleEntryContent(entry) {
   const art = entry ? ARTICLE_BY_ID.get(entry.articleId || entry.id) : null;
   if (art) return { title: art.title, text: art.text, author: art.author || null };
   return { title: entry?.title || "", text: entry?.text || "", author: entry?.author || null };
+}
+
+// La voix qui domine dans la cité de ce cycle (state.paroles.mots, parolesState.js).
+function dominantVoice(state) {
+  const m = state.paroles && state.paroles.mots;
+  if (!m || m.city !== cityKey(state)) return null;
+  return dominantTone(m.tones);
 }
 
 export function evaluateCondition(type, state) {
@@ -131,6 +147,13 @@ export function evaluateCondition(type, state) {
       return state.instability < 0.35 && state.timeWear < 0.35;
     case "bonus_libre":
       return true;
+    // LA VOIX (docs/PLAN-ECOUTER-PARLER.md, lot 6) : la gazette parle de la voix qui domine
+    // dans la cité, dès trois échanges.
+    case "voix_joueur":
+    case "voix_dieu":
+    case "voix_indifferent":
+    case "voix_vie":
+      return dominantVoice(state) === type.slice(5);
     default:
       return false;
   }
@@ -160,7 +183,8 @@ export function checkAndTriggerChronicleEntries(state, dt) {
     "stage_start", "stage_6", "stage_12", "pop_10k", "pop_100k", "pop_1m", "pop_100m", "pop_1b", "pop_100b",
     "crise", "tension", "usure",
     "nourriture", "or", "savoir",
-    "paix", "bonus_libre"
+    "paix", "bonus_libre",
+    "voix_joueur", "voix_dieu", "voix_indifferent", "voix_vie"
   ];
 
   const matchingArticles = [];

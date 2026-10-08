@@ -6,7 +6,7 @@
 // carte demande « qu'a-t-il déjà entendu ? » pour choisir un échange neuf
 // (map/paroles/pick.js), puis « inscris-le » quand le joueur l'écoute.
 import { state } from './state.js';
-import { defaultParoles, defaultSigns, defaultDeclic, defaultMots, TOI_MAX, SEEN_MAX, SAID_MAX, SIGN_KINDS, TALK_TONES } from './parolesState.js';
+import { defaultParoles, defaultSigns, defaultDeclic, defaultMots, cityKey, TOI_MAX, SEEN_MAX, SAID_MAX, SIGN_KINDS, TALK_TONES } from './parolesState.js';
 import { NOMS_DU_JOUEUR } from '../data/parolesToi.js';
 
 const listeners = new Set();
@@ -31,10 +31,8 @@ export function parolesState() {
   if (!s.mots) s.mots = defaultMots();
   return s;
 }
-// LA CITÉ de ce cycle : `cycles` repart à 0 au Grand Reset, d'où le compte des Grands
-// Resets (la même clé que les faits divers, faitsDivers.fdCycle). Ce que les habitants
-// savent ou ont vu s'y rattache.
-const cityNow = () => (state.cycles | 0) + 1000 * (state.grandResetCount | 0);
+// LA CITÉ de ce cycle (parolesState.cityKey : `cycles` repart à 0 au Grand Reset).
+const cityNow = () => cityKey(state);
 // Ce qui a déjà été entendu : { [id]: n } (lecture seule pour le choix).
 export const parolesHeard = () => parolesState().heard;
 // Combien d'échanges entendus en tout : la confiance de la troisième couche.

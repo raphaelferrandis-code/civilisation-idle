@@ -24,6 +24,16 @@ const MAIN_INVISIBLE = { fr: 'la main invisible', Fr: 'La main invisible', en: '
 const CREATEUR = { fr: 'le Créateur', Fr: 'Le Créateur', en: 'the Creator', En: 'The Creator' };
 const INVISIBLE = { fr: 'l’Invisible', Fr: 'L’Invisible', en: 'the Invisible', En: 'The Invisible' };
 const LA_MAIN = { fr: 'la Main', Fr: 'La Main', en: 'the Hand', En: 'The Hand' };
+// Les noms que donne la gazette d'après la voix du joueur (lot 6, chronicle/voix.js).
+const LE_MAITRE = { fr: 'le Maître', Fr: 'Le Maître', en: 'the Master', En: 'The Master' };
+const LE_JOUEUR = { fr: 'le Joueur', Fr: 'Le Joueur', en: 'the Player', En: 'The Player' };
+const LE_PASSANT = { fr: 'le Passant', Fr: 'Le Passant', en: 'the Passer-by', En: 'The Passer-by' };
+const LE_VOISIN = { fr: 'le Voisin d’en haut', Fr: 'Le Voisin d’en haut', en: 'the Neighbour upstairs', En: 'The Neighbour upstairs' };
+const PAR_VOIX = { dieu: LE_MAITRE, joueur: LE_JOUEUR, indifferent: LE_PASSANT, vie: LE_VOISIN };
+const NOMS_DES_VOIX = {};
+for (let p = 3; p <= 10; p += 1) {
+  for (const [voix, nom] of Object.entries(PAR_VOIX)) NOMS_DES_VOIX[`p${p}_voix_${voix}`] = nom;
+}
 export const NOMS_DU_JOUEUR = {
   p3_knowledge_probability: MAIN_INVISIBLE,
   p4_tension_invisible: INVISIBLE,
@@ -42,8 +52,10 @@ export const NOMS_DU_JOUEUR = {
   // Les âges 7 à 9 (lot 3) : il manque une pensée au chœur, le conseil des étoiles
   // adopte le mot de Raphaël, les archives de l’Amas montrent la main qui recommence.
   p8_tension_absent: { fr: 'l’Absent', Fr: 'L’Absent', en: 'the Absent', En: 'The Absent' },
-  p9_tension_joueur: { fr: 'le Joueur', Fr: 'Le Joueur', en: 'the Player', En: 'The Player' },
+  p9_tension_joueur: LE_JOUEUR,
   p10_tension_name: { fr: 'Celui qui recommence', Fr: 'Celui qui recommence', en: 'the One who begins again', En: 'The One who begins again' },
+  // Selon la voix dont il a le plus parlé, dans cette cité (lot 6).
+  ...NOMS_DES_VOIX,
 };
 
 export const PAROLES_TOI = [

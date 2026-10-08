@@ -33,7 +33,7 @@ import { chuteTileState } from './chuteState.js';
 import { paintEngineFall } from './isoChuteScene.js';
 // Le guichet du paysage sonore : des modules-FEUILLES (aucun import), sans risque de cycle.
 import { noteEmetteur } from '../../audio/paysage/evenements.js';
-import { familleMetier } from '../../audio/paysage/metiers.js';
+import { familleMetier, familleCulte } from '../../audio/paysage/metiers.js';
 
 // ── SCÈNES MOTEUR legacy posées sur le losange (Phase 3-lite) ────────────────
 // Expérience validée à la capture : les scènes de cityEngineSprites (props
@@ -425,10 +425,14 @@ function drawIsoEngineSceneBody(ctx, t, id, bx, by, bw, now, aNow) {
     // Au `now` de l'IMAGE, jamais à l'horloge de l'instance (`aNow`) : le guichet reconnaît
     // une image à son heure, une heure par scène viderait la famille à chaque appel.
     {
-      const fam = familleMetier(id, (CM.layout && CM.layout.counts && CM.layout.counts.eraBand) | 0, id === 'guilds' ? engineCraft(t) : 0);
-      if (fam) {
+      const bande = (CM.layout && CM.layout.counts && CM.layout.counts.eraBand) | 0;
+      const fam = familleMetier(id, bande, id === 'guilds' ? engineCraft(t) : 0);
+      // La cloche rare d'un lieu de culte (lot 9), en plus de son feu.
+      const culte = familleCulte(id, bande);
+      if (fam || culte) {
         const T = CM.TILE, sx = t.spanX || t.size || 1, sy = t.spanY || t.size || 1;
-        noteEmetteur(fam, (t.gx + sx / 2) * T, (t.gy + sy / 2) * T, 1, now);
+        if (fam) noteEmetteur(fam, (t.gx + sx / 2) * T, (t.gy + sy / 2) * T, 1, now);
+        if (culte) noteEmetteur(culte, (t.gx + sx / 2) * T, (t.gy + sy / 2) * T, 1, now);
       }
     }
     // Rend la boîte publiée à l'appelant pour le hit-test au survol. Sans elle,

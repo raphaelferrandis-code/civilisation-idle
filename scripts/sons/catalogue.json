@@ -1,5 +1,5 @@
 {
-  "lisezmoi": "Les sons enregistrés du paysage sonore. Une entrée par son du jeu ; `node scripts/importSons.mjs` écrit src/assets/sons/<id>.ogg. Le nom fait la famille (oiseau, coucou, pic, chouette, grenouille, corneille, alouette ; lot 3 : brouhaha, causerie, jeux, etals, circulation, pas, sabots, enfant, roue ; lot 4 : port, troupeau, feu, forge, vapeur, mouette, charpente, sifflet, vache, chevre, coq ; lot 5 : emeute, pluie, chien). Les coupes viennent d'une mesure de l'enveloppe (passages plus forts que le plancher de bruit de 12 dB), pas d'une écoute : Raph les juge au banc d'écoute. Voir scripts/importSons.mjs et docs/PLAN-AMBIANCE-SONORE.md § 7.",
+  "lisezmoi": "Les sons enregistrés du paysage sonore. Une entrée par son du jeu ; `node scripts/importSons.mjs` écrit src/assets/sons/<id>.ogg. Le nom fait la famille (oiseau, coucou, pic, chouette, grenouille, corneille, alouette ; lot 3 : brouhaha, causerie, jeux, etals, circulation, pas, sabots, enfant, roue ; lot 4 : port, troupeau, feu, forge, vapeur, mouette, charpente, sifflet, vache, chevre, coq ; lot 5 : emeute, pluie, chien ; lot 9 : chat, chienpres, canard). Les coupes viennent d'une mesure de l'enveloppe (passages plus forts que le plancher de bruit de 12 dB), pas d'une écoute : Raph les juge au banc d'écoute. Voir scripts/importSons.mjs et docs/PLAN-AMBIANCE-SONORE.md § 7.",
   "sons": [
     {
       "id": "oiseau-merle-1",
@@ -408,6 +408,96 @@
       "source": "bigsoundbank/ANMLDog_Old dog barking 2 (ID 2353)_BigSoundBank.com.wav",
       "debut": 7.6, "fin": 9.4, "passeHaut": 200, "passeBas": 3000, "gain": -2, "fondu": [0.01, 0.2],
       "credit": { "auteur": "Joseph Sardin", "page": "https://bigsoundbank.com/old-dog-barking-2-s2353.html", "licence": "CC0" }
+    },
+    {
+      "id": "chat-miaule-1",
+      "source": "bigsoundbank/ANMLCat_Small mewing of a cat (ID 0098)_BigSoundBank.com.wav",
+      "debut": 0.05, "fin": 0.9, "passeHaut": 150, "gain": -2, "fondu": [0.01, 0.12],
+      "credit": { "auteur": "Joseph Sardin", "page": "https://bigsoundbank.com/small-mewing-of-a-cat-s0098.html", "licence": "CC0" }
+    },
+    {
+      "id": "chat-miaule-2",
+      "source": "bigsoundbank/ANMLCat_Small mewing of a cat (ID 0098)_BigSoundBank.com.wav",
+      "debut": 1, "fin": 1.95, "passeHaut": 150, "gain": -2, "fondu": [0.01, 0.12],
+      "credit": { "auteur": "Joseph Sardin", "page": "https://bigsoundbank.com/small-mewing-of-a-cat-s0098.html", "licence": "CC0" }
+    },
+    {
+      "id": "chat-miaule-3",
+      "source": "bigsoundbank/ANMLCat_Small mewing of a cat (ID 0098)_BigSoundBank.com.wav",
+      "debut": 2.1, "fin": 2.9, "passeHaut": 150, "gain": -2, "fondu": [0.01, 0.12],
+      "credit": { "auteur": "Joseph Sardin", "page": "https://bigsoundbank.com/small-mewing-of-a-cat-s0098.html", "licence": "CC0" }
+    },
+    {
+      "id": "chat-miaule-4",
+      "source": "bigsoundbank/ANMLCat_Small mewing of a cat (ID 0098)_BigSoundBank.com.wav",
+      "debut": 3.15, "fin": 4.08, "passeHaut": 150, "gain": -2, "fondu": [0.01, 0.12],
+      "credit": { "auteur": "Joseph Sardin", "page": "https://bigsoundbank.com/small-mewing-of-a-cat-s0098.html", "licence": "CC0" }
+    },
+    {
+      "id": "chat-miaule-5",
+      "source": "bigsoundbank/ANMLCat_Meow cat 14 (ID 1902)_BigSoundBank.com.wav",
+      "debut": 0, "fin": 2.3, "passeHaut": 150, "gain": -2, "fondu": [0.01, 0.12],
+      "credit": { "auteur": "Joseph Sardin", "page": "https://bigsoundbank.com/meow-cat-14-s1902.html", "licence": "CC0" }
+    },
+    {
+      "id": "chat-miaule-6",
+      "source": "bigsoundbank/ANMLCat_Meow cat 14 (ID 1902)_BigSoundBank.com.wav",
+      "debut": 2.82, "fin": 5.05, "passeHaut": 150, "gain": -2, "fondu": [0.01, 0.12],
+      "credit": { "auteur": "Joseph Sardin", "page": "https://bigsoundbank.com/meow-cat-14-s1902.html", "licence": "CC0" }
+    },
+    {
+      "id": "chienpres-aboie-1",
+      "source": "bigsoundbank/ANMLDog_Old dog barking 1 (ID 2352)_BigSoundBank.com.wav",
+      "debut": 0.1, "fin": 3.3, "passeHaut": 150, "gain": -2, "fondu": [0.01, 0.15],
+      "credit": { "auteur": "Joseph Sardin", "page": "https://bigsoundbank.com/old-dog-barking-1-s2352.html", "licence": "CC0" }
+    },
+    {
+      "id": "chienpres-aboie-2",
+      "source": "bigsoundbank/ANMLDog_Old dog barking 3 (ID 2354)_BigSoundBank.com.wav",
+      "debut": 0, "fin": 1.15, "passeHaut": 150, "gain": -2, "fondu": [0.01, 0.15],
+      "credit": { "auteur": "Joseph Sardin", "page": "https://bigsoundbank.com/old-dog-barking-3-s2354.html", "licence": "CC0" }
+    },
+    {
+      "id": "chienpres-aboie-3",
+      "source": "bigsoundbank/ANMLDog_Old dog barking 3 (ID 2354)_BigSoundBank.com.wav",
+      "debut": 1.72, "fin": 3.98, "passeHaut": 150, "gain": -2, "fondu": [0.01, 0.15],
+      "credit": { "auteur": "Joseph Sardin", "page": "https://bigsoundbank.com/old-dog-barking-3-s2354.html", "licence": "CC0" }
+    },
+    {
+      "id": "chienpres-jappe-1",
+      "source": "bigsoundbank/ANMLDog_Small dog barking (ID 0612)_BigSoundBank.com.wav",
+      "debut": 0.08, "fin": 1.15, "passeHaut": 150, "gain": -2, "fondu": [0.01, 0.15],
+      "credit": { "auteur": "Joseph Sardin", "page": "https://bigsoundbank.com/small-dog-barking-s0612.html", "licence": "CC0" }
+    },
+    {
+      "id": "chienpres-jappe-2",
+      "source": "bigsoundbank/ANMLDog_Small dog barking (ID 0612)_BigSoundBank.com.wav",
+      "debut": 7.26, "fin": 8.32, "passeHaut": 150, "gain": -2, "fondu": [0.01, 0.15],
+      "credit": { "auteur": "Joseph Sardin", "page": "https://bigsoundbank.com/small-dog-barking-s0612.html", "licence": "CC0" }
+    },
+    {
+      "id": "chienpres-jappe-3",
+      "source": "bigsoundbank/ANMLDog_Small dog barking (ID 0612)_BigSoundBank.com.wav",
+      "debut": 29.8, "fin": 30.8, "passeHaut": 150, "gain": -2, "fondu": [0.01, 0.15],
+      "credit": { "auteur": "Joseph Sardin", "page": "https://bigsoundbank.com/small-dog-barking-s0612.html", "licence": "CC0" }
+    },
+    {
+      "id": "canard-cancane-1",
+      "source": "bigsoundbank/ANMLFarm_Ducks (ID 0276)_BigSoundBank.com.wav",
+      "debut": 0.28, "fin": 1.75, "passeHaut": 180, "gain": -1, "fondu": [0.02, 0.15],
+      "credit": { "auteur": "DenisChardonnet", "page": "https://bigsoundbank.com/ducks-s0276.html", "licence": "CC0" }
+    },
+    {
+      "id": "canard-cancane-2",
+      "source": "bigsoundbank/ANMLFarm_Ducks (ID 0276)_BigSoundBank.com.wav",
+      "debut": 5.58, "fin": 6.35, "passeHaut": 180, "gain": -1, "fondu": [0.02, 0.15],
+      "credit": { "auteur": "DenisChardonnet", "page": "https://bigsoundbank.com/ducks-s0276.html", "licence": "CC0" }
+    },
+    {
+      "id": "canard-cancane-3",
+      "source": "bigsoundbank/ANMLFarm_Ducks (ID 0276)_BigSoundBank.com.wav",
+      "debut": 18, "fin": 20.8, "passeHaut": 180, "gain": -1, "fondu": [0.02, 0.15],
+      "credit": { "auteur": "DenisChardonnet", "page": "https://bigsoundbank.com/ducks-s0276.html", "licence": "CC0" }
     }
   ]
 }

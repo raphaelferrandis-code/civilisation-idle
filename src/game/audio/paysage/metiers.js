@@ -21,6 +21,14 @@
 // 2 potier, 3 teinturier.
 const FORGERON = 1;
 
+// LE LIEU DE CULTE (lot 9) : il a, en plus de son feu, sa cloche rare (la famille
+// 'temple', semée par paysage.js dans la matière de l'âge). Le seul lieu de culte de la
+// carte est le culte ancestral : des mégalithes au sanctuaire, au temple de Vesta, au
+// mausolée, au mémorial, à la flèche cosmique.
+export function familleCulte(id) {
+  return id === 'ancestral_cult' ? 'temple' : null;
+}
+
 export function familleMetier(id, bande, artisan = 0) {
   const b = bande | 0;
   if (b >= 7) return null;

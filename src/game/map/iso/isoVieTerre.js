@@ -19,6 +19,7 @@ import { worldToScreen } from './projection.js';
 import { isoPlazaCompositions } from './isoPlaza.js';
 import { VIE, vieK, vieZoomFade, vieSprite, vieBlit, viePixel, vieCount, registerVieActors } from './isoVie.js';
 import { BFLY_KINDS } from './vieArt.js';
+import { noteEmetteur } from '../../audio/paysage/evenements.js';
 import { hash01Lowbias as h32 } from '../hash.js';
 
 const bandOf = () => ((CM.layout && CM.layout.counts && CM.layout.counts.eraBand) | 0);
@@ -72,7 +73,10 @@ function pushDogs(now, out) {
         const q = stare ? worldToScreen(stare.x, stare.y) : worldToScreen(wx + hx * T, wy + hy * T);
         const left = q.x < p.x;
         const spr = moving ? vieSprite('dog', Math.floor(now / 120 + (d.g % 7)) % 2, left) : vieSprite('dogSit', 0, left);
-        if (vieBlit(ctx, spr, p.x, p.y, k, fz)) vieCount('chiens');
+        if (vieBlit(ctx, spr, p.x, p.y, k, fz)) {
+          vieCount('chiens');
+          noteEmetteur('chiens', wx, wy, 1, now);   // il aboie, rarement (paysage, lot 9)
+        }
       },
     });
   }
@@ -132,7 +136,10 @@ function pushCats(now, out) {
         // Queue lente (1,3 s), toilette 3 s toutes les 20 s.
         const groom = ((t + (s.g % 20)) % 20) < 3;
         const fr = groom ? 2 : Math.floor(t / 1.3 + (s.g % 3)) % 2;
-        if (vieBlit(ctx, vieSprite('cat', fr, c.x < p.x), p.x, p.y, k, fz)) vieCount('chats');
+        if (vieBlit(ctx, vieSprite('cat', fr, c.x < p.x), p.x, p.y, k, fz)) {
+          vieCount('chats');
+          noteEmetteur('chats', s.x * T, s.y * T, 1, now);   // il miaule, rarement (paysage, lot 9)
+        }
       },
     });
   }

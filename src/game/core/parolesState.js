@@ -44,6 +44,21 @@ export const SAID_MAX = 12;
 const MAX_NAME = 40;
 
 export const SIGN_KINDS = ['wind', 'light', 'fire', 'beast'];
+// LA CITÉ : `cycles` repart à 0 au Grand Reset, d'où le compte des Grands Resets (la même
+// clé que les faits divers). Ce que les habitants savent ou ont vu s'y rattache.
+export const cityKey = (s) => ((s && s.cycles) | 0) + 1000 * ((s && s.grandResetCount) | 0);
+// LA VOIX QUI DOMINE dans une cité (lot 6) : celle dont il a le plus parlé, dès trois
+// échanges (le silence ne compte pas). `tones` : { joueur, dieu, indifferent, vie, muet }.
+// Les rumeurs (paroles/listen.js) et la gazette (chronicleEvaluator.js) la lisent.
+export function dominantTone(tones) {
+  let best = null, most = 0, total = 0;
+  for (const [t, n] of Object.entries(tones || {})) {
+    if (t === 'muet' || !(n > 0)) continue;
+    total += n;
+    if (n > most) { most = n; best = t; }
+  }
+  return total >= 3 ? best : null;
+}
 // La voix du joueur quand il parle (data/parolesMots.js, TALK_ORIENTATIONS), et son silence.
 export const TALK_TONES = ['joueur', 'dieu', 'indifferent', 'vie', 'muet'];
 

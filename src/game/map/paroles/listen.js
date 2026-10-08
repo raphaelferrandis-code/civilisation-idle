@@ -29,6 +29,7 @@ import { state } from '../../core/state.js';
 import { getPeriod } from '../../core/chronicleEvaluator.js';
 import { lastAbsence } from '../../core/idleReport.js';
 import { NOMS_DU_JOUEUR } from '../../data/parolesToi.js';
+import { dominantTone } from '../../core/parolesState.js';
 import { PAROLES } from '../../data/paroles.js';
 
 const PAROLES_BY_ID = new Map(PAROLES.map((e) => [e.id, e]));
@@ -217,14 +218,7 @@ export function listenContext(kind, p, focusKind) {
     saidBy[ev.key] = ev;
     if (ev.belief) saidBy[ev.belief] = ev;
   }
-  const tones = parolesTones();
-  let saidMost = null, most = 0, total = 0;
-  for (const [t, n] of Object.entries(tones)) {
-    if (t === 'muet') continue;
-    total += n;
-    if (n > most) { most = n; saidMost = t; }
-  }
-  if (total < 3) saidMost = null;
+  const saidMost = dominantTone(parolesTones());
   return {
     kind,
     band,

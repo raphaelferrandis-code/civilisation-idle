@@ -127,8 +127,10 @@ describe('où semer', () => {
 describe('les enregistrements livrés', () => {
   it("chaque fichier de src/assets/sons a sa place : une famille semée, ou une nappe, ou un émetteur — un nom mal écrit se tairait sans un mot", () => {
     const listes = [...Object.values(NAPPES), ...Object.values(EMETTEURS)].flatMap((d) => d.enregistres || []);
+    // Une famille semée sous son nom, ou par la `famille` d'un semé (le chien tout près, lot 9).
+    const semees = new Set([...Object.keys(SEMES), ...Object.values(SEMES).map((d) => d.famille).filter(Boolean)]);
     for (const e of ENREGISTRES) {
-      expect(Boolean(SEMES[e.famille]) || listes.includes(e.id), `${e.id} : ni famille semée, ni nappe, ni émetteur`).toBe(true);
+      expect(semees.has(e.famille) || listes.includes(e.id), `${e.id} : ni famille semée, ni nappe, ni émetteur`).toBe(true);
     }
   });
 

@@ -479,7 +479,7 @@ function drawDucks(ctx, sm, T, z, now, k, fz) {
       // Sens et sillage : sa promenade + sa fuite, sur les 0,6 dernières secondes.
       const q = S({ x: P.x - (wa.x - wb.x) - P.vx * 0.6, y: P.y - (wa.y - wb.y) - P.vy * 0.6 }, T);
       const vx = p.x - q.x, vy = p.y - q.y;
-      list.push({ name, x: p.x, y: p.y, left: vx < 0, moving: Math.hypot(vx, vy) > 0.35 * k, j, fam });
+      list.push({ name, x: p.x, y: p.y, wx: P.x * T, wy: P.y * T, left: vx < 0, moving: Math.hypot(vx, vy) > 0.35 * k, j, fam });
     }
   }
   list.sort((u, v) => u.y - v.y);
@@ -494,7 +494,12 @@ function drawDucks(ctx, sm, T, z, now, k, fz) {
         viePixel(ctx, tail + f * i * 1.6 * k, d.y - k * 0.5 - i * 0.55 * k, k, WATER_RGB, a * 0.7);
       }
     }
-    if (vieBlit(ctx, spr, d.x, d.y, k, fz)) vieCount(d.fam.swan ? 'cygnes' : 'canards');
+    if (vieBlit(ctx, spr, d.x, d.y, k, fz)) {
+      vieCount(d.fam.swan ? 'cygnes' : 'canards');
+      // Le son (paysage, lot 9) : une voix par famille, celle de la bête de tête ; plus
+      // franche quand elle nage que quand elle dérive.
+      if (d.j === 0) noteEmetteur(d.fam.swan ? 'cygnes' : 'canards', d.wx, d.wy, d.moving ? 1 : 0.5, now);
+    }
   }
 }
 
@@ -670,7 +675,10 @@ registerVieActors((now, out) => {
         const p = worldToScreen(A.wx * T, A.wy * T);
         const c = worldToScreen(A.cx * T, A.cy * T);   // il regarde l'eau
         const guet = ((s.t + s.h * 7) % 17) < 3;
-        if (vieBlit(ctx, vieSprite('heron', guet ? 1 : 0, c.x < p.x), p.x, p.y, k, fz)) vieCount('heron');
+        if (vieBlit(ctx, vieSprite('heron', guet ? 1 : 0, c.x < p.x), p.x, p.y, k, fz)) {
+          vieCount('heron');
+          noteEmetteur('herons', A.wx * T, A.wy * T, 1, now);   // son cri, rare (paysage, lot 9)
+        }
       },
     });
   }
@@ -689,7 +697,10 @@ registerVieAir((ctx, now) => {
     const lift = Math.sin(s.q * Math.PI) * T * CM.cam.zoom * 1.6;
     const pb = worldToScreen(s.B.wx * T, s.B.wy * T), pa = worldToScreen(s.A.wx * T, s.A.wy * T);
     const fr = Math.floor((now || 0) / 340 + s.h) % 2;
-    if (vieBlit(ctx, vieSprite('heronFly', fr, pb.x < pa.x), p.x, p.y - lift, k, fz)) vieCount('heronVol');
+    if (vieBlit(ctx, vieSprite('heronFly', fr, pb.x < pa.x), p.x, p.y - lift, k, fz)) {
+      vieCount('heronVol');
+      noteEmetteur('herons', wx * T, wy * T, 1, now);
+    }
   }
 });
 

@@ -178,6 +178,12 @@ export const EMETTEURS = {
   forge: { ages: [0, 4], enregistres: ['forge-enclume-1'], ref: 3.5, max: 14, niveau: 0.12, voix: 1 },
   vapeur: { ages: [5, 5], enregistres: ['vapeur-machine-1'], ref: 3.5, max: 14, niveau: 0.16, voix: 2 },
   electrique: { ages: [6, 6], son: 'electrique', ref: 2.5, max: 10, niveau: 0.08, voix: 2 },
+  // LOT 9 (les lieux) : les MOULINS qu'on voit tourner — les ailes qui passent et le bois
+  // qui grince jusqu'à la Fonte, l'éolienne au Néon (paysageSynthLieux.js ; iso/isoMill.js
+  // les note). `charge` : chargés quand un moulin passe à l'écran (majCharge), pas à
+  // chaque âge.
+  moulinVent: { ages: [0, 5], charge: 'moulin', son: 'moulinVent', ref: 3, max: 14, niveau: 0.12, voix: 2 },
+  eolienne: { ages: [6, 6], charge: 'moulin', son: 'eolienne', ref: 3.5, max: 16, niveau: 0.1, voix: 2 },
 };
 // Les PONCTUELS SEMÉS (lot 2) : des sons ENREGISTRÉS sans support visible — l'oiseau
 // qu'on entend sans le voir —, tirés au hasard (processus de Poisson) dans les parties de
@@ -194,6 +200,9 @@ export const EMETTEURS = {
 // quatre secondes, l'oreille les reconnaît vite.
 // Niveaux de départ, à régler à l'oreille.
 const PRINTEMPS = 0, ETE = 1, AUTOMNE = 2, HIVER = 3;
+// Une cloche de culte : rare (une toutes les cinq minutes environ pour un lieu de culte
+// à l'écran), jamais deux de suite, moins la nuit.
+const CULTE = { taux: 0.6, variantes: 2, ref: 8, max: 30, niveau: 0.12, voix: 1, ecartMs: 45000, quand: (c) => 1 - 0.6 * c.nuit };
 export const SEMES = {
   oiseau: { ages: [0, 6], milieux: { foret: 1, prairie: 0.3 }, taux: 14, variantes: 8, ref: 7, max: 26, niveau: 0.22, voix: 2, ecartMs: 900,
     quand: (c) => (1 - c.nuit) * [1, 0.8, 0.6, 0.15][c.saison] * c.sec * c.vivant },
@@ -246,6 +255,32 @@ export const SEMES = {
   carillon: { ages: [7, 9], milieux: { ville: 1, place: 1 }, synth: ['carillon1', 'carillon2', 'carillon3', 'carillon4'],
     taux: 1.5, variantes: 4, ref: 8, max: 30, niveau: 0.08, voix: 1, ecartMs: 15000,
     quand: (c) => c.cosmique || 0 },
+  // LOT 9 (les petits sons) : les bêtes qu'on voit — le canard qui cancane, le cygne, le
+  // héron, le chat, le chien tout près (`famille` : ses fichiers chienpres-…, sans le
+  // filtre qui assourdit le chien au loin).
+  // Enregistrés : sans fichier, ils se taisent. `charge` : leurs fichiers ne se chargent
+  // que quand ces bêtes passent à l'écran.
+  canard: { ages: [0, 6], charge: 'eau', sur: 'canards', taux: 5, variantes: 4, ref: 5, max: 20, niveau: 0.15, voix: 2, ecartMs: 2500,
+    quand: (c) => (1 - 0.8 * c.nuit) * c.vivant },
+  cygne: { ages: [0, 6], charge: 'eau', sur: 'cygnes', taux: 1, variantes: 2, ref: 5, max: 20, niveau: 0.14, voix: 1, ecartMs: 15000,
+    quand: (c) => (1 - c.nuit) * c.vivant },
+  heron: { ages: [0, 6], charge: 'eau', sur: 'herons', taux: 0.8, variantes: 2, ref: 6, max: 24, niveau: 0.14, voix: 1, ecartMs: 20000,
+    quand: (c) => c.vivant },
+  chat: { ages: [0, 6], charge: 'betes', sur: 'chats', taux: 0.8, variantes: 3, ref: 4, max: 14, niveau: 0.12, voix: 1, ecartMs: 20000,
+    quand: (c) => c.vivant },
+  chienProche: { ages: [0, 6], charge: 'betes', famille: 'chienpres', sur: 'chiens', taux: 1, variantes: 3, ref: 5, max: 20, niveau: 0.2, voix: 1, ecartMs: 15000,
+    quand: (c) => (1 - 0.5 * c.nuit) * c.vivant },
+  // Les CLOCHES DES LIEUX DE CULTE, rares, au loin : une matière par époque (le tambour
+  // rituel, le tambour à fente, la pierre, le bronze, la cloche de l'église, le cristal ;
+  // paysageSynthLieux.js), sur les lieux de culte qu'on voit (familleMetier, 'temple').
+  templeTambour: { ages: [0, 0], charge: 'temple', sur: 'temple', synth: ['temple-tambour-1', 'temple-tambour-2'], ...CULTE },
+  templeBois: { ages: [1, 1], charge: 'temple', sur: 'temple', synth: ['temple-bois-1', 'temple-bois-2'], ...CULTE },
+  templePierre: { ages: [2, 2], charge: 'temple', sur: 'temple', synth: ['temple-pierre-1', 'temple-pierre-2'], ...CULTE },
+  templeBronze: { ages: [3, 4], charge: 'temple', sur: 'temple', synth: ['temple-bronze-1', 'temple-bronze-2'], ...CULTE },
+  templeCloche: { ages: [5, 6], charge: 'temple', sur: 'temple', synth: ['temple-cloche-1', 'temple-cloche-2'], ...CULTE },
+  templeCristal: { ages: [7, 9], charge: 'temple', sur: 'temple', synth: ['temple-cristal-1', 'temple-cristal-2'], ...CULTE },
+  // La cloche de la Cathédrale inachevée, une fois dressée (iso/isoWonder.js).
+  cathedrale: { ages: [2, 6], charge: 'temple', sur: 'cathedrale', synth: ['temple-cloche-1', 'temple-cloche-2'], ...CULTE },
 };
 // La présence (0..1) d'une famille semée : ses milieux à l'écran (Σ milieu × part) ou,
 // semée SUR des émetteurs, la somme de leurs intensités (`sur`) — trois suffisent. PUR.
@@ -332,7 +367,8 @@ const D = {
   // carillon cosmique à l'âge du Feu. Ils ne jouent pas pour autant sur la carte.
   tout: false,
   // Les conditions de chargement (lot 6) et la dernière fois qu'elles étaient vraies.
-  charge: { pluie: false, emeute: false }, chargeA: { pluie: -Infinity, emeute: -Infinity },
+  charge: { pluie: false, emeute: false, moulin: false, temple: false, eau: false, betes: false },
+  chargeA: { pluie: -Infinity, emeute: -Infinity, moulin: -Infinity, temple: -Infinity, eau: -Infinity, betes: -Infinity },
   cibles: Object.fromEntries(Object.keys(NAPPES).map((k) => [k, 0])),
   zoom: 1, p: 0, h: 0,
   rafale: { v: 1, cible: 1, prochain: 0 },
@@ -418,7 +454,8 @@ export function sonsUtiles(bande = null, liste = ENREGISTRES, ids = IDS_ENREGIST
   const fichiers = new Set(liste.map((e) => e.famille));
   for (const [fam, def] of Object.entries(SEMES)) {
     if (!joue(def)) continue;
-    if (fichiers.has(fam)) { for (const e of liste) if (e.famille === fam) enr.add(e.id); }
+    const ff = def.famille || fam;
+    if (fichiers.has(ff)) { for (const e of liste) if (e.famille === ff) enr.add(e.id); }
     else for (const s of def.synth || []) synth.add(s);
   }
   return { synth, enr };
@@ -460,12 +497,12 @@ function decoderEnregistres(ctx, utiles) {
 // Les sons prêts d'une famille semée (leurs ids) : ses enregistrements décodés, dans
 // l'ordre du dossier ; si elle n'a aucun fichier, ses sons synthétisés (`synth`).
 const A_FICHIERS = new Set(ENREGISTRES.map((e) => e.famille));
-function sonsDe(fam) {
-  const ids = [];
+function sonsDe(nom) {
+  const ids = [], fam = (SEMES[nom] && SEMES[nom].famille) || nom;
   if (A_FICHIERS.has(fam)) {
     for (const e of ENREGISTRES) if (e.famille === fam && D.tampons.has(e.id)) ids.push(e.id);
   } else {
-    for (const s of (SEMES[fam] && SEMES[fam].synth) || []) if (D.tampons.has(s)) ids.push(s);
+    for (const s of (SEMES[nom] && SEMES[nom].synth) || []) if (D.tampons.has(s)) ids.push(s);
   }
   return ids;
 }
@@ -488,10 +525,16 @@ function reveiller() {
 // fin : une averse qui s'arrête et reprend ne recharge pas ses fichiers. Rend `true` si
 // une condition a changé.
 const GARDE_CHARGE_MS = 120000;
+const vus = (fam) => { const em = emetteursDe(fam); return Boolean(em && em.n > 0); };
 function majCharge(now) {
   const vu = {
     pluie: (CM.rainF || 0) > 0.005 && neigeDe(CM.season, CM.rainF) === 0,
     emeute: (D.mesure.fouleEmeute || 0) > 0,
+    // Lot 9 : ce que la carte dessine à l'écran (les émetteurs de la dernière image).
+    moulin: vus('moulinVent') || vus('eolienne'),
+    temple: vus('temple') || vus('cathedrale'),
+    eau: vus('canards') || vus('cygnes') || vus('herons'),
+    betes: vus('chats') || vus('chiens'),
   };
   let change = false;
   for (const k of Object.keys(vu)) {

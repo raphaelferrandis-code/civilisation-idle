@@ -7,7 +7,7 @@ Chantier ouvert le 2026-10-07 sur la demande de Raph :
 > n'interagit pas avec eux, puis après une option dialogue qui permette de parler avec
 > certains. »
 
-**Statut : plan tranché, lots 1 à 5 livrés, le 6 en cours (parler, les quatre voix, les rumeurs) ; les lots 2 à 6 sont à juger en jeu.** La fiche d'habitant qui sert de socle est faite
+**Statut : plan tranché, lots 1 à 5 livrés, le 6 en cours (parler, les quatre voix, les rumeurs, la gazette) ; les lots 2 à 6 sont à juger en jeu.** La fiche d'habitant qui sert de socle est faite
 (commit `4a99b8bc` : identité, foyers, métier, humeur et sa cause, « où il est entré »).
 Raph a répondu aux questions du § 11 le jour même (tableau 1 bis).
 **Ce document fait foi pour ce chantier.**
@@ -511,6 +511,14 @@ intéressé par la vie du pnj. Le silence, c'est bien. Fais. »
   « Elle regarde, je suppose. ») ; et après trois échanges, ce que la cité finit par croire,
   selon la voix qui domine (« Depuis que la voix demande des nouvelles, ma voisine raconte
   sa journée tout haut, dans la rue, au cas où. »).
+- **La gazette en parle** (`chronicle/voix.js`, 32 articles, `voix_*` dans
+  chronicleEvaluator) : quand une voix domine dans la cité (trois échanges, le silence ne
+  compte pas), la gazette publie l'article de cette voix à cette période (« LA VOIX DEMANDE
+  DES NOUVELLES : La voix connaît le prénom des enfants et s'inquiète de leurs toux. Les
+  mères n'osent plus gronder dans la rue. »), avec la priorité d'une tension. **Et le nom
+  qu'ils te donnent suit ta voix** (NOMS_DU_JOUEUR) : le Maître (le dieu), le Joueur, le
+  Passant (l'indifférent), le Voisin d'en haut (sa vie), jusqu'au prochain nom que la
+  gazette publie. Une seule règle pour « la voix qui domine » : `parolesState.dominantTone`.
 - Vérifié en jeu au Bourg marchand (P3 : Bruna, puis Orun du Pont, « Si c'est encore toi,
   Bertran, ce n'est pas drôle. ») et au Royaume conquérant (P5 : « Je vous teste. »).
 
@@ -558,7 +566,7 @@ intéressé par la vie du pnj. Le silence, c'est bien. Fais. »
    ✅ 4 bis : ce qu'il FAIT (§ 5.6).
 5. ✅ **Le déclic et le dialogue par signes** : Claude, au Feu, jusqu'à P3 (§ 7.1 bis).
 6. 🚧 **Les mots**, dès P3 : les passants, puis les figures de la Chronique (§ 7.6 : parler,
-   les quatre voix, les rumeurs ; restent la gazette, les figures, la promesse).
+   les quatre voix, les rumeurs, la gazette ; restent les figures, la promesse).
 7. **Le Démiurge et le Grand Reset dans la fiction.**
 8. **Le son des signes**, quand le chantier « ambiance sonore » sera terminé.
 
@@ -680,3 +688,6 @@ Les six questions du premier jet sont tranchées (tableau 1 bis). Aucune ouverte
   vrais prénoms de la fiche. **Le volume** : 67 premières répliques de P3 à P10. **Les
   rumeurs** : la rue nomme celui à qui la voix a parlé, et finit par croire ce que dit la
   voix qui domine.
+- 2026-10-08 : **La gazette parle de la voix** (§ 7.6) : un article par voix et par période,
+  quand une voix domine dans la cité ; le nom qu'ils te donnent suit ta voix (le Maître, le
+  Joueur, le Passant, le Voisin d'en haut).

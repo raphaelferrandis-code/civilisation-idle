@@ -21,6 +21,7 @@
 import { state } from '../../core/state.js';
 import { CM, CM_WONDERS, cmHash, cmWonderActiveIds, cmWonderSlot, cmWonderBaseTiles, cmWonderHeightTiles, cmWonderExtent, treeCanvasT } from '../layout.js';
 import { worldToScreen } from './projection.js';
+import { noteEmetteur } from '../../audio/paysage/evenements.js';
 import { wonderKitForBand } from './wonderKits.js';
 import { WINTER } from '../seasonMode.js';
 import { bakeMausoleum, bakeColumn, bakePalace, bakeCathedral, bakeNeedle, bakeEye, bakeEyeCore } from './wonderBake.js';
@@ -764,6 +765,9 @@ export function drawIsoWonderSeg(ctx, it, now) {
   ctx.imageSmoothingEnabled = false;
   const y0 = Math.round(o.y + cut * z), y1 = Math.round(o.y + R.h * z);
   if (it.part === 'shadow') {
+    // Sa cloche, rare (paysage, lot 9) : la Cathédrale, une fois dressée. Une fois par
+    // merveille vue et par image : la part « ombre » n'est peinte qu'une fois.
+    if (e >= 0.98 && it.w.id === 'era_empire') noteEmetteur('cathedrale', m.cx, m.cy, 1, now);
     if (e >= 0.98) {
       const x0 = Math.round(o.x), x1 = Math.round(o.x + R.w * z);
       // Pas de reflet pour l'Aiguille : son îlot (session du fleuve) est entre elle

@@ -26,6 +26,7 @@
 // PUR (aléa à graine, ni navigateur ni état du jeu) : le test les mesure tous, et ils
 // se rendent dans le Worker des sons (synthese.worker.js), hors du fil principal.
 import { graine, normaliser, cloche } from '../synth.js';
+import { rendreLieu, SONS_LIEUX } from './paysageSynthLieux.js';
 
 export const PAYSAGE_SR = 32000;
 
@@ -44,6 +45,8 @@ export const SONS_PAYSAGE = [
   'clochebateau1', 'clochebateau2', 'electrique',
   // Lot 5, le temps : les carillons de verre des âges cosmiques.
   'carillon1', 'carillon2', 'carillon3', 'carillon4',
+  // Lot 9, les lieux : les moulins, les cloches des lieux de culte (paysageSynthLieux.js).
+  ...SONS_LIEUX,
 ];
 
 // ── Petits outils ──────────────────────────────────────────────────────────────
@@ -678,5 +681,7 @@ export function rendrePaysage(nom, sr = PAYSAGE_SR) {
   if (m) return rendreClocheBateau(Number(m[1]), sr);
   m = /^carillon([1-4])$/.exec(nom);
   if (m) return rendreCarillon(Number(m[1]), sr);
+  const lieu = rendreLieu(nom, sr);
+  if (lieu) return lieu;
   throw new Error('son de paysage inconnu : ' + nom);
 }

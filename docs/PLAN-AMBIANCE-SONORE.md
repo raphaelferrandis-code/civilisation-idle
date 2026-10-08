@@ -11,7 +11,7 @@ Chantier ouvert le 2026-10-07 sur la demande de Raph :
 > n'entendre que le son de la ville au loin avec la musique en fond qu'on ne touche pas pour
 > l'instant. »
 
-**Statut : décisions prises le 2026-10-07 (§ 9), lots 1 à 6 livrés ; lot 7 (les grands moments, § 3.10) et lot 8 (l'interface, § 3.11) livrés le 2026-10-08, à écouter. Reste l'épreuve des longues parties, qui revient à Raph.**
+**Statut : décisions prises le 2026-10-07 (§ 9), lots 1 à 6 livrés ; lot 7 (les grands moments, § 3.10) et lot 8 (l'interface, § 3.11) livrés le 2026-10-08, lot 9 (les petits sons de la carte, § 3.12) en cours, à écouter. Reste l'épreuve des longues parties, qui revient à Raph.**
 Ce document fait foi pour ce chantier.
 
 ---
@@ -478,6 +478,39 @@ souvent.
 - **Écartés par Raph** (2026-10-08) : l'achat impossible, les onglets et menus, la fenêtre
   d'événement qui s'ouvre. ⛔ Ne pas les reproposer.
 
+### 3.12 Les petits sons de la carte (lot 9)
+
+Les sons de priorité 3 du § 4 (27 à 30), sur ce que la carte dessine. Ce sont des sons du
+paysage (réglage **Ambiance**). Le relevé de la carte du 2026-10-08 a corrigé le plan : il n'y a
+plus de moulin à eau (tous les moulins sont à vent depuis le 2026-07-28), et le seul lieu de
+culte est le culte ancestral.
+
+- **Les moulins** (`iso/isoMill.js`) : synthétisés (`paysage/paysageSynthLieux.js`).
+  - Le moulin, jusqu'à la Fonte : une aile passe toutes les 1,7 s (comme à l'image), le bois
+    de l'arbre grince une fois par tour, le mécanisme cogne sourdement.
+  - L'éolienne du Néon : trois pales qui fendent l'air, la nacelle qui ronronne.
+  - Le pylône de cristal des âges cosmiques se tait.
+- **Les cloches des lieux de culte**, rares (une toutes les cinq minutes environ), au loin,
+  synthétisées, une matière par époque :
+  - le tambour rituel (Feu) et le tambour à fente (Bois), aux mégalithes ;
+  - la pierre qui sonne (Pierre taillée), au sanctuaire ;
+  - le bronze (Couronne, Marbre), au sanctuaire et au temple de Vesta ;
+  - la cloche de l'église (Fonte, Néon), au mausolée et au mémorial ;
+  - le cristal (âges cosmiques), à la flèche.
+
+  La **Cathédrale inachevée**, une fois dressée, a aussi sa cloche d'église, de la Pierre
+  taillée au Néon. Le feu du culte (lot 4) continue de crépiter.
+- **Les bêtes qu'on voit**, enregistrées. Sans fichier, elles se taisent.
+  - Le canard (un par famille, plus franc quand il nage), le cygne, le héron (posé ou en vol)
+    sur le fleuve (`iso/isoRiverLife.js`).
+  - Le chat des quais et le chien promené (`iso/isoVieTerre.js`), le chien et le chat posés
+    dans la rue (`iso/isoLivePaint.js`).
+  - Le chien tout près réemploie les fichiers du chien au loin (`famille: 'chien'`) : il
+    sonne déjà.
+- **La mémoire** : moulins, cloches et bêtes ne se chargent que quand ils passent à l'écran
+  (conditions `moulin`, `temple`, `eau`, `betes` de `majCharge`, gardées deux minutes).
+  Le budget par âge du § 3.9 ne bouge pas.
+
 ---
 
 ## 4. La liste des sons
@@ -940,6 +973,25 @@ plus (toutes CC0, pages vérifiées, pas encore écoutées) :
 La recherche de bigsoundbank.com ne trouve que les mots anglais ; lasonotheque.org, la même
 banque en français, se cherche en français.
 
+### 5.11 Lot 9 : les bêtes, la liste de téléchargement (recherche du 2026-10-08)
+
+Toutes CC0, pages vérifiées, pas encore écoutées. À déposer à la racine, comme d'habitude.
+
+| # | Pour | Prise | Page |
+|---|---|---|---|
+| 1 | le canard | Ducks (#0276), quelques cris de canards, 22 s (DenisChardonnet) | <https://bigsoundbank.com/ducks-s0276.html> |
+| 2 | le chat | Meow Cat #14 (#1902), un chat qui miaule, 11 s | <https://bigsoundbank.com/meow-cat-14-s1902.html> |
+| 3 | le chat | Small mewing of a cat (#0098), quatre petits miaulements séparés, 5 s | <https://bigsoundbank.com/small-mewing-of-a-cat-s0098.html> |
+| 4 | le chien | Old dog barking #1 (#2352), le même vieux chien que celui du jeu, 6 s | <https://bigsoundbank.com/old-dog-barking-1-s2352.html> |
+| 5 | le chien | Old dog barking #3 (#2354), le même chien, 8 s | <https://bigsoundbank.com/old-dog-barking-3-s2354.html> |
+| 6 | le petit chien (facultatif) | Small dog barking (#0612), un jappement, 48 s | <https://bigsoundbank.com/small-dog-barking-s0612.html> |
+
+**Ce qui n'existe pas en CC0 sans compte Freesound** : le cygne, le héron (BigSoundBank n'a
+que des passereaux, des rapaces nocturnes, des corvidés et des volailles), le moulin à vent
+(le moulin est synthétisé). Deux pistes Freesound CC0, si Raph ouvre un jour un compte : des
+cygnes chanteurs (#223697) et un héron (#834209). En attendant, le cygne et le héron se
+taisent.
+
 ---
 
 ## 6. Plan d'action
@@ -955,7 +1007,8 @@ banque en français, se cherche en français.
 | **6. Le mixage final** | Niveaux, courbe du zoom, épreuve d'une session de 2 h en fond, mémoire et CPU mesurés, .exe vérifié, crédits et Steam. | Rien n'agace en 2 h ; budgets du § 3.9 tenus. |
 | **7. Les grands moments** | La chute, un nouvel âge, une maison qui sort de terre, le Grand Reset (§ 3.10). | Validation à l'oreille. |
 | **8. L'interface** | L'achat à la main, la bulle d'un passant, un succès, l'alerte de crise (§ 3.11). | Validation à l'oreille. |
-| **9. Plus tard** | Les sons de priorité 3 (27 à 30) ; les jeux muets de la Maison (vingt-et-un, tickets, osselets). | À décider. |
+| **9. Les petits sons de la carte** | Les moulins, les cloches des lieux de culte, les bêtes qu'on voit (§ 3.12). | Validation à l'oreille ; les fichiers du § 5.11. |
+| **10. Plus tard** | Les jeux muets de la Maison (vingt-et-un, tickets, osselets). | À décider. |
 
 Chaque lot est livré par petites touches commitées, comme d'habitude, et ne part qu'après la
 validation à l'oreille du précédent.
@@ -1536,3 +1589,25 @@ Ma recommandation était donnée pour chacune.
   **Vérifié** : les 61 sons se rendent sans écrêtage ; dans le navigateur, un vrai clic sur
   « Acheter » fait un toc vers −29 dBFS en crête, une bulle −29, un succès −23, l'alerte −21
   (Bruitages par défaut) ; le reste en temps simulé (`moments.test.js`).
+- **2026-10-08, lot 9 (les petits sons de la carte).** Raph a dit d'enchaîner après le lot 8.
+  Le relevé de la carte a corrigé le plan : plus de moulin à eau, un seul lieu de culte (§ 3.12).
+  Synthétisés : le moulin, l'éolienne, les cloches de culte de chaque époque (dont celle de la
+  Cathédrale). Enregistrés, à télécharger (§ 5.11) : le canard, le chat, des variantes du
+  chien. Introuvables en CC0 sans compte : le cygne, le héron.
+
+  **Vérifié dans le jeu**, sur la partie de fin de jeu ramenée à la Fonte :
+  - les six moulins d'une rangée sont repérés, les deux plus proches jouent ;
+  - deux des trois lieux de culte sont repérés, avec leur feu ; le troisième est dessiné par
+    un autre membre de son groupe de scènes ; la cloche de la Fonte se charge et joue ;
+  - sur un quai, une famille de canards, le chat, un chien et deux hérons sont repérés ; plus
+    loin, les cygnes ; ailleurs, un chien promené ;
+  - les conditions de chargement s'allument quand ces choses passent à l'écran.
+- **2026-10-08, les bêtes du lot 9 importées.** Raph a téléchargé les six prises du § 5.11.
+  Quinze sons, coupés d'après l'enveloppe : six miaulements (`chat-`), trois aboiements du
+  vieux chien et trois jappements d'un petit chien (`chienpres-`, sans le filtre du chien au
+  loin), trois passages de cancans (`canard-`). 83 fichiers en tout. Crédits : DenisChardonnet
+  (les canards) rejoint la liste.
+
+  Mesurés dans le jeu, au bord d'un quai de la Fonte (sonie pondérée) : un canard −30, un chat
+  −31, un chant d'oiseau −21 ; le chien tout près sortait à −39, son niveau passe de 0,12 à 0,2.
+  Le cygne et le héron se taisent toujours (aucune prise CC0 sans compte Freesound).

@@ -103,7 +103,7 @@ function craquement(out, sr, t, g, rnd, { nombre = 9, etale = 0.09 } = {}) {
 }
 
 // Des partiels qui sonnent ensemble : `liste` = [ratio, amplitude, amortissement 1/s].
-function modes(out, sr, t, f, liste, g, { duree = 1.5, attaque = 0.002 } = {}) {
+export function modes(out, sr, t, f, liste, g, { duree = 1.5, attaque = 0.002 } = {}) {
   partiels(out, sr, t, liste.map(([r, a, d]) => ({ f: f * r, a, d })).filter((p) => p.f < sr / 2.3), duree, g, { attaque, relache: 0.05, etouffe: 2 });
 }
 
@@ -119,9 +119,11 @@ const BOIS = [[1, 1, 9], [2.76, 0.45, 18], [5.4, 0.2, 30]];
 const PIERRE = [[1, 1, 3.2], [2.32, 0.5, 6], [4.25, 0.25, 10], [6.1, 0.12, 16]];
 // Le verre, le cristal : presque harmoniques, longs.
 const CRISTAL = [[1, 1, 0.9], [2.0, 0.35, 1.4], [3.01, 0.2, 2], [4.07, 0.12, 2.8], [5.15, 0.07, 3.6]];
+// Les modes partagés avec les cloches de temple du paysage (paysage/paysageSynthLieux.js).
+export const MODES = { FER, BRONZE, GONG, BOIS, PIERRE, CRISTAL };
 
 // Le clic de la frappe (maillet, battant).
-function frappe(out, sr, t, g, rnd, longS = 0.003) {
+export function frappe(out, sr, t, g, rnd, longS = 0.003) {
   const s0 = Math.round(t * sr), n = Math.min(out.length - s0, Math.max(4, Math.round(longS * sr)));
   for (let i = 0; i < n; i += 1) out[s0 + i] += (rnd() * 2 - 1) * g * (1 - i / n);
 }
