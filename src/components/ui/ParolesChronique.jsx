@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { onParoles, parolesToi, parolesNameNow } from '../../game/core/paroles.js';
 import { PAROLES } from '../../game/data/paroles.js';
-import { PAROLES_SIGNES } from '../../game/data/parolesSignes.js';
+import { PAROLES_SIGNES, PAROLES_REPONSES } from '../../game/data/parolesSignes.js';
 import { NOMS_DU_JOUEUR } from '../../game/data/parolesToi.js';
 import { resolveLines } from '../../game/map/paroles/pick.js';
 import { EPOCHS } from '../../game/data/eraThemes.js';
@@ -19,7 +19,7 @@ import '../../styles/paroles-chronique.css';
 // publié en dernier ; avant le premier, ils ne t'appellent pas.
 
 // Ce qu'on a entendu, et ce qu'un signe leur a fait penser de toi (lot 4).
-const BY_ID = new Map([...PAROLES, ...PAROLES_SIGNES].map((e) => [e.id, e]));
+const BY_ID = new Map([...PAROLES, ...PAROLES_SIGNES, ...PAROLES_REPONSES].map((e) => [e.id, e]));
 const ageOf = (band) => tr((EPOCHS[Math.max(0, Math.min(EPOCHS.length - 1, band | 0))] || EPOCHS[0]).label);
 const fmtAt = (sec) => fmtClock(sec, { seconds: 'never' });
 const quote = (l) => tr({ fr: `« ${l.fr} »`, en: `“${l.en}”` });

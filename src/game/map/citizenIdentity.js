@@ -69,8 +69,10 @@ export const JOBS = {
   weaver: { m: 'Tisserand', f: 'Tisserande', en: 'Weaver', works: ['guilds'] },
   dancer: { m: 'Danseur', f: 'Danseuse', en: 'Dancer', works: ['storytellers'] },
   basket: { m: 'Porteur de panier', f: 'Porteuse de panier', en: 'Basket carrier', works: [] },
-  // Ceux que donne une scène (le champ du laboureur).
+  // Ceux que donne une scène (le champ du laboureur ; la veillée, paroles/veillee.js :
+  // Claude, le gardien du feu de la Chronique, sans atelier sur la carte).
   farmer: { m: 'Paysan', f: 'Paysanne', en: 'Farmer', works: ['irrigated_fields'] },
+  firekeeper: { m: 'Gardien du feu', f: 'Gardienne du feu', en: 'Fire keeper', works: [] },
   // Ceux que donne un ATELIER à qui n'a pas de métier dessiné (WORK_JOBS).
   marketGardener: { m: 'Maraîcher', f: 'Maraîchère', en: 'Market gardener', works: ['foragers'] },
   storekeeper: { m: 'Magasinier', f: 'Magasinière', en: 'Storekeeper', works: ['granaries_city'] },

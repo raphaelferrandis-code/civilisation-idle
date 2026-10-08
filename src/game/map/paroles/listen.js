@@ -9,13 +9,22 @@
 //
 // L'écoute en cours vit dans `CM.listening` : { p, q, kind, id, lines, t0, names }.
 // Désigner quelqu'un d'autre la coupe.
+//
+// LOT 5 : la causette de la veillée (Claude et celui qui veille avec lui au feu,
+// paroles/veillee.js) ; la première qu'on écoute dans une cité est LE DÉCLIC (« Mais
+// quelqu'un écoute. ») ; ensuite, une pensée peut DEMANDER un signe (`request`) : elle
+// pose `CM.signRequest` { p, sign, id, t0, until, started, done }, que signs.js mène.
 import { CM } from '../layout.js';
 import { onCitizenFocus, identityOfPick, cityConcern, doingOf } from '../citizenFocus.js';
 import { householdOf, householdSeedOf, memberOf, ageRange, idHash, APARTMENTS } from '../citizenIdentity.js';
 import { CM_COLLECTIVE_HOMES } from '../cityNaming.js';
 import { WINTER } from '../seasonMode.js';
-import { pickParole } from './pick.js';
-import { parolesHeard, parolesNoteHeard, parolesTotal, parolesBulles, parolesKnown, parolesSignsSeen } from '../../core/paroles.js';
+import { pickParole, resolveLines } from './pick.js';
+import { nearestFire } from './nearFire.js';
+import {
+  parolesHeard, parolesNoteHeard, parolesTotal, parolesBulles, parolesKnown, parolesSignsSeen,
+  parolesDeclicHere, parolesDeclics, parolesNoteDeclic,
+} from '../../core/paroles.js';
 import { state } from '../../core/state.js';
 import { getPeriod } from '../../core/chronicleEvaluator.js';
 import { lastAbsence } from '../../core/idleReport.js';
@@ -26,6 +35,9 @@ const PAROLES_BY_ID = new Map(PAROLES.map((e) => [e.id, e]));
 
 // lineMs : le temps d'une réplique (lue, puis la suivante).
 export const LISTEN = { lineMs: 2800 };
+// Une demande de signe (lot 5) attend `waitMs` après sa réplique : le temps de la lire et
+// d'y répondre.
+export const REQUEST = { waitMs: 16000 };
 if (import.meta.env?.DEV && typeof window !== 'undefined') {
   window.__listen = (o) => { if (o) Object.assign(LISTEN, o); return { ...LISTEN }; };
 }
@@ -169,15 +181,20 @@ function relOf(A, B) {
 const SEASONS = ['spring', 'summer', 'autumn', 'winter'];
 export function listenContext(kind, p, focusKind) {
   const band = bandNow();
-  const A = personOf(focusKind, p, band);
-  const q = kind === 'chat' ? talkingPartner(p) : null;
+  const q0 = kind === 'chat' ? talkingPartner(p) : null;
+  // LA VEILLÉE (lot 5) : Claude y est toujours `a`, celui qu'on écoute ou l'autre (ses
+  // répliques sont écrites ainsi) ; startListening les remet dans l'ordre de la fiche.
+  const veillee = !!(q0 && p._veille && q0._veille && p._veille.site === q0._veille.site);
+  const swapped = veillee && q0._veille.role === 'claude';
+  const P = swapped ? q0 : p, q = swapped ? p : q0;
+  const A = personOf(swapped ? 'citizen' : focusKind, P, band);
   const B = q ? personOf(q.scene ? 'figure' : focusKind, q, band) : null;
   const wet = (CM.rainF || 0) > 0.15;
   const night = (CM.nightF || 0) > 0.55;
   const doing = doingOf(p);
   const known = parolesKnown();
   const olympus = state.olympus || {};
-  const names = namesOf(A, B, p, band);
+  const names = namesOf(A, B, P, band);
   const nom = known.nameId ? NOMS_DU_JOUEUR[known.nameId] : null;
   if (nom) { names.nom = { fr: nom.fr, en: nom.en }; names.Nom = { fr: nom.Fr, en: nom.En }; }
   // CE QUE LA CITÉ A VU (lot 4) : le dernier qui a reçu un signe, par geste et par
@@ -187,6 +204,8 @@ export function listenContext(kind, p, focusKind) {
     if (ev.who === names.a || ev.who === names.b) continue;
     seenBy[ev.act] = ev;
     seenBy[ev.sign] = ev;
+    // Celui qui avait demandé un signe, et l'a eu (lot 5).
+    if (ev.ans) seenBy.answered = ev;
   }
   return {
     kind,
@@ -203,7 +222,9 @@ export function listenContext(kind, p, focusKind) {
     b: B ? B.view : null,
     ...relOf(A, B),
     names,
-    partner: q,
+    partner: q0,
+    veillee,
+    swapped,
     // Ce qu'on dit de toi (troisième couche, pick.js).
     trust: trustOf(parolesTotal()),
     private: night || !PUBLIC.includes(doing),
@@ -219,6 +240,11 @@ export function listenContext(kind, p, focusKind) {
     plaisirs: gamesPlayed() >= 10,
     bulles: parolesBulles() >= 3,
     seenBy,
+    // Le déclic et les demandes (lot 5).
+    declic: parolesDeclicHere(),
+    declics: parolesDeclics(),
+    fire: !!nearestFire(p),
+    figure: focusKind === 'figure',
   };
 }
 
@@ -237,9 +263,16 @@ export function startListening(kind) {
   const p = f.p;
   const ctx = listenContext(kind, p, f.kind);
   if (kind === 'chat' && !ctx.b) return false;
-  const r = pickParole(ctx, parolesHeard());
+  // LE DÉCLIC (lot 5, § 7.1) : la première causette de la veillée qu'on écoute, dans une
+  // cité, c'est celle-là. Claude se souvient des autres cités.
+  const declic = kind === 'chat' && ctx.veillee && !ctx.declic;
+  const de = declic ? PAROLES_BY_ID.get(ctx.declics > 0 ? 'v-declic-encore' : 'v-declic') : null;
+  const r = de ? { id: de.id, kind: de.kind, layer: de.layer, act: null, request: null, lines: resolveLines(de, ctx) }
+    : pickParole(ctx, parolesHeard());
   if (!r) return false;
-  parolesNoteHeard(r.id, r.layer === 3 ? toiRecord(r, ctx) : null);
+  // Ce qu'on dit de toi va au panneau ; ce qu'on te DEMANDE aussi.
+  parolesNoteHeard(r.id, r.layer === 3 || r.request ? toiRecord(r, ctx) : null);
+  if (declic) parolesNoteDeclic();
   const q = ctx.partner;
   // Ils restent là le temps de l'échange : la causette d'un salut se prolonge. Les
   // compagnons, eux, causent en marchant.
@@ -248,12 +281,25 @@ export function startListening(kind) {
     p.pauseT = Math.max(p.pauseT || 0, s); q.pauseT = Math.max(q.pauseT || 0, s);
     p.chatT = Math.max(p.chatT || 0, s); q.chatT = Math.max(q.chatT || 0, s);
   }
+  // Claude est `a` des répliques de la veillée : on les remet dans l'ordre de la fiche,
+  // celui qu'on écoute d'abord (la marque de la carte dit qui parle par `p` et `q`).
+  let lines = r.lines, names = { a: ctx.names.a, b: ctx.names.b || null };
+  if (ctx.swapped) {
+    lines = lines.map((l) => ({ ...l, who: l.who === 'a' ? 'b' : 'a' }));
+    names = { a: names.b, b: names.a };
+  }
   // `lineMs` voyage avec l'écoute : la marque de la carte (citizenFocus) la lit sans
   // importer ce module (il importe citizenFocus : pas de cycle).
+  const t0 = clock();
   CM.listening = {
-    p, q: kind === 'chat' ? q : null, kind, id: r.id, lines: r.lines, t0: clock(), lineMs: LISTEN.lineMs,
-    names: { a: ctx.names.a, b: ctx.names.b || null },
+    p, q: kind === 'chat' ? q : null, kind, id: r.id, lines, t0, lineMs: LISTEN.lineMs, names,
+    ...(declic ? { declic: true } : {}),
   };
+  // UNE DEMANDE (lot 5) : il attend un signe, le temps de lire sa pensée et d'y répondre
+  // (signs.js). Seulement un passant de la rue (pick.js).
+  if (r.request && kind === 'thought' && f.kind === 'citizen') {
+    CM.signRequest = { p, sign: r.request, id: r.id, t0, until: t0 + LISTEN.lineMs + REQUEST.waitMs, started: false, done: false };
+  }
   return true;
 }
 // Ce qu'il faut garder d'un échange sur le joueur pour le relire dans le panneau

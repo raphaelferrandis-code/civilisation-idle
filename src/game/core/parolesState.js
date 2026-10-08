@@ -23,8 +23,12 @@
 //          (les habitants sentent qu'on leur prend des idées)
 //   signs  les signes donnés (lot 4) : { n (en tout, éternel), by { wind, light, fire,
 //          beast } (éternel), cycle, here { … } (dans la cité de ce cycle : ce qu'elle
-//          a vu), seen [{ sign, act, who, fem, at }] (dans cette cité : qui l'a reçu et
-//          ce qu'il a fait, SEEN_MAX au plus — on en parle en le nommant) }
+//          a vu), seen [{ sign, act, who, fem, at, ans }] (dans cette cité : qui l'a reçu
+//          et ce qu'il a fait, SEEN_MAX au plus — on en parle en le nommant ; `ans` : il
+//          l'avait demandé, et l'a eu, lot 5) }
+//   declic { n (dans combien de cités, éternel : Claude s'en souvient), city (la cité du
+//          dernier, -1 : jamais) } — le soir où Claude a dit « Mais quelqu'un écoute. »
+//          (lot 5). Une cité : `cycles + 1000 × grandResetCount` (core/paroles.js).
 
 const MAX_ID = 40;
 const MAX_HEARD = 4000;
@@ -42,8 +46,11 @@ const name = (v) => (typeof v === 'string' && v.length > 0 ? v.slice(0, MAX_NAME
 export function defaultSigns() {
   return { n: 0, by: {}, cycle: 0, here: {}, seen: [] };
 }
+export function defaultDeclic() {
+  return { n: 0, city: -1 };
+}
 export function defaultParoles() {
-  return { heard: {}, n: 0, rev: 0, toi: [], bulles: { cycle: 0, n: 0 }, signs: defaultSigns() };
+  return { heard: {}, n: 0, rev: 0, toi: [], bulles: { cycle: 0, n: 0 }, signs: defaultSigns(), declic: defaultDeclic() };
 }
 
 // { wind: n, … } : seulement les signes connus, seulement des comptes positifs.
@@ -62,7 +69,9 @@ function normalizeSeen(raw) {
   const act = typeof raw.act === 'string' && /^[a-z]{1,10}$/.test(raw.act) ? raw.act : null;
   const who = name(raw.who);
   if (!act || !who) return null;
-  return { sign: raw.sign, act, who, fem: !!raw.fem, at: Number.isFinite(raw.at) && raw.at >= 0 ? raw.at : 0 };
+  const out = { sign: raw.sign, act, who, fem: !!raw.fem, at: Number.isFinite(raw.at) && raw.at >= 0 ? raw.at : 0 };
+  if (raw.ans) out.ans = true;
+  return out;
 }
 function normalizeSigns(raw) {
   if (!isObj(raw)) return defaultSigns();
@@ -118,5 +127,6 @@ export function normalizeParoles(raw) {
     out.bulles = { cycle: int(raw.bulles.cycle, 0, 0, 1e9), n: int(raw.bulles.n, 0, 0, 1e9) };
   }
   out.signs = normalizeSigns(raw.signs);
+  if (isObj(raw.declic)) out.declic = { n: int(raw.declic.n, 0, 0, 1e6), city: int(raw.declic.city, -1, -1, 1e9) };
   return out;
 }

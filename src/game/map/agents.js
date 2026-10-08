@@ -1246,6 +1246,10 @@ function citizenChooseNext(p) {
   // route émondée) : on le lâche et on en reprend un autre juste après → mouvement continu.
   if (p.goal && !reachable(p.goal)) { p.goal = null; p._path = null; }
   const arrived = p.goal && p.goal.gx === p.gx && p.goal.gy === p.gy;
+  // LA VEILLÉE (paroles/veillee.js) : arrivé à sa place au feu, il s'y arrête ; la veillée
+  // le tient ensuite (assis, la causette), jusqu'à l'aube. (Quatre secondes : elle le
+  // prend à la prochaine image, même lente.)
+  if (arrived && p.goalKind === 'veille') { p.goal = null; p._path = null; p.pauseT = Math.max(p.pauseT || 0, 4); return; }
   const dp = dayPhase(CM.dayP, CM.nightF);
   const tr = p._tr || (p._tr = citizenTraits(p));
   // S'ABRITER (lot 4) : sous une averse franche, qui passe devant une porte s'y met
@@ -1708,7 +1712,10 @@ function companionDetach(p) {
 // causette ; il court (`run`) ou presse le pas (`hurry`) ; rentré, il reste `stay` s.
 // Un compagnon quitte son meneur ; celui qui s'en va déjà (la foule baisse) y va déjà.
 export function citizenReactGo(p, spec) {
-  if (!p || !spec || !CM.walkRoadList.length || p._riot || p._enter || p._vanish !== undefined) return false;
+  if (!p || !spec || !CM.walkRoadList.length || p._riot) return false;
+  // `wake` (la veillée, paroles/veillee.js) : on vient le chercher chez lui ; il ressort
+  // par sa porte et part de là. Sinon, qui est rentré y reste.
+  if (!spec.wake && (p._enter || p._vanish !== undefined)) return false;
   if (p.leaving) return spec.kind === 'home' || spec.kind === 'away';
   const reachable = (c) => !!c && CM.walkRoadSet.has(cityMapWalkRoadKey(c.gx, c.gy));
   const cellOf = (key) => ({ gx: Math.floor(key / 10000), gy: key % 10000 });
@@ -1737,7 +1744,9 @@ export function citizenReactGo(p, spec) {
   }
   if (!cell) return false;
   if (p.lead) { companionDetach(p); p._grp = 0; }
-  p.goal = { gx: cell.gx, gy: cell.gy }; p._goalCell = cell; p.goalKind = kind; p.social = false;
+  if (spec.wake) p._enter = null;
+  // `as` : la nature du but, quand elle n'est pas celle du geste (la veillée : 'veille').
+  p.goal = { gx: cell.gx, gy: cell.gy }; p._goalCell = cell; p.goalKind = spec.as || kind; p.social = false;
   p._goalAt = CM.citT || 0; p._path = null; p.gatherDir = null;
   p.pauseT = 0; p.chatT = 0; p._chatWith = null; p._browse = false; p._watch = false; p._shelter = false;
   return true;

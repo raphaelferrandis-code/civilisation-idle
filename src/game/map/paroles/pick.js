@@ -23,10 +23,16 @@
 //   manual, legacy, profile, away, plaisirs, bulles ;
 //   et pour un signe (kind 'sign', lot 4) : sign ('wind' | 'light' | 'fire' |
 //   'beast'), stage (1, 2, 3 : la fois), beast (la bête qui le fixe : 'dog'…) ; les
-//   prénoms gagnent { bete, Bete } ({ fr, en }) et maitre.
+//   prénoms gagnent { bete, Bete } ({ fr, en }) et maitre ;
+//   et pour la veillée et les demandes (lot 5, data/parolesVeillee.js) : veillee (la
+//   causette de Claude au feu : Claude y est `a`), declic (il a eu lieu dans cette cité),
+//   declics (dans combien de cités), fire (un feu près de lui), figure (un personnage de
+//   scène) ; pour la réponse à une demande : answer ('yes' | 'other' | 'none') et asked
+//   (le signe qu'il avait demandé).
 // }
 import { PAROLES, JOB_GROUP } from '../../data/paroles.js';
 import { PAROLES_SIGNES } from '../../data/parolesSignes.js';
+import { VEILLEE_JOB } from '../../data/parolesVeillee.js';
 
 const VAR = /\{(\w+)\}/g;
 // « de », « que », « jusque » devant un prénom qui commence par une voyelle s'élident.
@@ -42,13 +48,22 @@ function childOk(e, ctx) {
   return !kidInIt || !e.adult;
 }
 
+// Ceux qui n'ont que LEURS pensées : Claude, le gardien du feu (lot 5), ne pense pas
+// comme un passant.
+const OWN_ONLY = new Set([VEILLEE_JOB]);
+
 export function parolesEligible(e, ctx) {
   if (e.kind !== ctx.kind) return false;
+  // Le déclic ne se tire pas : il vient, à la première écoute de la veillée (listen.js).
+  if (e.forced) return false;
   // Un signe (lot 4) : la pensée de CE signe (ou de l'un d'eux, ou de n'importe lequel), à
   // cette fois-ci, et dont il peut faire le geste (`ctx.acts` : pas « je rentre » pour qui
-  // n'a pas de logis, pas « je vais au temple » sans temple, lot 4 bis).
+  // n'a pas de logis, pas « je vais au temple » sans temple, lot 4 bis). La réponse à une
+  // demande (lot 5) : celle de ce qui s'est passé, quelle que soit la fois.
   if (e.kind === 'sign') {
-    if (e.stage !== ctx.stage) return false;
+    if (ctx.answer || e.answer) {
+      if (e.answer !== ctx.answer) return false;
+    } else if (e.stage !== ctx.stage) return false;
     if (e.sign && (Array.isArray(e.sign) ? !e.sign.includes(ctx.sign) : e.sign !== ctx.sign)) return false;
     if (ctx.acts && !ctx.acts.includes(e.act)) return false;
   }
@@ -93,6 +108,18 @@ export function parolesEligible(e, ctx) {
   if (w.away && !ctx.away) return false;
   if (w.plaisirs && !ctx.plaisirs) return false;
   if (w.bulles && !ctx.bulles) return false;
+  // LA VEILLÉE (lot 5) : Claude et celui qui veille avec lui ont leurs causettes à eux, et
+  // elles ne se disent qu'au feu ; Claude ne pense que ses pensées de gardien du feu.
+  if (e.kind === 'chat' && !!w.veillee !== !!ctx.veillee) return false;
+  if (OWN_ONLY.has(a.job) && e.kind !== 'chat' && !(w.job && w.job.includes(a.job))) return false;
+  if (w.declic != null && !!ctx.declic !== w.declic) return false;
+  if (w.declics && (ctx.declics | 0) < w.declics) return false;
+  if (w.fire && !ctx.fire) return false;
+  if (w.dry && ctx.precip) return false;
+  if (w.asked && w.asked !== ctx.asked) return false;
+  // On demande un signe en s'arrêtant pour l'attendre : un passant de la rue, pas un
+  // personnage de scène (il ne quitte pas sa scène).
+  if (e.request && ctx.figure) return false;
   // Ce que la cité a vu (lot 4) : un signe, un geste, et qui l'a reçu ({temoin}).
   const ev = w.seen ? ctx.seenBy && ctx.seenBy[w.seen] : null;
   if (w.seen && !ev) return false;
@@ -122,7 +149,8 @@ const weightOf = (e) => {
   const n = Object.keys(w).filter((k) => k !== 'notJob').length;
   // Ce qu'on dit de toi est rare (la confiance, l'écart) : quand ça vient, ça passe.
   // La pensée écrite pour CE signe passe devant celle qui vaut pour tous.
-  return 1 + 2 * n + (w.doing ? 6 : 0) + (w.job ? 4 : 0) + (e.layer === 3 ? 4 : 0) + (e.sign ? 3 : 0);
+  // Une demande de signe (lot 5) vient assez souvent pour qu'on y réponde.
+  return 1 + 2 * n + (w.doing ? 6 : 0) + (w.job ? 4 : 0) + (e.layer === 3 ? 4 : 0) + (e.sign ? 3 : 0) + (e.request ? 6 : 0);
 };
 
 // L'échange choisi, ou null. Jamais une redite tant qu'il reste du neuf (règle 5) ;
@@ -157,7 +185,10 @@ function chooseFrom(ok, ctx, heard, rand) {
   let x = rand() * total;
   let chosen = pool[pool.length - 1];
   for (const e of pool) { x -= weightOf(e); if (x < 0) { chosen = e; break; } }
-  return { id: chosen.id, kind: chosen.kind, layer: chosen.layer, act: chosen.act || null, lines: resolveLines(chosen, ctx) };
+  return {
+    id: chosen.id, kind: chosen.kind, layer: chosen.layer, act: chosen.act || null, request: chosen.request || null,
+    lines: resolveLines(chosen, ctx),
+  };
 }
 
 // Les répliques prêtes à lire : qui parle ('a' ou 'b'), en français (accordé au genre de

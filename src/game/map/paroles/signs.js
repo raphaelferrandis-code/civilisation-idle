@@ -23,21 +23,27 @@
 // son geste ; un personnage de scène (quai, pont, place, Maison des Plaisirs) s'arrête et
 // se tourne par `_signDir` et prend du retard sur sa scène par `_signLag` (s), qu'il
 // résorbe ensuite (isoQuayWalk, isoBridge, plazaFolk, isoPlaisirs).
+// LE DIALOGUE PAR SIGNES (lot 5) : après le déclic, un passant demande un signe dans sa
+// pensée (listen.js pose `CM.signRequest`) ; il s'arrête et attend, les yeux levés. Le
+// joueur lui fait ce signe-là, un autre, ou rien : sa pensée le dit (« Le feu a monté. Il
+// m'a entendu. », « J'ai demandé le feu, il m'envoie le vent. Ça veut dire non ? »,
+// « Comme d'habitude. »), et la cité se souvient de qui a été exaucé.
 // ⛔ Des phénomènes naturels seulement (§ 5.4) : ni orbe, ni halo, ni anneau ; le feu
 // passe par les flammes existantes. Muets jusqu'à la fin du chantier « ambiance sonore ».
 import { CM } from '../layout.js';
-import { screenToWorld } from '../iso/projection.js';
 import { flameFires, FIRE_BOOST } from '../flameGlow.js';
 import { CRITTER_DIR_OF_CAP } from '../critters.js';
 import { identityOfPick } from '../citizenFocus.js';
 import { citizenReactGo, citizenCanPray, citizenSpriteName, POSE_NAMES, POSE_NONE } from '../agents.js';
 import { listenContext, toiRecord, LISTEN } from './listen.js';
 import { pickSign } from './pick.js';
-import { parolesHeard, parolesNoteSign } from '../../core/paroles.js';
+import { nearestFire as fireNear } from './nearFire.js';
+import { veilleeLabel } from './veillee.js';
+import { parolesHeard, parolesNoteSign, parolesNoteHeard } from '../../core/paroles.js';
 import { SIGN_KINDS } from '../../core/parolesState.js';
-import { PAROLES_SIGNES } from '../../data/parolesSignes.js';
+import { PAROLES_SIGNES, PAROLES_REPONSES } from '../../data/parolesSignes.js';
 
-const SIGNES_BY_ID = new Map(PAROLES_SIGNES.map((e) => [e.id, e]));
+const SIGNES_BY_ID = new Map([...PAROLES_SIGNES, ...PAROLES_REPONSES].map((e) => [e.id, e]));
 
 export { SIGN_KINDS };
 
@@ -58,6 +64,9 @@ export const SIGN = { fireReach: 8, beastReach: 5, thoughtMs: 1300, effectMs: 62
 //   gawk     les badauds : à `r` cases au plus, `n` au plus, chacun avec la chance `p`,
 //            arrêtés de `min` à `max` ms ; un enfant dont le parent est dans la rue
 //            court vers lui une fois sur deux (`kid`)
+//   wait     (lot 5) il a demandé un signe : il l'attend sur place, tourné vers le feu
+//            qu'il veut voir monter (sinon vers toi), jusqu'au bout de sa demande
+//   rise     (lot 5) assis à la veillée, il se lève d'abord, en ce temps-là
 export const REACT = {
   notice: 250, look: 5200,
   back: { from: 300, to: 650, dist: 0.35, end: 4200 },
@@ -69,6 +78,7 @@ export const REACT = {
   stay: { home: 40, pray: 20 },
   bleed: 0.3,
   gawk: { r: 3.5, n: 4, p: 0.7, min: 2400, max: 4200, kid: 0.5 },
+  rise: 600,
 };
 export const BEAST_BEATS = { turnAt: 1700, backAt: 3000 };
 if (import.meta.env?.DEV && typeof window !== 'undefined') {
@@ -132,21 +142,9 @@ function signable(f) {
   return (p._signN | 0) < 3;
 }
 
-// Le feu le plus proche : une des lueurs de feu peintes à la dernière frame
-// (flameGlow.flameFires), ramenée au sol. `W` = son point de lueur en monde, ce qui
-// permet de la retrouver frame après frame quelle que soit la caméra.
+// Le feu le plus proche, à portée du signe (nearFire.js).
 export function nearestFire(p, fires = flameFires()) {
-  if (!p || !fires || !fires.length || !CM.cam) return null;
-  const f = feetOf(p), T = tile(), reach = SIGN.fireReach * T;
-  let best = null, bd = Infinity;
-  for (const g of fires) {
-    const W = screenToWorld(g.x, g.y);
-    // La lueur est à mi-flamme : son pied est un peu plus bas à l'écran, plus au sud.
-    const G = screenToWorld(g.x, g.y + g.r * 0.4);
-    const d = Math.hypot(G.x - f.x, G.y - f.y);
-    if (d < bd && d <= reach) { bd = d; best = { W, G, r: g.r }; }
-  }
-  return best;
+  return fireNear(p, fires, SIGN.fireReach);
 }
 
 // La bête la plus proche : une bête posée (le bétail, le chien couché au seuil) ou le
@@ -287,6 +285,14 @@ export function giveSign(kind, now = clock(), opts = {}) {
   ctx.stage = stage;
   ctx.beast = beast ? beast.kind : null;
   ctx.acts = signActs(p, figure);
+  // IL L'AVAIT DEMANDÉ (lot 5) : c'est la réponse. Le signe qu'il voulait, ou un autre.
+  const Q = CM.signRequest;
+  const answering = !!(Q && Q.p === p && !Q.done && now <= Q.until);
+  if (answering) {
+    Q.done = true;
+    ctx.answer = kind === Q.sign ? 'yes' : 'other';
+    ctx.asked = Q.sign;
+  }
   if (beast) {
     const nm = BEAST_NAME[beast.kind];
     ctx.names.bete = { fr: nm.fr, en: nm.en };
@@ -296,13 +302,15 @@ export function giveSign(kind, now = clock(), opts = {}) {
       if (id && id.given) ctx.names.maitre = id.given;
     }
   }
-  const r = pickSign(ctx, parolesHeard());
+  let r = answering ? pickSign(ctx, parolesHeard(), Math.random, PAROLES_REPONSES) : null;
+  if (!r) { ctx.answer = null; r = pickSign(ctx, parolesHeard()); }
   const act = opts.act || (r && r.act) || 'look';
-  // La cité a vu qui l'a reçu et ce qu'il a fait (elle en parlera en le nommant) ; et
-  // si sa pensée parle de toi, le panneau « Ce qu'on dit de toi » la garde.
+  // La cité a vu qui l'a reçu et ce qu'il a fait (elle en parlera en le nommant, et de
+  // celui qui a été exaucé : `ans`) ; et si sa pensée parle de toi, le panneau « Ce
+  // qu'on dit de toi » la garde.
   const e = r ? SIGNES_BY_ID.get(r.id) : null;
   parolesNoteSign(kind, r ? r.id : null, {
-    seen: ctx.names.a ? { act, who: ctx.names.a, fem: !!(ctx.a && ctx.a.fem) } : null,
+    seen: ctx.names.a ? { act, who: ctx.names.a, fem: !!(ctx.a && ctx.a.fem), ans: ctx.answer === 'yes' } : null,
     toi: e && e.toi ? toiRecord(r, ctx, e) : null,
   });
   if (r) {
@@ -347,8 +355,12 @@ function startReaction(p, act, S, { figure = false, now = clock(), delay = 0, ga
     R.backV = { x: (dx / n) * REACT.back.dist * T, y: (dy / n) * REACT.back.dist * T };
   }
   if (act === 'parent') R.parent = parentOnStreet(p);
+  // Assis à la veillée de Claude (lot 5) : il se lève d'abord (pas d'un bond), sauf pour
+  // s'agenouiller, qui le garde bas.
+  const sat = !figure && p._veille && p._react && p._react.pose && p._react.pose.kind === 'sit' ? p._react.pose.u : 0;
+  if (sat > 0 && act !== 'kneel') { R.rise = REACT.rise; R.u0 = sat; }
   REACTIONS.set(p, R);
-  if (!figure) p._react = { act, run: false, hurry: 0, stay: 0, pose: null };
+  if (!figure) p._react = { act, run: false, hurry: 0, stay: 0, pose: R.rise ? { kind: 'sit', u: sat } : null };
   return R;
 }
 
@@ -394,6 +406,7 @@ function holdEndOf(R) {
     case 'kneel': return REACT.kneel.end;
     case 'wave': return REACT.wave.end;
     case 'gawk': return R.holdEnd || REACT.gawk.min;
+    case 'wait': return R.holdEnd || 0;
     default: return LEAVE[R.act] || REACT.look;
   }
 }
@@ -502,8 +515,10 @@ function tickReaction(R, now) {
     }
     hold(p, R.t0 + holdEnd, now);
     if (p.lead) hold(p.lead, R.t0 + holdEnd, now);
-    p.dir = d;
-    if (p._react) p._react.pose = poseOf(R, t);
+    // Il se lève (la veillée) avant de se tourner : on ne s'assoit que face à toi.
+    const rising = R.rise && t < notice + R.rise;
+    if (!rising) p.dir = d;
+    if (p._react) p._react.pose = rising ? { kind: 'sit', u: R.u0 * (1 - (t - notice) / R.rise) } : poseOf(R, t);
     // Il recule : un pas en arrière, sans quitter des yeux ce qu'il a vu.
     if (R.backV && !p.lead && t >= REACT.back.from) {
       const k = Math.min(1, (t - REACT.back.from) / (REACT.back.to - REACT.back.from));
@@ -514,7 +529,7 @@ function tickReaction(R, now) {
     return;
   }
   // ── la suite ──
-  if (R.act === 'look' || R.act === 'back' || R.act === 'search' || R.act === 'kneel' || R.act === 'wave' || R.act === 'gawk' || R.figure) {
+  if (R.act === 'look' || R.act === 'back' || R.act === 'search' || R.act === 'kneel' || R.act === 'wave' || R.act === 'gawk' || R.act === 'wait' || R.figure) {
     if (!R.figure && p._react) p._react.pose = null;
     stopReaction(R);
     return;
@@ -552,8 +567,49 @@ export function signEnvelope(S, now) {
   const down = 1 - Math.max(0, Math.min(1, (t - 2600) / 1400));
   return Math.max(0, Math.min(up, down));
 }
+// ── LA DEMANDE (lot 5) ───────────────────────────────────────────────────────
+// Il a pensé « Si tu m'entends, fais monter le feu. » (listen.js, `CM.signRequest`) : il
+// s'arrête et attend. Rien ne vient avant la fin de sa demande, et on le regardait
+// encore : « Comme d'habitude. », et il repart. Personne ne le regardait plus : sa
+// demande se perd sans qu'on le sache.
+function requestTick(now) {
+  const Q = CM.signRequest;
+  if (!Q || Q.done) return;
+  const p = Q.p;
+  if (!p || p._dead || p._nightHidden || p._enter || p._vanish !== undefined || (CM.citizens && CM.citizens.indexOf(p) < 0)) { Q.done = true; return; }
+  if (!Q.started) {
+    Q.started = true;
+    // Il lève les yeux : vers le feu qu'il veut voir monter, sinon vers toi.
+    const fire = Q.sign === 'fire' ? nearestFire(p) : null;
+    const f = feetOf(p);
+    const face = fire ? dirOf(fire.G.x - f.x, fire.G.y - f.y) : towardCamera(p.dir < 0 ? 0 : p.dir);
+    // (Depuis sa pensée : elle est venue avec sa demande.)
+    const t0 = Math.min(now, Q.t0);
+    const R = startReaction(p, 'wait', { kind: Q.sign, p, face, src: fire ? { x: fire.G.x, y: fire.G.y } : null }, { now: t0 });
+    R.holdEnd = Math.max(0, Q.until - t0);
+  }
+  if (now <= Q.until) return;
+  Q.done = true;
+  const f = CM.focus;
+  if (!f || f.p !== p || f.kind !== 'citizen') return;
+  const ctx = listenContext('thought', p, f.kind);
+  ctx.kind = 'sign';
+  ctx.answer = 'none';
+  ctx.asked = Q.sign;
+  ctx.acts = signActs(p, false);
+  const r = pickSign(ctx, parolesHeard(), Math.random, PAROLES_REPONSES);
+  if (!r) return;
+  parolesNoteHeard(r.id);
+  CM.listening = {
+    p, q: null, kind: 'thought', id: r.id, lines: r.lines, t0: now, lineMs: LISTEN.lineMs,
+    names: { a: ctx.names.a, b: null },
+  };
+  startReaction(p, r.act || 'go', { kind: Q.sign, p, face: p.dir < 0 ? 0 : p.dir, src: null }, { now });
+}
+
 let lastBleed = 0;
 export function signTick(now = clock()) {
+  requestTick(now);
   for (const R of [...REACTIONS.values()]) if (!R.done) tickReaction(R, now);
   // Les personnages de scène rattrapent doucement le temps qu'ils ont passé arrêtés.
   const dt = Math.max(0, Math.min(100, now - (lastBleed || now))) / 1000;
@@ -589,6 +645,7 @@ export function endSign() {
 // Tout s'arrête (la carte démontée, un test qui repart de zéro).
 export function resetSigns() {
   endSign();
+  CM.signRequest = null;
   for (const R of [...REACTIONS.values()]) stopReaction(R);
   for (const p of BLEED) p._signLag = 0;
   BLEED.clear();
@@ -596,9 +653,10 @@ export function resetSigns() {
 
 // ── CE QUE LA FICHE DIT QU'IL FAIT ──────────────────────────────────────────
 // La ligne « Activité » pendant sa réaction : { fr, en } (accordée), ou null.
-export function reactionLabel(p) {
+export function reactionLabel(p, now = clock()) {
   const R = p && REACTIONS.get(p);
-  if (!R || R.done || clock() < R.t0) return null;
+  // Sans geste en cours : sa veillée, s'il veille au feu (lot 5).
+  if (!R || R.done || now < R.t0) return veilleeLabel(p);
   const fem = !!(p.identity && p.identity.fem);
   switch (R.act) {
     case 'look': case 'gawk': return { fr: 'Regarde', en: 'Looking' };
@@ -616,6 +674,7 @@ export function reactionLabel(p) {
       return { fr: 'Rentre en courant', en: 'Running home' };
     }
     case 'go': return { fr: 'Repart', en: 'Moving on' };
+    case 'wait': return { fr: 'Attend un signe', en: 'Waiting for a sign' };
     default: return null;
   }
 }

@@ -9,8 +9,8 @@ import { chronicleArticles } from "../../data/chronicleArticles.js";
 // ÉCOUTER (docs/PLAN-ECOUTER-PARLER.md) : le catalogue et le choix d'un échange.
 
 const NAMES = ["a", "b", "conjoint", "enfant", "hote", "voisin", "voisine", "gamin", "gamine", "nom", "Nom", "temoin"];
-// Ce que la cité a vu (lot 4) : un geste ou un signe.
-const SEEN = ["look", "back", "flee", "kneel", "pray", "wave", "search", "home", "parent", "go", "wind", "light", "fire", "beast"];
+// Ce que la cité a vu (lot 4) : un geste ou un signe ; et qui a été exaucé (lot 5).
+const SEEN = ["look", "back", "flee", "kneel", "pray", "wave", "search", "home", "parent", "go", "wind", "light", "fire", "beast", "answered"];
 const DOING = ["work", "school", "home", "errand", "plaza", "pray", "wonder", "wander", "night", "flee", "shelter", "riot", "river", "port", "field"];
 const adult = (o = {}) => ({ fem: false, child: false, old: false, job: null, traits: [], family: "single", kids: 0, ...o });
 const ctxOf = (o = {}) => ({

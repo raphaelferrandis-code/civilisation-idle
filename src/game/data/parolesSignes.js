@@ -40,6 +40,10 @@
 // Les prénoms : ceux de paroles.js, plus {bete} / {Bete} (« ce chien », « cette chèvre »,
 // la bête qui le fixe ; jamais d'accord qui la suive) et {maitre} (le maître du chien
 // qu'on promène). Ni tiret, ni « ! », ni points de suspension ; l'apostrophe typographique.
+// Lot 5 : ce que pense Claude d'un signe qu'on lui fait, et les RÉPONSES à ceux qui en
+// ont demandé un (`answer`, sans `stage`) : parolesVeillee.js.
+
+import { SIGNES_CLAUDE, PAROLES_REPONSES as REPONSES } from './parolesVeillee.js';
 
 // Les mêmes mondes que paroles.js.
 const FEU = [0, 1];
@@ -441,11 +445,16 @@ for (const [k, bands] of [['a', [0, 4]], ['b', [5, 9]]]) {
 // (Bornes de mot à la main : `\b` lit « tête » comme « t », « ê », « te » et y trouve un
 // « te ».)
 const ABOUT_YOU = /\{[Nn]om\}|(?<!\p{L})(tu|toi|te|ton|ta|tes|vous)(?!\p{L})|(?<!\p{L})t’/u;
-export const PAROLES_SIGNES = SIGNES.map((e) => {
+const asSign = (e) => {
   const fr = e.lines.map((l) => l.fr || l.m || '').join(' ');
   const toi = ABOUT_YOU.test(fr) && !/\{[Bb]ete\}|\{maitre\}/.test(fr);
   return { kind: 'sign', layer: 1, when: {}, act: e.stage >= 3 ? 'home' : 'look', ...e, ...(toi ? { toi: true } : {}) };
-});
+};
+export const PAROLES_SIGNES = [...SIGNES, ...SIGNES_CLAUDE].map(asSign);
+// LES RÉPONSES (lot 5) : ce que pense celui qui avait demandé un signe, qu'il l'ait eu
+// ('yes'), qu'il en ait eu un autre ('other') ou rien ('none'). Lues à part (paroles/
+// signs.js) : pas de fois, une seule réponse par demande.
+export const PAROLES_REPONSES = REPONSES.map(asSign);
 
 // ══ CE QUE LA RUE EN DIT ══════════════════════════════════════════════════════════
 // (lot 4, les petits manques.) La cité a vu quelqu'un recevoir un signe, et ce qu'il en a

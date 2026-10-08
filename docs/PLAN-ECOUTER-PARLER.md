@@ -7,7 +7,7 @@ Chantier ouvert le 2026-10-07 sur la demande de Raph :
 > n'interagit pas avec eux, puis après une option dialogue qui permette de parler avec
 > certains. »
 
-**Statut : plan tranché, lots 1 à 4 bis livrés ; les lots 2 à 4 bis sont à juger en jeu.** La fiche d'habitant qui sert de socle est faite
+**Statut : plan tranché, lots 1 à 5 livrés ; les lots 2 à 5 sont à juger en jeu.** La fiche d'habitant qui sert de socle est faite
 (commit `4a99b8bc` : identité, foyers, métier, humeur et sa cause, « où il est entré »).
 Raph a répondu aux questions du § 11 le jour même (tableau 1 bis).
 **Ce document fait foi pour ce chantier.**
@@ -386,6 +386,52 @@ C'est le gardien du feu de la Chronique, celui qui a déjà vu ce genre de nuit.
 là, des passants peuvent **demander un signe** (« Si tu m'entends, fais monter le feu. ») :
 le dialogue commence par des signes. Si le joueur ne fait rien : « Comme d'habitude. »
 
+### 7.1 bis Ce qui est fait (lot 5)
+
+Raph, 2026-10-08 : Claude veille chaque nuit au foyer du camp, avec un passant ; la
+première écoute de leur causette déclenche le déclic ; sans foyer, au feu du culte, jusqu'à
+la période 3.
+- **La veillée** (`paroles/veillee.js`) : aux périodes 1 et 2, quand la nuit tombe, Claude
+  sort de la tente la plus proche du feu et va s'asseoir au foyer, au nord-ouest, tourné
+  vers le feu et vers toi ; un habitant le rejoint (le plus proche encore dehors, sinon tiré
+  de chez lui, jamais un deuxième vieux à barbe blanche s'il y a le choix) et s'assoit au
+  nord-est. Ils causent. À l'aube, ils se lèvent : l'autre reprend sa journée, Claude
+  rentre par une porte et quitte la rue. Au Bois, le foyer du camp est encore le cœur du
+  village : il y reste ; sans foyer, il veille devant le culte des ancêtres. Pour qui a
+  choisi le plein jour dans les Options, il veille à l'heure de la nuit. Ce sont des
+  passants de la rue (fiche, écoute et signes comme les autres) ; Claude est fait à part :
+  « Claude, Gardien du feu », l'âge du plus vieux du camp, le vieil homme à la barbe
+  blanche, têtu et râleur, « Veille le feu ». Nouveau métier `firekeeper`.
+- **Le déclic** : la première causette de la veillée qu'on écoute dans une cité. L'autre :
+  « Tu crois que le feu nous entend ? » ; Claude : « Le feu, non. », puis « Mais quelqu'un
+  écoute. », et à cette réplique il se lève, tourné vers toi, puis se rassoit. Dans les
+  cités suivantes, il se souvient : « Il écoutait déjà, à l'autre feu. » Le panneau « Ce
+  qu'on dit de toi » le garde. Mémoire : `state.paroles.declic` { n, city } (le compte
+  est éternel, la cité est `cycles + 1000 × grandResetCount` ; les signes vus et les
+  bulles prennent la même clé, qui survit au Grand Reset).
+- **Leurs causettes** (12) et **ses pensées** (10), à eux seuls : Claude ne pense que ses
+  pensées de gardien du feu ; certaines attendent le déclic, une autre cité, la pluie,
+  l'hiver, l'article de Garin sur les silex. Un signe à Claude : il sait qui c'est (« Le
+  feu monte. Je sais que c'est toi. »).
+- **Les demandes** (10, `request`) : après le déclic, aux périodes 1 et 2, une pensée peut
+  demander un signe (« Si tu m'entends, fais monter le feu. », le feu seulement s'il y en a
+  un près de lui ; le vent, la lumière). Il s'arrête et attend, tourné vers le feu ou vers
+  toi (« Attend un signe »), environ 19 s. Ce qu'on te demande va au panneau.
+- **Les réponses** (22, `answer`) : le signe qu'il voulait (« Le feu a monté. Il m'a
+  entendu. » ; le pieux s'agenouille, le superstitieux court à l'abri, l'enfant court le
+  dire à sa mère, le joyeux te fait signe) ; un autre (« J'ai demandé le feu, il m'envoie le
+  vent. Ça veut dire non ? ») ; rien, si on le regardait encore : « Comme d'habitude. », et
+  il repart. La cité retient qui a été exaucé, et en parle en le nommant (« Si Linnea a eu
+  son signe, je peux bien demander le mien. ») ; quatre rumeurs en tout, dont celle de
+  Claude (« Il veille seul depuis trop longtemps. Je lui porterai du bouillon demain. »).
+- Un signe à quelqu'un d'assis à la veillée : il se lève d'abord, puis réagit, puis se
+  rassoit.
+Vérifié en jeu au Campement, la nuit : Claude et Gauvin le Rieur au foyer, le déclic
+réplique par réplique dans la fiche de Gauvin, Claude debout à « Mais quelqu'un écoute. »,
+Linnea la Rieuse qui demande le vent et le reçoit, Soraya qui demande le feu et n'a rien,
+l'aube. Une retouche : le premier compagnon tiré avait le même dessin que Claude (deux
+chamans au coin du feu).
+
 ### 7.2 Quand viennent les mots
 
 **Entre P2 et P3** (décision du 2026-10-07) : au passage de la cité en P3 (index d'ère 9).
@@ -464,7 +510,7 @@ Le récit seulement :
 3. ✅ **La Chronique des âges 7 à 9** : P8 à P10, dans la voix de la gazette.
 4. ✅ **Les signes** : vent, lumière, feu, bête ; les réactions par âge et par caractère.
    ✅ 4 bis : ce qu'il FAIT (§ 5.6).
-5. **Le déclic et le dialogue par signes** : Claude, au Feu, jusqu'à P3.
+5. ✅ **Le déclic et le dialogue par signes** : Claude, au Feu, jusqu'à P3 (§ 7.1 bis).
 6. **Les mots**, dès P3 : les passants, puis les figures de la Chronique.
 7. **Le Démiurge et le Grand Reset dans la fiction.**
 8. **Le son des signes**, quand le chantier « ambiance sonore » sera terminé.
@@ -569,3 +615,8 @@ Les six questions du premier jet sont tranchées (tableau 1 bis). Aucune ouverte
   **Petits manques comblés** (§ 5.6) : la rue parle de ceux qui ont reçu un signe en les
   nommant, le panneau garde les pensées de signe qui parlent de toi, et les gens des bateaux,
   du port, du bac et du champ reçoivent des signes.
+- 2026-10-08 : Raph : « on enchaîne lot 5 ». **Lot 5 livré** (§ 7.1 bis) : la veillée de
+  Claude au foyer du camp, chaque nuit des périodes 1 et 2, avec un habitant ; le déclic à
+  la première causette écoutée (« Mais quelqu'un écoute. », et Claude se lève) ; les
+  passants qui demandent un signe, attendent, et pensent ce qu'ils ont reçu, ou « Comme
+  d'habitude. » ; la rue nomme ceux qui ont été exaucés. Vérifié en jeu au Campement.

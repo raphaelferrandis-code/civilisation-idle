@@ -50,9 +50,12 @@
 // {enfant}, {hote} ; {voisin}, {voisine} (des adultes d'une maison de sa rue),
 // {gamin}, {gamine} (des enfants de sa rue). Une entrée qui nomme quelqu'un qu'il n'a
 // pas n'est pas choisie.
+// La veillée de Claude, le déclic et les demandes de signe (lot 5) ont leurs
+// conditions à eux : parolesVeillee.js.
 
 import { PAROLES_TOI } from './parolesToi.js';
 import { PAROLES_ECHOS } from './parolesSignes.js';
+import { PAROLES_VEILLEE } from './parolesVeillee.js';
 
 // Les âges (eraThemes.js), par mondes.
 const FEU = [0, 1];      // Feu et Bois : le camp, la chasse, la cueillette, l'abri
@@ -71,7 +74,7 @@ export const JOB_GROUP = {
   baker: 'food', storekeeper: 'food', miller: 'food', gardener: 'food',
   artisan: 'craft', factory: 'craft', weaver: 'craft', sculptor: 'craft', minter: 'craft',
   printer: 'craft', builder: 'craft', miner: 'craft', sewerman: 'craft', engineer: 'craft',
-  shaman: 'faith', monk: 'faith', priest: 'faith',
+  shaman: 'faith', monk: 'faith', priest: 'faith', firekeeper: 'faith',
   guard: 'guard', legionary: 'guard', constable: 'guard', watchman: 'guard',
   merchant: 'trade', florist: 'trade', changer: 'trade', banker: 'trade', caravaneer: 'trade',
   hauler: 'trade', courier: 'trade',
@@ -2457,4 +2460,4 @@ const PAROLES_VIE = [
 
 // La troisième couche, ce qu'on dit de toi (lot 2), vit dans parolesToi.js.
 // Ce qu'on entend : leur vie, ce qu'on dit de toi, et ce qu'on dit des signes (lot 4).
-export const PAROLES = [...PAROLES_VIE, ...PAROLES_TOI, ...PAROLES_ECHOS];
+export const PAROLES = [...PAROLES_VIE, ...PAROLES_TOI, ...PAROLES_ECHOS, ...PAROLES_VEILLEE];

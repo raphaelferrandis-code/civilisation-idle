@@ -6,7 +6,7 @@
 // carte demande « qu'a-t-il déjà entendu ? » pour choisir un échange neuf
 // (map/paroles/pick.js), puis « inscris-le » quand le joueur l'écoute.
 import { state } from './state.js';
-import { defaultParoles, defaultSigns, TOI_MAX, SEEN_MAX, SIGN_KINDS } from './parolesState.js';
+import { defaultParoles, defaultSigns, defaultDeclic, TOI_MAX, SEEN_MAX, SIGN_KINDS } from './parolesState.js';
 import { NOMS_DU_JOUEUR } from '../data/parolesToi.js';
 
 const listeners = new Set();
@@ -27,8 +27,13 @@ export function parolesState() {
   if (!s.bulles) s.bulles = { cycle: 0, n: 0 };
   if (!s.signs) s.signs = defaultSigns();
   if (!Array.isArray(s.signs.seen)) s.signs.seen = [];
+  if (!s.declic) s.declic = defaultDeclic();
   return s;
 }
+// LA CITÉ de ce cycle : `cycles` repart à 0 au Grand Reset, d'où le compte des Grands
+// Resets (la même clé que les faits divers, faitsDivers.fdCycle). Ce que les habitants
+// savent ou ont vu s'y rattache.
+const cityNow = () => (state.cycles | 0) + 1000 * (state.grandResetCount | 0);
 // Ce qui a déjà été entendu : { [id]: n } (lecture seule pour le choix).
 export const parolesHeard = () => parolesState().heard;
 // Combien d'échanges entendus en tout : la confiance de la troisième couche.
@@ -58,32 +63,33 @@ export function parolesNoteHeard(id, toi = null) {
 // sent (« j'avais une idée, elle est partie »).
 export function parolesNoteBubble() {
   const s = parolesState();
-  const cycle = state.cycles | 0;
+  const cycle = cityNow();
   if (s.bulles.cycle !== cycle) s.bulles = { cycle, n: 0 };
   s.bulles.n += 1;
 }
 export function parolesBulles() {
   const b = parolesState().bulles;
-  return b.cycle === (state.cycles | 0) ? b.n | 0 : 0;
+  return b.cycle === cityNow() ? b.n | 0 : 0;
 }
 
 // LES SIGNES (lot 4) : le joueur vient d'en faire un. `id` : la pensée qu'il a fait
 // naître, gardée avec ce qui a été entendu (jamais deux fois la même) ; elle ne compte
 // pas dans la confiance (`n`), qui ne vient que de l'écoute. `seen` { act, who, fem } :
-// ce que la cité en a vu, qui et ce qu'il a fait (elle en parlera en le nommant) ;
-// `toi` : si sa pensée parlait du joueur, de quoi la relire dans le panneau.
+// ce que la cité en a vu, qui et ce qu'il a fait (elle en parlera en le nommant ; `ans` :
+// il l'avait demandé et l'a eu, lot 5) ; `toi` : si sa pensée parlait du joueur, de quoi
+// la relire dans le panneau.
 export function parolesNoteSign(kind, id = null, { seen = null, toi = null } = {}) {
   if (!SIGN_KINDS.includes(kind)) return;
   const s = parolesState();
   const g = s.signs;
-  const cycle = state.cycles | 0;
+  const cycle = cityNow();
   if (g.cycle !== cycle) { g.cycle = cycle; g.here = {}; g.seen = []; }
   g.n = (g.n | 0) + 1;
   g.by[kind] = (g.by[kind] | 0) + 1;
   g.here[kind] = (g.here[kind] | 0) + 1;
   if (typeof id === 'string' && id) s.heard[id] = (s.heard[id] | 0) + 1;
   if (seen && seen.who && seen.act) {
-    g.seen.push({ sign: kind, act: seen.act, who: seen.who, fem: !!seen.fem, at: lifeSec() });
+    g.seen.push({ sign: kind, act: seen.act, who: seen.who, fem: !!seen.fem, at: lifeSec(), ...(seen.ans ? { ans: true } : {}) });
     if (g.seen.length > SEEN_MAX) g.seen.splice(0, g.seen.length - SEEN_MAX);
   }
   if (toi && typeof id === 'string' && id) {
@@ -96,13 +102,29 @@ export function parolesNoteSign(kind, id = null, { seen = null, toi = null } = {
 // Ce que la cité de ce cycle a vu : { wind: n, … } (elle en parle).
 export function parolesSignsHere() {
   const g = parolesState().signs;
-  return g.cycle === (state.cycles | 0) ? g.here : {};
+  return g.cycle === cityNow() ? g.here : {};
 }
 // Qui elle a vu réagir, le plus ancien d'abord : [{ sign, act, who, fem, at }].
 export function parolesSignsSeen() {
   const g = parolesState().signs;
-  return g.cycle === (state.cycles | 0) ? g.seen : [];
+  return g.cycle === cityNow() ? g.seen : [];
 }
+
+// LE DÉCLIC (lot 5) : le soir où Claude a dit « Mais quelqu'un écoute. ». Une fois par
+// cité (chaque cité refait le chemin) ; le compte est éternel : Claude, lui, se souvient.
+// Rend vrai s'il vient d'avoir lieu.
+export function parolesNoteDeclic() {
+  const s = parolesState();
+  const city = cityNow();
+  if (s.declic.city === city) return false;
+  s.declic = { n: (s.declic.n | 0) + 1, city };
+  s.rev = (s.rev | 0) + 1;
+  emit();
+  return true;
+}
+// A-t-il eu lieu dans cette cité ? Dans combien de cités en tout ?
+export const parolesDeclicHere = () => parolesState().declic.city === cityNow();
+export const parolesDeclics = () => parolesState().declic.n | 0;
 
 // CE QUE LA GAZETTE A DIT, dans ce cycle : les articles parus, et le dernier qui
 // donne un nom au joueur (NOMS_DU_JOUEUR). Les habitants n'en savent jamais plus.
