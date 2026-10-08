@@ -236,6 +236,14 @@ describe("BUG-106 (a) — le bandeau-dépêche habillé aux ères cosmiques", ()
 describe("Lisibilité de la Cité (retour extérieur du 2026-10-07, maquette validée par Raph)", () => {
   const BUREAU = ':root:not([data-pointer="coarse"])';
 
+  it("les bonus, à côté de la clepsydre : ni liseré de couleur ni icône, le nom et la valeur en toutes lettres (Raph, 2026-10-08)", () => {
+    const carte = decls("styles/cite.css", `${BUREAU} .city-status-panel.is-identity .csp-bonuses .myth-status-card`);
+    expect(carte.border).toBe("0");
+    expect(carte.padding).toBe("0");
+    expect(decls("styles/cite.css", `${BUREAU} .city-status-panel.is-identity .csp-bonuses .myth-card-icon`).display).toBe("none");
+    expect(decls("styles/cite.css", `${BUREAU} .city-status-panel.is-identity .csp-bonuses .myth-card-info :is(span, strong)`)["white-space"]).toBe("normal");
+  });
+
   it("le rouge est réservé au danger : un coût impayable s'éteint, il ne rougit plus", () => {
     const manque = decls("styles/purchase.css", ".bp-cost-item.is-lacking");
     expect(manque.color).toBe("var(--text-weak)");
