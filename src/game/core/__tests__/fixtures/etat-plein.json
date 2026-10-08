@@ -1114,6 +1114,22 @@
      "n": {
       "conjoint": "Garin"
      }
+    },
+    {
+     "id": "m3-qui",
+     "at": 5600,
+     "band": 2,
+     "a": "Garin",
+     "b": null,
+     "fa": false,
+     "fb": false,
+     "kid": null,
+     "nom": null,
+     "n": {},
+     "talk": {
+      "key": "moi",
+      "ri": 3
+     }
     }
    ],
    "bulles": {
@@ -1137,8 +1153,46 @@
       "who": "Oda",
       "fem": true,
       "at": 5400
+     },
+     {
+      "sign": "wind",
+      "act": "wave",
+      "who": "Linnea",
+      "fem": true,
+      "at": 5460,
+      "ans": true
      }
     ]
+   },
+   "declic": {
+    "n": 2,
+    "city": 3
+   },
+   "mots": {
+    "n": 3,
+    "city": 3,
+    "said": [
+     {
+      "id": "m3-qui",
+      "key": "moi",
+      "tone": "vrai",
+      "who": "Garin",
+      "fem": false,
+      "at": 5600
+     },
+     {
+      "id": "m5-lequel",
+      "key": "test",
+      "tone": "vrai",
+      "who": "Oda",
+      "fem": true,
+      "at": 5700,
+      "belief": "test"
+     }
+    ],
+    "tones": {
+     "vrai": 2
+    }
    }
   },
   "faitsDivers": {

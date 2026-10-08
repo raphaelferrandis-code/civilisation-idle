@@ -13,6 +13,7 @@ import {
 } from '../../game/map/citizenFocus.js';
 import { startListening, stopListening, listenView, listenOptions } from '../../game/map/paroles/listen.js';
 import { signsOffered, giveSign, reactionLabel } from '../../game/map/paroles/signs.js';
+import { talkOffered, startTalk, talkChoose, talkView, stopTalk } from '../../game/map/paroles/talk.js';
 import { tr } from '../../game/core/i18n.js';
 import '../../styles/citizen-sheet.css';
 
@@ -137,10 +138,14 @@ function moodValue(sheet) {
 
 // Le relevé complet : la fiche, plus l'écoute (docs/PLAN-ECOUTER-PARLER.md) — ce
 // qu'on entend en ce moment, et ce qu'on peut écouter — et les signes qu'on peut lui
-// faire (lot 4), avec ce qu'il fait quand il y réagit (« À genoux », « S’enfuit »).
+// faire (lot 4), avec ce qu'il fait quand il y réagit (« À genoux », « S’enfuit ») ; et
+// dès la période 3, ce qu'on lui dit (lot 6).
 function readSheet() {
   const s = citizenSheet();
-  return s && { ...s, listen: listenView(), ears: listenOptions(), signs: signsOffered(), react: reactionLabel(CM.focus && CM.focus.p) };
+  return s && {
+    ...s, listen: listenView(), ears: listenOptions(), signs: signsOffered(), react: reactionLabel(CM.focus && CM.focus.p),
+    talk: talkView(), speak: talkOffered(),
+  };
 }
 
 // LES SIGNES (lot 4) : le vent, la lumière, le feu (s'il y en a un près de lui), la
@@ -225,9 +230,10 @@ export default function CitizenSheet() {
   // ce qu'il est (homme, femme, enfant).
   const sub = sheet.job ? tr(sheet.job) : tr(KIND[sheet.kind]);
   // L'écoute (personnes seulement) : ce qu'on entend, et ce qu'on peut écouter.
-  const listen = vehicle ? null : sheet.listen;
+  const talk = vehicle ? null : sheet.talk;
+  const listen = vehicle || talk ? null : sheet.listen;
   const ears = vehicle ? null : sheet.ears;
-  const signs = vehicle || sheet.lost ? null : sheet.signs;
+  const signs = vehicle || sheet.lost || talk ? null : sheet.signs;
 
   return (
     <aside className={`citizen-sheet${sheet.lost ? ' is-lost' : ''}${vehicle ? ' is-vehicle' : ''}`} aria-label={name}>
@@ -261,7 +267,32 @@ export default function CitizenSheet() {
           <i className="fa-solid fa-xmark" aria-hidden="true"></i>
         </button>
       </div>
-      {listen ? (
+      {talk ? (
+        // PARLER (lot 6) : ce qu'il dit en entendant la voix, puis ta réponse (« Toi »), ou
+        // ton silence, puis la sienne ; quand c'est à toi, tes réponses possibles.
+        <div className="cs-listen is-talk" aria-live="polite">
+          {talk.lines.map((l, i) => (
+            <p className={`cs-line is-${l.who}`} key={i}>
+              <span className="cs-line-who">{l.who === 'you' ? tr({ fr: 'Toi', en: 'You' }) : l.name}</span>
+              {l.silent
+                ? <span className="cs-line-text is-silent">{tr({ fr: 'Tu te tais.', en: 'You say nothing.' })}</span>
+                : <span className="cs-line-text">{tr({ fr: `« ${l.fr} »`, en: `“${l.en}”` })}</span>}
+            </p>
+          ))}
+          {talk.choices && (
+            <div className="cs-talk-choices" role="group" aria-label={tr({ fr: 'Ta réponse', en: 'Your answer' })}>
+              {talk.choices.map((c) => (
+                <button type="button" className="cs-talk-choice" key={c.key} onClick={() => { talkChoose(c.key); setSheet(readSheet()); }}>
+                  {tr({ fr: `« ${c.fr} »`, en: `“${c.en}”` })}
+                </button>
+              ))}
+              <button type="button" className="cs-talk-choice is-silent" onClick={() => { talkChoose(null); setSheet(readSheet()); }}>
+                {tr({ fr: 'Se taire', en: 'Say nothing' })}
+              </button>
+            </div>
+          )}
+        </div>
+      ) : listen ? (
         // L'ÉCOUTE : les répliques arrivent une à une à la place des lignes de la
         // fiche ; dans une causette, le prénom de qui parle, dans une pensée, rien.
         <div className={`cs-listen is-${listen.kind}`} aria-live="polite">
@@ -282,7 +313,13 @@ export default function CitizenSheet() {
           ))}
         </dl>
       )}
-      {ears && !sheet.lost && (
+      {ears && !sheet.lost && (talk ? (
+        <div className="cs-ears">
+          <button type="button" className="cs-ear" onClick={() => { stopTalk(); setSheet(readSheet()); }}>
+            {tr({ fr: 'Retour', en: 'Back' })}
+          </button>
+        </div>
+      ) : (
         <div className="cs-ears">
           {listen ? (
             <button type="button" className="cs-ear" onClick={() => { stopListening(); setSheet(readSheet()); }}>
@@ -298,8 +335,14 @@ export default function CitizenSheet() {
               {tr({ fr: 'Ses pensées', en: 'Thoughts' })}
             </button>
           )}
+          {/* PARLER (lot 6) : dès la période 3, une fois par passant. */}
+          {sheet.speak && (!listen || listen.done) && (
+            <button type="button" className="cs-ear" onClick={() => { startTalk(); setSheet(readSheet()); }}>
+              {tr({ fr: 'Parler', en: 'Speak' })}
+            </button>
+          )}
         </div>
-      )}
+      ))}
       {signs && (
         <div className="cs-signs" role="group" aria-label={tr({ fr: 'Signe', en: 'Sign' })}>
           <span className="cs-signs-label" aria-hidden="true">{tr({ fr: 'Signe', en: 'Sign' })}</span>

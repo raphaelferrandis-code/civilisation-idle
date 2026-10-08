@@ -28,11 +28,14 @@
 //   causette de Claude au feu : Claude y est `a`), declic (il a eu lieu dans cette cité),
 //   declics (dans combien de cités), fire (un feu près de lui), figure (un personnage de
 //   scène) ; pour la réponse à une demande : answer ('yes' | 'other' | 'none') et asked
-//   (le signe qu'il avait demandé).
+//   (le signe qu'il avait demandé) ;
+//   et pour parler (kind 'talk', lot 6, data/parolesMots.js) : acts (les gestes qu'il
+//   peut faire, comme pour un signe).
 // }
 import { PAROLES, JOB_GROUP } from '../../data/paroles.js';
 import { PAROLES_SIGNES } from '../../data/parolesSignes.js';
 import { VEILLEE_JOB } from '../../data/parolesVeillee.js';
+import { PAROLES_MOTS } from '../../data/parolesMots.js';
 
 const VAR = /\{(\w+)\}/g;
 // « de », « que », « jusque » devant un prénom qui commence par une voyelle s'élident.
@@ -175,6 +178,49 @@ export function pickSign(ctx, heard = {}, rand = Math.random, catalog = PAROLES_
   if (!ok.length) return null;
   const mine = ok.filter((e) => e.when && (e.when.trait || e.when.child === true) && !(heard[e.id] | 0));
   return chooseFrom(mine.length ? mine : ok, ctx, heard, rand);
+}
+
+// LES MOTS (lot 6) : l'échange qui vient quand le joueur lui parle. Les règles de
+// l'écoute (pas de redite tant qu'il reste du neuf, la précision l'emporte). Rend
+// { id, entry, lines } ou null.
+export function pickTalk(ctx, heard = {}, rand = Math.random, catalog = PAROLES_MOTS) {
+  const ok = catalog.filter((e) => parolesEligible(e, ctx) && e.choices.some((c) => pickReply(c.replies, ctx)) && pickReply(e.silence, ctx));
+  if (!ok.length) return null;
+  const r = chooseFrom(ok, ctx, heard, rand);
+  return { id: r.id, entry: ok.find((e) => e.id === r.id), lines: r.lines };
+}
+// Sa réplique à ce que le joueur a dit (ou à son silence) : la première qui lui convient
+// (son caractère d'abord, celle de tous en dernier) et dont il peut faire le geste.
+// Rend { ri (son rang), act, lines } ou null.
+export function pickReply(replies, ctx) {
+  for (let ri = 0; ri < (replies || []).length; ri += 1) {
+    const r = replies[ri];
+    if (ctx.acts && !ctx.acts.includes(r.act)) continue;
+    const e = { kind: ctx.kind, layer: 1, when: r.when || {}, lines: r.lines };
+    if (!parolesEligible(e, ctx)) continue;
+    return { ri, act: r.act, lines: resolveLines(e, ctx).map((l) => ({ ...l, who: 'a' })) };
+  }
+  return null;
+}
+// Ce que dit le joueur, accordé à celui à qui il parle, prénoms posés.
+export function resolveYou(you, ctx) {
+  const l = resolveLines({ kind: 'thought', lines: [{ who: 'a', ...you }] }, ctx)[0];
+  return { fr: l.fr, en: l.en };
+}
+// Un échange relu (le panneau « Ce qu'on dit de toi ») : sa première réplique, ta réponse
+// (`who: 'you'`, ou `silent`), la sienne. `talk` { key, ri } : ta réponse, la réplique qui
+// a suivi. null si l'échange a changé depuis.
+export function talkTranscript(e, talk, ctx) {
+  if (!e || !talk) return null;
+  const c = talk.key === 'silence' ? null : e.choices.find((x) => x.key === talk.key);
+  const reply = (c ? c.replies : talk.key === 'silence' ? e.silence : [])[talk.ri];
+  if (!reply) return null;
+  const said = (ls) => resolveLines({ kind: 'thought', lines: ls.map((l) => ({ ...l, who: 'a' })) }, ctx);
+  return [
+    ...said(e.lines),
+    c ? { ...resolveYou(c.you, ctx), who: 'you' } : { who: 'you', silent: true },
+    ...said(reply.lines),
+  ];
 }
 
 function chooseFrom(ok, ctx, heard, rand) {

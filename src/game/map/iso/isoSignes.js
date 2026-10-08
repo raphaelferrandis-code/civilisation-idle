@@ -23,6 +23,7 @@ import { lightCtx } from '../lightLayer.js';
 import { FIRE_BOOST, FIRE_INK } from '../flameGlow.js';
 import { signTick, signEnvelope } from '../paroles/signs.js';
 import { veilleeTick } from '../paroles/veillee.js';
+import { talkTick } from '../paroles/talk.js';
 
 const clock = () => (typeof performance !== 'undefined' ? performance.now() : Date.now());
 const bandNow = () => ((CM.layout && CM.layout.counts && CM.layout.counts.eraBand) | 0);
@@ -254,13 +255,14 @@ function drawFireFlare(ctx, now) {
 
 // ── BRANCHEMENTS ─────────────────────────────────────────────────────────────
 // Le fournisseur d'acteurs tourne une fois par frame, AVANT la passe du peintre : c'est
-// là que la scène avance (la veillée de Claude, lot 5 ; signTick) et que le feu attisé
-// reçoit sa position attendue.
+// là que la scène avance (la veillée de Claude, lot 5 ; l'échange quand on lui parle,
+// lot 6 ; signTick) et que le feu attisé reçoit sa position attendue.
 registerVieActors((_now, out) => {
   const now = clock();
   FIRE_BOOST.seen = false;
   // (Une panne de la veillée ne doit pas emporter les signes avec elle.)
   try { veilleeTick(now); } catch (e) { if (!CM._veilleeErr) { CM._veilleeErr = true; console.warn('veillée', e); } }
+  talkTick(now);
   const S = signTick(now);
   if (!S) return;
   if (S.fire && CM.cam) {

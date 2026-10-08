@@ -43,6 +43,25 @@ describe("le panneau « Ce qu'on dit de toi »", () => {
     expect(html).toContain("Ilya");
   });
 
+  it("relit un échange avec toi (lot 6) : sa réplique, ta réponse ou ton silence, la sienne", () => {
+    state.paroles = {
+      ...defaultParoles(),
+      toi: [
+        { id: "m10-souvenir", at: 900, band: 9, a: "Ilya", b: null, fa: true, fb: false, kid: null, nom: null, n: {}, talk: { key: "oui", ri: 0 } },
+        { id: "m3-qui", at: 400, band: 2, a: "Garin", b: null, fa: false, fb: false, kid: null, nom: null, n: {}, talk: { key: "silence", ri: 0 } },
+      ],
+    };
+    state.chronicleEntries = [];
+    // (Le rendu serveur sépare les morceaux de texte voisins par des commentaires.)
+    const html = renderToString(createElement(ParolesChronique)).replace(/<!-- -->/g, "");
+    // La ligne visible : sa première réplique, son prénom et « Toi » ; l'échange entier est
+    // dans l'infobulle (talkTranscript, testé dans parolesMots.test.js).
+    expect(html).toContain("Tu recommences tout, chaque fois.");
+    expect(html).toContain("Ilya · Toi");
+    expect(html).toContain("Qui a parlé ? Il n’y a personne.");
+    expect(html).toContain("Garin · Toi");
+  });
+
   it("sans article qui le nomme dans ce cycle, ils ne t'appellent pas", () => {
     state.paroles = {
       ...defaultParoles(),

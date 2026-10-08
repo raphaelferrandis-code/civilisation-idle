@@ -7,7 +7,7 @@ Chantier ouvert le 2026-10-07 sur la demande de Raph :
 > n'interagit pas avec eux, puis après une option dialogue qui permette de parler avec
 > certains. »
 
-**Statut : plan tranché, lots 1 à 5 livrés ; les lots 2 à 5 sont à juger en jeu.** La fiche d'habitant qui sert de socle est faite
+**Statut : plan tranché, lots 1 à 5 livrés, le 6 commencé (parler, et un échantillon à juger) ; les lots 2 à 6 sont à juger en jeu.** La fiche d'habitant qui sert de socle est faite
 (commit `4a99b8bc` : identité, foyers, métier, humeur et sa cause, « où il est entré »).
 Raph a répondu aux questions du § 11 le jour même (tableau 1 bis).
 **Ce document fait foi pour ce chantier.**
@@ -468,6 +468,39 @@ Le récit seulement :
 **Le Grand Reset entre dans la fiction.** Au Démiurge, Claude : « Tu vas tout effacer. Même
 ça ? » Après le reset, au premier feu : « J'ai rêvé que tu avais dit non. »
 
+### 7.6 Ce qui est fait (lot 6, premier pas : parler, un échantillon)
+
+Raph, 2026-10-08 : « gogo ». La règle de la plume demande un échantillon jugé avant
+d'écrire en masse : la mécanique est complète, les échanges sont un échantillon.
+- **Parler** (`paroles/talk.js`) : dès la période 3, la fiche propose « Parler » à un
+  passant de la rue, une fois par passant. Il entend une voix : il s'arrête, lève les yeux
+  vers toi (« T'écoute ») et dit ce qu'il en pense ; la fiche propose deux ou trois réponses
+  courtes et « Se taire ». Il répond selon son caractère et selon ce qu'il peut faire (le
+  pieux s'agenouille s'il en a la pose, le superstitieux rentre en courant, le curieux
+  cherche d'où ça vient), et fait ce que dit sa réponse. Rien choisi au bout de 30 s : le
+  silence répond pour toi (« Tu te tais. »).
+- **Ce que la cité retient** : à qui tu as parlé, ta réponse, ta manière (`vrai`, `doux`,
+  `ordre`, `secret`, `muet`) et ce qu'elle dit de toi (« Je vous teste. » : `test`),
+  `state.paroles.mots` (le compte est éternel, le reste par cité). Rien ne s'en sert encore.
+  Le panneau « Ce qu'on dit de toi » garde l'échange entier (sa réplique, la tienne, la
+  sienne).
+- **Le tutoiement** (§ 7.3) : « tu » à la période 3 et au Démiurge, « vous » entre les deux ;
+  le joueur dit « tu ». Un test le garde.
+- **L'échantillon** (`data/parolesMots.js`, 10 échanges, trois réponses et le silence
+  chacun) : P3 « Qui a parlé ? Il n'y a personne. », un habitant qui sait que Claude entend
+  quelqu'un (si le déclic a eu lieu), l'enfant qui croit qu'on joue à cache-cache ; P4
+  « Seigneur ? C'est vous ? » ; P5 le schisme (« Lequel des deux ? » : je vous guide, je vous
+  teste, j'attends) ; P6 le procès de Khael (« Alors venez. La séance est jeudi, à neuf
+  heures, salle trois. ») ; P7 « Raphaël écrit que vous jouez. C'est vrai ? » ; P8 la pensée
+  qui manque au chœur ; P9 « le Joueur » ; P10 « Tu te souviens de nous, après ? » (« Alors
+  souviens-toi de moi. Je m'appelle Ilya. »).
+- Vérifié en jeu au Bourg marchand (P3 : Bruna, « Moi. », puis le silence) et au Royaume
+  conquérant (P5 : « Je vous teste. »).
+- **Reste à trancher sur l'échantillon** : le volume (par période, par caractère, par
+  métier), les rumeurs sur ce que tu as dit (« Il a parlé à Bruna, devant le puits. »), la
+  gazette qui en parle, les figures de la Chronique dans la rue (Claude : « On s'est déjà
+  parlé. Pas dans cette vie. »), la promesse (§ 7.5), les personnages de scène.
+
 ---
 
 ## 8. L'écriture
@@ -511,7 +544,8 @@ Le récit seulement :
 4. ✅ **Les signes** : vent, lumière, feu, bête ; les réactions par âge et par caractère.
    ✅ 4 bis : ce qu'il FAIT (§ 5.6).
 5. ✅ **Le déclic et le dialogue par signes** : Claude, au Feu, jusqu'à P3 (§ 7.1 bis).
-6. **Les mots**, dès P3 : les passants, puis les figures de la Chronique.
+6. 🚧 **Les mots**, dès P3 : les passants, puis les figures de la Chronique (§ 7.6 : parler,
+   et un échantillon à juger).
 7. **Le Démiurge et le Grand Reset dans la fiction.**
 8. **Le son des signes**, quand le chantier « ambiance sonore » sera terminé.
 
@@ -620,3 +654,9 @@ Les six questions du premier jet sont tranchées (tableau 1 bis). Aucune ouverte
   la première causette écoutée (« Mais quelqu'un écoute. », et Claude se lève) ; les
   passants qui demandent un signe, attendent, et pensent ce qu'ils ont reçu, ou « Comme
   d'habitude. » ; la rue nomme ceux qui ont été exaucés. Vérifié en jeu au Campement.
+- 2026-10-08 : Raph : « gogo ». **Lot 6 commencé** (§ 7.6) : « Parler » dès la période 3, une
+  fois par passant ; il entend la voix, tu réponds (deux ou trois réponses, ou le silence),
+  il répond selon son caractère et fait ce qu'il dit ; la cité retient ta manière, le panneau
+  garde l'échange ; le tutoiement suit le lien. Un échantillon de dix échanges, de P3 à P10,
+  à juger avant d'écrire le reste. En passant : le test d'aller-retour de sauvegarde, cassé
+  par le lot 5 (le déclic manquait à la partie de test), est réparé.

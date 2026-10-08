@@ -67,6 +67,7 @@ export const SIGN = { fireReach: 8, beastReach: 5, thoughtMs: 1300, effectMs: 62
 //   wait     (lot 5) il a demandé un signe : il l'attend sur place, tourné vers le feu
 //            qu'il veut voir monter (sinon vers toi), jusqu'au bout de sa demande
 //   rise     (lot 5) assis à la veillée, il se lève d'abord, en ce temps-là
+//   talk     (lot 6) on lui parle : il reste là, tourné vers toi, le temps de l'échange
 export const REACT = {
   notice: 250, look: 5200,
   back: { from: 300, to: 650, dist: 0.35, end: 4200 },
@@ -406,7 +407,7 @@ function holdEndOf(R) {
     case 'kneel': return REACT.kneel.end;
     case 'wave': return REACT.wave.end;
     case 'gawk': return R.holdEnd || REACT.gawk.min;
-    case 'wait': return R.holdEnd || 0;
+    case 'wait': case 'talk': return R.holdEnd || 0;
     default: return LEAVE[R.act] || REACT.look;
   }
 }
@@ -529,7 +530,7 @@ function tickReaction(R, now) {
     return;
   }
   // ── la suite ──
-  if (R.act === 'look' || R.act === 'back' || R.act === 'search' || R.act === 'kneel' || R.act === 'wave' || R.act === 'gawk' || R.act === 'wait' || R.figure) {
+  if (R.act === 'look' || R.act === 'back' || R.act === 'search' || R.act === 'kneel' || R.act === 'wave' || R.act === 'gawk' || R.act === 'wait' || R.act === 'talk' || R.figure) {
     if (!R.figure && p._react) p._react.pose = null;
     stopReaction(R);
     return;
@@ -567,6 +568,21 @@ export function signEnvelope(S, now) {
   const down = 1 - Math.max(0, Math.min(1, (t - 2600) / 1400));
   return Math.max(0, Math.min(up, down));
 }
+// ── UNE VOIX (lot 6) ─────────────────────────────────────────────────────────
+// Le joueur lui parle (talk.js) : il s'arrête et lève les yeux vers toi le temps de
+// l'échange (`talk`, `holdMs`), puis fait ce que dit sa réponse (un geste du lot 4 bis).
+export function reactTo(p, act, { now = clock(), holdMs = 0 } = {}) {
+  const face = towardCamera(p.dir < 0 ? 0 : p.dir);
+  const R = startReaction(p, act, { kind: 'voice', p, face, src: null }, { now });
+  if (act === 'talk') R.holdEnd = holdMs;
+  return R;
+}
+// Il ne t'écoute plus (on l'a quitté au milieu) : il reprend sa route.
+export function endReaction(p) {
+  const R = p && REACTIONS.get(p);
+  if (R) stopReaction(R);
+}
+
 // ── LA DEMANDE (lot 5) ───────────────────────────────────────────────────────
 // Il a pensé « Si tu m'entends, fais monter le feu. » (listen.js, `CM.signRequest`) : il
 // s'arrête et attend. Rien ne vient avant la fin de sa demande, et on le regardait
@@ -675,6 +691,7 @@ export function reactionLabel(p, now = clock()) {
     }
     case 'go': return { fr: 'Repart', en: 'Moving on' };
     case 'wait': return { fr: 'Attend un signe', en: 'Waiting for a sign' };
+    case 'talk': return { fr: 'T’écoute', en: 'Listening to you' };
     default: return null;
   }
 }

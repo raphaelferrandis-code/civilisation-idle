@@ -269,6 +269,32 @@
 @media (prefers-reduced-motion: reduce) {
   .citizen-sheet .cs-line > span { animation: none; }
 }
+/* PARLER (lot 6) : « Toi » se lit plus clair que son prénom ; ton silence, en italique,
+   sans guillemets. Tes réponses possibles, l'une sous l'autre, sur toute la largeur ;
+   « Se taire » en retrait. */
+.citizen-sheet .cs-line.is-you .cs-line-who {
+  color: #e8dcc0;
+}
+.citizen-sheet .cs-line-text.is-silent {
+  font-style: italic;
+  color: #bfae86;
+}
+.citizen-sheet .cs-talk-choices {
+  grid-column: 1 / -1;
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+  margin-top: 0.3rem;
+}
+.citizen-sheet .cs-talk-choice {
+  padding: 0.4rem 0.65rem 0.54rem;
+  font-size: var(--fs-read);
+  text-align: left;
+}
+.citizen-sheet .cs-talk-choice.is-silent {
+  font-style: italic;
+  opacity: 0.82;
+}
 /* Écouter (sa causette) et Ses pensées : deux gestes de cuir, sous la fiche. */
 .citizen-sheet .cs-ears {
   display: flex;

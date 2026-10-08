@@ -2,8 +2,9 @@ import { useEffect, useState } from 'react';
 import { onParoles, parolesToi, parolesNameNow } from '../../game/core/paroles.js';
 import { PAROLES } from '../../game/data/paroles.js';
 import { PAROLES_SIGNES, PAROLES_REPONSES } from '../../game/data/parolesSignes.js';
+import { PAROLES_MOTS } from '../../game/data/parolesMots.js';
 import { NOMS_DU_JOUEUR } from '../../game/data/parolesToi.js';
-import { resolveLines } from '../../game/map/paroles/pick.js';
+import { resolveLines, talkTranscript } from '../../game/map/paroles/pick.js';
 import { EPOCHS } from '../../game/data/eraThemes.js';
 import { tr } from '../../game/core/i18n.js';
 import { fmtClock } from '../../game/core/utils.js';
@@ -18,11 +19,15 @@ import '../../styles/paroles-chronique.css';
 // ni « ??? »). En tête, le nom qu'ils te donnent : celui que la gazette de la cité a
 // publié en dernier ; avant le premier, ils ne t'appellent pas.
 
-// Ce qu'on a entendu, et ce qu'un signe leur a fait penser de toi (lot 4).
-const BY_ID = new Map([...PAROLES, ...PAROLES_SIGNES, ...PAROLES_REPONSES].map((e) => [e.id, e]));
+// Ce qu'on a entendu, ce qu'un signe leur a fait penser de toi (lot 4), et ce qu'on s'est
+// dit (lot 6).
+const BY_ID = new Map([...PAROLES, ...PAROLES_SIGNES, ...PAROLES_REPONSES, ...PAROLES_MOTS].map((e) => [e.id, e]));
 const ageOf = (band) => tr((EPOCHS[Math.max(0, Math.min(EPOCHS.length - 1, band | 0))] || EPOCHS[0]).label);
 const fmtAt = (sec) => fmtClock(sec, { seconds: 'never' });
 const quote = (l) => tr({ fr: `« ${l.fr} »`, en: `“${l.en}”` });
+// Une réplique, ou ton silence (lot 6).
+const say = (l) => (l.silent ? tr({ fr: 'Tu te tais.', en: 'You say nothing.' }) : quote(l));
+const YOU = { fr: 'Toi', en: 'You' };
 
 // Les répliques d'un souvenir, relues dans le catalogue avec les prénoms et le nom de
 // l'époque où il a été entendu. null si l'échange a quitté le catalogue.
@@ -32,12 +37,22 @@ function relire(rec) {
   const nom = rec.nom && NOMS_DU_JOUEUR[rec.nom];
   const names = { a: rec.a, b: rec.b, ...rec.n };
   if (nom) { names.nom = { fr: nom.fr, en: nom.en }; names.Nom = { fr: nom.Fr, en: nom.En }; }
-  const lines = resolveLines(e, {
+  const ctx = {
     kind: e.kind, kidIs: rec.kid, names,
     a: { fem: rec.fa }, b: { fem: rec.fb },
-  });
+  };
+  if (e.kind === 'talk') return relireTalk(e, rec, ctx);
+  const lines = resolveLines(e, ctx);
   const who = (l) => (l.who === 'b' ? rec.b : rec.a) || '';
   return { kind: e.kind, lines, who };
+}
+// Un échange avec toi (lot 6) : sa première réplique, ta réponse (ou ton silence), la
+// sienne.
+function relireTalk(e, rec, ctx) {
+  const lines = talkTranscript(e, rec.talk, ctx);
+  if (!lines) return null;
+  const who = (l) => (l.who === 'you' ? tr(YOU) : rec.a || '');
+  return { kind: 'talk', lines, who };
 }
 
 export default function ParolesChronique() {
@@ -71,16 +86,17 @@ export default function ParolesChronique() {
       <ul className="chronicle-reg-list">
         {rows.map(({ rec, r, key }) => {
           const first = r.lines[0];
-          const full = r.lines.map((l) => (r.kind === 'chat' ? `${r.who(l)} : ${quote(l)}` : quote(l))).join('\n');
+          const two = r.kind === 'chat' || r.kind === 'talk';
+          const full = r.lines.map((l) => (two ? `${r.who(l)} : ${say(l)}` : quote(l))).join('\n');
           const head = r.kind === 'chat'
             ? tr({ fr: `${rec.a} et ${rec.b}`, en: `${rec.a} and ${rec.b}` })
-            : (rec.a || '');
+            : r.kind === 'talk' ? tr({ fr: `${rec.a} et toi`, en: `${rec.a} and you` }) : (rec.a || '');
           return (
             <li key={key} className="chronicle-reg-row chronique-paroles-row" tabIndex={0} {...tipProps(head, full)}>
-              <span className="chronicle-reg-badge">{r.kind === 'chat' ? '··' : '·'}</span>
+              <span className="chronicle-reg-badge">{two ? '··' : '·'}</span>
               <span className="chronicle-reg-name chronique-paroles-line">
                 {quote(first)}
-                <em>{rec.a}{r.kind === 'chat' && rec.b ? ` · ${rec.b}` : ''} · {ageOf(rec.band)}</em>
+                <em>{rec.a}{r.kind === 'chat' && rec.b ? ` · ${rec.b}` : ''}{r.kind === 'talk' ? ` · ${tr(YOU)}` : ''} · {ageOf(rec.band)}</em>
               </span>
               <span className="chronicle-reg-meta">{fmtAt(rec.at)}</span>
             </li>

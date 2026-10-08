@@ -6,7 +6,7 @@
 // carte demande « qu'a-t-il déjà entendu ? » pour choisir un échange neuf
 // (map/paroles/pick.js), puis « inscris-le » quand le joueur l'écoute.
 import { state } from './state.js';
-import { defaultParoles, defaultSigns, defaultDeclic, TOI_MAX, SEEN_MAX, SIGN_KINDS } from './parolesState.js';
+import { defaultParoles, defaultSigns, defaultDeclic, defaultMots, TOI_MAX, SEEN_MAX, SAID_MAX, SIGN_KINDS, TALK_TONES } from './parolesState.js';
 import { NOMS_DU_JOUEUR } from '../data/parolesToi.js';
 
 const listeners = new Set();
@@ -28,6 +28,7 @@ export function parolesState() {
   if (!s.signs) s.signs = defaultSigns();
   if (!Array.isArray(s.signs.seen)) s.signs.seen = [];
   if (!s.declic) s.declic = defaultDeclic();
+  if (!s.mots) s.mots = defaultMots();
   return s;
 }
 // LA CITÉ de ce cycle : `cycles` repart à 0 au Grand Reset, d'où le compte des Grands
@@ -125,6 +126,42 @@ export function parolesNoteDeclic() {
 // A-t-il eu lieu dans cette cité ? Dans combien de cités en tout ?
 export const parolesDeclicHere = () => parolesState().declic.city === cityNow();
 export const parolesDeclics = () => parolesState().declic.n | 0;
+
+// LES MOTS (lot 6) : le joueur vient de parler à un passant. `id` : l'échange (jamais
+// deux fois le même, comme ce qu'on entend ; il ne compte pas dans la confiance, qui ne
+// vient que de l'écoute). `said` { key, tone, belief, who, fem } : sa réponse, sa manière,
+// ce qu'elle dit de lui, et à qui (la cité en parlera) ; `toi` : de quoi le relire dans le
+// panneau « Ce qu'on dit de toi ».
+export function parolesNoteTalk(id, said, toi = null) {
+  if (typeof id !== 'string' || !id || !said || !TALK_TONES.includes(said.tone)) return;
+  const s = parolesState();
+  const m = s.mots;
+  const city = cityNow();
+  if (m.city !== city) { m.city = city; m.said = []; m.tones = {}; }
+  s.heard[id] = (s.heard[id] | 0) + 1;
+  m.n = (m.n | 0) + 1;
+  m.tones[said.tone] = (m.tones[said.tone] | 0) + 1;
+  if (said.who) {
+    m.said.push({
+      id, key: said.key, tone: said.tone, who: said.who, fem: !!said.fem, at: lifeSec(),
+      ...(said.belief ? { belief: said.belief } : {}),
+    });
+    if (m.said.length > SAID_MAX) m.said.splice(0, m.said.length - SAID_MAX);
+  }
+  if (toi) {
+    s.toi.push({ id, at: lifeSec(), ...toi });
+    if (s.toi.length > TOI_MAX) s.toi.splice(0, s.toi.length - TOI_MAX);
+  }
+  s.rev = (s.rev | 0) + 1;
+  emit();
+}
+// Ce que le joueur a dit dans cette cité : [{ id, key, tone, belief, who, fem, at }].
+export function parolesSaid() {
+  const m = parolesState().mots;
+  return m.city === cityNow() ? m.said : [];
+}
+// Combien d'échanges en tout (éternel).
+export const parolesTalks = () => parolesState().mots.n | 0;
 
 // CE QUE LA GAZETTE A DIT, dans ce cycle : les articles parus, et le dernier qui
 // donne un nom au joueur (NOMS_DU_JOUEUR). Les habitants n'en savent jamais plus.

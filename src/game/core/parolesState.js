@@ -29,14 +29,22 @@
 //   declic { n (dans combien de cités, éternel : Claude s'en souvient), city (la cité du
 //          dernier, -1 : jamais) } — le soir où Claude a dit « Mais quelqu'un écoute. »
 //          (lot 5). Une cité : `cycles + 1000 × grandResetCount` (core/paroles.js).
+//   mots   ce que le joueur a DIT (lot 6) : { n (combien d'échanges, éternel), city, said
+//          [{ id, key, tone, belief, who, fem, at }] (dans cette cité : à qui il a parlé et
+//          ce qu'il a répondu, SAID_MAX au plus), tones { vrai, doux, ordre, secret, muet }
+//          (dans cette cité : sa manière) }. Un souvenir du panneau peut être un échange :
+//          `toi.talk` { key (sa réponse), ri (la réplique qui a suivi) }.
 
 const MAX_ID = 40;
 const MAX_HEARD = 4000;
 export const TOI_MAX = 120;
 export const SEEN_MAX = 12;
+export const SAID_MAX = 12;
 const MAX_NAME = 40;
 
 export const SIGN_KINDS = ['wind', 'light', 'fire', 'beast'];
+// La manière du joueur quand il parle (data/parolesMots.js, TALK_TONES).
+export const TALK_TONES = ['vrai', 'doux', 'ordre', 'secret', 'muet'];
 
 const isObj = (v) => v !== null && typeof v === 'object' && !Array.isArray(v);
 const int = (v, def = 0, lo = 0, hi = 1e9) => (Number.isFinite(v) ? Math.min(hi, Math.max(lo, Math.floor(v))) : def);
@@ -49,8 +57,14 @@ export function defaultSigns() {
 export function defaultDeclic() {
   return { n: 0, city: -1 };
 }
+export function defaultMots() {
+  return { n: 0, city: -1, said: [], tones: {} };
+}
 export function defaultParoles() {
-  return { heard: {}, n: 0, rev: 0, toi: [], bulles: { cycle: 0, n: 0 }, signs: defaultSigns(), declic: defaultDeclic() };
+  return {
+    heard: {}, n: 0, rev: 0, toi: [], bulles: { cycle: 0, n: 0 }, signs: defaultSigns(), declic: defaultDeclic(),
+    mots: defaultMots(),
+  };
 }
 
 // { wind: n, … } : seulement les signes connus, seulement des comptes positifs.
@@ -81,6 +95,32 @@ function normalizeSigns(raw) {
   };
 }
 
+// Ce que le joueur a dit, et à qui (lot 6).
+const key = (v) => (typeof v === 'string' && /^[a-z0-9-]{1,16}$/.test(v) ? v : null);
+function normalizeSaid(raw) {
+  if (!isObj(raw)) return null;
+  const rid = id(raw.id), k = key(raw.key), who = name(raw.who);
+  if (!rid || !k || !who || !TALK_TONES.includes(raw.tone)) return null;
+  const out = { id: rid, key: k, tone: raw.tone, who, fem: !!raw.fem, at: Number.isFinite(raw.at) && raw.at >= 0 ? raw.at : 0 };
+  if (key(raw.belief)) out.belief = raw.belief;
+  return out;
+}
+function normalizeMots(raw) {
+  if (!isObj(raw)) return defaultMots();
+  const tones = {};
+  if (isObj(raw.tones)) {
+    for (const t of TALK_TONES) {
+      const n = int(raw.tones[t], 0, 0, 1e9);
+      if (n > 0) tones[t] = n;
+    }
+  }
+  return {
+    n: int(raw.n, 0, 0, 1e9), city: int(raw.city, -1, -1, 1e9),
+    said: Array.isArray(raw.said) ? raw.said.map(normalizeSaid).filter(Boolean).slice(-SAID_MAX) : [],
+    tones,
+  };
+}
+
 function normalizeToi(raw) {
   if (!isObj(raw)) return null;
   const rid = id(raw.id);
@@ -102,6 +142,8 @@ function normalizeToi(raw) {
     kid: raw.kid === 'a' || raw.kid === 'b' ? raw.kid : null,
     nom: typeof raw.nom === 'string' && raw.nom.length <= 64 && /^[a-z0-9_]+$/i.test(raw.nom) ? raw.nom : null,
     n,
+    // Un échange avec le joueur (lot 6) : sa réponse et la réplique qui a suivi.
+    ...(isObj(raw.talk) && key(raw.talk.key) ? { talk: { key: raw.talk.key, ri: int(raw.talk.ri, 0, 0, 20) } } : {}),
   };
 }
 
@@ -128,5 +170,6 @@ export function normalizeParoles(raw) {
   }
   out.signs = normalizeSigns(raw.signs);
   if (isObj(raw.declic)) out.declic = { n: int(raw.declic.n, 0, 0, 1e6), city: int(raw.declic.city, -1, -1, 1e9) };
+  out.mots = normalizeMots(raw.mots);
   return out;
 }
