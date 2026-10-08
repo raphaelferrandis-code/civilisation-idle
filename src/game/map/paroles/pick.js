@@ -35,7 +35,11 @@
 //   domine dans la cité) ; la promesse tenue : promised (c'est à lui qu'elle a été
 //   faite), promise (à un autre : {promis}), et {jours} ;
 //   et pour les figures de la Chronique (lot 6, data/parolesFigures.js) : a.chronique (sa
-//   clé, 'claude', 'edith'…) et knows (tu lui as parlé dans une autre cité).
+//   clé, 'claude', 'edith'…) et knows (tu lui as parlé dans une autre cité) ;
+//   et pour le Grand Reset (lot 7, data/parolesReset.js) : resetReady (un sceau est prêt,
+//   tu peux tout effacer) et afterReset (la première cité du monde refait).
+// Une entrée `first` passe avant tout le reste tant qu'on ne l'a pas entendue (le souvenir
+// de Claude, sa question avant le Grand Reset, son rêve après).
 // }
 import { PAROLES, JOB_GROUP } from '../../data/paroles.js';
 import { PAROLES_SIGNES } from '../../data/parolesSignes.js';
@@ -132,6 +136,9 @@ export function parolesEligible(e, ctx) {
   if (!e.part && OWN_ONLY.has(a.job) && e.kind !== 'chat' && !own) return false;
   // Il t'a parlé dans une autre cité (Claude s'en souvient).
   if (w.knows != null && !!ctx.knows !== w.knows) return false;
+  // Le Grand Reset (lot 7) : avant (un sceau est prêt), après (le monde refait).
+  if (w.resetReady && !ctx.resetReady) return false;
+  if (w.afterReset && !ctx.afterReset) return false;
   if (w.declic != null && !!ctx.declic !== w.declic) return false;
   if (w.declics && (ctx.declics | 0) < w.declics) return false;
   if (w.fire && !ctx.fire) return false;
@@ -183,7 +190,12 @@ const weightOf = (e) => {
 export function pickParole(ctx, heard = {}, rand = Math.random, catalog = PAROLES) {
   const ok = catalog.filter((e) => parolesEligible(e, ctx));
   if (!ok.length) return null;
-  return chooseFrom(ok, ctx, heard, rand);
+  return chooseFrom(firstOf(ok, heard), ctx, heard, rand);
+}
+// Ce qui se dit d'abord (`first`), tant qu'on ne l'a pas entendu ; sinon tout.
+function firstOf(ok, heard) {
+  const first = ok.filter((e) => e.first && !(heard[e.id] | 0));
+  return first.length ? first : ok;
 }
 
 // LES SIGNES (lot 4) : la pensée qu'un signe fait naître. Les règles de l'écoute (pas
@@ -209,10 +221,9 @@ export function pickSign(ctx, heard = {}, rand = Math.random, catalog = PAROLES_
 export function pickTalk(ctx, heard = {}, rand = Math.random, catalog = MOTS) {
   const ok = catalog.filter((e) => parolesEligible(e, ctx) && talkSilence(e, ctx) && talkChoices(e, ctx).length >= 2);
   if (!ok.length) return null;
-  // Claude se souvient (lot 6) : « On s'est déjà parlé. » vient avant tout le reste, la
-  // première fois qu'il te retrouve.
-  const first = ok.filter((e) => e.when && e.when.knows && !(heard[e.id] | 0));
-  const r = chooseFrom(first.length ? first : ok, ctx, heard, rand);
+  // Ce qui se dit d'abord (`first`) : Claude qui te retrouve (« On s'est déjà parlé. »), sa
+  // question avant le Grand Reset (« Tu vas tout effacer. Même ça ? »).
+  const r = chooseFrom(firstOf(ok, heard), ctx, heard, rand);
   return { id: r.id, entry: ok.find((e) => e.id === r.id), lines: r.lines };
 }
 // Une réponse du répertoire d'une voix, possible ici : ses conditions, les prénoms

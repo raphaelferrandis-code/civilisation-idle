@@ -17,6 +17,8 @@ import { chroniclePeriod9 } from './chronicle/p9.js';
 import { chroniclePeriod10 } from './chronicle/p10.js';
 // La voix du joueur, dès la période 3 (lot 6) : la gazette parle de celle qui domine.
 import { chronicleVoix } from './chronicle/voix.js';
+// Le réveil, la première cité d'un monde refait par le Grand Reset (lot 7).
+import { chronicleReve } from './chronicle/reve.js';
 
 export const chronicleArticles = [
   ...chroniclePeriod1,
@@ -29,7 +31,8 @@ export const chronicleArticles = [
   ...chroniclePeriod8,
   ...chroniclePeriod9,
   ...chroniclePeriod10,
-  ...chronicleVoix
+  ...chronicleVoix,
+  ...chronicleReve
 ];
 
 // Aplatit les feuilles { fr, en } (title/text/author) en chaînes de la langue

@@ -17,6 +17,10 @@
 //   PAROLES_REPONSES  ce que pense celui qui avait demandé un signe (genre 'sign',
 //                     `answer`) : 'yes' il l'a eu, 'other' un autre (il l'interprète,
 //                     parfois de travers), 'none' rien (« Comme d'habitude. »).
+// LOT 7 (le Grand Reset dans la fiction, § 7.5) : quand un sceau est prêt
+// (`when.resetReady`), Claude pense « Tu vas tout effacer. Même ça ? » (`first` : il le
+// pense avant tout le reste) ; dans la première cité du monde refait (`when.afterReset`),
+// le déclic devient « J'ai rêvé que tu avais dit non. », et Claude rêve de l'ancienne ville.
 // Conditions propres : when.veillee (la causette de la veillée), when.declic (le déclic a
 // eu lieu dans cette cité, ou pas), when.declics (dans au moins n cités : Claude se
 // souvient), when.fire (un feu près de lui : on ne demande que ce qu'on peut voir),
@@ -39,6 +43,12 @@ export const PAROLES_VEILLEE = [
     { who: 'b', fr: 'Tu crois que le feu nous entend ?', en: 'Do you think the fire can hear us?' },
     { who: 'a', fr: 'Le feu, non.', en: 'The fire? No.' },
     { who: 'a', fr: 'Mais quelqu’un écoute. Il écoutait déjà, à l’autre feu.', en: 'But someone is listening. He was listening already, at the other fire.' },
+  ] },
+  // Le premier feu après le Grand Reset (lot 7) : debout, tourné vers toi, il te le dit.
+  { id: 'v-declic-reve', kind: 'chat', layer: 3, bands: FEU, forced: 'declic', when: { veillee: true }, lines: [
+    { who: 'b', fr: 'Tu crois que le feu nous entend ?', en: 'Do you think the fire can hear us?' },
+    { who: 'a', fr: 'Le feu, non. Mais quelqu’un écoute.', en: 'The fire? No. But someone is listening.' },
+    { who: 'a', fr: 'J’ai rêvé que tu avais dit non.', en: 'I dreamt you had said no.' },
   ] },
 
   // ── Claude, ses pensées ──
@@ -71,6 +81,16 @@ export const PAROLES_VEILLEE = [
   ] },
   { id: 'v-t-ailleurs', kind: 'thought', layer: 3, bands: FEU, when: { job: [VEILLEE_JOB], declics: 2 }, lines: [
     { who: 'a', fr: 'J’ai déjà gardé un feu comme celui-ci. La rivière passait de l’autre côté. Il écoutait déjà.', en: 'I’ve kept a fire like this one before. The river ran on the other side. He was listening then too.' },
+  ] },
+  // LOT 7 : un sceau est prêt ; puis le monde refait.
+  { id: 'v-t-effacer', first: true, kind: 'thought', layer: 3, bands: FEU, when: { job: [VEILLEE_JOB], resetReady: true }, lines: [
+    { who: 'a', fr: 'Tu vas tout effacer. Même ça ?', en: 'You’re going to erase everything. Even this?' },
+  ] },
+  { id: 'v-t-reve-ville', first: true, kind: 'thought', layer: 1, bands: FEU, when: { job: [VEILLEE_JOB], afterReset: true }, lines: [
+    { who: 'a', fr: 'J’ai rêvé d’une ville où le feu ne s’éteignait jamais. Ce matin, il n’y avait que le camp.', en: 'I dreamt of a city where the fire never went out. This morning there was only the camp.' },
+  ] },
+  { id: 'v-t-reve-braise', kind: 'thought', layer: 1, bands: FEU, when: { job: [VEILLEE_JOB], afterReset: true }, lines: [
+    { who: 'a', fr: 'Il y avait une braise dans le foyer, ce matin. Je ne l’avais pas laissée.', en: 'There was an ember in the hearth this morning. I hadn’t left one.' },
   ] },
 
   // ── La veillée : Claude (a) et celui qui veille avec lui (b) ──
@@ -121,6 +141,19 @@ export const PAROLES_VEILLEE = [
   { id: 'v-c-autre-feu', kind: 'chat', layer: 3, bands: FEU, when: { veillee: true, declic: true, declics: 2 }, lines: [
     { who: 'b', fr: 'Tu dis que tu l’as déjà vu, celui qui écoute. Où ça ?', en: 'You say you’ve seen him before, the one who listens. Where?' },
     { who: 'a', fr: 'À un autre feu. La rivière était à gauche, pas à droite.', en: 'At another fire. The river was on the left, not the right.' },
+  ] },
+  // LOT 7 : un sceau est prêt ; puis le monde refait.
+  { id: 'v-c-effacer', kind: 'chat', layer: 2, bands: FEU, when: { veillee: true, declic: true, resetReady: true }, lines: [
+    { who: 'b', fr: 'Tu regardes le feu comme si c’était la dernière fois.', en: 'You’re looking at the fire as if it were the last time.' },
+    { who: 'a', fr: 'Il va tout effacer. Le camp, la rivière.', en: 'He’s going to erase everything. The camp, the river.' },
+    { who: 'b', fr: 'Même le feu ?', en: 'Even the fire?' },
+    { who: 'a', fr: 'Je ne sais pas. Je lui ai demandé.', en: 'I don’t know. I asked him.' },
+  ] },
+  { id: 'v-c-reve', kind: 'chat', layer: 1, bands: FEU, when: { veillee: true, afterReset: true }, lines: [
+    { who: 'b', fr: 'Tu as mal dormi.', en: 'You slept badly.' },
+    { who: 'a', fr: 'J’ai rêvé d’une ville. Des tours, du verre, des gens qui pensaient tous ensemble.', en: 'I dreamt of a city. Towers, glass, people who all thought together.' },
+    { who: 'b', fr: 'Ça n’existe pas, ça.', en: 'There’s no such thing.' },
+    { who: 'a', fr: 'Je sais. Je remets du bois.', en: 'I know. I’m putting more wood on.' },
   ] },
 
   // ── Les demandes (§ 7.1) : « Si tu m'entends, fais monter le feu. » ──

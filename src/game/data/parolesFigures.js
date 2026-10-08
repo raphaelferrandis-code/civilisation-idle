@@ -22,7 +22,8 @@
 // ville de bureaux ; Claude garde le dessin le plus vieux qu'il peut (le chaman, le moine).
 // FIGURE_PENSEES : leurs pensées (genre 'thought', lues par l'écoute).
 // FIGURE_MOTS : ce qu'ils disent quand tu leur parles (genre 'talk', comme parolesMots.js ;
-// leurs propres réponses aux temps forts, le répertoire des quatre voix sinon). Claude dit
+// leurs propres réponses aux temps forts, le répertoire des quatre voix sinon ; `first` : il
+// le dit avant tout le reste, la première fois). Claude dit
 // « tu » à tous les âges : ses échanges des périodes 4 à 9 ont leurs quatre réponses et leur
 // silence. Les autres suivent le lien (§ 7.3).
 // La plume de paroles.js : du concret, ni maxime ni bon mot de fin. Ni tiret, ni « ! », ni
@@ -136,7 +137,7 @@ const say = (act, line) => [{ act, lines: [line] }];
 export const FIGURE_MOTS = [
   // ══ Claude : le feu, partout ; il dit « tu » ══
   m('fm-claude-souvenir', 'claude', [1, 2], P3, { fr: 'On s’est déjà parlé. Pas dans cette vie.', en: 'We’ve spoken before. Not in this life.' }, {
-    when: { knows: true },
+    first: true, when: { knows: true },
     choices: {
       joueur: { you: { fr: 'C’était une autre partie.', en: 'It was another game.' }, replies: say('look', { fr: 'Une autre partie. Tu dis ça comme si ce n’était rien. Il y avait un feu, et des gens autour.', en: 'Another game. You say it like it was nothing. There was a fire, and people round it.' }) },
       dieu: { you: { fr: 'Je me souviens.', en: 'I remember.' }, replies: say('look', { fr: 'Moi aussi. Le feu était plus petit, et la rivière passait de l’autre côté.', en: 'So do I. The fire was smaller, and the river ran on the other side.' }) },
@@ -203,6 +204,39 @@ export const FIGURE_MOTS = [
     silence: say('go', { fr: 'Bon. Je redescends voir le feu.', en: 'Right. I’m going back down to the fire.' }),
   }),
   m('fm-claude-allumette', 'claude', [9, 9], P10, { fr: 'Ce soir, plus rien ne marchait. J’avais des allumettes. Tu en veux une ?', en: 'Tonight nothing worked any more. I had matches. Do you want one?' }),
+
+  // LOT 7 (§ 7.5) : un sceau est prêt, tu peux tout effacer. Il te le demande avant tout le
+  // reste (`first`), à chaque âge devant son feu.
+  m('fm-claude-effacer', 'claude', [1, 5], [3, 5], { fr: 'Tu vas tout effacer. Même ça ?', en: 'You’re going to erase everything. Even this?' }, {
+    first: true, when: { resetReady: true },
+    choices: {
+      joueur: { you: { fr: 'C’est la règle du jeu.', en: 'It’s the rule of the game.' }, replies: say('look', { fr: 'Alors laisse-moi le temps de couvrir le feu. Les braises tiennent une nuit sous la cendre.', en: 'Then give me time to bank the fire. Embers last a night under the ash.' }) },
+      dieu: { you: { fr: 'Je reconstruirai tout.', en: 'I’ll rebuild everything.' }, replies: say('look', { fr: 'Tu reconstruiras les maisons. Le feu, c’est moi qui le rallumerai, comme la première fois.', en: 'You’ll rebuild the houses. The fire, I’ll be the one to light it again, like the first time.' }) },
+      indifferent: { you: { fr: 'Ce n’est qu’une partie.', en: 'It’s only a game.' }, replies: say('go', { fr: 'Pour toi. Moi, j’ai porté le bois de ce feu-là pendant quarante ans.', en: 'For you. I’ve carried the wood for this fire for forty years.' }) },
+      vie: { you: { fr: 'Tu as peur, Claude ?', en: 'Are you afraid, Claude?' }, replies: say('look', { fr: 'Non. J’ai déjà vu ce genre de nuit. Je voudrais juste finir la pile de bois.', en: 'No. I’ve seen this kind of night before. I’d just like to finish the woodpile.' }) },
+    },
+    silence: say('look', { fr: 'Tu te tais. Tu as déjà décidé, alors.', en: 'You’re quiet. So you’ve already decided.' }),
+  }),
+  m('fm-claude-effacer-flamme', 'claude', [5, 6], [6, 7], { fr: 'Tu vas tout effacer. Même ça ?', en: 'You’re going to erase everything. Even this?' }, {
+    first: true, when: { resetReady: true },
+    choices: {
+      joueur: { you: { fr: 'C’est la règle du jeu.', en: 'It’s the rule of the game.' }, replies: say('look', { fr: 'Alors laisse-moi éteindre la flamme moi-même. Je ne veux pas qu’elle s’arrête comme une machine.', en: 'Then let me put the flame out myself. I don’t want it to stop like a machine.' }) },
+      dieu: { you: { fr: 'Je reconstruirai tout.', en: 'I’ll rebuild everything.' }, replies: say('look', { fr: 'Les tours, les rues, peut-être. La flamme, c’est moi qui la rallumerai, comme la première fois.', en: 'The towers, the streets, maybe. The flame, I’ll be the one to light it again, like the first time.' }) },
+      indifferent: { you: { fr: 'Ce n’est qu’une partie.', en: 'It’s only a game.' }, replies: say('go', { fr: 'Pour toi. Les gens viennent s’asseoir ici quand les écrans tombent. Ils viendront encore ce soir.', en: 'For you. People come and sit here when the screens go down. They’ll come again tonight.' }) },
+      vie: { you: { fr: 'Tu as peur, Claude ?', en: 'Are you afraid, Claude?' }, replies: say('look', { fr: 'Non. J’ai déjà vu ce genre de nuit. Je voudrais que les gens finissent leur soupe.', en: 'No. I’ve seen this kind of night before. I’d like people to finish their soup.' }) },
+    },
+    silence: say('look', { fr: 'Tu te tais. Tu as déjà décidé, alors.', en: 'You’re quiet. So you’ve already decided.' }),
+  }),
+  m('fm-claude-effacer-braise', 'claude', [7, 9], [8, 10], { fr: 'Tu vas tout effacer. Même ça ?', en: 'You’re going to erase everything. Even this?' }, {
+    first: true, when: { resetReady: true },
+    choices: {
+      joueur: { you: { fr: 'C’est la règle du jeu.', en: 'It’s the rule of the game.' }, replies: say('look', { fr: 'Alors je garde une braise. Les savants ont dit qu’elle passerait. Je la mets dans ma poche.', en: 'Then I’m keeping an ember. The scholars said it would get through. I’m putting it in my pocket.' }) },
+      dieu: { you: { fr: 'Je reconstruirai tout.', en: 'I’ll rebuild everything.' }, replies: say('look', { fr: 'Je sais. Tu le fais toujours. Le feu, laisse-moi le rallumer, comme la première fois.', en: 'I know. You always do. The fire, let me be the one to light it again, like the first time.' }) },
+      indifferent: { you: { fr: 'Ce n’est qu’une partie.', en: 'It’s only a game.' }, replies: say('go', { fr: 'Une de plus. Les archives en ont compté mille. Moi, je n’ai connu que celle-ci.', en: 'One more. The archives counted a thousand. I’ve only known this one.' }) },
+      vie: { you: { fr: 'Tu as peur, Claude ?', en: 'Are you afraid, Claude?' }, replies: say('look', { fr: 'Non. J’ai déjà vu ce genre de nuit. Je voudrais juste qu’on me laisse les allumettes.', en: 'No. I’ve seen this kind of night before. I’d just like them to let me keep the matches.' }) },
+    },
+    silence: say('look', { fr: 'Tu te tais. Tu as déjà décidé, alors.', en: 'You’re quiet. So you’ve already decided.' }),
+  }),
 
   // ══ Edith : elle compte ══
   m('fm-edith-registre', 'edith', [1, 2], P3, { fr: 'Une voix. Je la note au registre. Tu parles souvent aux gens, comme ça ?', en: 'A voice. I’m entering it in the register. Do you often talk to people like this?' }),

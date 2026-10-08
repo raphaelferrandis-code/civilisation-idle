@@ -7,7 +7,7 @@ import { mapStage, currentEraIndex } from './mechanics.js';
 import { cycleYear } from './actions/utils.js';
 import { D } from './num.js';
 import { tr, localizeData } from './i18n.js';
-import { cityKey, dominantTone } from './parolesState.js';
+import { cityKey, dominantTone, afterGrandReset } from './parolesState.js';
 
 // Rythme de la gazette : une dépêche au plus toutes les 3 minutes. Le bandeau
 // (ChronicleTicker) ne l'affiche que pendant CHRONICLE_VISIBLE_MS, puis reste
@@ -61,7 +61,8 @@ const CATEGORY_LABELS = localizeData({
   voix_joueur: { fr: "La voix", en: "The voice" },
   voix_dieu: { fr: "La voix", en: "The voice" },
   voix_indifferent: { fr: "La voix", en: "The voice" },
-  voix_vie: { fr: "La voix", en: "The voice" }
+  voix_vie: { fr: "La voix", en: "The voice" },
+  reve: { fr: "Le réveil", en: "The waking" }
 });
 
 const CATEGORY_PRIORITIES = {
@@ -81,6 +82,8 @@ const CATEGORY_PRIORITIES = {
   voix_dieu: 3,
   voix_indifferent: 3,
   voix_vie: 3,
+  // Le réveil (lot 7) : sitôt la fondation passée, le camp parle de son rêve.
+  reve: 2,
   nourriture: 4,
   or: 4,
   savoir: 4,
@@ -154,6 +157,9 @@ export function evaluateCondition(type, state) {
     case "voix_indifferent":
     case "voix_vie":
       return dominantVoice(state) === type.slice(5);
+    // LE RÉVEIL (lot 7) : la première cité d'un monde refait par le Grand Reset.
+    case "reve":
+      return afterGrandReset(state);
     default:
       return false;
   }
@@ -184,7 +190,8 @@ export function checkAndTriggerChronicleEntries(state, dt) {
     "crise", "tension", "usure",
     "nourriture", "or", "savoir",
     "paix", "bonus_libre",
-    "voix_joueur", "voix_dieu", "voix_indifferent", "voix_vie"
+    "voix_joueur", "voix_dieu", "voix_indifferent", "voix_vie",
+    "reve"
   ];
 
   const matchingArticles = [];

@@ -30,7 +30,8 @@ import { state } from '../../core/state.js';
 import { getPeriod } from '../../core/chronicleEvaluator.js';
 import { lastAbsence } from '../../core/idleReport.js';
 import { NOMS_DU_JOUEUR } from '../../data/parolesToi.js';
-import { dominantTone } from '../../core/parolesState.js';
+import { dominantTone, afterGrandReset } from '../../core/parolesState.js';
+import { claimableGrandResetCount } from '../../core/mechanics.js';
 import { PAROLES } from '../../data/paroles.js';
 
 const PAROLES_BY_ID = new Map(PAROLES.map((e) => [e.id, e]));
@@ -283,6 +284,9 @@ export function listenContext(kind, p, focusKind) {
     promise: !!kept && !!names.promis,
     // Une figure de la Chronique : tu lui as parlé dans une autre cité (lot 6).
     knows: !!A.view.chronique && parolesFigureKnows(A.view.chronique),
+    // Le Grand Reset (lot 7) : un sceau est prêt ; la première cité du monde refait.
+    resetReady: claimableGrandResetCount() > 0,
+    afterReset: afterGrandReset(state),
     // Le déclic et les demandes (lot 5).
     declic: parolesDeclicHere(),
     declics: parolesDeclics(),
@@ -298,6 +302,14 @@ export function listenOptions() {
   return { chat: !!talkingPartner(f.p), thought: true };
 }
 
+// LE DÉCLIC qui vient (lot 5) : la première cité, les suivantes (Claude se souvient), et le
+// premier feu d'un monde refait par le Grand Reset (lot 7 : « J'ai rêvé que tu avais dit
+// non. »).
+export function declicId(ctx) {
+  if (ctx.afterReset) return 'v-declic-reve';
+  return ctx.declics > 0 ? 'v-declic-encore' : 'v-declic';
+}
+
 // Écouter : `kind` = 'chat' (sa causette) ou 'thought' (ses pensées). Rend vrai si
 // quelque chose est entendu.
 export function startListening(kind) {
@@ -309,7 +321,7 @@ export function startListening(kind) {
   // LE DÉCLIC (lot 5, § 7.1) : la première causette de la veillée qu'on écoute, dans une
   // cité, c'est celle-là. Claude se souvient des autres cités.
   const declic = kind === 'chat' && ctx.veillee && !ctx.declic;
-  const de = declic ? PAROLES_BY_ID.get(ctx.declics > 0 ? 'v-declic-encore' : 'v-declic') : null;
+  const de = declic ? PAROLES_BY_ID.get(declicId(ctx)) : null;
   const r = de ? { id: de.id, kind: de.kind, layer: de.layer, act: null, request: null, lines: resolveLines(de, ctx) }
     : pickParole(ctx, parolesHeard());
   if (!r) return false;

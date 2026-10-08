@@ -7,7 +7,7 @@ Chantier ouvert le 2026-10-07 sur la demande de Raph :
 > n'interagit pas avec eux, puis après une option dialogue qui permette de parler avec
 > certains. »
 
-**Statut : plan tranché, lots 1 à 6 livrés (le 6 sans Diogène ni la Secte du Feu, § 7.4) ; les lots 2 à 6 sont à juger en jeu.** La fiche d'habitant qui sert de socle est faite
+**Statut : plan tranché, lots 1 à 7 livrés (le 6 sans Diogène ni la Secte du Feu, § 7.4) ; les lots 2 à 7 sont à juger en jeu ; reste le son des signes (lot 8).** La fiche d'habitant qui sert de socle est faite
 (commit `4a99b8bc` : identité, foyers, métier, humeur et sa cause, « où il est entré »).
 Raph a répondu aux questions du § 11 le jour même (tableau 1 bis).
 **Ce document fait foi pour ce chantier.**
@@ -571,6 +571,35 @@ intéressé par la vie du pnj. Le silence, c'est bien. Fais. »
   notables qui les paient. Tu as un avis, toi ? »), à la ville de bureaux (Edith et sa
   demande, Claude et sa flamme), et Claude dans la cité suivante (« On s'est déjà parlé. »).
 
+### 7.7 Ce qui est fait (lot 7 : le Grand Reset dans la fiction)
+
+Raph, 2026-10-08 : « lot 7 goooo ». Le Grand Reset ne se fait pas qu'au Démiurge : dès qu'un
+sceau est découvert, le joueur peut le réclamer, à tout âge, et tout repart du camp. Les
+deux temps du § 7.5 suivent donc le sceau, pas l'âge.
+- **Avant : un sceau est prêt** (`when.resetReady`, `claimableGrandResetCount() > 0`).
+  Claude te le demande : « Tu vas tout effacer. Même ça ? ». Dans la rue, à tout âge (trois
+  échanges, un par monde : son feu, sa flamme, sa braise), avec tes quatre réponses et ton
+  silence (« C'est la règle du jeu. » « Alors laisse-moi le temps de couvrir le feu. Les
+  braises tiennent une nuit sous la cendre. ») ; au feu du camp, il le pense, et le dit à
+  celui qui veille avec lui (« Il va tout effacer. Le camp, la rivière. » « Même le feu ? »
+  « Je ne sais pas. Je lui ai demandé. »). Il le dit avant tout le reste (`first`, la
+  première fois). La cité le pressent, chaque âge avec ce qu'il a sous la main (une pierre à
+  feu mise de côté, un nom gravé sous la table, des papiers enterrés, le chœur qui répète
+  « recommencer », la braise des archives).
+- **Après : la première cité du monde refait** (`when.afterReset` : `cycles` à 0 et au
+  moins un Grand Reset, jusqu'à la première chute). Au premier feu, le déclic devient :
+  « Tu crois que le feu nous entend ? » « Le feu, non. Mais quelqu'un écoute. » et, debout,
+  tourné vers toi : **« J'ai rêvé que tu avais dit non. »** Claude rêve de l'ancienne ville
+  et trouve une braise qu'il n'avait pas laissée ; le camp rêve de maisons de pierre, d'un
+  sentier déjà pris, d'une lumière qui s'éteint.
+- **La gazette du réveil** (`chronicle/reve.js`, « reve », priorité 2 : sitôt la fondation
+  passée) : « TOUT LE CAMP A FAIT LE MÊME RÊVE », « LE GARDIEN DU FEU RECONNAÎT LE FOYER »
+  (Edith), « UNE BRAISE QUE PERSONNE N'A LAISSÉE » (période 2).
+- Les figures qui traversent les cités s'en souviennent déjà (`knows`, lot 6) ; le Grand
+  Reset change de cité comme une chute.
+- Vérifié en jeu : Claude dans la rue, un sceau prêt (« Tu vas tout effacer. Même ça ? »),
+  et la gazette du réveil au camp d'un monde refait.
+
 ---
 
 ## 8. L'écriture
@@ -617,8 +646,9 @@ intéressé par la vie du pnj. Le silence, c'est bien. Fais. »
 6. ✅ **Les mots**, dès P3 : les passants, puis les figures de la Chronique (§ 7.6 : parler,
    les quatre voix, les rumeurs, la gazette, les personnages de scène, la promesse, Claude,
    Edith, Raphaël, Khael et Aldric dans la rue). Pas encore : Diogène et la Secte du Feu.
-7. **Le Démiurge et le Grand Reset dans la fiction.**
-8. **Le son des signes**, quand le chantier « ambiance sonore » sera terminé.
+7. ✅ **Le Démiurge et le Grand Reset dans la fiction** (§ 7.7).
+8. **Le son des signes**, quand le chantier « ambiance sonore » sera terminé (il l'est
+   depuis le 2026-10-08).
 
 ---
 
@@ -751,3 +781,7 @@ Les six questions du premier jet sont tranchées (tableau 1 bis). Aucune ouverte
   Diogène ni la Secte du Feu.
 - 2026-10-08 : **La gazette mène aux figures** (Raph : « go 1 ») : la signature d'une dépêche,
   quand la figure vit dans la cité, la fait retrouver sur la carte (§ 7.6).
+- 2026-10-08 : Raph : « lot 7 goooo ». **Le Grand Reset dans la fiction** (§ 7.7) : un
+  sceau prêt, Claude demande « Tu vas tout effacer. Même ça ? » et la cité le pressent ; au
+  premier feu du monde refait, « J'ai rêvé que tu avais dit non. », le camp rêve de
+  l'ancienne ville, et la gazette parle du réveil.

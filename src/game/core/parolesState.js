@@ -66,6 +66,10 @@ export function dominantTone(tones) {
   }
   return total >= 3 ? best : null;
 }
+// LE MONDE REFAIT (lot 7) : la première cité après un Grand Reset (`cycles` y repart à 0,
+// il faut une chute pour en sortir). On y rêve de l'ancienne ville (paroles/listen.js) ;
+// la gazette en parle (chronicleEvaluator.js, « reve »).
+export const afterGrandReset = (s) => !!s && (s.cycles | 0) === 0 && (s.grandResetCount | 0) > 0;
 // La voix du joueur quand il parle (data/parolesMots.js, TALK_ORIENTATIONS), et son silence.
 export const TALK_TONES = ['joueur', 'dieu', 'indifferent', 'vie', 'muet'];
 

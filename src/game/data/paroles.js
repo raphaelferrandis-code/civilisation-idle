@@ -59,6 +59,7 @@ import { PAROLES_ECHOS } from './parolesSignes.js';
 import { PAROLES_VEILLEE } from './parolesVeillee.js';
 import { PAROLES_ECHOS_MOTS } from './parolesMots.js';
 import { FIGURE_PENSEES } from './parolesFigures.js';
+import { PAROLES_RESET } from './parolesReset.js';
 
 // Les âges (eraThemes.js), par mondes.
 const FEU = [0, 1];      // Feu et Bois : le camp, la chasse, la cueillette, l'abri
@@ -2466,4 +2467,4 @@ const PAROLES_VIE = [
 
 // La troisième couche, ce qu'on dit de toi (lot 2), vit dans parolesToi.js.
 // Ce qu'on entend : leur vie, ce qu'on dit de toi, et ce qu'on dit des signes (lot 4).
-export const PAROLES = [...PAROLES_VIE, ...PAROLES_TOI, ...PAROLES_ECHOS, ...PAROLES_VEILLEE, ...PAROLES_ECHOS_MOTS, ...FIGURE_PENSEES];
+export const PAROLES = [...PAROLES_VIE, ...PAROLES_TOI, ...PAROLES_ECHOS, ...PAROLES_VEILLEE, ...PAROLES_ECHOS_MOTS, ...FIGURE_PENSEES, ...PAROLES_RESET];
