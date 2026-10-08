@@ -1611,3 +1611,7 @@ Ma recommandation était donnée pour chacune.
   Mesurés dans le jeu, au bord d'un quai de la Fonte (sonie pondérée) : un canard −30, un chat
   −31, un chant d'oiseau −21 ; le chien tout près sortait à −39, son niveau passe de 0,12 à 0,2.
   Le cygne et le héron se taisent toujours (aucune prise CC0 sans compte Freesound).
+- **2026-10-08, le lot 9 est entré dans main avec 11d5f393**, un commit des habitants (« la
+  gazette parle de la voix… lot 6 ») : une autre session a commité pendant que le lot 9 était
+  indexé (les sessions partagent l'index git). Son contenu y est entier et exact, poussé sur
+  origin/main ; seul son message est celui des habitants.
