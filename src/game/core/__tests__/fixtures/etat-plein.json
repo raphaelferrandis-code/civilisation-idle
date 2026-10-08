@@ -1199,6 +1199,13 @@
     "fem": true,
     "city": 3,
     "at": 1800000000000
+   },
+   "figures": {
+    "claude": {
+     "n": 2,
+     "city": 3,
+     "before": true
+    }
    }
   },
   "faitsDivers": {

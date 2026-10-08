@@ -670,7 +670,8 @@ function citizenIdentityOf(p) {
   const band = bandNow();
   const sprite = citizenSpriteName(p, band);
   const id = p.identity;
-  if (id && id.band === band && id.sprite === sprite) return id;
+  // (Une figure de la Chronique : paroles/figures.js tient son identité.)
+  if (id && (id.chronique || (id.band === band && id.sprite === sprite))) return id;
   const seed = (p.seed >>> 0) || mixHash(Math.round((p.phase || 0) * 1000), 7);
   const child = p.charType === 2;
   const who = { child, fem: !!p.fem, sprite, band };
@@ -1220,7 +1221,7 @@ export function citizenSheet() {
     age: id.age,
     job: id.job ? jobLabel(id.job, fem) : null,
     activity: activityOf(p, lost, fem),
-    home: tileTitle(p.home),
+    home: p.homeTitle !== undefined ? p.homeTitle : tileTitle(p.home),
     work,
     family: familyOf(p, f.kind, id),
     companion: companion ? idOf(companion).name : null,

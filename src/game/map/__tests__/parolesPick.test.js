@@ -4,6 +4,7 @@ import { PAROLES, JOB_GROUP } from "../../data/paroles.js";
 import { JOBS, TRAITS } from "../citizenIdentity.js";
 import { pickParole, parolesEligible, resolveLines } from "../paroles/pick.js";
 import { NOMS_DU_JOUEUR } from "../../data/parolesToi.js";
+import { FIGURES, FIGURE_KEYS } from "../../data/parolesFigures.js";
 import { chronicleArticles } from "../../data/chronicleArticles.js";
 
 // ÉCOUTER (docs/PLAN-ECOUTER-PARLER.md) : le catalogue et le choix d'un échange.
@@ -69,8 +70,11 @@ describe("le catalogue", () => {
     }
   });
 
-  it("la plume : chaque métier a ses mots", () => {
+  it("la plume : chaque métier a ses mots (ceux des figures de la Chronique : les leurs)", () => {
     const covered = new Set(PAROLES.flatMap((e) => (e.when && e.when.job) || []));
+    for (const k of FIGURE_KEYS) {
+      if (PAROLES.some((e) => e.when && e.when.chronique === k)) for (const j of FIGURES[k].jobs) covered.add(j[1]);
+    }
     for (const key of Object.keys(JOBS)) expect(covered.has(key), key).toBe(true);
   });
 

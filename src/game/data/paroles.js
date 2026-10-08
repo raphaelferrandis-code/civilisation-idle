@@ -58,6 +58,7 @@ import { PAROLES_TOI } from './parolesToi.js';
 import { PAROLES_ECHOS } from './parolesSignes.js';
 import { PAROLES_VEILLEE } from './parolesVeillee.js';
 import { PAROLES_ECHOS_MOTS } from './parolesMots.js';
+import { FIGURE_PENSEES } from './parolesFigures.js';
 
 // Les âges (eraThemes.js), par mondes.
 const FEU = [0, 1];      // Feu et Bois : le camp, la chasse, la cueillette, l'abri
@@ -89,6 +90,9 @@ export const JOB_GROUP = {
   stateClerk: 'office', fountaineer: 'office', architect: 'office', nurse: 'office',
   storyteller: 'art', actor: 'art', journalist: 'art', singer: 'art', dancer: 'art',
   matron: 'gentry', noble: 'gentry',
+  // Les figures de la Chronique (parolesFigures.js).
+  accountant: 'office', steward: 'office', judge: 'office', resident: 'learning', essayist: 'learning',
+  philosopher: 'learning',
 };
 
 const PAROLES_VIE = [
@@ -2462,4 +2466,4 @@ const PAROLES_VIE = [
 
 // La troisième couche, ce qu'on dit de toi (lot 2), vit dans parolesToi.js.
 // Ce qu'on entend : leur vie, ce qu'on dit de toi, et ce qu'on dit des signes (lot 4).
-export const PAROLES = [...PAROLES_VIE, ...PAROLES_TOI, ...PAROLES_ECHOS, ...PAROLES_VEILLEE, ...PAROLES_ECHOS_MOTS];
+export const PAROLES = [...PAROLES_VIE, ...PAROLES_TOI, ...PAROLES_ECHOS, ...PAROLES_VEILLEE, ...PAROLES_ECHOS_MOTS, ...FIGURE_PENSEES];

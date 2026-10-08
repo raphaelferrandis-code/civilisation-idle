@@ -38,6 +38,9 @@
 //   promesse « Je reviendrai te voir. » (lot 6, § 7.5) : { who, fem, city, at (l'heure
 //          murale, ms) }, la dernière ; ou null. S'il revient après trois jours d'absence
 //          au moins, dans cette cité, on s'en souvient (paroles/listen.js).
+//   figures les figures de la Chronique à qui il a parlé (lot 6, § 7.4) : { [clé]: { n
+//          (combien d'échanges, éternel), city (la cité du dernier), before (il y en a eu
+//          dans une cité d'avant) } } ; Claude s'en souvient d'une cité à l'autre.
 
 const MAX_ID = 40;
 const MAX_HEARD = 4000;
@@ -45,6 +48,7 @@ export const TOI_MAX = 120;
 export const SEEN_MAX = 12;
 export const SAID_MAX = 12;
 const MAX_NAME = 40;
+const FIGURES_MAX = 16;
 
 export const SIGN_KINDS = ['wind', 'light', 'fire', 'beast'];
 // LA CITÉ : `cycles` repart à 0 au Grand Reset, d'où le compte des Grands Resets (la même
@@ -82,7 +86,7 @@ export function defaultMots() {
 export function defaultParoles() {
   return {
     heard: {}, n: 0, rev: 0, toi: [], bulles: { cycle: 0, n: 0 }, signs: defaultSigns(), declic: defaultDeclic(),
-    mots: defaultMots(), promesse: null,
+    mots: defaultMots(), promesse: null, figures: {},
   };
 }
 
@@ -193,6 +197,13 @@ export function normalizeParoles(raw) {
   const pr = raw.promesse;
   if (isObj(pr) && name(pr.who) && Number.isFinite(pr.at) && pr.at > 0) {
     out.promesse = { who: name(pr.who), fem: !!pr.fem, city: int(pr.city, 0, 0, 1e9), at: pr.at };
+  }
+  if (isObj(raw.figures)) {
+    for (const [k, v] of Object.entries(raw.figures)) {
+      if (Object.keys(out.figures).length >= FIGURES_MAX || !/^[a-z]{1,16}$/.test(k) || !isObj(v)) continue;
+      const n = int(v.n, 0, 0, 1e9);
+      if (n > 0) out.figures[k] = { n, city: int(v.city, -1, -1, 1e9), before: !!v.before };
+    }
   }
   return out;
 }

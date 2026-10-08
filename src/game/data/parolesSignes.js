@@ -44,6 +44,7 @@
 // ont demandé un (`answer`, sans `stage`) : parolesVeillee.js.
 
 import { SIGNES_CLAUDE, PAROLES_REPONSES as REPONSES } from './parolesVeillee.js';
+import { FIGURE_SIGNES } from './parolesFigures.js';
 
 // Les mêmes mondes que paroles.js.
 const FEU = [0, 1];
@@ -450,7 +451,7 @@ const asSign = (e) => {
   const toi = ABOUT_YOU.test(fr) && !/\{[Bb]ete\}|\{maitre\}/.test(fr);
   return { kind: 'sign', layer: 1, when: {}, act: e.stage >= 3 ? 'home' : 'look', ...e, ...(toi ? { toi: true } : {}) };
 };
-export const PAROLES_SIGNES = [...SIGNES, ...SIGNES_CLAUDE].map(asSign);
+export const PAROLES_SIGNES = [...SIGNES, ...SIGNES_CLAUDE, ...FIGURE_SIGNES].map(asSign);
 // LES RÉPONSES (lot 5) : ce que pense celui qui avait demandé un signe, qu'il l'ait eu
 // ('yes'), qu'il en ait eu un autre ('other') ou rien ('none'). Lues à part (paroles/
 // signs.js) : pas de fois, une seule réponse par demande.

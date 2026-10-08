@@ -3,6 +3,7 @@ import { onParoles, parolesToi, parolesNameNow } from '../../game/core/paroles.j
 import { PAROLES } from '../../game/data/paroles.js';
 import { PAROLES_SIGNES, PAROLES_REPONSES } from '../../game/data/parolesSignes.js';
 import { PAROLES_MOTS } from '../../game/data/parolesMots.js';
+import { FIGURE_MOTS } from '../../game/data/parolesFigures.js';
 import { NOMS_DU_JOUEUR } from '../../game/data/parolesToi.js';
 import { resolveLines, talkTranscript } from '../../game/map/paroles/pick.js';
 import { EPOCHS } from '../../game/data/eraThemes.js';
@@ -21,7 +22,7 @@ import '../../styles/paroles-chronique.css';
 
 // Ce qu'on a entendu, ce qu'un signe leur a fait penser de toi (lot 4), et ce qu'on s'est
 // dit (lot 6).
-const BY_ID = new Map([...PAROLES, ...PAROLES_SIGNES, ...PAROLES_REPONSES, ...PAROLES_MOTS].map((e) => [e.id, e]));
+const BY_ID = new Map([...PAROLES, ...PAROLES_SIGNES, ...PAROLES_REPONSES, ...PAROLES_MOTS, ...FIGURE_MOTS].map((e) => [e.id, e]));
 const ageOf = (band) => tr((EPOCHS[Math.max(0, Math.min(EPOCHS.length - 1, band | 0))] || EPOCHS[0]).label);
 const fmtAt = (sec) => fmtClock(sec, { seconds: 'never' });
 const quote = (l) => tr({ fr: `« ${l.fr} »`, en: `“${l.en}”` });

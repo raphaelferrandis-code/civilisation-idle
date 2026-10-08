@@ -29,6 +29,7 @@ export function parolesState() {
   if (!Array.isArray(s.signs.seen)) s.signs.seen = [];
   if (!s.declic) s.declic = defaultDeclic();
   if (!s.mots) s.mots = defaultMots();
+  if (!s.figures || typeof s.figures !== 'object') s.figures = {};
   return s;
 }
 // LA CITÉ de ce cycle (parolesState.cityKey : `cycles` repart à 0 au Grand Reset).
@@ -175,6 +176,24 @@ export function parolesNotePromise({ who, fem } = {}) {
 export function parolesPromise() {
   const pr = parolesState().promesse;
   return pr && pr.city === cityNow() ? pr : null;
+}
+// LES FIGURES DE LA CHRONIQUE (lot 6, § 7.4) : le joueur vient de parler à l'une d'elles
+// (sa clé : 'claude', 'edith'…).
+export function parolesNoteFigure(key) {
+  if (typeof key !== 'string' || !/^[a-z]{1,16}$/.test(key)) return;
+  const s = parolesState();
+  const city = cityNow();
+  const f = s.figures[key] || (s.figures[key] = { n: 0, city: -1, before: false });
+  if (f.n > 0 && f.city !== city) f.before = true;
+  f.n = (f.n | 0) + 1;
+  f.city = city;
+  s.rev = (s.rev | 0) + 1;
+  emit();
+}
+// Il t'a parlé dans une autre cité (« On s'est déjà parlé. Pas dans cette vie. »).
+export function parolesFigureKnows(key) {
+  const f = parolesState().figures[key];
+  return !!f && f.n > 0 && (f.before || f.city !== cityNow());
 }
 // De quelle voix il a parlé dans cette cité : { joueur, dieu, indifferent, vie, muet }.
 export function parolesTones() {

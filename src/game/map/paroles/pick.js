@@ -33,12 +33,18 @@
 //   peut faire, comme pour un signe) ; et ce que la rue en dit : saidBy (à qui la voix
 //   a parlé : par voix, par réponse, par ce qu'elle affirmait) et saidMost (la voix qui
 //   domine dans la cité) ; la promesse tenue : promised (c'est à lui qu'elle a été
-//   faite), promise (à un autre : {promis}), et {jours}.
+//   faite), promise (à un autre : {promis}), et {jours} ;
+//   et pour les figures de la Chronique (lot 6, data/parolesFigures.js) : a.chronique (sa
+//   clé, 'claude', 'edith'…) et knows (tu lui as parlé dans une autre cité).
 // }
 import { PAROLES, JOB_GROUP } from '../../data/paroles.js';
 import { PAROLES_SIGNES } from '../../data/parolesSignes.js';
 import { VEILLEE_JOB } from '../../data/parolesVeillee.js';
 import { PAROLES_MOTS, VOIX, TALK_ORIENTATIONS } from '../../data/parolesMots.js';
+import { FIGURE_MOTS } from '../../data/parolesFigures.js';
+
+// Ce qu'on dit quand le joueur parle : les passants, et les figures de la Chronique.
+const MOTS = [...PAROLES_MOTS, ...FIGURE_MOTS];
 
 const VAR = /\{(\w+)\}/g;
 // « de », « que », « jusque » devant un prénom qui commence par une voyelle s'élident.
@@ -117,7 +123,15 @@ export function parolesEligible(e, ctx) {
   // LA VEILLÉE (lot 5) : Claude et celui qui veille avec lui ont leurs causettes à eux, et
   // elles ne se disent qu'au feu ; Claude ne pense que ses pensées de gardien du feu.
   if (e.kind === 'chat' && !!w.veillee !== !!ctx.veillee) return false;
-  if (OWN_ONLY.has(a.job) && e.kind !== 'chat' && !(w.job && w.job.includes(a.job))) return false;
+  // LES FIGURES DE LA CHRONIQUE (lot 6) : Claude, Edith, Raphaël, Khael et Aldric pensent et
+  // disent ce qui est à eux (`when.chronique`) ; ce qui est à eux n'est à personne d'autre.
+  // Les réponses et les répliques d'un échange (`e.part`) valent pour tous.
+  const own = (w.chronique && w.chronique === a.chronique) || (w.job && w.job.includes(a.job));
+  if (w.chronique && w.chronique !== a.chronique) return false;
+  if (!e.part && a.chronique && (e.kind === 'thought' || e.kind === 'talk') && !own) return false;
+  if (!e.part && OWN_ONLY.has(a.job) && e.kind !== 'chat' && !own) return false;
+  // Il t'a parlé dans une autre cité (Claude s'en souvient).
+  if (w.knows != null && !!ctx.knows !== w.knows) return false;
   if (w.declic != null && !!ctx.declic !== w.declic) return false;
   if (w.declics && (ctx.declics | 0) < w.declics) return false;
   if (w.fire && !ctx.fire) return false;
@@ -192,17 +206,20 @@ export function pickSign(ctx, heard = {}, rand = Math.random, catalog = PAROLES_
 // l'écoute (pas de redite tant qu'il reste du neuf, la précision l'emporte) ; il faut
 // au moins deux voix pour lui répondre, et de quoi répondre à ton silence. Rend
 // { id, entry, lines } ou null.
-export function pickTalk(ctx, heard = {}, rand = Math.random, catalog = PAROLES_MOTS) {
+export function pickTalk(ctx, heard = {}, rand = Math.random, catalog = MOTS) {
   const ok = catalog.filter((e) => parolesEligible(e, ctx) && talkSilence(e, ctx) && talkChoices(e, ctx).length >= 2);
   if (!ok.length) return null;
-  const r = chooseFrom(ok, ctx, heard, rand);
+  // Claude se souvient (lot 6) : « On s'est déjà parlé. » vient avant tout le reste, la
+  // première fois qu'il te retrouve.
+  const first = ok.filter((e) => e.when && e.when.knows && !(heard[e.id] | 0));
+  const r = chooseFrom(first.length ? first : ok, ctx, heard, rand);
   return { id: r.id, entry: ok.find((e) => e.id === r.id), lines: r.lines };
 }
 // Une réponse du répertoire d'une voix, possible ici : ses conditions, les prénoms
 // qu'elle cite (on ne demande pas des nouvelles d'un enfant qu'il n'a pas), et au moins
 // une réplique qui lui convienne.
 function answerOk(a, ctx) {
-  const you = { kind: ctx.kind, layer: 1, when: a.when || {}, lines: [{ who: 'a', ...a.you }] };
+  const you = { kind: ctx.kind, layer: 1, part: true, when: a.when || {}, lines: [{ who: 'a', ...a.you }] };
   return parolesEligible(you, ctx) && !!pickReply(a.replies, ctx);
 }
 // LES QUATRE VOIX (Raph, 2026-10-08) : une réponse par voix, dans l'ordre
@@ -260,7 +277,7 @@ export function pickReply(replies, ctx) {
   for (let ri = 0; ri < (replies || []).length; ri += 1) {
     const r = replies[ri];
     if (ctx.acts && !ctx.acts.includes(r.act)) continue;
-    const e = { kind: ctx.kind, layer: 1, bands: r.bands, when: r.when || {}, lines: r.lines };
+    const e = { kind: ctx.kind, layer: 1, part: true, bands: r.bands, when: r.when || {}, lines: r.lines };
     if (!parolesEligible(e, ctx)) continue;
     return { ri, act: r.act, lines: resolveLines(e, ctx).map((l) => ({ ...l, who: 'a' })) };
   }

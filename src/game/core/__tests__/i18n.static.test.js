@@ -240,6 +240,7 @@ const LISTE_BLANCHE = {
   "src/components/ui/plaisirsMaterial.js": { decl: ["TABLES"] },          // `name` interne des tapis
   "src/components/dialogs/OptionsDialog.jsx": { textes: ["Français"] },   // le nom d'une langue s'écrit dans cette langue
   "src/components/views/ChronicleView.jsx": { textes: ["Ragnarök"] },     // nom propre, le même en anglais
+  "src/game/data/parolesFigures.js": { textes: ["Raphaël"] },             // la figure de la Chronique : son prénom, le même en anglais
   // journal() écrit le fichier de log ; dist/ absent n'arrive qu'à un développeur.
   "main.cjs": { decl: ["journal"], textes: ["dist/index.html est introuvable. Lancer `npm run build` d'abord, puis relancer le jeu."] },
 };

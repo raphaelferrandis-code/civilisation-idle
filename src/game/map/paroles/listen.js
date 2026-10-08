@@ -24,6 +24,7 @@ import { nearestFire } from './nearFire.js';
 import {
   parolesHeard, parolesNoteHeard, parolesTotal, parolesBulles, parolesKnown, parolesSignsSeen,
   parolesDeclicHere, parolesDeclics, parolesNoteDeclic, parolesSaid, parolesTones, parolesPromise,
+  parolesFigureKnows,
 } from '../../core/paroles.js';
 import { state } from '../../core/state.js';
 import { getPeriod } from '../../core/chronicleEvaluator.js';
@@ -117,6 +118,8 @@ function personOf(kind, p, band) {
       traits: id.traits || [],
       family: line ? line.kind : null,
       kids: line && (line.kind === 'married' || line.kind === 'single') ? line.kids | 0 : 0,
+      // Une figure de la Chronique (paroles/figures.js) : sa clé.
+      chronique: id.chronique || null,
     },
   };
 }
@@ -278,6 +281,8 @@ export function listenContext(kind, p, focusKind) {
     saidMost,
     promised: !!kept && kept.pr.who === names.a,
     promise: !!kept && !!names.promis,
+    // Une figure de la Chronique : tu lui as parlé dans une autre cité (lot 6).
+    knows: !!A.view.chronique && parolesFigureKnows(A.view.chronique),
     // Le déclic et les demandes (lot 5).
     declic: parolesDeclicHere(),
     declics: parolesDeclics(),

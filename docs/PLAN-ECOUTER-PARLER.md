@@ -7,7 +7,7 @@ Chantier ouvert le 2026-10-07 sur la demande de Raph :
 > n'interagit pas avec eux, puis après une option dialogue qui permette de parler avec
 > certains. »
 
-**Statut : plan tranché, lots 1 à 5 livrés, le 6 en cours (parler, les quatre voix, les rumeurs, la gazette, la promesse ; restent les figures de la Chronique) ; les lots 2 à 6 sont à juger en jeu.** La fiche d'habitant qui sert de socle est faite
+**Statut : plan tranché, lots 1 à 6 livrés (le 6 sans Diogène ni la Secte du Feu, § 7.4) ; les lots 2 à 6 sont à juger en jeu.** La fiche d'habitant qui sert de socle est faite
 (commit `4a99b8bc` : identité, foyers, métier, humeur et sa cause, « où il est entré »).
 Raph a répondu aux questions du § 11 le jour même (tableau 1 bis).
 **Ce document fait foi pour ce chantier.**
@@ -453,8 +453,8 @@ accusé de cycles. »), « tu » de nouveau au Démiurge, entre égaux.
   caractère.
 - **Les figures, avec des arcs écrits** :
   - Claude, Edith, Raphaël, Khael et Aldric descendent dans la rue, reconnaissables, et
-    changent de métier d'âge en âge comme dans la gazette ;
-  - Diogène et la Secte du Feu, qui attend qu'une voix sorte du feu.
+    changent de métier d'âge en âge comme dans la gazette (fait : § 7.6) ;
+  - Diogène et la Secte du Feu, qui attend qu'une voix sorte du feu (pas encore écrits).
 
 ### 7.5 Ce que ça change
 
@@ -530,8 +530,40 @@ intéressé par la vie du pnj. Le silence, c'est bien. Fais. »
   chaque matin. », « vous » de P4 à P9), et les autres le nomment (« La voix avait promis à
   Orun de revenir. Elle a mis quatre jours. »). Le nombre de jours s'écrit en lettres
   jusqu'à douze.
+- **Les figures de la Chronique dans la rue** (§ 7.4 ; `paroles/figures.js`,
+  `data/parolesFigures.js`) : dès la période 3, Claude, Edith, Raphaël, Khael et Aldric vivent
+  dans la cité comme les autres passants (un logis à eux, l'atelier de leur métier, la place,
+  la nuit chez eux), en tête de la foule : la pluie renvoie chez eux les derniers venus, pas
+  eux.
+  - **Le métier de la fiche est celui que signe la gazette** à cette période : « Khael · Juge
+    autoproclamé », « Edith · Intendante » à la période 4, « Raphaël · Habitant » puis
+    « Essayiste » (un test compare les signatures de tous les articles). L'atelier suit, par
+    ordre de préférence : Khael tient audience au marché, puis va au tribunal dès qu'il y en
+    a un ; Claude garde le feu des conteurs tant qu'il n'y a pas de culte.
+  - **Leur dessin change avec l'âge de la cité.** Les quatre hommes en portent chacun un
+    différent (sauf Khael et Aldric, en costume à la ville de bureaux). Claude garde le plus
+    vieux qu'il peut : le chaman, le moine, le marin des étoiles, le moine blanc.
+  - **Ils pensent leurs pensées à eux** (39, de P3 à P10 : « Mon huissier est parti vers le
+    bord du système il y a onze ans. Sa dernière lettre parlait de comètes. ») ; aucun passant
+    ne les pense, et eux ne pensent rien d'un passant.
+  - **Ils te parlent de leurs mots** (41 premières répliques), avec leurs propres réponses aux
+    temps forts de leur arc : Aldric pose sa question (P4, « Et si nous n'étions pas bénis,
+    mais observés ? »), Khael te juge (P6, « Vous êtes accusé de cycles. Comment
+    plaidez-vous ? »), Edith reçoit enfin la personne à qui elle avait écrit (P7, « Vous
+    voilà. J'avais fait la demande par écrit. Asseyez-vous, j'ai une liste. »), Raphaël
+    demande s'il se trompe (P7) et part chercher le bord du jeu (P9), Edith attend une
+    signature (P10). Le répertoire des quatre voix complète.
+  - **Claude dit « tu » à tous les âges** : ses échanges de P4 à P9 ont leurs quatre
+    réponses et leur silence. Dans la cité d'après, **il se souvient de toi** : « On s'est
+    déjà parlé. Pas dans cette vie. », la première fois qu'il te retrouve
+    (`state.paroles.figures`, éternel). Un signe à Claude : il sait qui le fait, à tous les
+    âges ; les autres figures le reçoivent comme tout le monde.
+  - On peut leur reparler deux minutes après ; un passant n'entend la voix qu'une fois.
 - Vérifié en jeu au Bourg marchand (P3 : Bruna, puis Orun du Pont, « Si c'est encore toi,
-  Bertran, ce n'est pas drôle. ») et au Royaume conquérant (P5 : « Je vous teste. »).
+  Bertran, ce n'est pas drôle. ») et au Royaume conquérant (P5 : « Je vous teste. »). Les
+  figures : au Bourg marchand (Khael au marché : « Les statues des dieux ressemblent aux
+  notables qui les paient. Tu as un avis, toi ? »), à la ville de bureaux (Edith et sa
+  demande, Claude et sa flamme), et Claude dans la cité suivante (« On s'est déjà parlé. »).
 
 ---
 
@@ -576,9 +608,9 @@ intéressé par la vie du pnj. Le silence, c'est bien. Fais. »
 4. ✅ **Les signes** : vent, lumière, feu, bête ; les réactions par âge et par caractère.
    ✅ 4 bis : ce qu'il FAIT (§ 5.6).
 5. ✅ **Le déclic et le dialogue par signes** : Claude, au Feu, jusqu'à P3 (§ 7.1 bis).
-6. 🚧 **Les mots**, dès P3 : les passants, puis les figures de la Chronique (§ 7.6 : parler,
-   les quatre voix, les rumeurs, la gazette, les personnages de scène, la promesse ;
-   restent les figures de la Chronique).
+6. ✅ **Les mots**, dès P3 : les passants, puis les figures de la Chronique (§ 7.6 : parler,
+   les quatre voix, les rumeurs, la gazette, les personnages de scène, la promesse, Claude,
+   Edith, Raphaël, Khael et Aldric dans la rue). Pas encore : Diogène et la Secte du Feu.
 7. **Le Démiurge et le Grand Reset dans la fiction.**
 8. **Le son des signes**, quand le chantier « ambiance sonore » sera terminé.
 
@@ -706,3 +738,8 @@ Les six questions du premier jet sont tranchées (tableau 1 bis). Aucune ouverte
 - 2026-10-08 : **Les personnages de scène** entendent la voix (ils se tournent, ne quittent
   pas leur scène), et **la promesse** se paie : « Je reviendrai te voir. », trois jours
   d'absence, et celui à qui tu l'as dite s'en souvient ; la rue le nomme.
+- 2026-10-08 : **Les figures de la Chronique dans la rue** (§ 7.6) : Claude, Edith, Raphaël,
+  Khael et Aldric vivent dans la cité dès la période 3, avec le métier que signe la gazette,
+  leurs pensées, leurs mots et leurs réponses aux temps forts de leur arc ; Claude dit « tu »
+  à tous les âges et se souvient de toi d'une cité à l'autre. Le lot 6 est livré, sans
+  Diogène ni la Secte du Feu.

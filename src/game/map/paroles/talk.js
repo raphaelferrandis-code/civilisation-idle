@@ -17,12 +17,14 @@
 // champ, le port, le bac, la navette, les bateaux) : ils se tournent vers toi et prennent du
 // retard sur leur scène, comme pour un signe ; ils ne la quittent pas (regarder, chercher
 // des yeux, repartir). Le porteur du port, s'il a encore une longue escale.
+// Les figures de la Chronique (paroles/figures.js) ont leurs mots à elles, et l'on peut leur
+// reparler un moment après.
 import { CM } from '../layout.js';
 import { onCitizenFocus } from '../citizenFocus.js';
 import { listenContext, toiRecord, stopListening, LISTEN } from './listen.js';
 import { pickTalk, pickReply, resolveYou, talkChoices, talkSilence } from './pick.js';
 import { reactTo, endReaction, signActs, sceneReady } from './signs.js';
-import { parolesHeard, parolesNoteTalk, parolesNotePromise } from '../../core/paroles.js';
+import { parolesHeard, parolesNoteTalk, parolesNotePromise, parolesNoteFigure } from '../../core/paroles.js';
 import { getPeriod } from '../../core/chronicleEvaluator.js';
 
 // fromPeriod : la période de la gazette où viennent les mots (§ 7.2). chooseMs : le temps
@@ -118,6 +120,8 @@ export function talkChoose(key, now = clock()) {
   parolesNoteTalk(T.id, { ...T.said, who: T.name, fem: !!(T.ctx.a && T.ctx.a.fem) }, { ...toi, talk: { key: T.said.key, ri: reply.ri } });
   // « Je reviendrai te voir. » : une promesse, qui se paie (§ 7.5).
   if (c && c.promise) parolesNotePromise({ who: T.name, fem: !!(T.ctx.a && T.ctx.a.fem) });
+  // Une figure de la Chronique s'en souvient, d'une cité à l'autre (§ 7.4).
+  if (T.ctx.a && T.ctx.a.chronique) parolesNoteFigure(T.ctx.a.chronique);
   return true;
 }
 

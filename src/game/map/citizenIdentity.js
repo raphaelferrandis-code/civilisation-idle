@@ -73,6 +73,14 @@ export const JOBS = {
   // Claude, le gardien du feu de la Chronique, sans atelier sur la carte).
   farmer: { m: 'Paysan', f: 'Paysanne', en: 'Farmer', works: ['irrigated_fields'] },
   firekeeper: { m: 'Gardien du feu', f: 'Gardienne du feu', en: 'Fire keeper', works: [] },
+  // Ceux des figures de la Chronique (paroles/figures.js) : le métier que leur signature
+  // donne dans la gazette (« Khael, juge autoproclamé », « Raphaël, habitant »).
+  accountant: { m: 'Comptable', f: 'Comptable', en: 'Accountant', works: ['markets', 'bureaucracy', 'ministries', 'imperial_exchanges', 'mint_houses'] },
+  steward: { m: 'Intendant', f: 'Intendante', en: 'Steward', works: ['granaries_city', 'bureaucracy', 'markets'] },
+  resident: { m: 'Habitant', f: 'Habitante', en: 'Resident', works: [] },
+  essayist: { m: 'Essayiste', f: 'Essayiste', en: 'Essayist', works: ['printing_houses', 'libraries', 'scribes'] },
+  judge: { m: 'Juge autoproclamé', f: 'Juge autoproclamée', en: 'Self-proclaimed judge', works: ['courthouses', 'bureaucracy', 'markets'] },
+  philosopher: { m: 'Philosophe', f: 'Philosophe', en: 'Philosopher', works: ['academies', 'think_tanks', 'universities', 'libraries', 'scribes'] },
   // Ceux que donne un ATELIER à qui n'a pas de métier dessiné (WORK_JOBS).
   marketGardener: { m: 'Maraîcher', f: 'Maraîchère', en: 'Market gardener', works: ['foragers'] },
   storekeeper: { m: 'Magasinier', f: 'Magasinière', en: 'Storekeeper', works: ['granaries_city'] },
