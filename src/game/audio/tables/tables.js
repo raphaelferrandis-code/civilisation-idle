@@ -15,18 +15,45 @@
 //     verdict.
 // Les gros gains (×5 et plus) gardent leur fanfare (GrandGain.jsx) : le verdict d'une
 // table ne joue que le petit gain, la perte ou l'égalité.
+//
+// LE LOT 11, les quatre tables qui se taisaient (tablesSynthScenes.js) :
+//   · la roulette (RouletteStage.jsx) : les jetons sur le tapis, le tour de roue entier
+//     (la bille lancée, qui court, tombe et se loge), le verdict ;
+//   · les courses (CoursesStage.jsx) : les jetons sur les plaques, puis tout le déroulé
+//     posé d'un coup au départ (les stalles, le galop, la foule qui monte, la cloche
+//     d'arrivée, la photo d'une arrivée serrée), le verdict ;
+//   · le duel (DuelStage.jsx) : les dés du flambeur puis les tiens, le verdict de chaque
+//     manche, celui du duel ;
+//   · le vol d'Icare (IcarusStage.jsx) : l'envol, le vol (une boucle que la hauteur
+//     dose), l'atterrissage ou la chute.
+// Un tour de roue et une course jouent sur un sous-bus (D.scene) : refermer la table
+// les coupe net. La foule des courses est un ENREGISTREMENT, la clameur brouillée du
+// paysage (paysage/enregistrements.js), chargée quand la table s'ouvre.
 
 import { getSfxEnabled, getSfxVolume } from '../../core/main.js';
 import { creerLecteur, cibler } from '../lecteur.js';
 import {
   rendreTable, TABLES_SR, matiereJeton, matiereDes, matiereCartes, matiereTicket,
 } from './tablesSynth.js';
+import { matiereRoue, matierePiste, matiereVol } from './tablesSynthScenes.js';
+import { ENREGISTRES } from '../paysage/enregistrements.js';
 import { enregistrerBancMoments } from '../paysage/banc.js';
 
 // Les niveaux, × Bruitages : discrets, ils reviennent à chaque coup.
 export const NIVEAUX_TABLES = {
   jeton: 0.14, jetons: 0.16, des: 0.22, carte: 0.16, retourne: 0.14, melange: 0.18,
   gratte: 0.2, ticket: 0.16, case: 0.12, revele: 0.14, gain: 0.22, perte: 0.1, egalite: 0.12,
+  // Le lot 11 : ses sons sont égalisés à la sonie (tablesSynthScenes.js), ces niveaux
+  // les posent entre −23 et −28 dB en crête, les boucles vers −31 en moyenne.
+  roue: 0.22, stalles: 0.2, galop: 0.18, foule: 0.4, arrivee: 0.25, photo: 0.16, manche: 0.18,
+  envol: 0.2, vol: 0.18, pose: 0.18, brule: 0.28,
+};
+// Les sons enregistrés des tables : la foule des courses, prise au paysage.
+const FICHIERS_TABLES = { foule: 'emeute-clameur-1' };
+const fichierTable = (nom) => {
+  const id = FICHIERS_TABLES[nom];
+  const e = id ? ENREGISTRES.find((x) => x.id === id) : null;
+  return e ? e.url : null;
 };
 export const BANC_TABLES = Object.fromEntries(Object.keys(NIVEAUX_TABLES).map((k) => [k, 1]));
 const CLE_BANC = 'civ-tables-banc-1';
@@ -37,11 +64,19 @@ try {
 const famille = (nom) => nom.replace(/-.*$/, '');
 const niveau = (nom) => (NIVEAUX_TABLES[famille(nom)] || 0.15) * (BANC_TABLES[famille(nom)] ?? 1);
 
-const LEC = creerLecteur({ quoi: 'table', rendre: rendreTable, sr: TABLES_SR, niveau });
+const LEC = creerLecteur({ quoi: 'table', rendre: rendreTable, sr: TABLES_SR, niveau, fichier: fichierTable });
 const horloge = () => (typeof performance !== 'undefined' ? performance.now() : Date.now());
 const cache = () => typeof document !== 'undefined' && document.hidden;
 const hasard = (a, b) => a + Math.random() * (b - a);
-const D = { bande: 0, dernierJeton: -Infinity, derniereCase: -Infinity, gratte: null, gratteArret: null };
+const D = { bande: 0, dernierJeton: -Infinity, derniereCase: -Infinity, gratte: null, gratteArret: null, scene: null, vol: null };
+// Une courbe de gain posée d'avance : [[instant (s, horloge audio), valeur], …].
+function planifier(param, points) {
+  try {
+    param.cancelScheduledValues(points[0][0]);
+    param.setValueAtTime(points[0][1], points[0][0]);
+    for (let i = 1; i < points.length; i += 1) param.linearRampToValueAtTime(points[i][1], points[i][0]);
+  } catch { param.value = points[points.length - 1][1]; }
+}
 
 // Ce qu'une table doit avoir sous la main, dans la matière de l'âge. 'jetons' : le
 // râtelier seul (TableMise.jsx), aux tables qui n'ont pas d'autre son d'ici (la machine
@@ -54,6 +89,11 @@ export function sonsDeTable(jeu, bande) {
   if (jeu === 'osselets') { const d = matiereDes(bande); return [...base, `des-${d}-lance`, `des-${d}-1`, `des-${d}-2`, `des-${d}-3`]; }
   if (jeu === 'cartes') { const c = matiereCartes(bande); return [...base, `carte-${c}-1`, `carte-${c}-2`, `carte-${c}-3`, `retourne-${c}`, `melange-${c}`]; }
   if (jeu === 'tickets') { const t = matiereTicket(bande); return [...base, `gratte-${t}`, `ticket-${t}`, 'case', 'revele']; }
+  // Le lot 11 (le râtelier du duel et d'Icare prépare lui-même ses jetons).
+  if (jeu === 'roulette') return [...base, `roue-${matiereRoue(bande)}`];
+  if (jeu === 'courses') { const p = matierePiste(bande); return [...base, `stalles-${p}`, `galop-${p}`, `arrivee-${p}`, 'photo', 'foule']; }
+  if (jeu === 'duel') { const d = matiereDes(bande); return ['gain-petit', 'perte', 'egalite', `des-${d}-lance`, `des-${d}-1`, `des-${d}-2`, `des-${d}-3`, 'manche-gagnee', 'manche-perdue']; }
+  if (jeu === 'icare') { const f = matiereVol(bande); return ['gain-petit', `envol-${f}`, `vol-${f}`, `pose-${f}`, `brule-${f}`]; }
   return base;
 }
 // Une table s'ouvre : ses sons se rendent à l'avance (une dizaine, petits).
@@ -173,21 +213,148 @@ export function finGrattage() {
   setTimeout(() => { try { g.source.stop(); } catch { /* déjà finie */ } }, 220);
 }
 
+// ── Les scènes (lot 11) : un tour de roue, une course ──────────────────────────
+// La table se ferme pendant que la bille roule ou que les chevaux courent : tout ce
+// qui était posé d'avance se coupe.
+export function finScene() {
+  const s = D.scene;
+  D.scene = null;
+  if (s) s.couper();
+}
+function nouvelleScene() {
+  finScene();
+  D.scene = LEC.bus();
+  return D.scene;
+}
+
+// ── La roulette ─────────────────────────────────────────────────────────────────
+// 'lance' : le tour entier, calé sur l'animation (3,8 s) ; 'verdict' ({ gagne, gros }).
+// Les jetons du tapis passent par sonJetons.
+export function sonRoulette(bande, quoi, { gagne = false, gros = false } = {}) {
+  if (cache()) return;
+  D.bande = bande | 0;
+  if (quoi === 'lance') LEC.jouer(`roue-${matiereRoue(bande)}`, { vers: nouvelleScene() }, 0.15);
+  else if (quoi === 'verdict' && !gros) verdict(gagne ? 'gain' : 'perte');
+}
+
+// ── Les courses ─────────────────────────────────────────────────────────────────
+// 'depart' ({ fin, dernier, photo }) : `fin` l'arrivée du gagnant, `dernier` celle du
+// dernier (ms depuis le départ, coursesArt.planCourse) ; tout se pose d'un coup.
+// 'verdict' ({ gagne, gros }).
+export function sonCourse(bande, quoi, { fin = 6200, dernier = 0, photo = false, gagne = false, gros = false } = {}) {
+  if (cache()) return;
+  D.bande = bande | 0;
+  if (quoi === 'verdict') { if (!gros) verdict(gagne ? 'gain' : 'perte'); return; }
+  if (quoi !== 'depart') return;
+  const p = matierePiste(bande), b = nouvelleScene();
+  const tf = fin / 1000, td = Math.max(fin, dernier) / 1000;
+  LEC.jouer(`stalles-${p}`, { vers: b }, 0.3);
+  // Le galop : monté au départ, un peu plus fort à l'approche de la ligne, ralenti et
+  // éteint quand le dernier l'a passée.
+  const g = LEC.voix(`galop-${p}`, { boucle: true, vers: b, dans: 0.05 });
+  if (g) {
+    const v = niveau(`galop-${p}`) * getSfxVolume();
+    planifier(g.gain.gain, [[g.t0, 0], [g.t0 + 0.5, v], [g.t0 + Math.max(0.6, tf - 1.5), v], [g.t0 + tf, v * 1.15], [g.t0 + td + 0.3, v * 0.6], [g.t0 + td + 1.1, 0]]);
+    planifier(g.source.playbackRate, [[g.t0 + tf, 1], [g.t0 + td + 0.9, 0.7]]);
+    try { g.source.stop(g.t0 + td + 1.3); } catch { /* déjà arrêtée */ }
+  }
+  // La foule monte à l'approche de la ligne, puis retombe.
+  const f = LEC.voix('foule', { boucle: true, vers: b, dans: Math.max(0, tf - 2.6) });
+  if (f) {
+    const v = niveau('foule') * getSfxVolume(), monte = Math.min(2.6, tf);
+    planifier(f.gain.gain, [[f.t0, 0], [f.t0 + monte, v], [f.t0 + monte + 0.8, v], [f.t0 + monte + 3, 0]]);
+    try { f.source.stop(f.t0 + monte + 3.2); } catch { /* déjà arrêtée */ }
+  }
+  LEC.jouer(`arrivee-${p}`, { vers: b, dans: tf }, 0.4);
+  if (photo) LEC.jouer('photo', { vers: b, dans: tf + 0.18 }, 0.4);
+}
+
+// ── Le duel ─────────────────────────────────────────────────────────────────────
+// 'lance' et 'tombe' ({ camp, i }) : les dés du flambeur (en face, plus loin) puis les
+// tiens ; 'manche' ({ gagnant : 'joueur' | 'flambeur' | null }) ; 'verdict' ({ gagne, gros }).
+export function sonDuel(bande, quoi, { camp = 'joueur', i = 0, gagnant = null, gagne = false, gros = false } = {}) {
+  if (cache()) return;
+  D.bande = bande | 0;
+  const d = matiereDes(bande), loin = camp === 'flambeur';
+  if (quoi === 'lance') LEC.jouer(`des-${d}-lance`, { g: loin ? 0.7 : 1, pan: loin ? 0.12 : -0.08 }, 0.2);
+  else if (quoi === 'tombe') {
+    LEC.jouer(`des-${d}-${1 + (i % 3)}`, { g: loin ? 0.75 : 1, pan: [-0.3, -0.1, 0.1, 0.3][i % 4] * (loin ? 0.6 : 1), vitesse: hasard(0.95, 1.05) * (loin ? 0.97 : 1) }, 0.15);
+  } else if (quoi === 'manche') LEC.jouer(gagnant === 'joueur' ? 'manche-gagnee' : gagnant === 'flambeur' ? 'manche-perdue' : 'egalite', {}, 0.3);
+  else if (quoi === 'verdict' && !gros) verdict(gagne ? 'gain' : 'perte');
+}
+
+// ── Le vol d'Icare ──────────────────────────────────────────────────────────────
+// 'envol' ; 'pose' ({ gros }) : l'atterrissage, puis le petit gain ; 'brule' : la chute.
+export function sonIcare(bande, quoi, { gros = false } = {}) {
+  if (cache()) return;
+  D.bande = bande | 0;
+  const f = matiereVol(bande);
+  if (quoi === 'envol') LEC.jouer(`envol-${f}`, {}, 0.3);
+  else if (quoi === 'pose') {
+    finVol();
+    LEC.jouer(`pose-${f}`, {}, 0.3);
+    if (!gros) LEC.jouer('gain-petit', { dans: 0.5 }, 0.8);
+  } else if (quoi === 'brule') {
+    finVol(0.03);
+    LEC.jouer(`brule-${f}`, {}, 0.3);
+  }
+}
+// LE VOL : une boucle qui tourne tant qu'il est en l'air ; elle monte avec la hauteur
+// (`haut`, 0 au sol, 1 au ×10 du jackpot) : plus fort, plus vite.
+export function volIcare(bande, haut) {
+  if (cache() || !getSfxEnabled()) { finVol(); return; }
+  const nom = `vol-${matiereVol(bande)}`;
+  if (D.vol && D.vol.nom !== nom) finVol();
+  if (!D.vol) {
+    const v = LEC.voix(nom, { boucle: true });
+    if (!v) return;                         // pas encore rendu : il se rend
+    D.vol = { ...v, nom };
+  }
+  const k = Math.max(0, Math.min(1, haut));
+  cibler(D.vol.gain.gain, (0.55 + 0.45 * k) * niveau(nom) * getSfxVolume(), D.vol.ctx, 0.25);
+  cibler(D.vol.source.playbackRate, 0.9 + 0.3 * k, D.vol.ctx, 0.3);
+}
+export function finVol(tau = 0.15) {
+  const v = D.vol;
+  D.vol = null;
+  if (!v) return;
+  cibler(v.gain.gain, 0, v.ctx, tau);
+  setTimeout(() => { try { v.source.stop(); } catch { /* déjà finie */ } }, Math.round(tau * 5000) + 50);
+}
+
 // Ce que les tables font (banc, vérifications).
 export function etatTables() {
-  return { tampons: [...LEC.tampons.keys()], compte: { ...LEC.compte }, gratte: Boolean(D.gratte), sortieDb: LEC.niveauSortie() };
+  return {
+    tampons: [...LEC.tampons.keys()], compte: { ...LEC.compte }, gratte: Boolean(D.gratte),
+    scene: Boolean(D.scene), vol: Boolean(D.vol), sortieDb: LEC.niveauSortie(),
+  };
 }
 
 // ── Le banc d'écoute (Ctrl+Alt+B, section « Les tables de la Maison ») ──────────
 function ecouterTable(fam) {
   const b = D.bande;
   const j = matiereJeton(b), d = matiereDes(b), c = matiereCartes(b), t = matiereTicket(b);
+  const p = matierePiste(b), f = matiereVol(b);
   const nom = {
     jeton: `jeton-${j}-1`, jetons: `jetons-${j}`, des: `des-${d}-${1 + Math.floor(Math.random() * 3)}`,
     carte: `carte-${c}-1`, retourne: `retourne-${c}`, melange: `melange-${c}`, gratte: `gratte-${t}`,
     ticket: `ticket-${t}`, case: 'case', revele: 'revele', gain: 'gain-petit', perte: 'perte', egalite: 'egalite',
+    roue: `roue-${matiereRoue(b)}`, stalles: `stalles-${p}`, galop: `galop-${p}`, foule: 'foule', arrivee: `arrivee-${p}`,
+    photo: 'photo', manche: Math.random() < 0.5 ? 'manche-gagnee' : 'manche-perdue',
+    envol: `envol-${f}`, vol: `vol-${f}`, pose: `pose-${f}`, brule: `brule-${f}`,
   }[fam];
   if (!nom) return;
+  // Les boucles (le galop, la foule, le vol) : trois secondes, montées puis éteintes.
+  if (fam === 'galop' || fam === 'foule' || fam === 'vol') {
+    LEC.demander(nom).then(() => {
+      const v = LEC.voix(nom, { boucle: true });
+      if (!v) return;
+      const g = niveau(nom) * getSfxVolume();
+      planifier(v.gain.gain, [[v.t0, 0], [v.t0 + 0.4, g], [v.t0 + 2.6, g], [v.t0 + 3.2, 0]]);
+      try { v.source.stop(v.t0 + 3.3); } catch { /* déjà arrêtée */ }
+    });
+    return;
+  }
   if (fam === 'gratte') {
     LEC.demander(nom).then(() => {
       let k = 0;

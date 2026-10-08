@@ -21,6 +21,7 @@ import {
   paintRacer, racerPalette, paintTrack, trackHeight, laneFoot, planCourse, avance, imageAt,
   TRACK, RACER_W, RACER_H, RACER_NOSE, RACER_FRAMES, CASAQUES
 } from '../views/plaisirs/coursesArt.js';
+import { preparerTable, sonJetons, sonCourse, finScene } from '../../game/audio/tables/tables.js';
 import '../../styles/plaisirs-nuit.css';
 
 /**
@@ -172,6 +173,10 @@ export default function CoursesStage({ onClose }) {
     };
   }, []);
   useEffect(() => () => { flushPending(); cancelAnimationFrame(rafRef.current); clearTimeout(timerRef.current); }, []);
+  // LES SONS (audio/tables, lot 11) : ceux de la piste (la foule comprise), rendus et
+  // chargés à l'ouverture ; refermer en pleine course coupe son déroulé.
+  useEffect(() => { preparerTable('courses', band); }, [band]);
+  useEffect(() => () => finScene(), []);
 
   const prevCyclesRef = useRef(cycles);
   useEffect(() => {
@@ -190,6 +195,7 @@ export default function CoursesStage({ onClose }) {
 
   const poser = (couloir) => {
     if (phase !== 'bet') return;
+    if (total + chip <= cap) sonJetons(band, 'pose');
     setParis((p) => {
       const t = parisTotal(p);
       if (t + chip > cap) return p;
@@ -198,6 +204,7 @@ export default function CoursesStage({ onClose }) {
   };
   const retirer = (couloir) => {
     if (phase !== 'bet') return;
+    if (paris[couloir]) sonJetons(band, 'reprend');
     setParis((p) => {
       const n = { ...p };
       delete n[couloir];
@@ -220,6 +227,8 @@ export default function CoursesStage({ onClose }) {
     setPhase('race');
     setPhoto(false);
     const fin = Math.max(...r.partants.map((x) => plan[x.couloir].fin));
+    // Tout le déroulé sonore se pose au départ : il suit le plan de la course.
+    sonCourse(band, 'depart', { fin: plan[r.gagnant].fin, dernier: fin, photo: Boolean(plan.photo) });
     const t0 = performance.now();
     let photoVue = false;
     // Le rAF ne fait que DESSINER la course.
@@ -239,7 +248,8 @@ export default function CoursesStage({ onClose }) {
       if (plan.photo) setPhoto(true);
       flushPending();
       setPhase('result');
-      if (r.gain > 0) celebrerGain({ gain: r.gain, stake: r.total, game: 'courses' });
+      const palier = r.gain > 0 ? celebrerGain({ gain: r.gain, stake: r.total, game: 'courses' }) : null;
+      sonCourse(band, 'verdict', { gagne: r.gain > 0, gros: Boolean(palier) });
     }, fin + FIN_EXTRA_MS);
   };
 
@@ -349,14 +359,14 @@ export default function CoursesStage({ onClose }) {
             <span className="rl-total" {...tipProps(tr({ fr: 'La mise', en: 'The stake' }), tr({ fr: `De ${fmtMise(min)} à ${fmtMise(max)} Faveur, tous paris compris.`, en: `From ${fmtMise(min)} to ${fmtMise(max)} Favor, all bets included.` }))}>
               <FaveurIcon /> {fmtMise(total)}
             </span>
-            <button type="button" className="ptable-rack-btn" disabled={!total || phase === 'race'} onClick={() => setParis({})}>
+            <button type="button" className="ptable-rack-btn" disabled={!total || phase === 'race'} onClick={() => { sonJetons(band, 'reprend'); setParis({}); }}>
               {tr({ fr: 'Effacer', en: 'Clear' })}
             </button>
             <button
               type="button"
               className="ptable-rack-btn"
               disabled={phase === 'race' || !dernier || parisTotal(dernier) > cap}
-              onClick={() => setParis(parisPropres(dernier))}
+              onClick={() => { sonJetons(band, 'meme'); setParis(parisPropres(dernier)); }}
             >
               {tr({ fr: 'Même mise', en: 'Same bet' })}
             </button>

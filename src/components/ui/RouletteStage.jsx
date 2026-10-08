@@ -14,6 +14,7 @@ import PlaisirsTable from '../views/plaisirs/PlaisirsTable.jsx';
 import { chipUrl, CHIP_ART } from '../views/plaisirs/chipsArt.js';
 import { fmtMise, rememberBets, lastBetsOf } from '../views/plaisirs/miseMemory.js';
 import { drawWheel, spinPose, pocketAngle, WHEEL_D, WHEEL_H } from '../views/plaisirs/rouletteArt.js';
+import { preparerTable, sonJetons, sonRoulette, finScene } from '../../game/audio/tables/tables.js';
 import '../../styles/plaisirs-tables.css';
 import '../../styles/plaisirs-roulette.css';
 
@@ -117,12 +118,16 @@ export default function RouletteStage({ onClose, table, vip: vipProp = false }) 
   const cap = Math.max(0, Math.min(max, Math.floor(faveur)));
 
   // Fermer la table pendant que la bille roule : le tour est encaissé quand même, et
-  // l'animation s'arrête (elle peignait sinon jusqu'au bout sur une toile détachée).
+  // l'animation s'arrête (elle peignait sinon jusqu'au bout sur une toile détachée), le
+  // son du tour aussi (audio/tables, lot 11).
   useEffect(() => () => {
     clearTimeout(timerRef.current);
     cancelAnimationFrame(rafRef.current);
+    finScene();
     if (pendingRef.current) { pendingRef.current(); pendingRef.current = null; }
   }, []);
+  // Les sons de la table, rendus à l'avance dans la matière de l'âge.
+  useEffect(() => { preparerTable('roulette', band); }, [band]);
 
   // F5 / fermeture d'onglet pendant que la bille roule : aucun cleanup React ne court au
   // rechargement — le gain tiré serait perdu (revue du 2026-10-04 ; même garde que les
@@ -156,10 +161,12 @@ export default function RouletteStage({ onClose, table, vip: vipProp = false }) 
     const room = cap - total;
     const add = Math.min(chip, room);
     if (add <= 0) return;
+    sonJetons(band, 'pose');
     setBets((b) => ({ ...b, [key]: (b[key] || 0) + add }));
   };
   const clearBet = (key) => {
     if (phase !== 'bet') return;
+    if (bets[key]) sonJetons(band, 'reprend');
     setBets((b) => { const o = { ...b }; delete o[key]; return o; });
   };
 
@@ -176,6 +183,7 @@ export default function RouletteStage({ onClose, table, vip: vipProp = false }) 
     setBets(res.bets);
     setResult(res);
     setPhase('spin');
+    sonRoulette(band, 'lance');
     const cv = canvas;
     if (etroit && cv && cv.scrollIntoView) cv.scrollIntoView({ behavior: 'smooth', block: 'center' });
     const wheel0 = poseRef.current.wheel % (Math.PI * 2);
@@ -198,7 +206,8 @@ export default function RouletteStage({ onClose, table, vip: vipProp = false }) 
       if (pendingRef.current) { pendingRef.current(); pendingRef.current = null; }
       setResult({ ...res });
       setPhase('result');
-      celebrerGain({ gain: res.faveurGain, stake: res.stakeFaveur, game: 'roulette' });
+      const palier = celebrerGain({ gain: res.faveurGain, stake: res.stakeFaveur, game: 'roulette' });
+      sonRoulette(band, 'verdict', { gagne: res.faveurGain > 0, gros: Boolean(palier) });
     }, SPIN_MS);
   };
 
@@ -262,14 +271,14 @@ export default function RouletteStage({ onClose, table, vip: vipProp = false }) 
                 <span className="rl-total" {...tipProps(tr({ fr: 'La mise', en: 'The stake' }), tr({ fr: `De ${fmtMise(min)} à ${fmtMise(max)} Faveur, tous paris compris.`, en: `From ${fmtMise(min)} to ${fmtMise(max)} Favor, all bets included.` }))}>
                   <FaveurIcon /> {fmtMise(total)}
                 </span>
-                <button type="button" className="ptable-rack-btn" disabled={!total || phase === 'spin'} onClick={() => setBets({})}>
+                <button type="button" className="ptable-rack-btn" disabled={!total || phase === 'spin'} onClick={() => { sonJetons(band, 'reprend'); setBets({}); }}>
                   {tr({ fr: 'Effacer', en: 'Clear' })}
                 </button>
                 <button
                   type="button"
                   className="ptable-rack-btn"
                   disabled={phase === 'spin' || !dernierJeu || betsTotal(dernierJeu) > cap}
-                  onClick={() => setBets(cleanBets(dernierJeu))}
+                  onClick={() => { sonJetons(band, 'meme'); setBets(cleanBets(dernierJeu)); }}
                 >
                   {tr({ fr: 'Même mise', en: 'Same bet' })}
                 </button>

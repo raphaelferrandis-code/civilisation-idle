@@ -11,7 +11,7 @@ Chantier ouvert le 2026-10-07 sur la demande de Raph :
 > n'entendre que le son de la ville au loin avec la musique en fond qu'on ne touche pas pour
 > l'instant. »
 
-**Statut : décisions prises le 2026-10-07 (§ 9), lots 1 à 6 livrés ; lot 7 (les grands moments, § 3.10), lot 8 (l'interface, § 3.11) et lot 9 (les petits sons de la carte, § 3.12) livrés le 2026-10-08 ; lot 10 (les jeux de la Maison, § 3.13) fait, à écouter. Reste l'épreuve des longues parties, qui revient à Raph, et les tables encore muettes (§ 6, lot 11).**
+**Statut : décisions prises le 2026-10-07 (§ 9), lots 1 à 6 livrés ; lot 7 (les grands moments, § 3.10), lot 8 (l'interface, § 3.11) et lot 9 (les petits sons de la carte, § 3.12) livrés le 2026-10-08 ; lot 10 (les jeux de la Maison, § 3.13) livré ; lot 11 (les quatre tables qui restaient muettes, § 3.14) fait, à écouter. Reste l'épreuve des longues parties, qui revient à Raph.**
 Ce document fait foi pour ce chantier.
 
 ---
@@ -546,6 +546,57 @@ automatisations de la Maison jouent sans écran, donc sans un bruit. Rien dans u
   reviennent à chaque coup. Le banc d'écoute (Ctrl+Alt+B) a une section « Les tables de la
   Maison » pour les régler famille par famille.
 
+### 3.14 Les quatre tables qui restaient muettes (lot 11)
+
+Raph a dit « tout », le 2026-10-08 : la roulette (le salon et le boudoir), les courses, le duel
+des grands flambeurs, le vol d'Icare. Mêmes règles qu'au lot 10 : des **Bruitages**, au seul
+geste du joueur. La synthèse vit dans `audio/tables/tablesSynthScenes.js` (28 sons), les
+briques partagées avec le lot 10 dans `audio/tables/briques.js`, la lecture dans `tables.js`.
+
+- **La roulette** (`RouletteStage.jsx`) : les jetons sonnent sur le tapis (une case vidée au
+  clic droit fait glisser sa pile). « Lancer la bille » joue le tour entier, calé sur
+  l'animation de 3,8 s (`rouletteArt.spinPose`) :
+  - la bille lancée, qui court sur la piste en tournant (on entend son passage), plus grave et
+    plus douce à mesure qu'elle ralentit ;
+  - elle heurte un losange, rebondit de case en case, se loge ;
+  - puis le verdict.
+
+  La matière : bille d'ivoire et frettes de laiton jusqu'à la Fonte, bille de casino au Néon,
+  bille de lumière qui chante ensuite.
+- **Les courses** (`CoursesStage.jsx`) : les jetons sur les plaques. Au départ, tout le déroulé
+  se pose d'un coup, d'après le plan de la course (`coursesArt.planCourse`) :
+  - les stalles qui s'ouvrent et la sonnette du départ ;
+  - le galop des six chevaux, une boucle, plus fort à l'approche de la ligne, qui ralentit et
+    s'éteint quand le dernier l'a passée ;
+  - la foule qui monte dans les 2,6 dernières secondes puis retombe ;
+  - la cloche d'arrivée ;
+  - le déclic de la photo quand l'arrivée est serrée ;
+  - le verdict.
+
+  Les chevaux de lumière des âges cosmiques ont des sabots qui tintent. **La foule est un
+  enregistrement** : la clameur brouillée du paysage (`emeute-clameur-1`, sans paroles), chargée
+  quand la table s'ouvre. Le lecteur sait maintenant charger un fichier (`fichier`), pas
+  seulement synthétiser.
+- **Le duel** (`DuelStage.jsx`) : à chaque manche, les dés du flambeur (en face, un peu plus
+  loin), puis les tiens, aux mêmes instants que l'image ; le verdict de la manche (deux notes
+  claires si tu la prends, un coup sourd sinon, l'égalité) ; le verdict du duel.
+- **Le vol d'Icare** (`IcarusStage.jsx`) : un son par aviateur de l'âge.
+  - L'envol : trois coups d'ailes (Icare), le brûleur (le ballon), la course et la toile qui
+    claque (le deltaplane), un arpège (Icare de lumière).
+  - Le vol : une boucle, plus forte et plus vive à mesure qu'il monte (pleine au ×10). Le
+    vent, les ailes ; le brûleur et les cordes de la nacelle ; la toile qui frémit ; un accord
+    qui frémit.
+  - Se poser, puis le petit gain.
+  - La chute : la cire qui s'embrase, l'air qui file en descendant, et la mer (Icare), la
+    nacelle qui se brise (le ballon), le mât qui casse (le deltaplane), la lumière qui
+    vole en éclats.
+- **Fermer la table** pendant que la bille roule ou que les chevaux courent coupe net ce qui
+  restait à jouer (un sous-bus du lecteur) ; fermer en plein vol coupe la boucle.
+- **Les niveaux** : chaque son est égalisé à la sonie (crête sur 100 ms, ou moyenne pour les
+  boucles), puis posé par son niveau. Les sons brefs sortent entre −23 et −28 dB, les boucles
+  vers −31 à −34 en moyenne. Le banc d'écoute a ses curseurs : roue, stalles, galop, foule,
+  arrivée, photo, manche, envol, vol, pose, brûle.
+
 ---
 
 ## 4. La liste des sons
@@ -1044,7 +1095,7 @@ taisent.
 | **8. L'interface** | L'achat à la main, la bulle d'un passant, un succès, l'alerte de crise (§ 3.11). | Validation à l'oreille. |
 | **9. Les petits sons de la carte** | Les moulins, les cloches des lieux de culte, les bêtes qu'on voit (§ 3.12). | Validation à l'oreille ; les fichiers du § 5.11. |
 | **10. Les jeux de la Maison** | Les osselets, les tickets, le vingt-et-un, les jetons du râtelier (§ 3.13). | Validation à l'oreille. |
-| **11. Plus tard** | Les tables encore muettes : le vol d'Icare, la roulette (le salon et le boudoir), les courses, le duel des grands flambeurs. | À décider. |
+| **11. Les tables muettes** | Le vol d'Icare, la roulette (le salon et le boudoir), les courses, le duel des grands flambeurs (§ 3.14). | Validation à l'oreille. |
 
 Chaque lot est livré par petites touches commitées, comme d'habitude, et ne part qu'après la
 validation à l'oreille du précédent.
@@ -1669,3 +1720,23 @@ Ma recommandation était donnée pour chacune.
 
   À l'ouverture d'une table, ses sons sont prêts en moins d'une seconde et demie. Le reste en
   temps simulé (`tables.test.js`).
+- **2026-10-08, le lot 10 est commité et poussé (`f6755b16`).**
+- **2026-10-08, lot 11 (les quatre tables qui restaient muettes).** Raph a dit « tout » : la
+  roulette, les courses, le duel, le vol d'Icare (§ 3.14). 28 sons synthétisés ; la foule des
+  courses reprend la clameur brouillée du paysage. Les sons sont égalisés à la sonie : à crête
+  égale, une bille de lumière qui chante sortait 4 dB au-dessus d'une bille d'ivoire.
+
+  **Vérifié dans le jeu**, à vrais clics, sur la partie de fin de jeu (âge stellaire : tout en
+  lumière), avec un serveur Vite sans rechargement à chaud :
+  - la roulette : deux jetons, le tour au clic, la perte quand la bille s'arrête sur le 28 ;
+  - les courses : deux jetons, puis au départ les stalles, le galop, la foule (le fichier se
+    charge et se décode), la cloche d'arrivée posée à son instant, la perte au verdict ; la
+    foule fait monter la course d'environ 3 dB avant la cloche ;
+  - le duel : trois manches, chacune avec les dés des deux camps et son verdict, puis la perte ;
+  - Icare : l'envol, la boucle tout le vol, la pose et le petit gain ; une chute à ×1,67 (la
+    boucle coupée net).
+
+  Le reste en temps simulé (`tables.test.js`). ⚠ La partie de test (`etat-plein.json`) garde
+  une course aux couloirs numérotés de 1 à 6 : ouvrir les courses fait planter la vue (le
+  6e couloir n'a pas de casaque). Le jeu, lui, tire les couloirs de 0 à 5 ; contourné en
+  vidant `courseField`.

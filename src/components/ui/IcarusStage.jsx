@@ -27,6 +27,10 @@ import TableMise from '../views/plaisirs/TableMise.jsx';
 import { initialStake, rememberStake, fmtMise } from '../views/plaisirs/miseMemory.js';
 import Monte from './Monte.jsx';
 import { usePlaisirsBand, icarusSkyCss, icarusFlyer } from './plaisirsMaterial.js';
+import { preparerTable, sonIcare, volIcare, finVol } from '../../game/audio/tables/tables.js';
+
+// La hauteur du vol pour le son (audio/tables, lot 11) : 0 au sol, 1 au ×10 du jackpot.
+const hauteurSon = (m) => Math.min(1, Math.log(Math.max(1, m)) / Math.log(ICARUS_JACKPOT_MULT));
 
 /**
  * Le Vol d'Icare — SCÈNE INTÉGRÉE (dé-modalisée 2026-07-14 : le jeu se joue dans
@@ -118,23 +122,29 @@ export default function IcarusStage({ table, onClose }) {
     prevCyclesRef.current = cycles;
   }, [cycles, onClose]);
 
-  // Ticker de vol : anime le multiplicateur et détecte la chute (timer moteur).
+  // Les sons de la table (audio/tables, lot 11), dans l'aviateur de l'âge.
+  useEffect(() => { preparerTable('icare', band); }, [band]);
+
+  // Ticker de vol : anime le multiplicateur et détecte la chute (timer moteur). Le son
+  // du vol le suit : une boucle qui monte avec la hauteur, coupée à la fin du vol.
   useEffect(() => {
     if (phase !== 'flying') return undefined;
     tickerRef.current = setInterval(() => {
       if (icarusFlying()) {
-        setM(icarusMultiplier());
+        const mm = icarusMultiplier();
+        setM(mm);
+        volIcare(band, hauteurSon(mm));
       } else {
         const out = icarusLastOutcome();
         stopTicker();
         setOutcome(out);
-        if (out?.type === 'crash') { setM(out.crashPoint); setPhase('crashed'); }
-        else if (out) { setM(out.m); setPhase('landed'); }
+        if (out?.type === 'crash') { setM(out.crashPoint); setPhase('crashed'); sonIcare(band, 'brule'); }
+        else if (out) { setM(out.m); setPhase('landed'); sonIcare(band, 'pose'); }
         else setPhase('ready');
       }
     }, TICK_MS);
-    return stopTicker;
-  }, [phase]);
+    return () => { stopTicker(); finVol(); };
+  }, [phase, band]);
 
   const potFaveur = icarusPotFaveur();
   const history = (state.icarusHistory || []).slice().reverse();
@@ -180,6 +190,7 @@ export default function IcarusStage({ table, onClose }) {
     setOutcome(null);
     setM(1);
     setPhase('flying');
+    sonIcare(band, 'envol');
   };
   // Laisser courir : tout le gain du vol (mise rendue comprise) sur le suivant,
   // plafonné à la limite de la table.
@@ -190,11 +201,12 @@ export default function IcarusStage({ table, onClose }) {
     if (!out) return;
     stopTicker();
     setOutcome(out);
-    if (out.type === 'crash') { setM(out.crashPoint); setPhase('crashed'); }
+    if (out.type === 'crash') { setM(out.crashPoint); setPhase('crashed'); sonIcare(band, 'brule'); }
     else {
       setM(out.m);
       setPhase('landed');
-      celebrerGain({ gain: out.faveur + (out.jackpotFaveur || 0), stake: out.stakeFaveur, game: 'icare' });
+      const palier = celebrerGain({ gain: out.faveur + (out.jackpotFaveur || 0), stake: out.stakeFaveur, game: 'icare' });
+      sonIcare(band, 'pose', { gros: Boolean(palier) });
     }
   };
 

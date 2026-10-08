@@ -15,6 +15,7 @@ import { rememberStake, lastStakeOf, fmtMise } from '../views/plaisirs/miseMemor
 import Monte from './Monte.jsx';
 import { usePlaisirsBand, diceSheetFor } from './plaisirsMaterial.js';
 import { wonderKitForBand } from '../../game/map/iso/wonderKits.js';
+import { preparerTable, sonDuel } from '../../game/audio/tables/tables.js';
 import '../../styles/plaisirs-nuit.css';
 
 /**
@@ -102,6 +103,8 @@ export default function DuelStage({ onClose }) {
     };
   }, []);
   useEffect(() => () => { flushPending(); clearTimers(); }, []);
+  // Les sons de la table (audio/tables, lot 11) : les dés de l'âge, les manches.
+  useEffect(() => { preparerTable('duel', band); }, [band]);
 
   const prevCyclesRef = useRef(cycles);
   useEffect(() => {
@@ -126,16 +129,29 @@ export default function DuelStage({ onClose }) {
     let t = 0;
     r.manches.forEach((m, i) => {
       const at = (ms, v) => timersRef.current.push(setTimeout(() => setVue(v), t + ms));
+      // Les sons (audio/tables, lot 11) suivent les mêmes instants : les dés secoués
+      // puis lancés, chacun qui retombe, le verdict de la manche.
+      const son = (ms, quoi, o) => timersRef.current.push(setTimeout(() => sonDuel(band, quoi, o), t + Math.max(0, ms)));
       if (i > 0) at(0, { mi: i, fl: 0, jo: 0, verdict: false });
-      for (let d = 0; d < 4; d += 1) at(FL_START + d * STEP, { mi: i, fl: d + 1, jo: 0, verdict: false });
-      for (let d = 0; d < 4; d += 1) at(JO_START + d * STEP, { mi: i, fl: 4, jo: d + 1, verdict: false });
+      son(FL_START - 260, 'lance', { camp: 'flambeur' });
+      for (let d = 0; d < 4; d += 1) {
+        at(FL_START + d * STEP, { mi: i, fl: d + 1, jo: 0, verdict: false });
+        son(FL_START + d * STEP, 'tombe', { camp: 'flambeur', i: d });
+      }
+      son(JO_START - 300, 'lance', { camp: 'joueur' });
+      for (let d = 0; d < 4; d += 1) {
+        at(JO_START + d * STEP, { mi: i, fl: 4, jo: d + 1, verdict: false });
+        son(JO_START + d * STEP, 'tombe', { camp: 'joueur', i: d });
+      }
       at(VERDICT, { mi: i, fl: 4, jo: 4, verdict: true });
+      son(VERDICT, 'manche', { gagnant: m.gagnant });
       if (i < r.manches.length - 1) t += MANCHE_MS;
     });
     timersRef.current.push(setTimeout(() => {
       flushPending();
       setPhase('result');
-      if (r.gagne) celebrerGain({ gain: r.gain, stake: r.mise, game: 'duel' });
+      const palier = r.gagne ? celebrerGain({ gain: r.gain, stake: r.mise, game: 'duel' }) : null;
+      sonDuel(band, 'verdict', { gagne: Boolean(r.gagne), gros: Boolean(palier) });
     }, t + VERDICT + FIN_EXTRA));
   };
 

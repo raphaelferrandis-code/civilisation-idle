@@ -1,10 +1,11 @@
-// LES TABLES DE LA MAISON DES PLAISIRS (audio/tables, lot 10 du paysage sonore) : la
-// synthèse (chaque son se rend, dans chaque matière) et la lecture (quels sons partent à
-// quel geste), sous un FAUX contexte audio et des réglages simulés.
+// LES TABLES DE LA MAISON DES PLAISIRS (audio/tables, lots 10 et 11 du paysage sonore) :
+// la synthèse (chaque son se rend, dans chaque matière) et la lecture (quels sons partent
+// à quel geste), sous un FAUX contexte audio et des réglages simulés.
 import { describe, it, expect, beforeAll, beforeEach, afterAll, vi } from 'vitest';
 import {
   rendreTable, SONS_TABLES, TABLES_SR, matiereJeton, matiereDes, matiereCartes, matiereTicket,
 } from '../tables/tablesSynth.js';
+import { matiereRoue, matierePiste, matiereVol, SONS_SCENES } from '../tables/tablesSynthScenes.js';
 
 const R = { sfx: true };
 vi.mock('../../core/main.js', () => ({
@@ -15,7 +16,13 @@ vi.mock('../../core/main.js', () => ({
   rattrapageRecent: () => false,
 }));
 
-class Param { constructor(v) { this.value = v; } setTargetAtTime(v) { this.value = v; } }
+class Param {
+  constructor(v) { this.value = v; this.points = []; }
+  setTargetAtTime(v) { this.value = v; }
+  setValueAtTime(v, t) { this.points.push([t, v]); this.value = v; }
+  linearRampToValueAtTime(v, t) { this.points.push([t, v]); }
+  cancelScheduledValues() { this.points = []; }
+}
 class Noeud { connect(x) { return x; } disconnect() {} }
 class FauxTampon {
   constructor({ length, sampleRate }) { this.length = length; this.sampleRate = sampleRate; this.duration = length / sampleRate; }
@@ -32,7 +39,7 @@ class FauxContexte {
     const s = new Noeud();
     s.playbackRate = new Param(1);
     s.start = () => { s.joue = true; };
-    s.stop = () => { s.arretee = true; if (s.onended) s.onended(); };
+    s.stop = (quand) => { s.arretee = quand ?? true; if (s.onended) s.onended(); };
     J.sources.push(s);
     return s;
   }
@@ -42,13 +49,14 @@ class FauxContexte {
 
 describe('les sons des tables, la synthèse', () => {
   it('chacun se rend, fini, sans écrêtage ni silence', () => {
-    expect(SONS_TABLES.length).toBe(77);
+    expect(SONS_TABLES.length).toBe(105);
+    expect(SONS_SCENES.length).toBe(28);
     for (const nom of SONS_TABLES) {
       const b = rendreTable(nom);
       expect(b, nom).toBeInstanceOf(Float32Array);
       expect(b.length / TABLES_SR, nom).toBeGreaterThan(0.2);
       expect(b.every(Number.isFinite), nom).toBe(true);
-      expect(b.reduce((m, v) => Math.max(m, Math.abs(v)), 0), nom).toBeLessThanOrEqual(0.81);
+      expect(b.reduce((m, v) => Math.max(m, Math.abs(v)), 0), nom).toBeLessThanOrEqual(0.96);
     }
     expect(rendreTable('inconnu')).toBe(null);
   });
@@ -56,8 +64,9 @@ describe('les sons des tables, la synthèse', () => {
   it('chaque table prépare ses sons, et le râtelier seul ses jetons', async () => {
     const { sonsDeTable } = await import('../tables/tables.js');
     expect(sonsDeTable('jetons', 5)).toEqual(['jeton-argile-1', 'jeton-argile-2', 'jetons-argile']);
-    for (const jeu of ['osselets', 'cartes', 'tickets']) {
-      for (let b = 0; b <= 9; b += 1) for (const nom of sonsDeTable(jeu, b)) expect(SONS_TABLES, `${jeu} ${b} ${nom}`).toContain(nom);
+    for (const jeu of ['osselets', 'cartes', 'tickets', 'roulette', 'courses', 'duel', 'icare']) {
+      // La foule des courses est un enregistrement : elle n'a pas de synthèse.
+      for (let b = 0; b <= 9; b += 1) for (const nom of sonsDeTable(jeu, b)) if (nom !== 'foule') expect(SONS_TABLES, `${jeu} ${b} ${nom}`).toContain(nom);
     }
   });
 
@@ -66,6 +75,10 @@ describe('les sons des tables, la synthèse', () => {
     expect([0, 3, 4, 6, 7].map(matiereDes)).toEqual(['os', 'os', 'ivoire', 'casino', 'lumiere']);
     expect([2, 3, 5, 7].map(matiereCartes)).toEqual(['bois', 'parchemin', 'papier', 'cristal']);
     expect([0, 1, 2, 4, 5, 6, 9].map(matiereTicket)).toEqual(['argile', 'bois', 'papier', 'metal', 'papier', 'vernis', 'cristal']);
+    // Le lot 11 : la roue, la piste, l'aviateur (plaisirsMaterial.icarusFlyer).
+    expect([0, 5, 6, 7].map(matiereRoue)).toEqual(['bois', 'bois', 'casino', 'lumiere']);
+    expect([0, 6, 7, 9].map(matierePiste)).toEqual(['sabots', 'sabots', 'lumiere', 'lumiere']);
+    expect([0, 4, 5, 6, 7].map(matiereVol)).toEqual(['icare', 'icare', 'ballon', 'delta', 'lumiere']);
   });
 });
 
@@ -85,7 +98,7 @@ describe('les sons des tables, la lecture', () => {
     };
     vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout', 'setInterval', 'clearInterval', 'Date', 'performance'] });
     T = await import('../tables/tables.js');
-    for (const jeu of ['osselets', 'cartes', 'tickets']) T.preparerTable(jeu, 5);
+    for (const jeu of ['osselets', 'cartes', 'tickets', 'roulette', 'courses', 'duel', 'icare']) T.preparerTable(jeu, 5);
     await vider();
   }, 30000);
   afterAll(() => {
@@ -151,6 +164,71 @@ describe('les sons des tables, la lecture', () => {
     expect(J.sources.length).toBe(avant + 1);          // une seule boucle, réglée
     T.finGrattage();
     expect(T.etatTables().gratte).toBe(false);
+  });
+
+  it('la roulette : le tour sur une scène que la fermeture coupe, puis le verdict', () => {
+    const r0 = compte('roue-bois'), g0 = compte('gain-petit'), p0 = compte('perte');
+    T.sonRoulette(5, 'lance');
+    expect(compte('roue-bois') - r0).toBe(1);
+    expect(T.etatTables().scene).toBe(true);
+    T.finScene();
+    expect(T.etatTables().scene).toBe(false);
+    T.sonRoulette(5, 'verdict', { gagne: true, gros: false });
+    T.sonRoulette(5, 'verdict', { gagne: true, gros: true });
+    T.sonRoulette(5, 'verdict', { gagne: false });
+    expect([compte('gain-petit') - g0, compte('perte') - p0]).toEqual([1, 1]);
+  });
+
+  it('les courses : tout se pose au départ, calé sur le plan ; la photo seulement si c’est serré', () => {
+    const avant = J.sources.length;
+    const s0 = compte('stalles-sabots'), a0 = compte('arrivee-sabots'), ph0 = compte('photo'), g0 = compte('galop-sabots');
+    T.sonCourse(5, 'depart', { fin: 6200, dernier: 7400, photo: false });
+    expect([compte('stalles-sabots') - s0, compte('galop-sabots') - g0, compte('arrivee-sabots') - a0, compte('photo') - ph0]).toEqual([1, 1, 1, 0]);
+    // Le galop : monté au départ, plus fort à la ligne, éteint après le dernier, arrêté.
+    const galop = J.sources.slice(avant).find((s) => s.loop);
+    expect(galop.arretee).toBeCloseTo(0.05 + 7.4 + 1.3, 3);
+    T.sonCourse(5, 'depart', { fin: 6200, dernier: 6900, photo: true });
+    expect(compte('photo') - ph0).toBe(1);
+    T.finScene();
+    const v0 = compte('gain-petit');
+    T.sonCourse(5, 'verdict', { gagne: true });
+    expect(compte('gain-petit') - v0).toBe(1);
+  });
+
+  it('le duel : les dés de chaque camp, la manche gagnée, perdue ou nulle, le verdict', () => {
+    const l0 = compte('des-ivoire-lance'), t0 = compte('des-ivoire-');
+    T.sonDuel(5, 'lance', { camp: 'flambeur' });
+    for (let i = 0; i < 4; i += 1) T.sonDuel(5, 'tombe', { camp: 'flambeur', i });
+    expect(compte('des-ivoire-lance') - l0).toBe(1);
+    expect(compte('des-ivoire-') - t0).toBe(5);
+    const mg = compte('manche-gagnee'), mp = compte('manche-perdue'), eg = compte('egalite');
+    T.sonDuel(5, 'manche', { gagnant: 'joueur' });
+    T.sonDuel(5, 'manche', { gagnant: 'flambeur' });
+    T.sonDuel(5, 'manche', { gagnant: null });
+    expect([compte('manche-gagnee') - mg, compte('manche-perdue') - mp, compte('egalite') - eg]).toEqual([1, 1, 1]);
+  });
+
+  it("le vol d'Icare : l'envol, une seule boucle qui monte avec la hauteur, la pose puis le gain, la chute", () => {
+    const e0 = compte('envol-ballon');
+    T.sonIcare(5, 'envol');
+    expect(compte('envol-ballon') - e0).toBe(1);
+    const avant = J.sources.length;
+    T.volIcare(5, 0);
+    const v = J.sources[J.sources.length - 1];
+    const bas = v.playbackRate.value;
+    T.volIcare(5, 1);
+    expect(J.sources.length).toBe(avant + 1);          // la même boucle, réglée
+    expect(v.playbackRate.value).toBeGreaterThan(bas);
+    expect(T.etatTables().vol).toBe(true);
+    const p0 = compte('pose-ballon'), g0 = compte('gain-petit');
+    T.sonIcare(5, 'pose', { gros: false });
+    expect(T.etatTables().vol).toBe(false);
+    expect([compte('pose-ballon') - p0, compte('gain-petit') - g0]).toEqual([1, 1]);
+    T.volIcare(5, 0.5);
+    const b0 = compte('brule-ballon');
+    T.sonIcare(5, 'brule');
+    expect(compte('brule-ballon') - b0).toBe(1);
+    expect(T.etatTables().vol).toBe(false);
   });
 
   it('onglet caché ou Bruitages coupés : rien', () => {
