@@ -50,7 +50,7 @@ import {
 } from '../../game/core/actions.js';
 import { collapseCause } from '../../game/core/events.js';
 import { projectedCollapseHarvest } from '../../game/core/mechanics/collapseHarvest.js';
-import { save, setCityName, commitCityName, state, markChronicleRead } from '../../game/core/state.js';
+import { save, setCityName, commitCityName, state } from '../../game/core/state.js';
 import { ensureMapSeed } from '../../game/map/procedural/seedManager.js';
 import { computeCityPersonality } from '../../game/map/procedural/cityPersonality.js';
 import { fmt, clamp01, fmtHabitants } from '../../game/core/utils.js';
@@ -92,7 +92,6 @@ import {
   isMythEffectActive
 } from '../../game/data/myths.js';
 import { epitaphLegacyById, epitaphLegacyChips } from '../../game/data/epitaphs.js';
-import { CHRONICLE_VISIBLE_MS } from '../../game/core/chronicleEvaluator.js';
 import { isFirstGame } from '../../game/core/onboarding.js';
 import { uiRevealed, uiRevealFresh } from '../../game/core/uiReveal.js';
 
@@ -248,7 +247,6 @@ export default function CityView() {
   // simple booléen — sinon un nouveau mythe après lecture ne préviendrait plus.
   // (La chronique, elle, a son `isNew` persisté dans la save : voir markChronicleRead.)
   const [vu, setVu] = useState({ exhume: null, myths: 0 });
-  const latestChronicle = useGameState((s) => (s.chronicleEntries || [])[0]);
 
   // Personnalité procédurale de la ville (stable par cycle ; la surcouche
   // crise/effondrement évolue avec instability/timeWear, recalcul léger).
@@ -410,9 +408,6 @@ export default function CityView() {
 
   const showMythsPanel = isPromethee || isSisyphe || showVol || showBabel || isChaos || isRagnarok || isOr || showEpaule || isPhoenix || isHeph || isAtrides || atridesPactActive || atridesNextRunPenaltyActive || isMythEffectActive("mythe_d_enee") || eneeHeritage || hasLatent || hasActiveEpitaphLegacy;
 
-  // Pastille de la chronique : dépêche encore dans sa fenêtre d'affichage.
-  const chronicleVisible = Boolean(latestChronicle && now - (latestChronicle.publishedAt || 0) < CHRONICLE_VISIBLE_MS);
-  const chronicleNew = Boolean(latestChronicle?.isNew);
   // Badge du dock Mythes : nombre de cartes de statut actuellement actives.
   const mythCount = [
     isPromethee, showEpaule,
@@ -439,7 +434,6 @@ export default function CityView() {
     const ouvre = openDock !== id;
     setOpenDock(ouvre ? id : null);
     if (!ouvre) return;
-    if (id === 'chronique') markChronicleRead();
     if (id === 'myths') setVu((v) => ({ ...v, myths: mythCount }));
     if (id === 'exhume') setVu((v) => ({ ...v, exhume: usesNow }));
   };
@@ -458,369 +452,18 @@ export default function CityView() {
     ? tr({ fr: `Le ciel est léger : ce geste soulagerait sans compter (compte dès ${ATLAS_COUNT_THRESHOLD} %).`, en: `The sky is light: this act would relieve without counting (counts from ${ATLAS_COUNT_THRESHOLD}%).` })
     : tr({ fr: "Soutenir le ciel — récupération avant le geste suivant.", en: "Bear the sky — recovery before the next act." });
 
-  return (
-    <section className="view active" id="city">
-      <div className="city-left-col">
-        {/* Bannières de début de cycle : UN conteneur posé une fois, qui les
-            EMPILE. Chacune portait sa propre position absolue, la même : avec
-            les deux héritages, les textes se superposaient pendant la fenêtre
-            de décision du Pacte (audit du 05/10, BUG-44). */}
-        {((eneeHeritage && cycleSeconds < 30) || (atridesHeritage && !activeMythId && cycleSeconds < 120)) && (
-        <div className="cycle-banners">
-        {eneeHeritage && cycleSeconds < 30 && (
-          <div className="enee-boost-banner">
-            <strong>⚖ {tr({ fr: "Bénédiction d'Énée", en: "Aeneas's Blessing" })}</strong>
-            <p>
-              {tr({ fr: <>Démarrage rapide : la production globale est augmentée de <strong>+{Math.round(Math.min(10, eneeCollapseCount || 0) * 10)}%</strong> ({30 - cycleSeconds}s restantes).</>, en: <>Fast start: global production is increased by <strong>+{Math.round(Math.min(10, eneeCollapseCount || 0) * 10)}%</strong> ({30 - cycleSeconds}s remaining).</> })}
-            </p>
-          </div>
-        )}
-        {atridesHeritage && !activeMythId && cycleSeconds < 120 && (
-          <div className={`atrides-pact-banner${atridesPactActive ? ' is-sealed' : ''}`}>
-            <div className="pact-banner-head">
-              <strong>
-                {atridesPactActive ? tr({ fr: "⚖ Pacte des Atrides Scellé", en: "⚖ Atreides Pact Sealed" }) : tr({ fr: "📜 Pacte des Atrides Disponible", en: "📜 Atreides Pact Available" })}
-              </strong>
-              <span className="pact-banner-time">{tr({ fr: "Temps restant", en: "Time remaining" })}: {120 - cycleSeconds}s</span>
-            </div>
-            <p>
-              {atridesPactActive
-                ? tr({ fr: "Vous avez emprunté de la production. Bonus x2 actif pendant les 2 premières minutes, puis malus x0.5 s'appliquera en phase de crise.", en: "You have borrowed production. The x2 bonus is active for the first 2 minutes, then a x0.5 penalty will apply during the crisis phase." })
-                : tr({ fr: "Empruntez un bonus de production de x2 pour les 2 premières minutes de ce cycle. En échange, la production sera réduite de 50% pendant la crise finale.", en: "Borrow a x2 production bonus for the first 2 minutes of this cycle. In exchange, production will be reduced by 50% during the final crisis." })}
-            </p>
-            {!atridesPactActive && (
-              <button onClick={activateAtridesPact} className="btn-primary pact-activate-btn">
-                {tr({ fr: "Activer le Pacte", en: "Activate the Pact" })}
-              </button>
-            )}
-          </div>
-        )}
-        </div>
-        )}
-
-        {/* La Cité en héros : carte plein cadre, identité + jauge de stabilité
-            posées en HUD par-dessus (on montre le monde d'abord).
-            `data-sheet` dit QUELLE feuille basse est ouverte : au doigt, une
-            feuille recouvre le bas de l'écran, donc les boutons flottants qui y
-            vivent doivent s'effacer. Un seul attribut plutôt que trois classes —
-            les feuilles s'excluent l'une l'autre, autant le dire. */}
-        <div className="city-stage" data-sheet={shopOpen ? 'shop' : regulOpen ? 'regul' : 'none'}>
-          {/* Bilan de fin de cycle : bandeau posé SUR la carte, jamais un
-              dialogue — il n'interrompt rien et s'efface tout seul. */}
-          <CycleReportBanner />
-          {/* Rapport de reprise : encart non modal, posé sur la carte. */}
-          <IdleReportPanel />
-          {/* is-alert : effondrement imminent (≥ 90 %). La jauge grandit et ses
-              voisins reculent (cite.css) : c'est ce qu'il faut lire en premier. */}
-          <div className={`city-stage-hud${revealGauge && clamp01(instability) >= 0.9 ? ' is-alert' : ''}`} ref={stageHudRef}>
-          <div className="city-title-wrapper">
-            <input
-              id="cityNameInput"
-              className="city-name-input"
-              maxLength={42}
-              value={cityName}
-              onChange={handleNameChange}
-              onBlur={handleNameBlur}
-              aria-label={tr({ fr: "Nom de la ville", en: "City name" })}
-            />
-            <span
-              className="city-population-label"
-              {...tipProps(null, tr({ fr: "Habitants de la cité, à l'échelle de son âge. Le Rayonnement, lui, mesure l'essor global de la civilisation.", en: "Inhabitants of the city, to the scale of its age. Radiance measures the overall rise of the civilization." }))}
-            >
-              <i className="fa-solid fa-people-roof" aria-hidden="true"></i>
-              {fmtHabitants(crediblePopulation(population))}
-            </span>
-            <span
-              className="city-personality-label"
-              {...tipProps(null, tr({ fr: "Personnalité procédurale de cette civilisation : elle façonne le plan de la ville, ses bâtiments et ses habitants", en: "Procedural personality of this civilization: it shapes the city layout, its buildings, and its inhabitants" }))}
-            >
-              {cityPersonalityLabel}
-            </span>
-          </div>
-
-          {/* Jauge de pression civilisationnelle (fine, adaptative) */}
-          {revealGauge && (() => {
-            const lvl = clamp01(instability);
-            const pctValue = Math.round(lvl * 100);
-            // Paliers 25 / 50 / 75 / 90 — LES seuils de toute l'approche de crise :
-            // vignette (layout.css), lueur de la carte (views-city.css), émeutiers
-            // (quaysAndRiot.js), plan « en crise » (cityPersonality.js) s'y calent.
-            // 75 % n'est PAS la crise : elle s'ouvre à 100 % (crisisOpen) — d'où
-            // « Crise profonde » et non plus « Crise ouverte ».
-            const tier = lvl >= 0.9
-              ? { cls: "sg-collapse", icon: "💀", label: { fr: "Effondrement imminent", en: "Imminent Collapse" }, desc: { fr: "La cité est au bord du gouffre : apaisez-la vite, ou préparez sa chute.", en: "The city is on the brink: calm it quickly, or prepare its fall." } }
-              : lvl >= 0.75
-              ? { cls: "sg-crisis", icon: "🚨", label: { fr: "Crise profonde", en: "Deep Crisis" }, desc: { fr: "Les pressions montent. Construisez, stabilisez, ou acceptez l'inévitable.", en: "Pressures are rising. Build, stabilize, or accept the inevitable." } }
-              : lvl >= 0.5
-              ? { cls: "sg-strain", icon: "🔥", label: { fr: "Instabilité croissante", en: "Growing Instability" }, desc: { fr: "Les fractures s'élargissent. Le progrès coûte de plus en plus de stabilité.", en: "The fractures widen. Progress costs ever more stability." } }
-              : lvl >= 0.25
-              ? { cls: "sg-tension", icon: "⚠️", label: { fr: "Premières tensions", en: "First Tensions" }, desc: { fr: "Les tensions s'accumulent. Le progrès coûte de la stabilité.", en: "Tensions are building. Progress costs stability." } }
-              : { cls: "sg-stable", icon: "🛡️", label: { fr: "Civilisation stable", en: "Stable Civilization" }, desc: { fr: "La cité tient bon. Continuez à bâtir votre civilisation.", en: "The city holds firm. Keep building your civilization." } };
-            const crackOpacity = (threshold, ramp, max) =>
-              lvl >= threshold ? Math.min(max, 0.3 + (lvl - threshold) * ramp) : 0;
-            // Reworks §5.1/§5.2 surfacés ici : cible (fantôme) + gain projeté.
-            const targetLvl = clamp01(ruptureTarget());
-            // Moisson COMPLÈTE (décision de Raph sur BUG-33 : A) : Rite × legs
-            // gravé, ou dernière volonté, × vœu, comme l'autel et le Bilan.
-            const projectedRuin = projectedCollapseHarvest(ruinGain(true), collapseCause());
-            // Bulle détaillée : une ligne par source de pression (B1). Fonction et
-            // non chaîne, et relue sur pressureBreakdown() : les parts bougent au
-            // tick, un contenu figé à l'ouverture mentirait au bout de 2 s.
-            const pp = (v) => `${v >= 0 ? "+" : ""}${(v * 100).toFixed(0)}%`;
-            const pressureTooltip = () => {
-              const p = pressureBreakdown();
-              return [
-                { label: tr(tier.desc) },
-                { label: tr({ fr: "Sources de pression :", en: "Sources of pressure:" }) },
-                { label: tr({ fr: "Rareté", en: "Scarcity" }), value: pp(p.scarcity) },
-                { label: tr({ fr: "Inégalités", en: "Inequality" }), value: pp(p.inequality) },
-                { label: tr({ fr: "Complexité", en: "Complexity" }), value: pp(p.complexity) },
-                { label: tr({ fr: "Dissidence", en: "Dissent" }), value: pp(p.dissent) },
-                { label: tr({ fr: "Structurel", en: "Structural" }), value: pp(p.structural) },
-                { label: tr({ fr: "Atténuation", en: "Mitigation" }), value: `-${(p.mitigation * 100).toFixed(0)}%` },
-                p.demesure > 0 ? { label: tr({ fr: "Démesure (irréductible)", en: "Hubris (irreducible)" }), value: pp(p.demesure) } : null
-              ];
-            };
-            return (
-              <div
-                className={`stability-gauge ${tier.cls} ${gaugeFresh ? 'is-fresh' : ''}`}
-                {...tipProps(tr(tier.label), pressureTooltip)}
-                aria-label={tr({ fr: `Pression civilisationnelle : ${pctValue}%, ${tr(tier.label)}`, en: `Civilizational pressure: ${pctValue}%, ${tr(tier.label)}` })}
-              >
-                <div className="sg-meta">
-                  <span className="sg-label">{tr(tier.label)}</span>
-                  <span className="sg-pct" id="rupturePanelValue">{pctValue}%</span>
-                </div>
-                <div className="sg-track">
-                  {[25, 50, 75, 90].map((t) => (
-                    <span key={t} className="sg-tick" style={{ left: `${t}%` }} aria-hidden="true"></span>
-                  ))}
-                  <span className="sg-fill" style={{ width: `${lvl * 100}%` }}></span>
-                  <span className="sg-target-ghost" style={{ left: `${targetLvl * 100}%` }} {...tipProps(null, () => {
-                    // Fonction : la cible dérive au tick, une chaîne resterait au
-                    // pourcentage lu à l'ouverture de la bulle.
-                    const pct = Math.round(ruptureTarget() * 100);
-                    return tr({ fr: `Cible : ${pct} %. La jauge dérive vers ce niveau.`, en: `Target: ${pct}%. The gauge drifts toward this level.` });
-                  })}></span>
-                  {/* Fissures : la 1re au palier 75, la dernière à 90 (« imminent »). */}
-                  {lvl >= 0.75 && (
-                    <svg className="sg-cracks" viewBox="0 0 320 40" preserveAspectRatio="none" aria-hidden="true">
-                      {[
-                        { d: "M250 13 L246 17.5 L249 21.5 L244 26.5 M246 17.5 L241 19.5 L238 25 M286 13 L283 17 L286 20.5 L282 26.5 M286 20.5 L290.5 23.5", opacity: crackOpacity(0.75, 3, 0.8) },
-                        { d: "M196 12.5 L192 17 L195 21 L190 27 M192 17 L186.5 19 M222 13.5 L226 18.5 L223 23 L227 27 M226 18.5 L231 20.5 L234.5 25.5 M305 12 L301 16 L304 21 L300 27.5 M301 16 L296 18 M304 21 L309 24", opacity: crackOpacity(0.83, 5, 0.9) },
-                        { d: "M150 7.5 L146 13.5 L149 18.5 L144 24 L147 31.5 M146 13.5 L140.5 16 M144 24 L154 26.5 M172 6 L176 12 L173 17 L177 23 L174 32.5 M176 12 L181.5 14 M177 23 L170 26.5 M262 7 L258 13 L261 18 L256 25 L259 33.5 M261 18 L267 20.5 M118 9.5 L114 15.5 L117 21.5 L112 28 M117 21.5 L123 24", opacity: crackOpacity(0.9, 7, 1) }
-                      ].map((g, i) => (
-                        <g key={i} className="sg-crack-group" style={{ opacity: g.opacity }}>
-                          <path className="sg-crack-light" d={g.d} transform="translate(0.7 0.9)" vectorEffect="non-scaling-stroke" />
-                          <path className="sg-crack-dark" d={g.d} vectorEffect="non-scaling-stroke" />
-                        </g>
-                      ))}
-                    </svg>
-                  )}
-                </div>
-                {/* Ce que la chute rapporterait : sa propre ligne, sous la jauge
-                    (elle était coincée entre le palier et le %). */}
-                <div className="sg-stake" {...tipProps(null, tr({ fr: "Ruines obtenues si la cité s'effondrait maintenant, Rite de Passage, legs gravé (ou dernière volonté) et vœu compris. Tenir plus longtemps et chuter plus profond rapporte davantage.", en: "Ruins gained if the city collapsed right now, including the Rite of Passage, the engraved legacy (or last will) and the vow. Holding out longer and falling deeper yields more." }))}>
-                  <PixelIcon name="glyphs/ruines" size={16} className="sg-stake-icon" />
-                  <span>{tr({ fr: "Chute maintenant", en: "Fall now" })}</span>
-                  <strong className="sg-collapse-gain">+{fmt(projectedRuin)}</strong>
-                </div>
-              </div>
-            );
-          })()}
-
-          {/* CARTE D'IDENTITÉ (refonte « la ville d'abord », bureau) : l'encart
-              d'état quitte la barre latérale devenue rail et se range ici —
-              âge, Usure, vœu, clepsydre, sous la jauge de Rupture (la réserve
-              d'absence est passée dans les Options › Sauvegarde).
-              Au doigt il garde sa feuille « État » (App.jsx). */}
-          {!coarse && <CityStatusPanel variant="identity" />}
-          </div>{/* /city-stage-hud */}
-
-          {/* Bonus de bulle cliquée : annonce CENTRÉE en haut du monde, ancrée
-              sur .city-stage (sous la barre de ressources, loin de la jauge de
-              régulation du bas). key = n° de message → le chip est re-monté à
-              chaque clic et son animation d'entrée rejoue. */}
-          {bubbleMessage && (
-            <div className="map-bubble-alert" key={bubbleMessage.id}>
-              <span className="bubble-alert-name">{bubbleMessage.name}</span>
-              <span className="bubble-alert-text">"{bubbleMessage.text}"</span>
-              {bubbleMessage.reward && <span className="bubble-alert-reward">{bubbleMessage.reward}</span>}
-            </div>
-          )}
-
-          {/* La carte interactive : le monde occupe tout le cadre */}
-          <div className="city-map-container">
-          <div
-            className="civilization-map-interactive"
-            id="civilizationMap"
-            aria-label={tr({ fr: "Diorama de la cité", en: "City diorama" })}
-          >
-            <CityMapCanvas onCitizenThoughtClicked={handleCitizenThought} />
-          </div>
-          </div>{/* /city-map-container */}
-
-          {/* FICHE D'HABITANT : le passant cliqué sur la carte, que la caméra
-              suit (citizenFocus.js). Rien tant qu'aucun n'est désigné. */}
-          <CitizenSheet />
-
-          {/* FAITS DIVERS : la réplique du personnage d'une scène cliquée sur la
-              carte (map/faitsDivers). Rien tant qu'aucune n'est ouverte. */}
-          <FaitDiversCard />
-
-          {/* Annonce vocale de la dépêche : région sr-only montée avec la Cité,
-              le bandeau ne l'étant que dock ouvert (BUG-118). */}
-          <ChronicleAnnounce />
-
-          {/* Boutique dockée : le menu de construction posé sur le bord droit du monde */}
-          <aside className="city-shop-dock" aria-label={tr({ fr: "Construction", en: "Construction" })}>
-            <BuildingShop open={shopOpen} onToggle={toggleShop} />
-          </aside>
-          {/* BOUTON FLOTTANT « CONSTRUIRE » (M1, tactile seulement — masqué par
-              le CSS ailleurs). Sur téléphone la boutique est une feuille : quand
-              elle est fermée, plus rien à l'écran ne permettrait de la rouvrir,
-              puisque son propre chevron part avec elle. Ce bouton est donc sa
-              poignée extérieure. Il vit sur la carte, au pouce, et laisse la
-              ville entière visible tant qu'on ne construit pas. */}
-          <button
-            type="button"
-            className="shop-fab"
-            aria-expanded={shopOpen}
-            onClick={toggleShop}
-            aria-label={shopOpen
-              ? tr({ fr: "Fermer la construction", en: "Close construction" })
-              : tr({ fr: "Ouvrir la construction", en: "Open construction" })}
-          >
-            <i className={`fa-solid ${shopOpen ? 'fa-xmark' : 'fa-hammer'}`} aria-hidden="true"></i>
-          </button>
-
-          {/* POIGNÉE DE LA RÉGULATION (tactile seulement). Elle avait été retirée
-              de la carte faute de place ; elle revient sous la forme que la
-              boutique a déjà : un bouton flottant qui ouvre une feuille basse.
-              L'icône est celle de l'onglet Régulation — même destination, même
-              signe — posée AU-DESSUS de son libellé. */}
-          {revealTension && (
-          <button
-            type="button"
-            className="regul-fab"
-            aria-expanded={regulOpen}
-            onClick={toggleRegul}
-            aria-label={regulOpen
-              ? tr({ fr: "Fermer la régulation des tensions", en: "Close tension regulation" })
-              : tr({ fr: "Ouvrir la régulation des tensions", en: "Open tension regulation" })}
-          >
-            <PixelIcon name="nav/regulation" size={24} />
-            <span className="fab-label" aria-hidden="true">{tr({ fr: "Tensions", en: "Tensions" })}</span>
-          </button>
-          )}
-
-          {/* TOUT ACHETER (tactile seulement) : le pendant au doigt du raccourci
-              « e » du clavier — même action, même ordre d'achat (cf. App.jsx,
-              BUY_BY_ID.buy_all = null = toutes les catégories). Sans lui, un
-              joueur au téléphone n'a AUCUN moyen de déclencher ce que le clavier
-              fait d'une touche : il lui reste à ouvrir la feuille et à taper
-              chaque rangée.
-              TRANSPARENT (demande Raph) : c'est un geste répété posé sur la
-              ville, pas un meuble — il ne prend que la place de son signe. */}
-          {revealBuyAll && (
-          <button
-            type="button"
-            className="buy-all-fab"
-            onClick={() => buyAllAffordableChained(null)}
-            aria-label={tr({ fr: "Tout acheter", en: "Buy all" })}
-            {...tipProps(
-              tr({ fr: "Tout acheter", en: "Buy all" }),
-              tr({
-                fr: "Achète Moteurs + Savoir + Infrastructure, du plus cher au moins cher. Même action que la touche E.",
-                en: "Buys Engines + Knowledge + Infrastructure, most expensive first. Same as the E key."
-              })
-            )}
-          >
-            <i className="fa-solid fa-cart-shopping" aria-hidden="true"></i>
-            <span className="fab-label" aria-hidden="true">{tr({ fr: "Tout acheter", en: "Buy all" })}</span>
-          </button>
-          )}
-        </div>{/* /city-stage */}
-
-        {/* Régulation des tensions + politiques : encart pliable, sous la carte.
-            État PILOTÉ depuis ici (cf. `regulOpen`) : au doigt, sa poignée est le
-            bouton flottant ci-dessus, qui vit dans la carte et non dans l'encart. */}
-        {/* Dévoilée avec la tension dans la toute première partie (uiReveal) :
-            avant le premier quart de Rupture, ses quatre jauges sont à zéro et
-            six politiques sur sept verrouillées — rien à y lire ni à y faire. */}
-        {revealTension && (
-        <HudPanel
-          className="city-controls-panel"
-          title={coarse
-            ? tr({ fr: "Régulation des tensions", en: "Tension Regulation" })
-            // Au bureau la barre repliée est une ligne : titre court (maquette V4).
-            : tr({ fr: "Régulation", en: "Regulation" })}
-          open={regulOpen}
-          onToggle={toggleRegul}
-          onOpenChange={setRegulOpen}
-          openWhen={inCrisis}
-          summary={<RegulSummary />}
-          swipeToClose
-        >
-          {/* Au bureau, la poignée dépliée ne garde que le geste réflexe de
-              chaque foyer et la porte du Conseil ; au doigt, la feuille porte
-              la barre complète. */}
-          {coarse ? <CrisisActionBar /> : <RegulQuick />}
-        </HudPanel>
-        )}
-
-        {/* Outils de la carte, coin bas-droit (bureau) : zoom, recentrage,
-            contemplation — les touches du clavier, en boutons. */}
-        {!coarse && <MapTools />}
-
-        {/* Rail gauche : dock d'icônes + popovers (chronique / exhume / mythes) */}
-        <div className="city-aux" ref={cityAuxRef}>
-          {/* PREMIERS PAS (E1) : au-dessus des outils, il disparaît de lui-même
-              une fois les trois étapes franchies et ne revient jamais. */}
-          <FirstStepsPanel />
-          <div className="hud-dock" role="toolbar" aria-label={tr({ fr: "Outils de la cité", en: "City tools" })}>
-            {chronicleVisible && (
-              <button type="button" className={`hud-dock-btn${openDock === 'chronique' ? ' is-active' : ''}`} aria-label={tr({ fr: "Chronique de l'effondrement", en: "Chronicle of the collapse" })} aria-pressed={openDock === 'chronique'} onClick={() => toggleDock('chronique')}>
-                {/* Même destination que l'onglet de nav, donc MÊME icône : la Chronique.
-                    Ce n'est pas un doublon, c'est ce qui apprend au joueur que les deux
-                    chemins mènent au même endroit. */}
-                <PixelIcon name="nav/chronique" size={24} />
-                {chronicleNew && <span className="hud-dock-dot" aria-hidden="true"></span>}
-              </button>
-            )}
-            {showExhume && (
-              <button type="button" className={`hud-dock-btn${openDock === 'exhume' ? ' is-active' : ''}`} aria-label={tr({ fr: "Exhumer un vestige archéologique", en: "Exhume an archaeological vestige" })} aria-pressed={openDock === 'exhume'} onClick={() => toggleDock('exhume')}>
-                <PixelIcon name="nav/exhumer" size={24} />
-                {exhumeNouveau && <span className="hud-dock-dot hud-dock-dot--gold" aria-hidden="true"></span>}
-              </button>
-            )}
-            {showMythsPanel && (
-              <button type="button" className={`hud-dock-btn${openDock === 'myths' ? ' is-active' : ''}`} aria-label={tr({ fr: "Mythes actifs et bénédictions", en: "Active myths and blessings" })} aria-pressed={openDock === 'myths'} onClick={() => toggleDock('myths')}>
-                <PixelIcon name="nav/mythes" size={24} />
-                {mythsNouveaux && <span className="hud-dock-badge">{mythCount}</span>}
-              </button>
-            )}
-          </div>
-
-          {openDock === 'chronique' && chronicleVisible && (
-            <div className="panel hud-pop hud-pop--chronique">
-              <ChronicleTicker onFind={() => setOpenDock(null)} />
-            </div>
-          )}
-
-          {openDock === 'exhume' && showExhume && (
-            <div className="panel hud-pop">
-              <h3 className="hud-pop-title">{tr({ fr: "Vestige archéologique", en: "Archaeological Vestige" })}</h3>
-              <p className="hud-pop-desc">{tr({ fr: "Fouille les décombres d'un cycle passé pour en exhumer un bonus unique.", en: "Dig through the rubble of a past cycle to exhume a unique bonus." })}</p>
-              <button id="exhumeBtn" className="btn-primary" onClick={() => { exhumeVestige(); setOpenDock(null); }}>
-                ⛏ {tr({ fr: "Exhumer un vestige", en: "Exhume a vestige" })}
-              </button>
-            </div>
-          )}
-
-          {openDock === 'myths' && showMythsPanel && (
-          <div className="panel hud-pop hud-pop--myths">
-
+  // LES MYTHES (Raph, 2026-10-08). Au bureau, ceux qui ont des COMMANDES (offrir à
+  // Ragnarök, monter avec Icare, Sisyphe, Babel, l'Âge d'Or, Atlas, la dette des Atrides,
+  // Énée) ont leur cadre en haut, entre le cadre de la ville et le ruban ; les bonus et
+  // statuts SANS commande (legs, puissance latente, bénédiction d'Énée, pacte, Phénix…)
+  // entrent dans le cadre de la ville, à côté de la clepsydre. Au doigt, tout reste sous
+  // l'étoile du rail. Les mêmes blocs servent aux deux régimes (un seul est monté à la
+  // fois : les `id` des cartes ne se doublent pas).
+  const hasMythControls = isAtrides || isMythEffectActive("mythe_d_enee") || isRagnarok || isSisyphe || showVol || showBabel || isOr || showEpaule;
+  const hasMythStatuses = isChaos || isPromethee || isPhoenix || isHeph || atridesPactActive || atridesNextRunPenaltyActive
+    || (eneeHeritage && cycleSeconds < 30) || hasActiveEpitaphLegacy || hasLatent;
+  const mythPanels = (
+    <>
         {/* 5. Atrides Debt Panel */}
         {isAtrides && (
           <div className="myth-panel myth-panel--atrides atrides-debt-panel">
@@ -949,8 +592,10 @@ export default function CityView() {
           </div>
         )}
 
-            {/* Cartes de statut des mythes & puissance latente */}
-            <div className="myths-grid-redesigned">
+    </>
+  );
+  const mythControlCards = (
+    <>
               {/* Ragnarok — « l'Hiver Fimbul » : l'Arche à achever avant la Fin,
                   avec le compte à rebours de la prochaine échéance de la prophétie.
                   OFFRIR paie le lot figé à l'activation (title du bouton). */}
@@ -977,57 +622,6 @@ export default function CityView() {
                         {ragnarokCdLeft > 0 ? tr({ fr: `Offrir (${ragnarokCdLeft}s)`, en: `Offer (${ragnarokCdLeft}s)` }) : tr({ fr: "Offrir", en: "Offer" })}
                       </button>
                     </div>
-                  </div>
-                </div>
-              )}
-              {/* Chaos — cycle sans aucun bonus de méta : la carte suit la moisson
-                  de Ruines BRUTES projetée (ruinGain(true), déjà « brut » puisque le
-                  Mythe neutralise les bonus). Sacré en direct dès la cible en vue. */}
-              {/* ⚠ Icône PLACEHOLDER (myths/pacte) : pas de myths/chaos.png — à générer. */}
-              {isChaos && (
-                <div className="myth-status-card chaos" {...tipProps(tr({ fr: "Chaos", en: "Chaos" }), tr({
-                  fr: `Gagner ${CHAOS_RAW_RUIN_TARGET} Ruines brutes en un seul cycle, tous les bonus de méta-progression coupés.`,
-                  en: `Earn ${CHAOS_RAW_RUIN_TARGET} raw Ruins in a single cycle, with every meta-progression bonus cut off.`
-                }))}>
-                  <PixelIcon name="myths/pacte" className="myth-card-icon" />
-                  <div className="myth-card-info">
-                    <span>{tr({ fr: "Chaos", en: "Chaos" })}</span>
-                    <strong>
-                      {tr({
-                        fr: `Ruines brutes ${Math.min(CHAOS_RAW_RUIN_TARGET, Math.floor(toNum(ruinGain(true))))}/${CHAOS_RAW_RUIN_TARGET}`,
-                        en: `Raw Ruins ${Math.min(CHAOS_RAW_RUIN_TARGET, Math.floor(toNum(ruinGain(true))))}/${CHAOS_RAW_RUIN_TARGET}`
-                      })}
-                    </strong>
-                  </div>
-                </div>
-              )}
-              {/* Prométhée — règle de lisibilité des défis : cible en chiffre FIXE,
-                  progression vivante, état (en course / accompli / échoué). L'échec
-                  n'existait avant que dans une ligne de log.
-                  ⚠ Icône PLACEHOLDER : myths/promethee.png n'existe pas, et PixelIcon
-                  n'a aucun repli sur fichier manquant. À générer. */}
-              {isPromethee && (
-                <div className="myth-status-card promethee" {...tipProps(tr({ fr: "Prométhée", en: "Prometheus" }), tr({
-                  fr: `Porter le Rayonnement à ${PROMETHEE_POP_TARGET} avant que la Rupture n'atteigne ${Math.round(PROMETHEE_FATAL_RUPTURE * 100)} %.`,
-                  en: `Bring Radiance to ${PROMETHEE_POP_TARGET} before Rupture reaches ${Math.round(PROMETHEE_FATAL_RUPTURE * 100)}%.`
-                }))}>
-                  <PixelIcon name="ruins/node-rites_feu_court" className="myth-card-icon" />
-                  <div className="myth-card-info">
-                    <span>{tr({ fr: "Prométhée", en: "Prometheus" })}</span>
-                    {prometheeFailed ? (
-                      <strong className="danger-text">{tr({ fr: "Échoué — le feu a gagné", en: "Failed — the fire won" })}</strong>
-                    ) : prometheePopReached ? (
-                      /* Quasi inatteignable depuis la validation vivante (le sacre
-                         retire la carte au même tick) — repli de sûreté. */
-                      <strong className="positive-text">{tr({ fr: "Accompli !", en: "Achieved!" })}</strong>
-                    ) : (
-                      <strong className={instability >= PROMETHEE_FATAL_RUPTURE - 0.2 ? "danger-text" : undefined}>
-                        {tr({
-                          fr: `${fmt(population)} / ${PROMETHEE_POP_TARGET} ray. · R ${Math.round((instability || 0) * 100)}/${Math.round(PROMETHEE_FATAL_RUPTURE * 100)} %`,
-                          en: `${fmt(population)} / ${PROMETHEE_POP_TARGET} rad. · R ${Math.round((instability || 0) * 100)}/${Math.round(PROMETHEE_FATAL_RUPTURE * 100)}%`
-                        })}
-                      </strong>
-                    )}
                   </div>
                 </div>
               )}
@@ -1220,6 +814,79 @@ export default function CityView() {
                   </div>
                 </div>
               )}
+              {isAtrides && (
+                <div className="myth-status-card atrides" {...tipProps(tr({ fr: "Atrides", en: "Atreides" }), tr({ fr: "Le fardeau des Atrides est actif", en: "The burden of the Atreides is active" }))}>
+                  <PixelIcon name="myths/atrides" className="myth-card-icon" />
+                  <div className="myth-card-info">
+                    <span>{tr({ fr: "Atrides", en: "Atreides" })}</span>
+                    <strong>{tr({ fr: `Dette: ${fmt(atridesDebt)} | Net: ${fmt(netGold)}`, en: `Debt: ${fmt(atridesDebt)} | Net: ${fmt(netGold)}` })}</strong>
+                  </div>
+                </div>
+              )}
+              {isMythEffectActive("mythe_d_enee") && (
+                <div className="myth-status-card enee" {...tipProps(tr({ fr: "Énée", en: "Aeneas" }), tr({ fr: "Le mythe d'Énée est actif", en: "The myth of Aeneas is active" }))}>
+                  <PixelIcon name="myths/enee" className="myth-card-icon" />
+                  <div className="myth-card-info">
+                    <span>{tr({ fr: "Énée", en: "Aeneas" })}</span>
+                    <strong>{tr({ fr: `Migr: ${eneeMigrations}/${ENEE_MIGRATIONS_TARGET} | ${eneeDegraded ? "Invivable !" : `${Math.floor(eneeRemainingSecs / 60)}m ${eneeRemainingSecs % 60}s`}`, en: `Migr: ${eneeMigrations}/${ENEE_MIGRATIONS_TARGET} | ${eneeDegraded ? "Uninhabitable!" : `${Math.floor(eneeRemainingSecs / 60)}m ${eneeRemainingSecs % 60}s`}` })}</strong>
+                  </div>
+                </div>
+              )}
+    </>
+  );
+  const mythStatusCards = (
+    <>
+              {/* Chaos — cycle sans aucun bonus de méta : la carte suit la moisson
+                  de Ruines BRUTES projetée (ruinGain(true), déjà « brut » puisque le
+                  Mythe neutralise les bonus). Sacré en direct dès la cible en vue. */}
+              {/* ⚠ Icône PLACEHOLDER (myths/pacte) : pas de myths/chaos.png — à générer. */}
+              {isChaos && (
+                <div className="myth-status-card chaos" {...tipProps(tr({ fr: "Chaos", en: "Chaos" }), tr({
+                  fr: `Gagner ${CHAOS_RAW_RUIN_TARGET} Ruines brutes en un seul cycle, tous les bonus de méta-progression coupés.`,
+                  en: `Earn ${CHAOS_RAW_RUIN_TARGET} raw Ruins in a single cycle, with every meta-progression bonus cut off.`
+                }))}>
+                  <PixelIcon name="myths/pacte" className="myth-card-icon" />
+                  <div className="myth-card-info">
+                    <span>{tr({ fr: "Chaos", en: "Chaos" })}</span>
+                    <strong>
+                      {tr({
+                        fr: `Ruines brutes ${Math.min(CHAOS_RAW_RUIN_TARGET, Math.floor(toNum(ruinGain(true))))}/${CHAOS_RAW_RUIN_TARGET}`,
+                        en: `Raw Ruins ${Math.min(CHAOS_RAW_RUIN_TARGET, Math.floor(toNum(ruinGain(true))))}/${CHAOS_RAW_RUIN_TARGET}`
+                      })}
+                    </strong>
+                  </div>
+                </div>
+              )}
+              {/* Prométhée — règle de lisibilité des défis : cible en chiffre FIXE,
+                  progression vivante, état (en course / accompli / échoué). L'échec
+                  n'existait avant que dans une ligne de log.
+                  ⚠ Icône PLACEHOLDER : myths/promethee.png n'existe pas, et PixelIcon
+                  n'a aucun repli sur fichier manquant. À générer. */}
+              {isPromethee && (
+                <div className="myth-status-card promethee" {...tipProps(tr({ fr: "Prométhée", en: "Prometheus" }), tr({
+                  fr: `Porter le Rayonnement à ${PROMETHEE_POP_TARGET} avant que la Rupture n'atteigne ${Math.round(PROMETHEE_FATAL_RUPTURE * 100)} %.`,
+                  en: `Bring Radiance to ${PROMETHEE_POP_TARGET} before Rupture reaches ${Math.round(PROMETHEE_FATAL_RUPTURE * 100)}%.`
+                }))}>
+                  <PixelIcon name="ruins/node-rites_feu_court" className="myth-card-icon" />
+                  <div className="myth-card-info">
+                    <span>{tr({ fr: "Prométhée", en: "Prometheus" })}</span>
+                    {prometheeFailed ? (
+                      <strong className="danger-text">{tr({ fr: "Échoué — le feu a gagné", en: "Failed — the fire won" })}</strong>
+                    ) : prometheePopReached ? (
+                      /* Quasi inatteignable depuis la validation vivante (le sacre
+                         retire la carte au même tick) — repli de sûreté. */
+                      <strong className="positive-text">{tr({ fr: "Accompli !", en: "Achieved!" })}</strong>
+                    ) : (
+                      <strong className={instability >= PROMETHEE_FATAL_RUPTURE - 0.2 ? "danger-text" : undefined}>
+                        {tr({
+                          fr: `${fmt(population)} / ${PROMETHEE_POP_TARGET} ray. · R ${Math.round((instability || 0) * 100)}/${Math.round(PROMETHEE_FATAL_RUPTURE * 100)} %`,
+                          en: `${fmt(population)} / ${PROMETHEE_POP_TARGET} rad. · R ${Math.round((instability || 0) * 100)}/${Math.round(PROMETHEE_FATAL_RUPTURE * 100)}%`
+                        })}
+                      </strong>
+                    )}
+                  </div>
+                </div>
+              )}
               {isPhoenix && (
                 <div className="myth-status-card phoenix" {...tipProps(tr({ fr: "Phénix", en: "Phoenix" }), tr({ fr: "Le mythe du Phénix est actif", en: "The myth of the Phoenix is active" }))}>
                   <PixelIcon name="myths/phenix" className="myth-card-icon" />
@@ -1235,15 +902,6 @@ export default function CityView() {
                   <div className="myth-card-info">
                     <span>{tr({ fr: "Héphaïstos", en: "Hephaestus" })} {hephGoalReached && tr({ fr: " (Pacte accompli !)", en: " (Pact fulfilled!)" })}</span>
                     <strong>{tr({ fr: `Infra: ${fmt(infrastructure)}/${fmt(D(hephPopPeak || 1).max(1).mul(HEPH_INFRA_PER_PEAK))} | ${D(population).lt(hephPopPeak) ? 'Déclin ray.' : 'Stable'}`, en: `Infra: ${fmt(infrastructure)}/${fmt(D(hephPopPeak || 1).max(1).mul(HEPH_INFRA_PER_PEAK))} | ${D(population).lt(hephPopPeak) ? 'Radiance decline' : 'Stable'}` })}</strong>
-                  </div>
-                </div>
-              )}
-              {isAtrides && (
-                <div className="myth-status-card atrides" {...tipProps(tr({ fr: "Atrides", en: "Atreides" }), tr({ fr: "Le fardeau des Atrides est actif", en: "The burden of the Atreides is active" }))}>
-                  <PixelIcon name="myths/atrides" className="myth-card-icon" />
-                  <div className="myth-card-info">
-                    <span>{tr({ fr: "Atrides", en: "Atreides" })}</span>
-                    <strong>{tr({ fr: `Dette: ${fmt(atridesDebt)} | Net: ${fmt(netGold)}`, en: `Debt: ${fmt(atridesDebt)} | Net: ${fmt(netGold)}` })}</strong>
                   </div>
                 </div>
               )}
@@ -1268,15 +926,6 @@ export default function CityView() {
                   <div className="myth-card-info">
                     <span>{tr({ fr: "Fardeau Atrides", en: "Atreides Burden" })}</span>
                     <strong className="danger-text">{tr({ fr: "Production globale -20%", en: "Global production -20%" })}</strong>
-                  </div>
-                </div>
-              )}
-              {isMythEffectActive("mythe_d_enee") && (
-                <div className="myth-status-card enee" {...tipProps(tr({ fr: "Énée", en: "Aeneas" }), tr({ fr: "Le mythe d'Énée est actif", en: "The myth of Aeneas is active" }))}>
-                  <PixelIcon name="myths/enee" className="myth-card-icon" />
-                  <div className="myth-card-info">
-                    <span>{tr({ fr: "Énée", en: "Aeneas" })}</span>
-                    <strong>{tr({ fr: `Migr: ${eneeMigrations}/${ENEE_MIGRATIONS_TARGET} | ${eneeDegraded ? "Invivable !" : `${Math.floor(eneeRemainingSecs / 60)}m ${eneeRemainingSecs % 60}s`}`, en: `Migr: ${eneeMigrations}/${ENEE_MIGRATIONS_TARGET} | ${eneeDegraded ? "Uninhabitable!" : `${Math.floor(eneeRemainingSecs / 60)}m ${eneeRemainingSecs % 60}s`}` })}</strong>
                   </div>
                 </div>
               )}
@@ -1319,9 +968,380 @@ export default function CityView() {
                   </div>
                 </div>
               )}
+    </>
+  );
+
+  return (
+    <section className="view active" id="city">
+      <div className="city-left-col">
+        {/* Bannières de début de cycle : UN conteneur posé une fois, qui les
+            EMPILE. Chacune portait sa propre position absolue, la même : avec
+            les deux héritages, les textes se superposaient pendant la fenêtre
+            de décision du Pacte (audit du 05/10, BUG-44). */}
+        {((eneeHeritage && cycleSeconds < 30) || (atridesHeritage && !activeMythId && cycleSeconds < 120)) && (
+        <div className="cycle-banners">
+        {eneeHeritage && cycleSeconds < 30 && (
+          <div className="enee-boost-banner">
+            <strong>⚖ {tr({ fr: "Bénédiction d'Énée", en: "Aeneas's Blessing" })}</strong>
+            <p>
+              {tr({ fr: <>Démarrage rapide : la production globale est augmentée de <strong>+{Math.round(Math.min(10, eneeCollapseCount || 0) * 10)}%</strong> ({30 - cycleSeconds}s restantes).</>, en: <>Fast start: global production is increased by <strong>+{Math.round(Math.min(10, eneeCollapseCount || 0) * 10)}%</strong> ({30 - cycleSeconds}s remaining).</> })}
+            </p>
+          </div>
+        )}
+        {atridesHeritage && !activeMythId && cycleSeconds < 120 && (
+          <div className={`atrides-pact-banner${atridesPactActive ? ' is-sealed' : ''}`}>
+            <div className="pact-banner-head">
+              <strong>
+                {atridesPactActive ? tr({ fr: "⚖ Pacte des Atrides Scellé", en: "⚖ Atreides Pact Sealed" }) : tr({ fr: "📜 Pacte des Atrides Disponible", en: "📜 Atreides Pact Available" })}
+              </strong>
+              <span className="pact-banner-time">{tr({ fr: "Temps restant", en: "Time remaining" })}: {120 - cycleSeconds}s</span>
+            </div>
+            <p>
+              {atridesPactActive
+                ? tr({ fr: "Vous avez emprunté de la production. Bonus x2 actif pendant les 2 premières minutes, puis malus x0.5 s'appliquera en phase de crise.", en: "You have borrowed production. The x2 bonus is active for the first 2 minutes, then a x0.5 penalty will apply during the crisis phase." })
+                : tr({ fr: "Empruntez un bonus de production de x2 pour les 2 premières minutes de ce cycle. En échange, la production sera réduite de 50% pendant la crise finale.", en: "Borrow a x2 production bonus for the first 2 minutes of this cycle. In exchange, production will be reduced by 50% during the final crisis." })}
+            </p>
+            {!atridesPactActive && (
+              <button onClick={activateAtridesPact} className="btn-primary pact-activate-btn">
+                {tr({ fr: "Activer le Pacte", en: "Activate the Pact" })}
+              </button>
+            )}
+          </div>
+        )}
+        </div>
+        )}
+
+        {/* La Cité en héros : carte plein cadre, identité + jauge de stabilité
+            posées en HUD par-dessus (on montre le monde d'abord).
+            `data-sheet` dit QUELLE feuille basse est ouverte : au doigt, une
+            feuille recouvre le bas de l'écran, donc les boutons flottants qui y
+            vivent doivent s'effacer. Un seul attribut plutôt que trois classes —
+            les feuilles s'excluent l'une l'autre, autant le dire. */}
+        <div className="city-stage" data-sheet={shopOpen ? 'shop' : regulOpen ? 'regul' : 'none'}>
+          {/* Bilan de fin de cycle : bandeau posé SUR la carte, jamais un
+              dialogue — il n'interrompt rien et s'efface tout seul. */}
+          <CycleReportBanner />
+          {/* Rapport de reprise : encart non modal, posé sur la carte. */}
+          <IdleReportPanel />
+          {/* is-alert : effondrement imminent (≥ 90 %). La jauge grandit et ses
+              voisins reculent (cite.css) : c'est ce qu'il faut lire en premier. */}
+          <div className={`city-stage-hud${revealGauge && clamp01(instability) >= 0.9 ? ' is-alert' : ''}`} ref={stageHudRef}>
+          <div className="city-title-wrapper">
+            <input
+              id="cityNameInput"
+              className="city-name-input"
+              maxLength={42}
+              value={cityName}
+              onChange={handleNameChange}
+              onBlur={handleNameBlur}
+              aria-label={tr({ fr: "Nom de la ville", en: "City name" })}
+            />
+            <span
+              className="city-population-label"
+              {...tipProps(null, tr({ fr: "Habitants de la cité, à l'échelle de son âge. Le Rayonnement, lui, mesure l'essor global de la civilisation.", en: "Inhabitants of the city, to the scale of its age. Radiance measures the overall rise of the civilization." }))}
+            >
+              <i className="fa-solid fa-people-roof" aria-hidden="true"></i>
+              {fmtHabitants(crediblePopulation(population))}
+            </span>
+            <span
+              className="city-personality-label"
+              {...tipProps(null, tr({ fr: "Personnalité procédurale de cette civilisation : elle façonne le plan de la ville, ses bâtiments et ses habitants", en: "Procedural personality of this civilization: it shapes the city layout, its buildings, and its inhabitants" }))}
+            >
+              {cityPersonalityLabel}
+            </span>
+          </div>
+
+          {/* Jauge de pression civilisationnelle (fine, adaptative) */}
+          {revealGauge && (() => {
+            const lvl = clamp01(instability);
+            const pctValue = Math.round(lvl * 100);
+            // Paliers 25 / 50 / 75 / 90 — LES seuils de toute l'approche de crise :
+            // vignette (layout.css), lueur de la carte (views-city.css), émeutiers
+            // (quaysAndRiot.js), plan « en crise » (cityPersonality.js) s'y calent.
+            // 75 % n'est PAS la crise : elle s'ouvre à 100 % (crisisOpen) — d'où
+            // « Crise profonde » et non plus « Crise ouverte ».
+            const tier = lvl >= 0.9
+              ? { cls: "sg-collapse", icon: "💀", label: { fr: "Effondrement imminent", en: "Imminent Collapse" }, desc: { fr: "La cité est au bord du gouffre : apaisez-la vite, ou préparez sa chute.", en: "The city is on the brink: calm it quickly, or prepare its fall." } }
+              : lvl >= 0.75
+              ? { cls: "sg-crisis", icon: "🚨", label: { fr: "Crise profonde", en: "Deep Crisis" }, desc: { fr: "Les pressions montent. Construisez, stabilisez, ou acceptez l'inévitable.", en: "Pressures are rising. Build, stabilize, or accept the inevitable." } }
+              : lvl >= 0.5
+              ? { cls: "sg-strain", icon: "🔥", label: { fr: "Instabilité croissante", en: "Growing Instability" }, desc: { fr: "Les fractures s'élargissent. Le progrès coûte de plus en plus de stabilité.", en: "The fractures widen. Progress costs ever more stability." } }
+              : lvl >= 0.25
+              ? { cls: "sg-tension", icon: "⚠️", label: { fr: "Premières tensions", en: "First Tensions" }, desc: { fr: "Les tensions s'accumulent. Le progrès coûte de la stabilité.", en: "Tensions are building. Progress costs stability." } }
+              : { cls: "sg-stable", icon: "🛡️", label: { fr: "Civilisation stable", en: "Stable Civilization" }, desc: { fr: "La cité tient bon. Continuez à bâtir votre civilisation.", en: "The city holds firm. Keep building your civilization." } };
+            const crackOpacity = (threshold, ramp, max) =>
+              lvl >= threshold ? Math.min(max, 0.3 + (lvl - threshold) * ramp) : 0;
+            // Reworks §5.1/§5.2 surfacés ici : cible (fantôme) + gain projeté.
+            const targetLvl = clamp01(ruptureTarget());
+            // Moisson COMPLÈTE (décision de Raph sur BUG-33 : A) : Rite × legs
+            // gravé, ou dernière volonté, × vœu, comme l'autel et le Bilan.
+            const projectedRuin = projectedCollapseHarvest(ruinGain(true), collapseCause());
+            // Bulle détaillée : une ligne par source de pression (B1). Fonction et
+            // non chaîne, et relue sur pressureBreakdown() : les parts bougent au
+            // tick, un contenu figé à l'ouverture mentirait au bout de 2 s.
+            const pp = (v) => `${v >= 0 ? "+" : ""}${(v * 100).toFixed(0)}%`;
+            const pressureTooltip = () => {
+              const p = pressureBreakdown();
+              return [
+                { label: tr(tier.desc) },
+                { label: tr({ fr: "Sources de pression :", en: "Sources of pressure:" }) },
+                { label: tr({ fr: "Rareté", en: "Scarcity" }), value: pp(p.scarcity) },
+                { label: tr({ fr: "Inégalités", en: "Inequality" }), value: pp(p.inequality) },
+                { label: tr({ fr: "Complexité", en: "Complexity" }), value: pp(p.complexity) },
+                { label: tr({ fr: "Dissidence", en: "Dissent" }), value: pp(p.dissent) },
+                { label: tr({ fr: "Structurel", en: "Structural" }), value: pp(p.structural) },
+                { label: tr({ fr: "Atténuation", en: "Mitigation" }), value: `-${(p.mitigation * 100).toFixed(0)}%` },
+                p.demesure > 0 ? { label: tr({ fr: "Démesure (irréductible)", en: "Hubris (irreducible)" }), value: pp(p.demesure) } : null
+              ];
+            };
+            return (
+              <div
+                className={`stability-gauge ${tier.cls} ${gaugeFresh ? 'is-fresh' : ''}`}
+                {...tipProps(tr(tier.label), pressureTooltip)}
+                aria-label={tr({ fr: `Pression civilisationnelle : ${pctValue}%, ${tr(tier.label)}`, en: `Civilizational pressure: ${pctValue}%, ${tr(tier.label)}` })}
+              >
+                <div className="sg-meta">
+                  <span className="sg-label">{tr(tier.label)}</span>
+                  <span className="sg-pct" id="rupturePanelValue">{pctValue}%</span>
+                </div>
+                <div className="sg-track">
+                  {[25, 50, 75, 90].map((t) => (
+                    <span key={t} className="sg-tick" style={{ left: `${t}%` }} aria-hidden="true"></span>
+                  ))}
+                  <span className="sg-fill" style={{ width: `${lvl * 100}%` }}></span>
+                  <span className="sg-target-ghost" style={{ left: `${targetLvl * 100}%` }} {...tipProps(null, () => {
+                    // Fonction : la cible dérive au tick, une chaîne resterait au
+                    // pourcentage lu à l'ouverture de la bulle.
+                    const pct = Math.round(ruptureTarget() * 100);
+                    return tr({ fr: `Cible : ${pct} %. La jauge dérive vers ce niveau.`, en: `Target: ${pct}%. The gauge drifts toward this level.` });
+                  })}></span>
+                  {/* Fissures : la 1re au palier 75, la dernière à 90 (« imminent »). */}
+                  {lvl >= 0.75 && (
+                    <svg className="sg-cracks" viewBox="0 0 320 40" preserveAspectRatio="none" aria-hidden="true">
+                      {[
+                        { d: "M250 13 L246 17.5 L249 21.5 L244 26.5 M246 17.5 L241 19.5 L238 25 M286 13 L283 17 L286 20.5 L282 26.5 M286 20.5 L290.5 23.5", opacity: crackOpacity(0.75, 3, 0.8) },
+                        { d: "M196 12.5 L192 17 L195 21 L190 27 M192 17 L186.5 19 M222 13.5 L226 18.5 L223 23 L227 27 M226 18.5 L231 20.5 L234.5 25.5 M305 12 L301 16 L304 21 L300 27.5 M301 16 L296 18 M304 21 L309 24", opacity: crackOpacity(0.83, 5, 0.9) },
+                        { d: "M150 7.5 L146 13.5 L149 18.5 L144 24 L147 31.5 M146 13.5 L140.5 16 M144 24 L154 26.5 M172 6 L176 12 L173 17 L177 23 L174 32.5 M176 12 L181.5 14 M177 23 L170 26.5 M262 7 L258 13 L261 18 L256 25 L259 33.5 M261 18 L267 20.5 M118 9.5 L114 15.5 L117 21.5 L112 28 M117 21.5 L123 24", opacity: crackOpacity(0.9, 7, 1) }
+                      ].map((g, i) => (
+                        <g key={i} className="sg-crack-group" style={{ opacity: g.opacity }}>
+                          <path className="sg-crack-light" d={g.d} transform="translate(0.7 0.9)" vectorEffect="non-scaling-stroke" />
+                          <path className="sg-crack-dark" d={g.d} vectorEffect="non-scaling-stroke" />
+                        </g>
+                      ))}
+                    </svg>
+                  )}
+                </div>
+                {/* Ce que la chute rapporterait : sa propre ligne, sous la jauge
+                    (elle était coincée entre le palier et le %). */}
+                <div className="sg-stake" {...tipProps(null, tr({ fr: "Ruines obtenues si la cité s'effondrait maintenant, Rite de Passage, legs gravé (ou dernière volonté) et vœu compris. Tenir plus longtemps et chuter plus profond rapporte davantage.", en: "Ruins gained if the city collapsed right now, including the Rite of Passage, the engraved legacy (or last will) and the vow. Holding out longer and falling deeper yields more." }))}>
+                  <PixelIcon name="glyphs/ruines" size={16} className="sg-stake-icon" />
+                  <span>{tr({ fr: "Chute maintenant", en: "Fall now" })}</span>
+                  <strong className="sg-collapse-gain">+{fmt(projectedRuin)}</strong>
+                </div>
+              </div>
+            );
+          })()}
+
+          {/* CARTE D'IDENTITÉ (refonte « la ville d'abord », bureau) : l'encart
+              d'état quitte la barre latérale devenue rail et se range ici —
+              âge, Usure, vœu, clepsydre, sous la jauge de Rupture (la réserve
+              d'absence est passée dans les Options › Sauvegarde).
+              Au doigt il garde sa feuille « État » (App.jsx). */}
+          {!coarse && <CityStatusPanel variant="identity" bonuses={hasMythStatuses ? mythStatusCards : null} />}
+          </div>{/* /city-stage-hud */}
+
+          {/* LE MYTHE EN COURS, ses commandes (Raph, 2026-10-08) : au bureau, un cadre entre
+              le cadre de la ville et le ruban (cite.css) ; au doigt, sous l'étoile du rail. */}
+          {!coarse && hasMythControls && (
+            <div className="city-myth-frame" aria-label={tr({ fr: "Mythe en cours", en: "Myth in progress" })}>
+              {mythPanels}
+              <div className="myths-grid-redesigned">
+                {mythControlCards}
+              </div>
+            </div>
+          )}
+
+          {/* Bonus de bulle cliquée : annonce CENTRÉE en haut du monde, ancrée
+              sur .city-stage (sous la barre de ressources, loin de la jauge de
+              régulation du bas). key = n° de message → le chip est re-monté à
+              chaque clic et son animation d'entrée rejoue. */}
+          {bubbleMessage && (
+            <div className="map-bubble-alert" key={bubbleMessage.id}>
+              <span className="bubble-alert-name">{bubbleMessage.name}</span>
+              <span className="bubble-alert-text">"{bubbleMessage.text}"</span>
+              {bubbleMessage.reward && <span className="bubble-alert-reward">{bubbleMessage.reward}</span>}
+            </div>
+          )}
+
+          {/* La carte interactive : le monde occupe tout le cadre */}
+          <div className="city-map-container">
+          <div
+            className="civilization-map-interactive"
+            id="civilizationMap"
+            aria-label={tr({ fr: "Diorama de la cité", en: "City diorama" })}
+          >
+            <CityMapCanvas onCitizenThoughtClicked={handleCitizenThought} />
+          </div>
+          </div>{/* /city-map-container */}
+
+          {/* FICHE D'HABITANT : le passant cliqué sur la carte, que la caméra
+              suit (citizenFocus.js). Rien tant qu'aucun n'est désigné. */}
+          <CitizenSheet />
+
+          {/* FAITS DIVERS : la réplique du personnage d'une scène cliquée sur la
+              carte (map/faitsDivers). Rien tant qu'aucune n'est ouverte. */}
+          <FaitDiversCard />
+
+          {/* Annonce vocale de la dépêche : région sr-only montée avec la Cité, la
+              gazette se montant déjà remplie (BUG-118). */}
+          <ChronicleAnnounce />
+
+          {/* Boutique dockée : le menu de construction posé sur le bord droit du monde */}
+          <aside className="city-shop-dock" aria-label={tr({ fr: "Construction", en: "Construction" })}>
+            <BuildingShop open={shopOpen} onToggle={toggleShop} />
+          </aside>
+          {/* BOUTON FLOTTANT « CONSTRUIRE » (M1, tactile seulement — masqué par
+              le CSS ailleurs). Sur téléphone la boutique est une feuille : quand
+              elle est fermée, plus rien à l'écran ne permettrait de la rouvrir,
+              puisque son propre chevron part avec elle. Ce bouton est donc sa
+              poignée extérieure. Il vit sur la carte, au pouce, et laisse la
+              ville entière visible tant qu'on ne construit pas. */}
+          <button
+            type="button"
+            className="shop-fab"
+            aria-expanded={shopOpen}
+            onClick={toggleShop}
+            aria-label={shopOpen
+              ? tr({ fr: "Fermer la construction", en: "Close construction" })
+              : tr({ fr: "Ouvrir la construction", en: "Open construction" })}
+          >
+            <i className={`fa-solid ${shopOpen ? 'fa-xmark' : 'fa-hammer'}`} aria-hidden="true"></i>
+          </button>
+
+          {/* POIGNÉE DE LA RÉGULATION (tactile seulement). Elle avait été retirée
+              de la carte faute de place ; elle revient sous la forme que la
+              boutique a déjà : un bouton flottant qui ouvre une feuille basse.
+              L'icône est celle de l'onglet Régulation — même destination, même
+              signe — posée AU-DESSUS de son libellé. */}
+          {revealTension && (
+          <button
+            type="button"
+            className="regul-fab"
+            aria-expanded={regulOpen}
+            onClick={toggleRegul}
+            aria-label={regulOpen
+              ? tr({ fr: "Fermer la régulation des tensions", en: "Close tension regulation" })
+              : tr({ fr: "Ouvrir la régulation des tensions", en: "Open tension regulation" })}
+          >
+            <PixelIcon name="nav/regulation" size={24} />
+            <span className="fab-label" aria-hidden="true">{tr({ fr: "Tensions", en: "Tensions" })}</span>
+          </button>
+          )}
+
+          {/* TOUT ACHETER (tactile seulement) : le pendant au doigt du raccourci
+              « e » du clavier — même action, même ordre d'achat (cf. App.jsx,
+              BUY_BY_ID.buy_all = null = toutes les catégories). Sans lui, un
+              joueur au téléphone n'a AUCUN moyen de déclencher ce que le clavier
+              fait d'une touche : il lui reste à ouvrir la feuille et à taper
+              chaque rangée.
+              TRANSPARENT (demande Raph) : c'est un geste répété posé sur la
+              ville, pas un meuble — il ne prend que la place de son signe. */}
+          {revealBuyAll && (
+          <button
+            type="button"
+            className="buy-all-fab"
+            onClick={() => buyAllAffordableChained(null)}
+            aria-label={tr({ fr: "Tout acheter", en: "Buy all" })}
+            {...tipProps(
+              tr({ fr: "Tout acheter", en: "Buy all" }),
+              tr({
+                fr: "Achète Moteurs + Savoir + Infrastructure, du plus cher au moins cher. Même action que la touche E.",
+                en: "Buys Engines + Knowledge + Infrastructure, most expensive first. Same as the E key."
+              })
+            )}
+          >
+            <i className="fa-solid fa-cart-shopping" aria-hidden="true"></i>
+            <span className="fab-label" aria-hidden="true">{tr({ fr: "Tout acheter", en: "Buy all" })}</span>
+          </button>
+          )}
+        </div>{/* /city-stage */}
+
+        {/* Régulation des tensions + politiques : encart pliable, sous la carte.
+            État PILOTÉ depuis ici (cf. `regulOpen`) : au doigt, sa poignée est le
+            bouton flottant ci-dessus, qui vit dans la carte et non dans l'encart. */}
+        {/* Dévoilée avec la tension dans la toute première partie (uiReveal) :
+            avant le premier quart de Rupture, ses quatre jauges sont à zéro et
+            six politiques sur sept verrouillées — rien à y lire ni à y faire. */}
+        {revealTension && (
+        <HudPanel
+          className="city-controls-panel"
+          title={coarse
+            ? tr({ fr: "Régulation des tensions", en: "Tension Regulation" })
+            // Au bureau la barre repliée est une ligne : titre court (maquette V4).
+            : tr({ fr: "Régulation", en: "Regulation" })}
+          open={regulOpen}
+          onToggle={toggleRegul}
+          onOpenChange={setRegulOpen}
+          openWhen={inCrisis}
+          summary={<RegulSummary />}
+          swipeToClose
+        >
+          {/* Au bureau, la poignée dépliée ne garde que le geste réflexe de
+              chaque foyer et la porte du Conseil ; au doigt, la feuille porte
+              la barre complète. */}
+          {coarse ? <CrisisActionBar /> : <RegulQuick />}
+        </HudPanel>
+        )}
+
+        {/* Outils de la carte, coin bas-droit (bureau) : zoom, recentrage,
+            contemplation — les touches du clavier, en boutons. */}
+        {!coarse && <MapTools />}
+
+        {/* Rail gauche, sous le cadre de la ville : la gazette, les premiers pas, puis le
+            dock d'icônes et ses popovers (exhumer ; au doigt, les mythes). */}
+        <div className="city-aux" ref={cityAuxRef}>
+          {/* LA GAZETTE (Raph, 2026-10-08) : la dernière dépêche, entière, au support de
+              son ère, jusqu'au clic (ChronicleTicker). */}
+          <ChronicleTicker />
+          {/* PREMIERS PAS (E1) : au-dessus des outils, il disparaît de lui-même
+              une fois les trois étapes franchies et ne revient jamais. */}
+          <FirstStepsPanel />
+          <div className="city-aux-row">
+          <div className="hud-dock" role="toolbar" aria-label={tr({ fr: "Outils de la cité", en: "City tools" })}>
+            {showExhume && (
+              <button type="button" className={`hud-dock-btn${openDock === 'exhume' ? ' is-active' : ''}`} aria-label={tr({ fr: "Exhumer un vestige archéologique", en: "Exhume an archaeological vestige" })} aria-pressed={openDock === 'exhume'} onClick={() => toggleDock('exhume')}>
+                <PixelIcon name="nav/exhumer" size={24} />
+                {exhumeNouveau && <span className="hud-dock-dot hud-dock-dot--gold" aria-hidden="true"></span>}
+              </button>
+            )}
+            {coarse && showMythsPanel && (
+              <button type="button" className={`hud-dock-btn${openDock === 'myths' ? ' is-active' : ''}`} aria-label={tr({ fr: "Mythes actifs et bénédictions", en: "Active myths and blessings" })} aria-pressed={openDock === 'myths'} onClick={() => toggleDock('myths')}>
+                <PixelIcon name="nav/mythes" size={24} />
+                {mythsNouveaux && <span className="hud-dock-badge">{mythCount}</span>}
+              </button>
+            )}
+          </div>
+
+          {openDock === 'exhume' && showExhume && (
+            <div className="panel hud-pop">
+              <h3 className="hud-pop-title">{tr({ fr: "Vestige archéologique", en: "Archaeological Vestige" })}</h3>
+              <p className="hud-pop-desc">{tr({ fr: "Fouille les décombres d'un cycle passé pour en exhumer un bonus unique.", en: "Dig through the rubble of a past cycle to exhume a unique bonus." })}</p>
+              <button id="exhumeBtn" className="btn-primary" onClick={() => { exhumeVestige(); setOpenDock(null); }}>
+                ⛏ {tr({ fr: "Exhumer un vestige", en: "Exhume a vestige" })}
+              </button>
+            </div>
+          )}
+
+          {coarse && openDock === 'myths' && showMythsPanel && (
+          <div className="panel hud-pop hud-pop--myths">
+            {mythPanels}
+            <div className="myths-grid-redesigned">
+              {mythControlCards}
+              {mythStatusCards}
             </div>
           </div>
           )}
+          </div>{/* /city-aux-row */}
         </div>{/* /city-aux */}
       </div>
     </section>

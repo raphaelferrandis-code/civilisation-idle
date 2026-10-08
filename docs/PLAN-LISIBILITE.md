@@ -119,3 +119,20 @@ du ruban en infobulle (−5) ; « Réserve d'absence » vers les Options.
   au lieu de rouge (partout). Gardes : `decisionsAffichage.test.js`, `regulDominant.test.js`.
   ⚠ Noms longs (« Architectes des ruines », « Instituts stratégiques », sept sous 1500 px) :
   sur deux lignes, vignette accrochée en haut.
+- 2026-10-08 : LA GAZETTE ET LES MYTHES SORTENT DU DOCK (demande de Raph : « l'article
+  s'affiche dans un carré sous le cadre de la ville, les bonus dans le cadre de la ville à
+  côté de la clepsydre », puis « jusqu'au clic » et les mythes à commandes « dans un cadre
+  entre le cadre de la ville et la headbar »).
+  - **La gazette** (`ChronicleTicker.jsx`, rail gauche, `views-city-hud.css`) : la dernière
+    dépêche, entière, sous l'identité, au support de son ère (thèmes de `components.css`,
+    l'en-tête de l'ancien journal : support, date, prix). Elle reste jusqu'au clic (`isNew`)
+    ; le nom d'une figure de la Chronique présente la fait retrouver sur la carte sans
+    refermer. Plus de bouton de chronique dans le dock.
+  - **Les bonus** (`CityStatusPanel`, prop `bonuses`) : legs, puissance latente,
+    bénédiction d'Énée, pacte et fardeau des Atrides, Chaos, Prométhée, Phénix,
+    Héphaïstos, à côté de la clepsydre (épinglés sur sa ligne).
+  - **Le mythe en cours à commandes** (`.city-myth-frame`, `cite.css`) : Ragnarök,
+    Sisyphe, Icare et l'Aile, Babel et la Langue commune, l'Âge d'Or, Atlas et l'Épaule,
+    les Atrides et leur dette, Énée et sa migration, dans un cadre en haut à droite de
+    l'identité ; au-dessus de 1500 px le ruban se décale (`:has`). Au doigt, rien ne
+    change : l'étoile du rail et sa fenêtre gardent tout.

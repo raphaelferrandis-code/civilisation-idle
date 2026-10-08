@@ -110,7 +110,6 @@
   --red: var(--state-rupture);          /* crise / rupture / irréversible */
   --violet: var(--state-usure);         /* usure (plus jamais l'infrastructure) */
   --orange: #E8943A;                    /* achat / alerte douce */
-  --cyan: #5FD4E0;                       /* chronique / journal uniquement */
 
   /* ----- Tokens ressources (topbar, coûts, carte, boutique) ----- */
   --res-pop: var(--res-population);

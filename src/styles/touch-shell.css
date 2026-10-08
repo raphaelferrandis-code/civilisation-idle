@@ -1093,6 +1093,13 @@
   z-index: 5;
 }
 
+/* LA GAZETTE AU DOIGT (2026-10-08) : la largeur de l'écran moins ses gouttières (la
+   largeur de l'identité du bureau la réduisait à 192 px sur 375, et à 435 px de haut).
+   Une touche la referme. */
+:root[data-pointer="coarse"] .app[data-active-view="city"] .chronicle-gazette {
+  width: min(24rem, calc(100vw - 2 * var(--hud-gap, 1rem)));
+}
+
 
 /* (Le repli à la ligne des libellés de statistique vit désormais dans
    views-chronicle-timeline.css, avec la mise en page « item : donnée » — il

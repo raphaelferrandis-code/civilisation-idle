@@ -1035,11 +1035,12 @@ dialog::backdrop { background: rgba(8, 5, 1, 0.72); }
   color: var(--muted);
 }
 
-/* La signature d'une figure de la Chronique qui vit dans la cité : la cliquer la fait
-   retrouver sur la carte (PLAN-ECOUTER-PARLER, lot 6). L'or dit le geste. Préfixée par
-   le bandeau : la peau des boutons (`.app button`) imposait sa couleur, et `button` sa
-   hauteur de 2,5rem et son espacement de lettres. */
-.chronicle-ticker .ticker-author-link {
+/* Le nom d'une figure de la Chronique qui vit dans la cité, dans le titre, le texte ou la
+   signature d'une dépêche : le cliquer la fait retrouver sur la carte, sans refermer la
+   gazette (PLAN-ECOUTER-PARLER, lot 6). L'or dit le geste. Préfixé par la gazette : la
+   peau des boutons (`.app button`) imposait sa couleur, et `button` sa hauteur de 2,5rem
+   et son espacement de lettres. */
+.chronicle-ticker .gazette-name {
   min-height: 0;
   padding: 0;
   border: 0;
@@ -1054,18 +1055,9 @@ dialog::backdrop { background: rgba(8, 5, 1, 0.72); }
   cursor: pointer;
 }
 
-.chronicle-ticker .ticker-author-link:hover,
-.chronicle-ticker .ticker-author-link:focus-visible {
+.chronicle-ticker .gazette-name:hover,
+.chronicle-ticker .gazette-name:focus-visible {
   color: var(--gold);
-}
-
-.ticker-new-dot {
-  flex: 0 0 auto;
-  width: 7px;
-  height: 7px;
-  background: var(--cyan);
-  box-shadow: 0 0 6px var(--cyan);
-  animation: ticker-dot 2s ease-in-out infinite;
 }
 
 .ticker-date {
@@ -1079,11 +1071,6 @@ dialog::backdrop { background: rgba(8, 5, 1, 0.72); }
 @keyframes ticker-in {
   from { opacity: 0; transform: translateY(5px); }
   to   { opacity: 1; transform: none; }
-}
-
-@keyframes ticker-dot {
-  0%, 100% { opacity: 0.45; }
-  50%      { opacity: 1; }
 }
 
 /* ---- Thèmes par âge (transposés de l''ancien journal) ---- */
@@ -1193,7 +1180,6 @@ dialog::backdrop { background: rgba(8, 5, 1, 0.72); }
 .chronicle-ticker.is-cyber-feed:hover::after { display: none; }
 .chronicle-ticker.is-cyber-feed .ticker-masthead { color: #ffffff; font-family: monospace; letter-spacing: 0.18em; text-shadow: 0 0 6px rgba(0, 240, 255, 0.6); }
 .chronicle-ticker.is-cyber-feed .ticker-line { color: #b3d7df; font-family: monospace; }
-.chronicle-ticker.is-cyber-feed .ticker-new-dot { background: #00f0ff; box-shadow: 0 0 6px #00f0ff; }
 
 @keyframes cyberSweep {
   0% { transform: translateX(-80px); }
@@ -1208,15 +1194,12 @@ dialog::backdrop { background: rgba(8, 5, 1, 0.72); }
 /* 8. Conscience partagée : jade bioluminescent */
 .chronicle-ticker.is-noosphere .ticker-masthead { color: rgb(101, 226, 174); letter-spacing: 0.14em; text-shadow: 0 0 8px rgba(49, 216, 146, 0.55); }
 .chronicle-ticker.is-noosphere .ticker-line { color: rgb(206, 233, 222); }
-.chronicle-ticker.is-noosphere .ticker-new-dot { background: rgb(49, 216, 146); box-shadow: 0 0 6px rgb(49, 216, 146); }
 /* 9. Écho stellaire : or stellaire chaud */
 .chronicle-ticker.is-stellar .ticker-masthead { color: rgb(240, 203, 117); letter-spacing: 0.16em; text-shadow: 0 0 8px rgba(234, 182, 62, 0.55); }
 .chronicle-ticker.is-stellar .ticker-line { color: rgb(233, 225, 206); }
-.chronicle-ticker.is-stellar .ticker-new-dot { background: rgb(234, 182, 62); box-shadow: 0 0 6px rgb(234, 182, 62); }
 /* 10. Verbe premier : blanc-violet irisé, halo à deux teintes (froide, chaude) */
 .chronicle-ticker.is-demiurge .ticker-masthead { color: rgb(236, 228, 248); letter-spacing: 0.18em; text-shadow: -1px 0 6px rgba(140, 210, 255, 0.5), 1px 0 6px rgba(255, 160, 225, 0.5); }
 .chronicle-ticker.is-demiurge .ticker-line { color: rgb(225, 206, 233); }
-.chronicle-ticker.is-demiurge .ticker-new-dot { background: rgb(215, 195, 223); box-shadow: -1px 0 5px rgba(140, 210, 255, 0.8), 1px 0 5px rgba(255, 160, 225, 0.8); }
 
 /* Dépêche de crise : signal rouge persistant tant que la crise est ouverte
    (déclaré en dernier pour primer sur les thèmes d''âge) */
@@ -1225,7 +1208,6 @@ dialog::backdrop { background: rgba(8, 5, 1, 0.72); }
   background: linear-gradient(90deg, rgba(239, 68, 68, 0.12), transparent 55%), var(--panel);
 }
 .chronicle-ticker.is-crisis .ticker-masthead { color: #f08a80; }
-.chronicle-ticker.is-crisis .ticker-new-dot { background: var(--red); box-shadow: 0 0 6px var(--red); }
 
 /* ── Utilitaire a11y : contenu pour lecteurs d'écran uniquement ─────────────
    Pour toute région d'annonce (aria-live) ou texte d'appoint vocal : hors flux,

@@ -33,10 +33,13 @@
     --map-tool-w: 2.9rem;
     --map-tools-w: calc(4 * var(--map-tool-w) + 3 * 0.35rem);
     --regul-open-h: 10.5rem;
+    /* Le cadre du mythe en cours (2026-10-08), entre l'identité et le ruban. */
+    --myth-frame-w: 22rem;
   }
 
   /* ── Plaques opaques : identité, boutique, Régulation ───────────────────── */
   :root:not([data-pointer="coarse"]) .app[data-active-view="city"] .city-stage-hud,
+  :root:not([data-pointer="coarse"]) .app[data-active-view="city"] .city-myth-frame,
   :root:not([data-pointer="coarse"]) .app[data-active-view="city"] .city-shop-dock .shop-panel,
   :root:not([data-pointer="coarse"]) .app[data-active-view="city"] .city-controls-panel {
     background: rgba(12, 15, 24, 0.95);
@@ -54,6 +57,30 @@
     left: var(--hud-gap);
     width: var(--hud-id-w);
     padding: 0.85rem 1.1rem 0.8rem;
+  }
+
+  /* ── Le mythe en cours (Raph, 2026-10-08) ─────────────────────────────────
+     Ses COMMANDES (offrir à Ragnarök, monter avec Icare, la dette des Atrides…) dans un
+     cadre en haut, entre l'identité et le ruban ; au-dessus de 1500 px le ruban se décale
+     pour rester centré dans ce qui reste (plus bas). Ses statuts sans commande sont dans
+     l'identité, à côté de la clepsydre. Les panneaux ne s'écrasent pas : le cadre défile
+     (même piège que le popover d'avant, BUG-19). */
+  :root:not([data-pointer="coarse"]) .app[data-active-view="city"] .city-myth-frame {
+    position: absolute;
+    top: var(--hud-gap);
+    left: calc(var(--hud-id-w) + 2 * var(--hud-gap));
+    z-index: 20;
+    width: var(--myth-frame-w);
+    max-height: calc(100% - var(--regul-bar-h) - 3 * var(--hud-gap));
+    overflow-y: auto;
+    display: flex;
+    flex-direction: column;
+    gap: 0.7rem;
+    padding: 0.85rem 1.1rem 0.8rem;
+    pointer-events: auto;
+  }
+  :root:not([data-pointer="coarse"]) .app[data-active-view="city"] .city-myth-frame > * {
+    flex-shrink: 0;
   }
 
   /* EFFONDREMENT IMMINENT (≥ 90 %) : la seule information qui grandit, au second
@@ -131,6 +158,30 @@
   :root:not([data-pointer="coarse"]) .city-status-panel.is-identity .csp-block-head:has(> .csp-laps) {
     flex-wrap: wrap;
   }
+  /* LES BONUS, à côté de la clepsydre (Raph, 2026-10-08) : les cartes de mythe et de
+     bénédiction sans commande, compactes et sans fond ; leur liseré dit qui elles sont,
+     leur bulle le détail. */
+  :root:not([data-pointer="coarse"]) .city-status-panel.is-identity .csp-bonuses {
+    display: flex;
+    flex-direction: column;
+    gap: 0.3rem;
+    min-width: 0;
+  }
+  /* Côte à côte quoi qu'il y ait au-dessus : sans l'Usure (début de partie), la
+     clepsydre montait à côté de l'Âge et les bonus passaient à la ligne. */
+  :root:not([data-pointer="coarse"]) .city-status-panel.is-identity .csp-clepsydre:has(+ .csp-bonuses) {
+    grid-column: 1;
+  }
+  :root:not([data-pointer="coarse"]) .city-status-panel.is-identity .csp-clepsydre + .csp-bonuses {
+    grid-column: 2;
+  }
+  :root:not([data-pointer="coarse"]) .city-status-panel.is-identity .csp-bonuses .myth-status-card {
+    gap: 0.45rem;
+    min-width: 0;
+    padding: 0.15rem 0.35rem;
+    background: none;
+  }
+
   /* Verser la clepsydre : un petit bouton sous sa jauge, plus une barre pleine
      largeur. */
   :root:not([data-pointer="coarse"]) .city-status-panel.is-identity .csp-clepsydre .csp-clepsydre-pour {
@@ -644,6 +695,12 @@
        fait que 66 px en 2560 et le ruban en montait à 141. */
     min-height: 0;
     margin-inline: auto;
+  }
+  /* Le cadre du mythe en cours prend la place à gauche du ruban : le ruban se décale, et
+     reste centré dans ce qui reste (sur deux lignes s'il le faut, comme en 1584 px). */
+  :root:not([data-pointer="coarse"]) .app[data-active-view="city"]:has(.city-myth-frame) .topbar {
+    left: calc(var(--hud-id-w) + var(--myth-frame-w) + 3 * var(--hud-gap));
+    max-width: calc(100% - var(--shop-w) - var(--hud-id-w) - var(--myth-frame-w) - 5 * var(--hud-gap));
   }
   :root:not([data-pointer="coarse"]) .app[data-active-view="city"] .topbar-resources {
     height: auto;

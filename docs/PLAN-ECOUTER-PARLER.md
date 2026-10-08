@@ -559,11 +559,12 @@ intéressé par la vie du pnj. Le silence, c'est bien. Fais. »
     (`state.paroles.figures`, éternel). Un signe à Claude : il sait qui le fait, à tous les
     âges ; les autres figures le reçoivent comme tout le monde.
   - On peut leur reparler deux minutes après ; un passant n'entend la voix qu'une fois.
-  - **La gazette mène à eux** : sous une dépêche signée par une figure qui vit dans la
-    cité, la signature (« Khael, juge autoproclamé ») est un bouton doré ; un clic referme
-    la fenêtre de la chronique, la caméra rejoint la figure et sa fiche s'ouvre, même si elle
-    est rentrée chez elle (la fiche dit où). Avant la période 3, Claude ne se retrouve que
-    la nuit, au feu de la veillée. Ailleurs, la signature reste un texte.
+  - **La gazette mène à eux** : dans la gazette (sous le cadre de la ville, jusqu'au clic),
+    le nom d'une figure qui vit dans la cité est un bouton doré, dans le titre, le texte
+    (« Khael trouve cela pratique. ») ou la signature ; un clic dessus ne referme pas
+    l'article : la caméra rejoint la figure et sa fiche s'ouvre, même si elle est rentrée
+    chez elle (la fiche dit où). Avant la période 3, Claude ne se retrouve que la nuit, au
+    feu de la veillée. Ailleurs, le nom reste un texte.
 - Vérifié en jeu au Bourg marchand (P3 : Bruna, puis Orun du Pont, « Si c'est encore toi,
   Bertran, ce n'est pas drôle. ») et au Royaume conquérant (P5 : « Je vous teste. »). Les
   figures : au Bourg marchand (Khael au marché : « Les statues des dieux ressemblent aux

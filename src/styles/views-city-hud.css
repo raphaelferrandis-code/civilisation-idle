@@ -121,44 +121,62 @@
 }
 .app[data-active-view="city"] .city-stage-hud .stability-gauge { width: 100%; }
 
-/* ---- Chronique : carte du rail gauche, n'apparaît que sur notif (slide-in) ---- */
-.app[data-active-view="city"] .chronicle-ticker {
-  position: static;
-  width: 100%;
+/* ---- LA GAZETTE (Raph, 2026-10-08) : la dernière dépêche, ENTIÈRE, dans un carré sous
+   le cadre de la ville, au support de son ère : fond, bordure, couleurs et polices des
+   thèmes de components.css (« .chronicle-ticker.is-… », tradition orale, argile, manuscrit,
+   proclamation, gazette imprimée, presse, flux). Elle reste jusqu'au clic
+   (ChronicleTicker.jsx). Le fond par défaut est celui des plaques de la Cité, pour les âges
+   cosmiques qui n'en portent pas (décision BUG-106 : a) : posé en `:where`, il cède à
+   chaque thème. ---- */
+:where(.app[data-active-view="city"]) .chronicle-gazette {
+  background: rgba(12, 15, 24, 0.95);
+}
+.app[data-active-view="city"] .chronicle-gazette {
+  position: relative;
+  width: var(--hud-id-w, min(24rem, calc(100vw - 2rem)));
+  min-height: 0;
   flex-direction: column;
   align-items: stretch;
   gap: 0.3rem;
-  padding: 0.7rem 0.85rem;
-  background: rgba(30, 35, 45, 0.5);
-  backdrop-filter: blur(18px);
-  border-color: rgba(255, 255, 255, 0.1);
-  box-shadow: 0 14px 40px rgba(0, 0, 0, 0.45);
+  padding: 0.7rem 0.95rem 0.8rem;
+  box-shadow: 0 6px 18px rgba(0, 0, 0, 0.45);
+  cursor: pointer;
+  pointer-events: auto;
   animation: city-chronicle-in 360ms cubic-bezier(0.2, 0.9, 0.3, 1);
 }
-.app[data-active-view="city"] .chronicle-ticker .ticker-line {
+/* L'en-tête de l'ancien journal : le support, la date, le prix. */
+.app[data-active-view="city"] .chronicle-gazette .gazette-head {
+  display: flex;
+  justify-content: space-between;
+  gap: 0.6rem;
+  font-size: var(--fs-read);
+  color: var(--muted);
+}
+.app[data-active-view="city"] .chronicle-gazette .ticker-masthead {
+  white-space: normal;
+  padding-bottom: 0.3rem;
+  border-bottom: 1px solid rgba(201, 169, 104, 0.22);
+}
+.app[data-active-view="city"] .chronicle-gazette .ticker-title {
+  margin: 0.15rem 0 0;
+  line-height: 1.25;
+}
+.app[data-active-view="city"] .chronicle-gazette .ticker-text {
+  margin: 0;
   white-space: normal;
   overflow: visible;
   text-overflow: clip;
 }
-/* Repliée : juste le titre, cliquable pour déplier (indice « › »). */
-.app[data-active-view="city"] .chronicle-ticker {
-  cursor: pointer;
+.app[data-active-view="city"] .chronicle-gazette .ticker-author {
+  margin: 0;
+  text-align: right;
 }
-.app[data-active-view="city"] .chronicle-ticker:hover {
-  border-color: rgba(var(--era-rgb), 0.45);
-}
-.app[data-active-view="city"] .chronicle-ticker .ticker-masthead {
-  display: inline-flex;
-  align-items: center;
-  gap: 0.4rem;
-}
-.app[data-active-view="city"] .chronicle-ticker .ticker-title {
-  white-space: normal;
-}
-.app[data-active-view="city"] .chronicle-ticker:not(.is-expanded) .ticker-title::after {
-  content: " ›";
-  color: var(--gold-bright);
-  font-weight: 700;
+/* Le voyant de la presse : dans le coin, au-dessus du texte (il était un élément de la
+   ligne du bandeau). */
+.app[data-active-view="city"] .chronicle-gazette.is-press::before {
+  position: absolute;
+  top: 4px;
+  right: 4px;
 }
 
 @keyframes city-chronicle-in {
@@ -175,11 +193,20 @@
   top: 10.1rem;
   z-index: 20;
   display: flex;
-  flex-direction: row;
+  /* En COLONNE depuis la gazette (2026-10-08) : la dépêche sous le cadre de la ville,
+     les premiers pas, puis la rangée du dock et de ses popovers. */
+  flex-direction: column;
   align-items: flex-start;
   gap: 0.55rem;
   pointer-events: none;
 }
+.app[data-active-view="city"] .city-aux-row {
+  display: flex;
+  flex-direction: row;
+  align-items: flex-start;
+  gap: 0.55rem;
+}
+.app[data-active-view="city"] .city-aux-row:empty { display: none; }
 
 /* ── PREMIERS PAS (E1) ──────────────────────────────────────────────────────
    Une seule étape à la fois, dans le rail droit de la Cité, au-dessus des
@@ -377,16 +404,6 @@
    n'avait alors plus rien à faire défiler (audit du 05/10, BUG-19). */
 .hud-pop--myths > * {
   flex-shrink: 0;
-}
-/* Chronique dans le popover : à plat (l'encart .panel fournit le cadre) */
-.app[data-active-view="city"] .hud-pop .chronicle-ticker {
-  position: static;
-  width: 100%;
-  background: none;
-  border: 0;
-  box-shadow: none;
-  padding: 0;
-  animation: none;
 }
 
 /* ---- Boutique : dock droit (déjà absolu), calé sous les ressources ---- */

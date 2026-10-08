@@ -59,7 +59,9 @@ function sedimentTipText() {
 // « identity » (carte d'identité de la Cité sur bureau, refonte « la ville
 // d'abord ») — mêmes blocs et même logique, mise en page compacte, et les
 // phrases d'accompagnement passent en bulle.
-export default function CityStatusPanel({ variant = 'full' }) {
+// `bonuses` (identité seulement) : les mythes et bénédictions sans commande, que la Cité
+// fournit (CityView) et que la carte range à côté de la clepsydre (Raph, 2026-10-08).
+export default function CityStatusPanel({ variant = 'full', bonuses = null }) {
   const identity = variant === 'identity';
   const {
     cycles, bestEraIndex, cycleStartedAt,
@@ -413,6 +415,11 @@ export default function CityStatusPanel({ variant = 'full' }) {
           )}
         </div>
       )}
+
+      {/* LES BONUS, à côté de la clepsydre (Raph, 2026-10-08) : legs, puissance latente,
+          bénédiction d'Énée, pacte, mythes sans commande. Le détail est dans la bulle de
+          chacun. Les mythes à commandes ont leur cadre en haut de la Cité. */}
+      {identity && bonuses && <div className="csp-bonuses">{bonuses}</div>}
 
       {/* Le rappel « N sceaux à réclamer » (B9, point 5) a été RETIRÉ de l'encart
           à la demande de Raph : la gouttière est pleine et le plateau des sceaux
