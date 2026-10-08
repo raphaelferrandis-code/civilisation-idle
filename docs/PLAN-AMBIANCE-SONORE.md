@@ -11,7 +11,7 @@ Chantier ouvert le 2026-10-07 sur la demande de Raph :
 > n'entendre que le son de la ville au loin avec la musique en fond qu'on ne touche pas pour
 > l'instant. »
 
-**Statut : décisions prises le 2026-10-07 (§ 9), lots 1 à 6 livrés ; lot 7 (les grands moments, § 3.10) et lot 8 (l'interface, § 3.11) livrés le 2026-10-08, lot 9 (les petits sons de la carte, § 3.12) en cours, à écouter. Reste l'épreuve des longues parties, qui revient à Raph.**
+**Statut : décisions prises le 2026-10-07 (§ 9), lots 1 à 6 livrés ; lot 7 (les grands moments, § 3.10), lot 8 (l'interface, § 3.11) et lot 9 (les petits sons de la carte, § 3.12) livrés le 2026-10-08 ; lot 10 (les jeux de la Maison, § 3.13) fait, à écouter. Reste l'épreuve des longues parties, qui revient à Raph, et les tables encore muettes (§ 6, lot 11).**
 Ce document fait foi pour ce chantier.
 
 ---
@@ -511,6 +511,41 @@ culte est le culte ancestral.
   (conditions `moulin`, `temple`, `eau`, `betes` de `majCharge`, gardées deux minutes).
   Le budget par âge du § 3.9 ne bouge pas.
 
+### 3.13 Les jeux de la Maison (lot 10)
+
+Raph a dit oui, le 2026-10-08, aux sons des trois jeux muets de la Maison des Plaisirs : les
+osselets, les tickets à gratter, le vingt-et-un, et avec eux les jetons du râtelier. Ce sont des
+**Bruitages**, synthétisés (`audio/tables/tablesSynth.js`, 77 sons). La lecture et les niveaux
+vivent dans `audio/tables/tables.js` ; le rendu, la sortie et le limiteur dans un lecteur
+partagé avec les grands moments (`audio/lecteur.js`). Seul le geste du joueur sonne : les
+automatisations de la Maison jouent sans écran, donc sans un bruit. Rien dans un onglet caché.
+
+- **La matière suit l'âge de la Maison**, celle que la table dessine :
+  - les jetons : os, bois, terre cuite, bronze, nacre, argile des casinos, plastique, lumière ;
+  - les osselets : os jusqu'à la Couronne, ivoire au Marbre et à la Fonte, dés de casino au
+    Néon, lumière ensuite ;
+  - les cartes : bois, parchemin, papier, cristal aux âges cosmiques ;
+  - les tickets : tesson d'argile, planchette, papier, tessère de métal, billet, carte vernie,
+    cristal.
+- **Les jetons** (`TableMise.jsx`) : un claquement par jeton posé (un au plus toutes les
+  60 ms), deux pour la même mise, la pile qui glisse quand on la reprend ou qu'on fait tapis.
+  Le râtelier les prépare lui-même : ils sonnent aussi à la machine à sous, à Icare et au duel.
+- **Les osselets** (`AuguryStage.jsx`) : le lancer, puis les quatre os qui retombent un à un
+  au rythme de l'image, puis le verdict.
+- **Le vingt-et-un** (`BlackjackStage.jsx`) : le battage d'un sabot neuf, les cartes de la
+  donne de part et d'autre, la carte tirée ; la carte cachée du croupier qui se retourne et
+  ses tirages ; le verdict calé après la dernière carte.
+- **Les tickets** (`ScratchStage.jsx`, `ScratchCanvas.jsx`) : le ticket posé ; le grattage,
+  une boucle dont la vitesse du geste dose le volume et la hauteur, qui se tait 120 ms après
+  le dernier trait ; un petit déclic par case dégagée à moitié ; la révélation, puis le verdict.
+- **Le verdict d'un coup** : un petit gain, une perte sourde, l'égalité. Un gain de ×5 et plus
+  garde sa fanfare (`GrandGain.jsx`) : la table ne joue rien par-dessus.
+- **Les niveaux** (sonie pondérée, crête sur 100 ms, Bruitages par défaut) : les gestes
+  entre −22 et −28 dB, le petit gain −24, la perte −34. La machine à sous fait −28 à −32 au tic
+  des rouleaux, −20 à l'arrêt, −11 à −13 à ses gains : les tables restent discrètes, elles
+  reviennent à chaque coup. Le banc d'écoute (Ctrl+Alt+B) a une section « Les tables de la
+  Maison » pour les régler famille par famille.
+
 ---
 
 ## 4. La liste des sons
@@ -1008,7 +1043,8 @@ taisent.
 | **7. Les grands moments** | La chute, un nouvel âge, une maison qui sort de terre, le Grand Reset (§ 3.10). | Validation à l'oreille. |
 | **8. L'interface** | L'achat à la main, la bulle d'un passant, un succès, l'alerte de crise (§ 3.11). | Validation à l'oreille. |
 | **9. Les petits sons de la carte** | Les moulins, les cloches des lieux de culte, les bêtes qu'on voit (§ 3.12). | Validation à l'oreille ; les fichiers du § 5.11. |
-| **10. Plus tard** | Les jeux muets de la Maison (vingt-et-un, tickets, osselets). | À décider. |
+| **10. Les jeux de la Maison** | Les osselets, les tickets, le vingt-et-un, les jetons du râtelier (§ 3.13). | Validation à l'oreille. |
+| **11. Plus tard** | Les tables encore muettes : le vol d'Icare, la roulette (le salon et le boudoir), les courses, le duel des grands flambeurs. | À décider. |
 
 Chaque lot est livré par petites touches commitées, comme d'habitude, et ne part qu'après la
 validation à l'oreille du précédent.
@@ -1615,3 +1651,21 @@ Ma recommandation était donnée pour chacune.
   gazette parle de la voix… lot 6 ») : une autre session a commité pendant que le lot 9 était
   indexé (les sessions partagent l'index git). Son contenu y est entier et exact, poussé sur
   origin/main ; seul son message est celui des habitants.
+- **2026-10-08, lot 10 (les jeux de la Maison).** Raph a dit oui aux sons des trois jeux
+  muets : les osselets, les tickets, le vingt-et-un, et les jetons du râtelier (§ 3.13).
+  Le lecteur des grands moments devient un lecteur partagé (`audio/lecteur.js`) : les moments
+  et les tables ont chacun le leur, avec sa synthèse et ses niveaux. Le banc d'écoute accueille
+  plusieurs sections de Bruitages ; « Copier les réglages » les exporte toutes.
+
+  **Vérifié dans le jeu**, à vrais clics sur la partie de fin de jeu (âge stellaire : jetons et
+  dés de lumière, cartes et tickets de cristal) :
+  - les osselets : la pile reprise, deux jetons, puis le lancer et les quatre os qui
+    retombent à 0,3 s d'écart, la perte au verdict ;
+  - le vingt-et-un : quatre cartes à la donne, une au tirage, puis la carte cachée retournée,
+    deux tirages du croupier et le petit gain ;
+  - les tickets : le ticket posé, la boucle du grattage dès le premier trait, six cases, la
+    révélation et la perte, la boucle arrêtée ;
+  - la machine à sous : le râtelier prépare ses jetons, le premier clic sonne.
+
+  À l'ouverture d'une table, ses sons sont prêts en moins d'une seconde et demie. Le reste en
+  temps simulé (`tables.test.js`).

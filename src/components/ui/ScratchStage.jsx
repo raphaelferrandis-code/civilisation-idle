@@ -22,6 +22,7 @@ import TableMise from '../views/plaisirs/TableMise.jsx';
 import { initialStake, rememberStake, fmtMise } from '../views/plaisirs/miseMemory.js';
 import Monte from './Monte.jsx';
 import ScratchCanvas from './ScratchCanvas.jsx';
+import { preparerTable, sonTicket, grattage, finGrattage } from '../../game/audio/tables/tables.js';
 import { scratchSymbolSrc } from './scratchSymbols.js';
 
 // Flamme votive du vernis (dessinée AU CANVAS — un <img> n'y entre pas).
@@ -174,6 +175,9 @@ const FOILS = { obole: paintFoilObole, drachme: paintFoilDrachme, talent: paintF
 export default function ScratchStage({ table, onClose }) {
   // L'âge de la Maison : la face du ticket suit sa matière.
   const band = usePlaisirsBand();
+  // Lue par `reveal`, stable (useCallback sans dépendance).
+  const bandRef = useRef(band);
+  useEffect(() => { bandRef.current = band; }, [band]);
   const [phase, setPhase] = useState('buy');
   // LA MISE LIBRE : le prix du ticket, en jetons. Une table rouverte repart de la
   // dernière mise jouée.
@@ -204,6 +208,9 @@ export default function ScratchStage({ table, onClose }) {
   useEffect(() => () => {
     if (pendingRef.current) { pendingRef.current(); pendingRef.current = null; }
   }, []);
+  // Les sons de la table (audio/tables, lot 10) ; la boucle du grattage s'arrête avec l'écran.
+  useEffect(() => { preparerTable('tickets', band); }, [band]);
+  useEffect(() => () => finGrattage(), []);
 
   // F5 / fermeture d'onglet pendant un ticket non gratté : un rechargement
   // n'exécute AUCUN cleanup React — la mise payée restait sans issue (M4).
@@ -239,7 +246,12 @@ export default function ScratchStage({ table, onClose }) {
     if (outcomeRef.current) setOutcome({ ...outcomeRef.current });
     // Le gros lot se fête à la révélation (une fois : le ticket déjà crédité ne rejoue rien).
     const o = outcomeRef.current;
-    if (fresh && o && o.win) celebrerGain({ gain: o.faveurGain, stake: o.stakeFaveur, game: 'tickets' });
+    const palier = fresh && o && o.win ? celebrerGain({ gain: o.faveurGain, stake: o.stakeFaveur, game: 'tickets' }) : null;
+    if (fresh) {
+      finGrattage();
+      sonTicket(bandRef.current, 'revele');
+      sonTicket(bandRef.current, 'verdict', { gagne: Boolean(o && o.win), gros: Boolean(palier) });
+    }
     setRevealed(true);
     setPhase('done');
   }, []);
@@ -293,6 +305,7 @@ export default function ScratchStage({ table, onClose }) {
     setRevealed(false);
     setTicketNonce((n) => { ticketNonceRef.current = n + 1; return n + 1; });
     setPhase('scratch');
+    sonTicket(band, 'achat');
   };
 
   // L'achat, à la mise posée (`amount`, la pile par défaut) : le bouton Acheter,
@@ -360,6 +373,8 @@ export default function ScratchStage({ table, onClose }) {
         radius={(SCRATCH_RADIUS[tier] || 11) + (state.styletLevel || 0) * STYLET_RADIUS_STEP}
         threshold={SCRATCH_REVEAL_PCT}
         onReveal={reveal}
+        onGratte={(v) => grattage(band, v)}
+        onCase={() => sonTicket(band, 'case')}
         drawFoil={drawFoil}
         disabled={revealed}
       />

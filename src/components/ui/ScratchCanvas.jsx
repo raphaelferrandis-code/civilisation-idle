@@ -15,13 +15,20 @@ import { useRef, useEffect, useCallback } from 'react';
  * pas la taille NE l'efface PAS (garde de dimensions). Feuille procédurale →
  * same-origin, getImageData jamais « tainted ».
  */
-export default function ScratchCanvas({ nonce, radius = 22, threshold = 60, onReveal, drawFoil, disabled = false }) {
+// LES SONS (audio/tables, lot 10) : `onGratte(vitesse)` à chaque trait (px par ms, le
+// grattage s'entend plus fort et plus aigu quand on gratte vite) ; `onCase(i)` quand une
+// des neuf cases est dégagée à moitié (la grille du ticket, 80×80 : marge 10, case 18,
+// écart 3 — TICKET_GRID). Une case déjà ouverte au premier relevé (le coin décollé) se tait.
+const CASES = [10, 31, 52];
+export default function ScratchCanvas({ nonce, radius = 22, threshold = 60, onReveal, onGratte, onCase, drawFoil, disabled = false }) {
   const ref = useRef(null);
   const last = useRef(null);      // dernière position grattée (pour l'interpolation)
   const drawing = useRef(false);  // bouton/doigt enfoncé
   const done = useRef(false);     // seuil franchi → onReveal déjà tiré
   const sample = useRef(null);    // petit canvas offscreen pour le %
   const rafPending = useRef(false);
+  const cases = useRef(null);     // les cases déjà dégagées (null : pas encore relevé)
+  const vitesse = useRef({ t: 0 }); // l'instant du dernier trait
 
   // (Re)peindre la feuille. Clé sur [nonce, drawFoil] → un NOUVEAU ticket (nonce
   // incrémenté) régénère une feuille intacte ; un simple re-render ne le fait pas.
@@ -50,6 +57,7 @@ export default function ScratchCanvas({ nonce, radius = 22, threshold = 60, onRe
       drawFoil(ctx, w, h);
       done.current = false;
       last.current = null;
+      cases.current = null;
     };
     paint(true);
     if (!sample.current) {
@@ -76,11 +84,23 @@ export default function ScratchCanvas({ nonce, radius = 22, threshold = 60, onRe
     let clear = 0;
     for (let i = 3; i < d.length; i += 4) if (d[i] < 40) clear++;
     const pct = (clear / (d.length / 4)) * 100;
+    // Les cases dégagées à moitié, une par une ; au premier relevé, sans un son.
+    if (onCase) {
+      const premier = !cases.current;
+      if (premier) cases.current = new Set();
+      for (let c = 0; c < 9; c += 1) {
+        if (cases.current.has(c)) continue;
+        const x0 = CASES[c % 3], y0 = CASES[Math.floor(c / 3)];
+        let n = 0;
+        for (let y = y0; y < y0 + 18; y += 1) for (let x = x0; x < x0 + 18; x += 1) if (d[(y * 80 + x) * 4 + 3] < 40) n++;
+        if (n >= 162) { cases.current.add(c); if (!premier) onCase(c); }
+      }
+    }
     if (pct >= threshold) {
       done.current = true;
       onReveal?.();
     }
-  }, [threshold, onReveal]);
+  }, [threshold, onReveal, onCase]);
 
   const scheduleMeasure = useCallback(() => {
     if (rafPending.current) return;
@@ -108,9 +128,15 @@ export default function ScratchCanvas({ nonce, radius = 22, threshold = 60, onRe
     ctx.beginPath();
     ctx.arc(x, y, radius, 0, Math.PI * 2);
     ctx.fill();
+    // La vitesse du geste : la distance depuis le dernier point, sur le temps écoulé.
+    if (onGratte) {
+      const now = performance.now(), dt = Math.max(4, now - vitesse.current.t);
+      onGratte(p ? Math.hypot(x - p.x, y - p.y) / dt : 0.3);
+      vitesse.current.t = now;
+    }
     last.current = { x, y };
     scheduleMeasure();
-  }, [radius, scheduleMeasure]);
+  }, [radius, scheduleMeasure, onGratte]);
 
   const posOf = (e) => {
     const rect = ref.current.getBoundingClientRect();

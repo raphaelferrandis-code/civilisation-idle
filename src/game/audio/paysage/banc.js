@@ -16,11 +16,12 @@
 // paysage.js, donc pas de cycle).
 
 let panneau = null, minuteur = null, api = null, vue = null;
-// Les GRANDS MOMENTS (audio/moments/moments.js, lot 7) s'inscrivent ici : le banc les
-// montre s'ils sont là, sans importer leur module.
-let moments = null;
+// Les BRUITAGES s'inscrivent ici, une section chacun : les grands moments (audio/moments,
+// lot 7) et les tables de la Maison (audio/tables, lot 10). Le banc les montre s'ils sont
+// là, sans importer leurs modules. `cle` : leur nom dans « Copier les réglages ».
+const sections = new Map();
 export function enregistrerBancMoments(m) {
-  moments = m;
+  sections.set(m.cle || 'moments', { titre: 'Grands moments · Bruitages', ...m });
 }
 
 export function bancOuvert() {
@@ -140,8 +141,8 @@ function construire() {
   // LES GRANDS MOMENTS (lot 7) : chacun s'écoute et se règle ici. Ils suivent
   // Options › Son › Bruitages, pas l'Ambiance.
   const momentsCurseurs = [];
-  if (moments) {
-    panneau.append(el('div', TITRE, 'Grands moments · Bruitages'));
+  for (const moments of sections.values()) {
+    panneau.append(el('div', TITRE, moments.titre));
     for (const fam of moments.familles) {
       const l = el('div', 'display:flex;align-items:center;gap:6px;margin-top:3px;');
       l.append(el('span', 'flex:1;', fam));
@@ -166,7 +167,7 @@ function construire() {
   const pied = el('div', 'display:flex;gap:6px;margin-top:8px;');
   const copier = el('button', BOUTON, 'Copier les réglages');
   copier.addEventListener('click', () => {
-    const texte = JSON.stringify(moments ? { ...api.reglages(), moments: moments.reglages() } : api.reglages(), null, 1);
+    const texte = JSON.stringify({ ...api.reglages(), ...Object.fromEntries([...sections].map(([cle, s]) => [cle, s.reglages()])) }, null, 1);
     const ok = () => { copier.textContent = 'Copié'; setTimeout(() => { copier.textContent = 'Copier les réglages'; }, 1500); };
     if (navigator.clipboard && navigator.clipboard.writeText) navigator.clipboard.writeText(texte).then(ok, () => window.prompt('Réglages :', texte));
     else window.prompt('Réglages :', texte);
@@ -174,7 +175,7 @@ function construire() {
   const defaut = el('button', BOUTON, 'Défaut');
   defaut.addEventListener('click', () => {
     api.remettre();
-    if (moments) { for (const k of Object.keys(moments.BANC)) moments.BANC[k] = 1; moments.retenir(); }
+    for (const s of sections.values()) { for (const k of Object.keys(s.BANC)) s.BANC[k] = 1; s.retenir(); }
     for (const c of [...Object.values(nappes).map((n) => n.curseur), ...Object.values(proche).map((n) => n.curseur), ...oreille, ...momentsCurseurs]) {
       c.input.value = String(c.lire()); c.lu.textContent = String(c.lire());
     }

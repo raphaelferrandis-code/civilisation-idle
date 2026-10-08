@@ -1,4 +1,4 @@
-import { useMemo } from 'react';
+import { useEffect, useMemo } from 'react';
 import { tr } from '../../../game/core/i18n.js';
 import { tableLimits, chipRack, chipPile, chipIndexOf } from '../../../game/core/actions/maisonTable.js';
 import { chipUrl, pileImage, CHIP_ART } from './chipsArt.js';
@@ -6,6 +6,7 @@ import { FaveurIcon } from '../../ui/FaveurIcon.jsx';
 import { tipProps } from '../../ui/HelpBubble.jsx';
 import { usePlaisirsBand } from '../../ui/plaisirsMaterial.js';
 import { lastStakeOf, fmtMise } from './miseMemory.js';
+import { preparerTable, sonJetons } from '../../../game/audio/tables/tables.js';
 
 /**
  * LA MISE LIBRE, EN JETONS (lot 1 des gains « vrai casino », 2026-10-04,
@@ -33,6 +34,8 @@ export default function TableMise({
   playLabel, playDisabled, onPlay, limits, children
 }) {
   const band = usePlaisirsBand();
+  // Les sons des jetons (audio/tables, lot 10), rendus dès que le râtelier paraît.
+  useEffect(() => { preparerTable('jetons', band); }, [band]);
   const { min, max } = limits || tableLimits();
   const cap = Math.max(0, Math.min(max, Math.floor(faveur || 0)));
   const rack = useMemo(() => chipRack(max), [max]);
@@ -42,7 +45,9 @@ export default function TableMise({
   const set = (v) => onStake(Math.max(0, Math.min(max, Math.floor(v))));
   // Mise à jour FONCTIONNELLE : deux jetons posés dans le même rendu (clics rapides)
   // s'additionnent au lieu de repartir tous deux de la même pile.
-  const add = (v) => onStake((s) => Math.max(0, Math.min(cap, Math.floor((s || 0) + v))));
+  const add = (v) => { sonJetons(band, 'pose'); onStake((s) => Math.max(0, Math.min(cap, Math.floor((s || 0) + v)))); };
+  // Les sons des jetons (audio/tables, lot 10) : la pile reprise, la même mise, le tapis.
+  const reprendre = () => { if (stake) sonJetons(band, 'reprend'); set(0); };
   const broke = stake > faveur;
   const tooLow = stake < min;
 
@@ -52,7 +57,7 @@ export default function TableMise({
         <button
           type="button"
           className="ptable-pile"
-          onClick={() => set(0)}
+          onClick={reprendre}
           aria-label={tr({ fr: 'Reprendre la mise', en: 'Take the stake back' })}
           {...tipProps(tr({ fr: 'La mise', en: 'The stake' }), tr({ fr: `Entre ${fmtMise(min)} et ${fmtMise(max)} Faveur. Un clic sur la pile la reprend.`, en: `Between ${fmtMise(min)} and ${fmtMise(max)} Favor. Click the pile to take it back.` }))}
         >
@@ -91,17 +96,17 @@ export default function TableMise({
           </button>
         ))}
         <span className="ptable-rack-sep" aria-hidden="true" />
-        <button type="button" className="ptable-rack-btn" disabled={!stake} onClick={() => set(0)}>
+        <button type="button" className="ptable-rack-btn" disabled={!stake} onClick={reprendre}>
           {tr({ fr: 'Effacer', en: 'Clear' })}
         </button>
-        <button type="button" className="ptable-rack-btn" disabled={!last || last === stake} onClick={() => set(last)}>
+        <button type="button" className="ptable-rack-btn" disabled={!last || last === stake} onClick={() => { sonJetons(band, 'meme'); set(last); }}>
           {tr({ fr: 'Même mise', en: 'Same bet' })}
         </button>
         <button
           type="button"
           className="ptable-rack-btn is-tapis"
           disabled={cap < min || stake === cap}
-          onClick={() => set(cap)}
+          onClick={() => { sonJetons(band, 'tapis'); set(cap); }}
           {...tipProps(tr({ fr: 'Tapis', en: 'All in' }), tr({ fr: `Tout ce que la table permet : ${fmtMise(cap)}.`, en: `Everything the table allows: ${fmtMise(cap)}.` }))}
         >
           {tr({ fr: 'Tapis', en: 'All in' })}

@@ -24,6 +24,7 @@ import TableMise from '../views/plaisirs/TableMise.jsx';
 import { initialStake, rememberStake, fmtMise } from '../views/plaisirs/miseMemory.js';
 import { createClickLock } from '../views/plaisirs/clickLock.js';
 import Monte from './Monte.jsx';
+import { preparerTable, sonCartes, sonVerdictCartes } from '../../game/audio/tables/tables.js';
 
 /**
  * Le Vingt-et-un — SCÈNE INTÉGRÉE (RegulationStage, sur la salle de la Maison des
@@ -123,10 +124,21 @@ export default function BlackjackStage({ table, onClose }) {
   const { max: tableMax } = tableLimits();
   const faveur = state.faveur || 0;
 
-  const finish = (h) => {
+  // LES SONS (audio/tables, lot 10) : la main se résout DANS le clic ; chaque action fait
+  // ses cartes, puis le verdict tombe après elles (`apres`, en secondes).
+  const band = usePlaisirsBand();
+  useEffect(() => { preparerTable('cartes', band); }, [band]);
+  const finish = (h, apres = 0) => {
     setHand(h);
-    if (h.resolved) { setOutcome(blackjackLastOutcome()); setPhase('done'); }
+    if (h.resolved) {
+      const o = blackjackLastOutcome();
+      setOutcome(o);
+      setPhase('done');
+      if (o) sonVerdictCartes(o.result, apres);
+    }
   };
+  // Le croupier joue quand la main se résout : sa carte cachée, ses tirages.
+  const croupier = (h, dans) => (h.resolved ? sonCartes(band, 'croupier', { n: Math.max(0, (h.dealer || []).length - 2), dans }) : dans);
 
   // Garde anti double-clic (BUG-46) : la main se résout DANS le clic, et le menu de
   // la phase suivante (même conteneur, même place) est déjà sous le curseur au 2e
@@ -150,13 +162,14 @@ export default function BlackjackStage({ table, onClose }) {
     setStake(h.stakeFaveur);
     setOutcome(null);
     setPhase('player');
-    finish(h); // un naturel se résout d'emblée → passe direct au résultat
+    const donne = sonCartes(band, 'donne', { n: 4, melange: Boolean(blackjackSabot().neuf) });
+    finish(h, croupier(h, donne)); // un naturel se résout d'emblée → passe direct au résultat
   });
-  const onHit = () => lock.act(() => { const h = hitBlackjack(); if (h) finish(h); });
-  const onStand = () => lock.act(() => { const h = standBlackjack(); if (h) finish(h); });
+  const onHit = () => lock.act(() => { const h = hitBlackjack(); if (h) finish(h, croupier(h, sonCartes(band, 'tire'))); });
+  const onStand = () => lock.act(() => { const h = standBlackjack(); if (h) finish(h, croupier(h, 0)); });
   // Doubler et séparer débitent une seconde mise : même écriture rapide (SAV-15).
-  const onDouble = () => lock.act(() => { const h = doubleBlackjack(); if (h) { saveSoon(300); finish(h); } });
-  const onSplit = () => lock.act(() => { const h = splitBlackjack(); if (h) { saveSoon(300); finish(h); } });
+  const onDouble = () => lock.act(() => { const h = doubleBlackjack(); if (h) { saveSoon(300); finish(h, croupier(h, sonCartes(band, 'tire'))); } });
+  const onSplit = () => lock.act(() => { const h = splitBlackjack(); if (h) { saveSoon(300); finish(h, croupier(h, sonCartes(band, 'donne', { n: 2 }))); } });
   const onNewHand = () => lock.act(() => { setHand(null); setOutcome(null); setPhase('bet'); });
 
   // Le conseil de la Mesure gravée : ce que la stratégie de base ferait avec

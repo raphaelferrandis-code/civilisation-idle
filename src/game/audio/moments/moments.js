@@ -18,9 +18,8 @@
 //
 // Ses voix passent par un gain et un limiteur à elles, sur le contexte audio du jeu.
 
-import { audioCtx, enTampon, retenirContexte, relacherContexte } from '../synth.js';
 import { getSfxEnabled, getSfxVolume, duckMusic, holdMusicLow, rattrapageRecent } from '../../core/main.js';
-import { rendreAilleurs } from '../syntheseAilleurs.js';
+import { creerLecteur, cibler } from '../lecteur.js';
 import { rendreMoment, MOMENTS_SR, matiereDe, SONS_MOMENTS } from './momentsSynth.js';
 import { surMoment, annoncer } from './annonces.js';
 import { CHUTE, chuteMs, chuteTune, chuteWaveEnd } from '../../map/iso/chuteState.js';
@@ -47,33 +46,21 @@ const horloge = () => (typeof performance !== 'undefined' ? performance.now() : 
 const D = {
   arme: false, desabonner: null, prepa: null,
   bande: 0,
-  tampons: new Map(), enRoute: new Map(),
-  sortie: null,
   grondement: null,        // la boucle { source, gain, pan } quand elle joue
   tenue: false,            // la main sur « Effondrer la Cité »
   chute: null,             // la chute en cours (voir debutChute)
   musique: false,          // la musique est tenue basse
   dernierAchat: -Infinity, rafale: null, dernierBat: -Infinity, dernierAge: -Infinity,
   toc: null, dernierToc: -Infinity, dernierBulle: -Infinity, dernierSucces: -Infinity, dernierCrise: -Infinity,
-  compte: {},              // combien de fois chaque son a joué (vérifications, banc)
 };
 
-// ── Les tampons ─────────────────────────────────────────────────────────────────
-// Rendus dans le Worker des sons (syntheseAilleurs.js), sinon ici. Une promesse par son.
-function demander(nom) {
-  if (D.tampons.has(nom)) return Promise.resolve(D.tampons.get(nom));
-  if (D.enRoute.has(nom)) return D.enRoute.get(nom);
-  const p = rendreAilleurs({ quoi: 'moment', nom })
-    .catch(() => rendreMoment(nom))
-    .then((data) => {
-      const t = data ? enTampon(data, MOMENTS_SR) : null;
-      if (t) D.tampons.set(nom, t);
-      return t;
-    })
-    .finally(() => D.enRoute.delete(nom));
-  D.enRoute.set(nom, p);
-  return p;
-}
+// ── Le lecteur (audio/lecteur.js) : le rendu dans le Worker, la sortie, les voix ──
+const LEC = creerLecteur({ quoi: 'moment', rendre: rendreMoment, sr: MOMENTS_SR, niveau });
+const demander = (nom) => LEC.demander(nom);
+const voix = (nom, opts) => LEC.voix(nom, opts);
+const jouer = (nom, opts, delaiMax) => LEC.jouer(nom, opts, delaiMax);
+const niveauSortie = () => LEC.niveauSortie();
+
 // Ce qu'il faut avoir sous la main à la bande `b` : la chute de sa matière, son âge, la
 // prochaine époque, la maison de sa matière, le glas et le Grand Reset.
 export function sonsUtilesMoments(b) {
@@ -86,69 +73,10 @@ export function sonsUtilesMoments(b) {
 function preparer() {
   if (!getSfxEnabled()) return;
   const utiles = new Set(sonsUtilesMoments(D.bande));
-  for (const k of [...D.tampons.keys()]) if (!utiles.has(k)) D.tampons.delete(k);
+  for (const k of [...LEC.tampons.keys()]) if (!utiles.has(k)) LEC.tampons.delete(k);
   for (const nom of utiles) demander(nom);
 }
 
-// ── La sortie et les voix ───────────────────────────────────────────────────────
-function sortie() {
-  const ctx = audioCtx();
-  if (!ctx) return null;
-  if (D.sortie && D.sortie.ctx === ctx) return D.sortie;
-  const gain = ctx.createGain();
-  const limiteur = ctx.createDynamicsCompressor();
-  limiteur.threshold.value = -6; limiteur.knee.value = 4; limiteur.ratio.value = 20;
-  limiteur.attack.value = 0.002; limiteur.release.value = 0.25;
-  gain.connect(limiteur); limiteur.connect(ctx.destination);
-  // Une sonde, pour le banc et les vérifications : ce qui sort, en dBFS efficaces.
-  const sonde = typeof ctx.createAnalyser === 'function' ? ctx.createAnalyser() : null;
-  if (sonde) { sonde.fftSize = 2048; limiteur.connect(sonde); }
-  D.sortie = { ctx, gain, limiteur, sonde };
-  return D.sortie;
-}
-let _lecture = null;
-function niveauSortie() {
-  const s = D.sortie && D.sortie.sonde;
-  if (!s || typeof s.getFloatTimeDomainData !== 'function') return null;
-  if (!_lecture || _lecture.length !== s.fftSize) _lecture = new Float32Array(s.fftSize);
-  s.getFloatTimeDomainData(_lecture);
-  let e = 0;
-  for (let i = 0; i < _lecture.length; i += 1) e += _lecture[i] * _lecture[i];
-  return 10 * Math.log10(e / _lecture.length + 1e-12);
-}
-// Joue un son prêt, au gain `g` (× niveau × Bruitages), placé à `pan`, à `vitesse`,
-// dans `dans` secondes. Rend la voix { source, gain, pan } ou null.
-function voix(nom, { g = 1, pan = 0, vitesse = 1, dans = 0, boucle = false } = {}) {
-  if (!getSfxEnabled()) return null;
-  const t = D.tampons.get(nom);
-  const S = t && sortie();
-  if (!S || typeof t.getChannelData !== 'function') {
-    if (!t) demander(nom);
-    return null;
-  }
-  const { ctx } = S;
-  const s = ctx.createBufferSource(), gn = ctx.createGain(), p = ctx.createStereoPanner();
-  s.buffer = t; s.loop = boucle; s.playbackRate.value = vitesse;
-  gn.gain.value = boucle ? 0 : g * niveau(nom) * getSfxVolume();
-  p.pan.value = Math.max(-1, Math.min(1, pan));
-  s.connect(gn); gn.connect(p); p.connect(S.gain);
-  retenirContexte();
-  s.onended = () => {
-    try { s.disconnect(); gn.disconnect(); p.disconnect(); } catch { /* déjà débranchés */ }
-    relacherContexte();
-  };
-  s.start(ctx.currentTime + Math.max(0, dans));
-  D.compte[nom] = (D.compte[nom] || 0) + 1;
-  return { source: s, gain: gn, pan: p, ctx };
-}
-// Le son tout de suite s'il est prêt ; sinon dès qu'il l'est, s'il arrive à temps.
-function jouer(nom, opts = {}, delaiMax = 0.6) {
-  if (!getSfxEnabled()) return;
-  if (D.tampons.has(nom)) { voix(nom, opts); return; }
-  const t0 = horloge();
-  demander(nom).then(() => { if ((horloge() - t0) / 1000 <= delaiMax) voix(nom, opts); });
-}
-const cibler = (param, v, ctx, tau) => { try { param.setTargetAtTime(v, ctx.currentTime, tau); } catch { param.value = v; } };
 
 // ── Le grondement ───────────────────────────────────────────────────────────────
 function grondement(k, tau = 0.25) {
@@ -475,9 +403,9 @@ export function desarmerMoments() {
 // Ce que les moments font (banc d'écoute, vérifications).
 export function etatMoments() {
   return {
-    arme: D.arme, bande: D.bande, tampons: [...D.tampons.keys()], enRoute: D.enRoute.size,
+    arme: D.arme, bande: D.bande, tampons: [...LEC.tampons.keys()], enRoute: LEC.enRoute.size,
     chute: D.chute ? { vague: D.chute.vague, prevus: D.chute.prevus.length, matiere: D.chute.matiere } : null,
-    grondement: Boolean(D.grondement), musiqueTenue: D.musique, compte: { ...D.compte },
+    grondement: Boolean(D.grondement), musiqueTenue: D.musique, compte: { ...LEC.compte },
     sortieDb: niveauSortie(),
   };
 }

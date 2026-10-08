@@ -22,6 +22,7 @@ import TableMise from '../views/plaisirs/TableMise.jsx';
 import { initialStake, rememberStake, fmtMise } from '../views/plaisirs/miseMemory.js';
 import Monte from './Monte.jsx';
 import { usePlaisirsBand, diceSheetFor } from './plaisirsMaterial.js';
+import { preparerTable, sonOsselets } from '../../game/audio/tables/tables.js';
 import { wonderKitForBand } from '../../game/map/iso/wonderKits.js';
 
 /**
@@ -129,6 +130,8 @@ export default function AuguryStage({ table, onClose }) {
   }, [table?.openedAt]);
 
   useEffect(() => () => { flushPending(); clearTimers(); }, []);
+  // Les sons de la table (audio/tables, lot 10), rendus à l'avance dans la matière de l'âge.
+  useEffect(() => { preparerTable('osselets', band); }, [band]);
 
   const prevCyclesRef = useRef(cycles);
   useEffect(() => {
@@ -143,8 +146,9 @@ export default function AuguryStage({ table, onClose }) {
     setLanded(0);
     setPhase('cast');
     clearTimers();
+    sonOsselets(band, 'lance');
     for (let i = 0; i < 4; i++) {
-      timersRef.current.push(setTimeout(() => setLanded(i + 1), LAND_FIRST_MS + i * LAND_STEP_MS));
+      timersRef.current.push(setTimeout(() => { setLanded(i + 1); sonOsselets(band, 'tombe', { i }); }, LAND_FIRST_MS + i * LAND_STEP_MS));
     }
     timersRef.current.push(setTimeout(() => {
       flushPending();
@@ -177,7 +181,8 @@ export default function AuguryStage({ table, onClose }) {
     setDoubleCran(0);
     startCast(res.bones, () => {
       setOutcome({ ...res });
-      celebrerGain({ gain: res.faveurGain, stake: res.stake, game: 'osselets' });
+      const palier = celebrerGain({ gain: res.faveurGain, stake: res.stake, game: 'osselets' });
+      sonOsselets(band, 'verdict', { gagne: res.faveurGain > 0, gros: Boolean(palier) });
     });
   };
 
@@ -199,7 +204,8 @@ export default function AuguryStage({ table, onClose }) {
     const origine = outcome.stake;
     startCast(res.bones, () => {
       setDoubleOutcome({ ...res });
-      if (res.win) celebrerGain({ gain: res.wager * 2, stake: origine, game: 'osselets' });
+      const palier = res.win ? celebrerGain({ gain: res.wager * 2, stake: origine, game: 'osselets' }) : null;
+      sonOsselets(band, 'verdict', { gagne: Boolean(res.win), gros: Boolean(palier) });
     });
   };
 
