@@ -11,7 +11,7 @@ Chantier ouvert le 2026-10-07 sur la demande de Raph :
 > n'entendre que le son de la ville au loin avec la musique en fond qu'on ne touche pas pour
 > l'instant. »
 
-**Statut : décisions prises le 2026-10-07 (§ 9), lots 1 à 6 livrés ; lot 7 (les grands moments, § 3.10), lot 8 (l'interface, § 3.11) et lot 9 (les petits sons de la carte, § 3.12) livrés le 2026-10-08 ; lot 10 (les jeux de la Maison, § 3.13) livré ; lot 11 (les quatre tables qui restaient muettes, § 3.14) fait, à écouter. Reste l'épreuve des longues parties, qui revient à Raph.**
+**Statut : décisions prises le 2026-10-07 (§ 9), lots 1 à 6 livrés ; lot 7 (les grands moments, § 3.10), lot 8 (l'interface, § 3.11) et lot 9 (les petits sons de la carte, § 3.12) livrés le 2026-10-08 ; lot 10 (les jeux de la Maison, § 3.13) livré ; lot 11 (les quatre tables qui restaient muettes, § 3.14) livré ; lot 12 (les merveilles, § 3.15) fait, à écouter. Reste l'épreuve des longues parties, qui revient à Raph.**
 Ce document fait foi pour ce chantier.
 
 ---
@@ -467,7 +467,9 @@ souvent.
   alors qu'elle, de son côté de l'écran. Un achat de masse : deux tocs. Un toc au plus
   toutes les 70 ms quand on clique en rafale. L'automatisation reste muette.
 - **La bulle d'un passant**, cueillie : des pièces (l'or), un parchemin et une note claire (le
-  savoir), du grain qui coule (la nourriture).
+  savoir), du grain qui coule (la nourriture). Raph, le 2026-10-08 : « trop longs, plus court
+  et moins fort ». Ils durent maintenant 0,25 à 0,35 s (la note du savoir sonnait plus d'une
+  seconde), presque sans écho, et leur niveau passe de 0,22 à 0,11 (−6 dB).
 - **Un succès débloqué** : quatre notes claires qui montent. Deux succès collés, un seul
   carillon. Rien pendant la chute ni pendant une absence rejouée (le succès s'annonce déjà
   ainsi).
@@ -596,6 +598,23 @@ briques partagées avec le lot 10 dans `audio/tables/briques.js`, la lecture dan
   boucles), puis posé par son niveau. Les sons brefs sortent entre −23 et −28 dB, les boucles
   vers −31 à −34 en moyenne. Le banc d'écoute a ses curseurs : roue, stalles, galop, foule,
   arrivée, photo, manche, envol, vol, pose, brûle.
+
+### 3.15 Les merveilles (lot 12)
+
+Raph a choisi, le 2026-10-08, les merveilles parmi les gestes de la cité encore muets. Ce sont
+des grands moments (`audio/moments`), de la famille du nouvel âge (§ 3.10), dans la matière de
+l'âge :
+- **une merveille érigée** : la pierre qu'on pose, un bourdon qui monte, deux frappes de l'âge ;
+  la musique s'efface un instant (`merveille-<b>`, au niveau de l'époque) ;
+- **une merveille qui monte d'un rang** : la pierre, une frappe (`rang-<b>`, au niveau de l'âge).
+
+Les rangs se gravent à chaque tick (`actions/wonders.js`, `checkWonders`) : un seul son par
+vague, l'érection l'emporte. Rien pendant la chute (elle grave aussi les rangs, juste avant la
+remise à zéro), ni pour un rang gravé pendant une absence rejouée.
+
+**Non retenus** (2026-10-08) : les actions de régulation, les lois du Conseil, exhumer un
+vestige ; sans préférence de Raph, et donc pas faits : les gestes des mythes, relever le
+tronc des offrandes, le comptoir.
 
 ---
 
@@ -1096,6 +1115,7 @@ taisent.
 | **9. Les petits sons de la carte** | Les moulins, les cloches des lieux de culte, les bêtes qu'on voit (§ 3.12). | Validation à l'oreille ; les fichiers du § 5.11. |
 | **10. Les jeux de la Maison** | Les osselets, les tickets, le vingt-et-un, les jetons du râtelier (§ 3.13). | Validation à l'oreille. |
 | **11. Les tables muettes** | Le vol d'Icare, la roulette (le salon et le boudoir), les courses, le duel des grands flambeurs (§ 3.14). | Validation à l'oreille. |
+| **12. Les merveilles** | Une merveille érigée, une merveille qui monte d'un rang (§ 3.15). | Validation à l'oreille. |
 
 Chaque lot est livré par petites touches commitées, comme d'habitude, et ne part qu'après la
 validation à l'oreille du précédent.
@@ -1740,3 +1760,15 @@ Ma recommandation était donnée pour chacune.
   une course aux couloirs numérotés de 1 à 6 : ouvrir les courses fait planter la vue (le
   6e couloir n'a pas de casaque). Le jeu, lui, tire les couloirs de 0 à 5 ; contourné en
   vidant `courseField`.
+- **2026-10-08, le lot 11 est commité et poussé (`ab9c5392`)**, suivi de `c5d98430` : la
+  porte i18n refusait le titre français de la section des tables du banc d'écoute, entré avec
+  le lot 10 ; les titres des sections vivent désormais dans `paysage/banc.js` (outil exempté).
+- **2026-10-08, les bulles des passants raccourcies** (§ 3.11, retour de Raph : « trop longs,
+  plus court et moins fort ») : 0,25 à 0,35 s au lieu de 0,8 à 1,3 s, −6 dB. Dans le jeu, la
+  bulle du savoir s'éteint en 0,3 s, 5 dB sous l'ancienne.
+- **2026-10-08, lot 12 (les merveilles).** Raph a choisi les merveilles parmi les gestes encore
+  muets (§ 3.15). Mesurées : chaque son sort au niveau de l'âge ou de l'époque de sa bande, à
+  0,5 dB près. Dans le jeu, une merveille érigée à l'âge stellaire joue la pierre, le bourdon
+  puis ses deux frappes. Et la garde des courses (accord de Raph) : une course aux couloirs
+  hors de leur place est retirée au chargement comme au tirage (`state.js`, `courses.js`) ;
+  la partie de test (`etat-plein.json`) a retrouvé des couloirs de 0 à 5.

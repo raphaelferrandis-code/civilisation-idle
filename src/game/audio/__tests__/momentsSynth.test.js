@@ -10,7 +10,7 @@ const efficace = (b) => Math.sqrt(b.reduce((s, v) => s + v * v, 0) / b.length);
 
 describe('les sons des grands moments', () => {
   it('chacun se rend, fini, sans écrêtage, et pas muet', () => {
-    expect(SONS_MOMENTS.length).toBe(4 + 12 + 3 + 20 + 8 + 8 + 6);
+    expect(SONS_MOMENTS.length).toBe(4 + 12 + 3 + 20 + 8 + 8 + 6 + 20);   // + les merveilles et leurs rangs
     for (const nom of SONS_MOMENTS) {
       const b = rendreMoment(nom);
       expect(b, nom).toBeInstanceOf(Float32Array);

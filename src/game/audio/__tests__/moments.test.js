@@ -230,6 +230,25 @@ describe("l'interface (lot 8)", () => {
   });
 });
 
+describe('les merveilles', () => {
+  it("érigée : la pierre, le bourdon, la musique qui s'efface ; un rang de plus, une frappe ; un seul son par vague ; rien après une absence", () => {
+    const m0 = compte('merveille-3'), r0 = compte('rang-3');
+    A.annoncer('merveille', { erigee: true });
+    A.annoncer('merveille', { erigee: false });   // la même vague : un seul son
+    expect(compte('merveille-3')).toBe(m0 + 1);
+    expect(compte('rang-3')).toBe(r0);
+    expect(R.efface.length).toBe(1);
+    vi.advanceTimersByTime(2600);
+    A.annoncer('merveille', { erigee: false });
+    expect(compte('rang-3')).toBe(r0 + 1);
+    expect(R.efface.length).toBe(1);
+    vi.advanceTimersByTime(2600);
+    R.rattrapage = true;
+    A.annoncer('merveille', { erigee: true });
+    expect(compte('merveille-3')).toBe(m0 + 1);
+  });
+});
+
 describe('le Grand Reset', () => {
   it('le sceau (la musique s’efface), puis le renouveau', () => {
     const s0 = compte('sceau'), r0 = compte('renouveau');

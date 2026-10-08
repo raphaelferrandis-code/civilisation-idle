@@ -15,6 +15,9 @@
 //     cristal, de son côté de l'écran — seulement après un achat à la main ; un achat
 //     de masse, une courte rafale. Les automatisations ne font aucun bruit.
 //   · LE GRAND RESET : le sceau (souffle et gong), puis le renouveau.
+//   · UNE MERVEILLE (actions/wonders.js) : érigée, la pierre posée, un bourdon et deux
+//     frappes de l'âge, la musique qui s'efface un instant ; un rang de plus, la pierre et
+//     une frappe. Jamais pendant la chute ni pour un rang gravé pendant une absence.
 //
 // Ses voix passent par un gain et un limiteur à elles, sur le contexte audio du jeu.
 
@@ -30,7 +33,9 @@ export const NIVEAUX = {
   grondement: 0.55, effondrement: 0.5, gravats: 0.28, glas: 0.45,
   age: 0.3, epoque: 0.48, batiment: 0.2, sceau: 0.55, renouveau: 0.35,
   // L'interface (lot 8) : plus discrète encore, elle revient souvent.
-  achat: 0.16, bulle: 0.22, succes: 0.35, crise: 0.45,
+  achat: 0.16, bulle: 0.11, succes: 0.35, crise: 0.45,
+  // Les merveilles : comme l'époque et l'âge, dont elles sont la famille.
+  merveille: 0.48, rang: 0.3,
 };
 // Les molettes du banc d'écoute, × NIVEAUX (retenues d'une session à l'autre).
 export const BANC_MOMENTS = Object.fromEntries(Object.keys(NIVEAUX).map((k) => [k, 1]));
@@ -52,6 +57,7 @@ const D = {
   musique: false,          // la musique est tenue basse
   dernierAchat: -Infinity, rafale: null, dernierBat: -Infinity, dernierAge: -Infinity,
   toc: null, dernierToc: -Infinity, dernierBulle: -Infinity, dernierSucces: -Infinity, dernierCrise: -Infinity,
+  dernierMerveille: -Infinity,
 };
 
 // ── Le lecteur (audio/lecteur.js) : le rendu dans le Worker, la sortie, les voix ──
@@ -68,7 +74,8 @@ export function sonsUtilesMoments(b) {
   return ['grondement', 'glas', 'gravats-1', 'gravats-2', 'gravats-3',
     `effondrement-${m}-1`, `effondrement-${m}-2`, `effondrement-${m}-3`,
     `age-${b}`, `epoque-${e}`, `batiment-${m}-1`, `batiment-${m}-2`, 'sceau', 'renouveau',
-    `achat-${m}-1`, `achat-${m}-2`, 'bulle-or', 'bulle-savoir', 'bulle-nourriture', 'succes', 'crise-1', 'crise-2'];
+    `achat-${m}-1`, `achat-${m}-2`, 'bulle-or', 'bulle-savoir', 'bulle-nourriture', 'succes', 'crise-1', 'crise-2',
+    `merveille-${b}`, `rang-${b}`];
 }
 function preparer() {
   if (!getSfxEnabled()) return;
@@ -292,9 +299,24 @@ function surAnnonce(nom, d) {
     case 'renouveau':
       jouer('renouveau', { dans: 0.3 }, 0.6);
       break;
+    case 'merveille':
+      merveille(d || {}, now);
+      break;
     default:
       break;
   }
+}
+
+// UNE MERVEILLE érigée, ou qui monte d'un rang (actions/wonders.js) : un seul son par
+// tick, l'érection l'emporte. Rien pendant la chute (la chute grave aussi les rangs, juste
+// avant la remise à zéro), ni pour un rang gravé pendant une absence rejouée.
+function merveille({ erigee = false } = {}, now) {
+  if (D.chute || rattrapageRecent(6000)) return;
+  if (typeof document !== 'undefined' && document.hidden) return;
+  if (now - D.dernierMerveille < 2500) return;
+  D.dernierMerveille = now;
+  if (erigee) duckMusic(3500);
+  jouer(erigee ? `merveille-${D.bande}` : `rang-${D.bande}`, {}, 0.6);
 }
 
 // L'ACHAT À LA MAIN (lot 8) : un « toc » léger, 70 ms après le clic — sauf si une
@@ -421,6 +443,7 @@ function ecouterMoment(fam) {
     achat: `achat-${m}-${1 + Math.floor(Math.random() * 2)}`,
     bulle: ['bulle-or', 'bulle-savoir', 'bulle-nourriture'][Math.floor(Math.random() * 3)],
     succes: 'succes', crise: `crise-${1 + Math.floor(Math.random() * 2)}`,
+    merveille: `merveille-${b}`, rang: `rang-${b}`,
   }[fam];
   if (!nom) return;
   if (nom === 'grondement') {

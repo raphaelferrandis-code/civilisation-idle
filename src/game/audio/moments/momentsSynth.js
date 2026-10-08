@@ -11,6 +11,9 @@
 //   · `age-<b>`, `epoque-<b>`    le passage à un nouvel âge, à une nouvelle époque : la
 //                                frappe de l'époque (tambour, bois, pierre, bronze, gong,
 //                                fer, carillon électrique, cristal) ;
+//   · `merveille-<b>`, `rang-<b>` une merveille érigée, une merveille qui monte d'un rang :
+//                                la pierre posée, puis la frappe de l'âge (de la famille
+//                                du nouvel âge) ;
 //   · `batiment-<m>-<n>`         une maison qui sort de terre (achat à la main) ;
 //   · `sceau`, `renouveau`       le Grand Reset réclamé, puis la cité neuve ;
 //   · L'INTERFACE (lot 8) : `achat-<m>-<n>` un achat à la main, `bulle-<or|savoir|
@@ -286,6 +289,33 @@ function rendreEpoque(b, sr) {
   return normaliser(salle(out, sr, Math.min(1, SALLE_AGE[b] + 0.15), 0.3), sr, 0.8, 0.8);
 }
 
+// ── Les merveilles ──────────────────────────────────────────────────────────────
+// De la famille du nouvel âge (Raph, 2026-10-08) : la frappe de l'âge, après la pierre
+// qu'on pose (un choc sourd et grave, le grain de la pierre).
+function pierrePosee(out, sr, t, g, rnd) {
+  impact(out, sr, t, g, rnd, { haut: 85, bas: 42, duree: 0.5, bruit: 0.55, ouvert: 900 });
+}
+// Une merveille ÉRIGÉE : la pierre posée, un bourdon qui monte, deux frappes de l'âge.
+function rendreMerveille(b, sr) {
+  const rnd = graine(7650 + b);
+  const out = vide(5.2, sr);
+  const f0 = [73.4, 73.4, 98, 110, 73.4, 110, 146.8, 146.8, 164.8, 185][b];
+  pierrePosee(out, sr, 0.01, 0.75, rnd);
+  partiels(out, sr, 0.15, [{ f: f0, a: 1, d: 0 }, { f: f0 * 1.5, a: 0.35, d: 0 }, { f: f0 * 2.003, a: 0.3, d: 0 }], 2.6, 0.2,
+    { attaque: 0.9, relache: 1.1, etouffe: 2.2 });
+  FRAPPES[b](out, sr, 0.5, 0.7, rnd);
+  FRAPPES[b](out, sr, 1.15, 0.9, rnd);
+  return normaliser(salle(out, sr, Math.min(1, SALLE_AGE[b] + 0.15), 0.3), sr, 0.8, 0.8);
+}
+// Une merveille qui monte d'un RANG : la pierre, une frappe.
+function rendreRang(b, sr) {
+  const rnd = graine(7680 + b);
+  const out = vide(3.2, sr);
+  pierrePosee(out, sr, 0.01, 0.55, rnd);
+  FRAPPES[b](out, sr, 0.16, 0.75, rnd);
+  return normaliser(salle(out, sr, SALLE_AGE[b], 0.22), sr, 0.8, 0.5);
+}
+
 // ── La maison qui sort de terre ─────────────────────────────────────────────────
 function rendreBatiment(m, v, sr) {
   const rnd = graine(7700 + MATIERES.indexOf(m) * 13 + v);
@@ -361,26 +391,29 @@ function rendreAchat(m, v, sr) {
   return normaliser(salle(out, sr, 0.2, 0.08), sr, 0.8, 0.05);
 }
 // La bulle d'un passant, cueillie : des pièces (l'or), un parchemin (le savoir), du
-// grain (la nourriture).
+// grain (la nourriture). On en cueille souvent : un geste BREF, ~0,3 s, presque sans
+// écho (Raph, 2026-10-08 : « trop longs, plus court et moins fort »).
 const PIECE = [[1, 1, 11], [1.53, 0.7, 14], [2.27, 0.5, 18], [2.9, 0.35, 24]];
+const vite = (liste, k) => liste.map(([r, a, d]) => [r, a, d * k]);
 function rendreBulle(type, sr) {
   const rnd = graine(8200 + ['or', 'savoir', 'nourriture'].indexOf(type));
-  const out = vide(1.1, sr);
+  const out = vide(0.36, sr);
   if (type === 'or') {
-    for (const [t, f, g] of [[0.005, 2350, 0.8], [0.075, 2490, 0.6], [0.16, 2210, 0.4]]) {
+    // Deux pièces qui se touchent.
+    for (const [t, f, g] of [[0.005, 2350, 0.8], [0.06, 2490, 0.55]]) {
       frappe(out, sr, t, g * 0.3, rnd, 0.0008);
-      modes(out, sr, t, f, PIECE, g, { duree: 0.4 });
+      modes(out, sr, t, f, vite(PIECE, 2.5), g, { duree: 0.12 });
     }
   } else if (type === 'savoir') {
-    // Le froissement du parchemin, puis une note claire.
-    debris(out, sr, 0.005, 0.22, 0.5, rnd, { fMin: 1500, fMax: 6500, densite: 260, tau: 0.09, amort: 180, long: 0.004 });
-    modes(out, sr, 0.16, 1175, CRISTAL, 0.45, { duree: 0.7 });
+    // Le parchemin qu'on effleure, une petite note claire.
+    debris(out, sr, 0.005, 0.1, 0.5, rnd, { fMin: 1500, fMax: 6500, densite: 260, tau: 0.05, amort: 220, long: 0.003 });
+    modes(out, sr, 0.07, 1175, vite(CRISTAL, 9), 0.4, { duree: 0.12 });
   } else {
-    // Le grain qui coule, et le sac qu'on pose.
-    debris(out, sr, 0.005, 0.38, 0.55, rnd, { fMin: 2200, fMax: 7500, densite: 420, tau: 0.14, amort: 150, long: 0.002 });
-    impact(out, sr, 0.3, 0.4, rnd, { haut: 170, bas: 95, duree: 0.14, bruit: 0.35, ouvert: 900 });
+    // Une poignée de grain, le sac qu'on pose.
+    debris(out, sr, 0.005, 0.16, 0.55, rnd, { fMin: 2200, fMax: 7500, densite: 420, tau: 0.07, amort: 180, long: 0.002 });
+    impact(out, sr, 0.14, 0.35, rnd, { haut: 170, bas: 95, duree: 0.1, bruit: 0.35, ouvert: 900 });
   }
-  return normaliser(salle(out, sr, 0.25, 0.1), sr, 0.8, 0.1);
+  return normaliser(salle(out, sr, 0.15, 0.04), sr, 0.8, 0.08);
 }
 // Un succès : quatre notes claires qui montent (ré, fa dièse, la, ré).
 function rendreSucces(sr) {
@@ -414,6 +447,7 @@ const NOMS = ['grondement', 'glas', 'sceau', 'renouveau'];
 for (const m of MATIERES) for (const v of [1, 2, 3]) NOMS.push(`effondrement-${m}-${v}`);
 for (const v of [1, 2, 3]) NOMS.push(`gravats-${v}`);
 for (let b = 0; b <= 9; b += 1) NOMS.push(`age-${b}`, `epoque-${b}`);
+for (let b = 0; b <= 9; b += 1) NOMS.push(`merveille-${b}`, `rang-${b}`);
 for (const m of MATIERES) for (const v of [1, 2]) NOMS.push(`batiment-${m}-${v}`);
 for (const m of MATIERES) for (const v of [1, 2]) NOMS.push(`achat-${m}-${v}`);
 NOMS.push('bulle-or', 'bulle-savoir', 'bulle-nourriture', 'succes', 'crise-1', 'crise-2');
@@ -430,6 +464,8 @@ export function rendreMoment(nom, sr = MOMENTS_SR) {
   if (m) return rendreGravats(Number(m[1]), sr);
   m = /^(age|epoque)-([0-9])$/.exec(nom);
   if (m) return m[1] === 'age' ? rendreAge(Number(m[2]), sr) : rendreEpoque(Number(m[2]), sr);
+  m = /^(merveille|rang)-([0-9])$/.exec(nom);
+  if (m) return m[1] === 'merveille' ? rendreMerveille(Number(m[2]), sr) : rendreRang(Number(m[2]), sr);
   m = /^batiment-(bois|pierre|metal|cosmique)-([12])$/.exec(nom);
   if (m) return rendreBatiment(m[1], Number(m[2]), sr);
   m = /^achat-(bois|pierre|metal|cosmique)-([12])$/.exec(nom);

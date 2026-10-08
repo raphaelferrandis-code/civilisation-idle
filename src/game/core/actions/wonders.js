@@ -11,6 +11,7 @@ import { state } from '../state.js';
 import { tr } from '../i18n.js';
 import { checkWonderTiers, WONDER_TIER_NAMES } from '../mechanics/wonders.js';
 import { chronicle } from './utils.js';
+import { annoncer } from '../../audio/moments/annonces.js';
 
 export function checkWonders() {
   const rises = checkWonderTiers(state);
@@ -28,5 +29,8 @@ export function checkWonders() {
       }));
     }
   }
+  // Le son (audio/moments) : une merveille érigée, ou un rang de plus. Il se tait
+  // pendant la chute et pour un rang gravé pendant une absence rejouée.
+  if (rises.length) annoncer('merveille', { erigee: rises.some((r) => r.erected) });
   return rises.length;
 }
