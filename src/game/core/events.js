@@ -24,6 +24,7 @@ import { collapseHarvest } from './mechanics/collapseHarvest.js';
 
 import { completeCollapse, promptActiveRuinsForNewCycle, chronicle, cycleYear } from './actions.js';
 import { requestChoiceDialog } from './choiceDialog.js';
+import { annoncer } from '../audio/moments/annonces.js';
 
 import { eras } from '../data/world.js';
 import { dynastyNames } from '../data/buildings.js';
@@ -172,6 +173,8 @@ export async function runCollapseSequence(gain, reason) {
   // verrous — sinon tick()/checkAutoCollapse sortent en tête à jamais et le jeu
   // est mort jusqu'au rechargement. Corps NON ré-indenté sous le try (diff minimal).
   try {
+  // Les sons de la chute (audio/moments) : la musique descend, le grondement monte.
+  annoncer('chute:debut', { raison: reason });
   const dynastyIndex = state.cycles % dynastyNames.length;
   const fallenDynasty = dynastyNames[dynastyIndex];
   const epitaph = generateEpitaph();
@@ -183,6 +186,7 @@ export async function runCollapseSequence(gain, reason) {
   // l'état ici — completeCollapse les prendra, après la stèle (invariant §1.3).
   captureCityRelics();
   setMourning(true);
+  annoncer('chute:deuil', { jouee: played });
   if (!played) await new Promise((resolve) => setTimeout(resolve, 2000));
 
   // EFFONDREMENT SILENCIEUX (arbitrages 2026-07-13) : le choix du legs se fait
@@ -342,5 +346,6 @@ export async function runCollapseSequence(gain, reason) {
     setCollapseInProgress(false);
     setMourning(false);
     setGamePaused(false);
+    annoncer('chute:fin', { jouee: played });
   }
 }

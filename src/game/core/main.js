@@ -599,6 +599,14 @@ function advanceIdleClocks(seconds) {
   if (isMythEffectActive("mythe_du_phenix")) state.phoenixCycleSec = (state.phoenixCycleSec || 0) + seconds;
 }
 
+// LE DERNIER RATTRAPAGE (lot 7 du paysage sonore) : l'heure où une absence ou un
+// versement de clepsydre a été rejoué d'un bloc. Un âge franchi pendant ce temps
+// s'affiche encore (le bandeau), mais ne se fête pas d'un son.
+let dernierRattrapage = 0;
+export function rattrapageRecent(ms = 5000) {
+  return Date.now() - dernierRattrapage < ms;
+}
+
 function advanceWorldBy(seconds, opts = {}) {
   const wearBefore = state.timeWear || 0;
   // VERSEMENT DE CLEPSYDRE (BUG-8) : l'état vient d'être écrit en temps RÉEL, mais
@@ -629,6 +637,7 @@ function advanceWorldBy(seconds, opts = {}) {
   const clepsydreBefore = state.storedSeconds || 0;
   if (frozenSec > 0) state.storedSeconds = Math.min(clepsydreCapSeconds(), clepsydreBefore + frozenSec);
   const frozenStored = Math.max(0, (state.storedSeconds || 0) - clepsydreBefore);
+  dernierRattrapage = Date.now();
   return { farm, wearBefore, credited: seconds - frozenSec, frozenStored };
 }
 
@@ -1046,11 +1055,31 @@ export function setSfxVolume(vol) {
 export function duckMusic(ms) {
   rampMusic("efface", 0.2, 250);
   musicDuckUntil = Math.max(musicDuckUntil, Date.now() + Math.max(0, ms));
+  armMusicReturn(1200);
+}
+function armMusicReturn(rampMs) {
   clearTimeout(musicDuckTimer);
   musicDuckTimer = setTimeout(() => {
     musicDuckUntil = 0;
-    rampMusic("efface", 1, 1200);
+    if (musicHeldLow) return;     // tenue basse : elle remontera au relâchement
+    rampMusic("efface", 1, rampMs);
   }, Math.max(0, musicDuckUntil - Date.now()));
+}
+
+// LA MUSIQUE TENUE BASSE (lot 7 du paysage sonore, décision de Raph du 2026-10-08) :
+// pendant la chute, elle descend comme sous un gros gain, et ne remonte qu'à l'aube du
+// cycle suivant (audio/moments/moments.js), sur `rampMs`. Une demande d'effacement
+// arrivée entre-temps garde son échéance.
+let musicHeldLow = false;
+export function holdMusicLow(on, rampMs = 2400) {
+  if (on) {
+    musicHeldLow = true;
+    rampMusic("efface", 0.2, 600);
+    return;
+  }
+  if (!musicHeldLow) return;
+  musicHeldLow = false;
+  armMusicReturn(rampMs);
 }
 
 export function setMusicVolume(vol) {

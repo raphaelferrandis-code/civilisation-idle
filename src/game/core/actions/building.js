@@ -58,6 +58,7 @@ import { recordGrPerformed, recordShopSpend } from '../chronicleStats.js';
 import { purgeIcarusFlight } from './icarus.js';
 import { purgeBlackjackHand } from './blackjack.js';
 import { buyRoadWorkCore } from './roadWorks.js';
+import { annoncer } from '../../audio/moments/annonces.js';
 
 // Retourne le résultat de buyBuildingCore (true = achat effectué) : permet aux
 // appelants — et aux tests — de distinguer un achat réel d'un refus (verrou
@@ -67,6 +68,8 @@ export function buyBuilding(id) {
   if (bought) {
     invalidateRenderCache("buildings");
     render();
+    // Un achat à la main : la maison qui sort de terre aura son son (audio/moments).
+    annoncer('achat', { id });
   }
   return bought;
 }
@@ -393,6 +396,7 @@ function concludeBuyAll(category, bought, works) {
     enforceInfrastructureCap();
     invalidateRenderCache("buildings");
     render();
+    if (bought > 0) annoncer('achats', { n: bought });
   }
 }
 
@@ -538,6 +542,7 @@ export async function performGrandReset(gr) {
   if (!choice?.claim || choice.cancel) { setGamePaused(false); return; }
 
   setMourning(true);
+  annoncer('sceau');
   await new Promise((resolve) => setTimeout(resolve, 1300));
 
   // Registre de la Chronique : horodatage (horloge à vie) des GR effectués —
@@ -572,6 +577,7 @@ export async function performGrandReset(gr) {
   save();
   openView("city");
   render();
+  annoncer('renouveau');
 }
 
 export function buyUpgrade(id) {

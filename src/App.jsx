@@ -29,6 +29,7 @@ import { registerChoiceDialog } from './game/core/choiceDialog.js';
 import { currentEraIndex } from './game/core/mechanics.js';
 import { eras } from './game/data/world.js';
 import { getEraTheme } from './game/data/eraThemes.js';
+import { armerMoments, sonNouvelAge, suivreBande } from './game/audio/moments/moments.js';
 import { RAGNAROK_FINAL_TITLE_TEXT } from './game/data/myths.js';
 import { tr, getLang, applyDocumentLang } from './game/core/i18n.js';
 import { applyMotionAttribute } from './game/map/ambianceMode.js';
@@ -161,9 +162,14 @@ export default function App() {
   useEffect(() => {
     const prev = prevEraRef.current;
     prevEraRef.current = eraIdx;
+    // Les grands moments préparent les sons de la matière de l'âge (audio/moments).
+    suivreBande(getEraTheme(eraIdx).band);
     if (prev !== null && eraIdx > prev) {
       const theme = getEraTheme(eraIdx);
       const isEpochShift = getEraTheme(prev).band !== theme.band;
+      // Une frappe discrète, plus ample à une nouvelle époque ; jamais pour un âge
+      // franchi pendant une absence rejouée (décision de Raph du 2026-10-08).
+      sonNouvelAge({ bande: theme.band, epoque: isEpochShift });
       setEraBanner({
         name: eras[eraIdx]?.name || "",
         epoch: isEpochShift ? theme.epochLabel : null
@@ -217,6 +223,8 @@ export default function App() {
     // La langue déclarée à la machine (E8) : index.html la fige à « fr ».
     applyDocumentLang();
     initAudio();
+    // Les grands moments (la chute, le Grand Reset, les maisons qui sortent de terre).
+    const desarmerMoments = armerMoments(getEraTheme(currentEraIndex()).band);
     const cleanup = startGameLoop();
 
     // Séquence « debug » tapée au clavier → menu de triche (dev seulement).
@@ -297,6 +305,7 @@ export default function App() {
 
     return () => {
       cleanup();
+      desarmerMoments();
       document.removeEventListener("keydown", handleKeyDown);
     };
   }, []);

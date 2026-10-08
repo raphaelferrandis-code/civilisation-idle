@@ -52,6 +52,7 @@ import { preloadHouseSprites, houseSpriteHeightTiles, houseSpriteReachTilesIso }
 // monde↔écran. Plus personne ne projette à la main — la règle d'or du chantier
 // iso, désormais sans alternative : il n'y a plus qu'une projection.
 import { worldToScreen, screenToWorld, screenDeltaToPan, wonderAnchor, ISO_X, ISO_Y, snapZoom } from './iso/projection.js';
+import { annoncer } from '../audio/moments/annonces.js';
 import { drawIsoWorld } from './iso/isoRenderer.js';
 // `plaisirsHitTest` a rejoint isoPlaisirs.js le 2026-08-23, avec le sprite du
 // monument dont il lit l'encre : c'est ce sprite qu'il interroge pour savoir si le
@@ -2626,7 +2627,14 @@ function initCityMap(canvas, options = {}) {
           const _last = _rev - 1, _tiles = CM.layout.tiles || [];
           for (let i = 0; i < _tiles.length; i += 1) {
             const _t = _tiles[i];
-            if (_t.type === 'enginehome' && (_t.revealIdx || 0) === _last) { _t._revealPinAt = now; break; }
+            if (_t.type === 'enginehome' && (_t.revealIdx || 0) === _last) {
+              _t._revealPinAt = now;
+              // Son de la maison qui sort de terre (audio/moments, lot 7 du paysage sonore) :
+              // il ne joue qu'après un achat à la main ; sa place à l'écran fait le panoramique.
+              const _s = worldToScreen((_t.gx + (_t.spanX || _t.size || 1) / 2) * CM.TILE, (_t.gy + (_t.spanY || _t.size || 1) / 2) * CM.TILE);
+              annoncer('batiment', { sx: _s.x, cw: CM.cw, vu: _s.x >= 0 && _s.x <= CM.cw && _s.y >= 0 && _s.y <= CM.ch, bande: (CM.layout.counts.eraBand | 0) });
+              break;
+            }
           }
           CM._revealSeen = _rev;
         } else if (_rev < CM._revealSeen) {

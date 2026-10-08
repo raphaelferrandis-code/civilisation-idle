@@ -49,6 +49,9 @@ export const CHUTE = {
   pulled: false,         // recul de caméra déjà lancé
   done: false,           // l'acte est au bout (le noir est atteint / l'aube est faite)
   fall: new WeakMap(),   // tuile → instant de sa chute (ms)
+  // Les bâtiments de l'écran qui tombent, pour le son (isoChute.js, planSonsChute ; lu
+  // par audio/moments/moments.js) : { chutes: [{ at, pan, poids }], bande }, ou null.
+  sons: null,
 };
 
 // Pose la version de la chute qui commence (et de son lever).

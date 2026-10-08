@@ -30,8 +30,9 @@ import { isoEngineSceneBox, isoEngineScenesFlag } from './isoEngineScene.js';
 import { drawEngineRuin } from './isoChuteScene.js';
 import { clearDustCache } from './chuteDust.js';
 import {
-  CHUTE, CHUTE_TUNE, chuteTune, setChuteShort, chuteMs, chuteTileState, chuteFallenRadius, chuteWaveEnd, chuteHash,
+  CHUTE, CHUTE_TUNE, chuteTune, setChuteShort, chuteMs, chuteTileState, chuteFallenRadius, chuteWaveEnd, chuteHash, chuteFallAt,
 } from './chuteState.js';
+import { annoncer } from '../../audio/moments/annonces.js';
 import { chuteShortNext, noteChutePlayed } from '../chuteMode.js';
 import { isWindowMinimized } from '../../core/desktopWindow.js';
 import { worldToScreen, depthOf, snapZoom, ISO_X, ISO_Y } from './projection.js';
@@ -80,6 +81,28 @@ function waveRadius(L, core) {
     if (d > maxD) maxD = d;
   }
   return maxD;
+}
+
+// LES SONS DE LA CHUTE (audio/moments/moments.js, lot 7 du paysage sonore) : les
+// bâtiments de l'écran qui tombent, avec l'instant de leur chute, leur place à l'écran
+// (−1 à gauche, 1 à droite, le cœur au centre) et leur poids (une scène de bâtiment
+// pèse plus qu'une maison). La géométrie est connue ici ; le son ne fait que lire.
+// Mêmes bornes que waveRadius : ce qui tombe hors champ, après la vague, se tait.
+function planSonsChute(L, core) {
+  const T = CM.TILE, c0 = worldToScreen(core.x * T, core.y * T);
+  const hw = (CM.cw || 1200) / 2 + 40, h0 = (CM.ch || 700) / 2;
+  const chutes = [];
+  for (const t of L.tiles) {
+    if (t.type !== 'house' && t.type !== 'enginehome' && t.type !== 'engine' && !t.body) continue;
+    if (cmEngineHomeHidden(t) || /aqueduct|field|farm|crop|orchard/i.test(t.buildingId || t.variant || '')) continue;
+    const sx = t.spanX || t.size || 1, sy = t.spanY || t.size || 1;
+    const s = worldToScreen((t.gx + sx / 2) * T, (t.gy + sy / 2) * T);
+    const dx = s.x - c0.x, dy = s.y - c0.y;
+    if (Math.abs(dx) > hw || dy < -h0 - 40 || dy > h0 + 140) continue;
+    chutes.push({ at: chuteFallAt(t), pan: Math.max(-1, Math.min(1, dx / hw)), poids: sx * sy * (t.type === 'engine' ? 2 : 1) });
+  }
+  chutes.sort((p, q) => p.at - q.at);
+  return { chutes, bande: (L.counts && L.counts.eraBand) | 0 };
 }
 
 const SKIP_KEYS = new Set(['Escape', ' ', 'Enter']);
@@ -141,6 +164,7 @@ function startFall() {
   CHUTE.fall = new WeakMap();
   CHUTE.fade = 0; CHUTE.pulled = false; CHUTE.done = false; CHUTE.scrub = null;
   CHUTE.fromLayout = L;
+  try { CHUTE.sons = planSonsChute(L, core); } catch { CHUTE.sons = null; }
   streets = { L, target: CM.citizenTarget, list: CM.vehicles, parked: [] };
   playerZoom = CM.cam.zoom;
   // Un relevé à blanc : il demande toutes les ruines de la cité au réseau, qui
@@ -154,6 +178,7 @@ function startFall() {
   CHUTE.act = 'fall';
   CHUTE.t0 = now0();
   listenSkip(true);
+  annoncer('chute:vague');
   const T = chuteTune();
   const total = chuteWaveEnd() + T.nightAt + T.nightMs + T.fadeAt + T.fadeMs;
   return new Promise((resolve) => {

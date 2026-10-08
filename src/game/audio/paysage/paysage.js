@@ -48,9 +48,10 @@ const ATTENTE_MS = 20000;   // un son que le Worker ne rend pas en 20 s se rend 
 // Dézoomer doit éloigner, pas monter le son (§ 1.1 : le vent de Cities: Skylines, que des
 // joueurs voulaient couper). Le banc le règle (« lointain »).
 const LOINTAIN_BUS = 0.4;
-// LE MAÎTRE : 2,5 × le volume du joueur, le maître du banc de Raph après quinze minutes de
-// jeu (2026-10-07), versé ici. Un limiteur garde la sortie (mixeur.js).
-const GAIN_MAITRE = 2.5;
+// LE MAÎTRE : 1,75 × le volume du joueur, les maîtres du banc de Raph versés ici : 2,5 après
+// quinze minutes de jeu (2026-10-07), puis × 0,7 (2026-10-08). Un limiteur garde la sortie
+// (mixeur.js).
+const GAIN_MAITRE = 1.75;
 // LA VILLE QU'ON VOIT : la rumeur lointaine suit la part de ville à l'écran, pleine dès le
 // quart (au dézoom maximal, une ville centrée en couvre 0,29 au Feu, mesuré). « En dézoom
 // max, si le joueur regarde la forêt, il entend quand même le bruit lointain de la ville ;
@@ -284,8 +285,8 @@ export const BANC = {
 const OREILLE_DEFAUT = { ...OREILLE };
 // La clé change quand des réglages du banc sont VERSÉS dans les niveaux ci-dessus : les
 // anciens multiplicateurs, retenus chez Raph, s'appliqueraient une seconde fois.
-const CLE_BANC = 'civ-paysage-banc-4';
-try { for (const k of ['civ-paysage-banc', 'civ-paysage-banc-2', 'civ-paysage-banc-3']) localStorage.removeItem(k); } catch { /* stockage indisponible */ }
+const CLE_BANC = 'civ-paysage-banc-5';
+try { for (const k of ['civ-paysage-banc', 'civ-paysage-banc-2', 'civ-paysage-banc-3', 'civ-paysage-banc-4']) localStorage.removeItem(k); } catch { /* stockage indisponible */ }
 const nombre = (v, d) => (Number.isFinite(Number(v)) ? Number(v) : d);
 function lireBanc() {
   try {

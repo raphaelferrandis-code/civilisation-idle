@@ -5,6 +5,7 @@
 import { rendreSon, rendreRonron } from './slotsSynth.js';
 import { renderMelodie } from './melodieSynth.js';
 import { rendrePaysage } from './paysage/paysageSynth.js';
+import { rendreMoment } from './moments/momentsSynth.js';
 
 self.onmessage = (ev) => {
   const t = ev.data || {};
@@ -12,7 +13,8 @@ self.onmessage = (ev) => {
     const data = t.quoi === 'son' ? rendreSon(t.nom, t.look)
       : t.quoi === 'ronron' ? rendreRonron(t.look)
         : t.quoi === 'melodie' ? renderMelodie(t.band)
-          : t.quoi === 'paysage' ? rendrePaysage(t.nom) : null;
+          : t.quoi === 'paysage' ? rendrePaysage(t.nom)
+            : t.quoi === 'moment' ? rendreMoment(t.nom) : null;
     if (!data) throw new Error('tâche inconnue : ' + t.quoi);
     self.postMessage({ id: t.id, data }, [data.buffer]);
   } catch (err) {

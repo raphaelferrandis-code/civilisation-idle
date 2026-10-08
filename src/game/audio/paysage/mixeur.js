@@ -9,9 +9,9 @@
 //   · le MAÎTRE porte le volume du joueur et les fondus d'entrée et de sortie ;
 //   · l'ÉTOUFFOIR et la BAISSE assourdissent tout sous une fenêtre ouverte (−8 dB,
 //     passe-bas vers 1,5 kHz) : la ville derrière la vitre ;
-//   · le LIMITEUR garde la sortie de l'écrêtage (lot 6) : le maître monte à 2,5 × le
-//     volume du joueur, et une corneille sous l'oreille, au volume plein, toucherait
-//     0 dBFS. Sous −6 dBFS, il ne fait rien.
+//   · le LIMITEUR garde la sortie de l'écrêtage (lot 6) : le maître monte à 1,75 × le
+//     volume du joueur, et une corneille sous l'oreille, au volume plein, monte à
+//     −3 dBFS, d'autres sons par-dessus. Sous −6 dBFS, il ne fait rien.
 //
 // Un StereoPanner par voix, jamais de PannerNode : en 2D le HRTF n'apporte rien et
 // coûte cher (padenot, « web-audio-perf »).

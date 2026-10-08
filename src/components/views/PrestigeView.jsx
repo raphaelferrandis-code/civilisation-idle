@@ -34,6 +34,7 @@ import TestamentSeals from '../ui/TestamentSeals.jsx';
 import Place, { PlaceKey } from '../ui/Place.jsx';
 import { tipProps } from '../ui/HelpBubble.jsx';
 import { isFirstGame } from '../../game/core/onboarding.js';
+import { annoncer } from '../../game/audio/moments/annonces.js';
 
 const RITE_RESOURCE_LABEL = {
   food: { fr: "Nourriture", en: "Food" },
@@ -125,6 +126,8 @@ export default function PrestigeView() {
   const holdBtnRef = useRef(null);
 
   const cancelHold = () => {
+    // Le grondement de la main qui tient se tait (ou passe à la chute, audio/moments).
+    if (holdStartRef.current) annoncer('chute:lacher');
     if (holdRafRef.current) cancelAnimationFrame(holdRafRef.current);
     holdRafRef.current = 0;
     holdStartRef.current = 0;
@@ -136,6 +139,7 @@ export default function PrestigeView() {
     if (!canCollapse || holdStartRef.current) return;
     holdStartRef.current = performance.now();
     if (holdBtnRef.current) holdBtnRef.current.classList.add("is-holding");
+    annoncer('chute:tenir');
     const step = () => {
       if (!holdStartRef.current) return;
       const p = Math.min(1, (performance.now() - holdStartRef.current) / HOLD_MS);

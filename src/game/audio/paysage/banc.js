@@ -16,6 +16,12 @@
 // paysage.js, donc pas de cycle).
 
 let panneau = null, minuteur = null, api = null, vue = null;
+// Les GRANDS MOMENTS (audio/moments/moments.js, lot 7) s'inscrivent ici : le banc les
+// montre s'ils sont là, sans importer leur module.
+let moments = null;
+export function enregistrerBancMoments(m) {
+  moments = m;
+}
 
 export function bancOuvert() {
   return Boolean(panneau);
@@ -49,7 +55,7 @@ const el = (tag, style, texte) => {
 const BOUTON = 'background:#3a332b;color:#f1e6d2;border:1px solid #6b5d4c;border-radius:3px;padding:1px 7px;cursor:pointer;font:inherit;';
 const TITRE = 'margin:8px 0 3px;color:#e8b86b;font-weight:bold;';
 
-function curseur(parent, libelle, lire, ecrire, min, max, pas) {
+function curseur(parent, libelle, lire, ecrire, min, max, pas, retenir = () => api.retenir()) {
   const ligne = el('label', 'display:flex;align-items:center;gap:6px;margin:1px 0;');
   const nom = el('span', 'flex:0 0 78px;', libelle);
   const input = el('input', 'flex:1;min-width:0;');
@@ -60,7 +66,7 @@ function curseur(parent, libelle, lire, ecrire, min, max, pas) {
     const v = Number(input.value);
     ecrire(v);
     lu.textContent = String(v);
-    api.retenir();
+    retenir();
   });
   ligne.append(nom, input, lu);
   parent.append(ligne);
@@ -131,6 +137,23 @@ function construire() {
   panneau.append(el('div', TITRE, 'Semés'));
   for (const nom of Object.keys(api.SEMES)) ligneProche(nom, 'semes');
 
+  // LES GRANDS MOMENTS (lot 7) : chacun s'écoute et se règle ici. Ils suivent
+  // Options › Son › Bruitages, pas l'Ambiance.
+  const momentsCurseurs = [];
+  if (moments) {
+    panneau.append(el('div', TITRE, 'Grands moments · Bruitages'));
+    for (const fam of moments.familles) {
+      const l = el('div', 'display:flex;align-items:center;gap:6px;margin-top:3px;');
+      l.append(el('span', 'flex:1;', fam));
+      const jouer = el('button', BOUTON, '▶');
+      jouer.title = 'L’entendre, dans la matière et l’âge de la partie';
+      jouer.addEventListener('click', () => moments.ecouter(fam));
+      l.append(jouer);
+      panneau.append(l);
+      momentsCurseurs.push(curseur(panneau, '  × niveau', () => moments.BANC[fam], (v) => { moments.BANC[fam] = v; }, 0, 3, 0.05, () => moments.retenir()));
+    }
+  }
+
   panneau.append(el('div', TITRE, 'L’oreille'));
   const oreille = [
     curseur(panneau, 'maître', () => api.BANC.maitre, (v) => { api.BANC.maitre = v; }, 0, 3, 0.05),
@@ -143,7 +166,7 @@ function construire() {
   const pied = el('div', 'display:flex;gap:6px;margin-top:8px;');
   const copier = el('button', BOUTON, 'Copier les réglages');
   copier.addEventListener('click', () => {
-    const texte = JSON.stringify(api.reglages(), null, 1);
+    const texte = JSON.stringify(moments ? { ...api.reglages(), moments: moments.reglages() } : api.reglages(), null, 1);
     const ok = () => { copier.textContent = 'Copié'; setTimeout(() => { copier.textContent = 'Copier les réglages'; }, 1500); };
     if (navigator.clipboard && navigator.clipboard.writeText) navigator.clipboard.writeText(texte).then(ok, () => window.prompt('Réglages :', texte));
     else window.prompt('Réglages :', texte);
@@ -151,7 +174,8 @@ function construire() {
   const defaut = el('button', BOUTON, 'Défaut');
   defaut.addEventListener('click', () => {
     api.remettre();
-    for (const c of [...Object.values(nappes).map((n) => n.curseur), ...Object.values(proche).map((n) => n.curseur), ...oreille]) {
+    if (moments) { for (const k of Object.keys(moments.BANC)) moments.BANC[k] = 1; moments.retenir(); }
+    for (const c of [...Object.values(nappes).map((n) => n.curseur), ...Object.values(proche).map((n) => n.curseur), ...oreille, ...momentsCurseurs]) {
       c.input.value = String(c.lire()); c.lu.textContent = String(c.lire());
     }
   });

@@ -11,7 +11,7 @@ Chantier ouvert le 2026-10-07 sur la demande de Raph :
 > n'entendre que le son de la ville au loin avec la musique en fond qu'on ne touche pas pour
 > l'instant. »
 
-**Statut : décisions prises le 2026-10-07 (§ 9), lots 1 à 6 livrés. Reste l'épreuve des longues parties, qui revient à Raph.**
+**Statut : décisions prises le 2026-10-07 (§ 9), lots 1 à 6 livrés ; lot 7 (les grands moments, § 3.10) livré le 2026-10-08, à écouter. Reste l'épreuve des longues parties, qui revient à Raph.**
 Ce document fait foi pour ce chantier.
 
 ---
@@ -412,6 +412,48 @@ Les 10 bandes (`data/eraThemes.js`, `eraBandOf`) donnent 5 familles sonores pour
   (68 fichiers, mono, 32 kHz, Vorbis). ⛔ Jamais de MP3 pour une boucle.
 - **Les fichiers sont déclarés** par `import.meta.glob`, comme les musiques, et jamais sondés
   par URL. C'est la leçon de l'.exe : une chaîne de replis d'URL demande tous ses maillons.
+
+### 3.10 Les grands moments (lot 7)
+
+Raph a choisi, le 2026-10-08, de faire sonner les grands moments du jeu avant l'interface.
+Ce ne sont pas des sons de la carte : ils suivent **Options › Son › Bruitages**, comme les jeux
+de la Maison des Plaisirs, et passent par leur propre gain et leur limiteur
+(`src/game/audio/moments/`). Tout est **synthétisé** (`momentsSynth.js`) : BigSoundBank n'a
+aucun vrai effondrement, aucun grondement continu, ni glas ni grand gong (§ 5.10).
+
+- **Le guichet** (`annonces.js`, module-feuille) : le cœur du jeu et la carte y annoncent un
+  moment, le lecteur (`moments.js`) s'y abonne. Rien n'est importé dans l'autre sens.
+- **La chute.**
+  - Tenir « Effondrer la Cité » fait monter un grondement, qui se tait si l'on lâche.
+  - **La musique descend** à 20 % dès le début de la séquence, et **revient à l'aube** du
+    cycle suivant (décision de Raph). Un filet la rend quoi qu'il arrive : 20 s après la fin
+    annoncée, 3 min après le début.
+  - Quand la carte joue la vague, `isoChute.js` relève les bâtiments de l'écran qui tombent
+    (`CHUTE.sons` : leur instant, leur place, leur poids). Le grondement suit la **densité** des
+    chutes. Les douze plus lourds (cinq dans la version courte) s'effondrent chacun à leur
+    instant, de leur côté de l'écran, jamais deux à moins de 220 ms. Des gravats roulent
+    entre eux, et encore un peu à la nuit.
+  - La matière suit l'âge : du bois au Feu et au Bois, de la pierre de la Pierre taillée au
+    Marbre, du fer, du verre et des gravats à la Fonte et au Néon, du cristal aux âges
+    cosmiques.
+  - Un saut (clic, Échap) ne joue pas d'un coup les effondrements qu'il passe.
+  - Au deuil, **le glas** : trois coups de grosse cloche. Sans carte pour jouer la chute,
+    il reste le glas, puis la musique revient.
+- **Un nouvel âge** : une frappe discrète, celle de l'époque (le grand tambour au Feu, le
+  tambour à fente au Bois, le lithophone, le bronze, le gong, la cloche de fer, le carillon
+  électrique, le cristal). **Une nouvelle époque** : un bourdon qui monte et trois frappes, la
+  musique s'efface un instant. **Jamais pour un âge franchi pendant une absence rejouée**
+  (`rattrapageRecent`, main.js) ; deux âges d'affilée ne font qu'un son.
+- **Une maison qui sort de terre** (la pastille dorée, `cityMapRuntime.js`) : un coup de
+  maillet, de pierre, de marteau ou de cristal, de son côté de l'écran, **seulement après un
+  achat à la main**. Un achat de masse fait une courte rafale ; les automatisations ne font
+  aucun bruit. Au camp du Feu, aucune maison ne sort ainsi de terre : rien ne sonne.
+- **Le Grand Reset** : le sceau réclamé (un souffle qui enfle, puis un gong très grave, la
+  musique s'efface), puis le renouveau (trois notes claires) quand la cité neuve paraît.
+- **La mémoire** : seuls les sons de la matière et de l'âge en cours sont prêts, rendus dans
+  le Worker des sons huit secondes après le lancement. Quatorze sons, environ 6 Mo décodés.
+- **Le banc d'écoute** (Ctrl+Alt+B) a une section « Grands moments » : chaque famille s'y
+  écoute (▶) et s'y règle, ses réglages partent avec « Copier les réglages ».
 
 ---
 
@@ -852,6 +894,29 @@ des carillons de verre et le passage des navettes.
 Il n'existe pas de pluie sur des feuilles chez BigSoundBank : sur la forêt, la pluie sera la
 même, assourdie par un filtre.
 
+### 5.10 Lot 7 : des prises pour plus tard (recherche du 2026-10-08)
+
+Le lot 7 est entièrement synthétisé. **BigSoundBank n'a aucun vrai effondrement** (ni mur, ni
+démolition, ni éboulement, ni séisme), aucun grondement continu, aucun glas ni grand gong. Si
+l'écoute de Raph trouve un son synthétique trop faible, voici les prises qui s'en approchent le
+plus (toutes CC0, pages vérifiées, pas encore écoutées) :
+
+| Pour | Prise | Page |
+|---|---|---|
+| le glas | Bell 1 O'clock (#3446), un coup du clocher de La Loupe, 8 s | <https://bigsoundbank.com/bell-1-o-clock-s3446.html> |
+| les pierres | Fall of Stone (#1022), des galets lâchés sur un tas, 30 s | <https://bigsoundbank.com/fall-of-stone-s1022.html> |
+| les gravats | Wheelbarrow of limestone, reversed (#1634), 9 s | <https://bigsoundbank.com/wheelbarrow-of-limestone-reversed-s1634.html> |
+| le bois | Chainsaw and falling tree (#2750), 29 s (couper la tronçonneuse) | <https://bigsoundbank.com/chainsaw-and-falling-tree-s2750.html> |
+| le bois | Unloading logs (#1441), des bûches déversées, 2 min (couper le moteur) | <https://bigsoundbank.com/unloading-logs-s1441.html> |
+| le verre | A Mirror Explodes (#0387), 2 s | <https://bigsoundbank.com/mirror-explodes-s0387.html> |
+| le fer | Fall 2 sheet steel bars #3 (#1778), 5 s | <https://bigsoundbank.com/fall-2-sheet-steel-bars-3-s1778.html> |
+| le grondement | Thunder #8 (#3181), une traîne de tonnerre de 42 s, à filtrer vers le grave | <https://bigsoundbank.com/thunder-8-s3181.html> |
+| le sceau | Gong, strong #1 (#1483), un petit gong, à baisser en hauteur | <https://bigsoundbank.com/gong-strong-1-s1483.html> |
+| la maison | Plant a wooden picket (#1389), des coups de masse sur un piquet, 24 s | <https://bigsoundbank.com/plant-a-wooden-picket-s1389.html> |
+
+La recherche de bigsoundbank.com ne trouve que les mots anglais ; lasonotheque.org, la même
+banque en français, se cherche en français.
+
 ---
 
 ## 6. Plan d'action
@@ -865,7 +930,8 @@ même, assourdie par un filtre.
 | **4. Les métiers** | Port et bateaux, ateliers et industrie par stade, feux, bétail et labours, mouettes (sons 13, 14, 18 à 21). | Validation à l'oreille. |
 | **5. Le temps** | Pluie et rafales, neige, nuit en ville, émeutes, âges cosmiques (sons 22 à 25). | Validation à l'oreille. |
 | **6. Le mixage final** | Niveaux, courbe du zoom, épreuve d'une session de 2 h en fond, mémoire et CPU mesurés, .exe vérifié, crédits et Steam. | Rien n'agace en 2 h ; budgets du § 3.9 tenus. |
-| **7. Plus tard** | Les sons de priorité 3 (27 à 30), puis la liste « hors ambiance » du § 4 : la chute, l'achat d'un bâtiment, les clics. | À décider. |
+| **7. Les grands moments** | La chute, un nouvel âge, une maison qui sort de terre, le Grand Reset (§ 3.10). | Validation à l'oreille. |
+| **8. Plus tard** | Les sons de priorité 3 (27 à 30), puis l'interface : les clics, les achats, les déblocages ; les jeux muets de la Maison. | À décider. |
 
 Chaque lot est livré par petites touches commitées, comme d'habitude, et ne part qu'après la
 validation à l'oreille du précédent.
@@ -1405,3 +1471,33 @@ Ma recommandation était donnée pour chacune.
   **Son retour** : dézoomé au-dessus de la forêt, il entendait encore la ville. La rumeur suit
   maintenant la ville qu'on voit, et la végétation au loin (`lointainForet`) prend sa place
   au-dessus des bois (§ 3.5). Le banc a son curseur. Raph fera des sessions plus longues.
+- **2026-10-08, lot 7 (les grands moments).** Raph l'a choisi parmi les sons qui manquaient,
+  avant l'interface. Ses décisions : pendant la chute, la musique **baisse et revient à
+  l'aube** ; un son **discret à chaque âge, plus ample à chaque époque**, jamais au retour
+  d'absence. Tout le reste au § 3.10.
+
+  **Les accroches** (le guichet `moments/annonces.js`) :
+  - la séquence de chute (`events.js`) : le début, le deuil, la fin ;
+  - la vague sur la carte (`isoChute.js`, qui relève aussi `CHUTE.sons`) ;
+  - le bouton qu'on maintient (`PrestigeView.jsx`) ;
+  - l'achat à la main et l'achat de masse (`building.js`) ;
+  - la pastille d'une maison qui sort de terre (`cityMapRuntime.js`, fichier en CRLF : fins de
+    ligne gardées) ;
+  - le Grand Reset (`building.js`) ;
+  - le bandeau des âges (`App.jsx`).
+
+  `main.js` gagne `holdMusicLow` (la musique tenue basse) et `rattrapageRecent` (posé par
+  `advanceWorldBy`, que partagent l'absence et la clepsydre).
+
+  **Vérifié** : les 47 sons se rendent sans écrêtage (test) ; dans le navigateur, chaque famille
+  sonne, de −32 dBFS en crête pour une maison à −18 pour un effondrement, aux Bruitages par
+  défaut ; une chute simulée fait tomber ses douze effondrements, sonne le glas au deuil et rend
+  la musique à la fin. Le calage sur la vague, le saut, l'aube et le retour d'absence sont
+  vérifiés en temps simulé (`moments.test.js`). **Pas vérifié** : une vraie chute sur la carte
+  (la page de vérification est un onglet caché, où la carte refuse de la jouer), la pastille
+  d'une maison (la partie neuve est au camp du Feu).
+
+  **Reste** : l'écoute de Raph, au banc puis en jouant une chute.
+- **2026-10-08, le maître du paysage × 0,7** (réglages de Raph, après écoute ; les grands
+  moments restent à 1) : `GAIN_MAITRE` passe de 2,5 à 1,75. La clé du banc passe à
+  `civ-paysage-banc-5`.
