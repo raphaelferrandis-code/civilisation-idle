@@ -38,6 +38,7 @@ import { chronicle } from './utils.js';
 import { tr } from '../i18n.js';
 import { recordShopSpend } from '../chronicleStats.js';
 import { pushOutcomeFloat } from '../outcomeFloat.js';
+import { annoncer } from '../../audio/moments/annonces.js';
 import {
   AUTO_AUGURY_INTERVAL_MS,
   AUTO_ICARUS_INTERVAL_MS,
@@ -350,6 +351,8 @@ export function unlockTempleAuto(game) {
   pushOutcomeFloat({ label: `⚙️ ${tr(label.court)}`, kind: "gain" });
   save();
   render();
+  // Un achat à la main, comme les autres nœuds de l'arbre des artefacts : son toc.
+  annoncer('achat', { id: `auto:${game}` });
   return true;
 }
 

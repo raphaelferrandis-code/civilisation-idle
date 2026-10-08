@@ -11,7 +11,7 @@ Chantier ouvert le 2026-10-07 sur la demande de Raph :
 > n'entendre que le son de la ville au loin avec la musique en fond qu'on ne touche pas pour
 > l'instant. »
 
-**Statut : décisions prises le 2026-10-07 (§ 9), lots 1 à 6 livrés ; lot 7 (les grands moments, § 3.10), lot 8 (l'interface, § 3.11) et lot 9 (les petits sons de la carte, § 3.12) livrés le 2026-10-08 ; lot 10 (les jeux de la Maison, § 3.13) livré ; lot 11 (les quatre tables qui restaient muettes, § 3.14) livré ; lot 12 (les merveilles, § 3.15) fait, à écouter. Reste l'épreuve des longues parties, qui revient à Raph.**
+**Statut : TERMINÉ le 2026-10-08 (Raph : « on aura fini le son »).** Décisions prises le 2026-10-07 (§ 9) ; lots 1 à 6 livrés le 2026-10-07, lots 7 à 12 le 2026-10-08 : les grands moments (§ 3.10), l'interface (§ 3.11), les petits sons de la carte (§ 3.12), les jeux de la Maison (§ 3.13), les quatre tables qui restaient muettes (§ 3.14), les merveilles (§ 3.15). Restent à Raph l'épreuve des longues parties (ses réglages du banc d'écoute se reportent dans le code) et le .exe.
 Ce document fait foi pour ce chantier.
 
 ---
@@ -1772,3 +1772,12 @@ Ma recommandation était donnée pour chacune.
   puis ses deux frappes. Et la garde des courses (accord de Raph) : une course aux couloirs
   hors de leur place est retirée au chargement comme au tirage (`state.js`, `courses.js`) ;
   la partie de test (`etat-plein.json`) a retrouvé des couloirs de 0 à 5.
+- **2026-10-08, le lot 12 est commité et poussé** (`ca7a8357` la garde des courses, `7fba9d0c`
+  les merveilles et les bulles). Le dernier achat muet, le déblocage de la sébile du tronc
+  (`unlockTempleAuto`), fait désormais son toc comme les autres nœuds de l'arbre des
+  artefacts.
+
+  **Le build de production vérifié** (`npm run build`, servi par `vite preview`) : le Worker
+  des sons du build rend les sons des lots 10 à 12 (le tour de roulette en 103 ms, le galop
+  en 112 ms, les autres en moins de 40 ms), et la clameur de la foule est livrée et se décode
+  (24 s). Le .exe reste à construire par Raph (téléchargement d'Electron).
