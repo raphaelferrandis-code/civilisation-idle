@@ -11,7 +11,7 @@ Chantier ouvert le 2026-10-07 sur la demande de Raph :
 > n'entendre que le son de la ville au loin avec la musique en fond qu'on ne touche pas pour
 > l'instant. »
 
-**Statut : décisions prises le 2026-10-07 (§ 9), lots 1 à 6 livrés ; lot 7 (les grands moments, § 3.10) livré le 2026-10-08, à écouter. Reste l'épreuve des longues parties, qui revient à Raph.**
+**Statut : décisions prises le 2026-10-07 (§ 9), lots 1 à 6 livrés ; lot 7 (les grands moments, § 3.10) et lot 8 (l'interface, § 3.11) livrés le 2026-10-08, à écouter. Reste l'épreuve des longues parties, qui revient à Raph.**
 Ce document fait foi pour ce chantier.
 
 ---
@@ -454,6 +454,29 @@ aucun vrai effondrement, aucun grondement continu, ni glas ni grand gong (§ 5.1
   le Worker des sons huit secondes après le lancement. Quatorze sons, environ 6 Mo décodés.
 - **Le banc d'écoute** (Ctrl+Alt+B) a une section « Grands moments » : chaque famille s'y
   écoute (▶) et s'y règle, ses réglages partent avec « Copier les réglages ».
+
+### 3.11 L'interface (lot 8)
+
+Raph a choisi, le 2026-10-08, quatre sons d'interface parmi ceux proposés. Comme les grands
+moments, ils suivent **Bruitages**, sont synthétisés et plus discrets encore : ils reviennent
+souvent.
+
+- **L'achat à la main** : un « toc » léger dans la matière de l'âge, pour tout achat cliqué
+  (un bâtiment, la voirie, une amélioration, la boutique de Faveur, un artefact du temple).
+  Il part 70 ms après le clic, sauf si une maison sort de terre entre-temps : on n'entend
+  alors qu'elle, de son côté de l'écran. Un achat de masse : deux tocs. Un toc au plus
+  toutes les 70 ms quand on clique en rafale. L'automatisation reste muette.
+- **La bulle d'un passant**, cueillie : des pièces (l'or), un parchemin et une note claire (le
+  savoir), du grain qui coule (la nourriture).
+- **Un succès débloqué** : quatre notes claires qui montent. Deux succès collés, un seul
+  carillon. Rien pendant la chute ni pendant une absence rejouée (le succès s'annonce déjà
+  ainsi).
+- **L'alerte de crise** : un coup de cloche grave quand la Rupture ou l'Usure franchit 75 %,
+  deux à 90 % (le second un triton plus bas, sur un grondement qui enfle) ; la musique
+  s'efface un instant. Une fois par franchissement, réarmée à 65 % et 80 % ; rien au
+  chargement d'une partie déjà en crise, ni pendant la chute, ni après une absence rejouée.
+- **Écartés par Raph** (2026-10-08) : l'achat impossible, les onglets et menus, la fenêtre
+  d'événement qui s'ouvre. ⛔ Ne pas les reproposer.
 
 ---
 
@@ -931,7 +954,8 @@ banque en français, se cherche en français.
 | **5. Le temps** | Pluie et rafales, neige, nuit en ville, émeutes, âges cosmiques (sons 22 à 25). | Validation à l'oreille. |
 | **6. Le mixage final** | Niveaux, courbe du zoom, épreuve d'une session de 2 h en fond, mémoire et CPU mesurés, .exe vérifié, crédits et Steam. | Rien n'agace en 2 h ; budgets du § 3.9 tenus. |
 | **7. Les grands moments** | La chute, un nouvel âge, une maison qui sort de terre, le Grand Reset (§ 3.10). | Validation à l'oreille. |
-| **8. Plus tard** | Les sons de priorité 3 (27 à 30), puis l'interface : les clics, les achats, les déblocages ; les jeux muets de la Maison. | À décider. |
+| **8. L'interface** | L'achat à la main, la bulle d'un passant, un succès, l'alerte de crise (§ 3.11). | Validation à l'oreille. |
+| **9. Plus tard** | Les sons de priorité 3 (27 à 30) ; les jeux muets de la Maison (vingt-et-un, tickets, osselets). | À décider. |
 
 Chaque lot est livré par petites touches commitées, comme d'habitude, et ne part qu'après la
 validation à l'oreille du précédent.
@@ -1501,3 +1525,14 @@ Ma recommandation était donnée pour chacune.
 - **2026-10-08, le maître du paysage × 0,7** (réglages de Raph, après écoute ; les grands
   moments restent à 1) : `GAIN_MAITRE` passe de 2,5 à 1,75. La clé du banc passe à
   `civ-paysage-banc-5`.
+- **2026-10-08, lot 8 (l'interface).** Raph a choisi quatre sons : l'achat à la main, la
+  bulle d'un passant, un succès, l'alerte de crise (§ 3.11). Il a écarté l'achat impossible,
+  les onglets et menus, la fenêtre d'événement.
+
+  **Les accroches** : `buyUpgrade` et `rewardCitizenThought` (building.js),
+  `buyFaveurItem` et `buyTempleArtifact` (faveurShop.js), `checkAchievements` (le succès
+  annoncé), et dans `App.jsx`, le niveau de crise du vignettage pour l'alerte.
+
+  **Vérifié** : les 61 sons se rendent sans écrêtage ; dans le navigateur, un vrai clic sur
+  « Acheter » fait un toc vers −29 dBFS en crête, une bulle −29, un succès −23, l'alerte −21
+  (Bruitages par défaut) ; le reste en temps simulé (`moments.test.js`).

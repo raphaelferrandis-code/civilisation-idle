@@ -12,7 +12,10 @@
 //                                frappe de l'époque (tambour, bois, pierre, bronze, gong,
 //                                fer, carillon électrique, cristal) ;
 //   · `batiment-<m>-<n>`         une maison qui sort de terre (achat à la main) ;
-//   · `sceau`, `renouveau`       le Grand Reset réclamé, puis la cité neuve.
+//   · `sceau`, `renouveau`       le Grand Reset réclamé, puis la cité neuve ;
+//   · L'INTERFACE (lot 8) : `achat-<m>-<n>` un achat à la main, `bulle-<or|savoir|
+//     nourriture>` la bulle d'un passant cueillie, `succes` un succès, `crise-<1|2>`
+//     la Rupture qui franchit 75 %, puis 90 %.
 //
 // Aucune voix, aucun mot ; rien d'emprunté : du bruit filtré, des partiels, des cloches.
 
@@ -335,12 +338,83 @@ function rendreRenouveau(sr) {
   return normaliser(salle(out, sr, 0.8, 0.3), sr, 0.7, 0.6);
 }
 
+// ── L'interface (lot 8) ─────────────────────────────────────────────────────────
+// Un achat à la main : un « toc » léger, plus petit que la maison qui sort de terre.
+function rendreAchat(m, v, sr) {
+  const rnd = graine(8100 + MATIERES.indexOf(m) * 7 + v);
+  const out = vide(0.45, sr);
+  const plus = (liste, k) => liste.map(([r, a, d]) => [r, a, d * k]);
+  if (m === 'bois') {
+    frappe(out, sr, 0.004, 0.45, rnd, 0.001);
+    modes(out, sr, 0.004, 430 + 50 * v, plus(BOIS, 1.4), 0.8, { duree: 0.25 });
+  } else if (m === 'pierre') {
+    impact(out, sr, 0.004, 0.5, rnd, { haut: 230, bas: 150, duree: 0.08, bruit: 0.5, ouvert: 2600 });
+    modes(out, sr, 0.006, 760 + 70 * v, plus(PIERRE, 2.5), 0.4, { duree: 0.25 });
+  } else if (m === 'metal') {
+    frappe(out, sr, 0.004, 0.4, rnd, 0.001);
+    modes(out, sr, 0.004, 930 + 110 * v, plus(FER, 5), 0.45, { duree: 0.3 });
+  } else {
+    modes(out, sr, 0.004, v === 2 ? 1760 : 1568, plus(CRISTAL, 2.2), 0.6, { duree: 0.35 });
+  }
+  return normaliser(salle(out, sr, 0.2, 0.08), sr, 0.8, 0.05);
+}
+// La bulle d'un passant, cueillie : des pièces (l'or), un parchemin (le savoir), du
+// grain (la nourriture).
+const PIECE = [[1, 1, 11], [1.53, 0.7, 14], [2.27, 0.5, 18], [2.9, 0.35, 24]];
+function rendreBulle(type, sr) {
+  const rnd = graine(8200 + ['or', 'savoir', 'nourriture'].indexOf(type));
+  const out = vide(1.1, sr);
+  if (type === 'or') {
+    for (const [t, f, g] of [[0.005, 2350, 0.8], [0.075, 2490, 0.6], [0.16, 2210, 0.4]]) {
+      frappe(out, sr, t, g * 0.3, rnd, 0.0008);
+      modes(out, sr, t, f, PIECE, g, { duree: 0.4 });
+    }
+  } else if (type === 'savoir') {
+    // Le froissement du parchemin, puis une note claire.
+    debris(out, sr, 0.005, 0.22, 0.5, rnd, { fMin: 1500, fMax: 6500, densite: 260, tau: 0.09, amort: 180, long: 0.004 });
+    modes(out, sr, 0.16, 1175, CRISTAL, 0.45, { duree: 0.7 });
+  } else {
+    // Le grain qui coule, et le sac qu'on pose.
+    debris(out, sr, 0.005, 0.38, 0.55, rnd, { fMin: 2200, fMax: 7500, densite: 420, tau: 0.14, amort: 150, long: 0.002 });
+    impact(out, sr, 0.3, 0.4, rnd, { haut: 170, bas: 95, duree: 0.14, bruit: 0.35, ouvert: 900 });
+  }
+  return normaliser(salle(out, sr, 0.25, 0.1), sr, 0.8, 0.1);
+}
+// Un succès : quatre notes claires qui montent (ré, fa dièse, la, ré).
+function rendreSucces(sr) {
+  const rnd = graine(8300);
+  const out = vide(2.4, sr);
+  for (const [t, f, g] of [[0.005, 587, 0.7], [0.115, 740, 0.7], [0.23, 880, 0.75], [0.37, 1175, 0.55]]) {
+    frappe(out, sr, t, g * 0.12, rnd, 0.001);
+    modes(out, sr, t, f, CRISTAL, g, { duree: 1.4 });
+    modes(out, sr, t, f, BRONZE.slice(1, 5), g * 0.25, { duree: 1 });
+  }
+  return normaliser(salle(out, sr, 0.6, 0.25), sr, 0.8, 0.5);
+}
+// L'alerte de crise : 1, la Rupture à 75 % (un coup de cloche grave) ; 2, à 90 %
+// (deux coups, le second un triton plus bas, sur un grondement qui enfle).
+function rendreCrise(n, sr) {
+  const rnd = graine(8400 + n);
+  const out = vide(n === 1 ? 4.2 : 5.4, sr);
+  if (n === 2) souffleMontant(out, sr, 0, 1.2, 0.35, rnd, { fBas: 60, fHaut: 420 });
+  const t0 = n === 2 ? 1.1 : 0.01;
+  frappe(out, sr, t0, 0.25, rnd, 0.004);
+  modes(out, sr, t0, 82.4, BRONZE, 0.9, { duree: 3.6 });
+  if (n === 2) {
+    frappe(out, sr, t0 + 1.15, 0.2, rnd, 0.004);
+    modes(out, sr, t0 + 1.15, 58.3, BRONZE, 0.8, { duree: 3 });
+  }
+  return normaliser(salle(out, sr, 0.85, 0.3), sr, 0.8, 0.6);
+}
+
 // ── Le catalogue ────────────────────────────────────────────────────────────────
 const NOMS = ['grondement', 'glas', 'sceau', 'renouveau'];
 for (const m of MATIERES) for (const v of [1, 2, 3]) NOMS.push(`effondrement-${m}-${v}`);
 for (const v of [1, 2, 3]) NOMS.push(`gravats-${v}`);
 for (let b = 0; b <= 9; b += 1) NOMS.push(`age-${b}`, `epoque-${b}`);
 for (const m of MATIERES) for (const v of [1, 2]) NOMS.push(`batiment-${m}-${v}`);
+for (const m of MATIERES) for (const v of [1, 2]) NOMS.push(`achat-${m}-${v}`);
+NOMS.push('bulle-or', 'bulle-savoir', 'bulle-nourriture', 'succes', 'crise-1', 'crise-2');
 export const SONS_MOMENTS = NOMS;
 
 export function rendreMoment(nom, sr = MOMENTS_SR) {
@@ -356,5 +430,12 @@ export function rendreMoment(nom, sr = MOMENTS_SR) {
   if (m) return m[1] === 'age' ? rendreAge(Number(m[2]), sr) : rendreEpoque(Number(m[2]), sr);
   m = /^batiment-(bois|pierre|metal|cosmique)-([12])$/.exec(nom);
   if (m) return rendreBatiment(m[1], Number(m[2]), sr);
+  m = /^achat-(bois|pierre|metal|cosmique)-([12])$/.exec(nom);
+  if (m) return rendreAchat(m[1], Number(m[2]), sr);
+  m = /^bulle-(or|savoir|nourriture)$/.exec(nom);
+  if (m) return rendreBulle(m[1], sr);
+  if (nom === 'succes') return rendreSucces(sr);
+  m = /^crise-([12])$/.exec(nom);
+  if (m) return rendreCrise(Number(m[1]), sr);
   return null;
 }

@@ -26,6 +26,7 @@ import { hasTempleArtifact } from './templeArtifacts.js';
 import { blessingCost, recettesPerHour } from './maisonTable.js';
 import { recordShopSpend } from '../chronicleStats.js';
 import { templeRelicMultiplier, blessingProductionMultiplier } from '../mechanics/production/crisisLevers.js';
+import { annoncer } from '../../audio/moments/annonces.js';
 
 // Coût du PROCHAIN niveau d'un augment à niveaux (croissant). Arrondi.
 function tierCost(base, growth, level) {
@@ -115,6 +116,7 @@ export function buyFaveurItem(id) {
   recordShopSpend(faveur - (state.faveur || 0));
   save();
   render();
+  annoncer('achat', { id });
   return true;
 }
 
@@ -149,5 +151,6 @@ export function buyTempleArtifact(id) {
   chronicle(tr({ fr: `La Maison s'enrichit d'un artefact : ${label}.`, en: `The House gains an artifact: ${label}.` }));
   save();
   render();
+  annoncer('achat', { id });
   return true;
 }

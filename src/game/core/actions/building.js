@@ -605,6 +605,7 @@ export function buyUpgrade(id) {
     en: `Our leaders have decreed a new advance for the city: ${tr(upgrade.name)}.`
   }));
   render();
+  annoncer('achat', { id });
   return true;
 }
 
@@ -616,6 +617,8 @@ export function rewardCitizenThought(thoughtType, citizen) {
   const r = rates(cityVitals(), pressureBreakdown());
   const gainOf = (rate, floor) => D(rate).max(0).mul(90).ceil().max(floor);
   let rewardText;
+  // Le son de la cueillette (audio/moments) : l'or, le savoir, la nourriture.
+  annoncer('bulle', { type: thoughtType });
   if (thoughtType === "lightning") {
     const gain = gainOf(r.gold, 5);
     state.gold = D(state.gold).add(gain);

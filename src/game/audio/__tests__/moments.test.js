@@ -180,6 +180,56 @@ describe('la chute', () => {
   });
 });
 
+describe("l'interface (lot 8)", () => {
+  it("un achat à la main fait un toc ; si une maison sort de terre, on n'entend qu'elle", () => {
+    const t0 = compte('achat-'), b0 = compte('batiment-');
+    A.annoncer('achat', { id: 'scribes' });
+    vi.advanceTimersByTime(100);
+    expect(compte('achat-pierre')).toBe(t0 + 1);
+    vi.advanceTimersByTime(1600);
+    A.annoncer('achat', { id: 'guilds' });
+    A.annoncer('batiment', { sx: 500, cw: 1000, vu: true, bande: 3 });
+    vi.advanceTimersByTime(100);
+    expect(compte('achat-')).toBe(t0 + 1);
+    expect(compte('batiment-')).toBe(b0 + 1);
+    // Un achat de masse loin de la carte : deux tocs.
+    vi.advanceTimersByTime(1600);
+    A.annoncer('achats', { n: 12 });
+    vi.advanceTimersByTime(100);
+    expect(compte('achat-')).toBe(t0 + 3);
+  });
+
+  it("la bulle d'un passant : l'or, le savoir, la nourriture", () => {
+    const or0 = compte('bulle-or'), sa0 = compte('bulle-savoir'), no0 = compte('bulle-nourriture');
+    A.annoncer('bulle', { type: 'lightning' });
+    vi.advanceTimersByTime(200);
+    A.annoncer('bulle', { type: 'scroll' });
+    vi.advanceTimersByTime(200);
+    A.annoncer('bulle', { type: 'thought' });
+    expect([compte('bulle-or') - or0, compte('bulle-savoir') - sa0, compte('bulle-nourriture') - no0]).toEqual([1, 1, 1]);
+  });
+
+  it('un succès sonne une fois ; deux succès collés, un seul carillon', () => {
+    const s0 = compte('succes');
+    A.annoncer('succes', { n: 1 });
+    A.annoncer('succes', { n: 1 });
+    expect(compte('succes')).toBe(s0 + 1);
+  });
+
+  it("l'alerte de crise : un coup à 75 %, deux à 90 % ; rien après une absence rejouée", () => {
+    const c1 = compte('crise-1'), c2 = compte('crise-2');
+    M.sonAlerteCrise(1);
+    expect(compte('crise-1')).toBe(c1 + 1);
+    vi.advanceTimersByTime(4100);
+    M.sonAlerteCrise(2);
+    expect(compte('crise-2')).toBe(c2 + 1);
+    vi.advanceTimersByTime(4100);
+    R.rattrapage = true;
+    M.sonAlerteCrise(2);
+    expect(compte('crise-2')).toBe(c2 + 1);
+  });
+});
+
 describe('le Grand Reset', () => {
   it('le sceau (la musique s’efface), puis le renouveau', () => {
     const s0 = compte('sceau'), r0 = compte('renouveau');

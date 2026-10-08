@@ -29,7 +29,7 @@ import { registerChoiceDialog } from './game/core/choiceDialog.js';
 import { currentEraIndex } from './game/core/mechanics.js';
 import { eras } from './game/data/world.js';
 import { getEraTheme } from './game/data/eraThemes.js';
-import { armerMoments, sonNouvelAge, suivreBande } from './game/audio/moments/moments.js';
+import { armerMoments, sonNouvelAge, suivreBande, sonAlerteCrise } from './game/audio/moments/moments.js';
 import { RAGNAROK_FINAL_TITLE_TEXT } from './game/data/myths.js';
 import { tr, getLang, applyDocumentLang } from './game/core/i18n.js';
 import { applyMotionAttribute } from './game/map/ambianceMode.js';
@@ -110,6 +110,24 @@ export default function App() {
     return Math.min(1, Math.floor(lvl * 20 + 1e-9) / 20);
   });
   const isCrisisExtreme = crisisLevel >= 0.9;
+  // L'ALERTE DE CRISE (audio/moments, lot 8 du paysage sonore) : un coup de cloche grave
+  // quand la Rupture ou l'Usure franchit 75 %, deux à 90 %. Une fois par franchissement,
+  // réarmée avec de la marge (65 %, 80 %) : une crise qui oscille autour d'un seuil ne
+  // sonne pas à chaque pas. Rien au chargement d'une partie déjà en crise, ni pendant la chute.
+  const crisePalierRef = useRef(null);
+  useEffect(() => {
+    const p = crisisLevel >= 0.9 ? 2 : crisisLevel >= 0.75 ? 1 : 0;
+    const avant = crisePalierRef.current;
+    if (avant === null) { crisePalierRef.current = p; return; }
+    if (p > avant) {
+      crisePalierRef.current = p;
+      if (!chuteEnCours) sonAlerteCrise(p);
+    } else if (avant === 2 && crisisLevel <= 0.8) {
+      crisePalierRef.current = crisisLevel >= 0.75 ? 1 : 0;
+    } else if (avant === 1 && crisisLevel <= 0.65) {
+      crisePalierRef.current = 0;
+    }
+  }, [crisisLevel, chuteEnCours]);
   const crisisLocked = useGameState(s => !!s.crisisLimitAnnounced);
   const finalChronicleTitle = useGameState(s => s.finalChronicleTitle);
   const choiceResolverRef = useRef(null);

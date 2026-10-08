@@ -30,6 +30,8 @@ import { enregistrerBancMoments } from '../paysage/banc.js';
 export const NIVEAUX = {
   grondement: 0.55, effondrement: 0.5, gravats: 0.28, glas: 0.45,
   age: 0.3, epoque: 0.48, batiment: 0.2, sceau: 0.55, renouveau: 0.35,
+  // L'interface (lot 8) : plus discrète encore, elle revient souvent.
+  achat: 0.16, bulle: 0.22, succes: 0.35, crise: 0.45,
 };
 // Les molettes du banc d'écoute, × NIVEAUX (retenues d'une session à l'autre).
 export const BANC_MOMENTS = Object.fromEntries(Object.keys(NIVEAUX).map((k) => [k, 1]));
@@ -52,6 +54,7 @@ const D = {
   chute: null,             // la chute en cours (voir debutChute)
   musique: false,          // la musique est tenue basse
   dernierAchat: -Infinity, rafale: null, dernierBat: -Infinity, dernierAge: -Infinity,
+  toc: null, dernierToc: -Infinity, dernierBulle: -Infinity, dernierSucces: -Infinity, dernierCrise: -Infinity,
   compte: {},              // combien de fois chaque son a joué (vérifications, banc)
 };
 
@@ -77,7 +80,8 @@ export function sonsUtilesMoments(b) {
   const m = matiereDe(b), e = Math.min(9, b + 1);
   return ['grondement', 'glas', 'gravats-1', 'gravats-2', 'gravats-3',
     `effondrement-${m}-1`, `effondrement-${m}-2`, `effondrement-${m}-3`,
-    `age-${b}`, `epoque-${e}`, `batiment-${m}-1`, `batiment-${m}-2`, 'sceau', 'renouveau'];
+    `age-${b}`, `epoque-${e}`, `batiment-${m}-1`, `batiment-${m}-2`, 'sceau', 'renouveau',
+    `achat-${m}-1`, `achat-${m}-2`, 'bulle-or', 'bulle-savoir', 'bulle-nourriture', 'succes', 'crise-1', 'crise-2'];
 }
 function preparer() {
   if (!getSfxEnabled()) return;
@@ -338,9 +342,17 @@ function surAnnonce(nom, d) {
       break;
     case 'achat':
       D.dernierAchat = now;
+      tocPlusTard(1);
       break;
     case 'achats':
       D.rafale = { a: now, n: (d && d.n) || 2 };
+      tocPlusTard(2);
+      break;
+    case 'bulle':
+      bulle(d && d.type, now);
+      break;
+    case 'succes':
+      if (now - D.dernierSucces > 1500) { D.dernierSucces = now; jouer('succes', {}, 0.6); }
       break;
     case 'batiment':
       maisonQuiSort(d || {}, now);
@@ -357,12 +369,40 @@ function surAnnonce(nom, d) {
   }
 }
 
+// L'ACHAT À LA MAIN (lot 8) : un « toc » léger, 70 ms après le clic — sauf si une
+// maison sort de terre entre-temps (la carte a mis une image à la dessiner) : c'est elle
+// qu'on entend, de son côté de l'écran, et pas les deux. Un clic en rafale : un toc au
+// plus toutes les 70 ms. `coups` : 2 pour un achat de masse.
+function tocPlusTard(coups) {
+  clearTimeout(D.toc);
+  D.toc = setTimeout(() => {
+    D.toc = null;
+    const now = horloge();
+    if (now - D.dernierToc < 70) return;
+    D.dernierToc = now;
+    const m = matiereDe(D.bande);
+    for (let i = 0; i < coups; i += 1) {
+      voix(`achat-${m}-${1 + Math.floor(Math.random() * 2)}`, { g: 1 - 0.25 * i, pan: (Math.random() - 0.5) * 0.3, dans: i * 0.085, vitesse: 0.94 + Math.random() * 0.12 });
+    }
+  }, 70);
+}
+// LA BULLE D'UN PASSANT, cueillie (lot 8) : ce qu'elle rapporte.
+function bulle(type, now) {
+  if (now - D.dernierBulle < 120) return;
+  D.dernierBulle = now;
+  const nom = type === 'lightning' ? 'bulle-or' : type === 'scroll' ? 'bulle-savoir' : 'bulle-nourriture';
+  jouer(nom, { vitesse: 0.96 + Math.random() * 0.08 }, 0.4);
+}
+
 // Une maison sort de terre : seulement si la main vient d'acheter.
 function maisonQuiSort({ sx = 0, cw = 1, vu = false, bande = D.bande }, now) {
   const rafale = D.rafale && now - D.rafale.a < 1500 ? D.rafale : null;
   if (!rafale && now - D.dernierAchat > 1500) return;
   if (now - D.dernierBat < 90) return;
   D.dernierBat = now;
+  // La maison a son son : le toc de l'achat se tait.
+  clearTimeout(D.toc);
+  D.toc = null;
   const m = matiereDe(bande);
   const pan = vu ? Math.max(-0.8, Math.min(0.8, (sx / Math.max(1, cw)) * 2 - 1)) : 0;
   const g = vu ? 1 : 0.6;
@@ -389,6 +429,20 @@ export function sonNouvelAge({ bande = 0, epoque = false } = {}) {
   if (epoque) duckMusic(3500);
   jouer(epoque ? `epoque-${b}` : `age-${b}`, {}, 0.5);
 }
+// L'ALERTE DE CRISE (lot 8, App.jsx) : la Rupture ou l'Usure franchit 75 % (`palier` 1),
+// puis 90 % (2). Une fois par franchissement ; jamais pendant la chute, ni pour un
+// palier passé pendant une absence rejouée.
+export function sonAlerteCrise(palier) {
+  if (!getSfxEnabled() || rattrapageRecent(6000) || D.chute) return;
+  if (typeof document !== 'undefined' && document.hidden) return;
+  const now = horloge();
+  if (now - D.dernierCrise < 4000) return;
+  D.dernierCrise = now;
+  const p = palier >= 2 ? 2 : 1;
+  duckMusic(p === 2 ? 4500 : 3000);
+  jouer(`crise-${p}`, {}, 0.6);
+}
+
 // La bande de la partie (App.jsx, à chaque âge) : les sons de sa matière se préparent.
 export function suivreBande(bande) {
   const b = Math.max(0, Math.min(9, bande | 0));
@@ -436,6 +490,9 @@ function ecouterMoment(fam) {
     gravats: `gravats-${1 + Math.floor(Math.random() * 3)}`, glas: 'glas', age: `age-${b}`,
     epoque: `epoque-${Math.min(9, b + 1)}`, batiment: `batiment-${m}-${1 + Math.floor(Math.random() * 2)}`,
     sceau: 'sceau', renouveau: 'renouveau',
+    achat: `achat-${m}-${1 + Math.floor(Math.random() * 2)}`,
+    bulle: ['bulle-or', 'bulle-savoir', 'bulle-nourriture'][Math.floor(Math.random() * 3)],
+    succes: 'succes', crise: `crise-${1 + Math.floor(Math.random() * 2)}`,
   }[fam];
   if (!nom) return;
   if (nom === 'grondement') {

@@ -40,6 +40,7 @@ import { D } from './num.js';
 import { tr } from './i18n.js';
 import { pushOutcomeFloat } from './outcomeFloat.js';
 import { log } from './log.js';
+import { annoncer } from '../audio/moments/annonces.js';
 
 // Cadence de relecture par la boucle de jeu (main.js).
 export const ACHIEVEMENTS_CHECK_MS = 5000;
@@ -251,7 +252,10 @@ export function checkAchievements({ announce: shout = true, now = Date.now() } =
   for (const id of fresh) next[id] = now;
   s.achievements = next;
   sendToSteam(fresh);
-  if (shout && !isNotifyPaused()) announce(fresh);
+  if (shout && !isNotifyPaused()) {
+    announce(fresh);
+    annoncer('succes', { n: fresh.length });   // son carillon (audio/moments)
+  }
   saveSoon();
   return fresh;
 }

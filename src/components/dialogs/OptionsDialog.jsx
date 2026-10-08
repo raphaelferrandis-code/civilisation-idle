@@ -1197,7 +1197,7 @@ export default function OptionsDialog({ isOpen, onClose, onSave, onExport, onImp
               {/* LES BRUITAGES (2026-10-03 : la machine à sous) — à part de la musique. */}
               <div className="options-row">
                 <div>
-                  <OptionLabel label={tr({ fr: "Bruitages", en: "Sound effects" })} hint={tr({ fr: "La chute de la cité, un nouvel âge, une maison qui sort de terre, le Grand Reset, et les jeux de la Maison des Plaisirs", en: "The fall of the city, a new age, a house rising from the ground, the Grand Reset, and the House of Pleasures games" })} />
+                  <OptionLabel label={tr({ fr: "Bruitages", en: "Sound effects" })} hint={tr({ fr: "Les achats, les bulles des passants, les succès, l'alerte de crise, les grands moments du jeu et les jeux de la Maison des Plaisirs", en: "Purchases, passersby bubbles, achievements, the crisis alert, the great moments of the game and the House of Pleasures games" })} />
                 </div>
                 <button
                   type="button"
