@@ -136,10 +136,14 @@ function construire() {
     const c = curseur(panneau, '  × niveau', () => api.BANC[groupe][nom], (v) => { api.BANC[groupe][nom] = v; }, 0, 3, 0.05);
     proche[nom] = { titre, lu, curseur: c };
   };
-  for (const nom of Object.keys(api.PONCTUELS)) ligneProche(nom, 'ponctuels');
+  for (const nom of Object.keys(api.PONCTUELS)) if (!api.PONCTUELS[nom].signe) ligneProche(nom, 'ponctuels');
   for (const nom of Object.keys(api.EMETTEURS)) ligneProche(nom, 'emetteurs');
   panneau.append(el('div', TITRE, 'Semés'));
   for (const nom of Object.keys(api.SEMES)) ligneProche(nom, 'semes');
+  // LES SIGNES (PLAN-ECOUTER-PARLER, lot 8) : le geste du joueur vers un passant, le son
+  // de chaque monde (▶ le joue quel que soit l'âge de la partie).
+  panneau.append(el('div', TITRE, 'Les signes'));
+  for (const nom of Object.keys(api.PONCTUELS)) if (api.PONCTUELS[nom].signe) ligneProche(nom, 'ponctuels');
 
   // LES GRANDS MOMENTS (lot 7) : chacun s'écoute et se règle ici. Ils suivent
   // Options › Son › Bruitages, pas l'Ambiance.

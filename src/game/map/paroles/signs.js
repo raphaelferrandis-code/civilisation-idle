@@ -29,7 +29,11 @@
 // m'a entendu. », « J'ai demandé le feu, il m'envoie le vent. Ça veut dire non ? »,
 // « Comme d'habitude. »), et la cité se souvient de qui a été exaucé.
 // ⛔ Des phénomènes naturels seulement (§ 5.4) : ni orbe, ni halo, ni anneau ; le feu
-// passe par les flammes existantes. Muets jusqu'à la fin du chantier « ambiance sonore ».
+// passe par les flammes existantes.
+// LE SON (lot 8) : le geste s'entend là où il se fait, sur lui (la rafale, un petit chœur
+// sous la lumière), sur le feu qui monte, sur la bête qui crie ; le vent et le feu selon
+// le monde (audio/paysage/sonsSignes.js). Déposé au guichet du paysage sonore, il se tait
+// avec lui (coupé, fenêtre cachée).
 import { CM } from '../layout.js';
 import { flameFires, FIRE_BOOST } from '../flameGlow.js';
 import { CRITTER_DIR_OF_CAP } from '../critters.js';
@@ -42,6 +46,8 @@ import { veilleeLabel } from './veillee.js';
 import { parolesHeard, parolesNoteSign, parolesNoteHeard } from '../../core/paroles.js';
 import { SIGN_KINDS } from '../../core/parolesState.js';
 import { PAROLES_SIGNES, PAROLES_REPONSES } from '../../data/parolesSignes.js';
+import { noteSon } from '../../audio/paysage/evenements.js';
+import { sonDuSigne } from '../../audio/paysage/sonsSignes.js';
 
 const SIGNES_BY_ID = new Map([...PAROLES_SIGNES, ...PAROLES_REPONSES].map((e) => [e.id, e]));
 
@@ -279,6 +285,10 @@ export function giveSign(kind, now = clock(), opts = {}) {
     }
   }
   CM.sign = S;
+  // Il s'entend (lot 8) : sur lui (le vent, la lumière), sur le feu, sur la bête.
+  const son = sonDuSigne(kind, bandNow(), beast && beast.kind);
+  const at = fire || beast ? S.src : feet;
+  if (son) noteSon(son, at.x, at.y);
 
   // La pensée : la situation de l'écoute, plus le signe, la fois, la bête, et les
   // gestes qu'il peut faire ici.

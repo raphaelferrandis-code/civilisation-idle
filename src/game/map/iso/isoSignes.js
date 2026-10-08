@@ -13,7 +13,7 @@
 //     l'éclaire, et ce qui passe devant la coupe.
 //   · LE FEU : sa lueur grandit (flameGlow, FIRE_BOOST), des langues de feu montent
 //     au-dessus, dans les encres de la rampe rouge, et des étincelles s'envolent.
-// Ni orbe, ni halo, ni anneau ; muets jusqu'à la fin du chantier « ambiance sonore ».
+// Ni orbe, ni halo, ni anneau. Le son de chacun : audio/paysage/sonsSignes.js (lot 8).
 import { CM } from '../layout.js';
 import { worldToScreen, depthOf } from './projection.js';
 import { registerVieActors, registerVieAir, vieK, vieSprite, vieBlit, viePixel, vieGenerated, vieBlitAt } from './isoVie.js';

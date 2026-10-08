@@ -34,6 +34,7 @@ import { echantillonner, mesurerFoule, nouvelleMesure, tailleVille, tirerLieu, M
 import { creerMixeur, creerBoucle, jouerPonctuel, niveauSortie, sonieSortie } from './mixeur.js';
 import { paysageEcoute, releverSons, emetteursDe } from './evenements.js';
 import { ENREGISTRES } from './enregistrements.js';
+import { PONCTUELS_SIGNES } from './sonsSignes.js';
 import { getPaysageActif, getPaysageVolume, onPaysageReglages } from './reglages.js';
 import { ouvrirBanc, basculerBanc } from './banc.js';
 
@@ -139,7 +140,9 @@ export const NAPPES = {
 // `ref` / `max` : portée en cases (oreille.js, attenuation) ; `voix` : au plus tant à la
 // fois ; `ecartMs` : jamais deux tirs plus serrés.
 // `calibre` : la force est la taille du poisson, un gros sonne plus grave. `choix(force)` :
-// les sons permis, [début, fin) dans `sons`.
+// les sons permis, [début, fin) dans `sons`. `enregistres` (au lieu de `sons`) : des
+// fichiers de src/assets/sons/ (le cri d'une bête) ; `vitesse` : leur lecture (sous 1,
+// plus grave).
 export const PONCTUELS = {
   plouf: { sons: ['plouf1', 'plouf2', 'plouf3', 'plouf4', 'plouf5', 'plouf6'], ref: 4.5, max: 18, niveau: 0.275, voix: 3, ecartMs: 90, calibre: true },
   sortie: { sons: ['sortie1', 'sortie2', 'sortie3'], ref: 3.5, max: 14, niveau: 0.13, voix: 2, ecartMs: 90, calibre: true },
@@ -152,6 +155,9 @@ export const PONCTUELS = {
     choix: (force) => (force >= 3 ? [2, 4] : [0, 2]) },
   // LOT 4 : la cloche du bord, quand un bateau accoste ou repart (iso/isoPort.js).
   cloche: { ages: [2, 5], sons: ['clochebateau1', 'clochebateau2'], ref: 6, max: 26, niveau: 0.16, voix: 1, ecartMs: 3000 },
+  // LES SIGNES (docs/PLAN-ECOUTER-PARLER.md, lot 8) : le geste du joueur vers un passant,
+  // le vent, la lumière, le feu, la bête (sonsSignes.js ; paroles/signs.js les dépose).
+  ...PONCTUELS_SIGNES,
 };
 // Les émetteurs : seules les `voix` bêtes les plus fortes sonnent (les « voix
 // virtuelles » des moteurs de jeu). La libellule s'entend de près : il faut être
@@ -367,8 +373,8 @@ const D = {
   // carillon cosmique à l'âge du Feu. Ils ne jouent pas pour autant sur la carte.
   tout: false,
   // Les conditions de chargement (lot 6) et la dernière fois qu'elles étaient vraies.
-  charge: { pluie: false, emeute: false, moulin: false, temple: false, eau: false, betes: false },
-  chargeA: { pluie: -Infinity, emeute: -Infinity, moulin: -Infinity, temple: -Infinity, eau: -Infinity, betes: -Infinity },
+  charge: { pluie: false, emeute: false, moulin: false, temple: false, eau: false, betes: false, signe: false },
+  chargeA: { pluie: -Infinity, emeute: -Infinity, moulin: -Infinity, temple: -Infinity, eau: -Infinity, betes: -Infinity, signe: -Infinity },
   cibles: Object.fromEntries(Object.keys(NAPPES).map((k) => [k, 0])),
   zoom: 1, p: 0, h: 0,
   rafale: { v: 1, cible: 1, prochain: 0 },
@@ -450,7 +456,11 @@ export function sonsUtiles(bande = null, liste = ENREGISTRES, ids = IDS_ENREGIST
     const s = sonDeNappe(nom, def, ids);
     if (s) (def.enregistres ? enr : synth).add(s);
   }
-  for (const def of Object.values(PONCTUELS)) if (joue(def)) for (const s of def.sons) synth.add(s);
+  for (const def of Object.values(PONCTUELS)) {
+    if (!joue(def)) continue;
+    for (const s of def.sons || []) synth.add(s);
+    for (const s of def.enregistres || []) if (ids.has(s)) enr.add(s);
+  }
   const fichiers = new Set(liste.map((e) => e.famille));
   for (const [fam, def] of Object.entries(SEMES)) {
     if (!joue(def)) continue;
@@ -506,6 +516,9 @@ function sonsDe(nom) {
   }
   return ids;
 }
+// Les sons d'un ponctuel : ses sons synthétisés (`sons`), ou ceux de ses fichiers qui sont
+// décodés (`enregistres`).
+const pretsDe = (def) => def.sons || (def.enregistres || []).filter((s) => D.tampons.has(s));
 
 // ── Réveil et sommeil ────────────────────────────────────────────────────────
 function reveiller() {
@@ -535,6 +548,9 @@ function majCharge(now) {
     temple: vus('temple') || vus('cathedrale'),
     eau: vus('canards') || vus('cygnes') || vus('herons'),
     betes: vus('chats') || vus('chiens'),
+    // Le lot 8 de l'écoute : un passant désigné, à qui le joueur peut faire un signe
+    // (paroles/signs.js) ; les sons des signes se chargent alors (sonsSignes.js).
+    signe: Boolean(CM.focus && (CM.focus.kind === 'citizen' || CM.focus.kind === 'figure')),
   };
   let change = false;
   for (const k of Object.keys(vu)) {
@@ -830,11 +846,15 @@ function majPonctuels(M, h, f, t, now) {
     if (g < 0.008) return;
     const enCours = (D.enCours[nom] = (D.enCours[nom] || []).filter((fin) => fin > t));
     if (enCours.length >= def.voix || now - (D.dernierA[nom] || -Infinity) < def.ecartMs) return;
-    const [i0, i1] = def.choix ? def.choix(force) : [0, def.sons.length];
-    const tampon = D.tampons.get(def.sons[i0 + tirer(nom, i1 - i0)]);
+    const sons = pretsDe(def);
+    if (!sons.length) return;
+    const [i0, i1] = def.choix ? def.choix(force) : [0, sons.length];
+    const tampon = D.tampons.get(sons[i0 + tirer(nom, i1 - i0)]);
     if (!tampon) return;
-    // Un gros poisson sonne plus grave ; chaque tir varie un peu (±6 %).
-    const vitesse = (0.94 + Math.random() * 0.12) / (def.calibre ? Math.pow(Math.max(0.5, force), 0.35) : 1);
+    // Un gros poisson sonne plus grave ; chaque tir varie un peu (±6 %, un cri ±3 %).
+    const ecart = def.enregistres ? 0.06 : 0.12;
+    const vitesse = (def.vitesse || 1) * (1 - ecart / 2 + Math.random() * ecart)
+      / (def.calibre ? Math.pow(Math.max(0.5, force), 0.35) : 1);
     const s = worldToScreen(x, y);
     jouerPonctuel(M, tampon, 'proche', g, panoramique(s.x, CM.cw, OREILLE.panMax), vitesse);
     enCours.push(t + tampon.duration / vitesse);
@@ -978,10 +998,10 @@ export function ecouter(nom) {
   const M = D.M;
   if (!D.eveille || !M) return false;
   if (PONCTUELS[nom]) {
-    const def = PONCTUELS[nom];
-    const tampon = D.tampons.get(def.sons[tirer(nom, def.sons.length)]);
+    const def = PONCTUELS[nom], sons = pretsDe(def);
+    const tampon = sons.length ? D.tampons.get(sons[tirer(nom, sons.length)]) : null;
     if (!tampon) return false;
-    jouerPonctuel(M, tampon, 'proche', def.niveau * BANC.ponctuels[nom], 0, 0.94 + Math.random() * 0.12);
+    jouerPonctuel(M, tampon, 'proche', def.niveau * BANC.ponctuels[nom], 0, (def.vitesse || 1) * (0.94 + Math.random() * 0.12));
     return true;
   }
   if (EMETTEURS[nom]) {

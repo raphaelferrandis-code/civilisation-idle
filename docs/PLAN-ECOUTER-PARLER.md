@@ -7,7 +7,7 @@ Chantier ouvert le 2026-10-07 sur la demande de Raph :
 > n'interagit pas avec eux, puis après une option dialogue qui permette de parler avec
 > certains. »
 
-**Statut : plan tranché, lots 1 à 7 livrés (le 6 sans Diogène ni la Secte du Feu, § 7.4) ; les lots 2 à 7 sont à juger en jeu ; reste le son des signes (lot 8).** La fiche d'habitant qui sert de socle est faite
+**Statut : plan tranché, lots 1 à 8 livrés (le 6 sans Diogène ni la Secte du Feu, § 7.4) ; les lots 2 à 8 sont à juger en jeu, le son des signes au banc d'écoute (§ 5.7).** La fiche d'habitant qui sert de socle est faite
 (commit `4a99b8bc` : identité, foyers, métier, humeur et sa cause, « où il est entré »).
 Raph a répondu aux questions du § 11 le jour même (tableau 1 bis).
 **Ce document fait foi pour ce chantier.**
@@ -222,8 +222,9 @@ dans la cendre, le signe qui change de forme avec les âges) sont écartées.
 - Le feu passe par les flammes existantes : le feu n'est pas un pigment (`SKIP_FIRE`,
   rampe à part).
 - Le son des signes se règle avec le chantier « ambiance sonore »
-  (`docs/PLAN-AMBIANCE-SONORE.md`), **une fois ce chantier terminé** : en attendant, des
-  signes muets.
+  (`docs/PLAN-AMBIANCE-SONORE.md`), **une fois ce chantier terminé** : fait au lot 8
+  (§ 5.7). Des sons naturels aussi : une rafale, un chœur, le feu, un cri de bête ; ni
+  carillon magique ni nappe qui scintille.
 
 ### 5.5 Ce qui est fait (lot 4)
 
@@ -308,6 +309,42 @@ il a peur et part en courant ». Dix idées proposées, toutes retenues (« tout
   un passant de la rue part par `agents.citizenReactGo` et porte `p._react`, qui le garde de
   l'averse, du soir, de l'émeute, de l'auvent, de la vitrine et de la causette le temps de
   son geste ; un personnage de scène porte `_signDir` et `_signLag`.
+
+### 5.7 Ce qui est fait (lot 8 : le son des signes)
+
+Raph, 2026-10-08 : « lot 8 », puis ses réponses : la lumière, « un petit "aaah" de chœur
+angélique » ; la bête, un cri bref ; le vent et le feu, par monde ; ta voix (Parler), rien.
+- **Où** : le geste dépose son son au guichet du paysage sonore (`evenements.js`,
+  `noteSon`), là où il se fait : sur le passant pour le vent et la lumière, sur le feu qui
+  monte, sur la bête. Il suit l'oreille du paysage (la caméra, le zoom ; la caméra suit le
+  passant désigné) et se tait avec lui (Ambiance coupée, fenêtre cachée, une fenêtre du jeu
+  ouverte l'assourdit). Ce sont des ponctuels du paysage : `audio/paysage/sonsSignes.js` dit
+  quel son pour quel signe et à quel âge, `paysageSynthSignes.js` les synthétise.
+- **Le vent**, par monde : une rafale d'environ 2,5 s qui arrive sur lui vers la première
+  seconde (quand les feuilles le croisent), puis ce qu'elle secoue : les feuilles sèches qui
+  roulent au camp (le Feu, le Bois), le linge qui claque sur sa corde et un volet qui cogne
+  en ville (de la Pierre au Marbre), les câbles qui sifflent (la Fonte, le Néon), un souffle
+  sourd aux âges cosmiques.
+- **La lumière** : un petit « aaah » de chœur, synthétisé : un accord de quatre voix sur la
+  voyelle a, trois chanteurs par voix, chacun un peu à côté et avec son vibrato ; il enfle
+  avec le rayon et se tait avant lui, dans une grande salle. Deux accords (la majeur, ré
+  majeur), le même à tous les âges.
+- **Le feu**, par monde : la flamme qui s'élève d'un coup et lèche, puis les brindilles qui
+  crépitent (le Feu, le Bois), les braises qui chuintent sous le brasero (de la Pierre au
+  Marbre), le fourneau sous le soufflet (la Fonte, le Néon).
+- **La bête** : un cri bref, ENREGISTRÉ (les cris que le paysage a déjà) : le chien jappe ou
+  aboie une fois, le chat miaule, la chèvre bêle, le mouton aussi, plus grave (la voix de la
+  chèvre, ralentie), la vache meugle. Aux âges 7 à 9, ni feu ni bête : pas de son non plus.
+- **Parler** n'a pas de son.
+- **La mémoire** : les sons des signes ne se chargent que quand un passant est désigné (la
+  condition `signe`, comme la pluie ou les moulins) et se libèrent deux minutes après ;
+  toujours chargés, ils faisaient passer quatre âges au-dessus du budget de 70 Mo.
+- **Les niveaux**, mesurés en jeu (zoom 2, sonde pondérée du mixeur) : l'envol des pigeons
+  −37 dB, la cloche du port −26 ; le vent −27, le feu −28, le chœur −29 (« petit »), les
+  cris −27 à −28 (le chien baissé : il claquait à −22). **À régler au banc d'écoute**
+  (Ctrl+Alt+B), section « Les signes » : ▶ fait entendre chaque son de chaque monde.
+- Vérifié en jeu (âge de la Pierre) : le vent de la ville, la lumière, le brasero (sur la
+  flamme, pas sur le passant) et le chien du voisin sonnent, chacun là où il se fait.
 
 ---
 
@@ -647,8 +684,8 @@ deux temps du § 7.5 suivent donc le sceau, pas l'âge.
    les quatre voix, les rumeurs, la gazette, les personnages de scène, la promesse, Claude,
    Edith, Raphaël, Khael et Aldric dans la rue). Pas encore : Diogène et la Secte du Feu.
 7. ✅ **Le Démiurge et le Grand Reset dans la fiction** (§ 7.7).
-8. **Le son des signes**, quand le chantier « ambiance sonore » sera terminé (il l'est
-   depuis le 2026-10-08).
+8. ✅ **Le son des signes** (§ 5.7) : la rafale et le feu par monde, un petit « aaah » de
+   chœur sous la lumière, le cri bref de la bête ; rien pour la voix. À régler au banc.
 
 ---
 
@@ -785,3 +822,7 @@ Les six questions du premier jet sont tranchées (tableau 1 bis). Aucune ouverte
   sceau prêt, Claude demande « Tu vas tout effacer. Même ça ? » et la cité le pressent ; au
   premier feu du monde refait, « J'ai rêvé que tu avais dit non. », le camp rêve de
   l'ancienne ville, et la gazette parle du réveil.
+- 2026-10-08 : Raph : « lot 8 ». **Le son des signes** (§ 5.7) : la rafale qui passe sur lui
+  et ce qu'elle secoue selon le monde, un petit « aaah » de chœur sous la lumière, le feu
+  qui monte selon le monde, le cri bref de la bête ; ta voix n'a pas de son. Ils se chargent
+  quand un passant est désigné ; leurs niveaux sont à régler au banc d'écoute.

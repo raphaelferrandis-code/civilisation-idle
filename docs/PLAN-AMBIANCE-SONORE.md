@@ -388,7 +388,9 @@ Les 10 bandes (`data/eraThemes.js`, `eraBandOf`) donnent 5 familles sonores pour
     changement d'âge, le reste se libère.
   - **La pluie et la clameur ne se chargent qu'au besoin** (`charge`) : quand il pleut (pas
     l'hiver, où la pluie tombe en neige), quand des émeutiers sont près de l'écran. Elles restent
-    deux minutes après la fin : une averse qui reprend ne recharge rien.
+    deux minutes après la fin : une averse qui reprend ne recharge rien. De même les sons des
+    signes du joueur (`signe`, `PLAN-ECOUTER-PARLER.md` § 5.7) : seulement quand un passant est
+    désigné, le seul moment où l'on peut lui en faire un (environ 3,7 Mo par âge).
   - Le banc d'écoute ouvert charge tout, pour qu'on y écoute n'importe quel son ; fermé, la carte
     revient aux sons de son âge.
   - Le budget de 40 Mo visé au départ ne tient pas sans abîmer le son. **Un âge tient sous 70 Mo,
@@ -1781,3 +1783,8 @@ Ma recommandation était donnée pour chacune.
   des sons du build rend les sons des lots 10 à 12 (le tour de roulette en 103 ms, le galop
   en 112 ms, les autres en moins de 40 ms), et la clameur de la foule est livrée et se décode
   (24 s). Le .exe reste à construire par Raph (téléchargement d'Electron).
+- **2026-10-08, les signes de l'écoute s'entendent** (`PLAN-ECOUTER-PARLER.md`, lot 8, § 5.7) :
+  le vent, la lumière, le feu et la bête que le joueur fait à un passant sont des ponctuels du
+  paysage (`sonsSignes.js`, `paysageSynthSignes.js`), rangés au banc dans « Les signes ». Un
+  ponctuel peut désormais jouer des fichiers (`enregistres`, le cri d'une bête) et les ralentir
+  (`vitesse`, le mouton qui bêle avec la voix de la chèvre).

@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeEach } from "vitest";
+import { describe, it, expect, beforeEach, afterEach } from "vitest";
 
 import { CM } from "../layout.js";
 import { state } from "../../core/state.js";
@@ -17,6 +17,7 @@ import { PAROLES } from "../../data/paroles.js";
 import { queueFlameGlow, paintFlameGlows, FIRE_BOOST } from "../flameGlow.js";
 import { chronicleArticles } from "../../data/chronicleArticles.js";
 import { worldToScreen } from "../iso/projection.js";
+import { paysageEcoute, releverSons } from "../../audio/paysage/evenements.js";
 
 // LES SIGNES (docs/PLAN-ECOUTER-PARLER.md, lots 4 et 4 bis) : le vent, la lumière, le
 // feu, la bête ; ce que le passant en pense, par l'âge, par le caractère, par la
@@ -642,5 +643,65 @@ describe("ce que la ville en dit (les petits manques du lot 4)", () => {
     expect(PAROLES_SIGNES.find((x) => x.id === "s-x92-lumiere").toi).toBe(true);
     expect(PAROLES_SIGNES.find((x) => x.id === "s-x73-enfant").toi).toBeUndefined();
     expect(PAROLES_SIGNES.find((x) => x.id === "s-x83-conseil").toi).toBeUndefined();
+  });
+});
+
+// ── LE SON (lot 8) ─────────────────────────────────────────────────────────────
+// Le geste dépose son son au guichet du paysage sonore, là où il se fait : sur lui (le
+// vent, la lumière), sur le feu qui monte, sur la bête qui crie. Le son de chacun, et son
+// monde : audio/paysage/sonsSignes.js (testé dans audio/__tests__/paysageSignes.test.js).
+describe("le son du geste (lot 8)", () => {
+  beforeEach(() => paysageEcoute(true));
+  afterEach(() => paysageEcoute(false));
+  const deposes = () => {
+    const l = [];
+    releverSons((nom, x, y) => l.push({ nom, x, y }));
+    return l;
+  };
+
+  it("le vent et la lumière sonnent sur lui, le vent de son monde", () => {
+    const p = someone();
+    CM.citizens = [p];
+    focusCitizen(p);
+    expect(giveSign("wind")).toBe(true);
+    expect(deposes()).toEqual([{ nom: "signeVentVille", x: p.x, y: p.y }]);
+    CM.layout.counts.eraBand = 0;
+    expect(giveSign("light")).toBe(true);
+    expect(deposes()).toEqual([{ nom: "signeLumiere", x: p.x, y: p.y }]);
+  });
+
+  it("le feu sonne sur le feu qui monte ; la bête crie là où elle est, le chien promené aussi", () => {
+    const p = someone();
+    CM.citizens = [p];
+    focusCitizen(p);
+    fireAt(p.x, p.y - 3 * T);
+    expect(giveSign("fire")).toBe(true);
+    const [feu] = deposes();
+    expect(feu.nom).toBe("signeFeuBrasero");
+    expect(feu.x).toBeCloseTo(CM.sign.src.x, 2);
+    expect(feu.y).toBeCloseTo(CM.sign.src.y, 2);
+    expect(Math.hypot(feu.x - p.x, feu.y - p.y)).toBeGreaterThan(2 * T);
+    CM.layout.critters = [{ gx: 13, gy: 10, jx: 0, jy: 0, kind: "sheep", dir: 3 }];
+    expect(giveSign("beast")).toBe(true);
+    expect(deposes()).toEqual([{ nom: "signeMouton", x: 13.5 * T, y: 10.5 * T }]);
+    const master = someone({ x: 12.5 * T, y: 10.5 * T, tx: 13 * T, ty: 10.5 * T, gx: 12, seed: 99 });
+    master._vieDog = { side: 1, g: 0, hx: 1, hy: 0 };
+    CM.layout.critters = [];
+    CM.citizens = [p, master];
+    expect(giveSign("beast")).toBe(true);
+    expect(deposes().map((d) => d.nom)).toEqual(["signeChien"]);
+  });
+
+  it("aux âges cosmiques, le souffle sourd ; le paysage coupé ou la fenêtre cachée, rien n'est déposé", () => {
+    CM.layout.counts.eraBand = 8;
+    const p = someone();
+    CM.citizens = [p];
+    focusCitizen(p);
+    giveSign("wind");
+    expect(deposes().map((d) => d.nom)).toEqual(["signeVentCosmos"]);
+    paysageEcoute(false);
+    giveSign("light");
+    paysageEcoute(true);
+    expect(deposes()).toEqual([]);
   });
 });

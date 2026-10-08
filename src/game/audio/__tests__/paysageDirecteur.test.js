@@ -175,6 +175,34 @@ describe('le directeur du paysage sonore', () => {
     expect(panDe(ponctuels()[avant + 1])).toBeGreaterThan(0);
   });
 
+  it('un passant désigné : les sons des signes se chargent, et la rafale sonne du côté où il est (lot 8 de l’écoute)', async () => {
+    CM.layout = { counts: { eraBand: 0 } };
+    await eveiller();
+    const avant = ponctuels().length;
+    // Personne de désigné : ses sons ne sont pas en mémoire, le geste ne sonnerait pas.
+    expect(P.etatPaysage().charge.signe).toBe(false);
+    E.noteSon('signeVentCamp', 2 * CM.TILE, 0, 1);
+    vi.advanceTimersByTime(110);
+    expect(ponctuels().length).toBe(avant);
+    // Un passant désigné : ils se chargent ; à droite de l'écran, la rafale sonne à droite.
+    CM.focus = { kind: 'citizen', p: {} };
+    vi.advanceTimersByTime(110);
+    await vider();
+    vi.advanceTimersByTime(110);
+    expect(P.etatPaysage().charge.signe).toBe(true);
+    E.noteSon('signeVentCamp', 2 * CM.TILE, -2 * CM.TILE, 1);
+    vi.advanceTimersByTime(110);
+    const joues = ponctuels().slice(avant);
+    expect(joues.length).toBe(1);
+    expect(panDe(joues[0])).toBeGreaterThan(0);
+    // Plus personne de désigné : deux minutes après, ils se libèrent.
+    CM.focus = null;
+    vi.advanceTimersByTime(60000);
+    expect(P.etatPaysage().charge.signe).toBe(true);
+    vi.advanceTimersByTime(65000);
+    expect(P.etatPaysage().charge.signe).toBe(false);
+  });
+
   it('carte démontée : le guichet est fermé, un plouf déposé ne sonne pas au retour', async () => {
     await eveiller();
     P.paysageDetacher();
