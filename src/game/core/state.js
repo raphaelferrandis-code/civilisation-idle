@@ -2310,8 +2310,10 @@ export function hydrateState(parsed = {}) {
     // « Dernier tour » : un horodatage PASSÉ, donc finiteTimestamp (SAV-12) — une
     // horloge en avance puis corrigée ne bloque plus la roue le temps de l'écart.
     roueAt: finiteTimestamp(source.roueAt, 0),
+    // Chaque partant à SON couloir (le n° i à la place i) : coursesArt et les casaques
+    // s'y indexent ; une course aux couloirs 1 à 6 faisait planter la vue des courses.
     courseField: Array.isArray(source.courseField) && source.courseField.length === 6
-      && source.courseField.every((x) => x && Number.isInteger(x.couloir) && typeof x.nom === "string" && Number(x.p) > 0 && Number(x.p) < 1)
+      && source.courseField.every((x, i) => x && x.couloir === i && typeof x.nom === "string" && Number(x.p) > 0 && Number(x.p) < 1)
       ? source.courseField.map((x) => ({ couloir: x.couloir, nom: x.nom, p: Number(x.p) }))
       : null,
     bjSoupcon: finiteNumber(source.bjSoupcon, 0, 0, 100),

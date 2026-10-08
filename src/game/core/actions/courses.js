@@ -52,9 +52,11 @@ function tirerCourse() {
 }
 
 // La course qui attend ses paris (gardée dans la sauvegarde : on la retrouve en revenant).
+// Chaque partant tient SON couloir (le n° i à la place i) : la piste et les casaques s'y
+// indexent, et un couloir hors de 0 à 5 faisait planter la vue des courses.
 export function coursePartants() {
   const c = state.courseField;
-  if (Array.isArray(c) && c.length === COURSES_PARTANTS && c.every((x) => x && x.p > 0)) return c;
+  if (Array.isArray(c) && c.length === COURSES_PARTANTS && c.every((x, i) => x && x.couloir === i && x.p > 0)) return c;
   state.courseField = tirerCourse();
   return state.courseField;
 }

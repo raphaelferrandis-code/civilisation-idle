@@ -197,6 +197,16 @@ describe("Les courses", () => {
     expect(coursePartants()).toBe(p);
   });
 
+  it("une course abîmée (couloirs hors de leur place) est retirée", () => {
+    // Les couloirs 1 à 6 (et non 0 à 5) faisaient planter la vue des courses : le 6e
+    // n'a pas de casaque.
+    const noms = ["Aquilon", "Borée", "Zéphyr", "Notos", "Euros", "Lips"];
+    state.courseField = [0.3, 0.2, 0.15, 0.15, 0.1, 0.1].map((p, i) => ({ couloir: i + 1, nom: noms[i], p }));
+    const p = coursePartants();
+    expect(p.map((x) => x.couloir)).toEqual([0, 1, 2, 3, 4, 5]);
+    expect(state.courseField).toBe(p);
+  });
+
   it("au titre de Notable : la course paie le gagnant, l'arrivée est un ordre complet", () => {
     expect(lancerCourse({ 0: 1000 }, { silent: true, render: false })).toBeNull();
     state.maisonRank = 2;
