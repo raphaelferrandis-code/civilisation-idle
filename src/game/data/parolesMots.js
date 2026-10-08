@@ -447,6 +447,15 @@ export const VOIX = {
       { when: { period: P9 }, act: 'look', lines: [{ fr: 'On dort par tranches, à bord. Celle-ci était bonne.', en: 'We sleep in shifts on board. This one was good.' }] },
       { when: { period: P10 }, act: 'look', lines: [{ fr: 'Je ne dors plus depuis trois siècles. Ça ne me manque pas.', en: 'I haven’t slept for three centuries. I don’t miss it.' }] },
     ] },
+    // LA PROMESSE (§ 7.5) : elle se paie. S'il revient après trois jours d'absence au
+    // moins, celui à qui il l'a dite s'en souvient, et la rue en parle (ci-dessous).
+    { key: 'reviendrai', promise: true, you: { fr: 'Je reviendrai te voir.', en: 'I’ll come back to see you.' }, replies: [
+      { when: { child: true }, bands: [1, 8], act: 'look', lines: [{ fr: 'Promis ? Tu reviens demain ?', en: 'Promise? Will you come back tomorrow?' }] },
+      { when: { period: VOUS, trait: 'pious' }, act: 'look', lines: [{ fr: 'Je vous garderai une place à table, alors. Tous les soirs.', en: 'Then I’ll keep you a place at the table. Every evening.' }] },
+      { when: { period: P3 }, act: 'look', lines: [{ fr: 'Quand ? Je passe ici tous les matins, à cette heure-ci.', en: 'When? I come by here every morning, at this time.' }] },
+      { when: { period: VOUS }, act: 'look', lines: [{ fr: 'Je vous attendrai. Je passe ici tous les matins, à cette heure-ci.', en: 'I’ll wait for you. I come by here every morning, at this time.' }] },
+      { when: { period: P10 }, act: 'look', lines: [{ fr: 'Je t’attendrai. Je ne bouge plus beaucoup, de toute façon.', en: 'I’ll wait for you. I don’t move around much these days anyway.' }] },
+    ] },
     { key: 'mange', you: { fr: 'Tu as mangé, aujourd’hui ?', en: 'Have you eaten today?' }, replies: [
       { when: { child: true }, bands: [1, 8], act: 'look', lines: [{ fr: 'Une tartine. J’ai donné la croûte au chien.', en: 'A slice of bread. I gave the crust to the dog.' }] },
       { when: { period: P3 }, act: 'look', lines: [{ fr: 'Une galette et des noix. Ce soir, il y aura du poisson, si mon frère revient.', en: 'A flatbread and some nuts. Tonight there’ll be fish, if my brother comes back.' }] },
@@ -573,6 +582,34 @@ export const PAROLES_ECHOS_MOTS = [
   ] },
   { id: 'em-plus-joueur-x', kind: 'thought', layer: 3, bands: [6, 9], when: { saidMost: 'joueur' }, lines: [
     { who: 'a', fr: 'Paraît que la voix joue. Je me demande à quel niveau on en est.', en: 'Apparently the voice is playing. I wonder what level we’re on.' },
+  ] },
+  // ── la promesse tenue, après trois jours d'absence au moins (`when.promised` : celui à
+  //    qui elle a été faite ; `when.promise` : les autres, qui le nomment, {promis}) ──
+  { id: 'em-promis-p3', kind: 'thought', layer: 3, bands: [1, 2], when: { promised: true, period: [3, 3], child: false }, lines: [
+    { who: 'a', fr: 'Tu avais dit que tu reviendrais. Ça fait {jours} jours. Je venais ici chaque matin.', en: 'You said you’d come back. It’s been {jours} days. I came here every morning.' },
+  ] },
+  { id: 'em-promis-vous', kind: 'thought', layer: 3, bands: [3, 7], when: { promised: true, period: [4, 7], child: false }, lines: [
+    { who: 'a', fr: 'Vous aviez dit que vous reviendriez. Ça fait {jours} jours. Je passais ici chaque matin.', en: 'You said you’d come back. It’s been {jours} days. I came by here every morning.' },
+  ] },
+  { id: 'em-promis-vous-x', kind: 'thought', layer: 3, bands: [7, 8], when: { promised: true, period: [8, 9], child: false }, lines: [
+    { who: 'a', fr: 'Vous aviez dit que vous reviendriez. Il y a eu {jours} jours. Je les ai notés, un par un.', en: 'You said you’d come back. There have been {jours} days. I wrote them down, one by one.' },
+  ] },
+  { id: 'em-promis-p10', kind: 'thought', layer: 3, bands: [9, 9], when: { promised: true, period: [10, 10], child: false }, lines: [
+    { who: 'a', fr: 'Tu avais dit que tu reviendrais. Ça fait {jours} jours, je les ai comptés.', en: 'You said you’d come back. It’s been {jours} days, I counted them.' },
+  ] },
+  { id: 'em-promis-enfant', kind: 'thought', layer: 3, bands: [1, 5], when: { promised: true, child: true }, lines: [
+    { who: 'a', m: 'Tu avais promis. Ça fait {jours} jours. Je suis venu tous les jours.', f: 'Tu avais promis. Ça fait {jours} jours. Je suis venue tous les jours.', en: 'You promised. It’s been {jours} days. I came every day.' },
+  ] },
+  { id: 'em-promis-enfant-x', kind: 'thought', layer: 3, bands: [5, 9], when: { promised: true, child: true }, lines: [
+    { who: 'a', fr: 'Tu avais promis. Ça fait {jours} jours. J’ai attendu à la fenêtre.', en: 'You promised. It’s been {jours} days. I waited at the window.' },
+  ] },
+  { id: 'em-promesse', kind: 'thought', layer: 2, bands: [1, 5], when: { promise: true }, lines: [
+    { who: 'a', fr: 'La voix avait promis à {promis} de revenir. Elle a mis {jours} jours.', en: 'The voice promised {promis} it would come back. It took {jours} days.' },
+  ] },
+  { id: 'em-promesse-x', kind: 'chat', layer: 2, bands: [5, 9], when: { promise: true }, lines: [
+    { who: 'a', fr: 'Tu te souviens de la voix qui avait promis de revenir ?', en: 'Remember the voice that promised to come back?' },
+    { who: 'b', fr: 'À {promis}, oui.', en: 'To {promis}, yes.' },
+    { who: 'a', fr: 'Elle est revenue, {jours} jours après.', en: 'It came back, {jours} days later.' },
   ] },
   { id: 'em-plus-indiff', kind: 'thought', layer: 3, bands: [2, 6], when: { saidMost: 'indifferent' }, lines: [
     { who: 'a', fr: 'Tout le monde le dit : la voix se moque de ce qui nous arrive. Je ferme quand même ma porte à clé.', en: 'Everyone says so: the voice doesn’t care what happens to us. I still lock my door.' },

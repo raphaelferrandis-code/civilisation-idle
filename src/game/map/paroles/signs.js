@@ -124,10 +124,12 @@ const BEAST_NAME = {
 // n'a pas encore dit « Ça suffit. ».
 export const SIGN_SCENES = new Set(['quai', 'pont', 'place', 'plaisirs', 'champ', 'port', 'bac', 'navette', 'bateau']);
 const PORT_LEFT_MIN = 30;   // s d'escale qu'il faut encore au porteur
-function sceneReady(p) {
+// `minLeft` : l'escale qu'il lui faut encore (on lui parle plus longtemps qu'on ne lui fait
+// un signe : talk.js).
+export function sceneReady(p, { minLeft = PORT_LEFT_MIN } = {}) {
   const ships = CM.ships || [];
   switch (p.scene) {
-    case 'port': return (p.left || 0) >= PORT_LEFT_MIN;
+    case 'port': return (p.left || 0) >= minLeft;
     case 'bac': return !!p.ferryShip && ships.indexOf(p.ferryShip) >= 0 && (p.ferryShip.trip | 0) <= p.trip;
     case 'navette': return !!p.shuttleShip && ships.indexOf(p.shuttleShip) >= 0 && (p.shuttleShip.trip | 0) < p.trip;
     case 'bateau': return !!p.onShip && ships.indexOf(p.onShip) >= 0;
@@ -571,9 +573,11 @@ export function signEnvelope(S, now) {
 // ── UNE VOIX (lot 6) ─────────────────────────────────────────────────────────
 // Le joueur lui parle (talk.js) : il s'arrête et lève les yeux vers toi le temps de
 // l'échange (`talk`, `holdMs`), puis fait ce que dit sa réponse (un geste du lot 4 bis).
-export function reactTo(p, act, { now = clock(), holdMs = 0 } = {}) {
+// Un personnage de scène (`figure`) se tourne et prend du retard sur sa scène, comme pour un
+// signe.
+export function reactTo(p, act, { now = clock(), holdMs = 0, figure = false } = {}) {
   const face = towardCamera(p.dir < 0 ? 0 : p.dir);
-  const R = startReaction(p, act, { kind: 'voice', p, face, src: null }, { now });
+  const R = startReaction(p, act, { kind: 'voice', p, face, src: null }, { now, figure });
   if (act === 'talk') R.holdEnd = holdMs;
   return R;
 }

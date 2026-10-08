@@ -1193,6 +1193,12 @@
     "tones": {
      "joueur": 2
     }
+   },
+   "promesse": {
+    "who": "Oda",
+    "fem": true,
+    "city": 3,
+    "at": 1800000000000
    }
   },
   "faitsDivers": {

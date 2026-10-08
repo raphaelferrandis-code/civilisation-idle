@@ -23,7 +23,7 @@ import { pickParole, resolveLines } from './pick.js';
 import { nearestFire } from './nearFire.js';
 import {
   parolesHeard, parolesNoteHeard, parolesTotal, parolesBulles, parolesKnown, parolesSignsSeen,
-  parolesDeclicHere, parolesDeclics, parolesNoteDeclic, parolesSaid, parolesTones,
+  parolesDeclicHere, parolesDeclics, parolesNoteDeclic, parolesSaid, parolesTones, parolesPromise,
 } from '../../core/paroles.js';
 import { state } from '../../core/state.js';
 import { getPeriod } from '../../core/chronicleEvaluator.js';
@@ -59,6 +59,22 @@ const ABSENCE_FRESH_MS = 20 * 60 * 1000;
 function absenceFresh() {
   const a = lastAbsence();
   return !!a && a.sec >= ABSENCE_MIN_SEC && Date.now() - a.at < ABSENCE_FRESH_MS;
+}
+// LA PROMESSE (lot 6, § 7.5) : « Je reviendrai te voir. », puis au moins PROMISE_SEC
+// d'absence (le rapport de reprise), et l'on s'en souvient tant que la cité dure.
+export const PROMISE_SEC = 3 * 24 * 3600;
+const JOURS = [null, null, null, ['trois', 'three'], ['quatre', 'four'], ['cinq', 'five'], ['six', 'six'], ['sept', 'seven'],
+  ['huit', 'eight'], ['neuf', 'nine'], ['dix', 'ten'], ['onze', 'eleven'], ['douze', 'twelve']];
+// Le nombre de jours, en lettres jusqu'à douze ({ fr, en }).
+export function joursOf(sec) {
+  const d = Math.max(3, Math.floor(sec / 86400));
+  const w = JOURS[d];
+  return w ? { fr: w[0], en: w[1] } : { fr: String(d), en: String(d) };
+}
+function promiseKept() {
+  const pr = parolesPromise();
+  const a = lastAbsence();
+  return pr && a && a.at > pr.at && a.sec >= PROMISE_SEC ? { pr, a } : null;
 }
 // Il sent qu'on le suit quand la caméra ne le lâche plus depuis un moment.
 export const FOLLOW_MS = 30000;
@@ -219,6 +235,12 @@ export function listenContext(kind, p, focusKind) {
     if (ev.belief) saidBy[ev.belief] = ev;
   }
   const saidMost = dominantTone(parolesTones());
+  // La promesse tenue : celui à qui elle a été faite s'en souvient ; les autres le nomment.
+  const kept = promiseKept();
+  if (kept) {
+    names.jours = joursOf(kept.a.sec);
+    if (kept.pr.who !== names.a && kept.pr.who !== names.b) names.promis = kept.pr.who;
+  }
   return {
     kind,
     band,
@@ -254,6 +276,8 @@ export function listenContext(kind, p, focusKind) {
     seenBy,
     saidBy,
     saidMost,
+    promised: !!kept && kept.pr.who === names.a,
+    promise: !!kept && !!names.promis,
     // Le déclic et les demandes (lot 5).
     declic: parolesDeclicHere(),
     declics: parolesDeclics(),

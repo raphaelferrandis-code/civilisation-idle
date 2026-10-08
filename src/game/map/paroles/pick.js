@@ -32,7 +32,8 @@
 //   et pour parler (kind 'talk', lot 6, data/parolesMots.js) : acts (les gestes qu'il
 //   peut faire, comme pour un signe) ; et ce que la rue en dit : saidBy (à qui la voix
 //   a parlé : par voix, par réponse, par ce qu'elle affirmait) et saidMost (la voix qui
-//   domine dans la cité).
+//   domine dans la cité) ; la promesse tenue : promised (c'est à lui qu'elle a été
+//   faite), promise (à un autre : {promis}), et {jours}.
 // }
 import { PAROLES, JOB_GROUP } from '../../data/paroles.js';
 import { PAROLES_SIGNES } from '../../data/parolesSignes.js';
@@ -130,6 +131,9 @@ export function parolesEligible(e, ctx) {
   const ev = (w.seen && ctx.seenBy && ctx.seenBy[w.seen]) || (w.said && ctx.saidBy && ctx.saidBy[w.said]) || null;
   if ((w.seen || w.said) && !ev) return false;
   if (w.saidMost && ctx.saidMost !== w.saidMost) return false;
+  // La promesse tenue (lot 6) : celui à qui elle a été faite, ou les autres.
+  if (w.promised && !ctx.promised) return false;
+  if (w.promise && !ctx.promise) return false;
   if (!childOk(e, ctx)) return false;
   // Une causette se joue à deux.
   if (e.kind === 'chat' && !b) return false;
@@ -225,7 +229,7 @@ export function talkChoices(e, ctx, heard = {}, rand = Math.random) {
     const top = Math.max(...fresh.map(specOf));
     const best = fresh.filter((a) => specOf(a) === top);
     const a = best[Math.min(best.length - 1, Math.floor(rand() * best.length))];
-    out.push({ orientation: o, key: `${o}:${a.key}`, you: a.you, belief: a.belief || null, replies: a.replies, voix: idOf(a) });
+    out.push({ orientation: o, key: `${o}:${a.key}`, you: a.you, belief: a.belief || null, replies: a.replies, voix: idOf(a), promise: !!a.promise });
   }
   return out;
 }

@@ -35,6 +35,9 @@
 //          muet } (dans cette cité : de quelle voix il a parlé) }. Un souvenir du panneau
 //          peut être un échange : `toi.talk` { key (sa réponse), ri (la réplique qui a
 //          suivi) }.
+//   promesse « Je reviendrai te voir. » (lot 6, § 7.5) : { who, fem, city, at (l'heure
+//          murale, ms) }, la dernière ; ou null. S'il revient après trois jours d'absence
+//          au moins, dans cette cité, on s'en souvient (paroles/listen.js).
 
 const MAX_ID = 40;
 const MAX_HEARD = 4000;
@@ -79,7 +82,7 @@ export function defaultMots() {
 export function defaultParoles() {
   return {
     heard: {}, n: 0, rev: 0, toi: [], bulles: { cycle: 0, n: 0 }, signs: defaultSigns(), declic: defaultDeclic(),
-    mots: defaultMots(),
+    mots: defaultMots(), promesse: null,
   };
 }
 
@@ -187,5 +190,9 @@ export function normalizeParoles(raw) {
   out.signs = normalizeSigns(raw.signs);
   if (isObj(raw.declic)) out.declic = { n: int(raw.declic.n, 0, 0, 1e6), city: int(raw.declic.city, -1, -1, 1e9) };
   out.mots = normalizeMots(raw.mots);
+  const pr = raw.promesse;
+  if (isObj(pr) && name(pr.who) && Number.isFinite(pr.at) && pr.at > 0) {
+    out.promesse = { who: name(pr.who), fem: !!pr.fem, city: int(pr.city, 0, 0, 1e9), at: pr.at };
+  }
   return out;
 }

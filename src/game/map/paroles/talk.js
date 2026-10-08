@@ -13,12 +13,16 @@
 // (core/paroles.js).
 // L'échange en cours vit dans `CM.talking` ; la fiche le lit (talkView), le choix y revient
 // (talkChoose). talkTick avance le tout à chaque frame (iso/isoSignes.js).
+// Les personnages de scène aussi (le quai, le pont, la place, la Maison des Plaisirs, le
+// champ, le port, le bac, la navette, les bateaux) : ils se tournent vers toi et prennent du
+// retard sur leur scène, comme pour un signe ; ils ne la quittent pas (regarder, chercher
+// des yeux, repartir). Le porteur du port, s'il a encore une longue escale.
 import { CM } from '../layout.js';
 import { onCitizenFocus } from '../citizenFocus.js';
 import { listenContext, toiRecord, stopListening, LISTEN } from './listen.js';
 import { pickTalk, pickReply, resolveYou, talkChoices, talkSilence } from './pick.js';
-import { reactTo, endReaction, signActs } from './signs.js';
-import { parolesHeard, parolesNoteTalk } from '../../core/paroles.js';
+import { reactTo, endReaction, signActs, sceneReady } from './signs.js';
+import { parolesHeard, parolesNoteTalk, parolesNotePromise } from '../../core/paroles.js';
 import { getPeriod } from '../../core/chronicleEvaluator.js';
 
 // fromPeriod : la période de la gazette où viennent les mots (§ 7.2). chooseMs : le temps
@@ -33,13 +37,16 @@ const clock = () => (typeof performance !== 'undefined' ? performance.now() : Da
 const eraNow = () => ((CM.layout && CM.layout.counts && CM.layout.counts.eraIndex) | 0);
 const lineMs = () => LISTEN.lineMs;
 
-// À qui l'on peut parler : un passant de la rue, qu'on voit, dehors, qui n'a pas encore
-// entendu la voix, et qui ne réagit pas déjà à autre chose (un signe, sa demande).
+// À qui l'on peut parler : un passant de la rue ou un personnage de scène, qu'on voit,
+// dehors, qui n'a pas encore entendu la voix, et qui ne réagit pas déjà à autre chose (un
+// signe, sa demande).
+const PORT_TALK_LEFT = 75;   // s d'escale qu'il faut encore au porteur pour qu'on lui parle
 function speakable(f) {
-  if (!f || f.kind !== 'citizen') return false;
+  if (!f || (f.kind !== 'citizen' && f.kind !== 'figure')) return false;
   const p = f.p;
   if (!p || p._talked || p._nightHidden || p._dead || p._riot || p._vanish !== undefined || p._enter || p.leaving) return false;
   if ((p.fade ?? 1) < 0.5) return false;
+  if (f.kind === 'figure') return !p._signDir && sceneReady(p, { minLeft: PORT_TALK_LEFT });
   if (p._react && p._react.act !== 'veille') return false;
   return true;
 }
@@ -52,15 +59,15 @@ export function talkOffered(now = clock()) {
   const p = f.p;
   const c = p._talkAvail;
   if (c && now - c.at < 1000) return c.ok;
-  const ctx = talkContext(p);
+  const ctx = talkContext(p, f.kind);
   const ok = !!pickTalk(ctx, parolesHeard(), () => 0);
   p._talkAvail = { at: now, ok };
   return ok;
 }
-function talkContext(p) {
-  const ctx = listenContext('thought', p, 'citizen');
+function talkContext(p, kind = 'citizen') {
+  const ctx = listenContext('thought', p, kind);
   ctx.kind = 'talk';
-  ctx.acts = signActs(p, false);
+  ctx.acts = signActs(p, kind === 'figure');
   return ctx;
 }
 
@@ -68,7 +75,8 @@ function talkContext(p) {
 export function startTalk(now = clock()) {
   if (!talkOffered(now)) return false;
   const p = CM.focus.p;
-  const ctx = talkContext(p);
+  const figure = CM.focus.kind === 'figure';
+  const ctx = talkContext(p, CM.focus.kind);
   const r = pickTalk(ctx, parolesHeard());
   if (!r) return false;
   stopListening();
@@ -80,11 +88,11 @@ export function startTalk(now = clock()) {
   const lines = r.lines.map((l, i) => ({ who: 'a', fr: l.fr, en: l.en, at: now + i * lineMs() }));
   const chooseAt = now + Math.max(0, r.lines.length - 1) * lineMs() + 600;
   CM.talking = {
-    p, id: r.id, entry: r.entry, ctx, name: ctx.names.a, lines, choices, defs, silence: talkSilence(r.entry, ctx),
+    p, figure, id: r.id, entry: r.entry, ctx, name: ctx.names.a, lines, choices, defs, silence: talkSilence(r.entry, ctx),
     chooseAt, until: chooseAt + TALK.chooseMs, said: null, act: null, actAt: 0, acted: false, doneAt: 0,
   };
   // Il s'arrête et lève les yeux vers toi, le temps de l'échange.
-  reactTo(p, 'talk', { now, holdMs: CM.talking.until - now + 4 * lineMs() });
+  reactTo(p, 'talk', { now, holdMs: CM.talking.until - now + 4 * lineMs(), figure });
   return true;
 }
 
@@ -108,6 +116,8 @@ export function talkChoose(key, now = clock()) {
   const raw = answer.replies[reply.ri];
   const toi = toiRecord({ id: T.id }, T.ctx, { when: T.entry.when, lines: [...T.entry.lines, ...(c ? [c.you] : []), ...raw.lines] });
   parolesNoteTalk(T.id, { ...T.said, who: T.name, fem: !!(T.ctx.a && T.ctx.a.fem) }, { ...toi, talk: { key: T.said.key, ri: reply.ri } });
+  // « Je reviendrai te voir. » : une promesse, qui se paie (§ 7.5).
+  if (c && c.promise) parolesNotePromise({ who: T.name, fem: !!(T.ctx.a && T.ctx.a.fem) });
   return true;
 }
 
@@ -118,11 +128,12 @@ export function talkTick(now = clock()) {
   const T = CM.talking;
   if (!T) return null;
   const p = T.p;
-  if (!p || p._dead || (CM.citizens && CM.citizens.indexOf(p) < 0)) { CM.talking = null; return null; }
+  // (Un personnage de scène n'est pas dans la foule : sa scène le tient.)
+  if (!p || p._dead || (!T.figure && CM.citizens && CM.citizens.indexOf(p) < 0)) { CM.talking = null; return null; }
   if (!T.said && now >= T.until) talkChoose(null, now);
   if (T.act && !T.acted && now >= T.actAt) {
     T.acted = true;
-    reactTo(p, T.act, { now });
+    reactTo(p, T.act, { now, figure: T.figure });
   }
   return T;
 }
@@ -147,10 +158,10 @@ export function stopTalk(now = clock()) {
   if (!T.said) {
     talkChoose(null, now);
     endReaction(T.p);
-    T.p.pauseT = 0;
+    if (!T.figure) T.p.pauseT = 0;
   } else if (!T.acted) {
     T.acted = true;
-    reactTo(T.p, T.act, { now });
+    reactTo(T.p, T.act, { now, figure: T.figure });
   }
   CM.talking = null;
 }

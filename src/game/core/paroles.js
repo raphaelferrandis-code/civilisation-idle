@@ -162,6 +162,20 @@ export function parolesSaid() {
 }
 // Combien d'échanges en tout (éternel).
 export const parolesTalks = () => parolesState().mots.n | 0;
+// LA PROMESSE (lot 6, § 7.5) : « Je reviendrai te voir. », à qui, dans quelle cité, à
+// quelle heure (murale). La dernière compte.
+export function parolesNotePromise({ who, fem } = {}) {
+  if (typeof who !== 'string' || !who) return;
+  const s = parolesState();
+  s.promesse = { who, fem: !!fem, city: cityNow(), at: Date.now() };
+  s.rev = (s.rev | 0) + 1;
+  emit();
+}
+// Celle de cette cité, ou null.
+export function parolesPromise() {
+  const pr = parolesState().promesse;
+  return pr && pr.city === cityNow() ? pr : null;
+}
 // De quelle voix il a parlé dans cette cité : { joueur, dieu, indifferent, vie, muet }.
 export function parolesTones() {
   const m = parolesState().mots;

@@ -6,7 +6,8 @@ import { defaultParoles, normalizeParoles, TALK_TONES } from "../../core/paroles
 import { parolesNoteTalk, parolesSaid, parolesTalks, parolesNoteDeclic } from "../../core/paroles.js";
 import { focusCitizen, clearCitizenFocus } from "../citizenFocus.js";
 import { buildIdentity, householdOf, TRAITS } from "../citizenIdentity.js";
-import { stopListening, listenContext, LISTEN } from "../paroles/listen.js";
+import { stopListening, listenContext, joursOf, LISTEN } from "../paroles/listen.js";
+import { publishIdleReport } from "../../core/idleReport.js";
 import { resetSigns, reactionLabel, signTick, REACT } from "../paroles/signs.js";
 import { talkOffered, startTalk, talkChoose, talkTick, talkView, stopTalk, TALK } from "../paroles/talk.js";
 import { pickTalk, pickReply, resolveYou, resolveLines, talkTranscript, talkChoices, talkSilence, parolesEligible } from "../paroles/pick.js";
@@ -429,6 +430,72 @@ describe("parler, en jeu", () => {
     expect(state.paroles.mots.said.at(-1)).toMatchObject({ tone: "muet" });
     expect(p._react).toBe(null);
     expect(p.pauseT).toBe(0);
+  });
+
+  it("un personnage de scène entend la voix aussi : il se tourne vers toi, prend du retard sur sa scène, ne la quitte pas", () => {
+    const fig = someone({ scene: "quai" });
+    focusCitizen(fig);
+    CM.focus.kind = "figure";
+    expect(talkOffered()).toBe(true);
+    const t0 = clock();
+    expect(startTalk(t0)).toBe(true);
+    signTick(t0 + 300);
+    signTick(t0 + 1300);
+    expect([0, 2]).toContain(fig._signDir);
+    expect(fig._signLag).toBeGreaterThan(0);
+    const T = CM.talking;
+    // Ses réponses ne lui font jamais quitter sa scène.
+    for (const c of T.defs) expect(["look", "search", "go"]).toContain(pickReply(c.replies, T.ctx).act);
+    talkChoose(T.choices[0].key, T.chooseAt + 1);
+    talkTick(T.actAt + 1);
+    expect(CM.talking).toBe(T);
+    // Le porteur du port : seulement s'il a encore une longue escale.
+    stopTalk();
+    resetSigns();
+    const porteur = someone({ scene: "port", left: 40 });
+    focusCitizen(porteur);
+    CM.focus.kind = "figure";
+    expect(talkOffered()).toBe(false);
+    porteur.left = 90; porteur._talkAvail = null;
+    expect(talkOffered()).toBe(true);
+  });
+
+  it("une promesse se paie : « Je reviendrai te voir. », trois jours d'absence, et l'on s'en souvient", () => {
+    const p = someone();
+    const q = someone({ seed: 501, gx: 14, x: 14.5 * T });
+    q.identity = { ...q.identity, given: "Ilya", name: "Ilya" };
+    q.name = "Ilya";
+    CM.citizens = [p, q];
+    focusCitizen(p);
+    startTalk(clock());
+    // La réponse qui promet (de la voix « sa vie »), proposée ici.
+    const TK = CM.talking;
+    const a = VOIX.vie.find((x) => x.key === "reviendrai");
+    TK.defs = TK.defs.filter((d) => d.orientation !== "vie").concat([{ orientation: "vie", key: "vie:reviendrai", you: a.you, belief: null, replies: a.replies, voix: "v:vie:reviendrai", promise: true }]);
+    expect(talkChoose("vie:reviendrai", TK.chooseAt + 1)).toBe(true);
+    stopTalk();
+    const who = p.identity.given;
+    expect(state.paroles.promesse).toMatchObject({ who, city: 3 });
+    // Il revient le lendemain : rien de spécial.
+    state.paroles.promesse.at -= 1000;
+    publishIdleReport({ awaySec: 26 * 3600 });
+    expect(listenContext("thought", p, "citizen").promised).toBe(false);
+    // Il revient après quatre jours : celui à qui il l'a dit s'en souvient, les autres le nomment.
+    publishIdleReport({ awaySec: 4 * 86400 + 600 });
+    const ctx = listenContext("thought", p, "citizen");
+    expect(ctx.promised).toBe(true);
+    const e = PAROLES.find((x) => x.id === "em-promis-p3");
+    expect(parolesEligible(e, { ...ctx, trust: 1 })).toBe(true);
+    expect(resolveLines(e, ctx)[0].fr).toBe("Tu avais dit que tu reviendrais. Ça fait quatre jours. Je venais ici chaque matin.");
+    const other = listenContext("thought", q, "citizen");
+    expect(other.promise).toBe(true);
+    const r = PAROLES.find((x) => x.id === "em-promesse");
+    expect(parolesEligible(r, other)).toBe(true);
+    expect(resolveLines(r, other)[0].fr).toBe(`La voix avait promis à ${who} de revenir. Elle a mis quatre jours.`);
+    expect(joursOf(30 * 86400)).toEqual({ fr: "30", en: "30" });
+    // Dans la cité suivante, la rue ne s'en souvient plus.
+    state.cycles = 4;
+    expect(listenContext("thought", p, "citizen").promised).toBe(false);
   });
 
   it("la rue nomme celui à qui la voix a parlé, et de quelle voix ; jamais à celui qui l'a entendue", () => {

@@ -7,7 +7,7 @@ Chantier ouvert le 2026-10-07 sur la demande de Raph :
 > n'interagit pas avec eux, puis après une option dialogue qui permette de parler avec
 > certains. »
 
-**Statut : plan tranché, lots 1 à 5 livrés, le 6 en cours (parler, les quatre voix, les rumeurs, la gazette) ; les lots 2 à 6 sont à juger en jeu.** La fiche d'habitant qui sert de socle est faite
+**Statut : plan tranché, lots 1 à 5 livrés, le 6 en cours (parler, les quatre voix, les rumeurs, la gazette, la promesse ; restent les figures de la Chronique) ; les lots 2 à 6 sont à juger en jeu.** La fiche d'habitant qui sert de socle est faite
 (commit `4a99b8bc` : identité, foyers, métier, humeur et sa cause, « où il est entré »).
 Raph a répondu aux questions du § 11 le jour même (tableau 1 bis).
 **Ce document fait foi pour ce chantier.**
@@ -519,6 +519,17 @@ intéressé par la vie du pnj. Le silence, c'est bien. Fais. »
   qu'ils te donnent suit ta voix** (NOMS_DU_JOUEUR) : le Maître (le dieu), le Joueur, le
   Passant (l'indifférent), le Voisin d'en haut (sa vie), jusqu'au prochain nom que la
   gazette publie. Une seule règle pour « la voix qui domine » : `parolesState.dominantTone`.
+- **Les personnages de scène** entendent la voix aussi (le quai, le pont, la place, la
+  Maison des Plaisirs, le champ, le bac, la navette, les bateaux ; le porteur du port s'il a
+  encore une longue escale) : ils se tournent vers toi et prennent du retard sur leur scène,
+  comme pour un signe, et ne la quittent pas (regarder, chercher des yeux, repartir).
+- **La promesse** (§ 7.5) : « Je reviendrai te voir. » est une réponse de la voix « sa vie ».
+  Elle est gardée (`state.paroles.promesse`, la dernière). Si tu reviens après au moins trois
+  jours d'absence (le rapport de reprise), tant que la cité dure, celui à qui tu l'as dite
+  s'en souvient (« Tu avais dit que tu reviendrais. Ça fait quatre jours. Je venais ici
+  chaque matin. », « vous » de P4 à P9), et les autres le nomment (« La voix avait promis à
+  Orun de revenir. Elle a mis quatre jours. »). Le nombre de jours s'écrit en lettres
+  jusqu'à douze.
 - Vérifié en jeu au Bourg marchand (P3 : Bruna, puis Orun du Pont, « Si c'est encore toi,
   Bertran, ce n'est pas drôle. ») et au Royaume conquérant (P5 : « Je vous teste. »).
 
@@ -566,7 +577,8 @@ intéressé par la vie du pnj. Le silence, c'est bien. Fais. »
    ✅ 4 bis : ce qu'il FAIT (§ 5.6).
 5. ✅ **Le déclic et le dialogue par signes** : Claude, au Feu, jusqu'à P3 (§ 7.1 bis).
 6. 🚧 **Les mots**, dès P3 : les passants, puis les figures de la Chronique (§ 7.6 : parler,
-   les quatre voix, les rumeurs, la gazette ; restent les figures, la promesse).
+   les quatre voix, les rumeurs, la gazette, les personnages de scène, la promesse ;
+   restent les figures de la Chronique).
 7. **Le Démiurge et le Grand Reset dans la fiction.**
 8. **Le son des signes**, quand le chantier « ambiance sonore » sera terminé.
 
@@ -691,3 +703,6 @@ Les six questions du premier jet sont tranchées (tableau 1 bis). Aucune ouverte
 - 2026-10-08 : **La gazette parle de la voix** (§ 7.6) : un article par voix et par période,
   quand une voix domine dans la cité ; le nom qu'ils te donnent suit ta voix (le Maître, le
   Joueur, le Passant, le Voisin d'en haut).
+- 2026-10-08 : **Les personnages de scène** entendent la voix (ils se tournent, ne quittent
+  pas leur scène), et **la promesse** se paie : « Je reviendrai te voir. », trois jours
+  d'absence, et celui à qui tu l'as dite s'en souvient ; la rue le nomme.
