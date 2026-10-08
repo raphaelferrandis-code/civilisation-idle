@@ -30,12 +30,14 @@
 //   scène) ; pour la réponse à une demande : answer ('yes' | 'other' | 'none') et asked
 //   (le signe qu'il avait demandé) ;
 //   et pour parler (kind 'talk', lot 6, data/parolesMots.js) : acts (les gestes qu'il
-//   peut faire, comme pour un signe).
+//   peut faire, comme pour un signe) ; et ce que la rue en dit : saidBy (à qui la voix
+//   a parlé : par voix, par réponse, par ce qu'elle affirmait) et saidMost (la voix qui
+//   domine dans la cité).
 // }
 import { PAROLES, JOB_GROUP } from '../../data/paroles.js';
 import { PAROLES_SIGNES } from '../../data/parolesSignes.js';
 import { VEILLEE_JOB } from '../../data/parolesVeillee.js';
-import { PAROLES_MOTS } from '../../data/parolesMots.js';
+import { PAROLES_MOTS, VOIX, TALK_ORIENTATIONS } from '../../data/parolesMots.js';
 
 const VAR = /\{(\w+)\}/g;
 // « de », « que », « jusque » devant un prénom qui commence par une voyelle s'élident.
@@ -123,9 +125,11 @@ export function parolesEligible(e, ctx) {
   // On demande un signe en s'arrêtant pour l'attendre : un passant de la rue, pas un
   // personnage de scène (il ne quitte pas sa scène).
   if (e.request && ctx.figure) return false;
-  // Ce que la cité a vu (lot 4) : un signe, un geste, et qui l'a reçu ({temoin}).
-  const ev = w.seen ? ctx.seenBy && ctx.seenBy[w.seen] : null;
-  if (w.seen && !ev) return false;
+  // Ce que la cité a vu (lot 4) : un signe, un geste, et qui l'a reçu ({temoin}) ; à qui
+  // la voix a parlé, et de quelle voix (lot 6), et la voix qui domine dans la cité.
+  const ev = (w.seen && ctx.seenBy && ctx.seenBy[w.seen]) || (w.said && ctx.saidBy && ctx.saidBy[w.said]) || null;
+  if ((w.seen || w.said) && !ev) return false;
+  if (w.saidMost && ctx.saidMost !== w.saidMost) return false;
   if (!childOk(e, ctx)) return false;
   // Une causette se joue à deux.
   if (e.kind === 'chat' && !b) return false;
@@ -181,22 +185,78 @@ export function pickSign(ctx, heard = {}, rand = Math.random, catalog = PAROLES_
 }
 
 // LES MOTS (lot 6) : l'échange qui vient quand le joueur lui parle. Les règles de
-// l'écoute (pas de redite tant qu'il reste du neuf, la précision l'emporte). Rend
+// l'écoute (pas de redite tant qu'il reste du neuf, la précision l'emporte) ; il faut
+// au moins deux voix pour lui répondre, et de quoi répondre à ton silence. Rend
 // { id, entry, lines } ou null.
 export function pickTalk(ctx, heard = {}, rand = Math.random, catalog = PAROLES_MOTS) {
-  const ok = catalog.filter((e) => parolesEligible(e, ctx) && e.choices.some((c) => pickReply(c.replies, ctx)) && pickReply(e.silence, ctx));
+  const ok = catalog.filter((e) => parolesEligible(e, ctx) && talkSilence(e, ctx) && talkChoices(e, ctx).length >= 2);
   if (!ok.length) return null;
   const r = chooseFrom(ok, ctx, heard, rand);
   return { id: r.id, entry: ok.find((e) => e.id === r.id), lines: r.lines };
 }
+// Une réponse du répertoire d'une voix, possible ici : ses conditions, les prénoms
+// qu'elle cite (on ne demande pas des nouvelles d'un enfant qu'il n'a pas), et au moins
+// une réplique qui lui convienne.
+function answerOk(a, ctx) {
+  const you = { kind: ctx.kind, layer: 1, when: a.when || {}, lines: [{ who: 'a', ...a.you }] };
+  return parolesEligible(you, ctx) && !!pickReply(a.replies, ctx);
+}
+// LES QUATRE VOIX (Raph, 2026-10-08) : une réponse par voix, dans l'ordre
+// TALK_ORIENTATIONS. Celle que l'échange prévoit pour cette voix, s'il en prévoit une ;
+// sinon une du répertoire, la moins dite (`heard` : 'v:<voix>:<clé>'), et parmi elles
+// la plus propre à lui (ses enfants, son conjoint, ce qu'il fait passent avant ce qu'on
+// demande à tout le monde), au hasard à égalité. Rend [{ orientation, key, you, belief,
+// replies, voix }] ; `key` : la voix seule (l'échange), ou 'voix:clé' (le répertoire) ;
+// `voix` : l'identifiant à compter.
+const specOf = (a) => Object.keys(a.when || {}).length + (textsOf(a.you).some((t) => /\{\w+\}/.test(t)) ? 1 : 0);
+export function talkChoices(e, ctx, heard = {}, rand = Math.random) {
+  const out = [];
+  for (const o of TALK_ORIENTATIONS) {
+    const own = e.choices && e.choices[o];
+    if (own && pickReply(own.replies, ctx)) {
+      out.push({ orientation: o, key: o, you: own.you, belief: own.belief || null, replies: own.replies, voix: null });
+      continue;
+    }
+    const pool = (VOIX[o] || []).filter((a) => answerOk(a, ctx));
+    if (!pool.length) continue;
+    const idOf = (a) => `v:${o}:${a.key}`;
+    const least = Math.min(...pool.map((a) => heard[idOf(a)] | 0));
+    const fresh = pool.filter((a) => (heard[idOf(a)] | 0) === least);
+    const top = Math.max(...fresh.map(specOf));
+    const best = fresh.filter((a) => specOf(a) === top);
+    const a = best[Math.min(best.length - 1, Math.floor(rand() * best.length))];
+    out.push({ orientation: o, key: `${o}:${a.key}`, you: a.you, belief: a.belief || null, replies: a.replies, voix: idOf(a) });
+  }
+  return out;
+}
+// Ce qu'il répond à ton silence : ce que l'échange prévoit, sinon le répertoire. Rend
+// { key ('silence' | 'silence:voix'), replies } ou null.
+export function talkSilence(e, ctx) {
+  if (e.silence && pickReply(e.silence, ctx)) return { key: 'silence', replies: e.silence };
+  if (pickReply(VOIX.silence, ctx)) return { key: 'silence:voix', replies: VOIX.silence };
+  return null;
+}
+// La réponse que désigne une clé enregistrée (le panneau la relit) : { you, replies },
+// `you` null pour le silence ; null si elle n'existe plus.
+function talkAnswerOf(e, key) {
+  if (key === 'silence') return e.silence ? { you: null, replies: e.silence } : null;
+  if (key === 'silence:voix') return { you: null, replies: VOIX.silence };
+  if (!key.includes(':')) {
+    const own = e.choices && e.choices[key];
+    return own ? { you: own.you, replies: own.replies } : null;
+  }
+  const [o, k] = key.split(':');
+  const a = (VOIX[o] || []).find((x) => x.key === k);
+  return a ? { you: a.you, replies: a.replies } : null;
+}
 // Sa réplique à ce que le joueur a dit (ou à son silence) : la première qui lui convient
-// (son caractère d'abord, celle de tous en dernier) et dont il peut faire le geste.
-// Rend { ri (son rang), act, lines } ou null.
+// (son caractère d'abord, l'enfant, celle de tous en dernier ; son âge : `bands`) et dont il
+// peut faire le geste. Rend { ri (son rang), act, lines } ou null.
 export function pickReply(replies, ctx) {
   for (let ri = 0; ri < (replies || []).length; ri += 1) {
     const r = replies[ri];
     if (ctx.acts && !ctx.acts.includes(r.act)) continue;
-    const e = { kind: ctx.kind, layer: 1, when: r.when || {}, lines: r.lines };
+    const e = { kind: ctx.kind, layer: 1, bands: r.bands, when: r.when || {}, lines: r.lines };
     if (!parolesEligible(e, ctx)) continue;
     return { ri, act: r.act, lines: resolveLines(e, ctx).map((l) => ({ ...l, who: 'a' })) };
   }
@@ -211,14 +271,14 @@ export function resolveYou(you, ctx) {
 // (`who: 'you'`, ou `silent`), la sienne. `talk` { key, ri } : ta réponse, la réplique qui
 // a suivi. null si l'échange a changé depuis.
 export function talkTranscript(e, talk, ctx) {
-  if (!e || !talk) return null;
-  const c = talk.key === 'silence' ? null : e.choices.find((x) => x.key === talk.key);
-  const reply = (c ? c.replies : talk.key === 'silence' ? e.silence : [])[talk.ri];
+  if (!e || !talk || typeof talk.key !== 'string') return null;
+  const ans = talkAnswerOf(e, talk.key);
+  const reply = ans && ans.replies[talk.ri];
   if (!reply) return null;
   const said = (ls) => resolveLines({ kind: 'thought', lines: ls.map((l) => ({ ...l, who: 'a' })) }, ctx);
   return [
     ...said(e.lines),
-    c ? { ...resolveYou(c.you, ctx), who: 'you' } : { who: 'you', silent: true },
+    ans.you ? { ...resolveYou(ans.you, ctx), who: 'you' } : { who: 'you', silent: true },
     ...said(reply.lines),
   ];
 }
@@ -245,9 +305,11 @@ export function resolveLines(e, ctx) {
   // Un prénom est le même dans les deux langues ; le nom que la gazette te donne
   // ({nom}, {Nom}) s'écrit dans chacune : { fr, en }.
   const nameOf = (k, fr) => {
-    // Le témoin d'un signe : celui que la cité a vu (lot 4), sinon le prénom gardé.
+    // Le témoin : celui que la cité a vu recevoir un signe (lot 4), celui à qui la voix a
+    // parlé (lot 6), sinon le prénom gardé.
     if (k === 'temoin') {
-      const ev = e.when && e.when.seen && ctx.seenBy ? ctx.seenBy[e.when.seen] : null;
+      const w = e.when || {};
+      const ev = (w.seen && ctx.seenBy && ctx.seenBy[w.seen]) || (w.said && ctx.saidBy && ctx.saidBy[w.said]);
       if (ev) return ev.who;
     }
     const v = ctx.names && ctx.names[k];

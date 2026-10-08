@@ -4,17 +4,19 @@
 //
 // Dès la période 3 de la gazette, la fiche propose « Parler » au passant désigné. Il entend
 // une voix : il s'arrête, lève les yeux vers toi et le dit (sa première réplique) ; la
-// fiche propose deux ou trois réponses courtes, et « Se taire ». Il répond à ce que tu as
-// dit, selon son caractère, et fait ce que dit sa réponse (s'agenouiller, chercher des
-// yeux, rentrer, repartir…, les gestes du lot 4 bis). Rien choisi au bout de `chooseMs` :
-// c'est le silence qui répond. Une fois par passant : il a entendu la voix, il a dit ce
-// qu'il avait à dire. La cité retient à qui tu as parlé et ta manière (core/paroles.js).
+// fiche propose quatre réponses, une par voix (le joueur, le dieu, l'indifférent, celui
+// qui s'intéresse à sa vie : data/parolesMots.js), et « Se taire ». Il répond à ce que tu
+// as dit, selon son caractère et son âge, et fait ce que dit sa réponse (s'agenouiller,
+// chercher des yeux, rentrer, repartir, les gestes du lot 4 bis). Rien choisi au bout de
+// `chooseMs` : c'est le silence qui répond. Une fois par passant : il a entendu la voix,
+// il a dit ce qu'il avait à dire. La cité retient à qui tu as parlé et de quelle voix
+// (core/paroles.js).
 // L'échange en cours vit dans `CM.talking` ; la fiche le lit (talkView), le choix y revient
 // (talkChoose). talkTick avance le tout à chaque frame (iso/isoSignes.js).
 import { CM } from '../layout.js';
 import { onCitizenFocus } from '../citizenFocus.js';
 import { listenContext, toiRecord, stopListening, LISTEN } from './listen.js';
-import { pickTalk, pickReply, resolveYou } from './pick.js';
+import { pickTalk, pickReply, resolveYou, talkChoices, talkSilence } from './pick.js';
 import { reactTo, endReaction, signActs } from './signs.js';
 import { parolesHeard, parolesNoteTalk } from '../../core/paroles.js';
 import { getPeriod } from '../../core/chronicleEvaluator.js';
@@ -71,14 +73,14 @@ export function startTalk(now = clock()) {
   if (!r) return false;
   stopListening();
   p._talked = true;
-  const choices = r.entry.choices
-    .map((c) => (pickReply(c.replies, ctx) ? { key: c.key, ...resolveYou(c.you, ctx) } : null))
-    .filter(Boolean);
+  // Une réponse par voix (celle de l'échange, ou du répertoire), et ton silence.
+  const defs = talkChoices(r.entry, ctx, parolesHeard());
+  const choices = defs.map((c) => ({ key: c.key, orientation: c.orientation, ...resolveYou(c.you, ctx) }));
   // Sa première réplique, une à une ; puis les réponses.
   const lines = r.lines.map((l, i) => ({ who: 'a', fr: l.fr, en: l.en, at: now + i * lineMs() }));
   const chooseAt = now + Math.max(0, r.lines.length - 1) * lineMs() + 600;
   CM.talking = {
-    p, id: r.id, entry: r.entry, ctx, name: ctx.names.a, lines, choices,
+    p, id: r.id, entry: r.entry, ctx, name: ctx.names.a, lines, choices, defs, silence: talkSilence(r.entry, ctx),
     chooseAt, until: chooseAt + TALK.chooseMs, said: null, act: null, actAt: 0, acted: false, doneAt: 0,
   };
   // Il s'arrête et lève les yeux vers toi, le temps de l'échange.
@@ -90,19 +92,20 @@ export function startTalk(now = clock()) {
 export function talkChoose(key, now = clock()) {
   const T = CM.talking;
   if (!T || T.said || now < T.chooseAt - 600) return false;
-  const c = key ? T.entry.choices.find((x) => x.key === key) : null;
-  if (key && (!c || !T.choices.some((x) => x.key === key))) return false;
-  const reply = pickReply(c ? c.replies : T.entry.silence, T.ctx);
+  const c = key ? T.defs.find((x) => x.key === key) : null;
+  if (key && !c) return false;
+  const answer = c || T.silence;
+  const reply = answer && pickReply(answer.replies, T.ctx);
   if (!reply) return false;
-  T.said = { key: c ? c.key : 'silence', tone: c ? c.tone : 'muet', belief: (c && c.belief) || null };
+  T.said = { key: answer.key, tone: c ? c.orientation : 'muet', belief: (c && c.belief) || null, voix: (c && c.voix) || null };
   T.lines.push(c ? { who: 'you', ...resolveYou(c.you, T.ctx), at: now } : { who: 'you', silent: true, at: now });
   reply.lines.forEach((l, i) => T.lines.push({ who: 'a', fr: l.fr, en: l.en, at: now + (i + 1) * lineMs() }));
   T.act = reply.act;
   T.actAt = now + lineMs();
   T.doneAt = now + reply.lines.length * lineMs();
-  // La cité retient à qui tu as parlé et ta manière ; le panneau garde l'échange (avec
+  // La cité retient à qui tu as parlé et de quelle voix ; le panneau garde l'échange (avec
   // les prénoms que citent sa première réplique, la tienne et sa réponse).
-  const raw = (c ? c.replies : T.entry.silence)[reply.ri];
+  const raw = answer.replies[reply.ri];
   const toi = toiRecord({ id: T.id }, T.ctx, { when: T.entry.when, lines: [...T.entry.lines, ...(c ? [c.you] : []), ...raw.lines] });
   parolesNoteTalk(T.id, { ...T.said, who: T.name, fem: !!(T.ctx.a && T.ctx.a.fem) }, { ...toi, talk: { key: T.said.key, ri: reply.ri } });
   return true;

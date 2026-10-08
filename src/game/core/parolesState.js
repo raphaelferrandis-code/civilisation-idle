@@ -31,9 +31,10 @@
 //          (lot 5). Une cité : `cycles + 1000 × grandResetCount` (core/paroles.js).
 //   mots   ce que le joueur a DIT (lot 6) : { n (combien d'échanges, éternel), city, said
 //          [{ id, key, tone, belief, who, fem, at }] (dans cette cité : à qui il a parlé et
-//          ce qu'il a répondu, SAID_MAX au plus), tones { vrai, doux, ordre, secret, muet }
-//          (dans cette cité : sa manière) }. Un souvenir du panneau peut être un échange :
-//          `toi.talk` { key (sa réponse), ri (la réplique qui a suivi) }.
+//          ce qu'il a répondu, SAID_MAX au plus), tones { joueur, dieu, indifferent, vie,
+//          muet } (dans cette cité : de quelle voix il a parlé) }. Un souvenir du panneau
+//          peut être un échange : `toi.talk` { key (sa réponse), ri (la réplique qui a
+//          suivi) }.
 
 const MAX_ID = 40;
 const MAX_HEARD = 4000;
@@ -43,8 +44,8 @@ export const SAID_MAX = 12;
 const MAX_NAME = 40;
 
 export const SIGN_KINDS = ['wind', 'light', 'fire', 'beast'];
-// La manière du joueur quand il parle (data/parolesMots.js, TALK_TONES).
-export const TALK_TONES = ['vrai', 'doux', 'ordre', 'secret', 'muet'];
+// La voix du joueur quand il parle (data/parolesMots.js, TALK_ORIENTATIONS), et son silence.
+export const TALK_TONES = ['joueur', 'dieu', 'indifferent', 'vie', 'muet'];
 
 const isObj = (v) => v !== null && typeof v === 'object' && !Array.isArray(v);
 const int = (v, def = 0, lo = 0, hi = 1e9) => (Number.isFinite(v) ? Math.min(hi, Math.max(lo, Math.floor(v))) : def);
@@ -96,7 +97,7 @@ function normalizeSigns(raw) {
 }
 
 // Ce que le joueur a dit, et à qui (lot 6).
-const key = (v) => (typeof v === 'string' && /^[a-z0-9-]{1,16}$/.test(v) ? v : null);
+const key = (v) => (typeof v === 'string' && /^[a-z0-9:-]{1,32}$/.test(v) ? v : null);
 function normalizeSaid(raw) {
   if (!isObj(raw)) return null;
   const rid = id(raw.id), k = key(raw.key), who = name(raw.who);

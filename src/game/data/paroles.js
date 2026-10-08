@@ -51,11 +51,13 @@
 // {gamin}, {gamine} (des enfants de sa rue). Une entrée qui nomme quelqu'un qu'il n'a
 // pas n'est pas choisie.
 // La veillée de Claude, le déclic et les demandes de signe (lot 5) ont leurs
-// conditions à eux : parolesVeillee.js.
+// conditions à eux : parolesVeillee.js ; ce que la rue dit de la voix (lot 6,
+// `when.said`, `when.saidMost`) : parolesMots.js.
 
 import { PAROLES_TOI } from './parolesToi.js';
 import { PAROLES_ECHOS } from './parolesSignes.js';
 import { PAROLES_VEILLEE } from './parolesVeillee.js';
+import { PAROLES_ECHOS_MOTS } from './parolesMots.js';
 
 // Les âges (eraThemes.js), par mondes.
 const FEU = [0, 1];      // Feu et Bois : le camp, la chasse, la cueillette, l'abri
@@ -2460,4 +2462,4 @@ const PAROLES_VIE = [
 
 // La troisième couche, ce qu'on dit de toi (lot 2), vit dans parolesToi.js.
 // Ce qu'on entend : leur vie, ce qu'on dit de toi, et ce qu'on dit des signes (lot 4).
-export const PAROLES = [...PAROLES_VIE, ...PAROLES_TOI, ...PAROLES_ECHOS, ...PAROLES_VEILLEE];
+export const PAROLES = [...PAROLES_VIE, ...PAROLES_TOI, ...PAROLES_ECHOS, ...PAROLES_VEILLEE, ...PAROLES_ECHOS_MOTS];

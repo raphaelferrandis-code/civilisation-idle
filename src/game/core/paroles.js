@@ -129,9 +129,10 @@ export const parolesDeclics = () => parolesState().declic.n | 0;
 
 // LES MOTS (lot 6) : le joueur vient de parler à un passant. `id` : l'échange (jamais
 // deux fois le même, comme ce qu'on entend ; il ne compte pas dans la confiance, qui ne
-// vient que de l'écoute). `said` { key, tone, belief, who, fem } : sa réponse, sa manière,
-// ce qu'elle dit de lui, et à qui (la cité en parlera) ; `toi` : de quoi le relire dans le
-// panneau « Ce qu'on dit de toi ».
+// vient que de l'écoute). `said` { key, tone, belief, who, fem, voix } : sa réponse, sa
+// voix (`tone`), ce qu'elle dit de lui, et à qui (la cité en parlera) ; `voix` : la
+// réponse du répertoire qu'il a prise (comptée, elle ne revient qu'après les autres) ;
+// `toi` : de quoi le relire dans le panneau « Ce qu'on dit de toi ».
 export function parolesNoteTalk(id, said, toi = null) {
   if (typeof id !== 'string' || !id || !said || !TALK_TONES.includes(said.tone)) return;
   const s = parolesState();
@@ -139,6 +140,7 @@ export function parolesNoteTalk(id, said, toi = null) {
   const city = cityNow();
   if (m.city !== city) { m.city = city; m.said = []; m.tones = {}; }
   s.heard[id] = (s.heard[id] | 0) + 1;
+  if (typeof said.voix === 'string' && said.voix) s.heard[said.voix] = (s.heard[said.voix] | 0) + 1;
   m.n = (m.n | 0) + 1;
   m.tones[said.tone] = (m.tones[said.tone] | 0) + 1;
   if (said.who) {
@@ -162,6 +164,11 @@ export function parolesSaid() {
 }
 // Combien d'échanges en tout (éternel).
 export const parolesTalks = () => parolesState().mots.n | 0;
+// De quelle voix il a parlé dans cette cité : { joueur, dieu, indifferent, vie, muet }.
+export function parolesTones() {
+  const m = parolesState().mots;
+  return m.city === cityNow() ? m.tones : {};
+}
 
 // CE QUE LA GAZETTE A DIT, dans ce cycle : les articles parus, et le dernier qui
 // donne un nom au joueur (NOMS_DU_JOUEUR). Les habitants n'en savent jamais plus.

@@ -47,7 +47,7 @@ describe("le panneau « Ce qu'on dit de toi »", () => {
     state.paroles = {
       ...defaultParoles(),
       toi: [
-        { id: "m10-souvenir", at: 900, band: 9, a: "Ilya", b: null, fa: true, fb: false, kid: null, nom: null, n: {}, talk: { key: "oui", ri: 0 } },
+        { id: "m10-souvenir", at: 900, band: 9, a: "Ilya", b: null, fa: true, fb: false, kid: null, nom: null, n: {}, talk: { key: "dieu", ri: 0 } },
         { id: "m3-qui", at: 400, band: 2, a: "Garin", b: null, fa: false, fb: false, kid: null, nom: null, n: {}, talk: { key: "silence", ri: 0 } },
       ],
     };

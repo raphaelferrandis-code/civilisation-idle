@@ -43,8 +43,8 @@ describe("le catalogue", () => {
       if (w.doing) for (const d of w.doing) expect(DOING, e.id).toContain(d);
       if (w.trait) expect(TRAITS.some((t) => t.key === w.trait), e.id).toBe(true);
       if (w.seen) expect(SEEN, e.id).toContain(w.seen);
-      // {temoin} ne se dit que de quelqu'un que la cité a vu.
-      if (e.lines.some((l) => /\{temoin\}/.test(l.fr || l.m || ""))) expect(w.seen, e.id).toBeTruthy();
+      // {temoin} ne se dit que de quelqu'un que la cité a vu, ou à qui la voix a parlé.
+      if (e.lines.some((l) => /\{temoin\}/.test(l.fr || l.m || ""))) expect(w.seen || w.said, e.id).toBeTruthy();
     }
   });
 

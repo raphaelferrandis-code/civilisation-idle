@@ -7,7 +7,7 @@ Chantier ouvert le 2026-10-07 sur la demande de Raph :
 > n'interagit pas avec eux, puis après une option dialogue qui permette de parler avec
 > certains. »
 
-**Statut : plan tranché, lots 1 à 5 livrés, le 6 commencé (parler, et un échantillon à juger) ; les lots 2 à 6 sont à juger en jeu.** La fiche d'habitant qui sert de socle est faite
+**Statut : plan tranché, lots 1 à 5 livrés, le 6 en cours (parler, les quatre voix, les rumeurs) ; les lots 2 à 6 sont à juger en jeu.** La fiche d'habitant qui sert de socle est faite
 (commit `4a99b8bc` : identité, foyers, métier, humeur et sa cause, « où il est entré »).
 Raph a répondu aux questions du § 11 le jour même (tableau 1 bis).
 **Ce document fait foi pour ce chantier.**
@@ -468,38 +468,51 @@ Le récit seulement :
 **Le Grand Reset entre dans la fiction.** Au Démiurge, Claude : « Tu vas tout effacer. Même
 ça ? » Après le reset, au premier feu : « J'ai rêvé que tu avais dit non. »
 
-### 7.6 Ce qui est fait (lot 6, premier pas : parler, un échantillon)
+### 7.6 Ce qui est fait (lot 6 : parler)
 
-Raph, 2026-10-08 : « gogo ». La règle de la plume demande un échantillon jugé avant
-d'écrire en masse : la mécanique est complète, les échanges sont un échantillon.
+Raph, 2026-10-08 : « gogo », puis, sur l'échantillon : « la plume ça va oui. La voix du
+joueur : 4 choix de réponses orientés, soit joueur, soit dieu, soit indifférent, soit
+intéressé par la vie du pnj. Le silence, c'est bien. Fais. »
 - **Parler** (`paroles/talk.js`) : dès la période 3, la fiche propose « Parler » à un
   passant de la rue, une fois par passant. Il entend une voix : il s'arrête, lève les yeux
-  vers toi (« T'écoute ») et dit ce qu'il en pense ; la fiche propose deux ou trois réponses
-  courtes et « Se taire ». Il répond selon son caractère et selon ce qu'il peut faire (le
-  pieux s'agenouille s'il en a la pose, le superstitieux rentre en courant, le curieux
-  cherche d'où ça vient), et fait ce que dit sa réponse. Rien choisi au bout de 30 s : le
-  silence répond pour toi (« Tu te tais. »).
-- **Ce que la cité retient** : à qui tu as parlé, ta réponse, ta manière (`vrai`, `doux`,
-  `ordre`, `secret`, `muet`) et ce qu'elle dit de toi (« Je vous teste. » : `test`),
-  `state.paroles.mots` (le compte est éternel, le reste par cité). Rien ne s'en sert encore.
-  Le panneau « Ce qu'on dit de toi » garde l'échange entier (sa réplique, la tienne, la
-  sienne).
+  vers toi (« T'écoute ») et dit ce qu'il en pense. La fiche propose **quatre réponses, une
+  par voix**, toujours dans le même ordre, et « Se taire » :
+  - **le joueur** : « Je joue. », « Tu es dans ma partie. », « J'ai cliqué sur toi. » ;
+    chaque âge l'entend avec ses mots (« Tu joues ? Comme les enfants aux osselets ? »,
+    les dés à l'auberge, le loto du dimanche, l'écran dans le métro) ;
+  - **le dieu** : « Je veille sur vous. », « C'est moi qui ai bâti tout ça. » (c'est vrai :
+    il a tout bâti ; « Vous ? Alors c'est vous qui avez construit l'usine à côté de
+    l'école. »), « C'est moi que vous appelez {nom}. » quand la gazette lui en a donné un ;
+  - **l'indifférent** : « Peu importe. », « Continue ta route. », « Je passais. » ;
+  - **sa vie** : ses enfants et son conjoint par leurs prénoms (« Comment va Sira ? »,
+    « Sira ? Toujours cette toux. Comment tu connais son prénom ? »), ce qu'il fait (« Tu
+    rentres déjà ? »), la disette, son dos, la pluie ; ce qui est propre à lui passe avant
+    ce qu'on demande à tout le monde.
+  Un échange peut prévoir sa propre réponse pour une voix quand sa question l'appelle (P5,
+  « Lequel des deux ? » : « Je fais des essais. », « Je vous guide. », « J'attends. », « Et
+  ton frère, vous vous parlez encore ? »). Le répertoire tourne : une réponse déjà dite
+  revient après les autres. Il répond selon son caractère, son âge et ce qu'il peut faire
+  (le pieux s'agenouille s'il en a la pose, le superstitieux rentre, le râleur compte ce qui
+  ne va pas, l'enfant parle en enfant), et fait ce que dit sa réponse. Rien choisi au bout
+  de 30 s : le silence répond pour toi (« Tu te tais. »).
+- **Le volume** (`data/parolesMots.js`) : 67 premières répliques (de 7 à 9 par période, de P3
+  à P10 : la situation, la nuit, la pluie, le travail, le caractère, l'âge, les enfants, les
+  articles parus), les quatre répertoires (12 réponses du joueur, 9 questions sur sa vie),
+  et ce qu'on répond au silence.
 - **Le tutoiement** (§ 7.3) : « tu » à la période 3 et au Démiurge, « vous » entre les deux ;
-  le joueur dit « tu ». Un test le garde.
-- **L'échantillon** (`data/parolesMots.js`, 10 échanges, trois réponses et le silence
-  chacun) : P3 « Qui a parlé ? Il n'y a personne. », un habitant qui sait que Claude entend
-  quelqu'un (si le déclic a eu lieu), l'enfant qui croit qu'on joue à cache-cache ; P4
-  « Seigneur ? C'est vous ? » ; P5 le schisme (« Lequel des deux ? » : je vous guide, je vous
-  teste, j'attends) ; P6 le procès de Khael (« Alors venez. La séance est jeudi, à neuf
-  heures, salle trois. ») ; P7 « Raphaël écrit que vous jouez. C'est vrai ? » ; P8 la pensée
-  qui manque au chœur ; P9 « le Joueur » ; P10 « Tu te souviens de nous, après ? » (« Alors
-  souviens-toi de moi. Je m'appelle Ilya. »).
-- Vérifié en jeu au Bourg marchand (P3 : Bruna, « Moi. », puis le silence) et au Royaume
-  conquérant (P5 : « Je vous teste. »).
-- **Reste à trancher sur l'échantillon** : le volume (par période, par caractère, par
-  métier), les rumeurs sur ce que tu as dit (« Il a parlé à Bruna, devant le puits. »), la
-  gazette qui en parle, les figures de la Chronique dans la rue (Claude : « On s'est déjà
-  parlé. Pas dans cette vie. »), la promesse (§ 7.5), les personnages de scène.
+  l'enfant dit toujours « tu » ; le joueur dit « tu ». Un test le garde.
+- **Ce que la cité retient** : à qui tu as parlé, ta réponse, ta voix (`joueur`, `dieu`,
+  `indifferent`, `vie`, `muet`) et ce qu'elle dit de toi (« Je vous guide. » : `guide`),
+  `state.paroles.mots` (le compte est éternel, le reste par cité). Le panneau « Ce qu'on dit
+  de toi » garde l'échange entier (sa réplique, la tienne, la sienne).
+- **Les rumeurs** (26, `PAROLES_ECHOS_MOTS`, lues par l'écoute) : la rue nomme celui à qui
+  la voix a parlé, jamais celui qu'on écoute (« Orun dit que la voix parle comme un
+  seigneur. », « La voix connaît le prénom des enfants d'Orun. » « Comment elle sait ça ? »
+  « Elle regarde, je suppose. ») ; et après trois échanges, ce que la cité finit par croire,
+  selon la voix qui domine (« Depuis que la voix demande des nouvelles, ma voisine raconte
+  sa journée tout haut, dans la rue, au cas où. »).
+- Vérifié en jeu au Bourg marchand (P3 : Bruna, puis Orun du Pont, « Si c'est encore toi,
+  Bertran, ce n'est pas drôle. ») et au Royaume conquérant (P5 : « Je vous teste. »).
 
 ---
 
@@ -545,7 +558,7 @@ d'écrire en masse : la mécanique est complète, les échanges sont un échanti
    ✅ 4 bis : ce qu'il FAIT (§ 5.6).
 5. ✅ **Le déclic et le dialogue par signes** : Claude, au Feu, jusqu'à P3 (§ 7.1 bis).
 6. 🚧 **Les mots**, dès P3 : les passants, puis les figures de la Chronique (§ 7.6 : parler,
-   et un échantillon à juger).
+   les quatre voix, les rumeurs ; restent la gazette, les figures, la promesse).
 7. **Le Démiurge et le Grand Reset dans la fiction.**
 8. **Le son des signes**, quand le chantier « ambiance sonore » sera terminé.
 
@@ -660,3 +673,10 @@ Les six questions du premier jet sont tranchées (tableau 1 bis). Aucune ouverte
   garde l'échange ; le tutoiement suit le lien. Un échantillon de dix échanges, de P3 à P10,
   à juger avant d'écrire le reste. En passant : le test d'aller-retour de sauvegarde, cassé
   par le lot 5 (le déclic manquait à la partie de test), est réparé.
+- 2026-10-08 : Raph, sur l'échantillon : « la plume ça va oui. La voix du joueur : 4 choix de
+  réponses orientés, soit joueur, soit dieu, soit indifférent, soit intéressé par la vie du
+  pnj. Le silence, c'est bien. Fais. » **Les quatre voix** (§ 7.6) : une réponse par voix à
+  chaque échange, de l'échange ou du répertoire de la voix ; sa vie se demande par les
+  vrais prénoms de la fiche. **Le volume** : 67 premières répliques de P3 à P10. **Les
+  rumeurs** : la rue nomme celui à qui la voix a parlé, et finit par croire ce que dit la
+  voix qui domine.

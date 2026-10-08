@@ -1127,8 +1127,8 @@
      "nom": null,
      "n": {},
      "talk": {
-      "key": "moi",
-      "ri": 3
+      "key": "joueur:joue",
+      "ri": 2
      }
     }
    ],
@@ -1174,16 +1174,16 @@
     "said": [
      {
       "id": "m3-qui",
-      "key": "moi",
-      "tone": "vrai",
+      "key": "joueur:joue",
+      "tone": "joueur",
       "who": "Garin",
       "fem": false,
       "at": 5600
      },
      {
       "id": "m5-lequel",
-      "key": "test",
-      "tone": "vrai",
+      "key": "joueur",
+      "tone": "joueur",
       "who": "Oda",
       "fem": true,
       "at": 5700,
@@ -1191,7 +1191,7 @@
      }
     ],
     "tones": {
-     "vrai": 2
+     "joueur": 2
     }
    }
   },

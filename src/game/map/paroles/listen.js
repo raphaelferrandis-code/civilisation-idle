@@ -23,7 +23,7 @@ import { pickParole, resolveLines } from './pick.js';
 import { nearestFire } from './nearFire.js';
 import {
   parolesHeard, parolesNoteHeard, parolesTotal, parolesBulles, parolesKnown, parolesSignsSeen,
-  parolesDeclicHere, parolesDeclics, parolesNoteDeclic,
+  parolesDeclicHere, parolesDeclics, parolesNoteDeclic, parolesSaid, parolesTones,
 } from '../../core/paroles.js';
 import { state } from '../../core/state.js';
 import { getPeriod } from '../../core/chronicleEvaluator.js';
@@ -207,6 +207,24 @@ export function listenContext(kind, p, focusKind) {
     // Celui qui avait demandé un signe, et l'a eu (lot 5).
     if (ev.ans) seenBy.answered = ev;
   }
+  // CE QUE LA VOIX A DIT (lot 6) : à qui elle a parlé, de quelle voix (`said` : 'dieu',
+  // 'vie:enfant', 'test'…), jamais celui qu'on écoute ni l'autre ; et la voix qui domine
+  // dans la cité, quand elle a parlé au moins trois fois (le silence ne compte pas).
+  const saidBy = {};
+  for (const ev of parolesSaid()) {
+    if (ev.who === names.a || ev.who === names.b) continue;
+    saidBy[ev.tone] = ev;
+    saidBy[ev.key] = ev;
+    if (ev.belief) saidBy[ev.belief] = ev;
+  }
+  const tones = parolesTones();
+  let saidMost = null, most = 0, total = 0;
+  for (const [t, n] of Object.entries(tones)) {
+    if (t === 'muet') continue;
+    total += n;
+    if (n > most) { most = n; saidMost = t; }
+  }
+  if (total < 3) saidMost = null;
   return {
     kind,
     band,
@@ -240,6 +258,8 @@ export function listenContext(kind, p, focusKind) {
     plaisirs: gamesPlayed() >= 10,
     bulles: parolesBulles() >= 3,
     seenBy,
+    saidBy,
+    saidMost,
     // Le déclic et les demandes (lot 5).
     declic: parolesDeclicHere(),
     declics: parolesDeclics(),
@@ -302,6 +322,12 @@ export function startListening(kind) {
   }
   return true;
 }
+// Le témoin que cite une réplique ({temoin}) : celui que la cité a vu recevoir un signe
+// (lot 4), ou à qui la voix a parlé (lot 6).
+function temoinOf(e, ctx) {
+  const w = e.when || {};
+  return (w.seen && ctx.seenBy && ctx.seenBy[w.seen]) || (w.said && ctx.saidBy && ctx.saidBy[w.said]) || null;
+}
 // Ce qu'il faut garder d'un échange sur le joueur pour le relire dans le panneau
 // « Ce qu'on dit de toi » (parolesState.js) : les prénoms qu'il cite (le témoin d'un
 // signe compris), les genres, le nom que la gazette donnait alors. Le texte se relit dans
@@ -310,7 +336,7 @@ const VAR = /\{(\w+)\}/g;
 export function toiRecord(r, ctx, e = PAROLES_BY_ID.get(r.id)) {
   const n = {};
   if (e) {
-    const ev = e.when && e.when.seen && ctx.seenBy ? ctx.seenBy[e.when.seen] : null;
+    const ev = temoinOf(e, ctx);
     for (const l of e.lines) {
       for (const t of [l.fr, l.m, l.f].filter(Boolean)) {
         for (const m of t.matchAll(VAR)) {
