@@ -6,13 +6,13 @@ import { defaultParoles, normalizeParoles } from "../../core/parolesState.js";
 import { parolesSignsHere } from "../../core/paroles.js";
 import { focusCitizen, clearCitizenFocus } from "../citizenFocus.js";
 import { buildIdentity, householdOf, TRAITS } from "../citizenIdentity.js";
-import { stopListening, listenView } from "../paroles/listen.js";
+import { stopListening, listenView, listenContext } from "../paroles/listen.js";
 import {
   giveSign, signsOffered, signTick, resetSigns, nearestFire, nearestBeast, parentOnStreet, signActs, reactionLabel,
   SIGN, REACT, BEAST_BEATS,
 } from "../paroles/signs.js";
 import { pickSign, parolesEligible, resolveLines } from "../paroles/pick.js";
-import { PAROLES_SIGNES, SIGN_ACTS } from "../../data/parolesSignes.js";
+import { PAROLES_SIGNES, PAROLES_ECHOS, SIGN_ACTS } from "../../data/parolesSignes.js";
 import { PAROLES } from "../../data/paroles.js";
 import { queueFlameGlow, paintFlameGlows, FIRE_BOOST } from "../flameGlow.js";
 import { chronicleArticles } from "../../data/chronicleArticles.js";
@@ -561,12 +561,86 @@ describe("ce qu'il fait", () => {
     expect(fig._signLag).toBeLessThan(lag);
   });
 
-  it("le laboureur et les gens des bateaux ne reçoivent pas de signe", () => {
-    for (const scene of ["champ", "port", "bac", "navette", "bateau"]) {
-      const fig = someone({ scene });
+  it("le laboureur, le porteur qui a le temps, le voyageur qui attend et le marin reçoivent un signe", () => {
+    const ship = { trip: 4 };
+    CM.ships = [ship];
+    const cases = [
+      [{ scene: "champ" }, true],
+      [{ scene: "port", left: 40 }, true],
+      [{ scene: "port", left: 10 }, false],          // son bateau va larguer
+      [{ scene: "bac", ferryShip: ship, trip: 4 }, true],
+      [{ scene: "bac", ferryShip: ship, trip: 3 }, false],   // à bord
+      [{ scene: "navette", shuttleShip: ship, trip: 5 }, true],
+      [{ scene: "navette", shuttleShip: ship, trip: 4 }, false],
+      [{ scene: "bateau", onShip: ship }, true],
+      [{ scene: "bateau", onShip: {} }, false],      // son bateau n'est plus là
+    ];
+    for (const [extra, ok] of cases) {
+      const fig = someone(extra);
       focusCitizen(fig);
       CM.focus.kind = "figure";
-      expect(signsOffered(), scene).toBe(null);
+      expect(!!signsOffered(), JSON.stringify(extra.scene) + " " + ok).toBe(ok);
     }
+    CM.ships = [];
+  });
+
+  it("aux âges 7 à 9, ni feu ni bête : le vent et la lumière", () => {
+    const p = someone();
+    CM.citizens = [p];
+    focusCitizen(p);
+    fireAt(p.x + 2 * T, p.y);
+    CM.layout.critters = [{ gx: 11, gy: 10, jx: 0, jy: 0, kind: "goat", dir: 3 }];
+    expect(signsOffered()).toMatchObject({ fire: true, beast: true });
+    CM.layout.counts.eraBand = 7;
+    fireAt(p.x + 2 * T, p.y);
+    expect(signsOffered()).toMatchObject({ wind: true, light: true, fire: false, beast: false });
+    expect(giveSign("fire")).toBe(false);
+  });
+});
+
+describe("ce que la ville en dit (les petits manques du lot 4)", () => {
+  it("la cité se souvient de qui a reçu un signe et de ce qu'il a fait, et en parle en le nommant", () => {
+    const p = someone();
+    const other = someone({ seed: 501, gx: 20, x: 20.5 * T }, "f");
+    CM.citizens = [p, other];
+    focusCitizen(p);
+    giveSign("light", clock(), { act: "kneel" });
+    const who = p.identity.given;
+    expect(state.paroles.signs.seen.at(-1)).toMatchObject({ sign: "light", act: "kneel", who });
+    // Un autre passant en parle, en le nommant ; lui ne parle pas de lui-même.
+    const ctxOther = listenContext("thought", other, "citizen");
+    expect(ctxOther.seenBy.kneel.who).toBe(who);
+    expect(listenContext("thought", p, "citizen").seenBy.kneel).toBeUndefined();
+    const e = PAROLES_ECHOS.find((x) => x.id === "e-b-genoux");
+    const ctx = { ...ctxOther, kind: "chat", b: { fem: false, child: false, traits: [] }, names: { ...ctxOther.names, b: "Garin" } };
+    expect(parolesEligible(e, ctx)).toBe(true);
+    expect(resolveLines(e, ctx)[0].fr).toBe(`Tu as vu ${who}, à genoux devant le puits ?`);
+    // Sans rien de vu, pas de rumeur.
+    expect(parolesEligible(e, { ...ctx, seenBy: {} })).toBe(false);
+  });
+
+  it("la cité suivante ne l'a pas vu", () => {
+    const p = someone();
+    CM.citizens = [p];
+    focusCitizen(p);
+    giveSign("wind", clock(), { act: "flee" });
+    expect(state.paroles.signs.seen).toHaveLength(1);
+    state.cycles = 4;
+    expect(listenContext("thought", someone({ seed: 9 }), "citizen").seenBy).toEqual({});
+  });
+
+  it("une pensée de signe qui parle de toi va au panneau « Ce qu'on dit de toi »", () => {
+    CM.layout.counts.eraBand = 9;
+    const p = someone();
+    CM.citizens = [p];
+    focusCitizen(p);
+    giveSign("light");
+    const e = PAROLES_SIGNES.find((x) => x.id === CM.listening.id);
+    expect(state.paroles.toi.length).toBe(e.toi ? 1 : 0);
+    if (e.toi) expect(state.paroles.toi[0]).toMatchObject({ id: e.id, a: p.identity.given, band: 9 });
+    // Les pensées qui parlent de toi sont repérées, et pas « la tête » ni « j'arrête ».
+    expect(PAROLES_SIGNES.find((x) => x.id === "s-x92-lumiere").toi).toBe(true);
+    expect(PAROLES_SIGNES.find((x) => x.id === "s-x73-enfant").toi).toBeUndefined();
+    expect(PAROLES_SIGNES.find((x) => x.id === "s-x83-conseil").toi).toBeUndefined();
   });
 });

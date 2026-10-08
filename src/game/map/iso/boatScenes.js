@@ -468,7 +468,10 @@ export function drawFleetScene(ctx, it, now) {
     // signale avec la boîte peinte pour être cliquable.
     const mark = it.q ? focusMark(it.q) : 0;
     if (mark) drawFocusRingAt(ctx, p.x, p.y, sceneRingWidth(T * z * spec.scale * AGENT_SCALE), mark === 2);
-    const d = drawNamedAgentIso(ctx, p.x, p.y, z, spec.name, spec.scale, it.dir, !!it.walking, now, it.phase || 0, 1, it.walking ? it.dist : null, true);
+    // Un signe (paroles/signs.js) : celui qui attend sur le ponton se tourne vers ce qu'il
+    // a vu (`_signDir`). Celui qui monte ou descend suit son bac : il ne s'arrête pas.
+    const sd = it.q && !it.walking ? it.q._signDir : null;
+    const d = drawNamedAgentIso(ctx, p.x, p.y, z, spec.name, spec.scale, sd != null ? sd : it.dir, !!it.walking, now, it.phase || 0, 1, it.walking ? it.dist : null, true);
     ctx.globalAlpha = pa0;
     if (d && it.q) noteSceneFigure(it.q, it.q.sceneTag || 'bac', spec.name, p.x, p.y, d);
     return;

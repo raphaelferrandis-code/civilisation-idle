@@ -8,7 +8,9 @@ import { chronicleArticles } from "../../data/chronicleArticles.js";
 
 // ÉCOUTER (docs/PLAN-ECOUTER-PARLER.md) : le catalogue et le choix d'un échange.
 
-const NAMES = ["a", "b", "conjoint", "enfant", "hote", "voisin", "voisine", "gamin", "gamine", "nom", "Nom"];
+const NAMES = ["a", "b", "conjoint", "enfant", "hote", "voisin", "voisine", "gamin", "gamine", "nom", "Nom", "temoin"];
+// Ce que la cité a vu (lot 4) : un geste ou un signe.
+const SEEN = ["look", "back", "flee", "kneel", "pray", "wave", "search", "home", "parent", "go", "wind", "light", "fire", "beast"];
 const DOING = ["work", "school", "home", "errand", "plaza", "pray", "wonder", "wander", "night", "flee", "shelter", "riot", "river", "port", "field"];
 const adult = (o = {}) => ({ fem: false, child: false, old: false, job: null, traits: [], family: "single", kids: 0, ...o });
 const ctxOf = (o = {}) => ({
@@ -40,6 +42,9 @@ describe("le catalogue", () => {
       if (w.group) for (const g of w.group) expect(Object.values(JOB_GROUP)).toContain(g);
       if (w.doing) for (const d of w.doing) expect(DOING, e.id).toContain(d);
       if (w.trait) expect(TRAITS.some((t) => t.key === w.trait), e.id).toBe(true);
+      if (w.seen) expect(SEEN, e.id).toContain(w.seen);
+      // {temoin} ne se dit que de quelqu'un que la cité a vu.
+      if (e.lines.some((l) => /\{temoin\}/.test(l.fr || l.m || ""))) expect(w.seen, e.id).toBeTruthy();
     }
   });
 

@@ -93,13 +93,19 @@ export function parolesEligible(e, ctx) {
   if (w.away && !ctx.away) return false;
   if (w.plaisirs && !ctx.plaisirs) return false;
   if (w.bulles && !ctx.bulles) return false;
+  // Ce que la cité a vu (lot 4) : un signe, un geste, et qui l'a reçu ({temoin}).
+  const ev = w.seen ? ctx.seenBy && ctx.seenBy[w.seen] : null;
+  if (w.seen && !ev) return false;
   if (!childOk(e, ctx)) return false;
   // Une causette se joue à deux.
   if (e.kind === 'chat' && !b) return false;
   // Il ne nomme personne qu'il n'a pas (un célibataire ne parle pas de sa femme).
   for (const l of e.lines) {
     for (const t of textsOf(l)) {
-      for (const m of t.matchAll(VAR)) if (!ctx.names || !ctx.names[m[1]]) return false;
+      for (const m of t.matchAll(VAR)) {
+        if (m[1] === 'temoin' && ev) continue;
+        if (!ctx.names || !ctx.names[m[1]]) return false;
+      }
     }
   }
   return true;
@@ -162,6 +168,11 @@ export function resolveLines(e, ctx) {
   // Un prénom est le même dans les deux langues ; le nom que la gazette te donne
   // ({nom}, {Nom}) s'écrit dans chacune : { fr, en }.
   const nameOf = (k, fr) => {
+    // Le témoin d'un signe : celui que la cité a vu (lot 4), sinon le prénom gardé.
+    if (k === 'temoin') {
+      const ev = e.when && e.when.seen && ctx.seenBy ? ctx.seenBy[e.when.seen] : null;
+      if (ev) return ev.who;
+    }
     const v = ctx.names && ctx.names[k];
     return v && typeof v === 'object' ? (fr ? v.fr : v.en) : v;
   };

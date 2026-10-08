@@ -6,7 +6,7 @@
 // carte demande « qu'a-t-il déjà entendu ? » pour choisir un échange neuf
 // (map/paroles/pick.js), puis « inscris-le » quand le joueur l'écoute.
 import { state } from './state.js';
-import { defaultParoles, defaultSigns, TOI_MAX, SIGN_KINDS } from './parolesState.js';
+import { defaultParoles, defaultSigns, TOI_MAX, SEEN_MAX, SIGN_KINDS } from './parolesState.js';
 import { NOMS_DU_JOUEUR } from '../data/parolesToi.js';
 
 const listeners = new Set();
@@ -26,6 +26,7 @@ export function parolesState() {
   if (!Array.isArray(s.toi)) s.toi = [];
   if (!s.bulles) s.bulles = { cycle: 0, n: 0 };
   if (!s.signs) s.signs = defaultSigns();
+  if (!Array.isArray(s.signs.seen)) s.signs.seen = [];
   return s;
 }
 // Ce qui a déjà été entendu : { [id]: n } (lecture seule pour le choix).
@@ -68,17 +69,27 @@ export function parolesBulles() {
 
 // LES SIGNES (lot 4) : le joueur vient d'en faire un. `id` : la pensée qu'il a fait
 // naître, gardée avec ce qui a été entendu (jamais deux fois la même) ; elle ne compte
-// pas dans la confiance (`n`), qui ne vient que de l'écoute.
-export function parolesNoteSign(kind, id = null) {
+// pas dans la confiance (`n`), qui ne vient que de l'écoute. `seen` { act, who, fem } :
+// ce que la cité en a vu, qui et ce qu'il a fait (elle en parlera en le nommant) ;
+// `toi` : si sa pensée parlait du joueur, de quoi la relire dans le panneau.
+export function parolesNoteSign(kind, id = null, { seen = null, toi = null } = {}) {
   if (!SIGN_KINDS.includes(kind)) return;
   const s = parolesState();
   const g = s.signs;
   const cycle = state.cycles | 0;
-  if (g.cycle !== cycle) { g.cycle = cycle; g.here = {}; }
+  if (g.cycle !== cycle) { g.cycle = cycle; g.here = {}; g.seen = []; }
   g.n = (g.n | 0) + 1;
   g.by[kind] = (g.by[kind] | 0) + 1;
   g.here[kind] = (g.here[kind] | 0) + 1;
   if (typeof id === 'string' && id) s.heard[id] = (s.heard[id] | 0) + 1;
+  if (seen && seen.who && seen.act) {
+    g.seen.push({ sign: kind, act: seen.act, who: seen.who, fem: !!seen.fem, at: lifeSec() });
+    if (g.seen.length > SEEN_MAX) g.seen.splice(0, g.seen.length - SEEN_MAX);
+  }
+  if (toi && typeof id === 'string' && id) {
+    s.toi.push({ id, at: lifeSec(), ...toi });
+    if (s.toi.length > TOI_MAX) s.toi.splice(0, s.toi.length - TOI_MAX);
+  }
   s.rev = (s.rev | 0) + 1;
   emit();
 }
@@ -86,6 +97,11 @@ export function parolesNoteSign(kind, id = null) {
 export function parolesSignsHere() {
   const g = parolesState().signs;
   return g.cycle === (state.cycles | 0) ? g.here : {};
+}
+// Qui elle a vu réagir, le plus ancien d'abord : [{ sign, act, who, fem, at }].
+export function parolesSignsSeen() {
+  const g = parolesState().signs;
+  return g.cycle === (state.cycles | 0) ? g.seen : [];
 }
 
 // CE QUE LA GAZETTE A DIT, dans ce cycle : les articles parus, et le dernier qui

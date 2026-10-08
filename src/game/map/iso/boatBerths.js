@@ -177,7 +177,11 @@ export function dockPorters(berth, elapsed, seed = 0, dwell = Infinity) {
   for (let k = 0; k < PORTER.n; k += 1) {
     // Le second descend un peu après le premier — pas pile à la demi-période.
     const start = 1.2 + k * (leg * (0.6 + 0.8 * ph01(seed, k, 0, 3)) + 1);
-    const t = elapsed - start;
+    // Un signe (paroles/signs.js) : le porteur qui le reçoit s'arrête, son temps prend du
+    // retard (`_signLag`, s), qu'il rattrape ensuite ; la fiche ne le propose qu'à qui a
+    // encore le temps de finir avant que le bateau ne largue (`left`).
+    const fig = _porters.get(seed + ':' + k);
+    const t = elapsed - start - ((fig && fig._signLag) || 0);
     if (t < 0) continue;                               // il n'est pas encore descendu
     let st = porterAt(seed, k, t, a0, len, leg);
     let alpha = Math.min(1, t / PORTER.fade);          // il arrive de la rive
@@ -200,10 +204,12 @@ export function dockPorters(berth, elapsed, seed = 0, dwell = Infinity) {
     const sgn = toShip ? 1 : -1;
     const wdx = P.dx * sgn, wdy = P.dy * sgn;
     const dir = Math.abs(wdx) > Math.abs(wdy) ? (wdx > 0 ? 0 : 1) : (wdy > 0 ? 2 : 3);
+    const sd = fig && fig._signDir != null ? fig._signDir : null;
     out.push({
       x: P.rx + P.dx * st.a + ac.x * c, y: P.ry + P.dy * st.a + ac.y * c, z: P.deckZ,
-      dir, walking: st.walking, carry: st.carry != null ? st.carry : !toShip, dist: t * PORTER.speed * CM.TILE, k, seed, berthId: berth.id,
+      dir: sd != null ? sd : dir, walking: sd != null ? false : st.walking, carry: st.carry != null ? st.carry : !toShip, dist: t * PORTER.speed * CM.TILE, k, seed, berthId: berth.id,
       alpha, charType: ph01(seed, k, 0, 4) < 0.34 ? 1 : 0, load: PORTER_LOAD[Math.max(0, Math.min(9, (berth.band | 0)))],
+      left: dwell - elapsed,
     });
   }
   return out;
@@ -233,7 +239,7 @@ export function porterOf(q) {
     _porters.set(key, pp);
   }
   pp.dir = q.dir; pp.walking = q.walking; pp.carry = q.carry; pp.walkDist = q.walking ? q.dist : null;
-  pp.phase = q.k * 0.5; pp.workKey = q.berthId;
+  pp.phase = q.k * 0.5; pp.workKey = q.berthId; pp.left = q.left;
   return pp;
 }
 

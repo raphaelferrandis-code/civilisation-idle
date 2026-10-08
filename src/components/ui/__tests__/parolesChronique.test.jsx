@@ -32,6 +32,17 @@ describe("le panneau « Ce qu'on dit de toi »", () => {
     expect(html).toContain("le Créateur");
   });
 
+  it("relit aussi ce qu'un signe leur a fait penser de toi (lot 4)", () => {
+    state.paroles = {
+      ...defaultParoles(),
+      toi: [{ id: "s-x92-lumiere", at: 300, band: 9, a: "Ilya", b: null, fa: true, fb: false, kid: null, nom: null, n: {} }],
+    };
+    state.chronicleEntries = [];
+    const html = renderToString(createElement(ParolesChronique));
+    expect(html).toContain("C’est toi, avec ta lumière.");
+    expect(html).toContain("Ilya");
+  });
+
   it("sans article qui le nomme dans ce cycle, ils ne t'appellent pas", () => {
     state.paroles = {
       ...defaultParoles(),

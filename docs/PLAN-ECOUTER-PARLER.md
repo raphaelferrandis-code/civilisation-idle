@@ -292,6 +292,18 @@ il a peur et part en courant ». Dix idées proposées, toutes retenues (« tout
   port, le bac, la navette et les gens des bateaux ne reçoivent pas de signe.
 - **La fiche dit ce qu'il fait** : « À genoux », « S’enfuit », « Va prier », « Court vers sa
   mère », « Cherche des yeux ».
+- **Les petits manques, comblés** (Raph, 2026-10-08 : « on fait les petits manques puis on
+  enchaîne lot 5 » ; l'agenouillement est validé en jeu) :
+  - la ville parle de ceux qui ont reçu un signe, en les NOMMANT (`PAROLES_ECHOS`, 32
+    causettes et pensées : « Tu as vu Maelis, à genoux devant le puits ? »), couche 2 pour
+    ce qu'on a vu, couche 3 pour ceux qui y voient quelqu'un ; la mémoire de la cité :
+    `signs.seen` (qui, quel signe, quel geste ; repart avec la cité) ;
+  - les pensées de signe qui parlent de toi ou à toi (le nom de la gazette, « tu »,
+    « vous ») entrent au panneau « Ce qu'on dit de toi » ;
+  - aux âges 7 à 9, ni feu ni bête : le vent et la lumière (choix de Raph) ;
+  - le laboureur (et son attelage) s'arrête ; le porteur du port aussi, s'il lui reste trente
+    secondes d'escale ; le voyageur du bac ou de la navette se tourne tant qu'il attend sur le
+    ponton, le marin sur son pont (leur bateau poursuit sa route).
 - Mécanique : `paroles/signs.js` mène les réactions (une par personne, plusieurs à la fois) ;
   un passant de la rue part par `agents.citizenReactGo` et porte `p._react`, qui le garde de
   l'averse, du soir, de l'émeute, de l'auvent, de la vitrine et de la causette le temps de
@@ -550,3 +562,10 @@ Les six questions du premier jet sont tranchées (tableau 1 bis). Aucune ouverte
   quai, du pont, de la place et de la Maison des Plaisirs s'arrêtent ; la fiche dit ce
   qu'il fait. 325 pensées, chacune avec son geste. Ni le port, ni le bac, ni les bateaux (une
   autre session y travaille), ni le laboureur.
+- 2026-10-08 : Raph a essayé : « la position à genoux est bonne. On fait les petits manques
+  puis on enchaîne lot 5 ». Il tranche : vent et lumière seuls aux âges 7 à 9 ; les signes
+  branchés sur les marins, le bac, le port et le laboureur ; au lot 5, Claude veille chaque
+  nuit au foyer du camp, et au feu du culte jusqu'à la période 3 si la cité a quitté le camp.
+  **Petits manques comblés** (§ 5.6) : la rue parle de ceux qui ont reçu un signe en les
+  nommant, le panneau garde les pensées de signe qui parlent de toi, et les gens des bateaux,
+  du port, du bac et du champ reçoivent des signes.

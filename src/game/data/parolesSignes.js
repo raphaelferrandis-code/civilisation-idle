@@ -433,6 +433,149 @@ for (const [k, bands] of [['a', [0, 4]], ['b', [5, 9]]]) {
   }
 }
 
-// Toutes de genre 'sign', couche 1 : ce qu'un signe fait penser, pas ce qu'on dit de toi.
-// Le geste par défaut : il regarde, puis à la troisième fois il rentre.
-export const PAROLES_SIGNES = SIGNES.map((e) => ({ kind: 'sign', layer: 1, when: {}, act: e.stage >= 3 ? 'home' : 'look', ...e }));
+// Toutes de genre 'sign', couche 1 : ce qu'un signe fait penser. Le geste par défaut : il
+// regarde, puis à la troisième fois il rentre. `toi` : la pensée parle DE toi ou À toi
+// (le nom que la gazette te donne, « tu », « vous ») ; le panneau « Ce qu'on dit de toi »
+// la garde (core/paroles.js). Pas celles qui nomment une bête : le panneau ne la relirait
+// pas.
+// (Bornes de mot à la main : `\b` lit « tête » comme « t », « ê », « te » et y trouve un
+// « te ».)
+const ABOUT_YOU = /\{[Nn]om\}|(?<!\p{L})(tu|toi|te|ton|ta|tes|vous)(?!\p{L})|(?<!\p{L})t’/u;
+export const PAROLES_SIGNES = SIGNES.map((e) => {
+  const fr = e.lines.map((l) => l.fr || l.m || '').join(' ');
+  const toi = ABOUT_YOU.test(fr) && !/\{[Bb]ete\}|\{maitre\}/.test(fr);
+  return { kind: 'sign', layer: 1, when: {}, act: e.stage >= 3 ? 'home' : 'look', ...e, ...(toi ? { toi: true } : {}) };
+});
+
+// ══ CE QUE LA RUE EN DIT ══════════════════════════════════════════════════════════
+// (lot 4, les petits manques.) La cité a vu quelqu'un recevoir un signe, et ce qu'il en a
+// fait (core/paroles.js, `signs.seen`) : on en parle, en le NOMMANT ({temoin}, jamais
+// celui qu'on écoute ni l'autre de la causette). `when.seen` : un geste ('kneel', 'flee',
+// 'pray', 'wave', 'search', 'back', 'look') ou un signe ('fire', 'light', 'wind',
+// 'beast'). Couche 2 : la ville telle qu'elle va, ouverte à tous ; couche 3 : ceux qui y
+// voient la main de quelqu'un (la confiance, l'écart, comme toute la troisième couche).
+// ⚠ Aucun accord qui suive le témoin (« à genoux devant le puits », pas « s'est
+// agenouillé ») : on ne sait pas d'avance si c'est un homme ou une femme.
+export const PAROLES_ECHOS = [
+  // ── Feu et Bois ──
+  { id: 'e-f-genoux', kind: 'chat', layer: 2, bands: FEU, when: { seen: 'kneel' }, lines: [
+    { who: 'a', fr: 'Tu as vu {temoin} ?', en: 'Did you see {temoin}?' },
+    { who: 'b', fr: 'À genoux au milieu du camp, les mains à plat sur la terre.', en: 'On their knees in the middle of the camp, hands flat on the earth.' },
+    { who: 'a', fr: 'Le chaman dit qu’il ne faut pas en parler.', en: 'The shaman says we mustn’t talk about it.' },
+  ] },
+  { id: 'e-f-feu', kind: 'chat', layer: 2, bands: FEU, when: { seen: 'fire' }, lines: [
+    { who: 'a', fr: 'Le feu a sauté tout seul, tout à l’heure. {temoin} était juste à côté.', en: 'The fire jumped up by itself earlier. {temoin} was right next to it.' },
+    { who: 'b', fr: 'Je l’ai vu. Les étincelles sont montées plus haut que les huttes.', en: 'I saw it. The sparks went higher than the huts.' },
+  ] },
+  { id: 'e-f-vent', kind: 'chat', layer: 2, bands: FEU, when: { seen: 'wind' }, lines: [
+    { who: 'a', fr: 'Il paraît qu’un coup de vent n’a soufflé que sur {temoin}.', en: 'Apparently a gust of wind blew on {temoin} and nobody else.' },
+    { who: 'b', fr: 'Et les herbes à côté n’ont pas bougé. Je n’y crois pas.', en: 'And the grass beside didn’t move. I don’t believe it.' },
+  ] },
+  { id: 'e-f-fuite', kind: 'thought', layer: 2, bands: FEU, when: { seen: 'flee' }, lines: [
+    { who: 'a', fr: '{temoin} a couru jusqu’à l’abri sans se retourner. Je me demande ce qu’il y avait.', en: '{temoin} ran all the way to the shelter without looking back. I wonder what was there.' },
+  ] },
+  { id: 'e-f-quelquun', kind: 'thought', layer: 3, bands: FEU, when: { seen: 'kneel' }, lines: [
+    { who: 'a', fr: 'Ce qui arrive à {temoin}, je crois que ça vient de quelqu’un. Pas d’un esprit, de quelqu’un.', en: 'What’s happening to {temoin}, I think it comes from someone. Not a spirit. Someone.' },
+  ] },
+  // ── Pierre taillée et Couronne ──
+  { id: 'e-b-genoux', kind: 'chat', layer: 2, bands: BOURG, when: { seen: 'kneel' }, lines: [
+    { who: 'a', fr: 'Tu as vu {temoin}, à genoux devant le puits ?', en: 'Did you see {temoin}, on their knees by the well?' },
+    { who: 'b', fr: 'Le prêtre est passé, il n’a rien dit. Il a pressé le pas.', en: 'The priest went by and said nothing. He walked faster.' },
+  ] },
+  { id: 'e-b-feu', kind: 'chat', layer: 2, bands: BOURG, when: { seen: 'fire' }, lines: [
+    { who: 'a', fr: 'Un feu a monté tout seul dans le bourg, tout à l’heure.', en: 'A fire flared up by itself in the village earlier.' },
+    { who: 'b', fr: 'Il paraît que {temoin} était devant, et qu’il n’y avait pas un souffle.', en: 'Apparently {temoin} was right in front of it, and there wasn’t a breath of wind.' },
+  ] },
+  { id: 'e-b-fuite', kind: 'thought', layer: 2, bands: BOURG, when: { seen: 'flee' }, lines: [
+    { who: 'a', fr: 'J’ai vu {temoin} courir jusqu’à sa porte et fermer le volet en plein jour.', en: 'I saw {temoin} run all the way home and close the shutter in broad daylight.' },
+  ] },
+  { id: 'e-b-lumiere', kind: 'chat', layer: 2, bands: BOURG, when: { seen: 'light' }, lines: [
+    { who: 'a', fr: 'On dit que le soleil a percé juste sur {temoin}.', en: 'They say the sun broke through right on {temoin}.' },
+    { who: 'b', fr: 'Ma voisine l’a vu aussi. La rue était à l’ombre, sauf là.', en: 'My neighbour saw it too. The street was in shadow, except there.' },
+  ] },
+  { id: 'e-b-bete', kind: 'chat', layer: 2, bands: BOURG, when: { seen: 'beast' }, lines: [
+    { who: 'a', fr: 'Il paraît qu’une bête n’a pas quitté {temoin} des yeux, au milieu de la rue.', en: 'Apparently an animal didn’t take its eyes off {temoin}, in the middle of the street.' },
+    { who: 'b', fr: 'Les bêtes sentent les présages. Ma grand-mère le disait.', en: 'Animals sense omens. My grandmother used to say so.' },
+  ] },
+  { id: 'e-b-quelquun', kind: 'thought', layer: 3, bands: BOURG, when: { seen: 'kneel' }, lines: [
+    { who: 'a', fr: 'Le prêtre dit que ce qui arrive à {temoin} est un présage. Moi je crois que quelqu’un nous regarde.', en: 'The priest says what’s happening to {temoin} is an omen. I think someone is watching us.' },
+  ] },
+  // ── Marbre ──
+  { id: 'e-m-genoux', kind: 'chat', layer: 2, bands: MARBRE, when: { seen: 'kneel' }, lines: [
+    { who: 'a', fr: 'Tu as vu {temoin}, à genoux en pleine rue ?', en: 'Did you see {temoin}, on their knees in the middle of the street?' },
+    { who: 'b', fr: 'Les augures disent qu’un dieu s’est montré. Ils ne disent pas lequel.', en: 'The augurs say a god showed himself. They don’t say which.' },
+  ] },
+  { id: 'e-m-temple', kind: 'thought', layer: 2, bands: MARBRE, when: { seen: 'pray' }, lines: [
+    { who: 'a', fr: 'J’ai vu {temoin} filer vers le temple sans même saluer.', en: 'I saw {temoin} hurry off to the temple without even a greeting.' },
+  ] },
+  { id: 'e-m-feu', kind: 'chat', layer: 2, bands: MARBRE, when: { seen: 'fire' }, lines: [
+    { who: 'a', fr: 'Un feu a grandi d’une coudée, tout seul.', en: 'A fire grew a cubit, all by itself.' },
+    { who: 'b', fr: 'Juste devant {temoin}. Les augures en parlent depuis.', en: 'Right in front of {temoin}. The augurs have talked of nothing else since.' },
+  ] },
+  { id: 'e-m-lumiere', kind: 'chat', layer: 2, bands: MARBRE, when: { seen: 'light' }, lines: [
+    { who: 'a', fr: 'Le soleil sur {temoin} seul, comme sur une statue.', en: 'The sun on {temoin} alone, like on a statue.' },
+    { who: 'b', fr: 'Le prêtre dit qu’il faut une offrande. Pour quoi, il ne sait pas.', en: 'The priest says an offering is needed. For what, he doesn’t know.' },
+  ] },
+  { id: 'e-m-quelquun', kind: 'thought', layer: 3, bands: MARBRE, when: { seen: 'kneel' }, lines: [
+    { who: 'a', fr: 'Ce qui arrive à {temoin}, ce n’est pas un dieu du temple. C’est quelqu’un d’autre.', en: 'What’s happening to {temoin} isn’t a temple god. It’s someone else.' },
+  ] },
+  // ── Fonte ──
+  { id: 'e-u-genoux', kind: 'chat', layer: 2, bands: FONTE, when: { seen: 'kneel' }, lines: [
+    { who: 'a', fr: '{temoin} à genoux sur le trottoir, tu te rends compte.', en: '{temoin} on their knees on the pavement, can you imagine.' },
+    { who: 'b', fr: 'On a appelé le médecin. Il a dit que tout allait bien.', en: 'We called the doctor. He said everything was fine.' },
+  ] },
+  { id: 'e-u-fuite', kind: 'chat', layer: 2, bands: FONTE, when: { seen: 'flee' }, lines: [
+    { who: 'a', fr: 'Tu as vu courir {temoin} ?', en: 'Did you see {temoin} run?' },
+    { who: 'b', fr: 'Un courant d’air, paraît-il. On ne court pas comme ça pour un courant d’air.', en: 'A draught, they say. You don’t run like that for a draught.' },
+  ] },
+  { id: 'e-u-feu', kind: 'chat', layer: 2, bands: FONTE, when: { seen: 'fire' }, lines: [
+    { who: 'a', fr: 'Il paraît que le feu a doublé d’un coup devant {temoin}.', en: 'Apparently the fire doubled all at once in front of {temoin}.' },
+    { who: 'b', fr: 'Une fuite de gaz. Ils l’écriront dans le journal, tu verras.', en: 'A gas leak. They’ll put it in the paper, you’ll see.' },
+  ] },
+  { id: 'e-u-lumiere', kind: 'thought', layer: 2, bands: FONTE, when: { seen: 'light' }, lines: [
+    { who: 'a', fr: 'On raconte que le soleil a percé la fumée juste sur {temoin}. Au journal, ils ont ri.', en: 'They say the sun broke through the smoke right on {temoin}. At the paper, they laughed.' },
+  ] },
+  { id: 'e-u-quelquun', kind: 'thought', layer: 3, bands: FONTE, when: { seen: 'flee' }, lines: [
+    { who: 'a', fr: 'Ce qui arrive à {temoin}, ce n’est pas un courant d’air. Quelqu’un s’amuse avec nous.', en: 'What’s happening to {temoin} is no draught. Someone is playing with us.' },
+  ] },
+  // ── Néon ──
+  { id: 'e-n-genoux', kind: 'chat', layer: 2, bands: NEON, when: { seen: 'kneel' }, lines: [
+    { who: 'a', fr: 'Tu as vu la vidéo de {temoin} ? À genoux sur le trottoir.', en: 'Did you see the video of {temoin}? On their knees on the pavement.' },
+    { who: 'b', fr: 'Trois mille vues ce matin. Les gens commentent n’importe quoi.', en: 'Three thousand views this morning. People comment on anything.' },
+  ] },
+  { id: 'e-n-fuite', kind: 'chat', layer: 2, bands: NEON, when: { seen: 'flee' }, lines: [
+    { who: 'a', fr: '{temoin} a filé d’un coup, sans un mot.', en: '{temoin} took off all of a sudden, without a word.' },
+    { who: 'b', fr: 'Une panne de quelque chose, il paraît. Personne ne sait de quoi.', en: 'Something broke down, apparently. Nobody knows what.' },
+  ] },
+  { id: 'e-n-feu', kind: 'thought', layer: 2, bands: NEON, when: { seen: 'fire' }, lines: [
+    { who: 'a', fr: 'Il paraît que des flammes sont montées toutes seules devant {temoin}. Les pompiers n’ont rien trouvé.', en: 'Apparently flames shot up by themselves in front of {temoin}. The fire brigade found nothing.' },
+  ] },
+  { id: 'e-n-lumiere', kind: 'thought', layer: 2, bands: NEON, when: { seen: 'light' }, lines: [
+    { who: 'a', fr: 'On dit qu’un rayon de soleil est tombé pile sur {temoin}, entre deux tours. Il y a une photo.', en: 'They say a ray of sun fell right on {temoin}, between two towers. There’s a photo.' },
+  ] },
+  { id: 'e-n-quelquun', kind: 'thought', layer: 3, bands: NEON, when: { seen: 'kneel' }, lines: [
+    { who: 'a', fr: 'Les pannes autour de {temoin}, je n’y crois pas. Quelqu’un appuie sur les boutons.', en: 'The breakdowns around {temoin}, I don’t buy it. Someone is pressing the buttons.' },
+  ] },
+  // ── Noosphère, Stellaire, Démiurge ──
+  { id: 'e-x7-lumiere', kind: 'chat', layer: 2, bands: NOOS, when: { seen: 'light' }, lines: [
+    { who: 'a', fr: 'Le chœur dit que la lumière a monté sur {temoin} seul.', en: 'The chorus says the light rose on {temoin} alone.' },
+    { who: 'b', fr: 'Un pic. Le chœur dit toujours un pic.', en: 'A spike. The chorus always says a spike.' },
+  ] },
+  { id: 'e-x7-genoux', kind: 'thought', layer: 2, bands: NOOS, when: { seen: 'kneel' }, lines: [
+    { who: 'a', fr: 'On a vu {temoin} à genoux sous la membrane. Le chœur en parle tout bas.', en: 'Someone saw {temoin} on their knees under the membrane. The chorus is talking about it in whispers.' },
+  ] },
+  { id: 'e-x8-lumiere', kind: 'chat', layer: 2, bands: ETOILES, when: { seen: 'light' }, lines: [
+    { who: 'a', fr: 'Une voile a tourné trop tôt, juste sur {temoin}.', en: 'A sail turned too early, right on {temoin}.' },
+    { who: 'b', fr: 'Le conseil a envoyé quelqu’un. Il n’a rien trouvé.', en: 'The council sent someone. He found nothing.' },
+  ] },
+  { id: 'e-x8-genoux', kind: 'thought', layer: 2, bands: ETOILES, when: { seen: 'kneel' }, lines: [
+    { who: 'a', fr: 'À genoux sous les voiles, {temoin}. Les anciens de la navette disent que ça porte malheur.', en: '{temoin}, on their knees under the sails. The old hands on the shuttle say it brings bad luck.' },
+  ] },
+  { id: 'e-x9-passe', kind: 'chat', layer: 3, bands: DEMIURGE, when: { seen: 'look' }, lines: [
+    { who: 'a', fr: 'Il est passé près de {temoin}, tout à l’heure.', en: 'He came by {temoin} earlier.' },
+    { who: 'b', fr: 'Je sais. On l’a tous senti.', en: 'I know. We all felt it.' },
+  ] },
+  { id: 'e-x9-genoux', kind: 'thought', layer: 3, bands: DEMIURGE, when: { seen: 'kneel' }, lines: [
+    { who: 'a', fr: '{temoin} à genoux, à notre âge. Il paraît que tu étais là.', en: '{temoin} on their knees, at our age. Apparently you were there.' },
+  ] },
+];

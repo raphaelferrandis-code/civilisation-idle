@@ -193,12 +193,15 @@ function drawCrew(ctx, e, M, bx, by, k, z, band, now, po = null, ident = null, o
       if (po.names) { sp = po.names[j]; if (!sp) continue; }
     }
     if (!sp) sp = crewSpec(band, M, cr, who);
-    const F = agentFrameIso(sp.name, crewDir(cr.phi), z, sp.scale);
+    // Un signe (paroles/signs.js) : il se tourne vers ce qu'il a vu (onCrew.dirOf).
+    const sd = onCrew && onCrew.dirOf ? onCrew.dirOf(cr, who, j) : null;
+    const cd = sd != null ? sd : crewDir(cr.phi);
+    const F = agentFrameIso(sp.name, cd, z, sp.scale);
     if (!F) continue;
     // Il respire (lot 3 de PLAN-COMPORTEMENTS) : la bande d'attente, déphasée par marin.
-    const I = agentIdleFrameIso(sp.name, crewDir(cr.phi), z, sp.scale, now || 0, (who % 97) / 97);
+    const I = agentIdleFrameIso(sp.name, cd, z, sp.scale, now || 0, (who % 97) / 97);
     // Le salut d'un bateau à l'autre (pose 'wave', §8) : la main levée, en boucle.
-    const Wv = cr.pose === 'wave' ? agentPoseFrameIso(sp.name, crewDir(cr.phi), z, sp.scale, 'wave',
+    const Wv = cr.pose === 'wave' && sd == null ? agentPoseFrameIso(sp.name, cd, z, sp.scale, 'wave',
       (((now || 0) / 1400) + (who % 97) / 97) % 1) : null;
     const S = Wv || I || { img: F.img, sx: 0, fh: F.fh };
     const ex0 = bx + (cr.x0 - e.ox) * k, ey0 = by + (cr.y0 - e.oy) * k;

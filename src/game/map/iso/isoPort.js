@@ -255,6 +255,12 @@ export function drawIsoShips(now) {
 function drawKitShip(ctx, sh, P, now) {
   // Chaque marin peint se signale à la fiche d'habitant : on le désigne, on le suit.
   const onCrew = (cr, who, sp, j, fx, fy, drawH, top, M) => noteBoatCrew(sh, M, cr, who, sp, j, fx, fy, drawH, top);
+  // Un signe (paroles/signs.js) : le marin ou le voyageur qui le reçoit se tourne vers ce
+  // qu'il a vu, sur son pont (`_signDir`) ; le bateau, lui, poursuit sa route.
+  onCrew.dirOf = (cr, who, j) => {
+    const q = j >= 0 && sh._passPeople ? sh._passPeople[j] : sh._crewFigs ? sh._crewFigs.get(who) : null;
+    return q && q._signDir != null ? q._signDir : null;
+  };
   const r = drawBoat(ctx, P.kit, P.x, P.y, P.thW, P.z, now, { state: P.state, memo: sh, passNames: P.passNames, hidePass: P.hidePass, onCrew });
   if (!r) return null;
   if (r.pass) sh._deckSlots = r.pass;          // les places des voyageurs (boatScenes)

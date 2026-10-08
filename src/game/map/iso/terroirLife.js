@@ -88,7 +88,10 @@ export function pushTerroirTeams(items, L, band, now) {
     const seed = ((t.gx * 73856093) ^ (t.gy * 19349663)) >>> 0;
     const tile = t.gx + ',' + t.gy;
     const at = (a, lane) => ({ x: t.gx + (alongX ? a : lane), y: t.gy + (alongX ? lane : a) });
-    const time = (now || 0) / 1000 + (seed % 997) / 9.7;
+    // Un signe (paroles/signs.js) : le laboureur s'arrête, et son attelage avec lui ; leur
+    // temps prend du retard (`_signLag`, s), qu'ils rattrapent ensuite.
+    const fig = _ploughmen.get(seed);
+    const time = (now || 0) / 1000 - ((fig && fig._signLag) || 0) + (seed % 997) / 9.7;
     if (CM.season === SUMMER) {
       // LES MOISSONNEURS : ils avancent ensemble le long du champ (aller, puis retour
       // sur la bande d'à côté), la lieuse un pas derrière.
@@ -113,7 +116,7 @@ export function pushTerroirTeams(items, L, band, now) {
     const ux = alongX ? s.ua : s.ul, uy = alongX ? s.ul : s.ua;
     items.push({
       d: isoUnitDepth(p.x * T, p.y * T), kind: 'terroirTeam',
-      team: { x: p.x, y: p.y, dir: dirOf(ux, uy), ux, uy, roll: s.roll * T, walking: s.walking, band, seed, tile, alpha },
+      team: { x: p.x, y: p.y, dir: dirOf(ux, uy), ux, uy, roll: s.roll * T, walking: s.walking && !(fig && fig._signDir != null), band, seed, tile, alpha },
     });
   }
 }
@@ -171,7 +174,9 @@ export function drawTerroirTeam(ctx, it, now) {
       // Cliquable : désigné ou survolé, l'anneau sous lui ; la boîte peinte le signale.
       const pp = ploughmanOf(q), mark = focusMark(pp);
       if (mark) drawFocusRingAt(ctx, pf.x, pf.y, sceneRingWidth(T * z * spec.scale * AGENT_SCALE), mark === 2);
-      const d = drawNamedAgentIso(ctx, pf.x, pf.y, z, spec.name, spec.scale, q.dir, q.walking !== false, now, (q.seed % 7) * 0.13, 1, q.roll, true);
+      // Le laboureur qui a reçu un signe se tourne vers ce qu'il a vu (paroles/signs.js).
+      const sdir = pp._signDir != null ? pp._signDir : q.dir;
+      const d = drawNamedAgentIso(ctx, pf.x, pf.y, z, spec.name, spec.scale, sdir, q.walking !== false, now, (q.seed % 7) * 0.13, 1, q.roll, true);
       if (d) noteSceneFigure(pp, 'champ', spec.name, pf.x, pf.y, d);
     }],
   ];

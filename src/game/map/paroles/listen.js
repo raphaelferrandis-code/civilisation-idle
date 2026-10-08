@@ -15,7 +15,7 @@ import { householdOf, householdSeedOf, memberOf, ageRange, idHash, APARTMENTS } 
 import { CM_COLLECTIVE_HOMES } from '../cityNaming.js';
 import { WINTER } from '../seasonMode.js';
 import { pickParole } from './pick.js';
-import { parolesHeard, parolesNoteHeard, parolesTotal, parolesBulles, parolesKnown } from '../../core/paroles.js';
+import { parolesHeard, parolesNoteHeard, parolesTotal, parolesBulles, parolesKnown, parolesSignsSeen } from '../../core/paroles.js';
 import { state } from '../../core/state.js';
 import { getPeriod } from '../../core/chronicleEvaluator.js';
 import { lastAbsence } from '../../core/idleReport.js';
@@ -180,6 +180,14 @@ export function listenContext(kind, p, focusKind) {
   const names = namesOf(A, B, p, band);
   const nom = known.nameId ? NOMS_DU_JOUEUR[known.nameId] : null;
   if (nom) { names.nom = { fr: nom.fr, en: nom.en }; names.Nom = { fr: nom.Fr, en: nom.En }; }
+  // CE QUE LA CITÉ A VU (lot 4) : le dernier qui a reçu un signe, par geste et par
+  // signe (« {temoin} à genoux devant le puits ») — jamais celui qu'on écoute, ni l'autre.
+  const seenBy = {};
+  for (const ev of parolesSignsSeen()) {
+    if (ev.who === names.a || ev.who === names.b) continue;
+    seenBy[ev.act] = ev;
+    seenBy[ev.sign] = ev;
+  }
   return {
     kind,
     band,
@@ -210,6 +218,7 @@ export function listenContext(kind, p, focusKind) {
     away: absenceFresh(),
     plaisirs: gamesPlayed() >= 10,
     bulles: parolesBulles() >= 3,
+    seenBy,
   };
 }
 
@@ -248,18 +257,20 @@ export function startListening(kind) {
   return true;
 }
 // Ce qu'il faut garder d'un échange sur le joueur pour le relire dans le panneau
-// « Ce qu'on dit de toi » (parolesState.js) : les prénoms qu'il cite, les genres, le
-// nom que la gazette donnait alors. Le texte se relit dans le catalogue.
+// « Ce qu'on dit de toi » (parolesState.js) : les prénoms qu'il cite (le témoin d'un
+// signe compris), les genres, le nom que la gazette donnait alors. Le texte se relit dans
+// le catalogue. `e` : l'entrée (une pensée de signe n'est pas dans PAROLES).
 const VAR = /\{(\w+)\}/g;
-function toiRecord(r, ctx) {
-  const e = PAROLES_BY_ID.get(r.id);
+export function toiRecord(r, ctx, e = PAROLES_BY_ID.get(r.id)) {
   const n = {};
   if (e) {
+    const ev = e.when && e.when.seen && ctx.seenBy ? ctx.seenBy[e.when.seen] : null;
     for (const l of e.lines) {
       for (const t of [l.fr, l.m, l.f].filter(Boolean)) {
         for (const m of t.matchAll(VAR)) {
           const k = m[1];
-          if (k !== 'a' && k !== 'b' && k !== 'nom' && k !== 'Nom' && typeof ctx.names[k] === 'string') n[k] = ctx.names[k];
+          if (k === 'temoin' && ev) n.temoin = ev.who;
+          else if (k !== 'a' && k !== 'b' && k !== 'nom' && k !== 'Nom' && typeof ctx.names[k] === 'string') n[k] = ctx.names[k];
         }
       }
     }
@@ -287,7 +298,8 @@ export function listenView(now = clock()) {
     kind: L.kind,
     id: L.id,
     lines: L.lines.slice(0, shown).map((l) => ({ who: l.who, name: l.who === 'b' ? L.names.b : L.names.a, fr: l.fr, en: l.en })),
-    done: now - L.t0 >= n * LISTEN.lineMs,
+    // (Une tolérance : t0 + durée − t0 tombe parfois un cheveu sous la durée.)
+    done: now - L.t0 >= n * LISTEN.lineMs - 1e-6,
   };
 }
 

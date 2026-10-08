@@ -31,10 +31,13 @@ import { flameFires, FIRE_BOOST } from '../flameGlow.js';
 import { CRITTER_DIR_OF_CAP } from '../critters.js';
 import { identityOfPick } from '../citizenFocus.js';
 import { citizenReactGo, citizenCanPray, citizenSpriteName, POSE_NAMES, POSE_NONE } from '../agents.js';
-import { listenContext, LISTEN } from './listen.js';
+import { listenContext, toiRecord, LISTEN } from './listen.js';
 import { pickSign } from './pick.js';
 import { parolesHeard, parolesNoteSign } from '../../core/paroles.js';
 import { SIGN_KINDS } from '../../core/parolesState.js';
+import { PAROLES_SIGNES } from '../../data/parolesSignes.js';
+
+const SIGNES_BY_ID = new Map(PAROLES_SIGNES.map((e) => [e.id, e]));
 
 export { SIGN_KINDS };
 
@@ -102,16 +105,29 @@ const BEAST_NAME = {
 };
 
 // ── CE QU'ON PEUT FAIRE ──────────────────────────────────────────────────────
-// Un passant de la rue, ou un personnage d'une scène qui sait s'arrêter (quai, pont,
-// place, Maison des Plaisirs) — pas le laboureur soudé à son attelage, ni les gens des
-// bateaux, du port et du bac, menés par leur bateau. Qu'on voit, dehors, et qui n'a pas
-// encore dit « Ça suffit. ».
-export const SIGN_SCENES = new Set(['quai', 'pont', 'place', 'plaisirs']);
+// Un passant de la rue, ou un personnage de scène : ceux du quai, du pont, de la place,
+// de la Maison des Plaisirs et le laboureur s'arrêtent (leur scène prend du retard) ; le
+// porteur du port aussi, s'il a le temps de finir avant que son bateau ne largue ; le
+// voyageur du bac ou de la navette tant qu'il attend sur le ponton, et le marin sur son
+// pont, se tournent seulement (leur bateau ne les attend pas). Qu'on voit, dehors, et qui
+// n'a pas encore dit « Ça suffit. ».
+export const SIGN_SCENES = new Set(['quai', 'pont', 'place', 'plaisirs', 'champ', 'port', 'bac', 'navette', 'bateau']);
+const PORT_LEFT_MIN = 30;   // s d'escale qu'il faut encore au porteur
+function sceneReady(p) {
+  const ships = CM.ships || [];
+  switch (p.scene) {
+    case 'port': return (p.left || 0) >= PORT_LEFT_MIN;
+    case 'bac': return !!p.ferryShip && ships.indexOf(p.ferryShip) >= 0 && (p.ferryShip.trip | 0) <= p.trip;
+    case 'navette': return !!p.shuttleShip && ships.indexOf(p.shuttleShip) >= 0 && (p.shuttleShip.trip | 0) < p.trip;
+    case 'bateau': return !!p.onShip && ships.indexOf(p.onShip) >= 0;
+    default: return SIGN_SCENES.has(p.scene);
+  }
+}
 function signable(f) {
   if (!f || (f.kind !== 'citizen' && f.kind !== 'figure')) return false;
   const p = f.p;
   if (!p || p._nightHidden || p._dead || p._riot || p._vanish !== undefined || p._enter) return false;
-  if (f.kind === 'figure' && !SIGN_SCENES.has(p.scene)) return false;
+  if (f.kind === 'figure' && !sceneReady(p)) return false;
   if ((p.fade ?? 1) < 0.5 || (p._sleepFade ?? 1) < 0.5) return false;
   return (p._signN | 0) < 3;
 }
@@ -187,8 +203,9 @@ export function signsOffered(now = clock()) {
   return {
     wind: true,
     light: true,
-    fire: !!nearestFire(p),
-    beast: !!nearestBeast(p),
+    // Aux âges 7 à 9, ni bêtes ni feux : le vent et la lumière (Raph, 2026-10-08).
+    fire: bandNow() <= 6 && !!nearestFire(p),
+    beast: bandNow() <= 6 && !!nearestBeast(p),
     busy: !!(S && S.p === p && now < S.thoughtAt),
   };
 }
@@ -220,8 +237,9 @@ export function giveSign(kind, now = clock(), opts = {}) {
   if (!SIGN_KINDS.includes(kind) || !signable(f)) return false;
   const p = f.p, figure = f.kind === 'figure';
   const feet = feetOf(p);
-  const fire = kind === 'fire' ? nearestFire(p) : null;
-  const beast = kind === 'beast' ? nearestBeast(p) : null;
+  // Aux âges 7 à 9, ni bêtes ni feux (Raph, 2026-10-08).
+  const fire = kind === 'fire' && bandNow() <= 6 ? nearestFire(p) : null;
+  const beast = kind === 'beast' && bandNow() <= 6 ? nearestBeast(p) : null;
   if ((kind === 'fire' && !fire) || (kind === 'beast' && !beast)) return false;
 
   // L'effet qui était en cours s'arrête là (la bête reprend sa pose, le feu retombe).
@@ -279,7 +297,14 @@ export function giveSign(kind, now = clock(), opts = {}) {
     }
   }
   const r = pickSign(ctx, parolesHeard());
-  parolesNoteSign(kind, r ? r.id : null);
+  const act = opts.act || (r && r.act) || 'look';
+  // La cité a vu qui l'a reçu et ce qu'il a fait (elle en parlera en le nommant) ; et
+  // si sa pensée parle de toi, le panneau « Ce qu'on dit de toi » la garde.
+  const e = r ? SIGNES_BY_ID.get(r.id) : null;
+  parolesNoteSign(kind, r ? r.id : null, {
+    seen: ctx.names.a ? { act, who: ctx.names.a, fem: !!(ctx.a && ctx.a.fem) } : null,
+    toi: e && e.toi ? toiRecord(r, ctx, e) : null,
+  });
   if (r) {
     // Elle passe par l'écoute (la fiche l'affiche comme ses pensées), au moment venu.
     CM.listening = {
@@ -288,7 +313,7 @@ export function giveSign(kind, now = clock(), opts = {}) {
     };
   }
   // Ce qu'il fait : le geste de sa pensée (il regarde, s'il n'en a pas).
-  startReaction(p, opts.act || (r && r.act) || 'look', S, { figure, now });
+  startReaction(p, act, S, { figure, now });
   // Les passants autour ont vu aussi.
   startBystanders(p, S, now);
   return true;

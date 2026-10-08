@@ -23,11 +23,13 @@
 //          (les habitants sentent qu'on leur prend des idées)
 //   signs  les signes donnés (lot 4) : { n (en tout, éternel), by { wind, light, fire,
 //          beast } (éternel), cycle, here { … } (dans la cité de ce cycle : ce qu'elle
-//          a vu, et dont elle parle) }
+//          a vu), seen [{ sign, act, who, fem, at }] (dans cette cité : qui l'a reçu et
+//          ce qu'il a fait, SEEN_MAX au plus — on en parle en le nommant) }
 
 const MAX_ID = 40;
 const MAX_HEARD = 4000;
 export const TOI_MAX = 120;
+export const SEEN_MAX = 12;
 const MAX_NAME = 40;
 
 export const SIGN_KINDS = ['wind', 'light', 'fire', 'beast'];
@@ -38,7 +40,7 @@ const id = (v) => (typeof v === 'string' && v.length > 0 && v.length <= MAX_ID &
 const name = (v) => (typeof v === 'string' && v.length > 0 ? v.slice(0, MAX_NAME) : null);
 
 export function defaultSigns() {
-  return { n: 0, by: {}, cycle: 0, here: {} };
+  return { n: 0, by: {}, cycle: 0, here: {}, seen: [] };
 }
 export function defaultParoles() {
   return { heard: {}, n: 0, rev: 0, toi: [], bulles: { cycle: 0, n: 0 }, signs: defaultSigns() };
@@ -54,9 +56,20 @@ function signCounts(raw) {
   }
   return out;
 }
+// Ce que la cité a vu : le signe, le geste (une clé courte), qui (un prénom), son genre.
+function normalizeSeen(raw) {
+  if (!isObj(raw) || !SIGN_KINDS.includes(raw.sign)) return null;
+  const act = typeof raw.act === 'string' && /^[a-z]{1,10}$/.test(raw.act) ? raw.act : null;
+  const who = name(raw.who);
+  if (!act || !who) return null;
+  return { sign: raw.sign, act, who, fem: !!raw.fem, at: Number.isFinite(raw.at) && raw.at >= 0 ? raw.at : 0 };
+}
 function normalizeSigns(raw) {
   if (!isObj(raw)) return defaultSigns();
-  return { n: int(raw.n, 0, 0, 1e9), by: signCounts(raw.by), cycle: int(raw.cycle, 0, 0, 1e9), here: signCounts(raw.here) };
+  return {
+    n: int(raw.n, 0, 0, 1e9), by: signCounts(raw.by), cycle: int(raw.cycle, 0, 0, 1e9), here: signCounts(raw.here),
+    seen: Array.isArray(raw.seen) ? raw.seen.map(normalizeSeen).filter(Boolean).slice(-SEEN_MAX) : [],
+  };
 }
 
 function normalizeToi(raw) {

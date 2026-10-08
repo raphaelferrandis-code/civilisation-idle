@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { onParoles, parolesToi, parolesNameNow } from '../../game/core/paroles.js';
 import { PAROLES } from '../../game/data/paroles.js';
+import { PAROLES_SIGNES } from '../../game/data/parolesSignes.js';
 import { NOMS_DU_JOUEUR } from '../../game/data/parolesToi.js';
 import { resolveLines } from '../../game/map/paroles/pick.js';
 import { EPOCHS } from '../../game/data/eraThemes.js';
@@ -17,7 +18,8 @@ import '../../styles/paroles-chronique.css';
 // ni « ??? »). En tête, le nom qu'ils te donnent : celui que la gazette de la cité a
 // publié en dernier ; avant le premier, ils ne t'appellent pas.
 
-const BY_ID = new Map(PAROLES.map((e) => [e.id, e]));
+// Ce qu'on a entendu, et ce qu'un signe leur a fait penser de toi (lot 4).
+const BY_ID = new Map([...PAROLES, ...PAROLES_SIGNES].map((e) => [e.id, e]));
 const ageOf = (band) => tr((EPOCHS[Math.max(0, Math.min(EPOCHS.length - 1, band | 0))] || EPOCHS[0]).label);
 const fmtAt = (sec) => fmtClock(sec, { seconds: 'never' });
 const quote = (l) => tr({ fr: `« ${l.fr} »`, en: `“${l.en}”` });
