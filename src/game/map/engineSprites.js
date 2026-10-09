@@ -261,6 +261,9 @@ function drawEngineSpriteCore(t, x, y, w, h, now) {
     // Refonte 2026-08-05 : le cercle ne porte plus de sol peint — le terrain de la
     // carte passe entre les pierres, qui sont plantées dans leur mousse. Ne pas
     // rajouter de softGround ici : c'est la dalle refusée sous une autre forme.
+    // 2026-10-09 : la scène pleine REDESSINÉE (quatre vues, engineOrient) passe avant le
+    // couple animé, cuit sur l'ancien dessin — feu figé jusqu'à ce qu'il soit refait.
+    if (propReady('ancestralcult-prop')) { blitProp(ctx, ox, oy, sw, sh, 'ancestralcult-prop', 0.5, 0.53, 0.88, 0.73); return; }
     if (animReady('ancestralcult-fire') && propReady('ancestralcult-back')) {
       blitProp(ctx, ox, oy, sw, sh, 'ancestralcult-back', 0.5, 0.53, 0.88, 0.73);
       blitAnim(ctx, ox, oy, sw, sh, 'ancestralcult-fire', now, 0.5, 0.53, 0.88, 0.73);
@@ -434,6 +437,9 @@ function drawEngineSpriteCore(t, x, y, w, h, now) {
     // primitive en bois (plateforme sur poteaux croisés, échelle, feu de signal au
     // sommet). Couvre bands 0-6 comme la série savoir (une seule scène) ; repli =
     // prop statique pleine (le MÊME dessin, feu baké), puis rien.
+    // 2026-10-09 : la tour REDESSINÉE (quatre vues, engineOrient) passe avant le couple
+    // animé, cuit sur l'ancien dessin — feu de signal figé jusqu'à ce qu'il soit refait.
+    if (propReady('watch-prop')) { blitProp(ctx, ox, oy, sw, sh, 'watch-prop', 0.5, 0.40, 0.78, 0.94); return; }
     if (animReady('watch-fire') && propReady('watch-back')) {
       blitProp(ctx, ox, oy, sw, sh, 'watch-back', 0.5, 0.40, 0.78, 0.94);
       blitAnim(ctx, ox, oy, sw, sh, 'watch-fire', now, 0.5, 0.40, 0.78, 0.94);

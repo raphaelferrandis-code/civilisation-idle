@@ -20,7 +20,7 @@ import { drawSceneEmissive } from './sceneEmissive.js';
 import { drawSceneWindows } from './sceneWindows.js';
 import { RUIN_PROPS } from './ruinArt.js';
 import { razeImageData } from './ruinRaze.js';
-import { engineOrientKey } from './engineOrient.js';
+import { engineOrientKey, ENGINE_ORIENTED } from './engineOrient.js';
 
 // HALOS DES BÂTIMENTS-MOTEUR (2026-10-01, Raph : « l'allumage de nuit est à fignoler »,
 // « les nouveaux bâtiments sont un peu flous »). Chaque scène portait une lueur additive
@@ -897,6 +897,11 @@ function liveAsset(name) {
 function liveLayer(key) {
   const L = LIVE_LAYERS[key];
   if (!L) return null;
+  // 2026-10-09 : un décor REDESSINÉ (reprise des sprites, engineOrient) n'a plus de
+  // couches vivantes — elles sont cuites sur l'ancien dessin (scripts/sceneLive.mjs, zones
+  // tracées à la main) et son fond « -back » remettrait l'ancien bâtiment. Figé en
+  // attendant que ses animations soient refaites sur le nouvel art (Raph : « yes »).
+  if (ENGINE_ORIENTED.has(key)) return null;
   const strip = liveAsset(key + '-live');
   const back = L.back ? liveAsset(key + '-back') : null;
   if (!strip || (L.back && !back)) return null;
@@ -2025,7 +2030,14 @@ function drawCityEngineSprite(context) {
       // est ANIMÉ (bande de 7 frames, cf. blitForge — feu PIXEL baké, pas d'overlay
       // procédural). Repli : prop statique mint-prop-forge (le MÊME dessin, feu figé),
       // puis rien tant que ni l'un ni l'autre n'est chargé (MORT-2).
-      if (animReady('mint-forge-fire') || propReady('mint-prop-forge')) {
+      // 2026-10-09 : l'atelier REDESSINÉ (quatre vues, engineOrient) passe avant la bande
+      // animée, cuite sur l'ancien dessin — feu figé jusqu'à ce qu'elle soit refaite.
+      if (propReady('mint-prop-forge')) {
+        softGround(ctx, ox, oy, sw, sh, 0.83, 0.46, 0.22, "38,26,12", 0.45); // sol (désactivé par défaut)
+        blitProp(ctx, ox, oy, sw, sh, 'mint-prop-forge', 0.5, 0.53, 0.88, 0.73);
+        return true;
+      }
+      if (animReady('mint-forge-fire')) {
         softGround(ctx, ox, oy, sw, sh, 0.83, 0.46, 0.22, "38,26,12", 0.45); // sol (désactivé par défaut)
         // L'atelier (PixelLab) — aspect 96×80 préservé ; feu animé si la bande est prête,
         // sinon prop statique (frame figée équivalente).

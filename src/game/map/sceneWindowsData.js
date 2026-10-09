@@ -15,22 +15,6 @@
 // ⚠ Redessiner un sprite = relever ses fenêtres à nouveau : la garde
 // (__tests__/sceneWindows.test.js) vérifie que chaque rectangle tombe sur l'encre.
 export const SCENE_WINDOWS_DATA = {
-  // Atelier de la monnaie : les deux fenêtres du pignon ; porte, emblème et appentis
-  // éteints.
-  'mint-prop-house': [
-    [19, 56, 1, 7, 20, 56, 1, 8, 21, 57, 1, 3, 21, 61, 1, 3, 22, 57, 1, 9],
-    [42, 65, 1, 4, 42, 70, 1, 2, 43, 66, 1, 9, 44, 67, 1, 2, 44, 71, 1, 1, 45, 68, 1, 8],
-  ],
-  // Idem, grand, et la fenêtre du flanc.
-  'mint-prop-house-grand': [
-    [39, 90, 1, 13, 40, 90, 1, 5, 40, 97, 1, 7, 41, 91, 1, 5, 41, 98, 1, 6, 42, 91, 1, 6, 42, 98, 1, 6, 43, 92, 1, 3, 43, 96, 1, 2, 43, 101, 1, 2, 43, 105, 1, 1, 44, 92, 1, 7, 44, 100, 1, 6, 45, 94, 1, 2, 45, 97, 1, 2, 45, 100, 1, 6, 46, 98, 1, 11],
-    [78, 108, 1, 5, 78, 121, 1, 1, 79, 108, 1, 14, 80, 109, 1, 13, 81, 109, 1, 5, 81, 115, 1, 8, 82, 110, 1, 3, 82, 119, 1, 1, 82, 121, 1, 2, 83, 110, 1, 3, 83, 114, 1, 1, 83, 119, 1, 4, 84, 111, 1, 14],
-    [106, 110, 1, 6, 107, 110, 1, 9, 108, 110, 1, 10, 109, 111, 1, 5, 109, 117, 1, 2, 110, 111, 1, 8, 111, 111, 1, 9],
-  ],
-  // Moneta : panneaux de bois sans vitre — éteinte.
-  'mint-moneta': [],
-  // Idem, grand.
-  'mint-moneta-grand': [],
   // Tour de guet : les 2 fenêtres du fût (face éclairée, face à l'ombre) ; créneaux,
   // embrasure du parapet et porte éteints.
   'watch-stone': [
@@ -77,11 +61,6 @@ export const SCENE_WINDOWS_DATA = {
   'ruins-lodge-grand': [
     [78, 99, 1, 15, 79, 98, 1, 16, 80, 97, 4, 17, 84, 98, 2, 16],
   ],
-  // Mausolée : la lunette de la voûte et la fenêtre cintrée du flanc ; la porte de bronze
-  // et le brasero (déjà allumé, peint) restent tels quels.
-  'cult-mausoleum': [
-    [43, 17, 4, 6], [64, 38, 7, 11],
-  ],
   // Idem, grand : 4 lucarnes, les fenêtres à guillotine des deux ailes, la baie cintrée et
   // les deux triplets du pignon central, la baie cintrée et la grande fenêtre du pignon
   // droit ; porche à fronton éteint.
@@ -103,9 +82,6 @@ export const SCENE_WINDOWS_DATA = {
     [28, 72, 7, 21], [45, 76, 8, 26], [63, 90, 8, 22], [81, 95, 8, 25], [61, 66, 7, 10],
     [125, 82, 9, 22], [142, 90, 5, 19], [112, 104, 7, 20],
   ],
-  // Temple de Vesta : aucune vitre — porte close et porte ouverte, foyer sacré peint ; il
-  // reste noir la nuit (le feu garde sa lueur propre).
-  'cult-vesta': [],
   // Chantier romain : la petite fenêtre de la cabane ; la grue à roue, les blocs et la
   // porte éteints.
   'works-classical': [
@@ -129,6 +105,8 @@ export const SCENE_WINDOWS_DATA = {
 // Ils attendent leur relevé, vue par vue (« -fr », « -bl », « -br » comprises) ; la garde
 // les attend dans cette liste plutôt que dans les relevés.
 export const SCENE_WINDOWS_A_RELEVER = [
+  'mint-prop-house', 'mint-prop-house-grand', 'mint-moneta', 'mint-moneta-grand',
+  'cult-mausoleum', 'cult-vesta',
   'granary-hall', 'granary-hall-grand', 'guild-house', 'guild-house-grand',
   'bank-house-renaissance', 'bank-house-renaissance-grand', 'market-hall-tent', 'granary-warehouse',
   'granary-warehouse-grand', 'guild-chamber', 'guild-chamber-grand', 'mint-house-steam',
