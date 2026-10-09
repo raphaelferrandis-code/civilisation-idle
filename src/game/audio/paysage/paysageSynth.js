@@ -26,6 +26,7 @@
 // PUR (aléa à graine, ni navigateur ni état du jeu) : le test les mesure tous, et ils
 // se rendent dans le Worker des sons (synthese.worker.js), hors du fil principal.
 import { graine, normaliser, cloche } from '../synth.js';
+import { periodique, SOUFFLE, FEUILLAGE, forceSouffle, forceFeuillage } from './ventEnveloppes.js';
 import { rendreLieu, SONS_LIEUX } from './paysageSynthLieux.js';
 import { rendreSigne, SONS_SIGNES } from './paysageSynthSignes.js';
 
@@ -94,21 +95,10 @@ function bq(F, x) {
   F.x2 = F.x1; F.x1 = x; F.y2 = F.y1; F.y1 = y;
   return y;
 }
-// Une enveloppe lente, PÉRIODIQUE de période L secondes, entre 0 et 1 : k sinus aux
-// harmoniques de 1/L, d'amplitudes décroissantes, de phases tirées.
-function periodique(rnd, L, k = 6, pente = 0.9) {
-  const a = new Float64Array(k), ph = new Float64Array(k);
-  for (let i = 0; i < k; i += 1) { a[i] = (0.35 + rnd()) / Math.pow(i + 1, pente); ph[i] = rnd() * 2 * Math.PI; }
-  const brut = (t) => {
-    let v = 0;
-    for (let i = 0; i < k; i += 1) v += a[i] * Math.sin((2 * Math.PI * (i + 1) * t) / L + ph[i]);
-    return v;
-  };
-  let mn = Infinity, mx = -Infinity;
-  for (let j = 0; j < 1024; j += 1) { const v = brut((j / 1024) * L); if (v < mn) mn = v; if (v > mx) mx = v; }
-  const e = mx - mn || 1;
-  return (t) => Math.max(0, Math.min(1, (brut(t) - mn) / e));
-}
+// `periodique` (une enveloppe lente, PÉRIODIQUE de période L secondes, entre 0 et 1 :
+// k sinus aux harmoniques de 1/L) vit dans ventEnveloppes.js : les arbres de la carte
+// relisent celles du vent.
+//
 // La couture : `src` dure Ln échantillons de plus que sa queue ; la queue (la suite
 // naturelle de la fin) se fond dans le début, à puissance constante — le bruit des
 // deux côtés est sans lien, leurs puissances s'ajoutent.
@@ -157,16 +147,15 @@ const attente = (rnd, taux) => -Math.log(1 - rnd()) / Math.max(1e-6, taux);
 // Le CORPS DU VENT : bruit rose dans un passe-bas à deux pôles dont la coupure suit la
 // rafale (140 à 900 Hz), un souffle d'air aigu dans les plus fortes. 23 s.
 function rendreSouffle(sr) {
-  const rnd = graine(0x50f1e), L = 23, Ln = Math.round(L * sr), n = Ln + Math.round(1.5 * sr);
-  const env = periodique(rnd, L, 6, 0.8);
+  const rnd = graine(SOUFFLE.graine), L = SOUFFLE.L, Ln = Math.round(L * sr), n = Ln + Math.round(1.5 * sr);
+  const env = periodique(rnd, L, SOUFFLE.k, SOUFFLE.pente);
   const bruit = rose(rnd);
   const air = biquad('hp', 1800, 0.7, sr);
   const corps = new Float32Array(n), sifflet = new Float32Array(n);
   let l1 = 0, l2 = 0, hp = 0, g = 0, a = 0;
   for (let i = 0; i < n; i += 1) {
     if ((i & 63) === 0) {
-      g = env(i / sr);
-      g = 0.12 + 0.88 * g * g;                     // des accalmies et des rafales
+      g = forceSouffle(env(i / sr));                // des accalmies et des rafales
       a = 1 - Math.exp((-2 * Math.PI * (140 + 760 * g)) / sr);
     }
     const x = bruit();
@@ -182,14 +171,14 @@ function rendreSouffle(sr) {
 // Le FEUILLAGE : un froissement entre 1 et 6 kHz qui frémit (~11 Hz), d'autant plus
 // fort que la rafale, et des feuilles qui claquent (un éclat de 2 ms). 17 s.
 function rendreFeuillage(sr) {
-  const rnd = graine(0xfe11a6e), L = 17, Ln = Math.round(L * sr), n = Ln + Math.round(1.2 * sr);
-  const env = periodique(rnd, L, 7, 0.7);
+  const rnd = graine(FEUILLAGE.graine), L = FEUILLAGE.L, Ln = Math.round(L * sr), n = Ln + Math.round(1.2 * sr);
+  const env = periodique(rnd, L, FEUILLAGE.k, FEUILLAGE.pente);
   const bpA = biquad('bp', 2400, 0.6, sr), bpB = biquad('bp', 5200, 0.9, sr), hp = biquad('hp', 800, 0.7, sr);
   const out = new Float32Array(n);
   const kFr = 1 - Math.exp((-2 * Math.PI * 11) / sr);
   let g = 0, fr = 0, clic = 0;
   for (let i = 0; i < n; i += 1) {
-    if ((i & 63) === 0) { g = env(i / sr); g = 0.08 + 0.92 * Math.pow(g, 1.4); }
+    if ((i & 63) === 0) g = forceFeuillage(env(i / sr));
     fr += kFr * ((rnd() * 2 - 1) - fr);                     // le frémissement
     const fl = Math.min(1, Math.abs(fr) * 14);
     if (rnd() < 0.0011 * g) clic = 0.12 + rnd() * 0.22;      // une feuille qui claque

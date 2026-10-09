@@ -18,6 +18,7 @@
 // deux fois sur ce chantier).
 import { CM } from '../layout.js';
 import { VIE_ART, FISH_SHADOW, decodeRows, ringPixels, haloSprite } from './vieArt.js';
+import { tableForce, SOUFFLE, FEUILLAGE, forceSouffle, forceFeuillage } from '../../audio/paysage/ventEnveloppes.js';
 
 // ── MOLETTE ─────────────────────────────────────────────────────────────────
 // __vie({ ... }) règle en direct ; __vie() rend l'état. `on: false` coupe toute la
@@ -33,11 +34,11 @@ export const VIE = {
   pigeons: 1, mouettes: 1, envol: null,
   pluieForce: null,
   // vent dans les arbres (0 = immobiles) ; `ventForce` impose un vent en capture ;
-  // la brise passe toutes les `ventPeriode` s, son front avance de `ventVitesse` cases/s.
-  // ÉTEINT par défaut (Raph, 2026-10-06) : en pixel art la couronne ne peut bouger que
-  // par sauts d'un texel entier, et même en brise rare l'effet « pique les yeux ».
-  // __vie({ vent: 1 }) le rallume pour juger.
-  vent: 0, ventForce: null, ventPeriode: 9, ventVitesse: 3,
+  // la rafale avance de `ventVitesse` cases/s ; `reflet` : le revers pâle des feuilles
+  // au frisson (0 = jamais). Éteint le 2026-10-06 (les sauts d'un texel « piquaient les
+  // yeux »), RALLUMÉ le 2026-10-07 avec le son : la couronne glisse (swaySprite.js) et
+  // suit les rafales qu'on entend.
+  vent: 1, ventForce: null, ventVitesse: 3, reflet: 0.6,
   // petite vie de terre (isoVieTerre)
   chiens: 1, chats: 1, papillons: 1, linge: 1,
   // halos de lumière au pixel (addGlow) — false = dégradés lissés d'avant
@@ -313,59 +314,116 @@ export function drawVieAir(now) {
 }
 
 // ── LE VENT DANS LES ARBRES ─────────────────────────────────────────────────
-// ⛔ ÉTEINT PAR DÉFAUT depuis le 2026-10-06 (VIE.vent = 0) : même en brise qui passe,
-// « l'effet n'est pas agréable, il pique les yeux » (Raph). Ne pas le rallumer sans lui.
-// Réponse de Raph (2026-10-01) : « des arbres qui bougent ». En pixel art, un arbre
-// ne se tord pas : sa couronne se DÉCALE d'un texel, par bandes (le haut d'un texel,
-// le milieu d'un demi arrondi, le tronc jamais). Décaler d'un TEXEL entier garde
-// la grille d'échantillonnage alignée sur celle du bas : pas de fourmillement.
-// La rafale se voit PASSER sur la forêt : c'est une BRISE QUI PASSE, pas une
-// oscillation. Retour de Raph (2026-10-06) : « le mouvement des arbres n'est pas
-// reposant » — chaque arbre oscillait sans fin sur sa propre phase (le haut de la
-// couronne sautait d'un texel une à deux fois par seconde, vent nul compris) : des
-// centaines de petits sauts éparpillés, un scintillement des feuillages clairs
-// qu'on ne voit plus pendant un drag et qui saute aux yeux quand la carte s'arrête.
-// Désormais un FRONT traverse la ville dans le sens du vent toutes les ventPeriode
-// secondes ; l'arbre qu'il touche se penche d'un texel (montée brève, retour plus
-// lent) puis se tient IMMOBILE jusqu'au front suivant. À un instant donné ~8 % des
-// arbres sont penchés, ensemble, en une bande qui avance (mesuré sur 2 400 arbres,
-// 10 s à 60 i/s : 2,4 à 4 fois moins de sauts qu'avant selon le vent).
-// Par grand vent (|vent| > 1, captures) les arbres restent couchés en plus ; sous
-// une averse, la bourrasque (CM.gustF) les couche tous à la fois puis les relâche.
-// Rend null (arbre immobile) ou trois bandes [y0, y1, décalage] en rangées source.
-const SWAY_RISE = 0.35, SWAY_FALL = 1.1;   // s : le front penche vite, l'arbre se redresse plus lentement
-const smooth01 = (k) => k * k * (3 - 2 * k);
+// Histoire. Réponse de Raph (2026-10-01) : « des arbres qui bougent ». En pixel art un
+// arbre ne se tord pas : sa couronne se DÉCALE par bandes (le haut, le milieu, le tronc
+// jamais). Au texel entier, ce décalage SAUTAIT : « pas reposant » quand chaque arbre
+// oscillait sur sa phase, puis « ça pique les yeux » même en brise qui passe, et le
+// vent fut éteint le 2026-10-06.
+// Le son l'a rendu nécessaire (2026-10-07) : « entendre le vent sans voir les arbres
+// bouger est problématique ». Raph a retenu trois remèdes :
+//   1. l'arbre PLIE et GLISSE : il se courbe depuis son pied (chaque rangée un peu plus
+//      que celle du dessous), au huitième de texel, et le sprite composé fond les deux
+//      poses voisines de chaque rangée (swaySprite.js) ;
+//   2. le REVERS des feuilles : au frisson, une version pâle du feuillage se pose
+//      par-dessus, en opacité continue ;
+//   3. les rafales VUES sont les rafales ENTENDUES : l'arbre se penche sur l'enveloppe
+//      de la boucle du souffle et frissonne sur celle du feuillage
+//      (audio/paysage/ventEnveloppes.js). Le paysage sonore publie où en sont ses
+//      boucles (CM.ventSon) ; sans lui (son coupé, capture), les mêmes courbes tournent
+//      seules.
+// La rafale entendue est celle du CENTRE de l'écran (l'oreille) ; elle traverse la carte
+// dans le sens du vent à `ventVitesse` cases/s : en amont les arbres se penchent avant,
+// en aval après. Par grand vent (|vent| > 1, captures) les arbres restent couchés en
+// plus ; sous une averse, la bourrasque (CM.gustF) les couche tous à la fois.
+// Rend null (arbre immobile : un blit tel quel) ou la pose du moment, lue aussitôt par
+// swaySprite.drawSwaySprite (objet RÉUTILISÉ d'un arbre à l'autre).
+const smooth01 = (k) => (k <= 0 ? 0 : k >= 1 ? 1 : k * k * (3 - 2 * k));
+// Seuils sur la FORCE des boucles (mesurée : souffle 0,18 au calme, 0,73 au plus fort ;
+// feuillage 0,08 à 0,77) : en dessous, l'arbre se tient droit ; entre les deux, il suit
+// la courbe entière, pas seulement les crêtes.
+// AMPLITUDE : le haut de la couronne au plus fort d'une rafale, en texels. Retour de
+// Raph (2026-10-08) : « je ne vois pas de mouvement en jeu ». La première version
+// penchait de 0,7 texel au plus, soit moins d'un pixel d'écran au zoom 1 : invisible.
+const PENCHE = [0.2, 0.7], FRISSON = [0.3, 0.68], AMPLITUDE = 2.4;
+const HEADS = 0.47;                 // l'écart des deux têtes de lecture d'une boucle (mixeur.creerBoucle)
+const OFF_RATE = 0.5;               // s/s : le rattrapage de l'horloge du son, sans à-coup
+const XREF_RATE = 1.5;              // cases/s : la référence suit le centre de l'écran
+const VENT = {
+  now: NaN, Ts: null, Tf: null, dir: 1, xRef: null, k: 1,
+  offS: [0, HEADS * SOUFFLE.L], offF: [0, HEADS * FEUILLAGE.L],
+};
+const lut = (T, L, t) => {
+  const n = T.length, x = ((((t / L) % 1) + 1) % 1) * n, i = x | 0, f = x - i;
+  return T[i % n] + (T[(i + 1) % n] - T[i % n]) * f;
+};
+const forceAt = (T, L, off, u) => (lut(T, L, u + off[0]) + lut(T, L, u + off[1])) * 0.5;
+const wrap = (d, L) => d - L * Math.round(d / L);
+// La force du vent, comme le paysage sonore la calcule (paysage.js), sans ses rafales
+// tirées au hasard : c'est lui qui les publie quand il joue.
+const ventLevel = () => Math.min(1.4, 0.55 + 0.45 * Math.min(1, Math.abs(CM.windX || 0) / 0.7) + 0.35 * (CM.gustF || 0));
+// Une fois par image : la direction, la référence, l'horloge du son.
+function ventFrame(now) {
+  if (VENT.now === now) return VENT;
+  const dt = Number.isFinite(VENT.now) ? Math.max(0, Math.min(0.25, (now - VENT.now) / 1000)) : 0;
+  VENT.now = now;
+  if (!VENT.Ts) { VENT.Ts = tableForce(SOUFFLE, forceSouffle); VENT.Tf = tableForce(FEUILLAGE, forceFeuillage); }
+  const wind = VIE.ventForce != null ? +VIE.ventForce : (CM.windX || 0);
+  const dir = wind >= 0 ? 1 : -1;
+  const T = CM.TILE || 1, cam = CM.cam || { x: 0, y: 0 };
+  const xc = ((cam.x / T) * 0.94 + (cam.y / T) * 0.34) * dir;
+  if (VENT.xRef == null || dir !== VENT.dir || Math.abs(xc - VENT.xRef) > 25) VENT.xRef = xc;
+  else VENT.xRef += Math.max(-XREF_RATE * dt, Math.min(XREF_RATE * dt, xc - VENT.xRef));
+  VENT.dir = dir;
+  let kT = ventLevel();
+  const S = CM.ventSon, t = now / 1000;
+  const pn = typeof performance !== 'undefined' ? performance.now() : 0;
+  if (S && !(CM.capture && !CM.capture.live) && pn - S.perf < 2500) {
+    const el = (pn - S.perf) / 1000;
+    syncOff(VENT.offS, S.souffle, el, t, VENT.Ts, SOUFFLE.L, PENCHE[0], dt);
+    syncOff(VENT.offF, S.feuillage, el, t, VENT.Tf, FEUILLAGE.L, FRISSON[0], dt);
+    if (S.k > 0) kT = S.k;
+  }
+  if (dt > 0) VENT.k += Math.max(-0.3 * dt, Math.min(0.3 * dt, kT - VENT.k));
+  else VENT.k = kT;
+  return VENT;
+}
+// Recale l'horloge visuelle d'une boucle sur celle du son. Au calme (des deux côtés),
+// d'un coup : aucun arbre ne bouge, personne ne le voit ; sinon, au plus OFF_RATE s/s.
+function syncOff(off, phases, el, t, T, L, calme, dt) {
+  if (!phases) return;
+  const cible = [wrap(phases[0] + el - t, L), wrap(phases[1] + el - t, L)];
+  if (forceAt(T, L, off, t) < calme && forceAt(T, L, cible, t) < calme) { off[0] = cible[0]; off[1] = cible[1]; return; }
+  for (let h = 0; h < 2; h += 1) {
+    const d = wrap(cible[h] - off[h], L);
+    off[h] = wrap(off[h] + Math.max(-OFF_RATE * dt, Math.min(OFF_RATE * dt, d)), L);
+  }
+}
+const _pose = { s: 0, qS: 0, reflet: 0 };   // s : le haut de la couronne, en texels
 export function vieTreeSway(tr, now, sw, sh, hpx) {
   if (!VIE.on || !(VIE.vent > 0) || CM.lodActive) return null;
   if (hpx / sw < 0.75) return null;                  // texel sous le pixel : rien à décaler
+  const V = ventFrame(now || 0);
   const wind = VIE.ventForce != null ? +VIE.ventForce : (CM.windX || 0);
-  const gust = CM.gustF || 0;
-  const aw = Math.abs(wind);
-  const dir = wind >= 0 ? 1 : -1;
+  const aw = Math.abs(wind), dir = V.dir, gust = CM.gustF || 0;
   let sd = tr._vieSw;
-  if (sd === undefined) sd = tr._vieSw = (((tr.gx * 73856093) ^ (tr.gy * 19349663)) >>> 0) % 1000 / 1000 * 6.28;
-  const t = (now || 0) / 1000;
-  // Heure LOCALE du front : sa position le long du vent (les axes des ombres de nuages),
-  // à ±0,25 s près par arbre, pour que le front ne soit pas une règle tirée au cordeau.
-  const P = Math.max(1, +VIE.ventPeriode || 9), v = Math.max(0.1, +VIE.ventVitesse || 3);
+  if (sd === undefined) sd = tr._vieSw = (((tr.gx * 73856093) ^ (tr.gy * 19349663)) >>> 0) % 1000 / 1000;
+  // Heure LOCALE de la rafale : sa position le long du vent (les axes des ombres de
+  // nuages), à ±0,25 s près par arbre, pour que le front ne soit pas tiré au cordeau.
+  const v = Math.max(0.1, +VIE.ventVitesse || 3);
   const x = (tr.gx * 0.94 + tr.gy * 0.34) * dir;
-  const u = t - x / v + (sd / 6.28 - 0.5) * 0.5;
-  const tau = ((u % P) + P) % P;
-  const g = tau < SWAY_RISE ? smooth01(tau / SWAY_RISE)
-    : tau < SWAY_RISE + SWAY_FALL ? 1 - smooth01((tau - SWAY_RISE) / SWAY_FALL) : 0;
-  // Penché du côté où le vent pousse : la brise (UN texel, quel que soit le vent de la
-  // météo — à deux, chaque passage faisait deux sauts de plus), la bourrasque
-  // d'averse, et le grand vent qui couche l'arbre en permanence.
-  const s = dir * (g + gust * 1.2 + Math.max(0, aw - 1) * 0.8) * VIE.vent;
-  const top = Math.round(s);
-  // D'un texel, la couronne penche D'UN BLOC (haut et milieu ensemble, le tronc tient) :
-  // le haut seul se « déchirait » du milieu, une ligne en travers du feuillage.
-  const mid = Math.abs(top) <= 1 ? top : Math.round(s * 0.5);
-  // ⚠ Trois bandes MÊME au repos : un arbre qui passerait d'un blit unique à trois
-  // bandes (coupures au pixel entier) se ré-échantillonnerait d'une frame à l'autre
-  // et scintillerait au lieu de bouger.
-  const c1 = Math.round(sh * 0.34), c2 = Math.round(sh * 0.58);
-  return [[0, c1, top], [c1, c2, mid], [c2, sh, 0]];
+  const u = (now || 0) / 1000 - (x - V.xRef) / v + (sd - 0.5) * 0.5;
+  const e = smooth01((forceAt(V.Ts, SOUFFLE.L, V.offS, u) - PENCHE[0]) / (PENCHE[1] - PENCHE[0]));
+  const amp = 0.85 + 0.3 * ((sd * 7.31) % 1);        // un arbre plie un peu plus que son voisin
+  // La force du vent (0,55 brise … 1,4 tempête) règle l'amplitude de 0,7 à 1,3.
+  const kv = 0.7 + 0.6 * Math.max(0, Math.min(1, (V.k - 0.55) / 0.85));
+  const s = dir * (e * AMPLITUDE * kv * amp + gust * 1.5 + Math.max(0, aw - 1)) * VIE.vent;
+  const ef = smooth01((forceAt(V.Tf, FEUILLAGE.L, V.offF, u) - FRISSON[0]) / (FRISSON[1] - FRISSON[0]));
+  const qS = Math.round(s * 8);
+  const reflet = Math.round(Math.max(0, Math.min(1, +VIE.reflet || 0)) * ef * 10) / 10;
+  if (!qS && !reflet) return null;
+  const P = _pose;
+  P.qS = qS; P.s = qS / 8; P.reflet = reflet;
+  return P;
 }
 
 // ── LE HAUT D'UN BÂTIMENT ───────────────────────────────────────────────────

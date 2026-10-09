@@ -378,6 +378,7 @@ const D = {
   cibles: Object.fromEntries(Object.keys(NAPPES).map((k) => [k, 0])),
   zoom: 1, p: 0, h: 0,
   rafale: { v: 1, cible: 1, prochain: 0 },
+  vent: 0,             // la force du vent des nappes (majNappes), publiée aux arbres
   echantA: 0, sortieA: 0, semeA: 0,
   // La dernière fois que la caméra a bougé (habituation), et où elle était.
   bougeA: 0, cam: { x: NaN, y: NaN, zoom: NaN },
@@ -636,6 +637,7 @@ export function tick() {
   if (D.repli.length) rendreEnRepli();
   if (CM.layout && (bandeDe(CM.layout) !== D.bande || majCharge(now))) chargerPour(bandeDe(CM.layout));
   monterNappes(M);
+  publierVent(M);
   if (!(CM.cw > 0)) return;
   const L = CM.layout;
   const zoom = CM.cam.zoom, p = proximite(zoom, OREILLE), f = fondu(p), h = hauteur(zoom, OREILLE);
@@ -691,6 +693,20 @@ function monterNappes(M) {
     const tampon = son && D.tampons.get(son);
     if (tampon) D.nappes[nom] = creerBoucle(M, tampon, def.bus, { largeur: def.largeur, depart: Math.random(), vitesse: def.vitesse || 1 });
   }
+}
+// LES RAFALES QU'ON VOIT (2026-10-07) : où en sont les boucles du souffle et du
+// feuillage, et la force du vent, pour que les arbres de la carte se penchent sur ce
+// qu'on entend (iso/isoVie.js, vieTreeSway). Sans publication fraîche (son coupé,
+// autre onglet), les arbres suivent les mêmes courbes à leur propre horloge.
+function publierVent(M) {
+  const s = D.nappes.souffle;
+  if (!s || typeof s.phases !== 'function' || M.ctx.state !== 'running') return;
+  const f = D.nappes.feuillage && D.nappes.feuillage.phases ? D.nappes.feuillage : null;
+  const pub = CM.ventSon || (CM.ventSon = { perf: 0, souffle: [], feuillage: null, k: 0 });
+  pub.perf = performance.now();
+  s.phases(pub.souffle);
+  pub.feuillage = f ? f.phases(pub.feuillage || []) : null;
+  pub.k = D.vent || 0;
 }
 // Le vent varie de lui-même, au-delà des rafales cuites dans ses boucles : une cible
 // tirée toutes les 4 à 10 s, rejointe en douceur. Il souffle aussi plus fort quand la
@@ -796,6 +812,7 @@ function energieDe(fam, h, ref, max) {
 function majNappes(L, f, t) {
   const P = D.mesure.parts, pans = D.mesure.pans;
   const vent = Math.min(1.4, 0.55 + 0.45 * Math.min(1, Math.abs(CM.windX || 0) / 0.7) + 0.35 * (CM.gustF || 0)) * D.rafale.v;
+  D.vent = vent;
   const c = ciblesNappes(P, {
     vent, proche: f.proche, loin: f.loin, taille: tailleVille(L),
     nuit: CM.nightF || 0, pluie: CM.rainF || 0, saison: CM.season ?? 1,

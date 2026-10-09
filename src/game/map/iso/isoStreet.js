@@ -39,7 +39,7 @@ import { WINTER } from '../seasonMode.js';
 import { SEASON_GRASS } from './isoGroundDetail.js';
 import { GRASS, rgb } from './isoPalette.js';
 import { vieHalo, vieK, vieTreeSway } from './isoVie.js';
-import { lightCut, lightCutImage, lightCutLive } from '../lightLayer.js';
+import { drawSwaySprite } from './swaySprite.js';
 import { drawSunShadow } from './isoSunShadow.js';
 // Le mobilier de rue PAR ÈRE, dessiné par le code (2026-10-02) : réverbère et
 // terre-plein. Les bandes 0-1 n'ont ni boulevard ni réverbère, donc pas de kit ; le
@@ -350,8 +350,8 @@ export function drawMedianPlant(ctx, sl, now) {
 // Ce qui plie au vent (le reste — bornes, vasques, bacs, colonnes — tient droit).
 const SWAYING = new Set(['tree', 'shrub', 'frond']);
 // Pose un objet de kit (streetKits.js) au pied (o.wx, o.wy) : au pixel d'appareil,
-// ombre solaire, vent en trois bandes (vieTreeSway, comme les arbres), découpe des
-// halos.
+// ombre solaire, vent qui fait glisser le feuillage (vieTreeSway et swaySprite, comme
+// les arbres), découpe des halos.
 function drawKitSprite(ctx, art, o, now, sways) {
   const z = CM.cam.zoom, dpr = CM.dpr || 1;
   const p = worldToScreen(o.wx, o.wy);
@@ -361,28 +361,8 @@ function drawKitSprite(ctx, art, o, now, sways) {
   const prev = ctx.imageSmoothingEnabled;
   ctx.imageSmoothingEnabled = false;
   const sway = sways ? vieTreeSway(o, now, art.w, art.h, dh) : null;
-  if (!sway) ctx.drawImage(art.img, dx, dy, dw, dh);
-  else {
-    const k = dh / art.h;
-    for (const [y0, y1, off] of sway) {
-      if (y1 <= y0) continue;
-      ctx.drawImage(art.img, 0, y0, art.w, y1 - y0, dx + off * k, dy + y0 * k, dw, (y1 - y0) * k);
-    }
-  }
+  drawSwaySprite(ctx, art.img, art.w, art.h, dx, dy, dw, dh, sway, now, f.footYf);
   ctx.imageSmoothingEnabled = prev;
-  if (!sway) lightCutImage(art.img, dx, dy, dw, dh);
-  else if (lightCutLive()) {
-    // La découpe suit les bandes LÀ OÙ elles sont posées (audit du 05/10, PERF-73) :
-    // la silhouette de repos laissait une frange de halo traverser le feuillage.
-    const k = dh / art.h;
-    let reach = 0;
-    for (const b of sway) reach = Math.max(reach, Math.abs(b[2]) * k);
-    lightCut(dx - reach, dy, dx + dw + reach, dy + dh, (lc) => {
-      for (const [y0, y1, off] of sway) {
-        if (y1 > y0) lc.drawImage(art.img, 0, y0, art.w, y1 - y0, dx + off * k, dy + y0 * k, dw, (y1 - y0) * k);
-      }
-    });
-  }
 }
 // BUISSONS DE L'ÎLE de la merveille (et tout buisson sauvage) : la même main que
 // le terre-plein de la Pierre — un pixel d'art par pixel d'écran, ombre solaire,

@@ -23,13 +23,14 @@ import { pxProbe, recPx } from '../pixelGrid.js';
 import { fp } from '../framePerf.js';
 import { CM, cmHash, treeBandMul, treeCanvasT } from '../layout.js';
 import {
-  LIGHT_LAYER, beginLightLayer, endLightLayer, lightCtx, lightCut, lightCutImage, lightCutLive,
+  LIGHT_LAYER, beginLightLayer, endLightLayer, lightCtx, lightCut,
 } from '../lightLayer.js';
 import {
   drawPixelHouse, drawPixelHouseOutline, drawPixelHouseSunShadow, pixelHouseBox, pixelHouseReady,
 } from '../pixelHouses.js';
 import { drawIsoCrisisSmoke, drawIsoRevealPin, drawIsoSmoke } from './isoAmbient.js';
 import { vieTreeSway } from './isoVie.js';
+import { drawSwaySprite } from './swaySprite.js';
 import { isoArt } from './isoArt.js';
 import { drawIsoBridgeSeg } from './isoBridge.js';
 import { drawIsoWonderSeg } from './isoWonder.js';
@@ -344,31 +345,14 @@ export function paintIsoItems(bake, items, now) {
         // canvas) : la couronne flotte, son ombre part loin du tronc.
         drawSunShadow(ctx, tImg, tdx, tdy, hpx, hpx, 0, 0, 0, 0, 0.92);
         // VENT (iso/isoVie.js, petite vie) : null = arbre immobile, un seul blit comme
-        // avant ; sinon trois bandes, la couronne décalée d'un texel entier.
+        // avant ; sinon la couronne GLISSE, composée au huitième de texel, et la
+        // découpe du calque de lumière suit la pose (swaySprite.js).
         const tsw = tImg.naturalWidth || tImg.width | 0, tsh = tImg.naturalHeight || tImg.height | 0;
         const sway = vieTreeSway(tr, now, tsw, tsh, hpx);
-        const tu = hpx / tsw, tv2 = hpx / tsh;
-        // Coupures entre bandes au pixel DEVICE entier : une coupure fractionnaire
-        // laissait une ligne claire en travers de la couronne (même piège que les
-        // reflets). Le haut et le bas de l'arbre restent où ils étaient.
-        const tdp = CM.dpr || 1;
-        const bandY = (r) => (r <= 0 ? tdy : r >= tsh ? tdy + hpx : Math.round((tdy + r * tv2) * tdp) / tdp);
         const prevTS = ctx.imageSmoothingEnabled;
         ctx.imageSmoothingEnabled = false;
-        if (!sway) ctx.drawImage(tImg, tdx, tdy, hpx, hpx);
-        else for (const [y0, y1, o] of sway) ctx.drawImage(tImg, 0, y0, tsw, y1 - y0, tdx + o * tu, bandY(y0), hpx, bandY(y1) - bandY(y0));
+        drawSwaySprite(ctx, tImg, tsw, tsh, tdx, tdy, hpx, hpx, sway, now);
         ctx.imageSmoothingEnabled = prevTS;
-        // L'occultation du calque de lumière vit dans un AUTRE canvas. Au vent, elle suit
-        // les bandes LÀ OÙ elles sont posées (audit du 05/10, PERF-73) : la
-        // silhouette de repos laissait une frange de halo traverser la couronne.
-        if (!sway) lightCutImage(tImg, tdx, tdy, hpx, hpx);
-        else if (lightCutLive()) {
-          let reach = 0;
-          for (const b of sway) reach = Math.max(reach, Math.abs(b[2]) * tu);
-          lightCut(tdx - reach, tdy, tdx + hpx + reach, tdy + hpx, (lc) => {
-            for (const [y0, y1, o] of sway) lc.drawImage(tImg, 0, y0, tsw, y1 - y0, tdx + o * tu, bandY(y0), hpx, bandY(y1) - bandY(y0));
-          });
-        }
       } else {
         drawTreeIso(ctx, p.x, p.y, T * z * (tr.r || 0.7) * 1.3 * treeBandMul(tr.fixed));
       }

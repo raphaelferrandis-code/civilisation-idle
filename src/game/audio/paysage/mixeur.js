@@ -71,6 +71,7 @@ export function creerBoucle(M, tampon, bus, { largeur = 0, depart = 0, vitesse =
   const noeuds = [gain, pan], sources = [];
   const duree = tampon.duration || tampon.length / (tampon.sampleRate || 32000);
   const tetes = largeur > 0 ? [-largeur, largeur] : [0];
+  const t0 = ctx.currentTime, fracs = [];
   tetes.forEach((ecart, i) => {
     const s = ctx.createBufferSource();
     s.buffer = tampon; s.loop = true; s.playbackRate.value = vitesse;
@@ -84,11 +85,19 @@ export function creerBoucle(M, tampon, bus, { largeur = 0, depart = 0, vitesse =
       s.connect(gain);
     }
     const frac = (((depart + i * 0.47) % 1) + 1) % 1;
-    s.start(ctx.currentTime, frac * duree);
+    fracs.push(frac);
+    s.start(t0, frac * duree);
     sources.push(s); noeuds.push(s);
   });
   return {
     gain, pan, sources,
+    // Où en est chaque tête de lecture, en secondes de la boucle (les arbres de la carte
+    // se penchent sur la rafale qu'on entend, iso/isoVie.js).
+    phases(out = []) {
+      const el = (ctx.currentTime - t0) * vitesse;
+      for (let i = 0; i < fracs.length; i += 1) out[i] = (fracs[i] * duree + el) % duree;
+      return out;
+    },
     arreter() {
       for (const s of sources) { try { s.stop(); } catch { /* déjà finie */ } }
       for (const x of noeuds) { try { x.disconnect(); } catch { /* déjà débranché */ } }

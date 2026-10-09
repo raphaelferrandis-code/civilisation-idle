@@ -1,10 +1,11 @@
 // LE VENT DANS LES ARBRES ET LE CALQUE DE LUMIÈRE (audit du 2026-10-05, PERF-73).
-// Au vent, la couronne d'un arbre (ou le feuillage d'un buisson) se pose en trois
-// bandes décalées d'un à trois texels (vieTreeSway). Ce qui passe DEVANT une lampe
-// découpe son halo dans le calque de lumière (lightLayer.js) — mais la découpe
-// reprenait la silhouette DE REPOS : la nuit, par vent, une frange de halo de 1 à
-// 3 texels traversait la couronne qui bouge, et un liseré s'éteignait de l'autre
-// côté. La découpe doit suivre les bandes, au même rectangle que le sprite.
+// Au vent, la couronne d'un arbre (ou le feuillage d'un buisson) glisse : la pose du
+// moment est composée dans un atlas (swaySprite.js) et posée d'UN blit, plus large que
+// le sprite des texels de décalage. Ce qui passe DEVANT une lampe découpe son halo dans
+// le calque de lumière (lightLayer.js) — mais la découpe reprenait la silhouette DE
+// REPOS : la nuit, par vent, une frange de halo traversait la couronne qui bouge, et un
+// liseré s'éteignait de l'autre côté. La découpe doit suivre la pose, au même
+// rectangle que le sprite.
 //
 // Le buisson sauvage (wildShrubActor, isoStreet.js) est dessiné ici pour de vrai, sur
 // un faux canvas qui journalise ; l'arbre du peintre (isoLivePaint.js, qui demande un
@@ -68,7 +69,7 @@ afterEach(() => {
 describe('vent dans le feuillage — la découpe du halo suit les bandes posées', () => {
   it('buisson sauvage au vent, devant une lampe : mêmes rectangles que le sprite, décalages compris', () => {
     const shrub = wildShrubActor(0, 0, 3, 2);
-    let decales = 0;
+    const largeurs = [];
     for (const now of [0, 700, 1400, 2100, 2800]) {
       lightLog.length = 0;
       beginLightLayer();
@@ -79,13 +80,16 @@ describe('vent dans le feuillage — la découpe du halo suit les bandes posées
       endLightLayer();
       const sprite = scene.map((e) => e.d);
       const cut = lightLog.filter((e) => e.gco === 'destination-out').map((e) => e.d);
-      expect(sprite.length).toBe(3);                         // trois bandes : il y a du vent
+      expect(sprite.length).toBe(1);                         // la pose composée, d'un blit
       expect(cut).toEqual(sprite);
-      const x0 = Math.min(...sprite.map((r) => r[0]));
-      if (sprite.some((r) => r[0] !== x0)) decales += 1;
+      largeurs.push(sprite[0][2]);
       paintLightLayer(null);
     }
-    expect(decales).toBeGreaterThan(0);                      // au moins une pose où la couronne a bougé
+    // Au repos, après coup : le premier canvas créé doit rester le calque de lumière.
+    VIE.vent = 0;
+    const calme = [];
+    shrub.draw(journal(calme), 0);
+    expect(largeurs.some((w) => w > calme[0].d[2])).toBe(true);   // plus large : la couronne a bougé
   });
 
   it('sans vent : une seule silhouette, découpée telle quelle (comme avant)', () => {
@@ -100,11 +104,8 @@ describe('vent dans le feuillage — la découpe du halo suit les bandes posées
     expect(cut).toEqual(scene.map((e) => e.d));
   });
 
-  it('arbre du peintre (isoLivePaint) : la découpe au vent rejoue la ligne du blit des bandes', () => {
+  it('arbre du peintre (isoLivePaint) : il passe par la même pose que le buisson', () => {
     const src = fs.readFileSync(path.join(path.dirname(fileURLToPath(import.meta.url)), '..', 'iso', 'isoLivePaint.js'), 'utf8');
-    const blit = 'drawImage(tImg, 0, y0, tsw, y1 - y0, tdx + o * tu, bandY(y0), hpx, bandY(y1) - bandY(y0))';
-    expect(src).toContain('else for (const [y0, y1, o] of sway) ctx.' + blit);
-    expect(src).toContain('for (const [y0, y1, o] of sway) lc.' + blit);
-    expect(src).toMatch(/if \(!sway\) lightCutImage\(tImg, tdx, tdy, hpx, hpx\);\s*else if \(lightCutLive\(\)\)/);
+    expect(src).toContain('drawSwaySprite(ctx, tImg, tsw, tsh, tdx, tdy, hpx, hpx, sway, now)');
   });
 });
