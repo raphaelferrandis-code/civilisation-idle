@@ -7,6 +7,8 @@ qu'ils gardent. On ne les déplace donc pas ; seul ce qu'aucun code ne cite va d
 
 ## Actifs : chantier ouvert ou suite attendue
 
+- [Planche des bâtiments](../art/batiments/index.html) : 245 fiches numérotées, variantes et animations de référence ; choix des prochaines retouches avec Raph. [Suivi](../art/batiments/suivi.json), sans modification des bâtiments du jeu.
+- [SUIVI-HABITANTS-ASEPRITE.md](SUIVI-HABITANTS-ASEPRITE.md) : reprise des visages et des marches, un fichier à la fois ; inventaire et avancement par personnage et direction.
 - `PLAN-AMBIANCE-SONORE.md` : le paysage sonore de la carte (nappes par milieu, ponctuels, rumeur lointaine au dézoom) et les bruitages du jeu, avec les recherches sur les sources gratuites, payantes et l'IA. Terminé le 2026-10-08, en douze lots : le moteur, la nature, la ville (des voix vraies rendues sans langue), les métiers, le temps, le mixage final, les grands moments, l'interface, les petits sons de la carte, les jeux de la Maison, les quatre tables qui restaient muettes, les merveilles. Restent à Raph l'épreuve des longues parties et le .exe.
 - `PLAN-ECOUTER-PARLER.md` : écouter les habitants, puis leur répondre par des signes et des mots ; ce qu'ils savent du joueur suit la Chronique. Questions tranchées par Raph ; lot 1 (écouter, les pensées) en cours.
 - `PLAN-VEGETATION.md` : l'herbe et les arbres. Lot 0 fait (planche), la suite attend le choix de Raph.
