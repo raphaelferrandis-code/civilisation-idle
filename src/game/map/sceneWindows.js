@@ -34,6 +34,10 @@ import { LIGHT_LAYER, lightCtx, litBox } from './lightLayer.js';
 import { SCENE_WINDOWS_DATA } from './sceneWindowsData.js';
 
 // Couleurs de verre par clé de sprite (hex sans #, séparées par une espace).
+// 2026-10-09 (reprise des sprites, repixelisée dans la palette de l'original) : le verre
+// nommé a survécu au redessin, sauf une couleur chez l'université moderne, la banque de
+// verre et la tour de bureaux, retirée. Les vues tournées (« -fr », « -bl », « -br ») n'ont
+// pas encore de verre nommé : elles s'allumeront avec le relevé des fenêtres.
 const GLASS = {
   'scribes-data': '3b4257 5c697d',
   'ministries-tower': '45546a 566a7e 5f899e 6aa2b2 8cc1c6',
@@ -41,11 +45,11 @@ const GLASS = {
   'ruins-lab': '4b6275',
   'think-modern': '292d41 313952 374565 405274 4d6283 50586d 5e7696 6e8aa8 7c99b3 8badc3',
   'printing-media': '243567 2d4681 3b5082 4d88c6 52516e 52608a 5c9bd2 81c0e8',
-  'universities-modern': '252d3a 323a48 353d4c 3a464f 425056 4f5e61 758993',
+  'universities-modern': '252d3a 323a48 3a464f 425056 4f5e61 758993',
   'libraries-modern': '383848 444e62 4f5c71 5f7183 626574',
   'academies-modern': '3a4354 405468 517188 678ca3 79a1bb 90b0c5 96c0dd a4c9e2',
   'storyteller-media': '3e5b76 485062 545d70 5a97c6 f59149',
-  'bank-house-glass': '23375d 243f6e 284e8b 343850 3873bb 4a5b7e 5ca1d8 f5cb78',
+  'bank-house-glass': '23375d 243f6e 284e8b 343850 3873bb 4a5b7e 5ca1d8',
   'ministries-tower-grand': '516478 5f8a9e 699aad',
   'courthouses-modern-grand': '576373',
   'ruins-lab-grand': '576b7e 698094 8ca7bb',
@@ -57,7 +61,7 @@ const GLASS = {
   'bank-house-glass-grand': '16407c 1b2c54 1f5ba2 49526f 5b627d 6c7792 d7ab62 e8b052 f8d88e',
   // Passe « tous les bâtiments » (2026-10-01, soir) : la tour administrative et le
   // siège du consortium, redessinés, ont eux aussi leurs bureaux.
-  'bureau-tower': '3f4f62 54677a 5c6d7b 627d96 6d859b',
+  'bureau-tower': '3f4f62 54677a 5c6d7b 627d96',
   'bureau-tower-grand': '344355 425164 576a7f 657a8f',
   'guild-consortium': '3e4c5e 486078 507d94 dcb970',
 };

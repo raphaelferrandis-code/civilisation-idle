@@ -1,5 +1,6 @@
-import { drawCityEngineSprite, engineStage, cosmicBase, softGround, propReady, blitProp, blitCosmicTower, animReady, blitAnim, setEngineSpan, setEngineSeed, cosmicSceneKey, ENGINE_HALO, engineCraft, propChimneySmoke, setEngineNow } from './cityEngineSprites.js';
+import { drawCityEngineSprite, engineStage, cosmicBase, softGround, propReady, blitProp, blitCosmicTower, animReady, blitAnim, setEngineSpan, setEngineSeed, cosmicSceneKey, ENGINE_HALO, engineCraft, propChimneySmoke, setEngineNow, setEngineFace } from './cityEngineSprites.js';
 import { CM } from './layout.js';
+import { engineFaceOf } from './engineOrient.js';
 
 /* Charte d'animation des sprites (DA par âge) :
  *   - Toute animation est DIÉGÉTIQUE : un geste, une flamme, une roue — jamais
@@ -88,6 +89,8 @@ function drawEngineSpriteCore(t, x, y, w, h, now) {
   setEngineSpan(t.spanX || t.size || 1, t.spanY || t.size || 1);
   // Graine de l'instance (même hachage que la retombée sur drawCityEngineSprite).
   setEngineSeed((Math.imul(t.gx | 0, 73856093) ^ Math.imul(t.gy | 0, 19349663)) >>> 0);
+  // Côté de rue du lot : les décors à quatre vues se tournent vers lui (engineOrient.js).
+  setEngineFace(engineFaceOf(t));
   // Horloge des scènes vivantes (LIVE_LAYERS), lue par blitProp.
   setEngineNow(now);
   const px = (rx, ry, rw, rh, col) => { ctx.fillStyle = col; ctx.fillRect(ox + sw * rx, oy + sh * ry, sw * rw, sh * rh); };

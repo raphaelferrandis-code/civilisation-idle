@@ -28,7 +28,9 @@ const STADES = ['sewers-prop', 'sewers-medieval', 'sewers-works', 'sewers-plant'
 // dans cette liste le jour où il quitte la table de scripts/sewerOutfall.mjs.
 // `sewers-plant` (stade moderne, bande 6) : regénéré le 2026-10-01 — digesteurs en
 // œuf FERMÉS et une conduite qui plonge dans le sol, aucune eau à l'air libre.
-const REGENERES = new Set(['sewers-prop', 'sewers-plant']);
+// La REPRISE DES SPRITES (Codex, repixelisée, 2026-10-09 ; engineOrientKeys.js) a redessiné
+// les stades médiéval, industriel et romain : ils rejoignent la liste.
+const REGENERES = new Set(['sewers-prop', 'sewers-plant', 'sewers-medieval', 'sewers-works', 'sewers-classical']);
 const lire = (dir, cle) => PNG.sync.read(fs.readFileSync(path.join(dir, cle + '.png')));
 const opaque = (im, x, y) => im.data[(y * im.width + x) * 4 + 3] >= 20;
 

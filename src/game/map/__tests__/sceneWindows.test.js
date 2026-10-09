@@ -4,7 +4,7 @@ import { describe, it, expect } from "vitest";
 import fs from "node:fs";
 import { PNG } from "pngjs";
 import { sceneWindowUnits, SCENE_GLASS, SCENE_DARK } from "../sceneWindows.js";
-import { SCENE_WINDOWS_DATA } from "../sceneWindowsData.js";
+import { SCENE_WINDOWS_DATA, SCENE_WINDOWS_A_RELEVER } from "../sceneWindowsData.js";
 
 const BUILDINGS = new URL("../../../../public/pixelart/agents/buildings/", import.meta.url);
 const VERRE = [80, 90, 120], MUR = [230, 230, 224];
@@ -69,9 +69,15 @@ describe("fenêtres relevées des bâtiments-moteur", () => {
   const dark = new Set(SCENE_DARK.flatMap((k) => [k, k + "-grand"]));
   // Plus de détecteur de secours : un dessin à fenêtres sombres sans relevé resterait
   // noir sans que personne ne le voie. Une liste vide dit « relevé, aucune vitre ».
+  // Sauf les dessins refaits par la reprise des sprites (2026-10-09), qui attendent leur
+  // relevé dans SCENE_WINDOWS_A_RELEVER — et n'y gardent pas l'ancien.
+  const aRelever = new Set(SCENE_WINDOWS_A_RELEVER);
   it("chaque dessin à fenêtres sombres a son relevé", () => {
-    const manquants = [...dark].filter((k) => fs.existsSync(new URL(`${k}.png`, BUILDINGS)) && !SCENE_WINDOWS_DATA[k]);
+    const manquants = [...dark].filter((k) => fs.existsSync(new URL(`${k}.png`, BUILDINGS)) && !SCENE_WINDOWS_DATA[k] && !aRelever.has(k));
     expect(manquants).toEqual([]);
+  });
+  it("un dessin à relever n'a plus son ancien relevé", () => {
+    expect(SCENE_WINDOWS_A_RELEVER.filter((k) => SCENE_WINDOWS_DATA[k])).toEqual([]);
   });
   for (const [key, wins] of Object.entries(SCENE_WINDOWS_DATA)) {
     it(`${key} : sur l'encre, sans chevauchement`, () => {

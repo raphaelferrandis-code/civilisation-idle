@@ -24,6 +24,7 @@ import { worldToScreen, ISO_X } from './projection.js';
 import { grainTune, ENGINE_UNIT_F } from '../spriteScale.js';
 import { drawEngineSprite } from '../engineSprites.js';
 import { engineCraft, getPropVersion } from '../cityEngineSprites.js';
+import { engineFaceOf } from '../engineOrient.js';
 import { engineAnimNow } from '../engineAnim.js';
 import { suspendFlameGlow } from '../flameGlow.js';
 import { suspendLightLayer } from '../lightLayer.js';
@@ -134,7 +135,8 @@ function engineInkKey(t, era) {
   const craft = engineCraft(t);   // un atelier des guildes = un dessin par métier
   const sx = t.spanX || t.size || 1, sy = t.spanY || t.size || 1;
   t._inkEp = era;
-  t._inkKey = (t.buildingId || t.variant || '?') + (craft ? '~' + craft : '') + ':' + (t.tier || 0) + ':' + sx + 'x' + sy + ':' + era;
+  // Le côté de rue en est : une vue tournée n'a pas la même encre (engineOrient.js).
+  t._inkKey = (t.buildingId || t.variant || '?') + (craft ? '~' + craft : '') + ':' + (t.tier || 0) + ':' + sx + 'x' + sy + ':' + era + ':' + (engineFaceOf(t) || 'S');
   return t._inkKey;
 }
 // L'ÈRE DE LA CLÉ, plafonnée à 34 (audit 2026-10-05, MEM-6) : au-delà, une scène ne

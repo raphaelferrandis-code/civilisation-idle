@@ -20,6 +20,7 @@ import { drawSceneEmissive } from './sceneEmissive.js';
 import { drawSceneWindows } from './sceneWindows.js';
 import { RUIN_PROPS } from './ruinArt.js';
 import { razeImageData } from './ruinRaze.js';
+import { engineOrientKey } from './engineOrient.js';
 
 // HALOS DES BÂTIMENTS-MOTEUR (2026-10-01, Raph : « l'allumage de nuit est à fignoler »,
 // « les nouveaux bâtiments sont un peu flous »). Chaque scène portait une lueur additive
@@ -80,6 +81,11 @@ export function setEngineSeed(seed) { curSeed = seed >>> 0; }
 // scènes peintes (LIVE_LAYERS) : blitProp n'a pas de `now` et sert cent appelants.
 let curNow = 0;
 export function setEngineNow(now) { curNow = +now || 0; }
+// CÔTÉ DE RUE DU LOT EN COURS (S/E/N/W, engineOrient.engineFaceOf), lu par blitProp et
+// blitCosmicTower : un décor qui a ses quatre vues prend celle qui regarde la rue. Même
+// piège que l'empreinte : à poser par chaque entrée du rendu de scène (null hors scène).
+let curFace = null;
+export function setEngineFace(face) { curFace = face || null; }
 // Chargement PARESSEUX d'un sprite de palier — un grand ne descend du réseau que
 // si son palier s'arme (les bandes, elles, seraient sinon préchargées par
 // ensureAnim pour tout le monde). Renvoie l'Image prête, ou null tant qu'elle
@@ -141,6 +147,24 @@ export function cosmicSceneKey(kind, band) {
   const k = 'cosmic-' + kind + '-' + band;
   if (!COSMIC_SCENE_KEYS.has(k)) return null;
   return palierAsset(k) ? k : null;
+}
+// La VUE TOURNÉE d'un décor vers la rue du lot en cours (après la substitution de
+// palier : « <clé>-grand-fr »), si elle existe et qu'elle est chargée ; sinon null, et
+// la vue sud-ouest sert de repli le temps qu'elle arrive. Chargement paresseux, dans le
+// même registre que les décors (propIm la sert ensuite telle quelle).
+function orientImg(p) {
+  const cle = engineOrientKey(p, curFace);
+  if (!cle) return null;
+  let im = propImg[cle];
+  if (!im) {
+    if (typeof Image === 'undefined') return null;
+    im = new Image();
+    im.onload = () => { propVersion += 1; };
+    im.src = '/pixelart/agents/buildings/' + cle + '.png';
+    propImg[cle] = im;
+    return null;
+  }
+  return (im.complete && im.naturalWidth > 0) ? { im, cle } : null;
 }
 function palierImg(p) {
   if (curSpanSum < PALIER_SPAN_MIN) return null;
@@ -778,6 +802,9 @@ function blitProp(ctx, ox, oy, sw, sh, p, cx, cy, wFrac, hFrac) {
     wFrac = hFrac * (pal.im.naturalWidth / pal.im.naturalHeight);
     p = pal.cle;
   }
+  // Tourné vers la rue : même cadre (Codex garde la toile, le sol et l'échelle du corps).
+  const ori = orientImg(p);
+  if (ori) p = ori.cle;
   const im = propIm(p); if (!im) return;
   const drawW0 = sw * wFrac, drawH0 = sh * hFrac;
   recBlitDens(p, drawH0, im.naturalHeight);
@@ -889,6 +916,10 @@ function drawLiveFrame(ctx, fl, im, left, top, drawW, drawH, now) {
 // bâtiments). Aspect natif préservé (pas d'écrasement). Halo additif qui respire, teinte de bande.
 // Réglable en live : window.__cosmicTowerH (hauteur ×boîte) / __cosmicTowerBase (ligne de sol).
 function blitCosmicTower(ctx, ox, oy, sw, sh, key, now, band, cp, baseOverride) {
+  // La nacre se lit sur la clé d'ORIGINE : la vue tournée est le même bâtiment.
+  const pearl = isPearl(key);
+  const ori = orientImg(key);
+  if (ori) key = ori.cle;
   const im = propIm(key); if (!im || !(im.naturalWidth > 0)) return false;
   const H = (import.meta.env?.DEV && typeof window !== 'undefined' && window.__cosmicTowerH) || COSMIC_TOWER_H;
   const BASE = baseOverride != null ? baseOverride : ((import.meta.env?.DEV && typeof window !== 'undefined' && window.__cosmicTowerBase) || 0.95);
@@ -906,7 +937,6 @@ function blitCosmicTower(ctx, ox, oy, sw, sh, key, now, band, cp, baseOverride) 
   if (fl) drawLiveFrame(ctx, fl, im, cx - drawW / 2, baseY - drawH, drawW, drawH, now);
   ctx.imageSmoothingEnabled = prev;
   lightCutImage(im, cx - drawW / 2, baseY - drawH, drawW, drawH);
-  const pearl = isPearl(key);
   if (pearl) drawSceneEmissive(im, cx - drawW / 2, baseY - drawH, drawW, drawH, band);
   if (cp && cp.glow) {
     // Nacre : le halo ne vit que la nuit (ENGINE_HALO). Les anciennes tours le gardent plein.
@@ -930,6 +960,8 @@ function blitCosmicTower(ctx, ox, oy, sw, sh, key, now, band, cp, baseOverride) 
 // transparente sous les roues/pieds : centrés sur cy, ils LÉVITAIENT au-dessus de leur
 // halte. fy = ligne de sol en fraction de boîte.
 function blitPropGrounded(ctx, ox, oy, sw, sh, p, cx, fy, wFrac, hFrac) {
+  const ori = orientImg(p);   // une charrette à l'arrêt se tourne vers la rue, comme un bâtiment
+  if (ori) p = ori.cle;
   const im = propIm(p); if (!im || !(im.naturalWidth > 0)) return false;
   const bb = propBBox(p), footF = bb ? bb.y0f + bb.hf : 1;
   const drawW0 = sw * wFrac, drawH0 = sh * hFrac;
@@ -1306,6 +1338,8 @@ export function propChimneySmoke(ctx, ox, oy, sw, sh, p, cx, cy, wFrac, hFrac, n
     wFrac = hFrac * (pal.im.naturalWidth / pal.im.naturalHeight);
     p = pal.cle;
   }
+  // Vue tournée vers la rue : sa souche n'est plus là où le relevé la place.
+  if (orientImg(p)) return;
   const pt = CHIMNEY_TOPS[p];
   if (!pt || !propIm(p)) return;
   const w = sw * wFrac, h = sh * hFrac;
@@ -1328,7 +1362,9 @@ const OFFICINA_LIFE = {
 };
 function drawGuildOfficina(ctx, ox, oy, sw, sh, craft, now) {
   blitProp(ctx, ox, oy, sw, sh, GUILD_CRAFTS_B4[craft - 1], 0.5, OFFICINA_CY, OFFICINA_F, OFFICINA_F);
-  const life = OFFICINA_LIFE[craft] || {};
+  // La lueur et la fumée sont relevées sur la vue sud-ouest : une vue tournée vers sa rue
+  // n'a plus son foyer ni sa souche à ces places-là.
+  const life = orientImg(GUILD_CRAFTS_B4[craft - 1]) ? {} : (OFFICINA_LIFE[craft] || {});
   if (life.glow) {
     const nF = Math.max(0, Math.min(1, CM.nightF || 0));
     const gx = ox + sw * life.glow[0], gy = oy + sh * life.glow[1], gr = sw * 0.06;

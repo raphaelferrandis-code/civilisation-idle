@@ -1,7 +1,7 @@
 "use strict";
 // La pose « par le bas du contenu » des bâtiments du port (sortie d'iso/isoPort.js le
 // 2026-10-02 : la capitainerie du Vieux-Port, iso/isoOldPort.js, s'en sert aussi).
-import { blitProp, propBBox, setEngineSpan } from '../cityEngineSprites.js';
+import { blitProp, propBBox, setEngineSpan, setEngineFace } from '../cityEngineSprites.js';
 
 // Pose un prop par le BAS DE SON CONTENU opaque : contenu large de cw px, haut
 // de ch px, bas du contenu à (bx, by). Les PNG PixelLab embarquent souvent ~25 %
@@ -19,6 +19,7 @@ import { blitProp, propBBox, setEngineSpan } from '../cityEngineSprites.js';
 // maison changeait de taille et de place. On pose TOUJOURS le sprite calibré.
 export function blitPropAnchored(ctx, name, bx, by, cw, ch) {
   setEngineSpan(0, 0);
+  setEngineFace(null);
   const bb = propBBox(name);
   if (!bb) {
     const hh2 = ch || cw;
