@@ -109,3 +109,8 @@ public/pixelart/ui/scratch/
 # App ID Steam de DÉVELOPPEMENT (succès, docs/STEAM-SUCCES.md) : Valve le réserve
 # aux essais, il ne se livre pas et ne se versionne pas.
 steam_appid.txt
+
+# Ateliers de reprise des sprites (Codex, 2026-10 : sources Aseprite, grands formats,
+# planches, ~9 Go) : jamais versionnés. Ce qui entre au jeu est copié dans public/ par les
+# scripts de art/batiments/propositions/essai-claude/outils/. Sauvegarde : disque externe.
+/art/
