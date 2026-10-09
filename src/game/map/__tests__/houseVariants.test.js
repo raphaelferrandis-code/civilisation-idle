@@ -57,24 +57,20 @@ const SANS_TEINTE = new Set([
   // Les maisons cosmiques (même nuit) : nacre, verre teinté et jardins — leur blanc est
   // l'identité de l'ère, pas une matière à permuter.
   "gardentower", "domehome", "podstack",
-  // Les romaines TOURNÉES vers leur rue (2026-10-04, docs/PLAN-ILOTS.md) : autres vues
-  // des mêmes objets, ramenées à la palette du sprite d'origine — sans teinte comme lui.
-  "domus-fr", "domus-bl", "domus-br", "taberna-bl", "taberna-br",
-  "insula2-fr", "insula2-bl", "insula2-br",
-  // Les RANGÉES MITOYENNES (même jour) : déjà repeintes dans la palette de la maison
-  // dont elles prennent la place (échoppe, domus, maison à cour → popina, insula).
-  "row-taberna-fl", "row-taberna-fr", "row-domus-fl", "row-domus-fr", "row-popina-fl",
-  "row-popina-fr", "row-insula-fl", "row-insula-fr", "row-insula-bl", "row-insula-br",
-  // Fonte (même jour) : l'immeuble haussmannien tourné et ses unités de rangée.
-  "haussmann-fr", "row-haussmann-fl", "row-haussmann-fr",
-  "row-terrace-fl", "row-terrace-fr", "row-terrace-bl", "row-terrace-br",
-  // Bourg : la maison artisane tournée et la rangée à colombages.
-  "crafthouse-fr", "crafthouse-bl", "crafthouse-br",
-  "row-colombage-fl", "row-colombage-fr", "row-colombage-bl", "row-colombage-br",
   // Néon : la boutique néon (corps des ateliers, modèle de rangée), dessinée dans ses
   // couleurs (verre bleu, néon rose) — rien à permuter.
-  "neonshop", "neonshop-fr", "row-neonshop-fl", "row-neonshop-fr"
+  "neonshop",
+  // Les RANGÉES MITOYENNES (2026-10-04) : déjà repeintes dans la palette de la maison dont
+  // elles prennent la place ; quatre vues par modèle depuis la reprise des sprites.
+  ...["taberna", "domus", "popina", "insula", "haussmann", "terrace", "colombage", "neonshop"]
+    .flatMap((m) => ["fl", "fr", "bl", "br"].map((v) => `row-${m}-${v}`)),
 ]);
+
+// Les VUES TOURNÉES d'une maison (« -fr », « -bl », « -br », reprise des sprites du
+// 2026-10-09, ilotArt.ORIENTED) : le même objet vu d'un autre côté, dans la palette de son
+// sprite de base. Le rendu les teint comme lui (pixelHouses : famille tirée de la
+// VARIANTE) ; elles se classent donc avec leur maison.
+const maisonDe = (nom) => (nom.startsWith("row-") ? nom : nom.replace(/-(fr|bl|br)$/, ""));
 
 // Sprites lus une fois, réutilisés par les tests qui mesurent sur l'art réel.
 const SPRITES = readdirSync(HOUSES_DIR)
@@ -82,13 +78,13 @@ const SPRITES = readdirSync(HOUSES_DIR)
   .map((f) => ({ nom: f.replace(".png", ""), png: PNG.sync.read(readFileSync(join(HOUSES_DIR, f))) }));
 
 // Teinte qu'un archétype peut RÉELLEMENT recevoir (0 = origine, donc rien à mesurer).
-const teinteDe = (nom) => HOUSE_TINTS[HOUSE_FAMILY[nom] | 0];
+const teinteDe = (nom) => HOUSE_TINTS[HOUSE_FAMILY[maisonDe(nom)] | 0];
 
 describe("teintes des habitations", () => {
   // Sentinelle : un 13e sprite qui arriverait sans qu'on ait tranché sa famille sortirait
   // à l'identique en silence (défaut sûr de pickHouseTint). Ce test rend le silence bruyant.
   it("les 16 archétypes livrés sont tous tranchés", () => {
-    expect(SPRITES.map((s) => s.nom).sort()).toEqual(
+    expect([...new Set(SPRITES.map((s) => maisonDe(s.nom)))].sort()).toEqual(
       [...Object.keys(HOUSE_FAMILY), ...SANS_TEINTE].sort()
     );
   });
@@ -209,7 +205,7 @@ describe("teintes des habitations", () => {
       // une à un archétype qui doit en avoir échoue aussi. Sans le second sens, vider
       // FAMILY passerait au vert (plus de teinte à mesurer = plus rien à reprocher).
       expect(Boolean(tint.map), `${nom} : teinte déclarée alors qu'elle ne le devrait pas, ou l'inverse`)
-        .toBe(!SANS_TEINTE.has(nom));
+        .toBe(!SANS_TEINTE.has(maisonDe(nom)));
       if (!tint.map) continue;
       let opaques = 0, touches = 0;
       for (let i = 0; i < png.data.length; i += 4) {

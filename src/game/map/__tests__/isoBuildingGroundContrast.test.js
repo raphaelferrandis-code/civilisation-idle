@@ -86,8 +86,13 @@ const CLIQUET = [
   { band: 0, max: 13.5, pire: "tent/origine" },
   { band: 1, max: 38.0, pire: "longhouse/origine" },
   { band: 2, max: 0.0, pire: "townhouse/origine" },
-  { band: 3, max: 0.0, pire: "stonehouse/origine" },
-  { band: 4, max: 1.6, pire: "villa/origine (fil #ccb394, 1,6 %)" },
+  // ⚠ RELEVÉES le 2026-10-09 par la REPRISE DES SPRITES (Codex, repixelisée ; quatre vues
+  // par maison, ilotArt.ORIENTED). Les nouveaux dessins de la maison de pierre et de
+  // l'insula portent plus de leurs tons clairs : #9d8a77 (5,6 % de l'encre, à 18,7 du sol)
+  // et #b4a890 (11,5 %, à 11,1). Vu en jeu et soumis à Raph : « rien ne me choque, on garde
+  // comme ça ». Ces deux lignes ne doivent plus monter sans un nouvel examen en jeu.
+  { band: 3, max: 5.6, pire: "stonehouse/origine (#9d8a77, 5,6 %)" },
+  { band: 4, max: 11.5, pire: "insula/origine (#b4a890, 11,5 %)" },
   { band: 5, max: 18.0, pire: "block/calcaire" },
   { band: 6, max: 0.0, pire: "tower/origine" },
   // Bandes 7 et 9 : 0,8 et 5,5 → 0,0 le 2026-10-01 (jour), par les MAISONS — les skins
@@ -285,7 +290,8 @@ describe("habitations vs sol des lots, par ère", () => {
   // village, 5 : block/calcaire) sont le chantier suivant, pas une fatalité. La bande 8
   // les a quittées la même nuit (plus de brique XIXe dans la ligne cosmique).
   it("les ères refaites par la bible des surfaces gardent leur avance", () => {
-    const bonnes = [2, 3, 4, 6, 7, 8].map(pireDeLaBande).map((p) => p.part);
+    // Bandes 3 et 4 sorties de la liste le 2026-10-09 (reprise des sprites, cf. CLIQUET).
+    const bonnes = [2, 6, 7, 8].map(pireDeLaBande).map((p) => p.part);
     const mauvaises = [1, 5].map(pireDeLaBande).map((p) => p.part);
     expect(Math.max(...bonnes)).toBeLessThan(Math.min(...mauvaises));
     for (const p of bonnes) expect(p).toBeLessThan(2);

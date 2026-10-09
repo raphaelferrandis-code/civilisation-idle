@@ -6,7 +6,7 @@
 //   1. la grille FINE n'épargne une découpe que LOIN de toute lumière déposée ;
 //   2. l'emprise d'un mât CONTIENT tout ce que paintLampGlow peint — sinon un sprite
 //      peint devant ne découperait pas la lumière qui déborde, et elle le traverserait.
-import { describe, it, expect, beforeEach, afterEach } from 'vitest';
+import { describe, it, expect, beforeEach, afterEach, afterAll } from 'vitest';
 
 import { CM } from '../layout.js';
 import {
@@ -15,6 +15,7 @@ import {
 } from '../lightLayer.js';
 import { lampGlowBox, paintLampGlow } from '../iso/isoStreet.js';
 import { drawHouseWindows } from '../houseWindows.js';
+import { HOUSE_WINDOWS } from '../houseWindowsData.js';
 
 // Faux contexte qui journalise la GÉOMÉTRIE de ce qui est peint.
 function recCtx(log) {
@@ -99,9 +100,13 @@ describe('emprise d’un masque allumé en partie (litBox)', () => {
 });
 
 describe('fenêtres d’une maison : emprise serrée, blit inchangé', () => {
-  // La maison artisane n'a qu'un volet allumable : 3 × 5 texels en (51, 43) de 64 × 64.
-  // Tuile (0, 0) : phase 0, le volet s'allume.
-  const g = { key: 'crafthouse', bb: { x0: 0, y0: 0, w: 64, h: 64 }, dx: 100, dy: 100, dw: 64, dh: 64 };
+  // Un relevé D'ESSAI, posé par le test : ce qui est vérifié ici est la mécanique de la
+  // lumière, pas le dessin d'une maison (les relevés réels se refont depuis la reprise des
+  // sprites, 2026-10-09). Tuile (0, 0), phase 0 : seule la première fenêtre s'allume —
+  // 2 × 5 texels en (16, 24), plus un texel en (17, 29).
+  HOUSE_WINDOWS.__essai = [[16, 24, 2, 5, 17, 29, 1, 1], [24, 27, 2, 5, 25, 32, 1, 1]];
+  afterAll(() => { delete HOUSE_WINDOWS.__essai; });
+  const g = { key: '__essai', bb: { x0: 0, y0: 0, w: 64, h: 64 }, dx: 100, dy: 100, dw: 64, dh: 64 };
   const t = { gx: 0, gy: 0 };
   const deposit = () => {
     CM.nightF = 1; CM.lodActive = false; CM.ctx = { globalAlpha: 1 };
@@ -117,10 +122,10 @@ describe('fenêtres d’une maison : emprise serrée, blit inchangé', () => {
     expect([d[0].dx, d[0].dy, d[0].dw, d[0].dh]).toEqual([100, 100, 64, 64]);
   });
 
-  it('un sprite devant le TOIT, loin du volet, ne paie plus de découpe', () => {
+  it('un sprite devant le TOIT, loin de la fenêtre, ne paie plus de découpe', () => {
     deposit();
-    expect(lightCutImage(IMG, 100, 100, 16, 16)).toBe(false);
-    expect(lightCutImage(IMG, 148, 140, 10, 10)).toBe(true);   // devant le volet : découpé
+    expect(lightCutImage(IMG, 148, 100, 14, 14)).toBe(false);   // le toit, à droite
+    expect(lightCutImage(IMG, 114, 122, 6, 6)).toBe(true);   // devant la fenêtre : découpé
   });
 
   it('molette tight: false — l’emprise redevient la maison entière', () => {

@@ -31,34 +31,9 @@ describe('fenêtres relevées des maisons', () => {
     });
   }
   // Ce que Raph a refusé d'y voir allumé (« tu allumes des portes et des étals »).
-  const ETEINT = {
-    towerhouse: [[14, 60, 9, 13]],   // la porte cintrée
-    townhouse: [[17, 38, 6, 11]],    // la porte
-    taberna: [[0, 34, 32, 30]],      // l'étal sous l'auvent
-    courtyard: [[36, 26, 14, 14]],   // le porche
-    insula: [[0, 48, 64, 28]],       // les arcades du rez
-    stonehouse: [[13, 35, 4, 8]],    // la porte
-    // Les romaines tournées (2026-10-04) : portes, porche, portes cintrées, rambarde.
-    // 2026-10-06 : « fr » est la domus retournée — son portique et sa porte, en miroir ;
-    // « bl » est le dos de la domus, sans porte.
-    'domus-fr': [[33, 33, 15, 15]],
-    'insula2-fr': [[33, 33, 22, 5], [33, 54, 21, 16]],
-    // Les rangées mitoyennes (2026-10-04) : étals, comptoirs, portiques, portes, balcon.
-    'row-taberna-fl': [[18, 57, 33, 24]],
-    'row-taberna-fr': [[50, 46, 25, 30]],
-    'row-domus-fl': [[26, 53, 14, 20]],
-    'row-domus-fr': [[56, 52, 16, 20]],
-    'row-popina-fl': [[24, 46, 28, 30]],
-    'row-popina-fr': [[50, 46, 27, 30]],
-    'row-insula-fl': [[8, 57, 34, 26], [24, 45, 9, 14]],
-    'row-insula-fr': [[55, 64, 6, 14]],
-    'row-insula-br': [[55, 64, 6, 14]],
-    'row-insula-bl': [[20, 63, 6, 12]],
-    // Fonte (2026-10-04) : boutiques du rez des vues haussmanniennes.
-    'haussmann-fr': [[32, 63, 30, 17]],
-    'row-haussmann-fl': [[18, 80, 40, 22]],
-    'row-haussmann-fr': [[50, 80, 32, 22]],
-  };
+  // 2026-10-09 : les maisons redessinées (reprise des sprites) attendent leur relevé ; les
+  // zones éteintes se relèveront avec elles, sur le nouveau dessin.
+  const ETEINT = {};
   for (const [nom, zones] of Object.entries(ETEINT)) {
     it(`${nom} : portes, étals et arcades restent éteints`, () => {
       for (const win of HOUSE_WINDOWS[nom]) {
@@ -68,7 +43,4 @@ describe('fenêtres relevées des maisons', () => {
       }
     });
   }
-  it('la maison artisane n a aucune vitre : seul son volet de bois s allume', () => {
-    expect(HOUSE_WINDOWS.crafthouse).toEqual([[51, 43, 3, 5]]);
-  });
 });

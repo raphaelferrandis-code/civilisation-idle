@@ -79,9 +79,13 @@ describe('teinte des maisons : un hachage par tuile', () => {
 
   it('les fenêtres de nuit : une phase par maison, pas par frame', () => {
     CM.nightF = 1; CM.lodActive = false; CM.ctx = { globalAlpha: 1 };
-    const ts = tiles().filter((t) => HOUSE_WINDOWS[t.variant]);
+    // Un relevé D'ESSAI sur la maison à cour (les relevés réels se refont depuis la reprise
+    // des sprites, 2026-10-09) : c'est la mémoïsation de la phase qui est vérifiée ici.
+    HOUSE_WINDOWS.courtyard = [[16, 24, 2, 5], [24, 27, 2, 5]];
+    const ts = [0, 1, 2, 3].map((j) => ({ type: 'house', variant: 'courtyard', gx: 3, gy: 5 + j * 11, size: 1 }));
     expect(ts.length).toBeGreaterThan(0);
     for (let frame = 0; frame < 4; frame += 1) for (const t of ts) drawHouseWindows(t, geom(t));
     expect(hashed.filter((s) => s.startsWith('windows:')).length).toBe(ts.length);
+    delete HOUSE_WINDOWS.courtyard;
   });
 });

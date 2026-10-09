@@ -25,7 +25,8 @@ import { noteReflection } from './iso/isoReflect.js';
 import { drawHouseWindows } from './houseWindows.js';
 import { isAbandoned, dimmedCanvas } from './cityDecline.js';
 import { drawSceneEmissive, EMISSIVE_HOUSE } from './sceneEmissive.js';
-import { ORIENT, ROWS, ROW_VIEW, ilotArtKeys } from './ilotArt.js';
+import { ORIENTED, ORIENT_SUFFIX, ROWS, ROW_VIEW, ilotArtKeys } from './ilotArt.js';
+import { isoBuildingFront } from './iso/isoGroundDetail.js';
 import { ROW_VARIANTS, rowVariantIndex, recolorData } from './rowVariants.js';
 import { RUIN_HOUSES } from './ruinArt.js';
 import { razeImageData } from './ruinRaze.js';
@@ -113,25 +114,41 @@ function spriteKeyFor(variant) {
 }
 
 // ── LES MAISONS TOURNÉES VERS LEUR RUE (docs/PLAN-ILOTS.md, lot I6) ──────────
-// Sur un lot de bord d'îlot (`t.row`, posé par layout.js avec `t.face`, le côté de sa
-// rue), une maison présente sa FAÇADE à la rue : la vue du même objet PixelLab qui la
-// montre de ce côté. Raph 2026-10-04 : les mitoyennes générées pour l'occasion
+// Une maison présente sa FAÇADE à sa rue : la vue du même objet qui la montre de ce côté.
+// Le côté : `t.face` sur un lot de bord d'îlot (layout.js), sinon la façade sur rue que le
+// rendu connaît déjà (isoBuildingFront, mémoïsée sur la tuile : le POUSSÉ vers la rue et
+// la vue désignent ainsi le même côté), à tous les âges et pour toutes les empreintes
+// (reprise des sprites, 2026-10-09 ; avant, seuls les lots d'une case de bord d'îlot).
+// Raph 2026-10-04 : les mitoyennes générées pour l'occasion
 // « dénotent un peu du reste avec leur ton orange — les bâtiments déjà faits ne
 // peuvent pas être réorientés ? ». Si : les vues neuves sont converties comme le
 // sprite en jeu puis ramenées à SA palette — même matière, au pixel près.
 //   S (rue au sud, +gy) = le sprite d'origine (façade à gauche)
 //   E (rue à l'est, +gx) = « -fr », façade à droite
 //   N / W (rue derrière) = « -bl » / « -br », le dos tourné vers le spectateur
-// Les tables par âge vivent dans ilotArt.js (ORIENT, ROWS).
+// Les clés à quatre vues sont listées dans ilotArt.js (ORIENTED) ; les rangées, dans ROWS.
 // Variante dessinée : celle de la maison, ou le CORPS de ville d'une annexe de
 // bâtiment-moteur (`t.body`, cf. layout.js — une boutique au lieu du monument miniature).
 const bodyOf = (t) => t.body || t.variant;
 const bandNow = () => (CM.layout?.counts?.eraBand | 0);
+const FACE_OF = (f) => (!f ? null : f.dy > 0 ? "S" : f.dx > 0 ? "E" : f.dx < 0 ? "W" : "N");
+function faceOf(t) {
+  if (t.face) return t.face;
+  const rm = CM.layout?.roadMap;
+  return rm ? FACE_OF(isoBuildingFront(t, rm)) : null;
+}
+// « <clé>-fr/-bl/-br », construite une fois par couple (même raison que spriteKeyFor).
+const _orientKeys = new Map();   // clé -> face -> clé tournée
+function orientKeyStr(k, face) {
+  let m = _orientKeys.get(k);
+  if (!m) _orientKeys.set(k, m = {});
+  return m[face] || (m[face] = k + ORIENT_SUFFIX[face]);
+}
 function orientKeyOf(t) {
-  if (!t.row || !t.face || t.face === "S") return null;
-  const o = ORIENT[bandNow()];
-  const v = o && o[bodyOf(t)];
-  return (v && v[t.face]) || null;
+  const face = faceOf(t);
+  if (!face || face === "S") return null;
+  const k = spriteKeyFor(bodyOf(t));
+  return ORIENTED.has(k) ? orientKeyStr(k, face) : null;
 }
 
 // ── LES RANGÉES MITOYENNES (même lot I6) ─────────────────────────────────────
@@ -320,10 +337,12 @@ function ensure(key) {
 const NO_BASE_PNG = new Set(["skytower", "skytower2"]);
 export function preloadHouseSprites(band) {
   if (!pixelHousesFlag.on || typeof Image === "undefined") return;
-  for (const v of AVAILABLE) if (!NO_BASE_PNG.has(v)) ensure(v);
+  // Une clé à quatre vues précharge les trois autres avec elle.
+  const withViews = (k) => { ensure(k); if (ORIENTED.has(k)) for (const f of ["E", "N", "W"]) ensure(orientKeyStr(k, f)); };
+  for (const v of AVAILABLE) if (!NO_BASE_PNG.has(v)) withViews(v);
   for (const k of ilotArtKeys(band | 0)) ensure(k);
   if ((band | 0) >= 5) {
-    for (const v of COSMIC_VARIANTS) for (const b of [7, 8, 9]) ensure(v + "-cosmic-" + b);
+    for (const v of COSMIC_VARIANTS) for (const b of [7, 8, 9]) withViews(v + "-cosmic-" + b);
   }
 }
 
@@ -334,13 +353,10 @@ export function preloadHouseSprites(band) {
 // son bas sur le sol du lot et plafonne son échelle sur sa largeur : sans cette
 // table, sept maisons glissaient de 1 à 7 px et le bloc grandissait de 12 %. Ce sont
 // les boîtes d'ORIGINE, imprimées par le script : seule l'ombre a disparu.
-const INK_BOX_PIN = {
-  stonehouse: { x0: 5, y0: 4, w: 41, h: 49 }, townhouse: { x0: 7, y0: 2, w: 38, h: 53 },
-  courtyard: { x0: 8, y0: 7, w: 49, h: 40 }, block: { x0: 10, y0: 5, w: 53, h: 71 },
-  tenement: { x0: 10, y0: 3, w: 45, h: 90 }, tower: { x0: 6, y0: 3, w: 47, h: 110 },
-  megablock: { x0: 11, y0: 1, w: 90, h: 91 }, arcologyhome: { x0: 12, y0: 5, w: 89, h: 111 },
-  hut: { x0: 5, y0: 3, w: 35, h: 35 }, longhouse: { x0: 16, y0: 3, w: 36, h: 33 },
-};
+// 2026-10-09 : la reprise des sprites a redessiné toutes ces maisons ; les nouveaux dessins
+// n'ont plus d'ombre peinte et gardent leur propre encre. La table reste pour un sprite à
+// venir dont on retirerait l'ombre.
+const INK_BOX_PIN = {};
 
 // BBox du contenu opaque (alpha>16), mesurée UNE fois par sprite via canvas
 // offscreen : ancre la base au sol sans dépendre du padding transparent du PNG.

@@ -35,37 +35,32 @@ export function annexOwnArt(id, band) {
   return id === "aqueducts" || (id === "guilds" && band === 4);
 }
 
-// LES MAISONS TOURNÉES VERS LEUR RUE : pour une variante, le dessin vu de chaque côté
-// de rue autre que le sud (le sprite d'origine). E = « -fr » (façade à droite),
-// N/W = « -bl »/« -br » (le dos). Absent = la variante garde son sprite.
-export const ORIENT = {
-  // Bourg : la maison artisane du jeu EST la vue sud-ouest d'un objet PixelLab à 8 vues
-  // (« crafthouse v4 natif 64 ») — ses autres vues, à la même taille, sont gratuites.
-  2: {
-    crafthouse: { E: "crafthouse-fr", N: "crafthouse-bl", W: "crafthouse-br" },
-  },
-  3: {
-    crafthouse: { E: "crafthouse-fr", N: "crafthouse-bl", W: "crafthouse-br" },
-  },
-  4: {
-    domus: { E: "domus-fr", N: "domus-bl", W: "domus-br" },
-    taberna: { E: "domus-fr", N: "taberna-bl", W: "taberna-br" },
-    insula2: { E: "insula2-fr", N: "insula2-bl", W: "insula2-br" },
-    courtyard: { E: "domus-fr", N: "domus-bl", W: "domus-br" },
-    insula: { E: "insula2-fr", N: "insula2-bl", W: "insula2-br" },
-  },
-  // Fonte : l'immeuble haussmannien (objet PixelLab à 8 vues, house-haussmann-b5),
-  // tourné à l'est seulement — ses dos sont des murs mitoyens presque aveugles, de grands
-  // pans beiges à l'écran (vu en jeu) : au nord et à l'ouest il garde son dessin. La
-  // brique (block, tenement) a des fenêtres sur ses deux faces : elle n'a pas de dos.
-  5: {
-    haussmann: { E: "haussmann-fr" },
-  },
-  // Néon : la boutique néon (objet neuf), tournée à l'est ; ses dos sont aveugles.
-  6: {
-    neonshop: { E: "neonshop-fr" },
-  },
-};
+// LES MAISONS TOURNÉES VERS LEUR RUE (reprise des sprites, 2026-10-09) : chaque clé de
+// sprite listée ici a ses quatre vues, une par côté de rue. Le nom de vue de Codex est la
+// direction où regarde l'ENTRÉE (art/batiments/regles.json, « rotationPhysique ») :
+//   S (rue au sud, +gy)  = la clé nue, vue sud-ouest (façade à gauche)
+//   E (rue à l'est, +gx) = « -fr », vue sud-est (façade à droite)
+//   N (rue au nord)      = « -bl », vue nord-est (le dos tourné vers le spectateur)
+//   W (rue à l'ouest)    = « -br », vue nord-ouest
+// Les grandes maisons (manoir, villa 2×2 ; immeuble, tour 1×2) tournent aussi, sur leur
+// empreinte d'origine. Absente = la clé garde son sprite unique (les gratte-ciel astraux
+// skytower-cosmic-7/8, que Codex n'a pas finis). Les dos haussmannien et néon, aveugles
+// dans les vues PixelLab d'avant, ont maintenant leurs fenêtres. Les unités de rangée
+// haussmanniennes et néon, presque frontales chez Codex, sont redressées en iso 2:1 à
+// l'installation (outil hors git : art/batiments/propositions/essai-claude/outils/).
+export const ORIENTED = new Set([
+  "tent", "hut", "longhouse", "courtyard", "townhouse", "stonehouse", "manor", "block",
+  "tenement", "tower", "tower-cosmic-7", "tower-cosmic-8", "tower-cosmic-9",
+  "megablock", "megablock-cosmic-7", "megablock-cosmic-8", "megablock-cosmic-9",
+  "arcologyhome", "arcologyhome-cosmic-7", "arcologyhome-cosmic-8", "arcologyhome-cosmic-9",
+  "crafthouse", "towerhouse", "insula", "terrace", "domus", "taberna", "villa", "insula2",
+  "haussmann", "gardentower", "gardentower-cosmic-7", "gardentower-cosmic-8", "gardentower-cosmic-9",
+  "domehome", "domehome-cosmic-7", "domehome-cosmic-8", "domehome-cosmic-9",
+  "podstack", "podstack-cosmic-7", "podstack-cosmic-8", "podstack-cosmic-9",
+  "skytower-cosmic-9", "skytower2-cosmic-7", "skytower2-cosmic-8", "skytower2-cosmic-9",
+  "neonshop",
+]);
+export const ORIENT_SUFFIX = { E: "-fr", N: "-bl", W: "-br" };
 
 // LES RANGÉES MITOYENNES : `of` = modèle de rangée de chaque variante, `end` = le
 // modèle des BOUTS de rangée et des DOS (mur latéral à découvert : il lui faut des
@@ -73,6 +68,8 @@ export const ORIENT = {
 // (ils font leur propre bout), `models` = vues disponibles de chaque modèle, `sides` = les
 // modèles qu'un CÔTÉ d'îlot peut prendre (un seul par côté, tiré par côté). Fichiers
 // `houses/row-<modèle>-<vue>.png` ; vues fl/fr = façade à gauche/droite, bl/br = dos.
+// Toutes les rangées ont leurs quatre vues depuis la reprise des sprites (2026-10-09).
+const V4 = ["fl", "fr", "bl", "br"];
 export const ROWS = {
   // Village : la même rangée à colombages (la maison de ville et l'atelier s'y alignent).
   2: {
@@ -80,7 +77,7 @@ export const ROWS = {
     of: { crafthouse: "colombage", townhouse: "colombage" },
     end: "colombage",
     selfEnd: ["colombage"],
-    models: { colombage: ["fl", "fr", "bl", "br"] },
+    models: { colombage: V4 },
   },
   // Bourg : la rangée À COLOMBAGES (objet neuf house-colombage-rangee-b23, palette de la
   // maison artisane) : deux maisons sous un toit de tuiles, rez de pierre et volets
@@ -90,13 +87,13 @@ export const ROWS = {
     of: { crafthouse: "colombage", townhouse: "colombage", stonehouse: "colombage" },
     end: "colombage",
     selfEnd: ["colombage"],
-    models: { colombage: ["fl", "fr", "bl", "br"] },
+    models: { colombage: V4 },
   },
   4: {
     sides: ["taberna", "domus", "popina", "insula"],
     of: { taberna: "taberna", domus: "domus", courtyard: "popina", insula: "insula", insula2: "insula" },
     end: "insula",
-    models: { taberna: ["fl", "fr"], domus: ["fl", "fr"], popina: ["fl", "fr"], insula: ["fl", "fr", "bl", "br"] },
+    models: { taberna: V4, domus: V4, popina: V4, insula: V4 },
   },
   // Fonte : la rue haussmannienne (le même objet, converti à la taille d'une unité qui
   // remplit son lot ; ses flancs ont leurs fenêtres : il fait son propre bout).
@@ -105,28 +102,26 @@ export const ROWS = {
   5: {
     sides: ["haussmann", "terrace"],
     of: { haussmann: "haussmann", block: "terrace", terrace: "terrace" },
-    // Les dos de la rangée haussmannienne (murs aveugles) cèdent la place à ceux de brique.
     end: "terrace",
     selfEnd: ["haussmann", "terrace"],
-    models: { haussmann: ["fl", "fr"], terrace: ["fl", "fr", "bl", "br"] },
+    models: { haussmann: V4, terrace: V4 },
   },
   6: {
-    // Néon : la rue commerçante — boutiques néon en façade, dos et bouts en brique (la
-    // rangée de la Fonte, que la bande 6 tire encore ; les dos néon sont des murs aveugles).
+    // Néon : la rue commerçante — boutiques néon en façade, bouts en brique (la rangée de
+    // la Fonte, que la bande 6 tire encore).
     sides: ["neonshop", "terrace"],
     of: { neonshop: "neonshop", block: "neonshop", terrace: "terrace" },
     end: "terrace",
     selfEnd: ["neonshop", "terrace"],
-    models: { neonshop: ["fl", "fr"], terrace: ["fl", "fr", "bl", "br"] },
+    models: { neonshop: V4, terrace: V4 },
   },
 };
 export const ROW_VIEW = { S: "fl", E: "fr", N: "bl", W: "br" };
 
-// Toutes les clés de sprite d'une bande (préchargement).
+// Les clés des rangées d'une bande (préchargement) ; les vues tournées des maisons se
+// préchargent avec leur clé (pixelHouses.preloadHouseSprites).
 export function ilotArtKeys(band) {
   const out = new Set();
-  const o = ORIENT[band];
-  if (o) for (const v of Object.values(o)) for (const k of Object.values(v)) out.add(k);
   const r = ROWS[band];
   if (r) for (const [m, views] of Object.entries(r.models)) for (const v of views) out.add("row-" + m + "-" + v);
   return [...out];
