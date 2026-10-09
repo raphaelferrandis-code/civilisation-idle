@@ -38,6 +38,7 @@ import { dockPorters } from './boatBerths.js';
 import { BOAT_MODELS } from './boatKits.js';
 import { drawSmoke, drawJets } from './boatFx.js';
 import { noteBoatCrew } from '../citizenFocus.js';
+import { bridgeOverHull } from './isoBridge.js';
 // Le guichet du paysage sonore : un module-FEUILLE (aucun import), sans risque de cycle.
 import { noteSon, noteEmetteur } from '../../audio/paysage/evenements.js';
 
@@ -233,7 +234,12 @@ export function drawIsoShips(now) {
     // (Le bac à son embarcadère aussi : il touche l'appontement.)
     // Au QUAI DU TERMINAL de commerce (sh.quay, riverFleet.quayOf), tant qu'il y manœuvre :
     // la scène du terminal le peint (drawQuayShips), l'item n'est que son repli.
-    if (sh.state === 'dock' || sh.state === 'board' || (sh._berthApproach || 0) > 0.35 || sh.quay != null) {
+    // SAUF SOUS UN PONT : trié à son centre, il passait APRÈS le tablier (trié, lui, à
+    // son coin nord) et se peignait dessus — le marchand qui rejoint un ponton juste
+    // en amont d'un pont « montait sur le pont » (retour Raph). Tant qu'il est
+    // dessous, il reste ici, avant le pont, qui le couvre puis le rend à la sortie.
+    const docking = sh.state === 'dock' || sh.state === 'board' || (sh._berthApproach || 0) > 0.35;
+    if (sh.quay != null || (docking && !bridgeOverHull(wxS, wyS, 0.5 * (sh._len || 1) * T))) {
       sh._defer = pose;
       // Les porteurs du ponton pendant l'escale (items 'porter' du peintre).
       const berth = sh.state === 'dock' && sh.berthId != null ? (CM.shipBerths || []).find((b) => b.id === sh.berthId) : null;

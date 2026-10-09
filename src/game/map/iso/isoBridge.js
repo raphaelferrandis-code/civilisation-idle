@@ -470,6 +470,22 @@ export function bridgeBlocks(wx, wy, margin = 0) {
   return false;
 }
 
+// Une coque (centre monde, demi-longueur `half` px) passe-t-elle sous un tablier ?
+// De l'arête amont jusqu'à la LIGNE D'EAU de la face aval (tDn + hq) : en deçà, la
+// face pend encore devant elle à l'écran. isoPort s'en sert pour garder un bateau
+// qui se range au ponton dans la passe peinte AVANT le pont tant qu'il est dessous.
+// Une demi-tuile de plus côté amont : juste derrière le pont, sa coque doit encore
+// passer sous le parapet amont, qui monte au-dessus de l'arête.
+export function bridgeOverHull(wx, wy, half = 0) {
+  const ms = bridgeGeoms(); if (!ms) return false;
+  const pad = CM.TILE * 0.5;
+  for (const m of ms) {
+    const l = m.vertical ? wy : wx, t = m.vertical ? wx : wy;
+    if (l > m.dA - half && l < m.dB + half && t + half > m.tUp - pad && t - half < m.tDn + m.hq) return true;
+  }
+  return false;
+}
+
 // ── Cuisson (canvas) ─────────────────────────────────────────────────────────
 // Texture de chaussée de l'ère, lue dans sa tuile 64×32 aux coordonnées MONDE :
 // la même dalle que la route qui arrive, au même endroit de son motif.
@@ -656,7 +672,8 @@ export function pushIsoBridgeItems(items, bounds, now = 0) {
     // travers (il avance en t) : la part de sa coque déjà passée devant la face
     // (t > tDn) est, à l'écran, à DROITE de la verticale x = écran(tDn, l du
     // bateau). On la redessine là, juste après les tranches avant qu'elle
-    // chevauche ; la part encore sous le tablier reste cachée.
+    // chevauche ; la part encore sous le tablier reste cachée. (La coupe se fait à
+    // la ligne d'eau de la face, tDn + hq : cf. drawIsoBridgeSeg.)
     if (v && CM.ships && bridgeTune.shipFront) {
       for (const sh of CM.ships) {
         const hb = sh._hull;
@@ -748,7 +765,11 @@ export function drawIsoBridgeSeg(ctx, it, now) {
   } else if (it.part === 'ship') {
     const hb = it.sh._hull;
     if (hb) {
-      const cut = Math.round(worldToScreen(m.tDn, hb.wy).x);
+      // La coupe suit la LIGNE D'EAU de la face aval, pas son arête haute : la face
+      // pend de `hq` sous le tablier, et la coque, posée au plan du sol, reste
+      // derrière elle tant qu'elle n'a pas passé t = tDn + hq. Coupée à tDn, elle
+      // montait sur les piles et le parapet en entrant comme en sortant (retour Raph).
+      const cut = Math.round(worldToScreen(m.tDn + m.hq, hb.wy).x);
       if (hb.bx + hb.dw > cut) {
         ctx.save();
         ctx.beginPath();
